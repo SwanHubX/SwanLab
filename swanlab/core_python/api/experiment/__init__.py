@@ -5,10 +5,15 @@
 @description: 定义实验相关的后端API接口
 """
 
-from typing import Literal, Dict, TYPE_CHECKING, List, Union
+from typing import TYPE_CHECKING, Dict, Iterable, List, Literal, Union
 
 from swanlab.core_python.api.type import RunType
-from .utils import to_camel_case, parse_column_type
+
+from .utils import (
+    parse_column_type,
+    to_camel_case,
+    unwrap_api_payload,
+)
 
 if TYPE_CHECKING:
     from swanlab.core_python.client import Client
@@ -35,7 +40,7 @@ def update_experiment_state(
     username: str,
     projname: str,
     cuid: str,
-    state: Literal['FINISHED', 'CRASHED', 'ABORTED'],
+    state: Literal["FINISHED", "CRASHED", "ABORTED"],
     finished_at: str = None,
 ):
     """
@@ -76,7 +81,7 @@ def get_project_experiments(
         - 'job_type': 按任务类型筛选，值为字符串
     """
     # 特殊筛选条件配置：用户侧 key -> 后端 key 和操作符
-    SPECIAL_FILTER_CONFIG = {
+    special_filter_config = {
         "group": {"key": "cluster", "op": "EQ"},
         "tags": {"key": "labels", "op": "IN"},
         "name": {"key": "name", "op": "EQ"},
@@ -88,33 +93,39 @@ def get_project_experiments(
 
     if filters:
         for key, value in filters.items():
-            if key in SPECIAL_FILTER_CONFIG:
+            if key in special_filter_config:
                 # 特殊字段处理
-                config = SPECIAL_FILTER_CONFIG[key]
+                config = special_filter_config[key]
                 # tags 需要转换为列表
-                filter_value = list(value) if key == "tags" and isinstance(value, (list, tuple)) else [value]
+                filter_value = (
+                    list(value)
+                    if key == "tags" and isinstance(value, (list, tuple))
+                    else [value]
+                )
                 parsed_filters.append(
                     {
                         "key": config["key"],
                         "active": True,
                         "value": filter_value,
                         "op": config["op"],
-                        "type": 'STABLE',
+                        "type": "STABLE",
                     }
                 )
             else:
                 # 常规字段处理
                 parsed_filters.append(
                     {
-                        "key": to_camel_case(key) if parse_column_type(key) == 'STABLE' else key.split('.', 1)[-1],
+                        "key": to_camel_case(key)
+                        if parse_column_type(key) == "STABLE"
+                        else key.split(".", 1)[-1],
                         "active": True,
                         "value": [value],
-                        "op": 'EQ',
+                        "op": "EQ",
                         "type": parse_column_type(key),
                     }
                 )
 
-    res = client.post(f"/project/{path}/runs/shows", data={'filters': parsed_filters})
+    res = client.post(f"/project/{path}/runs/shows", data={"filters": parsed_filters})
     return res[0]
 
 
@@ -125,7 +136,7 @@ def get_single_experiment(client: "Client", *, path: str) -> RunType:
     :param client: 已登录的客户端实例
     :param path: 实验路径 username/project/expid
     """
-    proj_path, expid = path.rsplit('/', 1)
+    proj_path, expid = path.rsplit("/", 1)
     res = client.get(f"/project/{proj_path}/runs/{expid}")
     return res[0]
 
@@ -137,7 +148,7 @@ def get_experiment_metrics(client: "Client", *, expid: str, key: str) -> Dict[st
     :param expid: 实验cuid
     :param key: 指定字段列表
     """
-    res = client.get(f"/experiment/{expid}/column/csv", params={'key': key})
+    res = client.get(f"/experiment/{expid}/column/csv", params={"key": key})
     return res[0]
 
 
@@ -147,8 +158,67 @@ def delete_experiment(client: "Client", *, path: str):
     :param client: 已登录的客户端实例
     :param path: 实验路径 'username/project/expid'
     """
-    proj_path, expid = path.rsplit('/', 1)
+    proj_path, expid = path.rsplit("/", 1)
     client.delete(f"/project/{proj_path}/runs/{expid}")
+
+
+def prepare_upload(
+    client: "Client", exp_id: str, files: Iterable[Dict[str, object]]
+) -> List[str]:
+    """
+    创建普通文件上传任务，返回预签名上传地址列表。
+    """
+    payload_files = list(files)
+    if not payload_files:
+        return []
+    data, _ = client.post(
+        f"/experiment/{exp_id}/files/prepare", {"files": payload_files}
+    )
+    result = unwrap_api_payload(data)
+    if isinstance(result, dict):
+        urls = result.get("urls", [])
+        return urls if isinstance(urls, list) else []
+    return []
+
+
+def complete_upload(
+    client: "Client", exp_id: str, files: Iterable[Dict[str, object]]
+) -> None:
+    """
+    标记普通文件上传完成。
+    """
+    payload_files = list(files)
+    if not payload_files:
+        return
+    client.post(f"/experiment/{exp_id}/files/complete", {"files": payload_files})
+
+
+def prepare_multipart(
+    client: "Client", exp_id: str, file: Dict[str, object]
+) -> Dict[str, object]:
+    """
+    创建分片上传任务，返回 uploadId 和分片上传地址列表。
+    """
+    data, _ = client.post(
+        f"/experiment/{exp_id}/files/prepare-multipart",
+        {"files": [file]},
+    )
+    result = unwrap_api_payload(data)
+    if isinstance(result, dict):
+        files = result.get("files", [])
+        if files and isinstance(files, list):
+            return files[0]
+    raise ValueError("Multipart prepare API returned empty file payloads.")
+
+
+def complete_multipart(client: "Client", exp_id: str, file: Dict[str, object]) -> None:
+    """
+    标记分片上传完成。
+    """
+    client.post(
+        f"/experiment/{exp_id}/files/complete-multipart",
+        {"files": [file]},
+    )
 
 
 __all__ = [
@@ -158,4 +228,8 @@ __all__ = [
     "get_single_experiment",
     "get_experiment_metrics",
     "delete_experiment",
+    "prepare_upload",
+    "complete_upload",
+    "prepare_multipart",
+    "complete_multipart",
 ]

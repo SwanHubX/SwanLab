@@ -8,6 +8,7 @@ r"""
     测试sdk的一些api
 """
 import os
+import pathlib
 import random
 from unittest.mock import Mock
 
@@ -21,10 +22,12 @@ import swanlab.error as Err
 import tutils as T
 from swanlab import Settings
 from swanlab.core_python import reset_client, get_client
+from swanlab.core_python.save import collect_save_files
 from swanlab.data.run import get_run
 from swanlab.data.store import get_run_store
 from swanlab.env import SwanLabEnv, get_save_dir
 from swanlab.log import swanlog
+from tutils.setup import UseMockRunState
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -333,6 +336,57 @@ class TestInitMode:
         run = S.init()
         assert os.environ[MODE] == "cloud"
         run.log({"TestInitMode": 1})
+
+
+class TestSave:
+
+    def test_save_resolves_paths_in_sdk(self, monkeypatch):
+        os.environ[MODE] = "disabled"
+        with UseMockRunState():
+            run = S.init(mode="disabled")
+            captured = {}
+
+            def fake_save(glob_path, base_path, policy):
+                captured["glob_path"] = glob_path
+                captured["base_path"] = base_path
+                captured["policy"] = policy
+                return ["ok"]
+
+            monkeypatch.setattr(run, "save", fake_save)
+
+            result = S.save("checkpoints/*.pt", policy="end", base_path=".")
+
+            assert result == ["ok"]
+            assert captured["glob_path"] == pathlib.PurePath(os.path.abspath("checkpoints/*.pt"))
+            assert captured["base_path"] == pathlib.PurePath(os.path.abspath("."))
+            assert captured["policy"] == "end"
+
+    def test_save_returns_empty_list_in_disabled_mode(self, tmp_path, monkeypatch):
+        """Disabled mode should not report save targets when nothing is persisted."""
+        os.environ[MODE] = "disabled"
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "artifact.txt").write_text("artifact")
+
+        with UseMockRunState():
+            S.init(mode="disabled")
+            assert S.save("artifact.txt", policy="now") == []
+
+    def test_resolve_save_paths_preserves_absolute_recursive_glob_structure(self, tmp_path):
+        """Absolute recursive globs should keep stable parent directories when inferring base_path."""
+        root = tmp_path / "folder"
+        for run_name in ["run1", "run2"]:
+            checkpoint_dir = root / run_name / "ckpt"
+            checkpoint_dir.mkdir(parents=True)
+            (checkpoint_dir / "model.pt").write_text(run_name)
+
+        glob_pattern = str(root / "**" / "ckpt" / "*.pt")
+        glob_path, base_path = S._resolve_save_paths(glob_pattern)
+        files = collect_save_files(glob_path, base_path, tmp_path / "run_files")
+
+        assert [file.name for file in files] == [
+            "folder/run1/ckpt/model.pt",
+            "folder/run2/ckpt/model.pt",
+        ]
 
 
 class TestInitProject:

@@ -11,7 +11,6 @@ from typing import Union, Optional, List, Any
 from rich.text import Text
 
 from swanlab.core_python import auth
-from swanlab.data.run import SwanLabRun
 from swanlab.data.run.helper import SwanLabRunOperator
 from swanlab.env import is_interactive, SwanLabEnv, SwanLabMode
 from swanlab.error import KeyFileError
@@ -28,6 +27,8 @@ def should_call_before_init(text):
 
     def decorator(func):
         def wrapper(*args, **kwargs):
+            from swanlab.data.run import SwanLabRun
+
             if SwanLabRun.is_started():
                 raise RuntimeError(text)
             return func(*args, **kwargs)
@@ -44,6 +45,8 @@ def should_call_after_init(text):
 
     def decorator(func):
         def wrapper(*args, **kwargs):
+            from swanlab.data.run import SwanLabRun
+
             if not SwanLabRun.is_started():
                 raise RuntimeError(text)
             return func(*args, **kwargs)
