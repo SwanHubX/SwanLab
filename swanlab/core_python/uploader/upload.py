@@ -7,15 +7,16 @@
 
 import inspect
 from functools import wraps
-from typing import List
+from typing import List, Union
 
 from swanlab.core_python.types.uploader import UploadCallback
 from swanlab.log import swanlog
-from .batch import MetricDict, create_data, trace_metrics
-from .model import ColumnModel, MediaModel, ScalarModel, FileModel, LogModel
-from ..api.service import upload_to_cos
-from ..client import get_client, safe_request, decode_response
+
 from ...error import ApiError
+from ..api.service import upload_to_cos
+from ..client import decode_response, get_client, safe_request
+from .batch import MetricDict, create_data, trace_metrics
+from .model import ColumnModel, FileModel, LogModel, MediaModel, ScalarModel
 
 
 def skip_if_empty(log_message: str):
@@ -44,6 +45,23 @@ def skip_if_empty(log_message: str):
 
 
 HOUSE_URL = '/house/metrics'
+
+
+def dedupe_metrics_by_key_step(
+    metrics: List[Union[ScalarModel, MediaModel]]
+) -> List[Union[ScalarModel, MediaModel]]:
+    """
+    对同一 key/step 的重复指标保留写入序号最大的那条。
+
+    训练过程中允许乱序覆盖已有 step，但上传线程会按类型聚合同一批消息。
+    下游去重应该依赖 metric epoch，而不是调用方传入列表的顺序。
+    """
+    deduped = {}
+    for metric in metrics:
+        key = (metric.key, metric.step)
+        if key not in deduped or metric.epoch >= deduped[key].epoch:
+            deduped[key] = metric
+    return list(deduped.values())
 
 
 @safe_request
@@ -146,6 +164,7 @@ def upload_columns(columns: List[ColumnModel], upload_callback: UploadCallback =
 
 
 __all__ = [
+    "dedupe_metrics_by_key_step",
     "MetricDict",
     "upload_logs",
     "upload_media_metrics",

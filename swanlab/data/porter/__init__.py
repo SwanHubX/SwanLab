@@ -13,25 +13,39 @@ SwanLab 不生产数据，我们只是 AI 训练的搬运工，祝愿所有训�
 
 import os
 from concurrent.futures import ThreadPoolExecutor
-from typing import Optional, Literal, List, Union, Tuple, Callable
+from typing import Callable, List, Literal, Optional, Tuple, Union
 
 import wrapt
 
 from swanlab.core_python import get_client
 from swanlab.core_python.types.uploader import UploadCallback
-from swanlab.core_python.uploader import ColumnModel, ScalarModel, MediaModel
+from swanlab.core_python.uploader import ColumnModel, MediaModel, ScalarModel
 from swanlab.core_python.uploader.thread import ThreadPool, UploadType
+from swanlab.core_python.uploader.upload import dedupe_metrics_by_key_step
 from swanlab.data.store import RunStore, get_run_store, reset_run_store
 from swanlab.env import create_time
 from swanlab.error import ValidationError
 from swanlab.log.type import LogData
-from swanlab.proto.v0 import Log, Header, Project, Experiment, Column, Metric, BaseModel, Runtime, Footer, Media, Scalar
-from swanlab.toolkit import MetricInfo, ColumnInfo, RuntimeInfo
-from .datastore import DataStore
-from .mounter import Mounter
-from .utils import filter_metric, filter_epoch, filter_column
+from swanlab.proto.v0 import (
+    BaseModel,
+    Column,
+    Experiment,
+    Footer,
+    Header,
+    Log,
+    Media,
+    Metric,
+    Project,
+    Runtime,
+    Scalar,
+)
+from swanlab.toolkit import ColumnInfo, MetricInfo, RuntimeInfo
+
 from ...core_python.api.experiment import update_experiment_state
 from ...toolkit.models.log import LogContent
+from .datastore import DataStore
+from .mounter import Mounter
+from .utils import filter_column, filter_epoch, filter_metric
 
 __all__ = ['DataPorter', 'Mounter']
 
@@ -527,11 +541,11 @@ class DataPorter:
 
         # 统计待上传数量
         columns = list(filter(self._filter_column_by_key, [column.to_column_model() for column in self._columns]))
-        scalars = list(filter(self._filter_scalar_by_step, [scalar.to_scalar_model() for scalar in self._scalars]))
-        medias = list(
-            filter(
-                self._filter_media_by_step, [media.to_media_model(self._run_store.media_dir) for media in self._medias]
-            )
+        scalars = dedupe_metrics_by_key_step(
+            list(filter(self._filter_scalar_by_step, [scalar.to_scalar_model() for scalar in self._scalars]))
+        )
+        medias = dedupe_metrics_by_key_step(
+            list(filter(self._filter_media_by_step, [media.to_media_model(self._run_store.media_dir) for media in self._medias]))
         )
         logs = [log.to_log_model() for log in self._logs]
         log_count = 0
