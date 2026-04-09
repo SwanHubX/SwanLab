@@ -34,7 +34,6 @@ from pydantic_settings import (
     YamlConfigSettingsSource,
 )
 
-from swanlab.sdk.internal.settings.save import SaveSettings
 from swanlab.sdk.typings.run import ModeType
 
 from ..pkg import console
@@ -101,7 +100,6 @@ class Settings(BaseSettings):
     Monitor: ClassVar[Type[MonitorSettings]] = MonitorSettings
     Console: ClassVar[Type[ConsoleSettings]] = ConsoleSettings
     Integration: ClassVar[Type[IntegrationSettings]] = IntegrationSettings
-    Save: ClassVar[Type[SaveSettings]] = SaveSettings
 
     interactive: bool = True
     """
@@ -217,7 +215,7 @@ class Settings(BaseSettings):
                     data["web_host"] = clean_api
 
             # 统一处理 web_host 末尾的斜杠
-            current_web: str = data.get("web_host", cls.model_fields["web_host"].default)
+            current_web: str = data.get("web_host", str(cls.model_fields["web_host"].default))
             if current_web and current_web.endswith("/"):
                 data["web_host"] = current_web.rstrip("/")
 
@@ -304,10 +302,6 @@ class Settings(BaseSettings):
     integration: IntegrationSettings = Field(default_factory=IntegrationSettings)
     """
     Configuration for SwanLab integrations, including webhook, dashboard, etc.
-    """
-    save: SaveSettings = Field(default_factory=SaveSettings)
-    """
-    File storage settings for SwanLab.
     """
 
     model_config = SettingsConfigDict(
