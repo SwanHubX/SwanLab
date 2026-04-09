@@ -155,25 +155,22 @@ class TestSwanLabRunLog:
             ll2 = run.log(data, step=3)
             assert all(ll2[k].metric_step == 3 for k in ll2)
             overwrite_data = {"a": 10, "b": 0.2, "c": {"d": 4}, "math.nan": 3, "math.inf": 5}
-            # 重复的step会被覆盖，且保留原有epoch
+            # 临时屏蔽 overwrite 后，重复的 step 会返回 duplicated error
             ll3 = run.log(overwrite_data, step=3)
-            assert all(ll3[k].is_error is False for k in ll3)
+            assert all(ll3[k].is_error is True for k in ll3)
             assert all(ll3[k].column_error is None for k in ll3)
-            assert all(ll3[k].error is None for k in ll3)
-            assert ll3["a"].data == 10
-            assert ll3["b"].data == 0.2
-            assert ll3["c.d"].data == 4
-            assert ll3["math.nan"].data == 3
-            assert ll3["math.inf"].data == 5
-            assert all(ll3[k].metric_step == 3 for k in ll3)
-            assert all(ll3[k].metric_epoch == ll2[k].metric_epoch for k in ll3)
-            assert all(ll3[k].metric_overwrite is True for k in ll3)
+            assert all(ll3[k].error is not None for k in ll3)
+            assert all(ll3[k].error.duplicated is True for k in ll3)
+            assert all(ll3[k].data is None for k in ll3)
+            assert all(ll3[k].metric_step is None for k in ll3)
+            assert all(ll3[k].metric_epoch is None for k in ll3)
+            assert all(ll3[k].metric_overwrite is False for k in ll3)
             # 如果是新的key的重复step，会被添加
             ll4 = run.log({"tmp": 1}, step=3)
             assert all(ll4[k].is_error is False for k in ll4)
             assert all(ll4[k].metric_step == 3 for k in ll4)
             assert all(ll4[k].metric_overwrite is False for k in ll4)
-            # 显式覆盖后，隐式step仍然应该沿着当前最大step继续递增
+            # 重复 step 被拦截后，隐式 step 仍然应该沿着当前最大 step 继续递增
             ll5 = run.log({"a": 11})
             assert ll5["a"].data == 11
             assert ll5["a"].metric_step == 4
@@ -249,7 +246,7 @@ class TestSwanLabRunLog:
             ll3 = run.log({"a": [Text("abc"), Text("def")]})
             assert ll3["a"].data == ["abc", "def"]
             data = {"a": [Text("abc")] * 109}
-            ll4 = run.log(data, step=4)
+            ll4 = run.log(data, step=5)
             assert ll4["a"].data == ["abc"] * 108
 
     # ---------------------------------- 解析log Audio ----------------------------------
