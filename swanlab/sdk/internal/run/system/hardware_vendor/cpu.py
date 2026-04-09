@@ -9,12 +9,15 @@ import multiprocessing
 import platform
 import subprocess
 import sys
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from swanlab.sdk.internal.pkg import console
-from swanlab.sdk.typings.run.system import CPUSnapshot
+from swanlab.sdk.typings.run.system import CPUSnapshot, SystemShim
 from swanlab.sdk.typings.run.system.hardware_vendor import CpuProtocol
 from swanlab.sdk.utils.helper import catch_and_return_none
+
+if TYPE_CHECKING:
+    from swanlab import Run
 
 
 class CPU(CpuProtocol):
@@ -22,6 +25,15 @@ class CPU(CpuProtocol):
     CPU 信息模块
     这是通用的 CPU 信息采集实现，全部使用python标准库，设计上这属于兜底的CPU采集实现
     """
+
+    @classmethod
+    def new(cls, run: "Run", shim: SystemShim) -> Optional["CPU"]:
+        if shim.slug == "macos-arm":
+            return None
+        return cls(shim)
+
+    def collect(self):
+        raise NotImplementedError()
 
     @staticmethod
     @catch_and_return_none(on_error=lambda e: console.debug("Failed to get CPU info: {}", e))

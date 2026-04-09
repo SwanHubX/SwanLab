@@ -232,7 +232,7 @@ class SystemShim(BaseModel):
     """
 
     slug: Literal["linux", "macos-intel", "macos-arm", "windows", "unknown"]
-    """当前平台标识，目前主要和cpu memory监控实现相关，所以仅区分了macos平台下的apple chip和intel cpu"""
+    """当前平台标识，目前主要和cpu memory监控实现相关，所以仅区分了 MacOS平台下的apple chip和intel cpu"""
     enable_cpu: bool = False
     enable_memory: bool = False
     accelerators: list[AcceleratorMonitorConfig] = Field(default_factory=list)

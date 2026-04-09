@@ -10,18 +10,32 @@ import json
 import multiprocessing
 import subprocess
 import sys
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from swanlab.sdk.internal.pkg import console
-from swanlab.sdk.typings.run.system import AppleSiliconSnapshot
+from swanlab.sdk.typings.run.system import AppleSiliconSnapshot, SystemShim
 from swanlab.sdk.typings.run.system.hardware_vendor import AppleSiliconProtocol
 from swanlab.sdk.utils.helper import catch_and_return_none
+
+if TYPE_CHECKING:
+    from swanlab import Run
 
 
 class Apple(AppleSiliconProtocol):
     """
     苹果统一芯片（Apple Silicon）相关的硬件供应商信息和功能实现
     """
+
+    @classmethod
+    def new(cls, run: "Run", shim: SystemShim) -> Optional["Apple"]:
+        # 只有macOS-arm架构才支持苹果统一芯片
+        if shim.slug != "macos-arm":
+            return None
+
+        return cls(shim)
+
+    def collect(self):
+        raise NotImplementedError()
 
     @staticmethod
     @catch_and_return_none(on_error=lambda e: console.debug("Failed to get Apple Silicon info: {}", e))

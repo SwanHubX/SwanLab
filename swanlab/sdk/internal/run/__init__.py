@@ -132,7 +132,7 @@ class Run:
         >>> import swanlab
         >>> run = swanlab.init(mode="local", project="my_project")
         >>> print(run.id)
-        >>> print(run.run_dir)
+        >>> print(run.dir)
         >>> swanlab.finish()
 
         Log metrics:
@@ -290,7 +290,15 @@ class Run:
         return self._ctx.config.settings.run.id
 
     @cached_property
-    def run_dir(self) -> Path:
+    def name(self) -> str:
+        """
+        Current run name, equal to experiment name.
+        """
+        assert self._ctx.config.settings.experiment.name is not None, "Experiment name is not set."
+        return self._ctx.config.settings.experiment.name
+
+    @cached_property
+    def dir(self) -> Path:
         """
         Current run directory.
 
@@ -298,18 +306,6 @@ class Run:
         """
         assert self._ctx.run_dir is not None, "Run dir is not set."
         return self._ctx.run_dir
-
-    @cached_property
-    def project_url(self) -> Optional[str]:
-        """
-        Current project URL if in cloud mode, otherwise None.
-
-        :return: Project URL or None
-        """
-        settings = self._ctx.config.settings
-        if settings.mode != "cloud":
-            return None
-        return f"{settings.web_host}/@{settings.project.workspace}/{settings.project.name}"
 
     @cached_property
     def url(self) -> Optional[str]:
@@ -320,7 +316,7 @@ class Run:
         settings = self._ctx.config.settings
         if settings.mode != "cloud":
             return None
-        return f"{self.project_url}/runs/{settings.run.id}"
+        return f"{settings.web_host}/@{settings.project.workspace}/{settings.project.name}/runs/{settings.run.id}"
 
     # ----------------------------------
     # 上下文管理器，允许用户以 with 语句启动和结束运行

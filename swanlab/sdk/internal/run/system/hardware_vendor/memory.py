@@ -7,12 +7,15 @@
 
 import subprocess
 import sys
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from swanlab.sdk.internal.pkg import console
-from swanlab.sdk.typings.run.system import MemorySnapshot
+from swanlab.sdk.typings.run.system import MemorySnapshot, SystemShim
 from swanlab.sdk.typings.run.system.hardware_vendor import MemoryProtocol
 from swanlab.sdk.utils.helper import catch_and_return_none
+
+if TYPE_CHECKING:
+    from swanlab import Run
 
 
 def _bytes_to_snapshot(total_bytes: int, MB: int = 1024**2, GB: int = 1024**3) -> Optional[MemorySnapshot]:
@@ -31,6 +34,15 @@ class Memory(MemoryProtocol):
     内存信息模块
     这是通用的内存信息采集实现，全部使用Python标准库，设计上这属于兜底的内存采集实现
     """
+
+    @classmethod
+    def new(cls, run: "Run", shim: SystemShim) -> Optional["Memory"]:
+        if shim.slug == "macos-arm":
+            return None
+        return cls(shim)
+
+    def collect(self):
+        raise NotImplementedError()
 
     @staticmethod
     @catch_and_return_none(on_error=lambda e: console.debug("Failed to get memory info: {}", e))
