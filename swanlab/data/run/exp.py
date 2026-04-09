@@ -141,11 +141,13 @@ class SwanLabExp:
                 step = max(current_len, max_step + 1)
 
             if step in key_obj.steps:
-                # 允许 overwrite，但区分显式指定和隐式的碰撞
-                if explicit_step:
-                    swanlog.debug(f"Step {step} on key {key} already exists, overwriting.")
-                else:
-                    swanlog.warning(f"Implicit step {step} on key {key} resolved as overwrite, but expected to append.")
+                swanlog.warning(f"Step {step} on key {key} already exists.")
+                return MetricErrorInfo(column_info=key_obj.column_info, error=DataWrapper.create_duplicate_error())
+                # # 允许 overwrite，但区分显式指定和隐式的碰撞
+                # if explicit_step:
+                #     swanlog.debug(f"Step {step} on key {key} already exists, overwriting.")
+                # else:
+                #     swanlog.warning(f"Implicit step {step} on key {key} resolved as overwrite, but expected to append.")
         data.parse(step=step, key=key)
         # ---------------------------------- 图表创建 ----------------------------------
 
