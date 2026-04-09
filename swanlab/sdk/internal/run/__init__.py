@@ -144,29 +144,27 @@ class Run:
     """
 
     def __init__(self, ctx: RunContext):
+        # ---------------------------------- 1. 基础状态准备 ----------------------------------
         self._ctx = ctx
         self._state: Union[FinishType, Literal["running", "finishing"]] = "running"
         # 外部API锁，防止并发调用
         self._api_lock = threading.RLock()
-
         # 事件发射器：唯一的队列写入入口，可注入给内部系统组件
         self._emitter = RunEmitter(maxsize=100_000)
-
         # Core：Record 落盘与后端交互的统一入口
         self._core = create_core(ctx)
-
         # 记录构建器：负责将事件转换为 Record
         self._builder = RecordBuilder(ctx)
-
         # 后台消费者：从 emitter.queue 消费事件并落盘
         self._consumer = BackgroundConsumer(ctx, self._emitter.queue, self._builder, self._core)
 
-        # 触发启动事件
+        # ---------------------------------- 2. 初始化运行时状态 ----------------------------------
+        # 2.1 触发启动事件
         ts = Timestamp()
         ts.GetCurrentTime()
         self._emitter.emit(RunStartEvent(timestamp=ts))
 
-        # 系统信息采集，如果是 disabled 模式，则不采集
+        # 2.2 系统信息采集，如果是 disabled 模式，则不采集
         self._hardware_monitor: Optional["system.HardwareMonitor"] = None
         if self._ctx.config.settings.mode != "disabled":
             sys_info, monitor = system.new(self._ctx)
@@ -186,14 +184,16 @@ class Run:
             # 启动硬件监控线程
             self._hardware_monitor.start(self)
 
-        # 绑定 config 模块到运行上下文
+        # 2.3 绑定 config 模块到运行上下文
         if self._ctx.config.settings.mode != "disabled":
             self.config: _ConfigClass = create_run_config(self._ctx.config_file, self._emitter.emit)
         else:
             self.config: _ConfigClass = create_unbound_run_config()
 
-        # 启动后台消费者
+        # 2.4 启动后台消费者
         self._consumer.start()
+
+        # ---------------------------------- 3. 注册副作用 ----------------------------------
         # 设置全局运行实例
         set_run(self)
         # 注册退出钩子
