@@ -31,7 +31,7 @@ class TestCPUGet:
             patch.object(CPU, "_get_real_brand", return_value="Intel Core i7-9700K"),
         ):
             mock_run.return_value = MagicMock(returncode=0, stdout=lscpu_output)
-            result = CPU().get()
+            result = CPU.get()
 
         assert isinstance(result, CPUSnapshot)
         assert result.brand == "Intel Core i7-9700K"
@@ -49,7 +49,7 @@ class TestCPUGet:
             patch.object(CPU, "_get_real_brand", return_value="Intel Xeon"),
         ):
             mock_run.return_value = MagicMock(returncode=0, stdout=lscpu_output)
-            result = CPU().get()
+            result = CPU.get()
 
         assert result is not None
         assert result.physical_count == 8  # 4 cores × 2 sockets
@@ -64,7 +64,7 @@ class TestCPUGet:
             patch("platform.processor", return_value="x86_64"),
         ):
             mock_run.return_value = MagicMock(returncode=1, stdout="")
-            result = CPU().get()
+            result = CPU.get()
 
         assert result is not None
         assert result.physical_count is None
@@ -83,7 +83,7 @@ class TestCPUGet:
             patch.object(CPU, "_get_real_brand", return_value="Apple M1 Pro"),
         ):
             mock_run.return_value = MagicMock(returncode=0, stdout="6\n")
-            result = CPU().get()
+            result = CPU.get()
 
         assert isinstance(result, CPUSnapshot)
         assert result.physical_count == 6
@@ -98,7 +98,7 @@ class TestCPUGet:
             patch.object(CPU, "_get_real_brand", return_value="Some CPU"),
         ):
             mock_run.return_value = MagicMock(returncode=1, stdout="")
-            result = CPU().get()
+            result = CPU.get()
 
         assert result is not None
         assert result.physical_count is None
@@ -117,7 +117,7 @@ class TestCPUGet:
             patch.object(CPU, "_get_real_brand", return_value="Intel Core i9"),
         ):
             mock_run.return_value = MagicMock(returncode=0, stdout=wmic_output)
-            result = CPU().get()
+            result = CPU.get()
 
         assert isinstance(result, CPUSnapshot)
         assert result.physical_count == 8
@@ -133,7 +133,7 @@ class TestCPUGet:
             patch.object(CPU, "_get_real_brand", return_value="Intel Xeon"),
         ):
             mock_run.return_value = MagicMock(returncode=0, stdout=wmic_output)
-            result = CPU().get()
+            result = CPU.get()
 
         assert result is not None
         assert result.physical_count == 10  # 4 + 6
@@ -147,7 +147,7 @@ class TestCPUGet:
             patch.object(CPU, "_get_real_brand", return_value="Some CPU"),
         ):
             mock_run.return_value = MagicMock(returncode=1, stdout="")
-            result = CPU().get()
+            result = CPU.get()
 
         assert result is not None
         assert result.physical_count is None
@@ -166,7 +166,7 @@ class TestCPUGet:
             patch("platform.processor", return_value="x86_64"),
         ):
             mock_run.return_value = MagicMock(returncode=1, stdout="")
-            result = CPU().get()
+            result = CPU.get()
 
         assert result is not None
         assert result.brand == "x86_64"
@@ -181,7 +181,7 @@ class TestCPUGet:
             patch("platform.processor", return_value=""),
         ):
             mock_run.return_value = MagicMock(returncode=1, stdout="")
-            result = CPU().get()
+            result = CPU.get()
 
         assert result is not None
         assert result.brand is None
@@ -195,7 +195,7 @@ class TestCPUGet:
             patch.object(CPU, "_get_real_brand", return_value="Test CPU"),
         ):
             mock_run.return_value = MagicMock(returncode=0, stdout="0,0\n1,0\n")
-            result = CPU().get()
+            result = CPU.get()
 
         assert isinstance(result, CPUSnapshot)
 
@@ -204,7 +204,7 @@ class TestCPUGet:
         with (
             patch("multiprocessing.cpu_count", side_effect=RuntimeError("mocked failure")),
         ):
-            result = CPU().get()
+            result = CPU.get()
 
         assert result is None
 

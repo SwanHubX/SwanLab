@@ -80,8 +80,8 @@ def with_run(cmd: str):
 
     def decorator(f):
         @wraps(f)
-        def wrapper(self, *args, **kwargs):
-            if self._state != "running":
+        def wrapper(self: "Run", *args, **kwargs):
+            if not self.alive:
                 raise RuntimeError(f"`{cmd}` requires an active Run, call `swanlab.init()` first.")
             return f(self, *args, **kwargs)
 
@@ -119,11 +119,11 @@ class Run:
 
         id: Unique identifier for this run.
 
-        run_dir: Local directory where run data is stored.
+        dir: Local directory where run data is stored.
 
-        url: Cloud URL for this run (None in local/offline mode).
+        url: Cloud URL for this run (None in local/offline/disabled mode).
 
-        project_url: Cloud URL for the project (None in local/offline mode).
+        url: Cloud URL for the run (None in local/offline/disabled mode).
 
     Examples:
 
@@ -145,7 +145,7 @@ class Run:
 
     def __init__(self, ctx: RunContext):
         self._ctx = ctx
-        self._state: Union[FinishType, Literal["running"]] = "running"
+        self._state: Union[FinishType, Literal["running", "finishing"]] = "running"
         # 外部API锁，防止并发调用
         self._api_lock = threading.RLock()
 
@@ -167,8 +167,9 @@ class Run:
         self._emitter.emit(RunStartEvent(timestamp=ts))
 
         # 系统信息采集，如果是 disabled 模式，则不采集
+        self._hardware_monitor: Optional["system.HardwareMonitor"] = None
         if self._ctx.config.settings.mode != "disabled":
-            sys_info, _ = system.new(self._ctx)
+            sys_info, monitor = system.new(self._ctx)
             ts = Timestamp()
             ts.GetCurrentTime()
             if sys_info.metadata:
@@ -180,7 +181,10 @@ class Run:
             if sys_info.conda:
                 safe_write(self._ctx.conda_file, sys_info.conda)
                 self._emitter.emit(CondaEvent(timestamp=ts))
-            # TODO: 硬件监控
+            self._hardware_monitor = monitor if self._ctx.config.settings.monitor.enable is True else None
+        if self._hardware_monitor is not None:
+            # 启动硬件监控线程
+            self._hardware_monitor.start(self)
 
         # 绑定 config 模块到运行上下文
         if self._ctx.config.settings.mode != "disabled":
@@ -262,22 +266,9 @@ class Run:
         finally:
             self._sys_origin_excepthook(tp, val, tb)
 
-    def _cleanup(self):
-        """
-        清除副作用
-        """
-        # 取消钩子
-        console.debug("Cleanup system hook...")
-        atexit.unregister(self._atexit_cleanup)
-        sys.excepthook = self._sys_origin_excepthook
-        signal.signal(signal.SIGINT, self._original_sigint_handler)
-        # 清理全局运行实例
-        console.debug("Cleanup global instance...")
-        clear_run()
-        deactivate_run_config()
-        console.debug("Clean & tidy! ciallo ( ∠・ω< ) ~ ★")
-        # 释放日志，本次运行结束
-        log.reset()
+    # ----------------------------------
+    # 公开辅助属性
+    # ----------------------------------
 
     @cached_property
     def id(self) -> str:
@@ -317,6 +308,15 @@ class Run:
         if settings.mode != "cloud":
             return None
         return f"{settings.web_host}/@{settings.project.workspace}/{settings.project.name}/runs/{settings.run.id}"
+
+    @property
+    def alive(self) -> bool:
+        """
+        If the run is alive. You can log metrics if the run is alive.
+        :return: True if the run is alive, False otherwise
+        """
+        # finishing 状态下，允许用户继续 log，因为此时依旧允许硬件监控线程收集数据
+        return self._state == "running" or self._state == "finishing"
 
     # ----------------------------------
     # 上下文管理器，允许用户以 with 语句启动和结束运行
@@ -524,29 +524,52 @@ class Run:
         :param state: Terminal state of the run. Defaults to ``"success"``.
         :param error: Optional error message, required when ``state`` is ``"crashed"``.
         """
-        # 有时执行finish也有可能是系统hook主动调用，此时无需再次打印警告
+        # 1. 状态校验
+        # 有时执行finish也有可能是系统hook主动调用，此时无需再次打印警告，如果在finishing状态，也忽略
         if self._state != "running":
             return
         state = state.lower()  # type: ignore
         if not (this_state := fmt.safe_validate_state(cast(FinishType, state))):
             console.error(f"Invalid state: {state}, allowed values are {get_args(FinishType)}")
             return
-
-        self._state = this_state
-
         if state == "crashed" and error is None:
             console.warning("Crashed reason has been set to 'unknown' due to missing error message.")
             error = "unknown"
-
+        # 2. 运行结束前，结束其他依赖于运行实例的线程
+        old_state = self._state
+        try:
+            self._state = "finishing"
+            # 停止硬件监控
+            if self._hardware_monitor is not None and self._hardware_monitor.is_running:
+                console.debug("Stopping hardware monitor...")
+                self._hardware_monitor.cancel()
+                self._hardware_monitor.join()
+            self._state = this_state
+        except Exception as e:
+            console.error(f"Error while finishing run: {e}")
+            self._state = old_state
+            raise e
+        # 3. 运行结束
+        self._state = this_state
+        # 3.1 停止Core线程
         console.debug("SwanLab Run is finishing, waiting for logs to flush...")
-        # 线程退出
         ts = Timestamp()
         ts.GetCurrentTime()
         self._emitter.emit(RunFinishEvent(state=this_state, error=error, timestamp=ts))
-        # 阻塞主线程，等待后台队列消费完毕
         self._consumer.join()
         console.debug(f"SwanLab Run has finished with state: {self._state}, cleanup...")
-        self._cleanup()
+        # 3.2 清理副作用
+        console.debug("Cleanup system hook...")
+        atexit.unregister(self._atexit_cleanup)
+        sys.excepthook = self._sys_origin_excepthook
+        signal.signal(signal.SIGINT, self._original_sigint_handler)
+        # 清理全局运行实例
+        console.debug("Cleanup global instance...")
+        clear_run()
+        deactivate_run_config()
+        console.debug("Clean & tidy! ciallo ( ∠・ω< ) ~ ★")
+        # 释放日志，本次运行结束
+        log.reset()
 
 
 _current_run: Optional[Run] = None

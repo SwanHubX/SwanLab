@@ -6,15 +6,17 @@
 """
 
 import sys
+from typing import Optional
 
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.run.system.environment import conda, git, requirements, runtime
+from swanlab.sdk.internal.run.system.hardware_monitor import HardwareMonitor
 from swanlab.sdk.internal.run.system.hardware_vendor.apple import Apple
 from swanlab.sdk.internal.run.system.hardware_vendor.cpu import CPU
 from swanlab.sdk.internal.run.system.hardware_vendor.memory import Memory
 from swanlab.sdk.typings.run.system import HardwareSnapshot, MetadataSnapshot, SystemEnvironment, SystemShim
 
-__all__ = ["new"]
+__all__ = ["new", "HardwareMonitor"]
 
 
 def new(ctx: RunContext):
@@ -62,6 +64,8 @@ def new(ctx: RunContext):
         requirements=requirements_snapshot,
         conda=conda_snapshot,
     )
-    # TODO 硬件监控
-
-    return system_environment, None
+    # 3. 硬件监控
+    monitor: Optional["HardwareMonitor"] = None
+    if settings.monitor.enable:
+        monitor = HardwareMonitor(system_shim)
+    return system_environment, monitor

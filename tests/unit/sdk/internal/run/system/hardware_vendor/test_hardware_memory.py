@@ -67,7 +67,7 @@ class TestMemoryGet:
         # 16 GB = 16777216 kB
         meminfo = "MemTotal:       16777216 kB\nMemFree:        8000000 kB\n"
         with patch("builtins.open", mock_open(read_data=meminfo)):
-            result = Memory().get()
+            result = Memory.get()
 
         assert isinstance(result, MemorySnapshot)
         assert result.total == 16
@@ -77,7 +77,7 @@ class TestMemoryGet:
     def test_get_linux_file_error(self):
         """Linux: /proc/meminfo 读取失败 → get() 返回 None"""
         with patch("builtins.open", side_effect=OSError("permission denied")):
-            result = Memory().get()
+            result = Memory.get()
 
         assert result is None
 
@@ -91,7 +91,7 @@ class TestMemoryGet:
         # 16 GB in bytes
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0, stdout=str(16 * _GB) + "\n")
-            result = Memory().get()
+            result = Memory.get()
 
         assert isinstance(result, MemorySnapshot)
         assert result.total == 16
@@ -102,7 +102,7 @@ class TestMemoryGet:
         """macOS: sysctl 返回非零退出码 → get() 返回 None"""
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=1, stdout="")
-            result = Memory().get()
+            result = Memory.get()
 
         assert result is None
 
@@ -116,7 +116,7 @@ class TestMemoryGet:
         wmic_output = "TotalPhysicalMemory\n{}\n\n".format(16 * _GB)
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0, stdout=wmic_output)
-            result = Memory().get()
+            result = Memory.get()
 
         assert isinstance(result, MemorySnapshot)
         assert result.total == 16
@@ -127,7 +127,7 @@ class TestMemoryGet:
         """Windows: wmic 返回非零退出码 → get() 返回 None"""
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=1, stdout="")
-            result = Memory().get()
+            result = Memory.get()
 
         assert result is None
 
@@ -138,28 +138,28 @@ class TestMemoryGet:
     def test_get_returns_none_when_total_bytes_is_none(self):
         """_get_total_bytes 返回 None 时，get() 应返回 None"""
         with patch.object(Memory, "_get_total_bytes", return_value=None):
-            result = Memory().get()
+            result = Memory.get()
 
         assert result is None
 
     def test_get_returns_none_when_total_bytes_is_zero(self):
         """_get_total_bytes 返回 0 时，get() 应返回 None"""
         with patch.object(Memory, "_get_total_bytes", return_value=0):
-            result = Memory().get()
+            result = Memory.get()
 
         assert result is None
 
     def test_get_returns_none_on_unexpected_exception(self):
         """_get_total_bytes 抛出异常时，get() 应返回 None 而不是抛出"""
         with patch.object(Memory, "_get_total_bytes", side_effect=RuntimeError("mocked failure")):
-            result = Memory().get()
+            result = Memory.get()
 
         assert result is None
 
     def test_get_returns_memory_snapshot_type(self):
         """正常路径下 get() 必须返回 MemorySnapshot 实例"""
         with patch.object(Memory, "_get_total_bytes", return_value=16 * _GB):
-            result = Memory().get()
+            result = Memory.get()
 
         assert isinstance(result, MemorySnapshot)
 

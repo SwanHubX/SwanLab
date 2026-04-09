@@ -24,7 +24,7 @@ class TestApple:
         mock_output = {"SPHardwareDataType": [{"chip_type": "Apple M3 Pro", "physical_memory": "18 GB"}]}
         with patch("subprocess.run") as mock_run, patch("multiprocessing.cpu_count", return_value=12):
             mock_run.return_value = MagicMock(stdout=json.dumps(mock_output))
-            result = Apple().get()
+            result = Apple.get()
             assert isinstance(result, AppleSiliconSnapshot)
             assert result.name == "Apple M3 Pro"
             assert result.memory == 18
@@ -34,7 +34,7 @@ class TestApple:
     def test_get_on_non_macos(self):
         """Test returns None on non-macOS platforms"""
         with patch("sys.platform", "linux"):
-            result = Apple().get()
+            result = Apple.get()
             assert result is None
 
     @pytest.mark.skipif(sys.platform != "darwin", reason="macOS only")
@@ -43,7 +43,7 @@ class TestApple:
         mock_output = {"SPHardwareDataType": [{"cpu_type": "Intel Core i7", "physical_memory": "16 GB"}]}
         with patch("subprocess.run") as mock_run, patch("multiprocessing.cpu_count", return_value=8):
             mock_run.return_value = MagicMock(stdout=json.dumps(mock_output))
-            result = Apple().get()
+            result = Apple.get()
             assert isinstance(result, AppleSiliconSnapshot)
             assert result.name == "Intel Core i7"
             assert result.memory == 16
@@ -54,5 +54,5 @@ class TestApple:
         mock_output = {"SPHardwareDataType": [{"physical_memory": "16 GB"}]}
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(stdout=json.dumps(mock_output))
-            result = Apple().get()
+            result = Apple.get()
             assert result is None

@@ -87,7 +87,7 @@ class Settings(BaseSettings):
         >>> from swanlab import Settings
         >>> settings = Settings(
         ...     mode="cloud",
-        ...     monitor=Settings.Monitor(enable=False)
+        ...     monitor=Settings.HardwareMonitor(enable=False)
         ... )
         >>> import swanlab
         >>> swanlab.merge_settings(settings)

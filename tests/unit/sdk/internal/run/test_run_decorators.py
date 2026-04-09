@@ -16,7 +16,7 @@ class TestWithRun:
 
         class MockRun:
             def __init__(self):
-                self._state = "running"
+                self.alive = True
 
             @with_run(cmd="swanlab.my_method()")
             def my_method(self, x, y):
@@ -31,7 +31,7 @@ class TestWithRun:
 
         class MockRun:
             def __init__(self):
-                self._state = "finished"
+                self.alive = False
 
             @with_run(cmd="swanlab.my_method()")
             def my_method(self):
@@ -46,7 +46,7 @@ class TestWithRun:
 
         class MockRun:
             def __init__(self):
-                self._state = "aborted"
+                self.alive = False
 
             @with_run(cmd="run.log()")
             def log(self):
