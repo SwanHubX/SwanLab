@@ -13,10 +13,10 @@ from swanlab.sdk.typings.run.system import SystemShim
 if TYPE_CHECKING:
     from swanlab import Run
 
-__all__ = ["HardwareMonitor"]
+__all__ = ["Monitor"]
 
 
-class HardwareMonitor:
+class Monitor:
     def __init__(self, shim: SystemShim):
         self._timer: Optional[Timer] = None
         self._shim = shim

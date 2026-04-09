@@ -165,7 +165,7 @@ class Run:
         self._emitter.emit(RunStartEvent(timestamp=ts))
 
         # 2.2 系统信息采集，如果是 disabled 模式，则不采集
-        self._hardware_monitor: Optional["system.HardwareMonitor"] = None
+        self._monitor: Optional["system.Monitor"] = None
         if self._ctx.config.settings.mode != "disabled":
             sys_info, monitor = system.new(self._ctx)
             ts = Timestamp()
@@ -179,10 +179,10 @@ class Run:
             if sys_info.conda:
                 safe_write(self._ctx.conda_file, sys_info.conda)
                 self._emitter.emit(CondaEvent(timestamp=ts))
-            self._hardware_monitor = monitor if self._ctx.config.settings.monitor.enable is True else None
-        if self._hardware_monitor is not None:
+            self._monitor = monitor if self._ctx.config.settings.monitor.enable is True else None
+        if self._monitor is not None:
             # 启动硬件监控线程
-            self._hardware_monitor.start(self)
+            self._monitor.start(self)
 
         # 2.3 绑定 config 模块到运行上下文
         if self._ctx.config.settings.mode != "disabled":
@@ -540,10 +540,10 @@ class Run:
         try:
             self._state = "finishing"
             # 停止硬件监控
-            if self._hardware_monitor is not None and self._hardware_monitor.is_running:
+            if self._monitor is not None and self._monitor.is_running:
                 console.debug("Stopping hardware monitor...")
-                self._hardware_monitor.cancel()
-                self._hardware_monitor.join()
+                self._monitor.cancel()
+                self._monitor.join()
             self._state = this_state
         except Exception as e:
             console.error(f"Error while finishing run: {e}")
