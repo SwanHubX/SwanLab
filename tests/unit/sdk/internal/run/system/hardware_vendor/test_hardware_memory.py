@@ -346,7 +346,10 @@ class TestMemoryNew:
 
         assert result is not None
         collector, _ = result
-        with patch("psutil.virtual_memory", return_value=MagicMock(percent=55.8)):
+        with (
+            patch("psutil.virtual_memory", return_value=MagicMock(percent=55.8)),
+            patch("psutil.Process", return_value=mock_proc),
+        ):
             metrics = collector.collect()
 
         assert len(metrics) == 2

@@ -131,9 +131,9 @@ class TestAppleNew:
 
         assert result is not None
         collector, _ = result
-        # collect 时 handler 闭包中已捕获 mock_proc，需再次 patch cpu_percent 和 virtual_memory
         with (
             patch("psutil.cpu_percent", return_value=42.5),
+            patch("psutil.Process", return_value=mock_proc),
             patch("psutil.virtual_memory", return_value=MagicMock(percent=67.3)),
         ):
             metrics = collector.collect()

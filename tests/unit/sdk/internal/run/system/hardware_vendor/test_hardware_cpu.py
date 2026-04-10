@@ -379,7 +379,10 @@ class TestCPUNew:
 
         assert result is not None
         collector, _ = result
-        with patch("psutil.cpu_percent", return_value=73.2):
+        with (
+            patch("psutil.cpu_percent", return_value=73.2),
+            patch("psutil.Process", return_value=mock_proc),
+        ):
             metrics = collector.collect()
 
         assert len(metrics) == 2
