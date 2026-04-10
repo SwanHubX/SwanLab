@@ -54,8 +54,7 @@ class CPU(CpuProtocol):
             color=generate_color(0),
         )
         scalars.append(threads)
-        current_process = psutil.Process()
-        self._handlers.append(("cpu.thds", lambda: current_process.num_threads()))
+        self._handlers.append(("cpu.thds", lambda: psutil.Process().num_threads()))
         return self, scalars
 
     @staticmethod

@@ -5,7 +5,6 @@
 @description: SwanLab 硬件监控对象
 """
 
-import math
 from concurrent.futures.thread import ThreadPoolExecutor
 from typing import Dict, List, Optional
 
@@ -57,11 +56,7 @@ class Monitor:
         self._executor: Optional[ThreadPoolExecutor] = None
         self._shim = shim
 
-    @property
-    def is_running(self):
-        return self._timer is not None and self._timer.is_running
-
-    def start(self, ctx: RunContext, emitter: RunEmitter):
+    def start(self, ctx: RunContext, emitter: RunEmitter) -> bool:
         # 1. 收集采集器
         # 注意 scalars 设计上越靠前的越先发送、在前端显示越靠前
         collectors: List[CollectorProtocol] = []
@@ -81,7 +76,7 @@ class Monitor:
 
         # 1.3 加速器信息
 
-        # 3. 定义指标
+        # 2. 定义指标
         # 有部分指标会聚合到一个图表中，所以需要一个缓存来记录每个指标对应的图表索引
         cache_chart_index: Dict[str, str] = {}
         for scalar in scalars:
@@ -100,13 +95,13 @@ class Monitor:
                     chart_name=scalar.chart_name,
                 )
             )
-        # 4. 定义任务
+        # 3. 定义并启动任务
         all_handlers = [(type(c).__name__, c.collect) for c in collectors]
         if len(all_handlers) == 0:
             console.debug("No hardware monitor collectors found, skipping creating monitor task")
-            return
-        # 使用线程池执行任务，并发数为采集器数量的1/4，最多4个线程
-        self._executor = ThreadPoolExecutor(max_workers=min(max(math.ceil(len(collectors) / 4), 1), 4))
+            return False
+        # 使用线程池执行任务
+        self._executor = ThreadPoolExecutor(max_workers=2)
 
         def task():
             assert self._executor is not None, "Monitor Executor is not initialized"
@@ -124,13 +119,20 @@ class Monitor:
             data = {fmt_system_key(k): v for k, v in results}
             emitter.emit(MetricLogEvent(step=step, data=data, timestamp=ts))
 
-        self._timer = Timer(task, interval=ctx.config.settings.monitor.interval, immediate=True, name="SwanLab·Monitor")
+        # 不设置立即执行，以避免产生一些无用的数据
+        self._timer = Timer(
+            task,
+            interval=ctx.config.settings.monitor.interval,
+            immediate=False,
+            name="SwanLab·Monitor",
+        )
         self._timer.start()
+        return True
 
     def stop(self) -> None:
         assert self._timer is not None, "HardwareMonitor is not running"
         self._timer.cancel()
         self._timer.join()
         if self._executor is not None:
-            self._executor.shutdown(wait=False)
+            self._executor.shutdown(wait=True)
             self._executor = None

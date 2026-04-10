@@ -53,7 +53,6 @@ class Memory(MemoryProtocol):
         scalars.append(mem_pct)
         self._handlers.append(("mem.pct", lambda: psutil.virtual_memory().percent))
         # 当前进程内存使用（RSS，非交换区）
-        current_process = psutil.Process()
         mem_proc = SystemScalar(
             key="mem.proc",
             name="Process Memory In Use (non-swap) (MB)",
@@ -61,7 +60,7 @@ class Memory(MemoryProtocol):
             color=generate_color(0),
         )
         scalars.append(mem_proc)
-        self._handlers.append(("mem.proc", lambda: current_process.memory_info().rss / 1024 / 1024))
+        self._handlers.append(("mem.proc", lambda: psutil.Process().memory_info().rss / 1024 / 1024))
         return self, scalars
 
     @staticmethod

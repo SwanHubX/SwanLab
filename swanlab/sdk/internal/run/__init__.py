@@ -177,10 +177,9 @@ class Run:
             if sys_info.conda:
                 safe_write(self._ctx.conda_file, sys_info.conda)
                 self._emitter.emit(CondaEvent(timestamp=ts))
-            self._monitor = monitor if self._ctx.config.settings.monitor.enable is True else None
-        if self._monitor is not None:
-            # 启动硬件监控线程
-            self._monitor.start(self._ctx, self._emitter)
+            if monitor is not None and monitor.start(self._ctx, self._emitter):
+                # self._monitor is not None 作为硬件监控启动的唯一语义
+                self._monitor = monitor
 
         # 2.3 绑定 config 模块到运行上下文
         if self._ctx.config.settings.mode != "disabled":
@@ -313,7 +312,6 @@ class Run:
         If the run is alive. You can log metrics if the run is alive.
         :return: True if the run is alive, False otherwise
         """
-        # finishing 状态下，允许用户继续 log，因为此时依旧允许硬件监控线程收集数据
         return self._state == "running"
 
     # ----------------------------------
@@ -536,7 +534,7 @@ class Run:
 
         # 2. 运行结束前，结束其他依赖于运行实例的线程
         # 停止硬件监控
-        if self._monitor is not None and self._monitor.is_running:
+        if self._monitor is not None:
             console.debug("Stopping hardware monitor...")
             self._monitor.stop()
 

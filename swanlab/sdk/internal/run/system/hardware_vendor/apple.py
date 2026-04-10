@@ -35,7 +35,6 @@ class Apple(AppleSiliconProtocol):
         self = cls(shim)
         psutil.cpu_percent(interval=None)  # 预热，使后续非阻塞调用能返回真实值
         scalars: SystemScalars = []
-        current_process = psutil.Process()
         if shim.enable_cpu:
             # CPU 使用率
             cpu_pct = SystemScalar(
@@ -54,7 +53,7 @@ class Apple(AppleSiliconProtocol):
                 color=generate_color(0),
             )
             scalars.append(cpu_thds)
-            self._handlers.append(("cpu.thds", lambda: current_process.num_threads()))
+            self._handlers.append(("cpu.thds", lambda: psutil.Process().num_threads()))
         if shim.enable_memory:
             # 系统内存使用率
             mem_pct = SystemScalar(
@@ -73,7 +72,7 @@ class Apple(AppleSiliconProtocol):
                 color=generate_color(0),
             )
             scalars.append(mem_proc)
-            self._handlers.append(("mem.proc", lambda: current_process.memory_info().rss / 1024 / 1024))
+            self._handlers.append(("mem.proc", lambda: psutil.Process().memory_info().rss / 1024 / 1024))
         return self, scalars
 
     @staticmethod

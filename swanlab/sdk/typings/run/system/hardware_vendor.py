@@ -8,6 +8,7 @@
 from abc import ABC, abstractmethod
 from typing import Callable, List, Optional, Tuple, Union
 
+from swanlab.sdk.internal.pkg import console
 from swanlab.sdk.typings.run.system import (
     AcceleratorSnapshot,
     AppleSiliconSnapshot,
@@ -34,7 +35,13 @@ class CollectorProtocol(ABC):
         self._handlers: List[Tuple[str, Callable[[], Union[int, float]]]] = []
 
     def collect(self) -> List[CollectResult]:
-        return [(key, handler()) for key, handler in self._handlers]
+        results = []
+        for key, handler in self._handlers:
+            try:
+                results.append((key, handler()))
+            except Exception as e:
+                console.error(f"Failed to collect while calling {handler.__name__}: {e}")
+        return results
 
 
 class CpuProtocol(CollectorProtocol):
