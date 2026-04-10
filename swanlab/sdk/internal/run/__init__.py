@@ -123,8 +123,6 @@ class Run:
 
         url: Cloud URL for this run (None in local/offline/disabled mode).
 
-        url: Cloud URL for the run (None in local/offline/disabled mode).
-
     Examples:
 
         Access run properties:
