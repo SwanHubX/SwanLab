@@ -6,45 +6,94 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Callable, List, Optional, Tuple, Union
 
-from swanlab.sdk.typings.run.system import AcceleratorSnapshot, AppleSiliconSnapshot, CPUSnapshot, MemorySnapshot
+from swanlab.sdk.internal.pkg import console
+from swanlab.sdk.typings.run.system import (
+    AcceleratorSnapshot,
+    AppleSiliconSnapshot,
+    CPUSnapshot,
+    MemorySnapshot,
+    SystemScalars,
+    SystemShim,
+)
+
+CollectResult = Tuple[str, Union[int, float]]
+"""
+采集结果： key, value
+key 为这个指标对应的唯一标识符
+"""
 
 
-class CpuProtocol(ABC):
+class CollectorProtocol(ABC):
+    """
+    采集器协议
+    """
+
+    def __init__(self, shim: SystemShim):
+        self._shim = shim
+        self._handlers: List[Tuple[str, Callable[[], Union[int, float]]]] = []
+
+    def collect(self) -> List[CollectResult]:
+        results = []
+        for key, handler in self._handlers:
+            try:
+                results.append((key, handler()))
+            except Exception as e:
+                console.error(f"Failed to collect while calling {handler.__name__}: {e}")
+        return results
+
+
+class CpuProtocol(CollectorProtocol):
     """
     CPU 相关的接口规范
     """
+
+    @classmethod
+    @abstractmethod
+    def new(cls, shim: SystemShim) -> Optional[Tuple["CpuProtocol", SystemScalars]]: ...
 
     @staticmethod
     @abstractmethod
     def get() -> Optional[CPUSnapshot]: ...
 
 
-class MemoryProtocol(ABC):
+class MemoryProtocol(CollectorProtocol):
     """
     内存相关的接口规范
     """
+
+    @classmethod
+    @abstractmethod
+    def new(cls, shim: SystemShim) -> Optional[Tuple["MemoryProtocol", SystemScalars]]: ...
 
     @staticmethod
     @abstractmethod
     def get() -> Optional[MemorySnapshot]: ...
 
 
-class AppleSiliconProtocol(ABC):
+class AppleSiliconProtocol(CollectorProtocol):
     """
     苹果统一芯片（Apple Silicon）相关的接口规范
     """
+
+    @classmethod
+    @abstractmethod
+    def new(cls, shim: SystemShim) -> Optional[Tuple["AppleSiliconProtocol", SystemScalars]]: ...
 
     @staticmethod
     @abstractmethod
     def get() -> Optional[AppleSiliconSnapshot]: ...
 
 
-class AcceleratorProtocol(ABC):
+class AcceleratorProtocol(CollectorProtocol):
     """
     加速器相关的接口规范
     """
+
+    @classmethod
+    @abstractmethod
+    def new(cls, shim: SystemShim) -> Optional[Tuple["AcceleratorProtocol", SystemScalars]]: ...
 
     @staticmethod
     @abstractmethod

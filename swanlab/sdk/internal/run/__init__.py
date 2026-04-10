@@ -80,8 +80,8 @@ def with_run(cmd: str):
 
     def decorator(f):
         @wraps(f)
-        def wrapper(self, *args, **kwargs):
-            if self._state != "running":
+        def wrapper(self: "Run", *args, **kwargs):
+            if not self.alive:
                 raise RuntimeError(f"`{cmd}` requires an active Run, call `swanlab.init()` first.")
             return f(self, *args, **kwargs)
 
@@ -119,11 +119,9 @@ class Run:
 
         id: Unique identifier for this run.
 
-        run_dir: Local directory where run data is stored.
+        dir: Local directory where run data is stored.
 
-        url: Cloud URL for this run (None in local/offline mode).
-
-        project_url: Cloud URL for the project (None in local/offline mode).
+        url: Cloud URL for this run (None in local/offline/disabled mode).
 
     Examples:
 
@@ -132,7 +130,7 @@ class Run:
         >>> import swanlab
         >>> run = swanlab.init(mode="local", project="my_project")
         >>> print(run.id)
-        >>> print(run.run_dir)
+        >>> print(run.dir)
         >>> swanlab.finish()
 
         Log metrics:
@@ -144,31 +142,30 @@ class Run:
     """
 
     def __init__(self, ctx: RunContext):
+        # ---------------------------------- 1. 基础状态准备 ----------------------------------
         self._ctx = ctx
         self._state: Union[FinishType, Literal["running"]] = "running"
         # 外部API锁，防止并发调用
         self._api_lock = threading.RLock()
-
         # 事件发射器：唯一的队列写入入口，可注入给内部系统组件
         self._emitter = RunEmitter(maxsize=100_000)
-
         # Core：Record 落盘与后端交互的统一入口
         self._core = create_core(ctx)
-
         # 记录构建器：负责将事件转换为 Record
         self._builder = RecordBuilder(ctx)
-
         # 后台消费者：从 emitter.queue 消费事件并落盘
         self._consumer = BackgroundConsumer(ctx, self._emitter.queue, self._builder, self._core)
 
-        # 触发启动事件
+        # ---------------------------------- 2. 初始化运行时状态 ----------------------------------
+        # 2.1 触发启动事件
         ts = Timestamp()
         ts.GetCurrentTime()
         self._emitter.emit(RunStartEvent(timestamp=ts))
 
-        # 系统信息采集，如果是 disabled 模式，则不采集
+        # 2.2 系统信息采集，如果是 disabled 模式，则不采集
+        self._monitor: Optional["system.Monitor"] = None
         if self._ctx.config.settings.mode != "disabled":
-            sys_info, _ = system.new(self._ctx)
+            sys_info, monitor = system.new(self._ctx)
             ts = Timestamp()
             ts.GetCurrentTime()
             if sys_info.metadata:
@@ -180,16 +177,20 @@ class Run:
             if sys_info.conda:
                 safe_write(self._ctx.conda_file, sys_info.conda)
                 self._emitter.emit(CondaEvent(timestamp=ts))
-            # TODO: 硬件监控
+            if monitor is not None and monitor.start(self._ctx, self._emitter):
+                # self._monitor is not None 作为硬件监控启动的唯一语义
+                self._monitor = monitor
 
-        # 绑定 config 模块到运行上下文
+        # 2.3 绑定 config 模块到运行上下文
         if self._ctx.config.settings.mode != "disabled":
             self.config: _ConfigClass = create_run_config(self._ctx.config_file, self._emitter.emit)
         else:
             self.config: _ConfigClass = create_unbound_run_config()
 
-        # 启动后台消费者
+        # 2.4 启动后台消费者
         self._consumer.start()
+
+        # ---------------------------------- 3. 注册副作用 ----------------------------------
         # 设置全局运行实例
         set_run(self)
         # 注册退出钩子
@@ -211,9 +212,9 @@ class Run:
     def _sigint_handler(self, signum: int, frame: Any) -> None:
         """SIGINT handler：确保 Ctrl+C 能可靠地将实验标记为 aborted。
 
-        sys.excepthook 依赖 Python 层面抛出 KeyboardInterrupt，但当主线程
-        阻塞在 C 扩展（NumPy/PyTorch 等）时，KeyboardInterrupt 可能无法
-        正常传播到 excepthook。此 handler 作为额外防线，在信号层直接处理。
+        sys.excepthook 依赖 Python 层面抛出 KeyboardInterrupt，但当主线程阻塞在 C 扩展（NumPy/PyTorch 等）时，
+        KeyboardInterrupt 可能无法正常传播到 excepthook。
+        此 handler 作为额外防线，在信号层直接处理。
         """
         if self._state == "running":
             console.info("KeyboardInterrupt by user")
@@ -262,22 +263,9 @@ class Run:
         finally:
             self._sys_origin_excepthook(tp, val, tb)
 
-    def _cleanup(self):
-        """
-        清除副作用
-        """
-        # 取消钩子
-        console.debug("Cleanup system hook...")
-        atexit.unregister(self._atexit_cleanup)
-        sys.excepthook = self._sys_origin_excepthook
-        signal.signal(signal.SIGINT, self._original_sigint_handler)
-        # 清理全局运行实例
-        console.debug("Cleanup global instance...")
-        clear_run()
-        deactivate_run_config()
-        console.debug("Clean & tidy! ciallo ( ∠・ω< ) ~ ★")
-        # 释放日志，本次运行结束
-        log.reset()
+    # ----------------------------------
+    # 公开辅助属性
+    # ----------------------------------
 
     @cached_property
     def id(self) -> str:
@@ -290,7 +278,15 @@ class Run:
         return self._ctx.config.settings.run.id
 
     @cached_property
-    def run_dir(self) -> Path:
+    def name(self) -> str:
+        """
+        Current run name, equal to experiment name.
+        """
+        assert self._ctx.config.settings.experiment.name is not None, "Experiment name is not set."
+        return self._ctx.config.settings.experiment.name
+
+    @cached_property
+    def dir(self) -> Path:
         """
         Current run directory.
 
@@ -298,18 +294,6 @@ class Run:
         """
         assert self._ctx.run_dir is not None, "Run dir is not set."
         return self._ctx.run_dir
-
-    @cached_property
-    def project_url(self) -> Optional[str]:
-        """
-        Current project URL if in cloud mode, otherwise None.
-
-        :return: Project URL or None
-        """
-        settings = self._ctx.config.settings
-        if settings.mode != "cloud":
-            return None
-        return f"{settings.web_host}/@{settings.project.workspace}/{settings.project.name}"
 
     @cached_property
     def url(self) -> Optional[str]:
@@ -320,7 +304,15 @@ class Run:
         settings = self._ctx.config.settings
         if settings.mode != "cloud":
             return None
-        return f"{self.project_url}/runs/{settings.run.id}"
+        return f"{settings.web_host}/@{settings.project.workspace}/{settings.project.name}/runs/{settings.run.id}"
+
+    @property
+    def alive(self) -> bool:
+        """
+        If the run is alive. You can log metrics if the run is alive.
+        :return: True if the run is alive, False otherwise
+        """
+        return self._state == "running"
 
     # ----------------------------------
     # 上下文管理器，允许用户以 with 语句启动和结束运行
@@ -528,29 +520,45 @@ class Run:
         :param state: Terminal state of the run. Defaults to ``"success"``.
         :param error: Optional error message, required when ``state`` is ``"crashed"``.
         """
-        # 有时执行finish也有可能是系统hook主动调用，此时无需再次打印警告
+        # 1. 状态校验
+        # 有时执行finish也有可能是系统hook主动调用，此时无需再次打印警告，如果在finishing状态，也忽略
         if self._state != "running":
             return
         state = state.lower()  # type: ignore
         if not (this_state := fmt.safe_validate_state(cast(FinishType, state))):
             console.error(f"Invalid state: {state}, allowed values are {get_args(FinishType)}")
             return
-
-        self._state = this_state
-
         if state == "crashed" and error is None:
             console.warning("Crashed reason has been set to 'unknown' due to missing error message.")
             error = "unknown"
 
+        # 2. 运行结束前，结束其他依赖于运行实例的线程
+        # 停止硬件监控
+        if self._monitor is not None:
+            console.debug("Stopping hardware monitor...")
+            self._monitor.stop()
+
+        # 3. 运行结束
+        self._state = this_state
+        # 3.1 停止Core线程
         console.debug("SwanLab Run is finishing, waiting for logs to flush...")
-        # 线程退出
         ts = Timestamp()
         ts.GetCurrentTime()
         self._emitter.emit(RunFinishEvent(state=this_state, error=error, timestamp=ts))
-        # 阻塞主线程，等待后台队列消费完毕
         self._consumer.join()
         console.debug(f"SwanLab Run has finished with state: {self._state}, cleanup...")
-        self._cleanup()
+        # 3.2 清理副作用
+        console.debug("Cleanup system hook...")
+        atexit.unregister(self._atexit_cleanup)
+        sys.excepthook = self._sys_origin_excepthook
+        signal.signal(signal.SIGINT, self._original_sigint_handler)
+        # 清理全局运行实例
+        console.debug("Cleanup global instance...")
+        clear_run()
+        deactivate_run_config()
+        console.debug("Clean & tidy! ciallo ( ∠・ω< ) ~ ★")
+        # 释放日志，本次运行结束
+        log.reset()
 
 
 _current_run: Optional[Run] = None

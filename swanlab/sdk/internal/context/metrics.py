@@ -65,18 +65,35 @@ class MediaMetric:
     _type: ColumnType
     # 媒体存储路径，绝对路径
     path: Path
+    # 媒体步数
+    _step: int = -1
+
+    def next(self):
+        self._step += 1
+        return self._step
 
 
 # 指标状态，实验运行过程中不断更新
 @dataclass
 class RunMetrics:
     _global_step: int = 0
+    _global_system_step: int = 0
     _lock: threading.Lock = field(default_factory=threading.Lock)
     _metrics: Dict[str, Union[ScalarMetric, MediaMetric]] = field(default_factory=dict)
+
+    def next_system_step(self) -> int:
+        """
+        获取下一个全局系统步数，用于系统内部监控指标
+        """
+        with self._lock:
+            self._global_system_step += 1
+            return self._global_system_step
 
     def next_step(self, user_step: Optional[int] = None) -> int:
         """
         获取下一个全局步数
+        在设计上我们允许用户在log时乱序设置step，但是global_step永远是最大的或者自增的那个，
+        因此我们需要一个方法来获取当前的global_step，并且保证global_step是自增的
         """
         with self._lock:
             if user_step is not None:

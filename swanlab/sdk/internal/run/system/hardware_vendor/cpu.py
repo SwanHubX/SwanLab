@@ -9,12 +9,15 @@ import multiprocessing
 import platform
 import subprocess
 import sys
-from typing import Optional
+from typing import Optional, Tuple
+
+import psutil
 
 from swanlab.sdk.internal.pkg import console
-from swanlab.sdk.typings.run.system import CPUSnapshot
+from swanlab.sdk.typings.run.system import CPUSnapshot, SystemScalar, SystemScalars, SystemShim
 from swanlab.sdk.typings.run.system.hardware_vendor import CpuProtocol
 from swanlab.sdk.utils.helper import catch_and_return_none
+from swanlab.utils import generate_color
 
 
 class CPU(CpuProtocol):
@@ -22,6 +25,37 @@ class CPU(CpuProtocol):
     CPU 信息模块
     这是通用的 CPU 信息采集实现，全部使用python标准库，设计上这属于兜底的CPU采集实现
     """
+
+    @classmethod
+    def new(cls, shim: SystemShim) -> Optional[Tuple["CPU", SystemScalars]]:
+        if not shim.enable_cpu:
+            return None
+        if shim.slug == "macos-arm":
+            return None
+        self = cls(shim)
+        psutil.cpu_percent(interval=None)  # 预热，使后续非阻塞调用能返回真实值
+        # 定义所有会被采集的指标
+        # 当前进程线程数
+        scalars: SystemScalars = []
+        # 平均使用率
+        usage = SystemScalar(
+            key="cpu.pct",
+            name="CPU Utilization (%)",
+            chart_name="CPU Utilization",
+            color=generate_color(0),
+        )
+        scalars.append(usage)
+        self._handlers.append(("cpu.pct", lambda: psutil.cpu_percent(interval=None)))
+        # 当前线程数
+        threads = SystemScalar(
+            key="cpu.thds",
+            name="Process CPU Threads",
+            chart_name="Process CPU Threads",
+            color=generate_color(0),
+        )
+        scalars.append(threads)
+        self._handlers.append(("cpu.thds", lambda: psutil.Process().num_threads()))
+        return self, scalars
 
     @staticmethod
     @catch_and_return_none(on_error=lambda e: console.debug("Failed to get CPU info: {}", e))

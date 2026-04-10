@@ -388,7 +388,7 @@ class TestHardwareSnapshotConsistency:
             assert isinstance(result, tuple)
             assert len(result) == 2
             assert isinstance(result[0], SystemEnvironment)
-            assert result[1] is None  # monitor 未实现
+            assert result[1] is not None
         finally:
             for p in env_patches:
                 p.stop()

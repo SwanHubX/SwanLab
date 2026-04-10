@@ -14,10 +14,11 @@ from typing import Literal, Optional, Union
 __all__ = ["generate_color", "generate_id", "generate_name"]
 
 
-def generate_id(length: int = 8) -> str:
-    """Generate a unique ID for a run.
+def generate_id(length: int = 8, characters=string.ascii_lowercase + string.digits) -> str:
+    """Generate a unique ID for a run or something.
 
     :param length: The length of the ID. Must be between 1 and 64.
+    :param characters: The characters to use for the ID.
 
     :return: A unique ID string.
 
@@ -39,7 +40,6 @@ def generate_id(length: int = 8) -> str:
     """
     if length <= 0 or length > 64:
         raise ValueError("Length must be between 1 and 64.")
-    characters = string.ascii_lowercase + string.digits
     return "".join(secrets.choice(characters) for _ in range(length))
 
 

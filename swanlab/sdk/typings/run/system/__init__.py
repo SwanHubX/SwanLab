@@ -8,9 +8,29 @@
   - Snapshot → 描述硬件或系统状态的静态快照信息
 """
 
-from typing import Literal, Optional
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+# ──────────────────────────────────────────────
+# 公共类型别名
+# ──────────────────────────────────────────────
+
+PlatformSlug = Literal["linux", "macos-intel", "macos-arm", "windows", "unknown"]
+"""平台标识，用于 SystemShim.slug 及硬件采集器的平台判断"""
+
+AcceleratorVendor = Literal[
+    "nvidia",
+    "rocm",
+    "iluvatar",
+    "metax",
+    "moorethreads",
+    "ascend",
+    "cambricon",
+    "hygon",
+    "kunlunxin",
+]
+"""加速器厂商/驱动类型"""
 
 # ──────────────────────────────────────────────
 # 硬件快照子模型（静态信息，启动时采集一次）
@@ -76,20 +96,6 @@ class DeviceSnapshot(BaseModel):
         return self
 
     model_config = ConfigDict(frozen=True)
-
-
-AcceleratorVendor = Literal[
-    "nvidia",
-    "rocm",
-    "iluvatar",
-    "metax",
-    "moorethreads",
-    "ascend",
-    "cambricon",
-    "hygon",
-    "kunlunxin",
-]
-"""加速器厂商/驱动类型"""
 
 
 class AcceleratorSnapshot(BaseModel):
@@ -231,8 +237,8 @@ class SystemShim(BaseModel):
     由 SwanLab 内部控制，用户无法修改。
     """
 
-    slug: Literal["linux", "macos-intel", "macos-arm", "windows", "unknown"]
-    """当前平台标识，目前主要和cpu memory监控实现相关，所以仅区分了macos平台下的apple chip和intel cpu"""
+    slug: PlatformSlug
+    """当前平台标识，目前主要和cpu memory监控实现相关，所以仅区分了 MacOS平台下的apple chip和intel cpu"""
     enable_cpu: bool = False
     enable_memory: bool = False
     accelerators: list[AcceleratorMonitorConfig] = Field(default_factory=list)
@@ -244,7 +250,7 @@ class SystemShim(BaseModel):
     def from_snapshot(cls, snapshot: MetadataSnapshot, platform: str) -> "SystemShim":
         """从 MetadataSnapshot 提取，不做额外的系统探测。"""
         # 1. 处理平台标识
-        _slug: Literal["linux", "macos-intel", "macos-arm", "windows", "unknown"]
+        _slug: PlatformSlug
         if snapshot.hardware is None:
             _slug = "unknown"
         elif platform.startswith("linux"):
@@ -295,3 +301,27 @@ class SystemEnvironment(BaseModel):
     metadata: MetadataSnapshot
     requirements: Optional[str]
     conda: Optional[str]
+
+
+class SystemScalar(BaseModel):
+    """系统监控标量信息，作为定义标量中间载体
+
+    与 run.define_scalar() 参数对齐，由系统监控模块内部使用，
+    用于在硬件监控线程启动前批量注册系统标量定义。
+    """
+
+    key: str = Field(..., pattern=r"^[a-z\.]+$")
+    """标量键名，仅允许小写字母和点号"""
+    name: Optional[str] = Field(default=None, max_length=100)
+    """显示名称"""
+    color: Optional[str] = Field(default=None, pattern=r"^#[0-9a-fA-F]{6}$")
+    """颜色，hex 色值，格式如 #FF5733，如果不指定，则使用默认色值"""
+    x_axis: Literal["_step", "_relative_time"] = "_relative_time"
+    """x 轴类型，支持系统值 _step、_relative_time 或其他标量键名"""
+    chart_name: str = Field(max_length=100)
+    """所属图表名称，最多 100 字符"""
+
+    model_config = ConfigDict(frozen=True)
+
+
+SystemScalars = List[SystemScalar]

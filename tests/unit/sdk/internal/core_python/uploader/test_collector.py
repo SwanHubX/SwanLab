@@ -117,9 +117,13 @@ def test_submit_rolls_back_on_upload_error(make_scalar_record):
     collector.container.append(make_scalar_record(step=0))
     new_records = [make_scalar_record(step=1)]
 
-    with patch(
-        "swanlab.sdk.internal.core_python.uploader.collector.upload_records", side_effect=RuntimeError("network down")
-    ), patch("swanlab.sdk.internal.core_python.uploader.collector.console") as mock_console:
+    with (
+        patch(
+            "swanlab.sdk.internal.core_python.uploader.collector.upload_records",
+            side_effect=RuntimeError("network down"),
+        ),
+        patch("swanlab.sdk.internal.core_python.uploader.collector.console") as mock_console,
+    ):
         collector.submit(new_records)
 
     mock_console.error.assert_called_once()
@@ -163,9 +167,10 @@ def test_flush_rolls_back_on_upload_error(make_scalar_record):
     collector = Collector()
     records = [make_scalar_record(step=1), make_scalar_record(step=2)]
 
-    with patch(
-        "swanlab.sdk.internal.core_python.uploader.collector.upload_records", side_effect=ValueError("bad data")
-    ), patch("swanlab.sdk.internal.core_python.uploader.collector.console") as mock_console:
+    with (
+        patch("swanlab.sdk.internal.core_python.uploader.collector.upload_records", side_effect=ValueError("bad data")),
+        patch("swanlab.sdk.internal.core_python.uploader.collector.console") as mock_console,
+    ):
         collector.flush(records)
 
     mock_console.error.assert_called_once()

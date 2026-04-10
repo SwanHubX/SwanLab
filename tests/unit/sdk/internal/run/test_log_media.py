@@ -50,9 +50,9 @@ class _MockRun:
     """最小化的 Run 替身，供非绑定方法测试使用"""
 
     def __init__(self):
-        self._state = "running"
         self._api_lock = threading.RLock()
         self.log = MagicMock()
+        self.alive = True
 
 
 # ──────────────────────────────────────────────
@@ -117,7 +117,7 @@ class TestRunLogMedia:
     def test_raises_when_not_running(self, method_name, factory, extra):
         """run 未激活时应抛出 RuntimeError"""
         mock_run = _MockRun()
-        mock_run._state = "finished"
+        mock_run.alive = False
         with pytest.raises(RuntimeError, match="requires an active Run"):
             _call_log(method_name, mock_run, "k", factory(), extra)
 

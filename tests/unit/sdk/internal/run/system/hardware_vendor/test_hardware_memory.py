@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, mock_open, patch
 import pytest
 
 from swanlab.sdk.internal.run.system.hardware_vendor.memory import Memory, _bytes_to_snapshot
-from swanlab.sdk.typings.run.system import MemorySnapshot
+from swanlab.sdk.typings.run.system import MemorySnapshot, PlatformSlug, SystemShim
 
 _GB = 1024**3
 _MB = 1024**2
@@ -67,7 +67,7 @@ class TestMemoryGet:
         # 16 GB = 16777216 kB
         meminfo = "MemTotal:       16777216 kB\nMemFree:        8000000 kB\n"
         with patch("builtins.open", mock_open(read_data=meminfo)):
-            result = Memory().get()
+            result = Memory.get()
 
         assert isinstance(result, MemorySnapshot)
         assert result.total == 16
@@ -77,7 +77,7 @@ class TestMemoryGet:
     def test_get_linux_file_error(self):
         """Linux: /proc/meminfo 读取失败 → get() 返回 None"""
         with patch("builtins.open", side_effect=OSError("permission denied")):
-            result = Memory().get()
+            result = Memory.get()
 
         assert result is None
 
@@ -91,7 +91,7 @@ class TestMemoryGet:
         # 16 GB in bytes
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0, stdout=str(16 * _GB) + "\n")
-            result = Memory().get()
+            result = Memory.get()
 
         assert isinstance(result, MemorySnapshot)
         assert result.total == 16
@@ -102,7 +102,7 @@ class TestMemoryGet:
         """macOS: sysctl 返回非零退出码 → get() 返回 None"""
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=1, stdout="")
-            result = Memory().get()
+            result = Memory.get()
 
         assert result is None
 
@@ -116,7 +116,7 @@ class TestMemoryGet:
         wmic_output = "TotalPhysicalMemory\n{}\n\n".format(16 * _GB)
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0, stdout=wmic_output)
-            result = Memory().get()
+            result = Memory.get()
 
         assert isinstance(result, MemorySnapshot)
         assert result.total == 16
@@ -127,7 +127,7 @@ class TestMemoryGet:
         """Windows: wmic 返回非零退出码 → get() 返回 None"""
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=1, stdout="")
-            result = Memory().get()
+            result = Memory.get()
 
         assert result is None
 
@@ -138,28 +138,28 @@ class TestMemoryGet:
     def test_get_returns_none_when_total_bytes_is_none(self):
         """_get_total_bytes 返回 None 时，get() 应返回 None"""
         with patch.object(Memory, "_get_total_bytes", return_value=None):
-            result = Memory().get()
+            result = Memory.get()
 
         assert result is None
 
     def test_get_returns_none_when_total_bytes_is_zero(self):
         """_get_total_bytes 返回 0 时，get() 应返回 None"""
         with patch.object(Memory, "_get_total_bytes", return_value=0):
-            result = Memory().get()
+            result = Memory.get()
 
         assert result is None
 
     def test_get_returns_none_on_unexpected_exception(self):
         """_get_total_bytes 抛出异常时，get() 应返回 None 而不是抛出"""
         with patch.object(Memory, "_get_total_bytes", side_effect=RuntimeError("mocked failure")):
-            result = Memory().get()
+            result = Memory.get()
 
         assert result is None
 
     def test_get_returns_memory_snapshot_type(self):
         """正常路径下 get() 必须返回 MemorySnapshot 实例"""
         with patch.object(Memory, "_get_total_bytes", return_value=16 * _GB):
-            result = Memory().get()
+            result = Memory.get()
 
         assert isinstance(result, MemorySnapshot)
 
@@ -264,3 +264,94 @@ class TestMemoryGetTotalBytes:
             result = Memory._get_total_bytes()
 
         assert result is None
+
+
+class TestMemoryNew:
+    """Tests for Memory.new() — 监控采集器工厂"""
+
+    @staticmethod
+    def _make_shim(
+        slug: PlatformSlug = "linux",
+        enable_memory: bool = True,
+    ) -> SystemShim:
+        return SystemShim(slug=slug, enable_cpu=True, enable_memory=enable_memory)
+
+    def test_returns_none_when_memory_disabled(self):
+        """enable_memory=False 时返回 None"""
+        shim = self._make_shim(enable_memory=False)
+        assert Memory.new(shim) is None
+
+    def test_returns_none_on_macos_arm(self):
+        """macos-arm 平台返回 None（由 Apple 模块接管）"""
+        shim = self._make_shim(slug="macos-arm")
+        assert Memory.new(shim) is None
+
+    def test_returns_tuple_on_linux(self):
+        """Linux 平台返回 (Memory, SystemScalars) 元组"""
+        shim = self._make_shim(slug="linux")
+        result = Memory.new(shim)
+        assert result is not None
+        collector, scalars = result
+        assert isinstance(collector, Memory)
+        assert isinstance(scalars, list)
+        assert len(scalars) == 2
+
+    def test_returns_tuple_on_macos_intel(self):
+        """macOS Intel 平台返回 (Memory, SystemScalars) 元组"""
+        shim = self._make_shim(slug="macos-intel")
+        result = Memory.new(shim)
+        assert result is not None
+        collector, scalars = result
+        assert isinstance(collector, Memory)
+        assert len(scalars) == 2
+
+    def test_returns_tuple_on_windows(self):
+        """Windows 平台返回 (Memory, SystemScalars) 元组"""
+        shim = self._make_shim(slug="windows")
+        result = Memory.new(shim)
+        assert result is not None
+        collector, scalars = result
+        assert isinstance(collector, Memory)
+        assert len(scalars) == 2
+
+    def test_scalar_keys(self):
+        """验证采集器注册了正确的 scalar key"""
+        shim = self._make_shim(slug="linux")
+        result = Memory.new(shim)
+        assert result is not None
+        _, scalars = result
+        keys = [s.key for s in scalars]
+        assert keys == ["mem.pct", "mem.proc"]
+
+    def test_scalar_chart_names(self):
+        """验证 scalar 的 chart_name 分组正确"""
+        shim = self._make_shim(slug="linux")
+        result = Memory.new(shim)
+        assert result is not None
+        _, scalars = result
+        chart_names = [s.chart_name for s in scalars]
+        assert chart_names == ["System Memory", "Process Memory"]
+
+    def test_collect_returns_two_metrics(self):
+        """collect() 返回 2 个 (key, value) 采集结果"""
+        mock_proc = MagicMock()
+        mock_proc.memory_info.return_value = MagicMock(rss=1024 * 1024 * 512)  # 512 MB
+        with (
+            patch("psutil.virtual_memory") as mock_vm,
+            patch("psutil.Process", return_value=mock_proc),
+        ):
+            mock_vm.return_value = MagicMock(percent=55.8)
+            shim = self._make_shim(slug="linux")
+            result = Memory.new(shim)
+
+        assert result is not None
+        collector, _ = result
+        with (
+            patch("psutil.virtual_memory", return_value=MagicMock(percent=55.8)),
+            patch("psutil.Process", return_value=mock_proc),
+        ):
+            metrics = collector.collect()
+
+        assert len(metrics) == 2
+        assert metrics[0] == ("mem.pct", 55.8)
+        assert metrics[1] == ("mem.proc", 512.0)

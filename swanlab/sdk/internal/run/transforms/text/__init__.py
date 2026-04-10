@@ -39,8 +39,8 @@ class Text(TransformMedia):
         # 计算 sha256
         sha256 = hashlib.sha256(self.content.encode()).hexdigest()
         # 构建 filename
-        # 历史版本直接将用户传入的content写入CH，因此这里需要增加__swanlab__后缀以区分当前版本与历史版本
-        filename = f"{step:03d}-{sha256[:8]}.__swanlab__.txt"
+        # 历史版本直接将用户传入的content写入CH，这交给前端去适配
+        filename = f"{step:03d}-{sha256[:8]}.txt"
         # 写入数据
         safe_write(path / filename, self.content)
         return TextItem(filename=filename, caption=self.caption)
