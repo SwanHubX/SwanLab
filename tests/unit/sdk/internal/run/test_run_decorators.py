@@ -16,6 +16,7 @@ class TestWithRun:
 
         class MockRun:
             def __init__(self):
+                self._forked = False
                 self.alive = True
 
             @with_run(cmd="swanlab.my_method()")
@@ -31,6 +32,7 @@ class TestWithRun:
 
         class MockRun:
             def __init__(self):
+                self._forked = False
                 self.alive = False
 
             @with_run(cmd="swanlab.my_method()")
@@ -46,6 +48,7 @@ class TestWithRun:
 
         class MockRun:
             def __init__(self):
+                self._forked = False
                 self.alive = False
 
             @with_run(cmd="run.log()")
@@ -54,6 +57,38 @@ class TestWithRun:
 
         run = MockRun()
         with pytest.raises(RuntimeError, match="`run.log\\(\\)`"):
+            run.log()
+
+    def test_raises_when_forked(self):
+        """fork 后应抛出 RuntimeError，提示用户使用 spawn"""
+
+        class MockRun:
+            def __init__(self):
+                self._forked = True
+                self.alive = False
+
+            @with_run(cmd="swanlab.log()")
+            def log(self):
+                pass
+
+        run = MockRun()
+        with pytest.raises(RuntimeError, match="does not support fork"):
+            run.log()
+
+    def test_fork_error_takes_priority_over_not_running(self):
+        """fork 错误应优先于 not running 错误"""
+
+        class MockRun:
+            def __init__(self):
+                self._forked = True
+                self.alive = False
+
+            @with_run(cmd="swanlab.log()")
+            def log(self):
+                pass
+
+        run = MockRun()
+        with pytest.raises(RuntimeError, match="does not support fork"):
             run.log()
 
     def test_preserves_metadata(self):

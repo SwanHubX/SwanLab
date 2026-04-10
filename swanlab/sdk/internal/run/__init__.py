@@ -9,6 +9,7 @@
 """
 
 import atexit
+import os
 import signal
 import sys
 import threading
@@ -81,6 +82,11 @@ def with_run(cmd: str):
     def decorator(f):
         @wraps(f)
         def wrapper(self: "Run", *args, **kwargs):
+            if self._forked:
+                raise RuntimeError(
+                    "SwanLab Run does not support fork yet. Use `multiprocessing.set_start_method('spawn')` "
+                    "or call `swanlab.init()` in the child process."
+                )
             if not self.alive:
                 raise RuntimeError(f"`{cmd}` requires an active Run, call `swanlab.init()` first.")
             return f(self, *args, **kwargs)
@@ -145,6 +151,8 @@ class Run:
         # ---------------------------------- 1. 基础状态准备 ----------------------------------
         self._ctx = ctx
         self._state: Union[FinishType, Literal["running"]] = "running"
+        self._pid = os.getpid()
+        self._forked = False
         # 外部API锁，防止并发调用
         self._api_lock = threading.RLock()
         # 事件发射器：唯一的队列写入入口，可注入给内部系统组件
@@ -191,16 +199,19 @@ class Run:
         self._consumer.start()
 
         # ---------------------------------- 3. 注册副作用 ----------------------------------
+        # 注册 fork 回调：子进程中清除全局单例，让 swanlab.log() 等全局 API 自然失效
+        # 当前 CorePython 模式下仅做标记和清单例；未来 swanlab-core 模式下可在此重建连接
+        os.register_at_fork(after_in_child=self._handle_fork)
         # 设置全局运行实例
         set_run(self)
         # 注册退出钩子
         self._sys_origin_excepthook = sys.excepthook
-        atexit.register(self._atexit_cleanup)
-        sys.excepthook = self._excepthook
+        atexit.register(self._handle_atexit)
+        sys.excepthook = self._handle_except
         # 注册 SIGINT handler，确保 Ctrl+C 能可靠地将实验标记为 aborted
         # sys.excepthook 在主线程阻塞于 C 扩展时可能无法触发
         self._original_sigint_handler = signal.getsignal(signal.SIGINT)
-        signal.signal(signal.SIGINT, self._sigint_handler)
+        signal.signal(signal.SIGINT, self._handle_sigint)
         # 绑定日志文件，运行正式开始
         if self._ctx.config.settings.mode != "disabled":
             log.bindfile(self._ctx.debug_dir)
@@ -209,14 +220,25 @@ class Run:
     # 私有钩子
     # ----------------------------------
 
-    def _sigint_handler(self, signum: int, frame: Any) -> None:
+    def _handle_fork(self) -> None:
+        """fork 回调，在子进程中执行。
+
+        当前 CorePython 模式：仅做标记 + 清除全局单例，子进程无法继续使用父进程的 Run。
+        未来 swanlab-core 模式：可在此重建 emitter/consumer/monitor 等，使子进程无需重新 init。
+        """
+        if not self.alive:
+            return
+        self._forked = True
+        clear_run()
+
+    def _handle_sigint(self, signum: int, frame: Any) -> None:
         """SIGINT handler：确保 Ctrl+C 能可靠地将实验标记为 aborted。
 
         sys.excepthook 依赖 Python 层面抛出 KeyboardInterrupt，但当主线程阻塞在 C 扩展（NumPy/PyTorch 等）时，
         KeyboardInterrupt 可能无法正常传播到 excepthook。
         此 handler 作为额外防线，在信号层直接处理。
         """
-        if self._state == "running":
+        if self.alive:
             console.info("KeyboardInterrupt by user")
             import traceback
 
@@ -233,14 +255,14 @@ class Run:
             # The default handler (SIG_DFL) raises KeyboardInterrupt.
             raise KeyboardInterrupt
 
-    def _atexit_cleanup(self) -> None:
+    def _handle_atexit(self) -> None:
         """程序正常退出时自动结束当前运行"""
-        if self._state != "running":
+        if not self.alive:
             return
         console.debug("SwanLab Run is finishing at exit...")
         self.finish()
 
-    def _excepthook(
+    def _handle_except(
         self,
         tp: Type[BaseException],
         val: BaseException,
@@ -248,7 +270,7 @@ class Run:
     ) -> None:
         """全局异常捕获，将实验标记为 crashed 或 aborted"""
         try:
-            if self._state != "running":
+            if not self.alive:
                 return
             state: FinishType = "crashed"
             if tp is KeyboardInterrupt:
@@ -312,7 +334,7 @@ class Run:
         If the run is alive. You can log metrics if the run is alive.
         :return: True if the run is alive, False otherwise
         """
-        return self._state == "running"
+        return not self._forked and self._state == "running"
 
     # ----------------------------------
     # 上下文管理器，允许用户以 with 语句启动和结束运行
@@ -522,7 +544,7 @@ class Run:
         """
         # 1. 状态校验
         # 有时执行finish也有可能是系统hook主动调用，此时无需再次打印警告，如果在finishing状态，也忽略
-        if self._state != "running":
+        if not self.alive:
             return
         state = state.lower()  # type: ignore
         if not (this_state := fmt.safe_validate_state(cast(FinishType, state))):
@@ -549,7 +571,7 @@ class Run:
         console.debug(f"SwanLab Run has finished with state: {self._state}, cleanup...")
         # 3.2 清理副作用
         console.debug("Cleanup system hook...")
-        atexit.unregister(self._atexit_cleanup)
+        atexit.unregister(self._handle_atexit)
         sys.excepthook = self._sys_origin_excepthook
         signal.signal(signal.SIGINT, self._original_sigint_handler)
         # 清理全局运行实例
@@ -579,7 +601,7 @@ def has_run() -> bool:
         ... else:
         ...     print("No active run")
     """
-    return _current_run is not None
+    return _current_run is not None and _current_run.alive
 
 
 def get_run() -> Run:
