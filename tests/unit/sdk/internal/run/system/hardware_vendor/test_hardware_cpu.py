@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, mock_open, patch
 import pytest
 
 from swanlab.sdk.internal.run.system.hardware_vendor.cpu import CPU
-from swanlab.sdk.typings.run.system import CPUSnapshot
+from swanlab.sdk.typings.run.system import CPUSnapshot, PlatformSlug, SystemShim
 
 
 class TestCPUGet:
@@ -298,3 +298,90 @@ class TestCPUGetRealBrand:
             result = CPU._get_real_brand()
 
         assert result is None
+
+
+class TestCPUNew:
+    """Tests for CPU.new() — 监控采集器工厂"""
+
+    @staticmethod
+    def _make_shim(
+        slug: PlatformSlug = "linux",
+        enable_cpu: bool = True,
+    ) -> SystemShim:
+        return SystemShim(slug=slug, enable_cpu=enable_cpu, enable_memory=True)
+
+    def test_returns_none_when_cpu_disabled(self):
+        """enable_cpu=False 时返回 None"""
+        shim = self._make_shim(enable_cpu=False)
+        assert CPU.new(shim) is None
+
+    def test_returns_none_on_macos_arm(self):
+        """macos-arm 平台返回 None（由 Apple 模块接管）"""
+        shim = self._make_shim(slug="macos-arm")
+        assert CPU.new(shim) is None
+
+    def test_returns_tuple_on_linux(self):
+        """Linux 平台返回 (CPU, SystemScalars) 元组"""
+        shim = self._make_shim(slug="linux")
+        result = CPU.new(shim)
+        assert result is not None
+        collector, scalars = result
+        assert isinstance(collector, CPU)
+        assert isinstance(scalars, list)
+        assert len(scalars) == 2
+
+    def test_returns_tuple_on_macos_intel(self):
+        """macOS Intel 平台返回 (CPU, SystemScalars) 元组"""
+        shim = self._make_shim(slug="macos-intel")
+        result = CPU.new(shim)
+        assert result is not None
+        collector, scalars = result
+        assert isinstance(collector, CPU)
+        assert len(scalars) == 2
+
+    def test_returns_tuple_on_windows(self):
+        """Windows 平台返回 (CPU, SystemScalars) 元组"""
+        shim = self._make_shim(slug="windows")
+        result = CPU.new(shim)
+        assert result is not None
+        collector, scalars = result
+        assert isinstance(collector, CPU)
+        assert len(scalars) == 2
+
+    def test_scalar_keys(self):
+        """验证采集器注册了正确的 scalar key"""
+        shim = self._make_shim(slug="linux")
+        result = CPU.new(shim)
+        assert result is not None
+        _, scalars = result
+        keys = [s.key for s in scalars]
+        assert keys == ["cpu.pct", "cpu.thds"]
+
+    def test_scalar_chart_names(self):
+        """验证 scalar 的 chart_name 分组正确"""
+        shim = self._make_shim(slug="linux")
+        result = CPU.new(shim)
+        assert result is not None
+        _, scalars = result
+        chart_names = [s.chart_name for s in scalars]
+        assert chart_names == ["CPU Utilization", "Process CPU Threads"]
+
+    def test_collect_returns_two_metrics(self):
+        """collect() 返回 2 个 (key, value) 采集结果"""
+        mock_proc = MagicMock()
+        mock_proc.num_threads.return_value = 16
+        with (
+            patch("psutil.cpu_percent", return_value=73.2),
+            patch("psutil.Process", return_value=mock_proc),
+        ):
+            shim = self._make_shim(slug="linux")
+            result = CPU.new(shim)
+
+        assert result is not None
+        collector, _ = result
+        with patch("psutil.cpu_percent", return_value=73.2):
+            metrics = collector.collect()
+
+        assert len(metrics) == 2
+        assert metrics[0] == ("cpu.pct", 73.2)
+        assert metrics[1] == ("cpu.thds", 16)

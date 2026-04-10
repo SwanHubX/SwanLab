@@ -33,6 +33,7 @@ class Apple(AppleSiliconProtocol):
         if shim.slug != "macos-arm":
             return None
         self = cls(shim)
+        psutil.cpu_percent(interval=None)  # 预热，使后续非阻塞调用能返回真实值
         scalars: SystemScalars = []
         current_process = psutil.Process()
         if shim.enable_cpu:
@@ -44,7 +45,7 @@ class Apple(AppleSiliconProtocol):
                 color=generate_color(0),
             )
             scalars.append(cpu_pct)
-            self._handlers.append(("cpu.pct", lambda: psutil.cpu_percent(interval=1)))
+            self._handlers.append(("cpu.pct", lambda: psutil.cpu_percent(interval=None)))
             # 当前进程线程数
             cpu_thds = SystemScalar(
                 key="cpu.thds",

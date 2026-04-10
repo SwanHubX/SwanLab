@@ -13,6 +13,26 @@ from typing import List, Literal, Optional
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 # ──────────────────────────────────────────────
+# 公共类型别名
+# ──────────────────────────────────────────────
+
+PlatformSlug = Literal["linux", "macos-intel", "macos-arm", "windows", "unknown"]
+"""平台标识，用于 SystemShim.slug 及硬件采集器的平台判断"""
+
+AcceleratorVendor = Literal[
+    "nvidia",
+    "rocm",
+    "iluvatar",
+    "metax",
+    "moorethreads",
+    "ascend",
+    "cambricon",
+    "hygon",
+    "kunlunxin",
+]
+"""加速器厂商/驱动类型"""
+
+# ──────────────────────────────────────────────
 # 硬件快照子模型（静态信息，启动时采集一次）
 # ──────────────────────────────────────────────
 
@@ -76,20 +96,6 @@ class DeviceSnapshot(BaseModel):
         return self
 
     model_config = ConfigDict(frozen=True)
-
-
-AcceleratorVendor = Literal[
-    "nvidia",
-    "rocm",
-    "iluvatar",
-    "metax",
-    "moorethreads",
-    "ascend",
-    "cambricon",
-    "hygon",
-    "kunlunxin",
-]
-"""加速器厂商/驱动类型"""
 
 
 class AcceleratorSnapshot(BaseModel):
@@ -231,7 +237,7 @@ class SystemShim(BaseModel):
     由 SwanLab 内部控制，用户无法修改。
     """
 
-    slug: Literal["linux", "macos-intel", "macos-arm", "windows", "unknown"]
+    slug: PlatformSlug
     """当前平台标识，目前主要和cpu memory监控实现相关，所以仅区分了 MacOS平台下的apple chip和intel cpu"""
     enable_cpu: bool = False
     enable_memory: bool = False
@@ -244,7 +250,7 @@ class SystemShim(BaseModel):
     def from_snapshot(cls, snapshot: MetadataSnapshot, platform: str) -> "SystemShim":
         """从 MetadataSnapshot 提取，不做额外的系统探测。"""
         # 1. 处理平台标识
-        _slug: Literal["linux", "macos-intel", "macos-arm", "windows", "unknown"]
+        _slug: PlatformSlug
         if snapshot.hardware is None:
             _slug = "unknown"
         elif platform.startswith("linux"):

@@ -101,8 +101,12 @@ class Monitor:
                 )
             )
         # 4. 定义任务
-        self._executor = ThreadPoolExecutor(max_workers=min(max(math.ceil(len(collectors) / 4), 1), 4))
         all_handlers = [(type(c).__name__, c.collect) for c in collectors]
+        if len(all_handlers) == 0:
+            console.debug("No hardware monitor collectors found, skipping creating monitor task")
+            return
+        # 使用线程池执行任务，并发数为采集器数量的1/4，最多4个线程
+        self._executor = ThreadPoolExecutor(max_workers=min(max(math.ceil(len(collectors) / 4), 1), 4))
 
         def task():
             assert self._executor is not None, "Monitor Executor is not initialized"

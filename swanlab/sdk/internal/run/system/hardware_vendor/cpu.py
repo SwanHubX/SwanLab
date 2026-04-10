@@ -33,6 +33,7 @@ class CPU(CpuProtocol):
         if shim.slug == "macos-arm":
             return None
         self = cls(shim)
+        psutil.cpu_percent(interval=None)  # 预热，使后续非阻塞调用能返回真实值
         # 定义所有会被采集的指标
         # 当前进程线程数
         scalars: SystemScalars = []
@@ -44,7 +45,7 @@ class CPU(CpuProtocol):
             color=generate_color(0),
         )
         scalars.append(usage)
-        self._handlers.append(("cpu.pct", lambda: psutil.cpu_percent(interval=1)))
+        self._handlers.append(("cpu.pct", lambda: psutil.cpu_percent(interval=None)))
         # 当前线程数
         threads = SystemScalar(
             key="cpu.thds",
