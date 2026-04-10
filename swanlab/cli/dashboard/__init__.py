@@ -1,5 +1,5 @@
 """
-@author: cunyue
+@author: caddiesnew
 @file: __init__.py
 @time: 2026/4/1 16:09
 @description: CLI Dashboard 模块：watch 命令，依赖于 swanboard

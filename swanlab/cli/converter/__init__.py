@@ -1,5 +1,5 @@
 """
-@author: cunyue
+@author: caddiesnew
 @file: __init__.py
 @time: 2026/4/1 16:09
 @description: CLI Converter 模块：convert 命令，用于转换其他实验跟踪工具的日志

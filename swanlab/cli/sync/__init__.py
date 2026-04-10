@@ -1,5 +1,5 @@
 """
-@author: cunyue
+@author: caddiesnew
 @file: __init__.py
 @time: 2026/4/1 16:10
 @description: CLI Sync 模块：同步本地数据到云端

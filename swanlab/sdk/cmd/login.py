@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import Optional
 from urllib.parse import urlparse
 
+from rich.text import Text
+
 from swanlab.exceptions import AuthenticationError
 from swanlab.sdk.cmd.helper import with_cmd_lock, without_run
 from swanlab.sdk.internal import apikey
@@ -84,12 +86,19 @@ def raw_login(
     save: bool = False,
     timeout: int = 10,
 ) -> bool:
-    # 1. 判断是是否允许重新登录
+    # 1. 判断是否允许重新登录
     # 如果已经登录且不需要重新登录，则直接返回
-    if not relogin and client.exists():
-        console.info("Already logged in, Skipping login. If you want to relogin, use `swanlab.login(relogin=True)`")
+    # 仅当运行时 client 已存在时才视为已登录；本地凭证仅表示可复用，不代表本次会话已完成认证
+    already_logged_in = client.exists()
+    if not relogin and already_logged_in:
+        console.info(
+            "You are already logged in. Use",
+            Text("`swanlab.login(relogin=True)`", style="bold"),
+            "to force relogin.",
+            sep=" ",
+        )
         return True
-    elif client.exists() and relogin:
+    if client.exists():
         client.reset()
     # 2. 获取当前配置
     # 如果提供了host且没有http前缀添加https://前缀
@@ -130,7 +139,12 @@ def raw_login(
             assert client.exists(), "Failed to create client"
             login_resp: Optional[LoginResponse] = scope.get("login_resp", None)
             if login_resp is None:
+                # 认证失败但 client 对象已被 new() 创建，必须清理否则后续重试会报 "client already exists"
+                if client.exists():
+                    client.reset()
                 raise AuthenticationError("Failed to login, please check your API Key or network connection.")
+            username = login_resp.get("userInfo", {}).get("username", "unknown")
+            console.info("Login successfully. Hi", Text(f"{username}!", "bold"), sep=" ")
             if save:
                 apikey.save(username=web_host, api_key=api_key, host=ctx.config.settings.api_host, ctx=ctx)
         # 4. 将登录设置合并到全局配置中
@@ -164,8 +178,7 @@ def interactive_login(
         try:
             # 重新要求用户输入新的 Key
             new_key = apikey.prompt()
-            # 必须设置 relogin=True，确保重置底层的旧 client 状态
-            return raw_login(api_key=new_key, relogin=True, host=host, save=save, timeout=timeout)
+            return raw_login(api_key=new_key, relogin=relogin, host=host, save=save, timeout=timeout)
         except AuthenticationError as e:
             console.error(str(e))
         except (KeyboardInterrupt, EOFError):

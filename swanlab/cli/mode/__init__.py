@@ -1,5 +1,5 @@
 """
-@author: cunyue
+@author: caddiesnew
 @file: __init__.py
 @time: 2026/4/1 16:10
 @description: CLI Mode 模块：设置默认运行模式 (disabled / local / online / offline)
