@@ -7,8 +7,10 @@
 
 from swanlab.sdk.cmd.init import init
 from swanlab.sdk.cmd.login import login
+from swanlab.sdk.cmd.logout import logout
 from swanlab.sdk.cmd.merge_settings import Settings, merge_settings
 from swanlab.sdk.cmd.run import define_scalar, finish, log, log_audio, log_image, log_text, log_video
+from swanlab.sdk.cmd.verify import verify
 from swanlab.sdk.internal.run import Run, clear_run, get_run, has_run, set_run
 from swanlab.sdk.internal.run.config import config
 
@@ -18,6 +20,8 @@ __all__ = [
     "init",
     "finish",
     "login",
+    "logout",
+    "verify",
     "log",
     "log_text",
     "log_image",
