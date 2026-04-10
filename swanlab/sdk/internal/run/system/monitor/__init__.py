@@ -120,11 +120,9 @@ class Monitor:
                     console.error(f"Error collecting metric via {n}: {e}")
             ts = Timestamp()
             ts.GetCurrentTime()
-            # 考虑到不同指标可能会有极小概率出现不一致情况（比如异常中断，部分指标还没发送），指标数据需要一个个发
-            for k, v in results:
-                k = fmt_system_key(k)
-                step = ctx.metrics.next_metric_step(k)
-                emitter.emit(MetricLogEvent(step=step, data={k: v}, timestamp=ts))
+            step = ctx.metrics.next_system_step()
+            data = {fmt_system_key(k): v for k, v in results}
+            emitter.emit(MetricLogEvent(step=step, data=data, timestamp=ts))
 
         self._timer = Timer(task, interval=ctx.config.settings.monitor.interval, immediate=True, name="SwanLab·Monitor")
         self._timer.start()
