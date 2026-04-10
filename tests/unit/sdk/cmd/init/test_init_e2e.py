@@ -487,6 +487,7 @@ class TestInitConfigIntegration:
 # ============================================================
 
 
+@pytest.mark.skipif(not hasattr(__import__("os"), "register_at_fork"), reason="fork not available on this platform")
 class TestForkDetection:
     """测试 fork 检测机制：register_at_fork 回调 + with_run 拦截 + has_run 失效"""
 
@@ -542,8 +543,8 @@ class TestForkDetection:
         msg = result.get()
         assert "does not support fork" in msg
 
-    def test_fork_finish_noop_in_child(self):
-        """真实 fork 后，子进程中 finish() 不应抛异常"""
+    def test_fork_finish_raises_in_child(self):
+        """真实 fork 后，子进程中 finish() 也应抛出 RuntimeError"""
         run = init(mode="disabled")
 
         ctx = multiprocessing.get_context("fork")
@@ -552,14 +553,15 @@ class TestForkDetection:
         def child():
             try:
                 run.finish()
-                result.put("ok")
-            except Exception as e:
-                result.put(f"error: {e}")
+                result.put("no_error")
+            except RuntimeError as e:
+                result.put(str(e))
 
         p = ctx.Process(target=child)
         p.start()
         p.join(timeout=5)
-        assert result.get() == "ok"
+        msg = result.get()
+        assert "does not support fork" in msg
 
     def test_fork_does_not_affect_parent(self):
         """真实 fork 后，父进程中的 Run 应不受影响"""

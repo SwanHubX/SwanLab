@@ -102,15 +102,6 @@ class RunMetrics:
             self._global_step += 1
             return self._global_step
 
-    def has_metric(self, key: str) -> bool:
-        """
-        检查是否存在指定的指标
-        :param key: 指标键
-        :return: 是否存在该指标
-        """
-        with self._lock:
-            return key in self._metrics
-
     def update_scalar(self, key: str, value: Union[float, int]):
         """
         更新标量指标状态

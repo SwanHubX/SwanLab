@@ -61,35 +61,27 @@ __all__ = ["Run", "has_run", "get_run", "set_run", "clear_run"]
 from ..pkg.fs import safe_write
 
 
-def with_lock(func):
-    """线程安全装饰器，自动获取和释放外部API锁
-    Python 3.9 中无法定义在类内部
-    """
+def with_api(cmd: str, must_alive: bool = True):
+    """Run API 装饰器，统一处理：fork 检测、存活校验、线程安全
 
-    @wraps(func)
-    def wrapper(self, *args, **kwargs):
-        with self._api_lock:
-            return func(self, *args, **kwargs)
-
-    return wrapper
-
-
-def with_run(cmd: str):
-    """
-    run api装饰器，确保当前 run 实例激活
+    :param cmd: API 命令名，用于错误信息
+    :param must_alive: True 时要求 Run 存活，False 时仅做线程安全（如 finish 允许在非存活状态调用）
     """
 
     def decorator(f):
         @wraps(f)
         def wrapper(self: "Run", *args, **kwargs):
             if self._forked:
+                # fork 后子进程继承的锁可能已持有，替换为新锁避免死锁
+                self._api_lock = threading.RLock()
                 raise RuntimeError(
                     "SwanLab Run does not support fork yet. Use `multiprocessing.set_start_method('spawn')` "
                     "or call `swanlab.init()` in the child process."
                 )
-            if not self.alive:
+            if must_alive and not self.alive:
                 raise RuntimeError(f"`{cmd}` requires an active Run, call `swanlab.init()` first.")
-            return f(self, *args, **kwargs)
+            with self._api_lock:
+                return f(self, *args, **kwargs)
 
         return wrapper
 
@@ -152,7 +144,6 @@ class Run:
         self._ctx = ctx
         self._state: Union[FinishType, Literal["running"]] = "running"
         self._pid = os.getpid()
-        self._forked = False
         # 外部API锁，防止并发调用
         self._api_lock = threading.RLock()
         # 事件发射器：唯一的队列写入入口，可注入给内部系统组件
@@ -199,9 +190,6 @@ class Run:
         self._consumer.start()
 
         # ---------------------------------- 3. 注册副作用 ----------------------------------
-        # 注册 fork 回调：子进程中清除全局单例，让 swanlab.log() 等全局 API 自然失效
-        # 当前 CorePython 模式下仅做标记和清单例；未来 swanlab-core 模式下可在此重建连接
-        os.register_at_fork(after_in_child=self._handle_fork)
         # 设置全局运行实例
         set_run(self)
         # 注册退出钩子
@@ -219,17 +207,6 @@ class Run:
     # ----------------------------------
     # 私有钩子
     # ----------------------------------
-
-    def _handle_fork(self) -> None:
-        """fork 回调，在子进程中执行。
-
-        当前 CorePython 模式：仅做标记 + 清除全局单例，子进程无法继续使用父进程的 Run。
-        未来 swanlab-core 模式：可在此重建 emitter/consumer/monitor 等，使子进程无需重新 init。
-        """
-        if not self.alive:
-            return
-        self._forked = True
-        clear_run()
 
     def _handle_sigint(self, signum: int, frame: Any) -> None:
         """SIGINT handler：确保 Ctrl+C 能可靠地将实验标记为 aborted。
@@ -329,6 +306,11 @@ class Run:
         return f"{settings.web_host}/@{settings.project.workspace}/{settings.project.name}/runs/{settings.run.id}"
 
     @property
+    def _forked(self) -> bool:
+        """当前进程是否为创建 Run 时的进程的 fork 子进程"""
+        return os.getpid() != self._pid
+
+    @property
     def alive(self) -> bool:
         """
         If the run is alive. You can log metrics if the run is alive.
@@ -352,8 +334,7 @@ class Run:
     # ----------------------------------
     # 公开 API：只负责验证输入并发事件
     # ----------------------------------
-    @with_lock
-    @with_run("run.log()")
+    @with_api("run.log()")
     def log(self, data: Mapping[str, Any], step: Optional[int] = None):
         """Log a dictionary of metrics for the current step.
 
@@ -385,8 +366,7 @@ class Run:
         # 推送日志事件
         self._emitter.emit(MetricLogEvent(data=flatten_data, step=next_step, timestamp=ts))
 
-    @with_lock
-    @with_run("run.log_scalar()")
+    @with_api("run.log_scalar()")
     def log_scalar(self, *, key: str, value: Union[float, int], step: Optional[int] = None):
         """
         Log a scalar value.
@@ -397,8 +377,7 @@ class Run:
         """
         self.log({key: value}, step=step)
 
-    @with_lock
-    @with_run("run.log_text()")
+    @with_api("run.log_text()")
     def log_text(self, *, key: str, data: TextDatasType, caption: CaptionsType = None, step: Optional[int] = None):
         """
         A syntactic sugar for logging text data.
@@ -411,8 +390,7 @@ class Run:
         normalized_data = normalize_media_input(Text, data, caption=caption)
         self.log({key: normalized_data}, step=step)
 
-    @with_lock
-    @with_run("run.log_image()")
+    @with_api("run.log_image()")
     def log_image(
         self,
         *,
@@ -438,8 +416,7 @@ class Run:
         normalized_data = normalize_media_input(Image, data, mode=mode, caption=caption, size=size, file_type=file_type)
         self.log({key: normalized_data}, step=step)
 
-    @with_lock
-    @with_run("run.log_audio()")
+    @with_api("run.log_audio()")
     def log_audio(
         self,
         *,
@@ -461,8 +438,7 @@ class Run:
         normalized_data = normalize_media_input(Audio, data, caption=caption, sample_rate=sample_rate)
         self.log({key: normalized_data}, step=step)
 
-    @with_lock
-    @with_run("run.log_video()")
+    @with_api("run.log_video()")
     def log_video(
         self,
         *,
@@ -482,8 +458,7 @@ class Run:
         normalized_data = normalize_media_input(Video, data, caption=caption)
         self.log({key: normalized_data}, step=step)
 
-    @with_lock
-    @with_run("run.define_scalar()")
+    @with_api("run.define_scalar()")
     def define_scalar(
         self,
         *,
@@ -535,7 +510,7 @@ class Run:
             )
         )
 
-    @with_lock
+    @with_api("run.finish()", must_alive=False)
     def finish(self, state: FinishType = "success", error: Optional[str] = None):
         """Finish the current run and wait for all logs to be flushed.
 

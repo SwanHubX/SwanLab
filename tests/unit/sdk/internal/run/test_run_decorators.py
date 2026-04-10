@@ -1,25 +1,28 @@
 """
 @author: cunyue
-@file: test_decorators.py
+@file: test_run_decorators.py
 @time: 2026/3/14
 @description: 测试 swanlab.sdk.internal.run 中的装饰器
 """
 
+import threading
+
 import pytest
 
-from swanlab.sdk.internal.run import with_run
+from swanlab.sdk.internal.run import with_api
 
 
-class TestWithRun:
-    def test_executes_when_state_is_running(self):
-        """当 _state 为 'running' 时，方法应正常执行"""
+class TestWithApi:
+    def test_executes_when_alive(self):
+        """当 alive 为 True 时，方法应正常执行"""
 
         class MockRun:
             def __init__(self):
                 self._forked = False
                 self.alive = True
+                self._api_lock = threading.RLock()
 
-            @with_run(cmd="swanlab.my_method()")
+            @with_api(cmd="swanlab.my_method()")
             def my_method(self, x, y):
                 return x + y
 
@@ -27,15 +30,16 @@ class TestWithRun:
         result = run.my_method(1, 2)
         assert result == 3
 
-    def test_raises_when_state_is_not_running(self):
-        """当 _state 不为 'running' 时，应抛出 RuntimeError，且错误信息包含 cmd"""
+    def test_raises_when_not_alive(self):
+        """当 alive 为 False 时，应抛出 RuntimeError，且错误信息包含 cmd"""
 
         class MockRun:
             def __init__(self):
                 self._forked = False
                 self.alive = False
+                self._api_lock = threading.RLock()
 
-            @with_run(cmd="swanlab.my_method()")
+            @with_api(cmd="swanlab.my_method()")
             def my_method(self):
                 return "ok"
 
@@ -50,8 +54,9 @@ class TestWithRun:
             def __init__(self):
                 self._forked = False
                 self.alive = False
+                self._api_lock = threading.RLock()
 
-            @with_run(cmd="run.log()")
+            @with_api(cmd="run.log()")
             def log(self):
                 pass
 
@@ -65,9 +70,9 @@ class TestWithRun:
         class MockRun:
             def __init__(self):
                 self._forked = True
-                self.alive = False
+                self._api_lock = threading.RLock()
 
-            @with_run(cmd="swanlab.log()")
+            @with_api(cmd="swanlab.log()")
             def log(self):
                 pass
 
@@ -75,27 +80,79 @@ class TestWithRun:
         with pytest.raises(RuntimeError, match="does not support fork"):
             run.log()
 
-    def test_fork_error_takes_priority_over_not_running(self):
-        """fork 错误应优先于 not running 错误"""
+    def test_fork_error_takes_priority_over_not_alive(self):
+        """fork 错误应优先于 not alive 错误"""
 
         class MockRun:
             def __init__(self):
                 self._forked = True
-                self.alive = False
+                self._api_lock = threading.RLock()
 
-            @with_run(cmd="swanlab.log()")
+            @with_api(cmd="swanlab.log()")
             def log(self):
                 pass
 
         run = MockRun()
         with pytest.raises(RuntimeError, match="does not support fork"):
             run.log()
+
+    def test_forked_replaces_lock(self):
+        """fork 后应替换锁，避免继承父进程已持有的锁导致死锁"""
+        old_lock = threading.RLock()
+
+        class MockRun:
+            def __init__(self):
+                self._forked = True
+                self._api_lock = old_lock
+
+            @with_api(cmd="swanlab.log()")
+            def log(self):
+                pass
+
+        run = MockRun()
+        try:
+            run.log()
+        except RuntimeError:
+            pass
+        assert run._api_lock is not old_lock
+
+    def test_must_alive_false_allows_not_alive(self):
+        """must_alive=False 时，not alive 状态不抛异常"""
+
+        class MockRun:
+            def __init__(self):
+                self._forked = False
+                self.alive = False
+                self._api_lock = threading.RLock()
+
+            @with_api(cmd="run.finish()", must_alive=False)
+            def finish(self):
+                return "ok"
+
+        run = MockRun()
+        assert run.finish() == "ok"
+
+    def test_must_alive_false_still_raises_on_fork(self):
+        """must_alive=False 时，fork 仍然抛异常"""
+
+        class MockRun:
+            def __init__(self):
+                self._forked = True
+                self._api_lock = threading.RLock()
+
+            @with_api(cmd="run.finish()", must_alive=False)
+            def finish(self):
+                pass
+
+        run = MockRun()
+        with pytest.raises(RuntimeError, match="does not support fork"):
+            run.finish()
 
     def test_preserves_metadata(self):
         """装饰器应保留被装饰方法的 __name__ 和 __doc__"""
 
         class MockRun:
-            @with_run(cmd="swanlab.my_method()")
+            @with_api(cmd="swanlab.my_method()")
             def my_method(self):
                 """My docstring"""
 
