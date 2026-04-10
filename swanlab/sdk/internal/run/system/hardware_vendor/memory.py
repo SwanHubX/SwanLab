@@ -7,15 +7,15 @@
 
 import subprocess
 import sys
-from typing import TYPE_CHECKING, Optional
+from typing import Optional, Tuple
+
+import psutil
 
 from swanlab.sdk.internal.pkg import console
-from swanlab.sdk.typings.run.system import MemorySnapshot, SystemShim
+from swanlab.sdk.typings.run.system import MemorySnapshot, SystemScalar, SystemScalars, SystemShim
 from swanlab.sdk.typings.run.system.hardware_vendor import MemoryProtocol
 from swanlab.sdk.utils.helper import catch_and_return_none
-
-if TYPE_CHECKING:
-    from swanlab import Run
+from swanlab.utils import generate_color
 
 
 def _bytes_to_snapshot(total_bytes: int, MB: int = 1024**2, GB: int = 1024**3) -> Optional[MemorySnapshot]:
@@ -36,13 +36,33 @@ class Memory(MemoryProtocol):
     """
 
     @classmethod
-    def new(cls, run: "Run", shim: SystemShim) -> Optional["Memory"]:
+    def new(cls, shim: SystemShim) -> Optional[Tuple["Memory", SystemScalars]]:
+        if not shim.enable_memory:
+            return None
         if shim.slug == "macos-arm":
             return None
-        return cls(shim)
-
-    def collect(self):
-        raise NotImplementedError()
+        self = cls(shim)
+        scalars: SystemScalars = []
+        # 系统内存使用率
+        mem_pct = SystemScalar(
+            key="mem.pct",
+            name="System Memory Utilization (%)",
+            chart_name="System Memory",
+            color=generate_color(0),
+        )
+        scalars.append(mem_pct)
+        self._handlers.append(("mem.pct", lambda: psutil.virtual_memory().percent))
+        # 当前进程内存使用（RSS，非交换区）
+        current_process = psutil.Process()
+        mem_proc = SystemScalar(
+            key="mem.proc",
+            name="Process Memory In Use (non-swap) (MB)",
+            chart_name="Process Memory",
+            color=generate_color(0),
+        )
+        scalars.append(mem_proc)
+        self._handlers.append(("mem.proc", lambda: current_process.memory_info().rss / 1024 / 1024))
+        return self, scalars
 
     @staticmethod
     @catch_and_return_none(on_error=lambda e: console.debug("Failed to get memory info: {}", e))

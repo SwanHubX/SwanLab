@@ -146,7 +146,7 @@ class Run:
     def __init__(self, ctx: RunContext):
         # ---------------------------------- 1. 基础状态准备 ----------------------------------
         self._ctx = ctx
-        self._state: Union[FinishType, Literal["running", "finishing"]] = "running"
+        self._state: Union[FinishType, Literal["running"]] = "running"
         # 外部API锁，防止并发调用
         self._api_lock = threading.RLock()
         # 事件发射器：唯一的队列写入入口，可注入给内部系统组件
@@ -182,7 +182,7 @@ class Run:
             self._monitor = monitor if self._ctx.config.settings.monitor.enable is True else None
         if self._monitor is not None:
             # 启动硬件监控线程
-            self._monitor.start(self)
+            self._monitor.start(self._ctx, self._emitter)
 
         # 2.3 绑定 config 模块到运行上下文
         if self._ctx.config.settings.mode != "disabled":
@@ -215,9 +215,9 @@ class Run:
     def _sigint_handler(self, signum: int, frame: Any) -> None:
         """SIGINT handler：确保 Ctrl+C 能可靠地将实验标记为 aborted。
 
-        sys.excepthook 依赖 Python 层面抛出 KeyboardInterrupt，但当主线程
-        阻塞在 C 扩展（NumPy/PyTorch 等）时，KeyboardInterrupt 可能无法
-        正常传播到 excepthook。此 handler 作为额外防线，在信号层直接处理。
+        sys.excepthook 依赖 Python 层面抛出 KeyboardInterrupt，但当主线程阻塞在 C 扩展（NumPy/PyTorch 等）时，
+        KeyboardInterrupt 可能无法正常传播到 excepthook。
+        此 handler 作为额外防线，在信号层直接处理。
         """
         if self._state == "running":
             console.info("KeyboardInterrupt by user")
@@ -316,7 +316,7 @@ class Run:
         :return: True if the run is alive, False otherwise
         """
         # finishing 状态下，允许用户继续 log，因为此时依旧允许硬件监控线程收集数据
-        return self._state == "running" or self._state == "finishing"
+        return self._state == "running"
 
     # ----------------------------------
     # 上下文管理器，允许用户以 with 语句启动和结束运行
@@ -535,20 +535,13 @@ class Run:
         if state == "crashed" and error is None:
             console.warning("Crashed reason has been set to 'unknown' due to missing error message.")
             error = "unknown"
+
         # 2. 运行结束前，结束其他依赖于运行实例的线程
-        old_state = self._state
-        try:
-            self._state = "finishing"
-            # 停止硬件监控
-            if self._monitor is not None and self._monitor.is_running:
-                console.debug("Stopping hardware monitor...")
-                self._monitor.cancel()
-                self._monitor.join()
-            self._state = this_state
-        except Exception as e:
-            console.error(f"Error while finishing run: {e}")
-            self._state = old_state
-            raise e
+        # 停止硬件监控
+        if self._monitor is not None and self._monitor.is_running:
+            console.debug("Stopping hardware monitor...")
+            self._monitor.stop()
+
         # 3. 运行结束
         self._state = this_state
         # 3.1 停止Core线程

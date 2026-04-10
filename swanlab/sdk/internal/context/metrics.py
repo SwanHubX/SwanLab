@@ -38,6 +38,8 @@ class ScalarMetric:
     _x_axis: Union[str, Literal["_step", "_relative_time"]] = "_step"
     # 是否为系统指标
     _system: bool = False
+    # 指标步数
+    _step: int = -1
     # 指标最新值
     latest: Optional[Union[float, int]] = None
     # 指标的最大值
@@ -58,6 +60,10 @@ class ScalarMetric:
             self.min = value
         return True
 
+    def next(self):
+        self._step += 1
+        return self._step
+
 
 @dataclass(**DATACLASS_KWARGS)
 class MediaMetric:
@@ -65,6 +71,12 @@ class MediaMetric:
     _type: ColumnType
     # 媒体存储路径，绝对路径
     path: Path
+    # 媒体步数
+    _step: int = -1
+
+    def next(self):
+        self._step += 1
+        return self._step
 
 
 # 指标状态，实验运行过程中不断更新
@@ -73,6 +85,15 @@ class RunMetrics:
     _global_step: int = 0
     _lock: threading.Lock = field(default_factory=threading.Lock)
     _metrics: Dict[str, Union[ScalarMetric, MediaMetric]] = field(default_factory=dict)
+
+    def next_metric_step(self, key: str):
+        """
+        获取某一个指标的下一个步数
+        """
+        with self._lock:
+            metric = self._metrics.get(key)
+            assert metric is not None, f"Metric '{key}' does not exist."
+            return metric.next()
 
     def next_step(self, user_step: Optional[int] = None) -> int:
         """
