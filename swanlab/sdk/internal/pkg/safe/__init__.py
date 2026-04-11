@@ -5,6 +5,8 @@
 @description: 异常处理模块，确保所有异常都被捕获，提供两个API
 1. safe: 以装饰器的形式装饰一个函数，在函数内部捕获所有异常并返回None
 2. safe_block: 以 with 的形式使用这个装饰器，在 with 语句块中捕获异常
+
+在设计上这两个API是对console.trace的封装，console.trace会追踪当前调用栈，在终端打印简短信息，在日志文件中打印详细信息，并将详细信息写入日志文件
 """
 
 import sys
