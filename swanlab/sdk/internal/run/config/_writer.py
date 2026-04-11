@@ -10,9 +10,9 @@ from pathlib import Path
 
 import yaml
 
-__all__ = ["write_config"]
-
 from swanlab.sdk.internal.pkg import fs
+
+__all__ = ["write_config"]
 
 
 def write_config(path: Path, config: dict, sort_map: dict) -> None:
