@@ -129,6 +129,7 @@ class Timer:
     def _execute_once(self) -> None:
         with safe_block(message="Error executing task"):
             self._task()
+        # safe block 确保任务无论是否异常，都计数
         self._count += 1
 
     def _resolve_interval(self) -> float:

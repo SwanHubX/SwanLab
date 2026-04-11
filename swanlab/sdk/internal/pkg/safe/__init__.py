@@ -34,6 +34,7 @@ def safe(
     level: Literal["debug", "error"] = "error",
     message: Optional[str],
     write: bool = True,
+    on_error: Optional[Callable[[BaseException], None]] = None,
 ):
     """
     捕获指定异常并返回 None
@@ -42,8 +43,9 @@ def safe(
     Args:
         *exceptions: 要捕获的异常类型，默认捕获所有 Exception
         level: 错误日志的级别，默认为error，可选debug，遵循console本身的level等级机制，如果为debug且不在debug模式，message和write都无效
-        message: 错误信息，如果为None，则不打印错误信息
+        message: 错误信息，必传，如果传入None，则不打印错误信息
         write: 是否将错误信息写入日志，默认为 True，如果message为None，无论write是否为True，都不写入日志
+        on_error: 异常发生时执行的回调函数，默认为 None
     """
     catch_types = exceptions if exceptions else (Exception,)
 
@@ -54,9 +56,11 @@ def safe(
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> Optional[R]:
             try:
                 return func(*args, **kwargs)
-            except catch_types:
+            except catch_types as e:
                 if message is not None:
                     console.trace(message, write_to_file=write, level_name=level)
+                if on_error is not None:
+                    on_error(e)
 
         return wrapper
 
@@ -70,14 +74,14 @@ def safe_block(
     message: Optional[str],
     write: bool = True,
     on_error: Optional[Callable[[BaseException], None]] = None,
-) -> Generator:
+) -> Generator[None, None, None]:
     """
     以 with 语句的形式捕获指定异常，异常发生时打印 trace 日志后静默退出块。
 
     Args:
         *exceptions: 要捕获的异常类型，默认捕获所有 Exception
         level: 错误日志的级别，默认为error，可选debug，遵循console本身的level等级机制，如果为debug且不在debug模式，message和write都无效
-        message: 错误信息，如果为None，则不打印错误信息
+        message: 错误信息，必传，如果传入None，则不打印错误信息
         write: 是否将错误信息写入日志，默认为 True
         on_error: 异常发生时执行的回调函数，默认为 None
 
