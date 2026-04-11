@@ -7,7 +7,7 @@
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 
 class Callback(ABC):
@@ -33,15 +33,6 @@ class Callback(ABC):
         - Experiment configuration (RunConfig)
         - Hardware/Host information
         - Environment information
-        """
-        pass
-
-    def on_log(self, data: Dict[str, Any], step: Optional[int], *args, **kwargs) -> None:
-        """
-        Called every time `swanlab.log` is executed to record metrics or media.
-
-        :param data: The payload dictionary containing the logged key-value pairs.
-        :param step: The global step at which the data was logged. Can be None if not explicitly tracked.
         """
         pass
 
