@@ -236,7 +236,6 @@ def init(
     config_data = load_config(run_settings, config)
     if config_data:
         run.config.update(config_data)
-    # TODO 触发init事件
     return run
 
 
