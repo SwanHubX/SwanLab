@@ -460,7 +460,7 @@ class Run:
             step=step,
             mode=mode,
             on_success=lambda result, s: self._log_impl(result, step=s),
-            on_error=lambda: console.trace("async_log error"),
+            on_error=lambda: console.trace("swanlab.async_log run error"),
         )
 
     @with_api("run.log_scalar()")
