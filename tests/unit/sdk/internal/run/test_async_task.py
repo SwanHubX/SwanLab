@@ -6,6 +6,7 @@
 """
 
 import asyncio
+import sys
 import time
 
 import pytest
@@ -56,6 +57,7 @@ class TestLazyInit:
         assert mgr._spawn_pool is not None
         assert mgr._thread_pool is None
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="fork is not available on Windows")
     def test_fork_pool_created_on_fork(self, mgr):
         mgr.submit(_ret42, mode="fork")
         assert mgr._fork_pool is not None
@@ -94,6 +96,7 @@ class TestSubmit:
         assert f.result() == 6
         assert results == [6]
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="fork is not available on Windows")
     def test_fork_success(self, mgr):
         # func 必须是模块级顶层函数（可 pickle）
         results = []
