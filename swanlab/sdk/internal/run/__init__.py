@@ -339,6 +339,7 @@ class Run:
     # 公开 API：只负责验证输入并发事件
     # ----------------------------------
     @with_api("run.log()")
+    @with_api("run.log()")
     def log(self, data: Mapping[str, Any], step: Optional[int] = None):
         """Log a dictionary of metrics for the current step.
 
@@ -346,6 +347,10 @@ class Run:
 
         :param step: Optional step index. If None, the step is auto-incremented.
         """
+        self._log_impl(data, step)
+
+    def _log_impl(self, data: Mapping[str, Any], step: Optional[int] = None):
+        """log 的无锁内部实现，供 async_log 回调调用以避免与 finish() 的 _api_lock 死锁。"""
         if not (this_data := fmt.safe_validate_log_data(data)):
             console.error(f"Log data must be a dict, but got {type(data).__name__}. SwanLab will ignore this log.")
             return
@@ -446,13 +451,18 @@ class Run:
             ...     return {"value": t.item(), "arr": t.detach().cpu().numpy()}
             >>> future = run.async_log(compute, step=3, mode="spawn")
         """
+        if mode == "fork":
+            raise NotImplementedError(
+                "fork mode is not yet supported, please looking forward to the `swanlab-core` release"
+            )
+
         return self._async_task_manager.submit(
             func,
             args=args,
             kwargs=kwargs,
             step=step,
             mode=mode,
-            on_success=lambda result, s: self.log(result, step=s),
+            on_success=lambda result, s: self._log_impl(result, step=s),
             on_error=lambda tb: console.error(tb),
         )
 
