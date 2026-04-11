@@ -17,7 +17,7 @@ class Callback(ABC):
     at various stages of an experiment.
     """
 
-    def on_run_init(self, run_dir: Path, path: str) -> None:
+    def on_run_initialized(self, run_dir: Path, path: str) -> None:
         """
         Called immediately after `swanlab.init` has successfully executed.
 
@@ -61,7 +61,7 @@ class Callback(ABC):
         """
         pass
 
-    def on_run_end(self, state: str, error: Optional[str] = None) -> None:
+    def on_run_finished(self, state: str, error: Optional[str] = None) -> None:
         """
         Called when the training or the SwanLab run finishes, either successfully or due to an error.
 
