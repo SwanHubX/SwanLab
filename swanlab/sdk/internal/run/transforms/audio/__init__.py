@@ -17,7 +17,7 @@ from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import DataRecord
 from swanlab.proto.swanlab.metric.data.v1.media.audio_pb2 import AudioItem, AudioValue
 from swanlab.sdk.internal.context import TransformMedia
-from swanlab.sdk.internal.pkg.fs import safe_write
+from swanlab.sdk.internal.pkg import fs
 from swanlab.sdk.typings.run.transforms import CaptionType
 from swanlab.sdk.typings.run.transforms.audio import AudioDataType, AudioRateType
 
@@ -86,5 +86,5 @@ class Audio(TransformMedia):
         content = self.buffer.getvalue()
         sha256 = hashlib.sha256(content).hexdigest()
         filename = f"{step:03d}-{sha256[:8]}.wav"
-        safe_write(path / filename, content, mode="wb")
+        fs.safe_write(path / filename, content, mode="wb")
         return AudioItem(filename=filename, sha256=sha256, size=len(content), caption=self.caption or "")

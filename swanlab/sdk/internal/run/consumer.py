@@ -24,8 +24,7 @@ from swanlab.sdk.internal.bus.events import (
     ScalarDefineEvent,
 )
 from swanlab.sdk.internal.context import RunContext
-from swanlab.sdk.internal.pkg import console
-from swanlab.sdk.internal.pkg.safe import safe_block
+from swanlab.sdk.internal.pkg import console, safe
 from swanlab.sdk.typings.core import CoreProtocol
 
 from .record_builder import RecordBuilder
@@ -68,7 +67,7 @@ class BackgroundConsumer:
         _emitted_columns: Set[str] = set()
 
         while True:
-            with safe_block(message="SwanLab background logger thread error"):
+            with safe.block(message="SwanLab background logger thread error"):
                 try:
                     # 带超时的阻塞获取，平衡吞吐量和延迟
                     event = self._queue.get(timeout=self._flush_timeout)
@@ -83,7 +82,7 @@ class BackgroundConsumer:
                     # 2. 记录数据（可能触发隐式创建 Implicit Define）
                     elif isinstance(event, MetricLogEvent):
                         for key, value in event.data.items():
-                            with safe_block(message=f"Error when parsing metric '{key}'"):
+                            with safe.block(message=f"Error when parsing metric '{key}'"):
                                 record, cls = self._builder.build_log(value, key, event.timestamp, event.step)
                                 if key not in _emitted_columns:
                                     batch.append(self._builder.build_column_from_log(cls, key))
@@ -128,6 +127,6 @@ class BackgroundConsumer:
         """处理一批 Record：持久化、回调、上传等"""
         if not records:
             return
-        with safe_block(message="SwanLab failed to handle records"):
+        with safe.block(message="SwanLab failed to handle records"):
             self._core.handle_records(records)
             # TODO: 分类数据，根据语义依次触发回调

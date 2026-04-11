@@ -16,7 +16,7 @@ from typing import Callable, Generator, Literal, Optional, Type, TypeVar
 
 from swanlab.sdk.internal.pkg import console
 
-__all__ = ["safe", "safe_block"]
+__all__ = ["decorator", "block"]
 
 # Python 3.10+ 直接用: from typing import ParamSpec
 if sys.version_info >= (3, 10):
@@ -29,7 +29,7 @@ P = ParamSpec("P")
 R = TypeVar("R")
 
 
-def safe(
+def decorator(
     *exceptions: Type[BaseException],
     level: Literal["debug", "error"] = "error",
     message: Optional[str],
@@ -68,7 +68,7 @@ def safe(
 
 
 @contextmanager
-def safe_block(
+def block(
     *exceptions: Type[BaseException],
     level: Literal["debug", "error"] = "error",
     message: Optional[str],

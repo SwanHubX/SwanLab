@@ -10,7 +10,7 @@ from .cmd.login import login
 from .cmd.merge_settings import Settings, merge_settings
 from .cmd.run import async_log, define_scalar, finish, log, log_audio, log_image, log_text, log_video
 from .internal.pkg.helper import get_swanlab_version
-from .internal.pkg.safe import safe, safe_block
+from .internal.pkg.safe import block, decorator
 from .internal.protocol import Callback
 from .internal.run import Run, clear_run, get_run, has_run, set_run
 from .internal.run.config import config
@@ -41,6 +41,6 @@ __all__ = [
     "set_run",
     "clear_run",
     "config",
-    "safe_block",
-    "safe",
+    "block",
+    "decorator",
 ]

@@ -33,8 +33,7 @@ from swanlab.sdk.internal.bus.events import (
     ScalarDefineEvent,
 )
 from swanlab.sdk.internal.context import RunContext
-from swanlab.sdk.internal.pkg import console, log
-from swanlab.sdk.internal.pkg.safe import safe_block
+from swanlab.sdk.internal.pkg import console, safe
 from swanlab.sdk.internal.run import system
 from swanlab.sdk.internal.run.async_task import AsyncTaskManager
 from swanlab.sdk.internal.run.config import (
@@ -55,6 +54,7 @@ from swanlab.sdk.typings.run.transforms.image import ImageDatasType, ImageFilesT
 from swanlab.sdk.typings.run.transforms.text import TextDatasType
 from swanlab.sdk.typings.run.transforms.video import VideoDatasType
 
+from ..pkg.console import log
 from . import utils_fmt as fmt
 from .consumer import BackgroundConsumer
 from .record_builder import RecordBuilder
@@ -251,7 +251,7 @@ class Run:
         tb: Optional[TracebackType],
     ) -> None:
         """全局异常捕获，将实验标记为 crashed 或 aborted"""
-        with safe_block(message="SwanLab failed to handle excepthook"):
+        with safe.block(message="SwanLab failed to handle excepthook"):
             if self.alive:
                 state: FinishType = "crashed"
                 if tp is KeyboardInterrupt:

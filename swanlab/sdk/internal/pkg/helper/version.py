@@ -11,7 +11,7 @@ from typing import Optional
 
 import requests
 
-from swanlab.sdk.internal.pkg.safe import safe
+from swanlab.sdk.internal.pkg import safe
 
 package_path = Path(__file__).resolve().parents[4] / "package.json"
 
@@ -25,7 +25,7 @@ def get_swanlab_version() -> str:
         return json.load(f)["version"]
 
 
-@safe(level="debug", message="Failed to fetch swanlab latest version")
+@safe.decorator(level="debug", message="Failed to fetch swanlab latest version")
 def get_swanlab_latest_version(timeout=1, url="https://pypi.org/pypi/swanlab/json") -> Optional[str]:
     """
     获取swanlab的最新版本号

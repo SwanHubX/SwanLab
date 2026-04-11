@@ -14,7 +14,7 @@ from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import DataRecord
 from swanlab.proto.swanlab.metric.data.v1.scalar.scalar_pb2 import ScalarValue
 from swanlab.sdk.internal.context import TransformData
-from swanlab.sdk.internal.pkg.safe import safe
+from swanlab.sdk.internal.pkg import safe
 
 
 class Scalar(TransformData):
@@ -78,7 +78,7 @@ class Scalar(TransformData):
         raise TypeError(f"Unsupported scalar type: {type(data).__name__}.")
 
 
-@safe(message=None)
+@safe.decorator(message=None)
 def _transform_tensor_or_array(data: Any) -> Union[float, int, str, bool]:
     if hasattr(data, "item") and callable(data.item):
         return data.item()  # type: ignore

@@ -9,8 +9,8 @@ from typing import Optional, cast
 
 from swanlab.exceptions import ApiError
 from swanlab.sdk.internal.core_python import client
-from swanlab.sdk.internal.core_python.client.helper import decode_response
-from swanlab.sdk.internal.pkg.helper import strip_none
+from swanlab.sdk.internal.core_python.client.utils import decode_response
+from swanlab.sdk.internal.pkg import helper
 from swanlab.sdk.typings.core_python.api.project import InitProjectType, ProjectType
 
 
@@ -34,7 +34,7 @@ def get_or_create_project(*, username: Optional[str], name: str, public: bool) -
     """
     try:
         data = {"name": name, "visibility": "PUBLIC" if public else "PRIVATE", "username": username}
-        return client.post("/project", data=strip_none(data)).data
+        return client.post("/project", data=helper.strip_none(data)).data
     except ApiError as e:
         if e.response.status_code == 409:
             # 项目已经存在，从对象中解析信息

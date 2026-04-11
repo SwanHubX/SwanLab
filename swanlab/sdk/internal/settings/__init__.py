@@ -34,6 +34,7 @@ from pydantic_settings import (
     YamlConfigSettingsSource,
 )
 
+from swanlab.sdk.internal.pkg import helper
 from swanlab.sdk.typings.run import ModeType
 
 from ..pkg import console
@@ -43,7 +44,6 @@ from .metadata import ConsoleSettings, EnvironmentSettings, MonitorSettings
 
 __all__ = ["Settings", "settings"]
 
-from swanlab.sdk.internal.pkg.helper import strip_none
 
 # 根据环境变量自动设置 secrets_dir
 # 如果强制设置，会出现警告：https://github.com/pydantic/pydantic/issues/2175
@@ -183,7 +183,7 @@ class Settings(BaseSettings):
         如果出现部分字段需要识别None值，则在此校验之前定义model_validator
         """
         if isinstance(data, dict):
-            data = strip_none(data)
+            data = helper.strip_none(data)
         return data
 
     @model_validator(mode="before")

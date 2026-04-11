@@ -10,7 +10,7 @@ import stat
 
 import pytest
 
-import swanlab.sdk.internal.pkg.log as log_mod
+import swanlab.sdk.internal.pkg.console.log as log_mod
 
 
 def test_log_lifecycle_and_output(tmp_path):

@@ -14,9 +14,7 @@ from swanlab.sdk.cmd.guard import with_cmd_lock, without_run
 from swanlab.sdk.internal import apikey
 from swanlab.sdk.internal.context import RunConfig, RunContext, use_context
 from swanlab.sdk.internal.core_python import client
-from swanlab.sdk.internal.pkg import console
-from swanlab.sdk.internal.pkg.helper.rich import with_loading_animation
-from swanlab.sdk.internal.pkg.scope import Scope
+from swanlab.sdk.internal.pkg import console, helper, scope
 from swanlab.sdk.internal.settings import Settings, settings
 from swanlab.sdk.typings.core_python.api.bootstrap import LoginResponse
 
@@ -125,10 +123,10 @@ def raw_login(
             api_key = apikey.prompt(ctx=ctx)
         # 3. 进入登录流程
         ctx.config.settings.merge_settings({"api_key": api_key})
-        with Scope() as scope:
+        with scope.Scope() as s:
             create_client(ctx, timeout=timeout)
             assert client.exists(), "Failed to create client"
-            login_resp: Optional[LoginResponse] = scope.get("login_resp", None)
+            login_resp: Optional[LoginResponse] = s.get("login_resp", None)
             if login_resp is None:
                 raise AuthenticationError("Failed to login, please check your API Key or network connection.")
             if save:
@@ -173,7 +171,7 @@ def interactive_login(
             return False
 
 
-@with_loading_animation()
+@helper.with_loading_animation()
 def create_client(ctx: RunContext, timeout: int = 10):
     assert ctx.config.settings.api_key is not None, "API Key not provided"
     return client.new(ctx.config.settings.api_key, ctx.config.settings.api_host, timeout=timeout)

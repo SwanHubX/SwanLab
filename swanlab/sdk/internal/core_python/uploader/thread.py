@@ -10,7 +10,7 @@ from typing import Callable, List, Optional
 
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.core_python.uploader.collector import Collector
-from swanlab.sdk.internal.pkg.timer import Timer
+from swanlab.sdk.internal.pkg import timer
 
 
 class Uploader:
@@ -33,7 +33,7 @@ class Uploader:
             upload_interval=resolved_upload_interval,
             upload_callback=upload_callback,
         )
-        self._timer = Timer(
+        self._timer = timer.Timer(
             lambda: self._collector.submit(self._drain_records()),
             interval=resolved_upload_interval,
             immediate=True,

@@ -15,7 +15,8 @@ from typing import Any, Literal, Optional
 from rich.console import Console
 from rich.text import Text
 
-from swanlab.sdk.internal.pkg import helper, log
+from swanlab.sdk.internal.pkg import helper
+from swanlab.sdk.internal.pkg.console import log
 
 __all__ = ["debug", "info", "warning", "error", "trace"]
 

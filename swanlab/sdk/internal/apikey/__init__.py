@@ -13,9 +13,7 @@ from typing import Optional
 from rich.text import Text
 
 from swanlab.sdk.internal.context import RunContext
-from swanlab.sdk.internal.pkg import console
-from swanlab.sdk.internal.pkg.helper.env import is_interactive
-from swanlab.sdk.internal.pkg.netrc import get_nrc_path, remove_host_suffix, write_netrc
+from swanlab.sdk.internal.pkg import console, helper, netrc
 from swanlab.sdk.internal.settings import Settings, settings
 
 __all__ = ["get", "save", "exists"]
@@ -28,12 +26,12 @@ def save(username: str, api_key: str, host: Optional[str] = None, ctx: Optional[
     current_settings = get_current_settings(ctx=ctx)
 
     if host is None:
-        host = remove_host_suffix(current_settings.api_host, "/api")
+        host = netrc.remove_host_suffix(current_settings.api_host, "/api")
 
-    nrc_path = get_nrc_path(current_settings.root)
+    nrc_path = netrc.get_nrc_path(current_settings.root)
 
     # 调用底层工具写入凭证
-    write_netrc(nrc_path=nrc_path, host=host, username=username, password=api_key)
+    netrc.write_netrc(nrc_path=nrc_path, host=host, username=username, password=api_key)
 
     # 同步更新运行时 Settings
     current_settings.merge_settings({"api_key": api_key})
@@ -53,7 +51,7 @@ def exists_locally(ctx: Optional[RunContext] = None) -> bool:
     :return: True表示存在，False表示不存在
     """
     current_settings = get_current_settings(ctx=ctx)
-    nrc_path = Path(get_nrc_path(current_settings.root))
+    nrc_path = Path(netrc.get_nrc_path(current_settings.root))
     return nrc_path.exists()
 
 
@@ -89,7 +87,7 @@ def prompt(
             "API Key not provided and interactive mode is disabled",
             "use `swanlab.login(interactive=True)` or SWANLAB_INTERACTIVE=1 to enable interactive mode.",
         )
-    if not is_interactive():
+    if not helper.is_interactive():
         raise RuntimeError("Cannot prompt for API Key in no-tty environment")
     web_host = current_settings.web_host
     # 1. 打印获取 API Key 的指引（非重试模式下）

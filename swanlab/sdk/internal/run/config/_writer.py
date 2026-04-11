@@ -10,9 +10,9 @@ from pathlib import Path
 
 import yaml
 
-from swanlab.sdk.internal.pkg.fs import safe_write
-
 __all__ = ["write_config"]
+
+from swanlab.sdk.internal.pkg import fs
 
 
 def write_config(path: Path, config: dict, sort_map: dict) -> None:
@@ -27,4 +27,4 @@ def write_config(path: Path, config: dict, sort_map: dict) -> None:
     """
     formatted = {key: {"value": value, "desc": "", "sort": sort_map.get(key, 0)} for key, value in config.items()}
     content = yaml.safe_dump(formatted, allow_unicode=True, default_flow_style=False)
-    safe_write(path, content)
+    fs.safe_write(path, content)

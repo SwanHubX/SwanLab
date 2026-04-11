@@ -14,17 +14,7 @@ from typing import Annotated, Any, List, Literal, Optional, cast
 from pydantic import BaseModel, Field, field_validator
 from pydantic_settings import NoDecode
 
-from swanlab.sdk.internal.pkg.constraints import (
-    Description,
-    ExperimentName,
-    Group,
-    HexColor,
-    JobType,
-    ProjectName,
-    RunId,
-    TagString,
-    Workspace,
-)
+from swanlab.sdk.internal.pkg import constraints as const
 from swanlab.sdk.typings.run import ResumeType
 
 
@@ -44,7 +34,7 @@ def project_public_factory() -> bool:
 
 
 class ProjectSettings(BaseModel):
-    name: Optional[ProjectName] = Field(
+    name: Optional[const.ProjectName] = Field(
         default_factory=project_name_factory,
         validate_default=True,
     )
@@ -52,7 +42,7 @@ class ProjectSettings(BaseModel):
     Project name for this SwanLab run.
     """
 
-    workspace: Optional[Workspace] = Field(
+    workspace: Optional[const.Workspace] = Field(
         default_factory=workspace_factory,
         validate_default=True,
     )
@@ -101,7 +91,7 @@ Tags = Field(default_factory=experiment_tags_factory, max_length=50, validate_de
 
 
 class ExperimentSettings(BaseModel):
-    name: Optional[ExperimentName] = Field(
+    name: Optional[const.ExperimentName] = Field(
         default_factory=experiment_name_factory,
         validate_default=True,
     )
@@ -109,7 +99,7 @@ class ExperimentSettings(BaseModel):
     Experiment name for this SwanLab run.
     """
 
-    color: Optional[HexColor] = Field(
+    color: Optional[const.HexColor] = Field(
         default_factory=experiment_color_factory,
         validate_default=True,
     )
@@ -117,7 +107,7 @@ class ExperimentSettings(BaseModel):
     Color for this SwanLab run.
     """
 
-    description: Optional[Description] = Field(
+    description: Optional[const.Description] = Field(
         default_factory=experiment_description_factory,
         validate_default=True,
     )
@@ -125,7 +115,7 @@ class ExperimentSettings(BaseModel):
     Description for this SwanLab run.
     """
 
-    tags: Annotated[List[TagString], NoDecode] = Tags
+    tags: Annotated[List[const.TagString], NoDecode] = Tags
     """
     Tags for this SwanLab run.
     """
@@ -153,12 +143,12 @@ class ExperimentSettings(BaseModel):
             return [item.strip() for item in v.split(",") if item.strip()]
         raise ValueError(f"tags must be a list, dict, or string, but got {type(v).__name__}")
 
-    group: Optional[Group] = Field(default_factory=experiment_group_factory, validate_default=True)
+    group: Optional[const.Group] = Field(default_factory=experiment_group_factory, validate_default=True)
     """
     Group for this SwanLab run.
     """
 
-    job_type: Optional[JobType] = Field(default_factory=experiment_job_type_factory, validate_default=True)
+    job_type: Optional[const.JobType] = Field(default_factory=experiment_job_type_factory, validate_default=True)
     """
     Job type for this SwanLab run.
     """
@@ -207,7 +197,7 @@ def map_resume_value(value: Any) -> ResumeType:
 
 
 class RunSettings(BaseModel):
-    id: Optional[RunId] = Field(default_factory=run_id_factory)
+    id: Optional[const.RunId] = Field(default_factory=run_id_factory)
     """
     Run ID for this SwanLab run.
     """

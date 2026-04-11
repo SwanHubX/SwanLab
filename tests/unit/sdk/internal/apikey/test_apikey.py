@@ -30,8 +30,8 @@ def mock_env(mocker, tmp_path, monkeypatch):
     nrc_file = tmp_path / ".netrc"
 
     # 注意：在模块被引入后，函数在 apikey 命名空间中，拦截 apikey 里的引用
-    mocker.patch("swanlab.sdk.internal.apikey.get_nrc_path", return_value=nrc_file)
-    mocker.patch("swanlab.sdk.internal.apikey.remove_host_suffix", return_value="api.swanlab.cn")
+    mocker.patch("swanlab.sdk.internal.pkg.netrc.get_nrc_path", return_value=nrc_file)
+    mocker.patch("swanlab.sdk.internal.pkg.netrc.remove_host_suffix", return_value="api.swanlab.cn")
 
     return mock_settings, nrc_file
 

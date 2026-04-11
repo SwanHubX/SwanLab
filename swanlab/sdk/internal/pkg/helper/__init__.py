@@ -10,7 +10,6 @@ from .rich import with_loading_animation
 from .version import get_swanlab_latest_version, get_swanlab_version
 
 __all__ = [
-    "rich",
     "DEBUG",
     "is_jupyter",
     "is_interactive",
