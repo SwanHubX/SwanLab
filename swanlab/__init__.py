@@ -1,6 +1,7 @@
 from swanlab.sdk import (
     Run,
     Settings,
+    async_log,
     config,
     define_scalar,
     finish,
@@ -35,6 +36,7 @@ __all__ = [
     "log_audio",
     "log_video",
     "define_scalar",
+    "async_log",
     # run
     "run",  # type: ignore [no-redef]
     "Run",

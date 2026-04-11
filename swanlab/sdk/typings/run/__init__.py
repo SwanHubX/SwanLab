@@ -21,3 +21,9 @@ FinishType = Literal["success", "crashed", "aborted"]
 """
 Run 结束策略
 """
+
+
+AsyncLogType = Literal["asyncio", "threading", "spawn", "fork"]
+"""
+异步日志上报类型
+"""
