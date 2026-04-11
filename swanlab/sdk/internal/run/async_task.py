@@ -23,10 +23,12 @@
 import asyncio
 import multiprocessing
 import threading
+import time
 import traceback
 from concurrent.futures import Future, ProcessPoolExecutor, ThreadPoolExecutor
 from typing import Any, Callable, Optional
 
+from swanlab.sdk.internal.pkg import console
 from swanlab.sdk.typings.run import AsyncLogType
 
 
@@ -129,29 +131,40 @@ class AsyncTaskManager:
         """等待所有已提交任务完成并关闭资源。finish 时调用。
 
         等价于 wait_all + 释放线程池/进程池。调用后不可再 submit。
+        timeout 为总等待时间，而非单任务等待时间。
         """
         # 1. 快照当前 handles，避免遍历时被回调修改列表
         with self._handles_lock:
             handles = list(self._handles)
 
         # 2. 等待所有任务执行完毕且回调已触发
+        deadline = None if timeout is None else time.monotonic() + timeout
         for h in handles:
+            remaining = None if deadline is None else max(0.0, deadline - time.monotonic())
+            if remaining is not None and remaining <= 0:
+                pending = sum(1 for h2 in handles if not h2.callback_done.is_set())
+                if pending > 0:
+                    console.warning(f"async_log: timeout reached, {pending} task(s) still pending")
+                break
             # noinspection PyBroadException
             try:
-                h.future.result(timeout=timeout)
+                h.future.result(timeout=remaining)
             except Exception:
                 # 任务异常已通过 on_error 回调处理，此处仅确保等待不中断
                 pass
+            remaining = None if deadline is None else max(0.0, deadline - time.monotonic())
+            if remaining is not None and remaining <= 0:
+                break
             # 等待回调完成（on_success/on_error 执行完毕）
-            h.callback_done.wait(timeout=timeout)
+            h.callback_done.wait(timeout=remaining)
 
-        # 3. 释放池资源
+        # 3. 释放池资源，虽然我们已经等待所有任务完成，但是更安全的做法是等待池中所有工作线程空闲后再释放
         if self._thread_pool is not None:
-            self._thread_pool.shutdown(wait=False)
+            self._thread_pool.shutdown(wait=True)
         if self._spawn_pool is not None:
-            self._spawn_pool.shutdown(wait=False)
+            self._spawn_pool.shutdown(wait=True)
         if self._fork_pool is not None:
-            self._fork_pool.shutdown(wait=False)
+            self._fork_pool.shutdown(wait=True)
 
     # ----------------------------------
     # asyncio 桥接
