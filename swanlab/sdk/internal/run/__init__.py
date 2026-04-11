@@ -34,6 +34,7 @@ from swanlab.sdk.internal.bus.events import (
 )
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.pkg import console, log
+from swanlab.sdk.internal.pkg.safe import safe_block
 from swanlab.sdk.internal.run import system
 from swanlab.sdk.internal.run.async_task import AsyncTaskManager
 from swanlab.sdk.internal.run.config import (
@@ -250,21 +251,17 @@ class Run:
         tb: Optional[TracebackType],
     ) -> None:
         """全局异常捕获，将实验标记为 crashed 或 aborted"""
-        try:
-            if not self.alive:
-                return
-            state: FinishType = "crashed"
-            if tp is KeyboardInterrupt:
-                console.info("KeyboardInterrupt by user, aborting run...")
-                state = "aborted"
-            else:
-                console.info("Error happened while training")
-            full_error_msg = "".join(traceback.format_exception(tp, val, tb))
-            self.finish(state=state, error=full_error_msg)
-        except Exception as e:
-            console.error(f"SwanLab failed to handle excepthook: {e}")
-        finally:
-            self._sys_origin_excepthook(tp, val, tb)
+        with safe_block(message="SwanLab failed to handle excepthook"):
+            if self.alive:
+                state: FinishType = "crashed"
+                if tp is KeyboardInterrupt:
+                    console.info("KeyboardInterrupt by user, aborting run...")
+                    state = "aborted"
+                else:
+                    console.info("Error happened while training")
+                full_error_msg = "".join(traceback.format_exception(tp, val, tb))
+                self.finish(state=state, error=full_error_msg)
+        self._sys_origin_excepthook(tp, val, tb)
 
     # ----------------------------------
     # 公开辅助属性
@@ -463,7 +460,7 @@ class Run:
             step=step,
             mode=mode,
             on_success=lambda result, s: self._log_impl(result, step=s),
-            on_error=lambda tb: console.error(tb),
+            on_error=lambda: console.trace("async_log error"),
         )
 
     @with_api("run.log_scalar()")

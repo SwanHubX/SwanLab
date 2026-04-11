@@ -12,7 +12,6 @@ from swanlab.exceptions import ApiError
 from swanlab.sdk.internal.core_python.client.session import (
     TimeoutHTTPAdapter,
     create,
-    format_body_preview,
     request_retries_ctx,
 )
 
@@ -104,29 +103,3 @@ def test_request_retries_context_cleanup(session):
 
     # 无论中间发生了什么（包括抛出异常），finally 块必须确保清理了上下文
     assert request_retries_ctx.get() is None
-
-
-# ==============================================================================
-# Helper Function: format_body_preview 测试
-# ==============================================================================
-
-
-def test_format_body_preview():
-    """测试格式化截断函数的各项能力"""
-    # 1. 空值处理
-    assert format_body_preview(None) == ""
-    assert format_body_preview(b"") == ""
-    assert format_body_preview("") == ""
-
-    # 2. 基础字符串及未越界截断
-    assert format_body_preview("hello world", max_len=20) == "hello world"
-    assert format_body_preview("hello world", max_len=5) == "hello ... (truncated)"
-
-    # 3. 正常 utf-8 bytes 解码
-    assert format_body_preview(b'{"key":"value"}') == '{"key":"value"}'
-
-    # 4. 无法正常解码的乱码 bytes（预期会被 errors="replace" 替换为占位符，不会抛错）
-    bad_bytes = b"\xff\xfe\xfd"
-    result = format_body_preview(bad_bytes)
-    assert result is not None
-    assert "\ufffd" in result  # \ufffd 就是那个长得像问号的替换字符

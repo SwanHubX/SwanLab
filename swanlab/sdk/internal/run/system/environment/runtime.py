@@ -11,9 +11,8 @@ import socket
 import sys
 from typing import Optional
 
-from swanlab.sdk.internal.pkg import console
+from swanlab.sdk.internal.pkg.safe import safe
 from swanlab.sdk.typings.run.system import RuntimeSnapshot
-from swanlab.sdk.utils.helper import catch_and_return_none
 
 
 def get() -> RuntimeSnapshot:
@@ -31,49 +30,49 @@ def get() -> RuntimeSnapshot:
     )
 
 
-@catch_and_return_none(on_error=lambda e: console.debug(f"Failed to get runtime os: {e}"))
+@safe(level="debug", message="Failed to get runtime os")
 def get_os() -> str:
     """获取操作系统平台"""
     return platform.platform()
 
 
-@catch_and_return_none(on_error=lambda e: console.debug(f"Failed to get runtime os pretty name: {e}"))
+@safe(level="debug", message="Failed to get runtime os pretty name")
 def get_os_pretty() -> Optional[str]:
     """获取操作系统友好名称"""
     return platform.freedesktop_os_release().get("PRETTY_NAME")
 
 
-@catch_and_return_none(on_error=lambda e: console.debug(f"Failed to get runtime hostname: {e}"))
+@safe(level="debug", message="Failed to get runtime hostname")
 def get_hostname() -> str:
     """获取主机名"""
     return socket.gethostname()
 
 
-@catch_and_return_none(on_error=lambda e: console.debug(f"Failed to get runtime pid: {e}"))
+@safe(level="debug", message="Failed to get runtime pid")
 def get_pid() -> int:
     """获取进程 ID"""
     return os.getpid()
 
 
-@catch_and_return_none(on_error=lambda e: console.debug(f"Failed to get runtime cwd: {e}"))
+@safe(level="debug", message="Failed to get runtime cwd")
 def get_cwd() -> str:
     """获取当前工作目录"""
     return os.getcwd()
 
 
-@catch_and_return_none(on_error=lambda e: console.debug(f"Failed to get runtime python version: {e}"))
+@safe(level="debug", message="Failed to get runtime python version")
 def get_python_version() -> str:
     """获取 Python 版本"""
     return platform.python_version()
 
 
-@catch_and_return_none(on_error=lambda e: console.debug(f"Failed to get runtime python verbose version: {e}"))
+@safe(level="debug", message="Failed to get runtime python verbose")
 def get_python_verbose() -> str:
     """获取 Python 详细版本信息"""
     return sys.version
 
 
-@catch_and_return_none(on_error=lambda e: console.debug(f"Failed to get runtime python executable: {e}"))
+@safe(level="debug", message="Failed to get runtime python executable")
 def get_python_executable() -> str:
     """获取 Python 可执行文件路径"""
     return sys.executable
@@ -88,7 +87,7 @@ def get_command() -> str:
     return " ".join(sys.argv)
 
 
-@catch_and_return_none(on_error=lambda e: console.debug(f"Failed to get linux command: {e}"))
+@safe(level="debug", message="Failed to get command from /proc/self/cmdline")
 def _get_command_linux() -> str:
     """Linux 下获取当前执行命令"""
     with open("/proc/self/cmdline", "rb") as f:

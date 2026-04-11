@@ -9,9 +9,8 @@ import subprocess
 from pathlib import PurePosixPath
 from typing import Optional
 
-from swanlab.sdk.internal.pkg import console
+from swanlab.sdk.internal.pkg.safe import safe
 from swanlab.sdk.typings.run.system import GitSnapshot
-from swanlab.sdk.utils.helper import catch_and_return_none
 
 
 def get() -> GitSnapshot:
@@ -23,7 +22,7 @@ def get() -> GitSnapshot:
     )
 
 
-@catch_and_return_none(on_error=lambda e: console.debug(f"Failed to get git remote url: {e}"))
+@safe(level="debug", message="Failed to get git remote url")
 def get_remote_url() -> str:
     """获取 Git 远程仓库地址"""
     result = subprocess.run(
@@ -37,7 +36,7 @@ def get_remote_url() -> str:
     return parse_git_url(url)
 
 
-@catch_and_return_none(on_error=lambda e: console.debug(f"Failed to get git branch: {e}"))
+@safe(level="debug", message="Failed to get git branch")
 def get_branch() -> str:
     """获取当前分支名"""
     result = subprocess.run(
@@ -50,7 +49,7 @@ def get_branch() -> str:
     return result.stdout.strip()
 
 
-@catch_and_return_none(on_error=lambda e: console.debug(f"Failed to get git commit: {e}"))
+@safe(level="debug", message="Failed to get git commit")
 def get_commit() -> Optional[str]:
     """获取最新提交 hash"""
     result = subprocess.run(

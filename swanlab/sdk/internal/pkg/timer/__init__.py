@@ -15,6 +15,7 @@ import threading
 from typing import Callable, Optional, Union
 
 from swanlab.sdk.internal.pkg import console
+from swanlab.sdk.internal.pkg.safe import safe_block
 
 __all__ = ["Timer"]
 
@@ -112,10 +113,11 @@ class Timer:
             self._execute_once()
 
         while not self._stop_event.is_set():
+            # noinspection PyBroadException
             try:
                 sleep_time = self._resolve_interval()
-            except Exception as e:
-                console.error(f"Timer interval strategy error: {e}")
+            except Exception:
+                console.trace("Timer interval strategy error")
                 self._stop_event.set()
                 return
 
@@ -125,12 +127,9 @@ class Timer:
             self._execute_once()
 
     def _execute_once(self) -> None:
-        try:
+        with safe_block(message="Error executing task"):
             self._task()
-        except Exception as e:
-            console.error(f"Error executing task: {e}")
-        finally:
-            self._count += 1
+        self._count += 1
 
     def _resolve_interval(self) -> float:
         interval = self._interval

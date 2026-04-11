@@ -29,8 +29,9 @@ from swanlab.sdk.internal.core_python.api.project import get_or_create_project, 
 from swanlab.sdk.internal.pkg import console
 from swanlab.sdk.internal.pkg.fs.dir import safe_mkdir, safe_mkdirs
 from swanlab.sdk.internal.pkg.fs.write import safe_write
+from swanlab.sdk.internal.pkg.safe import safe
+from swanlab.sdk.internal.pkg.version import get_swanlab_version
 from swanlab.sdk.utils import helper
-from swanlab.sdk.utils.version import get_swanlab_version
 from swanlab.utils import generate_color, generate_id, generate_name
 
 from ..internal import apikey
@@ -483,7 +484,7 @@ def prompt_init_mode(settings: Settings) -> Tuple[ModeType, bool]:
     return mode, False
 
 
-@helper.catch_and_return_none()
+@safe(message="Failed to send webhook")
 def send_webhook(ctx: RunContext) -> Tuple[bool, bool]:
     """
     发送 webhook 回调，仅在非 disabled 模式下触发。

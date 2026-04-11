@@ -126,8 +126,8 @@ def test_submit_rolls_back_on_upload_error(make_scalar_record):
     ):
         collector.submit(new_records)
 
-    mock_console.error.assert_called_once()
-    assert "network down" in mock_console.error.call_args[0][0]
+    mock_console.trace.assert_called_once()
+    assert "upload error" in mock_console.trace.call_args[0][0]
     # 回滚后 container 应为 pending + 新增 = [old, new]
     assert len(collector.container) == 2
     assert collector.container[0].metric.step == 0
@@ -173,8 +173,8 @@ def test_flush_rolls_back_on_upload_error(make_scalar_record):
     ):
         collector.flush(records)
 
-    mock_console.error.assert_called_once()
-    assert "bad data" in mock_console.error.call_args[0][0]
+    mock_console.trace.assert_called_once()
+    assert "upload error" in mock_console.trace.call_args[0][0]
     assert len(collector.container) == 2
 
 

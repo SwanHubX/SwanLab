@@ -10,6 +10,7 @@ from typing import Any, Dict, Mapping, Optional, get_args
 from pydantic import ValidationError
 
 from swanlab.sdk.internal.pkg import console, constraints
+from swanlab.sdk.internal.pkg.safe import safe_block
 from swanlab.sdk.typings.run import FinishType
 from swanlab.sdk.typings.run.column import ScalarXAxisType
 
@@ -38,23 +39,18 @@ def flatten_dict(
             # 递归调用，将同一个 parent_dict 引用传递下去
             flatten_dict(v, new_key, parent_dict)
         else:
-            try:
+            # 如果清洗后变成空字符串（比如用户传了 {"///": 1}），丢弃这个字段
+            with safe_block(message="SwanLab dropped an invalid metric"):
                 # 对完整拼接后的路径进行最终的合法性校验、字符替换与截断
                 safe_key = validate_key(new_key)
-            except Exception as e:
-                # 终极容错：如果清洗后变成空字符串（比如用户传了 {"///": 1}），
-                # 打印错误并丢弃该字段，绝不中断其他合法数据的解析！
-                console.error(f"SwanLab dropped an invalid metric: {e}")
-                continue
-
-            # 检查冲突并警告
-            if safe_key in parent_dict:
-                console.warning(
-                    f"Duplicate key found after sanitization: '{safe_key}'. "
-                    "The latter value will overwrite the former one."
-                )
-            # 赋值
-            parent_dict[safe_key] = v
+                # 检查冲突并警告
+                if safe_key in parent_dict:
+                    console.warning(
+                        f"Duplicate key found after sanitization: '{safe_key}'. "
+                        "The latter value will overwrite the former one."
+                    )
+                # 赋值
+                parent_dict[safe_key] = v
 
     return parent_dict
 

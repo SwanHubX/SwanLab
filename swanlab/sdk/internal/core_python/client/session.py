@@ -9,7 +9,7 @@
 import contextvars
 import copy
 import time
-from typing import Optional, Union
+from typing import Optional
 
 from requests import Session
 from requests.adapters import HTTPAdapter
@@ -18,10 +18,9 @@ from urllib3.util.retry import Retry
 from swanlab.exceptions import ApiError
 from swanlab.sdk.internal.core_python.client.helper import decode_error_response
 from swanlab.sdk.internal.pkg import console
-from swanlab.sdk.utils import helper
-from swanlab.sdk.utils.version import get_swanlab_version
+from swanlab.sdk.internal.pkg.version import get_swanlab_version
 
-__all__ = ["create", "TimeoutHTTPAdapter", "SessionWithRetry", "format_body_preview", "decode_error_response"]
+__all__ = ["create", "TimeoutHTTPAdapter", "SessionWithRetry", "request_retries_ctx"]
 VERSION_HEADER = "X-SwanLab-SDK-Version"
 TRACE_ID = "swanlab.client"
 # 用于存储当前请求的重试次数，避免在请求中传递 retries 参数
@@ -53,25 +52,6 @@ class TimeoutHTTPAdapter(HTTPAdapter):
             return super(TimeoutHTTPAdapter, adapter).send(request, **kwargs)
 
         return super().send(request, *args, **kwargs)
-
-
-@helper.catch_and_return_none()
-def format_body_preview(body: Optional[Union[bytes, str]], max_len: int = 1000) -> str:
-    """
-    统一格式化并截断请求/响应体，安全处理二进制乱码。
-    如果是 bytes，尝试用 utf-8 解码；超过 max_len 则截断防刷屏。
-    """
-    if not body:
-        return ""
-
-    if isinstance(body, bytes):
-        body_str = body.decode("utf-8", errors="replace")
-    else:
-        body_str = str(body)
-
-    if len(body_str) > max_len:
-        return body_str[:max_len] + " ... (truncated)"
-    return body_str
 
 
 class SessionWithRetry(Session):

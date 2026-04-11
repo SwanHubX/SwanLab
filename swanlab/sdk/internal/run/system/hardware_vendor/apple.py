@@ -14,10 +14,9 @@ from typing import Optional, Tuple
 
 import psutil
 
-from swanlab.sdk.internal.pkg import console
+from swanlab.sdk.internal.pkg.safe import safe
 from swanlab.sdk.typings.run.system import AppleSiliconSnapshot, SystemScalar, SystemScalars, SystemShim
 from swanlab.sdk.typings.run.system.hardware_vendor import AppleSiliconProtocol
-from swanlab.sdk.utils.helper import catch_and_return_none
 from swanlab.utils import generate_color
 
 
@@ -76,7 +75,7 @@ class Apple(AppleSiliconProtocol):
         return self, scalars
 
     @staticmethod
-    @catch_and_return_none(on_error=lambda e: console.debug("Failed to get Apple Silicon info: {}", e))
+    @safe(level="debug", message="Failed to get Apple Silicon info")
     def get() -> Optional[AppleSiliconSnapshot]:
         if sys.platform != "darwin":
             return None
