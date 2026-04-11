@@ -51,6 +51,7 @@ class _MockRun:
 
     def __init__(self):
         self._api_lock = threading.RLock()
+        self._forked = False
         self.log = MagicMock()
         self.alive = True
 

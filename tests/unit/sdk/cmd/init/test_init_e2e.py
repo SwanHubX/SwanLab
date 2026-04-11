@@ -14,6 +14,8 @@
   - TestInitCloudMode        : cloud 模式，依赖本文件内的 HTTP mock fixtures
 """
 
+import multiprocessing
+
 import pytest
 import responses as responses_lib
 import yaml
@@ -478,3 +480,123 @@ class TestInitConfigIntegration:
         assert data2["key2"]["value"] == "v2"
         # 两次 run 的 config_file 路径不同（时间戳不同）
         assert config_file1 != config_file2
+
+
+# ============================================================
+# TestForkDetection
+# ============================================================
+
+
+@pytest.mark.skipif(not hasattr(__import__("os"), "register_at_fork"), reason="fork not available on this platform")
+class TestForkDetection:
+    """测试 fork 检测机制：register_at_fork 回调 + with_run 拦截 + has_run 失效"""
+
+    def test_fork_sets_forked_flag(self):
+        """真实 fork 后，子进程中 Run._forked 应为 True"""
+        run = init(mode="disabled")
+        assert not run._forked
+
+        ctx = multiprocessing.get_context("fork")
+        result = ctx.Queue()
+
+        def child():
+            result.put(run._forked)
+
+        p = ctx.Process(target=child)
+        p.start()
+        p.join(timeout=5)
+        assert result.get() is True
+
+    def test_fork_clears_global_singleton(self):
+        """真实 fork 后，子进程中 has_run() 应返回 False"""
+        init(mode="disabled")
+        assert has_run()
+
+        ctx = multiprocessing.get_context("fork")
+        result = ctx.Queue()
+
+        def child():
+            result.put(has_run())
+
+        p = ctx.Process(target=child)
+        p.start()
+        p.join(timeout=5)
+        assert result.get() is False
+
+    def test_fork_log_raises_in_child(self):
+        """真实 fork 后，子进程中 run.log() 应抛出 RuntimeError"""
+        run = init(mode="disabled")
+
+        ctx = multiprocessing.get_context("fork")
+        result = ctx.Queue()
+
+        def child():
+            try:
+                run.log({"loss": 0.5})
+                result.put("no_error")
+            except RuntimeError as e:
+                result.put(str(e))
+
+        p = ctx.Process(target=child)
+        p.start()
+        p.join(timeout=5)
+        msg = result.get()
+        assert "does not support fork" in msg
+
+    def test_fork_finish_raises_in_child(self):
+        """真实 fork 后，子进程中 finish() 也应抛出 RuntimeError"""
+        run = init(mode="disabled")
+
+        ctx = multiprocessing.get_context("fork")
+        result = ctx.Queue()
+
+        def child():
+            try:
+                run.finish()
+                result.put("no_error")
+            except RuntimeError as e:
+                result.put(str(e))
+
+        p = ctx.Process(target=child)
+        p.start()
+        p.join(timeout=5)
+        msg = result.get()
+        assert "does not support fork" in msg
+
+    def test_fork_does_not_affect_parent(self):
+        """真实 fork 后，父进程中的 Run 应不受影响"""
+        run = init(mode="disabled")
+        assert run.alive
+
+        ctx = multiprocessing.get_context("fork")
+        p = ctx.Process(target=lambda: None)
+        p.start()
+        p.join(timeout=5)
+
+        # 父进程中 Run 仍然 alive
+        assert run.alive
+        assert not run._forked
+        assert has_run()
+
+    def test_can_init_new_run_in_child_after_fork(self):
+        """真实 fork 后，子进程中可以重新 init 创建新 Run"""
+        init(mode="disabled")
+
+        ctx = multiprocessing.get_context("fork")
+        result = ctx.Queue()
+
+        def child():
+            # fork 后 has_run() 为 False，可以重新 init
+            try:
+                run2 = init(mode="disabled")
+                result.put(("ok", run2.alive, has_run()))
+            except Exception as e:
+                result.put(("error", str(e)))
+
+        p = ctx.Process(target=child)
+        p.start()
+        p.join(timeout=5)
+        r = result.get()
+        assert r[0] == "ok"
+        assert r[1] is True
+        assert r[2] is True

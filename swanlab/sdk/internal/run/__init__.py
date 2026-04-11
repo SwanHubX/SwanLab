@@ -9,6 +9,7 @@
 """
 
 import atexit
+import os
 import signal
 import sys
 import threading
@@ -60,30 +61,27 @@ __all__ = ["Run", "has_run", "get_run", "set_run", "clear_run"]
 from ..pkg.fs import safe_write
 
 
-def with_lock(func):
-    """线程安全装饰器，自动获取和释放外部API锁
-    Python 3.9 中无法定义在类内部
-    """
+def with_api(cmd: str, must_alive: bool = True):
+    """Run API 装饰器，统一处理：fork 检测、存活校验、线程安全
 
-    @wraps(func)
-    def wrapper(self, *args, **kwargs):
-        with self._api_lock:
-            return func(self, *args, **kwargs)
-
-    return wrapper
-
-
-def with_run(cmd: str):
-    """
-    run api装饰器，确保当前 run 实例激活
+    :param cmd: API 命令名，用于错误信息
+    :param must_alive: True 时要求 Run 存活，False 时仅做线程安全（如 finish 允许在非存活状态调用）
     """
 
     def decorator(f):
         @wraps(f)
         def wrapper(self: "Run", *args, **kwargs):
-            if not self.alive:
+            if self._forked:
+                # fork 后子进程继承的锁可能已持有，替换为新锁避免死锁
+                self._api_lock = threading.RLock()
+                raise RuntimeError(
+                    "SwanLab Run does not support fork yet. Use `multiprocessing.set_start_method('spawn')` "
+                    "or call `swanlab.init()` in the child process."
+                )
+            if must_alive and not self.alive:
                 raise RuntimeError(f"`{cmd}` requires an active Run, call `swanlab.init()` first.")
-            return f(self, *args, **kwargs)
+            with self._api_lock:
+                return f(self, *args, **kwargs)
 
         return wrapper
 
@@ -145,6 +143,7 @@ class Run:
         # ---------------------------------- 1. 基础状态准备 ----------------------------------
         self._ctx = ctx
         self._state: Union[FinishType, Literal["running"]] = "running"
+        self._pid = os.getpid()
         # 外部API锁，防止并发调用
         self._api_lock = threading.RLock()
         # 事件发射器：唯一的队列写入入口，可注入给内部系统组件
@@ -195,12 +194,12 @@ class Run:
         set_run(self)
         # 注册退出钩子
         self._sys_origin_excepthook = sys.excepthook
-        atexit.register(self._atexit_cleanup)
-        sys.excepthook = self._excepthook
+        atexit.register(self._handle_atexit)
+        sys.excepthook = self._handle_except
         # 注册 SIGINT handler，确保 Ctrl+C 能可靠地将实验标记为 aborted
         # sys.excepthook 在主线程阻塞于 C 扩展时可能无法触发
         self._original_sigint_handler = signal.getsignal(signal.SIGINT)
-        signal.signal(signal.SIGINT, self._sigint_handler)
+        signal.signal(signal.SIGINT, self._handle_sigint)
         # 绑定日志文件，运行正式开始
         if self._ctx.config.settings.mode != "disabled":
             log.bindfile(self._ctx.debug_dir)
@@ -209,14 +208,14 @@ class Run:
     # 私有钩子
     # ----------------------------------
 
-    def _sigint_handler(self, signum: int, frame: Any) -> None:
+    def _handle_sigint(self, signum: int, frame: Any) -> None:
         """SIGINT handler：确保 Ctrl+C 能可靠地将实验标记为 aborted。
 
         sys.excepthook 依赖 Python 层面抛出 KeyboardInterrupt，但当主线程阻塞在 C 扩展（NumPy/PyTorch 等）时，
         KeyboardInterrupt 可能无法正常传播到 excepthook。
         此 handler 作为额外防线，在信号层直接处理。
         """
-        if self._state == "running":
+        if self.alive:
             console.info("KeyboardInterrupt by user")
             import traceback
 
@@ -233,14 +232,14 @@ class Run:
             # The default handler (SIG_DFL) raises KeyboardInterrupt.
             raise KeyboardInterrupt
 
-    def _atexit_cleanup(self) -> None:
+    def _handle_atexit(self) -> None:
         """程序正常退出时自动结束当前运行"""
-        if self._state != "running":
+        if not self.alive:
             return
         console.debug("SwanLab Run is finishing at exit...")
         self.finish()
 
-    def _excepthook(
+    def _handle_except(
         self,
         tp: Type[BaseException],
         val: BaseException,
@@ -248,7 +247,7 @@ class Run:
     ) -> None:
         """全局异常捕获，将实验标记为 crashed 或 aborted"""
         try:
-            if self._state != "running":
+            if not self.alive:
                 return
             state: FinishType = "crashed"
             if tp is KeyboardInterrupt:
@@ -307,12 +306,17 @@ class Run:
         return f"{settings.web_host}/@{settings.project.workspace}/{settings.project.name}/runs/{settings.run.id}"
 
     @property
+    def _forked(self) -> bool:
+        """当前进程是否为创建 Run 时的进程的 fork 子进程"""
+        return os.getpid() != self._pid
+
+    @property
     def alive(self) -> bool:
         """
         If the run is alive. You can log metrics if the run is alive.
         :return: True if the run is alive, False otherwise
         """
-        return self._state == "running"
+        return not self._forked and self._state == "running"
 
     # ----------------------------------
     # 上下文管理器，允许用户以 with 语句启动和结束运行
@@ -330,8 +334,7 @@ class Run:
     # ----------------------------------
     # 公开 API：只负责验证输入并发事件
     # ----------------------------------
-    @with_lock
-    @with_run("run.log()")
+    @with_api("run.log()")
     def log(self, data: Mapping[str, Any], step: Optional[int] = None):
         """Log a dictionary of metrics for the current step.
 
@@ -363,8 +366,7 @@ class Run:
         # 推送日志事件
         self._emitter.emit(MetricLogEvent(data=flatten_data, step=next_step, timestamp=ts))
 
-    @with_lock
-    @with_run("run.log_scalar()")
+    @with_api("run.log_scalar()")
     def log_scalar(self, *, key: str, value: Union[float, int], step: Optional[int] = None):
         """
         Log a scalar value.
@@ -375,8 +377,7 @@ class Run:
         """
         self.log({key: value}, step=step)
 
-    @with_lock
-    @with_run("run.log_text()")
+    @with_api("run.log_text()")
     def log_text(self, *, key: str, data: TextDatasType, caption: CaptionsType = None, step: Optional[int] = None):
         """
         A syntactic sugar for logging text data.
@@ -389,8 +390,7 @@ class Run:
         normalized_data = normalize_media_input(Text, data, caption=caption)
         self.log({key: normalized_data}, step=step)
 
-    @with_lock
-    @with_run("run.log_image()")
+    @with_api("run.log_image()")
     def log_image(
         self,
         *,
@@ -416,8 +416,7 @@ class Run:
         normalized_data = normalize_media_input(Image, data, mode=mode, caption=caption, size=size, file_type=file_type)
         self.log({key: normalized_data}, step=step)
 
-    @with_lock
-    @with_run("run.log_audio()")
+    @with_api("run.log_audio()")
     def log_audio(
         self,
         *,
@@ -439,8 +438,7 @@ class Run:
         normalized_data = normalize_media_input(Audio, data, caption=caption, sample_rate=sample_rate)
         self.log({key: normalized_data}, step=step)
 
-    @with_lock
-    @with_run("run.log_video()")
+    @with_api("run.log_video()")
     def log_video(
         self,
         *,
@@ -460,8 +458,7 @@ class Run:
         normalized_data = normalize_media_input(Video, data, caption=caption)
         self.log({key: normalized_data}, step=step)
 
-    @with_lock
-    @with_run("run.define_scalar()")
+    @with_api("run.define_scalar()")
     def define_scalar(
         self,
         *,
@@ -513,7 +510,7 @@ class Run:
             )
         )
 
-    @with_lock
+    @with_api("run.finish()", must_alive=False)
     def finish(self, state: FinishType = "success", error: Optional[str] = None):
         """Finish the current run and wait for all logs to be flushed.
 
@@ -522,7 +519,7 @@ class Run:
         """
         # 1. 状态校验
         # 有时执行finish也有可能是系统hook主动调用，此时无需再次打印警告，如果在finishing状态，也忽略
-        if self._state != "running":
+        if not self.alive:
             return
         state = state.lower()  # type: ignore
         if not (this_state := fmt.safe_validate_state(cast(FinishType, state))):
@@ -549,7 +546,7 @@ class Run:
         console.debug(f"SwanLab Run has finished with state: {self._state}, cleanup...")
         # 3.2 清理副作用
         console.debug("Cleanup system hook...")
-        atexit.unregister(self._atexit_cleanup)
+        atexit.unregister(self._handle_atexit)
         sys.excepthook = self._sys_origin_excepthook
         signal.signal(signal.SIGINT, self._original_sigint_handler)
         # 清理全局运行实例
@@ -579,7 +576,7 @@ def has_run() -> bool:
         ... else:
         ...     print("No active run")
     """
-    return _current_run is not None
+    return _current_run is not None and _current_run.alive
 
 
 def get_run() -> Run:

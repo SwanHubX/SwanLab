@@ -7,7 +7,6 @@
 
 import math
 import sys
-import threading
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, Literal, Optional, Union
@@ -74,20 +73,24 @@ class MediaMetric:
 
 
 # 指标状态，实验运行过程中不断更新
+# 注意：此类不加锁保护。设计上对 RunMetrics 的写操作发生在以下线程：
+#   - next_step: 用户主线程（通过 Run.log，已在 with_api 锁内串行化）
+#   - next_system_step: Monitor Timer 线程（独立递增 system_step，与 next_step 互不干扰）
+#   - update_scalar: Consumer 线程（单线程消费队列，与 define_scalar/define_media 串行）
+#   - define_scalar/define_media: Consumer 线程（同上）
+# 如果未来引入多线程并发写入此对象，需要重新评估线程安全。
 @dataclass
 class RunMetrics:
     _global_step: int = 0
     _global_system_step: int = 0
-    _lock: threading.Lock = field(default_factory=threading.Lock)
     _metrics: Dict[str, Union[ScalarMetric, MediaMetric]] = field(default_factory=dict)
 
     def next_system_step(self) -> int:
         """
         获取下一个全局系统步数，用于系统内部监控指标
         """
-        with self._lock:
-            self._global_system_step += 1
-            return self._global_system_step
+        self._global_system_step += 1
+        return self._global_system_step
 
     def next_step(self, user_step: Optional[int] = None) -> int:
         """
@@ -95,21 +98,11 @@ class RunMetrics:
         在设计上我们允许用户在log时乱序设置step，但是global_step永远是最大的或者自增的那个，
         因此我们需要一个方法来获取当前的global_step，并且保证global_step是自增的
         """
-        with self._lock:
-            if user_step is not None:
-                self._global_step = max(self._global_step, user_step)
-                return user_step
-            self._global_step += 1
-            return self._global_step
-
-    def has_metric(self, key: str) -> bool:
-        """
-        检查是否存在指定的指标
-        :param key: 指标键
-        :return: 是否存在该指标
-        """
-        with self._lock:
-            return key in self._metrics
+        if user_step is not None:
+            self._global_step = max(self._global_step, user_step)
+            return user_step
+        self._global_step += 1
+        return self._global_step
 
     def update_scalar(self, key: str, value: Union[float, int]):
         """
@@ -117,18 +110,17 @@ class RunMetrics:
         :param key: 指标键
         :param value: 标量值
         """
-        with self._lock:
-            scalar = self._metrics.get(key)
-            assert scalar is not None, f"Metric '{key}' does not exist."
-            assert isinstance(scalar, ScalarMetric), f"Metric '{key}' is not a scalar metric."
-            if math.isnan(value) or math.isinf(value):
-                console.debug(f"Invalid scalar value: {value} for metric '{key}', ignored when updating.")
-                return
-            scalar.latest = value
-            if scalar.max is None or value > scalar.max:
-                scalar.max = value
-            if scalar.min is None or value < scalar.min:
-                scalar.min = value
+        scalar = self._metrics.get(key)
+        assert scalar is not None, f"Metric '{key}' does not exist."
+        assert isinstance(scalar, ScalarMetric), f"Metric '{key}' is not a scalar metric."
+        if math.isnan(value) or math.isinf(value):
+            console.debug(f"Invalid scalar value: {value} for metric '{key}', ignored when updating.")
+            return
+        scalar.latest = value
+        if scalar.max is None or value > scalar.max:
+            scalar.max = value
+        if scalar.min is None or value < scalar.min:
+            scalar.min = value
 
     def define_scalar(
         self,
@@ -151,18 +143,17 @@ class RunMetrics:
         :param x_axis: x轴，可以是其他的标量，也可以是系统值"_step"或"_relative_time"
         :return:
         """
-        with self._lock:
-            assert key not in self._metrics, f"Metric '{key}' already exists."
-            x_axis = x_axis or "_step"
-            self._metrics[key] = ScalarMetric(
-                _chart=chart,
-                _chart_name=chart_name,
-                _name=name,
-                _system=system,
-                _color=color,
-                _x_axis=x_axis,
-                _type=ColumnType.COLUMN_TYPE_FLOAT,
-            )
+        assert key not in self._metrics, f"Metric '{key}' already exists."
+        x_axis = x_axis or "_step"
+        self._metrics[key] = ScalarMetric(
+            _chart=chart,
+            _chart_name=chart_name,
+            _name=name,
+            _system=system,
+            _color=color,
+            _x_axis=x_axis,
+            _type=ColumnType.COLUMN_TYPE_FLOAT,
+        )
 
     def define_media(self, key: str, media_type: ColumnType, path: Path):
         """
@@ -171,6 +162,5 @@ class RunMetrics:
         :param media_type: 媒体类型
         :param path: 媒体存储路径，绝对路径
         """
-        with self._lock:
-            assert key not in self._metrics, f"Metric '{key}' already exists."
-            self._metrics[key] = MediaMetric(_type=media_type, path=path)
+        assert key not in self._metrics, f"Metric '{key}' already exists."
+        self._metrics[key] = MediaMetric(_type=media_type, path=path)
