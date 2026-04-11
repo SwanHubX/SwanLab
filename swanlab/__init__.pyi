@@ -6,7 +6,8 @@ top-level `swanlab` namespace.  Add new public symbols here when they are added
 to swanlab/__init__.py.
 """
 
-from typing import Any, List, Mapping, Optional, Union
+from concurrent.futures import Future
+from typing import Any, Callable, List, Mapping, Optional, Union
 
 from . import utils
 from .sdk import config
@@ -14,7 +15,7 @@ from .sdk.cmd.init import ConfigLike
 from .sdk.internal.run import Run
 from .sdk.internal.run.transforms import Audio, Image, Text, Video
 from .sdk.internal.settings import Settings
-from .sdk.typings.run import FinishType, ModeType, ResumeType
+from .sdk.typings.run import AsyncLogType, FinishType, ModeType, ResumeType
 from .sdk.typings.run.column import ScalarXAxisType
 from .sdk.typings.run.transforms import CaptionsType
 from .sdk.typings.run.transforms.audio import AudioDatasType, AudioRatesType
@@ -37,6 +38,7 @@ __all__ = [
     "log_audio",
     "log_video",
     "define_scalar",
+    "async_log",
     # run
     "run",
     "Run",
@@ -396,6 +398,74 @@ def log_video(
         >>> with open("animation.gif", "rb") as f:
         ...     swanlab.log_video(key="rollout", data=f.read())
         >>> swanlab.finish()
+    """
+    ...
+
+def async_log(
+    func: Callable,
+    *args: Any,
+    step: Optional[int] = None,
+    mode: AsyncLogType = "threading",
+    **kwargs: Any,
+) -> Future:
+    """Asynchronously execute a function and automatically log its return value.
+
+    ``func`` is submitted to a background thread, process, or the asyncio event loop
+    (depending on *mode*).  When it completes, its return value — a ``dict`` — is
+    passed to :func:`log` automatically.  The call returns a
+    :class:`~concurrent.futures.Future` immediately.
+
+    :func:`finish` waits for all outstanding ``async_log`` tasks before flushing,
+    so no data is lost.
+
+    :param func: A callable returning a ``dict`` suitable for :func:`log`.
+    :param args: Positional arguments forwarded to *func*.
+    :param step: Optional step index.  If ``None``, auto-incremented when the task
+        **completes** (not when submitted).  Pass an explicit value if step ordering matters.
+    :param mode: Execution mode:
+
+        - ``"asyncio"`` — schedule on the running asyncio event loop.  *func* must be a
+          coroutine (``async def``).  Raises :exc:`RuntimeError` if no loop is running.
+
+        - ``"threading"`` (default) — background thread.  *func* can access
+          ``swanlab.config`` and return media objects (:class:`Image`, :class:`Audio`, etc.).
+          Subject to the GIL.
+
+        - ``"spawn"`` — new child process (``mp_context=spawn``).  Bypasses the GIL, ideal
+          for CPU-bound work.  *func*, its arguments, and its return value **must be
+          pickle-serializable** (no :class:`Image`, ``torch.Tensor``, etc.).
+
+        - ``"fork"`` — **reserved**.  Will be enabled after ``swanlab-core`` ships.
+
+    :param kwargs: Keyword arguments forwarded to *func*.
+    :return: A :class:`~concurrent.futures.Future`.
+    :raises RuntimeError: No active Run, or no asyncio event loop (``"asyncio"`` mode only).
+
+    Examples:
+
+        Asyncio mode — coroutine function for IO-bound work:
+
+        >>> import swanlab
+        >>> run = swanlab.init()
+        >>> async def slow_compute():
+        ...     import asyncio
+        ...     await asyncio.sleep(2)
+        ...     return {"score": 0.95}
+        >>> future = swanlab.async_log(slow_compute, step=1, mode="asyncio")
+
+        Threading mode (default) — IO-bound or returning media objects:
+
+        >>> def fetch_score():
+        ...     import time
+        ...     time.sleep(2)
+        ...     return {"score": 0.95}
+        >>> future = swanlab.async_log(fetch_score, step=1)
+
+        Spawn mode — CPU-bound, pickle-safe return values:
+
+        >>> def compute_loss():
+        ...     return {"loss": 0.123, "acc": 0.95}
+        >>> future = swanlab.async_log(compute_loss, step=2, mode="spawn")
     """
     ...
 

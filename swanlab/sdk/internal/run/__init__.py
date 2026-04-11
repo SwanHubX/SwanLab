@@ -14,10 +14,11 @@ import signal
 import sys
 import threading
 import traceback
+from concurrent.futures import Future
 from functools import cached_property, wraps
 from pathlib import Path
 from types import TracebackType
-from typing import Any, Literal, Mapping, Optional, Type, Union, cast, get_args
+from typing import Any, Callable, Literal, Mapping, Optional, Type, Union, cast, get_args
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
@@ -34,6 +35,7 @@ from swanlab.sdk.internal.bus.events import (
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.pkg import console, log
 from swanlab.sdk.internal.run import system
+from swanlab.sdk.internal.run.async_task import AsyncTaskManager
 from swanlab.sdk.internal.run.config import (
     Config as _ConfigClass,
 )
@@ -44,7 +46,7 @@ from swanlab.sdk.internal.run.config import (
 )
 from swanlab.sdk.internal.run.transforms import Audio, Image, Text, Video, normalize_media_input
 from swanlab.sdk.typings.core import CoreEnum, CoreProtocol
-from swanlab.sdk.typings.run import FinishType
+from swanlab.sdk.typings.run import AsyncLogType, FinishType
 from swanlab.sdk.typings.run.column import ScalarXAxisType
 from swanlab.sdk.typings.run.transforms import CaptionsType
 from swanlab.sdk.typings.run.transforms.audio import AudioDatasType, AudioRatesType
@@ -154,6 +156,8 @@ class Run:
         self._builder = RecordBuilder(ctx)
         # 后台消费者：从 emitter.queue 消费事件并落盘
         self._consumer = BackgroundConsumer(ctx, self._emitter.queue, self._builder, self._core)
+        # 异步任务管理器：处理async_log任务
+        self._async_task_manager = AsyncTaskManager()
 
         # ---------------------------------- 2. 初始化运行时状态 ----------------------------------
         # 2.1 触发启动事件
@@ -366,6 +370,92 @@ class Run:
         # 推送日志事件
         self._emitter.emit(MetricLogEvent(data=flatten_data, step=next_step, timestamp=ts))
 
+    @with_api("run.async_log()")
+    def async_log(
+        self,
+        func: Callable,
+        *args,
+        step: Optional[int] = None,
+        mode: AsyncLogType = "threading",
+        **kwargs,
+    ) -> Future:
+        """Asynchronously execute a function and automatically log its return value.
+
+        ``func`` is submitted to a background thread, process, or the asyncio event loop (depending on *mode*).
+        When it completes, its return value — a ``dict`` — is passed to :meth:`log` automatically.
+        The call returns a :class:`~concurrent.futures.Future` immediately.
+
+        ``finish()`` waits for all outstanding ``async_log`` tasks before flushing, so no data is lost.
+
+        :param func: A callable returning a ``dict`` suitable for :meth:`log`.
+        :param args: Positional arguments forwarded to *func*.
+        :param step: Optional step index. If ``None``, auto-incremented when the task **completes** (not when
+            submitted). Pass an explicit value if step ordering matters.
+        :param mode: Execution mode:
+
+            - ``"asyncio"`` — schedule on the running asyncio event loop. *func* must be a coroutine
+              (``async def``). No pickle constraints. Raises :exc:`RuntimeError` if no loop is running.
+
+            - ``"threading"`` (default) — background thread. No pickle constraints; *func* can access
+              ``swanlab.config`` and return media objects (:class:`Image`, :class:`Audio`, etc.).
+              Subject to the GIL.
+
+            - ``"spawn"`` — new child process (``mp_context=spawn``). Bypasses the GIL, ideal for CPU-bound
+              work. *func*, its arguments, and its return value **must be pickle-serializable** (no
+              :class:`Image`, ``torch.Tensor``, etc.). The child process cannot access the active Run.
+
+            - ``"fork"`` — **reserved**. Will be enabled after ``swanlab-core`` ships; forked children
+              will call ``swanlab.log()`` directly, removing the pickle constraint.
+
+        :param kwargs: Keyword arguments forwarded to *func*.
+        :return: A :class:`~concurrent.futures.Future`. In ``"asyncio"`` mode the future is asyncio-compatible
+            (wrapped via :func:`asyncio.wrap_future`).
+        :raises RuntimeError: No active Run, or no asyncio event loop (``"asyncio"`` mode only).
+
+        Examples:
+
+            Asyncio mode — coroutine function for IO-bound work:
+
+            >>> import swanlab
+            >>> run = swanlab.init()
+            >>> async def slow_compute():
+            ...     import asyncio
+            ...     await asyncio.sleep(2)
+            ...     return {"score": 0.95}
+            >>> future = run.async_log(slow_compute, step=1, mode="asyncio")
+
+            Threading mode (default) — IO-bound or returning media objects:
+
+            >>> def fetch_score():
+            ...     import time, numpy as np
+            ...     time.sleep(2)
+            ...     return {"score": 0.95, "preview": swanlab.Image(np.random.randn(10, 10))}
+            >>> future = run.async_log(fetch_score, step=1)
+
+            Spawn mode — CPU-bound, pickle-safe return values:
+
+            >>> def compute_loss():
+            ...     return {"loss": 0.123, "acc": 0.95}
+            >>> future = run.async_log(compute_loss, step=2, mode="spawn")
+
+            Spawn mode with torch — convert before returning:
+
+            >>> def compute():
+            ...     import torch
+            ...     t = torch.randn(10)
+            ...     return {"value": t.item(), "arr": t.detach().cpu().numpy()}
+            >>> future = run.async_log(compute, step=3, mode="spawn")
+        """
+        return self._async_task_manager.submit(
+            func,
+            args=args,
+            kwargs=kwargs,
+            step=step,
+            mode=mode,
+            on_success=lambda result, s: self.log(result, step=s),
+            on_error=lambda tb: console.error(tb),
+        )
+
     @with_api("run.log_scalar()")
     def log_scalar(self, *, key: str, value: Union[float, int], step: Optional[int] = None):
         """
@@ -530,6 +620,9 @@ class Run:
             error = "unknown"
 
         # 2. 运行结束前，结束其他依赖于运行实例的线程
+        # 等待所有 async_log 任务完成
+        console.debug("Waiting for async_log tasks to complete...")
+        self._async_task_manager.shutdown()
         # 停止硬件监控
         if self._monitor is not None:
             console.debug("Stopping hardware monitor...")
