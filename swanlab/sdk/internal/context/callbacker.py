@@ -8,6 +8,7 @@
 from typing import TYPE_CHECKING, Dict, Iterable, List
 
 from swanlab.sdk.internal.pkg import console
+from swanlab.sdk.internal.pkg.safe import safe_block
 from swanlab.sdk.utils.callbacker import Callback
 
 
@@ -55,11 +56,9 @@ class _CallbackManager:
             # 2. 动态生成带容错机制的代理函数
             def dispatcher(*args, **kwargs):
                 for cb in self._callbacks.values():
-                    try:
-                        # 从具体的回调实例中获取对应名称的方法并执行
+                    # 从具体的回调实例中获取对应名称的方法并执行
+                    with safe_block(message=f"Error executing '{name}' in callback '{cb.name}'"):
                         getattr(cb, name)(*args, **kwargs)
-                    except Exception as e:
-                        console.error(f"Error executing '{name}' in callback '{cb.name}': {e}")
 
             # 3. 性能优化：将生成好的代理函数缓存到当前实例上
             # 这样第二次调用 callbacker.on_log 时，就变成了普通的 O(1) 属性访问，性能极高！

@@ -24,7 +24,6 @@ import asyncio
 import multiprocessing
 import threading
 import time
-import traceback
 from concurrent.futures import Future, ProcessPoolExecutor, ThreadPoolExecutor
 from typing import Any, Callable, Optional
 
@@ -94,7 +93,7 @@ class AsyncTaskManager:
         step: Optional[int] = None,
         mode: AsyncLogType = "threading",
         on_success: Optional[Callable[[Any, Optional[int]], None]] = None,
-        on_error: Optional[Callable[[str], None]] = None,
+        on_error: Optional[Callable[[], None]] = None,
     ) -> Future:
         """提交异步任务，返回 Future。
 
@@ -104,7 +103,7 @@ class AsyncTaskManager:
         :param step: 日志 step，透传给 on_success
         :param mode: 执行模式
         :param on_success: 成功回调 ``on_success(result, step)``
-        :param on_error: 失败回调 ``on_error(traceback_str)``
+        :param on_error: 失败回调 ``on_error()``
         :return: concurrent.futures.Future
         """
         if kwargs is None:
@@ -197,7 +196,7 @@ class AsyncTaskManager:
         future: Future,
         step: Optional[int],
         on_success: Optional[Callable[[Any, Optional[int]], None]],
-        on_error: Optional[Callable[[str], None]],
+        on_error: Optional[Callable[[], None]],
         handle: _TaskHandle,
     ) -> None:
         # noinspection PyBroadException
@@ -207,7 +206,7 @@ class AsyncTaskManager:
                 on_success(result, step)
         except Exception:
             if on_error is not None:
-                on_error(traceback.format_exc())
+                on_error()
         finally:
             # 从 _handles 中移除已完成的 handle，防止无限增长
             with self._handles_lock:

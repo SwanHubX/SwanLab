@@ -56,11 +56,11 @@ class Collector:
 
                 self._last_upload_at = now
                 self.container = []
-
+        # noinspection PyBroadException
         try:
             self.upload(pending)
-        except Exception as exc:
-            console.error(f"upload error: {exc}")
+        except Exception:
+            console.trace("upload error")
             with self._lock:
                 self.container = pending + self.container
 
@@ -70,11 +70,11 @@ class Collector:
             self.container.extend(records)
             pending = self.container
             self.container = []
-
+        # noinspection PyBroadException
         try:
             self.upload(pending)
-        except Exception as exc:
-            console.error(f"upload error: {exc}")
+        except Exception:
+            console.trace("upload error")
             with self._lock:
                 self.container = pending + self.container
 

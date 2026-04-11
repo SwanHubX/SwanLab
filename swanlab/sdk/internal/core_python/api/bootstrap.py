@@ -6,11 +6,11 @@
 """
 
 from swanlab.sdk.internal.core_python.client import session
+from swanlab.sdk.internal.pkg.safe import safe
 from swanlab.sdk.typings.core_python.api.bootstrap import LoginResponse
-from swanlab.sdk.utils.helper import catch_and_return_none
 
 
-@catch_and_return_none()
+@safe(message=None)
 def login_by_api_key(base_url: str, api_key: str, timeout: int = 20) -> LoginResponse:
     """
     用户登录，请求后端接口完成验证

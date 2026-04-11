@@ -8,6 +8,7 @@
 
 import inspect
 import os
+import sys
 from datetime import datetime
 from typing import Any, Literal, Optional
 
@@ -17,28 +18,11 @@ from rich.text import Text
 from swanlab.sdk.internal.pkg import log
 from swanlab.sdk.utils import helper
 
-__all__ = ["debug", "info", "warning", "error", "trace", "disable_console", "enable_console"]
+__all__ = ["debug", "info", "warning", "error", "trace"]
 
 _console = Console()
-_can_log = True
 _name = "swanlab"
 _this_file = os.path.abspath(__file__)
-
-
-def disable_console():
-    """
-    Disable logging.
-    """
-    global _can_log
-    _can_log = False
-
-
-def enable_console():
-    """
-    Enable logging.
-    """
-    global _can_log
-    _can_log = True
 
 
 def _now() -> str:
@@ -72,15 +56,31 @@ def _to_plain_text(*args: Any) -> str:
     return " ".join(parts)
 
 
-def _loguru_build(level_name: str, style: str, *args, location: Optional[str] = None) -> tuple["Text", str]:
+def _loguru_build(
+    level_name: str,
+    style: str,
+    *args,
+    location: Optional[str] = None,
+    console_args=None,
+    file_args=None,
+) -> tuple["Text", str]:
     """
     构建 loguru 风格的 Rich Text（终端用）和纯文本字符串（日志文件用），
     两者共享同一份时间戳和调用方位置，确保一致性。
     location 未传时自动从调用栈推导。
+
+    - args: 默认同时用于终端和文件
+    - console_args: 若传入，则仅用于终端消息体
+    - file_args: 若传入，则仅用于文件消息体
     """
     now = _now()
     loc: str = location if location is not None else _caller_location()
     level_padded = level_name.upper().ljust(8)
+
+    if console_args is None:
+        console_args = args
+    if file_args is None:
+        file_args = args
 
     line = Text()
     line.append(now, style=style)
@@ -89,7 +89,8 @@ def _loguru_build(level_name: str, style: str, *args, location: Optional[str] = 
     line.append(" | ", style=f"{style} dim")
     line.append(loc, style=style)
     line.append(" - ", style=f"{style} dim")
-    for i, arg in enumerate(args):
+
+    for i, arg in enumerate(console_args):
         if i > 0:
             line.append(" ")
         if isinstance(arg, Text):
@@ -97,16 +98,27 @@ def _loguru_build(level_name: str, style: str, *args, location: Optional[str] = 
         else:
             line.append(str(arg))
 
-    plain = f"{now} | {level_padded} | {loc} - {_to_plain_text(*args)}"
+    plain = f"{now} | {level_padded} | {loc} - {_to_plain_text(*file_args)}"
     return line, plain
 
 
 def _loguru_print(level_name: str, style: str, *args, **kwargs) -> str:
     """
     构建并打印 loguru 风格日志行，同时返回对应的纯文本字符串供写入日志文件。
-    2026-03-14 10:23:45.124 | WARNING  | module:func:line - message
+    2026-03-14 10:23:45.124 | DEBUG  | module:func:line - message
     """
-    line, plain = _loguru_build(level_name, style, *args)
+    console_args = kwargs.pop("console_args", None)
+    file_args = kwargs.pop("file_args", None)
+    location = kwargs.pop("location", None)
+
+    line, plain = _loguru_build(
+        level_name,
+        style,
+        *args,
+        location=location,
+        console_args=console_args,
+        file_args=file_args,
+    )
     _console.print(line, **kwargs)
     return plain
 
@@ -119,19 +131,18 @@ def _loguru_print(level_name: str, style: str, *args, **kwargs) -> str:
 # noinspection PyShadowingBuiltins
 def print(*args, **kwargs):  # noqa: A001
     """发送普通消息"""
-    if not _can_log:
-        return
     _console.print(*args, **kwargs)
 
 
-def debug(*args, **kwargs):
+def debug(*args, write_to_file: bool = True, **kwargs):
     """发送调试消息（仅 SWANLAB_DEBUG=true 时输出）
     格式：2026-03-14 10:23:45.124 | DEBUG    | module:func:line - message
     """
-    if not _can_log or not helper.env.DEBUG:
+    if not helper.env.DEBUG:
         return
     plain = _loguru_print("debug", "grey54", *args, **kwargs)
-    log.debug(plain)
+    if write_to_file:
+        log.debug(plain)
 
 
 def info(*args, color: str = "blue", **kwargs):
@@ -139,8 +150,6 @@ def info(*args, color: str = "blue", **kwargs):
     格式：swanlab: message
     :param color: 前缀 'swanlab' 的颜色，默认蓝色
     """
-    if not _can_log:
-        return
     prefix = Text(_name, style=f"{color} bold", no_wrap=True) + Text(":", style="default")
     safe_args = [Text(str(a)) if not isinstance(a, Text) else a for a in args]
     _console.print(prefix, *safe_args, **kwargs)
@@ -153,39 +162,59 @@ def warning(*args, **kwargs):
     """发生警告
     格式：2026-03-14 10:23:45.124 | WARNING  | module:func:line - message
     """
-    if not _can_log:
-        return
     plain = _loguru_print("warning", "yellow", *args, **kwargs)
     log.warning(plain)
 
 
-def error(*args, **kwargs):
+def error(*args, write_to_file: bool = True, **kwargs):
     """发生错误
     格式：2026-03-14 10:23:45.124 | ERROR    | module:func:line - message
     """
-    if not _can_log:
-        return
     plain = _loguru_print("error", "red", *args, **kwargs)
-    log.error(plain)
+    if write_to_file:
+        log.error(plain)
 
 
-_LOG_FUNCS = {
-    "debug": log.debug,
-    "info": log.info,
-    "warning": log.warning,
-    "error": log.error,
-}
-
-
-def trace(*args, level: Literal["debug", "warning", "error"] = "debug", id: Optional[str] = None):  # noqa: A002
-    """仅写入日志文件，不打印到终端。
-    格式：2026-03-14 10:23:45.124 | DEBUG    | <id 或调用栈> - message
-
-    :param level: 日志级别，可选 'debug' / 'warning' / 'error'，默认 'debug'
-    :param id:    位置标识符；传入时直接使用，省略时自动从调用栈推导
+def trace(
+    *args,
+    max_frames: int = 2,
+    write_to_file: bool = True,
+    level_name: Literal["error", "debug"] = "error",
+    **kwargs,
+):
     """
-    if not _can_log:
-        return
-    log_func = _LOG_FUNCS.get(level, log.debug)
-    _, plain = _loguru_build(level, "", *args, location=id)
-    log_func(plain)
+    打印当前异常栈，是 error/debug 的变体：在消息末尾追加异常栈信息。
+    必须在 except 块内调用，否则无操作。
+
+    - 终端：显示最后 max_frames 层栈帧 + 异常类型 + 异常信息
+    - 日志文件：显示完整错误栈
+
+    Args:
+        *args: 前缀消息
+        max_frames: 终端显示的最大栈帧数，默认 2
+        write_to_file: 是否写入日志文件，默认 True
+        level_name: 日志级别，"error" 或 "debug"，默认 "error"
+    """
+    import traceback
+
+    exc_type, exc_value, exc_tb = sys.exc_info()
+    if exc_type is None:
+        return None
+
+    # 获取完整的错误栈（用于日志文件）
+    full_tb = "".join(traceback.format_exception(exc_type, exc_value, exc_tb)).rstrip()
+    # 获取最后 N 层栈帧（用于终端）
+    frames = traceback.extract_tb(exc_tb)
+    if not frames:
+        short_tb = f"{exc_type.__name__}: {exc_value}"
+    else:
+        selected = frames[-max_frames:]
+        stack = " -> ".join(f"{frame.name}:{frame.lineno}" for frame in selected)
+        short_tb = f"{stack} -> {exc_type.__name__}: {exc_value}"
+
+    prefix = _to_plain_text(*args).strip()
+    console_msg = f"{prefix}: {short_tb}" if prefix else short_tb
+    file_msg = f"{prefix}: {full_tb}" if prefix else full_tb
+
+    log_fn = error if level_name == "error" else debug
+    log_fn(console_args=(console_msg,), file_args=(file_msg,), write_to_file=write_to_file, **kwargs)

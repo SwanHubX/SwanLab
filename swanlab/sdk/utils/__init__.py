@@ -6,8 +6,9 @@
 理论上本模块的内容都可以被用户调用，我们在此处导出一些常用函数，并将写入API文档中
 """
 
+from swanlab.sdk.internal.pkg.version import get_swanlab_latest_version
+
 from .callbacker import Callback
 from .helper.env import DEBUG
-from .version import get_swanlab_latest_version
 
 __all__ = ["DEBUG", "get_swanlab_latest_version", "Callback"]

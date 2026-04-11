@@ -14,6 +14,7 @@ from swanlab.sdk.internal.bus.emitter import RunEmitter
 from swanlab.sdk.internal.bus.events import MetricLogEvent, ScalarDefineEvent
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.pkg import console
+from swanlab.sdk.internal.pkg.safe import safe_block
 from swanlab.sdk.internal.pkg.timer import Timer
 from swanlab.sdk.internal.run.system.hardware_vendor.apple import Apple
 from swanlab.sdk.internal.run.system.hardware_vendor.cpu import CPU
@@ -108,11 +109,9 @@ class Monitor:
             futures = [(n, self._executor.submit(fn)) for n, fn in all_handlers]
             results: List[CollectResult] = []
             for n, f in futures:
-                try:
+                with safe_block(message=f"Error collecting metric via {n}"):
                     result = f.result()
                     results.extend(result)
-                except Exception as e:
-                    console.error(f"Error collecting metric via {n}: {e}")
             ts = Timestamp()
             ts.GetCurrentTime()
             step = ctx.metrics.next_system_step()

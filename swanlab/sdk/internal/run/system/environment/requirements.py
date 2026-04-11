@@ -8,8 +8,7 @@
 import subprocess
 from typing import Optional
 
-from swanlab.sdk.internal.pkg import console
-from swanlab.sdk.utils.helper import catch_and_return_none
+from swanlab.sdk.internal.pkg.safe import safe
 
 
 def _try_run(cmd: list, timeout: int = 5, check: bool = False) -> Optional[subprocess.CompletedProcess]:
@@ -20,7 +19,7 @@ def _try_run(cmd: list, timeout: int = 5, check: bool = False) -> Optional[subpr
         return None
 
 
-@catch_and_return_none(on_error=lambda e: console.debug(f"Failed to get environment requirements: {e}"))
+@safe(level="debug", message="Failed to get environment requirements")
 def get() -> str:
     """获取当前环境依赖"""
     # 尝试 pixi

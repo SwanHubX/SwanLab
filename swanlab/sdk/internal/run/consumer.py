@@ -25,6 +25,7 @@ from swanlab.sdk.internal.bus.events import (
 )
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.pkg import console
+from swanlab.sdk.internal.pkg.safe import safe_block
 from swanlab.sdk.typings.core import CoreProtocol
 
 from .record_builder import RecordBuilder
@@ -67,73 +68,66 @@ class BackgroundConsumer:
         _emitted_columns: Set[str] = set()
 
         while True:
-            try:
-                # 带超时的阻塞获取，平衡吞吐量和延迟
-                event = self._queue.get(timeout=self._flush_timeout)
+            with safe_block(message="SwanLab background logger thread error"):
+                try:
+                    # 带超时的阻塞获取，平衡吞吐量和延迟
+                    event = self._queue.get(timeout=self._flush_timeout)
 
-                # 1. 退出信号
-                if isinstance(event, RunFinishEvent):
-                    batch.append(self._builder.build_finish(event))
-                    self._flush(batch)
-                    self._core.shutdown()
-                    break
+                    # 1. 退出信号
+                    if isinstance(event, RunFinishEvent):
+                        batch.append(self._builder.build_finish(event))
+                        self._flush(batch)
+                        self._core.shutdown()
+                        break
 
-                # 2. 记录数据（可能触发隐式创建 Implicit Define）
-                elif isinstance(event, MetricLogEvent):
-                    for key, value in event.data.items():
-                        try:
-                            record, cls = self._builder.build_log(value, key, event.timestamp, event.step)
-                            if key not in _emitted_columns:
-                                batch.append(self._builder.build_column_from_log(cls, key))
-                                _emitted_columns.add(key)
-                            if cls.column_type() == ColumnType.COLUMN_TYPE_FLOAT:
-                                self._metrics.update_scalar(key, record.metric.scalar.number)
-                            batch.append(record)
-                        except Exception as e:
-                            console.error(f"Error when parsing metric '{key}': {e}")
+                    # 2. 记录数据（可能触发隐式创建 Implicit Define）
+                    elif isinstance(event, MetricLogEvent):
+                        for key, value in event.data.items():
+                            with safe_block(message=f"Error when parsing metric '{key}'"):
+                                record, cls = self._builder.build_log(value, key, event.timestamp, event.step)
+                                if key not in _emitted_columns:
+                                    batch.append(self._builder.build_column_from_log(cls, key))
+                                    _emitted_columns.add(key)
+                                if cls.column_type() == ColumnType.COLUMN_TYPE_FLOAT:
+                                    self._metrics.update_scalar(key, record.metric.scalar.number)
+                                batch.append(record)
 
-                # 3. 显式创建列 (Explicit Define)
-                elif isinstance(event, ScalarDefineEvent):
-                    if event.key not in _emitted_columns:
-                        batch.append(self._builder.build_column_from_scalar_define(event))
-                        _emitted_columns.add(event.key)
-                    else:
-                        console.warning(f"Column '{event.key}' has already been defined, cannot redefine.")
+                    # 3. 显式创建列 (Explicit Define)
+                    elif isinstance(event, ScalarDefineEvent):
+                        if event.key not in _emitted_columns:
+                            batch.append(self._builder.build_column_from_scalar_define(event))
+                            _emitted_columns.add(event.key)
+                        else:
+                            console.warning(f"Column '{event.key}' has already been defined, cannot redefine.")
 
-                # 4. 系统事件
-                elif isinstance(event, RunStartEvent):
-                    batch.append(self._builder.build_run(event))
-                elif isinstance(event, ConfigEvent):
-                    batch.append(self._builder.build_config(event))
-                elif isinstance(event, ConsoleEvent):
-                    batch.append(self._builder.build_console(event))
-                elif isinstance(event, MetadataEvent):
-                    batch.append(self._builder.build_metadata(event))
-                elif isinstance(event, RequirementsEvent):
-                    batch.append(self._builder.build_requirements(event))
-                elif isinstance(event, CondaEvent):
-                    batch.append(self._builder.build_conda(event))
+                    # 4. 系统事件
+                    elif isinstance(event, RunStartEvent):
+                        batch.append(self._builder.build_run(event))
+                    elif isinstance(event, ConfigEvent):
+                        batch.append(self._builder.build_config(event))
+                    elif isinstance(event, ConsoleEvent):
+                        batch.append(self._builder.build_console(event))
+                    elif isinstance(event, MetadataEvent):
+                        batch.append(self._builder.build_metadata(event))
+                    elif isinstance(event, RequirementsEvent):
+                        batch.append(self._builder.build_requirements(event))
+                    elif isinstance(event, CondaEvent):
+                        batch.append(self._builder.build_conda(event))
 
-                # 5. 微批处理落盘检查
-                if len(batch) >= self._batch_size:
-                    self._flush(batch)
-                    batch.clear()
-
-            except queue.Empty:
-                # 超时强制刷盘
-                if batch:
-                    self._flush(batch)
-                    batch.clear()
-            except Exception as e:
-                # 终极防线
-                console.error(f"SwanLab background logger thread error: {e}")
+                    # 5. 微批处理落盘检查
+                    if len(batch) >= self._batch_size:
+                        self._flush(batch)
+                        batch.clear()
+                except queue.Empty:
+                    # 超时强制刷盘
+                    if batch:
+                        self._flush(batch)
+                        batch.clear()
 
     def _flush(self, records: FlushPayload) -> None:
         """处理一批 Record：持久化、回调、上传等"""
         if not records:
             return
-        try:
+        with safe_block(message="SwanLab failed to handle records"):
             self._core.handle_records(records)
             # TODO: 分类数据，根据语义依次触发回调
-        except Exception as e:
-            console.error(f"SwanLab failed to handle records: {e}")

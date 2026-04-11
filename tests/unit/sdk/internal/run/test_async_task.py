@@ -78,16 +78,15 @@ class TestSubmit:
         assert results == [({"loss": 0.5}, 1)]
 
     def test_threading_error(self, mgr):
-        errors = []
+        called = []
 
         def boom():
             raise ValueError("kaboom")
 
-        f = mgr.submit(boom, mode="threading", on_error=lambda tb: errors.append(tb))
+        f = mgr.submit(boom, mode="threading", on_error=lambda: called.append(True))
         with pytest.raises(ValueError, match="kaboom"):
             f.result()
-        assert len(errors) == 1
-        assert "kaboom" in errors[0]
+        assert len(called) == 1
 
     def test_spawn_success(self, mgr):
         # func 必须是模块级顶层函数（可 pickle）
@@ -164,7 +163,7 @@ class TestShutdown:
             raise RuntimeError("oops")
 
         mgr.submit(ok, mode="threading", on_success=lambda r, s: results.append(r))
-        mgr.submit(fail, mode="threading", on_error=lambda tb: results.append("err"))
+        mgr.submit(fail, mode="threading", on_error=lambda: results.append("err"))
         mgr.shutdown()
         assert "done" in results
         assert "err" in results

@@ -9,7 +9,7 @@
 import contextvars
 import copy
 import time
-from typing import Optional, Union
+from typing import Optional
 
 from requests import Session
 from requests.adapters import HTTPAdapter
@@ -18,10 +18,9 @@ from urllib3.util.retry import Retry
 from swanlab.exceptions import ApiError
 from swanlab.sdk.internal.core_python.client.helper import decode_error_response
 from swanlab.sdk.internal.pkg import console
-from swanlab.sdk.utils import helper
-from swanlab.sdk.utils.version import get_swanlab_version
+from swanlab.sdk.internal.pkg.version import get_swanlab_version
 
-__all__ = ["create", "TimeoutHTTPAdapter", "SessionWithRetry"]
+__all__ = ["create", "TimeoutHTTPAdapter", "SessionWithRetry", "request_retries_ctx"]
 VERSION_HEADER = "X-SwanLab-SDK-Version"
 TRACE_ID = "swanlab.client"
 # 用于存储当前请求的重试次数，避免在请求中传递 retries 参数
@@ -55,25 +54,6 @@ class TimeoutHTTPAdapter(HTTPAdapter):
         return super().send(request, *args, **kwargs)
 
 
-@helper.catch_and_return_none()
-def format_body_preview(body: Optional[Union[bytes, str]], max_len: int = 1000) -> str:
-    """
-    统一格式化并截断请求/响应体，安全处理二进制乱码。
-    如果是 bytes，尝试用 utf-8 解码；超过 max_len 则截断防刷屏。
-    """
-    if not body:
-        return ""
-
-    if isinstance(body, bytes):
-        body_str = body.decode("utf-8", errors="replace")
-    else:
-        body_str = str(body)
-
-    if len(body_str) > max_len:
-        return body_str[:max_len] + " ... (truncated)"
-    return body_str
-
-
 class SessionWithRetry(Session):
     """
     支持在请求级别自定义重试次数的 Session。
@@ -99,17 +79,6 @@ class SessionWithRetry(Session):
         重写底层发送方法，统一处理所有响应的校验逻辑和网络日志记录
         """
         method = (request.method or "unknown").upper()
-
-        # --- [DEBUG] 记录请求详情 ---
-        if helper.env.DEBUG:
-            # 这里的 request.url 已经包含了 params 拼接后的完整 query 字符串
-            console.trace(f"[HTTP-REQ] {method} {request.url} | Headers: {request.headers}", id=TRACE_ID)
-            body = request.body
-            if body:
-                body_preview = format_body_preview(body) or "<unknown binary data>"
-                console.trace(f"[HTTP-REQ-BODY] {body_preview}", id=TRACE_ID)
-        # ---------------------------
-
         start = time.perf_counter()
 
         # 调用父类（或 Adapter）获取响应
@@ -118,23 +87,8 @@ class SessionWithRetry(Session):
         elapsed_ms = (time.perf_counter() - start) * 1000
         trace_id = response.headers.get("traceid", "unknown")
 
-        # 1. 2xx 响应：记录正常日志后放行
+        # 1. 2xx 响应：直接放行
         if response.ok:
-            console.trace(
-                f"[HTTP] {method} {request.url} -> {response.status_code} ({elapsed_ms:.0f}ms) trace:{trace_id}",
-                id=TRACE_ID,
-            )
-
-            # --- [DEBUG] 记录成功响应详情 ---
-            if helper.env.DEBUG:
-                console.trace(f"[HTTP-RES] Headers: {response.headers}", id=TRACE_ID)
-                # 直接传 response.text (str) 给格式化函数
-                text = response.text
-                if text:
-                    resp_preview = format_body_preview(text) or "<unknown data>"
-                    console.trace(f"[HTTP-RES-BODY] {resp_preview}", id=TRACE_ID)
-            # -------------------------------
-
             return response
 
         # 2. 非 2xx 响应：准备 Fallback 默认值
@@ -146,24 +100,11 @@ class SessionWithRetry(Session):
         if decoded is not None:
             error_code, error_message = decoded
 
-        # 4. 记录错误日志（附带响应体，方便排查）
-        console.trace(
+        # 4. 记录错误日志
+        console.error(
             f"[HTTP] {method} {request.url} -> {response.status_code} ({elapsed_ms:.0f}ms) trace:{trace_id}"
-            f" | [ERR] code={error_code} message={error_message}",
-            level="error",
-            id=TRACE_ID,
+            f" | [ERR] code={error_code} message={error_message}"
         )
-
-        # --- [DEBUG] 记录失败响应详情 ---
-        if helper.env.DEBUG:
-            console.trace(f"[HTTP-RES-ERR] Headers: {response.headers}", id=TRACE_ID)
-            text = response.text
-            if text and not decoded:
-                # 只有当解码失败时，才额外把原始错误 body 打印出来
-                err_preview = format_body_preview(text) or "<unknown data>"
-                console.trace(f"[HTTP-RES-ERR-BODY] {err_preview}", id=TRACE_ID)
-        # -------------------------------
-
         # 5. 抛出友好的自定义 ApiError
         raise ApiError(response, method=method, trace_id=trace_id, code=error_code, message=error_message)
 

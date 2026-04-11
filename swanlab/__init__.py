@@ -16,9 +16,9 @@ from swanlab.sdk import (
     login,
     merge_settings,
 )
+from swanlab.sdk.internal.pkg.version import get_swanlab_version
 from swanlab.sdk.internal.run.transforms import Audio, Image, Text, Video
 from swanlab.sdk.utils.callbacker import Callback
-from swanlab.sdk.utils.version import get_swanlab_version
 
 from . import utils
 

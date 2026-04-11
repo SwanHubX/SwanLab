@@ -67,9 +67,9 @@ def safe_mkdir(path: Union[str, Path], timeout: float = TIMEOUT) -> Path:
             with tempfile.TemporaryFile(dir=p, prefix=".swanlab_test_") as f:
                 f.write(b"0")
             break
-        except OSError as e:
+        except OSError:
             if time.time() - start_time > timeout:
-                console.error(f"Directory {p} exists but is not writable yet. NAS sync issue? Error: {e}")
+                console.trace(f"NAS sync issue? Directory {p} exists but is not writable yet")
                 raise TimeoutError(f"Directory {p} is not writable within {timeout}s.")
             time.sleep(0.1)
 
