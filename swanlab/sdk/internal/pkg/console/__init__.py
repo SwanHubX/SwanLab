@@ -10,7 +10,7 @@ import inspect
 import os
 import sys
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 from rich.console import Console
 from rich.text import Text
@@ -105,7 +105,7 @@ def _loguru_build(
 def _loguru_print(level_name: str, style: str, *args, **kwargs) -> str:
     """
     构建并打印 loguru 风格日志行，同时返回对应的纯文本字符串供写入日志文件。
-    2026-03-14 10:23:45.124 | WARNING  | module:func:line - message
+    2026-03-14 10:23:45.124 | DEBUG  | module:func:line - message
     """
     console_args = kwargs.pop("console_args", None)
     file_args = kwargs.pop("file_args", None)
@@ -134,14 +134,15 @@ def print(*args, **kwargs):  # noqa: A001
     _console.print(*args, **kwargs)
 
 
-def debug(*args, **kwargs):
+def debug(*args, write_to_file: bool = True, **kwargs):
     """发送调试消息（仅 SWANLAB_DEBUG=true 时输出）
     格式：2026-03-14 10:23:45.124 | DEBUG    | module:func:line - message
     """
     if not helper.env.DEBUG:
         return
     plain = _loguru_print("debug", "grey54", *args, **kwargs)
-    log.debug(plain)
+    if write_to_file:
+        log.debug(plain)
 
 
 def info(*args, color: str = "blue", **kwargs):
@@ -165,47 +166,55 @@ def warning(*args, **kwargs):
     log.warning(plain)
 
 
-def error(*args, **kwargs):
+def error(*args, write_to_file: bool = True, **kwargs):
     """发生错误
     格式：2026-03-14 10:23:45.124 | ERROR    | module:func:line - message
     """
     plain = _loguru_print("error", "red", *args, **kwargs)
-    log.error(plain)
+    if write_to_file:
+        log.error(plain)
 
 
-def trace(*args, max_frames: int = 2, **kwargs):
+def trace(
+    *args,
+    max_frames: int = 2,
+    write_to_file: bool = True,
+    level_name: Literal["error", "debug"] = "error",
+    **kwargs,
+):
     """
-    调用`traceback.format_exc()`，打印当前错误栈，规则为：
-    1. 如果 traceback.format_exc() 为 None, 则提前退出
-    2. 对于终端打印，打印当前错误栈最后 1～3 层栈帧 + 异常类型 + 异常信息，例如 <module>:10 -> ZeroDivisionError: division by zero
-    3. 对于日志文件打印，打印完整的错误栈
-    _loguru_print 的设计依旧保留，最终格式例如：
-    2026-03-14 10:23:45.124 | ERROR    | module:func:line - message:  <module>:10 -> ZeroDivisionError: division by zero
+    打印当前异常栈，是 error/debug 的变体：在消息末尾追加异常栈信息。
+    必须在 except 块内调用，否则无操作。
+
+    - 终端：显示最后 max_frames 层栈帧 + 异常类型 + 异常信息
+    - 日志文件：显示完整错误栈
+
+    Args:
+        *args: 前缀消息
+        max_frames: 终端显示的最大栈帧数，默认 2
+        write_to_file: 是否写入日志文件，默认 True
+        level_name: 日志级别，"error" 或 "debug"，默认 "error"
     """
     import traceback
 
     exc_type, exc_value, exc_tb = sys.exc_info()
     if exc_type is None:
-        return ""
-    # 1. 获取完整的错误栈
+        return None
+
+    # 获取完整的错误栈（用于日志文件）
     full_tb = "".join(traceback.format_exception(exc_type, exc_value, exc_tb)).rstrip()
-    # 2. 获取当前错误栈的最后 1～3 层栈帧
+    # 获取最后 N 层栈帧（用于终端）
     frames = traceback.extract_tb(exc_tb)
     if not frames:
-        return f"{exc_type.__name__}: {exc_value}"
+        short_tb = f"{exc_type.__name__}: {exc_value}"
+    else:
+        selected = frames[-max_frames:]
+        stack = " -> ".join(f"{frame.name}:{frame.lineno}" for frame in selected)
+        short_tb = f"{stack} -> {exc_type.__name__}: {exc_value}"
 
-    selected = frames[-max_frames:]
-    stack = " -> ".join(f"{frame.name}:{frame.lineno}" for frame in selected)
-    short_tb = f"{stack} -> {exc_type.__name__}: {exc_value}"
-    # 3. 打印日志
     prefix = _to_plain_text(*args).strip()
     console_msg = f"{prefix}: {short_tb}" if prefix else short_tb
     file_msg = f"{prefix}: {full_tb}" if prefix else full_tb
 
-    return _loguru_print(
-        "ERROR",
-        "red",
-        console_args=(console_msg,),
-        file_args=(file_msg,),
-        **kwargs,
-    )
+    log_fn = error if level_name == "error" else debug
+    log_fn(console_args=(console_msg,), file_args=(file_msg,), write_to_file=write_to_file, **kwargs)

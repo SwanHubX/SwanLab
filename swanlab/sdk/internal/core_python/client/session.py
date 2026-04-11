@@ -21,7 +21,7 @@ from swanlab.sdk.internal.pkg import console
 from swanlab.sdk.utils import helper
 from swanlab.sdk.utils.version import get_swanlab_version
 
-__all__ = ["create", "TimeoutHTTPAdapter", "SessionWithRetry"]
+__all__ = ["create", "TimeoutHTTPAdapter", "SessionWithRetry", "format_body_preview", "decode_error_response"]
 VERSION_HEADER = "X-SwanLab-SDK-Version"
 TRACE_ID = "swanlab.client"
 # 用于存储当前请求的重试次数，避免在请求中传递 retries 参数
@@ -123,8 +123,7 @@ class SessionWithRetry(Session):
         # 4. 记录错误日志
         console.error(
             f"[HTTP] {method} {request.url} -> {response.status_code} ({elapsed_ms:.0f}ms) trace:{trace_id}"
-            f" | [ERR] code={error_code} message={error_message}",
-            id=TRACE_ID,
+            f" | [ERR] code={error_code} message={error_message}"
         )
         # 5. 抛出友好的自定义 ApiError
         raise ApiError(response, method=method, trace_id=trace_id, code=error_code, message=error_message)
