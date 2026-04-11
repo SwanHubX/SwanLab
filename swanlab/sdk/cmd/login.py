@@ -10,15 +10,15 @@ from typing import Optional
 from urllib.parse import urlparse
 
 from swanlab.exceptions import AuthenticationError
-from swanlab.sdk.cmd.helper import with_cmd_lock, without_run
+from swanlab.sdk.cmd.guard import with_cmd_lock, without_run
 from swanlab.sdk.internal import apikey
 from swanlab.sdk.internal.context import RunConfig, RunContext, use_context
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.pkg import console
+from swanlab.sdk.internal.pkg.helper.rich import with_loading_animation
 from swanlab.sdk.internal.pkg.scope import Scope
 from swanlab.sdk.internal.settings import Settings, settings
 from swanlab.sdk.typings.core_python.api.bootstrap import LoginResponse
-from swanlab.sdk.utils import helper
 
 
 @with_cmd_lock
@@ -173,7 +173,7 @@ def interactive_login(
             return False
 
 
-@helper.rich.with_loading_animation()
+@with_loading_animation()
 def create_client(ctx: RunContext, timeout: int = 10):
     assert ctx.config.settings.api_key is not None, "API Key not provided"
     return client.new(ctx.config.settings.api_key, ctx.config.settings.api_host, timeout=timeout)

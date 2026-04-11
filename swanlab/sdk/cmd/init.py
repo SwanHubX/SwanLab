@@ -17,7 +17,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import requests
 import yaml
 
-from swanlab.sdk.cmd.helper import with_cmd_lock
+from swanlab.sdk.cmd.guard import with_cmd_lock
 from swanlab.sdk.internal.context import (
     RunConfig,
     RunContext,
@@ -29,9 +29,10 @@ from swanlab.sdk.internal.core_python.api.project import get_or_create_project, 
 from swanlab.sdk.internal.pkg import console
 from swanlab.sdk.internal.pkg.fs.dir import safe_mkdir, safe_mkdirs
 from swanlab.sdk.internal.pkg.fs.write import safe_write
+from swanlab.sdk.internal.pkg.helper import get_swanlab_version
+from swanlab.sdk.internal.pkg.helper.rich import with_loading_animation
 from swanlab.sdk.internal.pkg.safe import safe
-from swanlab.sdk.internal.pkg.version import get_swanlab_version
-from swanlab.sdk.utils import helper
+from swanlab.sdk.internal.protocol import Callback
 from swanlab.utils import generate_color, generate_id, generate_name
 
 from ..internal import apikey
@@ -40,7 +41,6 @@ from ..internal.run import Run, get_run, has_run
 from ..internal.settings import Settings
 from ..internal.settings import settings as global_settings
 from ..typings.run import ModeType, ResumeType
-from ..utils.callbacker import Callback
 from .login import interactive_login, raw_login
 
 
@@ -313,7 +313,7 @@ def _init(run_settings: Settings) -> RunContext:
     return ctx
 
 
-@helper.rich.with_loading_animation()
+@with_loading_animation()
 def _init_cloud(ctx: RunContext, run_id: str):
     """
     在云模式下初始化运行上下文。

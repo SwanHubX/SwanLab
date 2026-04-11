@@ -18,7 +18,7 @@ from urllib3.util.retry import Retry
 from swanlab.exceptions import ApiError
 from swanlab.sdk.internal.core_python.client.helper import decode_error_response
 from swanlab.sdk.internal.pkg import console
-from swanlab.sdk.internal.pkg.version import get_swanlab_version
+from swanlab.sdk.internal.pkg.helper import get_swanlab_version
 
 __all__ = ["create", "TimeoutHTTPAdapter", "SessionWithRetry", "request_retries_ctx"]
 VERSION_HEADER = "X-SwanLab-SDK-Version"

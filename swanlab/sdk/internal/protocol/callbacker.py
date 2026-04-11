@@ -1,15 +1,13 @@
 """
 @author: cunyue
-@file: __init__.py
-@time: 2026/3/10 17:30
-@description: SwanLab 运行时回调函数
+@file: callbacker.py
+@time: 2026/4/12 01:12
+@description: SwanLab SDK 回调器协议定义
 """
 
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Dict, Optional
-
-__all__ = ["Callback"]
 
 
 class Callback(ABC):

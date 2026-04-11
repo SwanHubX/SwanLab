@@ -14,9 +14,9 @@ from rich.text import Text
 
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.pkg import console
+from swanlab.sdk.internal.pkg.helper.env import is_interactive
 from swanlab.sdk.internal.pkg.netrc import get_nrc_path, remove_host_suffix, write_netrc
 from swanlab.sdk.internal.settings import Settings, settings
-from swanlab.sdk.utils import helper
 
 __all__ = ["get", "save", "exists"]
 
@@ -89,7 +89,7 @@ def prompt(
             "API Key not provided and interactive mode is disabled",
             "use `swanlab.login(interactive=True)` or SWANLAB_INTERACTIVE=1 to enable interactive mode.",
         )
-    if not helper.env.is_interactive():
+    if not is_interactive():
         raise RuntimeError("Cannot prompt for API Key in no-tty environment")
     web_host = current_settings.web_host
     # 1. 打印获取 API Key 的指引（非重试模式下）

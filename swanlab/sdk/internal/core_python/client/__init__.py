@@ -12,9 +12,9 @@ from typing import Any, Optional, Union
 import requests
 
 from swanlab.sdk.internal.core_python.api.bootstrap import login_by_api_key
+from swanlab.sdk.internal.pkg.helper import get_swanlab_version
 from swanlab.sdk.internal.pkg.netrc import remove_host_suffix
 from swanlab.sdk.internal.pkg.scope import set_context
-from swanlab.sdk.internal.pkg.version import get_swanlab_version
 from swanlab.sdk.typings.core_python.api.bootstrap import LoginResponse
 
 from ...pkg import console

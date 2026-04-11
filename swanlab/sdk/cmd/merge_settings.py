@@ -7,7 +7,7 @@
 
 from typing import Union
 
-from swanlab.sdk.cmd.helper import with_cmd_lock, without_run
+from swanlab.sdk.cmd.guard import with_cmd_lock, without_run
 from swanlab.sdk.internal.settings import Settings
 from swanlab.sdk.internal.settings import settings as swanlab_settings
 

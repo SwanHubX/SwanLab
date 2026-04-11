@@ -15,8 +15,7 @@ from typing import Any, Literal, Optional
 from rich.console import Console
 from rich.text import Text
 
-from swanlab.sdk.internal.pkg import log
-from swanlab.sdk.utils import helper
+from swanlab.sdk.internal.pkg import helper, log
 
 __all__ = ["debug", "info", "warning", "error", "trace"]
 
@@ -138,7 +137,7 @@ def debug(*args, write_to_file: bool = True, **kwargs):
     """发送调试消息（仅 SWANLAB_DEBUG=true 时输出）
     格式：2026-03-14 10:23:45.124 | DEBUG    | module:func:line - message
     """
-    if not helper.env.DEBUG:
+    if not helper.DEBUG:
         return
     plain = _loguru_print("debug", "grey54", *args, **kwargs)
     if write_to_file:
@@ -153,7 +152,7 @@ def info(*args, color: str = "blue", **kwargs):
     prefix = Text(_name, style=f"{color} bold", no_wrap=True) + Text(":", style="default")
     safe_args = [Text(str(a)) if not isinstance(a, Text) else a for a in args]
     _console.print(prefix, *safe_args, **kwargs)
-    if helper.env.DEBUG:
+    if helper.DEBUG:
         _, plain = _loguru_build("info", "", *args)
         log.info(plain)
 

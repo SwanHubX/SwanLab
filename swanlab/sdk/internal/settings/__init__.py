@@ -43,7 +43,7 @@ from .metadata import ConsoleSettings, EnvironmentSettings, MonitorSettings
 
 __all__ = ["Settings", "settings"]
 
-from ...utils.helper import strip_none
+from swanlab.sdk.internal.pkg.helper import strip_none
 
 # 根据环境变量自动设置 secrets_dir
 # 如果强制设置，会出现警告：https://github.com/pydantic/pydantic/issues/2175

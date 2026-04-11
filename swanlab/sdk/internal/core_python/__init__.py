@@ -21,8 +21,8 @@ from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.core_python.store import DataStoreWriter
 from swanlab.sdk.internal.core_python.uploader import Uploader
 from swanlab.sdk.internal.pkg import console
+from swanlab.sdk.internal.pkg.helper import DEBUG
 from swanlab.sdk.typings.core import CoreProtocol
-from swanlab.sdk.utils.helper.env import DEBUG
 
 __all__ = ["CorePython"]
 

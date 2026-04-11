@@ -10,8 +10,8 @@ from typing import Optional, cast
 from swanlab.exceptions import ApiError
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.core_python.client.helper import decode_response
+from swanlab.sdk.internal.pkg.helper import strip_none
 from swanlab.sdk.typings.core_python.api.project import InitProjectType, ProjectType
-from swanlab.sdk.utils.helper import strip_none
 
 
 def get_project(*, username: str, name: str) -> ProjectType:

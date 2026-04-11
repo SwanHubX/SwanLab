@@ -1,8 +1,8 @@
 """
 @author: cunyue
-@file: __init__.py
-@time: 2026/3/7 14:11
-@description: SwanLab SDK 版本信息
+@file: version.py
+@time: 2026/4/12 01:19
+@description: SwanLab SDK 版本工具
 """
 
 import json

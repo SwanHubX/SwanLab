@@ -9,8 +9,8 @@ from typing import List, Optional
 
 from swanlab.exceptions import ApiError
 from swanlab.sdk.internal.core_python import client
+from swanlab.sdk.internal.pkg.helper import strip_none
 from swanlab.sdk.typings.run import ResumeType
-from swanlab.sdk.utils.helper import strip_none
 
 
 def create_or_resume_experiment(

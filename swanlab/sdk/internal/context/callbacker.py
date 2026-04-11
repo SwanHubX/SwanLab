@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Dict, Iterable, List
 
 from swanlab.sdk.internal.pkg import console
 from swanlab.sdk.internal.pkg.safe import safe_block
-from swanlab.sdk.utils.callbacker import Callback
+from swanlab.sdk.internal.protocol import Callback
 
 
 class _CallbackManager:

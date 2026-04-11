@@ -5,7 +5,7 @@
 @description: SwanLab SDK 辅助函数
 """
 
-from swanlab.sdk.utils.helper import strip_none
+from swanlab.sdk.internal.pkg.helper import strip_none
 
 
 class TestStripNone:
