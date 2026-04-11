@@ -10,7 +10,7 @@ from concurrent.futures import Future
 from typing import Any, Callable, List, Mapping, Optional, Union
 
 from . import utils
-from .sdk import config
+from .sdk import Callback, config
 from .sdk.cmd.init import ConfigLike
 from .sdk.internal.run import Run
 from .sdk.internal.run.transforms import Audio, Image, Text, Video
@@ -22,7 +22,6 @@ from .sdk.typings.run.transforms.audio import AudioDatasType, AudioRatesType
 from .sdk.typings.run.transforms.image import ImageDatasType, ImageFilesType, ImageModesType, ImageSizesType
 from .sdk.typings.run.transforms.text import TextDatasType
 from .sdk.typings.run.transforms.video import VideoDatasType
-from .sdk.utils.callbacker import Callback
 
 __version__: str
 

@@ -10,7 +10,7 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import requests
 
-from swanlab.sdk.internal.pkg.safe import safe
+from swanlab.sdk.internal.pkg import safe
 
 
 def decode_response(resp: requests.Response) -> Union[Dict, List, str]:
@@ -23,7 +23,7 @@ def decode_response(resp: requests.Response) -> Union[Dict, List, str]:
         return resp.text
 
 
-@safe(message=None)
+@safe.decorator(message=None)
 def decode_error_response(resp: requests.Response) -> Optional[Tuple[str, str]]:
     """
     尝试从错误响应的 JSON body 中解码业务错误码 (code) 和错误信息 (message)。

@@ -6,7 +6,7 @@
 这里主要是为了解决NAS等网络文件系统的延迟问题，在python层面这一切被操作系统屏蔽了，因此我们需要一个抗延迟的重试机制
 """
 
-from .dir import safe_mkdir
+from .dir import safe_mkdir, safe_mkdirs
 from .write import safe_write
 
-__all__ = ["safe_mkdir", "safe_write"]
+__all__ = ["safe_mkdir", "safe_mkdirs", "safe_write"]

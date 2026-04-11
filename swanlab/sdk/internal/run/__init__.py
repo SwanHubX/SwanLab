@@ -33,8 +33,7 @@ from swanlab.sdk.internal.bus.events import (
     ScalarDefineEvent,
 )
 from swanlab.sdk.internal.context import RunContext
-from swanlab.sdk.internal.pkg import console, log
-from swanlab.sdk.internal.pkg.safe import safe_block
+from swanlab.sdk.internal.pkg import console, safe
 from swanlab.sdk.internal.run import system
 from swanlab.sdk.internal.run.async_task import AsyncTaskManager
 from swanlab.sdk.internal.run.config import (
@@ -47,7 +46,7 @@ from swanlab.sdk.internal.run.config import (
 )
 from swanlab.sdk.internal.run.transforms import Audio, Image, Text, Video, normalize_media_input
 from swanlab.sdk.typings.core import CoreEnum, CoreProtocol
-from swanlab.sdk.typings.run import AsyncLogType, FinishType
+from swanlab.sdk.typings.run import AsyncLogType, FinishType, ModeType
 from swanlab.sdk.typings.run.column import ScalarXAxisType
 from swanlab.sdk.typings.run.transforms import CaptionsType
 from swanlab.sdk.typings.run.transforms.audio import AudioDatasType, AudioRatesType
@@ -55,6 +54,7 @@ from swanlab.sdk.typings.run.transforms.image import ImageDatasType, ImageFilesT
 from swanlab.sdk.typings.run.transforms.text import TextDatasType
 from swanlab.sdk.typings.run.transforms.video import VideoDatasType
 
+from ..pkg.console import log
 from . import utils_fmt as fmt
 from .consumer import BackgroundConsumer
 from .record_builder import RecordBuilder
@@ -168,7 +168,7 @@ class Run:
 
         # 2.2 系统信息采集，如果是 disabled 模式，则不采集
         self._monitor: Optional["system.Monitor"] = None
-        if self._ctx.config.settings.mode != "disabled":
+        if self.mode != "disabled":
             sys_info, monitor = system.new(self._ctx)
             ts = Timestamp()
             ts.GetCurrentTime()
@@ -191,7 +191,11 @@ class Run:
         else:
             self.config: _ConfigClass = create_unbound_run_config()
 
-        # 2.4 启动后台消费者
+        # 2.4 初始化完成
+        if self.mode != "disabled":
+            self._ctx.callbacker.on_run_initialized(self._ctx.run_dir, self.path)
+
+        # 2.5 启动后台消费者
         self._consumer.start()
 
         # ---------------------------------- 3. 注册副作用 ----------------------------------
@@ -206,7 +210,7 @@ class Run:
         self._original_sigint_handler = signal.getsignal(signal.SIGINT)
         signal.signal(signal.SIGINT, self._handle_sigint)
         # 绑定日志文件，运行正式开始
-        if self._ctx.config.settings.mode != "disabled":
+        if self.mode != "disabled":
             log.bindfile(self._ctx.debug_dir)
 
     # ----------------------------------
@@ -251,7 +255,7 @@ class Run:
         tb: Optional[TracebackType],
     ) -> None:
         """全局异常捕获，将实验标记为 crashed 或 aborted"""
-        with safe_block(message="SwanLab failed to handle excepthook"):
+        with safe.block(message="SwanLab failed to handle excepthook"):
             if self.alive:
                 state: FinishType = "crashed"
                 if tp is KeyboardInterrupt:
@@ -278,6 +282,16 @@ class Run:
         return self._ctx.config.settings.run.id
 
     @cached_property
+    def mode(self) -> ModeType:
+        """
+        Current run mode.
+
+        :return: Run mode
+        """
+        assert self._ctx.config.settings.mode is not None, "Run mode is not set."
+        return self._ctx.config.settings.mode
+
+    @cached_property
     def name(self) -> str:
         """
         Current run name, equal to experiment name.
@@ -296,6 +310,16 @@ class Run:
         return self._ctx.run_dir
 
     @cached_property
+    def path(self) -> str:
+        """
+        Current run path in the format of /@:workspace/:project/:run_id.
+
+        :return: Run path
+        """
+        settings = self._ctx.config.settings
+        return f"/@{settings.project.workspace}/{settings.project.name}/runs/{settings.run.id}"
+
+    @cached_property
     def url(self) -> Optional[str]:
         """
         Current run URL if in cloud mode, otherwise None.
@@ -304,7 +328,7 @@ class Run:
         settings = self._ctx.config.settings
         if settings.mode != "cloud":
             return None
-        return f"{settings.web_host}/@{settings.project.workspace}/{settings.project.name}/runs/{settings.run.id}"
+        return f"{settings.web_host}{self.path}"
 
     @property
     def _forked(self) -> bool:
@@ -633,24 +657,32 @@ class Run:
             error = "unknown"
 
         # 2. 运行结束前，结束其他依赖于运行实例的线程
-        # 等待所有 async_log 任务完成
+        # 2.1 等待所有 async_log 任务完成
         console.debug("Waiting for async_log tasks to complete...")
         self._async_task_manager.shutdown(timeout=async_log_timeout)
-        # 停止硬件监控
+        # 2.2 停止硬件监控
         if self._monitor is not None:
             console.debug("Stopping hardware monitor...")
             self._monitor.stop()
 
         # 3. 运行结束
         self._state = this_state
-        # 3.1 停止Core线程
+        # 3.1 TODO: goodbye message
+
+        # 3.2 TODO: 停止终端代理
+
+        # 3.3 停止Core线程
         console.debug("SwanLab Run is finishing, waiting for logs to flush...")
         ts = Timestamp()
         ts.GetCurrentTime()
         self._emitter.emit(RunFinishEvent(state=this_state, error=error, timestamp=ts))
         self._consumer.join()
         console.debug(f"SwanLab Run has finished with state: {self._state}, cleanup...")
-        # 3.2 清理副作用
+
+        # 3.4 触发实验结束回调
+        if self.mode != "disabled":
+            self._ctx.callbacker.on_run_finished(self._state, error)
+        # 3.5 清理副作用
         console.debug("Cleanup system hook...")
         atexit.unregister(self._handle_atexit)
         sys.excepthook = self._sys_origin_excepthook

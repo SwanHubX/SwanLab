@@ -9,7 +9,7 @@ from unittest.mock import MagicMock
 
 import requests
 
-from swanlab.sdk.internal.core_python.client.helper import decode_error_response, decode_response
+from swanlab.sdk.internal.core_python.client.utils import decode_error_response, decode_response
 
 
 def test_decode_response_json():

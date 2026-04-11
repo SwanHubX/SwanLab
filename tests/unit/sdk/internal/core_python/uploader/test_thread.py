@@ -6,7 +6,7 @@ from swanlab.sdk.internal.core_python.uploader.thread import Uploader
 
 def test_uploader_defaults_to_class_upload_interval():
     """验证不传 upload_interval 时使用类默认值 UPLOAD_INTERVAL。"""
-    with patch("swanlab.sdk.internal.core_python.uploader.thread.Timer") as mock_timer_cls:
+    with patch("swanlab.sdk.internal.core_python.uploader.thread.timer.Timer") as mock_timer_cls:
         Uploader(auto_start=False)
 
     _, kwargs = mock_timer_cls.call_args
@@ -15,7 +15,7 @@ def test_uploader_defaults_to_class_upload_interval():
 
 def test_uploader_uses_custom_upload_interval():
     """验证传入自定义 upload_interval 时覆盖类默认值。"""
-    with patch("swanlab.sdk.internal.core_python.uploader.thread.Timer") as mock_timer_cls:
+    with patch("swanlab.sdk.internal.pkg.timer.Timer") as mock_timer_cls:
         Uploader(upload_interval=0.5, auto_start=False)
 
     _, kwargs = mock_timer_cls.call_args
@@ -29,7 +29,7 @@ def test_uploader_start_reuses_pkg_timer_scheduler():
     """验证 start() 创建 Timer 时参数正确（interval、immediate、name）并启动。"""
     timer = MagicMock()
 
-    with patch("swanlab.sdk.internal.core_python.uploader.thread.Timer") as mock_timer_cls:
+    with patch("swanlab.sdk.internal.pkg.timer.Timer") as mock_timer_cls:
         mock_timer_cls.return_value = timer
 
         pool = Uploader(auto_start=False)
@@ -47,7 +47,7 @@ def test_uploader_start_is_idempotent():
     """验证 start() 重复调用不会启动第二个 Timer。"""
     timer = MagicMock()
 
-    with patch("swanlab.sdk.internal.core_python.uploader.thread.Timer") as mock_timer_cls:
+    with patch("swanlab.sdk.internal.pkg.timer.Timer") as mock_timer_cls:
         mock_timer_cls.return_value = timer
 
         pool = Uploader(auto_start=False)
@@ -62,7 +62,7 @@ def test_uploader_start_after_finish_is_noop():
     pool = Uploader(auto_start=False)
     pool.finish()
 
-    with patch("swanlab.sdk.internal.core_python.uploader.thread.Timer") as mock_timer_cls:
+    with patch("swanlab.sdk.internal.pkg.timer.Timer") as mock_timer_cls:
         pool.start()
 
     mock_timer_cls.assert_not_called()
@@ -135,7 +135,7 @@ def test_uploader_finish_cancels_and_joins_timer():
     """验证 finish() 取消并等待 Timer 线程退出。"""
     timer = MagicMock()
 
-    with patch("swanlab.sdk.internal.core_python.uploader.thread.Timer") as mock_timer_cls:
+    with patch("swanlab.sdk.internal.pkg.timer.Timer") as mock_timer_cls:
         mock_timer_cls.return_value = timer
 
         pool = Uploader(auto_start=False)

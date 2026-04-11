@@ -8,7 +8,7 @@
 from abc import ABC, abstractmethod
 from typing import Callable, List, Optional, Tuple, Union
 
-from swanlab.sdk.internal.pkg.safe import safe_block
+from swanlab.sdk.internal.pkg import safe
 from swanlab.sdk.typings.run.system import (
     AcceleratorSnapshot,
     AppleSiliconSnapshot,
@@ -37,7 +37,7 @@ class CollectorProtocol(ABC):
     def collect(self) -> List[CollectResult]:
         results = []
         for key, handler in self._handlers:
-            with safe_block(message=f"Failed to collect while calling {handler.__name__}"):
+            with safe.block(message=f"Failed to collect while calling {handler.__name__}"):
                 results.append((key, handler()))
         return results
 

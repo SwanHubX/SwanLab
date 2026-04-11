@@ -7,9 +7,8 @@
 
 from typing import TYPE_CHECKING, Dict, Iterable, List
 
-from swanlab.sdk.internal.pkg import console
-from swanlab.sdk.internal.pkg.safe import safe_block
-from swanlab.sdk.utils.callbacker import Callback
+from swanlab.sdk.internal.pkg import console, safe
+from swanlab.sdk.internal.protocol import Callback
 
 
 class _CallbackManager:
@@ -57,7 +56,7 @@ class _CallbackManager:
             def dispatcher(*args, **kwargs):
                 for cb in self._callbacks.values():
                     # 从具体的回调实例中获取对应名称的方法并执行
-                    with safe_block(message=f"Error executing '{name}' in callback '{cb.name}'"):
+                    with safe.block(message=f"Error executing '{name}' in callback '{cb.name}'"):
                         getattr(cb, name)(*args, **kwargs)
 
             # 3. 性能优化：将生成好的代理函数缓存到当前实例上

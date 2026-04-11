@@ -15,7 +15,7 @@ from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import DataRecord
 from swanlab.proto.swanlab.metric.data.v1.media.text_pb2 import TextItem, TextValue
 from swanlab.sdk.internal.context import TransformMedia
-from swanlab.sdk.internal.pkg.fs import safe_write
+from swanlab.sdk.internal.pkg import fs
 from swanlab.sdk.typings.run.transforms import CaptionType
 from swanlab.sdk.typings.run.transforms.text import TextDataType
 
@@ -42,5 +42,5 @@ class Text(TransformMedia):
         # 历史版本直接将用户传入的content写入CH，这交给前端去适配
         filename = f"{step:03d}-{sha256[:8]}.txt"
         # 写入数据
-        safe_write(path / filename, self.content)
+        fs.safe_write(path / filename, self.content)
         return TextItem(filename=filename, caption=self.caption)

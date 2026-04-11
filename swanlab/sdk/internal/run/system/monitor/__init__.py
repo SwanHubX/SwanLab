@@ -13,9 +13,7 @@ from google.protobuf.timestamp_pb2 import Timestamp
 from swanlab.sdk.internal.bus.emitter import RunEmitter
 from swanlab.sdk.internal.bus.events import MetricLogEvent, ScalarDefineEvent
 from swanlab.sdk.internal.context import RunContext
-from swanlab.sdk.internal.pkg import console
-from swanlab.sdk.internal.pkg.safe import safe_block
-from swanlab.sdk.internal.pkg.timer import Timer
+from swanlab.sdk.internal.pkg import console, safe, timer
 from swanlab.sdk.internal.run.system.hardware_vendor.apple import Apple
 from swanlab.sdk.internal.run.system.hardware_vendor.cpu import CPU
 from swanlab.sdk.internal.run.system.hardware_vendor.memory import Memory
@@ -53,7 +51,7 @@ class Monitor:
     """
 
     def __init__(self, shim: SystemShim):
-        self._timer: Optional[Timer] = None
+        self._timer: Optional[timer.Timer] = None
         self._executor: Optional[ThreadPoolExecutor] = None
         self._shim = shim
 
@@ -109,7 +107,7 @@ class Monitor:
             futures = [(n, self._executor.submit(fn)) for n, fn in all_handlers]
             results: List[CollectResult] = []
             for n, f in futures:
-                with safe_block(message=f"Error collecting metric via {n}"):
+                with safe.block(message=f"Error collecting metric via {n}"):
                     result = f.result()
                     results.extend(result)
             ts = Timestamp()
@@ -119,7 +117,7 @@ class Monitor:
             emitter.emit(MetricLogEvent(step=step, data=data, timestamp=ts))
 
         # 不设置立即执行，以避免产生一些无用的数据
-        self._timer = Timer(
+        self._timer = timer.Timer(
             task,
             interval=ctx.config.settings.monitor.interval,
             immediate=False,

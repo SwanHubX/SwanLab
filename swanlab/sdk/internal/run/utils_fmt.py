@@ -9,8 +9,7 @@ from typing import Any, Dict, Mapping, Optional, get_args
 
 from pydantic import ValidationError
 
-from swanlab.sdk.internal.pkg import console, constraints
-from swanlab.sdk.internal.pkg.safe import safe_block
+from swanlab.sdk.internal.pkg import console, constraints, safe
 from swanlab.sdk.typings.run import FinishType
 from swanlab.sdk.typings.run.column import ScalarXAxisType
 
@@ -40,7 +39,7 @@ def flatten_dict(
             flatten_dict(v, new_key, parent_dict)
         else:
             # 如果清洗后变成空字符串（比如用户传了 {"///": 1}），丢弃这个字段
-            with safe_block(message="SwanLab dropped an invalid metric"):
+            with safe.block(message="SwanLab dropped an invalid metric"):
                 # 对完整拼接后的路径进行最终的合法性校验、字符替换与截断
                 safe_key = validate_key(new_key)
                 # 检查冲突并警告

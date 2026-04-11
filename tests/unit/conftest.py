@@ -3,7 +3,7 @@ import pytest
 import swanlab
 from swanlab.sdk.internal.context import callbacker
 from swanlab.sdk.internal.core_python import client
-from swanlab.sdk.internal.pkg import log
+from swanlab.sdk.internal.pkg.console import log
 from swanlab.sdk.internal.run import clear_run
 from swanlab.sdk.internal.run.config import reset as reset_config
 from swanlab.sdk.internal.settings import Settings, settings

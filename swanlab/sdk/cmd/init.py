@@ -17,7 +17,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import requests
 import yaml
 
-from swanlab.sdk.cmd.helper import with_cmd_lock
+from swanlab.sdk.cmd.guard import with_cmd_lock
 from swanlab.sdk.internal.context import (
     RunConfig,
     RunContext,
@@ -26,12 +26,8 @@ from swanlab.sdk.internal.context import (
 )
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.core_python.api.project import get_or_create_project, get_project
-from swanlab.sdk.internal.pkg import console
-from swanlab.sdk.internal.pkg.fs.dir import safe_mkdir, safe_mkdirs
-from swanlab.sdk.internal.pkg.fs.write import safe_write
-from swanlab.sdk.internal.pkg.safe import safe
-from swanlab.sdk.internal.pkg.version import get_swanlab_version
-from swanlab.sdk.utils import helper
+from swanlab.sdk.internal.pkg import console, fs, helper, safe
+from swanlab.sdk.internal.protocol import Callback
 from swanlab.utils import generate_color, generate_id, generate_name
 
 from ..internal import apikey
@@ -40,7 +36,6 @@ from ..internal.run import Run, get_run, has_run
 from ..internal.settings import Settings
 from ..internal.settings import settings as global_settings
 from ..typings.run import ModeType, ResumeType
-from ..utils.callbacker import Callback
 from .login import interactive_login, raw_login
 
 
@@ -241,7 +236,6 @@ def init(
     config_data = load_config(run_settings, config)
     if config_data:
         run.config.update(config_data)
-    # TODO 触发init事件
     return run
 
 
@@ -313,7 +307,7 @@ def _init(run_settings: Settings) -> RunContext:
     return ctx
 
 
-@helper.rich.with_loading_animation()
+@helper.with_loading_animation()
 def _init_cloud(ctx: RunContext, run_id: str):
     """
     在云模式下初始化运行上下文。
@@ -417,7 +411,7 @@ def _mkdirs(ctx: RunContext):
     # 对于 logdir 而言，如果不存在则创建，如果为空则写入 .gitignore
     log_dir = ctx.config.settings.log_dir
     # 1. 安全创建目录（如果不存在）
-    safe_mkdir(log_dir)
+    fs.safe_mkdir(log_dir)
     # 2. 高效判断文件夹是否为空
     # 如果 iterdir() 里什么都抽不出来，not any(...) 就会返回 True
     if not any(log_dir.iterdir()):
@@ -425,10 +419,10 @@ def _mkdirs(ctx: RunContext):
         gitignore_path = log_dir / ".gitignore"
         # 忽略目录下所有文件，但保留 .gitignore 自身（常见做法）
         ignore_content = "*\n!.gitignore\n"
-        safe_write(gitignore_path, ignore_content)
+        fs.safe_write(gitignore_path, ignore_content)
 
     # 3. 创建别的目录
-    safe_mkdirs(ctx.run_dir, ctx.media_dir, ctx.files_dir, ctx.debug_dir)
+    fs.safe_mkdirs(ctx.run_dir, ctx.media_dir, ctx.files_dir, ctx.debug_dir)
 
 
 def prompt_init_mode(settings: Settings) -> Tuple[ModeType, bool]:
@@ -484,7 +478,7 @@ def prompt_init_mode(settings: Settings) -> Tuple[ModeType, bool]:
     return mode, False
 
 
-@safe(message="Failed to send webhook")
+@safe.decorator(message="Failed to send webhook")
 def send_webhook(ctx: RunContext) -> Tuple[bool, bool]:
     """
     发送 webhook 回调，仅在非 disabled 模式下触发。
@@ -526,7 +520,7 @@ def send_webhook(ctx: RunContext) -> Tuple[bool, bool]:
         json={
             "value": webhook_value,
             "swanlab": {
-                "version": get_swanlab_version(),
+                "version": helper.get_swanlab_version(),
                 "mode": ctx.config.settings.mode,
                 "run_dir": ctx.run_dir,
                 "exp_url": exp_url,

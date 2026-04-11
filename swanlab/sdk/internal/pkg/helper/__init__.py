@@ -5,9 +5,19 @@
 @description: SwanLab SDK 辅助函数
 """
 
-from . import env, rich
+from .env import DEBUG, is_interactive, is_jupyter
+from .rich import with_loading_animation
+from .version import get_swanlab_latest_version, get_swanlab_version
 
-__all__ = ["rich", "env", "strip_none"]
+__all__ = [
+    "DEBUG",
+    "is_jupyter",
+    "is_interactive",
+    "strip_none",
+    "with_loading_animation",
+    "get_swanlab_version",
+    "get_swanlab_latest_version",
+]
 
 
 def strip_none(data: dict, strip_empty_dict: bool = True, strip_empty_str: bool = False) -> dict:

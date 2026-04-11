@@ -1,15 +1,13 @@
 """
 @author: cunyue
-@file: __init__.py
-@time: 2026/3/10 17:30
-@description: SwanLab 运行时回调函数
+@file: callbacker.py
+@time: 2026/4/12 01:12
+@description: SwanLab SDK 回调器协议定义
 """
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, Optional
-
-__all__ = ["Callback"]
+from typing import Any, Optional
 
 
 class Callback(ABC):
@@ -19,12 +17,12 @@ class Callback(ABC):
     at various stages of an experiment.
     """
 
-    def on_run_init(self, run_dir: Path, path: str) -> None:
+    def on_run_initialized(self, run_dir: Path, path: str) -> None:
         """
         Called immediately after `swanlab.init` has successfully executed.
 
         :param run_dir: The directory path where the run is stored.
-        :param path: The routing path of the experiment, formatted as `/:workspace/:project/:run_id`.
+        :param path: The cloud routing path of the experiment, formatted as `/@:workspace/:project/:run_id`.
         """
         pass
 
@@ -35,15 +33,6 @@ class Callback(ABC):
         - Experiment configuration (RunConfig)
         - Hardware/Host information
         - Environment information
-        """
-        pass
-
-    def on_log(self, data: Dict[str, Any], step: Optional[int], *args, **kwargs) -> None:
-        """
-        Called every time `swanlab.log` is executed to record metrics or media.
-
-        :param data: The payload dictionary containing the logged key-value pairs.
-        :param step: The global step at which the data was logged. Can be None if not explicitly tracked.
         """
         pass
 
@@ -63,7 +52,7 @@ class Callback(ABC):
         """
         pass
 
-    def on_run_end(self, state: str, error: Optional[str] = None) -> None:
+    def on_run_finished(self, state: str, error: Optional[str] = None) -> None:
         """
         Called when the training or the SwanLab run finishes, either successfully or due to an error.
 

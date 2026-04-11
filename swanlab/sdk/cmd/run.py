@@ -15,7 +15,7 @@ _make_run_cmd 将 Run 上的方法包装为顶层 cmd 函数：
 
 from typing import Any, Callable
 
-from swanlab.sdk.cmd.helper import with_cmd_lock, with_run
+from swanlab.sdk.cmd.guard import with_cmd_lock, with_run
 from swanlab.sdk.internal.run import Run, get_run
 
 

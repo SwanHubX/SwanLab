@@ -11,7 +11,7 @@ from typing import Optional, Tuple
 
 import psutil
 
-from swanlab.sdk.internal.pkg.safe import safe
+from swanlab.sdk.internal.pkg import safe
 from swanlab.sdk.typings.run.system import MemorySnapshot, SystemScalar, SystemScalars, SystemShim
 from swanlab.sdk.typings.run.system.hardware_vendor import MemoryProtocol
 from swanlab.utils import generate_color
@@ -63,7 +63,7 @@ class Memory(MemoryProtocol):
         return self, scalars
 
     @staticmethod
-    @safe(level="debug", message="Failed to get memory info")
+    @safe.decorator(level="debug", message="Failed to get memory info")
     def get() -> Optional[MemorySnapshot]:
         total_bytes = Memory._get_total_bytes()
         if total_bytes is None or total_bytes <= 0:
@@ -71,7 +71,7 @@ class Memory(MemoryProtocol):
         return _bytes_to_snapshot(total_bytes)
 
     @staticmethod
-    @safe(level="debug", message="Failed to get total memory bytes")
+    @safe.decorator(level="debug", message="Failed to get total memory bytes")
     def _get_total_bytes(timeout_seconds=2.0) -> Optional[int]:
         """获取系统总内存字节数"""
         if sys.platform == "linux":

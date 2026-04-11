@@ -2,7 +2,7 @@
 @author: cunyue
 @file: test_cmd_helper.py
 @time: 2026/3/14
-@description: 测试 swanlab.sdk.cmd.helper 中的装饰器
+@description: 测试 swanlab.sdk.cmd.guard 中的装饰器
 """
 
 import threading
@@ -10,7 +10,7 @@ import time
 
 import pytest
 
-from swanlab.sdk.cmd.helper import with_cmd_lock, with_run, without_run
+from swanlab.sdk.cmd.guard import with_cmd_lock, with_run, without_run
 
 
 class TestWithCmdLock:
@@ -55,7 +55,7 @@ class TestWithCmdLock:
 class TestWithRun:
     def test_raises_when_no_run(self, monkeypatch):
         """无活跃 Run 时，应抛出 RuntimeError"""
-        monkeypatch.setattr("swanlab.sdk.cmd.helper.has_run", lambda: False)
+        monkeypatch.setattr("swanlab.sdk.cmd.guard.has_run", lambda: False)
 
         @with_run("test_cmd")
         def my_func(run):
@@ -66,7 +66,7 @@ class TestWithRun:
 
     def test_passes_run_when_active(self, monkeypatch):
         """有活跃 Run 时，装饰器不会抛出异常"""
-        monkeypatch.setattr("swanlab.sdk.cmd.helper.has_run", lambda: True)
+        monkeypatch.setattr("swanlab.sdk.cmd.guard.has_run", lambda: True)
 
         @with_run("test_cmd")
         def my_func(x, y):
@@ -89,7 +89,7 @@ class TestWithRun:
 class TestWithoutRun:
     def test_raises_when_run_exists(self, monkeypatch):
         """有活跃 Run 时，应抛出 RuntimeError"""
-        monkeypatch.setattr("swanlab.sdk.cmd.helper.has_run", lambda: True)
+        monkeypatch.setattr("swanlab.sdk.cmd.guard.has_run", lambda: True)
 
         @without_run("test_cmd")
         def my_func():
@@ -100,7 +100,7 @@ class TestWithoutRun:
 
     def test_executes_when_no_run(self, monkeypatch):
         """无活跃 Run 时，应正常执行"""
-        monkeypatch.setattr("swanlab.sdk.cmd.helper.has_run", lambda: False)
+        monkeypatch.setattr("swanlab.sdk.cmd.guard.has_run", lambda: False)
 
         @without_run("test_cmd")
         def my_func(x, y):

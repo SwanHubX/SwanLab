@@ -2,7 +2,7 @@
 @author: cunyue
 @file: __init__.py
 @time: 2026/3/13 21:37
-@description: SwanLab SDK CMD 辅助函数
+@description: SwanLab SDK CMD 守卫函数，用于检查运行时状态和实现线程安全
 """
 
 import os

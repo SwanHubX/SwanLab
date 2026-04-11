@@ -12,14 +12,11 @@ from typing import Any, Optional, Union
 import requests
 
 from swanlab.sdk.internal.core_python.api.bootstrap import login_by_api_key
-from swanlab.sdk.internal.pkg.netrc import remove_host_suffix
-from swanlab.sdk.internal.pkg.scope import set_context
-from swanlab.sdk.internal.pkg.version import get_swanlab_version
+from swanlab.sdk.internal.pkg import console, helper, netrc, scope
 from swanlab.sdk.typings.core_python.api.bootstrap import LoginResponse
 
-from ...pkg import console
 from . import session
-from .helper import decode_response
+from .utils import decode_response
 
 __all__ = [
     "Client",
@@ -52,9 +49,9 @@ class Client:
 
     def __init__(self, api_key: str, base_url: str, timeout: int = 10):
         self._api_key = api_key
-        self._version = get_swanlab_version()
+        self._version = helper.get_swanlab_version()
         # 移除末尾的斜杠，防止 URL 拼接时出现双斜杠
-        self._base_url = remove_host_suffix(base_url, "/api") + "/api"
+        self._base_url = netrc.remove_host_suffix(base_url, "/api") + "/api"
         self._expired_at: Optional[datetime] = None
 
         # 初始化时仅创建一次会话，以复用底层 TCP 连接池
@@ -62,7 +59,7 @@ class Client:
         # 立即进行首次鉴权并挂载凭证
         login_resp = self._refresh_auth(timeout=timeout, warning=False)
         # 写入登录响应到上下文，由调用者判断是否需要使用
-        set_context("login_resp", login_resp)
+        scope.set_context("login_resp", login_resp)
 
     def _refresh_auth(self, timeout: int = 10, warning: bool = True) -> Optional[LoginResponse]:
         """

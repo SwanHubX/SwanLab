@@ -13,7 +13,7 @@ from typing import Optional, Tuple
 
 import psutil
 
-from swanlab.sdk.internal.pkg.safe import safe
+from swanlab.sdk.internal.pkg import safe
 from swanlab.sdk.typings.run.system import CPUSnapshot, SystemScalar, SystemScalars, SystemShim
 from swanlab.sdk.typings.run.system.hardware_vendor import CpuProtocol
 from swanlab.utils import generate_color
@@ -57,7 +57,7 @@ class CPU(CpuProtocol):
         return self, scalars
 
     @staticmethod
-    @safe(level="debug", message="Failed to get CPU info")
+    @safe.decorator(level="debug", message="Failed to get CPU info")
     def get() -> Optional[CPUSnapshot]:
         # 1. 获取 CPU 品牌
         brand = CPU._get_real_brand() or platform.processor() or None
@@ -94,7 +94,7 @@ class CPU(CpuProtocol):
         return CPUSnapshot(brand=brand, physical_count=physical_count, logical_count=logical_count)
 
     @staticmethod
-    @safe(level="debug", message="Failed to get real CPU brand")
+    @safe.decorator(level="debug", message="Failed to get real CPU brand")
     def _get_real_brand() -> Optional[str]:
         """尝试获取真实的 CPU 品牌名称"""
         if sys.platform == "linux":

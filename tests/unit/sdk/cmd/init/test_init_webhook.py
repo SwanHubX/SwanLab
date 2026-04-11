@@ -35,7 +35,7 @@ def mock_ctx():
 def setup_mocks(monkeypatch):
     """使用 monkeypatch 模拟外部依赖"""
     # 模拟 get_swanlab_version
-    monkeypatch.setattr("swanlab.sdk.cmd.init.get_swanlab_version", lambda: "1.0.0")
+    monkeypatch.setattr("swanlab.sdk.internal.pkg.helper.get_swanlab_version", lambda: "1.0.0")
 
     # 模拟 console.debug
     mock_console = MagicMock()
