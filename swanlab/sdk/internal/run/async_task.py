@@ -140,12 +140,14 @@ class AsyncTaskManager:
         # 2. 等待所有任务执行完毕且回调已触发
         deadline = None if timeout is None else time.monotonic() + timeout
         for h in handles:
+            # 2.1 检测是否超时
             remaining = None if deadline is None else max(0.0, deadline - time.monotonic())
             if remaining is not None and remaining <= 0:
                 pending = sum(1 for h2 in handles if not h2.callback_done.is_set())
                 if pending > 0:
                     console.warning(f"async_log: timeout reached, {pending} task(s) still pending")
                 break
+            # 2.2 等待任务完成
             # noinspection PyBroadException
             try:
                 h.future.result(timeout=remaining)

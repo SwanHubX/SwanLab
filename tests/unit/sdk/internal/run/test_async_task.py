@@ -178,6 +178,29 @@ class TestShutdown:
             h.callback_done.wait(timeout=5)
         assert len(mgr._handles) == 0
 
+    def test_timeout_total_not_per_task(self, mgr):
+        # timeout 为总等待时间，而非单任务等待时间
+        # 提交 5 个各睡 0.2s 的任务，总耗时约 1s（线程池4线程，前4个并行 ~0.2s，第5个 ~0.4s）
+        # 设置 timeout=0.3s，应在 0.3s 左右返回而非 0.3×5=1.5s
+        for _ in range(5):
+            mgr.submit(lambda: time.sleep(0.2), mode="threading")
+        start = time.monotonic()
+        mgr.shutdown(timeout=0.3)
+        elapsed = time.monotonic() - start
+        # 允许一定误差，但必须远小于 1.0s（如果逐任务累加会超过 1.0s）
+        assert elapsed < 0.8
+
+    def test_timeout_none_waits_forever(self, mgr):
+        # timeout=None 无限等待，所有任务必须完成
+        results = []
+
+        def quick():
+            return 42
+
+        mgr.submit(quick, mode="threading", on_success=lambda r, s: results.append(r))
+        mgr.shutdown(timeout=None)
+        assert results == [42]
+
 
 # ----------------------------------
 # args / kwargs / step

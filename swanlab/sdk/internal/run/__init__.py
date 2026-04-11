@@ -611,11 +611,17 @@ class Run:
         )
 
     @with_api("run.finish()", must_alive=False)
-    def finish(self, state: FinishType = "success", error: Optional[str] = None):
+    def finish(
+        self,
+        state: FinishType = "success",
+        error: Optional[str] = None,
+        async_log_timeout: Optional[int] = None,
+    ):
         """Finish the current run and wait for all logs to be flushed.
 
         :param state: Terminal state of the run. Defaults to ``"success"``.
         :param error: Optional error message, required when ``state`` is ``"crashed"``.
+        :param async_log_timeout: Optional timeout for async_log tasks. None means no timeout.
         """
         # 1. 状态校验
         # 有时执行finish也有可能是系统hook主动调用，此时无需再次打印警告，如果在finishing状态，也忽略
@@ -632,7 +638,7 @@ class Run:
         # 2. 运行结束前，结束其他依赖于运行实例的线程
         # 等待所有 async_log 任务完成
         console.debug("Waiting for async_log tasks to complete...")
-        self._async_task_manager.shutdown()
+        self._async_task_manager.shutdown(timeout=async_log_timeout)
         # 停止硬件监控
         if self._monitor is not None:
             console.debug("Stopping hardware monitor...")
