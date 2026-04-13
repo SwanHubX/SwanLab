@@ -24,25 +24,34 @@ def cli():
 
 
 # ---------------------------------- 注册子命令 ----------------------------------
-
 # Auth
+# noinspection PyTypeChecker
 cli.add_command(login)
+# noinspection PyTypeChecker
 cli.add_command(logout)
+# noinspection PyTypeChecker
 cli.add_command(verify)
 
 # Dashboard
+# noinspection PyTypeChecker
 cli.add_command(watch)
 
 # Converter
+# noinspection PyTypeChecker
 cli.add_command(convert)
 
 # Sync
+# noinspection PyTypeChecker
 cli.add_command(sync)
 
 # Mode
+# noinspection PyTypeChecker
 cli.add_command(offline)
+# noinspection PyTypeChecker
 cli.add_command(local)
+# noinspection PyTypeChecker
 cli.add_command(online)
+# noinspection PyTypeChecker
 cli.add_command(disabled)
 
 
