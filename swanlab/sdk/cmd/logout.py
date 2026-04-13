@@ -11,7 +11,7 @@ from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.pkg import console
 from swanlab.sdk.internal.settings import settings
 
-__all__ = ["logout"]
+__all__ = ["logout", "logout_raw"]
 
 
 @with_cmd_lock
@@ -41,10 +41,10 @@ def logout(force: bool = False) -> bool:
         >>> import swanlab
         >>> swanlab.logout(force=True)
     """
-    return raw_logout(force=force)
+    return logout_raw(force=force)
 
 
-def raw_logout(force: bool = False) -> bool:
+def logout_raw(force: bool = False) -> bool:
     # 1. 检查是否已登录
     if not apikey.exists():
         console.info("You are not logged in. Use `swanlab login` to login.")

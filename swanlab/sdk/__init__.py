@@ -5,22 +5,12 @@
 @description: SwanLab SDK，负责SwanLab库的核心指标上传功能
 """
 
-from .cmd import (
-    async_log,
-    define_scalar,
-    finish,
-    init,
-    log,
-    log_audio,
-    log_image,
-    log_text,
-    log_video,
-    login,
-    login_interactive,
-    logout,
-    merge_settings,
-    verify,
-)
+from .cmd.init import init
+from .cmd.login import login, login_interactive
+from .cmd.logout import logout, logout_raw
+from .cmd.merge_settings import merge_settings
+from .cmd.run import async_log, define_scalar, finish, log, log_audio, log_image, log_text, log_video
+from .cmd.verify import verify, verify_raw
 from .internal.pkg import console, fs, helper, safe
 from .internal.protocol import Callback
 from .internal.run import Run, clear_run, get_run, has_run, set_run
@@ -41,6 +31,8 @@ __all__ = [
     "log_audio",
     "log_video",
     "async_log",
+    "verify_raw",
+    "logout_raw",
     "define_scalar",
     "merge_settings",
     "login_interactive",

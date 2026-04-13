@@ -9,12 +9,12 @@ import sys
 
 import click
 
-from swanlab.sdk.cmd.verify import verify_raw
+from swanlab import sdk
 
 
 @click.command()
 def verify():
     """Verify the current login status."""
-    success = verify_raw()
+    success = sdk.verify_raw()
     if not success:
         sys.exit(1)
