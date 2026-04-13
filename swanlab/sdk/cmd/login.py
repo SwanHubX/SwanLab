@@ -163,7 +163,7 @@ def interactive_login(
     当捕获到 AuthenticationError 时，如果环境允许交互，则会无限循环提示用户重新输入 API Key。
     """
     # CLI 每次是新进程，client.exists() 必为 False，需要检查本地凭证判断是否已登录
-    if not relogin and api_key is None and host is None and apikey.exists():
+    if apikey.exists_locally() and not relogin:
         console.info(
             "You are already logged in. Use",
             Text("`swanlab login --relogin`", style="bold"),
