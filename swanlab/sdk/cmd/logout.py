@@ -11,6 +11,8 @@ from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.pkg import console
 from swanlab.sdk.internal.settings import settings
 
+__all__ = ["logout"]
+
 
 @with_cmd_lock
 @without_run("logout")

@@ -11,6 +11,8 @@ from swanlab.sdk.cmd.guard import with_cmd_lock, without_run
 from swanlab.sdk.internal.settings import Settings
 from swanlab.sdk.internal.settings import settings as swanlab_settings
 
+__all__ = ["merge_settings"]
+
 
 @with_cmd_lock
 @without_run("merge_settings")

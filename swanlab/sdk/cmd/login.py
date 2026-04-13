@@ -18,7 +18,9 @@ from swanlab.sdk.internal.context import RunConfig, RunContext, use_context
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.pkg import console, helper, scope
 from swanlab.sdk.internal.settings import Settings, settings
-from swanlab.sdk.typings.core_python.api.bootstrap import LoginResponse
+from swanlab.sdk.typings.pkg.client.bootstrap import LoginResponse
+
+__all__ = ["login", "login_interactive", "login_raw"]
 
 
 @with_cmd_lock
@@ -74,10 +76,53 @@ def login(
         >>> swanlab.login(api_key="new_api_key", relogin=True, save=True)
         >>> swanlab.init(mode="cloud")
     """
-    return raw_login(api_key=api_key, relogin=relogin, host=host, save=save, timeout=timeout)
+    return login_raw(api_key=api_key, relogin=relogin, host=host, save=save, timeout=timeout)
 
 
-def raw_login(
+def login_interactive(
+    api_key: Optional[str] = None,
+    relogin: bool = False,
+    host: Optional[str] = None,
+    save: bool = False,
+    timeout: int = 10,
+) -> bool:
+    """
+    带循环输入容错的交互式登录接口。
+    主要为 CLI 环境或需要极高容错的终端调用设计。
+    当捕获到 AuthenticationError 时，如果环境允许交互，则会无限循环提示用户重新输入 API Key。
+    """
+    # CLI 每次是新进程，client.exists() 必为 False，需要检查本地凭证判断是否已登录
+    if apikey.exists_locally() and not relogin:
+        console.info(
+            "You are already logged in. Use",
+            Text("`swanlab login --relogin`", style="bold"),
+            "to force relogin.",
+            sep=" ",
+        )
+        return True
+    try:
+        # 首次尝试登录，复用原子接口
+        return login_raw(api_key=api_key, relogin=relogin, host=host, save=save, timeout=timeout)
+    except AuthenticationError as e:
+        # 如果全局配置禁用了交互模式，直接抛出异常
+        if not settings.interactive:
+            raise e
+        console.error(str(e))
+
+    # 进入容错重试循环
+    while True:
+        try:
+            # 重新要求用户输入新的 Key
+            new_key = apikey.prompt()
+            return login_raw(api_key=new_key, relogin=relogin, host=host, save=save, timeout=timeout)
+        except AuthenticationError as e:
+            console.error(str(e))
+        except (KeyboardInterrupt, EOFError):
+            console.info("\nLogin cancelled by user.")
+            return False
+
+
+def login_raw(
     api_key: Optional[str] = None,
     relogin: bool = False,
     host: Optional[str] = None,
@@ -148,49 +193,6 @@ def raw_login(
         # 4. 将登录设置合并到全局配置中
         settings.merge_settings(ctx.config.settings)
         return True
-
-
-def interactive_login(
-    api_key: Optional[str] = None,
-    relogin: bool = False,
-    host: Optional[str] = None,
-    save: bool = False,
-    timeout: int = 10,
-) -> bool:
-    """
-    带循环输入容错的交互式登录接口。
-    主要为 CLI 环境或需要极高容错的终端调用设计。
-    当捕获到 AuthenticationError 时，如果环境允许交互，则会无限循环提示用户重新输入 API Key。
-    """
-    # CLI 每次是新进程，client.exists() 必为 False，需要检查本地凭证判断是否已登录
-    if apikey.exists_locally() and not relogin:
-        console.info(
-            "You are already logged in. Use",
-            Text("`swanlab login --relogin`", style="bold"),
-            "to force relogin.",
-            sep=" ",
-        )
-        return True
-    try:
-        # 首次尝试登录，复用原子接口
-        return raw_login(api_key=api_key, relogin=relogin, host=host, save=save, timeout=timeout)
-    except AuthenticationError as e:
-        # 如果全局配置禁用了交互模式，直接抛出异常
-        if not settings.interactive:
-            raise e
-        console.error(str(e))
-
-    # 进入容错重试循环
-    while True:
-        try:
-            # 重新要求用户输入新的 Key
-            new_key = apikey.prompt()
-            return raw_login(api_key=new_key, relogin=relogin, host=host, save=save, timeout=timeout)
-        except AuthenticationError as e:
-            console.error(str(e))
-        except (KeyboardInterrupt, EOFError):
-            console.info("\nLogin cancelled by user.")
-            return False
 
 
 @helper.with_loading_animation()

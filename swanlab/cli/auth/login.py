@@ -7,7 +7,7 @@
 
 import click
 
-from swanlab.sdk.cmd.login import interactive_login
+from swanlab import sdk
 
 
 @click.command()
@@ -40,4 +40,4 @@ from swanlab.sdk.cmd.login import interactive_login
 )
 def login(api_key: str, relogin: bool, host: str, save: bool):
     """Login to the SwanLab cloud."""
-    interactive_login(api_key=api_key, relogin=relogin, host=host, save=save)
+    sdk.login_interactive(api_key=api_key, relogin=relogin, host=host, save=save)

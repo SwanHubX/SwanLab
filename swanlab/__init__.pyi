@@ -10,11 +10,8 @@ from concurrent.futures import Future
 from typing import Any, Callable, List, Mapping, Optional, Union
 
 from . import utils
-from .sdk import Callback, config
+from .sdk import Audio, Callback, Image, Run, Settings, Text, Video, config, logout, verify
 from .sdk.cmd.init import ConfigLike
-from .sdk.internal.run import Run
-from .sdk.internal.run.transforms import Audio, Image, Text, Video
-from .sdk.internal.settings import Settings
 from .sdk.typings.run import AsyncLogType, FinishType, ModeType, ResumeType
 from .sdk.typings.run.column import ScalarXAxisType
 from .sdk.typings.run.transforms import CaptionsType
@@ -31,6 +28,8 @@ __all__ = [
     "init",
     "finish",
     "login",
+    "logout",
+    "verify",
     "log",
     "log_text",
     "log_image",
@@ -39,7 +38,7 @@ __all__ = [
     "define_scalar",
     "async_log",
     # run
-    "run",
+    "run",  # type: ignore [no-redef]
     "Run",
     "has_run",
     "get_run",
@@ -52,8 +51,8 @@ __all__ = [
     "Video",
     # utils
     "utils",
-    "Callback",
     "Settings",
+    "Callback",
 ]
 
 # ── lifecycle ──────────────────────────────────────────────────────────────────

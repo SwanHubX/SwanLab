@@ -14,7 +14,7 @@ from contextlib import contextmanager
 from functools import wraps
 from typing import Callable, Generator, Literal, Optional, Type, TypeVar
 
-from swanlab.sdk.internal.pkg import console
+from .. import console
 
 __all__ = ["decorator", "block"]
 

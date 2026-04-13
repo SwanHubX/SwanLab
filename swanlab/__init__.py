@@ -11,8 +11,8 @@ from swanlab.sdk import (
     define_scalar,
     finish,
     get_run,
-    get_swanlab_version,
     has_run,
+    helper,
     init,
     log,
     log_audio,
@@ -27,7 +27,7 @@ from swanlab.sdk import (
 
 from . import utils
 
-__version__ = get_swanlab_version()
+__version__ = helper.get_swanlab_version()
 
 __all__ = [
     # cmd

@@ -36,7 +36,9 @@ from ..internal.run import Run, get_run, has_run
 from ..internal.settings import Settings
 from ..internal.settings import settings as global_settings
 from ..typings.run import ModeType, ResumeType
-from .login import interactive_login, raw_login
+from .login import login_interactive, login_raw
+
+__all__ = ["init", "ConfigLike"]
 
 
 def set_nested_value(d: dict, key: str, value: Any):
@@ -443,7 +445,7 @@ def prompt_init_mode(settings: Settings) -> Tuple[ModeType, bool]:
         return mode, client.exists()
     if mode == "cloud":
         if apikey.exists():
-            raw_login(api_key=apikey.get())
+            login_raw(api_key=apikey.get())
             return "cloud", True
 
         console.info("Using SwanLab to track your experiments.")
@@ -464,13 +466,13 @@ def prompt_init_mode(settings: Settings) -> Tuple[ModeType, bool]:
                 console.info("Create a SwanLab account here:", "yellow")
                 console.info(f"{settings.web_host}/login", "blue")
                 # 注册后紧接着触发登录循环
-                success = interactive_login(save=True)
+                success = login_interactive(save=True)
                 return "cloud", success
 
             if choice == "2":
                 console.info(f"Logging into {settings.web_host}...")
                 # 触发带循环容错的登录接口
-                success = interactive_login(save=True)
+                success = login_interactive(save=True)
                 return "cloud", success
 
             console.warning("Invalid choice, please enter 1, 2, or 3.")
