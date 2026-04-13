@@ -11,7 +11,7 @@ import stat
 from pathlib import Path
 from typing import Optional, Tuple
 
-__all__ = ["get_nrc_path", "remove_host_suffix", "read_netrc_by_host", "write_netrc"]
+__all__ = ["get_nrc_path", "remove_host_suffix", "remove_netrc_entry", "read_netrc_by_host", "write_netrc"]
 
 
 def get_nrc_path(path: Path) -> Path:
@@ -67,6 +67,31 @@ def read_netrc_by_host(nrc_path: Path, target_host: str) -> Optional[Tuple[str, 
 
     # info 的结构是 (login, account, password)
     return info[0], info[2]
+
+
+def remove_netrc_entry(nrc_path: Path) -> None:
+    """
+    删除 netrc 文件中的所有凭证条目。
+    遵循全局单点登录原则：直接清空整个 hosts 字典并写回文件。
+    如果文件不存在则不做任何操作。
+    """
+    if not nrc_path.exists():
+        return
+
+    try:
+        nrc_obj = netrc.netrc(nrc_path)
+    except (netrc.NetrcParseError, IsADirectoryError, PermissionError):
+        # 文件损坏或不可读，直接删除文件
+        nrc_path.unlink(missing_ok=True)
+        return
+
+    if not nrc_obj.hosts:
+        return
+
+    nrc_obj.hosts = {}
+    with open(nrc_path, "w", encoding="utf-8") as f:
+        f.write(repr(nrc_obj))
+    os.chmod(nrc_path, stat.S_IRUSR | stat.S_IWUSR)
 
 
 def write_netrc(nrc_path: Path, host: str, username: str, password: str) -> None:

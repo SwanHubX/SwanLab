@@ -20,7 +20,9 @@ from swanlab.sdk import (
     log_text,
     log_video,
     login,
+    logout,
     merge_settings,
+    verify,
 )
 
 from . import utils
@@ -33,6 +35,8 @@ __all__ = [
     "init",
     "finish",
     "login",
+    "logout",
+    "verify",
     "log",
     "log_text",
     "log_image",
