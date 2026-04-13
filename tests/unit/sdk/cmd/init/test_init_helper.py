@@ -87,7 +87,7 @@ def test_prompt_auto_login(mock_settings, monkeypatch):
     monkeypatch.setattr("swanlab.sdk.cmd.init.apikey.get", lambda: "fake-key")
 
     mock_login = MagicMock()
-    monkeypatch.setattr("swanlab.sdk.cmd.init.raw_login", mock_login)
+    monkeypatch.setattr("swanlab.sdk.cmd.init.login_raw", mock_login)
 
     assert prompt_init_mode(mock_settings) == ("cloud", True)
     mock_login.assert_called_once_with(api_key="fake-key")
@@ -113,8 +113,8 @@ def test_prompt_interactive_choices(
     monkeypatch.setattr("swanlab.sdk.cmd.init.client.exists", lambda: False)
     monkeypatch.setattr("swanlab.sdk.cmd.init.apikey.exists", lambda: False)
 
-    # 模拟 interactive_login 返回值
-    monkeypatch.setattr("swanlab.sdk.cmd.init.interactive_login", lambda save: mock_login_success)
+    # 模拟 login_interactive 返回值
+    monkeypatch.setattr("swanlab.sdk.cmd.init.login_interactive", lambda save: mock_login_success)
 
     # 模拟 input，通过迭代器按顺序弹出输入值
     input_iterator = iter(inputs)

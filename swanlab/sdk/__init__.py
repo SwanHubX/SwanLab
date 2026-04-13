@@ -6,27 +6,20 @@
 """
 
 from .cmd.init import init
-from .cmd.login import login
-from .cmd.logout import logout
-from .cmd.merge_settings import Settings, merge_settings
+from .cmd.login import login, login_interactive
+from .cmd.logout import logout, logout_raw
+from .cmd.merge_settings import merge_settings
 from .cmd.run import async_log, define_scalar, finish, log, log_audio, log_image, log_text, log_video
-from .cmd.verify import verify
-from .internal.pkg.helper import get_swanlab_version
-from .internal.pkg.safe import block, decorator
+from .cmd.verify import verify, verify_raw
+from .internal.pkg import console, fs, helper, safe
 from .internal.protocol import Callback
 from .internal.run import Run, clear_run, get_run, has_run, set_run
 from .internal.run.config import config
 from .internal.run.transforms import Audio, Image, Text, Video
+from .internal.settings import Settings
 
 __all__ = [
-    "Callback",
-    "get_swanlab_version",
-    "Audio",
-    "Image",
-    "Text",
-    "Video",
-    "merge_settings",
-    "Settings",
+    # cmd
     "init",
     "finish",
     "login",
@@ -38,13 +31,29 @@ __all__ = [
     "log_audio",
     "log_video",
     "async_log",
+    "verify_raw",
+    "logout_raw",
     "define_scalar",
-    "Run",
+    "merge_settings",
+    "login_interactive",
+    # run
     "has_run",
     "get_run",
     "set_run",
     "clear_run",
     "config",
-    "block",
-    "decorator",
+    # utils
+    "safe",
+    "helper",
+    "console",
+    "fs",
+    # data
+    "Audio",
+    "Image",
+    "Text",
+    "Video",
+    # protocol
+    "Callback",
+    "Settings",
+    "Run",
 ]

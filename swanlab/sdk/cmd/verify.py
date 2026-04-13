@@ -9,8 +9,8 @@ from rich.text import Text
 
 from swanlab.sdk.cmd.guard import with_cmd_lock, without_run
 from swanlab.sdk.internal import apikey
-from swanlab.sdk.internal.core_python.api.bootstrap import login_by_api_key
-from swanlab.sdk.internal.pkg import console
+from swanlab.sdk.internal.pkg import console, netrc
+from swanlab.sdk.internal.pkg.client.bootstrap import login_by_api_key
 from swanlab.sdk.internal.settings import settings
 
 
@@ -33,10 +33,10 @@ def verify() -> bool:
         >>> import swanlab
         >>> swanlab.verify()
     """
-    return raw_verify()
+    return verify_raw()
 
 
-def raw_verify() -> bool:
+def verify_raw() -> bool:
     # 1. 检查本地是否存在 API Key
     if not apikey.exists():
         console.info("You are not logged in. Use `swanlab login` to login.")
@@ -51,7 +51,7 @@ def raw_verify() -> bool:
 
     # 3. 调用底层鉴权接口验证 Key 有效性
     api_host = settings.api_host
-    base_url = api_host.rstrip("/") + "/api" if not api_host.endswith("/api") else api_host
+    base_url = netrc.remove_host_suffix(api_host, "/api") + "/api"
     login_resp = login_by_api_key(base_url=base_url, api_key=key)
 
     if login_resp is None:

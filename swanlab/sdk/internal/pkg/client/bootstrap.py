@@ -5,9 +5,10 @@
 @description: 这部分接口不经过Client调用，因为会在Client初始化之前调用
 """
 
-from swanlab.sdk.internal.core_python.client import session
 from swanlab.sdk.internal.pkg import safe
-from swanlab.sdk.typings.core_python.api.bootstrap import LoginResponse
+from swanlab.sdk.typings.pkg.client.bootstrap import LoginResponse
+
+from . import session
 
 
 @safe.decorator(message=None)

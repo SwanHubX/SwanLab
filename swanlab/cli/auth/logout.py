@@ -9,7 +9,7 @@ import sys
 
 import click
 
-from swanlab.sdk.cmd.logout import raw_logout
+from swanlab import sdk
 
 
 @click.command()
@@ -22,6 +22,6 @@ from swanlab.sdk.cmd.logout import raw_logout
 )
 def logout(force: bool):
     """Logout from the SwanLab cloud."""
-    success = raw_logout(force=force)
+    success = sdk.logout_raw(force=force)
     if not success:
         sys.exit(1)

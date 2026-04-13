@@ -1,6 +1,6 @@
 """
 @author: cunyue
-@file: test_client_helper.py
+@file: test_client_utils.py
 @time: 2026/3/7 21:55
 @description: 测试 SwanLab 运行时客户端辅助函数
 """
@@ -9,7 +9,7 @@ from unittest.mock import MagicMock
 
 import requests
 
-from swanlab.sdk.internal.core_python.client.utils import decode_error_response, decode_response
+from swanlab.sdk.internal.pkg.client.utils import decode_error_response, decode_response
 
 
 def test_decode_response_json():

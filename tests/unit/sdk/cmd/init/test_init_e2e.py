@@ -21,7 +21,7 @@ import responses as responses_lib
 import yaml
 
 from swanlab.sdk.cmd.init import init
-from swanlab.sdk.cmd.login import raw_login
+from swanlab.sdk.cmd.login import login_raw
 from swanlab.sdk.cmd.merge_settings import merge_settings
 from swanlab.sdk.internal.run import Run, has_run
 from swanlab.sdk.internal.run.config import config as global_config
@@ -164,11 +164,11 @@ def mock_cloud_init_apis(
 @pytest.fixture
 def logged_in_client(mock_login_api, mock_cloud_settings):
     """
-    调用 raw_login() 完成登录流程，确保全局 client 已创建。
+    调用 login_raw() 完成登录流程，确保全局 client 已创建。
     依赖 mock_login_api，故登录请求不会触及真实网络。
     清理由上级 conftest.py 的 isolate_sdk_environment 统一处理。
     """
-    raw_login(api_key=API_KEY)
+    login_raw(api_key=API_KEY)
     yield
 
 
