@@ -141,7 +141,7 @@ class SwanLabExp:
                 step = max(current_len, max_step + 1)
 
             if step in key_obj.steps:
-                swanlog.warning(f"Step {step} on key {key} already exists.")
+                swanlog.debug(f"Step {step} on key {key} already exists.")
                 return MetricErrorInfo(column_info=key_obj.column_info, error=DataWrapper.create_duplicate_error())
                 # # 允许 overwrite，但区分显式指定和隐式的碰撞
                 # if explicit_step:
