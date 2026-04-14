@@ -149,4 +149,3 @@ class BackgroundConsumer(ConsumerProtocol):
             return
         with safe.block(message="SwanLab failed to handle records"):
             self._core.handle_records(records)
-            # TODO: 分类数据，根据语义依次触发回调

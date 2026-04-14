@@ -149,8 +149,6 @@ class Run:
         ts = Timestamp()
         ts.GetCurrentTime()
         self._emitter.emit(RunStartEvent(timestamp=ts))
-        # 初始化完成回调
-        self._ctx.callbacker.on_run_initialized(self._ctx.run_dir, self.path)
         # 启动硬件监控
         self._monitor = factory_monitor(self._ctx, self._emitter)
         # 启动后台消费者
@@ -629,7 +627,6 @@ class Run:
         ts.GetCurrentTime()
         self._emitter.emit(RunFinishEvent(state=this_state, error=error, timestamp=ts))
         self._consumer.join()
-        self._ctx.callbacker.on_run_finished(self._state, error)
         console.debug(f"SwanLab Run has finished with state: {self._state}, cleanup...")
         # 3.4 清理副作用
         console.debug("Cleanup system hook...")
