@@ -198,6 +198,26 @@ class TestInitDisabledMode:
 
         assert run._ctx.config.settings.project.workspace == "disabled"
 
+    def test_disabled_mode_does_not_write_media_files(self):
+        """disabled 模式下 log 媒体数据不应写入任何本地文件"""
+        import numpy as np
+
+        run = init(mode="disabled")
+        # 记录 log_dir 下所有文件（理论上不应存在任何文件）
+        log_dir = run._ctx.config.settings.log_dir
+
+        # log 各类媒体
+        run.log({"loss": 0.5})
+        run.log_image(key="img", data=np.zeros((10, 10, 3), dtype=np.uint8))
+        run.log_text(key="txt", data="hello")
+        run.log_audio(key="audio", data=np.zeros((1, 4410), dtype=np.float32), sample_rate=44100)
+        run.finish()
+
+        # log_dir 不应存在，或者即使存在也不应包含媒体文件
+        if log_dir.exists():
+            all_files = [f for f in log_dir.rglob("*") if f.is_file()]
+            assert len(all_files) == 0, f"disabled 模式下不应写入文件，但发现: {all_files}"
+
 
 # ============================================================
 # TestInitLocalMode

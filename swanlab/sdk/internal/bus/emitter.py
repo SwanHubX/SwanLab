@@ -6,16 +6,23 @@
 """
 
 import queue
+from typing import Protocol
 
 from .events import EventPayload
 
-__all__ = ["RunEmitter", "RunQueue"]
+__all__ = ["RunEmitter", "RunQueue", "EmitterProtocol"]
 
 
 RunQueue = queue.Queue[EventPayload]
 
 
-class RunEmitter:
+class EmitterProtocol(Protocol):
+    def emit(self, event: EventPayload) -> None: ...
+    @property
+    def queue(self) -> RunQueue: ...
+
+
+class RunEmitter(EmitterProtocol):
     """
     内部事件发射器。
 
