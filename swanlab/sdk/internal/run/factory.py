@@ -6,10 +6,11 @@
 """
 
 from queue import Queue
-from typing import Optional
+from typing import List, Optional
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
+from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.bus import RunEmitter
 from swanlab.sdk.internal.bus.emitter import EmitterProtocol, RunQueue
 from swanlab.sdk.internal.bus.events import CondaEvent, EventPayload, MetadataEvent, RequirementsEvent
@@ -28,7 +29,7 @@ class NullCore(CoreProtocol):
 
     def startup(self, cloud: bool, persistence: bool) -> None: ...
 
-    def handle_records(self, records: list) -> None: ...
+    def handle_records(self, records: List[Record]) -> None: ...
 
     def shutdown(self) -> None: ...
 
@@ -57,12 +58,15 @@ def factory_core(ctx: RunContext) -> CoreProtocol:
 class NullEmitter(EmitterProtocol):
     """空发射器，emit 为 no-op"""
 
+    def __init__(self):
+        self._queue = Queue()
+
     def emit(self, event: EventPayload) -> None:
         pass
 
     @property
     def queue(self) -> RunQueue:
-        return Queue()
+        return self._queue
 
 
 def factory_emitter(ctx: RunContext) -> EmitterProtocol:

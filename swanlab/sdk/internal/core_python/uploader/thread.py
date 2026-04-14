@@ -18,24 +18,19 @@ class Uploader:
     管理上传工作线程和通信管道，定时消费 BackgroundConsumer 生产的 records
     """
 
-    UPLOAD_INTERVAL = 1.0
     UPLOAD_THREAD_NAME = "SwanLab·CorePython.Uploader"
 
     def __init__(
-        self,
-        upload_interval: Optional[float] = None,
-        upload_callback: Optional[Callable] = None,
-        auto_start: bool = True,
+        self, upload_interval: float = 1.0, upload_callback: Optional[Callable] = None, auto_start: bool = True
     ):
-        resolved_upload_interval = self.UPLOAD_INTERVAL if upload_interval is None else upload_interval
         self._record_queue: Queue = Queue()
         self._collector = Collector(
-            upload_interval=resolved_upload_interval,
+            upload_interval=upload_interval,
             upload_callback=upload_callback,
         )
         self._timer = timer.Timer(
             lambda: self._collector.submit(self._drain_records()),
-            interval=resolved_upload_interval,
+            interval=upload_interval,
             immediate=True,
             name=self.UPLOAD_THREAD_NAME,
         )
