@@ -214,9 +214,7 @@ class TestInitDisabledMode:
         run.finish()
 
         # log_dir 不应存在，或者即使存在也不应包含媒体文件
-        if log_dir.exists():
-            all_files = [f for f in log_dir.rglob("*") if f.is_file()]
-            assert len(all_files) == 0, f"disabled 模式下不应写入文件，但发现: {all_files}"
+        assert not log_dir.exists()
 
 
 # ============================================================
