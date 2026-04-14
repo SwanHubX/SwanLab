@@ -16,7 +16,6 @@ from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord, RunRecord
 from swanlab.proto.swanlab.system.v1.console_pb2 import ConsoleRecord
 from swanlab.proto.swanlab.system.v1.env_pb2 import CondaRecord, MetadataRecord, RequirementsRecord
-from swanlab.sdk.internal import adapter
 from swanlab.sdk.internal.bus.events import (
     CondaEvent,
     ConfigEvent,
@@ -30,7 +29,7 @@ from swanlab.sdk.internal.bus.events import (
 )
 from swanlab.sdk.internal.context import RunContext, TransformMedia
 from swanlab.sdk.internal.context.transformer import TransformData
-from swanlab.sdk.internal.pkg import fs
+from swanlab.sdk.internal.pkg import adapter, fs
 from swanlab.sdk.internal.run.transforms import Scalar
 
 

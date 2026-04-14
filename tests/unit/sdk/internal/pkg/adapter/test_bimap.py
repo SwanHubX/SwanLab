@@ -2,7 +2,7 @@
 
 import pytest
 
-from swanlab.sdk.internal.adapter.bimap import BiMap
+from swanlab.sdk.internal.pkg.adapter.bimap import BiMap
 
 
 def test_bimap_forward_mapping():
