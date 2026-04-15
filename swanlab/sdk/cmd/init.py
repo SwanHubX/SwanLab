@@ -37,7 +37,7 @@ from ..internal.settings import Settings
 from ..internal.settings import settings as global_settings
 from ..typings.run import ModeType, ResumeType
 from . import utils
-from .login import login_raw
+from .login import login_cli, login_raw
 
 __all__ = ["init", "ConfigLike"]
 
@@ -447,41 +447,39 @@ def prompt_init_mode(settings: Settings) -> ModeType:
     mode = settings.mode
     if mode != "cloud" or client.exists() or not settings.interactive:
         return mode
-    login_func = partial(login_raw, save=False, host=settings.api_host, wellcome_on_success=False)
+    login_func = partial(login_cli, save=True, host=settings.api_host)
     if mode == "cloud":
         if settings.api_key is not None:
             # 不登录，交给后面处理，否则会出现闪烁动画，比较影响美感
             # login_func(api_key=settings.api_key)
             return "cloud"
 
-        console.info("Using SwanLab to track your experiments.")
-        console.info(f" For more information, please review the docs at {settings.web_host}/docs")
-
-        console.info("(1) Create a SwanLab account.")
-        console.info("(2) Use an existing SwanLab account.")
-        console.info("(3) Don't visualize my results (Offline mode).")
-
+        console.info("Using SwanLab to track your experiments. To get started, choose one of the following options:")
+        console.print(
+            "(1) Use an existing API key.",
+            "(2) Create a new SwanLab account.",
+            "(3) Continue without visualization (Offline mode).",
+            "Learn more in the documentation: https://docs.swanlab.cn",
+            sep="\n",
+        )
         while True:
-            choice = input("Enter your choice (1/2/3): ").strip()
-
-            if choice == "3":
-                console.info("Switching to 'offline' mode. Results will be saved locally.")
-                return "offline"
+            choice = input("Enter your choice [1/2/3]: ").strip()
 
             if choice == "1":
-                console.info("Create a SwanLab account here:", "yellow")
-                console.info(f"{settings.web_host}/login", "blue")
-                # 注册后紧接着触发登录循环
+                console.info("Using an existing SwanLab API key.")
                 login_func(save=True)
                 return "cloud"
 
             if choice == "2":
-                console.info(f"Logging into {settings.web_host}...")
-                # 触发带循环容错的登录接口
+                console.info(f"Create a SwanLab account here:{settings.web_host}/login")
                 login_func(save=True)
                 return "cloud"
 
-            console.warning("Invalid choice, please enter 1, 2, or 3.")
+            if choice == "3":
+                console.info("Continuing in Offline mode. Results will be saved locally.")
+                return "offline"
+
+            console.warning("Invalid choice. Please enter 1, 2, or 3.")
     # 其他模式不登录
     return mode
 

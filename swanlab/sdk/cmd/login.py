@@ -129,7 +129,7 @@ def login_raw(
     # 3. 进入登录流程
     login_settings.merge_settings({"api_key": api_key})
     with scope.Scope() as s:
-        f = helper.with_loading_animation()(create_client) if animation else create_client
+        f = helper.with_loading_animation("Waiting for response...")(create_client) if animation else create_client
         f(api_key=api_key, api_host=api_host, timeout=timeout)
         login_resp: Optional[LoginResponse] = s.get("login_resp", None)
         if wellcome_on_success:

@@ -112,7 +112,7 @@ def test_prompt_interactive_choices(mock_settings, monkeypatch, inputs, mock_log
     mock_settings.api_key = None
 
     # 模拟 login_raw 返回值
-    monkeypatch.setattr("swanlab.sdk.cmd.init.login_raw", lambda **kwargs: mock_login_success)
+    monkeypatch.setattr("swanlab.sdk.cmd.init.login_cli", lambda **kwargs: mock_login_success)
 
     # 模拟 input，通过迭代器按顺序弹出输入值
     input_iterator = iter(inputs)
