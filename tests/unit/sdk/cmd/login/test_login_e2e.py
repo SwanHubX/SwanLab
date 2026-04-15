@@ -29,7 +29,7 @@ class TestLoginE2E:
         """将凭证写入 .netrc 并重新初始化 settings，模拟上次会话保存、新会话加载的完整流程。"""
         nrc_path = settings.root / ".netrc"
         nrc_path.parent.mkdir(parents=True, exist_ok=True)
-        nrc.write(nrc_path, host=host, username=host, password=key)
+        nrc.write(nrc_path, api_host=host, web_host=host, api_key=key)
         TestLoginE2E._reinit_settings()
 
     @responses.activate
@@ -138,7 +138,9 @@ class TestLoginE2E:
             status=200,
         )
 
-        monkeypatch.setattr("swanlab.sdk.cmd.login.apikey.prompt", lambda **_: (prompt_called.append(1), prompt_key)[1])
+        monkeypatch.setattr(
+            "swanlab.sdk.cmd.login.prompt_api_key", lambda **_: (prompt_called.append(1), prompt_key)[1]
+        )
 
         result = login(api_key=None, host="fake.swanlab.cn", save=True)
 
@@ -195,7 +197,7 @@ class TestLoginE2E:
             status=401,
         )
 
-        with pytest.raises(AuthenticationError, match="Failed to login"):
+        with pytest.raises(AuthenticationError, match="Failed to initialize SwanLab client"):
             login(api_key="wrong-key", relogin=True)
 
     @responses.activate
