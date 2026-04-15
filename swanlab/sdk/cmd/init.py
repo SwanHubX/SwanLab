@@ -11,6 +11,7 @@ init函数执行时被视为init之前
 import json
 import os
 from datetime import datetime
+from functools import partial
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -35,7 +36,7 @@ from ..internal.run import Run, get_run, has_run
 from ..internal.settings import Settings
 from ..internal.settings import settings as global_settings
 from ..typings.run import ModeType, ResumeType
-from .login import login_interactive, login_raw
+from .login import login_cli
 
 __all__ = ["init", "ConfigLike"]
 
@@ -442,9 +443,10 @@ def prompt_init_mode(settings: Settings) -> Tuple[ModeType, bool]:
     mode = settings.mode
     if mode != "cloud" or client.exists() or not settings.interactive:
         return mode, client.exists()
+    login_func = partial(login_cli, save=True, host=settings.api_host)
     if mode == "cloud":
         if settings.api_key is not None:
-            login_raw(api_key=settings.api_key)
+            login_func(api_key=settings.api_key)
             return "cloud", True
 
         console.info("Using SwanLab to track your experiments.")
@@ -465,13 +467,13 @@ def prompt_init_mode(settings: Settings) -> Tuple[ModeType, bool]:
                 console.info("Create a SwanLab account here:", "yellow")
                 console.info(f"{settings.web_host}/login", "blue")
                 # 注册后紧接着触发登录循环
-                success = login_interactive(save=True)
+                success = login_func(save=True)
                 return "cloud", success
 
             if choice == "2":
                 console.info(f"Logging into {settings.web_host}...")
                 # 触发带循环容错的登录接口
-                success = login_interactive(save=True)
+                success = login_func(save=True)
                 return "cloud", success
 
             console.warning("Invalid choice, please enter 1, 2, or 3.")

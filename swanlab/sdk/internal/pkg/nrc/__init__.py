@@ -51,7 +51,7 @@ def fmt(host: str) -> str:
     return result
 
 
-def read(path: Path) -> Optional[Tuple[str, str, str]]:
+def read(p: Path) -> Optional[Tuple[str, str, str]]:
     """
     读取 netrc 文件中的凭证信息，依次返回 api_key, api_host, web_host
 
@@ -60,18 +60,18 @@ def read(path: Path) -> Optional[Tuple[str, str, str]]:
         - login (username) -> web_host
         - password -> api_key
 
-    :param path: netrc 文件路径
+    :param p: netrc 文件路径
     :return: (api_key, api_host, web_host)，读取失败返回 None
     """
 
-    if not path.exists():
+    if not p.exists():
         return None
 
     try:
-        nrc = netrc.netrc(path)
+        nrc = netrc.netrc(p)
     except (netrc.NetrcParseError, IsADirectoryError, PermissionError):
         raise IOError(
-            f"Failed to access or parse netrc file at {path}. "
+            f"Failed to access or parse netrc file at {p}. "
             f"Please check if the path is a directory, has incorrect permissions, or contains syntax errors."
         )
 
@@ -88,7 +88,7 @@ def read(path: Path) -> Optional[Tuple[str, str, str]]:
             machine = machine[: -len("/api")]
             # 自愈：将修正后的 host 写回文件
             nrc.hosts = {machine: (login, _, password)}
-            with open(path, "w", encoding="utf-8") as f:
+            with open(p, "w", encoding="utf-8") as f:
                 f.write(repr(nrc))
 
         api_host = fmt(machine)
@@ -98,14 +98,14 @@ def read(path: Path) -> Optional[Tuple[str, str, str]]:
     return None
 
 
-def write(nrc_path: Path, host: str, username: str, password: str):
+def write(nrc_path: Path, api_host: str, web_host: str, api_key: str):
     """
     将凭证写入 netrc 文件。
     遵循全局单点登录原则：每次写入都会清空其他所有历史/不同环境的登录凭证。
     """
     # 1. 核心防御
     # 检查字段是否合法
-    for field_name, value in [("host", host), ("username", username), ("password", password)]:
+    for field_name, value in [("host", api_host), ("username", web_host), ("password", api_key)]:
         if any(c in value for c in ("\n", "\r", " ", "\t")):
             raise ValueError(f"Invalid characters in {field_name}. Newlines and spaces are not allowed.")
     # 核心防御：处理路径冲突
@@ -135,11 +135,11 @@ def write(nrc_path: Path, host: str, username: str, password: str):
         nrc = netrc.netrc(nrc_path)
 
     # 5. 写入逻辑：全局单点登录，直接覆写整个 hosts 字典
-    new_info = (username, "", password)
-    info = nrc.authenticators(host)
+    new_info = (web_host, "", api_key)
+    info = nrc.authenticators(api_host)
 
     if info is None or (info[0], info[2]) != (new_info[0], new_info[2]):
-        nrc.hosts = {host: new_info}  # <-- 强制覆写，顶掉旧账号
+        nrc.hosts = {api_host: new_info}  # <-- 强制覆写，顶掉旧账号
         with safe.block(message="Failed to write credentials to netrc file"):
             with open(nrc_path, "w", encoding="utf-8") as f:
                 f.write(repr(nrc))

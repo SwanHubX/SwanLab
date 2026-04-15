@@ -40,4 +40,4 @@ from swanlab import sdk
 )
 def login(api_key: str, relogin: bool, host: str, save: bool):
     """Login to the SwanLab cloud."""
-    sdk.login_interactive(api_key=api_key, relogin=relogin, host=host, save=save)
+    sdk.login_cli(api_key=api_key, relogin=relogin, host=host, save=save)

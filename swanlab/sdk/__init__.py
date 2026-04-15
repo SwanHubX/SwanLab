@@ -6,7 +6,7 @@
 """
 
 from .cmd.init import init
-from .cmd.login import login, login_interactive
+from .cmd.login import login, login_cli
 from .cmd.logout import logout, logout_raw
 from .cmd.merge_settings import merge_settings
 from .cmd.run import async_log, define_scalar, finish, log, log_audio, log_image, log_text, log_video
@@ -35,7 +35,7 @@ __all__ = [
     "logout_raw",
     "define_scalar",
     "merge_settings",
-    "login_interactive",
+    "login_cli",
     # run
     "has_run",
     "get_run",

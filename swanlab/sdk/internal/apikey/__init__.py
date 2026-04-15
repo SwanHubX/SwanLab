@@ -31,7 +31,7 @@ def save(username: str, api_key: str, host: Optional[str] = None, ctx: Optional[
     nrc_path = nrc.path(current_settings.root)
 
     # 调用底层工具写入凭证
-    nrc.write(nrc_path=nrc_path, host=host, username=username, password=api_key)
+    nrc.write(nrc_path=nrc_path, api_host=host, web_host=username, api_key=api_key)
 
     # 同步更新运行时 Settings
     current_settings.merge_settings({"api_key": api_key})
