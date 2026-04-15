@@ -30,7 +30,6 @@ from swanlab.sdk.internal.pkg import console, fs, helper, safe
 from swanlab.sdk.internal.protocol import Callback
 from swanlab.utils import generate_color, generate_id, generate_name
 
-from ..internal import apikey
 from ..internal.core_python.api.experiment import create_or_resume_experiment
 from ..internal.run import Run, get_run, has_run
 from ..internal.settings import Settings
@@ -444,8 +443,8 @@ def prompt_init_mode(settings: Settings) -> Tuple[ModeType, bool]:
     if mode != "cloud" or client.exists() or not settings.interactive:
         return mode, client.exists()
     if mode == "cloud":
-        if apikey.exists():
-            login_raw(api_key=apikey.get())
+        if settings.api_key is not None:
+            login_raw(api_key=settings.api_key)
             return "cloud", True
 
         console.info("Using SwanLab to track your experiments.")

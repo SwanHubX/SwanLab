@@ -5,6 +5,8 @@
 @description: swanlab.login 方法，登录到 SwanLab 平台
 """
 
+import getpass
+import sys
 from pathlib import Path
 from typing import Optional
 from urllib.parse import urlparse
@@ -13,10 +15,9 @@ from rich.text import Text
 
 from swanlab.exceptions import AuthenticationError
 from swanlab.sdk.cmd.guard import with_cmd_lock, without_run
-from swanlab.sdk.internal import apikey
 from swanlab.sdk.internal.context import RunConfig, RunContext, use_context
 from swanlab.sdk.internal.core_python import client
-from swanlab.sdk.internal.pkg import console, helper, scope
+from swanlab.sdk.internal.pkg import console, helper, safe, scope
 from swanlab.sdk.internal.settings import Settings, settings
 from swanlab.sdk.typings.pkg.client.bootstrap import LoginResponse
 
@@ -92,7 +93,7 @@ def login_interactive(
     当捕获到 AuthenticationError 时，如果环境允许交互，则会无限循环提示用户重新输入 API Key。
     """
     # CLI 每次是新进程，client.exists() 必为 False，需要检查本地凭证判断是否已登录
-    if apikey.exists_locally() and not relogin:
+    if settings.api_key is not None and not relogin:
         console.info(
             "You are already logged in. Use",
             Text("`swanlab login --relogin`", style="bold"),
@@ -113,7 +114,7 @@ def login_interactive(
     while True:
         try:
             # 重新要求用户输入新的 Key
-            new_key = apikey.prompt()
+            new_key = prompt_api_key()
             return login_raw(api_key=new_key, relogin=relogin, host=host, save=save, timeout=timeout)
         except AuthenticationError as e:
             console.error(str(e))
@@ -154,7 +155,7 @@ def login_raw(
     # 先用入参，入参没有才考虑复用 settings 里的值
     if api_key is None:
         # host 变了，且 .netrc 中存有旧凭证 —— 旧 key 与新 host 不匹配，不能复用
-        if host is not None and host != settings.api_host and settings.api_key is not None and apikey.exists_locally():
+        if host is not None and host != settings.api_host and settings.api_key is not None:
             console.warning(
                 f"Stored API key is for '{settings.api_host}', but you are logging in to '{host}'. "
                 "Please provide an API key for the new host."
@@ -174,7 +175,7 @@ def login_raw(
     with use_context(RunContext(config=RunConfig(settings=login_settings, run_dir=fake_run_dir))) as ctx:
         # 如果 API Key 不存在，则提示用户输入
         if api_key is None:
-            api_key = apikey.prompt(ctx=ctx)
+            api_key = prompt_api_key(ctx=ctx)
         # 3. 进入登录流程
         ctx.config.settings.merge_settings({"api_key": api_key})
         with scope.Scope() as s:
@@ -189,7 +190,7 @@ def login_raw(
             username = login_resp.get("userInfo", {}).get("username", "unknown")
             console.info("Login successfully. Hi", Text(f"{username}!", "bold"), sep=" ")
             if save:
-                apikey.save(username=web_host, api_key=api_key, host=ctx.config.settings.api_host, ctx=ctx)
+                raise NotImplementedError("暂未实现")
         # 4. 将登录设置合并到全局配置中
         settings.merge_settings(ctx.config.settings)
         return True
@@ -199,3 +200,63 @@ def login_raw(
 def create_client(ctx: RunContext, timeout: int = 10):
     assert ctx.config.settings.api_key is not None, "API Key not provided"
     return client.new(ctx.config.settings.api_key, ctx.config.settings.api_host, timeout=timeout)
+
+
+def prompt_api_key(
+    tip: str = "Paste an API key from your profile and hit enter, or press 'CTRL + C' to quit",
+    again: bool = False,
+    ctx: Optional[RunContext] = None,
+) -> str:
+    """
+    让用户在终端安全地输入 API Key。
+    输入时内容将被隐藏。完整保留了原本的交互文案与 Windows 专属提示。
+
+    :param tip: 提示信息
+    :param again: 是否是重新输入，如果是，则不显示获取 Key 的链接 URL
+    :param ctx: 当前运行上下文，如果提供则使用上下文中的配置信息，否则使用全局配置信息
+
+    :raises RuntimeError: 如果当前环境不支持交互式输入
+    :return: 用户输入的 API Key
+    """
+    current_settings = settings if ctx is None else ctx.config.settings
+    if not current_settings.interactive:
+        raise RuntimeError(
+            "API Key not provided and interactive mode is disabled",
+            "use `swanlab.login(interactive=True)` or SWANLAB_INTERACTIVE=1 to enable interactive mode.",
+        )
+    if not helper.is_interactive():
+        raise RuntimeError("Cannot prompt for API Key in no-tty environment")
+    web_host = current_settings.web_host
+    # 1. 打印获取 API Key 的指引（非重试模式下）
+    if not again:
+        # 动态拼接当前环境的设置页 URL
+        setting_url = f"{web_host.rstrip('/')}/space/~/settings#development"
+        console.info("You can find your API key at:", Text(setting_url, style="yellow"))
+
+    # 2. 拼接输入提示语
+    prompt_text = tip
+
+    # 针对 Windows 环境的专属粘贴提示
+    if sys.platform == "win32":
+        prompt_text += (
+            "\nOn Windows, use [yellow]Ctrl + Shift + V[/yellow] or [yellow]right-click[/yellow] to paste the API key"
+        )
+
+    prompt_text += ": "
+
+    # 先使用 console 打印提示，因为 getpass() 原生不支持 Rich 的颜色标签渲染
+    console.print(prompt_text, end="")
+
+    # 强制刷新输出缓冲区，确保提示语立刻显示
+    sys.stdout.flush()
+
+    # 3. 安全读取用户输入
+    with safe.block(message="Failed to read API Key from terminal"):
+        try:
+            # 隐藏输入内容
+            key = getpass.getpass("")
+            return key.strip()
+        except (KeyboardInterrupt, EOFError):
+            # 优雅处理用户按下 Ctrl+C 或 Ctrl+D 退出的情况，替代旧版的 sys.excepthook
+            console.print("\n")  # 换行，防止终端提示符错位
+            sys.exit(0)
