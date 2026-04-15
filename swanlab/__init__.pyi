@@ -10,7 +10,7 @@ from concurrent.futures import Future
 from typing import Any, Callable, List, Mapping, Optional, Union
 
 from . import utils
-from .sdk import Audio, Callback, Image, Run, Settings, Text, Video, config, logout, verify
+from .sdk import Audio, Callback, Image, Run, Settings, Text, Video, config
 from .sdk.cmd.init import ConfigLike
 from .sdk.typings.run import AsyncLogType, FinishType, ModeType, ResumeType
 from .sdk.typings.run.column import ScalarXAxisType
@@ -28,8 +28,6 @@ __all__ = [
     "init",
     "finish",
     "login",
-    "logout",
-    "verify",
     "log",
     "log_text",
     "log_image",

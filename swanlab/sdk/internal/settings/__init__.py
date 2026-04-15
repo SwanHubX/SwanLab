@@ -39,7 +39,7 @@ from .experiment import ExperimentSettings, ProjectSettings, RunSettings
 from .integration import IntegrationSettings
 from .metadata import ConsoleSettings, EnvironmentSettings, MonitorSettings
 
-__all__ = ["Settings", "settings"]
+__all__ = ["Settings", "settings", "ROOT_FOLDER"]
 
 
 # 根据环境变量自动设置 secrets_dir

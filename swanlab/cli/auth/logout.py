@@ -20,8 +20,9 @@ from swanlab import sdk
     default=False,
     help="Force logout without confirmation prompt.",
 )
-def logout(force: bool):
+@click.option("--local", is_flag=True, help="Logout from local login (remove .swanlab in current directory)")
+def logout(force: bool, local: bool):
     """Logout from the SwanLab cloud."""
-    success = sdk.logout_raw(force=force)
+    success = sdk.logout_cli(force=force, save="local" if local else "root")
     if not success:
         sys.exit(1)

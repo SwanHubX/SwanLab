@@ -5,49 +5,19 @@
 @description: swanlab.logout 方法，登出 SwanLab 平台
 """
 
-from swanlab.sdk.cmd.guard import with_cmd_lock, without_run
-from swanlab.sdk.internal import apikey
-from swanlab.sdk.internal.core_python import client
-from swanlab.sdk.internal.pkg import console
+from swanlab.sdk.cmd import utils
+from swanlab.sdk.internal.pkg import console, nrc
 from swanlab.sdk.internal.settings import settings
+from swanlab.sdk.typings.cmd import LoginType
 
-__all__ = ["logout", "logout_raw"]
-
-
-@with_cmd_lock
-@without_run("logout")
-def logout(force: bool = False) -> bool:
-    """Logout from SwanLab Cloud.
-
-    This function removes locally stored credentials and resets the runtime client.
-    If no active login is found, the function will exit with an error.
-
-    :param force: If True, skip the confirmation prompt and logout directly.
-        Defaults to False.
-
-    :return: True if logout was successful, False otherwise.
-
-    :raises RuntimeError: If called while a run is active.
-
-    Examples:
-
-        Logout with confirmation prompt:
-
-        >>> import swanlab
-        >>> swanlab.logout()
-
-        Force logout without confirmation:
-
-        >>> import swanlab
-        >>> swanlab.logout(force=True)
-    """
-    return logout_raw(force=force)
+__all__ = ["logout_cli"]
 
 
-def logout_raw(force: bool = False) -> bool:
+def logout_cli(force: bool = False, save: LoginType = "root") -> bool:
+    nrc_path = utils.get_nrc_path(save)
     # 1. 检查是否已登录
-    if not apikey.exists():
-        console.info("You are not logged in. Use `swanlab login` to login.")
+    if not nrc_path.exists():
+        console.error("You are not logged in. Use `swanlab login` to login.")
         return False
 
     # 2. 交互式确认（非 force 模式下）
@@ -65,13 +35,6 @@ def logout_raw(force: bool = False) -> bool:
         else:
             console.info("Use `swanlab.logout(force=True)` to skip confirmation in non-interactive mode.")
             return False
-
-    # 3. 重置运行时客户端
-    if client.exists():
-        client.reset()
-
-    # 4. 删除本地凭证
-    apikey.remove()
-
+    nrc.remove(nrc_path)
     console.info("Logout successfully. You can use `swanlab login` to login again.")
     return True

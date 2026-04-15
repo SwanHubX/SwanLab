@@ -7,6 +7,7 @@
 
 import netrc
 import os
+import shutil
 import stat
 from pathlib import Path
 from typing import Optional, Tuple
@@ -88,12 +89,13 @@ def read(p: Path) -> Optional[Tuple[str, str, str]]:
             machine = machine[: -len("/api")]
             # 自愈：将修正后的 host 写回文件
             nrc.hosts = {machine: (login, _, password)}
-            with open(p, "w", encoding="utf-8") as f:
-                f.write(repr(nrc))
+            fs.safe_write(p, repr(nrc), encoding="utf-8")
 
         api_host = fmt(machine)
-        web_host = fmt(login) if login else ""
-        return password, api_host, web_host
+        web_host = fmt(login)
+        api_key = password
+        if api_host and web_host and api_key:
+            return password, api_host, web_host
 
     return None
 
@@ -153,18 +155,7 @@ def remove(nrc_path: Path) -> None:
     """
     if not nrc_path.exists():
         return
-
-    try:
-        nrc_obj = netrc.netrc(nrc_path)
-    except (netrc.NetrcParseError, IsADirectoryError, PermissionError):
-        # 文件损坏或不可读，直接删除文件
-        nrc_path.unlink(missing_ok=True)
-        return
-
-    if not nrc_obj.hosts:
-        return
-
-    nrc_obj.hosts = {}
-    with open(nrc_path, "w", encoding="utf-8") as f:
-        f.write(repr(nrc_obj))
-    os.chmod(nrc_path, stat.S_IRUSR | stat.S_IWUSR)
+    if nrc_path.is_file() or nrc_path.is_symlink():
+        nrc_path.unlink()
+    elif nrc_path.is_dir():
+        shutil.rmtree(nrc_path)

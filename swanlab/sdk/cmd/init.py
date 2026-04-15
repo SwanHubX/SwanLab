@@ -36,6 +36,7 @@ from ..internal.run import Run, get_run, has_run
 from ..internal.settings import Settings
 from ..internal.settings import settings as global_settings
 from ..typings.run import ModeType, ResumeType
+from . import utils
 from .login import login_cli
 
 __all__ = ["init", "ConfigLike"]
@@ -414,15 +415,8 @@ def _mkdirs(ctx: RunContext):
     log_dir = ctx.config.settings.log_dir
     # 1. 安全创建目录（如果不存在）
     fs.safe_mkdir(log_dir)
-    # 2. 高效判断文件夹是否为空
-    # 如果 iterdir() 里什么都抽不出来，not any(...) 就会返回 True
-    if not any(log_dir.iterdir()):
-        # 3. 如果为空，写入 .gitignore
-        gitignore_path = log_dir / ".gitignore"
-        # 忽略目录下所有文件，但保留 .gitignore 自身（常见做法）
-        ignore_content = "*\n!.gitignore\n"
-        fs.safe_write(gitignore_path, ignore_content)
-
+    # 2. 写入 .gitignore（如果目录为空）
+    utils.append_gitignore(log_dir)
     # 3. 创建别的目录
     fs.safe_mkdirs(ctx.run_dir, ctx.media_dir, ctx.files_dir, ctx.debug_dir)
 
