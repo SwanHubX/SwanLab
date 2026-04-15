@@ -13,7 +13,7 @@ from typing import Optional
 from rich.text import Text
 
 from swanlab.sdk.internal.context import RunContext
-from swanlab.sdk.internal.pkg import console, helper, netrc
+from swanlab.sdk.internal.pkg import console, helper, nrc
 from swanlab.sdk.internal.settings import Settings, settings
 
 __all__ = ["get", "save", "remove", "exists"]
@@ -26,12 +26,12 @@ def save(username: str, api_key: str, host: Optional[str] = None, ctx: Optional[
     current_settings = get_current_settings(ctx=ctx)
 
     if host is None:
-        host = netrc.remove_host_suffix(current_settings.api_host, "/api")
+        host = nrc.fmt(current_settings.api_host)
 
-    nrc_path = netrc.get_nrc_path(current_settings.root)
+    nrc_path = nrc.path(current_settings.root)
 
     # 调用底层工具写入凭证
-    netrc.write_netrc(nrc_path=nrc_path, host=host, username=username, password=api_key)
+    nrc.write(nrc_path=nrc_path, host=host, username=username, password=api_key)
 
     # 同步更新运行时 Settings
     current_settings.merge_settings({"api_key": api_key})
@@ -44,10 +44,10 @@ def remove(ctx: Optional[RunContext] = None) -> None:
     导致 load_netrc_fallback 重新从 netrc 文件加载凭证。
     """
     current_settings = get_current_settings(ctx=ctx)
-    nrc_path = netrc.get_nrc_path(current_settings.root)
+    nrc_path = nrc.path(current_settings.root)
 
     # 删除 netrc 文件中的凭证条目
-    netrc.remove_netrc_entry(nrc_path)
+    nrc.remove(nrc_path)
 
     # 直接绕过 frozen=True 清除运行时 api_key
     object.__setattr__(current_settings, "api_key", None)
@@ -68,7 +68,7 @@ def exists_locally(ctx: Optional[RunContext] = None) -> bool:
     :return: True表示存在，False表示不存在
     """
     current_settings = get_current_settings(ctx=ctx)
-    nrc_path = Path(netrc.get_nrc_path(current_settings.root))
+    nrc_path = Path(nrc.path(current_settings.root))
     return nrc_path.exists()
 
 

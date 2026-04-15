@@ -17,6 +17,13 @@ from swanlab.sdk.internal.pkg import safe
 __all__ = ["fmt", "read", "write"]
 
 
+def path(p: Path):
+    """
+    获取 netrc 文件的完整路径
+    """
+    return p / ".netrc"
+
+
 def fmt(host: str) -> str:
     """
     格式化域名，移除路由等后缀，仅保留协议、端口、域名，如果没有协议，自动添加 https 协议
@@ -137,3 +144,28 @@ def write(nrc_path: Path, host: str, username: str, password: str):
             with open(nrc_path, "w", encoding="utf-8") as f:
                 f.write(repr(nrc))
             os.chmod(nrc_path, stat.S_IRUSR | stat.S_IWUSR)
+
+
+def remove(nrc_path: Path) -> None:
+    """
+    删除 netrc 文件中的所有凭证条目。
+    遵循全局单点登录原则：直接清空整个 hosts 字典并写回文件。
+    如果文件不存在则不做任何操作。
+    """
+    if not nrc_path.exists():
+        return
+
+    try:
+        nrc_obj = netrc.netrc(nrc_path)
+    except (netrc.NetrcParseError, IsADirectoryError, PermissionError):
+        # 文件损坏或不可读，直接删除文件
+        nrc_path.unlink(missing_ok=True)
+        return
+
+    if not nrc_obj.hosts:
+        return
+
+    nrc_obj.hosts = {}
+    with open(nrc_path, "w", encoding="utf-8") as f:
+        f.write(repr(nrc_obj))
+    os.chmod(nrc_path, stat.S_IRUSR | stat.S_IWUSR)

@@ -9,7 +9,7 @@ from rich.text import Text
 
 from swanlab.sdk.cmd.guard import with_cmd_lock, without_run
 from swanlab.sdk.internal import apikey
-from swanlab.sdk.internal.pkg import console, netrc
+from swanlab.sdk.internal.pkg import console, nrc
 from swanlab.sdk.internal.pkg.client.bootstrap import login_by_api_key
 from swanlab.sdk.internal.settings import settings
 
@@ -51,7 +51,7 @@ def verify_raw() -> bool:
 
     # 3. 调用底层鉴权接口验证 Key 有效性
     api_host = settings.api_host
-    base_url = netrc.remove_host_suffix(api_host, "/api") + "/api"
+    base_url = nrc.fmt(api_host) + "/api"
     login_resp = login_by_api_key(base_url=base_url, api_key=key)
 
     if login_resp is None:

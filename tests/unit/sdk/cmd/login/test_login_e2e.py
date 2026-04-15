@@ -11,7 +11,7 @@ import responses
 from swanlab.exceptions import AuthenticationError
 from swanlab.sdk.cmd.login import login
 from swanlab.sdk.internal.core_python import client
-from swanlab.sdk.internal.pkg.netrc import write_netrc
+from swanlab.sdk.internal.pkg import nrc
 from swanlab.sdk.internal.settings import Settings, settings
 
 
@@ -29,7 +29,7 @@ class TestLoginE2E:
         """将凭证写入 .netrc 并重新初始化 settings，模拟上次会话保存、新会话加载的完整流程。"""
         nrc_path = settings.root / ".netrc"
         nrc_path.parent.mkdir(parents=True, exist_ok=True)
-        write_netrc(nrc_path, host=host, username=host, password=key)
+        nrc.write(nrc_path, host=host, username=host, password=key)
         TestLoginE2E._reinit_settings()
 
     @responses.activate

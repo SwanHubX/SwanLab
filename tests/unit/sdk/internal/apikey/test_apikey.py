@@ -13,7 +13,6 @@ from unittest.mock import MagicMock
 import pytest
 
 from swanlab.sdk.internal import apikey
-from swanlab.sdk.internal.pkg.netrc import read_netrc_by_host
 
 
 @pytest.fixture
@@ -30,8 +29,8 @@ def mock_env(mocker, tmp_path, monkeypatch):
     nrc_file = tmp_path / ".netrc"
 
     # 注意：在模块被引入后，函数在 apikey 命名空间中，拦截 apikey 里的引用
-    mocker.patch("swanlab.sdk.internal.pkg.netrc.get_nrc_path", return_value=nrc_file)
-    mocker.patch("swanlab.sdk.internal.pkg.netrc.remove_host_suffix", return_value="api.swanlab.cn")
+    mocker.patch("swanlab.sdk.internal.pkg.nrc.path", return_value=nrc_file)
+    mocker.patch("swanlab.sdk.internal.pkg.nrc.fmt", return_value="api.swanlab.cn")
 
     return mock_settings, nrc_file
 
@@ -85,25 +84,6 @@ def test_corrupted_file_recovery(mock_env):
     # 模拟 Settings 被同步更新
     mock_settings.api_key = "new_key"
     assert apikey.get() == "new_key"
-
-
-def test_netrc_backward_compatibility(mock_env):
-    """
-    测试旧版 host (/api) 的读取与自动修复
-    由于 apikey 不再直接读文件，这里直接测试底层的 read_netrc_by_host 工具函数
-    """
-    _, nrc_file = mock_env
-    # 写入旧版本的携带 /api 的配置
-    nrc_file.write_text("machine api.swanlab.cn/api login old_user password old_key")
-
-    # 调用底层读取工具，它应该能兼容读取，并且触发修复动作
-    credentials = read_netrc_by_host(nrc_file, "api.swanlab.cn")
-    assert credentials == ("old_user", "old_key")
-
-    # 验证修复：文件中 /api 后缀应已被移除
-    auth = netrc.netrc(nrc_file).authenticators("api.swanlab.cn")
-    assert auth is not None
-    assert (auth[0], auth[2]) == ("old_user", "old_key")
 
 
 def test_get_not_found(mock_env):
