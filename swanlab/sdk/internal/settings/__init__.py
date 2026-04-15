@@ -203,7 +203,12 @@ class Settings(BaseSettings):
 
             # 清理 web_host：用 fmt 统一格式
             if "web_host" in data and data["web_host"]:
-                data["web_host"] = nrc.fmt(str(data["web_host"]))
+                clean_web = nrc.fmt(str(data["web_host"]))
+                # web_host 不允许等于 api_host 的默认值，自动回退为 web_host 的默认值
+                if clean_web == str(cls.model_fields["api_host"].default):
+                    data.pop("web_host", None)
+                    return data
+                data["web_host"] = clean_web
 
         return data
 

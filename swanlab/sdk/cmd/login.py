@@ -9,7 +9,6 @@ import getpass
 import sys
 from pathlib import Path
 from typing import Optional
-from urllib.parse import urlparse
 
 from rich.text import Text
 
@@ -17,7 +16,7 @@ from swanlab.exceptions import AuthenticationError
 from swanlab.sdk.cmd.guard import with_cmd_lock, without_run
 from swanlab.sdk.internal.context import RunConfig, RunContext, use_context
 from swanlab.sdk.internal.core_python import client
-from swanlab.sdk.internal.pkg import console, helper, safe, scope
+from swanlab.sdk.internal.pkg import console, helper, nrc, safe, scope
 from swanlab.sdk.internal.settings import Settings, settings
 from swanlab.sdk.typings.pkg.client.bootstrap import LoginResponse
 
@@ -146,12 +145,7 @@ def login_raw(
         client.reset()
     # 2. 获取当前配置
     # 如果提供了host且没有http前缀添加https://前缀
-    if host is not None:
-        host = host.strip().rstrip("/")
-        if not host.startswith(("http://", "https://")):
-            host = f"https://{host}"
-        parsed = urlparse(host)
-        host = f"{parsed.scheme}://{parsed.netloc}"
+    host = nrc.fmt(host) if host is not None else None
     # 先用入参，入参没有才考虑复用 settings 里的值
     if api_key is None:
         # host 变了，且 .netrc 中存有旧凭证 —— 旧 key 与新 host 不匹配，不能复用

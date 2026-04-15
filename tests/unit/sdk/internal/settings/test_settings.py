@@ -139,6 +139,11 @@ def test_url_resolution_logic(monkeypatch):
     assert s_web.web_host == "http://192.168.1.10"
     assert s_web.api_host == "https://api.swanlab.cn"
 
+    # 6. web_host 被设置为 api_host 的默认值：自动回退为 web_host 默认值，且不进入 fields_set
+    s_invalid_web = Settings(web_host="api.swanlab.cn?test=1dsa")
+    assert s_invalid_web.web_host == "https://swanlab.cn"
+    assert "web_host" not in s_invalid_web.__pydantic_fields_set__
+
 
 def test_url_env_resolution(monkeypatch):
     """测试环境变量注入时的 URL 路由清除与推导逻辑"""
