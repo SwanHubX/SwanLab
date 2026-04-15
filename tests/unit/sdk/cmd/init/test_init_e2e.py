@@ -330,14 +330,14 @@ class TestInitSettingsPriority:
 class TestInitResumeValidation:
     def test_resume_must_without_id_raises(self, monkeypatch):
         """cloud 模式 resume='must' 但未提供 id → AssertionError"""
-        monkeypatch.setattr("swanlab.sdk.cmd.init.prompt_init_mode", lambda _: ("cloud", True))
+        monkeypatch.setattr("swanlab.sdk.cmd.init.prompt_init_mode", lambda _: "cloud")
 
         with pytest.raises(AssertionError, match="Run id must be provided"):
             init(mode="cloud", resume="must")
 
     def test_resume_never_with_id_raises(self, monkeypatch):
         """cloud 模式 resume='never' 但同时提供了 id → AssertionError"""
-        monkeypatch.setattr("swanlab.sdk.cmd.init.prompt_init_mode", lambda _: ("cloud", True))
+        monkeypatch.setattr("swanlab.sdk.cmd.init.prompt_init_mode", lambda _: "cloud")
 
         with pytest.raises(AssertionError, match="Run id should not be provided"):
             init(mode="cloud", resume="never", id="some-run-id")

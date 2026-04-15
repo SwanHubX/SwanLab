@@ -66,61 +66,59 @@ def test_prompt_fast_exits(mock_settings, monkeypatch):
     """测试快速跳过的条件：非 cloud 模式、非交互模式、已登录"""
     # 1. 模拟已登录 (client.exists 返回 True)
     monkeypatch.setattr("swanlab.sdk.cmd.init.client.exists", lambda: True)
-    assert prompt_init_mode(mock_settings) == ("cloud", True)
+    assert prompt_init_mode(mock_settings) == "cloud"
 
     monkeypatch.setattr("swanlab.sdk.cmd.init.client.exists", lambda: False)
 
     # 2. 模拟非交互模式
     mock_settings.interactive = False
-    assert prompt_init_mode(mock_settings) == ("cloud", False)
+    assert prompt_init_mode(mock_settings) == "cloud"
 
     # 3. 模拟非云端模式
     mock_settings.interactive = True
     mock_settings.mode = "local"
-    assert prompt_init_mode(mock_settings) == ("local", False)
+    assert prompt_init_mode(mock_settings) == "local"
 
 
 def test_prompt_auto_login(mock_settings, monkeypatch):
-    """测试本地已存在 apikey 时的自动登录逻辑"""
+    """测试本地已存在 apikey 时直接返回 cloud 模式"""
     monkeypatch.setattr("swanlab.sdk.cmd.init.client.exists", lambda: False)
-    monkeypatch.setattr("swanlab.sdk.cmd.init.apikey.exists", lambda: True)
-    monkeypatch.setattr("swanlab.sdk.cmd.init.apikey.get", lambda: "fake-key")
+    # 设置 api_key 模拟已存在凭证
+    mock_settings.api_key = "fake-key"
 
-    mock_login = MagicMock()
-    monkeypatch.setattr("swanlab.sdk.cmd.init.login_raw", mock_login)
+    mock_login_raw = MagicMock(return_value=True)
+    monkeypatch.setattr("swanlab.sdk.cmd.init.login_raw", mock_login_raw)
 
-    assert prompt_init_mode(mock_settings) == ("cloud", True)
-    mock_login.assert_called_once_with(api_key="fake-key")
+    assert prompt_init_mode(mock_settings) == "cloud"
+    # 有 api_key 时不再调用 login_raw，登录推迟到后续流程
 
 
 @pytest.mark.parametrize(
-    "inputs, mock_login_success, expected_mode, expected_success",
+    "inputs, mock_login_success, expected_mode",
     [
         # 直接选 3 -> 切换离线模式
-        (["3"], False, "offline", False),
+        (["3"], False, "offline"),
         # 直接选 1 -> 触发交互登录并返回成功
-        (["1"], True, "cloud", True),
+        (["1"], True, "cloud"),
         # 直接选 2 -> 触发交互登录并返回失败
-        (["2"], False, "cloud", False),
+        (["2"], False, "cloud"),
         # 乱输一通后选 3 -> 循环容错测试
-        (["invalid", "wrong", "3"], False, "offline", False),
+        (["invalid", "wrong", "3"], False, "offline"),
     ],
 )
-def test_prompt_interactive_choices(
-    mock_settings, monkeypatch, inputs, mock_login_success, expected_mode, expected_success
-):
+def test_prompt_interactive_choices(mock_settings, monkeypatch, inputs, mock_login_success, expected_mode):
     """使用参数化和猴子补丁极致压缩终端交互的测试代码"""
     monkeypatch.setattr("swanlab.sdk.cmd.init.client.exists", lambda: False)
-    monkeypatch.setattr("swanlab.sdk.cmd.init.apikey.exists", lambda: False)
+    mock_settings.api_key = None
 
-    # 模拟 login_interactive 返回值
-    monkeypatch.setattr("swanlab.sdk.cmd.init.login_interactive", lambda save: mock_login_success)
+    # 模拟 login_raw 返回值
+    monkeypatch.setattr("swanlab.sdk.cmd.init.login_raw", lambda **kwargs: mock_login_success)
 
     # 模拟 input，通过迭代器按顺序弹出输入值
     input_iterator = iter(inputs)
     monkeypatch.setattr("builtins.input", lambda prompt: next(input_iterator))
 
-    assert prompt_init_mode(mock_settings) == (expected_mode, expected_success)
+    assert prompt_init_mode(mock_settings) == expected_mode
 
 
 class TestSetNestedValue:

@@ -22,7 +22,7 @@ from swanlab.sdk.internal.settings import settings as global_settings
 from swanlab.sdk.typings.cmd import LoginType
 from swanlab.sdk.typings.pkg.client.bootstrap import LoginResponse
 
-__all__ = ["login", "login_cli"]
+__all__ = ["login", "login_cli", "login_raw"]
 
 
 @with_cmd_lock
@@ -78,6 +78,24 @@ def login(
         >>> swanlab.login(api_key="new_api_key", relogin=True, save=True)
         >>> swanlab.init(mode="cloud")
     """
+    return login_raw(
+        api_key=api_key,
+        relogin=relogin,
+        host=host,
+        save=save,
+        timeout=timeout,
+    )
+
+
+def login_raw(
+    api_key: Optional[str] = None,
+    relogin: bool = False,
+    host: Optional[str] = None,
+    save: LoginType = False,
+    timeout: int = 10,
+    wellcome_on_success: bool = True,
+    animation: bool = True,
+) -> bool:
     # 1. 判断是否允许重新登录
     # 如果已经登录且不需要重新登录，则直接返回
     # 仅当运行时 client 已存在时才视为已登录；本地凭证仅表示可复用，不代表本次会话已完成认证
@@ -111,9 +129,11 @@ def login(
     # 3. 进入登录流程
     login_settings.merge_settings({"api_key": api_key})
     with scope.Scope() as s:
-        create_client(api_key=api_key, api_host=api_host, timeout=timeout)
+        f = helper.with_loading_animation()(create_client) if animation else create_client
+        f(api_key=api_key, api_host=api_host, timeout=timeout)
         login_resp: Optional[LoginResponse] = s.get("login_resp", None)
-        wellcome(login_resp)
+        if wellcome_on_success:
+            wellcome(login_resp)
         if save:
             nrc_path = nrc.path(Path.cwd()) if save == "local" else nrc.path(global_settings.root)
             nrc.write(nrc_path, api_host=api_host, web_host=login_settings.web_host, api_key=api_key)
@@ -122,7 +142,6 @@ def login(
         return True
 
 
-@helper.with_loading_animation()
 def create_client(api_key: str, api_host: str, timeout: int = 10):
     return client.new(api_key, api_host, timeout=timeout)
 
