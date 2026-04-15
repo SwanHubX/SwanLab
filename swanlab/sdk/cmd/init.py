@@ -438,7 +438,7 @@ def prompt_init_mode(settings: Settings) -> ModeType:
     规则：
     1. 只有在 settings.interactive 为 True 且 settings.mode 为 'cloud' 时触发 。
     2. 如果 client 已存在（已登录），直接跳过 。
-    3. 提供三个选项：(1) 注册 (2) 登录 (3) 切换为 offline 模式。
+    3. 提供三个选项：(1) 使用已有的Key (2) 注册 (3) 切换为 offline 模式。
 
     :param settings: 当前的 Settings 实例 。
     :return: (最终确定的 mode, 是否成功登录)
