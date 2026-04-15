@@ -16,7 +16,6 @@ from swanlab.exceptions import AuthenticationError
 from swanlab.sdk.cmd.guard import with_cmd_lock, without_run
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.pkg import console, helper, nrc, safe, scope
-from swanlab.sdk.internal.pkg.client import login_by_api_key
 from swanlab.sdk.internal.settings import Settings
 from swanlab.sdk.internal.settings import settings as global_settings
 from swanlab.sdk.typings.cmd import LoginSaveType
@@ -31,7 +30,7 @@ def login(
     api_key: Optional[str] = None,
     relogin: bool = False,
     host: Optional[str] = None,
-    save: bool = False,
+    save: LoginSaveType = False,
     timeout: int = 10,
 ) -> bool:
     """Authenticate with SwanLab Cloud.
@@ -112,17 +111,11 @@ def login(
     login_settings.merge_settings({"api_key": api_key})
     with scope.Scope() as s:
         create_client(api_key=api_key, api_host=api_host, timeout=timeout)
-        assert client.exists(), "Failed to create client"
         login_resp: Optional[LoginResponse] = s.get("login_resp", None)
-        if login_resp is None:
-            # 认证失败但 client 对象已被 new() 创建，必须清理否则后续重试会报 "client already exists"
-            if client.exists():
-                client.reset()
-            raise AuthenticationError("Failed to login, please check your API Key or network connection.")
-        username = login_resp.get("userInfo", {}).get("username", "unknown")
-        console.info("Login successfully. Hi", Text(f"{username}!", "bold"), sep=" ")
+        wellcome(login_resp)
         if save:
-            raise NotImplementedError("暂未实现")
+            nrc_path = nrc.path(Path.cwd()) if save == "local" else nrc.path(global_settings.root)
+            nrc.write(nrc_path, api_host=api_host, web_host=login_settings.web_host, api_key=api_key)
         # 4. 将登录设置合并到全局配置中
         global_settings.merge_settings(login_settings)
         return True
@@ -173,10 +166,10 @@ def login_cli(
         if not api_key:
             api_key = prompt_api_key(web_host=web_host, interactive=interactive, again=count > 0)
         try:
-            result = login_by_api_key(api_key=api_key, base_url=base_url, timeout=timeout)
-            if result is None:
-                raise AuthenticationError("Failed to login, please check your API Key or network connection.")
-            console.info("Login successfully. Hi", Text(f"{result['userInfo']['username']}!", "bold"), sep=" ")
+            with scope.Scope() as s:
+                client.new(api_key, base_url, timeout=timeout)
+                login_resp: Optional[LoginResponse] = s.get("login_resp", None)
+            wellcome(login_resp)
             nrc.write(nrc_path, api_host=api_host, web_host=web_host, api_key=api_key)
             return True
         except AuthenticationError as e:
@@ -249,3 +242,14 @@ def prompt_api_key(
             # 优雅处理用户按下 Ctrl+C 或 Ctrl+D 退出的情况，替代旧版的 sys.excepthook
             console.print("\n")  # 换行，防止终端提示符错位
             sys.exit(0)
+
+
+def wellcome(login_resp: Optional[LoginResponse]):
+    """
+    登录成功后打印欢迎信息
+    :param login_resp: 登录响应对象，包含用户信息等数据
+    :return:
+    """
+    assert login_resp is not None, "Login response is missing"
+    username = login_resp.get("userInfo", {}).get("username", "unknown")
+    console.info("Login successfully. Hi", Text(f"{username}!", "bold"), sep=" ")

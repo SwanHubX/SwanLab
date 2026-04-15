@@ -11,6 +11,7 @@ from typing import Any, Optional, Union
 
 import requests
 
+from swanlab.exceptions import AuthenticationError
 from swanlab.sdk.typings.pkg.client.bootstrap import LoginResponse
 
 from .. import console, helper, nrc, scope
@@ -47,6 +48,8 @@ class Client:
         self._session: session.SessionWithRetry = session.create()
         # 立即进行首次鉴权并挂载凭证
         login_resp = self._refresh_auth(timeout=timeout, warning=False)
+        if not login_resp:
+            raise AuthenticationError("Failed to initialize SwanLab client.")
         # 写入登录响应到上下文，由调用者判断是否需要使用
         scope.set_context("login_resp", login_resp)
 
