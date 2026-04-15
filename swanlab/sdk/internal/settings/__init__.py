@@ -18,11 +18,9 @@
 用户可以通过merge_settings动态合并配置，但是在设计上，在执行`swanlab.init`和`swanlab.finish`之间，无法使用merge_settings。
 """
 
-import netrc
 import os
 from pathlib import Path
 from typing import Any, ClassVar, Dict, Optional, Tuple, Type, Union, get_args
-from urllib.parse import urlparse
 
 from pydantic import Field, field_validator
 from pydantic.functional_validators import model_validator
@@ -34,10 +32,9 @@ from pydantic_settings import (
     YamlConfigSettingsSource,
 )
 
-from swanlab.sdk.internal.pkg import helper
+from swanlab.sdk.internal.pkg import helper, nrc, safe
 from swanlab.sdk.typings.run import ModeType
 
-from ..pkg import console
 from .experiment import ExperimentSettings, ProjectSettings, RunSettings
 from .integration import IntegrationSettings
 from .metadata import ConsoleSettings, EnvironmentSettings, MonitorSettings
@@ -52,12 +49,13 @@ SECRETS_DIR: Optional[str] = secrets_dir_env or None
 
 # 根据环境变量选择全局配置文件路径
 config_dir_env = os.getenv("SWANLAB_CONFIG_DIR")
+ROOT_FOLDER = ".swanlab"
 CONFIG_DIR: str = config_dir_env or "/etc/swanlab"
 
 
 def root_factory() -> Path:
     # 向下兼容旧版本环境变量
-    return Path(os.environ.get("SWANLAB_SAVE_DIR", str(Path.home() / ".swanlab")))
+    return Path(os.environ.get("SWANLAB_SAVE_DIR", str(Path.home() / ROOT_FOLDER)))
 
 
 def log_dir_factory() -> Path:
@@ -196,83 +194,64 @@ class Settings(BaseSettings):
         """
         if isinstance(data, dict):
             if "api_host" in data and data["api_host"]:
-                raw_api = str(data["api_host"]).strip().rstrip("/")
-
-                # 1. 如果没有携带协议头，默认拼接 https://
-                if not raw_api.startswith(("http://", "https://")):
-                    raw_api = f"https://{raw_api}"
-
-                # 2. 交给 urlparse 解析，此时必然有 scheme 和 netloc
-                parsed = urlparse(raw_api)
-                # 重新拼接，完美清除掉所有的 path/query 等冗余信息
-                clean_api = f"{parsed.scheme}://{parsed.netloc}"
-
-                # 将纯净的 URL 写回
+                clean_api = nrc.fmt(str(data["api_host"]))
                 data["api_host"] = clean_api
 
-                # 3. 当且仅当没有显式配置 web_host 时，自动推导 web_host
+                # 当且仅当没有显式配置 web_host 时，自动推导 web_host
                 if "web_host" not in data:
                     data["web_host"] = clean_api
 
-            # 统一处理 web_host 末尾的斜杠
-            current_web: str = data.get("web_host", str(cls.model_fields["web_host"].default))
-            if current_web and current_web.endswith("/"):
-                data["web_host"] = current_web.rstrip("/")
+            # 清理 web_host：用 fmt 统一格式
+            if "web_host" in data and data["web_host"]:
+                data["web_host"] = nrc.fmt(str(data["web_host"]))
 
         return data
 
     @model_validator(mode="after")
-    def load_netrc_fallback(self) -> "Settings":
+    def load_api_key(self) -> "Settings":
         """
-        在所有配置加载完成后，作为最后的回退机制读取 root/.netrc 文件。
-        前提保障：只会覆盖未被显式设置（如环境变量/YAML）的默认配置。
+        在所有配置加载完成后，作为最后的回退机制读取 本地 .netrc 文件。
+        参考git的设计，.netrc 文件的读取规则为：
+
+        1. 先读取 pwd / .swanlab / .netrc，作为项目级别的swanlab认证信息
+        2. 如果项目级别没有，再读取用户主目录下的 .netrc，作为全局级别的认证信息
+
+        只会覆盖未被显式设置（如环境变量/YAML）的默认配置。
 
         映射规则：
         - machine (host) -> api_host
         - login (username) -> web_host
         - password -> api_key
         """
-        nrc_path = self.root / ".netrc"
-        if not nrc_path.exists():
+        # 获取被显式设置过的字段集合（在 Env 或 Yaml 中指定过的字段，跳过覆盖）
+        fields_set = self.__pydantic_fields_set__
+        # 如果 api_key 已经被设置，则跳过
+        if "api_key" in fields_set:
             return self
+        # api key, api host, web host
+        netrc_result: Optional[Tuple[str, str, str]] = None
+        with safe.block(
+            message="Failed to load credentials from current directory, falling back to root directory if available"
+        ):
+            netrc_result = _load_netrc(Path.cwd() / ROOT_FOLDER / ".netrc")
+        if netrc_result is None:
+            with safe.block(message="Failed to load credentials from root directory"):
+                netrc_result = _load_netrc(self.root / ".netrc")
 
-        # noinspection PyBroadException
-        try:
-            nrc = netrc.netrc(nrc_path)
-
-            if not nrc.hosts:
-                return self
-
-            # 得益于“全局单点登录”机制，.netrc 中理论上只有一个 host，直接取第一个
-            machine = list(nrc.hosts.keys())[0]
-
-            # netrc 标准格式解析结果为: (login, account, password)
-            login, _, password = nrc.hosts[machine]
-
-            # 获取被显式设置过的字段集合（在 Env 或 Yaml 中指定过的字段，跳过覆盖）
-            fields_set = self.__pydantic_fields_set__
-
-            # 1. 赋值 api_key (对应读取到的密码)
-            if "api_key" not in fields_set and password:
-                object.__setattr__(self, "api_key", password)
-                fields_set.add("api_key")
-
-            # 2. 赋值 api_host (对应读取到的 host)
-            if "api_host" not in fields_set and machine:
-                clean_api = machine if machine.startswith(("http://", "https://")) else f"https://{machine}"
-                object.__setattr__(self, "api_host", clean_api)
-                fields_set.add("api_host")
-
-            # 3. 赋值 web_host (对应读取到的用户名)
-            if "web_host" not in fields_set and login:
-                clean_web = login if login.startswith(("http://", "https://")) else f"https://{login}"
-                object.__setattr__(self, "web_host", clean_web)
-                fields_set.add("web_host")
-
-        except Exception as e:  # noqa: E722
-            # 任何解析错误（文件损坏、格式不对等）统统忽略，作为兜底机制绝不能阻断程序启动
-            console.warning(f"Skipping .netrc file loading due to an error: {e}")
-
+        if netrc_result is not None:
+            api_key, api_host, web_host = netrc_result
+            # 前提条件：读取到的 api_host 与当前配置的 api_host 匹配，或者 api_host 未被显式设置
+            # 如果用户显式设置了 api_host 但与 netrc 中存储的不一致，说明用户切换了环境，不应使用旧凭证
+            if "api_host" not in fields_set or self.api_host == api_host:
+                if "api_key" not in fields_set and api_key:
+                    object.__setattr__(self, "api_key", api_key)
+                    fields_set.add("api_key")
+                if "api_host" not in fields_set and api_host:
+                    object.__setattr__(self, "api_host", api_host)
+                    fields_set.add("api_host")
+                if "web_host" not in fields_set and web_host:
+                    object.__setattr__(self, "web_host", web_host)
+                    fields_set.add("web_host")
         return self
 
     project: ProjectSettings = Field(default_factory=ProjectSettings)
@@ -413,6 +392,12 @@ def _deep_update(base_dict: dict, update_dict: dict) -> dict:
         else:
             base_dict[k] = v
     return base_dict
+
+
+def _load_netrc(netrc_path: Path) -> Optional[Tuple[str, str, str]]:
+    if netrc_path.exists() and netrc_path.is_file():
+        return nrc.read(netrc_path)
+    return None
 
 
 settings = Settings()

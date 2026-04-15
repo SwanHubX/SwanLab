@@ -210,16 +210,29 @@ class TestNetrcFallback:
         """测试优先级：显式传参 > 环境变量 > .netrc 兜底"""
         netrc_file.write_text("machine api.custom.com login web.custom.com password secret_token\n")
 
-        # 1. 环境变量设置 web_host
+        # 1. api_key 被显式传入时，整个 netrc 回填被跳过
+        settings_explicit_key = Settings(api_key="explicit_token")
+        assert settings_explicit_key.api_key == "explicit_token"
+        assert settings_explicit_key.api_host == "https://api.swanlab.cn"  # 默认值，netrc 未回填
+        assert settings_explicit_key.web_host == "https://swanlab.cn"  # 默认值，netrc 未回填
+
+        # 2. 环境变量设置 web_host，api_key 未设置，netrc 仍可回填 api_key 和 api_host
         monkeypatch.setenv("SWANLAB_WEB_HOST", "http://env-web.local")
+        settings_env_web = Settings()
+        assert settings_env_web.api_key == "secret_token"  # netrc 兜底
+        assert settings_env_web.api_host == "https://api.custom.com"  # netrc 兜底
+        assert settings_env_web.web_host == "http://env-web.local"  # 环境变量优先
 
-        # 2. 代码显式传入 api_key
-        settings = Settings(api_key="explicit_token")
+    def test_netrc_api_host_mismatch_skips(self, netrc_file, monkeypatch):
+        """测试显式设置的 api_host 与 netrc 中不一致时，跳过整个 netrc 回填"""
+        netrc_file.write_text("machine api.custom.com login web.custom.com password secret_token\n")
 
-        # 断言优先级
-        assert settings.api_key == "explicit_token"  # 显式参数生效 (覆盖了 netrc 的 secret_token)
-        assert settings.web_host == "http://env-web.local"  # 环境变量生效 (覆盖了 netrc 的 web.custom.com)
-        assert settings.api_host == "https://api.custom.com"  # 只有未被碰过的 api_host 成功使用了 netrc 兜底
+        # 用户显式指定了不同的 api_host，不应使用 netrc 中的凭证
+        settings = Settings(api_host="https://api.other.com")
+
+        assert settings.api_key is None  # netrc 凭证被跳过
+        assert settings.api_host == "https://api.other.com"  # 用户显式值
+        assert settings.web_host == "https://api.other.com"  # 由 validate_hosts 推导，非 netrc
 
     def test_netrc_empty_or_corrupted(self, netrc_file):
         """测试 netrc 文件为空或格式损坏时，不阻断流程且使用默认值"""
