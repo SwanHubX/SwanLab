@@ -18,9 +18,9 @@ from rich.text import Text
 from .. import helper
 from . import log
 
-__all__ = ["debug", "info", "warning", "error", "trace"]
+__all__ = ["debug", "info", "warning", "error", "trace", "c"]
 
-_console = Console()
+c = Console()
 _name = "swanlab"
 _this_file = os.path.abspath(__file__)
 
@@ -119,7 +119,7 @@ def _loguru_print(level_name: str, style: str, *args, **kwargs) -> str:
         console_args=console_args,
         file_args=file_args,
     )
-    _console.print(line, **kwargs)
+    c.print(line, **kwargs)
     return plain
 
 
@@ -131,7 +131,7 @@ def _loguru_print(level_name: str, style: str, *args, **kwargs) -> str:
 # noinspection PyShadowingBuiltins
 def print(*args, **kwargs):  # noqa: A001
     """发送普通消息"""
-    _console.print(*args, **kwargs)
+    c.print(*args, **kwargs)
 
 
 def debug(*args, write_to_file: bool = True, **kwargs):
@@ -152,7 +152,7 @@ def info(*args, color: str = "blue", **kwargs):
     """
     prefix = Text(_name, style=f"{color} bold", no_wrap=True) + Text(":", style="default")
     safe_args = [Text(str(a)) if not isinstance(a, Text) else a for a in args]
-    _console.print(prefix, *safe_args, **kwargs)
+    c.print(prefix, *safe_args, **kwargs)
     if helper.DEBUG:
         _, plain = _loguru_build("info", "", *args)
         log.info(plain)

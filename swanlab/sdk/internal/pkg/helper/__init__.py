@@ -6,7 +6,6 @@
 """
 
 from .env import DEBUG, is_interactive, is_jupyter
-from .rich import with_loading_animation
 from .version import get_swanlab_latest_version, get_swanlab_version
 
 __all__ = [
@@ -14,7 +13,6 @@ __all__ = [
     "is_jupyter",
     "is_interactive",
     "strip_none",
-    "with_loading_animation",
     "get_swanlab_version",
     "get_swanlab_latest_version",
 ]

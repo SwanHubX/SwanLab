@@ -310,7 +310,7 @@ def _init(run_settings: Settings) -> RunContext:
     return ctx
 
 
-@helper.with_loading_animation()
+@utils.with_loading_animation()
 def _init_cloud(ctx: RunContext, run_id: str):
     """
     在云模式下初始化运行上下文。
@@ -441,11 +441,11 @@ def prompt_init_mode(settings: Settings) -> ModeType:
     3. 提供三个选项：(1) 使用已有的Key (2) 注册 (3) 切换为 offline 模式。
 
     :param settings: 当前的 Settings 实例 。
-    :return: (最终确定的 mode, 是否成功登录)
+    :return: 最终确定的 mode
     """
     # 如果不是云模式，或者已经登录，或者非交互环境，直接返回当前状态
     mode = settings.mode
-    if mode != "cloud" or client.exists() or not settings.interactive:
+    if mode != "cloud" or client.exists():
         return mode
     login_func = partial(login_cli, save=True, host=settings.api_host)
     if mode == "cloud":
@@ -453,6 +453,14 @@ def prompt_init_mode(settings: Settings) -> ModeType:
             # 不登录，交给后面处理，否则会出现闪烁动画，比较影响美感
             # login_func(api_key=settings.api_key)
             return "cloud"
+
+        if not settings.interactive:
+            raise RuntimeError(
+                "Failed to initialize SwanLab in cloud mode: no API key was provided, "
+                "and interactive prompts are disabled."
+            )
+        if not helper.is_interactive():
+            raise RuntimeError("Failed to initialize SwanLab in cloud mode: no TTY is available for interactive login.")
 
         console.info("Using SwanLab to track your experiments. To get started, choose one of the following options:")
         console.print(
