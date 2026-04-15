@@ -7,6 +7,7 @@
 
 import queue
 import threading
+from abc import ABC
 from typing import Set
 
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
@@ -30,7 +31,25 @@ from swanlab.sdk.typings.core import CoreProtocol
 from .record_builder import RecordBuilder
 
 
-class BackgroundConsumer:
+class ConsumerProtocol(ABC):
+    """消费者协议"""
+
+    def __init__(
+        self,
+        ctx: RunContext,
+        event_queue: RunQueue,
+        builder: RecordBuilder,
+        core: CoreProtocol,
+        flush_timeout: float = 0.5,
+        batch_size: int = 100,
+    ): ...
+
+    def start(self) -> None: ...
+
+    def join(self) -> None: ...
+
+
+class BackgroundConsumer(ConsumerProtocol):
     def __init__(
         self,
         ctx: RunContext,
@@ -40,6 +59,7 @@ class BackgroundConsumer:
         flush_timeout: float = 0.5,
         batch_size: int = 100,
     ):
+        super().__init__(ctx, event_queue, builder, core, flush_timeout, batch_size)
         self._ctx = ctx
         self._queue = event_queue
         self._builder = builder
@@ -129,4 +149,3 @@ class BackgroundConsumer:
             return
         with safe.block(message="SwanLab failed to handle records"):
             self._core.handle_records(records)
-            # TODO: 分类数据，根据语义依次触发回调

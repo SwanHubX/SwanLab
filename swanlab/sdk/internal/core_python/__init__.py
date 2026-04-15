@@ -17,7 +17,7 @@ BackgroundConsumer 等调用方无需修改。
 from typing import List, Optional
 
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
-from swanlab.sdk.internal.context import RunContext
+from swanlab.sdk.internal.context import CallbackManager, RunContext
 from swanlab.sdk.internal.core_python.store import DataStoreWriter
 from swanlab.sdk.internal.core_python.uploader import Uploader
 from swanlab.sdk.internal.pkg import console, helper
@@ -36,6 +36,7 @@ class CorePython(CoreProtocol):
         super().__init__(ctx)
         self._store: Optional[DataStoreWriter] = None
         self._uploader: Optional[Uploader] = None
+        self._callbacker: CallbackManager = ctx.callbacker
 
     def startup(self, cloud: bool, persistence: bool) -> None:
         if self._store is not None or self._uploader is not None:
@@ -57,6 +58,7 @@ class CorePython(CoreProtocol):
                     console.debug("Write record:", record.WhichOneof("record_type"))
         if self._uploader is not None:
             self._uploader.put(records)
+        # TODO 根据类型发布回调
 
     def shutdown(self) -> None:
         if self._uploader is not None:

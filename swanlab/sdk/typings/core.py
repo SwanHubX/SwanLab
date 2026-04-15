@@ -3,6 +3,8 @@
 @file: core.py
 @time: 2026/3/13
 @description: SwanLab Core 接口协议，负责对产出的Record做持久化处理和后端交互
+
+在设计上Core不负责同志后端实验开启，对于Core来讲，永远与一个进行中的实验交互。
 """
 
 from abc import ABC, abstractmethod
@@ -10,7 +12,8 @@ from enum import Enum
 from typing import List
 
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
-from swanlab.sdk.internal.context import RunContext
+from swanlab.sdk.internal.context import RunConfig, RunContext
+from swanlab.sdk.internal.context.metrics import RunMetrics
 
 __all__ = ["CoreProtocol", "CoreEnum"]
 
@@ -22,7 +25,7 @@ class CoreEnum(str, Enum):
 
 class CoreProtocol(ABC):
     """
-    SwanLab Core 的抽象基类。
+    SwanLab Core 上传服务的抽象基类
 
     实现方负责：
     - 将 Record 批次持久化到本地（loglevel 格式）
@@ -36,11 +39,7 @@ class CoreProtocol(ABC):
         self._ctx = ctx
 
     @abstractmethod
-    def startup(
-        self,
-        cloud: bool,
-        persistence: bool,
-    ) -> None:
+    def startup(self, cloud: bool, persistence: bool) -> None:
         """初始化资源，与 shutdown() 配对。重复调用应抛出错误。"""
         ...
 
@@ -52,4 +51,23 @@ class CoreProtocol(ABC):
     @abstractmethod
     def shutdown(self) -> None:
         """刷盘、触发收尾回调、释放所有资源。调用后此实例不应再被使用。"""
+        ...
+
+
+class CoreSyncProtocol(ABC):
+    """
+    SwanLab Core Sync 上传服务的抽象基类
+
+    我们需要提供一个进度条效果
+    """
+
+    def __init__(self, config: RunConfig, metrics: RunMetrics):
+        self._config = config
+        self._metrics = metrics
+
+    @abstractmethod
+    def sync(self):
+        """
+        开启上传服务
+        """
         ...

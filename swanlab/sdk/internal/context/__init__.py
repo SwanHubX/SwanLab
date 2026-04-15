@@ -12,7 +12,7 @@ from functools import cached_property
 from pathlib import Path
 from typing import Generator, Optional
 
-from swanlab.sdk.internal import adapter
+from swanlab.sdk.internal.pkg import adapter
 from swanlab.sdk.internal.settings import Settings
 
 from .callbacker import CallbackManager, callbacker

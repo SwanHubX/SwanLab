@@ -22,12 +22,8 @@ from typing import Any, Callable, Literal, Mapping, Optional, Type, Union, cast,
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
-from swanlab.sdk.internal.bus import RunEmitter
 from swanlab.sdk.internal.bus.events import (
-    CondaEvent,
-    MetadataEvent,
     MetricLogEvent,
-    RequirementsEvent,
     RunFinishEvent,
     RunStartEvent,
     ScalarDefineEvent,
@@ -37,15 +33,10 @@ from swanlab.sdk.internal.pkg import console, safe
 from swanlab.sdk.internal.run import system
 from swanlab.sdk.internal.run.async_task import AsyncTaskManager
 from swanlab.sdk.internal.run.config import (
-    Config as _ConfigClass,
-)
-from swanlab.sdk.internal.run.config import (
-    create_run_config,
-    create_unbound_run_config,
+    Config,
     deactivate_run_config,
 )
 from swanlab.sdk.internal.run.transforms import Audio, Image, Text, Video, normalize_media_input
-from swanlab.sdk.typings.core import CoreEnum, CoreProtocol
 from swanlab.sdk.typings.run import AsyncLogType, FinishType, ModeType
 from swanlab.sdk.typings.run.column import ScalarXAxisType
 from swanlab.sdk.typings.run.transforms import CaptionsType
@@ -56,12 +47,10 @@ from swanlab.sdk.typings.run.transforms.video import VideoDatasType
 
 from ..pkg.console import log
 from . import utils_fmt as fmt
-from .consumer import BackgroundConsumer
+from .factory import factory_config, factory_consumer, factory_core, factory_emitter, factory_monitor
 from .record_builder import RecordBuilder
 
 __all__ = ["Run", "has_run", "get_run", "set_run", "clear_run"]
-
-from ..pkg.fs import safe_write
 
 
 def with_api(cmd: str, must_alive: bool = True):
@@ -89,22 +78,6 @@ def with_api(cmd: str, must_alive: bool = True):
         return wrapper
 
     return decorator
-
-
-def create_core(ctx: RunContext, core_enum: CoreEnum = CoreEnum.CORE_PYTHON) -> CoreProtocol:
-    """
-    创建core对象，实现后端无感接入
-    :param ctx: 运行上下文，包含配置信息和运行时状态
-    :param core_enum: 核心实现枚举，默认为 CoreEnum.CORE_PYTHON
-    :return:
-    """
-    if core_enum == CoreEnum.CORE_PYTHON:
-        from swanlab.sdk.internal.core_python import CorePython
-
-        return CorePython(ctx)
-    else:
-        # TODO: Core 微服务无感接入
-        raise NotImplementedError
 
 
 class Run:
@@ -143,73 +116,44 @@ class Run:
     """
 
     def __init__(self, ctx: RunContext):
-        # ---------------------------------- 1. 基础状态准备 ----------------------------------
+        # 1. 基础状态、组件准备
         self._ctx = ctx
         self._state: Union[FinishType, Literal["running"]] = "running"
         self._pid = os.getpid()
         # 外部API锁，防止并发调用
         self._api_lock = threading.RLock()
-        # 事件发射器：唯一的队列写入入口，可注入给内部系统组件
-        self._emitter = RunEmitter(maxsize=100_000)
-        # Core：Record 落盘与后端交互的统一入口
-        self._core = create_core(ctx)
-        # 记录构建器：负责将事件转换为 Record
-        self._builder = RecordBuilder(ctx)
-        # 后台消费者：从 emitter.queue 消费事件并落盘
-        self._consumer = BackgroundConsumer(ctx, self._emitter.queue, self._builder, self._core)
         # 异步任务管理器：处理async_log任务
         self._async_task_manager = AsyncTaskManager()
+        # 运行时组件
+        self._builder = RecordBuilder(self._ctx)
+        self._emitter = factory_emitter(self._ctx)
+        self._config = factory_config(self._ctx, self._emitter)
+        self._core = factory_core(self._ctx)
+        self._consumer = factory_consumer(self._ctx, self._emitter, self._core, self._builder)
+        # self._monitor is not None 则代表硬件监控开启
+        self._monitor: Optional[system.Monitor] = None
 
-        # ---------------------------------- 2. 初始化运行时状态 ----------------------------------
-        # 2.1 触发启动事件
-        ts = Timestamp()
-        ts.GetCurrentTime()
-        self._emitter.emit(RunStartEvent(timestamp=ts))
-
-        # 2.2 系统信息采集，如果是 disabled 模式，则不采集
-        self._monitor: Optional["system.Monitor"] = None
-        if self.mode != "disabled":
-            sys_info, monitor = system.new(self._ctx)
-            ts = Timestamp()
-            ts.GetCurrentTime()
-            if sys_info.metadata:
-                safe_write(self._ctx.metadata_file, sys_info.metadata.model_dump_json())
-                self._emitter.emit(MetadataEvent(timestamp=ts))
-            if sys_info.requirements:
-                safe_write(self._ctx.requirements_file, sys_info.requirements)
-                self._emitter.emit(RequirementsEvent(timestamp=ts))
-            if sys_info.conda:
-                safe_write(self._ctx.conda_file, sys_info.conda)
-                self._emitter.emit(CondaEvent(timestamp=ts))
-            if monitor is not None and monitor.start(self._ctx, self._emitter):
-                # self._monitor is not None 作为硬件监控启动的唯一语义
-                self._monitor = monitor
-
-        # 2.3 绑定 config 模块到运行上下文
-        if self._ctx.config.settings.mode != "disabled":
-            self.config: _ConfigClass = create_run_config(self._ctx.config_file, self._emitter.emit)
-        else:
-            self.config: _ConfigClass = create_unbound_run_config()
-
-        # 2.4 初始化完成
-        if self.mode != "disabled":
-            self._ctx.callbacker.on_run_initialized(self._ctx.run_dir, self.path)
-
-        # 2.5 启动后台消费者
-        self._consumer.start()
-
-        # ---------------------------------- 3. 注册副作用 ----------------------------------
+        # 2. 注册副作用
         # 设置全局运行实例
         set_run(self)
         # 注册退出钩子
         self._sys_origin_excepthook = sys.excepthook
         atexit.register(self._handle_atexit)
         sys.excepthook = self._handle_except
-        # 注册 SIGINT handler，确保 Ctrl+C 能可靠地将实验标记为 aborted
-        # sys.excepthook 在主线程阻塞于 C 扩展时可能无法触发
+        # 注册 SIGINT handler，确保 Ctrl+C 能可靠地将实验标记为 aborted，sys.excepthook 在主线程阻塞于 C 扩展时可能无法触发
         self._original_sigint_handler = signal.getsignal(signal.SIGINT)
         signal.signal(signal.SIGINT, self._handle_sigint)
-        # 绑定日志文件，运行正式开始
+
+        # 3. 初始化完成
+        # 触发启动事件
+        ts = Timestamp()
+        ts.GetCurrentTime()
+        self._emitter.emit(RunStartEvent(timestamp=ts))
+        # 启动硬件监控
+        self._monitor = factory_monitor(self._ctx, self._emitter)
+        # 启动后台消费者
+        self._consumer.start()
+        # 绑定日志文件
         if self.mode != "disabled":
             log.bindfile(self._ctx.debug_dir)
 
@@ -248,12 +192,7 @@ class Run:
         console.debug("SwanLab Run is finishing at exit...")
         self.finish()
 
-    def _handle_except(
-        self,
-        tp: Type[BaseException],
-        val: BaseException,
-        tb: Optional[TracebackType],
-    ) -> None:
+    def _handle_except(self, tp: Type[BaseException], val: BaseException, tb: Optional[TracebackType]) -> None:
         """全局异常捕获，将实验标记为 crashed 或 aborted"""
         with safe.block(message="SwanLab failed to handle excepthook"):
             if self.alive:
@@ -312,12 +251,12 @@ class Run:
     @cached_property
     def path(self) -> str:
         """
-        Current run path in the format of /@:workspace/:project/:run_id.
+        Current run path in the format of /:project/:run_id.
 
         :return: Run path
         """
         settings = self._ctx.config.settings
-        return f"/@{settings.project.workspace}/{settings.project.name}/runs/{settings.run.id}"
+        return f"/{settings.project.name}/runs/{settings.run.id}"
 
     @cached_property
     def url(self) -> Optional[str]:
@@ -328,12 +267,24 @@ class Run:
         settings = self._ctx.config.settings
         if settings.mode != "cloud":
             return None
-        return f"{settings.web_host}{self.path}"
+        return f"{settings.web_host}/@{settings.project.workspace}{self.path}"
+
+    @cached_property
+    def config(self) -> Config:
+        return self._config
 
     @property
     def _forked(self) -> bool:
         """当前进程是否为创建 Run 时的进程的 fork 子进程"""
         return os.getpid() != self._pid
+
+    @property
+    def _passive(self) -> bool:
+        """被动模式：仅解析验证，不产生任何副作用（文件IO、网络、线程等）。
+
+        当前 disabled 模式为被动模式，未来其他需要跳过运行时组件的模式也可复用此属性。
+        """
+        return self.mode == "disabled"
 
     @property
     def alive(self) -> bool:
@@ -359,7 +310,6 @@ class Run:
     # ----------------------------------
     # 公开 API：只负责验证输入并发事件
     # ----------------------------------
-    @with_api("run.log()")
     @with_api("run.log()")
     def log(self, data: Mapping[str, Any], step: Optional[int] = None):
         """Log a dictionary of metrics for the current step.
@@ -678,11 +628,7 @@ class Run:
         self._emitter.emit(RunFinishEvent(state=this_state, error=error, timestamp=ts))
         self._consumer.join()
         console.debug(f"SwanLab Run has finished with state: {self._state}, cleanup...")
-
-        # 3.4 触发实验结束回调
-        if self.mode != "disabled":
-            self._ctx.callbacker.on_run_finished(self._state, error)
-        # 3.5 清理副作用
+        # 3.4 清理副作用
         console.debug("Cleanup system hook...")
         atexit.unregister(self._handle_atexit)
         sys.excepthook = self._sys_origin_excepthook

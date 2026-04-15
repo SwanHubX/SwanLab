@@ -10,7 +10,7 @@ from typing import Dict, List, Optional
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
-from swanlab.sdk.internal.bus.emitter import RunEmitter
+from swanlab.sdk.internal.bus.emitter import EmitterProtocol
 from swanlab.sdk.internal.bus.events import MetricLogEvent, ScalarDefineEvent
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.pkg import console, safe, timer
@@ -55,7 +55,7 @@ class Monitor:
         self._executor: Optional[ThreadPoolExecutor] = None
         self._shim = shim
 
-    def start(self, ctx: RunContext, emitter: RunEmitter) -> bool:
+    def start(self, ctx: RunContext, emitter: EmitterProtocol) -> bool:
         # 1. 收集采集器
         # 注意 scalars 设计上越靠前的越先发送、在前端显示越靠前
         collectors: List[CollectorProtocol] = []
