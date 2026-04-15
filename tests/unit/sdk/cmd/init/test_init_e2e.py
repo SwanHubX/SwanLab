@@ -21,11 +21,11 @@ import responses as responses_lib
 import yaml
 
 from swanlab.sdk.cmd.init import init
-from swanlab.sdk.cmd.login import login_raw
+from swanlab.sdk.cmd.login import login_cli
 from swanlab.sdk.cmd.merge_settings import merge_settings
 from swanlab.sdk.internal.run import Run, has_run
 from swanlab.sdk.internal.run.config import config as global_config
-from swanlab.sdk.internal.settings import Settings
+from swanlab.sdk.internal.settings import Settings, settings
 
 # ============================================================
 # Cloud 模式测试常量
@@ -168,7 +168,7 @@ def logged_in_client(mock_login_api, mock_cloud_settings):
     依赖 mock_login_api，故登录请求不会触及真实网络。
     清理由上级 conftest.py 的 isolate_sdk_environment 统一处理。
     """
-    login_raw(api_key=API_KEY)
+    login_cli(api_key=API_KEY, host=settings.api_host)
     yield
 
 
