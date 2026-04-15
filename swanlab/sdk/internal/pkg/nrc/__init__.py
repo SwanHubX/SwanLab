@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Optional, Tuple
 from urllib.parse import urlsplit
 
-from swanlab.sdk.internal.pkg import safe
+from .. import fs, safe
 
 __all__ = ["fmt", "read", "write"]
 
@@ -141,8 +141,7 @@ def write(nrc_path: Path, api_host: str, web_host: str, api_key: str):
     if info is None or (info[0], info[2]) != (new_info[0], new_info[2]):
         nrc.hosts = {api_host: new_info}  # <-- 强制覆写，顶掉旧账号
         with safe.block(message="Failed to write credentials to netrc file"):
-            with open(nrc_path, "w", encoding="utf-8") as f:
-                f.write(repr(nrc))
+            fs.safe_write(nrc_path, repr(nrc), encoding="utf-8")
             os.chmod(nrc_path, stat.S_IRUSR | stat.S_IWUSR)
 
 
