@@ -11,9 +11,10 @@ from typing import Any, Optional, Union
 
 import requests
 
+from swanlab.exceptions import AuthenticationError
 from swanlab.sdk.typings.pkg.client.bootstrap import LoginResponse
 
-from .. import console, helper, netrc, scope
+from .. import console, helper, nrc, scope
 from . import session
 from .bootstrap import login_by_api_key
 from .utils import decode_response
@@ -40,13 +41,17 @@ class Client:
         self._api_key = api_key
         self._version = helper.get_swanlab_version()
         # 移除末尾的斜杠，防止 URL 拼接时出现双斜杠
-        self._base_url = netrc.remove_host_suffix(base_url, "/api") + "/api"
+        self._base_url = nrc.fmt(base_url) + "/api"
         self._expired_at: Optional[datetime] = None
 
         # 初始化时仅创建一次会话，以复用底层 TCP 连接池
         self._session: session.SessionWithRetry = session.create()
         # 立即进行首次鉴权并挂载凭证
         login_resp = self._refresh_auth(timeout=timeout, warning=False)
+        if not login_resp:
+            raise AuthenticationError(
+                "Failed to initialize the SwanLab client. Please check if the provided API key is correct."
+            )
         # 写入登录响应到上下文，由调用者判断是否需要使用
         scope.set_context("login_resp", login_resp)
 

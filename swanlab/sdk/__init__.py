@@ -6,11 +6,11 @@
 """
 
 from .cmd.init import init
-from .cmd.login import login, login_interactive
-from .cmd.logout import logout, logout_raw
+from .cmd.login import login, login_cli
+from .cmd.logout import logout_cli
 from .cmd.merge_settings import merge_settings
 from .cmd.run import async_log, define_scalar, finish, log, log_audio, log_image, log_text, log_video
-from .cmd.verify import verify, verify_raw
+from .cmd.verify import verify_cli
 from .internal.pkg import console, fs, helper, safe
 from .internal.protocol import Callback
 from .internal.run import Run, clear_run, get_run, has_run, set_run
@@ -23,19 +23,17 @@ __all__ = [
     "init",
     "finish",
     "login",
-    "logout",
-    "verify",
     "log",
     "log_text",
     "log_image",
     "log_audio",
     "log_video",
     "async_log",
-    "verify_raw",
-    "logout_raw",
+    "verify_cli",
+    "logout_cli",
     "define_scalar",
     "merge_settings",
-    "login_interactive",
+    "login_cli",
     # run
     "has_run",
     "get_run",

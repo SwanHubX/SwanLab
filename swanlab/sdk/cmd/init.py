@@ -11,6 +11,7 @@ init函数执行时被视为init之前
 import json
 import os
 from datetime import datetime
+from functools import partial
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -30,13 +31,13 @@ from swanlab.sdk.internal.pkg import console, fs, helper, safe
 from swanlab.sdk.internal.protocol import Callback
 from swanlab.utils import generate_color, generate_id, generate_name
 
-from ..internal import apikey
 from ..internal.core_python.api.experiment import create_or_resume_experiment
 from ..internal.run import Run, get_run, has_run
 from ..internal.settings import Settings
 from ..internal.settings import settings as global_settings
 from ..typings.run import ModeType, ResumeType
-from .login import login_interactive, login_raw
+from . import utils
+from .login import login_cli, login_raw
 
 __all__ = ["init", "ConfigLike"]
 
@@ -214,7 +215,7 @@ def init(
     run_settings.merge_settings(args_dict)
     # ---------------------------------- 再次确认参数 ----------------------------------
     # 根据交互式引导确定最终的模式
-    mode, _ = prompt_init_mode(run_settings)
+    mode = prompt_init_mode(run_settings)
     run_settings.merge_settings({"mode": mode})
     # 校验 run id 与 resume，仅在对两者存在性有要求的模式下校验
     if run_settings.mode == "cloud":
@@ -309,7 +310,7 @@ def _init(run_settings: Settings) -> RunContext:
     return ctx
 
 
-@helper.with_loading_animation()
+@utils.with_loading_animation()
 def _init_cloud(ctx: RunContext, run_id: str):
     """
     在云模式下初始化运行上下文。
@@ -317,6 +318,16 @@ def _init_cloud(ctx: RunContext, run_id: str):
     :param run_id: 当前运行的唯一标识符
     """
     run_settings = ctx.config.settings
+    if not client.exists():
+        assert run_settings.api_key, "API key is required."
+        assert run_settings.api_host, "API host is required."
+        login_raw(
+            api_key=run_settings.api_key,
+            host=run_settings.api_host,
+            save=False,
+            animation=False,
+            wellcome_on_success=False,
+        )
     assert run_settings.project.name, "Project name is required."
     assert client.exists(), "No client found, please login first."
     _mkdirs(ctx)
@@ -414,70 +425,71 @@ def _mkdirs(ctx: RunContext):
     log_dir = ctx.config.settings.log_dir
     # 1. 安全创建目录（如果不存在）
     fs.safe_mkdir(log_dir)
-    # 2. 高效判断文件夹是否为空
-    # 如果 iterdir() 里什么都抽不出来，not any(...) 就会返回 True
-    if not any(log_dir.iterdir()):
-        # 3. 如果为空，写入 .gitignore
-        gitignore_path = log_dir / ".gitignore"
-        # 忽略目录下所有文件，但保留 .gitignore 自身（常见做法）
-        ignore_content = "*\n!.gitignore\n"
-        fs.safe_write(gitignore_path, ignore_content)
-
+    # 2. 写入 .gitignore（如果目录为空）
+    utils.append_gitignore(log_dir)
     # 3. 创建别的目录
     fs.safe_mkdirs(ctx.run_dir, ctx.media_dir, ctx.files_dir, ctx.debug_dir)
 
 
-def prompt_init_mode(settings: Settings) -> Tuple[ModeType, bool]:
+def prompt_init_mode(settings: Settings) -> ModeType:
     """
     在 swanlab.init 阶段，针对 cloud 模式且未登录的用户进行交互式引导。
 
     规则：
     1. 只有在 settings.interactive 为 True 且 settings.mode 为 'cloud' 时触发 。
     2. 如果 client 已存在（已登录），直接跳过 。
-    3. 提供三个选项：(1) 注册 (2) 登录 (3) 切换为 offline 模式。
+    3. 提供三个选项：(1) 使用已有的Key (2) 注册 (3) 切换为 offline 模式。
 
     :param settings: 当前的 Settings 实例 。
-    :return: (最终确定的 mode, 是否成功登录)
+    :return: 最终确定的 mode
     """
     # 如果不是云模式，或者已经登录，或者非交互环境，直接返回当前状态
     mode = settings.mode
-    if mode != "cloud" or client.exists() or not settings.interactive:
-        return mode, client.exists()
+    if mode != "cloud" or client.exists():
+        return mode
+    login_func = partial(login_cli, save=True, host=settings.api_host)
     if mode == "cloud":
-        if apikey.exists():
-            login_raw(api_key=apikey.get())
-            return "cloud", True
+        if settings.api_key is not None:
+            # 不登录，交给后面处理，否则会出现闪烁动画，比较影响美感
+            # login_func(api_key=settings.api_key)
+            return "cloud"
 
-        console.info("Using SwanLab to track your experiments.")
-        console.info(f" For more information, please review the docs at {settings.web_host}/docs")
+        if not settings.interactive:
+            raise RuntimeError(
+                "Failed to initialize SwanLab in cloud mode: no API key was provided, "
+                "and interactive prompts are disabled."
+            )
+        if not helper.is_interactive():
+            raise RuntimeError("Failed to initialize SwanLab in cloud mode: no TTY is available for interactive login.")
 
-        console.info("(1) Create a SwanLab account.")
-        console.info("(2) Use an existing SwanLab account.")
-        console.info("(3) Don't visualize my results (Offline mode).")
-
+        console.info("Using SwanLab to track your experiments. To get started, choose one of the following options:")
+        console.print(
+            "(1) Use an existing API key.",
+            "(2) Create a new SwanLab account.",
+            "(3) Continue without visualization (Offline mode).",
+            "Learn more in the documentation: https://docs.swanlab.cn",
+            sep="\n",
+        )
         while True:
-            choice = input("Enter your choice (1/2/3): ").strip()
-
-            if choice == "3":
-                console.info("Switching to 'offline' mode. Results will be saved locally.")
-                return "offline", False
+            choice = input("Enter your choice [1/2/3]: ").strip()
 
             if choice == "1":
-                console.info("Create a SwanLab account here:", "yellow")
-                console.info(f"{settings.web_host}/login", "blue")
-                # 注册后紧接着触发登录循环
-                success = login_interactive(save=True)
-                return "cloud", success
+                console.info("Using an existing SwanLab API key.")
+                login_func()
+                return "cloud"
 
             if choice == "2":
-                console.info(f"Logging into {settings.web_host}...")
-                # 触发带循环容错的登录接口
-                success = login_interactive(save=True)
-                return "cloud", success
+                console.info(f"Create a SwanLab account here:{settings.web_host}/login")
+                login_func()
+                return "cloud"
 
-            console.warning("Invalid choice, please enter 1, 2, or 3.")
+            if choice == "3":
+                console.info("Continuing in Offline mode. Results will be saved locally.")
+                return "offline"
+
+            console.warning("Invalid choice. Please enter 1, 2, or 3.")
     # 其他模式不登录
-    return mode, False
+    return mode
 
 
 @safe.decorator(message="Failed to send webhook")

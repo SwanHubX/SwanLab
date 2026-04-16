@@ -11,7 +11,7 @@ import responses
 from swanlab.exceptions import AuthenticationError
 from swanlab.sdk.cmd.login import login
 from swanlab.sdk.internal.core_python import client
-from swanlab.sdk.internal.pkg.netrc import write_netrc
+from swanlab.sdk.internal.pkg import nrc
 from swanlab.sdk.internal.settings import Settings, settings
 
 
@@ -29,7 +29,7 @@ class TestLoginE2E:
         """将凭证写入 .netrc 并重新初始化 settings，模拟上次会话保存、新会话加载的完整流程。"""
         nrc_path = settings.root / ".netrc"
         nrc_path.parent.mkdir(parents=True, exist_ok=True)
-        write_netrc(nrc_path, host=host, username=host, password=key)
+        nrc.write(nrc_path, api_host=host, web_host=host, api_key=key)
         TestLoginE2E._reinit_settings()
 
     @responses.activate
@@ -126,10 +126,9 @@ class TestLoginE2E:
         assert client.exists()
 
     @responses.activate
-    def test_login_with_prompt_and_save(self, monkeypatch):
-        """测试：没有 API Key 时触发交互式输入，并测试凭证保存 (save=True)"""
-        prompt_key = "test-prompt-key"
-        prompt_called = []
+    def test_login_with_save(self):
+        """测试：显式传入 API Key 并测试凭证保存 (save=True)"""
+        api_key = "test-save-key"
 
         responses.add(
             responses.POST,
@@ -138,20 +137,17 @@ class TestLoginE2E:
             status=200,
         )
 
-        monkeypatch.setattr("swanlab.sdk.cmd.login.apikey.prompt", lambda **_: (prompt_called.append(1), prompt_key)[1])
-
-        result = login(api_key=None, host="fake.swanlab.cn", save=True)
+        result = login(api_key=api_key, host="fake.swanlab.cn", save=True)
 
         assert settings.web_host == "https://fake.swanlab.cn"
         assert settings.api_host == "https://fake.swanlab.cn"
-        assert settings.api_key == prompt_key
+        assert settings.api_key == api_key
         assert result is True
-        assert len(prompt_called) == 1
 
         nrc_path = settings.root / ".netrc"
         assert nrc_path.exists()
         content = nrc_path.read_text()
-        assert prompt_key in content
+        assert api_key in content
 
     @responses.activate
     def test_login_custom_host_and_relogin(self):
@@ -195,16 +191,15 @@ class TestLoginE2E:
             status=401,
         )
 
-        with pytest.raises(AuthenticationError, match="Failed to login"):
+        with pytest.raises(AuthenticationError, match="Failed to initialize the SwanLab client"):
             login(api_key="wrong-key", relogin=True)
 
     @responses.activate
-    def test_login_host_changed_triggers_prompt(self, monkeypatch):
-        """测试：上次保存了旧 host 的 API Key，本次传入新 host 时不复用旧 key，应触发重新输入"""
+    def test_login_host_changed_raises_without_key(self):
+        """测试：已登录旧 host，切换新 host 且不提供 api_key 时应抛出 ValueError"""
         old_host = "https://old.swanlab.cn"
-        old_prompt_key = "old-private-key"
+        old_key = "old-key"
         new_host = "https://private.swanlab.com"
-        new_prompt_key = "new-private-key"
 
         responses.add(
             responses.POST,
@@ -212,34 +207,13 @@ class TestLoginE2E:
             json={"sid": "mock_old_sid", "expiredAt": "2099-12-31T23:59:59.000Z"},
             status=200,
         )
-        responses.add(
-            responses.POST,
-            f"{new_host}/api/login/api_key",
-            json={"sid": "mock_new_sid", "expiredAt": "2099-12-31T23:59:59.000Z"},
-            status=200,
-        )
 
-        prompt_calls = []
-
-        def mock_prompt(**_):
-            if len(prompt_calls) == 0:
-                prompt_calls.append(old_prompt_key)
-                return old_prompt_key
-            else:
-                prompt_calls.append(new_prompt_key)
-                return new_prompt_key
-
-        monkeypatch.setattr("swanlab.sdk.cmd.login.apikey.prompt", mock_prompt)
-
-        login(api_key=None, host=old_host, save=True)
+        login(api_key=old_key, host=old_host)
         assert len(responses.calls) == 1
 
-        result = login(api_key=None, host=new_host, relogin=True)
-
-        assert result is True
-        assert len(prompt_calls) == 2
-        assert len(responses.calls) == 2
-        assert responses.calls[1].request.headers["authorization"] == new_prompt_key
+        # 切换到新 host 但不提供 api_key，应抛出 ValueError
+        with pytest.raises(ValueError, match="Stored API key is for"):
+            login(api_key=None, host=new_host, relogin=True)
 
     @responses.activate
     def test_repeated_login_with_different_credentials(self):
@@ -338,9 +312,9 @@ class TestLoginE2E:
         assert settings.api_key == stored_key
 
     @responses.activate
-    def test_login_env_key_reused_when_host_changes_without_netrc(self, monkeypatch):
+    def test_login_host_change_without_key_raises(self, monkeypatch):
         """测试：环境变量中有 api_key，login 只传新 host 不传 api_key，且本地无 .netrc 时，
-        应静默复用环境变量中的 key（不弹 prompt，不打 warning）"""
+        应抛出 ValueError（旧 key 与新 host 不匹配）"""
         env_key = "key-from-env"
         env_host = "https://env.swanlab.com"
         new_host = "https://new.swanlab.com"
@@ -355,20 +329,9 @@ class TestLoginE2E:
         assert settings.api_host == env_host
         assert not (settings.root / ".netrc").exists()
 
-        responses.add(
-            responses.POST,
-            f"{new_host}/api/login/api_key",
-            json={"sid": "mock_sid", "expiredAt": "2099-12-31T23:59:59.000Z"},
-            status=200,
-        )
-
-        # 只传新 host，不传 api_key —— 无 .netrc，env key 应被静默复用
-        result = login(host=new_host)
-
-        assert result is True
-        assert len(responses.calls) == 1
-        assert responses.calls[0].request.headers["authorization"] == env_key
-        assert settings.api_host == new_host
+        # 只传新 host，不传 api_key —— 旧 key 与新 host 不匹配，应抛出 ValueError
+        with pytest.raises(ValueError, match="Stored API key is for"):
+            login(host=new_host)
 
     @responses.activate
     def test_login_explicit_params_override_env_vars(self, monkeypatch):
@@ -400,3 +363,70 @@ class TestLoginE2E:
         assert responses.calls[0].request.headers["authorization"] == new_key
         assert settings.api_host == new_host
         assert settings.api_key == new_key
+
+    # ========== 新增测试 ==========
+
+    @responses.activate
+    def test_login_no_key_raises(self):
+        """测试：没有 api_key 且全局也无存储凭证时，login 应抛出 ValueError"""
+        with pytest.raises(ValueError, match="No API key provided"):
+            login()
+
+    @responses.activate
+    def test_login_save_local(self, tmp_path, monkeypatch):
+        """测试：save='local' 时凭证保存到项目级目录"""
+        api_key = "local-save-key"
+        monkeypatch.chdir(tmp_path)
+
+        responses.add(
+            responses.POST,
+            "https://api.swanlab.cn/api/login/api_key",
+            json={"sid": "mock_sid", "expiredAt": "2099-12-31T23:59:59.000Z"},
+            status=200,
+        )
+
+        result = login(api_key=api_key, save="local")
+        assert result is True
+
+        # save="local" 保存到 cwd/.netrc
+        local_nrc = tmp_path / ".swanlab" / ".netrc"
+        assert local_nrc.exists()
+
+    @responses.activate
+    def test_login_save_global(self):
+        """测试：save=True 时凭证保存到全局目录"""
+        api_key = "global-save-key"
+
+        responses.add(
+            responses.POST,
+            "https://api.swanlab.cn/api/login/api_key",
+            json={"sid": "mock_sid", "expiredAt": "2099-12-31T23:59:59.000Z"},
+            status=200,
+        )
+
+        result = login(api_key=api_key, save=True)
+        assert result is True
+
+        nrc_path = settings.root / ".netrc"
+        assert nrc_path.exists()
+        content = nrc_path.read_text()
+        assert api_key in content
+
+    @responses.activate
+    def test_login_reuses_settings_key_same_host(self):
+        """测试：不传 api_key 但 settings 中有相同 host 的 key 时，静默复用"""
+        stored_key = "stored-key"
+
+        responses.add(
+            responses.POST,
+            "https://api.swanlab.cn/api/login/api_key",
+            json={"sid": "mock_sid", "expiredAt": "2099-12-31T23:59:59.000Z"},
+            status=200,
+        )
+
+        login(api_key=stored_key)
+        assert settings.api_key == stored_key
+
+        # 再次登录不传 api_key，同 host 应复用 settings 中的 key
+        login(relogin=True)
+        assert settings.api_key == stored_key

@@ -101,10 +101,13 @@ class SessionWithRetry(Session):
             error_code, error_message = decoded
 
         # 4. 记录错误日志
-        console.error(
-            f"[HTTP] {method} {request.url} -> {response.status_code} ({elapsed_ms:.0f}ms) trace:{trace_id}"
-            f" | [ERR] code={error_code} message={error_message}"
-        )
+        # 对于 POST /api/project 接口不记录错误日志，因为是预期行为
+        # FIXME 等待后端新增专用接口后删除此特殊处理
+        if not (method == "POST" and request.url.endswith("/api/project")):
+            console.error(
+                f"[HTTP] {method} {request.url} -> {response.status_code} ({elapsed_ms:.0f}ms) trace:{trace_id}"
+                f" | [ERR] code={error_code} message={error_message}"
+            )
         # 5. 抛出友好的自定义 ApiError
         raise ApiError(response, method=method, trace_id=trace_id, code=error_code, message=error_message)
 

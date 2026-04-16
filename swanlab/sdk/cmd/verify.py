@@ -2,63 +2,42 @@
 @author: caddiesnew
 @file: verify.py
 @time: 2026/4/9 21:00
-@description: swanlab.verify 方法，验证当前登录状态
+@description: verify 方法，验证当前登录状态
 """
 
 from rich.text import Text
 
-from swanlab.sdk.cmd.guard import with_cmd_lock, without_run
-from swanlab.sdk.internal import apikey
-from swanlab.sdk.internal.pkg import console, netrc
+from swanlab.sdk.cmd import utils
+from swanlab.sdk.internal.pkg import console, nrc
 from swanlab.sdk.internal.pkg.client.bootstrap import login_by_api_key
 from swanlab.sdk.internal.settings import settings
+from swanlab.sdk.typings.cmd import LoginType
+
+__all__ = ["verify_cli"]
 
 
-@with_cmd_lock
-@without_run("verify")
-def verify() -> bool:
-    """Verify the current login status.
-
-    This function checks whether the locally stored API key is still valid
-    by attempting to authenticate with the SwanLab server.
-
-    :return: True if the login is valid, False otherwise.
-
-    :raises RuntimeError: If called while a run is active.
-
-    Examples:
-
-        Verify current login status:
-
-        >>> import swanlab
-        >>> swanlab.verify()
-    """
-    return verify_raw()
-
-
-def verify_raw() -> bool:
+def verify_cli(save: LoginType = "root") -> bool:
     # 1. 检查本地是否存在 API Key
-    if not apikey.exists():
+    nrc_path = utils.get_nrc_path(save)
+    if not nrc_path.exists():
         console.info("You are not logged in. Use `swanlab login` to login.")
         return False
 
     # 2. 读取 API Key 并验证
-    try:
-        key = apikey.get()
-    except FileNotFoundError:
-        console.info("You are not logged in. Use `swanlab login` to login.")
+    netrc_result = nrc.read(nrc_path)
+    if not netrc_result:
+        console.error("You are not logged in. Use `swanlab login` to login.")
         return False
-
-    # 3. 调用底层鉴权接口验证 Key 有效性
-    api_host = settings.api_host
-    base_url = netrc.remove_host_suffix(api_host, "/api") + "/api"
-    login_resp = login_by_api_key(base_url=base_url, api_key=key)
+    api_key, api_host, _ = netrc_result
+    login_resp = login_by_api_key(base_url=api_host + "/api", api_key=api_key)
 
     if login_resp is None:
-        console.info("Your API key is invalid or expired. Use `swanlab login --relogin` to login again.")
+        console.error(
+            "Verification failed. Please check if your API key is correct and try again. Use `swanlab login` to login if you haven't done so.",
+        )
         return False
 
-    # 4. 展示验证结果
+    # 3. 展示验证结果
     username = login_resp.get("userInfo", {}).get("username", "unknown")
     console.info("You are logged into", Text(settings.web_host, style="blue"), "as", Text(username, "bold"), sep=" ")
     return True
