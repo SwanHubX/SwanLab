@@ -10,7 +10,7 @@ from typing import Callable, List, Optional
 
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.core_python.transport.helper import generate_chunks, group_records_by_type
-from swanlab.sdk.internal.core_python.transport.sender import create_record_transport
+from swanlab.sdk.internal.core_python.transport.sender import create_record_sender
 from swanlab.sdk.internal.pkg import console
 
 # 单次请求最大 record 数
@@ -50,13 +50,13 @@ class Dispatch:
     # ── 通用 record 上传函数 + 失败回滚 ──
     def _upload_typed(self, record_type: str, records: List[Record]) -> None:
         """
-        按类型对上传的 records：分片 → transport 传输层上传 → 回调。
+        按类型对上传的 records：分片 → sender 传输层上传 → 回调。
         上传失败时回滚到 buffer 头部。
         """
-        transport = create_record_transport()
+        sender = create_record_sender()
         try:
             for chunk, chunk_len in generate_chunks(records, _PER_REQUEST_LEN):
-                transport.upload_record_group(record_type, chunk)
+                sender.upload(record_type, chunk)
                 if self._upload_callback:
                     self._upload_callback(chunk_len)
         except Exception:
@@ -64,7 +64,7 @@ class Dispatch:
             with self._cond:
                 self._buffer = records + self._buffer
         finally:
-            transport.close()
+            sender.close()
 
     # ── 类型 handler（按 _handle_{WhichOneof 返回值} 约定） ──
 

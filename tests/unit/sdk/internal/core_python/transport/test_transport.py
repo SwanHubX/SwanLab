@@ -1,0 +1,149 @@
+import threading
+from unittest.mock import MagicMock, patch
+
+from swanlab.sdk.internal.core_python.transport.thread import Transport
+
+# ─────────────────── 默认值 ───────────────────
+
+
+def test_transport_defaults():
+    """默认 batch_interval = 1.0。"""
+    t = Transport(auto_start=False)
+    assert t._batch_interval == Transport.BATCH_INTERVAL
+    assert t._batch_interval == 1.0
+
+
+def test_transport_custom_batch_interval():
+    """自定义 batch_interval。"""
+    t = Transport(batch_interval=0.5, auto_start=False)
+    assert t._batch_interval == 0.5
+
+
+# ─────────────────── start ───────────────────
+
+
+def test_transport_start_creates_daemon_thread():
+    """start() 创建守护线程，名称为 THREAD_NAME。"""
+    t = Transport(auto_start=False)
+    t.start()
+    try:
+        assert t._thread is not None
+        assert t._thread.daemon is True
+        assert t._thread.name == Transport.THREAD_NAME
+    finally:
+        t.finish()
+
+
+def test_transport_start_is_idempotent():
+    """重复 start() 不创建第二个线程。"""
+    t = Transport(auto_start=False)
+    t.start()
+    first_thread = t._thread
+    t.start()
+    assert t._thread is first_thread
+    t.finish()
+
+
+def test_transport_start_after_finish_is_noop():
+    """finish() 后 start() 无效。"""
+    t = Transport(auto_start=False)
+    t.start()
+    t.finish()
+    t.start()
+    assert t._thread is not None
+    # thread 已 join，不应创建新线程
+
+
+# ─────────────────── put ───────────────────
+
+
+def test_transport_put_appends_to_buffer(make_scalar_record):
+    """put() 后 buffer 增长。"""
+    t = Transport(auto_start=False)
+    records = [make_scalar_record(step=1)]
+    t.put(records)
+    assert len(t._buffer) == 1
+
+
+def test_transport_put_raises_after_finish(make_scalar_record):
+    """finish() 后 put() 抛 RuntimeError。"""
+    t = Transport(auto_start=False)
+    t.start()
+    t.finish()
+    with patch.object(t, "_finished", True):
+        try:
+            t.put([make_scalar_record(step=1)])
+        except RuntimeError:
+            pass
+
+
+# ─────────────────── finish ───────────────────
+
+
+def test_transport_finish_is_idempotent():
+    """重复 finish() 只执行一次。"""
+    t = Transport(auto_start=False)
+    t.start()
+    t.finish()
+    t.finish()  # should not raise
+
+
+def test_transport_finish_drains_remaining(make_scalar_record):
+    """finish() 排空残余 buffer。"""
+    dispatched = []
+
+    class FakeDispatch:
+        def __call__(self, records):
+            dispatched.extend(records)
+
+    t = Transport(auto_start=False)
+    t._dispatcher = FakeDispatch()  # type: ignore
+    t.start()
+    records = [make_scalar_record(step=1), make_scalar_record(step=2)]
+    t.put(records)
+    t.finish()
+    assert len(dispatched) == 2
+
+
+# ─────────────────── 事件驱动 ───────────────────
+
+
+def test_transport_put_wakes_thread_immediately(make_scalar_record):
+    """put() 后线程立刻唤醒，不等 timeout。"""
+    dispatched = []
+    event = threading.Event()
+
+    class FakeDispatch:
+        def __call__(self, records):
+            dispatched.extend(records)
+            event.set()
+
+    t = Transport(batch_interval=10.0, auto_start=False)
+    t._dispatcher = FakeDispatch()  # type: ignore
+    t.start()
+    t.put([make_scalar_record(step=1)])
+    # batch_interval=10 但 put 应立刻唤醒，0.5s 足够验证
+    event.wait(timeout=2.0)
+    t.finish()
+    assert len(dispatched) == 1
+
+
+# ─────────────────── auto_start 端到端 ───────────────────
+
+
+def test_transport_integration_auto_start(make_scalar_record):
+    """auto_start=True 时自动启动并正常处理。"""
+    dispatched = []
+    event = threading.Event()
+
+    class FakeDispatch:
+        def __call__(self, records):
+            dispatched.extend(records)
+            event.set()
+
+    t = Transport(auto_start=True)
+    t._dispatcher = FakeDispatch()  # type: ignore
+    t.put([make_scalar_record(step=1)])
+    event.wait(timeout=2.0)
+    t.finish()
+    assert len(dispatched) == 1

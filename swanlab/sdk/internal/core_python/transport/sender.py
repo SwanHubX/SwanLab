@@ -11,24 +11,54 @@ from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.pkg import console
 
 
-class HttpRecordTransport:
+class HttpRecordSender:
     """PLACEHOLDER: 基于现有 HTTP client 的上传 transport 。"""
 
-    def upload_record_group(self, record_type: str, records: Sequence[Record]) -> None:
+    def upload(self, record_type: str, records: Sequence[Record]) -> None:
+        """通用上传入口，按 record_type 路由到对应 upload_{kind} 方法。"""
         if len(records) == 0:
             return
-        console.debug(f"HTTP upload skeleton is ready for record_type={record_type!r}, but request mapping is pending.")
+        fn = getattr(self, f"upload_{record_type}", None)
+        if fn is not None:
+            fn(records)
+
+    def upload_run(self, records: Sequence[Record]) -> None:
+        console.debug("HTTP upload skeleton: upload_run (request mapping pending).")
+
+    def upload_finish(self, records: Sequence[Record]) -> None:
+        console.debug("HTTP upload skeleton: upload_finish (request mapping pending).")
+
+    def upload_column(self, records: Sequence[Record]) -> None:
+        console.debug("HTTP upload skeleton: upload_column (request mapping pending).")
+
+    def upload_metric(self, records: Sequence[Record]) -> None:
+        console.debug("HTTP upload skeleton: upload_metric (request mapping pending).")
+
+    def upload_config(self, records: Sequence[Record]) -> None:
+        console.debug("HTTP upload skeleton: upload_config (request mapping pending).")
+
+    def upload_console(self, records: Sequence[Record]) -> None:
+        console.debug("HTTP upload skeleton: upload_console (request mapping pending).")
+
+    def upload_metadata(self, records: Sequence[Record]) -> None:
+        console.debug("HTTP upload skeleton: upload_metadata (request mapping pending).")
+
+    def upload_requirements(self, records: Sequence[Record]) -> None:
+        console.debug("HTTP upload skeleton: upload_requirements (request mapping pending).")
+
+    def upload_conda(self, records: Sequence[Record]) -> None:
+        console.debug("HTTP upload skeleton: upload_conda (request mapping pending).")
 
     def close(self) -> None:
         pass
 
 
-def create_record_transport() -> HttpRecordTransport:
+def create_record_sender() -> HttpRecordSender:
     """创建 Record transport。"""
-    return HttpRecordTransport()
+    return HttpRecordSender()
 
 
 __all__ = [
-    "HttpRecordTransport",
-    "create_record_transport",
+    "HttpRecordSender",
+    "create_record_sender",
 ]
