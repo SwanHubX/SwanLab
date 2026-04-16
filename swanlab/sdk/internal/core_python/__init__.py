@@ -14,14 +14,11 @@
 BackgroundConsumer 等调用方无需修改。
 """
 
-from typing import List, Optional
+from typing import List
 
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.context import CallbackManager, RunContext
-from swanlab.sdk.internal.core_python.store import DataStoreWriter
-from swanlab.sdk.internal.core_python.uploader import Uploader
-from swanlab.sdk.internal.pkg import console, helper
-from swanlab.sdk.typings.core import CoreProtocol
+from swanlab.sdk.internal.protocol.core import CoreProtocol, DeliverHandle
 
 __all__ = ["CorePython"]
 
@@ -34,36 +31,15 @@ class CorePython(CoreProtocol):
 
     def __init__(self, ctx: RunContext):
         super().__init__(ctx)
-        self._store: Optional[DataStoreWriter] = None
-        self._uploader: Optional[Uploader] = None
         self._callbacker: CallbackManager = ctx.callbacker
 
-    def startup(self, cloud: bool, persistence: bool) -> None:
-        if self._store is not None or self._uploader is not None:
-            raise RuntimeError("CorePython has already been started.")
-        if persistence:
-            self._store = DataStoreWriter()
-            self._store.open(str(self._ctx.run_file))
-        if cloud:
-            self._uploader = Uploader()
+    def deliver(self, record: Record) -> DeliverHandle:
+        raise NotImplementedError("CorePython.deliver() is not implemented")
 
-    def handle_records(self, records: List[Record]) -> None:
-        if self._store is None and self._uploader is None:
-            console.warning("CorePython is not started, skipping record handling.")
-            return
-        if self._store is not None:
-            for record in records:
-                self._store.write(record.SerializeToString())
-                if helper.DEBUG:
-                    console.debug("Write record:", record.WhichOneof("record_type"))
-        if self._uploader is not None:
-            self._uploader.put(records)
-        # TODO 根据类型发布回调
+    def publish(self, records: List[Record]) -> None:
+        pass
 
-    def shutdown(self) -> None:
-        if self._uploader is not None:
-            self._uploader.finish()
-            self._uploader = None
-        if self._store is not None:
-            self._store.close()
-            self._store = None
+    def fork(self) -> "CorePython":
+        raise NotImplementedError(
+            "CorePython.fork() is not implemented. Please waiting for go version, while you should not reach here?"
+        )

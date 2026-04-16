@@ -21,12 +21,11 @@ from swanlab.sdk.internal.bus.events import (
     MetricLogEvent,
     RequirementsEvent,
     RunFinishEvent,
-    RunStartEvent,
     ScalarDefineEvent,
 )
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.pkg import console, safe
-from swanlab.sdk.typings.core import CoreProtocol
+from swanlab.sdk.internal.protocol.core import CoreProtocol
 
 from .record_builder import RecordBuilder
 
@@ -80,8 +79,6 @@ class BackgroundConsumer(ConsumerProtocol):
             self._thread.join()
 
     def _run(self) -> None:
-        mode = self._ctx.config.settings.mode
-        self._core.startup(cloud=mode == "cloud", persistence=mode != "disabled")
         batch: FlushPayload = []
         # 记录已创建的列，完全避免多线程锁竞争
         _emitted_columns: Set[str] = set()
@@ -94,12 +91,13 @@ class BackgroundConsumer(ConsumerProtocol):
 
                     # 1. 退出信号
                     if isinstance(event, RunFinishEvent):
-                        batch.append(self._builder.build_finish(event))
                         self._flush(batch)
-                        self._core.shutdown()
+                        batch.clear()
+                        finish_record = self._builder.build_finish(event)
+                        handler = self._core.deliver(finish_record)
+                        handler.wait()
                         break
-
-                    # 2. 记录数据（可能触发隐式创建 Implicit Define）
+                    # 3. 记录数据（可能触发隐式创建 Implicit Define）
                     elif isinstance(event, MetricLogEvent):
                         for key, value in event.data.items():
                             with safe.block(message=f"Error when parsing metric '{key}'"):
@@ -111,7 +109,7 @@ class BackgroundConsumer(ConsumerProtocol):
                                     self._metrics.update_scalar(key, record.metric.scalar.number)
                                 batch.append(record)
 
-                    # 3. 显式创建列 (Explicit Define)
+                    # 4. 显式创建列 (Explicit Define)
                     elif isinstance(event, ScalarDefineEvent):
                         if event.key not in _emitted_columns:
                             batch.append(self._builder.build_column_from_scalar_define(event))
@@ -119,9 +117,7 @@ class BackgroundConsumer(ConsumerProtocol):
                         else:
                             console.warning(f"Column '{event.key}' has already been defined, cannot redefine.")
 
-                    # 4. 系统事件
-                    elif isinstance(event, RunStartEvent):
-                        batch.append(self._builder.build_run(event))
+                    # 5. 系统事件
                     elif isinstance(event, ConfigEvent):
                         batch.append(self._builder.build_config(event))
                     elif isinstance(event, ConsoleEvent):
@@ -133,7 +129,7 @@ class BackgroundConsumer(ConsumerProtocol):
                     elif isinstance(event, CondaEvent):
                         batch.append(self._builder.build_conda(event))
 
-                    # 5. 微批处理落盘检查
+                    # 6. 微批处理落盘检查
                     if len(batch) >= self._batch_size:
                         self._flush(batch)
                         batch.clear()
@@ -148,4 +144,4 @@ class BackgroundConsumer(ConsumerProtocol):
         if not records:
             return
         with safe.block(message="SwanLab failed to handle records"):
-            self._core.handle_records(records)
+            self._core.publish(records)
