@@ -34,7 +34,8 @@ class CorePython(CoreProtocol):
         super().__init__(ctx)
         self._callbacker: CallbackManager = ctx.callbacker
 
-    def start(self, start_request: StartRequest) -> StartResponse: ...
+    def start(self, start_request: StartRequest) -> StartResponse:
+        return StartResponse(success=True, color="#ffffff")
 
     def publish(self, records: List[Record]) -> None:
         pass
@@ -44,4 +45,5 @@ class CorePython(CoreProtocol):
             "CorePython.fork() is not implemented. Please waiting for go version, while you should not reach here?"
         )
 
-    def finish(self, finish_request: FinishRequest) -> FinishResponse: ...
+    def finish(self, finish_request: FinishRequest) -> FinishResponse:
+        return FinishResponse(success=True, message="I'm not ready.")

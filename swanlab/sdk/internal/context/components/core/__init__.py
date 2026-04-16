@@ -8,7 +8,7 @@
 from typing import TYPE_CHECKING, List
 
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
-from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRequest, FinishResponse, StartRequest
+from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRequest, FinishResponse, StartRequest, StartResponse
 from swanlab.sdk.protocol import CoreEnum, CoreProtocol
 
 if TYPE_CHECKING:
@@ -18,8 +18,8 @@ if TYPE_CHECKING:
 class NullCore(CoreProtocol):
     """空 Core，所有方法为 no-op"""
 
-    def start(self, start_request: StartRequest):
-        raise NotImplementedError("NullCore does not support start, you should not reach here?")
+    def start(self, start_request: StartRequest) -> StartResponse:
+        return StartResponse(success=True, color="#ffffff")
 
     def publish(self, records: List[Record]) -> None: ...
 
@@ -39,7 +39,7 @@ def create_core(ctx: "RunContext") -> CoreProtocol:
 
     :param ctx: 运行上下文，包含配置信息和运行时状态
     """
-    if ctx.config.settings.mode == "disabled" or ctx.config.settings.mode == "local":
+    if ctx.config.settings.mode == "disabled":
         return NullCore(ctx)
 
     if core_enum == CoreEnum.CORE_PYTHON:

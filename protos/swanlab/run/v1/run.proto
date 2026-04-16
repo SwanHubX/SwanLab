@@ -43,7 +43,7 @@ message StartRecord {
 }
 
 // Run 结束请求
-message FinishRequest{
+message FinishRequest {
   RunState state = 1;
   string error = 2;
   google.protobuf.Timestamp finished_at = 3;
