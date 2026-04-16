@@ -475,12 +475,12 @@ def prompt_init_mode(settings: Settings) -> ModeType:
 
             if choice == "1":
                 console.info("Using an existing SwanLab API key.")
-                login_func(save=True)
+                login_func()
                 return "cloud"
 
             if choice == "2":
                 console.info(f"Create a SwanLab account here:{settings.web_host}/login")
-                login_func(save=True)
+                login_func()
                 return "cloud"
 
             if choice == "3":

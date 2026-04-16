@@ -135,7 +135,7 @@ def login_raw(
         if wellcome_on_success:
             wellcome(login_resp)
         if save:
-            nrc_path = nrc.path(Path.cwd()) if save == "local" else nrc.path(global_settings.root)
+            nrc_path = nrc.path(Path.cwd() / ROOT_FOLDER) if save == "local" else nrc.path(global_settings.root)
             nrc.write(nrc_path, api_host=api_host, web_host=login_settings.web_host, api_key=api_key)
         # 4. 将登录设置合并到全局配置中
         global_settings.merge_settings(login_settings)

@@ -49,7 +49,9 @@ class Client:
         # 立即进行首次鉴权并挂载凭证
         login_resp = self._refresh_auth(timeout=timeout, warning=False)
         if not login_resp:
-            raise AuthenticationError(f"Failed to initialize SwanLab client with API Key '{self._api_key}'")
+            raise AuthenticationError(
+                "Failed to initialize the SwanLab client. Please check if the provided API key is correct."
+            )
         # 写入登录响应到上下文，由调用者判断是否需要使用
         scope.set_context("login_resp", login_resp)
 
