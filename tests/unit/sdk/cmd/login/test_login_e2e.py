@@ -191,7 +191,7 @@ class TestLoginE2E:
             status=401,
         )
 
-        with pytest.raises(AuthenticationError, match="Failed to initialize SwanLab client"):
+        with pytest.raises(AuthenticationError, match="Failed to initialize the SwanLab client"):
             login(api_key="wrong-key", relogin=True)
 
     @responses.activate
@@ -389,7 +389,7 @@ class TestLoginE2E:
         assert result is True
 
         # save="local" 保存到 cwd/.netrc
-        local_nrc = tmp_path / ".netrc"
+        local_nrc = tmp_path / ".swanlab" / ".netrc"
         assert local_nrc.exists()
 
     @responses.activate
