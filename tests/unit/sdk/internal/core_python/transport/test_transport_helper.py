@@ -1,7 +1,7 @@
 import pytest
 
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
-from swanlab.sdk.internal.core_python.uploader.helper import generate_chunks, group_records_by_type
+from swanlab.sdk.internal.core_python.transport.helper import generate_chunks, group_records_by_type
 
 # ─────────────────── generate_chunks ───────────────────
 
@@ -107,5 +107,5 @@ def test_group_records_by_type_rejects_non_record():
 
 def test_group_records_by_type_rejects_empty_record():
     """验证未设置任何 record_type 的空 Record 抛出 ValueError。"""
-    with pytest.raises(ValueError, match="no active record_type"):
+    with pytest.raises(ValueError, match="Record.record_type is not set"):
         group_records_by_type([Record()])

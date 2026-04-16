@@ -4,7 +4,7 @@ r"""
 @author: caddiesnew
 @file: helper.py
 @time: 2026/3/30 15:33
-@description: uploader 辅助函数
+@description: transport 辅助函数
 """
 
 from collections import OrderedDict
@@ -35,13 +35,20 @@ def generate_chunks(records: Sequence[Record], per_request_len: int) -> Iterator
 
 
 def group_records_by_type(records: Sequence[Record]) -> Dict[str, List[Record]]:
-    """按照 record 的类型进行分组"""
+    """
+    使用 WhichOneof("record_type") 按 record 类型分组。
+
+    kind = record.WhichOneof("record_type") 返回 oneof 中实际设置的字段名，
+    如 "run"、"metric" 等，与 proto 定义一一对应。
+
+    返回 OrderedDict 保持插入顺序。
+    """
     grouped: Dict[str, List[Record]] = OrderedDict()
     for record in records:
         if not isinstance(record, Record):
-            raise TypeError(f"group_records_by_type only accepts Record instances, got {type(record).__name__}")
-        record_type = record.WhichOneof("record_type")
-        if record_type is None:
-            raise ValueError("Record has no active record_type and cannot be uploaded.")
-        grouped.setdefault(record_type, []).append(record)
+            raise TypeError(f"Expected Record instance, got {type(record).__name__}")
+        kind = record.WhichOneof("record_type")
+        if kind is None:
+            raise ValueError("Record.record_type is not set")
+        grouped.setdefault(kind, []).append(record)
     return grouped

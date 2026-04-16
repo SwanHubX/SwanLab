@@ -60,7 +60,7 @@ class Timer:
         """
         with self._lock:
             if self._thread is not None and self._thread.is_alive():
-                console.warning("Timer already running")
+                console.debug("Timer already running")
                 return self
 
             self._stop_event.clear()

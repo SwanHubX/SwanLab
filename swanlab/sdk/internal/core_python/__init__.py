@@ -19,7 +19,10 @@ from typing import List
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRequest, FinishResponse, StartRequest, StartResponse
 from swanlab.sdk.internal.context import CallbackManager, RunContext
-from swanlab.sdk.protocol import CoreProtocol
+from swanlab.sdk.internal.core_python.store import DataStoreWriter
+from swanlab.sdk.internal.core_python.transport import Transport
+from swanlab.sdk.internal.pkg import console, helper
+from swanlab.sdk.typings.core import CoreProtocol
 
 __all__ = ["CorePython"]
 
@@ -32,10 +35,19 @@ class CorePython(CoreProtocol):
 
     def __init__(self, ctx: RunContext):
         super().__init__(ctx)
+        self._store: Optional[DataStoreWriter] = None
+        self._transport: Optional[Transport] = None
         self._callbacker: CallbackManager = ctx.callbacker
 
     def start(self, start_request: StartRequest) -> StartResponse:
         return StartResponse(success=True, color="#ffffff")
+           if self._store is not None or self._transport is not None:
+            raise RuntimeError("CorePython has already been started.")
+        if persistence:
+            self._store = DataStoreWriter()
+            self._store.open(str(self._ctx.run_file))
+        if cloud:
+            self._transport = Transport()
 
     def publish(self, records: List[Record]) -> None:
         pass
@@ -47,3 +59,23 @@ class CorePython(CoreProtocol):
 
     def finish(self, finish_request: FinishRequest) -> FinishResponse:
         return FinishResponse(success=True, message="I'm not ready.")
+    def handle_records(self, records: List[Record]) -> None:
+        if self._store is None and self._transport is None:
+            console.warning("CorePython is not started, skipping record handling.")
+            return
+        if self._store is not None:
+            for record in records:
+                self._store.write(record.SerializeToString())
+                if helper.DEBUG:
+                    console.debug("Write record:", record.WhichOneof("record_type"))
+        if self._transport is not None:
+            self._transport.put(records)
+        # TODO 根据类型发布回调
+
+    def shutdown(self) -> None:
+        if self._transport is not None:
+            self._transport.finish()
+            self._transport = None
+        if self._store is not None:
+            self._store.close()
+            self._store = None
