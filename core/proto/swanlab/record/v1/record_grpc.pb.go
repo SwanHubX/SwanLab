@@ -8,6 +8,7 @@ package recordv1
 
 import (
 	context "context"
+	v1 "github.com/swanhubx/swanlab/core/proto/swanlab/run/v1"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -20,7 +21,9 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
+	RecordService_RunStart_FullMethodName     = "/swanlab.record.v1.RecordService/RunStart"
 	RecordService_UpsertRecord_FullMethodName = "/swanlab.record.v1.RecordService/UpsertRecord"
+	RecordService_RunFinish_FullMethodName    = "/swanlab.record.v1.RecordService/RunFinish"
 )
 
 // RecordServiceClient is the client API for RecordService service.
@@ -29,8 +32,12 @@ const (
 //
 // RecordService 用于同步或异步地接收实验记录。
 type RecordServiceClient interface {
+	// RunStart 接收单条 StartRequest，用于实验开始，并返回必要的信息。
+	RunStart(ctx context.Context, in *v1.StartRequest, opts ...grpc.CallOption) (*v1.StartResponse, error)
 	// UpsertRecord 接收单条 Record 并写入，用于实验数据的上报。
 	UpsertRecord(ctx context.Context, in *Record, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// RunFinish 接收单条 FinishRequest，用于实验结束。
+	RunFinish(ctx context.Context, in *v1.FinishRequest, opts ...grpc.CallOption) (*v1.FinishResponse, error)
 }
 
 type recordServiceClient struct {
@@ -39,6 +46,16 @@ type recordServiceClient struct {
 
 func NewRecordServiceClient(cc grpc.ClientConnInterface) RecordServiceClient {
 	return &recordServiceClient{cc}
+}
+
+func (c *recordServiceClient) RunStart(ctx context.Context, in *v1.StartRequest, opts ...grpc.CallOption) (*v1.StartResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(v1.StartResponse)
+	err := c.cc.Invoke(ctx, RecordService_RunStart_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *recordServiceClient) UpsertRecord(ctx context.Context, in *Record, opts ...grpc.CallOption) (*emptypb.Empty, error) {
@@ -51,14 +68,28 @@ func (c *recordServiceClient) UpsertRecord(ctx context.Context, in *Record, opts
 	return out, nil
 }
 
+func (c *recordServiceClient) RunFinish(ctx context.Context, in *v1.FinishRequest, opts ...grpc.CallOption) (*v1.FinishResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(v1.FinishResponse)
+	err := c.cc.Invoke(ctx, RecordService_RunFinish_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RecordServiceServer is the server API for RecordService service.
 // All implementations must embed UnimplementedRecordServiceServer
 // for forward compatibility.
 //
 // RecordService 用于同步或异步地接收实验记录。
 type RecordServiceServer interface {
+	// RunStart 接收单条 StartRequest，用于实验开始，并返回必要的信息。
+	RunStart(context.Context, *v1.StartRequest) (*v1.StartResponse, error)
 	// UpsertRecord 接收单条 Record 并写入，用于实验数据的上报。
 	UpsertRecord(context.Context, *Record) (*emptypb.Empty, error)
+	// RunFinish 接收单条 FinishRequest，用于实验结束。
+	RunFinish(context.Context, *v1.FinishRequest) (*v1.FinishResponse, error)
 	mustEmbedUnimplementedRecordServiceServer()
 }
 
@@ -69,8 +100,14 @@ type RecordServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedRecordServiceServer struct{}
 
+func (UnimplementedRecordServiceServer) RunStart(context.Context, *v1.StartRequest) (*v1.StartResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RunStart not implemented")
+}
 func (UnimplementedRecordServiceServer) UpsertRecord(context.Context, *Record) (*emptypb.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpsertRecord not implemented")
+}
+func (UnimplementedRecordServiceServer) RunFinish(context.Context, *v1.FinishRequest) (*v1.FinishResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RunFinish not implemented")
 }
 func (UnimplementedRecordServiceServer) mustEmbedUnimplementedRecordServiceServer() {}
 func (UnimplementedRecordServiceServer) testEmbeddedByValue()                       {}
@@ -93,6 +130,24 @@ func RegisterRecordServiceServer(s grpc.ServiceRegistrar, srv RecordServiceServe
 	s.RegisterService(&RecordService_ServiceDesc, srv)
 }
 
+func _RecordService_RunStart_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(v1.StartRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RecordServiceServer).RunStart(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RecordService_RunStart_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RecordServiceServer).RunStart(ctx, req.(*v1.StartRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _RecordService_UpsertRecord_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(Record)
 	if err := dec(in); err != nil {
@@ -111,6 +166,24 @@ func _RecordService_UpsertRecord_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RecordService_RunFinish_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(v1.FinishRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RecordServiceServer).RunFinish(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RecordService_RunFinish_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RecordServiceServer).RunFinish(ctx, req.(*v1.FinishRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // RecordService_ServiceDesc is the grpc.ServiceDesc for RecordService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -119,8 +192,16 @@ var RecordService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*RecordServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
+			MethodName: "RunStart",
+			Handler:    _RecordService_RunStart_Handler,
+		},
+		{
 			MethodName: "UpsertRecord",
 			Handler:    _RecordService_UpsertRecord_Handler,
+		},
+		{
+			MethodName: "RunFinish",
+			Handler:    _RecordService_RunFinish_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

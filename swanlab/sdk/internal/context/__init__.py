@@ -15,7 +15,7 @@ from typing import Generator, Optional
 from swanlab.sdk.internal.pkg import adapter
 from swanlab.sdk.internal.settings import Settings
 
-from .callbacker import CallbackManager, callbacker
+from .components import CallbackManager, callbacker, create_callback_manager, create_core
 from .metrics import MediaMetric, RunMetrics, ScalarMetric
 from .transformer import TransformData, TransformMedia
 
@@ -46,10 +46,11 @@ class RunConfig:
 class RunContext:
     def __init__(self, config: RunConfig):
         self.config: RunConfig = config
-        self.callbacker: CallbackManager = CallbackManager()
+        self.callbacker = create_callback_manager()
         # 使用 callbacker.registered_callbacks 作为初始回调集合
         self.callbacker.merge_callbacks(callbacker.registered_callbacks)
         self.metrics: RunMetrics = RunMetrics()
+        self.core = create_core(self)
 
     @cached_property
     def run_dir(self) -> Path:
@@ -116,7 +117,7 @@ def get_context() -> RunContext:
 @contextmanager
 def use_context(ctx: RunContext) -> Generator[RunContext, None, None]:
     """
-    临时使用 SwanLab 运行上下文的上下文管理器。
+    创建 SwanLab 运行上下文的上下文管理器，仅用于实验开启时。
 
     前置条件：仅允许在当前不存在上下文时使用。
     退出行为：无论是否发生异常，离开 with 块时都会自动清空上下文。

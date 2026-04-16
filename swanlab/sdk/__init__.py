@@ -12,11 +12,11 @@ from .cmd.merge_settings import merge_settings
 from .cmd.run import async_log, define_scalar, finish, log, log_audio, log_image, log_text, log_video
 from .cmd.verify import verify_cli
 from .internal.pkg import console, fs, helper, safe
-from .internal.protocol import Callback
 from .internal.run import Run, clear_run, get_run, has_run, set_run
 from .internal.run.config import config
 from .internal.run.transforms import Audio, Image, Text, Video
 from .internal.settings import Settings
+from .protocol import Callback
 
 __all__ = [
     # cmd

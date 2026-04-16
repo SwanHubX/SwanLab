@@ -1,14 +1,14 @@
 """
 @author: cunyue
-@file: callbacker.py
-@time: 2026/3/12 00:52
-@description: SwanLab 运行时回调函数管理器
+@file: __init__.py
+@time: 2026/4/16 22:27
+@description: SwanLab 回调模块
 """
 
 from typing import TYPE_CHECKING, Dict, Iterable, List
 
 from swanlab.sdk.internal.pkg import console, safe
-from swanlab.sdk.internal.protocol import Callback
+from swanlab.sdk.protocol import Callback
 
 
 class _CallbackManager:
@@ -85,4 +85,9 @@ else:
     # 全局 CallBacker
     callbacker = CallbackManager()
 
-__all__ = ["callbacker", "CallbackManager"]
+
+def create_callback_manager() -> CallbackManager:
+    return CallbackManager()
+
+
+__all__ = ["callbacker", "CallbackManager", "create_callback_manager"]

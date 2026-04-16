@@ -12,7 +12,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from swanlab.sdk.internal.run.config._parse import _adapt_third_party, json_serializable, parse
+from swanlab.sdk.internal.run.config.parse import adapt_third_party, json_serializable, parse
 
 # ============================================================
 # json_serializable
@@ -136,7 +136,7 @@ class TestJsonSerializable:
 class TestAdaptThirdParty:
     def test_argparse_namespace(self):
         ns = argparse.Namespace(lr=0.01, epochs=10)
-        result = _adapt_third_party(ns)
+        result = adapt_third_party(ns)
         assert result == {"lr": 0.01, "epochs": 10}
 
     def test_dataclass(self):
@@ -145,7 +145,7 @@ class TestAdaptThirdParty:
             lr: float
             epochs: int
 
-        result = _adapt_third_party(Config(lr=0.01, epochs=10))
+        result = adapt_third_party(Config(lr=0.01, epochs=10))
         assert result == {"lr": 0.01, "epochs": 10}
 
     def test_dataclass_class_itself_raises(self):
@@ -156,15 +156,15 @@ class TestAdaptThirdParty:
             x: int
 
         with pytest.raises(TypeError):
-            _adapt_third_party(Cfg)
+            adapt_third_party(Cfg)
 
     def test_plain_dict_raises(self):
         with pytest.raises(TypeError):
-            _adapt_third_party({"a": 1})
+            adapt_third_party({"a": 1})
 
     def test_plain_str_raises(self):
         with pytest.raises(TypeError):
-            _adapt_third_party("hello")
+            adapt_third_party("hello")
 
 
 # ============================================================

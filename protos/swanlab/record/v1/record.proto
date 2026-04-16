@@ -15,8 +15,14 @@ option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/record/v1;re
 
 // RecordService 用于同步或异步地接收实验记录。
 service RecordService {
+  // RunStart 接收单条 StartRequest，用于实验开始，并返回必要的信息。
+  rpc RunStart(swanlab.run.v1.StartRequest) returns (swanlab.run.v1.StartResponse);
+
   // UpsertRecord 接收单条 Record 并写入，用于实验数据的上报。
   rpc UpsertRecord(Record) returns (google.protobuf.Empty);
+
+  // RunFinish 接收单条 FinishRequest，用于实验结束。
+  rpc RunFinish(swanlab.run.v1.FinishRequest) returns (swanlab.run.v1.FinishResponse);
 }
 
 // 所有消息的顶层信封。
@@ -25,7 +31,7 @@ service RecordService {
 // num 字段保证全局单调递增，可用于重放和断点续传。
 //
 // 消息流示意：
-//   init()  → RunRecord, MetadataRecord, ConfigRecord
+//   init()  → StartRecord, MetadataRecord, ConfigRecord
 //   log()   → MetricRecord（每个 key 一条）
 //   stdout  → ConsoleRecord（每行一条）
 //   finish()→ FinishRecord
@@ -37,7 +43,7 @@ message Record {
 
   oneof record_type {
     // ── Run 生命周期 ──
-    swanlab.run.v1.RunRecord    run    = 10;
+    swanlab.run.v1.StartRecord  start  = 10;
     swanlab.run.v1.FinishRecord finish = 11;
 
     // ── 用户数据 ──

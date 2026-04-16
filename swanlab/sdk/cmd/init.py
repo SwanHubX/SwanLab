@@ -28,7 +28,7 @@ from swanlab.sdk.internal.context import (
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.core_python.api.project import get_or_create_project, get_project
 from swanlab.sdk.internal.pkg import console, fs, helper, safe
-from swanlab.sdk.internal.protocol import Callback
+from swanlab.sdk.protocol import Callback
 from swanlab.utils import generate_color, generate_id, generate_name
 
 from ..internal.core_python.api.experiment import create_or_resume_experiment

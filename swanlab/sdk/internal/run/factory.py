@@ -6,53 +6,20 @@
 """
 
 from queue import Queue
-from typing import List, Optional
+from typing import Optional
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
-from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.bus import RunEmitter
 from swanlab.sdk.internal.bus.emitter import EmitterProtocol, RunQueue
 from swanlab.sdk.internal.bus.events import CondaEvent, EventPayload, MetadataEvent, RequirementsEvent
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.pkg import fs
 from swanlab.sdk.internal.run import system
-from swanlab.sdk.typings.core import CoreEnum, CoreProtocol
 
 from .config import Config, create_run_config, create_unbound_run_config
 from .consumer import BackgroundConsumer, ConsumerProtocol
 from .record_builder import RecordBuilder
-
-
-class NullCore(CoreProtocol):
-    """空 Core，所有方法为 no-op"""
-
-    def startup(self, cloud: bool, persistence: bool) -> None: ...
-
-    def handle_records(self, records: List[Record]) -> None: ...
-
-    def shutdown(self) -> None: ...
-
-
-# TODO: 未来实现core以后，python版本依旧会有一段时间的同时存在时间。后续实现一种机制，选择不同的core实现
-core_enum: CoreEnum = CoreEnum.CORE_PYTHON
-
-
-def factory_core(ctx: RunContext) -> CoreProtocol:
-    """core对象工厂
-
-    :param ctx: 运行上下文，包含配置信息和运行时状态
-    """
-    if ctx.config.settings.mode == "disabled":
-        return NullCore(ctx)
-
-    if core_enum == CoreEnum.CORE_PYTHON:
-        from swanlab.sdk.internal.core_python import CorePython
-
-        return CorePython(ctx)
-    else:
-        # TODO: Core 微服务无感接入
-        raise NotImplementedError(f"CoreEnum {core_enum} is not supported yet.")
 
 
 class NullEmitter(EmitterProtocol):
@@ -85,6 +52,9 @@ class NullConsumer(ConsumerProtocol):
     def start(self) -> None:
         pass
 
+    def stop(self) -> None:
+        pass
+
     def join(self) -> None:
         pass
 
@@ -92,7 +62,6 @@ class NullConsumer(ConsumerProtocol):
 def factory_consumer(
     ctx: RunContext,
     emitter: EmitterProtocol,
-    core: CoreProtocol,
     builder: RecordBuilder,
 ) -> ConsumerProtocol:
     """consumer对象工厂
@@ -100,11 +69,10 @@ def factory_consumer(
     :param ctx: 运行上下文
     :param emitter: 事件发射器
     :param builder: 构建器
-    :param core: Core 实例
     """
     if ctx.config.settings.mode == "disabled":
-        return NullConsumer(ctx, emitter.queue, builder, core)
-    return BackgroundConsumer(ctx, emitter.queue, builder, core)
+        return NullConsumer(ctx, emitter.queue, builder)
+    return BackgroundConsumer(ctx, emitter.queue, builder)
 
 
 def factory_config(ctx: RunContext, emitter: EmitterProtocol) -> Config:

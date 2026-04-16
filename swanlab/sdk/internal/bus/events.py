@@ -14,19 +14,11 @@ from swanlab.proto.swanlab.config.v1.config_pb2 import UpdateType
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.system.v1.console_pb2 import StreamType
 from swanlab.sdk.internal.context.transformer import TransformData
-from swanlab.sdk.typings.run import FinishType
 from swanlab.sdk.typings.run.column import ScalarXAxisType
 
 # ==========================================
 # 事件流定义 (Event Bus Definitions)
 # ==========================================
-
-
-@dataclass
-class RunStartEvent:
-    """运行启动事件"""
-
-    timestamp: Timestamp
 
 
 @dataclass
@@ -96,21 +88,10 @@ class CondaEvent:
     timestamp: Timestamp
 
 
-@dataclass
-class RunFinishEvent:
-    """运行结束的毒丸信号 (Poison Pill)"""
-
-    state: FinishType
-    error: Optional[str]
-    timestamp: Optional[Timestamp]
-
-
 # 事件载体类型
 EventPayload = Union[
     MetricLogEvent,
     ScalarDefineEvent,
-    RunFinishEvent,
-    RunStartEvent,
     ConfigEvent,
     ConsoleEvent,
     MetadataEvent,
