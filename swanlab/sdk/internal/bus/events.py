@@ -98,7 +98,7 @@ class CondaEvent:
 
 @dataclass
 class RunFinishEvent:
-    """运行结束的毒丸信号 (Poison Pill)"""
+    """运行结束的信号 (Poison Pill)"""
 
     state: FinishType
     error: Optional[str]

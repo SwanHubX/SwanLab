@@ -77,10 +77,9 @@ class CoreProtocol(ABC):
 
     @abstractmethod
     def deliver(self, record: Record) -> DeliverHandle:
-        """等待确认：返回 DeliverHandle，在记录持久化+上传完成后 resolve。
-        用于 run_start、finish 等生命周期事件。
-        调用方可通过 handle.wait(timeout=30) 阻塞等待。
-        通常此方法用于训练主线程
+        """
+        等待确认：返回 DeliverHandle，在记录持久化+上传完成后 resolve。
+        调用方可通过 handle.wait(timeout=30) 阻塞等待，设计上仅用于 run_start、finish 等生命周期事件
         """
         ...
 

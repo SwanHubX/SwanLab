@@ -108,7 +108,6 @@ class BackgroundConsumer(ConsumerProtocol):
                                 if cls.column_type() == ColumnType.COLUMN_TYPE_FLOAT:
                                     self._metrics.update_scalar(key, record.metric.scalar.number)
                                 batch.append(record)
-
                     # 4. 显式创建列 (Explicit Define)
                     elif isinstance(event, ScalarDefineEvent):
                         if event.key not in _emitted_columns:
@@ -116,7 +115,6 @@ class BackgroundConsumer(ConsumerProtocol):
                             _emitted_columns.add(event.key)
                         else:
                             console.warning(f"Column '{event.key}' has already been defined, cannot redefine.")
-
                     # 5. 系统事件
                     elif isinstance(event, ConfigEvent):
                         batch.append(self._builder.build_config(event))
