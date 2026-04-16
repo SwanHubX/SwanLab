@@ -40,7 +40,7 @@ def test_dispatch_calls_correct_handler(make_scalar_record):
 
 
 def test_dispatch_error_rollback(make_scalar_record):
-    """上传失败回滚到 buffer 头部。"""
+    """上传失败回滚到 buffer 头部（原地插入，buffer 对象引用不变）。"""
     cond = threading.Condition()
     buffer = []
     dispatch = Dispatch(cond=cond, buffer=buffer)
@@ -55,9 +55,10 @@ def test_dispatch_error_rollback(make_scalar_record):
         with patch("swanlab.sdk.internal.core_python.transport.dispatch.console"):
             dispatch(records)
 
-    # 回滚到 dispatch._buffer（_upload_typed 中 self._buffer = ... 重新绑定了列表）
-    assert len(dispatch._buffer) == 1
-    assert dispatch._buffer[0] is records[0]
+    # 回滚通过 self._buffer[:0] = records 原地插入，buffer 对象引用不变
+    assert len(buffer) == 1
+    assert buffer[0] is records[0]
+    assert dispatch._buffer is buffer
 
 
 # ─────────────────── unknown type ───────────────────

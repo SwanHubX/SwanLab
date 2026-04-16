@@ -46,12 +46,15 @@ class Dispatch:
             handler = getattr(self, f"_handle_{kind}", None)
             if handler:
                 handler(typed_records)
+            else:
+                console.warning(f"No handler for record kind={kind!r}, skipping {len(typed_records)} records.")
 
     # ── 通用 record 上传函数 + 失败回滚 ──
     def _upload_typed(self, record_type: str, records: List[Record]) -> None:
         """
         按类型对上传的 records：分片 → sender 传输层上传 → 回调。
         上传失败时回滚到 buffer 头部。
+        sender 由模块级单例管理，无需在此关闭。
         """
         sender = create_record_sender()
         try:
@@ -62,9 +65,8 @@ class Dispatch:
         except Exception:
             console.trace(f"upload error for record_type={record_type!r}")
             with self._cond:
-                self._buffer = records + self._buffer
-        finally:
-            sender.close()
+                # 原地插入到 buffer 头部，保持对象引用不变
+                self._buffer[:0] = records
 
     # ── 类型 handler（按 _handle_{WhichOneof 返回值} 约定） ──
 

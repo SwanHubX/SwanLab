@@ -18,6 +18,8 @@ def generate_chunks(records: Sequence[Record], per_request_len: int) -> Iterator
     按固定大小对 Record 序列做切片。
     yield: (分片数据, 分片长度)
     """
+    if not records:
+        return
     if per_request_len == -1:
         yield records, len(records)
         return

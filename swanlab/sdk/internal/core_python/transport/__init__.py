@@ -6,7 +6,7 @@
 """
 
 from .dispatch import Dispatch
-from .sender import HttpRecordSender, create_record_sender
+from .sender import HttpRecordSender, create_record_sender, reset_record_sender
 from .thread import Transport
 
 __all__ = [
@@ -14,4 +14,5 @@ __all__ = [
     "HttpRecordSender",
     "Transport",
     "create_record_sender",
+    "reset_record_sender",
 ]

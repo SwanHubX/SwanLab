@@ -56,17 +56,15 @@ def test_generate_chunks_invalid_per_request_len(make_scalar_record):
 
 
 def test_generate_chunks_empty_records():
-    """验证空记录列表在 per_request_len > 0 时产出单个空分片。"""
+    """验证空记录列表产出空迭代器（短路返回，不产出任何分片）。"""
     chunks = list(generate_chunks([], per_request_len=10))
-    assert len(chunks) == 1
-    assert chunks[0] == ([], 0)
+    assert len(chunks) == 0
 
 
 def test_generate_chunks_no_limit_empty():
-    """验证 per_request_len=-1 且空列表时产出单个空分片。"""
+    """验证 per_request_len=-1 且空列表时产出空迭代器。"""
     chunks = list(generate_chunks([], per_request_len=-1))
-    assert len(chunks) == 1
-    assert chunks[0] == ([], 0)
+    assert len(chunks) == 0
 
 
 # ─────────────────── group_records_by_type ───────────────────
