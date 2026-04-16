@@ -92,10 +92,7 @@ class BackgroundConsumer(ConsumerProtocol):
                     # 1. 退出信号
                     if isinstance(event, RunFinishEvent):
                         self._flush(batch)
-                        batch.clear()
-                        finish_record = self._builder.build_finish(event)
-                        handler = self._core.deliver(finish_record)
-                        handler.wait()
+                        self._builder.build_finish(event)
                         break
                     # 3. 记录数据（可能触发隐式创建 Implicit Define）
                     elif isinstance(event, MetricLogEvent):

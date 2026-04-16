@@ -16,7 +16,7 @@ from swanlab.sdk.internal.bus.emitter import EmitterProtocol, RunQueue
 from swanlab.sdk.internal.bus.events import CondaEvent, EventPayload, MetadataEvent, RequirementsEvent
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.pkg import fs
-from swanlab.sdk.internal.protocol.core import CoreEnum, CoreProtocol, DeliverHandle
+from swanlab.sdk.internal.protocol.core import CoreEnum, CoreProtocol
 from swanlab.sdk.internal.run import system
 
 from .config import Config, create_run_config, create_unbound_run_config
@@ -27,15 +27,16 @@ from .record_builder import RecordBuilder
 class NullCore(CoreProtocol):
     """空 Core，所有方法为 no-op"""
 
-    def publish(self, records: List[Record]) -> None: ...
+    def start(self):
+        pass
 
-    def deliver(self, record: Record) -> DeliverHandle:
-        handle = DeliverHandle()
-        handle.resolve()
-        return handle
+    def publish(self, records: List[Record]) -> None: ...
 
     def fork(self) -> "NullCore":
         raise NotImplementedError("NullCore does not support fork, you should not reach here?")
+
+    def finish(self):
+        pass
 
 
 # TODO: 未来实现core以后，python版本依旧会有一段时间的同时存在时间。后续实现一种机制，选择不同的core实现

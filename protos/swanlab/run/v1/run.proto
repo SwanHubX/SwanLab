@@ -6,8 +6,18 @@ import "google/protobuf/timestamp.proto";
 
 option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/run/v1;runv1";
 
+// Run 创建请求
+message StartRequest {
+
+}
+
+// Run 创建响应
+message StartResponse {
+
+}
+
 // Run 创建记录，对应 swanlab.init(...) 调用，写入一次。
-message RunRecord {
+message StartRecord {
   string project         = 1;
   string workspace       = 2;  // 组织或用户名
   string name            = 3;
@@ -20,6 +30,17 @@ message RunRecord {
   ResumeMode resume      = 10;
   google.protobuf.Timestamp started_at = 11;
 }
+
+// Run 结束请求
+message FinishRequest{
+
+}
+
+// Run 结束响应
+message FinishResponse {
+
+}
+
 
 // Run 结束记录，对应 swanlab.finish() 或进程退出，写入一次。
 message FinishRecord {

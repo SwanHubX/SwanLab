@@ -18,7 +18,7 @@ from typing import List
 
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.context import CallbackManager, RunContext
-from swanlab.sdk.internal.protocol.core import CoreProtocol, DeliverHandle
+from swanlab.sdk.internal.protocol.core import CoreProtocol
 
 __all__ = ["CorePython"]
 
@@ -33,8 +33,8 @@ class CorePython(CoreProtocol):
         super().__init__(ctx)
         self._callbacker: CallbackManager = ctx.callbacker
 
-    def deliver(self, record: Record) -> DeliverHandle:
-        raise NotImplementedError("CorePython.deliver() is not implemented")
+    def start(self):
+        pass
 
     def publish(self, records: List[Record]) -> None:
         pass
@@ -43,3 +43,6 @@ class CorePython(CoreProtocol):
         raise NotImplementedError(
             "CorePython.fork() is not implemented. Please waiting for go version, while you should not reach here?"
         )
+
+    def finish(self):
+        pass
