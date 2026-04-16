@@ -2,7 +2,7 @@
 @author: caddiesnew
 @file: thread.py
 @time: 2026/4/16
-@description: 事件驱动的 Record Action 线程
+@description: 事件驱动的 Record 上传守护线程
 """
 
 import threading
@@ -17,10 +17,10 @@ class Transport:
     """
     事件驱动的 Record Action 线程。
 
-    用 Condition 驱动写事件：
+    用 Condition 驱动上传事件：
     - put() 时 notify() 立刻唤醒线程，延迟接近 0
     - wait(timeout=batch_interval) 保证最大攒批间隔
-    - swap buffer 后锁外委托 Dispatch，不阻塞生产者
+    - 清空 buffer 后在锁外委托 Dispatch，不阻塞生产者
     """
 
     BATCH_INTERVAL = 1.0
@@ -83,8 +83,8 @@ class Transport:
                 if not self._buffer and self._finished:
                     return
 
-                pending = self._buffer
-                self._buffer = []
+                pending = self._buffer[:]
+                self._buffer.clear()
 
             # 锁外委托给 Dispatch
             self._dispatcher(pending)

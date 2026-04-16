@@ -2,7 +2,7 @@
 @author: caddiesnew
 @file: dispatch.py
 @time: 2026/4/16
-@description: Record 类型聚合 + handler 分发 + 失败回滚
+@description: Record 按类型聚合分发 + 失败回滚
 """
 
 import threading
@@ -21,11 +21,8 @@ class Dispatch:
     """
     按 record_type 聚合 records 并分发给对应 handler。
 
-    聚合过程：遍历 pending records，用 WhichOneof("record_type") 取 kind，
-    按 kind 分组为 {run: [], metric: [], ...}，然后遍历分组结果，
-    把对应 record[] 输入给对应的 handler。
-
-    handler 按 _handle_{kind} 约定路由，字段名来源于 proto 定义。
+    遍历 pending records，用 WhichOneof("record_type") 取 kind 并按 kind 分组，
+    再通过 _handle_{kind} 约定路由到对应 handler。
     上传失败时通过 Condition 锁回滚到 buffer 头部。
     """
 
@@ -52,21 +49,23 @@ class Dispatch:
     # ── 通用 record 上传函数 + 失败回滚 ──
     def _upload_typed(self, record_type: str, records: List[Record]) -> None:
         """
-        按类型对上传的 records：分片 → sender 传输层上传 → 回调。
+        将 records 按类型处理：分片 → sender 上传 → 回调。
         上传失败时回滚到 buffer 头部。
         sender 由模块级单例管理，无需在此关闭。
         """
         sender = create_record_sender()
+        uploaded_count = 0
         try:
             for chunk, chunk_len in generate_chunks(records, _PER_REQUEST_LEN):
                 sender.upload(record_type, chunk)
+                uploaded_count += chunk_len
                 if self._upload_callback:
                     self._upload_callback(chunk_len)
         except Exception:
             console.trace(f"upload error for record_type={record_type!r}")
             with self._cond:
-                # 原地插入到 buffer 头部，保持对象引用不变
-                self._buffer[:0] = records
+                # 只回滚尚未成功上传的记录，避免重复上传
+                self._buffer[:0] = records[uploaded_count:]
 
     # ── 类型 handler（按 _handle_{WhichOneof 返回值} 约定） ──
 

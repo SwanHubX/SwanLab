@@ -12,7 +12,7 @@ from swanlab.sdk.internal.pkg import console
 
 
 class HttpRecordSender:
-    """PLACEHOLDER: 基于现有 HTTP client 的上传 sender"""
+    """PLACEHOLDER: HTTP 传输层上传 sender，请求映射待实现。"""
 
     def upload(self, record_type: str, records: Sequence[Record]) -> None:
         """通用上传入口，按 record_type 路由到对应 upload_{kind} 方法。"""
