@@ -5,7 +5,7 @@
 @description: SwanLab 运行时项目API类型
 """
 
-from typing import Literal, TypedDict
+from typing import Dict, List, Literal, TypedDict
 
 
 class _ProjectCount(TypedDict):
@@ -19,6 +19,11 @@ class _ProjectCount(TypedDict):
     clones: int
 
 
+class ProjectLabelType(TypedDict):
+    # 项目标签名称
+    name: str
+
+
 class ProjectType(TypedDict):
     # 项目名称
     name: str
@@ -28,6 +33,12 @@ class ProjectType(TypedDict):
     path: str
     # 项目可见性
     visibility: Literal["PUBLIC", "PRIVATE"]
+    # 项目描述
+    description: str
+    # 项目所属工作空间
+    group: Dict[str, str]
+    # 项目标签
+    projectLabels: List[ProjectLabelType]
     # 项目统计信息
     _count: _ProjectCount
 
@@ -39,3 +50,14 @@ class InitProjectType(TypedDict):
     username: str
     # 项目路径 '/:username/:name'
     path: str
+
+
+class ProjResponseType(TypedDict):
+    # 项目列表
+    list: List[ProjectType]
+    # 每页项目数量
+    size: int
+    # 总页数
+    pages: int
+    # 总项目数量
+    total: int

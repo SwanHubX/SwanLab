@@ -5,7 +5,7 @@
 @description: SwanLab 运行时实验API
 """
 
-from typing import List, Literal, Optional
+from typing import Dict, List, Literal, Optional, Union
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
@@ -14,7 +14,10 @@ from swanlab.proto.swanlab.run.v1.run_pb2 import RUN_STATE_ABORTED, RUN_STATE_CR
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.pkg import helper
 from swanlab.sdk.typings.core_python.api.experiment import InitExperimentType
-from swanlab.sdk.typings.run import ResumeType
+from swanlab.sdk.typings.core_python.api.experiment import RunType
+from swanlab.sdk.typings.run import ResumeType, RunStateType
+
+from .utils import parse_column_type, to_camel_case
 
 
 def create_or_resume_experiment(
@@ -91,3 +94,93 @@ def stop_experiment(username: str, project: str, cuid: str, *, state: RunState, 
             "from": "sdk",
         },
     )
+    return resp.raw.status_code == 201
+
+
+def send_experiment_heartbeat(*, cuid: str, flag_id: str) -> None:
+    """
+    发送实验心跳，保持实验处于活跃状态
+    :param cuid: 实验唯一标识符
+    :param flag_id: 实验标记ID
+    """
+    client.post(f"/house/experiments/{cuid}/heartbeat", {"flagId": flag_id})
+
+
+def update_experiment_state(
+    *,
+    username: str,
+    projname: str,
+    cuid: str,
+    state: RunStateType,
+    finished_at: Optional[str] = None,
+) -> None:
+    """
+    更新实验状态
+    :param username: 实验所属用户名
+    :param projname: 实验所属项目名称
+    :param cuid: 实验唯一标识符
+    :param state: 实验状态
+    :param finished_at: 实验结束时间，格式为 ISO 8601，如果不提供则使用当前时间
+    """
+    put_data = {
+        "state": state,
+        "finishedAt": finished_at,
+        "from": "sdk",
+    }
+    put_data = {k: v for k, v in put_data.items() if v is not None}
+    client.put(f"/project/{username}/{projname}/runs/{cuid}/state", put_data)
+
+
+def get_project_experiments(
+    *,
+    path: str,
+    filters: Optional[Dict[str, object]] = None,
+) -> Union[List[RunType], Dict[str, List[RunType]]]:
+    """
+    获取指定项目下的所有实验信息
+    若有实验分组，则返回一个字典，使用时需递归展平实验数据
+    :param path: 项目路径 username/project
+    :param filters: 筛选实验的条件，可选
+    """
+    parsed_filters = (
+        [
+            {
+                "key": to_camel_case(key) if parse_column_type(key) == "STABLE" else key.split(".", 1)[-1],
+                "active": True,
+                "value": [value],
+                "op": "EQ",
+                "type": parse_column_type(key),
+            }
+            for key, value in filters.items()
+        ]
+        if filters
+        else []
+    )
+    return client.post(f"/project/{path}/runs/shows", data={"filters": parsed_filters}).data
+
+
+def get_single_experiment(*, path: str) -> RunType:
+    """
+    获取指定实验信息
+    :param path: 实验路径 username/project/expid
+    """
+    proj_path, expid = path.rsplit("/", 1)
+    return client.get(f"/project/{proj_path}/runs/{expid}").data
+
+
+def get_experiment_metrics(*, expid: str, key: str) -> Dict[str, str]:
+    """
+    获取指定字段的指标数据，返回csv网址
+    :param expid: 实验cuid
+    :param key: 指定字段列表
+    """
+    return client.get(f"/experiment/{expid}/column/csv", params={"key": key}).data
+
+
+def delete_experiment(*, path: str) -> None:
+    """
+    删除指定实验
+    :param path: 实验路径 'username/project/expid'
+    """
+    proj_path, expid = path.rsplit("/", 1)
+    client.delete(f"/project/{proj_path}/runs/{expid}")
