@@ -25,3 +25,4 @@ def make_scalar_record() -> Record:
 def make_ctx(tmp_path) -> RunContext:
     settings = Settings.model_validate({"mode": "cloud", "run": {"id": "test-run-id"}})
     return RunContext(RunConfig(run_dir=tmp_path, settings=settings))
+

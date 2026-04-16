@@ -124,9 +124,9 @@ class TestTimer:
         assert "Error executing task" in trace_mock.call_args[0][0]
 
     def test_double_run_warning(self, timer_manager, monkeypatch):
-        """验证运行中再次调用 run() 只告警不启动重复线程。"""
+        """验证运行中再次调用 run() 出现 debug 日志不启动重复线程。"""
         warning_mock = MagicMock()
-        monkeypatch.setattr(console, "warning", warning_mock)
+        monkeypatch.setattr(console, "debug", warning_mock)
 
         task_triggered = threading.Event()
         timer = timer_manager(task_triggered.set, interval=1.0, immediate=True)
