@@ -5,6 +5,7 @@ import warnings
 
 from google.protobuf import empty_pb2 as google_dot_protobuf_dot_empty__pb2
 from swanlab.proto.swanlab.record.v1 import record_pb2 as swanlab_dot_record_dot_v1_dot_record__pb2
+from swanlab.proto.swanlab.run.v1 import run_pb2 as swanlab_dot_run_dot_v1_dot_run__pb2
 
 GRPC_GENERATED_VERSION = '1.78.0'
 GRPC_VERSION = grpc.__version__
@@ -36,16 +37,33 @@ class RecordServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
+        self.RunStart = channel.unary_unary(
+                '/swanlab.record.v1.RecordService/RunStart',
+                request_serializer=swanlab_dot_run_dot_v1_dot_run__pb2.StartRequest.SerializeToString,
+                response_deserializer=swanlab_dot_run_dot_v1_dot_run__pb2.StartResponse.FromString,
+                _registered_method=True)
         self.UpsertRecord = channel.unary_unary(
                 '/swanlab.record.v1.RecordService/UpsertRecord',
                 request_serializer=swanlab_dot_record_dot_v1_dot_record__pb2.Record.SerializeToString,
                 response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                _registered_method=True)
+        self.RunFinish = channel.unary_unary(
+                '/swanlab.record.v1.RecordService/RunFinish',
+                request_serializer=swanlab_dot_run_dot_v1_dot_run__pb2.FinishRequest.SerializeToString,
+                response_deserializer=swanlab_dot_run_dot_v1_dot_run__pb2.FinishResponse.FromString,
                 _registered_method=True)
 
 
 class RecordServiceServicer(object):
     """RecordService 用于同步或异步地接收实验记录。
     """
+
+    def RunStart(self, request, context):
+        """RunStart 接收单条 StartRequest，用于实验开始，并返回必要的信息。
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
 
     def UpsertRecord(self, request, context):
         """UpsertRecord 接收单条 Record 并写入，用于实验数据的上报。
@@ -54,13 +72,30 @@ class RecordServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def RunFinish(self, request, context):
+        """RunFinish 接收单条 FinishRequest，用于实验结束。
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_RecordServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
+            'RunStart': grpc.unary_unary_rpc_method_handler(
+                    servicer.RunStart,
+                    request_deserializer=swanlab_dot_run_dot_v1_dot_run__pb2.StartRequest.FromString,
+                    response_serializer=swanlab_dot_run_dot_v1_dot_run__pb2.StartResponse.SerializeToString,
+            ),
             'UpsertRecord': grpc.unary_unary_rpc_method_handler(
                     servicer.UpsertRecord,
                     request_deserializer=swanlab_dot_record_dot_v1_dot_record__pb2.Record.FromString,
                     response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            ),
+            'RunFinish': grpc.unary_unary_rpc_method_handler(
+                    servicer.RunFinish,
+                    request_deserializer=swanlab_dot_run_dot_v1_dot_run__pb2.FinishRequest.FromString,
+                    response_serializer=swanlab_dot_run_dot_v1_dot_run__pb2.FinishResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -73,6 +108,33 @@ def add_RecordServiceServicer_to_server(servicer, server):
 class RecordService(object):
     """RecordService 用于同步或异步地接收实验记录。
     """
+
+    @staticmethod
+    def RunStart(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/swanlab.record.v1.RecordService/RunStart',
+            swanlab_dot_run_dot_v1_dot_run__pb2.StartRequest.SerializeToString,
+            swanlab_dot_run_dot_v1_dot_run__pb2.StartResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
 
     @staticmethod
     def UpsertRecord(request,
@@ -91,6 +153,33 @@ class RecordService(object):
             '/swanlab.record.v1.RecordService/UpsertRecord',
             swanlab_dot_record_dot_v1_dot_record__pb2.Record.SerializeToString,
             google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def RunFinish(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/swanlab.record.v1.RecordService/RunFinish',
+            swanlab_dot_run_dot_v1_dot_run__pb2.FinishRequest.SerializeToString,
+            swanlab_dot_run_dot_v1_dot_run__pb2.FinishResponse.FromString,
             options,
             channel_credentials,
             insecure,

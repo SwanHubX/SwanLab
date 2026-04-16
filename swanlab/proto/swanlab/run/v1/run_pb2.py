@@ -25,7 +25,7 @@ _sym_db = _symbol_database.Default()
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x18swanlab/run/v1/run.proto\x12\x0eswanlab.run.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xf8\x01\n\tRunRecord\x12\x0f\n\x07project\x18\x01 \x01(\t\x12\x11\n\tworkspace\x18\x02 \x01(\t\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x04 \x01(\t\x12\x0c\n\x04tags\x18\x05 \x03(\t\x12\r\n\x05group\x18\x06 \x01(\t\x12\x10\n\x08job_type\x18\x07 \x01(\t\x12\r\n\x05\x63olor\x18\x08 \x01(\t\x12\n\n\x02id\x18\t \x01(\t\x12*\n\x06resume\x18\n \x01(\x0e\x32\x1a.swanlab.run.v1.ResumeMode\x12.\n\nstarted_at\x18\x0b \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"\x8a\x01\n\x0c\x46inishRecord\x12\'\n\x05state\x18\x01 \x01(\x0e\x32\x18.swanlab.run.v1.RunState\x12\x11\n\texit_code\x18\x02 \x01(\x05\x12\r\n\x05\x65rror\x18\x03 \x01(\t\x12/\n\x0b\x66inished_at\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.Timestamp*g\n\x08RunState\x12\x15\n\x11RUN_STATE_RUNNING\x10\x00\x12\x16\n\x12RUN_STATE_FINISHED\x10\x01\x12\x15\n\x11RUN_STATE_CRASHED\x10\x02\x12\x15\n\x11RUN_STATE_STOPPED\x10\x03*P\n\nResumeMode\x12\x15\n\x11RESUME_MODE_NEVER\x10\x00\x12\x15\n\x11RESUME_MODE_ALLOW\x10\x01\x12\x14\n\x10RESUME_MODE_MUST\x10\x02\x42=Z;github.com/swanhubx/swanlab/core/proto/swanlab/run/v1;runv1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x18swanlab/run/v1/run.proto\x12\x0eswanlab.run.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x0e\n\x0cStartRequest\"\x0f\n\rStartResponse\"\xfa\x01\n\x0bStartRecord\x12\x0f\n\x07project\x18\x01 \x01(\t\x12\x11\n\tworkspace\x18\x02 \x01(\t\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x04 \x01(\t\x12\x0c\n\x04tags\x18\x05 \x03(\t\x12\r\n\x05group\x18\x06 \x01(\t\x12\x10\n\x08job_type\x18\x07 \x01(\t\x12\r\n\x05\x63olor\x18\x08 \x01(\t\x12\n\n\x02id\x18\t \x01(\t\x12*\n\x06resume\x18\n \x01(\x0e\x32\x1a.swanlab.run.v1.ResumeMode\x12.\n\nstarted_at\x18\x0b \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"\x0f\n\rFinishRequest\"\x10\n\x0e\x46inishResponse\"\x8a\x01\n\x0c\x46inishRecord\x12\'\n\x05state\x18\x01 \x01(\x0e\x32\x18.swanlab.run.v1.RunState\x12\x11\n\texit_code\x18\x02 \x01(\x05\x12\r\n\x05\x65rror\x18\x03 \x01(\t\x12/\n\x0b\x66inished_at\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.Timestamp*g\n\x08RunState\x12\x15\n\x11RUN_STATE_RUNNING\x10\x00\x12\x16\n\x12RUN_STATE_FINISHED\x10\x01\x12\x15\n\x11RUN_STATE_CRASHED\x10\x02\x12\x15\n\x11RUN_STATE_STOPPED\x10\x03*P\n\nResumeMode\x12\x15\n\x11RESUME_MODE_NEVER\x10\x00\x12\x15\n\x11RESUME_MODE_ALLOW\x10\x01\x12\x14\n\x10RESUME_MODE_MUST\x10\x02\x42=Z;github.com/swanhubx/swanlab/core/proto/swanlab/run/v1;runv1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -33,12 +33,20 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'swanlab.run.v1.run_pb2', _g
 if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'Z;github.com/swanhubx/swanlab/core/proto/swanlab/run/v1;runv1'
-  _globals['_RUNSTATE']._serialized_start=469
-  _globals['_RUNSTATE']._serialized_end=572
-  _globals['_RESUMEMODE']._serialized_start=574
-  _globals['_RESUMEMODE']._serialized_end=654
-  _globals['_RUNRECORD']._serialized_start=78
-  _globals['_RUNRECORD']._serialized_end=326
-  _globals['_FINISHRECORD']._serialized_start=329
-  _globals['_FINISHRECORD']._serialized_end=467
+  _globals['_RUNSTATE']._serialized_start=539
+  _globals['_RUNSTATE']._serialized_end=642
+  _globals['_RESUMEMODE']._serialized_start=644
+  _globals['_RESUMEMODE']._serialized_end=724
+  _globals['_STARTREQUEST']._serialized_start=77
+  _globals['_STARTREQUEST']._serialized_end=91
+  _globals['_STARTRESPONSE']._serialized_start=93
+  _globals['_STARTRESPONSE']._serialized_end=108
+  _globals['_STARTRECORD']._serialized_start=111
+  _globals['_STARTRECORD']._serialized_end=361
+  _globals['_FINISHREQUEST']._serialized_start=363
+  _globals['_FINISHREQUEST']._serialized_end=378
+  _globals['_FINISHRESPONSE']._serialized_start=380
+  _globals['_FINISHRESPONSE']._serialized_end=396
+  _globals['_FINISHRECORD']._serialized_start=399
+  _globals['_FINISHRECORD']._serialized_end=537
 # @@protoc_insertion_point(module_scope)

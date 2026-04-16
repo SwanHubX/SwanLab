@@ -30,7 +30,15 @@ RESUME_MODE_NEVER: ResumeMode
 RESUME_MODE_ALLOW: ResumeMode
 RESUME_MODE_MUST: ResumeMode
 
-class RunRecord(_message.Message):
+class StartRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class StartResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class StartRecord(_message.Message):
     __slots__ = ("project", "workspace", "name", "description", "tags", "group", "job_type", "color", "id", "resume", "started_at")
     PROJECT_FIELD_NUMBER: _ClassVar[int]
     WORKSPACE_FIELD_NUMBER: _ClassVar[int]
@@ -55,6 +63,14 @@ class RunRecord(_message.Message):
     resume: ResumeMode
     started_at: _timestamp_pb2.Timestamp
     def __init__(self, project: _Optional[str] = ..., workspace: _Optional[str] = ..., name: _Optional[str] = ..., description: _Optional[str] = ..., tags: _Optional[_Iterable[str]] = ..., group: _Optional[str] = ..., job_type: _Optional[str] = ..., color: _Optional[str] = ..., id: _Optional[str] = ..., resume: _Optional[_Union[ResumeMode, str]] = ..., started_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
+
+class FinishRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class FinishResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
 
 class FinishRecord(_message.Message):
     __slots__ = ("state", "exit_code", "error", "finished_at")
