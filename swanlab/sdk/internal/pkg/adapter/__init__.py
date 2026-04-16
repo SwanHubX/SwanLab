@@ -29,7 +29,7 @@ state = BiMap(
     {
         "success": RunState.RUN_STATE_FINISHED,
         "crashed": RunState.RUN_STATE_CRASHED,
-        "aborted": RunState.RUN_STATE_STOPPED,
+        "aborted": RunState.RUN_STATE_ABORTED,
     }
 )
 """RunState 枚举适配器"""

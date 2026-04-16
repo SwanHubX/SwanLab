@@ -27,9 +27,9 @@ from google.protobuf.timestamp_pb2 import Timestamp
 from swanlab.proto.swanlab.config.v1.config_pb2 import UpdateType
 from swanlab.sdk.internal.bus.events import ConfigEvent
 
-from ._helper import revert_config
-from ._parse import parse
-from ._writer import write_config
+from .helper import revert_config
+from .parse import parse
+from .writer import write_config
 
 __all__ = [
     "Config",

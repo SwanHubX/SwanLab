@@ -13,7 +13,6 @@ from google.protobuf.timestamp_pb2 import Timestamp
 from swanlab.proto.swanlab.config.v1.config_pb2 import ConfigRecord
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnClass, ColumnRecord, ColumnType, SectionType
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
-from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord, RunRecord
 from swanlab.proto.swanlab.system.v1.console_pb2 import ConsoleRecord
 from swanlab.proto.swanlab.system.v1.env_pb2 import CondaRecord, MetadataRecord, RequirementsRecord
 from swanlab.sdk.internal.bus.events import (
@@ -23,8 +22,6 @@ from swanlab.sdk.internal.bus.events import (
     MetadataEvent,
     ParseResult,
     RequirementsEvent,
-    RunFinishEvent,
-    RunStartEvent,
     ScalarDefineEvent,
 )
 from swanlab.sdk.internal.context import RunContext, TransformMedia
@@ -123,37 +120,6 @@ class RecordBuilder:
             metric_colors=[event.color, event.color] if event.color else [],
         )
         return self._wrap(column=col)
-
-    # ── Run 生命周期 ──
-
-    def build_run(self, event: RunStartEvent) -> Record:
-        """构建 RunRecord envelope"""
-        settings = self._ctx.config.settings
-        run_record = RunRecord(
-            project=settings.project.name,
-            workspace=settings.project.workspace,
-            name=settings.experiment.name,
-            color=settings.experiment.color,
-            description=settings.experiment.description,
-            job_type=settings.experiment.job_type,
-            group=settings.experiment.group,
-            tags=settings.experiment.tags,
-            id=settings.run.id,
-            resume=adapter.resume.get(settings.run.resume),
-            started_at=event.timestamp,
-        )
-        return self._wrap(run=run_record)
-
-    def build_finish(self, event: RunFinishEvent) -> Record:
-        """构建 FinishRecord envelope"""
-        ts = Timestamp()
-        ts.GetCurrentTime()
-        finish = FinishRecord(
-            state=adapter.state.get(event.state),
-            error=event.error or "",
-            finished_at=ts,
-        )
-        return self._wrap(finish=finish)
 
     # ── 系统元数据 ──
 

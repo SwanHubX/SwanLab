@@ -13,7 +13,7 @@ from collections.abc import MutableMapping
 from dataclasses import asdict, is_dataclass
 from typing import Any, cast
 
-__all__ = ["parse"]
+__all__ = ["parse", "json_serializable", "adapt_third_party"]
 
 # 基础原生类型（子类需要向上转型）
 _BASE_TYPES = (int, float, str)
@@ -67,7 +67,7 @@ def json_serializable(obj: Any) -> Any:
         raise TypeError(f"Object {obj!r} is not JSON serializable")
 
 
-def _adapt_third_party(data: Any) -> dict:
+def adapt_third_party(data: Any) -> dict:
     """
     适配第三方配置对象，转换为普通 dict。
 
@@ -125,7 +125,7 @@ def parse(config: Any) -> dict:
 
     # 1. 第三方类型适配
     try:
-        return _adapt_third_party(config)
+        return adapt_third_party(config)
     except TypeError:
         pass
 

@@ -20,12 +20,10 @@ from swanlab.sdk.internal.bus.events import (
     MetadataEvent,
     MetricLogEvent,
     RequirementsEvent,
-    RunFinishEvent,
     ScalarDefineEvent,
 )
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.pkg import console, safe
-from swanlab.sdk.internal.protocol.core import CoreProtocol
 
 from .record_builder import RecordBuilder
 
@@ -38,14 +36,22 @@ class ConsumerProtocol(ABC):
         ctx: RunContext,
         event_queue: RunQueue,
         builder: RecordBuilder,
-        core: CoreProtocol,
         flush_timeout: float = 0.5,
         batch_size: int = 100,
     ): ...
 
     def start(self) -> None: ...
 
+    def stop(self) -> None: ...
+
     def join(self) -> None: ...
+
+
+class StopEvent:
+    pass
+
+
+_STOP = StopEvent()
 
 
 class BackgroundConsumer(ConsumerProtocol):
@@ -54,15 +60,14 @@ class BackgroundConsumer(ConsumerProtocol):
         ctx: RunContext,
         event_queue: RunQueue,
         builder: RecordBuilder,
-        core: CoreProtocol,
         flush_timeout: float = 0.5,
         batch_size: int = 100,
     ):
-        super().__init__(ctx, event_queue, builder, core, flush_timeout, batch_size)
+        super().__init__(ctx, event_queue, builder, flush_timeout, batch_size)
         self._ctx = ctx
         self._queue = event_queue
         self._builder = builder
-        self._core = core
+        self._core = ctx.core
         self._flush_timeout = flush_timeout
         self._batch_size = batch_size
         self._thread = threading.Thread(target=self._run, name="SwanLab·Specter", daemon=True)
@@ -78,6 +83,9 @@ class BackgroundConsumer(ConsumerProtocol):
         if self._thread.is_alive():
             self._thread.join()
 
+    def stop(self) -> None:
+        self._queue.put(_STOP)  # type: ignore[arg-type]
+
     def _run(self) -> None:
         batch: FlushPayload = []
         # 记录已创建的列，完全避免多线程锁竞争
@@ -90,9 +98,8 @@ class BackgroundConsumer(ConsumerProtocol):
                     event = self._queue.get(timeout=self._flush_timeout)
 
                     # 1. 退出信号
-                    if isinstance(event, RunFinishEvent):
+                    if event is _STOP:
                         self._flush(batch)
-                        self._builder.build_finish(event)
                         break
                     # 3. 记录数据（可能触发隐式创建 Implicit Define）
                     elif isinstance(event, MetricLogEvent):

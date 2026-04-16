@@ -10,6 +10,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, List
 
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
+from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRequest, FinishResponse, StartRequest, StartResponse
 
 if TYPE_CHECKING:
     from swanlab.sdk.internal.context import RunContext
@@ -32,7 +33,7 @@ class CoreProtocol(ABC):
         self._ctx = ctx
 
     @abstractmethod
-    def start(self):
+    def start(self, start_request: StartRequest) -> StartResponse:
         """
         实验开始，同步事件，等待确认
         """
@@ -51,7 +52,7 @@ class CoreProtocol(ABC):
         ...
 
     @abstractmethod
-    def finish(self):
+    def finish(self, finish_request: FinishRequest) -> FinishResponse:
         """
         发送运行结束事件，同步事件，等待确认
         """

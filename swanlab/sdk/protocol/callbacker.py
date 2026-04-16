@@ -24,7 +24,7 @@ class Callback(ABC):
         :param run_dir: The directory path where the run is stored.
         :param path: The cloud routing path of the experiment, formatted as `/:project/:run_id`.
         """
-        pass
+        ...
 
     def on_metadata_update(self, *args, **kwargs) -> None:
         """
@@ -34,7 +34,7 @@ class Callback(ABC):
         - Hardware/Host information
         - Environment information
         """
-        pass
+        ...
 
     def on_column_created(self, column: Any, *args, **kwargs) -> None:
         """
@@ -42,7 +42,7 @@ class Callback(ABC):
 
         :param column: The column object containing the newly created schema information.
         """
-        pass
+        ...
 
     def on_metric_created(self, metric: Any, *args, **kwargs) -> None:
         """
@@ -50,7 +50,13 @@ class Callback(ABC):
 
         :param metric: The metric object representing the newly created metric.
         """
-        pass
+        ...
+
+    def on_run_fork(self) -> None:
+        """
+        Called when the run is forked (e.g., in a multi-process setting).
+        """
+        ...
 
     def on_run_finished(self, state: str, error: Optional[str] = None) -> None:
         """
@@ -59,7 +65,7 @@ class Callback(ABC):
         :param state: The final state of the run (e.g., "finished", "crashed", "aborted").
         :param error: The error message or stack trace if the run exited abnormally, otherwise None.
         """
-        pass
+        ...
 
     @property
     @abstractmethod
@@ -72,4 +78,4 @@ class Callback(ABC):
 
         :return: A unique string identifier.
         """
-        pass
+        ...

@@ -22,14 +22,13 @@ from typing import Any, Callable, Literal, Mapping, Optional, Type, Union, cast,
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
+from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRequest
 from swanlab.sdk.internal.bus.events import (
     MetricLogEvent,
-    RunFinishEvent,
-    RunStartEvent,
     ScalarDefineEvent,
 )
 from swanlab.sdk.internal.context import RunContext
-from swanlab.sdk.internal.pkg import console, safe
+from swanlab.sdk.internal.pkg import adapter, console, safe
 from swanlab.sdk.internal.run import system
 from swanlab.sdk.internal.run.async_task import AsyncTaskManager
 from swanlab.sdk.internal.run.config import (
@@ -47,7 +46,7 @@ from swanlab.sdk.typings.run.transforms.video import VideoDatasType
 
 from ..pkg.console import log
 from . import utils_fmt as fmt
-from .factory import factory_config, factory_consumer, factory_core, factory_emitter, factory_monitor
+from .factory import factory_config, factory_consumer, factory_emitter, factory_monitor
 from .record_builder import RecordBuilder
 
 __all__ = ["Run", "has_run", "get_run", "set_run", "clear_run"]
@@ -128,8 +127,7 @@ class Run:
         self._builder = RecordBuilder(self._ctx)
         self._emitter = factory_emitter(self._ctx)
         self._config = factory_config(self._ctx, self._emitter)
-        self._core = factory_core(self._ctx)
-        self._consumer = factory_consumer(self._ctx, self._emitter, self._core, self._builder)
+        self._consumer = factory_consumer(self._ctx, self._emitter, self._builder)
         # self._monitor is not None 则代表硬件监控开启
         self._monitor: Optional[system.Monitor] = None
 
@@ -145,10 +143,6 @@ class Run:
         signal.signal(signal.SIGINT, self._handle_sigint)
 
         # 3. 初始化完成
-        # 触发启动事件
-        ts = Timestamp()
-        ts.GetCurrentTime()
-        self._emitter.emit(RunStartEvent(timestamp=ts))
         # 启动硬件监控
         self._monitor = factory_monitor(self._ctx, self._emitter)
         # 启动后台消费者
@@ -605,7 +599,6 @@ class Run:
         if state == "crashed" and error is None:
             console.warning("Crashed reason has been set to 'unknown' due to missing error message.")
             error = "unknown"
-
         # 2. 运行结束前，结束其他依赖于运行实例的线程
         # 2.1 等待所有 async_log 任务完成
         console.debug("Waiting for async_log tasks to complete...")
@@ -617,18 +610,23 @@ class Run:
 
         # 3. 运行结束
         self._state = this_state
+        # 停止时间
+        ts = Timestamp()
+        ts.GetCurrentTime()
         # 3.1 TODO: goodbye message
 
         # 3.2 TODO: 停止终端代理
 
-        # 3.3 停止Core线程
+        # 3.3 停止消费者线程
         console.debug("SwanLab Run is finishing, waiting for logs to flush...")
-        ts = Timestamp()
-        ts.GetCurrentTime()
-        self._emitter.emit(RunFinishEvent(state=this_state, error=error, timestamp=ts))
+        self._consumer.stop()
         self._consumer.join()
+        # 3.4 停止Core线程
+        finish_resp = self._ctx.core.finish(FinishRequest(state=adapter.state[this_state], error=error, finished_at=ts))
+        if not finish_resp.success:
+            console.error("Failed to finish run with error:", finish_resp.message)
         console.debug(f"SwanLab Run has finished with state: {self._state}, cleanup...")
-        # 3.4 清理副作用
+        # 3.5 清理副作用
         console.debug("Cleanup system hook...")
         atexit.unregister(self._handle_atexit)
         sys.excepthook = self._sys_origin_excepthook

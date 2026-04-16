@@ -8,12 +8,23 @@ option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/run/v1;runv1
 
 // Run 创建请求
 message StartRequest {
-
+  string project         = 1;
+  string workspace       = 2;  // 组织或用户名
+  string name            = 3;
+  string description     = 4;
+  repeated string tags   = 5;
+  string group           = 6;
+  string job_type        = 7;
+  string id              = 8;
+  ResumeMode resume      = 9;
+  google.protobuf.Timestamp started_at = 10;
 }
 
 // Run 创建响应
 message StartResponse {
-
+  bool success   = 1;  // 请求是否成功
+  string message = 2;  // 请求失败的响应
+  string color   = 3;  // 十六进制颜色，如 "#FF5733"
 }
 
 // Run 创建记录，对应 swanlab.init(...) 调用，写入一次。
@@ -33,29 +44,31 @@ message StartRecord {
 
 // Run 结束请求
 message FinishRequest{
-
+  RunState state = 1;
+  string error = 2;
+  google.protobuf.Timestamp finished_at = 3;
 }
 
 // Run 结束响应
 message FinishResponse {
-
+  bool success   = 1;  // 请求是否成功
+  string message = 2;  // 请求失败的响应
 }
 
 
 // Run 结束记录，对应 swanlab.finish() 或进程退出，写入一次。
 message FinishRecord {
   RunState state    = 1;
-  int32    exit_code = 2;
   // 异常信息，state=CRASHED 时填充
-  string   error    = 3;
-  google.protobuf.Timestamp finished_at = 4;
+  string   error    = 2;
+  google.protobuf.Timestamp finished_at = 3;
 }
 
 enum RunState {
   RUN_STATE_RUNNING     = 0;
   RUN_STATE_FINISHED    = 1;  // 正常结束
   RUN_STATE_CRASHED     = 2;  // 异常退出
-  RUN_STATE_STOPPED     = 3;  // 用户主动中断（KeyboardInterrupt 等）
+  RUN_STATE_ABORTED     = 3;  // 用户主动中断（KeyboardInterrupt 等）
 }
 
 enum ResumeMode {

@@ -7,6 +7,6 @@
 """
 
 from .callbacker import Callback
-from .core import CoreProtocol
+from .core import CoreEnum, CoreProtocol
 
-__all__ = ["Callback", "CoreProtocol"]
+__all__ = ["Callback", "CoreProtocol", "CoreEnum"]

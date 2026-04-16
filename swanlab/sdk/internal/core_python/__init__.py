@@ -17,8 +17,9 @@ BackgroundConsumer 等调用方无需修改。
 from typing import List
 
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
+from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRequest, FinishResponse, StartRequest, StartResponse
 from swanlab.sdk.internal.context import CallbackManager, RunContext
-from swanlab.sdk.internal.protocol.core import CoreProtocol
+from swanlab.sdk.protocol import CoreProtocol
 
 __all__ = ["CorePython"]
 
@@ -33,8 +34,7 @@ class CorePython(CoreProtocol):
         super().__init__(ctx)
         self._callbacker: CallbackManager = ctx.callbacker
 
-    def start(self):
-        pass
+    def start(self, start_request: StartRequest) -> StartResponse: ...
 
     def publish(self, records: List[Record]) -> None:
         pass
@@ -44,5 +44,4 @@ class CorePython(CoreProtocol):
             "CorePython.fork() is not implemented. Please waiting for go version, while you should not reach here?"
         )
 
-    def finish(self):
-        pass
+    def finish(self, finish_request: FinishRequest) -> FinishResponse: ...

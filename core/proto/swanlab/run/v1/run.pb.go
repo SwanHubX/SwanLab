@@ -28,7 +28,7 @@ const (
 	RunState_RUN_STATE_RUNNING  RunState = 0
 	RunState_RUN_STATE_FINISHED RunState = 1 // 正常结束
 	RunState_RUN_STATE_CRASHED  RunState = 2 // 异常退出
-	RunState_RUN_STATE_STOPPED  RunState = 3 // 用户主动中断（KeyboardInterrupt 等）
+	RunState_RUN_STATE_ABORTED  RunState = 3 // 用户主动中断（KeyboardInterrupt 等）
 )
 
 // Enum value maps for RunState.
@@ -37,13 +37,13 @@ var (
 		0: "RUN_STATE_RUNNING",
 		1: "RUN_STATE_FINISHED",
 		2: "RUN_STATE_CRASHED",
-		3: "RUN_STATE_STOPPED",
+		3: "RUN_STATE_ABORTED",
 	}
 	RunState_value = map[string]int32{
 		"RUN_STATE_RUNNING":  0,
 		"RUN_STATE_FINISHED": 1,
 		"RUN_STATE_CRASHED":  2,
-		"RUN_STATE_STOPPED":  3,
+		"RUN_STATE_ABORTED":  3,
 	}
 )
 
@@ -126,6 +126,16 @@ func (ResumeMode) EnumDescriptor() ([]byte, []int) {
 // Run 创建请求
 type StartRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	Project       string                 `protobuf:"bytes,1,opt,name=project,proto3" json:"project,omitempty"`
+	Workspace     string                 `protobuf:"bytes,2,opt,name=workspace,proto3" json:"workspace,omitempty"` // 组织或用户名
+	Name          string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	Description   string                 `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty"`
+	Tags          []string               `protobuf:"bytes,5,rep,name=tags,proto3" json:"tags,omitempty"`
+	Group         string                 `protobuf:"bytes,6,opt,name=group,proto3" json:"group,omitempty"`
+	JobType       string                 `protobuf:"bytes,7,opt,name=job_type,json=jobType,proto3" json:"job_type,omitempty"`
+	Id            string                 `protobuf:"bytes,8,opt,name=id,proto3" json:"id,omitempty"`
+	Resume        ResumeMode             `protobuf:"varint,9,opt,name=resume,proto3,enum=swanlab.run.v1.ResumeMode" json:"resume,omitempty"`
+	StartedAt     *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -160,9 +170,82 @@ func (*StartRequest) Descriptor() ([]byte, []int) {
 	return file_swanlab_run_v1_run_proto_rawDescGZIP(), []int{0}
 }
 
+func (x *StartRequest) GetProject() string {
+	if x != nil {
+		return x.Project
+	}
+	return ""
+}
+
+func (x *StartRequest) GetWorkspace() string {
+	if x != nil {
+		return x.Workspace
+	}
+	return ""
+}
+
+func (x *StartRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *StartRequest) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *StartRequest) GetTags() []string {
+	if x != nil {
+		return x.Tags
+	}
+	return nil
+}
+
+func (x *StartRequest) GetGroup() string {
+	if x != nil {
+		return x.Group
+	}
+	return ""
+}
+
+func (x *StartRequest) GetJobType() string {
+	if x != nil {
+		return x.JobType
+	}
+	return ""
+}
+
+func (x *StartRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *StartRequest) GetResume() ResumeMode {
+	if x != nil {
+		return x.Resume
+	}
+	return ResumeMode_RESUME_MODE_NEVER
+}
+
+func (x *StartRequest) GetStartedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.StartedAt
+	}
+	return nil
+}
+
 // Run 创建响应
 type StartResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"` // 请求是否成功
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`  // 请求失败的响应
+	Color         string                 `protobuf:"bytes,3,opt,name=color,proto3" json:"color,omitempty"`      // 十六进制颜色，如 "#FF5733"
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -195,6 +278,27 @@ func (x *StartResponse) ProtoReflect() protoreflect.Message {
 // Deprecated: Use StartResponse.ProtoReflect.Descriptor instead.
 func (*StartResponse) Descriptor() ([]byte, []int) {
 	return file_swanlab_run_v1_run_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *StartResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *StartResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *StartResponse) GetColor() string {
+	if x != nil {
+		return x.Color
+	}
+	return ""
 }
 
 // Run 创建记录，对应 swanlab.init(...) 调用，写入一次。
@@ -325,6 +429,9 @@ func (x *StartRecord) GetStartedAt() *timestamppb.Timestamp {
 // Run 结束请求
 type FinishRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	State         RunState               `protobuf:"varint,1,opt,name=state,proto3,enum=swanlab.run.v1.RunState" json:"state,omitempty"`
+	Error         string                 `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
+	FinishedAt    *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=finished_at,json=finishedAt,proto3" json:"finished_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -359,9 +466,32 @@ func (*FinishRequest) Descriptor() ([]byte, []int) {
 	return file_swanlab_run_v1_run_proto_rawDescGZIP(), []int{3}
 }
 
+func (x *FinishRequest) GetState() RunState {
+	if x != nil {
+		return x.State
+	}
+	return RunState_RUN_STATE_RUNNING
+}
+
+func (x *FinishRequest) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+func (x *FinishRequest) GetFinishedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.FinishedAt
+	}
+	return nil
+}
+
 // Run 结束响应
 type FinishResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"` // 请求是否成功
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`  // 请求失败的响应
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -396,14 +526,27 @@ func (*FinishResponse) Descriptor() ([]byte, []int) {
 	return file_swanlab_run_v1_run_proto_rawDescGZIP(), []int{4}
 }
 
+func (x *FinishResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *FinishResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
 // Run 结束记录，对应 swanlab.finish() 或进程退出，写入一次。
 type FinishRecord struct {
-	state    protoimpl.MessageState `protogen:"open.v1"`
-	State    RunState               `protobuf:"varint,1,opt,name=state,proto3,enum=swanlab.run.v1.RunState" json:"state,omitempty"`
-	ExitCode int32                  `protobuf:"varint,2,opt,name=exit_code,json=exitCode,proto3" json:"exit_code,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	State RunState               `protobuf:"varint,1,opt,name=state,proto3,enum=swanlab.run.v1.RunState" json:"state,omitempty"`
 	// 异常信息，state=CRASHED 时填充
-	Error         string                 `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`
-	FinishedAt    *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=finished_at,json=finishedAt,proto3" json:"finished_at,omitempty"`
+	Error         string                 `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
+	FinishedAt    *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=finished_at,json=finishedAt,proto3" json:"finished_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -445,13 +588,6 @@ func (x *FinishRecord) GetState() RunState {
 	return RunState_RUN_STATE_RUNNING
 }
 
-func (x *FinishRecord) GetExitCode() int32 {
-	if x != nil {
-		return x.ExitCode
-	}
-	return 0
-}
-
 func (x *FinishRecord) GetError() string {
 	if x != nil {
 		return x.Error
@@ -470,9 +606,24 @@ var File_swanlab_run_v1_run_proto protoreflect.FileDescriptor
 
 const file_swanlab_run_v1_run_proto_rawDesc = "" +
 	"\n" +
-	"\x18swanlab/run/v1/run.proto\x12\x0eswanlab.run.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x0e\n" +
-	"\fStartRequest\"\x0f\n" +
-	"\rStartResponse\"\xd5\x02\n" +
+	"\x18swanlab/run/v1/run.proto\x12\x0eswanlab.run.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xc0\x02\n" +
+	"\fStartRequest\x12\x18\n" +
+	"\aproject\x18\x01 \x01(\tR\aproject\x12\x1c\n" +
+	"\tworkspace\x18\x02 \x01(\tR\tworkspace\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12 \n" +
+	"\vdescription\x18\x04 \x01(\tR\vdescription\x12\x12\n" +
+	"\x04tags\x18\x05 \x03(\tR\x04tags\x12\x14\n" +
+	"\x05group\x18\x06 \x01(\tR\x05group\x12\x19\n" +
+	"\bjob_type\x18\a \x01(\tR\ajobType\x12\x0e\n" +
+	"\x02id\x18\b \x01(\tR\x02id\x122\n" +
+	"\x06resume\x18\t \x01(\x0e2\x1a.swanlab.run.v1.ResumeModeR\x06resume\x129\n" +
+	"\n" +
+	"started_at\x18\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\tstartedAt\"Y\n" +
+	"\rStartResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\x12\x14\n" +
+	"\x05color\x18\x03 \x01(\tR\x05color\"\xd5\x02\n" +
 	"\vStartRecord\x12\x18\n" +
 	"\aproject\x18\x01 \x01(\tR\aproject\x12\x1c\n" +
 	"\tworkspace\x18\x02 \x01(\tR\tworkspace\x12\x12\n" +
@@ -486,20 +637,25 @@ const file_swanlab_run_v1_run_proto_rawDesc = "" +
 	"\x06resume\x18\n" +
 	" \x01(\x0e2\x1a.swanlab.run.v1.ResumeModeR\x06resume\x129\n" +
 	"\n" +
-	"started_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tstartedAt\"\x0f\n" +
-	"\rFinishRequest\"\x10\n" +
-	"\x0eFinishResponse\"\xae\x01\n" +
+	"started_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tstartedAt\"\x92\x01\n" +
+	"\rFinishRequest\x12.\n" +
+	"\x05state\x18\x01 \x01(\x0e2\x18.swanlab.run.v1.RunStateR\x05state\x12\x14\n" +
+	"\x05error\x18\x02 \x01(\tR\x05error\x12;\n" +
+	"\vfinished_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"finishedAt\"D\n" +
+	"\x0eFinishResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"\x91\x01\n" +
 	"\fFinishRecord\x12.\n" +
-	"\x05state\x18\x01 \x01(\x0e2\x18.swanlab.run.v1.RunStateR\x05state\x12\x1b\n" +
-	"\texit_code\x18\x02 \x01(\x05R\bexitCode\x12\x14\n" +
-	"\x05error\x18\x03 \x01(\tR\x05error\x12;\n" +
-	"\vfinished_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"\x05state\x18\x01 \x01(\x0e2\x18.swanlab.run.v1.RunStateR\x05state\x12\x14\n" +
+	"\x05error\x18\x02 \x01(\tR\x05error\x12;\n" +
+	"\vfinished_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
 	"finishedAt*g\n" +
 	"\bRunState\x12\x15\n" +
 	"\x11RUN_STATE_RUNNING\x10\x00\x12\x16\n" +
 	"\x12RUN_STATE_FINISHED\x10\x01\x12\x15\n" +
 	"\x11RUN_STATE_CRASHED\x10\x02\x12\x15\n" +
-	"\x11RUN_STATE_STOPPED\x10\x03*P\n" +
+	"\x11RUN_STATE_ABORTED\x10\x03*P\n" +
 	"\n" +
 	"ResumeMode\x12\x15\n" +
 	"\x11RESUME_MODE_NEVER\x10\x00\x12\x15\n" +
@@ -532,15 +688,19 @@ var file_swanlab_run_v1_run_proto_goTypes = []any{
 	(*timestamppb.Timestamp)(nil), // 8: google.protobuf.Timestamp
 }
 var file_swanlab_run_v1_run_proto_depIdxs = []int32{
-	1, // 0: swanlab.run.v1.StartRecord.resume:type_name -> swanlab.run.v1.ResumeMode
-	8, // 1: swanlab.run.v1.StartRecord.started_at:type_name -> google.protobuf.Timestamp
-	0, // 2: swanlab.run.v1.FinishRecord.state:type_name -> swanlab.run.v1.RunState
-	8, // 3: swanlab.run.v1.FinishRecord.finished_at:type_name -> google.protobuf.Timestamp
-	4, // [4:4] is the sub-list for method output_type
-	4, // [4:4] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	1, // 0: swanlab.run.v1.StartRequest.resume:type_name -> swanlab.run.v1.ResumeMode
+	8, // 1: swanlab.run.v1.StartRequest.started_at:type_name -> google.protobuf.Timestamp
+	1, // 2: swanlab.run.v1.StartRecord.resume:type_name -> swanlab.run.v1.ResumeMode
+	8, // 3: swanlab.run.v1.StartRecord.started_at:type_name -> google.protobuf.Timestamp
+	0, // 4: swanlab.run.v1.FinishRequest.state:type_name -> swanlab.run.v1.RunState
+	8, // 5: swanlab.run.v1.FinishRequest.finished_at:type_name -> google.protobuf.Timestamp
+	0, // 6: swanlab.run.v1.FinishRecord.state:type_name -> swanlab.run.v1.RunState
+	8, // 7: swanlab.run.v1.FinishRecord.finished_at:type_name -> google.protobuf.Timestamp
+	8, // [8:8] is the sub-list for method output_type
+	8, // [8:8] is the sub-list for method input_type
+	8, // [8:8] is the sub-list for extension type_name
+	8, // [8:8] is the sub-list for extension extendee
+	0, // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_swanlab_run_v1_run_proto_init() }
