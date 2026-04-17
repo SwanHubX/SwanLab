@@ -52,10 +52,10 @@ class Dispatch:
         grouped = group_records_by_type(records)
         keys = list(grouped.keys())
         for i, kind in enumerate(keys):
-            success, failed = self._handle_record_by_type(kind, grouped[kind])
-            if not success:
+            is_success, failed_list = self._handle_record_by_type(kind, grouped[kind])
+            if not is_success:
                 # 当前组失败部分 + 后续所有未处理组统一回滚，保持顺序
-                to_rollback = failed + [record for key in keys[i + 1 :] for record in grouped[key]]
+                to_rollback = failed_list + [record for key in keys[i + 1 :] for record in grouped[key]]
                 with self._cond:
                     self._buf.prepend(to_rollback)
                 return False
@@ -78,7 +78,7 @@ class Dispatch:
                     success = True
                     break
                 except Exception:
-                    console.trace("record chunk upload failed", level_name="error")
+                    console.trace(f"record chunk upload failed, retrying ({attempt + 1}) times..", level_name="error")
                     if attempt < self._max_retries - 1:
                         time.sleep(self._initial_backoff * (2**attempt))
 
