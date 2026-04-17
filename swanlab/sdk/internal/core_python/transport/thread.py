@@ -6,6 +6,7 @@
 """
 
 import threading
+import time
 from typing import Callable, List, Optional
 
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
@@ -117,6 +118,7 @@ class Transport:
                 consecutive_failures = 0
             else:
                 consecutive_failures += 1
+                time.sleep(self._batch_interval)
 
 
 __all__ = [

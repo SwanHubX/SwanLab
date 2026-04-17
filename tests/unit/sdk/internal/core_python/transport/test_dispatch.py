@@ -15,7 +15,7 @@ def test_dispatch_groups_by_type(make_scalar_record, make_config_record):
     metric_records = [make_scalar_record(step=1), make_scalar_record(step=2)]
     config_records = [make_config_record()]
 
-    with patch.object(dispatch, "_upload_typed") as mock_upload:
+    with patch.object(dispatch, "_upload_typed", return_value=[]) as mock_upload:
         dispatch(metric_records + config_records)
         calls = mock_upload.call_args_list
         # metric 先出现所以先分发
@@ -31,7 +31,7 @@ def test_dispatch_calls_correct_handler(make_scalar_record):
 
     records = [make_scalar_record(step=1)]
 
-    with patch.object(dispatch, "_upload_typed") as mock_upload:
+    with patch.object(dispatch, "_upload_typed", return_value=[]) as mock_upload:
         dispatch(records)
         mock_upload.assert_called_once_with("metric", records)
 
@@ -75,7 +75,36 @@ def test_dispatch_skips_unknown_type(make_scalar_record):
 
         mock_group.return_value = OrderedDict({"unknown_kind": [make_scalar_record(step=1)]})
 
-        with patch.object(dispatch, "_upload_typed") as mock_upload:
+        with patch.object(dispatch, "_upload_typed", return_value=[]) as mock_upload:
             dispatch([make_scalar_record(step=1)])
             # unknown_kind 没有 _handle_unknown_kind，getattr 返回 None，不调用
             mock_upload.assert_not_called()
+
+
+# ─────────────────── mixed type rollback ───────────────────
+
+
+def test_dispatch_mixed_type_partial_failure_rollback(make_scalar_record, make_config_record):
+    """混合类型中一种上传失败时，后续类型的 records 也被统一回滚到 buffer。"""
+    cond = threading.Condition()
+    buffer = []
+
+    mock_sender = MagicMock()
+
+    def upload_side_effect(record_type, records):
+        if record_type == "metric":
+            raise RuntimeError("upload failed")
+
+    mock_sender.upload.side_effect = upload_side_effect
+    dispatch = Dispatch(cond=cond, buffer=buffer, sender=mock_sender)
+
+    metric_records = [make_scalar_record(step=1)]
+    config_records = [make_config_record()]
+
+    with patch("swanlab.sdk.internal.core_python.transport.dispatch.console"):
+        dispatch(metric_records + config_records)
+
+    # metric 失败 + config 未处理，两者都应回滚到 buffer
+    assert len(buffer) == 2
+    assert buffer[0] is metric_records[0]
+    assert buffer[1] is config_records[0]

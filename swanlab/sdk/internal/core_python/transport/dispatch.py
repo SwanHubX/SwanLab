@@ -51,8 +51,16 @@ class Dispatch:
     def __call__(self, records: List[Record]) -> bool:
         """聚合 + 分发入口。返回 True 表示全部成功，False 表示有回滚。"""
         grouped = group_records_by_type(records)
-        for kind, typed_records in grouped.items():
-            if not self._handle_record_by_type(kind, typed_records):
+        keys = list(grouped.keys())
+        for i, kind in enumerate(keys):
+            failed = self._handle_record_by_type(kind, grouped[kind])
+            if failed:
+                # 当前组失败部分 + 后续所有未处理组统一回滚，保持顺序
+                to_rollback = failed
+                for j in range(i + 1, len(keys)):
+                    to_rollback.extend(grouped[keys[j]])
+                with self._cond:
+                    self._buffer[:0] = to_rollback
                 return False
         return True
 
@@ -65,12 +73,11 @@ class Dispatch:
         self._sender.upload(record_type, chunk)
         return True
 
-    # ── 通用 record 上传函数 + 指数退避重试 + 失败回滚 ──
-    def _upload_typed(self, record_type: str, records: List[Record]) -> bool:
+    # ── 通用 record 上传函数 + 指数退避重试 ──
+    def _upload_typed(self, record_type: str, records: List[Record]) -> List[Record]:
         """
-        将 records 按类型处理：分片 → sender 上传 → 回调。
-        上传失败时按指数退避重试，重试耗尽后回滚到 buffer 头部。
-        返回 True 表示全部成功，False 表示有回滚。
+        按 record_type 分片上传，指数退避重试。
+        成功返回 []，失败返回未上传的 records 列表，由 __call__ 统一回滚。
         """
         uploaded_count = 0
         for chunk, chunk_len in generate_chunks(records, _PER_REQUEST_LEN):
@@ -80,7 +87,6 @@ class Dispatch:
                 if result is True:
                     success = True
                     break
-                # 指数退避：最后一次失败不等待
                 if attempt < self._max_retries - 1:
                     delay = self._initial_backoff * (2**attempt)
                     time.sleep(delay)
@@ -90,18 +96,15 @@ class Dispatch:
                 if self._upload_callback:
                     self._upload_callback(chunk_len)
             else:
-                # 重试耗尽 → 回滚未上传记录到 buffer
-                with self._cond:
-                    self._buffer[:0] = records[uploaded_count:]
-                return False
-        return True
+                return records[uploaded_count:]
+        return []
 
-    def _handle_record_by_type(self, kind: str, records: List[Record]) -> bool:
-        """按 kind 路由到 _upload_typed，与 HttpRecordSender.upload_{kind} 对齐。"""
+    def _handle_record_by_type(self, kind: str, records: List[Record]) -> List[Record]:
+        """按 kind 路由到 _upload_typed，返回失败的 records 列表。"""
         if kind in self._RECORD_TYPES:
             return self._upload_typed(kind, records)
         console.warning(f"No handler for record kind={kind!r}, skipping {len(records)} records.")
-        return True  # 未知类型视为跳过成功，不触发回滚计数
+        return []
 
 
 __all__ = [
