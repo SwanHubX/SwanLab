@@ -9,8 +9,13 @@ import threading
 from typing import Callable, List, Optional
 
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
+from swanlab.sdk.internal.pkg import console
 
 from .dispatch import Dispatch
+from .sender import HttpRecordSender
+
+# 连续上传回滚超限后放弃 buffer 退出
+_MAX_CONSECUTIVE_FAILURES = 3
 
 
 class Transport:
@@ -30,6 +35,7 @@ class Transport:
         self,
         batch_interval: Optional[float] = None,
         upload_callback: Optional[Callable[[int], None]] = None,
+        sender: Optional[HttpRecordSender] = None,
         auto_start: bool = True,
     ):
         self._batch_interval = self.BATCH_INTERVAL if batch_interval is None else batch_interval
@@ -41,7 +47,10 @@ class Transport:
         self._started = False
         self._thread: Optional[threading.Thread] = None
 
+        # Transport 持有 sender，负责创建/注入/关闭
+        self._sender = sender if sender is not None else HttpRecordSender()
         self._dispatcher = Dispatch(cond=self._cond, buffer=self._buffer, upload_callback=self._upload_callback)
+        self._dispatcher.set_sender(self._sender)
 
         if auto_start:
             self.start()
@@ -63,7 +72,7 @@ class Transport:
             self._cond.notify()
 
     def finish(self) -> None:
-        """通知线程停止，等待最终排空。"""
+        """通知线程停止，等待最终排空，关闭 sender。"""
         if self._finished:
             return
         with self._cond:
@@ -71,10 +80,12 @@ class Transport:
             self._cond.notify_all()
         if self._thread is not None:
             self._thread.join(timeout=10)
+        self._sender.close()
 
     # ── 线程主循环 ──
 
     def _loop(self) -> None:
+        consecutive_failures = 0
         while True:
             with self._cond:
                 while not self._buffer and not self._finished:
@@ -83,11 +94,26 @@ class Transport:
                 if not self._buffer and self._finished:
                     return
 
+                if self._finished and consecutive_failures >= _MAX_CONSECUTIVE_FAILURES:
+                    # 连续回滚超限，放弃剩余 records 退出
+                    # 数据已在 DataStoreWriter 本地持久化，不影响完整性
+                    console.warning(
+                        f"Dropping {len(self._buffer)} records after {_MAX_CONSECUTIVE_FAILURES} consecutive upload failures"
+                    )
+                    self._buffer.clear()
+                    return
+
                 pending = self._buffer[:]
                 self._buffer.clear()
 
             # 锁外委托给 Dispatch
             self._dispatcher(pending)
+
+            # Dispatch 执行后 buffer 非空说明有回滚
+            if self._buffer:
+                consecutive_failures += 1
+            else:
+                consecutive_failures = 0
 
 
 __all__ = [

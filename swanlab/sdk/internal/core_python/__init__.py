@@ -20,7 +20,7 @@ from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRequest, FinishResponse, StartRequest, StartResponse
 from swanlab.sdk.internal.context import CallbackManager, RunContext
 from swanlab.sdk.internal.core_python.store import DataStoreWriter
-from swanlab.sdk.internal.core_python.transport import Transport, reset_record_sender
+from swanlab.sdk.internal.core_python.transport import Transport
 from swanlab.sdk.internal.pkg import console, helper
 from swanlab.sdk.protocol import CoreProtocol
 
@@ -71,7 +71,6 @@ class CorePython(CoreProtocol):
         if self._transport is not None:
             self._transport.finish()
             self._transport = None
-        reset_record_sender()
         if self._store is not None:
             self._store.close()
             self._store = None

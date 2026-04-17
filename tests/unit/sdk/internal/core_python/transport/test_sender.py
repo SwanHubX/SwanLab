@@ -1,8 +1,4 @@
-from swanlab.sdk.internal.core_python.transport.sender import (
-    HttpRecordSender,
-    create_record_sender,
-    reset_record_sender,
-)
+from swanlab.sdk.internal.core_python.transport.sender import HttpRecordSender
 
 # ─────────────────── HttpRecordSender.upload ───────────────────
 
@@ -65,45 +61,3 @@ def test_http_record_sender_close():
     """验证 close() 不抛异常（当前为空实现）。"""
     sender = HttpRecordSender()
     sender.close()  # should not raise
-
-
-# ─────────────────── factory (singleton) ───────────────────
-
-
-def test_create_record_sender_returns_http_sender():
-    """验证工厂函数返回 HttpRecordSender 实例。"""
-    reset_record_sender()
-    try:
-        sender = create_record_sender()
-        assert isinstance(sender, HttpRecordSender)
-    finally:
-        reset_record_sender()
-
-
-def test_create_record_sender_singleton():
-    """验证重复调用 create_record_sender() 返回同一实例。"""
-    reset_record_sender()
-    try:
-        sender1 = create_record_sender()
-        sender2 = create_record_sender()
-        assert sender1 is sender2
-    finally:
-        reset_record_sender()
-
-
-def test_reset_record_sender_clears_singleton():
-    """验证 reset_record_sender() 后再 create 返回新实例。"""
-    reset_record_sender()
-    try:
-        sender1 = create_record_sender()
-        reset_record_sender()
-        sender2 = create_record_sender()
-        assert sender1 is not sender2
-    finally:
-        reset_record_sender()
-
-
-def test_reset_record_sender_idempotent():
-    """验证无 sender 时 reset_record_sender() 不抛异常。"""
-    reset_record_sender()
-    reset_record_sender()  # should not raise

@@ -45,15 +45,15 @@ def test_dispatch_error_rollback(make_scalar_record):
     buffer = []
     dispatch = Dispatch(cond=cond, buffer=buffer)
 
+    # 通过 set_sender 注入 mock sender
+    mock_sender = MagicMock()
+    mock_sender.upload.side_effect = RuntimeError("upload failed")
+    dispatch.set_sender(mock_sender)
+
     records = [make_scalar_record(step=1)]
 
-    with patch("swanlab.sdk.internal.core_python.transport.dispatch.create_record_sender") as mock_create:
-        mock_sender = MagicMock()
-        mock_sender.upload.side_effect = RuntimeError("upload failed")
-        mock_create.return_value = mock_sender
-
-        with patch("swanlab.sdk.internal.core_python.transport.dispatch.console"):
-            dispatch(records)
+    with patch("swanlab.sdk.internal.core_python.transport.dispatch.console"):
+        dispatch(records)
 
     # 回滚通过 self._buffer[:0] = records 原地插入，buffer 对象引用不变
     assert len(buffer) == 1
