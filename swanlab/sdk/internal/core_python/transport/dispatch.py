@@ -5,13 +5,13 @@
 @description: Record 按类型聚合分发 + 失败回滚
 """
 
-import time
-from typing import Callable, List, Optional, Tuple
+from typing import Callable, List, Optional, Sequence, Tuple
 
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.core_python.transport.helper import generate_chunks, group_records_by_type
 from swanlab.sdk.internal.core_python.transport.sender import HttpRecordSender
 from swanlab.sdk.internal.pkg import console
+from swanlab.sdk.internal.pkg.safe import block as safe_block
 
 # 单次请求最大 record 数
 _MAX_RECORDS_PER_REQUEST = 10_000
@@ -32,14 +32,10 @@ class Dispatch:
     def __init__(
         self,
         upload_callback: Optional[Callable[[int], None]] = None,
-        max_retries: int = 3,
-        initial_backoff: float = 0.5,
         sender: Optional[HttpRecordSender] = None,
     ):
         self._upload_callback = upload_callback
-        self._max_retries = max_retries
-        self._initial_backoff = initial_backoff
-        self._sender: Optional[HttpRecordSender] = sender
+        self._sender = sender
 
     def __call__(self, records: List[Record]) -> Tuple[bool, List[Record]]:
         """按 record_type 聚合并上传，返回 (是否成功, 失败及未处理的 records)。"""
@@ -65,19 +61,7 @@ class Dispatch:
 
         uploaded_record_count = 0
         for chunk, chunk_size in generate_chunks(records, _MAX_RECORDS_PER_REQUEST):
-            success = False
-            for attempt in range(self._max_retries):
-                try:
-                    if self._sender is None:
-                        raise RuntimeError("sender not set")
-                    self._sender.upload(record_type, chunk)
-                    success = True
-                    break
-                except Exception:
-                    console.trace(f"record chunk upload failed, retrying ({attempt + 1}) times..", level_name="error")
-                    if attempt < self._max_retries - 1:
-                        time.sleep(self._initial_backoff * (2**attempt))
-
+            success = self._upload_chunk(record_type, chunk)
             if success:
                 uploaded_record_count += chunk_size
                 if self._upload_callback:
@@ -85,6 +69,15 @@ class Dispatch:
             else:
                 return False, records[uploaded_record_count:]
         return True, []
+
+    def _upload_chunk(self, record_type: str, chunk: Sequence[Record]) -> bool:
+        """单 chunk 上传。返回 True 表示成功，False 表示失败。"""
+        if self._sender is None:
+            raise RuntimeError("sender not set")
+        with safe_block(message=f"record chunk upload failed, record_type={record_type!r}"):
+            self._sender.upload(record_type, chunk)
+            return True
+        return False
 
 
 __all__ = [

@@ -92,16 +92,14 @@ def test_transport_put_keeps_distinct_record_nums(make_scalar_record):
     assert t._buf.drain() == [first, second]
 
 
-def test_transport_put_raises_after_finish(make_scalar_record):
-    """finish() 后 put() 抛 RuntimeError。"""
+def test_transport_put_warns_after_finish(make_scalar_record):
+    """finish() 后 put() 静默丢弃并 warning。"""
     t = Transport(auto_start=False)
     t.start()
     t.finish()
-    with patch.object(t, "_finished", True):
-        try:
-            t.put([make_scalar_record(step=1)])
-        except RuntimeError:
-            pass
+    with patch("swanlab.sdk.internal.core_python.transport.thread.console.warning") as mock_warning:
+        t.put([make_scalar_record(step=1)])
+    mock_warning.assert_called_once()
 
 
 # ─────────────────── finish ───────────────────
@@ -144,7 +142,7 @@ def test_transport_finish_does_not_close_sender_before_thread_stops():
 
     t.finish()
 
-    t._thread.join.assert_called_once_with(timeout=5)
+    t._thread.join.assert_called_once_with(timeout=Transport.FINISH_JOIN_TIMEOUT)
     sender.close.assert_not_called()
 
 

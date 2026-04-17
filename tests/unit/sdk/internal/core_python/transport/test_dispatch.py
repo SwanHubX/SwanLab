@@ -1,4 +1,3 @@
-import threading
 from unittest.mock import MagicMock, patch
 
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
@@ -129,15 +128,11 @@ def test_dispatch_handle_record_type_success_calls_callback(make_scalar_record):
     callback.assert_called_once_with(1)
 
 
-def test_dispatch_handle_record_type_returns_failed_tail_after_retries(make_scalar_record):
-    """重试耗尽后返回当前组中尚未成功上传的 records。"""
+def test_dispatch_handle_record_type_returns_failed_tail_on_chunk_failure(make_scalar_record):
+    """某个 chunk 上传失败时返回当前组中尚未成功上传的 records。"""
     sender = MagicMock()
-    sender.upload.side_effect = [None, RuntimeError("boom"), RuntimeError("boom"), RuntimeError("boom")]
-    dispatch = Dispatch(
-        sender=sender,
-        max_retries=3,
-        initial_backoff=0,
-    )
+    sender.upload.side_effect = [None, RuntimeError("boom")]
+    dispatch = Dispatch(sender=sender)
 
     first = make_scalar_record(step=1)
     second = make_scalar_record(step=2)
