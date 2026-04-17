@@ -1,6 +1,7 @@
 import threading
 from unittest.mock import MagicMock, patch
 
+from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.core_python.transport.dispatch import Dispatch
 
 # ─────────────────── group + route ───────────────────
@@ -10,7 +11,7 @@ def test_dispatch_groups_by_type(make_scalar_record, make_config_record):
     """混合类型 record 被正确分组分发。"""
     cond = threading.Condition()
     buffer = []
-    dispatch = Dispatch(cond=cond, buffer=buffer)
+    dispatch = Dispatch(cond=cond, buffer=buffer, buffer_num_index=set())
 
     metric_records = [make_scalar_record(step=1), make_scalar_record(step=2)]
     config_records = [make_config_record()]
@@ -27,7 +28,7 @@ def test_dispatch_calls_correct_handler(make_scalar_record):
     """各 _handle_{kind} 被调用且参数正确。"""
     cond = threading.Condition()
     buffer = []
-    dispatch = Dispatch(cond=cond, buffer=buffer)
+    dispatch = Dispatch(cond=cond, buffer=buffer, buffer_num_index=set())
 
     records = [make_scalar_record(step=1)]
 
@@ -43,12 +44,14 @@ def test_dispatch_error_rollback(make_scalar_record):
     """上传失败回滚到 buffer 头部（原地插入，buffer 对象引用不变）。"""
     cond = threading.Condition()
     buffer = []
+    buffer_num_index = set()
 
     mock_sender = MagicMock()
     mock_sender.upload.side_effect = RuntimeError("upload failed")
-    dispatch = Dispatch(cond=cond, buffer=buffer, sender=mock_sender)
+    dispatch = Dispatch(cond=cond, buffer=buffer, buffer_num_index=buffer_num_index, sender=mock_sender)
 
     records = [make_scalar_record(step=1)]
+    records[0].num = 11
 
     with patch("swanlab.sdk.internal.core_python.transport.dispatch.console"):
         dispatch(records)
@@ -57,6 +60,28 @@ def test_dispatch_error_rollback(make_scalar_record):
     assert len(buffer) == 1
     assert buffer[0] is records[0]
     assert dispatch._buffer is buffer
+    assert buffer_num_index == {11}
+
+
+def test_dispatch_rollback_skips_records_already_buffered_by_num(make_scalar_record):
+    """回滚时若 buffer 中已有同 num record，不再重复插入。"""
+    cond = threading.Condition()
+    existing = make_scalar_record(step=1)
+    existing.num = 21
+    buffer = [existing]
+    buffer_num_index = {21}
+    dispatch = Dispatch(cond=cond, buffer=buffer, buffer_num_index=buffer_num_index)
+
+    duplicate = make_scalar_record(step=1)
+    duplicate.num = 21
+    other = make_scalar_record(step=2)
+    other.num = 22
+
+    with patch.object(dispatch, "_handle_record_by_type", return_value=[duplicate, other]):
+        dispatch([duplicate, other])
+
+    assert [record.num for record in buffer] == [22, 21]
+    assert buffer_num_index == {21, 22}
 
 
 # ─────────────────── unknown type ───────────────────
@@ -66,7 +91,7 @@ def test_dispatch_skips_unknown_type(make_scalar_record):
     """未知 kind 无 handler 时不报错，静默跳过。"""
     cond = threading.Condition()
     buffer = []
-    dispatch = Dispatch(cond=cond, buffer=buffer)
+    dispatch = Dispatch(cond=cond, buffer=buffer, buffer_num_index=set())
 
     # 手动构造一个不会匹配任何 _handle_{kind} 的场景
     # 通过 mock group_records_by_type 返回一个未知 key
@@ -88,6 +113,7 @@ def test_dispatch_mixed_type_partial_failure_rollback(make_scalar_record, make_c
     """混合类型中一种上传失败时，后续类型的 records 也被统一回滚到 buffer。"""
     cond = threading.Condition()
     buffer = []
+    buffer_num_index = set()
 
     mock_sender = MagicMock()
 
@@ -96,10 +122,12 @@ def test_dispatch_mixed_type_partial_failure_rollback(make_scalar_record, make_c
             raise RuntimeError("upload failed")
 
     mock_sender.upload.side_effect = upload_side_effect
-    dispatch = Dispatch(cond=cond, buffer=buffer, sender=mock_sender)
+    dispatch = Dispatch(cond=cond, buffer=buffer, buffer_num_index=buffer_num_index, sender=mock_sender)
 
     metric_records = [make_scalar_record(step=1)]
+    metric_records[0].num = 31
     config_records = [make_config_record()]
+    config_records[0].num = 32
 
     with patch("swanlab.sdk.internal.core_python.transport.dispatch.console"):
         dispatch(metric_records + config_records)
@@ -108,3 +136,9 @@ def test_dispatch_mixed_type_partial_failure_rollback(make_scalar_record, make_c
     assert len(buffer) == 2
     assert buffer[0] is metric_records[0]
     assert buffer[1] is config_records[0]
+    assert buffer_num_index == {31, 32}
+
+
+def test_dispatch_record_types_follow_proto_descriptor():
+    """分发类型集合应直接来自 Record.record_type oneof。"""
+    assert Dispatch._RECORD_TYPES == frozenset(f.name for f in Record.DESCRIPTOR.oneofs_by_name["record_type"].fields)

@@ -1,5 +1,6 @@
 import threading
-from unittest.mock import patch
+import time
+from unittest.mock import MagicMock, patch
 
 from swanlab.sdk.internal.core_python.transport.thread import Transport
 
@@ -65,6 +66,31 @@ def test_transport_put_appends_to_buffer(make_scalar_record):
     assert len(t._buffer) == 1
 
 
+def test_transport_put_dedups_records_by_num(make_scalar_record):
+    """已编号 record 视为稳定事件，按 num 去重。"""
+    t = Transport(auto_start=False)
+    record = make_scalar_record(step=1)
+    record.num = 7
+
+    t.put([record])
+    t.put([record])
+
+    assert t._buffer == [record]
+
+
+def test_transport_put_keeps_distinct_record_nums(make_scalar_record):
+    """不同 num 的 record 应同时保留。"""
+    t = Transport(auto_start=False)
+    first = make_scalar_record(step=1)
+    second = make_scalar_record(step=1)
+    first.num = 8
+    second.num = 9
+
+    t.put([first, second])
+
+    assert t._buffer == [first, second]
+
+
 def test_transport_put_raises_after_finish(make_scalar_record):
     """finish() 后 put() 抛 RuntimeError。"""
     t = Transport(auto_start=False)
@@ -101,9 +127,24 @@ def test_transport_finish_drains_remaining(make_scalar_record):
     t._dispatcher = FakeDispatch()  # type: ignore
     t.start()
     records = [make_scalar_record(step=1), make_scalar_record(step=2)]
+    records[0].num = 1
+    records[1].num = 2
     t.put(records)
     t.finish()
     assert len(dispatched) == 2
+
+
+def test_transport_finish_does_not_close_sender_before_thread_stops():
+    """若 join 超时且线程仍存活，finish() 不应提前关闭 sender。"""
+    sender = MagicMock()
+    t = Transport(sender=sender, auto_start=False)
+    t._thread = MagicMock()
+    t._thread.is_alive.return_value = True
+
+    t.finish()
+
+    t._thread.join.assert_called_once_with(timeout=5)
+    sender.close.assert_not_called()
 
 
 # ─────────────────── 事件驱动 ───────────────────
@@ -180,3 +221,32 @@ def test_transport_drops_after_max_consecutive_failures(make_scalar_record):
     t._thread.join(timeout=5)
     assert not t._thread.is_alive()
     assert call_count >= 3
+
+
+def test_transport_finish_interrupts_failure_backoff(make_scalar_record):
+    """finish() 应打断失败退避，而不是被 sleep 卡住。"""
+    first_failure = threading.Event()
+
+    class FailingDispatch:
+        def __call__(self, records):
+            with t._cond:
+                t._buffer[:0] = records
+            first_failure.set()
+            return False
+
+    t = Transport(batch_interval=1.0, auto_start=False)
+    t._dispatcher = FailingDispatch()  # type: ignore
+    t.start()
+
+    try:
+        t.put([make_scalar_record(step=1)])
+        assert first_failure.wait(timeout=2.0)
+
+        started_at = time.monotonic()
+        t.finish()
+        elapsed = time.monotonic() - started_at
+
+        assert elapsed < 0.5
+    finally:
+        if not t._finished:
+            t.finish()

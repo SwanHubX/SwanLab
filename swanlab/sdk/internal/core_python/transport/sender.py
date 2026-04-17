@@ -22,8 +22,11 @@ class HttpRecordSender:
         if fn is not None:
             fn(records)
 
+    def upload_start(self, records: Sequence[Record]) -> None:
+        console.debug("HTTP upload skeleton: upload_start (request mapping pending).")
+
     def upload_run(self, records: Sequence[Record]) -> None:
-        console.debug("HTTP upload skeleton: upload_run (request mapping pending).")
+        self.upload_start(records)
 
     def upload_finish(self, records: Sequence[Record]) -> None:
         console.debug("HTTP upload skeleton: upload_finish (request mapping pending).")

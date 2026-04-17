@@ -28,14 +28,13 @@ class Dispatch:
     """
 
     # ── record 类型分发 ──
-    _RECORD_TYPES = frozenset(
-        ("run", "finish", "column", "metric", "config", "console", "metadata", "requirements", "conda")
-    )
+    _RECORD_TYPES = frozenset(f.name for f in Record.DESCRIPTOR.oneofs_by_name["record_type"].fields)
 
     def __init__(
         self,
         cond: threading.Condition,
         buffer: List[Record],
+        buffer_num_index: set[int],
         upload_callback: Optional[Callable[[int], None]] = None,
         max_retries: int = 3,
         initial_backoff: float = 0.5,
@@ -43,6 +42,7 @@ class Dispatch:
     ):
         self._cond = cond
         self._buffer = buffer
+        self._buffer_num_index = buffer_num_index
         self._upload_callback = upload_callback
         self._max_retries = max_retries
         self._initial_backoff = initial_backoff
@@ -56,13 +56,23 @@ class Dispatch:
             failed = self._handle_record_by_type(kind, grouped[kind])
             if failed:
                 # 当前组失败部分 + 后续所有未处理组统一回滚，保持顺序
-                to_rollback = failed
-                for j in range(i + 1, len(keys)):
-                    to_rollback.extend(grouped[keys[j]])
+                to_rollback = failed + [record for key in keys[i + 1 :] for record in grouped[key]]
                 with self._cond:
-                    self._buffer[:0] = to_rollback
+                    self._prepend_rollback(to_rollback)
                 return False
         return True
+
+    def _prepend_rollback(self, records: List[Record]) -> None:
+        """回滚到 buffer 头部，并按 proto 定义的稳定 num 去重。"""
+        deduped: List[Record] = []
+        for record in records:
+            if record.num in self._buffer_num_index:
+                continue
+            self._buffer_num_index.add(record.num)
+            deduped.append(record)
+
+        if deduped:
+            self._buffer[:0] = deduped
 
     # ── chunk 上传 ──
     @safe.decorator(level="error", message="record chunk upload failed")

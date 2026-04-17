@@ -36,9 +36,9 @@ def test_upload_unknown_type_skipped(make_scalar_record):
 
 
 def test_upload_kind_methods_are_callable():
-    """验证所有 9 种 upload_{kind} 方法可调用且不抛异常。"""
+    """验证所有 proto record_type 对应的 upload_{kind} 方法可调用且不抛异常。"""
     sender = HttpRecordSender()
-    for kind in ("run", "finish", "column", "metric", "config", "console", "metadata", "requirements", "conda"):
+    for kind in ("start", "finish", "column", "metric", "config", "console", "metadata", "requirements", "conda"):
         fn = getattr(sender, f"upload_{kind}")
         fn([])  # should not raise
 
