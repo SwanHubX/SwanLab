@@ -15,9 +15,9 @@ def test_dispatch_groups_by_type(make_scalar_record, make_config_record):
     metric_records = [make_scalar_record(step=1), make_scalar_record(step=2)]
     config_records = [make_config_record()]
 
-    with patch.object(dispatch, "_upload_typed", return_value=[]) as mock_upload:
+    with patch.object(dispatch, "_handle_record_by_type", return_value=[]) as mock_handle:
         dispatch(metric_records + config_records)
-        calls = mock_upload.call_args_list
+        calls = mock_handle.call_args_list
         # metric 先出现所以先分发
         assert calls[0] == (("metric", metric_records),)
         assert calls[1] == (("config", config_records),)
@@ -31,9 +31,9 @@ def test_dispatch_calls_correct_handler(make_scalar_record):
 
     records = [make_scalar_record(step=1)]
 
-    with patch.object(dispatch, "_upload_typed", return_value=[]) as mock_upload:
+    with patch.object(dispatch, "_handle_record_by_type", return_value=[]) as mock_handle:
         dispatch(records)
-        mock_upload.assert_called_once_with("metric", records)
+        mock_handle.assert_called_once_with("metric", records)
 
 
 # ─────────────────── error rollback ───────────────────
@@ -75,9 +75,9 @@ def test_dispatch_skips_unknown_type(make_scalar_record):
 
         mock_group.return_value = OrderedDict({"unknown_kind": [make_scalar_record(step=1)]})
 
-        with patch.object(dispatch, "_upload_typed", return_value=[]) as mock_upload:
+        with patch.object(dispatch, "_upload_chunk", return_value=True) as mock_upload:
             dispatch([make_scalar_record(step=1)])
-            # unknown_kind 没有 _handle_unknown_kind，getattr 返回 None，不调用
+            # unknown_kind 在 _handle_record_by_type 内部被跳过，不会调用 _upload_chunk
             mock_upload.assert_not_called()
 
 

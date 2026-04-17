@@ -73,17 +73,17 @@ class Dispatch:
         self._sender.upload(record_type, chunk)
         return True
 
-    # ── 通用 record 上传函数 + 指数退避重试 ──
-    def _upload_typed(self, record_type: str, records: List[Record]) -> List[Record]:
-        """
-        按 record_type 分片上传，指数退避重试。
-        成功返回 []，失败返回未上传的 records 列表，由 __call__ 统一回滚。
-        """
+    def _handle_record_by_type(self, kind: str, records: List[Record]) -> List[Record]:
+        """按 kind 上传 record，指数退避重试。返回失败的 records 列表，由 __call__ 统一回滚。"""
+        if kind not in self._RECORD_TYPES:
+            console.warning(f"No handler for record kind={kind!r}, skipping {len(records)} records.")
+            return []
+
         uploaded_count = 0
         for chunk, chunk_len in generate_chunks(records, _PER_REQUEST_LEN):
             success = False
             for attempt in range(self._max_retries):
-                result = self._upload_chunk(record_type, chunk)
+                result = self._upload_chunk(kind, chunk)
                 if result is True:
                     success = True
                     break
@@ -97,13 +97,6 @@ class Dispatch:
                     self._upload_callback(chunk_len)
             else:
                 return records[uploaded_count:]
-        return []
-
-    def _handle_record_by_type(self, kind: str, records: List[Record]) -> List[Record]:
-        """按 kind 路由到 _upload_typed，返回失败的 records 列表。"""
-        if kind in self._RECORD_TYPES:
-            return self._upload_typed(kind, records)
-        console.warning(f"No handler for record kind={kind!r}, skipping {len(records)} records.")
         return []
 
 
