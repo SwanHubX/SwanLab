@@ -110,14 +110,13 @@ class Transport:
                 pending = self._buffer[:]
                 self._buffer.clear()
 
-            # 锁外委托给 Dispatch
-            self._dispatcher(pending)
+            # 锁外委托给 Dispatch，通过返回值判断成功/失败
+            success = self._dispatcher(pending)
 
-            # Dispatch 执行后 buffer 非空说明有回滚
-            if self._buffer:
-                consecutive_failures += 1
-            else:
+            if success:
                 consecutive_failures = 0
+            else:
+                consecutive_failures += 1
 
 
 __all__ = [

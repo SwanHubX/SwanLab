@@ -48,11 +48,13 @@ class Dispatch:
         self._initial_backoff = initial_backoff
         self._sender: Optional[HttpRecordSender] = sender
 
-    def __call__(self, records: List[Record]) -> None:
-        """聚合 + 分发入口。"""
+    def __call__(self, records: List[Record]) -> bool:
+        """聚合 + 分发入口。返回 True 表示全部成功，False 表示有回滚。"""
         grouped = group_records_by_type(records)
         for kind, typed_records in grouped.items():
-            self._handle_record_by_type(kind, typed_records)
+            if not self._handle_record_by_type(kind, typed_records):
+                return False
+        return True
 
     # ── chunk 上传 ──
     @safe.decorator(level="error", message="record chunk upload failed")
@@ -64,10 +66,11 @@ class Dispatch:
         return True
 
     # ── 通用 record 上传函数 + 指数退避重试 + 失败回滚 ──
-    def _upload_typed(self, record_type: str, records: List[Record]) -> None:
+    def _upload_typed(self, record_type: str, records: List[Record]) -> bool:
         """
         将 records 按类型处理：分片 → sender 上传 → 回调。
         上传失败时按指数退避重试，重试耗尽后回滚到 buffer 头部。
+        返回 True 表示全部成功，False 表示有回滚。
         """
         uploaded_count = 0
         for chunk, chunk_len in generate_chunks(records, _PER_REQUEST_LEN):
@@ -87,17 +90,18 @@ class Dispatch:
                 if self._upload_callback:
                     self._upload_callback(chunk_len)
             else:
-                # 重试耗尽 → 回滚未上传记录到 buffer，然后 return
+                # 重试耗尽 → 回滚未上传记录到 buffer
                 with self._cond:
                     self._buffer[:0] = records[uploaded_count:]
-                return
+                return False
+        return True
 
-    def _handle_record_by_type(self, kind: str, records: List[Record]) -> None:
+    def _handle_record_by_type(self, kind: str, records: List[Record]) -> bool:
         """按 kind 路由到 _upload_typed，与 HttpRecordSender.upload_{kind} 对齐。"""
         if kind in self._RECORD_TYPES:
-            self._upload_typed(kind, records)
-        else:
-            console.warning(f"No handler for record kind={kind!r}, skipping {len(records)} records.")
+            return self._upload_typed(kind, records)
+        console.warning(f"No handler for record kind={kind!r}, skipping {len(records)} records.")
+        return True  # 未知类型视为跳过成功，不触发回滚计数
 
 
 __all__ = [
