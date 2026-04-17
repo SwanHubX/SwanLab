@@ -2,74 +2,75 @@ import threading
 from unittest.mock import MagicMock, patch
 
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
-from swanlab.sdk.internal.core_python.transport.buffer import RecordBuffer
 from swanlab.sdk.internal.core_python.transport.dispatch import Dispatch
 
 
 def test_dispatch_groups_by_type(make_scalar_record, make_config_record):
     """混合类型 record 被正确分组分发。"""
-    dispatch = Dispatch(cond=threading.Condition(), buf=RecordBuffer())
+    dispatch = Dispatch()
 
     metric_records = [make_scalar_record(step=1), make_scalar_record(step=2)]
     config_records = [make_config_record()]
 
-    with patch.object(dispatch, "_handle_record_by_type", return_value=(True, [])) as mock_handle:
-        dispatch(metric_records + config_records)
+    with patch.object(dispatch, "_upload_record_type", return_value=(True, [])) as mock_handle:
+        success, failed = dispatch(metric_records + config_records)
         calls = mock_handle.call_args_list
+        assert success is True
+        assert failed == []
         assert calls[0] == (("metric", metric_records),)
         assert calls[1] == (("config", config_records),)
 
 
 def test_dispatch_calls_correct_handler(make_scalar_record):
-    """各 _handle_{kind} 被调用且参数正确。"""
-    dispatch = Dispatch(cond=threading.Condition(), buf=RecordBuffer())
+    """各 record_type 被正确交给 _upload_record_type()。"""
+    dispatch = Dispatch()
     records = [make_scalar_record(step=1)]
 
-    with patch.object(dispatch, "_handle_record_by_type", return_value=(True, [])) as mock_handle:
+    with patch.object(dispatch, "_upload_record_type", return_value=(True, [])) as mock_handle:
         dispatch(records)
         mock_handle.assert_called_once_with("metric", records)
 
 
-def test_dispatch_error_rollback(make_scalar_record):
-    """上传失败回滚到 buffer 头部（原地插入，buffer 对象引用不变）。"""
-    buf = RecordBuffer()
+def test_dispatch_returns_failed_records_without_mutating_external_buffer(make_scalar_record):
+    """上传失败时返回待重试 records，由上层决定如何保留。"""
     mock_sender = MagicMock()
     mock_sender.upload.side_effect = RuntimeError("upload failed")
-    dispatch = Dispatch(cond=threading.Condition(), buf=buf, sender=mock_sender)
+    dispatch = Dispatch(sender=mock_sender)
 
     records = [make_scalar_record(step=1)]
     records[0].num = 11
 
     with patch("swanlab.sdk.internal.core_python.transport.dispatch.console"):
-        dispatch(records)
+        success, failed = dispatch(records)
 
-    drained = buf.drain()
-    assert drained == records
+    assert success is False
+    assert failed == records
 
 
-def test_dispatch_rollback_skips_records_already_buffered_by_num(make_scalar_record):
-    """回滚时若 buffer 中已有同 num record，不再重复插入。"""
-    buf = RecordBuffer()
-    existing = make_scalar_record(step=1)
-    existing.num = 21
-    buf.extend([existing])
+def test_dispatch_failure_tail_keeps_failed_and_unprocessed_order(make_scalar_record, make_config_record):
+    """当前组失败部分和后续未处理组保持原顺序返回。"""
+    dispatch = Dispatch()
 
-    dispatch = Dispatch(cond=threading.Condition(), buf=buf)
+    failed_metric = make_scalar_record(step=1)
+    failed_metric.num = 21
+    later_config = make_config_record()
+    later_config.num = 22
 
-    duplicate = make_scalar_record(step=1)
-    duplicate.num = 21
-    other = make_scalar_record(step=2)
-    other.num = 22
+    with patch("swanlab.sdk.internal.core_python.transport.dispatch.group_records_by_type") as mock_group:
+        from collections import OrderedDict
 
-    with patch.object(dispatch, "_handle_record_by_type", return_value=(False, [duplicate, other])):
-        dispatch([duplicate, other])
+        mock_group.return_value = OrderedDict({"metric": [failed_metric], "config": [later_config]})
 
-    assert [record.num for record in buf.drain()] == [22, 21]
+        with patch.object(dispatch, "_upload_record_type", side_effect=[(False, [failed_metric])]):
+            success, failed = dispatch([failed_metric, later_config])
+
+    assert success is False
+    assert failed == [failed_metric, later_config]
 
 
 def test_dispatch_skips_unknown_type(make_scalar_record):
     """未知 kind 无 handler 时不报错，静默跳过。"""
-    dispatch = Dispatch(cond=threading.Condition(), buf=RecordBuffer())
+    dispatch = Dispatch()
 
     with patch("swanlab.sdk.internal.core_python.transport.dispatch.group_records_by_type") as mock_group:
         from collections import OrderedDict
@@ -82,8 +83,7 @@ def test_dispatch_skips_unknown_type(make_scalar_record):
 
 
 def test_dispatch_mixed_type_partial_failure_rollback(make_scalar_record, make_config_record):
-    """混合类型中一种上传失败时，后续类型的 records 也被统一回滚到 buffer。"""
-    buf = RecordBuffer()
+    """混合类型中一种上传失败时，返回当前失败组和后续组。"""
     mock_sender = MagicMock()
 
     def upload_side_effect(record_type, records):
@@ -91,7 +91,7 @@ def test_dispatch_mixed_type_partial_failure_rollback(make_scalar_record, make_c
             raise RuntimeError("upload failed")
 
     mock_sender.upload.side_effect = upload_side_effect
-    dispatch = Dispatch(cond=threading.Condition(), buf=buf, sender=mock_sender)
+    dispatch = Dispatch(sender=mock_sender)
 
     metric_records = [make_scalar_record(step=1)]
     metric_records[0].num = 31
@@ -99,11 +99,11 @@ def test_dispatch_mixed_type_partial_failure_rollback(make_scalar_record, make_c
     config_records[0].num = 32
 
     with patch("swanlab.sdk.internal.core_python.transport.dispatch.console"):
-        dispatch(metric_records + config_records)
+        success, failed = dispatch(metric_records + config_records)
 
-    drained = buf.drain()
-    assert drained[0] is metric_records[0]
-    assert drained[1] is config_records[0]
+    assert success is False
+    assert failed[0] is metric_records[0]
+    assert failed[1] is config_records[0]
 
 
 def test_dispatch_handle_record_type_success_calls_callback(make_scalar_record):
@@ -116,12 +116,12 @@ def test_dispatch_handle_record_type_success_calls_callback(make_scalar_record):
         uploaded.append((record_type, list(records)))
 
     sender.upload.side_effect = upload_side_effect
-    dispatch = Dispatch(cond=threading.Condition(), buf=RecordBuffer(), upload_callback=callback, sender=sender)
+    dispatch = Dispatch(upload_callback=callback, sender=sender)
 
     records = [make_scalar_record(step=1)]
     records[0].num = 41
 
-    success, failed = dispatch._handle_record_by_type("metric", records)
+    success, failed = dispatch._upload_record_type("metric", records)
 
     assert success is True
     assert failed == []
@@ -134,8 +134,6 @@ def test_dispatch_handle_record_type_returns_failed_tail_after_retries(make_scal
     sender = MagicMock()
     sender.upload.side_effect = [None, RuntimeError("boom"), RuntimeError("boom"), RuntimeError("boom")]
     dispatch = Dispatch(
-        cond=threading.Condition(),
-        buf=RecordBuffer(),
         sender=sender,
         max_retries=3,
         initial_backoff=0,
@@ -150,7 +148,7 @@ def test_dispatch_handle_record_type_returns_failed_tail_after_retries(make_scal
         "swanlab.sdk.internal.core_python.transport.dispatch.generate_chunks",
         return_value=[([first], 1), ([second], 1)],
     ):
-        success, failed = dispatch._handle_record_by_type("metric", [first, second])
+        success, failed = dispatch._upload_record_type("metric", [first, second])
 
     assert success is False
     assert failed == [second]

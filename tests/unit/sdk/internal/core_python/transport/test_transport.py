@@ -122,7 +122,7 @@ def test_transport_finish_drains_remaining(make_scalar_record):
     class FakeDispatch:
         def __call__(self, records):
             dispatched.extend(records)
-            return True
+            return True, []
 
     t = Transport(auto_start=False)
     t._dispatcher = FakeDispatch()  # type: ignore
@@ -160,7 +160,7 @@ def test_transport_put_wakes_thread_immediately(make_scalar_record):
         def __call__(self, records):
             dispatched.extend(records)
             event.set()
-            return True
+            return True, []
 
     t = Transport(batch_interval=10.0, auto_start=False)
     t._dispatcher = FakeDispatch()  # type: ignore
@@ -186,7 +186,7 @@ def test_transport_integration_auto_start(make_scalar_record):
         def __call__(self, records):
             dispatched.extend(records)
             event.set()
-            return True
+            return True, []
 
     t = Transport(auto_start=True)
     t._dispatcher = FakeDispatch()  # type: ignore
@@ -201,61 +201,36 @@ def test_transport_integration_auto_start(make_scalar_record):
 # ─────────────────── consecutive failure ───────────────────
 
 
-def test_transport_drops_after_max_consecutive_failures(make_scalar_record):
-    """连续回滚超限后，finish 时放弃 buffer 退出。"""
-    call_count = 0
-    enough_failures = threading.Event()
+def test_transport_keeps_pending_records_and_warns_after_retry_exhaustion(make_scalar_record):
+    """退避重试耗尽后应告警，但不丢 pending，新记录也保持在其后。"""
+    attempts = []
+    success_event = threading.Event()
 
-    class FailingDispatch:
+    class FlakyDispatch:
         def __call__(self, records):
-            nonlocal call_count
-            call_count += 1
-            with t._cond:
-                t._buf.prepend(records)
-            if call_count >= 3:
-                enough_failures.set()
-            return False
+            attempts.append([record.num for record in records])
+            if len(attempts) == 1:
+                return False, records
+            success_event.set()
+            return True, []
 
     t = Transport(batch_interval=0.01, auto_start=False)
-    t._dispatcher = FailingDispatch()  # type: ignore
-    t.start()
-    record = make_scalar_record(step=1)
-    record.num = 1
-    t.put([record])
-    enough_failures.wait(timeout=5)
-    t.finish()
-    assert t._thread is not None
-    t._thread.join(timeout=5)
-    assert not t._thread.is_alive()
-    assert call_count >= 3
-
-
-def test_transport_finish_interrupts_failure_backoff(make_scalar_record):
-    """finish() 应打断失败退避，而不是被 sleep 卡住。"""
-    first_failure = threading.Event()
-
-    class FailingDispatch:
-        def __call__(self, records):
-            with t._cond:
-                t._buf.prepend(records)
-            first_failure.set()
-            return False
-
-    t = Transport(batch_interval=1.0, auto_start=False)
-    t._dispatcher = FailingDispatch()  # type: ignore
+    t._dispatcher = FlakyDispatch()  # type: ignore
     t.start()
 
-    try:
-        record = make_scalar_record(step=1)
-        record.num = 1
-        t.put([record])
-        assert first_failure.wait(timeout=2.0)
+    first = make_scalar_record(step=1)
+    second = make_scalar_record(step=2)
+    first.num = 1
+    second.num = 2
 
-        started_at = time.monotonic()
+    with patch("swanlab.sdk.internal.core_python.transport.thread.console.warning") as mock_warning:
+        t.put([first])
+        time.sleep(0.05)
+        t.put([second])
+        assert success_event.wait(timeout=2.0)
         t.finish()
-        elapsed = time.monotonic() - started_at
 
-        assert elapsed < 0.5
-    finally:
-        if not t._finished:
-            t.finish()
+    assert attempts[0] == [1]
+    assert attempts[1] == [1]
+    assert attempts[2] == [2]
+    mock_warning.assert_called_once()

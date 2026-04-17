@@ -17,11 +17,11 @@ class RecordBuffer:
     调用方需要在外部加锁（如 threading.Condition）。
     """
 
-    __slots__ = ("_records", "_num_index")
+    __slots__ = ("_records", "_record_num_index")
 
     def __init__(self) -> None:
         self._records: List[Record] = []
-        self._num_index: set[int] = set()
+        self._record_num_index: set[int] = set()
 
     def __len__(self) -> int:
         return len(self._records)
@@ -33,32 +33,32 @@ class RecordBuffer:
 
     def extend(self, records: List[Record]) -> int:
         """追加 records，自动按 num 去重。返回实际入队的数量。"""
-        accepted = [record for record in records if self._try_enqueue(record)]
-        self._records.extend(accepted)
-        return len(accepted)
+        accepted_records = [record for record in records if self._try_enqueue(record)]
+        self._records.extend(accepted_records)
+        return len(accepted_records)
 
     def prepend(self, records: List[Record]) -> int:
         """回滚到头部，自动按 num 去重。返回实际入队的数量。"""
-        accepted = [record for record in records if self._try_enqueue(record)]
-        if accepted:
-            self._records[:0] = accepted
-        return len(accepted)
+        accepted_records = [record for record in records if self._try_enqueue(record)]
+        if accepted_records:
+            self._records[:0] = accepted_records
+        return len(accepted_records)
 
     def _try_enqueue(self, record: Record) -> bool:
         """根据 record num 去重，未存在则注册并返回 True。"""
-        if record.num in self._num_index:
+        if record.num in self._record_num_index:
             return False
-        self._num_index.add(record.num)
+        self._record_num_index.add(record.num)
         return True
 
     # ── 读取 ──
 
     def drain(self) -> List[Record]:
         """取出全部 records 并清空缓冲区（含索引）。"""
-        pending = self._records[:]
+        pending_records = self._records[:]
         self._records.clear()
-        self._num_index.clear()
-        return pending
+        self._record_num_index.clear()
+        return pending_records
 
 
 __all__ = [

@@ -15,9 +15,6 @@ from .buffer import RecordBuffer
 from .dispatch import Dispatch
 from .sender import HttpRecordSender
 
-# 连续上传回滚超限后放弃 buffer 退出
-_MAX_CONSECUTIVE_FAILURES = 3
-
 
 class Transport:
     """
@@ -52,8 +49,6 @@ class Transport:
         # Transport 持有 sender，负责创建/注入/关闭
         self._sender = sender if sender is not None else HttpRecordSender()
         self._dispatcher = Dispatch(
-            cond=self._cond,
-            buf=self._buf,
             upload_callback=self._upload_callback,
             sender=self._sender,
         )
@@ -103,37 +98,42 @@ class Transport:
     # ── 线程主循环 ──
 
     def _loop(self) -> None:
-        consecutive_failures = 0
+        pending: List[Record] = []
+        network_warning_emitted = False
         try:
             while True:
                 with self._cond:
-                    while not self._buf and not self._finished:
+                    while not pending and not self._buf and not self._finished:
                         self._cond.wait(timeout=self._batch_interval)
 
-                    if not self._buf and self._finished:
-                        return
+                    if not pending:
+                        if self._buf:
+                            pending = self._buf.drain()
+                        elif self._finished:
+                            return
+                        else:
+                            continue
 
-                    if self._finished and consecutive_failures >= _MAX_CONSECUTIVE_FAILURES:
-                        # 连续回滚超限，放弃剩余 records 退出
-                        # 数据已在 DataStoreWriter 本地持久化，不影响完整性
-                        console.warning(
-                            f"Dropping {len(self._buf)} records after {_MAX_CONSECUTIVE_FAILURES} consecutive upload failures"
-                        )
-                        self._buf.drain()
-                        return
+                # 锁外委托给 Dispatch，通过返回值判断成功/失败。
+                # 失败时保留 pending，避免在 drain/prepend 之间来回复制同一批 records。
+                is_success, retry_records = self._dispatcher(pending)
 
-                    pending = self._buf.drain()
-
-                # 锁外委托给 Dispatch，通过返回值判断成功/失败
-                success = self._dispatcher(pending)
-
-                if success:
-                    consecutive_failures = 0
-                else:
-                    consecutive_failures += 1
+                if is_success:
+                    pending = []
+                    network_warning_emitted = False
                     with self._cond:
-                        # 失败后进入退避，但 finish() 可通过 notify_all() 立刻唤醒
-                        self._cond.wait_for(lambda: self._finished, timeout=self._batch_interval)
+                        if self._buf:
+                            pending = self._buf.drain()
+                        elif self._finished:
+                            return
+                else:
+                    pending = retry_records
+                    if not network_warning_emitted:
+                        console.warning("Upload failed, network seems unavailable.")
+                        network_warning_emitted = True
+                    with self._cond:
+                        # 失败后退避等待；notify()/notify_all() 可提前唤醒，但不会丢掉 pending。
+                        self._cond.wait(timeout=self._batch_interval)
         finally:
             self._close_sender()
 
