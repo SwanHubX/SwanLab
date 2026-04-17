@@ -14,7 +14,7 @@
 BackgroundConsumer 等调用方无需修改。
 """
 
-from typing import List
+from typing import List, Optional
 
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRequest, FinishResponse, StartRequest, StartResponse
@@ -22,7 +22,7 @@ from swanlab.sdk.internal.context import CallbackManager, RunContext
 from swanlab.sdk.internal.core_python.store import DataStoreWriter
 from swanlab.sdk.internal.core_python.transport import Transport, reset_record_sender
 from swanlab.sdk.internal.pkg import console, helper
-from swanlab.sdk.typings.core import CoreProtocol
+from swanlab.sdk.protocol import CoreProtocol
 
 __all__ = ["CorePython"]
 
@@ -38,28 +38,19 @@ class CorePython(CoreProtocol):
         self._store: Optional[DataStoreWriter] = None
         self._transport: Optional[Transport] = None
         self._callbacker: CallbackManager = ctx.callbacker
+        self._mode = ctx.config.settings.mode
 
     def start(self, start_request: StartRequest) -> StartResponse:
-        return StartResponse(success=True, color="#ffffff")
-           if self._store is not None or self._transport is not None:
+        if self._store is not None or self._transport is not None:
             raise RuntimeError("CorePython has already been started.")
-        if persistence:
+        if self._mode != "disabled":
             self._store = DataStoreWriter()
             self._store.open(str(self._ctx.run_file))
-        if cloud:
+        if self._mode == "cloud":
             self._transport = Transport()
+        return StartResponse(success=True, color="#ffffff")
 
     def publish(self, records: List[Record]) -> None:
-        pass
-
-    def fork(self) -> "CorePython":
-        raise NotImplementedError(
-            "CorePython.fork() is not implemented. Please waiting for go version, while you should not reach here?"
-        )
-
-    def finish(self, finish_request: FinishRequest) -> FinishResponse:
-        return FinishResponse(success=True, message="I'm not ready.")
-    def handle_records(self, records: List[Record]) -> None:
         if self._store is None and self._transport is None:
             console.warning("CorePython is not started, skipping record handling.")
             return
@@ -70,9 +61,13 @@ class CorePython(CoreProtocol):
                     console.debug("Write record:", record.WhichOneof("record_type"))
         if self._transport is not None:
             self._transport.put(records)
-        # TODO 根据类型发布回调
 
-    def shutdown(self) -> None:
+    def fork(self) -> "CorePython":
+        raise NotImplementedError(
+            "CorePython.fork() is not implemented. Please waiting for go version, while you should not reach here?"
+        )
+
+    def finish(self, finish_request: FinishRequest) -> FinishResponse:
         if self._transport is not None:
             self._transport.finish()
             self._transport = None
@@ -80,3 +75,5 @@ class CorePython(CoreProtocol):
         if self._store is not None:
             self._store.close()
             self._store = None
+
+        return FinishResponse(success=True, message="I'm not ready.")
