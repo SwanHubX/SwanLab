@@ -49,8 +49,12 @@ class Transport:
 
         # Transport 持有 sender，负责创建/注入/关闭
         self._sender = sender if sender is not None else HttpRecordSender()
-        self._dispatcher = Dispatch(cond=self._cond, buffer=self._buffer, upload_callback=self._upload_callback)
-        self._dispatcher.set_sender(self._sender)
+        self._dispatcher = Dispatch(
+            cond=self._cond,
+            buffer=self._buffer,
+            upload_callback=self._upload_callback,
+            sender=self._sender,
+        )
 
         if auto_start:
             self.start()

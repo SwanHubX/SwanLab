@@ -27,6 +27,11 @@ class Dispatch:
     上传失败时通过 Condition 锁回滚到 buffer 头部。
     """
 
+    # ── record 类型分发 ──
+    _RECORD_TYPES = frozenset(
+        ("run", "finish", "column", "metric", "config", "console", "metadata", "requirements", "conda")
+    )
+
     def __init__(
         self,
         cond: threading.Condition,
@@ -34,13 +39,14 @@ class Dispatch:
         upload_callback: Optional[Callable[[int], None]] = None,
         max_retries: int = 3,
         initial_backoff: float = 0.5,
+        sender: Optional[HttpRecordSender] = None,
     ):
         self._cond = cond
         self._buffer = buffer
         self._upload_callback = upload_callback
         self._max_retries = max_retries
         self._initial_backoff = initial_backoff
-        self._sender: HttpRecordSender = HttpRecordSender()
+        self._sender: Optional[HttpRecordSender] = sender
 
     def set_sender(self, sender: HttpRecordSender) -> None:
         """注入 HttpRecordSender 实例。"""
@@ -50,16 +56,14 @@ class Dispatch:
         """聚合 + 分发入口。"""
         grouped = group_records_by_type(records)
         for kind, typed_records in grouped.items():
-            handler = getattr(self, f"_handle_{kind}", None)
-            if handler:
-                handler(typed_records)
-            else:
-                console.warning(f"No handler for record kind={kind!r}, skipping {len(typed_records)} records.")
+            self._handle_record_by_type(kind, typed_records)
 
     # ── chunk 上传 ──
     @safe.decorator(level="error", message="record chunk upload failed")
     def _upload_chunk(self, record_type: str, chunk: Sequence[Record]) -> Optional[bool]:
-        """上传单个 chunk。成功返回 True，失败返回 None（safe.decorator 捕获异常 + console.trace）。"""
+        """上传单个 chunk。成功正常返回，失败时 safe.decorator 捕获异常并 console.trace。"""
+        if self._sender is None:
+            raise RuntimeError("sender not set")
         self._sender.upload(record_type, chunk)
         return True
 
@@ -92,34 +96,12 @@ class Dispatch:
                     self._buffer[:0] = records[uploaded_count:]
                 return
 
-    # ── 类型 handler（按 _handle_{WhichOneof 返回值} 约定） ──
-
-    def _handle_run(self, records: List[Record]) -> None:
-        self._upload_typed("run", records)
-
-    def _handle_finish(self, records: List[Record]) -> None:
-        self._upload_typed("finish", records)
-
-    def _handle_column(self, records: List[Record]) -> None:
-        self._upload_typed("column", records)
-
-    def _handle_metric(self, records: List[Record]) -> None:
-        self._upload_typed("metric", records)
-
-    def _handle_config(self, records: List[Record]) -> None:
-        self._upload_typed("config", records)
-
-    def _handle_console(self, records: List[Record]) -> None:
-        self._upload_typed("console", records)
-
-    def _handle_metadata(self, records: List[Record]) -> None:
-        self._upload_typed("metadata", records)
-
-    def _handle_requirements(self, records: List[Record]) -> None:
-        self._upload_typed("requirements", records)
-
-    def _handle_conda(self, records: List[Record]) -> None:
-        self._upload_typed("conda", records)
+    def _handle_record_by_type(self, kind: str, records: List[Record]) -> None:
+        """按 kind 路由到 _upload_typed，与 HttpRecordSender.upload_{kind} 对齐。"""
+        if kind in self._RECORD_TYPES:
+            self._upload_typed(kind, records)
+        else:
+            console.warning(f"No handler for record kind={kind!r}, skipping {len(records)} records.")
 
 
 __all__ = [
