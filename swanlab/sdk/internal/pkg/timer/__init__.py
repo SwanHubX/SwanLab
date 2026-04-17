@@ -8,7 +8,7 @@
 1. 使用守护线程执行周期任务，避免因忘记清理导致主进程无法退出
 2. cancel() 为协作式停止，只会阻止下一轮调度，不会强杀正在执行的任务
 3. 支持固定间隔和动态间隔策略；动态策略接收“已完成执行次数”作为输入
-4. start()/run() 可重复调用，但运行中再次调用只会告警，不会启动重复线程
+4. start()/run() 可重复调用，但运行中再次调用只会输出 debug 日志，不会启动重复线程
 """
 
 import threading
@@ -60,7 +60,7 @@ class Timer:
         """
         with self._lock:
             if self._thread is not None and self._thread.is_alive():
-                console.warning("Timer already running")
+                console.debug("Timer already running")
                 return self
 
             self._stop_event.clear()
