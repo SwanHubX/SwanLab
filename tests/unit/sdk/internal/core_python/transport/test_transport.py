@@ -62,8 +62,9 @@ def test_transport_put_appends_to_buffer(make_scalar_record):
     """put() 后 buffer 增长。"""
     t = Transport(auto_start=False)
     records = [make_scalar_record(step=1)]
+    records[0].num = 1
     t.put(records)
-    assert len(t._buffer) == 1
+    assert len(t._buf) == 1
 
 
 def test_transport_put_dedups_records_by_num(make_scalar_record):
@@ -75,7 +76,7 @@ def test_transport_put_dedups_records_by_num(make_scalar_record):
     t.put([record])
     t.put([record])
 
-    assert t._buffer == [record]
+    assert t._buf.drain() == [record]
 
 
 def test_transport_put_keeps_distinct_record_nums(make_scalar_record):
@@ -88,7 +89,7 @@ def test_transport_put_keeps_distinct_record_nums(make_scalar_record):
 
     t.put([first, second])
 
-    assert t._buffer == [first, second]
+    assert t._buf.drain() == [first, second]
 
 
 def test_transport_put_raises_after_finish(make_scalar_record):
@@ -164,7 +165,9 @@ def test_transport_put_wakes_thread_immediately(make_scalar_record):
     t = Transport(batch_interval=10.0, auto_start=False)
     t._dispatcher = FakeDispatch()  # type: ignore
     t.start()
-    t.put([make_scalar_record(step=1)])
+    record = make_scalar_record(step=1)
+    record.num = 1
+    t.put([record])
     # batch_interval=10 但 put 应立刻唤醒，0.5s 足够验证
     event.wait(timeout=2.0)
     t.finish()
@@ -187,7 +190,9 @@ def test_transport_integration_auto_start(make_scalar_record):
 
     t = Transport(auto_start=True)
     t._dispatcher = FakeDispatch()  # type: ignore
-    t.put([make_scalar_record(step=1)])
+    record = make_scalar_record(step=1)
+    record.num = 1
+    t.put([record])
     event.wait(timeout=2.0)
     t.finish()
     assert len(dispatched) == 1
@@ -206,7 +211,7 @@ def test_transport_drops_after_max_consecutive_failures(make_scalar_record):
             nonlocal call_count
             call_count += 1
             with t._cond:
-                t._buffer.extend(records)
+                t._buf.prepend(records)
             if call_count >= 3:
                 enough_failures.set()
             return False
@@ -214,7 +219,9 @@ def test_transport_drops_after_max_consecutive_failures(make_scalar_record):
     t = Transport(batch_interval=0.01, auto_start=False)
     t._dispatcher = FailingDispatch()  # type: ignore
     t.start()
-    t.put([make_scalar_record(step=1)])
+    record = make_scalar_record(step=1)
+    record.num = 1
+    t.put([record])
     enough_failures.wait(timeout=5)
     t.finish()
     assert t._thread is not None
@@ -230,7 +237,7 @@ def test_transport_finish_interrupts_failure_backoff(make_scalar_record):
     class FailingDispatch:
         def __call__(self, records):
             with t._cond:
-                t._buffer[:0] = records
+                t._buf.prepend(records)
             first_failure.set()
             return False
 
@@ -239,7 +246,9 @@ def test_transport_finish_interrupts_failure_backoff(make_scalar_record):
     t.start()
 
     try:
-        t.put([make_scalar_record(step=1)])
+        record = make_scalar_record(step=1)
+        record.num = 1
+        t.put([record])
         assert first_failure.wait(timeout=2.0)
 
         started_at = time.monotonic()

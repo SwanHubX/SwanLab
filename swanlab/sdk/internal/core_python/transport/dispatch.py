@@ -7,12 +7,13 @@
 
 import threading
 import time
-from typing import Callable, List, Optional, Sequence
+from typing import Callable, List, Optional, Tuple
 
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
+from swanlab.sdk.internal.core_python.transport.buffer import RecordBuffer
 from swanlab.sdk.internal.core_python.transport.helper import generate_chunks, group_records_by_type
 from swanlab.sdk.internal.core_python.transport.sender import HttpRecordSender
-from swanlab.sdk.internal.pkg import console, safe
+from swanlab.sdk.internal.pkg import console
 
 # 单次请求最大 record 数
 _PER_REQUEST_LEN = 10_000
@@ -33,16 +34,14 @@ class Dispatch:
     def __init__(
         self,
         cond: threading.Condition,
-        buffer: List[Record],
-        buffer_num_index: set[int],
+        buf: RecordBuffer,
         upload_callback: Optional[Callable[[int], None]] = None,
         max_retries: int = 3,
         initial_backoff: float = 0.5,
         sender: Optional[HttpRecordSender] = None,
     ):
         self._cond = cond
-        self._buffer = buffer
-        self._buffer_num_index = buffer_num_index
+        self._buf = buf
         self._upload_callback = upload_callback
         self._max_retries = max_retries
         self._initial_backoff = initial_backoff
@@ -53,61 +52,43 @@ class Dispatch:
         grouped = group_records_by_type(records)
         keys = list(grouped.keys())
         for i, kind in enumerate(keys):
-            failed = self._handle_record_by_type(kind, grouped[kind])
-            if failed:
+            success, failed = self._handle_record_by_type(kind, grouped[kind])
+            if not success:
                 # 当前组失败部分 + 后续所有未处理组统一回滚，保持顺序
                 to_rollback = failed + [record for key in keys[i + 1 :] for record in grouped[key]]
                 with self._cond:
-                    self._prepend_rollback(to_rollback)
+                    self._buf.prepend(to_rollback)
                 return False
         return True
 
-    def _prepend_rollback(self, records: List[Record]) -> None:
-        """回滚到 buffer 头部，并按 proto 定义的稳定 num 去重。"""
-        deduped: List[Record] = []
-        for record in records:
-            if record.num in self._buffer_num_index:
-                continue
-            self._buffer_num_index.add(record.num)
-            deduped.append(record)
-
-        if deduped:
-            self._buffer[:0] = deduped
-
-    # ── chunk 上传 ──
-    @safe.decorator(level="error", message="record chunk upload failed")
-    def _upload_chunk(self, record_type: str, chunk: Sequence[Record]) -> Optional[bool]:
-        """上传单个 chunk。成功正常返回，失败时 safe.decorator 捕获异常并 console.trace。"""
-        if self._sender is None:
-            raise RuntimeError("sender not set")
-        self._sender.upload(record_type, chunk)
-        return True
-
-    def _handle_record_by_type(self, kind: str, records: List[Record]) -> List[Record]:
-        """按 kind 上传 record，指数退避重试。返回失败的 records 列表，由 __call__ 统一回滚。"""
+    def _handle_record_by_type(self, kind: str, records: List[Record]) -> Tuple[bool, List[Record]]:
+        """按 kind 上传 record，指数退避重试。返回 (是否成功, 失败的 records)。"""
         if kind not in self._RECORD_TYPES:
             console.warning(f"No handler for record kind={kind!r}, skipping {len(records)} records.")
-            return []
+            return True, []
 
         uploaded_count = 0
         for chunk, chunk_len in generate_chunks(records, _PER_REQUEST_LEN):
             success = False
             for attempt in range(self._max_retries):
-                result = self._upload_chunk(kind, chunk)
-                if result is True:
+                try:
+                    if self._sender is None:
+                        raise RuntimeError("sender not set")
+                    self._sender.upload(kind, chunk)
                     success = True
                     break
-                if attempt < self._max_retries - 1:
-                    delay = self._initial_backoff * (2**attempt)
-                    time.sleep(delay)
+                except Exception:
+                    console.trace("record chunk upload failed", level_name="error")
+                    if attempt < self._max_retries - 1:
+                        time.sleep(self._initial_backoff * (2**attempt))
 
             if success:
                 uploaded_count += chunk_len
                 if self._upload_callback:
                     self._upload_callback(chunk_len)
             else:
-                return records[uploaded_count:]
-        return []
+                return False, records[uploaded_count:]
+        return True, []
 
 
 __all__ = [
