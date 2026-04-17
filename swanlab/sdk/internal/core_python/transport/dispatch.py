@@ -48,10 +48,6 @@ class Dispatch:
         self._initial_backoff = initial_backoff
         self._sender: Optional[HttpRecordSender] = sender
 
-    def set_sender(self, sender: HttpRecordSender) -> None:
-        """注入 HttpRecordSender 实例。"""
-        self._sender = sender
-
     def __call__(self, records: List[Record]) -> None:
         """聚合 + 分发入口。"""
         grouped = group_records_by_type(records)
