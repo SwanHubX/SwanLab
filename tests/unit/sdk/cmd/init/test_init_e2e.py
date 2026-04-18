@@ -216,11 +216,17 @@ class TestInitDisabledMode:
 
         assert not log_dir.exists()
 
-    def test_init_workspace_is_disabled(self):
-        """disabled 模式下 workspace 字段应为 'disabled'"""
+    def test_init_workspace_is_none_by_default(self):
+        """disabled 模式下 workspace 默认为 None"""
         run = init(mode="disabled")
 
-        assert run._ctx.config.settings.project.workspace == "disabled"
+        assert run._ctx.config.settings.project.workspace is None
+
+    def test_init_custom_workspace_is_preserved(self):
+        """disabled 模式下用户自定义 workspace 应被保留"""
+        run = init(mode="disabled", workspace="my-workspace")
+
+        assert run._ctx.config.settings.project.workspace == "my-workspace"
 
     def test_disabled_mode_does_not_write_media_files(self):
         """disabled 模式下 log 媒体数据不应写入任何本地文件"""
@@ -265,11 +271,17 @@ class TestInitLocalMode:
         assert ctx.files_dir.exists()
         assert ctx.debug_dir.exists()
 
-    def test_init_workspace_is_local(self):
-        """local 模式下 workspace 字段应为 'local'"""
+    def test_init_workspace_is_none_by_default(self):
+        """local 模式下 workspace 默认为 None"""
         run = init(mode="local")
 
-        assert run._ctx.config.settings.project.workspace == "local"
+        assert run._ctx.config.settings.project.workspace is None
+
+    def test_init_custom_workspace_is_preserved(self):
+        """local 模式下用户自定义 workspace 应被保留"""
+        run = init(mode="local", workspace="my-team")
+
+        assert run._ctx.config.settings.project.workspace == "my-team"
 
     def test_init_auto_generates_name_and_color(self):
         """local 模式未传 name/color 时，应自动生成非空字符串"""
@@ -293,11 +305,17 @@ class TestInitOfflineMode:
         assert run._ctx.config.settings.log_dir.exists()
         assert run._ctx.run_dir.exists()
 
-    def test_init_workspace_is_offline(self):
-        """offline 模式下 workspace 字段应为 'offline'"""
+    def test_init_workspace_is_none_by_default(self):
+        """offline 模式下 workspace 默认为 None"""
         run = init(mode="offline")
 
-        assert run._ctx.config.settings.project.workspace == "offline"
+        assert run._ctx.config.settings.project.workspace is None
+
+    def test_init_custom_workspace_is_preserved(self):
+        """offline 模式下用户自定义 workspace 应被保留"""
+        run = init(mode="offline", workspace="my-org")
+
+        assert run._ctx.config.settings.project.workspace == "my-org"
 
 
 # ============================================================

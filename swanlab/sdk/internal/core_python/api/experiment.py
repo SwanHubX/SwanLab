@@ -29,7 +29,7 @@ def create_or_resume_experiment(
     job_type: Optional[str],
     group: Optional[str],
     tags: Optional[List[str]],
-    created_at: Optional[str] = None,
+    created_at: Timestamp,
 ) -> InitExperimentType:
     """
     初始化实验，获取存储信息
@@ -45,8 +45,6 @@ def create_or_resume_experiment(
     :param tags: 实验标签
     :param created_at: 实验创建时间，格式为 ISO 8601
     """
-    if resume == "never":
-        assert created_at is None, "created_at must be None when resume is 'never'"
     if resume == "must":
         assert run_id is not None, "run_id must be provided when resume is 'must'"
         try:
@@ -58,7 +56,7 @@ def create_or_resume_experiment(
     body = {
         "name": name,
         "description": description,
-        "createdAt": created_at,
+        "createdAt": created_at.ToDatetime().isoformat() + "Z",
         "colors": [color, color],
         "labels": labels if len(labels) else None,
         "job": job_type,
@@ -89,7 +87,7 @@ def stop_experiment(username: str, project: str, cuid: str, *, state: RunState, 
         f"/project/{username}/{project}/runs/{cuid}/state",
         {
             "state": this_state,
-            "finishedAt": finished_at.ToJsonString(),
+            "finishedAt": finished_at.ToDatetime().isoformat() + "Z",
             "from": "sdk",
         },
     )

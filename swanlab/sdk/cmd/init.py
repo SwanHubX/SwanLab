@@ -470,7 +470,7 @@ def _init(run_settings: Settings) -> RunContext:
         if mode == "cloud":
             _ensure_cloud_client(run_settings)
         # 2. 确定默认 workspace 并生成本地 name/color，合并到 settings
-        workspace = {"cloud": None, "local": "local", "offline": "offline", "disabled": "disabled"}[mode]
+        workspace = run_settings.project.workspace
         name = generate_name("beauty")
         color = generate_color("beauty")
         args_dict = {}
@@ -505,12 +505,16 @@ def _init(run_settings: Settings) -> RunContext:
             raise RuntimeError(resp.message)
         # 4. 从 core 响应同步配置（cloud 模式会覆盖为服务端分配的值）
         sync_args = {}
-        for key, value in {
-            "project.workspace": resp.run.workspace,
-            "project.name": resp.run.project,
-            "experiment.name": resp.run.name,
-            "experiment.color": resp.run.color,
-        }.items():
+        merge_dict = helper.strip_none(
+            {
+                "project.workspace": resp.run.workspace,
+                "project.name": resp.run.project,
+                "experiment.name": resp.run.name,
+                "experiment.color": resp.run.color,
+            },
+            strip_empty_str=True,
+        )
+        for key, value in merge_dict.items():
             set_nested_value(sync_args, key, value)
         run_settings.merge_settings(sync_args)
     # 4. 创建运行目录

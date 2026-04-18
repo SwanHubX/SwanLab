@@ -161,6 +161,7 @@ class CorePython(CoreProtocol):
             job_type=record.job_type,
             group=record.group,
             tags=list(record.tags),
+            created_at=record.started_at,
         )
         # 2. resume 时，向后端获取数据
         # TODO resume 时向后端获取数据或向本地获取数据
