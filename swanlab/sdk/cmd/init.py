@@ -10,7 +10,6 @@ init函数执行时被视为init之前
 
 import json
 import os
-import sys
 import time
 from datetime import datetime
 from functools import partial
@@ -503,8 +502,7 @@ def _init(run_settings: Settings) -> RunContext:
             )
         )
         if not resp.success:
-            console.error(resp.message)
-            sys.exit(1)
+            raise RuntimeError(resp.message)
         # 4. 从 core 响应同步配置（cloud 模式会覆盖为服务端分配的值）
         sync_args = {}
         for key, value in {

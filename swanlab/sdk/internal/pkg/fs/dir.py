@@ -59,7 +59,7 @@ def safe_mkdir(path: Union[str, Path], timeout: float = TIMEOUT, ensure_clean: b
     """
     p = Path(path)
     if ensure_clean:
-        p.mkdir(parents=False, exist_ok=False)
+        p.mkdir(parents=True, exist_ok=False)
     else:
         p.mkdir(parents=True, exist_ok=True)
 
