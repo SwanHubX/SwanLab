@@ -254,3 +254,13 @@ class TestEnsureRunDir:
         timestamp = parts[1]
         assert len(timestamp) == 15  # YYYYMMDD_HHMMSS
         assert "_" in timestamp
+
+    def test_raises_when_max_retries_exceeded(self, tmp_path, monkeypatch):
+        """超过最大重试次数仍无法创建唯一目录时，应抛出 RuntimeError"""
+        monkeypatch.setattr("swanlab.sdk.cmd.init._generate_run_dir_name", lambda _: "run-20260101_000000-conflict")
+
+        # 预先创建冲突目录
+        (tmp_path / "run-20260101_000000-conflict").mkdir()
+
+        with pytest.raises(RuntimeError, match="Failed to create a unique run directory after 2 attempts"):
+            ensure_run_dir(tmp_path, "abc123", max_retries=2, retry_interval=0.01)
