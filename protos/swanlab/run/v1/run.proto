@@ -6,46 +6,35 @@ import "google/protobuf/timestamp.proto";
 
 option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/run/v1;runv1";
 
-// Run 创建请求
-message StartRequest {
+// Run 创建记录，对应 swanlab.init(...) 调用，由sdk前端生成并同步交给后端，部分字段如果为空需要sdk后端填充
+message StartRecord {
   string project         = 1;
   string workspace       = 2;  // 组织或用户名
-  string name            = 3;
-  string description     = 4;
-  repeated string tags   = 5;
-  string group           = 6;
-  string job_type        = 7;
-  string id              = 8;
-  ResumeMode resume      = 9;
-  google.protobuf.Timestamp started_at = 10;
+  bool public            = 3;
+  string name            = 4;
+  string description     = 5;
+  repeated string tags   = 6;
+  string group           = 7;
+  string job_type        = 8;
+  string color           = 9;  // 十六进制颜色，如 "#FF5733"，如果为空则由sdk后端生成
+  string id              = 10;
+  ResumeMode resume      = 11;
+  google.protobuf.Timestamp started_at = 12;
 }
 
 // Run 创建响应
 message StartResponse {
-  bool success   = 1;  // 请求是否成功
-  string message = 2;  // 请求失败的响应
-  string color   = 3;  // 十六进制颜色，如 "#FF5733"
+  bool success    = 1;  // 请求是否成功
+  string message  = 2;  // 请求失败的响应
+  StartRecord run = 3;  // 最终创建的 Run 记录
 }
 
-// Run 创建记录，对应 swanlab.init(...) 调用，写入一次。
-message StartRecord {
-  string project         = 1;
-  string workspace       = 2;  // 组织或用户名
-  string name            = 3;
-  string description     = 4;
-  repeated string tags   = 5;
-  string group           = 6;
-  string job_type        = 7;
-  string color           = 8;  // 十六进制颜色，如 "#FF5733"
-  string id              = 9;
-  ResumeMode resume      = 10;
-  google.protobuf.Timestamp started_at = 11;
-}
 
-// Run 结束请求
-message FinishRequest {
-  RunState state = 1;
-  string error = 2;
+// Run 结束记录，对应 swanlab.finish() 或进程退出，由sdk前端生成并同步交给后端
+message FinishRecord {
+  RunState state    = 1;
+  // 异常信息，state=CRASHED 时填充
+  string   error    = 2;
   google.protobuf.Timestamp finished_at = 3;
 }
 
@@ -53,15 +42,6 @@ message FinishRequest {
 message FinishResponse {
   bool success   = 1;  // 请求是否成功
   string message = 2;  // 请求失败的响应
-}
-
-
-// Run 结束记录，对应 swanlab.finish() 或进程退出，写入一次。
-message FinishRecord {
-  RunState state    = 1;
-  // 异常信息，state=CRASHED 时填充
-  string   error    = 2;
-  google.protobuf.Timestamp finished_at = 3;
 }
 
 enum RunState {

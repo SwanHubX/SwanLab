@@ -22,7 +22,7 @@ from typing import Any, Callable, Literal, Mapping, Optional, Type, Union, cast,
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
-from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRequest
+from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord
 from swanlab.sdk.internal.bus.events import (
     MetricLogEvent,
     ScalarDefineEvent,
@@ -622,9 +622,11 @@ class Run:
         self._consumer.stop()
         self._consumer.join()
         # 3.4 停止Core线程
-        finish_resp = self._ctx.core.finish(FinishRequest(state=adapter.state[this_state], error=error, finished_at=ts))
+        finish_resp = self._ctx.core.deliver_run_finish(
+            FinishRecord(state=adapter.state[this_state], error=error, finished_at=ts)
+        )
         if not finish_resp.success:
-            console.error("Failed to finish run with error:", finish_resp.message)
+            console.error(finish_resp.message)
         console.debug(f"SwanLab Run has finished with state: {self._state}, cleanup...")
         # 3.5 清理副作用
         console.debug("Cleanup system hook...")

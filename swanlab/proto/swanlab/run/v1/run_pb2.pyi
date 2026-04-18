@@ -30,67 +30,45 @@ RESUME_MODE_NEVER: ResumeMode
 RESUME_MODE_ALLOW: ResumeMode
 RESUME_MODE_MUST: ResumeMode
 
-class StartRequest(_message.Message):
-    __slots__ = ("project", "workspace", "name", "description", "tags", "group", "job_type", "id", "resume", "started_at")
+class StartRecord(_message.Message):
+    __slots__ = ("project", "workspace", "public", "name", "description", "tags", "group", "job_type", "color", "id", "resume", "started_at")
     PROJECT_FIELD_NUMBER: _ClassVar[int]
     WORKSPACE_FIELD_NUMBER: _ClassVar[int]
+    PUBLIC_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
     TAGS_FIELD_NUMBER: _ClassVar[int]
     GROUP_FIELD_NUMBER: _ClassVar[int]
     JOB_TYPE_FIELD_NUMBER: _ClassVar[int]
+    COLOR_FIELD_NUMBER: _ClassVar[int]
     ID_FIELD_NUMBER: _ClassVar[int]
     RESUME_FIELD_NUMBER: _ClassVar[int]
     STARTED_AT_FIELD_NUMBER: _ClassVar[int]
     project: str
     workspace: str
+    public: bool
     name: str
     description: str
     tags: _containers.RepeatedScalarFieldContainer[str]
     group: str
     job_type: str
+    color: str
     id: str
     resume: ResumeMode
     started_at: _timestamp_pb2.Timestamp
-    def __init__(self, project: _Optional[str] = ..., workspace: _Optional[str] = ..., name: _Optional[str] = ..., description: _Optional[str] = ..., tags: _Optional[_Iterable[str]] = ..., group: _Optional[str] = ..., job_type: _Optional[str] = ..., id: _Optional[str] = ..., resume: _Optional[_Union[ResumeMode, str]] = ..., started_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
+    def __init__(self, project: _Optional[str] = ..., workspace: _Optional[str] = ..., public: bool = ..., name: _Optional[str] = ..., description: _Optional[str] = ..., tags: _Optional[_Iterable[str]] = ..., group: _Optional[str] = ..., job_type: _Optional[str] = ..., color: _Optional[str] = ..., id: _Optional[str] = ..., resume: _Optional[_Union[ResumeMode, str]] = ..., started_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
 
 class StartResponse(_message.Message):
-    __slots__ = ("success", "message", "color")
+    __slots__ = ("success", "message", "run")
     SUCCESS_FIELD_NUMBER: _ClassVar[int]
     MESSAGE_FIELD_NUMBER: _ClassVar[int]
-    COLOR_FIELD_NUMBER: _ClassVar[int]
+    RUN_FIELD_NUMBER: _ClassVar[int]
     success: bool
     message: str
-    color: str
-    def __init__(self, success: bool = ..., message: _Optional[str] = ..., color: _Optional[str] = ...) -> None: ...
+    run: StartRecord
+    def __init__(self, success: bool = ..., message: _Optional[str] = ..., run: _Optional[_Union[StartRecord, _Mapping]] = ...) -> None: ...
 
-class StartRecord(_message.Message):
-    __slots__ = ("project", "workspace", "name", "description", "tags", "group", "job_type", "color", "id", "resume", "started_at")
-    PROJECT_FIELD_NUMBER: _ClassVar[int]
-    WORKSPACE_FIELD_NUMBER: _ClassVar[int]
-    NAME_FIELD_NUMBER: _ClassVar[int]
-    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
-    TAGS_FIELD_NUMBER: _ClassVar[int]
-    GROUP_FIELD_NUMBER: _ClassVar[int]
-    JOB_TYPE_FIELD_NUMBER: _ClassVar[int]
-    COLOR_FIELD_NUMBER: _ClassVar[int]
-    ID_FIELD_NUMBER: _ClassVar[int]
-    RESUME_FIELD_NUMBER: _ClassVar[int]
-    STARTED_AT_FIELD_NUMBER: _ClassVar[int]
-    project: str
-    workspace: str
-    name: str
-    description: str
-    tags: _containers.RepeatedScalarFieldContainer[str]
-    group: str
-    job_type: str
-    color: str
-    id: str
-    resume: ResumeMode
-    started_at: _timestamp_pb2.Timestamp
-    def __init__(self, project: _Optional[str] = ..., workspace: _Optional[str] = ..., name: _Optional[str] = ..., description: _Optional[str] = ..., tags: _Optional[_Iterable[str]] = ..., group: _Optional[str] = ..., job_type: _Optional[str] = ..., color: _Optional[str] = ..., id: _Optional[str] = ..., resume: _Optional[_Union[ResumeMode, str]] = ..., started_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
-
-class FinishRequest(_message.Message):
+class FinishRecord(_message.Message):
     __slots__ = ("state", "error", "finished_at")
     STATE_FIELD_NUMBER: _ClassVar[int]
     ERROR_FIELD_NUMBER: _ClassVar[int]
@@ -107,13 +85,3 @@ class FinishResponse(_message.Message):
     success: bool
     message: str
     def __init__(self, success: bool = ..., message: _Optional[str] = ...) -> None: ...
-
-class FinishRecord(_message.Message):
-    __slots__ = ("state", "error", "finished_at")
-    STATE_FIELD_NUMBER: _ClassVar[int]
-    ERROR_FIELD_NUMBER: _ClassVar[int]
-    FINISHED_AT_FIELD_NUMBER: _ClassVar[int]
-    state: RunState
-    error: str
-    finished_at: _timestamp_pb2.Timestamp
-    def __init__(self, state: _Optional[_Union[RunState, str]] = ..., error: _Optional[str] = ..., finished_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...

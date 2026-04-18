@@ -5,11 +5,15 @@
 @description: SwanLab 运行时实验API
 """
 
-from typing import List, Optional
+from typing import List, Literal, Optional
+
+from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.exceptions import ApiError
+from swanlab.proto.swanlab.run.v1.run_pb2 import RUN_STATE_ABORTED, RUN_STATE_CRASHED, RunState
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.pkg import helper
+from swanlab.sdk.typings.core_python.api.experiment import InitExperimentType
 from swanlab.sdk.typings.run import ResumeType
 
 
@@ -26,7 +30,7 @@ def create_or_resume_experiment(
     group: Optional[str],
     tags: Optional[List[str]],
     created_at: Optional[str] = None,
-) -> bool:
+) -> InitExperimentType:
     """
     初始化实验，获取存储信息
     :param username: 所属用户名
@@ -61,7 +65,31 @@ def create_or_resume_experiment(
         "cluster": group,
         "cuid": run_id,
     }
-    resp = client.post(f"/project/{username}/{project}/experiment", helper.strip_none(body))
+    resp = client.post(f"/project/{username}/{project}/experiment", helper.strip_none(body, strip_empty_str=True))
     # 200代表实验已存在，开启更新模式
     # 201代表实验不存在，新建实验
-    return resp.raw.status_code == 201
+    return resp.data
+
+
+def stop_experiment(username: str, project: str, cuid: str, *, state: RunState, finished_at: Timestamp):
+    """
+    停止实验
+    :param username: 所属用户名
+    :param project: 所属项目名称
+    :param cuid: 所属实验名称
+    :param state: 实验状态
+    :param finished_at: 实验结束时间
+    """
+    this_state: Literal["FINISHED", "CRASHED", "ABORTED"] = "FINISHED"
+    if state == RUN_STATE_CRASHED:
+        this_state = "CRASHED"
+    elif state == RUN_STATE_ABORTED:
+        this_state = "ABORTED"
+    client.put(
+        f"/project/{username}/{project}/runs/{cuid}/state",
+        {
+            "state": this_state,
+            "finishedAt": finished_at.ToJsonString(),
+            "from": "sdk",
+        },
+    )

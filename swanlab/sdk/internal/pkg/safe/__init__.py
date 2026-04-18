@@ -50,7 +50,7 @@ def decorator(
     catch_types = exceptions if exceptions else (Exception,)
 
     # 这里的关键：明确告诉 IDE，接收 Callable[P, R]，返回 Callable[P, Optional[R]]
-    def decorator(func: Callable[P, R]) -> Callable[P, Optional[R]]:
+    def _decorator(func: Callable[P, R]) -> Callable[P, Optional[R]]:
 
         @wraps(func)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> Optional[R]:
@@ -64,7 +64,7 @@ def decorator(
 
         return wrapper
 
-    return decorator
+    return _decorator
 
 
 @contextmanager

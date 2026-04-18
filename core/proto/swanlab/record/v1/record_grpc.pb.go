@@ -32,12 +32,12 @@ const (
 //
 // RecordService 用于同步或异步地接收实验记录。
 type RecordServiceClient interface {
-	// RunStart 接收单条 StartRequest，用于实验开始，并返回必要的信息。
-	RunStart(ctx context.Context, in *v1.StartRequest, opts ...grpc.CallOption) (*v1.StartResponse, error)
+	// RunStart 接收单条 StartRecord，用于实验开始，并返回必要的信息。
+	RunStart(ctx context.Context, in *v1.StartRecord, opts ...grpc.CallOption) (*v1.StartResponse, error)
 	// UpsertRecord 接收单条 Record 并写入，用于实验数据的上报。
 	UpsertRecord(ctx context.Context, in *Record, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	// RunFinish 接收单条 FinishRequest，用于实验结束。
-	RunFinish(ctx context.Context, in *v1.FinishRequest, opts ...grpc.CallOption) (*v1.FinishResponse, error)
+	// RunFinish 接收单条 FinishRecord，用于实验结束。
+	RunFinish(ctx context.Context, in *v1.FinishRecord, opts ...grpc.CallOption) (*v1.FinishResponse, error)
 }
 
 type recordServiceClient struct {
@@ -48,7 +48,7 @@ func NewRecordServiceClient(cc grpc.ClientConnInterface) RecordServiceClient {
 	return &recordServiceClient{cc}
 }
 
-func (c *recordServiceClient) RunStart(ctx context.Context, in *v1.StartRequest, opts ...grpc.CallOption) (*v1.StartResponse, error) {
+func (c *recordServiceClient) RunStart(ctx context.Context, in *v1.StartRecord, opts ...grpc.CallOption) (*v1.StartResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(v1.StartResponse)
 	err := c.cc.Invoke(ctx, RecordService_RunStart_FullMethodName, in, out, cOpts...)
@@ -68,7 +68,7 @@ func (c *recordServiceClient) UpsertRecord(ctx context.Context, in *Record, opts
 	return out, nil
 }
 
-func (c *recordServiceClient) RunFinish(ctx context.Context, in *v1.FinishRequest, opts ...grpc.CallOption) (*v1.FinishResponse, error) {
+func (c *recordServiceClient) RunFinish(ctx context.Context, in *v1.FinishRecord, opts ...grpc.CallOption) (*v1.FinishResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(v1.FinishResponse)
 	err := c.cc.Invoke(ctx, RecordService_RunFinish_FullMethodName, in, out, cOpts...)
@@ -84,12 +84,12 @@ func (c *recordServiceClient) RunFinish(ctx context.Context, in *v1.FinishReques
 //
 // RecordService 用于同步或异步地接收实验记录。
 type RecordServiceServer interface {
-	// RunStart 接收单条 StartRequest，用于实验开始，并返回必要的信息。
-	RunStart(context.Context, *v1.StartRequest) (*v1.StartResponse, error)
+	// RunStart 接收单条 StartRecord，用于实验开始，并返回必要的信息。
+	RunStart(context.Context, *v1.StartRecord) (*v1.StartResponse, error)
 	// UpsertRecord 接收单条 Record 并写入，用于实验数据的上报。
 	UpsertRecord(context.Context, *Record) (*emptypb.Empty, error)
-	// RunFinish 接收单条 FinishRequest，用于实验结束。
-	RunFinish(context.Context, *v1.FinishRequest) (*v1.FinishResponse, error)
+	// RunFinish 接收单条 FinishRecord，用于实验结束。
+	RunFinish(context.Context, *v1.FinishRecord) (*v1.FinishResponse, error)
 	mustEmbedUnimplementedRecordServiceServer()
 }
 
@@ -100,13 +100,13 @@ type RecordServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedRecordServiceServer struct{}
 
-func (UnimplementedRecordServiceServer) RunStart(context.Context, *v1.StartRequest) (*v1.StartResponse, error) {
+func (UnimplementedRecordServiceServer) RunStart(context.Context, *v1.StartRecord) (*v1.StartResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method RunStart not implemented")
 }
 func (UnimplementedRecordServiceServer) UpsertRecord(context.Context, *Record) (*emptypb.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpsertRecord not implemented")
 }
-func (UnimplementedRecordServiceServer) RunFinish(context.Context, *v1.FinishRequest) (*v1.FinishResponse, error) {
+func (UnimplementedRecordServiceServer) RunFinish(context.Context, *v1.FinishRecord) (*v1.FinishResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method RunFinish not implemented")
 }
 func (UnimplementedRecordServiceServer) mustEmbedUnimplementedRecordServiceServer() {}
@@ -131,7 +131,7 @@ func RegisterRecordServiceServer(s grpc.ServiceRegistrar, srv RecordServiceServe
 }
 
 func _RecordService_RunStart_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(v1.StartRequest)
+	in := new(v1.StartRecord)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -143,7 +143,7 @@ func _RecordService_RunStart_Handler(srv interface{}, ctx context.Context, dec f
 		FullMethod: RecordService_RunStart_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RecordServiceServer).RunStart(ctx, req.(*v1.StartRequest))
+		return srv.(RecordServiceServer).RunStart(ctx, req.(*v1.StartRecord))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -167,7 +167,7 @@ func _RecordService_UpsertRecord_Handler(srv interface{}, ctx context.Context, d
 }
 
 func _RecordService_RunFinish_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(v1.FinishRequest)
+	in := new(v1.FinishRecord)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -179,7 +179,7 @@ func _RecordService_RunFinish_Handler(srv interface{}, ctx context.Context, dec 
 		FullMethod: RecordService_RunFinish_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RecordServiceServer).RunFinish(ctx, req.(*v1.FinishRequest))
+		return srv.(RecordServiceServer).RunFinish(ctx, req.(*v1.FinishRecord))
 	}
 	return interceptor(ctx, in, info, handler)
 }

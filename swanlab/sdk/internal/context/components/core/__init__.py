@@ -8,7 +8,7 @@
 from typing import TYPE_CHECKING, List
 
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
-from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRequest, FinishResponse, StartRequest, StartResponse
+from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord, FinishResponse, StartRecord, StartResponse
 from swanlab.sdk.protocol import CoreEnum, CoreProtocol
 
 if TYPE_CHECKING:
@@ -18,16 +18,16 @@ if TYPE_CHECKING:
 class NullCore(CoreProtocol):
     """空 Core，所有方法为 no-op"""
 
-    def start(self, start_request: StartRequest) -> StartResponse:
-        return StartResponse(success=True, color="#ffffff")
+    def deliver_run_start(self, start_record: StartRecord) -> StartResponse:
+        return StartResponse(success=True, message="I'm a teapot.")
 
     def publish(self, records: List[Record]) -> None: ...
 
     def fork(self) -> "NullCore":
         raise NotImplementedError("NullCore does not support fork, you should not reach here?")
 
-    def finish(self, finish_request: FinishRequest) -> FinishResponse:
-        return FinishResponse(success=True, message="I'm a teapot")
+    def deliver_run_finish(self, finish_record: FinishRecord) -> FinishResponse:
+        return FinishResponse(success=True, message="I'm a teapot.")
 
 
 # TODO: 未来实现core以后，python版本依旧会有一段时间的同时存在时间。后续实现一种机制，选择不同的core实现

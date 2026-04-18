@@ -10,6 +10,7 @@ init函数执行时被视为init之前
 
 import json
 import os
+import sys
 from datetime import datetime
 from functools import partial
 from pathlib import Path
@@ -17,7 +18,9 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import requests
 import yaml
+from google.protobuf.timestamp_pb2 import Timestamp
 
+from swanlab.proto.swanlab.run.v1.run_pb2 import StartRecord
 from swanlab.sdk.cmd.guard import with_cmd_lock
 from swanlab.sdk.internal.context import (
     RunConfig,
@@ -26,12 +29,10 @@ from swanlab.sdk.internal.context import (
     use_context,
 )
 from swanlab.sdk.internal.core_python import client
-from swanlab.sdk.internal.core_python.api.project import get_or_create_project, get_project
-from swanlab.sdk.internal.pkg import console, fs, helper, safe
+from swanlab.sdk.internal.pkg import adapter, console, fs, helper, safe
 from swanlab.sdk.protocol import Callback
 from swanlab.utils import generate_color, generate_id, generate_name
 
-from ..internal.core_python.api.experiment import create_or_resume_experiment
 from ..internal.run import Run, get_run, has_run
 from ..internal.settings import Settings
 from ..internal.settings import settings as global_settings
@@ -249,7 +250,10 @@ def _init(run_settings: Settings) -> RunContext:
     """
     mode = run_settings.mode
     # 生成run_id
-    run_id = run_settings.run.id or generate_id()
+    if not run_settings.run.id:
+        run_settings.merge_settings({"run": {"id": generate_id()}})
+    run_id = run_settings.run.id
+    assert run_id, "Run id is not provided."
     run_dir = run_settings.log_dir / ("run-" + datetime.now().strftime("%Y%m%d_%H%M%S") + "-" + run_id)
     # 创建一个临时的上下文，避免出现任何问题导致上下文残留
     with use_context(RunContext(config=RunConfig(settings=run_settings, run_dir=run_dir))) as ctx:
@@ -331,43 +335,35 @@ def _init_cloud(ctx: RunContext, run_id: str):
     assert run_settings.project.name, "Project name is required."
     assert client.exists(), "No client found, please login first."
     _mkdirs(ctx)
-    # 获取当前项目，如果不存在则创建
-    project = get_or_create_project(
-        username=run_settings.project.workspace,
-        name=run_settings.project.name,
-        public=run_settings.project.public,
+    # 向 core 交付本次运行
+    ts = Timestamp()
+    ts.GetCurrentTime()
+    resp = ctx.core.deliver_run_start(
+        StartRecord(
+            project=run_settings.project.name,
+            workspace=run_settings.project.workspace,
+            public=run_settings.project.public,
+            name=run_settings.experiment.name,
+            color=run_settings.experiment.color,
+            description=run_settings.experiment.description,
+            job_type=run_settings.experiment.job_type,
+            group=run_settings.experiment.group,
+            tags=run_settings.experiment.tags,
+            id=run_id,
+            resume=adapter.resume[run_settings.run.resume],
+            started_at=ts,
+        )
     )
-    username, project = project["username"], project["name"]
-    # 获取当前项目详细信息
-    project_info = get_project(username=username, name=project)
-    # 获取当前实验
-    experiment = run_settings.experiment
-    history_experiment_count = project_info["_count"]["experiments"]
-    name = experiment.name or generate_name(history_experiment_count)
-    color = experiment.color or generate_color(history_experiment_count)
-    # 开启实验
-    _ = create_or_resume_experiment(
-        username,
-        project,
-        name=name,
-        resume=run_settings.run.resume,
-        run_id=run_id,
-        color=color,
-        description=experiment.description,
-        job_type=experiment.job_type,
-        group=experiment.group,
-        tags=experiment.tags,
-    )
-    # TODO resume 时向后端获取数据或向本地获取数据
-
+    if not resp.success:
+        console.error(resp.message)
+        sys.exit(1)
     # 最后同步一次配置
     args_dict = {}
     for key, value in {
-        "project.workspace": username,
-        "project.name": project,
-        "experiment.name": name,
-        "experiment.color": color,
-        "run.id": run_id,
+        "project.workspace": resp.run.workspace,
+        "project.name": resp.run.project,
+        "experiment.name": resp.run.name,
+        "experiment.color": resp.run.color,
     }.items():
         set_nested_value(args_dict, key, value)
     run_settings.merge_settings(args_dict)
