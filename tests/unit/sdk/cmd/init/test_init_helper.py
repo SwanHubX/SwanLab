@@ -232,7 +232,7 @@ class TestEnsureRunDir:
         run_dir = ensure_run_dir(tmp_path, "abc123", retry_interval=0.01)
 
         assert run_dir.exists()
-        assert run_dir.name is this_run_dir
+        assert run_dir.name == this_run_dir
         assert call_count >= 2
 
     def test_returns_path_under_log_dir(self, tmp_path):
