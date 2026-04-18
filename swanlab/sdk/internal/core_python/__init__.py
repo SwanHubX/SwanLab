@@ -131,6 +131,9 @@ class CorePython(CoreProtocol):
         :param record: 运行开始记录
         :return: 运行开始响应
         """
+        # 0. 如果不是 cloud 模式则直接返回
+        if self._mode != "cloud":
+            return StartResponse(success=True, message="OK, but no cloud", run=record)
         # 1. 向后端同步运行开始事件
         # 获取当前项目，如果不存在则创建
         project = get_or_create_project(
@@ -183,6 +186,10 @@ class CorePython(CoreProtocol):
         :param record: 运行结束请求
         :return: 运行结束响应
         """
+        # 如果不是 cloud 模式则直接返回
+        if self._mode != "cloud":
+            return FinishResponse(success=True, message="OK, but no cloud")
+
         assert self._username is not None and self._project is not None and self._cuid is not None, (
             "Required fields are not set."
         )

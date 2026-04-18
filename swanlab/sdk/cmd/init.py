@@ -11,6 +11,7 @@ init函数执行时被视为init之前
 import json
 import os
 import sys
+import time
 from datetime import datetime
 from functools import partial
 from pathlib import Path
@@ -40,7 +41,15 @@ from ..typings.run import ModeType, ResumeType
 from . import utils
 from .login import login_cli, login_raw
 
-__all__ = ["init", "ConfigLike"]
+__all__ = [
+    "init",
+    "ConfigLike",
+    "compatible_kwargs",
+    "load_config",
+    "prompt_init_mode",
+    "set_nested_value",
+    "ensure_run_dir",
+]
 
 
 def set_nested_value(d: dict, key: str, value: Any):
@@ -228,7 +237,10 @@ def init(
     # 合并回调
     callbacker.merge_callbacks(callbacks or [])
     # 开始初始化
-    ctx = _init(run_settings)
+    generate_ctx = _init
+    if run_settings.mode == "cloud":
+        generate_ctx = utils.with_loading_animation()(_init)
+    ctx = generate_ctx(run_settings)
     # 初始化run
     run = Run(ctx)
     # 发送webhook回调，在除了disabled模式外，都会触发
@@ -241,132 +253,6 @@ def init(
     if config_data:
         run.config.update(config_data)
     return run
-
-
-def _init(run_settings: Settings) -> RunContext:
-    """
-    初始化运行时配置，在这之前，所有引导式交互都已经完成
-    上下文生命周期通过 `Run` 管理，而非全局 `ContextVar`
-    """
-    mode = run_settings.mode
-    # 生成run_id
-    if not run_settings.run.id:
-        run_settings.merge_settings({"run": {"id": generate_id()}})
-    run_id = run_settings.run.id
-    assert run_id, "Run id is not provided."
-    run_dir = run_settings.log_dir / ("run-" + datetime.now().strftime("%Y%m%d_%H%M%S") + "-" + run_id)
-    # 创建一个临时的上下文，避免出现任何问题导致上下文残留
-    with use_context(RunContext(config=RunConfig(settings=run_settings, run_dir=run_dir))) as ctx:
-        assert run_settings.project.name, "Project name is required."
-        # 根据模式进行特定处理
-        if mode == "cloud":
-            _init_cloud(ctx, run_id)
-        elif mode == "local":
-            _mkdirs(ctx)
-            name = generate_name("beauty")
-            color = generate_color("beauty")
-            workspace = "local"
-            # 合并配置
-            args_dict = {}
-            for key, value in {
-                "experiment.name": name,
-                "experiment.color": color,
-                "run.id": run_id,
-                "project.workspace": workspace,
-            }.items():
-                set_nested_value(args_dict, key, value)
-            run_settings.merge_settings(args_dict)
-
-            # TODO: 注册回调器
-        elif mode == "offline":
-            _mkdirs(ctx)
-            name = generate_name("beauty")
-            color = generate_color("beauty")
-            workspace = "offline"
-            # 合并配置
-            args_dict = {}
-            for key, value in {
-                "experiment.name": name,
-                "experiment.color": color,
-                "project.workspace": workspace,
-                "run.id": run_id,
-            }.items():
-                set_nested_value(args_dict, key, value)
-            run_settings.merge_settings(args_dict)
-        elif mode == "disabled":
-            name = generate_name("beauty")
-            color = generate_color("beauty")
-            workspace = "disabled"
-            # 合并配置
-            args_dict = {}
-            for key, value in {
-                "experiment.name": name,
-                "experiment.color": color,
-                "project.workspace": workspace,
-                "run.id": run_id,
-            }.items():
-                set_nested_value(args_dict, key, value)
-            run_settings.merge_settings(args_dict)
-            # 不注册回调器
-            pass
-        else:
-            raise ValueError(f"Invalid mode for `swanlab.init`: {mode}")
-    return ctx
-
-
-@utils.with_loading_animation()
-def _init_cloud(ctx: RunContext, run_id: str):
-    """
-    在云模式下初始化运行上下文。
-    :param ctx: 运行上下文
-    :param run_id: 当前运行的唯一标识符
-    """
-    run_settings = ctx.config.settings
-    if not client.exists():
-        assert run_settings.api_key, "API key is required."
-        assert run_settings.api_host, "API host is required."
-        login_raw(
-            api_key=run_settings.api_key,
-            host=run_settings.api_host,
-            save=False,
-            animation=False,
-            wellcome_on_success=False,
-        )
-    assert run_settings.project.name, "Project name is required."
-    assert client.exists(), "No client found, please login first."
-    _mkdirs(ctx)
-    # 向 core 交付本次运行
-    ts = Timestamp()
-    ts.GetCurrentTime()
-    resp = ctx.core.deliver_run_start(
-        StartRecord(
-            project=run_settings.project.name,
-            workspace=run_settings.project.workspace,
-            public=run_settings.project.public,
-            name=run_settings.experiment.name,
-            color=run_settings.experiment.color,
-            description=run_settings.experiment.description,
-            job_type=run_settings.experiment.job_type,
-            group=run_settings.experiment.group,
-            tags=run_settings.experiment.tags,
-            id=run_id,
-            resume=adapter.resume[run_settings.run.resume],
-            started_at=ts,
-        )
-    )
-    if not resp.success:
-        console.error(resp.message)
-        sys.exit(1)
-    # 最后同步一次配置
-    args_dict = {}
-    for key, value in {
-        "project.workspace": resp.run.workspace,
-        "project.name": resp.run.project,
-        "experiment.name": resp.run.name,
-        "experiment.color": resp.run.color,
-    }.items():
-        set_nested_value(args_dict, key, value)
-    run_settings.merge_settings(args_dict)
 
 
 def load_config(run_settings: Settings, config: Optional[ConfigLike]) -> Dict[str, Any]:
@@ -410,21 +296,6 @@ def load_config(run_settings: Settings, config: Optional[ConfigLike]) -> Dict[st
 
     # 4. 如果 config 不是上述类型，直接报错
     raise ValueError(f"Invalid config type: {type(config).__name__}. Expected dict, str, or PathLike.")
-
-
-def _mkdirs(ctx: RunContext):
-    """
-    创建运行所需的目录
-    :param ctx: 运行上下文
-    """
-    # 对于 logdir 而言，如果不存在则创建，如果为空则写入 .gitignore
-    log_dir = ctx.config.settings.log_dir
-    # 1. 安全创建目录（如果不存在）
-    fs.safe_mkdir(log_dir)
-    # 2. 写入 .gitignore（如果目录为空）
-    utils.append_gitignore(log_dir)
-    # 3. 创建别的目录
-    fs.safe_mkdirs(ctx.run_dir, ctx.media_dir, ctx.files_dir, ctx.debug_dir)
 
 
 def prompt_init_mode(settings: Settings) -> ModeType:
@@ -538,3 +409,131 @@ def send_webhook(ctx: RunContext) -> Tuple[bool, bool]:
         },
     )
     return True, True
+
+
+def ensure_run_dir(log_dir: Path, run_id: str, retry_interval: float = 1.0) -> Path:
+    """
+    原子化地创建一个不与已有目录冲突的 run_dir。
+
+    通过 ``mkdir(exist_ok=False)`` 将"检查不存在 + 创建目录"合并为一个原子操作：
+    创建成功即拥有该目录；若抛出 FileExistsError，则等待 retry_interval 秒后
+    用新时间戳重试，直到成功。
+
+    :param log_dir: 日志根目录（必须已存在）
+    :param run_id: 当前运行的唯一标识符
+    :param retry_interval: 目录冲突时等待的秒数
+    :return: 创建成功的 run_dir 路径
+    """
+    while True:
+        run_dir = log_dir / _generate_run_dir_name(run_id)
+        try:
+            fs.safe_mkdir(run_dir, ensure_clean=True)
+            return run_dir
+        except FileExistsError:
+            time.sleep(retry_interval)
+
+
+def _generate_run_dir_name(run_id: str) -> str:
+    """
+    生成 run_dir 的目录名，格式为 ``run-{timestamp}-{run_id}``。
+
+    :param run_id: 当前运行的唯一标识符
+    :return: run_dir 目录名（非完整路径）
+    """
+    return "run-" + datetime.now().strftime("%Y%m%d_%H%M%S") + "-" + run_id
+
+
+def _init(run_settings: Settings) -> RunContext:
+    """
+    初始化运行时配置，在这之前，所有引导式交互都已经完成
+    上下文生命周期通过 `Run` 管理，而非全局 `ContextVar`
+    """
+    mode = run_settings.mode
+    # 1. 生成run_id
+    if not run_settings.run.id:
+        run_settings.merge_settings({"run": {"id": generate_id()}})
+    run_id = run_settings.run.id
+    assert run_id, "Run id is not provided."
+    # 2. 创建运行目录
+    if mode != "disabled":
+        # 安全创建目录（如果不存在）
+        fs.safe_mkdir(run_settings.log_dir)
+        # 写入 .gitignore（如果目录为空）
+        utils.append_gitignore(run_settings.log_dir)
+        # 创建运行子目录，run_dir 必须是新建的，防止误覆盖已有实验数据
+        run_dir = ensure_run_dir(run_settings.log_dir, run_id)
+    else:
+        run_dir = run_settings.log_dir / _generate_run_dir_name(run_id)
+    # 3. 创建一个临时的上下文，避免出现任何问题导致上下文残留
+    with use_context(RunContext(config=RunConfig(settings=run_settings, run_dir=run_dir))) as ctx:
+        assert run_settings.project.name, "Project name is required."
+        # 1. cloud 模式前置：确保 client 已就绪
+        if mode == "cloud":
+            _ensure_cloud_client(run_settings)
+        # 2. 确定默认 workspace 并生成本地 name/color，合并到 settings
+        workspace = {"cloud": None, "local": "local", "offline": "offline", "disabled": "disabled"}[mode]
+        name = generate_name("beauty")
+        color = generate_color("beauty")
+        args_dict = {}
+        for key, value in {
+            "experiment.name": name,
+            "experiment.color": color,
+            "project.workspace": workspace,
+            "run.id": run_id,
+        }.items():
+            set_nested_value(args_dict, key, value)
+        run_settings.merge_settings(args_dict)
+        # 3. 统一调用 deliver_run_start（core 内部按 mode 分发：cloud 走网络，其余本地处理）
+        ts = Timestamp()
+        ts.GetCurrentTime()
+        resp = ctx.core.deliver_run_start(
+            StartRecord(
+                project=run_settings.project.name,
+                workspace=run_settings.project.workspace,
+                public=run_settings.project.public,
+                name=run_settings.experiment.name,
+                color=run_settings.experiment.color,
+                description=run_settings.experiment.description,
+                job_type=run_settings.experiment.job_type,
+                group=run_settings.experiment.group,
+                tags=run_settings.experiment.tags,
+                id=run_id,
+                resume=adapter.resume[run_settings.run.resume],
+                started_at=ts,
+            )
+        )
+        if not resp.success:
+            console.error(resp.message)
+            sys.exit(1)
+        # 4. 从 core 响应同步配置（cloud 模式会覆盖为服务端分配的值）
+        sync_args = {}
+        for key, value in {
+            "project.workspace": resp.run.workspace,
+            "project.name": resp.run.project,
+            "experiment.name": resp.run.name,
+            "experiment.color": resp.run.color,
+        }.items():
+            set_nested_value(sync_args, key, value)
+        run_settings.merge_settings(sync_args)
+    # 4. 创建运行目录
+    if mode != "disabled":
+        fs.safe_mkdirs(ctx.media_dir, ctx.files_dir, ctx.debug_dir)
+    return ctx
+
+
+def _ensure_cloud_client(run_settings: Settings):
+    """
+    确保 cloud 模式下 client 已就绪，未登录时自动执行登录。
+    :param run_settings: 运行时配置
+    """
+    if not client.exists():
+        assert run_settings.api_key, "API key is required."
+        assert run_settings.api_host, "API host is required."
+        login_raw(
+            api_key=run_settings.api_key,
+            host=run_settings.api_host,
+            save=False,
+            animation=False,
+            wellcome_on_success=False,
+        )
+    assert client.exists(), "No client found, please login first."

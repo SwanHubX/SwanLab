@@ -10,8 +10,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-# 请替换为你的实际导入路径
-from swanlab.sdk.cmd.init import compatible_kwargs, load_config, prompt_init_mode, set_nested_value
+from swanlab.sdk.cmd.init import compatible_kwargs, ensure_run_dir, load_config, prompt_init_mode, set_nested_value
 
 
 # ==========================================
@@ -195,3 +194,63 @@ class TestCompatibleKwargs:
         result = compatible_kwargs({}, experiment_name=None, notes=None)
 
         assert result == {}
+
+
+class TestEnsureRunDir:
+    """测试 ensure_run_dir 的原子化目录创建与冲突重试"""
+
+    def test_creates_run_dir_when_no_conflict(self, tmp_path):
+        """无冲突时，应成功创建 run_dir 并返回其路径"""
+        run_dir = ensure_run_dir(tmp_path, "abc123", retry_interval=0.01)
+
+        assert run_dir.exists()
+        assert run_dir.is_dir()
+        assert "abc123" in run_dir.name
+
+    def test_retries_on_conflict(self, tmp_path, monkeypatch):
+        """run_dir 已被占用时，应等待后用新时间戳重试直到成功"""
+        call_count = 0
+        original_generate = __import__(
+            "swanlab.sdk.cmd.init", fromlist=["_generate_run_dir_name"]
+        )._generate_run_dir_name
+        this_run_dir = ""
+
+        def mock_generate(run_id):
+            nonlocal call_count, this_run_dir
+            call_count += 1
+            # 第一次生成一个已被占用的名字，第二次正常生成
+            if call_count == 1:
+                return "run-20260101_000000-conflict"
+            this_run_dir = original_generate(run_id)
+            return this_run_dir
+
+        monkeypatch.setattr("swanlab.sdk.cmd.init._generate_run_dir_name", mock_generate)
+
+        # 预先创建冲突目录
+        (tmp_path / "run-20260101_000000-conflict").mkdir()
+
+        run_dir = ensure_run_dir(tmp_path, "abc123", retry_interval=0.01)
+
+        assert run_dir.exists()
+        assert run_dir.name is this_run_dir
+        assert call_count >= 2
+
+    def test_returns_path_under_log_dir(self, tmp_path):
+        """返回的路径应在 log_dir 下"""
+        run_dir = ensure_run_dir(tmp_path, "test-id", retry_interval=0.01)
+
+        assert run_dir.parent == tmp_path
+
+    def test_run_dir_name_format(self, tmp_path):
+        """run_dir 名称应匹配 run-{timestamp}-{run_id} 格式"""
+        run_dir = ensure_run_dir(tmp_path, "myrun42", retry_interval=0.01)
+
+        name = run_dir.name
+        assert name.startswith("run-")
+        assert name.endswith("-myrun42")
+        # 中间部分应为 YYYYMMDD_HHMMSS 格式
+        parts = name.split("-", 2)  # ["run", "20260418_123456", "myrun42"]
+        assert len(parts) == 3
+        timestamp = parts[1]
+        assert len(timestamp) == 15  # YYYYMMDD_HHMMSS
+        assert "_" in timestamp

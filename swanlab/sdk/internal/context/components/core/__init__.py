@@ -19,7 +19,7 @@ class NullCore(CoreProtocol):
     """空 Core，所有方法为 no-op"""
 
     def deliver_run_start(self, start_record: StartRecord) -> StartResponse:
-        return StartResponse(success=True, message="I'm a teapot.")
+        return StartResponse(success=True, message="I'm a teapot.", run=start_record)
 
     def publish(self, records: List[Record]) -> None: ...
 
