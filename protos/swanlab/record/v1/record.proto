@@ -15,14 +15,14 @@ option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/record/v1;re
 
 // RecordService 用于同步或异步地接收实验记录。
 service RecordService {
-  // RunStart 接收单条 StartRequest，用于实验开始，并返回必要的信息。
-  rpc RunStart(swanlab.run.v1.StartRequest) returns (swanlab.run.v1.StartResponse);
+  // RunStart 接收单条 StartRecord，用于实验开始，并返回必要的信息。
+  rpc RunStart(swanlab.run.v1.StartRecord) returns (swanlab.run.v1.StartResponse);
 
   // UpsertRecord 接收单条 Record 并写入，用于实验数据的上报。
   rpc UpsertRecord(Record) returns (google.protobuf.Empty);
 
-  // RunFinish 接收单条 FinishRequest，用于实验结束。
-  rpc RunFinish(swanlab.run.v1.FinishRequest) returns (swanlab.run.v1.FinishResponse);
+  // RunFinish 接收单条 FinishRecord，用于实验结束。
+  rpc RunFinish(swanlab.run.v1.FinishRecord) returns (swanlab.run.v1.FinishResponse);
 }
 
 // 所有消息的顶层信封。
@@ -36,7 +36,14 @@ service RecordService {
 //   stdout  → ConsoleRecord（每行一条）
 //   finish()→ FinishRecord
 message Record {
-  // 单调递增序号，从 1 开始
+  // 单调递增序号，约定：
+  // 1. StartRecord 的 num 为-1
+  // 2. FinishRecord 的 num 为-2
+  // 3. ConfigRecord 的 num 为-3
+  // 4. MetadataRecord 的 num 为-4
+  // 5. RequirementsRecord 的 num 为-5
+  // 6. CondaRecord 的 num 为-6
+  // 上述记录为全局唯一、去重Record，其余Record 的 num 为 1 开始的递增序号
   int64 num = 1;
   // Record 生成时间，仅作参考
   google.protobuf.Timestamp timestamp = 2;

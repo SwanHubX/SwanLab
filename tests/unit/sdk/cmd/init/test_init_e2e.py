@@ -23,7 +23,7 @@ import yaml
 from swanlab.sdk.cmd.init import init
 from swanlab.sdk.cmd.login import login_cli
 from swanlab.sdk.cmd.merge_settings import merge_settings
-from swanlab.sdk.internal.run import Run, has_run
+from swanlab.sdk.internal.run import Run, get_run, has_run
 from swanlab.sdk.internal.run.config import config as global_config
 from swanlab.sdk.internal.settings import Settings, settings
 
@@ -81,6 +81,11 @@ def make_experiment_resp(**overrides) -> dict:
     return {"cuid": RUN_ID, **overrides}
 
 
+def make_stop_experiment_resp(**overrides) -> dict:
+    """PUT /api/project/{username}/{project}/runs/{cuid}/state 响应体"""
+    return {"message": "ok", **overrides}
+
+
 # ============================================================
 # Cloud 模式 HTTP Mock Fixtures
 #
@@ -98,9 +103,17 @@ def make_experiment_resp(**overrides) -> dict:
 
 @pytest.fixture
 def rsps():
-    """激活 responses.RequestsMock 上下文，供所有 endpoint fixture 共享同一实例"""
+    """激活 responses.RequestsMock 上下文，供所有 endpoint fixture 共享同一实例。
+
+    teardown 时在 responses 上下文关闭前自动 finish 当前 run，
+    确保实验结束请求（stop_experiment）在 mock 活跃期间发出，
+    避免 responses 报 "Not all requests have been executed" 错误。
+    """
     with responses_lib.RequestsMock() as r:
         yield r
+        # 在 responses 上下文关闭前，finish 当前 run 以触发 stop_experiment 请求
+        if has_run():
+            get_run().finish()
 
 
 @pytest.fixture
@@ -139,6 +152,18 @@ def mock_experiment_create_api(rsps):
 
 
 @pytest.fixture
+def mock_experiment_stop_api(rsps):
+    """注册 PUT /api/project/{username}/{project}/runs/{cuid}/state 端点（停止实验）"""
+    rsps.add(
+        responses_lib.PUT,
+        f"{API_HOST}/api/project/{USERNAME}/{PROJECT}/runs/{RUN_ID}/state",
+        json=make_stop_experiment_resp(),
+        status=200,
+    )
+    return rsps
+
+
+@pytest.fixture
 def mock_cloud_settings():
     """将全局 settings 的 api_host/web_host 指向测试 HOST，避免意外触发生产环境"""
     merge_settings({"api_host": API_HOST, "web_host": WEB_HOST})
@@ -151,8 +176,7 @@ def mock_cloud_init_apis(
     mock_project_create_api,
     mock_project_get_api,
     mock_experiment_create_api,
-    # 未来新增 API 端点 fixture 在此追加，例如：
-    # mock_config_upload_api,
+    mock_experiment_stop_api,
 ):
     """
     组合 fixture：一次性注册 init(mode='cloud') 当前所需的全部 HTTP 端点。
@@ -192,11 +216,17 @@ class TestInitDisabledMode:
 
         assert not log_dir.exists()
 
-    def test_init_workspace_is_disabled(self):
-        """disabled 模式下 workspace 字段应为 'disabled'"""
+    def test_init_workspace_is_none_by_default(self):
+        """disabled 模式下 workspace 默认为 None"""
         run = init(mode="disabled")
 
-        assert run._ctx.config.settings.project.workspace == "disabled"
+        assert run._ctx.config.settings.project.workspace is None
+
+    def test_init_custom_workspace_is_preserved(self):
+        """disabled 模式下用户自定义 workspace 应被保留"""
+        run = init(mode="disabled", workspace="my-workspace")
+
+        assert run._ctx.config.settings.project.workspace == "my-workspace"
 
     def test_disabled_mode_does_not_write_media_files(self):
         """disabled 模式下 log 媒体数据不应写入任何本地文件"""
@@ -241,11 +271,17 @@ class TestInitLocalMode:
         assert ctx.files_dir.exists()
         assert ctx.debug_dir.exists()
 
-    def test_init_workspace_is_local(self):
-        """local 模式下 workspace 字段应为 'local'"""
+    def test_init_workspace_is_none_by_default(self):
+        """local 模式下 workspace 默认为 None"""
         run = init(mode="local")
 
-        assert run._ctx.config.settings.project.workspace == "local"
+        assert run._ctx.config.settings.project.workspace is None
+
+    def test_init_custom_workspace_is_preserved(self):
+        """local 模式下用户自定义 workspace 应被保留"""
+        run = init(mode="local", workspace="my-team")
+
+        assert run._ctx.config.settings.project.workspace == "my-team"
 
     def test_init_auto_generates_name_and_color(self):
         """local 模式未传 name/color 时，应自动生成非空字符串"""
@@ -269,11 +305,17 @@ class TestInitOfflineMode:
         assert run._ctx.config.settings.log_dir.exists()
         assert run._ctx.run_dir.exists()
 
-    def test_init_workspace_is_offline(self):
-        """offline 模式下 workspace 字段应为 'offline'"""
+    def test_init_workspace_is_none_by_default(self):
+        """offline 模式下 workspace 默认为 None"""
         run = init(mode="offline")
 
-        assert run._ctx.config.settings.project.workspace == "offline"
+        assert run._ctx.config.settings.project.workspace is None
+
+    def test_init_custom_workspace_is_preserved(self):
+        """offline 模式下用户自定义 workspace 应被保留"""
+        run = init(mode="offline", workspace="my-org")
+
+        assert run._ctx.config.settings.project.workspace == "my-org"
 
 
 # ============================================================
@@ -356,7 +398,12 @@ class TestInitResumeValidation:
 
 class TestInitCloudMode:
     def test_init_cloud_success(
-        self, logged_in_client, mock_project_create_api, mock_project_get_api, mock_experiment_create_api
+        self,
+        logged_in_client,
+        mock_project_create_api,
+        mock_project_get_api,
+        mock_experiment_create_api,
+        mock_experiment_stop_api,
     ):
         """cloud 模式完整 init 流程：返回 Run，has_run() 为 True"""
         run = init(mode="cloud", project=PROJECT)
@@ -365,7 +412,12 @@ class TestInitCloudMode:
         assert has_run()
 
     def test_init_cloud_sets_project_and_workspace(
-        self, logged_in_client, mock_project_create_api, mock_project_get_api, mock_experiment_create_api
+        self,
+        logged_in_client,
+        mock_project_create_api,
+        mock_project_get_api,
+        mock_experiment_create_api,
+        mock_experiment_stop_api,
     ):
         """cloud 模式下，workspace 和 project.name 应与后端响应同步"""
         run = init(mode="cloud", project=PROJECT)
@@ -375,7 +427,7 @@ class TestInitCloudMode:
         assert s.project.name == PROJECT
 
     def test_init_cloud_project_already_exists(
-        self, logged_in_client, rsps, mock_project_get_api, mock_experiment_create_api
+        self, logged_in_client, rsps, mock_project_get_api, mock_experiment_create_api, mock_experiment_stop_api
     ):
         """POST /project 返回 409（项目已存在）时，应优雅降级为获取项目，继续初始化"""
         rsps.add(responses_lib.POST, f"{API_HOST}/api/project", json=make_init_project_resp(), status=409)
@@ -386,7 +438,13 @@ class TestInitCloudMode:
         assert run._ctx.config.settings.project.workspace == USERNAME
 
     def test_init_cloud_uses_all_expected_endpoints(
-        self, logged_in_client, mock_project_create_api, mock_project_get_api, mock_experiment_create_api, rsps
+        self,
+        logged_in_client,
+        mock_project_create_api,
+        mock_project_get_api,
+        mock_experiment_create_api,
+        mock_experiment_stop_api,
+        rsps,
     ):
         """验证 cloud init 确实调用了 project 和 experiment 端点"""
         init(mode="cloud", project=PROJECT)
@@ -618,3 +676,36 @@ class TestForkDetection:
         assert r[0] == "ok"
         assert r[1] is True
         assert r[2] is True
+
+
+# ============================================================
+# TestEnsureRunDirE2E
+# ============================================================
+
+
+class TestEnsureRunDirE2E:
+    """端到端测试：init 遇到 run_dir 冲突时能自动重试并成功初始化"""
+
+    def test_init_local_retries_on_run_dir_conflict(self):
+        """预先在 log_dir 下创建与当前时间戳同名的 run_dir，init 应自动重试并使用不同路径"""
+        from datetime import datetime
+
+        from swanlab.sdk.internal.settings import settings
+
+        run_id = "conflict-test"
+        log_dir = settings.log_dir
+        log_dir.mkdir(parents=True, exist_ok=True)
+        # 预先创建多个连续秒的冲突目录，确保命中
+        all_conflict_names = []
+        now = datetime.now()
+        for offset in range(-1, 3):
+            ts = datetime.fromtimestamp(now.timestamp() + offset)
+            conflict_name = "run-" + ts.strftime("%Y%m%d_%H%M%S") + "-" + run_id
+            (log_dir / conflict_name).mkdir(exist_ok=True)
+            all_conflict_names.append(conflict_name)
+
+        # init 应检测到冲突，等待后用新时间戳重试
+        run = init(mode="offline", id=run_id)
+        assert run._ctx.run_dir.exists()
+        assert run._ctx.config.run_dir not in all_conflict_names
+        run.finish()

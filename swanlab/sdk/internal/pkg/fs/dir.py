@@ -37,24 +37,32 @@ def _get_fs_timeout(default: float = 5.0) -> float:
 TIMEOUT = _get_fs_timeout()
 
 
-def safe_mkdirs(*paths: Union[str, Path], timeout: float = TIMEOUT):
+def safe_mkdirs(*paths: Union[str, Path], timeout: float = TIMEOUT, ensure_clean: bool = False):
     """
     安全地创建多个目录。
     :param paths: 目录路径列表
     :param timeout: 超时时间（秒）
+    :param ensure_clean: 如果为 True，要求目标目录在创建前不存在
     """
     for path in paths:
-        safe_mkdir(path, timeout=timeout)
+        safe_mkdir(path, timeout=timeout, ensure_clean=ensure_clean)
 
 
-def safe_mkdir(path: Union[str, Path], timeout: float = TIMEOUT) -> Path:
+def safe_mkdir(path: Union[str, Path], timeout: float = TIMEOUT, ensure_clean: bool = False) -> Path:
     """
     安全地创建目录，带有抗 NAS 异步延迟的探针机制。
+
     :param path: 目录路径
     :param timeout: 超时时间（秒）
+    :param ensure_clean: 如果为 True，要求目标目录在创建前不存在（原子检查，通过 mkdir(exist_ok=False) 实现）
+    :raises FileExistsError: ensure_clean=True 且目录已存在时抛出
     """
     p = Path(path)
-    p.mkdir(parents=True, exist_ok=True)
+    if ensure_clean:
+        p.mkdir(parents=True, exist_ok=False)
+    else:
+        p.mkdir(parents=True, exist_ok=True)
+
     start_time = time.time()
 
     while not (p.exists() and p.is_dir()):

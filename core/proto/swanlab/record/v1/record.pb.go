@@ -41,7 +41,14 @@ const (
 //	finish()→ FinishRecord
 type Record struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// 单调递增序号，从 1 开始
+	// 单调递增序号，约定：
+	// 1. StartRecord 的 num 为-1
+	// 2. FinishRecord 的 num 为-2
+	// 3. ConfigRecord 的 num 为-3
+	// 4. MetadataRecord 的 num 为-4
+	// 5. RequirementsRecord 的 num 为-5
+	// 6. CondaRecord 的 num 为-6
+	// 上述记录为全局唯一、去重Record，其余Record 的 num 为 1 开始的递增序号
 	Num int64 `protobuf:"varint,1,opt,name=num,proto3" json:"num,omitempty"`
 	// Record 生成时间，仅作参考
 	Timestamp *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
@@ -273,11 +280,11 @@ const file_swanlab_record_v1_record_proto_rawDesc = "" +
 	"\bmetadata\x18\x10 \x01(\v2!.swanlab.system.v1.MetadataRecordH\x00R\bmetadata\x12K\n" +
 	"\frequirements\x18\x11 \x01(\v2%.swanlab.system.v1.RequirementsRecordH\x00R\frequirements\x126\n" +
 	"\x05conda\x18\x12 \x01(\v2\x1e.swanlab.system.v1.CondaRecordH\x00R\x05condaB\r\n" +
-	"\vrecord_type2\xe7\x01\n" +
-	"\rRecordService\x12G\n" +
-	"\bRunStart\x12\x1c.swanlab.run.v1.StartRequest\x1a\x1d.swanlab.run.v1.StartResponse\x12A\n" +
-	"\fUpsertRecord\x12\x19.swanlab.record.v1.Record\x1a\x16.google.protobuf.Empty\x12J\n" +
-	"\tRunFinish\x12\x1d.swanlab.run.v1.FinishRequest\x1a\x1e.swanlab.run.v1.FinishResponseBCZAgithub.com/swanhubx/swanlab/core/proto/swanlab/record/v1;recordv1b\x06proto3"
+	"\vrecord_type2\xe5\x01\n" +
+	"\rRecordService\x12F\n" +
+	"\bRunStart\x12\x1b.swanlab.run.v1.StartRecord\x1a\x1d.swanlab.run.v1.StartResponse\x12A\n" +
+	"\fUpsertRecord\x12\x19.swanlab.record.v1.Record\x1a\x16.google.protobuf.Empty\x12I\n" +
+	"\tRunFinish\x12\x1c.swanlab.run.v1.FinishRecord\x1a\x1e.swanlab.run.v1.FinishResponseBCZAgithub.com/swanhubx/swanlab/core/proto/swanlab/record/v1;recordv1b\x06proto3"
 
 var (
 	file_swanlab_record_v1_record_proto_rawDescOnce sync.Once
@@ -304,11 +311,9 @@ var file_swanlab_record_v1_record_proto_goTypes = []any{
 	(*v14.MetadataRecord)(nil),     // 8: swanlab.system.v1.MetadataRecord
 	(*v14.RequirementsRecord)(nil), // 9: swanlab.system.v1.RequirementsRecord
 	(*v14.CondaRecord)(nil),        // 10: swanlab.system.v1.CondaRecord
-	(*v1.StartRequest)(nil),        // 11: swanlab.run.v1.StartRequest
-	(*v1.FinishRequest)(nil),       // 12: swanlab.run.v1.FinishRequest
-	(*v1.StartResponse)(nil),       // 13: swanlab.run.v1.StartResponse
-	(*emptypb.Empty)(nil),          // 14: google.protobuf.Empty
-	(*v1.FinishResponse)(nil),      // 15: swanlab.run.v1.FinishResponse
+	(*v1.StartResponse)(nil),       // 11: swanlab.run.v1.StartResponse
+	(*emptypb.Empty)(nil),          // 12: google.protobuf.Empty
+	(*v1.FinishResponse)(nil),      // 13: swanlab.run.v1.FinishResponse
 }
 var file_swanlab_record_v1_record_proto_depIdxs = []int32{
 	1,  // 0: swanlab.record.v1.Record.timestamp:type_name -> google.protobuf.Timestamp
@@ -321,12 +326,12 @@ var file_swanlab_record_v1_record_proto_depIdxs = []int32{
 	8,  // 7: swanlab.record.v1.Record.metadata:type_name -> swanlab.system.v1.MetadataRecord
 	9,  // 8: swanlab.record.v1.Record.requirements:type_name -> swanlab.system.v1.RequirementsRecord
 	10, // 9: swanlab.record.v1.Record.conda:type_name -> swanlab.system.v1.CondaRecord
-	11, // 10: swanlab.record.v1.RecordService.RunStart:input_type -> swanlab.run.v1.StartRequest
+	2,  // 10: swanlab.record.v1.RecordService.RunStart:input_type -> swanlab.run.v1.StartRecord
 	0,  // 11: swanlab.record.v1.RecordService.UpsertRecord:input_type -> swanlab.record.v1.Record
-	12, // 12: swanlab.record.v1.RecordService.RunFinish:input_type -> swanlab.run.v1.FinishRequest
-	13, // 13: swanlab.record.v1.RecordService.RunStart:output_type -> swanlab.run.v1.StartResponse
-	14, // 14: swanlab.record.v1.RecordService.UpsertRecord:output_type -> google.protobuf.Empty
-	15, // 15: swanlab.record.v1.RecordService.RunFinish:output_type -> swanlab.run.v1.FinishResponse
+	3,  // 12: swanlab.record.v1.RecordService.RunFinish:input_type -> swanlab.run.v1.FinishRecord
+	11, // 13: swanlab.record.v1.RecordService.RunStart:output_type -> swanlab.run.v1.StartResponse
+	12, // 14: swanlab.record.v1.RecordService.UpsertRecord:output_type -> google.protobuf.Empty
+	13, // 15: swanlab.record.v1.RecordService.RunFinish:output_type -> swanlab.run.v1.FinishResponse
 	13, // [13:16] is the sub-list for method output_type
 	10, // [10:13] is the sub-list for method input_type
 	10, // [10:10] is the sub-list for extension type_name

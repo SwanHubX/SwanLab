@@ -39,7 +39,7 @@ class RecordServiceStub(object):
         """
         self.RunStart = channel.unary_unary(
                 '/swanlab.record.v1.RecordService/RunStart',
-                request_serializer=swanlab_dot_run_dot_v1_dot_run__pb2.StartRequest.SerializeToString,
+                request_serializer=swanlab_dot_run_dot_v1_dot_run__pb2.StartRecord.SerializeToString,
                 response_deserializer=swanlab_dot_run_dot_v1_dot_run__pb2.StartResponse.FromString,
                 _registered_method=True)
         self.UpsertRecord = channel.unary_unary(
@@ -49,7 +49,7 @@ class RecordServiceStub(object):
                 _registered_method=True)
         self.RunFinish = channel.unary_unary(
                 '/swanlab.record.v1.RecordService/RunFinish',
-                request_serializer=swanlab_dot_run_dot_v1_dot_run__pb2.FinishRequest.SerializeToString,
+                request_serializer=swanlab_dot_run_dot_v1_dot_run__pb2.FinishRecord.SerializeToString,
                 response_deserializer=swanlab_dot_run_dot_v1_dot_run__pb2.FinishResponse.FromString,
                 _registered_method=True)
 
@@ -59,7 +59,7 @@ class RecordServiceServicer(object):
     """
 
     def RunStart(self, request, context):
-        """RunStart 接收单条 StartRequest，用于实验开始，并返回必要的信息。
+        """RunStart 接收单条 StartRecord，用于实验开始，并返回必要的信息。
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -73,7 +73,7 @@ class RecordServiceServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def RunFinish(self, request, context):
-        """RunFinish 接收单条 FinishRequest，用于实验结束。
+        """RunFinish 接收单条 FinishRecord，用于实验结束。
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -84,7 +84,7 @@ def add_RecordServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'RunStart': grpc.unary_unary_rpc_method_handler(
                     servicer.RunStart,
-                    request_deserializer=swanlab_dot_run_dot_v1_dot_run__pb2.StartRequest.FromString,
+                    request_deserializer=swanlab_dot_run_dot_v1_dot_run__pb2.StartRecord.FromString,
                     response_serializer=swanlab_dot_run_dot_v1_dot_run__pb2.StartResponse.SerializeToString,
             ),
             'UpsertRecord': grpc.unary_unary_rpc_method_handler(
@@ -94,7 +94,7 @@ def add_RecordServiceServicer_to_server(servicer, server):
             ),
             'RunFinish': grpc.unary_unary_rpc_method_handler(
                     servicer.RunFinish,
-                    request_deserializer=swanlab_dot_run_dot_v1_dot_run__pb2.FinishRequest.FromString,
+                    request_deserializer=swanlab_dot_run_dot_v1_dot_run__pb2.FinishRecord.FromString,
                     response_serializer=swanlab_dot_run_dot_v1_dot_run__pb2.FinishResponse.SerializeToString,
             ),
     }
@@ -124,7 +124,7 @@ class RecordService(object):
             request,
             target,
             '/swanlab.record.v1.RecordService/RunStart',
-            swanlab_dot_run_dot_v1_dot_run__pb2.StartRequest.SerializeToString,
+            swanlab_dot_run_dot_v1_dot_run__pb2.StartRecord.SerializeToString,
             swanlab_dot_run_dot_v1_dot_run__pb2.StartResponse.FromString,
             options,
             channel_credentials,
@@ -178,7 +178,7 @@ class RecordService(object):
             request,
             target,
             '/swanlab.record.v1.RecordService/RunFinish',
-            swanlab_dot_run_dot_v1_dot_run__pb2.FinishRequest.SerializeToString,
+            swanlab_dot_run_dot_v1_dot_run__pb2.FinishRecord.SerializeToString,
             swanlab_dot_run_dot_v1_dot_run__pb2.FinishResponse.FromString,
             options,
             channel_credentials,

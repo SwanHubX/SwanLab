@@ -34,7 +34,7 @@ def get_or_create_project(*, username: Optional[str], name: str, public: bool) -
     """
     try:
         data = {"name": name, "visibility": "PUBLIC" if public else "PRIVATE", "username": username}
-        return client.post("/project", data=helper.strip_none(data)).data
+        return client.post("/project", data=helper.strip_none(data, strip_empty_str=True)).data
     except ApiError as e:
         if e.response.status_code == 409:
             # 项目已经存在，从对象中解析信息
