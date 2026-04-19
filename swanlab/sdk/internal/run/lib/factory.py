@@ -16,8 +16,8 @@ from swanlab.sdk.internal.bus.events import CondaEvent, EventPayload, MetadataEv
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.pkg import fs
 from swanlab.sdk.internal.run import system
+from swanlab.sdk.internal.run.config import Config, create_run_config, create_unbound_run_config
 
-from .config import Config, create_run_config, create_unbound_run_config
 from .consumer import BackgroundConsumer, ConsumerProtocol
 from .record_builder import RecordBuilder
 

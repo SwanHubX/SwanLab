@@ -7,7 +7,7 @@
 
 import pytest
 
-import swanlab.sdk.internal.run.utils_fmt as fmt
+import swanlab.sdk.internal.run.lib.utils_fmt as fmt
 
 
 @pytest.fixture(params=[10, 100, 1000], ids=["n=10", "n=100", "n=1000"])

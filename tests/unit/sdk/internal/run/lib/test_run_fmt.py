@@ -7,7 +7,7 @@
 
 import pytest
 
-import swanlab.sdk.internal.run.utils_fmt as fmt
+import swanlab.sdk.internal.run.lib.utils_fmt as fmt
 
 # ─────────────────────────── flatten_dict ────────────────────────────
 
