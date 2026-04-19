@@ -85,14 +85,14 @@ class CorePython(CoreProtocol):
         return self._start_without_cloud(start_record, "OK, but use offline")
 
     def _start_when_cloud(self, start_record: StartRecord) -> StartResponse:
-        resp = self._deliver_run_start(start_record)
+        resp = self._report_run_start(start_record)
         self._start_store(resp)
         # Transport initialization is part of startup in cloud mode.
         # Fail fast on error instead of degrading silently.
         self._transport = Transport()
         return resp
 
-    def _deliver_run_start(self, record: StartRecord) -> StartResponse:
+    def _report_run_start(self, record: StartRecord) -> StartResponse:
         """
         运行开始
         :param record: 运行开始记录
@@ -211,14 +211,14 @@ class CorePython(CoreProtocol):
         assert self._transport is not None, "transport must be initialized before finishing"
         self._transport.finish()
         self._transport = None
-        resp = self._deliver_run_finish(finish_record)
+        resp = self._report_run_finish(finish_record)
         # 如果仅仅是与后端同步出现问题，则换一个让用户安心一些的提示信息
         if resp is None:
             return FinishResponse(success=False, message="Failed to finish run, but it has been saved locally.")
         return resp
 
     @safe.decorator(message="run finish error")
-    def _deliver_run_finish(self, record: FinishRecord) -> FinishResponse:
+    def _report_run_finish(self, record: FinishRecord) -> FinishResponse:
         assert self._username is not None and self._project is not None and self._cuid is not None, (
             "Cannot finish cloud run: username, project, or cuid is missing."
         )
