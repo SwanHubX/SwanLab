@@ -410,7 +410,7 @@ def send_webhook(ctx: RunContext) -> Tuple[bool, bool]:
     return True, True
 
 
-def ensure_run_dir(log_dir: Path, run_id: str, max_retries: int = 10, retry_interval: float = 0.5) -> Path:
+def ensure_run_dir(log_dir: Path, run_id: str, max_retries: int = 10, retry_interval: float = 1.0) -> Path:
     """
     原子化地创建一个不与已有目录冲突的 run_dir。
 
@@ -424,12 +424,14 @@ def ensure_run_dir(log_dir: Path, run_id: str, max_retries: int = 10, retry_inte
     :return: 创建成功的 run_dir 路径
     :raises RuntimeError: 超过最大重试次数仍无法创建唯一目录
     """
-    for _ in range(max_retries):
+    for i in range(max_retries):
         run_dir = log_dir / _generate_run_dir_name(run_id)
         try:
             fs.safe_mkdir(run_dir, ensure_clean=True)
             return run_dir
         except FileExistsError:
+            if i == max_retries - 1:
+                break
             time.sleep(retry_interval)
     raise RuntimeError(f"Failed to create a unique run directory after {max_retries} attempts")
 
