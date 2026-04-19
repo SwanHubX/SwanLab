@@ -54,17 +54,13 @@ class CorePython(CoreProtocol):
         self._cuid: Optional[str] = None
         self._started: bool = False
 
-    @property
-    def _alive(self):
-        return self._store is not None or self._transport is not None
-
     # ---------------------------------- start 方法 ----------------------------------
 
     def deliver_run_start(self, start_record: StartRecord) -> StartResponse:
         if self._started:
             raise RuntimeError("Failed to start run: already started")
         resp = super().deliver_run_start(start_record)
-        self._started = True
+        self._started = resp.success
         return resp
 
     def _start_store(self, resp: StartResponse):
@@ -147,7 +143,7 @@ class CorePython(CoreProtocol):
     # ---------------------------------- publish 方法 ----------------------------------
 
     def publish(self, records: List[Record]) -> None:
-        if not self._alive:
+        if not self._started:
             console.warning("CorePython is not started, skipping record publishing.")
             return
         super().publish(records)
