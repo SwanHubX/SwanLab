@@ -9,8 +9,7 @@ import threading
 from typing import Callable, List, Optional
 
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
-from swanlab.sdk.internal.pkg import console
-from swanlab.sdk.internal.pkg.safe import block as safe_block
+from swanlab.sdk.internal.pkg import console, safe
 
 from .buffer import RecordBuffer
 from .dispatch import Dispatch
@@ -136,7 +135,7 @@ class Transport:
                 # 锁外委托给 Dispatch，通过返回值判断成功/失败。
                 # 失败时保留 pending，避免在 drain/prepend 之间来回复制同一批 records。
                 is_success, retry_records = False, pending
-                with safe_block(message="Transport dispatch error"):
+                with safe.block(message="Transport dispatch error"):
                     is_success, retry_records = self._dispatcher(pending)
 
                 if is_success:
