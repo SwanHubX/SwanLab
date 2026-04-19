@@ -2,17 +2,16 @@
 @author: cunyue
 @file: consumer.py
 @time: 2026/3/13
-@description: SwanLab 后台消费者线程
+@description: 后台消费者组件，用于消费运行事件
 """
 
 import queue
 import threading
 from abc import ABC
-from typing import Set
+from typing import TYPE_CHECKING, Set
 
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
-from swanlab.sdk.internal.bus.emitter import RunQueue
-from swanlab.sdk.internal.bus.events import (
+from swanlab.sdk.internal.bus import (
     CondaEvent,
     ConfigEvent,
     ConsoleEvent,
@@ -20,12 +19,14 @@ from swanlab.sdk.internal.bus.events import (
     MetadataEvent,
     MetricLogEvent,
     RequirementsEvent,
+    RunQueue,
     ScalarDefineEvent,
 )
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.pkg import console, safe
 
-from .record_builder import RecordBuilder
+if TYPE_CHECKING:
+    from swanlab.sdk.internal.run.components.builder import RecordBuilder
 
 
 class ConsumerProtocol(ABC):
@@ -35,7 +36,7 @@ class ConsumerProtocol(ABC):
         self,
         ctx: RunContext,
         event_queue: RunQueue,
-        builder: RecordBuilder,
+        builder: "RecordBuilder",
         flush_timeout: float = 0.5,
         batch_size: int = 100,
     ): ...
@@ -47,11 +48,11 @@ class ConsumerProtocol(ABC):
     def join(self) -> None: ...
 
 
-class StopEvent:
+class _StopEvent:
     pass
 
 
-_STOP = StopEvent()
+_STOP = _StopEvent()
 
 
 class BackgroundConsumer(ConsumerProtocol):
@@ -59,7 +60,7 @@ class BackgroundConsumer(ConsumerProtocol):
         self,
         ctx: RunContext,
         event_queue: RunQueue,
-        builder: RecordBuilder,
+        builder: "RecordBuilder",
         flush_timeout: float = 0.5,
         batch_size: int = 100,
     ):

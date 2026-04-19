@@ -8,7 +8,11 @@
 import sys
 from typing import Optional
 
+from google.protobuf.timestamp_pb2 import Timestamp
+
+from swanlab.sdk.internal.bus import CondaEvent, EmitterProtocol, MetadataEvent, RequirementsEvent
 from swanlab.sdk.internal.context import RunContext
+from swanlab.sdk.internal.pkg import fs
 from swanlab.sdk.internal.run.system.environment import conda, git, requirements, runtime
 from swanlab.sdk.internal.run.system.hardware_vendor.apple import Apple
 from swanlab.sdk.internal.run.system.hardware_vendor.cpu import CPU
@@ -16,10 +20,10 @@ from swanlab.sdk.internal.run.system.hardware_vendor.memory import Memory
 from swanlab.sdk.internal.run.system.monitor import Monitor
 from swanlab.sdk.typings.run.system import HardwareSnapshot, MetadataSnapshot, SystemEnvironment, SystemShim
 
-__all__ = ["new", "Monitor"]
+__all__ = ["create_monitor", "Monitor"]
 
 
-def new(ctx: RunContext):
+def _new_raw(ctx: RunContext):
     """
     创建硬件监控模块
     """
@@ -69,3 +73,24 @@ def new(ctx: RunContext):
     if settings.monitor.enable:
         hardware_monitor = Monitor(system_shim)
     return system_environment, hardware_monitor
+
+
+def create_monitor(ctx: RunContext, e: EmitterProtocol):
+    if ctx.config.settings.mode == "disabled":
+        return None
+    this_monitor: Optional["Monitor"] = None
+    sys_info, hardware_monitor = _new_raw(ctx)
+    ts = Timestamp()
+    ts.GetCurrentTime()
+    if sys_info.metadata:
+        fs.safe_write(ctx.metadata_file, sys_info.metadata.model_dump_json())
+        e.emit(MetadataEvent(timestamp=ts))
+    if sys_info.requirements:
+        fs.safe_write(ctx.requirements_file, sys_info.requirements)
+        e.emit(RequirementsEvent(timestamp=ts))
+    if sys_info.conda:
+        fs.safe_write(ctx.conda_file, sys_info.conda)
+        e.emit(CondaEvent(timestamp=ts))
+    if hardware_monitor is not None and hardware_monitor.start(ctx, e):
+        this_monitor = hardware_monitor
+    return this_monitor

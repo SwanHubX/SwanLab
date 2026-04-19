@@ -13,8 +13,8 @@ import pytest
 import yaml
 
 from swanlab.proto.swanlab.config.v1.config_pb2 import UpdateType
-from swanlab.sdk.internal.bus.events import ConfigEvent
-from swanlab.sdk.internal.run.config import (
+from swanlab.sdk.internal.bus import ConfigEvent
+from swanlab.sdk.internal.run.components.config import (
     Config,
     config,
     create_run_config,

@@ -12,6 +12,7 @@ from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 
+from swanlab.sdk.internal.pkg import fork
 from swanlab.sdk.internal.run import Run
 
 
@@ -30,9 +31,9 @@ def _make_mock_run(state: str = "running") -> MagicMock:
     """构造一个最小化的 Run 替身"""
     mock = MagicMock(spec=Run)
     mock._state = state
-    mock._forked = False
-    # alive property 依赖 _forked 和 _state，手动计算
-    type(mock).alive = property(lambda self: not self._forked and self._state == "running")
+    mock._init_pid = fork.current_pid()
+    # alive property 依赖 fork.is_forked(_init_pid) 和 _state，手动计算
+    type(mock).alive = property(lambda self: not fork.is_forked(self._init_pid) and self._state == "running")
     mock._api_lock = threading.RLock()
     return mock
 

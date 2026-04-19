@@ -12,6 +12,7 @@ from unittest.mock import MagicMock
 import numpy as np
 import pytest
 
+from swanlab.sdk.internal.pkg import fork
 from swanlab.sdk.internal.run import Run
 from swanlab.sdk.internal.run.transforms.audio import Audio
 from swanlab.sdk.internal.run.transforms.image import Image
@@ -51,7 +52,7 @@ class _MockRun:
 
     def __init__(self):
         self._api_lock = threading.RLock()
-        self._forked = False
+        self._init_pid = fork.current_pid()
         self.log = MagicMock()
         self.alive = True
 

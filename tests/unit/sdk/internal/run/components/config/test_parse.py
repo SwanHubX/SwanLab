@@ -12,7 +12,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from swanlab.sdk.internal.run.config.parse import adapt_third_party, json_serializable, parse
+from swanlab.sdk.internal.run.components.config.parse import adapt_third_party, json_serializable, parse
 
 # ============================================================
 # json_serializable

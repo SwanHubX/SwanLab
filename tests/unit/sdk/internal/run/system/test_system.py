@@ -10,7 +10,7 @@ from unittest.mock import patch
 import pytest
 
 from swanlab.sdk.internal.context import RunConfig, RunContext
-from swanlab.sdk.internal.run.system import new
+from swanlab.sdk.internal.run.system import _new_raw
 from swanlab.sdk.internal.settings import Settings
 from swanlab.sdk.internal.settings.metadata import EnvironmentSettings, MonitorSettings
 from swanlab.sdk.typings.run.system import (
@@ -79,7 +79,7 @@ class TestHardwareCollectionHappyPath:
         for p in env_patches:
             p.start()
         try:
-            env, monitor = new(make_ctx())
+            env, monitor = _new_raw(make_ctx())
             assert env.metadata.hardware is not None
             assert env.metadata.hardware.apple_silicon is not None
             assert env.metadata.hardware.apple_silicon.name == "Apple M3 Pro"
@@ -105,7 +105,7 @@ class TestHardwareCollectionHappyPath:
         for p in env_patches:
             p.start()
         try:
-            env, monitor = new(make_ctx())
+            env, monitor = _new_raw(make_ctx())
             assert env.metadata.hardware is not None
             assert env.metadata.hardware.cpu is not None
             assert env.metadata.hardware.cpu.brand == "Intel Core i7"
@@ -132,7 +132,7 @@ class TestHardwareCollectionHappyPath:
         for p in env_patches:
             p.start()
         try:
-            env, monitor = new(make_ctx())
+            env, monitor = _new_raw(make_ctx())
             assert env.metadata.hardware is not None
             assert env.metadata.hardware.apple_silicon is None
             assert env.metadata.hardware.cpu is not None
@@ -155,7 +155,7 @@ class TestHardwareCollectionHappyPath:
         for p in env_patches:
             p.start()
         try:
-            env, monitor = new(make_ctx())
+            env, monitor = _new_raw(make_ctx())
             assert env.metadata.hardware is not None
             assert env.shim.slug == "windows"
             assert env.metadata.hardware.cpu is not None
@@ -177,7 +177,7 @@ class TestHardwareCollectionHappyPath:
         for p in env_patches:
             p.start()
         try:
-            env, monitor = new(make_ctx())
+            env, monitor = _new_raw(make_ctx())
             assert env.shim.slug == "windows"  # 非 linux/darwin 均归为 windows
             assert env.metadata.hardware is not None
             assert env.metadata.hardware.apple_silicon is None
@@ -208,7 +208,7 @@ class TestHardwareCollectionSettingsGating:
         for p in env_patches:
             p.start()
         try:
-            env, monitor = new(make_ctx(hardware=False, monitor_enable=False))
+            env, monitor = _new_raw(make_ctx(hardware=False, monitor_enable=False))
             assert env.metadata.hardware is None
         finally:
             for p in env_patches:
@@ -230,7 +230,7 @@ class TestHardwareCollectionSettingsGating:
         for p in env_patches:
             p.start()
         try:
-            env, monitor = new(make_ctx(hardware=False, monitor_enable=True))
+            env, monitor = _new_raw(make_ctx(hardware=False, monitor_enable=True))
             # del_hardware 被调用，metadata 中不包含硬件信息
             assert env.metadata.hardware is None
             # 但 shim 仍然基于硬件信息构建（用于监控）
@@ -254,7 +254,7 @@ class TestHardwareCollectionSettingsGating:
         for p in env_patches:
             p.start()
         try:
-            env, monitor = new(make_ctx(hardware=True, monitor_enable=False))
+            env, monitor = _new_raw(make_ctx(hardware=True, monitor_enable=False))
             assert env.metadata.hardware is not None
             assert env.metadata.hardware.cpu is not None
         finally:
@@ -283,7 +283,7 @@ class TestHardwareCollectionErrorHandling:
         for p in env_patches:
             p.start()
         try:
-            env, monitor = new(make_ctx())
+            env, monitor = _new_raw(make_ctx())
             assert env.metadata.hardware is not None
             assert env.metadata.hardware.apple_silicon is None
             assert env.metadata.hardware.cpu is None
@@ -305,7 +305,7 @@ class TestHardwareCollectionErrorHandling:
         for p in env_patches:
             p.start()
         try:
-            env, monitor = new(make_ctx())
+            env, monitor = _new_raw(make_ctx())
             assert env.metadata.hardware is not None
             assert env.metadata.hardware.cpu is None
             assert env.metadata.hardware.memory is not None
@@ -329,7 +329,7 @@ class TestHardwareCollectionErrorHandling:
         for p in env_patches:
             p.start()
         try:
-            env, monitor = new(make_ctx())
+            env, monitor = _new_raw(make_ctx())
             assert env.metadata.hardware is not None
             assert env.metadata.hardware.cpu is not None
             assert env.metadata.hardware.memory is None
@@ -355,7 +355,7 @@ class TestHardwareCollectionErrorHandling:
             patch("swanlab.sdk.internal.run.system.conda.get", return_value=None),
             patch("swanlab.sdk.internal.run.system.requirements.get", return_value=None),
         ):
-            env, monitor = new(make_ctx(hardware=True, git=True))
+            env, monitor = _new_raw(make_ctx(hardware=True, git=True))
             assert env.metadata.git is not None
             assert env.metadata.git.branch == "main"
             assert env.metadata.runtime is None
@@ -384,7 +384,7 @@ class TestHardwareSnapshotConsistency:
         for p in env_patches:
             p.start()
         try:
-            result = new(make_ctx())
+            result = _new_raw(make_ctx())
             assert isinstance(result, tuple)
             assert len(result) == 2
             assert isinstance(result[0], SystemEnvironment)
@@ -406,7 +406,7 @@ class TestHardwareSnapshotConsistency:
         for p in env_patches:
             p.start()
         try:
-            env, monitor = new(make_ctx())
+            env, monitor = _new_raw(make_ctx())
             assert env.metadata.hardware is not None
             assert env.metadata.hardware.accelerators == []
             assert env.shim.accelerators == []

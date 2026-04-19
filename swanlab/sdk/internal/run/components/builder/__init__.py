@@ -1,6 +1,6 @@
 """
 @author: cunyue
-@file: record_builder.py
+@file: __init__.py
 @time: 2026/3/13
 @description: protobuf Record 工厂，覆盖所有 record_type
 """
@@ -15,7 +15,7 @@ from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnClass, Colum
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.system.v1.console_pb2 import ConsoleRecord
 from swanlab.proto.swanlab.system.v1.env_pb2 import CondaRecord, MetadataRecord, RequirementsRecord
-from swanlab.sdk.internal.bus.events import (
+from swanlab.sdk.internal.bus import (
     CondaEvent,
     ConfigEvent,
     ConsoleEvent,

@@ -9,7 +9,6 @@
 """
 
 import atexit
-import os
 import signal
 import sys
 import threading
@@ -23,18 +22,11 @@ from typing import Any, Callable, Literal, Mapping, Optional, Type, Union, cast,
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord
-from swanlab.sdk.internal.bus.events import (
-    MetricLogEvent,
-    ScalarDefineEvent,
-)
+from swanlab.sdk.internal.bus import MetricLogEvent, ScalarDefineEvent
 from swanlab.sdk.internal.context import RunContext
-from swanlab.sdk.internal.pkg import adapter, console, safe
-from swanlab.sdk.internal.run import system
-from swanlab.sdk.internal.run.async_task import AsyncTaskManager
-from swanlab.sdk.internal.run.config import (
-    Config,
-    deactivate_run_config,
-)
+from swanlab.sdk.internal.pkg import adapter, console, fork, safe
+from swanlab.sdk.internal.run import components, system
+from swanlab.sdk.internal.run.components.config import Config, deactivate_run_config
 from swanlab.sdk.internal.run.transforms import Audio, Image, Text, Video, normalize_media_input
 from swanlab.sdk.typings.run import AsyncLogType, FinishType, ModeType
 from swanlab.sdk.typings.run.column import ScalarXAxisType
@@ -44,9 +36,7 @@ from swanlab.sdk.typings.run.transforms.image import ImageDatasType, ImageFilesT
 from swanlab.sdk.typings.run.transforms.text import TextDatasType
 from swanlab.sdk.typings.run.transforms.video import VideoDatasType
 
-from . import utils_fmt as fmt
-from .factory import factory_config, factory_consumer, factory_emitter, factory_monitor
-from .record_builder import RecordBuilder
+from . import fmt
 
 __all__ = ["Run", "has_run", "get_run", "set_run", "clear_run"]
 
@@ -61,9 +51,7 @@ def with_api(cmd: str, must_alive: bool = True):
     def decorator(f):
         @wraps(f)
         def wrapper(self: "Run", *args, **kwargs):
-            if self._forked:
-                # fork 后子进程继承的锁可能已持有，替换为新锁避免死锁
-                self._api_lock = threading.RLock()
+            if fork.is_forked(self._init_pid):
                 raise RuntimeError(
                     "SwanLab Run does not support fork yet. Use `multiprocessing.set_start_method('spawn')` "
                     "or call `swanlab.init()` in the child process."
@@ -117,16 +105,12 @@ class Run:
         # 1. 基础状态、组件准备
         self._ctx = ctx
         self._state: Union[FinishType, Literal["running"]] = "running"
-        self._pid = os.getpid()
+        self._init_pid = fork.current_pid()
         # 外部API锁，防止并发调用
         self._api_lock = threading.RLock()
-        # 异步任务管理器：处理async_log任务
-        self._async_task_manager = AsyncTaskManager()
         # 运行时组件
-        self._builder = RecordBuilder(self._ctx)
-        self._emitter = factory_emitter(self._ctx)
-        self._config = factory_config(self._ctx, self._emitter)
-        self._consumer = factory_consumer(self._ctx, self._emitter, self._builder)
+        self._asynctask, self._consumer, self._emitter, self._config = components.new(self._ctx)
+        # 回调器
         self._callbacker = self._ctx.callbacker
         # self._monitor is not None 则代表硬件监控开启
         self._monitor: Optional[system.Monitor] = None
@@ -134,6 +118,7 @@ class Run:
         # 2. 注册副作用
         # 设置全局运行实例
         set_run(self)
+        # TODO: swanlab-core 上线后，此处注册 Run 级别的 fork 重连回调
         # 注册退出钩子
         self._sys_origin_excepthook = sys.excepthook
         atexit.register(self._handle_atexit)
@@ -144,7 +129,7 @@ class Run:
 
         # 3. 初始化完成
         self._callbacker.on_run_initialized(self._ctx.run_dir, self.path)
-        self._monitor = factory_monitor(self._ctx, self._emitter)
+        self._monitor = system.create_monitor(self._ctx, self._emitter)
         self._consumer.start()
         # 初始化日志模块：非 disabled 模式绑定文件，disabled 模式禁用持久化
         console.init(bind_to=self._ctx.debug_dir if self.mode != "disabled" else None)
@@ -266,11 +251,6 @@ class Run:
         return self._config
 
     @property
-    def _forked(self) -> bool:
-        """当前进程是否为创建 Run 时的进程的 fork 子进程"""
-        return os.getpid() != self._pid
-
-    @property
     def _passive(self) -> bool:
         """被动模式：仅解析验证，不产生任何副作用（文件IO、网络、线程等）。
 
@@ -284,7 +264,7 @@ class Run:
         If the run is alive. You can log metrics if the run is alive.
         :return: True if the run is alive, False otherwise
         """
-        return not self._forked and self._state == "running"
+        return not fork.is_forked(self._init_pid) and self._state == "running"
 
     # ----------------------------------
     # 上下文管理器，允许用户以 with 语句启动和结束运行
@@ -419,7 +399,7 @@ class Run:
                 "fork mode is not yet supported, please looking forward to the `swanlab-core` release"
             )
 
-        return self._async_task_manager.submit(
+        return self._asynctask.submit(
             func,
             args=args,
             kwargs=kwargs,
@@ -600,13 +580,13 @@ class Run:
         # 2. 运行结束前，结束其他依赖于运行实例的线程
         # 2.1 等待所有 async_log 任务完成
         console.debug("Waiting for async_log tasks to complete...")
-        self._async_task_manager.shutdown(timeout=async_log_timeout)
+        self._asynctask.shutdown(timeout=async_log_timeout)
         # 2.2 停止硬件监控
         if self._monitor is not None:
             console.debug("Stopping hardware monitor...")
             self._monitor.stop()
 
-        # 3. 运行结束
+        # 3. 运行结束，清理相关组件状态
         self._state = this_state
         # 停止时间
         ts = Timestamp()
@@ -615,11 +595,13 @@ class Run:
 
         # 3.2 TODO: 停止终端代理
 
-        # 3.3 停止消费者线程
+        # 3.3 解绑config对象
+        deactivate_run_config()
+        # 3.4 停止消费者线程
         console.debug("SwanLab Run is finishing, waiting for logs to flush...")
         self._consumer.stop()
         self._consumer.join()
-        # 3.4 停止Core线程
+        # 3.5 停止Core线程
         finish_resp = self._ctx.core.deliver_run_finish(
             FinishRecord(state=adapter.state[this_state], error=error, finished_at=ts)
         )
@@ -634,7 +616,6 @@ class Run:
         # 清理全局运行实例
         console.debug("Cleanup global instance...")
         clear_run()
-        deactivate_run_config()
         console.debug("Clean & tidy! ciallo ( ∠・ω< ) ~ ★")
         # 释放日志，本次运行结束
         console.reset()

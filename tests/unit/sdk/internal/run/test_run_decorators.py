@@ -9,16 +9,17 @@ import threading
 
 import pytest
 
+from swanlab.sdk.internal.pkg import fork
 from swanlab.sdk.internal.run import with_api
 
 
 class TestWithApi:
     def test_executes_when_alive(self):
-        """当 alive 为 True 时，方法应正常执行"""
+        """当 alive 为 True 且非 fork 时，方法应正常执行"""
 
         class MockRun:
             def __init__(self):
-                self._forked = False
+                self._init_pid = fork.current_pid()
                 self.alive = True
                 self._api_lock = threading.RLock()
 
@@ -35,7 +36,7 @@ class TestWithApi:
 
         class MockRun:
             def __init__(self):
-                self._forked = False
+                self._init_pid = fork.current_pid()
                 self.alive = False
                 self._api_lock = threading.RLock()
 
@@ -48,11 +49,10 @@ class TestWithApi:
             run.my_method()
 
     def test_error_message_contains_cmd(self):
-        """错误信息中应包含传入的 cmd 字符串"""
 
         class MockRun:
             def __init__(self):
-                self._forked = False
+                self._init_pid = fork.current_pid()
                 self.alive = False
                 self._api_lock = threading.RLock()
 
@@ -69,7 +69,7 @@ class TestWithApi:
 
         class MockRun:
             def __init__(self):
-                self._forked = True
+                self._init_pid = 0  # 模拟 fork：PID 不匹配
                 self._api_lock = threading.RLock()
 
             @with_api(cmd="swanlab.log()")
@@ -85,7 +85,8 @@ class TestWithApi:
 
         class MockRun:
             def __init__(self):
-                self._forked = True
+                self._init_pid = 0
+                self.alive = False
                 self._api_lock = threading.RLock()
 
             @with_api(cmd="swanlab.log()")
@@ -96,32 +97,12 @@ class TestWithApi:
         with pytest.raises(RuntimeError, match="does not support fork"):
             run.log()
 
-    def test_forked_replaces_lock(self):
-        """fork 后应替换锁，避免继承父进程已持有的锁导致死锁"""
-        old_lock = threading.RLock()
-
-        class MockRun:
-            def __init__(self):
-                self._forked = True
-                self._api_lock = old_lock
-
-            @with_api(cmd="swanlab.log()")
-            def log(self):
-                pass
-
-        run = MockRun()
-        try:
-            run.log()
-        except RuntimeError:
-            pass
-        assert run._api_lock is not old_lock
-
     def test_must_alive_false_allows_not_alive(self):
         """must_alive=False 时，not alive 状态不抛异常"""
 
         class MockRun:
             def __init__(self):
-                self._forked = False
+                self._init_pid = fork.current_pid()
                 self.alive = False
                 self._api_lock = threading.RLock()
 
@@ -137,7 +118,7 @@ class TestWithApi:
 
         class MockRun:
             def __init__(self):
-                self._forked = True
+                self._init_pid = 0
                 self._api_lock = threading.RLock()
 
             @with_api(cmd="run.finish()", must_alive=False)

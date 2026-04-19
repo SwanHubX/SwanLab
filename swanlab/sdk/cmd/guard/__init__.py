@@ -5,30 +5,34 @@
 @description: SwanLab SDK CMD 守卫函数，用于检查运行时状态和实现线程安全
 """
 
-import os
 import threading
 from functools import wraps
 from typing import Callable
 
+from swanlab.sdk.internal.pkg import fork
 from swanlab.sdk.internal.run import has_run
 
 _CMD_LOCK = threading.Lock()
-_CMD_PID = os.getpid()
+
+
+def _reset_cmd_lock() -> None:
+    """fork 后子进程中重置锁，避免继承父进程已持有的锁导致死锁"""
+    global _CMD_LOCK
+    _CMD_LOCK = threading.Lock()
+
+
+fork.register(_reset_cmd_lock)
 
 
 def with_cmd_lock(func):
     """
     全局锁装饰器。
     注意：此锁为不可重入锁 (Lock)，如果两个被此装饰器装饰的 API 相互调用，必定发生死锁
-    fork 后子进程中此锁可能处于已持有状态，检测到 fork 时替换为新锁
+    fork 后子进程的锁由 pkg.fork 模块自动重置
     """
 
     @wraps(func)
     def wrapper(*args, **kwargs):
-        global _CMD_LOCK, _CMD_PID
-        if os.getpid() != _CMD_PID:
-            _CMD_LOCK = threading.Lock()
-            _CMD_PID = os.getpid()
         with _CMD_LOCK:
             return func(*args, **kwargs)
 
