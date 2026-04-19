@@ -86,14 +86,13 @@ def init(bind_to: Optional[Path] = None) -> None:
     if _initialized:
         return
 
-    _initialized = True
-
     # bind_to=None：disabled 模式，移除 MemoryHandler，日志无 handler 直接丢弃
     if bind_to is None:
         if _memory_handler is not None:
             _logger.removeHandler(_memory_handler)
             _memory_handler.close()
             _memory_handler = None
+        _initialized = True
         return
 
     # bind_to 有值：创建文件 Handler，flush 内存缓冲到文件
@@ -123,6 +122,7 @@ def init(bind_to: Optional[Path] = None) -> None:
 
     # 3. 挂载文件 Handler
     _logger.addHandler(_file_handler)
+    _initialized = True
 
     _logger.debug("Diagnostic log bound to file: %s", log_path)
 
