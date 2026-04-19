@@ -1,6 +1,6 @@
 """
 @author: cunyue
-@file: record_builder.py
+@file: __init__.py
 @time: 2026/3/13
 @description: protobuf Record 工厂，覆盖所有 record_type
 """

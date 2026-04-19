@@ -1,8 +1,8 @@
 """
 @author: cunyue
-@file: asynctask.py
+@file: __init__.py
 @time: 2026/4/11 14:39
-@description: 异步任务管理器，专为 swanlab.async_log 设计
+@description: 异步任务管理器组件，专为 swanlab.async_log 设计
 
 线程安全说明：
   submit() 和 shutdown() 在 Run._api_lock 下调用，互斥。
