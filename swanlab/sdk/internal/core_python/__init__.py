@@ -52,6 +52,7 @@ class CorePython(CoreProtocol):
         self._username: Optional[str] = None
         self._project: Optional[str] = None
         self._cuid: Optional[str] = None
+        self._started: bool = False
 
     @property
     def _alive(self):
@@ -60,9 +61,11 @@ class CorePython(CoreProtocol):
     # ---------------------------------- start 方法 ----------------------------------
 
     def deliver_run_start(self, start_record: StartRecord) -> StartResponse:
-        if self._alive:
+        if self._started:
             raise RuntimeError("Failed to start run: already started")
-        return super().deliver_run_start(start_record)
+        resp = super().deliver_run_start(start_record)
+        self._started = True
+        return resp
 
     def _start_store(self, resp: StartResponse):
         self._store = DataStoreWriter()
@@ -175,9 +178,11 @@ class CorePython(CoreProtocol):
     # ---------------------------------- finish 方法 ----------------------------------
 
     def deliver_run_finish(self, finish_record: FinishRecord) -> FinishResponse:
-        if not self._alive:
+        if not self._started:
             raise RuntimeError("Failed to finish run: not started")
-        return super().deliver_run_finish(finish_record)
+        resp = super().deliver_run_finish(finish_record)
+        self._started = False
+        return resp
 
     def _finish_store(self, record: Record):
         assert self._store is not None, "store must be initialized before shutdown"
@@ -203,6 +208,9 @@ class CorePython(CoreProtocol):
     def _finish_when_cloud(self, finish_record: FinishRecord) -> FinishResponse:
         record = self._build_finish_record(finish_record)
         self._finish_store(record)
+        assert self._transport is not None, "transport must be initialized before finishing"
+        self._transport.finish()
+        self._transport = None
         resp = self._deliver_run_finish(finish_record)
         # 如果仅仅是与后端同步出现问题，则换一个让用户安心一些的提示信息
         if resp is None:
