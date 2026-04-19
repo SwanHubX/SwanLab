@@ -94,22 +94,40 @@ def unregister(callback: Callable[[], None]) -> None:
             pass
 
 
+def _before_fork() -> None:
+    """``os.register_at_fork(before=...)`` 的处理器。
+
+    在 fork 之前获取锁，确保没有其他线程正在修改 _callbacks。
+    """
+    _lock.acquire()
+
+
+def _after_in_parent() -> None:
+    """``os.register_at_fork(after_in_parent=...)`` 的处理器。
+
+    fork 完成后在父进程中释放锁。
+    """
+    _lock.release()
+
+
 def _after_in_child() -> None:
     """``os.register_at_fork(after_in_child=...)`` 的处理器。
 
-    在 fork 后的子进程中执行所有已注册的回调，然后替换锁。
+    在 fork 后的子进程中执行所有已注册的回调，然后重置锁。
     回调执行顺序与注册顺序一致（FIFO）。
 
-    替换锁的原因：fork 时父进程的 _lock 可能被其他线程持有，
-    子进程继承的旧锁永远无法释放，后续 register/unregister 会死锁。
+    因为 _before_fork 已获取锁，此处锁处于持有状态。
+    直接重置为新锁，避免继承父进程的锁状态。
     """
-    # 子进程中只有调用 fork 的线程存在，此时读 _callbacks 是安全的
-    for cb in _callbacks:
-        cb()
-    global _lock
-    _lock = threading.Lock()
+    # _before_fork 已获取锁，此时 _callbacks 一定处于一致状态
+    try:
+        for cb in list(_callbacks):
+            cb()
+    finally:
+        global _lock
+        _lock = threading.Lock()
 
 
 # 注册 os.register_at_fork 回调（仅 POSIX 平台可用）
 if hasattr(os, "register_at_fork"):
-    os.register_at_fork(after_in_child=_after_in_child)
+    os.register_at_fork(before=_before_fork, after_in_parent=_after_in_parent, after_in_child=_after_in_child)
