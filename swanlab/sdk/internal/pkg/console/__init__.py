@@ -18,7 +18,7 @@ from rich.text import Text
 from .. import helper
 from . import log
 
-__all__ = ["debug", "info", "warning", "error", "trace", "c"]
+__all__ = ["debug", "info", "warning", "error", "trace", "c", "init", "reset"]
 
 c = Console()
 _name = "swanlab"
@@ -218,3 +218,18 @@ def trace(
 
     log_fn = error if level_name == "error" else debug
     log_fn(console_args=(console_msg,), file_args=(file_msg,), write_to_file=write_to_file, **kwargs)
+
+
+# -----------------------------------------------------------------------------
+# 日志文件管理（委托给 log 模块）
+# -----------------------------------------------------------------------------
+
+
+def init(bind_to=None) -> None:
+    """初始化日志模块。bind_to 为日志目录时绑定文件，为 None 时禁用持久化。仅应被 Run 生命周期调用。"""
+    log.init(bind_to)
+
+
+def reset() -> None:
+    """重置日志模块到初始状态。仅应被 Run 生命周期和测试 teardown 调用。"""
+    log.reset()

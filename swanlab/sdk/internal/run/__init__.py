@@ -44,7 +44,6 @@ from swanlab.sdk.typings.run.transforms.image import ImageDatasType, ImageFilesT
 from swanlab.sdk.typings.run.transforms.text import TextDatasType
 from swanlab.sdk.typings.run.transforms.video import VideoDatasType
 
-from ..pkg.console import log
 from . import utils_fmt as fmt
 from .factory import factory_config, factory_consumer, factory_emitter, factory_monitor
 from .record_builder import RecordBuilder
@@ -147,9 +146,8 @@ class Run:
         self._callbacker.on_run_initialized(self._ctx.run_dir, self.path)
         self._monitor = factory_monitor(self._ctx, self._emitter)
         self._consumer.start()
-        # 绑定日志文件绑定，仅在非禁用模式下绑定
-        if self.mode != "disabled":
-            log.bindfile(self._ctx.debug_dir)
+        # 初始化日志模块：非 disabled 模式绑定文件，disabled 模式禁用持久化
+        console.init(bind_to=self._ctx.debug_dir if self.mode != "disabled" else None)
 
     # ----------------------------------
     # 私有钩子
@@ -639,7 +637,7 @@ class Run:
         deactivate_run_config()
         console.debug("Clean & tidy! ciallo ( ∠・ω< ) ~ ★")
         # 释放日志，本次运行结束
-        log.reset()
+        console.reset()
 
 
 _current_run: Optional[Run] = None
