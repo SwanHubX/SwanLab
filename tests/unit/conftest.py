@@ -3,7 +3,7 @@ import pytest
 import swanlab
 from swanlab.sdk.internal.context import callbacker
 from swanlab.sdk.internal.core_python import client
-from swanlab.sdk.internal.pkg.console import log
+from swanlab.sdk.internal.pkg import console
 from swanlab.sdk.internal.run import clear_run
 from swanlab.sdk.internal.run.config import reset as reset_config
 from swanlab.sdk.internal.settings import Settings, settings
@@ -60,7 +60,7 @@ def isolate_sdk_environment(tmp_path, monkeypatch):
         client.reset()
 
     # 5. 清理 logger
-    log.reset()
+    console.reset()
 
     # 6. 清理 config
     reset_config()

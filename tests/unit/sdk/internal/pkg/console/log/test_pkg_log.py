@@ -14,16 +14,16 @@ import swanlab.sdk.internal.pkg.console.log as log_mod
 
 
 def test_log_lifecycle_and_output(tmp_path):
-    """测试核心业务流：缓冲阶段记录 -> 绑定文件触发落盘 -> 直接写入文件"""
+    """测试核心业务流：缓冲阶段记录 -> init 绑定文件触发落盘 -> 直接写入文件"""
     log_dir = tmp_path / "logs"
     log_dir.mkdir()
 
-    # 1. 缓冲阶段（尚未 bindfile）
+    # 1. 缓冲阶段（尚未 init）
     log_mod.debug("buffered debug")
     log_mod.info("buffered info")
 
     # 2. 绑定文件（之前的缓冲应自动落盘）
-    log_mod.bindfile(log_dir)
+    log_mod.init(bind_to=log_dir)
 
     # 3. 绑定后写入（应直接落盘）
     log_mod.warning("direct warning")
@@ -42,23 +42,23 @@ def test_log_lifecycle_and_output(tmp_path):
     assert "direct critical" in content
 
 
-def test_bindfile_invalid_dir(tmp_path):
+def test_init_invalid_dir(tmp_path):
     """测试绑定到不存在的目录时抛出 FileNotFoundError"""
     with pytest.raises(FileNotFoundError, match="Log directory does not exist"):
-        log_mod.bindfile(tmp_path / "not_exist")
+        log_mod.init(bind_to=tmp_path / "not_exist")
 
 
-def test_bindfile_is_idempotent(tmp_path):
-    """测试重复调用 bindfile 的幂等性（不报错且不重复创建资源）"""
+def test_init_is_idempotent(tmp_path):
+    """测试重复调用 init 的幂等性（不报错且不重复创建资源）"""
     log_dir = tmp_path / "logs"
     log_dir.mkdir()
 
     # 第一次绑定
-    log_mod.bindfile(log_dir)
+    log_mod.init(bind_to=log_dir)
     log_mod.info("first bound msg")
 
     # 第二次重复绑定（应静默忽略）
-    log_mod.bindfile(log_dir)
+    log_mod.init(bind_to=log_dir)
     log_mod.info("second bound msg")
 
     content = (log_dir / "debug.log").read_text(encoding="utf-8")
@@ -67,11 +67,43 @@ def test_bindfile_is_idempotent(tmp_path):
     assert "second bound msg" in content
 
 
+def test_init_with_none_discards_logs(tmp_path):
+    """测试 init(bind_to=None) 禁用日志持久化，日志不缓冲到内存"""
+    log_mod.reset()
+    log_mod.init(bind_to=None)
+
+    # 写入日志后，应无 handler 处理（不缓冲、不报错）
+    log_mod.debug("discarded debug")
+    log_mod.warning("discarded warning")
+    log_mod.error("discarded error")
+
+    # logger 无 handler，日志直接丢弃
+    assert log_mod._memory_handler is None
+    assert log_mod._file_handler is None
+    assert len(log_mod._logger.handlers) == 0
+
+    log_mod.reset()
+
+
+def test_init_none_then_reset_restores_buffering(tmp_path):
+    """测试 disabled 模式后 reset 恢复内存缓冲"""
+    log_mod.reset()
+    log_mod.init(bind_to=None)
+
+    # disabled 状态下无 handler
+    assert log_mod._memory_handler is None
+
+    # reset 恢复内存缓冲
+    log_mod.reset()
+    assert log_mod._memory_handler is not None
+    assert len(log_mod._logger.handlers) == 1
+
+
 def test_log_format(tmp_path):
     """测试写入日志文件的内容与传入消息一致（formatter 为纯消息模式）"""
     log_dir = tmp_path / "logs"
     log_dir.mkdir()
-    log_mod.bindfile(log_dir)
+    log_mod.init(bind_to=log_dir)
 
     log_mod.error("check format")
 
@@ -85,7 +117,7 @@ def test_secure_file_permissions(tmp_path):
     log_dir.mkdir()
 
     # 绑定并写入一条日志，确保底层 _open 方法被真实触发
-    log_mod.bindfile(log_dir)
+    log_mod.init(bind_to=log_dir)
     log_mod.info("trigger file creation for permission check")
 
     log_file = log_dir / "debug.log"

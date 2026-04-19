@@ -8,6 +8,7 @@
 import asyncio
 import sys
 import time
+import warnings
 
 import pytest
 
@@ -59,7 +60,10 @@ class TestLazyInit:
 
     @pytest.mark.skipif(sys.platform == "win32", reason="fork is not available on Windows")
     def test_fork_pool_created_on_fork(self, mgr):
-        mgr.submit(_ret42, mode="fork")
+        # Python 3.12+ 在多线程进程中 fork 会触发 DeprecationWarning，此处有意测试 fork 池的懒初始化，抑制该警告
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", message=".*multi-threaded.*fork", category=DeprecationWarning)
+            mgr.submit(_ret42, mode="fork")
         assert mgr._fork_pool is not None
         assert mgr._thread_pool is None
         assert mgr._spawn_pool is None
@@ -97,10 +101,12 @@ class TestSubmit:
 
     @pytest.mark.skipif(sys.platform == "win32", reason="fork is not available on Windows")
     def test_fork_success(self, mgr):
-        # func 必须是模块级顶层函数（可 pickle）
+        # Python 3.12+ 在多线程进程中 fork 会触发 DeprecationWarning，此处有意测试 fork 模式的功能，抑制该警告
         results = []
-        f = mgr.submit(_ret42, mode="fork", on_success=lambda r, s: results.append(r))
-        assert f.result() == 42
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", message=".*multi-threaded.*fork", category=DeprecationWarning)
+            f = mgr.submit(_ret42, mode="fork", on_success=lambda r, s: results.append(r))
+            assert f.result() == 42
         assert results == [42]
 
     def test_asyncio_coroutine(self):

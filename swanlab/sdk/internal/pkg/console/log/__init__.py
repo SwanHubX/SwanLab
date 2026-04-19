@@ -15,6 +15,7 @@
 2. 使用独立命名空间 "swanlab.internal"，不污染用户的 logging 配置
 3. 延迟绑定（Lazy Attach）：log_dir 就绪前日志缓冲在内存中，就绪后一次性 flush 到文件
 4. RotatingFileHandler 自动轮转，防止日志文件无限膨胀
+5. init(bind_to=None) 时禁用日志持久化，避免内存泄漏（disabled 模式）
 """
 
 import logging
@@ -23,7 +24,7 @@ from logging.handlers import MemoryHandler, RotatingFileHandler
 from pathlib import Path
 from typing import Optional
 
-__all__ = ["debug", "info", "warning", "error", "critical", "bindfile", "reset"]
+__all__ = ["debug", "info", "warning", "error", "critical", "init", "reset"]
 
 # ---------------------------------------------------------------------------
 # Logger 初始化
@@ -41,11 +42,11 @@ _FORMATTER = logging.Formatter(fmt="%(message)s")
 # ---------------------------------------------------------------------------
 # 内存缓冲 Handler（阶段 1：log_dir 就绪前）
 # capacity 设为 1024 条，足够覆盖 login 阶段的少量请求
-# flushLevel 设为 CRITICAL+1（即永远不会自动 flush），完全由 bindfile() 手动触发
+# flushLevel 设为 CRITICAL+1（即永远不会自动 flush），完全由 init() 手动触发
 # ---------------------------------------------------------------------------
 _memory_handler: Optional[MemoryHandler] = None
 _file_handler: Optional[RotatingFileHandler] = None
-_bound = False
+_initialized = False
 
 # ---------------------------------------------------------------------------
 # 轮转配置常量
@@ -73,55 +74,29 @@ class SecureRotatingFileHandler(RotatingFileHandler):
         return stream
 
 
-def reset() -> None:
+def init(bind_to: Optional[Path] = None) -> None:
     """
-    重置日志模块状态，恢复到初始的内存缓冲模式。
-    释放现有的文件句柄，清除所有已绑定的 Handler。
+    初始化诊断日志模块。
+
+    :param bind_to: 日志目录路径。传入时将日志绑定到文件（flush 内存缓冲到磁盘）；
+                    传入 None 时禁用日志持久化（丢弃所有日志记录，不缓冲到内存）。
     """
-    global _memory_handler, _file_handler, _bound
+    global _memory_handler, _file_handler, _initialized
 
-    # 1. 安全关闭并移除所有现有的 Handlers（防止文件句柄泄露）
-    for handler in _logger.handlers[:]:
-        handler.close()
-        _logger.removeHandler(handler)
-
-    # 2. 重新初始化内存缓冲 Handler
-    _memory_handler = MemoryHandler(
-        capacity=1024,
-        flushLevel=logging.CRITICAL + 1,
-    )
-    _memory_handler.setFormatter(_FORMATTER)
-    _logger.addHandler(_memory_handler)
-
-    # 3. 重置状态标志
-    _file_handler = None
-    _bound = False
-
-
-# 模块首次导入时，执行一次初始化
-reset()
-
-
-def bindfile(log_dir: Path) -> None:
-    """
-    将诊断日志绑定到文件。应在 log_dir 目录创建后调用。
-
-    执行流程：
-    1. 创建 SecureRotatingFileHandler 指向 log_dir/debug.log
-    2. 将内存缓冲中的日志 flush 到文件
-    3. 移除内存缓冲 Handler，后续日志直接写文件
-
-    此方法可安全地重复调用（幂等），第二次调用会被忽略。
-
-    :param log_dir: 日志目录路径，调用方需确保目录已创建
-    :raises FileNotFoundError: 如果 log_dir 不存在
-    """
-    global _memory_handler, _file_handler, _bound
-
-    if _bound:
+    if _initialized:
         return
 
-    log_dir = Path(log_dir)
+    # bind_to=None：disabled 模式，移除 MemoryHandler，日志无 handler 直接丢弃
+    if bind_to is None:
+        if _memory_handler is not None:
+            _logger.removeHandler(_memory_handler)
+            _memory_handler.close()
+            _memory_handler = None
+        _initialized = True
+        return
+
+    # bind_to 有值：创建文件 Handler，flush 内存缓冲到文件
+    log_dir = Path(bind_to)
     if not log_dir.exists():
         raise FileNotFoundError(f"Log directory does not exist: {log_dir}")
 
@@ -147,9 +122,38 @@ def bindfile(log_dir: Path) -> None:
 
     # 3. 挂载文件 Handler
     _logger.addHandler(_file_handler)
-    _bound = True
+    _initialized = True
 
     _logger.debug("Diagnostic log bound to file: %s", log_path)
+
+
+def reset() -> None:
+    """
+    重置日志模块状态，恢复到初始的内存缓冲模式。
+    释放现有的文件句柄，清除所有已绑定的 Handler。
+    """
+    global _memory_handler, _file_handler, _initialized
+
+    # 1. 安全关闭并移除所有现有的 Handlers（防止文件句柄泄露）
+    for handler in _logger.handlers[:]:
+        handler.close()
+        _logger.removeHandler(handler)
+
+    # 2. 重新初始化内存缓冲 Handler
+    _memory_handler = MemoryHandler(
+        capacity=1024,
+        flushLevel=logging.CRITICAL + 1,
+    )
+    _memory_handler.setFormatter(_FORMATTER)
+    _logger.addHandler(_memory_handler)
+
+    # 3. 重置状态标志
+    _file_handler = None
+    _initialized = False
+
+
+# 模块首次导入时，执行一次初始化
+reset()
 
 
 # ---------------------------------------------------------------------------
