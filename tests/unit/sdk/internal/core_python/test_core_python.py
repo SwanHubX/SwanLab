@@ -56,7 +56,7 @@ class TestCorePythonStart:
         core = CorePython(ctx)
         record = make_start_record()
         mock_deliver = MagicMock(return_value=StartResponse(success=True, message="OK", run=record))
-        monkeypatch.setattr(core, "_deliver_run_start", mock_deliver)
+        monkeypatch.setattr(core, "_report_run_start", mock_deliver)
 
         resp = core.deliver_run_start(record)
 
@@ -106,11 +106,11 @@ class TestCorePythonFinish:
         core = CorePython(ctx)
 
         mock_start = MagicMock(return_value=StartResponse(success=True, message="OK", run=make_start_record()))
-        monkeypatch.setattr(core, "_deliver_run_start", mock_start)
+        monkeypatch.setattr(core, "_report_run_start", mock_start)
         core.deliver_run_start(make_start_record())
 
         mock_finish = MagicMock(return_value=None)
-        monkeypatch.setattr(core, "_deliver_run_finish", mock_finish)
+        monkeypatch.setattr(core, "_report_run_finish", mock_finish)
         resp = core.deliver_run_finish(FinishRecord())
 
         assert core._store is None
