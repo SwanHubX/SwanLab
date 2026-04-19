@@ -10,11 +10,11 @@ from typing import Tuple
 from swanlab.sdk.internal.bus import RunEmitter
 from swanlab.sdk.internal.bus.emitter import EmitterProtocol
 from swanlab.sdk.internal.context import RunContext
-from swanlab.sdk.internal.run.config import Config, create_run_config, create_unbound_run_config
-from swanlab.sdk.internal.run.lib.components.asynctask import AsyncTaskManager
-from swanlab.sdk.internal.run.lib.components.builder import RecordBuilder
-from swanlab.sdk.internal.run.lib.components.consumer import BackgroundConsumer, ConsumerProtocol
-from swanlab.sdk.internal.run.lib.components.null import NullConsumer, NullEmitter
+from swanlab.sdk.internal.run.components.asynctask import AsyncTaskManager
+from swanlab.sdk.internal.run.components.builder import RecordBuilder
+from swanlab.sdk.internal.run.components.config import Config, create_run_config, create_unbound_run_config
+from swanlab.sdk.internal.run.components.consumer import BackgroundConsumer, ConsumerProtocol
+from swanlab.sdk.internal.run.components.null import NullConsumer, NullEmitter
 
 __all__ = [
     "new",

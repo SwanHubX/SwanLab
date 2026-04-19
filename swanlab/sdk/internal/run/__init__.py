@@ -28,12 +28,11 @@ from swanlab.sdk.internal.bus.events import (
 )
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.pkg import adapter, console, fork, safe
-from swanlab.sdk.internal.run import system
-from swanlab.sdk.internal.run.config import (
+from swanlab.sdk.internal.run import components, system
+from swanlab.sdk.internal.run.components.config import (
     Config,
     deactivate_run_config,
 )
-from swanlab.sdk.internal.run.lib import components, fmt
 from swanlab.sdk.internal.run.transforms import Audio, Image, Text, Video, normalize_media_input
 from swanlab.sdk.typings.run import AsyncLogType, FinishType, ModeType
 from swanlab.sdk.typings.run.column import ScalarXAxisType
@@ -42,6 +41,8 @@ from swanlab.sdk.typings.run.transforms.audio import AudioDatasType, AudioRatesT
 from swanlab.sdk.typings.run.transforms.image import ImageDatasType, ImageFilesType, ImageModesType, ImageSizesType
 from swanlab.sdk.typings.run.transforms.text import TextDatasType
 from swanlab.sdk.typings.run.transforms.video import VideoDatasType
+
+from . import fmt
 
 __all__ = ["Run", "has_run", "get_run", "set_run", "clear_run"]
 

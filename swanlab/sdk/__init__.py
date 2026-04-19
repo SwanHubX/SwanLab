@@ -5,6 +5,8 @@
 @description: SwanLab SDK，负责SwanLab库的核心指标上传功能
 """
 
+from swanlab.sdk.internal.run.components.config import config
+
 from .cmd.init import init
 from .cmd.login import login, login_cli
 from .cmd.logout import logout_cli
@@ -13,7 +15,6 @@ from .cmd.run import async_log, define_scalar, finish, log, log_audio, log_image
 from .cmd.verify import verify_cli
 from .internal.pkg import console, fs, helper, safe
 from .internal.run import Run, clear_run, get_run, has_run, set_run
-from .internal.run.config import config
 from .internal.run.transforms import Audio, Image, Text, Video
 from .internal.settings import Settings
 from .protocol import Callback

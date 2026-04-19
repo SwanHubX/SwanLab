@@ -7,7 +7,7 @@
 
 import yaml
 
-from swanlab.sdk.internal.run.config.writer import write_config
+from swanlab.sdk.internal.run.components.config.writer import write_config
 
 
 class TestWriteConfig:

@@ -1,6 +1,6 @@
 """
 @author: cunyue
-@file: test_async_task.py
+@file: test_asynctask.py
 @time: 2026/4/11
 @description: AsyncTaskManager 单元测试
 """
@@ -12,7 +12,7 @@ import warnings
 
 import pytest
 
-from swanlab.sdk.internal.run.lib.components.asynctask import AsyncTaskManager
+from swanlab.sdk.internal.run.components.asynctask import AsyncTaskManager
 
 
 # spawn/fork 模式要求 func 可 pickle，lambda 和局部闭包不可 pickle，

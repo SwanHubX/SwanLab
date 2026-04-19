@@ -28,8 +28,8 @@ from swanlab.sdk.cmd.merge_settings import merge_settings
 from swanlab.sdk.internal.bus.emitter import RunEmitter
 from swanlab.sdk.internal.pkg import fork
 from swanlab.sdk.internal.run import Run, get_run, has_run
-from swanlab.sdk.internal.run.config import config as global_config
-from swanlab.sdk.internal.run.lib.components import BackgroundConsumer, NullConsumer, NullEmitter
+from swanlab.sdk.internal.run.components import BackgroundConsumer, NullConsumer, NullEmitter
+from swanlab.sdk.internal.run.components.config import config as global_config
 from swanlab.sdk.internal.settings import Settings, settings
 from swanlab.sdk.typings.run import ModeType
 
