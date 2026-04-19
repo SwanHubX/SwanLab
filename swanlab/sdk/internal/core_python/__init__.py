@@ -12,6 +12,10 @@
 实现 CoreProtocol，当前为纯 Python 实现。
 未来由 swanlab-core（Go 二进制）替代时，此模块整体被替换，
 BackgroundConsumer 等调用方无需修改。
+
+
+Core 同时需要根据不同模式处理不同的业务，这是设计模式决定的
+值得说明的是，在当前的上层设计中，publish方法在disabled模式下永远不会触发，但是考虑到设计完整性，我们增加了相关业务逻辑判断
 """
 
 from typing import List, Optional
