@@ -12,9 +12,13 @@
 实现 CoreProtocol，当前为纯 Python 实现。
 未来由 swanlab-core（Go 二进制）替代时，此模块整体被替换，
 BackgroundConsumer 等调用方无需修改。
+
+
+Core 同时需要根据不同模式处理不同的业务，这是设计模式决定的
+值得说明的是，在当前的上层设计中，publish方法在disabled模式下永远不会触发，但是考虑到设计完整性，我们增加了相关业务逻辑判断
 """
 
-from typing import Callable, List, Optional
+from typing import List, Optional
 
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.run.v1.run_pb2 import (
@@ -29,7 +33,6 @@ from swanlab.sdk.internal.core_python.api.project import get_or_create_project, 
 from swanlab.sdk.internal.core_python.store import DataStoreWriter
 from swanlab.sdk.internal.core_python.transport import Transport
 from swanlab.sdk.internal.pkg import adapter, console, helper, safe
-from swanlab.sdk.internal.pkg.safe import block as safe_block
 from swanlab.sdk.protocol import CoreProtocol
 from swanlab.utils.experiment import generate_color, generate_name
 
@@ -45,103 +48,64 @@ class CorePython(CoreProtocol):
     START_RECORD_NUM = -1
     FINISH_RECORD_NUM = -2
 
-    def __init__(self, ctx: RunContext, upload_callback: Optional[Callable[[int], None]] = None):
+    def __init__(self, ctx: RunContext):
         super().__init__(ctx)
         self._store: Optional[DataStoreWriter] = None
         self._transport: Optional[Transport] = None
         self._mode = ctx.config.settings.mode
-        self._upload_callback = upload_callback
         self._username: Optional[str] = None
         self._project: Optional[str] = None
         self._cuid: Optional[str] = None
+        self._started: bool = False
+
+    # ---------------------------------- start 方法 ----------------------------------
 
     def deliver_run_start(self, start_record: StartRecord) -> StartResponse:
-        if self._store is not None or self._transport is not None:
-            raise RuntimeError("CorePython has already been started.")
-        # 1. 向后端同步运行开始事件
-        resp = self._run_start(start_record)
-        if resp is None:
-            return StartResponse(success=False, message="Failed to start run.")
-        # 2. 启动组件
-        if self._mode != "disabled":
-            self._store = DataStoreWriter()
-            self._store.open(str(self._ctx.run_file))
-            record = Record(num=self.START_RECORD_NUM, start=resp.run)
-            self._store.write(record.SerializeToString())
-        if self._mode == "cloud":
-            self._transport = Transport(upload_callback=self._upload_callback)
+        if self._started:
+            raise RuntimeError("Failed to start run: already started")
+        resp = super().deliver_run_start(start_record)
+        self._started = resp.success
         return resp
 
-    def publish(self, records: List[Record]) -> None:
-        if self._store is None and self._transport is None:
-            console.warning("CorePython is not started, skipping record handling.")
-            return
-        with safe_block(message="CorePython publish error"):
-            if self._store is not None:
-                for record in records:
-                    self._store.write(record.SerializeToString())
-                    if helper.DEBUG:
-                        console.debug("Write record:", record.WhichOneof("record_type"))
-            if self._transport is not None:
-                self._transport.put(records)
+    def _start_store(self, resp: StartResponse):
+        self._store = DataStoreWriter()
+        self._store.open(str(self._ctx.run_file))
+        record = Record(num=self.START_RECORD_NUM, start=resp.run)
+        self._store.write(record.SerializeToString())
 
-    def fork(self) -> "CorePython":
-        raise NotImplementedError(
-            "CorePython.fork() is not implemented. Please waiting for go version, while you should not reach here?"
-        )
+    def _start_without_cloud(self, start_record: StartRecord, message: str) -> StartResponse:
+        resp = StartResponse(success=True, message=message, run=start_record)
+        self._start_store(resp)
+        return resp
 
-    def deliver_run_finish(self, finish_record: FinishRecord) -> FinishResponse:
-        # 1. 构建记录
-        record = Record(
-            num=self.FINISH_RECORD_NUM,
-            finish=FinishRecord(
-                state=finish_record.state, error=finish_record.error, finished_at=finish_record.finished_at
-            ),
-        )
-        # 2. 停止组件
-        if self._transport is not None:
-            self._transport.finish()
-            self._transport = None
-        use_store = self._store is not None
-        if self._store is not None:
-            self._store.write(record.SerializeToString())
-            self._store.close()
-            self._store = None
-        # 3. 向后端同步运行结束事件
-        result = self._run_finish(finish_record)
-        if result is None:
-            # 如果与后端同步失败，根据不同情况，返回不同的响应
-            if use_store:
-                return FinishResponse(
-                    success=False,
-                    message="Failed to sync the run finish event to the server, but it has been saved locally.",
-                )
+    def _start_when_local(self, start_record: StartRecord) -> StartResponse:
+        return self._start_without_cloud(start_record, "OK, but use local")
 
-            else:
-                return FinishResponse(
-                    success=False,
-                    message="Failed to sync the run finish event to the server.",
-                )
-        return FinishResponse(success=True, message="Done")
+    def _start_when_offline(self, start_record: StartRecord) -> StartResponse:
+        return self._start_without_cloud(start_record, "OK, but use offline")
 
-    @safe.decorator(message="run start error")
-    def _run_start(self, record: StartRecord) -> StartResponse:
+    def _start_when_cloud(self, start_record: StartRecord) -> StartResponse:
+        resp = self._report_run_start(start_record)
+        self._start_store(resp)
+        # Transport initialization is part of startup in cloud mode.
+        # Fail fast on error instead of degrading silently.
+        self._transport = Transport()
+        return resp
+
+    def _report_run_start(self, record: StartRecord) -> StartResponse:
         """
         运行开始
         :param record: 运行开始记录
         :return: 运行开始响应
         """
-        # 0. 如果不是 cloud 模式则直接返回
-        if self._mode != "cloud":
-            return StartResponse(success=True, message="OK, but no cloud", run=record)
         # 1. 向后端同步运行开始事件
         # 获取当前项目，如果不存在则创建
-        project = get_or_create_project(
+        project_data = get_or_create_project(
             username=record.workspace,
             name=record.project,
             public=record.public,
         )
-        username, project = project["username"], project["name"]
+        username, project = project_data["username"], project_data["name"]
         # 获取当前项目详细信息
         project_info = get_project(username=username, name=project)
         # 获取当前实验
@@ -180,19 +144,83 @@ class CorePython(CoreProtocol):
         start_record.workspace = username
         return StartResponse(success=True, message="OK", run=start_record)
 
-    @safe.decorator(message="run finish error")
-    def _run_finish(self, record: FinishRecord) -> FinishResponse:
-        """
-        运行结束
-        :param record: 运行结束请求
-        :return: 运行结束响应
-        """
-        # 如果不是 cloud 模式则直接返回
-        if self._mode != "cloud":
-            return FinishResponse(success=True, message="OK, but no cloud")
+    # ---------------------------------- publish 方法 ----------------------------------
 
+    def publish(self, records: List[Record]) -> None:
+        if not self._started:
+            console.warning("CorePython is not started, skipping record publishing.")
+            return
+        super().publish(records)
+
+    def _publish_store(self, records: List[Record]) -> None:
+        assert self._store is not None, "store must be initialized before publishing"
+        for record in records:
+            self._store.write(record.SerializeToString())
+            if helper.DEBUG:
+                console.debug("Write record:", record.WhichOneof("record_type"))
+
+    def _publish_when_local(self, records: List[Record]) -> None:
+        self._publish_store(records)
+
+    def _publish_when_offline(self, records: List[Record]) -> None:
+        self._publish_store(records)
+
+    def _publish_when_cloud(self, records: List[Record]) -> None:
+        self._publish_store(records)
+        assert self._transport is not None, "transport must be initialized before publishing"
+        self._transport.put(records)
+
+    # ---------------------------------- fork 方法 ----------------------------------
+
+    def fork(self) -> "CorePython":
+        raise RuntimeError("CorePython.fork() should not be called (designed for swanlab-core).")
+
+    # ---------------------------------- finish 方法 ----------------------------------
+
+    def deliver_run_finish(self, finish_record: FinishRecord) -> FinishResponse:
+        if not self._started:
+            raise RuntimeError("Failed to finish run: not started")
+        resp = super().deliver_run_finish(finish_record)
+        self._started = False
+        return resp
+
+    def _finish_store(self, record: Record):
+        assert self._store is not None, "store must be initialized before shutdown"
+        self._store.write(record.SerializeToString())
+        self._store.close()
+        self._store = None
+
+    def _build_finish_record(self, finish_record: FinishRecord):
+        record = Record(num=self.FINISH_RECORD_NUM)
+        record.finish.CopyFrom(finish_record)
+        return record
+
+    def _finish_when_local(self, finish_record: FinishRecord) -> FinishResponse:
+        record = self._build_finish_record(finish_record)
+        self._finish_store(record)
+        return FinishResponse(success=True, message="OK, but use local")
+
+    def _finish_when_offline(self, finish_record: FinishRecord) -> FinishResponse:
+        record = self._build_finish_record(finish_record)
+        self._finish_store(record)
+        return FinishResponse(success=True, message="OK, but use offline")
+
+    def _finish_when_cloud(self, finish_record: FinishRecord) -> FinishResponse:
+        record = self._build_finish_record(finish_record)
+        self._finish_store(record)
+        assert self._transport is not None, "transport must be initialized before finishing"
+        self._transport.finish()
+        self._transport = None
+        resp = self._report_run_finish(finish_record)
+        # 如果仅仅是与后端同步出现问题，则换一个让用户安心一些的提示信息
+        if resp is None:
+            return FinishResponse(success=False, message="Failed to finish run, but it has been saved locally.")
+        return resp
+
+    @safe.decorator(message="run finish error")
+    def _report_run_finish(self, record: FinishRecord) -> FinishResponse:
         assert self._username is not None and self._project is not None and self._cuid is not None, (
-            "Required fields are not set."
+            "Cannot finish cloud run: username, project, or cuid is missing."
         )
         # 向后端同步运行结束事件
         stop_experiment(

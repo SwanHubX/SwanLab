@@ -12,9 +12,11 @@
   - TestInitSettingsPriority : 配置优先级（全局 < 自定义 < 传参）
   - TestInitResumeValidation : resume/id 校验逻辑
   - TestInitCloudMode        : cloud 模式，依赖本文件内的 HTTP mock fixtures
+  - TestInitFactoryDispatch  : 验证 factory 模式按模式分派组件类型
 """
 
 import multiprocessing
+from typing import cast
 
 import pytest
 import responses as responses_lib
@@ -23,9 +25,13 @@ import yaml
 from swanlab.sdk.cmd.init import init
 from swanlab.sdk.cmd.login import login_cli
 from swanlab.sdk.cmd.merge_settings import merge_settings
+from swanlab.sdk.internal.bus.emitter import RunEmitter
 from swanlab.sdk.internal.run import Run, get_run, has_run
 from swanlab.sdk.internal.run.config import config as global_config
+from swanlab.sdk.internal.run.consumer import BackgroundConsumer
+from swanlab.sdk.internal.run.factory import NullConsumer, NullEmitter
 from swanlab.sdk.internal.settings import Settings, settings
+from swanlab.sdk.typings.run import ModeType
 
 # ============================================================
 # Cloud 模式测试常量
@@ -709,3 +715,68 @@ class TestEnsureRunDirE2E:
         assert run._ctx.run_dir.exists()
         assert run._ctx.config.run_dir not in all_conflict_names
         run.finish()
+
+
+# ============================================================
+# TestInitFactoryDispatch
+# 验证 factory 模式按模式分派组件类型的设计约定
+# ============================================================
+
+
+class TestInitFactoryDispatch:
+    """验证 init() 创建的 Run 对象内部组件类型符合 factory 设计约定
+
+    disabled 模式：NullEmitter + NullConsumer + unbound Config + 无 Monitor
+    非 disabled 模式：RunEmitter + BackgroundConsumer + bound Config + 有 Monitor（环境允许时）
+    """
+
+    def test_disabled_uses_null_emitter(self):
+        run = init(mode="disabled")
+        assert isinstance(run._emitter, NullEmitter)
+
+    @pytest.mark.parametrize("mode", ["local", "offline"])
+    def test_non_disabled_uses_run_emitter(self, mode):
+        run = init(mode=cast(ModeType, mode))
+        assert isinstance(run._emitter, RunEmitter)
+
+    def test_disabled_null_emitter_discards_events(self):
+        """NullEmitter.emit() 丢弃事件，队列始终为空"""
+        run = init(mode="disabled")
+        run._emitter.emit("test-event")  # type: ignore
+        assert run._emitter.queue.empty()
+
+    def test_non_disabled_run_emitter_enqueues_events(self):
+        """RunEmitter.emit() 将事件放入队列"""
+        run = init(mode="local")
+        run._emitter.emit("test-event")  # type: ignore
+        assert not run._emitter.queue.empty()
+        assert run._emitter.queue.get_nowait() == "test-event"
+
+    def test_disabled_uses_null_consumer(self):
+        run = init(mode="disabled")
+        assert isinstance(run._consumer, NullConsumer)
+
+    @pytest.mark.parametrize("mode", ["local", "offline"])
+    def test_non_disabled_uses_background_consumer(self, mode):
+        run = init(mode=cast(ModeType, mode))
+        assert isinstance(run._consumer, BackgroundConsumer)
+
+    def test_disabled_config_is_unbound(self):
+        """disabled 模式 Config 不绑定文件，写操作仅内存"""
+        run = init(mode="disabled")
+        run.config["key"] = "value"
+
+        assert run.config["key"] == "value"
+        assert not run._ctx.config_file.exists()
+
+    @pytest.mark.parametrize("mode", ["local", "offline"])
+    def test_non_disabled_config_is_bound(self, mode):
+        """非 disabled 模式 Config 绑定文件，写操作持久化"""
+        run = init(mode=cast(ModeType, mode))
+        run.config["key"] = "value"
+
+        assert run._ctx.config_file.exists()
+
+    def test_disabled_monitor_is_none(self):
+        run = init(mode="disabled")
+        assert run._monitor is None

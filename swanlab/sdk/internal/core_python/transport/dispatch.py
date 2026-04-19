@@ -10,8 +10,7 @@ from typing import Callable, List, Optional, Sequence, Tuple
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.core_python.transport.helper import generate_chunks, group_records_by_type
 from swanlab.sdk.internal.core_python.transport.sender import HttpRecordSender
-from swanlab.sdk.internal.pkg import console
-from swanlab.sdk.internal.pkg.safe import block as safe_block
+from swanlab.sdk.internal.pkg import console, safe
 
 # 单次请求最大 record 数
 _MAX_RECORDS_PER_REQUEST = 10_000
@@ -74,7 +73,7 @@ class Dispatch:
         """单 chunk 上传。返回 True 表示成功，False 表示失败。"""
         if self._sender is None:
             raise RuntimeError("sender not set")
-        with safe_block(message=f"record chunk upload failed, record_type={record_type!r}"):
+        with safe.block(message=f"record chunk upload failed, record_type={record_type!r}"):
             self._sender.upload(record_type, chunk)
             return True
         return False

@@ -128,6 +128,7 @@ class Run:
         self._emitter = factory_emitter(self._ctx)
         self._config = factory_config(self._ctx, self._emitter)
         self._consumer = factory_consumer(self._ctx, self._emitter, self._builder)
+        self._callbacker = self._ctx.callbacker
         # self._monitor is not None 则代表硬件监控开启
         self._monitor: Optional[system.Monitor] = None
 
@@ -143,11 +144,10 @@ class Run:
         signal.signal(signal.SIGINT, self._handle_sigint)
 
         # 3. 初始化完成
-        # 启动硬件监控
+        self._callbacker.on_run_initialized(self._ctx.run_dir, self.path)
         self._monitor = factory_monitor(self._ctx, self._emitter)
-        # 启动后台消费者
         self._consumer.start()
-        # 绑定日志文件
+        # 绑定日志文件绑定，仅在非禁用模式下绑定
         if self.mode != "disabled":
             log.bindfile(self._ctx.debug_dir)
 
