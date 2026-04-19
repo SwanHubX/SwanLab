@@ -28,7 +28,7 @@ from swanlab.sdk.internal.core_python.api.experiment import create_or_resume_exp
 from swanlab.sdk.internal.core_python.api.project import get_or_create_project, get_project
 from swanlab.sdk.internal.core_python.store import DataStoreWriter
 from swanlab.sdk.internal.core_python.transport import Transport
-from swanlab.sdk.internal.pkg import adapter, safe
+from swanlab.sdk.internal.pkg import adapter, console, helper, safe
 from swanlab.sdk.protocol import CoreProtocol
 from swanlab.utils.experiment import generate_color, generate_name
 
@@ -53,6 +53,17 @@ class CorePython(CoreProtocol):
         self._project: Optional[str] = None
         self._cuid: Optional[str] = None
 
+    @property
+    def _alive(self):
+        return self._store is not None or self._transport is not None
+
+    # ---------------------------------- start 方法 ----------------------------------
+
+    def deliver_run_start(self, start_record: StartRecord) -> StartResponse:
+        if self._alive:
+            raise RuntimeError("Failed to start run: already started")
+        return super().deliver_run_start(start_record)
+
     def _start_store(self, resp: StartResponse):
         self._store = DataStoreWriter()
         self._store.open(str(self._ctx.run_file))
@@ -63,11 +74,6 @@ class CorePython(CoreProtocol):
         resp = StartResponse(success=True, message=message, run=start_record)
         self._start_store(resp)
         return resp
-
-    def deliver_run_start(self, start_record: StartRecord) -> StartResponse:
-        if self._store is not None or self._transport is not None:
-            raise RuntimeError("Failed to start run: already started")
-        return super().deliver_run_start(start_record)
 
     def _start_when_local(self, start_record: StartRecord) -> StartResponse:
         return self._start_without_cloud(start_record, "OK, but use local")
@@ -137,14 +143,29 @@ class CorePython(CoreProtocol):
 
     # ---------------------------------- publish 方法 ----------------------------------
 
+    def publish(self, records: List[Record]) -> None:
+        if not self._alive:
+            console.warning("CorePython is not started, skipping record publishing.")
+            return
+        super().publish(records)
+
+    def _publish_store(self, records: List[Record]) -> None:
+        assert self._store is not None, "store must be initialized before publishing"
+        for record in records:
+            self._store.write(record.SerializeToString())
+            if helper.DEBUG:
+                console.debug("Write record:", record.WhichOneof("record_type"))
+
     def _publish_when_local(self, records: List[Record]) -> None:
-        pass
+        self._publish_store(records)
 
     def _publish_when_offline(self, records: List[Record]) -> None:
-        pass
+        self._publish_store(records)
 
     def _publish_when_cloud(self, records: List[Record]) -> None:
-        pass
+        self._publish_store(records)
+        assert self._transport is not None, "transport must be initialized before publishing"
+        self._transport.put(records)
 
     # ---------------------------------- fork 方法 ----------------------------------
 
@@ -152,6 +173,11 @@ class CorePython(CoreProtocol):
         raise RuntimeError("CorePython.fork() should not be called (designed for swanlab-core).")
 
     # ---------------------------------- finish 方法 ----------------------------------
+
+    def deliver_run_finish(self, finish_record: FinishRecord) -> FinishResponse:
+        if not self._alive:
+            raise RuntimeError("Failed to finish run: not started")
+        return super().deliver_run_finish(finish_record)
 
     def _finish_store(self, record: Record):
         assert self._store is not None, "store must be initialized before shutdown"

@@ -72,7 +72,7 @@ class CoreProtocol(ABC):
         即发即忘：持久化 + 推上传队列，不等待确认。用于高频数据。
         在这里完成不同模式的发布函数分发
         """
-        with safe.block(message="publish error"):
+        with safe.block(message="publish record error"):
             if self._mode == "cloud":
                 return self._publish_when_cloud(records)
             elif self._mode == "local":
