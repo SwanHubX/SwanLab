@@ -25,7 +25,7 @@ import yaml
 from swanlab.sdk.cmd.init import init
 from swanlab.sdk.cmd.login import login_cli
 from swanlab.sdk.cmd.merge_settings import merge_settings
-from swanlab.sdk.internal.bus.emitter import RunEmitter
+from swanlab.sdk.internal.bus import RunEmitter
 from swanlab.sdk.internal.pkg import fork
 from swanlab.sdk.internal.run import Run, get_run, has_run
 from swanlab.sdk.internal.run.components import BackgroundConsumer, NullConsumer, NullEmitter

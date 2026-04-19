@@ -15,7 +15,7 @@ from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnClass, Colum
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.system.v1.console_pb2 import ConsoleRecord
 from swanlab.proto.swanlab.system.v1.env_pb2 import CondaRecord, MetadataRecord, RequirementsRecord
-from swanlab.sdk.internal.bus.events import (
+from swanlab.sdk.internal.bus import (
     CondaEvent,
     ConfigEvent,
     ConsoleEvent,

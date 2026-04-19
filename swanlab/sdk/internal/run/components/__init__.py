@@ -7,8 +7,7 @@
 
 from typing import Tuple
 
-from swanlab.sdk.internal.bus import RunEmitter
-from swanlab.sdk.internal.bus.emitter import EmitterProtocol
+from swanlab.sdk.internal.bus import EmitterProtocol, RunEmitter
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.run.components.asynctask import AsyncTaskManager
 from swanlab.sdk.internal.run.components.builder import RecordBuilder
@@ -20,7 +19,6 @@ __all__ = [
     "new",
     "Config",
     "ConsumerProtocol",
-    "EmitterProtocol",
     "AsyncTaskManager",
     "RecordBuilder",
     "BackgroundConsumer",

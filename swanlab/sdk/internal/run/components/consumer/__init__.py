@@ -11,8 +11,7 @@ from abc import ABC
 from typing import TYPE_CHECKING, Set
 
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
-from swanlab.sdk.internal.bus.emitter import RunQueue
-from swanlab.sdk.internal.bus.events import (
+from swanlab.sdk.internal.bus import (
     CondaEvent,
     ConfigEvent,
     ConsoleEvent,
@@ -20,6 +19,7 @@ from swanlab.sdk.internal.bus.events import (
     MetadataEvent,
     MetricLogEvent,
     RequirementsEvent,
+    RunQueue,
     ScalarDefineEvent,
 )
 from swanlab.sdk.internal.context import RunContext

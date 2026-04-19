@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.proto.swanlab.config.v1.config_pb2 import UpdateType
-from swanlab.sdk.internal.bus.events import ConfigEvent
+from swanlab.sdk.internal.bus import ConfigEvent
 
 from .helper import revert_config
 from .parse import parse

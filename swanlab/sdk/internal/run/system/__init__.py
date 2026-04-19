@@ -10,8 +10,7 @@ from typing import Optional
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
-from swanlab.sdk.internal.bus import CondaEvent, MetadataEvent, RequirementsEvent
-from swanlab.sdk.internal.bus.emitter import EmitterProtocol
+from swanlab.sdk.internal.bus import CondaEvent, EmitterProtocol, MetadataEvent, RequirementsEvent
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.pkg import fs
 from swanlab.sdk.internal.run.system.environment import conda, git, requirements, runtime

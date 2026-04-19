@@ -7,8 +7,7 @@
 
 from queue import Queue
 
-from swanlab.sdk.internal.bus.emitter import EmitterProtocol, RunQueue
-from swanlab.sdk.internal.bus.events import EventPayload
+from swanlab.sdk.internal.bus import EmitterProtocol, EventPayload, RunQueue
 
 from .consumer import ConsumerProtocol
 

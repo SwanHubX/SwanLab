@@ -22,17 +22,11 @@ from typing import Any, Callable, Literal, Mapping, Optional, Type, Union, cast,
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord
-from swanlab.sdk.internal.bus.events import (
-    MetricLogEvent,
-    ScalarDefineEvent,
-)
+from swanlab.sdk.internal.bus import MetricLogEvent, ScalarDefineEvent
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.pkg import adapter, console, fork, safe
 from swanlab.sdk.internal.run import components, system
-from swanlab.sdk.internal.run.components.config import (
-    Config,
-    deactivate_run_config,
-)
+from swanlab.sdk.internal.run.components.config import Config, deactivate_run_config
 from swanlab.sdk.internal.run.transforms import Audio, Image, Text, Video, normalize_media_input
 from swanlab.sdk.typings.run import AsyncLogType, FinishType, ModeType
 from swanlab.sdk.typings.run.column import ScalarXAxisType
@@ -592,7 +586,7 @@ class Run:
             console.debug("Stopping hardware monitor...")
             self._monitor.stop()
 
-        # 3. 运行结束
+        # 3. 运行结束，清理相关组件状态
         self._state = this_state
         # 停止时间
         ts = Timestamp()
@@ -601,11 +595,13 @@ class Run:
 
         # 3.2 TODO: 停止终端代理
 
-        # 3.3 停止消费者线程
+        # 3.3 解绑config对象
+        deactivate_run_config()
+        # 3.4 停止消费者线程
         console.debug("SwanLab Run is finishing, waiting for logs to flush...")
         self._consumer.stop()
         self._consumer.join()
-        # 3.4 停止Core线程
+        # 3.5 停止Core线程
         finish_resp = self._ctx.core.deliver_run_finish(
             FinishRecord(state=adapter.state[this_state], error=error, finished_at=ts)
         )
@@ -620,7 +616,6 @@ class Run:
         # 清理全局运行实例
         console.debug("Cleanup global instance...")
         clear_run()
-        deactivate_run_config()
         console.debug("Clean & tidy! ciallo ( ∠・ω< ) ~ ★")
         # 释放日志，本次运行结束
         console.reset()
