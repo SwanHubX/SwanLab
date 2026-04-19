@@ -26,10 +26,10 @@ from swanlab.sdk.cmd.init import init
 from swanlab.sdk.cmd.login import login_cli
 from swanlab.sdk.cmd.merge_settings import merge_settings
 from swanlab.sdk.internal.bus.emitter import RunEmitter
+from swanlab.sdk.internal.pkg import fork
 from swanlab.sdk.internal.run import Run, get_run, has_run
 from swanlab.sdk.internal.run.config import config as global_config
-from swanlab.sdk.internal.run.lib.consumer import BackgroundConsumer
-from swanlab.sdk.internal.run.lib.factory import NullConsumer, NullEmitter
+from swanlab.sdk.internal.run.lib.components import BackgroundConsumer, NullConsumer, NullEmitter
 from swanlab.sdk.internal.settings import Settings, settings
 from swanlab.sdk.typings.run import ModeType
 
@@ -571,18 +571,18 @@ class TestInitConfigIntegration:
 
 @pytest.mark.skipif(not hasattr(__import__("os"), "register_at_fork"), reason="fork not available on this platform")
 class TestForkDetection:
-    """测试 fork 检测机制：register_at_fork 回调 + with_run 拦截 + has_run 失效"""
+    """测试 fork 检测机制：Run._init_pid 拦截 + fork.register(clear_run) 清理全局单例"""
 
-    def test_fork_sets_forked_flag(self):
-        """真实 fork 后，子进程中 Run._forked 应为 True"""
+    def test_fork_init_pid_mismatch(self):
+        """真实 fork 后，子进程中 Run._init_pid 与当前 PID 不匹配"""
         run = init(mode="disabled")
-        assert not run._forked
+        assert fork.current_pid() == run._init_pid
 
         ctx = multiprocessing.get_context("fork")
         result = ctx.Queue()
 
         def child():
-            result.put(run._forked)
+            result.put(fork.is_forked(run._init_pid))
 
         p = ctx.Process(target=child)
         p.start()
@@ -657,7 +657,7 @@ class TestForkDetection:
 
         # 父进程中 Run 仍然 alive
         assert run.alive
-        assert not run._forked
+        assert fork.current_pid() == run._init_pid
         assert has_run()
 
     def test_can_init_new_run_in_child_after_fork(self):

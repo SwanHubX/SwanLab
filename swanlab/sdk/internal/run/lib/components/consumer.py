@@ -25,7 +25,7 @@ from swanlab.sdk.internal.bus.events import (
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.pkg import console, safe
 
-from .record_builder import RecordBuilder
+from .builder import RecordBuilder
 
 
 class ConsumerProtocol(ABC):
@@ -47,11 +47,11 @@ class ConsumerProtocol(ABC):
     def join(self) -> None: ...
 
 
-class StopEvent:
+class _StopEvent:
     pass
 
 
-_STOP = StopEvent()
+_STOP = _StopEvent()
 
 
 class BackgroundConsumer(ConsumerProtocol):

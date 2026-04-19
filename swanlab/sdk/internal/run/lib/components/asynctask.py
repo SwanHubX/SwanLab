@@ -1,6 +1,6 @@
 """
 @author: cunyue
-@file: async_task.py
+@file: asynctask.py
 @time: 2026/4/11 14:39
 @description: 异步任务管理器，专为 swanlab.async_log 设计
 

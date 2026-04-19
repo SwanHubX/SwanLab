@@ -12,7 +12,7 @@ import warnings
 
 import pytest
 
-from swanlab.sdk.internal.run.lib.async_task import AsyncTaskManager
+from swanlab.sdk.internal.run.lib.components.asynctask import AsyncTaskManager
 
 
 # spawn/fork 模式要求 func 可 pickle，lambda 和局部闭包不可 pickle，
