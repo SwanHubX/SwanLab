@@ -410,26 +410,28 @@ def send_webhook(ctx: RunContext) -> Tuple[bool, bool]:
     return True, True
 
 
-def ensure_run_dir(log_dir: Path, run_id: str, retry_interval: float = 1.0) -> Path:
+def ensure_run_dir(log_dir: Path, run_id: str, max_retries: int = 10, retry_interval: float = 0.5) -> Path:
     """
     原子化地创建一个不与已有目录冲突的 run_dir。
 
     通过 ``mkdir(exist_ok=False)`` 将"检查不存在 + 创建目录"合并为一个原子操作：
-    创建成功即拥有该目录；若抛出 FileExistsError，则等待 retry_interval 秒后
-    用新时间戳重试，直到成功。
+    创建成功即拥有该目录；若抛出 FileExistsError，则等待 retry_interval 秒后，用新时间戳重试，最多重试 max_retries 次。
 
     :param log_dir: 日志根目录（必须已存在）
     :param run_id: 当前运行的唯一标识符
+    :param max_retries: 最大重试次数
     :param retry_interval: 目录冲突时等待的秒数
     :return: 创建成功的 run_dir 路径
+    :raises RuntimeError: 超过最大重试次数仍无法创建唯一目录
     """
-    while True:
+    for _ in range(max_retries):
         run_dir = log_dir / _generate_run_dir_name(run_id)
         try:
             fs.safe_mkdir(run_dir, ensure_clean=True)
             return run_dir
         except FileExistsError:
             time.sleep(retry_interval)
+    raise RuntimeError(f"Failed to create a unique run directory after {max_retries} attempts")
 
 
 def _generate_run_dir_name(run_id: str) -> str:
@@ -460,7 +462,7 @@ def _init(run_settings: Settings) -> RunContext:
         # 写入 .gitignore（如果目录为空）
         utils.append_gitignore(run_settings.log_dir)
         # 创建运行子目录，run_dir 必须是新建的，防止误覆盖已有实验数据
-        run_dir = ensure_run_dir(run_settings.log_dir, run_id)
+        run_dir = ensure_run_dir(run_settings.log_dir, run_id, max_retries=run_settings.run.mkdir_retries)
     else:
         run_dir = run_settings.log_dir / _generate_run_dir_name(run_id)
     # 3. 创建一个临时的上下文，避免出现任何问题导致上下文残留

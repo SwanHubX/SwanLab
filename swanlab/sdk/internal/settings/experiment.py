@@ -217,3 +217,12 @@ class RunSettings(BaseModel):
         return map_resume_value(v)
 
     config: Optional[Path] = Field(default=None)
+    """
+    Config file path or dict for this SwanLab run.
+    """
+
+    mkdir_retries: int = Field(default=10, ge=1)
+    """
+    Maximum number of retries for creating a unique run directory.
+    If the generated directory name conflicts with an existing one, a new name will be generated after a short delay, up to this many times.
+    """
