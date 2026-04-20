@@ -5,7 +5,7 @@
 @description: 公共查询 API 通用类型定义
 """
 
-from typing import TypedDict
+from typing import List, TypedDict
 
 
 class ApiLabelType(TypedDict):
@@ -13,7 +13,7 @@ class ApiLabelType(TypedDict):
 
 
 class ApiPaginationType(TypedDict):
-    list: list
+    list: List
     size: int
     pages: int
     total: int

@@ -7,6 +7,8 @@
 
 from typing import Dict, List, Literal, TypedDict
 
+from swanlab.sdk.typings.run import VisibilityType
+
 from .common import ApiLabelType
 
 
@@ -21,7 +23,7 @@ class ApiProjectType(TypedDict):
     name: str
     username: str
     path: str
-    visibility: Literal["PUBLIC", "PRIVATE"]
+    visibility: VisibilityType
     description: str
     group: Dict[str, str]
     projectLabels: List[ApiLabelType]

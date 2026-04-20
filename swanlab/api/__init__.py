@@ -12,14 +12,10 @@ from swanlab.sdk.internal.pkg import nrc, scope
 from swanlab.sdk.internal.pkg.client import Client
 from swanlab.sdk.internal.settings import settings as global_settings
 
-from .experiment import Experiment
-from .experiments import Experiments
-from .project import Project
-from .projects import Projects
-from .user import User
-from .users import Users
-from .workspace import Workspace
-from .workspaces import Workspaces
+from .experiment import Experiment, Experiments
+from .project import Project, Projects
+from .user import User, Users
+from .workspace import Workspace, Workspaces
 
 
 class Api:

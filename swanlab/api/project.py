@@ -5,7 +5,7 @@
 @description: Project 实体类 — 单个项目的查询与操作
 """
 
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, cast
 
 from .base import BaseEntity
 from .typings.project import ApiProjectCountType, ApiProjectType
@@ -78,7 +78,7 @@ class Project(BaseEntity):
 
     def runs(self, filters: Optional[Dict[str, object]] = None):
         """获取项目下的实验列表。"""
-        from .experiments import Experiments
+        from .experiment import Experiments
 
         return Experiments(
             self._client, self._web_host, self._api_host, path=self._ensure_data()["path"], filters=filters
@@ -90,3 +90,45 @@ class Project(BaseEntity):
 
     def to_dict(self) -> Dict[str, Any]:
         return get_properties(self)
+
+
+class Projects(BaseEntity):
+    """
+    工作空间下项目集合的分页迭代器。
+
+    用法::
+
+        for project in api.projects("username"):
+            print(project.name)
+    """
+
+    def __init__(
+        self,
+        client: "Client",
+        web_host: str,
+        api_host: str,
+        *,
+        path: str,
+        sort: Optional[str] = None,
+        search: Optional[str] = None,
+        detail: Optional[bool] = True,
+    ) -> None:
+        super().__init__(client, web_host, api_host)
+        self._path = path
+        self._sort = sort
+        self._search = search
+        self._detail = detail
+
+    def __iter__(self) -> Iterator[Project]:
+        params = {"sort": self._sort, "search": self._search, "detail": self._detail}
+        for item in self._paginate(f"/project/{self._path}", params=params):
+            yield Project(
+                self._client,
+                self._web_host,
+                self._api_host,
+                path=str(item.get("path", "")),
+                data=cast(ApiProjectType, item),
+            )
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {"path": self._path}

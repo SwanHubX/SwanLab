@@ -6,7 +6,7 @@
 """
 
 import re
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional
 
 from .base import BaseEntity
 from .typings.user import ApiApiKeyType
@@ -110,3 +110,31 @@ class User(BaseEntity):
 
     def to_dict(self) -> Dict[str, Any]:
         return get_properties(self)
+
+
+class Users(BaseEntity):
+    """
+    用户集合的分页迭代器（私有化部署管理员限定）。
+
+    用法::
+
+        for user in api.users():
+            print(user.username)
+    """
+
+    def __init__(self, client: "Client", web_host: str, api_host: str, *, login_user: str = "") -> None:
+        super().__init__(client, web_host, api_host)
+        self._username = login_user
+
+    def __iter__(self) -> Iterator[User]:
+        for item in self._paginate("/self_hosted/users"):
+            yield User(
+                self._client,
+                self._web_host,
+                self._api_host,
+                username=item.get("username", ""),
+                login_user=self._username,
+            )
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {}

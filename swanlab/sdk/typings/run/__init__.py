@@ -34,6 +34,11 @@ WorkspaceType = Literal["TEAM", "PERSON"]
 工作空间类型
 """
 
+VisibilityType = Literal["PUBLIC", "PRIVATE"]
+"""
+项目可见类型
+"""
+
 RoleType = Literal["VISITOR", "VIEWER", "MEMBER", "OWNER"]
 """
 组织成员类型

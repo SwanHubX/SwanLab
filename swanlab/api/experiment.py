@@ -5,11 +5,11 @@
 @description: Experiment 实体类 — 单个实验的查询与操作
 """
 
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
 
 from .base import BaseEntity
 from .typings.experiment import ApiExperimentType
-from .utils import Label, get_properties
+from .utils import Label, get_properties, parse_column_type, to_camel_case
 
 if TYPE_CHECKING:
     from swanlab.sdk.internal.pkg.client import Client
@@ -74,7 +74,6 @@ class Experiment(BaseEntity):
 
     def _ensure_data(self) -> ApiExperimentType:
         if self._data is None:
-            # path 格式为 'username/project'，需要构造完整请求路径
             self._data = self._get(f"/project/{self._path}/runs/{self.id}" if self.id else f"/project/{self._path}")
         return self._data
 
@@ -82,8 +81,6 @@ class Experiment(BaseEntity):
     def id(self) -> str:
         if self._data is not None:
             return self._data.get("cuid", "")
-        # data 为空时无法获取 id，触发一次 fetch
-        # 先尝试不带 id 的路径来获取
         return self._ensure_data().get("cuid", "")
 
     @property
@@ -136,7 +133,6 @@ class Experiment(BaseEntity):
         """Experiment profile containing config, metadata, requirements, and conda."""
         data = self._ensure_data()
         if "profile" not in data:
-            # 重新 fetch 获取完整数据
             self._data = self._get(f"/project/{self._path}/runs/{self.id}")
             data = self._data
         return Profile(data.get("profile", {}))
@@ -213,3 +209,67 @@ class Experiment(BaseEntity):
 
     def to_dict(self) -> Dict[str, Any]:
         return get_properties(self)
+
+
+def _flatten_runs(runs: Union[list, Dict]) -> list:
+    """展开分组后的实验数据，返回一个包含所有实验的列表。"""
+    flat_runs = []
+    items = runs.values() if isinstance(runs, dict) else [runs]
+    for group in items:
+        if isinstance(group, dict):
+            flat_runs.extend(_flatten_runs(group))
+        elif isinstance(group, list):
+            flat_runs.extend(group)
+    return flat_runs
+
+
+class Experiments(BaseEntity):
+    """
+    项目下实验集合的迭代器。
+
+    用法::
+
+        for run in api.runs("username/project"):
+            print(run.name)
+    """
+
+    def __init__(
+        self,
+        client: "Client",
+        web_host: str,
+        api_host: str,
+        *,
+        path: str,
+        filters: Optional[Dict[str, object]] = None,
+    ) -> None:
+        super().__init__(client, web_host, api_host)
+        self._path = path
+        self._filters = filters
+
+    def __iter__(self) -> Iterator[Experiment]:
+        parsed_filters = (
+            [
+                {
+                    "key": to_camel_case(key) if parse_column_type(key) == "STABLE" else key.split(".", 1)[-1],
+                    "active": True,
+                    "value": [value],
+                    "op": "EQ",
+                    "type": parse_column_type(key),
+                }
+                for key, value in self._filters.items()
+            ]
+            if self._filters
+            else []
+        )
+        resp = self._post(f"/project/{self._path}/runs/shows", data={"filters": parsed_filters})
+        runs: list = []
+        if isinstance(resp, list):
+            runs = resp
+        elif isinstance(resp, dict):
+            runs = _flatten_runs(resp)
+
+        for run_data in runs:
+            yield Experiment(self._client, self._web_host, self._api_host, path=self._path, data=run_data)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {"path": self._path}

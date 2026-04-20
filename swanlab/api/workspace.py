@@ -5,7 +5,7 @@
 @description: Workspace 实体类 — 工作空间的查询
 """
 
-from typing import TYPE_CHECKING, Any, Dict, Literal, Optional
+from typing import TYPE_CHECKING, Any, Dict, Iterator, Literal, Optional
 
 from .base import BaseEntity
 from .typings.workspace import ApiWorkspaceInfoType
@@ -69,7 +69,7 @@ class Workspace(BaseEntity):
         detail: Optional[bool] = True,
     ):
         """获取工作空间下的项目列表。"""
-        from .projects import Projects
+        from .project import Projects
 
         return Projects(
             self._client,
@@ -83,3 +83,32 @@ class Workspace(BaseEntity):
 
     def to_dict(self) -> Dict[str, Any]:
         return get_properties(self)
+
+
+class Workspaces(BaseEntity):
+    """
+    用户工作空间集合的迭代器。
+
+    用法::
+
+        for ws in api.workspaces("username"):
+            print(ws.name)
+    """
+
+    def __init__(self, client: "Client", web_host: str, api_host: str, *, username: str) -> None:
+        super().__init__(client, web_host, api_host)
+        self._username = username
+
+    def _get_all_workspace_names(self) -> list[str]:
+        """获取用户个人空间 + 所属团队空间名称列表。"""
+        resp = self._get(f"/user/{self._username}/groups")
+        group_names = [r["username"] for r in resp]
+        return [self._username] + group_names
+
+    def __iter__(self) -> Iterator[Workspace]:
+        for name in self._get_all_workspace_names():
+            data = self._get(f"/group/{name}")
+            yield Workspace(self._client, self._web_host, self._api_host, username=name, data=data)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {"username": self._username}
