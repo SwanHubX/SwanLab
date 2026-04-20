@@ -13,8 +13,7 @@ from swanlab.exceptions import ApiError
 from swanlab.proto.swanlab.run.v1.run_pb2 import RUN_STATE_ABORTED, RUN_STATE_CRASHED, RunState
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.pkg import helper
-from swanlab.sdk.typings.core_python.api.experiment import InitExperimentType
-from swanlab.sdk.typings.core_python.api.experiment import RunType
+from swanlab.sdk.typings.core_python.api.experiment import InitExperimentType, RunType
 from swanlab.sdk.typings.run import ResumeType, RunStateType
 
 from .utils import parse_column_type, to_camel_case
@@ -86,7 +85,7 @@ def stop_experiment(username: str, project: str, cuid: str, *, state: RunState, 
         this_state = "CRASHED"
     elif state == RUN_STATE_ABORTED:
         this_state = "ABORTED"
-    client.put(
+    resp = client.put(
         f"/project/{username}/{project}/runs/{cuid}/state",
         {
             "state": this_state,

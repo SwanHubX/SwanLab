@@ -59,4 +59,3 @@ SidebarItemType = Literal["SCALAR", "CONFIG", "STABLE"]
 """
 列过滤类型
 """
-

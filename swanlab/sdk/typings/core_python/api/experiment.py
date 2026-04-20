@@ -6,7 +6,9 @@
 """
 
 from typing import Dict, List, Optional, TypedDict
+
 from swanlab.sdk.typings.run import RunStateType
+
 
 class InitExperimentType(TypedDict):
     # 实验cuid
