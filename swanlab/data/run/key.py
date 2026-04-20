@@ -10,7 +10,7 @@ import math
 from typing import Dict, Optional, Tuple
 
 from swanlab.data.modules import DataWrapper, Line
-from swanlab.env import create_time
+from swanlab.env import create_time, get_section_rule_idx
 from swanlab.log import swanlog
 from swanlab.toolkit import (
     MetricInfo,
@@ -227,12 +227,26 @@ class SwanLabKey:
         assert self.column_info is None, "Cannot create column info after creating it"
         result = data.parse()
         # SYSTEM PINNED HIDDEN 三个类型的 section 不应该传递名称
-        # PUBLIC 可选是否传递名称，如果 key 包含斜杠，则使用斜杠前的部分作为section的名称
-        # CUSTOM 时如果 key 包含斜杠，则使用斜杠前的部分作为section的名称，并且将 section_type 设置为 PUBLIC
+        # PUBLIC 可选是否传递名称，如果 key 包含斜杠，按 SWANLAB_SECTION_RULE_IDX 指定的斜杠索引分割
+        # 索引从 0 开始：0=第一个斜杠，1=第二个斜杠，负数从后数（-1=最后一个斜杠）
+        # CUSTOM 时与 PUBLIC 相同逻辑，并且将 section_type 设置为 PUBLIC
+        # 默认（未设置）按最后一个斜杠分割
         if section_type in ["PUBLIC", "CUSTOM"]:
             if "/" in key:
-                # 如果key包含斜杠，则使用最后一个斜杠前的部分作为section的名称
-                result.section = key.rsplit("/", 1)[0]
+                idx = get_section_rule_idx()
+                if idx is None:
+                    idx = -1
+                parts = key.split("/")
+                # 将斜杠索引转为 parts 切片位置：parts[:cut] 为 section
+                if idx >= 0:
+                    cut = idx + 1
+                else:
+                    cut = len(parts) + idx
+                if 0 < cut < len(parts):
+                    result.section = "/".join(parts[:cut])
+                else:
+                    # cut 越界时回退到默认（最后一个斜杠）
+                    result.section = key.rsplit("/", 1)[0]
                 section_type: SectionType = "PUBLIC"
         else:
             result.section = None

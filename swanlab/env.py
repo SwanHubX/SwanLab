@@ -17,7 +17,7 @@ import sys
 from enum import Enum
 from pathlib import Path
 from platform import platform
-from typing import List, Union
+from typing import List, Optional, Union
 from urllib.parse import urlparse
 
 
@@ -144,6 +144,12 @@ class SwanLabEnv(enum.Enum):
     RUN_PARALLEL = "SWANLAB_RUN_PARALLEL"
     """
     是否开启并行模式，设置为true时会并行运行实验，等同于mode='cloud' and resume='allow'
+    """
+    SECTION_RULE_IDX = "SWANLAB_SECTION_RULE_IDX"
+    """
+    控制包含斜杠的 key 按第几个斜杠作为 section 分隔，索引从 0 开始。
+    0=第一个斜杠，1=第二个斜杠，负数从后数（-1=最后一个斜杠）。
+    未设置时默认按最后一个斜杠分割。
     """
 
     @staticmethod
@@ -373,3 +379,18 @@ def remove_host_suffix(host: str, suffix: str) -> str:
     if host.endswith(suffix):
         return host[: -len(suffix)]
     return host
+
+
+def get_section_rule_idx() -> Optional[int]:
+    """
+    获取 section 分组规则的斜杠索引，遵循 Python 索引风格。
+    正数从前数，负数从后数（如 -1 表示最后一个斜杠）。
+    未设置或非整数时返回 None（按最后一个斜杠分割）。
+    """
+    value = os.getenv(SwanLabEnv.SECTION_RULE_IDX.value)
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except ValueError:
+        return None
