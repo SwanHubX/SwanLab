@@ -37,7 +37,8 @@ class Project(BaseEntity):
 
     def _ensure_data(self) -> ApiProjectType:
         if self._data is None:
-            self._data = self._get(f"/project/{self._path}")
+            resp = self._get(f"/project/{self._path}")
+            self._data = resp.data if resp.ok and resp.data else cast(ApiProjectType, {})
         return self._data
 
     @property
@@ -84,9 +85,10 @@ class Project(BaseEntity):
             self._client, self._web_host, self._api_host, path=self._ensure_data()["path"], filters=filters
         )
 
-    def delete(self) -> None:
+    def delete(self) -> bool:
         """删除此项目。"""
-        self._delete(f"/project/{self._ensure_data()['path']}")
+        resp = self._delete(f"/project/{self._ensure_data()['path']}")
+        return resp.ok
 
     def to_dict(self) -> Dict[str, Any]:
         return get_properties(self)

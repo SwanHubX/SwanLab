@@ -1,6 +1,7 @@
-import json
-
 import click
+import orjson
+
+from swanlab.sdk.internal.pkg import safe
 
 
 @click.command("run")
@@ -10,5 +11,6 @@ def get_run(path: str):
     from swanlab.api import Api
 
     api = Api()
-    run = api.run(path)
-    click.echo(json.dumps(run.to_dict(), indent=2, ensure_ascii=False))
+    with safe.block(message="Failed to get run info"):
+        run = api.run(path)
+        click.echo(orjson.dumps(run.to_dict(), option=orjson.OPT_INDENT_2).decode())

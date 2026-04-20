@@ -6,7 +6,11 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Dict, Iterator, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, Optional
+
+from swanlab.sdk.internal.pkg import safe
+
+from .typings.common import ApiResponse
 
 if TYPE_CHECKING:
     from swanlab.sdk.internal.pkg.client import Client
@@ -16,7 +20,8 @@ class BaseEntity(ABC):
     """
     swanlab/api 实体类公共基类。
 
-    统一持有 _client 和 _web_host，提供 _get/_post/_put/_delete HTTP 快捷方法和 _paginate 分页迭代。
+    统一持有 _client、_web_host 和 _api_host，提供 _get/_post/_put/_delete HTTP 快捷方法和 _paginate 分页迭代。
+    所有 HTTP 请求通过 _safe_request 包裹，保证任何异常都不会导致程序 crash，统一返回 ApiResponse。
     子类只需实现 to_dict() 和业务逻辑。
     """
 
@@ -29,17 +34,31 @@ class BaseEntity(ABC):
     def to_dict(self) -> Dict[str, Any]:
         """将实体序列化为 JSON 可序列化的字典。"""
 
-    def _get(self, path: str, **kwargs) -> Any:
-        return self._client.get(path, **kwargs).data
+    def _safe_request(self, method: Callable, path: str, **kwargs) -> ApiResponse:
+        """
+        安全请求包装：捕获所有异常，始终返回 ApiResponse 而不抛出。
 
-    def _post(self, path: str, **kwargs) -> Any:
-        return self._client.post(path, **kwargs).data
+        :param method: self._client.get / .post / .put / .delete
+        :param path: 请求路径
+        """
+        try:
+            data = method(path, **kwargs).data
+            return ApiResponse(ok=True, data=data)
+        except Exception as e:
+            safe.block(message=f"API request failed: {path}")
+            return ApiResponse(ok=False, errmsg=str(e))
 
-    def _put(self, path: str, **kwargs) -> Any:
-        return self._client.put(path, **kwargs).data
+    def _get(self, path: str, **kwargs) -> ApiResponse:
+        return self._safe_request(self._client.get, path, **kwargs)
 
-    def _delete(self, path: str, **kwargs) -> Any:
-        return self._client.delete(path, **kwargs).data
+    def _post(self, path: str, **kwargs) -> ApiResponse:
+        return self._safe_request(self._client.post, path, **kwargs)
+
+    def _put(self, path: str, **kwargs) -> ApiResponse:
+        return self._safe_request(self._client.put, path, **kwargs)
+
+    def _delete(self, path: str, **kwargs) -> ApiResponse:
+        return self._safe_request(self._client.delete, path, **kwargs)
 
     def _build_url(self, path: str) -> str:
         return f"{self._api_host}/{path}"
@@ -52,11 +71,14 @@ class BaseEntity(ABC):
             if params:
                 p.update({k: v for k, v in params.items() if v is not None})
             resp = self._get(path, params=p)
-            items = resp.get("list", []) if isinstance(resp, dict) else resp
+            if not resp.ok:
+                return
+            body = resp.data
+            items = body.get("list", []) if isinstance(body, dict) else body
             if not items:
                 break
             yield from items
-            total_pages = resp.get("pages", 1) if isinstance(resp, dict) else 1
+            total_pages = body.get("pages", 1) if isinstance(body, dict) else 1
             if page >= total_pages:
                 break
             page += 1

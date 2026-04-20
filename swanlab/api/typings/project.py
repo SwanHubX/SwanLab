@@ -5,7 +5,7 @@
 @description: 公共查询 API 项目类型定义
 """
 
-from typing import Dict, List, Literal, TypedDict
+from typing import Dict, List, TypedDict
 
 from swanlab.sdk.typings.run import VisibilityType
 

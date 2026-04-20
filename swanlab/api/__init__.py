@@ -8,12 +8,13 @@
 from typing import Optional
 
 from swanlab.exceptions import AuthenticationError
-from swanlab.sdk.internal.pkg import nrc, scope
+from swanlab.sdk.internal.pkg import nrc, safe, scope
 from swanlab.sdk.internal.pkg.client import Client
 from swanlab.sdk.internal.settings import settings as global_settings
 
 from .experiment import Experiment, Experiments
 from .project import Project, Projects
+from .typings.common import ApiResponse
 from .user import User, Users
 from .workspace import Workspace, Workspaces
 
@@ -83,6 +84,15 @@ class Api:
     #  实体查询方法
     # ------------------------------------------------------------------
 
+    def _safe_get(self, path: str, **kwargs) -> ApiResponse:
+        """安全 GET 请求，捕获异常并返回 ApiResponse。"""
+        try:
+            data = self._client.get(path, **kwargs).data
+            return ApiResponse(ok=True, data=data)
+        except Exception as e:
+            safe.block(message=f"API request failed: {path}")
+            return ApiResponse(ok=False, errmsg=str(e))
+
     def workspace(self, username: Optional[str] = None) -> Workspace:
         """
         获取工作空间信息，默认为当前登录用户的工作空间。
@@ -91,8 +101,14 @@ class Api:
         """
         if username is None:
             username = self._username
-        data = self._client.get(f"/group/{username}").data
-        return Workspace(self._client, self._web_host, self._api_host, username=username, data=data)
+        resp = self._safe_get(f"/group/{username}")
+        return Workspace(
+            self._client,
+            self._web_host,
+            self._api_host,
+            username=username,
+            data=resp.data if resp.ok else None,
+        )
 
     def workspaces(self, username: Optional[str] = None) -> Workspaces:
         """
@@ -110,8 +126,8 @@ class Api:
 
         :param path: 项目路径，格式为 'username/project-name'
         """
-        data = self._client.get(f"/project/{path}").data
-        return Project(self._client, self._web_host, self._api_host, path=path, data=data)
+        resp = self._safe_get(f"/project/{path}")
+        return Project(self._client, self._web_host, self._api_host, path=path, data=resp.data if resp.ok else None)
 
     def projects(
         self,
@@ -143,8 +159,14 @@ class Api:
             raise ValueError(f"Invalid path '{path}'. Expected format: 'username/project/run_id'")
         proj_path = path.rsplit("/", 1)[0]
         expid = parts[2]
-        data = self._client.get(f"/project/{proj_path}/runs/{expid}").data
-        return Experiment(self._client, self._web_host, self._api_host, path=proj_path, data=data)
+        resp = self._safe_get(f"/project/{proj_path}/runs/{expid}")
+        return Experiment(
+            self._client,
+            self._web_host,
+            self._api_host,
+            path=proj_path,
+            data=resp.data if resp.ok else None,
+        )
 
     def runs(self, path: str, filters: Optional[dict] = None) -> Experiments:
         """

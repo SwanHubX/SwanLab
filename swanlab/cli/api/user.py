@@ -1,7 +1,7 @@
-import json
 from typing import Optional
 
 import click
+import orjson
 
 
 @click.command("user")
@@ -12,4 +12,4 @@ def get_user(username: Optional[str] = None):
 
     api = Api()
     user = api.user(username)
-    click.echo(json.dumps(user.to_dict(), indent=2, ensure_ascii=False))
+    click.echo(orjson.dumps(user.to_dict(), option=orjson.OPT_INDENT_2).decode())

@@ -49,7 +49,7 @@ class User(BaseEntity):
         """用户所属的团队列表。"""
         if self._teams is None:
             resp = self._get(f"/user/{self._username}/groups")
-            self._teams = [r["username"] for r in resp]
+            self._teams = [r["username"] for r in resp.data] if resp.ok else []
         return self._teams
 
     @property
@@ -58,7 +58,8 @@ class User(BaseEntity):
         if not self.is_self:
             raise ValueError("Getting api keys of other users has not been supported yet.")
         if self._api_keys_cache is None:
-            self._api_keys_cache = self._get("/user/key")
+            resp = self._get("/user/key")
+            self._api_keys_cache = resp.data if resp.ok else []
         return [r["key"] for r in self._api_keys_cache or []]
 
     def generate_api_key(self, description: Optional[str] = None) -> Optional[str]:
@@ -68,14 +69,17 @@ class User(BaseEntity):
         self._post("/user/key", data={"name": description} if description else None)
         self._api_keys_cache = None  # invalidate cache
         resp = self._get("/user/key/latest")
-        return resp.get("key") if resp else None
+        return resp.data.get("key") if resp.ok and resp.data else None
 
     def delete_api_key(self, api_key: str) -> bool:
         """删除指定 API Key（仅限本人）。"""
         if not self.is_self:
             raise ValueError("Deleting api key of other users has not been supported yet.")
         self._api_keys_cache = None  # invalidate cache
-        keys: List[ApiApiKeyType] = self._get("/user/key")
+        resp = self._get("/user/key")
+        if not resp.ok:
+            return False
+        keys: List[ApiApiKeyType] = resp.data
         for key_info in keys:
             if key_info["key"] == api_key:
                 self._delete(f"/user/key/{key_info['id']}")
@@ -97,7 +101,10 @@ class User(BaseEntity):
         if not self.is_self:
             raise ValueError(f"{self._username} is not allowed to create other users.")
         # 检查私有化部署权限
-        info = self._get("/self_hosted/info")
+        resp = self._get("/self_hosted/info")
+        if not resp.ok:
+            return False
+        info = resp.data
         if not info.get("enabled", False):
             raise ValueError("You haven't launched a swanlab self-hosted instance.")
         if info.get("expired", True):
@@ -105,8 +112,8 @@ class User(BaseEntity):
         if not info.get("root", False):
             raise ValueError("You don't have permission. Please login as a root user.")
         self._check_create_info(username, password)
-        self._post("/self_hosted/users", data={"users": [{"username": username, "password": password}]})
-        return True
+        create_resp = self._post("/self_hosted/users", data={"users": [{"username": username, "password": password}]})
+        return create_resp.ok
 
     def to_dict(self) -> Dict[str, Any]:
         return get_properties(self)

@@ -1,6 +1,5 @@
-import json
-
 import click
+import orjson
 
 
 @click.command("project")
@@ -11,4 +10,4 @@ def get_project(path: str):
 
     api = Api()
     project = api.project(path)
-    click.echo(json.dumps(project.to_dict(), indent=2, ensure_ascii=False))
+    click.echo(orjson.dumps(project.to_dict(), option=orjson.OPT_INDENT_2).decode())

@@ -5,7 +5,7 @@
 @description: Experiment 实体类 — 单个实验的查询与操作
 """
 
-from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union, cast
 
 from .base import BaseEntity
 from .typings.experiment import ApiExperimentType
@@ -74,7 +74,8 @@ class Experiment(BaseEntity):
 
     def _ensure_data(self) -> ApiExperimentType:
         if self._data is None:
-            self._data = self._get(f"/project/{self._path}/runs/{self.id}" if self.id else f"/project/{self._path}")
+            resp = self._get(f"/project/{self._path}/runs/{self.id}" if self.id else f"/project/{self._path}")
+            self._data = resp.data if resp.ok and resp.data else cast(ApiExperimentType, {})
         return self._data
 
     @property
@@ -133,7 +134,8 @@ class Experiment(BaseEntity):
         """Experiment profile containing config, metadata, requirements, and conda."""
         data = self._ensure_data()
         if "profile" not in data:
-            self._data = self._get(f"/project/{self._path}/runs/{self.id}")
+            resp = self._get(f"/project/{self._path}/runs/{self.id}")
+            self._data = resp.data if resp.ok and resp.data else self._data or cast(ApiExperimentType, {})
             data = self._data
         return Profile(data.get("profile", {}))
 
@@ -145,12 +147,9 @@ class Experiment(BaseEntity):
 
         :param keys: 指标 key 列表
         :param x_axis: x 轴指标，默认 step
-        :param sample: 返回前 N 条数据
+        :param sample: 均匀采样 N 条数据（等间距采样，保留整体趋势）
         """
-        try:
-            import pandas as pd
-        except ImportError:
-            raise TypeError("pandas is required for metrics(). Install with 'pip install pandas'.")
+        from swanlab.vendor import pd
 
         if not keys:
             return pd.DataFrame()
@@ -163,8 +162,11 @@ class Experiment(BaseEntity):
         dfs = []
         prefix = ""
         for idx, key in enumerate(fetch_keys):
-            resp = self._client.get(f"/experiment/{self.id}/column/csv", params={"key": key})
-            csv_url = resp.data[0].get("url", "") if isinstance(resp.data, list) and resp.data else ""
+            resp = self._get(f"/experiment/{self.id}/column/csv", params={"key": key})
+            if not resp.ok:
+                continue
+            data = resp.data
+            csv_url = data[0].get("url", "") if isinstance(data, list) and data else ""
             if not csv_url:
                 continue
             df = pd.read_csv(csv_url, index_col=0)
@@ -198,14 +200,16 @@ class Experiment(BaseEntity):
             cols = [x_axis] + [c for c in result_df.columns if c != x_axis]
             result_df = result_df[cols].dropna(subset=[x_axis])
 
-        if sample is not None:
-            result_df = result_df.head(sample)
+        if sample is not None and len(result_df) > sample:
+            indices = [int(i * (len(result_df) - 1) / (sample - 1)) for i in range(sample)]
+            result_df = result_df.iloc[indices]
 
         return result_df
 
-    def delete(self) -> None:
+    def delete(self) -> bool:
         """删除此实验。"""
-        self._delete(f"/project/{self._path}/runs/{self.id}")
+        resp = self._delete(f"/project/{self._path}/runs/{self.id}")
+        return resp.ok
 
     def to_dict(self) -> Dict[str, Any]:
         return get_properties(self)
@@ -262,11 +266,14 @@ class Experiments(BaseEntity):
             else []
         )
         resp = self._post(f"/project/{self._path}/runs/shows", data={"filters": parsed_filters})
+        if not resp.ok:
+            return
+        body = resp.data
         runs: list = []
-        if isinstance(resp, list):
-            runs = resp
-        elif isinstance(resp, dict):
-            runs = _flatten_runs(resp)
+        if isinstance(body, list):
+            runs = body
+        elif isinstance(body, dict):
+            runs = _flatten_runs(body)
 
         for run_data in runs:
             yield Experiment(self._client, self._web_host, self._api_host, path=self._path, data=run_data)
