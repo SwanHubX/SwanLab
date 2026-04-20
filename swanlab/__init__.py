@@ -1,3 +1,4 @@
+from swanlab.api import Api
 from swanlab.sdk import (
     Audio,
     Callback,
@@ -28,6 +29,8 @@ from . import utils
 __version__ = helper.get_swanlab_version()
 
 __all__ = [
+    # api
+    "Api",
     # cmd
     "merge_settings",
     "init",
