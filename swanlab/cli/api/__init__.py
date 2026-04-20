@@ -1,5 +1,5 @@
 """
-@author: Nexisato
+@author: caddiesnew
 @file: __init__.py
 @time: 2026/4/20
 @description: CLI API 子命令 — 通过命令行调用 SwanLab 公共查询 API

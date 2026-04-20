@@ -1,65 +1,85 @@
 """
-@author: Nexisato
+@author: caddiesnew
 @file: workspace.py
 @time: 2026/4/20
 @description: Workspace 实体类 — 工作空间的查询
 """
 
-from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional
+from typing import TYPE_CHECKING, Any, Dict, Literal, Optional
 
-from swanlab.sdk.typings.core_python.api.workspace import WorkspaceInfoType
+from .base import BaseEntity
+from .typings.workspace import ApiWorkspaceInfoType
+from .utils import get_properties
 
 if TYPE_CHECKING:
     from swanlab.sdk.internal.pkg.client import Client
 
 
-class Workspace:
+class Workspace(BaseEntity):
     """
     表示一个 SwanLab 工作空间（个人或团队）。
-
-    通过独立 Client 实例与云端交互，支持查询工作空间详情及项目列表。
     """
 
-    def __init__(self, client: "Client", *, username: str, web_host: str) -> None:
-        self._client: "Client" = client
-        self._username: str = username
-        self._web_host: str = web_host
-        self._data: Optional[WorkspaceInfoType] = None
+    def __init__(
+        self,
+        client: "Client",
+        web_host: str,
+        api_host: str,
+        *,
+        username: str,
+        data: Optional[ApiWorkspaceInfoType] = None,
+    ) -> None:
+        super().__init__(client, web_host, api_host)
+        self._username = username
+        self._data = data
 
-    def _fetch(self) -> WorkspaceInfoType:
-        """从云端拉取工作空间详情，缓存到 _data。"""
-        raise NotImplementedError("Workspace._fetch")
-
-    # ------------------------------------------------------------------
-    #  属性占位
-    # ------------------------------------------------------------------
+    def _ensure_data(self) -> ApiWorkspaceInfoType:
+        if self._data is None:
+            self._data = self._get(f"/group/{self._username}")
+        return self._data
 
     @property
     def name(self) -> str:
-        """工作空间显示名称。"""
-        raise NotImplementedError
+        return self._ensure_data()["name"]
 
     @property
     def username(self) -> str:
-        """工作空间标识（用户名或团队名）。"""
-        raise NotImplementedError
+        return self._ensure_data()["username"]
 
     @property
     def workspace_type(self) -> Literal["TEAM", "PERSON"]:
-        """工作空间类型。"""
-        raise NotImplementedError
+        return self._ensure_data()["type"]
 
-    # ------------------------------------------------------------------
-    #  操作占位
-    # ------------------------------------------------------------------
+    @property
+    def profile(self) -> Dict[str, str]:
+        return self._ensure_data().get("profile", {})
 
-    def projects(self) -> List[Any]:
+    @property
+    def comment(self) -> str:
+        return self._ensure_data().get("comment", "")
+
+    @property
+    def role(self) -> str:
+        return self._ensure_data().get("role", "")
+
+    def projects(
+        self,
+        sort: Optional[str] = None,
+        search: Optional[str] = None,
+        detail: Optional[bool] = True,
+    ):
         """获取工作空间下的项目列表。"""
-        raise NotImplementedError("Workspace.projects")
+        from .projects import Projects
 
-    def json(self) -> Dict[str, Any]:
-        """返回所有属性的 JSON 可序列化字典。"""
-        raise NotImplementedError("Workspace.json")
+        return Projects(
+            self._client,
+            self._web_host,
+            self._api_host,
+            path=self._ensure_data()["username"],
+            sort=sort,
+            search=search,
+            detail=detail,
+        )
 
-
-__all__ = ["Workspace"]
+    def to_dict(self) -> Dict[str, Any]:
+        return get_properties(self)

@@ -1,5 +1,5 @@
 """
-@author: Nexisato
+@author: caddiesnew
 @file: project.py
 @time: 2026/4/20
 @description: Project 实体类 — 单个项目的查询与操作
@@ -7,63 +7,86 @@
 
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from swanlab.sdk.typings.core_python.api.project import ProjectType
+from .base import BaseEntity
+from .typings.project import ApiProjectCountType, ApiProjectType
+from .utils import Label, get_properties
 
 if TYPE_CHECKING:
     from swanlab.sdk.internal.pkg.client import Client
 
 
-class Project:
+class Project(BaseEntity):
     """
     表示一个 SwanLab 项目。
 
-    通过独立 Client 实例与云端交互，支持查询项目详情、获取实验列表、删除等操作。
+    支持双模式：构造时传入 data（列表迭代注入），或 data=None（按需懒加载）。
     """
 
-    def __init__(self, client: "Client", *, path: str, web_host: str) -> None:
-        self._client: "Client" = client
-        self._path: str = path  # 'username/project-name'
-        self._web_host: str = web_host
-        self._data: Optional[ProjectType] = None
+    def __init__(
+        self,
+        client: "Client",
+        web_host: str,
+        api_host: str,
+        *,
+        path: str,
+        data: Optional[ApiProjectType] = None,
+    ) -> None:
+        super().__init__(client, web_host, api_host)
+        self._path = path
+        self._data = data
 
-    def _fetch(self) -> ProjectType:
-        """从云端拉取项目详情，缓存到 _data。"""
-        raise NotImplementedError("Project._fetch")
-
-    # ------------------------------------------------------------------
-    #  属性占位
-    # ------------------------------------------------------------------
+    def _ensure_data(self) -> ApiProjectType:
+        if self._data is None:
+            self._data = self._get(f"/project/{self._path}")
+        return self._data
 
     @property
     def name(self) -> str:
-        """项目名称。"""
-        raise NotImplementedError
+        return self._ensure_data()["name"]
 
     @property
     def path(self) -> str:
-        """项目路径（username/project-name）。"""
-        raise NotImplementedError
+        return self._ensure_data()["path"]
 
     @property
     def url(self) -> str:
-        """项目在 Web 面板中的访问 URL。"""
-        raise NotImplementedError
+        return self._build_url(f"@{self._ensure_data()['path']}")
 
-    # ------------------------------------------------------------------
-    #  操作占位
-    # ------------------------------------------------------------------
+    @property
+    def description(self) -> str:
+        return self._ensure_data().get("description", "")
 
-    def runs(self, filters: Optional[Dict[str, Any]] = None) -> List[Any]:
+    @property
+    def visibility(self) -> str:
+        return self._ensure_data().get("visibility", "PUBLIC")
+
+    @property
+    def created_at(self) -> str:
+        return self._ensure_data().get("createdAt", "")
+
+    @property
+    def updated_at(self) -> str:
+        return self._ensure_data().get("updatedAt", "")
+
+    @property
+    def labels(self) -> List[Label]:
+        return [Label(label["name"]) for label in self._ensure_data().get("projectLabels", [])]
+
+    @property
+    def count(self) -> ApiProjectCountType:
+        return self._ensure_data().get("_count", {})
+
+    def runs(self, filters: Optional[Dict[str, object]] = None):
         """获取项目下的实验列表。"""
-        raise NotImplementedError("Project.runs")
+        from .experiments import Experiments
+
+        return Experiments(
+            self._client, self._web_host, self._api_host, path=self._ensure_data()["path"], filters=filters
+        )
 
     def delete(self) -> None:
         """删除此项目。"""
-        raise NotImplementedError("Project.delete")
+        self._delete(f"/project/{self._ensure_data()['path']}")
 
-    def json(self) -> Dict[str, Any]:
-        """返回所有属性的 JSON 可序列化字典。"""
-        raise NotImplementedError("Project.json")
-
-
-__all__ = ["Project"]
+    def to_dict(self) -> Dict[str, Any]:
+        return get_properties(self)
