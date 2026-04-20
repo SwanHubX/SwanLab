@@ -230,23 +230,16 @@ class SwanLabKey:
         # PUBLIC 可选是否传递名称，如果 key 包含斜杠，按 SWANLAB_SECTION_RULE_IDX 指定的斜杠索引分割
         # 索引从 0 开始：0=第一个斜杠，1=第二个斜杠，负数从后数（-1=最后一个斜杠）
         # CUSTOM 时与 PUBLIC 相同逻辑，并且将 section_type 设置为 PUBLIC
-        # 默认（未设置）按最后一个斜杠分割
+        # 默认（未设置）按第一个斜杠分割（idx=0）
         if section_type in ["PUBLIC", "CUSTOM"]:
             if "/" in key:
                 idx = get_section_rule_idx()
                 if idx is None:
-                    idx = -1
+                    idx = 0
                 parts = key.split("/")
-                # 将斜杠索引转为 parts 切片位置：parts[:cut] 为 section
-                if idx >= 0:
-                    cut = idx + 1
-                else:
-                    cut = len(parts) + idx
-                if 0 < cut < len(parts):
-                    result.section = "/".join(parts[:cut])
-                else:
-                    # cut 越界时回退到默认（最后一个斜杠）
-                    result.section = key.rsplit("/", 1)[0]
+                # idx 对应斜杠编号，cut 为 parts 切片位置；取模自动处理越界
+                cut = idx % (len(parts) - 1) + 1
+                result.section = "/".join(parts[:cut])
                 section_type: SectionType = "PUBLIC"
         else:
             result.section = None

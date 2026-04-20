@@ -201,115 +201,106 @@ class TestMockKey:
             assert 101 not in key_obj.steps, "Step 10 should be present in the steps"
 
 
-class TestKeySummary:
+class TestSectionSplit:
+    """
+    测试 SWANLAB_SECTION_RULE_IDX 环境变量对 create_column section 分组的影响
+    """
+
     @staticmethod
     def _new_key(run_state, key: str = "test") -> SwanLabKey:
         return SwanLabKey(key, run_state.store.media_dir, run_state.store.log_dir)
 
-    @staticmethod
-    def _add_line(key_obj: SwanLabKey, value, step: int):
-        data = DataWrapper(key_obj.key, [Line(value)])
-        data.parse(step=step, key=key_obj.key)
-        if not key_obj.chart_created:
-            key_obj.create_column(
-                key=key_obj.key,
-                name=None,
-                column_class="CUSTOM",
-                column_config=None,
-                section_type="PUBLIC",
-                data=data,
-                num=0,
-            )
-        return key_obj.add(data)
+    def _create_column(self, run_state, key: str, section_type: str = "PUBLIC") -> str:
+        """创建列并返回 section_name"""
+        key_obj = self._new_key(run_state, key)
+        data = DataWrapper(key, [Line(1.0)])
+        data.parse(step=0, key=key)
+        col = key_obj.create_column(
+            key=key,
+            name=None,
+            column_class="CUSTOM",
+            column_config=None,
+            section_type=section_type,
+            data=data,
+            num=0,
+        )
+        return col.section_name
 
-    def test_overwrite_non_extreme_promote_to_max_without_rebuild(self, monkeypatch):
+    def test_default_first_slash(self, monkeypatch):
+        """未设置环境变量时，默认按第一个斜杠分割（idx=0）"""
+        monkeypatch.delenv("SWANLAB_SECTION_RULE_IDX", raising=False)
         with UseMockRunState() as run_state:
-            key_obj = self._new_key(run_state)
-            self._add_line(key_obj, 1, 0)
-            self._add_line(key_obj, 10, 1)
-            self._add_line(key_obj, 5, 2)
+            assert self._create_column(run_state, "train/loss") == "train"
+            assert self._create_column(run_state, "train/loss/epoch") == "train"
+            assert self._create_column(run_state, "a/b/c/d") == "a"
 
-            monkeypatch.setattr(key_obj, "_rebuild_summary", lambda: pytest.fail("unexpected summary rebuild"))
-            metric_info = self._add_line(key_obj, 20, 2)
-
-            assert metric_info.metric_overwrite is True
-            assert metric_info.metric_summary == {
-                "max": 20.0,
-                "max_step": 2,
-                "min": 1.0,
-                "min_step": 0,
-                "num": 3,
-            }
-
-    def test_overwrite_current_max_demote_triggers_rebuild(self, monkeypatch):
+    def test_idx_0_first_slash(self, monkeypatch):
+        """idx=0 按第一个斜杠分割"""
+        monkeypatch.setenv("SWANLAB_SECTION_RULE_IDX", "0")
         with UseMockRunState() as run_state:
-            key_obj = self._new_key(run_state)
-            self._add_line(key_obj, 1, 0)
-            self._add_line(key_obj, 10, 1)
-            self._add_line(key_obj, 5, 2)
+            assert self._create_column(run_state, "train/loss") == "train"
+            assert self._create_column(run_state, "train/loss/epoch") == "train"
+            assert self._create_column(run_state, "a/b/c/d") == "a"
 
-            rebuild_calls = []
-            original_rebuild = key_obj._rebuild_summary
-
-            def rebuild():
-                rebuild_calls.append(True)
-                original_rebuild()
-
-            monkeypatch.setattr(key_obj, "_rebuild_summary", rebuild)
-            metric_info = self._add_line(key_obj, 7, 1)
-
-            assert len(rebuild_calls) == 1
-            assert metric_info.metric_summary == {
-                "max": 7.0,
-                "max_step": 1,
-                "min": 1.0,
-                "min_step": 0,
-                "num": 3,
-            }
-
-    def test_overwrite_duplicate_extreme_non_owner_skips_rebuild(self, monkeypatch):
+    def test_idx_1_second_slash(self, monkeypatch):
+        """idx=1 按第二个斜杠分割（只有两个部分时越界回退）"""
+        monkeypatch.setenv("SWANLAB_SECTION_RULE_IDX", "1")
         with UseMockRunState() as run_state:
-            key_obj = self._new_key(run_state)
-            self._add_line(key_obj, 1, 0)
-            self._add_line(key_obj, 10, 1)
-            self._add_line(key_obj, 10, 2)
+            # "train/loss" 只有一个斜杠，idx=1 越界回退到默认
+            assert self._create_column(run_state, "train/loss") == "train"
+            assert self._create_column(run_state, "train/loss/epoch") == "train/loss"
+            assert self._create_column(run_state, "a/b/c/d") == "a/b"
 
-            monkeypatch.setattr(key_obj, "_rebuild_summary", lambda: pytest.fail("duplicate extremum should not rebuild"))
-            metric_info = self._add_line(key_obj, 9, 2)
-
-            assert metric_info.metric_summary == {
-                "max": 10.0,
-                "max_step": 1,
-                "min": 1.0,
-                "min_step": 0,
-                "num": 3,
-            }
-
-    def test_overwrite_current_max_to_nan_triggers_rebuild(self, monkeypatch):
+    def test_idx_negative_1_last_slash(self, monkeypatch):
+        """idx=-1 等价于默认行为（最后一个斜杠）"""
+        monkeypatch.setenv("SWANLAB_SECTION_RULE_IDX", "-1")
         with UseMockRunState() as run_state:
-            key_obj = self._new_key(run_state)
-            self._add_line(key_obj, 1, 0)
-            self._add_line(key_obj, 10, 1)
-            self._add_line(key_obj, 5, 2)
+            assert self._create_column(run_state, "train/loss/epoch") == "train/loss"
+            assert self._create_column(run_state, "a/b/c/d") == "a/b/c"
 
-            rebuild_calls = []
-            original_rebuild = key_obj._rebuild_summary
+    def test_idx_negative_2_second_to_last(self, monkeypatch):
+        """idx=-2 倒数第二个斜杠"""
+        monkeypatch.setenv("SWANLAB_SECTION_RULE_IDX", "-2")
+        with UseMockRunState() as run_state:
+            assert self._create_column(run_state, "train/loss/epoch") == "train"
+            assert self._create_column(run_state, "a/b/c/d") == "a/b"
 
-            def rebuild():
-                rebuild_calls.append(True)
-                original_rebuild()
+    def test_idx_out_of_bounds_fallback(self, monkeypatch):
+        """idx 越界时回退到默认（最后一个斜杠）"""
+        monkeypatch.setenv("SWANLAB_SECTION_RULE_IDX", "100")
+        with UseMockRunState() as run_state:
+            assert self._create_column(run_state, "train/loss") == "train"
 
-            monkeypatch.setattr(key_obj, "_rebuild_summary", rebuild)
-            metric_info = self._add_line(key_obj, float("nan"), 1)
+    def test_idx_negative_out_of_bounds_fallback(self, monkeypatch):
+        """负数 idx 越界时回退到默认"""
+        monkeypatch.setenv("SWANLAB_SECTION_RULE_IDX", "-100")
+        with UseMockRunState() as run_state:
+            assert self._create_column(run_state, "train/loss") == "train"
 
-            assert len(rebuild_calls) == 1
-            assert metric_info.metric_summary == {
-                "max": 5.0,
-                "max_step": 2,
-                "min": 1.0,
-                "min_step": 0,
-                "num": 3,
-            }
+    def test_no_slash_key(self, monkeypatch):
+        """不含斜杠的 key 不触发斜杠分割逻辑，section 保持 Line 默认值"""
+        monkeypatch.setenv("SWANLAB_SECTION_RULE_IDX", "0")
+        with UseMockRunState() as run_state:
+            # Line 类型的 get_section() 返回 "default"，无斜杠时不走分割逻辑
+            assert self._create_column(run_state, "loss") == "default"
+
+    def test_system_section_type_ignored(self, monkeypatch):
+        """SYSTEM 类型不处理 section"""
+        monkeypatch.setenv("SWANLAB_SECTION_RULE_IDX", "0")
+        with UseMockRunState() as run_state:
+            assert self._create_column(run_state, "train/loss", section_type="SYSTEM") is None
+
+    def test_custom_section_type_works(self, monkeypatch):
+        """CUSTOM 类型与 PUBLIC 一样处理 section"""
+        monkeypatch.setenv("SWANLAB_SECTION_RULE_IDX", "0")
+        with UseMockRunState() as run_state:
+            assert self._create_column(run_state, "train/loss", section_type="CUSTOM") == "train"
+
+    def test_invalid_env_value_fallback(self, monkeypatch):
+        """非法环境变量值（非整数）回退到默认（idx=0，第一个斜杠）"""
+        monkeypatch.setenv("SWANLAB_SECTION_RULE_IDX", "abc")
+        with UseMockRunState() as run_state:
+            assert self._create_column(run_state, "train/loss/epoch") == "train"
 
 
 class TestKeySummary:
