@@ -102,7 +102,7 @@ def _loguru_build(
     return line, plain
 
 
-def _loguru_print(level_name: str, style: str, *args, **kwargs) -> str:
+def _loguru_print(level_name: str, style: str, *args, write_to_tty: bool = True, **kwargs) -> str:
     """
     构建并打印 loguru 风格日志行，同时返回对应的纯文本字符串供写入日志文件。
     2026-03-14 10:23:45.124 | DEBUG  | module:func:line - message
@@ -119,7 +119,8 @@ def _loguru_print(level_name: str, style: str, *args, **kwargs) -> str:
         console_args=console_args,
         file_args=file_args,
     )
-    c.print(line, **kwargs)
+    if write_to_tty:
+        c.print(line, **kwargs)
     return plain
 
 
@@ -134,13 +135,13 @@ def print(*args, **kwargs):  # noqa: A001
     c.print(*args, **kwargs)
 
 
-def debug(*args, write_to_file: bool = True, **kwargs):
+def debug(*args, write_to_file: bool = True, write_to_tty: bool = True, **kwargs):
     """发送调试消息（仅 SWANLAB_DEBUG=true 时输出）
     格式：2026-03-14 10:23:45.124 | DEBUG    | module:func:line - message
     """
     if not helper.DEBUG:
         return
-    plain = _loguru_print("debug", "grey54", *args, **kwargs)
+    plain = _loguru_print("debug", "grey54", *args, write_to_tty=write_to_tty, **kwargs)
     if write_to_file:
         log.debug(plain)
 
@@ -166,11 +167,11 @@ def warning(*args, **kwargs):
     log.warning(plain)
 
 
-def error(*args, write_to_file: bool = True, **kwargs):
+def error(*args, write_to_file: bool = True, write_to_tty: bool = True, **kwargs):
     """发生错误
     格式：2026-03-14 10:23:45.124 | ERROR    | module:func:line - message
     """
-    plain = _loguru_print("error", "red", *args, **kwargs)
+    plain = _loguru_print("error", "red", *args, write_to_tty=write_to_tty, **kwargs)
     if write_to_file:
         log.error(plain)
 
@@ -179,6 +180,7 @@ def trace(
     *args,
     max_frames: int = 2,
     write_to_file: bool = True,
+    write_to_tty: bool = True,
     level_name: Literal["error", "debug"] = "error",
     **kwargs,
 ):
@@ -193,6 +195,7 @@ def trace(
         *args: 前缀消息
         max_frames: 终端显示的最大栈帧数，默认 2
         write_to_file: 是否写入日志文件，默认 True
+        write_to_tty: 是否在终端打印，默认 True
         level_name: 日志级别，"error" 或 "debug"，默认 "error"
     """
     import traceback
@@ -217,7 +220,13 @@ def trace(
     file_msg = f"{prefix}: {full_tb}" if prefix else full_tb
 
     log_fn = error if level_name == "error" else debug
-    log_fn(console_args=(console_msg,), file_args=(file_msg,), write_to_file=write_to_file, **kwargs)
+    log_fn(
+        console_args=(console_msg,),
+        file_args=(file_msg,),
+        write_to_file=write_to_file,
+        write_to_tty=write_to_tty,
+        **kwargs,
+    )
 
 
 # -----------------------------------------------------------------------------

@@ -6,6 +6,10 @@
 
 生命周期：
     install() → [运行中] → uninstall()
+
+架构：
+    主线程 → StreamCapture → queue → emulator 线程 → emulator.write() → _flush()
+    只发射 committed 行（光标已通过 \\n 离开），跳过 \\r 覆盖的中间状态。
 """
 
 from __future__ import annotations
@@ -42,8 +46,6 @@ class TerminalProxy(TerminalProxyProtocol):
 
     stdout 和 stderr 各使用独立的 TerminalEmulator，确保 stream 字段准确。
     """
-
-    _FLUSH_INTERVAL: float = 1.0  # 秒，周期性 flush 间隔
 
     def __init__(
         self,
@@ -83,8 +85,7 @@ class TerminalProxy(TerminalProxyProtocol):
         self._stderr_capture: StreamCapture | None = None
 
         # 后台线程
-        self._emulator_thread: threading.Thread | None = None
-        self._flush_thread: threading.Thread | None = None
+        self._worker_thread: threading.Thread | None = None
 
     # ----------------------------------
     # 生命周期
@@ -112,21 +113,13 @@ class TerminalProxy(TerminalProxyProtocol):
             )
             self._stderr_capture.install()
 
-        # 2. 启动模拟器写入线程
-        self._emulator_thread = threading.Thread(
-            target=self._emulator_write_loop,
-            name="SwanLab·TerminalWriter",
+        # 2. 启动工作线程（emulator 写入 + flush）
+        self._worker_thread = threading.Thread(
+            target=self._worker_loop,
+            name="SwanLab·TerminalProxy",
             daemon=True,
         )
-        self._emulator_thread.start()
-
-        # 3. 启动周期性 flush 线程
-        self._flush_thread = threading.Thread(
-            target=self._flush_loop,
-            name="SwanLab·TerminalFlush",
-            daemon=True,
-        )
-        self._flush_thread.start()
+        self._worker_thread.start()
 
         self._installed = True
 
@@ -146,18 +139,13 @@ class TerminalProxy(TerminalProxyProtocol):
         # 2. 通知线程停止
         self._stopped.set()
 
-        # 3. 等待模拟器线程排空队列
-        if self._emulator_thread is not None:
-            self._emulator_thread.join(timeout=5)
-            self._emulator_thread = None
+        # 3. 等待工作线程排空队列
+        if self._worker_thread is not None:
+            self._worker_thread.join(timeout=5)
+            self._worker_thread = None
 
         # 4. 最终 flush
         self._flush()
-
-        # 5. 等待 flush 线程
-        if self._flush_thread is not None:
-            self._flush_thread.join(timeout=2)
-            self._flush_thread = None
 
         self._installed = False
 
@@ -172,21 +160,23 @@ class TerminalProxy(TerminalProxyProtocol):
         self._stderr_queue.put(text)
 
     # ----------------------------------
-    # 模拟器写入线程
+    # 工作线程
     # ----------------------------------
 
-    def _emulator_write_loop(self) -> None:
-        """后台线程：从队列读取数据，写入模拟器。"""
+    def _worker_loop(self) -> None:
+        """后台线程：从队列读取数据，写入模拟器，立即 flush。"""
         while True:
             stdout_items = self._drain_queue(self._stdout_queue)
             if stdout_items:
-                with safe.block(message="Terminal emulator stdout write error"):
-                    self._stdout_emulator.write("".join(stdout_items))
+                self._stdout_emulator.write("".join(stdout_items))
 
             stderr_items = self._drain_queue(self._stderr_queue)
             if stderr_items:
-                with safe.block(message="Terminal emulator stderr write error"):
-                    self._stderr_emulator.write("".join(stderr_items))
+                self._stderr_emulator.write("".join(stderr_items))
+
+            # 有数据写入就 flush
+            if stdout_items or stderr_items:
+                self._flush()
 
             # 退出条件：已停止且队列排空
             if self._stopped.is_set() and self._stdout_queue.empty() and self._stderr_queue.empty():
@@ -208,21 +198,15 @@ class TerminalProxy(TerminalProxyProtocol):
         return items
 
     # ----------------------------------
-    # Flush 线程
+    # Flush
     # ----------------------------------
-
-    def _flush_loop(self) -> None:
-        """后台线程：周期性读取模拟器 diff 并发射 ConsoleEvent。"""
-        while not self._stopped.is_set():
-            self._flush()
-            self._stopped.wait(self._FLUSH_INTERVAL)
 
     def _flush(self) -> None:
         """读取双模拟器 diff，发射 ConsoleEvent。
 
-        只发射新增行（is_new_line=True），跳过 \r 覆盖的中间状态。
+        只发射新增行（is_new_line=True），跳过 \\r 覆盖的中间状态。
         """
-        with safe.block(message="Terminal proxy flush error"):
+        with safe.block(message="Terminal proxy flush error", write_to_tty=False):
             # stdout diff
             for line_text, is_new_line in self._stdout_emulator.read():
                 if not is_new_line:

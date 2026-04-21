@@ -18,6 +18,8 @@ from collections import defaultdict
 from functools import cached_property
 from typing import Callable, List, Tuple
 
+from swanlab.sdk.internal.pkg import safe
+
 # ==========================================
 # ANSI 常量
 # ==========================================
@@ -257,9 +259,8 @@ class TerminalEmulator:
         self._write_text(data[prev_end:])
 
     def _handle_csi(self, params: str, command: str) -> None:
-        """分发 CSI 命令。"""
-        # noinspection PyBroadException
-        try:
+        """分发 CSI 命令。单个 CSI 解析异常不影响后续序列处理。"""
+        with safe.block(message="Terminal emulator CSI parse error", write_to_tty=False):
             if command == "m":
                 p = params.split(";")[0]
                 if not p:
@@ -297,8 +298,6 @@ class TerminalEmulator:
                         self.cursor_position(int(p[0]), 1)
                     else:
                         self.cursor_position(1, 1)
-        except Exception:
-            pass
 
     def _write_text(self, text: str) -> None:
         """处理包含 \\r/\\n/\\b 分隔符的文本。"""

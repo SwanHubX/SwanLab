@@ -20,7 +20,7 @@ import threading
 from typing import Callable, Literal, cast
 
 from swanlab.proto.swanlab.system.v1.console_pb2 import StreamType
-from swanlab.sdk.internal.pkg import fork
+from swanlab.sdk.internal.pkg import fork, safe
 
 # ----------------------------------
 # 模块级重入保护状态
@@ -116,18 +116,15 @@ class StreamCapture:
                 _is_writing = True
                 _in_callback.set(True)
 
-            # noinspection PyBroadException
             try:
-                # 4. 解码 bytes → str
-                if isinstance(data, bytes):
-                    text = data[:n].decode("utf-8", errors="replace")
-                else:
-                    text = data[:n]
-                # 5. 调用回调
-                on_write(text, stream_type)
-            except Exception:
-                # 静默吞掉异常，绝不影响用户的 print()
-                pass
+                with safe.block(message="StreamCapture on_write error", write_to_tty=False):
+                    # 4. 解码 bytes → str
+                    if isinstance(data, bytes):
+                        text = data[:n].decode("utf-8", errors="replace")
+                    else:
+                        text = data[:n]
+                    # 5. 调用回调
+                    on_write(text, stream_type)
             finally:
                 with _module_rlock:
                     _is_writing = False
