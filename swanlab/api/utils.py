@@ -1,4 +1,23 @@
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
+
+
+def get_properties(obj: object, _visited: Optional[Set[int]] = None) -> Dict[str, object]:
+    """递归获取实例中所有 property 的值，用于 to_dict() 默认实现。"""
+    if _visited is None:
+        _visited = set()
+    obj_id = id(obj)
+    if obj_id in _visited:
+        return {}
+    _visited = _visited | {obj_id}
+
+    result = {}
+    for name in dir(obj):
+        if name.startswith("_"):
+            continue
+        if isinstance(getattr(type(obj), name, None), property):
+            value = getattr(obj, name, None)
+            result[name] = value if type(value).__module__ == "builtins" else get_properties(value, _visited)
+    return result
 
 
 def parse_column_type(column: str) -> str:
