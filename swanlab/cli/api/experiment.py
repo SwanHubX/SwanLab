@@ -3,11 +3,19 @@ import orjson
 
 from swanlab.api.typings.common import ApiResponseType
 
+from .helper import format_output
 
-@click.command("run")
+
+@click.group("run")
+def experiment_cli():
+    """Experiment(Run) management commands."""
+    pass
+
+
+@experiment_cli.command("info")
 @click.argument("path", required=True)
-def get_run(path: str):
-    """Get run(experiment) info by path (username/project/run_id). """
+def get_info(path: str):
+    """Get run(experiment) info by path (username/project/run_id)."""
     from swanlab.api import Api
 
     try:

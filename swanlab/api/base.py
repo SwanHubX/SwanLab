@@ -29,6 +29,7 @@ class BaseEntity(ABC):
         self._client: "Client" = client
         self._web_host: str = web_host
         self._api_host: str = api_host
+        self._errors: list[str] = []
 
     @abstractmethod
     def to_dict(self) -> Dict[str, Any]:
@@ -44,7 +45,9 @@ class BaseEntity(ABC):
         with safe.block(message=f"API request failed: {path}", on_error=_on_error):
             data = method(path, **kwargs).data
             return ApiResponseType(ok=True, data=data)
-        return ApiResponseType(ok=False, errmsg=_err_msg[0] or "request failed")
+        result = ApiResponseType(ok=False, errmsg=_err_msg[0] or "request failed")
+        self._errors.append(result.errmsg)
+        return result
 
     def _get(self, path: str, **kwargs) -> ApiResponseType:
         return self._safe_request(self._client.get, path, **kwargs)

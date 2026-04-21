@@ -9,7 +9,7 @@ import re
 from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional
 
 from .base import BaseEntity
-from .typings.user import ApiApiKeyType, ApiSelfHostedInfoType
+from .typings.selfhosted import ApiApiKeyType, ApiSelfHostedInfoType
 from .utils import get_properties
 
 if TYPE_CHECKING:
@@ -52,7 +52,7 @@ class User(BaseEntity):
         """用户所属的团队列表。"""
         if self._teams is None:
             resp = self._get(f"/user/{self._username}/groups")
-            self._teams = [r["username"] for r in resp.data] if resp.ok else []
+            self._teams = resp.data if isinstance(resp.data, list) else []
         return self._teams
 
     @property

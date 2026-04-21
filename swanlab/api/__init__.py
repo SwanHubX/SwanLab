@@ -15,8 +15,8 @@ from swanlab.sdk.internal.settings import settings as global_settings
 from .base import BaseEntity
 from .experiment import Experiment, Experiments
 from .project import Project, Projects
+from .selfhosted import User, Users
 from .typings.common import ApiResponseType
-from .user import User, Users
 from .workspace import Workspace, Workspaces
 
 

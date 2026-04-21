@@ -7,23 +7,18 @@
 
 from typing import TypedDict
 
-from swanlab.sdk.typings.run import LicensePlanType
+
+class ApiUserType(TypedDict):
+    bio: str
+    institution: str
+    localtion: str
+    school: str
+    email: str
+    idc: str
+    url: str
+    telephone: str
 
 
 class ApiGroupType(TypedDict):
     name: str
     username: str
-
-
-class ApiApiKeyType(TypedDict):
-    id: int
-    name: str
-    key: str
-
-
-class ApiSelfHostedInfoType(TypedDict):
-    enabled: bool
-    expired: bool
-    root: bool
-    plan: LicensePlanType
-    seats: int

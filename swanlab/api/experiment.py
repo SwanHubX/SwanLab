@@ -11,7 +11,7 @@ from swanlab.utils import parse_column_type, to_camel_case
 
 from .base import BaseEntity
 from .typings.experiment import ApiExperimentType, ApiExperimentUserType
-from .utils import ColumnType, Label, get_properties
+from .utils import Label, get_properties
 
 if TYPE_CHECKING:
     from swanlab.sdk.internal.pkg.client import Client
@@ -252,7 +252,7 @@ class Experiments(BaseEntity):
         parsed_filters = (
             [
                 {
-                    "key": to_camel_case(key) if parse_column_type(key) == ColumnType.STABLE else key.split(".", 1)[-1],
+                    "key": to_camel_case(key) if parse_column_type(key) == "STABLE" else key.split(".", 1)[-1],
                     "active": True,
                     "value": [value],
                     "op": "EQ",

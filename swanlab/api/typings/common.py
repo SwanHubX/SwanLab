@@ -40,9 +40,19 @@ class ApiResponseType:
     def to_json_dict(self) -> Dict[str, Any]:
         """返回 JSON 可序列化的字典，自动将实体 data 转为 dict。"""
         data = self.data
+        errors: list[str] = []
+        if not self.ok and self.errmsg:
+            errors.append(self.errmsg)
         if data is not None and hasattr(data, "to_dict"):
             data = data.to_dict()
-        return {"ok": self.ok, "errmsg": self.errmsg, "data": data}
+            # 收集实体内部子请求的错误
+            if hasattr(data, "__getitem__"):
+                # to_dict 返回的 dict 不带 _errors，需要从实体取
+                pass
+            entity_errors = getattr(self.data, "_errors", [])
+            errors.extend(entity_errors)
+        ok = self.ok and not errors
+        return {"ok": ok, "errmsg": "; ".join(errors) if errors else "", "data": data}
 
     def __repr__(self) -> str:
         if self.ok:

@@ -8,7 +8,7 @@
 from .common import ApiLabelType, ApiPaginationType, ApiResponseType
 from .experiment import ApiExperimentType, ApiExperimentUserType
 from .project import ApiProjectCountType, ApiProjectType
-from .user import ApiApiKeyType, ApiGroupType, ApiSelfHostedInfoType
+from .selfhosted import ApiApiKeyType, ApiGroupType, ApiSelfHostedInfoType
 from .workspace import ApiWorkspaceInfoType
 
 __all__ = [

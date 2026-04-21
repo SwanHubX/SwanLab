@@ -4,10 +4,16 @@ import orjson
 from swanlab.api.typings.common import ApiResponseType
 
 
-@click.command("project")
+@click.group("project")
+def project_cli():
+    """Project management commands."""
+    pass
+
+
+@project_cli.command("info")
 @click.argument("path", required=True)
-def get_project(path: str):
-    """Get project info by path (username/project). """
+def get_info(path: str):
+    """Get project info by path (username/project)."""
     from swanlab.api import Api
 
     try:

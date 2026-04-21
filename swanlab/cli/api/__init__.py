@@ -7,10 +7,10 @@
 
 import click
 
-from .experiment import get_run
-from .project import get_project
-from .user import get_user
-from .workspace import get_workspace
+from .experiment import experiment_cli
+from .project import project_cli
+from .selfhosted import selfhosted_cli
+from .workspace import workspace_cli
 
 
 @click.group("api")
@@ -19,10 +19,10 @@ def api_cli():
     pass
 
 
-api_cli.add_command(get_project)
-api_cli.add_command(get_run)
-api_cli.add_command(get_workspace)
-api_cli.add_command(get_user)
+api_cli.add_command(project_cli)
+api_cli.add_command(experiment_cli)
+api_cli.add_command(workspace_cli)
+api_cli.add_command(selfhosted_cli)
 
 
 __all__ = ["api_cli"]

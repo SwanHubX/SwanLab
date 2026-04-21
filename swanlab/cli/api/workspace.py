@@ -6,9 +6,15 @@ import orjson
 from swanlab.api.typings.common import ApiResponseType
 
 
-@click.command("workspace")
+@click.group("workspace")
+def workspace_cli():
+    """Workspace management commands."""
+    pass
+
+
+@workspace_cli.command("info")
 @click.argument("username", required=True)
-def get_workspace(username: Optional[str] = None):
+def get_info(username: Optional[str] = None):
     """Get workspace info."""
     from swanlab.api import Api
 
