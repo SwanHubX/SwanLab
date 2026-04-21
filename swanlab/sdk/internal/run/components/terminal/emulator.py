@@ -297,7 +297,7 @@ class TerminalEmulator:
             else:
                 cursor_fn = self._cursor_fns.get(command)
                 if cursor_fn:
-                    cursor_fn(int(params) if params else 1)
+                    cursor_fn(int(params.split(";")[0]) if params else 1)
                 elif command == "J":
                     p = int(params.split(";")[0]) if params else 0
                     self.erase_screen(p)
@@ -305,7 +305,7 @@ class TerminalEmulator:
                     p = int(params.split(";")[0]) if params else 0
                     self.erase_line(p)
                 elif command == "L":
-                    p = int(params) if params else 1
+                    p = int(params.split(";")[0]) if params else 1
                     self.insert_lines(p)
                 elif command in "Hf":
                     p = params.split(";")
