@@ -353,8 +353,8 @@ class SwanLabRun:
             _k = k
             k = check_key_format(k, auto_cut=True)
             if k != _k:
-                # 超过255字符，截断
-                swanlog.warning(f"Key {_k} is too long, cut to 255 characters.")
+                # 超过512字符，截断
+                swanlog.warning(f"Key :{_k} ... is too long, cut to 512 characters.")
                 if k in flattened_data.keys():
                     raise ValueError(f'tag: Not supported too long Key "{_k}" and auto cut failed')
             # ---------------------------------- 包装数据 ----------------------------------

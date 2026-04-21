@@ -226,7 +226,7 @@ class TestTag:
     @pytest.mark.parametrize(
         "value",
         [
-            generate(size=256),
+            generate(size=513),
             generate(size=1000),
             generate(size=10000),
         ],
@@ -235,12 +235,12 @@ class TestTag:
         """
         测试自动截断
         """
-        assert len(check_key_format(value)) == 255
+        assert len(check_key_format(value)) == 512
 
     @pytest.mark.parametrize(
         "value",
         [
-            generate(size=256),
+            generate(size=513),
             generate(size=1000),
             generate(size=10000),
         ],

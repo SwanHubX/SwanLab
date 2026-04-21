@@ -206,7 +206,7 @@ def check_run_id_format(run_id: str = None) -> Optional[str]:
 
 def check_key_format(key: str, auto_cut=True) -> str:
     """检查key字符串格式
-    不能超过255个字符，可以包含任何字符，不允许.和/以及空格开头
+    不能超过512个字符，可以包含任何字符，不允许.和/以及空格开头
 
     Parameters
     ----------
@@ -230,7 +230,7 @@ def check_key_format(key: str, auto_cut=True) -> str:
     IndexError
         key超出长度,此时auto_cut为False
     """
-    max_len = 255
+    max_len = 512
     if not isinstance(key, str):
         raise TypeError(f"tag: {key} is not a string")
     # 删除头尾空格
