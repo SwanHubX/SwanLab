@@ -11,12 +11,12 @@ from swanlab.exceptions import ApiError
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.pkg import helper
 from swanlab.sdk.internal.pkg.client.utils import decode_response
-from swanlab.sdk.typings.core_python.api.project import InitProjectType, ProjectType
+from swanlab.sdk.typings.core_python.api.project import InitProjectType, ProjectType, ProjResponseType
 
 
 def get_project(*, username: str, name: str) -> ProjectType:
     """
-    获取项目信息
+    获取项目详情信息
     :param username: 项目所属的用户名
     :param name: 项目名称
     :return: 项目信息
@@ -42,3 +42,33 @@ def get_or_create_project(*, username: Optional[str], name: str, public: bool) -
         else:
             # 此接口为后端处理，sdk 在理论上不会出现其他错误，因此不需要处理其他错误
             raise e
+
+
+def get_workspace_projects(
+    *,
+    path: str,
+    page: int = 1,
+    size: int = 20,
+    sort: Optional[str] = None,
+    search: Optional[str] = None,
+    detail: Optional[bool] = True,
+) -> ProjResponseType:
+    """
+    获取指定页数和条件下的项目信息
+    :param path: 工作空间名称
+    :param page: 页码
+    :param size: 每页项目数量
+    :param sort: 排序规则, 可选
+    :param search: 搜索的项目名称关键字, 可选
+    :param detail: 是否包含项目下实验的相关信息, 可选, 默认为true
+    """
+    params = {"page": page, "size": size, "sort": sort, "search": search, "detail": detail}
+    return client.get(f"/project/{path}", params=helper.strip_none(params, strip_empty_str=True)).data
+
+
+def delete_project(*, path: str) -> None:
+    """
+    删除指定项目
+    :param path: 项目路径 'username/project'
+    """
+    client.delete(f"/project/{path}")
