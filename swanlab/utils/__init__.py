@@ -7,5 +7,6 @@
 """
 
 from .experiment import generate_color, generate_id, generate_name
+from .column import parse_column_type, to_camel_case
 
-__all__ = ["generate_color", "generate_id", "generate_name"]
+__all__ = ["generate_color", "generate_id", "generate_name", "to_camel_case", "parse_column_type"]
