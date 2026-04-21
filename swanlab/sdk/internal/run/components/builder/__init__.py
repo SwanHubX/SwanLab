@@ -2,7 +2,7 @@
 @author: cunyue
 @file: __init__.py
 @time: 2026/3/13
-@description: protobuf Record 工厂，覆盖所有 record_type
+@description: protobuf Record 工厂组件，覆盖除了生命周期以外的所有 record_type
 """
 
 from functools import singledispatchmethod

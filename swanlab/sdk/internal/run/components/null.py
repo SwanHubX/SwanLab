@@ -10,6 +10,7 @@ from queue import Queue
 from swanlab.sdk.internal.bus import EmitterProtocol, EventPayload, RunQueue
 
 from .consumer import ConsumerProtocol
+from .terminal import TerminalProxyProtocol
 
 
 class NullEmitter(EmitterProtocol):
@@ -36,4 +37,14 @@ class NullConsumer(ConsumerProtocol):
         pass
 
     def join(self) -> None:
+        pass
+
+
+class NullTerminalProxy(TerminalProxyProtocol):
+    """空终端代理，install/uninstall 为 no-op"""
+
+    def install(self) -> None:
+        pass
+
+    def uninstall(self) -> None:
         pass

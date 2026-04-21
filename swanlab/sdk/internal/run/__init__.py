@@ -25,8 +25,8 @@ from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord
 from swanlab.sdk.internal.bus import MetricLogEvent, ScalarDefineEvent
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.pkg import adapter, console, fork, safe
-from swanlab.sdk.internal.run import components, system
-from swanlab.sdk.internal.run.components.config import Config, deactivate_run_config
+from swanlab.sdk.internal.run.components import Components
+from swanlab.sdk.internal.run.components.config import Config
 from swanlab.sdk.internal.run.transforms import Audio, Image, Text, Video, normalize_media_input
 from swanlab.sdk.typings.run import AsyncLogType, FinishType, ModeType
 from swanlab.sdk.typings.run.column import ScalarXAxisType
@@ -109,11 +109,9 @@ class Run:
         # 外部API锁，防止并发调用
         self._api_lock = threading.RLock()
         # 运行时组件
-        self._asynctask, self._consumer, self._emitter, self._config = components.new(self._ctx)
+        self._components = Components(ctx)
         # 回调器
         self._callbacker = self._ctx.callbacker
-        # self._monitor is not None 则代表硬件监控开启
-        self._monitor: Optional[system.Monitor] = None
 
         # 2. 注册副作用
         # 设置全局运行实例
@@ -127,11 +125,9 @@ class Run:
         self._original_sigint_handler = signal.getsignal(signal.SIGINT)
         signal.signal(signal.SIGINT, self._handle_sigint)
 
-        # 3. 初始化完成
+        # 3. 启动组件 + 初始化日志
         self._callbacker.on_run_initialized(self._ctx.run_dir, self.path)
-        self._monitor = system.create_monitor(self._ctx, self._emitter)
-        self._consumer.start()
-        # 初始化日志模块：非 disabled 模式绑定文件，disabled 模式禁用持久化
+        self._components.start()
         console.init(bind_to=self._ctx.debug_dir if self.mode != "disabled" else None)
 
     # ----------------------------------
@@ -248,7 +244,7 @@ class Run:
 
     @cached_property
     def config(self) -> Config:
-        return self._config
+        return self._components.config
 
     @property
     def _passive(self) -> bool:
@@ -316,7 +312,7 @@ class Run:
         flatten_data = fmt.flatten_dict(this_data)
 
         # 推送日志事件
-        self._emitter.emit(MetricLogEvent(data=flatten_data, step=next_step, timestamp=ts))
+        self._components.emitter.emit(MetricLogEvent(data=flatten_data, step=next_step, timestamp=ts))
 
     @with_api("run.async_log()")
     def async_log(
@@ -399,7 +395,7 @@ class Run:
                 "fork mode is not yet supported, please looking forward to the `swanlab-core` release"
             )
 
-        return self._asynctask.submit(
+        return self._components.asynctask.submit(
             func,
             args=args,
             kwargs=kwargs,
@@ -541,7 +537,7 @@ class Run:
         if chart_name and not (chart_name := fmt.safe_validate_chart_name(chart_name)):
             return console.error(f"Invalid chart_name for define scalar: {original_chart_name}, must be a string.")
 
-        self._emitter.emit(
+        self._components.emitter.emit(
             ScalarDefineEvent(
                 key=this_key,
                 name=name,
@@ -577,38 +573,20 @@ class Run:
         if state == "crashed" and error is None:
             console.warning("Crashed reason has been set to 'unknown' due to missing error message.")
             error = "unknown"
-        # 2. 运行结束前，结束其他依赖于运行实例的线程
-        # 2.1 等待所有 async_log 任务完成
-        console.debug("Waiting for async_log tasks to complete...")
-        self._asynctask.shutdown(timeout=async_log_timeout)
-        # 2.2 停止硬件监控
-        if self._monitor is not None:
-            console.debug("Stopping hardware monitor...")
-            self._monitor.stop()
-
-        # 3. 运行结束，清理相关组件状态
+        # 2. 运行结束，清理组件
         self._state = this_state
-        # 停止时间
+        # 停止所有组件（async_log → monitor → terminal → config → consumer）
+        self._components.stop(async_log_timeout=async_log_timeout)
         ts = Timestamp()
         ts.GetCurrentTime()
-        # 3.1 TODO: goodbye message
-
-        # 3.2 TODO: 停止终端代理
-
-        # 3.3 解绑config对象
-        deactivate_run_config()
-        # 3.4 停止消费者线程
-        console.debug("SwanLab Run is finishing, waiting for logs to flush...")
-        self._consumer.stop()
-        self._consumer.join()
-        # 3.5 停止Core线程
+        # 3. 停止Core线程
         finish_resp = self._ctx.core.deliver_run_finish(
             FinishRecord(state=adapter.state[this_state], error=error, finished_at=ts)
         )
         if not finish_resp.success:
             console.error(finish_resp.message)
         console.debug(f"SwanLab Run has finished with state: {self._state}, cleanup...")
-        # 3.5 清理副作用
+        # 4. 清理副作用
         console.debug("Cleanup system hook...")
         atexit.unregister(self._handle_atexit)
         sys.excepthook = self._sys_origin_excepthook

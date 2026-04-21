@@ -732,34 +732,34 @@ class TestInitFactoryDispatch:
 
     def test_disabled_uses_null_emitter(self):
         run = init(mode="disabled")
-        assert isinstance(run._emitter, NullEmitter)
+        assert isinstance(run._components.emitter, NullEmitter)
 
     @pytest.mark.parametrize("mode", ["local", "offline"])
     def test_non_disabled_uses_run_emitter(self, mode):
         run = init(mode=cast(ModeType, mode))
-        assert isinstance(run._emitter, RunEmitter)
+        assert isinstance(run._components.emitter, RunEmitter)
 
     def test_disabled_null_emitter_discards_events(self):
         """NullEmitter.emit() 丢弃事件，队列始终为空"""
         run = init(mode="disabled")
-        run._emitter.emit("test-event")  # type: ignore
-        assert run._emitter.queue.empty()
+        run._components.emitter.emit("test-event")  # type: ignore
+        assert run._components.emitter.queue.empty()
 
     def test_non_disabled_run_emitter_enqueues_events(self):
         """RunEmitter.emit() 将事件放入队列"""
         run = init(mode="local")
-        run._emitter.emit("test-event")  # type: ignore
-        assert not run._emitter.queue.empty()
-        assert run._emitter.queue.get_nowait() == "test-event"
+        run._components.emitter.emit("test-event")  # type: ignore
+        assert not run._components.emitter.queue.empty()
+        assert run._components.emitter.queue.get_nowait() == "test-event"
 
     def test_disabled_uses_null_consumer(self):
         run = init(mode="disabled")
-        assert isinstance(run._consumer, NullConsumer)
+        assert isinstance(run._components.consumer, NullConsumer)
 
     @pytest.mark.parametrize("mode", ["local", "offline"])
     def test_non_disabled_uses_background_consumer(self, mode):
         run = init(mode=cast(ModeType, mode))
-        assert isinstance(run._consumer, BackgroundConsumer)
+        assert isinstance(run._components.consumer, BackgroundConsumer)
 
     def test_disabled_config_is_unbound(self):
         """disabled 模式 Config 不绑定文件，写操作仅内存"""
@@ -779,4 +779,4 @@ class TestInitFactoryDispatch:
 
     def test_disabled_monitor_is_none(self):
         run = init(mode="disabled")
-        assert run._monitor is None
+        assert run._components.monitor is None

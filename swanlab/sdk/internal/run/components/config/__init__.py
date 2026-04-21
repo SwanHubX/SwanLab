@@ -2,7 +2,7 @@
 @author: cunyue
 @file: __init__.py
 @time: 2026/3/14
-@description: SwanLab 实验配置模块
+@description: SwanLab 配置组件，主要负责同步实验配置，为用户提供 swanlab.config 的交互体验
 
 生命周期：
   未绑定（bindctx 调用前）：所有写操作仅保留在内存，不触发 IO 和事件
