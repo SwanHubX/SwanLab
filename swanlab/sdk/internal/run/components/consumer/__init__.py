@@ -8,7 +8,7 @@
 import queue
 import threading
 from abc import ABC
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING, List, Tuple
 
 from swanlab.proto.swanlab.config.v1.config_pb2 import ConfigRecord
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord, ColumnType
@@ -22,10 +22,12 @@ from swanlab.sdk.internal.pkg import console, safe
 if TYPE_CHECKING:
     from swanlab.sdk.internal.run.components.builder import RecordBuilder
 
+
 ConfigBatch = List[ConfigRecord]
 ConsoleBatch = List[ConsoleRecord]
 ColumnBatch = List[ColumnRecord]
 DataBatch = List[DataRecord]
+BatchTuple = Tuple[ConfigBatch, ConsoleBatch, ColumnBatch, DataBatch]
 
 
 class ConsumerProtocol(ABC):
@@ -92,70 +94,117 @@ class BackgroundConsumer(ConsumerProtocol):
         self._queue.put(_STOP)  # type: ignore[arg-type]
 
     @property
-    def _batch_full(self):
-        l = len(self._config_batch) + len(self._console_batch) + len(self._column_batch) + len(self._data_batch)  # noqa: E741
-        return l >= self._batch_size
+    def _batch_len(self) -> int:
+        return len(self._config_batch) + len(self._console_batch) + len(self._column_batch) + len(self._data_batch)
 
     @property
-    def _batch_empty(self):
-        return not self._config_batch and not self._console_batch and not self._column_batch and not self._data_batch
+    def _batch_full(self) -> bool:
+        return self._batch_len >= self._batch_size
+
+    @property
+    def _batch_empty(self) -> bool:
+        return self._batch_len == 0
+
+    def _take_batches(self) -> BatchTuple:
+        batches = (
+            self._config_batch,
+            self._console_batch,
+            self._column_batch,
+            self._data_batch,
+        )
+        self._config_batch = []
+        self._console_batch = []
+        self._column_batch = []
+        self._data_batch = []
+        return batches
+
+    def _restore_batches(
+        self,
+        config_batch: ConfigBatch,
+        console_batch: ConsoleBatch,
+        column_batch: ColumnBatch,
+        data_batch: DataBatch,
+    ) -> None:
+        # 失败的旧数据插回队头，优先于 flush 期间新进来的数据重试
+        if config_batch:
+            self._config_batch[:0] = config_batch
+        if console_batch:
+            self._console_batch[:0] = console_batch
+        if column_batch:
+            self._column_batch[:0] = column_batch
+        if data_batch:
+            self._data_batch[:0] = data_batch
 
     def _run(self) -> None:
         while True:
             with safe.block(message="SwanLab background logger thread error"):
                 try:
-                    # 带超时的阻塞获取，平衡吞吐量和延迟
                     event = self._queue.get(timeout=self._flush_timeout)
-
-                    # 1. 退出信号
-                    if event is _STOP:
-                        self._flush()
-                        break
-                    # 3. 记录数据（可能触发隐式创建 Implicit Define）
-                    elif isinstance(event, MetricLogEvent):
-                        for key, value in event.data.items():
-                            with safe.block(message=f"Error when parsing metric '{key}'"):
-                                data_record, cls = self._builder.build_log(value, key, event.timestamp, event.step)
-                                if not self._metrics.has(key, cls.column_type()):
-                                    this_column = self._builder.build_column_from_log(cls, key)
-                                    self._column_batch.append(this_column)
-                                    self._metrics.define_scalar(key, this_column, value=value)
-                                if cls.column_type() == ColumnType.COLUMN_TYPE_FLOAT:
-                                    self._metrics.update_scalar(key, data_record.scalar.number)
-                                self._data_batch.append(data_record)
-                    # 4. 显式创建标量列 (Explicit Define)
-                    elif isinstance(event, ScalarDefineEvent):
-                        try:
-                            if not self._metrics.has(event.key, ColumnType.COLUMN_TYPE_FLOAT):
-                                this_column = self._builder.build_column_from_scalar_define(event)
-                                self._column_batch.append(this_column)
-                                self._metrics.define_scalar(event.key, this_column, value=None)
-                        except TypeError:
-                            console.warning(f"Scalar Column '{event.key}' has already been defined, cannot redefine.")
-                    # 5. 系统事件
-                    elif isinstance(event, ConfigEvent):
-                        self._config_batch.append(self._builder.build_config(event))
-                    elif isinstance(event, ConsoleEvent):
-                        self._console_batch.append(self._builder.build_console(event))
-                    # 6. 微批处理落盘检查
-                    if self._batch_full:
-                        self._flush()
                 except queue.Empty:
-                    # 超时强制刷盘
-                    if self._batch_empty:
+                    # 队列空闲一段时间后，若有积压数据则刷盘
+                    if not self._batch_empty:
                         self._flush()
+                    continue
+                if event is _STOP:
+                    self._flush()
+                    break
+                self._handle_event(event)
+                if self._batch_full:
+                    self._flush()
+
+    def _handle_event(self, event) -> None:
+        if isinstance(event, MetricLogEvent):
+            self._handle_metric_log(event)
+        elif isinstance(event, ScalarDefineEvent):
+            self._handle_scalar_define(event)
+        elif isinstance(event, ConfigEvent):
+            self._config_batch.append(self._builder.build_config(event))
+        elif isinstance(event, ConsoleEvent):
+            self._console_batch.append(self._builder.build_console(event))
+
+    def _handle_metric_log(self, event: MetricLogEvent) -> None:
+        for key, value in event.data.items():
+            with safe.block(message=f"Error when parsing metric '{key}'"):
+                data_record, cls = self._builder.build_log(value, key, event.timestamp, event.step)
+                defined = self._metrics.ensure_defined_as(key, cls.column_type())
+                if not defined:
+                    this_column = self._builder.build_column_from_log(cls, key)
+                    self._column_batch.append(this_column)
+                if cls.column_type() == ColumnType.COLUMN_TYPE_FLOAT:
+                    self._metrics.update_scalar(key, data_record.scalar.number)
+                self._data_batch.append(data_record)
+
+    def _handle_scalar_define(self, event: ScalarDefineEvent) -> None:
+        defined = self._metrics.ensure_defined_as(event.key, ColumnType.COLUMN_TYPE_FLOAT)
+        if defined:
+            console.warning(f"Scalar Column '{event.key}' has already been defined, skip redefine.")
+            return
+        this_column = self._builder.build_column_from_scalar_define(event)
+        self._column_batch.append(this_column)
 
     def _flush(self) -> None:
-        """处理一批 Record：持久化、回调、上传等"""
-        with safe.block(message="SwanLab failed to flush config batch"):
-            if self._config_batch:
-                self._core.upsert_configs(self._config_batch)
-        with safe.block(message="SwanLab failed to flush console batch"):
-            if self._console_batch:
-                self._core.upsert_consoles(self._console_batch)
-        with safe.block(message="SwanLab failed to flush column batch"):
-            if self._column_batch:
-                self._core.upsert_columns(self._column_batch)
-        with safe.block(message="SwanLab failed to flush data batch"):
-            if self._data_batch:
-                self._core.upsert_data(self._data_batch)
+        if self._batch_empty:
+            return
+        config_batch, console_batch, column_batch, data_batch = self._take_batches()
+        # 某一步失败时，只回塞“当前未成功提交”的部分，避免重复写入
+        # 提交失败时静默显示在 debug 日志中，不打印到控制台
+        with safe.block(
+            message="Error when flushing batch",
+            write_to_tty=False,
+            on_error=lambda _: self._restore_batches(config_batch, console_batch, column_batch, data_batch),
+        ):
+            if config_batch:
+                self._core.upsert_configs(config_batch)
+                config_batch = []
+
+            if console_batch:
+                self._core.upsert_consoles(console_batch)
+                console_batch = []
+
+            if column_batch:
+                self._core.upsert_columns(column_batch)
+                column_batch = []
+
+            if data_batch:
+                self._core.upsert_data(data_batch)
+                data_batch = []

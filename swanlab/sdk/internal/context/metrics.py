@@ -111,15 +111,14 @@ class RunMetrics:
         if scalar.min is None or value < scalar.min:
             scalar.min = value
 
-    def define_scalar(self, key: str, column: ColumnRecord, value: Optional[Union[float, int]]):
+    def define_scalar(self, key: str, column: ColumnRecord):
         """
         定义一个标量指标
         :param key: 指标键
         :param column: 指标列记录
-        :param value: 标量值
         """
         assert key not in self._metrics, f"Metric '{key}' already exists."
-        self._metrics[key] = ScalarMetric(_column=column, latest=value, max=value, min=value)
+        self._metrics[key] = ScalarMetric(_column=column)
 
     def define_media(self, key: str, column: ColumnRecord, path: Path):
         """
@@ -131,24 +130,22 @@ class RunMetrics:
         assert key not in self._metrics, f"Metric '{key}' already exists."
         self._metrics[key] = MediaMetric(_column=column, path=path)
 
-    def has(self, key: str, metric_type: ColumnType) -> bool:
+    def ensure_defined_as(self, key: str, metric_type: ColumnType) -> bool:
         """
-
-        是否已经定义了此指标
+        判断指标是否已定义，并确保其类型与预期一致。
 
         :param key: 指标键
-
-        :param metric_type: 指标类型，如果此指标存在，则继续比对指标类型
-
-        :raise TypeError: 如果指标已存在但类型不匹配则抛出异常
-
+        :param metric_type: 期望的指标类型
+        :return:
+            - False: 指标尚未定义
+            - True: 指标已定义且类型一致
+        :raise TypeError: 指标已定义但类型不匹配
         """
-
         if key not in self._metrics:
             return False
+
         metric = self._metrics[key]
         if metric.type != metric_type:
-            # TODO 未来类型提示更友好一些
             raise TypeError(
                 f"Metric '{key}' has already been defined as "
                 f"{ColumnType.Name(metric.type)}, not {ColumnType.Name(metric_type)}."

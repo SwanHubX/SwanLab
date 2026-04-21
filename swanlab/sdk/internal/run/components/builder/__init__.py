@@ -73,7 +73,7 @@ class RecordBuilder:
             media_type_str = adapter.column_type[col_type]
             metrics.define_media(key, column_record, self._ctx.media_dir / media_type_str)
         else:
-            metrics.define_scalar(key, column_record, value=None)
+            metrics.define_scalar(key=key, column=column_record)
 
         return column_record
 
@@ -92,11 +92,7 @@ class RecordBuilder:
             metric_name=event.name or "",
             metric_colors=[event.color, event.color] if event.color else [],
         )
-        metrics.define_scalar(
-            key=event.key,
-            column=col,
-            value=None,
-        )
+        metrics.define_scalar(key=event.key, column=col)
         return col
 
     # ── 系统元数据 ──
