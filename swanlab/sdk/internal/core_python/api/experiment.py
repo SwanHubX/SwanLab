@@ -13,9 +13,8 @@ from swanlab.exceptions import ApiError
 from swanlab.proto.swanlab.run.v1.run_pb2 import RUN_STATE_ABORTED, RUN_STATE_CRASHED, RunState
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.pkg import helper
-from swanlab.sdk.typings.core_python.api.experiment import ExperimentType, InitExperimentType
-from swanlab.sdk.typings.run import ResumeType, RunStateType
-from swanlab.utils.experiment import parse_filter
+from swanlab.sdk.typings.core_python.api.experiment import InitExperimentType
+from swanlab.sdk.typings.run import ResumeType
 
 
 def create_or_resume_experiment(
@@ -102,57 +101,3 @@ def send_experiment_heartbeat(*, cuid: str, flag_id: str) -> None:
     :param flag_id: 实验标记ID
     """
     client.post(f"/house/experiments/{cuid}/heartbeat", {"flagId": flag_id})
-
-
-def update_experiment_state(
-    *,
-    username: str,
-    projname: str,
-    cuid: str,
-    state: RunStateType,
-    finished_at: Optional[str] = None,
-) -> None:
-    """
-    更新实验状态
-    :param username: 实验所属用户名
-    :param projname: 实验所属项目名称
-    :param cuid: 实验唯一标识符
-    :param state: 实验状态
-    :param finished_at: 实验结束时间，格式为 ISO 8601，如果不提供则使用当前时间
-    """
-    put_data = {
-        "state": state,
-        "finishedAt": finished_at,
-        "from": "sdk",
-    }
-    put_data = {k: v for k, v in put_data.items() if v is not None}
-    client.put(f"/project/{username}/{projname}/runs/{cuid}/state", put_data)
-
-
-def get_project_experiments(
-    *,
-    path: str,
-    filters: Optional[Dict[str, object]] = None,
-) -> Union[List[ExperimentType], Dict[str, List[ExperimentType]]]:
-    """
-    获取指定项目下的所有实验信息
-    若有实验分组，则返回一个字典，使用时需递归展平实验数据
-    :param path: 项目路径 username/project
-    :param filters: 筛选实验的条件，可选。支持以下特殊 key：
-        - 'group': 按分组名称筛选，值为字符串
-        - 'tags': 按标签筛选，值为字符串列表
-        - 'name': 按实验名筛选，值为字符串
-        - 'username': 按创建人筛选，值为字符串
-        - 'job_type': 按任务类型筛选，值为字符串
-    """
-    parsed_filters = [parse_filter(k, v) for k, v in (filters or {}).items()]
-    return client.post(f"/project/{path}/runs/shows", data={"filters": parsed_filters}).data
-
-
-def get_single_experiment(*, path: str) -> ExperimentType:
-    """
-    获取指定实验信息
-    :param path: 实验路径 username/project/expid
-    """
-    proj_path, expid = path.rsplit("/", 1)
-    return client.get(f"/project/{proj_path}/runs/{expid}").data

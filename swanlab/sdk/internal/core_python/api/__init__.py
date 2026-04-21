@@ -8,22 +8,14 @@
 我们以rpc风格封装API，方便调用
 """
 
-from .experiment import (
-    create_or_resume_experiment,
-    get_project_experiments,
-    get_single_experiment,
-    send_experiment_heartbeat,
-    update_experiment_state,
-)
+from .experiment import create_or_resume_experiment, send_experiment_heartbeat, stop_experiment
 from .project import get_or_create_project, get_project
 
 __all__ = [
     # experiment
     "create_or_resume_experiment",
-    "get_project_experiments",
-    "get_single_experiment",
     "send_experiment_heartbeat",
-    "update_experiment_state",
+    "stop_experiment",
     # project
     "get_project",
     "get_or_create_project",

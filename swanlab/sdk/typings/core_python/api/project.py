@@ -5,9 +5,7 @@
 @description: SwanLab 运行时项目API类型
 """
 
-from typing import Dict, List, TypedDict
-
-from swanlab.sdk.typings.run import VisibilityType
+from typing import Literal, TypedDict
 
 
 class _ProjectCount(TypedDict):
@@ -29,7 +27,7 @@ class ProjectType(TypedDict):
     # 项目路径 '/:username/:name'
     path: str
     # 项目可见性
-    visibility: VisibilityType
+    visibility: Literal["PUBLIC", "PRIVATE"]
     # 项目统计信息
     _count: _ProjectCount
 
