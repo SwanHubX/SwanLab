@@ -10,7 +10,7 @@ from pathlib import PurePosixPath
 from typing import Optional
 
 from swanlab.sdk.internal.pkg import safe
-from swanlab.sdk.typings.run.system import GitSnapshot
+from swanlab.sdk.typings.probe_python import GitSnapshot
 
 
 def get() -> GitSnapshot:

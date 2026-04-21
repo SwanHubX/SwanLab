@@ -12,6 +12,7 @@ from functools import cached_property
 from pathlib import Path
 from typing import Generator, Optional
 
+from swanlab.sdk.internal.context.components.probe import create_probe
 from swanlab.sdk.internal.pkg import adapter
 from swanlab.sdk.internal.settings import Settings
 
@@ -51,6 +52,7 @@ class RunContext:
         self.callbacker.merge_callbacks(callbacker.registered_callbacks)
         self.metrics: RunMetrics = RunMetrics()
         self.core = create_core(self)
+        self.probe = create_probe(self)
 
     @cached_property
     def run_dir(self) -> Path:

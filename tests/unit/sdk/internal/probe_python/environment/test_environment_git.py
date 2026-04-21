@@ -10,8 +10,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from swanlab.sdk.internal.run.system.environment import git
-from swanlab.sdk.typings.run.system import GitSnapshot
+from swanlab.sdk.internal.probe_python.environment import git
+from swanlab.sdk.typings.probe_python import GitSnapshot
 
 
 class TestParseGitUrl:
@@ -112,7 +112,7 @@ class TestGetCommit:
     def test_get_commit_success(self):
         """成功获取当前提交 hash"""
         with (
-            patch("swanlab.sdk.internal.run.system.environment.git.get_branch") as mock_branch,
+            patch("swanlab.sdk.internal.probe_python.environment.git.get_branch") as mock_branch,
             patch("subprocess.run") as mock_run,
         ):
             mock_branch.return_value = "main"
@@ -124,7 +124,7 @@ class TestGetCommit:
     @pytest.mark.parametrize("branch_value", [None, ""])
     def test_get_commit_no_branch(self, branch_value):
         """没有分支时返回 None"""
-        with patch("swanlab.sdk.internal.run.system.environment.git.get_branch") as mock_branch:
+        with patch("swanlab.sdk.internal.probe_python.environment.git.get_branch") as mock_branch:
             mock_branch.return_value = branch_value
             result = git.get_commit()
 
@@ -140,7 +140,7 @@ class TestGetCommit:
     def test_get_commit_returns_none_on_error(self, exception):
         """各种错误情况下返回 None"""
         with (
-            patch("swanlab.sdk.internal.run.system.environment.git.get_branch") as mock_branch,
+            patch("swanlab.sdk.internal.probe_python.environment.git.get_branch") as mock_branch,
             patch("subprocess.run") as mock_run,
         ):
             mock_branch.return_value = "main"
@@ -164,9 +164,9 @@ class TestGitGet:
     def test_get_returns_git_snapshot(self, url, branch, commit):
         """get() 返回 GitSnapshot 实例"""
         with (
-            patch("swanlab.sdk.internal.run.system.environment.git.get_remote_url", return_value=url),
-            patch("swanlab.sdk.internal.run.system.environment.git.get_branch", return_value=branch),
-            patch("swanlab.sdk.internal.run.system.environment.git.get_commit", return_value=commit),
+            patch("swanlab.sdk.internal.probe_python.environment.git.get_remote_url", return_value=url),
+            patch("swanlab.sdk.internal.probe_python.environment.git.get_branch", return_value=branch),
+            patch("swanlab.sdk.internal.probe_python.environment.git.get_commit", return_value=commit),
         ):
             result = git.get()
 

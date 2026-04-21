@@ -13,11 +13,11 @@ from google.protobuf.timestamp_pb2 import Timestamp
 from swanlab.sdk.internal.bus import EmitterProtocol, MetricLogEvent, ScalarDefineEvent
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.pkg import console, safe, timer
-from swanlab.sdk.internal.run.system.hardware_vendor.apple import Apple
-from swanlab.sdk.internal.run.system.hardware_vendor.cpu import CPU
-from swanlab.sdk.internal.run.system.hardware_vendor.memory import Memory
-from swanlab.sdk.typings.run.system import SystemScalars, SystemShim
-from swanlab.sdk.typings.run.system.hardware_vendor import CollectorProtocol, CollectResult
+from swanlab.sdk.internal.probe_python.hardware_vendor.apple import Apple
+from swanlab.sdk.internal.probe_python.hardware_vendor.cpu import CPU
+from swanlab.sdk.internal.probe_python.hardware_vendor.memory import Memory
+from swanlab.sdk.typings.probe_python import SystemScalars, SystemShim
+from swanlab.sdk.typings.probe_python.hardware_vendor import CollectorProtocol, CollectResult
 from swanlab.utils.experiment import generate_id
 
 __all__ = ["Monitor", "fmt_system_key", "is_system_key"]

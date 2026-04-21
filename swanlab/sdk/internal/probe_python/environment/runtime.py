@@ -12,7 +12,7 @@ import sys
 from typing import Optional
 
 from swanlab.sdk.internal.pkg import safe
-from swanlab.sdk.typings.run.system import RuntimeSnapshot
+from swanlab.sdk.typings.probe_python import RuntimeSnapshot
 
 
 def get() -> RuntimeSnapshot:

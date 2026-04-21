@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from swanlab.sdk.internal.run.system.environment import conda
+from swanlab.sdk.internal.probe_python.environment import conda
 
 
 class TestCondaGet:

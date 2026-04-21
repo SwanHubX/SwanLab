@@ -15,8 +15,8 @@ from typing import Optional, Tuple
 import psutil
 
 from swanlab.sdk.internal.pkg import safe
-from swanlab.sdk.typings.run.system import AppleSiliconSnapshot, SystemScalar, SystemScalars, SystemShim
-from swanlab.sdk.typings.run.system.hardware_vendor import AppleSiliconProtocol
+from swanlab.sdk.typings.probe_python import AppleSiliconSnapshot, SystemScalar, SystemScalars, SystemShim
+from swanlab.sdk.typings.probe_python.hardware_vendor import AppleSiliconProtocol
 from swanlab.utils import generate_color
 
 

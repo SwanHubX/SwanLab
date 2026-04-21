@@ -776,7 +776,3 @@ class TestInitFactoryDispatch:
         run.config["key"] = "value"
 
         assert run._ctx.config_file.exists()
-
-    def test_disabled_monitor_is_none(self):
-        run = init(mode="disabled")
-        assert run._components.monitor is None

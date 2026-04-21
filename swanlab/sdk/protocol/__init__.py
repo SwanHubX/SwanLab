@@ -8,5 +8,6 @@
 
 from .callbacker import Callback
 from .core import CoreEnum, CoreProtocol
+from .probe import ProbeEnum, ProbeProtocol
 
-__all__ = ["Callback", "CoreProtocol", "CoreEnum"]
+__all__ = ["Callback", "CoreProtocol", "CoreEnum", "ProbeProtocol", "ProbeEnum"]

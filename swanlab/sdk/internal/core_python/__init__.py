@@ -30,6 +30,7 @@ from swanlab.proto.swanlab.run.v1.run_pb2 import (
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.core_python.api.experiment import create_or_resume_experiment, stop_experiment
 from swanlab.sdk.internal.core_python.api.project import get_or_create_project, get_project
+from swanlab.sdk.internal.core_python.builder import build_finish_record, build_start_record
 from swanlab.sdk.internal.core_python.store import DataStoreWriter
 from swanlab.sdk.internal.core_python.transport import Transport
 from swanlab.sdk.internal.pkg import adapter, console, helper, safe
@@ -44,9 +45,6 @@ class CorePython(CoreProtocol):
     CoreProtocol 的 Python 实现。
     由 Run 在初始化时构造并注入给 BackgroundConsumer
     """
-
-    START_RECORD_NUM = -1
-    FINISH_RECORD_NUM = -2
 
     def __init__(self, ctx: RunContext):
         super().__init__(ctx)
@@ -70,7 +68,7 @@ class CorePython(CoreProtocol):
     def _start_store(self, resp: StartResponse):
         self._store = DataStoreWriter()
         self._store.open(str(self._ctx.run_file))
-        record = Record(num=self.START_RECORD_NUM, start=resp.run)
+        record = build_start_record(resp.run)
         self._store.write(record.SerializeToString())
 
     def _start_without_cloud(self, start_record: StartRecord, message: str) -> StartResponse:
@@ -190,8 +188,9 @@ class CorePython(CoreProtocol):
         self._store.close()
         self._store = None
 
-    def _build_finish_record(self, finish_record: FinishRecord):
-        record = Record(num=self.FINISH_RECORD_NUM)
+    @staticmethod
+    def _build_finish_record(finish_record: FinishRecord):
+        record = build_finish_record(finish_record)
         record.finish.CopyFrom(finish_record)
         return record
 

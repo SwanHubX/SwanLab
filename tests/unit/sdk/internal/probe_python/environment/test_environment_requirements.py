@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from swanlab.sdk.internal.run.system.environment import requirements
+from swanlab.sdk.internal.probe_python.environment import requirements
 
 
 class TestRequirementsGet:

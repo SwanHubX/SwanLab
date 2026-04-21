@@ -7,12 +7,9 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 from swanlab.sdk.internal.bus import EmitterProtocol, RunEmitter
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.pkg import console, fork
-from swanlab.sdk.internal.run import system
 from swanlab.sdk.internal.run.components.asynctask import AsyncTaskManager
 from swanlab.sdk.internal.run.components.builder import RecordBuilder
 from swanlab.sdk.internal.run.components.config import (
@@ -60,9 +57,6 @@ class Components:
         self._emitter = _factory_emitter(ctx)
         self._consumer = _factory_consumer(ctx, self._emitter, self._builder)
         self._config = _factory_config(ctx, self._emitter)
-
-        # 附加组件（延迟创建，在 start() 中初始化）
-        self._monitor: Optional[system.Monitor] = None
         self._terminal: TerminalProxyProtocol = _factory_terminal(ctx, self._emitter, self._init_pid)
 
     # ----------------------------------
@@ -86,10 +80,6 @@ class Components:
         return self._config
 
     @property
-    def monitor(self) -> Optional[system.Monitor]:
-        return self._monitor
-
-    @property
     def terminal(self) -> TerminalProxyProtocol:
         return self._terminal
 
@@ -99,15 +89,9 @@ class Components:
 
     def start(self) -> None:
         """启动所有组件，按依赖顺序编排。"""
-        ctx = self._ctx
-
-        # 1. 启动硬件监控（依赖 emitter）
-        self._monitor = system.create_monitor(ctx, self._emitter)
-
-        # 2. 启动终端代理（依赖 emitter）
+        # 启动终端代理
         self._terminal.install()
-
-        # 3. 启动消费者线程（消费 emitter 队列）
+        # 启动消费者线程
         self._consumer.start()
 
     # ----------------------------------
@@ -122,20 +106,14 @@ class Components:
         # 1. 等待异步任务完成
         console.debug("Waiting for async_log tasks to complete...")
         self._asynctask.shutdown(timeout=async_log_timeout)
-
-        # 2. 停止硬件监控
-        if self._monitor is not None:
-            console.debug("Stopping hardware monitor...")
-            self._monitor.stop()
-
-        # 3. 停止终端代理（可能发射最后的 ConsoleEvent）
+        # 2. 停止终端代理（可能发射最后的 ConsoleEvent）
         console.debug("Stopping terminal proxy...")
         self._terminal.uninstall()
 
-        # 4. 解绑 config
+        # 3. 解绑 config
         deactivate_run_config()
 
-        # 5. 停止消费者线程（消费剩余事件包括最后的 ConsoleEvent）
+        # 4. 停止消费者线程（消费剩余事件包括最后的 ConsoleEvent）
         console.debug("SwanLab Run is finishing, waiting for logs to flush...")
         self._consumer.stop()
         self._consumer.join()

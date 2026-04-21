@@ -12,12 +12,14 @@ from typing import Optional, Tuple
 import psutil
 
 from swanlab.sdk.internal.pkg import safe
-from swanlab.sdk.typings.run.system import MemorySnapshot, SystemScalar, SystemScalars, SystemShim
-from swanlab.sdk.typings.run.system.hardware_vendor import MemoryProtocol
+from swanlab.sdk.typings.probe_python import MemorySnapshot, SystemScalar, SystemScalars, SystemShim
+from swanlab.sdk.typings.probe_python.hardware_vendor import MemoryProtocol
 from swanlab.utils import generate_color
 
+__all__ = ["Memory", "bytes_to_snapshot"]
 
-def _bytes_to_snapshot(total_bytes: int, MB: int = 1024**2, GB: int = 1024**3) -> Optional[MemorySnapshot]:
+
+def bytes_to_snapshot(total_bytes: int, MB: int = 1024**2, GB: int = 1024**3) -> Optional[MemorySnapshot]:
     """将字节数转换为合适单位的 MemorySnapshot，优先 GB，不足 1 GB 时用 MB"""
     gb = total_bytes // GB
     if gb > 0:
@@ -68,7 +70,7 @@ class Memory(MemoryProtocol):
         total_bytes = Memory._get_total_bytes()
         if total_bytes is None or total_bytes <= 0:
             return None
-        return _bytes_to_snapshot(total_bytes)
+        return bytes_to_snapshot(total_bytes)
 
     @staticmethod
     @safe.decorator(level="debug", message="Failed to get total memory bytes")

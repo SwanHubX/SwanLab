@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 from typing import Callable, List, Optional, Tuple, Union
 
 from swanlab.sdk.internal.pkg import safe
-from swanlab.sdk.typings.run.system import (
+from swanlab.sdk.typings.probe_python import (
     AcceleratorSnapshot,
     AppleSiliconSnapshot,
     CPUSnapshot,

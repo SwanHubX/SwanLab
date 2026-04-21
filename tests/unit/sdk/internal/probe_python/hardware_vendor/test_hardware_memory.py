@@ -10,8 +10,8 @@ from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
 
-from swanlab.sdk.internal.run.system.hardware_vendor.memory import Memory, _bytes_to_snapshot
-from swanlab.sdk.typings.run.system import MemorySnapshot, PlatformSlug, SystemShim
+from swanlab.sdk.internal.probe_python.hardware_vendor.memory import Memory, bytes_to_snapshot
+from swanlab.sdk.typings.probe_python import MemorySnapshot, PlatformSlug, SystemShim
 
 _GB = 1024**3
 _MB = 1024**2
@@ -22,36 +22,36 @@ class TestBytesToSnapshot:
 
     def test_exact_1gb(self):
         """恰好 1 GB → total=1, unit=GB"""
-        result = _bytes_to_snapshot(1 * _GB)
+        result = bytes_to_snapshot(1 * _GB)
         assert result == MemorySnapshot(total=1, total_unit="GB")
 
     def test_16gb(self):
         """16 GB 整数转换"""
-        result = _bytes_to_snapshot(16 * _GB)
+        result = bytes_to_snapshot(16 * _GB)
         assert result == MemorySnapshot(total=16, total_unit="GB")
 
     def test_gb_truncates_remainder(self):
         """非整 GB 向下截断（1.9 GB → 1 GB）"""
-        result = _bytes_to_snapshot(int(1.9 * _GB))
+        result = bytes_to_snapshot(int(1.9 * _GB))
         assert result == MemorySnapshot(total=1, total_unit="GB")
 
     def test_less_than_1gb_uses_mb(self):
         """不足 1 GB 时降级到 MB"""
-        result = _bytes_to_snapshot(512 * _MB)
+        result = bytes_to_snapshot(512 * _MB)
         assert result == MemorySnapshot(total=512, total_unit="MB")
 
     def test_exactly_1023mb(self):
         """1023 MB → unit=MB"""
-        result = _bytes_to_snapshot(1023 * _MB)
+        result = bytes_to_snapshot(1023 * _MB)
         assert result == MemorySnapshot(total=1023, total_unit="MB")
 
     def test_less_than_1mb_returns_none(self):
         """不足 1 MB（极端情况）→ None"""
-        assert _bytes_to_snapshot(1024) is None
+        assert bytes_to_snapshot(1024) is None
 
     def test_zero_returns_none(self):
         """0 字节 → None"""
-        assert _bytes_to_snapshot(0) is None
+        assert bytes_to_snapshot(0) is None
 
 
 class TestMemoryGet:
