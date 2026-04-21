@@ -17,7 +17,7 @@ from __future__ import annotations
 import contextvars
 import sys
 import threading
-from typing import Callable, Literal
+from typing import Callable, Literal, cast
 
 from swanlab.proto.swanlab.system.v1.console_pb2 import StreamType
 from swanlab.sdk.internal.pkg import fork
@@ -92,11 +92,12 @@ class StreamCapture:
 
     def _make_wrapper(self):
         """创建 write() 包装器。"""
-        original_write = self._original_write
+        # cast make PyCharm happy
+        original_write = cast(Callable[[str], int], self._original_write)
+        assert original_write is not None
         on_write = self._on_write
         init_pid = self._init_pid
         stream_type = self._stream_type
-        assert original_write is not None
 
         def write_wrapper(data) -> int:
             # 1. Passthrough: 始终先调用原始 write
