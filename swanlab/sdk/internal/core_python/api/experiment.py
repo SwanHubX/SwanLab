@@ -156,21 +156,3 @@ def get_single_experiment(*, path: str) -> RunType:
     """
     proj_path, expid = path.rsplit("/", 1)
     return client.get(f"/project/{proj_path}/runs/{expid}").data
-
-
-def get_experiment_metrics(*, expid: str, key: str) -> Dict[str, str]:
-    """
-    获取指定字段的指标数据，返回csv网址
-    :param expid: 实验cuid
-    :param key: 指定字段列表
-    """
-    return client.get(f"/experiment/{expid}/column/csv", params={"key": key}).data
-
-
-def delete_experiment(*, path: str) -> None:
-    """
-    删除指定实验
-    :param path: 实验路径 'username/project/expid'
-    """
-    proj_path, expid = path.rsplit("/", 1)
-    client.delete(f"/project/{proj_path}/runs/{expid}")
