@@ -56,7 +56,7 @@ class User(BaseEntity):
     def api_keys(self) -> List[str]:
         """当前用户的 API Key 列表（仅限本人）。"""
         if not self.is_self:
-            raise ValueError("Getting api keys of other users has not been supported yet.")
+            return []
         if self._api_keys_cache is None:
             resp = self._get("/user/key")
             self._api_keys_cache = resp.data if resp.ok else []
@@ -65,7 +65,7 @@ class User(BaseEntity):
     def generate_api_key(self, description: Optional[str] = None) -> Optional[str]:
         """生成新的 API Key（仅限本人）。"""
         if not self.is_self:
-            raise ValueError("Generating api key of other users has not been supported yet.")
+            return None
         self._post("/user/key", data={"name": description} if description else None)
         self._api_keys_cache = None  # invalidate cache
         resp = self._get("/user/key/latest")
@@ -74,7 +74,7 @@ class User(BaseEntity):
     def delete_api_key(self, api_key: str) -> bool:
         """删除指定 API Key（仅限本人）。"""
         if not self.is_self:
-            raise ValueError("Deleting api key of other users has not been supported yet.")
+            return False
         self._api_keys_cache = None  # invalidate cache
         resp = self._get("/user/key")
         if not resp.ok:
@@ -89,9 +89,9 @@ class User(BaseEntity):
     @staticmethod
     def _check_create_info(username: str, password: str) -> bool:
         if not re.match(r"^[a-zA-Z0-9_-]+$", username):
-            raise ValueError("Username must be alphanumeric and can contain - and _")
+            return False
         if not re.match(r"^(?=.*[0-9])(?=.*[a-zA-Z]).{8,}$", password):
-            raise ValueError("Password must contain at least 8 characters and include numbers and letters")
+            return False
         return True
 
     def create(self, username: str, password: str) -> bool:
@@ -99,19 +99,20 @@ class User(BaseEntity):
         创建新用户（仅限私有化部署 root 用户）。
         """
         if not self.is_self:
-            raise ValueError(f"{self._username} is not allowed to create other users.")
+            return False
         # 检查私有化部署权限
         resp = self._get("/self_hosted/info")
         if not resp.ok:
             return False
         info = resp.data
         if not info.get("enabled", False):
-            raise ValueError("You haven't launched a swanlab self-hosted instance.")
+            return False
         if info.get("expired", True):
-            raise ValueError("SwanLab self-hosted instance has expired.")
+            return False
         if not info.get("root", False):
-            raise ValueError("You don't have permission. Please login as a root user.")
-        self._check_create_info(username, password)
+            return False
+        if not self._check_create_info(username, password):
+            return False
         create_resp = self._post("/self_hosted/users", data={"users": [{"username": username, "password": password}]})
         return create_resp.ok
 

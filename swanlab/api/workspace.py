@@ -5,7 +5,7 @@
 @description: Workspace 实体类 — 工作空间的查询
 """
 
-from typing import TYPE_CHECKING, Any, Dict, Iterator, Literal, Optional, cast
+from typing import TYPE_CHECKING, Any, Dict, Iterator, Optional, cast
 
 from swanlab.sdk.typings.run import WorkspaceType
 

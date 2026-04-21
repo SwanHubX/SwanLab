@@ -196,7 +196,7 @@ class Experiment(BaseEntity):
                 columns=[c for c in result_df.columns if c.endswith("_timestamp")], errors="ignore"
             )
             if x_axis not in result_df.columns:
-                raise ValueError(f"x_axis '{x_axis}' not found in result DataFrame")
+                return pd.DataFrame()
             cols = [x_axis] + [c for c in result_df.columns if c != x_axis]
             result_df = result_df[cols].dropna(subset=[x_axis])
 

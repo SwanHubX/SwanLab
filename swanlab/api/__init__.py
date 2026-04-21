@@ -32,10 +32,10 @@ class Api:
         api = Api()                              # 自动从 .netrc 读取凭证
         api = Api(api_key="...", host="...")      # 显式传入凭证
 
-        project = api.project("username/project")
-        run = api.run("username/project/run_id")
-        workspace = api.workspace("username")
-        user = api.user()
+        resp = api.project("username/project")
+        if resp.ok:
+            project = resp.data
+            print(project.name)
     """
 
     def __init__(
@@ -81,7 +81,7 @@ class Api:
         return api_key, api_host, resolved_web_host
 
     # ------------------------------------------------------------------
-    #  实体查询方法
+    #  实体查询方法 — 统一返回 ApiResponse
     # ------------------------------------------------------------------
 
     def _safe_get(self, path: str, **kwargs) -> ApiResponse:
@@ -93,7 +93,7 @@ class Api:
             safe.block(message=f"API request failed: {path}")
             return ApiResponse(ok=False, errmsg=str(e))
 
-    def workspace(self, username: Optional[str] = None) -> Workspace:
+    def workspace(self, username: Optional[str] = None) -> ApiResponse:
         """
         获取工作空间信息，默认为当前登录用户的工作空间。
 
@@ -102,15 +102,20 @@ class Api:
         if username is None:
             username = self._username
         resp = self._safe_get(f"/group/{username}")
-        return Workspace(
-            self._client,
-            self._web_host,
-            self._api_host,
-            username=username,
-            data=resp.data if resp.ok else None,
-        )
+        if resp.ok:
+            return ApiResponse(
+                ok=True,
+                data=Workspace(
+                    self._client,
+                    self._web_host,
+                    self._api_host,
+                    username=username,
+                    data=resp.data,
+                ),
+            )
+        return resp
 
-    def workspaces(self, username: Optional[str] = None) -> Workspaces:
+    def workspaces(self, username: Optional[str] = None) -> ApiResponse:
         """
         获取工作空间列表迭代器。
 
@@ -118,16 +123,24 @@ class Api:
         """
         if username is None:
             username = self._username
-        return Workspaces(self._client, self._web_host, self._api_host, username=username)
+        return ApiResponse(
+            ok=True,
+            data=Workspaces(self._client, self._web_host, self._api_host, username=username),
+        )
 
-    def project(self, path: str) -> Project:
+    def project(self, path: str) -> ApiResponse:
         """
         获取项目信息。
 
         :param path: 项目路径，格式为 'username/project-name'
         """
         resp = self._safe_get(f"/project/{path}")
-        return Project(self._client, self._web_host, self._api_host, path=path, data=resp.data if resp.ok else None)
+        if resp.ok:
+            return ApiResponse(
+                ok=True,
+                data=Project(self._client, self._web_host, self._api_host, path=path, data=resp.data),
+            )
+        return resp
 
     def projects(
         self,
@@ -135,7 +148,7 @@ class Api:
         sort: Optional[str] = None,
         search: Optional[str] = None,
         detail: Optional[bool] = True,
-    ) -> Projects:
+    ) -> ApiResponse:
         """
         获取工作空间下的项目列表迭代器。
 
@@ -144,11 +157,14 @@ class Api:
         :param search: 搜索关键词
         :param detail: 是否返回详细信息
         """
-        return Projects(
-            self._client, self._web_host, self._api_host, path=path, sort=sort, search=search, detail=detail
+        return ApiResponse(
+            ok=True,
+            data=Projects(
+                self._client, self._web_host, self._api_host, path=path, sort=sort, search=search, detail=detail
+            ),
         )
 
-    def run(self, path: str) -> Experiment:
+    def run(self, path: str) -> ApiResponse:
         """
         获取单个实验。
 
@@ -156,46 +172,60 @@ class Api:
         """
         parts = path.split("/")
         if len(parts) != 3:
-            raise ValueError(f"Invalid path '{path}'. Expected format: 'username/project/run_id'")
+            return ApiResponse(ok=False, errmsg=f"Invalid path '{path}'. Expected format: 'username/project/run_id'")
         proj_path = path.rsplit("/", 1)[0]
         expid = parts[2]
         resp = self._safe_get(f"/project/{proj_path}/runs/{expid}")
-        return Experiment(
-            self._client,
-            self._web_host,
-            self._api_host,
-            path=proj_path,
-            data=resp.data if resp.ok else None,
-        )
+        if resp.ok:
+            return ApiResponse(
+                ok=True,
+                data=Experiment(
+                    self._client,
+                    self._web_host,
+                    self._api_host,
+                    path=proj_path,
+                    data=resp.data,
+                ),
+            )
+        return resp
 
-    def runs(self, path: str, filters: Optional[dict] = None) -> Experiments:
+    def runs(self, path: str, filters: Optional[dict] = None) -> ApiResponse:
         """
         获取项目下的实验列表迭代器。
 
         :param path: 项目路径，格式为 'username/project'
         :param filters: 筛选条件
         """
-        return Experiments(self._client, self._web_host, self._api_host, path=path, filters=filters)
+        return ApiResponse(
+            ok=True,
+            data=Experiments(self._client, self._web_host, self._api_host, path=path, filters=filters),
+        )
 
-    def user(self, username: Optional[str] = None) -> User:
+    def user(self, username: Optional[str] = None) -> ApiResponse:
         """
         获取用户信息，默认为当前登录用户。
 
         :param username: 指定用户名
         """
-        return User(
-            self._client,
-            self._web_host,
-            self._api_host,
-            username=username or self._username,
-            login_user=self._username,
+        return ApiResponse(
+            ok=True,
+            data=User(
+                self._client,
+                self._web_host,
+                self._api_host,
+                username=username or self._username,
+                login_user=self._username,
+            ),
         )
 
-    def users(self) -> Users:
+    def users(self) -> ApiResponse:
         """
         获取用户列表迭代器（私有化部署管理员限定）。
         """
-        return Users(self._client, self._web_host, self._api_host, login_user=self._username)
+        return ApiResponse(
+            ok=True,
+            data=Users(self._client, self._web_host, self._api_host, login_user=self._username),
+        )
 
 
 __all__ = ["Api"]

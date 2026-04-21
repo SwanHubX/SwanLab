@@ -45,6 +45,13 @@ class ApiResponse:
     def to_dict(self) -> ApiResponseType:
         return {"ok": self.ok, "errmsg": self.errmsg, "data": self.data}
 
+    def to_json_dict(self) -> dict:
+        """返回 JSON 可序列化的字典，自动将实体 data 转为 dict。"""
+        data = self.data
+        if data is not None and hasattr(data, "to_dict"):
+            data = data.to_dict()
+        return {"ok": self.ok, "errmsg": self.errmsg, "data": data}
+
     def __repr__(self) -> str:
         if self.ok:
             return f"ApiResponse(ok=True, data={self.data!r})"
