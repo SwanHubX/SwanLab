@@ -7,8 +7,8 @@ from swanlab.api.typings.common import ApiResponseType
 
 
 @click.command("user")
-@click.argument("username", required=False)
-def get_user(username: Optional[str] = None):
+@click.argument("username", required=True)
+def get_user(username: str):
     """Get user info."""
     from swanlab.api import Api
 

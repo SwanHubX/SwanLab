@@ -7,7 +7,7 @@ from swanlab.api.typings.common import ApiResponseType
 
 
 @click.command("workspace")
-@click.argument("username", required=False)
+@click.argument("username", required=True)
 def get_workspace(username: Optional[str] = None):
     """Get workspace info."""
     from swanlab.api import Api

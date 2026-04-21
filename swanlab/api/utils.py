@@ -5,7 +5,7 @@
 @description: 公共查询 API 工具函数
 """
 
-from enum import StrEnum
+from enum import Enum
 from typing import Dict, NamedTuple, Optional, Set
 
 
@@ -16,7 +16,7 @@ class Label(NamedTuple):
         return self.name
 
 
-class ColumnType(StrEnum):
+class ColumnType(str, Enum):
     SCALAR = "SCALAR"
     CONFIG = "CONFIG"
     STABLE = "STABLE"

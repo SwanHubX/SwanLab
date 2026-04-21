@@ -5,9 +5,9 @@ from swanlab.api.typings.common import ApiResponseType
 
 
 @click.command("project")
-@click.argument("path")
+@click.argument("path", required=True)
 def get_project(path: str):
-    """Get project info by path (username/project)."""
+    """Get project info by path (username/project). """
     from swanlab.api import Api
 
     try:
