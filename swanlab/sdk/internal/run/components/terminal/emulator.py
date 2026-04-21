@@ -353,7 +353,7 @@ class TerminalEmulator:
     @property
     def num_lines(self) -> int:
         """
-        返回当前缓冲区中已提交的行数
+        当前有多少行（含空行）
         """
         if self._num_lines_cache is not None:
             return self._num_lines_cache

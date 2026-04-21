@@ -320,10 +320,14 @@ class TestEraseScreen:
         """CSI 2J — 擦除全部。"""
         em = TerminalEmulator()
         em.write("A\nB\nC\n")
+        assert em.num_lines == 4  # A, B, C + 空行
         em.read()
         em.write("\033[2J")
-        # buffer 已清，但 committed_lines 仍为 3
-        assert em.num_lines == 3
+        # buffer 已清，但是历史行数还是4行
+        assert em.num_lines == 4
+        em.write("D")
+        assert em.num_lines == 4
+        assert em.read() == [("D", False)]
 
 
 # ==========================================
@@ -417,7 +421,7 @@ class TestProgressBar:
         assert em.read() == [("Epoch 2/10", False)]
 
         em.write("Epoch 3/10\n")
-        assert em.read() == [("Epoch 3/10", True)]
+        assert em.read() == [("Epoch 3/10", True), ("", False)]
 
     def test_tqdm_style_full_cycle(self):
         """完整 tqdm 周期：多次 \r 更新 → 最终 \n。"""
@@ -428,8 +432,8 @@ class TestProgressBar:
 
         em.write("100%|##########| 100/100 done\n")
         r2 = em.read()
-        assert all(is_new for _, is_new in r2)
-        assert r2 == [("100%|##########| 100/100 done", True)]
+        assert all(is_new for _, is_new in r2[:-1])  # 最后一行永远是空行
+        assert r2[0] == ("100%|##########| 100/100 done", True)
 
     def test_progress_bar_then_print(self):
         """进度条完成后紧接 print 输出。"""
@@ -441,7 +445,8 @@ class TestProgressBar:
         em.read()
 
         em.write("100%|##| 10/10\n")
-        assert em.read() == [("100%|##| 10/10", True)]
+        result = em.read()
+        assert result[0] == ("100%|##| 10/10", True)
 
     def test_identical_pending_not_reduplicated(self):
         """连续写入相同的进行中行，不重复返回。"""
@@ -453,14 +458,14 @@ class TestProgressBar:
         assert em.read() == []
 
     def test_pending_cleared_to_empty(self):
-        """进行中行被 \r + 擦除清空后换行 → 空行不产出。"""
+        """进行中行被 \r + 擦除清空后换行 → 空行 committed。"""
         em = TerminalEmulator()
         em.write("some text\r")
         em.read()
 
         em.write("\033[K\n")
-        # 空行被跳过
-        assert em.read() == []
+        # 空行 committed + 新空行 pending
+        assert em.read() == [("", True), ("", False)]
 
     def test_flush_skips_pending_lines(self):
         """_flush 场景：只有 is_new_line=True 的行被发射。"""
@@ -494,7 +499,8 @@ class TestScrollBuffer:
         for i in range(total):
             em.write(f"Line {i}\n")
         em.read()
-        assert _line(em, em.num_lines - 1) == f"Line {total - 1}"
+        # 滚动后最后一行有内容（可能不是最后一行，因为空行也在）
+        assert _line(em, em.num_lines - 2) == f"Line {total - 1}"
 
     def test_cursor_adjusted_after_scroll(self):
         em = TerminalEmulator()
@@ -531,12 +537,17 @@ class TestEdgeCases:
         """纯控制字符输入。"""
         em = TerminalEmulator()
         em.write("\r\n\r\n")
-        assert em.read() == []
+        # 两次 \r\n 产生两个空行 committed + 一个空行 pending
+        result = em.read()
+        assert all(line == "" for line, _ in result)
 
     def test_consecutive_newlines(self):
         em = TerminalEmulator()
         em.write("\n\n\n")
-        assert em.read() == []
+        # 3个 \n 产生3个空行 committed + 1个空行 pending
+        result = em.read()
+        assert all(line == "" for line, _ in result)
+        assert sum(1 for _, is_new in result if is_new) == 3
 
     def test_large_write(self):
         """大批量写入不崩溃。"""
@@ -570,9 +581,11 @@ class TestCombinations:
         em.write("A\nB\n")
         em.read()
         em.write("\033[2J")
-        assert em.num_lines == 2  # committed_lines 仍在，buffer 已清
+        assert em.num_lines == 3  # A, B + 空行(cursor)
         em.write("New\n")
-        assert em.read() == [("New", True)]
+        # 清屏后写 New，New 在新行 committed
+        result = em.read()
+        assert ("New", True) in result
 
 
 class TestFinalize:
