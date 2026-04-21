@@ -7,18 +7,22 @@
 
 from typing import Dict, List, Optional, TypedDict
 
-from .common import ApiLabelType, ApiRunStateType
+from .common import ApiRunStateEnum
 from .user import ApiUserType
+
+
+class ApiExperimentLabelType(TypedDict):
+    name: str
 
 
 class ApiExperimentType(TypedDict):
     cuid: str
     name: str
     description: str
-    labels: List[ApiLabelType]
+    labels: List[ApiExperimentLabelType]
     profile: Dict[str, object]
     show: bool
-    state: ApiRunStateType
+    state: ApiRunStateEnum
     cluster: str
     job: str
     user: ApiUserType

@@ -7,7 +7,7 @@
 
 from typing import TypedDict
 
-from .common import ApiLicensePlanType
+from .common import ApiLicensePlanEnum
 
 
 class ApiApiKeyType(TypedDict):
@@ -20,5 +20,5 @@ class ApiSelfHostedInfoType(TypedDict):
     enabled: bool
     expired: bool
     root: bool
-    plan: ApiLicensePlanType
+    plan: ApiLicensePlanEnum
     seats: int

@@ -7,13 +7,13 @@
 
 from typing import Dict, TypedDict
 
-from .common import ApiRoleType, ApiWorkspaceType
+from .common import ApiRoleEnum, ApiWorkspaceEnum
 
 
 class ApiWorkspaceInfoType(TypedDict):
     name: str
     username: str
     profile: Dict[str, str]
-    type: ApiWorkspaceType
+    type: ApiWorkspaceEnum
     comment: str
-    role: ApiRoleType
+    role: ApiRoleEnum

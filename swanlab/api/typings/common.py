@@ -8,29 +8,25 @@
 from typing import Any, Dict, List, Literal, TypedDict
 
 # 列类型
-ApiColumnType = Literal["SCALAR", "CONFIG", "STABLE"]
+ApiColumnEum = Literal["SCALAR", "CONFIG", "STABLE"]
 
 # 实验状态类型
-ApiRunStateType = Literal["RUNNING", "FINISHED", "CRASHED", "ABORTED", "OFFLINE"]
+ApiRunStateEnum = Literal["RUNNING", "FINISHED", "CRASHED", "ABORTED", "OFFLINE"]
 
 # 可见性类型
-ApiVisibilityType = Literal["PUBLIC", "PRIVATE"]
+ApiVisibilityEnum = Literal["PUBLIC", "PRIVATE"]
 
 # 工作空间类型
-ApiWorkspaceType = Literal["TEAM", "PERSON"]
+ApiWorkspaceEnum = Literal["TEAM", "PERSON"]
 
 # 工作空间成员类型
-ApiRoleType = Literal["VISITOR", "VIEWER", "MEMBER", "OWNER"]
+ApiRoleEnum = Literal["VISITOR", "VIEWER", "MEMBER", "OWNER"]
 
 # Self-Hosted 身份类型
-ApiIdentityType = Literal["root", "user"]
+ApiIdentityEnum = Literal["root", "user"]
 
 # License 许可证类型
-ApiLicensePlanType = Literal["free", "commercial"]
-
-
-class ApiLabelType(TypedDict):
-    name: str
+ApiLicensePlanEnum = Literal["free", "commercial"]
 
 
 class ApiPaginationType(TypedDict):
