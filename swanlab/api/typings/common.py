@@ -7,6 +7,9 @@
 
 from typing import Any, Dict, List, Literal, TypedDict
 
+# 列类型
+ApiColumnType = Literal["SCALAR", "CONFIG", "STABLE"]
+
 # 实验状态类型
 ApiRunStateType = Literal["RUNNING", "FINISHED", "CRASHED", "ABORTED", "OFFLINE"]
 

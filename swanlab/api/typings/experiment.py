@@ -8,11 +8,7 @@
 from typing import Dict, List, Optional, TypedDict
 
 from .common import ApiLabelType, ApiRunStateType
-
-
-class ApiExperimentUserType(TypedDict):
-    username: str
-    name: str
+from .user import ApiUserType
 
 
 class ApiExperimentType(TypedDict):
@@ -25,6 +21,6 @@ class ApiExperimentType(TypedDict):
     state: ApiRunStateType
     cluster: str
     job: str
-    user: ApiExperimentUserType
+    user: ApiUserType
     rootExpId: Optional[str]
     rootProId: Optional[str]
