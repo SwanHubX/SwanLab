@@ -62,7 +62,6 @@ class ConfigEvent:
 class ConsoleEvent:
     """控制台输出事件"""
 
-    epoch: int
     line: str
     stream: StreamType
     timestamp: Timestamp

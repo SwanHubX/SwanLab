@@ -65,9 +65,6 @@ class TerminalProxy(TerminalProxyProtocol):
         self._max_log_length = max_log_length
         self._init_pid = init_pid
 
-        # 行计数器
-        self._epoch: int = 0
-
         # 双 Emulator
         self._stdout_emulator = TerminalEmulator()
         self._stderr_emulator = TerminalEmulator()
@@ -235,5 +232,4 @@ class TerminalProxy(TerminalProxyProtocol):
 
         ts = Timestamp()
         ts.GetCurrentTime()
-        self._emitter.emit(ConsoleEvent(epoch=self._epoch, line=line, stream=stream, timestamp=ts))
-        self._epoch += 1
+        self._emitter.emit(ConsoleEvent(line=line, stream=stream, timestamp=ts))

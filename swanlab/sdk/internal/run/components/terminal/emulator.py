@@ -344,13 +344,9 @@ class TerminalEmulator:
     def num_lines(self) -> int:
         if self._num_lines_cache is not None:
             return self._num_lines_cache
-        ret = 0
-        if self._buffer:
-            n = max(self._buffer.keys())
-            for i in range(n, -1, -1):
-                if self._get_line_len(i):
-                    ret = i + 1
-                    break
+        # 考虑已提交的行、光标所在的行以及缓冲区中已有的行
+        max_idx = max(self._buffer.keys()) if self._buffer else -1
+        ret = max(max_idx + 1, self._committed_lines, self._cursor.y + 1)
         self._num_lines_cache = ret
         return ret
 
