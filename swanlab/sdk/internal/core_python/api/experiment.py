@@ -15,8 +15,7 @@ from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.pkg import helper
 from swanlab.sdk.typings.core_python.api.experiment import InitExperimentType, RunType
 from swanlab.sdk.typings.run import ResumeType, RunStateType
-
-from .utils import parse_column_type, to_camel_case
+from swanlab.utils import parse_column_type, to_camel_case
 
 
 def create_or_resume_experiment(

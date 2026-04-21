@@ -78,7 +78,7 @@ class Workspace(BaseEntity):
             self._client,
             self._web_host,
             self._api_host,
-            path=self._ensure_data()["username"],
+            path=self.username,
             sort=sort,
             search=search,
             detail=detail,

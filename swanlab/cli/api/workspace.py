@@ -3,7 +3,7 @@ from typing import Optional
 import click
 import orjson
 
-from swanlab.api.typings.common import ApiResponse
+from swanlab.api.typings.common import ApiResponseType
 
 
 @click.command("workspace")
@@ -16,5 +16,5 @@ def get_workspace(username: Optional[str] = None):
         api = Api()
         resp = api.workspace(username)
     except Exception as e:
-        resp = ApiResponse(ok=False, errmsg=str(e))
+        resp = ApiResponseType(ok=False, errmsg=str(e))
     click.echo(orjson.dumps(resp.to_json_dict(), option=orjson.OPT_INDENT_2).decode())

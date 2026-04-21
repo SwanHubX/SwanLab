@@ -1,7 +1,7 @@
 import click
 import orjson
 
-from swanlab.api.typings.common import ApiResponse
+from swanlab.api.typings.common import ApiResponseType
 
 
 @click.command("project")
@@ -14,5 +14,5 @@ def get_project(path: str):
         api = Api()
         resp = api.project(path)
     except Exception as e:
-        resp = ApiResponse(ok=False, errmsg=str(e))
+        resp = ApiResponseType(ok=False, errmsg=str(e))
     click.echo(orjson.dumps(resp.to_json_dict(), option=orjson.OPT_INDENT_2).decode())

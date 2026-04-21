@@ -9,11 +9,14 @@ import re
 from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional
 
 from .base import BaseEntity
-from .typings.user import ApiApiKeyType
+from .typings.user import ApiApiKeyType, ApiSelfHostedInfoType
 from .utils import get_properties
 
 if TYPE_CHECKING:
     from swanlab.sdk.internal.pkg.client import Client
+
+_USERNAME_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
+_PASSWORD_PATTERN = re.compile(r"^(?=.*[0-9])(?=.*[a-zA-Z]).{8,}$")
 
 
 class User(BaseEntity):
@@ -62,12 +65,15 @@ class User(BaseEntity):
             self._api_keys_cache = resp.data if resp.ok else []
         return [r["key"] for r in self._api_keys_cache or []]
 
+    def _invalidate_api_keys_cache(self) -> None:
+        self._api_keys_cache = None
+
     def generate_api_key(self, description: Optional[str] = None) -> Optional[str]:
         """生成新的 API Key（仅限本人）。"""
         if not self.is_self:
             return None
         self._post("/user/key", data={"name": description} if description else None)
-        self._api_keys_cache = None  # invalidate cache
+        self._invalidate_api_keys_cache()
         resp = self._get("/user/key/latest")
         return resp.data.get("key") if resp.ok and resp.data else None
 
@@ -75,7 +81,7 @@ class User(BaseEntity):
         """删除指定 API Key（仅限本人）。"""
         if not self.is_self:
             return False
-        self._api_keys_cache = None  # invalidate cache
+        self._invalidate_api_keys_cache()
         resp = self._get("/user/key")
         if not resp.ok:
             return False
@@ -87,31 +93,24 @@ class User(BaseEntity):
         return False
 
     @staticmethod
-    def _check_create_info(username: str, password: str) -> bool:
-        if not re.match(r"^[a-zA-Z0-9_-]+$", username):
-            return False
-        if not re.match(r"^(?=.*[0-9])(?=.*[a-zA-Z]).{8,}$", password):
-            return False
-        return True
+    def _validate_create_info(username: str, password: str) -> bool:
+        return bool(_USERNAME_PATTERN.match(username) and _PASSWORD_PATTERN.match(password))
 
-    def create(self, username: str, password: str) -> bool:
-        """
-        创建新用户（仅限私有化部署 root 用户）。
-        """
-        if not self.is_self:
-            return False
-        # 检查私有化部署权限
+    def _check_self_hosted_permission(self) -> bool:
+        """检查私有化部署权限：已启用、未过期、当前用户为 root。"""
         resp = self._get("/self_hosted/info")
         if not resp.ok:
             return False
-        info = resp.data
-        if not info.get("enabled", False):
-            return False
-        if info.get("expired", True):
-            return False
-        if not info.get("root", False):
-            return False
-        if not self._check_create_info(username, password):
+        info: ApiSelfHostedInfoType = resp.data
+        return info.get("enabled", False) and not info.get("expired", True) and info.get("root", False)
+
+    def create(self, username: str, password: str) -> bool:
+        """创建新用户（仅限私有化部署 root 用户）。"""
+        if (
+            not self.is_self
+            or not self._check_self_hosted_permission()
+            or not self._validate_create_info(username, password)
+        ):
             return False
         create_resp = self._post("/self_hosted/users", data={"users": [{"username": username, "password": password}]})
         return create_resp.ok

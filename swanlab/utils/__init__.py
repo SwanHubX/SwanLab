@@ -6,6 +6,7 @@
 理论上本模块的内容都可以被用户调用，并被写入API文档中
 """
 
+from .column import parse_column_type, to_camel_case
 from .experiment import generate_color, generate_id, generate_name
 
-__all__ = ["generate_color", "generate_id", "generate_name"]
+__all__ = ["generate_color", "generate_id", "generate_name", "to_camel_case", "parse_column_type"]

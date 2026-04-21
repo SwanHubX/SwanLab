@@ -43,15 +43,15 @@ class Project(BaseEntity):
 
     @property
     def name(self) -> str:
-        return self._ensure_data()["name"]
+        return self._ensure_data().get("name", "")
 
     @property
     def path(self) -> str:
-        return self._ensure_data()["path"]
+        return self._ensure_data().get("path", "")
 
     @property
     def url(self) -> str:
-        return self._build_url(f"@{self._ensure_data()['path']}")
+        return self._build_url(f"@{self.path}")
 
     @property
     def description(self) -> str:
@@ -81,13 +81,11 @@ class Project(BaseEntity):
         """获取项目下的实验列表。"""
         from .experiment import Experiments
 
-        return Experiments(
-            self._client, self._web_host, self._api_host, path=self._ensure_data()["path"], filters=filters
-        )
+        return Experiments(self._client, self._web_host, self._api_host, path=self.path, filters=filters)
 
     def delete(self) -> bool:
         """删除此项目。"""
-        resp = self._delete(f"/project/{self._ensure_data()['path']}")
+        resp = self._delete(f"/project/{self.path}")
         return resp.ok
 
     def to_dict(self) -> Dict[str, Any]:

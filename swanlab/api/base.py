@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, Optional
 
 from swanlab.sdk.internal.pkg import safe
 
-from .typings.common import ApiResponse
+from .typings.common import ApiResponseType
 
 if TYPE_CHECKING:
     from swanlab.sdk.internal.pkg.client import Client
@@ -34,30 +34,28 @@ class BaseEntity(ABC):
     def to_dict(self) -> Dict[str, Any]:
         """将实体序列化为 JSON 可序列化的字典。"""
 
-    def _safe_request(self, method: Callable, path: str, **kwargs) -> ApiResponse:
-        """
-        安全请求包装：捕获所有异常，始终返回 ApiResponse 而不抛出。
+    def _safe_request(self, method: Callable, path: str, **kwargs) -> ApiResponseType:
+        """安全请求包装：捕获所有异常，始终返回 ApiResponse 而不抛出。"""
 
-        :param method: self._client.get / .post / .put / .delete
-        :param path: 请求路径
-        """
-        try:
+        def _on_error(e: BaseException) -> None:
+            _err_msg[0] = str(e)
+
+        _err_msg: list[Optional[str]] = [None]
+        with safe.block(message=f"API request failed: {path}", on_error=_on_error):
             data = method(path, **kwargs).data
-            return ApiResponse(ok=True, data=data)
-        except Exception as e:
-            safe.block(message=f"API request failed: {path}")
-            return ApiResponse(ok=False, errmsg=str(e))
+            return ApiResponseType(ok=True, data=data)
+        return ApiResponseType(ok=False, errmsg=_err_msg[0] or "request failed")
 
-    def _get(self, path: str, **kwargs) -> ApiResponse:
+    def _get(self, path: str, **kwargs) -> ApiResponseType:
         return self._safe_request(self._client.get, path, **kwargs)
 
-    def _post(self, path: str, **kwargs) -> ApiResponse:
+    def _post(self, path: str, **kwargs) -> ApiResponseType:
         return self._safe_request(self._client.post, path, **kwargs)
 
-    def _put(self, path: str, **kwargs) -> ApiResponse:
+    def _put(self, path: str, **kwargs) -> ApiResponseType:
         return self._safe_request(self._client.put, path, **kwargs)
 
-    def _delete(self, path: str, **kwargs) -> ApiResponse:
+    def _delete(self, path: str, **kwargs) -> ApiResponseType:
         return self._safe_request(self._client.delete, path, **kwargs)
 
     def _build_url(self, path: str) -> str:

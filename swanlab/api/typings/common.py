@@ -5,7 +5,7 @@
 @description: 公共查询 API 通用类型定义
 """
 
-from typing import Any, List, TypedDict
+from typing import Any, Dict, List, TypedDict
 
 
 class ApiLabelType(TypedDict):
@@ -19,15 +19,7 @@ class ApiPaginationType(TypedDict):
     total: int
 
 
-class ApiResponseType(TypedDict):
-    """API 响应的统一封装类型。"""
-
-    ok: bool
-    errmsg: str
-    data: Any
-
-
-class ApiResponse:
+class ApiResponseType:
     """
     API 响应的统一封装，保证任何异常都不会导致程序 crash。
 
@@ -42,10 +34,10 @@ class ApiResponse:
         self.errmsg = errmsg
         self.data = data
 
-    def to_dict(self) -> ApiResponseType:
+    def to_dict(self) -> Dict[str, Any]:
         return {"ok": self.ok, "errmsg": self.errmsg, "data": self.data}
 
-    def to_json_dict(self) -> dict:
+    def to_json_dict(self) -> Dict[str, Any]:
         """返回 JSON 可序列化的字典，自动将实体 data 转为 dict。"""
         data = self.data
         if data is not None and hasattr(data, "to_dict"):
@@ -56,3 +48,6 @@ class ApiResponse:
         if self.ok:
             return f"ApiResponse(ok=True, data={self.data!r})"
         return f"ApiResponse(ok=False, errmsg={self.errmsg!r})"
+
+
+__all__ = ["ApiLabelType", "ApiPaginationType", "ApiResponseType"]

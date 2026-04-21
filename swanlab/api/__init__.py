@@ -8,22 +8,24 @@
 from typing import Optional
 
 from swanlab.exceptions import AuthenticationError
-from swanlab.sdk.internal.pkg import nrc, safe, scope
+from swanlab.sdk.internal.pkg import nrc, scope
 from swanlab.sdk.internal.pkg.client import Client
 from swanlab.sdk.internal.settings import settings as global_settings
 
+from .base import BaseEntity
 from .experiment import Experiment, Experiments
 from .project import Project, Projects
-from .typings.common import ApiResponse
+from .typings.common import ApiResponseType
 from .user import User, Users
 from .workspace import Workspace, Workspaces
 
 
-class Api:
+class Api(BaseEntity):
     """
     SwanLab 公共查询 API 入口。
 
     通过独立的 Client 实例与 SwanLab 云端交互，不与 SDK 运行时单例共享。
+    继承 BaseEntity 以复用 _get/_post/_put/_delete/_paginate 等安全 HTTP 方法。
 
     用法::
 
@@ -43,7 +45,7 @@ class Api:
         api_key: Optional[str] = None,
         host: Optional[str] = None,
         web_host: Optional[str] = None,
-    ):
+    ) -> None:
         """
         初始化 Api 实例。
 
@@ -54,18 +56,21 @@ class Api:
         :param web_host: Web 面板地址，为 None 时从 Settings 读取
         """
         api_key, api_host, resolved_web_host = self._resolve_credentials(api_key, host, web_host)
-        self._client: Client = Client(api_key=str(api_key), base_url=api_host)
-        self._web_host: str = resolved_web_host
-        self._api_host = api_host
+        client = Client(api_key=str(api_key), base_url=api_host)
+        super().__init__(client, resolved_web_host, api_host)
         self._login_resp = scope.get_context("login_resp")
         self._username: str = self._login_resp["userInfo"]["username"] if self._login_resp else ""
+
+    def to_dict(self) -> dict:
+        """Api 非数据实体，返回空字典。"""
+        return {}
 
     @staticmethod
     def _resolve_credentials(
         api_key: Optional[str],
         host: Optional[str],
         web_host: Optional[str],
-    ) -> tuple:
+    ) -> tuple[str, str, str]:
         """
         按优先级解析凭证：显式参数 > Settings（含 .netrc / 环境变量）。
         返回 (api_key, api_host, web_host)。
@@ -84,16 +89,7 @@ class Api:
     #  实体查询方法 — 统一返回 ApiResponse
     # ------------------------------------------------------------------
 
-    def _safe_get(self, path: str, **kwargs) -> ApiResponse:
-        """安全 GET 请求，捕获异常并返回 ApiResponse。"""
-        try:
-            data = self._client.get(path, **kwargs).data
-            return ApiResponse(ok=True, data=data)
-        except Exception as e:
-            safe.block(message=f"API request failed: {path}")
-            return ApiResponse(ok=False, errmsg=str(e))
-
-    def workspace(self, username: Optional[str] = None) -> ApiResponse:
+    def workspace(self, username: Optional[str] = None) -> ApiResponseType:
         """
         获取工作空间信息，默认为当前登录用户的工作空间。
 
@@ -101,9 +97,9 @@ class Api:
         """
         if username is None:
             username = self._username
-        resp = self._safe_get(f"/group/{username}")
+        resp = self._get(f"/group/{username}")
         if resp.ok:
-            return ApiResponse(
+            return ApiResponseType(
                 ok=True,
                 data=Workspace(
                     self._client,
@@ -115,7 +111,7 @@ class Api:
             )
         return resp
 
-    def workspaces(self, username: Optional[str] = None) -> ApiResponse:
+    def workspaces(self, username: Optional[str] = None) -> ApiResponseType:
         """
         获取工作空间列表迭代器。
 
@@ -123,20 +119,20 @@ class Api:
         """
         if username is None:
             username = self._username
-        return ApiResponse(
+        return ApiResponseType(
             ok=True,
             data=Workspaces(self._client, self._web_host, self._api_host, username=username),
         )
 
-    def project(self, path: str) -> ApiResponse:
+    def project(self, path: str) -> ApiResponseType:
         """
         获取项目信息。
 
         :param path: 项目路径，格式为 'username/project-name'
         """
-        resp = self._safe_get(f"/project/{path}")
+        resp = self._get(f"/project/{path}")
         if resp.ok:
-            return ApiResponse(
+            return ApiResponseType(
                 ok=True,
                 data=Project(self._client, self._web_host, self._api_host, path=path, data=resp.data),
             )
@@ -148,7 +144,7 @@ class Api:
         sort: Optional[str] = None,
         search: Optional[str] = None,
         detail: Optional[bool] = True,
-    ) -> ApiResponse:
+    ) -> ApiResponseType:
         """
         获取工作空间下的项目列表迭代器。
 
@@ -157,14 +153,14 @@ class Api:
         :param search: 搜索关键词
         :param detail: 是否返回详细信息
         """
-        return ApiResponse(
+        return ApiResponseType(
             ok=True,
             data=Projects(
                 self._client, self._web_host, self._api_host, path=path, sort=sort, search=search, detail=detail
             ),
         )
 
-    def run(self, path: str) -> ApiResponse:
+    def run(self, path: str) -> ApiResponseType:
         """
         获取单个实验。
 
@@ -172,12 +168,14 @@ class Api:
         """
         parts = path.split("/")
         if len(parts) != 3:
-            return ApiResponse(ok=False, errmsg=f"Invalid path '{path}'. Expected format: 'username/project/run_id'")
+            return ApiResponseType(
+                ok=False, errmsg=f"Invalid path '{path}'. Expected format: 'username/project/run_id'"
+            )
         proj_path = path.rsplit("/", 1)[0]
         expid = parts[2]
-        resp = self._safe_get(f"/project/{proj_path}/runs/{expid}")
+        resp = self._get(f"/project/{proj_path}/runs/{expid}")
         if resp.ok:
-            return ApiResponse(
+            return ApiResponseType(
                 ok=True,
                 data=Experiment(
                     self._client,
@@ -189,25 +187,25 @@ class Api:
             )
         return resp
 
-    def runs(self, path: str, filters: Optional[dict] = None) -> ApiResponse:
+    def runs(self, path: str, filters: Optional[dict] = None) -> ApiResponseType:
         """
         获取项目下的实验列表迭代器。
 
         :param path: 项目路径，格式为 'username/project'
         :param filters: 筛选条件
         """
-        return ApiResponse(
+        return ApiResponseType(
             ok=True,
             data=Experiments(self._client, self._web_host, self._api_host, path=path, filters=filters),
         )
 
-    def user(self, username: Optional[str] = None) -> ApiResponse:
+    def user(self, username: Optional[str] = None) -> ApiResponseType:
         """
         获取用户信息，默认为当前登录用户。
 
         :param username: 指定用户名
         """
-        return ApiResponse(
+        return ApiResponseType(
             ok=True,
             data=User(
                 self._client,
@@ -218,11 +216,11 @@ class Api:
             ),
         )
 
-    def users(self) -> ApiResponse:
+    def users(self) -> ApiResponseType:
         """
         获取用户列表迭代器（私有化部署管理员限定）。
         """
-        return ApiResponse(
+        return ApiResponseType(
             ok=True,
             data=Users(self._client, self._web_host, self._api_host, login_user=self._username),
         )

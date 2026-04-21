@@ -60,7 +60,7 @@ RunStateType = Literal["RUNNING", "FINISHED", "CRASHED", "ABORTED", "OFFLINE"]
 实验状态类型
 """
 
-SidebarItemType = Literal["SCALAR", "CONFIG", "STABLE"]
+ColumnType = Literal["SCALAR", "CONFIG", "STABLE"]
 """
-列过滤类型
+列类型
 """

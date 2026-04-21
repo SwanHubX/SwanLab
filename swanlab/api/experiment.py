@@ -7,9 +7,11 @@
 
 from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union, cast
 
+from swanlab.utils import parse_column_type, to_camel_case
+
 from .base import BaseEntity
-from .typings.experiment import ApiExperimentType
-from .utils import Label, get_properties, parse_column_type, to_camel_case
+from .typings.experiment import ApiExperimentType, ApiExperimentUserType
+from .utils import ColumnType, Label, get_properties
 
 if TYPE_CHECKING:
     from swanlab.sdk.internal.pkg.client import Client
@@ -74,15 +76,13 @@ class Experiment(BaseEntity):
 
     def _ensure_data(self) -> ApiExperimentType:
         if self._data is None:
-            resp = self._get(f"/project/{self._path}/runs/{self.id}" if self.id else f"/project/{self._path}")
+            resp = self._get(f"/project/{self._path}/runs/{self.id}")
             self._data = resp.data if resp.ok and resp.data else cast(ApiExperimentType, {})
         return self._data
 
     @property
     def id(self) -> str:
-        if self._data is not None:
-            return self._data.get("cuid", "")
-        return self._ensure_data().get("cuid", "")
+        return self._data.get("cuid", "") if self._data is not None else self._ensure_data().get("cuid", "")
 
     @property
     def name(self) -> str:
@@ -117,9 +117,9 @@ class Experiment(BaseEntity):
         return self._ensure_data().get("job", "")
 
     @property
-    def user(self) -> Any:
+    def user(self) -> ApiExperimentUserType:
         user_data = self._ensure_data().get("user", {})
-        return user_data if isinstance(user_data, dict) else {}
+        return user_data if isinstance(user_data, dict) else cast(ApiExperimentUserType, {})
 
     @property
     def created_at(self) -> str:
@@ -133,10 +133,11 @@ class Experiment(BaseEntity):
     def profile(self) -> Profile:
         """Experiment profile containing config, metadata, requirements, and conda."""
         data = self._ensure_data()
-        if "profile" not in data:
+        if "profile" not in data and self.id:
             resp = self._get(f"/project/{self._path}/runs/{self.id}")
-            self._data = resp.data if resp.ok and resp.data else self._data or cast(ApiExperimentType, {})
-            data = self._data
+            if resp.ok and resp.data:
+                self._data = resp.data
+                data = self._data
         return Profile(data.get("profile", {}))
 
     def metrics(
@@ -217,14 +218,11 @@ class Experiment(BaseEntity):
 
 def _flatten_runs(runs: Union[list, Dict]) -> list:
     """展开分组后的实验数据，返回一个包含所有实验的列表。"""
-    flat_runs = []
-    items = runs.values() if isinstance(runs, dict) else [runs]
-    for group in items:
-        if isinstance(group, dict):
-            flat_runs.extend(_flatten_runs(group))
-        elif isinstance(group, list):
-            flat_runs.extend(group)
-    return flat_runs
+    if isinstance(runs, dict):
+        return [item for v in runs.values() for item in _flatten_runs(v)]
+    if isinstance(runs, list):
+        return list(runs)
+    return [runs]
 
 
 class Experiments(BaseEntity):
@@ -254,7 +252,7 @@ class Experiments(BaseEntity):
         parsed_filters = (
             [
                 {
-                    "key": to_camel_case(key) if parse_column_type(key) == "STABLE" else key.split(".", 1)[-1],
+                    "key": to_camel_case(key) if parse_column_type(key) == ColumnType.STABLE else key.split(".", 1)[-1],
                     "active": True,
                     "value": [value],
                     "op": "EQ",

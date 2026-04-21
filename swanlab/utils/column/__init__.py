@@ -1,14 +1,7 @@
-"""
-@author: cunyue
-@file: utils.py
-@time: 2026/4/14 19:00
-@description: API工具函数
-"""
-
-from swanlab.sdk.typings.run import SidebarItemType
+from swanlab.sdk.typings.run import ColumnType
 
 
-def parse_column_type(column: str) -> SidebarItemType:
+def parse_column_type(column: str) -> ColumnType:
     """从前缀中获取指标类型"""
     column_type = column.split(".", 1)[0]
     if column_type == "summary":
