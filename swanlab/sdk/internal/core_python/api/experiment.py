@@ -143,11 +143,11 @@ def get_project_experiments(
     parsed_filters = (
         [
             {
-                "key": to_camel_case(key) if parse_column_type(key) == "STABLE" else key.split(".", 1)[-1],
+                "key": to_camel_case(key) if (ct := parse_column_type(key)) == "STABLE" else key.split(".", 1)[-1],
                 "active": True,
                 "value": [value],
                 "op": "EQ",
-                "type": parse_column_type(key),
+                "type": ct,
             }
             for key, value in filters.items()
         ]
