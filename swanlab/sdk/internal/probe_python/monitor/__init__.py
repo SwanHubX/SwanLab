@@ -84,6 +84,7 @@ class Monitor:
                 chart_index = generate_id(8)
                 cache_chart_index[scalar.chart_name] = chart_index
             _ = (key, chart_index)
+            # TODO 向Core发送指标定义
             # emitter.emit(
             #     ScalarDefineEvent(
             #         key=key,
