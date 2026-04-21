@@ -27,7 +27,7 @@ def _feed(em: TerminalEmulator, data: str) -> list[tuple[str, bool]]:
 
 def _line(em: TerminalEmulator, n: int) -> str:
     """获取第 n 行纯文本（辅助验证，非公共 API）。"""
-    return em._get_plain_line(n)
+    return em._get_plain_line(n)  # noqa
 
 
 # ==========================================
@@ -77,7 +77,7 @@ class TestWriteRead:
         em = TerminalEmulator()
         assert _feed(em, "A") == [("A", False)]
         # 补 \n 后 A 从 pending 变为 committed
-        assert _feed(em, "\n") == [("A", True)]
+        assert _feed(em, "\n") == [("A", True), ("", False)]
 
     def test_mixed_committed_and_pending(self):
         assert _feed(TerminalEmulator(), "A\nB\nC") == [
@@ -121,11 +121,10 @@ class TestCarriageReturn:
         assert _feed(TerminalEmulator(), "foo\r\r\rbar\n") == [("bar", True)]
 
     def test_cr_clear_then_newline(self):
-        """\r + 擦除 + \n → 空行不产出。"""
+        """\r + 擦除 + \n → 空行 committed。"""
         em = TerminalEmulator()
         em.write("some text\r\033[K\n")
-        # \r 回行首，\033[K 擦除到行尾，\n 换行 → 空行被跳过
-        assert em.read() == []
+        assert em.read() == [("", True)]
 
     def test_cr_without_overwrite_keeps_tail(self):
         """\r 回行首，写入更短内容，原尾部保留。"""
@@ -289,7 +288,7 @@ class TestEraseLine:
         """CSI 2K — 擦除整行。"""
         em = TerminalEmulator()
         em.write("ABCDE\033[2K\n")
-        assert em.read() == []
+        assert em.read() == [("", True)]
 
 
 # ==========================================
@@ -323,7 +322,8 @@ class TestEraseScreen:
         em.write("A\nB\nC\n")
         em.read()
         em.write("\033[2J")
-        assert em.num_lines == 0
+        # buffer 已清，但 committed_lines 仍为 3
+        assert em.num_lines == 3
 
 
 # ==========================================
@@ -570,7 +570,7 @@ class TestCombinations:
         em.write("A\nB\n")
         em.read()
         em.write("\033[2J")
-        assert em.num_lines == 0
+        assert em.num_lines == 2  # committed_lines 仍在，buffer 已清
         em.write("New\n")
         assert em.read() == [("New", True)]
 
@@ -585,9 +585,15 @@ class TestFinalize:
         assert em.read() == [("pending line", True)]
 
     def test_only_pending_emitted(self):
-        """finalize 只发射 pending 行，已 committed 的不重复。"""
+        """finalize 只发射有内容的 pending 行，忽略尾部空行。"""
         em = TerminalEmulator()
         em.write("line1\nline2\npending")
         assert em.read() == [("line1", True), ("line2", True), ("pending", False)]
         em.finalize()
         assert em.read() == [("pending", True)]
+        # 尾部空行场景
+        em2 = TerminalEmulator()
+        em2.write("A\nB\n\nC")
+        em2.read()
+        em2.finalize()
+        assert em2.read() == [("C", True)]

@@ -164,9 +164,19 @@ class TerminalEmulator:
         self._committed_lines: int = 0
 
     def finalize(self) -> None:
-        """将所有行标记为 committed，使 read() 返回 pending 行。"""
-        if self.num_lines > self._committed_lines:
-            self._committed_lines = self.num_lines
+        """将所有行标记为 committed，使 read() 返回 pending 行。
+        尾部空行不提交，避免发射无意义的空行事件。
+        """
+        while self.num_lines > self._committed_lines:
+            last = self._get_plain_line(self.num_lines - 1)
+            if last:
+                self._committed_lines = self.num_lines
+                break
+            # 尾部空行，回退
+            if self.num_lines - 1 in self._buffer:
+                del self._buffer[self.num_lines - 1]
+            self._cursor.y = min(self._cursor.y, self.num_lines - 2)
+            self._num_lines_cache = None
 
     # ----------------------------------
     # 光标操作
@@ -342,6 +352,9 @@ class TerminalEmulator:
 
     @property
     def num_lines(self) -> int:
+        """
+        返回当前缓冲区中已提交的行数
+        """
         if self._num_lines_cache is not None:
             return self._num_lines_cache
         # 考虑已提交的行、光标所在的行以及缓冲区中已有的行
