@@ -385,7 +385,7 @@ def get_section_rule_idx() -> Optional[int]:
     """
     获取 section 分组规则的斜杠索引，遵循 Python 索引风格。
     正数从前数，负数从后数（如 -1 表示最后一个斜杠）。
-    未设置或非整数时返回 None（按最后一个斜杠分割）。
+    未设置或非整数时返回 None（按第一个斜杠分割）。
     """
     value = os.getenv(SwanLabEnv.SECTION_RULE_IDX.value)
     if value is None:
