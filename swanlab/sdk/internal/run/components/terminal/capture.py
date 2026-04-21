@@ -96,15 +96,16 @@ class StreamCapture:
         original_write = cast(Callable[[str], int], self._original_write)
         assert original_write is not None
         on_write = self._on_write
-        init_pid = self._init_pid
+        # install 时确定是否 fork，后续不再判断
+        is_forked = fork.is_forked(self._init_pid)
         stream_type = self._stream_type
 
         def write_wrapper(data) -> int:
             # 1. Passthrough: 始终先调用原始 write
             n = original_write(data)
 
-            # 2. Fork 安全: fork 子进程静默跳过
-            if fork.is_forked(init_pid):
+            # 2. Fork 子进程静默跳过
+            if is_forked:
                 return n
 
             # 3. 重入保护
@@ -115,6 +116,7 @@ class StreamCapture:
                 _is_writing = True
                 _in_callback.set(True)
 
+            # noinspection PyBroadException
             try:
                 # 4. 解码 bytes → str
                 if isinstance(data, bytes):
