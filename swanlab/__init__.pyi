@@ -11,7 +11,7 @@ from typing import Any, Callable, List, Mapping, Optional, Union
 
 from . import utils
 from .sdk import Audio, Callback, Image, Run, Settings, Text, Video, config
-from .sdk.cmd.init import ConfigLike
+from .sdk.typings.cmd import ConfigLike
 from .sdk.typings.run import AsyncLogType, FinishType, ModeType, ResumeType
 from .sdk.typings.run.column import ScalarXAxisType
 from .sdk.typings.run.transforms import CaptionsType

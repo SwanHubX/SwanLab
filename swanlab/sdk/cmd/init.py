@@ -31,6 +31,7 @@ from swanlab.sdk.internal.context import (
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.pkg import adapter, console, fs, helper, safe
 from swanlab.sdk.protocol import Callback
+from swanlab.sdk.typings.cmd import ConfigLike
 from swanlab.utils import generate_color, generate_id, generate_name
 
 from ..internal.run import Run, get_run, has_run
@@ -42,7 +43,6 @@ from .login import login_cli, login_raw
 
 __all__ = [
     "init",
-    "ConfigLike",
     "compatible_kwargs",
     "load_config",
     "prompt_init_mode",
@@ -81,9 +81,6 @@ def compatible_kwargs(model_dict: dict, **kwargs) -> dict:
     # notes --> description
     set_nested_value(model_dict, "experiment.description", kwargs.pop("notes", None))
     return model_dict
-
-
-ConfigLike = Union[Dict[str, Any], str, os.PathLike]
 
 
 @with_cmd_lock

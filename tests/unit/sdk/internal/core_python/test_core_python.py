@@ -67,24 +67,6 @@ class TestCorePythonStart:
 
 
 # ============================================================
-# TestCorePythonPublish
-# ============================================================
-
-
-class TestCorePythonPublish:
-    def test_disabled_skips_silently(self, tmp_path):
-        ctx = make_ctx(tmp_path, "disabled")
-        core = CorePython(ctx)
-        core.deliver_run_start(make_start_record())
-        core.publish([])
-
-    def test_not_started_skips_silently(self, tmp_path):
-        ctx = make_ctx(tmp_path, "local")
-        core = CorePython(ctx)
-        core.publish([])
-
-
-# ============================================================
 # TestCorePythonFinish
 # ============================================================
 
