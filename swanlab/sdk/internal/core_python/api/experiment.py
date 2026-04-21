@@ -83,7 +83,7 @@ def stop_experiment(username: str, project: str, cuid: str, *, state: RunState, 
         this_state = "CRASHED"
     elif state == RUN_STATE_ABORTED:
         this_state = "ABORTED"
-    resp = client.put(
+    client.put(
         f"/project/{username}/{project}/runs/{cuid}/state",
         {
             "state": this_state,
@@ -91,7 +91,6 @@ def stop_experiment(username: str, project: str, cuid: str, *, state: RunState, 
             "from": "sdk",
         },
     )
-    return resp.raw.status_code == 201
 
 
 def send_experiment_heartbeat(*, cuid: str, flag_id: str) -> None:
