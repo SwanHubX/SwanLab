@@ -11,6 +11,8 @@ import secrets
 import string
 from typing import Dict, List, Literal, Optional, Tuple, Union
 
+from swanlab.utils.column import parse_column_type, to_camel_case
+
 __all__ = [
     "generate_color",
     "generate_id",
@@ -18,6 +20,7 @@ __all__ = [
     "unwrap_api_payload",
     "extract_upload_id",
     "extract_part_urls",
+    "parse_filter",
 ]
 
 
@@ -226,6 +229,40 @@ def generate_name(slug: Optional[Union[Literal["beauty"], int]] = None) -> str:
     # 兜底机制
     fallback_hash = "".join(random.choices(string.ascii_lowercase + string.digits, k=4))
     return f"unknown-{fallback_hash}"
+
+
+_SPECIAL_FILTER_MAP = {
+    # (backend_key, operator) — 用户侧 key 到后端字段名和操作符的映射
+    # backend_key: 后端 API 实际接受的字段名
+    # operator: 筛选操作符，EQ=精确匹配，IN=包含匹配（用于 tags 列表）
+    "group": ("cluster", "EQ"),
+    "tags": ("labels", "IN"),
+    "name": ("name", "EQ"),
+    "username": ("user.username", "EQ"),
+    "job_type": ("job", "EQ"),
+}
+
+
+def parse_filter(key: str, value: object) -> Dict[str, object]:
+    """将用户侧筛选条件转换为后端 filter 格式。
+
+    :param key: 筛选字段名。预定义字段（group/tags/name/username/job_type）会映射到后端字段名；
+        其他字段按 column type 自动转换：STABLE 类型转 camelCase，其余取最后一段。
+    :param value: 筛选值。预定义字段中 tags 接受列表/元组，其余均为单值（内部统一包装为列表）。
+    :return: 后端 filter 字典，包含 key / active / value / op / type 五个字段。
+    """
+    if key in _SPECIAL_FILTER_MAP:
+        backend_key, op = _SPECIAL_FILTER_MAP[key]
+        filter_value = list(value) if key == "tags" and isinstance(value, (list, tuple)) else [value]
+        return {"key": backend_key, "active": True, "value": filter_value, "op": op, "type": "STABLE"}
+    ct = parse_column_type(key)
+    return {
+        "key": to_camel_case(key) if ct == "STABLE" else key.split(".", 1)[-1],
+        "active": True,
+        "value": [value],
+        "op": "EQ",
+        "type": ct,
+    }
 
 
 def unwrap_api_payload(data):

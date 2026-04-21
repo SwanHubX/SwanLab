@@ -15,7 +15,7 @@ from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.pkg import helper
 from swanlab.sdk.typings.core_python.api.experiment import InitExperimentType, RunType
 from swanlab.sdk.typings.run import ResumeType, RunStateType
-from swanlab.utils import parse_column_type, to_camel_case
+from swanlab.utils.experiment import parse_filter
 
 
 def create_or_resume_experiment(
@@ -138,22 +138,14 @@ def get_project_experiments(
     获取指定项目下的所有实验信息
     若有实验分组，则返回一个字典，使用时需递归展平实验数据
     :param path: 项目路径 username/project
-    :param filters: 筛选实验的条件，可选
+    :param filters: 筛选实验的条件，可选。支持以下特殊 key：
+        - 'group': 按分组名称筛选，值为字符串
+        - 'tags': 按标签筛选，值为字符串列表
+        - 'name': 按实验名筛选，值为字符串
+        - 'username': 按创建人筛选，值为字符串
+        - 'job_type': 按任务类型筛选，值为字符串
     """
-    parsed_filters = (
-        [
-            {
-                "key": to_camel_case(key) if (ct := parse_column_type(key)) == "STABLE" else key.split(".", 1)[-1],
-                "active": True,
-                "value": [value],
-                "op": "EQ",
-                "type": ct,
-            }
-            for key, value in filters.items()
-        ]
-        if filters
-        else []
-    )
+    parsed_filters = [parse_filter(k, v) for k, v in (filters or {}).items()]
     return client.post(f"/project/{path}/runs/shows", data={"filters": parsed_filters}).data
 
 
