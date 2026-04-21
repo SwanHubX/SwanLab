@@ -149,7 +149,7 @@ class TerminalEmulator:
     - \\b → 退格 (cursor left)
     """
 
-    _MAX_LINES = 100
+    _MAX_LINES = 1024
 
     def __init__(self) -> None:
         self._buffer: defaultdict[int, defaultdict[int, Char]] = defaultdict(lambda: defaultdict(lambda: _default_char))
