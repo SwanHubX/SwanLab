@@ -144,7 +144,11 @@ class TerminalProxy(TerminalProxyProtocol):
             self._worker_thread.join(timeout=5)
             self._worker_thread = None
 
-        # 4. 最终 flush
+        # 4. 强制提交 pending 行
+        self._stdout_emulator.finalize()
+        self._stderr_emulator.finalize()
+
+        # 5. 最终 flush
         self._flush()
 
         self._installed = False
@@ -228,10 +232,6 @@ class TerminalProxy(TerminalProxyProtocol):
         # 截断
         if len(line) > self._max_log_length:
             line = line[: self._max_log_length]
-
-        # 跳过空行
-        if not line:
-            return
 
         ts = Timestamp()
         ts.GetCurrentTime()

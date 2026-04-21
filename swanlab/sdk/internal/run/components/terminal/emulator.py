@@ -163,6 +163,11 @@ class TerminalEmulator:
         # 光标当前所在行是"进行中"的，不算 committed
         self._committed_lines: int = 0
 
+    def finalize(self) -> None:
+        """将所有行标记为 committed，使 read() 返回 pending 行。"""
+        if self.num_lines > self._committed_lines:
+            self._committed_lines = self.num_lines
+
     # ----------------------------------
     # 光标操作
     # ----------------------------------
@@ -262,6 +267,8 @@ class TerminalEmulator:
         """分发 CSI 命令。单个 CSI 解析异常不影响后续序列处理。"""
         with safe.block(message="Terminal emulator CSI parse error", write_to_tty=False):
             if command == "m":
+                # 只取首个参数；SGR 多参数（如 \033[31;1m）暂不逐个遍历，
+                # 因为 read() 只消费 Char.data 纯文本，样式属性目前无消费者
                 p = params.split(";")[0]
                 if not p:
                     p = "0"
@@ -365,7 +372,7 @@ class TerminalEmulator:
             return ""
         line = self._buffer[n]
         line_len = self._get_line_len(n)
-        return "".join(line[i].data for i in range(line_len)).rstrip()
+        return "".join(line[i].data for i in range(line_len))
 
     def read(self) -> List[Tuple[str, bool]]:
         """返回自上次 read() 以来的增量 diff。
@@ -381,15 +388,13 @@ class TerminalEmulator:
 
         # 计算新增的已完成行
         for i in range(self._prev_num_lines, min(self._committed_lines, num_lines)):
-            line = self._get_plain_line(i)
-            if line:
-                result.append((line, True))
+            result.append((self._get_plain_line(i), True))
 
         # 进行中的行（光标当前所在行，可能被 \r 覆盖）
         # 只有当进行中的行内容发生了变化时才返回
         if num_lines > self._committed_lines:
             pending_line = self._get_plain_line(num_lines - 1)
-            if pending_line and pending_line != self._prev_last_line:
+            if pending_line != self._prev_last_line:
                 result.append((pending_line, False))
 
         # 滚动缓冲区

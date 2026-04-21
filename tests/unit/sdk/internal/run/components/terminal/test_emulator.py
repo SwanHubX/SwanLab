@@ -50,9 +50,9 @@ class TestWriteRead:
         """没有 \n 的行是进行中（is_new_line=False）。"""
         assert _feed(TerminalEmulator(), "Hello") == [("Hello", False)]
 
-    def test_empty_lines_skipped(self):
-        """空行不产出。"""
-        assert _feed(TerminalEmulator(), "A\n\nB\n") == [("A", True), ("B", True)]
+    def test_empty_lines_preserved(self):
+        """空行保留，不跳过。"""
+        assert _feed(TerminalEmulator(), "A\n\nB\n") == [("A", True), ("", True), ("B", True)]
 
     def test_empty_write(self):
         assert _feed(TerminalEmulator(), "") == []
@@ -573,3 +573,21 @@ class TestCombinations:
         assert em.num_lines == 0
         em.write("New\n")
         assert em.read() == [("New", True)]
+
+
+class TestFinalize:
+    def test_pending_to_committed(self):
+        """finalize 将 pending 行变为 committed。"""
+        em = TerminalEmulator()
+        em.write("pending line")
+        assert em.read() == [("pending line", False)]
+        em.finalize()
+        assert em.read() == [("pending line", True)]
+
+    def test_only_pending_emitted(self):
+        """finalize 只发射 pending 行，已 committed 的不重复。"""
+        em = TerminalEmulator()
+        em.write("line1\nline2\npending")
+        assert em.read() == [("line1", True), ("line2", True), ("pending", False)]
+        em.finalize()
+        assert em.read() == [("pending", True)]
