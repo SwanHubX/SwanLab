@@ -9,8 +9,6 @@ from typing import Dict, List, TypedDict
 
 from swanlab.sdk.typings.run import VisibilityType
 
-from .common import LabelType
-
 
 class _ProjectCount(TypedDict):
     # 项目历史实验数量
@@ -32,12 +30,6 @@ class ProjectType(TypedDict):
     path: str
     # 项目可见性
     visibility: VisibilityType
-    # 项目描述
-    description: str
-    # 项目所属工作空间
-    group: Dict[str, str]
-    # 项目标签
-    projectLabels: List[LabelType]
     # 项目统计信息
     _count: _ProjectCount
 
@@ -49,14 +41,3 @@ class InitProjectType(TypedDict):
     username: str
     # 项目路径 '/:username/:name'
     path: str
-
-
-class ProjResponseType(TypedDict):
-    # 项目列表
-    list: List[ProjectType]
-    # 每页项目数量
-    size: int
-    # 总页数
-    pages: int
-    # 总项目数量
-    total: int

@@ -11,7 +11,7 @@ from swanlab.exceptions import ApiError
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.pkg import helper
 from swanlab.sdk.internal.pkg.client.utils import decode_response
-from swanlab.sdk.typings.core_python.api.project import InitProjectType, ProjectType, ProjResponseType
+from swanlab.sdk.typings.core_python.api.project import InitProjectType, ProjectType
 
 
 def get_project(*, username: str, name: str) -> ProjectType:

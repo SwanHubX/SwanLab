@@ -13,7 +13,7 @@ from swanlab.exceptions import ApiError
 from swanlab.proto.swanlab.run.v1.run_pb2 import RUN_STATE_ABORTED, RUN_STATE_CRASHED, RunState
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.pkg import helper
-from swanlab.sdk.typings.core_python.api.experiment import InitExperimentType, RunType
+from swanlab.sdk.typings.core_python.api.experiment import ExperimentType, InitExperimentType
 from swanlab.sdk.typings.run import ResumeType, RunStateType
 from swanlab.utils.experiment import parse_filter
 
@@ -133,7 +133,7 @@ def get_project_experiments(
     *,
     path: str,
     filters: Optional[Dict[str, object]] = None,
-) -> Union[List[RunType], Dict[str, List[RunType]]]:
+) -> Union[List[ExperimentType], Dict[str, List[ExperimentType]]]:
     """
     获取指定项目下的所有实验信息
     若有实验分组，则返回一个字典，使用时需递归展平实验数据
@@ -149,7 +149,7 @@ def get_project_experiments(
     return client.post(f"/project/{path}/runs/shows", data={"filters": parsed_filters}).data
 
 
-def get_single_experiment(*, path: str) -> RunType:
+def get_single_experiment(*, path: str) -> ExperimentType:
     """
     获取指定实验信息
     :param path: 实验路径 username/project/expid
