@@ -9,6 +9,7 @@ import click
 
 from swanlab.sdk.internal.pkg.helper import get_swanlab_version
 
+from .api import api_cli
 from .auth import login, logout, verify
 from .converter import convert
 from .dashboard import watch
@@ -54,5 +55,8 @@ cli.add_command(online)
 # noinspection PyTypeChecker
 cli.add_command(disabled)
 
+# Api Cli
+# noinspection PyTypeChecker
+cli.add_command(api_cli)
 
 __all__ = ["cli"]
