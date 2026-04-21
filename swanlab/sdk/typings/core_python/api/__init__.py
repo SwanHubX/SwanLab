@@ -5,7 +5,3 @@
 @description: SwanLab API类型提示
 所有后端响应类型命名以 Response 结尾
 """
-
-from .project import InitProjectType, ProjectType
-
-__all__ = ["ProjectType", "InitProjectType"]
