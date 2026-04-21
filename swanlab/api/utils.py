@@ -1,4 +1,7 @@
+from functools import wraps
 from typing import Dict, List, Optional, Set, Tuple
+
+from swanlab.api.typings.common import ApiIdentityEnum
 
 
 def get_properties(obj: object, _visited: Optional[Set[int]] = None) -> Dict[str, object]:
@@ -34,6 +37,45 @@ def parse_column_type(column: str) -> str:
 def to_camel_case(name: str) -> str:
     """将下划线命名转化为驼峰命名"""
     return "".join([w.capitalize() if i > 0 else w for i, w in enumerate(name.split("_"))])
+
+
+#TODO: 私有化接口装饰器
+# def with_self_hosted(identity: ApiIdentityEnum = "user"):
+#     """
+#     用于需要在私有化环境下使用的接口的装饰器。
+#     :param identity: 用户身份，默认为 "user"，如果为 "root"，则会额外验证是否为根用户。
+#     """
+
+#     def decorator(func):
+#         @wraps(func)
+#         def wrapper(self, *args, **kwargs):
+#             client = getattr(self, "_client", None)
+#             if not isinstance(client, Client):
+#                 raise AttributeError("There is no SwanLab client instance.")
+
+#             # 1. 尝试获取私有化服务信息
+#             try:
+#                 self_hosted_info = get_self_hosted_init(client)
+#             except ApiError:
+#                 raise ValueError("You haven't launched a swanlab self-hosted instance. This usages are not available.")
+
+#             if not self_hosted_info.get("enabled", False):
+#                 raise ValueError("SwanLab self-hosted instance hasn't been ready yet.")
+#             if self_hosted_info.get("expired", True):
+#                 raise ValueError("SwanLab self-hosted instance has expired.")
+
+#             # 2. 检测用户权限（商业版root用户功能）
+#             if identity == "root":
+#                 if not self_hosted_info.get("root", False):
+#                     raise ValueError("You don't have permission to perform this action. Please login as a root user")
+#                 if not getattr(self, "is_self", True):
+#                     raise ValueError("This root-only action can only be performed by the logged-in root user.")
+
+#             return func(self, *args, **kwargs)
+
+#         return wrapper
+
+#     return decorator
 
 
 _SPECIAL_FILTER_MAP = {

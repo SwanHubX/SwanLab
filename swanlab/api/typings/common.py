@@ -8,7 +8,7 @@
 from typing import Any, Dict, List, Literal, TypedDict
 
 # 列类型
-ApiColumnEum = Literal["SCALAR", "CONFIG", "STABLE"]
+ApiColumnEnum = Literal["SCALAR", "CONFIG", "STABLE"]
 
 # 实验状态类型
 ApiRunStateEnum = Literal["RUNNING", "FINISHED", "CRASHED", "ABORTED", "OFFLINE"]
@@ -27,6 +27,8 @@ ApiIdentityEnum = Literal["root", "user"]
 
 # License 许可证类型
 ApiLicensePlanEnum = Literal["free", "commercial"]
+
+
 
 
 class ApiPaginationType(TypedDict):

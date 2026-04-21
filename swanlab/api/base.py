@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, Optional
 
 from swanlab.sdk.internal.pkg import safe
 
-from .typings.common import ApiPaginationType, ApiResponseType
+from .typings.common import ApiResponseType
 
 if TYPE_CHECKING:
     from swanlab.sdk.internal.pkg.client import Client
@@ -76,12 +76,13 @@ class BaseEntity(ABC):
             resp = self._get(path, params=p)
             if not resp.ok:
                 return
-            body: ApiPaginationType = resp.data
-            items = body["list"]
+            body = resp.data
+            items = body.get("list", []) if isinstance(body, dict) else body
             if not items:
                 break
             yield from items
-            if page >= body["pages"]:
+            total_pages = body.get("pages", 1) if isinstance(body, dict) else 1
+            if page >= total_pages:
                 break
             page += 1
 
