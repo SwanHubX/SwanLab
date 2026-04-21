@@ -6,19 +6,15 @@
 """
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, Optional, Tuple, Type, Union
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.proto.swanlab.config.v1.config_pb2 import UpdateType
-from swanlab.proto.swanlab.record.v1.record_pb2 import Record
+from swanlab.proto.swanlab.metric.data.v1.data_pb2 import DataRecord
 from swanlab.proto.swanlab.system.v1.console_pb2 import StreamType
 from swanlab.sdk.internal.context.transformer import TransformData
 from swanlab.sdk.typings.run.column import ScalarXAxisType
-
-# ==========================================
-# 事件流定义 (Event Bus Definitions)
-# ==========================================
 
 
 @dataclass
@@ -67,40 +63,13 @@ class ConsoleEvent:
     timestamp: Timestamp
 
 
-@dataclass
-class MetadataEvent:
-    """元数据事件"""
-
-    timestamp: Timestamp
-
-
-@dataclass
-class RequirementsEvent:
-    """依赖记录事件"""
-
-    timestamp: Timestamp
-
-
-@dataclass
-class CondaEvent:
-    """Conda 环境记录事件"""
-
-    timestamp: Timestamp
-
-
 # 事件载体类型
 EventPayload = Union[
     MetricLogEvent,
     ScalarDefineEvent,
     ConfigEvent,
     ConsoleEvent,
-    MetadataEvent,
-    RequirementsEvent,
-    CondaEvent,
 ]
 
-# 刷盘载体类型（升级为顶层 Record envelope）
-FlushPayload = List[Record]
-
 # 数据解析返回类型
-ParseResult = Tuple[Record, Type[TransformData]]
+ParseResult = Tuple[DataRecord, Type[TransformData]]

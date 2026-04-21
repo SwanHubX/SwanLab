@@ -15,11 +15,14 @@ BackgroundConsumer 等调用方无需修改。
 
 
 Core 同时需要根据不同模式处理不同的业务，这是设计模式决定的
-值得说明的是，在当前的上层设计中，publish方法在disabled模式下永远不会触发，但是考虑到设计完整性，我们增加了相关业务逻辑判断
+值得说明的是，在当前的上层设计中，upsert 方法在 disabled 模式下永远不会触发，但是考虑到设计完整性，我们增加了相关业务逻辑判断
 """
 
 from typing import List, Optional
 
+from swanlab.proto.swanlab.config.v1.config_pb2 import ConfigRecord
+from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord
+from swanlab.proto.swanlab.metric.data.v1.data_pb2 import DataRecord
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.run.v1.run_pb2 import (
     FinishRecord,
@@ -27,15 +30,19 @@ from swanlab.proto.swanlab.run.v1.run_pb2 import (
     StartRecord,
     StartResponse,
 )
+from swanlab.proto.swanlab.system.v1.console_pb2 import ConsoleRecord
+from swanlab.proto.swanlab.system.v1.env_pb2 import CondaRecord, MetadataRecord, RequirementsRecord
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.core_python.api.experiment import create_or_resume_experiment, stop_experiment
 from swanlab.sdk.internal.core_python.api.project import get_or_create_project, get_project
-from swanlab.sdk.internal.core_python.builder import build_finish_record, build_start_record
+from swanlab.sdk.internal.core_python.counter import Counter
 from swanlab.sdk.internal.core_python.store import DataStoreWriter
 from swanlab.sdk.internal.core_python.transport import Transport
-from swanlab.sdk.internal.pkg import adapter, console, helper, safe
+from swanlab.sdk.internal.pkg import adapter, safe
 from swanlab.sdk.protocol import CoreProtocol
 from swanlab.utils.experiment import generate_color, generate_name
+
+from . import builder
 
 __all__ = ["CorePython"]
 
@@ -54,9 +61,10 @@ class CorePython(CoreProtocol):
         self._username: Optional[str] = None
         self._project: Optional[str] = None
         self._cuid: Optional[str] = None
+        self._counter = Counter()
         self._started: bool = False
 
-    # ---------------------------------- start 方法 ----------------------------------
+    # ---------------------------------- 实验开始 ----------------------------------
 
     def deliver_run_start(self, start_record: StartRecord) -> StartResponse:
         if self._started:
@@ -68,7 +76,7 @@ class CorePython(CoreProtocol):
     def _start_store(self, resp: StartResponse):
         self._store = DataStoreWriter()
         self._store.open(str(self._ctx.run_file))
-        record = build_start_record(resp.run)
+        record = builder.build_start_record(resp.run)
         self._store.write(record.SerializeToString())
 
     def _start_without_cloud(self, start_record: StartRecord, message: str) -> StartResponse:
@@ -142,31 +150,123 @@ class CorePython(CoreProtocol):
         start_record.workspace = username
         return StartResponse(success=True, message="OK", run=start_record)
 
-    # ---------------------------------- publish 方法 ----------------------------------
+    # ---------------------------------- 数据上报 ----------------------------------
 
-    def publish(self, records: List[Record]) -> None:
-        if not self._started:
-            console.warning("CorePython is not started, skipping record publishing.")
-            return
-        super().publish(records)
-
-    def _publish_store(self, records: List[Record]) -> None:
-        assert self._store is not None, "store must be initialized before publishing"
+    def _store_records(self, records: List[Record]) -> None:
+        """将一组 Record 写入本地存储"""
+        assert self._store is not None, "store must be initialized before upsert"
         for record in records:
             self._store.write(record.SerializeToString())
-            if helper.DEBUG:
-                console.debug("Write record:", record.WhichOneof("record_type"))
 
-    def _publish_when_local(self, records: List[Record]) -> None:
-        self._publish_store(records)
-
-    def _publish_when_offline(self, records: List[Record]) -> None:
-        self._publish_store(records)
-
-    def _publish_when_cloud(self, records: List[Record]) -> None:
-        self._publish_store(records)
-        assert self._transport is not None, "transport must be initialized before publishing"
+    def _transport_put(self, records: List[Record]) -> None:
+        """将一组 Record 推送到上传队列"""
+        assert self._transport is not None, "transport must be initialized before upsert"
         self._transport.put(records)
+
+    # ---- upsert_columns ----
+
+    def _upsert_columns_when_local(self, columns: List[ColumnRecord]) -> None:
+        records = [builder.build_column_record(self._counter, c) for c in columns]
+        self._store_records(records)
+
+    def _upsert_columns_when_offline(self, columns: List[ColumnRecord]) -> None:
+        records = [builder.build_column_record(self._counter, c) for c in columns]
+        self._store_records(records)
+
+    def _upsert_columns_when_cloud(self, columns: List[ColumnRecord]) -> None:
+        records = [builder.build_column_record(self._counter, c) for c in columns]
+        self._store_records(records)
+        self._transport_put(records)
+
+    # ---- upsert_data ----
+
+    def _upsert_data_when_local(self, data: List[DataRecord]) -> None:
+        records = [builder.build_data_record(self._counter, d) for d in data]
+        self._store_records(records)
+
+    def _upsert_data_when_offline(self, data: List[DataRecord]) -> None:
+        records = [builder.build_data_record(self._counter, d) for d in data]
+        self._store_records(records)
+
+    def _upsert_data_when_cloud(self, data: List[DataRecord]) -> None:
+        records = [builder.build_data_record(self._counter, d) for d in data]
+        self._store_records(records)
+        self._transport_put(records)
+
+    # ---- upsert_consoles ----
+
+    def _upsert_consoles_when_local(self, consoles: List[ConsoleRecord]) -> None:
+        records = [builder.build_console_record(self._counter, c) for c in consoles]
+        self._store_records(records)
+
+    def _upsert_consoles_when_offline(self, consoles: List[ConsoleRecord]) -> None:
+        records = [builder.build_console_record(self._counter, c) for c in consoles]
+        self._store_records(records)
+
+    def _upsert_consoles_when_cloud(self, consoles: List[ConsoleRecord]) -> None:
+        records = [builder.build_console_record(self._counter, c) for c in consoles]
+        self._store_records(records)
+        self._transport_put(records)
+
+    # ---- upsert_configs ----
+
+    def _upsert_configs_when_local(self, configs: List[ConfigRecord]) -> None:
+        records = [builder.build_config_record(c) for c in configs]
+        self._store_records(records)
+
+    def _upsert_configs_when_offline(self, configs: List[ConfigRecord]) -> None:
+        records = [builder.build_config_record(c) for c in configs]
+        self._store_records(records)
+
+    def _upsert_configs_when_cloud(self, configs: List[ConfigRecord]) -> None:
+        records = [builder.build_config_record(c) for c in configs]
+        self._store_records(records)
+        self._transport_put(records)
+
+    # ---- upsert_requirements ----
+
+    def _upsert_requirements_when_local(self, requirements: List[RequirementsRecord]) -> None:
+        records = [builder.build_requirements_record(r.timestamp) for r in requirements]
+        self._store_records(records)
+
+    def _upsert_requirements_when_offline(self, requirements: List[RequirementsRecord]) -> None:
+        records = [builder.build_requirements_record(r.timestamp) for r in requirements]
+        self._store_records(records)
+
+    def _upsert_requirements_when_cloud(self, requirements: List[RequirementsRecord]) -> None:
+        records = [builder.build_requirements_record(r.timestamp) for r in requirements]
+        self._store_records(records)
+        self._transport_put(records)
+
+    # ---- upsert_conda ----
+
+    def _upsert_conda_when_local(self, conda: List[CondaRecord]) -> None:
+        records = [builder.build_conda_record(c.timestamp) for c in conda]
+        self._store_records(records)
+
+    def _upsert_conda_when_offline(self, conda: List[CondaRecord]) -> None:
+        records = [builder.build_conda_record(c.timestamp) for c in conda]
+        self._store_records(records)
+
+    def _upsert_conda_when_cloud(self, conda: List[CondaRecord]) -> None:
+        records = [builder.build_conda_record(c.timestamp) for c in conda]
+        self._store_records(records)
+        self._transport_put(records)
+
+    # ---- upsert_metadata ----
+
+    def _upsert_metadata_when_local(self, metadata: List[MetadataRecord]) -> None:
+        records = [builder.build_metadata_record(m.timestamp) for m in metadata]
+        self._store_records(records)
+
+    def _upsert_metadata_when_offline(self, metadata: List[MetadataRecord]) -> None:
+        records = [builder.build_metadata_record(m.timestamp) for m in metadata]
+        self._store_records(records)
+
+    def _upsert_metadata_when_cloud(self, metadata: List[MetadataRecord]) -> None:
+        records = [builder.build_metadata_record(m.timestamp) for m in metadata]
+        self._store_records(records)
+        self._transport_put(records)
 
     # ---------------------------------- fork 方法 ----------------------------------
 
@@ -190,7 +290,7 @@ class CorePython(CoreProtocol):
 
     @staticmethod
     def _build_finish_record(finish_record: FinishRecord):
-        record = build_finish_record(finish_record)
+        record = builder.build_finish_record(finish_record)
         record.finish.CopyFrom(finish_record)
         return record
 

@@ -12,18 +12,8 @@ from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.proto.swanlab.config.v1.config_pb2 import ConfigRecord
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnClass, ColumnRecord, ColumnType, SectionType
-from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.system.v1.console_pb2 import ConsoleRecord
-from swanlab.proto.swanlab.system.v1.env_pb2 import CondaRecord, MetadataRecord, RequirementsRecord
-from swanlab.sdk.internal.bus import (
-    CondaEvent,
-    ConfigEvent,
-    ConsoleEvent,
-    MetadataEvent,
-    ParseResult,
-    RequirementsEvent,
-    ScalarDefineEvent,
-)
+from swanlab.sdk.internal.bus.events import ConfigEvent, ConsoleEvent, ParseResult, ScalarDefineEvent
 from swanlab.sdk.internal.context import RunContext, TransformMedia
 from swanlab.sdk.internal.context.transformer import TransformData
 from swanlab.sdk.internal.pkg import adapter, fs
@@ -36,22 +26,13 @@ class RecordBuilder:
         # 由 BackgroundConsumer 单线程调用，无需锁
         self._num: int = 0
 
-    def _wrap(self, **kwargs) -> Record:
-        """统一附加 num(自增) + timestamp，返回 Record envelope"""
-        self._num += 1
-        ts = Timestamp()
-        ts.GetCurrentTime()
-        return Record(num=self._num, timestamp=ts, **kwargs)
-
     # ── 用户数据 ──
 
     @singledispatchmethod
     def build_log(self, value, key: str, timestamp: Timestamp, step: int) -> ParseResult:
         """默认回退：标量"""
         scalar_value = Scalar.transform(value)
-        return self._wrap(
-            metric=Scalar.build_data_record(key=key, step=step, timestamp=timestamp, data=scalar_value)
-        ), Scalar
+        return Scalar.build_data_record(key=key, step=step, timestamp=timestamp, data=scalar_value), Scalar
 
     @build_log.register(list)
     def _(self, value: List[TransformMedia], key: str, timestamp: Timestamp, step: int) -> ParseResult:
@@ -66,7 +47,7 @@ class RecordBuilder:
         path = self._ctx.media_dir / adapter.column_type[cls.column_type()]
         fs.safe_mkdir(path)
         values = [item.transform(step=step, path=path) for item in value]
-        return self._wrap(metric=cls.build_data_record(key=key, step=step, timestamp=timestamp, data=values)), cls
+        return cls.build_data_record(key=key, step=step, timestamp=timestamp, data=values), cls
 
     @build_log.register(TransformMedia)
     def _(self, value: TransformMedia, key: str, timestamp: Timestamp, step: int) -> ParseResult:
@@ -75,38 +56,30 @@ class RecordBuilder:
         path = self._ctx.media_dir / adapter.column_type[cls.column_type()]
         fs.safe_mkdir(path)
         values = [value.transform(step=step, path=path)]
-        return self._wrap(metric=cls.build_data_record(key=key, step=step, timestamp=timestamp, data=values)), cls
+        return cls.build_data_record(key=key, step=step, timestamp=timestamp, data=values), cls
 
-    def build_column_from_log(self, cls: Type[TransformData], key: str) -> Record:
+    def build_column_from_log(self, cls: Type[TransformData], key: str) -> ColumnRecord:
         """隐式创建列：从 TransformType 推断 ColumnType，并同步 RunMetrics"""
-        col_type = cls.column_type()
-        metrics = self._ctx.metrics
-        if issubclass(cls, TransformMedia):
-            media_type_str = adapter.column_type[col_type]
-            metrics.define_media(key, col_type, self._ctx.media_dir / media_type_str)
-        else:
-            metrics.define_scalar(key)
-        col = ColumnRecord(
+        column_record = ColumnRecord(
             column_key=key,
-            column_type=col_type,
+            column_type=cls.column_type(),
             column_class=ColumnClass.COLUMN_CLASS_CUSTOM,
             # 自动创建的section默认为公共section
             section_type=SectionType.SECTION_TYPE_PUBLIC,
         )
-        return self._wrap(column=col)
+        col_type = column_record.column_type
+        metrics = self._ctx.metrics
+        if issubclass(cls, TransformMedia):
+            media_type_str = adapter.column_type[col_type]
+            metrics.define_media(key, column_record, self._ctx.media_dir / media_type_str)
+        else:
+            metrics.define_scalar(key, column_record, value=None)
 
-    def build_column_from_scalar_define(self, event: ScalarDefineEvent) -> Record:
+        return column_record
+
+    def build_column_from_scalar_define(self, event: ScalarDefineEvent) -> ColumnRecord:
         """显式创建标量列（DefineEvent）"""
         metrics = self._ctx.metrics
-        metrics.define_scalar(
-            key=event.key,
-            name=event.name,
-            color=event.color,
-            x_axis=event.x_axis,
-            system=event.system,
-            chart=event.chart,
-            chart_name=event.chart_name,
-        )
         section_type = SectionType.SECTION_TYPE_SYSTEM if event.system else SectionType.SECTION_TYPE_PUBLIC
         col = ColumnRecord(
             column_key=event.key,
@@ -119,28 +92,20 @@ class RecordBuilder:
             metric_name=event.name or "",
             metric_colors=[event.color, event.color] if event.color else [],
         )
-        return self._wrap(column=col)
+        metrics.define_scalar(
+            key=event.key,
+            column=col,
+            value=None,
+        )
+        return col
 
     # ── 系统元数据 ──
-
-    def build_config(self, event: ConfigEvent) -> Record:
+    @staticmethod
+    def build_config(event: ConfigEvent) -> ConfigRecord:
         """构建 ConfigRecord envelope"""
-        config_record = ConfigRecord(update_type=event.update, timestamp=event.timestamp)
-        return self._wrap(config=config_record)
+        return ConfigRecord(update_type=event.update, timestamp=event.timestamp)
 
-    def build_console(self, event: ConsoleEvent) -> Record:
+    @staticmethod
+    def build_console(event: ConsoleEvent) -> ConsoleRecord:
         """构建 ConsoleRecord envelope"""
-        console_record = ConsoleRecord(line=event.line, stream=event.stream, timestamp=event.timestamp)
-        return self._wrap(console=console_record)
-
-    def build_metadata(self, event: MetadataEvent) -> Record:
-        """构建 MetadataRecord envelope"""
-        return self._wrap(metadata=MetadataRecord(timestamp=event.timestamp))
-
-    def build_requirements(self, event: RequirementsEvent) -> Record:
-        """构建 RequirementsRecord envelope"""
-        return self._wrap(requirements=RequirementsRecord(timestamp=event.timestamp))
-
-    def build_conda(self, event: CondaEvent) -> Record:
-        """构建 CondaRecord envelope"""
-        return self._wrap(conda=CondaRecord(timestamp=event.timestamp))
+        return ConsoleRecord(line=event.line, stream=event.stream, timestamp=event.timestamp)

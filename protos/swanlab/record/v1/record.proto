@@ -15,15 +15,62 @@ option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/record/v1;re
 
 // RecordService 用于同步或异步地接收实验记录。
 service RecordService {
-  // RunStart 接收单条 StartRecord，用于实验开始，并返回必要的信息。
-  rpc RunStart(swanlab.run.v1.StartRecord) returns (swanlab.run.v1.StartResponse);
+  // DeliverRunStart 接收单条 StartRecord，用于实验开始，并返回必要的信息。
+  rpc DeliverRunStart(swanlab.run.v1.StartRecord) returns (swanlab.run.v1.StartResponse);
 
-  // UpsertRecord 接收单条 Record 并写入，用于实验数据的上报。
-  rpc UpsertRecord(Record) returns (google.protobuf.Empty);
+  // UpsertColumn 接收一组 ColumnRecord 并写入，每一条记录用于定义某一个指标
+  rpc UpsertColumns(UpsertColumnsRequest) returns (google.protobuf.Empty);
 
-  // RunFinish 接收单条 FinishRecord，用于实验结束。
-  rpc RunFinish(swanlab.run.v1.FinishRecord) returns (swanlab.run.v1.FinishResponse);
+  // UpsertData 接收一组 DataRecord 并写入，每一条记录用于记录某一个指标的值
+  rpc UpsertData(UpsertDataRequest) returns (google.protobuf.Empty);
+
+  // UpsertConfig 接收一组 ConfigRecord 并写入，每一条记录对应一次用户对config的修改
+  rpc UpsertConfigs(UpsertConfigsRequest) returns (google.protobuf.Empty);
+
+  // UpsertConsole 接收一组 ConsoleRecord 并写入，每一条记录对应一行用户的终端输出
+  rpc UpsertConsoles(UpsertConsolesRequest) returns (google.protobuf.Empty);
+
+  // UpsertRequirements 接收一组 RequirementsRecord 并写入，每一条记录对应一次用户/系统对requirements的修改
+  rpc UpsertRequirements(UpsertRequirementsRequest) returns (google.protobuf.Empty);
+
+  // UpsertConda 接收一组 CondaRecord 并写入，每一条记录对应一次用户/系统对conda的修改
+  rpc UpsertConda(UpsertCondaRequest) returns (google.protobuf.Empty);
+
+  // UpsertMetadata 接收一组 MetadataRecord 并写入，每一条记录对应一次用户/系统对metadata的修改
+  rpc UpsertMetadata(UpsertMetadataRequest) returns (google.protobuf.Empty);
+
+  // DeliverRunFinish 接收单条 FinishRecord，用于实验结束。
+  rpc DeliverRunFinish(swanlab.run.v1.FinishRecord) returns (swanlab.run.v1.FinishResponse);
 }
+
+message UpsertColumnsRequest {
+  repeated swanlab.metric.column.v1.ColumnRecord columns = 1;
+}
+
+message UpsertDataRequest {
+  repeated swanlab.metric.data.v1.DataRecord data = 1;
+}
+
+message UpsertConfigsRequest {
+  repeated swanlab.config.v1.ConfigRecord configs = 1;
+}
+
+message UpsertConsolesRequest {
+  repeated swanlab.system.v1.ConsoleRecord consoles = 1;
+}
+
+message UpsertMetadataRequest {
+  repeated swanlab.system.v1.MetadataRecord metadata = 1;
+}
+
+message UpsertRequirementsRequest {
+  repeated swanlab.system.v1.RequirementsRecord requirements = 1;
+}
+
+message UpsertCondaRequest {
+  repeated swanlab.system.v1.CondaRecord conda = 1;
+}
+
 
 // 所有消息的顶层信封。
 //
@@ -36,7 +83,7 @@ service RecordService {
 //   stdout  → ConsoleRecord（每行一条）
 //   finish()→ FinishRecord
 message Record {
-  // 单调递增序号，约定：
+  // 单调递增序号，由Core构建，用于缓冲区去重，约定：
   // 1. StartRecord 的 num 为-1
   // 2. FinishRecord 的 num 为-2
   // 3. ConfigRecord 的 num 为-3
@@ -44,26 +91,26 @@ message Record {
   // 5. RequirementsRecord 的 num 为-5
   // 6. CondaRecord 的 num 为-6
   // 上述记录为全局唯一、去重Record，其余Record 的 num 为 1 开始的递增序号
-  int64 num = 1;
+  int64 num                                      = 1;
   // Record 生成时间，仅作参考
-  google.protobuf.Timestamp timestamp = 2;
+  google.protobuf.Timestamp timestamp            = 2;
 
   oneof record_type {
     // ── Run 生命周期 ──
-    swanlab.run.v1.StartRecord  start  = 10;
-    swanlab.run.v1.FinishRecord finish = 11;
+    swanlab.run.v1.StartRecord  start            = 10;
+    swanlab.run.v1.FinishRecord finish           = 11;
 
     // ── 用户数据 ──
     swanlab.metric.column.v1.ColumnRecord column = 12;
-    swanlab.metric.data.v1.DataRecord     metric = 13;
+    swanlab.metric.data.v1.DataRecord     data   = 13;
     swanlab.config.v1.ConfigRecord        config = 14;
 
     // ── 终端输出 ──
-    swanlab.system.v1.ConsoleRecord console = 15;
+    swanlab.system.v1.ConsoleRecord console      = 15;
 
     // ── 主机元数据（一次性，init 时写入）──
-    swanlab.system.v1.MetadataRecord metadata = 16;
+    swanlab.system.v1.MetadataRecord metadata    = 16;
     swanlab.system.v1.RequirementsRecord requirements = 17;
-    swanlab.system.v1.CondaRecord conda = 18;
+    swanlab.system.v1.CondaRecord conda          = 18;
   }
 }

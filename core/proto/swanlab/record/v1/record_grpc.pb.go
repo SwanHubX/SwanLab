@@ -21,9 +21,15 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	RecordService_RunStart_FullMethodName     = "/swanlab.record.v1.RecordService/RunStart"
-	RecordService_UpsertRecord_FullMethodName = "/swanlab.record.v1.RecordService/UpsertRecord"
-	RecordService_RunFinish_FullMethodName    = "/swanlab.record.v1.RecordService/RunFinish"
+	RecordService_DeliverRunStart_FullMethodName    = "/swanlab.record.v1.RecordService/DeliverRunStart"
+	RecordService_UpsertColumns_FullMethodName      = "/swanlab.record.v1.RecordService/UpsertColumns"
+	RecordService_UpsertData_FullMethodName         = "/swanlab.record.v1.RecordService/UpsertData"
+	RecordService_UpsertConfigs_FullMethodName      = "/swanlab.record.v1.RecordService/UpsertConfigs"
+	RecordService_UpsertConsoles_FullMethodName     = "/swanlab.record.v1.RecordService/UpsertConsoles"
+	RecordService_UpsertRequirements_FullMethodName = "/swanlab.record.v1.RecordService/UpsertRequirements"
+	RecordService_UpsertConda_FullMethodName        = "/swanlab.record.v1.RecordService/UpsertConda"
+	RecordService_UpsertMetadata_FullMethodName     = "/swanlab.record.v1.RecordService/UpsertMetadata"
+	RecordService_DeliverRunFinish_FullMethodName   = "/swanlab.record.v1.RecordService/DeliverRunFinish"
 )
 
 // RecordServiceClient is the client API for RecordService service.
@@ -32,12 +38,24 @@ const (
 //
 // RecordService 用于同步或异步地接收实验记录。
 type RecordServiceClient interface {
-	// RunStart 接收单条 StartRecord，用于实验开始，并返回必要的信息。
-	RunStart(ctx context.Context, in *v1.StartRecord, opts ...grpc.CallOption) (*v1.StartResponse, error)
-	// UpsertRecord 接收单条 Record 并写入，用于实验数据的上报。
-	UpsertRecord(ctx context.Context, in *Record, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	// RunFinish 接收单条 FinishRecord，用于实验结束。
-	RunFinish(ctx context.Context, in *v1.FinishRecord, opts ...grpc.CallOption) (*v1.FinishResponse, error)
+	// DeliverRunStart 接收单条 StartRecord，用于实验开始，并返回必要的信息。
+	DeliverRunStart(ctx context.Context, in *v1.StartRecord, opts ...grpc.CallOption) (*v1.StartResponse, error)
+	// UpsertColumn 接收一组 ColumnRecord 并写入，每一条记录用于定义某一个指标
+	UpsertColumns(ctx context.Context, in *UpsertColumnsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// UpsertData 接收一组 DataRecord 并写入，每一条记录用于记录某一个指标的值
+	UpsertData(ctx context.Context, in *UpsertDataRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// UpsertConfig 接收一组 ConfigRecord 并写入，每一条记录对应一次用户对config的修改
+	UpsertConfigs(ctx context.Context, in *UpsertConfigsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// UpsertConsole 接收一组 ConsoleRecord 并写入，每一条记录对应一行用户的终端输出
+	UpsertConsoles(ctx context.Context, in *UpsertConsolesRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// UpsertRequirements 接收一组 RequirementsRecord 并写入，每一条记录对应一次用户/系统对requirements的修改
+	UpsertRequirements(ctx context.Context, in *UpsertRequirementsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// UpsertConda 接收一组 CondaRecord 并写入，每一条记录对应一次用户/系统对conda的修改
+	UpsertConda(ctx context.Context, in *UpsertCondaRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// UpsertMetadata 接收一组 MetadataRecord 并写入，每一条记录对应一次用户/系统对metadata的修改
+	UpsertMetadata(ctx context.Context, in *UpsertMetadataRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// DeliverRunFinish 接收单条 FinishRecord，用于实验结束。
+	DeliverRunFinish(ctx context.Context, in *v1.FinishRecord, opts ...grpc.CallOption) (*v1.FinishResponse, error)
 }
 
 type recordServiceClient struct {
@@ -48,30 +66,90 @@ func NewRecordServiceClient(cc grpc.ClientConnInterface) RecordServiceClient {
 	return &recordServiceClient{cc}
 }
 
-func (c *recordServiceClient) RunStart(ctx context.Context, in *v1.StartRecord, opts ...grpc.CallOption) (*v1.StartResponse, error) {
+func (c *recordServiceClient) DeliverRunStart(ctx context.Context, in *v1.StartRecord, opts ...grpc.CallOption) (*v1.StartResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(v1.StartResponse)
-	err := c.cc.Invoke(ctx, RecordService_RunStart_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, RecordService_DeliverRunStart_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *recordServiceClient) UpsertRecord(ctx context.Context, in *Record, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *recordServiceClient) UpsertColumns(ctx context.Context, in *UpsertColumnsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, RecordService_UpsertRecord_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, RecordService_UpsertColumns_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *recordServiceClient) RunFinish(ctx context.Context, in *v1.FinishRecord, opts ...grpc.CallOption) (*v1.FinishResponse, error) {
+func (c *recordServiceClient) UpsertData(ctx context.Context, in *UpsertDataRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, RecordService_UpsertData_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *recordServiceClient) UpsertConfigs(ctx context.Context, in *UpsertConfigsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, RecordService_UpsertConfigs_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *recordServiceClient) UpsertConsoles(ctx context.Context, in *UpsertConsolesRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, RecordService_UpsertConsoles_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *recordServiceClient) UpsertRequirements(ctx context.Context, in *UpsertRequirementsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, RecordService_UpsertRequirements_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *recordServiceClient) UpsertConda(ctx context.Context, in *UpsertCondaRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, RecordService_UpsertConda_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *recordServiceClient) UpsertMetadata(ctx context.Context, in *UpsertMetadataRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, RecordService_UpsertMetadata_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *recordServiceClient) DeliverRunFinish(ctx context.Context, in *v1.FinishRecord, opts ...grpc.CallOption) (*v1.FinishResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(v1.FinishResponse)
-	err := c.cc.Invoke(ctx, RecordService_RunFinish_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, RecordService_DeliverRunFinish_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -84,12 +162,24 @@ func (c *recordServiceClient) RunFinish(ctx context.Context, in *v1.FinishRecord
 //
 // RecordService 用于同步或异步地接收实验记录。
 type RecordServiceServer interface {
-	// RunStart 接收单条 StartRecord，用于实验开始，并返回必要的信息。
-	RunStart(context.Context, *v1.StartRecord) (*v1.StartResponse, error)
-	// UpsertRecord 接收单条 Record 并写入，用于实验数据的上报。
-	UpsertRecord(context.Context, *Record) (*emptypb.Empty, error)
-	// RunFinish 接收单条 FinishRecord，用于实验结束。
-	RunFinish(context.Context, *v1.FinishRecord) (*v1.FinishResponse, error)
+	// DeliverRunStart 接收单条 StartRecord，用于实验开始，并返回必要的信息。
+	DeliverRunStart(context.Context, *v1.StartRecord) (*v1.StartResponse, error)
+	// UpsertColumn 接收一组 ColumnRecord 并写入，每一条记录用于定义某一个指标
+	UpsertColumns(context.Context, *UpsertColumnsRequest) (*emptypb.Empty, error)
+	// UpsertData 接收一组 DataRecord 并写入，每一条记录用于记录某一个指标的值
+	UpsertData(context.Context, *UpsertDataRequest) (*emptypb.Empty, error)
+	// UpsertConfig 接收一组 ConfigRecord 并写入，每一条记录对应一次用户对config的修改
+	UpsertConfigs(context.Context, *UpsertConfigsRequest) (*emptypb.Empty, error)
+	// UpsertConsole 接收一组 ConsoleRecord 并写入，每一条记录对应一行用户的终端输出
+	UpsertConsoles(context.Context, *UpsertConsolesRequest) (*emptypb.Empty, error)
+	// UpsertRequirements 接收一组 RequirementsRecord 并写入，每一条记录对应一次用户/系统对requirements的修改
+	UpsertRequirements(context.Context, *UpsertRequirementsRequest) (*emptypb.Empty, error)
+	// UpsertConda 接收一组 CondaRecord 并写入，每一条记录对应一次用户/系统对conda的修改
+	UpsertConda(context.Context, *UpsertCondaRequest) (*emptypb.Empty, error)
+	// UpsertMetadata 接收一组 MetadataRecord 并写入，每一条记录对应一次用户/系统对metadata的修改
+	UpsertMetadata(context.Context, *UpsertMetadataRequest) (*emptypb.Empty, error)
+	// DeliverRunFinish 接收单条 FinishRecord，用于实验结束。
+	DeliverRunFinish(context.Context, *v1.FinishRecord) (*v1.FinishResponse, error)
 	mustEmbedUnimplementedRecordServiceServer()
 }
 
@@ -100,14 +190,32 @@ type RecordServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedRecordServiceServer struct{}
 
-func (UnimplementedRecordServiceServer) RunStart(context.Context, *v1.StartRecord) (*v1.StartResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method RunStart not implemented")
+func (UnimplementedRecordServiceServer) DeliverRunStart(context.Context, *v1.StartRecord) (*v1.StartResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeliverRunStart not implemented")
 }
-func (UnimplementedRecordServiceServer) UpsertRecord(context.Context, *Record) (*emptypb.Empty, error) {
-	return nil, status.Error(codes.Unimplemented, "method UpsertRecord not implemented")
+func (UnimplementedRecordServiceServer) UpsertColumns(context.Context, *UpsertColumnsRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpsertColumns not implemented")
 }
-func (UnimplementedRecordServiceServer) RunFinish(context.Context, *v1.FinishRecord) (*v1.FinishResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method RunFinish not implemented")
+func (UnimplementedRecordServiceServer) UpsertData(context.Context, *UpsertDataRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpsertData not implemented")
+}
+func (UnimplementedRecordServiceServer) UpsertConfigs(context.Context, *UpsertConfigsRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpsertConfigs not implemented")
+}
+func (UnimplementedRecordServiceServer) UpsertConsoles(context.Context, *UpsertConsolesRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpsertConsoles not implemented")
+}
+func (UnimplementedRecordServiceServer) UpsertRequirements(context.Context, *UpsertRequirementsRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpsertRequirements not implemented")
+}
+func (UnimplementedRecordServiceServer) UpsertConda(context.Context, *UpsertCondaRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpsertConda not implemented")
+}
+func (UnimplementedRecordServiceServer) UpsertMetadata(context.Context, *UpsertMetadataRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpsertMetadata not implemented")
+}
+func (UnimplementedRecordServiceServer) DeliverRunFinish(context.Context, *v1.FinishRecord) (*v1.FinishResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeliverRunFinish not implemented")
 }
 func (UnimplementedRecordServiceServer) mustEmbedUnimplementedRecordServiceServer() {}
 func (UnimplementedRecordServiceServer) testEmbeddedByValue()                       {}
@@ -130,56 +238,164 @@ func RegisterRecordServiceServer(s grpc.ServiceRegistrar, srv RecordServiceServe
 	s.RegisterService(&RecordService_ServiceDesc, srv)
 }
 
-func _RecordService_RunStart_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _RecordService_DeliverRunStart_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(v1.StartRecord)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(RecordServiceServer).RunStart(ctx, in)
+		return srv.(RecordServiceServer).DeliverRunStart(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: RecordService_RunStart_FullMethodName,
+		FullMethod: RecordService_DeliverRunStart_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RecordServiceServer).RunStart(ctx, req.(*v1.StartRecord))
+		return srv.(RecordServiceServer).DeliverRunStart(ctx, req.(*v1.StartRecord))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _RecordService_UpsertRecord_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Record)
+func _RecordService_UpsertColumns_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpsertColumnsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(RecordServiceServer).UpsertRecord(ctx, in)
+		return srv.(RecordServiceServer).UpsertColumns(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: RecordService_UpsertRecord_FullMethodName,
+		FullMethod: RecordService_UpsertColumns_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RecordServiceServer).UpsertRecord(ctx, req.(*Record))
+		return srv.(RecordServiceServer).UpsertColumns(ctx, req.(*UpsertColumnsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _RecordService_RunFinish_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _RecordService_UpsertData_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpsertDataRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RecordServiceServer).UpsertData(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RecordService_UpsertData_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RecordServiceServer).UpsertData(ctx, req.(*UpsertDataRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RecordService_UpsertConfigs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpsertConfigsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RecordServiceServer).UpsertConfigs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RecordService_UpsertConfigs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RecordServiceServer).UpsertConfigs(ctx, req.(*UpsertConfigsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RecordService_UpsertConsoles_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpsertConsolesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RecordServiceServer).UpsertConsoles(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RecordService_UpsertConsoles_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RecordServiceServer).UpsertConsoles(ctx, req.(*UpsertConsolesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RecordService_UpsertRequirements_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpsertRequirementsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RecordServiceServer).UpsertRequirements(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RecordService_UpsertRequirements_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RecordServiceServer).UpsertRequirements(ctx, req.(*UpsertRequirementsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RecordService_UpsertConda_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpsertCondaRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RecordServiceServer).UpsertConda(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RecordService_UpsertConda_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RecordServiceServer).UpsertConda(ctx, req.(*UpsertCondaRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RecordService_UpsertMetadata_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpsertMetadataRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RecordServiceServer).UpsertMetadata(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RecordService_UpsertMetadata_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RecordServiceServer).UpsertMetadata(ctx, req.(*UpsertMetadataRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RecordService_DeliverRunFinish_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(v1.FinishRecord)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(RecordServiceServer).RunFinish(ctx, in)
+		return srv.(RecordServiceServer).DeliverRunFinish(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: RecordService_RunFinish_FullMethodName,
+		FullMethod: RecordService_DeliverRunFinish_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RecordServiceServer).RunFinish(ctx, req.(*v1.FinishRecord))
+		return srv.(RecordServiceServer).DeliverRunFinish(ctx, req.(*v1.FinishRecord))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -192,16 +408,40 @@ var RecordService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*RecordServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "RunStart",
-			Handler:    _RecordService_RunStart_Handler,
+			MethodName: "DeliverRunStart",
+			Handler:    _RecordService_DeliverRunStart_Handler,
 		},
 		{
-			MethodName: "UpsertRecord",
-			Handler:    _RecordService_UpsertRecord_Handler,
+			MethodName: "UpsertColumns",
+			Handler:    _RecordService_UpsertColumns_Handler,
 		},
 		{
-			MethodName: "RunFinish",
-			Handler:    _RecordService_RunFinish_Handler,
+			MethodName: "UpsertData",
+			Handler:    _RecordService_UpsertData_Handler,
+		},
+		{
+			MethodName: "UpsertConfigs",
+			Handler:    _RecordService_UpsertConfigs_Handler,
+		},
+		{
+			MethodName: "UpsertConsoles",
+			Handler:    _RecordService_UpsertConsoles_Handler,
+		},
+		{
+			MethodName: "UpsertRequirements",
+			Handler:    _RecordService_UpsertRequirements_Handler,
+		},
+		{
+			MethodName: "UpsertConda",
+			Handler:    _RecordService_UpsertConda_Handler,
+		},
+		{
+			MethodName: "UpsertMetadata",
+			Handler:    _RecordService_UpsertMetadata_Handler,
+		},
+		{
+			MethodName: "DeliverRunFinish",
+			Handler:    _RecordService_DeliverRunFinish_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -37,18 +37,48 @@ class RecordServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
-        self.RunStart = channel.unary_unary(
-                '/swanlab.record.v1.RecordService/RunStart',
+        self.DeliverRunStart = channel.unary_unary(
+                '/swanlab.record.v1.RecordService/DeliverRunStart',
                 request_serializer=swanlab_dot_run_dot_v1_dot_run__pb2.StartRecord.SerializeToString,
                 response_deserializer=swanlab_dot_run_dot_v1_dot_run__pb2.StartResponse.FromString,
                 _registered_method=True)
-        self.UpsertRecord = channel.unary_unary(
-                '/swanlab.record.v1.RecordService/UpsertRecord',
-                request_serializer=swanlab_dot_record_dot_v1_dot_record__pb2.Record.SerializeToString,
+        self.UpsertColumns = channel.unary_unary(
+                '/swanlab.record.v1.RecordService/UpsertColumns',
+                request_serializer=swanlab_dot_record_dot_v1_dot_record__pb2.UpsertColumnsRequest.SerializeToString,
                 response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
                 _registered_method=True)
-        self.RunFinish = channel.unary_unary(
-                '/swanlab.record.v1.RecordService/RunFinish',
+        self.UpsertData = channel.unary_unary(
+                '/swanlab.record.v1.RecordService/UpsertData',
+                request_serializer=swanlab_dot_record_dot_v1_dot_record__pb2.UpsertDataRequest.SerializeToString,
+                response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                _registered_method=True)
+        self.UpsertConfigs = channel.unary_unary(
+                '/swanlab.record.v1.RecordService/UpsertConfigs',
+                request_serializer=swanlab_dot_record_dot_v1_dot_record__pb2.UpsertConfigsRequest.SerializeToString,
+                response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                _registered_method=True)
+        self.UpsertConsoles = channel.unary_unary(
+                '/swanlab.record.v1.RecordService/UpsertConsoles',
+                request_serializer=swanlab_dot_record_dot_v1_dot_record__pb2.UpsertConsolesRequest.SerializeToString,
+                response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                _registered_method=True)
+        self.UpsertRequirements = channel.unary_unary(
+                '/swanlab.record.v1.RecordService/UpsertRequirements',
+                request_serializer=swanlab_dot_record_dot_v1_dot_record__pb2.UpsertRequirementsRequest.SerializeToString,
+                response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                _registered_method=True)
+        self.UpsertConda = channel.unary_unary(
+                '/swanlab.record.v1.RecordService/UpsertConda',
+                request_serializer=swanlab_dot_record_dot_v1_dot_record__pb2.UpsertCondaRequest.SerializeToString,
+                response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                _registered_method=True)
+        self.UpsertMetadata = channel.unary_unary(
+                '/swanlab.record.v1.RecordService/UpsertMetadata',
+                request_serializer=swanlab_dot_record_dot_v1_dot_record__pb2.UpsertMetadataRequest.SerializeToString,
+                response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                _registered_method=True)
+        self.DeliverRunFinish = channel.unary_unary(
+                '/swanlab.record.v1.RecordService/DeliverRunFinish',
                 request_serializer=swanlab_dot_run_dot_v1_dot_run__pb2.FinishRecord.SerializeToString,
                 response_deserializer=swanlab_dot_run_dot_v1_dot_run__pb2.FinishResponse.FromString,
                 _registered_method=True)
@@ -58,22 +88,64 @@ class RecordServiceServicer(object):
     """RecordService 用于同步或异步地接收实验记录。
     """
 
-    def RunStart(self, request, context):
-        """RunStart 接收单条 StartRecord，用于实验开始，并返回必要的信息。
+    def DeliverRunStart(self, request, context):
+        """DeliverRunStart 接收单条 StartRecord，用于实验开始，并返回必要的信息。
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def UpsertRecord(self, request, context):
-        """UpsertRecord 接收单条 Record 并写入，用于实验数据的上报。
+    def UpsertColumns(self, request, context):
+        """UpsertColumn 接收一组 ColumnRecord 并写入，每一条记录用于定义某一个指标
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def RunFinish(self, request, context):
-        """RunFinish 接收单条 FinishRecord，用于实验结束。
+    def UpsertData(self, request, context):
+        """UpsertData 接收一组 DataRecord 并写入，每一条记录用于记录某一个指标的值
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def UpsertConfigs(self, request, context):
+        """UpsertConfig 接收一组 ConfigRecord 并写入，每一条记录对应一次用户对config的修改
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def UpsertConsoles(self, request, context):
+        """UpsertConsole 接收一组 ConsoleRecord 并写入，每一条记录对应一行用户的终端输出
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def UpsertRequirements(self, request, context):
+        """UpsertRequirements 接收一组 RequirementsRecord 并写入，每一条记录对应一次用户/系统对requirements的修改
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def UpsertConda(self, request, context):
+        """UpsertConda 接收一组 CondaRecord 并写入，每一条记录对应一次用户/系统对conda的修改
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def UpsertMetadata(self, request, context):
+        """UpsertMetadata 接收一组 MetadataRecord 并写入，每一条记录对应一次用户/系统对metadata的修改
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def DeliverRunFinish(self, request, context):
+        """DeliverRunFinish 接收单条 FinishRecord，用于实验结束。
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -82,18 +154,48 @@ class RecordServiceServicer(object):
 
 def add_RecordServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'RunStart': grpc.unary_unary_rpc_method_handler(
-                    servicer.RunStart,
+            'DeliverRunStart': grpc.unary_unary_rpc_method_handler(
+                    servicer.DeliverRunStart,
                     request_deserializer=swanlab_dot_run_dot_v1_dot_run__pb2.StartRecord.FromString,
                     response_serializer=swanlab_dot_run_dot_v1_dot_run__pb2.StartResponse.SerializeToString,
             ),
-            'UpsertRecord': grpc.unary_unary_rpc_method_handler(
-                    servicer.UpsertRecord,
-                    request_deserializer=swanlab_dot_record_dot_v1_dot_record__pb2.Record.FromString,
+            'UpsertColumns': grpc.unary_unary_rpc_method_handler(
+                    servicer.UpsertColumns,
+                    request_deserializer=swanlab_dot_record_dot_v1_dot_record__pb2.UpsertColumnsRequest.FromString,
                     response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
             ),
-            'RunFinish': grpc.unary_unary_rpc_method_handler(
-                    servicer.RunFinish,
+            'UpsertData': grpc.unary_unary_rpc_method_handler(
+                    servicer.UpsertData,
+                    request_deserializer=swanlab_dot_record_dot_v1_dot_record__pb2.UpsertDataRequest.FromString,
+                    response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            ),
+            'UpsertConfigs': grpc.unary_unary_rpc_method_handler(
+                    servicer.UpsertConfigs,
+                    request_deserializer=swanlab_dot_record_dot_v1_dot_record__pb2.UpsertConfigsRequest.FromString,
+                    response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            ),
+            'UpsertConsoles': grpc.unary_unary_rpc_method_handler(
+                    servicer.UpsertConsoles,
+                    request_deserializer=swanlab_dot_record_dot_v1_dot_record__pb2.UpsertConsolesRequest.FromString,
+                    response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            ),
+            'UpsertRequirements': grpc.unary_unary_rpc_method_handler(
+                    servicer.UpsertRequirements,
+                    request_deserializer=swanlab_dot_record_dot_v1_dot_record__pb2.UpsertRequirementsRequest.FromString,
+                    response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            ),
+            'UpsertConda': grpc.unary_unary_rpc_method_handler(
+                    servicer.UpsertConda,
+                    request_deserializer=swanlab_dot_record_dot_v1_dot_record__pb2.UpsertCondaRequest.FromString,
+                    response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            ),
+            'UpsertMetadata': grpc.unary_unary_rpc_method_handler(
+                    servicer.UpsertMetadata,
+                    request_deserializer=swanlab_dot_record_dot_v1_dot_record__pb2.UpsertMetadataRequest.FromString,
+                    response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            ),
+            'DeliverRunFinish': grpc.unary_unary_rpc_method_handler(
+                    servicer.DeliverRunFinish,
                     request_deserializer=swanlab_dot_run_dot_v1_dot_run__pb2.FinishRecord.FromString,
                     response_serializer=swanlab_dot_run_dot_v1_dot_run__pb2.FinishResponse.SerializeToString,
             ),
@@ -110,7 +212,7 @@ class RecordService(object):
     """
 
     @staticmethod
-    def RunStart(request,
+    def DeliverRunStart(request,
             target,
             options=(),
             channel_credentials=None,
@@ -123,7 +225,7 @@ class RecordService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/swanlab.record.v1.RecordService/RunStart',
+            '/swanlab.record.v1.RecordService/DeliverRunStart',
             swanlab_dot_run_dot_v1_dot_run__pb2.StartRecord.SerializeToString,
             swanlab_dot_run_dot_v1_dot_run__pb2.StartResponse.FromString,
             options,
@@ -137,7 +239,7 @@ class RecordService(object):
             _registered_method=True)
 
     @staticmethod
-    def UpsertRecord(request,
+    def UpsertColumns(request,
             target,
             options=(),
             channel_credentials=None,
@@ -150,8 +252,8 @@ class RecordService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/swanlab.record.v1.RecordService/UpsertRecord',
-            swanlab_dot_record_dot_v1_dot_record__pb2.Record.SerializeToString,
+            '/swanlab.record.v1.RecordService/UpsertColumns',
+            swanlab_dot_record_dot_v1_dot_record__pb2.UpsertColumnsRequest.SerializeToString,
             google_dot_protobuf_dot_empty__pb2.Empty.FromString,
             options,
             channel_credentials,
@@ -164,7 +266,7 @@ class RecordService(object):
             _registered_method=True)
 
     @staticmethod
-    def RunFinish(request,
+    def UpsertData(request,
             target,
             options=(),
             channel_credentials=None,
@@ -177,7 +279,169 @@ class RecordService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/swanlab.record.v1.RecordService/RunFinish',
+            '/swanlab.record.v1.RecordService/UpsertData',
+            swanlab_dot_record_dot_v1_dot_record__pb2.UpsertDataRequest.SerializeToString,
+            google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def UpsertConfigs(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/swanlab.record.v1.RecordService/UpsertConfigs',
+            swanlab_dot_record_dot_v1_dot_record__pb2.UpsertConfigsRequest.SerializeToString,
+            google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def UpsertConsoles(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/swanlab.record.v1.RecordService/UpsertConsoles',
+            swanlab_dot_record_dot_v1_dot_record__pb2.UpsertConsolesRequest.SerializeToString,
+            google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def UpsertRequirements(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/swanlab.record.v1.RecordService/UpsertRequirements',
+            swanlab_dot_record_dot_v1_dot_record__pb2.UpsertRequirementsRequest.SerializeToString,
+            google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def UpsertConda(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/swanlab.record.v1.RecordService/UpsertConda',
+            swanlab_dot_record_dot_v1_dot_record__pb2.UpsertCondaRequest.SerializeToString,
+            google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def UpsertMetadata(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/swanlab.record.v1.RecordService/UpsertMetadata',
+            swanlab_dot_record_dot_v1_dot_record__pb2.UpsertMetadataRequest.SerializeToString,
+            google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def DeliverRunFinish(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/swanlab.record.v1.RecordService/DeliverRunFinish',
             swanlab_dot_run_dot_v1_dot_run__pb2.FinishRecord.SerializeToString,
             swanlab_dot_run_dot_v1_dot_run__pb2.FinishResponse.FromString,
             options,

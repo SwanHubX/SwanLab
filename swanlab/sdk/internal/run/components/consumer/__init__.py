@@ -8,25 +8,24 @@
 import queue
 import threading
 from abc import ABC
-from typing import TYPE_CHECKING, Set
+from typing import TYPE_CHECKING, List
 
-from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
-from swanlab.sdk.internal.bus import (
-    CondaEvent,
-    ConfigEvent,
-    ConsoleEvent,
-    FlushPayload,
-    MetadataEvent,
-    MetricLogEvent,
-    RequirementsEvent,
-    RunQueue,
-    ScalarDefineEvent,
-)
+from swanlab.proto.swanlab.config.v1.config_pb2 import ConfigRecord
+from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord, ColumnType
+from swanlab.proto.swanlab.metric.data.v1.data_pb2 import DataRecord
+from swanlab.proto.swanlab.system.v1.console_pb2 import ConsoleRecord
+from swanlab.sdk.internal.bus.emitter import RunQueue
+from swanlab.sdk.internal.bus.events import ConfigEvent, ConsoleEvent, MetricLogEvent, ScalarDefineEvent
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.pkg import console, safe
 
 if TYPE_CHECKING:
     from swanlab.sdk.internal.run.components.builder import RecordBuilder
+
+ConfigBatch = List[ConfigRecord]
+ConsoleBatch = List[ConsoleRecord]
+ColumnBatch = List[ColumnRecord]
+DataBatch = List[DataRecord]
 
 
 class ConsumerProtocol(ABC):
@@ -72,10 +71,15 @@ class BackgroundConsumer(ConsumerProtocol):
         self._flush_timeout = flush_timeout
         self._batch_size = batch_size
         self._thread = threading.Thread(target=self._run, name="SwanLab·Specter", daemon=True)
-        # 指标状态，完全避免多线程锁竞争
+        # 指标状态
         self._metrics = self._ctx.metrics
         # 回调器，负责触发回调
         self._callbacker = self._ctx.callbacker
+
+        self._config_batch: ConfigBatch = []
+        self._console_batch: ConsoleBatch = []
+        self._column_batch: ColumnBatch = []
+        self._data_batch: DataBatch = []
 
     def start(self) -> None:
         self._thread.start()
@@ -87,11 +91,16 @@ class BackgroundConsumer(ConsumerProtocol):
     def stop(self) -> None:
         self._queue.put(_STOP)  # type: ignore[arg-type]
 
-    def _run(self) -> None:
-        batch: FlushPayload = []
-        # 记录已创建的列，完全避免多线程锁竞争
-        _emitted_columns: Set[str] = set()
+    @property
+    def _batch_full(self):
+        l = len(self._config_batch) + len(self._console_batch) + len(self._column_batch) + len(self._data_batch)  # noqa: E741
+        return l >= self._batch_size
 
+    @property
+    def _batch_empty(self):
+        return not self._config_batch and not self._console_batch and not self._column_batch and not self._data_batch
+
+    def _run(self) -> None:
         while True:
             with safe.block(message="SwanLab background logger thread error"):
                 try:
@@ -100,51 +109,53 @@ class BackgroundConsumer(ConsumerProtocol):
 
                     # 1. 退出信号
                     if event is _STOP:
-                        self._flush(batch)
+                        self._flush()
                         break
                     # 3. 记录数据（可能触发隐式创建 Implicit Define）
                     elif isinstance(event, MetricLogEvent):
                         for key, value in event.data.items():
                             with safe.block(message=f"Error when parsing metric '{key}'"):
-                                record, cls = self._builder.build_log(value, key, event.timestamp, event.step)
-                                if key not in _emitted_columns:
-                                    batch.append(self._builder.build_column_from_log(cls, key))
-                                    _emitted_columns.add(key)
+                                data_record, cls = self._builder.build_log(value, key, event.timestamp, event.step)
+                                if not self._metrics.has(key, cls.column_type()):
+                                    this_column = self._builder.build_column_from_log(cls, key)
+                                    self._column_batch.append(this_column)
+                                    self._metrics.define_scalar(key, this_column, value=value)
                                 if cls.column_type() == ColumnType.COLUMN_TYPE_FLOAT:
-                                    self._metrics.update_scalar(key, record.metric.scalar.number)
-                                batch.append(record)
-                    # 4. 显式创建列 (Explicit Define)
+                                    self._metrics.update_scalar(key, data_record.scalar.number)
+                                self._data_batch.append(data_record)
+                    # 4. 显式创建标量列 (Explicit Define)
                     elif isinstance(event, ScalarDefineEvent):
-                        if event.key not in _emitted_columns:
-                            batch.append(self._builder.build_column_from_scalar_define(event))
-                            _emitted_columns.add(event.key)
-                        else:
-                            console.warning(f"Column '{event.key}' has already been defined, cannot redefine.")
+                        try:
+                            if not self._metrics.has(event.key, ColumnType.COLUMN_TYPE_FLOAT):
+                                this_column = self._builder.build_column_from_scalar_define(event)
+                                self._column_batch.append(this_column)
+                                self._metrics.define_scalar(event.key, this_column, value=None)
+                        except TypeError:
+                            console.warning(f"Scalar Column '{event.key}' has already been defined, cannot redefine.")
                     # 5. 系统事件
                     elif isinstance(event, ConfigEvent):
-                        batch.append(self._builder.build_config(event))
+                        self._config_batch.append(self._builder.build_config(event))
                     elif isinstance(event, ConsoleEvent):
-                        batch.append(self._builder.build_console(event))
-                    elif isinstance(event, MetadataEvent):
-                        batch.append(self._builder.build_metadata(event))
-                    elif isinstance(event, RequirementsEvent):
-                        batch.append(self._builder.build_requirements(event))
-                    elif isinstance(event, CondaEvent):
-                        batch.append(self._builder.build_conda(event))
-
+                        self._console_batch.append(self._builder.build_console(event))
                     # 6. 微批处理落盘检查
-                    if len(batch) >= self._batch_size:
-                        self._flush(batch)
-                        batch.clear()
+                    if self._batch_full:
+                        self._flush()
                 except queue.Empty:
                     # 超时强制刷盘
-                    if batch:
-                        self._flush(batch)
-                        batch.clear()
+                    if self._batch_empty:
+                        self._flush()
 
-    def _flush(self, records: FlushPayload) -> None:
+    def _flush(self) -> None:
         """处理一批 Record：持久化、回调、上传等"""
-        if not records:
-            return
-        with safe.block(message="SwanLab failed to handle records"):
-            self._core.publish(records)
+        with safe.block(message="SwanLab failed to flush config batch"):
+            if self._config_batch:
+                self._core.upsert_configs(self._config_batch)
+        with safe.block(message="SwanLab failed to flush console batch"):
+            if self._console_batch:
+                self._core.upsert_consoles(self._console_batch)
+        with safe.block(message="SwanLab failed to flush column batch"):
+            if self._column_batch:
+                self._core.upsert_columns(self._column_batch)
+        with safe.block(message="SwanLab failed to flush data batch"):
+            if self._data_batch:
+                self._core.upsert_data(self._data_batch)

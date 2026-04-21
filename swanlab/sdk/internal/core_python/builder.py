@@ -5,10 +5,27 @@
 @description: 构建记录，核心在于一些字段约定
 """
 
+from google.protobuf.timestamp_pb2 import Timestamp
+
+from swanlab.proto.swanlab.config.v1.config_pb2 import ConfigRecord
+from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord
+from swanlab.proto.swanlab.metric.data.v1.data_pb2 import DataRecord
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord, StartRecord
+from swanlab.proto.swanlab.system.v1.console_pb2 import ConsoleRecord
+from swanlab.proto.swanlab.system.v1.env_pb2 import CondaRecord, MetadataRecord, RequirementsRecord
 
-__all__ = ["build_finish_record", "build_start_record"]
+from .counter import Counter
+
+__all__ = [
+    "build_finish_record",
+    "build_start_record",
+    "build_config_record",
+    "build_metadata_record",
+    "build_requirements_record",
+    "build_conda_record",
+]
+
 
 START_RECORD_NUM = -1
 """
@@ -18,17 +35,88 @@ FINISH_RECORD_NUM = -2
 """
 约定结束记录的num为-2
 """
+CONFIG_RECORD_NUM = -3
+"""
+约定配置记录的num为-3
+"""
+METADATA_RECORD_NUM = -4
+"""
+约定元信息记录的num为-4
+"""
+REQUIREMENTS_RECORD_NUM = -5
+"""
+约定依赖记录的num为-5
+"""
+CONDA_RECORD_NUM = -6
+"""
+约定conda环境记录的num为-6
+"""
+
+
+def _now():
+    ts = Timestamp()
+    ts.GetCurrentTime()
+    return ts
+
+
+def build_column_record(counter: Counter, column_record: ColumnRecord):
+    """
+    构建列记录
+    """
+    return Record(num=counter.inc(), column=column_record, timestamp=_now())
+
+
+def build_data_record(counter: Counter, data_record: DataRecord):
+    """
+    构建数据记录
+    """
+    return Record(num=counter.inc(), data=data_record, timestamp=_now())
+
+
+def build_console_record(counter: Counter, console_record: ConsoleRecord):
+    """
+    构建控制台记录
+    """
+    return Record(num=counter.inc(), console=console_record, timestamp=_now())
 
 
 def build_start_record(start_record: StartRecord):
     """
     构建启动记录
     """
-    return Record(num=START_RECORD_NUM, start=start_record)
+    return Record(num=START_RECORD_NUM, start=start_record, timestamp=_now())
 
 
 def build_finish_record(finish_record: FinishRecord):
     """
     构建结束记录
     """
-    return Record(num=FINISH_RECORD_NUM, finish=finish_record)
+    return Record(num=FINISH_RECORD_NUM, finish=finish_record, timestamp=_now())
+
+
+def build_config_record(config_record: ConfigRecord):
+    """
+    构建配置记录
+    """
+    return Record(num=CONFIG_RECORD_NUM, config=config_record, timestamp=_now())
+
+
+def build_metadata_record(ts: Timestamp):
+    """
+    构建元信息记录
+    """
+    return Record(num=METADATA_RECORD_NUM, metadata=MetadataRecord(timestamp=ts), timestamp=_now())
+
+
+def build_requirements_record(ts: Timestamp):
+    """
+    构建依赖记录
+    """
+    return Record(num=REQUIREMENTS_RECORD_NUM, requirements=RequirementsRecord(timestamp=ts), timestamp=_now())
+
+
+def build_conda_record(ts: Timestamp):
+    """
+    构建conda环境记录
+    """
+    return Record(num=CONDA_RECORD_NUM, conda=CondaRecord(timestamp=ts), timestamp=_now())

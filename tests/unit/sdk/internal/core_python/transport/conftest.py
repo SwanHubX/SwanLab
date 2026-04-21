@@ -16,7 +16,7 @@ def make_scalar_record():
         timestamp = Timestamp()
         timestamp.GetCurrentTime()
         return Record(
-            metric=DataRecord(
+            data=DataRecord(
                 key="train/loss",
                 step=step,
                 timestamp=timestamp,

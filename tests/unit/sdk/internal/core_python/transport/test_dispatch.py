@@ -16,7 +16,7 @@ def test_dispatch_groups_by_type(make_scalar_record, make_config_record):
         calls = mock_handle.call_args_list
         assert success is True
         assert failed == []
-        assert calls[0] == (("metric", metric_records),)
+        assert calls[0] == (("data", metric_records),)
         assert calls[1] == (("config", config_records),)
 
 
@@ -27,7 +27,7 @@ def test_dispatch_calls_correct_handler(make_scalar_record):
 
     with patch.object(dispatch, "_upload_record_type", return_value=(True, [])) as mock_handle:
         dispatch(records)
-        mock_handle.assert_called_once_with("metric", records)
+        mock_handle.assert_called_once_with("data", records)
 
 
 def test_dispatch_returns_failed_records_without_mutating_external_buffer(make_scalar_record):
@@ -86,7 +86,7 @@ def test_dispatch_mixed_type_partial_failure_rollback(make_scalar_record, make_c
     mock_sender = MagicMock()
 
     def upload_side_effect(record_type, records):
-        if record_type == "metric":
+        if record_type == "data":
             raise RuntimeError("upload failed")
 
     mock_sender.upload.side_effect = upload_side_effect
@@ -120,11 +120,11 @@ def test_dispatch_handle_record_type_success_calls_callback(make_scalar_record):
     records = [make_scalar_record(step=1)]
     records[0].num = 41
 
-    success, failed = dispatch._upload_record_type("metric", records)
+    success, failed = dispatch._upload_record_type("data", records)
 
     assert success is True
     assert failed == []
-    assert uploaded == [("metric", records)]
+    assert uploaded == [("data", records)]
     callback.assert_called_once_with(1)
 
 
@@ -143,7 +143,7 @@ def test_dispatch_handle_record_type_returns_failed_tail_on_chunk_failure(make_s
         "swanlab.sdk.internal.core_python.transport.dispatch.generate_chunks",
         return_value=[([first], 1), ([second], 1)],
     ):
-        success, failed = dispatch._upload_record_type("metric", [first, second])
+        success, failed = dispatch._upload_record_type("data", [first, second])
 
     assert success is False
     assert failed == [second]

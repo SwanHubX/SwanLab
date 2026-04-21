@@ -37,10 +37,10 @@ class ProbeProtocol(ABC):
         """
         # 检查 probe 所需的上下文信息
         assert self._ctx.core is not None, "core must be started before starting probe"
+        if self._mode == "disabled":
+            return self._start_when_disabled()
         assert self._ctx.files_dir.is_dir(), "files_dir must be set before starting probe"
         with safe.block(message="probe start error"):
-            if self._mode == "disabled":
-                return self._start_when_disabled()
             if self._mode == "cloud":
                 return self._start_when_cloud()
             elif self._mode == "local":

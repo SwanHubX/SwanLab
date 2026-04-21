@@ -112,6 +112,9 @@ class Run:
         self._components = Components(ctx)
         # 回调器
         self._callbacker = self._ctx.callbacker
+        # 独立组件
+        self._core = self._ctx.core
+        self._probe = self._ctx.probe
 
         # 2. 注册副作用
         # 设置全局运行实例
@@ -128,6 +131,7 @@ class Run:
         # 3. 启动组件 + 初始化日志
         self._callbacker.on_run_initialized(self._ctx.run_dir, self.path)
         self._components.start()
+        self._probe.start()
         console.init(bind_to=self._ctx.debug_dir if self.mode != "disabled" else None)
 
     # ----------------------------------
@@ -575,12 +579,14 @@ class Run:
             error = "unknown"
         # 2. 运行结束，清理组件
         self._state = this_state
-        # 停止所有组件（async_log → monitor → terminal → config → consumer）
+        # 停止所有内部组件（async_log → terminal → config → consumer）
         self._components.stop(async_log_timeout=async_log_timeout)
+        # 停止probe
+        self._probe.finish()
         ts = Timestamp()
         ts.GetCurrentTime()
         # 3. 停止Core线程
-        finish_resp = self._ctx.core.deliver_run_finish(
+        finish_resp = self._core.deliver_run_finish(
             FinishRecord(state=adapter.state[this_state], error=error, finished_at=ts)
         )
         if not finish_resp.success:

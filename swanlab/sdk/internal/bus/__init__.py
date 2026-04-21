@@ -8,15 +8,11 @@
 
 from .emitter import EmitterProtocol, RunEmitter, RunQueue
 from .events import (
-    CondaEvent,
     ConfigEvent,
     ConsoleEvent,
     EventPayload,
-    FlushPayload,
-    MetadataEvent,
     MetricLogEvent,
     ParseResult,
-    RequirementsEvent,
     ScalarDefineEvent,
 )
 
@@ -28,10 +24,6 @@ __all__ = [
     "ScalarDefineEvent",
     "ConfigEvent",
     "ConsoleEvent",
-    "MetadataEvent",
-    "RequirementsEvent",
-    "CondaEvent",
     "EventPayload",
-    "FlushPayload",
     "ParseResult",
 ]

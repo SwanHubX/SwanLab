@@ -10,12 +10,12 @@ from typing import Dict, List, Optional
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
-from swanlab.sdk.internal.bus import EmitterProtocol, MetricLogEvent, ScalarDefineEvent
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.pkg import console, safe, timer
 from swanlab.sdk.internal.probe_python.hardware_vendor.apple import Apple
 from swanlab.sdk.internal.probe_python.hardware_vendor.cpu import CPU
 from swanlab.sdk.internal.probe_python.hardware_vendor.memory import Memory
+from swanlab.sdk.protocol import CoreProtocol
 from swanlab.sdk.typings.probe_python import SystemScalars, SystemShim
 from swanlab.sdk.typings.probe_python.hardware_vendor import CollectorProtocol, CollectResult
 from swanlab.utils.experiment import generate_id
@@ -49,12 +49,13 @@ class Monitor:
     硬件监控定时任务
     """
 
-    def __init__(self, shim: SystemShim):
+    def __init__(self, shim: SystemShim, core: CoreProtocol):
+        self._core = core
+        self._shim = shim
         self._timer: Optional[timer.Timer] = None
         self._executor: Optional[ThreadPoolExecutor] = None
-        self._shim = shim
 
-    def start(self, ctx: RunContext, emitter: EmitterProtocol) -> bool:
+    def start(self, ctx: RunContext) -> Optional["Monitor"]:
         # 1. 收集采集器
         # 注意 scalars 设计上越靠前的越先发送、在前端显示越靠前
         collectors: List[CollectorProtocol] = []
@@ -82,22 +83,23 @@ class Monitor:
             if (chart_index := cache_chart_index.get(scalar.chart_name)) is None:
                 chart_index = generate_id(8)
                 cache_chart_index[scalar.chart_name] = chart_index
-            emitter.emit(
-                ScalarDefineEvent(
-                    key=key,
-                    name=scalar.name,
-                    color=scalar.color,
-                    system=True,
-                    x_axis=scalar.x_axis,
-                    chart=chart_index,
-                    chart_name=scalar.chart_name,
-                )
-            )
+            _ = (key, chart_index)
+            # emitter.emit(
+            #     ScalarDefineEvent(
+            #         key=key,
+            #         name=scalar.name,
+            #         color=scalar.color,
+            #         system=True,
+            #         x_axis=scalar.x_axis,
+            #         chart=chart_index,
+            #         chart_name=scalar.chart_name,
+            #     )
+            # )
         # 3. 定义并启动任务
         all_handlers = [(type(c).__name__, c.collect) for c in collectors]
         if len(all_handlers) == 0:
             console.debug("No hardware monitor collectors found, skipping creating monitor task")
-            return False
+            return None
         # 使用线程池执行任务
         self._executor = ThreadPoolExecutor(max_workers=2)
 
@@ -111,9 +113,10 @@ class Monitor:
                     results.extend(result)
             ts = Timestamp()
             ts.GetCurrentTime()
-            step = ctx.metrics.next_system_step()
-            data = {fmt_system_key(k): v for k, v in results}
-            emitter.emit(MetricLogEvent(step=step, data=data, timestamp=ts))
+            _ = ctx.metrics.next_system_step()
+            _ = {fmt_system_key(k): v for k, v in results}
+            # TODO 向Core发送指标数据
+            # emitter.emit(MetricLogEvent(step=step, data=data, timestamp=ts))
 
         # 不设置立即执行，以避免产生一些无用的数据
         self._timer = timer.Timer(
@@ -123,7 +126,7 @@ class Monitor:
             name="SwanLab·Monitor",
         )
         self._timer.start()
-        return True
+        return self
 
     def stop(self) -> None:
         assert self._timer is not None, "HardwareMonitor is not running"
