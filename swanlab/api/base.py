@@ -52,9 +52,9 @@ class BaseEntity(ABC):
     def _safe_request(self, method: Callable, path: str, **kwargs) -> ApiResponseType:
         """安全请求包装：捕获所有异常，始终返回 ApiResponseType 而不抛出。"""
         _err: list[str] = []
-        common_err: str = f"API request failed: {path}"
+        common_err: str = f"API Request Failed: {path}"
 
-        @safe.decorator(message=common_err, on_error=lambda e: _err.append(str(e)))
+        @safe.decorator(message=None, on_error=lambda e: _err.append(str(e)))
         def _do():
             return method(path, **kwargs).data
 
