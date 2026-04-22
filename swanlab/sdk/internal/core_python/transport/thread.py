@@ -119,40 +119,42 @@ class Transport:
 
     def _loop(self) -> None:
         pending: List[Record] = []
+
+        def refill_pending() -> bool:
+            """尝试为 pending 补充数据。
+
+            :returns
+                True: 可以继续循环
+                False: 没有更多数据且已 finish，应退出
+            """
+            nonlocal pending
+
+            with self._cond:
+                while not pending and not self._buf and not self._finished:
+                    self._cond.wait(timeout=self._batch_interval)
+
+                if pending:
+                    return True
+                if self._buf:
+                    pending = self._buf.drain()
+                    return True
+                if self._finished:
+                    return False
+                return True
+
         try:
             while True:
-                with self._cond:
-                    while not pending and not self._buf and not self._finished:
-                        self._cond.wait(timeout=self._batch_interval)
-
-                    if not pending:
-                        if self._buf:
-                            pending = self._buf.drain()
-                        elif self._finished:
-                            return
-                        else:
-                            continue
-
-                # 锁外委托给 Dispatch，通过返回值判断成功/失败。
-                # 失败时保留 pending，避免在 drain/prepend 之间来回复制同一批 records。
+                if not pending and not refill_pending():
+                    return
                 is_success, retry_records = False, pending
                 with safe.block(message="Transport dispatch error"):
                     is_success, retry_records = self._dispatcher(pending)
-
                 if is_success:
                     pending = []
                     self._throttle.reset()
-                    with self._cond:
-                        if self._buf:
-                            pending = self._buf.drain()
-                        elif self._finished:
-                            return
                 else:
                     pending = retry_records
                     self._throttle.warn()
-                    with self._cond:
-                        # 失败后退避等待；notify()/notify_all() 可提前唤醒，但不会丢掉 pending。
-                        self._cond.wait(timeout=self._batch_interval)
         finally:
             self._close_sender()
 

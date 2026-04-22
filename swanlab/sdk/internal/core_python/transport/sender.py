@@ -20,11 +20,15 @@ from swanlab.sdk.internal.core_python.api.environment import (
     upload_metadata,
     upload_requirements,
 )
-from swanlab.sdk.internal.pkg import console
+from swanlab.sdk.internal.pkg import console, safe
 
 
 class HttpRecordSender:
-    """HTTP 传输层上传 sender，请求映射待实现。"""
+    """HTTP 传输层上传 sender
+
+    内部捕获 config、metadata、requirements、conda 等特殊文件的上传逻辑，
+    并将其他类型的上传交给上层处理——这部分上传将有重试机制
+    """
 
     def __init__(self, run_dir: Path, username: str, project: str, cuid: str) -> None:
         self._run_dir = run_dir
@@ -59,28 +63,36 @@ class HttpRecordSender:
     def upload_data(self, records: Sequence[Record]) -> None:
         console.debug("HTTP upload skeleton: upload_data (request mapping pending).")
 
-    def upload_config(self, records: Sequence[Record]) -> None:
-        with open(self._run_dir / "files" / "config.yaml", "r", encoding="utf-8") as f:
-            content = yaml.safe_load(f)
-        upload_config(self._username, self._project, self._cuid, content=content)
-
     def upload_console(self, records: Sequence[Record]) -> None:
         console.debug("HTTP upload skeleton: upload_console (request mapping pending).")
 
+    def upload_config(self, records: Sequence[Record]) -> None:
+        config_path = self._run_dir / "files" / "config.yaml"
+        with safe.block(message=f"Failed to upload config, skipping; file kept at {config_path}"):
+            with open(config_path, "r", encoding="utf-8") as f:
+                content = yaml.safe_load(f)
+            upload_config(self._username, self._project, self._cuid, content=content)
+
     def upload_metadata(self, records: Sequence[Record]) -> None:
-        with open(self._run_dir / "files" / "swanlab-metadata.json", "r", encoding="utf-8") as f:
-            content = json.load(f)
-        upload_metadata(self._username, self._project, self._cuid, content=content)
+        metadata_path = self._run_dir / "files" / "swanlab-metadata.json"
+        with safe.block(message=f"Failed to upload metadata, skipping; file kept at {metadata_path}"):
+            with open(metadata_path, "r", encoding="utf-8") as f:
+                content = json.load(f)
+            upload_metadata(self._username, self._project, self._cuid, content=content)
 
     def upload_requirements(self, records: Sequence[Record]) -> None:
-        with open(self._run_dir / "files" / "requirements.txt", "r", encoding="utf-8") as f:
-            content = f.read()
-        upload_requirements(self._username, self._project, self._cuid, content=content)
+        requirements_path = self._run_dir / "files" / "requirements.txt"
+        with safe.block(message=f"Failed to upload requirements, skipping; file kept at {requirements_path}"):
+            with open(requirements_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            upload_requirements(self._username, self._project, self._cuid, content=content)
 
     def upload_conda(self, records: Sequence[Record]) -> None:
-        with open(self._run_dir / "files" / "conda.yaml", "r", encoding="utf-8") as f:
-            content = f.read()
-        upload_conda(self._username, self._project, self._cuid, content=content)
+        conda_path = self._run_dir / "files" / "conda.yaml"
+        with safe.block(message=f"Failed to upload conda, skipping; file kept at {conda_path}"):
+            with open(conda_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            upload_conda(self._username, self._project, self._cuid, content=content)
 
     def close(self) -> None:
         """关闭 sender。"""
