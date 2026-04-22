@@ -80,7 +80,19 @@ class TestGetPid:
 
     def test_get_pid_returns_none_on_error(self):
         """os.getpid 异常时返回 None"""
-        with patch("os.getpid", side_effect=RuntimeError("mock error")):
+        call_count = 0
+
+        def fake_getpid():
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise RuntimeError("mock error")
+            return 12345
+
+        # 仅首次调用抛异常，后续调用正常返回。
+        # 原因：os.getpid 被 CPython logging.LogRecord 内部调用，@safe.decorator 捕获异常后打日志时会再次触发 os.getpid，
+        # 如果持续抛异常会导致日志记录本身失败。
+        with patch("os.getpid", side_effect=fake_getpid):
             assert runtime.get_pid() is None
 
 
