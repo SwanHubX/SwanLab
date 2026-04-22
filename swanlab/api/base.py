@@ -5,7 +5,10 @@
 @description: 所有实体类的公共基类
 """
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, Optional
 
 from swanlab.sdk.internal.pkg import safe
@@ -16,19 +19,26 @@ if TYPE_CHECKING:
     from swanlab.sdk.internal.pkg.client import Client
 
 
+@dataclass(frozen=True)
+class ApiClientContext:
+    """共享上下文：所有子实体复用同一个实例，避免 (client, web_host, api_host) 三元组透传。"""
+
+    client: "Client"
+    web_host: str
+    api_host: str
+
+
 class BaseEntity(ABC):
     """
     swanlab/api 实体类公共基类。
 
-    统一持有 _client、_web_host 和 _api_host，提供 _get/_post/_put/_delete HTTP 快捷方法和 _paginate 分页迭代。
+    统一持有 _ctx（_ApiContext），提供 _get/_post/_put/_delete HTTP 快捷方法和 _paginate 分页迭代。
     所有 HTTP 请求通过 _safe_request 包裹，保证任何异常都不会导致程序 crash，统一返回 ApiResponse。
     子类只需实现 to_dict() 和业务逻辑。
     """
 
-    def __init__(self, client: "Client", web_host: str, api_host: str) -> None:
-        self._client: "Client" = client
-        self._web_host: str = web_host
-        self._api_host: str = api_host
+    def __init__(self, ctx: ApiClientContext) -> None:
+        self._ctx: ApiClientContext = ctx
         self._errors: list[str] = []
 
     @abstractmethod
@@ -36,7 +46,7 @@ class BaseEntity(ABC):
         """将实体序列化为 JSON 可序列化的字典。"""
 
     def _safe_request(self, method: Callable, path: str, **kwargs) -> ApiResponseType:
-        """安全请求包装：捕获所有异常，始终返回 ApiResponse 而不抛出。"""
+        """安全请求包装：捕获所有异常，始终返回 ApiResponseType 而不抛出。"""
         _err: list[str] = []
         common_err: str = f"API request failed: {path}"
 
@@ -52,20 +62,20 @@ class BaseEntity(ABC):
         return ApiResponseType(ok=False, errmsg=errmsg)
 
     def _get(self, path: str, **kwargs) -> ApiResponseType:
-        return self._safe_request(self._client.get, path, **kwargs)
+        return self._safe_request(self._ctx.client.get, path, **kwargs)
 
     def _post(self, path: str, **kwargs) -> ApiResponseType:
-        return self._safe_request(self._client.post, path, **kwargs)
+        return self._safe_request(self._ctx.client.post, path, **kwargs)
 
     def _put(self, path: str, **kwargs) -> ApiResponseType:
-        return self._safe_request(self._client.put, path, **kwargs)
+        return self._safe_request(self._ctx.client.put, path, **kwargs)
 
     def _delete(self, path: str, **kwargs) -> ApiResponseType:
-        return self._safe_request(self._client.delete, path, **kwargs)
+        return self._safe_request(self._ctx.client.delete, path, **kwargs)
 
     def _build_web_url(self, path: str) -> str:
         """构建前端 Web 页面 URL（使用 _web_host 而非 _api_host）。"""
-        return f"{self._web_host}/{path}"
+        return f"{self._ctx.web_host}/{path}"
 
     def _paginate(self, path: str, *, page_size: int = 20, params: Optional[dict] = None) -> Iterator[dict]:
         """通用分页迭代器，自动处理 page/size 参数。"""

@@ -5,15 +5,12 @@
 @description: SelfHosted 实体类 — 私有化部署实例的查询与管理
 """
 
-from typing import TYPE_CHECKING, Any, Dict, Optional, cast
+from typing import Any, Dict, Optional, cast
 
-from swanlab.api.base import BaseEntity
+from swanlab.api.base import ApiClientContext, BaseEntity
 from swanlab.api.typings.common import ApiResponseType
 from swanlab.api.typings.selfhosted import ApiLicensePlanLiteral, ApiSelfHostedInfoType
 from swanlab.api.utils import get_properties
-
-if TYPE_CHECKING:
-    from swanlab.sdk.internal.pkg.client import Client
 
 
 class SelfHosted(BaseEntity):
@@ -25,13 +22,11 @@ class SelfHosted(BaseEntity):
 
     def __init__(
         self,
-        client: "Client",
-        web_host: str,
-        api_host: str,
+        ctx: ApiClientContext,
         *,
         data: Optional[ApiSelfHostedInfoType] = None,
     ) -> None:
-        super().__init__(client, web_host, api_host)
+        super().__init__(ctx)
         self._data = data
 
     def _ensure_data(self) -> ApiSelfHostedInfoType:

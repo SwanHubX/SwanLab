@@ -5,15 +5,12 @@
 @description: Experiment 实体类 — 单个实验的查询与操作
 """
 
-from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union, cast
+from typing import Any, Dict, Iterator, List, Optional, Union, cast
 
-from swanlab.api.base import BaseEntity
+from swanlab.api.base import ApiClientContext, BaseEntity
 from swanlab.api.typings.experiment import ApiExperimentLabelType, ApiExperimentType
 from swanlab.api.typings.user import ApiUserType
 from swanlab.api.utils import get_properties, parse_filter
-
-if TYPE_CHECKING:
-    from swanlab.sdk.internal.pkg.client import Client
 
 
 class Profile:
@@ -63,15 +60,13 @@ class Experiment(BaseEntity):
 
     def __init__(
         self,
-        client: "Client",
-        web_host: str,
-        api_host: str,
+        ctx: ApiClientContext,
         *,
         path: str,
         cuid: str = "",
         data: Optional[ApiExperimentType] = None,
     ) -> None:
-        super().__init__(client, web_host, api_host)
+        super().__init__(ctx)
         self._path = path  # 'username/project-name'
         self._cuid: str = cuid or (data.get("cuid", "") if data else "")
         self._data = data
@@ -243,14 +238,12 @@ class Experiments(BaseEntity):
 
     def __init__(
         self,
-        client: "Client",
-        web_host: str,
-        api_host: str,
+        ctx: ApiClientContext,
         *,
         path: str,
         filters: Optional[Dict[str, object]] = None,
     ) -> None:
-        super().__init__(client, web_host, api_host)
+        super().__init__(ctx)
         self._path = path
         self._filters = filters
 
@@ -267,7 +260,7 @@ class Experiments(BaseEntity):
             runs = _flatten_runs(body)
 
         for run_data in runs:
-            yield Experiment(self._client, self._web_host, self._api_host, path=self._path, data=run_data)
+            yield Experiment(self._ctx, path=self._path, data=run_data)
 
     def json(self) -> Dict[str, Any]:
         return {"path": self._path}

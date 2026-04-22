@@ -5,14 +5,11 @@
 @description: Project 实体类 — 单个项目的查询与操作
 """
 
-from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, cast
+from typing import Any, Dict, Iterator, List, Optional, cast
 
-from swanlab.api.base import BaseEntity
+from swanlab.api.base import ApiClientContext, BaseEntity
 from swanlab.api.typings.project import ApiProjectCountType, ApiProjectLabelType, ApiProjectType
 from swanlab.api.utils import get_properties
-
-if TYPE_CHECKING:
-    from swanlab.sdk.internal.pkg.client import Client
 
 
 class Project(BaseEntity):
@@ -24,14 +21,12 @@ class Project(BaseEntity):
 
     def __init__(
         self,
-        client: "Client",
-        web_host: str,
-        api_host: str,
+        ctx: ApiClientContext,
         *,
         path: str,
         data: Optional[ApiProjectType] = None,
     ) -> None:
-        super().__init__(client, web_host, api_host)
+        super().__init__(ctx)
         self._path = path
         self._data = data
 
@@ -81,7 +76,7 @@ class Project(BaseEntity):
         """获取项目下的实验列表。"""
         from swanlab.api.experiment import Experiments
 
-        return Experiments(self._client, self._web_host, self._api_host, path=self.path, filters=filters)
+        return Experiments(self._ctx, path=self.path, filters=filters)
 
     def delete(self) -> bool:
         """删除此项目。"""
@@ -104,16 +99,14 @@ class Projects(BaseEntity):
 
     def __init__(
         self,
-        client: "Client",
-        web_host: str,
-        api_host: str,
+        ctx: ApiClientContext,
         *,
         path: str,
         sort: Optional[str] = None,
         search: Optional[str] = None,
         detail: Optional[bool] = True,
     ) -> None:
-        super().__init__(client, web_host, api_host)
+        super().__init__(ctx)
         self._path = path
         self._sort = sort
         self._search = search
@@ -123,9 +116,7 @@ class Projects(BaseEntity):
         params = {"sort": self._sort, "search": self._search, "detail": self._detail}
         for item in self._paginate(f"/project/{self._path}", params=params):
             yield Project(
-                self._client,
-                self._web_host,
-                self._api_host,
+                self._ctx,
                 path=str(item.get("path", "")),
                 data=cast(ApiProjectType, item),
             )

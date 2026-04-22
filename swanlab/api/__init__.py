@@ -12,7 +12,7 @@ from swanlab.sdk.internal.pkg import nrc, scope
 from swanlab.sdk.internal.pkg.client import Client
 from swanlab.sdk.internal.settings import settings as global_settings
 
-from .base import BaseEntity
+from .base import ApiClientContext, BaseEntity
 from .experiment import Experiment, Experiments
 from .project import Project, Projects
 from .typings.common import ApiResponseType
@@ -23,7 +23,7 @@ class Api(BaseEntity):
     """
     SwanLab 公共查询 API 入口。
 
-    通过独立的 Client 实例与 SwanLab 云端交互，不与 SDK 运行时单例共享。
+    通过独立的 Client 实例与 SwanLab 云端交互，与 SDK 运行时客户端完全隔离。
     继承 BaseEntity 以复用 _get/_post/_put/_delete/_paginate 等安全 HTTP 方法。
 
     用法::
@@ -48,19 +48,29 @@ class Api(BaseEntity):
         """
         初始化 Api 实例。
 
-        认证优先级：显式参数 > Settings（含 .netrc / 环境变量）
+        认证优先级：
+        1. 显式参数 (api_key / host / web_host)
+        2. scope 登录态（进程内已调用 swanlab.login 时可用）
+        3. Settings（含 .netrc / 环境变量）
+
+        始终创建独立的 Client 实例，与 SDK 运行时单例互不干扰。
 
         :param api_key: API 密钥，为 None 时从 Settings / .netrc / 环境变量读取
         :param host: API 主机地址，为 None 时从 Settings 读取
         :param web_host: Web 面板地址，为 None 时从 Settings 读取
         """
-        api_key, api_host, resolved_web_host = self._resolve_credentials(api_key, host, web_host)
-        client = Client(api_key=str(api_key), base_url=api_host)
-        super().__init__(client, resolved_web_host, api_host)
-        self._login_resp = scope.get_context("login_resp")
-        self._username: str = self._login_resp["userInfo"]["username"] if self._login_resp else ""
+        # 优先从 scope 获取已有登录态（如进程内已调用 swanlab.login），直接复用凭证
+        login_resp = scope.get_context("login_resp")
+        api_key_resolved, api_host, resolved_web_host = self._resolve_credentials(api_key, host, web_host)
+        _client = Client(api_key=str(api_key_resolved), base_url=api_host)
+        if login_resp is None:
+            login_resp = scope.get_context("login_resp")
 
-    def to_dict(self) -> dict:
+        ctx = ApiClientContext(client=_client, web_host=resolved_web_host, api_host=api_host)
+        super().__init__(ctx)
+        self._username: str = login_resp["userInfo"]["username"] if login_resp else ""
+
+    def json(self) -> dict:
         """Api 非数据实体，返回空字典。"""
         return {}
 
@@ -71,7 +81,7 @@ class Api(BaseEntity):
         web_host: Optional[str],
     ) -> tuple[str, str, str]:
         """
-        按优先级解析凭证：显式参数 > Settings（含 .netrc / 环境变量）。
+        按优先级解析凭证：显式参数 > scope 登录态 > Settings（含 .netrc / 环境变量）。
         返回 (api_key, api_host, web_host)。
         """
         if api_key is None:
@@ -85,7 +95,7 @@ class Api(BaseEntity):
         return api_key, api_host, resolved_web_host
 
     # ------------------------------------------------------------------
-    #  实体查询方法 — 统一返回 ApiResponse
+    #  实体查询方法 — 统一返回 ApiResponseType
     # ------------------------------------------------------------------
 
     def workspace(self, username: Optional[str] = None) -> ApiResponseType:
@@ -100,13 +110,7 @@ class Api(BaseEntity):
         if resp.ok:
             return ApiResponseType(
                 ok=True,
-                data=Workspace(
-                    self._client,
-                    self._web_host,
-                    self._api_host,
-                    username=username,
-                    data=resp.data,
-                ),
+                data=Workspace(self._ctx, username=username, data=resp.data),
             )
         return resp
 
@@ -120,7 +124,7 @@ class Api(BaseEntity):
             username = self._username
         return ApiResponseType(
             ok=True,
-            data=Workspaces(self._client, self._web_host, self._api_host, username=username),
+            data=Workspaces(self._ctx, username=username),
         )
 
     def project(self, path: str) -> ApiResponseType:
@@ -133,7 +137,7 @@ class Api(BaseEntity):
         if resp.ok:
             return ApiResponseType(
                 ok=True,
-                data=Project(self._client, self._web_host, self._api_host, path=path, data=resp.data),
+                data=Project(self._ctx, path=path, data=resp.data),
             )
         return resp
 
@@ -154,9 +158,7 @@ class Api(BaseEntity):
         """
         return ApiResponseType(
             ok=True,
-            data=Projects(
-                self._client, self._web_host, self._api_host, path=path, sort=sort, search=search, detail=detail
-            ),
+            data=Projects(self._ctx, path=path, sort=sort, search=search, detail=detail),
         )
 
     def run(self, path: str) -> ApiResponseType:
@@ -177,9 +179,7 @@ class Api(BaseEntity):
             return ApiResponseType(
                 ok=True,
                 data=Experiment(
-                    self._client,
-                    self._web_host,
-                    self._api_host,
+                    self._ctx,
                     path=proj_path,
                     cuid=expid,
                     data=resp.data,
@@ -196,7 +196,7 @@ class Api(BaseEntity):
         """
         return ApiResponseType(
             ok=True,
-            data=Experiments(self._client, self._web_host, self._api_host, path=path, filters=filters),
+            data=Experiments(self._ctx, path=path, filters=filters),
         )
 
 

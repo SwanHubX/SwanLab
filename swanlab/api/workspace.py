@@ -5,14 +5,11 @@
 @description: Workspace 实体类 — 工作空间的查询
 """
 
-from typing import TYPE_CHECKING, Any, Dict, Iterator, Optional, cast
+from typing import Any, Dict, Iterator, Optional, cast
 
-from swanlab.api.base import BaseEntity
+from swanlab.api.base import ApiClientContext, BaseEntity
 from swanlab.api.typings.workspace import ApiWorkspaceInfoType, ApiWorkspaceLiteral
 from swanlab.api.utils import get_properties
-
-if TYPE_CHECKING:
-    from swanlab.sdk.internal.pkg.client import Client
 
 
 class Workspace(BaseEntity):
@@ -22,14 +19,12 @@ class Workspace(BaseEntity):
 
     def __init__(
         self,
-        client: "Client",
-        web_host: str,
-        api_host: str,
+        ctx: ApiClientContext,
         *,
         username: str,
         data: Optional[ApiWorkspaceInfoType] = None,
     ) -> None:
-        super().__init__(client, web_host, api_host)
+        super().__init__(ctx)
         self._username = username
         self._data = data
 
@@ -73,9 +68,7 @@ class Workspace(BaseEntity):
         from swanlab.api.project import Projects
 
         return Projects(
-            self._client,
-            self._web_host,
-            self._api_host,
+            self._ctx,
             path=self.username,
             sort=sort,
             search=search,
@@ -96,8 +89,8 @@ class Workspaces(BaseEntity):
             print(ws.name)
     """
 
-    def __init__(self, client: "Client", web_host: str, api_host: str, *, username: str) -> None:
-        super().__init__(client, web_host, api_host)
+    def __init__(self, ctx: ApiClientContext, *, username: str) -> None:
+        super().__init__(ctx)
         self._username = username
 
     def _get_all_workspace_names(self) -> list[str]:
@@ -112,7 +105,7 @@ class Workspaces(BaseEntity):
         for name in self._get_all_workspace_names():
             resp = self._get(f"/group/{name}")
             data = resp.data if resp.ok else None
-            yield Workspace(self._client, self._web_host, self._api_host, username=name, data=data)
+            yield Workspace(self._ctx, username=name, data=data)
 
     def json(self) -> Dict[str, Any]:
         return {"username": self._username}
