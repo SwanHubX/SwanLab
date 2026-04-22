@@ -51,17 +51,14 @@ class ApiResponseType:
         self.errmsg = errmsg
         self.data = data
 
-    def to_dict(self) -> Dict[str, Any]:
-        return {"ok": self.ok, "errmsg": self.errmsg, "data": self.data}
-
-    def to_json_dict(self) -> Dict[str, Any]:
+    def json(self) -> Dict[str, Any]:
         """返回 JSON 可序列化的字典，自动将实体 data 转为 dict。"""
         data = self.data
         errors: list[str] = []
         if not self.ok and self.errmsg:
             errors.append(self.errmsg)
-        if data is not None and hasattr(data, "to_dict"):
-            data = data.to_dict()
+        if data is not None and hasattr(data, "json"):
+            data = data.json()
             entity_errors = getattr(self.data, "_errors", [])
             errors.extend(entity_errors)
         ok = self.ok and not errors

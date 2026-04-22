@@ -34,12 +34,16 @@ class BaseEntity(ABC):
 
     统一持有 _ctx（_ApiContext），提供 _get/_post/_put/_delete HTTP 快捷方法和 _paginate 分页迭代。
     所有 HTTP 请求通过 _safe_request 包裹，保证任何异常都不会导致程序 crash，统一返回 ApiResponse。
-    子类只需实现 to_dict() 和业务逻辑。
+    子类只需实现 json() 和业务逻辑。
     """
 
     def __init__(self, ctx: ApiClientContext) -> None:
         self._ctx: ApiClientContext = ctx
         self._errors: list[str] = []
+
+    def _ensure_data(self) -> Any:
+        """按需加载数据。单实体子类重写此方法；迭代器子类无需重写。"""
+        return None
 
     @abstractmethod
     def json(self) -> Dict[str, Any]:
@@ -76,6 +80,13 @@ class BaseEntity(ABC):
     def _build_web_url(self, path: str) -> str:
         """构建前端 Web 页面 URL（使用 _web_host 而非 _api_host）。"""
         return f"{self._ctx.web_host}/{path}"
+
+    def _fetch(self) -> ApiResponseType:
+        """Eager 模式：触发子类 _ensure_data 加载数据，根据 _errors 返回 ApiResponseType。"""
+        self._ensure_data()
+        if self._errors:
+            return ApiResponseType(ok=False, errmsg=self._errors[-1])
+        return ApiResponseType(ok=True, data=self)
 
     def _paginate(self, path: str, *, page_size: int = 20, params: Optional[dict] = None) -> Iterator[dict]:
         """通用分页迭代器，自动处理 page/size 参数。"""

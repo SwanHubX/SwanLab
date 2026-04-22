@@ -95,7 +95,9 @@ class Api(BaseEntity):
         return api_key, api_host, resolved_web_host
 
     # ------------------------------------------------------------------
-    #  实体查询方法 — 统一返回 ApiResponseType
+    #  实体工厂方法
+    #  - 单实体（workspace/project/run）：构造后调用 _fetch() 立即加载并返回 ok/not-ok
+    #  - 列表迭代器（workspaces/projects/runs）：惰性构造，迭代时按需分页请求
     # ------------------------------------------------------------------
 
     def workspace(self, username: Optional[str] = None) -> ApiResponseType:
@@ -106,13 +108,7 @@ class Api(BaseEntity):
         """
         if username is None:
             username = self._username
-        resp = self._get(f"/group/{username}")
-        if resp.ok:
-            return ApiResponseType(
-                ok=True,
-                data=Workspace(self._ctx, username=username, data=resp.data),
-            )
-        return resp
+        return Workspace(self._ctx, username=username)._fetch()
 
     def workspaces(self, username: Optional[str] = None) -> ApiResponseType:
         """
@@ -122,10 +118,7 @@ class Api(BaseEntity):
         """
         if username is None:
             username = self._username
-        return ApiResponseType(
-            ok=True,
-            data=Workspaces(self._ctx, username=username),
-        )
+        return ApiResponseType(ok=True, data=Workspaces(self._ctx, username=username))
 
     def project(self, path: str) -> ApiResponseType:
         """
@@ -133,13 +126,7 @@ class Api(BaseEntity):
 
         :param path: 项目路径，格式为 'username/project-name'
         """
-        resp = self._get(f"/project/{path}")
-        if resp.ok:
-            return ApiResponseType(
-                ok=True,
-                data=Project(self._ctx, path=path, data=resp.data),
-            )
-        return resp
+        return Project(self._ctx, path=path)._fetch()
 
     def projects(
         self,
@@ -156,10 +143,7 @@ class Api(BaseEntity):
         :param search: 搜索关键词
         :param detail: 是否返回详细信息
         """
-        return ApiResponseType(
-            ok=True,
-            data=Projects(self._ctx, path=path, sort=sort, search=search, detail=detail),
-        )
+        return ApiResponseType(ok=True, data=Projects(self._ctx, path=path, sort=sort, search=search, detail=detail))
 
     def run(self, path: str) -> ApiResponseType:
         """
@@ -174,18 +158,7 @@ class Api(BaseEntity):
             )
         proj_path = path.rsplit("/", 1)[0]
         expid = parts[2]
-        resp = self._get(f"/project/{proj_path}/runs/{expid}")
-        if resp.ok:
-            return ApiResponseType(
-                ok=True,
-                data=Experiment(
-                    self._ctx,
-                    path=proj_path,
-                    cuid=expid,
-                    data=resp.data,
-                ),
-            )
-        return resp
+        return Experiment(self._ctx, path=proj_path, cuid=expid)._fetch()
 
     def runs(self, path: str, filters: Optional[dict] = None) -> ApiResponseType:
         """
@@ -194,10 +167,7 @@ class Api(BaseEntity):
         :param path: 项目路径，格式为 'username/project'
         :param filters: 筛选条件
         """
-        return ApiResponseType(
-            ok=True,
-            data=Experiments(self._ctx, path=path, filters=filters),
-        )
+        return ApiResponseType(ok=True, data=Experiments(self._ctx, path=path, filters=filters))
 
 
 __all__ = ["Api"]

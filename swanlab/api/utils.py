@@ -9,7 +9,7 @@ from typing import Dict, List, Optional, Set
 
 
 def get_properties(obj: object, _visited: Optional[Set[int]] = None) -> Dict[str, object]:
-    """递归获取实例中所有 property 的值，用于 to_dict() 默认实现。"""
+    """递归获取实例中所有 property 的值，用于 json() 默认实现。"""
     if _visited is None:
         _visited = set()
     obj_id = id(obj)
