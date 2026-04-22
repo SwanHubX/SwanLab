@@ -162,7 +162,9 @@ class UploadWarningThrottle:
     INTERVAL: float = 30.0
 
     def __init__(self) -> None:
-        self._last_warn_at: float = 0.0
+        # 用 -INTERVAL 而非 0.0，确保 time.monotonic() 返回值小于 INTERVAL 时
+        # （如 CI 容器刚启动）仍能首次触发 warn()
+        self._last_warn_at: float = -self.INTERVAL
         self._in_failure: bool = False
 
     def warn(self, message: str = "Upload failed due to network or server issues, retrying automatically.") -> None:
@@ -175,7 +177,8 @@ class UploadWarningThrottle:
     def reset(self, message: str = "Upload recovered, resuming normally.") -> None:
         if self._in_failure:
             console.info(message)
-        self._last_warn_at = 0.0
+        # 同 __init__，用 -INTERVAL 保证 reset 后下次 warn() 立刻触发
+        self._last_warn_at = -self.INTERVAL
         self._in_failure = False
 
 
