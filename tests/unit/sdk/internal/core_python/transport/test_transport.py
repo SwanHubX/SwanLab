@@ -4,28 +4,35 @@ from unittest.mock import MagicMock, patch
 
 from swanlab.sdk.internal.core_python.transport.thread import Transport
 
+
+def _make_transport(**kwargs) -> Transport:
+    kwargs.setdefault("sender", MagicMock())
+    kwargs.setdefault("auto_start", False)
+    return Transport(**kwargs)
+
+
 # ─────────────────── 默认值 ───────────────────
 
 
-def test_transport_defaults(tmp_path):
+def test_transport_defaults():
     """默认 batch_interval = 5.0。"""
-    t = Transport(run_dir=tmp_path, auto_start=False)
+    t = _make_transport()
     assert t._batch_interval == Transport.BATCH_INTERVAL
     assert t._batch_interval == 5.0
 
 
-def test_transport_custom_batch_interval(tmp_path):
+def test_transport_custom_batch_interval():
     """自定义 batch_interval。"""
-    t = Transport(run_dir=tmp_path, batch_interval=0.5, auto_start=False)
+    t = _make_transport(batch_interval=0.5)
     assert t._batch_interval == 0.5
 
 
 # ─────────────────── start ───────────────────
 
 
-def test_transport_start_creates_daemon_thread(tmp_path):
+def test_transport_start_creates_daemon_thread():
     """start() 创建守护线程，名称为 THREAD_NAME。"""
-    t = Transport(run_dir=tmp_path, auto_start=False)
+    t = _make_transport()
     t.start()
     try:
         assert t._thread is not None
@@ -35,9 +42,9 @@ def test_transport_start_creates_daemon_thread(tmp_path):
         t.finish()
 
 
-def test_transport_start_is_idempotent(tmp_path):
+def test_transport_start_is_idempotent():
     """重复 start() 不创建第二个线程。"""
-    t = Transport(run_dir=tmp_path, auto_start=False)
+    t = _make_transport()
     t.start()
     first_thread = t._thread
     t.start()
@@ -45,9 +52,9 @@ def test_transport_start_is_idempotent(tmp_path):
     t.finish()
 
 
-def test_transport_start_after_finish_is_noop(tmp_path):
+def test_transport_start_after_finish_is_noop():
     """finish() 后 start() 无效。"""
-    t = Transport(run_dir=tmp_path, auto_start=False)
+    t = _make_transport()
     t.start()
     t.finish()
     t.start()
@@ -58,18 +65,18 @@ def test_transport_start_after_finish_is_noop(tmp_path):
 # ─────────────────── put ───────────────────
 
 
-def test_transport_put_appends_to_buffer(tmp_path, make_scalar_record):
+def test_transport_put_appends_to_buffer(make_scalar_record):
     """put() 后 buffer 增长。"""
-    t = Transport(run_dir=tmp_path, auto_start=False)
+    t = _make_transport()
     records = [make_scalar_record(step=1)]
     records[0].num = 1
     t.put(records)
     assert len(t._buf) == 1
 
 
-def test_transport_put_dedups_records_by_num(tmp_path, make_scalar_record):
+def test_transport_put_dedups_records_by_num(make_scalar_record):
     """已编号 record 视为稳定事件，按 num 去重。"""
-    t = Transport(run_dir=tmp_path, auto_start=False)
+    t = _make_transport()
     record = make_scalar_record(step=1)
     record.num = 7
 
@@ -79,9 +86,9 @@ def test_transport_put_dedups_records_by_num(tmp_path, make_scalar_record):
     assert t._buf.drain() == [record]
 
 
-def test_transport_put_keeps_distinct_record_nums(tmp_path, make_scalar_record):
+def test_transport_put_keeps_distinct_record_nums(make_scalar_record):
     """不同 num 的 record 应同时保留。"""
-    t = Transport(run_dir=tmp_path, auto_start=False)
+    t = _make_transport()
     first = make_scalar_record(step=1)
     second = make_scalar_record(step=1)
     first.num = 8
@@ -92,9 +99,9 @@ def test_transport_put_keeps_distinct_record_nums(tmp_path, make_scalar_record):
     assert t._buf.drain() == [first, second]
 
 
-def test_transport_put_warns_after_finish(tmp_path, make_scalar_record):
+def test_transport_put_warns_after_finish(make_scalar_record):
     """finish() 后 put() 静默丢弃并 warning。"""
-    t = Transport(run_dir=tmp_path, auto_start=False)
+    t = _make_transport()
     t.start()
     t.finish()
     with patch("swanlab.sdk.internal.core_python.transport.thread.console.warning") as mock_warning:
@@ -105,15 +112,15 @@ def test_transport_put_warns_after_finish(tmp_path, make_scalar_record):
 # ─────────────────── finish ───────────────────
 
 
-def test_transport_finish_is_idempotent(tmp_path):
+def test_transport_finish_is_idempotent():
     """重复 finish() 只执行一次。"""
-    t = Transport(run_dir=tmp_path, auto_start=False)
+    t = _make_transport()
     t.start()
     t.finish()
     t.finish()  # should not raise
 
 
-def test_transport_finish_drains_remaining(tmp_path, make_scalar_record):
+def test_transport_finish_drains_remaining(make_scalar_record):
     """finish() 排空残余 buffer。"""
     dispatched = []
 
@@ -122,7 +129,7 @@ def test_transport_finish_drains_remaining(tmp_path, make_scalar_record):
             dispatched.extend(records)
             return True, []
 
-    t = Transport(run_dir=tmp_path, batch_interval=0.01, auto_start=False)
+    t = _make_transport(batch_interval=0.01)
     t._dispatcher = FakeDispatch()  # type: ignore
     t.start()
     records = [make_scalar_record(step=1), make_scalar_record(step=2)]
@@ -133,10 +140,10 @@ def test_transport_finish_drains_remaining(tmp_path, make_scalar_record):
     assert len(dispatched) == 2
 
 
-def test_transport_finish_does_not_close_sender_before_thread_stops(tmp_path):
+def test_transport_finish_does_not_close_sender_before_thread_stops():
     """若 join 超时且线程仍存活，finish() 不应提前关闭 sender。"""
     sender = MagicMock()
-    t = Transport(run_dir=tmp_path, sender=sender, auto_start=False)
+    t = _make_transport(sender=sender)
     t._thread = MagicMock()
     t._thread.is_alive.return_value = True
 
@@ -149,7 +156,7 @@ def test_transport_finish_does_not_close_sender_before_thread_stops(tmp_path):
 # ─────────────────── 定时攒批 ───────────────────
 
 
-def test_transport_drains_on_batch_interval(tmp_path, make_scalar_record):
+def test_transport_drains_on_batch_interval(make_scalar_record):
     """put() 后线程在 batch_interval 超时后自动 drain 并 dispatch。"""
     dispatched = []
     event = threading.Event()
@@ -160,7 +167,7 @@ def test_transport_drains_on_batch_interval(tmp_path, make_scalar_record):
             event.set()
             return True, []
 
-    t = Transport(run_dir=tmp_path, batch_interval=0.01, auto_start=False)
+    t = _make_transport(batch_interval=0.01)
     t._dispatcher = FakeDispatch()  # type: ignore
     t.start()
     record = make_scalar_record(step=1)
@@ -174,7 +181,7 @@ def test_transport_drains_on_batch_interval(tmp_path, make_scalar_record):
 # ─────────────────── auto_start 端到端 ───────────────────
 
 
-def test_transport_integration_auto_start(tmp_path, make_scalar_record):
+def test_transport_integration_auto_start(make_scalar_record):
     """auto_start=True 时自动启动并正常处理。"""
     dispatched = []
     event = threading.Event()
@@ -185,7 +192,7 @@ def test_transport_integration_auto_start(tmp_path, make_scalar_record):
             event.set()
             return True, []
 
-    t = Transport(run_dir=tmp_path, batch_interval=0.01, auto_start=True)
+    t = _make_transport(batch_interval=0.01, auto_start=True)
     t._dispatcher = FakeDispatch()  # type: ignore
     record = make_scalar_record(step=1)
     record.num = 1
@@ -198,7 +205,7 @@ def test_transport_integration_auto_start(tmp_path, make_scalar_record):
 # ─────────────────── consecutive failure ───────────────────
 
 
-def test_transport_keeps_pending_records_and_warns_after_retry_exhaustion(tmp_path, make_scalar_record):
+def test_transport_keeps_pending_records_and_warns_after_retry_exhaustion(make_scalar_record):
     """退避重试耗尽后应告警，但不丢 pending，新记录也保持在其后。"""
     attempts = []
     success_event = threading.Event()
@@ -211,7 +218,7 @@ def test_transport_keeps_pending_records_and_warns_after_retry_exhaustion(tmp_pa
             success_event.set()
             return True, []
 
-    t = Transport(run_dir=tmp_path, batch_interval=0.01, auto_start=False)
+    t = _make_transport(batch_interval=0.01)
     t._dispatcher = FlakyDispatch()  # type: ignore
     t.start()
 

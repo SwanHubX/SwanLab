@@ -78,7 +78,7 @@ class ProbePython(ProbeProtocol):
         ts = Timestamp()
         ts.GetCurrentTime()
         if sys_info.metadata:
-            fs.safe_write(self._ctx.metadata_file, sys_info.metadata.model_dump_json())
+            fs.safe_write(self._ctx.metadata_file, sys_info.metadata.model_dump_json(by_alias=True))
             self._ctx.core.upsert_metadata([MetadataRecord(timestamp=ts)])
         if sys_info.requirements:
             fs.safe_write(self._ctx.requirements_file, sys_info.requirements)

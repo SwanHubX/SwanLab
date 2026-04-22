@@ -202,6 +202,7 @@ class MetadataSnapshot(BaseModel):
     各字段为 None 表示未采集（被 Settings 关闭）或采集失败。
     """
 
+    version: int = Field(default=2, alias="_version")
     hardware: Optional[HardwareSnapshot] = None
     runtime: Optional[RuntimeSnapshot] = None
     git: Optional[GitSnapshot] = None

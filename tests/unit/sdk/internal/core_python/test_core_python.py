@@ -56,7 +56,15 @@ class TestCorePythonStart:
         core = CorePython(ctx)
         record = make_start_record()
         mock_deliver = MagicMock(return_value=StartResponse(success=True, message="OK", run=record))
-        monkeypatch.setattr(core, "_report_run_start", mock_deliver)
+
+        def _report_run_start_and_set_attrs(rec):
+            """mock _report_run_start，同时设置 cloud 模式所需的属性。"""
+            core._username = "test-user"
+            core._project = "test-project"
+            core._cuid = "test-cuid"
+            return mock_deliver(rec)
+
+        monkeypatch.setattr(core, "_report_run_start", _report_run_start_and_set_attrs)
 
         resp = core.deliver_run_start(record)
 
@@ -88,7 +96,15 @@ class TestCorePythonFinish:
         core = CorePython(ctx)
 
         mock_start = MagicMock(return_value=StartResponse(success=True, message="OK", run=make_start_record()))
-        monkeypatch.setattr(core, "_report_run_start", mock_start)
+
+        def _report_run_start_and_set_attrs(rec):
+            """mock _report_run_start，同时设置 cloud 模式所需的属性。"""
+            core._username = "test-user"
+            core._project = "test-project"
+            core._cuid = "test-cuid"
+            return mock_start(rec)
+
+        monkeypatch.setattr(core, "_report_run_start", _report_run_start_and_set_attrs)
         core.deliver_run_start(make_start_record())
 
         mock_finish = MagicMock(return_value=None)

@@ -38,6 +38,7 @@ from swanlab.sdk.internal.core_python.api.project import get_or_create_project, 
 from swanlab.sdk.internal.core_python.counter import Counter
 from swanlab.sdk.internal.core_python.store import DataStoreWriter
 from swanlab.sdk.internal.core_python.transport import Transport
+from swanlab.sdk.internal.core_python.transport.sender import HttpRecordSender
 from swanlab.sdk.internal.pkg import adapter, safe
 from swanlab.sdk.protocol import CoreProtocol
 from swanlab.utils.experiment import generate_color, generate_name
@@ -95,7 +96,13 @@ class CorePython(CoreProtocol):
         self._start_store(resp)
         # Transport initialization is part of startup in cloud mode.
         # Fail fast on error instead of degrading silently.
-        self._transport = Transport(run_dir=self._ctx.run_dir)
+        assert self._project, "project must be set when starting in cloud mode"
+        assert self._username, "username must be set when starting in cloud mode"
+        assert self._cuid, "cuid must be set when starting in cloud mode"
+        sender = HttpRecordSender(
+            run_dir=self._ctx.run_dir, project=self._project, username=self._username, cuid=self._cuid
+        )
+        self._transport = Transport(sender=sender)
         return resp
 
     def _report_run_start(self, record: StartRecord) -> StartResponse:

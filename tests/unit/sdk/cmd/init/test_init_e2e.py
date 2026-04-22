@@ -92,6 +92,11 @@ def make_stop_experiment_resp(**overrides) -> dict:
     return {"message": "ok", **overrides}
 
 
+def make_profile_resp(**overrides) -> dict:
+    """PUT /api/project/{username}/{project}/runs/{cuid}/profile 响应体"""
+    return {"message": "ok", **overrides}
+
+
 # ============================================================
 # Cloud 模式 HTTP Mock Fixtures
 #
@@ -170,6 +175,18 @@ def mock_experiment_stop_api(rsps):
 
 
 @pytest.fixture
+def mock_profile_api(rsps):
+    """注册 PUT /api/project/{username}/{project}/runs/{cuid}/profile 端点（环境信息上传）"""
+    rsps.add(
+        responses_lib.PUT,
+        f"{API_HOST}/api/project/{USERNAME}/{PROJECT}/runs/{RUN_ID}/profile",
+        json=make_profile_resp(),
+        status=200,
+    )
+    return rsps
+
+
+@pytest.fixture
 def mock_cloud_settings():
     """将全局 settings 的 api_host/web_host 指向测试 HOST，避免意外触发生产环境"""
     merge_settings({"api_host": API_HOST, "web_host": WEB_HOST})
@@ -183,6 +200,7 @@ def mock_cloud_init_apis(
     mock_project_get_api,
     mock_experiment_create_api,
     mock_experiment_stop_api,
+    mock_profile_api,
 ):
     """
     组合 fixture：一次性注册 init(mode='cloud') 当前所需的全部 HTTP 端点。
@@ -410,6 +428,7 @@ class TestInitCloudMode:
         mock_project_get_api,
         mock_experiment_create_api,
         mock_experiment_stop_api,
+        mock_profile_api,
     ):
         """cloud 模式完整 init 流程：返回 Run，has_run() 为 True"""
         run = init(mode="cloud", project=PROJECT)
@@ -424,6 +443,7 @@ class TestInitCloudMode:
         mock_project_get_api,
         mock_experiment_create_api,
         mock_experiment_stop_api,
+        mock_profile_api,
     ):
         """cloud 模式下，workspace 和 project.name 应与后端响应同步"""
         run = init(mode="cloud", project=PROJECT)
@@ -433,7 +453,13 @@ class TestInitCloudMode:
         assert s.project.name == PROJECT
 
     def test_init_cloud_project_already_exists(
-        self, logged_in_client, rsps, mock_project_get_api, mock_experiment_create_api, mock_experiment_stop_api
+        self,
+        logged_in_client,
+        rsps,
+        mock_project_get_api,
+        mock_experiment_create_api,
+        mock_experiment_stop_api,
+        mock_profile_api,
     ):
         """POST /project 返回 409（项目已存在）时，应优雅降级为获取项目，继续初始化"""
         rsps.add(responses_lib.POST, f"{API_HOST}/api/project", json=make_init_project_resp(), status=409)
@@ -450,6 +476,7 @@ class TestInitCloudMode:
         mock_project_get_api,
         mock_experiment_create_api,
         mock_experiment_stop_api,
+        mock_profile_api,
         rsps,
     ):
         """验证 cloud init 确实调用了 project 和 experiment 端点"""

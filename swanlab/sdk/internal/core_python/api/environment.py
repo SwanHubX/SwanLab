@@ -11,7 +11,7 @@ from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.pkg import helper
 
 
-def upload_conda(username: str, project: str, cuid: str, content: str) -> None:
+def upload_conda(username: str, project: str, cuid: str, *, content: str) -> None:
     """
     上传 conda 环境信息。
 
@@ -26,7 +26,7 @@ def upload_conda(username: str, project: str, cuid: str, content: str) -> None:
     )
 
 
-def upload_requirements(username: str, project: str, cuid: str, content: str) -> None:
+def upload_requirements(username: str, project: str, cuid: str, *, content: str) -> None:
     """
     上传 Python 依赖信息。
 
@@ -41,7 +41,7 @@ def upload_requirements(username: str, project: str, cuid: str, content: str) ->
     )
 
 
-def upload_metadata(username: str, project: str, cuid: str, content: Dict) -> None:
+def upload_metadata(username: str, project: str, cuid: str, *, content: Dict) -> None:
     """
     上传实验元数据。
 
@@ -56,7 +56,7 @@ def upload_metadata(username: str, project: str, cuid: str, content: Dict) -> No
     )
 
 
-def upload_config(username: str, project: str, cuid: str, content: Dict) -> None:
+def upload_config(username: str, project: str, cuid: str, *, content: Dict) -> None:
     """
     上传实验配置信息。
 
