@@ -63,17 +63,18 @@ class Api(BaseEntity):
         """
         # 优先从 scope 获取已有登录态（如进程内已调用 swanlab.login），直接复用凭证
         login_resp = scope.get_context("login_resp")
-        api_key_resolved, api_host, resolved_web_host = self._resolve_credentials(api_key, host, web_host)
-        _client = Client(api_key=str(api_key_resolved), base_url=api_host)
+        api_key, api_host, web_host = self._resolve_credentials(api_key, host, web_host)
+        _client = Client(api_key=str(api_key), base_url=api_host)
 
         if login_resp is None:
             from swanlab.sdk.internal.pkg.client.bootstrap import login_by_api_key
 
-            login_resp = login_by_api_key(base_url=api_host + "/api", api_key=api_key_resolved)
-
-        ctx = ApiClientContext(client=_client, web_host=resolved_web_host, api_host=api_host)
+            login_resp = login_by_api_key(base_url=api_host + "/api", api_key=api_key)
+        user_info = login_resp.get("userInfo", {}) if login_resp else {}
+        username = user_info.get("username", "")
+        name = user_info.get("name", "") or ""
+        ctx = ApiClientContext(client=_client, web_host=web_host, api_host=api_host, username=username, name=name)
         super().__init__(ctx)
-        self._username: str = login_resp.get("userInfo", {}).get("username", "") if login_resp else ""
 
     def json(self) -> dict:
         """Api 非数据实体，返回空字典。"""
@@ -112,7 +113,7 @@ class Api(BaseEntity):
         :param username: 指定工作空间用户名，为 None 时使用当前登录用户
         """
         if username is None:
-            username = self._username
+            username = self._ctx.username
         return Workspace(self._ctx, username=username)
 
     def workspaces(self, username: Optional[str] = None) -> Workspaces:
@@ -122,7 +123,7 @@ class Api(BaseEntity):
         :param username: 指定用户名，为 None 时使用当前登录用户
         """
         if username is None:
-            username = self._username
+            username = self._ctx.username
         return Workspaces(self._ctx, username=username)
 
     def project(self, path: str) -> Project:
@@ -171,8 +172,13 @@ class Api(BaseEntity):
     def user(self) -> User:
         return User(self._ctx)
 
-    def group(self) -> Group:
-        return Group(self._ctx, username=self._username)
+    def group(self, username: Optional[str] = None) -> Group:
+        """
+        :param username: 指定用户名，为 None 时使用当前登录用户
+        """
+        if username is None:
+            username = self._ctx.username
+        return Group(self._ctx, username=username)
 
 
 __all__ = ["Api"]

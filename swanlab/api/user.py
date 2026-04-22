@@ -5,51 +5,63 @@
 @description: User 实体类 — 用户信息的查询
 """
 
-from typing import Any, Dict, Optional, cast
+from typing import Any, Dict, Optional
 
 from swanlab.api.base import ApiClientContext, BaseEntity
-from swanlab.api.typings.user import ApiUserProfileType, ApiUserType
+from swanlab.api.typings.user import ApiUserProfileType
 from swanlab.api.utils import get_properties, strip_dict
 
 
 class User(BaseEntity):
     """
-    表示一个 SwanLab 用户。
+    表示一个 SwanLab 用户, 限定为通过 sdk 登录的用户。
     """
 
     def __init__(
         self,
         ctx: ApiClientContext,
-        data: Optional[ApiUserType] = None,
+        data: Optional[Dict[str, Any]] = None,
     ) -> None:
         super().__init__(ctx)
         self._data = data
 
-    def _ensure_data(self) -> ApiUserType:
+    def _ensure_data(self) -> Dict[str, Any]:
         if self._data is None:
             resp = self._get("/user/profile")
-            self._data = resp.data if resp.ok and resp.data else cast(ApiUserType, {})
+            self._data = strip_dict(resp.data, ApiUserProfileType) if resp.ok and resp.data else {}
         return self._data
 
     @property
     def name(self) -> str:
-        return self._ensure_data().get("name", "")
+        return self._ctx.name
 
     @property
     def username(self) -> str:
-        return self._ensure_data().get("username", "")
+        return self._ctx.username
 
     @property
-    def verified(self) -> bool:
-        return self._ensure_data().get("verified", False)
+    def bio(self) -> str:
+        return self._ensure_data().get("bio", "")
 
     @property
-    def status(self) -> str:
-        return self._ensure_data().get("status", "DISABLED")
+    def institution(self) -> str:
+        return self._ensure_data().get("institution", "")
 
     @property
-    def profile(self) -> Dict[str, Any]:
-        return strip_dict(self._ensure_data().get("profile", {}), ApiUserProfileType)
+    def school(self) -> str:
+        return self._ensure_data().get("school", "") or ""
+
+    @property
+    def email(self) -> str:
+        return self._ensure_data().get("email", "") or ""
+
+    @property
+    def location(self) -> str:
+        return self._ensure_data().get("location", "")
+
+    @property
+    def url(self) -> str:
+        return self._ensure_data().get("url", "")
 
     def json(self) -> Dict[str, Any]:
         return get_properties(self)

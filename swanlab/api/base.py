@@ -21,11 +21,13 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class ApiClientContext:
-    """共享上下文：所有子实体复用同一个实例，避免 (client, web_host, api_host) 三元组透传。"""
+    """共享上下文：所有子实体复用同一个登录态实例。"""
 
     client: "Client"
     web_host: str
     api_host: str
+    username: str
+    name: str
 
 
 class BaseEntity(ABC):
