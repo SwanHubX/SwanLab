@@ -48,6 +48,8 @@ dependencies = [
     "protobuf>=3.19.0,!=4.21.0,!=5.28.0,<7; sys_platform != 'linux'",
     "rich>=13.6.0,<14.0.0",
     "pydantic-settings>=2.8.1",
+    "orjson<=3.11.5; python_version == '3.9'",
+    "orjson; python_version > '3.9'",
 ]
 
 # 对应 requirements-media.txt 和 requirements-dashboard.txt [cite: 3, 5]

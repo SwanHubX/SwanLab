@@ -1,17 +1,17 @@
 import functools
-import json
 from datetime import datetime
 
 import click
 import nanoid
+import orjson
 
 from swanlab.api.typings.common import ApiResponseType
 
 
-def _save_json(content: str) -> None:
+def _save_json(content: bytes) -> None:
     """将 JSON 内容保存到当前目录。"""
     filename = f"swanlab-{datetime.now().strftime('%Y%m%d_%H%M%S')}-{nanoid.generate(size=4)}.json"
-    with open(filename, "w", encoding="utf-8") as f:
+    with open(filename, "wb") as f:
         f.write(content)
     click.echo(f"Saved to {filename}")
 
@@ -19,9 +19,9 @@ def _save_json(content: str) -> None:
 def format_output(resp: ApiResponseType, save: bool = False) -> None:
     """统一输出 ApiResponseType JSON，可选保存到文件。"""
     data = resp.json()
-    click.echo(json.dumps(data, ensure_ascii=False))
+    click.echo(orjson.dumps(data, option=orjson.OPT_INDENT_2).decode())
     if save and resp.ok:
-        _save_json(json.dumps(data, ensure_ascii=False, indent=2))
+        _save_json(orjson.dumps(data, option=orjson.OPT_INDENT_2))
 
 
 def with_save_option(f):
