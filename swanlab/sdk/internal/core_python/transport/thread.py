@@ -26,7 +26,7 @@ class Transport:
     - 清空 buffer 后在锁外委托 Dispatch，不阻塞生产者
     """
 
-    BATCH_INTERVAL: float = 1.0
+    BATCH_INTERVAL: float = 5.0
     FINISH_JOIN_TIMEOUT: int = 30
     THREAD_NAME: str = "SwanLab·Transport"
 
@@ -73,8 +73,7 @@ class Transport:
         if not records:
             return
         with self._cond:
-            if self._buf.extend(records) > 0:
-                self._cond.notify()
+            self._buf.extend(records)
 
     def finish(self) -> None:
         """
