@@ -29,8 +29,6 @@ ApiIdentityEnum = Literal["root", "user"]
 ApiLicensePlanEnum = Literal["free", "commercial"]
 
 
-
-
 class ApiPaginationType(TypedDict):
     list: List
     size: int
@@ -79,4 +77,4 @@ class ApiResponseType:
         return f"ApiResponse(ok=False, errmsg={self.errmsg!r})"
 
 
-__all__ = ["ApiLabelType", "ApiPaginationType", "ApiResponseType"]
+__all__ = ["ApiPaginationType", "ApiResponseType"]

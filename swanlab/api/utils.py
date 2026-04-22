@@ -39,7 +39,7 @@ def to_camel_case(name: str) -> str:
     return "".join([w.capitalize() if i > 0 else w for i, w in enumerate(name.split("_"))])
 
 
-#TODO: 私有化接口装饰器
+# TODO: 私有化接口装饰器
 # def with_self_hosted(identity: ApiIdentityEnum = "user"):
 #     """
 #     用于需要在私有化环境下使用的接口的装饰器。
