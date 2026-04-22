@@ -71,28 +71,32 @@ class HttpRecordSender:
         with safe.block(message=f"Failed to upload config, skipping; file kept at {config_path}"):
             with open(config_path, "r", encoding="utf-8") as f:
                 content = yaml.safe_load(f)
-            upload_config(self._username, self._project, self._cuid, content=content)
+            if isinstance(content, dict):
+                upload_config(self._username, self._project, self._cuid, content=content)
 
     def upload_metadata(self, _: Sequence[Record]) -> None:
         metadata_path = self._run_dir / "files" / "swanlab-metadata.json"
         with safe.block(message=f"Failed to upload metadata, skipping; file kept at {metadata_path}"):
             with open(metadata_path, "r", encoding="utf-8") as f:
                 content = json.load(f)
-            upload_metadata(self._username, self._project, self._cuid, content=content)
+            if isinstance(content, dict):
+                upload_metadata(self._username, self._project, self._cuid, content=content)
 
     def upload_requirements(self, _: Sequence[Record]) -> None:
         requirements_path = self._run_dir / "files" / "requirements.txt"
         with safe.block(message=f"Failed to upload requirements, skipping; file kept at {requirements_path}"):
             with open(requirements_path, "r", encoding="utf-8") as f:
                 content = f.read()
-            upload_requirements(self._username, self._project, self._cuid, content=content)
+            if len(content) > 0:
+                upload_requirements(self._username, self._project, self._cuid, content=content)
 
     def upload_conda(self, _: Sequence[Record]) -> None:
         conda_path = self._run_dir / "files" / "conda.yaml"
         with safe.block(message=f"Failed to upload conda, skipping; file kept at {conda_path}"):
             with open(conda_path, "r", encoding="utf-8") as f:
                 content = f.read()
-            upload_conda(self._username, self._project, self._cuid, content=content)
+            if len(content) > 0:
+                upload_conda(self._username, self._project, self._cuid, content=content)
 
     def close(self) -> None:
         """关闭 sender。"""
