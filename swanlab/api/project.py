@@ -76,7 +76,7 @@ class Project(BaseEntity):
         """获取项目下的实验列表。"""
         from swanlab.api.experiment import Experiments
 
-        return Experiments(self._ctx, path=self.path, filters=filters)
+        return Experiments(self._ctx, proj_path=self.path, filters=filters)
 
     def delete(self) -> bool:
         """删除此项目。"""

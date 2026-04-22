@@ -98,7 +98,7 @@ class Workspaces(BaseEntity):
         resp = self._get(f"/user/{self._username}/groups")
         if not resp.ok:
             return [self._username]
-        group_names = [r["username"] for r in resp.data]
+        group_names = resp.data if isinstance(resp.data, list) else []
         return [self._username] + group_names
 
     def __iter__(self) -> Iterator[Workspace]:

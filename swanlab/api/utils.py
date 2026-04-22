@@ -5,7 +5,15 @@
 @description: swanlab/api 实体层工具函数
 """
 
-from typing import Dict, List, Optional, Set
+from typing import Any, Dict, Optional, Set, Type, get_type_hints
+
+
+def strip_dict(data: Any, typed_cls: Type) -> Dict[str, Any]:
+    """将原始 API 响应字典裁剪为只保留 TypedDict 中声明的字段。"""
+    if not data:
+        return {}
+    hints = get_type_hints(typed_cls) if hasattr(typed_cls, "__annotations__") else {}
+    return {k: data[k] for k in hints if k in data}
 
 
 def get_properties(obj: object, _visited: Optional[Set[int]] = None) -> Dict[str, object]:

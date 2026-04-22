@@ -7,10 +7,7 @@
 
 from typing import TypedDict
 
-
-class ApiUserType(TypedDict):
-    name: str
-    username: str
+from .common import ApiStatusLiteral
 
 
 class ApiUserProfileType(TypedDict):
@@ -19,6 +16,12 @@ class ApiUserProfileType(TypedDict):
     location: str
     school: str
     email: str
-    idc: str
     url: str
-    telephone: str
+
+
+class ApiUserType(TypedDict):
+    name: str
+    username: str
+    verified: bool
+    status: ApiStatusLiteral
+    profile: ApiUserProfileType

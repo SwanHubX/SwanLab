@@ -14,8 +14,10 @@ from swanlab.sdk.internal.settings import settings as global_settings
 
 from .base import ApiClientContext, BaseEntity
 from .experiment import Experiment, Experiments
+from .group import Group
 from .project import Project, Projects
 from .typings.common import ApiResponseType
+from .user import User
 from .workspace import Workspace, Workspaces
 
 
@@ -63,12 +65,15 @@ class Api(BaseEntity):
         login_resp = scope.get_context("login_resp")
         api_key_resolved, api_host, resolved_web_host = self._resolve_credentials(api_key, host, web_host)
         _client = Client(api_key=str(api_key_resolved), base_url=api_host)
+
         if login_resp is None:
-            login_resp = scope.get_context("login_resp")
+            from swanlab.sdk.internal.pkg.client.bootstrap import login_by_api_key
+
+            login_resp = login_by_api_key(base_url=api_host + "/api", api_key=api_key_resolved)
 
         ctx = ApiClientContext(client=_client, web_host=resolved_web_host, api_host=api_host)
         super().__init__(ctx)
-        self._username: str = login_resp["userInfo"]["username"] if login_resp else ""
+        self._username: str = login_resp.get("userInfo", {}).get("username", "") if login_resp else ""
 
     def json(self) -> dict:
         """Api 非数据实体，返回空字典。"""
@@ -162,6 +167,12 @@ class Api(BaseEntity):
         :param filters: 筛选条件
         """
         return Experiments(self._ctx, proj_path=path)
+
+    def user(self) -> User:
+        return User(self._ctx)
+
+    def group(self) -> Group:
+        return Group(self._ctx, username=self._username)
 
 
 __all__ = ["Api"]

@@ -10,6 +10,7 @@ from concurrent.futures import Future
 from typing import Any, Callable, List, Mapping, Optional, Union
 
 from . import utils
+from .api import Api
 from .sdk import Audio, Callback, Image, Run, Settings, Text, Video, config
 from .sdk.typings.cmd import ConfigLike
 from .sdk.typings.run import AsyncLogType, FinishType, ModeType, ResumeType
@@ -51,6 +52,8 @@ __all__ = [
     "utils",
     "Settings",
     "Callback",
+    # Api
+    "Api",
 ]
 
 # ── lifecycle ──────────────────────────────────────────────────────────────────
