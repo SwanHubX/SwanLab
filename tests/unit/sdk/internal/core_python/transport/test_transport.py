@@ -122,7 +122,7 @@ def test_transport_finish_drains_remaining(make_scalar_record):
             dispatched.extend(records)
             return True, []
 
-    t = Transport(auto_start=False)
+    t = Transport(batch_interval=0.01, auto_start=False)
     t._dispatcher = FakeDispatch()  # type: ignore
     t.start()
     records = [make_scalar_record(step=1), make_scalar_record(step=2)]
@@ -146,11 +146,11 @@ def test_transport_finish_does_not_close_sender_before_thread_stops():
     sender.close.assert_not_called()
 
 
-# ─────────────────── 事件驱动 ───────────────────
+# ─────────────────── 定时攒批 ───────────────────
 
 
-def test_transport_put_wakes_thread_immediately(make_scalar_record):
-    """put() 后线程立刻唤醒，不等 timeout。"""
+def test_transport_drains_on_batch_interval(make_scalar_record):
+    """put() 后线程在 batch_interval 超时后自动 drain 并 dispatch。"""
     dispatched = []
     event = threading.Event()
 
@@ -160,14 +160,13 @@ def test_transport_put_wakes_thread_immediately(make_scalar_record):
             event.set()
             return True, []
 
-    t = Transport(batch_interval=10.0, auto_start=False)
+    t = Transport(batch_interval=0.01, auto_start=False)
     t._dispatcher = FakeDispatch()  # type: ignore
     t.start()
     record = make_scalar_record(step=1)
     record.num = 1
     t.put([record])
-    # batch_interval=10 但 put 应立刻唤醒，0.5s 足够验证
-    event.wait(timeout=2.0)
+    assert event.wait(timeout=2.0)
     t.finish()
     assert len(dispatched) == 1
 
@@ -186,12 +185,12 @@ def test_transport_integration_auto_start(make_scalar_record):
             event.set()
             return True, []
 
-    t = Transport(auto_start=True)
+    t = Transport(batch_interval=0.01, auto_start=True)
     t._dispatcher = FakeDispatch()  # type: ignore
     record = make_scalar_record(step=1)
     record.num = 1
     t.put([record])
-    event.wait(timeout=2.0)
+    assert event.wait(timeout=2.0)
     t.finish()
     assert len(dispatched) == 1
 
@@ -221,7 +220,7 @@ def test_transport_keeps_pending_records_and_warns_after_retry_exhaustion(make_s
     first.num = 1
     second.num = 2
 
-    with patch("swanlab.sdk.internal.core_python.transport.thread.console.warning") as mock_warning:
+    with patch("swanlab.sdk.internal.core_python.transport.thread.UploadWarningThrottle.warn") as mock_warn:
         t.put([first])
         time.sleep(0.05)
         t.put([second])
@@ -231,4 +230,4 @@ def test_transport_keeps_pending_records_and_warns_after_retry_exhaustion(make_s
     assert attempts[0] == [1]
     assert attempts[1] == [1]
     assert attempts[2] == [2]
-    mock_warning.assert_called_once()
+    mock_warn.assert_called_once()

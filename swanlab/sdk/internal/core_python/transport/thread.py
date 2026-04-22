@@ -19,11 +19,12 @@ from .sender import HttpRecordSender
 
 class Transport:
     """
-    事件驱动的 Record Action 线程。
+    定时攒批的 Record Action 线程。
 
     用 Condition 驱动上传事件：
-    - put() 时 notify() 立刻唤醒线程，延迟接近 0
-    - wait(timeout=batch_interval) 保证最大攒批间隔
+    - put() 仅写入 buffer，不唤醒线程
+    - wait(timeout=batch_interval) 周期性唤醒线程，攒批后统一 drain
+    - finish() 时 notify_all() 立刻唤醒线程排空剩余 buffer
     - 清空 buffer 后在锁外委托 Dispatch，不阻塞生产者
     """
 
@@ -68,7 +69,7 @@ class Transport:
         self._started = True
 
     def put(self, records: List[Record]) -> None:
-        """追加 records 到 buffer 并唤醒线程。"""
+        """追加 records 到 buffer，等待下次 batch_interval 唤醒时统一处理。"""
         if self._finished:
             console.warning("Transport has already been finished.")
             return
