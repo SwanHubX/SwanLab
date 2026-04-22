@@ -7,6 +7,7 @@
 
 import threading
 import time
+from pathlib import Path
 from typing import Callable, List, Optional
 
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
@@ -34,6 +35,7 @@ class Transport:
 
     def __init__(
         self,
+        run_dir: Path,
         batch_interval: Optional[float] = None,
         upload_callback: Optional[Callable[[int], None]] = None,
         sender: Optional[HttpRecordSender] = None,
@@ -51,7 +53,7 @@ class Transport:
         self._throttle = UploadWarningThrottle()
 
         # Transport 持有 sender，负责创建/注入/关闭
-        self._sender = sender if sender is not None else HttpRecordSender()
+        self._sender = sender if sender is not None else HttpRecordSender(run_dir=run_dir)
         self._dispatcher = Dispatch(
             sender=self._sender,
             upload_callback=self._upload_callback,

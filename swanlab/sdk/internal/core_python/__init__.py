@@ -95,7 +95,7 @@ class CorePython(CoreProtocol):
         self._start_store(resp)
         # Transport initialization is part of startup in cloud mode.
         # Fail fast on error instead of degrading silently.
-        self._transport = Transport()
+        self._transport = Transport(run_dir=self._ctx.run_dir)
         return resp
 
     def _report_run_start(self, record: StartRecord) -> StartResponse:
