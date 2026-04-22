@@ -9,11 +9,22 @@ from typing import Dict, TypedDict
 
 from .common import ApiRoleLiteral, ApiWorkspaceLiteral
 
+# 工作空间即 Group 组织
 
-class ApiWorkspaceInfoType(TypedDict):
-    name: str
+
+class ApiWorkspaceProfileType(TypedDict):
+    bio: str
+    url: str
+    institution: str
+    school: str
+    email: str
+    location: str
+
+
+class ApiWorkspaceType(TypedDict):
     username: str
-    profile: Dict[str, str]
+    name: str
     type: ApiWorkspaceLiteral
     comment: str
     role: ApiRoleLiteral
+    profile: ApiWorkspaceProfileType

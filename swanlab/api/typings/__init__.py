@@ -20,10 +20,10 @@ from .experiment import ApiExperimentLabelType, ApiExperimentType
 from .project import ApiProjectCountType, ApiProjectLabelType, ApiProjectType
 from .selfhosted import ApiApiKeyType, ApiSelfHostedInfoType
 from .user import ApiUserProfileType, ApiUserType
-from .workspace import ApiWorkspaceInfoType
+from .workspace import ApiWorkspaceProfileType, ApiWorkspaceType
 
 __all__ = [
-    # Kinds (preferred)
+    # Literal Definition
     "ApiColumnLiteral",
     "ApiRunStateLiteral",
     "ApiVisibilityLiteral",
@@ -31,17 +31,23 @@ __all__ = [
     "ApiRoleLiteral",
     "ApiIdentityLiteral",
     "ApiLicensePlanLiteral",
-    # TypedDicts
+    # General TypedDicts
     "ApiPaginationType",
     "ApiResponseType",
+    # Experiment/Run
     "ApiExperimentLabelType",
     "ApiExperimentType",
+    # Project
     "ApiProjectCountType",
     "ApiProjectLabelType",
     "ApiProjectType",
-    "ApiApiKeyType",
-    "ApiSelfHostedInfoType",
+    # User
     "ApiUserType",
     "ApiUserProfileType",
-    "ApiWorkspaceInfoType",
+    # Worksapce/Group
+    "ApiWorkspaceType",
+    "ApiWorkspaceProfileType",
+    # Misc
+    "ApiApiKeyType",
+    "ApiSelfHostedInfoType",
 ]

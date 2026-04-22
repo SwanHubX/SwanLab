@@ -14,7 +14,6 @@ from swanlab.sdk.internal.settings import settings as global_settings
 
 from .base import ApiClientContext, BaseEntity
 from .experiment import Experiment, Experiments
-from .group import Group
 from .project import Project, Projects
 from .typings.common import ApiResponseType
 from .user import User
@@ -171,14 +170,6 @@ class Api(BaseEntity):
 
     def user(self) -> User:
         return User(self._ctx)
-
-    def group(self, username: Optional[str] = None) -> Group:
-        """
-        :param username: 指定用户名，为 None 时使用当前登录用户
-        """
-        if username is None:
-            username = self._ctx.username
-        return Group(self._ctx, username=username)
 
 
 __all__ = ["Api"]

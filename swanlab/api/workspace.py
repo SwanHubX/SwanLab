@@ -5,11 +5,11 @@
 @description: Workspace 实体类 — 工作空间的查询
 """
 
-from typing import Any, Dict, Iterator, Optional, cast
+from typing import Any, Dict, Iterator, List, Optional, cast
 
 from swanlab.api.base import ApiClientContext, BaseEntity
-from swanlab.api.typings.workspace import ApiWorkspaceInfoType, ApiWorkspaceLiteral
-from swanlab.api.utils import get_properties
+from swanlab.api.typings.workspace import ApiWorkspaceLiteral, ApiWorkspaceProfileType, ApiWorkspaceType
+from swanlab.api.utils import get_properties, strip_dict
 
 
 class Workspace(BaseEntity):
@@ -22,16 +22,16 @@ class Workspace(BaseEntity):
         ctx: ApiClientContext,
         *,
         username: str,
-        data: Optional[ApiWorkspaceInfoType] = None,
+        data: Optional[ApiWorkspaceType] = None,
     ) -> None:
         super().__init__(ctx)
         self._username = username
         self._data = data
 
-    def _ensure_data(self) -> ApiWorkspaceInfoType:
+    def _ensure_data(self) -> ApiWorkspaceType:
         if self._data is None:
             resp = self._get(f"/group/{self._username}")
-            self._data = resp.data if resp.ok and resp.data else cast(ApiWorkspaceInfoType, {})
+            self._data = resp.data if resp.ok and resp.data else cast(ApiWorkspaceType, {})
         return self._data
 
     @property
@@ -47,8 +47,8 @@ class Workspace(BaseEntity):
         return self._ensure_data().get("type", "PERSON")
 
     @property
-    def profile(self) -> Dict[str, str]:
-        return self._ensure_data().get("profile", {})
+    def profile(self) -> Dict[str, Any]:
+        return strip_dict(self._ensure_data().get("profile", {}), ApiWorkspaceProfileType)
 
     @property
     def comment(self) -> str:
@@ -92,20 +92,21 @@ class Workspaces(BaseEntity):
     def __init__(self, ctx: ApiClientContext, *, username: str) -> None:
         super().__init__(ctx)
         self._username = username
+        self._data: Optional[List[ApiWorkspaceType]] = None
 
-    def _get_all_workspace_names(self) -> list[str]:
-        """获取用户个人空间 + 所属团队空间名称列表。"""
-        resp = self._get(f"/user/{self._username}/groups")
-        if not resp.ok:
-            return [self._username]
-        group_names = resp.data if isinstance(resp.data, list) else []
-        return [self._username] + group_names
+    def _ensure_data(self) -> List[ApiWorkspaceType]:
+        if self._data is None:
+            resp = self._get(f"/user/{self._username}/groups")
+            self._data = resp.data if resp.ok and resp.data else []
+        assert self._data is not None
+        return self._data
 
     def __iter__(self) -> Iterator[Workspace]:
-        for name in self._get_all_workspace_names():
-            resp = self._get(f"/group/{name}")
-            data = resp.data if resp.ok else None
-            yield Workspace(self._ctx, username=name, data=data)
+        for item in self._ensure_data():
+            yield Workspace(self._ctx, username=item["username"], data=item)
+
+    def __len__(self) -> int:
+        return len(self._ensure_data())
 
     def json(self) -> Dict[str, Any]:
         return {"username": self._username}

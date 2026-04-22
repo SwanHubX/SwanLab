@@ -19,9 +19,6 @@ ApiRunStateLiteral = Literal["RUNNING", "FINISHED", "CRASHED", "ABORTED", "OFFLI
 # 可见性类型
 ApiVisibilityLiteral = Literal["PUBLIC", "PRIVATE"]
 
-# 组织类型
-ApiGroupLiteral = Literal["PERSON", "TEAM"]
-
 # 工作空间类型
 ApiWorkspaceLiteral = Literal["TEAM", "PERSON"]
 
