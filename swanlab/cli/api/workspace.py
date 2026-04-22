@@ -16,4 +16,4 @@ def workspace_cli():
 def get_workspace(username: str):
     """Get Workspace info."""
     api = Api()
-    return api.workspace(username)
+    return api.workspace(username).wrapper()

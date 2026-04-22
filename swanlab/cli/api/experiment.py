@@ -16,4 +16,4 @@ def experiment_cli():
 def get_experiment(path: str):
     """Get Experiment(Run) info by path (username/project/run_id)."""
     api = Api()
-    return api.run(path)
+    return api.run(path).wrapper()

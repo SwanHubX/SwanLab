@@ -45,6 +45,13 @@ class BaseEntity(ABC):
         """按需加载数据。单实体子类重写此方法；迭代器子类无需重写。"""
         return None
 
+    def wrapper(self) -> ApiResponseType:
+        """Eager 模式：触发子类 _ensure_data 加载数据，根据 _errors 返回 ApiResponseType。"""
+        self._ensure_data()
+        if self._errors:
+            return ApiResponseType(ok=False, errmsg=self._errors[-1])
+        return ApiResponseType(ok=True, data=self)
+
     @abstractmethod
     def json(self) -> Dict[str, Any]:
         """将实体序列化为 JSON 可序列化的字典。"""
@@ -80,13 +87,6 @@ class BaseEntity(ABC):
     def _build_web_url(self, path: str) -> str:
         """构建前端 Web 页面 URL（使用 _web_host 而非 _api_host）。"""
         return f"{self._ctx.web_host}/{path}"
-
-    def _fetch(self) -> ApiResponseType:
-        """Eager 模式：触发子类 _ensure_data 加载数据，根据 _errors 返回 ApiResponseType。"""
-        self._ensure_data()
-        if self._errors:
-            return ApiResponseType(ok=False, errmsg=self._errors[-1])
-        return ApiResponseType(ok=True, data=self)
 
     def _paginate(self, path: str, *, page_size: int = 20, params: Optional[dict] = None) -> Iterator[dict]:
         """通用分页迭代器，自动处理 page/size 参数。"""

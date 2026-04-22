@@ -100,7 +100,7 @@ class Api(BaseEntity):
     #  - 列表迭代器（workspaces/projects/runs）：惰性构造，迭代时按需分页请求
     # ------------------------------------------------------------------
 
-    def workspace(self, username: Optional[str] = None) -> ApiResponseType:
+    def workspace(self, username: Optional[str] = None) -> Workspace:
         """
         获取工作空间信息，默认为当前登录用户的工作空间。
 
@@ -108,9 +108,9 @@ class Api(BaseEntity):
         """
         if username is None:
             username = self._username
-        return Workspace(self._ctx, username=username)._fetch()
+        return Workspace(self._ctx, username=username)
 
-    def workspaces(self, username: Optional[str] = None) -> ApiResponseType:
+    def workspaces(self, username: Optional[str] = None) -> Workspaces:
         """
         获取工作空间列表迭代器。
 
@@ -118,15 +118,15 @@ class Api(BaseEntity):
         """
         if username is None:
             username = self._username
-        return ApiResponseType(ok=True, data=Workspaces(self._ctx, username=username))
+        return Workspaces(self._ctx, username=username)
 
-    def project(self, path: str) -> ApiResponseType:
+    def project(self, path: str) -> Project:
         """
         获取项目信息。
 
         :param path: 项目路径，格式为 'username/project-name'
         """
-        return Project(self._ctx, path=path)._fetch()
+        return Project(self._ctx, path=path)
 
     def projects(
         self,
@@ -134,7 +134,7 @@ class Api(BaseEntity):
         sort: Optional[str] = None,
         search: Optional[str] = None,
         detail: Optional[bool] = True,
-    ) -> ApiResponseType:
+    ) -> Projects:
         """
         获取工作空间下的项目列表迭代器。
 
@@ -143,31 +143,25 @@ class Api(BaseEntity):
         :param search: 搜索关键词
         :param detail: 是否返回详细信息
         """
-        return ApiResponseType(ok=True, data=Projects(self._ctx, path=path, sort=sort, search=search, detail=detail))
+        return Projects(self._ctx, path=path, sort=sort, search=search, detail=detail)
 
-    def run(self, path: str) -> ApiResponseType:
+    def run(self, path: str) -> Experiment:
         """
         获取单个实验。
 
         :param path: 实验路径，格式为 'username/project/run_id'
         """
-        parts = path.split("/")
-        if len(parts) != 3:
-            return ApiResponseType(
-                ok=False, errmsg=f"Invalid path '{path}'. Expected format: 'username/project/run_id'"
-            )
-        proj_path = path.rsplit("/", 1)[0]
-        expid = parts[2]
-        return Experiment(self._ctx, path=proj_path, cuid=expid)._fetch()
 
-    def runs(self, path: str, filters: Optional[dict] = None) -> ApiResponseType:
+        return Experiment(self._ctx, path=path)
+
+    def runs(self, path: str, filters: Optional[dict] = None) -> Experiments:
         """
         获取项目下的实验列表迭代器。
 
         :param path: 项目路径，格式为 'username/project'
         :param filters: 筛选条件
         """
-        return ApiResponseType(ok=True, data=Experiments(self._ctx, path=path, filters=filters))
+        return Experiments(self._ctx, proj_path=path)
 
 
 __all__ = ["Api"]

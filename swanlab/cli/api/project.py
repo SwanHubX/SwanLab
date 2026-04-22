@@ -16,4 +16,4 @@ def project_cli():
 def get_project(path: str):
     """Get project info by path (username/project)."""
     api = Api()
-    return api.project(path)
+    return api.project(path).wrapper()

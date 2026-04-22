@@ -24,6 +24,7 @@ from swanlab.sdk import (
 )
 
 from . import utils
+from .api import Api
 
 __version__ = helper.get_swanlab_version()
 
@@ -56,6 +57,8 @@ __all__ = [
     "utils",
     "Settings",
     "Callback",
+    # Api
+    "Api",
 ]
 
 

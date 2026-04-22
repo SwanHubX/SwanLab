@@ -5,12 +5,26 @@
 @description: Experiment 实体类 — 单个实验的查询与操作
 """
 
-from typing import Any, Dict, Iterator, List, Optional, Union, cast
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Union, cast
 
 from swanlab.api.base import ApiClientContext, BaseEntity
 from swanlab.api.typings.experiment import ApiExperimentLabelType, ApiExperimentType
 from swanlab.api.typings.user import ApiUserType
 from swanlab.api.utils import get_properties, parse_filter
+
+
+def _resovle_path(path: str) -> Tuple[str, str]:
+    """ "path like: user/proj_name/run_id"""
+    proj_path, cuid = "", ""
+    parts = path.split("/")
+    if len(parts) != 3:
+        return proj_path, cuid
+    cuid = parts[-1]
+    proj_path = path.rsplit("/", 1)[0]
+    return (
+        proj_path,
+        cuid,
+    )
 
 
 class Profile:
@@ -63,17 +77,15 @@ class Experiment(BaseEntity):
         ctx: ApiClientContext,
         *,
         path: str,
-        cuid: str = "",
         data: Optional[ApiExperimentType] = None,
     ) -> None:
         super().__init__(ctx)
-        self._path = path  # 'username/project-name'
-        self._cuid: str = cuid or (data.get("cuid", "") if data else "")
+        self._proj_path, self._cuid = _resovle_path(path=path)
         self._data = data
 
     def _ensure_data(self) -> ApiExperimentType:
         if self._data is None:
-            resp = self._get(f"/project/{self._path}/runs/{self._cuid}")
+            resp = self._get(f"/project/{self._proj_path}/runs/{self._cuid}")
             self._data = resp.data if resp.ok and resp.data else cast(ApiExperimentType, {})
             if not self._cuid and self._data:
                 self._cuid = self._data.get("cuid", "")
@@ -99,7 +111,7 @@ class Experiment(BaseEntity):
 
     @property
     def url(self) -> str:
-        return self._build_web_url(f"@{self._path}/runs/{self.run_id}/chart")
+        return self._build_web_url(f"@{self._proj_path}/runs/{self.run_id}/chart")
 
     @property
     def show(self) -> bool:
@@ -135,7 +147,7 @@ class Experiment(BaseEntity):
         """Experiment profile containing config, metadata, requirements, and conda."""
         data = self._ensure_data()
         if "profile" not in data and self._cuid:
-            resp = self._get(f"/project/{self._path}/runs/{self._cuid}")
+            resp = self._get(f"/project/{self._proj_path}/runs/{self._cuid}")
             if resp.ok and resp.data:
                 self._data = resp.data
                 data = self._data
@@ -210,7 +222,7 @@ class Experiment(BaseEntity):
 
     def delete(self) -> bool:
         """删除此实验。"""
-        resp = self._delete(f"/project/{self._path}/runs/{self._cuid}")
+        resp = self._delete(f"/project/{self._proj_path}/runs/{self._cuid}")
         return resp.ok
 
     def json(self) -> Dict[str, Any]:
@@ -240,16 +252,16 @@ class Experiments(BaseEntity):
         self,
         ctx: ApiClientContext,
         *,
-        path: str,
+        proj_path: str,
         filters: Optional[Dict[str, object]] = None,
     ) -> None:
         super().__init__(ctx)
-        self._path = path
+        self._proj_path = proj_path
         self._filters = filters
 
     def __iter__(self) -> Iterator[Experiment]:
         parsed_filters = [parse_filter(k, v) for k, v in self._filters.items()] if self._filters else []
-        resp = self._post(f"/project/{self._path}/runs/shows", data={"filters": parsed_filters})
+        resp = self._post(f"/project/{self._proj_path}/runs/shows", data={"filters": parsed_filters})
         if not resp.ok:
             return
         body = resp.data
@@ -260,7 +272,9 @@ class Experiments(BaseEntity):
             runs = _flatten_runs(body)
 
         for run_data in runs:
-            yield Experiment(self._ctx, path=self._path, data=run_data)
+            cuid = run_data.get("cuid", "")
+            full_path = f"{self._proj_path}/{cuid}"
+            yield Experiment(self._ctx, path=full_path, data=run_data)
 
     def json(self) -> Dict[str, Any]:
-        return {"path": self._path}
+        return {"path": self._proj_path}
