@@ -20,7 +20,7 @@ def format_output(resp: ApiResponseType, save: bool = False) -> None:
     """统一输出 ApiResponseType JSON，可选保存到文件。"""
     data = resp.json()
     click.echo(json.dumps(data, ensure_ascii=False))
-    if save:
+    if save and resp.ok:
         _save_json(json.dumps(data, ensure_ascii=False, indent=2))
 
 
