@@ -8,10 +8,10 @@ from swanlab.sdk.internal.core_python.transport.thread import Transport
 
 
 def test_transport_defaults():
-    """默认 batch_interval = 1.0。"""
+    """默认 batch_interval = 5.0。"""
     t = Transport(auto_start=False)
     assert t._batch_interval == Transport.BATCH_INTERVAL
-    assert t._batch_interval == 1.0
+    assert t._batch_interval == 5.0
 
 
 def test_transport_custom_batch_interval():

@@ -6,6 +6,7 @@
 """
 
 import threading
+import time
 from typing import Callable, List, Optional
 
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
@@ -46,6 +47,7 @@ class Transport:
         self._started = False
         self._thread: Optional[threading.Thread] = None
         self._sender_closed = False
+        self._throttle = UploadWarningThrottle()
 
         # Transport 持有 sender，负责创建/注入/关闭
         self._sender = sender if sender is not None else HttpRecordSender()
@@ -116,7 +118,6 @@ class Transport:
 
     def _loop(self) -> None:
         pending: List[Record] = []
-        network_warning_emitted = False
         try:
             while True:
                 with self._cond:
@@ -139,7 +140,7 @@ class Transport:
 
                 if is_success:
                     pending = []
-                    network_warning_emitted = False
+                    self._throttle.reset()
                     with self._cond:
                         if self._buf:
                             pending = self._buf.drain()
@@ -147,14 +148,35 @@ class Transport:
                             return
                 else:
                     pending = retry_records
-                    if not network_warning_emitted:
-                        console.warning("Upload failed, network seems unavailable.")
-                        network_warning_emitted = True
+                    self._throttle.warn()
                     with self._cond:
                         # 失败后退避等待；notify()/notify_all() 可提前唤醒，但不会丢掉 pending。
                         self._cond.wait(timeout=self._batch_interval)
         finally:
             self._close_sender()
+
+
+class UploadWarningThrottle:
+    """控制上传失败警告的打印频率，成功后重置并提示恢复。"""
+
+    INTERVAL: float = 30.0
+
+    def __init__(self) -> None:
+        self._last_warn_at: float = 0.0
+        self._in_failure: bool = False
+
+    def warn(self, message: str = "Upload failed due to network or server issues, retrying automatically.") -> None:
+        self._in_failure = True
+        now = time.monotonic()
+        if now - self._last_warn_at >= self.INTERVAL:
+            console.warning(message)
+            self._last_warn_at = now
+
+    def reset(self, message: str = "Upload recovered, resuming normally.") -> None:
+        if self._in_failure:
+            console.info(message)
+        self._last_warn_at = 0.0
+        self._in_failure = False
 
 
 __all__ = [
