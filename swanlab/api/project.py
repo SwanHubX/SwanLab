@@ -54,7 +54,7 @@ class Project(BaseEntity):
 
     @property
     def visibility(self) -> str:
-        return self._ensure_data().get("visibility", "PUBLIC")
+        return self._ensure_data().get("visibility", "PRIVATE")
 
     @property
     def created_at(self) -> str:
@@ -72,11 +72,11 @@ class Project(BaseEntity):
     def count(self) -> ApiProjectCountType:
         return self._ensure_data().get("_count", {})
 
-    def runs(self, filters: Optional[Dict[str, object]] = None):
+    def runs(self, filters: Optional[Dict[str, object]] = None, all: bool = False):
         """获取项目下的实验列表。"""
         from swanlab.api.experiment import Experiments
 
-        return Experiments(self._ctx, proj_path=self.path, filters=filters)
+        return Experiments(self._ctx, proj_path=self.path, filters=filters, all=all)
 
     def delete(self) -> bool:
         """删除此项目。"""
@@ -105,16 +105,30 @@ class Projects(BaseEntity):
         sort: Optional[str] = None,
         search: Optional[str] = None,
         detail: Optional[bool] = True,
+        page: int = 1,
+        size: int = 20,
+        all: bool = False,
     ) -> None:
         super().__init__(ctx)
         self._path = path
         self._sort = sort
         self._search = search
         self._detail = detail
+        self._page = page
+        self._size = size
+        self._all = all
+        self._page_info: Dict[str, Any] = {"page": page, "size": size, "total": 0, "pages": 0, "list": []}
 
     def __iter__(self) -> Iterator[Project]:
         params = {"sort": self._sort, "search": self._search, "detail": self._detail}
-        for item in self._paginate(f"/project/{self._path}", params=params):
+        for item in self._paginate(
+            f"/project/{self._path}",
+            page_num=self._page,
+            page_size=self._size,
+            fetch_all=self._all,
+            params=params,
+            page_info=self._page_info,
+        ):
             yield Project(
                 self._ctx,
                 path=str(item.get("path", "")),
@@ -122,4 +136,5 @@ class Projects(BaseEntity):
             )
 
     def json(self) -> Dict[str, Any]:
-        return {"path": self._path}
+        self._page_info["list"] = [p.json() for p in self]
+        return self._page_info

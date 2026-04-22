@@ -5,8 +5,6 @@
 @description: 所有实体类的公共基类
 """
 
-from __future__ import annotations
-
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, Optional
@@ -90,9 +88,18 @@ class BaseEntity(ABC):
         """构建前端 Web 页面 URL（使用 _web_host 而非 _api_host）。"""
         return f"{self._ctx.web_host}/{path}"
 
-    def _paginate(self, path: str, *, page_size: int = 20, params: Optional[dict] = None) -> Iterator[dict]:
-        """通用分页迭代器，自动处理 page/size 参数。"""
-        page = 1
+    def _paginate(
+        self,
+        path: str,
+        *,
+        page_num: int = 1,
+        page_size: int = 20,
+        fetch_all: bool = False,
+        params: Optional[dict] = None,
+        page_info: Dict[str, Any],
+    ) -> Iterator[dict]:
+        """通用分页迭代器。fetch_all=False 时只取一页，True 时自动翻页取全部。"""
+        page = page_num
         while True:
             p = {"page": page, "size": page_size}
             if params:
@@ -101,11 +108,18 @@ class BaseEntity(ABC):
             if not resp.ok:
                 return
             body: ApiPaginationType = resp.data
+
+            if page_info["total"] == 0:
+                page_info["total"] = body.get("total", 0)
+            if page_info["pages"] == 0:
+                page_info["pages"] = body.get("pages", 1)
             items = body.get("list", [])
             if not items:
                 break
             yield from items
             if page >= body.get("pages", 1):
+                break
+            if not fetch_all:
                 break
             page += 1
 

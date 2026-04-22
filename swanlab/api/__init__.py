@@ -139,6 +139,9 @@ class Api(BaseEntity):
         sort: Optional[str] = None,
         search: Optional[str] = None,
         detail: Optional[bool] = True,
+        page: int = 1,
+        size: int = 20,
+        all: bool = False,
     ) -> Projects:
         """
         获取工作空间下的项目列表迭代器。
@@ -147,8 +150,11 @@ class Api(BaseEntity):
         :param sort: 排序方式
         :param search: 搜索关键词
         :param detail: 是否返回详细信息
+        :param page: 起始页码，默认 1
+        :param size: 每页数量，默认 20
+        :param all: 是否获取全部数据，默认 False
         """
-        return Projects(self._ctx, path=path, sort=sort, search=search, detail=detail)
+        return Projects(self._ctx, path=path, sort=sort, search=search, detail=detail, page=page, size=size, all=all)
 
     def run(self, path: str) -> Experiment:
         """
@@ -159,14 +165,17 @@ class Api(BaseEntity):
 
         return Experiment(self._ctx, path=path)
 
-    def runs(self, path: str, filters: Optional[dict] = None) -> Experiments:
+    def runs(
+        self, path: str, filters: Optional[dict] = None, page: int = 1, size: int = 20, all: bool = False
+    ) -> Experiments:
         """
         获取项目下的实验列表迭代器。
 
         :param path: 项目路径，格式为 'username/project'
         :param filters: 筛选条件
+        :param all: 是否获取全部数据，默认 False
         """
-        return Experiments(self._ctx, proj_path=path)
+        return Experiments(self._ctx, proj_path=path, filters=filters, page=page, size=size, all=all)
 
     def user(self) -> User:
         return User(self._ctx)

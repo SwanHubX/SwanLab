@@ -8,6 +8,7 @@
 from typing import Dict, List, TypedDict
 
 from .common import ApiVisibilityLiteral
+from .workspace import ApiWorkspaceType
 
 
 class ApiProjectLabelType(TypedDict):

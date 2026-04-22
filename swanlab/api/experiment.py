@@ -254,10 +254,15 @@ class Experiments(BaseEntity):
         *,
         proj_path: str,
         filters: Optional[Dict[str, object]] = None,
+        page: int = 1,
+        size: int = 20,
+        all: bool = False,
     ) -> None:
         super().__init__(ctx)
         self._proj_path = proj_path
         self._filters = filters
+        self._all = all
+        self._page_info: Dict[str, Any] = {"page": page, "size": size, "total": 0, "pages": 0, "list": []}
 
     def __iter__(self) -> Iterator[Experiment]:
         parsed_filters = [parse_filter(k, v) for k, v in self._filters.items()] if self._filters else []
@@ -271,10 +276,19 @@ class Experiments(BaseEntity):
         elif isinstance(body, dict):
             runs = _flatten_runs(body)
 
+        total = len(runs)
+        self._page_info.update({"total": total, "page": 1, "size": total})
+
         for run_data in runs:
             cuid = run_data.get("cuid", "")
             full_path = f"{self._proj_path}/{cuid}"
             yield Experiment(self._ctx, path=full_path, data=run_data)
 
     def json(self) -> Dict[str, Any]:
-        return {"path": self._proj_path}
+        info = {
+            "total": self._page_info.get("total", 0),
+            "page": self._page_info.get("page", 1),
+            "size": self._page_info.get("size", 20),
+        }
+        info["list"] = [r.json() for r in self]
+        return info
