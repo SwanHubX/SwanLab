@@ -1,15 +1,15 @@
 """
 @author: caddiesnew
-@file: project.py
+@file: selfhosted.py
 @time: 2026/4/20
-@description: Project 实体类 — 单个项目的查询与操作
+@description: SelfHosted 实体类 — 私有化部署实例的查询与管理
 """
 
-from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, cast
+from typing import TYPE_CHECKING, Any, Dict, Optional, cast
 
 from swanlab.api.base import BaseEntity
 from swanlab.api.typings.common import ApiResponseType
-from swanlab.api.typings.selfhosted import ApiApiKeyType, ApiLicensePlanEnum, ApiSelfHostedInfoType
+from swanlab.api.typings.selfhosted import ApiLicensePlanLiteral, ApiSelfHostedInfoType
 from swanlab.api.utils import get_properties
 
 if TYPE_CHECKING:
@@ -18,9 +18,9 @@ if TYPE_CHECKING:
 
 class SelfHosted(BaseEntity):
     """
-    表示一个 SwanLab 项目。
+    表示一个 SwanLab 私有化部署实例。
 
-    支持双模式：构造时传入 data（列表迭代注入），或 data=None（按需懒加载）。
+    支持双模式：构造时传入 data，或 data=None（按需懒加载）。
     """
 
     def __init__(
@@ -28,8 +28,11 @@ class SelfHosted(BaseEntity):
         client: "Client",
         web_host: str,
         api_host: str,
+        *,
+        data: Optional[ApiSelfHostedInfoType] = None,
     ) -> None:
         super().__init__(client, web_host, api_host)
+        self._data = data
 
     def _ensure_data(self) -> ApiSelfHostedInfoType:
         if self._data is None:
@@ -50,28 +53,32 @@ class SelfHosted(BaseEntity):
         return self._ensure_data().get("root", False)
 
     @property
-    def plan(self) -> ApiLicensePlanEnum:
+    def plan(self) -> ApiLicensePlanLiteral:
         return self._ensure_data().get("plan", "free")
 
     @property
     def seats(self) -> int:
         return self._ensure_data().get("seats", 0)
 
-    def create_user(self, username: str, password: str) -> None:
+    def create_user(self, username: str, password: str) -> ApiResponseType:
         """
-        添加用户（私有化管理员限定）
+        添加用户（私有化管理员限定）。
+
         :param username: 待创建用户名
         :param password: 待创建用户密码
         """
         data = {"users": [{"username": username, "password": password}]}
-        self._post("/self_hosted/users", data=data)
+        return self._post("/self_hosted/users", data=data)
 
-    def get_users(self, page_num: int = 1, page_size: int = 20) -> ApiResponseType:
+    def get_users(self, page: int = 1, size: int = 20) -> ApiResponseType:
         """
-        分页获取用户（管理员限定）
-        :param client: 已登录的客户端实例
+        分页获取用户（管理员限定）。
+
         :param page: 页码
         :param size: 每页大小
         """
-        params = {"page": page_num, "size": page_size}
+        params = {"page": page, "size": size}
         return self._get("/self_hosted/users", params=params)
+
+    def json(self) -> Dict[str, Any]:
+        return get_properties(self)

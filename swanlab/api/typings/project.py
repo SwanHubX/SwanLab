@@ -7,7 +7,7 @@
 
 from typing import Dict, List, TypedDict
 
-from .common import ApiVisibilityEnum
+from .common import ApiVisibilityLiteral
 
 
 class ApiProjectLabelType(TypedDict):
@@ -25,7 +25,7 @@ class ApiProjectType(TypedDict):
     name: str
     username: str
     path: str
-    visibility: ApiVisibilityEnum
+    visibility: ApiVisibilityLiteral
     description: str
     group: Dict[str, str]
     projectLabels: List[ApiProjectLabelType]

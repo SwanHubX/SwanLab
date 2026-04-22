@@ -16,7 +16,7 @@ class ApiUserType(TypedDict):
 class ApiUserProfileType(TypedDict):
     bio: str
     institution: str
-    localtion: str
+    location: str
     school: str
     email: str
     idc: str

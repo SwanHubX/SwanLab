@@ -8,7 +8,7 @@
 from typing import TYPE_CHECKING, Any, Dict, Iterator, Optional, cast
 
 from swanlab.api.base import BaseEntity
-from swanlab.api.typings.workspace import ApiWorkspaceEnum, ApiWorkspaceInfoType
+from swanlab.api.typings.workspace import ApiWorkspaceInfoType, ApiWorkspaceLiteral
 from swanlab.api.utils import get_properties
 
 if TYPE_CHECKING:
@@ -48,8 +48,8 @@ class Workspace(BaseEntity):
         return self._ensure_data().get("username", "")
 
     @property
-    def workspace_type(self) -> ApiWorkspaceEnum:
-        return self._ensure_data().get("type", "")
+    def workspace_type(self) -> ApiWorkspaceLiteral:
+        return self._ensure_data().get("type", "PERSON")
 
     @property
     def profile(self) -> Dict[str, str]:
@@ -82,7 +82,7 @@ class Workspace(BaseEntity):
             detail=detail,
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def json(self) -> Dict[str, Any]:
         return get_properties(self)
 
 
@@ -114,5 +114,5 @@ class Workspaces(BaseEntity):
             data = resp.data if resp.ok else None
             yield Workspace(self._client, self._web_host, self._api_host, username=name, data=data)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def json(self) -> Dict[str, Any]:
         return {"username": self._username}

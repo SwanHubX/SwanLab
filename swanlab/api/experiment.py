@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union, ca
 from swanlab.api.base import BaseEntity
 from swanlab.api.typings.experiment import ApiExperimentLabelType, ApiExperimentType
 from swanlab.api.typings.user import ApiUserType
-from swanlab.api.utils import get_properties, parse_column_type, to_camel_case
+from swanlab.api.utils import get_properties, parse_filter
 
 if TYPE_CHECKING:
     from swanlab.sdk.internal.pkg.client import Client
@@ -58,6 +58,7 @@ class Experiment(BaseEntity):
     表示一个 SwanLab 实验。
 
     支持双模式：构造时传入 data，或 data=None（按需懒加载）。
+    构造时从 data 中提取 _cuid 缓存，避免 _ensure_data 与 id 属性的循环调用。
     """
 
     def __init__(
@@ -67,21 +68,27 @@ class Experiment(BaseEntity):
         api_host: str,
         *,
         path: str,
+        cuid: str = "",
         data: Optional[ApiExperimentType] = None,
     ) -> None:
         super().__init__(client, web_host, api_host)
         self._path = path  # 'username/project-name'
+        self._cuid: str = cuid or (data.get("cuid", "") if data else "")
         self._data = data
 
     def _ensure_data(self) -> ApiExperimentType:
         if self._data is None:
-            resp = self._get(f"/project/{self._path}/runs/{self.id}")
+            resp = self._get(f"/project/{self._path}/runs/{self._cuid}")
             self._data = resp.data if resp.ok and resp.data else cast(ApiExperimentType, {})
+            if not self._cuid and self._data:
+                self._cuid = self._data.get("cuid", "")
         return self._data
 
     @property
-    def id(self) -> str:
-        return self._data.get("cuid", "") if self._data is not None else self._ensure_data().get("cuid", "")
+    def run_id(self) -> str:
+        if self._cuid:
+            return self._cuid
+        return self._ensure_data().get("cuid", "")
 
     @property
     def name(self) -> str:
@@ -97,7 +104,7 @@ class Experiment(BaseEntity):
 
     @property
     def url(self) -> str:
-        return self._build_url(f"@{self._path}/runs/{self.id}/chart")
+        return self._build_web_url(f"@{self._path}/runs/{self.run_id}/chart")
 
     @property
     def show(self) -> bool:
@@ -132,8 +139,8 @@ class Experiment(BaseEntity):
     def profile(self) -> Profile:
         """Experiment profile containing config, metadata, requirements, and conda."""
         data = self._ensure_data()
-        if "profile" not in data and self.id:
-            resp = self._get(f"/project/{self._path}/runs/{self.id}")
+        if "profile" not in data and self._cuid:
+            resp = self._get(f"/project/{self._path}/runs/{self._cuid}")
             if resp.ok and resp.data:
                 self._data = resp.data
                 data = self._data
@@ -162,7 +169,7 @@ class Experiment(BaseEntity):
         dfs = []
         prefix = ""
         for idx, key in enumerate(fetch_keys):
-            resp = self._get(f"/experiment/{self.id}/column/csv", params={"key": key})
+            resp = self._get(f"/experiment/{self.run_id}/column/csv", params={"key": key})
             if not resp.ok:
                 continue
             data = resp.data
@@ -208,10 +215,10 @@ class Experiment(BaseEntity):
 
     def delete(self) -> bool:
         """删除此实验。"""
-        resp = self._delete(f"/project/{self._path}/runs/{self.id}")
+        resp = self._delete(f"/project/{self._path}/runs/{self._cuid}")
         return resp.ok
 
-    def to_dict(self) -> Dict[str, Any]:
+    def json(self) -> Dict[str, Any]:
         return get_properties(self)
 
 
@@ -248,20 +255,7 @@ class Experiments(BaseEntity):
         self._filters = filters
 
     def __iter__(self) -> Iterator[Experiment]:
-        parsed_filters = (
-            [
-                {
-                    "key": to_camel_case(key) if parse_column_type(key) == "STABLE" else key.split(".", 1)[-1],
-                    "active": True,
-                    "value": [value],
-                    "op": "EQ",
-                    "type": parse_column_type(key),
-                }
-                for key, value in self._filters.items()
-            ]
-            if self._filters
-            else []
-        )
+        parsed_filters = [parse_filter(k, v) for k, v in self._filters.items()] if self._filters else []
         resp = self._post(f"/project/{self._path}/runs/shows", data={"filters": parsed_filters})
         if not resp.ok:
             return
@@ -275,5 +269,5 @@ class Experiments(BaseEntity):
         for run_data in runs:
             yield Experiment(self._client, self._web_host, self._api_host, path=self._path, data=run_data)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def json(self) -> Dict[str, Any]:
         return {"path": self._path}

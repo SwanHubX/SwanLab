@@ -51,7 +51,7 @@ class Project(BaseEntity):
 
     @property
     def url(self) -> str:
-        return self._build_url(f"@{self.path}")
+        return self._build_web_url(f"@{self.path}")
 
     @property
     def description(self) -> str:
@@ -88,7 +88,7 @@ class Project(BaseEntity):
         resp = self._delete(f"/project/{self.path}")
         return resp.ok
 
-    def to_dict(self) -> Dict[str, Any]:
+    def json(self) -> Dict[str, Any]:
         return get_properties(self)
 
 
@@ -130,5 +130,5 @@ class Projects(BaseEntity):
                 data=cast(ApiProjectType, item),
             )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def json(self) -> Dict[str, Any]:
         return {"path": self._path}

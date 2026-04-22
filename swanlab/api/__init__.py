@@ -181,6 +181,7 @@ class Api(BaseEntity):
                     self._web_host,
                     self._api_host,
                     path=proj_path,
+                    cuid=expid,
                     data=resp.data,
                 ),
             )

@@ -8,25 +8,25 @@
 from typing import Any, Dict, List, Literal, TypedDict
 
 # 列类型
-ApiColumnEnum = Literal["SCALAR", "CONFIG", "STABLE"]
+ApiColumnLiteral = Literal["SCALAR", "CONFIG", "STABLE"]
 
 # 实验状态类型
-ApiRunStateEnum = Literal["RUNNING", "FINISHED", "CRASHED", "ABORTED", "OFFLINE"]
+ApiRunStateLiteral = Literal["RUNNING", "FINISHED", "CRASHED", "ABORTED", "OFFLINE"]
 
 # 可见性类型
-ApiVisibilityEnum = Literal["PUBLIC", "PRIVATE"]
+ApiVisibilityLiteral = Literal["PUBLIC", "PRIVATE"]
 
 # 工作空间类型
-ApiWorkspaceEnum = Literal["TEAM", "PERSON"]
+ApiWorkspaceLiteral = Literal["TEAM", "PERSON"]
 
 # 工作空间成员类型
-ApiRoleEnum = Literal["VISITOR", "VIEWER", "MEMBER", "OWNER"]
+ApiRoleLiteral = Literal["VISITOR", "VIEWER", "MEMBER", "OWNER"]
 
 # Self-Hosted 身份类型
-ApiIdentityEnum = Literal["root", "user"]
+ApiIdentityLiteral = Literal["root", "user"]
 
 # License 许可证类型
-ApiLicensePlanEnum = Literal["free", "commercial"]
+ApiLicensePlanLiteral = Literal["free", "commercial"]
 
 
 class ApiPaginationType(TypedDict):
@@ -62,10 +62,6 @@ class ApiResponseType:
             errors.append(self.errmsg)
         if data is not None and hasattr(data, "to_dict"):
             data = data.to_dict()
-            # 收集实体内部子请求的错误
-            if hasattr(data, "__getitem__"):
-                # to_dict 返回的 dict 不带 _errors，需要从实体取
-                pass
             entity_errors = getattr(self.data, "_errors", [])
             errors.extend(entity_errors)
         ok = self.ok and not errors
