@@ -1,5 +1,4 @@
 import threading
-import time
 from unittest.mock import MagicMock, patch
 
 from swanlab.sdk.internal.core_python.transport.thread import Transport
@@ -201,19 +200,20 @@ def test_transport_integration_auto_start(make_scalar_record):
     t.finish()
     assert len(dispatched) == 1
 
-
-# ─────────────────── consecutive failure ───────────────────
+    # ─────────────────── consecutive failure ───────────────────
 
 
 def test_transport_keeps_pending_records_and_warns_after_retry_exhaustion(make_scalar_record):
     """退避重试耗尽后应告警，但不丢 pending，新记录也保持在其后。"""
     attempts = []
+    first_dispatch_done = threading.Event()  # 新增
     success_event = threading.Event()
 
     class FlakyDispatch:
         def __call__(self, records):
             attempts.append([record.num for record in records])
             if len(attempts) == 1:
+                first_dispatch_done.set()  # 标记第1次 dispatch 完成
                 return False, records
             success_event.set()
             return True, []
@@ -229,7 +229,7 @@ def test_transport_keeps_pending_records_and_warns_after_retry_exhaustion(make_s
 
     with patch("swanlab.sdk.internal.core_python.transport.thread.UploadWarningThrottle.warn") as mock_warn:
         t.put([first])
-        time.sleep(0.05)
+        assert first_dispatch_done.wait(timeout=2.0)  # 等第1次 dispatch 完成后再 put second
         t.put([second])
         assert success_event.wait(timeout=2.0)
         t.finish()
