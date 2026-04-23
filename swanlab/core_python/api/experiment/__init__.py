@@ -79,6 +79,8 @@ def get_project_experiments(
         - 'name': 按实验名筛选，值为字符串
         - 'username': 按创建人筛选，值为字符串
         - 'job_type': 按任务类型筛选，值为字符串
+        - 'createdAt'/'updatedAt'/'finishedAt': 按时间筛选，值为列表，
+          列表元素为 {"op": "GTE"|"LTE"|"EQ"|..., "value": "ISO8601时间字符串"}
     """
     # 特殊筛选条件配置：用户侧 key -> 后端 key 和操作符
     special_filter_config = {
@@ -89,17 +91,14 @@ def get_project_experiments(
         "job_type": {"key": "job", "op": "EQ"},
     }
 
-    time_filter_config =  ("createdAt", "updatedAt", "finishedAt")
-    time_op_config = ("EQ", "NEQ", "GTE", "LTE", "IN", "NOT IN", "CONTAIN")
+    time_filter_config = ("createdAt", "updatedAt", "finishedAt")
 
     parsed_filters = []
 
     if filters:
         for key, value in filters.items():
             if key in special_filter_config:
-                # 特殊字段处理
                 config = special_filter_config[key]
-                # tags 需要转换为列表
                 filter_value = (
                     list(value)
                     if key == "tags" and isinstance(value, (list, tuple))
@@ -115,16 +114,16 @@ def get_project_experiments(
                     }
                 )
             elif key in time_filter_config:
-                op = value.get("op", "GTE")
-                time_value = [value.get("value", "2025-01-01T00:00:00.000Z")]
-                time_filter = {
-                    "type": "STABLE",
-                    "key": key,
-                    "op": op,
-                    "value": time_value,
-                    "active": True
-                }
-                parsed_filters.append(time_filter)
+                if not isinstance(value, list):
+                    value = [value]
+                for item in value:
+                    parsed_filters.append({
+                        "type": "STABLE",
+                        "key": key,
+                        "op": item["op"],
+                        "value": [item["value"]],
+                        "active": True,
+                    })
             else:
                 # 常规字段处理
                 parsed_filters.append(
