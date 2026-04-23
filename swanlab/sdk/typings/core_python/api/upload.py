@@ -9,7 +9,7 @@ from typing import List, Literal, TypedDict
 
 
 class ConsoleMetric(TypedDict):
-    level: Literal["INFO", "ERROR", "WARN"]
+    level: Literal["INFO", "ERROR"]
     epoch: int
     message: str
     create_time: str
