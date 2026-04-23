@@ -90,4 +90,5 @@ def upload_console(project_id: str, experiment_id: str, *, metrics: ConsoleMetri
         "type": "log",
         "metrics": metrics,
     }
-    client.post("/house/metrics", data)
+    # retries 设置为 0 表示不重试，重试机制交给sender外层实现
+    client.post("/house/metrics", data, retries=0)
