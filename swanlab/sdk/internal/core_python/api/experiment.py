@@ -5,7 +5,7 @@
 @description: SwanLab 运行时实验API
 """
 
-from typing import Dict, List, Literal, Optional, Union
+from typing import List, Literal, Optional
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
@@ -69,12 +69,12 @@ def create_or_resume_experiment(
     return resp.data
 
 
-def stop_experiment(username: str, project: str, cuid: str, *, state: RunState, finished_at: Timestamp):
+def stop_experiment(username: str, project: str, experiment_id: str, *, state: RunState, finished_at: Timestamp):
     """
     停止实验
     :param username: 所属用户名
     :param project: 所属项目名称
-    :param cuid: 所属实验名称
+    :param experiment_id: 所属实验名称
     :param state: 实验状态
     :param finished_at: 实验结束时间
     """
@@ -84,7 +84,7 @@ def stop_experiment(username: str, project: str, cuid: str, *, state: RunState, 
     elif state == RUN_STATE_ABORTED:
         this_state = "ABORTED"
     client.put(
-        f"/project/{username}/{project}/runs/{cuid}/state",
+        f"/project/{username}/{project}/runs/{experiment_id}/state",
         {
             "state": this_state,
             "finishedAt": finished_at.ToDatetime().isoformat() + "Z",
@@ -93,10 +93,10 @@ def stop_experiment(username: str, project: str, cuid: str, *, state: RunState, 
     )
 
 
-def send_experiment_heartbeat(*, cuid: str, flag_id: str) -> None:
+def send_experiment_heartbeat(*, experiment_id: str, flag_id: str) -> None:
     """
     发送实验心跳，保持实验处于活跃状态
-    :param cuid: 实验唯一标识符
+    :param experiment_id: 实验唯一标识符
     :param flag_id: 实验标记ID
     """
-    client.post(f"/house/experiments/{cuid}/heartbeat", {"flagId": flag_id})
+    client.post(f"/house/experiments/{experiment_id}/heartbeat", {"flagId": flag_id})

@@ -10,17 +10,27 @@ from __future__ import annotations
 import json
 from collections.abc import Callable, Sequence
 from pathlib import Path
+from typing import Literal
 
 import yaml
 
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
-from swanlab.sdk.internal.core_python.api.environment import (
+from swanlab.proto.swanlab.system.v1.console_pb2 import StreamType
+from swanlab.sdk.internal.core_python.api.upload import (
     upload_conda,
     upload_config,
+    upload_console,
     upload_metadata,
     upload_requirements,
 )
 from swanlab.sdk.internal.pkg import console, safe
+from swanlab.sdk.typings.core_python.api.upload import ConsoleMetric, ConsoleMetrics
+
+# stream 类型到日志级别的映射
+_STREAM_LEVEL_MAP: dict[int, Literal["INFO", "ERROR", "WARN"]] = {
+    StreamType.STREAM_TYPE_STDOUT: "INFO",
+    StreamType.STREAM_TYPE_STDERR: "ERROR",
+}
 
 
 class HttpRecordSender:
@@ -30,11 +40,12 @@ class HttpRecordSender:
     并将其他类型的上传交给上层处理——这部分上传将有重试机制
     """
 
-    def __init__(self, run_dir: Path, username: str, project: str, cuid: str) -> None:
+    def __init__(self, run_dir: Path, username: str, project: str, project_id: str, experiment_id: str) -> None:
         self._run_dir = run_dir
         self._username = username
         self._project = project
-        self._cuid = cuid
+        self._project_id = project_id
+        self._experiment_id = experiment_id
         self._upload_handlers: dict[str, Callable[[Sequence[Record]], None]] = {
             "column": self.upload_column,
             "data": self.upload_data,
@@ -44,6 +55,7 @@ class HttpRecordSender:
             "requirements": self.upload_requirements,
             "conda": self.upload_conda,
         }
+        self._console_epoch = 1
 
     def upload(self, record_type: str, records: Sequence[Record]) -> None:
         """通用上传入口。"""
@@ -64,7 +76,23 @@ class HttpRecordSender:
         console.debug("HTTP upload skeleton: upload_data (request mapping pending).")
 
     def upload_console(self, records: Sequence[Record]) -> None:
-        console.debug("HTTP upload skeleton: upload_console (request mapping pending).")
+        console_records = [r.console for r in records if r.HasField("console")]
+        if not console_records:
+            return
+        with safe.block(message="Failed to upload console logs, skipping"):
+            metrics: ConsoleMetrics = []
+            for console_record in console_records:
+                if console_record.HasField("timestamp"):
+                    create_time = console_record.timestamp.ToJsonString()
+                    metric: ConsoleMetric = {
+                        "level": _STREAM_LEVEL_MAP.get(console_record.stream, "INFO"),
+                        "epoch": self._console_epoch,
+                        "message": console_record.line,
+                        "create_time": create_time,
+                    }
+                    metrics.append(metric)
+                self._console_epoch += 1
+            upload_console(self._project_id, self._experiment_id, metrics=metrics)
 
     def upload_config(self, _: Sequence[Record]) -> None:
         config_path = self._run_dir / "files" / "config.yaml"
@@ -72,7 +100,7 @@ class HttpRecordSender:
             with open(config_path, "r", encoding="utf-8") as f:
                 content = yaml.safe_load(f)
             if isinstance(content, dict):
-                upload_config(self._username, self._project, self._cuid, content=content)
+                upload_config(self._username, self._project, self._experiment_id, content=content)
 
     def upload_metadata(self, _: Sequence[Record]) -> None:
         metadata_path = self._run_dir / "files" / "swanlab-metadata.json"
@@ -80,7 +108,7 @@ class HttpRecordSender:
             with open(metadata_path, "r", encoding="utf-8") as f:
                 content = json.load(f)
             if isinstance(content, dict):
-                upload_metadata(self._username, self._project, self._cuid, content=content)
+                upload_metadata(self._username, self._project, self._experiment_id, content=content)
 
     def upload_requirements(self, _: Sequence[Record]) -> None:
         requirements_path = self._run_dir / "files" / "requirements.txt"
@@ -88,7 +116,7 @@ class HttpRecordSender:
             with open(requirements_path, "r", encoding="utf-8") as f:
                 content = f.read()
             if len(content) > 0:
-                upload_requirements(self._username, self._project, self._cuid, content=content)
+                upload_requirements(self._username, self._project, self._experiment_id, content=content)
 
     def upload_conda(self, _: Sequence[Record]) -> None:
         conda_path = self._run_dir / "files" / "conda.yaml"
@@ -96,11 +124,7 @@ class HttpRecordSender:
             with open(conda_path, "r", encoding="utf-8") as f:
                 content = f.read()
             if len(content) > 0:
-                upload_conda(self._username, self._project, self._cuid, content=content)
-
-    def close(self) -> None:
-        """关闭 sender。"""
-        return
+                upload_conda(self._username, self._project, self._experiment_id, content=content)
 
 
 __all__ = [

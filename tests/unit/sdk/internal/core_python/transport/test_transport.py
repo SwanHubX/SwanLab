@@ -99,13 +99,13 @@ def test_transport_put_keeps_distinct_record_nums(make_scalar_record):
 
 
 def test_transport_put_warns_after_finish(make_scalar_record):
-    """finish() 后 put() 静默丢弃并 warning。"""
+    """finish() 后 put() 静默丢弃并 error。"""
     t = _make_transport()
     t.start()
     t.finish()
-    with patch("swanlab.sdk.internal.core_python.transport.thread.console.warning") as mock_warning:
+    with patch("swanlab.sdk.internal.core_python.transport.thread.console.error") as mock_error:
         t.put([make_scalar_record(step=1)])
-    mock_warning.assert_called_once()
+    mock_error.assert_called_once()
 
 
 # ─────────────────── finish ───────────────────
@@ -139,17 +139,15 @@ def test_transport_finish_drains_remaining(make_scalar_record):
     assert len(dispatched) == 2
 
 
-def test_transport_finish_does_not_close_sender_before_thread_stops():
-    """若 join 超时且线程仍存活，finish() 不应提前关闭 sender。"""
+def test_transport_finish_waits_for_thread():
+    """finish() 会 join 线程等待其执行完毕。"""
     sender = MagicMock()
     t = _make_transport(sender=sender)
     t._thread = MagicMock()
-    t._thread.is_alive.return_value = True
 
     t.finish()
 
-    t._thread.join.assert_called_once_with(timeout=Transport.FINISH_JOIN_TIMEOUT)
-    sender.close.assert_not_called()
+    t._thread.join.assert_called_once_with()
 
 
 # ─────────────────── 定时攒批 ───────────────────

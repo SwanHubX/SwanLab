@@ -47,7 +47,6 @@ class Transport:
         self._finished = False
         self._started = False
         self._thread: Optional[threading.Thread] = None
-        self._sender_closed = False
         self._throttle = UploadWarningThrottle()
 
         # Transport 持有 sender，负责创建/注入/关闭
@@ -71,7 +70,7 @@ class Transport:
     def put(self, records: List[Record]) -> None:
         """追加 records 到 buffer，等待下次 batch_interval 唤醒时统一处理。"""
         if self._finished:
-            console.warning("Transport has already been finished.")
+            console.error("Transport has already been finished.")
             return
         if not records:
             return
@@ -95,25 +94,10 @@ class Transport:
             self._finished = True
             self._cond.notify_all()
         if self._thread is None:
-            # 未启动线程时直接关闭
-            self._close_sender()
             return
-
-        self._thread.join(timeout=self.FINISH_JOIN_TIMEOUT)
-        if self._thread.is_alive():
-            console.warning(
-                "Transport thread is still running after finish timeout; "
-                "it will continue retrying as a daemon and close sender on exit."
-            )
-        else:
-            # 线程已退出，确保 sender 已关闭（_loop finally 已调用，此处为兜底）
-            self._close_sender()
-
-    def _close_sender(self) -> None:
-        if self._sender_closed:
-            return
-        self._sender.close()
-        self._sender_closed = True
+        console.debug("Waiting for Transport to finish...")
+        self._thread.join()
+        console.debug("Transport finished.")
 
     # ── 线程主循环 ──
 
@@ -137,21 +121,18 @@ class Transport:
                     return True
                 return not self._finished
 
-        try:
-            while True:
-                if not pending and not refill_pending():
-                    return
-                is_success, retry_records = False, pending
-                with safe.block(message="Transport dispatch error"):
-                    is_success, retry_records = self._dispatcher(pending)
-                if is_success:
-                    pending = []
-                    self._throttle.reset()
-                else:
-                    pending = retry_records
-                    self._throttle.warn()
-        finally:
-            self._close_sender()
+        while True:
+            if not pending and not refill_pending():
+                return
+            is_success, retry_records = False, pending
+            with safe.block(message="Transport dispatch error"):
+                is_success, retry_records = self._dispatcher(pending)
+            if is_success:
+                pending = []
+                self._throttle.reset()
+            else:
+                pending = retry_records
+                self._throttle.warn()
 
 
 class UploadWarningThrottle:

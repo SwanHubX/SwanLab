@@ -20,6 +20,8 @@ class _ProjectCount(TypedDict):
 
 
 class ProjectType(TypedDict):
+    # 项目ID
+    cuid: str
     # 项目名称
     name: str
     # 项目所属的用户名

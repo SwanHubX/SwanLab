@@ -61,7 +61,8 @@ class TestCorePythonStart:
             """mock _report_run_start，同时设置 cloud 模式所需的属性。"""
             core._username = "test-user"
             core._project = "test-project"
-            core._cuid = "test-cuid"
+            core._project_id = "test-project-id"
+            core._experiment_id = "test-experiment-id"
             return mock_deliver(rec)
 
         monkeypatch.setattr(core, "_report_run_start", _report_run_start_and_set_attrs)
@@ -101,7 +102,8 @@ class TestCorePythonFinish:
             """mock _report_run_start，同时设置 cloud 模式所需的属性。"""
             core._username = "test-user"
             core._project = "test-project"
-            core._cuid = "test-cuid"
+            core._project_id = "test-project-id"
+            core._experiment_id = "test-experiment-id"
             return mock_start(rec)
 
         monkeypatch.setattr(core, "_report_run_start", _report_run_start_and_set_attrs)

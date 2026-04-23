@@ -68,6 +68,7 @@ def make_init_project_resp(**overrides) -> dict:
 def make_project_detail_resp(experiment_count: int = 0, **overrides) -> dict:
     """GET /api/project/{username}/{name} 响应体（项目详情）"""
     return {
+        "cuid": "test-project-cuid",
         "name": PROJECT,
         "username": USERNAME,
         "path": f"/{USERNAME}/{PROJECT}",

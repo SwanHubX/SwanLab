@@ -61,7 +61,8 @@ class CorePython(CoreProtocol):
         self._mode = ctx.config.settings.mode
         self._username: Optional[str] = None
         self._project: Optional[str] = None
-        self._cuid: Optional[str] = None
+        self._project_id: Optional[str] = None
+        self._experiment_id: Optional[str] = None
         self._counter = Counter()
         self._started: bool = False
 
@@ -98,9 +99,14 @@ class CorePython(CoreProtocol):
         # Fail fast on error instead of degrading silently.
         assert self._project, "project must be set when starting in cloud mode"
         assert self._username, "username must be set when starting in cloud mode"
-        assert self._cuid, "cuid must be set when starting in cloud mode"
+        assert self._project_id, "project id must be set when starting in cloud mode"
+        assert self._experiment_id, "experiment id must be set when starting in cloud mode"
         sender = HttpRecordSender(
-            run_dir=self._ctx.run_dir, project=self._project, username=self._username, cuid=self._cuid
+            run_dir=self._ctx.run_dir,
+            username=self._username,
+            project=self._project,
+            project_id=self._project_id,
+            experiment_id=self._experiment_id,
         )
         self._transport = Transport(sender=sender)
         return resp
@@ -146,7 +152,8 @@ class CorePython(CoreProtocol):
         # 3. 记录必要字段
         self._username = username
         self._project = project
-        self._cuid = experiment["cuid"]
+        self._project_id = project_info["cuid"]
+        self._experiment_id = experiment["cuid"]
         # 4. 构建记录
         start_record = StartRecord()
         start_record.CopyFrom(record)
@@ -325,14 +332,17 @@ class CorePython(CoreProtocol):
 
     @safe.decorator(message="run finish error")
     def _report_run_finish(self, record: FinishRecord) -> FinishResponse:
-        assert self._username is not None and self._project is not None and self._cuid is not None, (
-            "Cannot finish cloud run: username, project, or cuid is missing."
-        )
+        assert (
+            self._username is not None
+            and self._project is not None
+            and self._project_id is not None
+            and self._experiment_id is not None
+        ), "Cannot finish cloud run: username, project, project_id or experiment_id is missing"
         # 向后端同步运行结束事件
         stop_experiment(
             self._username,
             self._project,
-            self._cuid,
+            self._experiment_id,
             state=record.state,
             finished_at=record.finished_at,
         )
