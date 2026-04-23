@@ -5,15 +5,19 @@ from swanlab.sdk.internal.core_python.transport.thread import UploadWarningThrot
 
 
 def test_warn_throttles_within_interval():
-    """间隔内重复 warn() 不重复打印，超过间隔后再次打印。"""
+    """间隔内重复 warn() 不重复打印，超过间隔后再次打印。
+
+    INTERVAL 设为 1.0s 而非极小值，因为 Windows 上 time.monotonic() 分辨率约 15ms，
+    过小的间隔会导致连续两次 warn() 被判定为"已超过间隔"，节流失效。
+    """
     t = UploadWarningThrottle()
-    t.INTERVAL = 0.01
+    t.INTERVAL = 1.0
     with patch("swanlab.sdk.internal.core_python.transport.thread.console.warning") as mock:
         t.warn()
         t.warn()
     mock.assert_called_once()
 
-    time.sleep(0.02)
+    time.sleep(1.1)
     with patch("swanlab.sdk.internal.core_python.transport.thread.console.warning") as mock:
         t.warn()
     mock.assert_called_once()
