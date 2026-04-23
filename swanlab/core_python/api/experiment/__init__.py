@@ -5,7 +5,7 @@
 @description: 定义实验相关的后端API接口
 """
 
-from typing import TYPE_CHECKING, Dict, Iterable, List, Literal, Union
+from typing import TYPE_CHECKING, Dict, Iterable, List, Literal, Union, Any
 
 from swanlab.core_python.api.type import RunType
 
@@ -66,7 +66,7 @@ def get_project_experiments(
     client: "Client",
     *,
     path: str,
-    filters: Dict[str, object] = None,
+    filters: Dict[str, Any] = None,
 ) -> Union[List[RunType], Dict[str, List[RunType]]]:
     """
     获取指定项目下的所有实验信息
@@ -88,6 +88,9 @@ def get_project_experiments(
         "username": {"key": "user.username", "op": "EQ"},
         "job_type": {"key": "job", "op": "EQ"},
     }
+
+    time_filter_config =  ("createdAt", "updatedAt", "finishedAt")
+    time_op_config = ("EQ", "NEQ", "GTE", "LTE", "IN", "NOT IN", "CONTAIN")
 
     parsed_filters = []
 
@@ -111,6 +114,17 @@ def get_project_experiments(
                         "type": "STABLE",
                     }
                 )
+            elif key in time_filter_config:
+                op = value.get("op", "GTE")
+                time_value = [value.get("value", "2025-01-01T00:00:00.000Z")]
+                time_filter = {
+                    "type": "STABLE",
+                    "key": key,
+                    "op": op,
+                    "value": time_value,
+                    "active": True
+                }
+                parsed_filters.append(time_filter)
             else:
                 # 常规字段处理
                 parsed_filters.append(
