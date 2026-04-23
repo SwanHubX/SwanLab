@@ -9,9 +9,13 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple, Union, cast
 
 from swanlab.api.base import ApiClientContext, BaseEntity
 from swanlab.api.typings.common import PaginatedQuery
-from swanlab.api.typings.experiment import ApiExperimentLabelType, ApiExperimentProfileType, ApiExperimentType
+from swanlab.api.typings.experiment import (
+    ApiExperimentLabelType,
+    ApiExperimentProfileType,
+    ApiExperimentType,
+)
 from swanlab.api.typings.user import ApiUserType
-from swanlab.api.utils import get_properties, parse_filter
+from swanlab.api.utils import _validate_and_build, get_properties, validate_filter, validate_group, validate_sort
 
 
 def _resovle_path(path: str) -> Tuple[str, str]:
@@ -230,13 +234,17 @@ class Experiments(BaseEntity):
         ctx: ApiClientContext,
         *,
         path: str,
-        filters: Optional[Dict[str, object]] = None,
+        filters: Optional[List[Dict[str, Any]]] = None,
+        groups: Optional[List[Dict[str, Any]]] = None,
+        sorts: Optional[List[Dict[str, Any]]] = None,
         query: Optional[PaginatedQuery] = None,
         mode: str = "post",
     ) -> None:
         super().__init__(ctx)
         self._proj_path = path
         self._filters = filters
+        self._groups = groups
+        self._sorts = sorts
         self._query = query or PaginatedQuery()
         self._mode = mode
         self._page_info: Dict[str, Any] = {
@@ -255,9 +263,13 @@ class Experiments(BaseEntity):
 
     def _iter_filtered(self) -> Iterator[Experiment]:
         """POST /runs/shows 模式：复杂过滤，不支持分页。"""
-        parsed_filters = [parse_filter(k, v) for k, v in self._filters.items()] if self._filters else []
         resp = self._post(
-            f"/project/{self._proj_path}/runs/shows", data={"filters": parsed_filters, "groups": [], "shows": []}
+            f"/project/{self._proj_path}/runs/shows",
+            data={
+                "filters": _validate_and_build(self._filters, validate_filter),
+                "groups": _validate_and_build(self._groups, validate_group),
+                "sorts": _validate_and_build(self._sorts, validate_sort),
+            },
         )
         if not resp.ok:
             return

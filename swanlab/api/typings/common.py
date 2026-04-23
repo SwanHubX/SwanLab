@@ -12,6 +12,9 @@ from typing import Any, Dict, List, Literal, Optional, TypedDict
 ApiStatusLiteral = Literal["ENABLED", "DISABLED"]
 
 # 侧边列类型
+# STABLE: Experiment 的固有字段，如 state, name, labels, colors 等
+# CONFIG: 动态生成的实验配置字段，如 learning_rate, batch_size 等
+# SCALAR: 动态生成的标量字段，一般用于标量图展示，如 train/loss 等
 ApiSidebarLiteral = Literal["SCALAR", "CONFIG", "STABLE"]
 
 # 实验类型： 运行中/总览

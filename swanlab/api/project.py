@@ -75,16 +75,20 @@ class Project(BaseEntity):
 
     def runs(
         self,
-        filters: Optional[Dict[str, object]] = None,
+        filters: Optional[List[Dict[str, Any]]] = None,
+        groups: Optional[List[Dict[str, Any]]] = None,
+        sorts: Optional[List[Dict[str, Any]]] = None,
     ):
         """
         获取项目下的实验列表（POST 模式，支持复杂过滤）。
 
-        :param filters: 筛选条件
+        :param filters: 过滤规则列表，每项为 {key, type, op, value}
+        :param groups: 分组规则列表，每项为 {key, type}
+        :param sorts: 排序规则列表，每项为 {key, type, order}
         """
         from swanlab.api.experiment import Experiments
 
-        return Experiments(self._ctx, path=self.path, filters=filters, mode="post")
+        return Experiments(self._ctx, path=self.path, filters=filters, groups=groups, sorts=sorts, mode="post")
 
     def runs_get(
         self,

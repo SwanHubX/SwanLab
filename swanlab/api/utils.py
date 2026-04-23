@@ -5,7 +5,7 @@
 @description: swanlab/api 实体层工具函数
 """
 
-from typing import Any, Dict, Optional, Set, Type, get_type_hints
+from typing import Any, Dict, List, Optional, Set, Type, get_args, get_type_hints
 
 
 def strip_dict(data: Any, typed_cls: Type) -> Dict[str, Any]:
@@ -35,51 +35,73 @@ def get_properties(obj: object, _visited: Optional[Set[int]] = None) -> Dict[str
     return result
 
 
-def parse_column_type(column: str) -> str:
-    """从前缀中获取指标类型"""
-    column_type = column.split(".", 1)[0]
-    if column_type == "summary":
-        return "SCALAR"
-    elif column_type == "config":
-        return "CONFIG"
-    else:
-        return "STABLE"
+# ---------------------------------------------------------------------------
+# POST /runs/shows 参数校验常量（从 typings 中的 Literal 类型提取，避免重复定义）
+# ---------------------------------------------------------------------------
+from swanlab.api.typings.common import ApiSidebarLiteral
+from swanlab.api.typings.experiment import (
+    ApiFilterOpLiteral,
+    ApiSortOrderLiteral,
+    ApiStableKeyLiteral,
+)
+
+_VALID_SIDEBAR_TYPES = frozenset(get_args(ApiSidebarLiteral))
+_VALID_OPS = frozenset(get_args(ApiFilterOpLiteral))
+_VALID_ORDERS = frozenset(get_args(ApiSortOrderLiteral))
+_STABLE_KEYS = frozenset(get_args(ApiStableKeyLiteral))
 
 
-def to_camel_case(name: str) -> str:
-    """将下划线命名转化为驼峰命名"""
-    return "".join([w.capitalize() if i > 0 else w for i, w in enumerate(name.split("_"))])
+def _check_required(item: Dict[str, Any], keys: Set[str]) -> None:
+    missing = keys - item.keys()
+    if missing:
+        raise ValueError(f"Missing required fields: {sorted(missing)}, got {sorted(item.keys())}")
 
 
-_SPECIAL_FILTER_MAP = {
-    # (backend_key, operator) — 用户侧 key 到后端字段名和操作符的映射
-    # backend_key: 后端 API 实际接受的字段名
-    # operator: 筛选操作符，EQ=精确匹配，IN=包含匹配（用于 tags 列表）
-    "group": ("cluster", "EQ"),
-    "tags": ("labels", "IN"),
-    "name": ("name", "EQ"),
-    "username": ("user.username", "EQ"),
-    "job_type": ("job", "EQ"),
-}
+def _check_type_field(item: Dict[str, Any]) -> None:
+    t = item.get("type", "")
+    if t not in _VALID_SIDEBAR_TYPES:
+        raise ValueError(f"Invalid type: {t!r}, expected one of {sorted(_VALID_SIDEBAR_TYPES)}")
 
 
-def parse_filter(key: str, value: object) -> Dict[str, object]:
-    """将用户侧筛选条件转换为后端 filter 格式。
+def _check_stable_key(item: Dict[str, Any]) -> None:
+    if item.get("type") == "STABLE" and item["key"] not in _STABLE_KEYS:
+        raise ValueError(f"Invalid STABLE key: {item['key']!r}, expected one of {sorted(_STABLE_KEYS)}")
 
-    :param key: 筛选字段名。预定义字段（group/tags/name/username/job_type）会映射到后端字段名；
-        其他字段按 column type 自动转换：STABLE 类型转 camelCase，其余取最后一段。
-    :param value: 筛选值。预定义字段中 tags 接受列表/元组，其余均为单值（内部统一包装为列表）。
-    :return: 后端 filter 字典，包含 key / active / value / op / type 五个字段。
-    """
-    if key in _SPECIAL_FILTER_MAP:
-        backend_key, op = _SPECIAL_FILTER_MAP[key]
-        filter_value = list(value) if key == "tags" and isinstance(value, (list, tuple)) else [value]
-        return {"key": backend_key, "active": True, "value": filter_value, "op": op, "type": "STABLE"}
-    ct = parse_column_type(key)
-    return {
-        "key": to_camel_case(key) if ct == "STABLE" else key.split(".", 1)[-1],
-        "active": True,
-        "value": [value],
-        "op": "EQ",
-        "type": ct,
-    }
+
+def validate_filter(item: Dict[str, Any]) -> None:
+    """校验单个 filter item 的合法性。"""
+    _check_required(item, {"key", "type", "op", "value"})
+    _check_type_field(item)
+    _check_stable_key(item)
+    if item["op"] not in _VALID_OPS:
+        raise ValueError(f"Invalid filter op: {item['op']!r}, expected one of {sorted(_VALID_OPS)}")
+    if not isinstance(item["value"], list):
+        raise ValueError(f"filter value must be a list, got {type(item['value']).__name__}")
+
+
+def validate_group(item: Dict[str, Any]) -> None:
+    """校验单个 group item 的合法性。"""
+    _check_required(item, {"key", "type"})
+    _check_type_field(item)
+    _check_stable_key(item)
+
+
+def validate_sort(item: Dict[str, Any]) -> None:
+    """校验单个 sort item 的合法性。"""
+    _check_required(item, {"key", "type", "order"})
+    _check_type_field(item)
+    _check_stable_key(item)
+    if item["order"] not in _VALID_ORDERS:
+        raise ValueError(f"Invalid sort order: {item['order']!r}, expected one of {sorted(_VALID_ORDERS)}")
+
+
+def _validate_and_build(
+    items: Optional[List[Dict[str, Any]]],
+    validator,
+) -> List[Dict[str, Any]]:
+    """校验每个 item 并补充 active: True，返回可直接发送的列表。"""
+    if not items:
+        return []
+    for item in items:
+        validator(item)
+    return [{**item, "active": True} for item in items]

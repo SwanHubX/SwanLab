@@ -5,7 +5,7 @@
 @description: SwanLab 公共查询 API 入口，面向用户的 OOP 查询接口
 """
 
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
 from swanlab.exceptions import AuthenticationError
 from swanlab.sdk.internal.pkg import nrc, scope
@@ -169,15 +169,19 @@ class Api(BaseEntity):
     def runs(
         self,
         path: str,
-        filters: Optional[dict] = None,
+        filters: Optional[List[Dict[str, Any]]] = None,
+        groups: Optional[List[Dict[str, Any]]] = None,
+        sorts: Optional[List[Dict[str, Any]]] = None,
     ) -> Experiments:
         """
         通过条件过滤获取项目下的实验列表。
 
         :param path: 项目路径，格式为 'username/project'
-        :param filters: 筛选条件
+        :param filters: 过滤规则列表，每项为 {key, type, op, value}
+        :param groups: 分组规则列表，每项为 {key, type}
+        :param sorts: 排序规则列表，每项为 {key, type, order}
         """
-        return Experiments(self._ctx, path=path, filters=filters, mode="post")
+        return Experiments(self._ctx, path=path, filters=filters, groups=groups, sorts=sorts, mode="post")
 
     def runs_get(
         self,
