@@ -100,7 +100,7 @@ def validate_sort(item: Dict[str, Any]) -> None:
         raise ValueError(f"Invalid sort order: {item['order']!r}, expected one of {sorted(_VALID_ORDERS)}")
 
 
-def _validate_and_build(
+def validate_update_active(
     items: Optional[List[Dict[str, Any]]],
     validator,
 ) -> List[Dict[str, Any]]:

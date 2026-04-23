@@ -15,7 +15,7 @@ from swanlab.api.typings.experiment import (
     ApiExperimentType,
 )
 from swanlab.api.typings.user import ApiUserType
-from swanlab.api.utils import _validate_and_build, get_properties, validate_filter, validate_group, validate_sort
+from swanlab.api.utils import get_properties, validate_filter, validate_group, validate_sort, validate_update_active
 
 
 def _resovle_path(path: str) -> Tuple[str, str]:
@@ -296,9 +296,9 @@ class Experiments(BaseEntity):
         resp = self._post(
             f"/project/{self._proj_path}/runs/shows",
             data={
-                "filters": _validate_and_build(self._filters, validate_filter),
-                "groups": _validate_and_build(self._groups, validate_group),
-                "sorts": _validate_and_build(self._sorts, validate_sort),
+                "filters": validate_update_active(self._filters, validate_filter),
+                "groups": validate_update_active(self._groups, validate_group),
+                "sorts": validate_update_active(self._sorts, validate_sort),
             },
         )
         if not resp.ok:
