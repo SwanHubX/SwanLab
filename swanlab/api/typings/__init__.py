@@ -5,6 +5,7 @@
 @description: SwanLab OpenAPI 类型提示, 以 Api 前缀区分
 """
 
+from .column import ApiColumnCsvExportType, ApiColumnErrorType, ApiColumnType
 from .common import (
     ApiIdentityLiteral,
     ApiLicensePlanLiteral,
@@ -17,6 +18,7 @@ from .common import (
     ApiWorkspaceLiteral,
 )
 from .experiment import ApiExperimentLabelType, ApiExperimentType
+from .metrics import ApiLogType, ApiMediaType, ApiScalarType
 from .project import ApiProjectCountType, ApiProjectLabelType, ApiProjectType
 from .selfhosted import ApiApiKeyType, ApiSelfHostedInfoType
 from .user import ApiUserProfileType, ApiUserType
@@ -50,4 +52,13 @@ __all__ = [
     # Misc
     "ApiApiKeyType",
     "ApiSelfHostedInfoType",
+    # Column
+    "ApiColumnErrorType",
+    "ApiColumnType",
+    "ApiColumnCsvExportType",
+    # Metrics
+    "ApiMetricsColumnType",
+    "ApiScalarType",
+    "ApiMediaMetricType",
+    "ApiLogMetricType",
 ]

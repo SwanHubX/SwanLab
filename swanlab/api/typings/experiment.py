@@ -142,5 +142,3 @@ class ApiExperimentType(TypedDict):
     cluster: str
     job: str
     user: ApiUserType
-    rootExpId: Optional[str]
-    rootProId: Optional[str]
