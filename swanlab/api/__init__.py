@@ -170,21 +170,32 @@ class Api(BaseEntity):
         self,
         path: str,
         filters: Optional[dict] = None,
+    ) -> Experiments:
+        """
+        通过条件过滤获取项目下的实验列表。
+
+        :param path: 项目路径，格式为 'username/project'
+        :param filters: 筛选条件
+        """
+        return Experiments(self._ctx, path=path, filters=filters, mode="post")
+
+    def runs_get(
+        self,
+        path: str,
         page: int = 1,
         size: int = 20,
         all: bool = False,
     ) -> Experiments:
         """
-        获取项目下的实验列表迭代器。
+        通过分页获取项目下的实验列表。
 
         :param path: 项目路径，格式为 'username/project'
-        :param filters: 筛选条件
         :param page: 起始页码，默认 1
         :param size: 每页数量，默认 20
         :param all: 是否获取全部数据，默认 False
         """
         query = PaginatedQuery(page=page, size=size, all=all)
-        return Experiments(self._ctx, proj_path=path, filters=filters, query=query)
+        return Experiments(self._ctx, path=path, query=query, mode="get")
 
     def user(self) -> User:
         return User(self._ctx)

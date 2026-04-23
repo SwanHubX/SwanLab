@@ -76,15 +76,33 @@ class Project(BaseEntity):
     def runs(
         self,
         filters: Optional[Dict[str, object]] = None,
+    ):
+        """
+        获取项目下的实验列表（POST 模式，支持复杂过滤）。
+
+        :param filters: 筛选条件
+        """
+        from swanlab.api.experiment import Experiments
+
+        return Experiments(self._ctx, path=self.path, filters=filters, mode="post")
+
+    def runs_get(
+        self,
         page: int = 1,
         size: int = 20,
         all: bool = False,
     ):
-        """获取项目下的实验列表。"""
+        """
+        获取项目下的实验列表（GET 模式，标准分页，返回精简信息）。
+
+        :param page: 起始页码，默认 1
+        :param size: 每页数量，默认 20
+        :param all: 是否获取全部数据，默认 False
+        """
         from swanlab.api.experiment import Experiments
 
         query = PaginatedQuery(page=page, size=size, all=all)
-        return Experiments(self._ctx, proj_path=self.path, filters=filters, query=query)
+        return Experiments(self._ctx, path=self.path, query=query, mode="get")
 
     def delete(self) -> bool:
         """删除此项目。"""

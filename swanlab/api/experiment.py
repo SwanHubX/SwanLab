@@ -9,7 +9,7 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple, Union, cast
 
 from swanlab.api.base import ApiClientContext, BaseEntity
 from swanlab.api.typings.common import PaginatedQuery
-from swanlab.api.typings.experiment import ApiExperimentLabelType, ApiExperimentType
+from swanlab.api.typings.experiment import ApiExperimentLabelType, ApiExperimentProfileType, ApiExperimentType
 from swanlab.api.typings.user import ApiUserType
 from swanlab.api.utils import get_properties, parse_filter
 
@@ -28,46 +28,9 @@ def _resovle_path(path: str) -> Tuple[str, str]:
     )
 
 
-class Profile:
-    """Experiment profile containing config, metadata, requirements, and conda info."""
-
-    def __init__(self, data: Dict) -> None:
-        self._data = data
-
-    @staticmethod
-    def _clean_field(value: Any) -> Any:
-        """Recursively clean config field, removing desc/sort and keeping value."""
-        if isinstance(value, dict):
-            if "value" in value:
-                return Profile._clean_field(value["value"])
-            else:
-                return {k: Profile._clean_field(v) for k, v in value.items()}
-        elif isinstance(value, list):
-            return [Profile._clean_field(item) for item in value]
-        return value
-
-    @property
-    def config(self) -> Dict:
-        """Experiment configuration (cleaned, without desc/sort fields)."""
-        raw_config = self._data.get("config", {})
-        return {k: Profile._clean_field(v) for k, v in raw_config.items()} if isinstance(raw_config, dict) else {}
-
-    @property
-    def metadata(self) -> Dict:
-        return self._data.get("metadata", {})
-
-    @property
-    def requirements(self) -> str:
-        return self._data.get("requirements", "")
-
-    @property
-    def conda(self) -> str:
-        return self._data.get("conda", "")
-
-
 class Experiment(BaseEntity):
     """
-    表示一个 SwanLab 实验。
+    表示一个 SwanLab 实验（完整信息，通过 POST /runs/shows 或单实验详情接口获取）。
 
     支持双模式：构造时传入 data，或 data=None（按需懒加载）。
     构造时从 data 中提取 _cuid 缓存，避免 _ensure_data 与 id 属性的循环调用。
@@ -107,6 +70,10 @@ class Experiment(BaseEntity):
         return self._ensure_data().get("description", "")
 
     @property
+    def type(self) -> str:
+        return self._ensure_data().get("type", "")
+
+    @property
     def state(self) -> str:
         return self._ensure_data().get("state", "")
 
@@ -144,7 +111,7 @@ class Experiment(BaseEntity):
         return self._ensure_data().get("finishedAt", "")
 
     @property
-    def profile(self) -> Profile:
+    def profile(self) -> ApiExperimentProfileType:
         """Experiment profile containing config, metadata, requirements, and conda."""
         data = self._ensure_data()
         if "profile" not in data and self._cuid:
@@ -152,7 +119,7 @@ class Experiment(BaseEntity):
             if resp.ok and resp.data:
                 self._data = resp.data
                 data = self._data
-        return Profile(data.get("profile", {}))
+        return ApiExperimentProfileType(self._ensure_data().get("profile", {}))
 
     def metrics(
         self, keys: Optional[List[str]] = None, x_axis: Optional[str] = None, sample: Optional[int] = None
@@ -243,24 +210,35 @@ class Experiments(BaseEntity):
     """
     项目下实验集合的迭代器。
 
+    支持两种模式：
+    - POST 模式（默认）：通过 /runs/shows 接口获取，支持复杂过滤，不支持分页
+    - GET 模式：通过 /runs 接口获取，支持标准分页，返回精简信息
+
     用法::
 
-        for run in api.runs("username/project"):
+        # POST 复杂过滤
+        for run in api.runs(path="username/project"):
             print(run.name)
+
+        # GET 分页
+        for run in api.list_runs_simple(path="username/project"):
+            print(run.name, run.state)
     """
 
     def __init__(
         self,
         ctx: ApiClientContext,
         *,
-        proj_path: str,
+        path: str,
         filters: Optional[Dict[str, object]] = None,
         query: Optional[PaginatedQuery] = None,
+        mode: str = "post",
     ) -> None:
         super().__init__(ctx)
-        self._proj_path = proj_path
+        self._proj_path = path
         self._filters = filters
         self._query = query or PaginatedQuery()
+        self._mode = mode
         self._page_info: Dict[str, Any] = {
             "page": self._query.page,
             "size": self._query.size,
@@ -270,8 +248,17 @@ class Experiments(BaseEntity):
         }
 
     def __iter__(self) -> Iterator[Experiment]:
+        if self._mode == "get":
+            yield from self._iter_paginated()
+        else:
+            yield from self._iter_filtered()
+
+    def _iter_filtered(self) -> Iterator[Experiment]:
+        """POST /runs/shows 模式：复杂过滤，不支持分页。"""
         parsed_filters = [parse_filter(k, v) for k, v in self._filters.items()] if self._filters else []
-        resp = self._post(f"/project/{self._proj_path}/runs/shows", data={"filters": parsed_filters})
+        resp = self._post(
+            f"/project/{self._proj_path}/runs/shows", data={"filters": parsed_filters, "groups": [], "shows": []}
+        )
         if not resp.ok:
             return
         body = resp.data
@@ -289,11 +276,21 @@ class Experiments(BaseEntity):
             full_path = f"{self._proj_path}/{cuid}"
             yield Experiment(self._ctx, path=full_path, data=run_data)
 
+    def _iter_paginated(self) -> Iterator[Experiment]:
+        """GET /runs 模式：标准分页，返回精简信息。"""
+        for item in self._paginate(
+            f"/project/{self._proj_path}/runs",
+            self._query,
+            page_info=self._page_info,
+        ):
+            cuid = item.get("cuid", "")
+            full_path = f"{self._proj_path}/{cuid}"
+            yield Experiment(
+                self._ctx,
+                path=full_path,
+                data=cast(ApiExperimentType, item),
+            )
+
     def json(self) -> Dict[str, Any]:
-        info = {
-            "total": self._page_info.get("total", 0),
-            "page": self._page_info.get("page", 1),
-            "size": self._page_info.get("size", 20),
-        }
-        info["list"] = [r.json() for r in self]
-        return info
+        self._page_info["list"] = [r.json() for r in self]
+        return self._page_info

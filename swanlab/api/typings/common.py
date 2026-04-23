@@ -14,6 +14,9 @@ ApiStatusLiteral = Literal["ENABLED", "DISABLED"]
 # 侧边列类型
 ApiSidebarLiteral = Literal["SCALAR", "CONFIG", "STABLE"]
 
+# 实验类型： 运行中/总览
+ApiExperimentTypeLiteral = Literal["CHAPTER", "SUMMARY"]
+
 # 实验状态类型
 ApiRunStateLiteral = Literal["RUNNING", "FINISHED", "CRASHED", "ABORTED", "OFFLINE"]
 
@@ -31,9 +34,6 @@ ApiIdentityLiteral = Literal["root", "user"]
 
 # License 许可证类型
 ApiLicensePlanLiteral = Literal["free", "commercial"]
-
-# 排序规则
-ApiSortOrderLiteral = Literal["ASC", "DESC"]
 
 
 # 后端允许的每页条数
@@ -55,7 +55,7 @@ class PaginatedQuery:
     page: int = 1
     size: int = 20
     search: Optional[str] = None
-    sort: Optional[ApiSortOrderLiteral] = None
+    sort: Optional[str] = None
     all: bool = False
 
     def __post_init__(self) -> None:
