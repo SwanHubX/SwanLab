@@ -8,6 +8,7 @@
 from typing import Any, Dict, Iterator, List, Optional, cast
 
 from swanlab.api.base import ApiClientContext, BaseEntity
+from swanlab.api.typings.common import PaginatedQuery
 from swanlab.api.typings.project import ApiProjectCountType, ApiProjectLabelType, ApiProjectType
 from swanlab.api.utils import get_properties
 
@@ -72,11 +73,18 @@ class Project(BaseEntity):
     def count(self) -> ApiProjectCountType:
         return self._ensure_data().get("_count", {})
 
-    def runs(self, filters: Optional[Dict[str, object]] = None, all: bool = False):
+    def runs(
+        self,
+        filters: Optional[Dict[str, object]] = None,
+        page: int = 1,
+        size: int = 20,
+        all: bool = False,
+    ):
         """获取项目下的实验列表。"""
         from swanlab.api.experiment import Experiments
 
-        return Experiments(self._ctx, proj_path=self.path, filters=filters, all=all)
+        query = PaginatedQuery(page=page, size=size, all=all)
+        return Experiments(self._ctx, proj_path=self.path, filters=filters, query=query)
 
     def delete(self) -> bool:
         """删除此项目。"""
@@ -102,32 +110,27 @@ class Projects(BaseEntity):
         ctx: ApiClientContext,
         *,
         path: str,
-        sort: Optional[str] = None,
-        search: Optional[str] = None,
+        query: Optional[PaginatedQuery] = None,
         detail: Optional[bool] = True,
-        page: int = 1,
-        size: int = 20,
-        all: bool = False,
     ) -> None:
         super().__init__(ctx)
         self._path = path
-        self._sort = sort
-        self._search = search
+        self._query = query or PaginatedQuery()
         self._detail = detail
-        self._page = page
-        self._size = size
-        self._all = all
-        self._page_info: Dict[str, Any] = {"page": page, "size": size, "total": 0, "pages": 0, "list": []}
+        self._page_info: Dict[str, Any] = {
+            "page": self._query.page,
+            "size": self._query.size,
+            "total": 0,
+            "pages": 0,
+            "list": [],
+        }
 
     def __iter__(self) -> Iterator[Project]:
-        params = {"sort": self._sort, "search": self._search, "detail": self._detail}
         for item in self._paginate(
             f"/project/{self._path}",
-            page_num=self._page,
-            page_size=self._size,
-            fetch_all=self._all,
-            params=params,
+            self._query,
             page_info=self._page_info,
+            extra={"detail": self._detail},
         ):
             yield Project(
                 self._ctx,

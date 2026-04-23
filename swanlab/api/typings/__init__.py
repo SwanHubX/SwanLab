@@ -6,13 +6,13 @@
 """
 
 from .common import (
-    ApiColumnLiteral,
     ApiIdentityLiteral,
     ApiLicensePlanLiteral,
     ApiPaginationType,
     ApiResponseType,
     ApiRoleLiteral,
     ApiRunStateLiteral,
+    ApiSidebarLiteral,
     ApiVisibilityLiteral,
     ApiWorkspaceLiteral,
 )
@@ -24,7 +24,7 @@ from .workspace import ApiWorkspaceProfileType, ApiWorkspaceType
 
 __all__ = [
     # Literal Definition
-    "ApiColumnLiteral",
+    "ApiSidebarLiteral",
     "ApiRunStateLiteral",
     "ApiVisibilityLiteral",
     "ApiWorkspaceLiteral",

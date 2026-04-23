@@ -15,7 +15,7 @@ from swanlab.sdk.internal.settings import settings as global_settings
 from .base import ApiClientContext, BaseEntity
 from .experiment import Experiment, Experiments
 from .project import Project, Projects
-from .typings.common import ApiResponseType
+from .typings.common import ApiResponseType, PaginatedQuery
 from .user import User
 from .workspace import Workspace, Workspaces
 
@@ -154,7 +154,8 @@ class Api(BaseEntity):
         :param size: 每页数量，默认 20
         :param all: 是否获取全部数据，默认 False
         """
-        return Projects(self._ctx, path=path, sort=sort, search=search, detail=detail, page=page, size=size, all=all)
+        query = PaginatedQuery(page=page, size=size, search=search, sort=sort, all=all)
+        return Projects(self._ctx, path=path, query=query, detail=detail)
 
     def run(self, path: str) -> Experiment:
         """
@@ -166,16 +167,24 @@ class Api(BaseEntity):
         return Experiment(self._ctx, path=path)
 
     def runs(
-        self, path: str, filters: Optional[dict] = None, page: int = 1, size: int = 20, all: bool = False
+        self,
+        path: str,
+        filters: Optional[dict] = None,
+        page: int = 1,
+        size: int = 20,
+        all: bool = False,
     ) -> Experiments:
         """
         获取项目下的实验列表迭代器。
 
         :param path: 项目路径，格式为 'username/project'
         :param filters: 筛选条件
+        :param page: 起始页码，默认 1
+        :param size: 每页数量，默认 20
         :param all: 是否获取全部数据，默认 False
         """
-        return Experiments(self._ctx, proj_path=path, filters=filters, page=page, size=size, all=all)
+        query = PaginatedQuery(page=page, size=size, all=all)
+        return Experiments(self._ctx, proj_path=path, filters=filters, query=query)
 
     def user(self) -> User:
         return User(self._ctx)

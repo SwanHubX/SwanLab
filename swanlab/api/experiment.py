@@ -8,6 +8,7 @@
 from typing import Any, Dict, Iterator, List, Optional, Tuple, Union, cast
 
 from swanlab.api.base import ApiClientContext, BaseEntity
+from swanlab.api.typings.common import PaginatedQuery
 from swanlab.api.typings.experiment import ApiExperimentLabelType, ApiExperimentType
 from swanlab.api.typings.user import ApiUserType
 from swanlab.api.utils import get_properties, parse_filter
@@ -254,15 +255,19 @@ class Experiments(BaseEntity):
         *,
         proj_path: str,
         filters: Optional[Dict[str, object]] = None,
-        page: int = 1,
-        size: int = 20,
-        all: bool = False,
+        query: Optional[PaginatedQuery] = None,
     ) -> None:
         super().__init__(ctx)
         self._proj_path = proj_path
         self._filters = filters
-        self._all = all
-        self._page_info: Dict[str, Any] = {"page": page, "size": size, "total": 0, "pages": 0, "list": []}
+        self._query = query or PaginatedQuery()
+        self._page_info: Dict[str, Any] = {
+            "page": self._query.page,
+            "size": self._query.size,
+            "total": 0,
+            "pages": 0,
+            "list": [],
+        }
 
     def __iter__(self) -> Iterator[Experiment]:
         parsed_filters = [parse_filter(k, v) for k, v in self._filters.items()] if self._filters else []

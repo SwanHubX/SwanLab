@@ -5,13 +5,14 @@
 @description: 公共查询 API 通用类型定义
 """
 
-from typing import Any, Dict, List, Literal, TypedDict
+from dataclasses import dataclass
+from typing import Any, Dict, List, Literal, Optional, TypedDict
 
 # 启用/停用
 ApiStatusLiteral = Literal["ENABLED", "DISABLED"]
 
-# 列类型
-ApiColumnLiteral = Literal["SCALAR", "CONFIG", "STABLE"]
+# 侧边列类型
+ApiSidebarLiteral = Literal["SCALAR", "CONFIG", "STABLE"]
 
 # 实验状态类型
 ApiRunStateLiteral = Literal["RUNNING", "FINISHED", "CRASHED", "ABORTED", "OFFLINE"]
@@ -30,6 +31,48 @@ ApiIdentityLiteral = Literal["root", "user"]
 
 # License 许可证类型
 ApiLicensePlanLiteral = Literal["free", "commercial"]
+
+# 排序规则
+ApiSortOrderLiteral = Literal["ASC", "DESC"]
+
+
+# 后端允许的每页条数
+_VALID_PAGE_SIZES = (10, 12, 15, 20, 24, 27, 50, 100)
+
+
+@dataclass(frozen=True)
+class PaginatedQuery:
+    """
+    通用分页查询参数，与后端 pagination_query 对齐。
+
+    page: 当前页码，≥1
+    size: 每页条数，必须为后端允许值之一
+    search: 搜索关键词
+    sort: 排序字段
+    all: 是否拉取全部分页（客户端侧自动翻页）
+    """
+
+    page: int = 1
+    size: int = 20
+    search: Optional[str] = None
+    sort: Optional[ApiSortOrderLiteral] = None
+    all: bool = False
+
+    def __post_init__(self) -> None:
+        if self.page < 1:
+            raise ValueError(f"page must be >= 1, got {self.page}")
+        if self.size not in _VALID_PAGE_SIZES:
+            raise ValueError(f"size must be one of {_VALID_PAGE_SIZES}, got {self.size}")
+
+    def to_params(self, **extra: Optional[Any]) -> Dict[str, Any]:
+        """转换为查询参数字典，自动过滤 None 值。"""
+        params: Dict[str, Any] = {"page": self.page, "size": self.size}
+        if self.search is not None:
+            params["search"] = self.search
+        if self.sort is not None:
+            params["sort"] = self.sort
+        params.update({k: v for k, v in extra.items() if v is not None})
+        return params
 
 
 class ApiPaginationType(TypedDict):
@@ -73,4 +116,4 @@ class ApiResponseType:
         return f"ApiResponse(ok=False, errmsg={self.errmsg!r})"
 
 
-__all__ = ["ApiPaginationType", "ApiResponseType"]
+__all__ = ["ApiPaginationType", "ApiResponseType", "PaginatedQuery"]

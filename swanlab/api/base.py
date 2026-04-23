@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, Optional
 
 from swanlab.sdk.internal.pkg import safe
 
-from .typings.common import ApiPaginationType, ApiResponseType
+from .typings.common import ApiPaginationType, ApiResponseType, PaginatedQuery
 
 if TYPE_CHECKING:
     from swanlab.sdk.internal.pkg.client import Client
@@ -91,19 +91,17 @@ class BaseEntity(ABC):
     def _paginate(
         self,
         path: str,
+        query: PaginatedQuery,
         *,
-        page_num: int = 1,
-        page_size: int = 20,
-        fetch_all: bool = False,
-        params: Optional[dict] = None,
         page_info: Dict[str, Any],
+        extra: Optional[Dict[str, Any]] = None,
     ) -> Iterator[dict]:
-        """通用分页迭代器。fetch_all=False 时只取一页，True 时自动翻页取全部。"""
-        page = page_num
+        """通用分页迭代器，基于 PaginatedQuery 驱动翻页逻辑。"""
+        page = query.page
         while True:
-            p = {"page": page, "size": page_size}
-            if params:
-                p.update({k: v for k, v in params.items() if v is not None})
+            p = query.to_params(**(extra or {}))
+            # 覆盖当前页码（翻页时自增）
+            p["page"] = page
             resp = self._get(path, params=p)
             if not resp.ok:
                 return
@@ -119,7 +117,7 @@ class BaseEntity(ABC):
             yield from items
             if page >= body.get("pages", 1):
                 break
-            if not fetch_all:
+            if not query.all:
                 break
             page += 1
 

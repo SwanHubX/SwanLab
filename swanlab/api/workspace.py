@@ -8,6 +8,7 @@
 from typing import Any, Dict, Iterator, List, Optional, cast
 
 from swanlab.api.base import ApiClientContext, BaseEntity
+from swanlab.api.typings.common import PaginatedQuery
 from swanlab.api.typings.workspace import ApiWorkspaceLiteral, ApiWorkspaceProfileType, ApiWorkspaceType
 from swanlab.api.utils import get_properties, strip_dict
 
@@ -69,15 +70,12 @@ class Workspace(BaseEntity):
     ):
         from swanlab.api.project import Projects
 
+        query = PaginatedQuery(page=page, size=size, search=search, sort=sort, all=all)
         return Projects(
             self._ctx,
             path=self.username,
-            sort=sort,
-            search=search,
+            query=query,
             detail=detail,
-            page=page,
-            size=size,
-            all=all,
         )
 
     def json(self) -> Dict[str, Any]:
