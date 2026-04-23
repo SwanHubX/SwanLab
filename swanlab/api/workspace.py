@@ -63,8 +63,10 @@ class Workspace(BaseEntity):
         sort: Optional[str] = None,
         search: Optional[str] = None,
         detail: Optional[bool] = True,
+        page: int = 1,
+        size: int = 20,
+        all: bool = False,
     ):
-        """获取工作空间下的项目列表。"""
         from swanlab.api.project import Projects
 
         return Projects(
@@ -73,6 +75,9 @@ class Workspace(BaseEntity):
             sort=sort,
             search=search,
             detail=detail,
+            page=page,
+            size=size,
+            all=all,
         )
 
     def json(self) -> Dict[str, Any]:
@@ -81,7 +86,7 @@ class Workspace(BaseEntity):
 
 class Workspaces(BaseEntity):
     """
-    用户工作空间集合的迭代器。
+    用户工作空间集合的分页迭代器。
 
     用法::
 
