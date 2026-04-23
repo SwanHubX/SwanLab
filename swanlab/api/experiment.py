@@ -192,6 +192,36 @@ class Experiment(BaseEntity):
 
         return result_df
 
+    def columns(
+        self,
+        page: int = 1,
+        size: int = 20,
+        search: Optional[str] = None,
+        column_type: Optional[str] = None,
+        column_class: Optional[str] = None,
+        all: bool = False,
+    ):
+        """
+        获取实验下的列列表（分页查询，支持搜索）。
+
+        :param page: 起始页码，默认 1
+        :param size: 每页数量，默认 20
+        :param search: 搜索关键词，搜索的是列的 name
+        :param column_type: 列的类型，如 FLOAT、STRING、IMAGE 等
+        :param column_class: 列的分类，CUSTOM 或 SYSTEM
+        :param all: 是否获取全部数据，默认 False
+        """
+        from swanlab.api.column import Columns
+
+        query = PaginatedQuery(page=page, size=size, search=search, all=all)
+        return Columns(
+            self._ctx,
+            run_id=self._cuid,
+            query=query,
+            column_type=column_type,
+            column_class=column_class,
+        )
+
     def delete(self) -> bool:
         """删除此实验。"""
         resp = self._delete(f"/project/{self._proj_path}/runs/{self._cuid}")

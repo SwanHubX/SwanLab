@@ -23,6 +23,7 @@ class ApiProjectCountType(TypedDict):
 
 
 class ApiProjectType(TypedDict):
+    cuid: str
     name: str
     username: str
     path: str

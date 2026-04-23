@@ -32,6 +32,28 @@ ApiWorkspaceLiteral = Literal["TEAM", "PERSON"]
 # 工作空间成员类型
 ApiRoleLiteral = Literal["VISITOR", "VIEWER", "MEMBER", "OWNER"]
 
+# 列种类
+ApiColumnClassLiteral = Literal["CUSTOM", "SYSTEM"]
+# 列数据类型
+ApiColumnDataTypeLiteral = Literal[
+    "FLOAT",
+    "BOOLEAN",
+    "STRING"
+    # media 类型
+    "IMAGE",
+    "AUDIO",
+    "VIDEO",
+    # 3D点云 (json)
+    "OBJECT3D",
+    #   生物化学分子
+    "MOLECULE",
+    # (js/ ts 文件)
+    "ECHARTS",
+    # 表格类型
+    "TABLE",
+    "TEXT",
+]
+
 # Self-Hosted 身份类型
 ApiIdentityLiteral = Literal["root", "user"]
 

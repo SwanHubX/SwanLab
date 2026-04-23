@@ -38,6 +38,10 @@ class Project(BaseEntity):
         return self._data
 
     @property
+    def project_id(self) -> str:
+        return self._ensure_data().get("cuid", "")
+
+    @property
     def name(self) -> str:
         return self._ensure_data().get("name", "")
 

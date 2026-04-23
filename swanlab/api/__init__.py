@@ -13,9 +13,10 @@ from swanlab.sdk.internal.pkg.client import Client
 from swanlab.sdk.internal.settings import settings as global_settings
 
 from .base import ApiClientContext, BaseEntity
+from .column import Column, Columns
 from .experiment import Experiment, Experiments
 from .project import Project, Projects
-from .typings.common import ApiResponseType, PaginatedQuery
+from .typings.common import PaginatedQuery
 from .user import User
 from .workspace import Workspace, Workspaces
 
@@ -203,6 +204,53 @@ class Api(BaseEntity):
 
     def user(self) -> User:
         return User(self._ctx)
+
+    def columns(
+        self,
+        run_id: str,
+        page: int = 1,
+        size: int = 20,
+        search: Optional[str] = None,
+        column_class: str = "CUSTOM",
+        column_type: Optional[str] = None,
+        all: bool = False,
+    ) -> Columns:
+        """
+        获取实验下的列列表（分页查询，支持搜索）。
+
+        :param run_id: 实验 ID（cuid）
+        :param page: 起始页码，默认 1
+        :param size: 每页数量，默认 20
+        :param search: 搜索关键词，搜索的是列的 name
+        :param column_class: 列的分类，CUSTOM 或 SYSTEM, 默认为 CUSTOM
+        :param column_type: 列的类型，如 FLOAT、STRING、IMAGE 等
+        :param all: 是否获取全部数据，默认 False
+        """
+        query = PaginatedQuery(page=page, size=size, search=search, all=all)
+        return Columns(
+            self._ctx,
+            run_id=run_id,
+            query=query,
+            column_type=column_type,
+            column_class=column_class,
+        )
+
+    def column(
+        self,
+        run_id: str,
+        key: str,
+        column_class: Optional[str] = "CUSTOM",
+        column_type: Optional[str] = None,
+    ) -> Column:
+        """
+        获取单个列（通过搜索 key 匹配）。
+
+        :param run_id: 实验 ID（run_id）
+        :param key: 列的键名, 输入不完整则模糊匹配 name 为首个 key.
+        :param column_class: 列的分类，CUSTOM 或 SYSTEM，默认 CUSTOM
+        :param column_type: 列的类型，如 FLOAT、STRING、IMAGE 等，默认为 None
+        """
+        return Column(self._ctx, run_id=run_id, key=key, column_class=column_class, column_type=column_type)
 
 
 __all__ = ["Api"]

@@ -7,6 +7,13 @@
 
 from typing import Any, Dict, List, Optional, Set, Type, get_args, get_type_hints
 
+from swanlab.api.typings.common import ApiColumnClassLiteral, ApiColumnDataTypeLiteral, ApiSidebarLiteral
+from swanlab.api.typings.experiment import (
+    ApiFilterOpLiteral,
+    ApiSortOrderLiteral,
+    ApiStableKeyLiteral,
+)
+
 
 def strip_dict(data: Any, typed_cls: Type) -> Dict[str, Any]:
     """将原始 API 响应字典裁剪为只保留 TypedDict 中声明的字段。"""
@@ -38,17 +45,15 @@ def get_properties(obj: object, _visited: Optional[Set[int]] = None) -> Dict[str
 # ---------------------------------------------------------------------------
 # POST /runs/shows 参数校验常量（从 typings 中的 Literal 类型提取，避免重复定义）
 # ---------------------------------------------------------------------------
-from swanlab.api.typings.common import ApiSidebarLiteral
-from swanlab.api.typings.experiment import (
-    ApiFilterOpLiteral,
-    ApiSortOrderLiteral,
-    ApiStableKeyLiteral,
-)
 
 _VALID_SIDEBAR_TYPES = frozenset(get_args(ApiSidebarLiteral))
 _VALID_OPS = frozenset(get_args(ApiFilterOpLiteral))
 _VALID_ORDERS = frozenset(get_args(ApiSortOrderLiteral))
 _STABLE_KEYS = frozenset(get_args(ApiStableKeyLiteral))
+
+# 列相关校验常量
+_VALID_COLUMN_CLASSES = frozenset(get_args(ApiColumnClassLiteral))
+_VALID_COLUMN_DATA_TYPES = frozenset(get_args(ApiColumnDataTypeLiteral))
 
 
 def _check_required(item: Dict[str, Any], keys: Set[str]) -> None:
@@ -105,3 +110,17 @@ def _validate_and_build(
     for item in items:
         validator(item)
     return [{**item, "active": True} for item in items]
+
+
+def validate_column_params(column_type: Optional[str] = None, column_class: Optional[str] = None) -> None:
+    """
+    校验列查询参数的合法性。
+
+    :param column_type: 列的数据类型
+    :param column_class: 列的分类
+    :raises ValueError: 当参数不在允许的枚举值中时
+    """
+    if column_type is not None and column_type not in _VALID_COLUMN_DATA_TYPES:
+        raise ValueError(f"Invalid column_type: {column_type!r}, expected one of {sorted(_VALID_COLUMN_DATA_TYPES)}")
+    if column_class is not None and column_class not in _VALID_COLUMN_CLASSES:
+        raise ValueError(f"Invalid column_class: {column_class!r}, expected one of {sorted(_VALID_COLUMN_CLASSES)}")
