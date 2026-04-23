@@ -57,8 +57,7 @@ __all__ = [
     "ApiColumnType",
     "ApiColumnCsvExportType",
     # Metrics
-    "ApiMetricsColumnType",
+    "ApiMediaType",
     "ApiScalarType",
-    "ApiMediaMetricType",
-    "ApiLogMetricType",
+    "ApiLogType",
 ]
