@@ -84,7 +84,6 @@ def upload_console(project_id: str, experiment_id: str, *, metrics: ConsoleMetri
     """
     if not metrics:
         return
-    metrics = []
     data = {
         "projectId": project_id,
         "experimentId": experiment_id,
