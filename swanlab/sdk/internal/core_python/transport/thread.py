@@ -130,17 +130,12 @@ class Transport:
             nonlocal pending
 
             with self._cond:
-                while not pending and not self._buf and not self._finished:
+                while not self._buf and not self._finished:
                     self._cond.wait(timeout=self._batch_interval)
-
-                if pending:
-                    return True
                 if self._buf:
                     pending = self._buf.drain()
                     return True
-                if self._finished:
-                    return False
-                return True
+                return not self._finished
 
         try:
             while True:
