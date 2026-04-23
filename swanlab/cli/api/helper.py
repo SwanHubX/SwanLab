@@ -1,5 +1,6 @@
-import functools
+import enum
 from datetime import datetime
+from typing import Optional
 
 import click
 import nanoid
@@ -8,40 +9,24 @@ import orjson
 from swanlab.api.typings.common import ApiResponseType
 
 
-def _save_json(content: bytes) -> None:
-    """将 JSON 内容保存到当前目录。"""
-    filename = f"swanlab-{datetime.now().strftime('%Y%m%d_%H%M%S')}-{nanoid.generate(size=4)}.json"
+class _SaveFormatEnum(enum.Enum):
+    JSON = "json"
+
+
+def format_output(resp: ApiResponseType, fmt: _SaveFormatEnum = _SaveFormatEnum.JSON) -> None:
+    if fmt == _SaveFormatEnum.JSON:
+        click.echo(orjson.dumps(resp.json(), option=orjson.OPT_INDENT_2).decode())
+
+
+def save_output(content: bytes, name: Optional[str] = None, fmt: _SaveFormatEnum = _SaveFormatEnum.JSON) -> None:
+    if name and name != ".":
+        ext = name.rsplit(".", 1)[-1].lower() if "." in name else None
+        if ext and ext not in {f.value for f in _SaveFormatEnum}:
+            click.echo(f"Warning: unsupported file extension .{ext}, skipped saving.")
+            return
+        filename = name
+    else:
+        filename = f"swanlab-{datetime.now().strftime('%Y%m%d_%H%M%S')}-{nanoid.generate(size=4)}.{fmt.value}"
     with open(filename, "wb") as f:
         f.write(content)
     click.echo(f"Saved to {filename}")
-
-
-def format_output(resp: ApiResponseType, save: bool = False) -> None:
-    """统一输出 ApiResponseType JSON，可选保存到文件。"""
-    data = resp.json()
-    click.echo(orjson.dumps(data, option=orjson.OPT_INDENT_2).decode())
-    if save and resp.ok:
-        _save_json(orjson.dumps(data, option=orjson.OPT_INDENT_2))
-
-
-def with_save_option(f):
-    """
-    装饰器：为 CLI 命令添加 --save 选项并自动输出/保存响应。
-
-    被装饰的函数应返回 ApiResponseType，装饰器负责 format_output 和可选的文件保存。
-    """
-
-    @click.option(
-        "--save",
-        "-s",
-        is_flag=True,
-        default=False,
-        help="Save output as JSON to current directory.",
-    )
-    @functools.wraps(f)
-    def wrapper(*args, save: bool, **kwargs):
-        resp = f(*args, **kwargs)
-        if resp is not None:
-            format_output(resp, save=save)
-
-    return wrapper
