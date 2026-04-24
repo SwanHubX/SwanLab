@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional, cast
 
 from swanlab.api.base import ApiClientContext, BaseEntity
 from swanlab.api.typings import ApiColumnCsvExportType, ApiResponseType
-from swanlab.api.typings.metric import ApiScalarSeriesType
+from swanlab.api.typings.metric import ApiLogSeriesType, ApiMediaSeriesType, ApiMediaType, ApiScalarSeriesType
 from swanlab.api.utils import get_properties, validate_metric_type
 
 
@@ -96,6 +96,12 @@ class Metric(BaseEntity):
             "columns": [{"experimentId": self.run_id, "key": self.key}],
         }
 
+    def _build_media_payload(self) -> Dict[str, Any]:
+        return {
+            "projectId": self.project_id,
+            "columns": [{"experimentId": self.run_id, "key": self.key}],
+        }
+
     # ------------------------------------------------------------------
     # 类型专属加载
     # ------------------------------------------------------------------
@@ -118,11 +124,33 @@ class Metric(BaseEntity):
             res[field] = stat_data.get(field, {})
         return res
 
-    def _fetch_media(self) -> Dict[str, Any]:
-        return {}
+    def _fetch_media(self) -> ApiMediaSeriesType:
+        res = ApiMediaSeriesType(projectId=self.project_id, experimentId=self.run_id, key=self.key)
+        payload = self._build_media_payload()
+        raw_resp = self._post("/house/metrics/f_media", data=payload)
+        raw_data = self._extract_first(raw_resp)
+        if raw_data is None:
+            return res
+        # print(raw_data)
+        metrics: List[ApiMediaType] = []
+        prefix = f"{self.project_id}/{self.run_id}"
+        for entry in raw_data.get("metrics", []):
+            paths = entry.get("data", [])
+            mores = entry.get("more", [])
+            items = []
+            for i, path in enumerate(paths):
+                item = {"path": path}
+                if i < len(mores) and isinstance(mores[i], dict):
+                    item.update(mores[i])
+                items.append(item)
+            metrics.append({"index": entry.get("index", 0), "prefix": prefix, "items": items})
 
-    def _fetch_logs(self) -> Dict[str, Any]:
-        return {}
+        res["metrics"] = metrics
+        return res
+
+    def _fetch_logs(self) -> ApiLogSeriesType:
+        res = ApiLogSeriesType(projectId=self.project_id, experimentId=self.run_id, key="LOG")
+        return res
 
     # ------------------------------------------------------------------
     # 导出
@@ -134,6 +162,9 @@ class Metric(BaseEntity):
 
         :return: ApiResponseType，成功时 data 包含临时下载 URL
         """
+        if self.metric_type != "SCALAR":
+            err_msg = "export_csv() only support SCALAR metric_type"
+            return ApiResponseType(ok=False, errmsg=err_msg, data=None)
         resp = self._get(f"/experiment/{self._run_id}/column/csv", params={"key": self.key})
         if not resp.ok:
             return resp

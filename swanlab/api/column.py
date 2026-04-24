@@ -9,7 +9,7 @@ from typing import Any, Dict, Iterator, Optional, cast
 
 from swanlab.api.base import ApiClientContext, BaseEntity
 from swanlab.api.typings.column import ApiColumnType
-from swanlab.api.typings.common import ApiResponseType, PaginatedQuery
+from swanlab.api.typings.common import ApiMetricTypeLiteral, ApiResponseType, PaginatedQuery
 from swanlab.api.utils import get_properties, parse_column_data_type, resovle_run_path, validate_column_params
 
 
@@ -41,7 +41,7 @@ class Column(BaseEntity):
 
     def _ensure_data(self) -> ApiColumnType:
         if self._data is None:
-            validate_column_params(column_class=self._column_class)
+            validate_column_params(column_class=self._column_class, column_type=self._column_type)
             extra: Dict[str, Any] = {"search": self._key}
             if self._column_class:
                 extra["class"] = self._column_class
@@ -82,10 +82,9 @@ class Column(BaseEntity):
 
     @property
     def key(self) -> str:
-        res_key = self._ensure_data().get("key", "")
-        if res_key and res_key != self._key:
-            self._key = res_key
-        return res_key
+        if self._key:
+            return self._key
+        return self._ensure_data().get("key", "")
 
     @property
     def name(self) -> str:
@@ -112,16 +111,11 @@ class Column(BaseEntity):
         """列的错误信息。"""
         return self._ensure_data().get("error", {})
 
-    def _require_found(self) -> None:
-        """确保列数据已加载且存在，否则抛出清晰错误。"""
-        self._ensure_data()
-        if not self.key:
-            raise ValueError(f"Column '{self._key}' not found in the experiment")
-
-    def metric(self, sample: int = 1500, ignore_timestamp: bool = False) -> Dict[str, Any]:
+    def metric(
+        self, sample: int = 1500, metric_type: ApiMetricTypeLiteral = "SCALAR", ignore_timestamp: bool = False
+    ) -> Dict[str, Any]:
         from swanlab.api.metric import Metric
 
-        self._require_found()
         metric_type = parse_column_data_type(self.column_type)
         metric = Metric(
             ctx=self._ctx,
@@ -137,8 +131,10 @@ class Column(BaseEntity):
     def export_csv(self) -> ApiResponseType:
         from swanlab.api.metric import Metric
 
-        self._require_found()
         metric_type = parse_column_data_type(self.column_type)
+        if metric_type != "SCALAR":
+            err_msg = "export_csv() only support SCALAR metric_type"
+            return ApiResponseType(ok=False, errmsg=err_msg, data=None)
         metric = Metric(
             ctx=self._ctx,
             project_id=self.project_id,

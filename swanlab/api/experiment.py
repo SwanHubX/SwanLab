@@ -8,7 +8,7 @@
 from typing import Any, Dict, Iterator, List, Optional, Union, cast
 
 from swanlab.api.base import ApiClientContext, BaseEntity
-from swanlab.api.typings.common import PaginatedQuery
+from swanlab.api.typings.common import ApiMetricTypeLiteral, PaginatedQuery
 from swanlab.api.typings.experiment import (
     ApiExperimentLabelType,
     ApiExperimentProfileType,
@@ -148,15 +148,21 @@ class Experiment(BaseEntity):
             column_type=column_type,
         )
 
-    def metric(self, key: str, sample: int = 1500, ignore_timestamp: bool = False) -> Dict[str, Any]:
-        """
-        获取实验下指定列的指标数据，最大返回 1500 条。
+    def metric(
+        self, key: str, sample: int = 1500, metric_type: ApiMetricTypeLiteral = "SCALAR", ignore_timestamp: bool = False
+    ) -> Dict[str, Any]:
+        from swanlab.api.metric import Metric
 
-        :param key: 列的 key
-        :param sample: 采样条数
-        :param ignore_timestamp: 是否过滤 timestamp 字段
-        """
-        return self.column(key=key).metric(sample=sample, ignore_timestamp=ignore_timestamp)
+        metric = Metric(
+            ctx=self._ctx,
+            project_id=self.project_id,
+            run_id=self.run_id,
+            key=key,
+            sample=sample,
+            metric_type=metric_type,
+            ignore_timestamp=ignore_timestamp,
+        )
+        return metric.json()
 
     def columns(
         self,

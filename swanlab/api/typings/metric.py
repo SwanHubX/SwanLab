@@ -65,17 +65,24 @@ class ApiScalarSummaryItemType(TypedDict, total=False):
 
 
 # ---------------------------------------------------------------------------
-# Media — 媒体 item 数据
+# Media — 媒体数据
 # ---------------------------------------------------------------------------
+class ApiMediaItemDataType(TypedDict, total=False):
+    path: str
+
+
 class ApiMediaType(TypedDict, total=False):
-    # 项目路径: proj_id/run_id 拼接而成
+    index: int
     prefix: str
-    data: List[str]
-    more: List[Dict[str, Any]]
+    items: List[ApiMediaItemDataType]
+
+
+class ApiMediaSeriesType(ApiMetricColumnRefType, total=False):
+    metrics: List[ApiMediaType]
 
 
 # ---------------------------------------------------------------------------
-# Log — 日志 item 数据
+# Log — 日志数据
 # ---------------------------------------------------------------------------
 class ApiLogType(TypedDict, total=False):
     epoch: int
@@ -83,6 +90,11 @@ class ApiLogType(TypedDict, total=False):
     message: str
     tag: str
     timestamp: str
+
+
+class ApiLogSeriesType(ApiMetricColumnRefType, total=False):
+    logs: List[ApiLogType]
+    count: int
 
 
 # 统一数据类型定义用于类型提示

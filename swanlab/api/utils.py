@@ -107,12 +107,12 @@ def validate_filter(item: Dict[str, Any]) -> None:
         raise ValueError(f"filter value must be a list, got {type(item['value']).__name__}")
 
 
-def validate_metric_type(item: str, key: Optional[str] = None):
-    """校验 metric_type 的合法性"""
-    if item not in _VALID_METRIC_TYPES:
-        raise ValueError(f"Invalid metric_type: {item!r}, expected one of {sorted(_VALID_METRIC_TYPES)}")
-    if not key and item != "LOG":
-        raise ValueError("key must NOT be None if metric_type != LOG")
+def validate_metric_type(metric_type: str, key: Optional[str] = None) -> None:
+    """校验 metric_type 的合法性。非 LOG 类型必须提供非空 key。"""
+    if metric_type not in _VALID_METRIC_TYPES:
+        raise ValueError(f"Invalid metric_type: {metric_type!r}, expected one of {sorted(_VALID_METRIC_TYPES)}")
+    if metric_type != "LOG" and not key:
+        raise ValueError(f"key is required for metric_type {metric_type!r}, got key={key!r}")
 
 
 def validate_group(item: Dict[str, Any]) -> None:
