@@ -11,7 +11,7 @@ from swanlab.sdk.internal.pkg.helper import get_swanlab_version
 from swanlab.sdk.typings.probe_python import SwanLabSnapshot
 
 
-@safe.decorator(level="debug", message="Failed to get conda environment")
+@safe.decorator(level="debug", message="Failed to get swanlab environment")
 def get(ctx: RunContext) -> SwanLabSnapshot:
     """获取 SwanLab 信息快照"""
     return SwanLabSnapshot(version=get_swanlab_version(), run_dir=str(ctx.run_dir))

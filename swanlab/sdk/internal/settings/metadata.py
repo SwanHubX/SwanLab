@@ -55,7 +55,7 @@ class EnvironmentSettings(BaseModel):
 
     swanlab: bool = True
     """Controls the tracking of SwanLab metadata. 
-    When True, captures the SwanLab version, the current working directory and so on.
+    When True, captures the SwanLab version, the SwanLab run directory and so on.
     """
 
     # TODO: There are some gpu/npu specific environment variables that can be collected, such as CUDA_VISIBLE_DEVICES, ROC_VISIBLE_DEVICES, etc.
