@@ -191,6 +191,17 @@ class HardwareSnapshot(BaseModel):
     model_config = ConfigDict(frozen=True)
 
 
+class SwanLabSnapshot(BaseModel):
+    """SwanLab 相关的系统快照"""
+
+    version: Optional[str] = None
+    """SwanLab 包版本"""
+    run_dir: Optional[str] = None
+    """SwanLab 运行时目录"""
+
+    model_config = ConfigDict(frozen=True)
+
+
 # ──────────────────────────────────────────────
 # MetadataSnapshot：完整的系统快照
 # ──────────────────────────────────────────────
@@ -206,6 +217,7 @@ class MetadataSnapshot(BaseModel):
     hardware: Optional[HardwareSnapshot] = None
     runtime: Optional[RuntimeSnapshot] = None
     git: Optional[GitSnapshot] = None
+    swanlab: Optional[SwanLabSnapshot] = None
 
     def del_hardware(self):
         return self.model_copy(update={"hardware": None})

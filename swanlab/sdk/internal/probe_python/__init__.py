@@ -14,7 +14,7 @@ from google.protobuf.timestamp_pb2 import Timestamp
 from swanlab.proto.swanlab.system.v1.env_pb2 import CondaRecord, MetadataRecord, RequirementsRecord
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.pkg import fs
-from swanlab.sdk.internal.probe_python.environment import conda, git, requirements, runtime
+from swanlab.sdk.internal.probe_python.environment import conda, git, requirements, runtime, swanlab
 from swanlab.sdk.internal.probe_python.hardware_vendor.apple import Apple
 from swanlab.sdk.internal.probe_python.hardware_vendor.cpu import CPU
 from swanlab.sdk.internal.probe_python.hardware_vendor.memory import Memory
@@ -39,6 +39,8 @@ class ProbePython(ProbeProtocol):
         runtime_snapshot = runtime.get() if settings.environment.runtime else None
         conda_snapshot = conda.get() if settings.environment.conda else None
         requirements_snapshot = requirements.get() if settings.environment.requirements else None
+        swanlab_snapshot = swanlab.get(self._ctx) if settings.environment.swanlab else None
+
         # 2. 系统硬件信息采集，只有在硬件采集和监控都不开启时才不采集
         hardware_snapshot = None
         if settings.environment.hardware or settings.monitor.enable:
@@ -62,6 +64,7 @@ class ProbePython(ProbeProtocol):
             hardware=hardware_snapshot,
             git=git_snapshot,
             runtime=runtime_snapshot,
+            swanlab=swanlab_snapshot,
         )
         system_shim = SystemShim.from_snapshot(metadata, platform=sys.platform)
         # 如果硬采集被设置为False，删除硬件信息
