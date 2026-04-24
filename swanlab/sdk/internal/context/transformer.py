@@ -7,7 +7,7 @@
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, List, Union, cast
+from typing import Any, List, Union
 
 from google.protobuf.message import Message
 from google.protobuf.timestamp_pb2 import Timestamp
@@ -100,18 +100,19 @@ class TransformMedia(TransformData, ABC):
         super().__init_subclass__(**kwargs)
 
     @classmethod
-    def build_data_record(cls, *, key: str, step: int, timestamp: Timestamp, data: List[Message]) -> MediaRecord:
+    def build_data_record(cls, *, key: str, step: int, timestamp: Timestamp, data: List[MediaItem]) -> MediaRecord:
+        # 以防万一，强制类型检查
         assert isinstance(data, list) and all(isinstance(item, MediaItem) for item in data)
         return MediaRecord(
             key=key,
             step=step,
             timestamp=timestamp,
             type=cls.column_type(),
-            value=MediaValue(items=cast(List[MediaItem], data)),
+            value=MediaValue(items=data),
         )
 
     @abstractmethod
-    def transform(self, *, step: int, path: Path) -> Message:
+    def transform(self, *, step: int, path: Path) -> MediaItem:
         """
         将媒体数据转换为Protobuf格式，并将结果写入指定目录下
         :param step: 步数

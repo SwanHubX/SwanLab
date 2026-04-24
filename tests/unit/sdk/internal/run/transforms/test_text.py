@@ -47,6 +47,20 @@ class TestTextTransform:
         assert result.caption == "Test caption"
         assert (tmp_path / result.filename).read_text(encoding="utf-8") == "Sample text for testing"
 
+    def test_text_transform_sha256_correct(self, tmp_path: Path):
+        """MediaItem.sha256 与内容一致"""
+        import hashlib
+
+        text = Text(content="hello world")
+        result = text.transform(step=1, path=tmp_path)
+        assert result.sha256 == hashlib.sha256(b"hello world").hexdigest()
+
+    def test_text_transform_size_correct(self, tmp_path: Path):
+        """MediaItem.size 与内容字节数一致"""
+        text = Text(content="hello world")
+        result = text.transform(step=1, path=tmp_path)
+        assert result.size == len(b"hello world")
+
     def test_text_transform_nested_content_written(self, tmp_path: Path):
         """套娃时，落盘内容为内层解包后的 content"""
         inner = Text(content="AI generated text", caption="old caption")

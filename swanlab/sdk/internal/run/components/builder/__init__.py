@@ -51,7 +51,7 @@ class RecordBuilder:
 
     @build_log.register(TransformMedia)
     def _(self, value: TransformMedia, key: str, timestamp: Timestamp, step: int) -> ParseResult:
-        """将单个 TransformMediaType 转换为 DataRecord"""
+        """将单个 TransformMediaType 转换为 MediaRecord"""
         cls = value.__class__
         path = self._ctx.media_dir / adapter.column_type[cls.column_type()]
         fs.safe_mkdir(path)
