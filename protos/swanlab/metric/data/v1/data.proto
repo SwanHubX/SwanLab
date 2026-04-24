@@ -21,11 +21,10 @@ message MediaValue {
 
 // 单条媒体的文件引用与元数据。
 message MediaItem {
-  string dirname          = 1;
-  string filename         = 2;
-  string sha256           = 3;
-  int64  size             = 4;  // 文件大小（bytes）
-  string caption          = 5;
+  string filename         = 1;
+  string sha256           = 2;
+  int64  size             = 3;  // 文件大小（bytes）
+  string caption          = 4;
 }
 
 

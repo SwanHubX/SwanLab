@@ -9,7 +9,7 @@ from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.proto.swanlab.config.v1.config_pb2 import ConfigRecord
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord
-from swanlab.proto.swanlab.metric.data.v1.data_pb2 import DataRecord
+from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord, ScalarRecord
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord, StartRecord
 from swanlab.proto.swanlab.system.v1.console_pb2 import ConsoleRecord
@@ -24,6 +24,8 @@ __all__ = [
     "build_metadata_record",
     "build_requirements_record",
     "build_conda_record",
+    "build_media_record",
+    "build_scalar_record",
 ]
 
 
@@ -66,11 +68,18 @@ def build_column_record(counter: Counter, column_record: ColumnRecord):
     return Record(num=counter.inc(), column=column_record, timestamp=_now())
 
 
-def build_data_record(counter: Counter, data_record: DataRecord):
+def build_scalar_record(counter: Counter, scalar_record: ScalarRecord):
     """
     构建数据记录
     """
-    return Record(num=counter.inc(), data=data_record, timestamp=_now())
+    return Record(num=counter.inc(), scalar=scalar_record, timestamp=_now())
+
+
+def build_media_record(counter: Counter, media_record: MediaRecord):
+    """
+    构建数据记录
+    """
+    return Record(num=counter.inc(), media=media_record, timestamp=_now())
 
 
 def build_console_record(counter: Counter, console_record: ConsoleRecord):

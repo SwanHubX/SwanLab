@@ -117,11 +117,10 @@ func (x *MediaValue) GetItems() []*MediaItem {
 // 单条媒体的文件引用与元数据。
 type MediaItem struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Dirname       string                 `protobuf:"bytes,1,opt,name=dirname,proto3" json:"dirname,omitempty"`
-	Filename      string                 `protobuf:"bytes,2,opt,name=filename,proto3" json:"filename,omitempty"`
-	Sha256        string                 `protobuf:"bytes,3,opt,name=sha256,proto3" json:"sha256,omitempty"`
-	Size          int64                  `protobuf:"varint,4,opt,name=size,proto3" json:"size,omitempty"` // 文件大小（bytes）
-	Caption       string                 `protobuf:"bytes,5,opt,name=caption,proto3" json:"caption,omitempty"`
+	Filename      string                 `protobuf:"bytes,1,opt,name=filename,proto3" json:"filename,omitempty"`
+	Sha256        string                 `protobuf:"bytes,2,opt,name=sha256,proto3" json:"sha256,omitempty"`
+	Size          int64                  `protobuf:"varint,3,opt,name=size,proto3" json:"size,omitempty"` // 文件大小（bytes）
+	Caption       string                 `protobuf:"bytes,4,opt,name=caption,proto3" json:"caption,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -154,13 +153,6 @@ func (x *MediaItem) ProtoReflect() protoreflect.Message {
 // Deprecated: Use MediaItem.ProtoReflect.Descriptor instead.
 func (*MediaItem) Descriptor() ([]byte, []int) {
 	return file_swanlab_metric_data_v1_data_proto_rawDescGZIP(), []int{2}
-}
-
-func (x *MediaItem) GetDirname() string {
-	if x != nil {
-		return x.Dirname
-	}
-	return ""
 }
 
 func (x *MediaItem) GetFilename() string {
@@ -362,13 +354,12 @@ const file_swanlab_metric_data_v1_data_proto_rawDesc = "" +
 	"\x06number\x18\x01 \x01(\x01R\x06number\"E\n" +
 	"\n" +
 	"MediaValue\x127\n" +
-	"\x05items\x18\x01 \x03(\v2!.swanlab.metric.data.v1.MediaItemR\x05items\"\x87\x01\n" +
-	"\tMediaItem\x12\x18\n" +
-	"\adirname\x18\x01 \x01(\tR\adirname\x12\x1a\n" +
-	"\bfilename\x18\x02 \x01(\tR\bfilename\x12\x16\n" +
-	"\x06sha256\x18\x03 \x01(\tR\x06sha256\x12\x12\n" +
-	"\x04size\x18\x04 \x01(\x03R\x04size\x12\x18\n" +
-	"\acaption\x18\x05 \x01(\tR\acaption\"\xe3\x01\n" +
+	"\x05items\x18\x01 \x03(\v2!.swanlab.metric.data.v1.MediaItemR\x05items\"m\n" +
+	"\tMediaItem\x12\x1a\n" +
+	"\bfilename\x18\x01 \x01(\tR\bfilename\x12\x16\n" +
+	"\x06sha256\x18\x02 \x01(\tR\x06sha256\x12\x12\n" +
+	"\x04size\x18\x03 \x01(\x03R\x04size\x12\x18\n" +
+	"\acaption\x18\x04 \x01(\tR\acaption\"\xe3\x01\n" +
 	"\fScalarRecord\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04step\x18\x02 \x01(\x03R\x04step\x128\n" +

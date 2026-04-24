@@ -22,7 +22,7 @@ from typing import List, Optional
 
 from swanlab.proto.swanlab.config.v1.config_pb2 import ConfigRecord
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord
-from swanlab.proto.swanlab.metric.data.v1.data_pb2 import DataRecord
+from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord, ScalarRecord
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.run.v1.run_pb2 import (
     FinishRecord,
@@ -192,18 +192,33 @@ class CorePython(CoreProtocol):
         self._store_records(records)
         self._transport_put(records)
 
-    # ---- upsert_data ----
+    # ---- upsert_scalars ----
 
-    def _upsert_data_when_local(self, data: List[DataRecord]) -> None:
-        records = [builder.build_data_record(self._counter, d) for d in data]
+    def _upsert_scalars_when_local(self, scalars: List[ScalarRecord]) -> None:
+        records = [builder.build_scalar_record(self._counter, d) for d in scalars]
         self._store_records(records)
 
-    def _upsert_data_when_offline(self, data: List[DataRecord]) -> None:
-        records = [builder.build_data_record(self._counter, d) for d in data]
+    def _upsert_scalars_when_offline(self, scalars: List[ScalarRecord]) -> None:
+        records = [builder.build_scalar_record(self._counter, d) for d in scalars]
         self._store_records(records)
 
-    def _upsert_data_when_cloud(self, data: List[DataRecord]) -> None:
-        records = [builder.build_data_record(self._counter, d) for d in data]
+    def _upsert_scalars_when_cloud(self, scalars: List[ScalarRecord]) -> None:
+        records = [builder.build_scalar_record(self._counter, d) for d in scalars]
+        self._store_records(records)
+        self._transport_put(records)
+
+    # ---- upsert_media -----
+
+    def _upsert_media_when_local(self, media: List[MediaRecord]) -> None:
+        records = [builder.build_media_record(self._counter, d) for d in media]
+        self._store_records(records)
+
+    def _upsert_media_when_offline(self, media: List[MediaRecord]) -> None:
+        records = [builder.build_media_record(self._counter, d) for d in media]
+        self._store_records(records)
+
+    def _upsert_media_when_cloud(self, media: List[MediaRecord]) -> None:
+        records = [builder.build_media_record(self._counter, d) for d in media]
         self._store_records(records)
         self._transport_put(records)
 

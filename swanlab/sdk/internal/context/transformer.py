@@ -7,13 +7,13 @@
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, List
+from typing import Any, List, Union, cast
 
 from google.protobuf.message import Message
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
-from swanlab.proto.swanlab.metric.data.v1.data_pb2 import DataRecord
+from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaItem, MediaRecord, MediaValue, ScalarRecord
 
 
 class TransformData(ABC):
@@ -25,7 +25,7 @@ class TransformData(ABC):
     设计为静态方法的另一个原因是考虑到大规模数据传输时，静态方法可以避免实例化开销，提高性能。
 
     每个子类在实现 __init__ 时必须考虑套娃问题，我们约定外层参数的优先级高于内层参数，例如：
-    >>> from swanlab.proto.swanlab.metric.data.v1.media.text_pb2 import TextItem, TextValue
+    >>> from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaItem, MediaValue, MediaRecord
     >>>
     >>> class MyTransform(TransformData):
     >>>     def __init__(self, text: str | MyTransform, foo: Any = None):
@@ -33,12 +33,12 @@ class TransformData(ABC):
     >>>         attrs = self._unwrap(text)
     >>>         self.text = attrs.get("text", text)
     >>>         self.foo = foo if foo is not None else attrs.get("foo")
-    >>>     def transform(self, *, key: str, step: int, data: str = None) -> TextItem:
-    >>>         return TextItem(filename=f"{key}-{step:03d}.__swanlab__.txt", content=data or "")
     >>>     @classmethod
-    >>>     def build_data_record(cls,*, key: str, step: int, timestamp: Timestamp, data: Any) -> DataRecord:
-    >>>         value = TextValue(items=[data])
-    >>>         return DataRecord(key=key, step=step, texts=value)
+    >>>     def build_data_record(cls,*, key: str, step: int, timestamp: Timestamp, data: Any) -> MediaRecord:
+    >>>         value = MediaValue(items=[data])
+    >>>         return MediaRecord(key=key, step=step, texts=value)
+    >>>     def transform(self, *, key: str, step: int, data: str = None) -> MediaItem:
+    >>>         return MediaItem(filename=f"{key}-{step:03d}.__swanlab__.txt", content=data or "")
     >>>     @classmethod
     >>>     def column_type(cls) -> ColumnType:
     >>>         return ColumnType.COLUMN_TYPE_TEXT
@@ -51,7 +51,7 @@ class TransformData(ABC):
 
     >>> # 生成 MetricRecord
     >>> t = MyTransform("hello")
-    >>> metric_record = t.build_data_record(t.transform("key", 1))
+    >>> metric_record = t.build_data_record(key="test", step=1, timestamp=Timestamp(), data=t.transform(key="test", step=1))
     >>> print(metric_record)
     """
 
@@ -75,7 +75,14 @@ class TransformData(ABC):
 
     @classmethod
     @abstractmethod
-    def build_data_record(cls, *, key: str, step: int, timestamp: Timestamp, data: Any) -> DataRecord:
+    def build_data_record(
+        cls,
+        *,
+        key: str,
+        step: int,
+        timestamp: Timestamp,
+        data: Any,
+    ) -> Union[MediaRecord, ScalarRecord]:
         """构建 DataRecord envelope"""
         ...
 
@@ -93,10 +100,15 @@ class TransformMedia(TransformData, ABC):
         super().__init_subclass__(**kwargs)
 
     @classmethod
-    @abstractmethod
-    def build_data_record(cls, *, key: str, step: int, timestamp: Timestamp, data: List[Any]) -> DataRecord:
-        """构建 DataRecord envelope"""
-        ...
+    def build_data_record(cls, *, key: str, step: int, timestamp: Timestamp, data: List[Message]) -> MediaRecord:
+        assert isinstance(data, list) and all(isinstance(item, MediaItem) for item in data)
+        return MediaRecord(
+            key=key,
+            step=step,
+            timestamp=timestamp,
+            type=cls.column_type(),
+            value=MediaValue(items=cast(List[MediaItem], data)),
+        )
 
     @abstractmethod
     def transform(self, *, step: int, path: Path) -> Message:

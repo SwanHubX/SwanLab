@@ -72,27 +72,27 @@ func (x *UpsertColumnsRequest) GetColumns() []*v1.ColumnRecord {
 	return nil
 }
 
-type UpsertScalarRequest struct {
+type UpsertScalarsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Data          []*v11.ScalarRecord    `protobuf:"bytes,1,rep,name=data,proto3" json:"data,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *UpsertScalarRequest) Reset() {
-	*x = UpsertScalarRequest{}
+func (x *UpsertScalarsRequest) Reset() {
+	*x = UpsertScalarsRequest{}
 	mi := &file_swanlab_record_v1_record_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *UpsertScalarRequest) String() string {
+func (x *UpsertScalarsRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*UpsertScalarRequest) ProtoMessage() {}
+func (*UpsertScalarsRequest) ProtoMessage() {}
 
-func (x *UpsertScalarRequest) ProtoReflect() protoreflect.Message {
+func (x *UpsertScalarsRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_swanlab_record_v1_record_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -104,12 +104,12 @@ func (x *UpsertScalarRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use UpsertScalarRequest.ProtoReflect.Descriptor instead.
-func (*UpsertScalarRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use UpsertScalarsRequest.ProtoReflect.Descriptor instead.
+func (*UpsertScalarsRequest) Descriptor() ([]byte, []int) {
 	return file_swanlab_record_v1_record_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *UpsertScalarRequest) GetData() []*v11.ScalarRecord {
+func (x *UpsertScalarsRequest) GetData() []*v11.ScalarRecord {
 	if x != nil {
 		return x.Data
 	}
@@ -636,8 +636,8 @@ const file_swanlab_record_v1_record_proto_rawDesc = "" +
 	"\n" +
 	"\x1eswanlab/record/v1/record.proto\x12\x11swanlab.record.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x18swanlab/run/v1/run.proto\x1a!swanlab/metric/data/v1/data.proto\x1a%swanlab/metric/column/v1/column.proto\x1a\x1eswanlab/config/v1/config.proto\x1a\x1bswanlab/system/v1/env.proto\x1a\x1fswanlab/system/v1/console.proto\"X\n" +
 	"\x14UpsertColumnsRequest\x12@\n" +
-	"\acolumns\x18\x01 \x03(\v2&.swanlab.metric.column.v1.ColumnRecordR\acolumns\"O\n" +
-	"\x13UpsertScalarRequest\x128\n" +
+	"\acolumns\x18\x01 \x03(\v2&.swanlab.metric.column.v1.ColumnRecordR\acolumns\"P\n" +
+	"\x14UpsertScalarsRequest\x128\n" +
 	"\x04data\x18\x01 \x03(\v2$.swanlab.metric.data.v1.ScalarRecordR\x04data\"M\n" +
 	"\x12UpsertMediaRequest\x127\n" +
 	"\x04data\x18\x01 \x03(\v2#.swanlab.metric.data.v1.MediaRecordR\x04data\"Q\n" +
@@ -665,11 +665,11 @@ const file_swanlab_record_v1_record_proto_rawDesc = "" +
 	"\bmetadata\x18\x11 \x01(\v2!.swanlab.system.v1.MetadataRecordH\x00R\bmetadata\x12K\n" +
 	"\frequirements\x18\x12 \x01(\v2%.swanlab.system.v1.RequirementsRecordH\x00R\frequirements\x126\n" +
 	"\x05conda\x18\x13 \x01(\v2\x1e.swanlab.system.v1.CondaRecordH\x00R\x05condaB\r\n" +
-	"\vrecord_type2\xc4\x06\n" +
+	"\vrecord_type2\xc6\x06\n" +
 	"\rRecordService\x12M\n" +
 	"\x0fDeliverRunStart\x12\x1b.swanlab.run.v1.StartRecord\x1a\x1d.swanlab.run.v1.StartResponse\x12P\n" +
-	"\rUpsertColumns\x12'.swanlab.record.v1.UpsertColumnsRequest\x1a\x16.google.protobuf.Empty\x12N\n" +
-	"\fUpsertScalar\x12&.swanlab.record.v1.UpsertScalarRequest\x1a\x16.google.protobuf.Empty\x12L\n" +
+	"\rUpsertColumns\x12'.swanlab.record.v1.UpsertColumnsRequest\x1a\x16.google.protobuf.Empty\x12P\n" +
+	"\rUpsertScalars\x12'.swanlab.record.v1.UpsertScalarsRequest\x1a\x16.google.protobuf.Empty\x12L\n" +
 	"\vUpsertMedia\x12%.swanlab.record.v1.UpsertMediaRequest\x1a\x16.google.protobuf.Empty\x12P\n" +
 	"\rUpsertConfigs\x12'.swanlab.record.v1.UpsertConfigsRequest\x1a\x16.google.protobuf.Empty\x12R\n" +
 	"\x0eUpsertConsoles\x12(.swanlab.record.v1.UpsertConsolesRequest\x1a\x16.google.protobuf.Empty\x12Z\n" +
@@ -693,7 +693,7 @@ func file_swanlab_record_v1_record_proto_rawDescGZIP() []byte {
 var file_swanlab_record_v1_record_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_swanlab_record_v1_record_proto_goTypes = []any{
 	(*UpsertColumnsRequest)(nil),      // 0: swanlab.record.v1.UpsertColumnsRequest
-	(*UpsertScalarRequest)(nil),       // 1: swanlab.record.v1.UpsertScalarRequest
+	(*UpsertScalarsRequest)(nil),      // 1: swanlab.record.v1.UpsertScalarsRequest
 	(*UpsertMediaRequest)(nil),        // 2: swanlab.record.v1.UpsertMediaRequest
 	(*UpsertConfigsRequest)(nil),      // 3: swanlab.record.v1.UpsertConfigsRequest
 	(*UpsertConsolesRequest)(nil),     // 4: swanlab.record.v1.UpsertConsolesRequest
@@ -718,7 +718,7 @@ var file_swanlab_record_v1_record_proto_goTypes = []any{
 }
 var file_swanlab_record_v1_record_proto_depIdxs = []int32{
 	9,  // 0: swanlab.record.v1.UpsertColumnsRequest.columns:type_name -> swanlab.metric.column.v1.ColumnRecord
-	10, // 1: swanlab.record.v1.UpsertScalarRequest.data:type_name -> swanlab.metric.data.v1.ScalarRecord
+	10, // 1: swanlab.record.v1.UpsertScalarsRequest.data:type_name -> swanlab.metric.data.v1.ScalarRecord
 	11, // 2: swanlab.record.v1.UpsertMediaRequest.data:type_name -> swanlab.metric.data.v1.MediaRecord
 	12, // 3: swanlab.record.v1.UpsertConfigsRequest.configs:type_name -> swanlab.config.v1.ConfigRecord
 	13, // 4: swanlab.record.v1.UpsertConsolesRequest.consoles:type_name -> swanlab.system.v1.ConsoleRecord
@@ -738,7 +738,7 @@ var file_swanlab_record_v1_record_proto_depIdxs = []int32{
 	16, // 18: swanlab.record.v1.Record.conda:type_name -> swanlab.system.v1.CondaRecord
 	18, // 19: swanlab.record.v1.RecordService.DeliverRunStart:input_type -> swanlab.run.v1.StartRecord
 	0,  // 20: swanlab.record.v1.RecordService.UpsertColumns:input_type -> swanlab.record.v1.UpsertColumnsRequest
-	1,  // 21: swanlab.record.v1.RecordService.UpsertScalar:input_type -> swanlab.record.v1.UpsertScalarRequest
+	1,  // 21: swanlab.record.v1.RecordService.UpsertScalars:input_type -> swanlab.record.v1.UpsertScalarsRequest
 	2,  // 22: swanlab.record.v1.RecordService.UpsertMedia:input_type -> swanlab.record.v1.UpsertMediaRequest
 	3,  // 23: swanlab.record.v1.RecordService.UpsertConfigs:input_type -> swanlab.record.v1.UpsertConfigsRequest
 	4,  // 24: swanlab.record.v1.RecordService.UpsertConsoles:input_type -> swanlab.record.v1.UpsertConsolesRequest
@@ -748,7 +748,7 @@ var file_swanlab_record_v1_record_proto_depIdxs = []int32{
 	19, // 28: swanlab.record.v1.RecordService.DeliverRunFinish:input_type -> swanlab.run.v1.FinishRecord
 	20, // 29: swanlab.record.v1.RecordService.DeliverRunStart:output_type -> swanlab.run.v1.StartResponse
 	21, // 30: swanlab.record.v1.RecordService.UpsertColumns:output_type -> google.protobuf.Empty
-	21, // 31: swanlab.record.v1.RecordService.UpsertScalar:output_type -> google.protobuf.Empty
+	21, // 31: swanlab.record.v1.RecordService.UpsertScalars:output_type -> google.protobuf.Empty
 	21, // 32: swanlab.record.v1.RecordService.UpsertMedia:output_type -> google.protobuf.Empty
 	21, // 33: swanlab.record.v1.RecordService.UpsertConfigs:output_type -> google.protobuf.Empty
 	21, // 34: swanlab.record.v1.RecordService.UpsertConsoles:output_type -> google.protobuf.Empty

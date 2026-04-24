@@ -47,9 +47,9 @@ class RecordServiceStub(object):
                 request_serializer=swanlab_dot_record_dot_v1_dot_record__pb2.UpsertColumnsRequest.SerializeToString,
                 response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
                 _registered_method=True)
-        self.UpsertScalar = channel.unary_unary(
-                '/swanlab.record.v1.RecordService/UpsertScalar',
-                request_serializer=swanlab_dot_record_dot_v1_dot_record__pb2.UpsertScalarRequest.SerializeToString,
+        self.UpsertScalars = channel.unary_unary(
+                '/swanlab.record.v1.RecordService/UpsertScalars',
+                request_serializer=swanlab_dot_record_dot_v1_dot_record__pb2.UpsertScalarsRequest.SerializeToString,
                 response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
                 _registered_method=True)
         self.UpsertMedia = channel.unary_unary(
@@ -107,8 +107,8 @@ class RecordServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def UpsertScalar(self, request, context):
-        """UpsertScalar 接收一组 DataRecord 并写入，每一条记录用于记录某一个指标的值
+    def UpsertScalars(self, request, context):
+        """UpsertScalar 接收一组 ScalarRecord 并写入，每一条记录用于记录某一个指标的值
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -176,9 +176,9 @@ def add_RecordServiceServicer_to_server(servicer, server):
                     request_deserializer=swanlab_dot_record_dot_v1_dot_record__pb2.UpsertColumnsRequest.FromString,
                     response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
             ),
-            'UpsertScalar': grpc.unary_unary_rpc_method_handler(
-                    servicer.UpsertScalar,
-                    request_deserializer=swanlab_dot_record_dot_v1_dot_record__pb2.UpsertScalarRequest.FromString,
+            'UpsertScalars': grpc.unary_unary_rpc_method_handler(
+                    servicer.UpsertScalars,
+                    request_deserializer=swanlab_dot_record_dot_v1_dot_record__pb2.UpsertScalarsRequest.FromString,
                     response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
             ),
             'UpsertMedia': grpc.unary_unary_rpc_method_handler(
@@ -283,7 +283,7 @@ class RecordService(object):
             _registered_method=True)
 
     @staticmethod
-    def UpsertScalar(request,
+    def UpsertScalars(request,
             target,
             options=(),
             channel_credentials=None,
@@ -296,8 +296,8 @@ class RecordService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/swanlab.record.v1.RecordService/UpsertScalar',
-            swanlab_dot_record_dot_v1_dot_record__pb2.UpsertScalarRequest.SerializeToString,
+            '/swanlab.record.v1.RecordService/UpsertScalars',
+            swanlab_dot_record_dot_v1_dot_record__pb2.UpsertScalarsRequest.SerializeToString,
             google_dot_protobuf_dot_empty__pb2.Empty.FromString,
             options,
             channel_credentials,

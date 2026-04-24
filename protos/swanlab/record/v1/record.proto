@@ -21,8 +21,8 @@ service RecordService {
   // UpsertColumn 接收一组 ColumnRecord 并写入，每一条记录用于定义某一个指标
   rpc UpsertColumns(UpsertColumnsRequest) returns (google.protobuf.Empty);
 
-  // UpsertScalar 接收一组 DataRecord 并写入，每一条记录用于记录某一个指标的值
-  rpc UpsertScalar(UpsertScalarRequest) returns (google.protobuf.Empty);
+  // UpsertScalar 接收一组 ScalarRecord 并写入，每一条记录用于记录某一个指标的值
+  rpc UpsertScalars(UpsertScalarsRequest) returns (google.protobuf.Empty);
 
   // UpsertMedia 接收一组 MediaRecord 并写入，每一条记录用于记录某一个指标的值
   rpc UpsertMedia(UpsertMediaRequest) returns (google.protobuf.Empty);
@@ -50,7 +50,7 @@ message UpsertColumnsRequest {
   repeated swanlab.metric.column.v1.ColumnRecord columns = 1;
 }
 
-message UpsertScalarRequest {
+message UpsertScalarsRequest {
   repeated swanlab.metric.data.v1.ScalarRecord data = 1;
 }
 

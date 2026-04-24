@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, List, Tuple
 
 from swanlab.proto.swanlab.config.v1.config_pb2 import ConfigRecord
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord, ColumnType
-from swanlab.proto.swanlab.metric.data.v1.data_pb2 import DataRecord
+from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord, ScalarRecord
 from swanlab.proto.swanlab.system.v1.console_pb2 import ConsoleRecord
 from swanlab.sdk.internal.bus.emitter import RunQueue
 from swanlab.sdk.internal.bus.events import ConfigEvent, ConsoleEvent, MetricLogEvent, ScalarDefineEvent
@@ -26,8 +26,9 @@ if TYPE_CHECKING:
 ConfigBatch = List[ConfigRecord]
 ConsoleBatch = List[ConsoleRecord]
 ColumnBatch = List[ColumnRecord]
-DataBatch = List[DataRecord]
-BatchTuple = Tuple[ConfigBatch, ConsoleBatch, ColumnBatch, DataBatch]
+ScalarBatch = List[ScalarRecord]
+MediaBatch = List[MediaRecord]
+BatchTuple = Tuple[ConfigBatch, ConsoleBatch, ColumnBatch, ScalarBatch, MediaBatch]
 
 
 class ConsumerProtocol(ABC):
@@ -81,7 +82,8 @@ class BackgroundConsumer(ConsumerProtocol):
         self._config_batch: ConfigBatch = []
         self._console_batch: ConsoleBatch = []
         self._column_batch: ColumnBatch = []
-        self._data_batch: DataBatch = []
+        self._media_batch: MediaBatch = []
+        self._scalar_batch: ScalarBatch = []
 
     def start(self) -> None:
         self._thread.start()
@@ -95,7 +97,13 @@ class BackgroundConsumer(ConsumerProtocol):
 
     @property
     def _batch_len(self) -> int:
-        return len(self._config_batch) + len(self._console_batch) + len(self._column_batch) + len(self._data_batch)
+        return (
+            len(self._config_batch)
+            + len(self._console_batch)
+            + len(self._column_batch)
+            + len(self._scalar_batch)
+            + len(self._media_batch)
+        )
 
     @property
     def _batch_full(self) -> bool:
@@ -110,12 +118,14 @@ class BackgroundConsumer(ConsumerProtocol):
             self._config_batch,
             self._console_batch,
             self._column_batch,
-            self._data_batch,
+            self._scalar_batch,
+            self._media_batch,
         )
         self._config_batch = []
         self._console_batch = []
         self._column_batch = []
-        self._data_batch = []
+        self._scalar_batch = []
+        self._media_batch = []
         return batches
 
     def _restore_batches(
@@ -123,7 +133,8 @@ class BackgroundConsumer(ConsumerProtocol):
         config_batch: ConfigBatch,
         console_batch: ConsoleBatch,
         column_batch: ColumnBatch,
-        data_batch: DataBatch,
+        scalar_batch: ScalarBatch,
+        media_batch: MediaBatch,
     ) -> None:
         # 失败的旧数据插回队头，优先于 flush 期间新进来的数据重试
         if config_batch:
@@ -132,8 +143,10 @@ class BackgroundConsumer(ConsumerProtocol):
             self._console_batch[:0] = console_batch
         if column_batch:
             self._column_batch[:0] = column_batch
-        if data_batch:
-            self._data_batch[:0] = data_batch
+        if scalar_batch:
+            self._scalar_batch[:0] = scalar_batch
+        if media_batch:
+            self._media_batch[:0] = media_batch
 
     def _run(self) -> None:
         while True:
@@ -170,9 +183,11 @@ class BackgroundConsumer(ConsumerProtocol):
                 if not defined:
                     this_column = self._builder.build_column_from_log(cls, key)
                     self._column_batch.append(this_column)
-                if cls.column_type() == ColumnType.COLUMN_TYPE_FLOAT:
-                    self._metrics.update_scalar(key, data_record.scalar.number)
-                self._data_batch.append(data_record)
+                if isinstance(data_record, ScalarRecord):
+                    self._metrics.update_scalar(key, data_record.value.number)
+                    self._scalar_batch.append(data_record)
+                else:
+                    self._media_batch.append(data_record)
 
     def _handle_scalar_define(self, event: ScalarDefineEvent) -> None:
         defined = self._metrics.ensure_defined_as(event.key, ColumnType.COLUMN_TYPE_FLOAT)
@@ -185,13 +200,15 @@ class BackgroundConsumer(ConsumerProtocol):
     def _flush(self) -> None:
         if self._batch_empty:
             return
-        config_batch, console_batch, column_batch, data_batch = self._take_batches()
+        config_batch, console_batch, column_batch, scalar_batch, media_batch = self._take_batches()
         # 某一步失败时，只回塞“当前未成功提交”的部分，避免重复写入
         # 提交失败时静默显示在 debug 日志中，不打印到控制台
         with safe.block(
             message="Error when flushing batch",
             write_to_tty=False,
-            on_error=lambda _: self._restore_batches(config_batch, console_batch, column_batch, data_batch),
+            on_error=lambda _: self._restore_batches(
+                config_batch, console_batch, column_batch, scalar_batch, media_batch
+            ),
         ):
             if config_batch:
                 self._core.upsert_configs(config_batch)
@@ -205,6 +222,10 @@ class BackgroundConsumer(ConsumerProtocol):
                 self._core.upsert_columns(column_batch)
                 column_batch = []
 
-            if data_batch:
-                self._core.upsert_data(data_batch)
-                data_batch = []
+            if scalar_batch:
+                self._core.upsert_scalars(scalar_batch)
+                scalar_batch = []
+
+            if media_batch:
+                self._core.upsert_media(media_batch)
+                media_batch = []

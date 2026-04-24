@@ -13,7 +13,7 @@ import soundfile as sf
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
-from swanlab.proto.swanlab.metric.data.v1.media.audio_pb2 import AudioItem
+from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaItem
 from swanlab.sdk.internal.run.transforms.audio import Audio
 
 # ---------------------------------- Fixtures ----------------------------------
@@ -141,7 +141,7 @@ class TestAudioColumnType:
 
 class TestAudioBuildDataRecord:
     def test_build_data_record_structure(self, mono_array, tmp_path):
-        """build_data_record 返回正确结构的 DataRecord"""
+        """build_data_record 返回正确结构的 MediaRecord"""
         audio = Audio(mono_array)
         item = audio.transform(step=1, path=tmp_path)
         ts = Timestamp()
@@ -150,17 +150,17 @@ class TestAudioBuildDataRecord:
         assert record.key == "loss"
         assert record.step == 1
         assert record.type == ColumnType.COLUMN_TYPE_AUDIO
-        assert len(record.audios.items) == 1
-        assert record.audios.items[0].filename == item.filename
-        assert record.audios.items[0].sha256 == item.sha256
+        assert len(record.value.items) == 1
+        assert record.value.items[0].filename == item.filename
+        assert record.value.items[0].sha256 == item.sha256
 
     def test_build_data_record_multiple_items(self, mono_array, stereo_array, tmp_path):
-        """build_data_record 支持多个 AudioItem"""
+        """build_data_record 支持多个 MediaItem"""
         a1 = Audio(mono_array).transform(step=1, path=tmp_path)
         a2 = Audio(stereo_array).transform(step=1, path=tmp_path)
         ts = Timestamp()
         record = Audio.build_data_record(key="k", step=1, timestamp=ts, data=[a1, a2])
-        assert len(record.audios.items) == 2
+        assert len(record.value.items) == 2
 
 
 # ---------------------------------- transform 测试 ----------------------------------
@@ -168,9 +168,9 @@ class TestAudioBuildDataRecord:
 
 class TestAudioTransform:
     def test_transform_returns_audio_item(self, mono_array, tmp_path):
-        """transform 返回 AudioItem"""
+        """transform 返回 MediaItem"""
         item = Audio(mono_array).transform(step=1, path=tmp_path)
-        assert isinstance(item, AudioItem)
+        assert isinstance(item, MediaItem)
 
     def test_transform_sha256_correct(self, mono_array, tmp_path):
         """AudioItem.sha256 与落盘文件内容一致"""

@@ -9,7 +9,7 @@ from pathlib import Path
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
-from swanlab.proto.swanlab.metric.data.v1.media.text_pb2 import TextItem
+from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaItem
 from swanlab.sdk.internal.run.transforms.text import Text
 
 

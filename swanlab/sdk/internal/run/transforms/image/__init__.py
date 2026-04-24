@@ -8,14 +8,11 @@
 import hashlib
 from io import BytesIO
 from pathlib import Path
-from typing import List, Optional, get_args
-
-from google.protobuf.timestamp_pb2 import Timestamp
+from typing import Optional, get_args
 
 from swanlab import vendor
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
-from swanlab.proto.swanlab.metric.data.v1.data_pb2 import DataRecord
-from swanlab.proto.swanlab.metric.data.v1.media.image_pb2 import ImageItem, ImageValue
+from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaItem
 from swanlab.sdk.internal.context import TransformMedia
 from swanlab.sdk.internal.pkg import fs
 from swanlab.sdk.typings.run.transforms import CaptionType
@@ -158,15 +155,9 @@ class Image(TransformMedia):
     def column_type(cls) -> ColumnType:
         return ColumnType.COLUMN_TYPE_IMAGE
 
-    @classmethod
-    def build_data_record(cls, *, key: str, step: int, timestamp: Timestamp, data: List[ImageItem]) -> DataRecord:
-        return DataRecord(
-            key=key, step=step, timestamp=timestamp, type=cls.column_type(), images=ImageValue(items=data)
-        )
-
-    def transform(self, *, step: int, path: Path) -> ImageItem:
+    def transform(self, *, step: int, path: Path) -> MediaItem:
         content = self.buffer.getvalue()
         sha256 = hashlib.sha256(content).hexdigest()
         filename = f"{step:03d}-{sha256[:8]}.{self.file_type}"
         fs.safe_write(path / filename, content, mode="wb")
-        return ImageItem(filename=filename, sha256=sha256, size=len(content), caption=self.caption or "")
+        return MediaItem(filename=filename, sha256=sha256, size=len(content), caption=self.caption or "")

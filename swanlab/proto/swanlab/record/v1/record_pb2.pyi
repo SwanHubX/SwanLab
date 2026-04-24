@@ -22,7 +22,7 @@ class UpsertColumnsRequest(_message.Message):
     columns: _containers.RepeatedCompositeFieldContainer[_column_pb2.ColumnRecord]
     def __init__(self, columns: _Optional[_Iterable[_Union[_column_pb2.ColumnRecord, _Mapping]]] = ...) -> None: ...
 
-class UpsertScalarRequest(_message.Message):
+class UpsertScalarsRequest(_message.Message):
     __slots__ = ("data",)
     DATA_FIELD_NUMBER: _ClassVar[int]
     data: _containers.RepeatedCompositeFieldContainer[_data_pb2.ScalarRecord]

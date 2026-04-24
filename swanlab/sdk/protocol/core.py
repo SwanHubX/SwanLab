@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, List
 
 from swanlab.proto.swanlab.config.v1.config_pb2 import ConfigRecord
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord
-from swanlab.proto.swanlab.metric.data.v1.data_pb2 import DataRecord
+from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord, ScalarRecord
 from swanlab.proto.swanlab.run.v1.run_pb2 import (
     FinishRecord,
     FinishResponse,
@@ -97,29 +97,53 @@ class CoreProtocol(ABC):
     @abstractmethod
     def _upsert_columns_when_cloud(self, columns: List[ColumnRecord]) -> None: ...
 
-    # ---------------------------------- 指标值 ----------------------------------
+    # ---------------------------------- 标量指标值 ----------------------------------
 
-    def upsert_data(self, data: List[DataRecord]) -> None:
-        """上报一组 DataRecord，记录指标值"""
+    def upsert_scalars(self, scalars: List[ScalarRecord]) -> None:
+        """上报一组 ScalarRecord，记录标量指标值"""
         with safe.block(message="upsert data error"):
             if self._mode == "cloud":
-                return self._upsert_data_when_cloud(data)
+                return self._upsert_scalars_when_cloud(scalars)
             elif self._mode == "local":
-                return self._upsert_data_when_local(data)
+                return self._upsert_scalars_when_local(scalars)
             elif self._mode == "offline":
-                return self._upsert_data_when_offline(data)
-            return self._upsert_data_when_disabled(data)
+                return self._upsert_scalars_when_offline(scalars)
+            return self._upsert_scalars_when_disabled(scalars)
 
-    def _upsert_data_when_disabled(self, data: List[DataRecord]) -> None: ...
-
-    @abstractmethod
-    def _upsert_data_when_local(self, data: List[DataRecord]) -> None: ...
+    def _upsert_scalars_when_disabled(self, scalars: List[ScalarRecord]) -> None: ...
 
     @abstractmethod
-    def _upsert_data_when_offline(self, data: List[DataRecord]) -> None: ...
+    def _upsert_scalars_when_local(self, scalars: List[ScalarRecord]) -> None: ...
 
     @abstractmethod
-    def _upsert_data_when_cloud(self, data: List[DataRecord]) -> None: ...
+    def _upsert_scalars_when_offline(self, scalars: List[ScalarRecord]) -> None: ...
+
+    @abstractmethod
+    def _upsert_scalars_when_cloud(self, scalars: List[ScalarRecord]) -> None: ...
+
+    # ---------------------------------- 媒体指标值 ----------------------------------
+
+    def upsert_media(self, media: List[MediaRecord]) -> None:
+        """上报一组 MediaRecord，记录媒体指标值"""
+        with safe.block(message="upsert data error"):
+            if self._mode == "cloud":
+                return self._upsert_media_when_cloud(media)
+            elif self._mode == "local":
+                return self._upsert_media_when_local(media)
+            elif self._mode == "offline":
+                return self._upsert_media_when_offline(media)
+            return self._upsert_media_when_disabled(media)
+
+    def _upsert_media_when_disabled(self, media: List[MediaRecord]) -> None: ...
+
+    @abstractmethod
+    def _upsert_media_when_local(self, media: List[MediaRecord]) -> None: ...
+
+    @abstractmethod
+    def _upsert_media_when_offline(self, media: List[MediaRecord]) -> None: ...
+
+    @abstractmethod
+    def _upsert_media_when_cloud(self, media: List[MediaRecord]) -> None: ...
 
     # ---------------------------------- 用户配置 ----------------------------------
 
