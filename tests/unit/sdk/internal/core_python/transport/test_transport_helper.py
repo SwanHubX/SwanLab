@@ -78,8 +78,8 @@ def test_group_records_by_type_basic(make_scalar_record, make_config_record):
 
     grouped = group_records_by_type([metric_1, config, metric_2])
 
-    assert set(grouped.keys()) == {"data", "config"}
-    assert grouped["data"] == [metric_1, metric_2]
+    assert set(grouped.keys()) == {"scalar", "config"}
+    assert grouped["scalar"] == [metric_1, metric_2]
     assert grouped["config"] == [config]
 
 
@@ -89,7 +89,7 @@ def test_group_records_by_type_preserves_order(make_scalar_record, make_config_r
     metric = make_scalar_record(step=1)
 
     grouped = group_records_by_type([config, metric])
-    assert list(grouped.keys()) == ["config", "data"]
+    assert list(grouped.keys()) == ["config", "scalar"]
 
 
 def test_group_records_by_type_empty():

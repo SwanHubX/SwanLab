@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 from google.protobuf.timestamp_pb2 import Timestamp
 
-from swanlab.proto.swanlab.metric.data.v1.media.video_pb2 import VideoItem
+from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaItem
 from swanlab.sdk.internal.run.transforms.video import Video
 
 # 最小合法 GIF89a（1×1 像素）
@@ -129,15 +129,15 @@ class TestVideoBuildDataRecord:
 
         assert record.key == "rollout"
         assert record.step == 1
-        assert len(record.videos.items) == 1
-        assert record.videos.items[0].filename == item.filename
+        assert len(record.value.items) == 1
+        assert record.value.items[0].filename == item.filename
 
     def test_build_data_record_multiple_items(self, tmp_path):
         i1 = Video(GIF_BYTES).transform(step=1, path=tmp_path)
         i2 = Video(BytesIO(GIF_BYTES)).transform(step=1, path=tmp_path)
         ts = Timestamp()
         record = Video.build_data_record(key="k", step=1, timestamp=ts, data=[i1, i2])
-        assert len(record.videos.items) == 2
+        assert len(record.value.items) == 2
 
 
 # ---------------------------------- transform 特有字段测试 ----------------------------------
@@ -146,7 +146,7 @@ class TestVideoBuildDataRecord:
 class TestVideoTransform:
     def test_transform_returns_video_item(self, tmp_path):
         item = Video(GIF_BYTES).transform(step=1, path=tmp_path)
-        assert isinstance(item, VideoItem)
+        assert isinstance(item, MediaItem)
 
     def test_transform_sha256_correct(self, tmp_path):
         item = Video(GIF_BYTES).transform(step=1, path=tmp_path)
