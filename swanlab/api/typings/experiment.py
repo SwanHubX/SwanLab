@@ -29,8 +29,8 @@ ApiStableKeyLiteral = Literal[
     "description",
     # 是否可见
     "show",
-    # 是否收藏
-    "pin",
+    # TODO: experiment 被设置为 pin 时强制返回
+    # "pin",
     # 是否为基线
     "baseline",
     # 颜色
