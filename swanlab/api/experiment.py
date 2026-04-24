@@ -130,72 +130,33 @@ class Experiment(BaseEntity):
                 data = self._data
         return cast(ApiExperimentProfileType, self._ensure_data().get("profile", {}))
 
-    def metrics(
-        self, keys: Optional[List[str]] = None, x_axis: Optional[str] = None, sample: Optional[int] = None
-    ) -> Any:
+    def column(self, key: str, column_class: Optional[str] = "CUSTOM", column_type: Optional[str] = "FLOAT"):
         """
-        获取实验指标数据，返回 pandas DataFrame。
+        获取实验下指定 key 的单个列。
 
-        :param keys: 指标 key 列表
-        :param x_axis: x 轴指标，默认 step
-        :param sample: 均匀采样 N 条数据（等间距采样，保留整体趋势）
+        :param key: 列的 key，如 "loss"、"acc"
+        :param column_class: 列的分类，CUSTOM 或 SYSTEM
+        :param column_type: 列的数据类型，如 FLOAT、STRING、IMAGE 等
         """
-        from swanlab.vendor import pd
+        from swanlab.api.column import Column
 
-        if not keys:
-            return pd.DataFrame()
+        return Column(
+            self._ctx,
+            path=f"{self._proj_path}/{self._cuid}",
+            key=key,
+            column_class=column_class,
+            column_type=column_type,
+        )
 
-        fetch_keys = list(keys)
-        use_x_axis = x_axis is not None and x_axis != "step"
-        if use_x_axis and x_axis is not None:
-            fetch_keys.append(x_axis)
+    def metric(self, key: str, sample: int = 1500, ignore_timestamp: bool = False) -> Dict[str, Any]:
+        """
+        获取实验下指定列的指标数据，最大返回 1500 条。
 
-        dfs = []
-        prefix = ""
-        for idx, key in enumerate(fetch_keys):
-            resp = self._get(f"/experiment/{self.run_id}/column/csv", params={"key": key})
-            if not resp.ok:
-                continue
-            data = resp.data
-            csv_url = data[0].get("url", "") if isinstance(data, list) and data else ""
-            if not csv_url:
-                continue
-            df = pd.read_csv(csv_url, index_col=0)
-
-            if idx == 0:
-                first_col = str(df.columns[0])
-                suffix = f"{key}_"
-                prefix = first_col.split(suffix)[0] if suffix in first_col else ""
-
-            def strip_suffix(col, suffix="_step"):
-                return col[: -len(suffix)] if col.endswith(suffix) else col
-
-            df.columns = [
-                strip_suffix(col[len(prefix) :]) if prefix and col.startswith(prefix) else strip_suffix(col)
-                for col in df.columns
-            ]
-            dfs.append(df)
-
-        if not dfs:
-            return pd.DataFrame()
-
-        result_df = dfs[0].join(dfs[1:], how="outer") if len(dfs) > 1 else dfs[0]
-        result_df = result_df.sort_index()
-
-        if use_x_axis:
-            result_df = result_df.drop(
-                columns=[c for c in result_df.columns if c.endswith("_timestamp")], errors="ignore"
-            )
-            if x_axis not in result_df.columns:
-                return pd.DataFrame()
-            cols = [x_axis] + [c for c in result_df.columns if c != x_axis]
-            result_df = result_df[cols].dropna(subset=[x_axis])
-
-        if sample is not None and len(result_df) > sample:
-            indices = [int(i * (len(result_df) - 1) / (sample - 1)) for i in range(sample)]
-            result_df = result_df.iloc[indices]
-
-        return result_df
+        :param key: 列的 key
+        :param sample: 采样条数
+        :param ignore_timestamp: 是否过滤 timestamp 字段
+        """
+        return self.column(key=key).metric(sample=sample, ignore_timestamp=ignore_timestamp)
 
     def columns(
         self,

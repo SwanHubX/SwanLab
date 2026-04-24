@@ -1,21 +1,23 @@
 """
 @author: caddiesnew
-@file: column.py
+@file: metric.py
 @time: 2026/4/20
-@description: Column 实体类 — 实验列的查询与操作
+@description: Metric 实体类 — 指标序列的查询与操作
 """
 
-from typing import Any, Dict, Iterator, List, Optional, cast
+from typing import Any, Dict, List, Optional, cast
 
 from swanlab.api.base import ApiClientContext, BaseEntity
-from swanlab.api.typings import ApiColumnCsvExportType, ApiMetricTypeLiteral, ApiResponseType
-from swanlab.api.typings.metric import ApiLogType, ApiMediaType, ApiMetricType, ApiScalarSeriesType, ApiScalarType
-from swanlab.api.utils import get_properties, resovle_run_path, validate_column_params, validate_metric_type
+from swanlab.api.typings import ApiColumnCsvExportType, ApiResponseType
+from swanlab.api.typings.metric import ApiScalarSeriesType
+from swanlab.api.utils import get_properties, validate_metric_type
 
 
 class Metric(BaseEntity):
     """
-    表示一个 SwanLab 指标列 (非单个数值，而是一组序列)
+    表示一个 SwanLab 指标列（非单个数值，而是一组序列）。
+
+    支持 SCALAR / MEDIA / LOG 三种类型，按需 Lazy Loading。
     """
 
     def __init__(
@@ -27,32 +29,33 @@ class Metric(BaseEntity):
         key: Optional[str] = "",
         sample: int = 1500,
         metric_type: str = "SCALAR",
-        data: Optional[Any] = None,
+        data: Optional[Dict[str, Any]] = None,
+        ignore_timestamp: bool = False,
     ) -> None:
         super().__init__(ctx)
         validate_metric_type(metric_type, key)
         self._project_id = project_id
         self._run_id = run_id
         self._key = key
-        self._data = data
+        self._data: Optional[Dict[str, Any]] = data
         self._metric_type = metric_type
-
-        # TODO: 采样值，仅在 scalar 时生效， 待接入
+        self._ignore_timestamp = ignore_timestamp
+        # TODO: 采样值，仅在 scalar 时生效，待接入
         self._sample = sample
+
+    # 类型 → 加载方法 的分发表，新增类型只需在此注册
+    _FETCH_DISPATCH = {
+        "SCALAR": "_fetch_scalar",
+        "MEDIA": "_fetch_media",
+        "LOG": "_fetch_logs",
+    }
 
     def _ensure_data(self) -> Dict[str, Any]:
         if self._data is None:
-            if self._metric_type == "SCALAR":
-                self._data = self._fetch_scalar()
-                print(self._data)
-            elif self._metric_type == "MEDIA":
-                self._data = cast(ApiScalarType, {})
-            elif self._metric_type == "LOG":
-                self._data = cast(ApiScalarType, {})
-            else:
-                # 默认兜底到 scalar，实际上在实例化时被拦截
-                self._data = cast(ApiScalarType, {})
-        return cast(dict, self._data)
+            method_name = self._FETCH_DISPATCH.get(self._metric_type, "_fetch_scalar")
+            self._data = getattr(self, method_name)()
+        assert self._data is not None
+        return self._data
 
     @property
     def project_id(self) -> str:
@@ -64,7 +67,7 @@ class Metric(BaseEntity):
 
     @property
     def key(self) -> str:
-        return self._key if self._key else ""
+        return self._key or ""
 
     @property
     def metric_type(self) -> str:
@@ -74,36 +77,45 @@ class Metric(BaseEntity):
     def metrics(self) -> List[Any]:
         return self._ensure_data().get("metrics", [])
 
-    def _fetch_scalar(self) -> ApiScalarSeriesType:
-        res = ApiScalarSeriesType(projectId=self.project_id, experimentId=self.run_id, key=self.key)
-        # 1. 获取单指标列
-        payload = {
+    # ------------------------------------------------------------------
+    # 请求辅助函数
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _extract_first(resp: ApiResponseType) -> Optional[Dict[str, Any]]:
+        """从列表型 API 响应中提取第一个元素，失败返回 None。"""
+        if resp.ok and isinstance(resp.data, list) and resp.data:
+            return resp.data[0]
+        return None
+
+    def _build_scalar_payload(self) -> Dict[str, Any]:
+        return {
             "projectId": self.project_id,
             "xType": "step",
             "range": [0, 0],
             "columns": [{"experimentId": self.run_id, "key": self.key}],
         }
-        raw_resp = self._post("/house/metrics/scalar", data=payload)
-        resp_list = (
-            raw_resp.data if raw_resp.ok and isinstance(raw_resp.data, list) and len(raw_resp.data) > 0 else None
-        )
-        if resp_list is None:
+
+    # ------------------------------------------------------------------
+    # 类型专属加载
+    # ------------------------------------------------------------------
+
+    def _fetch_scalar(self) -> ApiScalarSeriesType:
+        res = ApiScalarSeriesType(projectId=self.project_id, experimentId=self.run_id, key=self.key)
+        payload = self._build_scalar_payload()
+
+        # 1. 获取折线数据
+        raw_data = self._extract_first(self._post("/house/metrics/scalar", data=payload))
+        if raw_data is None:
             return res
-        raw_data = resp_list[0]
-        res["metrics"] = raw_data.get("metrics", {})
-        # 2. 获取统计值列
-        stat_resp = self._post("/house/metrics/scalar/value", data=payload)
-        stat_list = (
-            stat_resp.data if stat_resp.ok and isinstance(stat_resp.data, list) and len(stat_resp.data) > 0 else None
-        )
-        if stat_list is None:
+        res["metrics"] = raw_data.get("metrics", [])
+
+        # 2. 获取统计值
+        stat_data = self._extract_first(self._post("/house/metrics/scalar/value", data=payload))
+        if stat_data is None:
             return res
-        stat_data = stat_list[0]
-        res["min"] = stat_data.get("min", {})
-        res["max"] = stat_data.get("max", {})
-        res["avg"] = stat_data.get("avg", {})
-        res["median"] = stat_data.get("median", {})
-        res["latest"] = stat_data.get("latest", {})
+        for field in ("min", "max", "avg", "median", "latest"):
+            res[field] = stat_data.get(field, {})
         return res
 
     def _fetch_media(self) -> Dict[str, Any]:
@@ -112,9 +124,13 @@ class Metric(BaseEntity):
     def _fetch_logs(self) -> Dict[str, Any]:
         return {}
 
+    # ------------------------------------------------------------------
+    # 导出
+    # ------------------------------------------------------------------
+
     def export_csv(self) -> ApiResponseType:
         """
-        导出列数据为 CSV。(同时支持 column 和 csv 导出)
+        导出列数据为 CSV。
 
         :return: ApiResponseType，成功时 data 包含临时下载 URL
         """
@@ -125,12 +141,25 @@ class Metric(BaseEntity):
         data = resp.data
         if isinstance(data, list) and data:
             url = data[0].get("url", "")
-            return ApiResponseType(ok=True, data=ApiColumnCsvExportType(url=url))
         elif isinstance(data, dict):
             url = data.get("url", "")
-            return ApiResponseType(ok=True, data=ApiColumnCsvExportType(url=url))
-
-        return ApiResponseType(ok=False, errmsg="Invalid response format", data=None)
+        else:
+            return ApiResponseType(ok=False, errmsg="Invalid response format", data=None)
+        return ApiResponseType(ok=True, data=ApiColumnCsvExportType(url=url))
 
     def json(self) -> Dict[str, Any]:
-        return get_properties(self)
+        result = get_properties(self)
+        data = self._ensure_data()
+
+        if self._metric_type == "SCALAR":
+            for field in ("min", "max", "avg", "median", "latest"):
+                val = data.get(field)
+                if val:
+                    result[field] = val
+
+        if self._ignore_timestamp:
+            for item in cast(List[Dict[str, Any]], result.get("metrics", [])):
+                if isinstance(item, dict):
+                    item.pop("timestamp", None)
+
+        return result

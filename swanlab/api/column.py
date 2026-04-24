@@ -8,7 +8,7 @@
 from typing import Any, Dict, Iterator, Optional, cast
 
 from swanlab.api.base import ApiClientContext, BaseEntity
-from swanlab.api.typings.column import ApiColumnCsvExportType, ApiColumnType
+from swanlab.api.typings.column import ApiColumnType
 from swanlab.api.typings.common import ApiResponseType, PaginatedQuery
 from swanlab.api.utils import get_properties, parse_column_data_type, resovle_run_path, validate_column_params
 
@@ -112,35 +112,41 @@ class Column(BaseEntity):
         """列的错误信息。"""
         return self._ensure_data().get("error", {})
 
-    def export_csv(self) -> ApiResponseType:
-        """
-        导出列数据为 CSV。
+    def _require_found(self) -> None:
+        """确保列数据已加载且存在，否则抛出清晰错误。"""
+        self._ensure_data()
+        if not self.key:
+            raise ValueError(f"Column '{self._key}' not found in the experiment")
 
-        :return: ApiResponseType，成功时 data 包含临时下载 URL
-        """
-        resp = self._get(f"/experiment/{self._run_id}/column/csv", params={"key": self.key})
-        if not resp.ok:
-            return resp
-
-        data = resp.data
-        if isinstance(data, list) and data:
-            url = data[0].get("url", "")
-            return ApiResponseType(ok=True, data=ApiColumnCsvExportType(url=url))
-        elif isinstance(data, dict):
-            url = data.get("url", "")
-            return ApiResponseType(ok=True, data=ApiColumnCsvExportType(url=url))
-
-        return ApiResponseType(ok=False, errmsg="Invalid response format", data=None)
-
-    def metric(self):
+    def metric(self, sample: int = 1500, ignore_timestamp: bool = False) -> Dict[str, Any]:
         from swanlab.api.metric import Metric
 
+        self._require_found()
         metric_type = parse_column_data_type(self.column_type)
-
-        cur_metric = Metric(
-            ctx=self._ctx, project_id=self.project_id, run_id=self.run_id, key=self.key, metric_type=metric_type
+        metric = Metric(
+            ctx=self._ctx,
+            project_id=self.project_id,
+            run_id=self.run_id,
+            key=self.key,
+            sample=sample,
+            metric_type=metric_type,
+            ignore_timestamp=ignore_timestamp,
         )
-        return cur_metric.json()
+        return metric.json()
+
+    def export_csv(self) -> ApiResponseType:
+        from swanlab.api.metric import Metric
+
+        self._require_found()
+        metric_type = parse_column_data_type(self.column_type)
+        metric = Metric(
+            ctx=self._ctx,
+            project_id=self.project_id,
+            run_id=self.run_id,
+            key=self.key,
+            metric_type=metric_type,
+        )
+        return metric.export_csv()
 
     def json(self) -> Dict[str, Any]:
         return get_properties(self)
