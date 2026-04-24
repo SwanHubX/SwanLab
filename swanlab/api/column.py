@@ -10,7 +10,7 @@ from typing import Any, Dict, Iterator, Optional, cast
 from swanlab.api.base import ApiClientContext, BaseEntity
 from swanlab.api.typings.column import ApiColumnCsvExportType, ApiColumnType
 from swanlab.api.typings.common import ApiResponseType, PaginatedQuery
-from swanlab.api.utils import get_properties, validate_column_params
+from swanlab.api.utils import get_properties, resovle_run_path, validate_column_params
 
 
 class Column(BaseEntity):
@@ -25,18 +25,19 @@ class Column(BaseEntity):
         self,
         ctx: ApiClientContext,
         *,
-        run_id: str,
+        path: str,
         key: str,
         column_class: Optional[str] = "CUSTOM",
         column_type: Optional[str] = None,
         data: Optional[ApiColumnType] = None,
     ) -> None:
         super().__init__(ctx)
-        self._run_id = run_id
+        self._proj_path, self._run_id = resovle_run_path(path=path)
         self._key = key
         self._column_class = column_class
         self._column_type = column_type
         self._data = data
+        self._project_id = None
 
     def _ensure_data(self) -> ApiColumnType:
         if self._data is None:
@@ -54,7 +55,25 @@ class Column(BaseEntity):
                     self._data = cast(ApiColumnType, items[0])
             if self._data is None:
                 self._data = cast(ApiColumnType, {})
+            self._data["run_id"] = self._run_id
+        if self._project_id is None:
+            resp = self._get(f"/project/{self._proj_path}")
+            proj_data = resp.data if resp.ok else {}
+            self._project_id = proj_data.get("cuid", "")
+            self._data["project_id"] = self._project_id
         return self._data
+
+    @property
+    def project_id(self) -> str:
+        if self._project_id:
+            return self._project_id
+        return self._ensure_data().get("project_id", "")
+
+    @property
+    def run_id(self) -> str:
+        if self._run_id:
+            return self._run_id
+        return self._ensure_data().get("run_id", "")
 
     @property
     def key(self) -> str:
@@ -135,13 +154,14 @@ class Columns(BaseEntity):
         self,
         ctx: ApiClientContext,
         *,
-        run_id: str,
+        path: str,
         query: PaginatedQuery,
         column_class: Optional[str] = None,
         column_type: Optional[str] = None,
     ) -> None:
         super().__init__(ctx)
-        self._run_id = run_id
+        self._run_path = path
+        self._proj_path, self._run_id = resovle_run_path(path=path)
         self._query = query
         # 校验 column_type 和 column_class 的合法性
         validate_column_params(column_type=column_type, column_class=column_class)
@@ -171,7 +191,7 @@ class Columns(BaseEntity):
         ):
             yield Column(
                 self._ctx,
-                run_id=self._run_id,
+                path=self._run_path,
                 key=item.get("key", ""),
                 data=cast(ApiColumnType, item),
             )

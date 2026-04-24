@@ -5,7 +5,7 @@
 @description: Experiment 实体类 — 单个实验的查询与操作
 """
 
-from typing import Any, Dict, Iterator, List, Optional, Tuple, Union, cast
+from typing import Any, Dict, Iterator, List, Optional, Union, cast
 
 from swanlab.api.base import ApiClientContext, BaseEntity
 from swanlab.api.typings.common import PaginatedQuery
@@ -15,21 +15,14 @@ from swanlab.api.typings.experiment import (
     ApiExperimentType,
 )
 from swanlab.api.typings.user import ApiUserType
-from swanlab.api.utils import get_properties, validate_filter, validate_group, validate_sort, validate_update_active
-
-
-def _resovle_path(path: str) -> Tuple[str, str]:
-    """ "path like: user/proj_name/run_id"""
-    proj_path, cuid = "", ""
-    parts = path.split("/")
-    if len(parts) != 3:
-        return proj_path, cuid
-    cuid = parts[-1]
-    proj_path = path.rsplit("/", 1)[0]
-    return (
-        proj_path,
-        cuid,
-    )
+from swanlab.api.utils import (
+    get_properties,
+    resovle_run_path,
+    validate_filter,
+    validate_group,
+    validate_sort,
+    validate_update_active,
+)
 
 
 class Experiment(BaseEntity):
@@ -48,8 +41,9 @@ class Experiment(BaseEntity):
         data: Optional[ApiExperimentType] = None,
     ) -> None:
         super().__init__(ctx)
-        self._proj_path, self._cuid = _resovle_path(path=path)
+        self._proj_path, self._cuid = resovle_run_path(path=path)
         self._data = data
+        self._project_id = None
 
     def _ensure_data(self) -> ApiExperimentType:
         if self._data is None:
@@ -57,7 +51,18 @@ class Experiment(BaseEntity):
             self._data = resp.data if resp.ok and resp.data else cast(ApiExperimentType, {})
             if not self._cuid and self._data:
                 self._cuid = self._data.get("cuid", "")
+        if self._project_id is None:
+            resp = self._get(f"/project/{self._proj_path}")
+            proj_data = resp.data if resp.ok else {}
+            self._project_id = proj_data.get("cuid", "")
+            self._data["project_id"] = self._project_id
         return self._data
+
+    @property
+    def project_id(self) -> str:
+        if self._project_id:
+            return self._project_id
+        return self._ensure_data().get("project_id", "")
 
     @property
     def run_id(self) -> str:
@@ -104,7 +109,7 @@ class Experiment(BaseEntity):
     @property
     def user(self) -> ApiUserType:
         user_data = self._ensure_data().get("user", {})
-        return user_data if isinstance(user_data, dict) else cast(ApiUserType, {})
+        return cast(ApiUserType, user_data)
 
     @property
     def created_at(self) -> str:
@@ -123,7 +128,7 @@ class Experiment(BaseEntity):
             if resp.ok and resp.data:
                 self._data = resp.data
                 data = self._data
-        return ApiExperimentProfileType(self._ensure_data().get("profile", {}))
+        return cast(ApiExperimentProfileType, self._ensure_data().get("profile", {}))
 
     def metrics(
         self, keys: Optional[List[str]] = None, x_axis: Optional[str] = None, sample: Optional[int] = None
@@ -216,7 +221,7 @@ class Experiment(BaseEntity):
         query = PaginatedQuery(page=page, size=size, search=search, all=all)
         return Columns(
             self._ctx,
-            run_id=self._cuid,
+            path=f"{self._proj_path}/{self._cuid}",
             query=query,
             column_type=column_type,
             column_class=column_class,

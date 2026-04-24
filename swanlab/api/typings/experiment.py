@@ -130,7 +130,8 @@ class ApiExperimentProfileType(TypedDict):
     conda: str
 
 
-class ApiExperimentType(TypedDict):
+class ApiExperimentType(TypedDict, total=False):
+    project_id: str
     cuid: str
     name: str
     type: ApiExperimentTypeLiteral

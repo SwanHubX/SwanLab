@@ -18,7 +18,6 @@ from .common import (
     ApiWorkspaceLiteral,
 )
 from .experiment import ApiExperimentLabelType, ApiExperimentType
-from .metrics import ApiLogType, ApiMediaType, ApiScalarType
 from .project import ApiProjectCountType, ApiProjectLabelType, ApiProjectType
 from .selfhosted import ApiApiKeyType, ApiSelfHostedInfoType
 from .user import ApiUserProfileType, ApiUserType
@@ -56,8 +55,4 @@ __all__ = [
     "ApiColumnErrorType",
     "ApiColumnType",
     "ApiColumnCsvExportType",
-    # Metrics
-    "ApiMediaType",
-    "ApiScalarType",
-    "ApiLogType",
 ]

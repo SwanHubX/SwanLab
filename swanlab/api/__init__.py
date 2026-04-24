@@ -207,7 +207,7 @@ class Api(BaseEntity):
 
     def columns(
         self,
-        run_id: str,
+        path: str,
         page: int = 1,
         size: int = 20,
         search: Optional[str] = None,
@@ -218,7 +218,7 @@ class Api(BaseEntity):
         """
         获取实验下的列列表（分页查询，支持搜索）。
 
-        :param run_id: 实验 ID（cuid）
+        :param path: 实验路径，格式为 'username/project/run_id'
         :param page: 起始页码，默认 1
         :param size: 每页数量，默认 20
         :param search: 搜索关键词，搜索的是列的 name
@@ -229,7 +229,7 @@ class Api(BaseEntity):
         query = PaginatedQuery(page=page, size=size, search=search, all=all)
         return Columns(
             self._ctx,
-            run_id=run_id,
+            path=path,
             query=query,
             column_type=column_type,
             column_class=column_class,
@@ -237,7 +237,7 @@ class Api(BaseEntity):
 
     def column(
         self,
-        run_id: str,
+        path: str,
         key: str,
         column_class: Optional[str] = "CUSTOM",
         column_type: Optional[str] = None,
@@ -245,12 +245,12 @@ class Api(BaseEntity):
         """
         获取单个列（通过搜索 key 匹配）。
 
-        :param run_id: 实验 ID（run_id）
+        :param path: 实验路径，格式为 'username/project/run_id'
         :param key: 列的键名, 输入不完整则模糊匹配 name 为首个 key.
         :param column_class: 列的分类，CUSTOM 或 SYSTEM，默认 CUSTOM
         :param column_type: 列的类型，如 FLOAT、STRING、IMAGE 等，默认为 None
         """
-        return Column(self._ctx, run_id=run_id, key=key, column_class=column_class, column_type=column_type)
+        return Column(self._ctx, path=path, key=key, column_class=column_class, column_type=column_type)
 
 
 __all__ = ["Api"]

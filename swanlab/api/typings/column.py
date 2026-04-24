@@ -27,6 +27,9 @@ class ApiColumnType(TypedDict, total=False):
     - createdAt: 创建时间戳（蛇峰命名）
     """
 
+    # 每个 column 与一个项目和实验绑定
+    project_id: str
+    run_id: str
     # 列的分类：CUSTOM 或 SYSTEM
     column_class: ApiColumnClassLiteral
     # 列的数据类型

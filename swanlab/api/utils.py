@@ -5,7 +5,7 @@
 @description: swanlab/api 实体层工具函数
 """
 
-from typing import Any, Dict, List, Optional, Set, Type, get_args, get_type_hints
+from typing import Any, Dict, List, Optional, Set, Tuple, Type, get_args, get_type_hints
 
 from swanlab.api.typings.common import ApiColumnClassLiteral, ApiColumnDataTypeLiteral, ApiSidebarLiteral
 from swanlab.api.typings.experiment import (
@@ -40,6 +40,21 @@ def get_properties(obj: object, _visited: Optional[Set[int]] = None) -> Dict[str
             value = getattr(obj, name, None)
             result[name] = value if type(value).__module__ == "builtins" else get_properties(value, _visited)
     return result
+
+
+# 路径解析
+def resovle_run_path(path: str) -> Tuple[str, str]:
+    """ "path like: user/proj_name/run_id"""
+    proj_path, cuid = "", ""
+    parts = path.split("/")
+    if len(parts) != 3:
+        return proj_path, cuid
+    cuid = parts[-1]
+    proj_path = path.rsplit("/", 1)[0]
+    return (
+        proj_path,
+        cuid,
+    )
 
 
 # ---------------------------------------------------------------------------
