@@ -27,7 +27,7 @@ from swanlab.sdk.internal.pkg import console, safe
 from swanlab.sdk.typings.core_python.api.upload import ConsoleMetric, ConsoleMetrics
 
 # stream 类型到日志级别的映射
-_STREAM_LEVEL_MAP: dict[int, Literal["INFO", "ERROR", "WARN"]] = {
+_STREAM_LEVEL_MAP: dict[int, Literal["INFO", "ERROR"]] = {
     StreamType.STREAM_TYPE_STDOUT: "INFO",
     StreamType.STREAM_TYPE_STDERR: "ERROR",
 }

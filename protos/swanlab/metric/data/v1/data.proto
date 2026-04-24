@@ -4,18 +4,32 @@ package swanlab.metric.data.v1;
 
 import "google/protobuf/timestamp.proto";
 import "swanlab/metric/column/v1/column.proto";
-import "swanlab/metric/data/v1/scalar/scalar.proto";
-import "swanlab/metric/data/v1/media/image.proto";
-import "swanlab/metric/data/v1/media/audio.proto";
-import "swanlab/metric/data/v1/media/video.proto";
-import "swanlab/metric/data/v1/media/text.proto";
-import "swanlab/metric/data/v1/media/echarts.proto";
 
 option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/metric/data/v1;datav1";
 
-// 对应一次 swanlab.log({...}, step=N) 调用中的单条数据记录。
-// 一次调用可产生多条 DataRecord，每条对应 dict 中的一个 key。
-message DataRecord {
+
+// 标量值，对应 swanlab.log({"loss": 0.5}) 中的数值类型。
+// 留数字类型，原生支持 IEEE 754 标准的 NaN 和 Infinity。
+message ScalarValue {
+  double number = 1;
+}
+
+// 一个 key 在某个 step 下记录的全部媒体（1..N 条）。
+message MediaValue {
+  repeated MediaItem items = 1;
+}
+
+// 单条媒体的文件引用与元数据。
+message MediaItem {
+  string dirname          = 1;
+  string filename         = 2;
+  string sha256           = 3;
+  int64  size             = 4;  // 文件大小（bytes）
+  string caption          = 5;
+}
+
+
+message ScalarRecord{
   // 记录的 key，如 "train/loss"
   string key = 1;
   // 用户显式传入或由 SDK 自动递增的全局步数
@@ -24,12 +38,21 @@ message DataRecord {
   swanlab.metric.column.v1.ColumnType type = 3;
   // 记录的时间戳
   google.protobuf.Timestamp timestamp = 4;
-  oneof value {
-    ScalarValue  scalar  = 10;
-    ImageValue   images  = 11;
-    AudioValue   audios  = 12;
-    VideoValue   videos  = 13;
-    TextValue    texts   = 14;
-    EChartsValue echarts = 15;
-  }
+  // 数据值
+  ScalarValue value = 5;
 }
+
+message MediaRecord{
+  // 记录的 key，如 "train/loss"
+  string key = 1;
+  // 用户显式传入或由 SDK 自动递增的全局步数
+  int64 step = 2;
+  // 数据类型
+  swanlab.metric.column.v1.ColumnType type = 3;
+  // 记录的时间戳
+  google.protobuf.Timestamp timestamp = 4;
+  // 数据值
+  MediaValue value = 5;
+}
+
+

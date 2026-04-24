@@ -23,7 +23,8 @@ const _ = grpc.SupportPackageIsVersion9
 const (
 	RecordService_DeliverRunStart_FullMethodName    = "/swanlab.record.v1.RecordService/DeliverRunStart"
 	RecordService_UpsertColumns_FullMethodName      = "/swanlab.record.v1.RecordService/UpsertColumns"
-	RecordService_UpsertData_FullMethodName         = "/swanlab.record.v1.RecordService/UpsertData"
+	RecordService_UpsertScalar_FullMethodName       = "/swanlab.record.v1.RecordService/UpsertScalar"
+	RecordService_UpsertMedia_FullMethodName        = "/swanlab.record.v1.RecordService/UpsertMedia"
 	RecordService_UpsertConfigs_FullMethodName      = "/swanlab.record.v1.RecordService/UpsertConfigs"
 	RecordService_UpsertConsoles_FullMethodName     = "/swanlab.record.v1.RecordService/UpsertConsoles"
 	RecordService_UpsertRequirements_FullMethodName = "/swanlab.record.v1.RecordService/UpsertRequirements"
@@ -42,8 +43,10 @@ type RecordServiceClient interface {
 	DeliverRunStart(ctx context.Context, in *v1.StartRecord, opts ...grpc.CallOption) (*v1.StartResponse, error)
 	// UpsertColumn 接收一组 ColumnRecord 并写入，每一条记录用于定义某一个指标
 	UpsertColumns(ctx context.Context, in *UpsertColumnsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	// UpsertData 接收一组 DataRecord 并写入，每一条记录用于记录某一个指标的值
-	UpsertData(ctx context.Context, in *UpsertDataRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// UpsertScalar 接收一组 DataRecord 并写入，每一条记录用于记录某一个指标的值
+	UpsertScalar(ctx context.Context, in *UpsertScalarRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// UpsertMedia 接收一组 MediaRecord 并写入，每一条记录用于记录某一个指标的值
+	UpsertMedia(ctx context.Context, in *UpsertMediaRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// UpsertConfig 接收一组 ConfigRecord 并写入，每一条记录对应一次用户对config的修改
 	UpsertConfigs(ctx context.Context, in *UpsertConfigsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// UpsertConsole 接收一组 ConsoleRecord 并写入，每一条记录对应一行用户的终端输出
@@ -86,10 +89,20 @@ func (c *recordServiceClient) UpsertColumns(ctx context.Context, in *UpsertColum
 	return out, nil
 }
 
-func (c *recordServiceClient) UpsertData(ctx context.Context, in *UpsertDataRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *recordServiceClient) UpsertScalar(ctx context.Context, in *UpsertScalarRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, RecordService_UpsertData_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, RecordService_UpsertScalar_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *recordServiceClient) UpsertMedia(ctx context.Context, in *UpsertMediaRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, RecordService_UpsertMedia_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -166,8 +179,10 @@ type RecordServiceServer interface {
 	DeliverRunStart(context.Context, *v1.StartRecord) (*v1.StartResponse, error)
 	// UpsertColumn 接收一组 ColumnRecord 并写入，每一条记录用于定义某一个指标
 	UpsertColumns(context.Context, *UpsertColumnsRequest) (*emptypb.Empty, error)
-	// UpsertData 接收一组 DataRecord 并写入，每一条记录用于记录某一个指标的值
-	UpsertData(context.Context, *UpsertDataRequest) (*emptypb.Empty, error)
+	// UpsertScalar 接收一组 DataRecord 并写入，每一条记录用于记录某一个指标的值
+	UpsertScalar(context.Context, *UpsertScalarRequest) (*emptypb.Empty, error)
+	// UpsertMedia 接收一组 MediaRecord 并写入，每一条记录用于记录某一个指标的值
+	UpsertMedia(context.Context, *UpsertMediaRequest) (*emptypb.Empty, error)
 	// UpsertConfig 接收一组 ConfigRecord 并写入，每一条记录对应一次用户对config的修改
 	UpsertConfigs(context.Context, *UpsertConfigsRequest) (*emptypb.Empty, error)
 	// UpsertConsole 接收一组 ConsoleRecord 并写入，每一条记录对应一行用户的终端输出
@@ -196,8 +211,11 @@ func (UnimplementedRecordServiceServer) DeliverRunStart(context.Context, *v1.Sta
 func (UnimplementedRecordServiceServer) UpsertColumns(context.Context, *UpsertColumnsRequest) (*emptypb.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpsertColumns not implemented")
 }
-func (UnimplementedRecordServiceServer) UpsertData(context.Context, *UpsertDataRequest) (*emptypb.Empty, error) {
-	return nil, status.Error(codes.Unimplemented, "method UpsertData not implemented")
+func (UnimplementedRecordServiceServer) UpsertScalar(context.Context, *UpsertScalarRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpsertScalar not implemented")
+}
+func (UnimplementedRecordServiceServer) UpsertMedia(context.Context, *UpsertMediaRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpsertMedia not implemented")
 }
 func (UnimplementedRecordServiceServer) UpsertConfigs(context.Context, *UpsertConfigsRequest) (*emptypb.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpsertConfigs not implemented")
@@ -274,20 +292,38 @@ func _RecordService_UpsertColumns_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
-func _RecordService_UpsertData_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(UpsertDataRequest)
+func _RecordService_UpsertScalar_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpsertScalarRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(RecordServiceServer).UpsertData(ctx, in)
+		return srv.(RecordServiceServer).UpsertScalar(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: RecordService_UpsertData_FullMethodName,
+		FullMethod: RecordService_UpsertScalar_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RecordServiceServer).UpsertData(ctx, req.(*UpsertDataRequest))
+		return srv.(RecordServiceServer).UpsertScalar(ctx, req.(*UpsertScalarRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RecordService_UpsertMedia_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpsertMediaRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RecordServiceServer).UpsertMedia(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RecordService_UpsertMedia_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RecordServiceServer).UpsertMedia(ctx, req.(*UpsertMediaRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -416,8 +452,12 @@ var RecordService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _RecordService_UpsertColumns_Handler,
 		},
 		{
-			MethodName: "UpsertData",
-			Handler:    _RecordService_UpsertData_Handler,
+			MethodName: "UpsertScalar",
+			Handler:    _RecordService_UpsertScalar_Handler,
+		},
+		{
+			MethodName: "UpsertMedia",
+			Handler:    _RecordService_UpsertMedia_Handler,
 		},
 		{
 			MethodName: "UpsertConfigs",
