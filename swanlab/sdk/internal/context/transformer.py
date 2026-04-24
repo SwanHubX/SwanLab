@@ -36,7 +36,7 @@ class TransformData(ABC):
     >>>     @classmethod
     >>>     def build_data_record(cls,*, key: str, step: int, timestamp: Timestamp, data: Any) -> MediaRecord:
     >>>         value = MediaValue(items=[data])
-    >>>         return MediaRecord(key=key, step=step, value=value)
+    >>>         return MediaRecord(key=key, step=step, timestamp=timestamp, type=cls.column_type(), value=value)
     >>>     def transform(self, *, key: str, step: int, data: str = None) -> MediaItem:
     >>>         return MediaItem(filename=f"{key}-{step:03d}.__swanlab__.txt", content=data or "")
     >>>     @classmethod
