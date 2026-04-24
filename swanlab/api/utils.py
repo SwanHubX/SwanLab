@@ -7,11 +7,15 @@
 
 from typing import Any, Dict, List, Optional, Set, Tuple, Type, get_args, get_type_hints
 
-from swanlab.api.typings.common import ApiColumnClassLiteral, ApiColumnDataTypeLiteral, ApiSidebarLiteral
-from swanlab.api.typings.experiment import (
+from swanlab.api.typings.common import (
+    ApiColumnClassLiteral,
+    ApiColumnDataTypeLiteral,
+    ApiColumnScalarTypeLiteral,
     ApiFilterOpLiteral,
+    ApiFilterStableKeyLiteral,
+    ApiMetricTypeLiteral,
+    ApiSidebarLiteral,
     ApiSortOrderLiteral,
-    ApiStableKeyLiteral,
 )
 
 
@@ -64,11 +68,15 @@ def resovle_run_path(path: str) -> Tuple[str, str]:
 _VALID_SIDEBAR_TYPES = frozenset(get_args(ApiSidebarLiteral))
 _VALID_OPS = frozenset(get_args(ApiFilterOpLiteral))
 _VALID_ORDERS = frozenset(get_args(ApiSortOrderLiteral))
-_STABLE_KEYS = frozenset(get_args(ApiStableKeyLiteral))
+_STABLE_KEYS = frozenset(get_args(ApiFilterStableKeyLiteral))
 
 # 列相关校验常量
 _VALID_COLUMN_CLASSES = frozenset(get_args(ApiColumnClassLiteral))
 _VALID_COLUMN_DATA_TYPES = frozenset(get_args(ApiColumnDataTypeLiteral))
+_VALID_COLUMN_SCALAR_TYPES = frozenset(get_args(ApiColumnScalarTypeLiteral))
+
+# 指标相关校验常量
+_VALID_METRIC_TYPES = frozenset(get_args(ApiMetricTypeLiteral))
 
 
 def _check_required(item: Dict[str, Any], keys: Set[str]) -> None:
@@ -97,6 +105,14 @@ def validate_filter(item: Dict[str, Any]) -> None:
         raise ValueError(f"Invalid filter op: {item['op']!r}, expected one of {sorted(_VALID_OPS)}")
     if not isinstance(item["value"], list):
         raise ValueError(f"filter value must be a list, got {type(item['value']).__name__}")
+
+
+def validate_metric_type(item: str, key: Optional[str] = None):
+    """校验 metric_type 的合法性"""
+    if item not in _VALID_METRIC_TYPES:
+        raise ValueError(f"Invalid metric_type: {item!r}, expected one of {sorted(_VALID_METRIC_TYPES)}")
+    if key is None and item != "LOG":
+        raise ValueError("key must NOT be None if metric_type != LOG")
 
 
 def validate_group(item: Dict[str, Any]) -> None:
@@ -139,3 +155,12 @@ def validate_column_params(column_type: Optional[str] = None, column_class: Opti
         raise ValueError(f"Invalid column_type: {column_type!r}, expected one of {sorted(_VALID_COLUMN_DATA_TYPES)}")
     if column_class is not None and column_class not in _VALID_COLUMN_CLASSES:
         raise ValueError(f"Invalid column_class: {column_class!r}, expected one of {sorted(_VALID_COLUMN_CLASSES)}")
+
+
+def parse_column_data_type(column_type: str):
+    """解析列类型。"""
+    validate_column_params(column_type=column_type)
+    if column_type in _VALID_COLUMN_SCALAR_TYPES:
+        return "SCALAR"
+    # 新加入的类型默认指定为 media
+    return "MEDIA"

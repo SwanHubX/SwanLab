@@ -54,12 +54,79 @@ ApiColumnDataTypeLiteral = Literal[
     "TEXT",
 ]
 
+# 列数据非 media 类型，方便过滤
+ApiColumnScalarTypeLiteral = Literal["FLOAT", "BOOLEAN", "STRING"]
+
 # Self-Hosted 身份类型
 ApiIdentityLiteral = Literal["root", "user"]
 
 # License 许可证类型
 ApiLicensePlanLiteral = Literal["free", "commercial"]
 
+# 指标类型（log 不属于 column-backed metrics，使用独立查询方法）
+ApiMetricTypeLiteral = Literal["SCALAR", "MEDIA", "LOG"]
+
+# X 轴类型
+ApiMetricXAxisLiteral = Literal["step", "time", "relative_time"]
+
+
+# ---------------------------------------------------------------------------
+# STABLE 字段 key 枚举
+# 对应 experiment 表的直接字段或嵌套字段，来自 sidebar.js stableFieldSelect。
+# ---------------------------------------------------------------------------
+ApiFilterStableKeyLiteral = Literal[
+    # 实验状态 RUNNING / FINISHED / CRASHED / ABORTED
+    "state",
+    # 实验名称
+    "name",
+    # 实验描述
+    "description",
+    # 是否可见
+    "show",
+    # TODO: experiment 被设置为 pin 时强制返回
+    # "pin",
+    # 是否为基线
+    "baseline",
+    # 颜色
+    "colors",
+    # 实验分组名
+    "cluster",
+    # 分布式任务类型
+    "job",
+    # 创建时间
+    "createdAt",
+    # 更新时间
+    "updatedAt",
+    # 完成时间
+    "finishedAt",
+    # 收藏时间
+    "pinnedAt",
+    # 标签名数组
+    "labels",
+]
+
+# ---------------------------------------------------------------------------
+# 过滤操作符
+# ---------------------------------------------------------------------------
+# EQ        : 等于
+# NEQ       : 不等于
+# GTE       : 大于等于（数值 / 日期 / 字符串）
+# LTE       : 小于等于（数值 / 日期 / 字符串）
+# IN        : 在给定值列表中
+# NOT IN    : 不在给定值列表中
+# CONTAIN   : 模糊包含
+#
+# 注意：
+# - 数组类型（如 labels）仅支持 EQ / NEQ / IN / NOT IN / CONTAIN
+# - 日期类型 GTE/LTE 用 Date 对象比较；其余用 ISO 字符串比较
+# - 数值类型优先数值比较，失败回退字符串比较
+# ---------------------------------------------------------------------------
+ApiFilterOpLiteral = Literal["EQ", "NEQ", "GTE", "LTE", "IN", "NOT IN", "CONTAIN"]
+
+# ---------------------------------------------------------------------------
+# 排序方向
+# ---------------------------------------------------------------------------
+ApiSortOrderLiteral = Literal["ASC", "DESC"]
 
 # 后端允许的每页条数
 _VALID_PAGE_SIZES = (10, 12, 15, 20, 24, 27, 50, 100)

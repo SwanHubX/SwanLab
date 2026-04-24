@@ -10,7 +10,7 @@ from typing import Any, Dict, Iterator, Optional, cast
 from swanlab.api.base import ApiClientContext, BaseEntity
 from swanlab.api.typings.column import ApiColumnCsvExportType, ApiColumnType
 from swanlab.api.typings.common import ApiResponseType, PaginatedQuery
-from swanlab.api.utils import get_properties, resovle_run_path, validate_column_params
+from swanlab.api.utils import get_properties, parse_column_data_type, resovle_run_path, validate_column_params
 
 
 class Column(BaseEntity):
@@ -126,6 +126,13 @@ class Column(BaseEntity):
             return ApiResponseType(ok=True, data=ApiColumnCsvExportType(url=url))
 
         return ApiResponseType(ok=False, errmsg="Invalid response format", data=None)
+
+    def metric(self):
+        from swanlab.api.metric import Metric
+
+        metric_type = parse_column_data_type(self.column_type)
+
+        cur_metric = Metric(ctx=self._ctx, project_id=self.project_id, run_id=self.run_id, metric_type=metric_type)
 
     def json(self) -> Dict[str, Any]:
         return get_properties(self)

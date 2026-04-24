@@ -1,0 +1,90 @@
+"""
+@author: caddiesnew
+@file: metric.py
+@time: 2026/4/23
+@description: 指标数据类型定义（用于 column 采样值）
+"""
+
+from typing import Any, Dict, List, Literal, TypedDict, Union
+
+from .common import ApiMetricTypeLiteral, ApiMetricXAxisLiteral
+
+# ---------------------------------------------------------------------------
+# Common — 通用指标类型定义
+# ---------------------------------------------------------------------------
+
+
+# 指标值类型（"NaN", "INF", "-INF"）
+ApiMetricValueType = Union[int, float, str]
+
+
+# ---------------------------------------------------------------------------
+# Column Reference — 指标列引用，标识要查询的指标列
+# ---------------------------------------------------------------------------
+class ApiMetricColumnRefType(TypedDict, total=False):
+    projectId: str
+    experimentId: str
+    key: str
+    rootProId: str
+    rootExpId: str
+
+
+# ---------------------------------------------------------------------------
+# Scalar — 标量指标类型
+# ---------------------------------------------------------------------------
+# 使用 index 因为 x 轴可以是 step / time / relative_time / 自定义列
+class ApiScalarType(TypedDict, total=False):
+    index: float
+    data: ApiMetricValueType
+    timestamp: int
+
+
+# 组合 /metrics/scalar 和 /metrics/scalar/value 的标量序列
+class ApiScalarSeriesType(ApiMetricColumnRefType, total=False):
+    """标量指标序列，包含折线数据和聚合值"""
+
+    metrics: List[ApiScalarType]
+    minMax: List[Any]
+    min: ApiScalarType
+    max: ApiScalarType
+    avg: ApiScalarType
+    median: ApiScalarType
+    latest: ApiScalarType
+
+
+# 指标概要
+# summary[run_id][key] 为下面一个 item 项
+class ApiScalarSummaryItemType(TypedDict, total=False):
+    step: int
+    value: Any
+    minMax: List[Any]
+    min: Any
+    max: Any
+    avg: Any
+    median: Any
+    stdDev: Any
+
+
+# ---------------------------------------------------------------------------
+# Media — 媒体 item 数据
+# ---------------------------------------------------------------------------
+class ApiMediaType(TypedDict, total=False):
+    # 项目路径: proj_id/run_id 拼接而成
+    prefix: str
+    data: List[str]
+    more: List[Dict[str, Any]]
+
+
+# ---------------------------------------------------------------------------
+# Log — 日志 item 数据
+# ---------------------------------------------------------------------------
+class ApiLogType(TypedDict, total=False):
+    epoch: int
+    level: str
+    message: str
+    tag: str
+    timestamp: str
+
+
+# 统一数据类型定义用于类型提示
+ApiMetricType = Union[ApiScalarType, ApiMediaType, ApiLogType]
