@@ -28,11 +28,12 @@ class Text(TransformMedia):
         return ColumnType.COLUMN_TYPE_TEXT
 
     def transform(self, *, step: int, path: Path) -> MediaItem:
+        content_encode = self.content.encode()
         # 计算 sha256
-        sha256 = hashlib.sha256(self.content.encode()).hexdigest()
+        sha256 = hashlib.sha256(content_encode).hexdigest()
         # 构建 filename
         # 历史版本直接将用户传入的content写入CH，这交给前端去适配
         filename = f"{step:03d}-{sha256[:8]}.txt"
         # 写入数据
         fs.safe_write(path / filename, self.content)
-        return MediaItem(filename=filename, caption=self.caption)
+        return MediaItem(filename=filename, sha256=sha256, size=len(content_encode), caption=self.caption)
