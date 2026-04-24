@@ -111,7 +111,7 @@ def validate_metric_type(item: str, key: Optional[str] = None):
     """校验 metric_type 的合法性"""
     if item not in _VALID_METRIC_TYPES:
         raise ValueError(f"Invalid metric_type: {item!r}, expected one of {sorted(_VALID_METRIC_TYPES)}")
-    if key is None and item != "LOG":
+    if not key and item != "LOG":
         raise ValueError("key must NOT be None if metric_type != LOG")
 
 

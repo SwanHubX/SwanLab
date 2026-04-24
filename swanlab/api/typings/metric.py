@@ -44,7 +44,6 @@ class ApiScalarSeriesType(ApiMetricColumnRefType, total=False):
     """标量指标序列，包含折线数据和聚合值"""
 
     metrics: List[ApiScalarType]
-    minMax: List[Any]
     min: ApiScalarType
     max: ApiScalarType
     avg: ApiScalarType

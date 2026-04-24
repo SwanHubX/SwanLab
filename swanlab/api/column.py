@@ -61,6 +61,11 @@ class Column(BaseEntity):
             proj_data = resp.data if resp.ok else {}
             self._project_id = proj_data.get("cuid", "")
             self._data["project_id"] = self._project_id
+            # 这里要确保是 cuid 而非 slug
+            run_resp = self._get(f"/project/{self._proj_path}/runs/{self._run_id}")
+            run_data = run_resp.data if run_resp.ok else {}
+            run_cuid = run_data.get("cuid", "")
+            self._run_id = run_cuid
         return self._data
 
     @property
@@ -71,7 +76,7 @@ class Column(BaseEntity):
 
     @property
     def run_id(self) -> str:
-        if self._run_id:
+        if self._project_id:
             return self._run_id
         return self._ensure_data().get("run_id", "")
 
@@ -132,7 +137,10 @@ class Column(BaseEntity):
 
         metric_type = parse_column_data_type(self.column_type)
 
-        cur_metric = Metric(ctx=self._ctx, project_id=self.project_id, run_id=self.run_id, metric_type=metric_type)
+        cur_metric = Metric(
+            ctx=self._ctx, project_id=self.project_id, run_id=self.run_id, key=self.key, metric_type=metric_type
+        )
+        return cur_metric.json()
 
     def json(self) -> Dict[str, Any]:
         return get_properties(self)
