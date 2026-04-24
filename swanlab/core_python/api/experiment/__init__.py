@@ -100,9 +100,9 @@ def get_project_experiments(
             if key in special_filter_config:
                 config = special_filter_config[key]
                 filter_value = (
-                    list(value)
+                    [str(v) for v in value]
                     if key == "tags" and isinstance(value, (list, tuple))
-                    else [value]
+                    else [str(value)]
                 )
                 parsed_filters.append(
                     {
@@ -132,7 +132,7 @@ def get_project_experiments(
                         if parse_column_type(key) == "STABLE"
                         else key.split(".", 1)[-1],
                         "active": True,
-                        "value": [value],
+                        "value": [str(value)],
                         "op": "EQ",
                         "type": parse_column_type(key),
                     }
