@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional, cast
 from swanlab.api.base import ApiClientContext, BaseEntity
 from swanlab.api.typings import ApiColumnCsvExportType, ApiResponseType
 from swanlab.api.typings.metric import ApiLogSeriesType, ApiMediaSeriesType, ApiMediaType, ApiScalarSeriesType
-from swanlab.api.utils import get_properties, validate_metric_type
+from swanlab.api.utils import get_properties, validate_metric_log_level, validate_metric_type
 
 
 class Metric(BaseEntity):
@@ -27,21 +27,28 @@ class Metric(BaseEntity):
         project_id: str,
         run_id: str,
         key: Optional[str] = "",
-        sample: int = 1500,
+        sample: int = 1000,
+        log_offset: Optional[int] = 0,  # 标记第几个分片，仅对 Log metric_type 有效
+        log_level: str = "INFO",
         metric_type: str = "SCALAR",
         data: Optional[Dict[str, Any]] = None,
         ignore_timestamp: bool = False,
     ) -> None:
         super().__init__(ctx)
         validate_metric_type(metric_type, key)
+        if metric_type == "LOG":
+            validate_metric_log_level(log_level)
         self._project_id = project_id
         self._run_id = run_id
         self._key = key
         self._data: Optional[Dict[str, Any]] = data
         self._metric_type = metric_type
         self._ignore_timestamp = ignore_timestamp
-        # TODO: 采样值，仅在 scalar 时生效，待接入
+        # TODO: 采样值， scalar 时生效，logs 时降级到 1000
         self._sample = sample
+        # 偏移量，仅对 Log metric_type 有效， 默认为 0
+        self._offset = log_offset
+        self._log_level = log_level
 
     # 类型 → 加载方法 的分发表，新增类型只需在此注册
     _FETCH_DISPATCH = {
@@ -77,6 +84,14 @@ class Metric(BaseEntity):
     def metrics(self) -> List[Any]:
         return self._ensure_data().get("metrics", [])
 
+    @property
+    def logs(self) -> List[Any]:
+        return self._ensure_data().get("logs", [])
+
+    @property
+    def count(self) -> int:
+        return self._ensure_data().get("count", 0)
+
     # ------------------------------------------------------------------
     # 请求辅助函数
     # ------------------------------------------------------------------
@@ -100,6 +115,15 @@ class Metric(BaseEntity):
         return {
             "projectId": self.project_id,
             "columns": [{"experimentId": self.run_id, "key": self.key}],
+        }
+
+    def _build_log_params(self) -> Dict[str, Any]:
+        return {
+            "projectId": self.project_id,
+            "experimentId": self.run_id,
+            "size": 1000,  # 硬编码为 1000
+            "epoch": self._offset,
+            "level": self._log_level,
         }
 
     # ------------------------------------------------------------------
@@ -131,7 +155,6 @@ class Metric(BaseEntity):
         raw_data = self._extract_first(raw_resp)
         if raw_data is None:
             return res
-        # print(raw_data)
         metrics: List[ApiMediaType] = []
         prefix = f"{self.project_id}/{self.run_id}"
         for entry in raw_data.get("metrics", []):
@@ -150,6 +173,14 @@ class Metric(BaseEntity):
 
     def _fetch_logs(self) -> ApiLogSeriesType:
         res = ApiLogSeriesType(projectId=self.project_id, experimentId=self.run_id, key="LOG")
+        params = self._build_log_params()
+        raw_resp = self._get("/house/metrics/log", params=params)
+        if not raw_resp.ok or not raw_resp.data:
+            return res
+        data = raw_resp.data
+        if isinstance(data, dict):
+            res["logs"] = data.get("logs", [])
+            res["count"] = data.get("count", 0)
         return res
 
     # ------------------------------------------------------------------
@@ -188,8 +219,15 @@ class Metric(BaseEntity):
                 if val:
                     result[field] = val
 
+        if self._metric_type == "LOG":
+            result.pop("metrics", None)
+        else:
+            result.pop("logs", None)
+            result.pop("count", None)
+
         if self._ignore_timestamp:
-            for item in cast(List[Dict[str, Any]], result.get("metrics", [])):
+            timestamp_items = result.get("metrics", []) or result.get("logs", [])
+            for item in cast(List[Dict[str, Any]], timestamp_items):
                 if isinstance(item, dict):
                     item.pop("timestamp", None)
 

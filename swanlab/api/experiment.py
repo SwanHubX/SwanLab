@@ -8,7 +8,7 @@
 from typing import Any, Dict, Iterator, List, Optional, Union, cast
 
 from swanlab.api.base import ApiClientContext, BaseEntity
-from swanlab.api.typings.common import ApiMetricTypeLiteral, PaginatedQuery
+from swanlab.api.typings.common import ApiMetricLogLevelLiteral, ApiMetricTypeLiteral, PaginatedQuery
 from swanlab.api.typings.experiment import (
     ApiExperimentLabelType,
     ApiExperimentProfileType,
@@ -163,6 +163,26 @@ class Experiment(BaseEntity):
             ignore_timestamp=ignore_timestamp,
         )
         return metric.json()
+
+    def logs(
+        self,
+        offset: Optional[int] = 0,
+        level: ApiMetricLogLevelLiteral = "INFO",
+        ignore_timestamp: bool = False,
+    ) -> Dict[str, Any]:
+        from swanlab.api.metric import Metric
+
+        logs = Metric(
+            ctx=self._ctx,
+            project_id=self.project_id,
+            run_id=self.run_id,
+            key="LOG",
+            log_offset=offset,
+            log_level=level,
+            metric_type="LOG",
+            ignore_timestamp=ignore_timestamp,
+        )
+        return logs.json()
 
     def columns(
         self,

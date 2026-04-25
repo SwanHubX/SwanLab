@@ -9,6 +9,9 @@ from .column import ApiColumnCsvExportType, ApiColumnErrorType, ApiColumnType
 from .common import (
     ApiIdentityLiteral,
     ApiLicensePlanLiteral,
+    ApiMetricLogLevelLiteral,
+    ApiMetricTypeLiteral,
+    ApiMetricXAxisLiteral,
     ApiPaginationType,
     ApiResponseType,
     ApiRoleLiteral,
@@ -18,7 +21,11 @@ from .common import (
     ApiWorkspaceLiteral,
 )
 from .experiment import ApiExperimentLabelType, ApiExperimentType
-from .metric import *
+from .metric import (
+    ApiLogSeriesType,
+    ApiMediaSeriesType,
+    ApiScalarSeriesType,
+)
 from .project import ApiProjectCountType, ApiProjectLabelType, ApiProjectType
 from .selfhosted import ApiApiKeyType, ApiSelfHostedInfoType
 from .user import ApiUserProfileType, ApiUserType
@@ -33,6 +40,9 @@ __all__ = [
     "ApiRoleLiteral",
     "ApiIdentityLiteral",
     "ApiLicensePlanLiteral",
+    "ApiMetricLogLevelLiteral",
+    "ApiMetricTypeLiteral",
+    "ApiMetricXAxisLiteral",
     # General TypedDicts
     "ApiPaginationType",
     "ApiResponseType",
@@ -56,4 +66,8 @@ __all__ = [
     "ApiColumnErrorType",
     "ApiColumnType",
     "ApiColumnCsvExportType",
+    # Metric
+    "ApiLogSeriesType",
+    "ApiMediaSeriesType",
+    "ApiScalarSeriesType",
 ]

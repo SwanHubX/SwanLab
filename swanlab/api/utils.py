@@ -13,6 +13,7 @@ from swanlab.api.typings.common import (
     ApiColumnScalarTypeLiteral,
     ApiFilterOpLiteral,
     ApiFilterStableKeyLiteral,
+    ApiMetricLogLevelLiteral,
     ApiMetricTypeLiteral,
     ApiSidebarLiteral,
     ApiSortOrderLiteral,
@@ -77,6 +78,7 @@ _VALID_COLUMN_SCALAR_TYPES = frozenset(get_args(ApiColumnScalarTypeLiteral))
 
 # 指标相关校验常量
 _VALID_METRIC_TYPES = frozenset(get_args(ApiMetricTypeLiteral))
+_VALID_METRIC_LOG_LEVELS = frozenset(get_args(ApiMetricLogLevelLiteral))
 
 
 def _check_required(item: Dict[str, Any], keys: Set[str]) -> None:
@@ -109,10 +111,16 @@ def validate_filter(item: Dict[str, Any]) -> None:
 
 def validate_metric_type(metric_type: str, key: Optional[str] = None) -> None:
     """校验 metric_type 的合法性。非 LOG 类型必须提供非空 key。"""
-    if metric_type not in _VALID_METRIC_TYPES:
+    if metric_type not in _VALID_METRIC_TYPES and metric_type != "LOG":
         raise ValueError(f"Invalid metric_type: {metric_type!r}, expected one of {sorted(_VALID_METRIC_TYPES)}")
     if metric_type != "LOG" and not key:
         raise ValueError(f"key is required for metric_type {metric_type!r}, got key={key!r}")
+
+
+def validate_metric_log_level(level: str) -> None:
+    """校验 metric log level 的合法性。"""
+    if level not in _VALID_METRIC_LOG_LEVELS:
+        raise ValueError(f"Invalid metric log level: {level!r}, expected one of {sorted(_VALID_METRIC_LOG_LEVELS)}")
 
 
 def validate_group(item: Dict[str, Any]) -> None:
