@@ -68,12 +68,11 @@ class ApiScalarSummaryItemType(TypedDict, total=False):
 # Media — 媒体数据
 # ---------------------------------------------------------------------------
 class ApiMediaItemDataType(TypedDict, total=False):
-    path: str
+    url: str
 
 
 class ApiMediaType(TypedDict, total=False):
     index: int
-    prefix: str
     items: List[ApiMediaItemDataType]
 
 

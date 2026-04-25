@@ -10,8 +10,15 @@ from typing import Any, Dict, Iterator, List, Optional, cast
 from swanlab.api.base import ApiClientContext, BaseEntity
 from swanlab.api.typings import ApiColumnCsvExportType, ApiResponseType
 from swanlab.api.typings.common import ApiMetricTypeLiteral
-from swanlab.api.typings.metric import ApiLogSeriesType, ApiMediaSeriesType, ApiMediaType, ApiScalarSeriesType
+from swanlab.api.typings.metric import (
+    ApiLogSeriesType,
+    ApiMediaItemDataType,
+    ApiMediaSeriesType,
+    ApiMediaType,
+    ApiScalarSeriesType,
+)
 from swanlab.api.utils import get_properties, validate_metric_log_level, validate_metric_type
+from swanlab.sdk.internal.pkg import console
 
 
 class Metric(BaseEntity):
@@ -151,6 +158,35 @@ class Metric(BaseEntity):
             res[field] = stat_data.get(field, {})
         return res
 
+    @staticmethod
+    def _fetch_presigned_urls(entity: BaseEntity, prefix: str, paths: List[str]) -> Dict[str, str]:
+        """批量获取预签名下载链接，返回 path → url 映射。"""
+        if not paths:
+            return {}
+        resp = entity._post("/resources/presigned/get", data={"prefix": prefix, "paths": paths})
+        if not resp.ok or not isinstance(resp.data, dict):
+            return {}
+        urls = resp.data.get("urls", [])
+        return dict(zip(paths, urls)) if urls else {}
+
+    @staticmethod
+    def _build_media_items(
+        entry: Dict[str, Any],
+        url_map: Dict[str, str],
+    ) -> List[ApiMediaItemDataType]:
+        """将单个 metric entry 的 data/more 合并为 items，注入预签名 url。"""
+        paths = entry.get("data", [])
+        mores = entry.get("more", [])
+        items: List[ApiMediaItemDataType] = []
+        for i, path in enumerate(paths):
+            item: ApiMediaItemDataType = {}
+            if path in url_map:
+                item["url"] = url_map[path]
+            if i < len(mores) and isinstance(mores[i], dict):
+                item.update(mores[i])
+            items.append(item)
+        return items
+
     def _fetch_media(self) -> ApiMediaSeriesType:
         res = ApiMediaSeriesType(projectId=self.project_id, experimentId=self.run_id, key=self.key)
         payload = self._build_media_payload(self.project_id, self.run_id, [self.key])
@@ -160,16 +196,15 @@ class Metric(BaseEntity):
             return res
         metrics: List[ApiMediaType] = []
         prefix = f"{self.project_id}/{self.run_id}"
+        all_paths = [p for entry in raw_data.get("metrics", []) for p in entry.get("data", [])]
+        if all_paths:
+            console.info(
+                f"Media fetched: run_id[{self.run_id}], key[{self.key}] - {len(all_paths)} items, requesting presigned urls..."
+            )
+        url_map = self._fetch_presigned_urls(self, prefix, all_paths)
         for entry in raw_data.get("metrics", []):
-            paths = entry.get("data", [])
-            mores = entry.get("more", [])
-            items = []
-            for i, path in enumerate(paths):
-                item = {"path": path}
-                if i < len(mores) and isinstance(mores[i], dict):
-                    item.update(mores[i])
-                items.append(item)
-            metrics.append({"index": entry.get("index", 0), "prefix": prefix, "items": items})
+            items = self._build_media_items(entry, url_map)
+            metrics.append({"index": entry.get("index", 0), "items": items})
 
         res["metrics"] = metrics
         return res
@@ -330,6 +365,15 @@ class Metrics(BaseEntity):
         raw_resp = self._post("/house/metrics/f_media", data=payload)
         raw_list: List[Dict[str, Any]] = raw_resp.ok and isinstance(raw_resp.data, list) and raw_resp.data or []
 
+        # collect all paths across all keys for a single presigned URL batch call
+        prefix = f"{self._project_id}/{self._run_id}"
+        all_paths = [p for raw_data in raw_list for entry in raw_data.get("metrics", []) for p in entry.get("data", [])]
+        url_map = Metric._fetch_presigned_urls(self, prefix, all_paths) if all_paths else {}
+        if all_paths:
+            console.info(
+                f"Media fetched: run_id[{self._run_id}] - {len(all_paths)} items across {len(self._keys)} keys, requesting presigned urls..."
+            )
+
         for i, key in enumerate(self._keys):
             data: Dict[str, Any] = {
                 "projectId": self._project_id,
@@ -340,17 +384,9 @@ class Metrics(BaseEntity):
             if i < len(raw_list):
                 raw_data = raw_list[i]
                 metrics: List[ApiMediaType] = []
-                prefix = f"{self._project_id}/{self._run_id}"
                 for entry in raw_data.get("metrics", []):
-                    paths = entry.get("data", [])
-                    mores = entry.get("more", [])
-                    items = []
-                    for j, path in enumerate(paths):
-                        item: Dict[str, Any] = {"path": path}
-                        if j < len(mores) and isinstance(mores[j], dict):
-                            item.update(mores[j])
-                        items.append(item)
-                    metrics.append({"index": entry.get("index", 0), "prefix": prefix, "items": items})
+                    items = Metric._build_media_items(entry, url_map)
+                    metrics.append({"index": entry.get("index", 0), "items": items})
                 data["metrics"] = metrics
             yield self._build_metric(key, data)
 
