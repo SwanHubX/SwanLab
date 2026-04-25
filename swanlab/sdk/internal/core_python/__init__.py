@@ -18,7 +18,7 @@ Core 同时需要根据不同模式处理不同的业务，这是设计模式决
 值得说明的是，在当前的上层设计中，upsert 方法在 disabled 模式下永远不会触发，但是考虑到设计完整性，我们增加了相关业务逻辑判断
 """
 
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from swanlab.proto.swanlab.config.v1.config_pb2 import ConfigRecord
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord
@@ -27,10 +27,11 @@ from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.run.v1.run_pb2 import (
     FinishRecord,
     FinishResponse,
+    RunState,
     StartRecord,
     StartResponse,
 )
-from swanlab.proto.swanlab.system.v1.console_pb2 import ConsoleRecord
+from swanlab.proto.swanlab.system.v1.console_pb2 import ConsoleRecord, StreamType
 from swanlab.proto.swanlab.system.v1.env_pb2 import CondaRecord, MetadataRecord, RequirementsRecord
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.core_python.api.experiment import create_or_resume_experiment, stop_experiment
@@ -317,26 +318,41 @@ class CorePython(CoreProtocol):
         self._store.close()
         self._store = None
 
-    @staticmethod
-    def _build_finish_record(finish_record: FinishRecord):
+    def _build_finish_record(self, finish_record: FinishRecord) -> Tuple[Record, Optional[Record]]:
         record = builder.build_finish_record(finish_record)
         record.finish.CopyFrom(finish_record)
-        return record
+        console_record: Optional[Record] = None
+        if finish_record.state != RunState.RUN_STATE_FINISHED:
+            error_message = (
+                finish_record.error
+                if finish_record.error
+                else "run failed with unknown error while finish_record.error is not set"
+            )
+            c = ConsoleRecord(
+                timestamp=finish_record.finished_at,
+                stream=StreamType.STREAM_TYPE_STDERR,
+                line=error_message,
+            )
+            console_record = builder.build_console_record(self._counter, c)
+            # 不将 record 写入 store 中，因为这个 record 也是为了适应后端“报错信息写在CH”的设计
+        return record, console_record
 
     def _finish_when_local(self, finish_record: FinishRecord) -> FinishResponse:
-        record = self._build_finish_record(finish_record)
+        record, _ = self._build_finish_record(finish_record)
         self._finish_store(record)
         return FinishResponse(success=True, message="OK, but use local")
 
     def _finish_when_offline(self, finish_record: FinishRecord) -> FinishResponse:
-        record = self._build_finish_record(finish_record)
+        record, _ = self._build_finish_record(finish_record)
         self._finish_store(record)
         return FinishResponse(success=True, message="OK, but use offline")
 
     def _finish_when_cloud(self, finish_record: FinishRecord) -> FinishResponse:
-        record = self._build_finish_record(finish_record)
+        record, console_record = self._build_finish_record(finish_record)
         self._finish_store(record)
         assert self._transport is not None, "transport must be initialized before finishing"
+        if console_record is not None:
+            self._transport_put([console_record])
         self._transport.finish()
         self._transport = None
         resp = self._report_run_finish(finish_record)

@@ -5,15 +5,15 @@
 @description: 适配器，将一个类的接口转换成客户希望的另外一个接口。
 举个例子，用户传入的resume参数是"must"、"allow"、"never"，但我们内部使用Protobuf枚举
 两者需要适配和转换
-注意这部分适配器不会为Core定制，因为Core未来会作为单独微服务存在，无法直接依赖
 """
 
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
 from swanlab.proto.swanlab.run.v1.run_pb2 import ResumeMode, RunState
+from swanlab.proto.swanlab.system.v1.console_pb2 import StreamType
 
 from .bimap import BiMap
 
-__all__ = ["resume", "column_type", "state"]
+__all__ = ["resume", "column_type", "state", "stream_type"]
 
 
 resume = BiMap(
@@ -45,3 +45,10 @@ column_type = BiMap(
     }
 )
 """ColumnType 枚举适配器，同时也会作为路径映射"""
+
+stream_type = BiMap(
+    {
+        "INFO": StreamType.STREAM_TYPE_STDOUT,
+        "ERROR": StreamType.STREAM_TYPE_STDERR,
+    }
+)
