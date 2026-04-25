@@ -44,7 +44,7 @@ class RecordBuilder:
         cls = value[0].__class__
         if not all(isinstance(item, cls) for item in value):
             raise TypeError(f"All items in the list must be of the same type {cls.__name__}, got mixed types.")
-        path = self._ctx.media_dir / adapter.column_type[cls.column_type()]
+        path = self._ctx.media_dir / adapter.media_dir[cls.column_type()]
         fs.safe_mkdir(path)
         values = [item.transform(step=step, path=path) for item in value]
         return cls.build_data_record(key=key, step=step, timestamp=timestamp, data=values), cls
@@ -53,7 +53,7 @@ class RecordBuilder:
     def _(self, value: TransformMedia, key: str, timestamp: Timestamp, step: int) -> ParseResult:
         """将单个 TransformMediaType 转换为 MediaRecord"""
         cls = value.__class__
-        path = self._ctx.media_dir / adapter.column_type[cls.column_type()]
+        path = self._ctx.media_dir / adapter.media_dir[cls.column_type()]
         fs.safe_mkdir(path)
         values = [value.transform(step=step, path=path)]
         return cls.build_data_record(key=key, step=step, timestamp=timestamp, data=values), cls
@@ -70,7 +70,7 @@ class RecordBuilder:
         col_type = column_record.column_type
         metrics = self._ctx.metrics
         if issubclass(cls, TransformMedia):
-            media_type_str = adapter.column_type[col_type]
+            media_type_str = adapter.media_dir[col_type]
             metrics.define_media(key, column_record, self._ctx.media_dir / media_type_str)
         else:
             metrics.define_scalar(key=key, column=column_record)

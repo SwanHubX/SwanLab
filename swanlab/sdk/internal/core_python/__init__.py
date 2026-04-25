@@ -334,7 +334,8 @@ class CorePython(CoreProtocol):
                 line=error_message,
             )
             console_record = builder.build_console_record(self._counter, c)
-            # 不将 record 写入 store 中，因为这个 record 也是为了适应后端“报错信息写在CH”的设计
+            # 不将 console_record 写入 store 中，一方面具体的报错信息存储在 finish_record 中
+            # 另一方面因为这个 record 也是为了适应后端“报错信息写在CH”的设计
         return record, console_record
 
     def _finish_when_local(self, finish_record: FinishRecord) -> FinishResponse:

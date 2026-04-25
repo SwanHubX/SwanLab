@@ -13,7 +13,7 @@ from swanlab.proto.swanlab.system.v1.console_pb2 import StreamType
 
 from .bimap import BiMap
 
-__all__ = ["resume", "column_type", "state", "stream_type"]
+__all__ = ["resume", "media_dir", "state", "stream_type"]
 
 
 resume = BiMap(
@@ -34,9 +34,8 @@ state = BiMap(
 )
 """RunState 枚举适配器"""
 
-column_type = BiMap(
+media_dir = BiMap(
     {
-        "scalar": ColumnType.COLUMN_TYPE_FLOAT,
         "text": ColumnType.COLUMN_TYPE_TEXT,
         "image": ColumnType.COLUMN_TYPE_IMAGE,
         "audio": ColumnType.COLUMN_TYPE_AUDIO,
