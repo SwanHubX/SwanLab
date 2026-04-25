@@ -5,10 +5,11 @@
 @description: Metric 实体类 — 指标序列的查询与操作
 """
 
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Dict, Iterator, List, Optional, cast
 
 from swanlab.api.base import ApiClientContext, BaseEntity
 from swanlab.api.typings import ApiColumnCsvExportType, ApiResponseType
+from swanlab.api.typings.common import ApiMetricTypeLiteral
 from swanlab.api.typings.metric import ApiLogSeriesType, ApiMediaSeriesType, ApiMediaType, ApiScalarSeriesType
 from swanlab.api.utils import get_properties, validate_metric_log_level, validate_metric_type
 
@@ -103,18 +104,20 @@ class Metric(BaseEntity):
             return resp.data[0]
         return None
 
-    def _build_scalar_payload(self) -> Dict[str, Any]:
+    @staticmethod
+    def _build_scalar_payload(project_id: str, run_id: str, keys: List[str]) -> Dict[str, Any]:
         return {
-            "projectId": self.project_id,
+            "projectId": project_id,
             "xType": "step",
             "range": [0, 0],
-            "columns": [{"experimentId": self.run_id, "key": self.key}],
+            "columns": [{"experimentId": run_id, "key": key} for key in keys],
         }
 
-    def _build_media_payload(self) -> Dict[str, Any]:
+    @staticmethod
+    def _build_media_payload(project_id: str, run_id: str, keys: List[str]) -> Dict[str, Any]:
         return {
-            "projectId": self.project_id,
-            "columns": [{"experimentId": self.run_id, "key": self.key}],
+            "projectId": project_id,
+            "columns": [{"experimentId": run_id, "key": key} for key in keys],
         }
 
     def _build_log_params(self) -> Dict[str, Any]:
@@ -132,7 +135,7 @@ class Metric(BaseEntity):
 
     def _fetch_scalar(self) -> ApiScalarSeriesType:
         res = ApiScalarSeriesType(projectId=self.project_id, experimentId=self.run_id, key=self.key)
-        payload = self._build_scalar_payload()
+        payload = self._build_scalar_payload(self.project_id, self.run_id, [self.key])
 
         # 1. 获取折线数据
         raw_data = self._extract_first(self._post("/house/metrics/scalar", data=payload))
@@ -150,7 +153,7 @@ class Metric(BaseEntity):
 
     def _fetch_media(self) -> ApiMediaSeriesType:
         res = ApiMediaSeriesType(projectId=self.project_id, experimentId=self.run_id, key=self.key)
-        payload = self._build_media_payload()
+        payload = self._build_media_payload(self.project_id, self.run_id, [self.key])
         raw_resp = self._post("/house/metrics/f_media", data=payload)
         raw_data = self._extract_first(raw_resp)
         if raw_data is None:
@@ -232,3 +235,125 @@ class Metric(BaseEntity):
                     item.pop("timestamp", None)
 
         return result
+
+
+class Metrics(BaseEntity):
+    """
+    批量指标数据的迭代器。
+
+    一次 metrics 查询只支持一种 metric_type（SCALAR 或 MEDIA），不支持 LOG。
+    通过 payload 的 columns 数组一次性传递多个 key，减少网络请求。
+
+    用法::
+
+        for m in experiment.metrics(keys=["loss", "acc"], metric_type="SCALAR"):
+            print(m.key, m.metrics)
+    """
+
+    def __init__(
+        self,
+        ctx: ApiClientContext,
+        *,
+        project_id: str,
+        run_id: str,
+        keys: List[str],
+        metric_type: ApiMetricTypeLiteral,
+        sample: int = 1500,
+        ignore_timestamp: bool = False,
+    ) -> None:
+        super().__init__(ctx)
+        if metric_type == "LOG":
+            raise ValueError("Metrics does not support LOG metric_type, use Experiment.logs() instead")
+        if not keys:
+            raise ValueError("keys must be a non-empty list")
+        self._project_id = project_id
+        self._run_id = run_id
+        self._keys = keys
+        self._metric_type = metric_type
+        self._sample = sample
+        self._ignore_timestamp = ignore_timestamp
+        self._page_info: Dict[str, Any] = {
+            "keys": keys,
+            "metricType": metric_type,
+            "list": [],
+        }
+
+    def __iter__(self) -> Iterator[Metric]:
+        if self._metric_type == "SCALAR":
+            yield from self._fetch_scalars()
+        else:
+            yield from self._fetch_medias()
+
+    def _build_metric(self, key: str, data: Dict[str, Any]) -> Metric:
+        return Metric(
+            ctx=self._ctx,
+            project_id=self._project_id,
+            run_id=self._run_id,
+            key=key,
+            metric_type=self._metric_type,
+            sample=self._sample,
+            ignore_timestamp=self._ignore_timestamp,
+            data=data,
+        )
+
+    def _fetch_scalars(self) -> Iterator[Metric]:
+        payload = Metric._build_scalar_payload(self._project_id, self._run_id, self._keys)
+
+        # 1. 获取折线数据
+        scalar_resp = self._post("/house/metrics/scalar", data=payload)
+        scalar_list: List[Dict[str, Any]] = (
+            scalar_resp.data if scalar_resp.ok and isinstance(scalar_resp.data, list) else []
+        )
+
+        # 2. 获取统计值
+        value_resp = self._post("/house/metrics/scalar/value", data=payload)
+        value_list: List[Dict[str, Any]] = value_resp.ok and isinstance(value_resp.data, list) and value_resp.data or []
+
+        for i, key in enumerate(self._keys):
+            data: Dict[str, Any] = {
+                "projectId": self._project_id,
+                "experimentId": self._run_id,
+                "key": key,
+                "metrics": [],
+            }
+            if i < len(scalar_list):
+                data["metrics"] = scalar_list[i].get("metrics", [])
+            if i < len(value_list):
+                for field in ("min", "max", "avg", "median", "latest"):
+                    val = value_list[i].get(field)
+                    if val is not None:
+                        data[field] = val
+            yield self._build_metric(key, data)
+
+    def _fetch_medias(self) -> Iterator[Metric]:
+        payload = Metric._build_media_payload(self._project_id, self._run_id, self._keys)
+        raw_resp = self._post("/house/metrics/f_media", data=payload)
+        raw_list: List[Dict[str, Any]] = raw_resp.ok and isinstance(raw_resp.data, list) and raw_resp.data or []
+
+        for i, key in enumerate(self._keys):
+            data: Dict[str, Any] = {
+                "projectId": self._project_id,
+                "experimentId": self._run_id,
+                "key": key,
+                "metrics": [],
+            }
+            if i < len(raw_list):
+                raw_data = raw_list[i]
+                metrics: List[ApiMediaType] = []
+                prefix = f"{self._project_id}/{self._run_id}"
+                for entry in raw_data.get("metrics", []):
+                    paths = entry.get("data", [])
+                    mores = entry.get("more", [])
+                    items = []
+                    for j, path in enumerate(paths):
+                        item: Dict[str, Any] = {"path": path}
+                        if j < len(mores) and isinstance(mores[j], dict):
+                            item.update(mores[j])
+                        items.append(item)
+                    metrics.append({"index": entry.get("index", 0), "prefix": prefix, "items": items})
+                data["metrics"] = metrics
+            yield self._build_metric(key, data)
+
+    def json(self) -> Dict[str, Any]:
+        self._page_info["list"] = [m.json() for m in self]
+        return self._page_info

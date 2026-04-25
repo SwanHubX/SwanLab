@@ -164,6 +164,25 @@ class Experiment(BaseEntity):
         )
         return metric.json()
 
+    def metrics(
+        self,
+        keys: List[str],
+        metric_type: ApiMetricTypeLiteral = "SCALAR",
+        sample: int = 1500,
+        ignore_timestamp: bool = False,
+    ) -> Dict[str, Any]:
+        from swanlab.api.metric import Metrics
+
+        return Metrics(
+            ctx=self._ctx,
+            project_id=self.project_id,
+            run_id=self.run_id,
+            keys=keys,
+            sample=sample,
+            metric_type=metric_type,
+            ignore_timestamp=ignore_timestamp,
+        ).json()
+
     def logs(
         self,
         offset: Optional[int] = 0,
