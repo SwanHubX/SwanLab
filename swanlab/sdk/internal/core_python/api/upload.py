@@ -8,7 +8,7 @@
 from typing import Dict
 
 from swanlab.sdk.internal.core_python import client
-from swanlab.sdk.typings.core_python.api.upload import MetricPayload, UploadLogMetrics
+from swanlab.sdk.typings.core_python.api.upload import UploadLogMetrics, UploadMetricPayload
 
 
 def upload_conda(username: str, project: str, experiment_id: str, *, content: str) -> None:
@@ -71,7 +71,7 @@ def upload_console(project_id: str, experiment_id: str, *, metrics: UploadLogMet
     """
     if not metrics:
         return
-    data: MetricPayload = {
+    data: UploadMetricPayload = {
         "projectId": project_id,
         "experimentId": experiment_id,
         "type": "log",

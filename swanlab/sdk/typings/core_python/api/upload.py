@@ -78,7 +78,7 @@ class UploadScalar(TypedDict):
     create_time: NotRequired[str]
 
 
-UploadScalarMetrics = List[UploadScalar]
+UploadScalarBatch = List[UploadScalar]
 """
 标量指标
 """
@@ -100,7 +100,7 @@ class UploadMedia(TypedDict):
     create_time: NotRequired[str]
 
 
-UploadMediaMetrics = List[UploadMedia]
+UploadMediaBatch = List[UploadMedia]
 """
 媒体指标
 """
@@ -111,10 +111,10 @@ UploadMediaMetrics = List[UploadMedia]
 # ============================================================
 
 
-class MetricPayload(TypedDict):
+class UploadMetricPayload(TypedDict):
     """POST /house/metrics 请求体"""
 
     projectId: str
     experimentId: str
     type: str
-    metrics: Union[UploadScalarMetrics, UploadMediaMetrics, UploadLogMetrics]
+    metrics: Union[UploadScalarBatch, UploadMediaBatch, UploadLogMetrics]
