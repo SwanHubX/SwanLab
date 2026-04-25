@@ -190,7 +190,7 @@ class BackgroundConsumer(ConsumerProtocol):
                     self._media_batch.append(data_record)
 
     def _handle_scalar_define(self, event: ScalarDefineEvent) -> None:
-        defined = self._metrics.ensure_defined_as(event.key, ColumnType.COLUMN_TYPE_FLOAT)
+        defined = self._metrics.ensure_defined_as(event.key, ColumnType.COLUMN_TYPE_SCALAR)
         if defined:
             console.warning(f"Scalar Column '{event.key}' has already been defined, skip redefine.")
             return

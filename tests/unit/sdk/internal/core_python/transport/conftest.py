@@ -19,7 +19,7 @@ def make_scalar_record():
                 key="train/loss",
                 step=step,
                 timestamp=timestamp,
-                type=ColumnType.COLUMN_TYPE_FLOAT,
+                type=ColumnType.COLUMN_TYPE_SCALAR,
                 value=ScalarValue(number=0.125),
             )
         )

@@ -7,19 +7,39 @@ option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/metric/colum
 // ColumnType 列的数据类型
 enum ColumnType {
   COLUMN_TYPE_UNSPECIFIED = 0;
-  COLUMN_TYPE_FLOAT       = 1;  // 标量
+  COLUMN_TYPE_SCALAR      = 1;  // 标量
   COLUMN_TYPE_IMAGE       = 2;  // 图像
   COLUMN_TYPE_AUDIO       = 3;  // 音频
   COLUMN_TYPE_TEXT        = 4;  // 文本
   COLUMN_TYPE_VIDEO       = 5;  // 视频
   COLUMN_TYPE_ECHARTS     = 6;  // ECharts 图表
+  COLUMN_TYPE_OBJECT3D    = 7;  // 3D 对象
+  COLUMN_TYPE_MOLECULE    = 8;  // 分子结构
 }
 
 // ColumnClass 列的来源类别
 enum ColumnClass {
   COLUMN_CLASS_UNSPECIFIED = 0;
   COLUMN_CLASS_CUSTOM      = 1;  // 用户自定义列（默认）
+  COLUMN_CLASS_SYSTEM      = 2;  // 系统列
 }
+
+
+// ChartType 图表类型
+enum ChartType {
+  CHART_TYPE_UNSPECIFIED = 0;   // 默认情况下，后端根据 column_type 自动推导
+  CHART_TYPE_LINE        = 1;
+  CHART_TYPE_BAR         = 2;
+  CHART_TYPE_SCALAR      = 3;
+  CHART_TYPE_IMAGE       = 4;
+  CHART_TYPE_AUDIO       = 5;
+  CHART_TYPE_TEXT        = 6;
+  CHART_TYPE_VIDEO       = 7;
+  CHART_TYPE_ECHARTS     = 8;
+  CHART_TYPE_OBJECT3D    = 9;
+  CHART_TYPE_MOLECULE    = 10;
+}
+
 
 // SectionType section 类型
 enum SectionType {
@@ -65,7 +85,7 @@ message ColumnRecord {
   // Section 类型，默认 PUBLIC
   SectionType section_type = 6;
 
-  // Y 轴范围 [min, max]，可选
+  // Y 轴范围 [min, max]，可选，仅折线图有效
   YRange y_range = 7;
 
   // 图表索引，相同 chart_index 的列归入同一图表；不填则新建图表
@@ -74,9 +94,12 @@ message ColumnRecord {
   // 图表名称，仅对单实验图表生效
   string chart_name = 9;
 
+  // 图表类型，默认根据 column_type 自动推导
+  ChartType chart_type = 10;
+
   // 指标名称，仅对单实验图表生效
-  string metric_name = 10;
+  string metric_name = 11;
 
   // 指标颜色列表，十六进制颜色值，如 "#FF5733"
-  repeated string metric_colors = 11;
+  repeated string metric_colors = 12;
 }

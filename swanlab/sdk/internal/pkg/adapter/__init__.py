@@ -34,6 +34,22 @@ state = BiMap(
 )
 """RunState 枚举适配器"""
 
+
+column = BiMap(
+    {
+        "FLOAT": ColumnType.COLUMN_TYPE_SCALAR,
+        "IMAGE": ColumnType.COLUMN_TYPE_IMAGE,
+        "AUDIO": ColumnType.COLUMN_TYPE_AUDIO,
+        "VIDEO": ColumnType.COLUMN_TYPE_VIDEO,
+        "TEXT": ColumnType.COLUMN_TYPE_TEXT,
+        "ECHARTS": ColumnType.COLUMN_TYPE_ECHARTS,
+        "OBJECT3D": ColumnType.COLUMN_TYPE_OBJECT3D,
+        "MOLECULE": ColumnType.COLUMN_TYPE_MOLECULE,
+    }
+)
+"""ColumnType 枚举适配器，映射本地proto枚举与云端类型枚举"""
+
+
 medium = BiMap(
     {
         "text": ColumnType.COLUMN_TYPE_TEXT,

@@ -83,7 +83,7 @@ class RecordBuilder:
         section_type = SectionType.SECTION_TYPE_SYSTEM if event.system else SectionType.SECTION_TYPE_PUBLIC
         col = ColumnRecord(
             column_key=event.key,
-            column_type=ColumnType.COLUMN_TYPE_FLOAT,
+            column_type=ColumnType.COLUMN_TYPE_SCALAR,
             column_class=ColumnClass.COLUMN_CLASS_CUSTOM,
             section_name=event.chart_name or "",
             section_type=section_type,

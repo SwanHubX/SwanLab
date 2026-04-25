@@ -24,7 +24,7 @@ class Scalar(TransformData):
 
     @classmethod
     def column_type(cls) -> ColumnType:
-        return ColumnType.COLUMN_TYPE_FLOAT
+        return ColumnType.COLUMN_TYPE_SCALAR
 
     @classmethod
     def build_data_record(cls, *, key: str, step: int, timestamp: Timestamp, data: ScalarValue) -> ScalarRecord:

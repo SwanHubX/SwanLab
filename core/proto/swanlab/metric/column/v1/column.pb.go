@@ -26,33 +26,39 @@ type ColumnType int32
 
 const (
 	ColumnType_COLUMN_TYPE_UNSPECIFIED ColumnType = 0
-	ColumnType_COLUMN_TYPE_FLOAT       ColumnType = 1 // 标量
+	ColumnType_COLUMN_TYPE_SCALAR      ColumnType = 1 // 标量
 	ColumnType_COLUMN_TYPE_IMAGE       ColumnType = 2 // 图像
 	ColumnType_COLUMN_TYPE_AUDIO       ColumnType = 3 // 音频
 	ColumnType_COLUMN_TYPE_TEXT        ColumnType = 4 // 文本
 	ColumnType_COLUMN_TYPE_VIDEO       ColumnType = 5 // 视频
 	ColumnType_COLUMN_TYPE_ECHARTS     ColumnType = 6 // ECharts 图表
+	ColumnType_COLUMN_TYPE_OBJECT3D    ColumnType = 7 // 3D 对象
+	ColumnType_COLUMN_TYPE_MOLECULE    ColumnType = 8 // 分子结构
 )
 
 // Enum value maps for ColumnType.
 var (
 	ColumnType_name = map[int32]string{
 		0: "COLUMN_TYPE_UNSPECIFIED",
-		1: "COLUMN_TYPE_FLOAT",
+		1: "COLUMN_TYPE_SCALAR",
 		2: "COLUMN_TYPE_IMAGE",
 		3: "COLUMN_TYPE_AUDIO",
 		4: "COLUMN_TYPE_TEXT",
 		5: "COLUMN_TYPE_VIDEO",
 		6: "COLUMN_TYPE_ECHARTS",
+		7: "COLUMN_TYPE_OBJECT3D",
+		8: "COLUMN_TYPE_MOLECULE",
 	}
 	ColumnType_value = map[string]int32{
 		"COLUMN_TYPE_UNSPECIFIED": 0,
-		"COLUMN_TYPE_FLOAT":       1,
+		"COLUMN_TYPE_SCALAR":      1,
 		"COLUMN_TYPE_IMAGE":       2,
 		"COLUMN_TYPE_AUDIO":       3,
 		"COLUMN_TYPE_TEXT":        4,
 		"COLUMN_TYPE_VIDEO":       5,
 		"COLUMN_TYPE_ECHARTS":     6,
+		"COLUMN_TYPE_OBJECT3D":    7,
+		"COLUMN_TYPE_MOLECULE":    8,
 	}
 )
 
@@ -89,6 +95,7 @@ type ColumnClass int32
 const (
 	ColumnClass_COLUMN_CLASS_UNSPECIFIED ColumnClass = 0
 	ColumnClass_COLUMN_CLASS_CUSTOM      ColumnClass = 1 // 用户自定义列（默认）
+	ColumnClass_COLUMN_CLASS_SYSTEM      ColumnClass = 2 // 系统列
 )
 
 // Enum value maps for ColumnClass.
@@ -96,10 +103,12 @@ var (
 	ColumnClass_name = map[int32]string{
 		0: "COLUMN_CLASS_UNSPECIFIED",
 		1: "COLUMN_CLASS_CUSTOM",
+		2: "COLUMN_CLASS_SYSTEM",
 	}
 	ColumnClass_value = map[string]int32{
 		"COLUMN_CLASS_UNSPECIFIED": 0,
 		"COLUMN_CLASS_CUSTOM":      1,
+		"COLUMN_CLASS_SYSTEM":      2,
 	}
 )
 
@@ -128,6 +137,80 @@ func (x ColumnClass) Number() protoreflect.EnumNumber {
 // Deprecated: Use ColumnClass.Descriptor instead.
 func (ColumnClass) EnumDescriptor() ([]byte, []int) {
 	return file_swanlab_metric_column_v1_column_proto_rawDescGZIP(), []int{1}
+}
+
+// ChartType 图表类型
+type ChartType int32
+
+const (
+	ChartType_CHART_TYPE_UNSPECIFIED ChartType = 0 // 默认情况下，后端根据 column_type 自动推导
+	ChartType_CHART_TYPE_LINE        ChartType = 1
+	ChartType_CHART_TYPE_BAR         ChartType = 2
+	ChartType_CHART_TYPE_SCALAR      ChartType = 3
+	ChartType_CHART_TYPE_IMAGE       ChartType = 4
+	ChartType_CHART_TYPE_AUDIO       ChartType = 5
+	ChartType_CHART_TYPE_TEXT        ChartType = 6
+	ChartType_CHART_TYPE_VIDEO       ChartType = 7
+	ChartType_CHART_TYPE_ECHARTS     ChartType = 8
+	ChartType_CHART_TYPE_OBJECT3D    ChartType = 9
+	ChartType_CHART_TYPE_MOLECULE    ChartType = 10
+)
+
+// Enum value maps for ChartType.
+var (
+	ChartType_name = map[int32]string{
+		0:  "CHART_TYPE_UNSPECIFIED",
+		1:  "CHART_TYPE_LINE",
+		2:  "CHART_TYPE_BAR",
+		3:  "CHART_TYPE_SCALAR",
+		4:  "CHART_TYPE_IMAGE",
+		5:  "CHART_TYPE_AUDIO",
+		6:  "CHART_TYPE_TEXT",
+		7:  "CHART_TYPE_VIDEO",
+		8:  "CHART_TYPE_ECHARTS",
+		9:  "CHART_TYPE_OBJECT3D",
+		10: "CHART_TYPE_MOLECULE",
+	}
+	ChartType_value = map[string]int32{
+		"CHART_TYPE_UNSPECIFIED": 0,
+		"CHART_TYPE_LINE":        1,
+		"CHART_TYPE_BAR":         2,
+		"CHART_TYPE_SCALAR":      3,
+		"CHART_TYPE_IMAGE":       4,
+		"CHART_TYPE_AUDIO":       5,
+		"CHART_TYPE_TEXT":        6,
+		"CHART_TYPE_VIDEO":       7,
+		"CHART_TYPE_ECHARTS":     8,
+		"CHART_TYPE_OBJECT3D":    9,
+		"CHART_TYPE_MOLECULE":    10,
+	}
+)
+
+func (x ChartType) Enum() *ChartType {
+	p := new(ChartType)
+	*p = x
+	return p
+}
+
+func (x ChartType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ChartType) Descriptor() protoreflect.EnumDescriptor {
+	return file_swanlab_metric_column_v1_column_proto_enumTypes[2].Descriptor()
+}
+
+func (ChartType) Type() protoreflect.EnumType {
+	return &file_swanlab_metric_column_v1_column_proto_enumTypes[2]
+}
+
+func (x ChartType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ChartType.Descriptor instead.
+func (ChartType) EnumDescriptor() ([]byte, []int) {
+	return file_swanlab_metric_column_v1_column_proto_rawDescGZIP(), []int{2}
 }
 
 // SectionType section 类型
@@ -170,11 +253,11 @@ func (x SectionType) String() string {
 }
 
 func (SectionType) Descriptor() protoreflect.EnumDescriptor {
-	return file_swanlab_metric_column_v1_column_proto_enumTypes[2].Descriptor()
+	return file_swanlab_metric_column_v1_column_proto_enumTypes[3].Descriptor()
 }
 
 func (SectionType) Type() protoreflect.EnumType {
-	return &file_swanlab_metric_column_v1_column_proto_enumTypes[2]
+	return &file_swanlab_metric_column_v1_column_proto_enumTypes[3]
 }
 
 func (x SectionType) Number() protoreflect.EnumNumber {
@@ -183,7 +266,7 @@ func (x SectionType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use SectionType.Descriptor instead.
 func (SectionType) EnumDescriptor() ([]byte, []int) {
-	return file_swanlab_metric_column_v1_column_proto_rawDescGZIP(), []int{2}
+	return file_swanlab_metric_column_v1_column_proto_rawDescGZIP(), []int{3}
 }
 
 // YRange Y 轴显示范围
@@ -263,16 +346,18 @@ type ColumnRecord struct {
 	SectionName string `protobuf:"bytes,5,opt,name=section_name,json=sectionName,proto3" json:"section_name,omitempty"`
 	// Section 类型，默认 PUBLIC
 	SectionType SectionType `protobuf:"varint,6,opt,name=section_type,json=sectionType,proto3,enum=swanlab.metric.column.v1.SectionType" json:"section_type,omitempty"`
-	// Y 轴范围 [min, max]，可选
+	// Y 轴范围 [min, max]，可选，仅折线图有效
 	YRange *YRange `protobuf:"bytes,7,opt,name=y_range,json=yRange,proto3" json:"y_range,omitempty"`
 	// 图表索引，相同 chart_index 的列归入同一图表；不填则新建图表
 	ChartIndex string `protobuf:"bytes,8,opt,name=chart_index,json=chartIndex,proto3" json:"chart_index,omitempty"`
 	// 图表名称，仅对单实验图表生效
 	ChartName string `protobuf:"bytes,9,opt,name=chart_name,json=chartName,proto3" json:"chart_name,omitempty"`
+	// 图表类型，默认根据 column_type 自动推导
+	ChartType ChartType `protobuf:"varint,10,opt,name=chart_type,json=chartType,proto3,enum=swanlab.metric.column.v1.ChartType" json:"chart_type,omitempty"`
 	// 指标名称，仅对单实验图表生效
-	MetricName string `protobuf:"bytes,10,opt,name=metric_name,json=metricName,proto3" json:"metric_name,omitempty"`
+	MetricName string `protobuf:"bytes,11,opt,name=metric_name,json=metricName,proto3" json:"metric_name,omitempty"`
 	// 指标颜色列表，十六进制颜色值，如 "#FF5733"
-	MetricColors  []string `protobuf:"bytes,11,rep,name=metric_colors,json=metricColors,proto3" json:"metric_colors,omitempty"`
+	MetricColors  []string `protobuf:"bytes,12,rep,name=metric_colors,json=metricColors,proto3" json:"metric_colors,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -370,6 +455,13 @@ func (x *ColumnRecord) GetChartName() string {
 	return ""
 }
 
+func (x *ColumnRecord) GetChartType() ChartType {
+	if x != nil {
+		return x.ChartType
+	}
+	return ChartType_CHART_TYPE_UNSPECIFIED
+}
+
 func (x *ColumnRecord) GetMetricName() string {
 	if x != nil {
 		return x.MetricName
@@ -391,7 +483,7 @@ const file_swanlab_metric_column_v1_column_proto_rawDesc = "" +
 	"%swanlab/metric/column/v1/column.proto\x12\x18swanlab.metric.column.v1\",\n" +
 	"\x06YRange\x12\x10\n" +
 	"\x03min\x18\x01 \x01(\x01R\x03min\x12\x10\n" +
-	"\x03max\x18\x02 \x01(\x01R\x03max\"\x8d\x04\n" +
+	"\x03max\x18\x02 \x01(\x01R\x03max\"\xd1\x04\n" +
 	"\fColumnRecord\x12H\n" +
 	"\fcolumn_class\x18\x01 \x01(\x0e2%.swanlab.metric.column.v1.ColumnClassR\vcolumnClass\x12E\n" +
 	"\vcolumn_type\x18\x02 \x01(\x0e2$.swanlab.metric.column.v1.ColumnTypeR\n" +
@@ -406,23 +498,41 @@ const file_swanlab_metric_column_v1_column_proto_rawDesc = "" +
 	"\vchart_index\x18\b \x01(\tR\n" +
 	"chartIndex\x12\x1d\n" +
 	"\n" +
-	"chart_name\x18\t \x01(\tR\tchartName\x12\x1f\n" +
-	"\vmetric_name\x18\n" +
-	" \x01(\tR\n" +
+	"chart_name\x18\t \x01(\tR\tchartName\x12B\n" +
+	"\n" +
+	"chart_type\x18\n" +
+	" \x01(\x0e2#.swanlab.metric.column.v1.ChartTypeR\tchartType\x12\x1f\n" +
+	"\vmetric_name\x18\v \x01(\tR\n" +
 	"metricName\x12#\n" +
-	"\rmetric_colors\x18\v \x03(\tR\fmetricColors*\xb4\x01\n" +
+	"\rmetric_colors\x18\f \x03(\tR\fmetricColors*\xe9\x01\n" +
 	"\n" +
 	"ColumnType\x12\x1b\n" +
-	"\x17COLUMN_TYPE_UNSPECIFIED\x10\x00\x12\x15\n" +
-	"\x11COLUMN_TYPE_FLOAT\x10\x01\x12\x15\n" +
+	"\x17COLUMN_TYPE_UNSPECIFIED\x10\x00\x12\x16\n" +
+	"\x12COLUMN_TYPE_SCALAR\x10\x01\x12\x15\n" +
 	"\x11COLUMN_TYPE_IMAGE\x10\x02\x12\x15\n" +
 	"\x11COLUMN_TYPE_AUDIO\x10\x03\x12\x14\n" +
 	"\x10COLUMN_TYPE_TEXT\x10\x04\x12\x15\n" +
 	"\x11COLUMN_TYPE_VIDEO\x10\x05\x12\x17\n" +
-	"\x13COLUMN_TYPE_ECHARTS\x10\x06*D\n" +
+	"\x13COLUMN_TYPE_ECHARTS\x10\x06\x12\x18\n" +
+	"\x14COLUMN_TYPE_OBJECT3D\x10\a\x12\x18\n" +
+	"\x14COLUMN_TYPE_MOLECULE\x10\b*]\n" +
 	"\vColumnClass\x12\x1c\n" +
 	"\x18COLUMN_CLASS_UNSPECIFIED\x10\x00\x12\x17\n" +
-	"\x13COLUMN_CLASS_CUSTOM\x10\x01*\x8f\x01\n" +
+	"\x13COLUMN_CLASS_CUSTOM\x10\x01\x12\x17\n" +
+	"\x13COLUMN_CLASS_SYSTEM\x10\x02*\x88\x02\n" +
+	"\tChartType\x12\x1a\n" +
+	"\x16CHART_TYPE_UNSPECIFIED\x10\x00\x12\x13\n" +
+	"\x0fCHART_TYPE_LINE\x10\x01\x12\x12\n" +
+	"\x0eCHART_TYPE_BAR\x10\x02\x12\x15\n" +
+	"\x11CHART_TYPE_SCALAR\x10\x03\x12\x14\n" +
+	"\x10CHART_TYPE_IMAGE\x10\x04\x12\x14\n" +
+	"\x10CHART_TYPE_AUDIO\x10\x05\x12\x13\n" +
+	"\x0fCHART_TYPE_TEXT\x10\x06\x12\x14\n" +
+	"\x10CHART_TYPE_VIDEO\x10\a\x12\x16\n" +
+	"\x12CHART_TYPE_ECHARTS\x10\b\x12\x17\n" +
+	"\x13CHART_TYPE_OBJECT3D\x10\t\x12\x17\n" +
+	"\x13CHART_TYPE_MOLECULE\x10\n" +
+	"*\x8f\x01\n" +
 	"\vSectionType\x12\x1c\n" +
 	"\x18SECTION_TYPE_UNSPECIFIED\x10\x00\x12\x17\n" +
 	"\x13SECTION_TYPE_PINNED\x10\x01\x12\x17\n" +
@@ -442,25 +552,27 @@ func file_swanlab_metric_column_v1_column_proto_rawDescGZIP() []byte {
 	return file_swanlab_metric_column_v1_column_proto_rawDescData
 }
 
-var file_swanlab_metric_column_v1_column_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_swanlab_metric_column_v1_column_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
 var file_swanlab_metric_column_v1_column_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_swanlab_metric_column_v1_column_proto_goTypes = []any{
 	(ColumnType)(0),      // 0: swanlab.metric.column.v1.ColumnType
 	(ColumnClass)(0),     // 1: swanlab.metric.column.v1.ColumnClass
-	(SectionType)(0),     // 2: swanlab.metric.column.v1.SectionType
-	(*YRange)(nil),       // 3: swanlab.metric.column.v1.YRange
-	(*ColumnRecord)(nil), // 4: swanlab.metric.column.v1.ColumnRecord
+	(ChartType)(0),       // 2: swanlab.metric.column.v1.ChartType
+	(SectionType)(0),     // 3: swanlab.metric.column.v1.SectionType
+	(*YRange)(nil),       // 4: swanlab.metric.column.v1.YRange
+	(*ColumnRecord)(nil), // 5: swanlab.metric.column.v1.ColumnRecord
 }
 var file_swanlab_metric_column_v1_column_proto_depIdxs = []int32{
 	1, // 0: swanlab.metric.column.v1.ColumnRecord.column_class:type_name -> swanlab.metric.column.v1.ColumnClass
 	0, // 1: swanlab.metric.column.v1.ColumnRecord.column_type:type_name -> swanlab.metric.column.v1.ColumnType
-	2, // 2: swanlab.metric.column.v1.ColumnRecord.section_type:type_name -> swanlab.metric.column.v1.SectionType
-	3, // 3: swanlab.metric.column.v1.ColumnRecord.y_range:type_name -> swanlab.metric.column.v1.YRange
-	4, // [4:4] is the sub-list for method output_type
-	4, // [4:4] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	3, // 2: swanlab.metric.column.v1.ColumnRecord.section_type:type_name -> swanlab.metric.column.v1.SectionType
+	4, // 3: swanlab.metric.column.v1.ColumnRecord.y_range:type_name -> swanlab.metric.column.v1.YRange
+	2, // 4: swanlab.metric.column.v1.ColumnRecord.chart_type:type_name -> swanlab.metric.column.v1.ChartType
+	5, // [5:5] is the sub-list for method output_type
+	5, // [5:5] is the sub-list for method input_type
+	5, // [5:5] is the sub-list for extension type_name
+	5, // [5:5] is the sub-list for extension extendee
+	0, // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_swanlab_metric_column_v1_column_proto_init() }
@@ -473,7 +585,7 @@ func file_swanlab_metric_column_v1_column_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_swanlab_metric_column_v1_column_proto_rawDesc), len(file_swanlab_metric_column_v1_column_proto_rawDesc)),
-			NumEnums:      3,
+			NumEnums:      4,
 			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   0,
