@@ -5,7 +5,14 @@
 @description: SwanLab 客户端模块的类型提示定义
 """
 
+import sys
 from collections.abc import Mapping, Sequence
+
+if sys.version_info >= (3, 10):
+    from typing import TypeAlias
+else:
+    from typing_extensions import TypeAlias
+
 from typing import Any, TypeAlias, Union
 
 from .bootstrap import LoginResponse
