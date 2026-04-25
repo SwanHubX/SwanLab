@@ -5,9 +5,10 @@
 @description: SwanLab 运行时客户端，用于与 SwanLab API 进行交互
 """
 
-from typing import Optional, Union
+from typing import Optional
 
 from swanlab.sdk.internal.pkg import client, console
+from swanlab.sdk.typings.pkg.client import JSONBody, JSONDict
 
 __all__ = ["exists", "reset", "new", "get", "post", "put", "patch", "delete"]
 
@@ -50,19 +51,19 @@ def _get_client() -> client.Client:
     return _default_client
 
 
-def get(url: str, params: Optional[dict] = None, retries: Optional[int] = None):
+def get(url: str, params: Optional[JSONDict] = None, retries: Optional[int] = None):
     return _get_client().get(url, params=params, retries=retries)
 
 
-def post(url: str, data: Optional[Union[dict, list]] = None, retries: Optional[int] = None):
+def post(url: str, data: JSONBody = None, retries: Optional[int] = None):
     return _get_client().post(url, data=data, retries=retries)
 
 
-def put(url: str, data: Optional[dict] = None, retries: Optional[int] = None):
+def put(url: str, data: JSONBody = None, retries: Optional[int] = None):
     return _get_client().put(url, data=data, retries=retries)
 
 
-def patch(url: str, data: Optional[dict] = None, retries: Optional[int] = None):
+def patch(url: str, data: JSONBody = None, retries: Optional[int] = None):
     return _get_client().patch(url, data=data, retries=retries)
 
 

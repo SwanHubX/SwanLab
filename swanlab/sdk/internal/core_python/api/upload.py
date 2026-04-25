@@ -8,8 +8,7 @@
 from typing import Dict
 
 from swanlab.sdk.internal.core_python import client
-from swanlab.sdk.internal.pkg import helper
-from swanlab.sdk.typings.core_python.api.upload import ConsoleMetrics
+from swanlab.sdk.typings.core_python.api.upload import MetricPayload, UploadLogMetrics
 
 
 def upload_conda(username: str, project: str, experiment_id: str, *, content: str) -> None:
@@ -21,10 +20,7 @@ def upload_conda(username: str, project: str, experiment_id: str, *, content: st
     :param experiment_id: 实验唯一标识符
     :param content: conda.yaml 的原始文本内容
     """
-    client.put(
-        f"/project/{username}/{project}/runs/{experiment_id}/profile",
-        helper.strip_none({"conda": content}),
-    )
+    client.put(f"/project/{username}/{project}/runs/{experiment_id}/profile", {"conda": content})
 
 
 def upload_requirements(username: str, project: str, experiment_id: str, *, content: str) -> None:
@@ -36,10 +32,7 @@ def upload_requirements(username: str, project: str, experiment_id: str, *, cont
     :param experiment_id: 实验唯一标识符
     :param content: requirements.txt 的原始文本内容
     """
-    client.put(
-        f"/project/{username}/{project}/runs/{experiment_id}/profile",
-        helper.strip_none({"requirements": content}),
-    )
+    client.put(f"/project/{username}/{project}/runs/{experiment_id}/profile", {"requirements": content})
 
 
 def upload_metadata(username: str, project: str, experiment_id: str, *, content: Dict) -> None:
@@ -51,10 +44,7 @@ def upload_metadata(username: str, project: str, experiment_id: str, *, content:
     :param experiment_id: 实验唯一标识符
     :param content: 元数据字典
     """
-    client.put(
-        f"/project/{username}/{project}/runs/{experiment_id}/profile",
-        helper.strip_none({"metadata": content}),
-    )
+    client.put(f"/project/{username}/{project}/runs/{experiment_id}/profile", {"metadata": content})
 
 
 def upload_config(username: str, project: str, experiment_id: str, *, content: Dict) -> None:
@@ -66,13 +56,10 @@ def upload_config(username: str, project: str, experiment_id: str, *, content: D
     :param experiment_id: 实验唯一标识符
     :param content: 配置字典，格式为 {key: {value, sort, desc}}
     """
-    client.put(
-        f"/project/{username}/{project}/runs/{experiment_id}/profile",
-        helper.strip_none({"config": content}),
-    )
+    client.put(f"/project/{username}/{project}/runs/{experiment_id}/profile", {"config": content})
 
 
-def upload_console(project_id: str, experiment_id: str, *, metrics: ConsoleMetrics) -> None:
+def upload_console(project_id: str, experiment_id: str, *, metrics: UploadLogMetrics) -> None:
     """
     上传控制台日志信息。
 
@@ -84,7 +71,7 @@ def upload_console(project_id: str, experiment_id: str, *, metrics: ConsoleMetri
     """
     if not metrics:
         return
-    data = {
+    data: MetricPayload = {
         "projectId": project_id,
         "experimentId": experiment_id,
         "type": "log",

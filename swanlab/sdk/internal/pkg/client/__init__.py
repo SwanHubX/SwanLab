@@ -7,11 +7,12 @@
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 import requests
 
 from swanlab.exceptions import AuthenticationError
+from swanlab.sdk.typings.pkg.client import JSONBody, JSONDict
 from swanlab.sdk.typings.pkg.client.bootstrap import LoginResponse
 
 from .. import console, helper, nrc, scope
@@ -95,16 +96,16 @@ class Client:
         resp = self._session.request(method, full_url, **kwargs)
         return ApiResponse(data=decode_response(resp), raw=resp)
 
-    def get(self, url: str, params: Optional[dict] = None, retries: Optional[int] = None):
+    def get(self, url: str, params: Optional[JSONDict] = None, retries: Optional[int] = None):
         return self.request("GET", url, params=params, retries=retries)
 
-    def post(self, url: str, data: Optional[Union[dict, list]] = None, retries: Optional[int] = None):
+    def post(self, url: str, data: JSONBody = None, retries: Optional[int] = None):
         return self.request("POST", url, json=data, retries=retries)
 
-    def put(self, url: str, data: Optional[dict] = None, retries: Optional[int] = None):
+    def put(self, url: str, data: JSONBody = None, retries: Optional[int] = None):
         return self.request("PUT", url, json=data, retries=retries)
 
-    def patch(self, url: str, data: Optional[dict] = None, retries: Optional[int] = None):
+    def patch(self, url: str, data: JSONBody = None, retries: Optional[int] = None):
         return self.request("PATCH", url, json=data, retries=retries)
 
     def delete(self, url: str, retries: Optional[int] = None):

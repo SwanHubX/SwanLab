@@ -22,7 +22,7 @@ from swanlab.sdk.internal.core_python.api.upload import (
     upload_requirements,
 )
 from swanlab.sdk.internal.pkg import adapter, console, safe
-from swanlab.sdk.typings.core_python.api.upload import ConsoleMetric, ConsoleMetrics
+from swanlab.sdk.typings.core_python.api.upload import UploadLog, UploadLogMetrics
 
 
 class HttpRecordSender:
@@ -76,11 +76,11 @@ class HttpRecordSender:
         if not console_records:
             return
         with safe.block(message="Failed to upload console logs, skipping"):
-            metrics: ConsoleMetrics = []
+            metrics: UploadLogMetrics = []
             for console_record in console_records:
                 if console_record.HasField("timestamp"):
                     create_time = console_record.timestamp.ToJsonString()
-                    metric: ConsoleMetric = {
+                    metric: UploadLog = {
                         "level": adapter.level[console_record.stream],
                         "epoch": self._console_epoch,
                         "message": console_record.line,
