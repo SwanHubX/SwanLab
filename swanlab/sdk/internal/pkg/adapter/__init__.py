@@ -13,7 +13,7 @@ from swanlab.proto.swanlab.system.v1.console_pb2 import StreamType
 
 from .bimap import BiMap
 
-__all__ = ["resume", "media_dir", "state", "stream_type"]
+__all__ = ["resume", "medium", "state", "level"]
 
 
 resume = BiMap(
@@ -34,7 +34,7 @@ state = BiMap(
 )
 """RunState 枚举适配器"""
 
-media_dir = BiMap(
+medium = BiMap(
     {
         "text": ColumnType.COLUMN_TYPE_TEXT,
         "image": ColumnType.COLUMN_TYPE_IMAGE,
@@ -43,11 +43,13 @@ media_dir = BiMap(
         "echarts": ColumnType.COLUMN_TYPE_ECHARTS,
     }
 )
-"""ColumnType 枚举适配器，同时也会作为路径映射"""
+"""媒体类型名称与 ColumnType 枚举的双向映射，同时作为存储目录名映射"""
 
-stream_type = BiMap(
+
+level = BiMap(
     {
         "INFO": StreamType.STREAM_TYPE_STDOUT,
         "ERROR": StreamType.STREAM_TYPE_STDERR,
     }
 )
+"""StreamType 枚举适配器，映射本地proto枚举与云端日志格式"""

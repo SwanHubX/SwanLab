@@ -10,12 +10,10 @@ from __future__ import annotations
 import json
 from collections.abc import Callable, Sequence
 from pathlib import Path
-from typing import Literal
 
 import yaml
 
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
-from swanlab.proto.swanlab.system.v1.console_pb2 import StreamType
 from swanlab.sdk.internal.core_python.api.upload import (
     upload_conda,
     upload_config,
@@ -23,14 +21,8 @@ from swanlab.sdk.internal.core_python.api.upload import (
     upload_metadata,
     upload_requirements,
 )
-from swanlab.sdk.internal.pkg import console, safe
+from swanlab.sdk.internal.pkg import adapter, console, safe
 from swanlab.sdk.typings.core_python.api.upload import ConsoleMetric, ConsoleMetrics
-
-# stream 类型到日志级别的映射
-_STREAM_LEVEL_MAP: dict[int, Literal["INFO", "ERROR"]] = {
-    StreamType.STREAM_TYPE_STDOUT: "INFO",
-    StreamType.STREAM_TYPE_STDERR: "ERROR",
-}
 
 
 class HttpRecordSender:
@@ -89,7 +81,7 @@ class HttpRecordSender:
                 if console_record.HasField("timestamp"):
                     create_time = console_record.timestamp.ToJsonString()
                     metric: ConsoleMetric = {
-                        "level": _STREAM_LEVEL_MAP.get(console_record.stream, "INFO"),
+                        "level": adapter.level[console_record.stream],
                         "epoch": self._console_epoch,
                         "message": console_record.line,
                         "create_time": create_time,
