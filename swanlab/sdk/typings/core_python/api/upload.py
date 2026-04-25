@@ -32,7 +32,7 @@ UploadColumn = TypedDict(
         "sectionType": NotRequired[str],
         "yRange": NotRequired[Dict[str, Any]],
         "chartName": NotRequired[str],
-        "chartIndex": NotRequired[int],
+        "chartIndex": NotRequired[str],
         "metricName": NotRequired[str],
         "metricColors": NotRequired[List[str]],
     },

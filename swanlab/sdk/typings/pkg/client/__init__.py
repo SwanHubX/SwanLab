@@ -13,7 +13,7 @@ if sys.version_info >= (3, 10):
 else:
     from typing_extensions import TypeAlias
 
-from typing import Any, TypeAlias, Union
+from typing import Any, Union
 
 from .bootstrap import LoginResponse
 
