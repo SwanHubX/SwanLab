@@ -8,7 +8,7 @@
 from typing import Any, Dict, Iterator, List, Optional, Union, cast
 
 from swanlab.api.base import ApiClientContext, BaseEntity
-from swanlab.api.typings.common import ApiMetricLogLevelLiteral, ApiMetricTypeLiteral, PaginatedQuery
+from swanlab.api.typings.common import ApiMetricLogLevelLiteral, PaginatedQuery
 from swanlab.api.typings.experiment import (
     ApiExperimentLabelType,
     ApiExperimentProfileType,
@@ -152,9 +152,7 @@ class Experiment(BaseEntity):
         self,
         key: str,
         sample: int = 1500,
-        metric_type: ApiMetricTypeLiteral = "SCALAR",
         ignore_timestamp: bool = False,
-        media_step: Optional[int] = 0,
     ) -> Dict[str, Any]:
         from swanlab.api.metric import Metric
 
@@ -164,19 +162,15 @@ class Experiment(BaseEntity):
             run_id=self.run_id,
             key=key,
             sample=sample,
-            metric_type=metric_type,
             ignore_timestamp=ignore_timestamp,
-            media_step=media_step,
         )
         return metric.json()
 
     def metrics(
         self,
         keys: List[str],
-        metric_type: ApiMetricTypeLiteral = "SCALAR",
         sample: int = 1500,
         ignore_timestamp: bool = False,
-        media_step: Optional[int] = 0,
     ) -> Dict[str, Any]:
         from swanlab.api.metric import Metrics
 
@@ -186,9 +180,41 @@ class Experiment(BaseEntity):
             run_id=self.run_id,
             keys=keys,
             sample=sample,
-            metric_type=metric_type,
+            metric_type="SCALAR",
             ignore_timestamp=ignore_timestamp,
-            media_step=media_step,
+        ).json()
+
+    def media(
+        self,
+        key: str,
+        step: Optional[int] = 0,
+    ) -> Dict[str, Any]:
+        from swanlab.api.metric import Metric
+
+        metric = Metric(
+            ctx=self._ctx,
+            project_id=self.project_id,
+            run_id=self.run_id,
+            key=key,
+            metric_type="MEDIA",
+            media_step=step,
+        )
+        return metric.json()
+
+    def medias(
+        self,
+        keys: List[str],
+        step: Optional[int] = 0,
+    ) -> Dict[str, Any]:
+        from swanlab.api.metric import Metrics
+
+        return Metrics(
+            ctx=self._ctx,
+            project_id=self.project_id,
+            run_id=self.run_id,
+            keys=keys,
+            metric_type="MEDIA",
+            media_step=step,
         ).json()
 
     def logs(
