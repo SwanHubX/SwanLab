@@ -112,7 +112,11 @@ class Column(BaseEntity):
         return self._ensure_data().get("error", {})
 
     def metric(
-        self, sample: int = 1500, metric_type: ApiMetricTypeLiteral = "SCALAR", ignore_timestamp: bool = False
+        self,
+        sample: int = 1500,
+        metric_type: ApiMetricTypeLiteral = "SCALAR",
+        ignore_timestamp: bool = False,
+        media_step: Optional[int] = None,
     ) -> Dict[str, Any]:
         from swanlab.api.metric import Metric
 
@@ -125,6 +129,7 @@ class Column(BaseEntity):
             sample=sample,
             metric_type=metric_type,
             ignore_timestamp=ignore_timestamp,
+            media_step=media_step,
         )
         return metric.json()
 

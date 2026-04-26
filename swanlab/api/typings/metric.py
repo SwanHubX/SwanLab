@@ -77,6 +77,8 @@ class ApiMediaType(TypedDict, total=False):
 
 
 class ApiMediaSeriesType(ApiMetricColumnRefType, total=False):
+    steps: List[int]
+    step: int
     metrics: List[ApiMediaType]
 
 

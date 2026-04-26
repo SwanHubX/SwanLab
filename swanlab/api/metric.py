@@ -41,6 +41,7 @@ class Metric(BaseEntity):
         metric_type: str = "SCALAR",
         data: Optional[Dict[str, Any]] = None,
         ignore_timestamp: bool = False,
+        media_step: Optional[int] = None,
     ) -> None:
         super().__init__(ctx)
         validate_metric_type(metric_type, key)
@@ -57,6 +58,7 @@ class Metric(BaseEntity):
         # 偏移量，仅对 Log metric_type 有效， 默认为 0
         self._offset = log_offset
         self._log_level = log_level
+        self._media_step = media_step
 
     # 类型 → 加载方法 的分发表，新增类型只需在此注册
     _FETCH_DISPATCH = {
@@ -100,6 +102,15 @@ class Metric(BaseEntity):
     def count(self) -> int:
         return self._ensure_data().get("count", 0)
 
+    @property
+    def steps(self) -> List[int]:
+        return self._ensure_data().get("steps", [])
+
+    # only available for media type
+    @property
+    def step(self) -> Optional[int]:
+        return self._ensure_data().get("step")
+
     # ------------------------------------------------------------------
     # 请求辅助函数
     # ------------------------------------------------------------------
@@ -121,11 +132,16 @@ class Metric(BaseEntity):
         }
 
     @staticmethod
-    def _build_media_payload(project_id: str, run_id: str, keys: List[str]) -> Dict[str, Any]:
-        return {
+    def _build_media_payload(
+        project_id: str, run_id: str, keys: List[str], step: Optional[int] = None
+    ) -> Dict[str, Any]:
+        payload: Dict[str, Any] = {
             "projectId": project_id,
             "columns": [{"experimentId": run_id, "key": key} for key in keys],
         }
+        if step is not None:
+            payload["step"] = step
+        return payload
 
     def _build_log_params(self) -> Dict[str, Any]:
         return {
@@ -189,24 +205,33 @@ class Metric(BaseEntity):
 
     def _fetch_media(self) -> ApiMediaSeriesType:
         res = ApiMediaSeriesType(projectId=self.project_id, experimentId=self.run_id, key=self.key)
-        payload = self._build_media_payload(self.project_id, self.run_id, [self.key])
-        raw_resp = self._post("/house/metrics/f_media", data=payload)
-        raw_data = self._extract_first(raw_resp)
-        if raw_data is None:
+        payload = self._build_media_payload(self.project_id, self.run_id, [self.key], step=self._media_step)
+        raw_resp = self._post("/house/metrics/media", data=payload)
+        if not raw_resp.ok or not raw_resp.data:
             return res
-        metrics: List[ApiMediaType] = []
+        data = raw_resp.data
+        if not isinstance(data, dict):
+            return res
+
+        res["steps"] = data.get("steps", [])
+        step_val = data.get("step")
+        if step_val is not None:
+            res["step"] = step_val
+
+        metrics_raw: List[Dict[str, Any]] = data.get("metrics", [])
+        metric_entry = next((m for m in metrics_raw if m.get("key") == self.key), None)
+        if metric_entry is None:
+            return res
+
         prefix = f"{self.project_id}/{self.run_id}"
-        all_paths = [p for entry in raw_data.get("metrics", []) for p in entry.get("data", [])]
+        all_paths = metric_entry.get("data", [])
+        url_map = self._fetch_presigned_urls(self, prefix, all_paths) if all_paths else {}
         if all_paths:
             console.info(
                 f"Media fetched: run_id[{self.run_id}], key[{self.key}] - {len(all_paths)} items, requesting presigned urls..."
             )
-        url_map = self._fetch_presigned_urls(self, prefix, all_paths)
-        for entry in raw_data.get("metrics", []):
-            items = self._build_media_items(entry, url_map)
-            metrics.append({"index": entry.get("index", 0), "items": items})
-
-        res["metrics"] = metrics
+        items = self._build_media_items(metric_entry, url_map)
+        res["metrics"] = [{"index": data.get("step", 0), "items": items}]
         return res
 
     def _fetch_logs(self) -> ApiLogSeriesType:
@@ -263,6 +288,10 @@ class Metric(BaseEntity):
             result.pop("logs", None)
             result.pop("count", None)
 
+        if self._metric_type != "MEDIA":
+            result.pop("steps", None)
+            result.pop("step", None)
+
         if self._ignore_timestamp:
             timestamp_items = result.get("metrics", []) or result.get("logs", [])
             for item in cast(List[Dict[str, Any]], timestamp_items):
@@ -295,6 +324,7 @@ class Metrics(BaseEntity):
         metric_type: ApiMetricTypeLiteral,
         sample: int = 1500,
         ignore_timestamp: bool = False,
+        media_step: Optional[int] = None,
     ) -> None:
         super().__init__(ctx)
         if metric_type == "LOG":
@@ -307,6 +337,7 @@ class Metrics(BaseEntity):
         self._metric_type = metric_type
         self._sample = sample
         self._ignore_timestamp = ignore_timestamp
+        self._media_step = media_step
         self._page_info: Dict[str, Any] = {
             "keys": keys,
             "metricType": metric_type,
@@ -328,6 +359,7 @@ class Metrics(BaseEntity):
             metric_type=self._metric_type,
             sample=self._sample,
             ignore_timestamp=self._ignore_timestamp,
+            media_step=self._media_step,
             data=data,
         )
 
@@ -361,33 +393,40 @@ class Metrics(BaseEntity):
             yield self._build_metric(key, data)
 
     def _fetch_medias(self) -> Iterator[Metric]:
-        payload = Metric._build_media_payload(self._project_id, self._run_id, self._keys)
-        raw_resp = self._post("/house/metrics/f_media", data=payload)
-        raw_list: List[Dict[str, Any]] = raw_resp.ok and isinstance(raw_resp.data, list) and raw_resp.data or []
+        payload = Metric._build_media_payload(self._project_id, self._run_id, self._keys, step=self._media_step)
+        raw_resp = self._post("/house/metrics/media", data=payload)
+        if not raw_resp.ok or not raw_resp.data:
+            return
+        resp_data = raw_resp.data
+        if not isinstance(resp_data, dict):
+            return
 
-        # collect all paths across all keys for a single presigned URL batch call
+        steps = resp_data.get("steps", [])
+        current_step = resp_data.get("step")
+        metrics_raw: List[Dict[str, Any]] = resp_data.get("metrics", [])
+
         prefix = f"{self._project_id}/{self._run_id}"
-        all_paths = [p for raw_data in raw_list for entry in raw_data.get("metrics", []) for p in entry.get("data", [])]
+        all_paths = [p for entry in metrics_raw for p in entry.get("data", [])]
         url_map = Metric._fetch_presigned_urls(self, prefix, all_paths) if all_paths else {}
         if all_paths:
             console.info(
                 f"Media fetched: run_id[{self._run_id}] - {len(all_paths)} items across {len(self._keys)} keys, requesting presigned urls..."
             )
 
-        for i, key in enumerate(self._keys):
+        key_to_entry: Dict[str, Dict[str, Any]] = {e.get("key", ""): e for e in metrics_raw}
+        for key in self._keys:
             data: Dict[str, Any] = {
                 "projectId": self._project_id,
                 "experimentId": self._run_id,
                 "key": key,
+                "steps": steps,
+                "step": current_step,
                 "metrics": [],
             }
-            if i < len(raw_list):
-                raw_data = raw_list[i]
-                metrics: List[ApiMediaType] = []
-                for entry in raw_data.get("metrics", []):
-                    items = Metric._build_media_items(entry, url_map)
-                    metrics.append({"index": entry.get("index", 0), "items": items})
-                data["metrics"] = metrics
+            entry = key_to_entry.get(key)
+            if entry:
+                items = Metric._build_media_items(entry, url_map)
+                data["metrics"] = [{"index": current_step or 0, "items": items}]
             yield self._build_metric(key, data)
 
     def json(self) -> Dict[str, Any]:
