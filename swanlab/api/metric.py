@@ -335,7 +335,7 @@ class Metrics(BaseEntity):
         self._run_id = run_id
         self._keys = keys
         self._metric_type = metric_type
-        self._sample = sample
+
         self._ignore_timestamp = ignore_timestamp
         self._media_step = media_step
         self._page_info: Dict[str, Any] = {
@@ -343,6 +343,9 @@ class Metrics(BaseEntity):
             "metricType": metric_type,
             "list": [],
         }
+        if sample > 1500:
+            console.warning(f"Get sample = [{sample}], expected <= 1500, will be constrainted automatically..")
+            self._sample = sample
 
     def __iter__(self) -> Iterator[Metric]:
         if self._metric_type == "SCALAR":
