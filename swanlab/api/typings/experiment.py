@@ -67,8 +67,9 @@ class ApiSortItem(TypedDict):
 # ---------------------------------------------------------------------------
 # 实验实体
 # ---------------------------------------------------------------------------
-class ApiExperimentLabelType(TypedDict):
+class ApiExperimentLabelType(TypedDict, total=False):
     name: str
+    colors: List[str]
 
 
 class ApiExperimentProfileType(TypedDict):

@@ -5,6 +5,7 @@
 @description: swanlab/api 实体层工具函数
 """
 
+import re
 from typing import Any, Dict, List, Optional, Set, Tuple, Type, get_args, get_type_hints
 
 from swanlab.api.typings.common import (
@@ -70,6 +71,8 @@ _VALID_SIDEBAR_TYPES = frozenset(get_args(ApiSidebarLiteral))
 _VALID_OPS = frozenset(get_args(ApiFilterOpLiteral))
 _VALID_ORDERS = frozenset(get_args(ApiSortOrderLiteral))
 _STABLE_KEYS = frozenset(get_args(ApiFilterStableKeyLiteral))
+
+_PROJECT_NAME_RE = re.compile(r"^[0-9a-zA-Z\-_.+]+$")
 
 # 列相关校验常量
 _VALID_COLUMN_CLASSES = frozenset(get_args(ApiColumnClassLiteral))
@@ -172,3 +175,15 @@ def parse_column_data_type(column_type: str):
         return "SCALAR"
     # 新加入的类型默认指定为 media
     return "MEDIA"
+
+
+# ---------------------------------------------------------------------------
+# 创建项目 / 实验的参数校验
+# ---------------------------------------------------------------------------
+
+
+def validate_project_name(name: str) -> None:
+    if not 1 <= len(name) <= 100:
+        raise ValueError("Project name must be between 1 and 100 characters.")
+    if not _PROJECT_NAME_RE.match(name):
+        raise ValueError("Project name can only contain 0-9, a-z, A-Z, -, _, ., +")

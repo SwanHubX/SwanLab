@@ -75,7 +75,7 @@ class Project(BaseEntity):
 
     @property
     def count(self) -> ApiProjectCountType:
-        return self._ensure_data().get("_count", {})
+        return cast(ApiProjectCountType, self._ensure_data().get("_count", {}))
 
     def runs(
         self,

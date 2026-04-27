@@ -5,12 +5,17 @@
 @description: Workspace 实体类 — 工作空间的查询
 """
 
-from typing import Any, Dict, Iterator, List, Optional, cast
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, cast
 
 from swanlab.api.base import ApiClientContext, BaseEntity
-from swanlab.api.typings.common import PaginatedQuery
+from swanlab.api.typings.common import ApiVisibilityLiteral, PaginatedQuery
+from swanlab.api.typings.project import ApiProjectType
 from swanlab.api.typings.workspace import ApiWorkspaceLiteral, ApiWorkspaceProfileType, ApiWorkspaceType
-from swanlab.api.utils import get_properties, strip_dict
+from swanlab.api.utils import get_properties, strip_dict, validate_project_name
+from swanlab.sdk.internal.pkg import safe
+
+if TYPE_CHECKING:
+    from swanlab.api.project import Project
 
 
 class Workspace(BaseEntity):
@@ -77,6 +82,36 @@ class Workspace(BaseEntity):
             query=query,
             detail=detail,
         )
+
+    def create_project(
+        self,
+        name: str,
+        *,
+        visibility: ApiVisibilityLiteral = "PRIVATE",
+        description: Optional[str] = None,
+    ) -> Optional["Project"]:
+        """
+        在此工作空间下创建项目。
+
+        :param name: 项目名称 (1-100 字符，仅支持 0-9a-zA-Z-_.+)
+        :param visibility: 可见性，PUBLIC 或 PRIVATE，默认 PRIVATE
+        :param description: 项目描述
+        """
+        from swanlab.api.project import Project
+
+        with safe.block(message=None):
+            validate_project_name(name)
+
+            body: Dict[str, Any] = {"name": name, "visibility": visibility, "username": self.username}
+            if description:
+                body["description"] = description
+            resp = self._post("/project", data=body)
+            if not resp.ok:
+                return None
+            data = resp.data
+            path = data.get("path", "")
+            return Project(self._ctx, path=path, data=cast(ApiProjectType, data))
+        return None
 
     def json(self) -> Dict[str, Any]:
         return get_properties(self)

@@ -11,8 +11,10 @@ from .common import ApiVisibilityLiteral
 from .workspace import ApiWorkspaceType
 
 
-class ApiProjectLabelType(TypedDict):
+class ApiProjectLabelType(TypedDict, total=False):
     name: str
+    colors: List[str]
+    cuid: str
 
 
 class ApiProjectCountType(TypedDict):
@@ -22,7 +24,7 @@ class ApiProjectCountType(TypedDict):
     clones: int
 
 
-class ApiProjectType(TypedDict):
+class ApiProjectType(TypedDict, total=False):
     cuid: str
     name: str
     username: str
@@ -32,3 +34,6 @@ class ApiProjectType(TypedDict):
     group: Dict[str, str]
     projectLabels: List[ApiProjectLabelType]
     _count: ApiProjectCountType
+    createdAt: str
+    updatedAt: str
+    role: str

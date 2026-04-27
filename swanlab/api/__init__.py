@@ -165,7 +165,6 @@ class Api(BaseEntity):
 
         :param path: 实验路径，格式为 'username/project/run_id'
         """
-
         return Experiment(self._ctx, path=path)
 
     def runs(
