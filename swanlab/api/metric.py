@@ -244,7 +244,7 @@ class Metric(BaseEntity):
         all_paths = metric_entry.get("data", [])
         url_map = self._fetch_presigned_urls(self, prefix, all_paths) if all_paths else {}
         if all_paths:
-            console.info(
+            console.debug(
                 f"Media fetched: run_id[{self.run_id}], key[{self.key}] - {len(all_paths)} items, requesting presigned urls..."
             )
         items = self._build_media_items(metric_entry, url_map)
@@ -263,7 +263,7 @@ class Metric(BaseEntity):
         all_paths = [p for entry in raw_data.get("metrics", []) for p in entry.get("data", [])]
         url_map = self._fetch_presigned_urls(self, prefix, all_paths) if all_paths else {}
         if all_paths:
-            console.info(
+            console.debug(
                 f"Media fetched (all): run_id[{self.run_id}], key[{self.key}] - {len(all_paths)} items, requesting presigned urls..."
             )
         res["metrics"] = [
@@ -482,7 +482,7 @@ class Metrics(BaseEntity):
         all_paths = [p for entry in metrics_raw for p in entry.get("data", [])]
         url_map = Metric._fetch_presigned_urls(self, prefix, all_paths) if all_paths else {}
         if all_paths:
-            console.info(
+            console.debug(
                 f"Media fetched: run_id[{self._run_id}] - {len(all_paths)} items across {len(self._keys)} keys, requesting presigned urls..."
             )
 
@@ -515,7 +515,7 @@ class Metrics(BaseEntity):
         all_paths = [p for entry in raw_list for m in entry.get("metrics", []) for p in m.get("data", [])]
         url_map = Metric._fetch_presigned_urls(self, prefix, all_paths) if all_paths else {}
         if all_paths:
-            console.info(
+            console.debug(
                 f"Media fetched (all): run_id[{self._run_id}] - {len(all_paths)} items across {len(self._keys)} keys, requesting presigned urls..."
             )
 
