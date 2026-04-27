@@ -66,7 +66,7 @@ class Metric(BaseEntity):
         self._data: Optional[Dict[str, Any]] = data
         self._metric_type = metric_type
         self._ignore_timestamp = ignore_timestamp
-        # TODO: 采样值， scalar 时生效，logs 时降级到 1000
+        # 采样值， scalar 时生效
         self._sample = sample
         # 偏移量，仅对 Log metric_type 有效， 默认为 0
         self._offset = log_offset
@@ -140,12 +140,13 @@ class Metric(BaseEntity):
         return None
 
     @staticmethod
-    def _build_scalar_payload(project_id: str, run_id: str, keys: List[str]) -> Dict[str, Any]:
+    def _build_scalar_payload(project_id: str, run_id: str, keys: List[str], sample: int = 1500) -> Dict[str, Any]:
         return {
             "projectId": project_id,
             "xType": "step",
             "range": [0, 0],
             "columns": [{"experimentId": run_id, "key": key} for key in keys],
+            "num": sample if sample <= 1500 else 1500,
         }
 
     @staticmethod
@@ -175,7 +176,7 @@ class Metric(BaseEntity):
 
     def _fetch_scalar(self) -> ApiScalarSeriesType:
         res = ApiScalarSeriesType(projectId=self.project_id, experimentId=self.run_id, key=self.key)
-        payload = self._build_scalar_payload(self.project_id, self.run_id, [self.key])
+        payload = self._build_scalar_payload(self.project_id, self.run_id, [self.key], self._sample)
 
         # 1. 获取折线数据
         raw_data = self._extract_first(self._post("/house/metrics/scalar", data=payload))
@@ -411,7 +412,7 @@ class Metrics(BaseEntity):
         )
 
     def _fetch_scalars(self) -> Iterator[Metric]:
-        payload = Metric._build_scalar_payload(self._project_id, self._run_id, self._keys)
+        payload = Metric._build_scalar_payload(self._project_id, self._run_id, self._keys, self._sample)
 
         # 1. 获取折线数据
         scalar_resp = self._post("/house/metrics/scalar", data=payload)
@@ -446,7 +447,7 @@ class Metrics(BaseEntity):
             if resp.ok and resp.data:
                 urls[key] = _extract_csv_url(resp.data)
 
-        payload = Metric._build_scalar_payload(self._project_id, self._run_id, self._keys)
+        payload = Metric._build_scalar_payload(self._project_id, self._run_id, self._keys, self._sample)
         value_resp = self._post("/house/metrics/scalar/value", data=payload)
         value_list: List[Dict[str, Any]] = value_resp.ok and isinstance(value_resp.data, list) and value_resp.data or []
 
