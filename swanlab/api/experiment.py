@@ -152,7 +152,7 @@ class Experiment(BaseEntity):
         self,
         keys: List[str],
         sample: int = 1500,
-        ignore_timestamp: bool = False,
+        ignore_timestamp: bool = True,
         all: bool = False,
     ) -> Dict[str, Any]:
         from swanlab.api.metric import Metrics
@@ -190,7 +190,7 @@ class Experiment(BaseEntity):
         self,
         offset: Optional[int] = 0,
         level: ApiMetricLogLevelLiteral = "INFO",
-        ignore_timestamp: bool = False,
+        ignore_timestamp: bool = True,
     ) -> Dict[str, Any]:
         from swanlab.api.metric import Metric
 

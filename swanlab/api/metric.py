@@ -5,6 +5,8 @@
 @description: Metric 实体类 — 指标序列的查询与操作
 """
 
+from __future__ import annotations
+
 from typing import Any, Dict, Iterator, List, Optional
 
 from swanlab.api.base import ApiClientContext, BaseEntity
@@ -14,13 +16,21 @@ from swanlab.api.typings.metric import (
     ApiLogSeriesType,
     ApiMediaItemDataType,
     ApiMediaSeriesType,
-    ApiMediaType,
     ApiScalarSeriesType,
 )
 from swanlab.api.utils import get_properties, validate_metric_log_level, validate_metric_type
 from swanlab.sdk.internal.pkg import console
 
 _SCALAR_STATISTIC_FIELDS = ("min", "max", "avg", "median", "latest")
+_METRIC_SHARED_KEYS = frozenset({"project_id", "run_id", "metric_type"})
+
+
+def _extract_csv_url(data: Any) -> str:
+    if isinstance(data, list) and data:
+        return data[0].get("url", "")
+    if isinstance(data, dict):
+        return data.get("url", "")
+    return ""
 
 
 class Metric(BaseEntity):
@@ -253,24 +263,14 @@ class Metric(BaseEntity):
     # ------------------------------------------------------------------
 
     def export_csv(self) -> ApiResponseType:
-        """
-        导出列数据为 CSV。
-
-        :return: ApiResponseType，成功时 data 包含临时下载 URL
-        """
+        """导出列数据为 CSV。"""
         if self.metric_type != "SCALAR":
-            err_msg = "export_csv() only support SCALAR metric_type"
-            return ApiResponseType(ok=False, errmsg=err_msg, data=None)
+            return ApiResponseType(ok=False, errmsg="export_csv() only support SCALAR metric_type", data=None)
         resp = self._get(f"/experiment/{self._run_id}/column/csv", params={"key": self.key})
         if not resp.ok:
             return resp
-
-        data = resp.data
-        if isinstance(data, list) and data:
-            url = data[0].get("url", "")
-        elif isinstance(data, dict):
-            url = data.get("url", "")
-        else:
+        url = _extract_csv_url(resp.data)
+        if not url:
             return ApiResponseType(ok=False, errmsg="Invalid response format", data=None)
         return ApiResponseType(ok=True, data=ApiColumnCsvExportType(url=url))
 
@@ -349,6 +349,8 @@ class Metrics(BaseEntity):
         self._page_info: Dict[str, Any] = {
             "keys": keys,
             "metricType": metric_type,
+            "projectId": project_id,
+            "experimentId": run_id,
             "list": [],
         }
         self._sample = sample
@@ -412,10 +414,7 @@ class Metrics(BaseEntity):
         for key in self._keys:
             resp = self._get(f"/experiment/{self._run_id}/column/csv", params={"key": key})
             if resp.ok and resp.data:
-                if isinstance(resp.data, list) and resp.data:
-                    urls[key] = resp.data[0].get("url", "")
-                elif isinstance(resp.data, dict):
-                    urls[key] = resp.data.get("url", "")
+                urls[key] = _extract_csv_url(resp.data)
 
         payload = Metric._build_scalar_payload(self._project_id, self._run_id, self._keys)
         value_resp = self._post("/house/metrics/scalar/value", data=payload)
@@ -473,5 +472,5 @@ class Metrics(BaseEntity):
             yield self._build_metric(key, data)
 
     def json(self) -> Dict[str, Any]:
-        self._page_info["list"] = [m.json() for m in self]
+        self._page_info["list"] = [{k: v for k, v in m.json().items() if k not in _METRIC_SHARED_KEYS} for m in self]
         return self._page_info
