@@ -5,7 +5,7 @@
 @description: Metric 实体类 — 指标序列的查询与操作
 """
 
-from typing import Any, Dict, Iterator, List, Optional, cast
+from typing import Any, Dict, Iterator, List, Optional
 
 from swanlab.api.base import ApiClientContext, BaseEntity
 from swanlab.api.typings import ApiColumnCsvExportType, ApiResponseType
@@ -19,6 +19,8 @@ from swanlab.api.typings.metric import (
 )
 from swanlab.api.utils import get_properties, validate_metric_log_level, validate_metric_type
 from swanlab.sdk.internal.pkg import console
+
+_SCALAR_STATISTIC_FIELDS = ("min", "max", "avg", "median", "latest")
 
 
 class Metric(BaseEntity):
@@ -170,7 +172,7 @@ class Metric(BaseEntity):
         stat_data = self._extract_first(self._post("/house/metrics/scalar/value", data=payload))
         if stat_data is None:
             return res
-        for field in ("min", "max", "avg", "median", "latest"):
+        for field in _SCALAR_STATISTIC_FIELDS:
             res[field] = stat_data.get(field, {})
         return res
 
@@ -277,7 +279,10 @@ class Metric(BaseEntity):
         data = self._ensure_data()
 
         if self._metric_type == "SCALAR":
-            for field in ("min", "max", "avg", "median", "latest"):
+            if "url" in data:
+                result.pop("metrics", None)
+                result["url"] = data["url"]
+            for field in _SCALAR_STATISTIC_FIELDS:
                 val = data.get(field)
                 if val:
                     result[field] = val
@@ -293,10 +298,11 @@ class Metric(BaseEntity):
             result.pop("step", None)
 
         if self._ignore_timestamp:
-            timestamp_items = result.get("metrics", []) or result.get("logs", [])
-            for item in cast(List[Dict[str, Any]], timestamp_items):
-                if isinstance(item, dict):
-                    item.pop("timestamp", None)
+            items = result.get("metrics", []) or result.get("logs", [])
+            if isinstance(items, list):
+                for item in items:
+                    if isinstance(item, dict):
+                        item.pop("timestamp", None)
 
         return result
 
@@ -325,6 +331,7 @@ class Metrics(BaseEntity):
         sample: int = 1500,
         ignore_timestamp: bool = False,
         media_step: Optional[int] = None,
+        all: bool = False,
     ) -> None:
         super().__init__(ctx)
         if metric_type == "LOG":
@@ -338,18 +345,23 @@ class Metrics(BaseEntity):
 
         self._ignore_timestamp = ignore_timestamp
         self._media_step = media_step
+        self._all = all
         self._page_info: Dict[str, Any] = {
             "keys": keys,
             "metricType": metric_type,
             "list": [],
         }
+        self._sample = sample
         if sample > 1500:
             console.warning(f"Get sample = [{sample}], expected <= 1500, will be constrainted automatically..")
-            self._sample = sample
+            self._sample = 1500
 
     def __iter__(self) -> Iterator[Metric]:
         if self._metric_type == "SCALAR":
-            yield from self._fetch_scalars()
+            if self._all:
+                yield from self._fetch_scalars_all()
+            else:
+                yield from self._fetch_scalars()
         else:
             yield from self._fetch_medias()
 
@@ -389,7 +401,35 @@ class Metrics(BaseEntity):
             if i < len(scalar_list):
                 data["metrics"] = scalar_list[i].get("metrics", [])
             if i < len(value_list):
-                for field in ("min", "max", "avg", "median", "latest"):
+                for field in _SCALAR_STATISTIC_FIELDS:
+                    val = value_list[i].get(field)
+                    if val is not None:
+                        data[field] = val
+            yield self._build_metric(key, data)
+
+    def _fetch_scalars_all(self) -> Iterator[Metric]:
+        urls: Dict[str, str] = {}
+        for key in self._keys:
+            resp = self._get(f"/experiment/{self._run_id}/column/csv", params={"key": key})
+            if resp.ok and resp.data:
+                if isinstance(resp.data, list) and resp.data:
+                    urls[key] = resp.data[0].get("url", "")
+                elif isinstance(resp.data, dict):
+                    urls[key] = resp.data.get("url", "")
+
+        payload = Metric._build_scalar_payload(self._project_id, self._run_id, self._keys)
+        value_resp = self._post("/house/metrics/scalar/value", data=payload)
+        value_list: List[Dict[str, Any]] = value_resp.ok and isinstance(value_resp.data, list) and value_resp.data or []
+
+        for i, key in enumerate(self._keys):
+            data: Dict[str, Any] = {
+                "projectId": self._project_id,
+                "experimentId": self._run_id,
+                "key": key,
+                "url": urls.get(key, ""),
+            }
+            if i < len(value_list):
+                for field in _SCALAR_STATISTIC_FIELDS:
                     val = value_list[i].get(field)
                     if val is not None:
                         data[field] = val

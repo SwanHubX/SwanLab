@@ -153,6 +153,7 @@ class Experiment(BaseEntity):
         keys: List[str],
         sample: int = 1500,
         ignore_timestamp: bool = False,
+        all: bool = False,
     ) -> Dict[str, Any]:
         from swanlab.api.metric import Metrics
 
@@ -164,12 +165,14 @@ class Experiment(BaseEntity):
             sample=sample,
             metric_type="SCALAR",
             ignore_timestamp=ignore_timestamp,
+            all=all,
         ).json()
 
     def medias(
         self,
         keys: List[str],
         step: Optional[int] = 0,
+        all: bool = False,
     ) -> Dict[str, Any]:
         from swanlab.api.metric import Metrics
 
@@ -180,6 +183,7 @@ class Experiment(BaseEntity):
             keys=keys,
             metric_type="MEDIA",
             media_step=step,
+            all=all,
         ).json()
 
     def logs(
