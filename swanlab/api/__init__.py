@@ -17,7 +17,7 @@ from .column import Column, Columns
 from .experiment import Experiment, Experiments
 from .project import Project, Projects
 from .selfhosted import SelfHosted
-from .typings.common import PaginatedQuery
+from .typings.common import ApiColumnClassLiteral, ApiColumnDataTypeLiteral, PaginatedQuery
 from .user import User
 from .utils import validate_api_path, validate_non_empty_string
 from .workspace import Workspace, Workspaces
@@ -220,8 +220,8 @@ class Api(BaseEntity):
         page: int = 1,
         size: int = 20,
         search: Optional[str] = None,
-        column_class: str = "CUSTOM",
-        column_type: Optional[str] = None,
+        column_class: ApiColumnClassLiteral = "CUSTOM",
+        column_type: Optional[ApiColumnDataTypeLiteral] = None,
         all: bool = False,
     ) -> Columns:
         """
@@ -249,8 +249,8 @@ class Api(BaseEntity):
         self,
         path: str,
         key: str,
-        column_class: Optional[str] = "CUSTOM",
-        column_type: Optional[str] = None,
+        column_class: Optional[ApiColumnClassLiteral] = "CUSTOM",
+        column_type: Optional[ApiColumnDataTypeLiteral] = None,
     ) -> Column:
         """
         获取单个列（通过搜索 key 匹配）。

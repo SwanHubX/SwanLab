@@ -8,7 +8,12 @@
 from typing import Any, Dict, Iterator, List, Optional, Union, cast
 
 from swanlab.api.base import ApiClientContext, BaseEntity
-from swanlab.api.typings.common import ApiMetricLogLevelLiteral, PaginatedQuery
+from swanlab.api.typings.common import (
+    ApiColumnClassLiteral,
+    ApiColumnDataTypeLiteral,
+    ApiMetricLogLevelLiteral,
+    PaginatedQuery,
+)
 from swanlab.api.typings.experiment import (
     ApiExperimentLabelType,
     ApiExperimentProfileType,
@@ -146,7 +151,12 @@ class Experiment(BaseEntity):
                 data = self._data
         return cast(ApiExperimentProfileType, self._ensure_data().get("profile", {}))
 
-    def column(self, key: str, column_class: Optional[str] = "CUSTOM", column_type: Optional[str] = "FLOAT"):
+    def column(
+        self,
+        key: str,
+        column_class: Optional[ApiColumnClassLiteral] = "CUSTOM",
+        column_type: Optional[ApiColumnDataTypeLiteral] = "FLOAT",
+    ):
         """
         获取实验下指定 key 的单个列。
 
@@ -230,8 +240,8 @@ class Experiment(BaseEntity):
         page: int = 1,
         size: int = 20,
         search: Optional[str] = None,
-        column_type: Optional[str] = None,
-        column_class: Optional[str] = None,
+        column_type: Optional[ApiColumnDataTypeLiteral] = None,
+        column_class: Optional[ApiColumnClassLiteral] = None,
         all: bool = False,
     ):
         """

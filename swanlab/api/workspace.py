@@ -11,7 +11,7 @@ from swanlab.api.base import ApiClientContext, BaseEntity
 from swanlab.api.typings.common import ApiVisibilityLiteral, PaginatedQuery
 from swanlab.api.typings.project import ApiProjectType
 from swanlab.api.typings.workspace import ApiWorkspaceLiteral, ApiWorkspaceProfileType, ApiWorkspaceType
-from swanlab.api.utils import get_properties, strip_dict, validate_project_name
+from swanlab.api.utils import get_properties, strip_dict, validate_project_name, validate_visibility
 from swanlab.sdk.internal.pkg import safe
 
 if TYPE_CHECKING:
@@ -101,8 +101,7 @@ class Workspace(BaseEntity):
 
         with safe.block(message=None):
             validate_project_name(name)
-            if visibility not in ("PUBLIC", "PRIVATE"):
-                raise ValueError("Invalid visibility, expected PUBLIC or PRIVATE.")
+            validate_visibility(visibility)
 
             body: Dict[str, Any] = {"name": name, "visibility": visibility, "username": self.username}
             if description:

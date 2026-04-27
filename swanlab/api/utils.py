@@ -14,10 +14,11 @@ from swanlab.api.typings.common import (
     ApiColumnScalarTypeLiteral,
     ApiFilterOpLiteral,
     ApiFilterStableKeyLiteral,
+    ApiMetricAllTypeLiteral,
     ApiMetricLogLevelLiteral,
-    ApiMetricTypeLiteral,
     ApiSidebarLiteral,
     ApiSortOrderLiteral,
+    ApiVisibilityLiteral,
 )
 
 
@@ -86,6 +87,7 @@ _VALID_SIDEBAR_TYPES = frozenset(get_args(ApiSidebarLiteral))
 _VALID_OPS = frozenset(get_args(ApiFilterOpLiteral))
 _VALID_ORDERS = frozenset(get_args(ApiSortOrderLiteral))
 _STABLE_KEYS = frozenset(get_args(ApiFilterStableKeyLiteral))
+_VALID_VISIBILITIES = frozenset(get_args(ApiVisibilityLiteral))
 
 _PROJECT_NAME_RE = re.compile(r"^[0-9a-zA-Z\-_.+]+$")
 
@@ -95,7 +97,7 @@ _VALID_COLUMN_DATA_TYPES = frozenset(get_args(ApiColumnDataTypeLiteral))
 _VALID_COLUMN_SCALAR_TYPES = frozenset(get_args(ApiColumnScalarTypeLiteral))
 
 # 指标相关校验常量
-_VALID_METRIC_TYPES = frozenset(get_args(ApiMetricTypeLiteral))
+_VALID_METRIC_ALL_TYPES = frozenset(get_args(ApiMetricAllTypeLiteral))
 _VALID_METRIC_LOG_LEVELS = frozenset(get_args(ApiMetricLogLevelLiteral))
 
 
@@ -131,8 +133,8 @@ def validate_filter(item: Dict[str, Any]) -> None:
 
 def validate_metric_type(metric_type: str, key: Optional[str] = None) -> None:
     """校验 metric_type 的合法性。非 LOG 类型必须提供非空 key。"""
-    if metric_type not in _VALID_METRIC_TYPES and metric_type != "LOG":
-        raise ValueError(f"Invalid metric_type: {metric_type!r}, expected one of {sorted(_VALID_METRIC_TYPES)}")
+    if metric_type not in _VALID_METRIC_ALL_TYPES:
+        raise ValueError(f"Invalid metric_type: {metric_type!r}, expected one of {sorted(_VALID_METRIC_ALL_TYPES)}")
     if metric_type != "LOG" and (not isinstance(key, str) or not key.strip()):
         raise ValueError(f"key is required for metric_type {metric_type!r}, got key={key!r}")
 
@@ -212,3 +214,15 @@ def validate_project_name(name: str) -> None:
         raise ValueError("Project name must be between 1 and 100 characters.")
     if not _PROJECT_NAME_RE.match(name):
         raise ValueError("Project name can only contain 0-9, a-z, A-Z, -, _, ., +")
+
+
+def validate_visibility(visibility: str) -> None:
+    """校验 visibility 的合法性。"""
+    if visibility not in _VALID_VISIBILITIES:
+        raise ValueError(f"Invalid visibility: {visibility!r}, expected one of {sorted(_VALID_VISIBILITIES)}")
+
+
+def validate_metric_keys(keys: List[str]) -> None:
+    """校验 metric keys 列表的合法性。"""
+    if not isinstance(keys, list) or not keys or any(not isinstance(key, str) or not key.strip() for key in keys):
+        raise ValueError("keys must be a non-empty list of non-empty strings")

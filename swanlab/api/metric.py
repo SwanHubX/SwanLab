@@ -11,14 +11,14 @@ from typing import Any, Dict, Iterator, List, Optional
 
 from swanlab.api.base import ApiClientContext, BaseEntity
 from swanlab.api.typings import ApiColumnCsvExportType, ApiResponseType
-from swanlab.api.typings.common import ApiMetricTypeLiteral
+from swanlab.api.typings.common import ApiMetricColumnTypeLiteral, ApiMetricLogLevelLiteral
 from swanlab.api.typings.metric import (
     ApiLogSeriesType,
     ApiMediaItemDataType,
     ApiMediaSeriesType,
     ApiScalarSeriesType,
 )
-from swanlab.api.utils import get_properties, validate_metric_log_level, validate_metric_type
+from swanlab.api.utils import get_properties, validate_metric_keys, validate_metric_log_level, validate_metric_type
 from swanlab.sdk.internal.pkg import console
 
 _SCALAR_STATISTIC_FIELDS = ("min", "max", "avg", "median", "latest")
@@ -49,7 +49,7 @@ class Metric(BaseEntity):
         key: Optional[str] = "",
         sample: int = 1000,
         log_offset: Optional[int] = 0,  # 标记第几个分片，仅对 Log metric_type 有效
-        log_level: str = "INFO",
+        log_level: ApiMetricLogLevelLiteral = "INFO",
         metric_type: str = "SCALAR",
         data: Optional[Dict[str, Any]] = None,
         ignore_timestamp: bool = False,
@@ -353,15 +353,14 @@ class Metrics(BaseEntity):
         project_id: str,
         run_id: str,
         keys: List[str],
-        metric_type: ApiMetricTypeLiteral,
+        metric_type: ApiMetricColumnTypeLiteral,
         sample: int = 1500,
         ignore_timestamp: bool = False,
         media_step: Optional[int] = None,
         all: bool = False,
     ) -> None:
         super().__init__(ctx)
-        if not isinstance(keys, list) or not keys or any(not isinstance(key, str) or not key.strip() for key in keys):
-            raise ValueError("keys must be a non-empty list")
+        validate_metric_keys(keys)
         validate_metric_type(metric_type, keys[0])
         if metric_type == "LOG":
             raise ValueError("Metrics does not support LOG metric_type, use Experiment.logs() instead")

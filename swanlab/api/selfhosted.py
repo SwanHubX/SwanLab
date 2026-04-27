@@ -10,7 +10,7 @@ from typing import Any, Dict, Iterator, Optional, cast
 from swanlab.api.base import ApiClientContext, BaseEntity
 from swanlab.api.typings.common import ApiResponseType, PaginatedQuery
 from swanlab.api.typings.selfhosted import ApiLicensePlanLiteral, ApiSelfHostedInfoType
-from swanlab.api.utils import get_properties
+from swanlab.api.utils import get_properties, validate_non_empty_string
 
 
 class SelfHosted(BaseEntity):
@@ -82,10 +82,8 @@ class SelfHosted(BaseEntity):
         :param password: 待创建用户密码
         """
         SelfHosted.validate_root(self._ensure_data())
-        if not isinstance(username, str) or not username.strip():
-            raise ValueError("username must be a non-empty string")
-        if not isinstance(password, str) or not password.strip():
-            raise ValueError("password must be a non-empty string")
+        validate_non_empty_string(username, label="username")
+        validate_non_empty_string(password, label="password")
         data = {"users": [{"username": username, "password": password}]}
         return self._post("/self_hosted/users", data=data)
 

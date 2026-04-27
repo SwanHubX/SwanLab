@@ -9,8 +9,9 @@ from .column import ApiColumnCsvExportType, ApiColumnErrorType, ApiColumnType
 from .common import (
     ApiIdentityLiteral,
     ApiLicensePlanLiteral,
+    ApiMetricAllTypeLiteral,
+    ApiMetricColumnTypeLiteral,
     ApiMetricLogLevelLiteral,
-    ApiMetricTypeLiteral,
     ApiMetricXAxisLiteral,
     ApiPaginationType,
     ApiResponseType,
@@ -41,7 +42,8 @@ __all__ = [
     "ApiIdentityLiteral",
     "ApiLicensePlanLiteral",
     "ApiMetricLogLevelLiteral",
-    "ApiMetricTypeLiteral",
+    "ApiMetricAllTypeLiteral",
+    "ApiMetricColumnTypeLiteral",
     "ApiMetricXAxisLiteral",
     # General TypedDicts
     "ApiPaginationType",

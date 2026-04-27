@@ -9,9 +9,8 @@ from typing import TypedDict
 
 from .common import ApiRoleLiteral, ApiWorkspaceLiteral
 
+
 # 工作空间即 Group 组织
-
-
 class ApiWorkspaceProfileType(TypedDict):
     bio: str
     url: str

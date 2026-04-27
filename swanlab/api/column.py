@@ -9,7 +9,13 @@ from typing import Any, Callable, Dict, Iterator, Optional, cast
 
 from swanlab.api.base import ApiClientContext, BaseEntity
 from swanlab.api.typings.column import ApiColumnType
-from swanlab.api.typings.common import ApiMetricTypeLiteral, ApiResponseType, PaginatedQuery
+from swanlab.api.typings.common import (
+    ApiColumnClassLiteral,
+    ApiColumnDataTypeLiteral,
+    ApiMetricColumnTypeLiteral,
+    ApiResponseType,
+    PaginatedQuery,
+)
 from swanlab.api.utils import get_properties, parse_column_data_type, resolve_run_path, validate_column_params
 
 
@@ -41,8 +47,8 @@ class Column(BaseEntity):
         *,
         path: str,
         key: str,
-        column_class: Optional[str] = "CUSTOM",
-        column_type: Optional[str] = None,
+        column_class: Optional[ApiColumnClassLiteral] = "CUSTOM",
+        column_type: Optional[ApiColumnDataTypeLiteral] = None,
         data: Optional[ApiColumnType] = None,
         project_id: Optional[str] = None,
         run_id: Optional[str] = None,
@@ -148,7 +154,7 @@ class Column(BaseEntity):
     def metric(
         self,
         sample: int = 1500,
-        metric_type: ApiMetricTypeLiteral = "SCALAR",
+        metric_type: ApiMetricColumnTypeLiteral = "SCALAR",
         ignore_timestamp: bool = False,
         media_step: Optional[int] = None,
     ) -> Dict[str, Any]:
@@ -212,8 +218,8 @@ class Columns(BaseEntity):
         *,
         path: str,
         query: PaginatedQuery,
-        column_class: Optional[str] = None,
-        column_type: Optional[str] = None,
+        column_class: Optional[ApiColumnClassLiteral] = None,
+        column_type: Optional[ApiColumnDataTypeLiteral] = None,
         project_id: Optional[str] = None,
         run_id: Optional[str] = None,
         project_id_getter: Optional[Callable[[], str]] = None,
