@@ -16,7 +16,9 @@ from .base import ApiClientContext, BaseEntity
 from .column import Column, Columns
 from .experiment import Experiment, Experiments
 from .project import Project, Projects
+from .selfhosted import SelfHosted
 from .typings.common import PaginatedQuery
+from .typings.selfhosted import ApiSelfHostedInfoType
 from .user import User
 from .workspace import Workspace, Workspaces
 
@@ -76,9 +78,40 @@ class Api(BaseEntity):
         ctx = ApiClientContext(client=_client, web_host=web_host, api_host=api_host, username=username, name=name)
         super().__init__(ctx)
 
+        # 私有化信息
+        self._self_hosted_info: Optional[ApiSelfHostedInfoType] = None
+
     def json(self) -> dict:
         """Api 非数据实体，返回空字典。"""
         return {}
+
+    # ------------------------------------------------------------------
+    #  私有化校验
+    # ------------------------------------------------------------------
+
+    def _fetch_self_hosted_info(self) -> ApiSelfHostedInfoType:
+        """获取并缓存私有化实例信息。"""
+        if self._self_hosted_info is None:
+            resp = self._get("/self_hosted/info")
+            if not resp.ok or not resp.data:
+                raise ValueError("Failed to get self-hosted instance info.")
+            self._self_hosted_info = resp.data
+        assert self._self_hosted_info is not None
+        return self._self_hosted_info
+
+    def _validate_self_hosted(self) -> None:
+        """校验私有化实例未过期。"""
+        info = self._fetch_self_hosted_info()
+        if info.get("expired", True):
+            raise ValueError("SwanLab self-hosted instance has expired.")
+
+    def _validate_self_hosted_root(self) -> None:
+        """校验私有化实例未过期且当前用户拥有 root 权限。"""
+        info = self._fetch_self_hosted_info()
+        if info.get("expired", True):
+            raise ValueError("SwanLab self-hosted instance has expired.")
+        if not info.get("root", False):
+            raise ValueError("You don't have permission to perform this action. Please login as a root user.")
 
     @staticmethod
     def _resolve_credentials(
@@ -251,6 +284,12 @@ class Api(BaseEntity):
         :param column_type: 列的类型，如 FLOAT、STRING、IMAGE 等，默认为 None
         """
         return Column(self._ctx, path=path, key=key, column_class=column_class, column_type=column_type)
+
+    # -------
+    # 私有化相关接口
+    # --------
+    def self_hosted(self) -> SelfHosted:
+        return SelfHosted(self._ctx)
 
 
 __all__ = ["Api"]
