@@ -14,7 +14,7 @@ import requests
 
 from swanlab.api import Api
 from swanlab.api.base import ApiClientContext, BaseEntity
-from swanlab.api.column import Columns
+from swanlab.api.column import Column, Columns
 from swanlab.api.experiment import Experiment, Experiments
 from swanlab.api.metric import Metric, Metrics
 from swanlab.api.project import Project
@@ -234,6 +234,33 @@ class TestEntityLazyLoad4xx:
 
 
 # ---------------------------------------------------------------------------
+# Experiment — run slug / cuid 解析
+# ---------------------------------------------------------------------------
+class TestExperimentRunIdResolution:
+    def test_run_id_resolves_slug_to_cuid(self, ctx):
+        ctx.client.get.side_effect = [
+            _api_response({"cuid": "run-cuid", "slug": "run-slug", "name": "test-run"}),
+        ]
+
+        exp = Experiment(ctx, path="user/proj/run-slug")
+
+        assert exp.run_id == "run-cuid"
+        assert [call.args[0] for call in ctx.client.get.call_args_list] == [
+            "/project/user/proj/runs/run-slug",
+        ]
+
+    def test_column_created_from_experiment_uses_run_cuid(self, ctx):
+        ctx.client.get.side_effect = [
+            _api_response({"cuid": "run-cuid", "slug": "run-slug", "name": "test-run"}),
+        ]
+        exp = Experiment(ctx, path="user/proj/run-slug")
+
+        column = exp.column("loss")
+
+        assert column.run_id == "run-cuid"
+
+
+# ---------------------------------------------------------------------------
 # Column / Columns — 校验 + 4xx
 # ---------------------------------------------------------------------------
 class TestColumnValidation:
@@ -244,6 +271,58 @@ class TestColumnValidation:
     def test_columns_invalid_class_raises(self, ctx):
         with pytest.raises(ValueError, match="Invalid column_class"):
             Columns(ctx, path="user/proj/run1", query=PaginatedQuery(), column_class="INVALID")
+
+    def test_iterated_columns_resolve_run_cuid_once_for_local_fields(self, ctx):
+        ctx.client.get.side_effect = [
+            _api_response({"cuid": "run-cuid", "slug": "run-slug"}),
+            _api_response(
+                {
+                    "list": [
+                        {"key": "loss", "name": "loss", "type": "FLOAT", "class": "CUSTOM"},
+                        {"key": "acc", "name": "acc", "type": "FLOAT", "class": "CUSTOM"},
+                    ],
+                    "total": 2,
+                    "pages": 1,
+                }
+            ),
+        ]
+
+        columns = Columns(ctx, path="user/proj/run-slug", query=PaginatedQuery())
+
+        assert [column.name for column in columns] == ["loss", "acc"]
+        assert [call.args[0] for call in ctx.client.get.call_args_list] == [
+            "/project/user/proj/runs/run-slug",
+            "/experiment/run-cuid/column",
+        ]
+
+    def test_column_resolves_run_cuid_before_fetching_column_data(self, ctx):
+        ctx.client.get.side_effect = [
+            _api_response({"cuid": "run-cuid", "slug": "run-slug"}),
+            _api_response(
+                {
+                    "list": [{"key": "loss", "name": "loss", "type": "FLOAT", "class": "CUSTOM"}],
+                    "total": 1,
+                    "pages": 1,
+                }
+            ),
+        ]
+
+        col = Column(ctx, path="user/proj/run-slug", key="loss")
+
+        assert col.name == "loss"
+        assert col.run_id == "run-cuid"
+        assert [call.args[0] for call in ctx.client.get.call_args_list] == [
+            "/project/user/proj/runs/run-slug",
+            "/experiment/run-cuid/column",
+        ]
+
+    def test_column_project_id_fetches_project_lazily(self, ctx):
+        item = {"key": "loss", "name": "loss", "type": "FLOAT", "class": "CUSTOM"}
+        col = Column(ctx, path="user/proj/run1", key="loss", data=cast(Any, item))
+        ctx.client.get.return_value = _api_response({"cuid": "project-cuid"})
+
+        assert col.project_id == "project-cuid"
+        assert [call.args[0] for call in ctx.client.get.call_args_list] == ["/project/user/proj"]
 
 
 # ---------------------------------------------------------------------------

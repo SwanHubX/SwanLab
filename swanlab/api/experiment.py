@@ -17,7 +17,7 @@ from swanlab.api.typings.experiment import (
 from swanlab.api.typings.user import ApiUserType
 from swanlab.api.utils import (
     get_properties,
-    resovle_run_path,
+    resolve_run_path,
     validate_filter,
     validate_group,
     validate_sort,
@@ -41,34 +41,49 @@ class Experiment(BaseEntity):
         data: Optional[ApiExperimentType] = None,
     ) -> None:
         super().__init__(ctx)
-        self._proj_path, self._cuid = resovle_run_path(path=path)
-        self._data = data
-        self._project_id = None
+        self._proj_path, self._run_slug = resolve_run_path(path=path)
+        self._cuid: str = (data or {}).get("cuid", "") or self._run_slug
+        self._data: Optional[ApiExperimentType] = data
+        self._project_id = ""
+
+    def _refresh_cuid(self) -> None:
+        if self._data:
+            self._cuid = self._data.get("cuid", "") or self._cuid
 
     def _ensure_data(self) -> ApiExperimentType:
         if self._data is None:
             resp = self._get(f"/project/{self._proj_path}/runs/{self._cuid}")
             self._data = resp.data if resp.ok and resp.data else cast(ApiExperimentType, {})
-            if not self._cuid and self._data:
-                self._cuid = self._data.get("cuid", "")
-        if self._project_id is None:
+        self._refresh_cuid()
+        assert self._data is not None
+        return self._data
+
+    def _ensure_project_id(self) -> str:
+        if self._project_id:
+            return self._project_id
+        if self._data and (project_id := str(self._data.get("project_id") or "")):
+            self._project_id = project_id
+            return project_id
+        if not self._project_id:
             resp = self._get(f"/project/{self._proj_path}")
             proj_data = resp.data if resp.ok else {}
-            self._project_id = proj_data.get("cuid", "")
-            self._data["project_id"] = self._project_id
-        return self._data
+            self._project_id = str(proj_data.get("cuid") or "")
+            if self._data is not None:
+                self._data["project_id"] = self._project_id
+        return self._project_id
 
     @property
     def project_id(self) -> str:
-        if self._project_id:
-            return self._project_id
-        return self._ensure_data().get("project_id", "")
+        return self._ensure_project_id()
 
     @property
     def run_id(self) -> str:
-        if self._cuid:
-            return self._cuid
-        return self._ensure_data().get("cuid", "")
+        self._ensure_data()
+        return self._cuid
+
+    def _run_url_ref(self) -> str:
+        data = self._ensure_data()
+        return data.get("slug") or self._run_slug or self.run_id
 
     @property
     def name(self) -> str:
@@ -88,7 +103,7 @@ class Experiment(BaseEntity):
 
     @property
     def url(self) -> str:
-        return self._build_web_url(f"@{self._proj_path}/runs/{self.run_id}/chart")
+        return self._build_web_url(f"@{self._proj_path}/runs/{self._run_url_ref()}/chart")
 
     @property
     def show(self) -> bool:
@@ -127,6 +142,7 @@ class Experiment(BaseEntity):
             resp = self._get(f"/project/{self._proj_path}/runs/{self._cuid}")
             if resp.ok and resp.data:
                 self._data = resp.data
+                self._refresh_cuid()
                 data = self._data
         return cast(ApiExperimentProfileType, self._ensure_data().get("profile", {}))
 
@@ -140,12 +156,15 @@ class Experiment(BaseEntity):
         """
         from swanlab.api.column import Column
 
+        run_id = self.run_id
         return Column(
             self._ctx,
-            path=f"{self._proj_path}/{self._cuid}",
+            path=f"{self._proj_path}/{run_id}",
             key=key,
             column_class=column_class,
             column_type=column_type,
+            run_id=run_id,
+            project_id_getter=lambda: self.project_id,
         )
 
     def metrics(
@@ -228,17 +247,20 @@ class Experiment(BaseEntity):
         from swanlab.api.column import Columns
 
         query = PaginatedQuery(page=page, size=size, search=search, all=all)
+        run_id = self.run_id
         return Columns(
             self._ctx,
-            path=f"{self._proj_path}/{self._cuid}",
+            path=f"{self._proj_path}/{run_id}",
             query=query,
             column_type=column_type,
             column_class=column_class,
+            run_id=run_id,
+            project_id_getter=lambda: self.project_id,
         )
 
     def delete(self) -> bool:
         """删除此实验。"""
-        resp = self._delete(f"/project/{self._proj_path}/runs/{self._cuid}")
+        resp = self._delete(f"/project/{self._proj_path}/runs/{self.run_id}")
         return resp.ok
 
     def json(self) -> Dict[str, Any]:

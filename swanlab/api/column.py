@@ -5,12 +5,12 @@
 @description: Column 实体类 — 实验列的查询与操作
 """
 
-from typing import Any, Dict, Iterator, Optional, cast
+from typing import Any, Callable, Dict, Iterator, Optional, cast
 
 from swanlab.api.base import ApiClientContext, BaseEntity
 from swanlab.api.typings.column import ApiColumnType
 from swanlab.api.typings.common import ApiMetricTypeLiteral, ApiResponseType, PaginatedQuery
-from swanlab.api.utils import get_properties, parse_column_data_type, resovle_run_path, validate_column_params
+from swanlab.api.utils import get_properties, parse_column_data_type, resolve_run_path, validate_column_params
 
 
 class Column(BaseEntity):
@@ -21,6 +21,20 @@ class Column(BaseEntity):
     注意：列不支持单个获取 API，只能通过列表接口获取。
     """
 
+    @staticmethod
+    def _resolve_cuid(entity: BaseEntity, path: str, fallback: str = "") -> str:
+        resp = entity._get(path)
+        data = resp.data if resp.ok and isinstance(resp.data, dict) else {}
+        return data.get("cuid", "") or fallback
+
+    @staticmethod
+    def _resolve_run_cuid(entity: BaseEntity, project_path: str, run_slug: str) -> str:
+        return Column._resolve_cuid(entity, f"/project/{project_path}/runs/{run_slug}", fallback=run_slug)
+
+    @staticmethod
+    def _resolve_project_cuid(entity: BaseEntity, project_path: str) -> str:
+        return Column._resolve_cuid(entity, f"/project/{project_path}")
+
     def __init__(
         self,
         ctx: ApiClientContext,
@@ -30,23 +44,29 @@ class Column(BaseEntity):
         column_class: Optional[str] = "CUSTOM",
         column_type: Optional[str] = None,
         data: Optional[ApiColumnType] = None,
+        project_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+        project_id_getter: Optional[Callable[[], str]] = None,
     ) -> None:
         super().__init__(ctx)
-        self._proj_path, self._run_id = resovle_run_path(path=path)
+        self._proj_path, self._run_slug = resolve_run_path(path=path)
         self._key = key
         self._column_class = column_class
         self._column_type = column_type
         self._data = data
-        self._project_id = None
+        self._project_id = project_id or (data or {}).get("project_id", "") or None
+        self._run_id = run_id or (data or {}).get("run_id", "") or ""
+        self._project_id_getter = project_id_getter
 
     def _ensure_data(self) -> ApiColumnType:
         if self._data is None:
             validate_column_params(column_class=self._column_class, column_type=self._column_type)
             extra: Dict[str, Any] = {"search": self._key}
+            run_id = self._ensure_run_id()
             if self._column_class:
                 extra["class"] = self._column_class
             resp = self._get(
-                f"/experiment/{self._run_id}/column",
+                f"/experiment/{run_id}/column",
                 params={"page": 1, "size": 10, **extra},
             )
             if resp.data:
@@ -55,30 +75,44 @@ class Column(BaseEntity):
                     self._data = cast(ApiColumnType, items[0])
             if self._data is None:
                 self._data = cast(ApiColumnType, {})
-            self._data["run_id"] = self._run_id
-        if self._project_id is None:
-            resp = self._get(f"/project/{self._proj_path}")
-            proj_data = resp.data if resp.ok else {}
-            self._project_id = proj_data.get("cuid", "")
-            self._data["project_id"] = self._project_id
-            # 这里要确保是 cuid 而非 slug
-            run_resp = self._get(f"/project/{self._proj_path}/runs/{self._run_id}")
-            run_data = run_resp.data if run_resp.ok else {}
-            run_cuid = run_data.get("cuid", "")
-            self._run_id = run_cuid
+        self._data.setdefault("run_id", self._ensure_run_id())
         return self._data
+
+    def _ensure_run_id(self) -> str:
+        if self._run_id:
+            return self._run_id
+        if self._data and (run_id := self._data.get("run_id", "")):
+            self._run_id = run_id
+            return run_id
+        self._run_id = Column._resolve_run_cuid(self, self._proj_path, self._run_slug)
+        if self._data is not None:
+            self._data["run_id"] = self._run_id
+        return self._run_id
+
+    def _ensure_project_id(self) -> str:
+        if self._project_id:
+            return self._project_id
+        if self._data and (project_id := self._data.get("project_id", "")):
+            self._project_id = project_id
+            return project_id
+        if self._project_id_getter is not None:
+            self._project_id = self._project_id_getter()
+            if self._data is not None:
+                self._data["project_id"] = self._project_id
+            return self._project_id
+        if self._project_id is None:
+            self._project_id = Column._resolve_project_cuid(self, self._proj_path)
+            if self._data is not None:
+                self._data["project_id"] = self._project_id
+        return self._project_id
 
     @property
     def project_id(self) -> str:
-        if self._project_id:
-            return self._project_id
-        return self._ensure_data().get("project_id", "")
+        return self._ensure_project_id()
 
     @property
     def run_id(self) -> str:
-        if self._project_id:
-            return self._run_id
-        return self._ensure_data().get("run_id", "")
+        return self._ensure_run_id()
 
     @property
     def key(self) -> str:
@@ -180,10 +214,16 @@ class Columns(BaseEntity):
         query: PaginatedQuery,
         column_class: Optional[str] = None,
         column_type: Optional[str] = None,
+        project_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+        project_id_getter: Optional[Callable[[], str]] = None,
     ) -> None:
         super().__init__(ctx)
         self._run_path = path
-        self._proj_path, self._run_id = resovle_run_path(path=path)
+        self._proj_path, self._run_slug = resolve_run_path(path=path)
+        self._run_id = run_id or ""
+        self._project_id = project_id
+        self._project_id_getter = project_id_getter
         self._query = query
         # 校验 column_type 和 column_class 的合法性
         validate_column_params(column_type=column_type, column_class=column_class)
@@ -197,25 +237,44 @@ class Columns(BaseEntity):
             "list": [],
         }
 
+    def _ensure_run_id(self) -> str:
+        if self._run_id:
+            return self._run_id
+        self._run_id = Column._resolve_run_cuid(self, self._proj_path, self._run_slug)
+        return self._run_id
+
+    def _ensure_project_id(self) -> str:
+        if self._project_id:
+            return self._project_id
+        if self._project_id_getter is not None:
+            self._project_id = self._project_id_getter()
+            return self._project_id
+        self._project_id = Column._resolve_project_cuid(self, self._proj_path)
+        return self._project_id
+
     def __iter__(self) -> Iterator[Column]:
         """迭代分页获取列。"""
         extra: Dict[str, Any] = {}
+        run_id = self._ensure_run_id()
         if self._column_type:
             extra["type"] = self._column_type
         if self._column_class:
             extra["class"] = self._column_class
 
         for item in self._paginate(
-            f"/experiment/{self._run_id}/column",
+            f"/experiment/{run_id}/column",
             self._query,
             page_info=self._page_info,
             extra=extra,
         ):
+            data = {**item, "run_id": run_id}
             yield Column(
                 self._ctx,
                 path=self._run_path,
                 key=item.get("key", ""),
-                data=cast(ApiColumnType, item),
+                data=cast(ApiColumnType, data),
+                run_id=run_id,
+                project_id_getter=self._ensure_project_id,
             )
 
     @property

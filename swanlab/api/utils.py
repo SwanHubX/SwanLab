@@ -49,17 +49,17 @@ def get_properties(obj: object, _visited: Optional[Set[int]] = None) -> Dict[str
 
 
 # 路径解析
-def resovle_run_path(path: str) -> Tuple[str, str]:
-    """ "path like: user/proj_name/run_id"""
-    proj_path, cuid = "", ""
+def resolve_run_path(path: str) -> Tuple[str, str]:
+    """ "path like: user/proj_name/run_slug"""
+    proj_path, run_slug = "", ""
     parts = path.split("/")
     if len(parts) != 3:
-        return proj_path, cuid
-    cuid = parts[-1]
+        return proj_path, run_slug
+    run_slug = parts[-1]
     proj_path = path.rsplit("/", 1)[0]
     return (
         proj_path,
-        cuid,
+        run_slug,
     )
 
 
