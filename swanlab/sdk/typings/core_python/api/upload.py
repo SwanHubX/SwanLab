@@ -6,7 +6,7 @@
 """
 
 import sys
-from typing import Any, Dict, List, Literal, TypedDict, Union
+from typing import Any, Dict, List, Literal, Tuple, TypedDict, Union
 
 if sys.version_info >= (3, 11):
     from typing import NotRequired, Required
@@ -22,19 +22,19 @@ UploadColumn = TypedDict(
     "UploadColumn",
     {
         # ---- 必填 ----
-        "class": Required[str],
         "type": Required[str],
         "key": Required[str],
         # ---- 可选 ----
+        "class": NotRequired[Literal["CUSTOM", "SYSTEM"]],  # 默认为 CUSTOM
         "name": NotRequired[str],
         "error": NotRequired[Dict[str, Any]],
         "sectionName": NotRequired[str],
-        "sectionType": NotRequired[str],
-        "yRange": NotRequired[Dict[str, Any]],
+        "sectionType": NotRequired[Literal["PUBLIC", "SYSTEM"]],
+        "yRange": NotRequired[Tuple[float, float]],
         "chartName": NotRequired[str],
         "chartIndex": NotRequired[str],
         "metricName": NotRequired[str],
-        "metricColors": NotRequired[List[str]],
+        "metricColors": NotRequired[Tuple[str, str]],
     },
 )
 
@@ -57,7 +57,7 @@ class UploadLog(TypedDict):
     create_time: str
 
 
-UploadLogMetrics = List[UploadLog]
+UploadLogBatch = List[UploadLog]
 """
 Console 日志指标
 """
@@ -72,7 +72,6 @@ class UploadScalar(TypedDict):
     """标量指标 DTO，对应 POST /house/metrics type="scalar" 的单条 metric"""
 
     key: str
-    epoch: int
     index: int
     data: float
     create_time: NotRequired[str]
@@ -93,10 +92,9 @@ class UploadMedia(TypedDict):
     """媒体指标 DTO，对应 POST /house/metrics type="media" 的单条 metric"""
 
     key: str
-    epoch: int
     index: int
-    data: Union[str, List[str]]
-    more: NotRequired[Union[str, List[str]]]
+    data: List[str]
+    more: List[Dict[str, str]]
     create_time: NotRequired[str]
 
 
@@ -117,4 +115,4 @@ class UploadMetricPayload(TypedDict):
     projectId: str
     experimentId: str
     type: str
-    metrics: Union[UploadScalarBatch, UploadMediaBatch, UploadLogMetrics]
+    metrics: Union[UploadScalarBatch, UploadMediaBatch, UploadLogBatch]

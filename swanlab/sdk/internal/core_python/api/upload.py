@@ -5,10 +5,20 @@
 @description: 上传相关API：conda、requirements、metadata、config、console 的上传
 """
 
-from typing import Dict
+from _io import BytesIO
+from typing import Dict, List
+
+from requests.sessions import Session
 
 from swanlab.sdk.internal.core_python import client
-from swanlab.sdk.typings.core_python.api.upload import UploadLogMetrics, UploadMetricPayload
+from swanlab.sdk.internal.core_python.pkg.executor import SafeThreadPoolExecutor
+from swanlab.sdk.typings.core_python.api.upload import (
+    UploadColumns,
+    UploadLogBatch,
+    UploadMediaBatch,
+    UploadMetricPayload,
+    UploadScalarBatch,
+)
 
 
 def upload_conda(username: str, project: str, experiment_id: str, *, content: str) -> None:
@@ -59,7 +69,14 @@ def upload_config(username: str, project: str, experiment_id: str, *, content: D
     client.put(f"/project/{username}/{project}/runs/{experiment_id}/profile", {"config": content})
 
 
-def upload_console(project_id: str, experiment_id: str, *, metrics: UploadLogMetrics) -> None:
+def upload_columns(experiment_id: str, *, columns: UploadColumns) -> None:
+    """
+    上传列信息
+    """
+    client.post(f"/experiment/{experiment_id}/columns", columns, retries=0)
+
+
+def upload_console(project_id: str, experiment_id: str, *, metrics: UploadLogBatch) -> None:
     """
     上传控制台日志信息。
 
@@ -72,10 +89,78 @@ def upload_console(project_id: str, experiment_id: str, *, metrics: UploadLogMet
     if not metrics:
         return
     data: UploadMetricPayload = {
+        "type": "log",
         "projectId": project_id,
         "experimentId": experiment_id,
-        "type": "log",
         "metrics": metrics,
     }
     # retries 设置为 0 表示不重试，重试机制交给sender外层实现
     client.post("/house/metrics", data, retries=0)
+
+
+def upload_scalar(project_id: str, experiment_id: str, *, metrics: UploadScalarBatch) -> None:
+    """
+    上传控制台日志信息。
+
+    参考 Legacy upload_logs，将 ConsoleRecord 转换为日志指标格式后批量发送到 /house/metrics。
+
+    :param project_id: 所属项目 ID
+    :param experiment_id: 实验唯一标识符
+    :param metrics: 控制台日志指标列表
+    """
+    if not metrics:
+        return
+    data: UploadMetricPayload = {
+        "type": "scalar",
+        "projectId": project_id,
+        "experimentId": experiment_id,
+        "metrics": metrics,
+    }
+    # retries 设置为 0 表示不重试，重试机制交给sender外层实现
+    client.post("/house/metrics", data, retries=0)
+
+
+def upload_media(project_id: str, experiment_id: str, *, metrics: UploadMediaBatch) -> None:
+    """
+    上传控制台日志信息。
+
+    参考 Legacy upload_logs，将 ConsoleRecord 转换为日志指标格式后批量发送到 /house/metrics。
+
+    :param project_id: 所属项目 ID
+    :param experiment_id: 实验唯一标识符
+    :param metrics: 控制台日志指标列表
+    """
+    if not metrics:
+        return
+    data: UploadMetricPayload = {
+        "type": "media",
+        "projectId": project_id,
+        "experimentId": experiment_id,
+        "metrics": metrics,
+    }
+    # retries 设置为 0 表示不重试，重试机制交给sender外层实现
+    client.post("/house/metrics", data, retries=0)
+
+
+def upload_resource(session: Session, experiment_id: str, *, paths: List[str], buffers: List[BytesIO]):
+    """
+    上传资源文件到对象存储，先向后端请求上传凭据，然后使用凭据上传文件到对象存储。
+    """
+    resp = client.post(
+        "/resources/presigned/put",
+        {"experimentId": experiment_id, "paths": paths},
+    )
+    urls = resp.data["urls"]
+    with SafeThreadPoolExecutor(max_workers=10) as executor:
+        futures = []
+        for index, url in enumerate(urls):
+            futures.append(
+                executor.submit(
+                    session.put,
+                    url,
+                    data=buffers[index],
+                    headers={"Content-Type": "application/octet-stream"},
+                )
+            )
+        for future in futures:
+            future.result()

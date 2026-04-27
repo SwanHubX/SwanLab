@@ -27,6 +27,28 @@ TRACE_ID = "swanlab.client"
 request_retries_ctx: contextvars.ContextVar[Optional[int]] = contextvars.ContextVar("request_retries", default=None)
 
 
+class WarningRetry(Retry):
+    """
+    在每次触发重试时打印 warning 日志。
+    """
+
+    def increment(self, *args, **kwargs):
+        new_retry = super().increment(*args, **kwargs)
+
+        method = kwargs.get("method")
+        url = kwargs.get("url")
+        response = kwargs.get("response")
+        error = kwargs.get("error")
+
+        status = getattr(response, "status", None) if response is not None else None
+        reason = f"status={status}" if status is not None else f"error={error!r}"
+        retry_count = len(new_retry.history)
+
+        console.warning(f"[HTTP] retry #{retry_count} {method or 'UNKNOWN'} {url or ''} because {reason}")
+
+        return new_retry
+
+
 class TimeoutHTTPAdapter(HTTPAdapter):
     """
     支持默认超时的 HTTPAdapter。
@@ -141,7 +163,7 @@ def create(timeout: int = 60, default_retry: int = 5) -> SessionWithRetry:
     """
     session = SessionWithRetry()
 
-    retry_strategy = Retry(
+    retry_strategy = WarningRetry(
         total=default_retry,
         backoff_factor=0.5,
         status_forcelist=[429, 500, 502, 503, 504],

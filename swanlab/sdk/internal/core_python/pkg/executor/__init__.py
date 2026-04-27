@@ -33,6 +33,7 @@ class SafeThreadPoolExecutor(ThreadPoolExecutor):
         if _is_shutting_down():
             future: Any = Future()
             try:
+                # 来自此issue: https://github.com/SwanHubX/SwanLab/issues/889，此时需要一个个发送
                 future.set_result(fn(*args, **kwargs))
             except BaseException as exc:
                 future.set_exception(exc)

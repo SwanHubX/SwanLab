@@ -8,21 +8,37 @@
 from __future__ import annotations
 
 import json
+from _io import BytesIO
 from collections.abc import Callable, Sequence
-from pathlib import Path
+from pathlib import Path, PurePosixPath
+from typing import List, Optional
 
 import yaml
+from requests.sessions import Session
 
+from swanlab.exceptions import ApiError
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.core_python.api.upload import (
+    upload_columns,
     upload_conda,
     upload_config,
     upload_console,
+    upload_media,
     upload_metadata,
     upload_requirements,
+    upload_resource,
+    upload_scalar,
 )
-from swanlab.sdk.internal.pkg import adapter, console, safe
-from swanlab.sdk.typings.core_python.api.upload import UploadLog, UploadLogMetrics
+from swanlab.sdk.internal.core_python.pkg import column
+from swanlab.sdk.internal.pkg import adapter, client, console, safe
+from swanlab.sdk.typings.core_python.api.upload import (
+    UploadLog,
+    UploadLogBatch,
+    UploadMedia,
+    UploadMediaBatch,
+    UploadScalar,
+    UploadScalarBatch,
+)
 
 
 class HttpRecordSender:
@@ -38,6 +54,8 @@ class HttpRecordSender:
         self._project = project
         self._project_id = project_id
         self._experiment_id = experiment_id
+        # 资源上传 session，作用在Sender对象中复用TCP链接
+        self._buffer_session: Optional[Session] = None
         self._upload_handlers: dict[str, Callable[[Sequence[Record]], None]] = {
             "column": self.upload_column,
             "scalar": self.upload_scalar,
@@ -62,22 +80,96 @@ class HttpRecordSender:
             return
         handler(records)
 
-    def upload_column(self, records: Sequence[Record]) -> None:
-        console.debug("HTTP upload skeleton: upload_column (request mapping pending).")
+    def upload_column(self, records: Sequence[Record], batch_size: int = 3000) -> None:
+        columns = []
+        for record in records:
+            r = column.encode(record.column)
+            if r:
+                columns.append(r)
+        if not columns:
+            return
+        for i in range(0, len(columns), batch_size):
+            try:
+                upload_columns(self._experiment_id, columns=columns[i : i + batch_size])
+            except ApiError as e:
+                # 处理实验已删除的异常
+                if e.code == "Disabled_Resource":
+                    console.warning("Experiment has been deleted, skipping column upload.")
+                    return
 
     def upload_scalar(self, records: Sequence[Record]) -> None:
-        console.debug("HTTP upload skeleton: upload_scalar (request mapping pending).")
+        metrics: UploadScalarBatch = []
+        for record in records:
+            if not record.HasField("scalar"):
+                continue
+            scalar_record = record.scalar
+            if scalar_record.HasField("timestamp"):
+                create_time = scalar_record.timestamp.ToJsonString()
+                metric: UploadScalar = {
+                    "key": scalar_record.key,
+                    "index": scalar_record.step,
+                    "data": scalar_record.value.number,
+                    "create_time": create_time,
+                }
+                metrics.append(metric)
+        upload_scalar(self._project_id, self._experiment_id, metrics=metrics)
 
     def upload_media(self, records: Sequence[Record]) -> None:
-        console.debug("HTTP upload skeleton: upload_media (request mapping pending).")
+        metrics: UploadMediaBatch = []
+        paths: List[str] = []
+        buffers: List[BytesIO] = []
+        for record in records:
+            if not record.HasField("media"):
+                continue
+            media_record = record.media
+            if media_record.HasField("timestamp"):
+                create_time = media_record.timestamp.ToJsonString()
+                metric_chunk: UploadMedia = {
+                    "key": media_record.key,
+                    "index": media_record.step,
+                    "data": [],
+                    "more": [],
+                    "create_time": create_time,
+                }
+                buffer_chunk: List[BytesIO] = []
+                for media in media_record.value.items:
+                    # 目前约定的本地文件路径格式为：media/<type>/<key>/filename
+                    # 约定保存到对象存储中的文件路径类似
+                    remote_path = PurePosixPath("media", adapter.medium[media_record.type], media.filename)
+                    local_path = self._run_dir.joinpath(*remote_path.parts)
+                    # 读取本地文件内容
+                    buffer: Optional[BytesIO] = None
+                    with safe.block(message=f"Failed to read local file: {local_path}, skipping"):
+                        with open(local_path, "rb") as f:
+                            buffer = BytesIO(f.read())
+                    if buffer is None:
+                        continue
+                    buffer_chunk.append(buffer)
+                    metric_chunk["data"].append(remote_path.as_posix())
+                    if media.caption:
+                        metric_chunk["more"].append({"caption": media.caption})
+                if len(metric_chunk["data"]) > 0:
+                    metrics.append(metric_chunk)
+                    paths.extend(metric_chunk["data"])
+                    buffers.extend(buffer_chunk)
+        if len(paths) != len(buffers):
+            console.warning(
+                f"Failed to upload media, quantity mismatch, skipping; got {len(paths)} paths, {len(buffers)} buffers"
+            )
+            return
+        # 先上传资源再上传媒体
+        if not self._buffer_session:
+            self._buffer_session = client.session.create(default_retry=2)
+        upload_resource(self._buffer_session, self._experiment_id, paths=paths, buffers=buffers)
+        upload_media(self._project_id, self._experiment_id, metrics=metrics)
 
     def upload_console(self, records: Sequence[Record]) -> None:
-        console_records = [r.console for r in records if r.HasField("console")]
-        if not console_records:
-            return
         with safe.block(message="Failed to upload console logs, skipping"):
-            metrics: UploadLogMetrics = []
-            for console_record in console_records:
+            metrics: UploadLogBatch = []
+            for record in records:
+                if not record.HasField("console"):
+                    continue
+                console_record = record.console
                 if console_record.HasField("timestamp"):
                     create_time = console_record.timestamp.ToJsonString()
                     metric: UploadLog = {
