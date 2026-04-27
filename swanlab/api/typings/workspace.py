@@ -5,7 +5,7 @@
 @description: 公共查询 API 工作空间类型定义
 """
 
-from typing import Dict, TypedDict
+from typing import TypedDict
 
 from .common import ApiRoleLiteral, ApiWorkspaceLiteral
 

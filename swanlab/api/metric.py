@@ -360,10 +360,11 @@ class Metrics(BaseEntity):
         all: bool = False,
     ) -> None:
         super().__init__(ctx)
+        if not isinstance(keys, list) or not keys or any(not isinstance(key, str) or not key.strip() for key in keys):
+            raise ValueError("keys must be a non-empty list")
+        validate_metric_type(metric_type, keys[0])
         if metric_type == "LOG":
             raise ValueError("Metrics does not support LOG metric_type, use Experiment.logs() instead")
-        if not keys:
-            raise ValueError("keys must be a non-empty list")
         self._project_id = project_id
         self._run_id = run_id
         self._keys = keys

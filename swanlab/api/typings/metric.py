@@ -5,9 +5,7 @@
 @description: 指标数据类型定义（用于 column 采样值）
 """
 
-from typing import Any, Dict, List, Literal, TypedDict, Union
-
-from .common import ApiMetricTypeLiteral, ApiMetricXAxisLiteral
+from typing import Any, List, TypedDict, Union
 
 # ---------------------------------------------------------------------------
 # Common — 通用指标类型定义

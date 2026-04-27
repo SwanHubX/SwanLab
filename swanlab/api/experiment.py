@@ -310,9 +310,9 @@ class Experiments(BaseEntity):
         resp = self._post(
             f"/project/{self._proj_path}/runs/shows",
             data={
-                "filters": validate_update_active(self._filters, validate_filter),
-                "groups": validate_update_active(self._groups, validate_group),
-                "sorts": validate_update_active(self._sorts, validate_sort),
+                "filters": validate_update_active(self._filters, validate_filter, label="filters"),
+                "groups": validate_update_active(self._groups, validate_group, label="groups"),
+                "sorts": validate_update_active(self._sorts, validate_sort, label="sorts"),
             },
         )
         if not resp.ok:

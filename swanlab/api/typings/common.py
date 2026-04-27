@@ -38,7 +38,7 @@ ApiColumnClassLiteral = Literal["CUSTOM", "SYSTEM"]
 ApiColumnDataTypeLiteral = Literal[
     "FLOAT",
     "BOOLEAN",
-    "STRING"
+    "STRING",
     # media 类型
     "IMAGE",
     "AUDIO",

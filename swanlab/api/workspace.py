@@ -101,6 +101,8 @@ class Workspace(BaseEntity):
 
         with safe.block(message=None):
             validate_project_name(name)
+            if visibility not in ("PUBLIC", "PRIVATE"):
+                raise ValueError("Invalid visibility, expected PUBLIC or PRIVATE.")
 
             body: Dict[str, Any] = {"name": name, "visibility": visibility, "username": self.username}
             if description:

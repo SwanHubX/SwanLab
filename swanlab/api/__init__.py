@@ -19,6 +19,7 @@ from .project import Project, Projects
 from .selfhosted import SelfHosted
 from .typings.common import PaginatedQuery
 from .user import User
+from .utils import validate_api_path, validate_non_empty_string
 from .workspace import Workspace, Workspaces
 
 
@@ -93,8 +94,9 @@ class Api(BaseEntity):
         """
         if api_key is None:
             api_key = global_settings.api_key
-        if api_key is None:
+        if not isinstance(api_key, str) or not api_key.strip():
             raise AuthenticationError("No API key found. Please login with `swanlab login` or pass api_key parameter.")
+        api_key = api_key.strip()
 
         api_host: str = nrc.fmt(host) if host is not None else global_settings.api_host
         resolved_web_host: str = nrc.fmt(web_host) if web_host is not None else global_settings.web_host
@@ -115,6 +117,7 @@ class Api(BaseEntity):
         """
         if username is None:
             username = self._ctx.username
+        validate_api_path(username, segments=1, label="workspace")
         return Workspace(self._ctx, username=username)
 
     def workspaces(self, username: Optional[str] = None) -> Workspaces:
@@ -125,6 +128,7 @@ class Api(BaseEntity):
         """
         if username is None:
             username = self._ctx.username
+        validate_api_path(username, segments=1, label="workspace")
         return Workspaces(self._ctx, username=username)
 
     def project(self, path: str) -> Project:
@@ -133,6 +137,7 @@ class Api(BaseEntity):
 
         :param path: 项目路径，格式为 'username/project-name'
         """
+        validate_api_path(path, segments=2, label="project")
         return Project(self._ctx, path=path)
 
     def projects(
@@ -156,6 +161,7 @@ class Api(BaseEntity):
         :param size: 每页数量，默认 20
         :param all: 是否获取全部数据，默认 False
         """
+        validate_api_path(path, segments=1, label="workspace")
         query = PaginatedQuery(page=page, size=size, search=search, sort=sort, all=all)
         return Projects(self._ctx, path=path, query=query, detail=detail)
 
@@ -165,6 +171,7 @@ class Api(BaseEntity):
 
         :param path: 实验路径，格式为 'username/project/run_id'
         """
+        validate_api_path(path, segments=3, label="run")
         return Experiment(self._ctx, path=path)
 
     def runs(
@@ -182,6 +189,7 @@ class Api(BaseEntity):
         :param groups: 分组规则列表，每项为 {key, type}
         :param sorts: 排序规则列表，每项为 {key, type, order}
         """
+        validate_api_path(path, segments=2, label="project")
         return Experiments(self._ctx, path=path, filters=filters, groups=groups, sorts=sorts, mode="post")
 
     def runs_get(
@@ -199,6 +207,7 @@ class Api(BaseEntity):
         :param size: 每页数量，默认 20
         :param all: 是否获取全部数据，默认 False
         """
+        validate_api_path(path, segments=2, label="project")
         query = PaginatedQuery(page=page, size=size, all=all)
         return Experiments(self._ctx, path=path, query=query, mode="get")
 
@@ -226,6 +235,7 @@ class Api(BaseEntity):
         :param column_type: 列的类型，如 FLOAT、STRING、IMAGE 等
         :param all: 是否获取全部数据，默认 False
         """
+        validate_api_path(path, segments=3, label="run")
         query = PaginatedQuery(page=page, size=size, search=search, all=all)
         return Columns(
             self._ctx,
@@ -250,6 +260,8 @@ class Api(BaseEntity):
         :param column_class: 列的分类，CUSTOM 或 SYSTEM，默认 CUSTOM
         :param column_type: 列的类型，如 FLOAT、STRING、IMAGE 等，默认为 None
         """
+        validate_api_path(path, segments=3, label="run")
+        validate_non_empty_string(key, label="column key")
         return Column(self._ctx, path=path, key=key, column_class=column_class, column_type=column_type)
 
     # -------

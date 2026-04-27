@@ -82,6 +82,10 @@ class SelfHosted(BaseEntity):
         :param password: 待创建用户密码
         """
         SelfHosted.validate_root(self._ensure_data())
+        if not isinstance(username, str) or not username.strip():
+            raise ValueError("username must be a non-empty string")
+        if not isinstance(password, str) or not password.strip():
+            raise ValueError("password must be a non-empty string")
         data = {"users": [{"username": username, "password": password}]}
         return self._post("/self_hosted/users", data=data)
 

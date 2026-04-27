@@ -63,6 +63,21 @@ def resovle_run_path(path: str) -> Tuple[str, str]:
     )
 
 
+def validate_api_path(path: str, *, segments: int, label: str) -> None:
+    """校验公开 API 入口 path 参数的段数和空白字符。"""
+    if not isinstance(path, str):
+        raise ValueError(f"{label} path must be a string")
+    parts = path.split("/")
+    if path != path.strip() or len(parts) != segments or any(part != part.strip() or not part for part in parts):
+        raise ValueError(f"{label} path must contain {segments} non-empty segment(s), got {path!r}")
+
+
+def validate_non_empty_string(value: str, *, label: str) -> None:
+    """校验公开 API 入口中的非空字符串参数。"""
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{label} must be a non-empty string")
+
+
 # ---------------------------------------------------------------------------
 # POST /runs/shows 参数校验常量（从 typings 中的 Literal 类型提取，避免重复定义）
 # ---------------------------------------------------------------------------
@@ -85,6 +100,8 @@ _VALID_METRIC_LOG_LEVELS = frozenset(get_args(ApiMetricLogLevelLiteral))
 
 
 def _check_required(item: Dict[str, Any], keys: Set[str]) -> None:
+    if not isinstance(item, dict):
+        raise ValueError(f"Expected dict item, got {type(item).__name__}")
     missing = keys - item.keys()
     if missing:
         raise ValueError(f"Missing required fields: {sorted(missing)}, got {sorted(item.keys())}")
@@ -116,7 +133,7 @@ def validate_metric_type(metric_type: str, key: Optional[str] = None) -> None:
     """校验 metric_type 的合法性。非 LOG 类型必须提供非空 key。"""
     if metric_type not in _VALID_METRIC_TYPES and metric_type != "LOG":
         raise ValueError(f"Invalid metric_type: {metric_type!r}, expected one of {sorted(_VALID_METRIC_TYPES)}")
-    if metric_type != "LOG" and not key:
+    if metric_type != "LOG" and (not isinstance(key, str) or not key.strip()):
         raise ValueError(f"key is required for metric_type {metric_type!r}, got key={key!r}")
 
 
@@ -145,11 +162,19 @@ def validate_sort(item: Dict[str, Any]) -> None:
 def validate_update_active(
     items: Optional[List[Dict[str, Any]]],
     validator,
+    *,
+    label: str = "items",
 ) -> List[Dict[str, Any]]:
     """校验每个 item 并补充 active: True，返回可直接发送的列表。"""
+    if items is None:
+        return []
+    if not isinstance(items, list):
+        raise ValueError(f"{label} must be a list")
     if not items:
         return []
     for item in items:
+        if not isinstance(item, dict):
+            raise ValueError(f"{label} items must be dicts")
         validator(item)
     return [{**item, "active": True} for item in items]
 
