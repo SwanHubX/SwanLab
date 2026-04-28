@@ -2,7 +2,14 @@ import click
 import orjson
 
 from swanlab.api.typings.common import ApiResponseType
-from swanlab.cli.api.helper import PAGE_SIZE_TYPE, format_output, save_output, with_custom_host
+from swanlab.cli.api.helper import (
+    COLUMN_CLASS_TYPE,
+    COLUMN_DATA_TYPE,
+    PAGE_SIZE_TYPE,
+    format_output,
+    save_output,
+    with_custom_host,
+)
 
 
 @click.group("experiment")
@@ -96,14 +103,14 @@ def list_experiments(page_num: int, page_size: str, project_path: str, fetch_all
     "--class",
     "column_class",
     default="CUSTOM",
-    type=str,
+    type=COLUMN_CLASS_TYPE,
     help="Column class, such as CUSTOM or SYSTEM.",
 )
 @click.option(
     "--type",
     "column_type",
     default=None,
-    type=str,
+    type=COLUMN_DATA_TYPE,
     help="Column type, such as IMAGE, FLOAT, or STRING.",
 )
 @click.option("--all", "fetch_all", is_flag=True, default=False, help="Fetch all pages.")
@@ -133,8 +140,8 @@ def list_experiment_columns(
             path=path,
             page=page_num,
             size=int(page_size),
-            column_class=column_class,
-            column_type=column_type,
+            column_class=column_class.upper(),
+            column_type=column_type.upper() if column_type else None,
             all=fetch_all,
         ),
     )

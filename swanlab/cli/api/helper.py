@@ -16,6 +16,23 @@ class _SaveFormatEnum(enum.Enum):
 
 
 PAGE_SIZE_TYPE = click.Choice(["10", "12", "15", "20", "24", "27", "50", "100"])
+COLUMN_CLASS_TYPE = click.Choice(["CUSTOM", "SYSTEM"], case_sensitive=False)
+COLUMN_DATA_TYPE = click.Choice(
+    [
+        "FLOAT",
+        "BOOLEAN",
+        "STRING",
+        "IMAGE",
+        "AUDIO",
+        "VIDEO",
+        "OBJECT3D",
+        "MOLECULE",
+        "ECHARTS",
+        "TABLE",
+        "TEXT",
+    ],
+    case_sensitive=False,
+)
 
 
 def with_custom_host(func: Callable) -> Callable:
