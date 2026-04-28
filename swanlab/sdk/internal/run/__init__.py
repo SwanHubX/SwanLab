@@ -137,7 +137,7 @@ class Run:
         assert run_settings.project.name, "project name is required when init run"
         assert run_settings.run.id, "run id is required when init run"
         self._callbacker.on_run_initialized(
-            self._ctx.run_dir, path or f"{run_settings.project.name}/{run_settings.run.id}"
+            self._ctx.run_dir, path or f"/{run_settings.project.name}/{run_settings.run.id}"
         )
         # 启动组件
         self._components.start()
