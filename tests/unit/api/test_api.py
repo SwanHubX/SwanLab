@@ -259,6 +259,72 @@ class TestExperimentRunIdResolution:
 
         assert column.run_id == "run-cuid"
 
+    def test_metrics_uses_run_cuid_for_metric_payload(self, ctx):
+        def get(path, **kwargs):
+            if path == "/project/user/proj/runs/run-slug":
+                return _api_response(
+                    {"cuid": "run-cuid", "slug": "run-slug", "name": "test-run", "project_id": "project-cuid"}
+                )
+            raise AssertionError(f"unexpected GET {path}")
+
+        ctx.client.get.side_effect = get
+        ctx.client.post.side_effect = [
+            _api_response([{"metrics": [{"step": 1, "value": 0.1}]}]),
+            _api_response([{"min": {"value": 0.1}}]),
+        ]
+        exp = Experiment(ctx, path="user/proj/run-slug")
+
+        exp.metrics(["loss"])
+
+        payload = ctx.client.post.call_args_list[0].kwargs["data"]
+        assert [call.args[0] for call in ctx.client.get.call_args_list] == ["/project/user/proj/runs/run-slug"]
+        assert payload["projectId"] == "project-cuid"
+        assert payload["columns"] == [{"experimentId": "run-cuid", "key": "loss"}]
+
+    def test_medias_uses_run_cuid_for_metric_payload(self, ctx):
+        def get(path, **kwargs):
+            if path == "/project/user/proj/runs/run-slug":
+                return _api_response(
+                    {"cuid": "run-cuid", "slug": "run-slug", "name": "test-run", "project_id": "project-cuid"}
+                )
+            raise AssertionError(f"unexpected GET {path}")
+
+        ctx.client.get.side_effect = get
+        ctx.client.post.return_value = _api_response(
+            {"steps": [1], "step": 1, "metrics": [{"key": "image", "data": [], "more": []}]}
+        )
+        exp = Experiment(ctx, path="user/proj/run-slug")
+
+        exp.medias(["image"], step=1)
+
+        payload = ctx.client.post.call_args_list[0].kwargs["data"]
+        assert [call.args[0] for call in ctx.client.get.call_args_list] == ["/project/user/proj/runs/run-slug"]
+        assert payload["projectId"] == "project-cuid"
+        assert payload["columns"] == [{"experimentId": "run-cuid", "key": "image"}]
+
+    def test_logs_uses_run_cuid_for_log_params(self, ctx):
+        def get(path, **kwargs):
+            if path == "/project/user/proj/runs/run-slug":
+                return _api_response(
+                    {"cuid": "run-cuid", "slug": "run-slug", "name": "test-run", "project_id": "project-cuid"}
+                )
+            if path == "/house/metrics/log":
+                return _api_response({"logs": [{"message": "ready"}], "count": 1})
+            raise AssertionError(f"unexpected GET {path}")
+
+        ctx.client.get.side_effect = get
+        exp = Experiment(ctx, path="user/proj/run-slug")
+
+        exp.logs()
+
+        _, kwargs = ctx.client.get.call_args_list[-1]
+        assert [call.args[0] for call in ctx.client.get.call_args_list] == [
+            "/project/user/proj/runs/run-slug",
+            "/house/metrics/log",
+        ]
+        assert kwargs["params"]["projectId"] == "project-cuid"
+        assert kwargs["params"]["experimentId"] == "run-cuid"
+
 
 # ---------------------------------------------------------------------------
 # Column / Columns — 校验 + 4xx
@@ -266,11 +332,11 @@ class TestExperimentRunIdResolution:
 class TestColumnValidation:
     def test_columns_invalid_type_raises(self, ctx):
         with pytest.raises(ValueError, match="Invalid column_type"):
-            Columns(ctx, path="user/proj/run1", query=PaginatedQuery(), column_type="INVALID")
+            Columns(ctx, path="user/proj/run1", query=PaginatedQuery(), column_type="INVALID")  # type: ignore
 
     def test_columns_invalid_class_raises(self, ctx):
         with pytest.raises(ValueError, match="Invalid column_class"):
-            Columns(ctx, path="user/proj/run1", query=PaginatedQuery(), column_class="INVALID")
+            Columns(ctx, path="user/proj/run1", query=PaginatedQuery(), column_class="INVALID")  # type: ignore
 
     def test_iterated_columns_resolve_run_cuid_once_for_local_fields(self, ctx):
         ctx.client.get.side_effect = [
@@ -335,7 +401,7 @@ class TestMetricValidation:
 
     def test_metric_invalid_log_level_raises(self, ctx):
         with pytest.raises(ValueError, match="Invalid metric log level"):
-            Metric(ctx, project_id="p1", run_id="r1", key="LOG", metric_type="LOG", log_level="VERBOSE")
+            Metric(ctx, project_id="p1", run_id="r1", key="LOG", metric_type="LOG", log_level="VERBOSE")  # type: ignore
 
     def test_metric_scalar_no_key_raises(self, ctx):
         with pytest.raises(ValueError, match="key is required"):

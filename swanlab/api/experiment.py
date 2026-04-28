@@ -47,7 +47,7 @@ class Experiment(BaseEntity):
     ) -> None:
         super().__init__(ctx)
         self._proj_path, self._run_slug = resolve_run_path(path=path)
-        self._cuid: str = (data or {}).get("cuid", "") or self._run_slug
+        self._cuid: str = (data or {}).get("cuid", "")
         self._data: Optional[ApiExperimentType] = data
         self._project_id = ""
 
@@ -57,7 +57,7 @@ class Experiment(BaseEntity):
 
     def _ensure_data(self) -> ApiExperimentType:
         if self._data is None:
-            resp = self._get(f"/project/{self._proj_path}/runs/{self._cuid}")
+            resp = self._get(f"/project/{self._proj_path}/runs/{self._run_slug}")
             self._data = resp.data if resp.ok and resp.data else cast(ApiExperimentType, {})
         self._refresh_cuid()
         assert self._data is not None
@@ -184,12 +184,14 @@ class Experiment(BaseEntity):
         ignore_timestamp: bool = True,
         all: bool = False,
     ) -> Dict[str, Any]:
+        run_id = self.run_id
+        project_id = self.project_id
         from swanlab.api.metric import Metrics
 
         return Metrics(
             ctx=self._ctx,
-            project_id=self.project_id,
-            run_id=self.run_id,
+            project_id=project_id,
+            run_id=run_id,
             keys=keys,
             sample=sample,
             metric_type="SCALAR",
@@ -203,12 +205,14 @@ class Experiment(BaseEntity):
         step: Optional[int] = 0,
         all: bool = False,
     ) -> Dict[str, Any]:
+        run_id = self.run_id
+        project_id = self.project_id
         from swanlab.api.metric import Metrics
 
         return Metrics(
             ctx=self._ctx,
-            project_id=self.project_id,
-            run_id=self.run_id,
+            project_id=project_id,
+            run_id=run_id,
             keys=keys,
             metric_type="MEDIA",
             media_step=step,
@@ -221,12 +225,14 @@ class Experiment(BaseEntity):
         level: ApiMetricLogLevelLiteral = "INFO",
         ignore_timestamp: bool = True,
     ) -> Dict[str, Any]:
+        run_id = self.run_id
+        project_id = self.project_id
         from swanlab.api.metric import Metric
 
         logs = Metric(
             ctx=self._ctx,
-            project_id=self.project_id,
-            run_id=self.run_id,
+            project_id=project_id,
+            run_id=run_id,
             key="LOG",
             log_offset=offset,
             log_level=level,
@@ -254,6 +260,7 @@ class Experiment(BaseEntity):
         :param column_class: 列的分类，CUSTOM 或 SYSTEM
         :param all: 是否获取全部数据，默认 False
         """
+        self._ensure_data()
         from swanlab.api.column import Columns
 
         query = PaginatedQuery(page=page, size=size, search=search, all=all)
