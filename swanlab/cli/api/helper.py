@@ -15,6 +15,9 @@ class _SaveFormatEnum(enum.Enum):
     JSON = "json"
 
 
+PAGE_SIZE_TYPE = click.Choice(["10", "12", "15", "20", "24", "27", "50", "100"])
+
+
 def with_custom_host(func: Callable) -> Callable:
     """
     Add common SwanLab API host/auth options to a CLI command.
