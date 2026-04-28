@@ -8,10 +8,11 @@
 from __future__ import annotations
 
 import json
+import math
 from _io import BytesIO
 from collections.abc import Callable, Sequence
 from pathlib import Path, PurePosixPath
-from typing import List, Optional
+from typing import List, Literal, Optional, Union, cast
 
 import yaml
 from requests.sessions import Session
@@ -78,7 +79,13 @@ class HttpRecordSender:
                 f"No upload handler registered for record type {record_type!r}; skipping {len(records)} record(s)."
             )
             return
-        handler(records)
+        try:
+            handler(records)
+        except ApiError as e:
+            if e.response.status_code >= 500:
+                # 基础设施错误，不按业务逻辑处理，此时直接抛出异常，交给上游重试
+                raise
+            console.warning(f"Failed to upload {record_type} records, skipping; error: {e}")
 
     def upload_column(self, records: Sequence[Record], batch_size: int = 3000) -> None:
         columns = []
@@ -89,13 +96,7 @@ class HttpRecordSender:
         if not columns:
             return
         for i in range(0, len(columns), batch_size):
-            try:
-                upload_columns(self._experiment_id, columns=columns[i : i + batch_size])
-            except ApiError as e:
-                # 处理实验已删除的异常
-                if e.code == "Disabled_Resource":
-                    console.warning("Experiment has been deleted, skipping column upload.")
-                    return
+            upload_columns(self._experiment_id, columns=columns[i : i + batch_size])
 
     def upload_scalar(self, records: Sequence[Record]) -> None:
         metrics: UploadScalarBatch = []
@@ -105,10 +106,11 @@ class HttpRecordSender:
             scalar_record = record.scalar
             if scalar_record.HasField("timestamp"):
                 create_time = scalar_record.timestamp.ToJsonString()
+                data = scalar_record.value.number if math.isfinite(scalar_record.value.number) else "nan"
                 metric: UploadScalar = {
                     "key": scalar_record.key,
                     "index": scalar_record.step,
-                    "data": scalar_record.value.number,
+                    "data": cast(Union[float, Literal["nan"]], data),
                     "create_time": create_time,
                 }
                 metrics.append(metric)

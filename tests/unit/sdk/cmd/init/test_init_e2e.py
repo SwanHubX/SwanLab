@@ -98,6 +98,21 @@ def make_profile_resp(**overrides) -> dict:
     return {"message": "ok", **overrides}
 
 
+def make_columns_resp(**overrides) -> dict:
+    """POST /api/experiment/{experiment_id}/columns 响应体"""
+    return {"message": "ok", **overrides}
+
+
+def make_metrics_resp(**overrides) -> dict:
+    """POST /api/house/metrics 响应体"""
+    return {"message": "ok", **overrides}
+
+
+def make_presigned_put_resp(**overrides) -> dict:
+    """POST /api/resources/presigned/put 响应体"""
+    return {"urls": ["https://storage.fake.swanlab.cn/upload/0"], **overrides}
+
+
 # ============================================================
 # Cloud 模式 HTTP Mock Fixtures
 #
@@ -188,6 +203,54 @@ def mock_profile_api(rsps):
 
 
 @pytest.fixture
+def mock_columns_api(rsps):
+    """注册 POST /api/experiment/{experiment_id}/columns 端点（列信息上传）"""
+    rsps.add(
+        responses_lib.POST,
+        f"{API_HOST}/api/experiment/{RUN_ID}/columns",
+        json=make_columns_resp(),
+        status=200,
+    )
+    return rsps
+
+
+@pytest.fixture
+def mock_metrics_api(rsps):
+    """注册 POST /api/house/metrics 端点（标量/媒体/日志指标上传）"""
+    rsps.add(
+        responses_lib.POST,
+        f"{API_HOST}/api/house/metrics",
+        json=make_metrics_resp(),
+        status=200,
+    )
+    return rsps
+
+
+@pytest.fixture
+def mock_presigned_put_api(rsps):
+    """注册 POST /api/resources/presigned/put 端点（获取对象存储预签名 URL）"""
+    rsps.add(
+        responses_lib.POST,
+        f"{API_HOST}/api/resources/presigned/put",
+        json=make_presigned_put_resp(),
+        status=200,
+    )
+    return rsps
+
+
+@pytest.fixture
+def mock_resource_upload_api(rsps):
+    """注册 PUT 预签名 URL 端点（上传资源文件到对象存储）"""
+    rsps.add(
+        responses_lib.PUT,
+        "https://storage.fake.swanlab.cn/upload/0",
+        body="",
+        status=200,
+    )
+    return rsps
+
+
+@pytest.fixture
 def mock_cloud_settings():
     """将全局 settings 的 api_host/web_host 指向测试 HOST，避免意外触发生产环境"""
     merge_settings({"api_host": API_HOST, "web_host": WEB_HOST})
@@ -202,6 +265,10 @@ def mock_cloud_init_apis(
     mock_experiment_create_api,
     mock_experiment_stop_api,
     mock_profile_api,
+    mock_columns_api,
+    mock_metrics_api,
+    mock_presigned_put_api,
+    mock_resource_upload_api,
 ):
     """
     组合 fixture：一次性注册 init(mode='cloud') 当前所需的全部 HTTP 端点。

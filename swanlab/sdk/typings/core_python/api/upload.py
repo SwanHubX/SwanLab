@@ -73,7 +73,7 @@ class UploadScalar(TypedDict):
 
     key: str
     index: int
-    data: float
+    data: Union[float, Literal["nan"]]  # 字符串类型用于处理 nan 值
     create_time: NotRequired[str]
 
 
