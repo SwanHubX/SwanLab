@@ -9,10 +9,10 @@ import orjson
 
 from swanlab.api import Api
 from swanlab.api.typings.common import (
+    _VALID_PAGE_SIZES,
     ApiColumnClassLiteral,
     ApiColumnDataTypeLiteral,
     ApiResponseType,
-    _VALID_PAGE_SIZES,
 )
 
 

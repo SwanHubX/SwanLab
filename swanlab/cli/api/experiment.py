@@ -1,6 +1,7 @@
 import click
 import orjson
 
+from swanlab.api import Api
 from swanlab.api.typings.common import ApiResponseType
 from swanlab.cli.api.helper import (
     COLUMN_CLASS_TYPE,
@@ -30,12 +31,12 @@ def run_cli():
     help="Save output as JSON to current directory.",
 )
 @with_custom_host
-def get_experiment(path: str, name, api):
+def get_experiment(path: str, save_name: str, api: Api):
     """Get Experiment(Run) info by path (username/project/run_id)."""
     resp = api.run(path).wrapper()
     payload = format_output(resp)
-    if payload["ok"] and name is not None:
-        save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=name)
+    if payload["ok"] and save_name is not None:
+        save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
 
 
 @run_cli.command("list")
@@ -73,14 +74,14 @@ def get_experiment(path: str, name, api):
     help="Save output as JSON to current directory.",
 )
 @with_custom_host
-def list_experiments(page_num: int, page_size: str, project_path: str, fetch_all: bool, name, api):
+def list_experiments(page_num: int, page_size: str, project_path: str, fetch_all: bool, save_name: str, api: Api):
     """List experiments under a project."""
     resp = ApiResponseType(
         ok=True, data=api.runs_get(path=project_path, page=page_num, size=int(page_size), all=fetch_all)
     )
     payload = format_output(resp)
-    if payload["ok"] and name is not None:
-        save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=name)
+    if payload["ok"] and save_name is not None:
+        save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
 
 
 @run_cli.command("columns")
@@ -132,8 +133,8 @@ def list_experiment_columns(
     column_class: str,
     column_type: str,
     fetch_all: bool,
-    name,
-    api,
+    save_name: str,
+    api: Api,
 ):
     """List columns under an experiment."""
     resp = ApiResponseType(
@@ -142,11 +143,11 @@ def list_experiment_columns(
             path=path,
             page=page_num,
             size=int(page_size),
-            column_class=column_class.upper(),
-            column_type=column_type.upper() if column_type else None,
+            column_class=column_class.upper(),  # type: ignore
+            column_type=column_type.upper() if column_type else None,  # type: ignore
             all=fetch_all,
         ),
     )
     payload = format_output(resp)
-    if payload["ok"] and name is not None:
-        save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=name)
+    if payload["ok"] and save_name is not None:
+        save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)

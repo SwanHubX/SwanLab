@@ -1,6 +1,7 @@
 import click
 import orjson
 
+from swanlab.api import Api
 from swanlab.api.typings.common import ApiResponseType
 from swanlab.cli.api.helper import PAGE_SIZE_TYPE, format_output, save_output, with_custom_host
 
@@ -23,7 +24,7 @@ def project_cli():
     help="Save output as JSON to current directory.",
 )
 @with_custom_host
-def get_project(path: str, name, api):
+def get_project(path: str, name, api: Api):
     """Get project info by path (username/project)."""
     resp = api.project(path).wrapper()
     payload = format_output(resp)
@@ -57,19 +58,19 @@ def get_project(path: str, name, api):
 @click.option("--all", "fetch_all", is_flag=True, default=False, help="Fetch all pages.")
 @click.option(
     "--save",
-    "name",
+    "save_name",
     is_flag=False,
     flag_value=".",
     default=None,
     help="Save output as JSON to current directory.",
 )
 @with_custom_host
-def list_projects(page_num: int, page_size: str, workspace: str, fetch_all: bool, name, api):
+def list_projects(page_num: int, page_size: str, workspace: str, fetch_all: bool, save_name: str, api: Api):
     """List projects under a workspace."""
     workspace = workspace or api.username
     resp = ApiResponseType(
         ok=True, data=api.projects(path=workspace, page=page_num, size=int(page_size), all=fetch_all)
     )
     payload = format_output(resp)
-    if payload["ok"] and name is not None:
-        save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=name)
+    if payload["ok"] and save_name is not None:
+        save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
