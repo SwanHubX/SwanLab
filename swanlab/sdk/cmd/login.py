@@ -286,5 +286,3 @@ def wellcome(base_url: str, login_resp: Optional[LoginResponse]):
             Text("`swanlab login --relogin`", "bold"),
             "to force relogin",
         )
-    else:
-        raise ValueError("Failed to get user info from login response: ", login_resp)
