@@ -26,9 +26,9 @@ def project_cli():
 def get_project(path: str, name, api):
     """Get project info by path (username/project)."""
     resp = api.project(path).wrapper()
-    format_output(resp)
-    if resp.ok and name is not None:
-        save_output(orjson.dumps(resp.json(), option=orjson.OPT_INDENT_2), name=name)
+    payload = format_output(resp)
+    if payload["ok"] and name is not None:
+        save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=name)
 
 
 @project_cli.command("list")
@@ -68,6 +68,6 @@ def list_projects(page_num: int, page_size: str, workspace: str, fetch_all: bool
     """List projects under a workspace."""
     workspace = workspace or getattr(api, "_ctx").username
     resp = ApiResponseType(ok=True, data=api.projects(path=workspace, page=page_num, size=int(page_size), all=fetch_all))
-    format_output(resp)
-    if resp.ok and name is not None:
-        save_output(orjson.dumps(resp.json(), option=orjson.OPT_INDENT_2), name=name)
+    payload = format_output(resp)
+    if payload["ok"] and name is not None:
+        save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=name)

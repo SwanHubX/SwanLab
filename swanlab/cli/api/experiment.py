@@ -26,9 +26,9 @@ def experiment_cli():
 def get_experiment(path: str, name, api):
     """Get Experiment(Run) info by path (username/project/run_id)."""
     resp = api.run(path).wrapper()
-    format_output(resp)
-    if resp.ok and name is not None:
-        save_output(orjson.dumps(resp.json(), option=orjson.OPT_INDENT_2), name=name)
+    payload = format_output(resp)
+    if payload["ok"] and name is not None:
+        save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=name)
 
 
 @experiment_cli.command("list")
@@ -69,9 +69,9 @@ def get_experiment(path: str, name, api):
 def list_experiments(page_num: int, page_size: str, project_path: str, fetch_all: bool, name, api):
     """List experiments under a project."""
     resp = ApiResponseType(ok=True, data=api.runs_get(path=project_path, page=page_num, size=int(page_size), all=fetch_all))
-    format_output(resp)
-    if resp.ok and name is not None:
-        save_output(orjson.dumps(resp.json(), option=orjson.OPT_INDENT_2), name=name)
+    payload = format_output(resp)
+    if payload["ok"] and name is not None:
+        save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=name)
 
 
 @experiment_cli.command("columns")
@@ -138,6 +138,6 @@ def list_experiment_columns(
             all=fetch_all,
         ),
     )
-    format_output(resp)
-    if resp.ok and name is not None:
-        save_output(orjson.dumps(resp.json(), option=orjson.OPT_INDENT_2), name=name)
+    payload = format_output(resp)
+    if payload["ok"] and name is not None:
+        save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=name)

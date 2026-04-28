@@ -1,7 +1,7 @@
 import enum
 from datetime import datetime
 from functools import wraps
-from typing import Callable, Optional
+from typing import Any, Callable, Dict, Optional
 
 import click
 import nanoid
@@ -53,9 +53,11 @@ def with_custom_host(func: Callable) -> Callable:
     return wrapper
 
 
-def format_output(resp: ApiResponseType, fmt: _SaveFormatEnum = _SaveFormatEnum.JSON) -> None:
+def format_output(resp: ApiResponseType, fmt: _SaveFormatEnum = _SaveFormatEnum.JSON) -> Dict[str, Any]:
+    payload = resp.json()
     if fmt == _SaveFormatEnum.JSON:
-        click.echo(orjson.dumps(resp.json(), option=orjson.OPT_INDENT_2).decode())
+        click.echo(orjson.dumps(payload, option=orjson.OPT_INDENT_2).decode())
+    return payload
 
 
 def save_output(content: bytes, name: Optional[str] = None, fmt: _SaveFormatEnum = _SaveFormatEnum.JSON) -> None:
