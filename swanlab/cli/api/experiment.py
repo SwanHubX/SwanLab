@@ -72,3 +72,72 @@ def list_experiments(page_num: int, page_size: int, project_path: str, fetch_all
     format_output(resp)
     if resp.ok and name is not None:
         save_output(orjson.dumps(resp.json(), option=orjson.OPT_INDENT_2), name=name)
+
+
+@experiment_cli.command("columns")
+@click.argument("path", required=True)
+@click.option(
+    "--page_num",
+    "--page-num",
+    "-n",
+    default=1,
+    type=int,
+    help="Page number.",
+)
+@click.option(
+    "--page_size",
+    "--page-size",
+    "-s",
+    default=20,
+    type=int,
+    help="Page size.",
+)
+@click.option(
+    "--class",
+    "column_class",
+    default="CUSTOM",
+    type=str,
+    help="Column class, such as CUSTOM or SYSTEM.",
+)
+@click.option(
+    "--type",
+    "column_type",
+    default=None,
+    type=str,
+    help="Column type, such as IMAGE, FLOAT, or STRING.",
+)
+@click.option("--all", "fetch_all", is_flag=True, default=False, help="Fetch all pages.")
+@click.option(
+    "--save",
+    "name",
+    is_flag=False,
+    flag_value=".",
+    default=None,
+    help="Save output as JSON to current directory.",
+)
+@with_custom_host
+def list_experiment_columns(
+    path: str,
+    page_num: int,
+    page_size: int,
+    column_class: str,
+    column_type: str,
+    fetch_all: bool,
+    name,
+    api,
+):
+    """List columns under an experiment."""
+    resp = ApiResponseType(
+        ok=True,
+        data=api.columns(
+            path=path,
+            page=page_num,
+            size=page_size,
+            column_class=column_class,
+            column_type=column_type,
+            all=fetch_all,
+        ),
+    )
+    format_output(resp)
+    if resp.ok and name is not None:
+        save_output(orjson.dumps(resp.json(), option=orjson.OPT_INDENT_2), name=name)
