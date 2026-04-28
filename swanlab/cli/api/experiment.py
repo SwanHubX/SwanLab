@@ -23,8 +23,7 @@ def run_cli():
 @click.argument("path", required=True)
 @click.option(
     "--save",
-    "-s",
-    "name",
+    "save_name",
     is_flag=False,
     flag_value=".",
     default=None,
@@ -67,7 +66,7 @@ def get_experiment(path: str, save_name: str, api: Api):
 @click.option("--all", "fetch_all", is_flag=True, default=False, help="Fetch all pages.")
 @click.option(
     "--save",
-    "name",
+    "save_name",
     is_flag=False,
     flag_value=".",
     default=None,
@@ -119,7 +118,7 @@ def list_experiments(page_num: int, page_size: str, project_path: str, fetch_all
 @click.option("--all", "fetch_all", is_flag=True, default=False, help="Fetch all pages.")
 @click.option(
     "--save",
-    "name",
+    "save_name",
     is_flag=False,
     flag_value=".",
     default=None,

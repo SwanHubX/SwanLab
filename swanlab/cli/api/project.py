@@ -16,26 +16,24 @@ def project_cli():
 @click.argument("path", required=True)
 @click.option(
     "--save",
-    "-s",
-    "name",
+    "save_name",
     is_flag=False,
     flag_value=".",
     default=None,
     help="Save output as JSON to current directory.",
 )
 @with_custom_host
-def get_project(path: str, name, api: Api):
+def get_project(path: str, save_name: str, api: Api):
     """Get project info by path (username/project)."""
     resp = api.project(path).wrapper()
     payload = format_output(resp)
-    if payload["ok"] and name is not None:
-        save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=name)
+    if payload["ok"] and save_name is not None:
+        save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
 
 
 @project_cli.command("list")
 @click.option(
     "--page_num",
-    "--page-num",
     "-n",
     default=1,
     type=click.IntRange(min=1),
@@ -43,7 +41,6 @@ def get_project(path: str, name, api: Api):
 )
 @click.option(
     "--page_size",
-    "--page-size",
     "-s",
     default="20",
     type=PAGE_SIZE_TYPE,
