@@ -168,20 +168,20 @@ class TestSelfHostedPermission:
 # Workspace — create_project 错误
 # ---------------------------------------------------------------------------
 class TestWorkspaceCreateProject:
-    def test_invalid_name_returns_none(self, ctx):
+    def test_invalid_name_raises_value_error(self, ctx):
         ws = Workspace(ctx, username="testuser")
-        result = ws.create_project("bad name!")
-        assert result is None
+        with pytest.raises(ValueError):
+            ws.create_project("bad name!")
 
-    def test_empty_name_returns_none(self, ctx):
+    def test_empty_name_raises_value_error(self, ctx):
         ws = Workspace(ctx, username="testuser")
-        result = ws.create_project("")
-        assert result is None
+        with pytest.raises(ValueError):
+            ws.create_project("")
 
-    def test_invalid_visibility_returns_none(self, ctx):
+    def test_invalid_visibility_raises_value_error(self, ctx):
         ws = Workspace(ctx, username="testuser")
-        result = ws.create_project("valid-name", visibility=cast(Any, "SECRET"))
-        assert result is None
+        with pytest.raises(ValueError):
+            ws.create_project("valid-name", visibility=cast(Any, "SECRET"))
         ctx.client.post.assert_not_called()
 
     def test_api_error_returns_none(self, ctx):
