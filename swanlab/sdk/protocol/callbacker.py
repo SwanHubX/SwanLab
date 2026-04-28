@@ -17,12 +17,13 @@ class Callback(ABC):
     at various stages of an experiment.
     """
 
-    def on_run_initialized(self, run_dir: Path, path: Optional[str]) -> None:
+    def on_run_initialized(self, run_dir: Path, path: str) -> None:
         """
         Called immediately after `swanlab.init` has successfully executed.
 
-        :param run_dir: The directory path where the run is stored.
-        :param path: The cloud routing path of the experiment, formatted as `/:username/:project/:run_id`.
+        :param run_dir: The directory where the run is stored.
+        :param path: The run path, formatted as `/:username/:project/:run_id` in cloud mode,
+            or `/:project/:run_id` otherwise.
         """
         ...
 

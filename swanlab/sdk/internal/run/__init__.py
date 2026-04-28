@@ -22,7 +22,7 @@ from typing import Any, Callable, Literal, Mapping, Optional, Type, Union, cast,
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord
-from swanlab.sdk.internal.bus import MetricLogEvent, ScalarDefineEvent
+from swanlab.sdk.internal.bus import MetricLogEvent
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.pkg import adapter, console, fork, helper, safe
 from swanlab.sdk.internal.run import greeting
@@ -132,7 +132,14 @@ class Run:
         signal.signal(signal.SIGINT, self._handle_sigint)
 
         # 3. 启动组件 + 初始化日志
-        self._callbacker.on_run_initialized(self._ctx.run_dir, path)
+        # 回调的path在path为空的时候自动生成一个/:project_name/:run_id，否则使用path
+        run_settings = ctx.config.settings
+        assert run_settings.project.name, "project name is required when init run"
+        assert run_settings.run.id, "run id is required when init run"
+        self._callbacker.on_run_initialized(
+            self._ctx.run_dir, path or f"{run_settings.project.name}/{run_settings.run.id}"
+        )
+        # 启动组件
         self._components.start()
         self._probe.start()
         console.init(bind_to=self._ctx.debug_dir if self.mode != "disabled" else None)
@@ -534,37 +541,37 @@ class Run:
         raise NotImplementedError("run.define_scalar() is not available yet. Support is planned for a future release.")
 
         # TODO: 实现 glob 匹配逻辑
-        if not (this_key := fmt.safe_validate_key(key)):
-            return console.error(
-                f"Invalid key for define scalar: {key}, please use valid characters (alphanumeric, '.', '-', '/') and avoid special characters."
-            )
-
-        original_name = name
-        if name and not (name := fmt.safe_validate_name(name)):
-            return console.error(f"Invalid name for define scalar: {original_name}, must be a string.")
-
-        original_color = color
-        if color and not (color := fmt.safe_validate_color(color)):
-            return console.error(f"Invalid color for define scalar: {original_color}, must be a hex color code.")
-
-        if (this_x_axis := fmt.safe_validate_x_axis(x_axis)) is None:
-            return console.error(f"Invalid x_axis for define scalar: {x_axis}, must be a valid ScalarXAxisType.")
-
-        original_chart_name = chart_name
-        if chart_name and not (chart_name := fmt.safe_validate_chart_name(chart_name)):
-            return console.error(f"Invalid chart_name for define scalar: {original_chart_name}, must be a string.")
-
-        self._components.emitter.emit(
-            ScalarDefineEvent(
-                key=this_key,
-                name=name,
-                color=color,
-                system=False,
-                x_axis=this_x_axis,
-                chart_name=chart_name,
-                chart=None,
-            )
-        )
+        # if not (this_key := fmt.safe_validate_key(key)):
+        #     return console.error(
+        #         f"Invalid key for define scalar: {key}, please use valid characters (alphanumeric, '.', '-', '/') and avoid special characters."
+        #     )
+        #
+        # original_name = name
+        # if name and not (name := fmt.safe_validate_name(name)):
+        #     return console.error(f"Invalid name for define scalar: {original_name}, must be a string.")
+        #
+        # original_color = color
+        # if color and not (color := fmt.safe_validate_color(color)):
+        #     return console.error(f"Invalid color for define scalar: {original_color}, must be a hex color code.")
+        #
+        # if (this_x_axis := fmt.safe_validate_x_axis(x_axis)) is None:
+        #     return console.error(f"Invalid x_axis for define scalar: {x_axis}, must be a valid ScalarXAxisType.")
+        #
+        # original_chart_name = chart_name
+        # if chart_name and not (chart_name := fmt.safe_validate_chart_name(chart_name)):
+        #     return console.error(f"Invalid chart_name for define scalar: {original_chart_name}, must be a string.")
+        #
+        # self._components.emitter.emit(
+        #     ScalarDefineEvent(
+        #         key=this_key,
+        #         name=name,
+        #         color=color,
+        #         system=False,
+        #         x_axis=this_x_axis,
+        #         chart_name=chart_name,
+        #         chart=None,
+        #     )
+        # )
 
     @with_api("run.finish()", must_alive=False)
     def finish(

@@ -36,7 +36,7 @@ __all__ = [
 
 
 # 运行配置，包含当前运行上下文的必要状态
-@dataclass(frozen=False)
+@dataclass(frozen=True)
 class RunConfig:
     run_dir: Path
     settings: Settings
