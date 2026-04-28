@@ -82,16 +82,16 @@ class TestApiEntryValidation:
         )
 
         with pytest.raises(AuthenticationError, match="No API key"):
-            Api._resolve_credentials(None, None, None)
+            Api._resolve_credentials(None, None)
 
     @pytest.mark.parametrize("api_key", ["", "   "])
     def test_blank_api_key_raises(self, api_key):
         with pytest.raises(AuthenticationError, match="No API key"):
-            Api._resolve_credentials(api_key, "https://api.swanlab.cn", "https://swanlab.cn")
+            Api._resolve_credentials(api_key, "https://api.swanlab.cn")
 
     def test_blank_host_raises(self):
         with pytest.raises(ValueError, match="Host cannot be empty"):
-            Api._resolve_credentials("test-key", "   ", "https://swanlab.cn")
+            Api._resolve_credentials("test-key", "   ")
 
     def test_projects_invalid_page_raises(self, api):
         with pytest.raises(ValueError, match="page must be >= 1"):

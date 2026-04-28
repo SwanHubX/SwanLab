@@ -1,38 +1,28 @@
 import enum
 from datetime import datetime
 from functools import wraps
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional, get_args
 
 import click
 import nanoid
 import orjson
 
 from swanlab.api import Api
-from swanlab.api.typings.common import ApiResponseType
+from swanlab.api.typings.common import (
+    ApiColumnClassLiteral,
+    ApiColumnDataTypeLiteral,
+    ApiResponseType,
+    _VALID_PAGE_SIZES,
+)
 
 
 class _SaveFormatEnum(enum.Enum):
     JSON = "json"
 
 
-PAGE_SIZE_TYPE = click.Choice(["10", "12", "15", "20", "24", "27", "50", "100"])
-COLUMN_CLASS_TYPE = click.Choice(["CUSTOM", "SYSTEM"], case_sensitive=False)
-COLUMN_DATA_TYPE = click.Choice(
-    [
-        "FLOAT",
-        "BOOLEAN",
-        "STRING",
-        "IMAGE",
-        "AUDIO",
-        "VIDEO",
-        "OBJECT3D",
-        "MOLECULE",
-        "ECHARTS",
-        "TABLE",
-        "TEXT",
-    ],
-    case_sensitive=False,
-)
+PAGE_SIZE_TYPE = click.Choice([str(s) for s in _VALID_PAGE_SIZES])
+COLUMN_CLASS_TYPE = click.Choice(list(get_args(ApiColumnClassLiteral)), case_sensitive=False)
+COLUMN_DATA_TYPE = click.Choice(list(get_args(ApiColumnDataTypeLiteral)), case_sensitive=False)
 
 
 def with_custom_host(func: Callable) -> Callable:
