@@ -51,8 +51,8 @@ class CoreProtocol(ABC):
         约定应该在此处完成Core相关组件的初始化，在这里完成不同模式的初始化函数分发
         """
         with safe.block(message="run start error"):
-            if self._mode == "cloud":
-                return self._start_when_cloud(start_record)
+            if self._mode == "online":
+                return self._start_when_online(start_record)
             elif self._mode == "local":
                 return self._start_when_local(start_record)
             elif self._mode == "offline":
@@ -71,15 +71,15 @@ class CoreProtocol(ABC):
     def _start_when_offline(self, start_record: StartRecord) -> StartResponse: ...
 
     @abstractmethod
-    def _start_when_cloud(self, start_record: StartRecord) -> StartResponse: ...
+    def _start_when_online(self, start_record: StartRecord) -> StartResponse: ...
 
     # ---------------------------------- 指标定义 ----------------------------------
 
     def upsert_columns(self, columns: List[ColumnRecord]) -> None:
         """上报一组 ColumnRecord，定义指标列"""
         with safe.block(message="upsert columns error"):
-            if self._mode == "cloud":
-                return self._upsert_columns_when_cloud(columns)
+            if self._mode == "online":
+                return self._upsert_columns_when_online(columns)
             elif self._mode == "local":
                 return self._upsert_columns_when_local(columns)
             elif self._mode == "offline":
@@ -95,15 +95,15 @@ class CoreProtocol(ABC):
     def _upsert_columns_when_offline(self, columns: List[ColumnRecord]) -> None: ...
 
     @abstractmethod
-    def _upsert_columns_when_cloud(self, columns: List[ColumnRecord]) -> None: ...
+    def _upsert_columns_when_online(self, columns: List[ColumnRecord]) -> None: ...
 
     # ---------------------------------- 标量指标值 ----------------------------------
 
     def upsert_scalars(self, scalars: List[ScalarRecord]) -> None:
         """上报一组 ScalarRecord，记录标量指标值"""
         with safe.block(message="upsert data error"):
-            if self._mode == "cloud":
-                return self._upsert_scalars_when_cloud(scalars)
+            if self._mode == "online":
+                return self._upsert_scalars_when_online(scalars)
             elif self._mode == "local":
                 return self._upsert_scalars_when_local(scalars)
             elif self._mode == "offline":
@@ -119,15 +119,15 @@ class CoreProtocol(ABC):
     def _upsert_scalars_when_offline(self, scalars: List[ScalarRecord]) -> None: ...
 
     @abstractmethod
-    def _upsert_scalars_when_cloud(self, scalars: List[ScalarRecord]) -> None: ...
+    def _upsert_scalars_when_online(self, scalars: List[ScalarRecord]) -> None: ...
 
     # ---------------------------------- 媒体指标值 ----------------------------------
 
     def upsert_media(self, media: List[MediaRecord]) -> None:
         """上报一组 MediaRecord，记录媒体指标值"""
         with safe.block(message="upsert data error"):
-            if self._mode == "cloud":
-                return self._upsert_media_when_cloud(media)
+            if self._mode == "online":
+                return self._upsert_media_when_online(media)
             elif self._mode == "local":
                 return self._upsert_media_when_local(media)
             elif self._mode == "offline":
@@ -143,15 +143,15 @@ class CoreProtocol(ABC):
     def _upsert_media_when_offline(self, media: List[MediaRecord]) -> None: ...
 
     @abstractmethod
-    def _upsert_media_when_cloud(self, media: List[MediaRecord]) -> None: ...
+    def _upsert_media_when_online(self, media: List[MediaRecord]) -> None: ...
 
     # ---------------------------------- 用户配置 ----------------------------------
 
     def upsert_configs(self, configs: List[ConfigRecord]) -> None:
         """上报一组 ConfigRecord，记录用户对 config 的修改"""
         with safe.block(message="upsert configs error"):
-            if self._mode == "cloud":
-                return self._upsert_configs_when_cloud(configs)
+            if self._mode == "online":
+                return self._upsert_configs_when_online(configs)
             elif self._mode == "local":
                 return self._upsert_configs_when_local(configs)
             elif self._mode == "offline":
@@ -167,15 +167,15 @@ class CoreProtocol(ABC):
     def _upsert_configs_when_offline(self, configs: List[ConfigRecord]) -> None: ...
 
     @abstractmethod
-    def _upsert_configs_when_cloud(self, configs: List[ConfigRecord]) -> None: ...
+    def _upsert_configs_when_online(self, configs: List[ConfigRecord]) -> None: ...
 
     # ---------------------------------- 终端输出 ----------------------------------
 
     def upsert_consoles(self, consoles: List[ConsoleRecord]) -> None:
         """上报一组 ConsoleRecord，记录用户终端输出"""
         with safe.block(message="upsert consoles error"):
-            if self._mode == "cloud":
-                return self._upsert_consoles_when_cloud(consoles)
+            if self._mode == "online":
+                return self._upsert_consoles_when_online(consoles)
             elif self._mode == "local":
                 return self._upsert_consoles_when_local(consoles)
             elif self._mode == "offline":
@@ -191,15 +191,15 @@ class CoreProtocol(ABC):
     def _upsert_consoles_when_offline(self, consoles: List[ConsoleRecord]) -> None: ...
 
     @abstractmethod
-    def _upsert_consoles_when_cloud(self, consoles: List[ConsoleRecord]) -> None: ...
+    def _upsert_consoles_when_online(self, consoles: List[ConsoleRecord]) -> None: ...
 
     # ---------------------------------- 依赖信息 ----------------------------------
 
     def upsert_requirements(self, requirements: List[RequirementsRecord]) -> None:
         """上报一组 RequirementsRecord，记录对 requirements 的修改"""
         with safe.block(message="upsert requirements error"):
-            if self._mode == "cloud":
-                return self._upsert_requirements_when_cloud(requirements)
+            if self._mode == "online":
+                return self._upsert_requirements_when_online(requirements)
             elif self._mode == "local":
                 return self._upsert_requirements_when_local(requirements)
             elif self._mode == "offline":
@@ -215,15 +215,15 @@ class CoreProtocol(ABC):
     def _upsert_requirements_when_offline(self, requirements: List[RequirementsRecord]) -> None: ...
 
     @abstractmethod
-    def _upsert_requirements_when_cloud(self, requirements: List[RequirementsRecord]) -> None: ...
+    def _upsert_requirements_when_online(self, requirements: List[RequirementsRecord]) -> None: ...
 
     # ---------------------------------- conda信息 ----------------------------------
 
     def upsert_conda(self, conda: List[CondaRecord]) -> None:
         """上报一组 CondaRecord，记录对 conda 的修改"""
         with safe.block(message="upsert conda error"):
-            if self._mode == "cloud":
-                return self._upsert_conda_when_cloud(conda)
+            if self._mode == "online":
+                return self._upsert_conda_when_online(conda)
             elif self._mode == "local":
                 return self._upsert_conda_when_local(conda)
             elif self._mode == "offline":
@@ -239,15 +239,15 @@ class CoreProtocol(ABC):
     def _upsert_conda_when_offline(self, conda: List[CondaRecord]) -> None: ...
 
     @abstractmethod
-    def _upsert_conda_when_cloud(self, conda: List[CondaRecord]) -> None: ...
+    def _upsert_conda_when_online(self, conda: List[CondaRecord]) -> None: ...
 
     # ---------------------------------- 系统元信息 ----------------------------------
 
     def upsert_metadata(self, metadata: List[MetadataRecord]) -> None:
         """上报一组 MetadataRecord，记录对 metadata 的修改"""
         with safe.block(message="upsert metadata error"):
-            if self._mode == "cloud":
-                return self._upsert_metadata_when_cloud(metadata)
+            if self._mode == "online":
+                return self._upsert_metadata_when_online(metadata)
             elif self._mode == "local":
                 return self._upsert_metadata_when_local(metadata)
             elif self._mode == "offline":
@@ -263,7 +263,7 @@ class CoreProtocol(ABC):
     def _upsert_metadata_when_offline(self, metadata: List[MetadataRecord]) -> None: ...
 
     @abstractmethod
-    def _upsert_metadata_when_cloud(self, metadata: List[MetadataRecord]) -> None: ...
+    def _upsert_metadata_when_online(self, metadata: List[MetadataRecord]) -> None: ...
 
     # ---------------------------------- 运行结束 ----------------------------------
 
@@ -273,8 +273,8 @@ class CoreProtocol(ABC):
         约定应该在此处完成Core相关组件的清理，在这里完成不同模式的结束函数分发
         """
         with safe.block(message="run finish error"):
-            if self._mode == "cloud":
-                return self._finish_when_cloud(finish_record)
+            if self._mode == "online":
+                return self._finish_when_online(finish_record)
             elif self._mode == "local":
                 return self._finish_when_local(finish_record)
             elif self._mode == "offline":
@@ -293,7 +293,7 @@ class CoreProtocol(ABC):
     def _finish_when_offline(self, finish_record: FinishRecord) -> FinishResponse: ...
 
     @abstractmethod
-    def _finish_when_cloud(self, finish_record: FinishRecord) -> FinishResponse: ...
+    def _finish_when_online(self, finish_record: FinishRecord) -> FinishResponse: ...
 
     # ---------------------------------- 进程fork ----------------------------------
 

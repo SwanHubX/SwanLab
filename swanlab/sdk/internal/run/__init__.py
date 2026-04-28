@@ -82,7 +82,7 @@ class Run:
 
         dir: Local directory where run data is stored.
 
-        url: Cloud URL for this run (None in local/offline/disabled mode).
+        url: Online URL for this run (None in local/offline/disabled mode).
 
     Examples:
 
@@ -245,21 +245,21 @@ class Run:
         """
         if not self._path:
             raise ValueError(
-                "Run path is unavailable because the current run is not using SwanLab cloud mode. "
-                "Please initialize SwanLab with cloud mode to access the run path."
+                "Run path is unavailable because the current run is not using SwanLab online mode. "
+                "Please initialize SwanLab with online mode to access the run path."
             )
         return self._path
 
     @cached_property
     def url(self) -> str:
         """
-        Current run URL if in cloud mode, otherwise None.
+        Current run URL if in online mode, otherwise None.
         :return: Run URL or None
         """
         if not self._path:
             raise ValueError(
-                "Run url is unavailable because the current run is not using SwanLab cloud mode. "
-                "Please initialize SwanLab with cloud mode to access the run path."
+                "Run url is unavailable because the current run is not using SwanLab online mode. "
+                "Please initialize SwanLab with online mode to access the run path."
             )
         settings = self._ctx.config.settings
         return f"{settings.web_host}{helper.fmt_run_path(self._path)}"

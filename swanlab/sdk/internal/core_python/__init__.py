@@ -82,26 +82,26 @@ class CorePython(CoreProtocol):
         record = builder.build_start_record(resp.run)
         self._store.write(record.SerializeToString())
 
-    def _start_without_cloud(self, start_record: StartRecord, message: str) -> StartResponse:
+    def _start_without_online(self, start_record: StartRecord, message: str) -> StartResponse:
         resp = StartResponse(success=True, message=message, run=start_record)
         self._start_store(resp)
         return resp
 
     def _start_when_local(self, start_record: StartRecord) -> StartResponse:
-        return self._start_without_cloud(start_record, "OK, but use local")
+        return self._start_without_online(start_record, "OK, but use local")
 
     def _start_when_offline(self, start_record: StartRecord) -> StartResponse:
-        return self._start_without_cloud(start_record, "OK, but use offline")
+        return self._start_without_online(start_record, "OK, but use offline")
 
-    def _start_when_cloud(self, start_record: StartRecord) -> StartResponse:
+    def _start_when_online(self, start_record: StartRecord) -> StartResponse:
         resp = self._report_run_start(start_record)
         self._start_store(resp)
-        # Transport initialization is part of startup in cloud mode.
+        # Transport initialization is part of startup in online mode.
         # Fail fast on error instead of degrading silently.
-        assert self._project, "project must be set when starting in cloud mode"
-        assert self._username, "username must be set when starting in cloud mode"
-        assert self._project_id, "project id must be set when starting in cloud mode"
-        assert self._experiment_id, "experiment id must be set when starting in cloud mode"
+        assert self._project, "project must be set when starting in online mode"
+        assert self._username, "username must be set when starting in online mode"
+        assert self._project_id, "project id must be set when starting in online mode"
+        assert self._experiment_id, "experiment id must be set when starting in online mode"
         sender = HttpRecordSender(
             run_dir=self._ctx.run_dir,
             username=self._username,
@@ -193,7 +193,7 @@ class CorePython(CoreProtocol):
         records = [builder.build_column_record(self._counter, c) for c in columns]
         self._store_records(records)
 
-    def _upsert_columns_when_cloud(self, columns: List[ColumnRecord]) -> None:
+    def _upsert_columns_when_online(self, columns: List[ColumnRecord]) -> None:
         records = [builder.build_column_record(self._counter, c) for c in columns]
         self._store_records(records)
         self._transport_put(records)
@@ -208,7 +208,7 @@ class CorePython(CoreProtocol):
         records = [builder.build_scalar_record(self._counter, d) for d in scalars]
         self._store_records(records)
 
-    def _upsert_scalars_when_cloud(self, scalars: List[ScalarRecord]) -> None:
+    def _upsert_scalars_when_online(self, scalars: List[ScalarRecord]) -> None:
         records = [builder.build_scalar_record(self._counter, d) for d in scalars]
         self._store_records(records)
         self._transport_put(records)
@@ -223,7 +223,7 @@ class CorePython(CoreProtocol):
         records = [builder.build_media_record(self._counter, d) for d in media]
         self._store_records(records)
 
-    def _upsert_media_when_cloud(self, media: List[MediaRecord]) -> None:
+    def _upsert_media_when_online(self, media: List[MediaRecord]) -> None:
         records = [builder.build_media_record(self._counter, d) for d in media]
         self._store_records(records)
         self._transport_put(records)
@@ -238,7 +238,7 @@ class CorePython(CoreProtocol):
         records = [builder.build_console_record(self._counter, c) for c in consoles]
         self._store_records(records)
 
-    def _upsert_consoles_when_cloud(self, consoles: List[ConsoleRecord]) -> None:
+    def _upsert_consoles_when_online(self, consoles: List[ConsoleRecord]) -> None:
         records = [builder.build_console_record(self._counter, c) for c in consoles]
         self._store_records(records)
         self._transport_put(records)
@@ -253,7 +253,7 @@ class CorePython(CoreProtocol):
         records = [builder.build_config_record(c) for c in configs]
         self._store_records(records)
 
-    def _upsert_configs_when_cloud(self, configs: List[ConfigRecord]) -> None:
+    def _upsert_configs_when_online(self, configs: List[ConfigRecord]) -> None:
         records = [builder.build_config_record(c) for c in configs]
         self._store_records(records)
         self._transport_put(records)
@@ -268,7 +268,7 @@ class CorePython(CoreProtocol):
         records = [builder.build_requirements_record(r.timestamp) for r in requirements]
         self._store_records(records)
 
-    def _upsert_requirements_when_cloud(self, requirements: List[RequirementsRecord]) -> None:
+    def _upsert_requirements_when_online(self, requirements: List[RequirementsRecord]) -> None:
         records = [builder.build_requirements_record(r.timestamp) for r in requirements]
         self._store_records(records)
         self._transport_put(records)
@@ -283,7 +283,7 @@ class CorePython(CoreProtocol):
         records = [builder.build_conda_record(c.timestamp) for c in conda]
         self._store_records(records)
 
-    def _upsert_conda_when_cloud(self, conda: List[CondaRecord]) -> None:
+    def _upsert_conda_when_online(self, conda: List[CondaRecord]) -> None:
         records = [builder.build_conda_record(c.timestamp) for c in conda]
         self._store_records(records)
         self._transport_put(records)
@@ -298,7 +298,7 @@ class CorePython(CoreProtocol):
         records = [builder.build_metadata_record(m.timestamp) for m in metadata]
         self._store_records(records)
 
-    def _upsert_metadata_when_cloud(self, metadata: List[MetadataRecord]) -> None:
+    def _upsert_metadata_when_online(self, metadata: List[MetadataRecord]) -> None:
         records = [builder.build_metadata_record(m.timestamp) for m in metadata]
         self._store_records(records)
         self._transport_put(records)
@@ -353,7 +353,7 @@ class CorePython(CoreProtocol):
         self._finish_store(record)
         return FinishResponse(success=True, message="OK, but use offline")
 
-    def _finish_when_cloud(self, finish_record: FinishRecord) -> FinishResponse:
+    def _finish_when_online(self, finish_record: FinishRecord) -> FinishResponse:
         record, console_record = self._build_finish_record(finish_record)
         self._finish_store(record)
         assert self._transport is not None, "transport must be initialized before finishing"

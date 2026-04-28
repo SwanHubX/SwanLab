@@ -66,10 +66,10 @@ def test_send_webhook_no_url(mock_ctx, setup_mocks):
 
 
 @responses.activate
-def test_send_webhook_cloud_mode(mock_ctx, setup_mocks):
-    """测试 cloud 模式下的正常请求，验证云端 exp_url 拼接和 JSON 载荷"""
+def test_send_webhook_online_mode(mock_ctx, setup_mocks):
+    """测试 online 模式下的正常请求，验证云端 exp_url 拼接和 JSON 载荷"""
     settings = mock_ctx.config.settings
-    settings.mode = "cloud"
+    settings.mode = "online"
     settings.web_host = "https://swanlab.cn"
     settings.project.workspace = "test_user"
     settings.project.name = "test_project"
@@ -93,7 +93,7 @@ def test_send_webhook_cloud_mode(mock_ctx, setup_mocks):
         "value": "test_webhook_value",
         "swanlab": {
             "version": "1.0.0",
-            "mode": "cloud",
+            "mode": "online",
             "run_dir": "/path/to/run_dir",
             "exp_url": "https://swanlab.cn/@test_user/test_project/runs/run_12345",
         },

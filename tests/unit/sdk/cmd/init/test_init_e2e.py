@@ -11,7 +11,7 @@
   - TestInitReinit           : reinit 参数行为（跳过/重建）
   - TestInitSettingsPriority : 配置优先级（全局 < 自定义 < 传参）
   - TestInitResumeValidation : resume/id 校验逻辑
-  - TestInitCloudMode        : cloud 模式，依赖本文件内的 HTTP mock fixtures
+  - TestInitOnlineMode       : online 模式，依赖本文件内的 HTTP mock fixtures
   - TestInitFactoryDispatch  : 验证 factory 模式按模式分派组件类型
 """
 
@@ -34,7 +34,7 @@ from swanlab.sdk.internal.settings import Settings, settings
 from swanlab.sdk.typings.run import ModeType
 
 # ============================================================
-# Cloud 模式测试常量
+# Online 模式测试常量
 # ============================================================
 API_HOST = "https://api.fake.swanlab.cn"
 WEB_HOST = "https://test.swanlab.cn"
@@ -45,7 +45,7 @@ API_KEY = "test-api-key"
 
 
 # ============================================================
-# Cloud 模式响应体数据工厂
+# Online 模式响应体数据工厂
 # 返回与后端 schema 一致的 dict，支持 **overrides 局部定制
 # ============================================================
 
@@ -114,17 +114,17 @@ def make_presigned_put_resp(**overrides) -> dict:
 
 
 # ============================================================
-# Cloud 模式 HTTP Mock Fixtures
+# Online 模式 HTTP Mock Fixtures
 #
 # 分层设计：
 #   层 1 - rsps：激活 responses.RequestsMock，所有 endpoint fixture 共享同一实例
 #   层 2 - 单一 Endpoint Fixture：每个 fixture 只注册一个 API 端点
-#   层 3 - 组合 Fixture：mock_cloud_init_apis 一次性装配 init() cloud 流程所需端点
+#   层 3 - 组合 Fixture：mock_online_init_apis 一次性装配 init() online 流程所需端点
 #
-# 未来 _init_cloud 新增 API 调用时，只需：
+# 未来 _init_online 新增 API 调用时，只需：
 #   1. 新增 make_*_resp() 工厂函数
 #   2. 新增对应 endpoint fixture
-#   3. 将其追加为 mock_cloud_init_apis 的参数
+#   3. 将其追加为 mock_online_init_apis 的参数
 # ============================================================
 
 
@@ -251,14 +251,14 @@ def mock_resource_upload_api(rsps):
 
 
 @pytest.fixture
-def mock_cloud_settings():
+def mock_online_settings():
     """将全局 settings 的 api_host/web_host 指向测试 HOST，避免意外触发生产环境"""
     merge_settings({"api_host": API_HOST, "web_host": WEB_HOST})
 
 
 @pytest.fixture
-def mock_cloud_init_apis(
-    mock_cloud_settings,
+def mock_online_init_apis(
+    mock_online_settings,
     mock_login_api,
     mock_project_create_api,
     mock_project_get_api,
@@ -271,14 +271,14 @@ def mock_cloud_init_apis(
     mock_resource_upload_api,
 ):
     """
-    组合 fixture：一次性注册 init(mode='cloud') 当前所需的全部 HTTP 端点。
+    组合 fixture：一次性注册 init(mode='online') 当前所需的全部 HTTP 端点。
     所有子 fixture 通过 pytest 的 fixture 缓存机制共享同一个 rsps 实例。
     """
     pass
 
 
 @pytest.fixture
-def logged_in_client(mock_login_api, mock_cloud_settings):
+def logged_in_client(mock_login_api, mock_online_settings):
     """
     调用 login_raw() 完成登录流程，确保全局 client 已创建。
     依赖 mock_login_api，故登录请求不会触及真实网络。
@@ -463,33 +463,33 @@ class TestInitSettingsPriority:
 
 class TestInitResumeValidation:
     def test_resume_must_without_id_raises(self, monkeypatch):
-        """cloud 模式 resume='must' 但未提供 id → AssertionError"""
-        monkeypatch.setattr("swanlab.sdk.cmd.init.prompt_init_mode", lambda _: "cloud")
+        """online 模式 resume='must' 但未提供 id → AssertionError"""
+        monkeypatch.setattr("swanlab.sdk.cmd.init.prompt_init_mode", lambda _: "online")
 
         with pytest.raises(AssertionError, match="Run id must be provided"):
-            init(mode="cloud", resume="must")
+            init(mode="online", resume="must")
 
     def test_resume_never_with_id_raises(self, monkeypatch):
-        """cloud 模式 resume='never' 但同时提供了 id → AssertionError"""
-        monkeypatch.setattr("swanlab.sdk.cmd.init.prompt_init_mode", lambda _: "cloud")
+        """online 模式 resume='never' 但同时提供了 id → AssertionError"""
+        monkeypatch.setattr("swanlab.sdk.cmd.init.prompt_init_mode", lambda _: "online")
 
         with pytest.raises(AssertionError, match="Run id should not be provided"):
-            init(mode="cloud", resume="never", id="some-run-id")
+            init(mode="online", resume="never", id="some-run-id")
 
-    def test_resume_validation_skipped_for_non_cloud_mode(self):
-        """非 cloud 模式下，resume/id 校验不触发（即使传了也不报错）"""
+    def test_resume_validation_skipped_for_non_online_mode(self):
+        """非 online 模式下，resume/id 校验不触发（即使传了也不报错）"""
         run = init(mode="offline", resume="must")
 
         assert isinstance(run, Run)
 
 
 # ============================================================
-# TestInitCloudMode
+# TestInitOnlineMode
 # ============================================================
 
 
-class TestInitCloudMode:
-    def test_init_cloud_success(
+class TestInitOnlineMode:
+    def test_init_online_success(
         self,
         logged_in_client,
         mock_project_create_api,
@@ -498,13 +498,13 @@ class TestInitCloudMode:
         mock_experiment_stop_api,
         mock_profile_api,
     ):
-        """cloud 模式完整 init 流程：返回 Run，has_run() 为 True"""
-        run = init(mode="cloud", project=PROJECT)
+        """online 模式完整 init 流程：返回 Run，has_run() 为 True"""
+        run = init(mode="online", project=PROJECT)
 
         assert isinstance(run, Run)
         assert has_run()
 
-    def test_init_cloud_sets_project_and_workspace(
+    def test_init_online_sets_project_and_workspace(
         self,
         logged_in_client,
         mock_project_create_api,
@@ -513,14 +513,14 @@ class TestInitCloudMode:
         mock_experiment_stop_api,
         mock_profile_api,
     ):
-        """cloud 模式下，workspace 和 project.name 应与后端响应同步"""
-        run = init(mode="cloud", project=PROJECT)
+        """online 模式下，workspace 和 project.name 应与后端响应同步"""
+        run = init(mode="online", project=PROJECT)
         s = run._ctx.config.settings
 
         assert s.project.workspace == USERNAME
         assert s.project.name == PROJECT
 
-    def test_init_cloud_project_already_exists(
+    def test_init_online_project_already_exists(
         self,
         logged_in_client,
         rsps,
@@ -532,12 +532,12 @@ class TestInitCloudMode:
         """POST /project 返回 409（项目已存在）时，应优雅降级为获取项目，继续初始化"""
         rsps.add(responses_lib.POST, f"{API_HOST}/api/project", json=make_init_project_resp(), status=409)
 
-        run = init(mode="cloud", project=PROJECT)
+        run = init(mode="online", project=PROJECT)
 
         assert isinstance(run, Run)
         assert run._ctx.config.settings.project.workspace == USERNAME
 
-    def test_init_cloud_uses_all_expected_endpoints(
+    def test_init_online_uses_all_expected_endpoints(
         self,
         logged_in_client,
         mock_project_create_api,
@@ -547,8 +547,8 @@ class TestInitCloudMode:
         mock_profile_api,
         rsps,
     ):
-        """验证 cloud init 确实调用了 project 和 experiment 端点"""
-        init(mode="cloud", project=PROJECT)
+        """验证 online init 确实调用了 project 和 experiment 端点"""
+        init(mode="online", project=PROJECT)
 
         non_login_calls = [c.request.url for c in rsps.calls if "login" not in c.request.url]
 

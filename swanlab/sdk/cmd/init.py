@@ -115,14 +115,14 @@ def init(
 
     :param logdir: Directory to store logs. Defaults to "./swanlog".
 
-    :param mode: Run mode. Options: "cloud" (sync to cloud), "local" (local only),
-        "offline" (save locally for later sync), "disabled" (no logging). Defaults to "cloud".
+    :param mode: Run mode. Options: "online" (sync to cloud), "local" (local only),
+        "offline" (save locally for later sync), "disabled" (no logging). Defaults to "online".
 
     :param workspace: Workspace or organization name. Defaults to current user.
 
     :param project: Project name. Defaults to current directory name.
 
-    :param public: Make project publicly visible (cloud mode only). Defaults to False.
+    :param public: Make project publicly visible (online mode only). Defaults to False.
 
     :param name: Experiment name. Auto-generated if not provided.
 
@@ -136,7 +136,7 @@ def init(
 
     :param tags: List of tags for categorizing experiments.
 
-    :param id: Run ID for resuming a previous run (cloud mode only).
+    :param id: Run ID for resuming a previous run (online mode only).
 
     :param resume: Resume behavior. Options: "must" (must resume), "allow" (resume if exists),
         "never" (always create new). Defaults to "never".
@@ -160,12 +160,12 @@ def init(
         >>> swanlab.log({"loss": 0.5})
         >>> swanlab.finish()
 
-        Cloud run with configuration:
+        Online run with configuration:
 
         >>> import swanlab
         >>> swanlab.login(api_key="your_key")
         >>> swanlab.init(
-        ...     mode="cloud",
+        ...     mode="online",
         ...     project="image_classification",
         ...     name="resnet50_experiment",
         ...     config={"lr": 0.001, "batch_size": 32}
@@ -177,7 +177,7 @@ def init(
 
         >>> import swanlab
         >>> swanlab.init(
-        ...     mode="cloud",
+        ...     mode="online",
         ...     project="my_project",
         ...     id="previous_run_id",
         ...     resume="must"
@@ -224,7 +224,7 @@ def init(
     mode = prompt_init_mode(run_settings)
     run_settings.merge_settings({"mode": mode})
     # 校验 run id 与 resume，仅在对两者存在性有要求的模式下校验
-    if run_settings.mode == "cloud":
+    if run_settings.mode == "online":
         if run_settings.run.resume == "must":
             assert run_settings.run.id is not None, "Run id must be provided when resume=must."
         elif run_settings.run.resume == "never":
@@ -234,7 +234,7 @@ def init(
     callbacker.merge_callbacks(callbacks or [])
     # 开始初始化
     generate_ctx = _init
-    if run_settings.mode == "cloud":
+    if run_settings.mode == "online":
         generate_ctx = utils.with_loading_animation()(_init)
     ctx, path = generate_ctx(run_settings)
     # 初始化run
@@ -296,10 +296,10 @@ def load_config(run_settings: Settings, config: Optional[ConfigLike]) -> Dict[st
 
 def prompt_init_mode(settings: Settings) -> ModeType:
     """
-    在 swanlab.init 阶段，针对 cloud 模式且未登录的用户进行交互式引导。
+    在 swanlab.init 阶段，针对 online 模式且未登录的用户进行交互式引导。
 
     规则：
-    1. 只有在 settings.interactive 为 True 且 settings.mode 为 'cloud' 时触发 。
+    1. 只有在 settings.interactive 为 True 且 settings.mode 为 'online' 时触发 。
     2. 如果 client 已存在（已登录），直接跳过 。
     3. 提供三个选项：(1) 使用已有的Key (2) 注册 (3) 切换为 offline 模式。
 
@@ -308,22 +308,24 @@ def prompt_init_mode(settings: Settings) -> ModeType:
     """
     # 如果不是云模式，或者已经登录，或者非交互环境，直接返回当前状态
     mode = settings.mode
-    if mode != "cloud" or client.exists():
+    if mode != "online" or client.exists():
         return mode
     login_func = partial(login_cli, save=True, host=settings.api_host)
-    if mode == "cloud":
+    if mode == "online":
         if settings.api_key is not None:
             # 不登录，交给后面处理，否则会出现闪烁动画，比较影响美感
             # login_func(api_key=settings.api_key)
-            return "cloud"
+            return "online"
 
         if not settings.interactive:
             raise RuntimeError(
-                "Failed to initialize SwanLab in cloud mode: no API key was provided, "
+                "Failed to initialize SwanLab in online mode: no API key was provided, "
                 "and interactive prompts are disabled."
             )
         if not helper.is_interactive():
-            raise RuntimeError("Failed to initialize SwanLab in cloud mode: no TTY is available for interactive login.")
+            raise RuntimeError(
+                "Failed to initialize SwanLab in online mode: no TTY is available for interactive login."
+            )
 
         console.info("Using SwanLab to track your experiments. To get started, choose one of the following options:")
         console.print(
@@ -339,12 +341,12 @@ def prompt_init_mode(settings: Settings) -> ModeType:
             if choice == "1":
                 console.info("Using an existing SwanLab API key.")
                 login_func()
-                return "cloud"
+                return "online"
 
             if choice == "2":
-                console.info(f"Create a SwanLab account here:{settings.web_host}/login")
+                console.info(f"Create a SwanLab account here: {settings.web_host}/login")
                 login_func()
-                return "cloud"
+                return "online"
 
             if choice == "3":
                 console.info("Continuing in Offline mode. Results will be saved locally.")
@@ -365,7 +367,7 @@ def send_webhook(ctx: RunContext) -> Tuple[bool, bool]:
       "value": "string",  // 即 SWANLAB_WEBHOOK_VALUE 的值
       "swanlab": {
         "version": "string",     // swanlab 版本号
-        "mode": "cloud" | "local", // swanlab 运行模式
+        "mode": "online" | "local", // swanlab 运行模式
         "run_dir": "string",  // 日志存储路径
         "exp_url": "string"       // 云端实验路径
       }
@@ -386,7 +388,7 @@ def send_webhook(ctx: RunContext) -> Tuple[bool, bool]:
     webhook_value = webhook.value
     webhook_timeout = webhook.timeout
     # 获取实验url
-    if settings.mode == "cloud":
+    if settings.mode == "online":
         exp_url = f"{settings.web_host}/@{settings.project.workspace}/{settings.project.name}/runs/{settings.run.id}"
     else:
         exp_url = None
@@ -469,9 +471,9 @@ def _init(run_settings: Settings) -> Tuple[RunContext, Optional[str]]:
     # 3. 创建一个临时的上下文，避免出现任何问题导致上下文残留
     with use_context(RunContext(config=RunConfig(settings=run_settings, run_dir=run_dir))) as ctx:
         assert run_settings.project.name, "Project name is required."
-        # 1. cloud 模式前置：确保 client 已就绪
-        if mode == "cloud":
-            _ensure_cloud_client(run_settings)
+        # 1. online 模式前置：确保 client 已就绪
+        if mode == "online":
+            _ensure_online_client(run_settings)
         # 2. 确定默认 workspace 并生成本地 name/color，合并到 settings
         workspace = run_settings.project.workspace
         name = generate_name("beauty")
@@ -485,7 +487,7 @@ def _init(run_settings: Settings) -> Tuple[RunContext, Optional[str]]:
         }.items():
             set_nested_value(args_dict, key, value)
         run_settings.merge_settings(args_dict)
-        # 3. 统一调用 deliver_run_start（core 内部按 mode 分发：cloud 走网络，其余本地处理）
+        # 3. 统一调用 deliver_run_start（core 内部按 mode 分发：online 走网络，其余本地处理）
         ts = Timestamp()
         ts.GetCurrentTime()
         resp = ctx.core.deliver_run_start(
@@ -507,9 +509,9 @@ def _init(run_settings: Settings) -> Tuple[RunContext, Optional[str]]:
         if not resp.success:
             raise RuntimeError(resp.message)
         path = resp.path or path
-        if mode == "cloud":
-            assert path, "Initialization path failed when mode=cloud"
-        # 4. 从 core 响应同步配置（cloud 模式会覆盖为服务端分配的值）
+        if mode == "online":
+            assert path, "Initialization path failed when mode=online"
+        # 4. 从 core 响应同步配置（online 模式会覆盖为服务端分配的值）
         sync_args = {}
         merge_dict = helper.strip_none(
             {
@@ -529,9 +531,9 @@ def _init(run_settings: Settings) -> Tuple[RunContext, Optional[str]]:
     return ctx, path
 
 
-def _ensure_cloud_client(run_settings: Settings):
+def _ensure_online_client(run_settings: Settings):
     """
-    确保 cloud 模式下 client 已就绪，未登录时自动执行登录。
+    确保 online 模式下 client 已就绪，未登录时自动执行登录。
     :param run_settings: 运行时配置
     """
     if not client.exists():

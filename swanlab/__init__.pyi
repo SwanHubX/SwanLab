@@ -87,18 +87,18 @@ def init(
 
     :param reinit: If True, finish the current run before starting a new one. Defaults to False.
     :param logdir: Directory to store logs. Defaults to "./swanlog".
-    :param mode: Run mode. Options: "cloud" (sync to cloud), "local" (local only),
-        "offline" (save locally for later sync), "disabled" (no logging). Defaults to "cloud".
+    :param mode: Run mode. Options: "online" (sync to cloud), "local" (local only),
+        "offline" (save locally for later sync), "disabled" (no logging). Defaults to "online".
     :param workspace: Workspace or organization name. Defaults to current user.
     :param project: Project name. Defaults to current directory name.
-    :param public: Make project publicly visible (cloud mode only). Defaults to False.
+    :param public: Make project publicly visible (online mode only). Defaults to False.
     :param name: Experiment name. Auto-generated if not provided.
     :param color: Experiment color for visualization. Auto-generated if not provided.
     :param description: Experiment description.
     :param job_type: Job type label (e.g., "train", "eval").
     :param group: Group name for organizing related experiments.
     :param tags: List of tags for categorizing experiments.
-    :param id: Run ID for resuming a previous run (cloud mode only).
+    :param id: Run ID for resuming a previous run (online mode only).
     :param resume: Resume behavior. Options: "must" (must resume), "allow" (resume if exists),
         "never" (always create new). Defaults to "never".
     :param config: Experiment configuration dict or path to config file (JSON/YAML).
@@ -121,7 +121,7 @@ def init(
         >>> import swanlab
         >>> swanlab.login(api_key="your_key")
         >>> swanlab.init(
-        ...     mode="cloud",
+        ...     mode="online",
         ...     project="image_classification",
         ...     name="resnet50_experiment",
         ...     config={"lr": 0.001, "batch_size": 32}
@@ -193,7 +193,7 @@ def login(
 
         >>> import swanlab
         >>> swanlab.login(api_key="your_api_key_here")
-        >>> swanlab.init(mode="cloud")
+        >>> swanlab.init(mode="online")
 
         Force re-login and save credentials:
 

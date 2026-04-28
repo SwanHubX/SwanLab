@@ -33,8 +33,8 @@ import click
 )
 @click.option(
     "--mode",
-    default="cloud",
-    type=click.Choice(["cloud", "local", "offline", "disabled"]),
+    default="online",
+    type=click.Choice(["online", "local", "offline", "disabled"]),
     help="The mode of the swanlab run.",
 )
 @click.option(

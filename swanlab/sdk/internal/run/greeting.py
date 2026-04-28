@@ -28,7 +28,7 @@ def _print_save_dir(ctx: RunContext):
     console.info("Run data will be saved locally in", Text(str(ctx.config.run_dir), "magenta bold"))
 
 
-def _print_cloud_tip(run: "Run"):
+def _print_online_tip(run: "Run"):
     project_url = run.url.split("/runs/")[0]
     console.info(f"🏠 View project at {project_url}")
     console.info(f"🚀 View run at {run.url}")
@@ -54,7 +54,7 @@ def welcome(ctx: RunContext, run: "Run"):
     """
     实验开始欢迎语，根据不同模式选择不同的欢迎语
     0. Disabled: 直接返回
-    1. Cloud: 打印版本号、运行日志存储位置、实验名称、项目、实验的URL，并单独开启线程检查新版本
+    1. Online: 打印版本号、运行日志存储位置、实验名称、项目、实验的URL，并单独开启线程检查新版本
     2. Local: 打印版本号、运行日志存储位置、watch命令
     3. Offline: 答应版本号、运行日志存储位置、实验名称、sync命令
     """
@@ -62,13 +62,13 @@ def welcome(ctx: RunContext, run: "Run"):
     # 0. Disabled
     if mode == "disabled":
         return
-    # 1. Cloud
-    elif mode == "cloud":
+    # 1. Online
+    elif mode == "online":
         _print_version()
         _print_save_dir(ctx)
         if ctx.config.settings.experiment.name:
             console.info("Syncing run", Text(ctx.config.settings.experiment.name, "yellow"))
-        _print_cloud_tip(run)
+        _print_online_tip(run)
     # 2. Local
     elif mode == "local":
         _print_version()
@@ -86,9 +86,9 @@ def goodbye(ctx: RunContext, run: "Run"):
     # 0. Disabled
     if mode == "disabled":
         return
-    # 1. Cloud
-    elif mode == "cloud":
-        _print_cloud_tip(run)
+    # 1. Online
+    elif mode == "online":
+        _print_online_tip(run)
     # 2. Local
     elif mode == "local":
         _print_local_tip(ctx)

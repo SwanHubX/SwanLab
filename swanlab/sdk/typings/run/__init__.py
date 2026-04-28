@@ -12,7 +12,7 @@ ResumeType = Literal["must", "allow", "never"]
 Run 恢复策略
 """
 
-ModeType = Literal["disabled", "cloud", "local", "offline"]
+ModeType = Literal["disabled", "online", "local", "offline"]
 """
 Run 运行策略
 """

@@ -64,19 +64,19 @@ def login(
 
         >>> import swanlab
         >>> swanlab.login(api_key="your_api_key_here")
-        >>> swanlab.init(mode="cloud")
+        >>> swanlab.init(mode="online")
 
         Interactive login (prompts for API key):
 
         >>> import swanlab
         >>> swanlab.login()
-        >>> swanlab.init(mode="cloud")
+        >>> swanlab.init(mode="online")
 
         Force re-login and save credentials:
 
         >>> import swanlab
         >>> swanlab.login(api_key="new_api_key", relogin=True, save=True)
-        >>> swanlab.init(mode="cloud")
+        >>> swanlab.init(mode="online")
     """
     return login_raw(
         api_key=api_key,

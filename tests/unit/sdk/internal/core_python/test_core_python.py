@@ -39,7 +39,7 @@ def make_start_record() -> StartRecord:
 
 class TestCorePythonStart:
     @pytest.mark.parametrize("mode", ["disabled", "local", "offline"])
-    def test_non_cloud_modes(self, tmp_path, mode):
+    def test_non_online_modes(self, tmp_path, mode):
         ctx = make_ctx(tmp_path, mode)
         core = CorePython(ctx)
         resp = core.deliver_run_start(make_start_record())
@@ -51,14 +51,14 @@ class TestCorePythonStart:
         else:
             assert core._store is not None
 
-    def test_cloud_mode(self, tmp_path, monkeypatch):
-        ctx = make_ctx(tmp_path, "cloud")
+    def test_online_mode(self, tmp_path, monkeypatch):
+        ctx = make_ctx(tmp_path, "online")
         core = CorePython(ctx)
         record = make_start_record()
         mock_deliver = MagicMock(return_value=StartResponse(success=True, message="OK", run=record))
 
         def _report_run_start_and_set_attrs(rec):
-            """mock _report_run_start，同时设置 cloud 模式所需的属性。"""
+            """mock _report_run_start，同时设置 online 模式所需的属性。"""
             core._username = "test-user"
             core._project = "test-project"
             core._project_id = "test-project-id"
@@ -82,7 +82,7 @@ class TestCorePythonStart:
 
 class TestCorePythonFinish:
     @pytest.mark.parametrize("mode", ["disabled", "local", "offline"])
-    def test_non_cloud_modes(self, tmp_path, mode):
+    def test_non_online_modes(self, tmp_path, mode):
         ctx = make_ctx(tmp_path, mode)
         core = CorePython(ctx)
         core.deliver_run_start(make_start_record())
@@ -92,14 +92,14 @@ class TestCorePythonFinish:
         assert resp.success is True
         assert core._store is None
 
-    def test_cloud_closes_store_and_transport(self, tmp_path, monkeypatch):
-        ctx = make_ctx(tmp_path, "cloud")
+    def test_online_closes_store_and_transport(self, tmp_path, monkeypatch):
+        ctx = make_ctx(tmp_path, "online")
         core = CorePython(ctx)
 
         mock_start = MagicMock(return_value=StartResponse(success=True, message="OK", run=make_start_record()))
 
         def _report_run_start_and_set_attrs(rec):
-            """mock _report_run_start，同时设置 cloud 模式所需的属性。"""
+            """mock _report_run_start，同时设置 online 模式所需的属性。"""
             core._username = "test-user"
             core._project = "test-project"
             core._project_id = "test-project-id"

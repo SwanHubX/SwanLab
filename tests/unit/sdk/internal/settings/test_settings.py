@@ -101,10 +101,13 @@ def test_secrets_loading(tmp_path):
 def test_mode_validation():
     """测试 mode 字段的校验与转换"""
     s_default = Settings()
-    assert s_default.mode == "cloud"
+    assert s_default.mode == "online"
 
-    s_online = Settings(mode="online")  # type: ignore
-    assert s_online.mode == "cloud"
+    s_online = Settings(mode="online")
+    assert s_online.mode == "online"
+
+    s_cloud_compat = Settings(mode="cloud")  # type: ignore
+    assert s_cloud_compat.mode == "online"
 
     with pytest.raises(ValueError, match="Invalid mode: invalid, allowed values are"):
         Settings(mode="invalid")  # type: ignore
@@ -267,7 +270,7 @@ class TestNetrcFallback:
         # 验证 netrc 读取进来的属性没有因为 merge (exclude_unset=True) 而丢失
         assert settings.api_key == "sync_token"
         assert settings.api_host == "https://api.sync.com"
-        assert settings.mode == "cloud"
+        assert settings.mode == "online"
 
 
 def test_directory_validators(tmp_path):

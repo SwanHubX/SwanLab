@@ -21,7 +21,7 @@ def mock_settings():
     """构造一个轻量级的 Settings Mock 对象"""
     settings = MagicMock()
     settings.run.config = None
-    settings.mode = "cloud"
+    settings.mode = "online"
     settings.interactive = True
     settings.web_host = "https://swanlab.cn"
     return settings
@@ -62,16 +62,16 @@ def test_load_config_exceptions(mock_settings):
 # Tests for `prompt_init_mode`
 # ==========================================
 def test_prompt_fast_exits(mock_settings, monkeypatch):
-    """测试快速跳过的条件：非 cloud 模式、非交互模式、已登录"""
+    """测试快速跳过的条件：非 online 模式、非交互模式、已登录"""
     # 1. 模拟已登录 (client.exists 返回 True)
     monkeypatch.setattr("swanlab.sdk.cmd.init.client.exists", lambda: True)
-    assert prompt_init_mode(mock_settings) == "cloud"
+    assert prompt_init_mode(mock_settings) == "online"
 
     monkeypatch.setattr("swanlab.sdk.cmd.init.client.exists", lambda: False)
 
     # 2. 模拟非交互模式
     mock_settings.interactive = False
-    assert prompt_init_mode(mock_settings) == "cloud"
+    assert prompt_init_mode(mock_settings) == "online"
 
     # 3. 模拟非云端模式
     mock_settings.interactive = True
@@ -80,7 +80,7 @@ def test_prompt_fast_exits(mock_settings, monkeypatch):
 
 
 def test_prompt_auto_login(mock_settings, monkeypatch):
-    """测试本地已存在 apikey 时直接返回 cloud 模式"""
+    """测试本地已存在 apikey 时直接返回 online 模式"""
     monkeypatch.setattr("swanlab.sdk.cmd.init.client.exists", lambda: False)
     # 设置 api_key 模拟已存在凭证
     mock_settings.api_key = "fake-key"
@@ -88,7 +88,7 @@ def test_prompt_auto_login(mock_settings, monkeypatch):
     mock_login_raw = MagicMock(return_value=True)
     monkeypatch.setattr("swanlab.sdk.cmd.init.login_raw", mock_login_raw)
 
-    assert prompt_init_mode(mock_settings) == "cloud"
+    assert prompt_init_mode(mock_settings) == "online"
     # 有 api_key 时不再调用 login_raw，登录推迟到后续流程
 
 
@@ -98,9 +98,9 @@ def test_prompt_auto_login(mock_settings, monkeypatch):
         # 直接选 3 -> 切换离线模式
         (["3"], False, "offline"),
         # 直接选 1 -> 触发交互登录并返回成功
-        (["1"], True, "cloud"),
+        (["1"], True, "online"),
         # 直接选 2 -> 触发交互登录并返回失败
-        (["2"], False, "cloud"),
+        (["2"], False, "online"),
         # 乱输一通后选 3 -> 循环容错测试
         (["invalid", "wrong", "3"], False, "offline"),
     ],

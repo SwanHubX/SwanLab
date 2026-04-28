@@ -101,7 +101,7 @@ class ProbePython(ProbeProtocol):
     def _start_when_offline(self) -> None:
         self._start()
 
-    def _start_when_cloud(self) -> None:
+    def _start_when_online(self) -> None:
         self._start()
 
     def _finish(self):
@@ -115,6 +115,6 @@ class ProbePython(ProbeProtocol):
         if self._monitor is not None:
             self._monitor.stop()
 
-    def _finish_when_cloud(self) -> None:
+    def _finish_when_online(self) -> None:
         if self._monitor is not None:
             self._monitor.stop()

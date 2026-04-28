@@ -84,7 +84,7 @@ class Settings(BaseSettings):
 
         >>> from swanlab import Settings
         >>> settings = Settings(
-        ...     mode="cloud",
+        ...     mode="online",
         ...     monitor=Settings.Monitor(enable=False)
         ... )
         >>> import swanlab
@@ -106,13 +106,13 @@ class Settings(BaseSettings):
     Useful for CI/CD environments or background batch jobs.
     """
 
-    mode: ModeType = "cloud"
+    mode: ModeType = "online"
     """
     SwanLab Run mode.
-
-    * `local`: Run SwanLab locally.
-    * `cloud`: Run SwanLab on the cloud.
+    
     * `disabled`: Disable SwanLab.
+    * `local`: Run SwanLab locally.
+    * `online`: Run SwanLab syncing to cloud.
     * `offline`: Run SwanLab in offline mode.
     """
 
@@ -120,8 +120,8 @@ class Settings(BaseSettings):
     def validate_mode(cls, v: Any) -> ModeType:
         if v in list(get_args(ModeType)):
             return v
-        if v == "online":
-            return "cloud"
+        if v == "cloud":
+            return "online"
         raise ValueError(f"Invalid mode: {v}, allowed values are {list(get_args(ModeType))}")
 
     root: Path = Field(default_factory=root_factory)

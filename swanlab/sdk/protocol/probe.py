@@ -41,8 +41,8 @@ class ProbeProtocol(ABC):
             return self._start_when_disabled()
         assert self._ctx.files_dir.is_dir(), "files_dir must be set before starting probe"
         with safe.block(message="probe start error"):
-            if self._mode == "cloud":
-                return self._start_when_cloud()
+            if self._mode == "online":
+                return self._start_when_online()
             elif self._mode == "local":
                 return self._start_when_local()
             return self._start_when_offline()
@@ -56,15 +56,15 @@ class ProbeProtocol(ABC):
     def _start_when_offline(self) -> None: ...
 
     @abstractmethod
-    def _start_when_cloud(self) -> None: ...
+    def _start_when_online(self) -> None: ...
 
     def finish(self):
         """
         停止 probe 服务
         """
         with safe.block(message="probe finish error"):
-            if self._mode == "cloud":
-                return self._finish_when_cloud()
+            if self._mode == "online":
+                return self._finish_when_online()
             elif self._mode == "local":
                 return self._finish_when_local()
             elif self._mode == "offline":
@@ -80,4 +80,4 @@ class ProbeProtocol(ABC):
     def _finish_when_offline(self) -> None: ...
 
     @abstractmethod
-    def _finish_when_cloud(self) -> None: ...
+    def _finish_when_online(self) -> None: ...

@@ -24,7 +24,7 @@ def local():
 
 @click.command()
 def online():
-    """Use cloud mode for SwanLab."""
+    """Use online mode for SwanLab."""
     # TODO: 接入重构后的 mode 设置逻辑
     pass
 

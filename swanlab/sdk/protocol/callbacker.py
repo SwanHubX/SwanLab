@@ -22,7 +22,7 @@ class Callback(ABC):
         Called immediately after `swanlab.init` has successfully executed.
 
         :param run_dir: The directory where the run is stored.
-        :param path: The run path, formatted as `/:username/:project/:run_id` in cloud mode,
+        :param path: The run path, formatted as `/:username/:project/:run_id` in online mode,
             or `/:project/:run_id` otherwise.
         """
         ...
