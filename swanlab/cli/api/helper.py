@@ -1,16 +1,53 @@
 import enum
 from datetime import datetime
-from typing import Optional
+from functools import wraps
+from typing import Callable, Optional
 
 import click
 import nanoid
 import orjson
 
+from swanlab.api import Api
 from swanlab.api.typings.common import ApiResponseType
 
 
 class _SaveFormatEnum(enum.Enum):
     JSON = "json"
+
+
+def with_custom_host(func: Callable) -> Callable:
+    """
+    Add common SwanLab API host/auth options to a CLI command.
+
+    The wrapped command receives an `api` keyword argument. When no option is
+    provided, the default local login settings are used.
+    """
+
+    @click.option(
+        "--host",
+        "-h",
+        default=None,
+        type=str,
+        help="The host of the SwanLab server.",
+    )
+    @click.option(
+        "--api-key",
+        "--api_key",
+        "-k",
+        "api_key",
+        default=None,
+        type=str,
+        help="The API key to use for authentication.",
+    )
+    @wraps(func)
+    def wrapper(*args, host: Optional[str], api_key: Optional[str], **kwargs):
+        if host is None and api_key is None:
+            api = Api()
+        else:
+            api = Api(host=host, api_key=api_key)
+        return func(*args, api=api, **kwargs)
+
+    return wrapper
 
 
 def format_output(resp: ApiResponseType, fmt: _SaveFormatEnum = _SaveFormatEnum.JSON) -> None:
