@@ -41,6 +41,7 @@ WEB_HOST = "https://test.swanlab.cn"
 USERNAME = "test-user"
 PROJECT = "test-project"
 RUN_ID = "test-run-id"
+EXPERIMENT_CUID = "test-experiment-cuid"
 API_KEY = "test-api-key"
 
 
@@ -85,7 +86,7 @@ def make_project_detail_resp(experiment_count: int = 0, **overrides) -> dict:
 
 def make_experiment_resp(**overrides) -> dict:
     """POST /api/project/{username}/{project}/experiment 响应体"""
-    return {"cuid": RUN_ID, **overrides}
+    return {"cuid": EXPERIMENT_CUID, "slug": RUN_ID, "name": "test-experiment", **overrides}
 
 
 def make_stop_experiment_resp(**overrides) -> dict:
@@ -183,7 +184,7 @@ def mock_experiment_stop_api(rsps):
     """注册 PUT /api/project/{username}/{project}/runs/{cuid}/state 端点（停止实验）"""
     rsps.add(
         responses_lib.PUT,
-        f"{API_HOST}/api/project/{USERNAME}/{PROJECT}/runs/{RUN_ID}/state",
+        f"{API_HOST}/api/project/{USERNAME}/{PROJECT}/runs/{EXPERIMENT_CUID}/state",
         json=make_stop_experiment_resp(),
         status=200,
     )
@@ -195,7 +196,7 @@ def mock_profile_api(rsps):
     """注册 PUT /api/project/{username}/{project}/runs/{cuid}/profile 端点（环境信息上传）"""
     rsps.add(
         responses_lib.PUT,
-        f"{API_HOST}/api/project/{USERNAME}/{PROJECT}/runs/{RUN_ID}/profile",
+        f"{API_HOST}/api/project/{USERNAME}/{PROJECT}/runs/{EXPERIMENT_CUID}/profile",
         json=make_profile_resp(),
         status=200,
     )
@@ -207,7 +208,7 @@ def mock_columns_api(rsps):
     """注册 POST /api/experiment/{experiment_id}/columns 端点（列信息上传）"""
     rsps.add(
         responses_lib.POST,
-        f"{API_HOST}/api/experiment/{RUN_ID}/columns",
+        f"{API_HOST}/api/experiment/{EXPERIMENT_CUID}/columns",
         json=make_columns_resp(),
         status=200,
     )

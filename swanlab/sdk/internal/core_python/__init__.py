@@ -147,6 +147,7 @@ class CorePython(CoreProtocol):
             tags=list(record.tags),
             created_at=record.started_at,
         )
+        assert experiment.get("name"), "create_or_resume_experiment() returned an experiment without a name."
         # 2. resume 时，向后端获取数据
         # TODO resume 时向后端获取数据或向本地获取数据
 
@@ -168,7 +169,7 @@ class CorePython(CoreProtocol):
         # /:username/:project_name
         project_path = project_info["path"]
         path = f"{project_path}/{run_id}"
-        return StartResponse(success=True, message="OK", run=start_record, path=path)
+        return StartResponse(success=True, message="OK", run=start_record, path=path, name=experiment.get("name"))
 
     # ---------------------------------- 数据上报 ----------------------------------
 

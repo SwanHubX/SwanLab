@@ -13,3 +13,5 @@ class InitExperimentType(TypedDict):
     cuid: str
     # 实验slug(run id)
     slug: Optional[str]
+    # 实验名称
+    name: str

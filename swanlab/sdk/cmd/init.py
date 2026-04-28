@@ -517,7 +517,7 @@ def _init(run_settings: Settings) -> Tuple[RunContext, Optional[str]]:
             {
                 "project.workspace": resp.run.workspace,
                 "project.name": resp.run.project,
-                "experiment.name": resp.run.name,
+                "experiment.name": resp.name,
                 "experiment.color": resp.run.color,
             },
             strip_empty_str=True,
