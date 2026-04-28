@@ -56,6 +56,14 @@ message YRange {
   double max = 2;
 }
 
+// MetricColors 指标颜色
+message MetricColors {
+  // light 主题颜色
+  string light = 1;
+  // dark 主题颜色，暂时作为冗余设计存在，前端在深色模式下依旧使用 light 主题颜色
+  string dark = 2;
+}
+
 // ColumnRecord 列定义，描述一个 metric key 的显示配置和归类规则。
 // 通常在该 key 首次出现时随 MetricRecord 之前发送一次。
 //
@@ -101,5 +109,5 @@ message ColumnRecord {
   string metric_name = 11;
 
   // 指标颜色列表，十六进制颜色值，如 "#FF5733"
-  repeated string metric_colors = 12;
+  MetricColors metric_colors = 12;
 }

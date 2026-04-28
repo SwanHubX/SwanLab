@@ -78,9 +78,7 @@ def upload_columns(experiment_id: str, *, columns: UploadColumns) -> None:
 
 def upload_console(project_id: str, experiment_id: str, *, metrics: UploadLogBatch) -> None:
     """
-    上传控制台日志信息。
-
-    参考 Legacy upload_logs，将 ConsoleRecord 转换为日志指标格式后批量发送到 /house/metrics。
+    批量发送日志信息到 /house/metrics。
 
     :param project_id: 所属项目 ID
     :param experiment_id: 实验唯一标识符
@@ -100,9 +98,7 @@ def upload_console(project_id: str, experiment_id: str, *, metrics: UploadLogBat
 
 def upload_scalar(project_id: str, experiment_id: str, *, metrics: UploadScalarBatch) -> None:
     """
-    上传控制台日志信息。
-
-    参考 Legacy upload_logs，将 ConsoleRecord 转换为日志指标格式后批量发送到 /house/metrics。
+    批量发送指标信息到 /house/metrics。
 
     :param project_id: 所属项目 ID
     :param experiment_id: 实验唯一标识符
@@ -122,9 +118,7 @@ def upload_scalar(project_id: str, experiment_id: str, *, metrics: UploadScalarB
 
 def upload_media(project_id: str, experiment_id: str, *, metrics: UploadMediaBatch) -> None:
     """
-    上传控制台日志信息。
-
-    参考 Legacy upload_logs，将 ConsoleRecord 转换为日志指标格式后批量发送到 /house/metrics。
+    批量发送媒体信息到 /house/metrics。
 
     :param project_id: 所属项目 ID
     :param experiment_id: 实验唯一标识符

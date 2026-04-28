@@ -1,8 +1,7 @@
-from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
-from collections.abc import Iterable as _Iterable, Mapping as _Mapping
+from collections.abc import Mapping as _Mapping
 from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 
 DESCRIPTOR: _descriptor.FileDescriptor
@@ -83,6 +82,14 @@ class YRange(_message.Message):
     max: float
     def __init__(self, min: _Optional[float] = ..., max: _Optional[float] = ...) -> None: ...
 
+class MetricColors(_message.Message):
+    __slots__ = ("light", "dark")
+    LIGHT_FIELD_NUMBER: _ClassVar[int]
+    DARK_FIELD_NUMBER: _ClassVar[int]
+    light: str
+    dark: str
+    def __init__(self, light: _Optional[str] = ..., dark: _Optional[str] = ...) -> None: ...
+
 class ColumnRecord(_message.Message):
     __slots__ = ("column_class", "column_type", "column_key", "column_name", "section_name", "section_type", "y_range", "chart_index", "chart_name", "chart_type", "metric_name", "metric_colors")
     COLUMN_CLASS_FIELD_NUMBER: _ClassVar[int]
@@ -108,5 +115,5 @@ class ColumnRecord(_message.Message):
     chart_name: str
     chart_type: ChartType
     metric_name: str
-    metric_colors: _containers.RepeatedScalarFieldContainer[str]
-    def __init__(self, column_class: _Optional[_Union[ColumnClass, str]] = ..., column_type: _Optional[_Union[ColumnType, str]] = ..., column_key: _Optional[str] = ..., column_name: _Optional[str] = ..., section_name: _Optional[str] = ..., section_type: _Optional[_Union[SectionType, str]] = ..., y_range: _Optional[_Union[YRange, _Mapping]] = ..., chart_index: _Optional[str] = ..., chart_name: _Optional[str] = ..., chart_type: _Optional[_Union[ChartType, str]] = ..., metric_name: _Optional[str] = ..., metric_colors: _Optional[_Iterable[str]] = ...) -> None: ...
+    metric_colors: MetricColors
+    def __init__(self, column_class: _Optional[_Union[ColumnClass, str]] = ..., column_type: _Optional[_Union[ColumnType, str]] = ..., column_key: _Optional[str] = ..., column_name: _Optional[str] = ..., section_name: _Optional[str] = ..., section_type: _Optional[_Union[SectionType, str]] = ..., y_range: _Optional[_Union[YRange, _Mapping]] = ..., chart_index: _Optional[str] = ..., chart_name: _Optional[str] = ..., chart_type: _Optional[_Union[ChartType, str]] = ..., metric_name: _Optional[str] = ..., metric_colors: _Optional[_Union[MetricColors, _Mapping]] = ...) -> None: ...

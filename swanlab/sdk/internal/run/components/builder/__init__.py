@@ -11,7 +11,13 @@ from typing import List, Type
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.proto.swanlab.config.v1.config_pb2 import ConfigRecord
-from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnClass, ColumnRecord, ColumnType, SectionType
+from swanlab.proto.swanlab.metric.column.v1.column_pb2 import (
+    ColumnClass,
+    ColumnRecord,
+    ColumnType,
+    MetricColors,
+    SectionType,
+)
 from swanlab.proto.swanlab.system.v1.console_pb2 import ConsoleRecord
 from swanlab.sdk.internal.bus.events import ConfigEvent, ConsoleEvent, ParseResult, ScalarDefineEvent
 from swanlab.sdk.internal.context import RunContext, TransformMedia
@@ -90,7 +96,7 @@ class RecordBuilder:
             chart_index=event.chart or "",
             chart_name=event.chart_name or "",
             metric_name=event.name or "",
-            metric_colors=[event.color, event.color] if event.color else [],
+            metric_colors=MetricColors(light=event.color, dark=event.color) if event.color else None,
         )
         metrics.define_scalar(key=event.key, column=col)
         return col

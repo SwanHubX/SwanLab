@@ -44,8 +44,8 @@ def encode(record: ColumnRecord) -> Optional[UploadColumn]:
     if record.metric_name:
         column["metricName"] = record.metric_name
     # metricColors: 指标颜色
-    if record.metric_colors:
-        column["metricColors"] = (record.metric_colors[0], record.metric_colors[1])
+    if record.HasField("metric_colors"):
+        column["metricColors"] = (record.metric_colors.light, record.metric_colors.dark)
     return column
 
 

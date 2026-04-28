@@ -322,6 +322,61 @@ func (x *YRange) GetMax() float64 {
 	return 0
 }
 
+// MetricColors 指标颜色
+type MetricColors struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// light 主题颜色
+	Light string `protobuf:"bytes,1,opt,name=light,proto3" json:"light,omitempty"`
+	// dark 主题颜色，暂时作为冗余设计存在，前端在深色模式下依旧使用 light 主题颜色
+	Dark          string `protobuf:"bytes,2,opt,name=dark,proto3" json:"dark,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MetricColors) Reset() {
+	*x = MetricColors{}
+	mi := &file_swanlab_metric_column_v1_column_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MetricColors) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MetricColors) ProtoMessage() {}
+
+func (x *MetricColors) ProtoReflect() protoreflect.Message {
+	mi := &file_swanlab_metric_column_v1_column_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MetricColors.ProtoReflect.Descriptor instead.
+func (*MetricColors) Descriptor() ([]byte, []int) {
+	return file_swanlab_metric_column_v1_column_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *MetricColors) GetLight() string {
+	if x != nil {
+		return x.Light
+	}
+	return ""
+}
+
+func (x *MetricColors) GetDark() string {
+	if x != nil {
+		return x.Dark
+	}
+	return ""
+}
+
 // ColumnRecord 列定义，描述一个 metric key 的显示配置和归类规则。
 // 通常在该 key 首次出现时随 MetricRecord 之前发送一次。
 //
@@ -357,14 +412,14 @@ type ColumnRecord struct {
 	// 指标名称，仅对单实验图表生效
 	MetricName string `protobuf:"bytes,11,opt,name=metric_name,json=metricName,proto3" json:"metric_name,omitempty"`
 	// 指标颜色列表，十六进制颜色值，如 "#FF5733"
-	MetricColors  []string `protobuf:"bytes,12,rep,name=metric_colors,json=metricColors,proto3" json:"metric_colors,omitempty"`
+	MetricColors  *MetricColors `protobuf:"bytes,12,opt,name=metric_colors,json=metricColors,proto3" json:"metric_colors,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ColumnRecord) Reset() {
 	*x = ColumnRecord{}
-	mi := &file_swanlab_metric_column_v1_column_proto_msgTypes[1]
+	mi := &file_swanlab_metric_column_v1_column_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -376,7 +431,7 @@ func (x *ColumnRecord) String() string {
 func (*ColumnRecord) ProtoMessage() {}
 
 func (x *ColumnRecord) ProtoReflect() protoreflect.Message {
-	mi := &file_swanlab_metric_column_v1_column_proto_msgTypes[1]
+	mi := &file_swanlab_metric_column_v1_column_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -389,7 +444,7 @@ func (x *ColumnRecord) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ColumnRecord.ProtoReflect.Descriptor instead.
 func (*ColumnRecord) Descriptor() ([]byte, []int) {
-	return file_swanlab_metric_column_v1_column_proto_rawDescGZIP(), []int{1}
+	return file_swanlab_metric_column_v1_column_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *ColumnRecord) GetColumnClass() ColumnClass {
@@ -469,7 +524,7 @@ func (x *ColumnRecord) GetMetricName() string {
 	return ""
 }
 
-func (x *ColumnRecord) GetMetricColors() []string {
+func (x *ColumnRecord) GetMetricColors() *MetricColors {
 	if x != nil {
 		return x.MetricColors
 	}
@@ -483,7 +538,10 @@ const file_swanlab_metric_column_v1_column_proto_rawDesc = "" +
 	"%swanlab/metric/column/v1/column.proto\x12\x18swanlab.metric.column.v1\",\n" +
 	"\x06YRange\x12\x10\n" +
 	"\x03min\x18\x01 \x01(\x01R\x03min\x12\x10\n" +
-	"\x03max\x18\x02 \x01(\x01R\x03max\"\xd1\x04\n" +
+	"\x03max\x18\x02 \x01(\x01R\x03max\"8\n" +
+	"\fMetricColors\x12\x14\n" +
+	"\x05light\x18\x01 \x01(\tR\x05light\x12\x12\n" +
+	"\x04dark\x18\x02 \x01(\tR\x04dark\"\xf9\x04\n" +
 	"\fColumnRecord\x12H\n" +
 	"\fcolumn_class\x18\x01 \x01(\x0e2%.swanlab.metric.column.v1.ColumnClassR\vcolumnClass\x12E\n" +
 	"\vcolumn_type\x18\x02 \x01(\x0e2$.swanlab.metric.column.v1.ColumnTypeR\n" +
@@ -503,8 +561,8 @@ const file_swanlab_metric_column_v1_column_proto_rawDesc = "" +
 	"chart_type\x18\n" +
 	" \x01(\x0e2#.swanlab.metric.column.v1.ChartTypeR\tchartType\x12\x1f\n" +
 	"\vmetric_name\x18\v \x01(\tR\n" +
-	"metricName\x12#\n" +
-	"\rmetric_colors\x18\f \x03(\tR\fmetricColors*\xe9\x01\n" +
+	"metricName\x12K\n" +
+	"\rmetric_colors\x18\f \x01(\v2&.swanlab.metric.column.v1.MetricColorsR\fmetricColors*\xe9\x01\n" +
 	"\n" +
 	"ColumnType\x12\x1b\n" +
 	"\x17COLUMN_TYPE_UNSPECIFIED\x10\x00\x12\x16\n" +
@@ -553,14 +611,15 @@ func file_swanlab_metric_column_v1_column_proto_rawDescGZIP() []byte {
 }
 
 var file_swanlab_metric_column_v1_column_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_swanlab_metric_column_v1_column_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_swanlab_metric_column_v1_column_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_swanlab_metric_column_v1_column_proto_goTypes = []any{
 	(ColumnType)(0),      // 0: swanlab.metric.column.v1.ColumnType
 	(ColumnClass)(0),     // 1: swanlab.metric.column.v1.ColumnClass
 	(ChartType)(0),       // 2: swanlab.metric.column.v1.ChartType
 	(SectionType)(0),     // 3: swanlab.metric.column.v1.SectionType
 	(*YRange)(nil),       // 4: swanlab.metric.column.v1.YRange
-	(*ColumnRecord)(nil), // 5: swanlab.metric.column.v1.ColumnRecord
+	(*MetricColors)(nil), // 5: swanlab.metric.column.v1.MetricColors
+	(*ColumnRecord)(nil), // 6: swanlab.metric.column.v1.ColumnRecord
 }
 var file_swanlab_metric_column_v1_column_proto_depIdxs = []int32{
 	1, // 0: swanlab.metric.column.v1.ColumnRecord.column_class:type_name -> swanlab.metric.column.v1.ColumnClass
@@ -568,11 +627,12 @@ var file_swanlab_metric_column_v1_column_proto_depIdxs = []int32{
 	3, // 2: swanlab.metric.column.v1.ColumnRecord.section_type:type_name -> swanlab.metric.column.v1.SectionType
 	4, // 3: swanlab.metric.column.v1.ColumnRecord.y_range:type_name -> swanlab.metric.column.v1.YRange
 	2, // 4: swanlab.metric.column.v1.ColumnRecord.chart_type:type_name -> swanlab.metric.column.v1.ChartType
-	5, // [5:5] is the sub-list for method output_type
-	5, // [5:5] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	5, // 5: swanlab.metric.column.v1.ColumnRecord.metric_colors:type_name -> swanlab.metric.column.v1.MetricColors
+	6, // [6:6] is the sub-list for method output_type
+	6, // [6:6] is the sub-list for method input_type
+	6, // [6:6] is the sub-list for extension type_name
+	6, // [6:6] is the sub-list for extension extendee
+	0, // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_swanlab_metric_column_v1_column_proto_init() }
@@ -586,7 +646,7 @@ func file_swanlab_metric_column_v1_column_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_swanlab_metric_column_v1_column_proto_rawDesc), len(file_swanlab_metric_column_v1_column_proto_rawDesc)),
 			NumEnums:      4,
-			NumMessages:   2,
+			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

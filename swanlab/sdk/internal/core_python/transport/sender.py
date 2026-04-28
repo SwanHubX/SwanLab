@@ -135,7 +135,7 @@ class HttpRecordSender:
                 }
                 buffer_chunk: List[BytesIO] = []
                 for media in media_record.value.items:
-                    # 目前约定的本地文件路径格式为：media/<type>/<key>/filename
+                    # 目前约定的本地文件路径格式为：media/<type>/filename，不区分key
                     # 约定保存到对象存储中的文件路径类似
                     remote_path = PurePosixPath("media", adapter.medium[media_record.type], media.filename)
                     local_path = self._run_dir.joinpath(*remote_path.parts)
