@@ -43,7 +43,7 @@ def with_custom_host(func: Callable) -> Callable:
         help="The API key to use for authentication.",
     )
     @wraps(func)
-    def wrapper(*args, host: Optional[str], api_key: Optional[str], **kwargs):
+    def wrapper(*args, host: Optional[str] = None, api_key: Optional[str] = None, **kwargs):
         if host is None and api_key is None:
             api = Api()
         else:
