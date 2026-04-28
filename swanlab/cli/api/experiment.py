@@ -41,7 +41,6 @@ def get_experiment(path: str, save_name: str, api: Api):
 @run_cli.command("list")
 @click.option(
     "--page_num",
-    "--page-num",
     "-n",
     default=1,
     type=click.IntRange(min=1),
@@ -49,7 +48,6 @@ def get_experiment(path: str, save_name: str, api: Api):
 )
 @click.option(
     "--page_size",
-    "--page-size",
     "-s",
     default="20",
     type=PAGE_SIZE_TYPE,
@@ -57,7 +55,6 @@ def get_experiment(path: str, save_name: str, api: Api):
 )
 @click.option(
     "--project_path",
-    "--project-path",
     "-p",
     required=True,
     type=str,
@@ -87,7 +84,6 @@ def list_experiments(page_num: int, page_size: str, project_path: str, fetch_all
 @click.argument("path", required=True)
 @click.option(
     "--page_num",
-    "--page-num",
     "-n",
     default=1,
     type=click.IntRange(min=1),
@@ -95,7 +91,6 @@ def list_experiments(page_num: int, page_size: str, project_path: str, fetch_all
 )
 @click.option(
     "--page_size",
-    "--page-size",
     "-s",
     default="20",
     type=PAGE_SIZE_TYPE,

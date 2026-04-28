@@ -17,9 +17,9 @@ from .column import Column, Columns
 from .experiment import Experiment, Experiments
 from .project import Project, Projects
 from .selfhosted import SelfHosted
-from .typings.common import ApiColumnClassLiteral, ApiColumnDataTypeLiteral, PaginatedQuery
+from .typings.common import ApiColumnClassLiteral, ApiColumnDataTypeLiteral, ApiVisibilityLiteral, PaginatedQuery
 from .user import User
-from .utils import validate_api_path, validate_non_empty_string
+from .utils import validate_api_path, validate_non_empty_string, validate_project_name, validate_visibility
 from .workspace import Workspace, Workspaces
 
 
@@ -170,6 +170,28 @@ class Api(BaseEntity):
         validate_api_path(path, segments=1, label="workspace")
         query = PaginatedQuery(page=page, size=size, search=search, sort=sort, all=all)
         return Projects(self._ctx, path=path, query=query, detail=detail)
+
+    def create_project(
+        self,
+        username: Optional[str] = None,
+        name: str = "",
+        *,
+        visibility: ApiVisibilityLiteral = "PRIVATE",
+        description: Optional[str] = None,
+    ) -> Optional[Project]:
+        """
+        在指定工作空间下创建项目。
+
+        :param username: 工作空间用户名，为 None 时使用当前登录用户
+        :param name: 项目名称 (1-100 字符，仅支持 0-9a-zA-Z-_.+)
+        :param visibility: 可见性，PUBLIC 或 PRIVATE，默认 PRIVATE
+        :param description: 项目描述
+        """
+        if username is None:
+            username = self._ctx.username
+        validate_api_path(username, segments=1, label="workspace")
+        ws = Workspace(self._ctx, username=username)
+        return ws.create_project(name, visibility=visibility, description=description)
 
     def run(self, path: str) -> Experiment:
         """

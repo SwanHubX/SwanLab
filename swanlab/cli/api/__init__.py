@@ -10,6 +10,7 @@ import click
 from .experiment import run_cli
 from .project import project_cli
 from .selfhosted import selfhosted_cli
+from .user import user_cli
 from .workspace import workspace_cli
 
 
@@ -23,6 +24,7 @@ api_cli.add_command(project_cli)
 api_cli.add_command(run_cli)
 api_cli.add_command(workspace_cli)
 api_cli.add_command(selfhosted_cli)
+api_cli.add_command(user_cli)
 
 
 __all__ = ["api_cli"]

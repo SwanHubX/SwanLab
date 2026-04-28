@@ -12,7 +12,6 @@ from swanlab.api.typings.common import ApiVisibilityLiteral, PaginatedQuery
 from swanlab.api.typings.project import ApiProjectType
 from swanlab.api.typings.workspace import ApiWorkspaceLiteral, ApiWorkspaceProfileType, ApiWorkspaceType
 from swanlab.api.utils import get_properties, strip_dict, validate_project_name, validate_visibility
-from swanlab.sdk.internal.pkg import safe
 
 if TYPE_CHECKING:
     from swanlab.api.project import Project
@@ -99,20 +98,18 @@ class Workspace(BaseEntity):
         """
         from swanlab.api.project import Project
 
-        with safe.block(message=None):
-            validate_project_name(name)
-            validate_visibility(visibility)
+        validate_project_name(name)
+        validate_visibility(visibility)
 
-            body: Dict[str, Any] = {"name": name, "visibility": visibility, "username": self.username}
-            if description:
-                body["description"] = description
-            resp = self._post("/project", data=body)
-            if not resp.ok:
-                return None
-            data = resp.data
-            path = data.get("path", "")
-            return Project(self._ctx, path=path, data=cast(ApiProjectType, data))
-        return None
+        body: Dict[str, Any] = {"name": name, "visibility": visibility, "username": self.username}
+        if description is not None:
+            body["description"] = description
+        resp = self._post("/project", data=body)
+        if not resp.ok:
+            return None
+        data = resp.data
+        path = data.get("path", "")
+        return Project(self._ctx, path=path, data=cast(ApiProjectType, data))
 
     def json(self) -> Dict[str, Any]:
         return get_properties(self)

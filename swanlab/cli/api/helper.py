@@ -13,6 +13,7 @@ from swanlab.api.typings.common import (
     ApiColumnClassLiteral,
     ApiColumnDataTypeLiteral,
     ApiResponseType,
+    ApiVisibilityLiteral,
 )
 
 
@@ -23,6 +24,7 @@ class _SaveFormatEnum(enum.Enum):
 PAGE_SIZE_TYPE = click.Choice([str(s) for s in _VALID_PAGE_SIZES])
 COLUMN_CLASS_TYPE = click.Choice(list(get_args(ApiColumnClassLiteral)), case_sensitive=False)
 COLUMN_DATA_TYPE = click.Choice(list(get_args(ApiColumnDataTypeLiteral)), case_sensitive=False)
+VISIBILITY_TYPE = click.Choice(list(get_args(ApiVisibilityLiteral)), case_sensitive=False)
 
 
 def with_custom_host(func: Callable) -> Callable:
