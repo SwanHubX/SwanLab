@@ -12,6 +12,7 @@ from swanlab.api.typings.common import (
     _VALID_PAGE_SIZES,
     ApiColumnClassLiteral,
     ApiColumnDataTypeLiteral,
+    ApiMetricLogLevelLiteral,
     ApiResponseType,
     ApiVisibilityLiteral,
 )
@@ -25,6 +26,7 @@ PAGE_SIZE_TYPE = click.Choice([str(s) for s in _VALID_PAGE_SIZES])
 COLUMN_CLASS_TYPE = click.Choice(list(get_args(ApiColumnClassLiteral)), case_sensitive=False)
 COLUMN_DATA_TYPE = click.Choice(list(get_args(ApiColumnDataTypeLiteral)), case_sensitive=False)
 VISIBILITY_TYPE = click.Choice(list(get_args(ApiVisibilityLiteral)), case_sensitive=False)
+METRIC_LOG_LEVEL_TYPE = click.Choice(list(get_args(ApiMetricLogLevelLiteral)), case_sensitive=False)
 
 
 def with_custom_host(func: Callable) -> Callable:
@@ -81,3 +83,11 @@ def save_output(content: bytes, name: Optional[str] = None, fmt: _SaveFormatEnum
     with open(filename, "wb") as f:
         f.write(content)
     click.echo(f"Saved to {filename}")
+
+
+def parse_keys(keys: str) -> list[str]:
+    """Parse comma-separated keys string into a list, raising click.BadParameter on empty result."""
+    key_list = [k.strip() for k in keys.split(",") if k.strip()]
+    if not key_list:
+        raise click.BadParameter("No valid keys provided. Expected comma-separated keys, e.g. 'loss,acc'.")
+    return key_list

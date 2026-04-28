@@ -6,8 +6,10 @@ from swanlab.api.typings.common import ApiResponseType
 from swanlab.cli.api.helper import (
     COLUMN_CLASS_TYPE,
     COLUMN_DATA_TYPE,
+    METRIC_LOG_LEVEL_TYPE,
     PAGE_SIZE_TYPE,
     format_output,
+    parse_keys,
     save_output,
     with_custom_host,
 )
@@ -143,5 +145,145 @@ def list_experiment_columns(
         ),
     )
     payload = format_output(resp)
+    if payload["ok"] and save_name is not None:
+        save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
+
+
+@run_cli.command("metrics")
+@click.argument("path", required=True)
+@click.option(
+    "--keys",
+    required=True,
+    type=str,
+    help="Comma-separated metric keys, e.g. 'loss,acc'.",
+)
+@click.option(
+    "--sample",
+    "-s",
+    default=1500,
+    type=click.IntRange(min=1),
+    help="Sample size for scalar metrics. Default 1500.",
+)
+@click.option(
+    "--ignore-timestamp",
+    "ignore_timestamp",
+    is_flag=True,
+    default=False,
+    help="Remove timestamp from metric data.",
+)
+@click.option("--all", "fetch_all", is_flag=True, default=False, help="Fetch all data (CSV export for scalars).")
+@click.option(
+    "--save",
+    "save_name",
+    is_flag=False,
+    flag_value=".",
+    default=None,
+    help="Save output as JSON to current directory.",
+)
+@with_custom_host
+def get_experiment_metrics(
+    path: str,
+    keys: str,
+    sample: int,
+    ignore_timestamp: bool,
+    fetch_all: bool,
+    save_name: str,
+    api: Api,
+):
+    """Get scalar metrics of an experiment by path (username/project/run_id)."""
+    key_list = parse_keys(keys)
+    experiment = api.run(path)
+    data = experiment.metrics(keys=key_list, sample=sample, ignore_timestamp=ignore_timestamp, all=fetch_all)
+    payload = format_output(ApiResponseType(ok=True, data=data))
+    if payload["ok"] and save_name is not None:
+        save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
+
+
+@run_cli.command("medias")
+@click.argument("path", required=True)
+@click.option(
+    "--keys",
+    required=True,
+    type=str,
+    help="Comma-separated media keys, e.g. 'image,audio'.",
+)
+@click.option(
+    "--step",
+    "-s",
+    default=0,
+    type=int,
+    help="Step number for media data. Default 0.",
+)
+@click.option("--all", "fetch_all", is_flag=True, default=False, help="Fetch all media steps.")
+@click.option(
+    "--save",
+    "save_name",
+    is_flag=False,
+    flag_value=".",
+    default=None,
+    help="Save output as JSON to current directory.",
+)
+@with_custom_host
+def get_experiment_medias(
+    path: str,
+    keys: str,
+    step: int,
+    fetch_all: bool,
+    save_name: str,
+    api: Api,
+):
+    """Get media metrics of an experiment by path (username/project/run_id)."""
+    key_list = parse_keys(keys)
+    experiment = api.run(path)
+    data = experiment.medias(keys=key_list, step=step, all=fetch_all)
+    payload = format_output(ApiResponseType(ok=True, data=data))
+    if payload["ok"] and save_name is not None:
+        save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
+
+
+@run_cli.command("logs")
+@click.argument("path", required=True)
+@click.option(
+    "--offset",
+    "-o",
+    default=0,
+    type=int,
+    help="Log offset (shard index). Default 0.",
+)
+@click.option(
+    "--level",
+    "-l",
+    default="INFO",
+    type=METRIC_LOG_LEVEL_TYPE,
+    help="Log level: DEBUG, INFO, WARN, ERROR. Default INFO.",
+)
+@click.option(
+    "--ignore-timestamp",
+    "ignore_timestamp",
+    is_flag=True,
+    default=False,
+    help="Remove timestamp from log data.",
+)
+@click.option(
+    "--save",
+    "save_name",
+    is_flag=False,
+    flag_value=".",
+    default=None,
+    help="Save output as JSON to current directory.",
+)
+@with_custom_host
+def get_experiment_logs(
+    path: str,
+    offset: int,
+    level: str,
+    ignore_timestamp: bool,
+    save_name: str,
+    api: Api,
+):
+    """Get console logs of an experiment by path (username/project/run_id)."""
+    experiment = api.run(path)
+    data = experiment.logs(offset=offset, level=level.upper(), ignore_timestamp=ignore_timestamp)  # type: ignore
+    payload = format_output(ApiResponseType(ok=True, data=data))
     if payload["ok"] and save_name is not None:
         save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
