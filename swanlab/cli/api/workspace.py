@@ -1,7 +1,8 @@
 import click
 import orjson
 
-from swanlab.cli.api.helper import format_output, save_output, with_custom_host
+from swanlab.api import Api
+from swanlab.cli.api.helper import format_output, save_output
 
 
 @click.group("workspace")
@@ -21,9 +22,9 @@ def workspace_cli():
     default=None,
     help="Save output as JSON to current directory.",
 )
-@with_custom_host
-def get_workspace(username: str, name, api):
+def get_workspace(username: str, name):
     """Get Workspace info."""
+    api = Api()
     resp = api.workspace(username).wrapper()
     format_output(resp)
     if resp.ok and name is not None:
