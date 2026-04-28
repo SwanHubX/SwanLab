@@ -7,7 +7,7 @@
 
 import click
 
-from .experiment import experiment_cli
+from .experiment import run_cli
 from .project import project_cli
 from .selfhosted import selfhosted_cli
 from .workspace import workspace_cli
@@ -20,7 +20,7 @@ def api_cli():
 
 
 api_cli.add_command(project_cli)
-api_cli.add_command(experiment_cli)
+api_cli.add_command(run_cli)
 api_cli.add_command(workspace_cli)
 api_cli.add_command(selfhosted_cli)
 

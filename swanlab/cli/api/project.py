@@ -67,7 +67,9 @@ def get_project(path: str, name, api):
 def list_projects(page_num: int, page_size: str, workspace: str, fetch_all: bool, name, api):
     """List projects under a workspace."""
     workspace = workspace or api.username
-    resp = ApiResponseType(ok=True, data=api.projects(path=workspace, page=page_num, size=int(page_size), all=fetch_all))
+    resp = ApiResponseType(
+        ok=True, data=api.projects(path=workspace, page=page_num, size=int(page_size), all=fetch_all)
+    )
     payload = format_output(resp)
     if payload["ok"] and name is not None:
         save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=name)

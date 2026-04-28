@@ -12,13 +12,13 @@ from swanlab.cli.api.helper import (
 )
 
 
-@click.group("experiment")
-def experiment_cli():
+@click.group("run")
+def run_cli():
     """Experiment(Run) management commands."""
     pass
 
 
-@experiment_cli.command("info")
+@run_cli.command("info")
 @click.argument("path", required=True)
 @click.option(
     "--save",
@@ -38,7 +38,7 @@ def get_experiment(path: str, name, api):
         save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=name)
 
 
-@experiment_cli.command("list")
+@run_cli.command("list")
 @click.option(
     "--page_num",
     "--page-num",
@@ -75,13 +75,15 @@ def get_experiment(path: str, name, api):
 @with_custom_host
 def list_experiments(page_num: int, page_size: str, project_path: str, fetch_all: bool, name, api):
     """List experiments under a project."""
-    resp = ApiResponseType(ok=True, data=api.runs_get(path=project_path, page=page_num, size=int(page_size), all=fetch_all))
+    resp = ApiResponseType(
+        ok=True, data=api.runs_get(path=project_path, page=page_num, size=int(page_size), all=fetch_all)
+    )
     payload = format_output(resp)
     if payload["ok"] and name is not None:
         save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=name)
 
 
-@experiment_cli.command("columns")
+@run_cli.command("columns")
 @click.argument("path", required=True)
 @click.option(
     "--page_num",

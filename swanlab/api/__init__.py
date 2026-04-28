@@ -47,13 +47,12 @@ class Api(BaseEntity):
         self,
         api_key: Optional[str] = None,
         host: Optional[str] = None,
-        web_host: Optional[str] = None,
     ) -> None:
         """
         初始化 Api 实例。
 
         认证优先级：
-        1. 显式参数 (api_key / host / web_host)
+        1. 显式参数 (api_key / host)
         2. scope 登录态（进程内已调用 swanlab.login 时可用）
         3. Settings（含 .netrc / 环境变量）
 
@@ -61,11 +60,10 @@ class Api(BaseEntity):
 
         :param api_key: API 密钥，为 None 时从 Settings / .netrc / 环境变量读取
         :param host: API 主机地址，为 None 时从 Settings 读取
-        :param web_host: Web 面板地址，为 None 时从 Settings 读取
         """
         # 优先从 scope 获取已有登录态（如进程内已调用 swanlab.login），直接复用凭证
         login_resp = scope.get_context("login_resp")
-        api_key, api_host, web_host = self._resolve_credentials(api_key, host, web_host)
+        api_key, api_host, web_host = self._resolve_credentials(api_key, host)
         _client = Client(api_key=str(api_key), base_url=api_host)
 
         if login_resp is None:
@@ -91,7 +89,6 @@ class Api(BaseEntity):
     def _resolve_credentials(
         api_key: Optional[str],
         host: Optional[str],
-        web_host: Optional[str],
     ) -> tuple[str, str, str]:
         """
         按优先级解析凭证：显式参数 > scope 登录态 > Settings（含 .netrc / 环境变量）。
@@ -103,10 +100,14 @@ class Api(BaseEntity):
             raise AuthenticationError("No API key found. Please login with `swanlab login` or pass api_key parameter.")
         api_key = api_key.strip()
 
-        api_host: str = nrc.fmt(host) if host is not None else global_settings.api_host
-        resolved_web_host: str = nrc.fmt(web_host) if web_host is not None else global_settings.web_host
+        if host is not None:
+            api_host: str = nrc.fmt(host)
+            web_host: str = api_host
+        else:
+            api_host = global_settings.api_host
+            web_host = global_settings.web_host
 
-        return api_key, api_host, resolved_web_host
+        return api_key, api_host, web_host
 
     # ------------------------------------------------------------------
     #  实体工厂方法
