@@ -82,6 +82,11 @@ class Api(BaseEntity):
         """Api 非数据实体，返回空字典。"""
         return {}
 
+    @property
+    def username(self) -> str:
+        """当前认证用户的 username。"""
+        return self._ctx.username
+
     @staticmethod
     def _resolve_credentials(
         api_key: Optional[str],

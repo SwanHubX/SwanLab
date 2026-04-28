@@ -66,7 +66,7 @@ def get_project(path: str, name, api):
 @with_custom_host
 def list_projects(page_num: int, page_size: str, workspace: str, fetch_all: bool, name, api):
     """List projects under a workspace."""
-    workspace = workspace or getattr(api, "_ctx").username
+    workspace = workspace or api.username
     resp = ApiResponseType(ok=True, data=api.projects(path=workspace, page=page_num, size=int(page_size), all=fetch_all))
     payload = format_output(resp)
     if payload["ok"] and name is not None:
