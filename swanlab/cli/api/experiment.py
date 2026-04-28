@@ -1,7 +1,8 @@
 import click
 import orjson
 
-from swanlab.cli.api.helper import format_output, save_output, with_custom_host
+from swanlab.api import Api
+from swanlab.cli.api.helper import format_output, save_output
 
 
 @click.group("run")
@@ -21,9 +22,9 @@ def experiment_cli():
     default=None,
     help="Save output as JSON to current directory.",
 )
-@with_custom_host
-def get_experiment(path: str, name, api):
+def get_experiment(path: str, name):
     """Get Experiment(Run) info by path (username/project/run_id)."""
+    api = Api()
     resp = api.run(path).wrapper()
     format_output(resp)
     if resp.ok and name is not None:
