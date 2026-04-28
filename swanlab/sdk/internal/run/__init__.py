@@ -531,6 +531,8 @@ class Run:
         :param x_axis: Optional x-axis type for the column.
         :param chart_name: Optional chart name to group the column into.
         """
+        raise NotImplementedError("run.define_scalar() is not available yet. Support is planned for a future release.")
+
         # TODO: 实现 glob 匹配逻辑
         if not (this_key := fmt.safe_validate_key(key)):
             return console.error(
