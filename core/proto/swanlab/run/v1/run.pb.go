@@ -262,6 +262,7 @@ type StartResponse struct {
 	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"` // 请求是否成功
 	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`  // 请求失败的响应
 	Run           *StartRecord           `protobuf:"bytes,3,opt,name=run,proto3" json:"run,omitempty"`          // 最终创建的 Run 记录
+	Path          string                 `protobuf:"bytes,4,opt,name=path,proto3" json:"path,omitempty"`        // 对应的实验路径，格式为 /@:username/:project_name/runs/:slug(run_id)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -315,6 +316,13 @@ func (x *StartResponse) GetRun() *StartRecord {
 		return x.Run
 	}
 	return nil
+}
+
+func (x *StartResponse) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
 }
 
 // Run 结束记录，对应 swanlab.finish() 或进程退出，由sdk前端生成并同步交给后端
@@ -451,11 +459,12 @@ const file_swanlab_run_v1_run_proto_rawDesc = "" +
 	" \x01(\tR\x02id\x122\n" +
 	"\x06resume\x18\v \x01(\x0e2\x1a.swanlab.run.v1.ResumeModeR\x06resume\x129\n" +
 	"\n" +
-	"started_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\tstartedAt\"r\n" +
+	"started_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\tstartedAt\"\x86\x01\n" +
 	"\rStartResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x12-\n" +
-	"\x03run\x18\x03 \x01(\v2\x1b.swanlab.run.v1.StartRecordR\x03run\"\x91\x01\n" +
+	"\x03run\x18\x03 \x01(\v2\x1b.swanlab.run.v1.StartRecordR\x03run\x12\x12\n" +
+	"\x04path\x18\x04 \x01(\tR\x04path\"\x91\x01\n" +
 	"\fFinishRecord\x12.\n" +
 	"\x05state\x18\x01 \x01(\x0e2\x18.swanlab.run.v1.RunStateR\x05state\x12\x14\n" +
 	"\x05error\x18\x02 \x01(\tR\x05error\x12;\n" +

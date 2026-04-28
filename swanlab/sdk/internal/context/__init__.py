@@ -36,7 +36,7 @@ __all__ = [
 
 
 # 运行配置，包含当前运行上下文的必要状态
-@dataclass(frozen=True)
+@dataclass(frozen=False)
 class RunConfig:
     run_dir: Path
     settings: Settings
@@ -92,7 +92,7 @@ class RunContext:
         return self.config.run_dir / f"run-{run_id}.swanlab"
 
 
-# ContextVar 现在只存这个轻量级的数据宿主
+# 运行上下文
 _current_ctx: ContextVar[Optional[RunContext]] = ContextVar("swanlab_run_ctx", default=None)
 
 

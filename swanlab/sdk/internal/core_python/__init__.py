@@ -163,7 +163,12 @@ class CorePython(CoreProtocol):
         start_record.resume = record.resume
         start_record.project = project
         start_record.workspace = username
-        return StartResponse(success=True, message="OK", run=start_record)
+        # 5. 获取path，/:username/:project_name/:run_id
+        run_id = experiment.get("slug", "") or experiment["cuid"]
+        # /:username/:project_name
+        project_path = project_info["path"]
+        path = f"{project_path}/{run_id}"
+        return StartResponse(success=True, message="OK", run=start_record, path=path)
 
     # ---------------------------------- 数据上报 ----------------------------------
 

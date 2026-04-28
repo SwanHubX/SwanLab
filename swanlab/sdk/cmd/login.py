@@ -93,7 +93,6 @@ def login_raw(
     host: Optional[str] = None,
     save: LoginType = False,
     timeout: int = 10,
-    wellcome_on_success: bool = True,
     animation: bool = True,
 ) -> bool:
     # 1. 判断是否允许重新登录
@@ -132,8 +131,7 @@ def login_raw(
         f = utils.with_loading_animation("Waiting for response...")(create_client) if animation else create_client
         f(api_key=api_key, api_host=api_host, timeout=timeout)
         login_resp: Optional[LoginResponse] = s.get("login_resp", None)
-        if wellcome_on_success:
-            wellcome(login_resp)
+        wellcome(api_host, login_resp)
         if save:
             nrc_path = nrc.path(Path.cwd() / ROOT_FOLDER) if save == "local" else nrc.path(global_settings.root)
             nrc.write(nrc_path, api_host=api_host, web_host=login_settings.web_host, api_key=api_key)
@@ -189,7 +187,7 @@ def login_cli(
             with scope.Scope() as s:
                 client.new(api_key, base_url, timeout=timeout)
                 login_resp: Optional[LoginResponse] = s.get("login_resp", None)
-            wellcome(login_resp)
+            wellcome(base_url, login_resp)
             write_gitignore = save == "local" and not nrc_path.exists()
             if write_gitignore:
                 if not nrc_path.parent.exists():
@@ -269,12 +267,22 @@ def prompt_api_key(
             sys.exit(0)
 
 
-def wellcome(login_resp: Optional[LoginResponse]):
+def wellcome(base_url: str, login_resp: Optional[LoginResponse]):
     """
     登录成功后打印欢迎信息
+    :param base_url: 登录地址
     :param login_resp: 登录响应对象，包含用户信息等数据
     :return:
     """
     assert login_resp is not None, "Login response is missing"
-    username = login_resp.get("userInfo", {}).get("username", "unknown")
-    console.info("Login successfully. Hi", Text(f"{username}!", "bold"), sep=" ")
+    username = login_resp.get("userInfo", {}).get("username", "")
+    nickname = login_resp.get("userInfo", {}).get("name", "")
+    name = nickname or username
+    if name:
+        console.info(
+            "Currently logged in as:",
+            Text(name, "yellow"),
+            f"to {base_url}. Use",
+            Text("`swanlab login --relogin`", "bold"),
+            "to force relogin",
+        )

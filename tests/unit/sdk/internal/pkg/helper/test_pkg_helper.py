@@ -5,7 +5,9 @@
 @description: SwanLab SDK 辅助函数
 """
 
-from swanlab.sdk.internal.pkg.helper import strip_none
+import pytest
+
+from swanlab.sdk.internal.pkg.helper import fmt_run_path, strip_none
 
 
 class TestStripNone:
@@ -60,3 +62,24 @@ class TestStripNone:
         """测试 strip_empty_dict=False 时，即使嵌套字典变空也保留"""
         data = {"outer": {"a": None}, "c": 1}
         assert strip_none(data, strip_empty_dict=False) == {"outer": {}, "c": 1}
+
+
+class TestFmtRunPath:
+    """测试 fmt_run_path 函数"""
+
+    @pytest.mark.parametrize(
+        "path,expected",
+        [
+            ("/cunyue/demo/run1", "/@cunyue/demo/runs/run1"),
+            ("cunyue/demo/run1", "/@cunyue/demo/runs/run1"),
+            ("/@cunyue/demo/run1", "/@cunyue/demo/runs/run1"),
+            ("@cunyue/demo/run1", "/@cunyue/demo/runs/run1"),
+        ],
+    )
+    def test_normalizes_to_at_username(self, path, expected):
+        assert fmt_run_path(path) == expected
+
+    @pytest.mark.parametrize("path", ["only-one-part", "two-parts", "", "/", "/cunyue"])
+    def test_invalid_path_raises(self, path):
+        with pytest.raises(ValueError, match="Invalid run path"):
+            fmt_run_path(path)

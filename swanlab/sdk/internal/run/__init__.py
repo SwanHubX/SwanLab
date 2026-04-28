@@ -24,7 +24,8 @@ from google.protobuf.timestamp_pb2 import Timestamp
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord
 from swanlab.sdk.internal.bus import MetricLogEvent, ScalarDefineEvent
 from swanlab.sdk.internal.context import RunContext
-from swanlab.sdk.internal.pkg import adapter, console, fork, safe
+from swanlab.sdk.internal.pkg import adapter, console, fork, helper, safe
+from swanlab.sdk.internal.run import greeting
 from swanlab.sdk.internal.run.components import Components
 from swanlab.sdk.internal.run.components.config import Config
 from swanlab.sdk.internal.run.transforms import Audio, Image, Text, Video, normalize_media_input
@@ -101,9 +102,11 @@ class Run:
         >>> swanlab.finish()
     """
 
-    def __init__(self, ctx: RunContext):
+    def __init__(self, ctx: RunContext, path: Optional[str] = None):
         # 1. 基础状态、组件准备
         self._ctx = ctx
+        # 运行实验路径，/:username/:project_name/:run_id
+        self._path = path
         self._state: Union[FinishType, Literal["running"]] = "running"
         self._init_pid = fork.current_pid()
         # 外部API锁，防止并发调用
@@ -133,6 +136,7 @@ class Run:
         self._components.start()
         self._probe.start()
         console.init(bind_to=self._ctx.debug_dir if self.mode != "disabled" else None)
+        greeting.welcome(self._ctx, self)
 
     # ----------------------------------
     # 私有钩子
@@ -228,23 +232,30 @@ class Run:
     @cached_property
     def path(self) -> str:
         """
-        Current run path in the format of /:project/:run_id.
+        Current run path in the format of /:username/:project_name/:run_id.
 
         :return: Run path
         """
-        settings = self._ctx.config.settings
-        return f"/{settings.project.name}/runs/{settings.run.id}"
+        if not self._path:
+            raise ValueError(
+                "Run path is unavailable because the current run is not using SwanLab cloud mode. "
+                "Please initialize SwanLab with cloud mode to access the run path."
+            )
+        return self._path
 
     @cached_property
-    def url(self) -> Optional[str]:
+    def url(self) -> str:
         """
         Current run URL if in cloud mode, otherwise None.
         :return: Run URL or None
         """
+        if not self._path:
+            raise ValueError(
+                "Run url is unavailable because the current run is not using SwanLab cloud mode. "
+                "Please initialize SwanLab with cloud mode to access the run path."
+            )
         settings = self._ctx.config.settings
-        if settings.mode != "cloud":
-            return None
-        return f"{settings.web_host}/@{settings.project.workspace}{self.path}"
+        return f"{settings.web_host}{helper.fmt_run_path(self._path)}"
 
     @cached_property
     def config(self) -> Config:
@@ -577,6 +588,7 @@ class Run:
         if state == "crashed" and error is None:
             console.warning("Crashed reason has been set to 'unknown' due to missing error message.")
             error = "unknown"
+        greeting.goodbye(self._ctx, self)
         # 2. 运行结束，清理组件
         self._state = this_state
         # 停止所有内部组件（async_log → terminal → config → consumer）

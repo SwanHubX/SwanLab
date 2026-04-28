@@ -5,9 +5,11 @@
 @description: SwanLab 运行时实验API类型
 """
 
-from typing import TypedDict
+from typing import Optional, TypedDict
 
 
 class InitExperimentType(TypedDict):
     # 实验cuid
     cuid: str
+    # 实验slug(run id)
+    slug: Optional[str]

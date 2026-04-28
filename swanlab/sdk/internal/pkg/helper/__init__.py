@@ -5,6 +5,8 @@
 @description: SwanLab SDK 辅助函数
 """
 
+from pathlib import PurePosixPath
+
 from .env import DEBUG, is_interactive, is_jupyter
 from .version import get_swanlab_latest_version, get_swanlab_version
 
@@ -13,6 +15,7 @@ __all__ = [
     "is_jupyter",
     "is_interactive",
     "strip_none",
+    "fmt_run_path",
     "get_swanlab_version",
     "get_swanlab_latest_version",
 ]
@@ -39,3 +42,24 @@ def strip_none(data: dict, strip_empty_dict: bool = True, strip_empty_str: bool 
             clean_data[k] = v
 
     return clean_data
+
+
+def fmt_run_path(run_path: str) -> str:
+    """
+    格式化运行路径为 /@:username/:project_name/runs/:run_id，适配前端路由设计
+    传入路径格式为 /:username/:project_name/:run_id
+    后端返回可能是：/cunyue/demo/abc123，cunyue/demo/abc123，/@cunyue/demo/abc123，@cunyue/demo/abc123
+    """
+    parts = PurePosixPath(run_path).parts
+
+    # 去掉根路径 "/"
+    parts = tuple(p for p in parts if p != "/")
+    if len(parts) < 3:
+        raise ValueError(f"Invalid run path: {run_path!r}")
+
+    username, project_name, run_id = parts[0], parts[1], parts[2]
+
+    if not username.startswith("@"):
+        username = f"@{username}"
+
+    return PurePosixPath("/", username, project_name, "runs", run_id).as_posix()

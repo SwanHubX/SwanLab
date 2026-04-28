@@ -20,7 +20,7 @@ from . import log
 
 __all__ = ["debug", "info", "warning", "error", "trace", "c", "init", "reset"]
 
-c = Console()
+c = Console(highlighter=None)
 _name = "swanlab"
 _this_file = os.path.abspath(__file__)
 

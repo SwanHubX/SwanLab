@@ -236,9 +236,9 @@ def init(
     generate_ctx = _init
     if run_settings.mode == "cloud":
         generate_ctx = utils.with_loading_animation()(_init)
-    ctx = generate_ctx(run_settings)
+    ctx, path = generate_ctx(run_settings)
     # 初始化run
-    run = Run(ctx)
+    run = Run(ctx, path)
     # 发送webhook回调，在除了disabled模式外，都会触发
     success = send_webhook(ctx)
     if not success:
@@ -443,12 +443,14 @@ def _generate_run_dir_name(run_id: str) -> str:
     return "run-" + datetime.now().strftime("%Y%m%d_%H%M%S") + "-" + run_id
 
 
-def _init(run_settings: Settings) -> RunContext:
+def _init(run_settings: Settings) -> Tuple[RunContext, Optional[str]]:
     """
     初始化运行时配置，在这之前，所有引导式交互都已经完成
     上下文生命周期通过 `Run` 管理，而非全局 `ContextVar`
     """
     mode = run_settings.mode
+    # 实验路径，/:username/:project_name/:slug(run_id)，与open api命名一致
+    path = None
     # 1. 生成run_id
     if not run_settings.run.id:
         run_settings.merge_settings({"run": {"id": generate_id()}})
@@ -504,6 +506,9 @@ def _init(run_settings: Settings) -> RunContext:
         )
         if not resp.success:
             raise RuntimeError(resp.message)
+        path = resp.path or path
+        if mode == "cloud":
+            assert path, "Initialization path failed when mode=cloud"
         # 4. 从 core 响应同步配置（cloud 模式会覆盖为服务端分配的值）
         sync_args = {}
         merge_dict = helper.strip_none(
@@ -521,7 +526,7 @@ def _init(run_settings: Settings) -> RunContext:
     # 4. 创建运行目录
     if mode != "disabled":
         fs.safe_mkdirs(ctx.media_dir, ctx.files_dir, ctx.debug_dir)
-    return ctx
+    return ctx, path
 
 
 def _ensure_cloud_client(run_settings: Settings):
@@ -532,11 +537,5 @@ def _ensure_cloud_client(run_settings: Settings):
     if not client.exists():
         assert run_settings.api_key, "API key is required."
         assert run_settings.api_host, "API host is required."
-        login_raw(
-            api_key=run_settings.api_key,
-            host=run_settings.api_host,
-            save=False,
-            animation=False,
-            wellcome_on_success=False,
-        )
+        login_raw(api_key=run_settings.api_key, host=run_settings.api_host, save=False, animation=False)
     assert client.exists(), "No client found, please login first."

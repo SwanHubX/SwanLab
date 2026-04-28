@@ -27,6 +27,7 @@ message StartResponse {
   bool success    = 1;  // 请求是否成功
   string message  = 2;  // 请求失败的响应
   StartRecord run = 3;  // 最终创建的 Run 记录
+  string path     = 4;  // 对应的实验路径，格式为 /:username/:project_name/:slug(run_id)
 }
 
 
