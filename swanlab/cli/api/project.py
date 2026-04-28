@@ -1,8 +1,7 @@
 import click
 import orjson
 
-from swanlab.api import Api
-from swanlab.cli.api.helper import format_output, save_output
+from swanlab.cli.api.helper import format_output, save_output, with_custom_host
 
 
 @click.group("project")
@@ -22,9 +21,9 @@ def project_cli():
     default=None,
     help="Save output as JSON to current directory.",
 )
-def get_project(path: str, name):
+@with_custom_host
+def get_project(path: str, name, api):
     """Get project info by path (username/project)."""
-    api = Api()
     resp = api.project(path).wrapper()
     format_output(resp)
     if resp.ok and name is not None:
