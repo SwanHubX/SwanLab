@@ -59,16 +59,18 @@ class StartRecord(_message.Message):
     def __init__(self, project: _Optional[str] = ..., workspace: _Optional[str] = ..., public: bool = ..., name: _Optional[str] = ..., description: _Optional[str] = ..., tags: _Optional[_Iterable[str]] = ..., group: _Optional[str] = ..., job_type: _Optional[str] = ..., color: _Optional[str] = ..., id: _Optional[str] = ..., resume: _Optional[_Union[ResumeMode, str]] = ..., started_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
 
 class StartResponse(_message.Message):
-    __slots__ = ("success", "message", "run", "path")
+    __slots__ = ("success", "message", "run", "path", "name")
     SUCCESS_FIELD_NUMBER: _ClassVar[int]
     MESSAGE_FIELD_NUMBER: _ClassVar[int]
     RUN_FIELD_NUMBER: _ClassVar[int]
     PATH_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
     success: bool
     message: str
     run: StartRecord
     path: str
-    def __init__(self, success: bool = ..., message: _Optional[str] = ..., run: _Optional[_Union[StartRecord, _Mapping]] = ..., path: _Optional[str] = ...) -> None: ...
+    name: str
+    def __init__(self, success: bool = ..., message: _Optional[str] = ..., run: _Optional[_Union[StartRecord, _Mapping]] = ..., path: _Optional[str] = ..., name: _Optional[str] = ...) -> None: ...
 
 class FinishRecord(_message.Message):
     __slots__ = ("state", "error", "finished_at")
