@@ -80,13 +80,6 @@ class Transport:
     def finish(self) -> None:
         """
         通知线程停止，等待最终排空，由线程自行关闭 sender。
-
-        设计要点：
-        - _loop 的 finally 块负责 _close_sender()，保证线程退出前 sender 可用。
-        - finish() 仅设置 _finished flag 并 join，不在 join 后关闭 sender，
-          避免线程仍在 dispatch 时 sender 被 use-after-close。
-        - join timeout 设为 30s 以覆盖弱网下多 chunk 重试场景；
-          超时后线程仍为 daemon 线程会随进程退出，不会泄漏。
         """
         if self._finished:
             return
