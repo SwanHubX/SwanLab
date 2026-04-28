@@ -53,7 +53,8 @@ def fmt_run_path(run_path: str) -> str:
     parts = PurePosixPath(run_path).parts
 
     # 去掉根路径 "/"
-    parts = tuple(p for p in parts if p != "/")
+    parts = parts[1:] if parts and parts[0] == "/" else parts
+
     if len(parts) < 3:
         raise ValueError(f"Invalid run path: {run_path!r}")
 
