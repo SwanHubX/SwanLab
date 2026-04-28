@@ -132,7 +132,7 @@ class Run:
         signal.signal(signal.SIGINT, self._handle_sigint)
 
         # 3. 启动组件 + 初始化日志
-        self._callbacker.on_run_initialized(self._ctx.run_dir, self.path)
+        self._callbacker.on_run_initialized(self._ctx.run_dir, path)
         self._components.start()
         self._probe.start()
         console.init(bind_to=self._ctx.debug_dir if self.mode != "disabled" else None)

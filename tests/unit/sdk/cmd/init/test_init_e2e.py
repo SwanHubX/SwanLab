@@ -843,6 +843,9 @@ class TestInitFactoryDispatch:
     def test_non_disabled_run_emitter_enqueues_events(self):
         """RunEmitter.emit() 将事件放入队列"""
         run = init(mode="local")
+        # 排空 greeting 产生的 ConsoleEvent
+        while not run._components.emitter.queue.empty():
+            run._components.emitter.queue.get_nowait()
         run._components.emitter.emit("test-event")  # type: ignore
         assert not run._components.emitter.queue.empty()
         assert run._components.emitter.queue.get_nowait() == "test-event"
