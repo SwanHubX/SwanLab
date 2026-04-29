@@ -252,7 +252,14 @@ swanlab api run logs PATH [OPTIONS]
 
 ### 5. Self-Hosted
 
-These commands are for SwanLab self-hosted deployments only. Requires root user authentication.
+These commands are only valid for **self-hosted SwanLab instances**. They will fail on the public cloud (`swanlab.cn`).
+
+**Do not use these commands unless the target host is confirmed to be a self-hosted deployment.** This applies when:
+- The user explicitly passes `--host` pointing to a non-`swanlab.cn` address
+- `SWANLAB_API_HOST` or `SWANLAB_WEB_HOST` environment variables point to a non-`swanlab.cn` address
+- The `.netrc` / SwanLab config resolves to a non-`swanlab.cn` host
+
+If the resolved host contains `swanlab.cn`, skip all self-hosted commands regardless of what the user asks.
 
 #### `swanlab api selfhosted info`
 

@@ -185,7 +185,16 @@ Each experiment carries a `profile` object containing metadata about the run:
 
 ## Self-Hosted Instance
 
-SwanLab can be deployed as a self-hosted instance. Self-hosted-specific features:
+SwanLab can be deployed as a self-hosted instance (private deployment). Self-hosted commands are **only valid when the target host is NOT `swanlab.cn`**.
+
+**Host detection rule**: Before using any self-hosted command, check where requests will be sent:
+1. If the user passes `--host` explicitly → use that value.
+2. Otherwise, check `SWANLAB_API_HOST` / `SWANLAB_WEB_HOST` environment variables.
+3. Otherwise, check `.netrc` or SwanLab config (`~/.swanlab`).
+
+If the resolved host contains `swanlab.cn`, self-hosted commands will fail and should not be attempted. Only proceed when the host points to a self-hosted deployment.
+
+Self-hosted-specific features:
 
 | Property | Description |
 |----------|-------------|
