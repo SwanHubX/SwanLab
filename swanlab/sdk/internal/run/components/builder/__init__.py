@@ -92,7 +92,10 @@ class RecordBuilder:
         path = self._ctx.media_dir / adapter.medium[cls.column_type()]
         fs.safe_mkdir(path)
         values = [item.transform(step=step, path=path) for item in value]
-        return cls.build_data_record(key=key, step=step, timestamp=timestamp, data=values), cls
+        media_record = self._ensure_media_size(
+            cls.build_data_record(key=key, step=step, timestamp=timestamp, data=values)
+        )
+        return media_record, cls
 
     @build_log.register(TransformMedia)
     def _(self, value: TransformMedia, key: str, timestamp: Timestamp, step: int) -> ParseResult:
@@ -101,7 +104,10 @@ class RecordBuilder:
         path = self._ctx.media_dir / adapter.medium[cls.column_type()]
         fs.safe_mkdir(path)
         values = [value.transform(step=step, path=path)]
-        return cls.build_data_record(key=key, step=step, timestamp=timestamp, data=values), cls
+        media_record = self._ensure_media_size(
+            cls.build_data_record(key=key, step=step, timestamp=timestamp, data=values)
+        )
+        return media_record, cls
 
     def build_column_from_log(self, cls: Type[TransformData], key: str) -> ColumnRecord:
         """隐式创建列：从 TransformType 推断 ColumnType，并同步 RunMetrics"""
