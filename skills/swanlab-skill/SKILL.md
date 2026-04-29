@@ -31,9 +31,8 @@ Every command accepts these global authentication/override options (applied via 
 
 ## Path Convention
 
-Several commands take a `PATH` argument using the SwanLab entity hierarchy:
+Several commands take a `PATH` argument. See `references/SWANLAB_CONCEPTS.md > Path Convention` for the full format and rules. In short:
 
-- **Workspace**: `username`
 - **Project path**: `username/project_name`
 - **Experiment path**: `username/project_name/run_id`
 
@@ -163,8 +162,8 @@ swanlab api run columns PATH [OPTIONS]
 |--------|-------|---------|-------------|
 | `--page_num` | `-n` | 1 | Page number (>= 1) |
 | `--page_size` | `-s` | 20 | Page size. One of: 10, 12, 15, 20, 24, 27, 50, 100 |
-| `--class` | | CUSTOM | Column class: `CUSTOM` or `SYSTEM` |
-| `--type` | | all | Data type: `FLOAT`, `BOOLEAN`, `STRING`, `IMAGE`, `AUDIO`, `VIDEO`, `OBJECT3D`, `MOLECULE`, `ECHARTS`, `TABLE`, `TEXT` |
+| `--class` | | CUSTOM | Column class: `CUSTOM` or `SYSTEM` (see `references/SWANLAB_CONCEPTS.md > Column Classes`) |
+| `--type` | | all | Data type filter (see `references/SWANLAB_CONCEPTS.md > Column Data Types` for all valid values) |
 | `--all` | | false | Fetch all pages |
 | `--save` | | off | Save output to file |
 
@@ -183,15 +182,15 @@ swanlab api run column PATH --key KEY [OPTIONS]
 | Option | Short | Default | Description |
 |--------|-------|---------|-------------|
 | `--key` | | (required) | Column key name |
-| `--class` | | CUSTOM | `CUSTOM` or `SYSTEM` |
-| `--type` | | all | Data type filter (same values as `run columns`) |
+| `--class` | | CUSTOM | `CUSTOM` or `SYSTEM` (see `references/SWANLAB_CONCEPTS.md > Column Classes`) |
+| `--type` | | all | Data type filter (see `references/SWANLAB_CONCEPTS.md > Column Data Types`) |
 | `--save` | | off | Save output to file |
 
 #### `swanlab api run metrics PATH --keys KEYS`
 
 Get scalar metric data for specified keys.
-Keys is a comma-separated list of column keys, e.g. `loss,acc`. 
-Returns an object mapping each key to its data points (step, value, timestamp). For large datasets, use `--all` to get a CSV download URL instead of inlined data.
+Keys is a comma-separated list of column keys, e.g. `loss,acc`.
+Returns an object mapping each key to its data points (step, value). For large datasets, use `--all` to get a CSV download URL instead of inlined data. See `references/SWANLAB_CONCEPTS.md > Scalar Metrics` for data structure details.
 
 
 ```bash
@@ -212,7 +211,7 @@ swanlab api run metrics PATH --keys KEYS [OPTIONS]
 
 #### `swanlab api run medias PATH --keys KEYS`
 
-Get media data for specified keys.
+Get media data for specified keys. See `references/SWANLAB_CONCEPTS.md > Media Metrics` for the response structure and how presigned URLs work.
 
 ```bash
 swanlab api run medias PATH --keys KEYS [OPTIONS]
@@ -231,7 +230,7 @@ swanlab api run medias PATH --keys KEYS [OPTIONS]
 
 #### `swanlab api run logs PATH`
 
-Get console logs captured during a run.
+Get console logs captured during a run. See `references/SWANLAB_CONCEPTS.md > Console Logs` for shard-based pagination details.
 
 ```bash
 swanlab api run logs PATH [OPTIONS]
@@ -252,14 +251,7 @@ swanlab api run logs PATH [OPTIONS]
 
 ### 5. Self-Hosted
 
-These commands are only valid for **self-hosted SwanLab instances**. They will fail on the public cloud (`swanlab.cn`).
-
-**Do not use these commands unless the target host is confirmed to be a self-hosted deployment.** This applies when:
-- The user explicitly passes `--host` pointing to a non-`swanlab.cn` address
-- `SWANLAB_API_HOST` or `SWANLAB_WEB_HOST` environment variables point to a non-`swanlab.cn` address
-- The `.netrc` / SwanLab config resolves to a non-`swanlab.cn` host
-
-If the resolved host contains `swanlab.cn`, skip all self-hosted commands regardless of what the user asks.
+These commands are only valid for **self-hosted SwanLab instances**. See `references/SWANLAB_CONCEPTS.md > Self-Hosted Instance` for the host detection rule — do not use these commands if the resolved host contains `swanlab.cn`.
 
 #### `swanlab api selfhosted info`
 
@@ -300,9 +292,9 @@ swanlab api selfhosted list-users [OPTIONS]
 
 ## Behavioral Constraints
 
-- **Avoid `--all` unless the user asks for it.** The `--all` flag can fetch large volumes of data and produce verbose output. Only add it when the user explicitly requests fetching everything. For paginated list commands, rely on the default pagination instead.
+- **Never use `--all` unless the user explicitly asks for it.** This flag bypasses pagination and fetches the entire dataset in one go, which puts heavy load on the database. For paginated list commands, always use default pagination (`--page_num` / `--page_size`). Only add `--all` if the user says something like "fetch all", "get everything", or "I want the complete list".
+- **Always ask the user for specific column keys before running `run metrics`, `run medias`, or `run column`.** These commands accept a `--keys` or `--key` parameter. Querying without a specific key forces the server to scan and return data for all columns, which is expensive. If the user doesn't know the key names, first run `run columns PATH` to list available columns, then use the returned keys to make targeted queries. Never guess or fabricate key names — always discover them first.
 - **Always add `--ignore-timestamp` for `run metrics` and `run logs`.** Unless the user specifically asks to keep timestamps, include this flag by default. It produces cleaner, more readable output by removing Unix timestamps from every data point.
 - All output is JSON to stdout. Pipe to `jq` or similar tools for further processing.
 - `--save` without a filename auto-generates `swanlab-YYYYMMDD_HHMMSS-xxxx.json` in the current directory.
-- `run metrics --all` returns a CSV download URL per key instead of inlined data points (useful for large-scale export).
-- If not logged in, supply both `--host` and `--api-key` on every invocation.
+- If not logged in, supply both `--host` and `--api-key` on every invocation. See `references/SWANLAB_CONCEPTS.md > Key Environment Variables` for the full variable list.
