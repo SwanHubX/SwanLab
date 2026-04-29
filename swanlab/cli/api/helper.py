@@ -1,7 +1,8 @@
 import enum
 from datetime import datetime
 from functools import wraps
-from typing import Any, Callable, Dict, Optional, get_args
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional, get_args
 
 import click
 import nanoid
@@ -64,7 +65,10 @@ def with_custom_host(func: Callable) -> Callable:
     return wrapper
 
 
-def format_output(resp: ApiResponseType, fmt: _SaveFormatEnum = _SaveFormatEnum.JSON) -> Dict[str, Any]:
+def format_output(
+    resp: ApiResponseType,
+    fmt: _SaveFormatEnum = _SaveFormatEnum.JSON,
+) -> Dict[str, Any]:
     payload = resp.json()
     if fmt == _SaveFormatEnum.JSON:
         click.echo(orjson.dumps(payload, option=orjson.OPT_INDENT_2).decode())
@@ -91,3 +95,34 @@ def parse_keys(keys: str) -> list[str]:
     if not key_list:
         raise click.BadParameter("No valid keys provided. Expected comma-separated keys, e.g. 'loss,acc'.")
     return key_list
+
+
+def validate_filter_query(query: str) -> List[Dict[str, Any]]:
+    """
+    Parse filter query from a file path or JSON string.
+
+    If *query* points to an existing file, its contents are read and parsed as JSON.
+    Otherwise it is treated as an inline JSON string.
+
+    Returns a list of filter dicts (each must have key/type/op/value).
+    """
+    raw = query.strip()
+    if not raw:
+        raise click.BadParameter("filter_query must not be empty.")
+
+    p = Path(raw)
+    if p.is_file():
+        try:
+            data = orjson.loads(p.read_bytes())
+        except (orjson.JSONDecodeError, OSError) as exc:
+            raise click.BadParameter(f"Failed to read/parse filter file {raw!r}: {exc}")
+    else:
+        try:
+            data = orjson.loads(raw)
+        except orjson.JSONDecodeError as exc:
+            raise click.BadParameter(f"filter_query is neither a valid file path nor valid JSON: {exc}")
+
+    if not isinstance(data, list):
+        raise click.BadParameter(f"filter_query must resolve to a JSON array, got {type(data).__name__}")
+
+    return data

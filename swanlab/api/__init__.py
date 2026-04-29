@@ -206,19 +206,15 @@ class Api(BaseEntity):
         self,
         path: str,
         filters: Optional[List[Dict[str, Any]]] = None,
-        groups: Optional[List[Dict[str, Any]]] = None,
-        sorts: Optional[List[Dict[str, Any]]] = None,
     ) -> Experiments:
         """
         通过条件过滤获取项目下的实验列表。
 
         :param path: 项目路径，格式为 'username/project'
         :param filters: 过滤规则列表，每项为 {key, type, op, value}
-        :param groups: 分组规则列表，每项为 {key, type}
-        :param sorts: 排序规则列表，每项为 {key, type, order}
         """
         validate_api_path(path, segments=2, label="project")
-        return Experiments(self._ctx, path=path, filters=filters, groups=groups, sorts=sorts, mode="post")
+        return Experiments(self._ctx, path=path, filters=filters, mode="post")
 
     def runs_get(
         self,

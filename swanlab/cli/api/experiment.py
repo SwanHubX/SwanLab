@@ -11,6 +11,7 @@ from swanlab.cli.api.helper import (
     format_output,
     parse_keys,
     save_output,
+    validate_filter_query,
     with_custom_host,
 )
 
@@ -77,6 +78,39 @@ def list_experiments(page_num: int, page_size: str, project_path: str, fetch_all
     resp = ApiResponseType(
         ok=True, data=api.runs_get(path=project_path, page=page_num, size=int(page_size), all=fetch_all)
     )
+    payload = format_output(resp)
+    if payload["ok"] and save_name is not None:
+        save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
+
+
+@run_cli.command("filter")
+@click.option(
+    "--project_path",
+    "-p",
+    required=True,
+    type=str,
+    help="Project path (e.g. username/project_name).",
+)
+@click.option(
+    "--filter_query",
+    "-f",
+    required=True,
+    type=str,
+    help="Filter query as a JSON string or path to a JSON file.",
+)
+@click.option(
+    "--save",
+    "save_name",
+    is_flag=False,
+    flag_value=".",
+    default=None,
+    help="Save output as JSON to current directory.",
+)
+@with_custom_host
+def filter_experiments(project_path: str, filter_query: str, save_name: str, api: Api):
+    """Filter experiments under a project by query (e.g. username/project_name)."""
+    filters = validate_filter_query(filter_query)
+    resp = ApiResponseType(ok=True, data=api.runs(path=project_path, filters=filters))
     payload = format_output(resp)
     if payload["ok"] and save_name is not None:
         save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
