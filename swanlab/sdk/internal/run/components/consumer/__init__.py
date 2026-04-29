@@ -179,6 +179,9 @@ class BackgroundConsumer(ConsumerProtocol):
         for key, value in event.data.items():
             with safe.block(message=f"Error when parsing metric '{key}'"):
                 data_record, cls = self._builder.build_log(value, key, event.timestamp, event.step)
+                if data_record is None:
+                    console.warning(f"Metric '{key}' at step {event.step} returned no data, skipped")
+                    continue
                 defined = self._metrics.ensure_defined_as(key, cls.column_type())
                 if not defined:
                     this_column = self._builder.build_column_from_log(cls, key)

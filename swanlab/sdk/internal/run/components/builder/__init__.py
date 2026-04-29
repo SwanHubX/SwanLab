@@ -6,7 +6,7 @@
 """
 
 from functools import singledispatchmethod
-from typing import List, Type
+from typing import List, Optional, Type
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
@@ -18,19 +18,58 @@ from swanlab.proto.swanlab.metric.column.v1.column_pb2 import (
     MetricColors,
     SectionType,
 )
+from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord
 from swanlab.proto.swanlab.system.v1.console_pb2 import ConsoleRecord
 from swanlab.sdk.internal.bus.events import ConfigEvent, ConsoleEvent, ParseResult, ScalarDefineEvent
 from swanlab.sdk.internal.context import RunContext, TransformMedia
 from swanlab.sdk.internal.context.transformer import TransformData
-from swanlab.sdk.internal.pkg import adapter, fs
+from swanlab.sdk.internal.pkg import adapter, console, fs
 from swanlab.sdk.internal.run.transforms import Scalar
 
 
 class RecordBuilder:
+    _MEDIA_MAX_SIZE = 10 * 1024**2  # 10 MB
+    _MEDIA_MAX_LENGTH = 108
+
     def __init__(self, ctx: RunContext):
         self._ctx = ctx
         # 由 BackgroundConsumer 单线程调用，无需锁
         self._num: int = 0
+
+    def _ensure_media_size(self, record: MediaRecord) -> Optional[MediaRecord]:
+        """
+        确保媒体记录长度不超过限制，否则截断
+        确保媒体记录每一项大小不超过限制
+        """
+        items = list(record.value.items)
+        # 1. 过滤掉超过单条大小限制的项
+        valid_items = []
+        for item in items:
+            if item.size > self._MEDIA_MAX_SIZE:
+                console.warning(
+                    f"Media '{item.filename}' in key '{record.key}' step {record.step} "
+                    f"exceeds size limit ({item.size} > {self._MEDIA_MAX_SIZE} bytes), dropped"
+                )
+                continue
+            valid_items.append(item)
+        # 2. 全部被过滤则返回 None
+        if not valid_items:
+            return None
+        # 3. 超过长度限制则截断
+        if len(valid_items) > self._MEDIA_MAX_LENGTH:
+            console.warning(
+                f"Media record key '{record.key}' step {record.step} "
+                f"has {len(valid_items)} items, exceeding limit {self._MEDIA_MAX_LENGTH}, truncated"
+            )
+            valid_items = valid_items[: self._MEDIA_MAX_LENGTH]
+        # 如果没有变化，直接返回原 record
+        if len(valid_items) == len(items) and all(a is b for a, b in zip(valid_items, items)):
+            return record
+        new_record = MediaRecord()
+        new_record.CopyFrom(record)
+        del new_record.value.items[:]
+        new_record.value.items.extend(valid_items)
+        return new_record
 
     # ── 用户数据 ──
 

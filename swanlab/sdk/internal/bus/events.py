@@ -72,4 +72,4 @@ EventPayload = Union[
 ]
 
 # 数据解析返回类型
-ParseResult = Tuple[Union[MediaRecord, ScalarRecord], Type[TransformData]]
+ParseResult = Tuple[Optional[Union[MediaRecord, ScalarRecord]], Type[TransformData]]
