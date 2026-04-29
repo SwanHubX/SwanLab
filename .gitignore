@@ -19,6 +19,7 @@ playground/
 
 # python
 swanlog/
+.swanlab/
 __pycache__/
 *.py[cod]
 *$py.class

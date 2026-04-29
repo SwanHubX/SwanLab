@@ -196,7 +196,7 @@ class TestLoginE2E:
 
     @responses.activate
     def test_login_host_changed_raises_without_key(self):
-        """测试：已登录旧 host，切换新 host 且不提供 api_key 时应抛出 ValueError"""
+        """测试：已登录旧 host，切换新 host 且不提供 api_key 时应抛出 AuthenticationError"""
         old_host = "https://old.swanlab.cn"
         old_key = "old-key"
         new_host = "https://private.swanlab.com"
@@ -211,8 +211,8 @@ class TestLoginE2E:
         login(api_key=old_key, host=old_host)
         assert len(responses.calls) == 1
 
-        # 切换到新 host 但不提供 api_key，应抛出 ValueError
-        with pytest.raises(ValueError, match="Stored API key is for"):
+        # 切换到新 host 但不提供 api_key，应抛出 AuthenticationError
+        with pytest.raises(AuthenticationError, match="Stored API key is for"):
             login(api_key=None, host=new_host, relogin=True)
 
     @responses.activate
@@ -314,7 +314,7 @@ class TestLoginE2E:
     @responses.activate
     def test_login_host_change_without_key_raises(self, monkeypatch):
         """测试：环境变量中有 api_key，login 只传新 host 不传 api_key，且本地无 .netrc 时，
-        应抛出 ValueError（旧 key 与新 host 不匹配）"""
+        应抛出 AuthenticationError（旧 key 与新 host 不匹配）"""
         env_key = "key-from-env"
         env_host = "https://env.swanlab.com"
         new_host = "https://new.swanlab.com"
@@ -329,8 +329,8 @@ class TestLoginE2E:
         assert settings.api_host == env_host
         assert not (settings.root / ".netrc").exists()
 
-        # 只传新 host，不传 api_key —— 旧 key 与新 host 不匹配，应抛出 ValueError
-        with pytest.raises(ValueError, match="Stored API key is for"):
+        # 只传新 host，不传 api_key —— 旧 key 与新 host 不匹配，应抛出 AuthenticationError
+        with pytest.raises(AuthenticationError, match="Stored API key is for"):
             login(host=new_host)
 
     @responses.activate
@@ -368,8 +368,8 @@ class TestLoginE2E:
 
     @responses.activate
     def test_login_no_key_raises(self):
-        """测试：没有 api_key 且全局也无存储凭证时，login 应抛出 ValueError"""
-        with pytest.raises(ValueError, match="No API key provided"):
+        """测试：没有 api_key 且全局也无存储凭证时，login 应抛出 AuthenticationError"""
+        with pytest.raises(AuthenticationError, match="No API key provided"):
             login()
 
     @responses.activate

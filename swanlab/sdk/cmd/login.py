@@ -115,13 +115,13 @@ def login_raw(
     if api_key is None:
         # host 变了，且 .netrc 中存有旧凭证 —— 旧 key 与新 host 不匹配，不能复用
         if host is not None and host != global_settings.api_host and global_settings.api_key is not None:
-            raise ValueError(
+            raise AuthenticationError(
                 f"Stored API key is for '{global_settings.api_host}', but you are logging in to '{host}'. "
                 "Please provide an API key for the new host."
             )
         else:
             if global_settings.api_key is None:
-                raise ValueError("No API key provided and no stored API key found. Please provide an API key.")
+                raise AuthenticationError("No API key provided and no stored API key found. Please provide an API key.")
             api_key = global_settings.api_key
     api_host = host or global_settings.api_host
     login_settings = Settings.model_validate({"api_key": api_key, "api_host": api_host, "web_host": host})
