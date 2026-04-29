@@ -100,5 +100,71 @@ class SelfHosted(BaseEntity):
         page_info: Dict[str, Any] = {"total": 0, "pages": 0}
         yield from self._paginate("/self_hosted/users", query, page_info=page_info)
 
+    def get_projects(
+        self,
+        page: int = 1,
+        size: int = 20,
+        search: Optional[str] = None,
+        sort: Optional[str] = None,
+        state: Optional[str] = None,
+        creator: Optional[str] = None,
+        group: Optional[str] = None,
+        all: bool = False,
+    ) -> Iterator[dict]:
+        """
+        分页获取所有项目（管理员限定）。
+
+        :param page: 起始页码，默认 1
+        :param size: 每页大小，默认 20
+        :param search: 搜索关键词
+        :param sort: 排序字段，update(默认) / create / name
+        :param state: 实验状态过滤，RUNNING / FINISHED
+        :param creator: 创建者 username
+        :param group: 组织空间 username
+        :param all: 是否获取全部数据，默认 False
+        """
+        SelfHosted.validate_root(self._ensure_data())
+        query = PaginatedQuery(page=page, size=size, search=search, sort=sort, all=all)
+        page_info: Dict[str, Any] = {"total": 0, "pages": 0}
+        yield from self._paginate(
+            "/self_hosted/projects",
+            query,
+            page_info=page_info,
+            extra={"state": state, "creator": creator, "group": group},
+        )
+
+    def get_groups(
+        self,
+        page: int = 1,
+        size: int = 20,
+        search: Optional[str] = None,
+        type: Optional[str] = None,
+        sort: Optional[str] = None,
+        all: bool = False,
+    ) -> Iterator[dict]:
+        """
+        分页获取所有空间（管理员限定）。
+
+        :param page: 起始页码，默认 1
+        :param size: 每页大小，默认 20
+        :param search: 搜索关键词
+        :param type: 空间类型过滤，PERSON / TEAM
+        :param sort: 排序字段，update(默认) / create / name
+        :param all: 是否获取全部数据，默认 False
+        """
+        SelfHosted.validate_root(self._ensure_data())
+        query = PaginatedQuery(page=page, size=size, search=search, sort=sort, all=all)
+        page_info: Dict[str, Any] = {"total": 0, "pages": 0}
+        yield from self._paginate(
+            "/self_hosted/groups",
+            query,
+            page_info=page_info,
+            extra={"type": type},
+        )
+
+    def get_usage_summary(self) -> ApiResponseType:
+        """获取系统内汇总信息"""
+        return self._get("/self_hosted/summary")
+
     def json(self) -> Dict[str, Any]:
         return get_properties(self)
