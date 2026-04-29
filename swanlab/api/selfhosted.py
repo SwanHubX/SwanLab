@@ -5,7 +5,7 @@
 @description: SelfHosted 实体类 — 私有化部署实例的查询与管理
 """
 
-from typing import Any, Dict, Iterator, Optional, cast
+from typing import Any, Dict, Optional, cast
 
 from swanlab.api.base import ApiClientContext, BaseEntity
 from swanlab.api.typings.common import ApiResponseType, PaginatedQuery
@@ -81,13 +81,16 @@ class SelfHosted(BaseEntity):
         :param username: 待创建用户名
         :param password: 待创建用户密码
         """
-        SelfHosted.validate_root(self._ensure_data())
-        validate_non_empty_string(username, label="username")
-        validate_non_empty_string(password, label="password")
+        try:
+            SelfHosted.validate_root(self._ensure_data())
+            validate_non_empty_string(username, label="username")
+            validate_non_empty_string(password, label="password")
+        except ValueError as e:
+            return ApiResponseType(ok=False, errmsg=str(e))
         data = {"users": [{"username": username, "password": password}]}
         return self._post("/self_hosted/users", data=data)
 
-    def get_users(self, page: int = 1, size: int = 20, all: bool = False) -> Iterator[dict]:
+    def get_users(self, page: int = 1, size: int = 20, all: bool = False) -> ApiResponseType:
         """
         分页获取用户（管理员限定）。
 
@@ -95,10 +98,14 @@ class SelfHosted(BaseEntity):
         :param size: 每页大小，默认 20
         :param all: 是否获取全部数据，默认 False
         """
-        SelfHosted.validate_root(self._ensure_data())
+        try:
+            SelfHosted.validate_root(self._ensure_data())
+        except ValueError as e:
+            return ApiResponseType(ok=False, errmsg=str(e))
         query = PaginatedQuery(page=page, size=size, all=all)
         page_info: Dict[str, Any] = {"total": 0, "pages": 0}
-        yield from self._paginate("/self_hosted/users", query, page_info=page_info)
+        users = list(self._paginate("/self_hosted/users", query, page_info=page_info))
+        return ApiResponseType(ok=True, data={"list": users, **page_info})
 
     def json(self) -> Dict[str, Any]:
         return get_properties(self)
