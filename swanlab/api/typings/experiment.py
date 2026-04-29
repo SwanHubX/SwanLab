@@ -93,3 +93,5 @@ class ApiExperimentType(TypedDict, total=False):
     cluster: str
     job: str
     user: ApiUserType
+    rootProId: str
+    rootExpId: str

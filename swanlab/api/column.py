@@ -53,6 +53,8 @@ class Column(BaseEntity):
         project_id: Optional[str] = None,
         run_id: Optional[str] = None,
         project_id_getter: Optional[Callable[[], str]] = None,
+        root_pro_id: str = "",
+        root_exp_id: str = "",
     ) -> None:
         super().__init__(ctx)
         self._proj_path, self._run_slug = resolve_run_path(path=path)
@@ -63,6 +65,8 @@ class Column(BaseEntity):
         self._project_id = project_id or (data or {}).get("project_id", "") or None
         self._run_id = run_id or (data or {}).get("run_id", "") or ""
         self._project_id_getter = project_id_getter
+        self._root_pro_id = root_pro_id
+        self._root_exp_id = root_exp_id
 
     def _ensure_data(self) -> ApiColumnType:
         if self._data is None:
@@ -170,6 +174,8 @@ class Column(BaseEntity):
             metric_type=metric_type,
             ignore_timestamp=ignore_timestamp,
             media_step=media_step,
+            root_pro_id=self._root_pro_id,
+            root_exp_id=self._root_exp_id,
         )
         return metric.json()
 
@@ -186,6 +192,8 @@ class Column(BaseEntity):
             run_id=self.run_id,
             key=self.key,
             metric_type=metric_type,
+            root_pro_id=self._root_pro_id,
+            root_exp_id=self._root_exp_id,
         )
         return metric.export_csv()
 
@@ -223,6 +231,8 @@ class Columns(BaseEntity):
         project_id: Optional[str] = None,
         run_id: Optional[str] = None,
         project_id_getter: Optional[Callable[[], str]] = None,
+        root_pro_id: str = "",
+        root_exp_id: str = "",
     ) -> None:
         super().__init__(ctx)
         self._run_path = path
@@ -231,6 +241,8 @@ class Columns(BaseEntity):
         self._project_id = project_id
         self._project_id_getter = project_id_getter
         self._query = query
+        self._root_pro_id = root_pro_id
+        self._root_exp_id = root_exp_id
         # 校验 column_type 和 column_class 的合法性
         validate_column_params(column_type=column_type, column_class=column_class)
         self._column_class = column_class
@@ -281,6 +293,8 @@ class Columns(BaseEntity):
                 data=cast(ApiColumnType, data),
                 run_id=run_id,
                 project_id_getter=self._ensure_project_id,
+                root_pro_id=self._root_pro_id,
+                root_exp_id=self._root_exp_id,
             )
 
     @property

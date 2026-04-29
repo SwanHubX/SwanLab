@@ -127,6 +127,14 @@ class Experiment(BaseEntity):
         return self._ensure_data().get("job", "")
 
     @property
+    def root_pro_id(self) -> str:
+        return self._ensure_data().get("rootProId", "")
+
+    @property
+    def root_exp_id(self) -> str:
+        return self._ensure_data().get("rootExpId", "")
+
+    @property
     def user(self) -> ApiUserType:
         user_data = self._ensure_data().get("user", {})
         return cast(ApiUserType, user_data)
@@ -175,6 +183,8 @@ class Experiment(BaseEntity):
             column_type=column_type,
             run_id=run_id,
             project_id_getter=lambda: self.project_id,
+            root_pro_id=self.root_pro_id,
+            root_exp_id=self.root_exp_id,
         )
 
     def metrics(
@@ -197,6 +207,8 @@ class Experiment(BaseEntity):
             metric_type="SCALAR",
             ignore_timestamp=ignore_timestamp,
             all=all,
+            root_pro_id=self.root_pro_id,
+            root_exp_id=self.root_exp_id,
         ).json()
 
     def medias(
@@ -217,6 +229,8 @@ class Experiment(BaseEntity):
             metric_type="MEDIA",
             media_step=step,
             all=all,
+            root_pro_id=self.root_pro_id,
+            root_exp_id=self.root_exp_id,
         ).json()
 
     def logs(
@@ -238,6 +252,8 @@ class Experiment(BaseEntity):
             log_level=level,
             metric_type="LOG",
             ignore_timestamp=ignore_timestamp,
+            root_pro_id=self.root_pro_id,
+            root_exp_id=self.root_exp_id,
         )
         return logs.json()
 
@@ -273,6 +289,8 @@ class Experiment(BaseEntity):
             column_class=column_class,
             run_id=run_id,
             project_id_getter=lambda: self.project_id,
+            root_pro_id=self.root_pro_id,
+            root_exp_id=self.root_exp_id,
         )
 
     def delete(self) -> bool:

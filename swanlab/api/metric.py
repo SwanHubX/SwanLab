@@ -55,6 +55,8 @@ class Metric(BaseEntity):
         ignore_timestamp: bool = False,
         media_step: Optional[int] = None,
         all: bool = False,
+        root_pro_id: str = "",
+        root_exp_id: str = "",
     ) -> None:
         super().__init__(ctx)
         validate_metric_type(metric_type, key)
@@ -73,6 +75,8 @@ class Metric(BaseEntity):
         self._log_level = log_level
         self._media_step = media_step
         self._all = all
+        self._root_pro_id = root_pro_id
+        self._root_exp_id = root_exp_id
 
     # 类型 → 加载方法 的分发表，新增类型只需在此注册
     _FETCH_DISPATCH = {
@@ -140,35 +144,66 @@ class Metric(BaseEntity):
         return None
 
     @staticmethod
-    def _build_scalar_payload(project_id: str, run_id: str, keys: List[str], sample: int = 1500) -> Dict[str, Any]:
+    def _build_column_ref(
+        experiment_id: str,
+        key: str,
+        root_pro_id: str = "",
+        root_exp_id: str = "",
+    ) -> Dict[str, str]:
+        ref: Dict[str, str] = {"experimentId": experiment_id, "key": key}
+        if root_pro_id:
+            ref["rootProId"] = root_pro_id
+        if root_exp_id:
+            ref["rootExpId"] = root_exp_id
+        return ref
+
+    @staticmethod
+    def _build_scalar_payload(
+        project_id: str,
+        run_id: str,
+        keys: List[str],
+        sample: int = 1500,
+        root_pro_id: str = "",
+        root_exp_id: str = "",
+    ) -> Dict[str, Any]:
         return {
             "projectId": project_id,
             "xType": "step",
             "range": [0, 0],
-            "columns": [{"experimentId": run_id, "key": key} for key in keys],
+            "columns": [Metric._build_column_ref(run_id, key, root_pro_id, root_exp_id) for key in keys],
             "num": sample if sample <= 1500 else 1500,
         }
 
     @staticmethod
     def _build_media_payload(
-        project_id: str, run_id: str, keys: List[str], step: Optional[int] = None
+        project_id: str,
+        run_id: str,
+        keys: List[str],
+        step: Optional[int] = None,
+        root_pro_id: str = "",
+        root_exp_id: str = "",
     ) -> Dict[str, Any]:
         payload: Dict[str, Any] = {
             "projectId": project_id,
-            "columns": [{"experimentId": run_id, "key": key} for key in keys],
+            "columns": [Metric._build_column_ref(run_id, key, root_pro_id, root_exp_id) for key in keys],
         }
         if step is not None:
             payload["step"] = step
         return payload
 
     def _build_log_params(self) -> Dict[str, Any]:
-        return {
+        params: Dict[str, Any] = {
             "projectId": self.project_id,
             "experimentId": self.run_id,
-            "size": 1000,  # 硬编码为 1000
+            "size": 1000,
             "epoch": self._offset,
             "level": self._log_level,
         }
+        if self._root_pro_id:
+            params["rootProId"] = self._root_pro_id
+        if self._root_exp_id:
+            params["rootExpId"] = self._root_exp_id
+        return params
 
     # ------------------------------------------------------------------
     # 类型专属加载
@@ -176,7 +211,18 @@ class Metric(BaseEntity):
 
     def _fetch_scalar(self) -> ApiScalarSeriesType:
         res = ApiScalarSeriesType(projectId=self.project_id, experimentId=self.run_id, key=self.key)
-        payload = self._build_scalar_payload(self.project_id, self.run_id, [self.key], self._sample)
+        if self._root_pro_id:
+            res["rootProId"] = self._root_pro_id
+        if self._root_exp_id:
+            res["rootExpId"] = self._root_exp_id
+        payload = self._build_scalar_payload(
+            self.project_id,
+            self.run_id,
+            [self.key],
+            self._sample,
+            root_pro_id=self._root_pro_id,
+            root_exp_id=self._root_exp_id,
+        )
 
         # 1. 获取折线数据
         raw_data = self._extract_first(self._post("/house/metrics/scalar", data=payload))
@@ -223,7 +269,14 @@ class Metric(BaseEntity):
 
     def _fetch_media(self) -> ApiMediaSeriesType:
         res = ApiMediaSeriesType(projectId=self.project_id, experimentId=self.run_id, key=self.key)
-        payload = self._build_media_payload(self.project_id, self.run_id, [self.key], step=self._media_step)
+        payload = self._build_media_payload(
+            self.project_id,
+            self.run_id,
+            [self.key],
+            step=self._media_step,
+            root_pro_id=self._root_pro_id,
+            root_exp_id=self._root_exp_id,
+        )
         raw_resp = self._post("/house/metrics/media", data=payload)
         if not raw_resp.ok or not raw_resp.data:
             return res
@@ -254,7 +307,13 @@ class Metric(BaseEntity):
 
     def _fetch_media_all(self) -> ApiMediaSeriesType:
         res = ApiMediaSeriesType(projectId=self.project_id, experimentId=self.run_id, key=self.key)
-        payload = self._build_media_payload(self.project_id, self.run_id, [self.key])
+        payload = self._build_media_payload(
+            self.project_id,
+            self.run_id,
+            [self.key],
+            root_pro_id=self._root_pro_id,
+            root_exp_id=self._root_exp_id,
+        )
         raw_resp = self._post("/house/metrics/f_media", data=payload)
         raw_data = self._extract_first(raw_resp)
         if raw_data is None:
@@ -359,6 +418,8 @@ class Metrics(BaseEntity):
         ignore_timestamp: bool = False,
         media_step: Optional[int] = None,
         all: bool = False,
+        root_pro_id: str = "",
+        root_exp_id: str = "",
     ) -> None:
         super().__init__(ctx)
         validate_metric_keys(keys)
@@ -373,6 +434,8 @@ class Metrics(BaseEntity):
         self._ignore_timestamp = ignore_timestamp
         self._media_step = media_step
         self._all = all
+        self._root_pro_id = root_pro_id
+        self._root_exp_id = root_exp_id
         self._page_info: Dict[str, Any] = {
             "keys": keys,
             "metricType": metric_type,
@@ -409,10 +472,19 @@ class Metrics(BaseEntity):
             media_step=self._media_step,
             data=data,
             all=self._all,
+            root_pro_id=self._root_pro_id,
+            root_exp_id=self._root_exp_id,
         )
 
     def _fetch_scalars(self) -> Iterator[Metric]:
-        payload = Metric._build_scalar_payload(self._project_id, self._run_id, self._keys, self._sample)
+        payload = Metric._build_scalar_payload(
+            self._project_id,
+            self._run_id,
+            self._keys,
+            self._sample,
+            root_pro_id=self._root_pro_id,
+            root_exp_id=self._root_exp_id,
+        )
 
         # 1. 获取折线数据
         scalar_resp = self._post("/house/metrics/scalar", data=payload)
@@ -447,7 +519,14 @@ class Metrics(BaseEntity):
             if resp.ok and resp.data:
                 urls[key] = _extract_csv_url(resp.data)
 
-        payload = Metric._build_scalar_payload(self._project_id, self._run_id, self._keys, self._sample)
+        payload = Metric._build_scalar_payload(
+            self._project_id,
+            self._run_id,
+            self._keys,
+            self._sample,
+            root_pro_id=self._root_pro_id,
+            root_exp_id=self._root_exp_id,
+        )
         value_resp = self._post("/house/metrics/scalar/value", data=payload)
         value_list: List[Dict[str, Any]] = value_resp.ok and isinstance(value_resp.data, list) and value_resp.data or []
 
@@ -466,7 +545,14 @@ class Metrics(BaseEntity):
             yield self._build_metric(key, data)
 
     def _fetch_medias(self) -> Iterator[Metric]:
-        payload = Metric._build_media_payload(self._project_id, self._run_id, self._keys, step=self._media_step)
+        payload = Metric._build_media_payload(
+            self._project_id,
+            self._run_id,
+            self._keys,
+            step=self._media_step,
+            root_pro_id=self._root_pro_id,
+            root_exp_id=self._root_exp_id,
+        )
         raw_resp = self._post("/house/metrics/media", data=payload)
         if not raw_resp.ok or not raw_resp.data:
             return
@@ -503,7 +589,13 @@ class Metrics(BaseEntity):
             yield self._build_metric(key, data)
 
     def _fetch_medias_all(self) -> Iterator[Metric]:
-        payload = Metric._build_media_payload(self._project_id, self._run_id, self._keys)
+        payload = Metric._build_media_payload(
+            self._project_id,
+            self._run_id,
+            self._keys,
+            root_pro_id=self._root_pro_id,
+            root_exp_id=self._root_exp_id,
+        )
         raw_resp = self._post("/house/metrics/f_media", data=payload)
         if not raw_resp.ok or not raw_resp.data:
             return
