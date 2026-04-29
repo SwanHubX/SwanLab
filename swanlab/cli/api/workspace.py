@@ -19,7 +19,6 @@ def workspace_cli():
     "save_name",
     is_flag=False,
     flag_value=".",
-    default=None,
     help="Save output as JSON to current directory.",
 )
 @with_custom_host

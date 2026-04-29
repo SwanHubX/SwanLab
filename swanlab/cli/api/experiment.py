@@ -29,7 +29,6 @@ def run_cli():
     "save_name",
     is_flag=False,
     flag_value=".",
-    default=None,
     help="Save output as JSON to current directory.",
 )
 @with_custom_host
@@ -69,7 +68,6 @@ def get_experiment(path: str, save_name: str, api: Api):
     "save_name",
     is_flag=False,
     flag_value=".",
-    default=None,
     help="Save output as JSON to current directory.",
 )
 @with_custom_host
@@ -103,7 +101,6 @@ def list_experiments(page_num: int, page_size: str, project_path: str, fetch_all
     "save_name",
     is_flag=False,
     flag_value=".",
-    default=None,
     help="Save output as JSON to current directory.",
 )
 @with_custom_host
@@ -152,7 +149,6 @@ def filter_experiments(project_path: str, filter_query: str, save_name: str, api
     "save_name",
     is_flag=False,
     flag_value=".",
-    default=None,
     help="Save output as JSON to current directory.",
 )
 @with_custom_host
@@ -211,7 +207,6 @@ def list_experiment_columns(
     "save_name",
     is_flag=False,
     flag_value=".",
-    default=None,
     help="Save output as JSON to current directory.",
 )
 @with_custom_host
@@ -260,7 +255,6 @@ def get_experiment_metrics(
     "save_name",
     is_flag=False,
     flag_value=".",
-    default=None,
     help="Save output as JSON to current directory.",
 )
 @with_custom_host
@@ -306,7 +300,6 @@ def get_experiment_column(
     "save_name",
     is_flag=False,
     flag_value=".",
-    default=None,
     help="Save output as JSON to current directory.",
 )
 @with_custom_host
@@ -355,7 +348,6 @@ def get_experiment_medias(
     "save_name",
     is_flag=False,
     flag_value=".",
-    default=None,
     help="Save output as JSON to current directory.",
 )
 @with_custom_host

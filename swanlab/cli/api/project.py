@@ -19,7 +19,6 @@ def project_cli():
     "save_name",
     is_flag=False,
     flag_value=".",
-    default=None,
     help="Save output as JSON to current directory.",
 )
 @with_custom_host
@@ -58,7 +57,6 @@ def get_project(path: str, save_name: str, api: Api):
     "save_name",
     is_flag=False,
     flag_value=".",
-    default=None,
     help="Save output as JSON to current directory.",
 )
 @with_custom_host
@@ -107,7 +105,6 @@ def list_projects(page_num: int, page_size: str, workspace: str, fetch_all: bool
     "save_name",
     is_flag=False,
     flag_value=".",
-    default=None,
     help="Save output as JSON to current directory.",
 )
 @with_custom_host
