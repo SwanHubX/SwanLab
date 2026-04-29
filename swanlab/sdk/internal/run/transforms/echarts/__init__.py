@@ -50,5 +50,5 @@ class ECharts(TransformMedia):
         content_encode = self.json_content.encode("utf-8")
         sha256 = hashlib.sha256(content_encode).hexdigest()
         filename = f"{step:03d}-{sha256[:8]}.json"
-        fs.safe_write(path / filename, self.json_content)
+        fs.safe_write(path / filename, content_encode, mode="wb")
         return MediaItem(filename=filename, sha256=sha256, size=len(content_encode), caption=self.caption or "")
