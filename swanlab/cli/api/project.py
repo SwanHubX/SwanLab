@@ -24,7 +24,7 @@ def project_cli():
 )
 @with_custom_host
 def get_project(path: str, save_name: str, api: Api):
-    """Get project info by path (username/project)."""
+    """Get project info by path (e.g. username/project_name)."""
     resp = api.project(path).wrapper()
     payload = format_output(resp)
     if payload["ok"] and save_name is not None:
