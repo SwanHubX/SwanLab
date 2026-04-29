@@ -1,6 +1,7 @@
 from swanlab.sdk import (
     Audio,
     Callback,
+    ECharts,
     Image,
     Run,
     Settings,
@@ -9,6 +10,7 @@ from swanlab.sdk import (
     async_log,
     config,
     define_scalar,
+    echarts,
     finish,
     get_run,
     has_run,
@@ -16,6 +18,7 @@ from swanlab.sdk import (
     init,
     log,
     log_audio,
+    log_echarts,
     log_image,
     log_text,
     log_video,
@@ -39,6 +42,7 @@ __all__ = [
     "log_image",
     "log_audio",
     "log_video",
+    "log_echarts",
     "define_scalar",
     "async_log",
     # run
@@ -51,10 +55,12 @@ __all__ = [
     # data
     "Text",
     "Audio",
+    "ECharts",
     "Image",
     "Video",
     # utils
     "utils",
+    "echarts",
     "Settings",
     "Callback",
     # Api

@@ -10,12 +10,14 @@ from typing import Any, List, Type, Union
 from swanlab.sdk.internal.context import TransformMedia
 
 from .audio import Audio
+from .echarts import ECharts
+from .echarts import components as echarts
 from .image import Image
 from .scalar import Scalar
 from .text import Text
 from .video import Video
 
-__all__ = ["Text", "Scalar", "Audio", "Image", "Video", "normalize_media_input"]
+__all__ = ["Text", "Scalar", "Audio", "Image", "Video", "ECharts", "echarts", "normalize_media_input"]
 
 
 def normalize_media_input(

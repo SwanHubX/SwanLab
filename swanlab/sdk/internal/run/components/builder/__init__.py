@@ -6,7 +6,7 @@
 """
 
 from functools import singledispatchmethod
-from typing import List, Optional, Type
+from typing import Optional, Type
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
@@ -21,10 +21,11 @@ from swanlab.proto.swanlab.metric.column.v1.column_pb2 import (
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord
 from swanlab.proto.swanlab.system.v1.console_pb2 import ConsoleRecord
 from swanlab.sdk.internal.bus.events import ConfigEvent, ConsoleEvent, ParseResult, ScalarDefineEvent
-from swanlab.sdk.internal.context import RunContext, TransformMedia
-from swanlab.sdk.internal.context.transformer import TransformData
+from swanlab.sdk.internal.context import RunContext, TransformData, TransformMedia
 from swanlab.sdk.internal.pkg import adapter, console, fs
-from swanlab.sdk.internal.run.transforms import Scalar
+from swanlab.sdk.internal.run.transforms import ECharts, Scalar, echarts
+
+_EchartsType = (echarts.Base, echarts.Table)
 
 
 class RecordBuilder:
@@ -75,25 +76,38 @@ class RecordBuilder:
 
     @singledispatchmethod
     def build_log(self, value, key: str, timestamp: Timestamp, step: int) -> ParseResult:
-        """默认回退：标量"""
+        """默认回退：swanlab.echarts 图表自动包装为 ECharts，否则按标量处理"""
+        # 如果是 swanlab.echarts 图表，则自动包装为 ECharts，按照媒体处理
+        if isinstance(value, _EchartsType):
+            return self.build_log(ECharts(value), key, timestamp, step)
+        # 否则按标量处理
         scalar_value = Scalar.transform(value)
         return Scalar.build_data_record(key=key, step=step, timestamp=timestamp, data=scalar_value), Scalar
 
     @build_log.register(list)
-    def _(self, value: List[TransformMedia], key: str, timestamp: Timestamp, step: int) -> ParseResult:
+    def _(self, value: list, key: str, timestamp: Timestamp, step: int) -> ParseResult:
         """媒体对象数组
-        dispatch 并不能识别每个数组元素的类型，因此还需手动检查
+        dispatch 并不能识别每个数组元素的类型，因此还需手动检查；
+        swanlab.echarts 图表对象会被自动包装为 ECharts
         """
-        if not value or not isinstance(value[0], TransformMedia):
-            raise TypeError("List must contain TransformMediaType objects")
+        if not value:
+            raise TypeError("List must not be empty")
+        # pyecharts 图表对象自动包装为 ECharts
+        if not isinstance(value[0], TransformMedia):
+            if isinstance(value[0], _EchartsType):
+                value = [ECharts(item) for item in value]
+            else:
+                raise TypeError("List must contain TransformMedia objects or swanlab.echarts chart objects")
+        # 确保列表内所有元素类型一致
         cls = value[0].__class__
         if not all(isinstance(item, cls) for item in value):
             raise TypeError(f"All items in the list must be of the same type {cls.__name__}, got mixed types.")
+        # 构建媒体记录
         path = self._ctx.media_dir / adapter.medium[cls.column_type()]
         fs.safe_mkdir(path)
-        values = [item.transform(step=step, path=path) for item in value]
+        items = [item.transform(step=step, path=path) for item in value]
         media_record = self._ensure_media_size(
-            cls.build_data_record(key=key, step=step, timestamp=timestamp, data=values)
+            cls.build_data_record(key=key, step=step, timestamp=timestamp, data=items)
         )
         return media_record, cls
 

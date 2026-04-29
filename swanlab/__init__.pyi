@@ -11,12 +11,13 @@ from typing import Any, Callable, List, Mapping, Optional, Union
 
 from . import utils
 from .api import Api
-from .sdk import Audio, Callback, Image, Run, Settings, Text, Video, config
-from .sdk.typings.cmd import ConfigLike
+from .sdk import Audio, Callback, ECharts, Image, Run, Settings, Text, Video, config, echarts
+from .sdk.typings.cmd import ConfigLike, LoginType
 from .sdk.typings.run import AsyncLogType, FinishType, ModeType, ResumeType
 from .sdk.typings.run.column import ScalarXAxisType
 from .sdk.typings.run.transforms import CaptionsType
 from .sdk.typings.run.transforms.audio import AudioDatasType, AudioRatesType
+from .sdk.typings.run.transforms.echarts import EChartsDatasType
 from .sdk.typings.run.transforms.image import ImageDatasType, ImageFilesType, ImageModesType, ImageSizesType
 from .sdk.typings.run.transforms.text import TextDatasType
 from .sdk.typings.run.transforms.video import VideoDatasType
@@ -34,6 +35,7 @@ __all__ = [
     "log_image",
     "log_audio",
     "log_video",
+    "log_echarts",
     "define_scalar",
     "async_log",
     # run
@@ -46,10 +48,12 @@ __all__ = [
     # data
     "Text",
     "Audio",
+    "ECharts",
     "Image",
     "Video",
     # utils
     "utils",
+    "echarts",
     "Settings",
     "Callback",
     # Api
@@ -167,7 +171,7 @@ def login(
     api_key: Optional[str] = None,
     relogin: bool = False,
     host: Optional[str] = None,
-    save: bool = False,
+    save: LoginType = False,
     timeout: int = 10,
 ) -> bool:
     """Authenticate with SwanLab Cloud.
@@ -396,6 +400,31 @@ def log_video(
         >>> swanlab.init(mode="local")
         >>> with open("animation.gif", "rb") as f:
         ...     swanlab.log_video(key="rollout", data=f.read())
+        >>> swanlab.finish()
+    """
+    ...
+
+def log_echarts(
+    *,
+    key: str,
+    data: EChartsDatasType,
+    caption: CaptionsType = None,
+    step: Optional[int] = None,
+) -> None:
+    """A syntactic sugar for logging ECharts data.
+
+    :param key: The key for the echarts data.
+    :param data: The echarts chart object (pyecharts chart) or an ECharts object.
+    :param caption: Optional caption for the echarts data.
+    :param step: Optional step number. If not provided, auto-increments.
+    :raises RuntimeError: If called without an active run.
+
+    Examples:
+
+        >>> import swanlab
+        >>> swanlab.init(mode="local")
+        >>> chart = swanlab.echarts.Bar().add_xaxis(["a", "b"]).add_yaxis("series", [1, 2])
+        >>> swanlab.log_echarts(key="chart", data=chart)
         >>> swanlab.finish()
     """
     ...

@@ -28,11 +28,12 @@ from swanlab.sdk.internal.pkg import adapter, console, fork, helper, safe
 from swanlab.sdk.internal.run import greeting
 from swanlab.sdk.internal.run.components import Components
 from swanlab.sdk.internal.run.components.config import Config
-from swanlab.sdk.internal.run.transforms import Audio, Image, Text, Video, normalize_media_input
+from swanlab.sdk.internal.run.transforms import Audio, ECharts, Image, Text, Video, normalize_media_input
 from swanlab.sdk.typings.run import AsyncLogType, FinishType, ModeType
 from swanlab.sdk.typings.run.column import ScalarXAxisType
 from swanlab.sdk.typings.run.transforms import CaptionsType
 from swanlab.sdk.typings.run.transforms.audio import AudioDatasType, AudioRatesType
+from swanlab.sdk.typings.run.transforms.echarts import EChartsDatasType
 from swanlab.sdk.typings.run.transforms.image import ImageDatasType, ImageFilesType, ImageModesType, ImageSizesType
 from swanlab.sdk.typings.run.transforms.text import TextDatasType
 from swanlab.sdk.typings.run.transforms.video import VideoDatasType
@@ -517,6 +518,21 @@ class Run:
         :param step: Optional step for the video data.
         """
         normalized_data = normalize_media_input(Video, data, caption=caption)
+        self.log({key: normalized_data}, step=step)
+
+    @with_api("run.log_echarts()")
+    def log_echarts(
+        self, *, key: str, data: EChartsDatasType, caption: CaptionsType = None, step: Optional[int] = None
+    ):
+        """
+        A syntactic sugar for logging ECharts data.
+
+        :param key: The key for the echarts data.
+        :param data: The echarts chart object (pyecharts chart) or an ECharts object.
+        :param caption: Optional caption for the echarts data.
+        :param step: Optional step for the echarts data.
+        """
+        normalized_data = normalize_media_input(ECharts, data, caption=caption)
         self.log({key: normalized_data}, step=step)
 
     @with_api("run.define_scalar()")

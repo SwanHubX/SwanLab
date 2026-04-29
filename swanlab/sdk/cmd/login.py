@@ -42,20 +42,13 @@ def login(
 
     :param api_key: Your SwanLab API key. If not provided, will attempt to read from
         environment or prompt for input.
-
     :param relogin: If True, forces re-authentication and overwrites existing credentials.
         Defaults to False.
-
     :param host: Custom API host URL. If not provided, uses the default SwanLab cloud host.
-
     :param save: Whether to save the API key locally for future sessions. Defaults to False.
-
     :param timeout: Network request timeout in seconds. Defaults to 10.
-
     :return: True if login was successful, False otherwise.
-
     :raises RuntimeError: If called while a run is active.
-
     :raises AuthenticationError: If login fails due to invalid credentials or network issues.
 
     Examples:
@@ -66,17 +59,10 @@ def login(
         >>> swanlab.login(api_key="your_api_key_here")
         >>> swanlab.init(mode="online")
 
-        Interactive login (prompts for API key):
-
-        >>> import swanlab
-        >>> swanlab.login()
-        >>> swanlab.init(mode="online")
-
         Force re-login and save credentials:
 
         >>> import swanlab
         >>> swanlab.login(api_key="new_api_key", relogin=True, save=True)
-        >>> swanlab.init(mode="online")
     """
     return login_raw(
         api_key=api_key,
