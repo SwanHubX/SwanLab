@@ -40,12 +40,12 @@ from pyecharts.charts import (
 )
 from pyecharts.charts.base import Base
 
+from .metrics import confusion_matrix, pr_curve, roc_curve
 from .table import Table
 
 __all__ = [
     "options",
     "Base",
-    "Bar",
     "Bar",
     "Bar3D",
     "Boxplot",
@@ -74,4 +74,7 @@ __all__ = [
     "Tree",
     "TreeMap",
     "Table",
+    "roc_curve",
+    "pr_curve",
+    "confusion_matrix",
 ]

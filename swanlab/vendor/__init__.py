@@ -22,6 +22,8 @@ if TYPE_CHECKING:
     import PIL
     import PIL.Image
     import rdkit
+    import sklearn
+    import sklearn.metrics
     import soundfile
     import swanboard
     import torch
@@ -36,6 +38,7 @@ __all__ = [
     "np",
     "PIL",
     "rdkit",
+    "sklearn",
     "soundfile",
     "swanboard",
     "boto3",
@@ -53,6 +56,7 @@ _LAZY_IMPORTS = {
     "np": "numpy",
     "PIL": "PIL",
     "rdkit": "rdkit",
+    "sklearn": "sklearn",
     "soundfile": "soundfile",
     "swanboard": "swanboard",
     "boto3": "boto3",
@@ -84,6 +88,7 @@ _EXTRA_DEPS = {
 _SUBMODULE_IMPORTS = {
     "PIL": ["PIL.Image"],
     "matplotlib": ["matplotlib.figure"],
+    "sklearn": ["sklearn.metrics"],
 }
 
 
