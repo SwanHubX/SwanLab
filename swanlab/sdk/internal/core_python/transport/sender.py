@@ -114,6 +114,7 @@ class HttpRecordSender:
                     "create_time": create_time,
                 }
                 metrics.append(metric)
+        console.debug(f"HTTP upload: upload_column with metrics count: {len(metrics)}")
         upload_scalar(self._project_id, self._experiment_id, metrics=metrics)
 
     def upload_media(self, records: Sequence[Record]) -> None:

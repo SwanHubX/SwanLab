@@ -103,6 +103,10 @@ class SessionWithRetry(Session):
         method = (request.method or "unknown").upper()
         start = time.perf_counter()
 
+        # 记录请求日志，由于可能比较耗费性能，所以提前用DEBUG终止
+        if helper.DEBUG:
+            console.debug(f"[HTTP] {method} {request.url}")
+
         # 调用父类（或 Adapter）获取响应
         response = super().send(request, **kwargs)
 
