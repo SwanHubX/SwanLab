@@ -92,17 +92,17 @@ class RecordBuilder:
         """
         if not value:
             raise TypeError("List must not be empty")
-        # pyecharts 图表对象自动包装为 ECharts
+        # 1. pyecharts 图表对象自动包装为 ECharts
         if not isinstance(value[0], TransformMedia):
             if isinstance(value[0], _EchartsType):
                 value = [ECharts(item) for item in value]
             else:
                 raise TypeError("List must contain TransformMedia objects or swanlab.echarts chart objects")
-        # 确保列表内所有元素类型一致
+        # 2. 确保列表内所有元素类型一致
         cls = value[0].__class__
         if not all(isinstance(item, cls) for item in value):
             raise TypeError(f"All items in the list must be of the same type {cls.__name__}, got mixed types.")
-        # 构建媒体记录
+        # 3. 构建媒体记录
         path = self._ctx.media_dir / adapter.medium[cls.column_type()]
         fs.safe_mkdir(path)
         items = [item.transform(step=step, path=path) for item in value]
