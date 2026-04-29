@@ -2,7 +2,9 @@ import click
 import orjson
 
 from swanlab.api import Api
+from swanlab.api.typings.common import ApiResponseType
 from swanlab.cli.api.helper import format_output, save_output, with_custom_host
+from swanlab.sdk.internal.pkg.safe import block
 
 
 @click.group("selfhosted")
@@ -30,13 +32,16 @@ def get_info(save_name: str, api: Api):
 
 
 @selfhosted_cli.command("create-user")
-@click.argument("username")
-@click.argument("password")
+@click.option("--username", "-u", type=str, required=True, help="username to create")
+@click.option("--password", "-p", type=str, required=True, help="password to create")
 @with_custom_host
 def create_user(username: str, password: str, api: Api):
     """Create a new user in the self-hosted instance."""
-    resp = api.self_hosted().create_user(username, password)
-    format_output(resp)
+    err: list[str] = []
+    resp: ApiResponseType | None = None
+    with block(message=None, on_error=lambda e: err.append(str(e))):
+        resp = api.self_hosted().create_user(username, password)
+    format_output(resp if resp is not None else ApiResponseType(ok=False, errmsg=err[0]))
 
 
 @selfhosted_cli.command("list-users")
@@ -46,5 +51,11 @@ def create_user(username: str, password: str, api: Api):
 @with_custom_host
 def list_users(page_num: int, page_size: int, fetch_all: bool, api: Api):
     """List users in the self-hosted instance."""
-    resp = api.self_hosted().get_users(page=page_num, size=page_size, all=fetch_all)
-    format_output(resp)
+    err: list[str] = []
+    users: list | None = None
+    with block(message=None, on_error=lambda e: err.append(str(e))):
+        users = list(api.self_hosted().get_users(page=page_num, size=page_size, all=fetch_all))
+    if users is not None:
+        format_output(ApiResponseType(ok=True, data={"list": users}))
+    else:
+        format_output(ApiResponseType(ok=False, errmsg=err[0]))
