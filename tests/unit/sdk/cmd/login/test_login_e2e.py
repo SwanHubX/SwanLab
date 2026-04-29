@@ -368,8 +368,8 @@ class TestLoginE2E:
 
     @responses.activate
     def test_login_no_key_raises(self):
-        """测试：没有 api_key 且全局也无存储凭证时，login 应抛出 ValueError"""
-        with pytest.raises(ValueError, match="No API key provided"):
+        """测试：没有 api_key 且全局也无存储凭证时，login 应抛出 AuthenticationError"""
+        with pytest.raises(AuthenticationError, match="No API key provided"):
             login()
 
     @responses.activate

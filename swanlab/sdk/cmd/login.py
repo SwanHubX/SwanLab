@@ -121,7 +121,7 @@ def login_raw(
             )
         else:
             if global_settings.api_key is None:
-                raise ValueError("No API key provided and no stored API key found. Please provide an API key.")
+                raise AuthenticationError("No API key provided and no stored API key found. Please provide an API key.")
             api_key = global_settings.api_key
     api_host = host or global_settings.api_host
     login_settings = Settings.model_validate({"api_key": api_key, "api_host": api_host, "web_host": host})
