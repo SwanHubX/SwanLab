@@ -136,8 +136,11 @@ def list_projects(
 )
 @with_custom_host
 def get_summary(save_name: str, api: Api):
-    """Show system usage summary."""
-    resp = api.self_hosted().get_usage_summary()
+    """Show system usage summary (root only)."""
+    try:
+        resp = api.self_hosted().get_usage_summary()
+    except ValueError as e:
+        resp = ApiResponseType(ok=False, errmsg=str(e))
     payload = format_output(resp)
     if payload["ok"] and save_name is not None:
         save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)

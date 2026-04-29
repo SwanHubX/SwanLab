@@ -292,7 +292,7 @@ swanlab api run logs PATH [OPTIONS]
 
 ### 5. Self-Hosted
 
-These commands are only valid for **self-hosted SwanLab instances**. See `references/SWANLAB_CONCEPTS.md > Self-Hosted Instance` for the host detection rule — do not use these commands if the resolved host contains `swanlab.cn`.
+These commands are only valid for **self-hosted SwanLab instances**. All self-hosted management commands (create-user, list-users, list-projects, list-workspaces, summary) require **root (admin) privileges**. See `references/SWANLAB_CONCEPTS.md > Self-Hosted Instance` for the host detection rule — do not use these commands if the resolved host contains `swanlab.cn`.
 
 #### `swanlab api selfhosted info`
 
@@ -304,7 +304,7 @@ swanlab api selfhosted info [--save [FILENAME]] [--host HOST] [--api-key KEY]
 
 #### `swanlab api selfhosted create-user`
 
-Create a user in the self-hosted instance.
+Create a user in the self-hosted instance (root only).
 
 ```bash
 swanlab api selfhosted create-user -u USERNAME -p PASSWORD
@@ -317,7 +317,7 @@ swanlab api selfhosted create-user -u USERNAME -p PASSWORD
 
 #### `swanlab api selfhosted list-users`
 
-List users in the self-hosted instance.
+List users in the self-hosted instance (root only).
 
 ```bash
 swanlab api selfhosted list-users [OPTIONS]
@@ -328,6 +328,46 @@ swanlab api selfhosted list-users [OPTIONS]
 | `--page_num` | `-n` | 1 | Page number |
 | `--page_size` | `-s` | 20 | Page size |
 | `--all` | | false | Fetch all users |
+
+#### `swanlab api selfhosted list-projects`
+
+List all projects across the self-hosted instance (root only). Supports filtering by creator, workspace, and keyword search.
+
+```bash
+swanlab api selfhosted list-projects [OPTIONS]
+```
+
+| Option | Short | Default | Description |
+|--------|-------|---------|-------------|
+| `--page_num` | `-n` | 1 | Page number |
+| `--page_size` | `-s` | 20 | Page size |
+| `--all` | | false | Fetch all projects |
+| `--search` | | none | Search keyword |
+| `--creator` | | none | Filter by creator username |
+| `--workspace` | | none | Filter by workspace username |
+
+#### `swanlab api selfhosted list-workspaces`
+
+List all workspaces in the self-hosted instance (root only).
+
+```bash
+swanlab api selfhosted list-workspaces [OPTIONS]
+```
+
+| Option | Short | Default | Description |
+|--------|-------|---------|-------------|
+| `--page_num` | `-n` | 1 | Page number |
+| `--page_size` | `-s` | 20 | Page size |
+| `--all` | | false | Fetch all workspaces |
+| `--search` | | none | Search keyword |
+
+#### `swanlab api selfhosted summary`
+
+Show system usage summary for the self-hosted instance (root only). Includes aggregate statistics such as total users, projects, experiments, and storage usage. See `references/SWANLAB_CONCEPTS.md > Self-Hosted Instance > Usage Summary` for details.
+
+```bash
+swanlab api selfhosted summary [--save [FILENAME]] [--host HOST] [--api-key KEY]
+```
 
 ---
 

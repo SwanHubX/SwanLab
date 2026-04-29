@@ -163,7 +163,8 @@ class SelfHosted(BaseEntity):
         )
 
     def get_usage_summary(self) -> ApiResponseType:
-        """获取系统内汇总信息"""
+        """获取系统内汇总信息（root 限定）"""
+        SelfHosted.validate_root(self._ensure_data())
         return self._get("/self_hosted/summary")
 
     def json(self) -> Dict[str, Any]:

@@ -204,7 +204,30 @@ Self-hosted-specific features:
 | `plan` | License plan: `free` or `commercial` |
 | `seats` | Number of allowed user seats |
 
-Management operations (create user, list users) require root privileges.
+Management operations (create user, list users, list projects, list workspaces, summary) all require root privileges. If a non-root user attempts any of these, the API returns a permission error.
+
+### Instance-Level Management
+
+On a self-hosted deployment, the root (admin) user can query across the entire instance, not just within a single workspace:
+
+| Operation | Root Required | Description |
+|-----------|---------------|-------------|
+| Create User | Yes | Add a new user to the instance |
+| List Users | Yes | All registered users across the instance |
+| List Projects | Yes | All projects across all workspaces, with optional filters for creator, workspace, and keyword |
+| List Workspaces | Yes | All workspaces (personal + team) on the instance, with optional keyword search |
+| Usage Summary | Yes | Aggregate statistics: total users, projects, experiments, storage, etc. |
+
+This differs from the regular `project list` / `workspace info` commands, which are scoped to a single workspace. Instance-level queries have a global view.
+
+### Quick Disambiguation (Self-Hosted)
+
+| User says... | They probably mean... | CLI command |
+|---|---|---|
+| "all projects on the server" | Instance-wide project listing | `swanlab api selfhosted list-projects` |
+| "all workspaces" | Instance-wide workspace listing | `swanlab api selfhosted list-workspaces` |
+| "server usage / disk usage" | Usage summary | `swanlab api selfhosted summary` |
+| "all users on the server" | Instance-wide user listing | `swanlab api selfhosted list-users` |
 
 ---
 
@@ -223,6 +246,9 @@ Management operations (create user, list users) require root privileges.
 | "create a new project" | Make a project | `swanlab api project create -n NAME` |
 | "who am I" | Current user info | `swanlab api user info` |
 | "self-hosted users" | User management | `swanlab api selfhosted list-users` |
+| "all projects on server" | Instance-wide project listing (self-hosted) | `swanlab api selfhosted list-projects` |
+| "all workspaces on server" | Instance-wide workspace listing (self-hosted) | `swanlab api selfhosted list-workspaces` |
+| "server usage summary" | System usage stats (self-hosted) | `swanlab api selfhosted summary` |
 | "filter experiments" | Query by conditions | `swanlab api run filter -p user/project -f QUERY` |
 | "best loss" | Minimum scalar value | `swanlab api run metrics PATH --keys loss` (check `min` field) |
 
