@@ -223,7 +223,130 @@ Management operations (create user, list users) require root privileges.
 | "create a new project" | Make a project | `swanlab api project create -n NAME` |
 | "who am I" | Current user info | `swanlab api user info` |
 | "self-hosted users" | User management | `swanlab api selfhosted list-users` |
+| "filter experiments" | Query by conditions | `swanlab api run filter -p user/project -f QUERY` |
 | "best loss" | Minimum scalar value | `swanlab api run metrics PATH --keys loss` (check `min` field) |
+
+---
+
+## Filter Query (Experiment Filtering)
+
+Experiments can be filtered by submitting a JSON array of filter objects to the runs/shows API. Each filter describes a condition on an experiment field.
+
+### Filter Object Structure
+
+Each filter object must contain four fields:
+
+```json
+{
+  "key": "state",
+  "type": "STABLE",
+  "op": "EQ",
+  "value": ["FINISHED"]
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `key` | string | yes | The field name to filter on |
+| `type` | string | yes | Sidebar type: `STABLE`, `CONFIG`, or `SCALAR` |
+| `op` | string | yes | Filter operator |
+| `value` | array | yes | Values to compare against (always a list) |
+
+### Filter Types (`type`)
+
+| Type | Description | Valid Keys |
+|------|-------------|------------|
+| `STABLE` | Built-in experiment fields (see table below) | `state`, `name`, `description`, `show`, `pin`, `baseline`, `colors`, `cluster`, `job`, `createdAt`, `updatedAt`, `finishedAt`, `pinnedAt`, `labels` |
+| `CONFIG` | Hyperparameters from `swanlab.init(config={...})` | Any key from the config dict, e.g. `learning_rate`, `batch_size` |
+| `SCALAR` | Scalar metrics from `swanlab.log(...)` | Any metric key, e.g. `train/loss`, `val/acc` |
+
+### STABLE Keys
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `state` | enum | Experiment state: `RUNNING`, `FINISHED`, `CRASHED`, `ABORTED`, `OFFLINE` |
+| `name` | string | Experiment display name |
+| `description` | string | Experiment description text |
+| `show` | boolean | Whether the experiment is visible in the UI |
+| `pin` | boolean | Whether the experiment is pinned to the top |
+| `baseline` | boolean | Whether this experiment is marked as a baseline for comparison |
+| `colors` | string | Assigned color identifier |
+| `cluster` | string | Experiment group/cluster name |
+| `job` | string | Distributed job type (e.g. `worker`, `master`) |
+| `createdAt` | datetime | Time the experiment was created (UTC+8 on filter, UTC in response) |
+| `updatedAt` | datetime | Time the experiment was last updated (UTC+8 on filter, UTC in response) |
+| `finishedAt` | datetime | Time the experiment finished (UTC+8 on filter, UTC in response) |
+| `pinnedAt` | datetime | Time the experiment was pinned (UTC+8 on filter, UTC in response) |
+| `labels` | array | Tags/labels attached to the experiment |
+
+### Filter Operators (`op`)
+
+| Operator | Meaning | Notes |
+|----------|---------|-------|
+| `EQ` | Equals | Single value |
+| `NEQ` | Not equals | Single value |
+| `GTE` | Greater than or equal | Numeric / date / string comparison |
+| `LTE` | Less than or equal | Numeric / date / string comparison |
+| `IN` | In list | Value is an array of options |
+| `NOT IN` | Not in list | Value is an array of options |
+| `CONTAIN` | Fuzzy contains | Substring / partial match |
+
+### Time Fields & Range Queries
+
+Time-type fields (`createdAt`, `updatedAt`, `finishedAt`, `pinnedAt`) are **range-queried** using `GTE` and `LTE` together to define a time interval.
+
+**Important timezone note:**
+- **Filter values** use **UTC+8** (Asia/Shanghai). Input times are interpreted as Beijing time.
+- **Response timestamps** are in **UTC**. The returned experiment fields (`createdAt`, `finishedAt`, etc.) are UTC ISO strings.
+
+To filter experiments within a time range, combine `GTE` and `LTE` filters on the same key:
+
+```json
+[
+  {"key": "createdAt", "type": "STABLE", "op": "GTE", "value": ["2026-01-01T00:00:00"]},
+  {"key": "createdAt", "type": "STABLE", "op": "LTE", "value": ["2026-04-29T23:59:59"]}
+]
+```
+
+- **Value format**: ISO 8601 string (e.g. `"2026-01-01T00:00:00"`). The server interprets filter values as UTC+8 and compares as date objects.
+- When reading results, remember the returned timestamps are UTC — they will be 8 hours behind the filter input times.
+
+### Operator Constraints
+
+- Array-type fields (e.g. `labels`) only support `EQ`, `NEQ`, `IN`, `NOT IN`, `CONTAIN`.
+- Date-type fields use range queries with `GTE`/`LTE` (see above).
+- Numeric fields prefer numeric comparison, falling back to string comparison.
+
+### Examples
+
+Filter by state:
+```json
+[{"key": "state", "type": "STABLE", "op": "IN", "value": ["FINISHED", "RUNNING"]}]
+```
+
+Filter by config value:
+```json
+[{"key": "learning_rate", "type": "CONFIG", "op": "EQ", "value": ["0.01"]}]
+```
+
+Filter by scalar metric:
+```json
+[{"key": "train/loss", "type": "SCALAR", "op": "LTE", "value": ["0.5"]}]
+```
+
+Filter by time range (filter values in UTC+8, response in UTC):
+```json
+[{"key": "finishedAt", "type": "STABLE", "op": "GTE", "value": ["2026-04-01T00:00:00"]}]
+```
+
+Multiple filters combined:
+```json
+[
+  {"key": "state", "type": "STABLE", "op": "EQ", "value": ["FINISHED"]},
+  {"key": "learning_rate", "type": "CONFIG", "op": "GTE", "value": ["0.001"]},
+  {"key": "train/loss", "type": "SCALAR", "op": "LTE", "value": ["0.5"]}
+]
+```
 
 ---
 

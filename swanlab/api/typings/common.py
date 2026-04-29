@@ -89,8 +89,8 @@ ApiFilterStableKeyLiteral = Literal[
     "description",
     # 是否可见
     "show",
-    # TODO: experiment 被设置为 pin 时强制返回
-    # "pin",
+    # TODO: 已知被设置为 pin 的 experiment 在任何情况下会强制返回
+    "pin",
     # 是否为基线
     "baseline",
     # 颜色

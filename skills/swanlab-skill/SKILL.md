@@ -146,6 +146,47 @@ swanlab api run list -p PROJECT_PATH [OPTIONS]
 | `--all` | | false | Fetch all pages |
 | `--save` | | off | Save output to file |
 
+#### `swanlab api run filter -p PROJECT_PATH -f FILTER_QUERY`
+
+Filter experiments under a project by a structured query. Returns matching experiments without pagination.
+
+See `references/SWANLAB_CONCEPTS.md > Filter Query` for the full filter object structure, supported types, operators, and constraints.
+
+```bash
+swanlab api run filter -p PROJECT_PATH -f FILTER_QUERY [--save [FILENAME]] [--host HOST] [--api-key KEY]
+```
+
+| Option | Short | Default | Description |
+|--------|-------|---------|-------------|
+| `--project_path` | `-p` | (required) | Project path in `username/project_name` format |
+| `--filter_query` | `-f` | (required) | Filter query as an inline JSON string or path to a `.json` file |
+| `--save` | | off | Save output to file |
+
+**Quick examples:**
+
+```bash
+# Filter by state
+swanlab api run filter -p user/project -f '[{"key":"state","type":"STABLE","op":"EQ","value":["FINISHED"]}]'
+
+# Filter by config value
+swanlab api run filter -p user/project -f '[{"key":"learning_rate","type":"CONFIG","op":"GTE","value":["0.001"]}]'
+
+# Filter by time range — filter values are UTC+8, response timestamps are UTC
+swanlab api run filter -p user/project -f '[
+  {"key":"createdAt","type":"STABLE","op":"GTE","value":["2026-01-01T00:00:00"]},
+  {"key":"createdAt","type":"STABLE","op":"LTE","value":["2026-04-29T23:59:59"]}
+]'
+
+# From a JSON file
+swanlab api run filter -p user/project -f ./filters.json
+
+# Multiple filters combined
+swanlab api run filter -p user/project -f '[
+  {"key":"state","type":"STABLE","op":"IN","value":["FINISHED","RUNNING"]},
+  {"key":"learning_rate","type":"CONFIG","op":"EQ","value":["0.01"]}
+]'
+```
+
 #### `swanlab api run columns PATH`
 
 List columns (metric definitions) under an experiment.
