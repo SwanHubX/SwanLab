@@ -11,11 +11,23 @@ from .cmd.init import init
 from .cmd.login import login, login_cli
 from .cmd.logout import logout_cli
 from .cmd.merge_settings import merge_settings
-from .cmd.run import async_log, define_scalar, finish, log, log_audio, log_echarts, log_image, log_text, log_video
+from .cmd.run import (
+    async_log,
+    define_scalar,
+    finish,
+    log,
+    log_audio,
+    log_echarts,
+    log_image,
+    log_molecule,
+    log_object3d,
+    log_text,
+    log_video,
+)
 from .cmd.verify import verify_cli
 from .internal.pkg import console, fs, helper, safe
 from .internal.run import Run, clear_run, get_run, has_run, set_run
-from .internal.run.transforms import Audio, ECharts, Image, Text, Video, echarts
+from .internal.run.transforms import Audio, ECharts, Image, Molecule, Object3D, Text, Video, echarts
 from .internal.settings import Settings
 from .protocol import Callback
 
@@ -30,6 +42,8 @@ __all__ = [
     "log_audio",
     "log_video",
     "log_echarts",
+    "log_object3d",
+    "log_molecule",
     "async_log",
     "verify_cli",
     "logout_cli",
@@ -52,6 +66,8 @@ __all__ = [
     "ECharts",
     "echarts",
     "Image",
+    "Molecule",
+    "Object3D",
     "Text",
     "Video",
     # protocol

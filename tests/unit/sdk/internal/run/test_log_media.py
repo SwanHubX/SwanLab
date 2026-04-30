@@ -16,6 +16,8 @@ from swanlab.sdk.internal.pkg import fork
 from swanlab.sdk.internal.run import Run
 from swanlab.sdk.internal.run.transforms.audio import Audio
 from swanlab.sdk.internal.run.transforms.image import Image
+from swanlab.sdk.internal.run.transforms.molecule import Molecule
+from swanlab.sdk.internal.run.transforms.object3d import Object3D
 from swanlab.sdk.internal.run.transforms.text import Text
 from swanlab.sdk.internal.run.transforms.video import Video
 
@@ -40,6 +42,14 @@ def _make_image() -> Image:
 
 def _make_video() -> Video:
     return Video(_GIF_1X1)
+
+
+def _make_object3d() -> Object3D:
+    return Object3D(np.zeros((10, 3), dtype=np.float64))
+
+
+def _make_molecule() -> Molecule:
+    return Molecule("O")
 
 
 # ──────────────────────────────────────────────
@@ -67,6 +77,8 @@ _MEDIA_LOG_CASES = [
     pytest.param("log_image", _make_image, {}, id="log_image"),
     pytest.param("log_audio", _make_audio, {"sample_rate": 44100}, id="log_audio"),
     pytest.param("log_video", _make_video, {}, id="log_video"),
+    pytest.param("log_object3d", _make_object3d, {}, id="log_object3d"),
+    pytest.param("log_molecule", _make_molecule, {}, id="log_molecule"),
 ]
 
 
@@ -131,6 +143,8 @@ class TestRunLogMedia:
             "log_image": np.zeros((8, 8, 3), dtype=np.uint8),
             "log_audio": np.zeros((1, 4410), dtype=np.float32),
             "log_video": _GIF_1X1,
+            "log_object3d": np.zeros((10, 3), dtype=np.float64),
+            "log_molecule": "O",
         }
         raw = raw_data_map[method_name]
         _call_log(method_name, mock_run, "k", raw, extra)

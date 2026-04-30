@@ -28,13 +28,24 @@ from swanlab.sdk.internal.pkg import adapter, console, fork, helper, safe
 from swanlab.sdk.internal.run import greeting
 from swanlab.sdk.internal.run.components import Components
 from swanlab.sdk.internal.run.components.config import Config
-from swanlab.sdk.internal.run.transforms import Audio, ECharts, Image, Text, Video, normalize_media_input
+from swanlab.sdk.internal.run.transforms import (
+    Audio,
+    ECharts,
+    Image,
+    Molecule,
+    Object3D,
+    Text,
+    Video,
+    normalize_media_input,
+)
 from swanlab.sdk.typings.run import AsyncLogType, FinishType, ModeType
 from swanlab.sdk.typings.run.column import ScalarXAxisType
 from swanlab.sdk.typings.run.transforms import CaptionsType
 from swanlab.sdk.typings.run.transforms.audio import AudioDatasType, AudioRatesType
 from swanlab.sdk.typings.run.transforms.echarts import EChartsDatasType
 from swanlab.sdk.typings.run.transforms.image import ImageDatasType, ImageFilesType, ImageModesType, ImageSizesType
+from swanlab.sdk.typings.run.transforms.molecule import MoleculeDatasType
+from swanlab.sdk.typings.run.transforms.object3d import Object3DDatasType
 from swanlab.sdk.typings.run.transforms.text import TextDatasType
 from swanlab.sdk.typings.run.transforms.video import VideoDatasType
 
@@ -533,6 +544,36 @@ class Run:
         :param step: Optional step for the echarts data.
         """
         normalized_data = normalize_media_input(ECharts, data, caption=caption)
+        self.log({key: normalized_data}, step=step)
+
+    @with_api("run.log_object3d()")
+    def log_object3d(
+        self, *, key: str, data: Object3DDatasType, caption: CaptionsType = None, step: Optional[int] = None
+    ):
+        """
+        A syntactic sugar for logging 3D object data.
+
+        :param key: The key for the 3D object data.
+        :param data: The 3D object data (numpy array, dict, file path, or Object3D object).
+        :param caption: Optional caption for the 3D object data.
+        :param step: Optional step for the 3D object data.
+        """
+        normalized_data = normalize_media_input(Object3D, data, caption=caption)
+        self.log({key: normalized_data}, step=step)
+
+    @with_api("run.log_molecule()")
+    def log_molecule(
+        self, *, key: str, data: MoleculeDatasType, caption: CaptionsType = None, step: Optional[int] = None
+    ):
+        """
+        A syntactic sugar for logging molecule data.
+
+        :param key: The key for the molecule data.
+        :param data: The molecule data (SMILES string, file path, RDKit Mol object, or Molecule object).
+        :param caption: Optional caption for the molecule data.
+        :param step: Optional step for the molecule data.
+        """
+        normalized_data = normalize_media_input(Molecule, data, caption=caption)
         self.log({key: normalized_data}, step=step)
 
     @with_api("run.define_scalar()")

@@ -1,4 +1,4 @@
-.PHONY:  init sync format proto unit bench clean
+.PHONY:  init sync format proto unit bench clean build
 
 init:
 	uv sync --all-extras
@@ -19,6 +19,9 @@ unit:
 
 bench:
 	uv run pytest tests/benchmark
+
+build:
+	uv build
 
 clean:
 	@bash scripts/clean_pycache.sh .

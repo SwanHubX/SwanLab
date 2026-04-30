@@ -22,6 +22,8 @@ if TYPE_CHECKING:
     import PIL
     import PIL.Image
     import rdkit
+    import rdkit.Chem
+    import rdkit.Chem.AllChem
     import sklearn
     import sklearn.metrics
     import soundfile
@@ -89,6 +91,7 @@ _SUBMODULE_IMPORTS = {
     "PIL": ["PIL.Image"],
     "matplotlib": ["matplotlib.figure"],
     "sklearn": ["sklearn.metrics"],
+    "rdkit": ["rdkit.Chem", "rdkit.Chem.AllChem"],
 }
 
 

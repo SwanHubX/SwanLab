@@ -11,7 +11,7 @@ from typing import Any, Callable, List, Mapping, Optional, Union
 
 from . import utils
 from .api import Api
-from .sdk import Audio, Callback, ECharts, Image, Run, Settings, Text, Video, config, echarts
+from .sdk import Audio, Callback, ECharts, Image, Molecule, Object3D, Run, Settings, Text, Video, config, echarts
 from .sdk.typings.cmd import ConfigLike, LoginType
 from .sdk.typings.run import AsyncLogType, FinishType, ModeType, ResumeType
 from .sdk.typings.run.column import ScalarXAxisType
@@ -19,6 +19,8 @@ from .sdk.typings.run.transforms import CaptionsType
 from .sdk.typings.run.transforms.audio import AudioDatasType, AudioRatesType
 from .sdk.typings.run.transforms.echarts import EChartsDatasType
 from .sdk.typings.run.transforms.image import ImageDatasType, ImageFilesType, ImageModesType, ImageSizesType
+from .sdk.typings.run.transforms.molecule import MoleculeDatasType
+from .sdk.typings.run.transforms.object3d import Object3DDatasType
 from .sdk.typings.run.transforms.text import TextDatasType
 from .sdk.typings.run.transforms.video import VideoDatasType
 
@@ -36,6 +38,8 @@ __all__ = [
     "log_audio",
     "log_video",
     "log_echarts",
+    "log_object3d",
+    "log_molecule",
     "define_scalar",
     "async_log",
     # run
@@ -51,6 +55,8 @@ __all__ = [
     "ECharts",
     "Image",
     "Video",
+    "Object3D",
+    "Molecule",
     # utils
     "utils",
     "echarts",
@@ -425,6 +431,55 @@ def log_echarts(
         >>> swanlab.init(mode="local")
         >>> chart = swanlab.echarts.Bar().add_xaxis(["a", "b"]).add_yaxis("series", [1, 2])
         >>> swanlab.log_echarts(key="chart", data=chart)
+        >>> swanlab.finish()
+    """
+    ...
+
+def log_object3d(
+    *,
+    key: str,
+    data: Object3DDatasType,
+    caption: CaptionsType = None,
+    step: Optional[int] = None,
+) -> None:
+    """A syntactic sugar for logging 3D object data.
+
+    :param key: The key for the 3D object data.
+    :param data: The 3D object data (numpy array, dict, file path, or Object3D object).
+    :param caption: Optional caption for the 3D object data.
+    :param step: Optional step number. If not provided, auto-increments.
+    :raises RuntimeError: If called without an active run.
+
+    Examples:
+
+        >>> import swanlab, numpy as np
+        >>> swanlab.init(mode="local")
+        >>> points = np.random.rand(100, 3)
+        >>> swanlab.log_object3d(key="point_cloud", data=points, caption="random points")
+        >>> swanlab.finish()
+    """
+    ...
+
+def log_molecule(
+    *,
+    key: str,
+    data: MoleculeDatasType,
+    caption: CaptionsType = None,
+    step: Optional[int] = None,
+) -> None:
+    """A syntactic sugar for logging molecule data.
+
+    :param key: The key for the molecule data.
+    :param data: The molecule data (SMILES string, file path, RDKit Mol object, or Molecule object).
+    :param caption: Optional caption for the molecule data.
+    :param step: Optional step number. If not provided, auto-increments.
+    :raises RuntimeError: If called without an active run.
+
+    Examples:
+
+        >>> import swanlab
+        >>> swanlab.init(mode="local")
+        >>> swanlab.log_molecule(key="molecule", data="CCO", caption="Ethanol")
         >>> swanlab.finish()
     """
     ...

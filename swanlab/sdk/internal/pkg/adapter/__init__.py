@@ -57,6 +57,8 @@ medium = BiMap(
         "audio": ColumnType.COLUMN_TYPE_AUDIO,
         "video": ColumnType.COLUMN_TYPE_VIDEO,
         "echarts": ColumnType.COLUMN_TYPE_ECHARTS,
+        "object3d": ColumnType.COLUMN_TYPE_OBJECT3D,
+        "molecule": ColumnType.COLUMN_TYPE_MOLECULE,
     }
 )
 """媒体类型名称与 ColumnType 枚举的双向映射，同时作为存储目录名映射"""

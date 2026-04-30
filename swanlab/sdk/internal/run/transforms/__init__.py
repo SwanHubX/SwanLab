@@ -13,11 +13,24 @@ from .audio import Audio
 from .echarts import ECharts
 from .echarts import components as echarts
 from .image import Image
+from .molecule import Molecule
+from .object3d import Object3D
 from .scalar import Scalar
 from .text import Text
 from .video import Video
 
-__all__ = ["Text", "Scalar", "Audio", "Image", "Video", "ECharts", "echarts", "normalize_media_input"]
+__all__ = [
+    "Text",
+    "Scalar",
+    "Audio",
+    "Image",
+    "Video",
+    "ECharts",
+    "Object3D",
+    "Molecule",
+    "echarts",
+    "normalize_media_input",
+]
 
 
 def normalize_media_input(
