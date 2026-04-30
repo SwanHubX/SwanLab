@@ -35,7 +35,7 @@ class BaseMetric:
                 f"{ColumnType.Name(self.type)}, not {ColumnType.Name(metric_type)}."
             )
 
-    def check_if_logged(self, step: int) -> bool:
+    def check_and_mark_logged(self, step: int) -> bool:
         """
         确保step已经被记录，如果已经记录则返回True，否则返回False
         取消此方法是实现 https://github.com/SwanHubX/SwanLab/issues/1576 的前置条件

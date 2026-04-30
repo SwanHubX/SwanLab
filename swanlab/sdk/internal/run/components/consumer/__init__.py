@@ -191,7 +191,7 @@ class BackgroundConsumer(ConsumerProtocol):
                     # 确保以定义的指标类型相同
                     metric.ensure_type_match(key, cls.column_type())
                 # 2. 如果指标已定义，则检查是否已记录过此步数，如果已记录过，则跳过，否则记录
-                if metric.check_if_logged(event.step):
+                if metric.check_and_mark_logged(event.step):
                     console.debug(f"Metric '{key}' at step {event.step} has already been logged, skipped")
                     continue
                 # 3. 如果指标是标量，则更新标量指标状态，否则更新媒体指标状态
