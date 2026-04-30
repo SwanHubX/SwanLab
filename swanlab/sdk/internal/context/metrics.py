@@ -28,17 +28,17 @@ class BaseMetric:
     def type(self) -> ColumnType:
         return self._column.column_type
 
-    def ensure_type_match(self, key: str, metric_type: ColumnType):
+    def ensure_type_match(self, metric_type: ColumnType):
         if self.type != metric_type:
             raise TypeError(
-                f"Metric '{key}' has already been defined as "
+                f"Metric '{self._column.column_key}' has already been defined as "
                 f"{ColumnType.Name(self.type)}, not {ColumnType.Name(metric_type)}."
             )
 
     def check_and_mark_logged(self, step: int) -> bool:
         """
         确保step已经被记录，如果已经记录则返回True，否则返回False
-        取消此方法是实现 https://github.com/SwanHubX/SwanLab/issues/1576 的前置条件
+        引入此方法是实现 https://github.com/SwanHubX/SwanLab/issues/1576 的前置条件
         我们需要等待后端准备好
         :param step: 步数
         :return: 是否已经记录
@@ -154,8 +154,4 @@ class RunMetrics:
         if math.isnan(value) or math.isinf(value):
             console.debug(f"Invalid scalar value: {value} for metric '{key}', ignored when updating.")
             return
-        scalar.latest = value
-        if scalar.max is None or value > scalar.max:
-            scalar.max = value
-        if scalar.min is None or value < scalar.min:
-            scalar.min = value
+        scalar.update(value)

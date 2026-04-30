@@ -189,7 +189,7 @@ class BackgroundConsumer(ConsumerProtocol):
                     self._column_batch.append(this_column)
                 else:
                     # 确保以定义的指标类型相同
-                    metric.ensure_type_match(key, cls.column_type())
+                    metric.ensure_type_match(cls.column_type())
                 # 2. 如果指标已定义，则检查是否已记录过此步数，如果已记录过，则跳过，否则记录
                 if metric.check_and_mark_logged(event.step):
                     console.debug(f"Metric '{key}' at step {event.step} has already been logged, skipped")
