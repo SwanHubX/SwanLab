@@ -191,16 +191,17 @@ class BackgroundConsumer(ConsumerProtocol):
                 else:
                     # 确保已定义的指标类型相同
                     metric.ensure_type_match(cls.column_type())
-                # 2. 如果指标已定义，则检查是否已记录过此步数，如果已记录过，则跳过，否则记录
-                if metric.check_and_mark_logged(event.step):
-                    console.debug(f"Metric '{key}' at step {event.step} has already been logged, skipped")
+                # 2. 检查此指标在此步是否可接受，可接受则更新指标状态并塞入批量队列
+                if metric.try_accept_step(event.step):
+                    # 如果指标是标量，则更新标量指标状态，否则更新媒体指标状态
+                    if isinstance(data_record, ScalarRecord):
+                        metric.update(data_record)
+                        self._scalar_batch.append(data_record)
+                    else:
+                        self._media_batch.append(data_record)
                     continue
-                # 3. 如果指标是标量，则更新标量指标状态，否则更新媒体指标状态
-                if isinstance(data_record, ScalarRecord):
-                    metric.update(data_record)
-                    self._scalar_batch.append(data_record)
-                else:
-                    self._media_batch.append(data_record)
+                # 3. 如果指标在此步不可接受，则 warning 并跳过
+                console.debug(f"Metric '{key}' at step {event.step} was skipped because it is duplicate or too old.")
 
     def _handle_scalar_define(self, event: ScalarDefineEvent) -> None:
         # 1. 如果已经定义，则跳过

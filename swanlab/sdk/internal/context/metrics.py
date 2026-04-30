@@ -24,7 +24,8 @@ DATACLASS_KWARGS = {"slots": True} if sys.version_info >= (3, 10) else {}
 @dataclass(**DATACLASS_KWARGS)
 class BaseMetric(ABC):
     _column: ColumnRecord
-    steps: Set[int] = field(default_factory=set, init=False)
+    min_step: int
+    steps: Set[int]
 
     @property
     def type(self) -> ColumnType:
@@ -37,18 +38,29 @@ class BaseMetric(ABC):
                 f"{ColumnType.Name(self.type)}, not {ColumnType.Name(metric_type)}."
             )
 
-    def check_and_mark_logged(self, step: int) -> bool:
+    def try_accept_step(self, step: int) -> bool:
         """
-        确保step已经被记录，如果已经记录则返回True，否则返回False
-        引入此方法是实现 https://github.com/SwanHubX/SwanLab/issues/1576 的前置条件
-        我们需要等待后端准备好
-        :param step: 步数
-        :return: 是否已经记录
+        检查当前 step 是否应跳过；如果是新的合法 step，则登记下来。
+
+        当出现以下情况时返回 False：
+        - step 小于等于 min_step
+        - step 已经记录过
+
+        当 step 可接受且此前未记录时：
+        - 将 step 加入已记录集合
+        - 返回 True
+
+        :param step: 当前步数
+        :return: 是否应跳过该 step
         """
+        if step <= self.min_step:
+            return False
+
+        # 取消下面的处理是实现 https://github.com/SwanHubX/SwanLab/issues/1576 的前置条件，我们需要等待后端准备好
         if step in self.steps:
-            return True
+            return False
         self.steps.add(step)
-        return False
+        return True
 
     @abstractmethod
     def update(self, data_record: Any): ...
@@ -126,26 +138,28 @@ class RunMetrics:
         self._global_step += 1
         return self._global_step
 
-    def define_scalar(self, *, key: str, column: ColumnRecord) -> ScalarMetric:
+    def define_scalar(self, *, key: str, column: ColumnRecord, min_step: int = -1) -> ScalarMetric:
         """
         定义一个标量指标
         :param key: 指标键
         :param column: 指标列记录
+        :param min_step: 最小步数，代表用户无法再写入此步数之前的数据，这在阻止用户写入step小于0、resume时拒绝一定大小的step十分有用
         """
         assert key not in self._metrics, f"Metric '{key}' already exists."
-        scalar_metric = ScalarMetric(_column=column)
+        scalar_metric = ScalarMetric(_column=column, steps=set(), min_step=min_step)
         self._metrics[key] = scalar_metric
         return scalar_metric
 
-    def define_media(self, *, key: str, column: ColumnRecord, path: Path) -> MediaMetric:
+    def define_media(self, *, key: str, column: ColumnRecord, path: Path, min_step: int = -1) -> MediaMetric:
         """
         定义媒体指标
         :param key: 指标键
         :param column: 指标列记录
         :param path: 媒体存储路径，绝对路径
+        :param min_step: 最小步数，代表用户无法再写入此步数之前的数据，这在阻止用户写入step小于0、resume时拒绝一定大小的step十分有用
         """
         assert key not in self._metrics, f"Metric '{key}' already exists."
-        media_metric = MediaMetric(_column=column, path=path)
+        media_metric = MediaMetric(_column=column, path=path, steps=set(), min_step=min_step)
         self._metrics[key] = media_metric
         return media_metric
 
