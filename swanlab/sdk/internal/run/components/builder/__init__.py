@@ -6,7 +6,7 @@
 """
 
 from functools import singledispatchmethod
-from typing import Optional, Type
+from typing import Optional, Tuple, Type, Union
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
@@ -22,6 +22,7 @@ from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord
 from swanlab.proto.swanlab.system.v1.console_pb2 import ConsoleRecord
 from swanlab.sdk.internal.bus.events import ConfigEvent, ConsoleEvent, ParseResult, ScalarDefineEvent
 from swanlab.sdk.internal.context import RunContext, TransformData, TransformMedia
+from swanlab.sdk.internal.context.metrics import MediaMetric, ScalarMetric
 from swanlab.sdk.internal.pkg import adapter, console, fs
 from swanlab.sdk.internal.run.transforms import ECharts, Scalar, echarts
 
@@ -123,7 +124,11 @@ class RecordBuilder:
         )
         return media_record, cls
 
-    def build_column_from_log(self, cls: Type[TransformData], key: str) -> ColumnRecord:
+    def build_column_from_log(
+        self,
+        cls: Type[TransformData],
+        key: str,
+    ) -> Tuple[ColumnRecord, Union[ScalarMetric, MediaMetric]]:
         """隐式创建列：从 TransformType 推断 ColumnType，并同步 RunMetrics"""
         column_record = ColumnRecord(
             column_key=key,
@@ -134,15 +139,19 @@ class RecordBuilder:
         )
         col_type = column_record.column_type
         metrics = self._ctx.metrics
+        metric: Union[ScalarMetric, MediaMetric]
         if issubclass(cls, TransformMedia):
             media_type_str = adapter.medium[col_type]
-            metrics.define_media(key, column_record, self._ctx.media_dir / media_type_str)
+            metric = metrics.define_media(key=key, column=column_record, path=self._ctx.media_dir / media_type_str)
         else:
-            metrics.define_scalar(key=key, column=column_record)
+            metric = metrics.define_scalar(key=key, column=column_record)
 
-        return column_record
+        return column_record, metric
 
-    def build_column_from_scalar_define(self, event: ScalarDefineEvent) -> ColumnRecord:
+    def build_column_from_scalar_define(
+        self,
+        event: ScalarDefineEvent,
+    ) -> Tuple[ColumnRecord, ScalarMetric]:
         """显式创建标量列（DefineEvent）"""
         metrics = self._ctx.metrics
         section_type = SectionType.SECTION_TYPE_SYSTEM if event.system else SectionType.SECTION_TYPE_PUBLIC
@@ -157,8 +166,8 @@ class RecordBuilder:
             metric_name=event.name or "",
             metric_colors=MetricColors(light=event.color, dark=event.color) if event.color else None,
         )
-        metrics.define_scalar(key=event.key, column=col)
-        return col
+        metric = metrics.define_scalar(key=event.key, column=col)
+        return col, metric
 
     # ── 系统元数据 ──
     @staticmethod

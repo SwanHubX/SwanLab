@@ -11,7 +11,7 @@ from abc import ABC
 from typing import TYPE_CHECKING, List, Tuple
 
 from swanlab.proto.swanlab.config.v1.config_pb2 import ConfigRecord
-from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord, ColumnType
+from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord, ScalarRecord
 from swanlab.proto.swanlab.system.v1.console_pb2 import ConsoleRecord
 from swanlab.sdk.internal.bus.emitter import RunQueue
@@ -182,10 +182,19 @@ class BackgroundConsumer(ConsumerProtocol):
                 if data_record is None:
                     console.warning(f"Metric '{key}' at step {event.step} returned no data, skipped")
                     continue
-                defined = self._metrics.ensure_defined_as(key, cls.column_type())
-                if not defined:
-                    this_column = self._builder.build_column_from_log(cls, key)
+                # 1. 如果指标未定义，则定义此指标
+                metric = self._metrics.get(key)
+                if metric is None:
+                    this_column, metric = self._builder.build_column_from_log(cls, key)
                     self._column_batch.append(this_column)
+                else:
+                    # 确保以定义的指标类型相同
+                    metric.ensure_type_match(key, cls.column_type())
+                # 2. 如果指标已定义，则检查是否已记录过此步数，如果已记录过，则跳过，否则记录
+                if metric.check_if_logged(event.step):
+                    console.debug(f"Metric '{key}' at step {event.step} has already been logged, skipped")
+                    continue
+                # 3. 如果指标是标量，则更新标量指标状态，否则更新媒体指标状态
                 if isinstance(data_record, ScalarRecord):
                     self._metrics.update_scalar(key, data_record.value.number)
                     self._scalar_batch.append(data_record)
@@ -193,11 +202,13 @@ class BackgroundConsumer(ConsumerProtocol):
                     self._media_batch.append(data_record)
 
     def _handle_scalar_define(self, event: ScalarDefineEvent) -> None:
-        defined = self._metrics.ensure_defined_as(event.key, ColumnType.COLUMN_TYPE_SCALAR)
-        if defined:
+        # 1. 如果已经定义，则跳过
+        metric = self._metrics.get(event.key)
+        if metric is not None:
             console.warning(f"Scalar Column '{event.key}' has already been defined, skip redefine.")
             return
-        this_column = self._builder.build_column_from_scalar_define(event)
+        # 2. 如果未定义，则定义此指标
+        this_column, _ = self._builder.build_column_from_scalar_define(event)
         self._column_batch.append(this_column)
 
     def _flush(self) -> None:
