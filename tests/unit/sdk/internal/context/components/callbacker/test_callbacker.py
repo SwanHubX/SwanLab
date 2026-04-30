@@ -43,6 +43,13 @@ class TestCallbackManager:
         mgr.merge_callbacks([_AlphaCallback(), _BetaCallback()])
         assert {cb.name for cb in mgr.registered_callbacks} == {"alpha", "beta"}
 
+    def test_merge_single_callback(self):
+        """支持传入单个 Callback 对象"""
+        mgr = CallbackManager()
+        mgr.merge_callbacks(_AlphaCallback())
+        assert len(mgr.registered_callbacks) == 1
+        assert mgr.registered_callbacks[0].name == "alpha"
+
     def test_merge_overwrites_duplicate(self):
         mgr = CallbackManager()
         mgr.merge_callbacks([_AlphaCallback()])
@@ -96,6 +103,11 @@ class TestCreateCallbackManager:
 
     def test_local_only(self):
         mgr = create_callback_manager([_AlphaCallback()])
+        assert {cb.name for cb in mgr.registered_callbacks} == {"alpha"}
+
+    def test_local_single_callback(self):
+        """支持传入单个 Callback 对象"""
+        mgr = create_callback_manager(_AlphaCallback())
         assert {cb.name for cb in mgr.registered_callbacks} == {"alpha"}
 
     def test_global_and_local_merged(self):

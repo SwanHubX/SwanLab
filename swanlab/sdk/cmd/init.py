@@ -14,7 +14,7 @@ import time
 from datetime import datetime
 from functools import partial
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import requests
 import yaml
@@ -29,8 +29,8 @@ from swanlab.sdk.internal.context import (
 )
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.pkg import adapter, console, fs, helper, safe
-from swanlab.sdk.protocol import Callback
 from swanlab.sdk.typings.cmd import ConfigLike
+from swanlab.sdk.typings.context import CallbacksType
 from swanlab.utils import generate_color, generate_id, generate_name
 
 from ..internal.run import Run, get_run, has_run
@@ -101,7 +101,7 @@ def init(
     resume: Optional[Union[ResumeType, bool]] = None,
     config: Optional[ConfigLike] = None,
     settings: Optional[Settings] = None,
-    callbacks: Optional[Iterable[Callback]] = None,
+    callbacks: Optional[CallbacksType] = None,
     **kwargs,
 ) -> Run:
     """Initialize a new SwanLab run to track experiments.
@@ -442,7 +442,7 @@ def _generate_run_dir_name(run_id: str) -> str:
     return "run-" + datetime.now().strftime("%Y%m%d_%H%M%S") + "-" + run_id
 
 
-def _init(run_settings: Settings, callbacks: Optional[Iterable[Callback]]) -> Tuple[RunContext, Optional[str]]:
+def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[RunContext, Optional[str]]:
     """
     初始化运行时配置，在这之前，所有引导式交互都已经完成
     上下文生命周期通过 `Run` 管理，而非全局 `ContextVar`

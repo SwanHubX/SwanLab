@@ -5,18 +5,16 @@
 @description: swanlab.merge_callbacks 方法，合并自定义回调函数
 """
 
-from typing import Iterable, Union
-
 from swanlab.sdk.cmd.guard import with_cmd_lock, without_run
 from swanlab.sdk.internal.context.components.callbacker import global_callbacker
-from swanlab.sdk.protocol import Callback
+from swanlab.sdk.typings.context import CallbacksType
 
 __all__ = ["merge_callbacks"]
 
 
 @with_cmd_lock
 @without_run("merge_callbacks")
-def merge_callbacks(callbacks: Union[Iterable[Callback], Callback]) -> None:
+def merge_callbacks(callbacks: CallbacksType) -> None:
     """Merge custom callbacks into the global SwanLab callback registry.
 
     This function allows you to register callbacks before initializing a run.
@@ -50,6 +48,4 @@ def merge_callbacks(callbacks: Union[Iterable[Callback], Callback]) -> None:
         >>> swanlab.merge_callbacks([MyCallback(), AnotherCallback()])
         >>> swanlab.init()
     """
-    if isinstance(callbacks, Callback):
-        callbacks = [callbacks]
     global_callbacker.merge_callbacks(callbacks)

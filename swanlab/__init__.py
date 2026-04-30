@@ -85,6 +85,7 @@ __all__ = [
     "roc_curve",
     "pr_curve",
     "confusion_matrix",
+    "register_callbacks",
 ]
 
 
@@ -126,3 +127,13 @@ def confusion_matrix(*args, **kwargs):
         stacklevel=2,
     )
     return echarts.confusion_matrix(*args, **kwargs)
+
+
+@deprecated("use `swanlab.merge_callbacks()` instead")
+def register_callbacks(*args, **kwargs):
+    warnings.warn(
+        "`swanlab.register_callbacks()` is deprecated, use `swanlab.merge_callbacks()` instead",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return merge_callbacks(*args, **kwargs)

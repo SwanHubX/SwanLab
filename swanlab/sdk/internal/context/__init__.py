@@ -10,11 +10,11 @@ from contextvars import ContextVar
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
-from typing import Generator, Iterable, Optional
+from typing import Generator, Optional
 
 from swanlab.sdk.internal.context.components.probe import create_probe
 from swanlab.sdk.internal.settings import Settings
-from swanlab.sdk.protocol.callbacker import Callback
+from swanlab.sdk.typings.context import CallbacksType
 
 from .components import CallbackManager, create_callback_manager, create_core
 from .metrics import MediaMetric, RunMetrics, ScalarMetric
@@ -44,7 +44,7 @@ class RunConfig:
 
 # 上下文宿主
 class RunContext:
-    def __init__(self, config: RunConfig, callbacks: Optional[Iterable[Callback]] = None):
+    def __init__(self, config: RunConfig, callbacks: Optional[CallbacksType] = None):
         self.config: RunConfig = config
         self.callbacker = create_callback_manager(callbacks=callbacks)
         self.metrics: RunMetrics = RunMetrics()

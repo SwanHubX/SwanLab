@@ -5,10 +5,11 @@
 @description: SwanLab 回调模块
 """
 
-from typing import TYPE_CHECKING, Dict, Iterable, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 from swanlab.sdk.internal.pkg import console, safe
 from swanlab.sdk.protocol import Callback
+from swanlab.sdk.typings.context import CallbacksType
 
 
 class _CallbackManager:
@@ -23,10 +24,12 @@ class _CallbackManager:
         """
         self._callbacks: Dict[str, Callback] = {}
 
-    def merge_callbacks(self, callbacks: Optional[Iterable[Callback]]) -> None:
+    def merge_callbacks(self, callbacks: Optional[CallbacksType]) -> None:
         """批量合并回调函数到当前管理器中"""
-        if not callbacks:
+        if callbacks is None:
             return
+        if isinstance(callbacks, Callback):
+            callbacks = [callbacks]
 
         for cb in callbacks:
             if not isinstance(cb, Callback):
@@ -88,7 +91,7 @@ else:
     CallbackManager = _CallbackManager
 
 
-def create_callback_manager(callbacks: Optional[Iterable[Callback]]) -> CallbackManager:
+def create_callback_manager(callbacks: Optional[CallbacksType]) -> CallbackManager:
     """
     创建一个新的回调管理器，继承全局回调的同时，支持注入局部回调（当前run有效的回调）
     优先级是局部回调大于全局回调
