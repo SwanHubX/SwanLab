@@ -14,7 +14,7 @@ import time
 from datetime import datetime
 from functools import partial
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import requests
 import yaml
@@ -25,7 +25,6 @@ from swanlab.sdk.cmd.guard import with_cmd_lock
 from swanlab.sdk.internal.context import (
     RunConfig,
     RunContext,
-    callbacker,
     use_context,
 )
 from swanlab.sdk.internal.core_python import client
@@ -102,7 +101,7 @@ def init(
     resume: Optional[Union[ResumeType, bool]] = None,
     config: Optional[ConfigLike] = None,
     settings: Optional[Settings] = None,
-    callbacks: Optional[List[Callback]] = None,
+    callbacks: Optional[Iterable[Callback]] = None,
     **kwargs,
 ) -> Run:
     """Initialize a new SwanLab run to track experiments.
@@ -230,13 +229,11 @@ def init(
         elif run_settings.run.resume == "never":
             assert run_settings.run.id is None, "Run id should not be provided when resume=never."
     # ---------------------------------- 初始化 ----------------------------------
-    # 合并回调
-    callbacker.merge_callbacks(callbacks or [])
     # 开始初始化
     generate_ctx = _init
     if run_settings.mode == "online":
         generate_ctx = utils.with_loading_animation()(_init)
-    ctx, path = generate_ctx(run_settings)
+    ctx, path = generate_ctx(run_settings, callbacks)
     # 初始化run
     run = Run(ctx, path)
     # 发送webhook回调，在除了disabled模式外，都会触发
@@ -445,7 +442,7 @@ def _generate_run_dir_name(run_id: str) -> str:
     return "run-" + datetime.now().strftime("%Y%m%d_%H%M%S") + "-" + run_id
 
 
-def _init(run_settings: Settings) -> Tuple[RunContext, Optional[str]]:
+def _init(run_settings: Settings, callbacks: Optional[Iterable[Callback]]) -> Tuple[RunContext, Optional[str]]:
     """
     初始化运行时配置，在这之前，所有引导式交互都已经完成
     上下文生命周期通过 `Run` 管理，而非全局 `ContextVar`
@@ -469,7 +466,7 @@ def _init(run_settings: Settings) -> Tuple[RunContext, Optional[str]]:
     else:
         run_dir = run_settings.log_dir / _generate_run_dir_name(run_id)
     # 3. 创建一个临时的上下文，避免出现任何问题导致上下文残留
-    with use_context(RunContext(config=RunConfig(settings=run_settings, run_dir=run_dir))) as ctx:
+    with use_context(RunContext(config=RunConfig(settings=run_settings, run_dir=run_dir), callbacks=callbacks)) as ctx:
         assert run_settings.project.name, "Project name is required."
         # 1. online 模式前置：确保 client 已就绪
         if mode == "online":

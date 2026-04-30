@@ -14,8 +14,8 @@ PS: 考虑到未来多语言SDK的支持，在设计上core和system在未来会
 TODO system 组件暂时挂在 run 对象上，后续迁移到上下文中
 """
 
-from .callbacker import CallbackManager, callbacker, create_callback_manager
+from .callbacker import CallbackManager, create_callback_manager
 from .core import create_core
 from .probe import create_probe
 
-__all__ = ["CallbackManager", "callbacker", "create_callback_manager", "create_core", "create_probe"]
+__all__ = ["CallbackManager", "create_callback_manager", "create_core", "create_probe"]

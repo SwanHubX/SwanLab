@@ -5,7 +5,7 @@
 @description: SwanLab 回调模块
 """
 
-from typing import TYPE_CHECKING, Dict, Iterable, List
+from typing import TYPE_CHECKING, Dict, Iterable, List, Optional
 
 from swanlab.sdk.internal.pkg import console, safe
 from swanlab.sdk.protocol import Callback
@@ -17,9 +17,14 @@ class _CallbackManager:
     维护当前上下文中的全局回调状态，支持批量合并与指定移除。
     """
 
-    def __init__(self):
-        # 使用字典保证顺序并天然去重
-        self._callbacks: Dict[str, Callback] = {}
+    def __init__(self, callbacks_dict: Optional[Dict[str, Callback]] = None):
+        """
+        初始化回调管理器
+        :param callbacks_dict: 回调函数字典，key为回调函数名称，value为回调函数实例
+        """
+        if callbacks_dict is None:
+            callbacks_dict = {}
+        self._callbacks: Dict[str, Callback] = callbacks_dict
 
     def merge_callbacks(self, callbacks: Iterable[Callback]) -> None:
         """批量合并回调函数到当前管理器中"""
@@ -68,6 +73,9 @@ class _CallbackManager:
         raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
 
 
+# 全局 CallBacker，主要用处是存储全局注册的回调函数
+global_callbacker = _CallbackManager()
+
 # =========================================================================
 # IDE 类型欺骗 (Type Hinting Magic)
 # 这一段代码在真实运行时根本不会被执行，它完全是写给 PyCharm/VSCode 看的
@@ -79,15 +87,22 @@ if TYPE_CHECKING:
         def name(self) -> str:
             return "FakeCallback"
 
-    callbacker: CallbackManager
 else:
     CallbackManager = _CallbackManager
-    # 全局 CallBacker
-    callbacker = CallbackManager()
 
 
-def create_callback_manager() -> CallbackManager:
-    return CallbackManager()
+def create_callback_manager(callbacks: Optional[Iterable[Callback]]) -> CallbackManager:
+    """
+    创建一个新的回调管理器，继承全局回调的同时，支持注入局部回调（当前run有效的回调）
+    优先级是局部回调大于全局回调
+    """
+    callbacks_dict: Dict[str, Callback] = {}
+    for global_cb in global_callbacker.registered_callbacks:
+        callbacks_dict[global_cb.name] = global_cb
+    if callbacks:
+        for cb in callbacks:
+            callbacks_dict[cb.name] = cb
+    return CallbackManager(callbacks_dict=callbacks_dict)
 
 
-__all__ = ["callbacker", "CallbackManager", "create_callback_manager"]
+__all__ = ["CallbackManager", "global_callbacker", "create_callback_manager"]
