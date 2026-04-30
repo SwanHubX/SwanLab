@@ -28,14 +28,14 @@ class BaseMetric(ABC):
     steps: Set[int]
 
     @property
-    def type(self) -> ColumnType:
+    def column_type(self) -> ColumnType:
         return self._column.column_type
 
     def ensure_type_match(self, metric_type: ColumnType):
-        if self.type != metric_type:
+        if self.column_type != metric_type:
             raise TypeError(
                 f"Metric '{self._column.column_key}' has already been defined as "
-                f"{ColumnType.Name(self.type)}, not {ColumnType.Name(metric_type)}."
+                f"{ColumnType.Name(self.column_type)}, not {ColumnType.Name(metric_type)}."
             )
 
     def try_accept_step(self, step: int) -> bool:
