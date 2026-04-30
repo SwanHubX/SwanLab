@@ -5,6 +5,7 @@
 @description: 后台消费者组件，用于消费运行事件
 """
 
+import math
 import queue
 import threading
 from abc import ABC
@@ -17,6 +18,7 @@ from swanlab.proto.swanlab.system.v1.console_pb2 import ConsoleRecord
 from swanlab.sdk.internal.bus.emitter import RunQueue
 from swanlab.sdk.internal.bus.events import ConfigEvent, ConsoleEvent, MetricLogEvent, ScalarDefineEvent
 from swanlab.sdk.internal.context import RunContext
+from swanlab.sdk.internal.context.metrics import ScalarMetric
 from swanlab.sdk.internal.pkg import console, safe
 
 if TYPE_CHECKING:
@@ -196,7 +198,12 @@ class BackgroundConsumer(ConsumerProtocol):
                     continue
                 # 3. 如果指标是标量，则更新标量指标状态，否则更新媒体指标状态
                 if isinstance(data_record, ScalarRecord):
-                    self._metrics.update_scalar(key, data_record.value.number)
+                    assert isinstance(metric, ScalarMetric), f"Metric '{key}' is not a scalar metric."
+                    value = data_record.value.number
+                    if math.isnan(value) or math.isinf(value):
+                        console.debug(f"Invalid scalar value: {value} for metric '{key}', ignored when updating.")
+                        continue
+                    metric.update(value)
                     self._scalar_batch.append(data_record)
                 else:
                     self._media_batch.append(data_record)

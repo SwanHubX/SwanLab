@@ -5,14 +5,12 @@
 @description: SwanLab 运行时指标管理
 """
 
-import math
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, Optional, Set, Union
 
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord, ColumnType
-from swanlab.sdk.internal.pkg import console
 
 # 开启 slots 可以减少内存占用，提高性能，但是仅适用于 Python 3.10 及以上版本
 # 因此我们动态判断版本：如果是 3.10 及以上，开启 slots；否则传空字典
@@ -83,8 +81,7 @@ class MediaMetric(BaseMetric):
 # 注意：此类不加锁保护。设计上对 RunMetrics 的写操作发生在以下线程：
 #   - next_step: 用户主线程（通过 Run.log，已在 with_api 锁内串行化）
 #   - next_system_step: Monitor Timer 线程（独立递增 system_step，与 next_step 互不干扰）
-#   - update_scalar: Consumer 线程（单线程消费队列，与 define_scalar/define_media 串行）
-#   - define_scalar/define_media: Consumer 线程（同上）
+#   - define_scalar/define_media: Consumer 线程（单线程消费队列，串行）
 # 如果未来引入多线程并发写入此对象，需要重新评估线程安全。
 @dataclass
 class RunMetrics:
@@ -141,17 +138,3 @@ class RunMetrics:
         :return: 指标对象，如果不存在则返回None
         """
         return self._metrics.get(key)
-
-    def update_scalar(self, key: str, value: Union[float, int]):
-        """
-        更新标量指标状态
-        :param key: 指标键
-        :param value: 标量值
-        """
-        scalar = self._metrics.get(key)
-        assert scalar is not None, f"Metric '{key}' does not exist."
-        assert isinstance(scalar, ScalarMetric), f"Metric '{key}' is not a scalar metric."
-        if math.isnan(value) or math.isinf(value):
-            console.debug(f"Invalid scalar value: {value} for metric '{key}', ignored when updating.")
-            return
-        scalar.update(value)
