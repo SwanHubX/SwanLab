@@ -7,9 +7,9 @@
 
 from swanlab.sdk.internal.run.components.config import config
 
+from .cmd import utils as cmd_utils
 from .cmd.init import init
 from .cmd.login import login, login_cli
-from .cmd.logout import logout_cli
 from .cmd.merge_callbacks import merge_callbacks
 from .cmd.merge_settings import merge_settings
 from .cmd.run import (
@@ -25,11 +25,10 @@ from .cmd.run import (
     log_text,
     log_video,
 )
-from .cmd.verify import verify_cli
-from .internal.pkg import console, fs, helper, safe
+from .internal import pkg
 from .internal.run import Run, clear_run, get_run, has_run, set_run
 from .internal.run.transforms import Audio, ECharts, Image, Molecule, Object3D, Text, Video, echarts, plot
-from .internal.settings import Settings
+from .internal.settings import Settings, settings
 from .protocol import Callback
 
 __all__ = [
@@ -37,6 +36,7 @@ __all__ = [
     "init",
     "finish",
     "login",
+    "login_cli",
     "log",
     "log_text",
     "log_image",
@@ -46,12 +46,10 @@ __all__ = [
     "log_object3d",
     "log_molecule",
     "async_log",
-    "verify_cli",
-    "logout_cli",
     "define_scalar",
     "merge_settings",
     "merge_callbacks",
-    "login_cli",
+    "cmd_utils",
     # run
     "has_run",
     "get_run",
@@ -59,10 +57,8 @@ __all__ = [
     "clear_run",
     "config",
     # utils
-    "safe",
-    "helper",
-    "console",
-    "fs",
+    "pkg",
+    "settings",
     # data
     "Audio",
     "ECharts",

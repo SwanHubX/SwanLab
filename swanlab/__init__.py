@@ -20,7 +20,6 @@ from swanlab.sdk import (
     finish,
     get_run,
     has_run,
-    helper,
     init,
     log,
     log_audio,
@@ -33,13 +32,14 @@ from swanlab.sdk import (
     login,
     merge_callbacks,
     merge_settings,
+    pkg,
     plot,
 )
 
 from . import utils
 from .api import Api
 
-__version__ = helper.get_swanlab_version()
+__version__ = pkg.helper.get_swanlab_version()
 
 __all__ = [
     # cmd

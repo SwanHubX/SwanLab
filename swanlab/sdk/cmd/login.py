@@ -119,7 +119,7 @@ def login_raw(
         login_resp: Optional[LoginResponse] = s.get("login_resp", None)
         wellcome(api_host, login_resp)
         if save:
-            nrc_path = nrc.path(Path.cwd() / ROOT_FOLDER) if save == "local" else nrc.path(global_settings.root)
+            nrc_path = utils.get_nrc_path(save=save)
             nrc.write(nrc_path, api_host=api_host, web_host=login_settings.web_host, api_key=api_key)
         # 4. 将登录设置合并到全局配置中
         global_settings.merge_settings(login_settings)
