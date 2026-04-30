@@ -19,9 +19,10 @@ from .sync import sync
 
 @click.group(invoke_without_command=True)
 @click.version_option(get_swanlab_version(), "--version", "-v", message="SwanLab %(version)s")
-def cli():
-    """SwanLab CLI — Track, compare, and visualize AI experiments."""
-    pass
+@click.pass_context
+def cli(ctx):
+    if ctx.invoked_subcommand is None:
+        click.echo(ctx.get_help())
 
 
 # ---------------------------------- 注册子命令 ----------------------------------

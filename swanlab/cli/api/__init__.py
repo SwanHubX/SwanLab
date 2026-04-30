@@ -16,7 +16,7 @@ from .workspace import workspace_cli
 
 @click.group("api")
 def api_cli():
-    """Generic SwanLab API requests."""
+    """Generic SwanLab API requests with CLI."""
     pass
 
 

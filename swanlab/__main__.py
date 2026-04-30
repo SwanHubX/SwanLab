@@ -6,7 +6,7 @@ from swanlab.cli import cli
 
 
 def main() -> None:
-    cli(prog_name="swanlab")
+    cli(prog_name="python -m swanlab")
 
 
 if __name__ == "__main__":
