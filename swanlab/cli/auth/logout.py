@@ -43,7 +43,7 @@ def logout(force: bool, local: bool):
                 sdk.pkg.console.info("Logout canceled.")
                 sys.exit(1)
         else:
-            sdk.pkg.console.info("Use `swanlab.logout(force=True)` to skip confirmation in non-interactive mode.")
+            sdk.pkg.console.info("Use 'swanlab logout --force' to skip confirmation in non-interactive mode.")
             sys.exit(1)
     sdk.pkg.nrc.remove(nrc_path)
     sdk.pkg.console.info("Logout successfully. You can use `swanlab login` to login again.")
