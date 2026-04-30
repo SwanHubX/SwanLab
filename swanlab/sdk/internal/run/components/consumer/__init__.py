@@ -41,7 +41,8 @@ class ConsumerProtocol(ABC):
         builder: "RecordBuilder",
         flush_timeout: float = 0.5,
         batch_size: int = 100,
-    ): ...
+    ):
+        _ = (ctx, event_queue, builder, flush_timeout, batch_size)
 
     def start(self) -> None: ...
 
@@ -188,7 +189,7 @@ class BackgroundConsumer(ConsumerProtocol):
                     this_column, metric = self._builder.build_column_from_log(cls, key)
                     self._column_batch.append(this_column)
                 else:
-                    # 确保以定义的指标类型相同
+                    # 确保已定义的指标类型相同
                     metric.ensure_type_match(cls.column_type())
                 # 2. 如果指标已定义，则检查是否已记录过此步数，如果已记录过，则跳过，否则记录
                 if metric.check_and_mark_logged(event.step):
