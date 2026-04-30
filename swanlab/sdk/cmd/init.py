@@ -468,9 +468,14 @@ def _init(run_settings: Settings, callbacks: Optional[Iterable[Callback]]) -> Tu
     # 3. 创建一个临时的上下文，避免出现任何问题导致上下文残留
     with use_context(RunContext(config=RunConfig(settings=run_settings, run_dir=run_dir), callbacks=callbacks)) as ctx:
         assert run_settings.project.name, "Project name is required."
-        # 1. online 模式前置：确保 client 已就绪
+        # 1. 前置操作
+        # online 模式前置：确保 client 已就绪
         if mode == "online":
             _ensure_online_client(run_settings)
+        # local 模式前置：注入 LocalCallback 到 callbacks 中
+        elif mode == "local":
+            # TODO: 注入回调器
+            ...
         # 2. 确定默认 workspace 并生成本地 name/color，合并到 settings
         workspace = run_settings.project.workspace
         name = generate_name("beauty")

@@ -7,7 +7,7 @@ to swanlab/__init__.py.
 """
 
 from concurrent.futures import Future
-from typing import Any, Callable, List, Mapping, Optional, Union
+from typing import Any, Callable, Iterable, List, Mapping, Optional, Union
 
 from . import utils
 from .api import Api
@@ -28,6 +28,7 @@ __version__: str
 
 __all__ = [
     # cmd
+    "merge_callbacks",
     "merge_settings",
     "init",
     "finish",
@@ -226,6 +227,30 @@ def merge_settings(settings: Union[Settings, dict]) -> None:
 
         >>> import swanlab
         >>> swanlab.merge_settings({"mode": "local", "logdir": "./my_logs"})
+        >>> swanlab.init()
+    """
+    ...
+
+def merge_callbacks(callbacks: Union[Iterable[Callback], Callback]) -> None:
+    """Merge custom callbacks into the global SwanLab callback registry.
+
+    This function allows you to register callbacks before initializing a run.
+    It must be called before `swanlab.init()`.
+
+    :param callbacks: Custom callbacks to merge. Can be a single Callback object or an iterable of Callback objects.
+    :raises RuntimeError: If called while a run is active.
+
+    Examples:
+
+        >>> import swanlab
+        >>> from swanlab import Callback
+        >>> class MyCallback(Callback):
+        ...     @property
+        ...     def name(self) -> str:
+        ...         return "my_callback"
+        ...     def on_run_initialized(self, run_dir, path):
+        ...         print("Run initialized!")
+        >>> swanlab.merge_callbacks(MyCallback())
         >>> swanlab.init()
     """
     ...

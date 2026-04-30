@@ -31,6 +31,7 @@ from swanlab.sdk import (
     log_text,
     log_video,
     login,
+    merge_callbacks,
     merge_settings,
     plot,
 )
@@ -42,6 +43,7 @@ __version__ = helper.get_swanlab_version()
 
 __all__ = [
     # cmd
+    "merge_callbacks",
     "merge_settings",
     "init",
     "finish",

@@ -10,6 +10,7 @@ from swanlab.sdk.internal.run.components.config import config
 from .cmd.init import init
 from .cmd.login import login, login_cli
 from .cmd.logout import logout_cli
+from .cmd.merge_callbacks import merge_callbacks
 from .cmd.merge_settings import merge_settings
 from .cmd.run import (
     async_log,
@@ -49,6 +50,7 @@ __all__ = [
     "logout_cli",
     "define_scalar",
     "merge_settings",
+    "merge_callbacks",
     "login_cli",
     # run
     "has_run",
