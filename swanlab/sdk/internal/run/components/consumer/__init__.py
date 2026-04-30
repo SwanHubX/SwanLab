@@ -206,7 +206,7 @@ class BackgroundConsumer(ConsumerProtocol):
         # 1. 如果已经定义，则跳过
         metric = self._metrics.get(event.key)
         if metric is not None:
-            console.warning(f"Scalar Column '{event.key}' has already been defined, skip redefine.")
+            console.warning(f"Metric '{event.key}' has already been defined, skip redefine.")
             return
         # 2. 如果未定义，则定义此指标
         this_column, _ = self._builder.build_column_from_scalar_define(event)
