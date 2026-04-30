@@ -1,3 +1,7 @@
+import warnings
+
+from typing_extensions import deprecated
+
 from swanlab.sdk import (
     Audio,
     Callback,
@@ -28,6 +32,7 @@ from swanlab.sdk import (
     log_video,
     login,
     merge_settings,
+    plot,
 )
 
 from . import utils
@@ -66,13 +71,18 @@ __all__ = [
     "Molecule",
     "Object3D",
     "Video",
+    "plot",
+    "echarts",
     # utils
     "utils",
-    "echarts",
     "Settings",
     "Callback",
     # Api
     "Api",
+    # deprecated
+    "roc_curve",
+    "pr_curve",
+    "confusion_matrix",
 ]
 
 
@@ -83,3 +93,27 @@ def __getattr__(name: str):
         except RuntimeError:
             return None
     raise AttributeError(f"module 'swanlab' has no attribute {name!r}")
+
+
+# ---------------------------------- deprecated ----------------------------------
+
+
+@deprecated("use `swanlab.echarts.roc_curve()` instead")
+def roc_curve(*args, **kwargs):
+    warnings.warn("`swanlab.roc_curve()` is deprecated, use `swanlab.echarts.roc_curve()` instead", DeprecationWarning)
+    return echarts.roc_curve(*args, **kwargs)
+
+
+@deprecated("use `swanlab.echarts.pr_curve()` instead")
+def pr_curve(*args, **kwargs):
+    warnings.warn("`swanlab.pr_curve()` is deprecated, use `swanlab.echarts.pr_curve()` instead", DeprecationWarning)
+    return echarts.pr_curve(*args, **kwargs)
+
+
+@deprecated("use `swanlab.echarts.confusion_matrix()` instead")
+def confusion_matrix(*args, **kwargs):
+    warnings.warn(
+        "`swanlab.confusion_matrix()` is deprecated, use `swanlab.echarts.confusion_matrix()` instead",
+        DeprecationWarning,
+    )
+    return echarts.confusion_matrix(*args, **kwargs)

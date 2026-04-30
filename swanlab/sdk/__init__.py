@@ -27,7 +27,7 @@ from .cmd.run import (
 from .cmd.verify import verify_cli
 from .internal.pkg import console, fs, helper, safe
 from .internal.run import Run, clear_run, get_run, has_run, set_run
-from .internal.run.transforms import Audio, ECharts, Image, Molecule, Object3D, Text, Video, echarts
+from .internal.run.transforms import Audio, ECharts, Image, Molecule, Object3D, Text, Video, echarts, plot
 from .internal.settings import Settings
 from .protocol import Callback
 
@@ -64,12 +64,13 @@ __all__ = [
     # data
     "Audio",
     "ECharts",
-    "echarts",
     "Image",
     "Molecule",
     "Object3D",
     "Text",
     "Video",
+    "echarts",
+    "plot",
     # protocol
     "Callback",
     "Settings",

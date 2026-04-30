@@ -11,7 +11,7 @@ from typing import Any, Callable, List, Mapping, Optional, Union
 
 from . import utils
 from .api import Api
-from .sdk import Audio, Callback, ECharts, Image, Molecule, Object3D, Run, Settings, Text, Video, config, echarts
+from .sdk import Audio, Callback, ECharts, Image, Molecule, Object3D, Run, Settings, Text, Video, config, echarts, plot
 from .sdk.typings.cmd import ConfigLike, LoginType
 from .sdk.typings.run import AsyncLogType, FinishType, ModeType, ResumeType
 from .sdk.typings.run.column import ScalarXAxisType
@@ -57,9 +57,10 @@ __all__ = [
     "Video",
     "Object3D",
     "Molecule",
+    "plot",
+    "echarts",
     # utils
     "utils",
-    "echarts",
     "Settings",
     "Callback",
     # Api
