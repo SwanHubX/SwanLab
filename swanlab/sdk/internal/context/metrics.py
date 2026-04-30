@@ -5,12 +5,16 @@
 @description: SwanLab 运行时指标管理
 """
 
+import math
 import sys
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, Optional, Set, Union
+from typing import Any, Dict, Optional, Set, Union
 
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord, ColumnType
+from swanlab.proto.swanlab.metric.data.v1.data_pb2 import ScalarRecord
+from swanlab.sdk.internal.pkg import console
 
 # 开启 slots 可以减少内存占用，提高性能，但是仅适用于 Python 3.10 及以上版本
 # 因此我们动态判断版本：如果是 3.10 及以上，开启 slots；否则传空字典
@@ -18,7 +22,7 @@ DATACLASS_KWARGS = {"slots": True} if sys.version_info >= (3, 10) else {}
 
 
 @dataclass(**DATACLASS_KWARGS)
-class BaseMetric:
+class BaseMetric(ABC):
     _column: ColumnRecord
     steps: Set[int] = field(default_factory=set, init=False)
 
@@ -46,6 +50,9 @@ class BaseMetric:
         self.steps.add(step)
         return False
 
+    @abstractmethod
+    def update(self, data_record: Any): ...
+
 
 # 使用解包的方式传入参数
 @dataclass(**DATACLASS_KWARGS)
@@ -57,24 +64,35 @@ class ScalarMetric(BaseMetric):
     # 指标的最小值
     min: Optional[Union[float, int]] = None
 
-    def update(self, value: Union[float, int]) -> bool:
+    def update(self, data_record: ScalarRecord):
         """
         更新标量指标值
-        :param value: 标量指标值
-        :return: 是否成功更新
+        :param data_record: 标量指标记录
         """
-        self.latest = value
-        if self.max is None or value > self.max:
-            self.max = value
-        if self.min is None or value < self.min:
-            self.min = value
-        return True
+        value = data_record.value.number
+        # 1. 如果为有效值，则更新
+        if math.isfinite(value):
+            self.latest = value
+            if self.max is None or value > self.max:
+                self.max = value
+            if self.min is None or value < self.min:
+                self.min = value
+            return
+        # 2. 如果为无效值，则忽略
+        key = self._column.column_key
+        console.debug(f"Invalid scalar value: {value} for metric '{key}', ignored when updating.")
 
 
 @dataclass(**DATACLASS_KWARGS)
 class MediaMetric(BaseMetric):
     # 媒体存储路径，绝对路径
     path: Path
+
+    def update(self, data_record: Any):
+        """
+        更新媒体指标值，媒体指标目前没什么可更新的，因此直接pass
+        """
+        pass
 
 
 # 指标状态，实验运行过程中不断更新
