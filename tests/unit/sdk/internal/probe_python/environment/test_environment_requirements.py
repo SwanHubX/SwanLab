@@ -5,6 +5,7 @@
 @description: Tests for requirements information collection
 """
 
+import sys
 from subprocess import CalledProcessError, TimeoutExpired
 from unittest.mock import MagicMock, patch
 
@@ -59,7 +60,7 @@ class TestRequirementsGet:
         assert mock_run.call_count == 3
         # 验证 pip 参数
         third_call = mock_run.call_args_list[2]
-        assert third_call[0][0] == ["pip", "list", "--format=freeze"]
+        assert third_call[0][0] == [sys.executable, "-m", "pip", "list", "--format=freeze"]
         assert third_call.kwargs.get("timeout") == 15
 
     @pytest.mark.parametrize(
