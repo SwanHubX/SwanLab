@@ -175,7 +175,7 @@ def confusion_matrix(ground_truth, predictions, class_names, title=None) -> Heat
             pos_top="center",
             orient="vertical",
             min_=0,
-            max_=int(cm.max()),
+            max_=1,
             is_piecewise=False,
             range_color=[
                 "#f7fbff",
