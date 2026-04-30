@@ -34,8 +34,8 @@ def get() -> str:
         return result.stdout
 
     # 尝试当前 Python 环境中的 pip
-    result = _try_run([sys.executable, "-m", "pip", "list", "--format=freeze"], timeout=15, check=True)
-    if result:
+    result = _try_run([sys.executable, "-m", "pip", "list", "--format=freeze"], timeout=15)
+    if result and result.returncode == 0:
         return result.stdout
 
     raise ValueError("Failed to get environment requirements")
