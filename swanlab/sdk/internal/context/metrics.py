@@ -107,6 +107,7 @@ class MediaMetric(BaseMetric):
         pass
 
 
+# TODO: 未来将RunMetrics管理器迁移至Core中
 # 指标状态，实验运行过程中不断更新
 # 注意：此类不加锁保护。设计上对 RunMetrics 的写操作发生在以下线程：
 #   - next_step: 用户主线程（通过 Run.log，已在 with_api 锁内串行化）
