@@ -7,7 +7,7 @@ from typing import Any, Dict, Optional
 import requests
 
 from swanlab.plugin.notification.base import _NotificationCallback
-from swanlab.sdk.internal.pkg import console
+from swanlab.sdk.internal.pkg import console, safe
 
 
 class _LarkBot:
@@ -42,19 +42,20 @@ class LarkCallback(_NotificationCallback):
         self._signer = _LarkBot(webhook_url, secret)
 
     def _send_notification(self, state: str, error: Optional[str]) -> None:
-        content = self._build_content(state, error)
-        timestamp = int(datetime.now().timestamp())
-        payload: Dict[str, Any] = {
-            "timestamp": timestamp,
-            "msg_type": "text",
-            "content": {"text": content},
-        }
-        if self._signer.secret:
-            payload["sign"] = self._signer.gen_sign(timestamp)
-        resp = requests.post(self._signer.webhook_url, json=payload)
-        resp.raise_for_status()
-        result: Dict[str, Any] = resp.json()
-        if result.get("code") and result["code"] != 0:
-            console.warning(f"❌ LarkBot sending failed: {result.get('msg')}")
-            return
-        console.info("✅ LarkBot notification sent successfully")
+        with safe.block(requests.RequestException, message="❌ LarkBot sending failed"):
+            content = self._build_content(state, error)
+            timestamp = int(datetime.now().timestamp())
+            payload: Dict[str, Any] = {
+                "timestamp": timestamp,
+                "msg_type": "text",
+                "content": {"text": content},
+            }
+            if self._signer.secret:
+                payload["sign"] = self._signer.gen_sign(timestamp)
+            resp = requests.post(self._signer.webhook_url, json=payload)
+            resp.raise_for_status()
+            result: Dict[str, Any] = resp.json()
+            if result.get("code") and result["code"] != 0:
+                console.warning(f"❌ LarkBot sending failed: {result.get('msg')}")
+                return
+            console.info("✅ LarkBot notification sent successfully")

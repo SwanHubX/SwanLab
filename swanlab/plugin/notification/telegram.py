@@ -3,7 +3,7 @@ from typing import Any, Dict, Optional
 import requests
 
 from swanlab.plugin.notification.base import _NotificationCallback
-from swanlab.sdk.internal.pkg import console
+from swanlab.sdk.internal.pkg import console, safe
 
 
 class TelegramCallback(_NotificationCallback):
@@ -25,12 +25,13 @@ class TelegramCallback(_NotificationCallback):
         self._api_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
 
     def _send_notification(self, state: str, error: Optional[str]) -> None:
-        content = self._build_content(state, error)
-        payload: Dict[str, Any] = {"chat_id": self._chat_id, "text": content}
-        resp = requests.post(self._api_url, json=payload)
-        resp.raise_for_status()
-        result: Dict[str, Any] = resp.json()
-        if not result.get("ok"):
-            console.warning(f"❌ TelegramBot sending failed: {result.get('description')}")
-            return
-        console.info("✅ TelegramBot notification sent successfully")
+        with safe.block(requests.RequestException, message="❌ TelegramBot sending failed"):
+            content = self._build_content(state, error)
+            payload: Dict[str, Any] = {"chat_id": self._chat_id, "text": content}
+            resp = requests.post(self._api_url, json=payload)
+            resp.raise_for_status()
+            result: Dict[str, Any] = resp.json()
+            if not result.get("ok"):
+                console.warning(f"❌ TelegramBot sending failed: {result.get('description')}")
+                return
+            console.info("✅ TelegramBot notification sent successfully")

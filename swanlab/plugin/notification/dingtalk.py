@@ -1,13 +1,14 @@
 import base64
 import hashlib
 import hmac
+import urllib.parse
 from datetime import datetime
 from typing import Any, Dict, Optional
 
 import requests
 
 from swanlab.plugin.notification.base import _NotificationCallback
-from swanlab.sdk.internal.pkg import console
+from swanlab.sdk.internal.pkg import console, safe
 
 
 class _DingTalkBot:
@@ -38,11 +39,10 @@ class _DingTalkBot:
         string_to_sign = f"{ts_ms}\n{self.secret}"
         hmac_code = hmac.new(self.secret.encode(), string_to_sign.encode(), digestmod=hashlib.sha256).digest()
         sign = base64.b64encode(hmac_code).decode("utf-8")
-        base_url = self.webhook_url.split("&timestamp=")[0] if "&timestamp=" in self.webhook_url else self.webhook_url
-        sep = "&" if "?" in base_url else "?"
-        if sep == "&" and base_url.endswith("&"):
-            sep = ""
-        self.webhook_url = f"{base_url}{sep}timestamp={ts_ms}&sign={sign}"
+        parsed = urllib.parse.urlparse(self.webhook_url)
+        params = dict(urllib.parse.parse_qsl(parsed.query))
+        params.update({"timestamp": str(ts_ms), "sign": sign})
+        self.webhook_url = urllib.parse.urlunparse(parsed._replace(query=urllib.parse.urlencode(params)))
 
 
 class DingTalkCallback(_NotificationCallback):
@@ -62,13 +62,14 @@ class DingTalkCallback(_NotificationCallback):
         self._bot = _DingTalkBot(webhook_url, secret)
 
     def _send_notification(self, state: str, error: Optional[str]) -> None:
-        self._bot._check_sign()
-        content = self._build_content(state, error)
-        payload: Dict[str, Any] = {"msgtype": "text", "text": {"content": content}}
-        resp = requests.post(self._bot.webhook_url, json=payload)
-        resp.raise_for_status()
-        result: Dict[str, Any] = resp.json()
-        if result.get("errcode") and result["errcode"] != 0:
-            console.warning(f"❌ DingTalkBot sending failed: {result.get('errmsg')}")
-            return
-        console.info("✅ DingTalkBot notification sent successfully")
+        with safe.block(requests.RequestException, message="❌ DingTalkBot sending failed"):
+            self._bot._check_sign()
+            content = self._build_content(state, error)
+            payload: Dict[str, Any] = {"msgtype": "text", "text": {"content": content}}
+            resp = requests.post(self._bot.webhook_url, json=payload)
+            resp.raise_for_status()
+            result: Dict[str, Any] = resp.json()
+            if result.get("errcode") and result["errcode"] != 0:
+                console.warning(f"❌ DingTalkBot sending failed: {result.get('errmsg')}")
+                return
+            console.info("✅ DingTalkBot notification sent successfully")

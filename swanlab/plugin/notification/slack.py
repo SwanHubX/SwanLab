@@ -3,7 +3,7 @@ from typing import Any, Dict, Optional
 import requests
 
 from swanlab.plugin.notification.base import _NotificationCallback
-from swanlab.sdk.internal.pkg import console
+from swanlab.sdk.internal.pkg import console, safe
 
 
 class SlackCallback(_NotificationCallback):
@@ -23,11 +23,12 @@ class SlackCallback(_NotificationCallback):
         self._webhook_url = webhook_url
 
     def _send_notification(self, state: str, error: Optional[str]) -> None:
-        content = self._build_content(state, error)
-        payload: Dict[str, Any] = {"text": content}
-        resp = requests.post(self._webhook_url, json=payload)
-        resp.raise_for_status()
-        if resp.status_code not in (200, 204):
-            console.warning(f"❌ SlackBot sending failed: {resp.text}")
-            return
-        console.info("✅ SlackBot notification sent successfully")
+        with safe.block(requests.RequestException, message="❌ SlackBot sending failed"):
+            content = self._build_content(state, error)
+            payload: Dict[str, Any] = {"text": content}
+            resp = requests.post(self._webhook_url, json=payload)
+            resp.raise_for_status()
+            if resp.status_code not in (200, 204):
+                console.warning(f"❌ SlackBot sending failed: {resp.text}")
+                return
+            console.info("✅ SlackBot notification sent successfully")

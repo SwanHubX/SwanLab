@@ -1,10 +1,11 @@
+import html
 import smtplib
 import ssl
 from email.message import EmailMessage
 from typing import Optional
 
 from swanlab.plugin.notification.base import _NotificationCallback
-from swanlab.sdk.internal.pkg import console
+from swanlab.sdk.internal.pkg import console, safe
 
 _EMAIL_TEMPLATES = {
     "en": {
@@ -102,11 +103,12 @@ class EmailCallback(_NotificationCallback):
 
         error_section = ""
         if has_error:
+            escaped_error = html.escape(error)
             error_section = (
                 '<div style="padding:12px 0 16px;border-bottom:1px solid #f0f0f0;'
                 f'margin-bottom:20px;font-size:14px;color:#1d1d1f;line-height:1.47;">'
                 f'<span style="font-weight:600;color:#ff3b30;">{tpl["error_label"]}</span><br>'
-                f"{error}</div>"
+                f"{escaped_error}</div>"
             )
 
         rows = ""
@@ -125,7 +127,7 @@ class EmailCallback(_NotificationCallback):
                     f'<td style="padding:10px 0;color:#7a7a7a;width:90px;vertical-align:top;">'
                     f"{label}</td>"
                     f'<td style="padding:10px 0;color:#1d1d1f;">'
-                    f"{value}</td></tr>"
+                    f"{html.escape(value)}</td></tr>"
                 )
 
         link_section = ""
@@ -157,8 +159,8 @@ class EmailCallback(_NotificationCallback):
         msg.set_content(self._build_content(state, error))
         msg.add_alternative(self._build_html(error), subtype="html")
 
-        ctx = ssl.create_default_context()
-        try:
+        with safe.block(smtplib.SMTPException, message="❌ EmailBot sending failed"):
+            ctx = ssl.create_default_context()
             if self._port == 465:
                 with smtplib.SMTP_SSL(self._smtp_server, self._port, context=ctx) as server:
                     server.login(self._sender_email, self._password)
@@ -168,6 +170,4 @@ class EmailCallback(_NotificationCallback):
                     server.starttls(context=ctx)
                     server.login(self._sender_email, self._password)
                     server.send_message(msg)
-            console.info(f"✅ EmailBot notification sent successfully ")
-        except smtplib.SMTPException as e:
-            console.warning(f"❌ EmailBot sending failed: {e}")
+            console.info("✅ EmailBot notification sent successfully")
