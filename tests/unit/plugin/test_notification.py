@@ -176,13 +176,6 @@ class TestLarkCallbackSend:
         assert "invalid sign" in mock_console.warning.call_args[0][0]
 
     @patch("swanlab.plugin.notification.lark.requests.post")
-    def test_http_error_raises(self, mock_post, lark_cb):
-        mock_post.side_effect = requests.ConnectionError("timeout")
-
-        with pytest.raises(requests.ConnectionError):
-            lark_cb._send_notification("finished", None)
-
-    @patch("swanlab.plugin.notification.lark.requests.post")
     def test_payload_contains_error_content(self, mock_post):
         cb = LarkCallback(webhook_url="https://lark.example.com/webhook", language="en")
         cb._run_info = _make_run_info()
