@@ -93,7 +93,6 @@ class Monitor:
                     results.extend(result)
             ts = Timestamp()
             ts.GetCurrentTime()
-            _ = ctx.metrics.next_system_step()
             _ = {helper.fmt_system_key(k): v for k, v in results}
             # TODO 向Core发送指标数据
             # emitter.emit(MetricLogEvent(step=step, data=data, timestamp=ts))

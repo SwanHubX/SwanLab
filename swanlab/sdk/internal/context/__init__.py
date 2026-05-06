@@ -17,7 +17,6 @@ from swanlab.sdk.internal.settings import Settings
 from swanlab.sdk.typings.context import CallbacksType
 
 from .components import CallbackManager, create_callback_manager, create_core
-from .metrics import MediaMetric, RunMetrics, ScalarMetric
 from .transformer import TransformData, TransformMedia
 
 __all__ = [
@@ -26,12 +25,9 @@ __all__ = [
     # class
     "RunContext",
     "RunConfig",
-    "RunMetrics",
     "TransformData",
     "TransformMedia",
     "CallbackManager",
-    "ScalarMetric",
-    "MediaMetric",
 ]
 
 
@@ -45,11 +41,23 @@ class RunConfig:
 # 上下文宿主
 class RunContext:
     def __init__(self, config: RunConfig, callbacks: Optional[CallbacksType] = None):
+        self._global_step: int = 0
         self.config: RunConfig = config
         self.callbacker = create_callback_manager(callbacks=callbacks)
-        self.metrics: RunMetrics = RunMetrics()
         self.core = create_core(self)
         self.probe = create_probe(self)
+
+    def next_step(self, user_step: Optional[int] = None) -> int:
+        """
+        获取下一个全局步数
+        在设计上我们允许用户在log时乱序设置step，但是global_step永远是最大的或者自增的那个，
+        因此我们需要一个方法来获取当前的global_step，并且保证global_step是自增的
+        """
+        if user_step is not None:
+            self._global_step = max(self._global_step, user_step)
+            return user_step
+        self._global_step += 1
+        return self._global_step
 
     @cached_property
     def run_dir(self) -> Path:

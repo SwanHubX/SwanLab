@@ -262,7 +262,7 @@ class CorePython(CoreProtocol):
                     records.append(RB.build_scalar_record(self._counter, scalar))
                 else:
                     console.debug(
-                        f"Skip scalar record with step {scalar.step} for metric {scalar.key}: duplicate or invalid step"
+                        f"Metric '{scalar.key}' at step {scalar.step} was skipped because it is duplicate or too old."
                     )
         # 持久化存储record
         self._store_records(records)
@@ -300,7 +300,7 @@ class CorePython(CoreProtocol):
                     records.append(RB.build_media_record(self._counter, media))
                 else:
                     console.debug(
-                        f"Skip media record with step {media.step} for metric {media.key}: duplicate or invalid step"
+                        f"Metric '{media.key}' at step {media.step} was skipped because it is duplicate or too old."
                     )
             # 持久化存储record
         self._store_records(records)

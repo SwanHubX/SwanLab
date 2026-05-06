@@ -337,7 +337,7 @@ class Run:
                 console.error(f"Step must be non-negative, but got {step}. SwanLab will ignore this log.")
                 return
 
-        next_step = self._ctx.metrics.next_step(step)
+        next_step = self._ctx.next_step(step)
 
         ts = Timestamp()
         ts.GetCurrentTime()
