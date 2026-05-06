@@ -1,0 +1,120 @@
+"""
+SwanLab notification callbacks.
+
+Each callback runs IO (HTTP/SMTP) in a shared background thread pool so the
+training main process is never blocked.  Exceptions are isolated by the
+CallbackManager's ``safe.block`` dispatcher — individual callback failures
+do not affect other callbacks or the training loop.
+"""
+
+from abc import abstractmethod
+from pathlib import Path
+from typing import Dict, Optional
+
+from swanlab.sdk.internal.core_python.pkg.executor import SafeThreadPoolExecutor
+from swanlab.sdk.protocol import Callback
+from swanlab.sdk.typings.run.callback import RunInfo
+
+# ---------------------------------------------------------------------------
+# Message templates
+# ---------------------------------------------------------------------------
+
+_TEMPLATES: Dict[str, Dict[str, str]] = {
+    "en": {
+        "title": "SwanLab Message Notification\n",
+        "msg_success": "SwanLab | Your experiment completed successfully\n",
+        "msg_error": "Your SwanLab experiment encountered an error: {error}\n",
+        "link_text": (
+            "Project: {project}\n"
+            "Workspace: {workspace}\n"
+            "Name: {exp_name}\n"
+            "Description: {description}\n"
+            "Experiment Link: {link}"
+        ),
+    },
+    "zh": {
+        "title": "SwanLab 消息通知\n",
+        "msg_success": "SwanLab | 您的实验已成功完成\n",
+        "msg_error": "您的 SwanLab 实验遇到错误: {error}\n",
+        "link_text": (
+            "项目: {project}\n工作区: {workspace}\n实验名: {exp_name}\n描述: {description}\n实验链接: {link}"
+        ),
+    },
+}
+
+
+# ---------------------------------------------------------------------------
+# Base class
+# ---------------------------------------------------------------------------
+
+
+class _NotificationCallback(Callback):
+    """Base class for notification callbacks.
+
+    Uses a shared ``SafeThreadPoolExecutor`` so that ``on_run_finished``
+    returns immediately — the actual HTTP/SMTP call happens in a background
+    thread.  During Python shutdown ``run()`` degrades to synchronous
+    execution so no notification is lost.
+    """
+
+    _executor = SafeThreadPoolExecutor(max_workers=1, thread_name_prefix="swanlab-plugin-notification")
+
+    def __init__(self, language: str = "zh"):
+        self.language = language
+        self._run_info: Optional[RunInfo] = None
+
+    @property
+    def name(self) -> str:
+        return self.__class__.__name__
+
+    # -- Callback hooks -----------------------------------------------------
+
+    def on_run_initialized(self, run_dir: Path, path: str, *args, **kwargs) -> None:
+        run_info = kwargs.get("run_info")
+        if isinstance(run_info, RunInfo):
+            self._run_info = run_info
+
+    def on_run_finished(self, state: str, error: Optional[str] = None, **kwargs) -> None:
+        if isinstance(self._run_info, RunInfo):
+            self._executor.run(self._send_notification, state, error)
+
+    # -- Template helpers ---------------------------------------------------
+
+    def _get_url(self) -> Optional[str]:
+        if self._run_info:
+            return self._run_info.url
+        return None
+
+    def _build_content(self, state: str, error: Optional[str]) -> str:
+        tpl = _TEMPLATES.get(self.language, _TEMPLATES["zh"])
+        content: str = tpl["title"]
+        if error:
+            content += tpl["msg_error"].format(error=error)
+        else:
+            content += tpl["msg_success"]
+        url = self._get_url()
+        if url and self._run_info:
+            content += tpl["link_text"].format(
+                project=self._run_info.project,
+                workspace=self._run_info.workspace,
+                exp_name=self._run_info.experiment_name,
+                description=self._run_info.description or "",
+                link=url,
+            )
+        return content
+
+    # -- Extension point ----------------------------------------------------
+
+    @abstractmethod
+    def _send_notification(self, state: str, error: Optional[str]) -> None:
+        """Send the notification.  Runs inside the shared thread pool."""
+        ...
+
+
+# ---------------------------------------------------------------------------
+# Re-export concrete callbacks
+# ---------------------------------------------------------------------------
+
+from swanlab.plugin.notification.lark import LarkCallback  # noqa: E402
+
+__all__ = ["LarkCallback", "_NotificationCallback"]

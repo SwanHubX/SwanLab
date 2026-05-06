@@ -17,13 +17,13 @@ class Callback(ABC):
     at various stages of an experiment.
     """
 
-    def on_run_initialized(self, run_dir: Path, path: str) -> None:
+    def on_run_initialized(self, run_dir: Path, path: str, *args, **kwargs) -> None:
         """
-        Called immediately after `swanlab.init` has successfully executed.
+        Called immediately after ``swanlab.init`` has successfully executed.
 
         :param run_dir: The directory where the run is stored.
-        :param path: The run path, formatted as `/:username/:project/:run_id` in online mode,
-            or `/:project/:run_id` otherwise.
+        :param path: The run path, formatted as ``/:username/:project/:run_id`` in online mode,
+            or ``/:project/:run_id`` otherwise.
         """
         ...
 
@@ -59,7 +59,7 @@ class Callback(ABC):
         """
         ...
 
-    def on_run_finished(self, state: str, error: Optional[str] = None) -> None:
+    def on_run_finished(self, state: str, error: Optional[str] = None, *args, **kwargs) -> None:
         """
         Called when the training or the SwanLab run finishes, either successfully or due to an error.
 
