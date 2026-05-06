@@ -411,6 +411,12 @@ class WandbLocalConverter:
                         continue
                     # Check if key has nested structure (e.g., "table/_type")
                     if '/' in key:
+                        # Try scalar fast path first (e.g. "train/loss" = 0.5)
+                        try:
+                            scalar_dict[key] = float(value_json)
+                            continue
+                        except (ValueError, TypeError):
+                            pass
                         base_key, sub_key = key.split('/', 1)
                         if base_key not in grouped_items:
                             grouped_items[base_key] = {}
