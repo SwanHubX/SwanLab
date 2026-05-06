@@ -513,6 +513,7 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
         path = resp.path or path
         if mode == "online":
             assert path, "Initialization path failed when mode=online"
+        ctx.next_step(user_step=resp.global_step)
         # 4. 从 core 响应同步配置（online 模式会覆盖为服务端分配的值）
         sync_args = {}
         merge_dict = helper.strip_none(
