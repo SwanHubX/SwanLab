@@ -409,14 +409,31 @@ class WandbLocalConverter:
                         continue
                     if key.startswith('_'):
                         continue
-                    # Check if key has nested structure (e.g., "table/_type")
-                    if '/' in key:
-                        # Try scalar fast path first (e.g. "train/loss" = 0.5)
-                        try:
-                            scalar_dict[key] = float(value_json)
+                    # Fast path: direct float conversion for scalars (all keys)
+                    try:
+                        scalar_dict[key] = float(value_json)
+                        continue
+                    except (ValueError, TypeError):
+                        pass
+                    # Slow path: full JSON parse for media objects (all keys)
+                    try:
+                        value = _json_loads(value_json)
+                        if isinstance(value, int):
+                            scalar_dict[key] = float(value)
                             continue
-                        except (ValueError, TypeError):
-                            pass
+                        elif isinstance(value, dict) and "path" in value:
+                            validated_path = self._validate_path(files_root_dir, value["path"])
+                            if validated_path and os.path.exists(validated_path):
+                                if value.get("_type") == "image-file":
+                                    media_dict[key] = swanlab.Image(validated_path)
+                                    continue
+                                elif value.get("_type") == "audio-file":
+                                    media_dict[key] = swanlab.Audio(validated_path)
+                                    continue
+                    except (ValueError, Exception):
+                        pass
+                    # Grouped path: keys with '/' that weren't handled above (tables, etc.)
+                    if '/' in key:
                         base_key, sub_key = key.split('/', 1)
                         if base_key not in grouped_items:
                             grouped_items[base_key] = {}
@@ -424,27 +441,6 @@ class WandbLocalConverter:
                             grouped_items[base_key][sub_key] = _json_loads(value_json)
                         except (ValueError, Exception):
                             grouped_items[base_key][sub_key] = value_json
-                    else:
-                        # Fast path: direct float conversion for scalars
-                        try:
-                            scalar_dict[key] = float(value_json)
-                            continue
-                        except (ValueError, TypeError):
-                            pass
-                        # Slow path: full JSON parse
-                        try:
-                            value = _json_loads(value_json)
-                            if isinstance(value, int):
-                                scalar_dict[key] = float(value)
-                            elif isinstance(value, dict) and "path" in value:
-                                validated_path = self._validate_path(files_root_dir, value["path"])
-                                if validated_path and os.path.exists(validated_path):
-                                    if value.get("_type") == "image-file":
-                                        media_dict[key] = swanlab.Image(validated_path)
-                                    elif value.get("_type") == "audio-file":
-                                        media_dict[key] = swanlab.Audio(validated_path)
-                        except (ValueError, Exception):
-                            pass
 
                 # Second pass: process grouped items for tables and media
                 for base_key, props in grouped_items.items():
