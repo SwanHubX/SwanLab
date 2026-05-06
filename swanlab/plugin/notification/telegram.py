@@ -1,0 +1,36 @@
+from typing import Any, Dict, Optional
+
+import requests
+
+from swanlab.plugin.notification.base import _NotificationCallback
+from swanlab.sdk.internal.pkg import console
+
+
+class TelegramCallback(_NotificationCallback):
+    """Telegram notification callback.
+
+    Usage::
+
+        from swanlab.plugin import TelegramCallback
+
+        swanlab.init(
+            callbacks=[TelegramCallback(bot_token="123456:ABC...", chat_id="123456789")]
+        )
+    """
+
+    def __init__(self, bot_token: str, chat_id: str, language: str = "zh"):
+        super().__init__(language=language)
+        self._bot_token = bot_token
+        self._chat_id = chat_id
+        self._api_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+
+    def _send_notification(self, state: str, error: Optional[str]) -> None:
+        content = self._build_content(state, error)
+        payload: Dict[str, Any] = {"chat_id": self._chat_id, "text": content}
+        resp = requests.post(self._api_url, json=payload)
+        resp.raise_for_status()
+        result: Dict[str, Any] = resp.json()
+        if not result.get("ok"):
+            console.warning(f"❌ TelegramBot sending failed: {result.get('description')}")
+            return
+        console.info("✅ TelegramBot notification sent successfully")
