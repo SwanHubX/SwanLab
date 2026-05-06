@@ -14,8 +14,7 @@ from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord, StartRecord
 from swanlab.proto.swanlab.system.v1.console_pb2 import ConsoleRecord
 from swanlab.proto.swanlab.system.v1.env_pb2 import CondaRecord, MetadataRecord, RequirementsRecord
-
-from .counter import Counter
+from swanlab.sdk.internal.core_python.pkg.counter import Counter
 
 __all__ = [
     "build_finish_record",

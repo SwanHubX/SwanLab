@@ -1,6 +1,6 @@
 """
 @author: cunyue
-@file: counter.py
+@file: __init__.py
 @time: 2026/4/21 19:04
 @description: 线程安全计数器
 """
