@@ -142,7 +142,7 @@ class RunMetrics:
             return cls(), console_epoch, global_step, global_system_step
         # 全局起始步数，系统起始步数，分别用于用户侧起始步数和系统采集侧起始步数
         # 1. 获取起始的终端记录行数
-        if "log" in data and data["log"] is not None:
+        if "log" in data and data["log"] is not None and len(data["log"]) > 0:
             console_epoch = data["log"][0]["step"]
         metrics = cls()
         # 2. 获取媒体指标记录
