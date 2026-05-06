@@ -1,3 +1,3 @@
-from swanlab.plugin.notification import LarkCallback
+from swanlab.plugin.notification import DingTalkCallback, LarkCallback, WeComCallback
 
-__all__ = ["LarkCallback"]
+__all__ = ["LarkCallback", "DingTalkCallback", "WeComCallback"]
