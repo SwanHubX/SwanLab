@@ -89,7 +89,7 @@ def build_console_record(counter: Counter, epoch: Counter, console_record: Conso
     record = ConsoleRecord()
     record.CopyFrom(console_record)
     record.epoch = epoch.inc()
-    return Record(num=counter.inc(), console=console_record, timestamp=_now())
+    return Record(num=counter.inc(), console=record, timestamp=_now())
 
 
 def build_start_record(start_record: StartRecord):

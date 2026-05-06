@@ -110,7 +110,9 @@ class MediaMetric(BaseMetric):
         Resume 模式下我们可能暂时无法知道媒体指标的具体类型，因此在 ensure_type_match 中直接 pass
         """
         if self.column_type == ColumnType.COLUMN_TYPE_UNSPECIFIED:
-            console.debug("Media metric '{self._column.column_key}' has not been defined, maybe it's defined in resume")
+            console.debug(
+                f"Media metric '{self._column.column_key}' has not been defined, maybe it's defined in resume"
+            )
             return
         super().ensure_type_match(metric_type)
 
