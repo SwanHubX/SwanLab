@@ -10,6 +10,7 @@ do not affect other callbacks or the training loop.
 from swanlab.plugin.notification.base import _NotificationCallback
 from swanlab.plugin.notification.dingtalk import DingTalkCallback
 from swanlab.plugin.notification.discord import DiscordCallback
+from swanlab.plugin.notification.email import EmailCallback
 from swanlab.plugin.notification.lark import LarkCallback
 from swanlab.plugin.notification.slack import SlackCallback
 from swanlab.plugin.notification.telegram import TelegramCallback
@@ -22,5 +23,6 @@ __all__ = [
     "DiscordCallback",
     "SlackCallback",
     "TelegramCallback",
+    "EmailCallback",
     "_NotificationCallback",
 ]
