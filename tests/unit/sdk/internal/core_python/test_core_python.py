@@ -63,6 +63,7 @@ class TestCorePythonStart:
             core._project = "test-project"
             core._project_id = "test-project-id"
             core._experiment_id = "test-experiment-id"
+            core._metrics = MagicMock()
             return mock_deliver(rec)
 
         monkeypatch.setattr(core, "_report_run_start", _report_run_start_and_set_attrs)
@@ -104,6 +105,7 @@ class TestCorePythonFinish:
             core._project = "test-project"
             core._project_id = "test-project-id"
             core._experiment_id = "test-experiment-id"
+            core._metrics = MagicMock()
             return mock_start(rec)
 
         monkeypatch.setattr(core, "_report_run_start", _report_run_start_and_set_attrs)
