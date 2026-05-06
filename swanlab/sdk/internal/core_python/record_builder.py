@@ -1,6 +1,6 @@
 """
 @author: cunyue
-@file: builder.py
+@file: record_builder.py
 @time: 2026/4/21 16:56
 @description: 构建记录，核心在于一些字段约定
 """
@@ -82,10 +82,13 @@ def build_media_record(counter: Counter, media_record: MediaRecord):
     return Record(num=counter.inc(), media=media_record, timestamp=_now())
 
 
-def build_console_record(counter: Counter, console_record: ConsoleRecord):
+def build_console_record(counter: Counter, epoch: Counter, console_record: ConsoleRecord):
     """
     构建控制台记录
     """
+    record = ConsoleRecord()
+    record.CopyFrom(console_record)
+    record.epoch = epoch.inc()
     return Record(num=counter.inc(), console=console_record, timestamp=_now())
 
 

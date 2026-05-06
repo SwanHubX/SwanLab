@@ -79,6 +79,7 @@ type ConsoleRecord struct {
 	Line          string                 `protobuf:"bytes,1,opt,name=line,proto3" json:"line,omitempty"`
 	Stream        StreamType             `protobuf:"varint,2,opt,name=stream,proto3,enum=swanlab.system.v1.StreamType" json:"stream,omitempty"`
 	Timestamp     *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
+	Epoch         int64                  `protobuf:"varint,4,opt,name=epoch,proto3" json:"epoch,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -134,15 +135,23 @@ func (x *ConsoleRecord) GetTimestamp() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *ConsoleRecord) GetEpoch() int64 {
+	if x != nil {
+		return x.Epoch
+	}
+	return 0
+}
+
 var File_swanlab_system_v1_console_proto protoreflect.FileDescriptor
 
 const file_swanlab_system_v1_console_proto_rawDesc = "" +
 	"\n" +
-	"\x1fswanlab/system/v1/console.proto\x12\x11swanlab.system.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x94\x01\n" +
+	"\x1fswanlab/system/v1/console.proto\x12\x11swanlab.system.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xaa\x01\n" +
 	"\rConsoleRecord\x12\x12\n" +
 	"\x04line\x18\x01 \x01(\tR\x04line\x125\n" +
 	"\x06stream\x18\x02 \x01(\x0e2\x1d.swanlab.system.v1.StreamTypeR\x06stream\x128\n" +
-	"\ttimestamp\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp*Y\n" +
+	"\ttimestamp\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\x12\x14\n" +
+	"\x05epoch\x18\x04 \x01(\x03R\x05epoch*Y\n" +
 	"\n" +
 	"StreamType\x12\x1b\n" +
 	"\x17STREAM_TYPE_UNSPECIFIED\x10\x00\x12\x16\n" +

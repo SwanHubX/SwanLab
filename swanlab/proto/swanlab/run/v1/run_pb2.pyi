@@ -59,18 +59,22 @@ class StartRecord(_message.Message):
     def __init__(self, project: _Optional[str] = ..., workspace: _Optional[str] = ..., public: bool = ..., name: _Optional[str] = ..., description: _Optional[str] = ..., tags: _Optional[_Iterable[str]] = ..., group: _Optional[str] = ..., job_type: _Optional[str] = ..., color: _Optional[str] = ..., id: _Optional[str] = ..., resume: _Optional[_Union[ResumeMode, str]] = ..., started_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
 
 class StartResponse(_message.Message):
-    __slots__ = ("success", "message", "run", "path", "name")
+    __slots__ = ("success", "message", "run", "path", "name", "global_step", "global_system_step")
     SUCCESS_FIELD_NUMBER: _ClassVar[int]
     MESSAGE_FIELD_NUMBER: _ClassVar[int]
     RUN_FIELD_NUMBER: _ClassVar[int]
     PATH_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
+    GLOBAL_STEP_FIELD_NUMBER: _ClassVar[int]
+    GLOBAL_SYSTEM_STEP_FIELD_NUMBER: _ClassVar[int]
     success: bool
     message: str
     run: StartRecord
     path: str
     name: str
-    def __init__(self, success: bool = ..., message: _Optional[str] = ..., run: _Optional[_Union[StartRecord, _Mapping]] = ..., path: _Optional[str] = ..., name: _Optional[str] = ...) -> None: ...
+    global_step: int
+    global_system_step: int
+    def __init__(self, success: bool = ..., message: _Optional[str] = ..., run: _Optional[_Union[StartRecord, _Mapping]] = ..., path: _Optional[str] = ..., name: _Optional[str] = ..., global_step: _Optional[int] = ..., global_system_step: _Optional[int] = ...) -> None: ...
 
 class FinishRecord(_message.Message):
     __slots__ = ("state", "error", "finished_at")

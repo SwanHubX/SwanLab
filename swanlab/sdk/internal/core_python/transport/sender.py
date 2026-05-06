@@ -18,6 +18,7 @@ import yaml
 from requests.sessions import Session
 
 from swanlab.exceptions import ApiError
+from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnClass, ColumnRecord, ColumnType
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.core_python.api.upload import (
     upload_columns,
@@ -30,9 +31,9 @@ from swanlab.sdk.internal.core_python.api.upload import (
     upload_resource,
     upload_scalar,
 )
-from swanlab.sdk.internal.core_python.pkg import column
 from swanlab.sdk.internal.pkg import adapter, client, console, safe
 from swanlab.sdk.typings.core_python.api.upload import (
+    UploadColumn,
     UploadLog,
     UploadLogBatch,
     UploadMedia,
@@ -67,7 +68,6 @@ class HttpRecordSender:
             "requirements": self.upload_requirements,
             "conda": self.upload_conda,
         }
-        self._console_epoch = 1
 
     def upload(self, record_type: str, records: Sequence[Record]) -> None:
         """通用上传入口。"""
@@ -90,7 +90,7 @@ class HttpRecordSender:
     def upload_column(self, records: Sequence[Record], batch_size: int = 3000) -> None:
         columns = []
         for record in records:
-            r = column.encode(record.column)
+            r = encode_column(record.column)
             if r:
                 columns.append(r)
         if not columns:
@@ -177,12 +177,11 @@ class HttpRecordSender:
                     create_time = console_record.timestamp.ToJsonString()
                     metric: UploadLog = {
                         "level": adapter.level[console_record.stream],
-                        "epoch": self._console_epoch,
+                        "epoch": console_record.epoch,
                         "message": console_record.line,
                         "create_time": create_time,
                     }
                     metrics.append(metric)
-                self._console_epoch += 1
             upload_console(self._project_id, self._experiment_id, metrics=metrics)
 
     def upload_config(self, _: Sequence[Record]) -> None:
@@ -216,6 +215,42 @@ class HttpRecordSender:
                 content = f.read()
             if len(content) > 0:
                 upload_conda(self._username, self._project, self._experiment_id, content=content)
+
+
+def encode_column(record: ColumnRecord) -> Optional[UploadColumn]:
+    """
+    将列记录编码为后端所需的格式（DTO）
+    """
+    column: UploadColumn = {"key": record.column_key, "type": adapter.column[record.column_type]}
+    # class: 是否为系统列
+    if record.column_class == ColumnClass.COLUMN_CLASS_SYSTEM:
+        column["class"] = cast(Literal["SYSTEM"], "SYSTEM")
+    # name: 列的展示名称
+    if record.column_name:
+        column["name"] = record.column_name
+    # section name: section 名称
+    if record.section_name:
+        column["sectionName"] = record.section_name
+    # section type: section 类型，目前仅处理系统列
+    if record.column_class == ColumnClass.COLUMN_CLASS_SYSTEM:
+        column["sectionType"] = cast(Literal["SYSTEM"], "SYSTEM")
+    # yRange: 数值列的 y 轴范围
+    if record.column_type == ColumnType.COLUMN_TYPE_SCALAR:
+        if record.HasField("y_range"):
+            column["yRange"] = (record.y_range.min, record.y_range.max)
+    # chartName: 图表名称
+    if record.chart_name:
+        column["chartName"] = record.chart_name
+    # chartIndex: 图表索引
+    if record.chart_index:
+        column["chartIndex"] = record.chart_index
+    # metricName: 指标名称
+    if record.metric_name:
+        column["metricName"] = record.metric_name
+    # metricColors: 指标颜色
+    if record.HasField("metric_colors"):
+        column["metricColors"] = (record.metric_colors.light, record.metric_colors.dark)
+    return column
 
 
 __all__ = [

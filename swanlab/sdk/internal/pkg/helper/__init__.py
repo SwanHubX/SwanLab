@@ -8,6 +8,7 @@
 from pathlib import PurePosixPath
 
 from .env import DEBUG, is_interactive, is_jupyter
+from .system import fmt_system_key, is_system_key
 from .version import get_swanlab_latest_version, get_swanlab_version
 
 __all__ = [
@@ -16,6 +17,8 @@ __all__ = [
     "is_interactive",
     "strip_none",
     "fmt_run_path",
+    "fmt_system_key",
+    "is_system_key",
     "get_swanlab_version",
     "get_swanlab_latest_version",
 ]

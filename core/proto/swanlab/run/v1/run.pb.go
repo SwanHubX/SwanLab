@@ -258,14 +258,16 @@ func (x *StartRecord) GetStartedAt() *timestamppb.Timestamp {
 
 // Run 创建响应
 type StartResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"` // 请求是否成功
-	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`  // 请求失败的响应
-	Run           *StartRecord           `protobuf:"bytes,3,opt,name=run,proto3" json:"run,omitempty"`          // 最终创建的 Run 记录
-	Path          string                 `protobuf:"bytes,4,opt,name=path,proto3" json:"path,omitempty"`        // 对应的实验路径，格式为 /:username/:project_name/:slug(run_id)
-	Name          string                 `protobuf:"bytes,5,opt,name=name,proto3" json:"name,omitempty"`        // 对应的实验名称
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Success          bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`                                             // 请求是否成功
+	Message          string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`                                              // 请求失败的响应
+	Run              *StartRecord           `protobuf:"bytes,3,opt,name=run,proto3" json:"run,omitempty"`                                                      // 最终创建的 Run 记录
+	Path             string                 `protobuf:"bytes,4,opt,name=path,proto3" json:"path,omitempty"`                                                    // 对应的实验路径，格式为 /:username/:project_name/:slug(run_id)
+	Name             string                 `protobuf:"bytes,5,opt,name=name,proto3" json:"name,omitempty"`                                                    // 对应的实验名称
+	GlobalStep       int64                  `protobuf:"varint,6,opt,name=global_step,json=globalStep,proto3" json:"global_step,omitempty"`                     // 起始全局步数
+	GlobalSystemStep int64                  `protobuf:"varint,7,opt,name=global_system_step,json=globalSystemStep,proto3" json:"global_system_step,omitempty"` // 起始全局系统步数
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *StartResponse) Reset() {
@@ -331,6 +333,20 @@ func (x *StartResponse) GetName() string {
 		return x.Name
 	}
 	return ""
+}
+
+func (x *StartResponse) GetGlobalStep() int64 {
+	if x != nil {
+		return x.GlobalStep
+	}
+	return 0
+}
+
+func (x *StartResponse) GetGlobalSystemStep() int64 {
+	if x != nil {
+		return x.GlobalSystemStep
+	}
+	return 0
 }
 
 // Run 结束记录，对应 swanlab.finish() 或进程退出，由sdk前端生成并同步交给后端
@@ -467,13 +483,16 @@ const file_swanlab_run_v1_run_proto_rawDesc = "" +
 	" \x01(\tR\x02id\x122\n" +
 	"\x06resume\x18\v \x01(\x0e2\x1a.swanlab.run.v1.ResumeModeR\x06resume\x129\n" +
 	"\n" +
-	"started_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\tstartedAt\"\x9a\x01\n" +
+	"started_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\tstartedAt\"\xe9\x01\n" +
 	"\rStartResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x12-\n" +
 	"\x03run\x18\x03 \x01(\v2\x1b.swanlab.run.v1.StartRecordR\x03run\x12\x12\n" +
 	"\x04path\x18\x04 \x01(\tR\x04path\x12\x12\n" +
-	"\x04name\x18\x05 \x01(\tR\x04name\"\x91\x01\n" +
+	"\x04name\x18\x05 \x01(\tR\x04name\x12\x1f\n" +
+	"\vglobal_step\x18\x06 \x01(\x03R\n" +
+	"globalStep\x12,\n" +
+	"\x12global_system_step\x18\a \x01(\x03R\x10globalSystemStep\"\x91\x01\n" +
 	"\fFinishRecord\x12.\n" +
 	"\x05state\x18\x01 \x01(\x0e2\x18.swanlab.run.v1.RunStateR\x05state\x12\x14\n" +
 	"\x05error\x18\x02 \x01(\tR\x05error\x12;\n" +

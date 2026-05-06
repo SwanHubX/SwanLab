@@ -19,11 +19,13 @@ STREAM_TYPE_STDOUT: StreamType
 STREAM_TYPE_STDERR: StreamType
 
 class ConsoleRecord(_message.Message):
-    __slots__ = ("line", "stream", "timestamp")
+    __slots__ = ("line", "stream", "timestamp", "epoch")
     LINE_FIELD_NUMBER: _ClassVar[int]
     STREAM_FIELD_NUMBER: _ClassVar[int]
     TIMESTAMP_FIELD_NUMBER: _ClassVar[int]
+    EPOCH_FIELD_NUMBER: _ClassVar[int]
     line: str
     stream: StreamType
     timestamp: _timestamp_pb2.Timestamp
-    def __init__(self, line: _Optional[str] = ..., stream: _Optional[_Union[StreamType, str]] = ..., timestamp: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
+    epoch: int
+    def __init__(self, line: _Optional[str] = ..., stream: _Optional[_Union[StreamType, str]] = ..., timestamp: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., epoch: _Optional[int] = ...) -> None: ...

@@ -13,6 +13,7 @@ message ConsoleRecord {
   string     line      = 1;
   StreamType stream    = 2;
   google.protobuf.Timestamp timestamp = 3;
+  int64      epoch     = 4;
 }
 
 enum StreamType {

@@ -5,7 +5,7 @@
 @description: SwanLab 运行时实验API
 """
 
-from typing import List, Literal, Optional
+from typing import List, Literal, Optional, Tuple
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
@@ -13,7 +13,7 @@ from swanlab.exceptions import ApiError
 from swanlab.proto.swanlab.run.v1.run_pb2 import RUN_STATE_ABORTED, RUN_STATE_CRASHED, RunState
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.pkg import helper
-from swanlab.sdk.typings.core_python.api.experiment import InitExperimentType
+from swanlab.sdk.typings.core_python.api.experiment import InitExperimentType, ResumeExperimentSummaryType
 from swanlab.sdk.typings.run import ResumeType
 
 
@@ -30,7 +30,7 @@ def create_or_resume_experiment(
     group: Optional[str],
     tags: Optional[List[str]],
     created_at: Timestamp,
-) -> InitExperimentType:
+) -> Tuple[InitExperimentType, bool]:
     """
     初始化实验，获取存储信息
     :param username: 所属用户名
@@ -46,7 +46,8 @@ def create_or_resume_experiment(
     :param created_at: 实验创建时间，格式为 ISO 8601
     """
     if resume == "must":
-        assert run_id is not None, "run_id must be provided when resume is 'must'"
+        if run_id is None:
+            raise ValueError("run_id must be provided when resume is 'must'")
         try:
             client.get(f"/project/{username}/{project}/runs/{run_id}")
         except ApiError as e:
@@ -66,6 +67,16 @@ def create_or_resume_experiment(
     resp = client.post(f"/project/{username}/{project}/experiment", helper.strip_none(body, strip_empty_str=True))
     # 200代表实验已存在，开启更新模式
     # 201代表实验不存在，新建实验
+    return resp.data, resp.raw.status_code == 201
+
+
+def get_experiment_summary(project_id: str, experiment_id: str) -> ResumeExperimentSummaryType:
+    """
+    获取实验摘要
+    :param project_id: 所属项目ID
+    :param experiment_id: 所属实验ID
+    """
+    resp = client.get(f"/house/metrics/summaries/{project_id}/{experiment_id}", {"all": True})
     return resp.data
 
 
@@ -93,7 +104,7 @@ def stop_experiment(username: str, project: str, experiment_id: str, *, state: R
     )
 
 
-def send_experiment_heartbeat(*, experiment_id: str, flag_id: str) -> None:
+def send_experiment_heartbeat(*, experiment_id: str, flag_id: str):
     """
     发送实验心跳，保持实验处于活跃状态
     :param experiment_id: 实验唯一标识符

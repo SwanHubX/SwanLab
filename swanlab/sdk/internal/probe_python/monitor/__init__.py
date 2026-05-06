@@ -11,7 +11,7 @@ from typing import Dict, List, Optional
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.sdk.internal.context import RunContext
-from swanlab.sdk.internal.pkg import console, safe, timer
+from swanlab.sdk.internal.pkg import console, helper, safe, timer
 from swanlab.sdk.internal.probe_python.hardware_vendor.apple import Apple
 from swanlab.sdk.internal.probe_python.hardware_vendor.cpu import CPU
 from swanlab.sdk.internal.probe_python.hardware_vendor.memory import Memory
@@ -20,28 +20,7 @@ from swanlab.sdk.typings.probe_python import SystemScalars, SystemShim
 from swanlab.sdk.typings.probe_python.hardware_vendor import CollectorProtocol, CollectResult
 from swanlab.utils.experiment import generate_id
 
-__all__ = ["Monitor", "fmt_system_key", "is_system_key"]
-
-
-_SYSTEM_KEY_PREFIX = "__swanlab__."
-
-
-def fmt_system_key(key: str):
-    """
-    格式化系统指标key，如果已经是系统指标key，报错
-    """
-    if key.startswith(_SYSTEM_KEY_PREFIX):
-        raise ValueError(f"System metric key '{key}' is already a system metric key")
-    return f"{_SYSTEM_KEY_PREFIX}{key}"
-
-
-def is_system_key(key: str):
-    """
-    判断是否是系统指标key
-    :param key: 指标key
-    :return: 是否是系统指标key
-    """
-    return key.startswith(_SYSTEM_KEY_PREFIX)
+__all__ = ["Monitor"]
 
 
 class Monitor:
@@ -79,7 +58,7 @@ class Monitor:
         # 有部分指标会聚合到一个图表中，所以需要一个缓存来记录每个指标对应的图表索引
         cache_chart_index: Dict[str, str] = {}
         for scalar in scalars:
-            key = fmt_system_key(scalar.key)
+            key = helper.fmt_system_key(scalar.key)
             if (chart_index := cache_chart_index.get(scalar.chart_name)) is None:
                 chart_index = generate_id(8)
                 cache_chart_index[scalar.chart_name] = chart_index
@@ -115,7 +94,7 @@ class Monitor:
             ts = Timestamp()
             ts.GetCurrentTime()
             _ = ctx.metrics.next_system_step()
-            _ = {fmt_system_key(k): v for k, v in results}
+            _ = {helper.fmt_system_key(k): v for k, v in results}
             # TODO 向Core发送指标数据
             # emitter.emit(MetricLogEvent(step=step, data=data, timestamp=ts))
 
