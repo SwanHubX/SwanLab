@@ -30,6 +30,8 @@ if TYPE_CHECKING:
     import swanboard
     import torch
     import torchvision
+    import xgboost
+    import xgboost.callback
 
 
 # 2. Expose the available modules for IDE auto-completion
@@ -48,6 +50,8 @@ __all__ = [
     "torchvision",
     # these are extra dependencies which are not in [project.optional-dependencies]
     "pd",
+    # framework integrations
+    "xgboost",
 ]
 
 # 3. Lazy import mapping: Actual module paths
@@ -66,6 +70,8 @@ _LAZY_IMPORTS = {
     "torchvision": "torchvision",
     # these are extra dependencies which are not in [project.optional-dependencies]
     "pd": "pandas",
+    # framework integrations — users install these themselves
+    "xgboost": "xgboost",
 }
 
 # 4. Optional dependencies mapping: Maps imported names to SwanLab's 'extras'
@@ -92,6 +98,7 @@ _SUBMODULE_IMPORTS = {
     "matplotlib": ["matplotlib.figure"],
     "sklearn": ["sklearn.metrics"],
     "rdkit": ["rdkit.Chem", "rdkit.Chem.AllChem"],
+    "xgboost": ["xgboost.callback"],
 }
 
 
