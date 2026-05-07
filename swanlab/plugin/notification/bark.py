@@ -15,13 +15,13 @@ class BarkCallback(NotificationCallback):
         from swanlab.plugin import BarkCallback
 
         swanlab.init(
-            callbacks=[BarkCallback(url="https://api.day.app/xx")]
+            callbacks=[BarkCallback(url="https://api.day.app")]
         )
     """
 
     def __init__(
         self,
-        url: str = "https://api.day.app/xx",
+        url: str = "https://api.day.app",
         title: str = "SwanLab",
         bark_level: Literal["critical", "active", "timeSensitive", "passive"] = "active",
         icon: str = "https://swanlab.cn/icon.png",
