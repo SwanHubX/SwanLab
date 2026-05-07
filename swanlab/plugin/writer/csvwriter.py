@@ -46,7 +46,7 @@ class CSVWriter(Callback):
             self._append_to_existing(headers, row)
         console.info(f"✅ CSVWriter written to {self._filepath}")
 
-    def _build_row(self, state, error, config, metrics):
+    def _build_row(self, state, error, config, metrics):  # noqa: ARG002
         """构建一行数据和对应的列头。"""
         info = self._run_info
         assert info is not None
@@ -61,8 +61,6 @@ class CSVWriter(Callback):
             "workspace",
             "logdir",
             "url",
-            "state",
-            "error",
         ]
         row = [
             info.project,
@@ -73,8 +71,6 @@ class CSVWriter(Callback):
             info.workspace,
             str(info.run_dir),
             info.url or "",
-            state,
-            error or "",
         ]
 
         for key in sorted(config.keys()):
@@ -94,33 +90,38 @@ class CSVWriter(Callback):
             writer.writerow(row)
 
     def _append_to_existing(self, new_headers, new_row):
-        """读取已有 CSV，合并列，追加行。"""
-        with open(self._filepath, "r", newline="") as f:
-            reader = csv.reader(f)
-            existing_headers = next(reader)
-            existing_rows = list(reader)
-
-        header_set = {h: i for i, h in enumerate(existing_headers)}
-        for h in new_headers:
-            if h not in header_set:
-                header_set[h] = len(existing_headers)
-                existing_headers.append(h)
-
-        for old_row in existing_rows:
-            while len(old_row) < len(existing_headers):
-                old_row.append("")
-
-        aligned_row = [""] * len(existing_headers)
-        for h, val in zip(new_headers, new_row):
-            aligned_row[header_set[h]] = val
-
+        """流式读取已有 CSV，合并列，追加行。"""
         tmp_path = self._filepath + ".tmp"
-        with open(tmp_path, "w", newline="") as f:
-            writer = csv.writer(f)
+        with open(self._filepath, "r", newline="") as f_in, open(tmp_path, "w", newline="") as f_out:
+            reader = csv.reader(f_in)
+            writer = csv.writer(f_out)
+
+            try:
+                existing_headers = next(reader)
+            except StopIteration:
+                return
+
+            header_set = {h: i for i, h in enumerate(existing_headers)}
+            new_cols_added = False
+            for h in new_headers:
+                if h not in header_set:
+                    header_set[h] = len(existing_headers)
+                    existing_headers.append(h)
+                    new_cols_added = True
+
             writer.writerow(existing_headers)
-            for r in existing_rows:
-                writer.writerow(r)
+
+            for old_row in reader:
+                if new_cols_added:
+                    while len(old_row) < len(existing_headers):
+                        old_row.append("")
+                writer.writerow(old_row)
+
+            aligned_row = [""] * len(existing_headers)
+            for h, val in zip(new_headers, new_row):
+                aligned_row[header_set[h]] = val
             writer.writerow(aligned_row)
+
         os.replace(tmp_path, self._filepath)
 
     def __str__(self):
