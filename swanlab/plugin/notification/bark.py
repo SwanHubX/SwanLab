@@ -3,11 +3,11 @@ from typing import Any, Dict, Literal, Optional
 
 import requests
 
-from swanlab.plugin.notification.base import _NotificationCallback
+from swanlab.plugin.notification.base import NotificationCallback
 from swanlab.sdk.internal.pkg import console, safe
 
 
-class BarkCallback(_NotificationCallback):
+class BarkCallback(NotificationCallback):
     """Bark push notification callback for iOS devices.
 
     Usage::

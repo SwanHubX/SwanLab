@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 
-from swanlab.plugin.notification import _NotificationCallback
+from swanlab.plugin.notification import NotificationCallback
 from swanlab.plugin.notification.lark import LarkCallback, _LarkBot
 from swanlab.sdk.typings.run.callback import RunInfo
 
@@ -82,7 +82,7 @@ class TestLarkBot:
 
 class TestNotificationCallbackBase:
     def test_name_returns_class_name(self):
-        class MyCb(_NotificationCallback):
+        class MyCb(NotificationCallback):
             def _send_notification(self, state, error): ...
 
         assert MyCb().name == "MyCb"

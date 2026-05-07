@@ -4,7 +4,7 @@ import ssl
 from email.message import EmailMessage
 from typing import Optional
 
-from swanlab.plugin.notification.base import _NotificationCallback
+from swanlab.plugin.notification.base import NotificationCallback
 from swanlab.sdk.internal.pkg import console, safe
 
 _EMAIL_TEMPLATES = {
@@ -55,7 +55,7 @@ _HTML_BODY = """\
 </html>"""
 
 
-class EmailCallback(_NotificationCallback):
+class EmailCallback(NotificationCallback):
     """Email notification callback with HTML formatting.
 
     Supports both STARTTLS (port 587) and direct SSL (port 465).

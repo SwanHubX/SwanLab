@@ -6,7 +6,7 @@ from typing import Any, Dict, Optional
 
 import requests
 
-from swanlab.plugin.notification.base import _NotificationCallback
+from swanlab.plugin.notification.base import NotificationCallback
 from swanlab.sdk.internal.pkg import console, safe
 
 
@@ -25,7 +25,7 @@ class _LarkBot:
         return base64.b64encode(hmac_code).decode("utf-8")
 
 
-class LarkCallback(_NotificationCallback):
+class LarkCallback(NotificationCallback):
     """Lark (Feishu) notification callback.
 
     Usage::

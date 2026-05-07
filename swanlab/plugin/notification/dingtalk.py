@@ -7,7 +7,7 @@ from typing import Any, Dict, Optional
 
 import requests
 
-from swanlab.plugin.notification.base import _NotificationCallback
+from swanlab.plugin.notification.base import NotificationCallback
 from swanlab.sdk.internal.pkg import console, safe
 
 
@@ -45,7 +45,7 @@ class _DingTalkBot:
         self.webhook_url = urllib.parse.urlunparse(parsed._replace(query=urllib.parse.urlencode(params)))
 
 
-class DingTalkCallback(_NotificationCallback):
+class DingTalkCallback(NotificationCallback):
     """DingTalk (钉钉) notification callback.
 
     Usage::

@@ -2,11 +2,11 @@ from typing import Any, Dict, Optional
 
 import requests
 
-from swanlab.plugin.notification.base import _NotificationCallback
+from swanlab.plugin.notification.base import NotificationCallback
 from swanlab.sdk.internal.pkg import console, safe
 
 
-class SlackCallback(_NotificationCallback):
+class SlackCallback(NotificationCallback):
     """Slack notification callback.
 
     Usage::

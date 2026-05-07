@@ -39,7 +39,7 @@ _TEMPLATES: Dict[str, Dict[str, str]] = {
 # ---------------------------------------------------------------------------
 
 
-class _NotificationCallback(Callback):
+class NotificationCallback(Callback):
     """Base class for notification callbacks.
 
     Uses a shared ``SafeThreadPoolExecutor`` so that ``on_run_finished``
