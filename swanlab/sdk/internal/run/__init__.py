@@ -671,12 +671,18 @@ class Run:
         greeting.goodbye(self._ctx, self)
         # 2. 运行结束，清理组件
         self._state = this_state
+        # config 快照必须在 stop() 之前获取（stop 会调用 deactivate_run_config 清空内存）
+        config_snapshot = dict(self._components.config) if self._components.config else {}
         # 停止所有内部组件（async_log → terminal → config → consumer）
         self._components.stop(async_log_timeout=async_log_timeout)
         # 停止probe
         self._probe.finish()
+        # metrics 快照在 stop() 之后获取（consumer 已消费完所有记录）
+        metrics_snapshot = self._ctx.metrics.scalar_snapshot()
         # 通知回调
-        self._callbacker.on_run_finished(state=this_state, error=error)
+        self._callbacker.on_run_finished(
+            state=this_state, error=error, config=config_snapshot, metrics=metrics_snapshot
+        )
         ts = Timestamp()
         ts.GetCurrentTime()
         # 3. 停止Core线程
