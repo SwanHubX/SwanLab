@@ -7,6 +7,7 @@ CallbackManager's ``safe.block`` dispatcher — individual callback failures
 do not affect other callbacks or the training loop.
 """
 
+from swanlab.plugin.notification.bark import BarkCallback
 from swanlab.plugin.notification.base import _NotificationCallback
 from swanlab.plugin.notification.dingtalk import DingTalkCallback
 from swanlab.plugin.notification.discord import DiscordCallback
@@ -24,5 +25,6 @@ __all__ = [
     "SlackCallback",
     "TelegramCallback",
     "EmailCallback",
+    "BarkCallback",
     "_NotificationCallback",
 ]

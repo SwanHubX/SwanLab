@@ -1,4 +1,5 @@
 from swanlab.plugin.notification import (
+    BarkCallback,
     DingTalkCallback,
     DiscordCallback,
     EmailCallback,
@@ -16,4 +17,5 @@ __all__ = [
     "SlackCallback",
     "TelegramCallback",
     "EmailCallback",
+    "BarkCallback",
 ]
