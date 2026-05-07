@@ -669,6 +669,7 @@ class Run:
         )
         if not finish_resp.success:
             console.error(finish_resp.message)
+        self._callbacker.on_run_finished(this_state, error)
         console.debug(f"SwanLab Run has finished with state: {self._state}, cleanup...")
         # 4. 清理副作用
         console.debug("Cleanup system hook...")

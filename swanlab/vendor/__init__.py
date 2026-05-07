@@ -30,6 +30,7 @@ if TYPE_CHECKING:
     import swanboard
     import torch
     import torchvision
+    import transformers
     import xgboost
     import xgboost.callback
 
@@ -51,6 +52,7 @@ __all__ = [
     # these are extra dependencies which are not in [project.optional-dependencies]
     "pd",
     # framework integrations
+    "transformers",
     "xgboost",
 ]
 
@@ -71,6 +73,7 @@ _LAZY_IMPORTS = {
     # these are extra dependencies which are not in [project.optional-dependencies]
     "pd": "pandas",
     # framework integrations — users install these themselves
+    "transformers": "transformers",
     "xgboost": "xgboost",
 }
 
@@ -98,6 +101,7 @@ _SUBMODULE_IMPORTS = {
     "matplotlib": ["matplotlib.figure"],
     "sklearn": ["sklearn.metrics"],
     "rdkit": ["rdkit.Chem", "rdkit.Chem.AllChem"],
+    "transformers": ["transformers.trainer_callback"],
     "xgboost": ["xgboost.callback"],
 }
 
