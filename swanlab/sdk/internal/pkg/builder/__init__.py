@@ -6,7 +6,7 @@
 本模块不负责具体的字符串长度等判断，这交给调用方处理
 """
 
-from typing import TYPE_CHECKING, Tuple, Union
+from typing import TYPE_CHECKING, Union
 
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnClass, ColumnRecord, ColumnType, SectionType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord, ScalarRecord
@@ -38,20 +38,16 @@ def build_resume_column(key: str, *, media: bool = False, system: bool = False) 
     return column_record
 
 
-def _split_key_section(key: str, section_rule_index: int) -> Tuple[str, str]:
-    parts = key.split("/")
-    if len(parts) < 2:
-        return "", key
-    cut = section_rule_index % (len(parts) - 1) + 1
-    return "/".join(parts[:cut]), "/".join(parts[cut:])
-
-
 def build_auto_column(ctx: "RunContext", data_record: Union[ScalarRecord, MediaRecord]) -> ColumnRecord:
-    """
-    构建一个指标列记录，此函数一般用于自动构建用户已定义的指标
-    """
+    """Build a column record for auto-created user metrics."""
+    # Split section_name with `section_rule_index` setting
     section_rule_index = ctx.config.settings.core.section_rule_index
-    section_name, _ = _split_key_section(key=data_record.key, section_rule_index=section_rule_index)
+    parts = data_record.key.split("/")
+    if len(parts) >= 2:
+        cut = section_rule_index % (len(parts) - 1) + 1
+        section_name = "/".join(parts[:cut])
+    else:
+        section_name = ""
 
     return ColumnRecord(
         column_class=ColumnClass.COLUMN_CLASS_CUSTOM,
