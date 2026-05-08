@@ -66,7 +66,7 @@ class DingTalkCallback(NotificationCallback):
             self._bot._check_sign()
             content = self._build_content(state, error)
             payload: Dict[str, Any] = {"msgtype": "text", "text": {"content": content}}
-            resp = requests.post(self._bot.webhook_url, json=payload)
+            resp = requests.post(self._bot.webhook_url, json=payload, timeout=10)
             resp.raise_for_status()
             result: Dict[str, Any] = resp.json()
             if result.get("errcode") and result["errcode"] != 0:

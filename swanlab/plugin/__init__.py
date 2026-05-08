@@ -7,12 +7,14 @@ from swanlab.plugin.notification import (
     SlackCallback,
     TelegramCallback,
     WeComCallback,
+    WXWorkCallback,
 )
 
 __all__ = [
     "LarkCallback",
     "DingTalkCallback",
     "WeComCallback",
+    "WXWorkCallback",
     "DiscordCallback",
     "SlackCallback",
     "TelegramCallback",

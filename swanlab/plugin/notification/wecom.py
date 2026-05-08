@@ -26,10 +26,14 @@ class WeComCallback(NotificationCallback):
         with safe.block(requests.RequestException, message="❌ WeComBot sending failed"):
             content = self._build_content(state, error)
             payload: Dict[str, Any] = {"msgtype": "text", "text": {"content": content}}
-            resp = requests.post(self._webhook_url, json=payload)
+            resp = requests.post(self._webhook_url, json=payload, timeout=10)
             resp.raise_for_status()
             result: Dict[str, Any] = resp.json()
             if result.get("errcode") and result["errcode"] != 0:
                 console.warning(f"❌ WeComBot sending failed: {result.get('errmsg')}")
                 return
             console.info("✅ WeComBot notification sent successfully")
+
+
+# 前向兼容 WXWork 命名
+WXWorkCallback = WeComCallback

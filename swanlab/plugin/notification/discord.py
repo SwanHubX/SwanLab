@@ -26,7 +26,7 @@ class DiscordCallback(NotificationCallback):
         with safe.block(requests.RequestException, message="❌ DiscordBot sending failed"):
             content = self._build_content(state, error)
             payload: Dict[str, Any] = {"content": content}
-            resp = requests.post(self._webhook_url, json=payload)
+            resp = requests.post(self._webhook_url, json=payload, timeout=10)
             resp.raise_for_status()
             if resp.status_code not in (200, 204):
                 console.warning(f"❌ DiscordBot sending failed: {resp.text}")

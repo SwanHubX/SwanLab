@@ -161,11 +161,11 @@ class EmailCallback(NotificationCallback):
         with safe.block(smtplib.SMTPException, message="❌ EmailBot sending failed"):
             ctx = ssl.create_default_context()
             if self._port == 465:
-                with smtplib.SMTP_SSL(self._smtp_server, self._port, context=ctx) as server:
+                with smtplib.SMTP_SSL(self._smtp_server, self._port, context=ctx, timeout=15) as server:
                     server.login(self._sender_email, self._password)
                     server.send_message(msg)
             else:
-                with smtplib.SMTP(self._smtp_server, self._port) as server:
+                with smtplib.SMTP(self._smtp_server, self._port, timeout=15) as server:
                     server.starttls(context=ctx)
                     server.login(self._sender_email, self._password)
                     server.send_message(msg)

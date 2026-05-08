@@ -52,7 +52,7 @@ class LarkCallback(NotificationCallback):
             }
             if self._signer.secret:
                 payload["sign"] = self._signer.gen_sign(timestamp)
-            resp = requests.post(self._signer.webhook_url, json=payload)
+            resp = requests.post(self._signer.webhook_url, json=payload, timeout=10)
             resp.raise_for_status()
             result: Dict[str, Any] = resp.json()
             if result.get("code") and result["code"] != 0:

@@ -26,7 +26,7 @@ class SlackCallback(NotificationCallback):
         with safe.block(requests.RequestException, message="❌ SlackBot sending failed"):
             content = self._build_content(state, error)
             payload: Dict[str, Any] = {"text": content}
-            resp = requests.post(self._webhook_url, json=payload)
+            resp = requests.post(self._webhook_url, json=payload, timeout=10)
             resp.raise_for_status()
             if resp.status_code not in (200, 204):
                 console.warning(f"❌ SlackBot sending failed: {resp.text}")

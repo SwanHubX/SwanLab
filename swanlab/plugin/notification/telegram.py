@@ -28,7 +28,7 @@ class TelegramCallback(NotificationCallback):
         with safe.block(requests.RequestException, message="❌ TelegramBot sending failed"):
             content = self._build_content(state, error)
             payload: Dict[str, Any] = {"chat_id": self._chat_id, "text": content}
-            resp = requests.post(self._api_url, json=payload)
+            resp = requests.post(self._api_url, json=payload, timeout=10)
             resp.raise_for_status()
             result: Dict[str, Any] = resp.json()
             if not result.get("ok"):

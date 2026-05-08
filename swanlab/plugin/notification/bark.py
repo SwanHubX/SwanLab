@@ -101,6 +101,7 @@ class BarkCallback(NotificationCallback):
                 url=f"{self._url}/push",
                 headers={"Content-Type": "application/json; charset=utf-8"},
                 data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+                timeout=10,
             )
             resp.raise_for_status()
             result = resp.json()

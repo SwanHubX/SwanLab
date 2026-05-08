@@ -15,12 +15,13 @@ from swanlab.plugin.notification.email import EmailCallback
 from swanlab.plugin.notification.lark import LarkCallback
 from swanlab.plugin.notification.slack import SlackCallback
 from swanlab.plugin.notification.telegram import TelegramCallback
-from swanlab.plugin.notification.wecom import WeComCallback
+from swanlab.plugin.notification.wecom import WeComCallback, WXWorkCallback
 
 __all__ = [
     "LarkCallback",
     "DingTalkCallback",
     "WeComCallback",
+    "WXWorkCallback",
     "DiscordCallback",
     "SlackCallback",
     "TelegramCallback",
