@@ -31,6 +31,9 @@ __all__ = [
     "build_conda_record",
     "build_media_record",
     "build_scalar_record",
+    "build_console_record",
+    "build_auto_column",
+    "build_resume_column",
 ]
 
 
