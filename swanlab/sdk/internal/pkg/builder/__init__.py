@@ -39,7 +39,9 @@ def build_resume_column(key: str, *, media: bool = False, system: bool = False) 
 
 
 def build_auto_column(ctx: "RunContext", data_record: Union[ScalarRecord, MediaRecord]) -> ColumnRecord:
-    """Build a column record for auto-created user metrics."""
+    """
+    构建一个标量列记录，此函数一般用于自动构建用户已定义的指标
+    """
     # Split section_name with `section_rule_index` setting
     section_rule_index = ctx.config.settings.core.section_rule_index
     parts = data_record.key.split("/")
