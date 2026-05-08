@@ -13,10 +13,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Optional, Set, Tuple, Union, cast
 
-from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnClass, ColumnRecord, ColumnType
+from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord, ColumnType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import ScalarRecord
 from swanlab.sdk.internal.context import RunContext
-from swanlab.sdk.internal.pkg import console, helper
+from swanlab.sdk.internal.pkg import builder, console, helper
 from swanlab.sdk.typings.core_python.api.experiment import ResumeExperimentSummaryType
 
 __all__ = ["RunMetrics"]
@@ -151,8 +151,7 @@ class RunMetrics:
                 media_key, media_step = media["key"], media["step"]
                 if media_step > global_step:
                     global_step = media_step
-                # FIXME: 暂时不知道媒体指标的类型，因此先用 COLUMN_TYPE_UNSPECIFIED 占位
-                column_record = ColumnRecord(column_key=media_key, column_type=ColumnType.COLUMN_TYPE_UNSPECIFIED)
+                column_record = builder.build_resume_column(media_key, media=True)
                 path = ctx.media_dir / "unknown"
                 metrics.define_media(key=media_key, column=column_record, path=path, min_step=media_step)
         # 3. 获取标量指标记录
@@ -161,18 +160,13 @@ class RunMetrics:
                 scalar_key, scalar_step = scalar["key"], scalar["step"]
                 # 系统列和自定义列有不同的起始步数
                 if helper.is_system_key(scalar_key):
-                    column_class = ColumnClass.COLUMN_CLASS_SYSTEM
                     if scalar_step > global_system_step:
                         global_system_step = scalar_step
+                    column_record = builder.build_resume_column(scalar_key, system=True)
                 else:
-                    column_class = ColumnClass.COLUMN_CLASS_CUSTOM
                     if scalar_step > global_step:
                         global_step = scalar_step
-                column_record = ColumnRecord(
-                    column_key=scalar_key,
-                    column_type=ColumnType.COLUMN_TYPE_SCALAR,
-                    column_class=column_class,
-                )
+                    column_record = builder.build_resume_column(scalar_key, system=False)
                 metrics.define_scalar(key=scalar_key, column=column_record, min_step=scalar_step)
         return metrics, console_epoch, global_step, global_system_step
 
