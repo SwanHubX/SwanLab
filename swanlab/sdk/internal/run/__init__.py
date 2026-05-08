@@ -39,7 +39,6 @@ from swanlab.sdk.internal.run.transforms import (
     normalize_media_input,
 )
 from swanlab.sdk.typings.run import AsyncLogType, FinishType, ModeType
-from swanlab.sdk.typings.run.callback import RunInfo
 from swanlab.sdk.typings.run.column import ScalarXAxisType
 from swanlab.sdk.typings.run.transforms import CaptionsType
 from swanlab.sdk.typings.run.transforms.audio import AudioDatasType, AudioRatesType
@@ -150,21 +149,8 @@ class Run:
         assert run_settings.project.name, "project name is required when init run"
         assert run_settings.run.id, "run id is required when init run"
         run_path = path or f"/{run_settings.project.name}/{run_settings.run.id}"
-        run_url: Optional[str] = None
-        if run_settings.mode in ("online", "offline") and path:
-            run_url = f"{run_settings.web_host}{helper.fmt_run_path(path)}"
-        run_info = RunInfo(
-            project=run_settings.project.name,
-            workspace=run_settings.project.workspace or "",
-            experiment_name=run_settings.experiment.name or "",
-            description=run_settings.experiment.description,
-            run_id=run_settings.run.id,
-            run_dir=self._ctx.run_dir,
-            path=run_path,
-            mode=run_settings.mode,
-            url=run_url,
-        )
-        self._callbacker.on_run_initialized(self._ctx.run_dir, run_path, run_info=run_info)
+        callback_settings = run_settings.model_copy(deep=True)
+        self._callbacker.on_run_initialized(self._ctx.run_dir, run_path, settings=callback_settings)
         # 启动组件
         self._components.start()
         self._probe.start()

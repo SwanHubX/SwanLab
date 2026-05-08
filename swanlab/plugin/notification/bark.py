@@ -62,19 +62,19 @@ class BarkCallback(NotificationCallback):
             subtitle = t["subtitle_success"]
 
         exp_url = self._get_url()
-        if exp_url and self._run_info:
+        if exp_url and self._settings:
             body = t["link_text"].format(
-                project=self._run_info.project,
-                workspace=self._run_info.workspace,
-                exp_name=self._run_info.experiment_name,
-                description=self._run_info.description or "",
+                project=self._settings.project.name or "",
+                workspace=self._settings.project.workspace or "",
+                exp_name=self._settings.experiment.name or "",
+                description=self._settings.experiment.description or "",
             )
             if self._group == "exp_name":
-                group = self._run_info.experiment_name
+                group = self._settings.experiment.name
             elif self._group == "project":
-                group = self._run_info.project
+                group = self._settings.project.name
             elif self._group == "workspace":
-                group = self._run_info.workspace
+                group = self._settings.project.workspace
             else:
                 group = None
         else:

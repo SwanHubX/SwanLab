@@ -112,13 +112,12 @@ class EmailCallback(NotificationCallback):
             )
 
         rows = ""
-        if self._run_info:
-            info = self._run_info
+        if self._settings:
             meta = [
-                (tpl["project_label"], info.project),
-                (tpl["workspace_label"], info.workspace),
-                (tpl["exp_name_label"], info.experiment_name),
-                (tpl["desc_label"], info.description or "-"),
+                (tpl["project_label"], self._settings.project.name or "-"),
+                (tpl["workspace_label"], self._settings.project.workspace or "-"),
+                (tpl["exp_name_label"], self._settings.experiment.name or "-"),
+                (tpl["desc_label"], self._settings.experiment.description or "-"),
             ]
             for i, (label, value) in enumerate(meta):
                 border = "border-bottom:1px solid #f0f0f0;" if i < len(meta) - 1 else ""

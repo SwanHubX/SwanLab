@@ -3,8 +3,9 @@ from pathlib import Path
 from typing import Dict, Optional
 
 from swanlab.sdk.internal.core_python.pkg.executor import SafeThreadPoolExecutor
+from swanlab.sdk.internal.pkg.helper import fmt_run_path
+from swanlab.sdk.internal.settings import Settings
 from swanlab.sdk.protocol import Callback
-from swanlab.sdk.typings.run.callback import RunInfo
 
 # ---------------------------------------------------------------------------
 # Message templates
@@ -35,6 +36,17 @@ _TEMPLATES: Dict[str, Dict[str, str]] = {
 
 
 # ---------------------------------------------------------------------------
+# URL builder
+# ---------------------------------------------------------------------------
+
+
+def build_run_url(settings: Settings, path: Optional[str]) -> Optional[str]:
+    if path and settings.mode in ("online", "offline"):
+        return f"{settings.web_host}{fmt_run_path(path)}"
+    return None
+
+
+# ---------------------------------------------------------------------------
 # Base class
 # ---------------------------------------------------------------------------
 
@@ -52,7 +64,8 @@ class NotificationCallback(Callback):
 
     def __init__(self, language: str = "zh"):
         self.language = language
-        self._run_info: Optional[RunInfo] = None
+        self._settings: Optional[Settings] = None
+        self._path: Optional[str] = None
 
     @property
     def name(self) -> str:
@@ -61,20 +74,21 @@ class NotificationCallback(Callback):
     # -- Callback hooks -----------------------------------------------------
 
     def on_run_initialized(self, run_dir: Path, path: str, *args, **kwargs) -> None:
-        run_info = kwargs.get("run_info")
-        if isinstance(run_info, RunInfo):
-            self._run_info = run_info
+        settings = kwargs.get("settings")
+        if isinstance(settings, Settings):
+            self._settings = settings
+            self._path = path
 
     def on_run_finished(self, state: str, error: Optional[str] = None, **kwargs) -> None:
-        if isinstance(self._run_info, RunInfo):
+        if self._settings is not None:
             self._executor.run(self._send_notification, state, error)
 
     # -- Template helpers ---------------------------------------------------
 
     def _get_url(self) -> Optional[str]:
-        if self._run_info:
-            return self._run_info.url
-        return None
+        if self._settings is None:
+            return None
+        return build_run_url(self._settings, self._path)
 
     def _build_content(self, state: str, error: Optional[str]) -> str:
         tpl = _TEMPLATES.get(self.language, _TEMPLATES["zh"])
@@ -84,12 +98,12 @@ class NotificationCallback(Callback):
         else:
             content += tpl["msg_success"]
         url = self._get_url()
-        if url and self._run_info:
+        if url and self._settings:
             content += tpl["link_text"].format(
-                project=self._run_info.project,
-                workspace=self._run_info.workspace,
-                exp_name=self._run_info.experiment_name,
-                description=self._run_info.description or "",
+                project=self._settings.project.name or "",
+                workspace=self._settings.project.workspace or "",
+                exp_name=self._settings.experiment.name or "",
+                description=self._settings.experiment.description or "",
                 link=url,
             )
         return content
