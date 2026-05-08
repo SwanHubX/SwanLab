@@ -42,10 +42,26 @@ class RunConfig:
 class RunContext:
     def __init__(self, config: RunConfig, callbacks: Optional[CallbacksType] = None):
         self._global_step: int = 0
+        self._global_system_step: Optional[int] = None
         self.config: RunConfig = config
         self.callbacker = create_callback_manager(callbacks=callbacks)
         self.core = create_core(self)
         self.probe = create_probe(self)
+
+    @property
+    def global_system_step(self) -> int:
+        if self._global_system_step is None:
+            raise RuntimeError("Global system step is not set.")
+        return self._global_system_step
+
+    @global_system_step.setter
+    def global_system_step(self, value: int):
+        """
+        设置全局系统步数，仅用于初始化时设置，后续不允许修改
+        """
+        if self._global_system_step is not None:
+            raise RuntimeError("Global system step is already set.")
+        self._global_system_step = value
 
     def next_step(self, user_step: Optional[int] = None) -> int:
         """

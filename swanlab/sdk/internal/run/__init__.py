@@ -153,6 +153,7 @@ class Run:
         self._callbacker.on_run_initialized(self._ctx.run_dir, run_path, settings=callback_settings)
         # 启动组件
         self._components.start()
+        # 启动硬件监控探针
         self._probe.start()
         console.init(bind_to=self._ctx.debug_dir if self.mode != "disabled" else None)
         greeting.welcome(self._ctx, self)

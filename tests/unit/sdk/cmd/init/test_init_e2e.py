@@ -270,8 +270,10 @@ def mock_resource_upload_api(rsps):
 
 @pytest.fixture
 def mock_online_settings():
-    """将全局 settings 的 api_host/web_host 指向测试 HOST，避免意外触发生产环境"""
-    merge_settings({"api_host": API_HOST, "web_host": WEB_HOST})
+    """将全局 settings 的 api_host/web_host 指向测试 HOST，避免意外触发生产环境
+    同时取消硬件监控，硬件监控不在本端到端测试的覆盖范围
+    """
+    merge_settings({"api_host": API_HOST, "web_host": WEB_HOST, "monitor": {"enable": False}})
 
 
 @pytest.fixture

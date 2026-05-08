@@ -323,16 +323,20 @@ class SystemScalar(BaseModel):
     用于在硬件监控线程启动前批量注册系统标量定义。
     """
 
-    key: str = Field(..., pattern=r"^[a-z\.]+$")
+    key: str = Field(..., pattern=r"^[a-z\.]+$", max_length=512, min_length=1)
     """标量键名，仅允许小写字母和点号"""
-    name: Optional[str] = Field(default=None, max_length=100)
+    name: Optional[str] = Field(default=None, max_length=512, min_length=1)
     """显示名称"""
     color: Optional[str] = Field(default=None, pattern=r"^#[0-9a-fA-F]{6}$")
     """颜色，hex 色值，格式如 #FF5733，如果不指定，则使用默认色值"""
     x_axis: Literal["_step", "_relative_time"] = "_relative_time"
     """x 轴类型，支持系统值 _step、_relative_time 或其他标量键名"""
-    chart_name: str = Field(max_length=100)
-    """所属图表名称，最多 100 字符"""
+    chart_name: str = Field(max_length=512, min_length=1)
+    """所属图表名称，最多 512 字符"""
+    y_min: Optional[float] = None
+    """y 轴最小值"""
+    y_max: Optional[float] = None
+    """y 轴最大值"""
 
     model_config = ConfigDict(frozen=True)
 

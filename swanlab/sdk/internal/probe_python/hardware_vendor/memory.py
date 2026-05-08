@@ -48,7 +48,7 @@ class Memory(MemoryProtocol):
         mem_pct = SystemScalar(
             key="mem.pct",
             name="System Memory Utilization (%)",
-            chart_name="System Memory",
+            chart_name="System Memory Utilization (%)",
             color=generate_color(0),
         )
         scalars.append(mem_pct)
@@ -57,7 +57,7 @@ class Memory(MemoryProtocol):
         mem_proc = SystemScalar(
             key="mem.proc",
             name="Process Memory In Use (non-swap) (MB)",
-            chart_name="Process Memory",
+            chart_name="Process Memory In Use (non-swap) (MB)",
             color=generate_color(0),
         )
         scalars.append(mem_proc)

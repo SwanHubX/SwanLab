@@ -109,4 +109,4 @@ def send_experiment_heartbeat(*, experiment_id: str):
     发送实验心跳，保持实验处于活跃状态
     :param experiment_id: 实验唯一标识符
     """
-    client.post(f"/house/experiments/{experiment_id}/heartbeat")
+    client.post(f"/house/experiments/{experiment_id}/heartbeat", {"flagId": "123456"})

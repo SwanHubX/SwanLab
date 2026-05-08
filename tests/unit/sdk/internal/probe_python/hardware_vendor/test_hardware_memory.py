@@ -330,7 +330,7 @@ class TestMemoryNew:
         assert result is not None
         _, scalars = result
         chart_names = [s.chart_name for s in scalars]
-        assert chart_names == ["System Memory", "Process Memory"]
+        assert chart_names == ["System Memory Utilization (%)", "Process Memory In Use (non-swap) (MB)"]
 
     def test_collect_returns_two_metrics(self):
         """collect() 返回 2 个 (key, value) 采集结果"""

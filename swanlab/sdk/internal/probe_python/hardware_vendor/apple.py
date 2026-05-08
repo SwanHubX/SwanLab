@@ -39,7 +39,7 @@ class Apple(AppleSiliconProtocol):
             cpu_pct = SystemScalar(
                 key="cpu.pct",
                 name="CPU Utilization (%)",
-                chart_name="CPU Utilization",
+                chart_name="CPU Utilization (%)",
                 color=generate_color(0),
             )
             scalars.append(cpu_pct)
@@ -58,7 +58,7 @@ class Apple(AppleSiliconProtocol):
             mem_pct = SystemScalar(
                 key="mem.pct",
                 name="System Memory Utilization (%)",
-                chart_name="System Memory",
+                chart_name="System Memory Utilization (%)",
                 color=generate_color(0),
             )
             scalars.append(mem_pct)
@@ -67,7 +67,7 @@ class Apple(AppleSiliconProtocol):
             mem_proc = SystemScalar(
                 key="mem.proc",
                 name="Process Memory In Use (non-swap) (MB)",
-                chart_name="Process Memory",
+                chart_name="Process Memory In Use (non-swap) (MB)",
                 color=generate_color(0),
             )
             scalars.append(mem_proc)

@@ -10,11 +10,14 @@ from typing import Dict, List, Optional
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
+from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord
+from swanlab.proto.swanlab.metric.data.v1.data_pb2 import ScalarRecord
 from swanlab.sdk.internal.context import RunContext
-from swanlab.sdk.internal.pkg import console, helper, safe, timer
+from swanlab.sdk.internal.pkg import console, safe, timer
 from swanlab.sdk.internal.probe_python.hardware_vendor.apple import Apple
 from swanlab.sdk.internal.probe_python.hardware_vendor.cpu import CPU
 from swanlab.sdk.internal.probe_python.hardware_vendor.memory import Memory
+from swanlab.sdk.internal.probe_python.monitor import builder
 from swanlab.sdk.protocol import CoreProtocol
 from swanlab.sdk.typings.probe_python import SystemScalars, SystemShim
 from swanlab.sdk.typings.probe_python.hardware_vendor import CollectorProtocol, CollectResult
@@ -35,6 +38,7 @@ class Monitor:
         self._executor: Optional[ThreadPoolExecutor] = None
 
     def start(self, ctx: RunContext) -> Optional["Monitor"]:
+        now_step = ctx.global_system_step
         # 1. 收集采集器
         # 注意 scalars 设计上越靠前的越先发送、在前端显示越靠前
         collectors: List[CollectorProtocol] = []
@@ -57,24 +61,17 @@ class Monitor:
         # 2. 定义指标
         # 有部分指标会聚合到一个图表中，所以需要一个缓存来记录每个指标对应的图表索引
         cache_chart_index: Dict[str, str] = {}
+        column_records: List[ColumnRecord] = []
         for scalar in scalars:
-            key = helper.fmt_system_key(scalar.key)
             if (chart_index := cache_chart_index.get(scalar.chart_name)) is None:
                 chart_index = generate_id(8)
                 cache_chart_index[scalar.chart_name] = chart_index
-            _ = (key, chart_index)
-            # TODO 向Core发送指标定义
-            # emitter.emit(
-            #     ScalarDefineEvent(
-            #         key=key,
-            #         name=scalar.name,
-            #         color=scalar.color,
-            #         system=True,
-            #         x_axis=scalar.x_axis,
-            #         chart=chart_index,
-            #         chart_name=scalar.chart_name,
-            #     )
-            # )
+            with safe.block(message=f"Failed to build column record for scalar {scalar.key}"):
+                column_records.append(builder.build_probe_column(scalar, chart_index=chart_index))
+        if len(column_records) == 0:
+            console.debug("No hardware monitor columns found, skipping creating monitor task")
+            return None
+        self._core.upsert_columns(column_records)
         # 3. 定义并启动任务
         all_handlers = [(type(c).__name__, c.collect) for c in collectors]
         if len(all_handlers) == 0:
@@ -84,6 +81,7 @@ class Monitor:
         self._executor = ThreadPoolExecutor(max_workers=2)
 
         def task():
+            nonlocal now_step
             assert self._executor is not None, "Monitor Executor is not initialized"
             futures = [(n, self._executor.submit(fn)) for n, fn in all_handlers]
             results: List[CollectResult] = []
@@ -93,9 +91,11 @@ class Monitor:
                     results.extend(result)
             ts = Timestamp()
             ts.GetCurrentTime()
-            _ = {helper.fmt_system_key(k): v for k, v in results}
-            # TODO 向Core发送指标数据
-            # emitter.emit(MetricLogEvent(step=step, data=data, timestamp=ts))
+            scalar_records: List[ScalarRecord] = []
+            now_step += 1
+            for k, v in results:
+                scalar_records.append(builder.build_probe_scalar(k, value=v, timestamp=ts, step=now_step))
+            self._core.upsert_scalars(scalar_records)
 
         # 不设置立即执行，以避免产生一些无用的数据
         self._timer = timer.Timer(

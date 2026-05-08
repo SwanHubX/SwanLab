@@ -40,7 +40,7 @@ class CPU(CpuProtocol):
         usage = SystemScalar(
             key="cpu.pct",
             name="CPU Utilization (%)",
-            chart_name="CPU Utilization",
+            chart_name="CPU Utilization (%)",
             color=generate_color(0),
         )
         scalars.append(usage)
