@@ -33,8 +33,6 @@ def isolate_sdk_environment(tmp_path, monkeypatch):
         "SWANLAB_WEB_HOST",
         "SWANLAB_ROOT",
         "SWANLAB_LOG_DIR",
-        "SWANLAB_CORE_SECTION_RULE_INDEX",
-        "SWANLAB_SECTION_RULE_IDX",
     ]:
         monkeypatch.delenv(env_var, raising=False)
 
