@@ -27,7 +27,15 @@ def isolate_sdk_environment(tmp_path, monkeypatch):
 
     # 1. 路径与环境变量隔离
     # 清理可能干扰测试的常见环境变量
-    for env_var in ["SWANLAB_API_KEY", "SWANLAB_API_HOST", "SWANLAB_WEB_HOST", "SWANLAB_ROOT", "SWANLAB_LOG_DIR"]:
+    for env_var in [
+        "SWANLAB_API_KEY",
+        "SWANLAB_API_HOST",
+        "SWANLAB_WEB_HOST",
+        "SWANLAB_ROOT",
+        "SWANLAB_LOG_DIR",
+        "SWANLAB_CORE_SECTION_RULE_INDEX",
+        "SWANLAB_SECTION_RULE_IDX",
+    ]:
         monkeypatch.delenv(env_var, raising=False)
 
     # 切换当前工作目录，防止加载到项目根目录的 .env 或 swanlab.yaml

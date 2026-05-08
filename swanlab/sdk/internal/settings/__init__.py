@@ -35,6 +35,7 @@ from pydantic_settings import (
 from swanlab.sdk.internal.pkg import helper, nrc, safe
 from swanlab.sdk.typings.run import ModeType
 
+from .core import CoreSettings
 from .experiment import ExperimentSettings, ProjectSettings, RunSettings
 from .integration import IntegrationSettings
 from .metadata import ConsoleSettings, EnvironmentSettings, MonitorSettings
@@ -98,6 +99,7 @@ class Settings(BaseSettings):
     Monitor: ClassVar[Type[MonitorSettings]] = MonitorSettings
     Console: ClassVar[Type[ConsoleSettings]] = ConsoleSettings
     Integration: ClassVar[Type[IntegrationSettings]] = IntegrationSettings
+    Core: ClassVar[Type[CoreSettings]] = CoreSettings
 
     interactive: bool = True
     """
@@ -286,6 +288,10 @@ class Settings(BaseSettings):
     integration: IntegrationSettings = Field(default_factory=IntegrationSettings)
     """
     Configuration for SwanLab integrations, including webhook, dashboard, etc.
+    """
+    core: CoreSettings = Field(default_factory=CoreSettings)
+    """
+    Configuration for SwanLab Core behavior.
     """
 
     model_config = SettingsConfigDict(

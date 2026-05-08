@@ -187,6 +187,34 @@ def test_url_env_resolution(monkeypatch):
     assert s_mixed.web_host == "http://env-web.local"
 
 
+def test_core_section_rule_index_env(monkeypatch):
+    """测试 core section rule index 可通过新版 Settings 环境变量注入"""
+    monkeypatch.setenv("SWANLAB_CORE_SECTION_RULE_INDEX", "-1")
+
+    settings = Settings()
+
+    assert settings.core.section_rule_index == -1
+
+
+def test_legacy_section_rule_idx_env(monkeypatch):
+    """测试旧版 section rule idx 环境变量兼容读取"""
+    monkeypatch.setenv("SWANLAB_SECTION_RULE_IDX", "1")
+
+    settings = Settings()
+
+    assert settings.core.section_rule_index == 1
+
+
+def test_core_section_rule_index_env_overrides_legacy(monkeypatch):
+    """测试新版 core section rule index 环境变量优先于旧版环境变量"""
+    monkeypatch.setenv("SWANLAB_CORE_SECTION_RULE_INDEX", "-1")
+    monkeypatch.setenv("SWANLAB_SECTION_RULE_IDX", "1")
+
+    settings = Settings()
+
+    assert settings.core.section_rule_index == -1
+
+
 @pytest.fixture
 def netrc_file(tmp_path, monkeypatch):
     """
