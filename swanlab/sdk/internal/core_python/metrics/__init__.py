@@ -16,7 +16,8 @@ from typing import Any, Dict, Optional, Set, Tuple, Union, cast
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord, ColumnType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import ScalarRecord
 from swanlab.sdk.internal.context import RunContext
-from swanlab.sdk.internal.pkg import builder, console, helper
+from swanlab.sdk.internal.core_python.pkg import builder
+from swanlab.sdk.internal.pkg import console, helper
 from swanlab.sdk.typings.core_python.api.experiment import ResumeExperimentSummaryType
 
 __all__ = ["RunMetrics"]

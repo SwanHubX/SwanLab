@@ -10,7 +10,7 @@ import pytest
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnClass, ColumnType, SectionType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord, ScalarRecord
 from swanlab.sdk.internal.context import RunConfig, RunContext
-from swanlab.sdk.internal.pkg import builder
+from swanlab.sdk.internal.core_python.pkg import builder
 from swanlab.sdk.internal.settings import Settings
 
 

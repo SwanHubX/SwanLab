@@ -43,16 +43,14 @@ from swanlab.sdk.internal.core_python.api.experiment import (
 from swanlab.sdk.internal.core_python.api.project import get_or_create_project, get_project
 from swanlab.sdk.internal.core_python.heartbeat import Heartbeat
 from swanlab.sdk.internal.core_python.metrics import RunMetrics
-from swanlab.sdk.internal.core_python.pkg.counter import Counter
+from swanlab.sdk.internal.core_python.pkg import builder, counter
 from swanlab.sdk.internal.core_python.store import DataStoreWriter
 from swanlab.sdk.internal.core_python.transport import Transport
 from swanlab.sdk.internal.core_python.transport.sender import HttpRecordSender
-from swanlab.sdk.internal.pkg import adapter, builder, console, safe
+from swanlab.sdk.internal.pkg import adapter, console, safe
 from swanlab.sdk.protocol import CoreProtocol
 from swanlab.sdk.typings.core_python.api.experiment import ResumeExperimentSummaryType
 from swanlab.utils.experiment import generate_color, generate_name
-
-from . import record_builder as RB
 
 __all__ = ["CorePython"]
 
@@ -73,9 +71,9 @@ class CorePython(CoreProtocol):
         self._project_id: Optional[str] = None
         self._experiment_id: Optional[str] = None
         # record 构建计数器
-        self._counter = Counter()
+        self._counter = counter.Counter()
         # console 行计数器
-        self._epoch = Counter()
+        self._epoch = counter.Counter()
         self._started: bool = False
         self._metrics: Optional[RunMetrics] = None
         self._heartbeat: Optional[Heartbeat] = None
@@ -92,7 +90,7 @@ class CorePython(CoreProtocol):
     def _start_store(self, resp: StartResponse):
         self._store = DataStoreWriter()
         self._store.open(str(self._ctx.run_file))
-        record = RB.build_start_record(resp.run)
+        record = builder.build_start_record(resp.run)
         self._store.write(record.SerializeToString())
 
     def _start_without_online(self, start_record: StartRecord, message: str) -> StartResponse:
@@ -229,7 +227,7 @@ class CorePython(CoreProtocol):
                 self._metrics.define_media(
                     key=column.column_key, column=column, path=adapter.medium[column.column_type]
                 )
-            records.append(RB.build_column_record(self._counter, column))
+            records.append(builder.build_column_record(self._counter, column))
         self._store_records(records)
         return records
 
@@ -258,12 +256,12 @@ class CorePython(CoreProtocol):
                 if not metric:
                     column_record = builder.build_auto_column(self._ctx, scalar)
                     metric = self._metrics.define_scalar(key=scalar.key, column=column_record)
-                    records.append(RB.build_column_record(self._counter, column_record))
+                    records.append(builder.build_column_record(self._counter, column_record))
                 # 2. 检查类型是否匹配，判断指定的step是否允许写入
                 metric.ensure_type_match(scalar.type)
                 if metric.try_accept_step(scalar.step):
                     metric.update(scalar)
-                    records.append(RB.build_scalar_record(self._counter, scalar))
+                    records.append(builder.build_scalar_record(self._counter, scalar))
                 else:
                     console.debug(
                         f"Metric '{scalar.key}' at step {scalar.step} was skipped because it is duplicate or too old."
@@ -296,12 +294,12 @@ class CorePython(CoreProtocol):
                     metric = self._metrics.define_media(
                         key=media.key, column=column_record, path=self._ctx.media_dir / adapter.medium[media.type]
                     )
-                    records.append(RB.build_column_record(self._counter, column_record))
+                    records.append(builder.build_column_record(self._counter, column_record))
                 # 2. 检查类型是否匹配，判断指定的step是否允许写入
                 metric.ensure_type_match(media.type)
                 if metric.try_accept_step(media.step):
                     metric.update(media)
-                    records.append(RB.build_media_record(self._counter, media))
+                    records.append(builder.build_media_record(self._counter, media))
                 else:
                     console.debug(
                         f"Metric '{media.key}' at step {media.step} was skipped because it is duplicate or too old."
@@ -323,75 +321,75 @@ class CorePython(CoreProtocol):
     # ---- upsert_consoles ----
 
     def _upsert_consoles_when_local(self, consoles: List[ConsoleRecord]) -> None:
-        records = [RB.build_console_record(self._counter, self._epoch, c) for c in consoles]
+        records = [builder.build_console_record(self._counter, self._epoch, c) for c in consoles]
         self._store_records(records)
 
     def _upsert_consoles_when_offline(self, consoles: List[ConsoleRecord]) -> None:
-        records = [RB.build_console_record(self._counter, self._epoch, c) for c in consoles]
+        records = [builder.build_console_record(self._counter, self._epoch, c) for c in consoles]
         self._store_records(records)
 
     def _upsert_consoles_when_online(self, consoles: List[ConsoleRecord]) -> None:
-        records = [RB.build_console_record(self._counter, self._epoch, c) for c in consoles]
+        records = [builder.build_console_record(self._counter, self._epoch, c) for c in consoles]
         self._store_records(records)
         self._transport_put(records)
 
     # ---- upsert_configs ----
 
     def _upsert_configs_when_local(self, configs: List[ConfigRecord]) -> None:
-        records = [RB.build_config_record(c) for c in configs]
+        records = [builder.build_config_record(c) for c in configs]
         self._store_records(records)
 
     def _upsert_configs_when_offline(self, configs: List[ConfigRecord]) -> None:
-        records = [RB.build_config_record(c) for c in configs]
+        records = [builder.build_config_record(c) for c in configs]
         self._store_records(records)
 
     def _upsert_configs_when_online(self, configs: List[ConfigRecord]) -> None:
-        records = [RB.build_config_record(c) for c in configs]
+        records = [builder.build_config_record(c) for c in configs]
         self._store_records(records)
         self._transport_put(records)
 
     # ---- upsert_requirements ----
 
     def _upsert_requirements_when_local(self, requirements: List[RequirementsRecord]) -> None:
-        records = [RB.build_requirements_record(r.timestamp) for r in requirements]
+        records = [builder.build_requirements_record(r.timestamp) for r in requirements]
         self._store_records(records)
 
     def _upsert_requirements_when_offline(self, requirements: List[RequirementsRecord]) -> None:
-        records = [RB.build_requirements_record(r.timestamp) for r in requirements]
+        records = [builder.build_requirements_record(r.timestamp) for r in requirements]
         self._store_records(records)
 
     def _upsert_requirements_when_online(self, requirements: List[RequirementsRecord]) -> None:
-        records = [RB.build_requirements_record(r.timestamp) for r in requirements]
+        records = [builder.build_requirements_record(r.timestamp) for r in requirements]
         self._store_records(records)
         self._transport_put(records)
 
     # ---- upsert_conda ----
 
     def _upsert_conda_when_local(self, conda: List[CondaRecord]) -> None:
-        records = [RB.build_conda_record(c.timestamp) for c in conda]
+        records = [builder.build_conda_record(c.timestamp) for c in conda]
         self._store_records(records)
 
     def _upsert_conda_when_offline(self, conda: List[CondaRecord]) -> None:
-        records = [RB.build_conda_record(c.timestamp) for c in conda]
+        records = [builder.build_conda_record(c.timestamp) for c in conda]
         self._store_records(records)
 
     def _upsert_conda_when_online(self, conda: List[CondaRecord]) -> None:
-        records = [RB.build_conda_record(c.timestamp) for c in conda]
+        records = [builder.build_conda_record(c.timestamp) for c in conda]
         self._store_records(records)
         self._transport_put(records)
 
     # ---- upsert_metadata ----
 
     def _upsert_metadata_when_local(self, metadata: List[MetadataRecord]) -> None:
-        records = [RB.build_metadata_record(m.timestamp) for m in metadata]
+        records = [builder.build_metadata_record(m.timestamp) for m in metadata]
         self._store_records(records)
 
     def _upsert_metadata_when_offline(self, metadata: List[MetadataRecord]) -> None:
-        records = [RB.build_metadata_record(m.timestamp) for m in metadata]
+        records = [builder.build_metadata_record(m.timestamp) for m in metadata]
         self._store_records(records)
 
     def _upsert_metadata_when_online(self, metadata: List[MetadataRecord]) -> None:
-        records = [RB.build_metadata_record(m.timestamp) for m in metadata]
+        records = [builder.build_metadata_record(m.timestamp) for m in metadata]
         self._store_records(records)
         self._transport_put(records)
 
@@ -416,7 +414,7 @@ class CorePython(CoreProtocol):
         self._store = None
 
     def _build_finish_record(self, finish_record: FinishRecord) -> Tuple[Record, Optional[Record]]:
-        record = RB.build_finish_record(finish_record)
+        record = builder.build_finish_record(finish_record)
         record.finish.CopyFrom(finish_record)
         console_record: Optional[Record] = None
         if finish_record.state != RunState.RUN_STATE_FINISHED:
@@ -430,7 +428,7 @@ class CorePython(CoreProtocol):
                 stream=StreamType.STREAM_TYPE_STDERR,
                 line=error_message,
             )
-            console_record = RB.build_console_record(self._counter, self._epoch, c)
+            console_record = builder.build_console_record(self._counter, self._epoch, c)
             # 不将 console_record 写入 store 中，一方面具体的报错信息存储在 finish_record 中
             # 另一方面因为这个 record 也是为了适应后端“报错信息写在CH”的设计
         return record, console_record
