@@ -11,7 +11,7 @@
   - TestCorePythonGuard  : 防御逻辑
 """
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -68,12 +68,15 @@ class TestCorePythonStart:
 
         monkeypatch.setattr(core, "_report_run_start", _report_run_start_and_set_attrs)
 
-        resp = core.deliver_run_start(record)
+        with patch("swanlab.sdk.internal.core_python.Heartbeat") as MockHeartbeat:
+            resp = core.deliver_run_start(record)
 
         assert resp.success is True
         assert core._store is not None
         assert core._transport is not None
         mock_deliver.assert_called_once_with(record)
+        MockHeartbeat.assert_called_once_with("test-experiment-id")
+        MockHeartbeat.return_value.start.assert_called_once()
 
 
 # ============================================================
@@ -109,7 +112,10 @@ class TestCorePythonFinish:
             return mock_start(rec)
 
         monkeypatch.setattr(core, "_report_run_start", _report_run_start_and_set_attrs)
-        core.deliver_run_start(make_start_record())
+
+        with patch("swanlab.sdk.internal.core_python.Heartbeat") as MockHeartbeat:
+            core.deliver_run_start(make_start_record())
+        mock_heartbeat = MockHeartbeat.return_value
 
         mock_finish = MagicMock(return_value=None)
         monkeypatch.setattr(core, "_report_run_finish", mock_finish)
@@ -117,6 +123,7 @@ class TestCorePythonFinish:
 
         assert core._store is None
         assert core._transport is None
+        mock_heartbeat.stop.assert_called_once()
         mock_finish.assert_called_once()
         assert resp.success is False
         assert "saved locally" in resp.message

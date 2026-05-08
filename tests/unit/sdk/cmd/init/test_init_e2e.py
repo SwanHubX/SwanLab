@@ -109,6 +109,11 @@ def make_metrics_resp(**overrides) -> dict:
     return {"message": "ok", **overrides}
 
 
+def make_heartbeat_resp(**overrides) -> dict:
+    """POST /house/experiments/{experiment_id}/heartbeat 响应体"""
+    return {"message": "ok", **overrides}
+
+
 def make_presigned_put_resp(**overrides) -> dict:
     """POST /api/resources/presigned/put 响应体"""
     return {"urls": ["https://storage.fake.swanlab.cn/upload/0"], **overrides}
@@ -228,6 +233,18 @@ def mock_metrics_api(rsps):
 
 
 @pytest.fixture
+def mock_heartbeat_api(rsps):
+    """注册 POST /api/house/experiments/{experiment_id}/heartbeat 端点（实验心跳）"""
+    rsps.add(
+        responses_lib.POST,
+        f"{API_HOST}/api/house/experiments/{EXPERIMENT_CUID}/heartbeat",
+        json=make_heartbeat_resp(),
+        status=200,
+    )
+    return rsps
+
+
+@pytest.fixture
 def mock_presigned_put_api(rsps):
     """注册 POST /api/resources/presigned/put 端点（获取对象存储预签名 URL）"""
     rsps.add(
@@ -270,6 +287,7 @@ def mock_online_init_apis(
     mock_metrics_api,
     mock_presigned_put_api,
     mock_resource_upload_api,
+    mock_heartbeat_api,
 ):
     """
     组合 fixture：一次性注册 init(mode='online') 当前所需的全部 HTTP 端点。
@@ -498,6 +516,7 @@ class TestInitOnlineMode:
         mock_experiment_create_api,
         mock_experiment_stop_api,
         mock_profile_api,
+        mock_heartbeat_api,
     ):
         """online 模式完整 init 流程：返回 Run，has_run() 为 True"""
         run = init(mode="online", project=PROJECT)
@@ -513,6 +532,7 @@ class TestInitOnlineMode:
         mock_experiment_create_api,
         mock_experiment_stop_api,
         mock_profile_api,
+        mock_heartbeat_api,
     ):
         """online 模式下，workspace 和 project.name 应与后端响应同步"""
         run = init(mode="online", project=PROJECT)
@@ -529,6 +549,7 @@ class TestInitOnlineMode:
         mock_experiment_create_api,
         mock_experiment_stop_api,
         mock_profile_api,
+        mock_heartbeat_api,
     ):
         """POST /project 返回 409（项目已存在）时，应优雅降级为获取项目，继续初始化"""
         rsps.add(responses_lib.POST, f"{API_HOST}/api/project", json=make_init_project_resp(), status=409)
@@ -546,6 +567,7 @@ class TestInitOnlineMode:
         mock_experiment_create_api,
         mock_experiment_stop_api,
         mock_profile_api,
+        mock_heartbeat_api,
         rsps,
     ):
         """验证 online init 确实调用了 project 和 experiment 端点"""
