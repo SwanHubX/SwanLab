@@ -120,12 +120,24 @@ content-type = "text/markdown"
 fragments = [{ path = "README.md" }]
 
 [[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
-pattern = "(readme_files)/"
+pattern = "(?:\\./)?(readme_files)/"
 replacement = 'https://raw.githubusercontent.com/SwanHubX/swanlab/main/\g<1>/'
 
 [[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
-pattern = "README_en.md"
-replacement = 'https://github.com/SwanHubX/SwanLab/blob/main/README_en.md'
+pattern = "README_EN.md"
+replacement = 'https://github.com/SwanHubX/SwanLab/blob/main/README_EN.md'
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
+pattern = "README_JP.md"
+replacement = 'https://github.com/SwanHubX/SwanLab/blob/main/README_JP.md'
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
+pattern = "README_RU.md"
+replacement = 'https://github.com/SwanHubX/SwanLab/blob/main/README_RU.md'
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
+pattern = "CONTRIBUTING.md"
+replacement = "https://github.com/SwanHubX/SwanLab/blob/main/CONTRIBUTING.md"
 
 [[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
 pattern = "README.md"
