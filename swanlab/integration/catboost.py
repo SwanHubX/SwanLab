@@ -25,10 +25,10 @@ class SwanLabCallback(Callback):
     def _init(self) -> None:
         if self._initialized:
             return
-        self._initialized = True
         run = swanlab.get_run()
         if run is None:
             return
+        self._initialized = True
         run.config["FRAMEWORK"] = "catboost"
         if self._params and isinstance(self._params, dict):
             run.config.update(self._params)

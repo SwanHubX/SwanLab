@@ -31,10 +31,10 @@ class SwanLabCallback(Callback):
     def _init(self, env: CallbackEnv) -> None:
         if self._initialized:
             return
-        self._initialized = True
         run = swanlab.get_run()
         if run is None:
             return
+        self._initialized = True
         run.config["FRAMEWORK"] = "lightgbm"
         if self._log_params:
             run.config.update(env.params)
@@ -44,16 +44,21 @@ class SwanLabCallback(Callback):
 
         for item in env.evaluation_result_list:
             if len(item) == 4:
-                data_name, eval_name, result = item[:3]
-                swanlab.log({data_name + "_" + eval_name: result}, step=env.iteration)
-            else:
-                data_name, eval_name = item[1].split()
-                res_mean = item[2]
-                res_stdv = item[4]
+                if isinstance(item[1], str):
+                    data_name, eval_name, result = item[:3]
+                    swanlab.log({f"{data_name}_{eval_name}": result}, step=env.iteration)
+                else:
+                    eval_name, result, _, stdv = item
+                    swanlab.log(
+                        {f"{eval_name}-mean": result, f"{eval_name}-stdv": stdv},
+                        step=env.iteration,
+                    )
+            elif len(item) == 5:
+                data_name, eval_name, result, _, stdv = item
                 swanlab.log(
                     {
-                        data_name + "_" + eval_name + "-mean": res_mean,
-                        data_name + "_" + eval_name + "-stdv": res_stdv,
+                        f"{data_name}_{eval_name}-mean": result,
+                        f"{data_name}_{eval_name}-stdv": stdv,
                     },
                     step=env.iteration,
                 )
