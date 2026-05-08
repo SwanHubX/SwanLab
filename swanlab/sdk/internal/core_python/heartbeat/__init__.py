@@ -12,9 +12,10 @@ from swanlab.sdk.internal.pkg.timer import Timer
 
 
 class Heartbeat:
-    def __init__(self, experiment_id: str, interval: int = 20 * 60):
+    def __init__(self, experiment_id: str, interval: int = 10 * 60):
         task = partial(send_experiment_heartbeat, experiment_id=experiment_id)
-        self._timer = Timer(task, interval=interval, immediate=False, name="SwanLab·Heartbeat")
+        # immediate 为 True 时，会在 start 时立即执行一次任务，立即告诉后端有运行进程
+        self._timer = Timer(task, interval=interval, immediate=True, name="SwanLab·Heartbeat")
 
     def start(self):
         self._timer.start()

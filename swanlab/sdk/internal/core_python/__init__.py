@@ -125,6 +125,7 @@ class CorePython(CoreProtocol):
         )
         self._transport = Transport(sender=sender)
         self._heartbeat = Heartbeat(self._experiment_id)
+        self._heartbeat.start()
         return resp
 
     def _report_run_start(self, record: StartRecord) -> StartResponse:
@@ -442,8 +443,6 @@ class CorePython(CoreProtocol):
     def _finish_when_offline(self, finish_record: FinishRecord) -> FinishResponse:
         record, _ = self._build_finish_record(finish_record)
         self._finish_store(record)
-        if self._heartbeat is not None:
-            self._heartbeat.stop()
         return FinishResponse(success=True, message="OK, but use offline")
 
     def _finish_when_online(self, finish_record: FinishRecord) -> FinishResponse:
@@ -455,6 +454,8 @@ class CorePython(CoreProtocol):
         self._transport.finish()
         self._transport = None
         resp = self._report_run_finish(finish_record)
+        if self._heartbeat is not None:
+            self._heartbeat.stop()
         # 如果仅仅是与后端同步出现问题，则换一个让用户安心一些的提示信息
         if resp is None:
             return FinishResponse(success=False, message="Failed to finish run, but it has been saved locally.")
