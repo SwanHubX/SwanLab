@@ -95,7 +95,6 @@ class Settings(BaseSettings):
     Project: ClassVar[Type[ProjectSettings]] = ProjectSettings
     Run: ClassVar[Type[RunSettings]] = RunSettings
     Experiment: ClassVar[Type[ExperimentSettings]] = ExperimentSettings
-    Metadata: ClassVar[Type[EnvironmentSettings]] = EnvironmentSettings
     Monitor: ClassVar[Type[MonitorSettings]] = MonitorSettings
     Console: ClassVar[Type[ConsoleSettings]] = ConsoleSettings
     Integration: ClassVar[Type[IntegrationSettings]] = IntegrationSettings

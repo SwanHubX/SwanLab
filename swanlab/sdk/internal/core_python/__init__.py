@@ -194,6 +194,7 @@ class CorePython(CoreProtocol):
             name=experiment.get("name"),
             global_step=global_step,
             global_system_step=global_system_step,
+            new_experiment=new_experiment,
         )
 
     # ---------------------------------- 数据上报 ----------------------------------

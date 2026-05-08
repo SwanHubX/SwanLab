@@ -31,6 +31,7 @@ message StartResponse {
   string name              = 5;  // 对应的实验名称
   int64 global_step        = 6;  // 起始全局步数
   int64 global_system_step = 7;  // 起始全局系统步数
+  bool  new_experiment     = 8;  // 是否是新实验
 }
 
 

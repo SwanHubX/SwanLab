@@ -266,6 +266,7 @@ type StartResponse struct {
 	Name             string                 `protobuf:"bytes,5,opt,name=name,proto3" json:"name,omitempty"`                                                    // 对应的实验名称
 	GlobalStep       int64                  `protobuf:"varint,6,opt,name=global_step,json=globalStep,proto3" json:"global_step,omitempty"`                     // 起始全局步数
 	GlobalSystemStep int64                  `protobuf:"varint,7,opt,name=global_system_step,json=globalSystemStep,proto3" json:"global_system_step,omitempty"` // 起始全局系统步数
+	NewExperiment    bool                   `protobuf:"varint,8,opt,name=new_experiment,json=newExperiment,proto3" json:"new_experiment,omitempty"`            // 是否是新实验
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
@@ -347,6 +348,13 @@ func (x *StartResponse) GetGlobalSystemStep() int64 {
 		return x.GlobalSystemStep
 	}
 	return 0
+}
+
+func (x *StartResponse) GetNewExperiment() bool {
+	if x != nil {
+		return x.NewExperiment
+	}
+	return false
 }
 
 // Run 结束记录，对应 swanlab.finish() 或进程退出，由sdk前端生成并同步交给后端
@@ -483,7 +491,7 @@ const file_swanlab_run_v1_run_proto_rawDesc = "" +
 	" \x01(\tR\x02id\x122\n" +
 	"\x06resume\x18\v \x01(\x0e2\x1a.swanlab.run.v1.ResumeModeR\x06resume\x129\n" +
 	"\n" +
-	"started_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\tstartedAt\"\xe9\x01\n" +
+	"started_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\tstartedAt\"\x90\x02\n" +
 	"\rStartResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x12-\n" +
@@ -492,7 +500,8 @@ const file_swanlab_run_v1_run_proto_rawDesc = "" +
 	"\x04name\x18\x05 \x01(\tR\x04name\x12\x1f\n" +
 	"\vglobal_step\x18\x06 \x01(\x03R\n" +
 	"globalStep\x12,\n" +
-	"\x12global_system_step\x18\a \x01(\x03R\x10globalSystemStep\"\x91\x01\n" +
+	"\x12global_system_step\x18\a \x01(\x03R\x10globalSystemStep\x12%\n" +
+	"\x0enew_experiment\x18\b \x01(\bR\rnewExperiment\"\x91\x01\n" +
 	"\fFinishRecord\x12.\n" +
 	"\x05state\x18\x01 \x01(\x0e2\x18.swanlab.run.v1.RunStateR\x05state\x12\x14\n" +
 	"\x05error\x18\x02 \x01(\tR\x05error\x12;\n" +

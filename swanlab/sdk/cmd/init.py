@@ -515,6 +515,19 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
             assert path, "Initialization path failed when mode=online"
         ctx.next_step(user_step=resp.global_step)
         ctx.global_system_step = resp.global_system_step
+        # 暂时不允许resume时、旧实验进行硬件信息采集、终端代理
+        resume_limit_kwargs = {}
+        if not resp.new_experiment:
+            resume_limit_kwargs["environment.hardware"] = False
+            resume_limit_kwargs["environment.requirements"] = False
+            resume_limit_kwargs["environment.conda"] = False
+            resume_limit_kwargs["environment.git"] = False
+            resume_limit_kwargs["environment.swanlab"] = False
+            resume_limit_kwargs["monitor.enable"] = False
+            resume_limit_kwargs["console.proxy_type"] = "none"
+            console.info(
+                "Hardware information collection, monitor, and terminal proxy have been disabled in resume mode."
+            )
         # 4. 从 core 响应同步配置（online 模式会覆盖为服务端分配的值）
         sync_args = {}
         merge_dict = helper.strip_none(
@@ -523,6 +536,7 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
                 "project.name": resp.run.project,
                 "experiment.name": resp.name,
                 "experiment.color": resp.run.color,
+                **resume_limit_kwargs,
             },
             strip_empty_str=True,
         )
