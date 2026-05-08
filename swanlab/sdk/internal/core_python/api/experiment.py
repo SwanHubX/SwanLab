@@ -104,10 +104,9 @@ def stop_experiment(username: str, project: str, experiment_id: str, *, state: R
     )
 
 
-def send_experiment_heartbeat(*, experiment_id: str, flag_id: str):
+def send_experiment_heartbeat(*, experiment_id: str):
     """
     发送实验心跳，保持实验处于活跃状态
     :param experiment_id: 实验唯一标识符
-    :param flag_id: 实验标记ID
     """
-    client.post(f"/house/experiments/{experiment_id}/heartbeat", {"flagId": flag_id})
+    client.post(f"/house/experiments/{experiment_id}/heartbeat")
