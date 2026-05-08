@@ -156,15 +156,3 @@ class RunMetrics:
         :return: 指标对象，如果不存在则返回None
         """
         return self._metrics.get(key)
-
-    def scalar_snapshot(self) -> Dict[str, Dict[str, Optional[float]]]:
-        """提取所有 scalar 指标的 latest/max/min 快照。"""
-        snapshot: Dict[str, Dict[str, Optional[float]]] = {}
-        for key, metric in self._metrics.items():
-            if isinstance(metric, ScalarMetric):
-                snapshot[key] = {
-                    "latest": metric.latest,
-                    "max": metric.max,
-                    "min": metric.min,
-                }
-        return snapshot

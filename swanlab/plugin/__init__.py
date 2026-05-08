@@ -8,7 +8,6 @@ from swanlab.plugin.notification import (
     TelegramCallback,
     WeComCallback,
 )
-from swanlab.plugin.writer import CSVWriter
 
 __all__ = [
     "LarkCallback",
@@ -19,5 +18,4 @@ __all__ = [
     "TelegramCallback",
     "EmailCallback",
     "BarkCallback",
-    "CSVWriter",
 ]
