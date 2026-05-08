@@ -159,14 +159,12 @@ class RunMetrics:
             for scalar in data["scalar"]:
                 scalar_key, scalar_step = scalar["key"], scalar["step"]
                 # 系统列和自定义列有不同的起始步数
-                if helper.is_system_key(scalar_key):
-                    if scalar_step > global_system_step:
-                        global_system_step = scalar_step
-                    column_record = builder.build_resume_column(scalar_key, system=True)
+                is_system = helper.is_system_key(scalar_key)
+                if is_system:
+                    global_system_step = max(scalar_step, global_system_step)
                 else:
-                    if scalar_step > global_step:
-                        global_step = scalar_step
-                    column_record = builder.build_resume_column(scalar_key, system=False)
+                    global_step = max(scalar_step, global_step)
+                column_record = builder.build_resume_column(scalar_key, system=is_system)
                 metrics.define_scalar(key=scalar_key, column=column_record, min_step=scalar_step)
         return metrics, console_epoch, global_step, global_system_step
 

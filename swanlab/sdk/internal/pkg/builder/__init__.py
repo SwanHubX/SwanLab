@@ -19,7 +19,7 @@ def build_resume_column(key: str, *, media: bool = False, system: bool = False) 
     """
     构建一个resume模式下从云端恢复的列记录
     此构建并不会恢复完整的列信息，一些不重要的，比如section name等，会被略过
-    仅会恢复列的key和type
+    仅会恢复列的key、type、class
     :param key: 列的key
     :param media: 是否是媒体列
     :param system: 是否是系统列
