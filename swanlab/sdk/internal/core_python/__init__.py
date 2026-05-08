@@ -446,16 +446,21 @@ class CorePython(CoreProtocol):
         return FinishResponse(success=True, message="OK, but use offline")
 
     def _finish_when_online(self, finish_record: FinishRecord) -> FinishResponse:
+        # 1. 构建停止记录
         record, console_record = self._build_finish_record(finish_record)
         self._finish_store(record)
         assert self._transport is not None, "transport must be initialized before finishing"
         if console_record is not None:
             self._transport_put([console_record])
+        # 2. 等待 transport 发送完成
         self._transport.finish()
         self._transport = None
-        resp = self._report_run_finish(finish_record)
+        # 3. 停止心跳
         if self._heartbeat is not None:
             self._heartbeat.stop()
+            self._heartbeat = None
+        # 4. 向后端同步运行结束事件
+        resp = self._report_run_finish(finish_record)
         # 如果仅仅是与后端同步出现问题，则换一个让用户安心一些的提示信息
         if resp is None:
             return FinishResponse(success=False, message="Failed to finish run, but it has been saved locally.")
