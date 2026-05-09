@@ -33,9 +33,7 @@ def test_upload_resources_uploads_files_and_reports_progress(tmp_path: Path):
     second.write_bytes(b"\x00\x01")
     fake_session = _FakeSession()
     session = cast(Session, fake_session)
-    uploaded = []
-
-    upload_api.upload_saves(
+    uploaded = upload_api.upload_saves(
         session,
         resources=[
             {"url": "https://s3.test/first", "source_path": str(first), "content_type": "text/plain"},
@@ -45,7 +43,6 @@ def test_upload_resources_uploads_files_and_reports_progress(tmp_path: Path):
                 "content_type": "application/octet-stream",
             },
         ],
-        on_uploaded=lambda _: uploaded.append("done"),
     )
 
     puts_by_url = {item["url"]: item for item in fake_session.puts}
@@ -61,4 +58,4 @@ def test_upload_resources_uploads_files_and_reports_progress(tmp_path: Path):
             "headers": {"Content-Type": "application/octet-stream"},
         },
     }
-    assert uploaded == ["done", "done"]
+    assert uploaded == {str(first), str(second)}

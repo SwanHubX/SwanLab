@@ -329,19 +329,10 @@ class HttpRecordSender:
         ]
         source_to_path = {f["source_path"]: f["path"] for f in files}
         statuses: dict[str, str] = {f["path"]: "FAILED" for f in files}
-
-        def mark_uploaded(source_path: str) -> None:
-            path = source_to_path[source_path]
-            statuses[path] = "UPLOADED"
-
-        upload_failed = False
-
-        def on_upload_error(_: BaseException) -> None:
-            nonlocal upload_failed
-            upload_failed = True
-
-        with safe.block(message="Failed to upload save files, skipping", on_error=on_upload_error):
-            upload_saves(session, resources=resources, on_uploaded=mark_uploaded)
+        with safe.block(message="Failed to upload save files, skipping"):
+            uploaded_paths = upload_saves(session, resources=resources)
+            for source_path in uploaded_paths:
+                statuses[source_to_path[source_path]] = "UPLOADED"
 
         complete_items: list[CompleteSaveFile] = [
             {"path": path, "state": cast(Literal["UPLOADED", "FAILED"], state)} for path, state in statuses.items()

@@ -1,5 +1,5 @@
 from pathlib import Path
-from unittest.mock import ANY, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord
@@ -26,10 +26,8 @@ def test_upload_save_delegates_small_file_s3_put_to_upload_resources(tmp_path: P
     sender = _make_sender(tmp_path)
     session = MagicMock()
 
-    def _fake_upload(session, *, resources, on_uploaded=None):
-        if on_uploaded is not None:
-            for r in resources:
-                on_uploaded(r["source_path"])
+    def _fake_upload(session, *, resources):
+        return {r["source_path"] for r in resources}
 
     with (
         patch(
@@ -51,7 +49,6 @@ def test_upload_save_delegates_small_file_s3_put_to_upload_resources(tmp_path: P
         resources=[
             {"url": "https://s3.test/model", "source_path": str(source), "content_type": "text/plain"},
         ],
-        on_uploaded=ANY,
     )
     mock_complete.assert_called_once_with(
         "experiment-id", files=[{"path": "checkpoints/model.txt", "state": "UPLOADED"}]
