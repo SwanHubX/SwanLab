@@ -129,12 +129,6 @@ class SwanLabCallback(Callback, _KerasCallback):
             init_kwargs["config"] = dict(self._pending_config)
         swanlab.init(callbacks=[self], **init_kwargs)
         self._pending_config.clear()
-        if not self._initialized:
-            run = self._get_active_run()
-            if run is not None:
-                self._initialized = True
-                run.config["FRAMEWORK"] = "keras"
-                self._flush_pending_config(run)
 
     def _log(self, payload: Dict[str, Any], step: int) -> None:
         self._ensure_init()

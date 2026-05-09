@@ -162,13 +162,6 @@ class SwanLabLogger(Callback, _LightningLogger):
             init_kwargs["config"] = dict(self._pending_config)
         swanlab.init(callbacks=[self], **init_kwargs)
         self._pending_config.clear()
-        if not self._initialized:
-            run = self._get_active_run()
-            if run is not None:
-                self._initialized = True
-                self._experiment = run
-                run.config["FRAMEWORK"] = "pytorch_lightning"
-                self._flush_pending_config(run)
 
     def _flush_pending_config(self, run: Any) -> None:
         if not self._pending_config:
@@ -185,7 +178,15 @@ class SwanLabLogger(Callback, _LightningLogger):
             if len(arg_values) != value_count:
                 raise ValueError(f"Expected {value_count} items but only found {len(arg_values)} for {arg_key}")
 
-        per_value_kwargs = [{arg_key: kwargs[arg_key][index] for arg_key in kwargs} for index in range(value_count)]
+        per_value_kwargs = [
+            {
+                arg_key: arg_values[index]
+                if isinstance(arg_values, (list, tuple)) and len(arg_values) == value_count
+                else arg_values
+                for arg_key, arg_values in kwargs.items()
+            }
+            for index in range(value_count)
+        ]
         self.log_metrics(
             {key: [factory(value, **value_kwargs) for value, value_kwargs in zip(values, per_value_kwargs)]}, step
         )
@@ -194,8 +195,10 @@ class SwanLabLogger(Callback, _LightningLogger):
     def _params_to_dict(params: Union[Mapping[str, Any], Namespace]) -> Dict[str, Any]:
         if isinstance(params, Namespace):
             params = vars(params)
-        elif not isinstance(params, Mapping):
+        elif hasattr(params, "__dict__"):
             params = vars(params)
+        elif not isinstance(params, Mapping):
+            params = {}
 
         sanitized = {}
         for key, value in dict(params).items():
