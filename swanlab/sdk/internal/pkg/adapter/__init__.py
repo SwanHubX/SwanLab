@@ -9,11 +9,12 @@
 
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
 from swanlab.proto.swanlab.run.v1.run_pb2 import ResumeMode, RunState
+from swanlab.proto.swanlab.save.v1.save_pb2 import SavePolicy
 from swanlab.proto.swanlab.system.v1.console_pb2 import StreamType
 
 from .bimap import BiMap
 
-__all__ = ["resume", "medium", "state", "level"]
+__all__ = ["resume", "medium", "state", "level", "policy"]
 
 
 resume = BiMap(
@@ -71,3 +72,13 @@ level = BiMap(
     }
 )
 """StreamType 枚举适配器，映射本地proto枚举与云端日志格式"""
+
+policy = BiMap(
+    {
+        "now": SavePolicy.SAVE_POLICY_NOW,
+        "end": SavePolicy.SAVE_POLICY_END,
+        "live": SavePolicy.SAVE_POLICY_LIVE,
+    }
+)
+
+"""Save Policy 文件保存策略适配器，映射 save 时文件上报策略"""

@@ -19,7 +19,7 @@ from swanlab.proto.swanlab.metric.column.v1.column_pb2 import (
     SectionType,
 )
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord
-from swanlab.proto.swanlab.save.v1.save_pb2 import SavePolicy, SaveRecord
+from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord
 from swanlab.proto.swanlab.system.v1.console_pb2 import ConsoleRecord
 from swanlab.sdk.internal.bus.events import ConfigEvent, ConsoleEvent, FileSaveEvent, ParseResult, ScalarDefineEvent
 from swanlab.sdk.internal.context import RunContext, TransformMedia
@@ -152,18 +152,8 @@ class RecordBuilder:
         """构建 ConsoleRecord envelope"""
         return ConsoleRecord(line=event.line, stream=event.stream, timestamp=event.timestamp)
 
-    # ── 文件保存数据 ──
-    _POLICY_MAP = {
-        "now": SavePolicy.SAVE_POLICY_NOW,
-        "end": SavePolicy.SAVE_POLICY_END,
-        "live": SavePolicy.SAVE_POLICY_LIVE,
-    }
-
+    # ── 文件保存 (Save) 数据 ──
     @classmethod
     def build_save(cls, event: FileSaveEvent) -> SaveRecord:
         """将 FileSaveEvent 转为 proto SaveRecord"""
-        return SaveRecord(
-            name=event.name,
-            source_path=event.source_path,
-            policy=cls._POLICY_MAP.get(event.policy, SavePolicy.SAVE_POLICY_NOW),
-        )
+        return SaveRecord(name=event.name, source_path=event.source_path, policy=adapter.policy[event.policy])

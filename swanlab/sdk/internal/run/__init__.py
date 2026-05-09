@@ -40,6 +40,7 @@ from swanlab.sdk.internal.run.transforms import (
     Video,
     normalize_media_input,
 )
+from swanlab.sdk.internal.settings.core import CoreSettings
 from swanlab.sdk.typings.run import AsyncLogType, FinishType, ModeType
 from swanlab.sdk.typings.run.column import ScalarXAxisType
 from swanlab.sdk.typings.run.transforms import CaptionsType
@@ -666,9 +667,6 @@ class Run:
             return []
 
         # 过滤出普通文件，计算相对路径
-        # Inline import to avoid circular dependency at module load time
-        from swanlab.sdk.internal.settings.core import CoreSettings
-
         save_settings = CoreSettings().save
         files: List[Tuple[Path, Path]] = []
         for abs_str in matched:
