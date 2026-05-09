@@ -23,6 +23,10 @@ if TYPE_CHECKING:
     import lightning.pytorch.utilities
     import matplotlib
     import matplotlib.figure
+    import mmengine
+    import mmengine.config
+    import mmengine.registry
+    import mmengine.visualization.vis_backend
     import moviepy
     import numpy as np
     import pandas as pd
@@ -38,6 +42,7 @@ if TYPE_CHECKING:
     import torch
     import torchvision
     import transformers
+    import ultralytics
     import xgboost
     import xgboost.callback
 
@@ -62,7 +67,9 @@ __all__ = [
     "accelerate",
     "keras",
     "lightning",
+    "mmengine",
     "transformers",
+    "ultralytics",
     "xgboost",
 ]
 
@@ -86,7 +93,9 @@ _LAZY_IMPORTS = {
     "accelerate": "accelerate",
     "keras": "keras",
     "lightning": "lightning",
+    "mmengine": "mmengine",
     "transformers": "transformers",
+    "ultralytics": "ultralytics",
     "xgboost": "xgboost",
 }
 
@@ -117,6 +126,7 @@ _SUBMODULE_IMPORTS = {
     "accelerate": ["accelerate.tracking"],
     "keras": ["keras.callbacks"],
     "lightning": ["lightning.pytorch", "lightning.pytorch.loggers", "lightning.pytorch.utilities"],
+    "mmengine": ["mmengine.config", "mmengine.registry", "mmengine.visualization.vis_backend"],
     "transformers": ["transformers.trainer_callback"],
     "xgboost": ["xgboost.callback"],
 }
