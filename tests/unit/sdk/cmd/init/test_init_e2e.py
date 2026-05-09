@@ -13,6 +13,7 @@
   - TestInitResumeValidation : resume/id 校验逻辑
   - TestInitOnlineMode       : online 模式，依赖本文件内的 HTTP mock fixtures
   - TestInitFactoryDispatch  : 验证 factory 模式按模式分派组件类型
+  - TestRunSave              : run.save() 各 policy / 各模式的端到端行为
 """
 
 import json
@@ -934,3 +935,294 @@ class TestInitFactoryDispatch:
         run.config["key"] = "value"
 
         assert run._ctx.config_file.exists()
+
+
+# ============================================================
+# Save API Response Factories
+# ============================================================
+
+
+def make_save_prepare_resp(**overrides) -> dict:
+    """POST /api/experiment/{experiment_id}/files/prepare 响应体"""
+    return {"urls": ["https://storage.fake.swanlab.cn/save/0"], **overrides}
+
+
+def make_save_complete_resp(**overrides) -> dict:
+    """POST /api/experiment/{experiment_id}/files/complete 响应体"""
+    return {"message": "ok", **overrides}
+
+
+# ============================================================
+# Save HTTP Mock Fixtures
+# ============================================================
+
+
+@pytest.fixture
+def mock_save_prepare_api(rsps):
+    """注册 POST /api/experiment/{experiment_id}/files/prepare 端点"""
+    rsps.add(
+        responses_lib.POST,
+        f"{API_HOST}/api/experiment/{EXPERIMENT_CUID}/files/prepare",
+        json=make_save_prepare_resp(),
+        status=200,
+    )
+    return rsps
+
+
+@pytest.fixture
+def mock_save_complete_api(rsps):
+    """注册 POST /api/experiment/{experiment_id}/files/complete 端点"""
+    rsps.add(
+        responses_lib.POST,
+        f"{API_HOST}/api/experiment/{EXPERIMENT_CUID}/files/complete",
+        json=make_save_complete_resp(),
+        status=201,
+    )
+    return rsps
+
+
+@pytest.fixture
+def mock_save_upload_api(rsps):
+    """注册 PUT 预签名 URL 端点（上传 save 文件到对象存储）"""
+    rsps.add(
+        responses_lib.PUT,
+        "https://storage.fake.swanlab.cn/save/0",
+        body="",
+        status=200,
+    )
+    return rsps
+
+
+@pytest.fixture
+def mock_online_save_apis(
+    mock_online_settings,
+    mock_login_api,
+    mock_project_create_api,
+    mock_project_get_api,
+    mock_experiment_create_api,
+    mock_experiment_stop_api,
+    mock_profile_api,
+    mock_heartbeat_api,
+    mock_save_prepare_api,
+    mock_save_complete_api,
+    mock_save_upload_api,
+):
+    """组合 fixture：注册 init(mode='online') + save 上传所需的全部 HTTP 端点。"""
+    pass
+
+
+@pytest.fixture
+def mock_online_init_only(
+    mock_online_settings,
+    mock_login_api,
+    mock_project_create_api,
+    mock_project_get_api,
+    mock_experiment_create_api,
+    mock_experiment_stop_api,
+    mock_profile_api,
+    mock_heartbeat_api,
+):
+    """组合 fixture：仅注册 init(mode='online') 所需端点，不含 save/media 上传。"""
+    pass
+
+
+# ============================================================
+# TestRunSave
+# ============================================================
+
+
+class TestRunSave:
+    """端到端测试：run.save() 在 online/local/offline 模式下的行为"""
+
+    def test_save_now_triggers_upload_immediately(
+        self,
+        logged_in_client,
+        mock_online_save_apis,
+        tmp_path,
+        rsps,
+    ):
+        """policy='now' 时，save 应在 finish 前就触发 prepare → upload → complete 流程"""
+        run = init(mode="online", project=PROJECT)
+        checkpoint = tmp_path / "model.pt"
+        checkpoint.write_text("weights", encoding="utf-8")
+
+        run.save("model.pt", base_path=str(tmp_path), policy="now")
+        run.finish()
+
+        # 验证 save prepare 和 complete 端点被调用
+        save_calls = [
+            c.request.url for c in rsps.calls if "files/prepare" in c.request.url or "files/complete" in c.request.url
+        ]
+        assert len(save_calls) >= 2, f"Expected prepare + complete calls, got: {save_calls}"
+
+    def test_save_end_defers_upload_until_finish(
+        self,
+        logged_in_client,
+        mock_online_save_apis,
+        tmp_path,
+        rsps,
+    ):
+        """policy='end' 时，save 不应立即触发上传，而是在 finish 时才上传"""
+        run = init(mode="online", project=PROJECT)
+        checkpoint = tmp_path / "model.pt"
+        checkpoint.write_text("weights", encoding="utf-8")
+
+        # 记录 finish 前的 save API 调用次数
+        run.save("model.pt", base_path=str(tmp_path), policy="end")
+        before_finish_save_calls = [
+            c.request.url for c in rsps.calls if "files/prepare" in c.request.url or "files/complete" in c.request.url
+        ]
+
+        run.finish()
+
+        after_finish_save_calls = [
+            c.request.url for c in rsps.calls if "files/prepare" in c.request.url or "files/complete" in c.request.url
+        ]
+        # finish 后应有 save 相关的 API 调用（end policy 的延迟上传）
+        assert len(after_finish_save_calls) > len(before_finish_save_calls)
+
+    def test_save_returns_matched_paths(
+        self,
+        logged_in_client,
+        mock_online_save_apis,
+        tmp_path,
+    ):
+        """save() 应返回匹配到的文件相对路径列表"""
+        run = init(mode="online", project=PROJECT)
+        checkpoint = tmp_path / "model.pt"
+        checkpoint.write_text("weights", encoding="utf-8")
+
+        result = run.save("model.pt", base_path=str(tmp_path), policy="now")
+
+        assert result == ["model.pt"]
+        run.finish()
+
+    def test_save_no_match_returns_empty_list(self, logged_in_client, mock_online_init_only, tmp_path):
+        """save() 未匹配到文件时应返回空列表"""
+        run = init(mode="online", project=PROJECT)
+
+        result = run.save(str(tmp_path / "nonexistent" / "*.pt"), policy="now")
+
+        assert result == []
+        run.finish()
+
+    def test_save_local_mode_creates_symlink(self, tmp_path):
+        """local 模式下 save() 应在 files_dir 中创建 symlink"""
+        run = init(mode="local")
+        checkpoint = tmp_path / "model.pt"
+        checkpoint.write_text("weights", encoding="utf-8")
+
+        result = run.save("model.pt", base_path=str(tmp_path), policy="now")
+        assert result == ["model.pt"]
+
+        run.finish()
+        # finish() 等待 consumer drain，symlink 应已创建
+        link_path = run._ctx.files_dir / "model.pt"
+        assert link_path.exists()
+
+    def test_save_offline_mode_creates_symlink(self, tmp_path):
+        """offline 模式下 save() 应在 files_dir 中创建 symlink"""
+        run = init(mode="offline")
+        checkpoint = tmp_path / "model.pt"
+        checkpoint.write_text("weights", encoding="utf-8")
+
+        result = run.save("model.pt", base_path=str(tmp_path), policy="now")
+        assert result == ["model.pt"]
+
+        run.finish()
+        link_path = run._ctx.files_dir / "model.pt"
+        assert link_path.exists()
+
+    def test_save_multiple_files(self, tmp_path):
+        """save() 匹配多个文件时应全部返回"""
+        run = init(mode="local")
+        (tmp_path / "ckpt_1.pt").write_text("w1", encoding="utf-8")
+        (tmp_path / "ckpt_2.pt").write_text("w2", encoding="utf-8")
+
+        result = run.save("*.pt", base_path=str(tmp_path), policy="now")
+
+        assert len(result) == 2
+        assert set(result) == {"ckpt_1.pt", "ckpt_2.pt"}
+        run.finish()
+
+    def test_save_with_base_path(self, tmp_path):
+        """save() 使用 base_path 参数时应正确计算相对路径"""
+        run = init(mode="local")
+        sub = tmp_path / "checkpoints"
+        sub.mkdir()
+        model = sub / "model.pt"
+        model.write_text("weights", encoding="utf-8")
+
+        result = run.save(str(model), base_path=str(sub), policy="now")
+
+        assert result == ["model.pt"]
+        run.finish()
+
+    def test_save_live_triggers_initial_upload(
+        self,
+        logged_in_client,
+        mock_online_save_apis,
+        tmp_path,
+        rsps,
+    ):
+        """policy='live' 时，save 应触发初始上传（与 now 相同），并注册文件监听"""
+        run = init(mode="online", project=PROJECT)
+        checkpoint = tmp_path / "model.pt"
+        checkpoint.write_text("weights", encoding="utf-8")
+
+        run.save("model.pt", base_path=str(tmp_path), policy="live")
+        run.finish()
+
+        # 验证初始上传触发 prepare + complete
+        save_calls = [
+            c.request.url for c in rsps.calls if "files/prepare" in c.request.url or "files/complete" in c.request.url
+        ]
+        assert len(save_calls) >= 2, f"Expected prepare + complete calls for live policy, got: {save_calls}"
+
+    def test_save_live_reuploads_on_file_change(
+        self,
+        logged_in_client,
+        mock_online_save_apis,
+        tmp_path,
+        rsps,
+        monkeypatch,
+    ):
+        """policy='live' 时，文件内容变更后应触发重新上传"""
+        import time
+
+        from swanlab.sdk.internal.core_python.transport import Transport as _Transport
+
+        original_init = _Transport.__init__
+
+        def _fast_transport_init(self, sender=None, **kwargs):
+            kwargs.setdefault("batch_interval", 0.5)
+            original_init(self, sender=sender, **kwargs)  # type: ignore
+
+        monkeypatch.setattr(
+            "swanlab.sdk.internal.core_python.Transport.__init__",
+            _fast_transport_init,
+        )
+
+        run = init(mode="online", project=PROJECT)
+        checkpoint = tmp_path / "model.pt"
+        checkpoint.write_text("weights-v1", encoding="utf-8")
+
+        run.save("model.pt", base_path=str(tmp_path), policy="live")
+
+        # 等待 transport drain 初始上传（batch_interval=0.5s）
+        time.sleep(1.5)
+        initial_complete_count = sum(1 for c in rsps.calls if "files/complete" in c.request.url)
+
+        # 通过 symlink 路径修改文件，确保 watchdog 能检测到 files_dir 内的变化
+        link_path = run._ctx.files_dir / "model.pt"
+        link_path.write_text("weights-v2", encoding="utf-8")
+
+        # 等待 watcher debounce（1s）+ transport drain（0.5s）
+        time.sleep(2.5)
+
+        run.finish()
+
+        final_complete_count = sum(1 for c in rsps.calls if "files/complete" in c.request.url)
+        assert final_complete_count > initial_complete_count, (
+            f"Expected re-upload after file change, initial={initial_complete_count}, final={final_complete_count}"
+        )
