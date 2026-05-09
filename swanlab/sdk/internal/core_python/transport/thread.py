@@ -10,6 +10,7 @@ import time
 from typing import Callable, List, Optional
 
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
+from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.pkg import console, safe
 
 from .buffer import RecordBuffer
@@ -28,18 +29,18 @@ class Transport:
     - 清空 buffer 后在锁外委托 Dispatch，不阻塞生产者
     """
 
-    BATCH_INTERVAL: float = 5.0
-    FINISH_JOIN_TIMEOUT: int = 30
     THREAD_NAME: str = "SwanLab·Transport"
 
     def __init__(
         self,
         sender: HttpRecordSender,
-        batch_interval: Optional[float] = None,
+        ctx: RunContext,
         upload_callback: Optional[Callable[[int], None]] = None,
         auto_start: bool = True,
     ):
-        self._batch_interval = self.BATCH_INTERVAL if batch_interval is None else batch_interval
+        core_settings = ctx.config.settings.core
+        self._batch_interval = core_settings.batch_interval
+        self._finish_join_timeout = core_settings.finish_join_timeout
         self._upload_callback = upload_callback
 
         self._cond = threading.Condition()
@@ -52,6 +53,7 @@ class Transport:
         # Transport 持有 sender，负责创建/注入/关闭
         self._sender = sender
         self._dispatcher = Dispatch(
+            max_records_per_request=core_settings.max_records_per_request,
             sender=self._sender,
             upload_callback=self._upload_callback,
         )
@@ -89,7 +91,7 @@ class Transport:
         if self._thread is None:
             return
         console.debug("Waiting for Transport to finish...")
-        self._thread.join()
+        self._thread.join(timeout=self._finish_join_timeout)
         console.debug("Transport finished.")
 
     # ── 线程主循环 ──

@@ -12,9 +12,6 @@ from swanlab.sdk.internal.core_python.transport.helper import generate_chunks, g
 from swanlab.sdk.internal.core_python.transport.sender import HttpRecordSender
 from swanlab.sdk.internal.pkg import console, safe
 
-# 单次请求最大 record 数
-_MAX_RECORDS_PER_REQUEST = 10_000
-
 
 class Dispatch:
     """
@@ -30,9 +27,11 @@ class Dispatch:
 
     def __init__(
         self,
+        max_records_per_request: int,
         upload_callback: Optional[Callable[[int], None]] = None,
         sender: Optional[HttpRecordSender] = None,
     ):
+        self._max_records_per_request = max_records_per_request
         self._upload_callback = upload_callback
         self._sender = sender
 
@@ -59,7 +58,7 @@ class Dispatch:
             return True, []
 
         uploaded_record_count = 0
-        for chunk, chunk_size in generate_chunks(records, _MAX_RECORDS_PER_REQUEST):
+        for chunk, chunk_size in generate_chunks(records, self._max_records_per_request):
             success = self._upload_chunk(record_type, chunk)
             if success:
                 uploaded_record_count += chunk_size
