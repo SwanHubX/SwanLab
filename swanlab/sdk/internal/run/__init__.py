@@ -662,8 +662,6 @@ class Run:
         self._components.stop(async_log_timeout=async_log_timeout)
         # 停止probe
         self._probe.finish()
-        # 通知回调
-        self._callbacker.on_run_finished(state=this_state, error=error)
         ts = Timestamp()
         ts.GetCurrentTime()
         # 3. 停止Core线程
@@ -672,6 +670,7 @@ class Run:
         )
         if not finish_resp.success:
             console.error(finish_resp.message)
+        # finish 回调
         self._callbacker.on_run_finished(this_state, error)
         console.debug(f"SwanLab Run has finished with state: {self._state}, cleanup...")
         # 4. 清理副作用

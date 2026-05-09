@@ -16,6 +16,11 @@ if TYPE_CHECKING:
     import accelerate.tracking
     import boto3
     import imageio
+    import keras
+    import lightning
+    import lightning.pytorch
+    import lightning.pytorch.loggers
+    import lightning.pytorch.utilities
     import matplotlib
     import matplotlib.figure
     import moviepy
@@ -55,6 +60,8 @@ __all__ = [
     "pd",
     # framework integrations
     "accelerate",
+    "keras",
+    "lightning",
     "transformers",
     "xgboost",
 ]
@@ -77,6 +84,8 @@ _LAZY_IMPORTS = {
     "pd": "pandas",
     # framework integrations — users install these themselves
     "accelerate": "accelerate",
+    "keras": "keras",
+    "lightning": "lightning",
     "transformers": "transformers",
     "xgboost": "xgboost",
 }
@@ -106,6 +115,8 @@ _SUBMODULE_IMPORTS = {
     "sklearn": ["sklearn.metrics"],
     "rdkit": ["rdkit.Chem", "rdkit.Chem.AllChem"],
     "accelerate": ["accelerate.tracking"],
+    "keras": ["keras.callbacks"],
+    "lightning": ["lightning.pytorch", "lightning.pytorch.loggers", "lightning.pytorch.utilities"],
     "transformers": ["transformers.trainer_callback"],
     "xgboost": ["xgboost.callback"],
 }
