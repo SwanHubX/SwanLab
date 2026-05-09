@@ -8,7 +8,7 @@ import swanlab.vendor
 from swanlab import Callback
 
 if TYPE_CHECKING:
-    from typing import Any, Dict
+    from typing import Any
 
 
 class SwanLabCallback(Callback, swanlab.vendor.xgboost.callback.TrainingCallback):

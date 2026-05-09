@@ -13,7 +13,7 @@ from typing import Dict, List, Optional
 from watchdog.observers import Observer
 
 from swanlab.proto.swanlab.save.v1.save_pb2 import SavePolicy, SaveRecord
-from swanlab.sdk.internal.pkg import fs, safe
+from swanlab.sdk.internal.pkg import safe
 
 from .helper import FileEntry, OnChangeCallback, _Handler, compute_signature, create_save_links
 

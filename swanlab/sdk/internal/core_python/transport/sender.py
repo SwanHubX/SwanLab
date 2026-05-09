@@ -248,9 +248,8 @@ class HttpRecordSender:
     def upload_save(self, records: Sequence[Record]) -> None:
         """处理 SaveRecord 上传：小文件走 presigned URL，大文件走分片上传。"""
         save_settings = CoreSettings().save
-        # 提取文件信息：先读取内容再计算 size/MD5，避免 TOCTOU 竞态
-        # 1. 收集合法文件
-        pending: list[tuple[str, int, str, bytes]] = []  # (source_path, size, name, data)
+        # 1. 收集合法文件（不读内容，避免大批次内存爆炸）
+        pending: list[tuple[str, int, str]] = []  # (source_path, size, name)
         for record in records:
             if not record.HasField("save"):
                 continue
@@ -259,74 +258,60 @@ class HttpRecordSender:
             if not source.is_file():
                 console.warning(f"Save file not found, skipping: {save.source_path}")
                 continue
-            try:
-                data = source.read_bytes()
-            except OSError:
-                console.warning(f"Failed to read save file, skipping: {save.source_path}")
+            size: Optional[int] = None
+            with safe.block(message=f"Failed to stat save file, skipping: {save.source_path}"):
+                size = source.stat().st_size
+            if size is None:
                 continue
-            size = len(data)
             if size > save_settings.max_file_size:
                 console.warning(
                     f"Save file exceeds size limit ({size} > {save_settings.max_file_size}), skipping: {save.source_path}"
                 )
                 continue
-            pending.append((save.source_path, size, save.name, data))
+            pending.append((save.source_path, size, save.name))
 
         if not pending:
             console.warning("No valid files to save.")
             return
 
-        # 2. 校验批次数量，超出时截断
+        # 2. 校验批次限制：数量或总大小超限时直接拒绝整个批次
+        total_size = sum(size for _, size, _ in pending)
         if len(pending) > save_settings.max_batch_size:
             console.warning(
-                f"Save batch size ({len(pending)}) exceeds limit ({save_settings.max_batch_size}), "
-                f"truncating to {save_settings.max_batch_size} files"
+                f"Save batch size ({len(pending)}) exceeds limit ({save_settings.max_batch_size}), skipping entire batch"
             )
-            pending = pending[: save_settings.max_batch_size]
+            return
+        if total_size > save_settings.max_total_size:
+            console.warning(
+                f"Save batch total size ({total_size}) exceeds limit ({save_settings.max_total_size}), skipping entire batch"
+            )
+            return
 
-        # 3. 按总大小拆分子批次
-        sub_batches: list[list[tuple[str, int, str, bytes]]] = []
-        current_batch: list[tuple[str, int, str, bytes]] = []
-        current_size = 0
-        for entry in pending:
-            _, size, _, _ = entry
-            if current_size + size > save_settings.max_total_size:
-                if current_batch:
-                    sub_batches.append(current_batch)
-                current_batch = [entry]
-                current_size = size
-            else:
-                current_batch.append(entry)
-                current_size += size
-        if current_batch:
-            sub_batches.append(current_batch)
+        # 3. 异步计算 MD5 + 按大小分流上传
+        with safe.block(message="Failed to upload save files, skipping"):
+            file_entries: list[SaveFileEntry] = []
+            with SafeThreadPoolExecutor(max_workers=4) as executor:
+                md5_futures = {source_path: executor.submit(compute_md5, source_path) for source_path, _, _ in pending}
+                for source_path, size, name in pending:
+                    md5 = md5_futures[source_path].result()
+                    mime_type = mimetypes.guess_type(source_path)[0] or "application/octet-stream"
+                    file_entries.append(
+                        {
+                            "path": name,
+                            "source_path": source_path,
+                            "size": size,
+                            "md5": md5,
+                            "mime_type": mime_type,
+                        }
+                    )
 
-        for batch in sub_batches:
-            # 4. 异步计算 MD5 + 按大小分流上传
-            with safe.block(message="Failed to upload save files, skipping"):
-                file_entries: list[SaveFileEntry] = []
-                with SafeThreadPoolExecutor(max_workers=4) as executor:
-                    md5_futures = {source_path: executor.submit(compute_md5, data) for source_path, _, _, data in batch}
-                    for source_path, size, name, _ in batch:
-                        md5 = md5_futures[source_path].result()
-                        mime_type = mimetypes.guess_type(source_path)[0] or "application/octet-stream"
-                        file_entries.append(
-                            {
-                                "path": name,
-                                "source_path": source_path,
-                                "size": size,
-                                "md5": md5,
-                                "mime_type": mime_type,
-                            }
-                        )
+            small_files = [f for f in file_entries if f["size"] < save_settings.multipart_threshold]
+            large_files = [f for f in file_entries if f["size"] >= save_settings.multipart_threshold]
 
-                small_files = [f for f in file_entries if f["size"] < save_settings.multipart_threshold]
-                large_files = [f for f in file_entries if f["size"] >= save_settings.multipart_threshold]
-
-                if small_files:
-                    self._upload_small_saves(small_files)
-                if large_files:
-                    self._upload_large_saves(large_files, save_settings)
+            if small_files:
+                self._upload_small_saves(small_files)
+            if large_files:
+                self._upload_large_saves(large_files, save_settings)
 
     def _upload_small_saves(self, files: list[SaveFileEntry]) -> None:
         """小文件：prepare → presigned PUT（并发）→ complete（逐文件状态）。"""

@@ -19,7 +19,7 @@ from .project import Project, Projects
 from .selfhosted import SelfHosted
 from .typings.common import ApiColumnClassLiteral, ApiColumnDataTypeLiteral, ApiVisibilityLiteral, PaginatedQuery
 from .user import User
-from .utils import validate_api_path, validate_non_empty_string, validate_project_name, validate_visibility
+from .utils import validate_api_path, validate_non_empty_string
 from .workspace import Workspace, Workspaces
 
 

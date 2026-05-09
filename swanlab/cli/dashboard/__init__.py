@@ -7,7 +7,6 @@
 
 import os
 import socket
-import sys
 
 import click
 

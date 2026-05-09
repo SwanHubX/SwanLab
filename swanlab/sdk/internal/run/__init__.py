@@ -10,7 +10,6 @@
 
 import atexit
 import glob
-import os
 import signal
 import sys
 import threading

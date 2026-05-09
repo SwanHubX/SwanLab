@@ -2,7 +2,6 @@ import click
 import orjson
 
 from swanlab.api import Api
-from swanlab.api.typings.common import ApiResponseType
 from swanlab.cli.api.helper import format_output, save_output, with_custom_host
 
 
