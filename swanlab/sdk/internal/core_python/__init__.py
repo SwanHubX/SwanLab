@@ -122,6 +122,7 @@ class CorePython(CoreProtocol):
             project=self._project,
             project_id=self._project_id,
             experiment_id=self._experiment_id,
+            ctx=self._ctx,
         )
         self._transport = Transport(sender=sender)
         self._heartbeat = Heartbeat(self._experiment_id)

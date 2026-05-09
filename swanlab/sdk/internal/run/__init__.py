@@ -667,7 +667,7 @@ class Run:
             return []
 
         # 过滤出普通文件，计算相对路径
-        save_settings = CoreSettings().save
+        save_settings = self._ctx.config.settings.core.save
         files: List[Tuple[Path, Path]] = []
         for abs_str in matched:
             abs_path = Path(abs_str)

@@ -20,6 +20,7 @@ import yaml
 from swanlab.exceptions import ApiError
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnClass, ColumnRecord, ColumnType
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
+from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.core_python.api.save import (
     complete_multipart_save,
     complete_save_files,
@@ -41,7 +42,6 @@ from swanlab.sdk.internal.core_python.api.upload import (
 from swanlab.sdk.internal.core_python.pkg.executor import SafeThreadPoolExecutor
 from swanlab.sdk.internal.pkg import adapter, client, console, safe
 from swanlab.sdk.internal.pkg.client.session import SessionWithRetry
-from swanlab.sdk.internal.settings.core import CoreSettings, SaveSettings
 from swanlab.sdk.typings.core_python.api.save import (
     CompletedMultipartSaveFile,
     CompletedPart,
@@ -72,12 +72,21 @@ class HttpRecordSender:
     并将其他类型的上传交给上层处理——这部分上传将有重试机制
     """
 
-    def __init__(self, run_dir: Path, username: str, project: str, project_id: str, experiment_id: str) -> None:
+    def __init__(
+        self,
+        run_dir: Path,
+        username: str,
+        project: str,
+        project_id: str,
+        experiment_id: str,
+        ctx: RunContext,
+    ) -> None:
         self._run_dir = run_dir
         self._username = username
         self._project = project
         self._project_id = project_id
         self._experiment_id = experiment_id
+        self._ctx = ctx
         # 资源上传 session，作用在Sender对象中复用TCP链接
         self._buffer_session: Optional[SessionWithRetry] = None
         self._upload_handlers: dict[str, Callable[[Sequence[Record]], None]] = {
@@ -247,9 +256,9 @@ class HttpRecordSender:
 
     def upload_save(self, records: Sequence[Record]) -> None:
         """处理 SaveRecord 上传：小文件走 presigned URL，大文件走分片上传。"""
-        save_settings = CoreSettings().save
         # 1. 收集合法文件（不读内容，避免大批次内存爆炸）
         pending: list[tuple[str, int, str]] = []  # (source_path, size, name)
+        save_settings = self._ctx.config.settings.core.save
         for record in records:
             if not record.HasField("save"):
                 continue
@@ -311,7 +320,7 @@ class HttpRecordSender:
             if small_files:
                 self._upload_small_saves(small_files)
             if large_files:
-                self._upload_large_saves(large_files, save_settings)
+                self._upload_large_saves(large_files)
 
     def _upload_small_saves(self, files: list[SaveFileEntry]) -> None:
         """小文件：prepare → presigned PUT（并发）→ complete（逐文件状态）。"""
@@ -343,11 +352,12 @@ class HttpRecordSender:
         if synced > 0:
             console.info(f"Synced {synced} save file(s)")
 
-    def _upload_large_saves(self, files: list[SaveFileEntry], save_settings: SaveSettings) -> None:
+    def _upload_large_saves(self, files: list[SaveFileEntry]) -> None:
         """大文件：分片上传。"""
+        part_size = self._ctx.config.settings.core.save.part_size
         prepare_items: list[PrepareMultipartSaveFile] = []
         for f in files:
-            part_count = math.ceil(f["size"] / save_settings.part_size)
+            part_count = math.ceil(f["size"] / part_size)
             prepare_items.append(
                 {
                     "path": f["path"],
@@ -370,7 +380,7 @@ class HttpRecordSender:
             upload_id = multipart_info["uploadId"]
             parts = multipart_info["parts"]
             self._ensure_session()
-            completed_parts = self._upload_multipart_parts(file_info, parts, save_settings)
+            completed_parts = self._upload_multipart_parts(file_info, parts)
             if completed_parts is None:
                 console.warning(f"Multipart upload failed for {file_info['path']}, skipping")
                 failed.append({"path": file_info["path"], "state": "FAILED"})
@@ -391,13 +401,13 @@ class HttpRecordSender:
                 complete_save_files(self._experiment_id, files=failed)
 
     def _upload_multipart_parts(
-        self, file_info: SaveFileEntry, parts: Sequence[MultipartPart], save_settings: SaveSettings
+        self, file_info: SaveFileEntry, parts: Sequence[MultipartPart]
     ) -> Optional[list[CompletedPart]]:
         """上传单个大文件的所有分片，返回 CompletedPart 列表。"""
         assert self._buffer_session is not None
         completed_parts: list[CompletedPart] = []
         source_path = file_info["source_path"]
-        part_size = save_settings.part_size
+        part_size = self._ctx.config.settings.core.save.part_size
         session = self._buffer_session
 
         def upload_part(part_info: MultipartPart) -> CompletedPart:

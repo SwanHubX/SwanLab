@@ -3,16 +3,23 @@ from unittest.mock import MagicMock, patch
 
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord
+from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.core_python.transport.sender import HttpRecordSender
+from swanlab.sdk.internal.settings.core import SaveSettings
 
 
 def _make_sender(tmp_path: Path) -> HttpRecordSender:
+    config = MagicMock()
+    config.settings.core.save = SaveSettings()
+    ctx = MagicMock(spec=RunContext)
+    ctx.config = config
     return HttpRecordSender(
         run_dir=tmp_path,
         username="alice",
         project="demo",
         project_id="project-id",
         experiment_id="experiment-id",
+        ctx=ctx,
     )
 
 
