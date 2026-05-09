@@ -78,7 +78,10 @@ class CorePython(CoreProtocol):
         self._epoch = counter.Counter()
         self._started: bool = False
         self._metrics: Optional[RunMetrics] = None
+        self._heartbeat: Optional[Heartbeat] = None
+        # save 相关
         self._watcher = FileWatcher(on_change=self._on_file_changed)
+        self._pending_end_saves: List[Record] = []
 
     # ---------------------------------- 实验开始 ----------------------------------
 
@@ -422,7 +425,15 @@ class CorePython(CoreProtocol):
         records = [builder.build_save_record(self._counter, s) for s in saves]
         self._store_records(records)
         self._watcher.register_live_watches(saves, self._ctx.files_dir)
-        self._transport_put(records)
+        # "end" policy saves: store locally but defer cloud upload until finish
+        transport_records: List[Record] = []
+        for save, record in zip(saves, records):
+            if save.policy == adapter.policy["end"]:
+                self._pending_end_saves.append(record)
+            else:
+                transport_records.append(record)
+        if transport_records:
+            self._transport_put(transport_records)
 
     # ---- file watcher ----
 
@@ -498,7 +509,11 @@ class CorePython(CoreProtocol):
         assert self._transport is not None, "transport must be initialized before finishing"
         if console_record is not None:
             self._transport_put([console_record])
-        # 2. 等待 transport 发送完成
+        # 2. 刷出暂存的 end-policy save 记录
+        if self._pending_end_saves:
+            self._transport_put(self._pending_end_saves)
+            self._pending_end_saves.clear()
+        # 3. 等待 transport 发送完成
         self._transport.finish()
         self._transport = None
         # 3. 停止心跳

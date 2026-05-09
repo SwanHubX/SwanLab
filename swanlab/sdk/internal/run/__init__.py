@@ -133,9 +133,6 @@ class Run:
         # 独立组件
         self._core = self._ctx.core
         self._probe = self._ctx.probe
-        # policy="end" 时暂存的事件，finish 时统一 emit
-        self._pending_saves: List[FileSaveEvent] = []
-
         # 2. 注册副作用
         # 设置全局运行实例
         set_run(self)
@@ -687,7 +684,8 @@ class Run:
         if len(files) > save_settings.max_batch_size:
             raise ValueError(f"Too many files matched ({len(files)}), limit is {save_settings.max_batch_size}")
 
-        # 按 policy 分发事件（symlink 由 Core 负责）
+        # 按 policy 分发事件
+        # Core 负责创建 symlink 处理和 end policy 下的延迟上传
         results: List[str] = []
         for source_path, rel_path in files:
             event = FileSaveEvent(
@@ -695,12 +693,7 @@ class Run:
                 name=str(rel_path),
                 policy=policy,
             )
-
-            if policy == "end":
-                self._pending_saves.append(event)
-            else:
-                self._components.emitter.emit(event)
-
+            self._components.emitter.emit(event)
             results.append(str(rel_path))
         return results
 
@@ -731,10 +724,6 @@ class Run:
         greeting.goodbye(self._ctx, self)
         # 2. 运行结束，清理组件
         self._state = this_state
-        # 2a. 发出所有暂存的 end-policy save 事件（在 consumer stop 之前）
-        for event in self._pending_saves:
-            self._components.emitter.emit(event)
-        self._pending_saves.clear()
         # 停止所有内部组件（async_log → terminal → config → consumer）
         self._components.stop(async_log_timeout=async_log_timeout)
         # 停止probe
