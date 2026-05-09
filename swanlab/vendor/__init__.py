@@ -29,6 +29,8 @@ if TYPE_CHECKING:
     import mmengine.visualization.vis_backend
     import moviepy
     import numpy as np
+    import paddlenlp
+    import paddlenlp.trainer.trainer
     import pandas as pd
     import PIL
     import PIL.Image
@@ -68,6 +70,7 @@ __all__ = [
     "keras",
     "lightning",
     "mmengine",
+    "paddlenlp",
     "transformers",
     "ultralytics",
     "xgboost",
@@ -94,6 +97,7 @@ _LAZY_IMPORTS = {
     "keras": "keras",
     "lightning": "lightning",
     "mmengine": "mmengine",
+    "paddlenlp": "paddlenlp",
     "transformers": "transformers",
     "ultralytics": "ultralytics",
     "xgboost": "xgboost",
@@ -129,6 +133,7 @@ _SUBMODULE_IMPORTS = {
     "mmengine": ["mmengine.config", "mmengine.registry", "mmengine.visualization.vis_backend"],
     "transformers": ["transformers.trainer_callback"],
     "xgboost": ["xgboost.callback"],
+    "paddlenlp": ["paddlenlp.trainer.trainer"],
 }
 
 

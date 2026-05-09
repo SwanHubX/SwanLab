@@ -51,7 +51,7 @@ def _repack_dict(d: dict, prefix: str = "") -> dict:
 
 
 @_VISBACKENDS.register_module()
-class SwanLabVisBackend(Callback, _BaseVisBackend):
+class SwanlabVisBackend(Callback, _BaseVisBackend):
     """SwanLab visualization backend for mmengine.
 
     Args:
