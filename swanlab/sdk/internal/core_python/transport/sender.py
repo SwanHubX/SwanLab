@@ -242,14 +242,15 @@ class HttpRecordSender:
                 content = f.read()
             if len(content) > 0:
                 upload_conda(self._username, self._project, self._experiment_id, content=content)
-        # ── 文件保存上传 ──
+
+    # ── 文件保存上传 ──
 
     def upload_save(self, records: Sequence[Record]) -> None:
         """处理 SaveRecord 上传：小文件走 presigned URL，大文件走分片上传。"""
         save_settings = CoreSettings().save
-        # 提取文件信息（MD5 异步计算避免阻塞 Transport 线程）
+        # 提取文件信息：先读取内容再计算 size/MD5，避免 TOCTOU 竞态
         # 1. 收集合法文件
-        pending: list[tuple[str, int, str]] = []  # (source_path, size, name)
+        pending: list[tuple[str, int, str, bytes]] = []  # (source_path, size, name, data)
         for record in records:
             if not record.HasField("save"):
                 continue
@@ -258,58 +259,74 @@ class HttpRecordSender:
             if not source.is_file():
                 console.warning(f"Save file not found, skipping: {save.source_path}")
                 continue
-            size = source.stat().st_size
+            try:
+                data = source.read_bytes()
+            except OSError:
+                console.warning(f"Failed to read save file, skipping: {save.source_path}")
+                continue
+            size = len(data)
             if size > save_settings.max_file_size:
                 console.warning(
                     f"Save file exceeds size limit ({size} > {save_settings.max_file_size}), skipping: {save.source_path}"
                 )
                 continue
-            pending.append((save.source_path, size, save.name))
+            pending.append((save.source_path, size, save.name, data))
 
         if not pending:
             console.warning("No valid files to save.")
             return
 
-        # 2. 校验批次数量
+        # 2. 校验批次数量，超出时截断
         if len(pending) > save_settings.max_batch_size:
             console.warning(
-                f"Save batch size ({len(pending)}) exceeds limit ({save_settings.max_batch_size}), skipping batch"
+                f"Save batch size ({len(pending)}) exceeds limit ({save_settings.max_batch_size}), "
+                f"truncating to {save_settings.max_batch_size} files"
             )
-            return
+            pending = pending[: save_settings.max_batch_size]
 
-        # 3. 校验总大小
-        total_size = sum(size for _, size, _ in pending)
-        if total_size > save_settings.max_total_size:
-            console.warning(
-                f"Total save size ({total_size}) exceeds limit ({save_settings.max_total_size}), skipping batch"
-            )
-            return
+        # 3. 按总大小拆分子批次
+        sub_batches: list[list[tuple[str, int, str, bytes]]] = []
+        current_batch: list[tuple[str, int, str, bytes]] = []
+        current_size = 0
+        for entry in pending:
+            _, size, _, _ = entry
+            if current_size + size > save_settings.max_total_size:
+                if current_batch:
+                    sub_batches.append(current_batch)
+                current_batch = [entry]
+                current_size = size
+            else:
+                current_batch.append(entry)
+                current_size += size
+        if current_batch:
+            sub_batches.append(current_batch)
 
-        # 4. 异步计算 MD5 + 按大小分流上传
-        with safe.block(message="Failed to upload save files, skipping"):
-            file_entries: list[SaveFileEntry] = []
-            with SafeThreadPoolExecutor(max_workers=4) as executor:
-                md5_futures = {source_path: executor.submit(compute_md5, source_path) for source_path, _, _ in pending}
-                for source_path, size, name in pending:
-                    md5 = md5_futures[source_path].result()
-                    mime_type = mimetypes.guess_type(source_path)[0] or "application/octet-stream"
-                    file_entries.append(
-                        {
-                            "path": name,
-                            "source_path": source_path,
-                            "size": size,
-                            "md5": md5,
-                            "mime_type": mime_type,
-                        }
-                    )
+        for batch in sub_batches:
+            # 4. 异步计算 MD5 + 按大小分流上传
+            with safe.block(message="Failed to upload save files, skipping"):
+                file_entries: list[SaveFileEntry] = []
+                with SafeThreadPoolExecutor(max_workers=4) as executor:
+                    md5_futures = {source_path: executor.submit(compute_md5, data) for source_path, _, _, data in batch}
+                    for source_path, size, name, _ in batch:
+                        md5 = md5_futures[source_path].result()
+                        mime_type = mimetypes.guess_type(source_path)[0] or "application/octet-stream"
+                        file_entries.append(
+                            {
+                                "path": name,
+                                "source_path": source_path,
+                                "size": size,
+                                "md5": md5,
+                                "mime_type": mime_type,
+                            }
+                        )
 
-            small_files = [f for f in file_entries if f["size"] < save_settings.multipart_threshold]
-            large_files = [f for f in file_entries if f["size"] >= save_settings.multipart_threshold]
+                small_files = [f for f in file_entries if f["size"] < save_settings.multipart_threshold]
+                large_files = [f for f in file_entries if f["size"] >= save_settings.multipart_threshold]
 
-            if small_files:
-                self._upload_small_saves(small_files)
-            if large_files:
-                self._upload_large_saves(large_files, save_settings)
+                if small_files:
+                    self._upload_small_saves(small_files)
+                if large_files:
+                    self._upload_large_saves(large_files, save_settings)
 
     def _upload_small_saves(self, files: list[SaveFileEntry]) -> None:
         """小文件：prepare → presigned PUT（并发）→ complete（逐文件状态）。"""
@@ -419,6 +436,7 @@ class HttpRecordSender:
             etag = resp.headers.get("ETag", "").strip('"')
             return {"partNumber": part_number, "etag": etag}
 
+        failed = False
         with SafeThreadPoolExecutor(max_workers=3) as executor:
             futures = [executor.submit(upload_part, p) for p in parts]
             for future in futures:
@@ -426,8 +444,12 @@ class HttpRecordSender:
                 with safe.block(message=f"Multipart part failed for {file_info['path']}"):
                     result = future.result()
                 if result is None:
-                    return None
+                    failed = True
+                    break
                 completed_parts.append(result)
+        if failed:
+            console.warning(f"Multipart upload aborted for {file_info['path']}, reporting failure to server")
+            return None
         return completed_parts
 
 

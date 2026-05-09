@@ -159,7 +159,8 @@ def upload_resource(session: Session, experiment_id: str, *, paths: List[str], b
                 )
             )
         for future in futures:
-            future.result()
+            resp = future.result()
+            resp.raise_for_status()
 
 
 def upload_saves(
@@ -172,7 +173,8 @@ def upload_saves(
 
     def upload_one(resource: UploadResource) -> None:
         with open(resource["source_path"], "rb") as f:
-            session.put(resource["url"], data=f, headers={"Content-Type": resource["content_type"]})
+            resp = session.put(resource["url"], data=f, headers={"Content-Type": resource["content_type"]})
+            resp.raise_for_status()
 
     with SafeThreadPoolExecutor(max_workers=8) as executor:
         futures = [(executor.submit(upload_one, resource), resource["source_path"]) for resource in resources]

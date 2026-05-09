@@ -8,15 +8,14 @@
 import os
 import threading
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from watchdog.observers import Observer
 
 from swanlab.proto.swanlab.save.v1.save_pb2 import SavePolicy, SaveRecord
-from swanlab.sdk.internal.core_python.pkg.executor import SafeThreadPoolExecutor
 from swanlab.sdk.internal.pkg import fs, safe
 
-from .helper import FileEntry, OnChangeCallback, _Handler, compute_signature
+from .helper import FileEntry, OnChangeCallback, _Handler, compute_signature, create_save_links
 
 
 class FileWatcher:
@@ -31,23 +30,23 @@ class FileWatcher:
         self._on_change = on_change
         self._debounce_delay = debounce_delay
         self._observer = Observer()
-        self._executor = SafeThreadPoolExecutor(max_workers=2)
         self._timers: Dict[str, threading.Timer] = {}
         self._registered: Dict[str, FileEntry] = {}  # abs_path → entry
         self._lock = threading.Lock()
         self._started = False
 
-    def watch(self, dir_path: str, file_paths: List[str]) -> None:
+    def watch(self, dir_path: str, file_paths: List[str], policies: Optional[List[int]] = None) -> None:
         """注册并开始监听指定目录下的文件。
 
         :param dir_path: 监听目录的绝对路径
         :param file_paths: 相对于 dir_path 的文件路径列表
+        :param policies: SavePolicy enum values corresponding to file_paths
         """
         dir_abs = str(Path(dir_path).resolve())
 
         # 注册文件，计算初始签名
         with self._lock:
-            for rel in file_paths:
+            for idx, rel in enumerate(file_paths):
                 abs_path = str(Path(dir_abs) / rel)
                 if abs_path in self._registered:
                     continue
@@ -56,6 +55,7 @@ class FileWatcher:
                     name=rel,
                     source_path=source_path,
                     target_path=abs_path,
+                    policy=policies[idx] if policies and idx < len(policies) else None,
                     signature=compute_signature(abs_path),
                 )
                 self._registered[abs_path] = entry
@@ -113,8 +113,17 @@ class FileWatcher:
             source_path=entry.source_path,
             target_path=entry.target_path,
         )
+        if entry.policy is not None:
+            record.policy = entry.policy  # type: ignore[assignment]
         with safe.block(message=f"FileWatcher on_change callback error for {path}"):
-            self._on_change(path, record)
+            self._on_change(record)
+
+    def register_live_watches(self, save_records: List[SaveRecord], files_dir: Path) -> None:
+        """对 policy=SAVE_POLICY_LIVE 的记录注册文件监听。"""
+        live_files = [s for s in save_records if s.policy == SavePolicy.SAVE_POLICY_LIVE]
+        if not live_files:
+            return
+        self.watch(str(files_dir), [s.name for s in live_files], [s.policy for s in live_files])
 
     def stop(self) -> None:
         """停止监听，释放资源。"""
@@ -129,23 +138,5 @@ class FileWatcher:
                 self._observer.join(timeout=5)
             self._started = False
 
-        self._executor.shutdown(wait=True)
 
-
-def register_live_watches(saves: List[SaveRecord], files_dir: Path, watcher: FileWatcher) -> None:
-    """对 policy=SAVE_POLICY_LIVE 的记录注册文件监听。"""
-    live_files = [s for s in saves if s.policy == SavePolicy.SAVE_POLICY_LIVE]
-    if not live_files:
-        return
-    watcher.watch(str(files_dir), [s.name for s in live_files])
-
-
-def create_save_links(saves: List[SaveRecord], files_dir: Path) -> int:
-    """为 SaveRecord 创建软链接并填充 target_path，返回链接数量。"""
-    count = 0
-    for s in saves:
-        target = files_dir / s.name
-        fs.safe_link(s.source_path, target)
-        s.target_path = str(target)
-        count += 1
-    return count
+__all__ = ["create_save_links", "FileWatcher"]

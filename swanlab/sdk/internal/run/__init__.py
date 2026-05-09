@@ -667,6 +667,7 @@ class Run:
             return []
 
         # 过滤出普通文件，计算相对路径
+        # Inline import to avoid circular dependency at module load time
         from swanlab.sdk.internal.settings.core import CoreSettings
 
         save_settings = CoreSettings().save

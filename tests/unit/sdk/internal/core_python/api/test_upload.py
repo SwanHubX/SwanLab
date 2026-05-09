@@ -6,6 +6,11 @@ from requests.sessions import Session
 from swanlab.sdk.internal.core_python.api import upload as upload_api
 
 
+class _FakeResponse:
+    def raise_for_status(self) -> None:
+        pass
+
+
 class _FakeSession:
     def __init__(self) -> None:
         self.puts = []
@@ -18,6 +23,7 @@ class _FakeSession:
                 "headers": headers,
             }
         )
+        return _FakeResponse()
 
 
 def test_upload_resources_uploads_files_and_reports_progress(tmp_path: Path):
