@@ -76,7 +76,7 @@ class SwanLabCallback(Callback):
 
     # --- swanlab.Callback hooks ---
 
-    def on_run_initialized(self, run_dir: Path, path: str) -> None:
+    def on_run_initialized(self, run_dir: Path, path: str, **kwargs) -> None:
         run = self._get_active_run()
         if run is not None:
             run.config["FRAMEWORK"] = "ultralytics"

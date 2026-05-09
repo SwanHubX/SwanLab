@@ -72,7 +72,7 @@ class SwanLabCallback(Callback, swanlab.vendor.transformers.trainer_callback.Tra
     def name(self) -> str:
         return "swanlab-integration-transformers"
 
-    def on_run_initialized(self, run_dir: Path, path: str) -> None:
+    def on_run_initialized(self, run_dir: Path, path: str, **kwargs) -> None:
         self._flush_pending_config()
 
     def on_run_finished(self, state: str, error: Optional[str] = None) -> None:

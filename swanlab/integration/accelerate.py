@@ -49,7 +49,7 @@ class SwanLabTracker(Callback, _GeneralTracker):
 
     # --- swanlab.Callback hooks ---
 
-    def on_run_initialized(self, run_dir, path) -> None:
+    def on_run_initialized(self, run_dir, path, **kwargs) -> None:
         run = self._get_active_run()
         if run is not None:
             run.config["FRAMEWORK"] = "accelerate"
