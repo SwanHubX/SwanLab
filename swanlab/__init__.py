@@ -34,6 +34,7 @@ from swanlab.sdk import (
     merge_settings,
     pkg,
     plot,
+    save,
 )
 
 from . import utils
@@ -57,6 +58,7 @@ __all__ = [
     "log_object3d",
     "log_molecule",
     "define_scalar",
+    "save",
     "async_log",
     # run
     "run",  # type: ignore [no-redef]

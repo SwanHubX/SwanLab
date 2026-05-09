@@ -15,6 +15,7 @@ from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnClass, Colum
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord, ScalarRecord
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord, StartRecord
+from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord
 from swanlab.proto.swanlab.system.v1.console_pb2 import ConsoleRecord
 from swanlab.proto.swanlab.system.v1.env_pb2 import CondaRecord, MetadataRecord, RequirementsRecord
 from swanlab.sdk.internal.core_python.pkg.counter import Counter
@@ -34,6 +35,7 @@ __all__ = [
     "build_console_record",
     "build_auto_column",
     "build_resume_column",
+    "build_save_record",
 ]
 
 
@@ -183,3 +185,10 @@ def build_auto_column(ctx: "RunContext", data_record: Union[ScalarRecord, MediaR
         section_name=section_name,
         section_type=SectionType.SECTION_TYPE_PUBLIC,
     )
+
+
+def build_save_record(counter: Counter, save_record: SaveRecord):
+    """
+    构建文件保存记录
+    """
+    return Record(num=counter.inc(), save=save_record, timestamp=_now())

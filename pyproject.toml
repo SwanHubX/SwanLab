@@ -50,6 +50,7 @@ dependencies = [
     "pydantic-settings>=2.8.1",
     "orjson<=3.11.5; python_version == '3.9'",
     "orjson; python_version > '3.9'",
+    "watchdog",
 ]
 
 # 对应 requirements-media.txt 和 requirements-dashboard.txt [cite: 3, 5]

@@ -10,6 +10,7 @@ import "swanlab/metric/column/v1/column.proto";
 import "swanlab/config/v1/config.proto";
 import "swanlab/system/v1/env.proto";
 import "swanlab/system/v1/console.proto";
+import "swanlab/save/v1/save.proto";
 
 option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/record/v1;recordv1";
 
@@ -44,6 +45,9 @@ service RecordService {
 
   // DeliverRunFinish 接收单条 FinishRecord，用于实验结束。
   rpc DeliverRunFinish(swanlab.run.v1.FinishRecord) returns (swanlab.run.v1.FinishResponse);
+
+  // UpsertSaves 接收一组 SaveRecord 并写入，每一条记录对应一次 swanlab.save() 的文件保存
+  rpc UpsertSaves(UpsertSavesRequest) returns (google.protobuf.Empty);
 }
 
 message UpsertColumnsRequest {
@@ -76,6 +80,10 @@ message UpsertRequirementsRequest {
 
 message UpsertCondaRequest {
   repeated swanlab.system.v1.CondaRecord conda = 1;
+}
+
+message UpsertSavesRequest {
+  repeated swanlab.save.v1.SaveRecord saves = 1;
 }
 
 
@@ -120,5 +128,8 @@ message Record {
     swanlab.system.v1.MetadataRecord metadata         = 17;
     swanlab.system.v1.RequirementsRecord requirements = 18;
     swanlab.system.v1.CondaRecord conda               = 19;
+
+    // ── 文件保存 ──
+    swanlab.save.v1.SaveRecord save                    = 20;
   }
 }

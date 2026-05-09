@@ -105,6 +105,19 @@ UploadMediaBatch = List[UploadMedia]
 
 
 # ============================================================
+# Object storage resource upload
+# ============================================================
+
+
+class UploadResource(TypedDict):
+    """预签名 URL 文件上传描述。"""
+
+    url: str
+    source_path: str
+    content_type: str
+
+
+# ============================================================
 # /house/metrics 信封
 # ============================================================
 

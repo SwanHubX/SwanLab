@@ -27,3 +27,8 @@ AsyncLogType = Literal["asyncio", "threading", "spawn", "fork"]
 """
 异步日志上报类型
 """
+
+SaveType = Literal["live", "now", "end"]
+"""
+文件保存策略
+"""

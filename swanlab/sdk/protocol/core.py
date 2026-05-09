@@ -18,6 +18,7 @@ from swanlab.proto.swanlab.run.v1.run_pb2 import (
     StartRecord,
     StartResponse,
 )
+from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord
 from swanlab.proto.swanlab.system.v1.console_pb2 import ConsoleRecord
 from swanlab.proto.swanlab.system.v1.env_pb2 import CondaRecord, MetadataRecord, RequirementsRecord
 from swanlab.sdk.internal.pkg import safe
@@ -264,6 +265,30 @@ class CoreProtocol(ABC):
 
     @abstractmethod
     def _upsert_metadata_when_online(self, metadata: List[MetadataRecord]) -> None: ...
+
+    # ---------------------------------- 文件保存 ----------------------------------
+
+    def upsert_saves(self, saves: List[SaveRecord]) -> None:
+        """上报一组 SaveRecord，记录用户通过 swanlab.save() 保存的文件"""
+        with safe.block(message="upsert saves error"):
+            if self._mode == "online":
+                return self._upsert_saves_when_online(saves)
+            elif self._mode == "local":
+                return self._upsert_saves_when_local(saves)
+            elif self._mode == "offline":
+                return self._upsert_saves_when_offline(saves)
+            return self._upsert_saves_when_disabled(saves)
+
+    def _upsert_saves_when_disabled(self, saves: List[SaveRecord]) -> None: ...
+
+    @abstractmethod
+    def _upsert_saves_when_local(self, saves: List[SaveRecord]) -> None: ...
+
+    @abstractmethod
+    def _upsert_saves_when_offline(self, saves: List[SaveRecord]) -> None: ...
+
+    @abstractmethod
+    def _upsert_saves_when_online(self, saves: List[SaveRecord]) -> None: ...
 
     # ---------------------------------- 运行结束 ----------------------------------
 

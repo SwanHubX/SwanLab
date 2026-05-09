@@ -6,7 +6,8 @@
 """
 
 from _io import BytesIO
-from typing import Dict, List
+from collections.abc import Callable, Sequence
+from typing import Dict, List, Optional
 
 from requests.sessions import Session
 
@@ -17,6 +18,7 @@ from swanlab.sdk.typings.core_python.api.upload import (
     UploadLogBatch,
     UploadMediaBatch,
     UploadMetricPayload,
+    UploadResource,
     UploadScalarBatch,
 )
 
@@ -158,3 +160,23 @@ def upload_resource(session: Session, experiment_id: str, *, paths: List[str], b
             )
         for future in futures:
             future.result()
+
+
+def upload_saves(
+    session: Session,
+    *,
+    resources: Sequence[UploadResource],
+    on_uploaded: Optional[Callable[[str], None]] = None,
+) -> None:
+    """通过预签名 URL 批量上传本地文件到对象存储。"""
+
+    def upload_one(resource: UploadResource) -> None:
+        with open(resource["source_path"], "rb") as f:
+            session.put(resource["url"], data=f, headers={"Content-Type": resource["content_type"]})
+
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        futures = [(executor.submit(upload_one, resource), resource["source_path"]) for resource in resources]
+        for future, source_path in futures:
+            future.result()
+            if on_uploaded is not None:
+                on_uploaded(source_path)

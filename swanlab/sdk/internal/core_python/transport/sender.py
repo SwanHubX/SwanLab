@@ -9,17 +9,23 @@ from __future__ import annotations
 
 import json
 import math
-from _io import BytesIO
+import mimetypes
 from collections.abc import Callable, Sequence
+from io import BytesIO
 from pathlib import Path, PurePosixPath
-from typing import List, Literal, Optional, Union, cast
+from typing import Literal, Optional, Union, cast
 
 import yaml
-from requests.sessions import Session
 
 from swanlab.exceptions import ApiError
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnClass, ColumnRecord, ColumnType
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
+from swanlab.sdk.internal.core_python.api.save import (
+    complete_multipart_save,
+    complete_save_files,
+    prepare_multipart_save,
+    prepare_save_files,
+)
 from swanlab.sdk.internal.core_python.api.upload import (
     upload_columns,
     upload_conda,
@@ -29,18 +35,34 @@ from swanlab.sdk.internal.core_python.api.upload import (
     upload_metadata,
     upload_requirements,
     upload_resource,
+    upload_saves,
     upload_scalar,
 )
+from swanlab.sdk.internal.core_python.pkg.executor import SafeThreadPoolExecutor
 from swanlab.sdk.internal.pkg import adapter, client, console, safe
+from swanlab.sdk.internal.pkg.client.session import SessionWithRetry
+from swanlab.sdk.internal.settings.core import CoreSettings, SaveSettings
+from swanlab.sdk.typings.core_python.api.save import (
+    CompletedMultipartSaveFile,
+    CompletedPart,
+    CompleteSaveFile,
+    MultipartPart,
+    PrepareMultipartSaveFile,
+    PrepareSaveFile,
+    SaveFileEntry,
+)
 from swanlab.sdk.typings.core_python.api.upload import (
     UploadColumn,
     UploadLog,
     UploadLogBatch,
     UploadMedia,
     UploadMediaBatch,
+    UploadResource,
     UploadScalar,
     UploadScalarBatch,
 )
+
+from .helper import compute_md5
 
 
 class HttpRecordSender:
@@ -57,7 +79,7 @@ class HttpRecordSender:
         self._project_id = project_id
         self._experiment_id = experiment_id
         # 资源上传 session，作用在Sender对象中复用TCP链接
-        self._buffer_session: Optional[Session] = None
+        self._buffer_session: Optional[SessionWithRetry] = None
         self._upload_handlers: dict[str, Callable[[Sequence[Record]], None]] = {
             "column": self.upload_column,
             "scalar": self.upload_scalar,
@@ -67,7 +89,14 @@ class HttpRecordSender:
             "metadata": self.upload_metadata,
             "requirements": self.upload_requirements,
             "conda": self.upload_conda,
+            "save": self.upload_save,
         }
+
+    def _ensure_session(self) -> SessionWithRetry:
+        """懒初始化资源上传 session（复用 TCP 连接）。"""
+        if self._buffer_session is None:
+            self._buffer_session = client.session.create()
+        return self._buffer_session
 
     def upload(self, record_type: str, records: Sequence[Record]) -> None:
         """通用上传入口。"""
@@ -119,8 +148,8 @@ class HttpRecordSender:
 
     def upload_media(self, records: Sequence[Record]) -> None:
         metrics: UploadMediaBatch = []
-        paths: List[str] = []
-        buffers: List[BytesIO] = []
+        paths: list[str] = []
+        buffers: list[BytesIO] = []
         for record in records:
             if not record.HasField("media"):
                 continue
@@ -134,7 +163,7 @@ class HttpRecordSender:
                     "more": [],
                     "create_time": create_time,
                 }
-                buffer_chunk: List[BytesIO] = []
+                buffer_chunk: list[BytesIO] = []
                 for media in media_record.value.items:
                     # 目前约定的本地文件路径格式为：media/<type>/filename，不区分key
                     # 约定保存到对象存储中的文件路径类似
@@ -161,9 +190,7 @@ class HttpRecordSender:
             )
             return
         # 先上传资源再上传媒体
-        if not self._buffer_session:
-            self._buffer_session = client.session.create(default_retry=2)
-        upload_resource(self._buffer_session, self._experiment_id, paths=paths, buffers=buffers)
+        upload_resource(self._ensure_session(), self._experiment_id, paths=paths, buffers=buffers)
         upload_media(self._project_id, self._experiment_id, metrics=metrics)
 
     def upload_console(self, records: Sequence[Record]) -> None:
@@ -215,6 +242,193 @@ class HttpRecordSender:
                 content = f.read()
             if len(content) > 0:
                 upload_conda(self._username, self._project, self._experiment_id, content=content)
+        # ── 文件保存上传 ──
+
+    def upload_save(self, records: Sequence[Record]) -> None:
+        """处理 SaveRecord 上传：小文件走 presigned URL，大文件走分片上传。"""
+        save_settings = CoreSettings().save
+        # 提取文件信息（MD5 异步计算避免阻塞 Transport 线程）
+        # 1. 收集合法文件
+        pending: list[tuple[str, int, str]] = []  # (source_path, size, name)
+        for record in records:
+            if not record.HasField("save"):
+                continue
+            save = record.save
+            source = Path(save.source_path)
+            if not source.is_file():
+                console.warning(f"Save file not found, skipping: {save.source_path}")
+                continue
+            size = source.stat().st_size
+            if size > save_settings.max_file_size:
+                console.warning(
+                    f"Save file exceeds size limit ({size} > {save_settings.max_file_size}), skipping: {save.source_path}"
+                )
+                continue
+            pending.append((save.source_path, size, save.name))
+
+        if not pending:
+            console.warning("No valid files to save.")
+            return
+
+        # 2. 校验批次数量
+        if len(pending) > save_settings.max_batch_size:
+            console.warning(
+                f"Save batch size ({len(pending)}) exceeds limit ({save_settings.max_batch_size}), skipping batch"
+            )
+            return
+
+        # 3. 校验总大小
+        total_size = sum(size for _, size, _ in pending)
+        if total_size > save_settings.max_total_size:
+            console.warning(
+                f"Total save size ({total_size}) exceeds limit ({save_settings.max_total_size}), skipping batch"
+            )
+            return
+
+        # 4. 异步计算 MD5 + 按大小分流上传
+        with safe.block(message="Failed to upload save files, skipping"):
+            file_entries: list[SaveFileEntry] = []
+            with SafeThreadPoolExecutor(max_workers=4) as executor:
+                md5_futures = {source_path: executor.submit(compute_md5, source_path) for source_path, _, _ in pending}
+                for source_path, size, name in pending:
+                    md5 = md5_futures[source_path].result()
+                    mime_type = mimetypes.guess_type(source_path)[0] or "application/octet-stream"
+                    file_entries.append(
+                        {
+                            "path": name,
+                            "source_path": source_path,
+                            "size": size,
+                            "md5": md5,
+                            "mime_type": mime_type,
+                        }
+                    )
+
+            small_files = [f for f in file_entries if f["size"] < save_settings.multipart_threshold]
+            large_files = [f for f in file_entries if f["size"] >= save_settings.multipart_threshold]
+
+            if small_files:
+                self._upload_small_saves(small_files)
+            if large_files:
+                self._upload_large_saves(large_files, save_settings)
+
+    def _upload_small_saves(self, files: list[SaveFileEntry]) -> None:
+        """小文件：prepare → presigned PUT（并发）→ complete（逐文件状态）。"""
+        prepare_items: list[PrepareSaveFile] = [
+            {"path": f["path"], "size": f["size"], "md5": f["md5"], "mimeType": f["mime_type"]} for f in files
+        ]
+        resp = prepare_save_files(self._experiment_id, files=prepare_items)
+        urls = resp["urls"]
+        if len(urls) != len(files):
+            console.warning(f"Save prepare returned {len(urls)} URLs for {len(files)} files, skipping")
+            return
+        session = self._ensure_session()
+        resources: list[UploadResource] = [
+            {"url": url, "source_path": f["source_path"], "content_type": f["mime_type"]} for f, url in zip(files, urls)
+        ]
+        source_to_path = {f["source_path"]: f["path"] for f in files}
+        statuses: dict[str, str] = {f["path"]: "FAILED" for f in files}
+
+        def mark_uploaded(source_path: str) -> None:
+            path = source_to_path[source_path]
+            statuses[path] = "UPLOADED"
+
+        upload_failed = False
+
+        def on_upload_error(_: BaseException) -> None:
+            nonlocal upload_failed
+            upload_failed = True
+
+        with safe.block(message="Failed to upload save files, skipping", on_error=on_upload_error):
+            upload_saves(session, resources=resources, on_uploaded=mark_uploaded)
+
+        complete_items: list[CompleteSaveFile] = [
+            {"path": path, "state": cast(Literal["UPLOADED", "FAILED"], state)} for path, state in statuses.items()
+        ]
+        with safe.block(message="Failed to complete save upload"):
+            complete_save_files(self._experiment_id, files=complete_items)
+        synced = sum(1 for s in statuses.values() if s == "UPLOADED")
+        if synced > 0:
+            console.info(f"Synced {synced} save file(s)")
+
+    def _upload_large_saves(self, files: list[SaveFileEntry], save_settings: SaveSettings) -> None:
+        """大文件：分片上传。"""
+        prepare_items: list[PrepareMultipartSaveFile] = []
+        for f in files:
+            part_count = math.ceil(f["size"] / save_settings.part_size)
+            prepare_items.append(
+                {
+                    "path": f["path"],
+                    "size": f["size"],
+                    "md5": f["md5"],
+                    "mimeType": f["mime_type"],
+                    "count": part_count,
+                }
+            )
+        resp = prepare_multipart_save(self._experiment_id, files=prepare_items)
+        multipart_files = resp["files"]
+        if len(multipart_files) != len(files):
+            console.warning(
+                f"Multipart prepare returned {len(multipart_files)} entries for {len(files)} files, skipping"
+            )
+            return
+        completed: list[CompletedMultipartSaveFile] = []
+        failed: list[CompleteSaveFile] = []
+        for file_info, multipart_info in zip(files, multipart_files):
+            upload_id = multipart_info["uploadId"]
+            parts = multipart_info["parts"]
+            self._ensure_session()
+            completed_parts = self._upload_multipart_parts(file_info, parts, save_settings)
+            if completed_parts is None:
+                console.warning(f"Multipart upload failed for {file_info['path']}, skipping")
+                failed.append({"path": file_info["path"], "state": "FAILED"})
+                continue
+            completed.append(
+                {
+                    "path": file_info["path"],
+                    "parts": completed_parts,
+                    "uploadId": upload_id,
+                }
+            )
+        if completed:
+            with safe.block(message="Failed to complete multipart save upload"):
+                complete_multipart_save(self._experiment_id, files=completed)
+            console.info(f"Synced {len(completed)} save file(s)")
+        if failed:
+            with safe.block(message="Failed to report multipart save failures"):
+                complete_save_files(self._experiment_id, files=failed)
+
+    def _upload_multipart_parts(
+        self, file_info: SaveFileEntry, parts: Sequence[MultipartPart], save_settings: SaveSettings
+    ) -> Optional[list[CompletedPart]]:
+        """上传单个大文件的所有分片，返回 CompletedPart 列表。"""
+        assert self._buffer_session is not None
+        completed_parts: list[CompletedPart] = []
+        source_path = file_info["source_path"]
+        part_size = save_settings.part_size
+        session = self._buffer_session
+
+        def upload_part(part_info: MultipartPart) -> CompletedPart:
+            part_number = part_info["partNumber"]
+            url = part_info["url"]
+            offset = (part_number - 1) * part_size
+            with open(source_path, "rb") as f:
+                f.seek(offset)
+                data = f.read(part_size)
+            resp = session.put(url, data=data, headers={"Content-Type": "application/octet-stream"})
+            resp.raise_for_status()
+            etag = resp.headers.get("ETag", "").strip('"')
+            return {"partNumber": part_number, "etag": etag}
+
+        with SafeThreadPoolExecutor(max_workers=3) as executor:
+            futures = [executor.submit(upload_part, p) for p in parts]
+            for future in futures:
+                result: Optional[CompletedPart] = None
+                with safe.block(message=f"Multipart part failed for {file_info['path']}"):
+                    result = future.result()
+                if result is None:
+                    return None
+                completed_parts.append(result)
+        return completed_parts
 
 
 def encode_column(record: ColumnRecord) -> Optional[UploadColumn]:

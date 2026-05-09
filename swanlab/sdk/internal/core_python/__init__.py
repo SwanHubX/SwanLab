@@ -19,6 +19,7 @@ Core 同时需要根据不同模式处理不同的业务，这是设计模式决
 值得说明的是，在当前的上层设计中，upsert 方法在 disabled 模式下永远不会触发，但是考虑到设计完整性，我们增加了相关业务逻辑判断
 """
 
+from pathlib import Path
 from typing import List, Optional, Tuple
 
 from swanlab.proto.swanlab.config.v1.config_pb2 import ConfigRecord
@@ -32,6 +33,7 @@ from swanlab.proto.swanlab.run.v1.run_pb2 import (
     StartRecord,
     StartResponse,
 )
+from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord
 from swanlab.proto.swanlab.system.v1.console_pb2 import ConsoleRecord, StreamType
 from swanlab.proto.swanlab.system.v1.env_pb2 import CondaRecord, MetadataRecord, RequirementsRecord
 from swanlab.sdk.internal.context import RunContext
@@ -47,6 +49,7 @@ from swanlab.sdk.internal.core_python.pkg import builder, counter
 from swanlab.sdk.internal.core_python.store import DataStoreWriter
 from swanlab.sdk.internal.core_python.transport import Transport
 from swanlab.sdk.internal.core_python.transport.sender import HttpRecordSender
+from swanlab.sdk.internal.core_python.watcher import FileWatcher, create_save_links, register_live_watches
 from swanlab.sdk.internal.pkg import adapter, console, safe
 from swanlab.sdk.protocol import CoreProtocol
 from swanlab.sdk.typings.core_python.api.experiment import ResumeExperimentSummaryType
@@ -76,7 +79,7 @@ class CorePython(CoreProtocol):
         self._epoch = counter.Counter()
         self._started: bool = False
         self._metrics: Optional[RunMetrics] = None
-        self._heartbeat: Optional[Heartbeat] = None
+        self._watcher = FileWatcher(on_change=self._on_file_changed)
 
     # ---------------------------------- 实验开始 ----------------------------------
 
@@ -394,6 +397,51 @@ class CorePython(CoreProtocol):
         self._store_records(records)
         self._transport_put(records)
 
+    # ---- upsert_saves ----
+
+    def _upsert_saves_when_local(self, saves: List[SaveRecord]) -> None:
+        linked = create_save_links(saves, self._ctx.files_dir)
+        if linked > 0:
+            console.warning(
+                f"Symlinked {linked} files into the SwanLab run directory; call swanlab.save again to sync new files."
+            )
+        records = [builder.build_save_record(self._counter, s) for s in saves]
+        self._store_records(records)
+        self._apply_live_watches(saves)
+
+    def _upsert_saves_when_offline(self, saves: List[SaveRecord]) -> None:
+        linked = create_save_links(saves, self._ctx.files_dir)
+        if linked > 0:
+            console.warning(
+                f"Symlinked {linked} files into the SwanLab run directory; call swanlab.save again to sync new files."
+            )
+        records = [builder.build_save_record(self._counter, s) for s in saves]
+        self._store_records(records)
+        self._apply_live_watches(saves)
+
+    def _upsert_saves_when_online(self, saves: List[SaveRecord]) -> None:
+        records = [builder.build_save_record(self._counter, s) for s in saves]
+        self._store_records(records)
+        self._transport_put(records)
+        self._apply_live_watches(saves)
+
+    def _apply_live_watches(self, saves: List[SaveRecord]) -> None:
+        register_live_watches(saves, self._ctx.files_dir, self._watcher)
+
+    # ---- file watcher ----
+
+    def _on_file_changed(self, file_path: str, save_record: SaveRecord) -> None:
+        """FileWatcher 回调：持久化 + 可选上传。"""
+        if not self._started or self._store is None:
+            return
+        records = [builder.build_save_record(self._counter, save_record)]
+        self._store_records(records)
+        if self._mode == "online" and self._transport is not None:
+            self._transport_put(records)
+
+    def _stop_watcher(self) -> None:
+        self._watcher.stop()
+
     # ---------------------------------- fork 方法 ----------------------------------
 
     def fork(self) -> "CorePython":
@@ -435,16 +483,19 @@ class CorePython(CoreProtocol):
         return record, console_record
 
     def _finish_when_local(self, finish_record: FinishRecord) -> FinishResponse:
+        self._stop_watcher()
         record, _ = self._build_finish_record(finish_record)
         self._finish_store(record)
         return FinishResponse(success=True, message="OK, but use local")
 
     def _finish_when_offline(self, finish_record: FinishRecord) -> FinishResponse:
+        self._stop_watcher()
         record, _ = self._build_finish_record(finish_record)
         self._finish_store(record)
         return FinishResponse(success=True, message="OK, but use offline")
 
     def _finish_when_online(self, finish_record: FinishRecord) -> FinishResponse:
+        self._stop_watcher()
         # 1. 构建停止记录
         record, console_record = self._build_finish_record(finish_record)
         self._finish_store(record)

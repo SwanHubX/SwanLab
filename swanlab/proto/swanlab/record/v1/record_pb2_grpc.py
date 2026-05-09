@@ -87,6 +87,11 @@ class RecordServiceStub(object):
                 request_serializer=swanlab_dot_run_dot_v1_dot_run__pb2.FinishRecord.SerializeToString,
                 response_deserializer=swanlab_dot_run_dot_v1_dot_run__pb2.FinishResponse.FromString,
                 _registered_method=True)
+        self.UpsertSaves = channel.unary_unary(
+                '/swanlab.record.v1.RecordService/UpsertSaves',
+                request_serializer=swanlab_dot_record_dot_v1_dot_record__pb2.UpsertSavesRequest.SerializeToString,
+                response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                _registered_method=True)
 
 
 class RecordServiceServicer(object):
@@ -163,6 +168,13 @@ class RecordServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def UpsertSaves(self, request, context):
+        """UpsertSaves 接收一组 SaveRecord 并写入，每一条记录对应一次 swanlab.save() 的文件保存
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_RecordServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -215,6 +227,11 @@ def add_RecordServiceServicer_to_server(servicer, server):
                     servicer.DeliverRunFinish,
                     request_deserializer=swanlab_dot_run_dot_v1_dot_run__pb2.FinishRecord.FromString,
                     response_serializer=swanlab_dot_run_dot_v1_dot_run__pb2.FinishResponse.SerializeToString,
+            ),
+            'UpsertSaves': grpc.unary_unary_rpc_method_handler(
+                    servicer.UpsertSaves,
+                    request_deserializer=swanlab_dot_record_dot_v1_dot_record__pb2.UpsertSavesRequest.FromString,
+                    response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -488,6 +505,33 @@ class RecordService(object):
             '/swanlab.record.v1.RecordService/DeliverRunFinish',
             swanlab_dot_run_dot_v1_dot_run__pb2.FinishRecord.SerializeToString,
             swanlab_dot_run_dot_v1_dot_run__pb2.FinishResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def UpsertSaves(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/swanlab.record.v1.RecordService/UpsertSaves',
+            swanlab_dot_record_dot_v1_dot_record__pb2.UpsertSavesRequest.SerializeToString,
+            google_dot_protobuf_dot_empty__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,

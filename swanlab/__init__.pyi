@@ -7,6 +7,7 @@ to swanlab/__init__.py.
 """
 
 from concurrent.futures import Future
+from pathlib import Path
 from typing import Any, Callable, List, Mapping, Optional, Union
 
 from . import utils
@@ -14,7 +15,7 @@ from .api import Api
 from .sdk import Audio, Callback, ECharts, Image, Molecule, Object3D, Run, Settings, Text, Video, config, echarts, plot
 from .sdk.typings.cmd import ConfigLike, LoginType
 from .sdk.typings.context import CallbacksType
-from .sdk.typings.run import AsyncLogType, FinishType, ModeType, ResumeType
+from .sdk.typings.run import AsyncLogType, FinishType, ModeType, ResumeType, SaveType
 from .sdk.typings.run.column import ScalarXAxisType
 from .sdk.typings.run.transforms import CaptionsType
 from .sdk.typings.run.transforms.audio import AudioDatasType, AudioRatesType
@@ -44,6 +45,7 @@ __all__ = [
     "log_molecule",
     "define_scalar",
     "async_log",
+    "save",
     # run
     "run",  # type: ignore [no-redef]
     "Run",
@@ -606,5 +608,24 @@ def define_scalar(
         >>> swanlab.define_scalar("loss", color="#FF5733", x_axis="_step")
         >>> swanlab.log({"loss": 0.5})
         >>> swanlab.finish()
+    """
+    ...
+
+def save(
+    glob_str: Union[str, bytes],
+    base_path: Optional[Union[str, Path]] = None,
+    policy: SaveType = "live",
+) -> List[str]:
+    """Save files matched by glob into the current run.
+
+    :param glob_str: A glob pattern matching files to save (e.g. ``"checkpoints/*.pt"``).
+    :param base_path: Base directory for resolving relative paths. Defaults to cwd.
+    :param policy: Save policy:
+
+        - ``"now"`` — upload matched files immediately.
+        - ``"end"`` — defer upload until the run finishes.
+        - ``"live"`` — watch for file changes and re-upload automatically.
+
+    :return: List of matched file paths (relative to base_path).
     """
     ...

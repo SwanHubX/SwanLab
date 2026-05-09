@@ -290,7 +290,7 @@ class Settings(BaseSettings):
     """
     core: CoreSettings = Field(default_factory=CoreSettings)
     """
-    Configuration for SwanLab Core behavior.
+    Configuration for core interaction limits (upload sizes, batch sizes, media limits, etc.).
     """
 
     model_config = SettingsConfigDict(

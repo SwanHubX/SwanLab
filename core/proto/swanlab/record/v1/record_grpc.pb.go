@@ -31,6 +31,7 @@ const (
 	RecordService_UpsertConda_FullMethodName        = "/swanlab.record.v1.RecordService/UpsertConda"
 	RecordService_UpsertMetadata_FullMethodName     = "/swanlab.record.v1.RecordService/UpsertMetadata"
 	RecordService_DeliverRunFinish_FullMethodName   = "/swanlab.record.v1.RecordService/DeliverRunFinish"
+	RecordService_UpsertSaves_FullMethodName        = "/swanlab.record.v1.RecordService/UpsertSaves"
 )
 
 // RecordServiceClient is the client API for RecordService service.
@@ -59,6 +60,8 @@ type RecordServiceClient interface {
 	UpsertMetadata(ctx context.Context, in *UpsertMetadataRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// DeliverRunFinish 接收单条 FinishRecord，用于实验结束。
 	DeliverRunFinish(ctx context.Context, in *v1.FinishRecord, opts ...grpc.CallOption) (*v1.FinishResponse, error)
+	// UpsertSaves 接收一组 SaveRecord 并写入，每一条记录对应一次 swanlab.save() 的文件保存
+	UpsertSaves(ctx context.Context, in *UpsertSavesRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type recordServiceClient struct {
@@ -169,6 +172,16 @@ func (c *recordServiceClient) DeliverRunFinish(ctx context.Context, in *v1.Finis
 	return out, nil
 }
 
+func (c *recordServiceClient) UpsertSaves(ctx context.Context, in *UpsertSavesRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, RecordService_UpsertSaves_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RecordServiceServer is the server API for RecordService service.
 // All implementations must embed UnimplementedRecordServiceServer
 // for forward compatibility.
@@ -195,6 +208,8 @@ type RecordServiceServer interface {
 	UpsertMetadata(context.Context, *UpsertMetadataRequest) (*emptypb.Empty, error)
 	// DeliverRunFinish 接收单条 FinishRecord，用于实验结束。
 	DeliverRunFinish(context.Context, *v1.FinishRecord) (*v1.FinishResponse, error)
+	// UpsertSaves 接收一组 SaveRecord 并写入，每一条记录对应一次 swanlab.save() 的文件保存
+	UpsertSaves(context.Context, *UpsertSavesRequest) (*emptypb.Empty, error)
 	mustEmbedUnimplementedRecordServiceServer()
 }
 
@@ -234,6 +249,9 @@ func (UnimplementedRecordServiceServer) UpsertMetadata(context.Context, *UpsertM
 }
 func (UnimplementedRecordServiceServer) DeliverRunFinish(context.Context, *v1.FinishRecord) (*v1.FinishResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeliverRunFinish not implemented")
+}
+func (UnimplementedRecordServiceServer) UpsertSaves(context.Context, *UpsertSavesRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpsertSaves not implemented")
 }
 func (UnimplementedRecordServiceServer) mustEmbedUnimplementedRecordServiceServer() {}
 func (UnimplementedRecordServiceServer) testEmbeddedByValue()                       {}
@@ -436,6 +454,24 @@ func _RecordService_DeliverRunFinish_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RecordService_UpsertSaves_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpsertSavesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RecordServiceServer).UpsertSaves(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RecordService_UpsertSaves_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RecordServiceServer).UpsertSaves(ctx, req.(*UpsertSavesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // RecordService_ServiceDesc is the grpc.ServiceDesc for RecordService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -482,6 +518,10 @@ var RecordService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeliverRunFinish",
 			Handler:    _RecordService_DeliverRunFinish_Handler,
+		},
+		{
+			MethodName: "UpsertSaves",
+			Handler:    _RecordService_UpsertSaves_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

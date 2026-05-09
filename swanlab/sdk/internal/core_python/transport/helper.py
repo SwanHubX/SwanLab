@@ -7,6 +7,7 @@ r"""
 @description: transport 辅助函数
 """
 
+import hashlib
 from collections import OrderedDict
 from typing import Dict, Iterator, List, Sequence, Tuple
 
@@ -54,3 +55,12 @@ def group_records_by_type(records: Sequence[Record]) -> Dict[str, List[Record]]:
             raise ValueError("Record.record_type is not set")
         records_by_type.setdefault(record_type, []).append(record)
     return records_by_type
+
+
+def compute_md5(file_path: str, chunk_size: int = 8 * 1024 * 1024) -> str:
+    """流式计算文件 MD5"""
+    md5 = hashlib.md5()
+    with open(file_path, "rb") as f:
+        for chunk in iter(lambda: f.read(chunk_size), b""):
+            md5.update(chunk)
+    return md5.hexdigest()

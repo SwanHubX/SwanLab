@@ -15,6 +15,7 @@
   - TestInitFactoryDispatch  : 验证 factory 模式按模式分派组件类型
 """
 
+import json
 import multiprocessing
 from typing import cast
 
@@ -404,6 +405,12 @@ class TestInitLocalMode:
         assert s.experiment.name
         assert s.experiment.color
 
+    def test_init_preserves_custom_experiment_name(self):
+        """显式传入 name 时，不应被默认实验名覆盖。"""
+        run = init(mode="local", name="test-save-exp")
+
+        assert run._ctx.config.settings.experiment.name == "test-save-exp"
+
 
 # ============================================================
 # TestInitOfflineMode
@@ -579,6 +586,34 @@ class TestInitOnlineMode:
 
         assert any("project" in u for u in non_login_calls), "应调用 project 端点"
         assert any("experiment" in u for u in non_login_calls), "应调用 experiment 端点"
+
+    def test_init_online_sends_custom_experiment_name(
+        self,
+        logged_in_client,
+        mock_project_create_api,
+        mock_project_get_api,
+        mock_experiment_stop_api,
+        mock_profile_api,
+        mock_metrics_api,
+        rsps,
+    ):
+        """online 模式应将用户传入的实验名发送给后端并同步响应。"""
+        rsps.add(
+            responses_lib.POST,
+            f"{API_HOST}/api/project/{USERNAME}/{PROJECT}/experiment",
+            json=make_experiment_resp(name="test-save-exp"),
+            status=201,
+        )
+
+        run = init(mode="online", project=PROJECT, name="test-save-exp")
+
+        experiment_calls = [
+            call for call in rsps.calls if call.request.url == f"{API_HOST}/api/project/{USERNAME}/{PROJECT}/experiment"
+        ]
+        assert len(experiment_calls) == 1
+        payload = json.loads(cast(bytes, experiment_calls[0].request.body))
+        assert payload["name"] == "test-save-exp"
+        assert run._ctx.config.settings.experiment.name == "test-save-exp"
 
 
 # ============================================================

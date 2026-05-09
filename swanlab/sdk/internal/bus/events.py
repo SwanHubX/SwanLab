@@ -63,12 +63,22 @@ class ConsoleEvent:
     timestamp: Timestamp
 
 
+@dataclass
+class FileSaveEvent:
+    """文件保存事件"""
+
+    source_path: str
+    name: str
+    policy: str  # "now" | "end" | "live"
+
+
 # 事件载体类型
 EventPayload = Union[
     MetricLogEvent,
     ScalarDefineEvent,
     ConfigEvent,
     ConsoleEvent,
+    FileSaveEvent,
 ]
 
 # 数据解析返回类型

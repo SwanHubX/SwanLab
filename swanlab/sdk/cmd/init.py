@@ -478,8 +478,8 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
             ...
         # 2. 确定默认 workspace 并生成本地 name/color，合并到 settings
         workspace = run_settings.project.workspace
-        name = generate_name("beauty")
-        color = generate_color("beauty")
+        name = run_settings.experiment.name or generate_name("beauty")
+        color = run_settings.experiment.color or generate_color("beauty")
         args_dict = {}
         for key, value in {
             "experiment.name": name,

@@ -5,7 +5,8 @@
 @description: 一些格式化工具
 """
 
-from typing import Any, Dict, Mapping, Optional, get_args
+from pathlib import Path
+from typing import Any, Dict, Mapping, Optional, Tuple, Union, get_args
 
 from pydantic import ValidationError
 
@@ -197,3 +198,80 @@ def safe_validate_state(state: FinishType) -> Optional[FinishType]:
     if state not in get_args(FinishType):
         return None
     return state
+
+
+def _infer_save_base_path(glob_path: Path) -> Path:
+    """从绝对 glob 路径推断默认 base_path。
+
+    沿路径各段向前扫描，遇到首个包含 glob 通配符 (``*?["]``) 的段时停止，
+    取稳定段的父目录作为 base_path，以保留最近的稳定目录层级。
+
+    例如 ``/mnt/folder/**/*.pt`` → base 为 ``/mnt``，
+    相对路径保留 ``folder/**/*.pt``。
+
+    :param glob_path: 已 resolve 的绝对 glob 路径。
+    :return: 推断出的 base_path。
+    """
+    stable_parts: list[str] = []
+    for part in glob_path.parts:
+        if any(c in part for c in "*?["):
+            break
+        stable_parts.append(part)
+
+    if len(stable_parts) == len(glob_path.parts):
+        anchor = glob_path.parent
+    else:
+        anchor = Path(*stable_parts)
+    return anchor.parent
+
+
+def resolve_save_paths(
+    glob_str: Union[str, bytes],
+    base_path: Optional[Union[str, Path]] = None,
+) -> Optional[Tuple[Path, Path]]:
+    """Validate and resolve glob and base paths for swanlab.save().
+
+    Resolves the glob pattern and base path against the real filesystem,
+    validates that the resolved glob does not escape the base, and returns
+    the resolved pair. Returns ``None`` if the input is invalid.
+
+    :param glob_str: Glob pattern matching files to save.
+    :param base_path: Base directory for relative path resolution.
+        Defaults to cwd when the pattern is relative; for absolute patterns
+        the parent directory is used and a warning is printed.
+    :return: ``(resolved_glob, resolved_base)`` or ``None``.
+    """
+    if isinstance(glob_str, bytes):
+        glob_str = glob_str.decode("utf-8")
+
+    if glob_str.startswith(("gs://", "s3://")):
+        console.warning(f"'{glob_str}' is a cloud storage URL and cannot be saved to SwanLab.")
+        return None
+
+    glob_path = Path(glob_str)
+    resolved_glob = glob_path.resolve()
+
+    if base_path is not None:
+        resolved_base = Path(base_path).resolve()
+    elif not glob_path.is_absolute():
+        resolved_base = Path(".").resolve()
+    else:
+        resolved_base = _infer_save_base_path(resolved_glob)
+        console.warning(
+            f"Saving files from absolute path '{glob_str}' without a base_path. "
+            f"SwanLab will default to base_path='{resolved_base}' "
+            "to preserve the immediate parent directory. "
+            "If you want to preserve a different directory structure, "
+            "explicitly pass 'base_path' to swanlab.save"
+        )
+
+    try:
+        resolved_glob.relative_to(resolved_base)
+    except ValueError:
+        console.error(
+            f"Glob pattern '{glob_str}' resolves to '{resolved_glob}', "
+            f"which is outside the base path '{resolved_base}'."
+        )
+        return None
+
+    return resolved_glob, resolved_base

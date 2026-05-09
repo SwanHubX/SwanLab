@@ -24,6 +24,7 @@ from .cmd.run import (
     log_object3d,
     log_text,
     log_video,
+    save,
 )
 from .internal import pkg
 from .internal.run import Run, clear_run, get_run, has_run, set_run
@@ -47,6 +48,7 @@ __all__ = [
     "log_molecule",
     "async_log",
     "define_scalar",
+    "save",
     "merge_settings",
     "merge_callbacks",
     "cmd_utils",
