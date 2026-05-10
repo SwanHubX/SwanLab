@@ -72,34 +72,15 @@ def _get_free_port(address: str = "0.0.0.0", default_port: int = 5092) -> int:
     help="Specify the folder to store Swanlog. Deprecated: use `swanlab watch <LOG PATH>` instead.",
 )
 @click.option(
-    "--logdir",
-    default=None,
-    nargs=1,
-    type=click.Path(
-        exists=True,
-        dir_okay=True,
-        file_okay=False,
-        resolve_path=True,
-        readable=True,
-    ),
-    help="Deprecated: use --log-dir instead.",
-    hidden=True,
-)
-@click.option(
     "--log-level",
     default="info",
     nargs=1,
     type=click.Choice(["debug", "info", "warning", "error", "critical"]),
     help="The level of log, default by info.",
 )
-def watch(path: str, host: str, port: int, log_dir: str, logdir: str, log_level: str):
+def watch(path: str, host: str, port: int, log_dir: str, log_level: str):
     """Run this command to turn on the SwanLab dashboard service."""
-    # logdir 兼容旧参数（向后兼容）
-    if logdir is not None:
-        click.echo("Warning: The option `--logdir` is deprecated, use `--log-dir` instead.")
-        log_dir = logdir
-
-    # log-dir 覆盖 path（向后兼容）
+    # log_dir 覆盖 path（向后兼容）
     if log_dir is not None:
         click.echo(
             "Warning: The option `--log-dir` is deprecated, use `swanlab watch [PATH]` to specify the path instead."
