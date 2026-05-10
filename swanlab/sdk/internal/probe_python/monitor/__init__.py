@@ -100,7 +100,7 @@ class Monitor:
         # 不设置立即执行，以避免产生一些无用的数据
         self._timer = timer.Timer(
             task,
-            interval=ctx.config.settings.monitor.interval,
+            interval=ctx.config.settings.probe.monitor_interval,
             immediate=False,
             name="SwanLab·Monitor",
         )

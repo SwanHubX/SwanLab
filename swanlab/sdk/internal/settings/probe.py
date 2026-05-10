@@ -1,18 +1,16 @@
 """
 @author: cunyue
-@file: metadata.py
-@time: 2026/3/5 17:37
-@description: SwanLab 元数据代理、监控、采集配置，涉及：
-1. 硬件监控
-2. 系统信息采集
-3. 终端日志采集
+@file: probe.py
+@time: 2026/5/10 21:40
+@description: 探针模块设置
 """
 
 import os
 from pathlib import Path
-from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, DirectoryPath, Field
+from pydantic import BaseModel, Field
+from pydantic.config import ConfigDict
+from pydantic.types import DirectoryPath
 
 
 def get_default_system_drive() -> Path:
@@ -22,14 +20,12 @@ def get_default_system_drive() -> Path:
     return Path("/")
 
 
-class EnvironmentSettings(BaseModel):
-    """启动时一次性采集的系统快照。"""
-
+class ProbeSettings(BaseModel):
     hardware: bool = True
     """Controls the collection, reporting, and persistence of static hardware metadata (e.g., GPU model, CPU cores, total memory) at startup.
 
     Note on interaction with `monitor`:
-    If `hardware` is set to False while `monitor.enable` is True, the underlying system hardware information will still be accessed by the monitoring module to compute dynamic metrics (like utilization percentages). 
+    If `hardware` is set to False while `monitor` is True, the underlying system hardware information will still be accessed by the monitoring module to compute dynamic metrics (like utilization percentages). 
     However, the static hardware snapshot itself will be explicitly discarded — it will neither be included in the telemetry payload nor saved to local persistent storage.
     """
 
@@ -60,26 +56,14 @@ class EnvironmentSettings(BaseModel):
 
     # TODO: There are some gpu/npu specific environment variables that can be collected, such as CUDA_VISIBLE_DEVICES, ROC_VISIBLE_DEVICES, etc.
 
-    model_config = ConfigDict(frozen=True)
+    monitor: bool = True
+    """Whether to enable periodic hardware monitoring (CPU usage, GPU utilization, memory, etc.).
+    """
 
+    monitor_interval: int = Field(default=10, ge=5)
+    """Periodic hardware monitoring interval (seconds)."""
 
-class MonitorSettings(BaseModel):
-    """周期性硬件指标监控。"""
-
-    enable: bool = True
-    """Whether to enable periodic hardware monitoring (CPU usage, GPU utilization, memory, etc.)."""
-    interval: int = Field(default=10, ge=5)
-    """Hardware monitoring collection interval (seconds)."""
-    disk_io_dir: DirectoryPath = Field(default_factory=get_default_system_drive)
-    """Directory path for disk I/O monitoring."""
-
-    model_config = ConfigDict(frozen=True)
-
-
-class ConsoleSettings(BaseModel):
-    proxy_type: Literal["all", "stdout", "stderr", "none"] = "all"
-    """Terminal log proxy strategy."""
-    max_log_length: int = Field(default=1024, ge=500, le=4096)
-    """Maximum character length per line for terminal log collection."""
+    monitor_disk_dir: DirectoryPath = Field(default_factory=get_default_system_drive)
+    """Disk I/O monitoring directory."""
 
     model_config = ConfigDict(frozen=True)
