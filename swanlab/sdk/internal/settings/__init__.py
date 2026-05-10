@@ -35,11 +35,11 @@ from pydantic_settings import (
 from swanlab.sdk.internal.pkg import helper, nrc, safe
 from swanlab.sdk.typings.run import ModeType
 
-from .console import ConsoleSettings
 from .core import CoreSettings
 from .experiment import ExperimentSettings, ProjectSettings, RunSettings
 from .integration import IntegrationSettings
 from .probe import ProbeSettings
+from .terminal import TerminalSettings
 
 __all__ = ["Settings", "settings", "ROOT_FOLDER"]
 
@@ -98,7 +98,7 @@ class Settings(BaseSettings):
     Project: ClassVar[Type[ProjectSettings]] = ProjectSettings
     Run: ClassVar[Type[RunSettings]] = RunSettings
     Experiment: ClassVar[Type[ExperimentSettings]] = ExperimentSettings
-    Console: ClassVar[Type[ConsoleSettings]] = ConsoleSettings
+    Terminal: ClassVar[Type[TerminalSettings]] = TerminalSettings
     Integration: ClassVar[Type[IntegrationSettings]] = IntegrationSettings
     Core: ClassVar[Type[CoreSettings]] = CoreSettings
     Probe: ClassVar[Type[ProbeSettings]] = ProbeSettings
@@ -275,7 +275,7 @@ class Settings(BaseSettings):
     """
     Configuration for the run of this SwanLab experiment.
     """
-    console: ConsoleSettings = Field(default_factory=ConsoleSettings)
+    terminal: TerminalSettings = Field(default_factory=TerminalSettings)
     """
     Configuration for SwanLab terminal log collection.
     """
