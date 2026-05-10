@@ -26,7 +26,7 @@ const (
 	RecordService_UpsertScalars_FullMethodName      = "/swanlab.record.v1.RecordService/UpsertScalars"
 	RecordService_UpsertMedia_FullMethodName        = "/swanlab.record.v1.RecordService/UpsertMedia"
 	RecordService_UpsertConfigs_FullMethodName      = "/swanlab.record.v1.RecordService/UpsertConfigs"
-	RecordService_UpsertConsoles_FullMethodName     = "/swanlab.record.v1.RecordService/UpsertConsoles"
+	RecordService_UpsertLogs_FullMethodName         = "/swanlab.record.v1.RecordService/UpsertLogs"
 	RecordService_UpsertRequirements_FullMethodName = "/swanlab.record.v1.RecordService/UpsertRequirements"
 	RecordService_UpsertConda_FullMethodName        = "/swanlab.record.v1.RecordService/UpsertConda"
 	RecordService_UpsertMetadata_FullMethodName     = "/swanlab.record.v1.RecordService/UpsertMetadata"
@@ -50,8 +50,8 @@ type RecordServiceClient interface {
 	UpsertMedia(ctx context.Context, in *UpsertMediaRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// UpsertConfig 接收一组 ConfigRecord 并写入，每一条记录对应一次用户对config的修改
 	UpsertConfigs(ctx context.Context, in *UpsertConfigsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	// UpsertConsole 接收一组 ConsoleRecord 并写入，每一条记录对应一行用户的终端输出
-	UpsertConsoles(ctx context.Context, in *UpsertConsolesRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// UpsertLogs 接收一组 LogRecord 并写入，每一条记录对应一行用户的终端输出
+	UpsertLogs(ctx context.Context, in *UpsertLogsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// UpsertRequirements 接收一组 RequirementsRecord 并写入，每一条记录对应一次用户/系统对requirements的修改
 	UpsertRequirements(ctx context.Context, in *UpsertRequirementsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// UpsertConda 接收一组 CondaRecord 并写入，每一条记录对应一次用户/系统对conda的修改
@@ -122,10 +122,10 @@ func (c *recordServiceClient) UpsertConfigs(ctx context.Context, in *UpsertConfi
 	return out, nil
 }
 
-func (c *recordServiceClient) UpsertConsoles(ctx context.Context, in *UpsertConsolesRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *recordServiceClient) UpsertLogs(ctx context.Context, in *UpsertLogsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, RecordService_UpsertConsoles_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, RecordService_UpsertLogs_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -198,8 +198,8 @@ type RecordServiceServer interface {
 	UpsertMedia(context.Context, *UpsertMediaRequest) (*emptypb.Empty, error)
 	// UpsertConfig 接收一组 ConfigRecord 并写入，每一条记录对应一次用户对config的修改
 	UpsertConfigs(context.Context, *UpsertConfigsRequest) (*emptypb.Empty, error)
-	// UpsertConsole 接收一组 ConsoleRecord 并写入，每一条记录对应一行用户的终端输出
-	UpsertConsoles(context.Context, *UpsertConsolesRequest) (*emptypb.Empty, error)
+	// UpsertLogs 接收一组 LogRecord 并写入，每一条记录对应一行用户的终端输出
+	UpsertLogs(context.Context, *UpsertLogsRequest) (*emptypb.Empty, error)
 	// UpsertRequirements 接收一组 RequirementsRecord 并写入，每一条记录对应一次用户/系统对requirements的修改
 	UpsertRequirements(context.Context, *UpsertRequirementsRequest) (*emptypb.Empty, error)
 	// UpsertConda 接收一组 CondaRecord 并写入，每一条记录对应一次用户/系统对conda的修改
@@ -235,8 +235,8 @@ func (UnimplementedRecordServiceServer) UpsertMedia(context.Context, *UpsertMedi
 func (UnimplementedRecordServiceServer) UpsertConfigs(context.Context, *UpsertConfigsRequest) (*emptypb.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpsertConfigs not implemented")
 }
-func (UnimplementedRecordServiceServer) UpsertConsoles(context.Context, *UpsertConsolesRequest) (*emptypb.Empty, error) {
-	return nil, status.Error(codes.Unimplemented, "method UpsertConsoles not implemented")
+func (UnimplementedRecordServiceServer) UpsertLogs(context.Context, *UpsertLogsRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpsertLogs not implemented")
 }
 func (UnimplementedRecordServiceServer) UpsertRequirements(context.Context, *UpsertRequirementsRequest) (*emptypb.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpsertRequirements not implemented")
@@ -364,20 +364,20 @@ func _RecordService_UpsertConfigs_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
-func _RecordService_UpsertConsoles_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(UpsertConsolesRequest)
+func _RecordService_UpsertLogs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpsertLogsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(RecordServiceServer).UpsertConsoles(ctx, in)
+		return srv.(RecordServiceServer).UpsertLogs(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: RecordService_UpsertConsoles_FullMethodName,
+		FullMethod: RecordService_UpsertLogs_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RecordServiceServer).UpsertConsoles(ctx, req.(*UpsertConsolesRequest))
+		return srv.(RecordServiceServer).UpsertLogs(ctx, req.(*UpsertLogsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -500,8 +500,8 @@ var RecordService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _RecordService_UpsertConfigs_Handler,
 		},
 		{
-			MethodName: "UpsertConsoles",
-			Handler:    _RecordService_UpsertConsoles_Handler,
+			MethodName: "UpsertLogs",
+			Handler:    _RecordService_UpsertLogs_Handler,
 		},
 		{
 			MethodName: "UpsertRequirements",

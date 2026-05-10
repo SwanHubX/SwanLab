@@ -2,9 +2,9 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v7.34.0
-// source: swanlab/system/v1/env.proto
+// source: swanlab/env/v1/env.proto
 
-package systemv1
+package envv1
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -34,7 +34,7 @@ type MetadataRecord struct {
 
 func (x *MetadataRecord) Reset() {
 	*x = MetadataRecord{}
-	mi := &file_swanlab_system_v1_env_proto_msgTypes[0]
+	mi := &file_swanlab_env_v1_env_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -46,7 +46,7 @@ func (x *MetadataRecord) String() string {
 func (*MetadataRecord) ProtoMessage() {}
 
 func (x *MetadataRecord) ProtoReflect() protoreflect.Message {
-	mi := &file_swanlab_system_v1_env_proto_msgTypes[0]
+	mi := &file_swanlab_env_v1_env_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -59,7 +59,7 @@ func (x *MetadataRecord) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MetadataRecord.ProtoReflect.Descriptor instead.
 func (*MetadataRecord) Descriptor() ([]byte, []int) {
-	return file_swanlab_system_v1_env_proto_rawDescGZIP(), []int{0}
+	return file_swanlab_env_v1_env_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *MetadataRecord) GetTimestamp() *timestamppb.Timestamp {
@@ -80,7 +80,7 @@ type RequirementsRecord struct {
 
 func (x *RequirementsRecord) Reset() {
 	*x = RequirementsRecord{}
-	mi := &file_swanlab_system_v1_env_proto_msgTypes[1]
+	mi := &file_swanlab_env_v1_env_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -92,7 +92,7 @@ func (x *RequirementsRecord) String() string {
 func (*RequirementsRecord) ProtoMessage() {}
 
 func (x *RequirementsRecord) ProtoReflect() protoreflect.Message {
-	mi := &file_swanlab_system_v1_env_proto_msgTypes[1]
+	mi := &file_swanlab_env_v1_env_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -105,7 +105,7 @@ func (x *RequirementsRecord) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RequirementsRecord.ProtoReflect.Descriptor instead.
 func (*RequirementsRecord) Descriptor() ([]byte, []int) {
-	return file_swanlab_system_v1_env_proto_rawDescGZIP(), []int{1}
+	return file_swanlab_env_v1_env_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *RequirementsRecord) GetTimestamp() *timestamppb.Timestamp {
@@ -126,7 +126,7 @@ type CondaRecord struct {
 
 func (x *CondaRecord) Reset() {
 	*x = CondaRecord{}
-	mi := &file_swanlab_system_v1_env_proto_msgTypes[2]
+	mi := &file_swanlab_env_v1_env_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -138,7 +138,7 @@ func (x *CondaRecord) String() string {
 func (*CondaRecord) ProtoMessage() {}
 
 func (x *CondaRecord) ProtoReflect() protoreflect.Message {
-	mi := &file_swanlab_system_v1_env_proto_msgTypes[2]
+	mi := &file_swanlab_env_v1_env_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -151,7 +151,7 @@ func (x *CondaRecord) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CondaRecord.ProtoReflect.Descriptor instead.
 func (*CondaRecord) Descriptor() ([]byte, []int) {
-	return file_swanlab_system_v1_env_proto_rawDescGZIP(), []int{2}
+	return file_swanlab_env_v1_env_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *CondaRecord) GetTimestamp() *timestamppb.Timestamp {
@@ -161,41 +161,41 @@ func (x *CondaRecord) GetTimestamp() *timestamppb.Timestamp {
 	return nil
 }
 
-var File_swanlab_system_v1_env_proto protoreflect.FileDescriptor
+var File_swanlab_env_v1_env_proto protoreflect.FileDescriptor
 
-const file_swanlab_system_v1_env_proto_rawDesc = "" +
+const file_swanlab_env_v1_env_proto_rawDesc = "" +
 	"\n" +
-	"\x1bswanlab/system/v1/env.proto\x12\x11swanlab.system.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"J\n" +
+	"\x18swanlab/env/v1/env.proto\x12\x0eswanlab.env.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"J\n" +
 	"\x0eMetadataRecord\x128\n" +
 	"\ttimestamp\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\"N\n" +
 	"\x12RequirementsRecord\x128\n" +
 	"\ttimestamp\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\"G\n" +
 	"\vCondaRecord\x128\n" +
-	"\ttimestamp\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestampBCZAgithub.com/swanhubx/swanlab/core/proto/swanlab/system/v1;systemv1b\x06proto3"
+	"\ttimestamp\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestampB=Z;github.com/swanhubx/swanlab/core/proto/swanlab/env/v1;envv1b\x06proto3"
 
 var (
-	file_swanlab_system_v1_env_proto_rawDescOnce sync.Once
-	file_swanlab_system_v1_env_proto_rawDescData []byte
+	file_swanlab_env_v1_env_proto_rawDescOnce sync.Once
+	file_swanlab_env_v1_env_proto_rawDescData []byte
 )
 
-func file_swanlab_system_v1_env_proto_rawDescGZIP() []byte {
-	file_swanlab_system_v1_env_proto_rawDescOnce.Do(func() {
-		file_swanlab_system_v1_env_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_swanlab_system_v1_env_proto_rawDesc), len(file_swanlab_system_v1_env_proto_rawDesc)))
+func file_swanlab_env_v1_env_proto_rawDescGZIP() []byte {
+	file_swanlab_env_v1_env_proto_rawDescOnce.Do(func() {
+		file_swanlab_env_v1_env_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_swanlab_env_v1_env_proto_rawDesc), len(file_swanlab_env_v1_env_proto_rawDesc)))
 	})
-	return file_swanlab_system_v1_env_proto_rawDescData
+	return file_swanlab_env_v1_env_proto_rawDescData
 }
 
-var file_swanlab_system_v1_env_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
-var file_swanlab_system_v1_env_proto_goTypes = []any{
-	(*MetadataRecord)(nil),        // 0: swanlab.system.v1.MetadataRecord
-	(*RequirementsRecord)(nil),    // 1: swanlab.system.v1.RequirementsRecord
-	(*CondaRecord)(nil),           // 2: swanlab.system.v1.CondaRecord
+var file_swanlab_env_v1_env_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_swanlab_env_v1_env_proto_goTypes = []any{
+	(*MetadataRecord)(nil),        // 0: swanlab.env.v1.MetadataRecord
+	(*RequirementsRecord)(nil),    // 1: swanlab.env.v1.RequirementsRecord
+	(*CondaRecord)(nil),           // 2: swanlab.env.v1.CondaRecord
 	(*timestamppb.Timestamp)(nil), // 3: google.protobuf.Timestamp
 }
-var file_swanlab_system_v1_env_proto_depIdxs = []int32{
-	3, // 0: swanlab.system.v1.MetadataRecord.timestamp:type_name -> google.protobuf.Timestamp
-	3, // 1: swanlab.system.v1.RequirementsRecord.timestamp:type_name -> google.protobuf.Timestamp
-	3, // 2: swanlab.system.v1.CondaRecord.timestamp:type_name -> google.protobuf.Timestamp
+var file_swanlab_env_v1_env_proto_depIdxs = []int32{
+	3, // 0: swanlab.env.v1.MetadataRecord.timestamp:type_name -> google.protobuf.Timestamp
+	3, // 1: swanlab.env.v1.RequirementsRecord.timestamp:type_name -> google.protobuf.Timestamp
+	3, // 2: swanlab.env.v1.CondaRecord.timestamp:type_name -> google.protobuf.Timestamp
 	3, // [3:3] is the sub-list for method output_type
 	3, // [3:3] is the sub-list for method input_type
 	3, // [3:3] is the sub-list for extension type_name
@@ -203,26 +203,26 @@ var file_swanlab_system_v1_env_proto_depIdxs = []int32{
 	0, // [0:3] is the sub-list for field type_name
 }
 
-func init() { file_swanlab_system_v1_env_proto_init() }
-func file_swanlab_system_v1_env_proto_init() {
-	if File_swanlab_system_v1_env_proto != nil {
+func init() { file_swanlab_env_v1_env_proto_init() }
+func file_swanlab_env_v1_env_proto_init() {
+	if File_swanlab_env_v1_env_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_swanlab_system_v1_env_proto_rawDesc), len(file_swanlab_system_v1_env_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_swanlab_env_v1_env_proto_rawDesc), len(file_swanlab_env_v1_env_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_swanlab_system_v1_env_proto_goTypes,
-		DependencyIndexes: file_swanlab_system_v1_env_proto_depIdxs,
-		MessageInfos:      file_swanlab_system_v1_env_proto_msgTypes,
+		GoTypes:           file_swanlab_env_v1_env_proto_goTypes,
+		DependencyIndexes: file_swanlab_env_v1_env_proto_depIdxs,
+		MessageInfos:      file_swanlab_env_v1_env_proto_msgTypes,
 	}.Build()
-	File_swanlab_system_v1_env_proto = out.File
-	file_swanlab_system_v1_env_proto_goTypes = nil
-	file_swanlab_system_v1_env_proto_depIdxs = nil
+	File_swanlab_env_v1_env_proto = out.File
+	file_swanlab_env_v1_env_proto_goTypes = nil
+	file_swanlab_env_v1_env_proto_depIdxs = nil
 }

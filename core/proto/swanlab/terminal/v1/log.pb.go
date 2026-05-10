@@ -2,9 +2,9 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v7.34.0
-// source: swanlab/system/v1/console.proto
+// source: swanlab/terminal/v1/log.proto
 
-package systemv1
+package terminalv1
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -55,11 +55,11 @@ func (x StreamType) String() string {
 }
 
 func (StreamType) Descriptor() protoreflect.EnumDescriptor {
-	return file_swanlab_system_v1_console_proto_enumTypes[0].Descriptor()
+	return file_swanlab_terminal_v1_log_proto_enumTypes[0].Descriptor()
 }
 
 func (StreamType) Type() protoreflect.EnumType {
-	return &file_swanlab_system_v1_console_proto_enumTypes[0]
+	return &file_swanlab_terminal_v1_log_proto_enumTypes[0]
 }
 
 func (x StreamType) Number() protoreflect.EnumNumber {
@@ -68,37 +68,37 @@ func (x StreamType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use StreamType.Descriptor instead.
 func (StreamType) EnumDescriptor() ([]byte, []int) {
-	return file_swanlab_system_v1_console_proto_rawDescGZIP(), []int{0}
+	return file_swanlab_terminal_v1_log_proto_rawDescGZIP(), []int{0}
 }
 
 // 终端代理捕获的单行输出。
 // 由 console.proxy_type 配置决定捕获 stdout、stderr 或两者。
 // 超出 console.max_log_length 的部分由 SDK 在写入前截断。
-type ConsoleRecord struct {
+type LogRecord struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Line          string                 `protobuf:"bytes,1,opt,name=line,proto3" json:"line,omitempty"`
-	Stream        StreamType             `protobuf:"varint,2,opt,name=stream,proto3,enum=swanlab.system.v1.StreamType" json:"stream,omitempty"`
+	Stream        StreamType             `protobuf:"varint,2,opt,name=stream,proto3,enum=swanlab.terminal.v1.StreamType" json:"stream,omitempty"`
 	Timestamp     *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
 	Epoch         int64                  `protobuf:"varint,4,opt,name=epoch,proto3" json:"epoch,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ConsoleRecord) Reset() {
-	*x = ConsoleRecord{}
-	mi := &file_swanlab_system_v1_console_proto_msgTypes[0]
+func (x *LogRecord) Reset() {
+	*x = LogRecord{}
+	mi := &file_swanlab_terminal_v1_log_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *ConsoleRecord) String() string {
+func (x *LogRecord) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ConsoleRecord) ProtoMessage() {}
+func (*LogRecord) ProtoMessage() {}
 
-func (x *ConsoleRecord) ProtoReflect() protoreflect.Message {
-	mi := &file_swanlab_system_v1_console_proto_msgTypes[0]
+func (x *LogRecord) ProtoReflect() protoreflect.Message {
+	mi := &file_swanlab_terminal_v1_log_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -109,77 +109,77 @@ func (x *ConsoleRecord) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ConsoleRecord.ProtoReflect.Descriptor instead.
-func (*ConsoleRecord) Descriptor() ([]byte, []int) {
-	return file_swanlab_system_v1_console_proto_rawDescGZIP(), []int{0}
+// Deprecated: Use LogRecord.ProtoReflect.Descriptor instead.
+func (*LogRecord) Descriptor() ([]byte, []int) {
+	return file_swanlab_terminal_v1_log_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *ConsoleRecord) GetLine() string {
+func (x *LogRecord) GetLine() string {
 	if x != nil {
 		return x.Line
 	}
 	return ""
 }
 
-func (x *ConsoleRecord) GetStream() StreamType {
+func (x *LogRecord) GetStream() StreamType {
 	if x != nil {
 		return x.Stream
 	}
 	return StreamType_STREAM_TYPE_UNSPECIFIED
 }
 
-func (x *ConsoleRecord) GetTimestamp() *timestamppb.Timestamp {
+func (x *LogRecord) GetTimestamp() *timestamppb.Timestamp {
 	if x != nil {
 		return x.Timestamp
 	}
 	return nil
 }
 
-func (x *ConsoleRecord) GetEpoch() int64 {
+func (x *LogRecord) GetEpoch() int64 {
 	if x != nil {
 		return x.Epoch
 	}
 	return 0
 }
 
-var File_swanlab_system_v1_console_proto protoreflect.FileDescriptor
+var File_swanlab_terminal_v1_log_proto protoreflect.FileDescriptor
 
-const file_swanlab_system_v1_console_proto_rawDesc = "" +
+const file_swanlab_terminal_v1_log_proto_rawDesc = "" +
 	"\n" +
-	"\x1fswanlab/system/v1/console.proto\x12\x11swanlab.system.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xaa\x01\n" +
-	"\rConsoleRecord\x12\x12\n" +
-	"\x04line\x18\x01 \x01(\tR\x04line\x125\n" +
-	"\x06stream\x18\x02 \x01(\x0e2\x1d.swanlab.system.v1.StreamTypeR\x06stream\x128\n" +
+	"\x1dswanlab/terminal/v1/log.proto\x12\x13swanlab.terminal.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xa8\x01\n" +
+	"\tLogRecord\x12\x12\n" +
+	"\x04line\x18\x01 \x01(\tR\x04line\x127\n" +
+	"\x06stream\x18\x02 \x01(\x0e2\x1f.swanlab.terminal.v1.StreamTypeR\x06stream\x128\n" +
 	"\ttimestamp\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\x12\x14\n" +
 	"\x05epoch\x18\x04 \x01(\x03R\x05epoch*Y\n" +
 	"\n" +
 	"StreamType\x12\x1b\n" +
 	"\x17STREAM_TYPE_UNSPECIFIED\x10\x00\x12\x16\n" +
 	"\x12STREAM_TYPE_STDOUT\x10\x01\x12\x16\n" +
-	"\x12STREAM_TYPE_STDERR\x10\x02BCZAgithub.com/swanhubx/swanlab/core/proto/swanlab/system/v1;systemv1b\x06proto3"
+	"\x12STREAM_TYPE_STDERR\x10\x02BGZEgithub.com/swanhubx/swanlab/core/proto/swanlab/terminal/v1;terminalv1b\x06proto3"
 
 var (
-	file_swanlab_system_v1_console_proto_rawDescOnce sync.Once
-	file_swanlab_system_v1_console_proto_rawDescData []byte
+	file_swanlab_terminal_v1_log_proto_rawDescOnce sync.Once
+	file_swanlab_terminal_v1_log_proto_rawDescData []byte
 )
 
-func file_swanlab_system_v1_console_proto_rawDescGZIP() []byte {
-	file_swanlab_system_v1_console_proto_rawDescOnce.Do(func() {
-		file_swanlab_system_v1_console_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_swanlab_system_v1_console_proto_rawDesc), len(file_swanlab_system_v1_console_proto_rawDesc)))
+func file_swanlab_terminal_v1_log_proto_rawDescGZIP() []byte {
+	file_swanlab_terminal_v1_log_proto_rawDescOnce.Do(func() {
+		file_swanlab_terminal_v1_log_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_swanlab_terminal_v1_log_proto_rawDesc), len(file_swanlab_terminal_v1_log_proto_rawDesc)))
 	})
-	return file_swanlab_system_v1_console_proto_rawDescData
+	return file_swanlab_terminal_v1_log_proto_rawDescData
 }
 
-var file_swanlab_system_v1_console_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_swanlab_system_v1_console_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
-var file_swanlab_system_v1_console_proto_goTypes = []any{
-	(StreamType)(0),               // 0: swanlab.system.v1.StreamType
-	(*ConsoleRecord)(nil),         // 1: swanlab.system.v1.ConsoleRecord
+var file_swanlab_terminal_v1_log_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_swanlab_terminal_v1_log_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_swanlab_terminal_v1_log_proto_goTypes = []any{
+	(StreamType)(0),               // 0: swanlab.terminal.v1.StreamType
+	(*LogRecord)(nil),             // 1: swanlab.terminal.v1.LogRecord
 	(*timestamppb.Timestamp)(nil), // 2: google.protobuf.Timestamp
 }
-var file_swanlab_system_v1_console_proto_depIdxs = []int32{
-	0, // 0: swanlab.system.v1.ConsoleRecord.stream:type_name -> swanlab.system.v1.StreamType
-	2, // 1: swanlab.system.v1.ConsoleRecord.timestamp:type_name -> google.protobuf.Timestamp
+var file_swanlab_terminal_v1_log_proto_depIdxs = []int32{
+	0, // 0: swanlab.terminal.v1.LogRecord.stream:type_name -> swanlab.terminal.v1.StreamType
+	2, // 1: swanlab.terminal.v1.LogRecord.timestamp:type_name -> google.protobuf.Timestamp
 	2, // [2:2] is the sub-list for method output_type
 	2, // [2:2] is the sub-list for method input_type
 	2, // [2:2] is the sub-list for extension type_name
@@ -187,27 +187,27 @@ var file_swanlab_system_v1_console_proto_depIdxs = []int32{
 	0, // [0:2] is the sub-list for field type_name
 }
 
-func init() { file_swanlab_system_v1_console_proto_init() }
-func file_swanlab_system_v1_console_proto_init() {
-	if File_swanlab_system_v1_console_proto != nil {
+func init() { file_swanlab_terminal_v1_log_proto_init() }
+func file_swanlab_terminal_v1_log_proto_init() {
+	if File_swanlab_terminal_v1_log_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_swanlab_system_v1_console_proto_rawDesc), len(file_swanlab_system_v1_console_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_swanlab_terminal_v1_log_proto_rawDesc), len(file_swanlab_terminal_v1_log_proto_rawDesc)),
 			NumEnums:      1,
 			NumMessages:   1,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_swanlab_system_v1_console_proto_goTypes,
-		DependencyIndexes: file_swanlab_system_v1_console_proto_depIdxs,
-		EnumInfos:         file_swanlab_system_v1_console_proto_enumTypes,
-		MessageInfos:      file_swanlab_system_v1_console_proto_msgTypes,
+		GoTypes:           file_swanlab_terminal_v1_log_proto_goTypes,
+		DependencyIndexes: file_swanlab_terminal_v1_log_proto_depIdxs,
+		EnumInfos:         file_swanlab_terminal_v1_log_proto_enumTypes,
+		MessageInfos:      file_swanlab_terminal_v1_log_proto_msgTypes,
 	}.Build()
-	File_swanlab_system_v1_console_proto = out.File
-	file_swanlab_system_v1_console_proto_goTypes = nil
-	file_swanlab_system_v1_console_proto_depIdxs = nil
+	File_swanlab_terminal_v1_log_proto = out.File
+	file_swanlab_terminal_v1_log_proto_goTypes = nil
+	file_swanlab_terminal_v1_log_proto_depIdxs = nil
 }

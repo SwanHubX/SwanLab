@@ -18,7 +18,7 @@ STREAM_TYPE_UNSPECIFIED: StreamType
 STREAM_TYPE_STDOUT: StreamType
 STREAM_TYPE_STDERR: StreamType
 
-class ConsoleRecord(_message.Message):
+class LogRecord(_message.Message):
     __slots__ = ("line", "stream", "timestamp", "epoch")
     LINE_FIELD_NUMBER: _ClassVar[int]
     STREAM_FIELD_NUMBER: _ClassVar[int]

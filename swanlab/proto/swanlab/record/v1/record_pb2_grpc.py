@@ -62,9 +62,9 @@ class RecordServiceStub(object):
                 request_serializer=swanlab_dot_record_dot_v1_dot_record__pb2.UpsertConfigsRequest.SerializeToString,
                 response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
                 _registered_method=True)
-        self.UpsertConsoles = channel.unary_unary(
-                '/swanlab.record.v1.RecordService/UpsertConsoles',
-                request_serializer=swanlab_dot_record_dot_v1_dot_record__pb2.UpsertConsolesRequest.SerializeToString,
+        self.UpsertLogs = channel.unary_unary(
+                '/swanlab.record.v1.RecordService/UpsertLogs',
+                request_serializer=swanlab_dot_record_dot_v1_dot_record__pb2.UpsertLogsRequest.SerializeToString,
                 response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
                 _registered_method=True)
         self.UpsertRequirements = channel.unary_unary(
@@ -133,8 +133,8 @@ class RecordServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def UpsertConsoles(self, request, context):
-        """UpsertConsole 接收一组 ConsoleRecord 并写入，每一条记录对应一行用户的终端输出
+    def UpsertLogs(self, request, context):
+        """UpsertLogs 接收一组 LogRecord 并写入，每一条记录对应一行用户的终端输出
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -203,9 +203,9 @@ def add_RecordServiceServicer_to_server(servicer, server):
                     request_deserializer=swanlab_dot_record_dot_v1_dot_record__pb2.UpsertConfigsRequest.FromString,
                     response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
             ),
-            'UpsertConsoles': grpc.unary_unary_rpc_method_handler(
-                    servicer.UpsertConsoles,
-                    request_deserializer=swanlab_dot_record_dot_v1_dot_record__pb2.UpsertConsolesRequest.FromString,
+            'UpsertLogs': grpc.unary_unary_rpc_method_handler(
+                    servicer.UpsertLogs,
+                    request_deserializer=swanlab_dot_record_dot_v1_dot_record__pb2.UpsertLogsRequest.FromString,
                     response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
             ),
             'UpsertRequirements': grpc.unary_unary_rpc_method_handler(
@@ -381,7 +381,7 @@ class RecordService(object):
             _registered_method=True)
 
     @staticmethod
-    def UpsertConsoles(request,
+    def UpsertLogs(request,
             target,
             options=(),
             channel_credentials=None,
@@ -394,8 +394,8 @@ class RecordService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/swanlab.record.v1.RecordService/UpsertConsoles',
-            swanlab_dot_record_dot_v1_dot_record__pb2.UpsertConsolesRequest.SerializeToString,
+            '/swanlab.record.v1.RecordService/UpsertLogs',
+            swanlab_dot_record_dot_v1_dot_record__pb2.UpsertLogsRequest.SerializeToString,
             google_dot_protobuf_dot_empty__pb2.Empty.FromString,
             options,
             channel_credentials,
