@@ -38,7 +38,7 @@ import click
     help="The mode of the swanlab run.",
 )
 @click.option(
-    "--log_dir",
+    "--logdir",
     "-l",
     type=str,
     default=None,
