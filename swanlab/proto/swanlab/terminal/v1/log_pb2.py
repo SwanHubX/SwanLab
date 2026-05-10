@@ -25,7 +25,7 @@ _sym_db = _symbol_database.Default()
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1dswanlab/terminal/v1/log.proto\x12\x13swanlab.terminal.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x88\x01\n\tLogRecord\x12\x0c\n\x04line\x18\x01 \x01(\t\x12/\n\x06stream\x18\x02 \x01(\x0e\x32\x1f.swanlab.terminal.v1.StreamType\x12-\n\ttimestamp\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\r\n\x05\x65poch\x18\x04 \x01(\x03*Y\n\nStreamType\x12\x1b\n\x17STREAM_TYPE_UNSPECIFIED\x10\x00\x12\x16\n\x12STREAM_TYPE_STDOUT\x10\x01\x12\x16\n\x12STREAM_TYPE_STDERR\x10\x02\x42GZEgithub.com/swanhubx/swanlab/core/proto/swanlab/terminal/v1;terminalv1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1dswanlab/terminal/v1/log.proto\x12\x13swanlab.terminal.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x85\x01\n\tLogRecord\x12\x0c\n\x04line\x18\x01 \x01(\t\x12,\n\x05level\x18\x02 \x01(\x0e\x32\x1d.swanlab.terminal.v1.LogLevel\x12-\n\ttimestamp\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\r\n\x05\x65poch\x18\x04 \x01(\x03*3\n\x08LogLevel\x12\x12\n\x0eLOG_LEVEL_INFO\x10\x00\x12\x13\n\x0fLOG_LEVEL_ERROR\x10\x01\x42GZEgithub.com/swanhubx/swanlab/core/proto/swanlab/terminal/v1;terminalv1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -33,8 +33,8 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'swanlab.terminal.v1.log_pb2
 if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'ZEgithub.com/swanhubx/swanlab/core/proto/swanlab/terminal/v1;terminalv1'
-  _globals['_STREAMTYPE']._serialized_start=226
-  _globals['_STREAMTYPE']._serialized_end=315
+  _globals['_LOGLEVEL']._serialized_start=223
+  _globals['_LOGLEVEL']._serialized_end=274
   _globals['_LOGRECORD']._serialized_start=88
-  _globals['_LOGRECORD']._serialized_end=224
+  _globals['_LOGRECORD']._serialized_end=221
 # @@protoc_insertion_point(module_scope)

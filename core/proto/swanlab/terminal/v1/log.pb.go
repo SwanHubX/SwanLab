@@ -22,52 +22,54 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type StreamType int32
+// 终端日志级别。
+// LOG_LEVEL_INFO 为默认级别，表示普通终端输出。
+// 注意：stderr 不一定代表错误，默认仍按 LOG_LEVEL_INFO 处理，
+// 例如进度条、警告信息等。
+// LOG_LEVEL_ERROR 表示实验错误输出，通常用于最终实验报错信息。
+type LogLevel int32
 
 const (
-	StreamType_STREAM_TYPE_UNSPECIFIED StreamType = 0
-	StreamType_STREAM_TYPE_STDOUT      StreamType = 1
-	StreamType_STREAM_TYPE_STDERR      StreamType = 2
+	LogLevel_LOG_LEVEL_INFO  LogLevel = 0
+	LogLevel_LOG_LEVEL_ERROR LogLevel = 1
 )
 
-// Enum value maps for StreamType.
+// Enum value maps for LogLevel.
 var (
-	StreamType_name = map[int32]string{
-		0: "STREAM_TYPE_UNSPECIFIED",
-		1: "STREAM_TYPE_STDOUT",
-		2: "STREAM_TYPE_STDERR",
+	LogLevel_name = map[int32]string{
+		0: "LOG_LEVEL_INFO",
+		1: "LOG_LEVEL_ERROR",
 	}
-	StreamType_value = map[string]int32{
-		"STREAM_TYPE_UNSPECIFIED": 0,
-		"STREAM_TYPE_STDOUT":      1,
-		"STREAM_TYPE_STDERR":      2,
+	LogLevel_value = map[string]int32{
+		"LOG_LEVEL_INFO":  0,
+		"LOG_LEVEL_ERROR": 1,
 	}
 )
 
-func (x StreamType) Enum() *StreamType {
-	p := new(StreamType)
+func (x LogLevel) Enum() *LogLevel {
+	p := new(LogLevel)
 	*p = x
 	return p
 }
 
-func (x StreamType) String() string {
+func (x LogLevel) String() string {
 	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
 }
 
-func (StreamType) Descriptor() protoreflect.EnumDescriptor {
+func (LogLevel) Descriptor() protoreflect.EnumDescriptor {
 	return file_swanlab_terminal_v1_log_proto_enumTypes[0].Descriptor()
 }
 
-func (StreamType) Type() protoreflect.EnumType {
+func (LogLevel) Type() protoreflect.EnumType {
 	return &file_swanlab_terminal_v1_log_proto_enumTypes[0]
 }
 
-func (x StreamType) Number() protoreflect.EnumNumber {
+func (x LogLevel) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
-// Deprecated: Use StreamType.Descriptor instead.
-func (StreamType) EnumDescriptor() ([]byte, []int) {
+// Deprecated: Use LogLevel.Descriptor instead.
+func (LogLevel) EnumDescriptor() ([]byte, []int) {
 	return file_swanlab_terminal_v1_log_proto_rawDescGZIP(), []int{0}
 }
 
@@ -77,7 +79,7 @@ func (StreamType) EnumDescriptor() ([]byte, []int) {
 type LogRecord struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Line          string                 `protobuf:"bytes,1,opt,name=line,proto3" json:"line,omitempty"`
-	Stream        StreamType             `protobuf:"varint,2,opt,name=stream,proto3,enum=swanlab.terminal.v1.StreamType" json:"stream,omitempty"`
+	Level         LogLevel               `protobuf:"varint,2,opt,name=level,proto3,enum=swanlab.terminal.v1.LogLevel" json:"level,omitempty"`
 	Timestamp     *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
 	Epoch         int64                  `protobuf:"varint,4,opt,name=epoch,proto3" json:"epoch,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -121,11 +123,11 @@ func (x *LogRecord) GetLine() string {
 	return ""
 }
 
-func (x *LogRecord) GetStream() StreamType {
+func (x *LogRecord) GetLevel() LogLevel {
 	if x != nil {
-		return x.Stream
+		return x.Level
 	}
-	return StreamType_STREAM_TYPE_UNSPECIFIED
+	return LogLevel_LOG_LEVEL_INFO
 }
 
 func (x *LogRecord) GetTimestamp() *timestamppb.Timestamp {
@@ -146,17 +148,15 @@ var File_swanlab_terminal_v1_log_proto protoreflect.FileDescriptor
 
 const file_swanlab_terminal_v1_log_proto_rawDesc = "" +
 	"\n" +
-	"\x1dswanlab/terminal/v1/log.proto\x12\x13swanlab.terminal.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xa8\x01\n" +
+	"\x1dswanlab/terminal/v1/log.proto\x12\x13swanlab.terminal.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xa4\x01\n" +
 	"\tLogRecord\x12\x12\n" +
-	"\x04line\x18\x01 \x01(\tR\x04line\x127\n" +
-	"\x06stream\x18\x02 \x01(\x0e2\x1f.swanlab.terminal.v1.StreamTypeR\x06stream\x128\n" +
+	"\x04line\x18\x01 \x01(\tR\x04line\x123\n" +
+	"\x05level\x18\x02 \x01(\x0e2\x1d.swanlab.terminal.v1.LogLevelR\x05level\x128\n" +
 	"\ttimestamp\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\x12\x14\n" +
-	"\x05epoch\x18\x04 \x01(\x03R\x05epoch*Y\n" +
-	"\n" +
-	"StreamType\x12\x1b\n" +
-	"\x17STREAM_TYPE_UNSPECIFIED\x10\x00\x12\x16\n" +
-	"\x12STREAM_TYPE_STDOUT\x10\x01\x12\x16\n" +
-	"\x12STREAM_TYPE_STDERR\x10\x02BGZEgithub.com/swanhubx/swanlab/core/proto/swanlab/terminal/v1;terminalv1b\x06proto3"
+	"\x05epoch\x18\x04 \x01(\x03R\x05epoch*3\n" +
+	"\bLogLevel\x12\x12\n" +
+	"\x0eLOG_LEVEL_INFO\x10\x00\x12\x13\n" +
+	"\x0fLOG_LEVEL_ERROR\x10\x01BGZEgithub.com/swanhubx/swanlab/core/proto/swanlab/terminal/v1;terminalv1b\x06proto3"
 
 var (
 	file_swanlab_terminal_v1_log_proto_rawDescOnce sync.Once
@@ -173,12 +173,12 @@ func file_swanlab_terminal_v1_log_proto_rawDescGZIP() []byte {
 var file_swanlab_terminal_v1_log_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_swanlab_terminal_v1_log_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_swanlab_terminal_v1_log_proto_goTypes = []any{
-	(StreamType)(0),               // 0: swanlab.terminal.v1.StreamType
+	(LogLevel)(0),                 // 0: swanlab.terminal.v1.LogLevel
 	(*LogRecord)(nil),             // 1: swanlab.terminal.v1.LogRecord
 	(*timestamppb.Timestamp)(nil), // 2: google.protobuf.Timestamp
 }
 var file_swanlab_terminal_v1_log_proto_depIdxs = []int32{
-	0, // 0: swanlab.terminal.v1.LogRecord.stream:type_name -> swanlab.terminal.v1.StreamType
+	0, // 0: swanlab.terminal.v1.LogRecord.level:type_name -> swanlab.terminal.v1.LogLevel
 	2, // 1: swanlab.terminal.v1.LogRecord.timestamp:type_name -> google.protobuf.Timestamp
 	2, // [2:2] is the sub-list for method output_type
 	2, // [2:2] is the sub-list for method input_type

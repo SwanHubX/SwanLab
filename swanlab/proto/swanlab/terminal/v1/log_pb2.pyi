@@ -9,23 +9,21 @@ from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
-class StreamType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+class LogLevel(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
-    STREAM_TYPE_UNSPECIFIED: _ClassVar[StreamType]
-    STREAM_TYPE_STDOUT: _ClassVar[StreamType]
-    STREAM_TYPE_STDERR: _ClassVar[StreamType]
-STREAM_TYPE_UNSPECIFIED: StreamType
-STREAM_TYPE_STDOUT: StreamType
-STREAM_TYPE_STDERR: StreamType
+    LOG_LEVEL_INFO: _ClassVar[LogLevel]
+    LOG_LEVEL_ERROR: _ClassVar[LogLevel]
+LOG_LEVEL_INFO: LogLevel
+LOG_LEVEL_ERROR: LogLevel
 
 class LogRecord(_message.Message):
-    __slots__ = ("line", "stream", "timestamp", "epoch")
+    __slots__ = ("line", "level", "timestamp", "epoch")
     LINE_FIELD_NUMBER: _ClassVar[int]
-    STREAM_FIELD_NUMBER: _ClassVar[int]
+    LEVEL_FIELD_NUMBER: _ClassVar[int]
     TIMESTAMP_FIELD_NUMBER: _ClassVar[int]
     EPOCH_FIELD_NUMBER: _ClassVar[int]
     line: str
-    stream: StreamType
+    level: LogLevel
     timestamp: _timestamp_pb2.Timestamp
     epoch: int
-    def __init__(self, line: _Optional[str] = ..., stream: _Optional[_Union[StreamType, str]] = ..., timestamp: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., epoch: _Optional[int] = ...) -> None: ...
+    def __init__(self, line: _Optional[str] = ..., level: _Optional[_Union[LogLevel, str]] = ..., timestamp: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., epoch: _Optional[int] = ...) -> None: ...
