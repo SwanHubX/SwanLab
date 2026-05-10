@@ -33,17 +33,17 @@ class ProbePython(ProbeProtocol):
         """
         启动硬件采集
         """
-        settings = self._ctx.config.settings
+        probe_settings = self._ctx.config.settings.probe
         # 1. 系统环境信息采集
-        git_snapshot = git.get() if settings.environment.git else None
-        runtime_snapshot = runtime.get() if settings.environment.runtime else None
-        conda_snapshot = conda.get() if settings.environment.conda else None
-        requirements_snapshot = requirements.get() if settings.environment.requirements else None
-        swanlab_snapshot = swanlab.get(self._ctx) if settings.environment.swanlab else None
+        git_snapshot = git.get() if probe_settings.git else None
+        runtime_snapshot = runtime.get() if probe_settings.runtime else None
+        conda_snapshot = conda.get() if probe_settings.conda else None
+        requirements_snapshot = requirements.get() if probe_settings.requirements else None
+        swanlab_snapshot = swanlab.get(self._ctx) if probe_settings.swanlab else None
 
         # 2. 系统硬件信息采集，只有在硬件采集和监控都不开启时才不采集
         hardware_snapshot = None
-        if settings.environment.hardware or settings.monitor.enable:
+        if probe_settings.hardware or probe_settings.monitor:
             # 2.1 苹果
             apple_snapshot = Apple.get()
             # 2.2 通用硬件
@@ -68,7 +68,7 @@ class ProbePython(ProbeProtocol):
         )
         system_shim = SystemShim.from_snapshot(metadata, platform=sys.platform)
         # 如果硬采集被设置为False，删除硬件信息
-        if not settings.environment.hardware:
+        if not probe_settings.hardware:
             metadata = metadata.del_hardware()
 
         sys_info = SystemEnvironment(
@@ -91,7 +91,7 @@ class ProbePython(ProbeProtocol):
             self._ctx.core.upsert_conda([CondaRecord(timestamp=ts)])
 
         # 5. 设置硬件监控
-        if settings.monitor.enable:
+        if probe_settings.monitor:
             if (hm := Monitor(system_shim, self._ctx.core).start(self._ctx)) is not None:
                 self._monitor = hm
 

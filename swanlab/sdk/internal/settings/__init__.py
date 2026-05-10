@@ -33,12 +33,13 @@ from pydantic_settings import (
 )
 
 from swanlab.sdk.internal.pkg import helper, nrc, safe
+from swanlab.sdk.internal.settings.console import ConsoleSettings
+from swanlab.sdk.internal.settings.probe import ProbeSettings
 from swanlab.sdk.typings.run import ModeType
 
 from .core import CoreSettings
 from .experiment import ExperimentSettings, ProjectSettings, RunSettings
 from .integration import IntegrationSettings
-from .metadata import ConsoleSettings, EnvironmentSettings, MonitorSettings
 
 __all__ = ["Settings", "settings", "ROOT_FOLDER"]
 
@@ -76,29 +77,29 @@ class Settings(BaseSettings):
         Create custom settings:
 
         >>> from swanlab import Settings
-        >>> settings = Settings(mode="local", logdir="./my_logs")
+        >>> custom_settings = Settings(mode="local", logdir="./my_logs")
         >>> import swanlab
-        >>> swanlab.merge_settings(settings)
+        >>> swanlab.merge_settings(custom_settings)
         >>> run = swanlab.init()
 
         Configure nested settings:
 
         >>> from swanlab import Settings
-        >>> settings = Settings(
+        >>> custom_settings = Settings(
         ...     mode="online",
-        ...     monitor=Settings.Monitor(enable=False)
+        ...     monitor=Settings.Probe(monitor=False)
         ... )
         >>> import swanlab
-        >>> swanlab.merge_settings(settings)
+        >>> swanlab.merge_settings(custom_settings)
     """
 
     Project: ClassVar[Type[ProjectSettings]] = ProjectSettings
     Run: ClassVar[Type[RunSettings]] = RunSettings
     Experiment: ClassVar[Type[ExperimentSettings]] = ExperimentSettings
-    Monitor: ClassVar[Type[MonitorSettings]] = MonitorSettings
     Console: ClassVar[Type[ConsoleSettings]] = ConsoleSettings
     Integration: ClassVar[Type[IntegrationSettings]] = IntegrationSettings
     Core: ClassVar[Type[CoreSettings]] = CoreSettings
+    Probe: ClassVar[Type[ProbeSettings]] = ProbeSettings
 
     interactive: bool = True
     """
@@ -272,14 +273,6 @@ class Settings(BaseSettings):
     """
     Configuration for the run of this SwanLab experiment.
     """
-    environment: EnvironmentSettings = Field(default_factory=EnvironmentSettings)
-    """
-    Configuration for one-time system snapshot collection (hardware specs, runtime, Python env, git, etc.).
-    """
-    monitor: MonitorSettings = Field(default_factory=MonitorSettings)
-    """
-    Configuration for periodic hardware monitoring (CPU, GPU, memory, disk I/O, etc.).
-    """
     console: ConsoleSettings = Field(default_factory=ConsoleSettings)
     """
     Configuration for SwanLab terminal log collection.
@@ -291,6 +284,10 @@ class Settings(BaseSettings):
     core: CoreSettings = Field(default_factory=CoreSettings)
     """
     Configuration for SwanLab Core behavior.
+    """
+    probe: ProbeSettings = Field(default_factory=ProbeSettings)
+    """
+    Configuration for SwanLab Probe behavior.
     """
 
     model_config = SettingsConfigDict(
