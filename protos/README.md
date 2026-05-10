@@ -17,40 +17,42 @@ protos/
 └── swanlab/
     ├── record/
     │   └── v1/
-    │       └── record.proto        # 顶层信封，所有消息的统一入口
+    │       └── record.proto            # 顶层信封，所有消息的统一入口
     │
     ├── run/
     │   └── v1/
-    │       └── run.proto           # Run 生命周期（RunRecord、FinishRecord）
+    │       └── run.proto               # Run 生命周期（StartRecord、FinishRecord）
     │
-    ├── data/
-    │   └── v1/
-    │       ├── metric.proto        # 用户 swanlab.log() 产生的 metric 记录（MetricRecord）
-    │       ├── column.proto        # 列定义（ColumnRecord），描述 metric 的展示与归类配置
-    │       ├── scalar.proto        # 标量值（数字 / 字符串 / bool）
-    │       ├── image.proto         # 图像引用
-    │       ├── audio.proto         # 音频引用
-    │       ├── video.proto         # 视频引用
-    │       ├── text.proto          # 文本值
-    │       ├── table.proto         # 表格值
-    │       └── echarts.proto       # ECharts 可视化配置
+    ├── metric/
+    │   ├── column/
+    │   │   └── v1/
+    │   │       └── column.proto        # 列定义（ColumnRecord），描述 metric 的展示与归类配置
+    │   └── data/
+    │       └── v1/
+    │           └── data.proto          # 用户 swanlab.log() 产生的指标数据（ScalarRecord、MediaRecord）
     │
     ├── config/
     │   └── v1/
-    │       └── config.proto        # 用户传入的实验 config
+    │       └── config.proto            # 用户传入的实验 config（ConfigRecord）
     │
-    └── system/
+    ├── env/
+    │   └── v1/
+    │       └── env.proto               # 软件环境与主机元数据引用（MetadataRecord、RequirementsRecord、CondaRecord）
+    │
+    ├── terminal/
+    │   └── v1/
+    │       └── log.proto               # 终端代理捕获的 stdout/stderr 输出（LogRecord、StreamType）
+    │
+    └── save/
         └── v1/
-            ├── hardware.proto      # 运行时硬件监控（StatsRecord）
-            ├── env.proto           # 软件环境与主机元数据引用（MetadataRecord、RequirementsRecord、CondaRecord）
-            └── console.proto       # 终端代理捕获的 stdout/stderr 输出
+            └── save.proto              # 文件保存记录（SaveRecord）
 ```
 
 ## 消息流
 
 ```
 swanlab.init(...)
-  → Record { run:          RunRecord          }   # run 基本信息，写入一次
+  → Record { start:        StartRecord        }   # run 基本信息，写入一次
   → Record { metadata:     MetadataRecord     }   # 主机与环境快照引用，写入一次
   → Record { requirements: RequirementsRecord }   # Python 依赖引用，写入一次
   → Record { conda:        CondaRecord        }   # Conda 环境引用，写入一次
@@ -59,18 +61,18 @@ swanlab.init(...)
 # 训练循环中，首次出现某 key 时先发送列定义
   → Record { column: ColumnRecord { key="loss", type=FLOAT, ... } }
   → Record { column: ColumnRecord { key="img",  type=IMAGE, ... } }
-# 每个指标独立生成一条 MetricRecord，swanlab.log({"loss": 0.5, "img": Image(...)}, step=10) 产生两条：
-  → Record { metric: MetricRecord { key="loss", step=10, value=ScalarValue{...} } }
-  → Record { metric: MetricRecord { key="img",  step=10, value=ImageValue{...}  } }
+# 每个指标独立生成一条 Record，swanlab.log({"loss": 0.5, "img": Image(...)}, step=10) 产生两条：
+  → Record { scalar: ScalarRecord { key="loss", step=10, ... } }
+  → Record { media:  MediaRecord  { key="img",  step=10, ... } }
 
 # 终端代理（每行）
-  → Record { console: ConsoleRecord { line="...", stream=STDOUT } }
-
-# 硬件监控（每 interval 秒）
-  → Record { stats: StatsRecord { cpu=..., gpus=[...], ... } }
+  → Record { log: LogRecord { line="...", stream=STDOUT } }
 
 # 运行中 config 更新
   → Record { config: ConfigRecord { update_type=PATCH, ... } }
+
+# 文件保存
+  → Record { save: SaveRecord { name="...", policy=NOW } }
 
 swanlab.finish()
   → Record { finish: FinishRecord { state=FINISHED } }
@@ -79,3 +81,8 @@ swanlab.finish()
 ## 版本策略
 
 所有 package 路径均含版本号（`v1`），后续不兼容变更通过新增 `v2` 目录演进，不修改已发布版本。
+
+
+## ColumnRecord生成策略
+
+默认 column 记录会在 ScalarRecord 和 MediaRecord 上传时由 core 自动生成。core 也允许手动上传 column record，携带更多自定义参数。

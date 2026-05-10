@@ -8,8 +8,8 @@ import "swanlab/run/v1/run.proto";
 import "swanlab/metric/data/v1/data.proto";
 import "swanlab/metric/column/v1/column.proto";
 import "swanlab/config/v1/config.proto";
-import "swanlab/system/v1/env.proto";
-import "swanlab/system/v1/console.proto";
+import "swanlab/env/v1/env.proto";
+import "swanlab/terminal/v1/log.proto";
 import "swanlab/save/v1/save.proto";
 
 option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/record/v1;recordv1";
@@ -31,8 +31,8 @@ service RecordService {
   // UpsertConfig 接收一组 ConfigRecord 并写入，每一条记录对应一次用户对config的修改
   rpc UpsertConfigs(UpsertConfigsRequest) returns (google.protobuf.Empty);
 
-  // UpsertConsole 接收一组 ConsoleRecord 并写入，每一条记录对应一行用户的终端输出
-  rpc UpsertConsoles(UpsertConsolesRequest) returns (google.protobuf.Empty);
+  // UpsertLogs 接收一组 LogRecord 并写入，每一条记录对应一行用户的终端输出
+  rpc UpsertLogs(UpsertLogsRequest) returns (google.protobuf.Empty);
 
   // UpsertRequirements 接收一组 RequirementsRecord 并写入，每一条记录对应一次用户/系统对requirements的修改
   rpc UpsertRequirements(UpsertRequirementsRequest) returns (google.protobuf.Empty);
@@ -66,20 +66,20 @@ message UpsertConfigsRequest {
   repeated swanlab.config.v1.ConfigRecord configs = 1;
 }
 
-message UpsertConsolesRequest {
-  repeated swanlab.system.v1.ConsoleRecord consoles = 1;
+message UpsertLogsRequest {
+  repeated swanlab.terminal.v1.LogRecord logs = 1;
 }
 
 message UpsertMetadataRequest {
-  repeated swanlab.system.v1.MetadataRecord metadata = 1;
+  repeated swanlab.env.v1.MetadataRecord metadata = 1;
 }
 
 message UpsertRequirementsRequest {
-  repeated swanlab.system.v1.RequirementsRecord requirements = 1;
+  repeated swanlab.env.v1.RequirementsRecord requirements = 1;
 }
 
 message UpsertCondaRequest {
-  repeated swanlab.system.v1.CondaRecord conda = 1;
+  repeated swanlab.env.v1.CondaRecord conda = 1;
 }
 
 message UpsertSavesRequest {
@@ -95,7 +95,7 @@ message UpsertSavesRequest {
 // 消息流示意：
 //   init()  → StartRecord, MetadataRecord, ConfigRecord
 //   log()   → MetricRecord（每个 key 一条）
-//   stdout  → ConsoleRecord（每行一条）
+//   stdout  → LogRecord（每行一条）
 //   finish()→ FinishRecord
 message Record {
   // 单调递增序号，由Core构建，用于缓冲区去重，约定：
@@ -122,12 +122,12 @@ message Record {
     swanlab.config.v1.ConfigRecord        config      = 15;
 
     // ── 终端输出 ──
-    swanlab.system.v1.ConsoleRecord console           = 16;
+    swanlab.terminal.v1.LogRecord log                 = 16;
 
     // ── 主机元数据（一次性，init 时写入）──
-    swanlab.system.v1.MetadataRecord metadata         = 17;
-    swanlab.system.v1.RequirementsRecord requirements = 18;
-    swanlab.system.v1.CondaRecord conda               = 19;
+    swanlab.env.v1.MetadataRecord metadata            = 17;
+    swanlab.env.v1.RequirementsRecord requirements    = 18;
+    swanlab.env.v1.CondaRecord conda                  = 19;
 
     // ── 文件保存 ──
     swanlab.save.v1.SaveRecord save                    = 20;
