@@ -303,12 +303,16 @@ class HttpRecordSender:
                 md5_futures = {source_path: executor.submit(compute_md5, source_path) for source_path, _, _ in pending}
                 for source_path, size, name in pending:
                     md5 = md5_futures[source_path].result()
+                    if not isinstance(md5, str):
+                        console.warning(f"Save file MD5 computation failed, skipping: {source_path}")
+                        continue
                     mime_type = mimetypes.guess_type(source_path)[0] or "application/octet-stream"
                     file_entries.append(
                         {
                             "path": name,
                             "source_path": source_path,
-                            "size": size,
+                            # make pycharm happy
+                            "size": cast(int, size),
                             "md5": md5,
                             "mime_type": mime_type,
                         }
