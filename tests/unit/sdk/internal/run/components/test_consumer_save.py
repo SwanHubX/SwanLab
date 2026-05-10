@@ -126,7 +126,7 @@ def test_save_batch_flushes_alongside_other_batch_types(tmp_path: Path):
     save_record = builder.build_save.return_value
     consumer._save_batch.append(save_record)
     consumer._log_batch.append(
-        builder.build_console(LogEvent(line="hello", level=LogLevel.LOG_LEVEL_INFO, timestamp=Timestamp()))
+        builder.build_log(LogEvent(line="hello", level=LogLevel.LOG_LEVEL_INFO, timestamp=Timestamp()))
     )
 
     consumer._flush()
