@@ -76,16 +76,16 @@ class RecordBuilder:
     # ── 用户数据 ──
 
     @singledispatchmethod
-    def build_log(self, value, key: str, timestamp: Timestamp, step: int) -> ParseResult:
+    def build_scalar_or_media(self, value, key: str, timestamp: Timestamp, step: int) -> ParseResult:
         """默认回退：swanlab.echarts 图表自动包装为 ECharts，否则按标量处理"""
         # 如果是 swanlab.echarts 图表，则自动包装为 ECharts，按照媒体处理
         if isinstance(value, _EchartsType):
-            return self.build_log(ECharts(value), key, timestamp, step)
+            return self.build_scalar_or_media(ECharts(value), key, timestamp, step)
         # 否则按标量处理
         scalar_value = Scalar.transform(value)
         return Scalar.build_data_record(key=key, step=step, timestamp=timestamp, data=scalar_value), Scalar
 
-    @build_log.register(list)
+    @build_scalar_or_media.register(list)
     def _(self, value: list, key: str, timestamp: Timestamp, step: int) -> ParseResult:
         """媒体对象数组
         dispatch 并不能识别每个数组元素的类型，因此还需手动检查；
@@ -112,7 +112,7 @@ class RecordBuilder:
         )
         return media_record, cls
 
-    @build_log.register(TransformMedia)
+    @build_scalar_or_media.register(TransformMedia)
     def _(self, value: TransformMedia, key: str, timestamp: Timestamp, step: int) -> ParseResult:
         """将单个 TransformMediaType 转换为 MediaRecord"""
         cls = value.__class__
@@ -148,7 +148,7 @@ class RecordBuilder:
         return ConfigRecord(update_type=event.update, timestamp=event.timestamp)
 
     @staticmethod
-    def build_console(event: LogEvent) -> LogRecord:
+    def build_log(event: LogEvent) -> LogRecord:
         """构建 LogRecord envelope"""
         return LogRecord(line=event.line, level=event.level, timestamp=event.timestamp)
 

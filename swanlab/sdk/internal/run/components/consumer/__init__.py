@@ -187,14 +187,14 @@ class BackgroundConsumer(ConsumerProtocol):
         elif isinstance(event, ConfigEvent):
             self._config_batch.append(self._builder.build_config(event))
         elif isinstance(event, LogEvent):
-            self._log_batch.append(self._builder.build_console(event))
+            self._log_batch.append(self._builder.build_log(event))
         elif isinstance(event, FileSaveEvent):
             self._save_batch.append(self._builder.build_save(event))
 
     def _handle_metric_log(self, event: MetricLogEvent) -> None:
         for key, value in event.data.items():
             with safe.block(message=f"Error when parsing metric '{key}'"):
-                data_record, _ = self._builder.build_log(value, key, event.timestamp, event.step)
+                data_record, _ = self._builder.build_scalar_or_media(value, key, event.timestamp, event.step)
                 if data_record is None:
                     console.warning(f"Metric '{key}' at step {event.step} returned no data, skipped")
                     continue
