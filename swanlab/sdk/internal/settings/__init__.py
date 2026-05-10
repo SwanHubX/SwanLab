@@ -59,7 +59,8 @@ CONFIG_DIR: str = config_dir_env or "/etc/swanlab"
 
 
 def log_dir_factory() -> Path:
-    return Path.cwd() / "swanlog"
+    # 向下兼容旧版本环境变量
+    return Path(os.environ.get("SWANLAB_LOGDIR", str(Path.cwd() / "swanlog")))
 
 
 class Settings(BaseSettings):
