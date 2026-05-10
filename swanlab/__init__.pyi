@@ -76,7 +76,7 @@ __all__ = [
 def init(
     *,
     reinit: Optional[bool] = None,
-    logdir: Optional[str] = None,
+    log_dir: Optional[str] = None,
     mode: Optional[ModeType] = None,
     workspace: Optional[str] = None,
     project: Optional[str] = None,
@@ -101,7 +101,7 @@ def init(
     close the run. SwanLab automatically finishes runs at program exit.
 
     :param reinit: If True, finish the current run before starting a new one. Defaults to False.
-    :param logdir: Directory to store logs. Defaults to "./swanlog".
+    :param log_dir: Directory to store logs. Defaults to "./swanlog".
     :param mode: Run mode. Options: "online" (sync to cloud), "local" (local only),
         "offline" (save locally for later sync), "disabled" (no logging). Defaults to "online".
     :param workspace: Workspace or organization name. Defaults to current user.
@@ -229,7 +229,7 @@ def merge_settings(settings: Union[Settings, dict]) -> None:
     Examples:
 
         >>> import swanlab
-        >>> swanlab.merge_settings({"mode": "local", "logdir": "./my_logs"})
+        >>> swanlab.merge_settings({"mode": "local", "log_dir": "./my_logs"})
         >>> swanlab.init()
     """
     ...
