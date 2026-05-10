@@ -22,17 +22,9 @@ class SwanLabTracker(Callback, _GeneralTracker):
         experiment_name: Optional[str] = None,
         description: Optional[str] = None,
         log_dir: Optional[str] = None,
-        logdir: Optional[str] = None,
         mode: Optional[str] = None,
         **kwargs: Any,
     ) -> None:
-        if logdir is not None:
-            import warnings
-
-            warnings.warn(
-                "The `logdir` parameter is deprecated, use `log_dir` instead.", DeprecationWarning, stacklevel=2
-            )
-            log_dir = logdir
         self._init_kwargs: dict[str, Any] = {}
         for key, value in [
             ("project", project),

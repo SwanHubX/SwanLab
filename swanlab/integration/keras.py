@@ -22,19 +22,11 @@ class SwanLabCallback(Callback, _KerasCallback):
         experiment_name: Optional[str] = None,
         description: Optional[str] = None,
         log_dir: Optional[str] = None,
-        logdir: Optional[str] = None,
         mode: Optional[str] = None,
         tags: Optional[List[str]] = None,
         config: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
-        if logdir is not None:
-            import warnings
-
-            warnings.warn(
-                "The `logdir` parameter is deprecated, use `log_dir` instead.", DeprecationWarning, stacklevel=2
-            )
-            log_dir = logdir
         _KerasCallback.__init__(self)
 
         if log_freq == "batch":
