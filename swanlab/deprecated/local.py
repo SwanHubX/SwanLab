@@ -90,27 +90,8 @@ def _get_free_port(address: str = "0.0.0.0", default_port: int = 5092) -> int:
     ),
     help="Specify the folder to store Swanlog. Deprecated: use `swanlab watch <LOG PATH>` instead.",
 )
-@click.option(
-    "--logdir",
-    default=None,
-    nargs=1,
-    type=click.Path(
-        exists=True,
-        dir_okay=True,
-        file_okay=False,
-        resolve_path=True,
-        readable=True,
-    ),
-    help="Deprecated: use --log-dir instead.",
-    hidden=True,
-)
-def watch(path: str, host: str, port: int, log_dir: str, logdir: str):
+def watch(path: str, host: str, port: int, log_dir: str):
     """Run this command to turn on the SwanLab dashboard service."""
-    # logdir 兼容旧参数（向后兼容）
-    if logdir is not None:
-        click.echo("Warning: The option `--logdir` is deprecated, use `--log-dir` instead.")
-        log_dir = logdir
-
     # log-dir 覆盖 path（向后兼容）
     if log_dir is not None:
         click.echo(
@@ -131,13 +112,6 @@ def watch(path: str, host: str, port: int, log_dir: str, logdir: str):
         click.echo("Please install the swanboard package: `pip install swanlab[dashboard]`")
         return sys.exit(1)
     # ----- 校验path，path如果被输入，已经由上层校验已存在，可读，是一个文件夹 -----
-    if logdir is not None:
-        pkg.console.warning(
-            "The option `--logdir` will be deprecated in the future, "
-            "you can just use `swanlab watch [PATH]` to specify the path."
-        )
-    # logdir 覆盖 path，接下来统一处理path而不再管logdir
-    path = logdir if logdir is not None else path
     if path is not None:
         path = os.path.abspath(path)
         os.environ["SWANLAB_LOG_DIR"] = path

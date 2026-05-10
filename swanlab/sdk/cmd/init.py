@@ -81,8 +81,6 @@ def compatible_kwargs(model_dict: dict, **kwargs) -> dict:
     set_nested_value(model_dict, "experiment.name", kwargs.pop("experiment_name", None))
     # notes --> description
     set_nested_value(model_dict, "experiment.description", kwargs.pop("notes", None))
-    # logdir --> log_dir (backward compatibility)
-    set_nested_value(model_dict, "log_dir", kwargs.pop("logdir", None))
     return model_dict
 
 
