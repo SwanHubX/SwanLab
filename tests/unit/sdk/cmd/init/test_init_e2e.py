@@ -324,7 +324,7 @@ class TestInitDisabledMode:
         assert isinstance(run, Run)
         assert has_run()
 
-    def test_init_does_not_create_logdir(self):
+    def test_init_does_not_create_log_dir(self):
         """disabled 模式不得创建日志目录"""
         run = init(mode="disabled")
         log_dir = run._ctx.config.settings.log_dir
@@ -368,7 +368,7 @@ class TestInitDisabledMode:
 
 
 class TestInitLocalMode:
-    def test_init_creates_logdir_with_gitignore(self):
+    def test_init_creates_log_dir_with_gitignore(self):
         """local 模式应创建日志目录，并在首次创建时写入 .gitignore"""
         run = init(mode="local")
         log_dir = run._ctx.config.settings.log_dir

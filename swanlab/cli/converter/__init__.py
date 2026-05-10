@@ -38,11 +38,18 @@ import click
     help="The mode of the swanlab run.",
 )
 @click.option(
-    "--logdir",
+    "--log_dir",
     "-l",
     type=str,
     default=None,
     help="The directory where the swanlab log files are stored.",
+)
+@click.option(
+    "--logdir",
+    type=str,
+    default=None,
+    help="Deprecated: use --log_dir instead.",
+    hidden=True,
 )
 # tensorboard options
 @click.option("--tb-logdir", type=str, default=None, help="The directory where the tensorboard log files are stored.")
@@ -67,6 +74,7 @@ def convert(
     project: str,
     mode: str,
     workspace: str,
+    log_dir: str,
     logdir: str,
     tb_logdir: str,
     tb_types: str,
@@ -80,5 +88,9 @@ def convert(
     **kwargs,
 ):
     """Convert the log files of other experiment tracking tools to SwanLab."""
+    if logdir is not None:
+        click.echo("Warning: The option `--logdir` is deprecated, use `--log_dir` instead.")
+        log_dir = logdir
+    print(log_dir)
     # TODO: 接入重构后的 converter 逻辑
     pass

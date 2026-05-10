@@ -89,7 +89,7 @@ class SwanlabVisBackend(Callback, _BaseVisBackend):
     def _init_env(self) -> None:
         if self._save_dir is not None:
             os.makedirs(self._save_dir, exist_ok=True)
-        self._init_kwargs.setdefault("logdir", self._save_dir)
+        self._init_kwargs.setdefault("log_dir", self._save_dir)
 
         if self._get_active_run() is not None:
             self._swanlab_initialized = True

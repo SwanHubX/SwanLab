@@ -44,12 +44,20 @@ class SwanLabCallback(Callback, swanlab.vendor.transformers.trainer_callback.Tra
         workspace: Optional[str] = None,
         experiment_name: Optional[str] = None,
         description: Optional[str] = None,
+        log_dir: Optional[str] = None,
         logdir: Optional[str] = None,
         mode: Optional[str] = None,
         tags: Optional[List[str]] = None,
         log_config: bool = True,
         **_kwargs: Any,
     ) -> None:
+        if logdir is not None:
+            import warnings
+
+            warnings.warn(
+                "The `logdir` parameter is deprecated, use `log_dir` instead.", DeprecationWarning, stacklevel=2
+            )
+            log_dir = logdir
         self._log_config = log_config
         self._init_kwargs: Dict[str, Any] = {}
         for key, value in [
@@ -57,7 +65,7 @@ class SwanLabCallback(Callback, swanlab.vendor.transformers.trainer_callback.Tra
             ("workspace", workspace),
             ("experiment_name", experiment_name),
             ("description", description),
-            ("logdir", logdir),
+            ("log_dir", log_dir),
             ("mode", mode),
             ("tags", tags),
         ]:
