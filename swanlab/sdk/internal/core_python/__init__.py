@@ -22,6 +22,7 @@ Core 同时需要根据不同模式处理不同的业务，这是设计模式决
 from typing import List, Optional, Tuple
 
 from swanlab.proto.swanlab.config.v1.config_pb2 import ConfigRecord
+from swanlab.proto.swanlab.env.v1.env_pb2 import CondaRecord, MetadataRecord, RequirementsRecord
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnClass, ColumnRecord, ColumnType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord, ScalarRecord
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
@@ -33,8 +34,7 @@ from swanlab.proto.swanlab.run.v1.run_pb2 import (
     StartResponse,
 )
 from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord
-from swanlab.proto.swanlab.system.v1.console_pb2 import ConsoleRecord, StreamType
-from swanlab.proto.swanlab.system.v1.env_pb2 import CondaRecord, MetadataRecord, RequirementsRecord
+from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogLevel, LogRecord
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.core_python.api.experiment import (
     create_or_resume_experiment,
@@ -325,18 +325,18 @@ class CorePython(CoreProtocol):
         records = self._upsert_media_to_metrics(media)
         self._transport_put(records)
 
-    # ---- upsert_consoles ----
+    # ---- upsert_logs ----
 
-    def _upsert_consoles_when_local(self, consoles: List[ConsoleRecord]) -> None:
-        records = [builder.build_console_record(self._counter, self._epoch, c) for c in consoles]
+    def _upsert_logs_when_local(self, logs: List[LogRecord]) -> None:
+        records = [builder.build_log_record(self._counter, self._epoch, c) for c in logs]
         self._store_records(records)
 
-    def _upsert_consoles_when_offline(self, consoles: List[ConsoleRecord]) -> None:
-        records = [builder.build_console_record(self._counter, self._epoch, c) for c in consoles]
+    def _upsert_logs_when_offline(self, logs: List[LogRecord]) -> None:
+        records = [builder.build_log_record(self._counter, self._epoch, c) for c in logs]
         self._store_records(records)
 
-    def _upsert_consoles_when_online(self, consoles: List[ConsoleRecord]) -> None:
-        records = [builder.build_console_record(self._counter, self._epoch, c) for c in consoles]
+    def _upsert_logs_when_online(self, logs: List[LogRecord]) -> None:
+        records = [builder.build_log_record(self._counter, self._epoch, c) for c in logs]
         self._store_records(records)
         self._transport_put(records)
 
@@ -472,22 +472,25 @@ class CorePython(CoreProtocol):
     def _build_finish_record(self, finish_record: FinishRecord) -> Tuple[Record, Optional[Record]]:
         record = builder.build_finish_record(finish_record)
         record.finish.CopyFrom(finish_record)
-        console_record: Optional[Record] = None
+        log_record: Optional[Record] = None
         if finish_record.state != RunState.RUN_STATE_FINISHED:
             error_message = (
                 finish_record.error
                 if finish_record.error
                 else "run failed with unknown error while finish_record.error is not set"
             )
-            c = ConsoleRecord(
-                timestamp=finish_record.finished_at,
-                stream=StreamType.STREAM_TYPE_STDERR,
-                line=error_message,
+            log_record = builder.build_log_record(
+                self._counter,
+                self._epoch,
+                LogRecord(
+                    timestamp=finish_record.finished_at,
+                    level=LogLevel.LOG_LEVEL_ERROR,
+                    line=error_message,
+                ),
             )
-            console_record = builder.build_console_record(self._counter, self._epoch, c)
-            # 不将 console_record 写入 store 中，一方面具体的报错信息存储在 finish_record 中
+            # 不将 log_record 写入 store 中，一方面具体的报错信息存储在 finish_record 中
             # 另一方面因为这个 record 也是为了适应后端“报错信息写在CH”的设计
-        return record, console_record
+        return record, log_record
 
     def _finish_when_local(self, finish_record: FinishRecord) -> FinishResponse:
         self._stop_watcher()
@@ -504,11 +507,11 @@ class CorePython(CoreProtocol):
     def _finish_when_online(self, finish_record: FinishRecord) -> FinishResponse:
         self._stop_watcher()
         # 1. 构建停止记录
-        record, console_record = self._build_finish_record(finish_record)
+        record, log_record = self._build_finish_record(finish_record)
         self._finish_store(record)
         assert self._transport is not None, "transport must be initialized before finishing"
-        if console_record is not None:
-            self._transport_put([console_record])
+        if log_record is not None:
+            self._transport_put([log_record])
         # 2. 刷出暂存的 end-policy save 记录
         if self._pending_end_saves:
             self._transport_put(self._pending_end_saves)

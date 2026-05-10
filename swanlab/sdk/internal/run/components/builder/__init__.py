@@ -20,8 +20,8 @@ from swanlab.proto.swanlab.metric.column.v1.column_pb2 import (
 )
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord
 from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord
-from swanlab.proto.swanlab.system.v1.console_pb2 import ConsoleRecord
-from swanlab.sdk.internal.bus.events import ConfigEvent, ConsoleEvent, FileSaveEvent, ParseResult, ScalarDefineEvent
+from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogRecord
+from swanlab.sdk.internal.bus.events import ConfigEvent, FileSaveEvent, LogEvent, ParseResult, ScalarDefineEvent
 from swanlab.sdk.internal.context import RunContext, TransformMedia
 from swanlab.sdk.internal.pkg import adapter, console, fs
 from swanlab.sdk.internal.run.transforms import ECharts, Scalar, echarts
@@ -148,9 +148,9 @@ class RecordBuilder:
         return ConfigRecord(update_type=event.update, timestamp=event.timestamp)
 
     @staticmethod
-    def build_console(event: ConsoleEvent) -> ConsoleRecord:
-        """构建 ConsoleRecord envelope"""
-        return ConsoleRecord(line=event.line, stream=event.stream, timestamp=event.timestamp)
+    def build_console(event: LogEvent) -> LogRecord:
+        """构建 LogRecord envelope"""
+        return LogRecord(line=event.line, level=event.level, timestamp=event.timestamp)
 
     # ── 文件保存 (Save) 数据 ──
     @classmethod

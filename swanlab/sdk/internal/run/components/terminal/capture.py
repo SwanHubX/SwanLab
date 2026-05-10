@@ -18,7 +18,6 @@ import contextvars
 import sys
 from typing import Callable, Literal, cast
 
-from swanlab.proto.swanlab.system.v1.console_pb2 import StreamType
 from swanlab.sdk.internal.pkg import fork, safe
 
 # ----------------------------------
@@ -44,7 +43,7 @@ class StreamCapture:
     def __init__(
         self,
         stream_name: Literal["stdout", "stderr"],
-        on_write: Callable[[str, StreamType], None],
+        on_write: Callable[[str], None],
         init_pid: int,
     ) -> None:
         """
@@ -57,9 +56,6 @@ class StreamCapture:
         self._init_pid = init_pid
         self._original_write: Callable | None = None
         self._installed = False
-
-        # 预计算 stream_type
-        self._stream_type = StreamType.STREAM_TYPE_STDOUT if stream_name == "stdout" else StreamType.STREAM_TYPE_STDERR
 
     def install(self) -> None:
         """替换 sys.stdout.write 或 sys.stderr.write。"""
@@ -85,7 +81,6 @@ class StreamCapture:
         assert original_write is not None
         on_write = self._on_write
         init_pid = self._init_pid
-        stream_type = self._stream_type
 
         def write_wrapper(data) -> int:
             # 1. Passthrough: 始终先调用原始 write
@@ -108,7 +103,7 @@ class StreamCapture:
                     else:
                         text = data[:n]
                     # 5. 调用回调
-                    on_write(text, stream_type)
+                    on_write(text)
             finally:
                 _in_callback.set(False)
 

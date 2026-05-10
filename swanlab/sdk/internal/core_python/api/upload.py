@@ -79,7 +79,7 @@ def upload_columns(experiment_id: str, *, columns: UploadColumns) -> None:
     client.post(f"/experiment/{experiment_id}/columns", columns, retries=0)
 
 
-def upload_console(project_id: str, experiment_id: str, *, metrics: UploadLogBatch) -> None:
+def upload_log(project_id: str, experiment_id: str, *, metrics: UploadLogBatch) -> None:
     """
     批量发送日志信息到 /house/metrics。
 

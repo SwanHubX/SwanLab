@@ -20,8 +20,8 @@ from typing import Literal, Protocol
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
-from swanlab.proto.swanlab.system.v1.console_pb2 import StreamType
-from swanlab.sdk.internal.bus import ConsoleEvent, EmitterProtocol
+from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogLevel
+from swanlab.sdk.internal.bus import EmitterProtocol, LogEvent
 from swanlab.sdk.internal.pkg import safe
 
 from .capture import StreamCapture
@@ -154,10 +154,10 @@ class TerminalProxy(TerminalProxyProtocol):
     # Write 回调（由 StreamCapture 在主线程调用）
     # ----------------------------------
 
-    def _on_stdout_write(self, text: str, stream_type: StreamType) -> None:
+    def _on_stdout_write(self, text: str) -> None:
         self._stdout_queue.put(text)
 
-    def _on_stderr_write(self, text: str, stream_type: StreamType) -> None:
+    def _on_stderr_write(self, text: str) -> None:
         self._stderr_queue.put(text)
 
     # ----------------------------------
@@ -212,19 +212,19 @@ class TerminalProxy(TerminalProxyProtocol):
             for line_text, is_new_line in self._stdout_emulator.read():
                 if not is_new_line:
                     continue
-                self._emit_line(line_text, StreamType.STREAM_TYPE_STDOUT)
+                self._emit_line(line_text)
 
             # stderr diff
             for line_text, is_new_line in self._stderr_emulator.read():
                 if not is_new_line:
                     continue
-                self._emit_line(line_text, StreamType.STREAM_TYPE_STDERR)
+                self._emit_line(line_text)
 
     # ----------------------------------
     # ConsoleEvent 发射
     # ----------------------------------
 
-    def _emit_line(self, line: str, stream: StreamType) -> None:
+    def _emit_line(self, line: str, log_level: LogLevel = LogLevel.LOG_LEVEL_INFO) -> None:
         """发射一行 ConsoleEvent，应用 max_log_length 截断。"""
         # 截断
         if len(line) > self._max_log_length:
@@ -232,4 +232,4 @@ class TerminalProxy(TerminalProxyProtocol):
 
         ts = Timestamp()
         ts.GetCurrentTime()
-        self._emitter.emit(ConsoleEvent(line=line, stream=stream, timestamp=ts))
+        self._emitter.emit(LogEvent(line=line, level=log_level, timestamp=ts))

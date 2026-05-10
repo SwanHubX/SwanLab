@@ -31,7 +31,7 @@ from swanlab.sdk.internal.core_python.api.upload import (
     upload_columns,
     upload_conda,
     upload_config,
-    upload_console,
+    upload_log,
     upload_media,
     upload_metadata,
     upload_requirements,
@@ -94,7 +94,7 @@ class HttpRecordSender:
             "scalar": self.upload_scalar,
             "media": self.upload_media,
             "config": self.upload_config,
-            "console": self.upload_console,
+            "log": self.upload_log,
             "metadata": self.upload_metadata,
             "requirements": self.upload_requirements,
             "conda": self.upload_conda,
@@ -202,23 +202,23 @@ class HttpRecordSender:
         upload_resource(self._ensure_session(), self._experiment_id, paths=paths, buffers=buffers)
         upload_media(self._project_id, self._experiment_id, metrics=metrics)
 
-    def upload_console(self, records: Sequence[Record]) -> None:
-        with safe.block(message="Failed to upload console logs, skipping"):
+    def upload_log(self, records: Sequence[Record]) -> None:
+        with safe.block(message="Failed to upload terminal logs, skipping"):
             metrics: UploadLogBatch = []
             for record in records:
-                if not record.HasField("console"):
+                if not record.HasField("log"):
                     continue
-                console_record = record.console
-                if console_record.HasField("timestamp"):
-                    create_time = console_record.timestamp.ToJsonString()
+                log_record = record.log
+                if log_record.HasField("timestamp"):
+                    create_time = log_record.timestamp.ToJsonString()
                     metric: UploadLog = {
-                        "level": adapter.level[console_record.stream],
-                        "epoch": console_record.epoch,
-                        "message": console_record.line,
+                        "level": adapter.level[log_record.level],
+                        "epoch": log_record.epoch,
+                        "message": log_record.line,
                         "create_time": create_time,
                     }
                     metrics.append(metric)
-            upload_console(self._project_id, self._experiment_id, metrics=metrics)
+            upload_log(self._project_id, self._experiment_id, metrics=metrics)
 
     def upload_config(self, _: Sequence[Record]) -> None:
         config_path = self._run_dir / "files" / "config.yaml"

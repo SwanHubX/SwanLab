@@ -12,7 +12,7 @@ from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.proto.swanlab.config.v1.config_pb2 import UpdateType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord, ScalarRecord
-from swanlab.proto.swanlab.system.v1.console_pb2 import StreamType
+from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogLevel
 from swanlab.sdk.internal.context.transformer import TransformData
 from swanlab.sdk.typings.run.column import ScalarXAxisType
 
@@ -55,11 +55,11 @@ class ConfigEvent:
 
 
 @dataclass
-class ConsoleEvent:
+class LogEvent:
     """控制台输出事件"""
 
     line: str
-    stream: StreamType
+    level: LogLevel
     timestamp: Timestamp
 
 
@@ -77,7 +77,7 @@ EventPayload = Union[
     MetricLogEvent,
     ScalarDefineEvent,
     ConfigEvent,
-    ConsoleEvent,
+    LogEvent,
     FileSaveEvent,
 ]
 

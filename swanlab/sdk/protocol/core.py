@@ -10,6 +10,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, List
 
 from swanlab.proto.swanlab.config.v1.config_pb2 import ConfigRecord
+from swanlab.proto.swanlab.env.v1.env_pb2 import CondaRecord, MetadataRecord, RequirementsRecord
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord, ScalarRecord
 from swanlab.proto.swanlab.run.v1.run_pb2 import (
@@ -19,8 +20,7 @@ from swanlab.proto.swanlab.run.v1.run_pb2 import (
     StartResponse,
 )
 from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord
-from swanlab.proto.swanlab.system.v1.console_pb2 import ConsoleRecord
-from swanlab.proto.swanlab.system.v1.env_pb2 import CondaRecord, MetadataRecord, RequirementsRecord
+from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogRecord
 from swanlab.sdk.internal.pkg import safe
 
 if TYPE_CHECKING:
@@ -172,27 +172,27 @@ class CoreProtocol(ABC):
 
     # ---------------------------------- 终端输出 ----------------------------------
 
-    def upsert_consoles(self, consoles: List[ConsoleRecord]) -> None:
-        """上报一组 ConsoleRecord，记录用户终端输出"""
-        with safe.block(message="upsert consoles error"):
+    def upsert_logs(self, logs: List[LogRecord]) -> None:
+        """上报一组 LogRecord，记录用户终端输出"""
+        with safe.block(message="upsert logs error"):
             if self._mode == "online":
-                return self._upsert_consoles_when_online(consoles)
+                return self._upsert_logs_when_online(logs)
             elif self._mode == "local":
-                return self._upsert_consoles_when_local(consoles)
+                return self._upsert_logs_when_local(logs)
             elif self._mode == "offline":
-                return self._upsert_consoles_when_offline(consoles)
-            return self._upsert_consoles_when_disabled(consoles)
+                return self._upsert_logs_when_offline(logs)
+            return self._upsert_logs_when_disabled(logs)
 
-    def _upsert_consoles_when_disabled(self, consoles: List[ConsoleRecord]) -> None: ...
-
-    @abstractmethod
-    def _upsert_consoles_when_local(self, consoles: List[ConsoleRecord]) -> None: ...
+    def _upsert_logs_when_disabled(self, logs: List[LogRecord]) -> None: ...
 
     @abstractmethod
-    def _upsert_consoles_when_offline(self, consoles: List[ConsoleRecord]) -> None: ...
+    def _upsert_logs_when_local(self, logs: List[LogRecord]) -> None: ...
 
     @abstractmethod
-    def _upsert_consoles_when_online(self, consoles: List[ConsoleRecord]) -> None: ...
+    def _upsert_logs_when_offline(self, logs: List[LogRecord]) -> None: ...
+
+    @abstractmethod
+    def _upsert_logs_when_online(self, logs: List[LogRecord]) -> None: ...
 
     # ---------------------------------- 依赖信息 ----------------------------------
 

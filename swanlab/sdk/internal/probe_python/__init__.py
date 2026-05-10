@@ -11,7 +11,7 @@ from typing import Optional
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
-from swanlab.proto.swanlab.system.v1.env_pb2 import CondaRecord, MetadataRecord, RequirementsRecord
+from swanlab.proto.swanlab.env.v1.env_pb2 import CondaRecord, MetadataRecord, RequirementsRecord
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.pkg import fs
 from swanlab.sdk.internal.probe_python.environment import conda, git, requirements, runtime, swanlab
