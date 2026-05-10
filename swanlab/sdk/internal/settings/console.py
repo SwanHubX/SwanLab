@@ -7,8 +7,7 @@
 
 from typing import Literal
 
-from pydantic import ConfigDict, Field
-from pydantic.main import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ConsoleSettings(BaseModel):

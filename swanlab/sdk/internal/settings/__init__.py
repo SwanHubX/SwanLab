@@ -33,13 +33,13 @@ from pydantic_settings import (
 )
 
 from swanlab.sdk.internal.pkg import helper, nrc, safe
-from swanlab.sdk.internal.settings.console import ConsoleSettings
-from swanlab.sdk.internal.settings.probe import ProbeSettings
 from swanlab.sdk.typings.run import ModeType
 
+from .console import ConsoleSettings
 from .core import CoreSettings
 from .experiment import ExperimentSettings, ProjectSettings, RunSettings
 from .integration import IntegrationSettings
+from .probe import ProbeSettings
 
 __all__ = ["Settings", "settings", "ROOT_FOLDER"]
 
@@ -77,7 +77,8 @@ class Settings(BaseSettings):
         Create custom settings:
 
         >>> from swanlab import Settings
-        >>> custom_settings = Settings(mode="local", logdir="./my_logs")
+        >>> from pathlib import Path
+        >>> custom_settings = Settings(mode="local", log_dir=Path("./my_logs"))
         >>> import swanlab
         >>> swanlab.merge_settings(custom_settings)
         >>> run = swanlab.init()
@@ -87,7 +88,7 @@ class Settings(BaseSettings):
         >>> from swanlab import Settings
         >>> custom_settings = Settings(
         ...     mode="online",
-        ...     monitor=Settings.Probe(monitor=False)
+        ...     probe=Settings.Probe(monitor=False)
         ... )
         >>> import swanlab
         >>> swanlab.merge_settings(custom_settings)

@@ -518,12 +518,12 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
         # 暂时不允许resume时、旧实验进行硬件信息采集、终端代理
         resume_limit_kwargs = {}
         if not resp.new_experiment:
-            resume_limit_kwargs["environment.hardware"] = False
-            resume_limit_kwargs["environment.requirements"] = False
-            resume_limit_kwargs["environment.conda"] = False
-            resume_limit_kwargs["environment.git"] = False
-            resume_limit_kwargs["environment.swanlab"] = False
-            resume_limit_kwargs["monitor.enable"] = False
+            resume_limit_kwargs["probe.hardware"] = False
+            resume_limit_kwargs["probe.requirements"] = False
+            resume_limit_kwargs["probe.conda"] = False
+            resume_limit_kwargs["probe.git"] = False
+            resume_limit_kwargs["probe.swanlab"] = False
+            resume_limit_kwargs["probe.monitor"] = False
             resume_limit_kwargs["console.proxy_type"] = "none"
             console.info(
                 "Hardware information collection, monitor, and terminal proxy have been disabled in resume mode."
