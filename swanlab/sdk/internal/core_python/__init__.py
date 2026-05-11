@@ -127,7 +127,7 @@ class CorePython(CoreProtocol):
             experiment_id=self._experiment_id,
             ctx=self._ctx,
         )
-        self._transport = Transport(sender=sender)
+        self._transport = Transport(sender=sender, ctx=self._ctx)
         self._heartbeat = Heartbeat(self._experiment_id)
         self._heartbeat.start()
         return resp
