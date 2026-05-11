@@ -14,26 +14,26 @@ from typing import Dict, Iterator, List, Sequence, Tuple, Union
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 
 
-def generate_chunks(records: Sequence[Record], max_records_per_request: int) -> Iterator[Tuple[Sequence[Record], int]]:
+def generate_chunks(records: Sequence[Record], batch_size: int) -> Iterator[Tuple[Sequence[Record], int]]:
     """
     按固定大小对 Record 序列做切片。
     yield: (分片数据, 分片长度)
     """
     if not records:
         return
-    if max_records_per_request == -1:
+    if batch_size == -1:
         yield records, len(records)
         return
-    if max_records_per_request <= 0:
-        raise ValueError(f"max_records_per_request must be -1 or > 0, got {max_records_per_request}")
+    if batch_size <= 0:
+        raise ValueError(f"max_records_per_request must be -1 or > 0, got {batch_size}")
 
     total = len(records)
-    if total <= max_records_per_request:
+    if total <= batch_size:
         yield records, total
         return
 
-    for index in range(0, total, max_records_per_request):
-        chunk = records[index : index + max_records_per_request]
+    for index in range(0, total, batch_size):
+        chunk = records[index : index + batch_size]
         yield chunk, len(chunk)
 
 

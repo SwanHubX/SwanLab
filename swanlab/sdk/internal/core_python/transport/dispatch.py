@@ -27,11 +27,11 @@ class Dispatch:
 
     def __init__(
         self,
-        max_records_per_request: int,
+        batch_size: int,
         upload_callback: Optional[Callable[[int], None]] = None,
         sender: Optional[HttpRecordSender] = None,
     ):
-        self._max_records_per_request = max_records_per_request
+        self._max_records_per_request = batch_size
         self._upload_callback = upload_callback
         self._sender = sender
 

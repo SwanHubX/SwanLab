@@ -30,6 +30,7 @@ class Transport:
     """
 
     THREAD_NAME: str = "SwanLab·Transport"
+    FINISH_JOIN_TIMEOUT: int = 30
 
     def __init__(
         self,
@@ -39,8 +40,7 @@ class Transport:
         auto_start: bool = True,
     ):
         core_settings = ctx.config.settings.core
-        self._batch_interval = core_settings.batch_interval
-        self._finish_join_timeout = core_settings.finish_join_timeout
+        self._batch_interval = core_settings.record.batch_interval
         self._upload_callback = upload_callback
 
         self._cond = threading.Condition()
@@ -53,7 +53,7 @@ class Transport:
         # Transport 持有 sender，负责创建/注入/关闭
         self._sender = sender
         self._dispatcher = Dispatch(
-            max_records_per_request=core_settings.max_records_per_request,
+            batch_size=core_settings.record.batch_size,
             sender=self._sender,
             upload_callback=self._upload_callback,
         )
@@ -91,7 +91,7 @@ class Transport:
         if self._thread is None:
             return
         console.debug("Waiting for Transport to finish...")
-        self._thread.join(timeout=self._finish_join_timeout)
+        self._thread.join(timeout=self.FINISH_JOIN_TIMEOUT)
         console.debug("Transport finished.")
 
     # ── 线程主循环 ──

@@ -9,7 +9,7 @@ from swanlab.sdk.internal.core_python.transport.helper import generate_chunks, g
 def test_generate_chunks_single_chunk(make_scalar_record):
     """验证记录数不超过 max_records_per_request 时产出单个分片。"""
     records = [make_scalar_record(step=i) for i in range(5)]
-    chunks = list(generate_chunks(records, max_records_per_request=10))
+    chunks = list(generate_chunks(records, batch_size=10))
 
     assert len(chunks) == 1
     assert chunks[0] == (records, 5)
@@ -18,7 +18,7 @@ def test_generate_chunks_single_chunk(make_scalar_record):
 def test_generate_chunks_exact_boundary(make_scalar_record):
     """验证记录数恰好等于 max_records_per_request 时产出单个分片，不拆分。"""
     records = [make_scalar_record(step=i) for i in range(100)]
-    chunks = list(generate_chunks(records, max_records_per_request=100))
+    chunks = list(generate_chunks(records, batch_size=100))
 
     assert len(chunks) == 1
     assert chunks[0] == (records, 100)
@@ -27,7 +27,7 @@ def test_generate_chunks_exact_boundary(make_scalar_record):
 def test_generate_chunks_multiple_chunks(make_scalar_record):
     """验证记录数超过 max_records_per_request 时正确拆分为多个分片，最后一片长度不足也正常产出。"""
     records = [make_scalar_record(step=i) for i in range(25)]
-    chunks = list(generate_chunks(records, max_records_per_request=10))
+    chunks = list(generate_chunks(records, batch_size=10))
 
     assert len(chunks) == 3
     assert chunks[0][1] == 10
@@ -38,7 +38,7 @@ def test_generate_chunks_multiple_chunks(make_scalar_record):
 def test_generate_chunks_no_limit(make_scalar_record):
     """验证 max_records_per_request=-1 时不拆分，一次性返回全部记录。"""
     records = [make_scalar_record(step=i) for i in range(9999)]
-    chunks = list(generate_chunks(records, max_records_per_request=-1))
+    chunks = list(generate_chunks(records, batch_size=-1))
 
     assert len(chunks) == 1
     assert chunks[0] == (records, 9999)
@@ -49,21 +49,21 @@ def test_generate_chunks_invalid_max_records_per_request(make_scalar_record):
     records = [make_scalar_record(step=1)]
 
     with pytest.raises(ValueError, match="max_records_per_request"):
-        list(generate_chunks(records, max_records_per_request=0))
+        list(generate_chunks(records, batch_size=0))
 
     with pytest.raises(ValueError, match="max_records_per_request"):
-        list(generate_chunks(records, max_records_per_request=-5))
+        list(generate_chunks(records, batch_size=-5))
 
 
 def test_generate_chunks_empty_records():
     """验证空记录列表产出空迭代器（短路返回，不产出任何分片）。"""
-    chunks = list(generate_chunks([], max_records_per_request=10))
+    chunks = list(generate_chunks([], batch_size=10))
     assert len(chunks) == 0
 
 
 def test_generate_chunks_no_limit_empty():
     """验证 max_records_per_request=-1 且空列表时产出空迭代器。"""
-    chunks = list(generate_chunks([], max_records_per_request=-1))
+    chunks = list(generate_chunks([], batch_size=-1))
     assert len(chunks) == 0
 
 

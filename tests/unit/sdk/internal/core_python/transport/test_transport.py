@@ -16,7 +16,7 @@ def _make_transport(ctx, **kwargs) -> Transport:
 def test_transport_defaults(mock_ctx):
     """Default batch_interval reads from ctx settings."""
     t = _make_transport(mock_ctx)
-    assert t._batch_interval == mock_ctx.config.settings.core.batch_interval
+    assert t._batch_interval == mock_ctx.config.settings.core.record.batch_interval
 
 
 def test_transport_custom_batch_interval(make_ctx):
@@ -140,14 +140,14 @@ def test_transport_finish_drains_remaining(make_ctx, make_scalar_record):
 
 
 def test_transport_finish_waits_for_thread(mock_ctx):
-    """finish() calls join with timeout from ctx core settings."""
+    """finish() calls join with timeout from class constant."""
     sender = MagicMock()
     t = _make_transport(mock_ctx, sender=sender)
     t._thread = MagicMock()
 
     t.finish()
 
-    t._thread.join.assert_called_once_with(timeout=mock_ctx.config.settings.core.finish_join_timeout)
+    t._thread.join.assert_called_once_with(timeout=Transport.FINISH_JOIN_TIMEOUT)
 
 
 # ─────────────────── 定时攒批 ───────────────────

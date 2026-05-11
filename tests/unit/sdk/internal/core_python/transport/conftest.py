@@ -11,16 +11,17 @@ from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 # ── Default values matching CoreSettings ──
 
 DEFAULT_BATCH_INTERVAL = 5.0
-DEFAULT_MAX_RECORDS_PER_REQUEST = 10_000
-DEFAULT_FINISH_JOIN_TIMEOUT = 30
+DEFAULT_BATCH_SIZE = 10_000
 
 
 def _build_mock_ctx(**core_overrides):
     """Build a mock RunContext with overridable core settings."""
+    record = MagicMock()
+    record.batch_interval = core_overrides.get("batch_interval", DEFAULT_BATCH_INTERVAL)
+    record.batch_size = core_overrides.get("batch_size", DEFAULT_BATCH_SIZE)
+
     core = MagicMock()
-    core.batch_interval = core_overrides.get("batch_interval", DEFAULT_BATCH_INTERVAL)
-    core.finish_join_timeout = core_overrides.get("finish_join_timeout", DEFAULT_FINISH_JOIN_TIMEOUT)
-    core.max_records_per_request = core_overrides.get("max_records_per_request", DEFAULT_MAX_RECORDS_PER_REQUEST)
+    core.record = record
 
     settings = MagicMock()
     settings.core = core

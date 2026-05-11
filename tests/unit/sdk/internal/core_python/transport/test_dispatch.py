@@ -6,7 +6,7 @@ from swanlab.sdk.internal.core_python.transport.dispatch import Dispatch
 
 def test_dispatch_groups_by_type(mock_ctx, make_scalar_record, make_config_record):
     """混合类型 record 被正确分组分发。"""
-    dispatch = Dispatch(max_records_per_request=mock_ctx.config.settings.core.max_records_per_request)
+    dispatch = Dispatch(batch_size=mock_ctx.config.settings.core.record.batch_size)
 
     metric_records = [make_scalar_record(step=1), make_scalar_record(step=2)]
     config_records = [make_config_record()]
@@ -22,7 +22,7 @@ def test_dispatch_groups_by_type(mock_ctx, make_scalar_record, make_config_recor
 
 def test_dispatch_calls_correct_handler(mock_ctx, make_scalar_record):
     """各 record_type 被正确交给 _upload_record_type()。"""
-    dispatch = Dispatch(max_records_per_request=mock_ctx.config.settings.core.max_records_per_request)
+    dispatch = Dispatch(batch_size=mock_ctx.config.settings.core.record.batch_size)
     records = [make_scalar_record(step=1)]
 
     with patch.object(dispatch, "_upload_record_type", return_value=(True, [])) as mock_handle:
@@ -34,9 +34,7 @@ def test_dispatch_returns_failed_records_without_mutating_external_buffer(mock_c
     """上传失败时返回待重试 records，由上层决定如何保留。"""
     mock_sender = MagicMock()
     mock_sender.upload.side_effect = RuntimeError("upload failed")
-    dispatch = Dispatch(
-        max_records_per_request=mock_ctx.config.settings.core.max_records_per_request, sender=mock_sender
-    )
+    dispatch = Dispatch(batch_size=mock_ctx.config.settings.core.record.batch_size, sender=mock_sender)
 
     records = [make_scalar_record(step=1)]
     records[0].num = 11
@@ -50,7 +48,7 @@ def test_dispatch_returns_failed_records_without_mutating_external_buffer(mock_c
 
 def test_dispatch_failure_tail_keeps_failed_and_unprocessed_order(mock_ctx, make_scalar_record, make_config_record):
     """当前组失败部分和后续未处理组保持原顺序返回。"""
-    dispatch = Dispatch(max_records_per_request=mock_ctx.config.settings.core.max_records_per_request)
+    dispatch = Dispatch(batch_size=mock_ctx.config.settings.core.record.batch_size)
 
     failed_metric = make_scalar_record(step=1)
     failed_metric.num = 21
@@ -71,7 +69,7 @@ def test_dispatch_failure_tail_keeps_failed_and_unprocessed_order(mock_ctx, make
 
 def test_dispatch_skips_unknown_type(mock_ctx, make_scalar_record):
     """未知 kind 无 handler 时不报错，静默跳过。"""
-    dispatch = Dispatch(max_records_per_request=mock_ctx.config.settings.core.max_records_per_request)
+    dispatch = Dispatch(batch_size=mock_ctx.config.settings.core.record.batch_size)
 
     with patch("swanlab.sdk.internal.core_python.transport.dispatch.group_records_by_type") as mock_group:
         from collections import OrderedDict
@@ -92,9 +90,7 @@ def test_dispatch_mixed_type_partial_failure_rollback(mock_ctx, make_scalar_reco
             raise RuntimeError("upload failed")
 
     mock_sender.upload.side_effect = upload_side_effect
-    dispatch = Dispatch(
-        max_records_per_request=mock_ctx.config.settings.core.max_records_per_request, sender=mock_sender
-    )
+    dispatch = Dispatch(batch_size=mock_ctx.config.settings.core.record.batch_size, sender=mock_sender)
 
     metric_records = [make_scalar_record(step=1)]
     metric_records[0].num = 31
@@ -120,7 +116,7 @@ def test_dispatch_handle_record_type_success_calls_callback(mock_ctx, make_scala
 
     sender.upload.side_effect = upload_side_effect
     dispatch = Dispatch(
-        max_records_per_request=mock_ctx.config.settings.core.max_records_per_request,
+        batch_size=mock_ctx.config.settings.core.record.batch_size,
         upload_callback=callback,
         sender=sender,
     )
@@ -140,7 +136,7 @@ def test_dispatch_handle_record_type_returns_failed_tail_on_chunk_failure(mock_c
     """某个 chunk 上传失败时返回当前组中尚未成功上传的 records。"""
     sender = MagicMock()
     sender.upload.side_effect = [None, RuntimeError("boom")]
-    dispatch = Dispatch(max_records_per_request=mock_ctx.config.settings.core.max_records_per_request, sender=sender)
+    dispatch = Dispatch(batch_size=mock_ctx.config.settings.core.record.batch_size, sender=sender)
 
     first = make_scalar_record(step=1)
     second = make_scalar_record(step=2)
