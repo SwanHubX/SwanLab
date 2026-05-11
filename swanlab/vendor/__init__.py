@@ -15,6 +15,10 @@ if TYPE_CHECKING:
     import accelerate
     import accelerate.tracking
     import boto3
+    import fastai
+    import fastai.learner
+    import fastcore
+    import fastcore.basics
     import imageio
     import keras
     import lightning
@@ -69,6 +73,8 @@ __all__ = [
     "pd",
     # framework integrations
     "accelerate",
+    "fastai",
+    "fastcore",
     "keras",
     "lightning",
     "mmengine",
@@ -97,6 +103,8 @@ _LAZY_IMPORTS = {
     "pd": "pandas",
     # framework integrations — users install these themselves
     "accelerate": "accelerate",
+    "fastai": "fastai",
+    "fastcore": "fastcore",
     "keras": "keras",
     "lightning": "lightning",
     "mmengine": "mmengine",
@@ -132,6 +140,8 @@ _SUBMODULE_IMPORTS = {
     "sklearn": ["sklearn.metrics"],
     "rdkit": ["rdkit.Chem", "rdkit.Chem.AllChem"],
     "accelerate": ["accelerate.tracking"],
+    "fastai": ["fastai.learner", "fastai.callback.hook"],
+    "fastcore": ["fastcore.basics"],
     "keras": ["keras.callbacks"],
     "lightning": ["lightning.pytorch", "lightning.pytorch.loggers", "lightning.pytorch.utilities"],
     "mmengine": ["mmengine.config", "mmengine.registry", "mmengine.visualization.vis_backend"],
