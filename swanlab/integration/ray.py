@@ -145,7 +145,7 @@ class _SwanLabLoggingActor:
                 self._swanlab.config.update(config_update, allow_val_change=True)
                 self._swanlab.log(log, step=log.get(_TRAINING_ITERATION))
             except HTTPError as e:
-                _ray_logger.warning("Failed to log result to swanlab: {}".format(str(e)))
+                _ray_logger.warning("Failed to log result to swanlab: {}".format(str(e)))  # type: ignore
 
         self._swanlab.finish()
 

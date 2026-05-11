@@ -164,6 +164,8 @@ class SwanLabCallback(Callback, _Sb3BaseCallback):
             model = self.model
             config["algo"] = type(model).__name__
             for key, value in model.__dict__.items():
+                if key.startswith("_"):
+                    continue
                 if isinstance(value, (float, int, str, bool)):
                     config[key] = value
                 elif hasattr(value, "__name__"):

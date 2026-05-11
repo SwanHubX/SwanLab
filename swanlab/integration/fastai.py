@@ -151,7 +151,7 @@ class SwanLabCallback(Callback, _FastaiCallback):
         self._pending_config.clear()
 
     def _gather_args(self) -> Dict[str, Any]:
-        cb_args = {f"{cb}": getattr(cb, "__stored_args__", True) for cb in self.cbs if cb != self}
+        cb_args = {type(cb).__name__: getattr(cb, "__stored_args__", True) for cb in self.cbs if cb != self}
         args: Dict[str, Any] = {"Learner": self.learn, **cb_args}
         try:
             n_inp = self.dls.train.n_inp

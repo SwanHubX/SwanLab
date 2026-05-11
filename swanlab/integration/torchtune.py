@@ -124,12 +124,6 @@ class SwanLabLogger(_MetricLoggerInterface):
             if run is not None:
                 swanlab.finish()
 
-    def __del__(self) -> None:
-        try:
-            self.close()
-        except Exception:
-            pass
-
 
 # --- helpers ---
 
