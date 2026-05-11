@@ -48,6 +48,8 @@ if TYPE_CHECKING:
     import stable_baselines3.common
     import swanboard
     import torch
+    import torchtune
+    import torchtune.utils.metric_logging
     import torchvision
     import transformers
     import ultralytics
@@ -83,6 +85,7 @@ __all__ = [
     "ultralytics",
     "xgboost",
     "stable_baselines3",
+    "torchtune",
 ]
 
 # 3. Lazy import mapping: Actual module paths
@@ -112,6 +115,7 @@ _LAZY_IMPORTS = {
     "transformers": "transformers",
     "ultralytics": "ultralytics",
     "stable_baselines3": "stable_baselines3",
+    "torchtune": "torchtune",
     "xgboost": "xgboost",
 }
 
@@ -149,6 +153,7 @@ _SUBMODULE_IMPORTS = {
     "xgboost": ["xgboost.callback"],
     "paddlenlp": ["paddlenlp.trainer.trainer"],
     "stable_baselines3": ["stable_baselines3.common"],
+    "torchtune": ["torchtune.utils.metric_logging"],
 }
 
 

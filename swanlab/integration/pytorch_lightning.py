@@ -7,7 +7,6 @@ from typing import Any, Dict, List, Mapping, Optional, Union
 
 import swanlab
 import swanlab.vendor
-from swanlab import Callback
 from swanlab.sdk.internal.pkg import console
 
 _LightningLogger = swanlab.vendor.lightning.pytorch.loggers.Logger
@@ -15,7 +14,7 @@ _rank_zero_only = swanlab.vendor.lightning.pytorch.utilities.rank_zero_only
 _rank_zero_warn = getattr(swanlab.vendor.lightning.pytorch.utilities, "rank_zero_warn", console.warning)
 
 
-class SwanLabLogger(Callback, _LightningLogger):
+class SwanLabLogger(_LightningLogger):
     def __init__(
         self,
         project: Optional[str] = None,
@@ -39,11 +38,11 @@ class SwanLabLogger(Callback, _LightningLogger):
             log_dir = logdir
         _LightningLogger.__init__(self)
 
+        tags = tags or []
+        if "⚡️pytorch lightning" not in tags:
+            tags.append("⚡️pytorch lightning")
+
         self._experiment = None
-        self._initialized = False
-        self._pending_config: Dict[str, Any] = {}
-        self._project = project
-        self._experiment_name = experiment_name
         self._save_dir = os.fspath(save_dir) if save_dir is not None else None
         self._init_kwargs: Dict[str, Any] = {}
 
@@ -60,7 +59,6 @@ class SwanLabLogger(Callback, _LightningLogger):
             if value is not None:
                 self._init_kwargs[key] = value
         self._init_kwargs.update(kwargs)
-        self._init_kwargs.pop("callbacks", None)
 
     @property
     def name(self) -> str:
@@ -85,52 +83,33 @@ class SwanLabLogger(Callback, _LightningLogger):
 
     @property
     def experiment(self):
-        self._ensure_init()
+        if self._experiment is not None:
+            return self._experiment
         run = self._get_active_run()
         if run is not None:
+            _rank_zero_warn(
+                "There is a swanlab experiment already in progress and newly created instances of "
+                "`SwanLabLogger` will reuse this experiment. If this is not desired, call "
+                "`swanlab.finish()` before instantiating `SwanLabLogger`."
+            )
             self._experiment = run
             return run
-        return self
-
-    # --- swanlab.Callback hooks ---
-
-    def on_run_initialized(self, run_dir, path, **kwargs) -> None:
-        run = self._get_active_run()
-        if run is None:
-            return
-        self._initialized = True
-        self._experiment = run
-        run.config["FRAMEWORK"] = "pytorch_lightning"
-        self._flush_pending_config(run)
-
-    def on_run_finished(self, state: str, error: Optional[str] = None, **kwargs) -> None:
-        self._initialized = False
-        self._experiment = None
-        self._pending_config.clear()
+        swanlab.config["FRAMEWORK"] = "pytorch_lightning"
+        self._experiment = swanlab.init(**self._init_kwargs)
+        return self._experiment
 
     # --- Lightning Logger interface ---
 
     def update_config(self, config: Dict[str, Any]) -> None:
-        run = self._get_active_run()
-        if run is None:
-            self._pending_config.update(config)
-            return
-        run.config.update(config)
+        self.experiment.config.update(config)
 
     @_rank_zero_only
     def log_hyperparams(self, params: Union[Mapping[str, Any], Namespace], *args: Any, **kwargs: Any) -> None:
-        self._ensure_init()
-        run = self._get_active_run()
-        if run is None:
-            return
-        run.config.update(self._params_to_dict(params))
+        self.experiment.config.update(self._params_to_dict(params))
 
     @_rank_zero_only
     def log_metrics(self, metrics: Mapping[str, Any], step: Optional[int] = None) -> None:
-        self._ensure_init()
-        if self._get_active_run() is None:
-            return
-        swanlab.log(dict(metrics), step=step)
+        self.experiment.log(dict(metrics), step=step)
 
     @_rank_zero_only
     def log_image(self, key: str, images: List[Any], step: Optional[int] = None, **kwargs: Any) -> None:
@@ -152,30 +131,9 @@ class SwanLabLogger(Callback, _LightningLogger):
     def finalize(self, status: Optional[str] = None) -> None:
         if status is not None and status != "success":
             _rank_zero_warn(f"SwanLabLogger received non-success Lightning finalize status: {status}")
+            swanlab.finish(state="crashed", error=f"Closed by pytorch lightning. Status: {status}")
 
     # --- helpers ---
-
-    def _ensure_init(self) -> None:
-        if self._initialized:
-            return
-        run = self._get_active_run()
-        if run is not None:
-            self._initialized = True
-            self._experiment = run
-            run.config["FRAMEWORK"] = "pytorch_lightning"
-            self._flush_pending_config(run)
-            return
-        init_kwargs = dict(self._init_kwargs)
-        if self._pending_config:
-            init_kwargs["config"] = dict(self._pending_config)
-        swanlab.init(callbacks=[self], **init_kwargs)
-        self._pending_config.clear()
-
-    def _flush_pending_config(self, run: Any) -> None:
-        if not self._pending_config:
-            return
-        run.config.update(self._pending_config)
-        self._pending_config.clear()
 
     def _log_media_list(self, factory: Any, key: str, values: List[Any], step: Optional[int], **kwargs: Any) -> None:
         if not isinstance(values, list):
