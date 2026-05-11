@@ -115,7 +115,7 @@ class MediaMetric(BaseMetric):
                 f"Media metric '{self._column.column_key}' has not been defined, maybe it's defined in resume"
             )
             return
-        super().ensure_type_match(metric_type)
+        BaseMetric.ensure_type_match(self, metric_type)
 
     def update(self, data_record: Any):
         """
