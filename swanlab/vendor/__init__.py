@@ -40,6 +40,8 @@ if TYPE_CHECKING:
     import sklearn
     import sklearn.metrics
     import soundfile
+    import stable_baselines3
+    import stable_baselines3.common
     import swanboard
     import torch
     import torchvision
@@ -74,6 +76,7 @@ __all__ = [
     "transformers",
     "ultralytics",
     "xgboost",
+    "stable_baselines3",
 ]
 
 # 3. Lazy import mapping: Actual module paths
@@ -100,6 +103,7 @@ _LAZY_IMPORTS = {
     "paddlenlp": "paddlenlp",
     "transformers": "transformers",
     "ultralytics": "ultralytics",
+    "stable_baselines3": "stable_baselines3",
     "xgboost": "xgboost",
 }
 
@@ -134,6 +138,7 @@ _SUBMODULE_IMPORTS = {
     "transformers": ["transformers.trainer_callback"],
     "xgboost": ["xgboost.callback"],
     "paddlenlp": ["paddlenlp.trainer.trainer"],
+    "stable_baselines3": ["stable_baselines3.common"],
 }
 
 
