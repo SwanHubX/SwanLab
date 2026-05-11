@@ -35,6 +35,7 @@ try:
     import ray.air  # noqa: F401
     import ray.train  # noqa: F401
     import ray.tune  # noqa: F401
+    import ray.tune.logger  # noqa: F401
     import ray.util  # noqa: F401
     from ray.air.constants import TRAINING_ITERATION as _TRAINING_ITERATION
     from ray.air.util.node import _force_on_current_node
