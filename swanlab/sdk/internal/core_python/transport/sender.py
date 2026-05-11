@@ -272,9 +272,9 @@ class HttpRecordSender:
 
         # 2. 校验批次限制：数量或总大小超限时直接拒绝整个批次
         total_size = sum(size for _, size, _ in pending)
-        if len(pending) > config.save_total:
+        if len(pending) > config.save_batch:
             console.warning(
-                f"Save batch size ({len(pending)}) exceeds limit ({config.save_total}), skipping entire batch"
+                f"Save batch size ({len(pending)}) exceeds limit ({config.save_batch}), skipping entire batch"
             )
             return
         if total_size > config.save_total:

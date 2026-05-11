@@ -689,8 +689,8 @@ class Run:
             return []
 
         # 校验批次大小
-        if len(files) > core_settings.save_total:
-            raise ValueError(f"Too many files matched ({len(files)}), limit is {core_settings.save_total}")
+        if len(files) > core_settings.save_batch:
+            raise ValueError(f"Too many files matched ({len(files)}), limit is {core_settings.save_batch}")
 
         # 按 policy 分发事件
         # Core 负责创建 symlink 处理和 end policy 下的延迟上传
