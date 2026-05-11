@@ -272,6 +272,7 @@ class HttpRecordSender:
             return
 
         # 2. 校验批次限制：数量超限时直接拒绝整个批次
+        # FIXME: pending过长时根据save_batch分片，而非直接拒绝
         if len(pending) > config.save_batch:
             console.warning(
                 f"Save batch size ({len(pending)}) exceeds limit ({config.save_batch}), skipping entire batch"
