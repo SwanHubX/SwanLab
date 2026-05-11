@@ -7,14 +7,10 @@
 
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import TYPE_CHECKING
 
 from swanlab.proto.swanlab.grpc.probe.v1.probe_pb2 import DeliverProbeStartRequest
 from swanlab.sdk.internal.pkg import safe
 from swanlab.sdk.typings.run import ModeType
-
-if TYPE_CHECKING:
-    pass
 
 
 class ProbeEnum(str, Enum):
