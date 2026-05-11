@@ -260,9 +260,9 @@ class HttpRecordSender:
                 size = source.stat().st_size
             if size is None:
                 continue
-            if size > config.save_total:
+            if size > config.save_size:
                 console.warning(
-                    f"Save file exceeds size limit ({size} > {config.save_total}), skipping: {save.source_path}"
+                    f"Save file exceeds size limit ({size} > {config.save_size}), skipping: {save.source_path}"
                 )
                 continue
             pending.append((save.source_path, size, save.name))
@@ -271,16 +271,10 @@ class HttpRecordSender:
             console.warning("No valid files to save.")
             return
 
-        # 2. 校验批次限制：数量或总大小超限时直接拒绝整个批次
-        total_size = sum(size for _, size, _ in pending)
+        # 2. 校验批次限制：数量超限时直接拒绝整个批次
         if len(pending) > config.save_batch:
             console.warning(
                 f"Save batch size ({len(pending)}) exceeds limit ({config.save_batch}), skipping entire batch"
-            )
-            return
-        if total_size > config.save_total:
-            console.warning(
-                f"Save batch total size ({total_size}) exceeds limit ({config.save_total}), skipping entire batch"
             )
             return
 

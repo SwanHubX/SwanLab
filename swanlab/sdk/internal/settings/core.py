@@ -35,9 +35,9 @@ class CoreSettings(BaseModel):
     """
     File size threshold in bytes for multipart upload. Default 100 MiB.
     """
-    save_total: int = Field(default=50 * 1024 * 1024 * 1024)
+    save_size: int = Field(default=50 * 1024 * 1024 * 1024)
     """
-    Maximum total saved file size per run in bytes. Default 50 GiB.
+    Maximum saved size per file. Default 50 GiB.
     """
     save_part: int = Field(default=32 * 1024 * 1024)
     """

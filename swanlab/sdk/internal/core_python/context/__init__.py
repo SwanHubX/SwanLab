@@ -21,8 +21,8 @@ class CoreConfig:
     section_rule: int
     record_batch: int
     record_interval: float
+    save_size: int
     save_split: int
-    save_total: int
     save_part: int
     save_batch: int
 
@@ -39,8 +39,8 @@ class CoreContext:
             section_rule=proto.section_rule,
             record_batch=proto.record_batch,
             record_interval=proto.record_interval,
+            save_size=proto.save_size,
             save_split=proto.save_split,
-            save_total=proto.save_total,
             save_part=proto.save_part,
             save_batch=proto.save_batch,
         )

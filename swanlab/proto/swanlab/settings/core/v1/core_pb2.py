@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n#swanlab/settings/core/v1/core.proto\x12\x18swanlab.settings.core.v1\"\xc3\x01\n\x0c\x43oreSettings\x12\x0e\n\x06run_id\x18\x01 \x01(\t\x12\x0f\n\x07run_dir\x18\x02 \x01(\t\x12\x14\n\x0csection_rule\x18\x03 \x01(\x05\x12\x14\n\x0crecord_batch\x18\x04 \x01(\x05\x12\x17\n\x0frecord_interval\x18\x05 \x01(\x01\x12\x12\n\nsave_split\x18\x06 \x01(\x03\x12\x12\n\nsave_total\x18\x07 \x01(\x03\x12\x11\n\tsave_part\x18\x08 \x01(\x03\x12\x12\n\nsave_batch\x18\t \x01(\x05\x42PZNgithub.com/swanhubx/swanlab/core/proto/swanlab/settings/core/v1;settingscorev1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n#swanlab/settings/core/v1/core.proto\x12\x18swanlab.settings.core.v1\"\xc2\x01\n\x0c\x43oreSettings\x12\x0e\n\x06run_id\x18\x01 \x01(\t\x12\x0f\n\x07run_dir\x18\x02 \x01(\t\x12\x14\n\x0csection_rule\x18\x03 \x01(\x05\x12\x14\n\x0crecord_batch\x18\x04 \x01(\x05\x12\x17\n\x0frecord_interval\x18\x05 \x01(\x01\x12\x11\n\tsave_size\x18\x06 \x01(\x03\x12\x12\n\nsave_split\x18\x07 \x01(\x03\x12\x11\n\tsave_part\x18\x08 \x01(\x03\x12\x12\n\nsave_batch\x18\t \x01(\x05\x42PZNgithub.com/swanhubx/swanlab/core/proto/swanlab/settings/core/v1;settingscorev1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -33,5 +33,5 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'ZNgithub.com/swanhubx/swanlab/core/proto/swanlab/settings/core/v1;settingscorev1'
   _globals['_CORESETTINGS']._serialized_start=66
-  _globals['_CORESETTINGS']._serialized_end=261
+  _globals['_CORESETTINGS']._serialized_end=260
 # @@protoc_insertion_point(module_scope)

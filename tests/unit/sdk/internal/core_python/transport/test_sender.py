@@ -16,7 +16,7 @@ def _make_sender(tmp_path: Path) -> HttpRecordSender:
             record_batch=10000,
             record_interval=5.0,
             save_split=100 * 1024 * 1024,
-            save_total=50 * 1024 * 1024 * 1024,
+            save_size=50 * 1024 * 1024 * 1024,
             save_part=32 * 1024 * 1024,
             save_batch=100,
         )

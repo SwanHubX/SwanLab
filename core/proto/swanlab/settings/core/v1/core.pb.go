@@ -29,8 +29,8 @@ type CoreSettings struct {
 	SectionRule    int32   `protobuf:"varint,3,opt,name=section_rule,json=sectionRule,proto3" json:"section_rule,omitempty"`
 	RecordBatch    int32   `protobuf:"varint,4,opt,name=record_batch,json=recordBatch,proto3" json:"record_batch,omitempty"`
 	RecordInterval float64 `protobuf:"fixed64,5,opt,name=record_interval,json=recordInterval,proto3" json:"record_interval,omitempty"`
-	SaveSplit      int64   `protobuf:"varint,6,opt,name=save_split,json=saveSplit,proto3" json:"save_split,omitempty"`
-	SaveTotal      int64   `protobuf:"varint,7,opt,name=save_total,json=saveTotal,proto3" json:"save_total,omitempty"`
+	SaveSize       int64   `protobuf:"varint,6,opt,name=save_size,json=saveSize,proto3" json:"save_size,omitempty"`
+	SaveSplit      int64   `protobuf:"varint,7,opt,name=save_split,json=saveSplit,proto3" json:"save_split,omitempty"`
 	SavePart       int64   `protobuf:"varint,8,opt,name=save_part,json=savePart,proto3" json:"save_part,omitempty"`
 	SaveBatch      int32   `protobuf:"varint,9,opt,name=save_batch,json=saveBatch,proto3" json:"save_batch,omitempty"`
 	unknownFields  protoimpl.UnknownFields
@@ -102,16 +102,16 @@ func (x *CoreSettings) GetRecordInterval() float64 {
 	return 0
 }
 
-func (x *CoreSettings) GetSaveSplit() int64 {
+func (x *CoreSettings) GetSaveSize() int64 {
 	if x != nil {
-		return x.SaveSplit
+		return x.SaveSize
 	}
 	return 0
 }
 
-func (x *CoreSettings) GetSaveTotal() int64 {
+func (x *CoreSettings) GetSaveSplit() int64 {
 	if x != nil {
-		return x.SaveTotal
+		return x.SaveSplit
 	}
 	return 0
 }
@@ -134,17 +134,16 @@ var File_swanlab_settings_core_v1_core_proto protoreflect.FileDescriptor
 
 const file_swanlab_settings_core_v1_core_proto_rawDesc = "" +
 	"\n" +
-	"#swanlab/settings/core/v1/core.proto\x12\x18swanlab.settings.core.v1\"\xa7\x02\n" +
+	"#swanlab/settings/core/v1/core.proto\x12\x18swanlab.settings.core.v1\"\xa5\x02\n" +
 	"\fCoreSettings\x12\x15\n" +
 	"\x06run_id\x18\x01 \x01(\tR\x05runId\x12\x17\n" +
 	"\arun_dir\x18\x02 \x01(\tR\x06runDir\x12!\n" +
 	"\fsection_rule\x18\x03 \x01(\x05R\vsectionRule\x12!\n" +
 	"\frecord_batch\x18\x04 \x01(\x05R\vrecordBatch\x12'\n" +
-	"\x0frecord_interval\x18\x05 \x01(\x01R\x0erecordInterval\x12\x1d\n" +
+	"\x0frecord_interval\x18\x05 \x01(\x01R\x0erecordInterval\x12\x1b\n" +
+	"\tsave_size\x18\x06 \x01(\x03R\bsaveSize\x12\x1d\n" +
 	"\n" +
-	"save_split\x18\x06 \x01(\x03R\tsaveSplit\x12\x1d\n" +
-	"\n" +
-	"save_total\x18\a \x01(\x03R\tsaveTotal\x12\x1b\n" +
+	"save_split\x18\a \x01(\x03R\tsaveSplit\x12\x1b\n" +
 	"\tsave_part\x18\b \x01(\x03R\bsavePart\x12\x1d\n" +
 	"\n" +
 	"save_batch\x18\t \x01(\x05R\tsaveBatchBPZNgithub.com/swanhubx/swanlab/core/proto/swanlab/settings/core/v1;settingscorev1b\x06proto3"

@@ -316,7 +316,7 @@ class Settings(BaseSettings):
             record_batch=self.core.record_batch,
             record_interval=self.core.record_interval,
             save_split=self.core.save_split,
-            save_total=self.core.save_total,
+            save_size=self.core.save_size,
             save_part=self.core.save_part,
             save_batch=self.core.save_batch,
         )

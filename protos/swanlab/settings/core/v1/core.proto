@@ -11,8 +11,8 @@ message CoreSettings {
   int32  section_rule    = 3;
   int32  record_batch    = 4;
   double record_interval = 5;
-  int64  save_split      = 6;
-  int64  save_total      = 7;
+  int64  save_size       = 6;
+  int64  save_split      = 7;
   int64  save_part       = 8;
   int32  save_batch      = 9;
 }

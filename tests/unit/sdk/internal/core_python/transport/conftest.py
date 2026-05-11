@@ -24,7 +24,7 @@ def _build_mock_ctx(**core_overrides):
         record_batch=core_overrides.get("batch_size", DEFAULT_BATCH_SIZE),
         record_interval=core_overrides.get("batch_interval", DEFAULT_BATCH_INTERVAL),
         save_split=100 * 1024 * 1024,
-        save_total=50 * 1024 * 1024 * 1024,
+        save_size=50 * 1024 * 1024 * 1024,
         save_part=32 * 1024 * 1024,
         save_batch=100,
     )
