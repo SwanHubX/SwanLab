@@ -31,7 +31,7 @@ class Dispatch:
         upload_callback: Optional[Callable[[int], None]] = None,
         sender: Optional[HttpRecordSender] = None,
     ):
-        self._max_records_per_request = batch_size
+        self._batch_size = batch_size
         self._upload_callback = upload_callback
         self._sender = sender
 
@@ -58,7 +58,7 @@ class Dispatch:
             return True, []
 
         uploaded_record_count = 0
-        for chunk, chunk_size in generate_chunks(records, self._max_records_per_request):
+        for chunk, chunk_size in generate_chunks(records, self._batch_size):
             success = self._upload_chunk(record_type, chunk)
             if success:
                 uploaded_record_count += chunk_size
