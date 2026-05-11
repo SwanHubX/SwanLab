@@ -24,7 +24,6 @@ enum ColumnClass {
   COLUMN_CLASS_SYSTEM      = 2;  // 系统列
 }
 
-
 // ChartType 图表类型
 enum ChartType {
   CHART_TYPE_UNSPECIFIED = 0;   // 默认情况下，后端根据 column_type 自动推导
@@ -39,7 +38,6 @@ enum ChartType {
   CHART_TYPE_OBJECT3D    = 9;
   CHART_TYPE_MOLECULE    = 10;
 }
-
 
 // SectionType section 类型
 enum SectionType {

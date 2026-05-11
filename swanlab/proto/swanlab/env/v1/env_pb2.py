@@ -25,7 +25,7 @@ _sym_db = _symbol_database.Default()
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x18swanlab/env/v1/env.proto\x12\x0eswanlab.env.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"?\n\x0eMetadataRecord\x12-\n\ttimestamp\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"C\n\x12RequirementsRecord\x12-\n\ttimestamp\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"<\n\x0b\x43ondaRecord\x12-\n\ttimestamp\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.TimestampB=Z;github.com/swanhubx/swanlab/core/proto/swanlab/env/v1;envv1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x18swanlab/env/v1/env.proto\x12\x0eswanlab.env.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"?\n\x0eMetadataRecord\x12-\n\ttimestamp\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"C\n\x12RequirementsRecord\x12-\n\ttimestamp\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"<\n\x0b\x43ondaRecord\x12-\n\ttimestamp\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.TimestampB=Z;github.com/swanhubx/swanlab/core/proto/swanlab/env/v1;envv1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)

@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package swanlab.grpc.probe.v1;
+
+import "google/protobuf/empty.proto";
+import "swanlab/settings/probe/v1/probe.proto";
+
+option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/grpc/probe/v1;probev1";
+
+// ProbeService 用于启动硬件信息采集服务
+service ProbeService {
+  // DeliverProbeStart 接收 ProbeSettings，启动硬件信息采集
+  rpc DeliverProbeStart(DeliverProbeStartRequest) returns (google.protobuf.Empty);
+
+  // DeliverProbeFinish 结束硬件信息采集
+  rpc DeliverProbeFinish(google.protobuf.Empty) returns (google.protobuf.Empty);
+}
+
+// DeliverProbeStart 请求，probe 启动配置
+message DeliverProbeStartRequest {
+  swanlab.settings.probe.v1.ProbeSettings probe_settings = 1;  // probe 启动配置
+}

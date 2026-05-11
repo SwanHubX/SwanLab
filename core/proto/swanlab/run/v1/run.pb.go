@@ -256,107 +256,6 @@ func (x *StartRecord) GetStartedAt() *timestamppb.Timestamp {
 	return nil
 }
 
-// Run 创建响应
-type StartResponse struct {
-	state            protoimpl.MessageState `protogen:"open.v1"`
-	Success          bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`                                             // 请求是否成功
-	Message          string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`                                              // 请求失败的响应
-	Run              *StartRecord           `protobuf:"bytes,3,opt,name=run,proto3" json:"run,omitempty"`                                                      // 最终创建的 Run 记录
-	Path             string                 `protobuf:"bytes,4,opt,name=path,proto3" json:"path,omitempty"`                                                    // 对应的实验路径，格式为 /:username/:project_name/:slug(run_id)
-	Name             string                 `protobuf:"bytes,5,opt,name=name,proto3" json:"name,omitempty"`                                                    // 对应的实验名称
-	GlobalStep       int64                  `protobuf:"varint,6,opt,name=global_step,json=globalStep,proto3" json:"global_step,omitempty"`                     // 起始全局步数
-	GlobalSystemStep int64                  `protobuf:"varint,7,opt,name=global_system_step,json=globalSystemStep,proto3" json:"global_system_step,omitempty"` // 起始全局系统步数
-	NewExperiment    bool                   `protobuf:"varint,8,opt,name=new_experiment,json=newExperiment,proto3" json:"new_experiment,omitempty"`            // 是否是新实验
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
-}
-
-func (x *StartResponse) Reset() {
-	*x = StartResponse{}
-	mi := &file_swanlab_run_v1_run_proto_msgTypes[1]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *StartResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*StartResponse) ProtoMessage() {}
-
-func (x *StartResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_swanlab_run_v1_run_proto_msgTypes[1]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use StartResponse.ProtoReflect.Descriptor instead.
-func (*StartResponse) Descriptor() ([]byte, []int) {
-	return file_swanlab_run_v1_run_proto_rawDescGZIP(), []int{1}
-}
-
-func (x *StartResponse) GetSuccess() bool {
-	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-func (x *StartResponse) GetMessage() string {
-	if x != nil {
-		return x.Message
-	}
-	return ""
-}
-
-func (x *StartResponse) GetRun() *StartRecord {
-	if x != nil {
-		return x.Run
-	}
-	return nil
-}
-
-func (x *StartResponse) GetPath() string {
-	if x != nil {
-		return x.Path
-	}
-	return ""
-}
-
-func (x *StartResponse) GetName() string {
-	if x != nil {
-		return x.Name
-	}
-	return ""
-}
-
-func (x *StartResponse) GetGlobalStep() int64 {
-	if x != nil {
-		return x.GlobalStep
-	}
-	return 0
-}
-
-func (x *StartResponse) GetGlobalSystemStep() int64 {
-	if x != nil {
-		return x.GlobalSystemStep
-	}
-	return 0
-}
-
-func (x *StartResponse) GetNewExperiment() bool {
-	if x != nil {
-		return x.NewExperiment
-	}
-	return false
-}
-
 // Run 结束记录，对应 swanlab.finish() 或进程退出，由sdk前端生成并同步交给后端
 type FinishRecord struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -370,7 +269,7 @@ type FinishRecord struct {
 
 func (x *FinishRecord) Reset() {
 	*x = FinishRecord{}
-	mi := &file_swanlab_run_v1_run_proto_msgTypes[2]
+	mi := &file_swanlab_run_v1_run_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -382,7 +281,7 @@ func (x *FinishRecord) String() string {
 func (*FinishRecord) ProtoMessage() {}
 
 func (x *FinishRecord) ProtoReflect() protoreflect.Message {
-	mi := &file_swanlab_run_v1_run_proto_msgTypes[2]
+	mi := &file_swanlab_run_v1_run_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -395,7 +294,7 @@ func (x *FinishRecord) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FinishRecord.ProtoReflect.Descriptor instead.
 func (*FinishRecord) Descriptor() ([]byte, []int) {
-	return file_swanlab_run_v1_run_proto_rawDescGZIP(), []int{2}
+	return file_swanlab_run_v1_run_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *FinishRecord) GetState() RunState {
@@ -419,59 +318,6 @@ func (x *FinishRecord) GetFinishedAt() *timestamppb.Timestamp {
 	return nil
 }
 
-// Run 结束响应
-type FinishResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"` // 请求是否成功
-	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`  // 请求失败的响应
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *FinishResponse) Reset() {
-	*x = FinishResponse{}
-	mi := &file_swanlab_run_v1_run_proto_msgTypes[3]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *FinishResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*FinishResponse) ProtoMessage() {}
-
-func (x *FinishResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_swanlab_run_v1_run_proto_msgTypes[3]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use FinishResponse.ProtoReflect.Descriptor instead.
-func (*FinishResponse) Descriptor() ([]byte, []int) {
-	return file_swanlab_run_v1_run_proto_rawDescGZIP(), []int{3}
-}
-
-func (x *FinishResponse) GetSuccess() bool {
-	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-func (x *FinishResponse) GetMessage() string {
-	if x != nil {
-		return x.Message
-	}
-	return ""
-}
-
 var File_swanlab_run_v1_run_proto protoreflect.FileDescriptor
 
 const file_swanlab_run_v1_run_proto_rawDesc = "" +
@@ -491,25 +337,12 @@ const file_swanlab_run_v1_run_proto_rawDesc = "" +
 	" \x01(\tR\x02id\x122\n" +
 	"\x06resume\x18\v \x01(\x0e2\x1a.swanlab.run.v1.ResumeModeR\x06resume\x129\n" +
 	"\n" +
-	"started_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\tstartedAt\"\x90\x02\n" +
-	"\rStartResponse\x12\x18\n" +
-	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\x12-\n" +
-	"\x03run\x18\x03 \x01(\v2\x1b.swanlab.run.v1.StartRecordR\x03run\x12\x12\n" +
-	"\x04path\x18\x04 \x01(\tR\x04path\x12\x12\n" +
-	"\x04name\x18\x05 \x01(\tR\x04name\x12\x1f\n" +
-	"\vglobal_step\x18\x06 \x01(\x03R\n" +
-	"globalStep\x12,\n" +
-	"\x12global_system_step\x18\a \x01(\x03R\x10globalSystemStep\x12%\n" +
-	"\x0enew_experiment\x18\b \x01(\bR\rnewExperiment\"\x91\x01\n" +
+	"started_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\tstartedAt\"\x91\x01\n" +
 	"\fFinishRecord\x12.\n" +
 	"\x05state\x18\x01 \x01(\x0e2\x18.swanlab.run.v1.RunStateR\x05state\x12\x14\n" +
 	"\x05error\x18\x02 \x01(\tR\x05error\x12;\n" +
 	"\vfinished_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
-	"finishedAt\"D\n" +
-	"\x0eFinishResponse\x12\x18\n" +
-	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage*g\n" +
+	"finishedAt*g\n" +
 	"\bRunState\x12\x15\n" +
 	"\x11RUN_STATE_RUNNING\x10\x00\x12\x16\n" +
 	"\x12RUN_STATE_FINISHED\x10\x01\x12\x15\n" +
@@ -534,27 +367,24 @@ func file_swanlab_run_v1_run_proto_rawDescGZIP() []byte {
 }
 
 var file_swanlab_run_v1_run_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_swanlab_run_v1_run_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_swanlab_run_v1_run_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_swanlab_run_v1_run_proto_goTypes = []any{
 	(RunState)(0),                 // 0: swanlab.run.v1.RunState
 	(ResumeMode)(0),               // 1: swanlab.run.v1.ResumeMode
 	(*StartRecord)(nil),           // 2: swanlab.run.v1.StartRecord
-	(*StartResponse)(nil),         // 3: swanlab.run.v1.StartResponse
-	(*FinishRecord)(nil),          // 4: swanlab.run.v1.FinishRecord
-	(*FinishResponse)(nil),        // 5: swanlab.run.v1.FinishResponse
-	(*timestamppb.Timestamp)(nil), // 6: google.protobuf.Timestamp
+	(*FinishRecord)(nil),          // 3: swanlab.run.v1.FinishRecord
+	(*timestamppb.Timestamp)(nil), // 4: google.protobuf.Timestamp
 }
 var file_swanlab_run_v1_run_proto_depIdxs = []int32{
 	1, // 0: swanlab.run.v1.StartRecord.resume:type_name -> swanlab.run.v1.ResumeMode
-	6, // 1: swanlab.run.v1.StartRecord.started_at:type_name -> google.protobuf.Timestamp
-	2, // 2: swanlab.run.v1.StartResponse.run:type_name -> swanlab.run.v1.StartRecord
-	0, // 3: swanlab.run.v1.FinishRecord.state:type_name -> swanlab.run.v1.RunState
-	6, // 4: swanlab.run.v1.FinishRecord.finished_at:type_name -> google.protobuf.Timestamp
-	5, // [5:5] is the sub-list for method output_type
-	5, // [5:5] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	4, // 1: swanlab.run.v1.StartRecord.started_at:type_name -> google.protobuf.Timestamp
+	0, // 2: swanlab.run.v1.FinishRecord.state:type_name -> swanlab.run.v1.RunState
+	4, // 3: swanlab.run.v1.FinishRecord.finished_at:type_name -> google.protobuf.Timestamp
+	4, // [4:4] is the sub-list for method output_type
+	4, // [4:4] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_swanlab_run_v1_run_proto_init() }
@@ -568,7 +398,7 @@ func file_swanlab_run_v1_run_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_swanlab_run_v1_run_proto_rawDesc), len(file_swanlab_run_v1_run_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   4,
+			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

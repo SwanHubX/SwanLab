@@ -23,7 +23,6 @@ _sym_db = _symbol_database.Default()
 
 
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
-from google.protobuf import empty_pb2 as google_dot_protobuf_dot_empty__pb2
 from swanlab.proto.swanlab.run.v1 import run_pb2 as swanlab_dot_run_dot_v1_dot_run__pb2
 from swanlab.proto.swanlab.metric.data.v1 import data_pb2 as swanlab_dot_metric_dot_data_dot_v1_dot_data__pb2
 from swanlab.proto.swanlab.metric.column.v1 import column_pb2 as swanlab_dot_metric_dot_column_dot_v1_dot_column__pb2
@@ -33,7 +32,7 @@ from swanlab.proto.swanlab.terminal.v1 import log_pb2 as swanlab_dot_terminal_do
 from swanlab.proto.swanlab.save.v1 import save_pb2 as swanlab_dot_save_dot_v1_dot_save__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1eswanlab/record/v1/record.proto\x12\x11swanlab.record.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x18swanlab/run/v1/run.proto\x1a!swanlab/metric/data/v1/data.proto\x1a%swanlab/metric/column/v1/column.proto\x1a\x1eswanlab/config/v1/config.proto\x1a\x18swanlab/env/v1/env.proto\x1a\x1dswanlab/terminal/v1/log.proto\x1a\x1aswanlab/save/v1/save.proto\"O\n\x14UpsertColumnsRequest\x12\x37\n\x07\x63olumns\x18\x01 \x03(\x0b\x32&.swanlab.metric.column.v1.ColumnRecord\"J\n\x14UpsertScalarsRequest\x12\x32\n\x04\x64\x61ta\x18\x01 \x03(\x0b\x32$.swanlab.metric.data.v1.ScalarRecord\"G\n\x12UpsertMediaRequest\x12\x31\n\x04\x64\x61ta\x18\x01 \x03(\x0b\x32#.swanlab.metric.data.v1.MediaRecord\"H\n\x14UpsertConfigsRequest\x12\x30\n\x07\x63onfigs\x18\x01 \x03(\x0b\x32\x1f.swanlab.config.v1.ConfigRecord\"A\n\x11UpsertLogsRequest\x12,\n\x04logs\x18\x01 \x03(\x0b\x32\x1e.swanlab.terminal.v1.LogRecord\"I\n\x15UpsertMetadataRequest\x12\x30\n\x08metadata\x18\x01 \x03(\x0b\x32\x1e.swanlab.env.v1.MetadataRecord\"U\n\x19UpsertRequirementsRequest\x12\x38\n\x0crequirements\x18\x01 \x03(\x0b\x32\".swanlab.env.v1.RequirementsRecord\"@\n\x12UpsertCondaRequest\x12*\n\x05\x63onda\x18\x01 \x03(\x0b\x32\x1b.swanlab.env.v1.CondaRecord\"@\n\x12UpsertSavesRequest\x12*\n\x05saves\x18\x01 \x03(\x0b\x32\x1b.swanlab.save.v1.SaveRecord\"\x86\x05\n\x06Record\x12\x0b\n\x03num\x18\x01 \x01(\x03\x12-\n\ttimestamp\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12,\n\x05start\x18\n \x01(\x0b\x32\x1b.swanlab.run.v1.StartRecordH\x00\x12.\n\x06\x66inish\x18\x0b \x01(\x0b\x32\x1c.swanlab.run.v1.FinishRecordH\x00\x12\x38\n\x06\x63olumn\x18\x0c \x01(\x0b\x32&.swanlab.metric.column.v1.ColumnRecordH\x00\x12\x36\n\x06scalar\x18\r \x01(\x0b\x32$.swanlab.metric.data.v1.ScalarRecordH\x00\x12\x34\n\x05media\x18\x0e \x01(\x0b\x32#.swanlab.metric.data.v1.MediaRecordH\x00\x12\x31\n\x06\x63onfig\x18\x0f \x01(\x0b\x32\x1f.swanlab.config.v1.ConfigRecordH\x00\x12-\n\x03log\x18\x10 \x01(\x0b\x32\x1e.swanlab.terminal.v1.LogRecordH\x00\x12\x32\n\x08metadata\x18\x11 \x01(\x0b\x32\x1e.swanlab.env.v1.MetadataRecordH\x00\x12:\n\x0crequirements\x18\x12 \x01(\x0b\x32\".swanlab.env.v1.RequirementsRecordH\x00\x12,\n\x05\x63onda\x18\x13 \x01(\x0b\x32\x1b.swanlab.env.v1.CondaRecordH\x00\x12+\n\x04save\x18\x14 \x01(\x0b\x32\x1b.swanlab.save.v1.SaveRecordH\x00\x42\r\n\x0brecord_type2\x8c\x07\n\rRecordService\x12M\n\x0f\x44\x65liverRunStart\x12\x1b.swanlab.run.v1.StartRecord\x1a\x1d.swanlab.run.v1.StartResponse\x12P\n\rUpsertColumns\x12\'.swanlab.record.v1.UpsertColumnsRequest\x1a\x16.google.protobuf.Empty\x12P\n\rUpsertScalars\x12\'.swanlab.record.v1.UpsertScalarsRequest\x1a\x16.google.protobuf.Empty\x12L\n\x0bUpsertMedia\x12%.swanlab.record.v1.UpsertMediaRequest\x1a\x16.google.protobuf.Empty\x12P\n\rUpsertConfigs\x12\'.swanlab.record.v1.UpsertConfigsRequest\x1a\x16.google.protobuf.Empty\x12J\n\nUpsertLogs\x12$.swanlab.record.v1.UpsertLogsRequest\x1a\x16.google.protobuf.Empty\x12Z\n\x12UpsertRequirements\x12,.swanlab.record.v1.UpsertRequirementsRequest\x1a\x16.google.protobuf.Empty\x12L\n\x0bUpsertConda\x12%.swanlab.record.v1.UpsertCondaRequest\x1a\x16.google.protobuf.Empty\x12R\n\x0eUpsertMetadata\x12(.swanlab.record.v1.UpsertMetadataRequest\x1a\x16.google.protobuf.Empty\x12P\n\x10\x44\x65liverRunFinish\x12\x1c.swanlab.run.v1.FinishRecord\x1a\x1e.swanlab.run.v1.FinishResponse\x12L\n\x0bUpsertSaves\x12%.swanlab.record.v1.UpsertSavesRequest\x1a\x16.google.protobuf.EmptyBCZAgithub.com/swanhubx/swanlab/core/proto/swanlab/record/v1;recordv1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1eswanlab/record/v1/record.proto\x12\x11swanlab.record.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x18swanlab/run/v1/run.proto\x1a!swanlab/metric/data/v1/data.proto\x1a%swanlab/metric/column/v1/column.proto\x1a\x1eswanlab/config/v1/config.proto\x1a\x18swanlab/env/v1/env.proto\x1a\x1dswanlab/terminal/v1/log.proto\x1a\x1aswanlab/save/v1/save.proto\"\x86\x05\n\x06Record\x12\x0b\n\x03num\x18\x01 \x01(\x03\x12-\n\ttimestamp\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12,\n\x05start\x18\n \x01(\x0b\x32\x1b.swanlab.run.v1.StartRecordH\x00\x12.\n\x06\x66inish\x18\x0b \x01(\x0b\x32\x1c.swanlab.run.v1.FinishRecordH\x00\x12\x38\n\x06\x63olumn\x18\x0c \x01(\x0b\x32&.swanlab.metric.column.v1.ColumnRecordH\x00\x12\x36\n\x06scalar\x18\r \x01(\x0b\x32$.swanlab.metric.data.v1.ScalarRecordH\x00\x12\x34\n\x05media\x18\x0e \x01(\x0b\x32#.swanlab.metric.data.v1.MediaRecordH\x00\x12\x31\n\x06\x63onfig\x18\x0f \x01(\x0b\x32\x1f.swanlab.config.v1.ConfigRecordH\x00\x12-\n\x03log\x18\x10 \x01(\x0b\x32\x1e.swanlab.terminal.v1.LogRecordH\x00\x12\x32\n\x08metadata\x18\x11 \x01(\x0b\x32\x1e.swanlab.env.v1.MetadataRecordH\x00\x12:\n\x0crequirements\x18\x12 \x01(\x0b\x32\".swanlab.env.v1.RequirementsRecordH\x00\x12,\n\x05\x63onda\x18\x13 \x01(\x0b\x32\x1b.swanlab.env.v1.CondaRecordH\x00\x12+\n\x04save\x18\x14 \x01(\x0b\x32\x1b.swanlab.save.v1.SaveRecordH\x00\x42\r\n\x0brecord_typeBCZAgithub.com/swanhubx/swanlab/core/proto/swanlab/record/v1;recordv1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -41,26 +40,6 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'swanlab.record.v1.record_pb
 if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'ZAgithub.com/swanhubx/swanlab/core/proto/swanlab/record/v1;recordv1'
-  _globals['_UPSERTCOLUMNSREQUEST']._serialized_start=332
-  _globals['_UPSERTCOLUMNSREQUEST']._serialized_end=411
-  _globals['_UPSERTSCALARSREQUEST']._serialized_start=413
-  _globals['_UPSERTSCALARSREQUEST']._serialized_end=487
-  _globals['_UPSERTMEDIAREQUEST']._serialized_start=489
-  _globals['_UPSERTMEDIAREQUEST']._serialized_end=560
-  _globals['_UPSERTCONFIGSREQUEST']._serialized_start=562
-  _globals['_UPSERTCONFIGSREQUEST']._serialized_end=634
-  _globals['_UPSERTLOGSREQUEST']._serialized_start=636
-  _globals['_UPSERTLOGSREQUEST']._serialized_end=701
-  _globals['_UPSERTMETADATAREQUEST']._serialized_start=703
-  _globals['_UPSERTMETADATAREQUEST']._serialized_end=776
-  _globals['_UPSERTREQUIREMENTSREQUEST']._serialized_start=778
-  _globals['_UPSERTREQUIREMENTSREQUEST']._serialized_end=863
-  _globals['_UPSERTCONDAREQUEST']._serialized_start=865
-  _globals['_UPSERTCONDAREQUEST']._serialized_end=929
-  _globals['_UPSERTSAVESREQUEST']._serialized_start=931
-  _globals['_UPSERTSAVESREQUEST']._serialized_end=995
-  _globals['_RECORD']._serialized_start=998
-  _globals['_RECORD']._serialized_end=1644
-  _globals['_RECORDSERVICE']._serialized_start=1647
-  _globals['_RECORDSERVICE']._serialized_end=2555
+  _globals['_RECORD']._serialized_start=304
+  _globals['_RECORD']._serialized_end=950
 # @@protoc_insertion_point(module_scope)

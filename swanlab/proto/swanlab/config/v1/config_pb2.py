@@ -25,7 +25,7 @@ _sym_db = _symbol_database.Default()
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1eswanlab/config/v1/config.proto\x12\x11swanlab.config.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"q\n\x0c\x43onfigRecord\x12\x32\n\x0bupdate_type\x18\x03 \x01(\x0e\x32\x1d.swanlab.config.v1.UpdateType\x12-\n\ttimestamp\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.Timestamp*V\n\nUpdateType\x12\x1b\n\x17UPDATE_TYPE_UNSPECIFIED\x10\x00\x12\x14\n\x10UPDATE_TYPE_INIT\x10\x01\x12\x15\n\x11UPDATE_TYPE_PATCH\x10\x02\x42\x43ZAgithub.com/swanhubx/swanlab/core/proto/swanlab/config/v1;configv1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1eswanlab/config/v1/config.proto\x12\x11swanlab.config.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"q\n\x0c\x43onfigRecord\x12\x32\n\x0bupdate_type\x18\x01 \x01(\x0e\x32\x1d.swanlab.config.v1.UpdateType\x12-\n\ttimestamp\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp*V\n\nUpdateType\x12\x1b\n\x17UPDATE_TYPE_UNSPECIFIED\x10\x00\x12\x14\n\x10UPDATE_TYPE_INIT\x10\x01\x12\x15\n\x11UPDATE_TYPE_PATCH\x10\x02\x42\x43ZAgithub.com/swanhubx/swanlab/core/proto/swanlab/config/v1;configv1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)

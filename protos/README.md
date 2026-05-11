@@ -17,7 +17,7 @@ protos/
 └── swanlab/
     ├── record/
     │   └── v1/
-    │       └── record.proto            # 顶层信封 Record + RecordService gRPC 服务
+    │       └── record.proto            # 顶层信封 Record
     │
     ├── run/
     │   └── v1/
@@ -43,9 +43,27 @@ protos/
     │   └── v1/
     │       └── log.proto               # 终端代理捕获的 stdout/stderr 输出（LogRecord、LogLevel）
     │
-    └── save/
-        └── v1/
-            └── save.proto              # 文件保存记录（SaveRecord、SavePolicy）
+    ├── save/
+    │   └── v1/
+    │       └── save.proto              # 文件保存记录（SaveRecord、SavePolicy）
+    │
+    ├── settings/
+    │   ├── core/
+    │   │   └── v1/
+    │   │       └── core.proto          # Core 同步服务配置（CoreSettings）
+    │   └── probe/
+    │       └── v1/
+    │           └── probe.proto         # Probe 硬件采集服务配置（ProbeSettings）
+    │
+    └── grpc/
+        ├── core/
+        │   ├── v1/
+        │   │   ├── core.proto          # CoreService gRPC 服务（接收实验记录）
+        │   │   └── sync.proto          # CoreSyncService gRPC 服务（启动日志同步）
+        │   └── ...
+        └── probe/
+            └── v1/
+                └── probe.proto         # ProbeService gRPC 服务（启动硬件采集）
 ```
 
 ## 消息流
@@ -98,23 +116,43 @@ swanlab.finish()
 
 `num` 字段保证全局单调递增，用于去重和断点续传。特殊值：Start=-1, Finish=-2, Config=-3, Metadata=-4, Requirements=-5, Conda=-6。
 
-## RecordService gRPC 接口
+## gRPC 服务
 
-`record.proto` 同时定义了 `RecordService`，用于同步/异步接收实验记录：
+### CoreService
 
-| RPC 方法 | 请求类型 | 说明 |
-|----------|----------|------|
-| `DeliverRunStart` | StartRecord | 实验开始 |
-| `UpsertColumns` | UpsertColumnsRequest | 定义指标列 |
-| `UpsertScalars` | UpsertScalarsRequest | 记录标量值 |
-| `UpsertMedia` | UpsertMediaRequest | 记录媒体值 |
-| `UpsertConfigs` | UpsertConfigsRequest | 更新配置 |
-| `UpsertLogs` | UpsertLogsRequest | 终端输出 |
-| `UpsertMetadata` | UpsertMetadataRequest | 主机元数据更新 |
-| `UpsertRequirements` | UpsertRequirementsRequest | 依赖更新 |
-| `UpsertConda` | UpsertCondaRequest | Conda 环境更新 |
-| `DeliverRunFinish` | FinishRecord | 实验结束 |
-| `UpsertSaves` | UpsertSavesRequest | 文件保存 |
+`grpc/core/v1/core.proto` 定义核心业务接口，用于同步/异步接收实验记录：
+
+| RPC 方法 | 请求类型 | 响应类型 | 说明 |
+|----------|----------|----------|------|
+| `DeliverRunStart` | DeliverRunStartRequest | DeliverRunStartResponse | 实验开始 |
+| `UpsertColumns` | UpsertColumnsRequest | Empty | 定义指标列 |
+| `UpsertScalars` | UpsertScalarsRequest | Empty | 记录标量值 |
+| `UpsertMedia` | UpsertMediaRequest | Empty | 记录媒体值 |
+| `UpsertConfigs` | UpsertConfigsRequest | Empty | 更新配置 |
+| `UpsertLogs` | UpsertLogsRequest | Empty | 终端输出 |
+| `UpsertMetadata` | UpsertMetadataRequest | Empty | 主机元数据更新 |
+| `UpsertRequirements` | UpsertRequirementsRequest | Empty | 依赖更新 |
+| `UpsertConda` | UpsertCondaRequest | Empty | Conda 环境更新 |
+| `UpsertSaves` | UpsertSavesRequest | Empty | 文件保存 |
+| `DeliverRunFinish` | DeliverRunFinishRequest | DeliverRunFinishResponse | 实验结束 |
+
+### CoreSyncService
+
+`grpc/core/v1/sync.proto` 定义日志同步服务接口：
+
+| RPC 方法 | 请求类型 | 响应类型 | 说明 |
+|----------|----------|----------|------|
+| `DeliverSyncStart` | DeliverSyncStartRequest | Empty | 启动本地日志读取与云端同步 |
+| `DeliverSyncFinish` | Empty | Empty | 结束日志同步 |
+
+### ProbeService
+
+`grpc/probe/v1/probe.proto` 定义硬件采集服务接口：
+
+| RPC 方法 | 请求类型 | 响应类型 | 说明 |
+|----------|----------|----------|------|
+| `DeliverProbeStart` | DeliverProbeStartRequest | Empty | 启动硬件信息采集 |
+| `DeliverProbeFinish` | Empty | Empty | 结束硬件信息采集 |
 
 ## 各包详解
 
@@ -159,6 +197,11 @@ swanlab.finish()
 
 - **SaveRecord**: 由 `swanlab.save()` 产生，包含 name、source_path、target_path
 - **SavePolicy**: `NOW`（立即上传）/ `END`（运行结束时上传）/ `LIVE`（持续监听文件变化）
+
+### settings — 服务配置
+
+- **CoreSettings** (`settings/core/v1/core.proto`): Core 同步服务的启动配置
+- **ProbeSettings** (`settings/probe/v1/probe.proto`): Probe 硬件采集服务的启动配置
 
 ## ColumnRecord 生成策略
 

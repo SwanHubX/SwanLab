@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package swanlab.grpc.core.v1;
+
+import "google/protobuf/empty.proto";
+import "swanlab/settings/core/v1/core.proto";
+
+option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/grpc/core/v1;corev1";
+
+// CoreSyncService 用于启动本地日志读取、云端同步服务
+service CoreSyncService {
+  // DeliverSyncStart 接收 CoreSettings，启动本地日志读取与云端同步
+  rpc DeliverSyncStart(DeliverSyncStartRequest) returns (google.protobuf.Empty);
+
+  // DeliverSyncFinish 结束本地日志读取与云端同步
+  rpc DeliverSyncFinish(google.protobuf.Empty) returns (google.protobuf.Empty);
+}
+
+// DeliverSyncStart 请求，同步服务启动配置
+message DeliverSyncStartRequest {
+  swanlab.settings.core.v1.CoreSettings core_settings = 1;  // 同步服务启动配置
+}

@@ -10,8 +10,8 @@ option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/config/v1;co
 // config 数据写入磁盘（files/config.yaml），Record 只保存更新类型，路径引用约定为 "files/config.yaml"，使用yaml解析。
 // PATCH 更新时覆写同一个文件，消费方以最新文件内容为准。
 message ConfigRecord {
-  UpdateType update_type  = 3;
-  google.protobuf.Timestamp timestamp = 4;
+  UpdateType update_type  = 1;
+  google.protobuf.Timestamp timestamp = 2;
 }
 
 enum UpdateType {

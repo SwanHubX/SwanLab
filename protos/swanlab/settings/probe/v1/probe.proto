@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+package swanlab.settings.probe.v1;
+
+option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/settings/probe/v1;settingsprobev1";
+
+message ProbeSettings {
+
+}

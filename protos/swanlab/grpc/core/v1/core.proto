@@ -1,0 +1,125 @@
+syntax = "proto3";
+
+package swanlab.grpc.core.v1;
+
+import "google/protobuf/empty.proto";
+import "swanlab/run/v1/run.proto";
+import "swanlab/metric/data/v1/data.proto";
+import "swanlab/metric/column/v1/column.proto";
+import "swanlab/config/v1/config.proto";
+import "swanlab/env/v1/env.proto";
+import "swanlab/terminal/v1/log.proto";
+import "swanlab/save/v1/save.proto";
+import "swanlab/settings/core/v1/core.proto";
+
+option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/grpc/core/v1;corev1";
+
+// CoreService 是核心业务接口，用于同步或异步地接收实验记录
+service CoreService {
+  // DeliverRunStart 接收单条 StartRecord，用于实验开始，并返回必要的信息。
+  rpc DeliverRunStart(DeliverRunStartRequest) returns (DeliverRunStartResponse);
+
+  // UpsertColumns 接收一组 ColumnRecord 并写入，每一条记录用于定义某一个指标
+  rpc UpsertColumns(UpsertColumnsRequest) returns (google.protobuf.Empty);
+
+  // UpsertScalars 接收一组 ScalarRecord 并写入，每一条记录用于记录某一个指标的值
+  rpc UpsertScalars(UpsertScalarsRequest) returns (google.protobuf.Empty);
+
+  // UpsertMedia 接收一组 MediaRecord 并写入，每一条记录用于记录某一个指标的值
+  rpc UpsertMedia(UpsertMediaRequest) returns (google.protobuf.Empty);
+
+  // UpsertConfigs 接收一组 ConfigRecord 并写入，每一条记录对应一次用户对 config 的修改
+  rpc UpsertConfigs(UpsertConfigsRequest) returns (google.protobuf.Empty);
+
+  // UpsertLogs 接收一组 LogRecord 并写入，每一条记录对应一行用户的终端输出
+  rpc UpsertLogs(UpsertLogsRequest) returns (google.protobuf.Empty);
+
+  // UpsertRequirements 接收一组 RequirementsRecord 并写入，每一条记录对应一次用户/系统对 requirements 的修改
+  rpc UpsertRequirements(UpsertRequirementsRequest) returns (google.protobuf.Empty);
+
+  // UpsertConda 接收一组 CondaRecord 并写入，每一条记录对应一次用户/系统对 conda 的修改
+  rpc UpsertConda(UpsertCondaRequest) returns (google.protobuf.Empty);
+
+  // UpsertMetadata 接收一组 MetadataRecord 并写入，每一条记录对应一次用户/系统对 metadata 的修改
+  rpc UpsertMetadata(UpsertMetadataRequest) returns (google.protobuf.Empty);
+
+  // UpsertSaves 接收一组 SaveRecord 并写入，每一条记录对应一次 swanlab.save() 的文件保存
+  rpc UpsertSaves(UpsertSavesRequest) returns (google.protobuf.Empty);
+
+  // DeliverRunFinish 接收单条 FinishRecord，用于实验结束。
+  rpc DeliverRunFinish(DeliverRunFinishRequest) returns (DeliverRunFinishResponse);
+}
+
+// DeliverRunStart 请求，生命周期函数，运行正式开始
+message DeliverRunStartRequest {
+  swanlab.settings.core.v1.CoreSettings core_settings   = 1;  // Run 服务配置
+  swanlab.run.v1.StartRecord start_record               = 2;  // Run 创建记录
+}
+
+// DeliverRunStart 响应
+message DeliverRunStartResponse {
+  bool success                            = 1;  // 请求是否成功
+  string message                          = 2;  // 请求失败的响应
+  swanlab.run.v1.StartRecord run          = 3;  // 最终创建的 Run 记录
+  string path                             = 4;  // 对应的实验路径，格式为 /:username/:project_name/:slug(run_id)
+  string name                             = 5;  // 对应的实验名称
+  int64 global_step                       = 6;  // 起始全局步数
+  int64 global_system_step                = 7;  // 起始全局系统步数
+  bool  new_experiment                    = 8;  // 是否是新实验
+}
+
+// UpsertColumns 请求，异步插入一批列定义
+message UpsertColumnsRequest {
+  repeated swanlab.metric.column.v1.ColumnRecord columns = 1;  // 列定义列表
+}
+
+// UpsertScalars 请求，异步插入一批标量数据
+message UpsertScalarsRequest {
+  repeated swanlab.metric.data.v1.ScalarRecord data = 1;  // 标量记录列表
+}
+
+// UpsertMedia 请求，异步插入一批媒体数据
+message UpsertMediaRequest {
+  repeated swanlab.metric.data.v1.MediaRecord data = 1;  // 媒体记录列表
+}
+
+// UpsertConfigs 请求，异步插入一批配置更新
+message UpsertConfigsRequest {
+  repeated swanlab.config.v1.ConfigRecord configs = 1;  // 配置记录列表
+}
+
+// UpsertLogs 请求，异步插入一批终端输出
+message UpsertLogsRequest {
+  repeated swanlab.terminal.v1.LogRecord logs = 1;  // 终端日志记录列表
+}
+
+// UpsertMetadata 请求，异步插入一批主机元数据
+message UpsertMetadataRequest {
+  repeated swanlab.env.v1.MetadataRecord metadata = 1;  // 元数据记录列表
+}
+
+// UpsertRequirements 请求，异步插入一批 Python 依赖
+message UpsertRequirementsRequest {
+  repeated swanlab.env.v1.RequirementsRecord requirements = 1;  // 依赖记录列表
+}
+
+// UpsertConda 请求，异步插入一批 Conda 环境信息
+message UpsertCondaRequest {
+  repeated swanlab.env.v1.CondaRecord conda = 1;  // Conda 记录列表
+}
+
+// UpsertSaves 请求，异步插入一批文件保存记录
+message UpsertSavesRequest {
+  repeated swanlab.save.v1.SaveRecord saves = 1;  // 保存记录列表
+}
+
+// DeliverRunFinish 请求，生命周期函数，运行结束
+message DeliverRunFinishRequest {
+  swanlab.run.v1.FinishRecord finish_record = 1;  // Run 结束记录
+}
+
+// DeliverRunFinish 响应
+message DeliverRunFinishResponse {
+  bool success   = 1;  // 请求是否成功
+  string message = 2;  // 请求失败的响应
+}

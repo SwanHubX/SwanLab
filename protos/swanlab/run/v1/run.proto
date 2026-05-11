@@ -22,31 +22,12 @@ message StartRecord {
   google.protobuf.Timestamp started_at = 12;
 }
 
-// Run 创建响应
-message StartResponse {
-  bool success             = 1;  // 请求是否成功
-  string message           = 2;  // 请求失败的响应
-  StartRecord run          = 3;  // 最终创建的 Run 记录
-  string path              = 4;  // 对应的实验路径，格式为 /:username/:project_name/:slug(run_id)
-  string name              = 5;  // 对应的实验名称
-  int64 global_step        = 6;  // 起始全局步数
-  int64 global_system_step = 7;  // 起始全局系统步数
-  bool  new_experiment     = 8;  // 是否是新实验
-}
-
-
 // Run 结束记录，对应 swanlab.finish() 或进程退出，由sdk前端生成并同步交给后端
 message FinishRecord {
   RunState state    = 1;
   // 异常信息，state=CRASHED 时填充
   string   error    = 2;
   google.protobuf.Timestamp finished_at = 3;
-}
-
-// Run 结束响应
-message FinishResponse {
-  bool success   = 1;  // 请求是否成功
-  string message = 2;  // 请求失败的响应
 }
 
 enum RunState {

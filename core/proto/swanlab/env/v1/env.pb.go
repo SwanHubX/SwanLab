@@ -27,7 +27,7 @@ const (
 // 路径引用约定为 "files/swanlab-metadata.json"，使用json解析。
 type MetadataRecord struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Timestamp     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
+	Timestamp     *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -73,7 +73,7 @@ func (x *MetadataRecord) GetTimestamp() *timestamppb.Timestamp {
 // 路径引用约定为 "files/requirements.txt"，使用txt解析。
 type RequirementsRecord struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Timestamp     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
+	Timestamp     *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -119,7 +119,7 @@ func (x *RequirementsRecord) GetTimestamp() *timestamppb.Timestamp {
 // 路径引用约定为 "files/conda.yml"，使用yaml解析。
 type CondaRecord struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Timestamp     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
+	Timestamp     *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -167,11 +167,11 @@ const file_swanlab_env_v1_env_proto_rawDesc = "" +
 	"\n" +
 	"\x18swanlab/env/v1/env.proto\x12\x0eswanlab.env.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"J\n" +
 	"\x0eMetadataRecord\x128\n" +
-	"\ttimestamp\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\"N\n" +
+	"\ttimestamp\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\"N\n" +
 	"\x12RequirementsRecord\x128\n" +
-	"\ttimestamp\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\"G\n" +
+	"\ttimestamp\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\"G\n" +
 	"\vCondaRecord\x128\n" +
-	"\ttimestamp\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestampB=Z;github.com/swanhubx/swanlab/core/proto/swanlab/env/v1;envv1b\x06proto3"
+	"\ttimestamp\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestampB=Z;github.com/swanhubx/swanlab/core/proto/swanlab/env/v1;envv1b\x06proto3"
 
 var (
 	file_swanlab_env_v1_env_proto_rawDescOnce sync.Once
