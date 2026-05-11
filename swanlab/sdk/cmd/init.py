@@ -20,6 +20,7 @@ import requests
 import yaml
 from google.protobuf.timestamp_pb2 import Timestamp
 
+from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import DeliverRunStartRequest
 from swanlab.proto.swanlab.run.v1.run_pb2 import StartRecord
 from swanlab.sdk.cmd.guard import with_cmd_lock
 from swanlab.sdk.internal.context import (
@@ -494,20 +495,24 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
         # 3. 统一调用 deliver_run_start（core 内部按 mode 分发：online 走网络，其余本地处理）
         ts = Timestamp()
         ts.GetCurrentTime()
+        start_record = StartRecord(
+            project=run_settings.project.name,
+            workspace=run_settings.project.workspace,
+            public=run_settings.project.public,
+            name=run_settings.experiment.name,
+            color=run_settings.experiment.color,
+            description=run_settings.experiment.description,
+            job_type=run_settings.experiment.job_type,
+            group=run_settings.experiment.group,
+            tags=run_settings.experiment.tags,
+            id=run_id,
+            resume=adapter.resume[run_settings.run.resume],
+            started_at=ts,
+        )
         resp = ctx.core.deliver_run_start(
-            StartRecord(
-                project=run_settings.project.name,
-                workspace=run_settings.project.workspace,
-                public=run_settings.project.public,
-                name=run_settings.experiment.name,
-                color=run_settings.experiment.color,
-                description=run_settings.experiment.description,
-                job_type=run_settings.experiment.job_type,
-                group=run_settings.experiment.group,
-                tags=run_settings.experiment.tags,
-                id=run_id,
-                resume=adapter.resume[run_settings.run.resume],
-                started_at=ts,
+            DeliverRunStartRequest(
+                start_record=start_record,
+                core_settings=ctx.config.settings.to_core_proto(run_id=run_id, run_dir=run_dir),
             )
         )
         if not resp.success:

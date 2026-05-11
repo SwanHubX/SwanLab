@@ -32,6 +32,8 @@ from pydantic_settings import (
     YamlConfigSettingsSource,
 )
 
+from swanlab.proto.swanlab.settings.core.v1.core_pb2 import CoreSettings as CoreSettingsPb
+from swanlab.proto.swanlab.settings.probe.v1.probe_pb2 import ProbeSettings as ProbeSettingsPb
 from swanlab.sdk.internal.pkg import helper, nrc, safe
 from swanlab.sdk.typings.run import ModeType
 
@@ -305,6 +307,35 @@ class Settings(BaseSettings):
         validate_assignment=True,
         str_strip_whitespace=True,
     )
+
+    def to_core_proto(self, run_id: str, run_dir: Path) -> CoreSettingsPb:
+        return CoreSettingsPb(
+            run_id=run_id,
+            run_dir=str(run_dir.absolute()),
+            section_rule=self.core.section_rule,
+            record_batch=self.core.record_batch,
+            record_interval=self.core.record_interval,
+            save_split=self.core.save_split,
+            save_total=self.core.save_total,
+            save_part=self.core.save_part,
+            save_batch=self.core.save_batch,
+        )
+
+    def to_probe_proto(self, run_id: str, run_dir: Path, global_system_step: int) -> ProbeSettingsPb:
+        return ProbeSettingsPb(
+            run_id=run_id,
+            run_dir=str(run_dir.absolute()),
+            global_system_step=global_system_step,
+            hardware=self.probe.hardware,
+            runtime=self.probe.runtime,
+            requirements=self.probe.requirements,
+            conda=self.probe.conda,
+            git=self.probe.git,
+            swanlab=self.probe.swanlab,
+            monitor=self.probe.monitor,
+            monitor_interval=self.probe.monitor_interval,
+            monitor_disk_dir=str(self.probe.monitor_disk_dir.absolute()),
+        )
 
     @classmethod
     def settings_customise_sources(

@@ -23,25 +23,25 @@ from typing import List, Optional, Tuple
 
 from swanlab.proto.swanlab.config.v1.config_pb2 import ConfigRecord
 from swanlab.proto.swanlab.env.v1.env_pb2 import CondaRecord, MetadataRecord, RequirementsRecord
+from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
+    DeliverRunFinishRequest,
+    DeliverRunFinishResponse,
+    DeliverRunStartRequest,
+    DeliverRunStartResponse,
+)
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnClass, ColumnRecord, ColumnType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord, ScalarRecord
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
-from swanlab.proto.swanlab.run.v1.run_pb2 import (
-    FinishRecord,
-    FinishResponse,
-    RunState,
-    StartRecord,
-    StartResponse,
-)
+from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord, RunState, StartRecord
 from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord
 from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogLevel, LogRecord
-from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.core_python.api.experiment import (
     create_or_resume_experiment,
     get_experiment_summary,
     stop_experiment,
 )
 from swanlab.sdk.internal.core_python.api.project import get_or_create_project, get_project
+from swanlab.sdk.internal.core_python.context import CoreContext
 from swanlab.sdk.internal.core_python.heartbeat import Heartbeat
 from swanlab.sdk.internal.core_python.metrics import RunMetrics
 from swanlab.sdk.internal.core_python.pkg import builder, counter
@@ -52,6 +52,7 @@ from swanlab.sdk.internal.core_python.watcher import FileWatcher, create_save_li
 from swanlab.sdk.internal.pkg import adapter, console, safe
 from swanlab.sdk.protocol import CoreProtocol
 from swanlab.sdk.typings.core_python.api.experiment import ResumeExperimentSummaryType
+from swanlab.sdk.typings.run import ModeType
 from swanlab.utils.experiment import generate_color, generate_name
 
 __all__ = ["CorePython"]
@@ -63,11 +64,11 @@ class CorePython(CoreProtocol):
     由 Run 在初始化时构造并注入给 BackgroundConsumer
     """
 
-    def __init__(self, ctx: RunContext):
-        super().__init__(ctx)
+    def __init__(self, mode: ModeType):
+        super().__init__(mode)
+        self._run_ctx: Optional[CoreContext] = None
         self._store: Optional[DataStoreWriter] = None
         self._transport: Optional[Transport] = None
-        self._mode = ctx.config.settings.mode
         self._username: Optional[str] = None
         self._project: Optional[str] = None
         self._project_id: Optional[str] = None
@@ -83,34 +84,44 @@ class CorePython(CoreProtocol):
         self._watcher = FileWatcher(on_change=self._on_file_changed)
         self._pending_end_saves: List[Record] = []
 
+    @property
+    def _ctx(self) -> CoreContext:
+        assert self._run_ctx, "run context not set"
+        return self._run_ctx
+
+    @_ctx.setter
+    def _ctx(self, ctx: CoreContext):
+        self._run_ctx = ctx
+
     # ---------------------------------- 实验开始 ----------------------------------
 
-    def deliver_run_start(self, start_record: StartRecord) -> StartResponse:
+    def deliver_run_start(self, start_request: DeliverRunStartRequest) -> DeliverRunStartResponse:
         if self._started:
             raise RuntimeError("Failed to start run: already started")
-        resp = super().deliver_run_start(start_record)
+        resp = super().deliver_run_start(start_request)
         self._started = resp.success
         return resp
 
-    def _start_store(self, resp: StartResponse):
+    def _start_store(self, resp: DeliverRunStartResponse):
         self._store = DataStoreWriter()
         self._store.open(str(self._ctx.run_file))
         record = builder.build_start_record(resp.run)
         self._store.write(record.SerializeToString())
 
-    def _start_without_online(self, start_record: StartRecord, message: str) -> StartResponse:
-        resp = StartResponse(success=True, message=message, run=start_record)
+    def _start_without_online(self, start_request: DeliverRunStartRequest, message: str) -> DeliverRunStartResponse:
+        resp = DeliverRunStartResponse(success=True, message=message, run=start_request.start_record)
         self._start_store(resp)
         return resp
 
-    def _start_when_local(self, start_record: StartRecord) -> StartResponse:
-        return self._start_without_online(start_record, "OK, but use local")
+    def _start_when_local(self, start_request: DeliverRunStartRequest) -> DeliverRunStartResponse:
+        return self._start_without_online(start_request, "OK, but use local")
 
-    def _start_when_offline(self, start_record: StartRecord) -> StartResponse:
-        return self._start_without_online(start_record, "OK, but use offline")
+    def _start_when_offline(self, start_request: DeliverRunStartRequest) -> DeliverRunStartResponse:
+        return self._start_without_online(start_request, "OK, but use offline")
 
-    def _start_when_online(self, start_record: StartRecord) -> StartResponse:
-        resp = self._report_run_start(start_record)
+    def _start_when_online(self, start_request: DeliverRunStartRequest) -> DeliverRunStartResponse:
+        self._ctx = CoreContext.from_proto(start_request.core_settings)
+        resp = self._report_run_start(start_request.start_record)
         self._start_store(resp)
         # Transport initialization is part of startup in online mode.
         # Fail fast on error instead of degrading silently.
@@ -120,19 +131,18 @@ class CorePython(CoreProtocol):
         assert self._experiment_id, "experiment id must be set when starting in online mode"
         assert self._metrics, "metrics must be set when starting in online mode"
         sender = HttpRecordSender(
-            run_dir=self._ctx.run_dir,
+            ctx=self._ctx,
             username=self._username,
             project=self._project,
             project_id=self._project_id,
             experiment_id=self._experiment_id,
-            ctx=self._ctx,
         )
-        self._transport = Transport(sender=sender, ctx=self._ctx)
+        self._transport = Transport(ctx=self._ctx, sender=sender)
         self._heartbeat = Heartbeat(self._experiment_id)
         self._heartbeat.start()
         return resp
 
-    def _report_run_start(self, record: StartRecord) -> StartResponse:
+    def _report_run_start(self, record: StartRecord) -> DeliverRunStartResponse:
         """
         运行开始
         :param record: 运行开始记录
@@ -192,7 +202,7 @@ class CorePython(CoreProtocol):
         # /:username/:project_name
         project_path = project_info["path"]
         path = f"{project_path}/{run_id}"
-        return StartResponse(
+        return DeliverRunStartResponse(
             success=True,
             message="OK",
             path=path,
@@ -456,10 +466,10 @@ class CorePython(CoreProtocol):
 
     # ---------------------------------- finish 方法 ----------------------------------
 
-    def deliver_run_finish(self, finish_record: FinishRecord) -> FinishResponse:
+    def deliver_run_finish(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse:
         if not self._started:
             raise RuntimeError("Failed to finish run: not started")
-        resp = super().deliver_run_finish(finish_record)
+        resp = super().deliver_run_finish(finish_request)
         self._started = False
         return resp
 
@@ -492,22 +502,22 @@ class CorePython(CoreProtocol):
             # 另一方面因为这个 record 也是为了适应后端“报错信息写在CH”的设计
         return record, log_record
 
-    def _finish_when_local(self, finish_record: FinishRecord) -> FinishResponse:
+    def _finish_when_local(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse:
         self._stop_watcher()
-        record, _ = self._build_finish_record(finish_record)
+        record, _ = self._build_finish_record(finish_request.finish_record)
         self._finish_store(record)
-        return FinishResponse(success=True, message="OK, but use local")
+        return DeliverRunFinishResponse(success=True, message="OK, but use local")
 
-    def _finish_when_offline(self, finish_record: FinishRecord) -> FinishResponse:
+    def _finish_when_offline(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse:
         self._stop_watcher()
-        record, _ = self._build_finish_record(finish_record)
+        record, _ = self._build_finish_record(finish_request.finish_record)
         self._finish_store(record)
-        return FinishResponse(success=True, message="OK, but use offline")
+        return DeliverRunFinishResponse(success=True, message="OK, but use offline")
 
-    def _finish_when_online(self, finish_record: FinishRecord) -> FinishResponse:
+    def _finish_when_online(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse:
         self._stop_watcher()
         # 1. 构建停止记录
-        record, log_record = self._build_finish_record(finish_record)
+        record, log_record = self._build_finish_record(finish_request.finish_record)
         self._finish_store(record)
         assert self._transport is not None, "transport must be initialized before finishing"
         if log_record is not None:
@@ -524,14 +534,16 @@ class CorePython(CoreProtocol):
             self._heartbeat.stop()
             self._heartbeat = None
         # 4. 向后端同步运行结束事件
-        resp = self._report_run_finish(finish_record)
+        resp = self._report_run_finish(finish_request.finish_record)
         # 如果仅仅是与后端同步出现问题，则换一个让用户安心一些的提示信息
         if resp is None:
-            return FinishResponse(success=False, message="Failed to finish run, but it has been saved locally.")
+            return DeliverRunFinishResponse(
+                success=False, message="Failed to finish run, but it has been saved locally."
+            )
         return resp
 
     @safe.decorator(message="run finish error")
-    def _report_run_finish(self, record: FinishRecord) -> FinishResponse:
+    def _report_run_finish(self, record: FinishRecord) -> DeliverRunFinishResponse:
         assert (
             self._username is not None
             and self._project is not None
@@ -547,4 +559,4 @@ class CorePython(CoreProtocol):
             finished_at=record.finished_at,
         )
         # 构建记录
-        return FinishResponse(success=True, message="OK")
+        return DeliverRunFinishResponse(success=True, message="OK")

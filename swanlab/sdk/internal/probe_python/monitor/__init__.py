@@ -12,8 +12,8 @@ from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import ScalarRecord
-from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.pkg import console, safe, timer
+from swanlab.sdk.internal.probe_python.context import ProbeContext
 from swanlab.sdk.internal.probe_python.hardware_vendor.apple import Apple
 from swanlab.sdk.internal.probe_python.hardware_vendor.cpu import CPU
 from swanlab.sdk.internal.probe_python.hardware_vendor.memory import Memory
@@ -37,8 +37,8 @@ class Monitor:
         self._timer: Optional[timer.Timer] = None
         self._executor: Optional[ThreadPoolExecutor] = None
 
-    def start(self, ctx: RunContext) -> Optional["Monitor"]:
-        now_step = ctx.global_system_step
+    def start(self, ctx: ProbeContext) -> Optional["Monitor"]:
+        now_step = ctx.config.global_system_step
         # 1. 收集采集器
         # 注意 scalars 设计上越靠前的越先发送、在前端显示越靠前
         collectors: List[CollectorProtocol] = []
@@ -100,7 +100,7 @@ class Monitor:
         # 不设置立即执行，以避免产生一些无用的数据
         self._timer = timer.Timer(
             task,
-            interval=ctx.config.settings.probe.monitor_interval,
+            interval=ctx.config.monitor_interval,
             immediate=False,
             name="SwanLab·Monitor",
         )

@@ -6,7 +6,7 @@
 @description: 构建记录
 """
 
-from typing import TYPE_CHECKING, Union
+from typing import Union
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
@@ -18,10 +18,8 @@ from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord, StartRecord
 from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord
 from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogRecord
+from swanlab.sdk.internal.core_python.context import CoreContext
 from swanlab.sdk.internal.core_python.pkg.counter import Counter
-
-if TYPE_CHECKING:
-    from swanlab.sdk.internal.context import RunContext
 
 __all__ = [
     "build_finish_record",
@@ -165,12 +163,12 @@ def build_resume_column(key: str, *, media: bool = False, system: bool = False) 
     return column_record
 
 
-def build_auto_column(ctx: "RunContext", data_record: Union[ScalarRecord, MediaRecord]) -> ColumnRecord:
+def build_auto_column(ctx: CoreContext, data_record: Union[ScalarRecord, MediaRecord]) -> ColumnRecord:
     """
     构建一个标量列记录，此函数一般用于自动构建用户已定义的指标
     """
-    # Split section_name with `section_rule_index` setting
-    section_rule_index = ctx.config.settings.core.section_rule_index
+    # Split section_name with `section_rule` setting
+    section_rule_index = ctx.config.section_rule
     parts = data_record.key.split("/")
     if len(parts) >= 2:
         cut = section_rule_index % (len(parts) - 1) + 1

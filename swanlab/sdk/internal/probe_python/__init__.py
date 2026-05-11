@@ -12,38 +12,42 @@ from typing import Optional
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.proto.swanlab.env.v1.env_pb2 import CondaRecord, MetadataRecord, RequirementsRecord
-from swanlab.sdk.internal.context import RunContext
+from swanlab.proto.swanlab.grpc.probe.v1.probe_pb2 import DeliverProbeStartRequest
 from swanlab.sdk.internal.pkg import fs
+from swanlab.sdk.internal.probe_python.context import ProbeContext
 from swanlab.sdk.internal.probe_python.environment import conda, git, requirements, runtime, swanlab
 from swanlab.sdk.internal.probe_python.hardware_vendor.apple import Apple
 from swanlab.sdk.internal.probe_python.hardware_vendor.cpu import CPU
 from swanlab.sdk.internal.probe_python.hardware_vendor.memory import Memory
 from swanlab.sdk.internal.probe_python.monitor import Monitor
+from swanlab.sdk.protocol.core import CoreProtocol
 from swanlab.sdk.protocol.probe import ProbeProtocol
 from swanlab.sdk.typings.probe_python import HardwareSnapshot, MetadataSnapshot, SystemEnvironment, SystemShim
+from swanlab.sdk.typings.run import ModeType
 
 
 class ProbePython(ProbeProtocol):
-    def __init__(self, ctx: RunContext):
-        super().__init__(ctx)
+    def __init__(self, mode: ModeType, core: CoreProtocol):
+        super().__init__(mode)
+        self._core = core
         # self._monitor is not None 作为硬件监控是否开启的标记
         self._monitor: Optional[Monitor] = None
 
-    def _start(self):
+    def _start(self, start_request: DeliverProbeStartRequest):
         """
         启动硬件采集
         """
-        probe_settings = self._ctx.config.settings.probe
+        ctx = ProbeContext.from_proto(start_request.probe_settings)
         # 1. 系统环境信息采集
-        git_snapshot = git.get() if probe_settings.git else None
-        runtime_snapshot = runtime.get() if probe_settings.runtime else None
-        conda_snapshot = conda.get() if probe_settings.conda else None
-        requirements_snapshot = requirements.get() if probe_settings.requirements else None
-        swanlab_snapshot = swanlab.get(self._ctx) if probe_settings.swanlab else None
+        git_snapshot = git.get() if ctx.config.git else None
+        runtime_snapshot = runtime.get() if ctx.config.runtime else None
+        conda_snapshot = conda.get() if ctx.config.conda else None
+        requirements_snapshot = requirements.get() if ctx.config.requirements else None
+        swanlab_snapshot = swanlab.get(ctx) if ctx.config.swanlab else None
 
         # 2. 系统硬件信息采集，只有在硬件采集和监控都不开启时才不采集
         hardware_snapshot = None
-        if probe_settings.hardware or probe_settings.monitor:
+        if ctx.config.hardware or ctx.config.monitor:
             # 2.1 苹果
             apple_snapshot = Apple.get()
             # 2.2 通用硬件
@@ -68,7 +72,7 @@ class ProbePython(ProbeProtocol):
         )
         system_shim = SystemShim.from_snapshot(metadata, platform=sys.platform)
         # 如果硬采集被设置为False，删除硬件信息
-        if not probe_settings.hardware:
+        if not ctx.config.hardware:
             metadata = metadata.del_hardware()
 
         sys_info = SystemEnvironment(
@@ -81,28 +85,28 @@ class ProbePython(ProbeProtocol):
         ts = Timestamp()
         ts.GetCurrentTime()
         if sys_info.metadata:
-            fs.safe_write(self._ctx.metadata_file, sys_info.metadata.model_dump_json(by_alias=True))
-            self._ctx.core.upsert_metadata([MetadataRecord(timestamp=ts)])
+            fs.safe_write(ctx.metadata_file, sys_info.metadata.model_dump_json(by_alias=True))
+            self._core.upsert_metadata([MetadataRecord(timestamp=ts)])
         if sys_info.requirements:
-            fs.safe_write(self._ctx.requirements_file, sys_info.requirements)
-            self._ctx.core.upsert_requirements([RequirementsRecord(timestamp=ts)])
+            fs.safe_write(ctx.requirements_file, sys_info.requirements)
+            self._core.upsert_requirements([RequirementsRecord(timestamp=ts)])
         if sys_info.conda:
-            fs.safe_write(self._ctx.conda_file, sys_info.conda)
-            self._ctx.core.upsert_conda([CondaRecord(timestamp=ts)])
+            fs.safe_write(ctx.conda_file, sys_info.conda)
+            self._core.upsert_conda([CondaRecord(timestamp=ts)])
 
         # 5. 设置硬件监控
-        if probe_settings.monitor:
-            if (hm := Monitor(system_shim, self._ctx.core).start(self._ctx)) is not None:
+        if ctx.config.monitor:
+            if (hm := Monitor(system_shim, self._core).start(ctx)) is not None:
                 self._monitor = hm
 
-    def _start_when_local(self) -> None:
-        self._start()
+    def _start_when_local(self, start_request: DeliverProbeStartRequest) -> None:
+        self._start(start_request)
 
-    def _start_when_offline(self) -> None:
-        self._start()
+    def _start_when_offline(self, start_request: DeliverProbeStartRequest) -> None:
+        self._start(start_request)
 
-    def _start_when_online(self) -> None:
-        self._start()
+    def _start_when_online(self, start_request: DeliverProbeStartRequest) -> None:
+        self._start(start_request)
 
     def _finish(self):
         if self._monitor is not None:

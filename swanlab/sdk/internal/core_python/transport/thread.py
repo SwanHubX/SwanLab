@@ -10,7 +10,7 @@ import time
 from typing import Callable, List, Optional
 
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
-from swanlab.sdk.internal.context import RunContext
+from swanlab.sdk.internal.core_python.context import CoreContext
 from swanlab.sdk.internal.pkg import console, safe
 
 from .buffer import RecordBuffer
@@ -34,13 +34,12 @@ class Transport:
 
     def __init__(
         self,
+        ctx: CoreContext,
         sender: HttpRecordSender,
-        ctx: RunContext,
         upload_callback: Optional[Callable[[int], None]] = None,
         auto_start: bool = True,
     ):
-        core_settings = ctx.config.settings.core
-        self._batch_interval = core_settings.record.batch_interval
+        self._batch_interval = ctx.config.record_interval
         self._upload_callback = upload_callback
 
         self._cond = threading.Condition()
@@ -53,9 +52,7 @@ class Transport:
         # Transport 持有 sender，负责创建/注入/关闭
         self._sender = sender
         self._dispatcher = Dispatch(
-            batch_size=core_settings.record.batch_size,
-            sender=self._sender,
-            upload_callback=self._upload_callback,
+            batch_size=ctx.config.record_batch, sender=self._sender, upload_callback=self._upload_callback
         )
 
         if auto_start:

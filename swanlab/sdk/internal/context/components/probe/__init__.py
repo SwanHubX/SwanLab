@@ -25,7 +25,7 @@ def create_probe(ctx: "RunContext") -> ProbeProtocol:
     if probe_enum == ProbeEnum.PROBE_PYTHON:
         from swanlab.sdk.internal.probe_python import ProbePython
 
-        return ProbePython(ctx)
+        return ProbePython(ctx.config.settings.mode, ctx.core)
     else:
         # TODO: Core 微服务无感接入
         raise NotImplementedError(f"CoreEnum {probe_enum} is not supported yet.")

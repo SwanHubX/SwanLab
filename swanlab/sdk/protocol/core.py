@@ -7,24 +7,22 @@
 
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import TYPE_CHECKING, List
+from typing import List
 
 from swanlab.proto.swanlab.config.v1.config_pb2 import ConfigRecord
 from swanlab.proto.swanlab.env.v1.env_pb2 import CondaRecord, MetadataRecord, RequirementsRecord
+from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
+    DeliverRunFinishRequest,
+    DeliverRunFinishResponse,
+    DeliverRunStartRequest,
+    DeliverRunStartResponse,
+)
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord, ScalarRecord
-from swanlab.proto.swanlab.run.v1.run_pb2 import (
-    FinishRecord,
-    FinishResponse,
-    StartRecord,
-    StartResponse,
-)
 from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord
 from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogRecord
 from swanlab.sdk.internal.pkg import safe
-
-if TYPE_CHECKING:
-    from swanlab.sdk.internal.context import RunContext
+from swanlab.sdk.typings.run import ModeType
 
 __all__ = ["CoreEnum", "CoreProtocol"]
 
@@ -40,39 +38,38 @@ class CoreProtocol(ABC):
     协议层作为一个"垫片"，抹平前端与后端实现的差异，我们对CoreProtocol的错误处理理念基本与go一致，不raise Error，仅返回处理结果，上层根据返回结果做相应处理
     """
 
-    def __init__(self, ctx: "RunContext"):
-        self._ctx = ctx
-        self._mode = ctx.config.settings.mode
+    def __init__(self, mode: ModeType):
+        self._mode = mode
 
     # ---------------------------------- 实验开始 ----------------------------------
 
-    def deliver_run_start(self, start_record: StartRecord) -> StartResponse:
+    def deliver_run_start(self, start_request: DeliverRunStartRequest) -> DeliverRunStartResponse:
         """
         交付运行开始事件，同步事件，等待确认
         约定应该在此处完成Core相关组件的初始化，在这里完成不同模式的初始化函数分发
         """
         with safe.block(message="run start error"):
             if self._mode == "online":
-                return self._start_when_online(start_record)
+                return self._start_when_online(start_request)
             elif self._mode == "local":
-                return self._start_when_local(start_record)
+                return self._start_when_local(start_request)
             elif self._mode == "offline":
-                return self._start_when_offline(start_record)
-            return self._start_when_disabled(start_record)
-        return StartResponse(success=False, message="Failed to start run")
+                return self._start_when_offline(start_request)
+            return self._start_when_disabled(start_request)
+        return DeliverRunStartResponse(success=False, message="Failed to start run")
 
     @staticmethod
-    def _start_when_disabled(start_record: StartRecord) -> StartResponse:
-        return StartResponse(success=True, message="I'm a teapot.", run=start_record)
+    def _start_when_disabled(start_request: DeliverRunStartRequest) -> DeliverRunStartResponse:
+        return DeliverRunStartResponse(success=True, message="I'm a teapot.", run=start_request.start_record)
 
     @abstractmethod
-    def _start_when_local(self, start_record: StartRecord) -> StartResponse: ...
+    def _start_when_local(self, start_request: DeliverRunStartRequest) -> DeliverRunStartResponse: ...
 
     @abstractmethod
-    def _start_when_offline(self, start_record: StartRecord) -> StartResponse: ...
+    def _start_when_offline(self, start_request: DeliverRunStartRequest) -> DeliverRunStartResponse: ...
 
     @abstractmethod
-    def _start_when_online(self, start_record: StartRecord) -> StartResponse: ...
+    def _start_when_online(self, start_request: DeliverRunStartRequest) -> DeliverRunStartResponse: ...
 
     # ---------------------------------- 指标定义 ----------------------------------
 
@@ -292,33 +289,33 @@ class CoreProtocol(ABC):
 
     # ---------------------------------- 运行结束 ----------------------------------
 
-    def deliver_run_finish(self, finish_record: FinishRecord) -> FinishResponse:
+    def deliver_run_finish(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse:
         """
         交付运行结束事件，同步事件，等待确认
         约定应该在此处完成Core相关组件的清理，在这里完成不同模式的结束函数分发
         """
         with safe.block(message="run finish error"):
             if self._mode == "online":
-                return self._finish_when_online(finish_record)
+                return self._finish_when_online(finish_request)
             elif self._mode == "local":
-                return self._finish_when_local(finish_record)
+                return self._finish_when_local(finish_request)
             elif self._mode == "offline":
-                return self._finish_when_offline(finish_record)
+                return self._finish_when_offline(finish_request)
             return self._finish_when_disabled()
-        return FinishResponse(success=False, message="Failed to finish run")
+        return DeliverRunFinishResponse(success=False, message="Failed to finish run")
 
     @staticmethod
-    def _finish_when_disabled() -> FinishResponse:
-        return FinishResponse(success=True, message="I'm a teapot.")
+    def _finish_when_disabled() -> DeliverRunFinishResponse:
+        return DeliverRunFinishResponse(success=True, message="I'm a teapot.")
 
     @abstractmethod
-    def _finish_when_local(self, finish_record: FinishRecord) -> FinishResponse: ...
+    def _finish_when_local(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse: ...
 
     @abstractmethod
-    def _finish_when_offline(self, finish_record: FinishRecord) -> FinishResponse: ...
+    def _finish_when_offline(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse: ...
 
     @abstractmethod
-    def _finish_when_online(self, finish_record: FinishRecord) -> FinishResponse: ...
+    def _finish_when_online(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse: ...
 
     # ---------------------------------- 进程fork ----------------------------------
 

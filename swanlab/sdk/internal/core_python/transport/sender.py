@@ -20,7 +20,6 @@ import yaml
 from swanlab.exceptions import ApiError
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnClass, ColumnRecord, ColumnType
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
-from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.core_python.api.save import (
     complete_multipart_save,
     complete_save_files,
@@ -39,6 +38,7 @@ from swanlab.sdk.internal.core_python.api.upload import (
     upload_saves,
     upload_scalar,
 )
+from swanlab.sdk.internal.core_python.context import CoreContext
 from swanlab.sdk.internal.core_python.pkg.executor import SafeThreadPoolExecutor
 from swanlab.sdk.internal.pkg import adapter, client, console, safe
 from swanlab.sdk.internal.pkg.client.session import SessionWithRetry
@@ -72,16 +72,7 @@ class HttpRecordSender:
     并将其他类型的上传交给上层处理——这部分上传将有重试机制
     """
 
-    def __init__(
-        self,
-        run_dir: Path,
-        username: str,
-        project: str,
-        project_id: str,
-        experiment_id: str,
-        ctx: RunContext,
-    ) -> None:
-        self._run_dir = run_dir
+    def __init__(self, ctx: CoreContext, username: str, project: str, project_id: str, experiment_id: str) -> None:
         self._username = username
         self._project = project
         self._project_id = project_id
@@ -176,8 +167,8 @@ class HttpRecordSender:
                 for media in media_record.value.items:
                     # 目前约定的本地文件路径格式为：media/<type>/filename，不区分key
                     # 约定保存到对象存储中的文件路径类似
-                    remote_path = PurePosixPath("media", adapter.medium[media_record.type], media.filename)
-                    local_path = self._run_dir.joinpath(*remote_path.parts)
+                    remote_path = PurePosixPath(adapter.medium[media_record.type], media.filename)
+                    local_path = self._ctx.media_dir.joinpath(*remote_path.parts)
                     # 读取本地文件内容
                     buffer: Optional[BytesIO] = None
                     with safe.block(message=f"Failed to read local file: {local_path}, skipping"):
@@ -221,33 +212,29 @@ class HttpRecordSender:
             upload_log(self._project_id, self._experiment_id, metrics=metrics)
 
     def upload_config(self, _: Sequence[Record]) -> None:
-        config_path = self._run_dir / "files" / "config.yaml"
-        with safe.block(message=f"Failed to upload config, skipping; file kept at {config_path}"):
-            with open(config_path, "r", encoding="utf-8") as f:
+        with safe.block(message=f"Failed to upload config, skipping; file kept at {self._ctx.config_file}"):
+            with open(self._ctx.config_file, "r", encoding="utf-8") as f:
                 content = yaml.safe_load(f)
             if isinstance(content, dict):
                 upload_config(self._username, self._project, self._experiment_id, content=content)
 
     def upload_metadata(self, _: Sequence[Record]) -> None:
-        metadata_path = self._run_dir / "files" / "swanlab-metadata.json"
-        with safe.block(message=f"Failed to upload metadata, skipping; file kept at {metadata_path}"):
-            with open(metadata_path, "r", encoding="utf-8") as f:
+        with safe.block(message=f"Failed to upload metadata, skipping; file kept at {self._ctx.metadata_file}"):
+            with open(self._ctx.metadata_file, "r", encoding="utf-8") as f:
                 content = json.load(f)
             if isinstance(content, dict):
                 upload_metadata(self._username, self._project, self._experiment_id, content=content)
 
     def upload_requirements(self, _: Sequence[Record]) -> None:
-        requirements_path = self._run_dir / "files" / "requirements.txt"
-        with safe.block(message=f"Failed to upload requirements, skipping; file kept at {requirements_path}"):
-            with open(requirements_path, "r", encoding="utf-8") as f:
+        with safe.block(message=f"Failed to upload requirements, skipping; file kept at {self._ctx.requirements_file}"):
+            with open(self._ctx.requirements_file, "r", encoding="utf-8") as f:
                 content = f.read()
             if len(content) > 0:
                 upload_requirements(self._username, self._project, self._experiment_id, content=content)
 
     def upload_conda(self, _: Sequence[Record]) -> None:
-        conda_path = self._run_dir / "files" / "conda.yaml"
-        with safe.block(message=f"Failed to upload conda, skipping; file kept at {conda_path}"):
-            with open(conda_path, "r", encoding="utf-8") as f:
+        with safe.block(message=f"Failed to upload conda, skipping; file kept at {self._ctx.conda_file}"):
+            with open(self._ctx.conda_file, "r", encoding="utf-8") as f:
                 content = f.read()
             if len(content) > 0:
                 upload_conda(self._username, self._project, self._experiment_id, content=content)
@@ -256,9 +243,9 @@ class HttpRecordSender:
 
     def upload_save(self, records: Sequence[Record]) -> None:
         """处理 SaveRecord 上传：小文件走 presigned URL，大文件走分片上传。"""
+        config = self._ctx.config
         # 1. 收集合法文件（不读内容，避免大批次内存爆炸）
         pending: list[tuple[str, int, str]] = []  # (source_path, size, name)
-        save_settings = self._ctx.config.settings.core.save
         for record in records:
             if not record.HasField("save"):
                 continue
@@ -272,9 +259,9 @@ class HttpRecordSender:
                 size = source.stat().st_size
             if size is None:
                 continue
-            if size > save_settings.max_file_size:
+            if size > config.save_total:
                 console.warning(
-                    f"Save file exceeds size limit ({size} > {save_settings.max_file_size}), skipping: {save.source_path}"
+                    f"Save file exceeds size limit ({size} > {config.save_total}), skipping: {save.source_path}"
                 )
                 continue
             pending.append((save.source_path, size, save.name))
@@ -285,14 +272,14 @@ class HttpRecordSender:
 
         # 2. 校验批次限制：数量或总大小超限时直接拒绝整个批次
         total_size = sum(size for _, size, _ in pending)
-        if len(pending) > save_settings.max_batch_size:
+        if len(pending) > config.save_total:
             console.warning(
-                f"Save batch size ({len(pending)}) exceeds limit ({save_settings.max_batch_size}), skipping entire batch"
+                f"Save batch size ({len(pending)}) exceeds limit ({config.save_total}), skipping entire batch"
             )
             return
-        if total_size > save_settings.max_total_size:
+        if total_size > config.save_total:
             console.warning(
-                f"Save batch total size ({total_size}) exceeds limit ({save_settings.max_total_size}), skipping entire batch"
+                f"Save batch total size ({total_size}) exceeds limit ({config.save_total}), skipping entire batch"
             )
             return
 
@@ -318,8 +305,8 @@ class HttpRecordSender:
                         }
                     )
 
-            small_files = [f for f in file_entries if f["size"] < save_settings.multipart_threshold]
-            large_files = [f for f in file_entries if f["size"] >= save_settings.multipart_threshold]
+            small_files = [f for f in file_entries if f["size"] < config.save_split]
+            large_files = [f for f in file_entries if f["size"] >= config.save_split]
 
             if small_files:
                 self._upload_small_saves(small_files)
@@ -358,7 +345,7 @@ class HttpRecordSender:
 
     def _upload_large_saves(self, files: list[SaveFileEntry]) -> None:
         """大文件：分片上传。"""
-        part_size = self._ctx.config.settings.core.save.part_size
+        part_size = self._ctx.config.save_part
         prepare_items: list[PrepareMultipartSaveFile] = []
         for f in files:
             part_count = math.ceil(f["size"] / part_size)
@@ -411,7 +398,7 @@ class HttpRecordSender:
         assert self._buffer_session is not None
         completed_parts: list[CompletedPart] = []
         source_path = file_info["source_path"]
-        part_size = self._ctx.config.settings.core.save.part_size
+        part_size = self._ctx.config.save_part
         session = self._buffer_session
 
         def upload_part(part_info: MultipartPart) -> CompletedPart:
