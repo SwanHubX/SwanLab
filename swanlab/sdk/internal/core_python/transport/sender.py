@@ -73,11 +73,11 @@ class HttpRecordSender:
     """
 
     def __init__(self, ctx: CoreContext, username: str, project: str, project_id: str, experiment_id: str) -> None:
+        self._ctx = ctx
         self._username = username
         self._project = project
         self._project_id = project_id
         self._experiment_id = experiment_id
-        self._ctx = ctx
         # 资源上传 session，作用在Sender对象中复用TCP链接
         self._buffer_session: Optional[SessionWithRetry] = None
         self._upload_handlers: dict[str, Callable[[Sequence[Record]], None]] = {
@@ -166,9 +166,10 @@ class HttpRecordSender:
                 buffer_chunk: list[BytesIO] = []
                 for media in media_record.value.items:
                     # 目前约定的本地文件路径格式为：media/<type>/filename，不区分key
-                    # 约定保存到对象存储中的文件路径类似
-                    remote_path = PurePosixPath(adapter.medium[media_record.type], media.filename)
-                    local_path = self._ctx.media_dir.joinpath(*remote_path.parts)
+                    # 约定保存到对象存储中的文件路径类似于本地文件路径
+                    medium = adapter.medium[media_record.type]
+                    remote_path = PurePosixPath("media", medium, media.filename)
+                    local_path = self._ctx.media_dir / medium / media.filename
                     # 读取本地文件内容
                     buffer: Optional[BytesIO] = None
                     with safe.block(message=f"Failed to read local file: {local_path}, skipping"):
