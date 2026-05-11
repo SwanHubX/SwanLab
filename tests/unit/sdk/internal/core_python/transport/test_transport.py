@@ -16,7 +16,7 @@ def _make_transport(ctx, **kwargs) -> Transport:
 def test_transport_defaults(mock_ctx):
     """Default batch_interval reads from ctx settings."""
     t = _make_transport(mock_ctx)
-    assert t._batch_interval == mock_ctx.config.settings.core.record.batch_interval
+    assert t._batch_interval == mock_ctx.config.record_interval
 
 
 def test_transport_custom_batch_interval(make_ctx):

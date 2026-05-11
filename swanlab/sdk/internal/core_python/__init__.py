@@ -109,6 +109,7 @@ class CorePython(CoreProtocol):
         self._store.write(record.SerializeToString())
 
     def _start_without_online(self, start_request: DeliverRunStartRequest, message: str) -> DeliverRunStartResponse:
+        self._ctx = CoreContext.from_proto(start_request.core_settings)
         resp = DeliverRunStartResponse(success=True, message=message, run=start_request.start_record)
         self._start_store(resp)
         return resp

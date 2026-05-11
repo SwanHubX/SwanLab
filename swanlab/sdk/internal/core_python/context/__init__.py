@@ -11,7 +11,7 @@ from pathlib import Path
 
 from swanlab.proto.swanlab.settings.core.v1.core_pb2 import CoreSettings
 
-__all__ = ["CoreContext"]
+__all__ = ["CoreContext", "CoreConfig"]
 
 
 @dataclass(frozen=True)
