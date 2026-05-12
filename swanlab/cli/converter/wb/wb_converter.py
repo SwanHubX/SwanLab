@@ -1,3 +1,5 @@
+from typing import Optional
+
 import click
 
 from swanlab import vendor
@@ -11,7 +13,7 @@ class WandbConverter(BaseConverter):
         self,
         wb_project: str,
         wb_entity: str,
-        wb_run_id: str | None = None,
+        wb_run_id: Optional[str] = None,
     ) -> None:
         wandb = vendor.wandb
         import swanlab

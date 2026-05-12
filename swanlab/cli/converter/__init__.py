@@ -125,7 +125,7 @@ def convert(
         from swanlab.cli.converter.wb import WandbLocalConverter
 
         WandbLocalConverter(project=project, workspace=workspace, mode=mode, log_dir=log_dir).run(
-            root_wandb_dir=wb_dir, wandb_run_dir=wb_run_dir
+            root_wandb_dir=wb_dir, wandb_run_dir=wb_run_dir, wb_run_id=wb_runid
         )
 
     elif convert_type == "mlflow":

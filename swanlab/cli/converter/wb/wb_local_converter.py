@@ -2,7 +2,7 @@ import gc
 import glob
 import os
 import re
-from typing import List
+from typing import List, Optional
 
 import click
 
@@ -18,9 +18,7 @@ class WandbLocalConverter(BaseConverter):
     """Convert local W&B .wandb files to SwanLab via public SDK API."""
 
     def run(  # type: ignore[override]
-        self,
-        root_wandb_dir: str = "./wandb",
-        wandb_run_dir: str | None = None,
+        self, root_wandb_dir: str = "./wandb", wandb_run_dir: Optional[str] = None, wb_run_id: Optional[str] = None
     ) -> None:
         click.echo(f"Starting import from wandb directory: {os.path.abspath(root_wandb_dir)}")
         run_dirs = self._find_run_dirs(root_wandb_dir, wandb_run_dir)
@@ -34,7 +32,7 @@ class WandbLocalConverter(BaseConverter):
         for i, rd in enumerate(run_dirs):
             click.echo(f"\n--- Processing run {i + 1}/{len(run_dirs)} ---")
             with safe.block(message=f"Failed to convert run in {rd}"):
-                self._parse_run(rd)
+                self._parse_run(rd, wb_run_id)
 
         click.echo("\nAll runs processed.")
 
@@ -83,7 +81,7 @@ class WandbLocalConverter(BaseConverter):
 
         return swanlab.ECharts(table)
 
-    def _parse_run(self, run_dir: str) -> None:
+    def _parse_run(self, run_dir: str, wb_run_id: Optional[str] = None) -> None:
         import swanlab
 
         DataStore = vendor.wandb.sdk.internal.datastore.DataStore  # type: ignore
@@ -128,6 +126,7 @@ class WandbLocalConverter(BaseConverter):
                 mode=self.mode,  # type: ignore[arg-type]
                 tags=self.tags,
                 reinit=True,
+                **({"resume": True, "id": wb_run_id} if (self.resume and wb_run_id) else {}),
             )
 
             # Load config.yaml from wandb run files (non-critical)
