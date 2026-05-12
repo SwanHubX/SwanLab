@@ -231,7 +231,7 @@ class WandbLocalConverter(BaseConverter):
                         validated_path = validate_path(files_root_dir, props["path"])
                         if validated_path and os.path.exists(validated_path):
                             with safe.block(message=f"Failed to parse table from {validated_path}"):
-                                with open(validated_path, "r", encoding="utf-8") as f:
+                                with open(validated_path, "rb") as f:
                                     table_data = json_loads(f.read())
                                 columns = table_data.get("columns", [])
                                 data = table_data.get("data", [])
