@@ -64,6 +64,7 @@ class WandbConverter:
                     tags=getattr(wb_run, "tags", None),
                     group=getattr(wb_run, "group", None),
                     job_type=getattr(wb_run, "job_type", None),
+                    id=getattr(wb_run, "id", None),
                 )
             else:
                 swanlab_run = swanlab.get_run()
