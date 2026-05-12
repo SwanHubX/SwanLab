@@ -137,7 +137,9 @@ class WandbLocalConverter(BaseConverter):
                 with open(config_path, "r", encoding="utf-8") as f:
                     wandb_config_yaml = yaml.safe_load(f)
                     cleaned = {
-                        k: v["value"] for k, v in wandb_config_yaml.items() if isinstance(v, dict) and "value" in v
+                        k: v["value"]
+                        for k, v in wandb_config_yaml.items()
+                        if isinstance(v, dict) and "value" in v and not k.startswith("_")
                     }
                     run_config.update(cleaned)
 
@@ -167,10 +169,16 @@ class WandbLocalConverter(BaseConverter):
                         "project": run.project or None,
                     }
                 )
-                run_config.update(proto_items_to_dict(run.config.update))
+                config_update = proto_items_to_dict(run.config.update)
+                run_config.update(config_update)
+                if swanlab_run is not None:
+                    swanlab_run.config.update(config_update)
 
             elif record_type == "config":
-                run_config.update(proto_items_to_dict(record_pb.config.update))
+                config_update = proto_items_to_dict(record_pb.config.update)
+                run_config.update(config_update)
+                if swanlab_run is not None:
+                    swanlab_run.config.update(config_update)
 
             elif record_type == "history":
                 initialize_swanlab_run()
