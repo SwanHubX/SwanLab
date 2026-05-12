@@ -76,6 +76,12 @@ import click
     type=str,
     help="The run_id of the wandb run.",
 )
+@click.option(
+    "--resume",
+    is_flag=True,
+    default=False,
+    help="Resume the swanlab run with the same run id.",
+)
 
 # mlflow
 @click.option(
@@ -113,6 +119,7 @@ def convert(
         wb_project: str,
         wb_entity: str,
         wb_runid: str,
+        resume: bool,
         mlflow_uri: str,
         mlflow_exp: str,
         wb_dir: str,
@@ -143,6 +150,7 @@ def convert(
             workspace=workspace,
             mode=mode,
             logdir=logdir,
+            resume=resume,
         )
         wb_converter.run(
             wb_project=wb_project,
