@@ -33,7 +33,6 @@ class WandbConverter(BaseConverter):
 
         for i, wb_run in enumerate(wb_runs):
             click.echo(f"[{i + 1}/{len(wb_runs)}] Converting W&B run: {wb_run.name or wb_run.id}")
-
             swan_run = swanlab.init(
                 project=self.project or wb_project,
                 workspace=self.workspace,
@@ -44,12 +43,10 @@ class WandbConverter(BaseConverter):
                 tags=wb_run.tags,
                 group=wb_run.group,
                 job_type=wb_run.job_type,
+                config=wb_run.config,
                 reinit=True,
                 **({"resume": True, "id": wb_run.id} if (self.resume and wb_run_id) else {}),
             )
-
-            if wb_run.config:
-                swan_run.config.update(wb_run.config)
 
             for row in wb_run.scan_history():
                 log_data = {}
