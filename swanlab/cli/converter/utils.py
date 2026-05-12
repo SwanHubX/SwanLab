@@ -36,7 +36,7 @@ def proto_items_to_dict(items) -> dict:
     mapping = {}
     for item in items:
         key = item.key or "/".join(item.nested_key)
-        if not key:
+        if not key or key.startswith("_"):
             continue
         with safe.block(message=f"Could not decode json for key '{key}'"):
             mapping[key] = json_loads(item.value_json)

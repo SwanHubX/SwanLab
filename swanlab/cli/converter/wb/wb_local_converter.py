@@ -129,19 +129,12 @@ class WandbLocalConverter(BaseConverter):
                 **({"resume": True, "id": wb_run_id} if (self.resume and wb_run_id) else {}),
             )
 
-            # Load config.yaml from wandb run files (non-critical)
-            with safe.block(message="Failed to load wandb config.yaml", write_to_tty=False):
-                import yaml
-
-                config_path = os.path.join(files_root_dir, "config.yaml")
-                with open(config_path, "r", encoding="utf-8") as f:
-                    wandb_config_yaml = yaml.safe_load(f)
-                    cleaned = {
-                        k: v["value"]
-                        for k, v in wandb_config_yaml.items()
-                        if isinstance(v, dict) and "value" in v and not k.startswith("_")
-                    }
-                    run_config.update(cleaned)
+            # Load wandb-metadata.json from wandb run files (non-critical)
+            with safe.block(message="Failed to load wandb metadata", write_to_tty=False):
+                metadata_path = os.path.join(files_root_dir, "wandb-metadata.json")
+                with open(metadata_path, "r", encoding="utf-8") as f:
+                    wandb_metadata = json_loads(f.read())
+                run_config.update({"wandb_metadata": wandb_metadata})
 
             final_config = {"wandb_run_id": run_metadata["id"], "wandb_local_path": run_dir}
             final_config.update(run_config)
