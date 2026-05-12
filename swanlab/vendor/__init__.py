@@ -27,6 +27,7 @@ if TYPE_CHECKING:
     import lightning.pytorch.utilities
     import matplotlib
     import matplotlib.figure
+    import mlflow
     import mmengine
     import mmengine.config
     import mmengine.registry
@@ -77,6 +78,7 @@ __all__ = [
     "torch",
     "torchvision",
     "wandb",
+    "mlflow",
     # these are extra dependencies which are not in [project.optional-dependencies]
     "pd",
     # framework integrations
@@ -124,6 +126,7 @@ _LAZY_IMPORTS = {
     "stable_baselines3": "stable_baselines3",
     "torchtune": "torchtune",
     "wandb": "wandb",
+    "mlflow": "mlflow",
     "xgboost": "xgboost",
 }
 

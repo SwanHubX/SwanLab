@@ -1,4 +1,3 @@
-import warnings
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
@@ -15,6 +14,8 @@ class BaseConverter(ABC):
         resume: bool = False,
     ):
         if logdir is not None:
+            import warnings
+
             warnings.warn(
                 "The `logdir` parameter is deprecated, use `log_dir` instead.",
                 DeprecationWarning,
