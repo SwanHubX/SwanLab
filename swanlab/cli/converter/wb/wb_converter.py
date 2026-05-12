@@ -33,7 +33,7 @@ class WandbConverter(BaseConverter):
 
         for i, wb_run in enumerate(wb_runs):
             click.echo(f"[{i + 1}/{len(wb_runs)}] Converting W&B run: {wb_run.name or wb_run.id}")
-            swan_run = swanlab.init(
+            swanlab_run = swanlab.init(
                 project=self.project or wb_project,
                 workspace=self.workspace,
                 mode=self.mode,  # type: ignore[arg-type]
@@ -50,15 +50,23 @@ class WandbConverter(BaseConverter):
 
             for row in wb_run.scan_history():
                 log_data = {}
+                step = None
                 for key, value in row.items():
-                    if value is None or isinstance(value, dict):
+                    if value is None:
+                        continue
+                    if key == "_step":
+                        if isinstance(value, (int, float)):
+                            step = int(value)
+                        continue
+                    if key.startswith("_"):
+                        continue
+                    if isinstance(value, dict):
                         continue
                     log_data[key] = value
                 if log_data:
-                    step = row.get("_step")
-                    swan_run.log(log_data, step=step if isinstance(step, int) else None)
+                    swanlab_run.log(log_data, step=step)
 
-            swan_run.finish()
+            swanlab_run.finish()
             click.echo(f"  ✓ Finished converting run: {wb_run.name or wb_run.id}")
 
         click.echo(f"All {len(wb_runs)} W&B run(s) converted successfully.")
