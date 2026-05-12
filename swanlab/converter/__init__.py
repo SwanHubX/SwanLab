@@ -31,10 +31,10 @@ For MLflow::
 
     mlf = MLFlowConverter(project="my-project")
     # Optional: `experiment`
-    mlf.run(tracking_uri="http://localhost:5000", experiment="1")
+    mlf.run(tracking_uri="http://localhost:5000", experiment: Optional[str]="1")
 """
 
-from swanlab.converter.mlf.mlf_converter import MLFlowConverter
+from swanlab.converter.mlf import MLFlowConverter
 from swanlab.converter.tfb import TFBConverter
 from swanlab.converter.wb import WandbConverter, WandbLocalConverter
 

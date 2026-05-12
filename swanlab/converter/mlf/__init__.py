@@ -1,3 +1,3 @@
-from swanlab.converter.mlf.mlf_converter import MLFlowConverter
+from swanlab.converter.mlf.converter import MLFlowConverter
 
 __all__ = ["MLFlowConverter"]
