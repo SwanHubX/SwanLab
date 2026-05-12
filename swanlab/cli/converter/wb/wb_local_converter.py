@@ -36,7 +36,7 @@ class WandbLocalConverter(BaseConverter):
 
         click.echo("\nAll runs processed.")
 
-    def _find_run_dirs(self, root_wandb_dir: str, wandb_run_dir: str | None = None) -> List[str]:
+    def _find_run_dirs(self, root_wandb_dir: str, wandb_run_dir: Optional[str] = None) -> List[str]:
         if wandb_run_dir:
             patterns = [os.path.join(root_wandb_dir, wandb_run_dir)]
             found_path = os.path.join(root_wandb_dir, wandb_run_dir)
@@ -261,13 +261,11 @@ class WandbLocalConverter(BaseConverter):
             click.echo(f"Finished converting run: {run_metadata['name']}")
             swanlab_run.finish()
         else:
-            try:
+            with safe.block(message=f"Failed to initialize run for {run_dir}"):
                 initialize_swanlab_run()
                 if swanlab_run:
                     click.echo(f"Warning: Run in {run_dir} has no metrics, config was saved.")
                     swanlab_run.finish()
-            except RuntimeError as e:
-                click.echo(f"Error: {e}")
 
         del ds
         gc.collect()

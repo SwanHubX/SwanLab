@@ -124,7 +124,7 @@ def convert(
     elif convert_type == "wandb-local":
         from swanlab.cli.converter.wb import WandbLocalConverter
 
-        WandbLocalConverter(project=project, workspace=workspace, mode=mode, log_dir=log_dir).run(
+        WandbLocalConverter(project=project, workspace=workspace, mode=mode, log_dir=log_dir, resume=resume).run(
             root_wandb_dir=wb_dir, wandb_run_dir=wb_run_dir, wb_run_id=wb_runid
         )
 

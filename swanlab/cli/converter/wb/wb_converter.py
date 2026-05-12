@@ -51,7 +51,7 @@ class WandbConverter(BaseConverter):
             if wb_run.config:
                 swan_run.config.update(wb_run.config)
 
-            for row in wb_run.scanned_history:
+            for row in wb_run.scan_history():
                 log_data = {}
                 for key, value in row.items():
                     if value is None or isinstance(value, dict):
