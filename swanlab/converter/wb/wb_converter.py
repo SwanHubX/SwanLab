@@ -18,12 +18,14 @@ class WandbConverter:
         workspace: str = None,
         mode: str = "cloud",
         logdir: str = None,
+        resume: bool = False,
         **kwargs,
     ):
         self.project = project
         self.workspace = workspace
         self.mode = mode
         self.logdir = logdir
+        self.resume = resume
 
     def parse_wandb_logs(self, wb_project: str, wb_entity: str, wb_run_id: str = None):
         try:
@@ -46,7 +48,7 @@ class WandbConverter:
             # process all runs
             runs = client.runs(wb_entity + "/" + wb_project)
         else:
-            # get the run by run_id
+            # get the run by run_ids
             run = client.run(f"{wb_entity}/{wb_project}/{wb_run_id}")
             runs = (run,)
 
@@ -54,7 +56,7 @@ class WandbConverter:
             swl.info(f"Conversion progress: {iter+1}/{len(runs)}")
 
             if swanlab.get_run() is None:
-                swanlab_run = swanlab.init(
+                init_kwargs = dict(
                     project=wb_project if self.project is None else self.project,
                     workspace=self.workspace,
                     experiment_name=getattr(wb_run, "name", None),
@@ -65,6 +67,10 @@ class WandbConverter:
                     group=getattr(wb_run, "group", None),
                     job_type=getattr(wb_run, "job_type", None),
                 )
+                if self.resume:
+                    init_kwargs["id"] = getattr(wb_run, "id", None)
+                    init_kwargs["resume"] = True
+                swanlab_run = swanlab.init(**init_kwargs)
             else:
                 swanlab_run = swanlab.get_run()
                 
