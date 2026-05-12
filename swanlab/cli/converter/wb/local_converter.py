@@ -8,18 +8,56 @@ import click
 
 from swanlab import vendor
 from swanlab.cli.converter.base import BaseConverter
-from swanlab.cli.converter.utils import json_loads, proto_items_to_dict, validate_path
+from swanlab.cli.converter.wb.utils import json_loads, proto_items_to_dict, validate_path
 from swanlab.sdk.internal.pkg import safe
 
 GC_INTERVAL: int = 10_000
 
 
 class WandbLocalConverter(BaseConverter):
-    """Convert local W&B .wandb files to SwanLab via public SDK API."""
+    """Convert local W&B .wandb files to SwanLab via public SDK API.
+
+    Example::
+
+        wb = WandbLocalConverter(project="my-project")
+        wb.run(root_wandb_dir="./wandb", wandb_run_dir="run-abc123")
+    """
+
+    def __init__(
+        self,
+        project: Optional[str] = None,
+        workspace: Optional[str] = None,
+        mode: str = "online",
+        log_dir: Optional[str] = None,
+        logdir: Optional[str] = None,
+        tags: Optional[List[str]] = None,
+        resume: bool = False,
+        root_wandb_dir: str = "./wandb",
+        wandb_run_dir: Optional[str] = None,
+    ):
+        super().__init__(
+            project=project,
+            workspace=workspace,
+            mode=mode,
+            log_dir=log_dir,
+            logdir=logdir,
+            tags=tags,
+            resume=resume,
+        )
+        # Local W&B defaults — can be overridden at run() time
+        self._root_wandb_dir = root_wandb_dir
+        self._wandb_run_dir = wandb_run_dir
 
     def run(  # type: ignore[override]
-        self, root_wandb_dir: str = "./wandb", wandb_run_dir: Optional[str] = None, wb_run_id: Optional[str] = None
+        self,
+        root_wandb_dir: Optional[str] = None,
+        wandb_run_dir: Optional[str] = None,
+        wb_run_id: Optional[str] = None,
     ) -> None:
+        # Resolve: explicit arg > constructor default > fallback
+        root_wandb_dir = root_wandb_dir or self._root_wandb_dir
+        wandb_run_dir = wandb_run_dir or self._wandb_run_dir
+
         click.echo(f"Starting import from wandb directory: {os.path.abspath(root_wandb_dir)}")
         run_dirs = self._find_run_dirs(root_wandb_dir, wandb_run_dir)
 

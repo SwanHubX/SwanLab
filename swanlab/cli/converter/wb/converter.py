@@ -7,14 +7,52 @@ from swanlab.cli.converter.base import BaseConverter
 
 
 class WandbConverter(BaseConverter):
-    """Convert W&B cloud runs to SwanLab via the W&B Public API."""
+    """Convert W&B cloud runs to SwanLab via the W&B Public API.
+
+    Example::
+
+        wb = WandbConverter(project="my-swanlab-proj")
+        wb.run(wb_project="wandb-proj", wb_entity="my-team")
+    """
+
+    def __init__(
+        self,
+        project: Optional[str] = None,
+        workspace: Optional[str] = None,
+        mode: str = "online",
+        log_dir: Optional[str] = None,
+        logdir: Optional[str] = None,
+        tags: Optional[list] = None,
+        resume: bool = False,
+        wb_project: Optional[str] = None,
+        wb_entity: Optional[str] = None,
+    ):
+        super().__init__(
+            project=project,
+            workspace=workspace,
+            mode=mode,
+            log_dir=log_dir,
+            logdir=logdir,
+            tags=tags,
+            resume=resume,
+        )
+        # W&B defaults — can be overridden at run() time
+        self._wb_project = wb_project
+        self._wb_entity = wb_entity
 
     def run(  # type: ignore[override]
         self,
-        wb_project: str,
-        wb_entity: str,
+        wb_project: Optional[str] = None,
+        wb_entity: Optional[str] = None,
         wb_run_id: Optional[str] = None,
     ) -> None:
+        # Resolve: explicit arg > constructor default > error
+        wb_project = wb_project or self._wb_project
+        wb_entity = wb_entity or self._wb_entity
+        if not wb_project:
+            raise ValueError("wb_project is required (pass to WandbConverter() or run())")
+        if not wb_entity:
+            raise ValueError("wb_entity is required (pass to WandbConverter() or run())")
         wandb = vendor.wandb
         import swanlab
 

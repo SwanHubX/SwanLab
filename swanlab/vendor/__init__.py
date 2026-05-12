@@ -47,6 +47,9 @@ if TYPE_CHECKING:
     import stable_baselines3
     import stable_baselines3.common
     import swanboard
+    import tensorboard
+    import tensorboard.backend.event_processing
+    import tensorboard.util
     import torch
     import torchtune
     import torchtune.utils.metric_logging
@@ -69,6 +72,7 @@ __all__ = [
     "sklearn",
     "soundfile",
     "swanboard",
+    "tensorboard",
     "boto3",
     "torch",
     "torchvision",
@@ -101,6 +105,7 @@ _LAZY_IMPORTS = {
     "sklearn": "sklearn",
     "soundfile": "soundfile",
     "swanboard": "swanboard",
+    "tensorboard": "tensorboard",
     "boto3": "boto3",
     "torch": "torch",
     "torchvision": "torchvision",
@@ -158,6 +163,7 @@ _SUBMODULE_IMPORTS = {
     "stable_baselines3": ["stable_baselines3.common"],
     "torchtune": ["torchtune.utils.metric_logging"],
     "wandb": ["wandb.sdk.internal.datastore", "wandb.proto"],
+    "tensorboard": ["tensorboard.backend.event_processing", "tensorboard.util"],
 }
 
 
