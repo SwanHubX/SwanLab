@@ -70,6 +70,13 @@ import click
 # wandb-local options
 @click.option("--wb-dir", type=str, default="./wandb", help="The directory where the wandb local log files are stored.")
 @click.option("--wb-run-dir", type=str, default=None, help="The run directory of the wandb local log files.")
+# resume option
+@click.option(
+    "--resume",
+    is_flag=True,
+    default=False,
+    help="Resume mode: sync source run_id to SwanLab (requires --wb-runid).",
+)
 def convert(
     convert_type: str,
     project: str,
@@ -87,7 +94,7 @@ def convert(
     mlflow_exp: str,
     wb_dir: str,
     wb_run_dir: str,
-    **kwargs,
+    resume: bool,
 ):
     """Convert the log files of other experiment tracking tools to SwanLab."""
     if logdir is not None:
@@ -96,7 +103,34 @@ def convert(
     if tb_logdir is not None:
         click.echo("Warning: The option `--tb-logdir` is deprecated, use `--tb-log-dir` instead.")
         tb_log_dir = tb_logdir
-    print(log_dir)
-    print(tb_log_dir)
-    # TODO: 接入重构后的 converter 逻辑
-    pass
+
+    if resume and not wb_runid:
+        raise click.UsageError("--resume requires --wb-runid to specify a single run to resume.")
+
+    if convert_type == "tensorboard":
+        from swanlab.cli.converter.tfb import TFBConverter
+
+        TFBConverter(project=project, workspace=workspace, mode=mode, log_dir=log_dir, types=tb_types).run(
+            convert_dir=tb_log_dir or ".", depth=3
+        )
+
+    elif convert_type == "wandb":
+        from swanlab.cli.converter.wb import WandbConverter
+
+        WandbConverter(project=project, workspace=workspace, mode=mode, log_dir=log_dir, resume=resume).run(
+            wb_project=wb_project, wb_entity=wb_entity, wb_run_id=wb_runid
+        )
+
+    elif convert_type == "wandb-local":
+        from swanlab.cli.converter.wb import WandbLocalConverter
+
+        WandbLocalConverter(project=project, workspace=workspace, mode=mode, log_dir=log_dir).run(
+            root_wandb_dir=wb_dir, wandb_run_dir=wb_run_dir
+        )
+
+    elif convert_type == "mlflow":
+        from swanlab.cli.converter.mlf import MLFlowConverter
+
+        MLFlowConverter(project=project, workspace=workspace, mode=mode, log_dir=log_dir).run(
+            tracking_uri=mlflow_uri, experiment=mlflow_exp
+        )

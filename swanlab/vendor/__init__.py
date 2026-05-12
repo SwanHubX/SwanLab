@@ -53,6 +53,7 @@ if TYPE_CHECKING:
     import torchvision
     import transformers
     import ultralytics
+    import wandb
     import xgboost
     import xgboost.callback
 
@@ -71,6 +72,7 @@ __all__ = [
     "boto3",
     "torch",
     "torchvision",
+    "wandb",
     # these are extra dependencies which are not in [project.optional-dependencies]
     "pd",
     # framework integrations
@@ -116,6 +118,7 @@ _LAZY_IMPORTS = {
     "ultralytics": "ultralytics",
     "stable_baselines3": "stable_baselines3",
     "torchtune": "torchtune",
+    "wandb": "wandb",
     "xgboost": "xgboost",
 }
 
@@ -154,6 +157,7 @@ _SUBMODULE_IMPORTS = {
     "paddlenlp": ["paddlenlp.trainer.trainer"],
     "stable_baselines3": ["stable_baselines3.common"],
     "torchtune": ["torchtune.utils.metric_logging"],
+    "wandb": ["wandb.sdk.internal.datastore", "wandb.proto"],
 }
 
 
