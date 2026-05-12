@@ -1,9 +1,7 @@
 from typing import Optional
 
-import click
-
 from swanlab import vendor
-from swanlab.cli.converter.base import BaseConverter
+from swanlab.converter.base import BaseConverter
 
 
 class WandbConverter(BaseConverter):
@@ -64,13 +62,13 @@ class WandbConverter(BaseConverter):
             wb_runs = list(client.runs(f"{wb_entity}/{wb_project}"))
 
         if not wb_runs:
-            click.echo(f"No W&B runs found in {wb_entity}/{wb_project}.")
+            print(f"No W&B runs found in {wb_entity}/{wb_project}.")
             return
 
-        click.echo(f"Found {len(wb_runs)} W&B run(s) to convert.")
+        print(f"Found {len(wb_runs)} W&B run(s) to convert.")
 
         for i, wb_run in enumerate(wb_runs):
-            click.echo(f"[{i + 1}/{len(wb_runs)}] Converting W&B run: {wb_run.name or wb_run.id}")
+            print(f"[{i + 1}/{len(wb_runs)}] Converting W&B run: {wb_run.name or wb_run.id}")
             swanlab_run = swanlab.init(
                 project=self.project or wb_project,
                 workspace=self.workspace,
@@ -105,6 +103,6 @@ class WandbConverter(BaseConverter):
                     swanlab_run.log(log_data, step=step)
 
             swanlab_run.finish()
-            click.echo(f"  ✓ Finished converting run: {wb_run.name or wb_run.id}")
+            print(f"  ✓ Finished converting run: {wb_run.name or wb_run.id}")
 
-        click.echo(f"All {len(wb_runs)} W&B run(s) converted successfully.")
+        print(f"All {len(wb_runs)} W&B run(s) converted successfully.")

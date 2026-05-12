@@ -4,11 +4,9 @@ import os
 import re
 from typing import List, Optional
 
-import click
-
 from swanlab import vendor
-from swanlab.cli.converter.base import BaseConverter
-from swanlab.cli.converter.wb.utils import json_loads, proto_items_to_dict, validate_path
+from swanlab.converter.base import BaseConverter
+from swanlab.converter.wb.utils import json_loads, proto_items_to_dict, validate_path
 from swanlab.sdk.internal.pkg import safe
 
 GC_INTERVAL: int = 10_000
@@ -58,21 +56,21 @@ class WandbLocalConverter(BaseConverter):
         root_wandb_dir = root_wandb_dir or self._root_wandb_dir
         wandb_run_dir = wandb_run_dir or self._wandb_run_dir
 
-        click.echo(f"Starting import from wandb directory: {os.path.abspath(root_wandb_dir)}")
+        print(f"Starting import from wandb directory: {os.path.abspath(root_wandb_dir)}")
         run_dirs = self._find_run_dirs(root_wandb_dir, wandb_run_dir)
 
         if not run_dirs:
-            click.echo("No runs found to import.")
+            print("No runs found to import.")
             return
 
-        click.echo(f"Found {len(run_dirs)} run(s) to import.")
+        print(f"Found {len(run_dirs)} run(s) to import.")
 
         for i, rd in enumerate(run_dirs):
-            click.echo(f"\n--- Processing run {i + 1}/{len(run_dirs)} ---")
+            print(f"\n--- Processing run {i + 1}/{len(run_dirs)} ---")
             with safe.block(message=f"Failed to convert run in {rd}"):
                 self._parse_run(rd, wb_run_id)
 
-        click.echo("\nAll runs processed.")
+        print("\nAll runs processed.")
 
     def _find_run_dirs(self, root_wandb_dir: str, wandb_run_dir: Optional[str] = None) -> List[str]:
         if wandb_run_dir:
@@ -89,7 +87,7 @@ class WandbLocalConverter(BaseConverter):
         for pattern in patterns:
             run_dirs.extend(glob.glob(pattern))
         if not run_dirs:
-            click.echo(f"No wandb run directories found in '{found_path}'.")
+            print(f"No wandb run directories found in '{found_path}'.")
         return run_dirs
 
     def _filter_text_columns(self, columns, data):
@@ -106,7 +104,7 @@ class WandbLocalConverter(BaseConverter):
         try:
             from pyecharts.components import Table as PyEchartsTable
         except ImportError:
-            click.echo("Warning: pyecharts is required for table conversion. Skipping table.")
+            print("Warning: pyecharts is required for table conversion. Skipping table.")
             return None
 
         filtered_cols, filtered_data = self._filter_text_columns(columns, data)
@@ -127,7 +125,7 @@ class WandbLocalConverter(BaseConverter):
 
         wandb_files = glob.glob(os.path.join(run_dir, "*.wandb"))
         if not wandb_files:
-            click.echo(f"Error: No .wandb file found in {run_dir}. Skipping.")
+            print(f"Error: No .wandb file found in {run_dir}. Skipping.")
             return
 
         wandb_file_path = wandb_files[0]
@@ -154,7 +152,7 @@ class WandbLocalConverter(BaseConverter):
             if run_metadata["name"] is None:
                 run_metadata["name"] = run_metadata["id"]
 
-            click.echo(f"Converting run: {run_metadata['name']} (ID: {run_metadata['id']})")
+            print(f"Converting run: {run_metadata['name']} (ID: {run_metadata['id']})")
             swanlab_run = swanlab.init(
                 project=self.project or run_metadata["project"] or "wandb-imports",
                 workspace=self.workspace,
@@ -297,13 +295,13 @@ class WandbLocalConverter(BaseConverter):
                 gc.collect()
 
         if swanlab_run:
-            click.echo(f"Finished converting run: {run_metadata['name']}")
+            print(f"Finished converting run: {run_metadata['name']}")
             swanlab_run.finish()
         else:
             with safe.block(message=f"Failed to initialize run for {run_dir}"):
                 initialize_swanlab_run()
                 if swanlab_run:
-                    click.echo(f"Warning: Run in {run_dir} has no metrics, config was saved.")
+                    print(f"Warning: Run in {run_dir} has no metrics, config was saved.")
                     swanlab_run.finish()
 
         del ds

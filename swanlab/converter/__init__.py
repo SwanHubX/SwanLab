@@ -34,8 +34,8 @@ For MLflow::
     mlf.run(tracking_uri="http://localhost:5000", experiment="1")
 """
 
-from swanlab.cli.converter.mlf.mlf_converter import MLFlowConverter
-from swanlab.cli.converter.tfb import TFBConverter
-from swanlab.cli.converter.wb import WandbConverter, WandbLocalConverter
+from swanlab.converter.mlf.mlf_converter import MLFlowConverter
+from swanlab.converter.tfb import TFBConverter
+from swanlab.converter.wb import WandbConverter, WandbLocalConverter
 
 __all__ = ["WandbConverter", "WandbLocalConverter", "TFBConverter", "MLFlowConverter"]

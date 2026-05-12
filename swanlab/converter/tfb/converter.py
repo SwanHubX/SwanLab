@@ -2,10 +2,8 @@ import os
 from datetime import datetime
 from typing import Optional
 
-import click
-
-from swanlab.cli.converter.base import BaseConverter
-from swanlab.cli.converter.tfb.utils import find_tfevents, get_tf_events_tags_data, get_tf_events_tags_type
+from swanlab.converter.base import BaseConverter
+from swanlab.converter.tfb.utils import find_tfevents, get_tf_events_tags_data, get_tf_events_tags_type
 
 SUPPORTED_TYPES = ["scalar", "image", "audio", "text"]
 
@@ -34,12 +32,12 @@ class TFBConverter(BaseConverter):
     def run(self, convert_dir: str = ".", depth: int = 3, **kwargs) -> None:
         import swanlab
 
-        click.echo("Start converting TFEvent files to SwanLab format...")
+        print("Start converting TFEvent files to SwanLab format...")
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
         path_dict = find_tfevents(convert_dir, depth=depth)
         if not path_dict:
-            click.echo(f"No TFEvent file found in {convert_dir}, please check the path.")
+            print(f"No TFEvent file found in {convert_dir}, please check the path.")
             return
 
         handlers = {
@@ -55,7 +53,7 @@ class TFBConverter(BaseConverter):
                 type_by_tags = get_tf_events_tags_type(path)
 
                 if not type_by_tags:
-                    click.echo(f"Skipping empty TFEvent file: {path}")
+                    print(f"Skipping empty TFEvent file: {path}")
                     continue
 
                 data_by_tags = get_tf_events_tags_data(path, type_by_tags)
@@ -85,6 +83,6 @@ class TFBConverter(BaseConverter):
                     run.config.update({"RunTime(s)": runtime})
 
                 run.finish()
-                click.echo(f"  Finished converting TFEvent file: {path}")
+                print(f"  Finished converting TFEvent file: {path}")
 
-        click.echo("All TFEvent files converted successfully.")
+        print("All TFEvent files converted successfully.")

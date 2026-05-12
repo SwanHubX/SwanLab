@@ -1,4 +1,4 @@
-"""TensorBoard TFEvent parsing utilities for the SwanLab CLI converter.
+"""TensorBoard TFEvent parsing utilities for the SwanLab converter.
 
 All third-party dependencies (tensorboard, numpy, PIL) are lazily loaded through
 ``swanlab.vendor`` so that the converter module remains import-safe when

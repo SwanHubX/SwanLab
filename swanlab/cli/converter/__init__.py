@@ -108,28 +108,28 @@ def convert(
         raise click.UsageError("--resume requires --wb-runid to specify a single run to resume.")
 
     if convert_type == "tensorboard":
-        from swanlab.cli.converter.tfb import TFBConverter
+        from swanlab.converter import TFBConverter
 
         TFBConverter(project=project, workspace=workspace, mode=mode, log_dir=log_dir, types=tb_types).run(
             convert_dir=tb_log_dir or ".", depth=3
         )
 
     elif convert_type == "wandb":
-        from swanlab.cli.converter.wb import WandbConverter
+        from swanlab.converter import WandbConverter
 
         WandbConverter(project=project, workspace=workspace, mode=mode, log_dir=log_dir, resume=resume).run(
             wb_project=wb_project, wb_entity=wb_entity, wb_run_id=wb_runid
         )
 
     elif convert_type == "wandb-local":
-        from swanlab.cli.converter.wb import WandbLocalConverter
+        from swanlab.converter import WandbLocalConverter
 
         WandbLocalConverter(project=project, workspace=workspace, mode=mode, log_dir=log_dir, resume=resume).run(
             root_wandb_dir=wb_dir, wandb_run_dir=wb_run_dir, wb_run_id=wb_runid
         )
 
     elif convert_type == "mlflow":
-        from swanlab.cli.converter.mlf import MLFlowConverter
+        from swanlab.converter import MLFlowConverter
 
         MLFlowConverter(project=project, workspace=workspace, mode=mode, log_dir=log_dir).run(
             tracking_uri=mlflow_uri, experiment=mlflow_exp

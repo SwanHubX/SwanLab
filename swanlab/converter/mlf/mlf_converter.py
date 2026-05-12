@@ -1,6 +1,4 @@
-from typing import Optional
-
-from swanlab.cli.converter.base import BaseConverter
+from swanlab.converter.base import BaseConverter
 
 
 class MLFlowConverter(BaseConverter):
