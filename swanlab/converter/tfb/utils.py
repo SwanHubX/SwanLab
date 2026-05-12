@@ -50,8 +50,8 @@ def get_tf_events_tags_type(tf_event_path: str) -> Dict[str, str]:
     :returns: Mapping ``{tag: type_str}``.
     """
     tb = vendor.tensorboard
-    event_file_loader = tb.backend.event_processing.event_file_loader
-    tensor_util = tb.util.tensor_util
+    event_file_loader = tb.backend.event_processing.event_file_loader  # type: ignore
+    tensor_util = tb.util.tensor_util  # type: ignore
 
     tags: Dict[str, str] = {}
     loader = event_file_loader.EventFileLoader(tf_event_path)
@@ -70,9 +70,10 @@ def get_tf_events_tags_type(tf_event_path: str) -> Dict[str, str]:
                 tags[value.tag] = "audio"
             elif value.HasField("tensor"):
                 arr = tensor_util.make_ndarray(value.tensor)
-                # String-like dtypes indicate text summaries.
                 if arr.dtype.kind in ("U", "S", "O"):
                     tags[value.tag] = "text"
+                elif arr.dtype.kind in ("f", "i", "u", "b"):
+                    tags[value.tag] = "scalar"
 
     return tags
 
@@ -87,8 +88,8 @@ def get_tf_events_tags_data(tf_event_path: str, tags: Dict[str, str]) -> Dict[st
               or a ``str`` depending on the tag type.
     """
     tb = vendor.tensorboard
-    event_file_loader = tb.backend.event_processing.event_file_loader
-    tensor_util = tb.util.tensor_util
+    event_file_loader = tb.backend.event_processing.event_file_loader  # type: ignore
+    tensor_util = tb.util.tensor_util  # type: ignore
 
     np = vendor.np
     PILImage = vendor.PIL.Image
@@ -104,8 +105,12 @@ def get_tf_events_tags_data(tf_event_path: str, tags: Dict[str, str]) -> Dict[st
 
             tag_type = tags[value.tag]
 
-            if tag_type == "scalar" and value.HasField("simple_value"):
-                tag_data[value.tag].append((event.step, value.simple_value, wall_time))
+            if tag_type == "scalar":
+                if value.HasField("simple_value"):
+                    tag_data[value.tag].append((event.step, value.simple_value, wall_time))
+                elif value.HasField("tensor"):
+                    arr = tensor_util.make_ndarray(value.tensor)
+                    tag_data[value.tag].append((event.step, float(arr.item()), wall_time))
 
             elif tag_type == "image" and value.HasField("image"):
                 img_bytes = value.image.encoded_image_string

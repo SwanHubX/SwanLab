@@ -56,9 +56,9 @@ import click
 @click.option("--tb-logdir", type=str, default=None, help="Deprecated: use --tb-log-dir instead.", hidden=True)
 @click.option(
     "--tb-types",
-    default=None,
+    default="scalar",
     type=str,
-    help="The types of the tensorboard log files to convert, default is all types.",
+    help="The types of the tensorboard log files to convert, support ['scalar', 'image', 'audio', 'text']. default 'scalar', split with ',' str.",
 )
 # wandb options
 @click.option("--wb-project", type=str, default=None, help="The project name of the wandb runs.")

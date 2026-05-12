@@ -163,7 +163,11 @@ _SUBMODULE_IMPORTS = {
     "stable_baselines3": ["stable_baselines3.common"],
     "torchtune": ["torchtune.utils.metric_logging"],
     "wandb": ["wandb.sdk.internal.datastore", "wandb.proto"],
-    "tensorboard": ["tensorboard.backend.event_processing", "tensorboard.util"],
+    "tensorboard": [
+        "tensorboard.backend.event_processing",
+        "tensorboard.backend.event_processing.event_file_loader",
+        "tensorboard.util",
+    ],
 }
 
 
