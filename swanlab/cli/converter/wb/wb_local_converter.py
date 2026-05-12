@@ -132,7 +132,7 @@ class WandbLocalConverter(BaseConverter):
             # Load wandb-metadata.json from wandb run files (non-critical)
             with safe.block(message="Failed to load wandb metadata", write_to_tty=False):
                 metadata_path = os.path.join(files_root_dir, "wandb-metadata.json")
-                with open(metadata_path, "r", encoding="utf-8") as f:
+                with open(metadata_path, "rb") as f:
                     wandb_metadata = json_loads(f.read())
                 run_config.update({"wandb_metadata": wandb_metadata})
 

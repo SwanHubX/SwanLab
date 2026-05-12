@@ -1,12 +1,12 @@
 import os
-from typing import Any
+from typing import Any, Union
 
 import orjson
 
 from swanlab.sdk.internal.pkg import safe
 
 
-def json_loads(s: str) -> Any:
+def json_loads(s: Union[str, bytes, bytearray]) -> Any:
     """Parse a JSON string using orjson (fast path)."""
     return orjson.loads(s)
 
