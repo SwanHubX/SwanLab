@@ -565,7 +565,4 @@ def _ensure_online_client(run_settings: Settings):
         assert run_settings.api_key, "API key is required."
         assert run_settings.api_host, "API host is required."
         login_raw(api_key=run_settings.api_key, host=run_settings.api_host, save=False, animation=False)
-    else:
-        # reinit 场景时获取到最新的 session
-        client.refresh()
     assert client.exists(), "No client found, please login first."

@@ -152,6 +152,7 @@ class WandbLocalConverter(BaseConverter):
                 run_metadata["name"] = run_metadata["id"]
 
             print(f"Converting run: {run_metadata['name']} (ID: {run_metadata['id']})")
+            swanlab.login(relogin=True)
             swanlab_run = swanlab.init(
                 project=self.project or run_metadata["project"] or "wandb-imports",
                 workspace=self.workspace,

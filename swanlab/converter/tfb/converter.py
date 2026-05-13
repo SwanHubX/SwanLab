@@ -56,7 +56,7 @@ class TFBConverter(BaseConverter):
                     continue
 
                 data_by_tags = get_tf_events_tags_data(path, type_by_tags)
-
+                swanlab.login(relogin=True)
                 run = swanlab.init(
                     project=(f"Tensorboard-Conversion-{timestamp}" if self.project is None else self.project),
                     name=f"{dir_name}/{filename}",

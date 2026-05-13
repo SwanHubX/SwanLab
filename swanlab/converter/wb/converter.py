@@ -68,6 +68,7 @@ class WandbConverter(BaseConverter):
 
         for i, wb_run in enumerate(wb_runs):
             print(f"[{i + 1}/{len(wb_runs)}] Converting W&B run: {wb_run.name or wb_run.id}")
+            swanlab.login(relogin=True)
             swanlab_run = swanlab.init(
                 project=self.project or wb_project,
                 workspace=self.workspace,

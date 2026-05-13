@@ -47,7 +47,7 @@ class MLFlowConverter(BaseConverter):
             mlflow_run_id = run.info.run_id
             mlflow_run_name = run.data.tags.get("mlflow.runName")
             description = run.data.tags.get("mlflow.note.content")
-
+            swanlab.login(relogin=True)
             swanlab_run = swanlab.init(
                 project=self.project or ex.name,
                 workspace=self.workspace,
