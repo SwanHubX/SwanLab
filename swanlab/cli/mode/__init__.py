@@ -7,7 +7,7 @@
 
 import click
 
-from swanlab.sdk import Settings, get_pwd_config_dir, pkg
+from swanlab.sdk import Settings, pkg
 from swanlab.sdk.internal.pkg import console
 
 
@@ -17,7 +17,7 @@ def _save_settings(settings: Settings, local: bool):
     将设置保存到文件中
     """
     if local:
-        pwd = get_pwd_config_dir()
+        pwd = Settings.get_pwd_config_dir()
         pkg.helper.mkdir_and_append_gitignore(pwd)
         settings.save_to_yaml(pwd, "mode")
     else:

@@ -44,9 +44,10 @@ from .integration import IntegrationSettings
 from .probe import ProbeSettings
 from .terminal import TerminalSettings
 
-__all__ = ["Settings", "settings", "ROOT_FOLDER", "get_pwd_config_dir"]
+__all__ = ["Settings", "settings", "ROOT_FOLDER"]
 
 
+ROOT_FOLDER = ".swanlab"
 # 根据环境变量自动设置 secrets_dir
 # 如果强制设置，会出现警告：https://github.com/pydantic/pydantic/issues/2175
 secrets_dir_env = os.getenv("SWANLAB_SECRETS_DIR")
@@ -54,15 +55,7 @@ SECRETS_DIR: Optional[str] = secrets_dir_env or None
 
 # 根据环境变量选择全局配置文件路径
 config_dir_env = os.getenv("SWANLAB_CONFIG_DIR")
-ROOT_FOLDER = ".swanlab"
 CONFIG_DIR: str = config_dir_env or "/etc/swanlab"
-
-
-def get_pwd_config_dir():
-    """
-    获取当前目录下的配置文件夹路径
-    """
-    return Path.cwd() / ROOT_FOLDER
 
 
 def root_factory() -> Path:
@@ -364,6 +357,10 @@ class Settings(BaseSettings):
             monitor_disk_dir=str(self.probe.monitor_disk_dir.absolute()),
         )
 
+    @staticmethod
+    def get_pwd_config_dir():
+        return Path.cwd() / ROOT_FOLDER
+
     @classmethod
     def settings_customise_sources(
         cls,
@@ -422,7 +419,7 @@ class Settings(BaseSettings):
 
         # 7. 当前工作目录下 .swanlab/config.{yaml,yml}
         # 项目级别的配置文件，优先级高于环境变量但低于 .env
-        pwd = get_pwd_config_dir()
+        pwd = cls.get_pwd_config_dir()
         if pwd.exists() and pwd.is_dir():
             for ext in ["yaml", "yml"]:
                 config_file = pwd / f"config.{ext}"
