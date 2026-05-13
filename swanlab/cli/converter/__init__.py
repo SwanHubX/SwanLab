@@ -38,22 +38,14 @@ import click
     help="The mode of the swanlab run.",
 )
 @click.option(
-    "--log-dir",
     "-l",
-    type=str,
-    default=None,
-    help="The directory where the swanlab log files are stored.",
-)
-@click.option(
     "--logdir",
     type=str,
     default=None,
-    help="Deprecated: use --log-dir instead.",
-    hidden=True,
+    help="The directory where the swanlab log files are stored",
 )
-# tensorboard options
-@click.option("--tb-log-dir", type=str, default=None, help="The directory where the tensorboard log files are stored.")
-@click.option("--tb-logdir", type=str, default=None, help="Deprecated: use --tb-log-dir instead.", hidden=True)
+# Tensorboard options
+@click.option("--tb-logdir", type=str, default=None, help="The directory where the tensorboard log files are stored.")
 @click.option(
     "--tb-types",
     default="scalar",
@@ -64,6 +56,9 @@ import click
 @click.option("--wb-project", type=str, default=None, help="The project name of the wandb runs.")
 @click.option("--wb-entity", type=str, default=None, help="The entity name of the wandb runs.")
 @click.option("--wb-runid", type=str, default=None, help="The run_id of the wandb run.")
+# wandb-local options
+@click.option("--wb-dir", type=str, default="./wandb", help="The directory where the wandb local log files are stored.")
+@click.option("--wb-run-dir", type=str, default=None, help="The run directory of the wandb local log files.")
 # mlflow options
 @click.option(
     "--mlflow-url",
@@ -71,11 +66,10 @@ import click
     default="http://127.0.0.1:5000",
     help="The tracking url of the mlflow server (default: http://127.0.0.1:5000).",
 )
-@click.option("--mlflow-exp", type=str, default=None, help="The experiment name or id of the mlflow runs (required).")
+@click.option(
+    "--mlflow-exp", type=str, default=None, help="The experiment 'name' or 'id' of the mlflow runs (required)."
+)
 @click.option("--mlflow-runid", type=str, default=None, help="The run id of a specific mlflow run to convert.")
-# wandb-local options
-@click.option("--wb-dir", type=str, default="./wandb", help="The directory where the wandb local log files are stored.")
-@click.option("--wb-run-dir", type=str, default=None, help="The run directory of the wandb local log files.")
 # resume option
 @click.option(
     "--resume",
@@ -88,28 +82,20 @@ def convert(
     project: str,
     mode: str,
     workspace: str,
-    log_dir: str,
     logdir: str,
-    tb_log_dir: str,
     tb_logdir: str,
     tb_types: str,
     wb_project: str,
     wb_entity: str,
     wb_runid: str,
+    wb_dir: str,
+    wb_run_dir: str,
     mlflow_url: str,
     mlflow_exp: str,
     mlflow_runid: str,
-    wb_dir: str,
-    wb_run_dir: str,
     resume: bool,
 ):
     """Convert the log files of other experiment tracking tools to SwanLab."""
-    if logdir is not None:
-        click.echo("Warning: The option `--logdir` is deprecated, use `--log-dir` instead.")
-        log_dir = logdir
-    if tb_logdir is not None:
-        click.echo("Warning: The option `--tb-logdir` is deprecated, use `--tb-log-dir` instead.")
-        tb_log_dir = tb_logdir
 
     if resume and not wb_runid:
         raise click.UsageError("--resume requires --wb-runid to specify a single run to resume.")
@@ -117,21 +103,24 @@ def convert(
     if convert_type == "tensorboard":
         from swanlab.converter import TFBConverter
 
-        TFBConverter(project=project, workspace=workspace, mode=mode, log_dir=log_dir, types=tb_types).run(
-            convert_dir=tb_log_dir or ".", depth=3
+        TFBConverter(project=project, workspace=workspace, mode=mode, log_dir=logdir, types=tb_types).run(
+            convert_dir=tb_logdir or ".", depth=3
         )
 
     elif convert_type == "wandb":
         from swanlab.converter import WandbConverter
 
-        WandbConverter(project=project, workspace=workspace, mode=mode, log_dir=log_dir, resume=resume).run(
+        if not wb_project:
+            raise click.UsageError("--wb-project is required when using wandb online converter")
+
+        WandbConverter(project=project, workspace=workspace, mode=mode, log_dir=logdir, resume=resume).run(
             wb_project=wb_project, wb_entity=wb_entity, wb_run_id=wb_runid
         )
 
     elif convert_type == "wandb-local":
         from swanlab.converter import WandbLocalConverter
 
-        WandbLocalConverter(project=project, workspace=workspace, mode=mode, log_dir=log_dir, resume=resume).run(
+        WandbLocalConverter(project=project, workspace=workspace, mode=mode, log_dir=logdir, resume=resume).run(
             root_wandb_dir=wb_dir, wandb_run_dir=wb_run_dir, wb_run_id=wb_runid
         )
 
@@ -141,6 +130,6 @@ def convert(
         if not mlflow_exp:
             raise click.UsageError("--mlflow-exp is required when using mlflow converter.")
 
-        MLFlowConverter(project=project, workspace=workspace, mode=mode, log_dir=log_dir).run(
+        MLFlowConverter(project=project, workspace=workspace, mode=mode, log_dir=logdir).run(
             tracking_uri=mlflow_url, experiment=mlflow_exp, run_id=mlflow_runid
         )
