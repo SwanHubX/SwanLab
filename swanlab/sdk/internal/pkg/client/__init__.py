@@ -48,7 +48,7 @@ class Client:
         # 初始化时仅创建一次会话，以复用底层 TCP 连接池
         self._session: session.SessionWithRetry = session.create()
         # 立即进行首次鉴权并挂载凭证
-        login_resp = self._refresh_auth(timeout=timeout, warning=False)
+        login_resp = self.refresh_auth(timeout=timeout, warning=False)
         if not login_resp:
             raise AuthenticationError(
                 "Failed to initialize the SwanLab client. Please check if the provided API key is correct."
@@ -56,7 +56,7 @@ class Client:
         # 写入登录响应到上下文，由调用者判断是否需要使用
         scope.set_context("login_resp", login_resp)
 
-    def _refresh_auth(self, timeout: int = 10, warning: bool = True) -> Optional[LoginResponse]:
+    def refresh_auth(self, timeout: int = 10, warning: bool = True) -> Optional[LoginResponse]:
         """
         刷新鉴权信息。
         直接更新当前会话的 Cookie，保留底层连接池以提升性能。
@@ -80,11 +80,11 @@ class Client:
     def _before_request(self):
         """请求前置检查。距过期时间不足安全缓冲期时，触发刷新。"""
         if self._expired_at is None:
-            return self._refresh_auth()
+            return self.refresh_auth()
 
         if (self._expired_at - datetime.now(timezone.utc)).total_seconds() <= self.REFRESH_TIME:
             console.debug("Session is about to expire. Triggering token refresh.")
-            self._refresh_auth()
+            self.refresh_auth()
         return None
 
     # ---------------------------------- 实例 HTTP 方法 ----------------------------------
