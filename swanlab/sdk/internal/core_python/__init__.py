@@ -110,9 +110,16 @@ class CorePython(CoreProtocol):
 
     def _start_without_online(self, start_request: DeliverRunStartRequest, message: str) -> DeliverRunStartResponse:
         self._ctx = CoreContext.from_proto(start_request.core_settings)
+        self._metrics, console_epoch, global_step, global_system_step = RunMetrics.new(None, ctx=self._ctx)
         resp = DeliverRunStartResponse(
-            success=True, message=message, run=start_request.start_record, new_experiment=True
+            success=True,
+            message=message,
+            run=start_request.start_record,
+            new_experiment=True,
+            global_system_step=global_system_step,
+            global_step=global_step,
         )
+        self._epoch.reset(console_epoch)
         self._start_store(resp)
         return resp
 
