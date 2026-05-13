@@ -10,7 +10,7 @@ from typing import Optional
 from swanlab.sdk.internal.pkg import client, console
 from swanlab.sdk.typings.pkg.client import JSONBody, JSONDict
 
-__all__ = ["exists", "reset", "new", "refresh", "get", "post", "put", "patch", "delete"]
+__all__ = ["exists", "reset", "new", "get", "post", "put", "patch", "delete"]
 
 # ==============================================================================
 # 模块级全局状态与代理快捷函数
@@ -33,11 +33,6 @@ def exists() -> bool:
     """检查当前的 SwanLab 运行时客户端是否已存在。"""
     global _default_client
     return _default_client is not None
-
-
-def refresh() -> bool:
-    """刷新当前客户端的鉴权信息。"""
-    return _get_client().refresh()
 
 
 def reset():
