@@ -27,7 +27,7 @@ class TestLoginE2E:
     @staticmethod
     def _save_netrc(host: str, key: str):
         """将凭证写入 .netrc 并重新初始化 settings，模拟上次会话保存、新会话加载的完整流程。"""
-        nrc_path = settings.root / ".netrc"
+        nrc_path = settings.get_user_config_dir() / ".netrc"
         nrc_path.parent.mkdir(parents=True, exist_ok=True)
         nrc.write(nrc_path, api_host=host, web_host=host, api_key=key)
         TestLoginE2E._reinit_settings()
@@ -144,7 +144,7 @@ class TestLoginE2E:
         assert settings.api_key == api_key
         assert result is True
 
-        nrc_path = settings.root / ".netrc"
+        nrc_path = settings.get_user_config_dir() / ".netrc"
         assert nrc_path.exists()
         content = nrc_path.read_text()
         assert api_key in content
@@ -259,7 +259,7 @@ class TestLoginE2E:
         new_host = "https://new.swanlab.com"
         new_key = "new-key"
 
-        # 写入旧凭证到 .netrc（settings.root 由 conftest 指向 tmp_path/.swanlab）
+        # 写入旧凭证到 .netrc（settings.get_user_config_dir() 由 conftest 指向 tmp_path/.swanlab）
         self._save_netrc(old_host, old_key)
 
         # 前提：settings 已从 .netrc 加载旧凭证
@@ -327,7 +327,7 @@ class TestLoginE2E:
         # 前提：env var 已加载，本地无 .netrc 文件
         assert settings.api_key == env_key
         assert settings.api_host == env_host
-        assert not (settings.root / ".netrc").exists()
+        assert not (settings.get_user_config_dir() / ".netrc").exists()
 
         # 只传新 host，不传 api_key —— 旧 key 与新 host 不匹配，应抛出 AuthenticationError
         with pytest.raises(AuthenticationError, match="Stored API key is for"):
@@ -407,7 +407,7 @@ class TestLoginE2E:
         result = login(api_key=api_key, save=True)
         assert result is True
 
-        nrc_path = settings.root / ".netrc"
+        nrc_path = settings.get_user_config_dir() / ".netrc"
         assert nrc_path.exists()
         content = nrc_path.read_text()
         assert api_key in content

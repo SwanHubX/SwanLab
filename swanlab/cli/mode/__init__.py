@@ -21,8 +21,9 @@ def _save_settings(settings: Settings, local: bool):
         pkg.helper.mkdir_and_append_gitignore(pwd)
         settings.save_to_yaml(pwd, "mode")
     else:
-        pkg.fs.safe_mkdir(settings.root)
-        settings.save_to_yaml(settings.root, "mode")
+        user = Settings.get_user_config_dir()
+        pkg.fs.safe_mkdir(user)
+        settings.save_to_yaml(user, "mode")
 
 
 # noinspection PyShadowingNames

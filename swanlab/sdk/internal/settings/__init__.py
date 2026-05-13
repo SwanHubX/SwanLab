@@ -4,7 +4,7 @@
 @time: 2026/3/5 14:38
 @description: SwanLab 包配置项，根据优先级从低到高加载配置：
 1. 默认值
-2. settings.root
+2. 系统目录下的配置文件
 3. 环境变量
 4. 当前目录下 .env 文件
 5. /etc/swanlab/*.{yaml,yml}
@@ -44,7 +44,7 @@ from .integration import IntegrationSettings
 from .probe import ProbeSettings
 from .terminal import TerminalSettings
 
-__all__ = ["Settings", "settings", "ROOT_FOLDER"]
+__all__ = ["Settings", "settings"]
 
 
 ROOT_FOLDER = ".swanlab"
@@ -56,21 +56,6 @@ SECRETS_DIR: Optional[str] = secrets_dir_env or None
 # 根据环境变量选择全局配置文件路径
 config_dir_env = os.getenv("SWANLAB_CONFIG_DIR")
 CONFIG_DIR: str = config_dir_env or "/etc/swanlab"
-
-
-def root_factory() -> Path:
-    """
-    生成 SwanLab 的根目录路径，用于存放配置文件、日志等数据。
-
-    优先级如下（从高到低）：
-    1. SWANLAB_ROOT：新版本推荐的环境变量，用于显式指定 SwanLab 根目录
-    2. SWANLAB_SAVE_DIR：旧版本环境变量，保留以向下兼容旧版本
-    3. 默认值：用户主目录下的 ~/.swanlab
-
-    注意：此工厂函数在 Settings 实例化前就可能被调用（如 settings_customise_sources 中
-    加载 root 级别的配置文件时），因此不能依赖 Settings.root 字段的值。
-    """
-    return Path(os.environ.get("SWANLAB_ROOT") or os.environ.get("SWANLAB_SAVE_DIR", str(Path.home() / ROOT_FOLDER)))
 
 
 def log_dir_factory() -> Path:
@@ -140,34 +125,6 @@ class Settings(BaseSettings):
         if v == "cloud":
             return "online"
         raise ValueError(f"Invalid mode: {v}, allowed values are {list(get_args(ModeType))}")
-
-    root: Path = Field(default_factory=root_factory)
-    """
-    Directory for SwanLab saved files.
-
-    This field is used not only as the runtime data storage directory, but also to locate
-    the user-level global configuration file (root/config.{yaml,yml}). Since configuration
-    loading begins before the Settings instance is created, the path is determined by
-    root_factory(), which reads environment variables (SWANLAB_ROOT).
-
-    Therefore, modifying this value at runtime via merge_settings is not recommended.
-    If you do need to change it, please set the corresponding environment variable
-    to ensure consistent configuration loading behavior.
-    """
-
-    @field_validator("root", mode="before")
-    def validate_root(cls, v: Union[str, Path]) -> Path:
-        """
-        如果 root 存在，必须是目录
-        """
-        path_v = Path(v)
-
-        if path_v.exists() and not path_v.is_dir():
-            raise ValueError(
-                f"Root path {path_v} exists but is not a directory.",
-                "Please remove the file or choose a different path.",
-            )
-        return path_v
 
     log_dir: Path = Field(default_factory=log_dir_factory, validate_default=True)
     """
@@ -239,6 +196,20 @@ class Settings(BaseSettings):
         return data
 
     @model_validator(mode="after")
+    def _(self):
+        """
+        校验root目录必须存在
+        """
+        path_v = self.get_user_config_dir()
+
+        if path_v.exists() and not path_v.is_dir():
+            raise ValueError(
+                f"Root path {path_v} exists but is not a directory.",
+                "Please remove the file or choose a different path.",
+            )
+        return self
+
+    @model_validator(mode="after")
     def load_api_key(self) -> "Settings":
         """
         在所有配置加载完成后，作为最后的回退机制读取 本地 .netrc 文件。
@@ -261,14 +232,9 @@ class Settings(BaseSettings):
             return self
         # api key, api host, web host
         netrc_result: Optional[Tuple[str, str, str]] = None
-        with safe.block(
-            message="Failed to load credentials from current directory, falling back to root directory if available"
-        ):
-            netrc_result = _load_netrc(Path.cwd() / ROOT_FOLDER / ".netrc")
-        if netrc_result is None:
-            with safe.block(message="Failed to load credentials from root directory"):
-                netrc_result = _load_netrc(self.root / ".netrc")
-
+        with safe.block(message="Failed to load credentials from root directory"):
+            netrc_result = _load_netrc(self.get_user_config_dir() / ".netrc")
+        console.debug(f"Loaded credentials from root directory: {netrc_result}")
         if netrc_result is not None:
             api_key, api_host, web_host = netrc_result
             # 前提条件：读取到的 api_host 与当前配置的 api_host 匹配，或者 api_host 未被显式设置
@@ -361,6 +327,12 @@ class Settings(BaseSettings):
     def get_pwd_config_dir():
         return Path.cwd() / ROOT_FOLDER
 
+    @staticmethod
+    def get_user_config_dir():
+        return Path(
+            os.environ.get("SWANLAB_ROOT") or os.environ.get("SWANLAB_SAVE_DIR", str(Path.home() / ROOT_FOLDER))
+        )
+
     @classmethod
     def settings_customise_sources(
         cls,
@@ -379,7 +351,7 @@ class Settings(BaseSettings):
         # 5. K8S/Docker 容器 Secret 配置项文件
         # 6. 环境变量
         # 7. 当前工作目录下 .swanlab/config.{yaml,yml}
-        # 8. settings.root / config.{yaml,yml}
+        # 8. settings.get_user_config_dir() / config.{yaml,yml}
         # 9. 默认值 (Model Default)
 
         # 1. merge_settings 传入的参数
@@ -427,10 +399,10 @@ class Settings(BaseSettings):
                     console.debug(f"Loading settings from {config_file}")
                     sources.append(YamlConfigSettingsSource(settings_cls, yaml_file=config_file))
 
-        # 8. settings.root / config.{yaml,yml}
+        # 8. settings.get_user_config_dir() / config.{yaml,yml}
         # 用户级别的全局配置文件，优先级最低（仅高于默认值）
         # 使用 root_factory() 获取 root 路径，因为此时 Settings 实例尚未创建
-        root_config_dir = root_factory()
+        root_config_dir = cls.get_user_config_dir()
         if root_config_dir.exists() and root_config_dir.is_dir():
             for ext in ["yaml", "yml"]:
                 config_file = root_config_dir / f"config.{ext}"

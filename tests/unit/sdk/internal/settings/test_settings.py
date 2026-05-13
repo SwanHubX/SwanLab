@@ -28,8 +28,7 @@ def isolate_global_env(tmp_path, monkeypatch):
 
 def test_path_validation(tmp_path):
     """测试默认值加载，以及路径是否会自动创建"""
-    settings = Settings(root=Path(tmp_path) / "test", log_dir=Path(tmp_path) / "log")
-    assert not settings.root.exists()
+    settings = Settings(log_dir=Path(tmp_path) / "log")
     # log_dir 不会自动创建
     assert not settings.log_dir.exists()
 
@@ -56,10 +55,10 @@ def test_priority_yaml_over_env(tmp_path, monkeypatch):
 
 
 class TestConfigSourcePriority:
-    """测试新增配置源的优先级：root/config.{yaml,yml} 和 pwd/.swanlab/config.{yaml,yml}"""
+    """测试新增配置源的优先级：get_user_config_dir()/config.{yaml,yml} 和 pwd/.swanlab/config.{yaml,yml}"""
 
     def test_root_config_yaml_priority(self, tmp_path, monkeypatch):
-        """测试 settings.root/config.yaml 优先级高于默认值但低于环境变量"""
+        """测试 settings.get_user_config_dir()/config.yaml 优先级高于默认值但低于环境变量"""
         # 设置环境变量指向 tmp_path 作为 root
         monkeypatch.setenv("SWANLAB_SAVE_DIR", str(tmp_path))
         # 创建 root/config.yaml
@@ -422,26 +421,24 @@ class TestNetrcFallback:
         assert settings.mode == "online"
 
 
-def test_directory_validators(tmp_path):
+def test_directory_validators(tmp_path, monkeypatch):
     """测试 root 和 log_dir 的路径校验逻辑：如果存在，必须是文件夹"""
 
     # 1. 正常情况：路径存在且是文件夹
-    valid_root = tmp_path / "valid_root"
-    valid_root.mkdir()
     valid_log = tmp_path / "valid_log"
     valid_log.mkdir()
 
     # 正常初始化，不抛异常
-    s_valid = Settings(root=valid_root, log_dir=valid_log)
-    assert s_valid.root == valid_root
+    s_valid = Settings(log_dir=valid_log)
     assert s_valid.log_dir == valid_log
 
     # 2. 异常情况：root 存在但是个文件
     invalid_root = tmp_path / "invalid_root.txt"
+    monkeypatch.setenv("SWANLAB_ROOT", str(invalid_root))
     invalid_root.write_text("dummy file content")
 
     with pytest.raises(ValueError, match="exists but is not a directory"):
-        Settings(root=invalid_root)
+        Settings()
 
     # 3. 异常情况：log_dir 存在但是个文件
     invalid_log = tmp_path / "invalid_log.txt"
@@ -472,7 +469,6 @@ class TestToYaml:
         yaml_str = settings.to_yaml()
 
         assert "mode:" in yaml_str
-        assert "root:" in yaml_str
         assert "api_key:" in yaml_str
         assert "probe:" in yaml_str
         assert "core:" in yaml_str

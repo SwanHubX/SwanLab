@@ -9,7 +9,7 @@ from functools import wraps
 from pathlib import Path
 
 from swanlab.sdk.internal.pkg import console, nrc
-from swanlab.sdk.internal.settings import ROOT_FOLDER, settings
+from swanlab.sdk.internal.settings import settings
 from swanlab.sdk.typings.cmd import LoginType
 
 __all__ = ["get_nrc_path", "with_loading_animation"]
@@ -18,9 +18,7 @@ __all__ = ["get_nrc_path", "with_loading_animation"]
 def get_nrc_path(save: LoginType) -> Path:
     """根据登录类型获取 NRC 文件路径"""
     assert save, "LoginType cannot be False when getting NRC path"
-    if save == "local":
-        return nrc.path(Path.cwd() / ROOT_FOLDER)
-    return nrc.path(settings.root)
+    return nrc.path(settings.get_pwd_config_dir() if save == "local" else settings.get_user_config_dir())
 
 
 def with_loading_animation(message: str = "Initializing SwanLab...", spinner_name: str = "dots"):

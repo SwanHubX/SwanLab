@@ -28,8 +28,7 @@ def test_e2e_legacy_env_compatibility(monkeypatch):
 
     # 核心：通过根 Settings 实例进行端到端加载
     s = Settings()
-    # 验证 root 的兼容映射
-    assert s.root == Path("/tmp/swanlab")
+    assert s.get_user_config_dir() == Path("/tmp/swanlab")
 
     # 验证 experiment 子模块的兼容映射
     assert s.experiment.name == "legacy_exp"
