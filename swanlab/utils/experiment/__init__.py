@@ -237,7 +237,7 @@ def generate_name(slug: Optional[Union[Literal["beauty"], int]] = None) -> str:
 
     # 逻辑 3: 如果传入是 int，根据预设列表取模，并将 ID 拼在尾部
     if isinstance(slug, int):
-        adj = NORMAL_ADJECTIVES[slug % len(PRESET_ANIMALS)]
+        adj = NORMAL_ADJECTIVES[slug % len(NORMAL_ADJECTIVES)]
         animal = PRESET_ANIMALS[slug % len(PRESET_ANIMALS)]
         return f"{adj}-{animal}-{slug}"
 

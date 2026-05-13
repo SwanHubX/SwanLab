@@ -96,7 +96,7 @@ class TestGenerateName:
     @pytest.mark.parametrize("slug_int", [0, 1, 3, 1024])
     def test_int_name(self, slug_int):
         """测试传入 int 时，基于 Mock 列表长度取模并拼接"""
-        expected_adj = MOCK_ADJECTIVES[slug_int % len(MOCK_ANIMALS)]
+        expected_adj = MOCK_ADJECTIVES[slug_int % len(MOCK_ADJECTIVES)]
         expected_animal = MOCK_ANIMALS[slug_int % len(MOCK_ANIMALS)]
         expected_name = f"{expected_adj}-{expected_animal}-{slug_int}"
         assert generate_name(slug_int) == expected_name
