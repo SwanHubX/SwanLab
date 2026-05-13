@@ -10,7 +10,7 @@ from typing import Optional
 from swanlab.sdk.internal.pkg import client, console
 from swanlab.sdk.typings.pkg.client import JSONBody, JSONDict
 
-__all__ = ["exists", "reset", "new", "refresh", "get", "post", "put", "patch", "delete"]
+__all__ = ["exists", "reset", "new", "get", "post", "put", "patch", "delete"]
 
 # ==============================================================================
 # 模块级全局状态与代理快捷函数
@@ -42,11 +42,6 @@ def reset():
     if _default_client is None:
         raise RuntimeError("SwanLab client is not initialized. Call `new` first.")
     _default_client = None
-
-
-def refresh(timeout: int = 10, warning: bool = True) -> bool:
-    """Refresh the default client's authentication cookie."""
-    return _get_client().refresh_auth(timeout=timeout, warning=warning) is not None
 
 
 def _get_client() -> client.Client:

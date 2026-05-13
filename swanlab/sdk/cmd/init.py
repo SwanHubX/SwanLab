@@ -561,10 +561,7 @@ def _ensure_online_client(run_settings: Settings):
     确保 online 模式下 client 已就绪，未登录时自动执行登录。
     :param run_settings: 运行时配置
     """
-    if client.exists():
-        if not client.refresh(warning=False):
-            raise RuntimeError("Failed to refresh SwanLab authentication. Please run `swanlab login --relogin`.")
-    else:
+    if not client.exists():
         assert run_settings.api_key, "API key is required."
         assert run_settings.api_host, "API host is required."
         login_raw(api_key=run_settings.api_key, host=run_settings.api_host, save=False, animation=False)

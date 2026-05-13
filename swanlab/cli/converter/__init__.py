@@ -65,9 +65,8 @@ import click
 @click.option("--wb-entity", type=str, default=None, help="The entity name of the wandb runs.")
 @click.option("--wb-runid", type=str, default=None, help="The run_id of the wandb run.")
 # mlflow options
-@click.option("--mlflow-url", type=str, default=None, help="The tracking uri of the mlflow runs.")
+@click.option("--mlflow-uri", type=str, default=None, help="The tracking uri of the mlflow runs.")
 @click.option("--mlflow-exp", type=str, default=None, help="The experiment name or id of the mlflow runs.")
-@click.option("--mlflow-run-id", type=str, default=None, help="The specific MLflow run ID to convert.")
 # wandb-local options
 @click.option("--wb-dir", type=str, default="./wandb", help="The directory where the wandb local log files are stored.")
 @click.option("--wb-run-dir", type=str, default=None, help="The run directory of the wandb local log files.")
@@ -91,9 +90,8 @@ def convert(
     wb_project: str,
     wb_entity: str,
     wb_runid: str,
-    mlflow_url: str,
+    mlflow_uri: str,
     mlflow_exp: str,
-    mlflow_run_id: str,
     wb_dir: str,
     wb_run_dir: str,
     resume: bool,
@@ -134,5 +132,5 @@ def convert(
         from swanlab.converter import MLFlowConverter
 
         MLFlowConverter(project=project, workspace=workspace, mode=mode, log_dir=log_dir).run(
-            tracking_uri=mlflow_url, experiment=mlflow_exp, run_id=mlflow_run_id
+            tracking_uri=mlflow_uri, experiment=mlflow_exp
         )

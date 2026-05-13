@@ -10,14 +10,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from swanlab.sdk.cmd.init import (
-    _ensure_online_client,
-    compatible_kwargs,
-    ensure_run_dir,
-    load_config,
-    prompt_init_mode,
-    set_nested_value,
-)
+from swanlab.sdk.cmd.init import compatible_kwargs, ensure_run_dir, load_config, prompt_init_mode, set_nested_value
 
 
 # ==========================================
@@ -97,48 +90,6 @@ def test_prompt_auto_login(mock_settings, monkeypatch):
 
     assert prompt_init_mode(mock_settings) == "online"
     # 有 api_key 时不再调用 login_raw，登录推迟到后续流程
-
-
-def test_ensure_online_client_refreshes_existing_client(mock_settings, monkeypatch):
-    """已有运行时 client 时，应刷新 sid，避免 finish 后的旧 session 直接复用。"""
-    mock_refresh = MagicMock(return_value=True)
-    mock_login_raw = MagicMock()
-    monkeypatch.setattr("swanlab.sdk.cmd.init.client.exists", lambda: True)
-    monkeypatch.setattr("swanlab.sdk.cmd.init.client.refresh", mock_refresh)
-    monkeypatch.setattr("swanlab.sdk.cmd.init.login_raw", mock_login_raw)
-
-    _ensure_online_client(mock_settings)
-
-    mock_refresh.assert_called_once_with(warning=False)
-    mock_login_raw.assert_not_called()
-
-
-def test_ensure_online_client_raises_when_existing_client_refresh_fails(mock_settings, monkeypatch):
-    """已有 client 但刷新失败时，应明确失败而不是继续用失效 sid 请求业务接口。"""
-    monkeypatch.setattr("swanlab.sdk.cmd.init.client.exists", lambda: True)
-    monkeypatch.setattr("swanlab.sdk.cmd.init.client.refresh", lambda **kwargs: False)
-
-    with pytest.raises(RuntimeError, match="Failed to refresh SwanLab authentication"):
-        _ensure_online_client(mock_settings)
-
-
-def test_ensure_online_client_logs_in_when_missing_client(mock_settings, monkeypatch):
-    """没有运行时 client 时，仍走原有的 API key 登录路径。"""
-    mock_settings.api_key = "fake-key"
-    mock_settings.api_host = "https://api.fake"
-    exists_values = iter([False, True])
-    mock_login_raw = MagicMock()
-    monkeypatch.setattr("swanlab.sdk.cmd.init.client.exists", lambda: next(exists_values))
-    monkeypatch.setattr("swanlab.sdk.cmd.init.login_raw", mock_login_raw)
-
-    _ensure_online_client(mock_settings)
-
-    mock_login_raw.assert_called_once_with(
-        api_key="fake-key",
-        host="https://api.fake",
-        save=False,
-        animation=False,
-    )
 
 
 @pytest.mark.parametrize(

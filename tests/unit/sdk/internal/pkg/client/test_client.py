@@ -71,17 +71,6 @@ def test_client_init_and_auth(mock_login, client, mock_base_url, mock_api_url):
     assert client._session.cookies.get("sid") == "mock-token-123"
 
 
-def test_refresh_auth_updates_cookie(client, mock_login):
-    """显式刷新鉴权时，应使用原 API key 重新挂载 sid cookie。"""
-    mock_login.return_value = {"sid": "mock-token-456", "expiredAt": "2999-01-01T00:00:00.000Z"}
-
-    assert client.refresh_auth(timeout=5, warning=False) is not None
-
-    assert mock_login.call_count == 2
-    mock_login.assert_called_with(client._base_url, "test-key", timeout=5)
-    assert client._session.cookies.get("sid") == "mock-token-456"
-
-
 def test_client_http_methods_and_url_join(client, mock_api_url):
     """测试 HTTP 请求的方法分发与 URL 拼接是否正确"""
     client._session.request = MagicMock()
