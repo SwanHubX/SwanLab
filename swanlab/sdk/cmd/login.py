@@ -268,7 +268,8 @@ def wellcome(base_url: str, login_resp: Optional[LoginResponse]):
         console.info(
             "Currently logged in as:",
             Text(name, "yellow"),
-            f"to {base_url}. Use",
+            "to",
+            Text.assemble((base_url, "green"), ". Use"),
             Text("`swanlab login --relogin`", "bold"),
             "to force relogin",
         )

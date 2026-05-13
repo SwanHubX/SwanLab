@@ -25,13 +25,17 @@ def _print_version():
 
 
 def _print_save_dir(ctx: RunContext):
-    console.info("Run data will be saved locally in", Text(str(ctx.config.run_dir), "magenta bold"))
+    console.info("💾 Run data saved at", Text(str(ctx.config.run_dir), "magenta bold"))
 
 
-def _print_online_tip(run: "Run"):
+def _print_online_tip(run: "Run", name_truncate_len: int = 45):
     project_url = run.url.split("/runs/")[0]
-    console.info(f"🏠 View project at {project_url}")
-    console.info(f"🚀 View run at {run.url}")
+    console.info("🏠 View project at", Text(project_url, style=f"link {project_url} blue underline"))
+    # 截断 run.name，超过 name_truncate_len 时，前后保留 20 个字符，中间显示 ...
+    name = run.name
+    if len(name) > name_truncate_len:
+        name = name[:20] + "..." + name[-20:]
+    console.info("🚀 View run", Text(name, "yellow"), "at", Text(run.url, style=f"link {run.url} blue underline"))
 
 
 def _print_local_tip(ctx: RunContext):
@@ -66,8 +70,6 @@ def welcome(ctx: RunContext, run: "Run"):
     elif mode == "online":
         _print_version()
         _print_save_dir(ctx)
-        if ctx.config.settings.experiment.name:
-            console.info("Syncing run", Text(ctx.config.settings.experiment.name, "yellow"))
         _print_online_tip(run)
     # 2. Local
     elif mode == "local":
