@@ -33,6 +33,7 @@ from swanlab.sdk.internal.pkg import adapter, console, fs, helper, safe
 from swanlab.sdk.typings.cmd import ConfigLike
 from swanlab.sdk.typings.context import CallbacksType
 from swanlab.utils import generate_id
+from swanlab.utils.experiment import generate_color, generate_name
 
 from ..internal.run import Run, get_run, has_run
 from ..internal.settings import Settings
@@ -479,16 +480,16 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
         elif mode == "local":
             # TODO: 注入回调器
             ...
-        # 2. 确定默认 workspace 并生成本地 name/color，合并到 settings
-        args_dict = {}
-        for key, value in {
-            "experiment.name": run_settings.experiment.name,
-            "experiment.color": run_settings.experiment.color,
-            "project.workspace": run_settings.project.workspace,
-            "run.id": run_id,
-        }.items():
-            set_nested_value(args_dict, key, value)
-        run_settings.merge_settings(args_dict)
+        # 2. 非云端模式，确定 name/color，合并到 settings
+        if mode != "online":
+            args_dict = {}
+            for key, value in {
+                "experiment.name": run_settings.experiment.name or generate_name("beauty"),
+                "experiment.color": run_settings.experiment.color or generate_color("beauty"),
+                "run.id": run_id,
+            }.items():
+                set_nested_value(args_dict, key, value)
+            run_settings.merge_settings(args_dict)
         # 3. 统一调用 deliver_run_start（core 内部按 mode 分发：online 走网络，其余本地处理）
         ts = Timestamp()
         ts.GetCurrentTime()
