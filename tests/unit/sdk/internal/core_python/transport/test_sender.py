@@ -7,7 +7,7 @@ from swanlab.sdk.internal.core_python.context import CoreConfig, CoreContext
 from swanlab.sdk.internal.core_python.transport.sender import HttpRecordSender
 
 
-def _make_sender(tmp_path: Path) -> HttpRecordSender:
+def _make_sender(tmp_path: Path, save_batch: int = 100) -> HttpRecordSender:
     ctx = CoreContext(
         config=CoreConfig(
             run_id="test-run-id",
@@ -18,7 +18,7 @@ def _make_sender(tmp_path: Path) -> HttpRecordSender:
             save_split=100 * 1024 * 1024,
             save_size=50 * 1024 * 1024 * 1024,
             save_part=32 * 1024 * 1024,
-            save_batch=100,
+            save_batch=save_batch,
         )
     )
     return HttpRecordSender(
@@ -88,3 +88,40 @@ def test_upload_save_skips_complete_when_s3_upload_fails(tmp_path: Path):
 
     # 上传失败时仍应调用 complete，但标记为 FAILED
     mock_complete.assert_called_once_with("experiment-id", files=[{"path": "failed.bin", "state": "FAILED"}])
+
+
+def test_upload_save_splits_pending_files_by_save_batch(tmp_path: Path):
+    records = []
+    for index in range(5):
+        source = tmp_path / f"model-{index}.txt"
+        source.write_text(f"weights-{index}", encoding="utf-8")
+        records.append(_make_save_record(source, name=f"checkpoints/model-{index}.txt"))
+
+    sender = _make_sender(tmp_path, save_batch=2)
+    session = MagicMock()
+
+    def _fake_prepare(_, *, files):
+        return {"urls": [f"https://s3.test/{item['path']}" for item in files]}
+
+    def _fake_upload(_, *, resources):
+        return {r["source_path"] for r in resources}
+
+    with (
+        patch(
+            "swanlab.sdk.internal.core_python.transport.sender.prepare_save_files",
+            side_effect=_fake_prepare,
+        ) as mock_prepare,
+        patch("swanlab.sdk.internal.core_python.transport.sender.complete_save_files") as mock_complete,
+        patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=session),
+        patch(
+            "swanlab.sdk.internal.core_python.transport.sender.upload_saves",
+            side_effect=_fake_upload,
+        ) as mock_upload_saves,
+    ):
+        sender.upload_save(records)
+
+    assert mock_prepare.call_count == 3
+    assert mock_upload_saves.call_count == 3
+    assert mock_complete.call_count == 3
+    assert [len(call.kwargs["files"]) for call in mock_prepare.call_args_list] == [2, 2, 1]
+    assert [len(call.kwargs["files"]) for call in mock_complete.call_args_list] == [2, 2, 1]
