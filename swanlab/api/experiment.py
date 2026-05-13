@@ -28,6 +28,7 @@ from swanlab.api.utils import (
     validate_sort,
     validate_update_active,
 )
+from swanlab.sdk.internal.pkg import console
 
 
 class Experiment(BaseEntity):
@@ -293,8 +294,11 @@ class Experiment(BaseEntity):
             root_exp_id=self.root_exp_id,
         )
 
-    def delete(self) -> bool:
-        """删除此实验。"""
+    def delete(self, commit: bool = False) -> bool:
+        """删除此实验。commit=False 时打印待删除信息，commit=True 时执行删除。"""
+        if not commit:
+            console.warning(f"Experiment to be deleted: run_id: {self._run_slug}, name: {self.name}")
+            return True
         resp = self._delete(f"/project/{self._proj_path}/runs/{self.run_id}")
         return resp.ok
 

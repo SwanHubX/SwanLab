@@ -135,7 +135,7 @@ ApiFilterOpLiteral = Literal["EQ", "NEQ", "GTE", "LTE", "IN", "NOT IN", "CONTAIN
 ApiSortOrderLiteral = Literal["ASC", "DESC"]
 
 # 后端允许的每页条数
-_VALID_PAGE_SIZES = (10, 12, 15, 20, 24, 27, 50, 100)
+VALID_PAGE_SIZES = (10, 12, 15, 20, 24, 27, 50, 100)
 
 
 @dataclass(frozen=True)
@@ -151,7 +151,7 @@ class PaginatedQuery:
     """
 
     page: int = 1
-    size: int = 20
+    size: int = 50
     search: Optional[str] = None
     sort: Optional[str] = None
     all: bool = False
@@ -159,8 +159,8 @@ class PaginatedQuery:
     def __post_init__(self) -> None:
         if self.page < 1:
             raise ValueError(f"page must be >= 1, got {self.page}")
-        if self.size not in _VALID_PAGE_SIZES:
-            raise ValueError(f"size must be one of {_VALID_PAGE_SIZES}, got {self.size}")
+        if self.size not in VALID_PAGE_SIZES:
+            raise ValueError(f"size must be one of {VALID_PAGE_SIZES}, got {self.size}")
 
     def to_params(self, **extra: Optional[Any]) -> Dict[str, Any]:
         """转换为查询参数字典，自动过滤 None 值。"""

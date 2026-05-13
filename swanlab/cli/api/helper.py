@@ -10,7 +10,7 @@ import orjson
 
 from swanlab.api import Api
 from swanlab.api.typings.common import (
-    _VALID_PAGE_SIZES,
+    VALID_PAGE_SIZES,
     ApiColumnClassLiteral,
     ApiColumnDataTypeLiteral,
     ApiMetricLogLevelLiteral,
@@ -23,7 +23,7 @@ class _SaveFormatEnum(enum.Enum):
     JSON = "json"
 
 
-PAGE_SIZE_TYPE = click.Choice([str(s) for s in _VALID_PAGE_SIZES])
+PAGE_SIZE_TYPE = click.Choice([str(s) for s in VALID_PAGE_SIZES])
 COLUMN_CLASS_TYPE = click.Choice(list(get_args(ApiColumnClassLiteral)), case_sensitive=False)
 COLUMN_DATA_TYPE = click.Choice(list(get_args(ApiColumnDataTypeLiteral)), case_sensitive=False)
 VISIBILITY_TYPE = click.Choice(list(get_args(ApiVisibilityLiteral)), case_sensitive=False)
