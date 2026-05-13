@@ -93,6 +93,17 @@ class Settings(BaseSettings):
         >>> swanlab.merge_settings(custom_settings)
     """
 
+    @staticmethod
+    def get_pwd_config_dir():
+        return Path.cwd() / ROOT_FOLDER
+
+    @staticmethod
+    def get_user_config_dir():
+        # SWANLAB_SAVE_DIR 用于向下兼容历史环境变量
+        return Path(
+            os.environ.get("SWANLAB_ROOT") or os.environ.get("SWANLAB_SAVE_DIR", str(Path.home() / ROOT_FOLDER))
+        )
+
     Project: ClassVar[Type[ProjectSettings]] = ProjectSettings
     Run: ClassVar[Type[RunSettings]] = RunSettings
     Experiment: ClassVar[Type[ExperimentSettings]] = ExperimentSettings
@@ -321,16 +332,6 @@ class Settings(BaseSettings):
             monitor=self.probe.monitor,
             monitor_interval=self.probe.monitor_interval,
             monitor_disk_dir=str(self.probe.monitor_disk_dir.absolute()),
-        )
-
-    @staticmethod
-    def get_pwd_config_dir():
-        return Path.cwd() / ROOT_FOLDER
-
-    @staticmethod
-    def get_user_config_dir():
-        return Path(
-            os.environ.get("SWANLAB_ROOT") or os.environ.get("SWANLAB_SAVE_DIR", str(Path.home() / ROOT_FOLDER))
         )
 
     @classmethod
