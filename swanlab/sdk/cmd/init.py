@@ -32,7 +32,7 @@ from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.pkg import adapter, console, fs, helper, safe
 from swanlab.sdk.typings.cmd import ConfigLike
 from swanlab.sdk.typings.context import CallbacksType
-from swanlab.utils import generate_color, generate_id, generate_name
+from swanlab.utils import generate_id
 
 from ..internal.run import Run, get_run, has_run
 from ..internal.settings import Settings
@@ -480,14 +480,11 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
             # TODO: 注入回调器
             ...
         # 2. 确定默认 workspace 并生成本地 name/color，合并到 settings
-        workspace = run_settings.project.workspace
-        name = run_settings.experiment.name or generate_name("beauty")
-        color = run_settings.experiment.color or generate_color("beauty")
         args_dict = {}
         for key, value in {
-            "experiment.name": name,
-            "experiment.color": color,
-            "project.workspace": workspace,
+            "experiment.name": run_settings.experiment.name,
+            "experiment.color": run_settings.experiment.color,
+            "project.workspace": run_settings.project.workspace,
             "run.id": run_id,
         }.items():
             set_nested_value(args_dict, key, value)
