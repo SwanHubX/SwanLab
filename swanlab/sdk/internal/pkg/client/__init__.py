@@ -77,6 +77,10 @@ class Client:
         )
         return login_resp
 
+    def refresh(self) -> bool:
+        """主动刷新鉴权信息，无论当前 token 是否过期。"""
+        return self._refresh_auth() is not None
+
     def _before_request(self):
         """请求前置检查。距过期时间不足安全缓冲期时，触发刷新。"""
         if self._expired_at is None:
