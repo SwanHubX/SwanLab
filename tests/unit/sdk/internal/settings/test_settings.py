@@ -535,3 +535,72 @@ class TestToYaml:
         assert "core:" in yaml_str
         assert "probe:" in yaml_str
         assert "monitor:" in yaml_str
+
+
+class TestSaveToYaml:
+    """测试 Settings.save_to_yaml 方法"""
+
+    def test_save_to_yaml_new_file(self, tmp_path):
+        """测试保存到新文件"""
+        settings = Settings(mode="offline", api_key="test_key")
+        target_dir = tmp_path / "config_dir"
+
+        file_path = settings.save_to_yaml(target_dir, "mode", "api_key")
+
+        assert file_path.exists()
+        assert file_path.name == "config.yaml"
+        content = file_path.read_text()
+        assert "mode: offline" in content
+        assert "api_key: test_key" in content
+
+    def test_save_to_yaml_merge_existing(self, tmp_path):
+        """测试合并到已存在的 config.yaml"""
+        target_dir = tmp_path / "config_dir"
+        target_dir.mkdir()
+        existing_file = target_dir / "config.yaml"
+        existing_file.write_text("existing_field: old_value\nmode: online")
+
+        settings = Settings(api_key="new_key")
+        file_path = settings.save_to_yaml(target_dir, "api_key", "mode")
+
+        content = file_path.read_text()
+        assert "existing_field: old_value" in content
+        assert "api_key: new_key" in content
+        assert "mode: online" in content
+
+    def test_save_to_yaml_overwrite_existing(self, tmp_path):
+        """测试 merge=False 时覆盖已存在文件"""
+        target_dir = tmp_path / "config_dir"
+        target_dir.mkdir()
+        existing_file = target_dir / "config.yaml"
+        existing_file.write_text("existing_field: old_value\nmode: online")
+
+        settings = Settings(api_key="new_key")
+        file_path = settings.save_to_yaml(target_dir, "api_key", merge=False)
+
+        content = file_path.read_text()
+        assert "existing_field" not in content
+        assert "api_key: new_key" in content
+
+    def test_save_to_yaml_nested_fields(self, tmp_path):
+        """测试保存嵌套字段"""
+        settings = Settings()
+        target_dir = tmp_path / "config_dir"
+
+        file_path = settings.save_to_yaml(target_dir, "core.record_batch")
+
+        content = file_path.read_text()
+        assert "core:" in content
+        assert "record_batch:" in content
+        assert "mode:" not in content
+
+    def test_save_to_yaml_creates_directory(self, tmp_path):
+        """测试自动创建不存在的目录"""
+        settings = Settings()
+        target_dir = tmp_path / "nested" / "config_dir"
+
+        assert not target_dir.exists()
+        file_path = settings.save_to_yaml(target_dir, "mode")
+
+        assert target_dir.exists()
+        assert file_path.exists()

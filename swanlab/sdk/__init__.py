@@ -29,7 +29,7 @@ from .cmd.run import (
 from .internal import pkg
 from .internal.run import Run, clear_run, get_run, has_run, set_run
 from .internal.run.transforms import Audio, ECharts, Image, Molecule, Object3D, Text, Video, echarts, plot
-from .internal.settings import Settings, settings
+from .internal.settings import PWD_CONFIG_DIR, Settings, settings
 from .protocol import Callback
 
 __all__ = [
@@ -61,6 +61,7 @@ __all__ = [
     # utils
     "pkg",
     "settings",
+    "PWD_CONFIG_DIR",
     # data
     "Audio",
     "ECharts",

@@ -60,7 +60,9 @@ class CoreProtocol(ABC):
 
     @staticmethod
     def _start_when_disabled(start_request: DeliverRunStartRequest) -> DeliverRunStartResponse:
-        return DeliverRunStartResponse(success=True, message="I'm a teapot.", run=start_request.start_record)
+        return DeliverRunStartResponse(
+            success=True, message="I'm a teapot.", run=start_request.start_record, new_experiment=True
+        )
 
     @abstractmethod
     def _start_when_local(self, start_request: DeliverRunStartRequest) -> DeliverRunStartResponse: ...

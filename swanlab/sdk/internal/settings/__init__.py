@@ -35,7 +35,7 @@ from pydantic_settings import (
 
 from swanlab.proto.swanlab.settings.core.v1.core_pb2 import CoreSettings as CoreSettingsPb
 from swanlab.proto.swanlab.settings.probe.v1.probe_pb2 import ProbeSettings as ProbeSettingsPb
-from swanlab.sdk.internal.pkg import helper, nrc, safe
+from swanlab.sdk.internal.pkg import console, helper, nrc, safe
 from swanlab.sdk.typings.run import ModeType
 
 from .core import CoreSettings
@@ -44,7 +44,7 @@ from .integration import IntegrationSettings
 from .probe import ProbeSettings
 from .terminal import TerminalSettings
 
-__all__ = ["Settings", "settings", "ROOT_FOLDER"]
+__all__ = ["Settings", "settings", "ROOT_FOLDER", "PWD_CONFIG_DIR"]
 
 
 # 根据环境变量自动设置 secrets_dir
@@ -56,6 +56,7 @@ SECRETS_DIR: Optional[str] = secrets_dir_env or None
 config_dir_env = os.getenv("SWANLAB_CONFIG_DIR")
 ROOT_FOLDER = ".swanlab"
 CONFIG_DIR: str = config_dir_env or "/etc/swanlab"
+PWD_CONFIG_DIR = Path.cwd() / ROOT_FOLDER
 
 
 def root_factory() -> Path:
@@ -415,11 +416,11 @@ class Settings(BaseSettings):
 
         # 7. 当前工作目录下 .swanlab/config.{yaml,yml}
         # 项目级别的配置文件，优先级高于环境变量但低于 .env
-        pwd_config_dir = Path.cwd() / ROOT_FOLDER
-        if pwd_config_dir.exists() and pwd_config_dir.is_dir():
+        if PWD_CONFIG_DIR.exists() and PWD_CONFIG_DIR.is_dir():
             for ext in ["yaml", "yml"]:
-                config_file = pwd_config_dir / f"config.{ext}"
+                config_file = PWD_CONFIG_DIR / f"config.{ext}"
                 if config_file.exists():
+                    console.debug(f"Loading settings from {config_file}")
                     sources.append(YamlConfigSettingsSource(settings_cls, yaml_file=config_file))
 
         # 8. settings.root / config.{yaml,yml}
@@ -430,6 +431,7 @@ class Settings(BaseSettings):
             for ext in ["yaml", "yml"]:
                 config_file = root_config_dir / f"config.{ext}"
                 if config_file.exists():
+                    console.debug(f"Loading settings from {config_file}")
                     sources.append(YamlConfigSettingsSource(settings_cls, yaml_file=config_file))
 
         return tuple(sources)
@@ -443,35 +445,63 @@ class Settings(BaseSettings):
                        如果未提供，输出所有字段。
         :return: YAML 格式的字符串
         """
+        data = self._dump_and_filter(fields)
+        return yaml.safe_dump(data, allow_unicode=True, default_flow_style=False, sort_keys=False)
+
+    def save_to_yaml(self, target_dir: Union[str, Path], *fields: str, merge: bool = True) -> Path:
+        """
+        将当前 settings 保存为 YAML 文件到目标目录。
+
+        如果目标目录下已存在 config.yaml 且 merge 为 True，则将现有配置与当前配置合并，
+        当前配置的值会覆盖已有值。文件不存在或 merge 为 False 时直接写入。
+
+        :param target_dir: 目标目录路径
+        :param fields: 可选的字段名，仅保存指定字段；未提供则保存所有字段
+        :param merge: 是否合并已存在的 config.yaml，默认为 True
+        :return: 写入的文件路径
+        """
+        target_dir = Path(target_dir)
+        target_file = target_dir / "config.yaml"
+
+        data = self._dump_and_filter(fields)
+
+        if merge and target_file.exists():
+            with open(target_file, "r", encoding="utf-8") as f:
+                existing = yaml.safe_load(f) or {}
+            data = _deep_update(existing, data)
+
+        # 确保目标目录存在
+        target_dir.mkdir(parents=True, exist_ok=True)
+
+        with open(target_file, "w", encoding="utf-8") as f:
+            yaml.safe_dump(data, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+
+        return target_file
+
+    def _dump_and_filter(self, fields: Tuple[str, ...]) -> Dict[str, Any]:
+        """导出数据并按字段过滤，同时转换 Path 为字符串"""
         data = self.model_dump()
 
         if fields:
             filtered: Dict[str, Any] = {}
             for field in fields:
                 keys = field.split(".")
-                # 从原始数据中按路径提取值
                 src = data
                 dst = filtered
                 for i, key in enumerate(keys):
                     if isinstance(src, dict) and key in src:
                         if i == len(keys) - 1:
-                            # 叶子节点，直接赋值
                             dst[key] = src[key]
                         else:
-                            # 中间节点，确保目标字典存在并继续深入
                             if key not in dst:
                                 dst[key] = {}
                             dst = dst[key]
                             src = src[key]
                     else:
-                        # 字段不存在，跳过
                         break
             data = filtered
 
-        # 将 Path 对象转换为字符串，以便 yaml 序列化
-        data = self._convert_paths(data)
-
-        return yaml.safe_dump(data, allow_unicode=True, default_flow_style=False, sort_keys=False)
+        return self._convert_paths(data)
 
     @staticmethod
     def _convert_paths(obj: Any) -> Any:
