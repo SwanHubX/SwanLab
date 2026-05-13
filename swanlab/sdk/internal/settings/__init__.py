@@ -44,7 +44,7 @@ from .integration import IntegrationSettings
 from .probe import ProbeSettings
 from .terminal import TerminalSettings
 
-__all__ = ["Settings", "settings", "ROOT_FOLDER", "PWD_CONFIG_DIR"]
+__all__ = ["Settings", "settings", "ROOT_FOLDER", "get_pwd_config_dir"]
 
 
 # 根据环境变量自动设置 secrets_dir
@@ -56,7 +56,13 @@ SECRETS_DIR: Optional[str] = secrets_dir_env or None
 config_dir_env = os.getenv("SWANLAB_CONFIG_DIR")
 ROOT_FOLDER = ".swanlab"
 CONFIG_DIR: str = config_dir_env or "/etc/swanlab"
-PWD_CONFIG_DIR = Path.cwd() / ROOT_FOLDER
+
+
+def get_pwd_config_dir():
+    """
+    获取当前目录下的配置文件夹路径
+    """
+    return Path.cwd() / ROOT_FOLDER
 
 
 def root_factory() -> Path:
@@ -416,9 +422,10 @@ class Settings(BaseSettings):
 
         # 7. 当前工作目录下 .swanlab/config.{yaml,yml}
         # 项目级别的配置文件，优先级高于环境变量但低于 .env
-        if PWD_CONFIG_DIR.exists() and PWD_CONFIG_DIR.is_dir():
+        pwd = get_pwd_config_dir()
+        if pwd.exists() and pwd.is_dir():
             for ext in ["yaml", "yml"]:
-                config_file = PWD_CONFIG_DIR / f"config.{ext}"
+                config_file = pwd / f"config.{ext}"
                 if config_file.exists():
                     console.debug(f"Loading settings from {config_file}")
                     sources.append(YamlConfigSettingsSource(settings_cls, yaml_file=config_file))
