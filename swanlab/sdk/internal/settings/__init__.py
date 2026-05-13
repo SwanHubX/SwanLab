@@ -475,7 +475,8 @@ class Settings(BaseSettings):
         if merge and target_file.exists():
             with open(target_file, "r", encoding="utf-8") as f:
                 existing = yaml.safe_load(f) or {}
-            data = _deep_update(existing, data)
+            if isinstance(existing, dict):
+                data = _deep_update(existing, data)
 
         # 确保目标目录存在
         target_dir.mkdir(parents=True, exist_ok=True)
