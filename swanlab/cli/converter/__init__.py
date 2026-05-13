@@ -65,8 +65,14 @@ import click
 @click.option("--wb-entity", type=str, default=None, help="The entity name of the wandb runs.")
 @click.option("--wb-runid", type=str, default=None, help="The run_id of the wandb run.")
 # mlflow options
-@click.option("--mlflow-uri", type=str, default=None, help="The tracking uri of the mlflow runs.")
-@click.option("--mlflow-exp", type=str, default=None, help="The experiment name or id of the mlflow runs.")
+@click.option(
+    "--mlflow-url",
+    type=str,
+    default="http://127.0.0.1:5000",
+    help="The tracking url of the mlflow server (default: http://127.0.0.1:5000).",
+)
+@click.option("--mlflow-exp", type=str, default=None, help="The experiment name or id of the mlflow runs (required).")
+@click.option("--mlflow-runid", type=str, default=None, help="The run id of a specific mlflow run to convert.")
 # wandb-local options
 @click.option("--wb-dir", type=str, default="./wandb", help="The directory where the wandb local log files are stored.")
 @click.option("--wb-run-dir", type=str, default=None, help="The run directory of the wandb local log files.")
@@ -90,8 +96,9 @@ def convert(
     wb_project: str,
     wb_entity: str,
     wb_runid: str,
-    mlflow_uri: str,
+    mlflow_url: str,
     mlflow_exp: str,
+    mlflow_runid: str,
     wb_dir: str,
     wb_run_dir: str,
     resume: bool,
@@ -131,6 +138,9 @@ def convert(
     elif convert_type == "mlflow":
         from swanlab.converter import MLFlowConverter
 
+        if not mlflow_exp:
+            raise click.UsageError("--mlflow-exp is required when using mlflow converter.")
+
         MLFlowConverter(project=project, workspace=workspace, mode=mode, log_dir=log_dir).run(
-            tracking_uri=mlflow_uri, experiment=mlflow_exp
+            tracking_uri=mlflow_url, experiment=mlflow_exp, run_id=mlflow_runid
         )
