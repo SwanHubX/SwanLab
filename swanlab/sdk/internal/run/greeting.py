@@ -30,7 +30,7 @@ def _print_save_dir(ctx: RunContext):
 
 def _print_online_tip(run: "Run", name_truncate_len: int = 45):
     project_url = run.url.split("/runs/")[0]
-    console.info("🏠 View project at", Text(project_url, style=f"link {project_url} blue underline"))
+    console.info("📁 View project at", Text(project_url, style=f"link {project_url} blue underline"))
     # 截断 run.name，超过 name_truncate_len 时，前后保留 20 个字符，中间显示 ...
     name = run.name
     if len(name) > name_truncate_len:
