@@ -62,8 +62,7 @@ class WandbConverter(BaseConverter):
             wb_runs = list(client.runs(f"{wb_entity}/{wb_project}"))
 
         if not wb_runs:
-            print(f"No W&B runs found in {wb_entity}/{wb_project}.")
-            return
+            raise ValueError(f"No W&B runs found in {wb_entity}/{wb_project}")
 
         print(f"Found {len(wb_runs)} W&B run(s) to convert.")
 

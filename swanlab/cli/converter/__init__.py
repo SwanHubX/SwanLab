@@ -7,6 +7,8 @@
 
 import click
 
+from swanlab.sdk.internal.pkg import safe
+
 
 @click.command()
 @click.option(
@@ -103,9 +105,10 @@ def convert(
     if convert_type == "tensorboard":
         from swanlab.converter import TFBConverter
 
-        TFBConverter(project=project, workspace=workspace, mode=mode, log_dir=logdir, types=tb_types).run(
-            convert_dir=tb_logdir or ".", depth=3
-        )
+        with safe.block(message="TensorBoard conversion failed"):
+            TFBConverter(project=project, workspace=workspace, mode=mode, log_dir=logdir, types=tb_types).run(
+                convert_dir=tb_logdir or ".", depth=3
+            )
 
     elif convert_type == "wandb":
         from swanlab.converter import WandbConverter
@@ -113,16 +116,18 @@ def convert(
         if not wb_project:
             raise click.UsageError("--wb-project is required when using wandb online converter")
 
-        WandbConverter(project=project, workspace=workspace, mode=mode, log_dir=logdir, resume=resume).run(
-            wb_project=wb_project, wb_entity=wb_entity, wb_run_id=wb_runid
-        )
+        with safe.block(message="W&B conversion failed"):
+            WandbConverter(project=project, workspace=workspace, mode=mode, log_dir=logdir, resume=resume).run(
+                wb_project=wb_project, wb_entity=wb_entity, wb_run_id=wb_runid
+            )
 
     elif convert_type == "wandb-local":
         from swanlab.converter import WandbLocalConverter
 
-        WandbLocalConverter(project=project, workspace=workspace, mode=mode, log_dir=logdir, resume=resume).run(
-            root_wandb_dir=wb_dir, wandb_run_dir=wb_run_dir, wb_run_id=wb_runid
-        )
+        with safe.block(message="W&B local conversion failed"):
+            WandbLocalConverter(project=project, workspace=workspace, mode=mode, log_dir=logdir, resume=resume).run(
+                root_wandb_dir=wb_dir, wandb_run_dir=wb_run_dir, wb_run_id=wb_runid
+            )
 
     elif convert_type == "mlflow":
         from swanlab.converter import MLFlowConverter
@@ -130,6 +135,7 @@ def convert(
         if not mlflow_exp:
             raise click.UsageError("--mlflow-exp is required when using mlflow converter.")
 
-        MLFlowConverter(project=project, workspace=workspace, mode=mode, log_dir=logdir).run(
-            tracking_uri=mlflow_url, experiment=mlflow_exp, run_id=mlflow_runid
-        )
+        with safe.block(message="MLflow conversion failed"):
+            MLFlowConverter(project=project, workspace=workspace, mode=mode, log_dir=logdir).run(
+                tracking_uri=mlflow_url, experiment=mlflow_exp, run_id=mlflow_runid
+            )

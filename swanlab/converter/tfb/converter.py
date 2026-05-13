@@ -37,8 +37,7 @@ class TFBConverter(BaseConverter):
 
         path_dict = find_tfevents(convert_dir, depth=depth)
         if not path_dict:
-            print(f"No TFEvent file found in {convert_dir}, please check the path.")
-            return
+            raise FileNotFoundError(f"No TFEvent file found in {convert_dir}")
 
         handlers = {
             "scalar": lambda v: v,

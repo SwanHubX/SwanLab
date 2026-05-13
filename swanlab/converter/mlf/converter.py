@@ -32,16 +32,14 @@ class MLFlowConverter(BaseConverter):
         except mlflow.exceptions.MlflowException:
             ex = client.get_experiment_by_name(experiment)
         if not ex:
-            print(f'Error: could not find experiment with id or name "{experiment}"')
-            return
+            raise ValueError(f'Could not find MLflow experiment with id or name "{experiment}"')
 
         runs = client.search_runs(ex.experiment_id)
 
         if run_id is not None:
             runs = [r for r in runs if r.info.run_id == run_id]
             if not runs:
-                print(f'Error: could not find run with id "{run_id}" in experiment "{ex.name}"')
-                return
+                raise ValueError(f'Could not find MLflow run with id "{run_id}" in experiment "{ex.name}"')
 
         print(f'Experiment "{ex.name}" — {len(runs)} run(s) to convert.')
 

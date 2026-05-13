@@ -125,8 +125,7 @@ class WandbLocalConverter(BaseConverter):
 
         wandb_files = glob.glob(os.path.join(run_dir, "*.wandb"))
         if not wandb_files:
-            print(f"Error: No .wandb file found in {run_dir}. Skipping.")
-            return
+            raise FileNotFoundError(f"No .wandb file found in {run_dir}")
 
         wandb_file_path = wandb_files[0]
         files_root_dir = os.path.join(run_dir, "files")
