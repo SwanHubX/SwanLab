@@ -22,6 +22,7 @@ import os
 from pathlib import Path
 from typing import Any, ClassVar, Dict, Optional, Tuple, Type, Union, get_args
 
+import yaml
 from pydantic import Field, field_validator
 from pydantic.functional_validators import model_validator
 from pydantic_settings import (
@@ -58,8 +59,18 @@ CONFIG_DIR: str = config_dir_env or "/etc/swanlab"
 
 
 def root_factory() -> Path:
-    # 向下兼容旧版本环境变量
-    return Path(os.environ.get("SWANLAB_SAVE_DIR", str(Path.home() / ROOT_FOLDER)))
+    """
+    生成 SwanLab 的根目录路径，用于存放配置文件、日志等数据。
+
+    优先级如下（从高到低）：
+    1. SWANLAB_ROOT：新版本推荐的环境变量，用于显式指定 SwanLab 根目录
+    2. SWANLAB_SAVE_DIR：旧版本环境变量，保留以向下兼容旧版本
+    3. 默认值：用户主目录下的 ~/.swanlab
+
+    注意：此工厂函数在 Settings 实例化前就可能被调用（如 settings_customise_sources 中
+    加载 root 级别的配置文件时），因此不能依赖 Settings.root 字段的值。
+    """
+    return Path(os.environ.get("SWANLAB_ROOT") or os.environ.get("SWANLAB_SAVE_DIR", str(Path.home() / ROOT_FOLDER)))
 
 
 def log_dir_factory() -> Path:
@@ -133,6 +144,15 @@ class Settings(BaseSettings):
     root: Path = Field(default_factory=root_factory)
     """
     Directory for SwanLab saved files.
+
+    This field is used not only as the runtime data storage directory, but also to locate
+    the user-level global configuration file (root/config.{yaml,yml}). Since configuration
+    loading begins before the Settings instance is created, the path is determined by
+    root_factory(), which reads environment variables (SWANLAB_ROOT).
+
+    Therefore, modifying this value at runtime via merge_settings is not recommended.
+    If you do need to change it, please set the corresponding environment variable
+    to ensure consistent configuration loading behavior.
     """
 
     @field_validator("root", mode="before")
@@ -349,31 +369,35 @@ class Settings(BaseSettings):
 
         # 优先级由高到低排列体现在返回的sources顺序：
         # 1. init_settings (merge_settings 传入的参数)
-        # 2. 当前目录下 swanlab.yaml
-        # 3. /etc/swanlab/*.yaml
-        # 4. .env 文件
-        # 5. file_secret_settings (容器 Secrets)
-        # 6. env_settings (环境变量)
-        # 7. 默认值 (Model Default)
+        # 2. 当前目录下 swanlab.{yaml,yml}
+        # 3. /etc/swanlab/*.{yaml,yml}
+        # 4. 当前目录下 .env 文件
+        # 5. K8S/Docker 容器 Secret 配置项文件
+        # 6. 环境变量
+        # 7. 当前工作目录下 .swanlab/config.{yaml,yml}
+        # 8. settings.root / config.{yaml,yml}
+        # 9. 默认值 (Model Default)
+
+        # 1. merge_settings 传入的参数
         sources = [init_settings]
 
-        # 5. 当前目录下 swanlab.{yaml,yml}
+        # 2. 当前目录下 swanlab.{yaml,yml}
         for ext in ["yaml", "yml"]:
             local_file = Path(f"swanlab.{ext}")
             if local_file.exists():
                 sources.append(YamlConfigSettingsSource(settings_cls, yaml_file=local_file))
 
-        # 4. /etc/swanlab/*.{yaml,yml}
+        # 3. /etc/swanlab/*.{yaml,yml}
         etc_dir = Path(CONFIG_DIR)
         if etc_dir.exists() and etc_dir.is_dir():
             etc_files = sorted(list(etc_dir.glob("*.yaml")) + list(etc_dir.glob("*.yml")), reverse=True)
             for file in etc_files:
                 sources.append(YamlConfigSettingsSource(settings_cls, yaml_file=file))
 
-        # 3. .env 文件
+        # 4. .env 文件
         sources.append(dotenv_settings)
 
-        # file_secret_settings (Secrets 文件)
+        # 5. K8S/Docker 容器 Secret 配置项文件
         # 对于Secrets文件，不需要额外的前缀，直接使用默认的环境变量前缀
         secrets_dir = settings_cls.model_config.get("secrets_dir")
         if secrets_dir:
@@ -386,10 +410,79 @@ class Settings(BaseSettings):
         # 优先级高于普通环境变量，防止敏感信息被低优先级的 Env 覆盖
         sources.append(file_secret_settings)
 
-        # 2. 环境变量
+        # 6. 环境变量
         sources.append(env_settings)
 
+        # 7. 当前工作目录下 .swanlab/config.{yaml,yml}
+        # 项目级别的配置文件，优先级高于环境变量但低于 .env
+        pwd_config_dir = Path.cwd() / ROOT_FOLDER
+        if pwd_config_dir.exists() and pwd_config_dir.is_dir():
+            for ext in ["yaml", "yml"]:
+                config_file = pwd_config_dir / f"config.{ext}"
+                if config_file.exists():
+                    sources.append(YamlConfigSettingsSource(settings_cls, yaml_file=config_file))
+
+        # 8. settings.root / config.{yaml,yml}
+        # 用户级别的全局配置文件，优先级最低（仅高于默认值）
+        # 使用 root_factory() 获取 root 路径，因为此时 Settings 实例尚未创建
+        root_config_dir = root_factory()
+        if root_config_dir.exists() and root_config_dir.is_dir():
+            for ext in ["yaml", "yml"]:
+                config_file = root_config_dir / f"config.{ext}"
+                if config_file.exists():
+                    sources.append(YamlConfigSettingsSource(settings_cls, yaml_file=config_file))
+
         return tuple(sources)
+
+    def to_yaml(self, *fields: str) -> str:
+        """
+        将当前 settings 序列化为 YAML 字符串。
+
+        :param fields: 可选的字段名，可变参数。如果提供，仅输出这些字段；
+                       如果字段不存在则跳过。支持嵌套字段名，如 "core.record_batch"。
+                       如果未提供，输出所有字段。
+        :return: YAML 格式的字符串
+        """
+        data = self.model_dump()
+
+        if fields:
+            filtered: Dict[str, Any] = {}
+            for field in fields:
+                keys = field.split(".")
+                # 从原始数据中按路径提取值
+                src = data
+                dst = filtered
+                for i, key in enumerate(keys):
+                    if isinstance(src, dict) and key in src:
+                        if i == len(keys) - 1:
+                            # 叶子节点，直接赋值
+                            dst[key] = src[key]
+                        else:
+                            # 中间节点，确保目标字典存在并继续深入
+                            if key not in dst:
+                                dst[key] = {}
+                            dst = dst[key]
+                            src = src[key]
+                    else:
+                        # 字段不存在，跳过
+                        break
+            data = filtered
+
+        # 将 Path 对象转换为字符串，以便 yaml 序列化
+        data = self._convert_paths(data)
+
+        return yaml.safe_dump(data, allow_unicode=True, default_flow_style=False, sort_keys=False)
+
+    @staticmethod
+    def _convert_paths(obj: Any) -> Any:
+        """递归将 Path 对象转换为字符串"""
+        if isinstance(obj, Path):
+            return str(obj)
+        elif isinstance(obj, dict):
+            return {k: Settings._convert_paths(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [Settings._convert_paths(item) for item in obj]
+        return obj
 
     def merge_settings(self, other: Union["Settings", dict]) -> None:
         """

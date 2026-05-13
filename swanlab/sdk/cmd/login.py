@@ -16,7 +16,7 @@ from swanlab.exceptions import AuthenticationError
 from swanlab.sdk.cmd import utils
 from swanlab.sdk.cmd.guard import with_cmd_lock, without_run
 from swanlab.sdk.internal.core_python import client
-from swanlab.sdk.internal.pkg import console, fs, helper, nrc, safe, scope
+from swanlab.sdk.internal.pkg import console, helper, nrc, safe, scope
 from swanlab.sdk.internal.settings import ROOT_FOLDER, Settings
 from swanlab.sdk.internal.settings import settings as global_settings
 from swanlab.sdk.typings.cmd import LoginType
@@ -176,9 +176,7 @@ def login_cli(
             wellcome(base_url, login_resp)
             write_gitignore = save == "local" and not nrc_path.exists()
             if write_gitignore:
-                if not nrc_path.parent.exists():
-                    fs.safe_mkdirs(nrc_path.parent)
-                utils.append_gitignore(nrc_path.parent)
+                helper.mkdir_and_append_gitignore(nrc_path.parent)
             nrc.write(nrc_path, api_host=api_host, web_host=web_host, api_key=api_key)
             return True
         except AuthenticationError as e:

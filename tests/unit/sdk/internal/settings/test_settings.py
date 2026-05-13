@@ -55,6 +55,127 @@ def test_priority_yaml_over_env(tmp_path, monkeypatch):
     assert s2.probe.monitor is True
 
 
+class TestConfigSourcePriority:
+    """测试新增配置源的优先级：root/config.{yaml,yml} 和 pwd/.swanlab/config.{yaml,yml}"""
+
+    def test_root_config_yaml_priority(self, tmp_path, monkeypatch):
+        """测试 settings.root/config.yaml 优先级高于默认值但低于环境变量"""
+        # 设置环境变量指向 tmp_path 作为 root
+        monkeypatch.setenv("SWANLAB_SAVE_DIR", str(tmp_path))
+        # 创建 root/config.yaml
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("api_key: root_config_key\nmode: offline")
+
+        # 不设置环境变量时，root/config.yaml 生效
+        settings = Settings()
+        assert settings.api_key == "root_config_key"
+        assert settings.mode == "offline"
+
+        # 设置环境变量后，环境变量优先级更高
+        monkeypatch.setenv("SWANLAB_API_KEY", "env_key")
+        settings_env = Settings()
+        assert settings_env.api_key == "env_key"
+        assert settings_env.mode == "offline"  # mode 仍来自 root/config.yaml
+
+    def test_pwd_swanlab_config_yaml_priority(self, tmp_path, monkeypatch):
+        """测试 pwd/.swanlab/config.yaml 优先级高于环境变量但低于 .env"""
+        monkeypatch.chdir(tmp_path)
+        swanlab_dir = tmp_path / ".swanlab"
+        swanlab_dir.mkdir()
+        config_file = swanlab_dir / "config.yaml"
+        config_file.write_text("api_key: pwd_config_key\nmode: local")
+
+        # 不设置环境变量时，pwd/.swanlab/config.yaml 生效
+        settings = Settings()
+        assert settings.api_key == "pwd_config_key"
+        assert settings.mode == "local"
+
+        # 设置环境变量后，环境变量优先级更高
+        monkeypatch.setenv("SWANLAB_API_KEY", "env_key")
+        settings_env = Settings()
+        assert settings_env.api_key == "env_key"
+        assert settings_env.mode == "local"  # mode 仍来自 pwd/.swanlab/config.yaml
+
+    def test_pwd_config_over_root_config(self, tmp_path, monkeypatch):
+        """测试 pwd/.swanlab/config.yaml 优先级高于 root/config.yaml"""
+        monkeypatch.setenv("SWANLAB_SAVE_DIR", str(tmp_path))
+        monkeypatch.chdir(tmp_path)
+
+        # 创建 root/config.yaml
+        root_config = tmp_path / "config.yaml"
+        root_config.write_text("api_key: root_key\nmode: offline")
+
+        # 创建 pwd/.swanlab/config.yaml
+        swanlab_dir = tmp_path / ".swanlab"
+        swanlab_dir.mkdir()
+        pwd_config = swanlab_dir / "config.yaml"
+        pwd_config.write_text("api_key: pwd_key")
+
+        settings = Settings()
+        # pwd/.swanlab/config.yaml 优先级更高
+        assert settings.api_key == "pwd_key"
+        # mode 来自 root/config.yaml（pwd 配置未覆盖）
+        assert settings.mode == "offline"
+
+    def test_swanlab_yaml_over_pwd_config(self, tmp_path, monkeypatch):
+        """测试当前目录 swanlab.yaml 优先级高于 pwd/.swanlab/config.yaml"""
+        monkeypatch.chdir(tmp_path)
+
+        # 创建 pwd/.swanlab/config.yaml
+        swanlab_dir = tmp_path / ".swanlab"
+        swanlab_dir.mkdir()
+        pwd_config = swanlab_dir / "config.yaml"
+        pwd_config.write_text("api_key: pwd_key\nmode: local")
+
+        # 创建当前目录 swanlab.yaml
+        local_yaml = tmp_path / "swanlab.yaml"
+        local_yaml.write_text("api_key: local_yaml_key")
+
+        settings = Settings()
+        # swanlab.yaml 优先级更高
+        assert settings.api_key == "local_yaml_key"
+        # mode 来自 pwd/.swanlab/config.yaml（swanlab.yaml 未覆盖）
+        assert settings.mode == "local"
+
+    def test_root_config_yml_extension(self, tmp_path, monkeypatch):
+        """测试 root/config.yml 也能被正确加载"""
+        monkeypatch.setenv("SWANLAB_SAVE_DIR", str(tmp_path))
+        config_file = tmp_path / "config.yml"
+        config_file.write_text("api_key: yml_key")
+
+        settings = Settings()
+        assert settings.api_key == "yml_key"
+
+    def test_pwd_config_yml_extension(self, tmp_path, monkeypatch):
+        """测试 pwd/.swanlab/config.yml 也能被正确加载"""
+        monkeypatch.chdir(tmp_path)
+        swanlab_dir = tmp_path / ".swanlab"
+        swanlab_dir.mkdir()
+        config_file = swanlab_dir / "config.yml"
+        config_file.write_text("api_key: yml_key")
+
+        settings = Settings()
+        assert settings.api_key == "yml_key"
+
+    def test_root_config_not_exists(self, tmp_path, monkeypatch):
+        """测试 root 目录下没有 config.yaml 时不影响正常加载"""
+        monkeypatch.setenv("SWANLAB_SAVE_DIR", str(tmp_path))
+
+        settings = Settings()
+        # 应使用默认值
+        assert settings.api_key is None
+        assert settings.mode == "online"
+
+    def test_pwd_config_not_exists(self, tmp_path, monkeypatch):
+        """测试 pwd/.swanlab 目录不存在时不影响正常加载"""
+        monkeypatch.chdir(tmp_path)
+
+        settings = Settings()
+        # 应使用默认值
+        assert settings.api_key is None
+        assert settings.mode == "online"
+
+
 def test_merge_settings_dict_deep_update():
     """测试字典合并，确保深层嵌套不会被覆盖"""
     settings = Settings()
@@ -340,3 +461,77 @@ def test_directory_validators_with_merge(tmp_path):
     # merge_settings 内部也应该触发一样的校验逻辑
     with pytest.raises(ValueError, match="exists but is not a directory"):
         settings.merge_settings({"log_dir": invalid_path})
+
+
+class TestToYaml:
+    """测试 Settings.to_yaml 方法"""
+
+    def test_to_yaml_all_fields(self):
+        """测试不传入参数时输出所有字段"""
+        settings = Settings()
+        yaml_str = settings.to_yaml()
+
+        assert "mode:" in yaml_str
+        assert "root:" in yaml_str
+        assert "api_key:" in yaml_str
+        assert "probe:" in yaml_str
+        assert "core:" in yaml_str
+
+    def test_to_yaml_single_field(self):
+        """测试传入单个字段名"""
+        settings = Settings()
+        yaml_str = settings.to_yaml("mode")
+
+        assert yaml_str.strip() == "mode: online"
+
+    def test_to_yaml_multiple_fields(self):
+        """测试传入多个字段名"""
+        settings = Settings()
+        yaml_str = settings.to_yaml("mode", "api_key")
+
+        assert "mode: online" in yaml_str
+        assert "api_key:" in yaml_str
+        assert "root:" not in yaml_str
+
+    def test_to_yaml_nested_field(self):
+        """测试传入嵌套字段名"""
+        settings = Settings()
+        yaml_str = settings.to_yaml("core.record_batch")
+
+        assert "core:" in yaml_str
+        assert "record_batch:" in yaml_str
+        assert "mode:" not in yaml_str
+
+    def test_to_yaml_multiple_nested_fields(self):
+        """测试传入多个嵌套字段名，同一父节点应合并"""
+        settings = Settings()
+        yaml_str = settings.to_yaml("core.record_batch", "core.record_interval")
+
+        assert "core:" in yaml_str
+        assert "record_batch:" in yaml_str
+        assert "record_interval:" in yaml_str
+        assert "mode:" not in yaml_str
+
+    def test_to_yaml_nonexistent_field(self):
+        """测试传入不存在的字段名应被忽略"""
+        settings = Settings()
+        yaml_str = settings.to_yaml("nonexistent_field")
+
+        assert yaml_str.strip() == "{}"
+
+    def test_to_yaml_mixed_existence(self):
+        """测试同时传入存在和不存在的字段"""
+        settings = Settings()
+        yaml_str = settings.to_yaml("mode", "nonexistent_field")
+
+        assert "mode: online" in yaml_str
+        assert "nonexistent_field" not in yaml_str
+
+    def test_to_yaml_nested_parent_and_child(self):
+        """测试同时传入父节点和子节点"""
+        settings = Settings()
+        yaml_str = settings.to_yaml("core", "probe.monitor")
+
+        assert "core:" in yaml_str
+        assert "probe:" in yaml_str
+        assert "monitor:" in yaml_str

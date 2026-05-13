@@ -461,10 +461,8 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
     assert run_id, "Run id is not provided."
     # 2. 创建运行目录
     if mode != "disabled":
-        # 安全创建目录（如果不存在）
-        fs.safe_mkdir(run_settings.log_dir)
-        # 写入 .gitignore（如果目录为空）
-        utils.append_gitignore(run_settings.log_dir)
+        # 安全创建目录，并写入 .gitignore（如果目录为空）
+        helper.mkdir_and_append_gitignore(run_settings.log_dir)
         # 创建运行子目录，run_dir 必须是新建的，防止误覆盖已有实验数据
         run_dir = ensure_run_dir(run_settings.log_dir, run_id, max_retries=run_settings.run.mkdir_retries)
     else:
