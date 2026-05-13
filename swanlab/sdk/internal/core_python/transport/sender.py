@@ -271,15 +271,17 @@ class HttpRecordSender:
             console.warning("No valid files to save.")
             return
 
-        # 2. 校验批次限制：数量超限时直接拒绝整个批次
-        # FIXME: pending过长时根据save_batch分片，而非直接拒绝
-        if len(pending) > config.save_batch:
-            console.warning(
-                f"Save batch size ({len(pending)}) exceeds limit ({config.save_batch}), skipping entire batch"
-            )
+        if config.save_batch <= 0:
+            console.warning(f"Invalid save batch size ({config.save_batch}), skipping save upload")
             return
 
-        # 3. 异步计算 MD5 + 按大小分流上传
+        # 2. 按 save_batch 拆分文件列表，避免单次 prepare/complete 超过后端限制
+        for index in range(0, len(pending), config.save_batch):
+            self._upload_save_batch(pending[index : index + config.save_batch])
+
+    def _upload_save_batch(self, pending: Sequence[tuple[str, int, str]]) -> None:
+        """上传一个 save_batch 内的文件列表。"""
+        config = self._ctx.config
         with safe.block(message="Failed to upload save files, skipping"):
             file_entries: list[SaveFileEntry] = []
             with SafeThreadPoolExecutor(max_workers=4) as executor:
