@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package swanlab.settings.probe.v1;
+
+option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/settings/probe/v1;settingsprobev1";
+
+message ProbeSettings {
+  string run_id             = 1;
+  string run_dir            = 2;
+  int64  global_system_step = 3;
+  bool   hardware           = 4;
+  bool   runtime            = 5;
+  bool   requirements       = 6;
+  bool   conda              = 7;
+  bool   git                = 8;
+  bool   swanlab            = 9;
+  bool   monitor            = 10;
+  int32  monitor_interval   = 11;
+  string monitor_disk_dir   = 12;
+}

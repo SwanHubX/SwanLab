@@ -6,22 +6,20 @@
 @description: 构建记录
 """
 
-from typing import TYPE_CHECKING, Union
+from typing import Union
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.proto.swanlab.config.v1.config_pb2 import ConfigRecord
+from swanlab.proto.swanlab.env.v1.env_pb2 import CondaRecord, MetadataRecord, RequirementsRecord
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnClass, ColumnRecord, ColumnType, SectionType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord, ScalarRecord
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord, StartRecord
 from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord
-from swanlab.proto.swanlab.system.v1.console_pb2 import ConsoleRecord
-from swanlab.proto.swanlab.system.v1.env_pb2 import CondaRecord, MetadataRecord, RequirementsRecord
+from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogRecord
+from swanlab.sdk.internal.core_python.context import CoreContext
 from swanlab.sdk.internal.core_python.pkg.counter import Counter
-
-if TYPE_CHECKING:
-    from swanlab.sdk.internal.context import RunContext
 
 __all__ = [
     "build_finish_record",
@@ -32,7 +30,7 @@ __all__ = [
     "build_conda_record",
     "build_media_record",
     "build_scalar_record",
-    "build_console_record",
+    "build_log_record",
     "build_auto_column",
     "build_resume_column",
     "build_save_record",
@@ -92,14 +90,14 @@ def build_media_record(counter: Counter, media_record: MediaRecord):
     return Record(num=counter.inc(), media=media_record, timestamp=_now())
 
 
-def build_console_record(counter: Counter, epoch: Counter, console_record: ConsoleRecord):
+def build_log_record(counter: Counter, epoch: Counter, log_record: LogRecord):
     """
     构建控制台记录
     """
-    record = ConsoleRecord()
-    record.CopyFrom(console_record)
+    record = LogRecord()
+    record.CopyFrom(log_record)
     record.epoch = epoch.inc()
-    return Record(num=counter.inc(), console=record, timestamp=_now())
+    return Record(num=counter.inc(), log=record, timestamp=_now())
 
 
 def build_start_record(start_record: StartRecord):
@@ -165,12 +163,12 @@ def build_resume_column(key: str, *, media: bool = False, system: bool = False) 
     return column_record
 
 
-def build_auto_column(ctx: "RunContext", data_record: Union[ScalarRecord, MediaRecord]) -> ColumnRecord:
+def build_auto_column(ctx: CoreContext, data_record: Union[ScalarRecord, MediaRecord]) -> ColumnRecord:
     """
     构建一个标量列记录，此函数一般用于自动构建用户已定义的指标
     """
-    # Split section_name with `section_rule_index` setting
-    section_rule_index = ctx.config.settings.core.section_rule_index
+    # Split section_name with `section_rule` setting
+    section_rule_index = ctx.config.section_rule
     parts = data_record.key.split("/")
     if len(parts) >= 2:
         cut = section_rule_index % (len(parts) - 1) + 1

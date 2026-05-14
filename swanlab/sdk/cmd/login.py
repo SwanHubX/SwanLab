@@ -16,8 +16,8 @@ from swanlab.exceptions import AuthenticationError
 from swanlab.sdk.cmd import utils
 from swanlab.sdk.cmd.guard import with_cmd_lock, without_run
 from swanlab.sdk.internal.core_python import client
-from swanlab.sdk.internal.pkg import console, fs, helper, nrc, safe, scope
-from swanlab.sdk.internal.settings import ROOT_FOLDER, Settings
+from swanlab.sdk.internal.pkg import console, helper, nrc, safe, scope
+from swanlab.sdk.internal.settings import Settings
 from swanlab.sdk.internal.settings import settings as global_settings
 from swanlab.sdk.typings.cmd import LoginType
 from swanlab.sdk.typings.pkg.client.bootstrap import LoginResponse
@@ -145,7 +145,7 @@ def login_cli(
     assert save is not False, "login_cli must save credentials locally to support CLI usage"
     # CLI 每次是新进程，需要检查本地凭证判断是否已登录
     nrc_path: Path
-    nrc_path = nrc.path(Path.cwd() / ROOT_FOLDER) if save == "local" else nrc.path(global_settings.root)
+    nrc_path = utils.get_nrc_path(save)
     already_logged_in = nrc.read(nrc_path) is not None
     if already_logged_in and not relogin:
         console.info(
@@ -174,11 +174,10 @@ def login_cli(
                 client.new(api_key, base_url, timeout=timeout)
                 login_resp: Optional[LoginResponse] = s.get("login_resp", None)
             wellcome(base_url, login_resp)
-            write_gitignore = save == "local" and not nrc_path.exists()
-            if write_gitignore:
-                if not nrc_path.parent.exists():
-                    fs.safe_mkdirs(nrc_path.parent)
-                utils.append_gitignore(nrc_path.parent)
+            # 如果存储当前目录，添加gitignore文件
+            # mkdir_and_append_gitignore 自动判断是否为空文件夹，如果是则写入
+            if save == "local":
+                helper.mkdir_and_append_gitignore(nrc_path.parent)
             nrc.write(nrc_path, api_host=api_host, web_host=web_host, api_key=api_key)
             return True
         except AuthenticationError as e:
@@ -268,7 +267,8 @@ def wellcome(base_url: str, login_resp: Optional[LoginResponse]):
         console.info(
             "Currently logged in as:",
             Text(name, "yellow"),
-            f"to {base_url}. Use",
+            "to",
+            Text.assemble((base_url, "green"), ". Use"),
             Text("`swanlab login --relogin`", "bold"),
             "to force relogin",
         )

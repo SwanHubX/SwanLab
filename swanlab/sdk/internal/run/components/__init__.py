@@ -148,11 +148,11 @@ def _factory_config(ctx: RunContext, e: EmitterProtocol) -> Config:
 
 def _factory_terminal(ctx: RunContext, e: EmitterProtocol, init_pid: int) -> TerminalProxyProtocol:
     settings = ctx.config.settings
-    if settings.mode == "disabled" or settings.console.proxy_type == "none":
+    if settings.mode == "disabled" or settings.terminal.proxy_type == "none":
         return NullTerminalProxy()
     return TerminalProxy(
         emitter=e,
-        proxy_type=settings.console.proxy_type,
-        max_log_length=settings.console.max_log_length,
+        proxy_type=settings.terminal.proxy_type,
+        max_log_length=settings.terminal.max_log_length,
         init_pid=init_pid,
     )

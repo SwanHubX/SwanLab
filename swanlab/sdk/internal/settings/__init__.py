@@ -4,7 +4,7 @@
 @time: 2026/3/5 14:38
 @description: SwanLab 包配置项，根据优先级从低到高加载配置：
 1. 默认值
-2. settings.root
+2. 系统目录下的配置文件
 3. 环境变量
 4. 当前目录下 .env 文件
 5. /etc/swanlab/*.{yaml,yml}
@@ -22,6 +22,7 @@ import os
 from pathlib import Path
 from typing import Any, ClassVar, Dict, Optional, Tuple, Type, Union, get_args
 
+import yaml
 from pydantic import Field, field_validator
 from pydantic.functional_validators import model_validator
 from pydantic_settings import (
@@ -32,18 +33,21 @@ from pydantic_settings import (
     YamlConfigSettingsSource,
 )
 
-from swanlab.sdk.internal.pkg import helper, nrc, safe
+from swanlab.proto.swanlab.settings.core.v1.core_pb2 import CoreSettings as CoreSettingsPb
+from swanlab.proto.swanlab.settings.probe.v1.probe_pb2 import ProbeSettings as ProbeSettingsPb
+from swanlab.sdk.internal.pkg import console, helper, nrc, safe
 from swanlab.sdk.typings.run import ModeType
 
-from .console import ConsoleSettings
 from .core import CoreSettings
 from .experiment import ExperimentSettings, ProjectSettings, RunSettings
 from .integration import IntegrationSettings
 from .probe import ProbeSettings
+from .terminal import TerminalSettings
 
-__all__ = ["Settings", "settings", "ROOT_FOLDER"]
+__all__ = ["Settings", "settings"]
 
 
+ROOT_FOLDER = ".swanlab"
 # 根据环境变量自动设置 secrets_dir
 # 如果强制设置，会出现警告：https://github.com/pydantic/pydantic/issues/2175
 secrets_dir_env = os.getenv("SWANLAB_SECRETS_DIR")
@@ -51,13 +55,7 @@ SECRETS_DIR: Optional[str] = secrets_dir_env or None
 
 # 根据环境变量选择全局配置文件路径
 config_dir_env = os.getenv("SWANLAB_CONFIG_DIR")
-ROOT_FOLDER = ".swanlab"
 CONFIG_DIR: str = config_dir_env or "/etc/swanlab"
-
-
-def root_factory() -> Path:
-    # 向下兼容旧版本环境变量
-    return Path(os.environ.get("SWANLAB_SAVE_DIR", str(Path.home() / ROOT_FOLDER)))
 
 
 def log_dir_factory() -> Path:
@@ -95,10 +93,21 @@ class Settings(BaseSettings):
         >>> swanlab.merge_settings(custom_settings)
     """
 
+    @staticmethod
+    def get_pwd_config_dir():
+        return Path.cwd() / ROOT_FOLDER
+
+    @staticmethod
+    def get_user_config_dir():
+        # SWANLAB_SAVE_DIR 用于向下兼容历史环境变量
+        return Path(
+            os.environ.get("SWANLAB_ROOT") or os.environ.get("SWANLAB_SAVE_DIR", str(Path.home() / ROOT_FOLDER))
+        )
+
     Project: ClassVar[Type[ProjectSettings]] = ProjectSettings
     Run: ClassVar[Type[RunSettings]] = RunSettings
     Experiment: ClassVar[Type[ExperimentSettings]] = ExperimentSettings
-    Console: ClassVar[Type[ConsoleSettings]] = ConsoleSettings
+    Terminal: ClassVar[Type[TerminalSettings]] = TerminalSettings
     Integration: ClassVar[Type[IntegrationSettings]] = IntegrationSettings
     Core: ClassVar[Type[CoreSettings]] = CoreSettings
     Probe: ClassVar[Type[ProbeSettings]] = ProbeSettings
@@ -127,25 +136,6 @@ class Settings(BaseSettings):
         if v == "cloud":
             return "online"
         raise ValueError(f"Invalid mode: {v}, allowed values are {list(get_args(ModeType))}")
-
-    root: Path = Field(default_factory=root_factory)
-    """
-    Directory for SwanLab saved files.
-    """
-
-    @field_validator("root", mode="before")
-    def validate_root(cls, v: Union[str, Path]) -> Path:
-        """
-        如果 root 存在，必须是目录
-        """
-        path_v = Path(v)
-
-        if path_v.exists() and not path_v.is_dir():
-            raise ValueError(
-                f"Root path {path_v} exists but is not a directory.",
-                "Please remove the file or choose a different path.",
-            )
-        return path_v
 
     log_dir: Path = Field(default_factory=log_dir_factory, validate_default=True)
     """
@@ -217,6 +207,20 @@ class Settings(BaseSettings):
         return data
 
     @model_validator(mode="after")
+    def _(self):
+        """
+        校验root目录必须存在
+        """
+        path_v = self.get_user_config_dir()
+
+        if path_v.exists() and not path_v.is_dir():
+            raise ValueError(
+                f"Root path {path_v} exists but is not a directory.",
+                "Please remove the file or choose a different path.",
+            )
+        return self
+
+    @model_validator(mode="after")
     def load_api_key(self) -> "Settings":
         """
         在所有配置加载完成后，作为最后的回退机制读取 本地 .netrc 文件。
@@ -239,14 +243,12 @@ class Settings(BaseSettings):
             return self
         # api key, api host, web host
         netrc_result: Optional[Tuple[str, str, str]] = None
-        with safe.block(
-            message="Failed to load credentials from current directory, falling back to root directory if available"
-        ):
-            netrc_result = _load_netrc(Path.cwd() / ROOT_FOLDER / ".netrc")
+        with safe.block(message="Failed to load credentials from current directory"):
+            netrc_result = _load_netrc(self.get_pwd_config_dir() / ".netrc")
         if netrc_result is None:
             with safe.block(message="Failed to load credentials from root directory"):
-                netrc_result = _load_netrc(self.root / ".netrc")
-
+                netrc_result = _load_netrc(self.get_user_config_dir() / ".netrc")
+        console.debug(f"Loaded credentials: {netrc_result}")
         if netrc_result is not None:
             api_key, api_host, web_host = netrc_result
             # 前提条件：读取到的 api_host 与当前配置的 api_host 匹配，或者 api_host 未被显式设置
@@ -275,7 +277,7 @@ class Settings(BaseSettings):
     """
     Configuration for the run of this SwanLab experiment.
     """
-    console: ConsoleSettings = Field(default_factory=ConsoleSettings)
+    terminal: TerminalSettings = Field(default_factory=TerminalSettings)
     """
     Configuration for SwanLab terminal log collection.
     """
@@ -306,6 +308,35 @@ class Settings(BaseSettings):
         str_strip_whitespace=True,
     )
 
+    def to_core_proto(self, run_id: str, run_dir: Path) -> CoreSettingsPb:
+        return CoreSettingsPb(
+            run_id=run_id,
+            run_dir=str(run_dir.absolute()),
+            section_rule=self.core.section_rule,
+            record_batch=self.core.record_batch,
+            record_interval=self.core.record_interval,
+            save_split=self.core.save_split,
+            save_size=self.core.save_size,
+            save_part=self.core.save_part,
+            save_batch=self.core.save_batch,
+        )
+
+    def to_probe_proto(self, run_id: str, run_dir: Path, global_system_step: int) -> ProbeSettingsPb:
+        return ProbeSettingsPb(
+            run_id=run_id,
+            run_dir=str(run_dir.absolute()),
+            global_system_step=global_system_step,
+            hardware=self.probe.hardware,
+            runtime=self.probe.runtime,
+            requirements=self.probe.requirements,
+            conda=self.probe.conda,
+            git=self.probe.git,
+            swanlab=self.probe.swanlab,
+            monitor=self.probe.monitor,
+            monitor_interval=self.probe.monitor_interval,
+            monitor_disk_dir=str(self.probe.monitor_disk_dir.absolute()),
+        )
+
     @classmethod
     def settings_customise_sources(
         cls,
@@ -318,31 +349,35 @@ class Settings(BaseSettings):
 
         # 优先级由高到低排列体现在返回的sources顺序：
         # 1. init_settings (merge_settings 传入的参数)
-        # 2. 当前目录下 swanlab.yaml
-        # 3. /etc/swanlab/*.yaml
-        # 4. .env 文件
-        # 5. file_secret_settings (容器 Secrets)
-        # 6. env_settings (环境变量)
-        # 7. 默认值 (Model Default)
+        # 2. 当前目录下 swanlab.{yaml,yml}
+        # 3. /etc/swanlab/*.{yaml,yml}
+        # 4. 当前目录下 .env 文件
+        # 5. K8S/Docker 容器 Secret 配置项文件
+        # 6. 环境变量
+        # 7. 当前工作目录下 .swanlab/config.{yaml,yml}
+        # 8. settings.get_user_config_dir() / config.{yaml,yml}
+        # 9. 默认值 (Model Default)
+
+        # 1. merge_settings 传入的参数
         sources = [init_settings]
 
-        # 5. 当前目录下 swanlab.{yaml,yml}
+        # 2. 当前目录下 swanlab.{yaml,yml}
         for ext in ["yaml", "yml"]:
             local_file = Path(f"swanlab.{ext}")
             if local_file.exists():
                 sources.append(YamlConfigSettingsSource(settings_cls, yaml_file=local_file))
 
-        # 4. /etc/swanlab/*.{yaml,yml}
+        # 3. /etc/swanlab/*.{yaml,yml}
         etc_dir = Path(CONFIG_DIR)
         if etc_dir.exists() and etc_dir.is_dir():
             etc_files = sorted(list(etc_dir.glob("*.yaml")) + list(etc_dir.glob("*.yml")), reverse=True)
             for file in etc_files:
                 sources.append(YamlConfigSettingsSource(settings_cls, yaml_file=file))
 
-        # 3. .env 文件
+        # 4. .env 文件
         sources.append(dotenv_settings)
 
-        # file_secret_settings (Secrets 文件)
+        # 5. K8S/Docker 容器 Secret 配置项文件
         # 对于Secrets文件，不需要额外的前缀，直接使用默认的环境变量前缀
         secrets_dir = settings_cls.model_config.get("secrets_dir")
         if secrets_dir:
@@ -355,10 +390,109 @@ class Settings(BaseSettings):
         # 优先级高于普通环境变量，防止敏感信息被低优先级的 Env 覆盖
         sources.append(file_secret_settings)
 
-        # 2. 环境变量
+        # 6. 环境变量
         sources.append(env_settings)
 
+        # 7. 当前工作目录下 .swanlab/config.{yaml,yml}
+        # 项目级别的配置文件，优先级高于环境变量但低于 .env
+        pwd = cls.get_pwd_config_dir()
+        if pwd.exists() and pwd.is_dir():
+            for ext in ["yaml", "yml"]:
+                config_file = pwd / f"config.{ext}"
+                if config_file.exists():
+                    console.debug(f"Loading settings from {config_file}")
+                    sources.append(YamlConfigSettingsSource(settings_cls, yaml_file=config_file))
+
+        # 8. settings.get_user_config_dir() / config.{yaml,yml}
+        # 用户级别的全局配置文件，优先级最低（仅高于默认值）
+        root_config_dir = cls.get_user_config_dir()
+        if root_config_dir.exists() and root_config_dir.is_dir():
+            for ext in ["yaml", "yml"]:
+                config_file = root_config_dir / f"config.{ext}"
+                if config_file.exists():
+                    console.debug(f"Loading settings from {config_file}")
+                    sources.append(YamlConfigSettingsSource(settings_cls, yaml_file=config_file))
+
         return tuple(sources)
+
+    def to_yaml(self, *fields: str) -> str:
+        """
+        将当前 settings 序列化为 YAML 字符串。
+
+        :param fields: 可选的字段名，可变参数。如果提供，仅输出这些字段；
+                       如果字段不存在则跳过。支持嵌套字段名，如 "core.record_batch"。
+                       如果未提供，输出所有字段。
+        :return: YAML 格式的字符串
+        """
+        data = self._dump_and_filter(fields)
+        return yaml.safe_dump(data, allow_unicode=True, default_flow_style=False, sort_keys=False)
+
+    def save_to_yaml(self, target_dir: Union[str, Path], *fields: str, merge: bool = True) -> Path:
+        """
+        将当前 settings 保存为 YAML 文件到目标目录。
+
+        如果目标目录下已存在 config.yaml 且 merge 为 True，则将现有配置与当前配置合并，
+        当前配置的值会覆盖已有值。文件不存在或 merge 为 False 时直接写入。
+
+        :param target_dir: 目标目录路径
+        :param fields: 可选的字段名，仅保存指定字段；未提供则保存所有字段
+        :param merge: 是否合并已存在的 config.yaml，默认为 True
+        :return: 写入的文件路径
+        """
+        target_dir = Path(target_dir)
+        target_file = target_dir / "config.yaml"
+
+        data = self._dump_and_filter(fields)
+
+        if merge and target_file.exists():
+            with open(target_file, "r", encoding="utf-8") as f:
+                existing = yaml.safe_load(f) or {}
+            if isinstance(existing, dict):
+                data = _deep_update(existing, data)
+
+        # 确保目标目录存在
+        target_dir.mkdir(parents=True, exist_ok=True)
+
+        with open(target_file, "w", encoding="utf-8") as f:
+            yaml.safe_dump(data, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+
+        return target_file
+
+    def _dump_and_filter(self, fields: Tuple[str, ...]) -> Dict[str, Any]:
+        """导出数据并按字段过滤，同时转换 Path 为字符串"""
+        data = self.model_dump()
+
+        if fields:
+            filtered: Dict[str, Any] = {}
+            for field in fields:
+                keys = field.split(".")
+                src = data
+                dst = filtered
+                for i, key in enumerate(keys):
+                    if isinstance(src, dict) and key in src:
+                        if i == len(keys) - 1:
+                            dst[key] = src[key]
+                        else:
+                            if key not in dst:
+                                dst[key] = {}
+                            dst = dst[key]
+                            src = src[key]
+                    else:
+                        break
+            data = filtered
+
+        return self._convert_paths(data)
+
+    @staticmethod
+    def _convert_paths(obj: Any) -> Any:
+        """递归将 Path 对象转换为字符串"""
+        if isinstance(obj, Path):
+            return str(obj)
+        elif isinstance(obj, dict):
+            return {k: Settings._convert_paths(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [Settings._convert_paths(item) for item in obj]
+        return obj
 
     def merge_settings(self, other: Union["Settings", dict]) -> None:
         """

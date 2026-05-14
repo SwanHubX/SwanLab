@@ -9,16 +9,24 @@ import pytest
 
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnClass, ColumnType, SectionType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord, ScalarRecord
-from swanlab.sdk.internal.context import RunConfig, RunContext
+from swanlab.sdk.internal.core_python.context import CoreConfig, CoreContext
 from swanlab.sdk.internal.core_python.pkg import builder
-from swanlab.sdk.internal.settings import Settings
 
 
-def make_ctx(tmp_path, section_rule_index: int) -> RunContext:
-    settings = Settings.model_validate(
-        {"mode": "disabled", "run": {"id": "test-run-id"}, "core": {"section_rule_index": section_rule_index}}
+def make_ctx(tmp_path, section_rule: int) -> CoreContext:
+    return CoreContext(
+        config=CoreConfig(
+            run_id="test-run-id",
+            run_dir=tmp_path / "run",
+            section_rule=section_rule,
+            record_batch=10000,
+            record_interval=5.0,
+            save_split=100 * 1024 * 1024,
+            save_size=50 * 1024 * 1024 * 1024,
+            save_part=32 * 1024 * 1024,
+            save_batch=100,
+        )
     )
-    return RunContext(RunConfig(run_dir=tmp_path / "run", settings=settings))
 
 
 class TestBuildAutoColumn:

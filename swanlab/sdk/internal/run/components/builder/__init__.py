@@ -20,8 +20,8 @@ from swanlab.proto.swanlab.metric.column.v1.column_pb2 import (
 )
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord
 from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord
-from swanlab.proto.swanlab.system.v1.console_pb2 import ConsoleRecord
-from swanlab.sdk.internal.bus.events import ConfigEvent, ConsoleEvent, FileSaveEvent, ParseResult, ScalarDefineEvent
+from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogRecord
+from swanlab.sdk.internal.bus.events import ConfigEvent, FileSaveEvent, LogEvent, ParseResult, ScalarDefineEvent
 from swanlab.sdk.internal.context import RunContext, TransformMedia
 from swanlab.sdk.internal.pkg import adapter, console, fs
 from swanlab.sdk.internal.run.transforms import ECharts, Scalar, echarts
@@ -76,16 +76,16 @@ class RecordBuilder:
     # ── 用户数据 ──
 
     @singledispatchmethod
-    def build_log(self, value, key: str, timestamp: Timestamp, step: int) -> ParseResult:
+    def build_scalar_or_media(self, value, key: str, timestamp: Timestamp, step: int) -> ParseResult:
         """默认回退：swanlab.echarts 图表自动包装为 ECharts，否则按标量处理"""
         # 如果是 swanlab.echarts 图表，则自动包装为 ECharts，按照媒体处理
         if isinstance(value, _EchartsType):
-            return self.build_log(ECharts(value), key, timestamp, step)
+            return self.build_scalar_or_media(ECharts(value), key, timestamp, step)
         # 否则按标量处理
         scalar_value = Scalar.transform(value)
         return Scalar.build_data_record(key=key, step=step, timestamp=timestamp, data=scalar_value), Scalar
 
-    @build_log.register(list)
+    @build_scalar_or_media.register(list)
     def _(self, value: list, key: str, timestamp: Timestamp, step: int) -> ParseResult:
         """媒体对象数组
         dispatch 并不能识别每个数组元素的类型，因此还需手动检查；
@@ -112,7 +112,7 @@ class RecordBuilder:
         )
         return media_record, cls
 
-    @build_log.register(TransformMedia)
+    @build_scalar_or_media.register(TransformMedia)
     def _(self, value: TransformMedia, key: str, timestamp: Timestamp, step: int) -> ParseResult:
         """将单个 TransformMediaType 转换为 MediaRecord"""
         cls = value.__class__
@@ -148,9 +148,9 @@ class RecordBuilder:
         return ConfigRecord(update_type=event.update, timestamp=event.timestamp)
 
     @staticmethod
-    def build_console(event: ConsoleEvent) -> ConsoleRecord:
-        """构建 ConsoleRecord envelope"""
-        return ConsoleRecord(line=event.line, stream=event.stream, timestamp=event.timestamp)
+    def build_log(event: LogEvent) -> LogRecord:
+        """构建 LogRecord envelope"""
+        return LogRecord(line=event.line, level=event.level, timestamp=event.timestamp)
 
     # ── 文件保存 (Save) 数据 ──
     @classmethod

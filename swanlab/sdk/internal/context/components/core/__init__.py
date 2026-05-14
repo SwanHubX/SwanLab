@@ -25,7 +25,7 @@ def create_core(ctx: "RunContext") -> CoreProtocol:
     if core_enum == CoreEnum.CORE_PYTHON:
         from swanlab.sdk.internal.core_python import CorePython
 
-        return CorePython(ctx)
+        return CorePython(mode=ctx.config.settings.mode)
     else:
         # TODO: Core 微服务无感接入
         raise NotImplementedError(f"CoreEnum {core_enum} is not supported yet.")

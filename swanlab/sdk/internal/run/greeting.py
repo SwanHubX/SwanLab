@@ -25,13 +25,41 @@ def _print_version():
 
 
 def _print_save_dir(ctx: RunContext):
-    console.info("Run data will be saved locally in", Text(str(ctx.config.run_dir), "magenta bold"))
+    console.info("💾 Run data saved at", Text(str(ctx.config.run_dir), "magenta bold"))
+
+
+def _truncate_middle(text: object, max_len: int = 45, placeholder: str = "...") -> str:
+    """
+    Truncate text in the middle if it exceeds max_len.
+
+    Examples:
+        abcdefghijklmnopqrstuvwxyz, max_len=10 -> abcd...xyz
+    """
+    text = str(text)
+    if max_len <= 0:
+        return placeholder
+    if len(text) <= max_len:
+        return text
+    if len(placeholder) >= max_len:
+        return placeholder[:max_len]
+    remain = max_len - len(placeholder)
+    left_len = (remain + 1) // 2
+    right_len = remain // 2
+    left = text[:left_len]
+    right = text[-right_len:] if right_len > 0 else ""
+    return left + placeholder + right
 
 
 def _print_online_tip(run: "Run"):
     project_url = run.url.split("/runs/")[0]
-    console.info(f"🏠 View project at {project_url}")
-    console.info(f"🚀 View run at {run.url}")
+    console.info("📁 View project at", Text(project_url, style=f"link {project_url} blue underline"))
+    # 截断 run.name，超过 name_truncate_len 时，前后保留 20 个字符，中间显示 ...
+    console.info(
+        "🚀 View run",
+        Text(_truncate_middle(run.name), "yellow"),
+        "at",
+        Text(run.url, style=f"link {run.url} blue underline"),
+    )
 
 
 def _print_local_tip(ctx: RunContext):
@@ -66,8 +94,6 @@ def welcome(ctx: RunContext, run: "Run"):
     elif mode == "online":
         _print_version()
         _print_save_dir(ctx)
-        if ctx.config.settings.experiment.name:
-            console.info("Syncing run", Text(ctx.config.settings.experiment.name, "yellow"))
         _print_online_tip(run)
     # 2. Local
     elif mode == "local":

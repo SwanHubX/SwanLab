@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package swanlab.terminal.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/terminal/v1;terminalv1";
+
+// 终端代理捕获的单行输出。
+// 由 console.proxy_type 配置决定捕获 stdout、stderr 或两者。
+// 超出 console.max_log_length 的部分由 SDK 在写入前截断。
+message LogRecord {
+  string     line                     = 1;
+  LogLevel   level                    = 2;
+  google.protobuf.Timestamp timestamp = 3;
+  int64      epoch                    = 4;
+}
+
+// 终端日志级别。
+// LOG_LEVEL_INFO 为默认级别，表示普通终端输出。
+// 注意：stderr 不一定代表错误，默认仍按 LOG_LEVEL_INFO 处理，
+// 例如进度条、警告信息等。
+// LOG_LEVEL_ERROR 表示实验错误输出，通常用于最终实验报错信息。
+enum LogLevel {
+  LOG_LEVEL_INFO  = 0;
+  LOG_LEVEL_ERROR = 1;
+}

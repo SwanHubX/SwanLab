@@ -10,7 +10,7 @@
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
 from swanlab.proto.swanlab.run.v1.run_pb2 import ResumeMode, RunState
 from swanlab.proto.swanlab.save.v1.save_pb2 import SavePolicy
-from swanlab.proto.swanlab.system.v1.console_pb2 import StreamType
+from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogLevel
 
 from .bimap import BiMap
 
@@ -67,11 +67,11 @@ medium = BiMap(
 
 level = BiMap(
     {
-        "INFO": StreamType.STREAM_TYPE_STDOUT,
-        "ERROR": StreamType.STREAM_TYPE_STDERR,
+        "INFO": LogLevel.LOG_LEVEL_INFO,
+        "ERROR": LogLevel.LOG_LEVEL_ERROR,
     }
 )
-"""StreamType 枚举适配器，映射本地proto枚举与云端日志格式"""
+"""LogLevel 枚举适配器，映射本地proto枚举与云端日志格式"""
 
 policy = BiMap(
     {

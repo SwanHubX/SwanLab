@@ -5,7 +5,7 @@
 @description: SwanLab SDK 辅助函数
 """
 
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 
 from .env import DEBUG, is_interactive, is_jupyter
 from .system import fmt_system_key, is_system_key
@@ -21,6 +21,7 @@ __all__ = [
     "is_system_key",
     "get_swanlab_version",
     "get_swanlab_latest_version",
+    "mkdir_and_append_gitignore",
 ]
 
 
@@ -67,3 +68,19 @@ def fmt_run_path(run_path: str) -> str:
         username = f"@{username}"
 
     return PurePosixPath("/", username, project_name, "runs", run_id).as_posix()
+
+
+def mkdir_and_append_gitignore(path: Path):
+    """
+    创建目录并添加 .gitignore 文件
+    """
+    from swanlab.sdk.internal.pkg.fs import safe_mkdir, safe_write
+
+    safe_mkdir(path)
+    if not any(path.iterdir()):
+        gitignore_path = path / ".gitignore"
+        if gitignore_path.exists():
+            return
+        # 忽略目录下所有文件
+        ignore_content = "*"
+        safe_write(gitignore_path, ignore_content)

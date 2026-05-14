@@ -15,6 +15,10 @@ if TYPE_CHECKING:
     import accelerate
     import accelerate.tracking
     import boto3
+    import fastai
+    import fastai.learner
+    import fastcore
+    import fastcore.basics
     import imageio
     import keras
     import lightning
@@ -23,6 +27,7 @@ if TYPE_CHECKING:
     import lightning.pytorch.utilities
     import matplotlib
     import matplotlib.figure
+    import mlflow
     import mmengine
     import mmengine.config
     import mmengine.registry
@@ -40,11 +45,19 @@ if TYPE_CHECKING:
     import sklearn
     import sklearn.metrics
     import soundfile
+    import stable_baselines3
+    import stable_baselines3.common
     import swanboard
+    import tensorboard
+    import tensorboard.backend.event_processing
+    import tensorboard.util
     import torch
+    import torchtune
+    import torchtune.utils.metric_logging
     import torchvision
     import transformers
     import ultralytics
+    import wandb
     import xgboost
     import xgboost.callback
 
@@ -60,13 +73,18 @@ __all__ = [
     "sklearn",
     "soundfile",
     "swanboard",
+    "tensorboard",
     "boto3",
     "torch",
     "torchvision",
+    "wandb",
+    "mlflow",
     # these are extra dependencies which are not in [project.optional-dependencies]
     "pd",
     # framework integrations
     "accelerate",
+    "fastai",
+    "fastcore",
     "keras",
     "lightning",
     "mmengine",
@@ -74,6 +92,8 @@ __all__ = [
     "transformers",
     "ultralytics",
     "xgboost",
+    "stable_baselines3",
+    "torchtune",
 ]
 
 # 3. Lazy import mapping: Actual module paths
@@ -87,6 +107,7 @@ _LAZY_IMPORTS = {
     "sklearn": "sklearn",
     "soundfile": "soundfile",
     "swanboard": "swanboard",
+    "tensorboard": "tensorboard",
     "boto3": "boto3",
     "torch": "torch",
     "torchvision": "torchvision",
@@ -94,12 +115,18 @@ _LAZY_IMPORTS = {
     "pd": "pandas",
     # framework integrations — users install these themselves
     "accelerate": "accelerate",
+    "fastai": "fastai",
+    "fastcore": "fastcore",
     "keras": "keras",
     "lightning": "lightning",
     "mmengine": "mmengine",
     "paddlenlp": "paddlenlp",
     "transformers": "transformers",
     "ultralytics": "ultralytics",
+    "stable_baselines3": "stable_baselines3",
+    "torchtune": "torchtune",
+    "wandb": "wandb",
+    "mlflow": "mlflow",
     "xgboost": "xgboost",
 }
 
@@ -128,12 +155,22 @@ _SUBMODULE_IMPORTS = {
     "sklearn": ["sklearn.metrics"],
     "rdkit": ["rdkit.Chem", "rdkit.Chem.AllChem"],
     "accelerate": ["accelerate.tracking"],
+    "fastai": ["fastai.learner", "fastai.callback.hook"],
+    "fastcore": ["fastcore.basics"],
     "keras": ["keras.callbacks"],
     "lightning": ["lightning.pytorch", "lightning.pytorch.loggers", "lightning.pytorch.utilities"],
     "mmengine": ["mmengine.config", "mmengine.registry", "mmengine.visualization.vis_backend"],
     "transformers": ["transformers.trainer_callback"],
     "xgboost": ["xgboost.callback"],
     "paddlenlp": ["paddlenlp.trainer.trainer"],
+    "stable_baselines3": ["stable_baselines3.common"],
+    "torchtune": ["torchtune.utils.metric_logging"],
+    "wandb": ["wandb.sdk.internal.datastore", "wandb.proto"],
+    "tensorboard": [
+        "tensorboard.backend.event_processing",
+        "tensorboard.backend.event_processing.event_file_loader",
+        "tensorboard.util",
+    ],
 }
 
 

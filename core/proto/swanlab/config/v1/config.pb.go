@@ -76,8 +76,8 @@ func (UpdateType) EnumDescriptor() ([]byte, []int) {
 // PATCH 更新时覆写同一个文件，消费方以最新文件内容为准。
 type ConfigRecord struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	UpdateType    UpdateType             `protobuf:"varint,3,opt,name=update_type,json=updateType,proto3,enum=swanlab.config.v1.UpdateType" json:"update_type,omitempty"`
-	Timestamp     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
+	UpdateType    UpdateType             `protobuf:"varint,1,opt,name=update_type,json=updateType,proto3,enum=swanlab.config.v1.UpdateType" json:"update_type,omitempty"`
+	Timestamp     *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -132,9 +132,9 @@ const file_swanlab_config_v1_config_proto_rawDesc = "" +
 	"\n" +
 	"\x1eswanlab/config/v1/config.proto\x12\x11swanlab.config.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x88\x01\n" +
 	"\fConfigRecord\x12>\n" +
-	"\vupdate_type\x18\x03 \x01(\x0e2\x1d.swanlab.config.v1.UpdateTypeR\n" +
+	"\vupdate_type\x18\x01 \x01(\x0e2\x1d.swanlab.config.v1.UpdateTypeR\n" +
 	"updateType\x128\n" +
-	"\ttimestamp\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp*V\n" +
+	"\ttimestamp\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp*V\n" +
 	"\n" +
 	"UpdateType\x12\x1b\n" +
 	"\x17UPDATE_TYPE_UNSPECIFIED\x10\x00\x12\x14\n" +

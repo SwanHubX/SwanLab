@@ -4,9 +4,9 @@ from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.core_python.transport.dispatch import Dispatch
 
 
-def test_dispatch_groups_by_type(make_scalar_record, make_config_record):
+def test_dispatch_groups_by_type(mock_ctx, make_scalar_record, make_config_record):
     """混合类型 record 被正确分组分发。"""
-    dispatch = Dispatch()
+    dispatch = Dispatch(batch_size=mock_ctx.config.record_batch)
 
     metric_records = [make_scalar_record(step=1), make_scalar_record(step=2)]
     config_records = [make_config_record()]
@@ -20,9 +20,9 @@ def test_dispatch_groups_by_type(make_scalar_record, make_config_record):
         assert calls[1] == (("config", config_records),)
 
 
-def test_dispatch_calls_correct_handler(make_scalar_record):
+def test_dispatch_calls_correct_handler(mock_ctx, make_scalar_record):
     """各 record_type 被正确交给 _upload_record_type()。"""
-    dispatch = Dispatch()
+    dispatch = Dispatch(batch_size=mock_ctx.config.record_batch)
     records = [make_scalar_record(step=1)]
 
     with patch.object(dispatch, "_upload_record_type", return_value=(True, [])) as mock_handle:
@@ -30,11 +30,11 @@ def test_dispatch_calls_correct_handler(make_scalar_record):
         mock_handle.assert_called_once_with("scalar", records)
 
 
-def test_dispatch_returns_failed_records_without_mutating_external_buffer(make_scalar_record):
+def test_dispatch_returns_failed_records_without_mutating_external_buffer(mock_ctx, make_scalar_record):
     """上传失败时返回待重试 records，由上层决定如何保留。"""
     mock_sender = MagicMock()
     mock_sender.upload.side_effect = RuntimeError("upload failed")
-    dispatch = Dispatch(sender=mock_sender)
+    dispatch = Dispatch(batch_size=mock_ctx.config.record_batch, sender=mock_sender)
 
     records = [make_scalar_record(step=1)]
     records[0].num = 11
@@ -46,9 +46,9 @@ def test_dispatch_returns_failed_records_without_mutating_external_buffer(make_s
     assert failed == records
 
 
-def test_dispatch_failure_tail_keeps_failed_and_unprocessed_order(make_scalar_record, make_config_record):
+def test_dispatch_failure_tail_keeps_failed_and_unprocessed_order(mock_ctx, make_scalar_record, make_config_record):
     """当前组失败部分和后续未处理组保持原顺序返回。"""
-    dispatch = Dispatch()
+    dispatch = Dispatch(batch_size=mock_ctx.config.record_batch)
 
     failed_metric = make_scalar_record(step=1)
     failed_metric.num = 21
@@ -67,9 +67,9 @@ def test_dispatch_failure_tail_keeps_failed_and_unprocessed_order(make_scalar_re
     assert failed == [failed_metric, later_config]
 
 
-def test_dispatch_skips_unknown_type(make_scalar_record):
+def test_dispatch_skips_unknown_type(mock_ctx, make_scalar_record):
     """未知 kind 无 handler 时不报错，静默跳过。"""
-    dispatch = Dispatch()
+    dispatch = Dispatch(batch_size=mock_ctx.config.record_batch)
 
     with patch("swanlab.sdk.internal.core_python.transport.dispatch.group_records_by_type") as mock_group:
         from collections import OrderedDict
@@ -81,7 +81,7 @@ def test_dispatch_skips_unknown_type(make_scalar_record):
             mock_warning.assert_called_once()
 
 
-def test_dispatch_mixed_type_partial_failure_rollback(make_scalar_record, make_config_record):
+def test_dispatch_mixed_type_partial_failure_rollback(mock_ctx, make_scalar_record, make_config_record):
     """混合类型中一种上传失败时，返回当前失败组和后续组。"""
     mock_sender = MagicMock()
 
@@ -90,7 +90,7 @@ def test_dispatch_mixed_type_partial_failure_rollback(make_scalar_record, make_c
             raise RuntimeError("upload failed")
 
     mock_sender.upload.side_effect = upload_side_effect
-    dispatch = Dispatch(sender=mock_sender)
+    dispatch = Dispatch(batch_size=mock_ctx.config.record_batch, sender=mock_sender)
 
     metric_records = [make_scalar_record(step=1)]
     metric_records[0].num = 31
@@ -105,7 +105,7 @@ def test_dispatch_mixed_type_partial_failure_rollback(make_scalar_record, make_c
     assert failed[1] is config_records[0]
 
 
-def test_dispatch_handle_record_type_success_calls_callback(make_scalar_record):
+def test_dispatch_handle_record_type_success_calls_callback(mock_ctx, make_scalar_record):
     """上传成功后返回成功状态并触发上传回调。"""
     uploaded = []
     callback = MagicMock()
@@ -115,7 +115,11 @@ def test_dispatch_handle_record_type_success_calls_callback(make_scalar_record):
         uploaded.append((record_type, list(records)))
 
     sender.upload.side_effect = upload_side_effect
-    dispatch = Dispatch(upload_callback=callback, sender=sender)
+    dispatch = Dispatch(
+        batch_size=mock_ctx.config.record_batch,
+        upload_callback=callback,
+        sender=sender,
+    )
 
     records = [make_scalar_record(step=1)]
     records[0].num = 41
@@ -128,11 +132,11 @@ def test_dispatch_handle_record_type_success_calls_callback(make_scalar_record):
     callback.assert_called_once_with(1)
 
 
-def test_dispatch_handle_record_type_returns_failed_tail_on_chunk_failure(make_scalar_record):
+def test_dispatch_handle_record_type_returns_failed_tail_on_chunk_failure(mock_ctx, make_scalar_record):
     """某个 chunk 上传失败时返回当前组中尚未成功上传的 records。"""
     sender = MagicMock()
     sender.upload.side_effect = [None, RuntimeError("boom")]
-    dispatch = Dispatch(sender=sender)
+    dispatch = Dispatch(batch_size=mock_ctx.config.record_batch, sender=sender)
 
     first = make_scalar_record(step=1)
     second = make_scalar_record(step=2)

@@ -145,7 +145,7 @@ PRESET_ANIMALS = [
     "zebra",
 ]
 
-# "beauty" 模式下的优美形容词
+# 优美形容词
 BEAUTY_ADJECTIVES = [
     "elegant",
     "stellar",
@@ -162,6 +162,30 @@ BEAUTY_ADJECTIVES = [
     "luminous",
     "tranquil",
     "dazzling",
+]
+
+# 普通形容词
+NORMAL_ADJECTIVES = [
+    "quick",
+    "slow",
+    "small",
+    "large",
+    "young",
+    "old",
+    "quiet",
+    "loud",
+    "happy",
+    "calm",
+    "busy",
+    "lazy",
+    "clever",
+    "simple",
+    "steady",
+    "brave",
+    "shy",
+    "warm",
+    "cool",
+    "fresh",
 ]
 
 
@@ -213,8 +237,9 @@ def generate_name(slug: Optional[Union[Literal["beauty"], int]] = None) -> str:
 
     # 逻辑 3: 如果传入是 int，根据预设列表取模，并将 ID 拼在尾部
     if isinstance(slug, int):
+        adj = NORMAL_ADJECTIVES[slug % len(NORMAL_ADJECTIVES)]
         animal = PRESET_ANIMALS[slug % len(PRESET_ANIMALS)]
-        return f"{animal}-{slug}"
+        return f"{adj}-{animal}-{slug}"
 
     # 兜底机制
     fallback_hash = "".join(random.choices(string.ascii_lowercase + string.digits, k=4))

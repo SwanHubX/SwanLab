@@ -15,7 +15,7 @@ from typing import Any, Dict, Optional, Set, Tuple, Union, cast
 
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord, ColumnType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import ScalarRecord
-from swanlab.sdk.internal.context import RunContext
+from swanlab.sdk.internal.core_python.context import CoreContext
 from swanlab.sdk.internal.core_python.pkg import builder
 from swanlab.sdk.internal.pkg import console, helper
 from swanlab.sdk.typings.core_python.api.experiment import ResumeExperimentSummaryType
@@ -115,7 +115,7 @@ class MediaMetric(BaseMetric):
                 f"Media metric '{self._column.column_key}' has not been defined, maybe it's defined in resume"
             )
             return
-        super().ensure_type_match(metric_type)
+        BaseMetric.ensure_type_match(self, metric_type)
 
     def update(self, data_record: Any):
         """
@@ -131,7 +131,7 @@ class RunMetrics:
     _metrics: Dict[str, Union[ScalarMetric, MediaMetric]] = field(default_factory=dict)
 
     @classmethod
-    def new(cls, data: Optional[ResumeExperimentSummaryType], ctx: RunContext) -> Tuple["RunMetrics", int, int, int]:
+    def new(cls, data: Optional[ResumeExperimentSummaryType], ctx: CoreContext) -> Tuple["RunMetrics", int, int, int]:
         """
         根据后端返回的实验摘要，生成 RunMetrics 对象
         :param data: 后端返回的实验摘要

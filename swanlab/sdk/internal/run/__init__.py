@@ -22,6 +22,8 @@ from typing import Any, Callable, List, Literal, Mapping, Optional, Tuple, Type,
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
+from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import DeliverRunFinishRequest
+from swanlab.proto.swanlab.grpc.probe.v1.probe_pb2 import DeliverProbeStartRequest
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord
 from swanlab.sdk.internal.bus import MetricLogEvent
 from swanlab.sdk.internal.bus.events import FileSaveEvent
@@ -40,7 +42,6 @@ from swanlab.sdk.internal.run.transforms import (
     Video,
     normalize_media_input,
 )
-from swanlab.sdk.internal.settings.core import CoreSettings
 from swanlab.sdk.typings.run import AsyncLogType, FinishType, ModeType
 from swanlab.sdk.typings.run.column import ScalarXAxisType
 from swanlab.sdk.typings.run.transforms import CaptionsType
@@ -156,7 +157,14 @@ class Run:
         # 启动组件
         self._components.start()
         # 启动硬件监控探针
-        self._probe.start()
+        start_request = DeliverProbeStartRequest(
+            probe_settings=run_settings.to_probe_proto(
+                run_id=run_settings.run.id,
+                run_dir=self._ctx.run_dir,
+                global_system_step=self._ctx.global_system_step,
+            )
+        )
+        self._probe.deliver_probe_start(start_request)
         console.init(bind_to=self._ctx.debug_dir if self.mode != "disabled" else None)
         greeting.welcome(self._ctx, self)
 
@@ -664,7 +672,7 @@ class Run:
             return []
 
         # 过滤出普通文件，计算相对路径
-        save_settings = self._ctx.config.settings.core.save
+        core_settings = self._ctx.config.settings.core
         files: List[Tuple[Path, Path]] = []
         for abs_str in matched:
             abs_path = Path(abs_str)
@@ -681,8 +689,8 @@ class Run:
             return []
 
         # 校验批次大小
-        if len(files) > save_settings.max_batch_size:
-            raise ValueError(f"Too many files matched ({len(files)}), limit is {save_settings.max_batch_size}")
+        if len(files) > core_settings.save_batch:
+            raise ValueError(f"Too many files matched ({len(files)}), limit is {core_settings.save_batch}")
 
         # 按 policy 分发事件
         # Core 负责创建 symlink 处理和 end policy 下的延迟上传
@@ -727,12 +735,14 @@ class Run:
         # 停止所有内部组件（async_log → terminal → config → consumer）
         self._components.stop(async_log_timeout=async_log_timeout)
         # 停止probe
-        self._probe.finish()
+        self._probe.deliver_probe_finish()
         ts = Timestamp()
         ts.GetCurrentTime()
         # 3. 停止Core线程
         finish_resp = self._core.deliver_run_finish(
-            FinishRecord(state=adapter.state[this_state], error=error, finished_at=ts)
+            DeliverRunFinishRequest(
+                finish_record=FinishRecord(state=adapter.state[this_state], error=error, finished_at=ts)
+            )
         )
         if not finish_resp.success:
             console.error(finish_resp.message)

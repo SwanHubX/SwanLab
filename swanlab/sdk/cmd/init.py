@@ -20,6 +20,7 @@ import requests
 import yaml
 from google.protobuf.timestamp_pb2 import Timestamp
 
+from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import DeliverRunStartRequest
 from swanlab.proto.swanlab.run.v1.run_pb2 import StartRecord
 from swanlab.sdk.cmd.guard import with_cmd_lock
 from swanlab.sdk.internal.context import (
@@ -31,7 +32,8 @@ from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.pkg import adapter, console, fs, helper, safe
 from swanlab.sdk.typings.cmd import ConfigLike
 from swanlab.sdk.typings.context import CallbacksType
-from swanlab.utils import generate_color, generate_id, generate_name
+from swanlab.utils import generate_id
+from swanlab.utils.experiment import generate_color, generate_name
 
 from ..internal.run import Run, get_run, has_run
 from ..internal.settings import Settings
@@ -459,10 +461,8 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
     assert run_id, "Run id is not provided."
     # 2. 创建运行目录
     if mode != "disabled":
-        # 安全创建目录（如果不存在）
-        fs.safe_mkdir(run_settings.log_dir)
-        # 写入 .gitignore（如果目录为空）
-        utils.append_gitignore(run_settings.log_dir)
+        # 安全创建目录，并写入 .gitignore（如果目录为空）
+        helper.mkdir_and_append_gitignore(run_settings.log_dir)
         # 创建运行子目录，run_dir 必须是新建的，防止误覆盖已有实验数据
         run_dir = ensure_run_dir(run_settings.log_dir, run_id, max_retries=run_settings.run.mkdir_retries)
     else:
@@ -478,36 +478,37 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
         elif mode == "local":
             # TODO: 注入回调器
             ...
-        # 2. 确定默认 workspace 并生成本地 name/color，合并到 settings
-        workspace = run_settings.project.workspace
-        name = run_settings.experiment.name or generate_name("beauty")
-        color = run_settings.experiment.color or generate_color("beauty")
-        args_dict = {}
-        for key, value in {
-            "experiment.name": name,
-            "experiment.color": color,
-            "project.workspace": workspace,
-            "run.id": run_id,
-        }.items():
-            set_nested_value(args_dict, key, value)
-        run_settings.merge_settings(args_dict)
+        # 2. 非云端模式，确定 name/color，合并到 settings
+        if mode != "online":
+            args_dict = {}
+            for key, value in {
+                "experiment.name": run_settings.experiment.name or generate_name("beauty"),
+                "experiment.color": run_settings.experiment.color or generate_color("beauty"),
+                "run.id": run_id,
+            }.items():
+                set_nested_value(args_dict, key, value)
+            run_settings.merge_settings(args_dict)
         # 3. 统一调用 deliver_run_start（core 内部按 mode 分发：online 走网络，其余本地处理）
         ts = Timestamp()
         ts.GetCurrentTime()
+        start_record = StartRecord(
+            project=run_settings.project.name,
+            workspace=run_settings.project.workspace,
+            public=run_settings.project.public,
+            name=run_settings.experiment.name,
+            color=run_settings.experiment.color,
+            description=run_settings.experiment.description,
+            job_type=run_settings.experiment.job_type,
+            group=run_settings.experiment.group,
+            tags=run_settings.experiment.tags,
+            id=run_id,
+            resume=adapter.resume[run_settings.run.resume],
+            started_at=ts,
+        )
         resp = ctx.core.deliver_run_start(
-            StartRecord(
-                project=run_settings.project.name,
-                workspace=run_settings.project.workspace,
-                public=run_settings.project.public,
-                name=run_settings.experiment.name,
-                color=run_settings.experiment.color,
-                description=run_settings.experiment.description,
-                job_type=run_settings.experiment.job_type,
-                group=run_settings.experiment.group,
-                tags=run_settings.experiment.tags,
-                id=run_id,
-                resume=adapter.resume[run_settings.run.resume],
-                started_at=ts,
+            DeliverRunStartRequest(
+                start_record=start_record,
+                core_settings=ctx.config.settings.to_core_proto(run_id=run_id, run_dir=run_dir),
             )
         )
         if not resp.success:

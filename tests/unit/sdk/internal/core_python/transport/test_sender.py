@@ -3,23 +3,30 @@ from unittest.mock import MagicMock, patch
 
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord
-from swanlab.sdk.internal.context import RunContext
+from swanlab.sdk.internal.core_python.context import CoreConfig, CoreContext
 from swanlab.sdk.internal.core_python.transport.sender import HttpRecordSender
-from swanlab.sdk.internal.settings.core import SaveSettings
 
 
-def _make_sender(tmp_path: Path) -> HttpRecordSender:
-    config = MagicMock()
-    config.settings.core.save = SaveSettings()
-    ctx = MagicMock(spec=RunContext)
-    ctx.config = config
+def _make_sender(tmp_path: Path, save_batch: int = 100) -> HttpRecordSender:
+    ctx = CoreContext(
+        config=CoreConfig(
+            run_id="test-run-id",
+            run_dir=tmp_path,
+            section_rule=0,
+            record_batch=10000,
+            record_interval=5.0,
+            save_split=100 * 1024 * 1024,
+            save_size=50 * 1024 * 1024 * 1024,
+            save_part=32 * 1024 * 1024,
+            save_batch=save_batch,
+        )
+    )
     return HttpRecordSender(
-        run_dir=tmp_path,
+        ctx=ctx,
         username="alice",
         project="demo",
         project_id="project-id",
         experiment_id="experiment-id",
-        ctx=ctx,
     )
 
 
@@ -81,3 +88,40 @@ def test_upload_save_skips_complete_when_s3_upload_fails(tmp_path: Path):
 
     # 上传失败时仍应调用 complete，但标记为 FAILED
     mock_complete.assert_called_once_with("experiment-id", files=[{"path": "failed.bin", "state": "FAILED"}])
+
+
+def test_upload_save_splits_pending_files_by_save_batch(tmp_path: Path):
+    records = []
+    for index in range(5):
+        source = tmp_path / f"model-{index}.txt"
+        source.write_text(f"weights-{index}", encoding="utf-8")
+        records.append(_make_save_record(source, name=f"checkpoints/model-{index}.txt"))
+
+    sender = _make_sender(tmp_path, save_batch=2)
+    session = MagicMock()
+
+    def _fake_prepare(_, *, files):
+        return {"urls": [f"https://s3.test/{item['path']}" for item in files]}
+
+    def _fake_upload(_, *, resources):
+        return {r["source_path"] for r in resources}
+
+    with (
+        patch(
+            "swanlab.sdk.internal.core_python.transport.sender.prepare_save_files",
+            side_effect=_fake_prepare,
+        ) as mock_prepare,
+        patch("swanlab.sdk.internal.core_python.transport.sender.complete_save_files") as mock_complete,
+        patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=session),
+        patch(
+            "swanlab.sdk.internal.core_python.transport.sender.upload_saves",
+            side_effect=_fake_upload,
+        ) as mock_upload_saves,
+    ):
+        sender.upload_save(records)
+
+    assert mock_prepare.call_count == 3
+    assert mock_upload_saves.call_count == 3
+    assert mock_complete.call_count == 3
+    assert [len(call.kwargs["files"]) for call in mock_prepare.call_args_list] == [2, 2, 1]
+    assert [len(call.kwargs["files"]) for call in mock_complete.call_args_list] == [2, 2, 1]

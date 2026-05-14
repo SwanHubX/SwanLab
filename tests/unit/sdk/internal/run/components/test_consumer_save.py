@@ -8,8 +8,8 @@ from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.proto.swanlab.config.v1.config_pb2 import UpdateType
 from swanlab.proto.swanlab.save.v1.save_pb2 import SavePolicy, SaveRecord
-from swanlab.proto.swanlab.system.v1.console_pb2 import StreamType
-from swanlab.sdk.internal.bus.events import ConfigEvent, ConsoleEvent, FileSaveEvent
+from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogLevel
+from swanlab.sdk.internal.bus.events import ConfigEvent, FileSaveEvent, LogEvent
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.run.components.consumer import BackgroundConsumer
 
@@ -28,7 +28,11 @@ def _make_consumer(tmp_path: Path, batch_size: int = 100):
         source_path=str(tmp_path / "model.pt"),
         policy=SavePolicy.SAVE_POLICY_NOW,
     )
-    return BackgroundConsumer(cast(RunContext, ctx), queue.Queue(), builder, batch_size=batch_size), core, builder
+    return (
+        BackgroundConsumer(cast(RunContext, cast(object, ctx)), queue.Queue(), builder, batch_size=batch_size),
+        core,
+        builder,
+    )
 
 
 def _make_save_event(name: str, tmp_path: Path, policy: str) -> FileSaveEvent:
@@ -121,16 +125,16 @@ def test_save_batch_flushes_alongside_other_batch_types(tmp_path: Path):
     consumer, core, builder = _make_consumer(tmp_path)
     save_record = builder.build_save.return_value
     consumer._save_batch.append(save_record)
-    consumer._console_batch.append(
-        builder.build_console(ConsoleEvent(line="hello", stream=StreamType.STREAM_TYPE_STDOUT, timestamp=Timestamp()))
+    consumer._log_batch.append(
+        builder.build_log(LogEvent(line="hello", level=LogLevel.LOG_LEVEL_INFO, timestamp=Timestamp()))
     )
 
     consumer._flush()
 
     core.upsert_saves.assert_called_once_with([save_record])
-    core.upsert_consoles.assert_called_once()
+    core.upsert_logs.assert_called_once()
     assert consumer._save_batch == []
-    assert consumer._console_batch == []
+    assert consumer._log_batch == []
 
 
 def test_save_batch_auto_flushes_when_full(tmp_path: Path):

@@ -251,7 +251,7 @@ def merge_callbacks(callbacks: CallbacksType) -> None:
         ...     @property
         ...     def name(self) -> str:
         ...         return "my_callback"
-        ...     def on_run_initialized(self, run_dir, path):
+        ...     def on_run_initialized(self, run_dir, path, *kwargs):
         ...         print("Run initialized!")
         >>> swanlab.merge_callbacks(MyCallback())
         >>> swanlab.init()
