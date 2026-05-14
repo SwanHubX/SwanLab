@@ -243,9 +243,12 @@ class Settings(BaseSettings):
             return self
         # api key, api host, web host
         netrc_result: Optional[Tuple[str, str, str]] = None
-        with safe.block(message="Failed to load credentials from root directory"):
-            netrc_result = _load_netrc(self.get_user_config_dir() / ".netrc")
-        console.debug(f"Loaded credentials from root directory: {netrc_result}")
+        with safe.block(message="Failed to load credentials from current directory"):
+            netrc_result = _load_netrc(self.get_pwd_config_dir() / ".netrc")
+        if netrc_result is None:
+            with safe.block(message="Failed to load credentials from root directory"):
+                netrc_result = _load_netrc(self.get_user_config_dir() / ".netrc")
+        console.debug(f"Loaded credentials: {netrc_result}")
         if netrc_result is not None:
             api_key, api_host, web_host = netrc_result
             # 前提条件：读取到的 api_host 与当前配置的 api_host 匹配，或者 api_host 未被显式设置
@@ -402,7 +405,6 @@ class Settings(BaseSettings):
 
         # 8. settings.get_user_config_dir() / config.{yaml,yml}
         # 用户级别的全局配置文件，优先级最低（仅高于默认值）
-        # 使用 root_factory() 获取 root 路径，因为此时 Settings 实例尚未创建
         root_config_dir = cls.get_user_config_dir()
         if root_config_dir.exists() and root_config_dir.is_dir():
             for ext in ["yaml", "yml"]:
