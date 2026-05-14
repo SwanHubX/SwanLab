@@ -141,7 +141,7 @@ def safe_validate_name(name: Optional[str]) -> Optional[str]:
     if name is None:
         return None
     try:
-        return constraints.ta_label.validate_python(name)
+        return constraints.ta_metric_name.validate_python(name)
     except ValidationError:
         return None
 

@@ -23,7 +23,7 @@ __all__ = [
     "JobType",
     "RunId",
     "MetricKey",
-    "Label",
+    "MetricName",
     # TypeAdapters
     "ta_project",
     "ta_workspace",
@@ -34,7 +34,7 @@ __all__ = [
     "ta_job_type",
     "ta_run_id",
     "ta_metric_key",
-    "ta_label",
+    "ta_metric_name",
     "ta_chart_name",
 ]
 
@@ -46,7 +46,7 @@ ProjectName = Annotated[
     str,
     Field(min_length=1, max_length=100, pattern=r"^[0-9a-zA-Z_\-+.]+$"),
 ]
-"""Project name: 1-100 chars, alphanumeric + ``_ - + .``."""
+"""Project name: 1-512 chars, alphanumeric + ``_ - + .``."""
 
 Workspace = Annotated[
     str,
@@ -56,7 +56,7 @@ Workspace = Annotated[
 
 ExperimentName = Annotated[
     str,
-    Field(min_length=1, max_length=250),
+    Field(min_length=1, max_length=512),
 ]
 """Experiment name: 1-250 chars."""
 
@@ -72,18 +72,18 @@ Description = Annotated[
 ]
 """Description: 1-1024 chars."""
 
-TagString = Annotated[str, Field(max_length=200)]
-"""Single tag string: up to 200 chars."""
+TagString = Annotated[str, Field(max_length=20)]
+"""Single tag string: up to 20 chars."""
 
-Group = Annotated[str, Field(min_length=1, max_length=256)]
+Group = Annotated[str, Field(min_length=1, max_length=512)]
 """Experiment group: 1-256 chars."""
 
-JobType = Annotated[str, Field(min_length=1, max_length=256)]
+JobType = Annotated[str, Field(min_length=1, max_length=512)]
 """Job type: 1-256 chars."""
 
 RunId = Annotated[
     str,
-    Field(min_length=1, max_length=64, pattern=r"^[^/\\#?%:]+$"),
+    Field(min_length=1, max_length=512, pattern=r"^[^/\\#?%:]+$"),
 ]
 """Run ID: 1-64 chars, must not contain ``/``, ``\\``, ``#``, ``?``, ``%``, or ``:``."""
 
@@ -96,16 +96,16 @@ def _no_dot_slash_edges(v: str) -> str:
 
 MetricKey = Annotated[
     str,
-    Field(min_length=1, max_length=255, pattern=r"^[^\x00-\x1f\x7f]+$"),
+    Field(min_length=1, max_length=512, pattern=r"^[^\x00-\x1f\x7f]+$"),
     AfterValidator(_no_dot_slash_edges),
 ]
-"""Metric / log key: 1-255 chars, no control characters, must not start or end with ``'.'`` or ``'/'``."""
+"""Metric / log key: 1-512 chars, no control characters, must not start or end with ``'.'`` or ``'/'``."""
 
-Label = Annotated[str, Field(max_length=255)]
-"""Display label for metrics and runs: up to 255 chars."""
+MetricName = Annotated[str, Field(max_length=512)]
+"""Display label for metrics and runs: up to 512 chars."""
 
-ChartName = Annotated[str, Field(min_length=1, max_length=255)]
-"""Display name for charts: 1-255 chars."""
+ChartName = Annotated[str, Field(min_length=1, max_length=512)]
+"""Display name for charts: 1-512 chars."""
 
 # ---------------------------------------------------------------------------
 # TypeAdapters (module-level singletons — build once, reuse everywhere)
@@ -120,5 +120,5 @@ ta_group = TypeAdapter(Group)
 ta_job_type = TypeAdapter(JobType)
 ta_run_id = TypeAdapter(RunId)
 ta_metric_key = TypeAdapter(MetricKey)
-ta_label = TypeAdapter(Label)
+ta_metric_name = TypeAdapter(MetricName)
 ta_chart_name = TypeAdapter(ChartName)
