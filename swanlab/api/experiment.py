@@ -13,6 +13,7 @@ from swanlab.api.typings.common import (
     ApiColumnDataTypeLiteral,
     ApiMetricLogLevelLiteral,
     PaginatedQuery,
+    RangeQuery,
 )
 from swanlab.api.typings.experiment import (
     ApiExperimentLabelType,
@@ -192,12 +193,26 @@ class Experiment(BaseEntity):
         self,
         keys: List[str],
         sample: int = 1500,
-        ignore_timestamp: bool = True,
+        ignore_timestamp: bool = False,
         all: bool = False,
+        range_query: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
+        """
+        Fetch scalar metrics for the given keys.
+
+        :param keys: Metric keys to fetch, e.g. ["loss", "acc"].
+        :param sample: Max number of sampled data points (default 1500). Ignored when ``all`` or ``range_query`` is set.
+        :param ignore_timestamp: If True, omit timestamp fields from the response.
+        :param all: If True, fetch full-resolution data via CSV (bypass sampling).
+        :param range_query: Precise step(default)-range filter — accepts a ``RangeQuery`` object or a plain dict
+            with keys ``start``, ``end``, ``head``, ``tail``. Only supported for SCALAR metrics.
+            Example: ``{"type": "step", "start": 100, "end": 500}`` or ``{"tail": 50}``.
+        """
         run_id = self.run_id
         project_id = self.project_id
         from swanlab.api.metric import Metrics
+
+        rq = RangeQuery(**range_query) if isinstance(range_query, dict) else None
 
         return Metrics(
             ctx=self._ctx,
@@ -208,6 +223,7 @@ class Experiment(BaseEntity):
             metric_type="SCALAR",
             ignore_timestamp=ignore_timestamp,
             all=all,
+            range_query=rq,
             root_pro_id=self.root_pro_id,
             root_exp_id=self.root_exp_id,
         ).json()
@@ -238,7 +254,7 @@ class Experiment(BaseEntity):
         self,
         offset: Optional[int] = 0,
         level: ApiMetricLogLevelLiteral = "INFO",
-        ignore_timestamp: bool = True,
+        ignore_timestamp: bool = False,
     ) -> Dict[str, Any]:
         run_id = self.run_id
         project_id = self.project_id
@@ -297,7 +313,10 @@ class Experiment(BaseEntity):
     def delete(self, commit: bool = False) -> bool:
         """删除此实验。commit=False 时打印待删除信息，commit=True 时执行删除。"""
         if not commit:
-            console.warning(f"Experiment to be deleted: run_id: {self._run_slug}, name: {self.name}")
+            name = self.name
+            if self._errors:
+                return False
+            console.warning(f"Experiment to be deleted: run_id: {self._run_slug}, name: {name}")
             return True
         resp = self._delete(f"/project/{self._proj_path}/runs/{self.run_id}")
         return resp.ok

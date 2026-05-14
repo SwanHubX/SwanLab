@@ -116,7 +116,10 @@ class Project(BaseEntity):
     def delete(self, commit: bool = False) -> bool:
         """删除此项目。commit=False 时打印待删除信息，commit=True 时执行删除。"""
         if not commit:
-            console.warning(f"Project to be deleted: project_id: {self.project_id} , name: {self.name}")
+            name = self.name
+            if self._errors:
+                return False
+            console.warning(f"Project to be deleted: project_id: {self.project_id} , name: {name}")
             return True
         resp = self._delete(f"/project/{self.path}")
         return resp.ok

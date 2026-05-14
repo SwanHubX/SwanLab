@@ -8,6 +8,8 @@
 from dataclasses import dataclass
 from typing import Any, Dict, List, Literal, Optional, TypedDict
 
+from pydantic import BaseModel, Field, model_validator
+
 # 启用/停用
 ApiStatusLiteral = Literal["ENABLED", "DISABLED"]
 
@@ -138,6 +140,34 @@ ApiSortOrderLiteral = Literal["ASC", "DESC"]
 VALID_PAGE_SIZES = (10, 12, 15, 20, 24, 27, 50, 100)
 
 
+class RangeQuery(BaseModel, frozen=True):
+    """
+    SCALAR 指标范围查询参数。
+
+    type: 维度，目前仅支持 "step"
+    start: 起始 step（含），None 表示从头开始
+    end: 结束 step（含），None 表示到最后
+    head: 取前 N 条（与 tail 互斥）
+    tail: 取后 N 条（与 head 互斥）
+
+    head/tail 与 start/end 可组合：先 start/end 过滤，再取 head/tail。
+    """
+
+    type: Literal["step"] = "step"
+    start: Optional[int] = Field(default=None, ge=0)
+    end: Optional[int] = Field(default=None, ge=0)
+    head: Optional[int] = Field(default=None, gt=0)
+    tail: Optional[int] = Field(default=None, gt=0)
+
+    @model_validator(mode="after")
+    def _validate_range_query(self) -> "RangeQuery":
+        if self.head is not None and self.tail is not None:
+            raise ValueError("head and tail are mutually exclusive")
+        if self.start is not None and self.end is not None and self.start > self.end:
+            raise ValueError(f"start must be <= end, got ({self.start}, {self.end})")
+        return self
+
+
 @dataclass(frozen=True)
 class PaginatedQuery:
     """
@@ -151,7 +181,7 @@ class PaginatedQuery:
     """
 
     page: int = 1
-    size: int = 50
+    size: int = 20
     search: Optional[str] = None
     sort: Optional[str] = None
     all: bool = False
