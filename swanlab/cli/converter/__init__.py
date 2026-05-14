@@ -47,7 +47,8 @@ from swanlab.sdk.internal.pkg import safe
     help="The directory where the swanlab log files are stored",
 )
 # Tensorboard options
-@click.option("--tb-logdir", type=str, default=None, help="The directory where the tensorboard log files are stored.")
+@click.option("--tb-log-dir", type=str, default=None, help="The directory where the tensorboard log files are stored.")
+@click.option("--tb-logdir", type=str, default=None, help="Deprecated: use --tb-log-dir instead.", hidden=True)
 @click.option(
     "--tb-types",
     default="scalar",
@@ -86,6 +87,7 @@ def convert(
     workspace: str,
     logdir: str,
     tb_logdir: str,
+    tb_log_dir: str,
     tb_types: str,
     wb_project: str,
     wb_entity: str,
@@ -98,6 +100,9 @@ def convert(
     resume: bool,
 ):
     """Convert the log files of other experiment tracking tools to SwanLab."""
+    if tb_logdir is not None:
+        click.echo("Warning: The option `--tb-logdir` is deprecated, use `--tb-log-dir` instead.")
+        tb_log_dir = tb_logdir
 
     if resume and not wb_runid:
         raise click.UsageError("--resume requires --wb-runid to specify a single run to resume.")
@@ -107,7 +112,7 @@ def convert(
 
         with safe.block(message="TensorBoard conversion failed"):
             TFBConverter(project=project, workspace=workspace, mode=mode, log_dir=logdir, types=tb_types).run(
-                convert_dir=tb_logdir or ".", depth=3
+                convert_dir=tb_log_dir or ".", depth=3
             )
 
     elif convert_type == "wandb":
