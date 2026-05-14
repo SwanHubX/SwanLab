@@ -121,7 +121,7 @@ Structure per data point:
 
 **Statistics** are computed server-side per scalar column: `min`, `max`, `avg`, `median`, `latest`.
 
-**Sampling**: By default, `--sample 1500` returns downsampled data for visualization. Use `--all` to get a CSV download URL for the full dataset.
+**Sampling**: By default, `--sample 1500` returns downsampled data for visualization. Use `--all` to fetch all data points without sampling limit.
 
 ### Media Metrics (e.g. images, audio)
 

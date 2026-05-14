@@ -203,7 +203,7 @@ class Experiment(BaseEntity):
         :param keys: Metric keys to fetch, e.g. ["loss", "acc"].
         :param sample: Max number of sampled data points (default 1500). Ignored when ``all`` or ``range_query`` is set.
         :param ignore_timestamp: If True, omit timestamp fields from the response.
-        :param all: If True, fetch full-resolution data via CSV (bypass sampling).
+        :param all: If True, fetch full-resolution data without sampling limit.
         :param range_query: Precise step(default)-range filter — accepts a ``RangeQuery`` object or a plain dict
             with keys ``start``, ``end``, ``head``, ``tail``. Only supported for SCALAR metrics.
             Example: ``{"type": "step", "start": 100, "end": 500}`` or ``{"tail": 50}``.
