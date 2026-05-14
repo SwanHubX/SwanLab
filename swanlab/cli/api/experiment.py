@@ -1,3 +1,5 @@
+from typing import Optional
+
 import click
 import orjson
 
@@ -203,6 +205,17 @@ def list_experiment_columns(
 )
 @click.option("--all", "fetch_all", is_flag=True, default=False, help="Fetch all data (CSV export for scalars).")
 @click.option(
+    "--range-type",
+    "range_type",
+    default=None,
+    type=click.Choice(["step"], case_sensitive=False),
+    help="Range query type. Currently only 'step' is supported.",
+)
+@click.option("--range-start", "range_start", default=None, type=click.IntRange(min=0), help="Range start (inclusive).")
+@click.option("--range-end", "range_end", default=None, type=click.IntRange(min=0), help="Range end (inclusive).")
+@click.option("--range-head", "range_head", default=None, type=click.IntRange(min=1), help="First N data points.")
+@click.option("--range-tail", "range_tail", default=None, type=click.IntRange(min=1), help="Last N data points.")
+@click.option(
     "--save",
     "save_name",
     is_flag=False,
@@ -216,13 +229,40 @@ def get_experiment_metrics(
     sample: int,
     ignore_timestamp: bool,
     fetch_all: bool,
+    range_type: Optional[str],
+    range_start: Optional[int],
+    range_end: Optional[int],
+    range_head: Optional[int],
+    range_tail: Optional[int],
     save_name: str,
     api: Api,
 ):
     """Get scalar metrics of an experiment by path (e.g. username/project_name/run_id)."""
+    if range_head is not None and range_tail is not None:
+        raise click.BadParameter("--range-head and --range-tail are mutually exclusive.")
+    if range_start is not None and range_end is not None and range_start > range_end:
+        raise click.BadParameter(f"--range-start must be <= --range-end, got ({range_start}, {range_end}).")
+
+    range_query = None
+    has_range = any(v is not None for v in (range_type, range_start, range_end, range_head, range_tail))
+    if has_range:
+        range_query = {
+            "type": (range_type or "step"),
+            "start": range_start,
+            "end": range_end,
+            "head": range_head,
+            "tail": range_tail,
+        }
+
     key_list = parse_keys(keys)
     experiment = api.run(path)
-    data = experiment.metrics(keys=key_list, sample=sample, ignore_timestamp=ignore_timestamp, all=fetch_all)
+    data = experiment.metrics(
+        keys=key_list,
+        sample=sample,
+        ignore_timestamp=ignore_timestamp,
+        all=fetch_all,
+        range_query=range_query,
+    )
     payload = format_output(ApiResponseType(ok=True, data=data))
     if payload["ok"] and save_name is not None:
         save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
