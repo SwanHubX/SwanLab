@@ -195,7 +195,7 @@ class Experiment(BaseEntity):
         sample: int = 1500,
         ignore_timestamp: bool = False,
         all: bool = False,
-        range_query: Optional[Dict[str, Any]] = None,
+        range_query: Optional[Union[Dict[str, Any], RangeQuery]] = None,
     ) -> Dict[str, Any]:
         """
         Fetch scalar metrics for the given keys.
@@ -212,7 +212,7 @@ class Experiment(BaseEntity):
         project_id = self.project_id
         from swanlab.api.metric import Metrics
 
-        rq = RangeQuery(**range_query) if isinstance(range_query, dict) else None
+        rq = RangeQuery(**range_query) if isinstance(range_query, dict) else range_query
 
         return Metrics(
             ctx=self._ctx,

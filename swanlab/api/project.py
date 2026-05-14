@@ -124,7 +124,7 @@ class Project(BaseEntity):
         resp = self._delete(f"/project/{self.path}")
         return resp.ok
 
-    def delete_runs(self, run_ids: list[str], commit: bool = False) -> bool:
+    def delete_runs(self, run_ids: List[str], commit: bool = False) -> bool:
         """批量删除实验。commit=False 时打印待删除实验信息，commit=True 时执行删除。"""
         from swanlab.api.experiment import Experiment
 

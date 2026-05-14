@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Iterator, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional
 
 from swanlab.api.base import ApiClientContext, BaseEntity
 from swanlab.api.typings import ApiColumnCsvExportType, ApiResponseType
@@ -21,6 +21,9 @@ from swanlab.api.typings.metric import (
 from swanlab.api.utils import get_properties, validate_metric_keys, validate_metric_log_level, validate_metric_type
 from swanlab.sdk.internal.pkg import console, safe
 
+if TYPE_CHECKING:
+    from swanlab.sdk.internal.pkg.client import Client
+
 _SCALAR_STATISTIC_FIELDS = ("min", "max", "avg", "median", "latest")
 _METRIC_SHARED_KEYS = frozenset({"project_id", "run_id", "metric_type"})
 
@@ -33,47 +36,50 @@ def _extract_csv_url(data: Any) -> str:
     return ""
 
 
-@safe.decorator(message="Failed to download CSV", level="debug", write_to_tty=False)
-def _download_csv(url: str, timeout: int = 30) -> Optional[str]:
-    """下载 CSV 文本（同步，urllib stdlib）。"""
-    from urllib.request import urlopen
-
-    with urlopen(url, timeout=timeout) as resp:
-        return resp.read().decode("utf-8")
-
-
-def _parse_csv(text: Optional[str]) -> List[Dict[str, Any]]:
-    """解析 CSV 文本为 [{"step": int, "value": float}, ...]，按列位置取值。"""
+@safe.decorator(message="Failed to download CSV")
+def _stream_csv_rows(
+    client: "Client",
+    url: str,
+    rq: Optional[RangeQuery] = None,
+    timeout: int = 30,
+) -> Optional[List[Dict[str, Any]]]:
+    """流式下载 CSV 并逐行解析，复用 Client session（保留 proxy/retry 配置）。"""
     import csv
-    import io
 
-    if not text:
-        return []
-    reader = csv.reader(io.StringIO(text))
-    next(reader, None)  # skip header
+    resp = client._session.get(url, stream=True, timeout=timeout)
+    resp.raise_for_status()
+    resp.encoding = "utf-8"
+
+    lines = resp.iter_lines(decode_unicode=True)
+    next(lines, None)  # skip header
+
     rows: List[Dict[str, Any]] = []
-    for row in reader:
-        if len(row) < 2:
+    for line in lines:
+        if not line:
+            continue
+        row = next(csv.reader([line.rstrip("\r")]), None)
+        if row is None or len(row) < 2:
             continue
         try:
-            rows.append({"step": int(row[0]), "value": float(row[1])})
+            step = int(row[0])
+            value = float(row[1])
         except (ValueError, IndexError):
             continue
+
+        if rq is not None:
+            if rq.start is not None and step < rq.start:
+                continue
+            if rq.end is not None and step > rq.end:
+                break
+            if rq.head is not None and len(rows) >= rq.head:
+                break
+
+        rows.append({"step": step, "value": value})
+
+    if rq is not None and rq.tail is not None:
+        rows = rows[-rq.tail :]
+
     return rows
-
-
-def _apply_range(rows: List[Dict[str, Any]], rq: RangeQuery) -> List[Dict[str, Any]]:
-    """按 RangeQuery 过滤：先 start/end，再 head/tail。"""
-    filtered = rows
-    if rq.start is not None:
-        filtered = [r for r in filtered if r["step"] >= rq.start]
-    if rq.end is not None:
-        filtered = [r for r in filtered if r["step"] <= rq.end]
-    if rq.head is not None:
-        filtered = filtered[: rq.head]
-    elif rq.tail is not None:
-        filtered = filtered[-rq.tail :] if rq.tail < len(filtered) else filtered
-    return filtered
 
 
 class Metric(BaseEntity):
@@ -572,10 +578,9 @@ class Metrics(BaseEntity):
                 yield self._build_metric(key, data)
                 continue
 
-            # 下载 CSV 文本
-            csv_text = _download_csv(url)
-            rows = _parse_csv(csv_text)
-            data["metrics"] = _apply_range(rows, rq)
+            # 下载 CSV 并流式解析
+            rows = _stream_csv_rows(self._ctx.client, url, rq)
+            data["metrics"] = rows or []
 
             if i < len(value_list):
                 for field in _SCALAR_STATISTIC_FIELDS:
