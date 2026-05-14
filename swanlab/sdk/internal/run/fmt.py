@@ -60,7 +60,7 @@ def flatten_dict(
 _WARNED_KEYS = set()
 
 
-def validate_key(key: str, max_len: int = 255) -> str:
+def validate_key(key: str, max_len: int = constraints.METRIC_KEY_MAX_LENGTH) -> str:
     """
     检查并清洗 key 字符串格式。
     将非法字符替换为下划线，自动剥离边缘的非法字符，并在超长时截断。
@@ -74,7 +74,7 @@ def validate_key(key: str, max_len: int = 255) -> str:
     if not isinstance(key, str):
         key = str(key)
 
-    max_len = min(max_len, 255)
+    max_len = min(max_len, constraints.METRIC_KEY_MAX_LENGTH)
 
     original_key = key
 

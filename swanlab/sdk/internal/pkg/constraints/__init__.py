@@ -36,6 +36,8 @@ __all__ = [
     "ta_metric_key",
     "ta_metric_name",
     "ta_chart_name",
+    # value
+    "METRIC_KEY_MAX_LENGTH",
 ]
 
 # ---------------------------------------------------------------------------
@@ -94,9 +96,11 @@ def _no_dot_slash_edges(v: str) -> str:
     return v
 
 
+METRIC_KEY_MAX_LENGTH = 512
+
 MetricKey = Annotated[
     str,
-    Field(min_length=1, max_length=512, pattern=r"^[^\x00-\x1f\x7f]+$"),
+    Field(min_length=1, max_length=METRIC_KEY_MAX_LENGTH, pattern=r"^[^\x00-\x1f\x7f]+$"),
     AfterValidator(_no_dot_slash_edges),
 ]
 """Metric / log key: 1-512 chars, no control characters, must not start or end with ``'.'`` or ``'/'``."""
