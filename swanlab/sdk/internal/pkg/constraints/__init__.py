@@ -46,7 +46,7 @@ ProjectName = Annotated[
     str,
     Field(min_length=1, max_length=100, pattern=r"^[0-9a-zA-Z_\-+.]+$"),
 ]
-"""Project name: 1-512 chars, alphanumeric + ``_ - + .``."""
+"""Project name: 1-100 chars, alphanumeric + ``_ - + .``."""
 
 Workspace = Annotated[
     str,
@@ -58,7 +58,7 @@ ExperimentName = Annotated[
     str,
     Field(min_length=1, max_length=512),
 ]
-"""Experiment name: 1-250 chars."""
+"""Experiment name: 1-512 chars."""
 
 HexColor = Annotated[
     str,
@@ -76,16 +76,16 @@ TagString = Annotated[str, Field(max_length=20)]
 """Single tag string: up to 20 chars."""
 
 Group = Annotated[str, Field(min_length=1, max_length=512)]
-"""Experiment group: 1-256 chars."""
+"""Experiment group: 1-512 chars."""
 
 JobType = Annotated[str, Field(min_length=1, max_length=512)]
-"""Job type: 1-256 chars."""
+"""Job type: 1-512 chars."""
 
 RunId = Annotated[
     str,
     Field(min_length=1, max_length=512, pattern=r"^[^/\\#?%:]+$"),
 ]
-"""Run ID: 1-64 chars, must not contain ``/``, ``\\``, ``#``, ``?``, ``%``, or ``:``."""
+"""Run ID: 1-512 chars, must not contain ``/``, ``\\``, ``#``, ``?``, ``%``, or ``:``."""
 
 
 def _no_dot_slash_edges(v: str) -> str:
