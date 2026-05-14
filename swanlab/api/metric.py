@@ -212,12 +212,13 @@ class Metric(BaseEntity):
         run_id: str,
         keys: List[str],
         sample: int = 1500,
+        x_type: str = "step",
         root_pro_id: str = "",
         root_exp_id: str = "",
     ) -> Dict[str, Any]:
         return {
             "projectId": project_id,
-            "xType": "step",
+            "xType": x_type,
             "range": [0, 0],
             "columns": [Metric._build_column_ref(run_id, key, root_pro_id, root_exp_id) for key in keys],
             "num": sample if sample <= 1500 else 1500,
@@ -626,11 +627,14 @@ class Metrics(BaseEntity):
             yield self._build_metric(key, data)
 
     def _fetch_scalars_all(self) -> Iterator[Metric]:
-        urls: Dict[str, str] = {}
+        csv_data: Dict[str, List[Dict[str, Any]]] = {}
         for key in self._keys:
             resp = self._get(f"/experiment/{self._run_id}/column/csv", params={"key": key})
             if resp.ok and resp.data:
-                urls[key] = _extract_csv_url(resp.data)
+                url = _extract_csv_url(resp.data)
+                if url:
+                    rows = _stream_csv_rows(self._ctx.client, url)
+                    csv_data[key] = rows or []
 
         payload = Metric._build_scalar_payload(
             self._project_id,
@@ -648,7 +652,7 @@ class Metrics(BaseEntity):
                 "projectId": self._project_id,
                 "experimentId": self._run_id,
                 "key": key,
-                "url": urls.get(key, ""),
+                "metrics": csv_data.get(key, []),
             }
             if i < len(value_list):
                 for field in _SCALAR_STATISTIC_FIELDS:
