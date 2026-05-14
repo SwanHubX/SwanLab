@@ -60,7 +60,7 @@ def flatten_dict(
 _WARNED_KEYS = set()
 
 
-def validate_key(key: str, max_len: int = 255) -> str:
+def validate_key(key: str, max_len: int = constraints.METRIC_KEY_MAX_LENGTH) -> str:
     """
     检查并清洗 key 字符串格式。
     将非法字符替换为下划线，自动剥离边缘的非法字符，并在超长时截断。
@@ -74,7 +74,7 @@ def validate_key(key: str, max_len: int = 255) -> str:
     if not isinstance(key, str):
         key = str(key)
 
-    max_len = min(max_len, 255)
+    max_len = min(max_len, constraints.METRIC_KEY_MAX_LENGTH)
 
     original_key = key
 
@@ -133,7 +133,7 @@ def safe_validate_key(key: str) -> Optional[str]:
 
 def safe_validate_name(name: Optional[str]) -> Optional[str]:
     """
-    检查并清洗指标名称，如果出现非法字符或长度超过限制（255），返回 None。
+    检查并清洗指标名称，如果出现非法字符或长度超过限制，返回 None。
 
     :param name: 待检查的指标名称
     :return: 清洗后的指标名称或 None
@@ -141,14 +141,14 @@ def safe_validate_name(name: Optional[str]) -> Optional[str]:
     if name is None:
         return None
     try:
-        return constraints.ta_label.validate_python(name)
+        return constraints.ta_metric_name.validate_python(name)
     except ValidationError:
         return None
 
 
 def safe_validate_chart_name(name: Optional[str]) -> Optional[str]:
     """
-    检查并清洗图表名称，如果出现非法字符或长度超过限制（255），返回 None。
+    检查并清洗图表名称，如果出现非法字符或长度超过限制，返回 None。
 
     :param name: 待检查的图表名称
     :return: 清洗后的图表名称或 None

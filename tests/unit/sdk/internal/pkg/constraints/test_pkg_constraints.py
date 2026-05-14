@@ -89,7 +89,7 @@ class TestExperimentName:
 
     @pytest.mark.parametrize(
         "value",
-        ["experiment-1", "My Experiment", "实验名称", "x" * 250],
+        ["experiment-1", "My Experiment", "实验名称", "x" * 512],
     )
     def test_valid(self, value):
         assert self.adapter.validate_python(value) == value
@@ -98,7 +98,7 @@ class TestExperimentName:
         "value",
         [
             "",  # empty
-            "x" * 251,  # too long
+            "x" * 513,  # too long
         ],
     )
     def test_invalid(self, value):
@@ -167,11 +167,11 @@ class TestTagString:
 
     def test_valid(self):
         assert self.adapter.validate_python("tag") == "tag"
-        assert self.adapter.validate_python("t" * 200) == "t" * 200
+        assert self.adapter.validate_python("t" * 20) == "t" * 20
 
     def test_too_long(self):
         with pytest.raises(ValidationError):
-            self.adapter.validate_python("t" * 201)
+            self.adapter.validate_python("t" * 21)
 
 
 # ---------------------------------------------------------------------------
@@ -184,9 +184,9 @@ class TestGroup:
 
     def test_valid(self):
         assert self.adapter.validate_python("my-group") == "my-group"
-        assert self.adapter.validate_python("g" * 256) == "g" * 256
+        assert self.adapter.validate_python("g" * 512) == "g" * 512
 
-    @pytest.mark.parametrize("value", ["", "g" * 257])
+    @pytest.mark.parametrize("value", ["", "g" * 513])
     def test_invalid(self, value):
         with pytest.raises(ValidationError):
             self.adapter.validate_python(value)
@@ -202,9 +202,9 @@ class TestJobType:
 
     def test_valid(self):
         assert self.adapter.validate_python("training") == "training"
-        assert self.adapter.validate_python("j" * 256) == "j" * 256
+        assert self.adapter.validate_python("j" * 512) == "j" * 512
 
-    @pytest.mark.parametrize("value", ["", "j" * 257])
+    @pytest.mark.parametrize("value", ["", "j" * 513])
     def test_invalid(self, value):
         with pytest.raises(ValidationError):
             self.adapter.validate_python(value)
@@ -220,7 +220,7 @@ class TestRunId:
 
     @pytest.mark.parametrize(
         "value",
-        ["abc123", "run_001", "a" * 64, "MyRun-1", "run with spaces", "实验001"],
+        ["abc123", "run_001", "a" * 512, "MyRun-1", "run with spaces", "实验001"],
     )
     def test_valid(self, value):
         assert self.adapter.validate_python(value) == value
@@ -229,7 +229,7 @@ class TestRunId:
         "value",
         [
             "",  # empty
-            "a" * 65,  # too long
+            "a" * 513,  # too long
             "run/id",  # contains /
             "run\\id",  # contains \
             "run#id",  # contains #
@@ -253,7 +253,7 @@ class TestMetricKey:
 
     @pytest.mark.parametrize(
         "value",
-        ["loss", "train/loss", "metrics.accuracy", "a/b.c", "x" * 255, "loss * 1000", "my key", "a@b#c"],
+        ["loss", "train/loss", "metrics.accuracy", "a/b.c", "x" * 512, "loss * 1000", "my key", "a@b#c"],
     )
     def test_valid(self, value):
         assert self.adapter.validate_python(value) == value
@@ -262,7 +262,7 @@ class TestMetricKey:
         "value",
         [
             "",  # empty
-            "x" * 256,  # too long
+            "x" * 513,  # too long
             ".starts_with_dot",
             "/starts_with_slash",
             "ends_with_dot.",
@@ -302,7 +302,7 @@ class TestSettingsUsesConstraints:
         from swanlab.sdk.internal.settings.experiment import ExperimentSettings
 
         with pytest.raises(ValidationError):
-            ExperimentSettings(name="x" * 251)
+            ExperimentSettings(name="x" * 513)
 
     def test_run_id_constraint_respected(self):
         from swanlab.sdk.internal.settings.experiment import RunSettings
