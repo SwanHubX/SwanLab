@@ -228,8 +228,9 @@ def parse_timestamp_ms(value: Union[int, str]) -> int:
     else:
         raise ValueError(f"Expected str or int for timestamp value, got {type(value).__name__}")
 
-    while v < 1_000_000_000_000:
-        v *= 10
+    if v > 0:
+        while v < 1_000_000_000_000:
+            v *= 10
     return v
 
 

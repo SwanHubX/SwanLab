@@ -126,12 +126,13 @@ class Project(BaseEntity):
 
     def delete_runs(self, run_ids: List[str], commit: bool = False) -> bool:
         """批量删除实验。commit=False 时打印待删除实验信息，commit=True 时执行删除。"""
-        from swanlab.api.experiment import Experiment
+        requests = [(self._get, f"/project/{self.path}/runs/{run_id}", {}) for run_id in run_ids]
+        responses = self._concurrent_request(requests)
 
         exps = []
-        for run_id in run_ids:
-            exp = Experiment(self._ctx, path=f"{self.path}/{run_id}")
-            exps.append({"run_slug": run_id, "cuid": exp.run_id, "name": exp.name})
+        for run_id, resp in zip(run_ids, responses):
+            data = resp.data if resp.ok and resp.data else {}
+            exps.append({"run_slug": run_id, "cuid": data.get("cuid", run_id), "name": data.get("name", run_id)})
 
         if not commit:
             lines = "\n".join([f"- run_id: {item['run_slug']}, name: {item['name']}" for item in exps])

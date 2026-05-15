@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
 
 from swanlab.api.base import ApiClientContext, BaseEntity
 from swanlab.api.typings import ApiColumnCsvExportType, ApiResponseType
@@ -45,6 +45,7 @@ def _stream_csv_rows(
 ) -> Optional[List[Dict[str, Any]]]:
     """流式下载 CSV 并逐行解析，复用 Client session（保留 proxy/retry 配置）。"""
     import csv
+    from collections import deque
 
     resp = client._session.get(url, stream=True, timeout=timeout)
     resp.raise_for_status()
@@ -53,12 +54,11 @@ def _stream_csv_rows(
     lines = resp.iter_lines(decode_unicode=True)
     next(lines, None)  # skip header
 
-    rows: List[Dict[str, Any]] = []
-    for line in lines:
-        if not line:
-            continue
-        row = next(csv.reader([line.rstrip("\r")]), None)
-        if row is None or len(row) < 2:
+    max_len = rq.tail if rq is not None and rq.tail is not None else None
+    rows: Union[deque[Dict[str, Any]], List[Dict[str, Any]]] = deque(maxlen=max_len) if max_len is not None else []
+
+    for row in csv.reader(lines):
+        if not row or len(row) < 2:
             continue
         try:
             step = int(row[0])
@@ -94,10 +94,7 @@ def _stream_csv_rows(
 
         rows.append(item)
 
-    if rq is not None and rq.tail is not None:
-        rows = rows[-rq.tail :]
-
-    return rows
+    return list(rows)
 
 
 class Metric(BaseEntity):
