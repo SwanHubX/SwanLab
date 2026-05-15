@@ -188,7 +188,7 @@ def check_group_format(group: str, auto_cut: bool = True) -> str:
 def check_run_id_format(run_id: str = None) -> Optional[str]:
     """
     检查运行ID格式，要求：
-    1. 长度为1-64个字符
+    1. 长度为1-512个字符
     2. 不能包含 /, \\, #, ?, %, : 字符
     :param run_id: 运行ID字符串
     :return: str 检查后的字符串
@@ -197,8 +197,8 @@ def check_run_id_format(run_id: str = None) -> Optional[str]:
     if not run_id:
         return None
     run_id_str = str(run_id)
-    if not (1 <= len(run_id_str) <= 64):
-        raise ValueError(f"id `{run_id}` is invalid, length must be between 1 and 64 characters")
+    if not (1 <= len(run_id_str) <= 512):
+        raise ValueError(f"id `{run_id}` is invalid, length must be between 1 and 512 characters")
     if re.search(r'[/\\#?%:]', run_id_str):
         raise ValueError(f"id `{run_id}` is invalid, it must not contain /, \\, #, ?, %, or :")
     return run_id_str

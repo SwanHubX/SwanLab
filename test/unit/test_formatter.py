@@ -263,8 +263,8 @@ class TestRunIdFormat:
         assert check_run_id_format("abcdefghijklmnopqrstu") == "abcdefghijklmnopqrstu"
 
     @staticmethod
-    def test_run_id_format_valid_64_chars():
-        value = "a" * 64
+    def test_run_id_format_valid_512_chars():
+        value = "a" * 512
         assert check_run_id_format(value) == value
 
     @staticmethod
@@ -273,8 +273,8 @@ class TestRunIdFormat:
 
     @staticmethod
     def test_run_id_format_invalid_too_long():
-        with pytest.raises(ValueError, match=r"id .* is invalid, length must be between 1 and 64 characters"):
-            check_run_id_format("a" * 65)
+        with pytest.raises(ValueError, match=r"id .* is invalid, length must be between 1 and 512 characters"):
+            check_run_id_format("a" * 513)
 
     @staticmethod
     @pytest.mark.parametrize("invalid_id", ["abc/def", "abc\\def", "abc#def", "abc?def", "abc%def", "abc:def"])
