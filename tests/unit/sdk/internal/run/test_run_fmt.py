@@ -167,6 +167,13 @@ class TestSaveValidators:
     def test_safe_validate_save_policy_rejects_invalid_policy(self, policy):
         assert fmt.safe_validate_save_policy(policy) is None
 
+    def test_safe_validate_save_policy_rejects_non_string_before_comparison(self):
+        class EqualToNow:
+            def __eq__(self, other):
+                return other == "now"
+
+        assert fmt.safe_validate_save_policy(EqualToNow()) is None
+
 
 class TestResolveSavePaths:
     """测试 save 路径解析与校验"""
