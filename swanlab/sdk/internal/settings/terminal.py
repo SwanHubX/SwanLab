@@ -13,7 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class TerminalSettings(BaseModel):
     proxy_type: Literal["all", "stdout", "stderr", "none"] = "all"
     """Terminal log proxy strategy."""
-    max_log_length: int = Field(default=1024, ge=500, le=4096)
+    max_length: int = Field(default=1024, ge=500, le=4096)
     """Maximum character length per line for terminal log collection."""
 
     model_config = ConfigDict(frozen=True)

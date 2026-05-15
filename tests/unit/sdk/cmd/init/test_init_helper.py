@@ -10,7 +10,14 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from swanlab.sdk.cmd.init import compatible_kwargs, ensure_run_dir, load_config, prompt_init_mode, set_nested_value
+from swanlab.sdk.cmd.init import (
+    _generate_run_dir_name,
+    compatible_kwargs,
+    ensure_run_dir,
+    load_config,
+    prompt_init_mode,
+    set_nested_value,
+)
 
 
 # ==========================================
@@ -215,14 +222,14 @@ class TestEnsureRunDir:
         )._generate_run_dir_name
         this_run_dir = ""
 
-        def mock_generate(run_id):
+        def mock_generate(run_id, max_length):
             nonlocal call_count, this_run_dir
             call_count += 1
             # 第一次生成一个已被占用的名字，第二次正常生成
             if call_count == 1:
-                return "run-20260101_000000-conflict"
-            this_run_dir = original_generate(run_id)
-            return this_run_dir
+                return "run-20260101_000000-conflict", False
+            this_run_dir, truncated = original_generate(run_id, max_length)
+            return this_run_dir, truncated
 
         monkeypatch.setattr("swanlab.sdk.cmd.init._generate_run_dir_name", mock_generate)
 
@@ -257,10 +264,98 @@ class TestEnsureRunDir:
 
     def test_raises_when_max_retries_exceeded(self, tmp_path, monkeypatch):
         """超过最大重试次数仍无法创建唯一目录时，应抛出 RuntimeError"""
-        monkeypatch.setattr("swanlab.sdk.cmd.init._generate_run_dir_name", lambda _: "run-20260101_000000-conflict")
+        monkeypatch.setattr(
+            "swanlab.sdk.cmd.init._generate_run_dir_name",
+            lambda _run_id, _max_length: ("run-20260101_000000-conflict", False),
+        )
 
         # 预先创建冲突目录
         (tmp_path / "run-20260101_000000-conflict").mkdir()
 
         with pytest.raises(RuntimeError, match="Failed to create a unique run directory after 2 attempts"):
             ensure_run_dir(tmp_path, "abc123", max_retries=2, retry_interval=0.01)
+
+    def test_generate_run_dir_name_keeps_short_name(self, monkeypatch):
+        """未超过长度限制时，应保持原始格式且不告警"""
+        warning = MagicMock()
+        monkeypatch.setattr("swanlab.sdk.cmd.init.console.warning", warning)
+
+        name, truncated = _generate_run_dir_name("myrun42", 255)
+
+        assert name.startswith("run-")
+        assert name.endswith("-myrun42")
+        assert "truncated" not in name
+        assert truncated is False
+        warning.assert_not_called()
+
+    def test_generate_run_dir_name_truncates_long_name(self, monkeypatch):
+        """超过长度限制时，应截断并在目录名中体现 truncated 语义"""
+        warning = MagicMock()
+        monkeypatch.setattr("swanlab.sdk.cmd.init.console.warning", warning)
+
+        name, truncated = _generate_run_dir_name("a" * 512, 80)
+
+        assert len(name) <= 80
+        assert "truncated" in name
+        assert truncated is True
+        warning.assert_not_called()
+
+    def test_generate_run_dir_name_uses_hash_to_reduce_conflicts(self, monkeypatch):
+        """相同长前缀但不同内容的 run_id 截断后仍应生成不同名称"""
+        monkeypatch.setattr("swanlab.sdk.cmd.init.console.warning", MagicMock())
+
+        name1, _ = _generate_run_dir_name("a" * 511 + "1", 80)
+        name2, _ = _generate_run_dir_name("a" * 511 + "2", 80)
+
+        assert name1 != name2
+
+    def test_ensure_run_dir_warns_only_for_created_truncated_name(self, tmp_path, monkeypatch):
+        """重试创建目录时，只对最终创建成功的截断目录告警"""
+        warning = MagicMock()
+        call_count = 0
+
+        def mock_generate(_run_id, _max_length):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return "run-20260101_000000-conflict", True
+            return "run-20260101_000001-success", True
+
+        monkeypatch.setattr("swanlab.sdk.cmd.init.console.warning", warning)
+        monkeypatch.setattr("swanlab.sdk.cmd.init._generate_run_dir_name", mock_generate)
+        (tmp_path / "run-20260101_000000-conflict").mkdir()
+
+        run_dir = ensure_run_dir(tmp_path, "a" * 512, max_retries=2, retry_interval=0.01, dir_max_length=80)
+
+        assert run_dir.name == "run-20260101_000001-success"
+        warning.assert_called_once()
+        assert "run-20260101_000001-success" in warning.call_args.args[0]
+
+    def test_ensure_run_dir_does_not_warn_when_truncated_name_never_created(self, tmp_path, monkeypatch):
+        """全部重试失败时，不应对未使用的截断目录告警"""
+        warning = MagicMock()
+        monkeypatch.setattr("swanlab.sdk.cmd.init.console.warning", warning)
+        monkeypatch.setattr(
+            "swanlab.sdk.cmd.init._generate_run_dir_name",
+            lambda _run_id, _max_length: ("run-20260101_000000-conflict", True),
+        )
+        (tmp_path / "run-20260101_000000-conflict").mkdir()
+
+        with pytest.raises(RuntimeError, match="Failed to create a unique run directory after 2 attempts"):
+            ensure_run_dir(tmp_path, "a" * 512, max_retries=2, retry_interval=0.01, dir_max_length=80)
+
+        warning.assert_not_called()
+
+    def test_ensure_run_dir_with_dir_name_creates_once(self, tmp_path):
+        """指定 dir_name 时直接使用，仅创建一次"""
+        run_dir = ensure_run_dir(tmp_path, "abc123", dir_name="my-custom-dir")
+
+        assert run_dir.exists()
+        assert run_dir.name == "my-custom-dir"
+
+    def test_ensure_run_dir_with_dir_name_conflict_raises(self, tmp_path):
+        """指定 dir_name 时目录已存在，直接抛错"""
+        (tmp_path / "my-custom-dir").mkdir()
+
+        with pytest.raises(FileExistsError):
+            ensure_run_dir(tmp_path, "abc123", dir_name="my-custom-dir")

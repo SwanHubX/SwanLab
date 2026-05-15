@@ -11,7 +11,7 @@ import os
 from pathlib import Path
 from typing import Annotated, Any, List, Literal, Optional, cast
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from pydantic_settings import NoDecode
 
 from swanlab.sdk.internal.pkg import constraints as const
@@ -221,8 +221,30 @@ class RunSettings(BaseModel):
     Config file path or dict for this SwanLab run.
     """
 
-    mkdir_retries: int = Field(default=10, ge=1)
+    dir: Optional[str] = Field(
+        default=None,
+        min_length=1,
+        max_length=255,
+        pattern=r"^[^/\\#?%:\x00-\x1f\x7f]+$",
+    )
+    """
+    Custom run directory name. When specified, dir_create_retries is ignored
+    and the directory is created exactly once; creation failure raises an error.
+    """
+
+    dir_max_length: int = Field(default=255, ge=50, le=255)
+    """
+    Maximum length for the generated run directory name.
+    """
+
+    dir_create_retries: int = Field(default=10, ge=1)
     """
     Maximum number of retries for creating a unique run directory.
     If the generated directory name conflicts with an existing one, a new name will be generated after a short delay, up to this many times.
     """
+
+    @model_validator(mode="after")
+    def validate_dir_length(self) -> "RunSettings":
+        if self.dir is not None and len(self.dir) > self.dir_max_length:
+            raise ValueError(f"run.dir length ({len(self.dir)}) exceeds run.dir_max_length ({self.dir_max_length})")
+        return self

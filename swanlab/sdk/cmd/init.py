@@ -13,6 +13,7 @@ import os
 import time
 from datetime import datetime
 from functools import partial
+from hashlib import sha256
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -410,40 +411,72 @@ def send_webhook(ctx: RunContext) -> Tuple[bool, bool]:
     return True, True
 
 
-def ensure_run_dir(log_dir: Path, run_id: str, max_retries: int = 10, retry_interval: float = 1.0) -> Path:
+def ensure_run_dir(
+    log_dir: Path,
+    run_id: str,
+    max_retries: int = 10,
+    retry_interval: float = 1.0,
+    dir_max_length: int = 255,
+    dir_name: Optional[str] = None,
+) -> Path:
     """
     原子化地创建一个不与已有目录冲突的 run_dir。
 
     通过 ``mkdir(exist_ok=False)`` 将"检查不存在 + 创建目录"合并为一个原子操作：
     创建成功即拥有该目录；若抛出 FileExistsError，则等待 retry_interval 秒后，用新时间戳重试，最多重试 max_retries 次。
 
+    当 ``dir_name`` 不为 None 时，直接使用指定目录名，仅创建一次，不重试，失败直接抛错。
+
     :param log_dir: 日志根目录（必须已存在）
     :param run_id: 当前运行的唯一标识符
     :param max_retries: 最大重试次数
     :param retry_interval: 目录冲突时等待的秒数
+    :param dir_max_length: run_dir 目录名最大长度
+    :param dir_name: 用户指定的 run_dir 目录名，指定后仅创建一次不重试
     :return: 创建成功的 run_dir 路径
     :raises RuntimeError: 超过最大重试次数仍无法创建唯一目录
+    :raises FileExistsError: 指定 dir_name 时目录已存在
     """
+    if dir_name is not None:
+        run_dir = log_dir / dir_name
+        fs.safe_mkdir(run_dir, ensure_clean=True)
+        return run_dir
     for i in range(max_retries):
-        run_dir = log_dir / _generate_run_dir_name(run_id)
+        run_dir_name, truncated = _generate_run_dir_name(run_id, dir_max_length)
+        run_dir = log_dir / run_dir_name
         try:
             fs.safe_mkdir(run_dir, ensure_clean=True)
+            if truncated:
+                console.warning(f"Run directory name length exceeds limit, truncated to '{run_dir_name}'.")
             return run_dir
         except FileExistsError:
             if i == max_retries - 1:
                 break
             time.sleep(retry_interval)
+            console.debug(f"Retrying to create a unique run directory, attempt {i + 1} of {max_retries}")
     raise RuntimeError(f"Failed to create a unique run directory after {max_retries} attempts")
 
 
-def _generate_run_dir_name(run_id: str) -> str:
+def _generate_run_dir_name(run_id: str, max_length: int) -> Tuple[str, bool]:
     """
-    生成 run_dir 的目录名，格式为 ``run-{timestamp}-{run_id}``。
+    生成 run_dir 的目录名，格式为 ``run-{timestamp}-{run_id}``，超长时截断。
 
     :param run_id: 当前运行的唯一标识符
-    :return: run_dir 目录名（非完整路径）
+    :param max_length: 目录名最大长度
+    :return: run_dir 目录名（非完整路径）和是否截断
     """
-    return "run-" + datetime.now().strftime("%Y%m%d_%H%M%S") + "-" + run_id
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    name = f"run-{timestamp}-{run_id}"
+    if len(name) <= max_length:
+        return name, False
+
+    digest = sha256(run_id.encode("utf-8")).hexdigest()[:8]
+    prefix = f"run-{timestamp}-truncated-"
+    suffix = f"-{digest}"
+    run_id_max_length = max_length - len(prefix) - len(suffix)
+    truncated_run_id = run_id[:run_id_max_length]
+    truncated_name = f"{prefix}{truncated_run_id}{suffix}"
+    return truncated_name, True
 
 
 def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[RunContext, Optional[str]]:
@@ -464,9 +497,20 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
         # 安全创建目录，并写入 .gitignore（如果目录为空）
         helper.mkdir_and_append_gitignore(run_settings.log_dir)
         # 创建运行子目录，run_dir 必须是新建的，防止误覆盖已有实验数据
-        run_dir = ensure_run_dir(run_settings.log_dir, run_id, max_retries=run_settings.run.mkdir_retries)
+        run_dir = ensure_run_dir(
+            run_settings.log_dir,
+            run_id,
+            max_retries=run_settings.run.dir_create_retries,
+            dir_max_length=run_settings.run.dir_max_length,
+            dir_name=run_settings.run.dir,
+        )
     else:
-        run_dir = run_settings.log_dir / _generate_run_dir_name(run_id)
+        # 禁用模式下的run_dir为一个示例目录，仅用于满足上下文类型限制
+        if run_settings.run.dir:
+            run_dir = run_settings.log_dir / run_settings.run.dir
+        else:
+            run_dir_name, _ = _generate_run_dir_name(run_id, run_settings.run.dir_max_length)
+            run_dir = run_settings.log_dir / run_dir_name
     # 3. 创建一个临时的上下文，避免出现任何问题导致上下文残留
     with use_context(RunContext(config=RunConfig(settings=run_settings, run_dir=run_dir), callbacks=callbacks)) as ctx:
         assert run_settings.project.name, "Project name is required."

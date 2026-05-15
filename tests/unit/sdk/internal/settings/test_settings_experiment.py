@@ -95,3 +95,32 @@ class TestMapResumeValue:
             map_resume_value("invalid")
         with pytest.raises(ValueError, match="Invalid resume value"):
             map_resume_value("maybe")
+
+
+class TestRunDir:
+    def test_dir_valid(self):
+        s = Settings.model_validate({"run": {"dir": "my-custom-dir"}})
+        assert s.run.dir == "my-custom-dir"
+
+    def test_dir_default_none(self):
+        s = Settings()
+        assert s.run.dir is None
+
+    @pytest.mark.parametrize("value", ["bad/dir", "bad\\dir", "bad#dir", "bad?dir", "bad%dir", "bad:dir"])
+    def test_dir_rejects_invalid_chars(self, value):
+        with pytest.raises(Exception):
+            Settings.model_validate({"run": {"dir": value}})
+
+    def test_dir_exceeds_dir_max_length(self):
+        with pytest.raises(Exception, match="run.dir length"):
+            Settings.model_validate({"run": {"dir": "a" * 51, "dir_max_length": 50}})
+
+    def test_dir_within_dir_max_length(self):
+        s = Settings.model_validate({"run": {"dir": "a" * 50, "dir_max_length": 50}})
+        assert s.run.dir is not None
+        assert len(s.run.dir) == 50
+
+    def test_dir_env_injection(self, monkeypatch):
+        monkeypatch.setenv("SWANLAB_RUN_DIR", "from-env")
+        s = Settings()
+        assert s.run.dir == "from-env"

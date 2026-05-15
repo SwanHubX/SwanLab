@@ -153,6 +153,6 @@ def _factory_terminal(ctx: RunContext, e: EmitterProtocol, init_pid: int) -> Ter
     return TerminalProxy(
         emitter=e,
         proxy_type=settings.terminal.proxy_type,
-        max_log_length=settings.terminal.max_log_length,
+        max_log_length=settings.terminal.max_length,
         init_pid=init_pid,
     )
