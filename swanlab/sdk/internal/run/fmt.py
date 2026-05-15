@@ -240,7 +240,7 @@ def _infer_save_base_path(glob_path: Path) -> Path:
 
 
 def resolve_save_paths(
-    glob_str: Union[str, bytes],
+    glob_str: Union[str, bytes, Path],
     base_path: Optional[Union[str, Path]] = None,
 ) -> Optional[Tuple[Path, Path]]:
     """Validate and resolve glob and base paths for swanlab.save().
@@ -261,9 +261,12 @@ def resolve_save_paths(
         except UnicodeDecodeError:
             console.error("Glob pattern bytes must be valid UTF-8. SwanLab will ignore this save.")
             return None
+    elif isinstance(glob_str, Path):
+        glob_str = str(glob_str)
     elif not isinstance(glob_str, str):
         console.error(
-            f"Glob pattern must be a string or bytes, but got {type(glob_str).__name__}. SwanLab will ignore this save."
+            f"Glob pattern must be a string, bytes, or Path, but got {type(glob_str).__name__}. "
+            "SwanLab will ignore this save."
         )
         return None
 
