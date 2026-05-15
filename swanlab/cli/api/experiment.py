@@ -211,8 +211,20 @@ def list_experiment_columns(
     type=click.Choice(["step", "timestamp"], case_sensitive=False),
     help="Range query type: 'step' or 'timestamp'.",
 )
-@click.option("--range-start", "range_start", default=None, type=click.IntRange(min=0), help="Range start (inclusive).")
-@click.option("--range-end", "range_end", default=None, type=click.IntRange(min=0), help="Range end (inclusive).")
+@click.option(
+    "--range-start",
+    "range_start",
+    default=None,
+    type=click.IntRange(min=0),
+    help="Range start (inclusive). Step number or Unix timestamp in milliseconds.",
+)
+@click.option(
+    "--range-end",
+    "range_end",
+    default=None,
+    type=click.IntRange(min=0),
+    help="Range end (inclusive). Step number or Unix timestamp in milliseconds.",
+)
 @click.option("--range-head", "range_head", default=None, type=click.IntRange(min=1), help="First N data points.")
 @click.option("--range-tail", "range_tail", default=None, type=click.IntRange(min=1), help="Last N data points.")
 @click.option(

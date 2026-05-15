@@ -123,6 +123,20 @@ Structure per data point:
 
 **Sampling**: By default, `--sample 1500` returns downsampled data for visualization. Use `--all` to fetch all data points without sampling limit.
 
+**Range Query** (client-side CSV filtering): When you need only a subset of scalar data points, use range query options to download the full CSV and filter client-side:
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--range-type` | `step` | Filter axis: `step` (by step number) or `timestamp` (by Unix timestamp in **milliseconds**) |
+| `--range-start` | none | Start value, inclusive (int ≥ 0) |
+| `--range-end` | none | End value, inclusive (int ≥ 0) |
+| `--range-head` | none | First N data points (int ≥ 1). Mutually exclusive with `--range-tail` |
+| `--range-tail` | none | Last N data points (int ≥ 1). Mutually exclusive with `--range-head` |
+
+- `--range-start` must be ≤ `--range-end`.
+- When `--range-type timestamp` is used, rows missing a timestamp column are skipped.
+- Range query bypasses the sampling API entirely — it streams and filters the CSV export directly. Statistics (min/max/avg/median/latest) are still fetched via the sampling API and are **not** affected by the range filter.
+
 ### Media Metrics (e.g. images, audio)
 
 File-based data stored per step. Each media item has a presigned download URL.
