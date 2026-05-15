@@ -157,7 +157,11 @@ class TestSaveValidators:
     def test_safe_validate_save_policy_accepts_valid_policy(self, policy):
         assert fmt.safe_validate_save_policy(policy) == policy
 
-    @pytest.mark.parametrize("policy", ["invalid", "NOW", "", None, 1])
+    @pytest.mark.parametrize(("policy", "expected"), [("NOW", "now"), ("End", "end"), ("LIVE", "live")])
+    def test_safe_validate_save_policy_normalizes_case(self, policy, expected):
+        assert fmt.safe_validate_save_policy(policy) == expected
+
+    @pytest.mark.parametrize("policy", ["invalid", "", None, 1])
     def test_safe_validate_save_policy_rejects_invalid_policy(self, policy):
         assert fmt.safe_validate_save_policy(policy) is None
 
