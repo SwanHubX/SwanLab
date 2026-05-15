@@ -12,6 +12,7 @@ from swanlab.api.selfhosted import SelfHosted
 from swanlab.api.typings.common import PaginatedQuery
 from swanlab.api.typings.selfhosted import ApiSelfHostedInfoType
 from swanlab.api.utils import (
+    parse_timestamp_ms,
     validate_column_params,
     validate_filter,
     validate_group,
@@ -191,3 +192,32 @@ class TestSelfHostedValidation:
     def test_validate_root_expired(self):
         with pytest.raises(ValueError, match="expired"):
             SelfHosted.validate_root(self._make_info(expired=True, root=True))
+
+
+# ---------------------------------------------------------------------------
+# parse_timestamp_ms
+# ---------------------------------------------------------------------------
+class TestParseTimestampMs:
+    def test_int_timestamp_ms(self):
+        assert parse_timestamp_ms(1715769600123) == 1715769600123
+
+    def test_int_timestamp_seconds_to_ms(self):
+        assert parse_timestamp_ms(1715769600) == 1715769600_000
+
+    def test_numeric_string_ms(self):
+        assert parse_timestamp_ms("1715769600123") == 1715769600123
+
+    def test_numeric_string_seconds_to_ms(self):
+        assert parse_timestamp_ms("1715769600") == 1715769600_000
+
+    def test_invalid_string_raises(self):
+        with pytest.raises(ValueError, match="Invalid timestamp"):
+            parse_timestamp_ms("not-a-timestamp")
+
+    def test_unsupported_type_raises(self):
+        with pytest.raises(ValueError, match="Expected str or int"):
+            parse_timestamp_ms(None)  # type: ignore[arg-type]
+
+    def test_float_raises(self):
+        with pytest.raises(ValueError, match="Expected str or int"):
+            parse_timestamp_ms(1715769600.0)  # type: ignore[arg-type]

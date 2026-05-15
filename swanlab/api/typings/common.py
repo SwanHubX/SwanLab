@@ -147,16 +147,16 @@ class RangeQuery(BaseModel, frozen=True):
     """
     SCALAR 指标范围查询参数。
 
-    type: 维度，目前仅支持 "step"
-    start: 起始 step（含），None 表示从头开始
-    end: 结束 step（含），None 表示到最后
+    type: 维度，支持 "step" / "timestamp"
+    start: 起始边界（含），None 表示从头开始
+    end: 结束边界（含），None 表示到最后
     head: 取前 N 条（与 tail 互斥）
     tail: 取后 N 条（与 head 互斥）
 
     head/tail 与 start/end 可组合：先 start/end 过滤，再取 head/tail。
     """
 
-    type: Literal["step"] = "step"
+    type: Literal["step", "timestamp"] = "step"
     start: Optional[int] = Field(default=None, ge=0)
     end: Optional[int] = Field(default=None, ge=0)
     head: Optional[int] = Field(default=None, gt=0)

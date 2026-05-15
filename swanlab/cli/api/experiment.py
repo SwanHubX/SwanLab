@@ -208,8 +208,8 @@ def list_experiment_columns(
     "--range-type",
     "range_type",
     default=None,
-    type=click.Choice(["step"], case_sensitive=False),
-    help="Range query type. Currently only 'step' is supported.",
+    type=click.Choice(["step", "timestamp"], case_sensitive=False),
+    help="Range query type: 'step' or 'timestamp'.",
 )
 @click.option("--range-start", "range_start", default=None, type=click.IntRange(min=0), help="Range start (inclusive).")
 @click.option("--range-end", "range_end", default=None, type=click.IntRange(min=0), help="Range end (inclusive).")

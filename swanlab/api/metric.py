@@ -66,15 +66,33 @@ def _stream_csv_rows(
         except (ValueError, IndexError):
             continue
 
+        item: Dict[str, Any] = {"step": step, "value": value}
+
+        if len(row) >= 3:
+            try:
+                item["timestamp"] = int(row[2])
+            except (ValueError, IndexError):
+                pass
+
         if rq is not None:
-            if rq.start is not None and step < rq.start:
-                continue
-            if rq.end is not None and step > rq.end:
-                break
+            if rq.type == "timestamp":
+                ts = item.get("timestamp")
+                if ts is None:
+                    console.warning(f"CSV row missing timestamp column: {row}")
+                    continue
+                if rq.start is not None and ts < rq.start:
+                    continue
+                if rq.end is not None and ts > rq.end:
+                    break
+            else:
+                if rq.start is not None and step < rq.start:
+                    continue
+                if rq.end is not None and step > rq.end:
+                    break
             if rq.head is not None and len(rows) >= rq.head:
                 break
 
-        rows.append({"step": step, "value": value})
+        rows.append(item)
 
     if rq is not None and rq.tail is not None:
         rows = rows[-rq.tail :]

@@ -6,7 +6,7 @@
 """
 
 import re
-from typing import Any, Dict, List, Optional, Set, Tuple, Type, get_args, get_type_hints
+from typing import Any, Dict, List, Optional, Set, Tuple, Type, Union, get_args, get_type_hints
 
 from swanlab.api.typings.common import (
     ApiColumnClassLiteral,
@@ -202,6 +202,35 @@ def parse_column_data_type(column_type: str):
         return "SCALAR"
     # 新加入的类型默认指定为 media
     return "MEDIA"
+
+
+# ---------------------------------------------------------------------------
+# 时间戳解析辅助函数
+# ---------------------------------------------------------------------------
+
+
+def parse_timestamp_ms(value: Union[int, str]) -> int:
+    """将时间戳统一转换为毫秒级 Unix 时间戳。
+
+    支持格式：
+    - int（直接视为毫秒级时间戳）
+    - 数字字符串（直接视为毫秒级时间戳）
+    不足毫秒级（< 13 位）的值会自动补齐到毫秒级。
+    """
+    if isinstance(value, int):
+        v = value
+    elif isinstance(value, str):
+        value = value.strip()
+        try:
+            v = int(value)
+        except ValueError as exc:
+            raise ValueError(f"Invalid timestamp: {value!r}, expected numeric timestamp") from exc
+    else:
+        raise ValueError(f"Expected str or int for timestamp value, got {type(value).__name__}")
+
+    while v < 1_000_000_000_000:
+        v *= 10
+    return v
 
 
 # ---------------------------------------------------------------------------
