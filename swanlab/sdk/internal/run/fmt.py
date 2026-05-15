@@ -207,6 +207,8 @@ def safe_validate_save_policy(policy: Any) -> Optional[SaveType]:
     :param policy: 待检查的文件保存策略
     :return: 合法的文件保存策略或 None
     """
+    if isinstance(policy, str):
+        policy = policy.lower()
     if policy not in get_args(SaveType):
         return None
     return cast(SaveType, policy)
