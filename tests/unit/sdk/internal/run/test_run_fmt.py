@@ -5,6 +5,8 @@
 @description: 测试run工具函数
 """
 
+from pathlib import Path
+
 import pytest
 
 import swanlab.sdk.internal.run.fmt as fmt
@@ -173,6 +175,13 @@ class TestResolveSavePaths:
         monkeypatch.chdir(tmp_path)
 
         resolved = fmt.resolve_save_paths("model.pt")
+
+        assert resolved == ((tmp_path / "model.pt").resolve(), tmp_path.resolve())
+
+    def test_resolve_path_glob_uses_cwd_as_base(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+
+        resolved = fmt.resolve_save_paths(Path("model.pt"))
 
         assert resolved == ((tmp_path / "model.pt").resolve(), tmp_path.resolve())
 

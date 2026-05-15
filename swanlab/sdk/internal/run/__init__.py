@@ -644,7 +644,7 @@ class Run:
     @with_api("run.save()")
     def save(
         self,
-        glob_str: Union[str, bytes],
+        glob_str: Union[str, bytes, Path],
         base_path: Optional[Union[str, Path]] = None,
         policy: Literal["now", "end", "live"] = "live",
     ) -> List[str]:
