@@ -6,6 +6,7 @@
 """
 
 import json
+from hashlib import sha256
 from unittest.mock import MagicMock
 
 import pytest
@@ -308,6 +309,26 @@ class TestEnsureRunDir:
         name2, _ = _generate_run_dir_name("a" * 511 + "2", 80)
 
         assert name1 != name2
+
+    def test_generate_run_dir_name_zero_id_space(self, monkeypatch):
+        """max_length 刚好等于 prefix + suffix 长度时，run_id 被完全截去，结果不超限"""
+        monkeypatch.setattr("swanlab.sdk.cmd.init.console.warning", MagicMock())
+        timestamp = "20260101_000000"
+        monkeypatch.setattr(
+            "swanlab.sdk.cmd.init.datetime", MagicMock(now=lambda: MagicMock(strftime=lambda _: timestamp))
+        )
+
+        run_id = "a" * 512
+        prefix = f"run-{timestamp}-truncated-"
+        digest = sha256(run_id.encode("utf-8")).hexdigest()[:8]
+        suffix = f"-{digest}"
+        max_length = len(prefix) + len(suffix)
+
+        name, truncated = _generate_run_dir_name(run_id, max_length)
+
+        assert len(name) == max_length
+        assert name == prefix + suffix
+        assert truncated is True
 
     def test_ensure_run_dir_warns_only_for_created_truncated_name(self, tmp_path, monkeypatch):
         """重试创建目录时，只对最终创建成功的截断目录告警"""
