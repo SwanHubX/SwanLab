@@ -474,6 +474,7 @@ def _generate_run_dir_name(run_id: str, max_length: int) -> Tuple[str, bool]:
     prefix = f"run-{timestamp}-truncated-"
     suffix = f"-{digest}"
     run_id_max_length = max_length - len(prefix) - len(suffix)
+    # max 防止 run_id_max_length 为 0，虽然在上层settings中存在约束，这里加一层约束能更安全一些
     truncated_run_id = run_id[: max(1, run_id_max_length)]
     truncated_name = f"{prefix}{truncated_run_id}{suffix}"
     return truncated_name, True
