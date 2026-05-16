@@ -6,12 +6,12 @@
 """
 
 from pathlib import Path
-from typing import Any, Dict, Mapping, Optional, Tuple, Union, get_args
+from typing import Any, Dict, Mapping, Optional, Tuple, Union, cast, get_args
 
 from pydantic import ValidationError
 
 from swanlab.sdk.internal.pkg import console, constraints, safe
-from swanlab.sdk.typings.run import FinishType
+from swanlab.sdk.typings.run import FinishType, SaveType
 from swanlab.sdk.typings.run.column import ScalarXAxisType
 
 
@@ -200,6 +200,21 @@ def safe_validate_state(state: FinishType) -> Optional[FinishType]:
     return state
 
 
+def safe_validate_save_policy(policy: Any) -> Optional[SaveType]:
+    """
+    检查文件保存策略，如果出现非法值，返回 None。
+
+    :param policy: 待检查的文件保存策略
+    :return: 合法的文件保存策略或 None
+    """
+    if not isinstance(policy, str):
+        return None
+    policy = policy.lower()
+    if policy not in get_args(SaveType):
+        return None
+    return cast(SaveType, policy)
+
+
 def _infer_save_base_path(glob_path: Path) -> Path:
     """从绝对 glob 路径推断默认 base_path。
 
@@ -226,7 +241,7 @@ def _infer_save_base_path(glob_path: Path) -> Path:
 
 
 def resolve_save_paths(
-    glob_str: Union[str, bytes],
+    glob_str: Union[str, bytes, Path],
     base_path: Optional[Union[str, Path]] = None,
 ) -> Optional[Tuple[Path, Path]]:
     """Validate and resolve glob and base paths for swanlab.save().
@@ -242,28 +257,51 @@ def resolve_save_paths(
     :return: ``(resolved_glob, resolved_base)`` or ``None``.
     """
     if isinstance(glob_str, bytes):
-        glob_str = glob_str.decode("utf-8")
+        try:
+            glob_str = glob_str.decode("utf-8")
+        except UnicodeDecodeError:
+            console.error("Glob pattern bytes must be valid UTF-8. SwanLab will ignore this save.")
+            return None
+    elif isinstance(glob_str, Path):
+        glob_str = str(glob_str)
+    elif not isinstance(glob_str, str):
+        console.error(
+            f"Glob pattern must be a string, bytes, or Path, but got {type(glob_str).__name__}. "
+            "SwanLab will ignore this save."
+        )
+        return None
+
+    if base_path is not None and not isinstance(base_path, (str, Path)):
+        console.error(
+            f"Base path must be a string, Path, or None, but got {type(base_path).__name__}. "
+            "SwanLab will ignore this save."
+        )
+        return None
 
     if glob_str.startswith(("gs://", "s3://")):
         console.warning(f"'{glob_str}' is a cloud storage URL and cannot be saved to SwanLab.")
         return None
 
-    glob_path = Path(glob_str)
-    resolved_glob = glob_path.resolve()
+    try:
+        glob_path = Path(glob_str)
+        resolved_glob = glob_path.resolve()
 
-    if base_path is not None:
-        resolved_base = Path(base_path).resolve()
-    elif not glob_path.is_absolute():
-        resolved_base = Path(".").resolve()
-    else:
-        resolved_base = _infer_save_base_path(resolved_glob)
-        console.warning(
-            f"Saving files from absolute path '{glob_str}' without a base_path. "
-            f"SwanLab will default to base_path='{resolved_base}' "
-            "to preserve the immediate parent directory. "
-            "If you want to preserve a different directory structure, "
-            "explicitly pass 'base_path' to swanlab.save"
-        )
+        if base_path is not None:
+            resolved_base = Path(base_path).resolve()
+        elif not glob_path.is_absolute():
+            resolved_base = Path(".").resolve()
+        else:
+            resolved_base = _infer_save_base_path(resolved_glob)
+            console.warning(
+                f"Saving files from absolute path '{glob_str}' without a base_path. "
+                f"SwanLab will default to base_path='{resolved_base}' "
+                "to preserve the immediate parent directory. "
+                "If you want to preserve a different directory structure, "
+                "explicitly pass 'base_path' to swanlab.save"
+            )
+    except (TypeError, ValueError, OSError) as e:
+        console.error(f"Failed to resolve save paths: {e}. SwanLab will ignore this save.")
+        return None
 
     try:
         resolved_glob.relative_to(resolved_base)
