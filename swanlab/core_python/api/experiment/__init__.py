@@ -5,7 +5,7 @@
 @description: 定义实验相关的后端API接口
 """
 
-from typing import TYPE_CHECKING, Dict, Iterable, List, Literal, Union
+from typing import TYPE_CHECKING, Dict, Iterable, List, Literal, Union, Any
 
 from swanlab.core_python.api.type import RunType
 
@@ -66,7 +66,7 @@ def get_project_experiments(
     client: "Client",
     *,
     path: str,
-    filters: Dict[str, object] = None,
+    filters: Dict[str, Any] = None,
 ) -> Union[List[RunType], Dict[str, List[RunType]]]:
     """
     获取指定项目下的所有实验信息
@@ -79,6 +79,8 @@ def get_project_experiments(
         - 'name': 按实验名筛选，值为字符串
         - 'username': 按创建人筛选，值为字符串
         - 'job_type': 按任务类型筛选，值为字符串
+        - 'createdAt'/'updatedAt'/'finishedAt': 按时间筛选，值为列表，
+          列表元素为 {"op": "GTE"|"LTE"|"EQ"|..., "value": "ISO8601时间字符串"}
     """
     # 特殊筛选条件配置：用户侧 key -> 后端 key 和操作符
     special_filter_config = {
@@ -89,18 +91,18 @@ def get_project_experiments(
         "job_type": {"key": "job", "op": "EQ"},
     }
 
+    time_filter_config = ("createdAt", "updatedAt", "finishedAt")
+
     parsed_filters = []
 
     if filters:
         for key, value in filters.items():
             if key in special_filter_config:
-                # 特殊字段处理
                 config = special_filter_config[key]
-                # tags 需要转换为列表
                 filter_value = (
-                    list(value)
+                    [str(v) for v in value]
                     if key == "tags" and isinstance(value, (list, tuple))
-                    else [value]
+                    else [str(value)]
                 )
                 parsed_filters.append(
                     {
@@ -111,6 +113,17 @@ def get_project_experiments(
                         "type": "STABLE",
                     }
                 )
+            elif key in time_filter_config:
+                if not isinstance(value, list):
+                    value = [value]
+                for item in value:
+                    parsed_filters.append({
+                        "type": "STABLE",
+                        "key": key,
+                        "op": item["op"],
+                        "value": [item["value"]],
+                        "active": True,
+                    })
             else:
                 # 常规字段处理
                 parsed_filters.append(
@@ -119,7 +132,7 @@ def get_project_experiments(
                         if parse_column_type(key) == "STABLE"
                         else key.split(".", 1)[-1],
                         "active": True,
-                        "value": [value],
+                        "value": [str(value)],
                         "op": "EQ",
                         "type": parse_column_type(key),
                     }
