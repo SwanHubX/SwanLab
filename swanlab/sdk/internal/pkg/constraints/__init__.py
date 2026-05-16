@@ -22,6 +22,7 @@ __all__ = [
     "Group",
     "JobType",
     "RunId",
+    "RunDir",
     "MetricKey",
     "MetricName",
     # TypeAdapters
@@ -39,6 +40,13 @@ __all__ = [
     # value
     "METRIC_KEY_MAX_LENGTH",
 ]
+
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+METRIC_KEY_MAX_LENGTH = 512
+
+OS_SAFE_PATTERN = r'^[^<>:"/\\|?*#%\x00-\x1f\x7f]+$'
 
 # ---------------------------------------------------------------------------
 # Annotated types — single source of truth for field constraints
@@ -85,9 +93,15 @@ JobType = Annotated[str, Field(min_length=1, max_length=512)]
 
 RunId = Annotated[
     str,
-    Field(min_length=1, max_length=512, pattern=r"^[^/\\#?%:]+$"),
+    Field(min_length=1, max_length=512, pattern=OS_SAFE_PATTERN),
 ]
-"""Run ID: 1-512 chars, must not contain ``/``, ``\\``, ``#``, ``?``, ``%``, or ``:``."""
+"""Run ID: 1-512 chars, must not contain OS-reserved characters or control characters."""
+
+RunDir = Annotated[
+    str,
+    Field(min_length=1, max_length=255, pattern=OS_SAFE_PATTERN),
+]
+"""Custom run directory name: 1-255 chars, must not contain OS-reserved characters or control characters."""
 
 
 def _no_dot_slash_edges(v: str) -> str:
@@ -95,8 +109,6 @@ def _no_dot_slash_edges(v: str) -> str:
         raise ValueError(f"Key '{v}' cannot start or end with '.' or '/'.")
     return v
 
-
-METRIC_KEY_MAX_LENGTH = 512
 
 MetricKey = Annotated[
     str,

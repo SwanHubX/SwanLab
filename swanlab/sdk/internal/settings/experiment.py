@@ -221,12 +221,7 @@ class RunSettings(BaseModel):
     Config file path or dict for this SwanLab run.
     """
 
-    dir: Optional[str] = Field(
-        default=None,
-        min_length=1,
-        max_length=255,
-        pattern=r"^[^/\\#?%:\x00-\x1f\x7f]+$",
-    )
+    dir: Optional[const.RunDir] = Field(default=None)
     """
     Custom run directory name. When specified, dir_create_retries is ignored
     and the directory is created exactly once; creation failure raises an error.

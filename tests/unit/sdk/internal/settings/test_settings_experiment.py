@@ -98,18 +98,9 @@ class TestMapResumeValue:
 
 
 class TestRunDir:
-    def test_dir_valid(self):
-        s = Settings.model_validate({"run": {"dir": "my-custom-dir"}})
-        assert s.run.dir == "my-custom-dir"
-
     def test_dir_default_none(self):
         s = Settings()
         assert s.run.dir is None
-
-    @pytest.mark.parametrize("value", ["bad/dir", "bad\\dir", "bad#dir", "bad?dir", "bad%dir", "bad:dir"])
-    def test_dir_rejects_invalid_chars(self, value):
-        with pytest.raises(Exception):
-            Settings.model_validate({"run": {"dir": value}})
 
     def test_dir_exceeds_dir_max_length(self):
         with pytest.raises(Exception, match="run.dir length"):

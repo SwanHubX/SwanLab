@@ -1,6 +1,6 @@
 """
 @author: cunyue
-@file: test_constraints.py
+@file: test_pkg_constraints.py
 @time: 2026/3/13
 @description: 测试 swanlab.sdk.internal.pkg.constraints 字段约束模块
 """
@@ -16,6 +16,7 @@ from swanlab.sdk.internal.pkg.constraints import (
     JobType,
     MetricKey,
     ProjectName,
+    RunDir,
     RunId,
     TagString,
     Workspace,
@@ -236,6 +237,51 @@ class TestRunId:
             "run?id",  # contains ?
             "run%id",  # contains %
             "run:id",  # contains :
+            "run<id",  # contains <
+            "run>id",  # contains >
+            'run"id',  # contains "
+            "run|id",  # contains |
+            "run*id",  # contains *
+            "run\x00id",  # contains control char
+        ],
+    )
+    def test_invalid(self, value):
+        with pytest.raises(ValidationError):
+            self.adapter.validate_python(value)
+
+
+# ---------------------------------------------------------------------------
+# RunDir
+# ---------------------------------------------------------------------------
+
+
+class TestRunDir:
+    adapter = TypeAdapter(RunDir)
+
+    @pytest.mark.parametrize(
+        "value",
+        ["my-custom-dir", "run_001", "d" * 255, "实验目录", "dir with spaces"],
+    )
+    def test_valid(self, value):
+        assert self.adapter.validate_python(value) == value
+
+    @pytest.mark.parametrize(
+        "value",
+        [
+            "",  # empty
+            "d" * 256,  # too long
+            "bad/dir",  # contains /
+            "bad\\dir",  # contains \
+            "bad#dir",  # contains #
+            "bad?dir",  # contains ?
+            "bad%dir",  # contains %
+            "bad:dir",  # contains :
+            "bad<dir",  # contains <
+            "bad>dir",  # contains >
+            'bad"dir',  # contains "
+            "bad|dir",  # contains |
+            "bad*dir",  # contains *
+            "bad\x00dir",  # contains control char
         ],
     )
     def test_invalid(self, value):
