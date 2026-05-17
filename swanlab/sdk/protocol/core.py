@@ -17,6 +17,7 @@ from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
     DeliverRunStartRequest,
     DeliverRunStartResponse,
 )
+from swanlab.proto.swanlab.grpc.core.v1.sync_pb2 import DeliverSyncStartRequest
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord, ScalarRecord
 from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord
@@ -24,7 +25,7 @@ from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogRecord
 from swanlab.sdk.internal.pkg import safe
 from swanlab.sdk.typings.run import ModeType
 
-__all__ = ["CoreEnum", "CoreProtocol"]
+__all__ = ["CoreEnum", "CoreProtocol", "CoreSyncProtocol"]
 
 
 class CoreEnum(str, Enum):
@@ -327,3 +328,16 @@ class CoreProtocol(ABC):
         创建一个新的 CoreProtocol，此函数用于处理多进程fork的情况
         """
         ...
+
+
+class CoreSyncProtocol(ABC):
+    """
+    SwanLab Core Sync 协议
+    负责完成Sync业务，设计理念与 core 类似
+    """
+
+    def deliver_sync_start(self, start_request: DeliverSyncStartRequest):
+        return
+
+    def deliver_sync_finish(self):
+        pass
