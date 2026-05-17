@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Optional
 
 from swanlab.sdk.internal.core_python.sync import CoreSyncPython
+from swanlab.sdk.internal.pkg import helper
 from swanlab.sdk.internal.settings import Settings
 from swanlab.sdk.protocol.core import CoreSyncProtocol
 
@@ -35,4 +36,8 @@ def sync(run_dir: Path, settings: Optional[Settings] = None):
 
 
 def _create_core_sync() -> CoreSyncProtocol:
-    return CoreSyncPython()
+    if helper.get_core_impl() == "python":
+        return CoreSyncPython()
+    else:
+        # TODO: Core 微服务无感接入
+        raise NotImplementedError("The SwanLab Go core sync runtime is not available yet.")

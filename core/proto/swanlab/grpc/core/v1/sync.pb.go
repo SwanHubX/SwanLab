@@ -7,6 +7,7 @@
 package corev1
 
 import (
+	_ "github.com/swanhubx/swanlab/core/proto/swanlab/run/v1"
 	v1 "github.com/swanhubx/swanlab/core/proto/swanlab/settings/core/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -27,6 +28,8 @@ const (
 type DeliverSyncStartRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	CoreSettings  *v1.CoreSettings       `protobuf:"bytes,1,opt,name=core_settings,json=coreSettings,proto3" json:"core_settings,omitempty"` // 同步服务启动配置
+	Project       string                 `protobuf:"bytes,2,opt,name=project,proto3" json:"project,omitempty"`                               // 用于标识同步到哪个项目上，如果不传递，默认使用start record中记录的项目
+	Id            string                 `protobuf:"bytes,3,opt,name=id,proto3" json:"id,omitempty"`                                         // 运行id，如果run id在对应实验上已经存在，则等同于resume模式
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -68,13 +71,29 @@ func (x *DeliverSyncStartRequest) GetCoreSettings() *v1.CoreSettings {
 	return nil
 }
 
+func (x *DeliverSyncStartRequest) GetProject() string {
+	if x != nil {
+		return x.Project
+	}
+	return ""
+}
+
+func (x *DeliverSyncStartRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
 var File_swanlab_grpc_core_v1_sync_proto protoreflect.FileDescriptor
 
 const file_swanlab_grpc_core_v1_sync_proto_rawDesc = "" +
 	"\n" +
-	"\x1fswanlab/grpc/core/v1/sync.proto\x12\x14swanlab.grpc.core.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a#swanlab/settings/core/v1/core.proto\"f\n" +
+	"\x1fswanlab/grpc/core/v1/sync.proto\x12\x14swanlab.grpc.core.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x18swanlab/run/v1/run.proto\x1a#swanlab/settings/core/v1/core.proto\"\x90\x01\n" +
 	"\x17DeliverSyncStartRequest\x12K\n" +
-	"\rcore_settings\x18\x01 \x01(\v2&.swanlab.settings.core.v1.CoreSettingsR\fcoreSettings2\xb1\x01\n" +
+	"\rcore_settings\x18\x01 \x01(\v2&.swanlab.settings.core.v1.CoreSettingsR\fcoreSettings\x12\x18\n" +
+	"\aproject\x18\x02 \x01(\tR\aproject\x12\x0e\n" +
+	"\x02id\x18\x03 \x01(\tR\x02id2\xb1\x01\n" +
 	"\x0fCoreSyncService\x12Y\n" +
 	"\x10DeliverSyncStart\x12-.swanlab.grpc.core.v1.DeliverSyncStartRequest\x1a\x16.google.protobuf.Empty\x12C\n" +
 	"\x11DeliverSyncFinish\x12\x16.google.protobuf.Empty\x1a\x16.google.protobuf.EmptyBDZBgithub.com/swanhubx/swanlab/core/proto/swanlab/grpc/core/v1;corev1b\x06proto3"

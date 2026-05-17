@@ -3,6 +3,7 @@ syntax = "proto3";
 package swanlab.grpc.core.v1;
 
 import "google/protobuf/empty.proto";
+import "swanlab/run/v1/run.proto";
 import "swanlab/settings/core/v1/core.proto";
 
 option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/grpc/core/v1;corev1";
@@ -19,4 +20,6 @@ service CoreSyncService {
 // DeliverSyncStart 请求，同步服务启动配置
 message DeliverSyncStartRequest {
   swanlab.settings.core.v1.CoreSettings core_settings = 1;  // 同步服务启动配置
+  string  project                                     = 2;  // 用于标识同步到哪个项目上，如果不传递，默认使用start record中记录的项目
+  string  id                                          = 3;  // 运行id，如果run id在对应实验上已经存在，则等同于resume模式
 }
