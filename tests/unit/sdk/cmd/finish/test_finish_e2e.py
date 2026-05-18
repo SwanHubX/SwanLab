@@ -79,3 +79,11 @@ class TestFinishE2E:
         run.finish()
         assert len(warnings) == 1
         assert "already finished" in warnings[0]
+
+    def test_other_cmd_raises_after_finish(self):
+        """finish 后调用 log（非 finish 命令）应抛出 RuntimeError，证明 allow_finished 仅对 finish 生效"""
+        init(mode="disabled")
+        finish()
+
+        with pytest.raises(RuntimeError, match="`swanlab.log` requires an active Run"):
+            swanlab.log({"x": 1})
