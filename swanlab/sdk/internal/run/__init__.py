@@ -788,7 +788,7 @@ def has_run() -> bool:
 
 def has_finished_run() -> bool:
     """Check whether a finished run available."""
-    return _finished_run
+    return _finished_run or (_current_run is not None and not _current_run.alive)
 
 
 def _reset_finish_validation() -> None:
