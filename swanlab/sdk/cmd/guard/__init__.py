@@ -10,7 +10,7 @@ from functools import wraps
 from typing import Callable
 
 from swanlab.sdk.internal.pkg import console, fork
-from swanlab.sdk.internal.run import has_finished_run, has_run
+from swanlab.sdk.internal.run import has_run
 
 _CMD_LOCK = threading.Lock()
 
@@ -51,8 +51,8 @@ def with_run(cmd: str, allow_finished: bool = False):
         @wraps(func)
         def wrapper(*args, **kwargs):
             if not has_run():
-                if allow_finished and has_finished_run():
-                    console.warning("SwanLab Run has already finished.")
+                if allow_finished:
+                    console.warning("SwanLab Run has already finished or has not started.")
                     return None
                 raise RuntimeError(f"`swanlab.{cmd}` requires an active Run, call `swanlab.init()` first.")
             return func(*args, **kwargs)

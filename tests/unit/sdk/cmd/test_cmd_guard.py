@@ -87,10 +87,9 @@ class TestWithRun:
 
 
 class TestWithRunAllowFinished:
-    def test_warns_when_finished_and_allow_finished(self, monkeypatch):
-        """has_run() 为 False、has_finished_run() 为 True 且 allow_finished=True 时，打印警告并返回 None"""
+    def test_warns_when_no_run_and_allow_finished(self, monkeypatch):
+        """has_run() 为 False 且 allow_finished=True 时，打印统一警告并返回 None"""
         monkeypatch.setattr("swanlab.sdk.cmd.guard.has_run", lambda: False)
-        monkeypatch.setattr("swanlab.sdk.cmd.guard.has_finished_run", lambda: True)
         warnings = []
         monkeypatch.setattr("swanlab.sdk.cmd.guard.console.warning", lambda msg, *a, **kw: warnings.append(msg))
 
@@ -100,31 +99,17 @@ class TestWithRunAllowFinished:
 
         result = my_func()
         assert result is None
-        assert len(warnings) == 1
-        assert "already finished" in warnings[0]
+        assert warnings == ["SwanLab Run has already finished or has not started."]
 
     def test_raises_when_no_run_and_not_allow_finished(self, monkeypatch):
-        """allow_finished=False 时，即使 has_finished_run() 为 True 也应抛异常"""
+        """allow_finished=False 时仍应抛异常"""
         monkeypatch.setattr("swanlab.sdk.cmd.guard.has_run", lambda: False)
-        monkeypatch.setattr("swanlab.sdk.cmd.guard.has_finished_run", lambda: True)
 
         @with_run("log", allow_finished=False)
         def my_func():
             return "should not reach"
 
         with pytest.raises(RuntimeError, match="`swanlab.log` requires an active Run"):
-            my_func()
-
-    def test_raises_when_no_run_and_allow_finished_but_no_finished_run(self, monkeypatch):
-        """allow_finished=True 但 has_finished_run() 为 False 时仍应抛异常（从未 init 过）"""
-        monkeypatch.setattr("swanlab.sdk.cmd.guard.has_run", lambda: False)
-        monkeypatch.setattr("swanlab.sdk.cmd.guard.has_finished_run", lambda: False)
-
-        @with_run("finish", allow_finished=True)
-        def my_func():
-            return "should not reach"
-
-        with pytest.raises(RuntimeError, match="`swanlab.finish` requires an active Run"):
             my_func()
 
 

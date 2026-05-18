@@ -55,7 +55,7 @@ from swanlab.sdk.typings.run.transforms.video import VideoDatasType
 
 from . import fmt
 
-__all__ = ["Run", "has_run", "get_run", "set_run", "clear_run", "has_finished_run"]
+__all__ = ["Run", "has_run", "get_run", "set_run", "clear_run"]
 
 
 def with_api(cmd: str, must_alive: bool = True):
@@ -120,7 +120,6 @@ class Run:
 
     def __init__(self, ctx: RunContext, path: Optional[str] = None):
         # 1. 基础状态、组件准备
-        _reset_finish_validation()
         self._ctx = ctx
         # 运行实验路径，/:username/:project_name/:run_id
         self._path = path
@@ -721,7 +720,7 @@ class Run:
         """
         # 1. 状态校验
         if not self.alive:
-            console.warning("SwanLab Run has already finished.")
+            console.warning("SwanLab Run has already finished or has not started.")
             return
         state = state.lower()  # type: ignore
         if not (this_state := fmt.safe_validate_state(cast(FinishType, state))):
@@ -757,7 +756,6 @@ class Run:
         signal.signal(signal.SIGINT, self._original_sigint_handler)
         # 清理全局运行实例
         console.debug("Cleanup global instance...")
-        _mark_finish_completed()
         clear_run()
         console.debug("Clean & tidy! ciallo ( ∠・ω< ) ~ ★")
         # 释放日志，本次运行结束
@@ -765,7 +763,6 @@ class Run:
 
 
 _current_run: Optional[Run] = None
-_finished_run: bool = False
 
 
 def has_run() -> bool:
@@ -784,21 +781,6 @@ def has_run() -> bool:
         ...     print("No active run")
     """
     return _current_run is not None and _current_run.alive
-
-
-def has_finished_run() -> bool:
-    """Check whether a finished run available."""
-    return _finished_run or (_current_run is not None and not _current_run.alive)
-
-
-def _reset_finish_validation() -> None:
-    global _finished_run
-    _finished_run = False
-
-
-def _mark_finish_completed() -> None:
-    global _finished_run
-    _finished_run = True
 
 
 def get_run() -> Run:
