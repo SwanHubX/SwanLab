@@ -16,12 +16,13 @@ MOCK_ADJECTIVES = ["mockgood", "mocknice"]
 
 class TestGenerateId:
     def test_default_length(self):
-        """测试默认生成的 ID 长度"""
+        """测试默认生成的 ID 长度与字符集"""
         run_id = generate_id()
         assert len(run_id) == 8
-        assert run_id.lower() == run_id
-        assert run_id.isalnum()
-        assert run_id.islower()
+        # 默认字符集为 ascii_lowercase + digits，使用正则严格校验：
+        # 不直接断言 islower()，因为纯数字 ID（如 "46398377"）也是合法输出，
+        # 而 str.islower() 对纯数字会返回 False。
+        assert re.fullmatch(r"[a-z0-9]+", run_id), f"Unexpected charset in run_id: {run_id!r}"
 
     @pytest.mark.parametrize("length", [1, 16, 64])
     def test_custom_length(self, length):
