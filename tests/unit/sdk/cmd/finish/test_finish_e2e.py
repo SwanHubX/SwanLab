@@ -43,13 +43,19 @@ class TestFinishE2E:
 
         assert not has_run()
 
-    def test_double_finish_raises(self):
-        """连续两次 finish()：第二次应抛出 RuntimeError"""
-        init(mode="disabled")
+    def test_double_finish_warns(self, monkeypatch):
+        """连续两次 finish()：第二次只打印 warning，不抛出异常"""
+        warnings = []
+        monkeypatch.setattr("swanlab.sdk.internal.run.console.warning", lambda msg: warnings.append(msg))
+
+        run = init(mode="disabled")
+        assert not run.finished
 
         finish()
+        assert run.finished
         assert not has_run()
 
-        with pytest.raises(RuntimeError, match="`swanlab.finish` requires an active Run"):
-            finish()
+        finish()
+
+        assert warnings == ["SwanLab Run has already finished."]
         assert not has_run()

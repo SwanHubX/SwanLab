@@ -59,6 +59,8 @@ def isolate_sdk_environment(tmp_path, monkeypatch):
         try:
             run.finish()
         except Exception:  # noqa: E722
+            pass
+        finally:
             clear_run()
 
     # 4. 清理 Client 单例

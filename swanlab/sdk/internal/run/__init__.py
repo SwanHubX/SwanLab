@@ -307,6 +307,14 @@ class Run:
         """
         return not fork.is_forked(self._init_pid) and self._state == "running"
 
+    @property
+    def finished(self) -> bool:
+        """
+        If the run has already reached a terminal state.
+        :return: True if the run has finished, crashed, or aborted.
+        """
+        return self._state != "running"
+
     # ----------------------------------
     # 上下文管理器，允许用户以 with 语句启动和结束运行
     # ----------------------------------
@@ -720,7 +728,8 @@ class Run:
         """
         # 1. 状态校验
         # 有时执行finish也有可能是系统hook主动调用，此时无需再次打印警告，如果在finishing状态，也忽略
-        if not self.alive:
+        if self.finished:
+            console.warning("SwanLab Run has already finished.")
             return
         state = state.lower()  # type: ignore
         if not (this_state := fmt.safe_validate_state(cast(FinishType, state))):
@@ -754,9 +763,7 @@ class Run:
         atexit.unregister(self._handle_atexit)
         sys.excepthook = self._sys_origin_excepthook
         signal.signal(signal.SIGINT, self._original_sigint_handler)
-        # 清理全局运行实例
-        console.debug("Cleanup global instance...")
-        clear_run()
+        # 标记 RunInstance 为 finished.
         console.debug("Clean & tidy! ciallo ( ∠・ω< ) ~ ★")
         # 释放日志，本次运行结束
         console.reset()
@@ -813,3 +820,8 @@ def set_run(run: Run) -> None:
 def clear_run() -> None:
     global _current_run
     _current_run = None
+
+
+def finished_run() -> bool:
+    """Mark Run Instance finished."""
+    return _current_run is not None and _current_run.finished
