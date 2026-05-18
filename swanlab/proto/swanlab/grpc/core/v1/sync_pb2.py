@@ -27,7 +27,7 @@ from swanlab.proto.swanlab.run.v1 import run_pb2 as swanlab_dot_run_dot_v1_dot_r
 from swanlab.proto.swanlab.settings.core.v1 import core_pb2 as swanlab_dot_settings_dot_core_dot_v1_dot_core__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1fswanlab/grpc/core/v1/sync.proto\x12\x14swanlab.grpc.core.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x18swanlab/run/v1/run.proto\x1a#swanlab/settings/core/v1/core.proto\"u\n\x17\x44\x65liverSyncStartRequest\x12=\n\rcore_settings\x18\x01 \x01(\x0b\x32&.swanlab.settings.core.v1.CoreSettings\x12\x0f\n\x07project\x18\x02 \x01(\t\x12\n\n\x02id\x18\x03 \x01(\t2\xb1\x01\n\x0f\x43oreSyncService\x12Y\n\x10\x44\x65liverSyncStart\x12-.swanlab.grpc.core.v1.DeliverSyncStartRequest\x1a\x16.google.protobuf.Empty\x12\x43\n\x11\x44\x65liverSyncFinish\x12\x16.google.protobuf.Empty\x1a\x16.google.protobuf.EmptyBDZBgithub.com/swanhubx/swanlab/core/proto/swanlab/grpc/core/v1;corev1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1fswanlab/grpc/core/v1/sync.proto\x12\x14swanlab.grpc.core.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x18swanlab/run/v1/run.proto\x1a#swanlab/settings/core/v1/core.proto\"u\n\x17\x44\x65liverSyncStartRequest\x12=\n\rcore_settings\x18\x01 \x01(\x0b\x32&.swanlab.settings.core.v1.CoreSettings\x12\x0f\n\x07project\x18\x02 \x01(\t\x12\n\n\x02id\x18\x03 \x01(\t\"<\n\x18\x44\x65liverSyncStartResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t2\xc9\x01\n\x0f\x43oreSyncService\x12q\n\x10\x44\x65liverSyncStart\x12-.swanlab.grpc.core.v1.DeliverSyncStartRequest\x1a..swanlab.grpc.core.v1.DeliverSyncStartResponse\x12\x43\n\x11\x44\x65liverSyncFinish\x12\x16.google.protobuf.Empty\x1a\x16.google.protobuf.EmptyBDZBgithub.com/swanhubx/swanlab/core/proto/swanlab/grpc/core/v1;corev1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -37,6 +37,8 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._serialized_options = b'ZBgithub.com/swanhubx/swanlab/core/proto/swanlab/grpc/core/v1;corev1'
   _globals['_DELIVERSYNCSTARTREQUEST']._serialized_start=149
   _globals['_DELIVERSYNCSTARTREQUEST']._serialized_end=266
-  _globals['_CORESYNCSERVICE']._serialized_start=269
-  _globals['_CORESYNCSERVICE']._serialized_end=446
+  _globals['_DELIVERSYNCSTARTRESPONSE']._serialized_start=268
+  _globals['_DELIVERSYNCSTARTRESPONSE']._serialized_end=328
+  _globals['_CORESYNCSERVICE']._serialized_start=331
+  _globals['_CORESYNCSERVICE']._serialized_end=532
 # @@protoc_insertion_point(module_scope)

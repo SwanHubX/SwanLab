@@ -39,7 +39,7 @@ class CoreSyncServiceStub(object):
         self.DeliverSyncStart = channel.unary_unary(
                 '/swanlab.grpc.core.v1.CoreSyncService/DeliverSyncStart',
                 request_serializer=swanlab_dot_grpc_dot_core_dot_v1_dot_sync__pb2.DeliverSyncStartRequest.SerializeToString,
-                response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                response_deserializer=swanlab_dot_grpc_dot_core_dot_v1_dot_sync__pb2.DeliverSyncStartResponse.FromString,
                 _registered_method=True)
         self.DeliverSyncFinish = channel.unary_unary(
                 '/swanlab.grpc.core.v1.CoreSyncService/DeliverSyncFinish',
@@ -53,7 +53,7 @@ class CoreSyncServiceServicer(object):
     """
 
     def DeliverSyncStart(self, request, context):
-        """DeliverSyncStart 接收 CoreSettings，启动本地日志读取与云端同步
+        """DeliverSyncStart 接收 CoreSettings，校验并启动本地日志读取与云端同步
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -72,7 +72,7 @@ def add_CoreSyncServiceServicer_to_server(servicer, server):
             'DeliverSyncStart': grpc.unary_unary_rpc_method_handler(
                     servicer.DeliverSyncStart,
                     request_deserializer=swanlab_dot_grpc_dot_core_dot_v1_dot_sync__pb2.DeliverSyncStartRequest.FromString,
-                    response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+                    response_serializer=swanlab_dot_grpc_dot_core_dot_v1_dot_sync__pb2.DeliverSyncStartResponse.SerializeToString,
             ),
             'DeliverSyncFinish': grpc.unary_unary_rpc_method_handler(
                     servicer.DeliverSyncFinish,
@@ -107,7 +107,7 @@ class CoreSyncService(object):
             target,
             '/swanlab.grpc.core.v1.CoreSyncService/DeliverSyncStart',
             swanlab_dot_grpc_dot_core_dot_v1_dot_sync__pb2.DeliverSyncStartRequest.SerializeToString,
-            google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+            swanlab_dot_grpc_dot_core_dot_v1_dot_sync__pb2.DeliverSyncStartResponse.FromString,
             options,
             channel_credentials,
             insecure,

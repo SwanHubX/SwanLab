@@ -10,16 +10,22 @@ option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/grpc/core/v1
 
 // CoreSyncService 用于启动本地日志读取、云端同步服务
 service CoreSyncService {
-  // DeliverSyncStart 接收 CoreSettings，启动本地日志读取与云端同步
-  rpc DeliverSyncStart(DeliverSyncStartRequest) returns (google.protobuf.Empty);
+    // DeliverSyncStart 接收 CoreSettings，校验并启动本地日志读取与云端同步
+    rpc DeliverSyncStart(DeliverSyncStartRequest) returns(DeliverSyncStartResponse);
 
-  // DeliverSyncFinish 结束本地日志读取与云端同步
-  rpc DeliverSyncFinish(google.protobuf.Empty) returns (google.protobuf.Empty);
+    // DeliverSyncFinish 结束本地日志读取与云端同步
+    rpc DeliverSyncFinish(google.protobuf.Empty) returns(google.protobuf.Empty);
 }
 
 // DeliverSyncStart 请求，同步服务启动配置
 message DeliverSyncStartRequest {
-  swanlab.settings.core.v1.CoreSettings core_settings = 1;  // 同步服务启动配置
-  string  project                                     = 2;  // 用于标识同步到哪个项目上，如果不传递，默认使用start record中记录的项目
-  string  id                                          = 3;  // 运行id，如果run id在对应实验上已经存在，则等同于resume模式
+    swanlab.settings.core.v1.CoreSettings core_settings = 1; // 同步服务启动配置
+    string project = 2;                                      // 用于标识同步到哪个项目上，如果不传递，默认使用start record中记录的项目
+    string id = 3;                                           // 运行id，如果run id在对应实验上已经存在，则等同于resume模式
+}
+
+// DeliverSyncStartResponse 同步服务启动响应
+message DeliverSyncStartResponse {
+    bool success = 1;   // 请求是否成功
+    string message = 2; // 请求失败的响应
 }

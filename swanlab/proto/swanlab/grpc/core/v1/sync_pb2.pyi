@@ -17,3 +17,11 @@ class DeliverSyncStartRequest(_message.Message):
     project: str
     id: str
     def __init__(self, core_settings: _Optional[_Union[_core_pb2.CoreSettings, _Mapping]] = ..., project: _Optional[str] = ..., id: _Optional[str] = ...) -> None: ...
+
+class DeliverSyncStartResponse(_message.Message):
+    __slots__ = ("success", "message")
+    SUCCESS_FIELD_NUMBER: _ClassVar[int]
+    MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    success: bool
+    message: str
+    def __init__(self, success: bool = ..., message: _Optional[str] = ...) -> None: ...

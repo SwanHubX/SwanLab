@@ -30,8 +30,8 @@ const (
 //
 // CoreSyncService 用于启动本地日志读取、云端同步服务
 type CoreSyncServiceClient interface {
-	// DeliverSyncStart 接收 CoreSettings，启动本地日志读取与云端同步
-	DeliverSyncStart(ctx context.Context, in *DeliverSyncStartRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// DeliverSyncStart 接收 CoreSettings，校验并启动本地日志读取与云端同步
+	DeliverSyncStart(ctx context.Context, in *DeliverSyncStartRequest, opts ...grpc.CallOption) (*DeliverSyncStartResponse, error)
 	// DeliverSyncFinish 结束本地日志读取与云端同步
 	DeliverSyncFinish(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
@@ -44,9 +44,9 @@ func NewCoreSyncServiceClient(cc grpc.ClientConnInterface) CoreSyncServiceClient
 	return &coreSyncServiceClient{cc}
 }
 
-func (c *coreSyncServiceClient) DeliverSyncStart(ctx context.Context, in *DeliverSyncStartRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *coreSyncServiceClient) DeliverSyncStart(ctx context.Context, in *DeliverSyncStartRequest, opts ...grpc.CallOption) (*DeliverSyncStartResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(emptypb.Empty)
+	out := new(DeliverSyncStartResponse)
 	err := c.cc.Invoke(ctx, CoreSyncService_DeliverSyncStart_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -70,8 +70,8 @@ func (c *coreSyncServiceClient) DeliverSyncFinish(ctx context.Context, in *empty
 //
 // CoreSyncService 用于启动本地日志读取、云端同步服务
 type CoreSyncServiceServer interface {
-	// DeliverSyncStart 接收 CoreSettings，启动本地日志读取与云端同步
-	DeliverSyncStart(context.Context, *DeliverSyncStartRequest) (*emptypb.Empty, error)
+	// DeliverSyncStart 接收 CoreSettings，校验并启动本地日志读取与云端同步
+	DeliverSyncStart(context.Context, *DeliverSyncStartRequest) (*DeliverSyncStartResponse, error)
 	// DeliverSyncFinish 结束本地日志读取与云端同步
 	DeliverSyncFinish(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	mustEmbedUnimplementedCoreSyncServiceServer()
@@ -84,7 +84,7 @@ type CoreSyncServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedCoreSyncServiceServer struct{}
 
-func (UnimplementedCoreSyncServiceServer) DeliverSyncStart(context.Context, *DeliverSyncStartRequest) (*emptypb.Empty, error) {
+func (UnimplementedCoreSyncServiceServer) DeliverSyncStart(context.Context, *DeliverSyncStartRequest) (*DeliverSyncStartResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeliverSyncStart not implemented")
 }
 func (UnimplementedCoreSyncServiceServer) DeliverSyncFinish(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {

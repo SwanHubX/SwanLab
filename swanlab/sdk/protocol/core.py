@@ -17,7 +17,7 @@ from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
     DeliverRunStartRequest,
     DeliverRunStartResponse,
 )
-from swanlab.proto.swanlab.grpc.core.v1.sync_pb2 import DeliverSyncStartRequest
+from swanlab.proto.swanlab.grpc.core.v1.sync_pb2 import DeliverSyncStartRequest, DeliverSyncStartResponse
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord, ScalarRecord
 from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord
@@ -336,8 +336,8 @@ class CoreSyncProtocol(ABC):
     负责完成Sync业务，设计理念与 core 类似
     """
 
-    def deliver_sync_start(self, start_request: DeliverSyncStartRequest):
-        return
+    @abstractmethod
+    def deliver_sync_start(self, start_request: DeliverSyncStartRequest) -> DeliverSyncStartResponse: ...
 
-    def deliver_sync_finish(self):
-        pass
+    @abstractmethod
+    def deliver_sync_finish(self): ...
