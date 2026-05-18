@@ -9,8 +9,8 @@ import threading
 from functools import wraps
 from typing import Callable
 
-from swanlab.sdk.internal.pkg import fork
-from swanlab.sdk.internal.run import has_run
+from swanlab.sdk.internal.pkg import console, fork
+from swanlab.sdk.internal.run import has_finished_run, has_run
 
 _CMD_LOCK = threading.Lock()
 
@@ -39,17 +39,21 @@ def with_cmd_lock(func):
     return wrapper
 
 
-def with_run(cmd: str):
+def with_run(cmd: str, allow_finished: bool = False):
     """
     装饰器：要求必须有 run 在运行，否则抛出 RuntimeError
 
     :param cmd: 命令名称
+    :param allow_finished: 是否允许最近已结束的 run 通过检查（用于重复 finish()）
     """
 
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args, **kwargs):
             if not has_run():
+                if allow_finished and has_finished_run():
+                    console.warning("SwanLab Run has already finished.")
+                    return None
                 raise RuntimeError(f"`swanlab.{cmd}` requires an active Run, call `swanlab.init()` first.")
             return func(*args, **kwargs)
 

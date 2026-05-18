@@ -11,7 +11,7 @@ import pytest
 import swanlab
 from swanlab.sdk.cmd.init import init
 from swanlab.sdk.cmd.run import finish
-from swanlab.sdk.internal.run import has_run
+from swanlab.sdk.internal.run import _reset_finish_validation, clear_run, has_run
 
 
 class TestFinishE2E:
@@ -36,6 +36,8 @@ class TestFinishE2E:
 
     def test_finish_without_init_raises(self):
         """未调用 init() 直接调用 finish() 应抛出 RuntimeError"""
+        clear_run()
+        _reset_finish_validation()
         assert not has_run()
 
         with pytest.raises(RuntimeError, match="`swanlab.finish` requires an active Run"):
@@ -43,13 +45,37 @@ class TestFinishE2E:
 
         assert not has_run()
 
-    def test_double_finish_raises(self):
-        """连续两次 finish()：第二次应抛出 RuntimeError"""
+    def test_double_finish_warns(self, monkeypatch):
+        """连续两次顶层 finish()：第二次只告警，不抛出异常，同时保持全局 Run 已清理"""
+        warnings = []
+        monkeypatch.setattr(
+            "swanlab.sdk.internal.run.console.warning", lambda msg, *args, **kwargs: warnings.append(msg)
+        )
+
         init(mode="disabled")
 
         finish()
         assert not has_run()
+        assert swanlab.run is None
 
-        with pytest.raises(RuntimeError, match="`swanlab.finish` requires an active Run"):
-            finish()
+        finish()
         assert not has_run()
+        assert swanlab.run is None
+        assert len(warnings) == 1
+        assert "already finished" in warnings[0]
+
+    def test_run_finish_warns_when_already_finished(self, monkeypatch):
+        """直接持有 Run 对象时，重复 finish() 也只告警，不抛出异常"""
+        warnings = []
+        monkeypatch.setattr(
+            "swanlab.sdk.internal.run.console.warning", lambda msg, *args, **kwargs: warnings.append(msg)
+        )
+
+        run = init(mode="disabled")
+
+        run.finish()
+        assert not has_run()
+
+        run.finish()
+        assert len(warnings) == 1
+        assert "already finished" in warnings[0]
