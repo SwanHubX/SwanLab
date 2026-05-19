@@ -8,6 +8,7 @@
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
+from typing import Optional
 
 from swanlab.proto.swanlab.settings.core.v1.core_pb2 import CoreSettings
 
@@ -30,6 +31,11 @@ class CoreConfig:
 class CoreContext:
     def __init__(self, *, config: CoreConfig):
         self.config = config
+        # 云端信息
+        self._username: Optional[str] = None
+        self._project: Optional[str] = None
+        self._project_id: Optional[str] = None
+        self._experiment_id: Optional[str] = None
 
     @classmethod
     def from_proto(cls, proto: CoreSettings) -> "CoreContext":
@@ -45,6 +51,55 @@ class CoreContext:
             save_batch=proto.save_batch,
         )
         return cls(config=config)
+
+    def set_online_params(self, username: str, project: str, project_id: str, experiment_id: str):
+        """
+        设置云端信息
+        :param username: 用户名
+        :param project: 项目名
+        :param project_id: 项目id
+        :param experiment_id: 实验id
+        """
+        self._username = username
+        self._project = project
+        self._project_id = project_id
+        self._experiment_id = experiment_id
+
+    @cached_property
+    def username(self) -> str:
+        assert self._username is not None, (
+            "ctx.username is not initialized. "
+            "This usually means the current run is not in online mode, "
+            "or an internal initialization bug occurred."
+        )
+        return self._username
+
+    @cached_property
+    def project(self) -> str:
+        assert self._project is not None, (
+            "ctx.project is not initialized. "
+            "This usually means the current run is not in online mode, "
+            "or an internal initialization bug occurred."
+        )
+        return self._project
+
+    @cached_property
+    def project_id(self) -> str:
+        assert self._project_id is not None, (
+            "ctx.project_id is not initialized. "
+            "This usually means the current run is not in online mode, "
+            "or an internal initialization bug occurred."
+        )
+        return self._project_id
+
+    @cached_property
+    def experiment_id(self) -> str:
+        assert self._experiment_id is not None, (
+            "ctx.experiment_id is not initialized. "
+            "This usually means the current run is not in online mode, "
+            "or an internal initialization bug occurred."
+        )
+        return self._experiment_id
 
     @cached_property
     def media_dir(self) -> Path:

@@ -28,7 +28,14 @@ def _build_mock_ctx(**core_overrides):
         save_part=32 * 1024 * 1024,
         save_batch=100,
     )
-    return CoreContext(config=config)
+    ctx = CoreContext(config=config)
+    ctx.set_online_params(
+        username="test-user",
+        project="test-project",
+        project_id="test-project-id",
+        experiment_id="test-experiment-id",
+    )
+    return ctx
 
 
 @pytest.fixture
