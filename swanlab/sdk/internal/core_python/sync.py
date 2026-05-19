@@ -13,6 +13,7 @@ from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.core_python.context import CoreContext
 from swanlab.sdk.internal.core_python.pkg import executor
 from swanlab.sdk.internal.core_python.store import DataStoreReader
+from swanlab.sdk.internal.core_python.transport import Transport
 from swanlab.sdk.internal.pkg import safe
 from swanlab.sdk.protocol.core import CoreSyncProtocol
 
@@ -25,6 +26,7 @@ class CoreSyncPython(CoreSyncProtocol):
         self._run_ctx: Optional[CoreContext] = None
         self._reader = DataStoreReader()
         self._read_executor = executor.EventLoopExecutor("SwanLab·Sync·Reader")
+        self._transport: Optional[Transport] = None
 
     @property
     def _ctx(self) -> CoreContext:
@@ -57,12 +59,13 @@ class CoreSyncPython(CoreSyncProtocol):
 
             # TODO 处理traker记录
 
+    def deliver_sync_finish(self):
+        # 1. 等待读取线程结束
+        self._read_executor.wait()
+        self._reader.close()
+
     async def upload(self):
         """
         异步上传处理后的记录
         """
         ...
-
-    def deliver_sync_finish(self):
-        self._read_executor.wait()
-        self._reader.close()

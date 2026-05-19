@@ -46,7 +46,6 @@ from swanlab.sdk.internal.core_python.metrics import RunMetrics
 from swanlab.sdk.internal.core_python.pkg import builder, counter
 from swanlab.sdk.internal.core_python.store import DataStoreWriter
 from swanlab.sdk.internal.core_python.transport import Transport
-from swanlab.sdk.internal.core_python.transport.sender import HttpRecordSender
 from swanlab.sdk.internal.core_python.watcher import FileWatcher, create_save_links
 from swanlab.sdk.internal.pkg import adapter, console, safe
 from swanlab.sdk.protocol import CoreProtocol
@@ -68,10 +67,6 @@ class CorePython(CoreProtocol):
         self._run_ctx: Optional[CoreContext] = None
         self._store: Optional[DataStoreWriter] = None
         self._transport: Optional[Transport] = None
-        self._username: Optional[str] = None
-        self._project: Optional[str] = None
-        self._project_id: Optional[str] = None
-        self._experiment_id: Optional[str] = None
         # record 构建计数器
         self._counter = counter.Counter()
         # console 行计数器
@@ -132,22 +127,8 @@ class CorePython(CoreProtocol):
         self._ctx = CoreContext.from_proto(start_request.core_settings)
         resp = self._report_run_start(start_request.start_record)
         self._start_store(resp)
-        # Transport initialization is part of startup in online mode.
-        # Fail fast on error instead of degrading silently.
-        assert self._project, "project must be set when starting in online mode"
-        assert self._username, "username must be set when starting in online mode"
-        assert self._project_id, "project id must be set when starting in online mode"
-        assert self._experiment_id, "experiment id must be set when starting in online mode"
-        assert self._metrics, "metrics must be set when starting in online mode"
-        sender = HttpRecordSender(
-            ctx=self._ctx,
-            username=self._username,
-            project=self._project,
-            project_id=self._project_id,
-            experiment_id=self._experiment_id,
-        )
-        self._transport = Transport(ctx=self._ctx, sender=sender)
-        self._heartbeat = Heartbeat(self._experiment_id)
+        self._transport = Transport(ctx=self._ctx)
+        self._heartbeat = Heartbeat(self._ctx.experiment_id)
         self._heartbeat.start()
         return resp
 
@@ -188,14 +169,16 @@ class CorePython(CoreProtocol):
         )
         assert experiment.get("name"), "create_or_resume_experiment() returned an experiment without a name."
         # 3. 记录必要字段
-        self._username = username
-        self._project = project
-        self._project_id = project_info["cuid"]
-        self._experiment_id = experiment["cuid"]
+        self._ctx.set_online_params(
+            username=username,
+            project=project,
+            project_id=project_info["cuid"],
+            experiment_id=experiment["cuid"],
+        )
         # 3. resume 时，向后端获取数据
         summary: Optional[ResumeExperimentSummaryType] = None
         if not new_experiment:
-            summary = get_experiment_summary(self._project_id, self._experiment_id)
+            summary = get_experiment_summary(self._ctx.project_id, self._ctx.experiment_id)
         self._metrics, console_epoch, global_step, global_system_step = RunMetrics.new(summary, ctx=self._ctx)
         self._epoch.reset(console_epoch)
         # 4. 构建记录
@@ -553,17 +536,11 @@ class CorePython(CoreProtocol):
 
     @safe.decorator(message="run finish error")
     def _report_run_finish(self, record: FinishRecord) -> DeliverRunFinishResponse:
-        assert (
-            self._username is not None
-            and self._project is not None
-            and self._project_id is not None
-            and self._experiment_id is not None
-        ), "Cannot finish cloud run: username, project, project_id or experiment_id is missing"
         # 向后端同步运行结束事件
         stop_experiment(
-            self._username,
-            self._project,
-            self._experiment_id,
+            self._ctx.username,
+            self._ctx.project,
+            self._ctx.experiment_id,
             state=record.state,
             finished_at=record.finished_at,
         )
