@@ -59,6 +59,10 @@
 
 ## 🌟 最近更新
 
+- 2026.05.18：📒 日志支持**全局筛选**，快速在全局找到你需要的日志片段；新增**图表复制**功能；图表搜索上线**历史记录**功能；图表详情新增**相对时间**显示；
+
+- 2026.04.28：🪨 **项目置顶**上线，将团队最关心的项目卡片放到最显眼的位置；优化了在Hover折线图时指标看板的显示效果；
+
 - 2026.03.25：📊 **实验置顶**上线，一键将最好的实验固定在到最好找的位置；**Baseline**对比功能上线，支持将实验们和baseline对比并显示差异百分比，加速找到最佳参数组合；
 
 https://github.com/user-attachments/assets/964380e0-feb2-480d-b1ca-eba1be239ebb
@@ -75,11 +79,11 @@ https://github.com/user-attachments/assets/964380e0-feb2-480d-b1ca-eba1be239ebb
 
 - 2025.12.15：🎉 SwanLab **Kubernetes版** 现已发布！[部署文档](https://docs.swanlab.cn/guide_cloud/self_host/kubernetes-deploy.html)；[NVIDIA NeMo RL](https://github.com/NVIDIA-NeMo/RL) 框架已集成SwanLab，[文档](https://docs.swanlab.cn/guide_cloud/integration/integration-nvidia-nemo-rl.html)；
 
+<details><summary>完整更新日志</summary>
+
 - 2025.12.01：🕰 新增**折线图详细信息展示**，鼠标悬浮在折线图上时，单击Shift将开启详细模式，支持显示当前log点的时间；📊 图表分组支持**MIN/MAX区域范围显示**；
 
 - 2025.11.17：📊 全局图表配置增加**X轴数据源选择**、**悬停模式**功能，增加图表分析体验；增加`SWANLAB_WEBHOOK`功能；[文档](https://docs.swanlab.cn/guide_cloud/experiment_track/webhook-setup.html)
-
-<details><summary>完整更新日志</summary>
 
 - 2025.11.06：🔪 **实验分组**上线，支持对大批量实验进行分组管理；工作区页面升级，支持快捷在多个组织下切换；大幅优化了折线图的渲染性能；swanlab.init上线`group`与`job_type`参数；
 

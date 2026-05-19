@@ -51,6 +51,10 @@ For Model Training Teams, Integrated with 50+ Leading AI Training Frameworks, Ea
 
 ## 🌟 Recent Updates
 
+- 2026.05.18: 📒 Logs now support **global filtering**, so you can quickly find the log snippets you need across the entire workspace; added **chart copy** feature; chart search now includes **search history**; chart details now show **relative time**;
+
+- 2026.04.28: 🪨 **Project Pinning** is now live — place the projects your team cares about most in the most prominent spot; improved the metric panel display when hovering over line charts;
+
 - 2026.03.25: 📊 **Experiment Pinning** is now live — pin your best experiments to the most accessible position with one click; **Baseline** comparison is now available, supporting comparison of experiments against a baseline with percentage difference display, accelerating the search for optimal parameters;
 
 https://github.com/user-attachments/assets/964380e0-feb2-480d-b1ca-eba1be239ebb
@@ -67,11 +71,11 @@ https://github.com/user-attachments/assets/964380e0-feb2-480d-b1ca-eba1be239ebb
 
 - 2025.12.15: 🎉 **Kubernetes Version** of SwanLab is now available! [Deployment Documentation](https://docs.swanlab.cn/en/guide_cloud/self_host/kubernetes-deploy.html); [NVIDIA NeMo RL](https://github.com/NVIDIA-NeMo/RL) framework is now integrated with SwanLab, [documentation](https://docs.swanlab.cn/en/guide_cloud/integration/integration-nvidia-nemo-rl.html);
 
+<details><summary>Full Changelog</summary>
+
 - 2025.12.01: 🕰 Added **detailed line chart information display**, when hovering over the line chart, clicking Shift will activate Detailed Mode, allowing the display of the log point time; 📊 Chart grouping supports **MIN/MAX area range display**;
 
 - 2025.11.17: 📊 Global chart configuration now supports **X-axis data source selection** and **hover mode** functionality, enhancing chart analysis experience; added `SWANLAB_WEBHOOK` functionality, [documentation](https://docs.swanlab.cn/guide_cloud/experiment_track/webhook-setup.html)
-
-<details><summary>Full Changelog</summary>
 
 - 2025.11.06: 🔪 **Experiment Grouping** is live — supports grouping management for large batches of experiments; Workspace page upgraded to allow quick switching between multiple organizations; significantly improved line-chart rendering performance; `swanlab.init` now supports `group` and `job_type` parameters;
 
