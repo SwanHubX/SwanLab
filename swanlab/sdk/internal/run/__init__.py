@@ -719,8 +719,8 @@ class Run:
         :param async_log_timeout: Optional timeout for async_log tasks. None means no timeout.
         """
         # 1. 状态校验
-        # 有时执行finish也有可能是系统hook主动调用，此时无需再次打印警告，如果在finishing状态，也忽略
         if not self.alive:
+            console.warning("SwanLab Run has already finished or has not started.")
             return
         state = state.lower()  # type: ignore
         if not (this_state := fmt.safe_validate_state(cast(FinishType, state))):
