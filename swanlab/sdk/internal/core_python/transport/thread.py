@@ -61,13 +61,7 @@ class Transport:
             return
         self._dispatcher = Dispatch(
             batch_size=self._batch,
-            sender=HttpRecordSender(
-                ctx=self._ctx,
-                username=self._ctx.username,
-                project=self._ctx.project,
-                project_id=self._ctx.project_id,
-                experiment_id=self._ctx.experiment_id,
-            ),
+            sender=HttpRecordSender(ctx=self._ctx),
             upload_callback=self._upload_callback,
         )
         assert self._dispatcher is not None, "Dispatcher must be initialized when transport starting"

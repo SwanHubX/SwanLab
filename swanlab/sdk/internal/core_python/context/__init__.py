@@ -59,7 +59,6 @@ class CoreContext:
         :param project: 项目名
         :param project_id: 项目id
         :param experiment_id: 实验id
-        :return:
         """
         self._username = username
         self._project = project

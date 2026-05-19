@@ -21,13 +21,13 @@ def _make_sender(tmp_path: Path, save_batch: int = 100) -> HttpRecordSender:
             save_batch=save_batch,
         )
     )
-    return HttpRecordSender(
-        ctx=ctx,
+    ctx.set_online_params(
         username="alice",
         project="demo",
         project_id="project-id",
         experiment_id="experiment-id",
     )
+    return HttpRecordSender(ctx=ctx)
 
 
 def _make_save_record(source: Path, name: str = "checkpoints/model.txt") -> Record:
