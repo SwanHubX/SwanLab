@@ -29,7 +29,7 @@ class CoreConfig:
 
 
 class CoreContext:
-    def __init__(self, *, config: CoreConfig, mode: Literal["core", "sync"]):
+    def __init__(self, *, config: CoreConfig, mode: Literal["core", "sync"] = "core"):
         self.config = config
         self._mode: Literal["core", "sync"] = mode
         # 云端信息
