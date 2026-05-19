@@ -49,6 +49,10 @@
 
 ## 🌟 最近の更新
 
+- 2026.05.18: 📊 **チャート複製**機能を追加；ログで**グローバルフィルタリング**をサポートし、必要なログ断片をすばやく全体から見つけられるように；チャート検索に**検索履歴**機能を追加；チャート詳細に**相対時間**表示を追加；
+
+- 2026.04.28: 🪨 **プロジェクトのピン留め**が利用可能になりました、チームが最も重視するプロジェクトカードを最も目立つ位置に固定可能；折れ線グラフを Hover した際の指標パネル表示を改善；
+
 - 2026.03.25: 📊 **実験ピン留め**が利用可能になりました——ワンクリックで最高の実験を最も見つけやすい位置に固定；**Baseline**比較機能が利用可能になりました、実験と baseline を比較し差異のパーセンテージを表示、最適なパラメータ組み合わせの発見を加速；
 
 https://github.com/user-attachments/assets/964380e0-feb2-480d-b1ca-eba1be239ebb
@@ -65,11 +69,11 @@ https://github.com/user-attachments/assets/964380e0-feb2-480d-b1ca-eba1be239ebb
 
 - 2025.12.15: 🎉SwanLab **Kubernetes版** が利用可能になりました！[デプロイメントドキュメント](https://docs.swanlab.cn/en/guide_cloud/self_host/kubernetes-deploy.html)；[NVIDIA NeMo RL](https://github.com/NVIDIA-NeMo/RL) フレームワークがSwanLabに統合，[ドキュメント](https://docs.swanlab.cn/en/guide_cloud/integration/integration-nvidia-nemo-rl.html)；
 
+<details><summary>完全な更新履歴</summary>
+
 - 2025.12.01: 🕰 追加 **折れ線グラフの詳細情報表示**，折れ線グラフ上にホバーした状態で Shift をクリックすると詳細モードが有効になり、ログポイントの時間を表示できます；📊 チャートのグループ化で **MIN/MAX 範囲エリアの表示** をサポート；
 
 - 2025.11.17: 📊 グローバルチャート設定で**X軸データソース選択**と**ホバーモード**機能をサポート、グラフ分析体験を向上；`SWANLAB_WEBHOOK`機能を追加、[ドキュメント](https://docs.swanlab.cn/guide_cloud/experiment_track/webhook-setup.html)
-
-<details><summary>完全な更新履歴</summary>
 
 - 2025.11.06: 🔪 **実験分組**が利用可能になりました——大量の実験の分組管理をサポート；ワークスペースページがアップグレードされ、複数の組織間での迅速な切り替えをサポート；折れ線グラフのレンダリングパフォーマンスを大幅に向上；`swanlab.init`が`group`と`job_type`パラメータをサポート；
 
