@@ -11,7 +11,7 @@ import pytest
 import swanlab
 from swanlab.sdk.cmd.init import init
 from swanlab.sdk.cmd.run import finish
-from swanlab.sdk.internal.run import has_run
+from swanlab.sdk.internal.run import clear_run, has_run
 
 
 class TestFinishE2E:
@@ -34,22 +34,56 @@ class TestFinishE2E:
 
         assert not has_run()
 
-    def test_finish_without_init_raises(self):
-        """未调用 init() 直接调用 finish() 应抛出 RuntimeError"""
+    def test_finish_without_init_warns(self, monkeypatch):
+        """未调用 init() 直接调用 finish() 应告警并返回"""
+        clear_run()
         assert not has_run()
 
-        with pytest.raises(RuntimeError, match="`swanlab.finish` requires an active Run"):
-            finish()
+        warnings = []
+        monkeypatch.setattr("swanlab.sdk.cmd.guard.console.warning", lambda msg, *a, **kw: warnings.append(msg))
+
+        assert finish() is None
 
         assert not has_run()
+        assert warnings == ["SwanLab Run has already finished or has not started."]
 
-    def test_double_finish_raises(self):
-        """连续两次 finish()：第二次应抛出 RuntimeError"""
+    def test_double_finish_warns(self, monkeypatch):
+        """连续两次顶层 finish()：第二次只告警，不抛出异常，同时保持全局 Run 已清理"""
+        warnings = []
+        monkeypatch.setattr(
+            "swanlab.sdk.internal.run.console.warning", lambda msg, *args, **kwargs: warnings.append(msg)
+        )
+
         init(mode="disabled")
 
         finish()
         assert not has_run()
+        assert swanlab.run is None
 
-        with pytest.raises(RuntimeError, match="`swanlab.finish` requires an active Run"):
-            finish()
+        finish()
         assert not has_run()
+        assert swanlab.run is None
+        assert warnings == ["SwanLab Run has already finished or has not started."]
+
+    def test_run_finish_warns_when_already_finished(self, monkeypatch):
+        """直接持有 Run 对象时，重复 finish() 也只告警，不抛出异常"""
+        warnings = []
+        monkeypatch.setattr(
+            "swanlab.sdk.internal.run.console.warning", lambda msg, *args, **kwargs: warnings.append(msg)
+        )
+
+        run = init(mode="disabled")
+
+        run.finish()
+        assert not has_run()
+
+        run.finish()
+        assert warnings == ["SwanLab Run has already finished or has not started."]
+
+    def test_other_cmd_raises_after_finish(self):
+        """finish 后调用 log（非 finish 命令）应抛出 RuntimeError，证明 allow_finished 仅对 finish 生效"""
+        init(mode="disabled")
+        finish()
+
+        with pytest.raises(RuntimeError, match="`swanlab.log` requires an active Run"):
+            swanlab.log({"x": 1})

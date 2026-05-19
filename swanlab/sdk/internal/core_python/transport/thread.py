@@ -35,10 +35,11 @@ class Transport:
     def __init__(
         self,
         ctx: CoreContext,
-        sender: HttpRecordSender,
         upload_callback: Optional[Callable[[int], None]] = None,
         auto_start: bool = True,
     ):
+        self._ctx = ctx
+        self._batch = ctx.config.record_batch
         self._batch_interval = ctx.config.record_interval
         self._upload_callback = upload_callback
 
@@ -50,11 +51,7 @@ class Transport:
         self._throttle = UploadWarningThrottle()
 
         # Transport 持有 sender，负责创建/注入/关闭
-        self._sender = sender
-        self._dispatcher = Dispatch(
-            batch_size=ctx.config.record_batch, sender=self._sender, upload_callback=self._upload_callback
-        )
-
+        self._dispatcher: Optional[Dispatch] = None
         if auto_start:
             self.start()
 
@@ -62,6 +59,12 @@ class Transport:
         """启动守护线程。"""
         if self._started or self._finished:
             return
+        self._dispatcher = Dispatch(
+            batch_size=self._batch,
+            sender=HttpRecordSender(ctx=self._ctx),
+            upload_callback=self._upload_callback,
+        )
+        assert self._dispatcher is not None, "Dispatcher must be initialized when transport starting"
         self._thread = threading.Thread(target=self._loop, name=self.THREAD_NAME, daemon=True)
         self._thread.start()
         self._started = True
@@ -95,6 +98,7 @@ class Transport:
 
     def _loop(self) -> None:
         pending: List[Record] = []
+        assert self._dispatcher is not None, "Dispatcher must be initialized when transport starting"
 
         def refill_pending() -> bool:
             """尝试为 pending 补充数据。

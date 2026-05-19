@@ -67,6 +67,15 @@ def make_start_request(tmp_path, record: StartRecord) -> DeliverRunStartRequest:
     )
 
 
+def set_online_params(core: CorePython) -> None:
+    core._ctx.set_online_params(
+        username="test-user",
+        project="test-project",
+        project_id="test-project-id",
+        experiment_id="test-experiment-id",
+    )
+
+
 # ============================================================
 # TestCorePythonStart
 # ============================================================
@@ -94,10 +103,7 @@ class TestCorePythonStart:
 
         def _report_run_start_and_set_attrs(rec):
             """mock _report_run_start，同时设置 online 模式所需的属性。"""
-            core._username = "test-user"
-            core._project = "test-project"
-            core._project_id = "test-project-id"
-            core._experiment_id = "test-experiment-id"
+            set_online_params(core)
             core._metrics = MagicMock()
             return mock_deliver(rec)
 
@@ -140,10 +146,7 @@ class TestCorePythonFinish:
 
         def _report_run_start_and_set_attrs(rec):
             """mock _report_run_start，同时设置 online 模式所需的属性。"""
-            core._username = "test-user"
-            core._project = "test-project"
-            core._project_id = "test-project-id"
-            core._experiment_id = "test-experiment-id"
+            set_online_params(core)
             core._metrics = MagicMock()
             return mock_start(rec)
 

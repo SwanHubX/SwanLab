@@ -72,12 +72,12 @@ class HttpRecordSender:
     并将其他类型的上传交给上层处理——这部分上传将有重试机制
     """
 
-    def __init__(self, ctx: CoreContext, username: str, project: str, project_id: str, experiment_id: str) -> None:
+    def __init__(self, ctx: CoreContext) -> None:
         self._ctx = ctx
-        self._username = username
-        self._project = project
-        self._project_id = project_id
-        self._experiment_id = experiment_id
+        self._username = ctx.username
+        self._project = ctx.project
+        self._project_id = ctx.project_id
+        self._experiment_id = ctx.experiment_id
         # 资源上传 session，作用在Sender对象中复用TCP链接
         self._buffer_session: Optional[SessionWithRetry] = None
         self._upload_handlers: dict[str, Callable[[Sequence[Record]], None]] = {

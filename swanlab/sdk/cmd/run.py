@@ -21,9 +21,10 @@ from swanlab.sdk.internal.run import Run, get_run
 
 def _make_run_cmd(method_name: str) -> Callable:
     run_method = getattr(Run, method_name)
+    allow_finished = method_name == "finish"
 
     @with_cmd_lock
-    @with_run(method_name)
+    @with_run(method_name, allow_finished=allow_finished)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
         return getattr(get_run(), method_name)(*args, **kwargs)
 

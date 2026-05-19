@@ -5,14 +5,6 @@
 @description: 事件驱动的 Record 上传模块
 """
 
-from .buffer import RecordBuffer
-from .dispatch import Dispatch
-from .sender import HttpRecordSender
 from .thread import Transport
 
-__all__ = [
-    "Dispatch",
-    "HttpRecordSender",
-    "RecordBuffer",
-    "Transport",
-]
+__all__ = ["Transport"]

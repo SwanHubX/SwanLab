@@ -5,7 +5,6 @@ from swanlab.sdk.internal.core_python.transport.thread import Transport
 
 
 def _make_transport(ctx, **kwargs) -> Transport:
-    kwargs.setdefault("sender", MagicMock())
     kwargs.setdefault("auto_start", False)
     return Transport(ctx=ctx, **kwargs)
 
@@ -129,8 +128,8 @@ def test_transport_finish_drains_remaining(make_ctx, make_scalar_record):
 
     ctx = make_ctx(batch_interval=0.01)
     t = _make_transport(ctx)
-    t._dispatcher = FakeDispatch()  # type: ignore
     t.start()
+    t._dispatcher = FakeDispatch()  # type: ignore
     records = [make_scalar_record(step=1), make_scalar_record(step=2)]
     records[0].num = 1
     records[1].num = 2
@@ -141,8 +140,7 @@ def test_transport_finish_drains_remaining(make_ctx, make_scalar_record):
 
 def test_transport_finish_waits_for_thread(mock_ctx):
     """finish() calls join with timeout from class constant."""
-    sender = MagicMock()
-    t = _make_transport(mock_ctx, sender=sender)
+    t = _make_transport(mock_ctx)
     t._thread = MagicMock()
 
     t.finish()
@@ -166,8 +164,8 @@ def test_transport_drains_on_batch_interval(make_ctx, make_scalar_record):
 
     ctx = make_ctx(batch_interval=0.01)
     t = _make_transport(ctx)
-    t._dispatcher = FakeDispatch()  # type: ignore
     t.start()
+    t._dispatcher = FakeDispatch()  # type: ignore
     record = make_scalar_record(step=1)
     record.num = 1
     t.put([record])
@@ -220,8 +218,8 @@ def test_transport_keeps_pending_records_and_warns_after_retry_exhaustion(make_c
 
     ctx = make_ctx(batch_interval=0.01)
     t = _make_transport(ctx)
-    t._dispatcher = FlakyDispatch()  # type: ignore
     t.start()
+    t._dispatcher = FlakyDispatch()  # type: ignore
 
     first = make_scalar_record(step=1)
     second = make_scalar_record(step=2)
