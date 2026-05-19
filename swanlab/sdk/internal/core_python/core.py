@@ -35,23 +35,21 @@ from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord, RunState, StartRe
 from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord
 from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogLevel, LogRecord
 from swanlab.sdk.internal.core_python.api.experiment import (
-    create_or_resume_experiment,
     get_experiment_summary,
     stop_experiment,
 )
-from swanlab.sdk.internal.core_python.api.project import get_or_create_project, get_project
 from swanlab.sdk.internal.core_python.context import CoreContext
 from swanlab.sdk.internal.core_python.heartbeat import Heartbeat
 from swanlab.sdk.internal.core_python.metrics import RunMetrics
 from swanlab.sdk.internal.core_python.pkg import builder, counter
 from swanlab.sdk.internal.core_python.store import DataStoreWriter
 from swanlab.sdk.internal.core_python.transport import Transport
+from swanlab.sdk.internal.core_python.utils import prepare_experiment_start
 from swanlab.sdk.internal.core_python.watcher import FileWatcher, create_save_links
 from swanlab.sdk.internal.pkg import adapter, console, safe
 from swanlab.sdk.protocol import CoreProtocol
 from swanlab.sdk.typings.core_python.api.experiment import ResumeExperimentSummaryType
 from swanlab.sdk.typings.run import ModeType
-from swanlab.utils.experiment import generate_color, generate_name
 
 __all__ = ["CorePython"]
 
@@ -138,71 +136,42 @@ class CorePython(CoreProtocol):
         :param record: 运行开始记录
         :return: 运行开始响应
         """
-        # 1. 向后端同步运行开始事件
-        # 获取当前项目，如果不存在则创建
-        project_data = get_or_create_project(
-            username=record.workspace,
-            name=record.project,
-            public=record.public,
-        )
-        username, project = project_data["username"], project_data["name"]
-        # 获取当前项目详细信息
-        project_info = get_project(username=username, name=project)
-        # 获取当前实验
-        history_experiment_count = project_info["_count"]["experiments"]
-        name = record.name or generate_name(history_experiment_count)
-        color = record.color or generate_color(history_experiment_count)
-        resume = adapter.resume[record.resume]
-        # 开启实验
-        experiment, new_experiment = create_or_resume_experiment(
-            username,
-            project,
-            name=name,
-            resume=resume,
-            run_id=record.id,
-            color=color,
-            description=record.description,
-            job_type=record.job_type,
-            group=record.group,
-            tags=list(record.tags),
-            created_at=record.started_at,
-        )
-        assert experiment.get("name"), "create_or_resume_experiment() returned an experiment without a name."
+        run_info = prepare_experiment_start(record)
         # 3. 记录必要字段
         self._ctx.set_online_params(
-            username=username,
-            project=project,
-            project_id=project_info["cuid"],
-            experiment_id=experiment["cuid"],
+            username=run_info.username,
+            project=run_info.project,
+            project_id=run_info.project_info["cuid"],
+            experiment_id=run_info.experiment["cuid"],
         )
         # 3. resume 时，向后端获取数据
         summary: Optional[ResumeExperimentSummaryType] = None
-        if not new_experiment:
+        if not run_info.new_experiment:
             summary = get_experiment_summary(self._ctx.project_id, self._ctx.experiment_id)
         self._metrics, console_epoch, global_step, global_system_step = RunMetrics.new(summary, ctx=self._ctx)
         self._epoch.reset(console_epoch)
         # 4. 构建记录
         start_record = StartRecord()
         start_record.CopyFrom(record)
-        start_record.name = name
-        start_record.color = color
+        start_record.name = run_info.name
+        start_record.color = run_info.color
         start_record.resume = record.resume
-        start_record.project = project
-        start_record.workspace = username
+        start_record.project = run_info.project
+        start_record.workspace = run_info.username
         # 5. 获取path，/:username/:project_name/:run_id
-        run_id = experiment.get("slug", "") or experiment["cuid"]
+        run_id = run_info.experiment.get("slug", "") or run_info.experiment["cuid"]
         # /:username/:project_name
-        project_path = project_info["path"]
+        project_path = run_info.project_info["path"]
         path = f"{project_path}/{run_id}"
         return DeliverRunStartResponse(
             success=True,
             message="OK",
             path=path,
             run=start_record,
-            name=experiment.get("name"),
+            name=run_info.experiment.get("name"),
             global_step=global_step,
             global_system_step=global_system_step,
-            new_experiment=new_experiment,
+            new_experiment=run_info.new_experiment,
         )
 
     # ---------------------------------- 数据上报 ----------------------------------

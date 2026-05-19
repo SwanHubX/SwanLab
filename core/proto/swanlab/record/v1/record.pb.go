@@ -49,7 +49,7 @@ type Record struct {
 	// 4. MetadataRecord 的 num 为-4
 	// 5. RequirementsRecord 的 num 为-5
 	// 6. CondaRecord 的 num 为-6
-	// 上述记录为全局唯一、去重Record，其余Record 的 num 为 1 开始的递增序号
+	// 上述记录为全局唯一、去重Record，其余Record 的 num 为 1 开始的递增序号，剩余负数范围被用于特殊场景，例如sync时自动构建column record
 	Num int64 `protobuf:"varint,1,opt,name=num,proto3" json:"num,omitempty"`
 	// Record 生成时间，仅作参考
 	Timestamp *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
