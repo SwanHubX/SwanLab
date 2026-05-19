@@ -216,7 +216,7 @@ class CorePython(CoreProtocol):
     def _transport_put(self, records: List[Record]) -> None:
         """将一组 Record 推送到上传队列"""
         assert self._transport is not None, "transport must be initialized before upsert"
-        self._transport.put(*records)
+        self._transport.put(records)
 
     # ---- upsert_columns ----
 

@@ -69,7 +69,7 @@ class Transport:
         self._thread.start()
         self._started = True
 
-    def put(self, *records: Record) -> None:
+    def put(self, records: List[Record]) -> None:
         """追加 records 到 buffer，等待下次 batch_interval 唤醒时统一处理。"""
         if self._finished:
             console.error("Transport has already been finished.")

@@ -57,7 +57,7 @@ class CoreSyncPython(CoreSyncProtocol):
         for record_bytes in self._reader:
             record = Record()
             record.ParseFromString(record_bytes)
-            self._transport.put(record)
+            self._transport.put([record])
             # TODO 处理traker记录
 
     def deliver_sync_finish(self):
