@@ -28,8 +28,9 @@ const (
 type DeliverSyncStartRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	CoreSettings  *v1.CoreSettings       `protobuf:"bytes,1,opt,name=core_settings,json=coreSettings,proto3" json:"core_settings,omitempty"` // 同步服务启动配置
-	Project       string                 `protobuf:"bytes,2,opt,name=project,proto3" json:"project,omitempty"`                               // 用于标识同步到哪个项目上，如果不传递，默认使用start record中记录的项目
-	Id            string                 `protobuf:"bytes,3,opt,name=id,proto3" json:"id,omitempty"`                                         // 运行id，如果run id在对应实验上已经存在，则等同于resume模式
+	Workspace     string                 `protobuf:"bytes,2,opt,name=workspace,proto3" json:"workspace,omitempty"`                           // 用于标识同步到哪个工作空间上，如果不传递，默认使用start record中记录的工作空间
+	Project       string                 `protobuf:"bytes,3,opt,name=project,proto3" json:"project,omitempty"`                               // 用于标识同步到哪个项目上，如果不传递，默认使用start record中记录的项目
+	Id            string                 `protobuf:"bytes,4,opt,name=id,proto3" json:"id,omitempty"`                                         // 运行id，如果run id在对应实验上已经存在，则等同于resume模式
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -69,6 +70,13 @@ func (x *DeliverSyncStartRequest) GetCoreSettings() *v1.CoreSettings {
 		return x.CoreSettings
 	}
 	return nil
+}
+
+func (x *DeliverSyncStartRequest) GetWorkspace() string {
+	if x != nil {
+		return x.Workspace
+	}
+	return ""
 }
 
 func (x *DeliverSyncStartRequest) GetProject() string {
@@ -143,6 +151,7 @@ type DeliverSyncFlushResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"` // 请求是否成功
 	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`  // 请求失败的响应
+	Path          string                 `protobuf:"bytes,3,opt,name=path,proto3" json:"path,omitempty"`        // 对应的实验路径，格式为 /:username/:project_name/:slug(run_id)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -187,6 +196,13 @@ func (x *DeliverSyncFlushResponse) GetSuccess() bool {
 func (x *DeliverSyncFlushResponse) GetMessage() string {
 	if x != nil {
 		return x.Message
+	}
+	return ""
+}
+
+func (x *DeliverSyncFlushResponse) GetPath() string {
+	if x != nil {
+		return x.Path
 	}
 	return ""
 }
@@ -248,17 +264,19 @@ var File_swanlab_grpc_core_v1_sync_proto protoreflect.FileDescriptor
 
 const file_swanlab_grpc_core_v1_sync_proto_rawDesc = "" +
 	"\n" +
-	"\x1fswanlab/grpc/core/v1/sync.proto\x12\x14swanlab.grpc.core.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x18swanlab/run/v1/run.proto\x1a#swanlab/settings/core/v1/core.proto\"\x90\x01\n" +
+	"\x1fswanlab/grpc/core/v1/sync.proto\x12\x14swanlab.grpc.core.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x18swanlab/run/v1/run.proto\x1a#swanlab/settings/core/v1/core.proto\"\xae\x01\n" +
 	"\x17DeliverSyncStartRequest\x12K\n" +
-	"\rcore_settings\x18\x01 \x01(\v2&.swanlab.settings.core.v1.CoreSettingsR\fcoreSettings\x12\x18\n" +
-	"\aproject\x18\x02 \x01(\tR\aproject\x12\x0e\n" +
-	"\x02id\x18\x03 \x01(\tR\x02id\"N\n" +
+	"\rcore_settings\x18\x01 \x01(\v2&.swanlab.settings.core.v1.CoreSettingsR\fcoreSettings\x12\x1c\n" +
+	"\tworkspace\x18\x02 \x01(\tR\tworkspace\x12\x18\n" +
+	"\aproject\x18\x03 \x01(\tR\aproject\x12\x0e\n" +
+	"\x02id\x18\x04 \x01(\tR\x02id\"N\n" +
 	"\x18DeliverSyncStartResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\"N\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"b\n" +
 	"\x18DeliverSyncFlushResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\"O\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\x12\x12\n" +
+	"\x04path\x18\x03 \x01(\tR\x04path\"O\n" +
 	"\x19ConfirmSyncFinishResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage2\xbe\x02\n" +

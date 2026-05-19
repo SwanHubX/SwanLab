@@ -26,6 +26,7 @@ from .cmd.run import (
     log_video,
     save,
 )
+from .cmd.sync import sync
 from .internal import pkg
 from .internal.run import Run, clear_run, get_run, has_run, set_run
 from .internal.run.transforms import Audio, ECharts, Image, Molecule, Object3D, Text, Video, echarts, plot
@@ -49,6 +50,7 @@ __all__ = [
     "async_log",
     "define_scalar",
     "save",
+    "sync",
     "merge_settings",
     "merge_callbacks",
     "cmd_utils",

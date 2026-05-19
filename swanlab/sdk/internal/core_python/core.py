@@ -44,7 +44,7 @@ from swanlab.sdk.internal.core_python.metrics import RunMetrics
 from swanlab.sdk.internal.core_python.pkg import builder, counter
 from swanlab.sdk.internal.core_python.store import DataStoreWriter
 from swanlab.sdk.internal.core_python.transport import Transport
-from swanlab.sdk.internal.core_python.utils import prepare_experiment_start
+from swanlab.sdk.internal.core_python.utils import generate_run_online_path, prepare_experiment_start
 from swanlab.sdk.internal.core_python.watcher import FileWatcher, create_save_links
 from swanlab.sdk.internal.pkg import adapter, console, safe
 from swanlab.sdk.protocol import CoreProtocol
@@ -158,15 +158,10 @@ class CorePython(CoreProtocol):
         start_record.resume = record.resume
         start_record.project = run_info.project
         start_record.workspace = run_info.username
-        # 5. 获取path，/:username/:project_name/:run_id
-        run_id = run_info.experiment.get("slug", "") or run_info.experiment["cuid"]
-        # /:username/:project_name
-        project_path = run_info.project_info["path"]
-        path = f"{project_path}/{run_id}"
         return DeliverRunStartResponse(
             success=True,
             message="OK",
-            path=path,
+            path=generate_run_online_path(run_info),
             run=start_record,
             name=run_info.experiment.get("name"),
             global_step=global_step,

@@ -26,7 +26,11 @@ from swanlab.sdk.internal.core_python.metrics import RunMetrics
 from swanlab.sdk.internal.core_python.pkg import builder, counter, executor
 from swanlab.sdk.internal.core_python.store import DataStoreReader
 from swanlab.sdk.internal.core_python.transport import Transport
-from swanlab.sdk.internal.core_python.utils import PrepareExperimentStartResult, prepare_experiment_start
+from swanlab.sdk.internal.core_python.utils import (
+    PrepareExperimentStartResult,
+    generate_run_online_path,
+    prepare_experiment_start,
+)
 from swanlab.sdk.internal.pkg import adapter, console, safe
 from swanlab.sdk.protocol.core import CoreSyncProtocol
 from swanlab.sdk.typings.core_python.api.experiment import ResumeExperimentSummaryType
@@ -45,7 +49,7 @@ class CoreSyncPython(CoreSyncProtocol):
         self._start_record: Optional[StartRecord] = None
         self._metrics: Optional[RunMetrics] = None
         # finish record 有可能不存在，此时Sync自己mock一下数据
-        self._finish_record = FinishRecord()
+        self._finish_record: Optional[FinishRecord] = None
         # 日志行数，仅大于此行数的才上传
         self._epoch = -1
         self._counter = counter.Counter(builder.DEC_NUM)
@@ -61,9 +65,9 @@ class CoreSyncPython(CoreSyncProtocol):
 
     def deliver_sync_start(self, start_request: DeliverSyncStartRequest) -> DeliverSyncStartResponse:
         self._start_request = start_request
-        self._ctx = CoreContext.from_proto(start_request.core_settings)
+        self._ctx = CoreContext.from_proto(start_request.core_settings, mode="sync")
         # 安全地开启sync，DataStoreError 通常是run头文件损坏，属于已知错误
-        with safe.block(message="Failed to open sync store with unexpected error", write_to_tty=False):
+        with safe.block(message="Failed to open sync store with unexpected error"):
             try:
                 self._reader.open(self._ctx.run_file)
                 start_record_bytes = self._reader.scan()
@@ -94,12 +98,14 @@ class CoreSyncPython(CoreSyncProtocol):
         )
 
         result: Optional[PrepareExperimentStartResult] = None
-        with safe.block(message="Failed to prepare sync experiment", write_to_tty=False):
+        with safe.block(message="Failed to prepare sync experiment"):
             # 1. 通知后端，启动实验
             start_record = StartRecord()
             start_record.CopyFrom(self._start_record)
             if self._start_request.project:
                 start_record.project = self._start_request.project
+            if self._start_request.workspace:
+                start_record.workspace = self._start_request.workspace
             if self._start_request.id:
                 start_record.id = self._start_request.id
             # sync 实验统一开启宽松resume限制，resume设置为allow，后端自动创建新实验
@@ -131,7 +137,7 @@ class CoreSyncPython(CoreSyncProtocol):
         self._transport = Transport(self._ctx)
         self._read_executor.start(self.read())
         self._transport.start()
-        return DeliverSyncFlushResponse(success=True, message="success")
+        return DeliverSyncFlushResponse(success=True, message="success", path=generate_run_online_path(result))
 
     async def read(self):
         """
@@ -144,8 +150,13 @@ class CoreSyncPython(CoreSyncProtocol):
                 record = Record()
                 record.ParseFromString(record_bytes)
                 # 记录开始和结束记录作为生命周期记录，不通过 _transport 上传
-                if self._finish_record is None and record.HasField("finish"):
-                    self._finish_record = record.finish
+                if record.HasField("finish"):
+                    if self._finish_record is None:
+                        self._finish_record = record.finish
+                    else:
+                        console.error(
+                            "Multiple finish records were found in the run file. SwanLab will use the first one."
+                        )
                 elif record.HasField("log") and record.log.epoch > self._epoch:
                     # 仅大于 console_epoch 的 record 才能上传
                     self._epoch = record.log.epoch

@@ -70,3 +70,11 @@ def prepare_experiment_start(record: StartRecord) -> PrepareExperimentStartResul
         name=name,
         color=color,
     )
+
+
+def generate_run_online_path(result: PrepareExperimentStartResult):
+    # 获取path，/:username/:project_name/:run_id
+    run_id = result.experiment.get("slug", "") or result.experiment["cuid"]
+    # /:username/:project_name
+    project_path = result.project_info["path"]
+    return f"{project_path}/{run_id}"

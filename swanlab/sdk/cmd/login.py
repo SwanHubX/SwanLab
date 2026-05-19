@@ -80,6 +80,7 @@ def login_raw(
     save: LoginType = False,
     timeout: int = 10,
     animation: bool = True,
+    print_welcome: bool = True,
 ) -> bool:
     # 1. 判断是否允许重新登录
     # 如果已经登录且不需要重新登录，则直接返回
@@ -117,7 +118,8 @@ def login_raw(
         f = utils.with_loading_animation("Waiting for response...")(create_client) if animation else create_client
         f(api_key=api_key, api_host=api_host, timeout=timeout)
         login_resp: Optional[LoginResponse] = s.get("login_resp", None)
-        wellcome(api_host, login_resp)
+        if print_welcome:
+            welcome(api_host, login_resp)
         if save:
             nrc_path = utils.get_nrc_path(save=save)
             nrc.write(nrc_path, api_host=api_host, web_host=login_settings.web_host, api_key=api_key)
@@ -173,7 +175,7 @@ def login_cli(
             with scope.Scope() as s:
                 client.new(api_key, base_url, timeout=timeout)
                 login_resp: Optional[LoginResponse] = s.get("login_resp", None)
-            wellcome(base_url, login_resp)
+            welcome(base_url, login_resp)
             # 如果存储当前目录，添加gitignore文件
             # mkdir_and_append_gitignore 自动判断是否为空文件夹，如果是则写入
             if save == "local":
@@ -252,7 +254,7 @@ def prompt_api_key(
             sys.exit(0)
 
 
-def wellcome(base_url: str, login_resp: Optional[LoginResponse]):
+def welcome(base_url: str, login_resp: Optional[LoginResponse]):
     """
     登录成功后打印欢迎信息
     :param base_url: 登录地址
