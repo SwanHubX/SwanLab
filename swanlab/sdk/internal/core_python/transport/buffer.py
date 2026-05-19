@@ -5,7 +5,7 @@
 @description: 基于 list + set 去重索引的 RecordBuffer
 """
 
-from typing import List
+from typing import Iterable, List
 
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 
@@ -31,7 +31,7 @@ class RecordBuffer:
 
     # ── 写入 ──
 
-    def extend(self, records: List[Record]) -> int:
+    def extend(self, records: Iterable[Record]) -> int:
         """追加 records，自动按 num 去重。返回实际入队的数量。"""
         accepted_records = [record for record in records if self._try_enqueue(record)]
         self._records.extend(accepted_records)

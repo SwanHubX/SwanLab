@@ -10,11 +10,14 @@ option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/grpc/core/v1
 
 // CoreSyncService 用于启动本地日志读取、云端同步服务
 service CoreSyncService {
-    // DeliverSyncStart 接收 CoreSettings，校验并启动本地日志读取与云端同步
+    // DeliverSyncStart 接收 CoreSettings，校验并启动本地日志读取
     rpc DeliverSyncStart(DeliverSyncStartRequest) returns(DeliverSyncStartResponse);
 
-    // DeliverSyncFinish 结束本地日志读取与云端同步
-    rpc DeliverSyncFinish(google.protobuf.Empty) returns(google.protobuf.Empty);
+    // DeliverSyncFinish 结束本地日志读取，开启云端同步
+    rpc DeliverSyncFlush(google.protobuf.Empty) returns(DeliverSyncFlushResponse);
+
+    // ConfirmSyncFinish 结束同步，副作用清理，退出
+    rpc ConfirmSyncFinish(google.protobuf.Empty) returns(ConfirmSyncFinishResponse);
 }
 
 // DeliverSyncStart 请求，同步服务启动配置
@@ -26,6 +29,20 @@ message DeliverSyncStartRequest {
 
 // DeliverSyncStartResponse 同步服务启动响应
 message DeliverSyncStartResponse {
+    bool success = 1;   // 请求是否成功
+    string message = 2; // 请求失败的响应
+}
+
+
+// DeliverSyncFlushResponse 开启云端同步响应
+message DeliverSyncFlushResponse {
+    bool success = 1;   // 请求是否成功
+    string message = 2; // 请求失败的响应
+}
+
+
+// ConfirmSyncFinishResponse 同步服务结束响应
+message ConfirmSyncFinishResponse {
     bool success = 1;   // 请求是否成功
     string message = 2; // 请求失败的响应
 }

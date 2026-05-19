@@ -53,16 +53,18 @@ class CoreSyncPython(CoreSyncProtocol):
         """
         异步读取本地文件，存储在内存中
         """
+        self._transport = Transport(self._ctx)
         for record_bytes in self._reader:
             record = Record()
             record.ParseFromString(record_bytes)
-
+            self._transport.put(record)
             # TODO 处理traker记录
 
     def deliver_sync_finish(self):
         # 1. 等待读取线程结束
         self._read_executor.wait()
         self._reader.close()
+        # 2. 云端重新开启
 
     async def upload(self):
         """
