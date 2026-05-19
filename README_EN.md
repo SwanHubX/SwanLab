@@ -51,7 +51,7 @@ For Model Training Teams, Integrated with 50+ Leading AI Training Frameworks, Ea
 
 ## 🌟 Recent Updates
 
-- 2026.05.18: 📊 Added **chart copy** feature; logs now support **global filtering** so you can quickly find the log snippets you need across the entire workspace; chart search now includes **search history**; chart details now show **relative time**;
+- 2026.05.18: 📒 Logs now support **global filtering**, so you can quickly find the log snippets you need across the entire workspace; added **chart copy** feature; chart search now includes **search history**; chart details now show **relative time**;
 
 - 2026.04.28: 🪨 **Project Pinning** is now live — place the projects your team cares about most in the most prominent spot; improved the metric panel display when hovering over line charts;
 
