@@ -275,3 +275,32 @@ def resolve_save_paths(
         return None
 
     return resolved_glob, resolved_base
+
+
+def fmt_bytes(n: float) -> str:
+    """Format bytes into human-readable units."""
+    if n <= 0:
+        return "0 B"
+    units = ["B", "KB", "MB", "GB", "TB"]
+    i = 0
+    value = float(n)
+    while value >= 1024.0 and i < len(units) - 1:
+        value /= 1024.0
+        i += 1
+    if i == 0:
+        return f"{int(n)} B"
+    return f"{value:.1f} {units[i]}"
+
+
+def fmt_rate(rate: float, unit: str) -> str:
+    """Format processing rate (e.g. rate/s)."""
+    return f"{fmt_items(rate, unit)}/s"
+
+
+def fmt_items(n: Union[int, float], unit: str) -> str:
+    """Format items count or bytes size depending on unit."""
+    if unit == "bytes":
+        return fmt_bytes(n)
+    if isinstance(n, float):
+        return f"{n:.1f} {unit}"
+    return f"{n} {unit}"

@@ -10,6 +10,7 @@ from swanlab.proto.swanlab.config.v1.config_pb2 import ConfigRecord, UpdateType
 from swanlab.proto.swanlab.grpc.core.v1.sync_pb2 import DeliverSyncStartRequest
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord, ColumnType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord, ScalarRecord, ScalarValue
+from swanlab.proto.swanlab.operation.v1.operation_pb2 import CoreState
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord, ResumeMode, RunState, StartRecord
 from swanlab.proto.swanlab.settings.core.v1.core_pb2 import CoreSettings
@@ -122,11 +123,13 @@ def record_kind(record: Record) -> str:
 
 
 class FakeTransport:
-    def __init__(self, ctx: CoreContext):
+    def __init__(self, ctx: CoreContext, tracker=None):
         self.ctx = ctx
+        self.tracker = tracker
         self.records: list[Record] = []
         self.started = False
         self.finished = False
+        self.joined = False
 
     def put(self, records: list[Record]) -> None:
         self.records.extend(records)
@@ -134,8 +137,20 @@ class FakeTransport:
     def start(self) -> None:
         self.started = True
 
-    def finish(self) -> None:
+    def request_finish(self) -> None:
         self.finished = True
+        if self.tracker is not None:
+            self.tracker.set_state(CoreState.CORE_STATE_FINISHED)
+
+    def join(self, timeout=None) -> bool:
+        self.joined = True
+        if self.tracker is not None:
+            self.tracker.set_state(CoreState.CORE_STATE_FINISHED)
+        return True
+
+    def finish(self, timeout=None) -> bool:
+        self.request_finish()
+        return self.join(timeout=timeout)
 
 
 class FakeExecutor:
@@ -277,8 +292,8 @@ def test_deliver_sync_flush_prepares_experiment_with_overrides(tmp_path: Path, m
     )
     transports: list[FakeTransport] = []
 
-    def make_transport(ctx: CoreContext) -> FakeTransport:
-        transport = FakeTransport(ctx)
+    def make_transport(ctx: CoreContext, tracker=None) -> FakeTransport:
+        transport = FakeTransport(ctx, tracker=tracker)
         transports.append(transport)
         return transport
 
@@ -300,8 +315,10 @@ def test_deliver_sync_flush_prepares_experiment_with_overrides(tmp_path: Path, m
     assert core._ctx.project == "demo"
     assert core._ctx.project_id == "project-id"
     assert core._ctx.experiment_id == "experiment-id"
+    assert transports[0].tracker is core._tracker
     assert transports[0].started is True
     assert fake_executor.started is True
+    assert core.get_operation_stats().state == CoreState.CORE_STATE_RUNNING
 
 
 def test_deliver_sync_flush_fetches_summary_for_existing_experiment(tmp_path: Path, monkeypatch):
@@ -318,7 +335,9 @@ def test_deliver_sync_flush_fetches_summary_for_existing_experiment(tmp_path: Pa
     monkeypatch.setattr(
         "swanlab.sdk.internal.core_python.sync.RunMetrics.new", MagicMock(return_value=(FakeMetrics(), -1, -1, -1))
     )
-    monkeypatch.setattr("swanlab.sdk.internal.core_python.sync.Transport", lambda ctx: FakeTransport(ctx))
+    monkeypatch.setattr(
+        "swanlab.sdk.internal.core_python.sync.Transport", lambda ctx, tracker=None: FakeTransport(ctx, tracker)
+    )
     core._read_executor = FakeExecutor()  # type: ignore[assignment]
 
     resp = core.deliver_sync_flush()

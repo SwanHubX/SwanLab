@@ -1,7 +1,9 @@
 import threading
 from unittest.mock import MagicMock, patch
 
+from swanlab.proto.swanlab.operation.v1.operation_pb2 import CoreState
 from swanlab.sdk.internal.core_python.transport.thread import Transport
+from swanlab.sdk.internal.core_python.transport.tracker import UploadTracker
 
 
 def _make_transport(ctx, **kwargs) -> Transport:
@@ -50,6 +52,21 @@ def test_transport_start_is_idempotent(mock_ctx):
     t.finish()
 
 
+def test_transport_start_uses_injected_sender_and_tracker(mock_ctx):
+    """start() wires an injected sender to Dispatch and injects the tracker into it."""
+    sender = MagicMock()
+    tracker = MagicMock()
+    t = _make_transport(mock_ctx, sender=sender, tracker=tracker)
+
+    t.start()
+    try:
+        sender.set_tracker.assert_called_once_with(tracker)
+        assert t._dispatcher is not None
+        assert t._dispatcher._sender is sender
+    finally:
+        t.finish()
+
+
 def test_transport_start_after_finish_is_noop(mock_ctx):
     """start() after finish() is a no-op."""
     t = _make_transport(mock_ctx)
@@ -94,6 +111,42 @@ def test_transport_put_keeps_distinct_record_nums(mock_ctx, make_scalar_record):
     t.put([first, second])
 
     assert t._buf.drain() == [first, second]
+
+
+def test_transport_put_tracks_queued_record_total_by_default(mock_ctx, make_scalar_record):
+    tracker = UploadTracker()
+    t = _make_transport(mock_ctx, tracker=tracker)
+    records = [make_scalar_record(step=1), make_scalar_record(step=2)]
+    records[0].num = 1
+    records[1].num = 2
+
+    t.put(records)
+
+    assert tracker.snapshot().total_records == 2
+
+
+def test_transport_put_tracks_only_deduped_records(mock_ctx, make_scalar_record):
+    tracker = UploadTracker()
+    t = _make_transport(mock_ctx, tracker=tracker)
+    record = make_scalar_record(step=1)
+    record.num = 7
+
+    t.put([record])
+    t.put([record])
+
+    assert tracker.snapshot().total_records == 1
+
+
+def test_transport_can_leave_record_total_unknown_for_streaming_sync(mock_ctx, make_scalar_record):
+    tracker = UploadTracker()
+    t = _make_transport(mock_ctx, tracker=tracker, track_record_totals=False)
+    records = [make_scalar_record(step=1), make_scalar_record(step=2)]
+    records[0].num = 1
+    records[1].num = 2
+
+    t.put(records)
+
+    assert tracker.snapshot().total_records == 0
 
 
 def test_transport_put_warns_after_finish(mock_ctx, make_scalar_record):
@@ -142,10 +195,54 @@ def test_transport_finish_waits_for_thread(mock_ctx):
     """finish() calls join with timeout from class constant."""
     t = _make_transport(mock_ctx)
     t._thread = MagicMock()
+    t._thread.is_alive.return_value = False
 
-    t.finish()
+    assert t.finish() is True
 
     t._thread.join.assert_called_once_with(timeout=Transport.FINISH_JOIN_TIMEOUT)
+
+
+def test_transport_request_finish_does_not_join_thread(mock_ctx):
+    """request_finish() only notifies the worker and returns without joining."""
+    t = _make_transport(mock_ctx)
+    t._thread = MagicMock()
+
+    t.request_finish()
+
+    assert t._finished is True
+    t._thread.join.assert_not_called()
+
+
+def test_transport_marks_tracker_finished_when_worker_exits(mock_ctx):
+    tracker = UploadTracker()
+    tracker.set_state(CoreState.CORE_STATE_RUNNING)
+    t = _make_transport(mock_ctx, tracker=tracker)
+
+    t.start()
+    t.request_finish()
+
+    assert t.join(timeout=2.0) is True
+    assert tracker.snapshot().state == CoreState.CORE_STATE_FINISHED
+
+
+def test_transport_join_reports_timeout(mock_ctx):
+    """join() returns False when the worker thread is still alive after timeout."""
+    t = _make_transport(mock_ctx)
+    t._thread = MagicMock()
+    t._thread.is_alive.return_value = True
+
+    assert t.join(timeout=0) is False
+    t._thread.join.assert_called_once_with(timeout=0)
+
+
+def test_transport_is_alive_reflects_thread_state(mock_ctx):
+    t = _make_transport(mock_ctx)
+    assert t.is_alive() is False
+
+    t._thread = MagicMock()
+    t._thread.is_alive.return_value = True
+
+    assert t.is_alive() is True
 
 
 # ─────────────────── 定时攒批 ───────────────────

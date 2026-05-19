@@ -105,21 +105,16 @@ def test_dispatch_mixed_type_partial_failure_rollback(mock_ctx, make_scalar_reco
     assert failed[1] is config_records[0]
 
 
-def test_dispatch_handle_record_type_success_calls_callback(mock_ctx, make_scalar_record):
-    """上传成功后返回成功状态并触发上传回调。"""
+def test_dispatch_handle_record_type_success_does_not_track_counts(mock_ctx, make_scalar_record):
+    """上传成功后只返回成功状态，Dispatch 不再负责上传计数。"""
     uploaded = []
-    callback = MagicMock()
     sender = MagicMock()
 
     def upload_side_effect(record_type, records):
         uploaded.append((record_type, list(records)))
 
     sender.upload.side_effect = upload_side_effect
-    dispatch = Dispatch(
-        batch_size=mock_ctx.config.record_batch,
-        upload_callback=callback,
-        sender=sender,
-    )
+    dispatch = Dispatch(batch_size=mock_ctx.config.record_batch, sender=sender)
 
     records = [make_scalar_record(step=1)]
     records[0].num = 41
@@ -129,7 +124,6 @@ def test_dispatch_handle_record_type_success_calls_callback(mock_ctx, make_scala
     assert success is True
     assert failed == []
     assert uploaded == [("scalar", records)]
-    callback.assert_called_once_with(1)
 
 
 def test_dispatch_handle_record_type_returns_failed_tail_on_chunk_failure(mock_ctx, make_scalar_record):

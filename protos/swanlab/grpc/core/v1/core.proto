@@ -10,6 +10,7 @@ import "swanlab/config/v1/config.proto";
 import "swanlab/env/v1/env.proto";
 import "swanlab/terminal/v1/log.proto";
 import "swanlab/save/v1/save.proto";
+import "swanlab/operation/v1/operation.proto";
 import "swanlab/settings/core/v1/core.proto";
 
 option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/grpc/core/v1;corev1";
@@ -48,6 +49,12 @@ service CoreService {
 
   // DeliverRunFinish 接收单条 FinishRecord，用于实验结束。
   rpc DeliverRunFinish(DeliverRunFinishRequest) returns (DeliverRunFinishResponse);
+
+  // GetOperationStats 返回 Core 当前运行状态和上传进度快照。
+  rpc GetOperationStats(google.protobuf.Empty) returns (swanlab.operation.v1.OperationStats);
+
+  // ConfirmRunFinish 确认 Core 运行结束，可以安全退出
+  rpc ConfirmRunFinish(google.protobuf.Empty) returns (ConfirmRunFinishResponse);
 }
 
 // DeliverRunStart 请求，生命周期函数，运行正式开始
@@ -120,6 +127,12 @@ message DeliverRunFinishRequest {
 
 // DeliverRunFinish 响应
 message DeliverRunFinishResponse {
+  bool success   = 1;  // 请求是否成功
+  string message = 2;  // 请求失败的响应
+}
+
+// ConfirmRunFinish 响应
+message ConfirmRunFinishResponse {
   bool success   = 1;  // 请求是否成功
   string message = 2;  // 请求失败的响应
 }

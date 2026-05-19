@@ -12,6 +12,7 @@ from typing import List
 from swanlab.proto.swanlab.config.v1.config_pb2 import ConfigRecord
 from swanlab.proto.swanlab.env.v1.env_pb2 import CondaRecord, MetadataRecord, RequirementsRecord
 from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
+    ConfirmRunFinishResponse,
     DeliverRunFinishRequest,
     DeliverRunFinishResponse,
     DeliverRunStartRequest,
@@ -25,6 +26,7 @@ from swanlab.proto.swanlab.grpc.core.v1.sync_pb2 import (
 )
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord, ScalarRecord
+from swanlab.proto.swanlab.operation.v1.operation_pb2 import CoreState, OperationStats
 from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord
 from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogRecord
 from swanlab.sdk.internal.pkg import safe
@@ -325,6 +327,16 @@ class CoreProtocol(ABC):
     @abstractmethod
     def _finish_when_online(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse: ...
 
+    # ---------------------------------- 进度查询 ----------------------------------
+
+    def get_operation_stats(self) -> OperationStats:
+        """返回 Core 当前运行状态和上传进度快照，与 proto GetOperationStats RPC 一一对应"""
+        return OperationStats()
+
+    def confirm_run_finish(self) -> ConfirmRunFinishResponse:
+        """确认运行结束：等待上传排空、停止后台组件并上报最终 finish 状态。"""
+        return ConfirmRunFinishResponse(success=True, message="OK")
+
     # ---------------------------------- 进程fork ----------------------------------
 
     @abstractmethod
@@ -346,6 +358,10 @@ class CoreSyncProtocol(ABC):
 
     @abstractmethod
     def deliver_sync_flush(self) -> DeliverSyncFlushResponse: ...
+
+    def get_operation_stats(self) -> OperationStats:
+        """返回 sync 上传进度快照。"""
+        return OperationStats(state=CoreState.CORE_STATE_FINISHED)
 
     @abstractmethod
     def confirm_sync_finish(self) -> ConfirmSyncFinishResponse: ...

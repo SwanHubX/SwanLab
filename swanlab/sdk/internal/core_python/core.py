@@ -23,6 +23,7 @@ from typing import List, Optional, Tuple
 from swanlab.proto.swanlab.config.v1.config_pb2 import ConfigRecord
 from swanlab.proto.swanlab.env.v1.env_pb2 import CondaRecord, MetadataRecord, RequirementsRecord
 from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
+    ConfirmRunFinishResponse,
     DeliverRunFinishRequest,
     DeliverRunFinishResponse,
     DeliverRunStartRequest,
@@ -30,6 +31,7 @@ from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
 )
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnClass, ColumnRecord, ColumnType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord, ScalarRecord
+from swanlab.proto.swanlab.operation.v1.operation_pb2 import CoreState, OperationStats
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord, RunState, StartRecord
 from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord
@@ -44,6 +46,7 @@ from swanlab.sdk.internal.core_python.metrics import RunMetrics
 from swanlab.sdk.internal.core_python.pkg import builder, counter
 from swanlab.sdk.internal.core_python.store import DataStoreWriter
 from swanlab.sdk.internal.core_python.transport import Transport
+from swanlab.sdk.internal.core_python.transport.tracker import UploadTracker
 from swanlab.sdk.internal.core_python.utils import generate_run_online_path, prepare_experiment_start
 from swanlab.sdk.internal.core_python.watcher import FileWatcher, create_save_links
 from swanlab.sdk.internal.pkg import adapter, console, safe
@@ -72,6 +75,9 @@ class CorePython(CoreProtocol):
         self._started: bool = False
         self._metrics: Optional[RunMetrics] = None
         self._heartbeat: Optional[Heartbeat] = None
+        # upload progress tracker
+        self._tracker: Optional[UploadTracker] = None
+        self._pending_finish_record: Optional[FinishRecord] = None
         # save 相关
         self._watcher = FileWatcher(on_change=self._on_file_changed)
         self._pending_end_saves: List[Record] = []
@@ -125,7 +131,9 @@ class CorePython(CoreProtocol):
         self._ctx = CoreContext.from_proto(start_request.core_settings)
         resp = self._report_run_start(start_request.start_record)
         self._start_store(resp)
-        self._transport = Transport(ctx=self._ctx)
+        self._tracker = UploadTracker()
+        self._tracker.set_state(CoreState.CORE_STATE_RUNNING)
+        self._transport = Transport(ctx=self._ctx, tracker=self._tracker)
         self._heartbeat = Heartbeat(self._ctx.experiment_id)
         self._heartbeat.start()
         return resp
@@ -471,35 +479,63 @@ class CorePython(CoreProtocol):
         return DeliverRunFinishResponse(success=True, message="OK, but use offline")
 
     def _finish_when_online(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse:
+        """Online finish 分两阶段完成：
+        1. deliver_run_finish：本地持久化 + 暂存 finish_record + 通知 transport 排空。
+        2. confirm_run_finish（由 Run.finish 在进度展示后调用）：等待 transport 排空完成，再向
+           后端上报最终实验状态。两阶段设计允许中间插入进度轮询展示。
+        """
         self._stop_watcher()
         # 1. 构建停止记录
         record, log_record = self._build_finish_record(finish_request.finish_record)
         self._finish_store(record)
         assert self._transport is not None, "transport must be initialized before finishing"
+        # 2. 发送 error log 和暂存的 end-policy save 记录
         if log_record is not None:
             self._transport_put([log_record])
-        # 2. 刷出暂存的 end-policy save 记录
         if self._pending_end_saves:
             self._transport_put(self._pending_end_saves)
             self._pending_end_saves.clear()
-        # 3. 等待 transport 发送完成
-        self._transport.finish()
-        self._transport = None
-        # 3. 停止心跳
+        # 3. 暂存 finish_record，等待 confirm_run_finish 做最终确认
+        self._pending_finish_record = finish_request.finish_record
+        # 4. 通知 Transport 开始排空（非阻塞）
+        self._transport.request_finish()
+        return DeliverRunFinishResponse(success=True, message="OK")
+
+    # ---------------------------------- 进度查询 ----------------------------------
+
+    def get_operation_stats(self) -> OperationStats:
+        if self._tracker is not None:
+            return self._tracker.snapshot()
+        return OperationStats()
+
+    def confirm_run_finish(self) -> ConfirmRunFinishResponse:
+        """等待 transport 排空全部记录，然后向后端上报最终实验状态。
+
+        timeout=None 表示无限等待 transport 排空，因为此时进度展示已经告知用户
+        正在上传，由外层 run_with_progress 控制整体超时。
+        """
+        if self._transport is not None:
+            if not self._transport.finish(timeout=None):
+                return ConfirmRunFinishResponse(success=False, message="Transport is still running.")
+            self._transport = None
+        if self._tracker is not None:
+            self._tracker.set_state(CoreState.CORE_STATE_FINISHED)
         if self._heartbeat is not None:
             self._heartbeat.stop()
             self._heartbeat = None
-        # 4. 向后端同步运行结束事件
-        resp = self._report_run_finish(finish_request.finish_record)
-        # 如果仅仅是与后端同步出现问题，则换一个让用户安心一些的提示信息
+        # 向后端同步运行结束事件
+        if self._pending_finish_record is None:
+            return ConfirmRunFinishResponse(success=True, message="OK")
+        resp = self._report_run_finish(self._pending_finish_record)
+        self._pending_finish_record = None
         if resp is None:
-            return DeliverRunFinishResponse(
+            return ConfirmRunFinishResponse(
                 success=False, message="Failed to finish run, but it has been saved locally."
             )
         return resp
 
     @safe.decorator(message="run finish error")
-    def _report_run_finish(self, record: FinishRecord) -> DeliverRunFinishResponse:
+    def _report_run_finish(self, record: FinishRecord) -> ConfirmRunFinishResponse:
         # 向后端同步运行结束事件
         stop_experiment(
             self._ctx.username,
@@ -509,4 +545,4 @@ class CorePython(CoreProtocol):
             finished_at=record.finished_at,
         )
         # 构建记录
-        return DeliverRunFinishResponse(success=True, message="OK")
+        return ConfirmRunFinishResponse(success=True, message="OK")

@@ -6,7 +6,8 @@
 """
 
 import sys
-from typing import Any, Dict, List, Literal, Tuple, TypedDict, Union
+from collections.abc import Callable
+from typing import Any, Dict, List, Literal, Optional, Tuple, TypedDict, Union
 
 if sys.version_info >= (3, 11):
     from typing import NotRequired, Required
@@ -115,6 +116,8 @@ class UploadResource(TypedDict):
     url: str
     source_path: str
     content_type: str
+    size: NotRequired[int]
+    tracker_key: NotRequired[str]
 
 
 # ============================================================

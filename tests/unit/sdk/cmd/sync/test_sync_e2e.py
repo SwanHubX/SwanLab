@@ -6,6 +6,7 @@ import pytest
 import swanlab
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import ScalarRecord, ScalarValue
+from swanlab.proto.swanlab.operation.v1.operation_pb2 import CoreState
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.run.v1.run_pb2 import RunState, StartRecord
 from swanlab.sdk.cmd import sync as sync_cmd
@@ -126,11 +127,13 @@ def corrupt_record_payload(run_file: Path, payloads: list[bytes], record_index: 
 
 
 class FakeTransport:
-    def __init__(self, ctx):
+    def __init__(self, ctx, tracker=None):
         self.ctx = ctx
+        self.tracker = tracker
         self.records: list[Record] = []
         self.started = False
         self.finished = False
+        self.joined = False
 
     def put(self, records: list[Record]) -> None:
         self.records.extend(records)
@@ -138,8 +141,20 @@ class FakeTransport:
     def start(self) -> None:
         self.started = True
 
-    def finish(self) -> None:
+    def request_finish(self) -> None:
         self.finished = True
+        if self.tracker is not None:
+            self.tracker.set_state(CoreState.CORE_STATE_FINISHED)
+
+    def join(self, timeout=None) -> bool:
+        self.joined = True
+        if self.tracker is not None:
+            self.tracker.set_state(CoreState.CORE_STATE_FINISHED)
+        return True
+
+    def finish(self, timeout=None) -> bool:
+        self.request_finish()
+        return self.join(timeout=timeout)
 
 
 class ImmediateExecutor:
@@ -185,8 +200,8 @@ def test_e2e_sync_uploads_records_from_generated_swanlab_file(monkeypatch):
     core = CoreSyncPython()
     core._read_executor = ImmediateExecutor()  # type: ignore[assignment]
 
-    def make_transport(ctx) -> FakeTransport:
-        transport = FakeTransport(ctx)
+    def make_transport(ctx, tracker=None) -> FakeTransport:
+        transport = FakeTransport(ctx, tracker=tracker)
         transports.append(transport)
         return transport
 
@@ -230,8 +245,8 @@ def test_e2e_sync_skips_records_already_in_remote_summary(monkeypatch):
     core = CoreSyncPython()
     core._read_executor = ImmediateExecutor()  # type: ignore[assignment]
 
-    def make_transport(ctx) -> FakeTransport:
-        transport = FakeTransport(ctx)
+    def make_transport(ctx, tracker=None) -> FakeTransport:
+        transport = FakeTransport(ctx, tracker=tracker)
         transports.append(transport)
         return transport
 
@@ -280,8 +295,8 @@ def test_e2e_sync_stops_uploading_after_corrupted_record(tmp_path: Path, monkeyp
     core = CoreSyncPython()
     core._read_executor = ImmediateExecutor()  # type: ignore[assignment]
 
-    def make_transport(ctx) -> FakeTransport:
-        transport = FakeTransport(ctx)
+    def make_transport(ctx, tracker=None) -> FakeTransport:
+        transport = FakeTransport(ctx, tracker=tracker)
         transports.append(transport)
         return transport
 
@@ -314,8 +329,8 @@ def test_e2e_sync_marks_missing_finish_record_as_crashed(tmp_path: Path, monkeyp
     core = CoreSyncPython()
     core._read_executor = ImmediateExecutor()  # type: ignore[assignment]
 
-    def make_transport(ctx) -> FakeTransport:
-        transport = FakeTransport(ctx)
+    def make_transport(ctx, tracker=None) -> FakeTransport:
+        transport = FakeTransport(ctx, tracker=tracker)
         transports.append(transport)
         return transport
 

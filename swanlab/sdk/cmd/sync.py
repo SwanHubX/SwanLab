@@ -10,15 +10,20 @@ from pathlib import Path
 from typing import Optional, Union
 
 from pydantic import DirectoryPath, TypeAdapter
+from rich.text import Text
 
 from swanlab.exceptions import AuthenticationError
-from swanlab.proto.swanlab.grpc.core.v1.sync_pb2 import DeliverSyncFlushResponse, DeliverSyncStartRequest
+from swanlab.proto.swanlab.grpc.core.v1.sync_pb2 import (
+    DeliverSyncFlushResponse,
+    DeliverSyncStartRequest,
+)
 from swanlab.proto.swanlab.settings.core.v1.core_pb2 import CoreSettings
 from swanlab.sdk.cmd import utils
 from swanlab.sdk.cmd.login import login_raw
 from swanlab.sdk.internal import impl
 from swanlab.sdk.internal.core_python import client
-from swanlab.sdk.internal.pkg import console
+from swanlab.sdk.internal.pkg import console, helper
+from swanlab.sdk.internal.run.progress import run_with_progress
 from swanlab.sdk.internal.settings import Settings
 from swanlab.sdk.internal.settings import settings as global_settings
 from swanlab.sdk.protocol.core import CoreSyncProtocol
@@ -60,12 +65,24 @@ def sync(run_dir: Union[Path, str], settings: Optional[Settings] = None):
 
     # 3. 初始化core sync对象，并启动sync
     core = impl.create_core_sync()
-    _ = _deliver_sync_start(core, core_settings, workspace, project, run_id)
-    # flush_resp = _deliver_sync_start(core, core_settings, workspace, project, run_id)
-    # TODO: 3. 等待core完全读取所有的record，显示进度条
+    flush_resp = _deliver_sync_start(core, core_settings, workspace, project, run_id)
 
-    # 4. 告诉core sync同步结束，并且sdk等待core完成
-    confirm_resp = core.confirm_sync_finish()
+    # 4. 打印创建的实验 URL
+    if flush_resp and flush_resp.path:
+        run_path = helper.fmt_run_path(flush_resp.path)
+        web_host = sync_settings.web_host
+        run_url = f"{web_host}{run_path}"
+        project_url = run_url.split("/runs/")[0]
+        console.info("📁 View project at", Text(project_url, style=f"link {project_url} blue underline"))
+        console.info("🚀 View synced run at", Text(run_url, style=f"link {run_url} blue underline"))
+
+    # 5. 等待core完成同步
+    confirm_resp = run_with_progress(
+        stats_fn=core.get_operation_stats,
+        blocking_fn=core.confirm_sync_finish,
+        unit="auto",
+    )
+
     if not confirm_resp.success:
         console.error(f"Confirm sync finish failed: {confirm_resp.message}")
 

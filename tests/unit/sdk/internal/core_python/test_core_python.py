@@ -16,14 +16,17 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
+    ConfirmRunFinishResponse,
     DeliverRunFinishRequest,
     DeliverRunStartRequest,
     DeliverRunStartResponse,
 )
+from swanlab.proto.swanlab.operation.v1.operation_pb2 import CoreState
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord, StartRecord
 from swanlab.proto.swanlab.settings.core.v1.core_pb2 import CoreSettings as CoreSettingsPb
 from swanlab.sdk.internal.core_python import CorePython
 from swanlab.sdk.internal.core_python.context import CoreConfig, CoreContext
+from swanlab.sdk.internal.core_python.transport.tracker import UploadTracker
 
 
 def make_core_ctx(tmp_path) -> CoreContext:
@@ -158,14 +161,62 @@ class TestCorePythonFinish:
 
         mock_finish = MagicMock(return_value=None)
         monkeypatch.setattr(core, "_report_run_finish", mock_finish)
-        resp = core.deliver_run_finish(DeliverRunFinishRequest(finish_record=FinishRecord()))
+        core.deliver_run_finish(DeliverRunFinishRequest(finish_record=FinishRecord()))
 
         assert core._store is None
+        assert core._transport is not None
+        assert core._transport.join(timeout=2)
+        # deliver_run_finish is now non-blocking; must call confirm_run_finish to clean up transport
+        confirm_resp = core.confirm_run_finish()
         assert core._transport is None
         mock_heartbeat.stop.assert_called_once()
         mock_finish.assert_called_once()
+        assert isinstance(confirm_resp, ConfirmRunFinishResponse)
+        assert confirm_resp.success is False
+        assert "saved locally" in confirm_resp.message
+
+    def test_confirm_run_finish_waits_without_timeout_before_marking_finished(self, tmp_path, monkeypatch):
+        core = CorePython("online")
+        core._ctx = make_core_ctx(tmp_path)
+        tracker = UploadTracker()
+        tracker.set_state(CoreState.CORE_STATE_RUNNING)
+        transport = MagicMock()
+        transport.finish.return_value = True
+        core._tracker = tracker
+        core._transport = transport
+        core._pending_finish_record = FinishRecord()
+        report_finish = MagicMock(return_value=ConfirmRunFinishResponse(success=True, message="OK"))
+        monkeypatch.setattr(core, "_report_run_finish", report_finish)
+
+        resp = core.confirm_run_finish()
+
+        assert isinstance(resp, ConfirmRunFinishResponse)
+        assert resp.success is True
+        assert tracker.snapshot().state == CoreState.CORE_STATE_FINISHED
+        transport.finish.assert_called_once_with(timeout=None)
+        report_finish.assert_called_once()
+
+    def test_confirm_run_finish_preserves_running_transport(self, tmp_path, monkeypatch):
+        core = CorePython("online")
+        core._ctx = make_core_ctx(tmp_path)
+        set_online_params(core)
+        transport = MagicMock()
+        transport.finish.return_value = False
+        heartbeat = MagicMock()
+        report_finish = MagicMock(return_value=ConfirmRunFinishResponse(success=True, message="OK"))
+        core._transport = transport
+        core._heartbeat = heartbeat
+        core._pending_finish_record = FinishRecord()
+        monkeypatch.setattr(core, "_report_run_finish", report_finish)
+
+        resp = core.confirm_run_finish()
+
+        assert isinstance(resp, ConfirmRunFinishResponse)
         assert resp.success is False
-        assert "saved locally" in resp.message
+        assert core._transport is transport
+        transport.finish.assert_called_once_with(timeout=None)
+        heartbeat.stop.assert_not_called()
+        report_finish.assert_not_called()
 
 
 # ============================================================

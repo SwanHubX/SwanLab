@@ -7,8 +7,9 @@
 
 import threading
 import time
-from typing import Callable, List, Optional
+from typing import Any, List, Optional
 
+from swanlab.proto.swanlab.operation.v1.operation_pb2 import CoreState
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.core_python.context import CoreContext
 from swanlab.sdk.internal.pkg import console, safe
@@ -16,6 +17,7 @@ from swanlab.sdk.internal.pkg import console, safe
 from .buffer import RecordBuffer
 from .dispatch import Dispatch
 from .sender import HttpRecordSender
+from .tracker import UploadTracker
 
 
 class Transport:
@@ -35,13 +37,17 @@ class Transport:
     def __init__(
         self,
         ctx: CoreContext,
-        upload_callback: Optional[Callable[[int], None]] = None,
+        tracker: Optional[UploadTracker] = None,
+        sender: Optional[Any] = None,
         auto_start: bool = True,
+        track_record_totals: bool = True,
     ):
         self._ctx = ctx
         self._batch = ctx.config.record_batch
         self._batch_interval = ctx.config.record_interval
-        self._upload_callback = upload_callback
+        self._tracker = tracker
+        self._sender = sender
+        self._track_record_totals = track_record_totals
 
         self._cond = threading.Condition()
         self._buf = RecordBuffer()
@@ -59,10 +65,12 @@ class Transport:
         """启动守护线程。"""
         if self._started or self._finished:
             return
+        sender = self._sender or HttpRecordSender(ctx=self._ctx)
+        if self._tracker is not None:
+            sender.set_tracker(self._tracker)
         self._dispatcher = Dispatch(
             batch_size=self._batch,
-            sender=HttpRecordSender(ctx=self._ctx),
-            upload_callback=self._upload_callback,
+            sender=sender,
         )
         assert self._dispatcher is not None, "Dispatcher must be initialized when transport starting"
         self._thread = threading.Thread(target=self._loop, name=self.THREAD_NAME, daemon=True)
@@ -77,22 +85,37 @@ class Transport:
         if not records:
             return
         with self._cond:
-            self._buf.extend(records)
+            accepted = self._buf.extend(records)
+        if self._tracker is not None and self._track_record_totals:
+            self._tracker.add_total_records(accepted)
 
-    def finish(self) -> None:
-        """
-        通知线程停止，等待最终排空，由线程自行关闭 sender。
-        """
+    def request_finish(self) -> None:
+        """通知线程停止并排空 buffer，不等待线程退出。"""
         if self._finished:
             return
         with self._cond:
             self._finished = True
             self._cond.notify_all()
+
+    def join(self, timeout: Optional[float] = FINISH_JOIN_TIMEOUT) -> bool:
+        """等待线程退出，返回是否在 timeout 内正常退出。"""
         if self._thread is None:
-            return
+            return True
         console.debug("Waiting for Transport to finish...")
-        self._thread.join(timeout=self.FINISH_JOIN_TIMEOUT)
+        self._thread.join(timeout=timeout)
         console.debug("Transport finished.")
+        return not self._thread.is_alive()
+
+    def is_alive(self) -> bool:
+        """Transport worker thread is still running."""
+        return self._thread is not None and self._thread.is_alive()
+
+    def finish(self, timeout: Optional[float] = FINISH_JOIN_TIMEOUT) -> bool:
+        """
+        通知线程停止，等待最终排空，由线程自行关闭 sender。
+        """
+        self.request_finish()
+        return self.join(timeout=timeout)
 
     # ── 线程主循环 ──
 
@@ -117,18 +140,24 @@ class Transport:
                     return True
                 return not self._finished
 
-        while True:
-            if not pending and not refill_pending():
-                return
-            is_success, retry_records = False, pending
-            with safe.block(message="Transport dispatch error"):
-                is_success, retry_records = self._dispatcher(pending)
-            if is_success:
-                pending = []
-                self._throttle.reset()
-            else:
-                pending = retry_records
-                self._throttle.warn()
+        try:
+            while True:
+                if not pending and not refill_pending():
+                    return
+                is_success, retry_records = False, pending
+                with safe.block(message="Transport dispatch error"):
+                    is_success, retry_records = self._dispatcher(pending)
+                if is_success:
+                    pending = []
+                    self._throttle.reset()
+                else:
+                    pending = retry_records
+                    self._throttle.warn()
+        finally:
+            # 无论 dispatch 是否出错，transport 线程退出时标记 tracker 为 FINISHED，
+            # 让进度展示停止轮询。
+            if self._tracker is not None:
+                self._tracker.set_state(CoreState.CORE_STATE_FINISHED)
 
 
 class UploadWarningThrottle:

@@ -9,7 +9,12 @@ import pytest
 from pydantic import ValidationError
 
 from swanlab.exceptions import AuthenticationError
-from swanlab.proto.swanlab.grpc.core.v1.sync_pb2 import DeliverSyncFlushResponse, DeliverSyncStartResponse
+from swanlab.proto.swanlab.grpc.core.v1.sync_pb2 import (
+    ConfirmSyncFinishResponse,
+    DeliverSyncFlushResponse,
+    DeliverSyncStartResponse,
+)
+from swanlab.proto.swanlab.operation.v1.operation_pb2 import CoreState, OperationStats
 from swanlab.sdk.cmd.sync import ensure_run_dir, sync
 from swanlab.sdk.internal.settings import Settings
 
@@ -56,6 +61,9 @@ def test_sync_logs_in_when_api_key_provided(tmp_path, monkeypatch):
         def confirm_sync_finish(self):
             return type("Response", (), {"success": True, "message": "OK"})()
 
+        def get_operation_stats(self):
+            return OperationStats(state=CoreState.CORE_STATE_FINISHED)
+
     monkeypatch.setattr("swanlab.sdk.cmd.sync.client.exists", client_exists)
     monkeypatch.setattr("swanlab.sdk.cmd.sync.login_raw", login_raw)
     monkeypatch.setattr("swanlab.sdk.cmd.sync.impl.create_core_sync", lambda: FakeCoreSync())
@@ -64,6 +72,61 @@ def test_sync_logs_in_when_api_key_provided(tmp_path, monkeypatch):
     sync(tmp_path, settings=Settings(api_key="test-api-key", api_host="https://api.example.com"))
 
     assert login_calls == [("test-api-key", "https://api.example.com", False)]
+
+
+def test_sync_waits_for_progress_before_confirming(tmp_path, monkeypatch):
+    class FakeCoreSync:
+        confirmed = False
+
+        def get_operation_stats(self):
+            return OperationStats(state=CoreState.CORE_STATE_FINISHED)
+
+        def confirm_sync_finish(self):
+            self.confirmed = True
+            return ConfirmSyncFinishResponse(success=True, message="OK")
+
+    core = FakeCoreSync()
+
+    def assert_not_confirmed_then_confirm(stats_fn, blocking_fn, **kwargs):
+        assert core.confirmed is False
+        return blocking_fn()
+
+    monkeypatch.setattr("swanlab.sdk.cmd.sync.client.exists", lambda: True)
+    monkeypatch.setattr("swanlab.sdk.cmd.sync._create_core_sync", lambda: core)
+    monkeypatch.setattr("swanlab.sdk.cmd.sync._deliver_sync_start", lambda *args, **kwargs: None)
+    monkeypatch.setattr("swanlab.sdk.cmd.sync.run_with_progress", assert_not_confirmed_then_confirm)
+
+    sync(tmp_path, settings=Settings())
+    assert core.confirmed is True
+
+
+def test_sync_uses_protocol_confirm_directly(tmp_path, monkeypatch):
+    class FakeCoreSync:
+        confirmed = False
+
+        def get_operation_stats(self):
+            return OperationStats(state=CoreState.CORE_STATE_FINISHED)
+
+        def confirm_sync_finish(self):
+            self.confirmed = True
+            return ConfirmSyncFinishResponse(success=True, message="OK")
+
+    def fail_manual_confirm(_core):
+        raise AssertionError("sync() should use CoreSyncProtocol.confirm_sync_finish() directly")
+
+    core = FakeCoreSync()
+
+    monkeypatch.setattr("swanlab.sdk.cmd.sync.client.exists", lambda: True)
+    monkeypatch.setattr("swanlab.sdk.cmd.sync._create_core_sync", lambda: core)
+    monkeypatch.setattr("swanlab.sdk.cmd.sync._deliver_sync_start", lambda *args, **kwargs: None)
+    monkeypatch.setattr("swanlab.sdk.cmd.sync._confirm_sync_finish", fail_manual_confirm, raising=False)
+    monkeypatch.setattr(
+        "swanlab.sdk.cmd.sync.run_with_progress",
+        lambda stats_fn, blocking_fn, **kwargs: blocking_fn(),
+    )
+
+    sync(tmp_path, settings=Settings())
+    assert core.confirmed is True
 
 
 def test_sync_raises_when_deliver_sync_start_fails(tmp_path, monkeypatch):

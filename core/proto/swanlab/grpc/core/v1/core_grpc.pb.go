@@ -8,6 +8,7 @@ package corev1
 
 import (
 	context "context"
+	v1 "github.com/swanhubx/swanlab/core/proto/swanlab/operation/v1"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -31,6 +32,8 @@ const (
 	CoreService_UpsertMetadata_FullMethodName     = "/swanlab.grpc.core.v1.CoreService/UpsertMetadata"
 	CoreService_UpsertSaves_FullMethodName        = "/swanlab.grpc.core.v1.CoreService/UpsertSaves"
 	CoreService_DeliverRunFinish_FullMethodName   = "/swanlab.grpc.core.v1.CoreService/DeliverRunFinish"
+	CoreService_GetOperationStats_FullMethodName  = "/swanlab.grpc.core.v1.CoreService/GetOperationStats"
+	CoreService_ConfirmRunFinish_FullMethodName   = "/swanlab.grpc.core.v1.CoreService/ConfirmRunFinish"
 )
 
 // CoreServiceClient is the client API for CoreService service.
@@ -61,6 +64,10 @@ type CoreServiceClient interface {
 	UpsertSaves(ctx context.Context, in *UpsertSavesRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// DeliverRunFinish 接收单条 FinishRecord，用于实验结束。
 	DeliverRunFinish(ctx context.Context, in *DeliverRunFinishRequest, opts ...grpc.CallOption) (*DeliverRunFinishResponse, error)
+	// GetOperationStats 返回 Core 当前运行状态和上传进度快照。
+	GetOperationStats(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.OperationStats, error)
+	// ConfirmRunFinish 确认 Core 运行结束，可以安全退出
+	ConfirmRunFinish(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ConfirmRunFinishResponse, error)
 }
 
 type coreServiceClient struct {
@@ -181,6 +188,26 @@ func (c *coreServiceClient) DeliverRunFinish(ctx context.Context, in *DeliverRun
 	return out, nil
 }
 
+func (c *coreServiceClient) GetOperationStats(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.OperationStats, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(v1.OperationStats)
+	err := c.cc.Invoke(ctx, CoreService_GetOperationStats_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *coreServiceClient) ConfirmRunFinish(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ConfirmRunFinishResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ConfirmRunFinishResponse)
+	err := c.cc.Invoke(ctx, CoreService_ConfirmRunFinish_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // CoreServiceServer is the server API for CoreService service.
 // All implementations must embed UnimplementedCoreServiceServer
 // for forward compatibility.
@@ -209,6 +236,10 @@ type CoreServiceServer interface {
 	UpsertSaves(context.Context, *UpsertSavesRequest) (*emptypb.Empty, error)
 	// DeliverRunFinish 接收单条 FinishRecord，用于实验结束。
 	DeliverRunFinish(context.Context, *DeliverRunFinishRequest) (*DeliverRunFinishResponse, error)
+	// GetOperationStats 返回 Core 当前运行状态和上传进度快照。
+	GetOperationStats(context.Context, *emptypb.Empty) (*v1.OperationStats, error)
+	// ConfirmRunFinish 确认 Core 运行结束，可以安全退出
+	ConfirmRunFinish(context.Context, *emptypb.Empty) (*ConfirmRunFinishResponse, error)
 	mustEmbedUnimplementedCoreServiceServer()
 }
 
@@ -251,6 +282,12 @@ func (UnimplementedCoreServiceServer) UpsertSaves(context.Context, *UpsertSavesR
 }
 func (UnimplementedCoreServiceServer) DeliverRunFinish(context.Context, *DeliverRunFinishRequest) (*DeliverRunFinishResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeliverRunFinish not implemented")
+}
+func (UnimplementedCoreServiceServer) GetOperationStats(context.Context, *emptypb.Empty) (*v1.OperationStats, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetOperationStats not implemented")
+}
+func (UnimplementedCoreServiceServer) ConfirmRunFinish(context.Context, *emptypb.Empty) (*ConfirmRunFinishResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ConfirmRunFinish not implemented")
 }
 func (UnimplementedCoreServiceServer) mustEmbedUnimplementedCoreServiceServer() {}
 func (UnimplementedCoreServiceServer) testEmbeddedByValue()                     {}
@@ -471,6 +508,42 @@ func _CoreService_DeliverRunFinish_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _CoreService_GetOperationStats_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CoreServiceServer).GetOperationStats(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CoreService_GetOperationStats_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CoreServiceServer).GetOperationStats(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CoreService_ConfirmRunFinish_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CoreServiceServer).ConfirmRunFinish(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CoreService_ConfirmRunFinish_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CoreServiceServer).ConfirmRunFinish(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // CoreService_ServiceDesc is the grpc.ServiceDesc for CoreService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -521,6 +594,14 @@ var CoreService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeliverRunFinish",
 			Handler:    _CoreService_DeliverRunFinish_Handler,
+		},
+		{
+			MethodName: "GetOperationStats",
+			Handler:    _CoreService_GetOperationStats_Handler,
+		},
+		{
+			MethodName: "ConfirmRunFinish",
+			Handler:    _CoreService_ConfirmRunFinish_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

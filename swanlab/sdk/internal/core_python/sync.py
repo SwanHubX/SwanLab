@@ -17,6 +17,7 @@ from swanlab.proto.swanlab.grpc.core.v1.sync_pb2 import (
     DeliverSyncStartResponse,
 )
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
+from swanlab.proto.swanlab.operation.v1.operation_pb2 import CoreState, OperationStats
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord, ResumeMode, RunState, StartRecord
 from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogLevel, LogRecord
@@ -26,6 +27,7 @@ from swanlab.sdk.internal.core_python.metrics import RunMetrics
 from swanlab.sdk.internal.core_python.pkg import builder, counter, executor
 from swanlab.sdk.internal.core_python.store import DataStoreReader
 from swanlab.sdk.internal.core_python.transport import Transport
+from swanlab.sdk.internal.core_python.transport.tracker import UploadTracker
 from swanlab.sdk.internal.core_python.utils import (
     PrepareExperimentStartResult,
     generate_run_online_path,
@@ -45,11 +47,15 @@ class CoreSyncPython(CoreSyncProtocol):
         self._reader = DataStoreReader()
         self._read_executor = executor.EventLoopExecutor("SwanLab·Sync·Reader")
         self._transport: Optional[Transport] = None
+        self._tracker: Optional[UploadTracker] = None
         self._start_request: Optional[DeliverSyncStartRequest] = None
         self._start_record: Optional[StartRecord] = None
         self._metrics: Optional[RunMetrics] = None
         # finish record 有可能不存在，此时Sync自己mock一下数据
         self._finish_record: Optional[FinishRecord] = None
+        self._prepared_finish_record: Optional[FinishRecord] = None
+        self._finish_records_queued = False
+        self._finish_requested = False
         # 日志行数，仅大于此行数的才上传
         self._epoch = -1
         self._counter = counter.Counter(builder.DEC_NUM)
@@ -136,10 +142,18 @@ class CoreSyncPython(CoreSyncProtocol):
             return DeliverSyncFlushResponse(success=False, message="Failed to initialize sync metrics")
 
         # 3. 开始读取本地文件并开始上传
-        self._transport = Transport(self._ctx)
-        self._read_executor.start(self.read())
+        self._tracker = UploadTracker()
+        self._tracker.set_state(CoreState.CORE_STATE_RUNNING)
+        self._transport = Transport(self._ctx, tracker=self._tracker)
+        self._read_executor.start(self._read_and_request_finish())
         self._transport.start()
         return DeliverSyncFlushResponse(success=True, message="success", path=generate_run_online_path(result))
+
+    async def _read_and_request_finish(self):
+        try:
+            await self.read()
+        finally:
+            self._request_transport_finish()
 
     async def read(self):
         """
@@ -221,16 +235,15 @@ class CoreSyncPython(CoreSyncProtocol):
                     # 其余的直接上传（覆盖式）
                     self._transport.put([record])
 
-    def confirm_sync_finish(self) -> ConfirmSyncFinishResponse:
-        """
-        确认同步完成，关闭文件流，上报最终实验状态
-        """
-        assert self._transport is not None, "Transport not set before confirming sync finish"
-        # 1. 等待读任务完成
-        self._read_executor.wait()
-        self._read_executor.close()
-        self._reader.close()
-        # 2. 构建实验结束记录
+    def get_operation_stats(self) -> OperationStats:
+        if self._tracker is not None:
+            return self._tracker.snapshot()
+        return OperationStats()
+
+    def _get_finish_record(self) -> FinishRecord:
+        if self._prepared_finish_record is not None:
+            return self._prepared_finish_record
+
         finish_record = FinishRecord()
         if self._finish_record is not None:
             finish_record.CopyFrom(self._finish_record)
@@ -244,7 +257,15 @@ class CoreSyncPython(CoreSyncProtocol):
                 "Run process was interrupted or killed before writing a finish record. "
                 "The run is marked as crashed during sync."
             )
-        # 3. 构建日志记录
+        self._prepared_finish_record = finish_record
+        return finish_record
+
+    def _queue_finish_records(self) -> None:
+        assert self._transport is not None, "Transport not set before queueing finish records"
+        if self._finish_records_queued:
+            return
+
+        finish_record = self._get_finish_record()
         if finish_record.state != RunState.RUN_STATE_FINISHED:
             error_message = (
                 finish_record.error
@@ -262,9 +283,36 @@ class CoreSyncPython(CoreSyncProtocol):
                 positive=False,
             )
             self._transport.put([record])
-        # 4. 等待上传完毕，上报最终实验状态
-        self._transport.finish()
-        resp = self._report_run_finish(finish_record)
+        self._finish_records_queued = True
+
+    def _request_transport_finish(self) -> None:
+        assert self._transport is not None, "Transport not set before requesting sync finish"
+        if self._finish_requested:
+            return
+
+        self._queue_finish_records()
+        self._transport.request_finish()
+        self._finish_requested = True
+
+    def confirm_sync_finish(self) -> ConfirmSyncFinishResponse:
+        """
+        确认同步完成，关闭文件流，上报最终实验状态
+        """
+        assert self._transport is not None, "Transport not set before confirming sync finish"
+        # 1. 等待读任务完成
+        self._read_executor.wait()
+        self._read_executor.close()
+        self._reader.close()
+        # 2. 构建实验结束记录
+        finish_record = self._get_finish_record()
+        # 3. 确保结束日志已入队，等待上传线程退出，然后上报最终实验状态
+        try:
+            self._request_transport_finish()
+            self._transport.join(timeout=None)
+            resp = self._report_run_finish(finish_record)
+        finally:
+            if self._tracker is not None:
+                self._tracker.set_state(CoreState.CORE_STATE_FINISHED)
         # 如果仅仅是与后端同步出现问题，则换一个让用户安心一些的提示信息
         if resp is None:
             return ConfirmSyncFinishResponse(
