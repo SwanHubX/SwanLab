@@ -134,6 +134,7 @@ class AscendNPU(AcceleratorProtocol):
         util_val = math.nan
         hbm_val = math.nan
         hbm_mb = math.nan
+        hbm_total_mb = math.nan
         with safe.block(message="Failed to collect Ascend NPU usage", level="debug"):
             output = subprocess.run(
                 ["npu-smi", "info", "-t", "usages", "-i", npu_id, "-c", chip_id],
@@ -149,6 +150,12 @@ class AscendNPU(AcceleratorProtocol):
                     hbm_str = line.split(":")[-1].strip()
                     if hbm_str.isdigit():
                         hbm_val = float(hbm_str)
+                if "hbm capacity" in line.lower():
+                    hbm_str = line.split(":")[-1].strip()
+                    if hbm_str.isdigit():
+                        hbm_total_mb = float(hbm_str)
+            if not math.isnan(hbm_val) and not math.isnan(hbm_total_mb):
+                hbm_mb = hbm_val / 100 * hbm_total_mb
         return [
             (f"npu.{label}.ptc", util_val),
             (f"npu.{label}.mem.ptc", hbm_val),

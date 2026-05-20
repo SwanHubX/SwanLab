@@ -151,7 +151,7 @@ class MetaXGPU(AcceleratorProtocol):
                 if "vis_vram used" in line and gpu_mem_total is not None:
                     gpu_mem_used = float(line.split(" ")[-2])
                     pct = gpu_mem_used / gpu_mem_total * 100 if gpu_mem_total > 0 else math.nan
-                    mb = gpu_mem_used / 1024
+                    mb = gpu_mem_used
                     if index < len(self._indices):
                         pos = index * 2
                         results[pos] = (f"gpu.{self._indices[index]}.mem.pct", pct)
