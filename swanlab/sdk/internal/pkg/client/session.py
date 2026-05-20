@@ -169,7 +169,8 @@ def create(timeout: int = 60, default_retry: int = 5) -> SessionWithRetry:
 
     retry_strategy = WarningRetry(
         total=default_retry,
-        backoff_factor=0.5,
+        # urllib3 Retry accepts float backoff_factor, but Python 3.9 type metadata may mark it as int.
+        backoff_factor=0.5,  # pyright: ignore[reportArgumentType]
         status_forcelist=[429, 500, 502, 503, 504],
         allowed_methods=frozenset(["GET", "POST", "PUT", "DELETE", "PATCH"]),
         raise_on_status=False,
