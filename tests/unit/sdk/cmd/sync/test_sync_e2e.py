@@ -2,9 +2,12 @@ from pathlib import Path
 from typing import Iterable
 
 import swanlab
+from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
+from swanlab.proto.swanlab.metric.data.v1.data_pb2 import ScalarRecord, ScalarValue
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
+from swanlab.proto.swanlab.run.v1.run_pb2 import RunState, StartRecord
 from swanlab.sdk.cmd import sync as sync_cmd
-from swanlab.sdk.internal.core_python.store import DataStoreReader
+from swanlab.sdk.internal.core_python.store import LEVELDBLOG_HEADER_LEN, DataStoreReader, DataStoreWriter
 from swanlab.sdk.internal.core_python.sync import CoreSyncPython
 from swanlab.sdk.internal.core_python.utils import PrepareExperimentStartResult
 from swanlab.sdk.internal.settings import Settings
@@ -55,7 +58,7 @@ def column_signatures(records: Iterable[Record]) -> set[str]:
     return {record.column.column_key for record in records if record.HasField("column")}
 
 
-def make_prepare_result() -> PrepareExperimentStartResult:
+def make_prepare_result(new_experiment: bool = True) -> PrepareExperimentStartResult:
     return PrepareExperimentStartResult(
         username="alice",
         project="demo",
@@ -68,7 +71,7 @@ def make_prepare_result() -> PrepareExperimentStartResult:
             "_count": {"experiments": 0, "contributors": 0, "collaborators": 0, "clones": 0},
         },
         experiment={"cuid": "experiment-id", "slug": "sync-e2e-run", "name": "sync-e2e-run"},
-        new_experiment=True,
+        new_experiment=new_experiment,
         name="sync-e2e-run",
         color="#abcdef",
     )
@@ -81,6 +84,43 @@ def create_offline_run() -> Path:
     swanlab.log({"loss": 0.1, "acc": 0.9}, step=2)
     swanlab.finish()
     return run_dir
+
+
+def make_start_record() -> StartRecord:
+    return StartRecord(id="sync-e2e-run", workspace="alice", project="demo")
+
+
+def make_scalar_record(step: int, value: float) -> Record:
+    return Record(
+        scalar=ScalarRecord(
+            key="loss",
+            step=step,
+            type=ColumnType.COLUMN_TYPE_SCALAR,
+            value=ScalarValue(number=value),
+        )
+    )
+
+
+def write_raw_run(run_dir: Path, records: list[Record]) -> Path:
+    run_dir.mkdir(parents=True, exist_ok=True)
+    run_file = run_dir / "run-sync-e2e-run.swanlab"
+    writer = DataStoreWriter()
+    writer.open(run_file)
+    for record in records:
+        writer.write(record.SerializeToString())
+    writer.close()
+    return run_file
+
+
+def corrupt_record_payload(run_file: Path, payloads: list[bytes], record_index: int) -> None:
+    offset = LEVELDBLOG_HEADER_LEN
+    for payload in payloads[:record_index]:
+        offset += LEVELDBLOG_HEADER_LEN + len(payload)
+    offset += LEVELDBLOG_HEADER_LEN
+
+    data = bytearray(run_file.read_bytes())
+    data[offset] ^= 0xFF
+    run_file.write_bytes(bytes(data))
 
 
 class FakeTransport:
@@ -179,3 +219,126 @@ def test_e2e_sync_uploads_records_from_generated_swanlab_file(monkeypatch):
     assert scalar_signatures(source_records) <= scalar_signatures(uploaded_records)
     assert stopped
     assert stopped[0][0:3] == ("alice", "demo", "experiment-id")
+
+
+def test_e2e_sync_skips_records_already_in_remote_summary(monkeypatch):
+    run_dir = create_offline_run()
+    transports: list[FakeTransport] = []
+
+    core = CoreSyncPython()
+    core._read_executor = ImmediateExecutor()  # type: ignore[assignment]
+
+    def make_transport(ctx) -> FakeTransport:
+        transport = FakeTransport(ctx)
+        transports.append(transport)
+        return transport
+
+    monkeypatch.setattr("swanlab.sdk.cmd.sync.client.exists", lambda: True)
+    monkeypatch.setattr("swanlab.sdk.cmd.sync._create_core_sync", lambda: core)
+    monkeypatch.setattr(
+        "swanlab.sdk.internal.core_python.sync.prepare_experiment_start",
+        lambda record: make_prepare_result(new_experiment=False),
+    )
+    monkeypatch.setattr(
+        "swanlab.sdk.internal.core_python.sync.get_experiment_summary",
+        lambda project_id, experiment_id: {
+            "log": None,
+            "media": None,
+            "scalar": [{"key": "loss", "step": 1}, {"key": "acc", "step": 1}],
+        },
+    )
+    monkeypatch.setattr("swanlab.sdk.internal.core_python.sync.Transport", make_transport)
+    monkeypatch.setattr("swanlab.sdk.internal.core_python.sync.stop_experiment", lambda *args, **kwargs: None)
+
+    sync_cmd.sync(
+        run_dir,
+        settings=Settings(
+            api_key="test-api-key",
+            project=Settings.Project(workspace="alice", name="demo"),
+            run=Settings.Run(id="sync-e2e-run"),
+        ),
+    )
+
+    assert len(transports) == 1
+    assert scalar_signatures(transports[0].records) == {("loss", 2), ("acc", 2)}
+
+
+def test_e2e_sync_stops_uploading_after_corrupted_record(tmp_path: Path, monkeypatch):
+    records = [
+        Record(start=make_start_record()),
+        make_scalar_record(step=1, value=0.3),
+        make_scalar_record(step=2, value=0.2),
+        make_scalar_record(step=3, value=0.1),
+    ]
+    payloads = [record.SerializeToString() for record in records]
+    run_file = write_raw_run(tmp_path, records)
+    corrupt_record_payload(run_file, payloads, record_index=2)
+    transports: list[FakeTransport] = []
+
+    core = CoreSyncPython()
+    core._read_executor = ImmediateExecutor()  # type: ignore[assignment]
+
+    def make_transport(ctx) -> FakeTransport:
+        transport = FakeTransport(ctx)
+        transports.append(transport)
+        return transport
+
+    monkeypatch.setattr("swanlab.sdk.cmd.sync.client.exists", lambda: True)
+    monkeypatch.setattr("swanlab.sdk.cmd.sync._create_core_sync", lambda: core)
+    monkeypatch.setattr(
+        "swanlab.sdk.internal.core_python.sync.prepare_experiment_start", lambda record: make_prepare_result()
+    )
+    monkeypatch.setattr("swanlab.sdk.internal.core_python.sync.Transport", make_transport)
+    monkeypatch.setattr("swanlab.sdk.internal.core_python.sync.stop_experiment", lambda *args, **kwargs: None)
+
+    sync_cmd.sync(
+        tmp_path,
+        settings=Settings(
+            api_key="test-api-key",
+            project=Settings.Project(workspace="alice", name="demo"),
+            run=Settings.Run(id="sync-e2e-run"),
+        ),
+    )
+
+    assert len(transports) == 1
+    assert scalar_signatures(transports[0].records) == {("loss", 1)}
+
+
+def test_e2e_sync_marks_missing_finish_record_as_crashed(tmp_path: Path, monkeypatch):
+    write_raw_run(tmp_path, [Record(start=make_start_record()), make_scalar_record(step=1, value=0.3)])
+    transports: list[FakeTransport] = []
+    stopped = []
+
+    core = CoreSyncPython()
+    core._read_executor = ImmediateExecutor()  # type: ignore[assignment]
+
+    def make_transport(ctx) -> FakeTransport:
+        transport = FakeTransport(ctx)
+        transports.append(transport)
+        return transport
+
+    def fake_stop_experiment(username, project, experiment_id, *, state, finished_at):
+        stopped.append((username, project, experiment_id, state, finished_at))
+
+    monkeypatch.setattr("swanlab.sdk.cmd.sync.client.exists", lambda: True)
+    monkeypatch.setattr("swanlab.sdk.cmd.sync._create_core_sync", lambda: core)
+    monkeypatch.setattr(
+        "swanlab.sdk.internal.core_python.sync.prepare_experiment_start", lambda record: make_prepare_result()
+    )
+    monkeypatch.setattr("swanlab.sdk.internal.core_python.sync.Transport", make_transport)
+    monkeypatch.setattr("swanlab.sdk.internal.core_python.sync.stop_experiment", fake_stop_experiment)
+
+    sync_cmd.sync(
+        tmp_path,
+        settings=Settings(
+            api_key="test-api-key",
+            project=Settings.Project(workspace="alice", name="demo"),
+            run=Settings.Run(id="sync-e2e-run"),
+        ),
+    )
+
+    assert len(transports) == 1
+    assert stopped[0][0:4] == ("alice", "demo", "experiment-id", RunState.RUN_STATE_CRASHED)
+    assert "log" in record_kinds(transports[0].records)
+    error_logs = [record.log.line for record in transports[0].records if record.HasField("log")]
+    assert any("before writing a finish record" in line for line in error_logs)

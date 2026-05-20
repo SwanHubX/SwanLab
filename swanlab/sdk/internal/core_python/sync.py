@@ -110,6 +110,8 @@ class CoreSyncPython(CoreSyncProtocol):
                 start_record.id = self._start_request.id
             # sync 实验统一开启宽松resume限制，resume设置为allow，后端自动创建新实验
             start_record.resume = ResumeMode.RESUME_MODE_ALLOW
+            # sync的实验不同步实验颜色，否则会给用户一些奇怪的感觉：https://github.com/SwanHubX/SwanLab/issues/1434
+            start_record.color = ""
             result = prepare_experiment_start(start_record)
             self._ctx.set_online_params(
                 username=result.username,
@@ -164,9 +166,12 @@ class CoreSyncPython(CoreSyncProtocol):
                         self._transport.put([record])
                     else:
                         console.debug(f"Log at epoch {record.log.epoch} was skipped syncing because it is too old.")
-                elif record.HasField("column") and self._metrics.get(record.column.column_key) is None:
+                elif record.HasField("column"):
                     # 如果 column 不存在于 _metrics 中则上传，并且定义此column
                     column = record.column
+                    if self._metrics.get(column.column_key) is not None:
+                        console.debug(f"Column '{column.column_key}' was skipped syncing because it already exists.")
+                        continue
                     if column.column_type == ColumnType.COLUMN_TYPE_SCALAR:
                         self._metrics.define_scalar(key=column.column_key, column=column)
                     else:

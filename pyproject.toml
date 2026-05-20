@@ -169,6 +169,7 @@ exclude = [
     "**/build",
     "**/*.egg-info",
 ]
+extraPaths = ["."]
 
 [tool.ruff]
 exclude = [
