@@ -147,22 +147,14 @@ replacement = "https://github.com/SwanHubX/SwanLab/blob/main/CONTRIBUTING.md"
 pattern = "README.md"
 replacement = "https://github.com/SwanHubX/SwanLab/blob/main/README.md"
 
-# [tool.pyright]
-# venvPath = "."
-# venv = ".venv"
-# exclude = [
-#     "**/node_modules",
-#     "**/__pycache__",
-# ]
-# ignore=["swanlab/proto"]
-
 [tool.basedpyright]
 pythonVersion = "3.9"
 venvPath = "."
 venv = ".venv"
 typeCheckingMode = "standard"
 include = [
-    "swanlab"
+    "swanlab",
+    "tests"
 ]
 ignore = [
     "swanlab/proto",
