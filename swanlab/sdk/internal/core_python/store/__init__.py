@@ -33,7 +33,7 @@ LEVELDBLOG_LAST = 4
 
 LEVELDBLOG_HEADER_IDENT = b":SWL"
 LEVELDBLOG_HEADER_MAGIC = 0xE1D6  # zlib.crc32(bytes("SwanLab", 'utf-8')) & 0xffff
-LEVELDBLOG_HEADER_VERSION = 1
+LEVELDBLOG_HEADER_VERSION = 2
 
 # 模块级 CRC 预计算，构造一次，读写两侧共用
 _CRC = [0] * (LEVELDBLOG_LAST + 1)
@@ -205,7 +205,10 @@ class DataStoreReader:
             raise DataStoreError("Invalid header magic")
         if version != LEVELDBLOG_HEADER_VERSION:
             raise DataStoreError(
-                f"Invalid run version: {version}. For supported versions, see: https://docs.swanlab.cn/api/cli-swanlab-sync.html"
+                f"Invalid run version: {version} (expected {LEVELDBLOG_HEADER_VERSION}). "
+                "This file was created by an older version of SwanLab SDK. "
+                "Please use a matching SDK version to sync this run. "
+                "For supported versions, see: https://docs.swanlab.cn/api/cli-swanlab-sync.html"
             )
         self._index += len(header)
 
