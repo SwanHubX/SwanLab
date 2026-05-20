@@ -113,10 +113,11 @@ class MetaXGPU(AcceleratorProtocol):
 
     def collect(self) -> List[CollectResult]:
         results: List[CollectResult] = []
-        results.extend(self._get_utilization())
-        results.extend(self._get_memory())
-        results.extend(self._get_temperature())
-        results.extend(self._get_power())
+        with safe.block(message="Failed to collect MetaX GPU metrics", level="debug"):
+            results.extend(self._get_utilization())
+            results.extend(self._get_memory())
+            results.extend(self._get_temperature())
+            results.extend(self._get_power())
         return results
 
     def _get_utilization(self) -> List[CollectResult]:

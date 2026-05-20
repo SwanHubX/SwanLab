@@ -120,13 +120,15 @@ class AscendNPU(AcceleratorProtocol):
         return self, scalars
 
     def collect(self) -> List[CollectResult]:
-        results: List[CollectResult] = []
-        for npu_id, chip_id in self._chips:
-            label = f"{npu_id}-{chip_id}"
-            results.extend(self._collect_usage(npu_id, chip_id, label))
-            results.append(self._collect_temp(npu_id, chip_id, label))
-            results.append(self._collect_power(npu_id, chip_id, label))
-        return results
+        with safe.block(message="Failed to collect Ascend NPU metrics", level="debug"):
+            results: List[CollectResult] = []
+            for npu_id, chip_id in self._chips:
+                label = f"{npu_id}-{chip_id}"
+                results.extend(self._collect_usage(npu_id, chip_id, label))
+                results.append(self._collect_temp(npu_id, chip_id, label))
+                results.append(self._collect_power(npu_id, chip_id, label))
+            return results
+        return []
 
     def _collect_usage(self, npu_id: str, chip_id: str, label: str) -> List[CollectResult]:
         util_val = math.nan

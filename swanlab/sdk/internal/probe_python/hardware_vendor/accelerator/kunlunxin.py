@@ -94,43 +94,89 @@ class KunlunxinXPU(AcceleratorProtocol):
 
     def collect(self) -> List[CollectResult]:
         results: List[CollectResult] = []
+        with safe.block(message="Failed to collect Kunlunxin XPU metrics", level="debug"):
+            results.extend(self._collect_utilization())
+            results.extend(self._collect_memory())
+            results.extend(self._collect_temperature())
+            results.extend(self._collect_power())
+        return results
+
+    def _collect_utilization(self) -> List[CollectResult]:
+        results: List[CollectResult] = []
         for idx in self._indices:
             results.append((f"xpu.{idx}.ptc", math.nan))
-            results.append((f"xpu.{idx}.mem.ptc", math.nan))
-            results.append((f"xpu.{idx}.temp", math.nan))
-            results.append((f"xpu.{idx}.power", math.nan))
-
-        with safe.block(message="Failed to collect Kunlunxin XPU metrics", level="debug"):
+        with safe.block(message="Failed to collect Kunlunxin XPU utilization", level="debug"):
             output = subprocess.run(["xpu-smi", "-m"], capture_output=True, text=True).stdout
-            index = 0
             for line in output.split("\n"):
                 parts = line.split()
-                with safe.block(message="Failed to parse Kunlunxin XPU row data", level="debug"):
-                    if len(parts) < 23:
-                        continue
-                    xpu_id_str = parts[1]
-                    if not xpu_id_str.isdigit() or int(xpu_id_str) not in self._indices:
-                        continue
-                    util_str = parts[19]
-                    mem_used_str = parts[17]
-                    temp_str = parts[4]
-                    power_str = parts[8]
-                    pos = index * 4
-                    if util_str.isdigit():
-                        results[pos] = (f"xpu.{xpu_id_str}.ptc", float(util_str))
-                    xpu_info = self._xpu_map.get(xpu_id_str, {})
-                    total_mb = int(xpu_info.get("memory", 0)) * 1024
-                    if mem_used_str.isdigit() and total_mb > 0:
-                        results[pos + 1] = (
-                            f"xpu.{xpu_id_str}.mem.ptc",
-                            float(mem_used_str) / total_mb * 100,
-                        )
-                    if temp_str.isdigit():
-                        results[pos + 2] = (f"xpu.{xpu_id_str}.temp", float(temp_str))
-                    if power_str.isdigit():
-                        results[pos + 3] = (f"xpu.{xpu_id_str}.power", float(power_str))
-                    index += 1
+                if len(parts) < 23:
+                    continue
+                xpu_id_str = parts[1]
+                if not xpu_id_str.isdigit() or int(xpu_id_str) not in self._indices:
+                    continue
+                util_str = parts[19]
+                if util_str.isdigit():
+                    idx_pos = self._indices.index(int(xpu_id_str))
+                    results[idx_pos] = (f"xpu.{xpu_id_str}.ptc", float(util_str))
+        return results
 
+    def _collect_memory(self) -> List[CollectResult]:
+        results: List[CollectResult] = []
+        for idx in self._indices:
+            results.append((f"xpu.{idx}.mem.ptc", math.nan))
+        with safe.block(message="Failed to collect Kunlunxin XPU memory", level="debug"):
+            output = subprocess.run(["xpu-smi", "-m"], capture_output=True, text=True).stdout
+            for line in output.split("\n"):
+                parts = line.split()
+                if len(parts) < 23:
+                    continue
+                xpu_id_str = parts[1]
+                if not xpu_id_str.isdigit() or int(xpu_id_str) not in self._indices:
+                    continue
+                mem_used_str = parts[17]
+                xpu_info = self._xpu_map.get(xpu_id_str, {})
+                total_mb = int(xpu_info.get("memory", 0)) * 1024
+                if mem_used_str.isdigit() and total_mb > 0:
+                    idx_pos = self._indices.index(int(xpu_id_str))
+                    results[idx_pos] = (f"xpu.{xpu_id_str}.mem.ptc", float(mem_used_str) / total_mb * 100)
+        return results
+
+    def _collect_temperature(self) -> List[CollectResult]:
+        results: List[CollectResult] = []
+        for idx in self._indices:
+            results.append((f"xpu.{idx}.temp", math.nan))
+        with safe.block(message="Failed to collect Kunlunxin XPU temperature", level="debug"):
+            output = subprocess.run(["xpu-smi", "-m"], capture_output=True, text=True).stdout
+            for line in output.split("\n"):
+                parts = line.split()
+                if len(parts) < 23:
+                    continue
+                xpu_id_str = parts[1]
+                if not xpu_id_str.isdigit() or int(xpu_id_str) not in self._indices:
+                    continue
+                temp_str = parts[4]
+                if temp_str.isdigit():
+                    idx_pos = self._indices.index(int(xpu_id_str))
+                    results[idx_pos] = (f"xpu.{xpu_id_str}.temp", float(temp_str))
+        return results
+
+    def _collect_power(self) -> List[CollectResult]:
+        results: List[CollectResult] = []
+        for idx in self._indices:
+            results.append((f"xpu.{idx}.power", math.nan))
+        with safe.block(message="Failed to collect Kunlunxin XPU power", level="debug"):
+            output = subprocess.run(["xpu-smi", "-m"], capture_output=True, text=True).stdout
+            for line in output.split("\n"):
+                parts = line.split()
+                if len(parts) < 23:
+                    continue
+                xpu_id_str = parts[1]
+                if not xpu_id_str.isdigit() or int(xpu_id_str) not in self._indices:
+                    continue
+                power_str = parts[8]
+                if power_str.isdigit():
+                    idx_pos = self._indices.index(int(xpu_id_str))
+                    results[idx_pos] = (f"xpu.{xpu_id_str}.power", float(power_str))
         return results
 
     @staticmethod

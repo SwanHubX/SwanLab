@@ -111,57 +111,57 @@ class IluvatarGPU(AcceleratorProtocol):
 
     def collect(self) -> List[CollectResult]:
         results: List[CollectResult] = []
-        indices = [str(i) for i in self._indices]
-
-        for mid in indices:
-            results.append((f"gpu.{mid}.pct", math.nan))
-            results.append((f"gpu.{mid}.mem.pct", math.nan))
-            results.append((f"gpu.{mid}.mem.value", math.nan))
-            results.append((f"gpu.{mid}.temp", math.nan))
-            results.append((f"gpu.{mid}.power", math.nan))
-
-        results = self._collect_utilization(indices, results)
-        results = self._collect_memory(indices, results)
-        results = self._collect_temperature(indices, results)
-        results = self._collect_power(indices, results)
-
+        with safe.block(message="Failed to collect Iluvatar GPU metrics", level="debug"):
+            results.extend(self._collect_utilization())
+            results.extend(self._collect_memory())
+            results.extend(self._collect_temperature())
+            results.extend(self._collect_power())
         return results
 
-    def _collect_utilization(self, indices: List[str], results: List[CollectResult]) -> List[CollectResult]:
+    def _collect_utilization(self) -> List[CollectResult]:
+        results: List[CollectResult] = []
+        for idx in self._indices:
+            results.append((f"gpu.{idx}.pct", math.nan))
         with safe.block(message="Failed to collect Iluvatar GPU utilization", level="debug"):
             gpu_utils = self._run_ixsmi_query("utilization.gpu")
             for i, val in enumerate(gpu_utils):
-                if i < len(indices):
-                    pos = i * 5
-                    results[pos] = (f"gpu.{indices[i]}.pct", val)
+                if i < len(self._indices):
+                    results[i] = (f"gpu.{self._indices[i]}.pct", val)
         return results
 
-    def _collect_memory(self, indices: List[str], results: List[CollectResult]) -> List[CollectResult]:
+    def _collect_memory(self) -> List[CollectResult]:
+        results: List[CollectResult] = []
+        for idx in self._indices:
+            results.append((f"gpu.{idx}.mem.pct", math.nan))
+            results.append((f"gpu.{idx}.mem.value", math.nan))
         with safe.block(message="Failed to collect Iluvatar GPU memory", level="debug"):
             mem_rates = self._run_ixsmi_query("utilization.memory")
             mem_used = self._run_ixsmi_query("memory.used")
-            for i in range(min(len(indices), len(mem_rates), len(mem_used))):
-                pos = i * 5 + 1
-                results[pos] = (f"gpu.{indices[i]}.mem.pct", mem_rates[i])
-                results[pos + 1] = (f"gpu.{indices[i]}.mem.value", mem_used[i])
+            for i in range(min(len(self._indices), len(mem_rates), len(mem_used))):
+                results[i * 2] = (f"gpu.{self._indices[i]}.mem.pct", mem_rates[i])
+                results[i * 2 + 1] = (f"gpu.{self._indices[i]}.mem.value", mem_used[i])
         return results
 
-    def _collect_temperature(self, indices: List[str], results: List[CollectResult]) -> List[CollectResult]:
+    def _collect_temperature(self) -> List[CollectResult]:
+        results: List[CollectResult] = []
+        for idx in self._indices:
+            results.append((f"gpu.{idx}.temp", math.nan))
         with safe.block(message="Failed to collect Iluvatar GPU temperature", level="debug"):
             temps = self._run_ixsmi_query("temperature.gpu")
             for i, val in enumerate(temps):
-                if i < len(indices):
-                    pos = i * 5 + 3
-                    results[pos] = (f"gpu.{indices[i]}.temp", val)
+                if i < len(self._indices):
+                    results[i] = (f"gpu.{self._indices[i]}.temp", val)
         return results
 
-    def _collect_power(self, indices: List[str], results: List[CollectResult]) -> List[CollectResult]:
+    def _collect_power(self) -> List[CollectResult]:
+        results: List[CollectResult] = []
+        for idx in self._indices:
+            results.append((f"gpu.{idx}.power", math.nan))
         with safe.block(message="Failed to collect Iluvatar GPU power", level="debug"):
             powers = self._run_ixsmi_query("board.power.draw")
             for i, val in enumerate(powers):
-                if i < len(indices):
-                    pos = i * 5 + 4
-                    results[pos] = (f"gpu.{indices[i]}.power", val)
+                if i < len(self._indices):
+                    results[i] = (f"gpu.{self._indices[i]}.power", val)
         return results
 
     @staticmethod

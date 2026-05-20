@@ -116,10 +116,12 @@ class AMDGPU(AcceleratorProtocol):
         return self, scalars
 
     def collect(self) -> List[CollectResult]:
-        if self._system == "Linux":
-            return self._collect_linux_sysfs()
-        else:
-            return self._collect_windows()
+        with safe.block(message="Failed to collect AMD GPU metrics", level="debug"):
+            if self._system == "Linux":
+                return self._collect_linux_sysfs()
+            else:
+                return self._collect_windows()
+        return []
 
     def _collect_linux_sysfs(self) -> List[CollectResult]:
         results: List[CollectResult] = []

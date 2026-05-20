@@ -109,13 +109,13 @@ class CambriconMLU(AcceleratorProtocol):
         return self, scalars
 
     def collect(self) -> List[CollectResult]:
-        mlu_ids = [str(i) for i in self._indices]
         results: List[CollectResult] = []
-
-        results.extend(self._collect_utilization(mlu_ids))
-        results.extend(self._collect_memory(mlu_ids))
-        results.extend(self._collect_temperature(mlu_ids))
-        results.extend(self._collect_power(mlu_ids))
+        with safe.block(message="Failed to collect Cambricon MLU metrics", level="debug"):
+            mlu_ids = [str(i) for i in self._indices]
+            results.extend(self._collect_utilization(mlu_ids))
+            results.extend(self._collect_memory(mlu_ids))
+            results.extend(self._collect_temperature(mlu_ids))
+            results.extend(self._collect_power(mlu_ids))
 
         return results
 
