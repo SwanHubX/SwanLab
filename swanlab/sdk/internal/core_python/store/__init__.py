@@ -175,16 +175,19 @@ class DataStoreReader:
         return self
 
     def __next__(self) -> bytes:
-        with safe.block(message="Failed to scan record, stopping iteration"):
-            # record 需要定义在外层，保证 scan 异常被 safe.block 吞掉后，下面仍能统一按迭代结束处理。
-            record: Optional[bytes] = None
-            try:
-                record = self.scan()
-            except DataStoreError as e:
-                # 单条记录损坏通常意味着后续文件内容也不再可信；迭代器在最后一条有效记录处停止。
-                console.debug(f"Failed to scan record, stopping iteration: {e}")
-                raise StopIteration
-        # scan 返回 None 表示正常 EOF；异常路径中 record 也会保持 None，因此这里统一转换为迭代器协议。
+        try:
+            record = self.scan()
+        except DataStoreError as e:
+            # 单条记录损坏通常意味着后续文件内容也不再可信；迭代器在最后一条有效记录处停止。
+            console.debug(f"Failed to scan record, stopping iteration: {e}")
+            raise StopIteration from e
+        except Exception as e:
+            # 未预期异常仍记录 trace，但不要把 StopIteration 这种迭代控制流放进 safe.block。
+            with safe.block(message="Failed to scan record, stopping iteration"):
+                raise
+            raise StopIteration from e
+
+        # scan 返回 None 表示正常 EOF，统一转换为迭代器协议。
         if record is None:
             raise StopIteration
         return record
