@@ -18,6 +18,7 @@ from typing import IO, Any, Optional, Tuple
 from typing_extensions import Union
 
 from swanlab.exceptions import DataStoreError
+from swanlab.sdk.internal.pkg import console, safe
 
 __all__ = ["DataStoreWriter", "DataStoreReader", "DataStoreError"]
 
@@ -174,7 +175,19 @@ class DataStoreReader:
         return self
 
     def __next__(self) -> bytes:
-        record = self.scan()
+        try:
+            record = self.scan()
+        except DataStoreError as e:
+            # 单条记录损坏通常意味着后续文件内容也不再可信；迭代器在最后一条有效记录处停止。
+            console.debug(f"Failed to scan record, stopping iteration: {e}")
+            raise StopIteration from e
+        except Exception as e:
+            # 未预期异常仍记录 trace，但不要把 StopIteration 这种迭代控制流放进 safe.block。
+            with safe.block(message="Failed to scan record, stopping iteration"):
+                raise
+            raise StopIteration from e
+
+        # scan 返回 None 表示正常 EOF，统一转换为迭代器协议。
         if record is None:
             raise StopIteration
         return record

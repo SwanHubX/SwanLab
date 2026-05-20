@@ -8,7 +8,8 @@ from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.proto.swanlab.config.v1.config_pb2 import ConfigRecord, UpdateType
 from swanlab.proto.swanlab.grpc.core.v1.sync_pb2 import DeliverSyncStartRequest
-from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
+from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord, ColumnType
+from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord, ScalarRecord, ScalarValue
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord, ResumeMode, RunState, StartRecord
 from swanlab.proto.swanlab.settings.core.v1.core_pb2 import CoreSettings
@@ -169,6 +170,18 @@ class FakeReader:
         self.closed = True
 
 
+class FakeRawReader:
+    def __init__(self, payloads: list[bytes]):
+        self._payloads = payloads
+        self.closed = False
+
+    def __iter__(self):
+        return iter(self._payloads)
+
+    def close(self):
+        self.closed = True
+
+
 class FakeMetric:
     def __init__(self):
         self.updated = []
@@ -213,6 +226,15 @@ def test_sync_context_run_file_missing_raises(tmp_path: Path):
     ctx = CoreContext(config=make_core_config(tmp_path, run_id=""), mode="sync")
 
     with pytest.raises(FileNotFoundError, match=r"No run-\*\.swanlab"):
+        _ = ctx.run_file
+
+
+def test_sync_context_run_file_multiple_raises(tmp_path: Path):
+    (tmp_path / "run-a.swanlab").touch()
+    (tmp_path / "run-b.swanlab").touch()
+    ctx = CoreContext(config=make_core_config(tmp_path, run_id=""), mode="sync")
+
+    with pytest.raises(RuntimeError, match=r"Multiple run-\*\.swanlab"):
         _ = ctx.run_file
 
 
@@ -273,6 +295,7 @@ def test_deliver_sync_flush_prepares_experiment_with_overrides(tmp_path: Path, m
     assert prepared_record.project == "override-project"
     assert prepared_record.id == "override-run-id"
     assert prepared_record.resume == ResumeMode.RESUME_MODE_ALLOW
+    assert prepared_record.color == ""
     assert core._ctx.username == "alice"
     assert core._ctx.project == "demo"
     assert core._ctx.project_id == "project-id"
@@ -304,6 +327,42 @@ def test_deliver_sync_flush_fetches_summary_for_existing_experiment(tmp_path: Pa
     get_summary.assert_called_once_with("project-id", "experiment-id")
 
 
+def test_deliver_sync_flush_returns_failure_when_prepare_fails(tmp_path: Path, monkeypatch):
+    core = CoreSyncPython()
+    core._ctx = CoreContext(config=make_core_config(tmp_path), mode="sync")
+    core._start_record = make_start_record()
+    core._start_request = make_start_request(tmp_path)
+    monkeypatch.setattr(
+        "swanlab.sdk.internal.core_python.sync.prepare_experiment_start",
+        MagicMock(side_effect=RuntimeError("backend failed")),
+    )
+
+    resp = core.deliver_sync_flush()
+
+    assert resp.success is False
+    assert resp.message == "Failed to prepare sync experiment"
+
+
+def test_deliver_sync_flush_returns_failure_when_metrics_init_fails(tmp_path: Path, monkeypatch):
+    core = CoreSyncPython()
+    core._ctx = CoreContext(config=make_core_config(tmp_path), mode="sync")
+    core._start_record = make_start_record()
+    core._start_request = make_start_request(tmp_path)
+    monkeypatch.setattr(
+        "swanlab.sdk.internal.core_python.sync.prepare_experiment_start",
+        MagicMock(return_value=make_prepare_result(new_experiment=True)),
+    )
+    monkeypatch.setattr(
+        "swanlab.sdk.internal.core_python.sync.RunMetrics.new",
+        MagicMock(side_effect=RuntimeError("metrics failed")),
+    )
+
+    resp = core.deliver_sync_flush()
+
+    assert resp.success is False
+    assert resp.message == "Failed to initialize sync metrics"
+
+
 def test_read_uploads_newer_logs_and_captures_finish_record(tmp_path: Path):
     core = CoreSyncPython()
     core._ctx = CoreContext(config=make_core_config(tmp_path), mode="sync")
@@ -323,6 +382,101 @@ def test_read_uploads_newer_logs_and_captures_finish_record(tmp_path: Path):
     assert core._finish_record.state == RunState.RUN_STATE_FINISHED
     assert [record.log.line for record in transport.records] == ["new"]
     assert core._epoch == 3
+
+
+def test_read_skips_columns_already_in_metrics(tmp_path: Path):
+    core = CoreSyncPython()
+    core._ctx = CoreContext(config=make_core_config(tmp_path), mode="sync")
+    core._ctx.set_online_params("alice", "demo", "project-id", "experiment-id")
+    core._reader = FakeReader(  # type: ignore[assignment]
+        [Record(column=ColumnRecord(column_key="loss", column_type=ColumnType.COLUMN_TYPE_SCALAR))]
+    )
+    transport = FakeTransport(core._ctx)
+    core._transport = transport  # type: ignore[assignment]
+    metrics = FakeMetrics()
+    metrics.metrics["loss"] = FakeMetric()
+    core._metrics = metrics  # type: ignore[assignment]
+
+    asyncio.run(core.read())
+
+    assert transport.records == []
+
+
+def test_read_auto_defines_scalar_column_when_metric_is_missing(tmp_path: Path):
+    core = CoreSyncPython()
+    core._ctx = CoreContext(config=make_core_config(tmp_path), mode="sync")
+    core._ctx.set_online_params("alice", "demo", "project-id", "experiment-id")
+    scalar = ScalarRecord(
+        key="loss",
+        step=1,
+        type=ColumnType.COLUMN_TYPE_SCALAR,
+        value=ScalarValue(number=0.3),
+    )
+    core._reader = FakeReader([Record(scalar=scalar)])  # type: ignore[assignment]
+    transport = FakeTransport(core._ctx)
+    core._transport = transport  # type: ignore[assignment]
+    metrics = FakeMetrics()
+    core._metrics = metrics  # type: ignore[assignment]
+
+    asyncio.run(core.read())
+
+    assert [record_kind(record) for record in transport.records] == ["column", "scalar"]
+    assert transport.records[0].column.column_key == "loss"
+    assert transport.records[0].column.column_type == ColumnType.COLUMN_TYPE_SCALAR
+    assert metrics.get("loss") is not None
+
+
+def test_read_auto_defines_media_column_when_metric_is_missing(tmp_path: Path):
+    core = CoreSyncPython()
+    core._ctx = CoreContext(config=make_core_config(tmp_path), mode="sync")
+    core._ctx.set_online_params("alice", "demo", "project-id", "experiment-id")
+    media = MediaRecord(key="images/sample", step=1, type=ColumnType.COLUMN_TYPE_IMAGE)
+    core._reader = FakeReader([Record(media=media)])  # type: ignore[assignment]
+    transport = FakeTransport(core._ctx)
+    core._transport = transport  # type: ignore[assignment]
+    metrics = FakeMetrics()
+    core._metrics = metrics  # type: ignore[assignment]
+
+    asyncio.run(core.read())
+
+    assert [record_kind(record) for record in transport.records] == ["column", "media"]
+    assert transport.records[0].column.column_key == "images/sample"
+    assert transport.records[0].column.column_type == ColumnType.COLUMN_TYPE_IMAGE
+    assert metrics.get("images/sample") is not None
+
+
+def test_read_skips_invalid_protobuf_payload_and_continues(tmp_path: Path):
+    core = CoreSyncPython()
+    core._ctx = CoreContext(config=make_core_config(tmp_path), mode="sync")
+    core._ctx.set_online_params("alice", "demo", "project-id", "experiment-id")
+    first = Record(
+        scalar=ScalarRecord(
+            key="loss",
+            step=1,
+            type=ColumnType.COLUMN_TYPE_SCALAR,
+            value=ScalarValue(number=0.3),
+        )
+    )
+    second = Record(
+        scalar=ScalarRecord(
+            key="loss",
+            step=2,
+            type=ColumnType.COLUMN_TYPE_SCALAR,
+            value=ScalarValue(number=0.2),
+        )
+    )
+    core._reader = FakeRawReader([first.SerializeToString(), b"\x80", second.SerializeToString()])  # type: ignore[assignment]
+    transport = FakeTransport(core._ctx)
+    core._transport = transport  # type: ignore[assignment]
+    core._metrics = FakeMetrics()  # type: ignore[assignment]
+
+    asyncio.run(core.read())
+
+    assert [record_kind(record) for record in transport.records] == ["column", "scalar", "scalar"]
+    assert [(record.scalar.key, record.scalar.step) for record in transport.records if record.HasField("scalar")] == [
+        ("loss", 1),
+        ("loss", 2),
+    ]
 
 
 def test_confirm_sync_finish_marks_missing_finish_record_as_crashed(tmp_path: Path, monkeypatch):
@@ -345,3 +499,54 @@ def test_confirm_sync_finish_marks_missing_finish_record_as_crashed(tmp_path: Pa
     assert transport.finished is True
     assert [record_kind(record) for record in transport.records] == ["log"]
     assert "before writing a finish record" in transport.records[0].log.line
+
+
+def test_confirm_sync_finish_uploads_error_log_for_failed_finish_record(tmp_path: Path, monkeypatch):
+    core = CoreSyncPython()
+    core._ctx = CoreContext(config=make_core_config(tmp_path), mode="sync")
+    core._ctx.set_online_params("alice", "demo", "project-id", "experiment-id")
+    transport = FakeTransport(core._ctx)
+    core._transport = transport  # type: ignore[assignment]
+    core._read_executor = FakeExecutor()  # type: ignore[assignment]
+    core._reader = FakeReader([])  # type: ignore[assignment]
+    finished_at = make_timestamp()
+    core._finish_record = FinishRecord(
+        state=RunState.RUN_STATE_ABORTED,
+        error="user aborted run",
+        finished_at=finished_at,
+    )
+    report = MagicMock(return_value=MagicMock(success=True, message="OK"))
+    monkeypatch.setattr(core, "_report_run_finish", report)
+
+    resp = core.confirm_sync_finish()
+
+    assert resp.success is True
+    report_record = report.call_args.args[0]
+    assert report_record.state == RunState.RUN_STATE_ABORTED
+    assert transport.finished is True
+    assert [record_kind(record) for record in transport.records] == ["log"]
+    assert transport.records[0].log.level == LogLevel.LOG_LEVEL_ERROR
+    assert transport.records[0].log.line == "user aborted run"
+
+
+def test_confirm_sync_finish_uses_existing_finish_record(tmp_path: Path, monkeypatch):
+    core = CoreSyncPython()
+    core._ctx = CoreContext(config=make_core_config(tmp_path), mode="sync")
+    core._ctx.set_online_params("alice", "demo", "project-id", "experiment-id")
+    transport = FakeTransport(core._ctx)
+    core._transport = transport  # type: ignore[assignment]
+    core._read_executor = FakeExecutor()  # type: ignore[assignment]
+    core._reader = FakeReader([])  # type: ignore[assignment]
+    finished_at = make_timestamp()
+    core._finish_record = FinishRecord(state=RunState.RUN_STATE_FINISHED, finished_at=finished_at)
+    report = MagicMock(return_value=MagicMock(success=True, message="OK"))
+    monkeypatch.setattr(core, "_report_run_finish", report)
+
+    resp = core.confirm_sync_finish()
+
+    assert resp.success is True
+    report_record = report.call_args.args[0]
+    assert report_record.state == RunState.RUN_STATE_FINISHED
+    assert report_record.finished_at == finished_at
+    assert transport.records == []
+    assert transport.finished is True

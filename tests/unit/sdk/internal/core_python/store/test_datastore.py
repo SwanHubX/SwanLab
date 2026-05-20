@@ -200,6 +200,23 @@ class TestChecksumValidation:
             r.scan()
         r.close()
 
+    def test_iteration_stops_at_corrupted_record(self, tmp_path: Path):
+        p = tmp_path / "test.swanlab"
+        first = b"first"
+        second = b"second"
+        third = b"third"
+        write_records(p, first, second, third)
+
+        second_data_offset = LEVELDBLOG_HEADER_LEN + LEVELDBLOG_HEADER_LEN + len(first) + LEVELDBLOG_HEADER_LEN
+        data = bytearray(p.read_bytes())
+        data[second_data_offset] ^= 0xFF
+        p.write_bytes(bytes(data))
+
+        r = DataStoreReader()
+        r.open(str(p))
+        assert list(r) == [first]
+        r.close()
+
 
 # ---------------------------------------------------------------------------
 # 文件管理
