@@ -71,7 +71,7 @@ class AscendNPU(AcceleratorProtocol):
             color = generate_color(color_idx)
 
             util = SystemScalar(
-                key=f"npu.{label}.ptc",
+                key=f"npu.{label}.pct",
                 name=f"NPU {label}",
                 chart_name="NPU Utilization (%)",
                 y_min=0,
@@ -81,7 +81,7 @@ class AscendNPU(AcceleratorProtocol):
             scalars.append(util)
 
             hbm_rate = SystemScalar(
-                key=f"npu.{label}.mem.ptc",
+                key=f"npu.{label}.mem.pct",
                 name=f"NPU {label}",
                 chart_name="NPU Memory Allocated (%)",
                 y_min=0,
@@ -112,6 +112,7 @@ class AscendNPU(AcceleratorProtocol):
                 key=f"npu.{label}.power",
                 name=f"NPU {label}",
                 chart_name="NPU Power Usage (W)",
+                y_min=0,
                 color=color,
             )
             scalars.append(power)
@@ -144,21 +145,27 @@ class AscendNPU(AcceleratorProtocol):
             for line in output.split("\n"):
                 if "aicore usage rate" in line.lower():
                     util_str = line.split(":")[-1].strip()
-                    if util_str.isdigit():
+                    try:
                         util_val = float(util_str)
+                    except ValueError:
+                        pass
                 if "hbm usage rate" in line.lower():
                     hbm_str = line.split(":")[-1].strip()
-                    if hbm_str.isdigit():
+                    try:
                         hbm_val = float(hbm_str)
+                    except ValueError:
+                        pass
                 if "hbm capacity" in line.lower():
                     hbm_str = line.split(":")[-1].strip()
-                    if hbm_str.isdigit():
+                    try:
                         hbm_total_mb = float(hbm_str)
+                    except ValueError:
+                        pass
             if not math.isnan(hbm_val) and not math.isnan(hbm_total_mb):
                 hbm_mb = hbm_val / 100 * hbm_total_mb
         return [
-            (f"npu.{label}.ptc", util_val),
-            (f"npu.{label}.mem.ptc", hbm_val),
+            (f"npu.{label}.pct", util_val),
+            (f"npu.{label}.mem.pct", hbm_val),
             (f"npu.{label}.mem.value", hbm_mb),
         ]
 
@@ -273,6 +280,8 @@ class AscendNPU(AcceleratorProtocol):
         for line in output.split("\n"):
             if "hbm capacity" in line.lower():
                 hbm = line.split(":")[-1].strip()
-                if hbm.isdigit():
-                    return {"hbm": str(round(int(hbm) / 1024))}
+                try:
+                    return {"hbm": str(round(float(hbm) / 1024))}
+                except ValueError:
+                    pass
         return None

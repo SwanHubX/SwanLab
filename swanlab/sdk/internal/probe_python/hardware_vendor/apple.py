@@ -40,6 +40,8 @@ class Apple(AppleSiliconProtocol):
                 key="cpu.pct",
                 name="CPU Utilization (%)",
                 chart_name="CPU Utilization (%)",
+                y_min=0,
+                y_max=100,
                 color=generate_color(0),
             )
             scalars.append(cpu_pct)
@@ -49,6 +51,7 @@ class Apple(AppleSiliconProtocol):
                 key="cpu.thds",
                 name="Process CPU Threads",
                 chart_name="Process CPU Threads",
+                y_min=0,
                 color=generate_color(0),
             )
             scalars.append(cpu_thds)
@@ -59,6 +62,8 @@ class Apple(AppleSiliconProtocol):
                 key="mem.pct",
                 name="System Memory Utilization (%)",
                 chart_name="System Memory Utilization (%)",
+                y_min=0,
+                y_max=100,
                 color=generate_color(0),
             )
             scalars.append(mem_pct)
@@ -68,6 +73,7 @@ class Apple(AppleSiliconProtocol):
                 key="mem.proc",
                 name="Process Memory In Use (non-swap) (MB)",
                 chart_name="Process Memory In Use (non-swap) (MB)",
+                y_min=0,
                 color=generate_color(0),
             )
             scalars.append(mem_proc)
@@ -76,6 +82,8 @@ class Apple(AppleSiliconProtocol):
                 key="mem.proc.pct",
                 name="Process Memory Utilization (%)",
                 chart_name="Process Memory Utilization (%)",
+                y_min=0,
+                y_max=100,
                 color=generate_color(0),
             )
             scalars.append(mem_proc_pct)
@@ -84,6 +92,7 @@ class Apple(AppleSiliconProtocol):
                 key="mem.proc.avail",
                 name="Process Memory Available (non-swap) (MB)",
                 chart_name="Process Memory Available (non-swap) (MB)",
+                y_min=0,
                 color=generate_color(0),
             )
             scalars.append(mem_proc_avail)

@@ -104,6 +104,7 @@ class MetaXGPU(AcceleratorProtocol):
                     key=f"gpu.{idx}.power",
                     name=f"GPU {idx}",
                     chart_name="GPU Power (W)",
+                    y_min=0,
                     color=color,
                 )
             )

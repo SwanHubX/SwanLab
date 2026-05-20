@@ -107,6 +107,7 @@ class HygonDCU(AcceleratorProtocol):
                     key=f"dcu.{idx}.power",
                     name=f"DCU {idx}",
                     chart_name="DCU Power (W)",
+                    y_min=0,
                     color=color,
                 )
             )

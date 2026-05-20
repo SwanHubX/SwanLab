@@ -60,7 +60,7 @@ class CambriconMLU(AcceleratorProtocol):
             color = generate_color(color_idx)
 
             util = SystemScalar(
-                key=f"mlu.{idx}.ptc",
+                key=f"mlu.{idx}.pct",
                 name=f"MLU {idx}",
                 chart_name="MLU Utilization (%)",
                 y_min=0,
@@ -70,7 +70,7 @@ class CambriconMLU(AcceleratorProtocol):
             scalars.append(util)
 
             mem_pct = SystemScalar(
-                key=f"mlu.{idx}.mem.ptc",
+                key=f"mlu.{idx}.mem.pct",
                 name=f"MLU {idx}",
                 chart_name="MLU Memory Allocated (%)",
                 y_min=0,
@@ -101,6 +101,7 @@ class CambriconMLU(AcceleratorProtocol):
                 key=f"mlu.{idx}.power",
                 name=f"MLU {idx}",
                 chart_name="MLU Power (W)",
+                y_min=0,
                 color=color,
             )
             scalars.append(power)
@@ -122,22 +123,24 @@ class CambriconMLU(AcceleratorProtocol):
     def _collect_utilization(self, mlu_ids: List[str]) -> List[CollectResult]:
         results: List[CollectResult] = []
         for mid in mlu_ids:
-            results.append((f"mlu.{mid}.ptc", math.nan))
+            results.append((f"mlu.{mid}.pct", math.nan))
         with safe.block(message="Failed to collect MLU utilization", level="debug"):
             output = subprocess.run(["cnmon", "info", "-u"], capture_output=True, text=True).stdout
             index = 0
             for line in output.split("\n"):
                 if "mlu average" in line.lower() and index < len(mlu_ids):
                     util_str = line.split(":")[-1].replace("%", "").strip()
-                    if util_str.isdigit():
-                        results[index] = (f"mlu.{mlu_ids[index]}.ptc", float(util_str))
+                    try:
+                        results[index] = (f"mlu.{mlu_ids[index]}.pct", float(util_str))
+                    except ValueError:
+                        pass
                     index += 1
         return results
 
     def _collect_memory(self, mlu_ids: List[str]) -> List[CollectResult]:
         results: List[CollectResult] = []
         for mid in mlu_ids:
-            results.append((f"mlu.{mid}.mem.ptc", math.nan))
+            results.append((f"mlu.{mid}.mem.pct", math.nan))
             results.append((f"mlu.{mid}.mem.value", math.nan))
         with safe.block(message="Failed to collect MLU memory", level="debug"):
             output = subprocess.run(["cnmon", "info", "-m"], capture_output=True, text=True).stdout
@@ -148,15 +151,17 @@ class CambriconMLU(AcceleratorProtocol):
                     if line_idx + 2 < len(lines) and "used" in lines[line_idx + 2].lower():
                         used_line = lines[line_idx + 2]
                         used_str = used_line.split(":")[-1].replace("MiB", "").strip()
-                        if used_str.isdigit():
+                        try:
                             used_val = float(used_str)
                             mlu_id = mlu_ids[index]
                             total_gb = float(self._mlu_info.get(mlu_id, {}).get("memory", 0))
                             if total_gb > 0:
                                 pct_idx = index * 2
                                 val_idx = index * 2 + 1
-                                results[pct_idx] = (f"mlu.{mlu_id}.mem.ptc", used_val / (total_gb * 1024) * 100)
+                                results[pct_idx] = (f"mlu.{mlu_id}.mem.pct", used_val / (total_gb * 1024) * 100)
                                 results[val_idx] = (f"mlu.{mlu_id}.mem.value", used_val)
+                        except ValueError:
+                            pass
                         index += 1
         return results
 
@@ -173,8 +178,10 @@ class CambriconMLU(AcceleratorProtocol):
                     if line_idx + 2 < len(lines) and "chip" in lines[line_idx + 2].lower():
                         temp_line = lines[line_idx + 2]
                         temp_str = temp_line.split(":")[-1].replace("C", "").strip()
-                        if temp_str.isdigit():
+                        try:
                             results[index] = (f"mlu.{mlu_ids[index]}.temp", float(temp_str))
+                        except ValueError:
+                            pass
                         index += 1
         return results
 
@@ -191,8 +198,10 @@ class CambriconMLU(AcceleratorProtocol):
                     if line_idx + 1 < len(lines) and "usage" in lines[line_idx + 1].lower():
                         power_line = lines[line_idx + 1]
                         power_str = power_line.split(":")[-1].replace("W", "").strip()
-                        if power_str.isdigit():
+                        try:
                             results[index] = (f"mlu.{mlu_ids[index]}.power", float(power_str))
+                        except ValueError:
+                            pass
                         index += 1
         return results
 

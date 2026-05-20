@@ -54,7 +54,7 @@ class KunlunxinXPU(AcceleratorProtocol):
 
             scalars.append(
                 SystemScalar(
-                    key=f"xpu.{idx}.ptc",
+                    key=f"xpu.{idx}.pct",
                     name=f"XPU {idx}",
                     chart_name="XPU Utilization (%)",
                     y_min=0,
@@ -64,7 +64,7 @@ class KunlunxinXPU(AcceleratorProtocol):
             )
             scalars.append(
                 SystemScalar(
-                    key=f"xpu.{idx}.mem.ptc",
+                    key=f"xpu.{idx}.mem.pct",
                     name=f"XPU {idx}",
                     chart_name="XPU Memory Allocated (%)",
                     y_min=0,
@@ -85,6 +85,7 @@ class KunlunxinXPU(AcceleratorProtocol):
                     key=f"xpu.{idx}.power",
                     name=f"XPU {idx}",
                     chart_name="XPU Power (W)",
+                    y_min=0,
                     color=color,
                 )
             )
@@ -109,22 +110,31 @@ class KunlunxinXPU(AcceleratorProtocol):
                     mem_used_str = parts[17]
                     temp_str = parts[4]
                     power_str = parts[8]
-                    if util_str.isdigit():
-                        metrics_by_id[xpu_id]["ptc"] = float(util_str)
+                    try:
+                        metrics_by_id[xpu_id]["pct"] = float(util_str)
+                    except ValueError:
+                        pass
                     xpu_info = self._xpu_map.get(xpu_id_str, {})
                     total_mb = int(xpu_info.get("memory", 0)) * 1024
-                    if mem_used_str.isdigit() and total_mb > 0:
-                        metrics_by_id[xpu_id]["mem.ptc"] = float(mem_used_str) / total_mb * 100
-                    if temp_str.isdigit():
+                    try:
+                        if total_mb > 0:
+                            metrics_by_id[xpu_id]["mem.pct"] = float(mem_used_str) / total_mb * 100
+                    except ValueError:
+                        pass
+                    try:
                         metrics_by_id[xpu_id]["temp"] = float(temp_str)
-                    if power_str.isdigit():
+                    except ValueError:
+                        pass
+                    try:
                         metrics_by_id[xpu_id]["power"] = float(power_str)
+                    except ValueError:
+                        pass
 
             results: List[CollectResult] = []
             for idx in self._indices:
                 m = metrics_by_id[idx]
-                results.append((f"xpu.{idx}.ptc", m.get("ptc", math.nan)))
-                results.append((f"xpu.{idx}.mem.ptc", m.get("mem.ptc", math.nan)))
+                results.append((f"xpu.{idx}.pct", m.get("pct", math.nan)))
+                results.append((f"xpu.{idx}.mem.pct", m.get("mem.pct", math.nan)))
                 results.append((f"xpu.{idx}.temp", m.get("temp", math.nan)))
                 results.append((f"xpu.{idx}.power", m.get("power", math.nan)))
             return results
@@ -176,7 +186,7 @@ class KunlunxinXPU(AcceleratorProtocol):
             with safe.block(message="Failed to parse Kunlunxin XPU info row", level="debug"):
                 if len(parts) >= 23:
                     xpu_id = parts[1]
-                    name = (parts[21][1:] + " " + parts[22][:-1]).strip()
+                    name = f"{parts[21]} {parts[22]}".strip().strip("()")
                     memory = int(parts[18]) // 1024
                     xpu_map[xpu_id] = {"name": name, "memory": str(memory)}
 

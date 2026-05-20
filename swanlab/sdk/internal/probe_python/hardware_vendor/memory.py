@@ -49,6 +49,8 @@ class Memory(MemoryProtocol):
             key="mem.pct",
             name="System Memory Utilization (%)",
             chart_name="System Memory Utilization (%)",
+            y_min=0,
+            y_max=100,
             color=generate_color(0),
         )
         scalars.append(mem_pct)
@@ -58,6 +60,7 @@ class Memory(MemoryProtocol):
             key="mem.proc",
             name="Process Memory In Use (non-swap) (MB)",
             chart_name="Process Memory In Use (non-swap) (MB)",
+            y_min=0,
             color=generate_color(0),
         )
         scalars.append(mem_proc)
@@ -66,6 +69,8 @@ class Memory(MemoryProtocol):
             key="mem.proc.pct",
             name="Process Memory Utilization (%)",
             chart_name="Process Memory Utilization (%)",
+            y_min=0,
+            y_max=100,
             color=generate_color(0),
         )
         scalars.append(mem_proc_pct)
@@ -74,6 +79,7 @@ class Memory(MemoryProtocol):
             key="mem.proc.avail",
             name="Process Memory Available (non-swap) (MB)",
             chart_name="Process Memory Available (non-swap) (MB)",
+            y_min=0,
             color=generate_color(0),
         )
         scalars.append(mem_proc_avail)

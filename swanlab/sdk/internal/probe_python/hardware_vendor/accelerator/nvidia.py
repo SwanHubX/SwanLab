@@ -133,6 +133,7 @@ class NvidiaGPU(AcceleratorProtocol):
                 key=f"gpu.{idx}.power",
                 name=f"GPU {idx}",
                 chart_name="GPU Power Usage (W)",
+                y_min=0,
                 color=color,
             )
             scalars.append(power)
@@ -210,6 +211,9 @@ class NvidiaGPU(AcceleratorProtocol):
     @staticmethod
     @safe.decorator(level="debug", message="Failed to get CUDA version via nvidia-smi")
     def _get_cuda_version_from_smi() -> Optional[str]:
-        cmd = "nvidia-smi | grep 'CUDA Version' | awk -F'CUDA Version: ' '{print $2}' | awk '{print $1}'"
-        output = subprocess.check_output(cmd, shell=True).decode("utf-8").strip()
-        return output or None
+        output = subprocess.check_output(["nvidia-smi"]).decode("utf-8")
+        marker = "CUDA Version:"
+        for line in output.split("\n"):
+            if marker in line:
+                return line.split(marker, 1)[-1].strip().split()[0]
+        return None
