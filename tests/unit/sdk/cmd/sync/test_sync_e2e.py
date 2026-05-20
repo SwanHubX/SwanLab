@@ -1,6 +1,8 @@
 from pathlib import Path
 from typing import Iterable
 
+import pytest
+
 import swanlab
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import ScalarRecord, ScalarValue
@@ -342,3 +344,29 @@ def test_e2e_sync_marks_missing_finish_record_as_crashed(tmp_path: Path, monkeyp
     assert "log" in record_kinds(transports[0].records)
     error_logs = [record.log.line for record in transports[0].records if record.HasField("log")]
     assert any("before writing a finish record" in line for line in error_logs)
+
+
+def test_e2e_sync_fails_with_legacy_version_file(tmp_path: Path, monkeypatch):
+    """sync 遇到旧版本（v1）文件时应失败并给出版本错误提示。"""
+    import struct
+
+    from swanlab.sdk.internal.core_python.store import LEVELDBLOG_HEADER_IDENT, LEVELDBLOG_HEADER_MAGIC
+
+    run_file = tmp_path / "run-legacy-run.swanlab"
+    with open(run_file, "wb") as f:
+        f.write(struct.pack("<4sHB", LEVELDBLOG_HEADER_IDENT, LEVELDBLOG_HEADER_MAGIC, 1))
+
+    core = CoreSyncPython()
+
+    monkeypatch.setattr("swanlab.sdk.cmd.sync.client.exists", lambda: True)
+    monkeypatch.setattr("swanlab.sdk.cmd.sync._create_core_sync", lambda: core)
+
+    with pytest.raises(RuntimeError, match="version"):
+        sync_cmd.sync(
+            tmp_path,
+            settings=Settings(
+                api_key="test-api-key",
+                project=Settings.Project(workspace="alice", name="demo"),
+                run=Settings.Run(id="legacy-run"),
+            ),
+        )
