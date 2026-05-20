@@ -177,6 +177,14 @@ class TestHeaderValidation:
         with pytest.raises(DataStoreError, match="version"):
             r.open(str(p))
 
+    def test_legacy_version_rejected(self, tmp_path: Path):
+        """旧 SDK（v1）生成的文件应被拒绝，并提示版本不匹配。"""
+        p = tmp_path / "legacy.swanlab"
+        _write_raw_header(p, LEVELDBLOG_HEADER_IDENT, LEVELDBLOG_HEADER_MAGIC, 1)
+        r = DataStoreReader()
+        with pytest.raises(DataStoreError, match="version"):
+            r.open(str(p))
+
 
 # ---------------------------------------------------------------------------
 # CRC 校验
