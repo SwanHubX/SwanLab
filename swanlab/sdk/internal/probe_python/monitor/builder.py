@@ -25,10 +25,16 @@ from swanlab.sdk.typings.probe_python import SystemScalar
 
 def build_probe_column(model: SystemScalar, *, chart_index: str) -> ColumnRecord:
     y_range: Optional[YRange] = None
-    if model.y_min is not None and model.y_max is not None:
-        if model.y_min >= model.y_max:
-            raise ValueError(f"y_min must be less than y_max, but got {model.y_min} >= {model.y_max}")
-        y_range = YRange(min=model.y_min, max=model.y_max)
+    if model.y_min is not None or model.y_max is not None:
+        if model.y_min is not None and model.y_max is not None:
+            if model.y_min >= model.y_max:
+                raise ValueError(f"y_min must be less than y_max, but got {model.y_min} >= {model.y_max}")
+        y_range = YRange()
+        # None 不允许设置在 optional double 上
+        if model.y_min is not None:
+            y_range.min = model.y_min
+        if model.y_max is not None:
+            y_range.max = model.y_max
     metric_colors: Optional[MetricColors] = None
     if model.color is not None:
         metric_colors = MetricColors(light=model.color, dark=model.color)
