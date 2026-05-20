@@ -14,6 +14,7 @@ from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import ScalarRecord
 from swanlab.sdk.internal.pkg import console, safe, timer
 from swanlab.sdk.internal.probe_python.context import ProbeContext
+from swanlab.sdk.internal.probe_python.hardware_vendor.accelerator import ACCELERATOR_REGISTRY
 from swanlab.sdk.internal.probe_python.hardware_vendor.apple import Apple
 from swanlab.sdk.internal.probe_python.hardware_vendor.cpu import CPU
 from swanlab.sdk.internal.probe_python.hardware_vendor.memory import Memory
@@ -57,6 +58,13 @@ class Monitor:
             scalars = apple[1] + scalars
 
         # 1.3 加速器信息
+        for acc_config in self._shim.accelerators:
+            vendor_cls = ACCELERATOR_REGISTRY.get(acc_config.vendor)
+            if vendor_cls is None:
+                continue
+            if (instance := vendor_cls.new(self._shim)) is not None:
+                collectors.append(instance[0])
+                scalars = instance[1] + scalars
 
         # 2. 定义指标
         # 有部分指标会聚合到一个图表中，所以需要一个缓存来记录每个指标对应的图表索引

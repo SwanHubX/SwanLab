@@ -323,8 +323,8 @@ class SystemScalar(BaseModel):
     用于在硬件监控线程启动前批量注册系统标量定义。
     """
 
-    key: str = Field(..., pattern=r"^[a-z\.]+$", max_length=512, min_length=1)
-    """标量键名，仅允许小写字母和点号"""
+    key: str = Field(..., pattern=r"^[a-z0-9\.\-]+$", max_length=512, min_length=1)
+    """标量键名，允许小写字母、数字、点号和连字符"""
     name: Optional[str] = Field(default=None, max_length=512, min_length=1)
     """显示名称"""
     color: Optional[str] = Field(default=None, pattern=r"^#[0-9a-fA-F]{6}$")
