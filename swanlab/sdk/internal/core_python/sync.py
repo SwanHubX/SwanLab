@@ -157,10 +157,13 @@ class CoreSyncPython(CoreSyncProtocol):
                         console.error(
                             "Multiple finish records were found in the run file. SwanLab will use the first one."
                         )
-                elif record.HasField("log") and record.log.epoch > self._epoch:
-                    # 仅大于 console_epoch 的 record 才能上传
-                    self._epoch = record.log.epoch
-                    self._transport.put([record])
+                elif record.HasField("log"):
+                    if record.log.epoch > self._epoch:
+                        # 仅大于 console_epoch 的 record 才能上传
+                        self._epoch = record.log.epoch
+                        self._transport.put([record])
+                    else:
+                        console.debug(f"Log at epoch {record.log.epoch} was skipped syncing because it is too old.")
                 elif record.HasField("column") and self._metrics.get(record.column.column_key) is None:
                     # 如果 column 不存在于 _metrics 中则上传，并且定义此column
                     column = record.column
@@ -231,7 +234,7 @@ class CoreSyncPython(CoreSyncProtocol):
             finish_record.state = RunState.RUN_STATE_CRASHED
             ts = Timestamp()
             ts.GetCurrentTime()
-            finish_record.finished_at = ts
+            finish_record.finished_at.CopyFrom(ts)
             finish_record.error = (
                 "Run process was interrupted or killed before writing a finish record. "
                 "The run is marked as crashed during sync."
