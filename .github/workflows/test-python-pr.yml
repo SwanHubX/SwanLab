@@ -19,7 +19,7 @@ jobs:
           python-version: "3.9"
           enable-cache: true
       - name: Install dependencies
-        run: uv sync --all-extras --dev
+        run: uv sync --all-extras --group dev
       - name: Run basedpyright
         run: uv run basedpyright
   test:
