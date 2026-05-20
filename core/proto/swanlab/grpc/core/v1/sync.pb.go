@@ -7,6 +7,7 @@
 package corev1
 
 import (
+	_ "github.com/swanhubx/swanlab/core/proto/swanlab/run/v1"
 	v1 "github.com/swanhubx/swanlab/core/proto/swanlab/settings/core/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -27,6 +28,9 @@ const (
 type DeliverSyncStartRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	CoreSettings  *v1.CoreSettings       `protobuf:"bytes,1,opt,name=core_settings,json=coreSettings,proto3" json:"core_settings,omitempty"` // 同步服务启动配置
+	Workspace     string                 `protobuf:"bytes,2,opt,name=workspace,proto3" json:"workspace,omitempty"`                           // 用于标识同步到哪个工作空间上，如果不传递，默认使用start record中记录的工作空间
+	Project       string                 `protobuf:"bytes,3,opt,name=project,proto3" json:"project,omitempty"`                               // 用于标识同步到哪个项目上，如果不传递，默认使用start record中记录的项目
+	Id            string                 `protobuf:"bytes,4,opt,name=id,proto3" json:"id,omitempty"`                                         // 运行id，如果run id在对应实验上已经存在，则等同于resume模式
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -68,16 +72,218 @@ func (x *DeliverSyncStartRequest) GetCoreSettings() *v1.CoreSettings {
 	return nil
 }
 
+func (x *DeliverSyncStartRequest) GetWorkspace() string {
+	if x != nil {
+		return x.Workspace
+	}
+	return ""
+}
+
+func (x *DeliverSyncStartRequest) GetProject() string {
+	if x != nil {
+		return x.Project
+	}
+	return ""
+}
+
+func (x *DeliverSyncStartRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+// DeliverSyncStartResponse 同步服务启动响应
+type DeliverSyncStartResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"` // 请求是否成功
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`  // 请求失败的响应
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeliverSyncStartResponse) Reset() {
+	*x = DeliverSyncStartResponse{}
+	mi := &file_swanlab_grpc_core_v1_sync_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeliverSyncStartResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeliverSyncStartResponse) ProtoMessage() {}
+
+func (x *DeliverSyncStartResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_swanlab_grpc_core_v1_sync_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeliverSyncStartResponse.ProtoReflect.Descriptor instead.
+func (*DeliverSyncStartResponse) Descriptor() ([]byte, []int) {
+	return file_swanlab_grpc_core_v1_sync_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *DeliverSyncStartResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *DeliverSyncStartResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+// DeliverSyncFlushResponse 开启云端同步响应
+type DeliverSyncFlushResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"` // 请求是否成功
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`  // 请求失败的响应
+	Path          string                 `protobuf:"bytes,3,opt,name=path,proto3" json:"path,omitempty"`        // 对应的实验路径，格式为 /:username/:project_name/:slug(run_id)
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeliverSyncFlushResponse) Reset() {
+	*x = DeliverSyncFlushResponse{}
+	mi := &file_swanlab_grpc_core_v1_sync_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeliverSyncFlushResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeliverSyncFlushResponse) ProtoMessage() {}
+
+func (x *DeliverSyncFlushResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_swanlab_grpc_core_v1_sync_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeliverSyncFlushResponse.ProtoReflect.Descriptor instead.
+func (*DeliverSyncFlushResponse) Descriptor() ([]byte, []int) {
+	return file_swanlab_grpc_core_v1_sync_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *DeliverSyncFlushResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *DeliverSyncFlushResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *DeliverSyncFlushResponse) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+// ConfirmSyncFinishResponse 同步服务结束响应
+type ConfirmSyncFinishResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"` // 请求是否成功
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`  // 请求失败的响应
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ConfirmSyncFinishResponse) Reset() {
+	*x = ConfirmSyncFinishResponse{}
+	mi := &file_swanlab_grpc_core_v1_sync_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConfirmSyncFinishResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConfirmSyncFinishResponse) ProtoMessage() {}
+
+func (x *ConfirmSyncFinishResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_swanlab_grpc_core_v1_sync_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ConfirmSyncFinishResponse.ProtoReflect.Descriptor instead.
+func (*ConfirmSyncFinishResponse) Descriptor() ([]byte, []int) {
+	return file_swanlab_grpc_core_v1_sync_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *ConfirmSyncFinishResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *ConfirmSyncFinishResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
 var File_swanlab_grpc_core_v1_sync_proto protoreflect.FileDescriptor
 
 const file_swanlab_grpc_core_v1_sync_proto_rawDesc = "" +
 	"\n" +
-	"\x1fswanlab/grpc/core/v1/sync.proto\x12\x14swanlab.grpc.core.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a#swanlab/settings/core/v1/core.proto\"f\n" +
+	"\x1fswanlab/grpc/core/v1/sync.proto\x12\x14swanlab.grpc.core.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x18swanlab/run/v1/run.proto\x1a#swanlab/settings/core/v1/core.proto\"\xae\x01\n" +
 	"\x17DeliverSyncStartRequest\x12K\n" +
-	"\rcore_settings\x18\x01 \x01(\v2&.swanlab.settings.core.v1.CoreSettingsR\fcoreSettings2\xb1\x01\n" +
-	"\x0fCoreSyncService\x12Y\n" +
-	"\x10DeliverSyncStart\x12-.swanlab.grpc.core.v1.DeliverSyncStartRequest\x1a\x16.google.protobuf.Empty\x12C\n" +
-	"\x11DeliverSyncFinish\x12\x16.google.protobuf.Empty\x1a\x16.google.protobuf.EmptyBDZBgithub.com/swanhubx/swanlab/core/proto/swanlab/grpc/core/v1;corev1b\x06proto3"
+	"\rcore_settings\x18\x01 \x01(\v2&.swanlab.settings.core.v1.CoreSettingsR\fcoreSettings\x12\x1c\n" +
+	"\tworkspace\x18\x02 \x01(\tR\tworkspace\x12\x18\n" +
+	"\aproject\x18\x03 \x01(\tR\aproject\x12\x0e\n" +
+	"\x02id\x18\x04 \x01(\tR\x02id\"N\n" +
+	"\x18DeliverSyncStartResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"b\n" +
+	"\x18DeliverSyncFlushResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\x12\x12\n" +
+	"\x04path\x18\x03 \x01(\tR\x04path\"O\n" +
+	"\x19ConfirmSyncFinishResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage2\xbe\x02\n" +
+	"\x0fCoreSyncService\x12q\n" +
+	"\x10DeliverSyncStart\x12-.swanlab.grpc.core.v1.DeliverSyncStartRequest\x1a..swanlab.grpc.core.v1.DeliverSyncStartResponse\x12Z\n" +
+	"\x10DeliverSyncFlush\x12\x16.google.protobuf.Empty\x1a..swanlab.grpc.core.v1.DeliverSyncFlushResponse\x12\\\n" +
+	"\x11ConfirmSyncFinish\x12\x16.google.protobuf.Empty\x1a/.swanlab.grpc.core.v1.ConfirmSyncFinishResponseBDZBgithub.com/swanhubx/swanlab/core/proto/swanlab/grpc/core/v1;corev1b\x06proto3"
 
 var (
 	file_swanlab_grpc_core_v1_sync_proto_rawDescOnce sync.Once
@@ -91,20 +297,25 @@ func file_swanlab_grpc_core_v1_sync_proto_rawDescGZIP() []byte {
 	return file_swanlab_grpc_core_v1_sync_proto_rawDescData
 }
 
-var file_swanlab_grpc_core_v1_sync_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_swanlab_grpc_core_v1_sync_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_swanlab_grpc_core_v1_sync_proto_goTypes = []any{
-	(*DeliverSyncStartRequest)(nil), // 0: swanlab.grpc.core.v1.DeliverSyncStartRequest
-	(*v1.CoreSettings)(nil),         // 1: swanlab.settings.core.v1.CoreSettings
-	(*emptypb.Empty)(nil),           // 2: google.protobuf.Empty
+	(*DeliverSyncStartRequest)(nil),   // 0: swanlab.grpc.core.v1.DeliverSyncStartRequest
+	(*DeliverSyncStartResponse)(nil),  // 1: swanlab.grpc.core.v1.DeliverSyncStartResponse
+	(*DeliverSyncFlushResponse)(nil),  // 2: swanlab.grpc.core.v1.DeliverSyncFlushResponse
+	(*ConfirmSyncFinishResponse)(nil), // 3: swanlab.grpc.core.v1.ConfirmSyncFinishResponse
+	(*v1.CoreSettings)(nil),           // 4: swanlab.settings.core.v1.CoreSettings
+	(*emptypb.Empty)(nil),             // 5: google.protobuf.Empty
 }
 var file_swanlab_grpc_core_v1_sync_proto_depIdxs = []int32{
-	1, // 0: swanlab.grpc.core.v1.DeliverSyncStartRequest.core_settings:type_name -> swanlab.settings.core.v1.CoreSettings
+	4, // 0: swanlab.grpc.core.v1.DeliverSyncStartRequest.core_settings:type_name -> swanlab.settings.core.v1.CoreSettings
 	0, // 1: swanlab.grpc.core.v1.CoreSyncService.DeliverSyncStart:input_type -> swanlab.grpc.core.v1.DeliverSyncStartRequest
-	2, // 2: swanlab.grpc.core.v1.CoreSyncService.DeliverSyncFinish:input_type -> google.protobuf.Empty
-	2, // 3: swanlab.grpc.core.v1.CoreSyncService.DeliverSyncStart:output_type -> google.protobuf.Empty
-	2, // 4: swanlab.grpc.core.v1.CoreSyncService.DeliverSyncFinish:output_type -> google.protobuf.Empty
-	3, // [3:5] is the sub-list for method output_type
-	1, // [1:3] is the sub-list for method input_type
+	5, // 2: swanlab.grpc.core.v1.CoreSyncService.DeliverSyncFlush:input_type -> google.protobuf.Empty
+	5, // 3: swanlab.grpc.core.v1.CoreSyncService.ConfirmSyncFinish:input_type -> google.protobuf.Empty
+	1, // 4: swanlab.grpc.core.v1.CoreSyncService.DeliverSyncStart:output_type -> swanlab.grpc.core.v1.DeliverSyncStartResponse
+	2, // 5: swanlab.grpc.core.v1.CoreSyncService.DeliverSyncFlush:output_type -> swanlab.grpc.core.v1.DeliverSyncFlushResponse
+	3, // 6: swanlab.grpc.core.v1.CoreSyncService.ConfirmSyncFinish:output_type -> swanlab.grpc.core.v1.ConfirmSyncFinishResponse
+	4, // [4:7] is the sub-list for method output_type
+	1, // [1:4] is the sub-list for method input_type
 	1, // [1:1] is the sub-list for extension type_name
 	1, // [1:1] is the sub-list for extension extendee
 	0, // [0:1] is the sub-list for field type_name
@@ -121,7 +332,7 @@ func file_swanlab_grpc_core_v1_sync_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_swanlab_grpc_core_v1_sync_proto_rawDesc), len(file_swanlab_grpc_core_v1_sync_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   1,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

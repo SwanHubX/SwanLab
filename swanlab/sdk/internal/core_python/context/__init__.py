@@ -8,7 +8,7 @@
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 
 from swanlab.proto.swanlab.settings.core.v1.core_pb2 import CoreSettings
 
@@ -29,8 +29,9 @@ class CoreConfig:
 
 
 class CoreContext:
-    def __init__(self, *, config: CoreConfig):
+    def __init__(self, *, config: CoreConfig, mode: Literal["core", "sync"] = "core"):
         self.config = config
+        self._mode: Literal["core", "sync"] = mode
         # 云端信息
         self._username: Optional[str] = None
         self._project: Optional[str] = None
@@ -38,7 +39,7 @@ class CoreContext:
         self._experiment_id: Optional[str] = None
 
     @classmethod
-    def from_proto(cls, proto: CoreSettings) -> "CoreContext":
+    def from_proto(cls, proto: CoreSettings, mode: Literal["core", "sync"] = "core") -> "CoreContext":
         config = CoreConfig(
             run_id=proto.run_id,
             run_dir=Path(proto.run_dir),
@@ -50,7 +51,7 @@ class CoreContext:
             save_part=proto.save_part,
             save_batch=proto.save_batch,
         )
-        return cls(config=config)
+        return cls(config=config, mode=mode)
 
     def set_online_params(self, username: str, project: str, project_id: str, experiment_id: str):
         """
@@ -131,5 +132,16 @@ class CoreContext:
 
     @cached_property
     def run_file(self) -> Path:
-        assert self.config.run_id, "Run ID is not set."
-        return self.config.run_dir / f"run-{self.config.run_id}.swanlab"
+        if self._mode == "core":
+            assert self.config.run_id, "Run ID is not set."
+            # core 模式下，根据run id创建run file
+            return self.config.run_dir / f"run-{self.config.run_id}.swanlab"
+        elif self._mode == "sync":
+            # sync 模式下，查询目录下 run-*.swanlab 文件作为run file
+            files = sorted(self.config.run_dir.glob("run-*.swanlab"))
+            if len(files) == 0:
+                raise FileNotFoundError(f"No run-*.swanlab file found in {self.config.run_dir}")
+            if len(files) > 1:
+                raise RuntimeError(f"Multiple run-*.swanlab files found in {self.config.run_dir}")
+            return files[0]
+        raise ValueError(f"Unsupported CoreContext mode: {self._mode}")

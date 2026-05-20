@@ -35,6 +35,7 @@ from swanlab.sdk import (
     pkg,
     plot,
     save,
+    sync,
 )
 
 from . import utils
@@ -60,6 +61,7 @@ __all__ = [
     "define_scalar",
     "save",
     "async_log",
+    "sync",
     # run
     "run",  # type: ignore [no-redef]
     "Run",

@@ -21,7 +21,8 @@ const _ = grpc.SupportPackageIsVersion9
 
 const (
 	CoreSyncService_DeliverSyncStart_FullMethodName  = "/swanlab.grpc.core.v1.CoreSyncService/DeliverSyncStart"
-	CoreSyncService_DeliverSyncFinish_FullMethodName = "/swanlab.grpc.core.v1.CoreSyncService/DeliverSyncFinish"
+	CoreSyncService_DeliverSyncFlush_FullMethodName  = "/swanlab.grpc.core.v1.CoreSyncService/DeliverSyncFlush"
+	CoreSyncService_ConfirmSyncFinish_FullMethodName = "/swanlab.grpc.core.v1.CoreSyncService/ConfirmSyncFinish"
 )
 
 // CoreSyncServiceClient is the client API for CoreSyncService service.
@@ -30,10 +31,12 @@ const (
 //
 // CoreSyncService 用于启动本地日志读取、云端同步服务
 type CoreSyncServiceClient interface {
-	// DeliverSyncStart 接收 CoreSettings，启动本地日志读取与云端同步
-	DeliverSyncStart(ctx context.Context, in *DeliverSyncStartRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	// DeliverSyncFinish 结束本地日志读取与云端同步
-	DeliverSyncFinish(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// DeliverSyncStart 接收 CoreSettings，校验并启动本地日志读取
+	DeliverSyncStart(ctx context.Context, in *DeliverSyncStartRequest, opts ...grpc.CallOption) (*DeliverSyncStartResponse, error)
+	// DeliverSyncFlush 结束本地日志读取，开启云端同步
+	DeliverSyncFlush(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*DeliverSyncFlushResponse, error)
+	// ConfirmSyncFinish 结束同步，副作用清理，退出
+	ConfirmSyncFinish(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ConfirmSyncFinishResponse, error)
 }
 
 type coreSyncServiceClient struct {
@@ -44,9 +47,9 @@ func NewCoreSyncServiceClient(cc grpc.ClientConnInterface) CoreSyncServiceClient
 	return &coreSyncServiceClient{cc}
 }
 
-func (c *coreSyncServiceClient) DeliverSyncStart(ctx context.Context, in *DeliverSyncStartRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *coreSyncServiceClient) DeliverSyncStart(ctx context.Context, in *DeliverSyncStartRequest, opts ...grpc.CallOption) (*DeliverSyncStartResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(emptypb.Empty)
+	out := new(DeliverSyncStartResponse)
 	err := c.cc.Invoke(ctx, CoreSyncService_DeliverSyncStart_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -54,10 +57,20 @@ func (c *coreSyncServiceClient) DeliverSyncStart(ctx context.Context, in *Delive
 	return out, nil
 }
 
-func (c *coreSyncServiceClient) DeliverSyncFinish(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *coreSyncServiceClient) DeliverSyncFlush(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*DeliverSyncFlushResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, CoreSyncService_DeliverSyncFinish_FullMethodName, in, out, cOpts...)
+	out := new(DeliverSyncFlushResponse)
+	err := c.cc.Invoke(ctx, CoreSyncService_DeliverSyncFlush_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *coreSyncServiceClient) ConfirmSyncFinish(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ConfirmSyncFinishResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ConfirmSyncFinishResponse)
+	err := c.cc.Invoke(ctx, CoreSyncService_ConfirmSyncFinish_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -70,10 +83,12 @@ func (c *coreSyncServiceClient) DeliverSyncFinish(ctx context.Context, in *empty
 //
 // CoreSyncService 用于启动本地日志读取、云端同步服务
 type CoreSyncServiceServer interface {
-	// DeliverSyncStart 接收 CoreSettings，启动本地日志读取与云端同步
-	DeliverSyncStart(context.Context, *DeliverSyncStartRequest) (*emptypb.Empty, error)
-	// DeliverSyncFinish 结束本地日志读取与云端同步
-	DeliverSyncFinish(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
+	// DeliverSyncStart 接收 CoreSettings，校验并启动本地日志读取
+	DeliverSyncStart(context.Context, *DeliverSyncStartRequest) (*DeliverSyncStartResponse, error)
+	// DeliverSyncFlush 结束本地日志读取，开启云端同步
+	DeliverSyncFlush(context.Context, *emptypb.Empty) (*DeliverSyncFlushResponse, error)
+	// ConfirmSyncFinish 结束同步，副作用清理，退出
+	ConfirmSyncFinish(context.Context, *emptypb.Empty) (*ConfirmSyncFinishResponse, error)
 	mustEmbedUnimplementedCoreSyncServiceServer()
 }
 
@@ -84,11 +99,14 @@ type CoreSyncServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedCoreSyncServiceServer struct{}
 
-func (UnimplementedCoreSyncServiceServer) DeliverSyncStart(context.Context, *DeliverSyncStartRequest) (*emptypb.Empty, error) {
+func (UnimplementedCoreSyncServiceServer) DeliverSyncStart(context.Context, *DeliverSyncStartRequest) (*DeliverSyncStartResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeliverSyncStart not implemented")
 }
-func (UnimplementedCoreSyncServiceServer) DeliverSyncFinish(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
-	return nil, status.Error(codes.Unimplemented, "method DeliverSyncFinish not implemented")
+func (UnimplementedCoreSyncServiceServer) DeliverSyncFlush(context.Context, *emptypb.Empty) (*DeliverSyncFlushResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeliverSyncFlush not implemented")
+}
+func (UnimplementedCoreSyncServiceServer) ConfirmSyncFinish(context.Context, *emptypb.Empty) (*ConfirmSyncFinishResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ConfirmSyncFinish not implemented")
 }
 func (UnimplementedCoreSyncServiceServer) mustEmbedUnimplementedCoreSyncServiceServer() {}
 func (UnimplementedCoreSyncServiceServer) testEmbeddedByValue()                         {}
@@ -129,20 +147,38 @@ func _CoreSyncService_DeliverSyncStart_Handler(srv interface{}, ctx context.Cont
 	return interceptor(ctx, in, info, handler)
 }
 
-func _CoreSyncService_DeliverSyncFinish_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _CoreSyncService_DeliverSyncFlush_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(CoreSyncServiceServer).DeliverSyncFinish(ctx, in)
+		return srv.(CoreSyncServiceServer).DeliverSyncFlush(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: CoreSyncService_DeliverSyncFinish_FullMethodName,
+		FullMethod: CoreSyncService_DeliverSyncFlush_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CoreSyncServiceServer).DeliverSyncFinish(ctx, req.(*emptypb.Empty))
+		return srv.(CoreSyncServiceServer).DeliverSyncFlush(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CoreSyncService_ConfirmSyncFinish_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CoreSyncServiceServer).ConfirmSyncFinish(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CoreSyncService_ConfirmSyncFinish_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CoreSyncServiceServer).ConfirmSyncFinish(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -159,8 +195,12 @@ var CoreSyncService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _CoreSyncService_DeliverSyncStart_Handler,
 		},
 		{
-			MethodName: "DeliverSyncFinish",
-			Handler:    _CoreSyncService_DeliverSyncFinish_Handler,
+			MethodName: "DeliverSyncFlush",
+			Handler:    _CoreSyncService_DeliverSyncFlush_Handler,
+		},
+		{
+			MethodName: "ConfirmSyncFinish",
+			Handler:    _CoreSyncService_ConfirmSyncFinish_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

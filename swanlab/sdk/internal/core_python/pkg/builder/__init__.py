@@ -22,6 +22,7 @@ from swanlab.sdk.internal.core_python.context import CoreContext
 from swanlab.sdk.internal.core_python.pkg.counter import Counter
 
 __all__ = [
+    "DEC_NUM",
     "build_finish_record",
     "build_start_record",
     "build_config_record",
@@ -62,6 +63,11 @@ CONDA_RECORD_NUM = -6
 约定conda环境记录的num为-6
 """
 
+DEC_NUM = -100
+"""
+约定小于-100的值用于sync场景下，反向计数
+"""
+
 
 def _now():
     ts = Timestamp()
@@ -69,11 +75,16 @@ def _now():
     return ts
 
 
-def build_column_record(counter: Counter, column_record: ColumnRecord):
+def build_column_record(counter: Counter, column_record: ColumnRecord, positive: bool = True):
     """
     构建列记录
+    :param counter: 计数器
+    :param column_record: 列记录
+    :param positive: 是否正向计数，反向计数用于sync场景无法立即统计record长度的情况
+    :return: 记录
     """
-    return Record(num=counter.inc(), column=column_record, timestamp=_now())
+    num = counter.inc() if positive else counter.dec()
+    return Record(num=num, column=column_record, timestamp=_now())
 
 
 def build_scalar_record(counter: Counter, scalar_record: ScalarRecord):
@@ -90,14 +101,19 @@ def build_media_record(counter: Counter, media_record: MediaRecord):
     return Record(num=counter.inc(), media=media_record, timestamp=_now())
 
 
-def build_log_record(counter: Counter, epoch: Counter, log_record: LogRecord):
+def build_log_record(counter: Counter, epoch: Counter, log_record: LogRecord, positive: bool = True):
     """
     构建控制台记录
+    :param counter: 计数器
+    :param epoch: 计数器
+    :param log_record: 控制台记录
+    :param positive: 是否正向计数，反向计数用于sync场景无法立即统计record长度的情况
     """
     record = LogRecord()
     record.CopyFrom(log_record)
     record.epoch = epoch.inc()
-    return Record(num=counter.inc(), log=record, timestamp=_now())
+    num = counter.inc() if positive else counter.dec()
+    return Record(num=num, log=record, timestamp=_now())
 
 
 def build_start_record(start_record: StartRecord):

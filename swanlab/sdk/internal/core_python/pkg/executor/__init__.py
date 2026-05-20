@@ -5,9 +5,12 @@
 @description: 执行器工具
 """
 
+import asyncio
 import threading
 from concurrent.futures import Future, ThreadPoolExecutor
-from typing import Any, Callable
+from typing import Any, Callable, Coroutine, Optional
+
+__all__ = ["SafeThreadPoolExecutor", "EventLoopExecutor"]
 
 
 def _is_shutting_down() -> bool:
@@ -53,3 +56,48 @@ class SafeThreadPoolExecutor(ThreadPoolExecutor):
     def shutdown(self, wait: bool = True, *, cancel_futures: bool = False) -> None:
         """默认 wait=True，确保已提交任务执行完毕。"""
         super().shutdown(wait=wait, cancel_futures=cancel_futures)
+
+
+class EventLoopExecutor:
+    """Run one coroutine in a dedicated background event loop."""
+
+    def __init__(self, name: str) -> None:
+        self._name = name
+        self._loop: Optional[asyncio.AbstractEventLoop] = None
+        self._thread: Optional[threading.Thread] = None
+        self._future: Optional[Future[None]] = None
+
+    def start(self, coro: Coroutine[Any, Any, None]) -> None:
+        if self._future is not None:
+            raise RuntimeError(f"Background task {self._name!r} is already running")
+
+        loop = asyncio.new_event_loop()
+        thread = threading.Thread(target=loop.run_forever, name=self._name, daemon=True)
+        thread.start()
+
+        self._loop = loop
+        self._thread = thread
+        self._future = asyncio.run_coroutine_threadsafe(coro, loop)
+
+    def wait(self) -> None:
+        try:
+            if self._future is not None:
+                self._future.result()
+        finally:
+            self.close()
+
+    def close(self) -> None:
+        if self._loop is not None:
+            loop = self._loop  # make pylint happy
+            # noinspection PyTypeChecker
+            loop.call_soon_threadsafe(loop.stop)
+
+        if self._thread is not None:
+            self._thread.join()
+
+        if self._loop is not None:
+            self._loop.close()
+
+        self._loop = None
+        self._thread = None
+        self._future = None

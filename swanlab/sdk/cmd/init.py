@@ -33,8 +33,7 @@ from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.pkg import adapter, console, fs, helper, safe
 from swanlab.sdk.typings.cmd import ConfigLike
 from swanlab.sdk.typings.context import CallbacksType
-from swanlab.utils import generate_id
-from swanlab.utils.experiment import generate_color, generate_name
+from swanlab.utils.experiment import generate_color, generate_id, generate_name
 
 from ..internal.run import Run, get_run, has_run
 from ..internal.settings import Settings

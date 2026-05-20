@@ -12,7 +12,22 @@ from typing import Any, Callable, List, Mapping, Optional, Union
 
 from . import utils
 from .api import Api
-from .sdk import Audio, Callback, ECharts, Image, Molecule, Object3D, Run, Settings, Text, Video, config, echarts, plot
+from .sdk import (
+    Audio,
+    Callback,
+    ECharts,
+    Image,
+    Molecule,
+    Object3D,
+    Run,
+    Settings,
+    Text,
+    Video,
+    config,
+    echarts,
+    plot,
+    sync,
+)
 from .sdk.typings.cmd import ConfigLike, LoginType
 from .sdk.typings.context import CallbacksType
 from .sdk.typings.run import AsyncLogType, FinishType, ModeType, ResumeType, SaveType
@@ -46,6 +61,7 @@ __all__ = [
     "define_scalar",
     "async_log",
     "save",
+    "sync",
     # run
     "run",  # type: ignore [no-redef]
     "Run",

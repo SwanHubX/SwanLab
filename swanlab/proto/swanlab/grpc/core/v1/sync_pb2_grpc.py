@@ -39,12 +39,17 @@ class CoreSyncServiceStub(object):
         self.DeliverSyncStart = channel.unary_unary(
                 '/swanlab.grpc.core.v1.CoreSyncService/DeliverSyncStart',
                 request_serializer=swanlab_dot_grpc_dot_core_dot_v1_dot_sync__pb2.DeliverSyncStartRequest.SerializeToString,
-                response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                response_deserializer=swanlab_dot_grpc_dot_core_dot_v1_dot_sync__pb2.DeliverSyncStartResponse.FromString,
                 _registered_method=True)
-        self.DeliverSyncFinish = channel.unary_unary(
-                '/swanlab.grpc.core.v1.CoreSyncService/DeliverSyncFinish',
+        self.DeliverSyncFlush = channel.unary_unary(
+                '/swanlab.grpc.core.v1.CoreSyncService/DeliverSyncFlush',
                 request_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
-                response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                response_deserializer=swanlab_dot_grpc_dot_core_dot_v1_dot_sync__pb2.DeliverSyncFlushResponse.FromString,
+                _registered_method=True)
+        self.ConfirmSyncFinish = channel.unary_unary(
+                '/swanlab.grpc.core.v1.CoreSyncService/ConfirmSyncFinish',
+                request_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+                response_deserializer=swanlab_dot_grpc_dot_core_dot_v1_dot_sync__pb2.ConfirmSyncFinishResponse.FromString,
                 _registered_method=True)
 
 
@@ -53,14 +58,21 @@ class CoreSyncServiceServicer(object):
     """
 
     def DeliverSyncStart(self, request, context):
-        """DeliverSyncStart 接收 CoreSettings，启动本地日志读取与云端同步
+        """DeliverSyncStart 接收 CoreSettings，校验并启动本地日志读取
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def DeliverSyncFinish(self, request, context):
-        """DeliverSyncFinish 结束本地日志读取与云端同步
+    def DeliverSyncFlush(self, request, context):
+        """DeliverSyncFlush 结束本地日志读取，开启云端同步
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ConfirmSyncFinish(self, request, context):
+        """ConfirmSyncFinish 结束同步，副作用清理，退出
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -72,12 +84,17 @@ def add_CoreSyncServiceServicer_to_server(servicer, server):
             'DeliverSyncStart': grpc.unary_unary_rpc_method_handler(
                     servicer.DeliverSyncStart,
                     request_deserializer=swanlab_dot_grpc_dot_core_dot_v1_dot_sync__pb2.DeliverSyncStartRequest.FromString,
-                    response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+                    response_serializer=swanlab_dot_grpc_dot_core_dot_v1_dot_sync__pb2.DeliverSyncStartResponse.SerializeToString,
             ),
-            'DeliverSyncFinish': grpc.unary_unary_rpc_method_handler(
-                    servicer.DeliverSyncFinish,
+            'DeliverSyncFlush': grpc.unary_unary_rpc_method_handler(
+                    servicer.DeliverSyncFlush,
                     request_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
-                    response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+                    response_serializer=swanlab_dot_grpc_dot_core_dot_v1_dot_sync__pb2.DeliverSyncFlushResponse.SerializeToString,
+            ),
+            'ConfirmSyncFinish': grpc.unary_unary_rpc_method_handler(
+                    servicer.ConfirmSyncFinish,
+                    request_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                    response_serializer=swanlab_dot_grpc_dot_core_dot_v1_dot_sync__pb2.ConfirmSyncFinishResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -107,7 +124,7 @@ class CoreSyncService(object):
             target,
             '/swanlab.grpc.core.v1.CoreSyncService/DeliverSyncStart',
             swanlab_dot_grpc_dot_core_dot_v1_dot_sync__pb2.DeliverSyncStartRequest.SerializeToString,
-            google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+            swanlab_dot_grpc_dot_core_dot_v1_dot_sync__pb2.DeliverSyncStartResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -119,7 +136,7 @@ class CoreSyncService(object):
             _registered_method=True)
 
     @staticmethod
-    def DeliverSyncFinish(request,
+    def DeliverSyncFlush(request,
             target,
             options=(),
             channel_credentials=None,
@@ -132,9 +149,36 @@ class CoreSyncService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/swanlab.grpc.core.v1.CoreSyncService/DeliverSyncFinish',
+            '/swanlab.grpc.core.v1.CoreSyncService/DeliverSyncFlush',
             google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
-            google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+            swanlab_dot_grpc_dot_core_dot_v1_dot_sync__pb2.DeliverSyncFlushResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ConfirmSyncFinish(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/swanlab.grpc.core.v1.CoreSyncService/ConfirmSyncFinish',
+            google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            swanlab_dot_grpc_dot_core_dot_v1_dot_sync__pb2.ConfirmSyncFinishResponse.FromString,
             options,
             channel_credentials,
             insecure,

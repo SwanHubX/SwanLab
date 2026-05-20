@@ -12,7 +12,10 @@ DataStore 大致代码借鉴自 W&B
 import os
 import struct
 import zlib
+from pathlib import Path
 from typing import IO, Any, Optional, Tuple
+
+from typing_extensions import Union
 
 from swanlab.exceptions import DataStoreError
 
@@ -50,7 +53,7 @@ class DataStoreWriter:
         self._index: int = 0
         self._flush_offset: int = 0
 
-    def open(self, filename: str) -> None:
+    def open(self, filename: Union[Path, str]) -> None:
         """创建并初始化文件，文件已存在时抛出 FileExistsError。"""
         self._fp = open(filename, "xb")
         header = struct.pack("<4sHB", LEVELDBLOG_HEADER_IDENT, LEVELDBLOG_HEADER_MAGIC, LEVELDBLOG_HEADER_VERSION)
@@ -127,7 +130,7 @@ class DataStoreReader:
         self._fp: Optional[IO[Any]] = None
         self._index: int = 0
 
-    def open(self, filename: str) -> None:
+    def open(self, filename: Union[Path, str]) -> None:
         """打开文件并校验文件头。"""
         self._fp = open(filename, "rb")
         self._index = 0

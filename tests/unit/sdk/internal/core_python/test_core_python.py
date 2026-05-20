@@ -109,7 +109,7 @@ class TestCorePythonStart:
 
         monkeypatch.setattr(core, "_report_run_start", _report_run_start_and_set_attrs)
 
-        with patch("swanlab.sdk.internal.core_python.Heartbeat") as MockHeartbeat:
+        with patch("swanlab.sdk.internal.core_python.core.Heartbeat") as MockHeartbeat:
             resp = core.deliver_run_start(make_start_request(tmp_path, record))
 
         assert resp.success is True
@@ -152,7 +152,7 @@ class TestCorePythonFinish:
 
         monkeypatch.setattr(core, "_report_run_start", _report_run_start_and_set_attrs)
 
-        with patch("swanlab.sdk.internal.core_python.Heartbeat") as MockHeartbeat:
+        with patch("swanlab.sdk.internal.core_python.core.Heartbeat") as MockHeartbeat:
             core.deliver_run_start(make_start_request(tmp_path, make_start_record()))
         mock_heartbeat = MockHeartbeat.return_value
 
