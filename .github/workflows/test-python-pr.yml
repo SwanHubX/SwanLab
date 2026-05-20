@@ -7,6 +7,21 @@ on:
       - 'test/**'
 
 jobs:
+  type-check:
+    name: Type check / Python 3.9
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Install uv and set up Python
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.9"
+          enable-cache: true
+      - name: Install dependencies
+        run: uv sync --all-extras --dev
+      - name: Run basedpyright
+        run: uv run basedpyright
   test:
     name: Test on ${{ matrix.os }} / Python ${{ matrix.python-version }}
     runs-on: ${{ matrix.os }}

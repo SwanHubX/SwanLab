@@ -12,7 +12,6 @@ playground/
 # IDEs & OS
 .zed/
 .idea/
-.zed/
 .vscode/
 .cursor/
 .trae/

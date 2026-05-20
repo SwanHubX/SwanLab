@@ -9,7 +9,7 @@ import os
 import platform
 import socket
 import sys
-from typing import Optional
+from typing import Callable, Optional, cast
 
 from swanlab.sdk.internal.pkg import safe
 from swanlab.sdk.typings.probe_python import RuntimeSnapshot
@@ -39,7 +39,11 @@ def get_os() -> str:
 @safe.decorator(level="debug", message="Failed to get runtime os pretty name")
 def get_os_pretty() -> Optional[str]:
     """获取操作系统友好名称"""
-    return platform.freedesktop_os_release().get("PRETTY_NAME")
+    freedesktop_os_release = getattr(platform, "freedesktop_os_release", None)
+    if freedesktop_os_release is None:
+        return None
+    os_release = cast(Callable[[], dict[str, str]], freedesktop_os_release)
+    return os_release().get("PRETTY_NAME")
 
 
 @safe.decorator(level="debug", message="Failed to get runtime hostname")

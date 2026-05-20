@@ -6,6 +6,7 @@
 部分第三方库并非SwanLab必须依赖，在引入时需要判断是否已安装
 考虑到可维护性和性能，我们采用延迟导入的方式，仅在实际使用时才导入第三方库
 """
+# pyright: reportMissingImports=false
 
 import importlib
 from typing import TYPE_CHECKING, Any

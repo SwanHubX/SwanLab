@@ -97,7 +97,8 @@ dev = [
     "pre-commit>=3.5.0",
     "pyright>=1.1.408",
     "pre-commit",
-    "scikit-learn"
+    "scikit-learn",
+    "basedpyright>=1.39.5",
 ]
 
 [project.scripts]
@@ -146,14 +147,38 @@ replacement = "https://github.com/SwanHubX/SwanLab/blob/main/CONTRIBUTING.md"
 pattern = "README.md"
 replacement = "https://github.com/SwanHubX/SwanLab/blob/main/README.md"
 
-[tool.pyright]
+# [tool.pyright]
+# venvPath = "."
+# venv = ".venv"
+# exclude = [
+#     "**/node_modules",
+#     "**/__pycache__",
+# ]
+# ignore=["swanlab/proto"]
+
+[tool.basedpyright]
+pythonVersion = "3.9"
 venvPath = "."
 venv = ".venv"
+typeCheckingMode = "standard"
+include = [
+    "swanlab"
+]
+ignore = [
+    "swanlab/proto",
+    "swanlab/integration"
+]
 exclude = [
     "**/node_modules",
     "**/__pycache__",
+    "**/.venv",
+    "**/.ruff_cache",
+    "**/.pytest_cache",
+    "**/.mypy_cache",
+    "**/dist",
+    "**/build",
+    "**/*.egg-info",
 ]
-ignore=["swanlab/proto"]
 
 [tool.ruff]
 exclude = [

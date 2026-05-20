@@ -1,5 +1,5 @@
 import os
-from typing import Any, Union
+from typing import Any, Optional, Union
 
 import orjson
 
@@ -11,7 +11,7 @@ def json_loads(s: Union[str, bytes, bytearray]) -> Any:
     return orjson.loads(s)
 
 
-def validate_path(base_dir: str, file_path: str) -> str | None:
+def validate_path(base_dir: str, file_path: str) -> Optional[str]:
     """
     Resolve *file_path* relative to *base_dir* and guard against directory traversal.
 
