@@ -33,7 +33,7 @@ const (
 type CoreSyncServiceClient interface {
 	// DeliverSyncStart 接收 CoreSettings，校验并启动本地日志读取
 	DeliverSyncStart(ctx context.Context, in *DeliverSyncStartRequest, opts ...grpc.CallOption) (*DeliverSyncStartResponse, error)
-	// DeliverSyncFinish 结束本地日志读取，开启云端同步
+	// DeliverSyncFlush 结束本地日志读取，开启云端同步
 	DeliverSyncFlush(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*DeliverSyncFlushResponse, error)
 	// ConfirmSyncFinish 结束同步，副作用清理，退出
 	ConfirmSyncFinish(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ConfirmSyncFinishResponse, error)
@@ -85,7 +85,7 @@ func (c *coreSyncServiceClient) ConfirmSyncFinish(ctx context.Context, in *empty
 type CoreSyncServiceServer interface {
 	// DeliverSyncStart 接收 CoreSettings，校验并启动本地日志读取
 	DeliverSyncStart(context.Context, *DeliverSyncStartRequest) (*DeliverSyncStartResponse, error)
-	// DeliverSyncFinish 结束本地日志读取，开启云端同步
+	// DeliverSyncFlush 结束本地日志读取，开启云端同步
 	DeliverSyncFlush(context.Context, *emptypb.Empty) (*DeliverSyncFlushResponse, error)
 	// ConfirmSyncFinish 结束同步，副作用清理，退出
 	ConfirmSyncFinish(context.Context, *emptypb.Empty) (*ConfirmSyncFinishResponse, error)

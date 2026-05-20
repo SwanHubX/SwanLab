@@ -13,7 +13,7 @@ service CoreSyncService {
     // DeliverSyncStart 接收 CoreSettings，校验并启动本地日志读取
     rpc DeliverSyncStart(DeliverSyncStartRequest) returns(DeliverSyncStartResponse);
 
-    // DeliverSyncFinish 结束本地日志读取，开启云端同步
+    // DeliverSyncFlush 结束本地日志读取，开启云端同步
     rpc DeliverSyncFlush(google.protobuf.Empty) returns(DeliverSyncFlushResponse);
 
     // ConfirmSyncFinish 结束同步，副作用清理，退出
@@ -34,14 +34,12 @@ message DeliverSyncStartResponse {
     string message = 2; // 请求失败的响应
 }
 
-
 // DeliverSyncFlushResponse 开启云端同步响应
 message DeliverSyncFlushResponse {
     bool success = 1;   // 请求是否成功
     string message = 2; // 请求失败的响应
     string path = 3;    // 对应的实验路径，格式为 /:username/:project_name/:slug(run_id)
 }
-
 
 // ConfirmSyncFinishResponse 同步服务结束响应
 message ConfirmSyncFinishResponse {

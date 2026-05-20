@@ -65,7 +65,7 @@ class CoreSyncServiceServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def DeliverSyncFlush(self, request, context):
-        """DeliverSyncFinish 结束本地日志读取，开启云端同步
+        """DeliverSyncFlush 结束本地日志读取，开启云端同步
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
