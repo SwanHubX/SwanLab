@@ -95,8 +95,6 @@ dev = [
     "wandb",
     "ruff>=0.15.4",
     "pre-commit>=3.5.0",
-    "pyright>=1.1.408",
-    "pre-commit",
     "scikit-learn",
     "basedpyright>=1.39.5",
 ]
