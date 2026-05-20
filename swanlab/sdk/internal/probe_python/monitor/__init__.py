@@ -79,18 +79,23 @@ class Monitor:
         if len(column_records) == 0:
             console.debug("No hardware monitor columns found, skipping creating monitor task")
             return None
-        self._core.upsert_columns(column_records)
         # 3. 定义并启动任务
         all_handlers = [(type(c).__name__, c.collect) for c in collectors]
         if len(all_handlers) == 0:
             console.debug("No hardware monitor collectors found, skipping creating monitor task")
             return None
         # 使用线程池执行任务
+        # 监控任务的执行效率不要求特别高，线程池的方式可以兼容大部分采集器的实现方式，同时也避免了某些采集器在执行过程中可能出现的阻塞问题
+        first_execute = True
         self._executor = ThreadPoolExecutor(max_workers=2)
 
         def task():
-            nonlocal now_step
+            nonlocal now_step, column_records, first_execute
             assert self._executor is not None, "Monitor Executor is not initialized"
+            assert len(column_records) > 0, "No column records to upsert"
+            if first_execute:
+                self._core.upsert_columns(column_records)
+                first_execute = False
             futures = [(n, self._executor.submit(fn)) for n, fn in all_handlers]
             results: List[CollectResult] = []
             for n, f in futures:
