@@ -206,7 +206,7 @@ class DataStoreReader:
         if version != LEVELDBLOG_HEADER_VERSION:
             raise DataStoreError(
                 f"Invalid run version: {version} (expected {LEVELDBLOG_HEADER_VERSION}). "
-                "This file was created by an older version of SwanLab SDK. "
+                "This file was created by an incompatible version of SwanLab SDK. "
                 "Please use a matching SDK version to sync this run. "
                 "For supported versions, see: https://docs.swanlab.cn/api/cli-swanlab-sync.html"
             )
