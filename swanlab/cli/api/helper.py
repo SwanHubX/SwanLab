@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, get_args
 
 import click
-import nanoid
 import orjson
 
 from swanlab.api import Api
@@ -17,6 +16,7 @@ from swanlab.api.typings.common import (
     ApiResponseType,
     ApiVisibilityLiteral,
 )
+from swanlab.utils import generate_id
 
 
 class _SaveFormatEnum(enum.Enum):
@@ -83,7 +83,7 @@ def save_output(content: bytes, name: Optional[str] = None, fmt: _SaveFormatEnum
             return
         filename = name
     else:
-        filename = f"swanlab-{datetime.now().strftime('%Y%m%d_%H%M%S')}-{nanoid.generate(size=4)}.{fmt.value}"
+        filename = f"swanlab-{datetime.now().strftime('%Y%m%d_%H%M%S')}-{generate_id(length=4)}.{fmt.value}"
     with open(filename, "wb") as f:
         f.write(content)
     click.echo(f"Saved to {filename}")
