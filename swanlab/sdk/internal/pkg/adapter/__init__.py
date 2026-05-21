@@ -7,6 +7,7 @@
 两者需要适配和转换
 """
 
+from swanlab.proto.swanlab.env.v1.metadata_pb2 import AcceleratorVendor, MemoryUnit
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
 from swanlab.proto.swanlab.run.v1.run_pb2 import ResumeMode, RunState
 from swanlab.proto.swanlab.save.v1.save_pb2 import SavePolicy
@@ -14,7 +15,7 @@ from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogLevel
 
 from .bimap import BiMap
 
-__all__ = ["resume", "medium", "state", "level", "policy"]
+__all__ = ["resume", "medium", "state", "level", "policy", "memory_unit", "accelerator_vendor"]
 
 
 resume = BiMap(
@@ -82,3 +83,26 @@ policy = BiMap(
 )
 
 """Save Policy 文件保存策略适配器，映射 save 时文件上报策略"""
+
+memory_unit = BiMap(
+    {
+        "GB": MemoryUnit.MEMORY_UNIT_GB,
+        "MB": MemoryUnit.MEMORY_UNIT_MB,
+    }
+)
+"""MemoryUnit 枚举适配器"""
+
+accelerator_vendor = BiMap(
+    {
+        "nvidia": AcceleratorVendor.ACCELERATOR_VENDOR_NVIDIA,
+        "rocm": AcceleratorVendor.ACCELERATOR_VENDOR_ROCM,
+        "iluvatar": AcceleratorVendor.ACCELERATOR_VENDOR_ILUVATAR,
+        "metax": AcceleratorVendor.ACCELERATOR_VENDOR_METAX,
+        "moorethreads": AcceleratorVendor.ACCELERATOR_VENDOR_MOORETHREADS,
+        "ascend": AcceleratorVendor.ACCELERATOR_VENDOR_ASCEND,
+        "cambricon": AcceleratorVendor.ACCELERATOR_VENDOR_CAMBRICON,
+        "hygon": AcceleratorVendor.ACCELERATOR_VENDOR_HYGON,
+        "kunlunxin": AcceleratorVendor.ACCELERATOR_VENDOR_KUNLUNXIN,
+    }
+)
+"""AcceleratorVendor 枚举适配器"""

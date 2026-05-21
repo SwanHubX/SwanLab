@@ -42,6 +42,7 @@ from swanlab.proto.swanlab.env.v1.metadata_pb2 import (
 from swanlab.proto.swanlab.env.v1.metadata_pb2 import (
     SwanLabSnapshot as SwanLabSnapshotPb,
 )
+from swanlab.sdk.internal.pkg import adapter
 
 # ──────────────────────────────────────────────
 # 公共类型别名
@@ -118,7 +119,8 @@ class MemorySnapshot(BaseModel):
         """转换为 protobuf 结构，供rpc使用"""
         data: dict[str, Any] = {}
         _set_if_not_none(data, "total", self.total)
-        _set_if_not_none(data, "total_unit", self.total_unit)
+        if self.total_unit is not None:
+            data["total_unit"] = adapter.memory_unit[self.total_unit]
         return MemorySnapshotPb(**data)
 
     model_config = ConfigDict(frozen=True)
@@ -153,7 +155,8 @@ class DeviceSnapshot(BaseModel):
         _set_if_not_none(data, "index", self.index)
         _set_if_not_none(data, "name", self.name)
         _set_if_not_none(data, "memory", self.memory)
-        _set_if_not_none(data, "memory_unit", self.memory_unit)
+        if self.memory_unit is not None:
+            data["memory_unit"] = adapter.memory_unit[self.memory_unit]
         return DeviceSnapshotPb(**data)
 
     model_config = ConfigDict(frozen=True)
@@ -181,7 +184,7 @@ class AcceleratorSnapshot(BaseModel):
     def to_proto(self) -> AcceleratorSnapshotPb:
         """转换为 protobuf 结构，供rpc使用"""
         data: dict[str, Any] = {
-            "vendor": self.vendor,
+            "vendor": adapter.accelerator_vendor[self.vendor],
             "devices": [d.to_proto() for d in self.devices],
         }
         _set_if_not_none(data, "version", self.version)
@@ -220,7 +223,8 @@ class AppleSiliconSnapshot(BaseModel):
         data: dict[str, Any] = {}
         _set_if_not_none(data, "name", self.name)
         _set_if_not_none(data, "memory", self.memory)
-        _set_if_not_none(data, "memory_unit", self.memory_unit)
+        if self.memory_unit is not None:
+            data["memory_unit"] = adapter.memory_unit[self.memory_unit]
         _set_if_not_none(data, "cpu_count", self.cpu_count)
         return AppleSiliconSnapshotPb(**data)
 

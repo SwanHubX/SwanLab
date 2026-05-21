@@ -56,13 +56,17 @@ import asyncio
 import sys
 import time
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any, Optional
 
 import click
 import requests
+from rich.console import Console
+from rich.markup import escape
+from rich.panel import Panel
 
 from swanlab.proto.swanlab.grpc.probe.v1.probe_pb2 import DeliverProbeStartRequest, GetMetadataSnapshotResponse
 from swanlab.sdk import Settings, impl, pkg
+from swanlab.sdk.internal.pkg import adapter
 
 
 @click.command()
@@ -138,7 +142,7 @@ def ping(host: Optional[str]):
 
     asyncio.run(main())
 
-    show_result(check_server_result, check_probe_result)
+    show_result(settings, check_server_result, check_probe_result)
 
 
 @dataclass
@@ -149,17 +153,220 @@ class CheckServerResult:
     latency_ms: int
 
 
-def show_result(server_result: Optional[CheckServerResult], probe_result: Optional[GetMetadataSnapshotResponse]):
+def show_result(
+    settings: Settings,
+    server_result: Optional[CheckServerResult],
+    probe_result: Optional[GetMetadataSnapshotResponse],
+):
     """展示检查结果，格式化输出"""
+    console = Console()
+
+    # 1. 校验检查结果，失败时给出明确的排查入口
     if server_result is None:
-        click.echo("Failed to check server connectivity, use `SWANLAB_DEBUG=1 swanlab ping` for more details.")
+        console.print("[red]Failed to check server connectivity.[/red] Use `SWANLAB_DEBUG=1 swanlab ping` for details.")
         sys.exit(1)
     if probe_result is None:
-        click.echo("Failed to collect probe information, use `SWANLAB_DEBUG=1 swanlab ping` for more details.")
+        console.print("[red]Failed to collect probe information.[/red] Use `SWANLAB_DEBUG=1 swanlab ping` for details.")
         sys.exit(1)
     if not probe_result.success:
-        click.echo(
-            f"Probe reported failure with message: {probe_result.message}, use `SWANLAB_DEBUG=1 swanlab ping` for more details."
+        console.print(
+            f"[red]Probe reported failure:[/red] {escape(probe_result.message)}. "
+            "Use `SWANLAB_DEBUG=1 swanlab ping` for details."
         )
         sys.exit(1)
-    print(server_result)
+    if not probe_result.HasField("metadata"):
+        console.print("[red]Probe did not return metadata.[/red] Use `SWANLAB_DEBUG=1 swanlab ping` for details.")
+        sys.exit(1)
+
+    metadata = probe_result.metadata
+    status = "OK" if server_result.ok else "ERROR"
+    status_style = "green" if server_result.ok else "red"
+
+    # 2. 按用户可读的诊断分组组装展示内容
+    header = "\n".join(
+        [
+            f"Status: [{status_style}]{status}[/{status_style}]",
+            f"Endpoint: {escape(server_result.endpoint)}",
+        ]
+    )
+    sdk_lines = [
+        "[bold]SDK[/bold]",
+        _result_line(True, "Version", pkg.helper.get_swanlab_version()),
+        _result_line(True, "Python", _metadata_python_version(metadata) or sys.version.split()[0]),
+        _result_line(True, "Mode", settings.mode),
+    ]
+    server_lines = [
+        "[bold]Server[/bold]",
+        _result_line(server_result.ok, "Endpoint", server_result.endpoint),
+        _result_line(server_result.ok, "Status", server_result.status),
+        _result_line(server_result.ok, "Latency", f"{server_result.latency_ms} ms"),
+    ]
+    system_lines = ["[bold]System[/bold]"]
+    system_lines.extend(_format_system(metadata))
+    hardware_lines = ["[bold]Hardware[/bold]"]
+    hardware_lines.extend(_format_hardware(metadata))
+
+    # 3. 使用 rich 输出最终 UI，保持顶部摘要和正文分组分离
+    console.print(Panel(header, title="SwanLab Diagnostics", border_style=status_style))
+    console.print()
+    console.print("\n".join(sdk_lines))
+    console.print()
+    console.print("\n".join(server_lines))
+    console.print()
+    console.print("\n".join(system_lines))
+    console.print()
+    console.print("\n".join(hardware_lines))
+
+
+def _has_field(message: Any, field: str) -> bool:
+    try:
+        return message.HasField(field)
+    except ValueError:
+        return False
+
+
+def _mark(ok: bool) -> str:
+    return "[green]✓[/green]" if ok else "[red]✗[/red]"
+
+
+def _missing() -> str:
+    return "[dim]-[/dim]"
+
+
+def _result_line(ok: bool, label: str, value: str) -> str:
+    return f"  {_mark(ok)} {label:<14} {escape(value)}"
+
+
+def _missing_line(label: str, value: str = "Not detected") -> str:
+    return f"  {_missing()} {label:<14} [dim]{escape(value)}[/dim]"
+
+
+def _optional_string(message: Any, field: str) -> Optional[str]:
+    if not _has_field(message, field):
+        return None
+    value = getattr(message, field)
+    if value == "":
+        return None
+    return str(value)
+
+
+def _metadata_python_version(metadata: Any) -> Optional[str]:
+    if not _has_field(metadata, "runtime"):
+        return None
+    return _optional_string(metadata.runtime, "python_version")
+
+
+def _format_memory(message: Any, value_field: str, unit_field: str) -> Optional[str]:
+    if not _has_field(message, value_field):
+        return None
+    value = getattr(message, value_field)
+    if _has_field(message, unit_field):
+        unit = adapter.memory_unit.get(getattr(message, unit_field))
+        if isinstance(unit, str):
+            return f"{value} {unit}"
+    return str(value)
+
+
+def _format_vendor(vendor: int) -> str:
+    value = adapter.accelerator_vendor.get(vendor)
+    if not isinstance(value, str):
+        return "Unknown"
+    if value == "rocm":
+        return "ROCm"
+    if value == "nvidia":
+        return "NVIDIA"
+    return value.title()
+
+
+def _format_system(metadata: Any) -> list[str]:
+    if not _has_field(metadata, "runtime"):
+        return [_missing_line("Runtime", "Not collected")]
+
+    runtime = metadata.runtime
+    lines = []
+    os_name = _optional_string(runtime, "os_pretty") or _optional_string(runtime, "os")
+    lines.append(_result_line(True, "OS", os_name) if os_name else _missing_line("OS", "Not collected"))
+    python_version = _optional_string(runtime, "python_version")
+    lines.append(
+        _result_line(True, "Python", python_version) if python_version else _missing_line("Python", "Not collected")
+    )
+    executable = _optional_string(runtime, "python_executable")
+    lines.append(
+        _result_line(True, "Executable", executable) if executable else _missing_line("Executable", "Not collected")
+    )
+    return lines
+
+
+def _format_hardware(metadata: Any) -> list[str]:
+    if not _has_field(metadata, "hardware"):
+        return [_missing_line("Hardware", "Not collected")]
+
+    hardware = metadata.hardware
+    lines = []
+    if _has_field(hardware, "apple_silicon"):
+        apple = hardware.apple_silicon
+        name = _optional_string(apple, "name")
+        lines.append(
+            _result_line(True, "Apple Silicon", name) if name else _missing_line("Apple Silicon", "Not detected")
+        )
+        cpu_count = _optional_string(apple, "cpu_count")
+        lines.append(_result_line(True, "CPU Cores", cpu_count) if cpu_count else _missing_line("CPU Cores"))
+        memory = _format_memory(apple, "memory", "memory_unit")
+        lines.append(_result_line(True, "Unified Memory", memory) if memory else _missing_line("Unified Memory"))
+    else:
+        lines.extend(_format_cpu_memory(hardware))
+
+    lines.append("")
+    lines.append("  [bold]Accelerators[/bold]")
+    lines.extend(_format_accelerators(hardware))
+    return lines
+
+
+def _format_cpu_memory(hardware: Any) -> list[str]:
+    lines = []
+    if _has_field(hardware, "cpu"):
+        cpu = hardware.cpu
+        brand = _optional_string(cpu, "brand")
+        lines.append(_result_line(True, "CPU", brand) if brand else _missing_line("CPU"))
+        core_parts = []
+        if _has_field(cpu, "logical_count"):
+            core_parts.append(f"{cpu.logical_count} logical")
+        if _has_field(cpu, "physical_count"):
+            core_parts.append(f"{cpu.physical_count} physical")
+        lines.append(
+            _result_line(True, "CPU Cores", " / ".join(core_parts)) if core_parts else _missing_line("CPU Cores")
+        )
+    else:
+        lines.append(_missing_line("CPU", "Not collected"))
+        lines.append(_missing_line("CPU Cores", "Not collected"))
+
+    if _has_field(hardware, "memory"):
+        memory = _format_memory(hardware.memory, "total", "total_unit")
+        lines.append(_result_line(True, "Memory", memory) if memory else _missing_line("Memory"))
+    else:
+        lines.append(_missing_line("Memory", "Not collected"))
+    return lines
+
+
+def _format_accelerators(hardware: Any) -> list[str]:
+    if not hardware.accelerators:
+        return [f"    {_missing()} [dim]Not detected[/dim]"]
+
+    lines = []
+    for accelerator in hardware.accelerators:
+        vendor = _format_vendor(accelerator.vendor)
+        details = [f"{len(accelerator.devices)} devices"]
+        if _has_field(accelerator, "version"):
+            details.append(f"driver {accelerator.version}")
+        if _has_field(accelerator, "cuda_version"):
+            details.append(f"CUDA {accelerator.cuda_version}")
+        if _has_field(accelerator, "cann_version"):
+            details.append(f"CANN {accelerator.cann_version}")
+        lines.append(f"    {_mark(True)} {vendor:<14} {escape(', '.join(details))}")
+        for device in accelerator.devices:
+            index = str(device.index) if _has_field(device, "index") else "-"
+            name = _optional_string(device, "name") or "Unknown"
+            memory = _format_memory(device, "memory", "memory_unit")
+            suffix = f"  {memory}" if memory else ""
+            lines.append(f"      {escape(f'[{index}] {name}{suffix}')}")
+    return lines
