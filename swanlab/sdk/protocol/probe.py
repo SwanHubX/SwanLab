@@ -10,7 +10,6 @@ from enum import Enum
 
 from swanlab.proto.swanlab.grpc.probe.v1.probe_pb2 import DeliverProbeStartRequest, GetMetadataSnapshotResponse
 from swanlab.sdk.internal.pkg import safe
-from swanlab.sdk.typings.run import ModeType
 
 
 class ProbeEnum(str, Enum):
@@ -25,14 +24,14 @@ class ProbeProtocol(ABC):
     Probe设计上作为一个微服务，仅作为后台进程启动，本身与core直接交互而非SDK本体，本体的作用是启动、关闭probe
     """
 
-    def __init__(self, mode: ModeType):
-        self._mode = mode
+    def __init__(self, disabled: bool):
+        self._disabled = disabled
 
     def deliver_probe_start(self, start_request: DeliverProbeStartRequest) -> None:
         """
         启动 probe 服务，首先做相关上下文检查，然后启动服务
         """
-        if self._mode == "disabled":
+        if self._disabled:
             return self._start_when_disabled()
         with safe.block(message="probe start error"):
             return self._start_when_enabled(start_request)
@@ -43,7 +42,7 @@ class ProbeProtocol(ABC):
     def _start_when_enabled(self, start_request: DeliverProbeStartRequest) -> None: ...
 
     def get_metadata_snapshot(self) -> GetMetadataSnapshotResponse:
-        if self._mode == "disabled":
+        if self._disabled:
             return self._get_metadata_snapshot_when_disabled()
         with safe.block(message="get metadata snapshot error"):
             return self._get_metadata_snapshot_when_enabled()
@@ -59,7 +58,7 @@ class ProbeProtocol(ABC):
         """
         停止 probe 服务
         """
-        if self._mode == "disabled":
+        if self._disabled:
             return self._finish_when_disabled()
         with safe.block(message="probe finish error"):
             return self._finish_when_enabled()

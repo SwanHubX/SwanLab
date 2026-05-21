@@ -14,6 +14,7 @@ from .auth import login, logout, verify
 from .converter import convert
 from .dashboard import watch
 from .mode import disabled, local, offline, online
+from .ping import ping
 from .sync import sync
 
 
@@ -45,6 +46,10 @@ cli.add_command(convert)
 # Sync
 # noinspection PyTypeChecker
 cli.add_command(sync)
+
+# Ping
+# noinspection PyTypeChecker
+cli.add_command(ping)
 
 # Mode
 # noinspection PyTypeChecker

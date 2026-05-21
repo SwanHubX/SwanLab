@@ -5,16 +5,13 @@
 @description: SwanLab 系统监控模块
 """
 
-from typing import TYPE_CHECKING
+from typing import Optional
 
 from swanlab.sdk.internal.pkg import helper
-from swanlab.sdk.protocol import ProbeProtocol
-
-if TYPE_CHECKING:
-    from swanlab.sdk.internal.context import RunContext
+from swanlab.sdk.protocol import CoreProtocol, ProbeProtocol
 
 
-def create_probe(ctx: "RunContext") -> ProbeProtocol:
+def create_probe(core: Optional[CoreProtocol] = None, disabled: bool = False) -> ProbeProtocol:
     """core对象工厂
 
     :param ctx: 运行上下文，包含配置信息和运行时状态
@@ -22,7 +19,7 @@ def create_probe(ctx: "RunContext") -> ProbeProtocol:
     if helper.get_probe_impl() == "python":
         from swanlab.sdk.internal.probe_python import ProbePython
 
-        return ProbePython(ctx.config.settings.mode, ctx.core)
+        return ProbePython(core, disabled)
     else:
         # TODO: Core 微服务无感接入
         raise NotImplementedError("The SwanLab Rust probe runtime is not available yet.")

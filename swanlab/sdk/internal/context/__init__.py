@@ -46,7 +46,7 @@ class RunContext:
         self.config: RunConfig = config
         self.callbacker = create_callback_manager(callbacks=callbacks)
         self.core = create_core(self)
-        self.probe = create_probe(self)
+        self.probe = create_probe(core=self.core, disabled=self.config.settings.mode == "disabled")
 
     @property
     def global_system_step(self) -> int:
