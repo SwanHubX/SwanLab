@@ -8,7 +8,7 @@
 from abc import ABC, abstractmethod
 from enum import Enum
 
-from swanlab.proto.swanlab.grpc.probe.v1.probe_pb2 import DeliverProbeStartRequest
+from swanlab.proto.swanlab.grpc.probe.v1.probe_pb2 import DeliverProbeStartRequest, GetMetadataSnapshotResponse
 from swanlab.sdk.internal.pkg import safe
 from swanlab.sdk.typings.run import ModeType
 
@@ -28,51 +28,43 @@ class ProbeProtocol(ABC):
     def __init__(self, mode: ModeType):
         self._mode = mode
 
-    def deliver_probe_start(self, start_request: DeliverProbeStartRequest):
+    def deliver_probe_start(self, start_request: DeliverProbeStartRequest) -> None:
         """
         启动 probe 服务，首先做相关上下文检查，然后启动服务
         """
-        # 检查 probe 所需的上下文信息
         if self._mode == "disabled":
             return self._start_when_disabled()
         with safe.block(message="probe start error"):
-            if self._mode == "online":
-                return self._start_when_online(start_request)
-            elif self._mode == "local":
-                return self._start_when_local(start_request)
-            return self._start_when_offline(start_request)
+            return self._start_when_enabled(start_request)
 
     def _start_when_disabled(self) -> None: ...
 
     @abstractmethod
-    def _start_when_local(self, start_request: DeliverProbeStartRequest) -> None: ...
+    def _start_when_enabled(self, start_request: DeliverProbeStartRequest) -> None: ...
+
+    def get_metadata_snapshot(self) -> GetMetadataSnapshotResponse:
+        if self._mode == "disabled":
+            return self._get_metadata_snapshot_when_disabled()
+        with safe.block(message="get metadata snapshot error"):
+            return self._get_metadata_snapshot_when_enabled()
+        return GetMetadataSnapshotResponse(success=False, message="Unknown error.")
+
+    def _get_metadata_snapshot_when_disabled(self) -> GetMetadataSnapshotResponse:
+        return GetMetadataSnapshotResponse(success=False, message="I'm a teapot.")
 
     @abstractmethod
-    def _start_when_offline(self, start_request: DeliverProbeStartRequest) -> None: ...
+    def _get_metadata_snapshot_when_enabled(self) -> GetMetadataSnapshotResponse: ...
 
-    @abstractmethod
-    def _start_when_online(self, start_request: DeliverProbeStartRequest) -> None: ...
-
-    def deliver_probe_finish(self):
+    def deliver_probe_finish(self) -> None:
         """
         停止 probe 服务
         """
-        with safe.block(message="probe finish error"):
-            if self._mode == "online":
-                return self._finish_when_online()
-            elif self._mode == "local":
-                return self._finish_when_local()
-            elif self._mode == "offline":
-                return self._finish_when_offline()
+        if self._mode == "disabled":
             return self._finish_when_disabled()
+        with safe.block(message="probe finish error"):
+            return self._finish_when_enabled()
 
     def _finish_when_disabled(self) -> None: ...
 
     @abstractmethod
-    def _finish_when_local(self) -> None: ...
-
-    @abstractmethod
-    def _finish_when_offline(self) -> None: ...
-
-    @abstractmethod
-    def _finish_when_online(self) -> None: ...
+    def _finish_when_enabled(self) -> None: ...

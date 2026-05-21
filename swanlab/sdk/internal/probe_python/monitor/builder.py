@@ -20,7 +20,7 @@ from swanlab.proto.swanlab.metric.column.v1.column_pb2 import (
 )
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import ScalarRecord, ScalarValue
 from swanlab.sdk.internal.pkg import helper
-from swanlab.sdk.typings.probe_python import SystemScalar
+from swanlab.sdk.internal.probe_python.typings import SystemScalar
 
 
 def build_probe_column(model: SystemScalar, *, chart_index: str) -> ColumnRecord:

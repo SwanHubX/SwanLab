@@ -12,7 +12,7 @@ import sys
 from typing import Callable, Optional, cast
 
 from swanlab.sdk.internal.pkg import safe
-from swanlab.sdk.typings.probe_python import RuntimeSnapshot
+from swanlab.sdk.internal.probe_python.typings import RuntimeSnapshot
 
 
 def get() -> RuntimeSnapshot:

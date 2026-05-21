@@ -12,8 +12,8 @@ from typing import Optional, Tuple
 import psutil
 
 from swanlab.sdk.internal.pkg import safe
-from swanlab.sdk.typings.probe_python import MemorySnapshot, SystemScalar, SystemScalars, SystemShim
-from swanlab.sdk.typings.probe_python.hardware_vendor import MemoryProtocol
+from swanlab.sdk.internal.probe_python.protocol import MemoryProtocol
+from swanlab.sdk.internal.probe_python.typings import MemorySnapshot, SystemScalar, SystemScalars, SystemShim
 from swanlab.utils import generate_color
 
 __all__ = ["Memory", "bytes_to_snapshot"]

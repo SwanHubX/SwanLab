@@ -7,6 +7,7 @@
 package probev1
 
 import (
+	v11 "github.com/swanhubx/swanlab/core/proto/swanlab/env/v1"
 	v1 "github.com/swanhubx/swanlab/core/proto/swanlab/settings/probe/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -68,15 +69,81 @@ func (x *DeliverProbeStartRequest) GetProbeSettings() *v1.ProbeSettings {
 	return nil
 }
 
+// GetMetadataSnapshot 响应，返回 probe 采集到的强类型元数据快照。
+type GetMetadataSnapshotResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`  // 请求是否成功
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`   // 失败或降级原因
+	Metadata      *v11.MetadataSnapshot  `protobuf:"bytes,3,opt,name=metadata,proto3" json:"metadata,omitempty"` // 当前环境元数据快照
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetMetadataSnapshotResponse) Reset() {
+	*x = GetMetadataSnapshotResponse{}
+	mi := &file_swanlab_grpc_probe_v1_probe_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetMetadataSnapshotResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetMetadataSnapshotResponse) ProtoMessage() {}
+
+func (x *GetMetadataSnapshotResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_swanlab_grpc_probe_v1_probe_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetMetadataSnapshotResponse.ProtoReflect.Descriptor instead.
+func (*GetMetadataSnapshotResponse) Descriptor() ([]byte, []int) {
+	return file_swanlab_grpc_probe_v1_probe_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *GetMetadataSnapshotResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *GetMetadataSnapshotResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *GetMetadataSnapshotResponse) GetMetadata() *v11.MetadataSnapshot {
+	if x != nil {
+		return x.Metadata
+	}
+	return nil
+}
+
 var File_swanlab_grpc_probe_v1_probe_proto protoreflect.FileDescriptor
 
 const file_swanlab_grpc_probe_v1_probe_proto_rawDesc = "" +
 	"\n" +
-	"!swanlab/grpc/probe/v1/probe.proto\x12\x15swanlab.grpc.probe.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a%swanlab/settings/probe/v1/probe.proto\"k\n" +
+	"!swanlab/grpc/probe/v1/probe.proto\x12\x15swanlab.grpc.probe.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1dswanlab/env/v1/metadata.proto\x1a%swanlab/settings/probe/v1/probe.proto\"k\n" +
 	"\x18DeliverProbeStartRequest\x12O\n" +
-	"\x0eprobe_settings\x18\x01 \x01(\v2(.swanlab.settings.probe.v1.ProbeSettingsR\rprobeSettings2\xb2\x01\n" +
+	"\x0eprobe_settings\x18\x01 \x01(\v2(.swanlab.settings.probe.v1.ProbeSettingsR\rprobeSettings\"\x8f\x01\n" +
+	"\x1bGetMetadataSnapshotResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\x12<\n" +
+	"\bmetadata\x18\x03 \x01(\v2 .swanlab.env.v1.MetadataSnapshotR\bmetadata2\x95\x02\n" +
 	"\fProbeService\x12\\\n" +
-	"\x11DeliverProbeStart\x12/.swanlab.grpc.probe.v1.DeliverProbeStartRequest\x1a\x16.google.protobuf.Empty\x12D\n" +
+	"\x11DeliverProbeStart\x12/.swanlab.grpc.probe.v1.DeliverProbeStartRequest\x1a\x16.google.protobuf.Empty\x12a\n" +
+	"\x13GetMetadataSnapshot\x12\x16.google.protobuf.Empty\x1a2.swanlab.grpc.probe.v1.GetMetadataSnapshotResponse\x12D\n" +
 	"\x12DeliverProbeFinish\x12\x16.google.protobuf.Empty\x1a\x16.google.protobuf.EmptyBFZDgithub.com/swanhubx/swanlab/core/proto/swanlab/grpc/probe/v1;probev1b\x06proto3"
 
 var (
@@ -91,23 +158,28 @@ func file_swanlab_grpc_probe_v1_probe_proto_rawDescGZIP() []byte {
 	return file_swanlab_grpc_probe_v1_probe_proto_rawDescData
 }
 
-var file_swanlab_grpc_probe_v1_probe_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_swanlab_grpc_probe_v1_probe_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_swanlab_grpc_probe_v1_probe_proto_goTypes = []any{
-	(*DeliverProbeStartRequest)(nil), // 0: swanlab.grpc.probe.v1.DeliverProbeStartRequest
-	(*v1.ProbeSettings)(nil),         // 1: swanlab.settings.probe.v1.ProbeSettings
-	(*emptypb.Empty)(nil),            // 2: google.protobuf.Empty
+	(*DeliverProbeStartRequest)(nil),    // 0: swanlab.grpc.probe.v1.DeliverProbeStartRequest
+	(*GetMetadataSnapshotResponse)(nil), // 1: swanlab.grpc.probe.v1.GetMetadataSnapshotResponse
+	(*v1.ProbeSettings)(nil),            // 2: swanlab.settings.probe.v1.ProbeSettings
+	(*v11.MetadataSnapshot)(nil),        // 3: swanlab.env.v1.MetadataSnapshot
+	(*emptypb.Empty)(nil),               // 4: google.protobuf.Empty
 }
 var file_swanlab_grpc_probe_v1_probe_proto_depIdxs = []int32{
-	1, // 0: swanlab.grpc.probe.v1.DeliverProbeStartRequest.probe_settings:type_name -> swanlab.settings.probe.v1.ProbeSettings
-	0, // 1: swanlab.grpc.probe.v1.ProbeService.DeliverProbeStart:input_type -> swanlab.grpc.probe.v1.DeliverProbeStartRequest
-	2, // 2: swanlab.grpc.probe.v1.ProbeService.DeliverProbeFinish:input_type -> google.protobuf.Empty
-	2, // 3: swanlab.grpc.probe.v1.ProbeService.DeliverProbeStart:output_type -> google.protobuf.Empty
-	2, // 4: swanlab.grpc.probe.v1.ProbeService.DeliverProbeFinish:output_type -> google.protobuf.Empty
-	3, // [3:5] is the sub-list for method output_type
-	1, // [1:3] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	2, // 0: swanlab.grpc.probe.v1.DeliverProbeStartRequest.probe_settings:type_name -> swanlab.settings.probe.v1.ProbeSettings
+	3, // 1: swanlab.grpc.probe.v1.GetMetadataSnapshotResponse.metadata:type_name -> swanlab.env.v1.MetadataSnapshot
+	0, // 2: swanlab.grpc.probe.v1.ProbeService.DeliverProbeStart:input_type -> swanlab.grpc.probe.v1.DeliverProbeStartRequest
+	4, // 3: swanlab.grpc.probe.v1.ProbeService.GetMetadataSnapshot:input_type -> google.protobuf.Empty
+	4, // 4: swanlab.grpc.probe.v1.ProbeService.DeliverProbeFinish:input_type -> google.protobuf.Empty
+	4, // 5: swanlab.grpc.probe.v1.ProbeService.DeliverProbeStart:output_type -> google.protobuf.Empty
+	1, // 6: swanlab.grpc.probe.v1.ProbeService.GetMetadataSnapshot:output_type -> swanlab.grpc.probe.v1.GetMetadataSnapshotResponse
+	4, // 7: swanlab.grpc.probe.v1.ProbeService.DeliverProbeFinish:output_type -> google.protobuf.Empty
+	5, // [5:8] is the sub-list for method output_type
+	2, // [2:5] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_swanlab_grpc_probe_v1_probe_proto_init() }
@@ -121,7 +193,7 @@ func file_swanlab_grpc_probe_v1_probe_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_swanlab_grpc_probe_v1_probe_proto_rawDesc), len(file_swanlab_grpc_probe_v1_probe_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   1,
+			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
