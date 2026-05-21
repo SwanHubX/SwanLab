@@ -5,32 +5,26 @@
 预期输出样式：
 
 ╭─ SwanLab Diagnostics ─────────────────────────────────────╮
-│ Status: OK                                                │
-│ Endpoint: https://api.swanlab.cn                          │
+│ Server link: OK · https://api.swanlab.cn · 42 ms           │
+│                                                           │
+│ 1. SDK                                                    │
+│   ✓ Version        0.7.0                                  │
+│   ✓ Python         3.11.8                                 │
+│   ✓ Mode           online                                 │
+│                                                           │
+│ 2. System                                                 │
+│   ✓ OS             macOS 15.5 arm64                       │
+│   ✓ Python         3.11.8                                 │
+│   ✓ Executable     /path/to/python                        │
+│                                                           │
+│ 3. Hardware                                               │
+│   ✓ Apple Silicon  Apple M4 Pro                           │
+│   ✓ CPU Cores      14                                     │
+│   ✓ Unified Memory 48 GB                                  │
+│                                                           │
+│   Accelerators                                            │
+│     - Not detected                                        │
 ╰───────────────────────────────────────────────────────────╯
-
-SDK
-  ✓ Version        0.7.0
-  ✓ Python         3.11.8
-  ✓ Mode           cloud
-
-Server
-  ✓ Endpoint       https://api.swanlab.cn
-  ✓ Status         OK
-  ✓ Latency        42 ms
-
-System
-  ✓ OS             macOS 15.5 arm64
-  ✓ Python         3.11.8
-  ✓ Executable     /path/to/python
-
-Hardware
-  ✓ Apple Silicon  Apple M4 Pro
-  ✓ CPU Cores      14
-  ✓ Unified Memory 48 GB
-
-  Accelerators
-    - Not detected
 
 硬件展示说明：
   - Accelerators 不要展示成单个 GPU 字段。probe_python 中加速器是 list[AcceleratorSnapshot]，
@@ -56,17 +50,27 @@ import asyncio
 import sys
 import time
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Optional, Union
 
 import click
 import requests
+from google.protobuf.message import Message
 from rich.console import Console
 from rich.markup import escape
 from rich.panel import Panel
 
+from swanlab.proto.swanlab.env.v1.metadata_pb2 import (
+    AppleSiliconSnapshot,
+    DeviceSnapshot,
+    HardwareSnapshot,
+    MemorySnapshot,
+    MetadataSnapshot,
+)
 from swanlab.proto.swanlab.grpc.probe.v1.probe_pb2 import DeliverProbeStartRequest, GetMetadataSnapshotResponse
 from swanlab.sdk import Settings, impl, pkg
 from swanlab.sdk.internal.pkg import adapter
+
+MemoryLikeSnapshot = Union[AppleSiliconSnapshot, DeviceSnapshot, MemorySnapshot]
 
 
 @click.command()
@@ -179,46 +183,30 @@ def show_result(
         sys.exit(1)
 
     metadata = probe_result.metadata
-    status = "OK" if server_result.ok else "ERROR"
     status_style = "green" if server_result.ok else "red"
 
     # 2. 按用户可读的诊断分组组装展示内容
-    header = "\n".join(
-        [
-            f"Status: [{status_style}]{status}[/{status_style}]",
-            f"Endpoint: {escape(server_result.endpoint)}",
-        ]
-    )
-    sdk_lines = [
-        "[bold]SDK[/bold]",
+    server_link = f"Server {server_result.status} · {server_result.endpoint} · {server_result.latency_ms} ms"
+    lines = [
+        f"[{status_style}]{escape(server_link)}[/{status_style}]",
+        "",
+        "[bold cyan]1. SDK[/bold cyan]",
         _result_line(True, "Version", pkg.helper.get_swanlab_version()),
         _result_line(True, "Python", _metadata_python_version(metadata) or sys.version.split()[0]),
         _result_line(True, "Mode", settings.mode),
+        "",
+        "[bold cyan]2. System[/bold cyan]",
     ]
-    server_lines = [
-        "[bold]Server[/bold]",
-        _result_line(server_result.ok, "Endpoint", server_result.endpoint),
-        _result_line(server_result.ok, "Status", server_result.status),
-        _result_line(server_result.ok, "Latency", f"{server_result.latency_ms} ms"),
-    ]
-    system_lines = ["[bold]System[/bold]"]
-    system_lines.extend(_format_system(metadata))
-    hardware_lines = ["[bold]Hardware[/bold]"]
-    hardware_lines.extend(_format_hardware(metadata))
+    lines.extend(_format_system(metadata))
+    lines.append("")
+    lines.append("[bold cyan]3. Hardware[/bold cyan]")
+    lines.extend(_format_hardware(metadata))
 
-    # 3. 使用 rich 输出最终 UI，保持顶部摘要和正文分组分离
-    console.print(Panel(header, title="SwanLab Diagnostics", border_style=status_style))
-    console.print()
-    console.print("\n".join(sdk_lines))
-    console.print()
-    console.print("\n".join(server_lines))
-    console.print()
-    console.print("\n".join(system_lines))
-    console.print()
-    console.print("\n".join(hardware_lines))
+    # 3. 使用 rich 输出最终 UI
+    console.print(Panel("\n".join(lines), title="SwanLab Diagnostics", border_style=status_style))
 
 
-def _has_field(message: Any, field: str) -> bool:
+def _has_field(message: Message, field: str) -> bool:
     try:
         return message.HasField(field)
     except ValueError:
@@ -241,7 +229,7 @@ def _missing_line(label: str, value: str = "Not detected") -> str:
     return f"  {_missing()} {label:<14} [dim]{escape(value)}[/dim]"
 
 
-def _optional_string(message: Any, field: str) -> Optional[str]:
+def _optional_string(message: Message, field: str) -> Optional[str]:
     if not _has_field(message, field):
         return None
     value = getattr(message, field)
@@ -250,13 +238,13 @@ def _optional_string(message: Any, field: str) -> Optional[str]:
     return str(value)
 
 
-def _metadata_python_version(metadata: Any) -> Optional[str]:
+def _metadata_python_version(metadata: MetadataSnapshot) -> Optional[str]:
     if not _has_field(metadata, "runtime"):
         return None
     return _optional_string(metadata.runtime, "python_version")
 
 
-def _format_memory(message: Any, value_field: str, unit_field: str) -> Optional[str]:
+def _format_memory(message: MemoryLikeSnapshot, value_field: str, unit_field: str) -> Optional[str]:
     if not _has_field(message, value_field):
         return None
     value = getattr(message, value_field)
@@ -278,7 +266,7 @@ def _format_vendor(vendor: int) -> str:
     return value.title()
 
 
-def _format_system(metadata: Any) -> list[str]:
+def _format_system(metadata: MetadataSnapshot) -> list[str]:
     if not _has_field(metadata, "runtime"):
         return [_missing_line("Runtime", "Not collected")]
 
@@ -297,7 +285,7 @@ def _format_system(metadata: Any) -> list[str]:
     return lines
 
 
-def _format_hardware(metadata: Any) -> list[str]:
+def _format_hardware(metadata: MetadataSnapshot) -> list[str]:
     if not _has_field(metadata, "hardware"):
         return [_missing_line("Hardware", "Not collected")]
 
@@ -322,7 +310,7 @@ def _format_hardware(metadata: Any) -> list[str]:
     return lines
 
 
-def _format_cpu_memory(hardware: Any) -> list[str]:
+def _format_cpu_memory(hardware: HardwareSnapshot) -> list[str]:
     lines = []
     if _has_field(hardware, "cpu"):
         cpu = hardware.cpu
@@ -348,7 +336,7 @@ def _format_cpu_memory(hardware: Any) -> list[str]:
     return lines
 
 
-def _format_accelerators(hardware: Any) -> list[str]:
+def _format_accelerators(hardware: HardwareSnapshot) -> list[str]:
     if not hardware.accelerators:
         return [f"    {_missing()} [dim]Not detected[/dim]"]
 
