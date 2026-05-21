@@ -16,9 +16,7 @@ from swanlab.proto.swanlab.grpc.probe.v1.probe_pb2 import DeliverProbeStartReque
 from swanlab.sdk.internal.pkg import fs
 from swanlab.sdk.internal.probe_python.context import ProbeContext
 from swanlab.sdk.internal.probe_python.environment import conda, git, requirements, runtime, swanlab
-from swanlab.sdk.internal.probe_python.hardware_vendor.apple import Apple
-from swanlab.sdk.internal.probe_python.hardware_vendor.cpu import CPU
-from swanlab.sdk.internal.probe_python.hardware_vendor.memory import Memory
+from swanlab.sdk.internal.probe_python.hardware_vendor import ACCELERATOR_REGISTRY, CPU, Apple, Memory
 from swanlab.sdk.internal.probe_python.monitor import Monitor
 from swanlab.sdk.protocol.core import CoreProtocol
 from swanlab.sdk.protocol.probe import ProbeProtocol
@@ -57,12 +55,18 @@ class ProbePython(ProbeProtocol):
                 cpu_snapshot = CPU.get()
                 memory_snapshot = Memory.get()
             # 2.3 各家加速器厂商
+            accelerators = []
+            for vendor_cls in ACCELERATOR_REGISTRY.values():
+                snapshot = vendor_cls.get()
+                if snapshot is not None:
+                    accelerators.append(snapshot)
 
             # 2.4 组合数据
             hardware_snapshot = HardwareSnapshot(
                 cpu=cpu_snapshot,
                 memory=memory_snapshot,
                 apple_silicon=apple_snapshot,
+                accelerators=accelerators,
             )
         metadata = MetadataSnapshot(
             hardware=hardware_snapshot,

@@ -49,6 +49,8 @@ class Memory(MemoryProtocol):
             key="mem.pct",
             name="System Memory Utilization (%)",
             chart_name="System Memory Utilization (%)",
+            y_min=0,
+            y_max=100,
             color=generate_color(0),
         )
         scalars.append(mem_pct)
@@ -58,10 +60,30 @@ class Memory(MemoryProtocol):
             key="mem.proc",
             name="Process Memory In Use (non-swap) (MB)",
             chart_name="Process Memory In Use (non-swap) (MB)",
+            y_min=0,
             color=generate_color(0),
         )
         scalars.append(mem_proc)
         self._handlers.append(("mem.proc", lambda: psutil.Process().memory_info().rss / 1024 / 1024))
+        mem_proc_pct = SystemScalar(
+            key="mem.proc.pct",
+            name="Process Memory Utilization (%)",
+            chart_name="Process Memory Utilization (%)",
+            y_min=0,
+            y_max=100,
+            color=generate_color(0),
+        )
+        scalars.append(mem_proc_pct)
+        self._handlers.append(("mem.proc.pct", lambda: psutil.Process().memory_percent()))
+        mem_proc_avail = SystemScalar(
+            key="mem.proc.avail",
+            name="Process Memory Available (non-swap) (MB)",
+            chart_name="Process Memory Available (non-swap) (MB)",
+            y_min=0,
+            color=generate_color(0),
+        )
+        scalars.append(mem_proc_avail)
+        self._handlers.append(("mem.proc.avail", lambda: psutil.virtual_memory().available / 1024 / 1024))
         return self, scalars
 
     @staticmethod

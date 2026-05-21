@@ -41,6 +41,8 @@ class CPU(CpuProtocol):
             key="cpu.pct",
             name="CPU Utilization (%)",
             chart_name="CPU Utilization (%)",
+            y_min=0,
+            y_max=100,
             color=generate_color(0),
         )
         scalars.append(usage)
@@ -50,6 +52,7 @@ class CPU(CpuProtocol):
             key="cpu.thds",
             name="Process CPU Threads",
             chart_name="Process CPU Threads",
+            y_min=0,
             color=generate_color(0),
         )
         scalars.append(threads)

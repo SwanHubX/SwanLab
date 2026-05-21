@@ -294,7 +294,7 @@ class TestMemoryNew:
         collector, scalars = result
         assert isinstance(collector, Memory)
         assert isinstance(scalars, list)
-        assert len(scalars) == 2
+        assert len(scalars) == 4
 
     def test_returns_tuple_on_macos_intel(self):
         """macOS Intel 平台返回 (Memory, SystemScalars) 元组"""
@@ -303,7 +303,7 @@ class TestMemoryNew:
         assert result is not None
         collector, scalars = result
         assert isinstance(collector, Memory)
-        assert len(scalars) == 2
+        assert len(scalars) == 4
 
     def test_returns_tuple_on_windows(self):
         """Windows 平台返回 (Memory, SystemScalars) 元组"""
@@ -312,7 +312,7 @@ class TestMemoryNew:
         assert result is not None
         collector, scalars = result
         assert isinstance(collector, Memory)
-        assert len(scalars) == 2
+        assert len(scalars) == 4
 
     def test_scalar_keys(self):
         """验证采集器注册了正确的 scalar key"""
@@ -321,7 +321,7 @@ class TestMemoryNew:
         assert result is not None
         _, scalars = result
         keys = [s.key for s in scalars]
-        assert keys == ["mem.pct", "mem.proc"]
+        assert keys == ["mem.pct", "mem.proc", "mem.proc.pct", "mem.proc.avail"]
 
     def test_scalar_chart_names(self):
         """验证 scalar 的 chart_name 分组正确"""
@@ -330,28 +330,36 @@ class TestMemoryNew:
         assert result is not None
         _, scalars = result
         chart_names = [s.chart_name for s in scalars]
-        assert chart_names == ["System Memory Utilization (%)", "Process Memory In Use (non-swap) (MB)"]
+        assert chart_names == [
+            "System Memory Utilization (%)",
+            "Process Memory In Use (non-swap) (MB)",
+            "Process Memory Utilization (%)",
+            "Process Memory Available (non-swap) (MB)",
+        ]
 
-    def test_collect_returns_two_metrics(self):
-        """collect() 返回 2 个 (key, value) 采集结果"""
+    def test_collect_returns_four_metrics(self):
+        """collect() 返回 4 个 (key, value) 采集结果"""
         mock_proc = MagicMock()
         mock_proc.memory_info.return_value = MagicMock(rss=1024 * 1024 * 512)  # 512 MB
+        mock_proc.memory_percent.return_value = 12.5
         with (
             patch("psutil.virtual_memory") as mock_vm,
             patch("psutil.Process", return_value=mock_proc),
         ):
-            mock_vm.return_value = MagicMock(percent=55.8)
+            mock_vm.return_value = MagicMock(percent=55.8, available=1024 * 1024 * 1024 * 2)
             shim = self._make_shim(slug="linux")
             result = Memory.new(shim)
 
         assert result is not None
         collector, _ = result
         with (
-            patch("psutil.virtual_memory", return_value=MagicMock(percent=55.8)),
+            patch("psutil.virtual_memory", return_value=MagicMock(percent=55.8, available=1024 * 1024 * 1024 * 2)),
             patch("psutil.Process", return_value=mock_proc),
         ):
             metrics = collector.collect()
 
-        assert len(metrics) == 2
+        assert len(metrics) == 4
         assert metrics[0] == ("mem.pct", 55.8)
         assert metrics[1] == ("mem.proc", 512.0)
+        assert metrics[2] == ("mem.proc.pct", 12.5)
+        assert metrics[3] == ("mem.proc.avail", 2048.0)

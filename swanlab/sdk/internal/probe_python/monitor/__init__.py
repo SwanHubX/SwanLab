@@ -14,6 +14,7 @@ from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import ScalarRecord
 from swanlab.sdk.internal.pkg import console, safe, timer
 from swanlab.sdk.internal.probe_python.context import ProbeContext
+from swanlab.sdk.internal.probe_python.hardware_vendor.accelerator import ACCELERATOR_REGISTRY
 from swanlab.sdk.internal.probe_python.hardware_vendor.apple import Apple
 from swanlab.sdk.internal.probe_python.hardware_vendor.cpu import CPU
 from swanlab.sdk.internal.probe_python.hardware_vendor.memory import Memory
@@ -57,6 +58,13 @@ class Monitor:
             scalars = apple[1] + scalars
 
         # 1.3 加速器信息
+        for acc_config in self._shim.accelerators:
+            vendor_cls = ACCELERATOR_REGISTRY.get(acc_config.vendor)
+            if vendor_cls is None:
+                continue
+            if (instance := vendor_cls.new(self._shim)) is not None:
+                collectors.append(instance[0])
+                scalars = instance[1] + scalars
 
         # 2. 定义指标
         # 有部分指标会聚合到一个图表中，所以需要一个缓存来记录每个指标对应的图表索引
@@ -71,18 +79,23 @@ class Monitor:
         if len(column_records) == 0:
             console.debug("No hardware monitor columns found, skipping creating monitor task")
             return None
-        self._core.upsert_columns(column_records)
         # 3. 定义并启动任务
         all_handlers = [(type(c).__name__, c.collect) for c in collectors]
         if len(all_handlers) == 0:
             console.debug("No hardware monitor collectors found, skipping creating monitor task")
             return None
         # 使用线程池执行任务
+        # 监控任务的执行效率不要求特别高，线程池的方式可以兼容大部分采集器的实现方式，同时也避免了某些采集器在执行过程中可能出现的阻塞问题
+        first_execute = True
         self._executor = ThreadPoolExecutor(max_workers=2)
 
         def task():
-            nonlocal now_step
+            nonlocal now_step, column_records, first_execute
             assert self._executor is not None, "Monitor Executor is not initialized"
+            assert len(column_records) > 0, "No column records to upsert"
+            if first_execute:
+                self._core.upsert_columns(column_records)
+                first_execute = False
             futures = [(n, self._executor.submit(fn)) for n, fn in all_handlers]
             results: List[CollectResult] = []
             for n, f in futures:
