@@ -1,0 +1,107 @@
+syntax = "proto3";
+
+package swanlab.env.v1;
+
+option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/env/v1;envv1";
+
+// MetadataSnapshot 是启动时采集的完整系统快照，用于上报和展示。
+message MetadataSnapshot {
+    int32 version = 1;             // schema 版本，对应 JSON 中的 _version
+    HardwareSnapshot hardware = 2; // 硬件快照，未采集时为空
+    RuntimeSnapshot runtime = 3;   // 运行时快照，未采集时为空
+    GitSnapshot git = 4;           // Git 快照，未采集时为空
+    SwanLabSnapshot swanlab = 5;   // SwanLab 快照，未采集时为空
+}
+
+// HardwareSnapshot 是硬件相关的系统快照。
+message HardwareSnapshot {
+    AppleSiliconSnapshot apple_silicon = 1;        // Apple Silicon 场景下有值
+    CPUSnapshot cpu = 2;                           // 通用 CPU 快照
+    MemorySnapshot memory = 3;                     // 通用内存快照
+    repeated AcceleratorSnapshot accelerators = 4; // 加速器快照列表，支持异构场景
+}
+
+// CPUSnapshot 是 CPU 静态信息。
+message CPUSnapshot {
+    optional string brand = 1;         // CPU 品牌/型号
+    optional int32 physical_count = 2; // 物理核心数
+    optional int32 logical_count = 3;  // 逻辑核心数
+}
+
+// MemorySnapshot 是内存静态信息。
+message MemorySnapshot {
+    optional int64 total = 1;           // 总内存大小
+    optional MemoryUnit total_unit = 2; // 内存单位
+}
+
+// AppleSiliconSnapshot 是 Apple Silicon 静态信息。
+message AppleSiliconSnapshot {
+    optional string name = 1;            // 芯片型号，如 Apple M3 Pro
+    optional int64 memory = 2;           // 统一内存总量
+    optional MemoryUnit memory_unit = 3; // 内存单位
+    optional int32 cpu_count = 4;        // CPU 核心数
+}
+
+// AcceleratorSnapshot 是通用加速器快照，GPU/NPU/MLU/DCU/XPU 共用此结构。
+message AcceleratorSnapshot {
+    AcceleratorVendor vendor = 1;        // 加速器厂商/驱动类型
+    repeated DeviceSnapshot devices = 2; // 设备列表，每个物理设备一个条目
+    optional string version = 3;         // 加速器驱动版本
+    optional string cuda_version = 4;    // CUDA 版本号，仅 NVIDIA GPU 有效
+    optional string cann_version = 5;    // CANN 工具包版本，仅 Ascend NPU 有效
+}
+
+// DeviceSnapshot 是单个加速器设备信息。
+message DeviceSnapshot {
+    optional int32 index = 1;            // 设备序号
+    optional string name = 2;            // 设备型号
+    optional int64 memory = 3;           // 显存/内存总量
+    optional MemoryUnit memory_unit = 4; // 显存/内存单位
+}
+
+// RuntimeSnapshot 是运行时环境静态信息。
+message RuntimeSnapshot {
+    optional string os = 1;        // 操作系统平台
+    optional string os_pretty = 2; // 发行版友好名称
+    optional string hostname = 3;
+    optional int32 pid = 4;
+    optional string cwd = 5;
+    optional string python_version = 6;
+    optional string python_verbose = 7;
+    optional string python_executable = 8;
+    optional string command = 9;
+}
+
+// GitSnapshot 是 Git 仓库信息。
+message GitSnapshot {
+    optional string remote_url = 1;
+    optional string branch = 2;
+    optional string commit = 3;
+}
+
+// SwanLabSnapshot 是 SwanLab 相关的系统快照。
+message SwanLabSnapshot {
+    optional string version = 1;
+    optional string run_dir = 2;
+}
+
+// MemoryUnit 是内存/显存单位。
+enum MemoryUnit {
+    MEMORY_UNIT_UNSPECIFIED = 0;
+    MEMORY_UNIT_GB = 1;
+    MEMORY_UNIT_MB = 2;
+}
+
+// AcceleratorVendor 是加速器厂商/驱动类型。
+enum AcceleratorVendor {
+    ACCELERATOR_VENDOR_UNSPECIFIED = 0;
+    ACCELERATOR_VENDOR_NVIDIA = 1;
+    ACCELERATOR_VENDOR_ROCM = 2;
+    ACCELERATOR_VENDOR_ILUVATAR = 3;
+    ACCELERATOR_VENDOR_METAX = 4;
+    ACCELERATOR_VENDOR_MOORETHREADS = 5;
+    ACCELERATOR_VENDOR_ASCEND = 6;
+    ACCELERATOR_VENDOR_CAMBRICON = 7;
+    ACCELERATOR_VENDOR_HYGON = 8;
+    ACCELERATOR_VENDOR_KUNLUNXIN = 9;
+}

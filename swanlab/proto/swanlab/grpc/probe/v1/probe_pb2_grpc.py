@@ -41,6 +41,11 @@ class ProbeServiceStub(object):
                 request_serializer=swanlab_dot_grpc_dot_probe_dot_v1_dot_probe__pb2.DeliverProbeStartRequest.SerializeToString,
                 response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
                 _registered_method=True)
+        self.GetMetadataSnapshot = channel.unary_unary(
+                '/swanlab.grpc.probe.v1.ProbeService/GetMetadataSnapshot',
+                request_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+                response_deserializer=swanlab_dot_grpc_dot_probe_dot_v1_dot_probe__pb2.GetMetadataSnapshotResponse.FromString,
+                _registered_method=True)
         self.DeliverProbeFinish = channel.unary_unary(
                 '/swanlab.grpc.probe.v1.ProbeService/DeliverProbeFinish',
                 request_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
@@ -54,6 +59,13 @@ class ProbeServiceServicer(object):
 
     def DeliverProbeStart(self, request, context):
         """DeliverProbeStart 接收 ProbeSettings，启动硬件信息采集
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetMetadataSnapshot(self, request, context):
+        """GetMetadataSnapshot 获取当前环境元数据快照
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -73,6 +85,11 @@ def add_ProbeServiceServicer_to_server(servicer, server):
                     servicer.DeliverProbeStart,
                     request_deserializer=swanlab_dot_grpc_dot_probe_dot_v1_dot_probe__pb2.DeliverProbeStartRequest.FromString,
                     response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            ),
+            'GetMetadataSnapshot': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetMetadataSnapshot,
+                    request_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                    response_serializer=swanlab_dot_grpc_dot_probe_dot_v1_dot_probe__pb2.GetMetadataSnapshotResponse.SerializeToString,
             ),
             'DeliverProbeFinish': grpc.unary_unary_rpc_method_handler(
                     servicer.DeliverProbeFinish,
@@ -108,6 +125,33 @@ class ProbeService(object):
             '/swanlab.grpc.probe.v1.ProbeService/DeliverProbeStart',
             swanlab_dot_grpc_dot_probe_dot_v1_dot_probe__pb2.DeliverProbeStartRequest.SerializeToString,
             google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetMetadataSnapshot(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/swanlab.grpc.probe.v1.ProbeService/GetMetadataSnapshot',
+            google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            swanlab_dot_grpc_dot_probe_dot_v1_dot_probe__pb2.GetMetadataSnapshotResponse.FromString,
             options,
             channel_credentials,
             insecure,

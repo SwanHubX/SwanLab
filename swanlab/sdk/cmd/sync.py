@@ -16,9 +16,9 @@ from swanlab.proto.swanlab.grpc.core.v1.sync_pb2 import DeliverSyncFlushResponse
 from swanlab.proto.swanlab.settings.core.v1.core_pb2 import CoreSettings
 from swanlab.sdk.cmd import utils
 from swanlab.sdk.cmd.login import login_raw
+from swanlab.sdk.internal import impl
 from swanlab.sdk.internal.core_python import client
-from swanlab.sdk.internal.core_python.sync import CoreSyncPython
-from swanlab.sdk.internal.pkg import console, helper
+from swanlab.sdk.internal.pkg import console
 from swanlab.sdk.internal.settings import Settings
 from swanlab.sdk.internal.settings import settings as global_settings
 from swanlab.sdk.protocol.core import CoreSyncProtocol
@@ -59,7 +59,7 @@ def sync(run_dir: Union[Path, str], settings: Optional[Settings] = None):
     assert client.exists()
 
     # 3. 初始化core sync对象，并启动sync
-    core = _create_core_sync()
+    core = impl.create_core_sync()
     _ = _deliver_sync_start(core, core_settings, workspace, project, run_id)
     # flush_resp = _deliver_sync_start(core, core_settings, workspace, project, run_id)
     # TODO: 3. 等待core完全读取所有的record，显示进度条
@@ -101,11 +101,3 @@ def _deliver_sync_start(
     if not resp.success:
         raise RuntimeError(resp.message)
     return resp
-
-
-def _create_core_sync() -> CoreSyncProtocol:
-    if helper.get_core_impl() == "python":
-        return CoreSyncPython()
-    else:
-        # TODO: Core 微服务无感接入
-        raise NotImplementedError("The SwanLab Go core sync runtime is not available yet.")

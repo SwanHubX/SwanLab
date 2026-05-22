@@ -20,14 +20,14 @@ from typing import Optional, Tuple
 import pynvml
 
 from swanlab.sdk.internal.pkg import console, safe
-from swanlab.sdk.typings.probe_python import (
+from swanlab.sdk.internal.probe_python.protocol import AcceleratorProtocol
+from swanlab.sdk.internal.probe_python.typings import (
     AcceleratorSnapshot,
     DeviceSnapshot,
     SystemScalar,
     SystemScalars,
     SystemShim,
 )
-from swanlab.sdk.typings.probe_python.hardware_vendor import AcceleratorProtocol
 from swanlab.utils import generate_color
 
 

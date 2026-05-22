@@ -5,6 +5,6 @@
 @description: SwanLab SDK内部模块，负责SwanLab库的核心功能的内部实现
 """
 
-from . import pkg
+from . import impl, pkg
 
-__all__ = ["pkg"]
+__all__ = ["pkg", "impl"]

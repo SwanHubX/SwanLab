@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, mock_open, patch
 import pytest
 
 from swanlab.sdk.internal.probe_python.hardware_vendor.memory import Memory, bytes_to_snapshot
-from swanlab.sdk.typings.probe_python import MemorySnapshot, PlatformSlug, SystemShim
+from swanlab.sdk.internal.probe_python.typings import MemorySnapshot, PlatformSlug, SystemShim
 
 _GB = 1024**3
 _MB = 1024**2
@@ -70,6 +70,7 @@ class TestMemoryGet:
             result = Memory.get()
 
         assert isinstance(result, MemorySnapshot)
+        assert result is not None
         assert result.total == 16
         assert result.total_unit == "GB"
 
@@ -94,6 +95,7 @@ class TestMemoryGet:
             result = Memory.get()
 
         assert isinstance(result, MemorySnapshot)
+        assert result is not None
         assert result.total == 16
         assert result.total_unit == "GB"
 
@@ -119,6 +121,7 @@ class TestMemoryGet:
             result = Memory.get()
 
         assert isinstance(result, MemorySnapshot)
+        assert result is not None
         assert result.total == 16
         assert result.total_unit == "GB"
 

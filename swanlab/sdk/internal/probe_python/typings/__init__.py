@@ -8,9 +8,41 @@
   - Snapshot → 描述硬件或系统状态的静态快照信息
 """
 
-from typing import List, Literal, Optional
+from typing import Any, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+from swanlab.proto.swanlab.env.v1.metadata_pb2 import (
+    AcceleratorSnapshot as AcceleratorSnapshotPb,
+)
+from swanlab.proto.swanlab.env.v1.metadata_pb2 import (
+    AppleSiliconSnapshot as AppleSiliconSnapshotPb,
+)
+from swanlab.proto.swanlab.env.v1.metadata_pb2 import (
+    CPUSnapshot as CPUSnapshotPb,
+)
+from swanlab.proto.swanlab.env.v1.metadata_pb2 import (
+    DeviceSnapshot as DeviceSnapshotPb,
+)
+from swanlab.proto.swanlab.env.v1.metadata_pb2 import (
+    GitSnapshot as GitSnapshotPb,
+)
+from swanlab.proto.swanlab.env.v1.metadata_pb2 import (
+    HardwareSnapshot as HardwareSnapshotPb,
+)
+from swanlab.proto.swanlab.env.v1.metadata_pb2 import (
+    MemorySnapshot as MemorySnapshotPb,
+)
+from swanlab.proto.swanlab.env.v1.metadata_pb2 import (
+    MetadataSnapshot as MetadataSnapshotPb,
+)
+from swanlab.proto.swanlab.env.v1.metadata_pb2 import (
+    RuntimeSnapshot as RuntimeSnapshotPb,
+)
+from swanlab.proto.swanlab.env.v1.metadata_pb2 import (
+    SwanLabSnapshot as SwanLabSnapshotPb,
+)
+from swanlab.sdk.internal.pkg import adapter
 
 # ──────────────────────────────────────────────
 # 公共类型别名
@@ -32,6 +64,12 @@ AcceleratorVendor = Literal[
 ]
 """加速器厂商/驱动类型"""
 
+
+def _set_if_not_none(data: dict[str, Any], key: str, value: Any) -> None:
+    if value is not None:
+        data[key] = value
+
+
 # ──────────────────────────────────────────────
 # 硬件快照子模型（静态信息，启动时采集一次）
 # ──────────────────────────────────────────────
@@ -46,6 +84,14 @@ class CPUSnapshot(BaseModel):
     """物理核心数"""
     logical_count: Optional[int] = None
     """逻辑核心数（含超线程）"""
+
+    def to_proto(self) -> CPUSnapshotPb:
+        """转换为 protobuf 结构，供rpc使用"""
+        data: dict[str, Any] = {}
+        _set_if_not_none(data, "brand", self.brand)
+        _set_if_not_none(data, "physical_count", self.physical_count)
+        _set_if_not_none(data, "logical_count", self.logical_count)
+        return CPUSnapshotPb(**data)
 
     model_config = ConfigDict(frozen=True)
 
@@ -68,6 +114,14 @@ class MemorySnapshot(BaseModel):
         if (self.total is None) != (self.total_unit is None):
             raise ValueError("total and total_unit must both be None or both be provided")
         return self
+
+    def to_proto(self) -> MemorySnapshotPb:
+        """转换为 protobuf 结构，供rpc使用"""
+        data: dict[str, Any] = {}
+        _set_if_not_none(data, "total", self.total)
+        if self.total_unit is not None:
+            data["total_unit"] = adapter.memory_unit[self.total_unit]
+        return MemorySnapshotPb(**data)
 
     model_config = ConfigDict(frozen=True)
 
@@ -95,6 +149,16 @@ class DeviceSnapshot(BaseModel):
             raise ValueError("memory and memory_unit must both be None or both be provided")
         return self
 
+    def to_proto(self) -> DeviceSnapshotPb:
+        """转换为 protobuf 结构，供rpc使用"""
+        data: dict[str, Any] = {}
+        _set_if_not_none(data, "index", self.index)
+        _set_if_not_none(data, "name", self.name)
+        _set_if_not_none(data, "memory", self.memory)
+        if self.memory_unit is not None:
+            data["memory_unit"] = adapter.memory_unit[self.memory_unit]
+        return DeviceSnapshotPb(**data)
+
     model_config = ConfigDict(frozen=True)
 
 
@@ -116,6 +180,17 @@ class AcceleratorSnapshot(BaseModel):
     """CUDA 版本号，仅 NVIDIA GPU 有效"""
     cann_version: Optional[str] = None
     """CANN 工具包版本，仅 Ascend NPU 有效"""
+
+    def to_proto(self) -> AcceleratorSnapshotPb:
+        """转换为 protobuf 结构，供rpc使用"""
+        data: dict[str, Any] = {
+            "vendor": adapter.accelerator_vendor[self.vendor],
+            "devices": [d.to_proto() for d in self.devices],
+        }
+        _set_if_not_none(data, "version", self.version)
+        _set_if_not_none(data, "cuda_version", self.cuda_version)
+        _set_if_not_none(data, "cann_version", self.cann_version)
+        return AcceleratorSnapshotPb(**data)
 
     model_config = ConfigDict(frozen=True)
 
@@ -143,6 +218,16 @@ class AppleSiliconSnapshot(BaseModel):
             raise ValueError("memory and memory_unit must both be None or both be provided")
         return self
 
+    def to_proto(self) -> AppleSiliconSnapshotPb:
+        """转换为 protobuf 结构，供rpc使用"""
+        data: dict[str, Any] = {}
+        _set_if_not_none(data, "name", self.name)
+        _set_if_not_none(data, "memory", self.memory)
+        if self.memory_unit is not None:
+            data["memory_unit"] = adapter.memory_unit[self.memory_unit]
+        _set_if_not_none(data, "cpu_count", self.cpu_count)
+        return AppleSiliconSnapshotPb(**data)
+
     model_config = ConfigDict(frozen=True)
 
 
@@ -162,6 +247,20 @@ class RuntimeSnapshot(BaseModel):
     command: Optional[str] = None
     """当前运行的命令行，包含所有参数"""
 
+    def to_proto(self) -> RuntimeSnapshotPb:
+        """转换为 protobuf 结构，供rpc使用"""
+        data: dict[str, Any] = {}
+        _set_if_not_none(data, "os", self.os)
+        _set_if_not_none(data, "os_pretty", self.os_pretty)
+        _set_if_not_none(data, "hostname", self.hostname)
+        _set_if_not_none(data, "pid", self.pid)
+        _set_if_not_none(data, "cwd", self.cwd)
+        _set_if_not_none(data, "python_version", self.python_version)
+        _set_if_not_none(data, "python_verbose", self.python_verbose)
+        _set_if_not_none(data, "python_executable", self.python_executable)
+        _set_if_not_none(data, "command", self.command)
+        return RuntimeSnapshotPb(**data)
+
     model_config = ConfigDict(frozen=True)
 
 
@@ -172,6 +271,14 @@ class GitSnapshot(BaseModel):
     """远程仓库地址"""
     branch: Optional[str] = None
     commit: Optional[str] = None
+
+    def to_proto(self) -> GitSnapshotPb:
+        """转换为 protobuf 结构，供rpc使用"""
+        data: dict[str, Any] = {}
+        _set_if_not_none(data, "remote_url", self.remote_url)
+        _set_if_not_none(data, "branch", self.branch)
+        _set_if_not_none(data, "commit", self.commit)
+        return GitSnapshotPb(**data)
 
     model_config = ConfigDict(frozen=True)
 
@@ -188,6 +295,17 @@ class HardwareSnapshot(BaseModel):
     accelerators: list[AcceleratorSnapshot] = Field(default_factory=list)
     """所有加速器快照列表，支持异构场景"""
 
+    def to_proto(self) -> HardwareSnapshotPb:
+        """转换为 protobuf 结构，供rpc使用"""
+        data: dict[str, Any] = {"accelerators": [acc.to_proto() for acc in self.accelerators]}
+        if self.apple_silicon is not None:
+            data["apple_silicon"] = self.apple_silicon.to_proto()
+        if self.cpu is not None:
+            data["cpu"] = self.cpu.to_proto()
+        if self.memory is not None:
+            data["memory"] = self.memory.to_proto()
+        return HardwareSnapshotPb(**data)
+
     model_config = ConfigDict(frozen=True)
 
 
@@ -198,6 +316,13 @@ class SwanLabSnapshot(BaseModel):
     """SwanLab 包版本"""
     run_dir: Optional[str] = None
     """SwanLab 运行时目录"""
+
+    def to_proto(self) -> SwanLabSnapshotPb:
+        """转换为 protobuf 结构，供rpc使用"""
+        data: dict[str, Any] = {}
+        _set_if_not_none(data, "version", self.version)
+        _set_if_not_none(data, "run_dir", self.run_dir)
+        return SwanLabSnapshotPb(**data)
 
     model_config = ConfigDict(frozen=True)
 
@@ -221,6 +346,19 @@ class MetadataSnapshot(BaseModel):
 
     def del_hardware(self):
         return self.model_copy(update={"hardware": None})
+
+    def to_proto(self) -> MetadataSnapshotPb:
+        """转换为 protobuf 结构，供rpc使用"""
+        data: dict[str, Any] = {"version": self.version}
+        if self.hardware is not None:
+            data["hardware"] = self.hardware.to_proto()
+        if self.runtime is not None:
+            data["runtime"] = self.runtime.to_proto()
+        if self.git is not None:
+            data["git"] = self.git.to_proto()
+        if self.swanlab is not None:
+            data["swanlab"] = self.swanlab.to_proto()
+        return MetadataSnapshotPb(**data)
 
     model_config = ConfigDict(frozen=True)
 

@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from swanlab.sdk.internal.probe_python.hardware_vendor.apple import Apple
-from swanlab.sdk.typings.probe_python import AppleSiliconSnapshot, PlatformSlug, SystemShim
+from swanlab.sdk.internal.probe_python.typings import AppleSiliconSnapshot, PlatformSlug, SystemShim
 
 
 class TestAppleGet:
@@ -26,6 +26,7 @@ class TestAppleGet:
             mock_run.return_value = MagicMock(stdout=json.dumps(mock_output))
             result = Apple.get()
             assert isinstance(result, AppleSiliconSnapshot)
+            assert result is not None
             assert result.name == "Apple M3 Pro"
             assert result.memory == 18
             assert result.memory_unit == "GB"
@@ -45,6 +46,7 @@ class TestAppleGet:
             mock_run.return_value = MagicMock(stdout=json.dumps(mock_output))
             result = Apple.get()
             assert isinstance(result, AppleSiliconSnapshot)
+            assert result is not None
             assert result.name == "Intel Core i7"
             assert result.memory == 16
 

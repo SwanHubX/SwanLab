@@ -7,8 +7,8 @@
 
 from typing import Dict, Type
 
-from swanlab.sdk.typings.probe_python import AcceleratorVendor
-from swanlab.sdk.typings.probe_python.hardware_vendor import AcceleratorProtocol
+from swanlab.sdk.internal.probe_python.protocol import AcceleratorProtocol
+from swanlab.sdk.internal.probe_python.typings import AcceleratorVendor
 
 from .amd import AMDGPU
 from .cambricon import CambriconMLU

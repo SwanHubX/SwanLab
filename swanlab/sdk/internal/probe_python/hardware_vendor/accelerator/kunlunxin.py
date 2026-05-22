@@ -20,14 +20,14 @@ import subprocess
 from typing import Dict, List, Optional, Tuple
 
 from swanlab.sdk.internal.pkg import console, safe
-from swanlab.sdk.typings.probe_python import (
+from swanlab.sdk.internal.probe_python.protocol import AcceleratorProtocol, CollectResult
+from swanlab.sdk.internal.probe_python.typings import (
     AcceleratorSnapshot,
     DeviceSnapshot,
     SystemScalar,
     SystemScalars,
     SystemShim,
 )
-from swanlab.sdk.typings.probe_python.hardware_vendor import AcceleratorProtocol, CollectResult
 from swanlab.utils import generate_color
 
 

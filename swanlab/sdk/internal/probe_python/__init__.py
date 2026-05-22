@@ -12,26 +12,26 @@ from typing import Optional
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.proto.swanlab.env.v1.env_pb2 import CondaRecord, MetadataRecord, RequirementsRecord
-from swanlab.proto.swanlab.grpc.probe.v1.probe_pb2 import DeliverProbeStartRequest
-from swanlab.sdk.internal.pkg import fs
+from swanlab.proto.swanlab.grpc.probe.v1.probe_pb2 import DeliverProbeStartRequest, GetMetadataSnapshotResponse
+from swanlab.sdk.internal.pkg import console, fs
 from swanlab.sdk.internal.probe_python.context import ProbeContext
 from swanlab.sdk.internal.probe_python.environment import conda, git, requirements, runtime, swanlab
 from swanlab.sdk.internal.probe_python.hardware_vendor import ACCELERATOR_REGISTRY, CPU, Apple, Memory
 from swanlab.sdk.internal.probe_python.monitor import Monitor
+from swanlab.sdk.internal.probe_python.typings import HardwareSnapshot, MetadataSnapshot, SystemEnvironment, SystemShim
 from swanlab.sdk.protocol.core import CoreProtocol
 from swanlab.sdk.protocol.probe import ProbeProtocol
-from swanlab.sdk.typings.probe_python import HardwareSnapshot, MetadataSnapshot, SystemEnvironment, SystemShim
-from swanlab.sdk.typings.run import ModeType
 
 
 class ProbePython(ProbeProtocol):
-    def __init__(self, mode: ModeType, core: CoreProtocol):
-        super().__init__(mode)
-        self._core = core
+    def __init__(self, core: Optional[CoreProtocol], disabled: bool = False):
+        super().__init__(disabled)
+        self._core: Optional[CoreProtocol] = core
         # self._monitor is not None 作为硬件监控是否开启的标记
         self._monitor: Optional[Monitor] = None
+        self._metadta_snapshot: Optional[MetadataSnapshot] = None
 
-    def _start(self, start_request: DeliverProbeStartRequest):
+    def _start_when_enabled(self, start_request: DeliverProbeStartRequest):
         """
         启动硬件采集
         """
@@ -48,12 +48,14 @@ class ProbePython(ProbeProtocol):
         if ctx.config.hardware or ctx.config.monitor:
             # 2.1 苹果
             apple_snapshot = Apple.get()
+
             # 2.2 通用硬件
             cpu_snapshot = None
             memory_snapshot = None
             if apple_snapshot is None:
                 cpu_snapshot = CPU.get()
                 memory_snapshot = Memory.get()
+
             # 2.3 各家加速器厂商
             accelerators = []
             for vendor_cls in ACCELERATOR_REGISTRY.values():
@@ -74,6 +76,7 @@ class ProbePython(ProbeProtocol):
             runtime=runtime_snapshot,
             swanlab=swanlab_snapshot,
         )
+        self._metadta_snapshot = metadata
         system_shim = SystemShim.from_snapshot(metadata, platform=sys.platform)
         # 如果硬采集被设置为False，删除硬件信息
         if not ctx.config.hardware:
@@ -85,44 +88,34 @@ class ProbePython(ProbeProtocol):
             requirements=requirements_snapshot,
             conda=conda_snapshot,
         )
-        # 4. 向core发送记录
-        ts = Timestamp()
-        ts.GetCurrentTime()
-        if sys_info.metadata:
-            fs.safe_write(ctx.metadata_file, sys_info.metadata.model_dump_json(by_alias=True))
-            self._core.upsert_metadata([MetadataRecord(timestamp=ts)])
-        if sys_info.requirements:
-            fs.safe_write(ctx.requirements_file, sys_info.requirements)
-            self._core.upsert_requirements([RequirementsRecord(timestamp=ts)])
-        if sys_info.conda:
-            fs.safe_write(ctx.conda_file, sys_info.conda)
-            self._core.upsert_conda([CondaRecord(timestamp=ts)])
+        if self._core is not None:
+            # 4. 向core发送记录
+            ts = Timestamp()
+            ts.GetCurrentTime()
+            if sys_info.metadata:
+                fs.safe_write(ctx.metadata_file, sys_info.metadata.model_dump_json(by_alias=True))
+                self._core.upsert_metadata([MetadataRecord(timestamp=ts)])
+            if sys_info.requirements:
+                fs.safe_write(ctx.requirements_file, sys_info.requirements)
+                self._core.upsert_requirements([RequirementsRecord(timestamp=ts)])
+            if sys_info.conda:
+                fs.safe_write(ctx.conda_file, sys_info.conda)
+                self._core.upsert_conda([CondaRecord(timestamp=ts)])
 
-        # 5. 设置硬件监控
-        if ctx.config.monitor:
-            if (hm := Monitor(system_shim, self._core).start(ctx)) is not None:
-                self._monitor = hm
+            # 5. 设置硬件监控
+            if ctx.config.monitor:
+                if (hm := Monitor(system_shim, self._core).start(ctx)) is not None:
+                    self._monitor = hm
+        else:
+            console.debug(
+                "ProbePython has no core attached; metadata will be collected for snapshots only and will not be sent."
+            )
 
-    def _start_when_local(self, start_request: DeliverProbeStartRequest) -> None:
-        self._start(start_request)
+    def _get_metadata_snapshot_when_enabled(self) -> GetMetadataSnapshotResponse:
+        if self._metadta_snapshot is None:
+            return GetMetadataSnapshotResponse(success=False, message="Metadata snapshot is not available.")
+        return GetMetadataSnapshotResponse(success=True, metadata=self._metadta_snapshot.to_proto())
 
-    def _start_when_offline(self, start_request: DeliverProbeStartRequest) -> None:
-        self._start(start_request)
-
-    def _start_when_online(self, start_request: DeliverProbeStartRequest) -> None:
-        self._start(start_request)
-
-    def _finish(self):
-        if self._monitor is not None:
-            self._monitor.stop()
-
-    def _finish_when_local(self) -> None:
-        self._finish()
-
-    def _finish_when_offline(self) -> None:
-        if self._monitor is not None:
-            self._monitor.stop()
-
-    def _finish_when_online(self) -> None:
+    def _finish_when_enabled(self):
         if self._monitor is not None:
             self._monitor.stop()
