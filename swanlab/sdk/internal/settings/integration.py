@@ -33,7 +33,7 @@ def dashboard_host_factory() -> str:
 
 def dashboard_port_factory() -> int:
     # 使用额外的 SWANLAB_DASHBOARD_PORT 环境变量，因为自动生成的环境变量太长了
-    return int(os.environ.get("SWANLAB_DASHBOARD_PORT", "9090"))
+    return int(os.environ.get("SWANLAB_DASHBOARD_PORT", "5092"))
 
 
 class WebhookSettings(BaseModel):

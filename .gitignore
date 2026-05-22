@@ -1,9 +1,9 @@
 # test
 temp/
-deprecated/tutils/config.json
+deprecated/
 package.mock.json
 .env
-deprecated/
+!swanlab/deprecated/
 
 # playground
 playground/

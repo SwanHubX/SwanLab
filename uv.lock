@@ -4956,7 +4956,7 @@ wheels = [
 
 [[package]]
 name = "swanboard"
-version = "0.1.9b3"
+version = "0.1.10b2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "fastapi", version = "0.128.8", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
@@ -4969,9 +4969,9 @@ dependencies = [
     { name = "uvicorn", version = "0.39.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "uvicorn", version = "0.41.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/37/6f/dbdf80756b2263e9c0d52ac835f8f112b890a020ce3ce70c99e3e0fdfbb6/swanboard-0.1.9b3.tar.gz", hash = "sha256:df12e54773ac361c685e042c7b9850e21ca70ad5759e0a094cf52e646fcfb853", size = 1166670, upload-time = "2026-02-27T15:50:07.262Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c1/95/07c563721bc493e24ef8c50a429a3ca91dd60ec455d463c6d4a1118318fe/swanboard-0.1.10b2.tar.gz", hash = "sha256:647b66f00efd18f4d2e062d7fa44d6a0125da122edb6a99d98da1aa9788e0a81", size = 1176008, upload-time = "2026-05-22T17:05:02.753Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/7d/67/50d80015211437a2e3f1183fa9c6c0f10196360454af79245f7a7f9ae06b/swanboard-0.1.9b3-py3-none-any.whl", hash = "sha256:39461f2f0884d0cf7ef2e6cc30640c1b2cb2e1ec0d1db5feff3e0433b8d051fd", size = 751749, upload-time = "2026-02-27T15:50:05.982Z" },
+    { url = "https://files.pythonhosted.org/packages/20/f1/a8c7f4e36cb3d9e1f29517b874d7f6365c7f88bc274e1350ed5cdc23a258/swanboard-0.1.10b2-py3-none-any.whl", hash = "sha256:c2e5b2cf4252c33b6e66c952a7c8930134be7ead135ece18b426dba3b88a6fde", size = 753397, upload-time = "2026-05-22T17:05:00.923Z" },
 ]
 
 [[package]]
@@ -5085,7 +5085,7 @@ requires-dist = [
     { name = "rich", specifier = ">=13.6.0,<14.0.0" },
     { name = "setuptools" },
     { name = "soundfile", marker = "extra == 'media'" },
-    { name = "swanboard", marker = "extra == 'dashboard'", specifier = "==0.1.9b3" },
+    { name = "swanboard", marker = "extra == 'dashboard'", specifier = "==0.1.10b2" },
     { name = "urllib3", specifier = ">=1.26.0" },
     { name = "watchdog" },
     { name = "wrapt", specifier = ">=1.17.0" },

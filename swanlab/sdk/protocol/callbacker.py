@@ -7,7 +7,13 @@
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Optional
+from typing import TYPE_CHECKING, List, Optional
+
+from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord, ScalarRecord
+from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogRecord
+
+if TYPE_CHECKING:
+    from swanlab.sdk.internal.settings import Settings
 
 
 class Callback(ABC):
@@ -17,7 +23,7 @@ class Callback(ABC):
     at various stages of an experiment.
     """
 
-    def on_run_initialized(self, run_dir: Path, path: str, *args, **kwargs) -> None:
+    def on_run_initialized(self, run_dir: Path, path: str, settings: "Settings", *args, **kwargs) -> None:
         """
         Called immediately after ``swanlab.init`` has successfully executed.
 
@@ -27,29 +33,27 @@ class Callback(ABC):
         """
         ...
 
-    def on_metadata_update(self, *args, **kwargs) -> None:
+    def on_scalar_flush(self, scalar_records: List[ScalarRecord], *args, **kwargs) -> None:
         """
-        Called when the experiment's metadata is updated.
-        This includes updates to:
-        - Experiment configuration (RunConfig)
-        - Hardware/Host information
-        - Environment information
+        Called when new scalar records are flushed.
+
+        :param scalar_records: A list of scalar records that have been flushed.
         """
         ...
 
-    def on_column_created(self, column: Any, *args, **kwargs) -> None:
+    def on_media_flush(self, media_records: List[MediaRecord], *args, **kwargs) -> None:
         """
-        Called when a new column is added to the experiment tracking schema.
+        Called when new media records are flushed.
 
-        :param column: The column object containing the newly created schema information.
+        :param media_records: A list of media records that have been flushed.
         """
         ...
 
-    def on_metric_created(self, metric: Any, *args, **kwargs) -> None:
+    def on_log_flush(self, log_records: List[LogRecord], *args, **kwargs) -> None:
         """
-        Called when a new metric tracker is initialized.
+        Called when new log records are flushed.
 
-        :param metric: The metric object representing the newly created metric.
+        :param log_records: A list of log records that have been flushed.
         """
         ...
 

@@ -519,8 +519,9 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
             _ensure_online_client(run_settings)
         # local 模式前置：注入 LocalCallback 到 callbacks 中
         elif mode == "local":
-            # TODO: 注入回调器
-            ...
+            from swanlab.deprecated.local import LocalCallbacker
+
+            ctx.callbacker.merge_callbacks(LocalCallbacker())
         # 2. 非云端模式，确定 name/color，合并到 settings
         if mode != "online":
             args_dict = {}

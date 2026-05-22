@@ -64,7 +64,7 @@ def _print_online_tip(run: "Run"):
 
 def _print_local_tip(ctx: RunContext):
     console.info(
-        "🌟 Run ",
+        "🌟 Run",
         Text(f"`swanlab watch {str(ctx.config.settings.log_dir)}`", "bold"),
         "to view SwanLab Experiment Dashboard",
     )
