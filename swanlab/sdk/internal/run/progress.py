@@ -216,15 +216,18 @@ def run_with_progress(
     finished = False
 
     with progress_display() as display:
-        while True:
-            stats = stats_fn()
-            display.update(stats, unit)
-            if stats.state == CoreState.CORE_STATE_FINISHED:
-                finished = True
-                break
-            if deadline is not None and time.monotonic() >= deadline:
-                break
-            time.sleep(_POLL_INTERVAL)
+        try:
+            while True:
+                stats = stats_fn()
+                display.update(stats, unit)
+                if stats.state == CoreState.CORE_STATE_FINISHED:
+                    finished = True
+                    break
+                if deadline is not None and time.monotonic() >= deadline:
+                    break
+                time.sleep(_POLL_INTERVAL)
+        except KeyboardInterrupt:
+            pass
 
     display.print_summary(stats_fn(), unit, finished)
 
