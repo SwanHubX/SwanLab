@@ -1,6 +1,6 @@
 """
 @author: cunyue
-@description: CLI ping 模块，连通性与环境诊断命令
+@description: CLI ping 模块，连通性与环境诊断命令，本部分为Vibe Coding
 
 预期输出样式：
 

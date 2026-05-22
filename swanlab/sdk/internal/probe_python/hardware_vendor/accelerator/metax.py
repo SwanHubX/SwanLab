@@ -130,7 +130,7 @@ class MetaXGPU(AcceleratorProtocol):
             index = 0
             for line in output.split("\n"):
                 if "GPU" in line and "%" in line:
-                    parts = [item for item in line.split(" ") if item != ""]
+                    parts = line.split()
                     val = float(parts[-2]) if len(parts) >= 2 else math.nan
                     if index < len(results):
                         results[index] = (f"gpu.{self._indices[index]}.pct", val)
@@ -148,9 +148,9 @@ class MetaXGPU(AcceleratorProtocol):
             index = 0
             for line in output.split("\n"):
                 if "vis_vram total" in line:
-                    gpu_mem_total = float(line.split(" ")[-2])
+                    gpu_mem_total = float(line.split()[-2])
                 if "vis_vram used" in line and gpu_mem_total is not None:
-                    gpu_mem_used = float(line.split(" ")[-2])
+                    gpu_mem_used = float(line.split()[-2])
                     pct = gpu_mem_used / gpu_mem_total * 100 if gpu_mem_total > 0 else math.nan
                     mb = gpu_mem_used
                     if index < len(self._indices):
@@ -170,7 +170,7 @@ class MetaXGPU(AcceleratorProtocol):
             index = 0
             for line in output.split("\n"):
                 if "hotspot" in line:
-                    parts = line.split(" ")
+                    parts = line.split()
                     val = float(parts[-2]) if len(parts) >= 2 else math.nan
                     if index < len(results):
                         results[index] = (f"gpu.{self._indices[index]}.temp", val)
@@ -186,7 +186,7 @@ class MetaXGPU(AcceleratorProtocol):
             index = 0
             for line in output.split("\n"):
                 if "Total" in line and "W" in line:
-                    parts = [item for item in line.split(" ") if item != ""]
+                    parts = line.split()
                     val = float(parts[-2]) if len(parts) >= 2 else math.nan
                     if index < len(results):
                         results[index] = (f"gpu.{self._indices[index]}.power", val)
@@ -238,16 +238,16 @@ class MetaXGPU(AcceleratorProtocol):
 
         for line in output_str.split("\n"):
             if "mx-smi" in line:
-                driver = line.split(" ")[-1]
+                driver = line.split()[-1]
             if "MACA" in line:
-                maca_version = line.split(" ")[3]
+                maca_version = line.split()[3]
             elif "MetaX" in line and "Management" not in line:
-                parts = [item for item in line.split(" ") if item != ""]
+                parts = line.split()
                 if len(parts) >= 4:
                     gpu_map[index] = {"name": parts[3]}
             elif "MiB" in line and index in gpu_map:
                 with safe.block(message="Failed to parse MetaX GPU memory info", level="debug"):
-                    parts = [item for item in line.split(" ") if item != ""]
+                    parts = line.split()
                     if len(parts) >= 4:
                         gpu_map[index]["memory"] = int(parts[-4].split("/")[-1]) // 1024
                         index += 1

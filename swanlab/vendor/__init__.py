@@ -40,6 +40,7 @@ if TYPE_CHECKING:
     import pandas as pd
     import PIL
     import PIL.Image
+    import pynvml
     import rdkit
     import rdkit.Chem
     import rdkit.Chem.AllChem
@@ -78,6 +79,7 @@ __all__ = [
     "boto3",
     "torch",
     "torchvision",
+    "pynvml",
     "wandb",
     "mlflow",
     # these are extra dependencies which are not in [project.optional-dependencies]
@@ -112,6 +114,7 @@ _LAZY_IMPORTS = {
     "boto3": "boto3",
     "torch": "torch",
     "torchvision": "torchvision",
+    "pynvml": "pynvml",
     # these are extra dependencies which are not in [project.optional-dependencies]
     "pd": "pandas",
     # framework integrations — users install these themselves
