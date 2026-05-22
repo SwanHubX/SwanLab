@@ -4,6 +4,9 @@
 模块下每个子模块负责一个厂商的硬件信息采集和监控，模块内提供统一接口供上层调用.
 
 
+> [accelerator](./accelerator) 模块负责加速器（GPU、NPU、TPU 等）的信息采集和监控，由于环境搭建困难，大部分为Vibe Coding实现。
+
+
 ## 设计取舍 —— collect() 的两种实现模式：
 
 CollectorProtocol 提供了基于 _handlers 的默认 collect() 实现，子类在 new() 中注册 (key, handler) 元组，
