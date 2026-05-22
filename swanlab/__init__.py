@@ -1,7 +1,3 @@
-import warnings
-
-from typing_extensions import deprecated
-
 from swanlab.sdk import (
     Audio,
     Callback,
@@ -40,6 +36,8 @@ from swanlab.sdk import (
 
 from . import utils
 from .api import Api
+from .deprecated.callbacks import register_callbacks
+from .deprecated.echarts import confusion_matrix, pr_curve, roc_curve
 
 __version__ = pkg.helper.get_swanlab_version()
 
@@ -100,44 +98,3 @@ def __getattr__(name: str):
         except RuntimeError:
             return None
     raise AttributeError(f"module 'swanlab' has no attribute {name!r}")
-
-
-# ---------------------------------- deprecated ----------------------------------
-
-
-@deprecated("use `swanlab.echarts.roc_curve()` instead")
-def roc_curve(*args, **kwargs):
-    warnings.warn(
-        "`swanlab.roc_curve()` is deprecated, use `swanlab.echarts.roc_curve()` instead",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return echarts.roc_curve(*args, **kwargs)
-
-
-@deprecated("use `swanlab.echarts.pr_curve()` instead")
-def pr_curve(*args, **kwargs):
-    warnings.warn(
-        "`swanlab.pr_curve()` is deprecated, use `swanlab.echarts.pr_curve()` instead", DeprecationWarning, stacklevel=2
-    )
-    return echarts.pr_curve(*args, **kwargs)
-
-
-@deprecated("use `swanlab.echarts.confusion_matrix()` instead")
-def confusion_matrix(*args, **kwargs):
-    warnings.warn(
-        "`swanlab.confusion_matrix()` is deprecated, use `swanlab.echarts.confusion_matrix()` instead",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return echarts.confusion_matrix(*args, **kwargs)
-
-
-@deprecated("use `swanlab.merge_callbacks()` instead")
-def register_callbacks(*args, **kwargs):
-    warnings.warn(
-        "`swanlab.register_callbacks()` is deprecated, use `swanlab.merge_callbacks()` instead",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return merge_callbacks(*args, **kwargs)
