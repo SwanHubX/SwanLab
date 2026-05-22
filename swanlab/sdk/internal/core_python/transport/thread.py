@@ -40,14 +40,12 @@ class Transport:
         tracker: Optional[UploadTracker] = None,
         sender: Optional[Any] = None,
         auto_start: bool = True,
-        track_record_totals: bool = True,
     ):
         self._ctx = ctx
         self._batch = ctx.config.record_batch
         self._batch_interval = ctx.config.record_interval
         self._tracker = tracker
         self._sender = sender
-        self._track_record_totals = track_record_totals
 
         self._cond = threading.Condition()
         self._buf = RecordBuffer()
@@ -86,7 +84,7 @@ class Transport:
             return
         with self._cond:
             accepted = self._buf.extend(records)
-        if self._tracker is not None and self._track_record_totals:
+        if self._tracker is not None:
             self._tracker.add_total_records(accepted)
 
     def request_finish(self) -> None:

@@ -137,18 +137,6 @@ def test_transport_put_tracks_only_deduped_records(mock_ctx, make_scalar_record)
     assert tracker.snapshot().total_records == 1
 
 
-def test_transport_can_leave_record_total_unknown_for_streaming_sync(mock_ctx, make_scalar_record):
-    tracker = UploadTracker()
-    t = _make_transport(mock_ctx, tracker=tracker, track_record_totals=False)
-    records = [make_scalar_record(step=1), make_scalar_record(step=2)]
-    records[0].num = 1
-    records[1].num = 2
-
-    t.put(records)
-
-    assert tracker.snapshot().total_records == 0
-
-
 def test_transport_put_warns_after_finish(mock_ctx, make_scalar_record):
     """put() after finish() logs an error."""
     t = _make_transport(mock_ctx)
