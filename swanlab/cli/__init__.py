@@ -7,19 +7,19 @@
 
 import click
 
-from swanlab.sdk.internal.pkg.helper import get_swanlab_version
+from swanlab.deprecated.local import watch
+from swanlab.sdk import pkg
 
 from .api import api_cli
 from .auth import login, logout, verify
 from .converter import convert
-from .dashboard import watch
 from .mode import disabled, local, offline, online
 from .ping import ping
 from .sync import sync
 
 
 @click.group(invoke_without_command=True)
-@click.version_option(get_swanlab_version(), "--version", "-v", message="SwanLab %(version)s")
+@click.version_option(pkg.helper.get_swanlab_version(), "--version", "-v", message="SwanLab %(version)s")
 @click.pass_context
 def cli(ctx):
     if ctx.invoked_subcommand is None:
