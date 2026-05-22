@@ -18,7 +18,7 @@ from rich.table import Table
 from rich.text import Text
 
 from swanlab.proto.swanlab.operation.v1.operation_pb2 import CoreState, OperationStats
-from swanlab.sdk.internal.pkg import console
+from swanlab.sdk.internal.pkg import console, safe
 from swanlab.sdk.internal.run.fmt import fmt_bytes, fmt_items, fmt_rate
 
 _T = TypeVar("_T")
@@ -122,11 +122,19 @@ def _append_rate(text: Text, rate: float) -> None:
 # ── Summary printer ──────────────────────────────────────────
 
 
-def _print_summary(stats: OperationStats, unit: str, finished: bool) -> None:
+def _print_summary(stats: OperationStats, unit: str, finished: bool, interrupted: bool = False) -> None:
     unit = _resolve_unit(stats, unit)
     is_files = unit == "bytes" and (stats.total_number > 0 or stats.total_size > 0)
 
-    if is_files:
+    if interrupted:
+        if is_files:
+            n, nt = stats.uploaded_number, stats.total_number
+            done, total = stats.uploaded_size, stats.total_size
+            msg = f"Uploaded: {n}/{nt} files ({fmt_bytes(done)}/{fmt_bytes(total)})"
+        else:
+            total, done = _resolve_progress(stats, unit)
+            msg = f"Uploaded: {fmt_items(done, unit)}/{fmt_items(total, unit)}"
+    elif is_files:
         n, nt = stats.uploaded_number, stats.total_number
         done, total = stats.uploaded_size, stats.total_size
         if finished and done >= total:
@@ -191,9 +199,9 @@ class ProgressDisplay:
         if self._live is not None:
             self._live.stop()
 
-    def print_summary(self, stats: OperationStats, unit: str, finished: bool) -> None:
+    def print_summary(self, stats: OperationStats, unit: str, finished: bool, interrupted: bool = False) -> None:
         if self._has_shown:
-            _print_summary(stats, unit, finished)
+            _print_summary(stats, unit, finished, interrupted)
 
 
 # ── Progress waiter ──────────────────────────────────────────
@@ -214,18 +222,23 @@ def run_with_progress(
     """
     deadline = time.monotonic() + timeout if timeout is not None else None
     finished = False
+    interrupted = False
 
     with progress_display() as display:
-        while True:
-            stats = stats_fn()
-            display.update(stats, unit)
-            if stats.state == CoreState.CORE_STATE_FINISHED:
-                finished = True
-                break
-            if deadline is not None and time.monotonic() >= deadline:
-                break
-            time.sleep(_POLL_INTERVAL)
+        try:
+            while True:
+                stats = stats_fn()
+                display.update(stats, unit)
+                if stats.state == CoreState.CORE_STATE_FINISHED:
+                    finished = True
+                    break
+                if deadline is not None and time.monotonic() >= deadline:
+                    break
+                time.sleep(_POLL_INTERVAL)
+        except KeyboardInterrupt:
+            interrupted = True
+            console.info("Upload still in progress... Press", Text("Ctrl+C", "bold"), "again to force quit.")
 
-    display.print_summary(stats_fn(), unit, finished)
+    display.print_summary(stats_fn(), unit, finished, interrupted)
 
     return blocking_fn()
