@@ -226,6 +226,7 @@ class BackgroundConsumer(ConsumerProtocol):
 
             if log_batch:
                 self._core.upsert_logs(log_batch)
+                self._callbacker.on_log_flush(log_batch)
                 log_batch = []
 
             if column_batch:
@@ -234,10 +235,12 @@ class BackgroundConsumer(ConsumerProtocol):
 
             if scalar_batch:
                 self._core.upsert_scalars(scalar_batch)
+                self._callbacker.on_scalar_flush(scalar_batch)
                 scalar_batch = []
 
             if media_batch:
                 self._core.upsert_media(media_batch)
+                self._callbacker.on_media_flush(media_batch)
                 media_batch = []
 
             if save_batch:

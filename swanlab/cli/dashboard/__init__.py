@@ -7,8 +7,11 @@
 
 import os
 import socket
+import sys
 
 import click
+
+from swanlab.sdk.internal import pkg
 
 
 def _get_free_port(address: str = "0.0.0.0", default_port: int = 5092) -> int:
@@ -85,14 +88,7 @@ def _get_free_port(address: str = "0.0.0.0", default_port: int = 5092) -> int:
     help="Deprecated: use --log-dir instead.",
     hidden=True,
 )
-@click.option(
-    "--log-level",
-    default="info",
-    nargs=1,
-    type=click.Choice(["debug", "info", "warning", "error", "critical"]),
-    help="The level of log, default by info.",
-)
-def watch(path: str, host: str, port: int, log_dir: str, logdir: str, log_level: str):
+def watch(path: str, host: str, port: int, log_dir: str, logdir: str):
     """Run this command to turn on the SwanLab dashboard service."""
     # logdir 兼容旧参数（向后兼容）
     if logdir is not None:
@@ -111,3 +107,51 @@ def watch(path: str, host: str, port: int, log_dir: str, logdir: str, log_level:
 
     if port is None:
         port = _get_free_port()
+
+    try:
+        # noinspection PyPackageRequirements
+        from swanboard import SwanBoardRun
+        from swanboard.utils import get_swanlog_dir
+    except ModuleNotFoundError:
+        raise
+        click.echo("Please install the swanboard package: `pip install swanlab[dashboard]`")
+        return sys.exit(1)
+    # ----- 校验path，path如果被输入，已经由上层校验已存在，可读，是一个文件夹 -----
+    if logdir is not None:
+        pkg.console.warning(
+            "The option `--logdir` will be deprecated in the future, "
+            "you can just use `swanlab watch [PATH]` to specify the path."
+        )
+    # logdir 覆盖 path，接下来统一处理path而不再管logdir
+    path = logdir if logdir is not None else path
+    if path is not None:
+        path = os.path.abspath(path)
+        os.environ["SWANLAB_LOG_DIR"] = path
+    # 为None时从环境变量中获取
+    try:
+        path = get_swanlog_dir()
+        # 产品经理要求无论日志文件夹是否存在都不报错 🤡 ，给用户以开启web服务的“爽感”
+        # if not os.path.exists(path):
+        #     raise FileNotFoundError
+    except ValueError as e:
+        click.BadParameter(str(e))
+        return sys.exit(3)
+    except NotADirectoryError:
+        click.BadParameter("SWANLAB_LOG_DIR must be a directory")
+        return sys.exit(4)
+    except FileNotFoundError:
+        click.BadParameter(f"The log folder `{path}` was not found")
+        return sys.exit(5)
+    # ----- 校验host和port -----
+    try:
+        SwanBoardRun.is_valid_port(port)
+        SwanBoardRun.is_valid_ip(host)
+    except ValueError as e:
+        click.BadParameter(str(e))
+        return sys.exit(6)
+    # ---- 启动服务 ----
+    SwanBoardRun.run(
+        path=path,
+        host=host,
+        port=port,
+    )
