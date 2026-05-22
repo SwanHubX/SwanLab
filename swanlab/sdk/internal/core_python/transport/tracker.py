@@ -32,7 +32,7 @@ class _RateTracker:
             return
         now = time.monotonic()
         self.pending_delta += delta
-        
+
         if self.last_advance_time is None:
             self.last_advance_time = now
             return
