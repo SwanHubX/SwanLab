@@ -128,7 +128,6 @@ def watch(path: str, host: str, port: int, log_dir: str, logdir: str):
         from swanboard import SwanBoardRun
         from swanboard.utils import get_swanlog_dir
     except ModuleNotFoundError:
-        raise
         click.echo("Please install the swanboard package: `pip install swanlab[dashboard]`")
         return sys.exit(1)
     # ----- 校验path，path如果被输入，已经由上层校验已存在，可读，是一个文件夹 -----
