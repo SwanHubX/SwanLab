@@ -132,10 +132,14 @@ def ping(host: Optional[str]):
     async def check_probe():
         nonlocal check_probe_result
 
-        # probe 被设计为，如果 core 不可访问，依旧采集信息但不上报，我们可以通过对应的rpc函数拿到 probe 采集的环境信息
-        probe = impl.create_probe()
-        probe.deliver_probe_start(DeliverProbeStartRequest(probe_settings=settings.to_probe_proto()))
-        check_probe_result = probe.get_metadata_snapshot()
+        def request_probe() -> GetMetadataSnapshotResponse:
+            # probe 被设计为，如果 core 不可访问，依旧采集信息但不上报，
+            # 我们可以通过对应的 rpc 函数拿到 probe 采集的环境信息。
+            probe = impl.create_probe()
+            probe.deliver_probe_start(DeliverProbeStartRequest(probe_settings=settings.to_probe_proto()))
+            return probe.get_metadata_snapshot()
+
+        check_probe_result = await asyncio.to_thread(request_probe)
 
     # 3. 并行执行服务器检查和probe检查，减少等待时间
     async def main():

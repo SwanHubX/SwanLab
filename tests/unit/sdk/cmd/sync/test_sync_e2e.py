@@ -194,7 +194,7 @@ def test_e2e_sync_uploads_records_from_generated_swanlab_file(monkeypatch):
         stopped.append((username, project, experiment_id, state, finished_at))
 
     monkeypatch.setattr("swanlab.sdk.cmd.sync.client.exists", lambda: True)
-    monkeypatch.setattr("swanlab.sdk.cmd.sync._create_core_sync", lambda: core)
+    monkeypatch.setattr("swanlab.sdk.cmd.sync.impl.create_core_sync", lambda: core)
     monkeypatch.setattr(
         "swanlab.sdk.internal.core_python.sync.prepare_experiment_start", lambda record: make_prepare_result()
     )
@@ -236,7 +236,7 @@ def test_e2e_sync_skips_records_already_in_remote_summary(monkeypatch):
         return transport
 
     monkeypatch.setattr("swanlab.sdk.cmd.sync.client.exists", lambda: True)
-    monkeypatch.setattr("swanlab.sdk.cmd.sync._create_core_sync", lambda: core)
+    monkeypatch.setattr("swanlab.sdk.cmd.sync.impl.create_core_sync", lambda: core)
     monkeypatch.setattr(
         "swanlab.sdk.internal.core_python.sync.prepare_experiment_start",
         lambda record: make_prepare_result(new_experiment=False),
@@ -286,7 +286,7 @@ def test_e2e_sync_stops_uploading_after_corrupted_record(tmp_path: Path, monkeyp
         return transport
 
     monkeypatch.setattr("swanlab.sdk.cmd.sync.client.exists", lambda: True)
-    monkeypatch.setattr("swanlab.sdk.cmd.sync._create_core_sync", lambda: core)
+    monkeypatch.setattr("swanlab.sdk.cmd.sync.impl.create_core_sync", lambda: core)
     monkeypatch.setattr(
         "swanlab.sdk.internal.core_python.sync.prepare_experiment_start", lambda record: make_prepare_result()
     )
@@ -323,7 +323,7 @@ def test_e2e_sync_marks_missing_finish_record_as_crashed(tmp_path: Path, monkeyp
         stopped.append((username, project, experiment_id, state, finished_at))
 
     monkeypatch.setattr("swanlab.sdk.cmd.sync.client.exists", lambda: True)
-    monkeypatch.setattr("swanlab.sdk.cmd.sync._create_core_sync", lambda: core)
+    monkeypatch.setattr("swanlab.sdk.cmd.sync.impl.create_core_sync", lambda: core)
     monkeypatch.setattr(
         "swanlab.sdk.internal.core_python.sync.prepare_experiment_start", lambda record: make_prepare_result()
     )
@@ -359,7 +359,7 @@ def test_e2e_sync_fails_with_legacy_version_file(tmp_path: Path, monkeypatch):
     core = CoreSyncPython()
 
     monkeypatch.setattr("swanlab.sdk.cmd.sync.client.exists", lambda: True)
-    monkeypatch.setattr("swanlab.sdk.cmd.sync._create_core_sync", lambda: core)
+    monkeypatch.setattr("swanlab.sdk.cmd.sync.impl.create_core_sync", lambda: core)
 
     with pytest.raises(RuntimeError, match="version"):
         sync_cmd.sync(
