@@ -198,20 +198,18 @@ def upload_saves(
     :param tracker: 可选的进度追踪器，非 None 时自动汇报字节级进度和完成事件。
     """
 
-    @safe.decorator(message="Failed to upload save file, skipping")
-    def upload_one(resource: UploadResource) -> bool:
+    def upload_one(resource: UploadResource) -> Optional[bool]:
         file_key = resource.get("tracker_key")
         size = resource.get("size")
-        try:
+        with safe.block(
+            message="Failed to upload save file, skipping", on_error=lambda _: _reset_tracked_file(tracker, file_key)
+        ):
             with open(resource["source_path"], "rb") as f:
                 _put_with_progress(
                     session, resource["url"], f, file_key, size, tracker, content_type=resource["content_type"]
                 )
             _finish_tracked_file(tracker, file_key)
             return True
-        except Exception:
-            _reset_tracked_file(tracker, file_key)
-            raise
 
     uploaded: set[str] = set()
     with SafeThreadPoolExecutor(max_workers=8) as executor:

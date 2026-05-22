@@ -38,7 +38,7 @@ class Transport:
         self,
         ctx: CoreContext,
         tracker: Optional[UploadTracker] = None,
-        sender: Optional[Any] = None,
+        sender: Optional[HttpRecordSender] = None,
         auto_start: bool = True,
     ):
         self._ctx = ctx

@@ -205,19 +205,16 @@ class HttpRecordSender:
                     if not local_path.is_file():
                         continue
 
-                    try:
+                    with safe.block(message="Failed to process media file, skipping"):
                         size = get_buffer_size(local_path)
-                    except Exception:
-                        continue
-
-                    remote_path_str = remote_path.as_posix()
-                    tracker_key = f"{remote_path_str}:{size}"
-                    self._track_file(tracker_key, local_path.as_posix(), size)
-                    record_paths.append(remote_path_str)
-                    paths.append(remote_path_str)
-                    buffers.append(local_path)
-                    if media.caption:
-                        metric_chunk["more"].append({"caption": media.caption})
+                        remote_path_str = remote_path.as_posix()
+                        tracker_key = f"{remote_path_str}:{size}"
+                        self._track_file(tracker_key, local_path.as_posix(), size)
+                        record_paths.append(remote_path_str)
+                        paths.append(remote_path_str)
+                        buffers.append(local_path)
+                        if media.caption:
+                            metric_chunk["more"].append({"caption": media.caption})
                 if len(record_paths) > 0:
                     metric_chunk["data"] = record_paths
                     metrics.append(metric_chunk)
