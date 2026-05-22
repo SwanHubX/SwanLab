@@ -30,7 +30,7 @@ UploadColumn = TypedDict(
         "error": NotRequired[Dict[str, Any]],
         "sectionName": NotRequired[str],
         "sectionType": NotRequired[Literal["PUBLIC", "SYSTEM"]],
-        "yRange": NotRequired[Tuple[float, float]],
+        "yRange": NotRequired[Tuple[Union[float, None], Union[float, None]]],
         "chartName": NotRequired[str],
         "chartIndex": NotRequired[str],
         "metricName": NotRequired[str],

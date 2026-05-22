@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, mock_open, patch
 import pytest
 
 from swanlab.sdk.internal.probe_python.hardware_vendor.cpu import CPU
-from swanlab.sdk.typings.probe_python import CPUSnapshot, PlatformSlug, SystemShim
+from swanlab.sdk.internal.probe_python.typings import CPUSnapshot, PlatformSlug, SystemShim
 
 
 class TestCPUGet:
@@ -34,6 +34,7 @@ class TestCPUGet:
             result = CPU.get()
 
         assert isinstance(result, CPUSnapshot)
+        assert result is not None
         assert result.brand == "Intel Core i7-9700K"
         assert result.logical_count == 8
         assert result.physical_count == 4
@@ -86,6 +87,7 @@ class TestCPUGet:
             result = CPU.get()
 
         assert isinstance(result, CPUSnapshot)
+        assert result is not None
         assert result.physical_count == 6
         assert result.logical_count == 8
 
@@ -120,6 +122,7 @@ class TestCPUGet:
             result = CPU.get()
 
         assert isinstance(result, CPUSnapshot)
+        assert result is not None
         assert result.physical_count == 8
         assert result.logical_count == 16
 

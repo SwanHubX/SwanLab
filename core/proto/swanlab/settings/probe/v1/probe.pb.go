@@ -23,9 +23,9 @@ const (
 
 type ProbeSettings struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
-	RunId            string                 `protobuf:"bytes,1,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
-	RunDir           string                 `protobuf:"bytes,2,opt,name=run_dir,json=runDir,proto3" json:"run_dir,omitempty"`
-	GlobalSystemStep int64                  `protobuf:"varint,3,opt,name=global_system_step,json=globalSystemStep,proto3" json:"global_system_step,omitempty"`
+	RunId            *string                `protobuf:"bytes,1,opt,name=run_id,json=runId,proto3,oneof" json:"run_id,omitempty"`                                     // probe 侧需要校验 run_id 是否存在，不存在拒绝上报
+	RunDir           *string                `protobuf:"bytes,2,opt,name=run_dir,json=runDir,proto3,oneof" json:"run_dir,omitempty"`                                  // probe 侧需要校验 run_dir 是否存在，不存在拒绝上报
+	GlobalSystemStep *int64                 `protobuf:"varint,3,opt,name=global_system_step,json=globalSystemStep,proto3,oneof" json:"global_system_step,omitempty"` // probe 侧需要校验 global_system_step 是否存在，不存在拒绝上报
 	Hardware         bool                   `protobuf:"varint,4,opt,name=hardware,proto3" json:"hardware,omitempty"`
 	Runtime          bool                   `protobuf:"varint,5,opt,name=runtime,proto3" json:"runtime,omitempty"`
 	Requirements     bool                   `protobuf:"varint,6,opt,name=requirements,proto3" json:"requirements,omitempty"`
@@ -70,22 +70,22 @@ func (*ProbeSettings) Descriptor() ([]byte, []int) {
 }
 
 func (x *ProbeSettings) GetRunId() string {
-	if x != nil {
-		return x.RunId
+	if x != nil && x.RunId != nil {
+		return *x.RunId
 	}
 	return ""
 }
 
 func (x *ProbeSettings) GetRunDir() string {
-	if x != nil {
-		return x.RunDir
+	if x != nil && x.RunDir != nil {
+		return *x.RunDir
 	}
 	return ""
 }
 
 func (x *ProbeSettings) GetGlobalSystemStep() int64 {
-	if x != nil {
-		return x.GlobalSystemStep
+	if x != nil && x.GlobalSystemStep != nil {
+		return *x.GlobalSystemStep
 	}
 	return 0
 }
@@ -157,11 +157,11 @@ var File_swanlab_settings_probe_v1_probe_proto protoreflect.FileDescriptor
 
 const file_swanlab_settings_probe_v1_probe_proto_rawDesc = "" +
 	"\n" +
-	"%swanlab/settings/probe/v1/probe.proto\x12\x19swanlab.settings.probe.v1\"\xf8\x02\n" +
-	"\rProbeSettings\x12\x15\n" +
-	"\x06run_id\x18\x01 \x01(\tR\x05runId\x12\x17\n" +
-	"\arun_dir\x18\x02 \x01(\tR\x06runDir\x12,\n" +
-	"\x12global_system_step\x18\x03 \x01(\x03R\x10globalSystemStep\x12\x1a\n" +
+	"%swanlab/settings/probe/v1/probe.proto\x12\x19swanlab.settings.probe.v1\"\xb5\x03\n" +
+	"\rProbeSettings\x12\x1a\n" +
+	"\x06run_id\x18\x01 \x01(\tH\x00R\x05runId\x88\x01\x01\x12\x1c\n" +
+	"\arun_dir\x18\x02 \x01(\tH\x01R\x06runDir\x88\x01\x01\x121\n" +
+	"\x12global_system_step\x18\x03 \x01(\x03H\x02R\x10globalSystemStep\x88\x01\x01\x12\x1a\n" +
 	"\bhardware\x18\x04 \x01(\bR\bhardware\x12\x18\n" +
 	"\aruntime\x18\x05 \x01(\bR\aruntime\x12\"\n" +
 	"\frequirements\x18\x06 \x01(\bR\frequirements\x12\x14\n" +
@@ -171,7 +171,11 @@ const file_swanlab_settings_probe_v1_probe_proto_rawDesc = "" +
 	"\amonitor\x18\n" +
 	" \x01(\bR\amonitor\x12)\n" +
 	"\x10monitor_interval\x18\v \x01(\x05R\x0fmonitorInterval\x12(\n" +
-	"\x10monitor_disk_dir\x18\f \x01(\tR\x0emonitorDiskDirBRZPgithub.com/swanhubx/swanlab/core/proto/swanlab/settings/probe/v1;settingsprobev1b\x06proto3"
+	"\x10monitor_disk_dir\x18\f \x01(\tR\x0emonitorDiskDirB\t\n" +
+	"\a_run_idB\n" +
+	"\n" +
+	"\b_run_dirB\x15\n" +
+	"\x13_global_system_stepBRZPgithub.com/swanhubx/swanlab/core/proto/swanlab/settings/probe/v1;settingsprobev1b\x06proto3"
 
 var (
 	file_swanlab_settings_probe_v1_probe_proto_rawDescOnce sync.Once
@@ -202,6 +206,7 @@ func file_swanlab_settings_probe_v1_probe_proto_init() {
 	if File_swanlab_settings_probe_v1_probe_proto != nil {
 		return
 	}
+	file_swanlab_settings_probe_v1_probe_proto_msgTypes[0].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

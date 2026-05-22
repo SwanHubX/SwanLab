@@ -23,8 +23,7 @@ const (
 )
 
 // 运行开始时采集一次的主机与环境元数据引用（swanlab-metadata.json）。
-// 由于不同机器的硬件和软件环境差异极大，难以保证强类型安全。
-// 路径引用约定为 "files/swanlab-metadata.json"，使用json解析。
+// 元数据结构定义见 swanlab/env/v1/metadata.proto；文件路径约定为 "files/swanlab-metadata.json"。
 type MetadataRecord struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Timestamp     *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=timestamp,proto3" json:"timestamp,omitempty"`

@@ -272,8 +272,8 @@ func (SectionType) EnumDescriptor() ([]byte, []int) {
 // YRange Y 轴显示范围
 type YRange struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Min           float64                `protobuf:"fixed64,1,opt,name=min,proto3" json:"min,omitempty"`
-	Max           float64                `protobuf:"fixed64,2,opt,name=max,proto3" json:"max,omitempty"`
+	Min           *float64               `protobuf:"fixed64,1,opt,name=min,proto3,oneof" json:"min,omitempty"`
+	Max           *float64               `protobuf:"fixed64,2,opt,name=max,proto3,oneof" json:"max,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -309,15 +309,15 @@ func (*YRange) Descriptor() ([]byte, []int) {
 }
 
 func (x *YRange) GetMin() float64 {
-	if x != nil {
-		return x.Min
+	if x != nil && x.Min != nil {
+		return *x.Min
 	}
 	return 0
 }
 
 func (x *YRange) GetMax() float64 {
-	if x != nil {
-		return x.Max
+	if x != nil && x.Max != nil {
+		return *x.Max
 	}
 	return 0
 }
@@ -535,10 +535,12 @@ var File_swanlab_metric_column_v1_column_proto protoreflect.FileDescriptor
 
 const file_swanlab_metric_column_v1_column_proto_rawDesc = "" +
 	"\n" +
-	"%swanlab/metric/column/v1/column.proto\x12\x18swanlab.metric.column.v1\",\n" +
-	"\x06YRange\x12\x10\n" +
-	"\x03min\x18\x01 \x01(\x01R\x03min\x12\x10\n" +
-	"\x03max\x18\x02 \x01(\x01R\x03max\"8\n" +
+	"%swanlab/metric/column/v1/column.proto\x12\x18swanlab.metric.column.v1\"F\n" +
+	"\x06YRange\x12\x15\n" +
+	"\x03min\x18\x01 \x01(\x01H\x00R\x03min\x88\x01\x01\x12\x15\n" +
+	"\x03max\x18\x02 \x01(\x01H\x01R\x03max\x88\x01\x01B\x06\n" +
+	"\x04_minB\x06\n" +
+	"\x04_max\"8\n" +
 	"\fMetricColors\x12\x14\n" +
 	"\x05light\x18\x01 \x01(\tR\x05light\x12\x12\n" +
 	"\x04dark\x18\x02 \x01(\tR\x04dark\"\xf9\x04\n" +
@@ -640,6 +642,7 @@ func file_swanlab_metric_column_v1_column_proto_init() {
 	if File_swanlab_metric_column_v1_column_proto != nil {
 		return
 	}
+	file_swanlab_metric_column_v1_column_proto_msgTypes[0].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

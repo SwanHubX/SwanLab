@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n%swanlab/settings/probe/v1/probe.proto\x12\x19swanlab.settings.probe.v1\"\xf7\x01\n\rProbeSettings\x12\x0e\n\x06run_id\x18\x01 \x01(\t\x12\x0f\n\x07run_dir\x18\x02 \x01(\t\x12\x1a\n\x12global_system_step\x18\x03 \x01(\x03\x12\x10\n\x08hardware\x18\x04 \x01(\x08\x12\x0f\n\x07runtime\x18\x05 \x01(\x08\x12\x14\n\x0crequirements\x18\x06 \x01(\x08\x12\r\n\x05\x63onda\x18\x07 \x01(\x08\x12\x0b\n\x03git\x18\x08 \x01(\x08\x12\x0f\n\x07swanlab\x18\t \x01(\x08\x12\x0f\n\x07monitor\x18\n \x01(\x08\x12\x18\n\x10monitor_interval\x18\x0b \x01(\x05\x12\x18\n\x10monitor_disk_dir\x18\x0c \x01(\tBRZPgithub.com/swanhubx/swanlab/core/proto/swanlab/settings/probe/v1;settingsprobev1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n%swanlab/settings/probe/v1/probe.proto\x12\x19swanlab.settings.probe.v1\"\xb4\x02\n\rProbeSettings\x12\x13\n\x06run_id\x18\x01 \x01(\tH\x00\x88\x01\x01\x12\x14\n\x07run_dir\x18\x02 \x01(\tH\x01\x88\x01\x01\x12\x1f\n\x12global_system_step\x18\x03 \x01(\x03H\x02\x88\x01\x01\x12\x10\n\x08hardware\x18\x04 \x01(\x08\x12\x0f\n\x07runtime\x18\x05 \x01(\x08\x12\x14\n\x0crequirements\x18\x06 \x01(\x08\x12\r\n\x05\x63onda\x18\x07 \x01(\x08\x12\x0b\n\x03git\x18\x08 \x01(\x08\x12\x0f\n\x07swanlab\x18\t \x01(\x08\x12\x0f\n\x07monitor\x18\n \x01(\x08\x12\x18\n\x10monitor_interval\x18\x0b \x01(\x05\x12\x18\n\x10monitor_disk_dir\x18\x0c \x01(\tB\t\n\x07_run_idB\n\n\x08_run_dirB\x15\n\x13_global_system_stepBRZPgithub.com/swanhubx/swanlab/core/proto/swanlab/settings/probe/v1;settingsprobev1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -33,5 +33,5 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'ZPgithub.com/swanhubx/swanlab/core/proto/swanlab/settings/probe/v1;settingsprobev1'
   _globals['_PROBESETTINGS']._serialized_start=69
-  _globals['_PROBESETTINGS']._serialized_end=316
+  _globals['_PROBESETTINGS']._serialized_end=377
 # @@protoc_insertion_point(module_scope)

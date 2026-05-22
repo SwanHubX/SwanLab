@@ -8,7 +8,7 @@
 from swanlab.sdk.internal.pkg import safe
 from swanlab.sdk.internal.pkg.helper import get_swanlab_version
 from swanlab.sdk.internal.probe_python.context import ProbeContext
-from swanlab.sdk.typings.probe_python import SwanLabSnapshot
+from swanlab.sdk.internal.probe_python.typings import SwanLabSnapshot
 
 
 @safe.decorator(level="debug", message="Failed to get swanlab environment")

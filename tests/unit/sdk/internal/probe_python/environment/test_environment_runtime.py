@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from swanlab.sdk.internal.probe_python.environment import runtime
-from swanlab.sdk.typings.probe_python import RuntimeSnapshot
+from swanlab.sdk.internal.probe_python.typings import RuntimeSnapshot
 
 
 class TestGetOs:

@@ -3,5 +3,7 @@ repos:
     rev: v0.15.13
     hooks:
       - id: ruff-check
-        args: [--fix]
+        # Avoid auto-fixing during pre-commit: when staged and unstaged changes
+        # touch the same file, pre-commit's stash/restore flow can conflict.
+        # args: [--fix]
       - id: ruff-format

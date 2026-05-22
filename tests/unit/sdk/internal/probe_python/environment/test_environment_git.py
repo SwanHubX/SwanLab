@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from swanlab.sdk.internal.probe_python.environment import git
-from swanlab.sdk.typings.probe_python import GitSnapshot
+from swanlab.sdk.internal.probe_python.typings import GitSnapshot
 
 
 class TestParseGitUrl:

@@ -122,7 +122,7 @@ class Settings(BaseSettings):
     mode: ModeType = "online"
     """
     SwanLab Run mode.
-    
+
     * `disabled`: Disable SwanLab.
     * `local`: Run SwanLab locally.
     * `online`: Run SwanLab syncing to cloud.
@@ -140,7 +140,7 @@ class Settings(BaseSettings):
     log_dir: Path = Field(default_factory=log_dir_factory, validate_default=True)
     """
     Directory for SwanLab logs.
-    Semantically, this is just a path representation and the directory may NOT exist when loaded. 
+    Semantically, this is just a path representation and the directory may NOT exist when loaded.
     The actual folder creation is deferred to the SDK initialization phase to avoid side effects.
     """
 
@@ -321,11 +321,13 @@ class Settings(BaseSettings):
             save_batch=self.core.save_batch,
         )
 
-    def to_probe_proto(self, run_id: str, run_dir: Path, global_system_step: int) -> ProbeSettingsPb:
-        return ProbeSettingsPb(
-            run_id=run_id,
-            run_dir=str(run_dir.absolute()),
-            global_system_step=global_system_step,
+    def to_probe_proto(
+        self,
+        run_id: Optional[str] = None,
+        run_dir: Optional[Path] = None,
+        global_system_step: Optional[int] = None,
+    ) -> ProbeSettingsPb:
+        ps = ProbeSettingsPb(
             hardware=self.probe.hardware,
             runtime=self.probe.runtime,
             requirements=self.probe.requirements,
@@ -336,6 +338,13 @@ class Settings(BaseSettings):
             monitor_interval=self.probe.monitor_interval,
             monitor_disk_dir=str(self.probe.monitor_disk_dir.absolute()),
         )
+        if run_id is not None:
+            ps.run_id = run_id
+        if run_dir is not None:
+            ps.run_dir = str(run_dir.absolute())
+        if global_system_step is not None:
+            ps.global_system_step = global_system_step
+        return ps
 
     @classmethod
     def settings_customise_sources(

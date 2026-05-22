@@ -58,7 +58,7 @@ def test_sync_logs_in_when_api_key_provided(tmp_path, monkeypatch):
 
     monkeypatch.setattr("swanlab.sdk.cmd.sync.client.exists", client_exists)
     monkeypatch.setattr("swanlab.sdk.cmd.sync.login_raw", login_raw)
-    monkeypatch.setattr("swanlab.sdk.cmd.sync._create_core_sync", lambda: FakeCoreSync())
+    monkeypatch.setattr("swanlab.sdk.cmd.sync.impl.create_core_sync", lambda: FakeCoreSync())
     monkeypatch.setattr("swanlab.sdk.cmd.sync._deliver_sync_start", lambda *args, **kwargs: None)
 
     sync(tmp_path, settings=Settings(api_key="test-api-key", api_host="https://api.example.com"))
@@ -82,7 +82,7 @@ def test_sync_raises_when_deliver_sync_start_fails(tmp_path, monkeypatch):
 
     core = FakeCoreSync()
     monkeypatch.setattr("swanlab.sdk.cmd.sync.client.exists", lambda: True)
-    monkeypatch.setattr("swanlab.sdk.cmd.sync._create_core_sync", lambda: core)
+    monkeypatch.setattr("swanlab.sdk.cmd.sync.impl.create_core_sync", lambda: core)
 
     with pytest.raises(RuntimeError, match="start failed"):
         sync(tmp_path, settings=Settings())
@@ -106,7 +106,7 @@ def test_sync_raises_when_deliver_sync_flush_fails(tmp_path, monkeypatch):
 
     core = FakeCoreSync()
     monkeypatch.setattr("swanlab.sdk.cmd.sync.client.exists", lambda: True)
-    monkeypatch.setattr("swanlab.sdk.cmd.sync._create_core_sync", lambda: core)
+    monkeypatch.setattr("swanlab.sdk.cmd.sync.impl.create_core_sync", lambda: core)
 
     with pytest.raises(RuntimeError, match="flush failed"):
         sync(tmp_path, settings=Settings())

@@ -20,8 +20,9 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ProbeService_DeliverProbeStart_FullMethodName  = "/swanlab.grpc.probe.v1.ProbeService/DeliverProbeStart"
-	ProbeService_DeliverProbeFinish_FullMethodName = "/swanlab.grpc.probe.v1.ProbeService/DeliverProbeFinish"
+	ProbeService_DeliverProbeStart_FullMethodName   = "/swanlab.grpc.probe.v1.ProbeService/DeliverProbeStart"
+	ProbeService_GetMetadataSnapshot_FullMethodName = "/swanlab.grpc.probe.v1.ProbeService/GetMetadataSnapshot"
+	ProbeService_DeliverProbeFinish_FullMethodName  = "/swanlab.grpc.probe.v1.ProbeService/DeliverProbeFinish"
 )
 
 // ProbeServiceClient is the client API for ProbeService service.
@@ -32,6 +33,8 @@ const (
 type ProbeServiceClient interface {
 	// DeliverProbeStart 接收 ProbeSettings，启动硬件信息采集
 	DeliverProbeStart(ctx context.Context, in *DeliverProbeStartRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// GetMetadataSnapshot 获取当前环境元数据快照
+	GetMetadataSnapshot(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetMetadataSnapshotResponse, error)
 	// DeliverProbeFinish 结束硬件信息采集
 	DeliverProbeFinish(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
@@ -48,6 +51,16 @@ func (c *probeServiceClient) DeliverProbeStart(ctx context.Context, in *DeliverP
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, ProbeService_DeliverProbeStart_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *probeServiceClient) GetMetadataSnapshot(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetMetadataSnapshotResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetMetadataSnapshotResponse)
+	err := c.cc.Invoke(ctx, ProbeService_GetMetadataSnapshot_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -72,6 +85,8 @@ func (c *probeServiceClient) DeliverProbeFinish(ctx context.Context, in *emptypb
 type ProbeServiceServer interface {
 	// DeliverProbeStart 接收 ProbeSettings，启动硬件信息采集
 	DeliverProbeStart(context.Context, *DeliverProbeStartRequest) (*emptypb.Empty, error)
+	// GetMetadataSnapshot 获取当前环境元数据快照
+	GetMetadataSnapshot(context.Context, *emptypb.Empty) (*GetMetadataSnapshotResponse, error)
 	// DeliverProbeFinish 结束硬件信息采集
 	DeliverProbeFinish(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	mustEmbedUnimplementedProbeServiceServer()
@@ -86,6 +101,9 @@ type UnimplementedProbeServiceServer struct{}
 
 func (UnimplementedProbeServiceServer) DeliverProbeStart(context.Context, *DeliverProbeStartRequest) (*emptypb.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeliverProbeStart not implemented")
+}
+func (UnimplementedProbeServiceServer) GetMetadataSnapshot(context.Context, *emptypb.Empty) (*GetMetadataSnapshotResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetMetadataSnapshot not implemented")
 }
 func (UnimplementedProbeServiceServer) DeliverProbeFinish(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeliverProbeFinish not implemented")
@@ -129,6 +147,24 @@ func _ProbeService_DeliverProbeStart_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ProbeService_GetMetadataSnapshot_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ProbeServiceServer).GetMetadataSnapshot(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ProbeService_GetMetadataSnapshot_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ProbeServiceServer).GetMetadataSnapshot(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _ProbeService_DeliverProbeFinish_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
@@ -157,6 +193,10 @@ var ProbeService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeliverProbeStart",
 			Handler:    _ProbeService_DeliverProbeStart_Handler,
+		},
+		{
+			MethodName: "GetMetadataSnapshot",
+			Handler:    _ProbeService_GetMetadataSnapshot_Handler,
 		},
 		{
 			MethodName: "DeliverProbeFinish",

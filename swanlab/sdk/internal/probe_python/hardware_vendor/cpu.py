@@ -14,8 +14,8 @@ from typing import Optional, Tuple
 import psutil
 
 from swanlab.sdk.internal.pkg import safe
-from swanlab.sdk.typings.probe_python import CPUSnapshot, SystemScalar, SystemScalars, SystemShim
-from swanlab.sdk.typings.probe_python.hardware_vendor import CpuProtocol
+from swanlab.sdk.internal.probe_python.protocol import CpuProtocol
+from swanlab.sdk.internal.probe_python.typings import CPUSnapshot, SystemScalar, SystemScalars, SystemShim
 from swanlab.utils import generate_color
 
 
@@ -41,6 +41,8 @@ class CPU(CpuProtocol):
             key="cpu.pct",
             name="CPU Utilization (%)",
             chart_name="CPU Utilization (%)",
+            y_min=0,
+            y_max=100,
             color=generate_color(0),
         )
         scalars.append(usage)
@@ -50,6 +52,7 @@ class CPU(CpuProtocol):
             key="cpu.thds",
             name="Process CPU Threads",
             chart_name="Process CPU Threads",
+            y_min=0,
             color=generate_color(0),
         )
         scalars.append(threads)

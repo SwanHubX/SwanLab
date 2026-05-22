@@ -448,7 +448,10 @@ def encode_column(record: ColumnRecord) -> Optional[UploadColumn]:
     # yRange: 数值列的 y 轴范围
     if record.column_type == ColumnType.COLUMN_TYPE_SCALAR:
         if record.HasField("y_range"):
-            column["yRange"] = (record.y_range.min, record.y_range.max)
+            y_range = record.y_range
+            min_value = y_range.min if y_range.HasField("min") else None
+            max_value = y_range.max if y_range.HasField("max") else None
+            column["yRange"] = (min_value, max_value)
     # chartName: 图表名称
     if record.chart_name:
         column["chartName"] = record.chart_name

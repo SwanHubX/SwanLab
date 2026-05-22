@@ -27,7 +27,7 @@ from .cmd.run import (
     save,
 )
 from .cmd.sync import sync
-from .internal import pkg
+from .internal import impl, pkg
 from .internal.run import Run, clear_run, get_run, has_run, set_run
 from .internal.run.transforms import Audio, ECharts, Image, Molecule, Object3D, Text, Video, echarts, plot
 from .internal.settings import Settings, settings
@@ -62,6 +62,7 @@ __all__ = [
     "config",
     # utils
     "pkg",
+    "impl",
     "settings",
     # data
     "Audio",
