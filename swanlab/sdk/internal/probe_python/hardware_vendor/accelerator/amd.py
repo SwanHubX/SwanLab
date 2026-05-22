@@ -42,6 +42,12 @@ class AMDGPU(AcceleratorProtocol):
         amd_config = next(a for a in shim.accelerators if a.vendor == "rocm")
         self._indices = amd_config.device_indices
         self._system = platform.system()
+        self._hwmon_paths: Dict[int, Optional[str]] = {}
+        if self._system == "Linux":
+            for idx in self._indices:
+                base = f"/sys/class/drm/card{idx}/device"
+                hwmons = glob.glob(os.path.join(base, "hwmon", "hwmon*"))
+                self._hwmon_paths[idx] = hwmons[0] if hwmons else None
 
     @classmethod
     @safe.decorator(level="debug", message="Failed to initialize AMD monitor")
@@ -151,9 +157,8 @@ class AMDGPU(AcceleratorProtocol):
             temp_val = math.nan
             power_val = math.nan
             with safe.block(message=f"Failed to collect AMD GPU {idx} temperature/power", level="debug"):
-                hwmons = glob.glob(os.path.join(base, "hwmon", "hwmon*"))
-                if hwmons:
-                    hwmon_path = hwmons[0]
+                hwmon_path = self._hwmon_paths.get(idx)
+                if hwmon_path is not None:
                     if os.path.exists(os.path.join(hwmon_path, "temp1_input")):
                         with open(os.path.join(hwmon_path, "temp1_input"), "r") as f:
                             temp_val = float(f.read().strip()) / 1000.0

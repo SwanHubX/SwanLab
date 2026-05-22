@@ -17,8 +17,7 @@
 import subprocess
 from typing import Optional, Tuple
 
-import pynvml
-
+import swanlab.vendor
 from swanlab.sdk.internal.pkg import console, safe
 from swanlab.sdk.internal.probe_python.protocol import AcceleratorProtocol
 from swanlab.sdk.internal.probe_python.typings import (
@@ -34,6 +33,7 @@ from swanlab.utils import generate_color
 class NvidiaGPU(AcceleratorProtocol):
     def __init__(self, shim: SystemShim):
         super().__init__(shim)
+        pynvml = swanlab.vendor.pynvml
         pynvml.nvmlInit()
         nvidia_config = next(a for a in shim.accelerators if a.vendor == "nvidia")
         self._indices = nvidia_config.device_indices
@@ -47,6 +47,7 @@ class NvidiaGPU(AcceleratorProtocol):
 
     def __del__(self):
         try:
+            pynvml = swanlab.vendor.pynvml
             pynvml.nvmlShutdown()
         except Exception:
             pass
@@ -58,6 +59,7 @@ class NvidiaGPU(AcceleratorProtocol):
         if nvidia_config is None:
             console.debug("No NVIDIA monitor config in shim")
             return None
+        pynvml = swanlab.vendor.pynvml
         try:
             self = cls(shim)
         except pynvml.NVMLError:
@@ -160,6 +162,7 @@ class NvidiaGPU(AcceleratorProtocol):
     @staticmethod
     @safe.decorator(level="debug", message="Failed to get NVIDIA GPU info")
     def get() -> Optional[AcceleratorSnapshot]:
+        pynvml = swanlab.vendor.pynvml
         try:
             pynvml.nvmlInit()
         except pynvml.NVMLError:

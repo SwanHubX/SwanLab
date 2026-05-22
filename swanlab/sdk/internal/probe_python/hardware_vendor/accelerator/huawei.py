@@ -248,9 +248,11 @@ class AscendNPU(AcceleratorProtocol):
         if arch not in ("aarch64", "x86_64"):
             return None
         path = f"/usr/local/Ascend/ascend-toolkit/latest/{arch}-linux/ascend_toolkit_install.info"
-        cmd = f"grep -m 1 '^version=' {path} | cut -d'=' -f2"
-        proc = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-        return proc.stdout.strip() if proc.returncode == 0 else None
+        with open(path, "r") as f:
+            for line in f:
+                if line.startswith("version="):
+                    return line.split("=", 1)[1].strip()
+        return None
 
     @staticmethod
     def _map_npu_raw() -> dict:
