@@ -92,7 +92,7 @@ def test_sync_waits_for_progress_before_confirming(tmp_path, monkeypatch):
         return blocking_fn()
 
     monkeypatch.setattr("swanlab.sdk.cmd.sync.client.exists", lambda: True)
-    monkeypatch.setattr("swanlab.sdk.cmd.sync._create_core_sync", lambda: core)
+    monkeypatch.setattr("swanlab.sdk.cmd.sync.impl.create_core_sync", lambda: core)
     monkeypatch.setattr("swanlab.sdk.cmd.sync._deliver_sync_start", lambda *args, **kwargs: None)
     monkeypatch.setattr("swanlab.sdk.cmd.sync.run_with_progress", assert_not_confirmed_then_confirm)
 
@@ -111,15 +111,11 @@ def test_sync_uses_protocol_confirm_directly(tmp_path, monkeypatch):
             self.confirmed = True
             return ConfirmSyncFinishResponse(success=True, message="OK")
 
-    def fail_manual_confirm(_core):
-        raise AssertionError("sync() should use CoreSyncProtocol.confirm_sync_finish() directly")
-
     core = FakeCoreSync()
 
     monkeypatch.setattr("swanlab.sdk.cmd.sync.client.exists", lambda: True)
-    monkeypatch.setattr("swanlab.sdk.cmd.sync._create_core_sync", lambda: core)
+    monkeypatch.setattr("swanlab.sdk.cmd.sync.impl.create_core_sync", lambda: core)
     monkeypatch.setattr("swanlab.sdk.cmd.sync._deliver_sync_start", lambda *args, **kwargs: None)
-    monkeypatch.setattr("swanlab.sdk.cmd.sync._confirm_sync_finish", fail_manual_confirm, raising=False)
     monkeypatch.setattr(
         "swanlab.sdk.cmd.sync.run_with_progress",
         lambda stats_fn, blocking_fn, **kwargs: blocking_fn(),
