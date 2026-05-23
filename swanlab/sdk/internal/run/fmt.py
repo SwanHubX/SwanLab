@@ -244,17 +244,13 @@ def resolve_save_paths(
     glob_str: Union[str, bytes, Path],
     base_path: Optional[Union[str, Path]] = None,
 ) -> Optional[Tuple[Path, Path]]:
-    """Validate and resolve glob and base paths for swanlab.save().
+    """验证并解析`swanlab.save()`中的glob模式与基础路径。
 
-    Resolves the glob pattern and base path against the real filesystem,
-    validates that the resolved glob does not escape the base, and returns
-    the resolved pair. Returns ``None`` if the input is invalid.
+    该函数会基于实际文件系统解析glob模式与基础路径，确保解析后的glob路径不会超出基础路径范围，并返回解析后的路径对。若输入无效则返回`None`。
 
-    :param glob_str: Glob pattern matching files to save.
-    :param base_path: Base directory for relative path resolution.
-        Defaults to cwd when the pattern is relative; for absolute patterns
-        the parent directory is used and a warning is printed.
-    :return: ``(resolved_glob, resolved_base)`` or ``None``.
+    :param glob_str: 用于匹配待保存文件的glob模式。
+    :param base_path: 相对路径解析的基准目录。当模式为相对路径时默认为当前工作目录；若为绝对路径，则使用父目录并打印警告信息。
+    :return: 返回``(解析后的glob路径, 解析后的基准路径)``或``None``。
     """
     if isinstance(glob_str, bytes):
         try:
@@ -282,7 +278,7 @@ def resolve_save_paths(
         console.warning(f"'{glob_str}' is a cloud storage URL and cannot be saved to SwanLab.")
         return None
 
-    try:
+    with safe.block(message="SwanLab failed to resolve save paths. SwanLab will ignore this save."):
         glob_path = Path(glob_str)
         resolved_glob = glob_path.resolve()
 
@@ -299,20 +295,16 @@ def resolve_save_paths(
                 "If you want to preserve a different directory structure, "
                 "explicitly pass 'base_path' to swanlab.save"
             )
-    except (TypeError, ValueError, OSError) as e:
-        console.error(f"Failed to resolve save paths: {e}. SwanLab will ignore this save.")
-        return None
-
-    try:
-        resolved_glob.relative_to(resolved_base)
-    except ValueError:
-        console.error(
-            f"Glob pattern '{glob_str}' resolves to '{resolved_glob}', "
-            f"which is outside the base path '{resolved_base}'."
-        )
-        return None
-
-    return resolved_glob, resolved_base
+        try:
+            resolved_glob.relative_to(resolved_base)
+        except ValueError:
+            console.error(
+                f"Glob pattern '{glob_str}' resolves to '{resolved_glob}', "
+                f"which is outside the base path '{resolved_base}'."
+            )
+            return None
+        return resolved_glob, resolved_base
+    return None
 
 
 def fmt_bytes(n: float) -> str:

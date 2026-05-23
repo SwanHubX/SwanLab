@@ -241,7 +241,9 @@ class TestResolveSavePaths:
                 raise OSError("failed to resolve")
             return original_resolve(path)
 
-        monkeypatch.setattr("swanlab.sdk.internal.run.fmt.console.error", lambda *args: errors.append(args))
+        monkeypatch.setattr(
+            "swanlab.sdk.internal.run.fmt.console.error", lambda *args, **kwargs: errors.append(args or kwargs)
+        )
         monkeypatch.setattr("swanlab.sdk.internal.run.fmt.Path.resolve", raise_on_model_path)
 
         assert fmt.resolve_save_paths("model.pt") is None
