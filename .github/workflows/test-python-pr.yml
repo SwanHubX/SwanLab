@@ -20,6 +20,8 @@ jobs:
           enable-cache: true
       - name: Install dependencies
         run: uv sync --all-extras --group dev
+      - name: Run ruff
+        run: uv run ruff check .
       - name: Run basedpyright
         run: uv run basedpyright
   test:
