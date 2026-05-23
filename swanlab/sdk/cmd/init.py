@@ -503,9 +503,9 @@ def _generate_run_dir_name(
             f"Failed to generate run directory name: max_length ({max_length}) is too small to accommodate prefix and suffix. "
             f"Consider increasing `dir_max_length` (SWANLAB_RUN_DIR_MAX_LENGTH) or specifying a custom `run.dir` (SWANLAB_RUN_DIR)."
         )
-    # run id 最小会被截断为 "a...b" 样式，长度为 5，并且 run id 和 hostname 之间存在一个 "-" 分隔符，所以至少需要 6 个字符的长度才能保证 run id 的完整性
+    # run id 最小会被截断为 "abc...yz" 样式，长度为 7，并且 run id 和 hostname 之间存在一个 "-" 分隔符，所以至少需要 8 个字符的长度才能保证 run id 的完整性
     if hostname is not None:
-        hostname_max_len = min(hostname_max_len, available_length - 5 - 1)
+        hostname_max_len = min(hostname_max_len, available_length - 7 - 1)
     # 3. 开始截断和格式化中间部分的长度，hostname 和 run_id 共享 available_length 的长度，优先保证 hostname 的完整性
     hostname_truncated = False
     if hostname is not None:
