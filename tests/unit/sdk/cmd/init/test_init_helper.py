@@ -469,3 +469,19 @@ class TestEnsureRunDirShared:
         run_dir = ensure_run_dir(tmp_path, "测试" * 100, retry_interval=0.01, dir_max_length=80)
 
         assert len(run_dir.name.encode("utf-8")) <= 80
+
+    def test_empty_hostname_uses_fallback_and_warns(self, tmp_path, monkeypatch):
+        """socket.gethostname() 抛异常时应使用 unknown_hostname 并告警"""
+
+        def _raise_os_error():
+            raise OSError("hostname lookup failed")
+
+        monkeypatch.setattr("swanlab.sdk.cmd.init.socket.gethostname", _raise_os_error)
+        monkeypatch.setattr("swanlab.sdk.cmd.init.fork.current_pid", lambda: 12345)
+        warning = MagicMock()
+        monkeypatch.setattr("swanlab.sdk.cmd.init.console.warning", warning)
+
+        run_dir = ensure_run_dir(tmp_path, "run42", parallel="shared", retry_interval=0.01)
+
+        assert "unknown_hostname" in run_dir.name
+        warning.assert_called_once()

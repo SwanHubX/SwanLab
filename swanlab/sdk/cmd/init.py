@@ -462,10 +462,7 @@ def ensure_run_dir(
 
 
 def _generate_run_dir_name(
-    run_id: str,
-    max_length: int,
-    parallel: ParallelType = "none",
-    hostname_max_len: int = 64,
+    run_id: str, max_length: int, parallel: ParallelType = "none", hostname_max_len: int = 64
 ) -> Tuple[str, bool]:
     """
     生成 run_dir 的目录名，格式为 ``run-{timestamp}-{run_id}``，超长时截断。
@@ -485,7 +482,17 @@ def _generate_run_dir_name(
     hostname: Optional[str] = None
     # 并行模式添加hostname和pid到目录名
     if parallel != "none":
-        hostname = socket.gethostname() or "unknown_hostname"
+        with safe.block(level="debug", message="Failed to get hostname for run directory name, using fallback."):
+            hostname = socket.gethostname() or "unknown_hostname"
+        if not hostname:
+            # 虽然console.warning有可能会造成大量重复日志刷屏，但这种情况确实很罕见，且通常意味着系统环境有问题，
+            # 用户应该被告知这个潜在风险，所以我们选择在这里打warning而不是silent fail
+            console.warning(
+                "Failed to get hostname for run directory name, swanlab will use a fallback name.",
+                "This may cause issues when running multiple processes on the same machine.",
+                "Consider setting a custom run directory name (SWANLAB_RUN_DIR).",
+            )
+            hostname = "unknown_hostname"
         suffix = f"-{fork.current_pid()}"
     # 2. 计算中间部分的可用长度（算上"-"分隔符），并确定 hostname 的最大长度
     reserved_length = len(prefix.encode("utf-8")) + len((suffix or "").encode("utf-8"))
