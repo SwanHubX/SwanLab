@@ -45,7 +45,7 @@ from swanlab.sdk.internal.run.transforms import (
     Video,
     normalize_media_input,
 )
-from swanlab.sdk.typings.run import AsyncLogType, FinishType, ModeType
+from swanlab.sdk.typings.run import AsyncLogType, FinishType, ModeType, SaveType
 from swanlab.sdk.typings.run.column import ScalarXAxisType
 from swanlab.sdk.typings.run.transforms import CaptionsType
 from swanlab.sdk.typings.run.transforms.audio import AudioDatasType, AudioRatesType
@@ -647,7 +647,7 @@ class Run:
     @with_api("run.save()")
     def save(
         self,
-        glob_str: Union[str, bytes],
+        glob_str: Union[str, bytes, Path],
         base_path: Optional[Union[str, Path]] = None,
         policy: Literal["now", "end", "live"] = "live",
     ) -> List[str]:
@@ -663,6 +663,10 @@ class Run:
 
         :return: List of matched file paths (relative to base_path).
         """
+        if not (this_policy := fmt.safe_validate_save_policy(policy)):
+            console.error(f"Invalid save policy: {policy}, allowed values are {get_args(SaveType)}")
+            return []
+
         resolved_paths = fmt.resolve_save_paths(glob_str, base_path)
         if resolved_paths is None:
             return []
@@ -702,7 +706,7 @@ class Run:
             event = FileSaveEvent(
                 source_path=str(source_path),
                 name=str(rel_path),
-                policy=policy,
+                policy=this_policy,
             )
             self._components.emitter.emit(event)
             results.append(str(rel_path))

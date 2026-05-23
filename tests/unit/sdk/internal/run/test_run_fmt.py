@@ -5,6 +5,8 @@
 @description: 测试run工具函数
 """
 
+from pathlib import Path
+
 import pytest
 
 import swanlab.sdk.internal.run.fmt as fmt
@@ -145,3 +147,104 @@ class TestValidateKey:
         fmt.validate_key("  bad_key2  ")
 
         assert len(mock_warning) == 2
+
+
+# ─────────────────────────── save validators ────────────────────────────
+
+
+class TestSaveValidators:
+    """测试 save 相关校验函数"""
+
+    @pytest.mark.parametrize("policy", ["now", "end", "live"])
+    def test_safe_validate_save_policy_accepts_valid_policy(self, policy):
+        assert fmt.safe_validate_save_policy(policy) == policy
+
+    @pytest.mark.parametrize(("policy", "expected"), [("NOW", "now"), ("End", "end"), ("LIVE", "live")])
+    def test_safe_validate_save_policy_normalizes_case(self, policy, expected):
+        assert fmt.safe_validate_save_policy(policy) == expected
+
+    @pytest.mark.parametrize("policy", ["invalid", "", None, 1])
+    def test_safe_validate_save_policy_rejects_invalid_policy(self, policy):
+        assert fmt.safe_validate_save_policy(policy) is None
+
+    def test_safe_validate_save_policy_rejects_non_string_before_comparison(self):
+        class EqualToNow:
+            def __eq__(self, other):
+                return other == "now"
+
+        assert fmt.safe_validate_save_policy(EqualToNow()) is None
+
+
+class TestResolveSavePaths:
+    """测试 save 路径解析与校验"""
+
+    def test_resolve_relative_glob_uses_cwd_as_base(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+
+        resolved = fmt.resolve_save_paths("model.pt")
+
+        assert resolved == ((tmp_path / "model.pt").resolve(), tmp_path.resolve())
+
+    def test_resolve_path_glob_uses_cwd_as_base(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+
+        resolved = fmt.resolve_save_paths(Path("model.pt"))
+
+        assert resolved == ((tmp_path / "model.pt").resolve(), tmp_path.resolve())
+
+    @pytest.mark.parametrize("glob_str", [None, 1, object()])
+    def test_invalid_glob_type_returns_none(self, glob_str, monkeypatch):
+        errors = []
+        monkeypatch.setattr("swanlab.sdk.internal.run.fmt.console.error", lambda *args: errors.append(args))
+
+        assert fmt.resolve_save_paths(glob_str) is None  # type: ignore[arg-type]
+        assert errors
+
+    def test_invalid_glob_bytes_returns_none(self, monkeypatch):
+        errors = []
+        monkeypatch.setattr("swanlab.sdk.internal.run.fmt.console.error", lambda *args: errors.append(args))
+
+        assert fmt.resolve_save_paths(b"\xff") is None
+        assert errors
+
+    @pytest.mark.parametrize("base_path", [1, object(), []])
+    def test_invalid_base_path_type_returns_none(self, base_path, monkeypatch):
+        errors = []
+        monkeypatch.setattr("swanlab.sdk.internal.run.fmt.console.error", lambda *args: errors.append(args))
+
+        assert fmt.resolve_save_paths("model.pt", base_path=base_path) is None  # type: ignore[arg-type]
+        assert errors
+
+    def test_glob_outside_base_path_returns_none(self, tmp_path, monkeypatch):
+        errors = []
+        monkeypatch.setattr("swanlab.sdk.internal.run.fmt.console.error", lambda *args: errors.append(args))
+        base_path = tmp_path / "base"
+        base_path.mkdir()
+
+        assert fmt.resolve_save_paths(str(tmp_path / "model.pt"), base_path=base_path) is None
+        assert errors
+
+    @pytest.mark.parametrize("glob_str", ["s3://bucket/model.pt", "gs://bucket/model.pt"])
+    def test_cloud_storage_url_returns_none(self, glob_str, monkeypatch):
+        warnings = []
+        monkeypatch.setattr("swanlab.sdk.internal.run.fmt.console.warning", lambda *args: warnings.append(args))
+
+        assert fmt.resolve_save_paths(glob_str) is None
+        assert warnings
+
+    def test_path_resolve_error_returns_none(self, monkeypatch):
+        errors = []
+        original_resolve = fmt.Path.resolve
+
+        def raise_on_model_path(path):
+            if str(path) == "model.pt":
+                raise OSError("failed to resolve")
+            return original_resolve(path)
+
+        monkeypatch.setattr(
+            "swanlab.sdk.internal.run.fmt.console.error", lambda *args, **kwargs: errors.append(args or kwargs)
+        )
+        monkeypatch.setattr("swanlab.sdk.internal.run.fmt.Path.resolve", raise_on_model_path)
+
+        assert fmt.resolve_save_paths("model.pt") is None
+        assert errors
