@@ -12,6 +12,11 @@ ResumeType = Literal["must", "allow", "never"]
 Run 恢复策略
 """
 
+ParallelType = Literal["none", "shared"]
+"""
+Run 并行策略
+"""
+
 ModeType = Literal["disabled", "online", "local", "offline"]
 """
 Run 运行策略

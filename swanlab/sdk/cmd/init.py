@@ -10,10 +10,11 @@ init函数执行时被视为init之前
 
 import json
 import os
+import re
+import socket
 import time
 from datetime import datetime
 from functools import partial
-from hashlib import sha256
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -30,7 +31,7 @@ from swanlab.sdk.internal.context import (
     use_context,
 )
 from swanlab.sdk.internal.core_python import client
-from swanlab.sdk.internal.pkg import adapter, console, fs, helper, safe
+from swanlab.sdk.internal.pkg import adapter, console, constraints, fork, fs, helper, safe
 from swanlab.sdk.typings.cmd import ConfigLike
 from swanlab.sdk.typings.context import CallbacksType
 from swanlab.utils.experiment import generate_color, generate_id, generate_name
@@ -38,7 +39,7 @@ from swanlab.utils.experiment import generate_color, generate_id, generate_name
 from ..internal.run import Run, get_run, has_run
 from ..internal.settings import Settings
 from ..internal.settings import settings as global_settings
-from ..typings.run import ModeType, ResumeType
+from ..typings.run import ModeType, ParallelType, ResumeType
 from . import utils
 from .login import login_cli, login_raw
 
@@ -103,6 +104,7 @@ def init(
     tags: Optional[List[str]] = None,
     id: Optional[str] = None,
     resume: Optional[Union[ResumeType, bool]] = None,
+    parallel: Optional[ParallelType] = None,
     config: Optional[ConfigLike] = None,
     settings: Optional[Settings] = None,
     callbacks: Optional[CallbacksType] = None,
@@ -143,6 +145,8 @@ def init(
 
     :param resume: Resume behavior. Options: "must" (must resume), "allow" (resume if exists),
         "never" (always create new). Defaults to "never".
+
+    :param parallel: Parallel execution strategy. Options: "none" (default), "shared".
 
     :param config: Experiment configuration dict or path to config file (JSON/YAML).
 
@@ -219,6 +223,7 @@ def init(
         "run.resume": resume,
         "run.id": id,
         "run.config": Path(config) if isinstance(config, (str, os.PathLike)) else None,
+        "run.parallel": parallel,
     }.items():
         set_nested_value(args_dict, key, value)
     run_settings.merge_settings(args_dict)
@@ -417,6 +422,7 @@ def ensure_run_dir(
     retry_interval: float = 1.0,
     dir_max_length: int = 255,
     dir_name: Optional[str] = None,
+    parallel: ParallelType = "none",
 ) -> Path:
     """
     原子化地创建一个不与已有目录冲突的 run_dir。
@@ -441,7 +447,7 @@ def ensure_run_dir(
         fs.safe_mkdir(run_dir, ensure_clean=True)
         return run_dir
     for i in range(max_retries):
-        run_dir_name, truncated = _generate_run_dir_name(run_id, dir_max_length)
+        run_dir_name, truncated = _generate_run_dir_name(run_id, dir_max_length, parallel)
         run_dir = log_dir / run_dir_name
         try:
             fs.safe_mkdir(run_dir, ensure_clean=True)
@@ -456,26 +462,94 @@ def ensure_run_dir(
     raise RuntimeError(f"Failed to create a unique run directory after {max_retries} attempts")
 
 
-def _generate_run_dir_name(run_id: str, max_length: int) -> Tuple[str, bool]:
+def _fmt_safe_dirname(dirname: str, _os_safe_re=re.compile(constraints.OS_SAFE_PATTERN)) -> str:
+    """
+    格式化目录名，将不安全字符、"." 以及 "-" 替换为 "_"
+
+    :param dirname: 原始目录名
+    :param _os_safe_re: 用于判断安全字符的正则表达式，一般不改动，这里主要是为了在函数参数中预编译正则表达式，避免每次调用都编译一次
+
+    :return: 格式化后的目录名
+    """
+    # 允许的安全字符直接保留，不允许的字符替换为 "_"
+    dirname = "".join(c if _os_safe_re.match(c) else "_" for c in dirname)
+    dirname = dirname.replace(".", "_").replace("-", "_")
+    dirname = re.sub(r"_{2,}", "_", dirname)
+    dirname = dirname.strip().strip("_")
+    return dirname or "unknown_host"
+
+
+def _truncate_dirname(name: str, max_length: int) -> Tuple[str, bool]:
+    """
+    截断目录名，保留前3和后2个字符，中间用 "..." 连接
+    例如： "abcdefghijklmnopqrstuvwxyz" 截断为 "abc...yz"
+
+    :param name: 原始目录名
+    :param max_length: 目录名最大长度
+    :return: 截断后的目录名和是否发生了截断
+    """
+    if len(name) <= max_length:
+        return name, False
+    if max_length <= 5:
+        raise ValueError(
+            "Failed to generate run directory name: max_length must be greater than 5 to allow truncation."
+        )
+    truncated_name = f"{name[:3]}...{name[-2:]}"
+    return truncated_name, True
+
+
+def _generate_run_dir_name(
+    run_id: str,
+    max_length: int,
+    parallel: ParallelType = "none",
+    hostname_max_len: int = 64,
+) -> Tuple[str, bool]:
     """
     生成 run_dir 的目录名，格式为 ``run-{timestamp}-{run_id}``，超长时截断。
+    如果为共享模式或者分布式训练，增加hostname和pid两个参数，格式为 ``run-{timestamp}-{run_id}-{hostname}-{pid}``，
+    语义为 "某一时刻、某个运行id、某个主机、某个进程开启的运行"。
 
     :param run_id: 当前运行的唯一标识符
     :param max_length: 目录名最大长度
+    :param parallel: 并行策略
+    :param hostname_max_len: 主机名最大长度，仅在共享模式或者分布式时使用，hostname_max_len 有可能会被进一步缩减以适应 max_length
+
     :return: run_dir 目录名（非完整路径）和是否截断
     """
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    name = f"run-{timestamp}-{run_id}"
-    if len(name) <= max_length:
-        return name, False
-
-    digest = sha256(run_id.encode("utf-8")).hexdigest()[:8]
-    prefix = f"run-{timestamp}-truncated-"
-    suffix = f"-{digest}"
-    run_id_max_length = max_length - len(prefix) - len(suffix)
-    truncated_run_id = run_id[: max(0, run_id_max_length)]
-    truncated_name = f"{prefix}{truncated_run_id}{suffix}"
-    return truncated_name, True
+    # 1. 先准备前后缀，因为只有run_id和hostname有可能被截断
+    prefix = "-".join(["run", datetime.now().strftime("%Y%m%d_%H%M%S")]) + "-"
+    suffix: Optional[str] = None
+    hostname: Optional[str] = None
+    # 并行模式添加hostname和pid到目录名
+    if parallel != "none":
+        hostname = socket.gethostname() or "unknown_hostname"
+        suffix = f"-{fork.current_pid()}"
+    # 2. 计算中间部分的可用长度（算上"-"分隔符），并确定 hostname 的最大长度
+    reserved_length = len(prefix) + len(suffix or "")
+    available_length = max_length - reserved_length
+    if available_length <= 0:
+        # 由于 settings 中 dir_max_length 的约束，理论上不会出现 available_length <= 0 的情况，但这里做一个兜底，避免出现负数导致后续逻辑混乱
+        raise ValueError(
+            f"Failed to generate run directory name: max_length {max_length} is too small to accommodate prefix and suffix."
+        )
+    # run id 最小会被截断为 "a...b" 样式，长度为 5，并且 run id 和 hostname 之间存在一个 "-" 分隔符，所以至少需要 6 个字符的长度才能保证 run id 的完整性
+    if hostname is not None:
+        hostname_max_len = min(hostname_max_len, available_length - 5 - 1)
+    # 3. 开始截断和格式化中间部分的长度，hostname 和 run_id 共享 available_length 的长度，优先保证 hostname 的完整性
+    hostname_truncated = False
+    if hostname is not None:
+        hostname = _fmt_safe_dirname(hostname)
+        hostname, hostname_truncated = _truncate_dirname(hostname, hostname_max_len)
+        available_length -= len(hostname) + 1  # 减去 hostname 的长度和一个 "-" 分隔符
+    run_id = _fmt_safe_dirname(run_id)
+    run_id, run_id_truncated = _truncate_dirname(run_id, available_length)
+    # 4. 组合最终的目录名
+    dir_name = prefix + run_id
+    if hostname is not None:
+        dir_name += f"-{hostname}"
+    if suffix is not None:
+        dir_name += suffix
+    return dir_name, hostname_truncated or run_id_truncated
 
 
 def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[RunContext, Optional[str]]:
@@ -502,13 +576,14 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
             max_retries=run_settings.run.dir_create_retries,
             dir_max_length=run_settings.run.dir_max_length,
             dir_name=run_settings.run.dir,
+            parallel=run_settings.run.parallel,
         )
     else:
         # 禁用模式下的run_dir为一个示例目录，仅用于满足上下文类型限制
         if run_settings.run.dir:
             run_dir = run_settings.log_dir / run_settings.run.dir
         else:
-            run_dir_name, _ = _generate_run_dir_name(run_id, run_settings.run.dir_max_length)
+            run_dir_name, _ = _generate_run_dir_name(run_id, run_settings.run.dir_max_length, run_settings.run.parallel)
             run_dir = run_settings.log_dir / run_dir_name
     # 3. 创建一个临时的上下文，避免出现任何问题导致上下文残留
     with use_context(RunContext(config=RunConfig(settings=run_settings, run_dir=run_dir), callbacks=callbacks)) as ctx:
