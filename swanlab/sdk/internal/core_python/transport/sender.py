@@ -10,10 +10,10 @@ from __future__ import annotations
 import json
 import math
 import mimetypes
+import threading
 from collections.abc import Callable, Sequence
-from io import BytesIO
 from pathlib import Path, PurePosixPath
-from typing import Literal, Optional, Union, cast
+from typing import IO, TYPE_CHECKING, Literal, Optional, Union, cast
 
 import yaml
 
@@ -40,6 +40,7 @@ from swanlab.sdk.internal.core_python.api.upload import (
 )
 from swanlab.sdk.internal.core_python.context import CoreContext
 from swanlab.sdk.internal.core_python.pkg.executor import SafeThreadPoolExecutor
+from swanlab.sdk.internal.core_python.utils import ProgressFileWrapper, get_buffer_size
 from swanlab.sdk.internal.pkg import adapter, client, console, safe
 from swanlab.sdk.internal.pkg.client.session import SessionWithRetry
 from swanlab.sdk.typings.core_python.api.save import (
@@ -62,7 +63,10 @@ from swanlab.sdk.typings.core_python.api.upload import (
     UploadScalarBatch,
 )
 
-from .helper import compute_md5
+from .helper import compute_md5, save_tracker_key
+
+if TYPE_CHECKING:
+    from .tracker import UploadTracker
 
 
 class HttpRecordSender:
@@ -78,6 +82,9 @@ class HttpRecordSender:
         self._project = ctx.project
         self._project_id = ctx.project_id
         self._experiment_id = ctx.experiment_id
+        self._tracker: Optional[UploadTracker] = None
+        self._completed_upload_keys: set[str] = set()
+        self._completed_upload_keys_lock = threading.Lock()
         # 资源上传 session，作用在Sender对象中复用TCP链接
         self._buffer_session: Optional[SessionWithRetry] = None
         self._upload_handlers: dict[str, Callable[[Sequence[Record]], None]] = {
@@ -91,6 +98,28 @@ class HttpRecordSender:
             "conda": self.upload_conda,
             "save": self.upload_save,
         }
+
+    def set_tracker(self, tracker: UploadTracker) -> None:
+        self._tracker = tracker
+
+    def _track_file(self, key: str, path: str, size: int) -> None:
+        """在 tracker 中注册文件显示行，重复 key 由 UploadTracker 自动去重。"""
+        if self._tracker is None or size <= 0:
+            return
+        self._tracker.add_file(key=key, path=path, total=size)
+
+    def _mark_upload_progress(self, file_key: str, upload_key: str, current_bytes: int, *, final: bool = False) -> None:
+        """推送字节进度到 tracker，跳过已完成的上传事件 key。
+
+        final=True 时将 upload_key 标记为已完成，后续对该 key 的调用（包括中间进度）将被跳过。
+        """
+        with self._completed_upload_keys_lock:
+            if upload_key in self._completed_upload_keys:
+                return
+            if final:
+                self._completed_upload_keys.add(upload_key)
+        if self._tracker is not None:
+            self._tracker.update_file_progress(file_key, upload_key, current_bytes)
 
     def _ensure_session(self) -> SessionWithRetry:
         """懒初始化资源上传 session（复用 TCP 连接）。"""
@@ -115,6 +144,8 @@ class HttpRecordSender:
                 # 基础设施错误，不按业务逻辑处理，此时直接抛出异常，交给上游重试
                 raise
             console.warning(f"Failed to upload {record_type} records, skipping; error: {e}")
+        if self._tracker is not None:
+            self._tracker.advance_records(len(records))
 
     def upload_column(self, records: Sequence[Record], batch_size: int = 3000) -> None:
         columns = []
@@ -149,7 +180,7 @@ class HttpRecordSender:
     def upload_media(self, records: Sequence[Record]) -> None:
         metrics: UploadMediaBatch = []
         paths: list[str] = []
-        buffers: list[BytesIO] = []
+        buffers: list[Union[IO[bytes], str, Path]] = []
         for record in records:
             if not record.HasField("media"):
                 continue
@@ -163,35 +194,44 @@ class HttpRecordSender:
                     "more": [],
                     "create_time": create_time,
                 }
-                buffer_chunk: list[BytesIO] = []
+                record_paths = []
                 for media in media_record.value.items:
                     # 目前约定的本地文件路径格式为：media/<type>/filename，不区分key
                     # 约定保存到对象存储中的文件路径类似于本地文件路径
                     medium = adapter.medium[media_record.type]
                     remote_path = PurePosixPath("media", medium, media.filename)
                     local_path = self._ctx.media_dir / medium / media.filename
-                    # 读取本地文件内容
-                    buffer: Optional[BytesIO] = None
-                    with safe.block(message=f"Failed to read local file: {local_path}, skipping"):
-                        with open(local_path, "rb") as f:
-                            buffer = BytesIO(f.read())
-                    if buffer is None:
+
+                    if not local_path.is_file():
                         continue
-                    buffer_chunk.append(buffer)
-                    metric_chunk["data"].append(remote_path.as_posix())
-                    if media.caption:
-                        metric_chunk["more"].append({"caption": media.caption})
-                if len(metric_chunk["data"]) > 0:
+
+                    with safe.block(message="Failed to process media file, skipping"):
+                        size = get_buffer_size(local_path)
+                        remote_path_str = remote_path.as_posix()
+                        tracker_key = f"{remote_path_str}:{size}"
+                        self._track_file(tracker_key, local_path.as_posix(), size)
+                        record_paths.append(remote_path_str)
+                        paths.append(remote_path_str)
+                        buffers.append(local_path)
+                        if media.caption:
+                            metric_chunk["more"].append({"caption": media.caption})
+                if len(record_paths) > 0:
+                    metric_chunk["data"] = record_paths
                     metrics.append(metric_chunk)
-                    paths.extend(metric_chunk["data"])
-                    buffers.extend(buffer_chunk)
         if len(paths) != len(buffers):
             console.warning(
                 f"Failed to upload media, quantity mismatch, skipping; got {len(paths)} paths, {len(buffers)} buffers"
             )
             return
         # 先上传资源再上传媒体
-        upload_resource(self._ensure_session(), self._experiment_id, paths=paths, buffers=buffers)
+        upload_resource(
+            self._ensure_session(),
+            self._experiment_id,
+            paths=paths,
+            buffers=buffers,
+            tracker=self._tracker,
+        )
+
         upload_media(self._project_id, self._experiment_id, metrics=metrics)
 
     def upload_log(self, records: Sequence[Record]) -> None:
@@ -322,13 +362,27 @@ class HttpRecordSender:
             console.warning(f"Save prepare returned {len(urls)} URLs for {len(files)} files, skipping")
             return
         session = self._ensure_session()
-        resources: list[UploadResource] = [
-            {"url": url, "source_path": f["source_path"], "content_type": f["mime_type"]} for f, url in zip(files, urls)
-        ]
+        resources: list[UploadResource] = []
+        for f, url in zip(files, urls):
+            tracker_key = save_tracker_key(f)
+            self._track_file(tracker_key, f["source_path"], f["size"])
+            resources.append(
+                {
+                    "url": url,
+                    "source_path": f["source_path"],
+                    "content_type": f["mime_type"],
+                    "size": f["size"],
+                    "tracker_key": tracker_key,
+                }
+            )
         source_to_path = {f["source_path"]: f["path"] for f in files}
         statuses: dict[str, str] = {f["path"]: "FAILED" for f in files}
         with safe.block(message="Failed to upload save files, skipping"):
-            uploaded_paths = upload_saves(session, resources=resources)
+            uploaded_paths = upload_saves(
+                session,
+                resources=resources,
+                tracker=self._tracker,
+            )
             for source_path in uploaded_paths:
                 statuses[source_to_path[source_path]] = "UPLOADED"
 
@@ -368,12 +422,16 @@ class HttpRecordSender:
         for file_info, multipart_info in zip(files, multipart_files):
             upload_id = multipart_info["uploadId"]
             parts = multipart_info["parts"]
+            file_key = save_tracker_key(file_info)
+            self._track_file(file_key, file_info["source_path"], file_info["size"])
             self._ensure_session()
             completed_parts = self._upload_multipart_parts(file_info, parts)
             if completed_parts is None:
                 console.warning(f"Multipart upload failed for {file_info['path']}, skipping")
                 failed.append({"path": file_info["path"], "state": "FAILED"})
                 continue
+            if self._tracker is not None:
+                self._tracker.finish_file(file_key)
             completed.append(
                 {
                     "path": file_info["path"],
@@ -398,18 +456,29 @@ class HttpRecordSender:
         source_path = file_info["source_path"]
         part_size = self._ctx.config.save_part
         session = self._buffer_session
+        file_key = save_tracker_key(file_info)
 
         def upload_part(part_info: MultipartPart) -> CompletedPart:
             part_number = part_info["partNumber"]
             url = part_info["url"]
             offset = (part_number - 1) * part_size
-            with open(source_path, "rb") as f:
-                f.seek(offset)
-                data = f.read(part_size)
-            resp = session.put(url, data=data, headers={"Content-Type": "application/octet-stream"})
-            resp.raise_for_status()
-            etag = resp.headers.get("ETag", "").strip('"')
-            return {"partNumber": part_number, "etag": etag}
+            part_key = f"{file_key}:part:{part_number}"
+            part_length = min(part_size, max(file_info["size"] - offset, 0))
+
+            def on_read(current_bytes):
+                self._mark_upload_progress(file_key, part_key, current_bytes)
+
+            try:
+                with open(source_path, "rb") as f:
+                    wrapped_data = ProgressFileWrapper(f, on_read, part_length, offset=offset, size=part_length)
+                    resp = session.put(url, data=wrapped_data, headers={"Content-Type": "application/octet-stream"})
+                resp.raise_for_status()
+                self._mark_upload_progress(file_key, part_key, part_length, final=True)
+                etag = resp.headers.get("ETag", "").strip('"')
+                return {"partNumber": part_number, "etag": etag}
+            except Exception:
+                self._mark_upload_progress(file_key, part_key, 0)
+                raise
 
         failed = False
         with SafeThreadPoolExecutor(max_workers=3) as executor:

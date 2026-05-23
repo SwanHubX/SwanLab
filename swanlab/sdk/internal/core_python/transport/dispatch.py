@@ -5,7 +5,7 @@
 @description: Record 按类型聚合分发 + 失败回滚
 """
 
-from typing import Callable, List, Optional, Sequence, Tuple
+from typing import List, Optional, Sequence, Tuple
 
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.core_python.transport.helper import generate_chunks, group_records_by_type
@@ -28,11 +28,9 @@ class Dispatch:
     def __init__(
         self,
         batch_size: int,
-        upload_callback: Optional[Callable[[int], None]] = None,
         sender: Optional[HttpRecordSender] = None,
     ):
         self._batch_size = batch_size
-        self._upload_callback = upload_callback
         self._sender = sender
 
     def __call__(self, records: List[Record]) -> Tuple[bool, List[Record]]:
@@ -62,8 +60,6 @@ class Dispatch:
             success = self._upload_chunk(record_type, chunk)
             if success:
                 uploaded_record_count += chunk_size
-                if self._upload_callback:
-                    self._upload_callback(chunk_size)
             else:
                 return False, records[uploaded_record_count:]
         return True, []

@@ -162,7 +162,11 @@ def init(
     """
     ...
 
-def finish(state: FinishType = "success", error: Optional[str] = None) -> None:
+def finish(
+    state: FinishType = "success",
+    error: Optional[str] = None,
+    async_log_timeout: Optional[int] = None,
+) -> None:
     """Finish the current run and close the experiment.
 
     This function safely closes the current run and waits for all logs to be flushed.

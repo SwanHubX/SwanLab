@@ -91,6 +91,16 @@ class CoreServiceStub(object):
                 request_serializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.DeliverRunFinishRequest.SerializeToString,
                 response_deserializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.DeliverRunFinishResponse.FromString,
                 _registered_method=True)
+        self.GetOperationStats = channel.unary_unary(
+                '/swanlab.grpc.core.v1.CoreService/GetOperationStats',
+                request_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+                response_deserializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.GetOperationStatsResponse.FromString,
+                _registered_method=True)
+        self.ConfirmRunFinish = channel.unary_unary(
+                '/swanlab.grpc.core.v1.CoreService/ConfirmRunFinish',
+                request_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+                response_deserializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.ConfirmRunFinishResponse.FromString,
+                _registered_method=True)
 
 
 class CoreServiceServicer(object):
@@ -174,6 +184,20 @@ class CoreServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetOperationStats(self, request, context):
+        """GetOperationStats 返回 Core 当前运行状态和上传进度快照。
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ConfirmRunFinish(self, request, context):
+        """ConfirmRunFinish 确认 Core 运行结束，可以安全退出
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_CoreServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -231,6 +255,16 @@ def add_CoreServiceServicer_to_server(servicer, server):
                     servicer.DeliverRunFinish,
                     request_deserializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.DeliverRunFinishRequest.FromString,
                     response_serializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.DeliverRunFinishResponse.SerializeToString,
+            ),
+            'GetOperationStats': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetOperationStats,
+                    request_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                    response_serializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.GetOperationStatsResponse.SerializeToString,
+            ),
+            'ConfirmRunFinish': grpc.unary_unary_rpc_method_handler(
+                    servicer.ConfirmRunFinish,
+                    request_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                    response_serializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.ConfirmRunFinishResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -531,6 +565,60 @@ class CoreService(object):
             '/swanlab.grpc.core.v1.CoreService/DeliverRunFinish',
             swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.DeliverRunFinishRequest.SerializeToString,
             swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.DeliverRunFinishResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetOperationStats(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/swanlab.grpc.core.v1.CoreService/GetOperationStats',
+            google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.GetOperationStatsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ConfirmRunFinish(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/swanlab.grpc.core.v1.CoreService/ConfirmRunFinish',
+            google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.ConfirmRunFinishResponse.FromString,
             options,
             channel_credentials,
             insecure,

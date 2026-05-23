@@ -264,7 +264,7 @@ var File_swanlab_grpc_core_v1_sync_proto protoreflect.FileDescriptor
 
 const file_swanlab_grpc_core_v1_sync_proto_rawDesc = "" +
 	"\n" +
-	"\x1fswanlab/grpc/core/v1/sync.proto\x12\x14swanlab.grpc.core.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x18swanlab/run/v1/run.proto\x1a#swanlab/settings/core/v1/core.proto\"\xae\x01\n" +
+	"\x1fswanlab/grpc/core/v1/sync.proto\x12\x14swanlab.grpc.core.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fswanlab/grpc/core/v1/core.proto\x1a\x18swanlab/run/v1/run.proto\x1a#swanlab/settings/core/v1/core.proto\"\xae\x01\n" +
 	"\x17DeliverSyncStartRequest\x12K\n" +
 	"\rcore_settings\x18\x01 \x01(\v2&.swanlab.settings.core.v1.CoreSettingsR\fcoreSettings\x12\x1c\n" +
 	"\tworkspace\x18\x02 \x01(\tR\tworkspace\x12\x18\n" +
@@ -279,10 +279,11 @@ const file_swanlab_grpc_core_v1_sync_proto_rawDesc = "" +
 	"\x04path\x18\x03 \x01(\tR\x04path\"O\n" +
 	"\x19ConfirmSyncFinishResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage2\xbe\x02\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage2\x9c\x03\n" +
 	"\x0fCoreSyncService\x12q\n" +
 	"\x10DeliverSyncStart\x12-.swanlab.grpc.core.v1.DeliverSyncStartRequest\x1a..swanlab.grpc.core.v1.DeliverSyncStartResponse\x12Z\n" +
 	"\x10DeliverSyncFlush\x12\x16.google.protobuf.Empty\x1a..swanlab.grpc.core.v1.DeliverSyncFlushResponse\x12\\\n" +
+	"\x11GetOperationStats\x12\x16.google.protobuf.Empty\x1a/.swanlab.grpc.core.v1.GetOperationStatsResponse\x12\\\n" +
 	"\x11ConfirmSyncFinish\x12\x16.google.protobuf.Empty\x1a/.swanlab.grpc.core.v1.ConfirmSyncFinishResponseBDZBgithub.com/swanhubx/swanlab/core/proto/swanlab/grpc/core/v1;corev1b\x06proto3"
 
 var (
@@ -305,17 +306,20 @@ var file_swanlab_grpc_core_v1_sync_proto_goTypes = []any{
 	(*ConfirmSyncFinishResponse)(nil), // 3: swanlab.grpc.core.v1.ConfirmSyncFinishResponse
 	(*v1.CoreSettings)(nil),           // 4: swanlab.settings.core.v1.CoreSettings
 	(*emptypb.Empty)(nil),             // 5: google.protobuf.Empty
+	(*GetOperationStatsResponse)(nil), // 6: swanlab.grpc.core.v1.GetOperationStatsResponse
 }
 var file_swanlab_grpc_core_v1_sync_proto_depIdxs = []int32{
 	4, // 0: swanlab.grpc.core.v1.DeliverSyncStartRequest.core_settings:type_name -> swanlab.settings.core.v1.CoreSettings
 	0, // 1: swanlab.grpc.core.v1.CoreSyncService.DeliverSyncStart:input_type -> swanlab.grpc.core.v1.DeliverSyncStartRequest
 	5, // 2: swanlab.grpc.core.v1.CoreSyncService.DeliverSyncFlush:input_type -> google.protobuf.Empty
-	5, // 3: swanlab.grpc.core.v1.CoreSyncService.ConfirmSyncFinish:input_type -> google.protobuf.Empty
-	1, // 4: swanlab.grpc.core.v1.CoreSyncService.DeliverSyncStart:output_type -> swanlab.grpc.core.v1.DeliverSyncStartResponse
-	2, // 5: swanlab.grpc.core.v1.CoreSyncService.DeliverSyncFlush:output_type -> swanlab.grpc.core.v1.DeliverSyncFlushResponse
-	3, // 6: swanlab.grpc.core.v1.CoreSyncService.ConfirmSyncFinish:output_type -> swanlab.grpc.core.v1.ConfirmSyncFinishResponse
-	4, // [4:7] is the sub-list for method output_type
-	1, // [1:4] is the sub-list for method input_type
+	5, // 3: swanlab.grpc.core.v1.CoreSyncService.GetOperationStats:input_type -> google.protobuf.Empty
+	5, // 4: swanlab.grpc.core.v1.CoreSyncService.ConfirmSyncFinish:input_type -> google.protobuf.Empty
+	1, // 5: swanlab.grpc.core.v1.CoreSyncService.DeliverSyncStart:output_type -> swanlab.grpc.core.v1.DeliverSyncStartResponse
+	2, // 6: swanlab.grpc.core.v1.CoreSyncService.DeliverSyncFlush:output_type -> swanlab.grpc.core.v1.DeliverSyncFlushResponse
+	6, // 7: swanlab.grpc.core.v1.CoreSyncService.GetOperationStats:output_type -> swanlab.grpc.core.v1.GetOperationStatsResponse
+	3, // 8: swanlab.grpc.core.v1.CoreSyncService.ConfirmSyncFinish:output_type -> swanlab.grpc.core.v1.ConfirmSyncFinishResponse
+	5, // [5:9] is the sub-list for method output_type
+	1, // [1:5] is the sub-list for method input_type
 	1, // [1:1] is the sub-list for extension type_name
 	1, // [1:1] is the sub-list for extension extendee
 	0, // [0:1] is the sub-list for field type_name
@@ -326,6 +330,7 @@ func file_swanlab_grpc_core_v1_sync_proto_init() {
 	if File_swanlab_grpc_core_v1_sync_proto != nil {
 		return
 	}
+	file_swanlab_grpc_core_v1_core_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

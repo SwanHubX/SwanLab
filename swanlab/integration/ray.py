@@ -253,7 +253,7 @@ class SwanLabLoggerCallback(Callback, _LoggerCallback):
         if not self.log_config:
             exclude_results += ["config"]
 
-        trial_id = trial.trial_id if trial else None
+        # trial_id = trial.trial_id if trial else None
         trial_name = str(trial) if trial else None
 
         swanlab_init_kwargs = dict(

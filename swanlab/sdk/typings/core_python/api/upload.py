@@ -115,6 +115,8 @@ class UploadResource(TypedDict):
     url: str
     source_path: str
     content_type: str
+    size: NotRequired[int]
+    tracker_key: NotRequired[str]
 
 
 # ============================================================

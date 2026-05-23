@@ -12,6 +12,7 @@ from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 
+from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import ConfirmRunFinishResponse, DeliverRunFinishResponse
 from swanlab.sdk.internal.pkg import fork
 from swanlab.sdk.internal.run import Run
 
@@ -38,6 +39,26 @@ def _make_mock_run(state: str = "running") -> MagicMock:
     return mock
 
 
+def _make_real_finish_run() -> Run:
+    """构造只覆盖 finish() 所需字段的 Run 实例。"""
+    run = Run.__new__(Run)
+    run._init_pid = fork.current_pid()
+    run._state = "running"
+    run._api_lock = threading.RLock()
+    run.__dict__["mode"] = "online"
+    run._ctx = MagicMock()
+    run._components = MagicMock()
+    run._probe = MagicMock()
+    run._core = MagicMock()
+    run._core.deliver_run_finish.return_value = DeliverRunFinishResponse(success=True, message="OK")
+    run._core.confirm_run_finish.return_value = ConfirmRunFinishResponse(success=True, message="OK")
+    run._callbacker = MagicMock()
+    run._handle_atexit = MagicMock()
+    run._sys_origin_excepthook = MagicMock()
+    run._original_sigint_handler = signal.SIG_DFL
+    return run
+
+
 class TestAtexitCleanup:
     def test_no_op_when_not_running(self):
         """_state != 'running' 时直接返回，不调用 finish"""
@@ -50,6 +71,26 @@ class TestAtexitCleanup:
         run = _make_mock_run(state="running")
         Run._handle_atexit(run)
         run.finish.assert_called_once()
+
+
+class TestFinish:
+    def test_online_finish_uses_run_with_progress(self):
+        run = _make_real_finish_run()
+
+        with (
+            patch("swanlab.sdk.internal.run.greeting.goodbye"),
+            patch("swanlab.sdk.internal.run.run_with_progress") as mock_run_with_progress,
+            patch("swanlab.sdk.internal.run.atexit.unregister"),
+            patch("swanlab.sdk.internal.run.signal.signal"),
+            patch("swanlab.sdk.internal.run.console.reset"),
+        ):
+            mock_run_with_progress.return_value = ConfirmRunFinishResponse(success=True, message="OK")
+            run.finish()
+
+        mock_run_with_progress.assert_called_once_with(
+            stats_fn=run._core.get_operation_stats,
+            blocking_fn=run._core.confirm_run_finish,
+        )
 
 
 class TestExcepthook:

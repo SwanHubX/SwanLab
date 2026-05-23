@@ -5,14 +5,17 @@
 @description: 上传相关API：conda、requirements、metadata、config、console 的上传
 """
 
-from _io import BytesIO
+from __future__ import annotations
+
 from collections.abc import Sequence
-from typing import Dict, List
+from pathlib import Path
+from typing import IO, TYPE_CHECKING, Dict, List, Optional, Union
 
 from requests.sessions import Session
 
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.core_python.pkg.executor import SafeThreadPoolExecutor
+from swanlab.sdk.internal.core_python.utils import ProgressFileWrapper, get_buffer_size
 from swanlab.sdk.internal.pkg import safe
 from swanlab.sdk.typings.core_python.api.upload import (
     UploadColumns,
@@ -22,6 +25,9 @@ from swanlab.sdk.typings.core_python.api.upload import (
     UploadResource,
     UploadScalarBatch,
 )
+
+if TYPE_CHECKING:
+    from swanlab.sdk.internal.core_python.transport.tracker import UploadTracker
 
 
 def upload_conda(username: str, project: str, experiment_id: str, *, content: str) -> None:
@@ -139,44 +145,71 @@ def upload_media(project_id: str, experiment_id: str, *, metrics: UploadMediaBat
     client.post("/house/metrics", data, retries=0)
 
 
-def upload_resource(session: Session, experiment_id: str, *, paths: List[str], buffers: List[BytesIO]):
+def upload_resource(
+    session: Session,
+    experiment_id: str,
+    *,
+    paths: List[str],
+    buffers: List[Union[IO[bytes], str, Path]],
+    tracker: Optional[UploadTracker] = None,
+):
     """
     上传资源文件到对象存储，先向后端请求上传凭据，然后使用凭据上传文件到对象存储。
+
+    :param tracker: 可选的进度追踪器，非 None 时自动汇报字节级进度和完成事件。
     """
     resp = client.post(
         "/resources/presigned/put",
         {"experimentId": experiment_id, "paths": paths},
     )
     urls = resp.data["urls"]
+
+    def upload_one(url: str, buffer: Union[IO[bytes], str, Path], file_key: str, size: int):
+        # 上传单个文件，支持文件路径和内存 buffer 两种形式
+        if isinstance(buffer, (str, Path)):
+            with open(buffer, "rb") as f:
+                _put_with_progress(session, url, f, file_key, size, tracker)
+        else:
+            _put_with_progress(session, url, buffer, file_key, size, tracker)
+
     with SafeThreadPoolExecutor(max_workers=10) as executor:
         futures = []
         for index, url in enumerate(urls):
-            futures.append(
-                executor.submit(
-                    session.put,
-                    url,
-                    data=buffers[index],
-                    headers={"Content-Type": "application/octet-stream"},
-                )
-            )
-        for future in futures:
-            resp = future.result()
-            resp.raise_for_status()
+            size = get_buffer_size(buffers[index])
+            file_key = f"{paths[index]}:{size}"
+            futures.append((executor.submit(upload_one, url, buffers[index], file_key, size), file_key))
+        for future, file_key in futures:
+            try:
+                future.result()
+                _finish_tracked_file(tracker, file_key)
+            except Exception:
+                _reset_tracked_file(tracker, file_key)
+                raise
 
 
 def upload_saves(
     session: Session,
     *,
     resources: Sequence[UploadResource],
+    tracker: Optional[UploadTracker] = None,
 ) -> set[str]:
-    """通过预签名 URL 批量上传本地文件到对象存储，返回成功上传的 source_path 集合。"""
+    """通过预签名 URL 批量上传本地文件到对象存储，返回成功上传的 source_path 集合。
 
-    @safe.decorator(message="Failed to upload save file, skipping")
-    def upload_one(resource: UploadResource) -> bool:
-        with open(resource["source_path"], "rb") as f:
-            resp = session.put(resource["url"], data=f, headers={"Content-Type": resource["content_type"]})
-            resp.raise_for_status()
-        return True
+    :param tracker: 可选的进度追踪器，非 None 时自动汇报字节级进度和完成事件。
+    """
+
+    def upload_one(resource: UploadResource) -> Optional[bool]:
+        file_key = resource.get("tracker_key")
+        size = resource.get("size")
+        with safe.block(
+            message="Failed to upload save file, skipping", on_error=lambda _: _reset_tracked_file(tracker, file_key)
+        ):
+            with open(resource["source_path"], "rb") as f:
+                _put_with_progress(
+                    session, resource["url"], f, file_key, size, tracker, content_type=resource["content_type"]
+                )
+            _finish_tracked_file(tracker, file_key)
+            return True
 
     uploaded: set[str] = set()
     with SafeThreadPoolExecutor(max_workers=8) as executor:
@@ -186,3 +219,41 @@ def upload_saves(
                 uploaded.add(source_path)
 
     return uploaded
+
+
+# ── 内部工具 ──────────────────────────────────────────────────
+
+
+def _finish_tracked_file(tracker: Optional[UploadTracker], file_key: Optional[str]) -> None:
+    """上传成功后标记文件完成。"""
+    if tracker is not None and file_key is not None:
+        tracker.finish_file(file_key)
+
+
+def _reset_tracked_file(tracker: Optional[UploadTracker], file_key: Optional[str]) -> None:
+    """上传失败后重置文件字节级进度。"""
+    if tracker is not None and file_key is not None:
+        tracker.update_file_progress(file_key, file_key, 0)
+
+
+def _put_with_progress(
+    session: Session,
+    url: str,
+    file_obj: IO[bytes],
+    file_key: Optional[str],
+    size: Optional[int],
+    tracker: Optional[UploadTracker],
+    *,
+    content_type: str = "application/octet-stream",
+) -> None:
+    """PUT 上传单个文件，有 tracker 时用 ProgressFileWrapper 汇报读字节进度。"""
+    if tracker is not None and file_key is not None and size:
+        data: Union[IO[bytes], ProgressFileWrapper] = ProgressFileWrapper(
+            file_obj,
+            on_read=lambda current: tracker.update_file_progress(file_key, file_key, current),
+            total_size=size,
+        )
+    else:
+        data = file_obj
+    resp = session.put(url, data=data, headers={"Content-Type": content_type})
+    resp.raise_for_status()

@@ -12,6 +12,7 @@ from collections import OrderedDict
 from typing import Dict, Iterator, List, Sequence, Tuple, Union
 
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
+from swanlab.sdk.typings.core_python.api.save import SaveFileEntry
 
 
 def generate_chunks(records: Sequence[Record], batch_size: int) -> Iterator[Tuple[Sequence[Record], int]]:
@@ -67,3 +68,8 @@ def compute_md5(source: Union[str, bytes], chunk_size: int = 8 * 1024 * 1024) ->
             for chunk in iter(lambda: f.read(chunk_size), b""):
                 md5.update(chunk)
     return md5.hexdigest()
+
+
+def save_tracker_key(file_info: SaveFileEntry) -> str:
+    """获取 save 文件在 tracker 字典中的注册 key，以远端 path 作为稳定前缀。"""
+    return f"{file_info['path']}:{file_info['size']}:{file_info['md5']}"

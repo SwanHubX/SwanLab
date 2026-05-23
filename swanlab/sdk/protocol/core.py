@@ -12,10 +12,12 @@ from typing import List
 from swanlab.proto.swanlab.config.v1.config_pb2 import ConfigRecord
 from swanlab.proto.swanlab.env.v1.env_pb2 import CondaRecord, MetadataRecord, RequirementsRecord
 from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
+    ConfirmRunFinishResponse,
     DeliverRunFinishRequest,
     DeliverRunFinishResponse,
     DeliverRunStartRequest,
     DeliverRunStartResponse,
+    GetOperationStatsResponse,
 )
 from swanlab.proto.swanlab.grpc.core.v1.sync_pb2 import (
     ConfirmSyncFinishResponse,
@@ -295,7 +297,7 @@ class CoreProtocol(ABC):
     @abstractmethod
     def _upsert_saves_when_online(self, saves: List[SaveRecord]) -> None: ...
 
-    # ---------------------------------- 运行结束 ----------------------------------
+    # ---------------------------------- 通知运行结束 ----------------------------------
 
     def deliver_run_finish(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse:
         """
@@ -325,6 +327,32 @@ class CoreProtocol(ABC):
     @abstractmethod
     def _finish_when_online(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse: ...
 
+    # ---------------------------------- 进度查询 ----------------------------------
+
+    def get_operation_stats(self) -> GetOperationStatsResponse:
+        """返回 Core 当前运行状态和上传进度快照，与 proto GetOperationStats RPC 一一对应
+        目前设计上仅online模式支持
+        """
+        if self._mode != "online":
+            return GetOperationStatsResponse(success=True, message="I'm a teapot.")
+        with safe.block(message="get operation stats error"):
+            return self._get_operation_when_online()
+        return GetOperationStatsResponse(success=False, message="Failed to get operation stats with unknown error")
+
+    @abstractmethod
+    def _get_operation_when_online(self) -> GetOperationStatsResponse: ...
+
+    def confirm_run_finish(self) -> ConfirmRunFinishResponse:
+        """确认运行结束：等待上传排空、停止后台组件并上报最终 finish 状态。"""
+        if self._mode == "disabled":
+            return ConfirmRunFinishResponse(success=True, message="I'm a teapot.")
+        with safe.block(message="confirm run finish error"):
+            return self._confirm_finish_when_enabled()
+        return ConfirmRunFinishResponse(success=False, message="Failed to confirm run finish with unknown error")
+
+    @abstractmethod
+    def _confirm_finish_when_enabled(self) -> ConfirmRunFinishResponse: ...
+
     # ---------------------------------- 进程fork ----------------------------------
 
     @abstractmethod
@@ -346,6 +374,11 @@ class CoreSyncProtocol(ABC):
 
     @abstractmethod
     def deliver_sync_flush(self) -> DeliverSyncFlushResponse: ...
+
+    @abstractmethod
+    def get_operation_stats(self) -> GetOperationStatsResponse:
+        """返回 sync 上传进度快照。"""
+        ...
 
     @abstractmethod
     def confirm_sync_finish(self) -> ConfirmSyncFinishResponse: ...

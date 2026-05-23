@@ -22,7 +22,9 @@ from typing import Any, Callable, List, Literal, Mapping, Optional, Tuple, Type,
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
-from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import DeliverRunFinishRequest
+from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
+    DeliverRunFinishRequest,
+)
 from swanlab.proto.swanlab.grpc.probe.v1.probe_pb2 import DeliverProbeStartRequest
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord
 from swanlab.sdk.internal.bus import MetricLogEvent
@@ -32,6 +34,7 @@ from swanlab.sdk.internal.pkg import adapter, console, fork, helper, safe
 from swanlab.sdk.internal.run import greeting
 from swanlab.sdk.internal.run.components import Components
 from swanlab.sdk.internal.run.components.config import Config
+from swanlab.sdk.internal.run.progress import run_with_progress
 from swanlab.sdk.internal.run.transforms import (
     Audio,
     ECharts,
@@ -738,14 +741,19 @@ class Run:
         self._probe.deliver_probe_finish()
         ts = Timestamp()
         ts.GetCurrentTime()
-        # 3. 停止Core线程
-        finish_resp = self._core.deliver_run_finish(
-            DeliverRunFinishRequest(
-                finish_record=FinishRecord(state=adapter.state[this_state], error=error, finished_at=ts)
-            )
+        # 3. 停止Core
+        finish_request = DeliverRunFinishRequest(
+            finish_record=FinishRecord(state=adapter.state[this_state], error=error, finished_at=ts)
         )
+        finish_resp = self._core.deliver_run_finish(finish_request)
         if not finish_resp.success:
             console.error(finish_resp.message)
+        confirm_resp = run_with_progress(
+            stats_fn=self._core.get_operation_stats,
+            blocking_fn=self._core.confirm_run_finish,
+        )
+        if not confirm_resp.success:
+            console.error(confirm_resp.message)
         # finish 回调
         self._callbacker.on_run_finished(this_state, error)
         console.debug(f"SwanLab Run has finished with state: {self._state}, cleanup...")

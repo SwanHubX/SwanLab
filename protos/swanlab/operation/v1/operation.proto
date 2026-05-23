@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package swanlab.operation.v1;
+
+option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/operation/v1;operationv1";
+
+// Core 的生命周期状态。
+enum CoreState {
+  CORE_STATE_NOT_STARTED = 0;  // Core 尚未启动
+  CORE_STATE_RUNNING     = 1;  // Core 正在运行（处理数据）
+  CORE_STATE_FINISHED    = 2;  // Core 已完成所有处理，可以安全退出
+}
+
+// 当前/待上传文件进度显示快照。
+// 仅在当前处理的 records 触发文件上传时填充；普通 record 同步保持为空。
+message FileProgress {
+  string path     = 1;  // 当前或待上传文件路径
+  int64 total     = 2;  // 当前文件总量（通常为字节数）
+  int64 uploaded  = 3;  // 当前文件已完成量
+  double rate     = 4;  // 当前文件处理速率（单位/秒）
+}
+
+// Core 运行状态快照。
+message OperationStats {
+  CoreState state                     = 1;  // Core 生命周期状态
+  int64 total_number                  = 2;  // 总文件数
+  int64 uploaded_number               = 3;  // 已完成文件数
+  int64 total_records                 = 4;  // 已知总 Record 数；0 表示未知或未设置
+  int64 uploaded_records              = 5;  // 已终止处理 Record 数
+  int64 total_size                    = 6;  // 总文件大小 (字节数)
+  int64 uploaded_size                 = 7;  // 已完成文件大小 (字节数)
+  double rate                         = 8;  // 速率 (字节数/秒)
+  repeated FileProgress files          = 9;  // 当前/待上传文件显示快照
+}

@@ -6,6 +6,7 @@ from swanlab.proto.swanlab.config.v1 import config_pb2 as _config_pb2
 from swanlab.proto.swanlab.env.v1 import env_pb2 as _env_pb2
 from swanlab.proto.swanlab.terminal.v1 import log_pb2 as _log_pb2
 from swanlab.proto.swanlab.save.v1 import save_pb2 as _save_pb2
+from swanlab.proto.swanlab.operation.v1 import operation_pb2 as _operation_pb2
 from swanlab.proto.swanlab.settings.core.v1 import core_pb2 as _core_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf import descriptor as _descriptor
@@ -104,6 +105,24 @@ class DeliverRunFinishRequest(_message.Message):
     def __init__(self, finish_record: _Optional[_Union[_run_pb2.FinishRecord, _Mapping]] = ...) -> None: ...
 
 class DeliverRunFinishResponse(_message.Message):
+    __slots__ = ("success", "message")
+    SUCCESS_FIELD_NUMBER: _ClassVar[int]
+    MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    success: bool
+    message: str
+    def __init__(self, success: bool = ..., message: _Optional[str] = ...) -> None: ...
+
+class GetOperationStatsResponse(_message.Message):
+    __slots__ = ("success", "message", "stats")
+    SUCCESS_FIELD_NUMBER: _ClassVar[int]
+    MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    STATS_FIELD_NUMBER: _ClassVar[int]
+    success: bool
+    message: str
+    stats: _operation_pb2.OperationStats
+    def __init__(self, success: bool = ..., message: _Optional[str] = ..., stats: _Optional[_Union[_operation_pb2.OperationStats, _Mapping]] = ...) -> None: ...
+
+class ConfirmRunFinishResponse(_message.Message):
     __slots__ = ("success", "message")
     SUCCESS_FIELD_NUMBER: _ClassVar[int]
     MESSAGE_FIELD_NUMBER: _ClassVar[int]

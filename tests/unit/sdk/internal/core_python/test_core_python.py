@@ -16,14 +16,17 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
+    ConfirmRunFinishResponse,
     DeliverRunFinishRequest,
     DeliverRunStartRequest,
     DeliverRunStartResponse,
 )
+from swanlab.proto.swanlab.operation.v1.operation_pb2 import CoreState
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord, StartRecord
 from swanlab.proto.swanlab.settings.core.v1.core_pb2 import CoreSettings as CoreSettingsPb
 from swanlab.sdk.internal.core_python import CorePython
 from swanlab.sdk.internal.core_python.context import CoreConfig, CoreContext
+from swanlab.sdk.internal.core_python.transport.tracker import UploadTracker
 
 
 def make_core_ctx(tmp_path) -> CoreContext:
@@ -145,7 +148,6 @@ class TestCorePythonFinish:
         )
 
         def _report_run_start_and_set_attrs(rec):
-            """mock _report_run_start，同时设置 online 模式所需的属性。"""
             set_online_params(core)
             core._metrics = MagicMock()
             return mock_start(rec)
@@ -156,16 +158,61 @@ class TestCorePythonFinish:
             core.deliver_run_start(make_start_request(tmp_path, make_start_record()))
         mock_heartbeat = MockHeartbeat.return_value
 
-        mock_finish = MagicMock(return_value=None)
-        monkeypatch.setattr(core, "_report_run_finish", mock_finish)
-        resp = core.deliver_run_finish(DeliverRunFinishRequest(finish_record=FinishRecord()))
+        monkeypatch.setattr("swanlab.sdk.internal.core_python.core.stop_experiment", lambda *a, **kw: None)
+        core.deliver_run_finish(DeliverRunFinishRequest(finish_record=FinishRecord()))
 
         assert core._store is None
+        assert core._transport is not None
+        assert core._transport.join(timeout=2)
+        confirm_resp = core.confirm_run_finish()
         assert core._transport is None
         mock_heartbeat.stop.assert_called_once()
-        mock_finish.assert_called_once()
+        assert isinstance(confirm_resp, ConfirmRunFinishResponse)
+        assert confirm_resp.success is True
+
+    def test_confirm_run_finish_waits_without_timeout_before_marking_finished(self, tmp_path, monkeypatch):
+        core = CorePython("online")
+        core._ctx = make_core_ctx(tmp_path)
+        set_online_params(core)
+        tracker = UploadTracker()
+        tracker.set_state(CoreState.CORE_STATE_RUNNING)
+        transport = MagicMock()
+        transport.finish.return_value = True
+        core._tracker = tracker
+        core._transport = transport
+        core._pending_online_finish_record = FinishRecord()
+        stop_experiment_mock = MagicMock()
+        monkeypatch.setattr("swanlab.sdk.internal.core_python.core.stop_experiment", stop_experiment_mock)
+
+        resp = core.confirm_run_finish()
+
+        assert isinstance(resp, ConfirmRunFinishResponse)
+        assert resp.success is True
+        assert tracker.snapshot().state == CoreState.CORE_STATE_FINISHED
+        transport.finish.assert_called_once_with(timeout=None)
+        stop_experiment_mock.assert_called_once()
+
+    def test_confirm_run_finish_preserves_running_transport(self, tmp_path, monkeypatch):
+        core = CorePython("online")
+        core._ctx = make_core_ctx(tmp_path)
+        set_online_params(core)
+        transport = MagicMock()
+        transport.finish.return_value = False
+        heartbeat = MagicMock()
+        stop_experiment_mock = MagicMock()
+        core._transport = transport
+        core._heartbeat = heartbeat
+        core._pending_online_finish_record = FinishRecord()
+        monkeypatch.setattr("swanlab.sdk.internal.core_python.core.stop_experiment", stop_experiment_mock)
+
+        resp = core.confirm_run_finish()
+
+        assert isinstance(resp, ConfirmRunFinishResponse)
         assert resp.success is False
-        assert "saved locally" in resp.message
+        assert core._transport is transport
+        transport.finish.assert_called_once_with(timeout=None)
+        heartbeat.stop.assert_not_called()
+        stop_experiment_mock.assert_not_called()
 
 
 # ============================================================
@@ -178,16 +225,17 @@ class TestCorePythonGuard:
         core = CorePython("local")
         core._ctx = make_core_ctx(tmp_path)
         core.deliver_run_start(make_start_request(tmp_path, make_start_record()))
+        resp = core.deliver_run_start(make_start_request(tmp_path, make_start_record()))
+        assert resp.success is False
+        assert "Run has already been active" in resp.message
 
-        with pytest.raises(RuntimeError, match="already started"):
-            core.deliver_run_start(make_start_request(tmp_path, make_start_record()))
-
-    def test_finish_before_start_raises(self, tmp_path):
+    def test_finish_before_start(self, tmp_path):
         core = CorePython("local")
         core._ctx = make_core_ctx(tmp_path)
 
-        with pytest.raises(RuntimeError, match="not started"):
-            core.deliver_run_finish(DeliverRunFinishRequest(finish_record=FinishRecord()))
+        resp = core.deliver_run_finish(DeliverRunFinishRequest(finish_record=FinishRecord()))
+        assert resp.success is False
+        assert "Run is not active" in resp.message
 
     def test_fork_raises(self, tmp_path):
         core = CorePython("disabled")
