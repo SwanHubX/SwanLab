@@ -19,6 +19,7 @@
 import json
 import multiprocessing
 from typing import cast
+from unittest.mock import MagicMock
 
 import pytest
 import responses as responses_lib
@@ -27,7 +28,7 @@ import yaml
 from swanlab.sdk.cmd.init import init
 from swanlab.sdk.cmd.login import login_cli
 from swanlab.sdk.cmd.merge_settings import merge_settings
-from swanlab.sdk.internal.bus import RunEmitter
+from swanlab.sdk.internal.bus import MetricLogEvent, RunEmitter
 from swanlab.sdk.internal.pkg import fork
 from swanlab.sdk.internal.run import Run, get_run, has_run
 from swanlab.sdk.internal.run.components import BackgroundConsumer, NullConsumer, NullEmitter
@@ -437,6 +438,18 @@ class TestInitOfflineMode:
         run = init(mode="offline", workspace="my-org")
 
         assert run._ctx.config.settings.project.workspace == "my-org"
+
+    def test_auto_step_starts_from_zero(self):
+        """offline 模式下，未显式传入 step 时首次 run.log() 应从 step=0 开始自增"""
+        with init(mode="offline") as run:
+            run._components.emitter.emit = MagicMock(wraps=run._components.emitter.emit)
+
+            run.log({"loss": 0.5})
+            run.log({"loss": 0.4})
+
+            events = [call.args[0] for call in run._components.emitter.emit.call_args_list]
+            assert all(isinstance(event, MetricLogEvent) for event in events)
+            assert [event.step for event in events] == [0, 1]
 
 
 # ============================================================
