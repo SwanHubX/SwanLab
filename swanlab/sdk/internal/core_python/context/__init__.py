@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Literal, Optional
 
 from swanlab.proto.swanlab.settings.core.v1.core_pb2 import CoreSettings
+from swanlab.sdk.internal.pkg import fs
 
 __all__ = ["CoreContext", "CoreConfig"]
 
@@ -133,11 +134,16 @@ class CoreContext:
     @cached_property
     def run_file(self) -> Path:
         if self._mode == "core":
-            assert self.config.run_id, "Run ID is not set."
-            # core 模式下，根据run id创建run file
-            return self.config.run_dir / f"run-{self.config.run_id}.swanlab"
+            # 1. core 模式下，根据run id创建run file
+            run_id = self.config.run_id
+            assert run_id, "Run ID is not set."
+            # 确保 run_id 中的特殊字符被安全替换，避免文件系统不兼容
+            run_id = fs.safe_fmt(run_id, fallback="unknown_run_id")
+            # 避免过长的 run_id 导致文件系统不兼容
+            run_id = fs.safe_truncate(run_id, max_length=100)[0]
+            return self.config.run_dir / f"run-{run_id}.swanlab"
         elif self._mode == "sync":
-            # sync 模式下，查询目录下 run-*.swanlab 文件作为run file
+            # 2. sync 模式下，查询目录下 run-*.swanlab 文件作为run file
             files = sorted(self.config.run_dir.glob("run-*.swanlab"))
             if len(files) == 0:
                 raise FileNotFoundError(f"No run-*.swanlab file found in {self.config.run_dir}")

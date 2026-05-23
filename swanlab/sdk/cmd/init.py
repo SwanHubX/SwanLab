@@ -10,7 +10,6 @@ init函数执行时被视为init之前
 
 import json
 import os
-import re
 import socket
 import time
 from datetime import datetime
@@ -31,7 +30,7 @@ from swanlab.sdk.internal.context import (
     use_context,
 )
 from swanlab.sdk.internal.core_python import client
-from swanlab.sdk.internal.pkg import adapter, console, constraints, fork, fs, helper, safe
+from swanlab.sdk.internal.pkg import adapter, console, fork, fs, helper, safe
 from swanlab.sdk.typings.cmd import ConfigLike
 from swanlab.sdk.typings.context import CallbacksType
 from swanlab.utils.experiment import generate_color, generate_id, generate_name
@@ -462,49 +461,6 @@ def ensure_run_dir(
     raise RuntimeError(f"Failed to create a unique run directory after {max_retries} attempts")
 
 
-def _fmt_safe_dirname(
-    dirname: str,
-    fallback: str = "unknown",
-    _os_safe_re=re.compile(constraints.OS_SAFE_PATTERN),
-) -> str:
-    """
-    格式化目录名，将不安全字符、"." 以及 "-" 替换为 "_"
-
-    :param dirname: 原始目录名
-    :param fallback: 格式化后为空时的兜底值
-    :param _os_safe_re: 用于判断安全字符的正则表达式，一般不改动，这里主要是为了在函数参数中预编译正则表达式，避免每次调用都编译一次
-
-    :return: 格式化后的目录名
-    """
-    # 允许的安全字符直接保留，不允许的字符替换为 "_"
-    dirname = "".join(c if _os_safe_re.match(c) else "_" for c in dirname)
-    dirname = dirname.replace(".", "_").replace("-", "_")
-    dirname = re.sub(r"_{2,}", "_", dirname)
-    dirname = dirname.strip().strip("_")
-    return dirname or fallback
-
-
-def _truncate_dirname(name: str, max_length: int) -> Tuple[str, bool]:
-    """
-    截断目录名，保留前3和后部分字符，中间用 "..." 连接，确保结果不超过 max_length。
-    例如： "abcdefghijklmnopqrstuvwxyz" 截断为 "abc...yz"（max_length >= 8 时）
-
-    :param name: 原始目录名
-    :param max_length: 目录名最大长度，必须 >= 7 以容纳 "abc...yz" 格式
-    :return: 截断后的目录名和是否发生了截断
-    """
-    if len(name) <= max_length:
-        return name, False
-    if max_length < 7:
-        raise ValueError(
-            f"Failed to generate run directory name: max_length ({max_length}) is too small. "
-            f"Consider increasing `dir_max_length` (SWANLAB_RUN_DIR_MAX_LENGTH) or specifying a custom `run.dir` (SWANLAB_RUN_DIR)."
-        )
-    tail_len = max_length - 6  # 3 (head) + 3 (...) + tail
-    truncated_name = f"{name[:3]}...{name[-tail_len:]}"
-    return truncated_name, True
-
-
 def _generate_run_dir_name(
     run_id: str,
     max_length: int,
@@ -517,9 +473,9 @@ def _generate_run_dir_name(
     语义为 "某一时刻、某个运行id、某个主机、某个进程开启的运行"。
 
     :param run_id: 当前运行的唯一标识符
-    :param max_length: 目录名最大长度
+    :param max_length: 目录名最大字节长度
     :param parallel: 并行策略
-    :param hostname_max_len: 主机名最大长度，仅在共享模式或者分布式时使用，hostname_max_len 有可能会被进一步缩减以适应 max_length
+    :param hostname_max_len: 主机名最大字节长度，仅在共享模式或者分布式时使用，hostname_max_len 有可能会被进一步缩减以适应 max_length
 
     :return: run_dir 目录名（非完整路径）和是否截断
     """
@@ -532,7 +488,7 @@ def _generate_run_dir_name(
         hostname = socket.gethostname() or "unknown_hostname"
         suffix = f"-{fork.current_pid()}"
     # 2. 计算中间部分的可用长度（算上"-"分隔符），并确定 hostname 的最大长度
-    reserved_length = len(prefix) + len(suffix or "")
+    reserved_length = len(prefix.encode("utf-8")) + len((suffix or "").encode("utf-8"))
     available_length = max_length - reserved_length
     if available_length <= 0:
         # 由于 settings 中 dir_max_length 的约束，理论上不会出现 available_length <= 0 的情况，但这里做一个兜底，避免出现负数导致后续逻辑混乱
@@ -546,11 +502,23 @@ def _generate_run_dir_name(
     # 3. 开始截断和格式化中间部分的长度，hostname 和 run_id 共享 available_length 的长度，优先保证 hostname 的完整性
     hostname_truncated = False
     if hostname is not None:
-        hostname = _fmt_safe_dirname(hostname, fallback="unknown_host")
-        hostname, hostname_truncated = _truncate_dirname(hostname, hostname_max_len)
-        available_length -= len(hostname) + 1  # 减去 hostname 的长度和一个 "-" 分隔符
-    run_id = _fmt_safe_dirname(run_id, fallback="unknown_run")
-    run_id, run_id_truncated = _truncate_dirname(run_id, available_length)
+        hostname = fs.safe_fmt(hostname, fallback="unknown_host")
+        try:
+            hostname, hostname_truncated = fs.safe_truncate(hostname, hostname_max_len)
+        except ValueError:
+            raise ValueError(
+                f"Failed to generate run directory name: max_length ({max_length}) is too small to truncate hostname. "
+                f"Consider increasing `dir_max_length` (SWANLAB_RUN_DIR_MAX_LENGTH) or specifying a custom `run.dir` (SWANLAB_RUN_DIR)."
+            ) from None
+        available_length -= len(hostname.encode("utf-8")) + 1  # 减去 hostname 的字节长度和一个 "-" 分隔符
+    run_id = fs.safe_fmt(run_id, fallback="unknown_run")
+    try:
+        run_id, run_id_truncated = fs.safe_truncate(run_id, available_length)
+    except ValueError:
+        raise ValueError(
+            f"Failed to generate run directory name: max_length ({max_length}) is too small to truncate run_id. "
+            f"Consider increasing `dir_max_length` (SWANLAB_RUN_DIR_MAX_LENGTH) or specifying a custom `run.dir` (SWANLAB_RUN_DIR)."
+        ) from None
     # 4. 组合最终的目录名
     dir_name = prefix + run_id
     if hostname is not None:

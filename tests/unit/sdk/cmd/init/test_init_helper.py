@@ -290,7 +290,7 @@ class TestEnsureRunDir:
 
         run_dir = ensure_run_dir(tmp_path, "a" * 512, retry_interval=0.01, dir_max_length=80)
 
-        assert len(run_dir.name) <= 80
+        assert len(run_dir.name.encode("utf-8")) <= 80
         assert "..." in run_dir.name
 
     def test_truncation_same_prefix(self, tmp_path, monkeypatch):
@@ -305,8 +305,8 @@ class TestEnsureRunDir:
 
         assert "..." in run_dir1.name
         assert "..." in run_dir2.name
-        assert len(run_dir1.name) <= 80
-        assert len(run_dir2.name) <= 80
+        assert len(run_dir1.name.encode("utf-8")) <= 80
+        assert len(run_dir2.name.encode("utf-8")) <= 80
 
     def test_warns_only_for_created_truncated_name(self, tmp_path, monkeypatch):
         """重试创建目录时，只对最终创建成功的截断目录告警"""
@@ -421,7 +421,7 @@ class TestEnsureRunDirShared:
 
         name = run_dir.name
         assert "..." in name
-        assert len(name) <= 255
+        assert len(name.encode("utf-8")) <= 255
 
     def test_shared_truncates_long_run_id(self, tmp_path, monkeypatch):
         """shared 模式下长 run_id 截断后不超限"""
@@ -431,7 +431,7 @@ class TestEnsureRunDirShared:
 
         run_dir = ensure_run_dir(tmp_path, "a" * 512, parallel="shared", retry_interval=0.01, dir_max_length=80)
 
-        assert len(run_dir.name) <= 80
+        assert len(run_dir.name.encode("utf-8")) <= 80
         assert "myhost" in run_dir.name
         assert "12345" in run_dir.name
 
@@ -446,9 +446,26 @@ class TestEnsureRunDirShared:
         assert len(parts) == 3
 
     def test_small_dir_max_length_truncation(self, tmp_path, monkeypatch):
-        """较小的 dir_max_length 时目录名仍不超限"""
+        """较小的 dir_max_length 时目录名字节长度仍不超限"""
         monkeypatch.setattr("swanlab.sdk.cmd.init.console.warning", MagicMock())
 
         run_dir = ensure_run_dir(tmp_path, "a" * 512, retry_interval=0.01, dir_max_length=50)
 
-        assert len(run_dir.name) <= 50
+        assert len(run_dir.name.encode("utf-8")) <= 50
+
+    def test_chinese_hostname_byte_length_within_limit(self, tmp_path, monkeypatch):
+        """中文 hostname 的目录名 UTF-8 字节长度不超限"""
+        monkeypatch.setattr("swanlab.sdk.cmd.init.socket.gethostname", lambda: "我的电脑" * 20)
+        monkeypatch.setattr("swanlab.sdk.cmd.init.fork.current_pid", lambda: 12345)
+
+        run_dir = ensure_run_dir(tmp_path, "run42", parallel="shared", retry_interval=0.01, dir_max_length=80)
+
+        assert len(run_dir.name.encode("utf-8")) <= 80
+
+    def test_chinese_run_id_byte_length_within_limit(self, tmp_path, monkeypatch):
+        """包含中文的 run_id 截断后字节长度不超限"""
+        monkeypatch.setattr("swanlab.sdk.cmd.init.console.warning", MagicMock())
+
+        run_dir = ensure_run_dir(tmp_path, "测试" * 100, retry_interval=0.01, dir_max_length=80)
+
+        assert len(run_dir.name.encode("utf-8")) <= 80
