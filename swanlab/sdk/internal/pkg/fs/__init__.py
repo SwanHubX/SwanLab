@@ -61,10 +61,17 @@ def safe_truncate(name: str, max_length: int = 255) -> Tuple[str, bool]:
     if len(name.encode("utf-8")) <= max_length:
         return name, False
     if max_length < 7:
-        raise ValueError(f"max_length ({max_length}) is too small for truncate_dirname, must be >= 7.")
+        raise ValueError(f"max_length ({max_length}) is too small for safe_truncate, must be >= 7.")
     tail_len = max_length - 6
     truncated_name = f"{name[:3]}...{name[-tail_len:]}"
-    while len(truncated_name.encode("utf-8")) > max_length and tail_len > 0:
+    # 当 tail_len=0 时，truncated_name 为 "abc...{整个name}"，此时再比较没什么意义，所以到了 tail_len=1 就停止循环，确保至少保留一个字符
+    while len(truncated_name.encode("utf-8")) > max_length and tail_len > 1:
         tail_len -= 1
-        truncated_name = f"{name[:3]}...{name[-tail_len:]}" if tail_len > 0 else f"{name[:3]}..."
+        truncated_name = f"{name[:3]}...{name[-tail_len:]}"
+    # 在极端情况下（例如所有字符都是多字节的），即使 tail_len=1 也可能超过 max_length，因此需要最后再检查一次
+    if len(truncated_name.encode("utf-8")) > max_length:
+        raise ValueError(
+            f"max_length ({max_length}) is too small for safe_truncate: "
+            f"the first 3 characters of the name already exceed {max_length - 3} bytes."
+        )
     return truncated_name, True
