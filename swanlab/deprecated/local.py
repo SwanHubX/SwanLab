@@ -23,7 +23,7 @@ from typing import Any, Optional, TextIO, cast
 
 import click
 
-from swanlab.sdk import Settings, pkg
+from swanlab.sdk import Settings
 from swanlab.sdk.internal.settings import create_settings
 from swanlab.sdk.protocol.callbacker import Callback
 
