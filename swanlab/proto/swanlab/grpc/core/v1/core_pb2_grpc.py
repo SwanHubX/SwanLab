@@ -5,7 +5,6 @@ import warnings
 
 from google.protobuf import empty_pb2 as google_dot_protobuf_dot_empty__pb2
 from swanlab.proto.swanlab.grpc.core.v1 import core_pb2 as swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2
-from swanlab.proto.swanlab.operation.v1 import operation_pb2 as swanlab_dot_operation_dot_v1_dot_operation__pb2
 
 GRPC_GENERATED_VERSION = '1.78.0'
 GRPC_VERSION = grpc.__version__
@@ -95,7 +94,7 @@ class CoreServiceStub(object):
         self.GetOperationStats = channel.unary_unary(
                 '/swanlab.grpc.core.v1.CoreService/GetOperationStats',
                 request_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
-                response_deserializer=swanlab_dot_operation_dot_v1_dot_operation__pb2.OperationStats.FromString,
+                response_deserializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.GetOperationStatsResponse.FromString,
                 _registered_method=True)
         self.ConfirmRunFinish = channel.unary_unary(
                 '/swanlab.grpc.core.v1.CoreService/ConfirmRunFinish',
@@ -260,7 +259,7 @@ def add_CoreServiceServicer_to_server(servicer, server):
             'GetOperationStats': grpc.unary_unary_rpc_method_handler(
                     servicer.GetOperationStats,
                     request_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
-                    response_serializer=swanlab_dot_operation_dot_v1_dot_operation__pb2.OperationStats.SerializeToString,
+                    response_serializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.GetOperationStatsResponse.SerializeToString,
             ),
             'ConfirmRunFinish': grpc.unary_unary_rpc_method_handler(
                     servicer.ConfirmRunFinish,
@@ -592,7 +591,7 @@ class CoreService(object):
             target,
             '/swanlab.grpc.core.v1.CoreService/GetOperationStats',
             google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
-            swanlab_dot_operation_dot_v1_dot_operation__pb2.OperationStats.FromString,
+            swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.GetOperationStatsResponse.FromString,
             options,
             channel_credentials,
             insecure,

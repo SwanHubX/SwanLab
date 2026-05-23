@@ -22,6 +22,7 @@ const _ = grpc.SupportPackageIsVersion9
 const (
 	CoreSyncService_DeliverSyncStart_FullMethodName  = "/swanlab.grpc.core.v1.CoreSyncService/DeliverSyncStart"
 	CoreSyncService_DeliverSyncFlush_FullMethodName  = "/swanlab.grpc.core.v1.CoreSyncService/DeliverSyncFlush"
+	CoreSyncService_GetOperationStats_FullMethodName = "/swanlab.grpc.core.v1.CoreSyncService/GetOperationStats"
 	CoreSyncService_ConfirmSyncFinish_FullMethodName = "/swanlab.grpc.core.v1.CoreSyncService/ConfirmSyncFinish"
 )
 
@@ -35,6 +36,8 @@ type CoreSyncServiceClient interface {
 	DeliverSyncStart(ctx context.Context, in *DeliverSyncStartRequest, opts ...grpc.CallOption) (*DeliverSyncStartResponse, error)
 	// DeliverSyncFlush 结束本地日志读取，开启云端同步
 	DeliverSyncFlush(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*DeliverSyncFlushResponse, error)
+	// GetOperationStats 返回 Core 当前运行状态和上传进度快照。
+	GetOperationStats(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetOperationStatsResponse, error)
 	// ConfirmSyncFinish 结束同步，副作用清理，退出
 	ConfirmSyncFinish(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ConfirmSyncFinishResponse, error)
 }
@@ -67,6 +70,16 @@ func (c *coreSyncServiceClient) DeliverSyncFlush(ctx context.Context, in *emptyp
 	return out, nil
 }
 
+func (c *coreSyncServiceClient) GetOperationStats(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetOperationStatsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetOperationStatsResponse)
+	err := c.cc.Invoke(ctx, CoreSyncService_GetOperationStats_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *coreSyncServiceClient) ConfirmSyncFinish(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ConfirmSyncFinishResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ConfirmSyncFinishResponse)
@@ -87,6 +100,8 @@ type CoreSyncServiceServer interface {
 	DeliverSyncStart(context.Context, *DeliverSyncStartRequest) (*DeliverSyncStartResponse, error)
 	// DeliverSyncFlush 结束本地日志读取，开启云端同步
 	DeliverSyncFlush(context.Context, *emptypb.Empty) (*DeliverSyncFlushResponse, error)
+	// GetOperationStats 返回 Core 当前运行状态和上传进度快照。
+	GetOperationStats(context.Context, *emptypb.Empty) (*GetOperationStatsResponse, error)
 	// ConfirmSyncFinish 结束同步，副作用清理，退出
 	ConfirmSyncFinish(context.Context, *emptypb.Empty) (*ConfirmSyncFinishResponse, error)
 	mustEmbedUnimplementedCoreSyncServiceServer()
@@ -104,6 +119,9 @@ func (UnimplementedCoreSyncServiceServer) DeliverSyncStart(context.Context, *Del
 }
 func (UnimplementedCoreSyncServiceServer) DeliverSyncFlush(context.Context, *emptypb.Empty) (*DeliverSyncFlushResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeliverSyncFlush not implemented")
+}
+func (UnimplementedCoreSyncServiceServer) GetOperationStats(context.Context, *emptypb.Empty) (*GetOperationStatsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetOperationStats not implemented")
 }
 func (UnimplementedCoreSyncServiceServer) ConfirmSyncFinish(context.Context, *emptypb.Empty) (*ConfirmSyncFinishResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ConfirmSyncFinish not implemented")
@@ -165,6 +183,24 @@ func _CoreSyncService_DeliverSyncFlush_Handler(srv interface{}, ctx context.Cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _CoreSyncService_GetOperationStats_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CoreSyncServiceServer).GetOperationStats(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CoreSyncService_GetOperationStats_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CoreSyncServiceServer).GetOperationStats(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _CoreSyncService_ConfirmSyncFinish_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
@@ -197,6 +233,10 @@ var CoreSyncService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeliverSyncFlush",
 			Handler:    _CoreSyncService_DeliverSyncFlush_Handler,
+		},
+		{
+			MethodName: "GetOperationStats",
+			Handler:    _CoreSyncService_GetOperationStats_Handler,
 		},
 		{
 			MethodName: "ConfirmSyncFinish",

@@ -9,6 +9,7 @@ import pytest
 from pydantic import ValidationError
 
 from swanlab.exceptions import AuthenticationError
+from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import GetOperationStatsResponse
 from swanlab.proto.swanlab.grpc.core.v1.sync_pb2 import (
     ConfirmSyncFinishResponse,
     DeliverSyncFlushResponse,
@@ -62,7 +63,9 @@ def test_sync_logs_in_when_api_key_provided(tmp_path, monkeypatch):
             return type("Response", (), {"success": True, "message": "OK"})()
 
         def get_operation_stats(self):
-            return OperationStats(state=CoreState.CORE_STATE_FINISHED)
+            return GetOperationStatsResponse(
+                success=True, message="OK", stats=OperationStats(state=CoreState.CORE_STATE_FINISHED)
+            )
 
     monkeypatch.setattr("swanlab.sdk.cmd.sync.client.exists", client_exists)
     monkeypatch.setattr("swanlab.sdk.cmd.sync.login_raw", login_raw)
@@ -79,7 +82,9 @@ def test_sync_waits_for_progress_before_confirming(tmp_path, monkeypatch):
         confirmed = False
 
         def get_operation_stats(self):
-            return OperationStats(state=CoreState.CORE_STATE_FINISHED)
+            return GetOperationStatsResponse(
+                success=True, message="OK", stats=OperationStats(state=CoreState.CORE_STATE_FINISHED)
+            )
 
         def confirm_sync_finish(self):
             self.confirmed = True
@@ -105,7 +110,9 @@ def test_sync_uses_protocol_confirm_directly(tmp_path, monkeypatch):
         confirmed = False
 
         def get_operation_stats(self):
-            return OperationStats(state=CoreState.CORE_STATE_FINISHED)
+            return GetOperationStatsResponse(
+                success=True, message="OK", stats=OperationStats(state=CoreState.CORE_STATE_FINISHED)
+            )
 
         def confirm_sync_finish(self):
             self.confirmed = True
