@@ -444,3 +444,11 @@ class TestEnsureRunDirShared:
         parts = name.split("-")
         # none 模式: run-{timestamp}-{run_id}，只有3段
         assert len(parts) == 3
+
+    def test_small_dir_max_length_truncation(self, tmp_path, monkeypatch):
+        """较小的 dir_max_length 时目录名仍不超限"""
+        monkeypatch.setattr("swanlab.sdk.cmd.init.console.warning", MagicMock())
+
+        run_dir = ensure_run_dir(tmp_path, "a" * 512, retry_interval=0.01, dir_max_length=50)
+
+        assert len(run_dir.name) <= 50

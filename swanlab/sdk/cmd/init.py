@@ -462,11 +462,16 @@ def ensure_run_dir(
     raise RuntimeError(f"Failed to create a unique run directory after {max_retries} attempts")
 
 
-def _fmt_safe_dirname(dirname: str, _os_safe_re=re.compile(constraints.OS_SAFE_PATTERN)) -> str:
+def _fmt_safe_dirname(
+    dirname: str,
+    fallback: str = "unknown",
+    _os_safe_re=re.compile(constraints.OS_SAFE_PATTERN),
+) -> str:
     """
     格式化目录名，将不安全字符、"." 以及 "-" 替换为 "_"
 
     :param dirname: 原始目录名
+    :param fallback: 格式化后为空时的兜底值
     :param _os_safe_re: 用于判断安全字符的正则表达式，一般不改动，这里主要是为了在函数参数中预编译正则表达式，避免每次调用都编译一次
 
     :return: 格式化后的目录名
@@ -476,13 +481,13 @@ def _fmt_safe_dirname(dirname: str, _os_safe_re=re.compile(constraints.OS_SAFE_P
     dirname = dirname.replace(".", "_").replace("-", "_")
     dirname = re.sub(r"_{2,}", "_", dirname)
     dirname = dirname.strip().strip("_")
-    return dirname or "unknown_host"
+    return dirname or fallback
 
 
 def _truncate_dirname(name: str, max_length: int) -> Tuple[str, bool]:
     """
-    截断目录名，保留前3和后2个字符，中间用 "..." 连接
-    例如： "abcdefghijklmnopqrstuvwxyz" 截断为 "abc...yz"
+    截断目录名，保留前3和后部分字符，中间用 "..." 连接，确保结果不超过 max_length。
+    例如： "abcdefghijklmnopqrstuvwxyz" 截断为 "abc...yz"（max_length >= 8 时）
 
     :param name: 原始目录名
     :param max_length: 目录名最大长度
@@ -490,11 +495,10 @@ def _truncate_dirname(name: str, max_length: int) -> Tuple[str, bool]:
     """
     if len(name) <= max_length:
         return name, False
-    if max_length <= 5:
-        raise ValueError(
-            "Failed to generate run directory name: max_length must be greater than 5 to allow truncation."
-        )
-    truncated_name = f"{name[:3]}...{name[-2:]}"
+    if max_length < 7:
+        return name[:max_length], True
+    tail_len = max_length - 6  # 3 (head) + 3 (...) + tail
+    truncated_name = f"{name[:3]}...{name[-tail_len:]}"
     return truncated_name, True
 
 
@@ -538,10 +542,10 @@ def _generate_run_dir_name(
     # 3. 开始截断和格式化中间部分的长度，hostname 和 run_id 共享 available_length 的长度，优先保证 hostname 的完整性
     hostname_truncated = False
     if hostname is not None:
-        hostname = _fmt_safe_dirname(hostname)
+        hostname = _fmt_safe_dirname(hostname, fallback="unknown_host")
         hostname, hostname_truncated = _truncate_dirname(hostname, hostname_max_len)
         available_length -= len(hostname) + 1  # 减去 hostname 的长度和一个 "-" 分隔符
-    run_id = _fmt_safe_dirname(run_id)
+    run_id = _fmt_safe_dirname(run_id, fallback="unknown_run")
     run_id, run_id_truncated = _truncate_dirname(run_id, available_length)
     # 4. 组合最终的目录名
     dir_name = prefix + run_id
