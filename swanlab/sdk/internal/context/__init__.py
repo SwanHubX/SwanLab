@@ -41,7 +41,7 @@ class RunConfig:
 # 上下文宿主
 class RunContext:
     def __init__(self, config: RunConfig, callbacks: Optional[CallbacksType] = None):
-        self._global_step: int = 0
+        self._global_step: int = -1
         self._global_system_step: Optional[int] = None
         self.config: RunConfig = config
         self.callbacker = create_callback_manager(callbacks=callbacks)
