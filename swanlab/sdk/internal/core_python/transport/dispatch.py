@@ -9,6 +9,7 @@ from typing import Any, List, Optional, Sequence, Tuple
 
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.core_python.transport.helper import generate_chunks, group_records_by_type
+from swanlab.sdk.internal.core_python.transport.sender import HttpRecordSender
 from swanlab.sdk.internal.pkg import console, safe
 
 
@@ -27,7 +28,7 @@ class Dispatch:
     def __init__(
         self,
         batch_size: int,
-        sender: Optional[Any] = None,
+        sender: Optional[HttpRecordSender] = None,
     ):
         self._batch_size = batch_size
         self._sender = sender
