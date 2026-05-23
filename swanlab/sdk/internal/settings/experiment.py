@@ -9,13 +9,15 @@
 import json
 import os
 from pathlib import Path
-from typing import Annotated, Any, List, Literal, Optional, cast
+from typing import Annotated, Any, List, Optional, cast, get_args
 
 from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic.config import ConfigDict
 from pydantic_settings import NoDecode
 
+from swanlab.sdk.internal.pkg import console
 from swanlab.sdk.internal.pkg import constraints as const
-from swanlab.sdk.typings.run import ResumeType
+from swanlab.sdk.typings.run import ParallelType, ResumeType
 
 
 def project_name_factory() -> Optional[str]:
@@ -54,6 +56,8 @@ class ProjectSettings(BaseModel):
     """
     Whether this SwanLab run is public.
     """
+
+    model_config = ConfigDict(frozen=True)
 
 
 def experiment_name_factory() -> Optional[str]:
@@ -153,6 +157,8 @@ class ExperimentSettings(BaseModel):
     Job type for this SwanLab run.
     """
 
+    model_config = ConfigDict(frozen=True)
+
 
 def run_id_factory() -> Optional[str]:
     # 向下兼容旧版本环境变量
@@ -190,7 +196,7 @@ def map_resume_value(value: Any) -> ResumeType:
             return "allow"
         if value_lower == "0":
             return "never"
-        if value_lower in ["must", "allow", "never"]:
+        if value_lower in get_args(ResumeType):
             return cast(ResumeType, value_lower)
         raise ValueError(f"Invalid resume value: {value_lower}, must be one of ['must', 'allow', 'never']")
     raise ValueError(f"Invalid resume value type: {type(value).__name__}, must be one of ['must', 'allow', 'never']")
@@ -202,19 +208,24 @@ class RunSettings(BaseModel):
     Run ID for this SwanLab run.
     """
 
-    resume: Literal["must", "allow", "never"] = Field(default_factory=run_resume_factory)
+    resume: ResumeType = Field(default_factory=run_resume_factory)
     """
     Resume policy for this SwanLab run.
+    """
+
+    @field_validator("resume", mode="before")
+    def validate_resume(cls, v: Any) -> Any:
+        return map_resume_value(v)
+
+    parallel: ParallelType = Field(default="none")
+    """
+    Parallel execution policy for this SwanLab run.
     """
 
     history: Optional[Path] = Field(default=None)
     """
     History path for this SwanLab run, useful for resuming from a previous run.
     """
-
-    @field_validator("resume", mode="before")
-    def validate_resume(cls, v: Any) -> Any:
-        return map_resume_value(v)
 
     config: Optional[Path] = Field(default=None)
     """
@@ -238,8 +249,18 @@ class RunSettings(BaseModel):
     If the generated directory name conflicts with an existing one, a new name will be generated after a short delay, up to this many times.
     """
 
+    @model_validator(mode="before")
+    @classmethod
+    def force_resume_for_parallel(cls, data: Any) -> Any:
+        if isinstance(data, dict) and data.get("parallel", "none") != "none":
+            console.debug("Parallel execution detected, forcing resume policy to 'allow'")
+            return {**data, "resume": "allow"}
+        return data
+
     @model_validator(mode="after")
     def validate_dir_length(self) -> "RunSettings":
         if self.dir is not None and len(self.dir) > self.dir_max_length:
             raise ValueError(f"run.dir length ({len(self.dir)}) exceeds run.dir_max_length ({self.dir_max_length})")
         return self
+
+    model_config = ConfigDict(frozen=True)

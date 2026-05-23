@@ -63,6 +63,14 @@ def test_run_resume_parse(monkeypatch):
         Settings.model_validate({"run": {"resume": 1}})
 
 
+def test_run_parallel_forces_resume_allow():
+    s = Settings.model_validate({"run": {"parallel": "shared"}})
+    assert s.run.resume == "allow"
+
+    s = Settings.model_validate({"run": {"parallel": "shared", "resume": "never"}})
+    assert s.run.resume == "allow"
+
+
 class TestMapResumeValue:
     @pytest.mark.parametrize(
         "input_value,expected",

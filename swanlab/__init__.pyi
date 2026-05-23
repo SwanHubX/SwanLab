@@ -30,7 +30,7 @@ from .sdk import (
 )
 from .sdk.typings.cmd import ConfigLike, LoginType
 from .sdk.typings.context import CallbacksType
-from .sdk.typings.run import AsyncLogType, FinishType, ModeType, ResumeType, SaveType
+from .sdk.typings.run import AsyncLogType, FinishType, ModeType, ParallelType, ResumeType, SaveType
 from .sdk.typings.run.column import ScalarXAxisType
 from .sdk.typings.run.transforms import CaptionsType
 from .sdk.typings.run.transforms.audio import AudioDatasType, AudioRatesType
@@ -105,6 +105,7 @@ def init(
     tags: Optional[List[str]] = None,
     id: Optional[str] = None,
     resume: Optional[Union[ResumeType, bool]] = None,
+    parallel: Optional[ParallelType] = None,
     config: Optional[ConfigLike] = None,
     settings: Optional[Settings] = None,
     callbacks: Optional[CallbacksType] = None,
@@ -132,6 +133,7 @@ def init(
     :param id: Run ID for resuming a previous run (online mode only).
     :param resume: Resume behavior. Options: "must" (must resume), "allow" (resume if exists),
         "never" (always create new). Defaults to "never".
+    :param parallel: Parallel execution policy. Options: "none", "shared".
     :param config: Experiment configuration dict or path to config file (JSON/YAML).
     :param settings: Custom Settings object for advanced configuration.
     :param callbacks: List of callback functions triggered on run events.

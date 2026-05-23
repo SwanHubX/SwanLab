@@ -9,6 +9,7 @@ import os
 from typing import ClassVar, Type
 
 from pydantic import BaseModel, Field, model_validator
+from pydantic.config import ConfigDict
 
 
 def webhook_url_factory() -> str:
@@ -51,6 +52,7 @@ class WebhookSettings(BaseModel):
     """
     Webhook timeout for SwanLab notifications.
     """
+    model_config = ConfigDict(frozen=True)
 
 
 class DashBoardSettings(BaseModel):
@@ -63,6 +65,7 @@ class DashBoardSettings(BaseModel):
     """
     Dashboard server port.
     """
+    model_config = ConfigDict(frozen=True)
 
 
 class IntegrationSettings(BaseModel):
@@ -107,3 +110,5 @@ class IntegrationSettings(BaseModel):
                     data["dashboard"] = dashboard_data
 
         return data
+
+    model_config = ConfigDict(frozen=True)

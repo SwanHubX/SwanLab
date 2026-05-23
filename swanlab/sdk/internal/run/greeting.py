@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 from rich.text import Text
 
 from swanlab.sdk.internal.context import RunContext
-from swanlab.sdk.internal.pkg import console
+from swanlab.sdk.internal.pkg import console, fs
 from swanlab.sdk.internal.pkg.helper.version import get_swanlab_version
 
 if TYPE_CHECKING:
@@ -28,35 +28,13 @@ def _print_save_dir(ctx: RunContext):
     console.info("💾 Run data saved at", Text(str(ctx.config.run_dir), "magenta bold"))
 
 
-def _truncate_middle(text: object, max_len: int = 45, placeholder: str = "...") -> str:
-    """
-    Truncate text in the middle if it exceeds max_len.
-
-    Examples:
-        abcdefghijklmnopqrstuvwxyz, max_len=10 -> abcd...xyz
-    """
-    text = str(text)
-    if max_len <= 0:
-        return placeholder
-    if len(text) <= max_len:
-        return text
-    if len(placeholder) >= max_len:
-        return placeholder[:max_len]
-    remain = max_len - len(placeholder)
-    left_len = (remain + 1) // 2
-    right_len = remain // 2
-    left = text[:left_len]
-    right = text[-right_len:] if right_len > 0 else ""
-    return left + placeholder + right
-
-
 def _print_online_tip(run: "Run"):
     project_url = run.url.split("/runs/")[0]
     console.info("📁 View project at", Text(project_url, style=f"link {project_url} blue underline"))
     # 截断 run.name，超过 name_truncate_len 时，前后保留 20 个字符，中间显示 ...
     console.info(
         "🚀 View run",
-        Text(_truncate_middle(run.name), "yellow"),
+        Text(fs.safe_truncate(run.name, max_length=45)[0], "yellow"),
         "at",
         Text(run.url, style=f"link {run.url} blue underline"),
     )
@@ -72,7 +50,7 @@ def _print_local_tip(ctx: RunContext):
 
 def _print_offline_tip(ctx: RunContext):
     console.info(
-        "☁️ Run ",
+        "⚡️ Run",
         Text(f"`swanlab sync {str(ctx.config.run_dir)}`", "bold"),
         "to sync this run",
     )
