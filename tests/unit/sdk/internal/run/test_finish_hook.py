@@ -8,7 +8,6 @@
 import signal
 import sys
 import threading
-from typing import cast
 from unittest.mock import ANY, MagicMock, patch
 
 import pytest

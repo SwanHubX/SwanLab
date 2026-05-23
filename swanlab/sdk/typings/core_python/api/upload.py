@@ -6,8 +6,7 @@
 """
 
 import sys
-from collections.abc import Callable
-from typing import Any, Dict, List, Literal, Optional, Tuple, TypedDict, Union
+from typing import Any, Dict, List, Literal, Tuple, TypedDict, Union
 
 if sys.version_info >= (3, 11):
     from typing import NotRequired, Required

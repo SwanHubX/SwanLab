@@ -18,7 +18,7 @@ from rich.table import Table
 from rich.text import Text
 
 from swanlab.proto.swanlab.operation.v1.operation_pb2 import CoreState, OperationStats
-from swanlab.sdk.internal.pkg import console, safe
+from swanlab.sdk.internal.pkg import console
 from swanlab.sdk.internal.run.fmt import fmt_bytes, fmt_items, fmt_rate
 
 _T = TypeVar("_T")

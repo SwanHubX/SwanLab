@@ -7,7 +7,7 @@
 
 import threading
 import time
-from typing import Any, List, Optional
+from typing import List, Optional
 
 from swanlab.proto.swanlab.operation.v1.operation_pb2 import CoreState
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record

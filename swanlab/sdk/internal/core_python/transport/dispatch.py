@@ -5,7 +5,7 @@
 @description: Record 按类型聚合分发 + 失败回滚
 """
 
-from typing import Any, List, Optional, Sequence, Tuple
+from typing import List, Optional, Sequence, Tuple
 
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.core_python.transport.helper import generate_chunks, group_records_by_type
