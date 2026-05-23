@@ -490,13 +490,16 @@ def _truncate_dirname(name: str, max_length: int) -> Tuple[str, bool]:
     例如： "abcdefghijklmnopqrstuvwxyz" 截断为 "abc...yz"（max_length >= 8 时）
 
     :param name: 原始目录名
-    :param max_length: 目录名最大长度
+    :param max_length: 目录名最大长度，必须 >= 7 以容纳 "abc...yz" 格式
     :return: 截断后的目录名和是否发生了截断
     """
     if len(name) <= max_length:
         return name, False
     if max_length < 7:
-        return name[:max_length], True
+        raise ValueError(
+            f"Failed to generate run directory name: max_length ({max_length}) is too small. "
+            f"Consider increasing `dir_max_length` (SWANLAB_RUN_DIR_MAX_LENGTH) or specifying a custom `run.dir` (SWANLAB_RUN_DIR)."
+        )
     tail_len = max_length - 6  # 3 (head) + 3 (...) + tail
     truncated_name = f"{name[:3]}...{name[-tail_len:]}"
     return truncated_name, True
@@ -534,7 +537,8 @@ def _generate_run_dir_name(
     if available_length <= 0:
         # 由于 settings 中 dir_max_length 的约束，理论上不会出现 available_length <= 0 的情况，但这里做一个兜底，避免出现负数导致后续逻辑混乱
         raise ValueError(
-            f"Failed to generate run directory name: max_length {max_length} is too small to accommodate prefix and suffix."
+            f"Failed to generate run directory name: max_length ({max_length}) is too small to accommodate prefix and suffix. "
+            f"Consider increasing `dir_max_length` (SWANLAB_RUN_DIR_MAX_LENGTH) or specifying a custom `run.dir` (SWANLAB_RUN_DIR)."
         )
     # run id 最小会被截断为 "a...b" 样式，长度为 5，并且 run id 和 hostname 之间存在一个 "-" 分隔符，所以至少需要 6 个字符的长度才能保证 run id 的完整性
     if hostname is not None:
