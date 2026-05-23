@@ -66,10 +66,12 @@ class CorePython(CoreProtocol):
 
     def __init__(self, mode: ModeType):
         super().__init__(mode)
-        self._started: bool = False
         self._run_ctx: Optional[CoreContext] = None
         self._store: Optional[DataStoreWriter] = None
         self._transport: Optional[Transport] = None
+        # 标记core是否激活，未激活时拒绝接受上报数据，表达一个完整的生命周期状态：
+        # initialized but not started -> active -> finished
+        self._active = False
         # record 构建计数器
         self._counter = counter.Counter()
         # console 行计数器
@@ -98,10 +100,10 @@ class CorePython(CoreProtocol):
     # ---------------------------------- 实验开始 ----------------------------------
 
     def deliver_run_start(self, start_request: DeliverRunStartRequest) -> DeliverRunStartResponse:
-        if self._started:
-            raise RuntimeError("Failed to start run: already started")
+        if self._active:
+            return DeliverRunStartResponse(success=False, message="Run has already been active.")
         resp = super().deliver_run_start(start_request)
-        self._started = resp.success
+        self._active = resp.success
         return resp
 
     def _start_store(self, resp: DeliverRunStartResponse):
@@ -196,6 +198,12 @@ class CorePython(CoreProtocol):
 
     # ---- upsert_columns ----
 
+    def upsert_columns(self, columns: List[ColumnRecord]) -> None:
+        if not self._active:
+            console.warning("Core is not active, refusing to upsert columns")
+            return
+        return super().upsert_columns(columns)
+
     def _upsert_columns_to_metrics(self, columns: List[ColumnRecord]):
         assert self._metrics is not None, "metrics must be initialized before upsert columns"
         records: List[Record] = []
@@ -227,6 +235,12 @@ class CorePython(CoreProtocol):
         self._transport_put(records)
 
     # ---- upsert_scalars ----
+
+    def upsert_scalars(self, scalars: List[ScalarRecord]) -> None:
+        if not self._active:
+            console.warning("Core is not active, refusing to upsert scalars")
+            return
+        return super().upsert_scalars(scalars)
 
     def _upsert_scalars_to_metrics(self, scalars_list: List[ScalarRecord]) -> List[Record]:
         """
@@ -267,6 +281,12 @@ class CorePython(CoreProtocol):
 
     # ---- upsert_media -----
 
+    def upsert_media(self, media: List[MediaRecord]) -> None:
+        if not self._active:
+            console.warning("Core is not active, refusing to upsert media")
+            return
+        return super().upsert_media(media)
+
     def _upsert_media_to_metrics(self, media_list: List[MediaRecord]) -> List[Record]:
         assert self._metrics is not None, "metrics must be initialized before upsert media"
         records: List[Record] = []
@@ -305,6 +325,12 @@ class CorePython(CoreProtocol):
 
     # ---- upsert_logs ----
 
+    def upsert_logs(self, logs: List[LogRecord]) -> None:
+        if not self._active:
+            console.warning("Core is not active, refusing to upsert logs")
+            return
+        return super().upsert_logs(logs)
+
     def _upsert_logs_when_local(self, logs: List[LogRecord]) -> None:
         records = [builder.build_log_record(self._counter, self._epoch, c) for c in logs]
         self._store_records(records)
@@ -319,6 +345,12 @@ class CorePython(CoreProtocol):
         self._transport_put(records)
 
     # ---- upsert_configs ----
+
+    def upsert_configs(self, configs: List[ConfigRecord]) -> None:
+        if not self._active:
+            console.warning("Core is not active, refusing to upsert configs")
+            return
+        return super().upsert_configs(configs)
 
     def _upsert_configs_when_local(self, configs: List[ConfigRecord]) -> None:
         records = [builder.build_config_record(c) for c in configs]
@@ -335,6 +367,12 @@ class CorePython(CoreProtocol):
 
     # ---- upsert_requirements ----
 
+    def upsert_requirements(self, requirements: List[RequirementsRecord]) -> None:
+        if not self._active:
+            console.warning("Core is not active, refusing to upsert requirements")
+            return
+        return super().upsert_requirements(requirements)
+
     def _upsert_requirements_when_local(self, requirements: List[RequirementsRecord]) -> None:
         records = [builder.build_requirements_record(r.timestamp) for r in requirements]
         self._store_records(records)
@@ -349,6 +387,12 @@ class CorePython(CoreProtocol):
         self._transport_put(records)
 
     # ---- upsert_conda ----
+
+    def upsert_conda(self, conda: List[CondaRecord]) -> None:
+        if not self._active:
+            console.warning("Core is not active, refusing to upsert conda")
+            return
+        return super().upsert_conda(conda)
 
     def _upsert_conda_when_local(self, conda: List[CondaRecord]) -> None:
         records = [builder.build_conda_record(c.timestamp) for c in conda]
@@ -365,6 +409,12 @@ class CorePython(CoreProtocol):
 
     # ---- upsert_metadata ----
 
+    def upsert_metadata(self, metadata: List[MetadataRecord]) -> None:
+        if not self._active:
+            console.warning("Core is not active, refusing to upsert metadata")
+            return
+        return super().upsert_metadata(metadata)
+
     def _upsert_metadata_when_local(self, metadata: List[MetadataRecord]) -> None:
         records = [builder.build_metadata_record(m.timestamp) for m in metadata]
         self._store_records(records)
@@ -379,6 +429,14 @@ class CorePython(CoreProtocol):
         self._transport_put(records)
 
     # ---- upsert_saves ----
+
+    def upsert_saves(self, saves: List[SaveRecord]) -> None:
+        if not self._active:
+            console.warning("Core is not active, refusing to upsert saves")
+            return
+
+        return super().upsert_saves(saves)
+
     def _create_save_with_links(self, saves: List[SaveRecord]) -> None:
         linked = create_save_links(saves, self._ctx.files_dir)
         if linked > 0:
@@ -413,11 +471,9 @@ class CorePython(CoreProtocol):
         if transport_records:
             self._transport_put(transport_records)
 
-    # ---- file watcher ----
-
     def _on_file_changed(self, save_record: SaveRecord) -> None:
         """FileWatcher 回调：持久化 + 可选上传。"""
-        if not self._started or self._store is None:
+        if not self._active or self._store is None:
             return
         records = [builder.build_save_record(self._counter, save_record)]
         self._store_records(records)
@@ -432,10 +488,10 @@ class CorePython(CoreProtocol):
     # ---------------------------------- finish 方法 ----------------------------------
 
     def deliver_run_finish(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse:
-        if not self._started:
-            return DeliverRunFinishResponse(success=False, message="Failed to finish run: not started")
+        if not self._active:
+            return DeliverRunFinishResponse(success=False, message="Run is not active, refusing to finish.")
         resp = super().deliver_run_finish(finish_request)
-        self._started = False
+        self._active = False
         return resp
 
     def _store_finish(self, finish_record: FinishRecord) -> Optional[Record]:
@@ -510,6 +566,9 @@ class CorePython(CoreProtocol):
     # ---------------------------------- 确认完成 ----------------------------------
 
     def _confirm_finish_when_enabled(self) -> ConfirmRunFinishResponse:
+        if self._active:
+            return ConfirmRunFinishResponse(success=False, message="Run is still active, cannot confirm finish.")
+
         # 1. 等待 transport 排空
         if self._transport is not None:
             if not self._transport.finish(timeout=None):

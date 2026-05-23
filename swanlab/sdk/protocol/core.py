@@ -336,7 +336,7 @@ class CoreProtocol(ABC):
         if self._mode != "online":
             return GetOperationStatsResponse(success=True, message="I'm a teapot.")
         with safe.block(message="get operation stats error"):
-            return self._get_operation_when_oline()
+            return self._get_operation_stats_oline()
         return GetOperationStatsResponse(success=False, message="Failed to get operation stats with unknown error")
 
     @abstractmethod

@@ -318,7 +318,7 @@ def test_deliver_sync_flush_prepares_experiment_with_overrides(tmp_path: Path, m
     assert transports[0].tracker is core._tracker
     assert transports[0].started is True
     assert fake_executor.started is True
-    assert core.get_operation_stats().state == CoreState.CORE_STATE_RUNNING
+    assert core.get_operation_stats().stats.state == CoreState.CORE_STATE_RUNNING
 
 
 def test_deliver_sync_flush_fetches_summary_for_existing_experiment(tmp_path: Path, monkeypatch):
@@ -506,15 +506,15 @@ def test_confirm_sync_finish_marks_missing_finish_record_as_crashed(tmp_path: Pa
     core._transport = transport  # type: ignore[assignment]
     core._read_executor = FakeExecutor()  # type: ignore[assignment]
     core._reader = FakeReader([])  # type: ignore[assignment]
-    report = MagicMock(return_value=MagicMock(success=True, message="OK"))
-    monkeypatch.setattr(core, "_report_run_finish", report)
+    stop_mock = MagicMock()
+    monkeypatch.setattr("swanlab.sdk.internal.core_python.sync.stop_experiment", stop_mock)
 
     resp = core.confirm_sync_finish()
 
     assert resp.success is True
-    report_record = report.call_args.args[0]
-    assert report_record.state == RunState.RUN_STATE_CRASHED
-    assert "before writing a finish record" in report_record.error
+    stop_mock.assert_called_once()
+    call_kwargs = stop_mock.call_args
+    assert call_kwargs.kwargs["state"] == RunState.RUN_STATE_CRASHED
     assert transport.finished is True
     assert [record_kind(record) for record in transport.records] == ["log"]
     assert "before writing a finish record" in transport.records[0].log.line
@@ -534,14 +534,15 @@ def test_confirm_sync_finish_uploads_error_log_for_failed_finish_record(tmp_path
         error="user aborted run",
         finished_at=finished_at,
     )
-    report = MagicMock(return_value=MagicMock(success=True, message="OK"))
-    monkeypatch.setattr(core, "_report_run_finish", report)
+    stop_mock = MagicMock()
+    monkeypatch.setattr("swanlab.sdk.internal.core_python.sync.stop_experiment", stop_mock)
 
     resp = core.confirm_sync_finish()
 
     assert resp.success is True
-    report_record = report.call_args.args[0]
-    assert report_record.state == RunState.RUN_STATE_ABORTED
+    stop_mock.assert_called_once()
+    call_kwargs = stop_mock.call_args
+    assert call_kwargs.kwargs["state"] == RunState.RUN_STATE_ABORTED
     assert transport.finished is True
     assert [record_kind(record) for record in transport.records] == ["log"]
     assert transport.records[0].log.level == LogLevel.LOG_LEVEL_ERROR
@@ -558,14 +559,15 @@ def test_confirm_sync_finish_uses_existing_finish_record(tmp_path: Path, monkeyp
     core._reader = FakeReader([])  # type: ignore[assignment]
     finished_at = make_timestamp()
     core._finish_record = FinishRecord(state=RunState.RUN_STATE_FINISHED, finished_at=finished_at)
-    report = MagicMock(return_value=MagicMock(success=True, message="OK"))
-    monkeypatch.setattr(core, "_report_run_finish", report)
+    stop_mock = MagicMock()
+    monkeypatch.setattr("swanlab.sdk.internal.core_python.sync.stop_experiment", stop_mock)
 
     resp = core.confirm_sync_finish()
 
     assert resp.success is True
-    report_record = report.call_args.args[0]
-    assert report_record.state == RunState.RUN_STATE_FINISHED
-    assert report_record.finished_at == finished_at
+    stop_mock.assert_called_once()
+    call_kwargs = stop_mock.call_args
+    assert call_kwargs.kwargs["state"] == RunState.RUN_STATE_FINISHED
+    assert call_kwargs.kwargs["finished_at"] == finished_at
     assert transport.records == []
     assert transport.finished is True

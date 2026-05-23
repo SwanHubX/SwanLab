@@ -5,6 +5,7 @@ from typing import Optional
 
 from rich.text import Text
 
+from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import GetOperationStatsResponse
 from swanlab.proto.swanlab.operation.v1.operation_pb2 import (
     CoreState,
     FileProgress,
@@ -270,11 +271,15 @@ class _FakeProvider:
     def __init__(self, stats_sequence: Optional[list] = None):
         self._iter = iter(stats_sequence or [])
 
-    def get_operation_stats(self) -> OperationStats:
+    def get_operation_stats(self) -> GetOperationStatsResponse:
         try:
-            return next(self._iter)
+            return GetOperationStatsResponse(success=True, message="OK", stats=next(self._iter))
         except StopIteration:
-            return OperationStats(state=CoreState.CORE_STATE_FINISHED)
+            return GetOperationStatsResponse(
+                success=True,
+                message="OK",
+                stats=OperationStats(state=CoreState.CORE_STATE_FINISHED),
+            )
 
 
 class TestRunWithProgress:
@@ -299,8 +304,8 @@ class TestRunWithProgress:
         )
 
         class AlwaysRunningProvider:
-            def get_operation_stats(self) -> OperationStats:
-                return running_stats
+            def get_operation_stats(self) -> GetOperationStatsResponse:
+                return GetOperationStatsResponse(success=True, message="OK", stats=running_stats)
 
         called = []
         run_with_progress(
@@ -377,6 +382,23 @@ class TestRunWithProgress:
 
         provider = _FakeProvider(
             [
+                # 第一次：初始检查，发现需要显示进度
+                OperationStats(
+                    state=CoreState.CORE_STATE_RUNNING,
+                    total_number=1,
+                    uploaded_number=1,
+                    total_size=100,
+                    uploaded_size=100,
+                ),
+                # 第二次：此时立刻被设置为 CORE_STATE_FINISHED ，刷新一次，退出循环
+                OperationStats(
+                    state=CoreState.CORE_STATE_FINISHED,
+                    total_number=1,
+                    uploaded_number=1,
+                    total_size=100,
+                    uploaded_size=100,
+                ),
+                # 第三次：获取最终状态，确认显示最终状态时不需要刷新了
                 OperationStats(
                     state=CoreState.CORE_STATE_FINISHED,
                     total_number=1,

@@ -8,7 +8,7 @@ from __future__ import annotations
 import contextlib
 import os
 import time
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Generator
 from typing import Optional, TypeVar
 
 from rich.bar import Bar
@@ -161,7 +161,7 @@ def _print_summary(stats: OperationStats, unit: str, finished: bool, interrupted
 
 
 @contextlib.contextmanager
-def progress_display() -> Iterator[ProgressDisplay]:
+def progress_display() -> Generator[ProgressDisplay, None, None]:
     """Context manager providing a Rich Live progress area for upload stats."""
     display = ProgressDisplay()
     try:
@@ -215,12 +215,9 @@ def run_with_progress(
     timeout: Optional[float] = None,
     unit: str = "auto",
 ) -> _T:
-    """Poll *stats_fn* while waiting for upload completion, then call *blocking_fn*.
-
-    Displays a Rich Live progress area that updates every poll interval.
-    The loop exits when the tracker reports ``CORE_STATE_FINISHED`` or
-    when *timeout* elapses.  *blocking_fn* is called once after the
-    display closes (e.g. to join the transport and confirm with backend).
+    """在上传完成期间轮询*stats_fn*，随后调用*blocking_fn*。显示一个Rich实时进度区域，该区域每次轮询间隔都会更新。
+    当跟踪器报告``CORE_STATE_FINISHED``或*timeout*超时时，循环退出。
+    显示关闭后（例如加入传输并与后端确认），*blocking_fn*会被调用一次。
     """
     # 1. 进入时请求一次，如果发现stats不存在(这通常是非online模式)则直接返回，避免不必要的进度显示和等待
     resp = stats_fn()
@@ -229,6 +226,11 @@ def run_with_progress(
         return blocking_fn()
     elif not resp.HasField("stats"):
         return blocking_fn()
+    else:
+        # 检查 stats，如果 core 不在运行中，或者虽然在运行但没有上传进度，则直接返回，避免显示一个无进度的界面
+        stats = resp.stats
+        if stats.state != CoreState.CORE_STATE_RUNNING or not _should_show(stats, unit):
+            return blocking_fn()
 
     # 2. 开始显示进度
     deadline = time.monotonic() + timeout if timeout is not None else None
