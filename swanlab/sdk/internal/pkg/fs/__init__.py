@@ -65,6 +65,7 @@ def safe_truncate(name: str, max_length: int = 255) -> Tuple[str, bool]:
     tail_len = max_length - 6
     truncated_name = f"{name[:3]}...{name[-tail_len:]}"
     # 当 tail_len=0 时，truncated_name 为 "abc...{整个name}"，此时再比较没什么意义，所以到了 tail_len=1 就停止循环，确保至少保留一个字符
+    # tail_len=0 和 tail_len=1 实际上是等价的
     while len(truncated_name.encode("utf-8")) > max_length and tail_len > 1:
         tail_len -= 1
         truncated_name = f"{name[:3]}...{name[-tail_len:]}"

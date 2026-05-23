@@ -117,3 +117,24 @@ class TestSafeTruncate:
         result, truncated = safe_truncate(name)
         assert truncated is True
         assert len(result.encode("utf-8")) <= 255
+
+    def test_tail_shrinks_from_two_to_one(self):
+        """tail_len=2 时超限，应减到 1 再检查；tail_len > 2 会错误跳过缩减导致 raise"""
+        # name[:3]="abc" (3B) + "..." (3B) + name[-2:]="试测" (6B) = 12B > 8
+        # 减到 tail_len=1: name[-1:]="测" (3B) → "abc...测" = 9B > 8，仍超限，最终 raise
+        # 但关键是循环必须执行 tail_len 2→1 的缩减，而非跳过
+        name = "abc测试测试测试"
+        with pytest.raises(ValueError):
+            safe_truncate(name, 8)
+
+    def test_tail_shrinks_from_two_to_one_succeeds(self):
+        """tail_len=2 时超限，减到 1 后恰好满足 max_length，应返回而非 raise"""
+        # name[:3]="abc" (3B) + "..." (3B) + name[-2:]="de" (2B) = 8B == 8，恰好不超
+        # 所以这个 case 初始就不超限，换一个：需要 tail 是多字节字符
+        # name[:3]="abc" (3B) + "..." (3B) + name[-2:]="测x" (4B) = 10B > 9
+        # 减到 tail_len=1: name[-1:]="x" (1B) → "abc...x" = 7B <= 9，满足
+        name = "abc测试测x"
+        result, truncated = safe_truncate(name, 9)
+        assert truncated is True
+        assert "..." in result
+        assert len(result.encode("utf-8")) <= 9
