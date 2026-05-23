@@ -336,11 +336,11 @@ class CoreProtocol(ABC):
         if self._mode != "online":
             return GetOperationStatsResponse(success=True, message="I'm a teapot.")
         with safe.block(message="get operation stats error"):
-            return self._get_operation_stats_oline()
+            return self._get_operation_when_online()
         return GetOperationStatsResponse(success=False, message="Failed to get operation stats with unknown error")
 
     @abstractmethod
-    def _get_operation_when_oline(self) -> GetOperationStatsResponse: ...
+    def _get_operation_when_online(self) -> GetOperationStatsResponse: ...
 
     def confirm_run_finish(self) -> ConfirmRunFinishResponse:
         """确认运行结束：等待上传排空、停止后台组件并上报最终 finish 状态。"""

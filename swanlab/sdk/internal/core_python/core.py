@@ -554,7 +554,7 @@ class CorePython(CoreProtocol):
 
     # ---------------------------------- 进度查询 ----------------------------------
 
-    def _get_operation_when_oline(self) -> GetOperationStatsResponse:
+    def _get_operation_when_online(self) -> GetOperationStatsResponse:
         assert self._tracker is not None, "tracker must be initialized before get_operation_stats"
         stats = self._tracker.snapshot()
         return GetOperationStatsResponse(
