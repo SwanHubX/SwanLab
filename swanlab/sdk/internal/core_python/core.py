@@ -18,7 +18,7 @@ Core 同时需要根据不同模式处理不同的业务，这是设计模式决
 值得说明的是，在当前的上层设计中，upsert 方法在 disabled 模式下永远不会触发，但是考虑到设计完整性，我们增加了相关业务逻辑判断
 """
 
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 from swanlab.proto.swanlab.config.v1.config_pb2 import ConfigRecord
 from swanlab.proto.swanlab.env.v1.env_pb2 import CondaRecord, MetadataRecord, RequirementsRecord
@@ -28,10 +28,11 @@ from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
     DeliverRunFinishResponse,
     DeliverRunStartRequest,
     DeliverRunStartResponse,
+    GetOperationStatsResponse,
 )
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnClass, ColumnRecord, ColumnType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord, ScalarRecord
-from swanlab.proto.swanlab.operation.v1.operation_pb2 import CoreState, OperationStats
+from swanlab.proto.swanlab.operation.v1.operation_pb2 import CoreState
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord, RunState, StartRecord
 from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord
@@ -65,6 +66,7 @@ class CorePython(CoreProtocol):
 
     def __init__(self, mode: ModeType):
         super().__init__(mode)
+        self._started: bool = False
         self._run_ctx: Optional[CoreContext] = None
         self._store: Optional[DataStoreWriter] = None
         self._transport: Optional[Transport] = None
@@ -72,12 +74,14 @@ class CorePython(CoreProtocol):
         self._counter = counter.Counter()
         # console 行计数器
         self._epoch = counter.Counter()
-        self._started: bool = False
+        # 指标上下文管理器
         self._metrics: Optional[RunMetrics] = None
+        # 在线模式心跳，定时向后端发送心跳以维持在线状态
         self._heartbeat: Optional[Heartbeat] = None
-        # upload progress tracker
+        # 在线模式上传跟踪器，记录上传队列状态，供进度展示使用
         self._tracker: Optional[UploadTracker] = None
-        self._pending_finish_record: Optional[FinishRecord] = None
+        # finish 时暂存的记录，等待 confirm_run_finish 时上报，用于online模式的两阶段 finish 设计
+        self._pending_online_finish_record: Optional[FinishRecord] = None
         # save 相关
         self._watcher = FileWatcher(on_change=self._on_file_changed)
         self._pending_end_saves: List[Record] = []
@@ -420,9 +424,6 @@ class CorePython(CoreProtocol):
         if self._mode == "online" and self._transport is not None:
             self._transport_put(records)
 
-    def _stop_watcher(self) -> None:
-        self._watcher.stop()
-
     # ---------------------------------- fork 方法 ----------------------------------
 
     def fork(self) -> "CorePython":
@@ -432,18 +433,14 @@ class CorePython(CoreProtocol):
 
     def deliver_run_finish(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse:
         if not self._started:
-            raise RuntimeError("Failed to finish run: not started")
+            return DeliverRunFinishResponse(success=False, message="Failed to finish run: not started")
         resp = super().deliver_run_finish(finish_request)
         self._started = False
         return resp
 
-    def _finish_store(self, record: Record):
+    def _store_finish(self, finish_record: FinishRecord) -> Optional[Record]:
         assert self._store is not None, "store must be initialized before shutdown"
-        self._store.write(record.SerializeToString())
-        self._store.close()
-        self._store = None
-
-    def _build_finish_record(self, finish_record: FinishRecord) -> Tuple[Record, Optional[Record]]:
+        # 1. 构建结束记录并写入存储
         record = builder.build_finish_record(finish_record)
         record.finish.CopyFrom(finish_record)
         log_record: Optional[Record] = None
@@ -464,18 +461,19 @@ class CorePython(CoreProtocol):
             )
             # 不将 log_record 写入 store 中，一方面具体的报错信息存储在 finish_record 中
             # 另一方面因为这个 record 也是为了适应后端“报错信息写在CH”的设计
-        return record, log_record
+        # 2. 关闭存储、文件监视器等本地资源，停止接受新的记录
+        self._store.write(record.SerializeToString())
+        self._store.close()
+        self._store = None
+        self._watcher.stop()
+        return log_record
 
     def _finish_when_local(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse:
-        self._stop_watcher()
-        record, _ = self._build_finish_record(finish_request.finish_record)
-        self._finish_store(record)
+        self._store_finish(finish_request.finish_record)
         return DeliverRunFinishResponse(success=True, message="OK, but use local")
 
     def _finish_when_offline(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse:
-        self._stop_watcher()
-        record, _ = self._build_finish_record(finish_request.finish_record)
-        self._finish_store(record)
+        self._store_finish(finish_request.finish_record)
         return DeliverRunFinishResponse(success=True, message="OK, but use offline")
 
     def _finish_when_online(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse:
@@ -484,65 +482,63 @@ class CorePython(CoreProtocol):
         2. confirm_run_finish（由 Run.finish 在进度展示后调用）：等待 transport 排空完成，再向
            后端上报最终实验状态。两阶段设计允许中间插入进度轮询展示。
         """
-        self._stop_watcher()
-        # 1. 构建停止记录
-        record, log_record = self._build_finish_record(finish_request.finish_record)
-        self._finish_store(record)
         assert self._transport is not None, "transport must be initialized before finishing"
+        record = self._store_finish(finish_request.finish_record)
         # 2. 发送 error log 和暂存的 end-policy save 记录
-        if log_record is not None:
-            self._transport_put([log_record])
+        if record is not None:
+            self._transport_put([record])
         if self._pending_end_saves:
             self._transport_put(self._pending_end_saves)
             self._pending_end_saves.clear()
         # 3. 暂存 finish_record，等待 confirm_run_finish 做最终确认
-        self._pending_finish_record = finish_request.finish_record
+        self._pending_online_finish_record = finish_request.finish_record
         # 4. 通知 Transport 开始排空（非阻塞）
         self._transport.request_finish()
         return DeliverRunFinishResponse(success=True, message="OK")
 
     # ---------------------------------- 进度查询 ----------------------------------
 
-    def get_operation_stats(self) -> OperationStats:
-        if self._tracker is not None:
-            return self._tracker.snapshot()
-        return OperationStats()
+    def _get_operation_when_oline(self) -> GetOperationStatsResponse:
+        assert self._tracker is not None, "tracker must be initialized before get_operation_stats"
+        stats = self._tracker.snapshot()
+        return GetOperationStatsResponse(
+            success=True,
+            message="OK",
+            stats=stats,
+        )
 
-    def confirm_run_finish(self) -> ConfirmRunFinishResponse:
-        """等待 transport 排空全部记录，然后向后端上报最终实验状态。
+    # ---------------------------------- 确认完成 ----------------------------------
 
-        timeout=None 表示无限等待 transport 排空，因为此时进度展示已经告知用户
-        正在上传，由外层 run_with_progress 控制整体超时。
-        """
+    def _confirm_finish_when_enabled(self) -> ConfirmRunFinishResponse:
+        # 1. 等待 transport 排空
         if self._transport is not None:
             if not self._transport.finish(timeout=None):
                 return ConfirmRunFinishResponse(success=False, message="Transport is still running.")
             self._transport = None
+        # 2. 停止心跳和上传跟踪器，释放资源
         if self._tracker is not None:
             self._tracker.set_state(CoreState.CORE_STATE_FINISHED)
         if self._heartbeat is not None:
             self._heartbeat.stop()
             self._heartbeat = None
-        # 向后端同步运行结束事件
-        if self._pending_finish_record is None:
+        # 3. 上报最终的 finish_record 给后端，完成实验结束流程
+        # 约定仅 online 模式暂存 finish_record，offline/local 模式在 deliver_run_finish 时就完成了全部流程，因此这里无需上报
+        if self._mode != "online":
             return ConfirmRunFinishResponse(success=True, message="OK")
-        resp = self._report_run_finish(self._pending_finish_record)
-        self._pending_finish_record = None
-        if resp is None:
+        if self._pending_online_finish_record is None:
             return ConfirmRunFinishResponse(
-                success=False, message="Failed to finish run, but it has been saved locally."
+                success=False,
+                message="Failed to confirm run finish: no pending finish record found.",
             )
-        return resp
-
-    @safe.decorator(message="run finish error")
-    def _report_run_finish(self, record: FinishRecord) -> ConfirmRunFinishResponse:
-        # 向后端同步运行结束事件
-        stop_experiment(
-            self._ctx.username,
-            self._ctx.project,
-            self._ctx.experiment_id,
-            state=record.state,
-            finished_at=record.finished_at,
-        )
-        # 构建记录
-        return ConfirmRunFinishResponse(success=True, message="OK")
+        with safe.block(message="Failed to report run finish"):
+            stop_experiment(
+                self._ctx.username,
+                self._ctx.project,
+                self._ctx.experiment_id,
+                state=self._pending_online_finish_record.state,
+                finished_at=self._pending_online_finish_record.finished_at,
+            )
+            self._pending_online_finish_record = None
+            return ConfirmRunFinishResponse(success=True, message="OK")
+        # 虽然本地已经完成了全部流程，但由于网络等原因导致无法通知后端，因此返回失败状态，但是影响不大
+        return ConfirmRunFinishResponse(success=False, message="Failed to finish run, but it has been saved locally.")

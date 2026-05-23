@@ -112,6 +112,16 @@ class DeliverRunFinishResponse(_message.Message):
     message: str
     def __init__(self, success: bool = ..., message: _Optional[str] = ...) -> None: ...
 
+class GetOperationStatsResponse(_message.Message):
+    __slots__ = ("success", "message", "stats")
+    SUCCESS_FIELD_NUMBER: _ClassVar[int]
+    MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    STATS_FIELD_NUMBER: _ClassVar[int]
+    success: bool
+    message: str
+    stats: _operation_pb2.OperationStats
+    def __init__(self, success: bool = ..., message: _Optional[str] = ..., stats: _Optional[_Union[_operation_pb2.OperationStats, _Mapping]] = ...) -> None: ...
+
 class ConfirmRunFinishResponse(_message.Message):
     __slots__ = ("success", "message")
     SUCCESS_FIELD_NUMBER: _ClassVar[int]

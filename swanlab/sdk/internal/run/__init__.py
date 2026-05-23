@@ -741,24 +741,19 @@ class Run:
         self._probe.deliver_probe_finish()
         ts = Timestamp()
         ts.GetCurrentTime()
-        # 3. 停止Core线程
+        # 3. 停止Core
         finish_request = DeliverRunFinishRequest(
             finish_record=FinishRecord(state=adapter.state[this_state], error=error, finished_at=ts)
         )
-        if self.mode == "online":
-            # online finish 使用两阶段提交：
-            #   第一阶段 (deliver_run_finish)：本地持久化 + 通知 transport 开始排空
-            #   第二阶段 (run_with_progress → confirm_run_finish)：轮询进度等待排空完成，再向后端确认
-            finish_resp = self._core.deliver_run_finish(finish_request)
-            if finish_resp.success:
-                finish_resp = run_with_progress(
-                    stats_fn=self._core.get_operation_stats,
-                    blocking_fn=self._core.confirm_run_finish,
-                )
-        else:
-            finish_resp = self._core.deliver_run_finish(finish_request)
+        finish_resp = self._core.deliver_run_finish(finish_request)
         if not finish_resp.success:
             console.error(finish_resp.message)
+        confirm_resp = run_with_progress(
+            stats_fn=self._core.get_operation_stats,
+            blocking_fn=self._core.confirm_run_finish,
+        )
+        if not confirm_resp.success:
+            console.error(confirm_resp.message)
         # finish 回调
         self._callbacker.on_run_finished(this_state, error)
         console.debug(f"SwanLab Run has finished with state: {self._state}, cleanup...")

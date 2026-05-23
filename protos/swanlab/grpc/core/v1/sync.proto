@@ -3,6 +3,7 @@ syntax = "proto3";
 package swanlab.grpc.core.v1;
 
 import "google/protobuf/empty.proto";
+import "swanlab/grpc/core/v1/core.proto";
 import "swanlab/run/v1/run.proto";
 import "swanlab/settings/core/v1/core.proto";
 
@@ -15,6 +16,9 @@ service CoreSyncService {
 
     // DeliverSyncFlush 结束本地日志读取，开启云端同步
     rpc DeliverSyncFlush(google.protobuf.Empty) returns(DeliverSyncFlushResponse);
+
+    // GetOperationStats 返回 Core 当前运行状态和上传进度快照。
+    rpc GetOperationStats(google.protobuf.Empty) returns(GetOperationStatsResponse);
 
     // ConfirmSyncFinish 结束同步，副作用清理，退出
     rpc ConfirmSyncFinish(google.protobuf.Empty) returns(ConfirmSyncFinishResponse);

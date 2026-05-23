@@ -8,7 +8,6 @@ package corev1
 
 import (
 	context "context"
-	v1 "github.com/swanhubx/swanlab/core/proto/swanlab/operation/v1"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -65,7 +64,7 @@ type CoreServiceClient interface {
 	// DeliverRunFinish 接收单条 FinishRecord，用于实验结束。
 	DeliverRunFinish(ctx context.Context, in *DeliverRunFinishRequest, opts ...grpc.CallOption) (*DeliverRunFinishResponse, error)
 	// GetOperationStats 返回 Core 当前运行状态和上传进度快照。
-	GetOperationStats(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.OperationStats, error)
+	GetOperationStats(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetOperationStatsResponse, error)
 	// ConfirmRunFinish 确认 Core 运行结束，可以安全退出
 	ConfirmRunFinish(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ConfirmRunFinishResponse, error)
 }
@@ -188,9 +187,9 @@ func (c *coreServiceClient) DeliverRunFinish(ctx context.Context, in *DeliverRun
 	return out, nil
 }
 
-func (c *coreServiceClient) GetOperationStats(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.OperationStats, error) {
+func (c *coreServiceClient) GetOperationStats(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetOperationStatsResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(v1.OperationStats)
+	out := new(GetOperationStatsResponse)
 	err := c.cc.Invoke(ctx, CoreService_GetOperationStats_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -237,7 +236,7 @@ type CoreServiceServer interface {
 	// DeliverRunFinish 接收单条 FinishRecord，用于实验结束。
 	DeliverRunFinish(context.Context, *DeliverRunFinishRequest) (*DeliverRunFinishResponse, error)
 	// GetOperationStats 返回 Core 当前运行状态和上传进度快照。
-	GetOperationStats(context.Context, *emptypb.Empty) (*v1.OperationStats, error)
+	GetOperationStats(context.Context, *emptypb.Empty) (*GetOperationStatsResponse, error)
 	// ConfirmRunFinish 确认 Core 运行结束，可以安全退出
 	ConfirmRunFinish(context.Context, *emptypb.Empty) (*ConfirmRunFinishResponse, error)
 	mustEmbedUnimplementedCoreServiceServer()
@@ -283,7 +282,7 @@ func (UnimplementedCoreServiceServer) UpsertSaves(context.Context, *UpsertSavesR
 func (UnimplementedCoreServiceServer) DeliverRunFinish(context.Context, *DeliverRunFinishRequest) (*DeliverRunFinishResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeliverRunFinish not implemented")
 }
-func (UnimplementedCoreServiceServer) GetOperationStats(context.Context, *emptypb.Empty) (*v1.OperationStats, error) {
+func (UnimplementedCoreServiceServer) GetOperationStats(context.Context, *emptypb.Empty) (*GetOperationStatsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetOperationStats not implemented")
 }
 func (UnimplementedCoreServiceServer) ConfirmRunFinish(context.Context, *emptypb.Empty) (*ConfirmRunFinishResponse, error) {

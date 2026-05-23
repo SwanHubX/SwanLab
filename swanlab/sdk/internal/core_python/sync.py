@@ -10,6 +10,7 @@ from typing import Optional
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.exceptions import DataStoreError
+from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import GetOperationStatsResponse
 from swanlab.proto.swanlab.grpc.core.v1.sync_pb2 import (
     ConfirmSyncFinishResponse,
     DeliverSyncFlushResponse,
@@ -17,7 +18,7 @@ from swanlab.proto.swanlab.grpc.core.v1.sync_pb2 import (
     DeliverSyncStartResponse,
 )
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
-from swanlab.proto.swanlab.operation.v1.operation_pb2 import CoreState, OperationStats
+from swanlab.proto.swanlab.operation.v1.operation_pb2 import CoreState
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord, ResumeMode, RunState, StartRecord
 from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogLevel, LogRecord
@@ -235,10 +236,11 @@ class CoreSyncPython(CoreSyncProtocol):
                     # 其余的直接上传（覆盖式）
                     self._transport.put([record])
 
-    def get_operation_stats(self) -> OperationStats:
-        if self._tracker is not None:
-            return self._tracker.snapshot()
-        return OperationStats()
+    def get_operation_stats(self) -> GetOperationStatsResponse:
+        if self._tracker is None:
+            return GetOperationStatsResponse(success=False, message="Transport not initialized yet")
+        stats = self._tracker.snapshot()
+        return GetOperationStatsResponse(success=True, message="success", stats=stats)
 
     def _get_finish_record(self) -> FinishRecord:
         if self._prepared_finish_record is not None:
@@ -299,35 +301,29 @@ class CoreSyncPython(CoreSyncProtocol):
         确认同步完成，关闭文件流，上报最终实验状态
         """
         assert self._transport is not None, "Transport not set before confirming sync finish"
-        # 1. 等待读任务完成
+        # 1. 等待读任务完成，并构建结束记录
         self._read_executor.wait()
         self._read_executor.close()
         self._reader.close()
-        # 2. 构建实验结束记录
         finish_record = self._get_finish_record()
         # 3. 确保结束日志已入队，等待上传线程退出，然后上报最终实验状态
         try:
             self._request_transport_finish()
             self._transport.join(timeout=None)
-            resp = self._report_run_finish(finish_record)
+            with safe.block(message="Failed to report run finish"):
+                stop_experiment(
+                    self._ctx.username,
+                    self._ctx.project,
+                    self._ctx.experiment_id,
+                    state=finish_record.state,
+                    finished_at=finish_record.finished_at,
+                )
+                self._pending_online_finish_record = None
+                return ConfirmSyncFinishResponse(success=True, message="OK")
+                # 如果仅仅是与后端同步出现问题，则换一个让用户安心一些的提示信息
+            return ConfirmSyncFinishResponse(
+                success=False, message="Failed to finish run, but all records have been uploaded to the server."
+            )
         finally:
             if self._tracker is not None:
                 self._tracker.set_state(CoreState.CORE_STATE_FINISHED)
-        # 如果仅仅是与后端同步出现问题，则换一个让用户安心一些的提示信息
-        if resp is None:
-            return ConfirmSyncFinishResponse(
-                success=False, message="Failed to finish run, but all records have been uploaded to the server"
-            )
-        return resp
-
-    @safe.decorator(message="run finish error")
-    def _report_run_finish(self, record: FinishRecord) -> ConfirmSyncFinishResponse:
-        # 向后端同步运行结束事件
-        stop_experiment(
-            self._ctx.username,
-            self._ctx.project,
-            self._ctx.experiment_id,
-            state=record.state,
-            finished_at=record.finished_at,
-        )
-        return ConfirmSyncFinishResponse(success=True, message="OK")

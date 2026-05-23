@@ -4,6 +4,7 @@ import grpc
 import warnings
 
 from google.protobuf import empty_pb2 as google_dot_protobuf_dot_empty__pb2
+from swanlab.proto.swanlab.grpc.core.v1 import core_pb2 as swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2
 from swanlab.proto.swanlab.grpc.core.v1 import sync_pb2 as swanlab_dot_grpc_dot_core_dot_v1_dot_sync__pb2
 
 GRPC_GENERATED_VERSION = '1.78.0'
@@ -46,6 +47,11 @@ class CoreSyncServiceStub(object):
                 request_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
                 response_deserializer=swanlab_dot_grpc_dot_core_dot_v1_dot_sync__pb2.DeliverSyncFlushResponse.FromString,
                 _registered_method=True)
+        self.GetOperationStats = channel.unary_unary(
+                '/swanlab.grpc.core.v1.CoreSyncService/GetOperationStats',
+                request_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+                response_deserializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.GetOperationStatsResponse.FromString,
+                _registered_method=True)
         self.ConfirmSyncFinish = channel.unary_unary(
                 '/swanlab.grpc.core.v1.CoreSyncService/ConfirmSyncFinish',
                 request_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
@@ -71,6 +77,13 @@ class CoreSyncServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetOperationStats(self, request, context):
+        """GetOperationStats 返回 Core 当前运行状态和上传进度快照。
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def ConfirmSyncFinish(self, request, context):
         """ConfirmSyncFinish 结束同步，副作用清理，退出
         """
@@ -90,6 +103,11 @@ def add_CoreSyncServiceServicer_to_server(servicer, server):
                     servicer.DeliverSyncFlush,
                     request_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
                     response_serializer=swanlab_dot_grpc_dot_core_dot_v1_dot_sync__pb2.DeliverSyncFlushResponse.SerializeToString,
+            ),
+            'GetOperationStats': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetOperationStats,
+                    request_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                    response_serializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.GetOperationStatsResponse.SerializeToString,
             ),
             'ConfirmSyncFinish': grpc.unary_unary_rpc_method_handler(
                     servicer.ConfirmSyncFinish,
@@ -152,6 +170,33 @@ class CoreSyncService(object):
             '/swanlab.grpc.core.v1.CoreSyncService/DeliverSyncFlush',
             google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
             swanlab_dot_grpc_dot_core_dot_v1_dot_sync__pb2.DeliverSyncFlushResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetOperationStats(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/swanlab.grpc.core.v1.CoreSyncService/GetOperationStats',
+            google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.GetOperationStatsResponse.FromString,
             options,
             channel_credentials,
             insecure,
