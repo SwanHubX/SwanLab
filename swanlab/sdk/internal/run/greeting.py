@@ -72,7 +72,7 @@ def _print_local_tip(ctx: RunContext):
 
 def _print_offline_tip(ctx: RunContext):
     console.info(
-        "☁️ Run ",
+        "⚡️ Run",
         Text(f"`swanlab sync {str(ctx.config.run_dir)}`", "bold"),
         "to sync this run",
     )
