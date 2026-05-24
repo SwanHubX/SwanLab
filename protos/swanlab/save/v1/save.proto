@@ -13,7 +13,7 @@ enum SavePolicy {
 enum SaveType {
     SAVE_TYPE_CUSTOM = 0;       // 用户自定义文件，默认类型
     SAVE_TYPE_CONFIG = 1;       // swanlab.config 文件
-    SAVE_TYPE_METADTA = 2;      // swanlab-metadata.json 文件
+    SAVE_TYPE_METADATA = 2;     // swanlab-metadata.json 文件
     SAVE_TYPE_REQUIREMENTS = 3; // requirements.txt 文件
     SAVE_TYPE_CONDA = 4;        // conda.yaml 文件
 }

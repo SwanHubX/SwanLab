@@ -75,7 +75,7 @@ type SaveType int32
 const (
 	SaveType_SAVE_TYPE_CUSTOM       SaveType = 0 // 用户自定义文件，默认类型
 	SaveType_SAVE_TYPE_CONFIG       SaveType = 1 // swanlab.config 文件
-	SaveType_SAVE_TYPE_METADTA      SaveType = 2 // swanlab-metadata.json 文件
+	SaveType_SAVE_TYPE_METADATA     SaveType = 2 // swanlab-metadata.json 文件
 	SaveType_SAVE_TYPE_REQUIREMENTS SaveType = 3 // requirements.txt 文件
 	SaveType_SAVE_TYPE_CONDA        SaveType = 4 // conda.yaml 文件
 )
@@ -85,14 +85,14 @@ var (
 	SaveType_name = map[int32]string{
 		0: "SAVE_TYPE_CUSTOM",
 		1: "SAVE_TYPE_CONFIG",
-		2: "SAVE_TYPE_METADTA",
+		2: "SAVE_TYPE_METADATA",
 		3: "SAVE_TYPE_REQUIREMENTS",
 		4: "SAVE_TYPE_CONDA",
 	}
 	SaveType_value = map[string]int32{
 		"SAVE_TYPE_CUSTOM":       0,
 		"SAVE_TYPE_CONFIG":       1,
-		"SAVE_TYPE_METADTA":      2,
+		"SAVE_TYPE_METADATA":     2,
 		"SAVE_TYPE_REQUIREMENTS": 3,
 		"SAVE_TYPE_CONDA":        4,
 	}
@@ -222,11 +222,11 @@ const file_swanlab_save_v1_save_proto_rawDesc = "" +
 	"SavePolicy\x12\x13\n" +
 	"\x0fSAVE_POLICY_NOW\x10\x00\x12\x13\n" +
 	"\x0fSAVE_POLICY_END\x10\x01\x12\x14\n" +
-	"\x10SAVE_POLICY_LIVE\x10\x02*~\n" +
+	"\x10SAVE_POLICY_LIVE\x10\x02*\x7f\n" +
 	"\bSaveType\x12\x14\n" +
 	"\x10SAVE_TYPE_CUSTOM\x10\x00\x12\x14\n" +
-	"\x10SAVE_TYPE_CONFIG\x10\x01\x12\x15\n" +
-	"\x11SAVE_TYPE_METADTA\x10\x02\x12\x1a\n" +
+	"\x10SAVE_TYPE_CONFIG\x10\x01\x12\x16\n" +
+	"\x12SAVE_TYPE_METADATA\x10\x02\x12\x1a\n" +
 	"\x16SAVE_TYPE_REQUIREMENTS\x10\x03\x12\x13\n" +
 	"\x0fSAVE_TYPE_CONDA\x10\x04B?Z=github.com/swanhubx/swanlab/core/proto/swanlab/save/v1;savev1b\x06proto3"
 

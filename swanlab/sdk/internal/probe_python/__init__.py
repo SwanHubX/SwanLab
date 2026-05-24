@@ -94,7 +94,7 @@ class ProbePython(ProbeProtocol):
                 metadata_record = SaveRecord(
                     name="metadata",
                     source_path=ctx.metadata_file.absolute().as_posix(),
-                    type=SaveType.SAVE_TYPE_METADTA,
+                    type=SaveType.SAVE_TYPE_METADATA,
                 )
                 payload.append(metadata_record)
             if sys_info.requirements:

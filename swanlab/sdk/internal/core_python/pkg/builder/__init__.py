@@ -173,7 +173,7 @@ def build_save_record(counter: Counter, save_record: SaveRecord, save_type: Save
     """
     if save_type == SaveType.SAVE_TYPE_CUSTOM:
         return Record(num=counter.inc(), save=save_record, timestamp=_now())
-    elif save_type == SaveType.SAVE_TYPE_METADTA:
+    elif save_type == SaveType.SAVE_TYPE_METADATA:
         return Record(num=METADATA_RECORD_NUM, save=save_record, timestamp=_now())
     elif save_type == SaveType.SAVE_TYPE_REQUIREMENTS:
         return Record(num=REQUIREMENTS_RECORD_NUM, save=save_record, timestamp=_now())

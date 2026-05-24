@@ -266,7 +266,7 @@ class HttpRecordSender:
             # 根据约定的 type 字段区分内部保存和用户保存，内部保存直接上传内容，用户保存走后续文件上传逻辑
             if save.type == SaveType.SAVE_TYPE_CUSTOM:
                 save_records.append(record)
-            elif save.type == SaveType.SAVE_TYPE_METADTA:
+            elif save.type == SaveType.SAVE_TYPE_METADATA:
                 with safe.block(message=f"Failed to upload metadata, skipping; file kept at {save.source_path}"):
                     with open(Path(save.source_path), "r", encoding="utf-8") as f:
                         content = json.load(f)

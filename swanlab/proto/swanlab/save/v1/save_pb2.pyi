@@ -15,7 +15,7 @@ class SaveType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     SAVE_TYPE_CUSTOM: _ClassVar[SaveType]
     SAVE_TYPE_CONFIG: _ClassVar[SaveType]
-    SAVE_TYPE_METADTA: _ClassVar[SaveType]
+    SAVE_TYPE_METADATA: _ClassVar[SaveType]
     SAVE_TYPE_REQUIREMENTS: _ClassVar[SaveType]
     SAVE_TYPE_CONDA: _ClassVar[SaveType]
 SAVE_POLICY_NOW: SavePolicy
@@ -23,7 +23,7 @@ SAVE_POLICY_END: SavePolicy
 SAVE_POLICY_LIVE: SavePolicy
 SAVE_TYPE_CUSTOM: SaveType
 SAVE_TYPE_CONFIG: SaveType
-SAVE_TYPE_METADTA: SaveType
+SAVE_TYPE_METADATA: SaveType
 SAVE_TYPE_REQUIREMENTS: SaveType
 SAVE_TYPE_CONDA: SaveType
 
