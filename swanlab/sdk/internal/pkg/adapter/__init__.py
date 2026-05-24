@@ -7,8 +7,8 @@
 两者需要适配和转换
 """
 
-from swanlab.proto.swanlab.env.v1.metadata_pb2 import AcceleratorVendor, MemoryUnit
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
+from swanlab.proto.swanlab.probe.v1.metadata_pb2 import AcceleratorVendor, MemoryUnit
 from swanlab.proto.swanlab.run.v1.run_pb2 import ResumeMode, RunState
 from swanlab.proto.swanlab.save.v1.save_pb2 import SavePolicy
 from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogLevel

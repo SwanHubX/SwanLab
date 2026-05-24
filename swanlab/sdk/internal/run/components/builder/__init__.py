@@ -10,7 +10,6 @@ from typing import Optional
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
-from swanlab.proto.swanlab.config.v1.config_pb2 import ConfigRecord
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import (
     ColumnClass,
     ColumnRecord,
@@ -19,7 +18,7 @@ from swanlab.proto.swanlab.metric.column.v1.column_pb2 import (
     SectionType,
 )
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord
-from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord
+from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord, SaveType
 from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogRecord
 from swanlab.sdk.internal.bus.events import ConfigEvent, FileSaveEvent, LogEvent, ParseResult, ScalarDefineEvent
 from swanlab.sdk.internal.context import RunContext, TransformMedia
@@ -143,9 +142,9 @@ class RecordBuilder:
 
     # ── 系统元数据 ──
     @staticmethod
-    def build_config(event: ConfigEvent) -> ConfigRecord:
-        """构建 ConfigRecord envelope"""
-        return ConfigRecord(update_type=event.update, timestamp=event.timestamp)
+    def build_config(event: ConfigEvent) -> SaveRecord:
+        """构建 Config Save envelope"""
+        return SaveRecord(name="config", source_path=event.path.absolute().as_posix(), type=SaveType.SAVE_TYPE_CONFIG)
 
     @staticmethod
     def build_log(event: LogEvent) -> LogRecord:

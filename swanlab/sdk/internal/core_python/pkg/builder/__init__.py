@@ -10,13 +10,11 @@ from typing import Union
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
-from swanlab.proto.swanlab.config.v1.config_pb2 import ConfigRecord
-from swanlab.proto.swanlab.env.v1.env_pb2 import CondaRecord, MetadataRecord, RequirementsRecord
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnClass, ColumnRecord, ColumnType, SectionType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord, ScalarRecord
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord, StartRecord
-from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord
+from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord, SaveType
 from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogRecord
 from swanlab.sdk.internal.core_python.context import CoreContext
 from swanlab.sdk.internal.core_python.pkg.counter import Counter
@@ -25,10 +23,6 @@ __all__ = [
     "DEC_NUM",
     "build_finish_record",
     "build_start_record",
-    "build_config_record",
-    "build_metadata_record",
-    "build_requirements_record",
-    "build_conda_record",
     "build_media_record",
     "build_scalar_record",
     "build_log_record",
@@ -130,34 +124,6 @@ def build_finish_record(finish_record: FinishRecord):
     return Record(num=FINISH_RECORD_NUM, finish=finish_record, timestamp=_now())
 
 
-def build_config_record(config_record: ConfigRecord):
-    """
-    构建配置记录
-    """
-    return Record(num=CONFIG_RECORD_NUM, config=config_record, timestamp=_now())
-
-
-def build_metadata_record(ts: Timestamp):
-    """
-    构建元信息记录
-    """
-    return Record(num=METADATA_RECORD_NUM, metadata=MetadataRecord(timestamp=ts), timestamp=_now())
-
-
-def build_requirements_record(ts: Timestamp):
-    """
-    构建依赖记录
-    """
-    return Record(num=REQUIREMENTS_RECORD_NUM, requirements=RequirementsRecord(timestamp=ts), timestamp=_now())
-
-
-def build_conda_record(ts: Timestamp):
-    """
-    构建conda环境记录
-    """
-    return Record(num=CONDA_RECORD_NUM, conda=CondaRecord(timestamp=ts), timestamp=_now())
-
-
 def build_resume_column(key: str, *, media: bool = False, system: bool = False) -> ColumnRecord:
     """
     构建一个resume模式下从云端恢复的列记录
@@ -201,8 +167,19 @@ def build_auto_column(ctx: CoreContext, data_record: Union[ScalarRecord, MediaRe
     )
 
 
-def build_save_record(counter: Counter, save_record: SaveRecord):
+def build_save_record(counter: Counter, save_record: SaveRecord, save_type: SaveType = SaveType.SAVE_TYPE_CUSTOM):
     """
     构建文件保存记录
     """
-    return Record(num=counter.inc(), save=save_record, timestamp=_now())
+    if save_type == SaveType.SAVE_TYPE_CUSTOM:
+        return Record(num=counter.inc(), save=save_record, timestamp=_now())
+    elif save_type == SaveType.SAVE_TYPE_METADTA:
+        return Record(num=METADATA_RECORD_NUM, save=save_record, timestamp=_now())
+    elif save_type == SaveType.SAVE_TYPE_REQUIREMENTS:
+        return Record(num=REQUIREMENTS_RECORD_NUM, save=save_record, timestamp=_now())
+    elif save_type == SaveType.SAVE_TYPE_CONDA:
+        return Record(num=CONDA_RECORD_NUM, save=save_record, timestamp=_now())
+    elif save_type == SaveType.SAVE_TYPE_CONFIG:
+        return Record(num=CONFIG_RECORD_NUM, save=save_record, timestamp=_now())
+    else:
+        raise ValueError(f"Unsupported save type: {save_type}")

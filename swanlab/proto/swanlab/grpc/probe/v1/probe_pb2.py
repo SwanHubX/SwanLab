@@ -23,11 +23,11 @@ _sym_db = _symbol_database.Default()
 
 
 from google.protobuf import empty_pb2 as google_dot_protobuf_dot_empty__pb2
-from swanlab.proto.swanlab.env.v1 import metadata_pb2 as swanlab_dot_env_dot_v1_dot_metadata__pb2
+from swanlab.proto.swanlab.probe.v1 import metadata_pb2 as swanlab_dot_probe_dot_v1_dot_metadata__pb2
 from swanlab.proto.swanlab.settings.probe.v1 import probe_pb2 as swanlab_dot_settings_dot_probe_dot_v1_dot_probe__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n!swanlab/grpc/probe/v1/probe.proto\x12\x15swanlab.grpc.probe.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1dswanlab/env/v1/metadata.proto\x1a%swanlab/settings/probe/v1/probe.proto\"\\\n\x18\x44\x65liverProbeStartRequest\x12@\n\x0eprobe_settings\x18\x01 \x01(\x0b\x32(.swanlab.settings.probe.v1.ProbeSettings\"s\n\x1bGetMetadataSnapshotResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t\x12\x32\n\x08metadata\x18\x03 \x01(\x0b\x32 .swanlab.env.v1.MetadataSnapshot2\x95\x02\n\x0cProbeService\x12\\\n\x11\x44\x65liverProbeStart\x12/.swanlab.grpc.probe.v1.DeliverProbeStartRequest\x1a\x16.google.protobuf.Empty\x12\x61\n\x13GetMetadataSnapshot\x12\x16.google.protobuf.Empty\x1a\x32.swanlab.grpc.probe.v1.GetMetadataSnapshotResponse\x12\x44\n\x12\x44\x65liverProbeFinish\x12\x16.google.protobuf.Empty\x1a\x16.google.protobuf.EmptyBFZDgithub.com/swanhubx/swanlab/core/proto/swanlab/grpc/probe/v1;probev1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n!swanlab/grpc/probe/v1/probe.proto\x12\x15swanlab.grpc.probe.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fswanlab/probe/v1/metadata.proto\x1a%swanlab/settings/probe/v1/probe.proto\"\\\n\x18\x44\x65liverProbeStartRequest\x12@\n\x0eprobe_settings\x18\x01 \x01(\x0b\x32(.swanlab.settings.probe.v1.ProbeSettings\"u\n\x1bGetMetadataSnapshotResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t\x12\x34\n\x08metadata\x18\x03 \x01(\x0b\x32\".swanlab.probe.v1.MetadataSnapshot2\x95\x02\n\x0cProbeService\x12\\\n\x11\x44\x65liverProbeStart\x12/.swanlab.grpc.probe.v1.DeliverProbeStartRequest\x1a\x16.google.protobuf.Empty\x12\x61\n\x13GetMetadataSnapshot\x12\x16.google.protobuf.Empty\x1a\x32.swanlab.grpc.probe.v1.GetMetadataSnapshotResponse\x12\x44\n\x12\x44\x65liverProbeFinish\x12\x16.google.protobuf.Empty\x1a\x16.google.protobuf.EmptyBFZDgithub.com/swanhubx/swanlab/core/proto/swanlab/grpc/probe/v1;probev1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -35,10 +35,10 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'swanlab.grpc.probe.v1.probe
 if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'ZDgithub.com/swanhubx/swanlab/core/proto/swanlab/grpc/probe/v1;probev1'
-  _globals['_DELIVERPROBESTARTREQUEST']._serialized_start=159
-  _globals['_DELIVERPROBESTARTREQUEST']._serialized_end=251
-  _globals['_GETMETADATASNAPSHOTRESPONSE']._serialized_start=253
-  _globals['_GETMETADATASNAPSHOTRESPONSE']._serialized_end=368
-  _globals['_PROBESERVICE']._serialized_start=371
-  _globals['_PROBESERVICE']._serialized_end=648
+  _globals['_DELIVERPROBESTARTREQUEST']._serialized_start=161
+  _globals['_DELIVERPROBESTARTREQUEST']._serialized_end=253
+  _globals['_GETMETADATASNAPSHOTRESPONSE']._serialized_start=255
+  _globals['_GETMETADATASNAPSHOTRESPONSE']._serialized_end=372
+  _globals['_PROBESERVICE']._serialized_start=375
+  _globals['_PROBESERVICE']._serialized_end=652
 # @@protoc_insertion_point(module_scope)

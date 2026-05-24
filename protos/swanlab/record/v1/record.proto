@@ -6,8 +6,6 @@ import "google/protobuf/timestamp.proto";
 import "swanlab/run/v1/run.proto";
 import "swanlab/metric/data/v1/data.proto";
 import "swanlab/metric/column/v1/column.proto";
-import "swanlab/config/v1/config.proto";
-import "swanlab/env/v1/env.proto";
 import "swanlab/terminal/v1/log.proto";
 import "swanlab/save/v1/save.proto";
 
@@ -24,38 +22,32 @@ option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/record/v1;re
 //   stdout  → LogRecord（每行一条）
 //   finish()→ FinishRecord
 message Record {
-  // 单调递增序号，由Core构建，用于缓冲区去重，约定：
-  // 1. StartRecord 的 num 为-1
-  // 2. FinishRecord 的 num 为-2
-  // 3. ConfigRecord 的 num 为-3
-  // 4. MetadataRecord 的 num 为-4
-  // 5. RequirementsRecord 的 num 为-5
-  // 6. CondaRecord 的 num 为-6
-  // 上述记录为全局唯一、去重Record，其余Record 的 num 为 1 开始的递增序号，剩余负数范围被用于特殊场景，例如sync时自动构建column record
-  int64 num                                           = 1;
-  // Record 生成时间，仅作参考
-  google.protobuf.Timestamp timestamp                 = 2;
+    // 单调递增序号，由Core构建，用于缓冲区去重，约定：
+    // 1. StartRecord 的 num 为-1
+    // 2. FinishRecord 的 num 为-2
+    // 3. config save 的 num 为-3
+    // 4. metadata save 的 num 为-4
+    // 5. requirements save 的 num 为-5
+    // 6. conda save 的 num 为-6
+    // 上述记录为全局唯一、去重Record，其余Record 的 num 为 1 开始的递增序号，小于-100的负数范围被用于特殊场景，例如sync时自动构建column record
+    int64 num = 1;
+    // Record 生成时间，仅作参考
+    google.protobuf.Timestamp timestamp = 2;
 
-  oneof record_type {
-    // ── Run 生命周期 ──
-    swanlab.run.v1.StartRecord  start                 = 10;
-    swanlab.run.v1.FinishRecord finish                = 11;
+    oneof record_type {
+        // ── Run 生命周期 ──
+        swanlab.run.v1.StartRecord start = 10;
+        swanlab.run.v1.FinishRecord finish = 11;
 
-    // ── 用户数据 ──
-    swanlab.metric.column.v1.ColumnRecord column      = 12;
-    swanlab.metric.data.v1.ScalarRecord   scalar      = 13;
-    swanlab.metric.data.v1.MediaRecord    media       = 14;
-    swanlab.config.v1.ConfigRecord        config      = 15;
+        // ── 用户数据 ──
+        swanlab.metric.column.v1.ColumnRecord column = 12;
+        swanlab.metric.data.v1.ScalarRecord scalar = 13;
+        swanlab.metric.data.v1.MediaRecord media = 14;
 
-    // ── 终端输出 ──
-    swanlab.terminal.v1.LogRecord log                 = 16;
+        // ── 终端输出 ──
+        swanlab.terminal.v1.LogRecord log = 16;
 
-    // ── 主机元数据（一次性，init 时写入）──
-    swanlab.env.v1.MetadataRecord metadata            = 17;
-    swanlab.env.v1.RequirementsRecord requirements    = 18;
-    swanlab.env.v1.CondaRecord conda                  = 19;
-
-    // ── 文件保存 ──
-    swanlab.save.v1.SaveRecord save = 20;
-  }
+        // ── 文件保存 ──
+        swanlab.save.v1.SaveRecord save = 20;
+    }
 }

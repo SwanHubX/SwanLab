@@ -7,7 +7,7 @@
 package probev1
 
 import (
-	v11 "github.com/swanhubx/swanlab/core/proto/swanlab/env/v1"
+	v11 "github.com/swanhubx/swanlab/core/proto/swanlab/probe/v1"
 	v1 "github.com/swanhubx/swanlab/core/proto/swanlab/settings/probe/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -134,13 +134,13 @@ var File_swanlab_grpc_probe_v1_probe_proto protoreflect.FileDescriptor
 
 const file_swanlab_grpc_probe_v1_probe_proto_rawDesc = "" +
 	"\n" +
-	"!swanlab/grpc/probe/v1/probe.proto\x12\x15swanlab.grpc.probe.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1dswanlab/env/v1/metadata.proto\x1a%swanlab/settings/probe/v1/probe.proto\"k\n" +
+	"!swanlab/grpc/probe/v1/probe.proto\x12\x15swanlab.grpc.probe.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fswanlab/probe/v1/metadata.proto\x1a%swanlab/settings/probe/v1/probe.proto\"k\n" +
 	"\x18DeliverProbeStartRequest\x12O\n" +
-	"\x0eprobe_settings\x18\x01 \x01(\v2(.swanlab.settings.probe.v1.ProbeSettingsR\rprobeSettings\"\x8f\x01\n" +
+	"\x0eprobe_settings\x18\x01 \x01(\v2(.swanlab.settings.probe.v1.ProbeSettingsR\rprobeSettings\"\x91\x01\n" +
 	"\x1bGetMetadataSnapshotResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\x12<\n" +
-	"\bmetadata\x18\x03 \x01(\v2 .swanlab.env.v1.MetadataSnapshotR\bmetadata2\x95\x02\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\x12>\n" +
+	"\bmetadata\x18\x03 \x01(\v2\".swanlab.probe.v1.MetadataSnapshotR\bmetadata2\x95\x02\n" +
 	"\fProbeService\x12\\\n" +
 	"\x11DeliverProbeStart\x12/.swanlab.grpc.probe.v1.DeliverProbeStartRequest\x1a\x16.google.protobuf.Empty\x12a\n" +
 	"\x13GetMetadataSnapshot\x12\x16.google.protobuf.Empty\x1a2.swanlab.grpc.probe.v1.GetMetadataSnapshotResponse\x12D\n" +
@@ -163,12 +163,12 @@ var file_swanlab_grpc_probe_v1_probe_proto_goTypes = []any{
 	(*DeliverProbeStartRequest)(nil),    // 0: swanlab.grpc.probe.v1.DeliverProbeStartRequest
 	(*GetMetadataSnapshotResponse)(nil), // 1: swanlab.grpc.probe.v1.GetMetadataSnapshotResponse
 	(*v1.ProbeSettings)(nil),            // 2: swanlab.settings.probe.v1.ProbeSettings
-	(*v11.MetadataSnapshot)(nil),        // 3: swanlab.env.v1.MetadataSnapshot
+	(*v11.MetadataSnapshot)(nil),        // 3: swanlab.probe.v1.MetadataSnapshot
 	(*emptypb.Empty)(nil),               // 4: google.protobuf.Empty
 }
 var file_swanlab_grpc_probe_v1_probe_proto_depIdxs = []int32{
 	2, // 0: swanlab.grpc.probe.v1.DeliverProbeStartRequest.probe_settings:type_name -> swanlab.settings.probe.v1.ProbeSettings
-	3, // 1: swanlab.grpc.probe.v1.GetMetadataSnapshotResponse.metadata:type_name -> swanlab.env.v1.MetadataSnapshot
+	3, // 1: swanlab.grpc.probe.v1.GetMetadataSnapshotResponse.metadata:type_name -> swanlab.probe.v1.MetadataSnapshot
 	0, // 2: swanlab.grpc.probe.v1.ProbeService.DeliverProbeStart:input_type -> swanlab.grpc.probe.v1.DeliverProbeStartRequest
 	4, // 3: swanlab.grpc.probe.v1.ProbeService.GetMetadataSnapshot:input_type -> google.protobuf.Empty
 	4, // 4: swanlab.grpc.probe.v1.ProbeService.DeliverProbeFinish:input_type -> google.protobuf.Empty

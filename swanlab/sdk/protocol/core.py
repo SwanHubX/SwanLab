@@ -9,8 +9,6 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from typing import List
 
-from swanlab.proto.swanlab.config.v1.config_pb2 import ConfigRecord
-from swanlab.proto.swanlab.env.v1.env_pb2 import CondaRecord, MetadataRecord, RequirementsRecord
 from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
     ConfirmRunFinishResponse,
     DeliverRunFinishRequest,
@@ -153,30 +151,6 @@ class CoreProtocol(ABC):
     @abstractmethod
     def _upsert_media_when_online(self, media: List[MediaRecord]) -> None: ...
 
-    # ---------------------------------- 用户配置 ----------------------------------
-
-    def upsert_configs(self, configs: List[ConfigRecord]) -> None:
-        """上报一组 ConfigRecord，记录用户对 config 的修改"""
-        with safe.block(message="upsert configs error"):
-            if self._mode == "online":
-                return self._upsert_configs_when_online(configs)
-            elif self._mode == "local":
-                return self._upsert_configs_when_local(configs)
-            elif self._mode == "offline":
-                return self._upsert_configs_when_offline(configs)
-            return self._upsert_configs_when_disabled(configs)
-
-    def _upsert_configs_when_disabled(self, configs: List[ConfigRecord]) -> None: ...
-
-    @abstractmethod
-    def _upsert_configs_when_local(self, configs: List[ConfigRecord]) -> None: ...
-
-    @abstractmethod
-    def _upsert_configs_when_offline(self, configs: List[ConfigRecord]) -> None: ...
-
-    @abstractmethod
-    def _upsert_configs_when_online(self, configs: List[ConfigRecord]) -> None: ...
-
     # ---------------------------------- 终端输出 ----------------------------------
 
     def upsert_logs(self, logs: List[LogRecord]) -> None:
@@ -200,78 +174,6 @@ class CoreProtocol(ABC):
 
     @abstractmethod
     def _upsert_logs_when_online(self, logs: List[LogRecord]) -> None: ...
-
-    # ---------------------------------- 依赖信息 ----------------------------------
-
-    def upsert_requirements(self, requirements: List[RequirementsRecord]) -> None:
-        """上报一组 RequirementsRecord，记录对 requirements 的修改"""
-        with safe.block(message="upsert requirements error"):
-            if self._mode == "online":
-                return self._upsert_requirements_when_online(requirements)
-            elif self._mode == "local":
-                return self._upsert_requirements_when_local(requirements)
-            elif self._mode == "offline":
-                return self._upsert_requirements_when_offline(requirements)
-            return self._upsert_requirements_when_disabled(requirements)
-
-    def _upsert_requirements_when_disabled(self, requirements: List[RequirementsRecord]) -> None: ...
-
-    @abstractmethod
-    def _upsert_requirements_when_local(self, requirements: List[RequirementsRecord]) -> None: ...
-
-    @abstractmethod
-    def _upsert_requirements_when_offline(self, requirements: List[RequirementsRecord]) -> None: ...
-
-    @abstractmethod
-    def _upsert_requirements_when_online(self, requirements: List[RequirementsRecord]) -> None: ...
-
-    # ---------------------------------- conda信息 ----------------------------------
-
-    def upsert_conda(self, conda: List[CondaRecord]) -> None:
-        """上报一组 CondaRecord，记录对 conda 的修改"""
-        with safe.block(message="upsert conda error"):
-            if self._mode == "online":
-                return self._upsert_conda_when_online(conda)
-            elif self._mode == "local":
-                return self._upsert_conda_when_local(conda)
-            elif self._mode == "offline":
-                return self._upsert_conda_when_offline(conda)
-            return self._upsert_conda_when_disabled(conda)
-
-    def _upsert_conda_when_disabled(self, conda: List[CondaRecord]) -> None: ...
-
-    @abstractmethod
-    def _upsert_conda_when_local(self, conda: List[CondaRecord]) -> None: ...
-
-    @abstractmethod
-    def _upsert_conda_when_offline(self, conda: List[CondaRecord]) -> None: ...
-
-    @abstractmethod
-    def _upsert_conda_when_online(self, conda: List[CondaRecord]) -> None: ...
-
-    # ---------------------------------- 系统元信息 ----------------------------------
-
-    def upsert_metadata(self, metadata: List[MetadataRecord]) -> None:
-        """上报一组 MetadataRecord，记录对 metadata 的修改"""
-        with safe.block(message="upsert metadata error"):
-            if self._mode == "online":
-                return self._upsert_metadata_when_online(metadata)
-            elif self._mode == "local":
-                return self._upsert_metadata_when_local(metadata)
-            elif self._mode == "offline":
-                return self._upsert_metadata_when_offline(metadata)
-            return self._upsert_metadata_when_disabled(metadata)
-
-    def _upsert_metadata_when_disabled(self, metadata: List[MetadataRecord]) -> None: ...
-
-    @abstractmethod
-    def _upsert_metadata_when_local(self, metadata: List[MetadataRecord]) -> None: ...
-
-    @abstractmethod
-    def _upsert_metadata_when_offline(self, metadata: List[MetadataRecord]) -> None: ...
-
-    @abstractmethod
-    def _upsert_metadata_when_online(self, metadata: List[MetadataRecord]) -> None: ...
 
     # ---------------------------------- 文件保存 ----------------------------------
 

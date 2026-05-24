@@ -10,7 +10,6 @@ import threading
 from abc import ABC
 from typing import TYPE_CHECKING, List, Tuple
 
-from swanlab.proto.swanlab.config.v1.config_pb2 import ConfigRecord
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord, ScalarRecord
 from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord
@@ -30,13 +29,12 @@ if TYPE_CHECKING:
     from swanlab.sdk.internal.run.components.builder import RecordBuilder
 
 
-ConfigBatch = List[ConfigRecord]
 LogBatch = List[LogRecord]
 ColumnBatch = List[ColumnRecord]
 ScalarBatch = List[ScalarRecord]
 MediaBatch = List[MediaRecord]
 SaveBatch = List[SaveRecord]
-BatchTuple = Tuple[ConfigBatch, LogBatch, ColumnBatch, ScalarBatch, MediaBatch, SaveBatch]
+BatchTuple = Tuple[LogBatch, ColumnBatch, ScalarBatch, MediaBatch, SaveBatch]
 
 
 class ConsumerProtocol(ABC):
@@ -86,7 +84,6 @@ class BackgroundConsumer(ConsumerProtocol):
         # 回调器，负责触发回调
         self._callbacker = self._ctx.callbacker
 
-        self._config_batch: ConfigBatch = []
         self._log_batch: LogBatch = []
         self._column_batch: ColumnBatch = []
         self._media_batch: MediaBatch = []
@@ -106,8 +103,7 @@ class BackgroundConsumer(ConsumerProtocol):
     @property
     def _batch_len(self) -> int:
         return (
-            len(self._config_batch)
-            + len(self._log_batch)
+            len(self._log_batch)
             + len(self._column_batch)
             + len(self._scalar_batch)
             + len(self._media_batch)
@@ -124,14 +120,12 @@ class BackgroundConsumer(ConsumerProtocol):
 
     def _take_batches(self) -> BatchTuple:
         batches = (
-            self._config_batch,
             self._log_batch,
             self._column_batch,
             self._scalar_batch,
             self._media_batch,
             self._save_batch,
         )
-        self._config_batch = []
         self._log_batch = []
         self._column_batch = []
         self._scalar_batch = []
@@ -141,7 +135,6 @@ class BackgroundConsumer(ConsumerProtocol):
 
     def _restore_batches(
         self,
-        config_batch: ConfigBatch,
         log_batch: LogBatch,
         column_batch: ColumnBatch,
         scalar_batch: ScalarBatch,
@@ -149,8 +142,6 @@ class BackgroundConsumer(ConsumerProtocol):
         save_batch: SaveBatch,
     ) -> None:
         # 失败的旧数据插回队头，优先于 flush 期间新进来的数据重试
-        if config_batch:
-            self._config_batch[:0] = config_batch
         if log_batch:
             self._log_batch[:0] = log_batch
         if column_batch:
@@ -185,7 +176,7 @@ class BackgroundConsumer(ConsumerProtocol):
         elif isinstance(event, ScalarDefineEvent):
             self._handle_scalar_define(event)
         elif isinstance(event, ConfigEvent):
-            self._config_batch.append(self._builder.build_config(event))
+            self._save_batch.append(self._builder.build_config(event))
         elif isinstance(event, LogEvent):
             self._log_batch.append(self._builder.build_log(event))
         elif isinstance(event, FileSaveEvent):
@@ -210,20 +201,14 @@ class BackgroundConsumer(ConsumerProtocol):
     def _flush(self) -> None:
         if self._batch_empty:
             return
-        config_batch, log_batch, column_batch, scalar_batch, media_batch, save_batch = self._take_batches()
+        log_batch, column_batch, scalar_batch, media_batch, save_batch = self._take_batches()
         # 某一步失败时，只回塞"当前未成功提交"的部分，避免重复写入
         # 提交失败时静默显示在 debug 日志中，不打印到控制台
         with safe.block(
             message="Error when flushing batch",
             write_to_tty=False,
-            on_error=lambda _: self._restore_batches(
-                config_batch, log_batch, column_batch, scalar_batch, media_batch, save_batch
-            ),
+            on_error=lambda _: self._restore_batches(log_batch, column_batch, scalar_batch, media_batch, save_batch),
         ):
-            if config_batch:
-                self._core.upsert_configs(config_batch)
-                config_batch = []
-
             if log_batch:
                 self._core.upsert_logs(log_batch)
                 self._callbacker.on_log_flush(log_batch)

@@ -20,8 +20,6 @@ Core 同时需要根据不同模式处理不同的业务，这是设计模式决
 
 from typing import List, Optional
 
-from swanlab.proto.swanlab.config.v1.config_pb2 import ConfigRecord
-from swanlab.proto.swanlab.env.v1.env_pb2 import CondaRecord, MetadataRecord, RequirementsRecord
 from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
     ConfirmRunFinishResponse,
     DeliverRunFinishRequest,
@@ -35,7 +33,7 @@ from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord, ScalarRec
 from swanlab.proto.swanlab.operation.v1.operation_pb2 import CoreState
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord, RunState, StartRecord
-from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord
+from swanlab.proto.swanlab.save.v1.save_pb2 import SavePolicy, SaveRecord, SaveType
 from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogLevel, LogRecord
 from swanlab.sdk.internal.core_python.api.experiment import (
     get_experiment_summary,
@@ -344,127 +342,63 @@ class CorePython(CoreProtocol):
         self._store_records(records)
         self._transport_put(records)
 
-    # ---- upsert_configs ----
-
-    def upsert_configs(self, configs: List[ConfigRecord]) -> None:
-        if not self._active:
-            console.warning("Core is not active, refusing to upsert configs")
-            return
-        return super().upsert_configs(configs)
-
-    def _upsert_configs_when_local(self, configs: List[ConfigRecord]) -> None:
-        records = [builder.build_config_record(c) for c in configs]
-        self._store_records(records)
-
-    def _upsert_configs_when_offline(self, configs: List[ConfigRecord]) -> None:
-        records = [builder.build_config_record(c) for c in configs]
-        self._store_records(records)
-
-    def _upsert_configs_when_online(self, configs: List[ConfigRecord]) -> None:
-        records = [builder.build_config_record(c) for c in configs]
-        self._store_records(records)
-        self._transport_put(records)
-
-    # ---- upsert_requirements ----
-
-    def upsert_requirements(self, requirements: List[RequirementsRecord]) -> None:
-        if not self._active:
-            console.warning("Core is not active, refusing to upsert requirements")
-            return
-        return super().upsert_requirements(requirements)
-
-    def _upsert_requirements_when_local(self, requirements: List[RequirementsRecord]) -> None:
-        records = [builder.build_requirements_record(r.timestamp) for r in requirements]
-        self._store_records(records)
-
-    def _upsert_requirements_when_offline(self, requirements: List[RequirementsRecord]) -> None:
-        records = [builder.build_requirements_record(r.timestamp) for r in requirements]
-        self._store_records(records)
-
-    def _upsert_requirements_when_online(self, requirements: List[RequirementsRecord]) -> None:
-        records = [builder.build_requirements_record(r.timestamp) for r in requirements]
-        self._store_records(records)
-        self._transport_put(records)
-
-    # ---- upsert_conda ----
-
-    def upsert_conda(self, conda: List[CondaRecord]) -> None:
-        if not self._active:
-            console.warning("Core is not active, refusing to upsert conda")
-            return
-        return super().upsert_conda(conda)
-
-    def _upsert_conda_when_local(self, conda: List[CondaRecord]) -> None:
-        records = [builder.build_conda_record(c.timestamp) for c in conda]
-        self._store_records(records)
-
-    def _upsert_conda_when_offline(self, conda: List[CondaRecord]) -> None:
-        records = [builder.build_conda_record(c.timestamp) for c in conda]
-        self._store_records(records)
-
-    def _upsert_conda_when_online(self, conda: List[CondaRecord]) -> None:
-        records = [builder.build_conda_record(c.timestamp) for c in conda]
-        self._store_records(records)
-        self._transport_put(records)
-
-    # ---- upsert_metadata ----
-
-    def upsert_metadata(self, metadata: List[MetadataRecord]) -> None:
-        if not self._active:
-            console.warning("Core is not active, refusing to upsert metadata")
-            return
-        return super().upsert_metadata(metadata)
-
-    def _upsert_metadata_when_local(self, metadata: List[MetadataRecord]) -> None:
-        records = [builder.build_metadata_record(m.timestamp) for m in metadata]
-        self._store_records(records)
-
-    def _upsert_metadata_when_offline(self, metadata: List[MetadataRecord]) -> None:
-        records = [builder.build_metadata_record(m.timestamp) for m in metadata]
-        self._store_records(records)
-
-    def _upsert_metadata_when_online(self, metadata: List[MetadataRecord]) -> None:
-        records = [builder.build_metadata_record(m.timestamp) for m in metadata]
-        self._store_records(records)
-        self._transport_put(records)
-
     # ---- upsert_saves ----
 
     def upsert_saves(self, saves: List[SaveRecord]) -> None:
         if not self._active:
             console.warning("Core is not active, refusing to upsert saves")
             return
+        if self._mode == "disabled":
+            return self._upsert_saves_when_disabled(saves)
+        # 内部保存（如config、metadata等）和用户保存（文件保存）共用 SaveRecord 结构
+        # 目前它们在产品设计上暂未统一，换句话说上传config、metadata文件的时候并不会保存对应文件
+        # 因此需要区分两者，内部保存仅上传，用户保存走save逻辑
+        # 1. 区分内部保存和用户保存
+        custom_saves: List[SaveRecord] = []
+        internal_saves: List[SaveRecord] = []
+        for save in saves:
+            if save.type == SaveType.SAVE_TYPE_CUSTOM:
+                custom_saves.append(save)
+            else:
+                internal_saves.append(save)
+        # 2. 执行内部保存的上传逻辑：本地持久化存储、上传（如果在线）等，但不注册文件监视器
+        if internal_saves:
+            records = [builder.build_save_record(self._counter, s, s.type) for s in internal_saves]
+            self._store_records(records)
+            if self._mode == "online":
+                self._transport_put(records)
+        # 3. 执行用户保存的逻辑
+        if custom_saves:
+            if self._mode == "local":
+                self._upsert_saves_when_local(custom_saves)
+            elif self._mode == "offline":
+                self._upsert_saves_when_offline(custom_saves)
+            elif self._mode == "online":
+                self._upsert_saves_when_online(custom_saves)
 
-        return super().upsert_saves(saves)
-
-    def _create_save_with_links(self, saves: List[SaveRecord]) -> None:
+    def _handle_custom_save(self, saves: List[SaveRecord]) -> List[Record]:
         linked = create_save_links(saves, self._ctx.files_dir)
         if linked > 0:
             console.info(
                 f"Symlinked {linked} files into the SwanLab run directory; call swanlab.save again to sync new files."
             )
+        records = [builder.build_save_record(self._counter, s) for s in saves]
+        self._store_records(records)
+        self._watcher.register_live_watches(saves, self._ctx.files_dir)
+        return records
 
     def _upsert_saves_when_local(self, saves: List[SaveRecord]) -> None:
-        self._create_save_with_links(saves)
-        records = [builder.build_save_record(self._counter, s) for s in saves]
-        self._store_records(records)
-        self._watcher.register_live_watches(saves, self._ctx.files_dir)
+        self._handle_custom_save(saves)
 
     def _upsert_saves_when_offline(self, saves: List[SaveRecord]) -> None:
-        self._create_save_with_links(saves)
-        records = [builder.build_save_record(self._counter, s) for s in saves]
-        self._store_records(records)
-        self._watcher.register_live_watches(saves, self._ctx.files_dir)
+        self._handle_custom_save(saves)
 
     def _upsert_saves_when_online(self, saves: List[SaveRecord]) -> None:
-        self._create_save_with_links(saves)
-        records = [builder.build_save_record(self._counter, s) for s in saves]
-        self._store_records(records)
-        self._watcher.register_live_watches(saves, self._ctx.files_dir)
+        records = self._handle_custom_save(saves)
         # "end" policy saves: store locally but defer cloud upload until finish
         transport_records: List[Record] = []
         for save, record in zip(saves, records):
-            if save.policy == adapter.policy["end"]:
+            if save.policy == SavePolicy.SAVE_POLICY_END:
                 self._pending_end_saves.append(record)
             else:
                 transport_records.append(record)

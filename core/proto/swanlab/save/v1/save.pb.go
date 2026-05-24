@@ -70,6 +70,61 @@ func (SavePolicy) EnumDescriptor() ([]byte, []int) {
 	return file_swanlab_save_v1_save_proto_rawDescGZIP(), []int{0}
 }
 
+type SaveType int32
+
+const (
+	SaveType_SAVE_TYPE_CUSTOM       SaveType = 0 // 用户自定义文件，默认类型
+	SaveType_SAVE_TYPE_CONFIG       SaveType = 1 // swanlab.config 文件
+	SaveType_SAVE_TYPE_METADTA      SaveType = 2 // swanlab-metadata.json 文件
+	SaveType_SAVE_TYPE_REQUIREMENTS SaveType = 3 // requirements.txt 文件
+	SaveType_SAVE_TYPE_CONDA        SaveType = 4 // conda.yaml 文件
+)
+
+// Enum value maps for SaveType.
+var (
+	SaveType_name = map[int32]string{
+		0: "SAVE_TYPE_CUSTOM",
+		1: "SAVE_TYPE_CONFIG",
+		2: "SAVE_TYPE_METADTA",
+		3: "SAVE_TYPE_REQUIREMENTS",
+		4: "SAVE_TYPE_CONDA",
+	}
+	SaveType_value = map[string]int32{
+		"SAVE_TYPE_CUSTOM":       0,
+		"SAVE_TYPE_CONFIG":       1,
+		"SAVE_TYPE_METADTA":      2,
+		"SAVE_TYPE_REQUIREMENTS": 3,
+		"SAVE_TYPE_CONDA":        4,
+	}
+)
+
+func (x SaveType) Enum() *SaveType {
+	p := new(SaveType)
+	*p = x
+	return p
+}
+
+func (x SaveType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (SaveType) Descriptor() protoreflect.EnumDescriptor {
+	return file_swanlab_save_v1_save_proto_enumTypes[1].Descriptor()
+}
+
+func (SaveType) Type() protoreflect.EnumType {
+	return &file_swanlab_save_v1_save_proto_enumTypes[1]
+}
+
+func (x SaveType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use SaveType.Descriptor instead.
+func (SaveType) EnumDescriptor() ([]byte, []int) {
+	return file_swanlab_save_v1_save_proto_rawDescGZIP(), []int{1}
+}
+
 // 文件保存记录，由 swanlab.save() API 产生。
 // 每条记录对应一个用户文件的保存操作。
 // size/md5/mime_type 不在此处存储，由 Core 在持久化/上传时按需计算。
@@ -79,6 +134,7 @@ type SaveRecord struct {
 	SourcePath    string                 `protobuf:"bytes,2,opt,name=source_path,json=sourcePath,proto3" json:"source_path,omitempty"`        // 源文件绝对路径
 	TargetPath    string                 `protobuf:"bytes,3,opt,name=target_path,json=targetPath,proto3" json:"target_path,omitempty"`        // 本地镜像目标路径（软链接位置，由 Core 填充）
 	Policy        SavePolicy             `protobuf:"varint,4,opt,name=policy,proto3,enum=swanlab.save.v1.SavePolicy" json:"policy,omitempty"` // 保存策略
+	Type          SaveType               `protobuf:"varint,5,opt,name=type,proto3,enum=swanlab.save.v1.SaveType" json:"type,omitempty"`       // 文件类型
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -141,11 +197,18 @@ func (x *SaveRecord) GetPolicy() SavePolicy {
 	return SavePolicy_SAVE_POLICY_NOW
 }
 
+func (x *SaveRecord) GetType() SaveType {
+	if x != nil {
+		return x.Type
+	}
+	return SaveType_SAVE_TYPE_CUSTOM
+}
+
 var File_swanlab_save_v1_save_proto protoreflect.FileDescriptor
 
 const file_swanlab_save_v1_save_proto_rawDesc = "" +
 	"\n" +
-	"\x1aswanlab/save/v1/save.proto\x12\x0fswanlab.save.v1\"\x97\x01\n" +
+	"\x1aswanlab/save/v1/save.proto\x12\x0fswanlab.save.v1\"\xc6\x01\n" +
 	"\n" +
 	"SaveRecord\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1f\n" +
@@ -153,12 +216,19 @@ const file_swanlab_save_v1_save_proto_rawDesc = "" +
 	"sourcePath\x12\x1f\n" +
 	"\vtarget_path\x18\x03 \x01(\tR\n" +
 	"targetPath\x123\n" +
-	"\x06policy\x18\x04 \x01(\x0e2\x1b.swanlab.save.v1.SavePolicyR\x06policy*L\n" +
+	"\x06policy\x18\x04 \x01(\x0e2\x1b.swanlab.save.v1.SavePolicyR\x06policy\x12-\n" +
+	"\x04type\x18\x05 \x01(\x0e2\x19.swanlab.save.v1.SaveTypeR\x04type*L\n" +
 	"\n" +
 	"SavePolicy\x12\x13\n" +
 	"\x0fSAVE_POLICY_NOW\x10\x00\x12\x13\n" +
 	"\x0fSAVE_POLICY_END\x10\x01\x12\x14\n" +
-	"\x10SAVE_POLICY_LIVE\x10\x02B?Z=github.com/swanhubx/swanlab/core/proto/swanlab/save/v1;savev1b\x06proto3"
+	"\x10SAVE_POLICY_LIVE\x10\x02*~\n" +
+	"\bSaveType\x12\x14\n" +
+	"\x10SAVE_TYPE_CUSTOM\x10\x00\x12\x14\n" +
+	"\x10SAVE_TYPE_CONFIG\x10\x01\x12\x15\n" +
+	"\x11SAVE_TYPE_METADTA\x10\x02\x12\x1a\n" +
+	"\x16SAVE_TYPE_REQUIREMENTS\x10\x03\x12\x13\n" +
+	"\x0fSAVE_TYPE_CONDA\x10\x04B?Z=github.com/swanhubx/swanlab/core/proto/swanlab/save/v1;savev1b\x06proto3"
 
 var (
 	file_swanlab_save_v1_save_proto_rawDescOnce sync.Once
@@ -172,19 +242,21 @@ func file_swanlab_save_v1_save_proto_rawDescGZIP() []byte {
 	return file_swanlab_save_v1_save_proto_rawDescData
 }
 
-var file_swanlab_save_v1_save_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_swanlab_save_v1_save_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_swanlab_save_v1_save_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_swanlab_save_v1_save_proto_goTypes = []any{
 	(SavePolicy)(0),    // 0: swanlab.save.v1.SavePolicy
-	(*SaveRecord)(nil), // 1: swanlab.save.v1.SaveRecord
+	(SaveType)(0),      // 1: swanlab.save.v1.SaveType
+	(*SaveRecord)(nil), // 2: swanlab.save.v1.SaveRecord
 }
 var file_swanlab_save_v1_save_proto_depIdxs = []int32{
 	0, // 0: swanlab.save.v1.SaveRecord.policy:type_name -> swanlab.save.v1.SavePolicy
-	1, // [1:1] is the sub-list for method output_type
-	1, // [1:1] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	1, // 1: swanlab.save.v1.SaveRecord.type:type_name -> swanlab.save.v1.SaveType
+	2, // [2:2] is the sub-list for method output_type
+	2, // [2:2] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_swanlab_save_v1_save_proto_init() }
@@ -197,7 +269,7 @@ func file_swanlab_save_v1_save_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_swanlab_save_v1_save_proto_rawDesc), len(file_swanlab_save_v1_save_proto_rawDesc)),
-			NumEnums:      1,
+			NumEnums:      2,
 			NumMessages:   1,
 			NumExtensions: 0,
 			NumServices:   0,

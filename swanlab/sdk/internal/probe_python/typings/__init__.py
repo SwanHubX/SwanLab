@@ -12,34 +12,34 @@ from typing import Any, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from swanlab.proto.swanlab.env.v1.metadata_pb2 import (
+from swanlab.proto.swanlab.probe.v1.metadata_pb2 import (
     AcceleratorSnapshot as AcceleratorSnapshotPb,
 )
-from swanlab.proto.swanlab.env.v1.metadata_pb2 import (
+from swanlab.proto.swanlab.probe.v1.metadata_pb2 import (
     AppleSiliconSnapshot as AppleSiliconSnapshotPb,
 )
-from swanlab.proto.swanlab.env.v1.metadata_pb2 import (
+from swanlab.proto.swanlab.probe.v1.metadata_pb2 import (
     CPUSnapshot as CPUSnapshotPb,
 )
-from swanlab.proto.swanlab.env.v1.metadata_pb2 import (
+from swanlab.proto.swanlab.probe.v1.metadata_pb2 import (
     DeviceSnapshot as DeviceSnapshotPb,
 )
-from swanlab.proto.swanlab.env.v1.metadata_pb2 import (
+from swanlab.proto.swanlab.probe.v1.metadata_pb2 import (
     GitSnapshot as GitSnapshotPb,
 )
-from swanlab.proto.swanlab.env.v1.metadata_pb2 import (
+from swanlab.proto.swanlab.probe.v1.metadata_pb2 import (
     HardwareSnapshot as HardwareSnapshotPb,
 )
-from swanlab.proto.swanlab.env.v1.metadata_pb2 import (
+from swanlab.proto.swanlab.probe.v1.metadata_pb2 import (
     MemorySnapshot as MemorySnapshotPb,
 )
-from swanlab.proto.swanlab.env.v1.metadata_pb2 import (
+from swanlab.proto.swanlab.probe.v1.metadata_pb2 import (
     MetadataSnapshot as MetadataSnapshotPb,
 )
-from swanlab.proto.swanlab.env.v1.metadata_pb2 import (
+from swanlab.proto.swanlab.probe.v1.metadata_pb2 import (
     RuntimeSnapshot as RuntimeSnapshotPb,
 )
-from swanlab.proto.swanlab.env.v1.metadata_pb2 import (
+from swanlab.proto.swanlab.probe.v1.metadata_pb2 import (
     SwanLabSnapshot as SwanLabSnapshotPb,
 )
 from swanlab.sdk.internal.pkg import adapter

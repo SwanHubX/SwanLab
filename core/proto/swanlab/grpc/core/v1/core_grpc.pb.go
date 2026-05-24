@@ -20,19 +20,15 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	CoreService_DeliverRunStart_FullMethodName    = "/swanlab.grpc.core.v1.CoreService/DeliverRunStart"
-	CoreService_UpsertColumns_FullMethodName      = "/swanlab.grpc.core.v1.CoreService/UpsertColumns"
-	CoreService_UpsertScalars_FullMethodName      = "/swanlab.grpc.core.v1.CoreService/UpsertScalars"
-	CoreService_UpsertMedia_FullMethodName        = "/swanlab.grpc.core.v1.CoreService/UpsertMedia"
-	CoreService_UpsertConfigs_FullMethodName      = "/swanlab.grpc.core.v1.CoreService/UpsertConfigs"
-	CoreService_UpsertLogs_FullMethodName         = "/swanlab.grpc.core.v1.CoreService/UpsertLogs"
-	CoreService_UpsertRequirements_FullMethodName = "/swanlab.grpc.core.v1.CoreService/UpsertRequirements"
-	CoreService_UpsertConda_FullMethodName        = "/swanlab.grpc.core.v1.CoreService/UpsertConda"
-	CoreService_UpsertMetadata_FullMethodName     = "/swanlab.grpc.core.v1.CoreService/UpsertMetadata"
-	CoreService_UpsertSaves_FullMethodName        = "/swanlab.grpc.core.v1.CoreService/UpsertSaves"
-	CoreService_DeliverRunFinish_FullMethodName   = "/swanlab.grpc.core.v1.CoreService/DeliverRunFinish"
-	CoreService_GetOperationStats_FullMethodName  = "/swanlab.grpc.core.v1.CoreService/GetOperationStats"
-	CoreService_ConfirmRunFinish_FullMethodName   = "/swanlab.grpc.core.v1.CoreService/ConfirmRunFinish"
+	CoreService_DeliverRunStart_FullMethodName   = "/swanlab.grpc.core.v1.CoreService/DeliverRunStart"
+	CoreService_UpsertColumns_FullMethodName     = "/swanlab.grpc.core.v1.CoreService/UpsertColumns"
+	CoreService_UpsertScalars_FullMethodName     = "/swanlab.grpc.core.v1.CoreService/UpsertScalars"
+	CoreService_UpsertMedia_FullMethodName       = "/swanlab.grpc.core.v1.CoreService/UpsertMedia"
+	CoreService_UpsertLogs_FullMethodName        = "/swanlab.grpc.core.v1.CoreService/UpsertLogs"
+	CoreService_UpsertSaves_FullMethodName       = "/swanlab.grpc.core.v1.CoreService/UpsertSaves"
+	CoreService_DeliverRunFinish_FullMethodName  = "/swanlab.grpc.core.v1.CoreService/DeliverRunFinish"
+	CoreService_GetOperationStats_FullMethodName = "/swanlab.grpc.core.v1.CoreService/GetOperationStats"
+	CoreService_ConfirmRunFinish_FullMethodName  = "/swanlab.grpc.core.v1.CoreService/ConfirmRunFinish"
 )
 
 // CoreServiceClient is the client API for CoreService service.
@@ -49,17 +45,9 @@ type CoreServiceClient interface {
 	UpsertScalars(ctx context.Context, in *UpsertScalarsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// UpsertMedia 接收一组 MediaRecord 并写入，每一条记录用于记录某一个指标的值
 	UpsertMedia(ctx context.Context, in *UpsertMediaRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	// UpsertConfigs 接收一组 ConfigRecord 并写入，每一条记录对应一次用户对 config 的修改
-	UpsertConfigs(ctx context.Context, in *UpsertConfigsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// UpsertLogs 接收一组 LogRecord 并写入，每一条记录对应一行用户的终端输出
 	UpsertLogs(ctx context.Context, in *UpsertLogsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	// UpsertRequirements 接收一组 RequirementsRecord 并写入，每一条记录对应一次用户/系统对 requirements 的修改
-	UpsertRequirements(ctx context.Context, in *UpsertRequirementsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	// UpsertConda 接收一组 CondaRecord 并写入，每一条记录对应一次用户/系统对 conda 的修改
-	UpsertConda(ctx context.Context, in *UpsertCondaRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	// UpsertMetadata 接收一组 MetadataRecord 并写入，每一条记录对应一次用户/系统对 metadata 的修改
-	UpsertMetadata(ctx context.Context, in *UpsertMetadataRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	// UpsertSaves 接收一组 SaveRecord 并写入，每一条记录对应一次 swanlab.save() 的文件保存
+	// UpsertSaves 接收一组 SaveRecord 并写入，每一条记录对应一次 swanlab.save() 的文件保存或者swanlab内部保存操作
 	UpsertSaves(ctx context.Context, in *UpsertSavesRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// DeliverRunFinish 接收单条 FinishRecord，用于实验结束。
 	DeliverRunFinish(ctx context.Context, in *DeliverRunFinishRequest, opts ...grpc.CallOption) (*DeliverRunFinishResponse, error)
@@ -117,50 +105,10 @@ func (c *coreServiceClient) UpsertMedia(ctx context.Context, in *UpsertMediaRequ
 	return out, nil
 }
 
-func (c *coreServiceClient) UpsertConfigs(ctx context.Context, in *UpsertConfigsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, CoreService_UpsertConfigs_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *coreServiceClient) UpsertLogs(ctx context.Context, in *UpsertLogsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, CoreService_UpsertLogs_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *coreServiceClient) UpsertRequirements(ctx context.Context, in *UpsertRequirementsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, CoreService_UpsertRequirements_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *coreServiceClient) UpsertConda(ctx context.Context, in *UpsertCondaRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, CoreService_UpsertConda_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *coreServiceClient) UpsertMetadata(ctx context.Context, in *UpsertMetadataRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, CoreService_UpsertMetadata_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -221,17 +169,9 @@ type CoreServiceServer interface {
 	UpsertScalars(context.Context, *UpsertScalarsRequest) (*emptypb.Empty, error)
 	// UpsertMedia 接收一组 MediaRecord 并写入，每一条记录用于记录某一个指标的值
 	UpsertMedia(context.Context, *UpsertMediaRequest) (*emptypb.Empty, error)
-	// UpsertConfigs 接收一组 ConfigRecord 并写入，每一条记录对应一次用户对 config 的修改
-	UpsertConfigs(context.Context, *UpsertConfigsRequest) (*emptypb.Empty, error)
 	// UpsertLogs 接收一组 LogRecord 并写入，每一条记录对应一行用户的终端输出
 	UpsertLogs(context.Context, *UpsertLogsRequest) (*emptypb.Empty, error)
-	// UpsertRequirements 接收一组 RequirementsRecord 并写入，每一条记录对应一次用户/系统对 requirements 的修改
-	UpsertRequirements(context.Context, *UpsertRequirementsRequest) (*emptypb.Empty, error)
-	// UpsertConda 接收一组 CondaRecord 并写入，每一条记录对应一次用户/系统对 conda 的修改
-	UpsertConda(context.Context, *UpsertCondaRequest) (*emptypb.Empty, error)
-	// UpsertMetadata 接收一组 MetadataRecord 并写入，每一条记录对应一次用户/系统对 metadata 的修改
-	UpsertMetadata(context.Context, *UpsertMetadataRequest) (*emptypb.Empty, error)
-	// UpsertSaves 接收一组 SaveRecord 并写入，每一条记录对应一次 swanlab.save() 的文件保存
+	// UpsertSaves 接收一组 SaveRecord 并写入，每一条记录对应一次 swanlab.save() 的文件保存或者swanlab内部保存操作
 	UpsertSaves(context.Context, *UpsertSavesRequest) (*emptypb.Empty, error)
 	// DeliverRunFinish 接收单条 FinishRecord，用于实验结束。
 	DeliverRunFinish(context.Context, *DeliverRunFinishRequest) (*DeliverRunFinishResponse, error)
@@ -261,20 +201,8 @@ func (UnimplementedCoreServiceServer) UpsertScalars(context.Context, *UpsertScal
 func (UnimplementedCoreServiceServer) UpsertMedia(context.Context, *UpsertMediaRequest) (*emptypb.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpsertMedia not implemented")
 }
-func (UnimplementedCoreServiceServer) UpsertConfigs(context.Context, *UpsertConfigsRequest) (*emptypb.Empty, error) {
-	return nil, status.Error(codes.Unimplemented, "method UpsertConfigs not implemented")
-}
 func (UnimplementedCoreServiceServer) UpsertLogs(context.Context, *UpsertLogsRequest) (*emptypb.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpsertLogs not implemented")
-}
-func (UnimplementedCoreServiceServer) UpsertRequirements(context.Context, *UpsertRequirementsRequest) (*emptypb.Empty, error) {
-	return nil, status.Error(codes.Unimplemented, "method UpsertRequirements not implemented")
-}
-func (UnimplementedCoreServiceServer) UpsertConda(context.Context, *UpsertCondaRequest) (*emptypb.Empty, error) {
-	return nil, status.Error(codes.Unimplemented, "method UpsertConda not implemented")
-}
-func (UnimplementedCoreServiceServer) UpsertMetadata(context.Context, *UpsertMetadataRequest) (*emptypb.Empty, error) {
-	return nil, status.Error(codes.Unimplemented, "method UpsertMetadata not implemented")
 }
 func (UnimplementedCoreServiceServer) UpsertSaves(context.Context, *UpsertSavesRequest) (*emptypb.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpsertSaves not implemented")
@@ -381,24 +309,6 @@ func _CoreService_UpsertMedia_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
-func _CoreService_UpsertConfigs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(UpsertConfigsRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(CoreServiceServer).UpsertConfigs(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: CoreService_UpsertConfigs_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CoreServiceServer).UpsertConfigs(ctx, req.(*UpsertConfigsRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _CoreService_UpsertLogs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(UpsertLogsRequest)
 	if err := dec(in); err != nil {
@@ -413,60 +323,6 @@ func _CoreService_UpsertLogs_Handler(srv interface{}, ctx context.Context, dec f
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(CoreServiceServer).UpsertLogs(ctx, req.(*UpsertLogsRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _CoreService_UpsertRequirements_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(UpsertRequirementsRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(CoreServiceServer).UpsertRequirements(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: CoreService_UpsertRequirements_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CoreServiceServer).UpsertRequirements(ctx, req.(*UpsertRequirementsRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _CoreService_UpsertConda_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(UpsertCondaRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(CoreServiceServer).UpsertConda(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: CoreService_UpsertConda_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CoreServiceServer).UpsertConda(ctx, req.(*UpsertCondaRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _CoreService_UpsertMetadata_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(UpsertMetadataRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(CoreServiceServer).UpsertMetadata(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: CoreService_UpsertMetadata_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CoreServiceServer).UpsertMetadata(ctx, req.(*UpsertMetadataRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -567,24 +423,8 @@ var CoreService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _CoreService_UpsertMedia_Handler,
 		},
 		{
-			MethodName: "UpsertConfigs",
-			Handler:    _CoreService_UpsertConfigs_Handler,
-		},
-		{
 			MethodName: "UpsertLogs",
 			Handler:    _CoreService_UpsertLogs_Handler,
-		},
-		{
-			MethodName: "UpsertRequirements",
-			Handler:    _CoreService_UpsertRequirements_Handler,
-		},
-		{
-			MethodName: "UpsertConda",
-			Handler:    _CoreService_UpsertConda_Handler,
-		},
-		{
-			MethodName: "UpsertMetadata",
-			Handler:    _CoreService_UpsertMetadata_Handler,
 		},
 		{
 			MethodName: "UpsertSaves",

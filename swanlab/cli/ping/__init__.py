@@ -59,14 +59,14 @@ from rich.console import Console
 from rich.markup import escape
 from rich.panel import Panel
 
-from swanlab.proto.swanlab.env.v1.metadata_pb2 import (
+from swanlab.proto.swanlab.grpc.probe.v1.probe_pb2 import DeliverProbeStartRequest, GetMetadataSnapshotResponse
+from swanlab.proto.swanlab.probe.v1.metadata_pb2 import (
     AppleSiliconSnapshot,
     DeviceSnapshot,
     HardwareSnapshot,
     MemorySnapshot,
     MetadataSnapshot,
 )
-from swanlab.proto.swanlab.grpc.probe.v1.probe_pb2 import DeliverProbeStartRequest, GetMetadataSnapshotResponse
 from swanlab.sdk import Settings, impl, pkg
 from swanlab.sdk.internal.pkg import adapter
 

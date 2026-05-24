@@ -6,11 +6,11 @@
 """
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Dict, Optional, Tuple, Type, Union
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
-from swanlab.proto.swanlab.config.v1.config_pb2 import UpdateType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord, ScalarRecord
 from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogLevel
 from swanlab.sdk.internal.context.transformer import TransformData
@@ -48,9 +48,9 @@ class ScalarDefineEvent:
 
 @dataclass
 class ConfigEvent:
-    """配置记录事件（path 固定为 files/config.yaml）"""
+    """配置记录事件"""
 
-    update: UpdateType
+    path: Path
     timestamp: Timestamp
 
 
