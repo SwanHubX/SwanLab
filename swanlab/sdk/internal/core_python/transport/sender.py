@@ -268,25 +268,25 @@ class HttpRecordSender:
                 save_records.append(record)
             elif save.type == SaveType.SAVE_TYPE_METADATA:
                 with safe.block(message=f"Failed to upload metadata, skipping; file kept at {save.source_path}"):
-                    with open(Path(save.source_path), "r", encoding="utf-8") as f:
+                    with open(save.source_path, "r", encoding="utf-8") as f:
                         content = json.load(f)
                     if isinstance(content, dict):
                         upload_metadata(self._username, self._project, self._experiment_id, content=content)
             elif save.type == SaveType.SAVE_TYPE_REQUIREMENTS:
                 with safe.block(message=f"Failed to upload requirements, skipping; file kept at {save.source_path}"):
-                    with open(Path(save.source_path), "r", encoding="utf-8") as f:
+                    with open(save.source_path, "r", encoding="utf-8") as f:
                         content = f.read()
                     if len(content) > 0:
                         upload_requirements(self._username, self._project, self._experiment_id, content=content)
             elif save.type == SaveType.SAVE_TYPE_CONDA:
                 with safe.block(message=f"Failed to upload conda, skipping; file kept at {save.source_path}"):
-                    with open(Path(save.source_path), "r", encoding="utf-8") as f:
+                    with open(save.source_path, "r", encoding="utf-8") as f:
                         content = f.read()
                     if len(content) > 0:
                         upload_conda(self._username, self._project, self._experiment_id, content=content)
             elif save.type == SaveType.SAVE_TYPE_CONFIG:
                 with safe.block(message=f"Failed to upload config, skipping; file kept at {save.source_path}"):
-                    with open(Path(save.source_path), "r", encoding="utf-8") as f:
+                    with open(save.source_path, "r", encoding="utf-8") as f:
                         content = yaml.safe_load(f)
                     if isinstance(content, dict):
                         upload_config(self._username, self._project, self._experiment_id, content=content)
