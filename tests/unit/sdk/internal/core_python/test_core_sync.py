@@ -6,13 +6,13 @@ from unittest.mock import MagicMock
 import pytest
 from google.protobuf.timestamp_pb2 import Timestamp
 
-from swanlab.proto.swanlab.config.v1.config_pb2 import ConfigRecord, UpdateType
 from swanlab.proto.swanlab.grpc.core.v1.sync_pb2 import DeliverSyncStartRequest
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord, ColumnType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord, ScalarRecord, ScalarValue
 from swanlab.proto.swanlab.operation.v1.operation_pb2 import CoreState
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord, ResumeMode, RunState, StartRecord
+from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord, SaveType
 from swanlab.proto.swanlab.settings.core.v1.core_pb2 import CoreSettings
 from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogLevel, LogRecord
 from swanlab.sdk.internal.core_python.context import CoreConfig, CoreContext
@@ -110,11 +110,7 @@ def record_kind(record: Record) -> str:
         "column",
         "scalar",
         "media",
-        "config",
         "log",
-        "metadata",
-        "requirements",
-        "conda",
         "save",
     ]:
         if record.HasField(kind):
@@ -266,7 +262,16 @@ def test_deliver_sync_start_reads_start_record(tmp_path: Path):
 
 
 def test_deliver_sync_start_rejects_missing_start_record(tmp_path: Path):
-    write_run_file(tmp_path, Record(config=ConfigRecord(update_type=UpdateType.UPDATE_TYPE_PATCH)))
+    write_run_file(
+        tmp_path,
+        Record(
+            save=SaveRecord(
+                name="config",
+                source_path=(tmp_path / "config.yaml").as_posix(),
+                type=SaveType.SAVE_TYPE_CONFIG,
+            )
+        ),
+    )
     core = CoreSyncPython()
 
     resp = core.deliver_sync_start(make_start_request(tmp_path))

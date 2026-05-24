@@ -12,6 +12,7 @@ from collections import OrderedDict
 from typing import Dict, Iterator, List, Sequence, Tuple, Union
 
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
+from swanlab.sdk.internal.pkg import safe
 from swanlab.sdk.typings.core_python.api.save import SaveFileEntry
 
 
@@ -53,7 +54,8 @@ def group_records_by_type(records: Sequence[Record]) -> Dict[str, List[Record]]:
             raise TypeError(f"Expected Record instance, got {type(record).__name__}")
         record_type = record.WhichOneof("record_type")
         if record_type is None:
-            raise ValueError("Record.record_type is not set")
+            with safe.block(message="Failed to determine record type, skipping record"):
+                raise ValueError("Failed to determine record type, maybe you are using an incompatible proto version?")
         records_by_type.setdefault(record_type, []).append(record)
     return records_by_type
 

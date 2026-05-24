@@ -40,11 +40,7 @@ def record_kinds(records: Iterable[Record]) -> list[str]:
             "column",
             "scalar",
             "media",
-            "config",
             "log",
-            "metadata",
-            "requirements",
-            "conda",
             "save",
         ]:
             if record.HasField(kind):

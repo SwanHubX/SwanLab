@@ -3,10 +3,10 @@ from pathlib import Path
 import pytest
 from google.protobuf.timestamp_pb2 import Timestamp
 
-from swanlab.proto.swanlab.config.v1.config_pb2 import ConfigRecord, UpdateType
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import ScalarRecord, ScalarValue
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
+from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord, SaveType
 from swanlab.sdk.internal.core_python.context import CoreConfig, CoreContext
 
 # ── Default values matching CoreSettings ──
@@ -76,11 +76,18 @@ def make_scalar_record():
 
 @pytest.fixture
 def make_config_record():
-    """工厂 fixture：创建一个 config Record。"""
+    """工厂 fixture：创建一个 SaveRecord config 类型的 Record。"""
 
     def _make() -> Record:
         timestamp = Timestamp()
         timestamp.GetCurrentTime()
-        return Record(config=ConfigRecord(update_type=UpdateType.UPDATE_TYPE_PATCH, timestamp=timestamp))
+        return Record(
+            save=SaveRecord(
+                name="save-config",
+                source_path="/tmp/test-run/config.yaml",
+                type=SaveType.SAVE_TYPE_CONFIG,
+            ),
+            timestamp=timestamp,
+        )
 
     return _make

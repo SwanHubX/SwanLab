@@ -6,10 +6,9 @@ from unittest.mock import MagicMock
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
-from swanlab.proto.swanlab.config.v1.config_pb2 import UpdateType
 from swanlab.proto.swanlab.save.v1.save_pb2 import SavePolicy, SaveRecord
 from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogLevel
-from swanlab.sdk.internal.bus.events import ConfigEvent, FileSaveEvent, LogEvent
+from swanlab.sdk.internal.bus.events import FileSaveEvent, LogEvent
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.run.components.consumer import BackgroundConsumer
 
@@ -162,15 +161,15 @@ def test_failed_upsert_saves_restores_batch(tmp_path: Path):
 
 
 def test_failed_upsert_saves_does_not_double_restore_successful_batches(tmp_path: Path):
-    """upsert_saves 失败时，已成功的 config 批次不会被恢复。"""
+    """upsert_saves 失败时，已成功的 log 批次不会被恢复。"""
     consumer, core, builder = _make_consumer(tmp_path)
     consumer._save_batch.append(builder.build_save.return_value)
-    consumer._config_batch.append(
-        builder.build_config(ConfigEvent(update=UpdateType.UPDATE_TYPE_PATCH, timestamp=Timestamp()))
+    consumer._log_batch.append(
+        builder.build_log(LogEvent(line="hello", level=LogLevel.LOG_LEVEL_INFO, timestamp=Timestamp()))
     )
     core.upsert_saves.side_effect = RuntimeError("save failed")
 
     consumer._flush()
 
-    assert consumer._config_batch == []
+    assert consumer._log_batch == []
     assert len(consumer._save_batch) == 1
