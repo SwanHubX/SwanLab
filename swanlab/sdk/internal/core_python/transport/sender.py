@@ -20,6 +20,7 @@ import yaml
 from swanlab.exceptions import ApiError
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnClass, ColumnRecord, ColumnType
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
+from swanlab.proto.swanlab.save.v1.save_pb2 import SaveType
 from swanlab.sdk.internal.core_python.api.save import (
     complete_multipart_save,
     complete_save_files,
@@ -91,11 +92,7 @@ class HttpRecordSender:
             "column": self.upload_column,
             "scalar": self.upload_scalar,
             "media": self.upload_media,
-            "config": self.upload_config,
             "log": self.upload_log,
-            "metadata": self.upload_metadata,
-            "requirements": self.upload_requirements,
-            "conda": self.upload_conda,
             "save": self.upload_save,
         }
 
@@ -252,42 +249,58 @@ class HttpRecordSender:
                     metrics.append(metric)
             upload_log(self._project_id, self._experiment_id, metrics=metrics)
 
-    def upload_config(self, _: Sequence[Record]) -> None:
-        with safe.block(message=f"Failed to upload config, skipping; file kept at {self._ctx.config_file}"):
-            with open(self._ctx.config_file, "r", encoding="utf-8") as f:
-                content = yaml.safe_load(f)
-            if isinstance(content, dict):
-                upload_config(self._username, self._project, self._experiment_id, content=content)
-
-    def upload_metadata(self, _: Sequence[Record]) -> None:
-        with safe.block(message=f"Failed to upload metadata, skipping; file kept at {self._ctx.metadata_file}"):
-            with open(self._ctx.metadata_file, "r", encoding="utf-8") as f:
-                content = json.load(f)
-            if isinstance(content, dict):
-                upload_metadata(self._username, self._project, self._experiment_id, content=content)
-
-    def upload_requirements(self, _: Sequence[Record]) -> None:
-        with safe.block(message=f"Failed to upload requirements, skipping; file kept at {self._ctx.requirements_file}"):
-            with open(self._ctx.requirements_file, "r", encoding="utf-8") as f:
-                content = f.read()
-            if len(content) > 0:
-                upload_requirements(self._username, self._project, self._experiment_id, content=content)
-
-    def upload_conda(self, _: Sequence[Record]) -> None:
-        with safe.block(message=f"Failed to upload conda, skipping; file kept at {self._ctx.conda_file}"):
-            with open(self._ctx.conda_file, "r", encoding="utf-8") as f:
-                content = f.read()
-            if len(content) > 0:
-                upload_conda(self._username, self._project, self._experiment_id, content=content)
-
     # ── 文件保存上传 ──
 
     def upload_save(self, records: Sequence[Record]) -> None:
-        """处理 SaveRecord 上传：小文件走 presigned URL，大文件走分片上传。"""
-        config = self._ctx.config
-        # 1. 收集合法文件（不读内容，避免大批次内存爆炸）
-        pending: list[tuple[str, int, str]] = []  # (source_path, size, name)
+        """
+        内部保存（如config、metadata等）和用户保存（文件保存）共用 SaveRecord 结构
+        目前它们在产品设计上暂未统一，换句话说上传config、metadata文件的时候并不会保存对应文件
+        因此需要区分两者，内部保存仅上传，用户保存走save逻辑：小文件走 presigned URL，大文件走分片上传。
+        """
+        # 1. 区分内部保存和用户保存，过滤出需要走文件上传逻辑的记录，并处理内部保存的上传
+        save_records = []
         for record in records:
+            if not record.HasField("save"):
+                continue
+            save = record.save
+            # 根据约定的 type 字段区分内部保存和用户保存，内部保存直接上传内容，用户保存走后续文件上传逻辑
+            if save.type == SaveType.SAVE_TYPE_CUSTOM:
+                save_records.append(record)
+            elif save.type == SaveType.SAVE_TYPE_METADATA:
+                with safe.block(message=f"Failed to upload metadata, skipping; file kept at {save.source_path}"):
+                    with open(save.source_path, "r", encoding="utf-8") as f:
+                        content = json.load(f)
+                    if isinstance(content, dict):
+                        upload_metadata(self._username, self._project, self._experiment_id, content=content)
+            elif save.type == SaveType.SAVE_TYPE_REQUIREMENTS:
+                with safe.block(message=f"Failed to upload requirements, skipping; file kept at {save.source_path}"):
+                    with open(save.source_path, "r", encoding="utf-8") as f:
+                        content = f.read()
+                    if len(content) > 0:
+                        upload_requirements(self._username, self._project, self._experiment_id, content=content)
+            elif save.type == SaveType.SAVE_TYPE_CONDA:
+                with safe.block(message=f"Failed to upload conda, skipping; file kept at {save.source_path}"):
+                    with open(save.source_path, "r", encoding="utf-8") as f:
+                        content = f.read()
+                    if len(content) > 0:
+                        upload_conda(self._username, self._project, self._experiment_id, content=content)
+            elif save.type == SaveType.SAVE_TYPE_CONFIG:
+                with safe.block(message=f"Failed to upload config, skipping; file kept at {save.source_path}"):
+                    with open(save.source_path, "r", encoding="utf-8") as f:
+                        content = yaml.safe_load(f)
+                    if isinstance(content, dict):
+                        upload_config(self._username, self._project, self._experiment_id, content=content)
+            else:
+                console.warning(f"Unknown save type {save.type} for record num {record.num}, skipping")
+        if not save_records:
+            console.debug("No user save records to upload after filtering; all saves are internal files.")
+            return
+
+        # 2. save 逻辑
+        config = self._ctx.config
+        # 2.1 收集合法文件（不读内容，避免大批次内存爆炸）
+        pending: list[tuple[str, int, str]] = []  # (source_path, size, name)
+        for record in save_records:
             if not record.HasField("save"):
                 continue
             save = record.save
@@ -306,16 +319,14 @@ class HttpRecordSender:
                 )
                 continue
             pending.append((save.source_path, size, save.name))
-
         if not pending:
             console.warning("No valid files to save.")
             return
-
         if config.save_batch <= 0:
             console.warning(f"Invalid save batch size ({config.save_batch}), skipping save upload")
             return
 
-        # 2. 按 save_batch 拆分文件列表，避免单次 prepare/complete 超过后端限制
+        # 2.2 按 save_batch 拆分文件列表，避免单次 prepare/complete 超过后端限制
         for index in range(0, len(pending), config.save_batch):
             self._upload_save_batch(pending[index : index + config.save_batch])
 
@@ -448,7 +459,9 @@ class HttpRecordSender:
                 complete_save_files(self._experiment_id, files=failed)
 
     def _upload_multipart_parts(
-        self, file_info: SaveFileEntry, parts: Sequence[MultipartPart]
+        self,
+        file_info: SaveFileEntry,
+        parts: Sequence[MultipartPart],
     ) -> Optional[list[CompletedPart]]:
         """上传单个大文件的所有分片，返回 CompletedPart 列表。"""
         assert self._buffer_session is not None

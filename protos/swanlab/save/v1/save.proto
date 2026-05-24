@@ -5,17 +5,26 @@ package swanlab.save.v1;
 option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/save/v1;savev1";
 
 enum SavePolicy {
-  SAVE_POLICY_NOW  = 0;   // 立即上传
-  SAVE_POLICY_END  = 1;   // 运行结束时上传
-  SAVE_POLICY_LIVE = 2;   // 持续监听文件变化
+    SAVE_POLICY_NOW = 0;  // 立即上传
+    SAVE_POLICY_END = 1;  // 运行结束时上传
+    SAVE_POLICY_LIVE = 2; // 持续监听文件变化
+}
+
+enum SaveType {
+    SAVE_TYPE_CUSTOM = 0;       // 用户自定义文件，默认类型
+    SAVE_TYPE_CONFIG = 1;       // swanlab.config 文件
+    SAVE_TYPE_METADATA = 2;     // swanlab-metadata.json 文件
+    SAVE_TYPE_REQUIREMENTS = 3; // requirements.txt 文件
+    SAVE_TYPE_CONDA = 4;        // conda.yaml 文件
 }
 
 // 文件保存记录，由 swanlab.save() API 产生。
 // 每条记录对应一个用户文件的保存操作。
 // size/md5/mime_type 不在此处存储，由 Core 在持久化/上传时按需计算。
 message SaveRecord {
-  string name          = 1;  // 文件标识（相对于 base_path 的路径）
-  string source_path   = 2;  // 源文件绝对路径
-  string target_path   = 3;  // 本地镜像目标路径（软链接位置，由 Core 填充）
-  SavePolicy policy    = 4;  // 保存策略
+    string name = 1;        // 文件标识（相对于 base_path 的路径）
+    string source_path = 2; // 源文件绝对路径
+    string target_path = 3; // 本地镜像目标路径（软链接位置，由 Core 填充）
+    SavePolicy policy = 4;  // 保存策略
+    SaveType type = 5;      // 文件类型
 }

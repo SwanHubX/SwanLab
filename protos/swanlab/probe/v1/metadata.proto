@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-package swanlab.env.v1;
+package swanlab.probe.v1;
 
-option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/env/v1;envv1";
+option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/probe/v1;probev1";
 
 // MetadataSnapshot 是启动时采集的完整系统快照，用于上报和展示。
 message MetadataSnapshot {

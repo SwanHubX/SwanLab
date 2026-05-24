@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1aswanlab/save/v1/save.proto\x12\x0fswanlab.save.v1\"q\n\nSaveRecord\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x13\n\x0bsource_path\x18\x02 \x01(\t\x12\x13\n\x0btarget_path\x18\x03 \x01(\t\x12+\n\x06policy\x18\x04 \x01(\x0e\x32\x1b.swanlab.save.v1.SavePolicy*L\n\nSavePolicy\x12\x13\n\x0fSAVE_POLICY_NOW\x10\x00\x12\x13\n\x0fSAVE_POLICY_END\x10\x01\x12\x14\n\x10SAVE_POLICY_LIVE\x10\x02\x42?Z=github.com/swanhubx/swanlab/core/proto/swanlab/save/v1;savev1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1aswanlab/save/v1/save.proto\x12\x0fswanlab.save.v1\"\x9a\x01\n\nSaveRecord\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x13\n\x0bsource_path\x18\x02 \x01(\t\x12\x13\n\x0btarget_path\x18\x03 \x01(\t\x12+\n\x06policy\x18\x04 \x01(\x0e\x32\x1b.swanlab.save.v1.SavePolicy\x12\'\n\x04type\x18\x05 \x01(\x0e\x32\x19.swanlab.save.v1.SaveType*L\n\nSavePolicy\x12\x13\n\x0fSAVE_POLICY_NOW\x10\x00\x12\x13\n\x0fSAVE_POLICY_END\x10\x01\x12\x14\n\x10SAVE_POLICY_LIVE\x10\x02*\x7f\n\x08SaveType\x12\x14\n\x10SAVE_TYPE_CUSTOM\x10\x00\x12\x14\n\x10SAVE_TYPE_CONFIG\x10\x01\x12\x16\n\x12SAVE_TYPE_METADATA\x10\x02\x12\x1a\n\x16SAVE_TYPE_REQUIREMENTS\x10\x03\x12\x13\n\x0fSAVE_TYPE_CONDA\x10\x04\x42?Z=github.com/swanhubx/swanlab/core/proto/swanlab/save/v1;savev1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -32,8 +32,10 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'swanlab.save.v1.save_pb2', 
 if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'Z=github.com/swanhubx/swanlab/core/proto/swanlab/save/v1;savev1'
-  _globals['_SAVEPOLICY']._serialized_start=162
-  _globals['_SAVEPOLICY']._serialized_end=238
-  _globals['_SAVERECORD']._serialized_start=47
-  _globals['_SAVERECORD']._serialized_end=160
+  _globals['_SAVEPOLICY']._serialized_start=204
+  _globals['_SAVEPOLICY']._serialized_end=280
+  _globals['_SAVETYPE']._serialized_start=282
+  _globals['_SAVETYPE']._serialized_end=409
+  _globals['_SAVERECORD']._serialized_start=48
+  _globals['_SAVERECORD']._serialized_end=202
 # @@protoc_insertion_point(module_scope)

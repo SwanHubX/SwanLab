@@ -7,12 +7,10 @@
 """
 
 import sys
-from typing import Optional
+from typing import List, Optional
 
-from google.protobuf.timestamp_pb2 import Timestamp
-
-from swanlab.proto.swanlab.env.v1.env_pb2 import CondaRecord, MetadataRecord, RequirementsRecord
 from swanlab.proto.swanlab.grpc.probe.v1.probe_pb2 import DeliverProbeStartRequest, GetMetadataSnapshotResponse
+from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord, SaveType
 from swanlab.sdk.internal.pkg import console, fs
 from swanlab.sdk.internal.probe_python.context import ProbeContext
 from swanlab.sdk.internal.probe_python.environment import conda, git, requirements, runtime, swanlab
@@ -90,18 +88,37 @@ class ProbePython(ProbeProtocol):
         )
         if self._core is not None:
             # 4. 向core发送记录
-            ts = Timestamp()
-            ts.GetCurrentTime()
+            payload: List[SaveRecord] = []
             if sys_info.metadata:
                 fs.safe_write(ctx.metadata_file, sys_info.metadata.model_dump_json(by_alias=True))
-                self._core.upsert_metadata([MetadataRecord(timestamp=ts)])
+                metadata_record = SaveRecord(
+                    name="metadata",
+                    source_path=ctx.metadata_file.absolute().as_posix(),
+                    type=SaveType.SAVE_TYPE_METADATA,
+                )
+                payload.append(metadata_record)
             if sys_info.requirements:
                 fs.safe_write(ctx.requirements_file, sys_info.requirements)
-                self._core.upsert_requirements([RequirementsRecord(timestamp=ts)])
+                requirements_record = SaveRecord(
+                    name="requirements",
+                    source_path=ctx.requirements_file.absolute().as_posix(),
+                    type=SaveType.SAVE_TYPE_REQUIREMENTS,
+                )
+                payload.append(requirements_record)
             if sys_info.conda:
                 fs.safe_write(ctx.conda_file, sys_info.conda)
-                self._core.upsert_conda([CondaRecord(timestamp=ts)])
-
+                conda_record = SaveRecord(
+                    name="conda",
+                    source_path=ctx.conda_file.absolute().as_posix(),
+                    type=SaveType.SAVE_TYPE_CONDA,
+                )
+                payload.append(conda_record)
+            if payload:
+                self._core.upsert_saves(payload)
+            else:
+                console.debug(
+                    "ProbePython has no metadata to send; metadata will be collected for snapshots only and will not be sent."
+                )
             # 5. 设置硬件监控
             if ctx.config.monitor:
                 if (hm := Monitor(system_shim, self._core).start(ctx)) is not None:

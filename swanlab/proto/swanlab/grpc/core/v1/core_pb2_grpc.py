@@ -56,29 +56,9 @@ class CoreServiceStub(object):
                 request_serializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.UpsertMediaRequest.SerializeToString,
                 response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
                 _registered_method=True)
-        self.UpsertConfigs = channel.unary_unary(
-                '/swanlab.grpc.core.v1.CoreService/UpsertConfigs',
-                request_serializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.UpsertConfigsRequest.SerializeToString,
-                response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
-                _registered_method=True)
         self.UpsertLogs = channel.unary_unary(
                 '/swanlab.grpc.core.v1.CoreService/UpsertLogs',
                 request_serializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.UpsertLogsRequest.SerializeToString,
-                response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
-                _registered_method=True)
-        self.UpsertRequirements = channel.unary_unary(
-                '/swanlab.grpc.core.v1.CoreService/UpsertRequirements',
-                request_serializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.UpsertRequirementsRequest.SerializeToString,
-                response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
-                _registered_method=True)
-        self.UpsertConda = channel.unary_unary(
-                '/swanlab.grpc.core.v1.CoreService/UpsertConda',
-                request_serializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.UpsertCondaRequest.SerializeToString,
-                response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
-                _registered_method=True)
-        self.UpsertMetadata = channel.unary_unary(
-                '/swanlab.grpc.core.v1.CoreService/UpsertMetadata',
-                request_serializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.UpsertMetadataRequest.SerializeToString,
                 response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
                 _registered_method=True)
         self.UpsertSaves = channel.unary_unary(
@@ -135,13 +115,6 @@ class CoreServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def UpsertConfigs(self, request, context):
-        """UpsertConfigs 接收一组 ConfigRecord 并写入，每一条记录对应一次用户对 config 的修改
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
     def UpsertLogs(self, request, context):
         """UpsertLogs 接收一组 LogRecord 并写入，每一条记录对应一行用户的终端输出
         """
@@ -149,29 +122,8 @@ class CoreServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def UpsertRequirements(self, request, context):
-        """UpsertRequirements 接收一组 RequirementsRecord 并写入，每一条记录对应一次用户/系统对 requirements 的修改
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def UpsertConda(self, request, context):
-        """UpsertConda 接收一组 CondaRecord 并写入，每一条记录对应一次用户/系统对 conda 的修改
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def UpsertMetadata(self, request, context):
-        """UpsertMetadata 接收一组 MetadataRecord 并写入，每一条记录对应一次用户/系统对 metadata 的修改
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
     def UpsertSaves(self, request, context):
-        """UpsertSaves 接收一组 SaveRecord 并写入，每一条记录对应一次 swanlab.save() 的文件保存
+        """UpsertSaves 接收一组 SaveRecord 并写入，每一条记录对应一次 swanlab.save() 的文件保存或者swanlab内部保存操作
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -221,29 +173,9 @@ def add_CoreServiceServicer_to_server(servicer, server):
                     request_deserializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.UpsertMediaRequest.FromString,
                     response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
             ),
-            'UpsertConfigs': grpc.unary_unary_rpc_method_handler(
-                    servicer.UpsertConfigs,
-                    request_deserializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.UpsertConfigsRequest.FromString,
-                    response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
-            ),
             'UpsertLogs': grpc.unary_unary_rpc_method_handler(
                     servicer.UpsertLogs,
                     request_deserializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.UpsertLogsRequest.FromString,
-                    response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
-            ),
-            'UpsertRequirements': grpc.unary_unary_rpc_method_handler(
-                    servicer.UpsertRequirements,
-                    request_deserializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.UpsertRequirementsRequest.FromString,
-                    response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
-            ),
-            'UpsertConda': grpc.unary_unary_rpc_method_handler(
-                    servicer.UpsertConda,
-                    request_deserializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.UpsertCondaRequest.FromString,
-                    response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
-            ),
-            'UpsertMetadata': grpc.unary_unary_rpc_method_handler(
-                    servicer.UpsertMetadata,
-                    request_deserializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.UpsertMetadataRequest.FromString,
                     response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
             ),
             'UpsertSaves': grpc.unary_unary_rpc_method_handler(
@@ -387,33 +319,6 @@ class CoreService(object):
             _registered_method=True)
 
     @staticmethod
-    def UpsertConfigs(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/swanlab.grpc.core.v1.CoreService/UpsertConfigs',
-            swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.UpsertConfigsRequest.SerializeToString,
-            google_dot_protobuf_dot_empty__pb2.Empty.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
     def UpsertLogs(request,
             target,
             options=(),
@@ -429,87 +334,6 @@ class CoreService(object):
             target,
             '/swanlab.grpc.core.v1.CoreService/UpsertLogs',
             swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.UpsertLogsRequest.SerializeToString,
-            google_dot_protobuf_dot_empty__pb2.Empty.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def UpsertRequirements(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/swanlab.grpc.core.v1.CoreService/UpsertRequirements',
-            swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.UpsertRequirementsRequest.SerializeToString,
-            google_dot_protobuf_dot_empty__pb2.Empty.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def UpsertConda(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/swanlab.grpc.core.v1.CoreService/UpsertConda',
-            swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.UpsertCondaRequest.SerializeToString,
-            google_dot_protobuf_dot_empty__pb2.Empty.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def UpsertMetadata(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/swanlab.grpc.core.v1.CoreService/UpsertMetadata',
-            swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.UpsertMetadataRequest.SerializeToString,
             google_dot_protobuf_dot_empty__pb2.Empty.FromString,
             options,
             channel_credentials,

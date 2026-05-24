@@ -17,7 +17,7 @@ def test_dispatch_groups_by_type(mock_ctx, make_scalar_record, make_config_recor
         assert success is True
         assert failed == []
         assert calls[0] == (("scalar", metric_records),)
-        assert calls[1] == (("config", config_records),)
+        assert calls[1] == (("save", config_records),)
 
 
 def test_dispatch_calls_correct_handler(mock_ctx, make_scalar_record):

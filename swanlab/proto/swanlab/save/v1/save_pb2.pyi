@@ -10,18 +10,33 @@ class SavePolicy(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     SAVE_POLICY_NOW: _ClassVar[SavePolicy]
     SAVE_POLICY_END: _ClassVar[SavePolicy]
     SAVE_POLICY_LIVE: _ClassVar[SavePolicy]
+
+class SaveType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    SAVE_TYPE_CUSTOM: _ClassVar[SaveType]
+    SAVE_TYPE_CONFIG: _ClassVar[SaveType]
+    SAVE_TYPE_METADATA: _ClassVar[SaveType]
+    SAVE_TYPE_REQUIREMENTS: _ClassVar[SaveType]
+    SAVE_TYPE_CONDA: _ClassVar[SaveType]
 SAVE_POLICY_NOW: SavePolicy
 SAVE_POLICY_END: SavePolicy
 SAVE_POLICY_LIVE: SavePolicy
+SAVE_TYPE_CUSTOM: SaveType
+SAVE_TYPE_CONFIG: SaveType
+SAVE_TYPE_METADATA: SaveType
+SAVE_TYPE_REQUIREMENTS: SaveType
+SAVE_TYPE_CONDA: SaveType
 
 class SaveRecord(_message.Message):
-    __slots__ = ("name", "source_path", "target_path", "policy")
+    __slots__ = ("name", "source_path", "target_path", "policy", "type")
     NAME_FIELD_NUMBER: _ClassVar[int]
     SOURCE_PATH_FIELD_NUMBER: _ClassVar[int]
     TARGET_PATH_FIELD_NUMBER: _ClassVar[int]
     POLICY_FIELD_NUMBER: _ClassVar[int]
+    TYPE_FIELD_NUMBER: _ClassVar[int]
     name: str
     source_path: str
     target_path: str
     policy: SavePolicy
-    def __init__(self, name: _Optional[str] = ..., source_path: _Optional[str] = ..., target_path: _Optional[str] = ..., policy: _Optional[_Union[SavePolicy, str]] = ...) -> None: ...
+    type: SaveType
+    def __init__(self, name: _Optional[str] = ..., source_path: _Optional[str] = ..., target_path: _Optional[str] = ..., policy: _Optional[_Union[SavePolicy, str]] = ..., type: _Optional[_Union[SaveType, str]] = ...) -> None: ...

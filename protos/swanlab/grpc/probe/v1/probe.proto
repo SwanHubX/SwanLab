@@ -3,7 +3,7 @@ syntax = "proto3";
 package swanlab.grpc.probe.v1;
 
 import "google/protobuf/empty.proto";
-import "swanlab/env/v1/metadata.proto";
+import "swanlab/probe/v1/metadata.proto";
 import "swanlab/settings/probe/v1/probe.proto";
 
 option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/grpc/probe/v1;probev1";
@@ -27,7 +27,7 @@ message DeliverProbeStartRequest {
 
 // GetMetadataSnapshot 响应，返回 probe 采集到的强类型元数据快照。
 message GetMetadataSnapshotResponse {
-    bool success = 1;                             // 请求是否成功
-    string message = 2;                           // 失败或降级原因
-    swanlab.env.v1.MetadataSnapshot metadata = 3; // 当前环境元数据快照
+    bool success = 1;                               // 请求是否成功
+    string message = 2;                             // 失败或降级原因
+    swanlab.probe.v1.MetadataSnapshot metadata = 3; // 当前环境元数据快照
 }

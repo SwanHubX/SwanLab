@@ -24,7 +24,6 @@ from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
-from swanlab.proto.swanlab.config.v1.config_pb2 import UpdateType
 from swanlab.sdk.internal.bus import ConfigEvent
 
 from .helper import revert_config
@@ -90,13 +89,13 @@ class Config(MutableMapping):
             self._sort[key] = self._seq
             self.__dict__["_seq"] = self._seq + 1
 
-    def _flush(self, update_type: UpdateType) -> None:
+    def _flush(self) -> None:
         """全量写文件并发出 ConfigEvent。"""
         assert self._file is not None and self._emit is not None, "Config not bound"
         write_config(self._file, self._config, self._sort)
         ts = Timestamp()
         ts.GetCurrentTime()
-        self._emit(ConfigEvent(update=update_type, timestamp=ts))
+        self._emit(ConfigEvent(path=self._file, timestamp=ts))
 
     # ------------------------------------------------------------------
     # 绑定 / 重置（线程安全）
@@ -111,7 +110,7 @@ class Config(MutableMapping):
             if self._bound:
                 return
             self.__dict__.update({"_file": config_file, "_emit": emit, "_bound": True})
-            self._flush(UpdateType.UPDATE_TYPE_INIT)
+            self._flush()
 
     def _reset(self) -> None:
         """重置为初始状态，用于测试隔离或下一次 init 前的清理。"""
@@ -138,7 +137,7 @@ class Config(MutableMapping):
         with _lock:
             self._set_value(str(key), value)
             if self._bound:
-                self._flush(UpdateType.UPDATE_TYPE_PATCH)
+                self._flush()
 
     def __getitem__(self, key: str) -> Any:
         if not isinstance(key, str):
@@ -155,7 +154,7 @@ class Config(MutableMapping):
             del self._config[key]
             self._sort.pop(key, None)
             if self._bound:
-                self._flush(UpdateType.UPDATE_TYPE_PATCH)
+                self._flush()
 
     def __iter__(self):
         return iter(self._config)
@@ -212,7 +211,7 @@ class Config(MutableMapping):
             for k, v in kwargs.items():
                 self._set_value(k, v)
             if self._bound:
-                self._flush(UpdateType.UPDATE_TYPE_PATCH)
+                self._flush()
 
     # ------------------------------------------------------------------
     # 覆盖 MutableMapping 默认实现（避免多余的 flush）
@@ -270,7 +269,7 @@ class Config(MutableMapping):
             value = self._config.pop(key)
             self._sort.pop(key, None)
             if self._bound:
-                self._flush(UpdateType.UPDATE_TYPE_PATCH)
+                self._flush()
             return value
 
     def clean(self) -> None:
@@ -289,7 +288,7 @@ class Config(MutableMapping):
             self._sort.clear()
             self.__dict__["_seq"] = 0
             if self._bound:
-                self._flush(UpdateType.UPDATE_TYPE_PATCH)
+                self._flush()
 
 
 # ------------------------------------------------------------------

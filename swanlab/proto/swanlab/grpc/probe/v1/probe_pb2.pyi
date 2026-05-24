@@ -1,5 +1,5 @@
 from google.protobuf import empty_pb2 as _empty_pb2
-from swanlab.proto.swanlab.env.v1 import metadata_pb2 as _metadata_pb2
+from swanlab.proto.swanlab.probe.v1 import metadata_pb2 as _metadata_pb2
 from swanlab.proto.swanlab.settings.probe.v1 import probe_pb2 as _probe_pb2
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message

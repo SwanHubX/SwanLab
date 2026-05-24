@@ -2,9 +2,9 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v7.34.0
-// source: swanlab/env/v1/metadata.proto
+// source: swanlab/probe/v1/metadata.proto
 
-package envv1
+package probev1
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -55,11 +55,11 @@ func (x MemoryUnit) String() string {
 }
 
 func (MemoryUnit) Descriptor() protoreflect.EnumDescriptor {
-	return file_swanlab_env_v1_metadata_proto_enumTypes[0].Descriptor()
+	return file_swanlab_probe_v1_metadata_proto_enumTypes[0].Descriptor()
 }
 
 func (MemoryUnit) Type() protoreflect.EnumType {
-	return &file_swanlab_env_v1_metadata_proto_enumTypes[0]
+	return &file_swanlab_probe_v1_metadata_proto_enumTypes[0]
 }
 
 func (x MemoryUnit) Number() protoreflect.EnumNumber {
@@ -68,7 +68,7 @@ func (x MemoryUnit) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use MemoryUnit.Descriptor instead.
 func (MemoryUnit) EnumDescriptor() ([]byte, []int) {
-	return file_swanlab_env_v1_metadata_proto_rawDescGZIP(), []int{0}
+	return file_swanlab_probe_v1_metadata_proto_rawDescGZIP(), []int{0}
 }
 
 // AcceleratorVendor 是加速器厂商/驱动类型。
@@ -126,11 +126,11 @@ func (x AcceleratorVendor) String() string {
 }
 
 func (AcceleratorVendor) Descriptor() protoreflect.EnumDescriptor {
-	return file_swanlab_env_v1_metadata_proto_enumTypes[1].Descriptor()
+	return file_swanlab_probe_v1_metadata_proto_enumTypes[1].Descriptor()
 }
 
 func (AcceleratorVendor) Type() protoreflect.EnumType {
-	return &file_swanlab_env_v1_metadata_proto_enumTypes[1]
+	return &file_swanlab_probe_v1_metadata_proto_enumTypes[1]
 }
 
 func (x AcceleratorVendor) Number() protoreflect.EnumNumber {
@@ -139,7 +139,7 @@ func (x AcceleratorVendor) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use AcceleratorVendor.Descriptor instead.
 func (AcceleratorVendor) EnumDescriptor() ([]byte, []int) {
-	return file_swanlab_env_v1_metadata_proto_rawDescGZIP(), []int{1}
+	return file_swanlab_probe_v1_metadata_proto_rawDescGZIP(), []int{1}
 }
 
 // MetadataSnapshot 是启动时采集的完整系统快照，用于上报和展示。
@@ -156,7 +156,7 @@ type MetadataSnapshot struct {
 
 func (x *MetadataSnapshot) Reset() {
 	*x = MetadataSnapshot{}
-	mi := &file_swanlab_env_v1_metadata_proto_msgTypes[0]
+	mi := &file_swanlab_probe_v1_metadata_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -168,7 +168,7 @@ func (x *MetadataSnapshot) String() string {
 func (*MetadataSnapshot) ProtoMessage() {}
 
 func (x *MetadataSnapshot) ProtoReflect() protoreflect.Message {
-	mi := &file_swanlab_env_v1_metadata_proto_msgTypes[0]
+	mi := &file_swanlab_probe_v1_metadata_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -181,7 +181,7 @@ func (x *MetadataSnapshot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MetadataSnapshot.ProtoReflect.Descriptor instead.
 func (*MetadataSnapshot) Descriptor() ([]byte, []int) {
-	return file_swanlab_env_v1_metadata_proto_rawDescGZIP(), []int{0}
+	return file_swanlab_probe_v1_metadata_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *MetadataSnapshot) GetVersion() int32 {
@@ -232,7 +232,7 @@ type HardwareSnapshot struct {
 
 func (x *HardwareSnapshot) Reset() {
 	*x = HardwareSnapshot{}
-	mi := &file_swanlab_env_v1_metadata_proto_msgTypes[1]
+	mi := &file_swanlab_probe_v1_metadata_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -244,7 +244,7 @@ func (x *HardwareSnapshot) String() string {
 func (*HardwareSnapshot) ProtoMessage() {}
 
 func (x *HardwareSnapshot) ProtoReflect() protoreflect.Message {
-	mi := &file_swanlab_env_v1_metadata_proto_msgTypes[1]
+	mi := &file_swanlab_probe_v1_metadata_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -257,7 +257,7 @@ func (x *HardwareSnapshot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HardwareSnapshot.ProtoReflect.Descriptor instead.
 func (*HardwareSnapshot) Descriptor() ([]byte, []int) {
-	return file_swanlab_env_v1_metadata_proto_rawDescGZIP(), []int{1}
+	return file_swanlab_probe_v1_metadata_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *HardwareSnapshot) GetAppleSilicon() *AppleSiliconSnapshot {
@@ -300,7 +300,7 @@ type CPUSnapshot struct {
 
 func (x *CPUSnapshot) Reset() {
 	*x = CPUSnapshot{}
-	mi := &file_swanlab_env_v1_metadata_proto_msgTypes[2]
+	mi := &file_swanlab_probe_v1_metadata_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -312,7 +312,7 @@ func (x *CPUSnapshot) String() string {
 func (*CPUSnapshot) ProtoMessage() {}
 
 func (x *CPUSnapshot) ProtoReflect() protoreflect.Message {
-	mi := &file_swanlab_env_v1_metadata_proto_msgTypes[2]
+	mi := &file_swanlab_probe_v1_metadata_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -325,7 +325,7 @@ func (x *CPUSnapshot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CPUSnapshot.ProtoReflect.Descriptor instead.
 func (*CPUSnapshot) Descriptor() ([]byte, []int) {
-	return file_swanlab_env_v1_metadata_proto_rawDescGZIP(), []int{2}
+	return file_swanlab_probe_v1_metadata_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *CPUSnapshot) GetBrand() string {
@@ -352,15 +352,15 @@ func (x *CPUSnapshot) GetLogicalCount() int32 {
 // MemorySnapshot 是内存静态信息。
 type MemorySnapshot struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Total         *int64                 `protobuf:"varint,1,opt,name=total,proto3,oneof" json:"total,omitempty"`                                                         // 总内存大小
-	TotalUnit     *MemoryUnit            `protobuf:"varint,2,opt,name=total_unit,json=totalUnit,proto3,enum=swanlab.env.v1.MemoryUnit,oneof" json:"total_unit,omitempty"` // 内存单位
+	Total         *int64                 `protobuf:"varint,1,opt,name=total,proto3,oneof" json:"total,omitempty"`                                                           // 总内存大小
+	TotalUnit     *MemoryUnit            `protobuf:"varint,2,opt,name=total_unit,json=totalUnit,proto3,enum=swanlab.probe.v1.MemoryUnit,oneof" json:"total_unit,omitempty"` // 内存单位
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *MemorySnapshot) Reset() {
 	*x = MemorySnapshot{}
-	mi := &file_swanlab_env_v1_metadata_proto_msgTypes[3]
+	mi := &file_swanlab_probe_v1_metadata_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -372,7 +372,7 @@ func (x *MemorySnapshot) String() string {
 func (*MemorySnapshot) ProtoMessage() {}
 
 func (x *MemorySnapshot) ProtoReflect() protoreflect.Message {
-	mi := &file_swanlab_env_v1_metadata_proto_msgTypes[3]
+	mi := &file_swanlab_probe_v1_metadata_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -385,7 +385,7 @@ func (x *MemorySnapshot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MemorySnapshot.ProtoReflect.Descriptor instead.
 func (*MemorySnapshot) Descriptor() ([]byte, []int) {
-	return file_swanlab_env_v1_metadata_proto_rawDescGZIP(), []int{3}
+	return file_swanlab_probe_v1_metadata_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *MemorySnapshot) GetTotal() int64 {
@@ -405,17 +405,17 @@ func (x *MemorySnapshot) GetTotalUnit() MemoryUnit {
 // AppleSiliconSnapshot 是 Apple Silicon 静态信息。
 type AppleSiliconSnapshot struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          *string                `protobuf:"bytes,1,opt,name=name,proto3,oneof" json:"name,omitempty"`                                                               // 芯片型号，如 Apple M3 Pro
-	Memory        *int64                 `protobuf:"varint,2,opt,name=memory,proto3,oneof" json:"memory,omitempty"`                                                          // 统一内存总量
-	MemoryUnit    *MemoryUnit            `protobuf:"varint,3,opt,name=memory_unit,json=memoryUnit,proto3,enum=swanlab.env.v1.MemoryUnit,oneof" json:"memory_unit,omitempty"` // 内存单位
-	CpuCount      *int32                 `protobuf:"varint,4,opt,name=cpu_count,json=cpuCount,proto3,oneof" json:"cpu_count,omitempty"`                                      // CPU 核心数
+	Name          *string                `protobuf:"bytes,1,opt,name=name,proto3,oneof" json:"name,omitempty"`                                                                 // 芯片型号，如 Apple M3 Pro
+	Memory        *int64                 `protobuf:"varint,2,opt,name=memory,proto3,oneof" json:"memory,omitempty"`                                                            // 统一内存总量
+	MemoryUnit    *MemoryUnit            `protobuf:"varint,3,opt,name=memory_unit,json=memoryUnit,proto3,enum=swanlab.probe.v1.MemoryUnit,oneof" json:"memory_unit,omitempty"` // 内存单位
+	CpuCount      *int32                 `protobuf:"varint,4,opt,name=cpu_count,json=cpuCount,proto3,oneof" json:"cpu_count,omitempty"`                                        // CPU 核心数
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *AppleSiliconSnapshot) Reset() {
 	*x = AppleSiliconSnapshot{}
-	mi := &file_swanlab_env_v1_metadata_proto_msgTypes[4]
+	mi := &file_swanlab_probe_v1_metadata_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -427,7 +427,7 @@ func (x *AppleSiliconSnapshot) String() string {
 func (*AppleSiliconSnapshot) ProtoMessage() {}
 
 func (x *AppleSiliconSnapshot) ProtoReflect() protoreflect.Message {
-	mi := &file_swanlab_env_v1_metadata_proto_msgTypes[4]
+	mi := &file_swanlab_probe_v1_metadata_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -440,7 +440,7 @@ func (x *AppleSiliconSnapshot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AppleSiliconSnapshot.ProtoReflect.Descriptor instead.
 func (*AppleSiliconSnapshot) Descriptor() ([]byte, []int) {
-	return file_swanlab_env_v1_metadata_proto_rawDescGZIP(), []int{4}
+	return file_swanlab_probe_v1_metadata_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *AppleSiliconSnapshot) GetName() string {
@@ -474,18 +474,18 @@ func (x *AppleSiliconSnapshot) GetCpuCount() int32 {
 // AcceleratorSnapshot 是通用加速器快照，GPU/NPU/MLU/DCU/XPU 共用此结构。
 type AcceleratorSnapshot struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Vendor        AcceleratorVendor      `protobuf:"varint,1,opt,name=vendor,proto3,enum=swanlab.env.v1.AcceleratorVendor" json:"vendor,omitempty"` // 加速器厂商/驱动类型
-	Devices       []*DeviceSnapshot      `protobuf:"bytes,2,rep,name=devices,proto3" json:"devices,omitempty"`                                      // 设备列表，每个物理设备一个条目
-	Version       *string                `protobuf:"bytes,3,opt,name=version,proto3,oneof" json:"version,omitempty"`                                // 加速器驱动版本
-	CudaVersion   *string                `protobuf:"bytes,4,opt,name=cuda_version,json=cudaVersion,proto3,oneof" json:"cuda_version,omitempty"`     // CUDA 版本号，仅 NVIDIA GPU 有效
-	CannVersion   *string                `protobuf:"bytes,5,opt,name=cann_version,json=cannVersion,proto3,oneof" json:"cann_version,omitempty"`     // CANN 工具包版本，仅 Ascend NPU 有效
+	Vendor        AcceleratorVendor      `protobuf:"varint,1,opt,name=vendor,proto3,enum=swanlab.probe.v1.AcceleratorVendor" json:"vendor,omitempty"` // 加速器厂商/驱动类型
+	Devices       []*DeviceSnapshot      `protobuf:"bytes,2,rep,name=devices,proto3" json:"devices,omitempty"`                                        // 设备列表，每个物理设备一个条目
+	Version       *string                `protobuf:"bytes,3,opt,name=version,proto3,oneof" json:"version,omitempty"`                                  // 加速器驱动版本
+	CudaVersion   *string                `protobuf:"bytes,4,opt,name=cuda_version,json=cudaVersion,proto3,oneof" json:"cuda_version,omitempty"`       // CUDA 版本号，仅 NVIDIA GPU 有效
+	CannVersion   *string                `protobuf:"bytes,5,opt,name=cann_version,json=cannVersion,proto3,oneof" json:"cann_version,omitempty"`       // CANN 工具包版本，仅 Ascend NPU 有效
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *AcceleratorSnapshot) Reset() {
 	*x = AcceleratorSnapshot{}
-	mi := &file_swanlab_env_v1_metadata_proto_msgTypes[5]
+	mi := &file_swanlab_probe_v1_metadata_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -497,7 +497,7 @@ func (x *AcceleratorSnapshot) String() string {
 func (*AcceleratorSnapshot) ProtoMessage() {}
 
 func (x *AcceleratorSnapshot) ProtoReflect() protoreflect.Message {
-	mi := &file_swanlab_env_v1_metadata_proto_msgTypes[5]
+	mi := &file_swanlab_probe_v1_metadata_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -510,7 +510,7 @@ func (x *AcceleratorSnapshot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AcceleratorSnapshot.ProtoReflect.Descriptor instead.
 func (*AcceleratorSnapshot) Descriptor() ([]byte, []int) {
-	return file_swanlab_env_v1_metadata_proto_rawDescGZIP(), []int{5}
+	return file_swanlab_probe_v1_metadata_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *AcceleratorSnapshot) GetVendor() AcceleratorVendor {
@@ -551,17 +551,17 @@ func (x *AcceleratorSnapshot) GetCannVersion() string {
 // DeviceSnapshot 是单个加速器设备信息。
 type DeviceSnapshot struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Index         *int32                 `protobuf:"varint,1,opt,name=index,proto3,oneof" json:"index,omitempty"`                                                            // 设备序号
-	Name          *string                `protobuf:"bytes,2,opt,name=name,proto3,oneof" json:"name,omitempty"`                                                               // 设备型号
-	Memory        *int64                 `protobuf:"varint,3,opt,name=memory,proto3,oneof" json:"memory,omitempty"`                                                          // 显存/内存总量
-	MemoryUnit    *MemoryUnit            `protobuf:"varint,4,opt,name=memory_unit,json=memoryUnit,proto3,enum=swanlab.env.v1.MemoryUnit,oneof" json:"memory_unit,omitempty"` // 显存/内存单位
+	Index         *int32                 `protobuf:"varint,1,opt,name=index,proto3,oneof" json:"index,omitempty"`                                                              // 设备序号
+	Name          *string                `protobuf:"bytes,2,opt,name=name,proto3,oneof" json:"name,omitempty"`                                                                 // 设备型号
+	Memory        *int64                 `protobuf:"varint,3,opt,name=memory,proto3,oneof" json:"memory,omitempty"`                                                            // 显存/内存总量
+	MemoryUnit    *MemoryUnit            `protobuf:"varint,4,opt,name=memory_unit,json=memoryUnit,proto3,enum=swanlab.probe.v1.MemoryUnit,oneof" json:"memory_unit,omitempty"` // 显存/内存单位
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *DeviceSnapshot) Reset() {
 	*x = DeviceSnapshot{}
-	mi := &file_swanlab_env_v1_metadata_proto_msgTypes[6]
+	mi := &file_swanlab_probe_v1_metadata_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -573,7 +573,7 @@ func (x *DeviceSnapshot) String() string {
 func (*DeviceSnapshot) ProtoMessage() {}
 
 func (x *DeviceSnapshot) ProtoReflect() protoreflect.Message {
-	mi := &file_swanlab_env_v1_metadata_proto_msgTypes[6]
+	mi := &file_swanlab_probe_v1_metadata_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -586,7 +586,7 @@ func (x *DeviceSnapshot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeviceSnapshot.ProtoReflect.Descriptor instead.
 func (*DeviceSnapshot) Descriptor() ([]byte, []int) {
-	return file_swanlab_env_v1_metadata_proto_rawDescGZIP(), []int{6}
+	return file_swanlab_probe_v1_metadata_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *DeviceSnapshot) GetIndex() int32 {
@@ -635,7 +635,7 @@ type RuntimeSnapshot struct {
 
 func (x *RuntimeSnapshot) Reset() {
 	*x = RuntimeSnapshot{}
-	mi := &file_swanlab_env_v1_metadata_proto_msgTypes[7]
+	mi := &file_swanlab_probe_v1_metadata_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -647,7 +647,7 @@ func (x *RuntimeSnapshot) String() string {
 func (*RuntimeSnapshot) ProtoMessage() {}
 
 func (x *RuntimeSnapshot) ProtoReflect() protoreflect.Message {
-	mi := &file_swanlab_env_v1_metadata_proto_msgTypes[7]
+	mi := &file_swanlab_probe_v1_metadata_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -660,7 +660,7 @@ func (x *RuntimeSnapshot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RuntimeSnapshot.ProtoReflect.Descriptor instead.
 func (*RuntimeSnapshot) Descriptor() ([]byte, []int) {
-	return file_swanlab_env_v1_metadata_proto_rawDescGZIP(), []int{7}
+	return file_swanlab_probe_v1_metadata_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *RuntimeSnapshot) GetOs() string {
@@ -738,7 +738,7 @@ type GitSnapshot struct {
 
 func (x *GitSnapshot) Reset() {
 	*x = GitSnapshot{}
-	mi := &file_swanlab_env_v1_metadata_proto_msgTypes[8]
+	mi := &file_swanlab_probe_v1_metadata_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -750,7 +750,7 @@ func (x *GitSnapshot) String() string {
 func (*GitSnapshot) ProtoMessage() {}
 
 func (x *GitSnapshot) ProtoReflect() protoreflect.Message {
-	mi := &file_swanlab_env_v1_metadata_proto_msgTypes[8]
+	mi := &file_swanlab_probe_v1_metadata_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -763,7 +763,7 @@ func (x *GitSnapshot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GitSnapshot.ProtoReflect.Descriptor instead.
 func (*GitSnapshot) Descriptor() ([]byte, []int) {
-	return file_swanlab_env_v1_metadata_proto_rawDescGZIP(), []int{8}
+	return file_swanlab_probe_v1_metadata_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *GitSnapshot) GetRemoteUrl() string {
@@ -798,7 +798,7 @@ type SwanLabSnapshot struct {
 
 func (x *SwanLabSnapshot) Reset() {
 	*x = SwanLabSnapshot{}
-	mi := &file_swanlab_env_v1_metadata_proto_msgTypes[9]
+	mi := &file_swanlab_probe_v1_metadata_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -810,7 +810,7 @@ func (x *SwanLabSnapshot) String() string {
 func (*SwanLabSnapshot) ProtoMessage() {}
 
 func (x *SwanLabSnapshot) ProtoReflect() protoreflect.Message {
-	mi := &file_swanlab_env_v1_metadata_proto_msgTypes[9]
+	mi := &file_swanlab_probe_v1_metadata_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -823,7 +823,7 @@ func (x *SwanLabSnapshot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SwanLabSnapshot.ProtoReflect.Descriptor instead.
 func (*SwanLabSnapshot) Descriptor() ([]byte, []int) {
-	return file_swanlab_env_v1_metadata_proto_rawDescGZIP(), []int{9}
+	return file_swanlab_probe_v1_metadata_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *SwanLabSnapshot) GetVersion() string {
@@ -840,61 +840,61 @@ func (x *SwanLabSnapshot) GetRunDir() string {
 	return ""
 }
 
-var File_swanlab_env_v1_metadata_proto protoreflect.FileDescriptor
+var File_swanlab_probe_v1_metadata_proto protoreflect.FileDescriptor
 
-const file_swanlab_env_v1_metadata_proto_rawDesc = "" +
+const file_swanlab_probe_v1_metadata_proto_rawDesc = "" +
 	"\n" +
-	"\x1dswanlab/env/v1/metadata.proto\x12\x0eswanlab.env.v1\"\x8f\x02\n" +
+	"\x1fswanlab/probe/v1/metadata.proto\x12\x10swanlab.probe.v1\"\x97\x02\n" +
 	"\x10MetadataSnapshot\x12\x18\n" +
-	"\aversion\x18\x01 \x01(\x05R\aversion\x12<\n" +
-	"\bhardware\x18\x02 \x01(\v2 .swanlab.env.v1.HardwareSnapshotR\bhardware\x129\n" +
-	"\aruntime\x18\x03 \x01(\v2\x1f.swanlab.env.v1.RuntimeSnapshotR\aruntime\x12-\n" +
-	"\x03git\x18\x04 \x01(\v2\x1b.swanlab.env.v1.GitSnapshotR\x03git\x129\n" +
-	"\aswanlab\x18\x05 \x01(\v2\x1f.swanlab.env.v1.SwanLabSnapshotR\aswanlab\"\x8d\x02\n" +
-	"\x10HardwareSnapshot\x12I\n" +
-	"\rapple_silicon\x18\x01 \x01(\v2$.swanlab.env.v1.AppleSiliconSnapshotR\fappleSilicon\x12-\n" +
-	"\x03cpu\x18\x02 \x01(\v2\x1b.swanlab.env.v1.CPUSnapshotR\x03cpu\x126\n" +
-	"\x06memory\x18\x03 \x01(\v2\x1e.swanlab.env.v1.MemorySnapshotR\x06memory\x12G\n" +
-	"\faccelerators\x18\x04 \x03(\v2#.swanlab.env.v1.AcceleratorSnapshotR\faccelerators\"\xad\x01\n" +
+	"\aversion\x18\x01 \x01(\x05R\aversion\x12>\n" +
+	"\bhardware\x18\x02 \x01(\v2\".swanlab.probe.v1.HardwareSnapshotR\bhardware\x12;\n" +
+	"\aruntime\x18\x03 \x01(\v2!.swanlab.probe.v1.RuntimeSnapshotR\aruntime\x12/\n" +
+	"\x03git\x18\x04 \x01(\v2\x1d.swanlab.probe.v1.GitSnapshotR\x03git\x12;\n" +
+	"\aswanlab\x18\x05 \x01(\v2!.swanlab.probe.v1.SwanLabSnapshotR\aswanlab\"\x95\x02\n" +
+	"\x10HardwareSnapshot\x12K\n" +
+	"\rapple_silicon\x18\x01 \x01(\v2&.swanlab.probe.v1.AppleSiliconSnapshotR\fappleSilicon\x12/\n" +
+	"\x03cpu\x18\x02 \x01(\v2\x1d.swanlab.probe.v1.CPUSnapshotR\x03cpu\x128\n" +
+	"\x06memory\x18\x03 \x01(\v2 .swanlab.probe.v1.MemorySnapshotR\x06memory\x12I\n" +
+	"\faccelerators\x18\x04 \x03(\v2%.swanlab.probe.v1.AcceleratorSnapshotR\faccelerators\"\xad\x01\n" +
 	"\vCPUSnapshot\x12\x19\n" +
 	"\x05brand\x18\x01 \x01(\tH\x00R\x05brand\x88\x01\x01\x12*\n" +
 	"\x0ephysical_count\x18\x02 \x01(\x05H\x01R\rphysicalCount\x88\x01\x01\x12(\n" +
 	"\rlogical_count\x18\x03 \x01(\x05H\x02R\flogicalCount\x88\x01\x01B\b\n" +
 	"\x06_brandB\x11\n" +
 	"\x0f_physical_countB\x10\n" +
-	"\x0e_logical_count\"\x84\x01\n" +
+	"\x0e_logical_count\"\x86\x01\n" +
 	"\x0eMemorySnapshot\x12\x19\n" +
-	"\x05total\x18\x01 \x01(\x03H\x00R\x05total\x88\x01\x01\x12>\n" +
+	"\x05total\x18\x01 \x01(\x03H\x00R\x05total\x88\x01\x01\x12@\n" +
 	"\n" +
-	"total_unit\x18\x02 \x01(\x0e2\x1a.swanlab.env.v1.MemoryUnitH\x01R\ttotalUnit\x88\x01\x01B\b\n" +
+	"total_unit\x18\x02 \x01(\x0e2\x1c.swanlab.probe.v1.MemoryUnitH\x01R\ttotalUnit\x88\x01\x01B\b\n" +
 	"\x06_totalB\r\n" +
-	"\v_total_unit\"\xe2\x01\n" +
+	"\v_total_unit\"\xe4\x01\n" +
 	"\x14AppleSiliconSnapshot\x12\x17\n" +
 	"\x04name\x18\x01 \x01(\tH\x00R\x04name\x88\x01\x01\x12\x1b\n" +
-	"\x06memory\x18\x02 \x01(\x03H\x01R\x06memory\x88\x01\x01\x12@\n" +
-	"\vmemory_unit\x18\x03 \x01(\x0e2\x1a.swanlab.env.v1.MemoryUnitH\x02R\n" +
+	"\x06memory\x18\x02 \x01(\x03H\x01R\x06memory\x88\x01\x01\x12B\n" +
+	"\vmemory_unit\x18\x03 \x01(\x0e2\x1c.swanlab.probe.v1.MemoryUnitH\x02R\n" +
 	"memoryUnit\x88\x01\x01\x12 \n" +
 	"\tcpu_count\x18\x04 \x01(\x05H\x03R\bcpuCount\x88\x01\x01B\a\n" +
 	"\x05_nameB\t\n" +
 	"\a_memoryB\x0e\n" +
 	"\f_memory_unitB\f\n" +
 	"\n" +
-	"_cpu_count\"\xa7\x02\n" +
-	"\x13AcceleratorSnapshot\x129\n" +
-	"\x06vendor\x18\x01 \x01(\x0e2!.swanlab.env.v1.AcceleratorVendorR\x06vendor\x128\n" +
-	"\adevices\x18\x02 \x03(\v2\x1e.swanlab.env.v1.DeviceSnapshotR\adevices\x12\x1d\n" +
+	"_cpu_count\"\xab\x02\n" +
+	"\x13AcceleratorSnapshot\x12;\n" +
+	"\x06vendor\x18\x01 \x01(\x0e2#.swanlab.probe.v1.AcceleratorVendorR\x06vendor\x12:\n" +
+	"\adevices\x18\x02 \x03(\v2 .swanlab.probe.v1.DeviceSnapshotR\adevices\x12\x1d\n" +
 	"\aversion\x18\x03 \x01(\tH\x00R\aversion\x88\x01\x01\x12&\n" +
 	"\fcuda_version\x18\x04 \x01(\tH\x01R\vcudaVersion\x88\x01\x01\x12&\n" +
 	"\fcann_version\x18\x05 \x01(\tH\x02R\vcannVersion\x88\x01\x01B\n" +
 	"\n" +
 	"\b_versionB\x0f\n" +
 	"\r_cuda_versionB\x0f\n" +
-	"\r_cann_version\"\xd1\x01\n" +
+	"\r_cann_version\"\xd3\x01\n" +
 	"\x0eDeviceSnapshot\x12\x19\n" +
 	"\x05index\x18\x01 \x01(\x05H\x00R\x05index\x88\x01\x01\x12\x17\n" +
 	"\x04name\x18\x02 \x01(\tH\x01R\x04name\x88\x01\x01\x12\x1b\n" +
-	"\x06memory\x18\x03 \x01(\x03H\x02R\x06memory\x88\x01\x01\x12@\n" +
-	"\vmemory_unit\x18\x04 \x01(\x0e2\x1a.swanlab.env.v1.MemoryUnitH\x03R\n" +
+	"\x06memory\x18\x03 \x01(\x03H\x02R\x06memory\x88\x01\x01\x12B\n" +
+	"\vmemory_unit\x18\x04 \x01(\x0e2\x1c.swanlab.probe.v1.MemoryUnitH\x03R\n" +
 	"memoryUnit\x88\x01\x01B\b\n" +
 	"\x06_indexB\a\n" +
 	"\x05_nameB\t\n" +
@@ -951,50 +951,50 @@ const file_swanlab_env_v1_metadata_proto_rawDesc = "" +
 	"\x19ACCELERATOR_VENDOR_ASCEND\x10\x06\x12 \n" +
 	"\x1cACCELERATOR_VENDOR_CAMBRICON\x10\a\x12\x1c\n" +
 	"\x18ACCELERATOR_VENDOR_HYGON\x10\b\x12 \n" +
-	"\x1cACCELERATOR_VENDOR_KUNLUNXIN\x10\tB=Z;github.com/swanhubx/swanlab/core/proto/swanlab/env/v1;envv1b\x06proto3"
+	"\x1cACCELERATOR_VENDOR_KUNLUNXIN\x10\tBAZ?github.com/swanhubx/swanlab/core/proto/swanlab/probe/v1;probev1b\x06proto3"
 
 var (
-	file_swanlab_env_v1_metadata_proto_rawDescOnce sync.Once
-	file_swanlab_env_v1_metadata_proto_rawDescData []byte
+	file_swanlab_probe_v1_metadata_proto_rawDescOnce sync.Once
+	file_swanlab_probe_v1_metadata_proto_rawDescData []byte
 )
 
-func file_swanlab_env_v1_metadata_proto_rawDescGZIP() []byte {
-	file_swanlab_env_v1_metadata_proto_rawDescOnce.Do(func() {
-		file_swanlab_env_v1_metadata_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_swanlab_env_v1_metadata_proto_rawDesc), len(file_swanlab_env_v1_metadata_proto_rawDesc)))
+func file_swanlab_probe_v1_metadata_proto_rawDescGZIP() []byte {
+	file_swanlab_probe_v1_metadata_proto_rawDescOnce.Do(func() {
+		file_swanlab_probe_v1_metadata_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_swanlab_probe_v1_metadata_proto_rawDesc), len(file_swanlab_probe_v1_metadata_proto_rawDesc)))
 	})
-	return file_swanlab_env_v1_metadata_proto_rawDescData
+	return file_swanlab_probe_v1_metadata_proto_rawDescData
 }
 
-var file_swanlab_env_v1_metadata_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_swanlab_env_v1_metadata_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
-var file_swanlab_env_v1_metadata_proto_goTypes = []any{
-	(MemoryUnit)(0),              // 0: swanlab.env.v1.MemoryUnit
-	(AcceleratorVendor)(0),       // 1: swanlab.env.v1.AcceleratorVendor
-	(*MetadataSnapshot)(nil),     // 2: swanlab.env.v1.MetadataSnapshot
-	(*HardwareSnapshot)(nil),     // 3: swanlab.env.v1.HardwareSnapshot
-	(*CPUSnapshot)(nil),          // 4: swanlab.env.v1.CPUSnapshot
-	(*MemorySnapshot)(nil),       // 5: swanlab.env.v1.MemorySnapshot
-	(*AppleSiliconSnapshot)(nil), // 6: swanlab.env.v1.AppleSiliconSnapshot
-	(*AcceleratorSnapshot)(nil),  // 7: swanlab.env.v1.AcceleratorSnapshot
-	(*DeviceSnapshot)(nil),       // 8: swanlab.env.v1.DeviceSnapshot
-	(*RuntimeSnapshot)(nil),      // 9: swanlab.env.v1.RuntimeSnapshot
-	(*GitSnapshot)(nil),          // 10: swanlab.env.v1.GitSnapshot
-	(*SwanLabSnapshot)(nil),      // 11: swanlab.env.v1.SwanLabSnapshot
+var file_swanlab_probe_v1_metadata_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_swanlab_probe_v1_metadata_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_swanlab_probe_v1_metadata_proto_goTypes = []any{
+	(MemoryUnit)(0),              // 0: swanlab.probe.v1.MemoryUnit
+	(AcceleratorVendor)(0),       // 1: swanlab.probe.v1.AcceleratorVendor
+	(*MetadataSnapshot)(nil),     // 2: swanlab.probe.v1.MetadataSnapshot
+	(*HardwareSnapshot)(nil),     // 3: swanlab.probe.v1.HardwareSnapshot
+	(*CPUSnapshot)(nil),          // 4: swanlab.probe.v1.CPUSnapshot
+	(*MemorySnapshot)(nil),       // 5: swanlab.probe.v1.MemorySnapshot
+	(*AppleSiliconSnapshot)(nil), // 6: swanlab.probe.v1.AppleSiliconSnapshot
+	(*AcceleratorSnapshot)(nil),  // 7: swanlab.probe.v1.AcceleratorSnapshot
+	(*DeviceSnapshot)(nil),       // 8: swanlab.probe.v1.DeviceSnapshot
+	(*RuntimeSnapshot)(nil),      // 9: swanlab.probe.v1.RuntimeSnapshot
+	(*GitSnapshot)(nil),          // 10: swanlab.probe.v1.GitSnapshot
+	(*SwanLabSnapshot)(nil),      // 11: swanlab.probe.v1.SwanLabSnapshot
 }
-var file_swanlab_env_v1_metadata_proto_depIdxs = []int32{
-	3,  // 0: swanlab.env.v1.MetadataSnapshot.hardware:type_name -> swanlab.env.v1.HardwareSnapshot
-	9,  // 1: swanlab.env.v1.MetadataSnapshot.runtime:type_name -> swanlab.env.v1.RuntimeSnapshot
-	10, // 2: swanlab.env.v1.MetadataSnapshot.git:type_name -> swanlab.env.v1.GitSnapshot
-	11, // 3: swanlab.env.v1.MetadataSnapshot.swanlab:type_name -> swanlab.env.v1.SwanLabSnapshot
-	6,  // 4: swanlab.env.v1.HardwareSnapshot.apple_silicon:type_name -> swanlab.env.v1.AppleSiliconSnapshot
-	4,  // 5: swanlab.env.v1.HardwareSnapshot.cpu:type_name -> swanlab.env.v1.CPUSnapshot
-	5,  // 6: swanlab.env.v1.HardwareSnapshot.memory:type_name -> swanlab.env.v1.MemorySnapshot
-	7,  // 7: swanlab.env.v1.HardwareSnapshot.accelerators:type_name -> swanlab.env.v1.AcceleratorSnapshot
-	0,  // 8: swanlab.env.v1.MemorySnapshot.total_unit:type_name -> swanlab.env.v1.MemoryUnit
-	0,  // 9: swanlab.env.v1.AppleSiliconSnapshot.memory_unit:type_name -> swanlab.env.v1.MemoryUnit
-	1,  // 10: swanlab.env.v1.AcceleratorSnapshot.vendor:type_name -> swanlab.env.v1.AcceleratorVendor
-	8,  // 11: swanlab.env.v1.AcceleratorSnapshot.devices:type_name -> swanlab.env.v1.DeviceSnapshot
-	0,  // 12: swanlab.env.v1.DeviceSnapshot.memory_unit:type_name -> swanlab.env.v1.MemoryUnit
+var file_swanlab_probe_v1_metadata_proto_depIdxs = []int32{
+	3,  // 0: swanlab.probe.v1.MetadataSnapshot.hardware:type_name -> swanlab.probe.v1.HardwareSnapshot
+	9,  // 1: swanlab.probe.v1.MetadataSnapshot.runtime:type_name -> swanlab.probe.v1.RuntimeSnapshot
+	10, // 2: swanlab.probe.v1.MetadataSnapshot.git:type_name -> swanlab.probe.v1.GitSnapshot
+	11, // 3: swanlab.probe.v1.MetadataSnapshot.swanlab:type_name -> swanlab.probe.v1.SwanLabSnapshot
+	6,  // 4: swanlab.probe.v1.HardwareSnapshot.apple_silicon:type_name -> swanlab.probe.v1.AppleSiliconSnapshot
+	4,  // 5: swanlab.probe.v1.HardwareSnapshot.cpu:type_name -> swanlab.probe.v1.CPUSnapshot
+	5,  // 6: swanlab.probe.v1.HardwareSnapshot.memory:type_name -> swanlab.probe.v1.MemorySnapshot
+	7,  // 7: swanlab.probe.v1.HardwareSnapshot.accelerators:type_name -> swanlab.probe.v1.AcceleratorSnapshot
+	0,  // 8: swanlab.probe.v1.MemorySnapshot.total_unit:type_name -> swanlab.probe.v1.MemoryUnit
+	0,  // 9: swanlab.probe.v1.AppleSiliconSnapshot.memory_unit:type_name -> swanlab.probe.v1.MemoryUnit
+	1,  // 10: swanlab.probe.v1.AcceleratorSnapshot.vendor:type_name -> swanlab.probe.v1.AcceleratorVendor
+	8,  // 11: swanlab.probe.v1.AcceleratorSnapshot.devices:type_name -> swanlab.probe.v1.DeviceSnapshot
+	0,  // 12: swanlab.probe.v1.DeviceSnapshot.memory_unit:type_name -> swanlab.probe.v1.MemoryUnit
 	13, // [13:13] is the sub-list for method output_type
 	13, // [13:13] is the sub-list for method input_type
 	13, // [13:13] is the sub-list for extension type_name
@@ -1002,35 +1002,35 @@ var file_swanlab_env_v1_metadata_proto_depIdxs = []int32{
 	0,  // [0:13] is the sub-list for field type_name
 }
 
-func init() { file_swanlab_env_v1_metadata_proto_init() }
-func file_swanlab_env_v1_metadata_proto_init() {
-	if File_swanlab_env_v1_metadata_proto != nil {
+func init() { file_swanlab_probe_v1_metadata_proto_init() }
+func file_swanlab_probe_v1_metadata_proto_init() {
+	if File_swanlab_probe_v1_metadata_proto != nil {
 		return
 	}
-	file_swanlab_env_v1_metadata_proto_msgTypes[2].OneofWrappers = []any{}
-	file_swanlab_env_v1_metadata_proto_msgTypes[3].OneofWrappers = []any{}
-	file_swanlab_env_v1_metadata_proto_msgTypes[4].OneofWrappers = []any{}
-	file_swanlab_env_v1_metadata_proto_msgTypes[5].OneofWrappers = []any{}
-	file_swanlab_env_v1_metadata_proto_msgTypes[6].OneofWrappers = []any{}
-	file_swanlab_env_v1_metadata_proto_msgTypes[7].OneofWrappers = []any{}
-	file_swanlab_env_v1_metadata_proto_msgTypes[8].OneofWrappers = []any{}
-	file_swanlab_env_v1_metadata_proto_msgTypes[9].OneofWrappers = []any{}
+	file_swanlab_probe_v1_metadata_proto_msgTypes[2].OneofWrappers = []any{}
+	file_swanlab_probe_v1_metadata_proto_msgTypes[3].OneofWrappers = []any{}
+	file_swanlab_probe_v1_metadata_proto_msgTypes[4].OneofWrappers = []any{}
+	file_swanlab_probe_v1_metadata_proto_msgTypes[5].OneofWrappers = []any{}
+	file_swanlab_probe_v1_metadata_proto_msgTypes[6].OneofWrappers = []any{}
+	file_swanlab_probe_v1_metadata_proto_msgTypes[7].OneofWrappers = []any{}
+	file_swanlab_probe_v1_metadata_proto_msgTypes[8].OneofWrappers = []any{}
+	file_swanlab_probe_v1_metadata_proto_msgTypes[9].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_swanlab_env_v1_metadata_proto_rawDesc), len(file_swanlab_env_v1_metadata_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_swanlab_probe_v1_metadata_proto_rawDesc), len(file_swanlab_probe_v1_metadata_proto_rawDesc)),
 			NumEnums:      2,
 			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_swanlab_env_v1_metadata_proto_goTypes,
-		DependencyIndexes: file_swanlab_env_v1_metadata_proto_depIdxs,
-		EnumInfos:         file_swanlab_env_v1_metadata_proto_enumTypes,
-		MessageInfos:      file_swanlab_env_v1_metadata_proto_msgTypes,
+		GoTypes:           file_swanlab_probe_v1_metadata_proto_goTypes,
+		DependencyIndexes: file_swanlab_probe_v1_metadata_proto_depIdxs,
+		EnumInfos:         file_swanlab_probe_v1_metadata_proto_enumTypes,
+		MessageInfos:      file_swanlab_probe_v1_metadata_proto_msgTypes,
 	}.Build()
-	File_swanlab_env_v1_metadata_proto = out.File
-	file_swanlab_env_v1_metadata_proto_goTypes = nil
-	file_swanlab_env_v1_metadata_proto_depIdxs = nil
+	File_swanlab_probe_v1_metadata_proto = out.File
+	file_swanlab_probe_v1_metadata_proto_goTypes = nil
+	file_swanlab_probe_v1_metadata_proto_depIdxs = nil
 }

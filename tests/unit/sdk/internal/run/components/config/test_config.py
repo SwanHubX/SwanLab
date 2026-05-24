@@ -12,7 +12,6 @@ from unittest.mock import MagicMock
 import pytest
 import yaml
 
-from swanlab.proto.swanlab.config.v1.config_pb2 import UpdateType
 from swanlab.sdk.internal.bus import ConfigEvent
 from swanlab.sdk.internal.run.components.config import (
     Config,
@@ -101,7 +100,7 @@ class TestBindCtx:
         emit.assert_called_once()
         event: ConfigEvent = emit.call_args[0][0]
         assert isinstance(event, ConfigEvent)
-        assert event.update == UpdateType.UPDATE_TYPE_INIT
+        assert event.path == tmp_path / "config.yaml"
 
     def test_bind_is_idempotent(self, tmp_path):
         """重复调用 bindctx 应静默忽略（幂等）"""
@@ -159,14 +158,14 @@ class TestPostBind:
         assert data["lr"]["value"] == 0.01
 
     def test_setitem_emits_patch_event(self, tmp_path):
-        cfg, emit, _ = bound_config(tmp_path)
+        cfg, emit, config_file = bound_config(tmp_path)
         emit.reset_mock()
 
         cfg["lr"] = 0.01
 
         emit.assert_called_once()
         event: ConfigEvent = emit.call_args[0][0]
-        assert event.update == UpdateType.UPDATE_TYPE_PATCH
+        assert event.path == config_file
 
     def test_update_emits_single_patch(self, tmp_path):
         """update() 批量写应只触发一次 flush"""
