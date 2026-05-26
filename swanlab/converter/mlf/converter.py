@@ -23,7 +23,7 @@ class MLFlowConverter(BaseConverter):
         run_id: Optional[str] = None,
     ) -> None:
         mlflow = vendor.mlflow
-        from mlflow.exceptions import MlflowException
+        MlflowException = mlflow.exceptions.MlflowException # type: ignore
 
         import swanlab
 
