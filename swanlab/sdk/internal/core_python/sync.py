@@ -25,7 +25,7 @@ from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogLevel, LogRecord
 from swanlab.sdk.internal.core_python.api.experiment import get_experiment_summary, stop_experiment
 from swanlab.sdk.internal.core_python.context import CoreContext
 from swanlab.sdk.internal.core_python.metrics import RunMetrics
-from swanlab.sdk.internal.core_python.pkg import builder, counter, executor
+from swanlab.sdk.internal.core_python.pkg import builder, counter
 from swanlab.sdk.internal.core_python.store import DataStoreReader
 from swanlab.sdk.internal.core_python.transport import Transport
 from swanlab.sdk.internal.core_python.transport.tracker import UploadTracker
@@ -34,7 +34,7 @@ from swanlab.sdk.internal.core_python.utils import (
     generate_run_online_path,
     prepare_experiment_start,
 )
-from swanlab.sdk.internal.pkg import adapter, console, safe
+from swanlab.sdk.internal.pkg import adapter, console, executor, safe
 from swanlab.sdk.protocol.core import CoreSyncProtocol
 from swanlab.sdk.typings.core_python.api.experiment import ResumeExperimentSummaryType
 

@@ -103,7 +103,7 @@ def adapt_third_party(data: Any) -> dict:
 
     # dataclass 实例（注意排除 dataclass 类本身）
     if is_dataclass(data) and not isinstance(data, type):
-        # noqa: 虽然警告 'dataclasses.asdict' method should be called on dataclass instances，但此处 data 已经是 dataclass 实例了
+        # 此处 data 已经是 dataclass 实例；cast 用于配合静态检查。
         return asdict(cast(Any, data))
 
     raise TypeError

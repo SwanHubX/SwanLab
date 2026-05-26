@@ -40,10 +40,10 @@ from swanlab.sdk.internal.core_python.api.upload import (
     upload_scalar,
 )
 from swanlab.sdk.internal.core_python.context import CoreContext
-from swanlab.sdk.internal.core_python.pkg.executor import SafeThreadPoolExecutor
 from swanlab.sdk.internal.core_python.utils import ProgressFileWrapper, get_buffer_size
 from swanlab.sdk.internal.pkg import adapter, client, console, safe
 from swanlab.sdk.internal.pkg.client.session import SessionWithRetry
+from swanlab.sdk.internal.pkg.executor import SafeThreadPoolExecutor
 from swanlab.sdk.typings.core_python.api.save import (
     CompletedMultipartSaveFile,
     CompletedPart,

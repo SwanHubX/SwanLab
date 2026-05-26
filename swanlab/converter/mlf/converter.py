@@ -23,13 +23,15 @@ class MLFlowConverter(BaseConverter):
         run_id: Optional[str] = None,
     ) -> None:
         mlflow = vendor.mlflow
+        from mlflow.exceptions import MlflowException
+
         import swanlab
 
         client = mlflow.MlflowClient(tracking_uri=tracking_uri)
 
         try:
             ex = client.get_experiment(experiment)
-        except mlflow.exceptions.MlflowException:
+        except MlflowException:
             ex = client.get_experiment_by_name(experiment)
         if not ex:
             raise ValueError(f'Could not find MLflow experiment with id or name "{experiment}"')

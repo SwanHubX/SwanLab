@@ -14,9 +14,9 @@ from typing import IO, TYPE_CHECKING, Dict, List, Optional, Union
 from requests.sessions import Session
 
 from swanlab.sdk.internal.core_python import client
-from swanlab.sdk.internal.core_python.pkg.executor import SafeThreadPoolExecutor
 from swanlab.sdk.internal.core_python.utils import ProgressFileWrapper, get_buffer_size
 from swanlab.sdk.internal.pkg import safe
+from swanlab.sdk.internal.pkg.executor import SafeThreadPoolExecutor
 from swanlab.sdk.typings.core_python.api.upload import (
     UploadColumns,
     UploadLogBatch,
