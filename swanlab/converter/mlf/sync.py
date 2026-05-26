@@ -39,13 +39,14 @@ def sync_mlflow(mode: ModeType = "online") -> None:
     original_log_metric = mlflow.log_metric
     original_log_metrics = mlflow.log_metrics
 
-    def patched_set_experiment(experiment_name, *args, **kwargs):
-        if not swanlab.has_run():
+    def patched_set_experiment(*args, **kwargs):
+        experiment_name = extract_args(original_set_experiment, args, kwargs, ["experiment_name"])[0]
+        if experiment_name and not swanlab.has_run():
             os.environ["SWANLAB_MLFLOW_PROJECT"] = experiment_name
-        return original_set_experiment(experiment_name, *args, **kwargs)
+        return original_set_experiment(*args, **kwargs)
 
     def patched_start_run(*args, **kwargs):
-        run_name = extract_args(args, kwargs, ["run_name"])[0]
+        run_name = extract_args(original_start_run, args, kwargs, ["run_name"])[0]
 
         if not swanlab.has_run():
             project = os.environ.get("SWANLAB_MLFLOW_PROJECT")
@@ -59,23 +60,29 @@ def sync_mlflow(mode: ModeType = "online") -> None:
         swanlab.finish()
         return original_end_run(*args, **kwargs)
 
-    def patched_log_param(key, value, *args, **kwargs):
-        swanlab.config.update({key: value})
-        return original_log_param(key, value, *args, **kwargs)
+    def patched_log_param(*args, **kwargs):
+        key, value = extract_args(original_log_param, args, kwargs, ["key", "value"])
+        if key is not None:
+            swanlab.config.update({key: value})
+        return original_log_param(*args, **kwargs)
 
-    def patched_log_params(params, *args, **kwargs):
-        swanlab.config.update(params)
-        return original_log_params(params, *args, **kwargs)
+    def patched_log_params(*args, **kwargs):
+        params = extract_args(original_log_params, args, kwargs, ["params"])[0]
+        if params:
+            swanlab.config.update(params)
+        return original_log_params(*args, **kwargs)
 
-    def patched_log_metric(key, value, *args, **kwargs):
-        step = extract_args(args, kwargs, ["step"])[0]
-        swanlab.log({key: value}, step=step)
-        return original_log_metric(key, value, *args, **kwargs)
+    def patched_log_metric(*args, **kwargs):
+        key, value, step = extract_args(original_log_metric, args, kwargs, ["key", "value", "step"])
+        if key is not None:
+            swanlab.log({key: value}, step=step)
+        return original_log_metric(*args, **kwargs)
 
-    def patched_log_metrics(metrics, *args, **kwargs):
-        step = extract_args(args, kwargs, ["step"])[0]
-        swanlab.log(metrics, step=step)
-        return original_log_metrics(metrics, *args, **kwargs)
+    def patched_log_metrics(*args, **kwargs):
+        metrics, step = extract_args(original_log_metrics, args, kwargs, ["metrics", "step"])
+        if metrics:
+            swanlab.log(metrics, step=step)
+        return original_log_metrics(*args, **kwargs)
 
     mlflow.set_experiment = patched_set_experiment
     mlflow.start_run = patched_start_run

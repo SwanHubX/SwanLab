@@ -12,7 +12,6 @@ from typing import Any, Callable, List, Mapping, Optional, Sequence, Union
 
 from . import utils
 from .api import Api
-from .converter import sync_mlflow, sync_tensorboard_torch, sync_tensorboardX, sync_wandb
 from .sdk import (
     Audio,
     Callback,

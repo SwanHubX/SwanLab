@@ -57,6 +57,7 @@ def sync_wandb(
             group,
             job_type,
         ) = extract_args(
+            original_init,
             args,
             kwargs,
             [
@@ -98,15 +99,25 @@ def sync_wandb(
         return original_init(*args, **kwargs)
 
     def patched_config_update(self, *args, **kwargs):
-        d, _ = extract_args(args, kwargs, ["d", "allow_val_change"])
+        d, _ = extract_args(original_config_update, (self,) + args, kwargs, ["d", "allow_val_change"])
         if d is not None:
             swanlab.config.update(d)
+
+        extra_kwargs = {k: v for k, v in kwargs.items() if k not in {"d", "allow_val_change"}}
+        if extra_kwargs:
+            swanlab.config.update(extra_kwargs)
+
         return original_config_update(self, *args, **kwargs)
 
     def patched_log(self, *args, **kwargs):
-        data, step, _commit, _sync = extract_args(args, kwargs, ["data", "step", "commit", "sync"])
+        data, step, _commit, _sync = extract_args(
+            original_log,
+            (self,) + args,
+            kwargs,
+            ["data", "step", "commit", "sync"],
+        )
 
-        if data is None:
+        if data is None or not hasattr(data, "items"):
             return original_log(self, *args, **kwargs)
 
         processed_data = {}
