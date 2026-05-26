@@ -417,3 +417,35 @@ def get_experiment_logs(
     payload = format_output(ApiResponseType(ok=True, data=data))
     if payload["ok"] and save_name is not None:
         save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
+
+
+@run_cli.command("export-logs")
+@click.argument("path", required=True)
+@click.option(
+    "--start",
+    default=0,
+    type=click.IntRange(min=0),
+    help="Start row index (0-based). Default 0.",
+)
+@click.option(
+    "--rows",
+    "-r",
+    default=500_000,
+    type=click.IntRange(min=1, max=500_000),
+    help="Number of rows to export. Default 50000, max 5000000.",
+)
+@click.option(
+    "--save",
+    "save_name",
+    is_flag=False,
+    flag_value=".",
+    help="Save export URL as JSON to current directory.",
+)
+@with_custom_host
+def export_experiment_logs(path: str, start: int, rows: int, save_name: str, api: Api):
+    """Export experiment logs as .log file by path (e.g. username/project_name/run_id)."""
+    experiment = api.run(path)
+    data = experiment.export_logs(start=start, rows=rows)
+    payload = format_output(data)
+    if payload["ok"] and save_name is not None:
+        save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)

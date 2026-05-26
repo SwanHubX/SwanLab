@@ -8,6 +8,7 @@
 from typing import Any, Dict, Iterator, List, Optional, Union, cast
 
 from swanlab.api.base import ApiClientContext, BaseEntity
+from swanlab.api.typings import ApiResponseType
 from swanlab.api.typings.common import (
     ApiColumnClassLiteral,
     ApiColumnDataTypeLiteral,
@@ -288,7 +289,7 @@ class Experiment(BaseEntity):
         self,
         start: int = 0,
         rows: int = 500_000,
-    ) -> Dict[str, Any]:
+    ) -> ApiResponseType:
         """
         导出实验日志为 .log 文件。
 
@@ -308,7 +309,7 @@ class Experiment(BaseEntity):
             root_pro_id=self.root_pro_id,
             root_exp_id=self.root_exp_id,
         )
-        return metric.export_logs(start=start, rows=rows).json()
+        return metric.export_logs(start=start, rows=rows)
 
     def columns(
         self,
