@@ -12,6 +12,7 @@ from typing import Any, Callable, List, Mapping, Optional, Union
 
 from . import utils
 from .api import Api
+from .converter import sync_wandb
 from .sdk import (
     Audio,
     Callback,
@@ -85,6 +86,8 @@ __all__ = [
     "Callback",
     # Api
     "Api",
+    # sync patches
+    "sync_wandb",
 ]
 
 # ── lifecycle ──────────────────────────────────────────────────────────────────
@@ -649,5 +652,49 @@ def save(
         - ``"live"`` — watch for file changes and re-upload automatically.
 
     :return: List of matched file paths (relative to base_path).
+    """
+    ...
+
+# ── sync patches ────────────────────────────────────────────────────────────────
+
+def sync_wandb(
+    mode: ModeType = "online",
+    wandb_run: bool = True,
+    workspace: Optional[str] = None,
+    log_dir: Optional[str] = None,
+) -> None:
+    """Monkey-patch wandb to mirror all logged data into SwanLab in real time.
+
+    Call this **before** ``wandb.init()``.  Once active, every call to
+    ``wandb.init``, ``wandb.log``, ``wandb.config.update``, and ``wandb.finish``
+    is forwarded to the corresponding SwanLab API.  The original wandb behaviour
+    is preserved — data is sent to both backends simultaneously.
+
+    :param mode: SwanLab run mode — ``"online"`` | ``"local"`` | ``"offline"`` | ``"disabled"``.
+    :param wandb_run: If ``False``, wandb is forced into offline mode so it does
+        not upload to its own cloud.  SwanLab still receives the data. Defaults to ``True``.
+    :param workspace: SwanLab workspace (organization) name. Defaults to the current user.
+    :param log_dir: Local directory for SwanLab log files.
+    :raises ImportError: If ``wandb`` is not installed.
+
+    Examples::
+
+        Mirror wandb logs to SwanLab Cloud:
+
+        >>> import swanlab
+        >>> swanlab.sync_wandb()
+        >>> import wandb
+        >>> wandb.init(project="demo", config={"lr": 0.01})
+        >>> wandb.log({"loss": 0.5})
+        >>> wandb.finish()
+
+        Disable wandb cloud upload while still recording in SwanLab:
+
+        >>> import swanlab
+        >>> swanlab.sync_wandb(wandb_run=False)
+        >>> import wandb
+        >>> wandb.init(project="demo")
+        >>> wandb.log({"loss": 0.5})
+        >>> wandb.finish()
     """
     ...

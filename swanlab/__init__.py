@@ -1,3 +1,4 @@
+from swanlab.converter.wb.sync import sync_wandb
 from swanlab.sdk import (
     Audio,
     Callback,
@@ -88,6 +89,8 @@ __all__ = [
     "pr_curve",
     "confusion_matrix",
     "register_callbacks",
+    # sync patches
+    "sync_wandb",
 ]
 
 
