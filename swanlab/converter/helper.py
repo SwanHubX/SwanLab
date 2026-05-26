@@ -14,9 +14,3 @@ def extract_args(args, kwargs, param_names):
         else:
             values.append(kwargs.get(name, None))
     return tuple(values)
-
-
-def ensure_swanlab_init(**init_kwargs):
-    """如果 swanlab 尚未初始化，则调用 swanlab.init(**init_kwargs)。"""
-    if not swanlab.has_run():
-        swanlab.init(**init_kwargs)

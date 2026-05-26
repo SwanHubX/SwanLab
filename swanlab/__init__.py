@@ -1,3 +1,4 @@
+from swanlab.converter.mlf.sync import sync_mlflow
 from swanlab.converter.tfb.sync import sync_tensorboard_torch, sync_tensorboardX
 from swanlab.converter.wb.sync import sync_wandb
 from swanlab.sdk import (
@@ -94,6 +95,7 @@ __all__ = [
     "sync_wandb",
     "sync_tensorboardX",
     "sync_tensorboard_torch",
+    "sync_mlflow",
 ]
 
 

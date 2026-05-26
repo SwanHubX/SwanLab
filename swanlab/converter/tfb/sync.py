@@ -142,8 +142,8 @@ def sync_tensorboardX(types: Optional[Sequence[str]] = None):
         writer.add_scalar('loss', 0.5, 0)
         writer.close()
     """
-    vendor.tensorboardX
-    from tensorboardX import SummaryWriter
+    tensorboardX = vendor.tensorboardX
+    SummaryWriter = tensorboardX.SummaryWriter
 
     def extract_logdir(args, kwargs):
         logdir, _, _, _, _, _, _, log_dir, _ = extract_args(

@@ -42,9 +42,20 @@ Runtime sync (monkey-patch)::
     wandb.init(project="test")
     wandb.log({"loss": 0.5})
     wandb.finish()
+
+Or sync MLflow::
+
+    import swanlab
+    swanlab.sync_mlflow()
+
+    import mlflow
+    mlflow.set_experiment("my_experiment")
+    with mlflow.start_run(run_name="my_run"):
+        mlflow.log_metric("loss", 0.5, step=0)
 """
 
 from swanlab.converter.mlf import MLFlowConverter
+from swanlab.converter.mlf.sync import sync_mlflow
 from swanlab.converter.tfb import TFBConverter
 from swanlab.converter.tfb.sync import sync_tensorboard_torch, sync_tensorboardX
 from swanlab.converter.wb import WandbConverter, WandbLocalConverter
@@ -58,4 +69,5 @@ __all__ = [
     "sync_wandb",
     "sync_tensorboardX",
     "sync_tensorboard_torch",
+    "sync_mlflow",
 ]

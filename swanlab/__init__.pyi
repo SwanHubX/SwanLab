@@ -12,7 +12,7 @@ from typing import Any, Callable, List, Mapping, Optional, Sequence, Union
 
 from . import utils
 from .api import Api
-from .converter import sync_tensorboard_torch, sync_tensorboardX, sync_wandb
+from .converter import sync_mlflow, sync_tensorboard_torch, sync_tensorboardX, sync_wandb
 from .sdk import (
     Audio,
     Callback,
@@ -90,6 +90,7 @@ __all__ = [
     "sync_wandb",
     "sync_tensorboardX",
     "sync_tensorboard_torch",
+    "sync_mlflow",
 ]
 
 # ── lifecycle ──────────────────────────────────────────────────────────────────
@@ -749,5 +750,28 @@ def sync_tensorboard_torch(types: Optional[Sequence[str]] = None) -> None:
         >>> writer = SummaryWriter("runs/example")
         >>> writer.add_scalar("loss", 0.5, 0)
         >>> writer.close()
+    """
+    ...
+
+def sync_mlflow(mode: ModeType = "online") -> None:
+    """Monkey-patch mlflow to forward logs to SwanLab.
+
+    Call before any mlflow API usage. Intercepts ``mlflow.set_experiment``,
+    ``mlflow.start_run``, ``mlflow.end_run``, ``mlflow.log_param(s)``,
+    ``mlflow.log_metric(s)`` and mirrors the data into SwanLab.
+
+    Args:
+        mode: SwanLab run mode. Defaults to ``"online"``.
+
+    Example::
+
+        >>> import swanlab
+        >>> swanlab.sync_mlflow()
+        >>>
+        >>> import mlflow
+        >>> mlflow.set_experiment("my_experiment")
+        >>> with mlflow.start_run(run_name="my_run"):
+        ...     mlflow.log_param("lr", 0.01)
+        ...     mlflow.log_metric("loss", 0.5, step=0)
     """
     ...

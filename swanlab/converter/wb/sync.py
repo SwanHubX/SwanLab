@@ -34,8 +34,8 @@ def sync_wandb(
         wandb.finish()
     """
     wandb = vendor.wandb
-    from wandb import Image as WandbImage
-    from wandb import sdk as wandb_sdk
+    WandbImage = wandb.Image
+    wandb_sdk = wandb.sdk  # type: ignore
 
     original_init = wandb.init
     original_log = wandb_sdk.wandb_run.Run.log
