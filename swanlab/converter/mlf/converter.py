@@ -23,9 +23,8 @@ class MLFlowConverter(BaseConverter):
         run_id: Optional[str] = None,
     ) -> None:
         mlflow = vendor.mlflow
-        from mlflow.exceptions import MlflowException
-
         import swanlab
+        from swanlab.vendor.mlflow.exceptions import MlflowException  # type: ignore
 
         client = mlflow.MlflowClient(tracking_uri=tracking_uri)
 
