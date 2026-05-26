@@ -5,7 +5,6 @@
 @description: 所有实体类的公共基类
 """
 
-import asyncio
 import random
 import time
 from abc import ABC, abstractmethod
@@ -13,6 +12,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Optional, Sequence, Tuple
 
 from swanlab.sdk.internal.pkg import safe
+from swanlab.sdk.internal.pkg.executor import SafeThreadPoolExecutor
 
 from .typings.common import MAX_CONCURRENT_COUNT, ApiPaginationType, ApiResponseType, PaginatedQuery
 
@@ -92,33 +92,23 @@ class BaseEntity(ABC):
     def _concurrent_request(
         self,
         requests: Sequence[Tuple[Callable, str, Dict[str, Any]]],
-        semaphore: int = MAX_CONCURRENT_COUNT,
+        max_workers: int = MAX_CONCURRENT_COUNT,
     ) -> List[ApiResponseType]:
         """
-        Execute multiple HTTP requests concurrently, bounded by a semaphore.
+        Execute multiple HTTP requests concurrently via thread pool.
 
         :param requests: List of ``(method, path, kwargs)`` tuples.
             ``method``: one of ``self._get`` / ``self._post`` / ``self._put`` / ``self._delete``.
             ``path``: API endpoint path.
             ``kwargs``: request parameters (``params=``, ``data=``, etc.).
-        :param semaphore: Maximum number of concurrent requests.
+        :param max_workers: Maximum number of concurrent requests (thread pool size).
         :return: ``ApiResponseType`` list with the same length as *requests*.
         """
         if not requests:
             return []
-
-        async def _run():
-            sem = asyncio.Semaphore(semaphore)
-
-            async def _fetch(req: Tuple[Callable, str, Dict[str, Any]]) -> ApiResponseType:
-                method, path, kwargs = req
-                async with sem:
-                    loop = asyncio.get_running_loop()
-                    return await loop.run_in_executor(None, lambda: method(path, **kwargs))
-
-            return await asyncio.gather(*[_fetch(r) for r in requests])
-
-        return asyncio.run(_run())
+        with SafeThreadPoolExecutor(max_workers=max_workers) as pool:
+            futures = [pool.submit(method, path, **kwargs) for method, path, kwargs in requests]
+            return [f.result() for f in futures]
 
     def _build_web_url(self, path: str) -> str:
         """Build a frontend web page URL (uses ``_web_host`` instead of ``_api_host``)."""
