@@ -295,6 +295,35 @@ def get_experiment_metrics(
         save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
 
 
+@run_cli.command("summary")
+@click.argument("path", required=True)
+@click.option(
+    "--keys",
+    required=False,
+    type=str,
+    help="Comma-separated scalar keys, e.g. 'loss,acc'. Omit to query all keys.",
+)
+@click.option(
+    "--save",
+    "save_name",
+    is_flag=False,
+    flag_value=".",
+    help="Save output as JSON to current directory.",
+)
+@with_custom_host
+def get_experiment_summary(path: str, keys: Optional[str], save_name: str, api: Api):
+    """Get scalar metric summaries of an experiment.
+
+    PATH format: username/project_name/run_id
+    """
+    key_list = parse_keys(keys) if keys else None
+    experiment = api.run(path)
+    data = experiment.summary(keys=key_list)
+    payload = format_output(ApiResponseType(ok=True, data=data))
+    if payload["ok"] and save_name is not None:
+        save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
+
+
 @run_cli.command("column")
 @click.argument("path", required=True)
 @click.option(

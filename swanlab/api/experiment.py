@@ -239,6 +239,28 @@ class Experiment(BaseEntity):
             root_exp_id=self.root_exp_id,
         ).json()
 
+    def summary(
+        self,
+        keys: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """
+        获取实验的标量指标概要统计数据。
+
+        :param keys: 需要查询的标量 key 列表，为 None 表示查询全量 keys
+        """
+        run_id = self.run_id
+        project_id = self.project_id
+        from swanlab.api.summary import Summary
+
+        return Summary(
+            ctx=self._ctx,
+            project_id=project_id,
+            experiment_id=run_id,
+            keys=keys,
+            root_pro_id=self.root_pro_id,
+            root_exp_id=self.root_exp_id,
+        ).json()
+
     def medias(
         self,
         keys: List[str],
