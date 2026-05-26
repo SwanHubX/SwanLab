@@ -284,6 +284,32 @@ class Experiment(BaseEntity):
         )
         return logs.json()
 
+    def export_logs(
+        self,
+        start: int = 0,
+        rows: int = 500_000,
+    ) -> Dict[str, Any]:
+        """
+        导出实验日志为 .log 文件。
+
+        :param start: 导出起始行号，0-based，默认 0
+        :param rows: 导出行数，默认 500000，最大 500000
+        """
+        run_id = self.run_id
+        project_id = self.project_id
+        from swanlab.api.metric import Metric
+
+        metric = Metric(
+            ctx=self._ctx,
+            project_id=project_id,
+            run_id=run_id,
+            key="LOG",
+            metric_type="LOG",
+            root_pro_id=self.root_pro_id,
+            root_exp_id=self.root_exp_id,
+        )
+        return metric.export_logs(start=start, rows=rows).json()
+
     def columns(
         self,
         page: int = 1,
