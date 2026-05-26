@@ -46,6 +46,7 @@ Runtime sync (monkey-patch)::
 
 from swanlab.converter.mlf import MLFlowConverter
 from swanlab.converter.tfb import TFBConverter
+from swanlab.converter.tfb.sync import sync_tensorboard_torch, sync_tensorboardX
 from swanlab.converter.wb import WandbConverter, WandbLocalConverter
 from swanlab.converter.wb.sync import sync_wandb
 
@@ -55,4 +56,6 @@ __all__ = [
     "TFBConverter",
     "MLFlowConverter",
     "sync_wandb",
+    "sync_tensorboardX",
+    "sync_tensorboard_torch",
 ]

@@ -1,3 +1,4 @@
+from swanlab.converter.tfb.sync import sync_tensorboard_torch, sync_tensorboardX
 from swanlab.converter.wb.sync import sync_wandb
 from swanlab.sdk import (
     Audio,
@@ -91,6 +92,8 @@ __all__ = [
     "register_callbacks",
     # sync patches
     "sync_wandb",
+    "sync_tensorboardX",
+    "sync_tensorboard_torch",
 ]
 
 

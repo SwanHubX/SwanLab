@@ -53,6 +53,7 @@ if TYPE_CHECKING:
     import tensorboard
     import tensorboard.backend.event_processing
     import tensorboard.util
+    import tensorboardX
     import torch
     import torchtune
     import torchtune.utils.metric_logging
@@ -76,6 +77,7 @@ __all__ = [
     "soundfile",
     "swanboard",
     "tensorboard",
+    "tensorboardX",
     "boto3",
     "torch",
     "torchvision",
@@ -111,6 +113,7 @@ _LAZY_IMPORTS = {
     "soundfile": "soundfile",
     "swanboard": "swanboard",
     "tensorboard": "tensorboard",
+    "tensorboardX": "tensorboardX",
     "boto3": "boto3",
     "torch": "torch",
     "torchvision": "torchvision",

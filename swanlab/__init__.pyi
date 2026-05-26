@@ -8,11 +8,11 @@ to swanlab/__init__.py.
 
 from concurrent.futures import Future
 from pathlib import Path
-from typing import Any, Callable, List, Mapping, Optional, Union
+from typing import Any, Callable, List, Mapping, Optional, Sequence, Union
 
 from . import utils
 from .api import Api
-from .converter import sync_wandb
+from .converter import sync_tensorboard_torch, sync_tensorboardX, sync_wandb
 from .sdk import (
     Audio,
     Callback,
@@ -88,6 +88,8 @@ __all__ = [
     "Api",
     # sync patches
     "sync_wandb",
+    "sync_tensorboardX",
+    "sync_tensorboard_torch",
 ]
 
 # ── lifecycle ──────────────────────────────────────────────────────────────────
@@ -696,5 +698,56 @@ def sync_wandb(
         >>> wandb.init(project="demo")
         >>> wandb.log({"loss": 0.5})
         >>> wandb.finish()
+    """
+    ...
+
+def sync_tensorboardX(types: Optional[Sequence[str]] = None) -> None:
+    """Monkey-patch tensorboardX SummaryWriter to mirror logs to SwanLab.
+
+    Call this **before** creating a ``SummaryWriter`` instance.  Once active,
+    calls to ``add_scalar``, ``add_scalars``, ``add_image``, ``add_text``,
+    ``__init__``, and ``close`` are forwarded to the corresponding SwanLab API.
+
+    :param types: Data types to sync. Options: ``"scalar"``, ``"scalars"``,
+        ``"image"``, ``"text"``.  ``None`` syncs all types.
+    :raises ImportError: If ``tensorboardX`` is not installed.
+
+    Examples::
+
+        Sync all data types:
+
+        >>> import swanlab
+        >>> swanlab.sync_tensorboardX()
+        >>> from tensorboardX import SummaryWriter
+        >>> writer = SummaryWriter("runs/example")
+        >>> writer.add_scalar("loss", 0.5, 0)
+        >>> writer.close()
+
+        Sync only scalars:
+
+        >>> import swanlab
+        >>> swanlab.sync_tensorboardX(types=["scalar", "scalars"])
+    """
+    ...
+
+def sync_tensorboard_torch(types: Optional[Sequence[str]] = None) -> None:
+    """Monkey-patch ``torch.utils.tensorboard.SummaryWriter`` to mirror logs to SwanLab.
+
+    Call this **before** creating a ``SummaryWriter`` instance.  Once active,
+    calls to ``add_scalar``, ``add_scalars``, ``add_image``, ``add_text``,
+    ``__init__``, and ``close`` are forwarded to the corresponding SwanLab API.
+
+    :param types: Data types to sync. Options: ``"scalar"``, ``"scalars"``,
+        ``"image"``, ``"text"``.  ``None`` syncs all types.
+    :raises ImportError: If ``torch`` is not installed.
+
+    Examples::
+
+        >>> import swanlab
+        >>> swanlab.sync_tensorboard_torch()
+        >>> from torch.utils.tensorboard import SummaryWriter
+        >>> writer = SummaryWriter("runs/example")
+        >>> writer.add_scalar("loss", 0.5, 0)
+        >>> writer.close()
     """
     ...
