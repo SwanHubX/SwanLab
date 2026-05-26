@@ -210,7 +210,9 @@ Each experiment carries a `profile` object containing metadata about the run:
 
 ## Self-Hosted Instance
 
-SwanLab can be deployed as a self-hosted instance (private deployment). Self-hosted commands are **only valid when the target host is NOT `swanlab.cn`**.
+> **Self-hosted commands are only available for self-hosted (private) deployments.** If the resolved host contains `swanlab.cn`, these commands will fail — do not attempt them.
+
+SwanLab can be deployed as a self-hosted instance (private deployment). **Only use `swanlab api self-hosted` subcommands when the target is a self-hosted server, never on the public SwanLab cloud (`swanlab.cn`).**
 
 **Host detection rule**: Before using any self-hosted command, check where requests will be sent:
 1. If the user passes `--host` explicitly → use that value.
@@ -249,10 +251,10 @@ This differs from the regular `project list` / `workspace info` commands, which 
 
 | User says... | They probably mean... | CLI command |
 |---|---|---|
-| "all projects on the server" | Instance-wide project listing | `swanlab api selfhosted list-projects` |
-| "all workspaces" | Instance-wide workspace listing | `swanlab api selfhosted list-workspaces` |
-| "server usage / disk usage" | Usage summary | `swanlab api selfhosted summary` |
-| "all users on the server" | Instance-wide user listing | `swanlab api selfhosted list-users` |
+| "all projects on the server" | Instance-wide project listing | `swanlab api self-hosted list-projects` |
+| "all workspaces" | Instance-wide workspace listing | `swanlab api self-hosted list-workspaces` |
+| "server usage / disk usage" | Usage summary | `swanlab api self-hosted summary` |
+| "all users on the server" | Instance-wide user listing | `swanlab api self-hosted list-users` |
 
 ---
 
@@ -271,10 +273,10 @@ This differs from the regular `project list` / `workspace info` commands, which 
 | "my projects" | Projects in a workspace | `swanlab api project list` |
 | "create a new project" | Make a project | `swanlab api project create -n NAME` |
 | "who am I" | Current user info | `swanlab api user info` |
-| "self-hosted users" | User management | `swanlab api selfhosted list-users` |
-| "all projects on server" | Instance-wide project listing (self-hosted) | `swanlab api selfhosted list-projects` |
-| "all workspaces on server" | Instance-wide workspace listing (self-hosted) | `swanlab api selfhosted list-workspaces` |
-| "server usage summary" | System usage stats (self-hosted) | `swanlab api selfhosted summary` |
+| "self-hosted users" | User management | `swanlab api self-hosted list-users` |
+| "all projects on server" | Instance-wide project listing (self-hosted) | `swanlab api self-hosted list-projects` |
+| "all workspaces on server" | Instance-wide workspace listing (self-hosted) | `swanlab api self-hosted list-workspaces` |
+| "server usage summary" | System usage stats (self-hosted) | `swanlab api self-hosted summary` |
 | "filter experiments" | Query by conditions | `swanlab api run filter -p user/project -f QUERY` |
 | "best loss" | Minimum scalar value | `swanlab api run metrics PATH --keys loss` (check `min` field) |
 
