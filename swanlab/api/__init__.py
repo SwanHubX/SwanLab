@@ -5,6 +5,7 @@
 @description: SwanLab 公共查询 API 入口，面向用户的 OOP 查询接口
 """
 
+import warnings
 from typing import Any, Dict, List, Optional
 
 from swanlab.exceptions import AuthenticationError
@@ -214,6 +215,10 @@ class Api(BaseEntity):
         :param filters: 过滤规则列表，每项为 {key, type, op, value}
         """
         validate_api_path(path, segments=2, label="project")
+        if not isinstance(filters, list):
+            if filters is not None:
+                warnings.warn("filters must be a list, got %s — ignoring." % type(filters).__name__, stacklevel=2)
+            filters = None
         return Experiments(self._ctx, path=path, filters=filters, mode="post")
 
     def runs_get(
