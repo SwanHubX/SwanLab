@@ -1,6 +1,3 @@
-import swanlab
-
-
 def extract_args(args, kwargs, param_names):
     """从 args/kwargs 按参数名顺序提取值。
 
