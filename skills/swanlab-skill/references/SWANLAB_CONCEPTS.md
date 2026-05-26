@@ -176,6 +176,17 @@ Structure per log entry:
 
 **Shard-based pagination**: Logs are fetched by `--offset` (shard index), not page number. Increase offset to get later shards.
 
+### Log Export
+
+Console logs can be bulk-exported as a downloadable `.log` file via a presigned URL. This is distinct from shard-based log viewing — export retrieves raw log rows by row index range.
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `start` | 0 | Start row index (0-based) |
+| `rows` | 500,000 | Number of rows to export (max 500,000) |
+
+The API returns a presigned download URL (`{"url": "https://..."}`) that is valid for a limited time. No file content is downloaded by the CLI — only the URL is returned.
+
 ---
 
 ## Experiment Profile
@@ -255,6 +266,7 @@ This differs from the regular `project list` / `workspace info` commands, which 
 | "experiment config" | Hyperparameters set at init | `swanlab api run info PATH` (look at `profile.config`) |
 | "logged images" | Media metrics | `swanlab api run medias PATH --keys image` |
 | "console output" | Captured logs | `swanlab api run logs PATH` |
+| "download logs" | Export logs as file | `swanlab api run export-logs PATH` |
 | "what columns are tracked" | Metric definitions | `swanlab api run columns PATH` |
 | "my projects" | Projects in a workspace | `swanlab api project list` |
 | "create a new project" | Make a project | `swanlab api project create -n NAME` |

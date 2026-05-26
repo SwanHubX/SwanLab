@@ -1,5 +1,7 @@
 ---
 name: swanlab-skill
+metadata:
+  version: "0.0.1"
 description: >
   Interact with SwanLab via the `swanlab api` CLI subcommands to query experiments, projects,
   workspaces, users, columns, metrics, media, logs, and self-hosted instance management.
@@ -311,6 +313,24 @@ swanlab api run logs PATH [OPTIONS]
 | `--level` | `-l` | INFO | Log level: `DEBUG`, `INFO`, `WARN`, `ERROR` |
 | `--ignore-timestamp` | | false | Strip timestamps from log entries |
 | `--save` | | off | Save output to file |
+
+#### `swanlab api run export-logs PATH`
+
+Export experiment console logs as a downloadable `.log` file. Returns a presigned download URL. See `references/SWANLAB_CONCEPTS.md > Log Export` for conceptual details.
+
+```bash
+swanlab api run export-logs PATH [OPTIONS]
+```
+
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `PATH` | yes | Experiment path in `username/project_name/run_id` format |
+
+| Option | Short | Default | Description |
+|--------|-------|---------|-------------|
+| `--start` | | 0 | Start row index (0-based) |
+| `--rows` | `-r` | 500000 | Number of rows to export (1–500000) |
+| `--save` | | off | Save the export URL as JSON to file |
 
 ---
 
