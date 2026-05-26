@@ -1,8 +1,9 @@
 from typing import Optional
 
 import swanlab
+from swanlab import vendor
 from swanlab.converter.helper import extract_args
-from swanlab.sdk.internal.pkg import console
+from swanlab.sdk.internal.pkg import safe
 from swanlab.sdk.typings.run import ModeType
 
 
@@ -32,12 +33,9 @@ def sync_wandb(
         wandb.log({"loss": 0.5})
         wandb.finish()
     """
-    try:
-        import wandb
-        from wandb import Image as WandbImage
-        from wandb import sdk as wandb_sdk
-    except ImportError:
-        raise ImportError("please install wandb first: pip install wandb")
+    wandb = vendor.wandb
+    from wandb import Image as WandbImage
+    from wandb import sdk as wandb_sdk
 
     original_init = wandb.init
     original_log = wandb_sdk.wandb_run.Run.log
@@ -111,19 +109,14 @@ def sync_wandb(
         if data is None:
             return original_log(self, *args, **kwargs)
 
-        try:
-            import numpy as np
-        except ImportError:
-            np = None
-
         processed_data = {}
         for key, value in data.items():
             if isinstance(value, (int, float, bool, str)):
                 processed_data[key] = value
             elif isinstance(value, WandbImage):
-                processed_data[key] = _convert_wandb_image(value, key, np)
+                processed_data[key] = _convert_wandb_image(value)
             elif isinstance(value, list) and value and isinstance(value[0], WandbImage):
-                images = [_convert_wandb_image(v, key, np) for v in value]
+                images = [_convert_wandb_image(v) for v in value]
                 images = [img for img in images if img is not None]
                 if images:
                     processed_data[key] = images
@@ -145,18 +138,13 @@ def sync_wandb(
     wandb_sdk.wandb_config.Config.update = patched_config_update
 
 
-def _convert_wandb_image(wandb_img, key, np):
+@safe.decorator(message="Failed to convert wandb.Image")
+def _convert_wandb_image(wandb_img):
     """将单个 wandb.Image 转换为 swanlab.Image，失败返回 None。"""
-    if np is None:
-        console.warning(f"numpy not available, skipping wandb.Image conversion for key '{key}'")
+    np = vendor.np
+    pil_image = getattr(wandb_img, "image", None) or getattr(wandb_img, "_image", None)
+    if pil_image is None:
         return None
-    try:
-        pil_image = getattr(wandb_img, "image", None) or getattr(wandb_img, "_image", None)
-        if pil_image is None:
-            return None
-        img_array = np.array(pil_image)
-        caption = getattr(wandb_img, "_caption", None)
-        return swanlab.Image(img_array, caption=caption)
-    except Exception as e:
-        console.warning(f"Failed to convert wandb.Image for key '{key}': {e}")
-        return None
+    img_array = np.array(pil_image)
+    caption = getattr(wandb_img, "_caption", None)
+    return swanlab.Image(img_array, caption=caption)
