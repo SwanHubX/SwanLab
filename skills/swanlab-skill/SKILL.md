@@ -4,7 +4,7 @@ metadata:
   version: "0.0.1"
 description: >
   Interact with SwanLab via the `swanlab api` CLI subcommands to query experiments, projects,
-  workspaces, users, columns, metrics, media, logs, and `self-hosted` instance management.
+  workspaces, users, columns, metrics, summaries, media, logs, and `self-hosted` instance management.
   Use this skill whenever the user wants to retrieve SwanLab data from the command line,
   inspect experiment metrics or logs, list projects/runs/columns, manage self-hosted users,
   or automate any SwanLab API query via CLI. Also trigger when the user mentions "swanlab api",
@@ -275,6 +275,23 @@ swanlab api run metrics PATH --keys loss --range-head 50
 # Get data by timestamp range (Unix milliseconds)
 swanlab api run metrics PATH --keys loss --range-type timestamp --range-start 1714368000000 --range-end 1714454400000
 ```
+
+#### `swanlab api run summary PATH`
+
+Get scalar metric summaries (statistics) for an experiment. Returns per-key aggregates: last step/value, min/max, avg, median, stdDev. See `references/SWANLAB_CONCEPTS.md > Scalar Summary` for response structure details.
+
+```bash
+swanlab api run summary PATH [--keys KEYS] [--save [FILENAME]] [--host HOST] [--api-key KEY]
+```
+
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `PATH` | yes | Experiment path in `username/project_name/run_id` format |
+
+| Option | Short | Default | Description |
+|--------|-------|---------|-------------|
+| `--keys` | | all | Comma-separated scalar keys, e.g. `loss,acc`. Omit to query all scalar keys. |
+| `--save` | | off | Save output to file |
 
 #### `swanlab api run medias PATH --keys KEYS`
 

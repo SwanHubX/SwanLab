@@ -137,6 +137,29 @@ Structure per data point:
 - When `--range-type timestamp` is used, rows missing a timestamp column are skipped.
 - Range query bypasses the sampling API entirely — it streams and filters the CSV export directly. Statistics (min/max/avg/median/latest) are still fetched via the sampling API and are **not** affected by the range filter.
 
+### Scalar Summary
+
+A lightweight aggregate view of scalar metrics, returning per-key statistics without the full time-series. Useful for comparing experiments at a glance.
+
+```
+Structure per key:
+{
+  "step": 222,        // last step number
+  "value": 0.523,     // last step value
+  "minMax": [0.1, 0.9],  // [min, max] across all steps
+  "min": {...},       // min scalar point
+  "max": {...},       // max scalar point
+  "avg": 0.45,        // average across all steps
+  "median": 0.44,     // median across all steps
+  "stdDev": 0.12      // standard deviation across all steps
+}
+```
+
+- `step` and `value` are from the **last** step.
+- `min`, `max`, `avg`, `median`, `stdDev` are aggregated across **all** steps.
+- If a value is `NaN`, `Inf`, or `-Inf`, it is returned as a **string**.
+- Omit `--keys` to query all scalar keys for the experiment.
+
 ### Media Metrics (e.g. images, audio)
 
 File-based data stored per step. Each media item has a presigned download URL.
@@ -279,6 +302,8 @@ This differs from the regular `project list` / `workspace info` commands, which 
 | "server usage summary" | System usage stats (self-hosted) | `swanlab api self-hosted summary` |
 | "filter experiments" | Query by conditions | `swanlab api run filter -p user/project -f QUERY` |
 | "best loss" | Minimum scalar value | `swanlab api run metrics PATH --keys loss` (check `min` field) |
+| "metric summary / statistics" | Per-key scalar aggregates | `swanlab api run summary PATH` |
+| "compare experiments at a glance" | Summary stats across keys | `swanlab api run summary PATH --keys loss,acc` |
 
 ---
 
