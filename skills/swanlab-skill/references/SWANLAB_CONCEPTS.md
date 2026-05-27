@@ -137,6 +137,29 @@ Structure per data point:
 - When `--range-type timestamp` is used, rows missing a timestamp column are skipped.
 - Range query bypasses the sampling API entirely — it streams and filters the CSV export directly. Statistics (min/max/avg/median/latest) are still fetched via the sampling API and are **not** affected by the range filter.
 
+### Scalar Summary
+
+A lightweight aggregate view of scalar metrics, returning per-key statistics without the full time-series. Useful for comparing experiments at a glance.
+
+```
+Structure per key:
+{
+  "step": 222,        // last step number
+  "value": 0.523,     // last step value
+  "minMax": [0.1, 0.9],  // [min, max] across all steps
+  "min": {...},       // min scalar point
+  "max": {...},       // max scalar point
+  "avg": 0.45,        // average across all steps
+  "median": 0.44,     // median across all steps
+  "stdDev": 0.12      // standard deviation across all steps
+}
+```
+
+- `step` and `value` are from the **last** step.
+- `min`, `max`, `avg`, `median`, `stdDev` are aggregated across **all** steps.
+- If a value is `NaN`, `Inf`, or `-Inf`, it is returned as a **string**.
+- Omit `--keys` to query all scalar keys for the experiment.
+
 ### Media Metrics (e.g. images, audio)
 
 File-based data stored per step. Each media item has a presigned download URL.
@@ -176,6 +199,17 @@ Structure per log entry:
 
 **Shard-based pagination**: Logs are fetched by `--offset` (shard index), not page number. Increase offset to get later shards.
 
+### Log Export
+
+Console logs can be bulk-exported as a downloadable `.log` file via a presigned URL. This is distinct from shard-based log viewing — export retrieves raw log rows by row index range.
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `start` | 0 | Start row index (0-based) |
+| `rows` | 500,000 | Number of rows to export (max 500,000) |
+
+The API returns a presigned download URL (`{"url": "https://..."}`) that is valid for a limited time. No file content is downloaded by the CLI — only the URL is returned.
+
 ---
 
 ## Experiment Profile
@@ -199,7 +233,9 @@ Each experiment carries a `profile` object containing metadata about the run:
 
 ## Self-Hosted Instance
 
-SwanLab can be deployed as a self-hosted instance (private deployment). Self-hosted commands are **only valid when the target host is NOT `swanlab.cn`**.
+> **Self-hosted commands are only available for self-hosted (private) deployments.** If the resolved host contains `swanlab.cn`, these commands will fail — do not attempt them.
+
+SwanLab can be deployed as a self-hosted instance (private deployment). **Only use `swanlab api self-hosted` subcommands when the target is a self-hosted server, never on the public SwanLab cloud (`swanlab.cn`).**
 
 **Host detection rule**: Before using any self-hosted command, check where requests will be sent:
 1. If the user passes `--host` explicitly → use that value.
@@ -238,10 +274,10 @@ This differs from the regular `project list` / `workspace info` commands, which 
 
 | User says... | They probably mean... | CLI command |
 |---|---|---|
-| "all projects on the server" | Instance-wide project listing | `swanlab api selfhosted list-projects` |
-| "all workspaces" | Instance-wide workspace listing | `swanlab api selfhosted list-workspaces` |
-| "server usage / disk usage" | Usage summary | `swanlab api selfhosted summary` |
-| "all users on the server" | Instance-wide user listing | `swanlab api selfhosted list-users` |
+| "all projects on the server" | Instance-wide project listing | `swanlab api self-hosted list-projects` |
+| "all workspaces" | Instance-wide workspace listing | `swanlab api self-hosted list-workspaces` |
+| "server usage / disk usage" | Usage summary | `swanlab api self-hosted summary` |
+| "all users on the server" | Instance-wide user listing | `swanlab api self-hosted list-users` |
 
 ---
 
@@ -255,16 +291,19 @@ This differs from the regular `project list` / `workspace info` commands, which 
 | "experiment config" | Hyperparameters set at init | `swanlab api run info PATH` (look at `profile.config`) |
 | "logged images" | Media metrics | `swanlab api run medias PATH --keys image` |
 | "console output" | Captured logs | `swanlab api run logs PATH` |
+| "download logs" | Export logs as file | `swanlab api run export-logs PATH` |
 | "what columns are tracked" | Metric definitions | `swanlab api run columns PATH` |
 | "my projects" | Projects in a workspace | `swanlab api project list` |
 | "create a new project" | Make a project | `swanlab api project create -n NAME` |
 | "who am I" | Current user info | `swanlab api user info` |
-| "self-hosted users" | User management | `swanlab api selfhosted list-users` |
-| "all projects on server" | Instance-wide project listing (self-hosted) | `swanlab api selfhosted list-projects` |
-| "all workspaces on server" | Instance-wide workspace listing (self-hosted) | `swanlab api selfhosted list-workspaces` |
-| "server usage summary" | System usage stats (self-hosted) | `swanlab api selfhosted summary` |
+| "self-hosted users" | User management | `swanlab api self-hosted list-users` |
+| "all projects on server" | Instance-wide project listing (self-hosted) | `swanlab api self-hosted list-projects` |
+| "all workspaces on server" | Instance-wide workspace listing (self-hosted) | `swanlab api self-hosted list-workspaces` |
+| "server usage summary" | System usage stats (self-hosted) | `swanlab api self-hosted summary` |
 | "filter experiments" | Query by conditions | `swanlab api run filter -p user/project -f QUERY` |
 | "best loss" | Minimum scalar value | `swanlab api run metrics PATH --keys loss` (check `min` field) |
+| "metric summary / statistics" | Per-key scalar aggregates | `swanlab api run summary PATH` |
+| "compare experiments at a glance" | Summary stats across keys | `swanlab api run summary PATH --keys loss,acc` |
 
 ---
 

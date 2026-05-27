@@ -1,8 +1,10 @@
 ---
 name: swanlab-skill
+metadata:
+  version: "0.0.1"
 description: >
   Interact with SwanLab via the `swanlab api` CLI subcommands to query experiments, projects,
-  workspaces, users, columns, metrics, media, logs, and self-hosted instance management.
+  workspaces, users, columns, metrics, summaries, media, logs, and `self-hosted` instance management.
   Use this skill whenever the user wants to retrieve SwanLab data from the command line,
   inspect experiment metrics or logs, list projects/runs/columns, manage self-hosted users,
   or automate any SwanLab API query via CLI. Also trigger when the user mentions "swanlab api",
@@ -274,6 +276,23 @@ swanlab api run metrics PATH --keys loss --range-head 50
 swanlab api run metrics PATH --keys loss --range-type timestamp --range-start 1714368000000 --range-end 1714454400000
 ```
 
+#### `swanlab api run summary PATH`
+
+Get scalar metric summaries (statistics) for an experiment. Returns per-key aggregates: last step/value, min/max, avg, median, stdDev. See `references/SWANLAB_CONCEPTS.md > Scalar Summary` for response structure details.
+
+```bash
+swanlab api run summary PATH [--keys KEYS] [--save [FILENAME]] [--host HOST] [--api-key KEY]
+```
+
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `PATH` | yes | Experiment path in `username/project_name/run_id` format |
+
+| Option | Short | Default | Description |
+|--------|-------|---------|-------------|
+| `--keys` | | all | Comma-separated scalar keys, e.g. `loss,acc`. Omit to query all scalar keys. |
+| `--save` | | off | Save output to file |
+
 #### `swanlab api run medias PATH --keys KEYS`
 
 Get media data for specified keys. See `references/SWANLAB_CONCEPTS.md > Media Metrics` for the response structure and how presigned URLs work.
@@ -312,26 +331,44 @@ swanlab api run logs PATH [OPTIONS]
 | `--ignore-timestamp` | | false | Strip timestamps from log entries |
 | `--save` | | off | Save output to file |
 
+#### `swanlab api run export-logs PATH`
+
+Export experiment console logs as a downloadable `.log` file. Returns a presigned download URL. See `references/SWANLAB_CONCEPTS.md > Log Export` for conceptual details.
+
+```bash
+swanlab api run export-logs PATH [OPTIONS]
+```
+
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `PATH` | yes | Experiment path in `username/project_name/run_id` format |
+
+| Option | Short | Default | Description |
+|--------|-------|---------|-------------|
+| `--start` | | 0 | Start row index (0-based) |
+| `--rows` | `-r` | 500000 | Number of rows to export (1–500000) |
+| `--save` | | off | Save the export URL as JSON to file |
+
 ---
 
 ### 5. Self-Hosted
 
 These commands are only valid for **self-hosted SwanLab instances**. All self-hosted management commands (create-user, list-users, list-projects, list-workspaces, summary) require **root (admin) privileges**. See `references/SWANLAB_CONCEPTS.md > Self-Hosted Instance` for the host detection rule — do not use these commands if the resolved host contains `swanlab.cn`.
 
-#### `swanlab api selfhosted info`
+#### `swanlab api self-hosted info`
 
 Show self-hosted instance info.
 
 ```bash
-swanlab api selfhosted info [--save [FILENAME]] [--host HOST] [--api-key KEY]
+swanlab api self-hosted info [--save [FILENAME]] [--host HOST] [--api-key KEY]
 ```
 
-#### `swanlab api selfhosted create-user`
+#### `swanlab api self-hosted create-user`
 
 Create a user in the self-hosted instance (root only).
 
 ```bash
-swanlab api selfhosted create-user -u USERNAME -p PASSWORD
+swanlab api self-hosted create-user -u USERNAME -p PASSWORD
 ```
 
 | Option | Short | Description |
@@ -339,12 +376,12 @@ swanlab api selfhosted create-user -u USERNAME -p PASSWORD
 | `--username` | `-u` | Username to create (required) |
 | `--password` | `-p` | Password for the new user (required) |
 
-#### `swanlab api selfhosted list-users`
+#### `swanlab api self-hosted list-users`
 
 List users in the self-hosted instance (root only).
 
 ```bash
-swanlab api selfhosted list-users [OPTIONS]
+swanlab api self-hosted list-users [OPTIONS]
 ```
 
 | Option | Short | Default | Description |
@@ -353,12 +390,12 @@ swanlab api selfhosted list-users [OPTIONS]
 | `--page_size` | `-s` | 20 | Page size |
 | `--all` | | false | Fetch all users |
 
-#### `swanlab api selfhosted list-projects`
+#### `swanlab api self-hosted list-projects`
 
 List all projects across the self-hosted instance (root only). Supports filtering by creator, workspace, and keyword search.
 
 ```bash
-swanlab api selfhosted list-projects [OPTIONS]
+swanlab api self-hosted list-projects [OPTIONS]
 ```
 
 | Option | Short | Default | Description |
@@ -370,12 +407,12 @@ swanlab api selfhosted list-projects [OPTIONS]
 | `--creator` | | none | Filter by creator username |
 | `--workspace` | | none | Filter by workspace username |
 
-#### `swanlab api selfhosted list-workspaces`
+#### `swanlab api self-hosted list-workspaces`
 
 List all workspaces in the self-hosted instance (root only).
 
 ```bash
-swanlab api selfhosted list-workspaces [OPTIONS]
+swanlab api self-hosted list-workspaces [OPTIONS]
 ```
 
 | Option | Short | Default | Description |
@@ -385,12 +422,12 @@ swanlab api selfhosted list-workspaces [OPTIONS]
 | `--all` | | false | Fetch all workspaces |
 | `--search` | | none | Search keyword |
 
-#### `swanlab api selfhosted summary`
+#### `swanlab api self-hosted summary`
 
 Show system usage summary for the self-hosted instance (root only). Includes aggregate statistics such as total users, projects, experiments, and storage usage. See `references/SWANLAB_CONCEPTS.md > Self-Hosted Instance > Usage Summary` for details.
 
 ```bash
-swanlab api selfhosted summary [--save [FILENAME]] [--host HOST] [--api-key KEY]
+swanlab api self-hosted summary [--save [FILENAME]] [--host HOST] [--api-key KEY]
 ```
 
 ---

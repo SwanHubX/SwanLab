@@ -315,6 +315,17 @@ class Metric(BaseEntity):
         return dict(zip(paths, urls)) if urls else {}
 
     @staticmethod
+    def _fetch_file_presigned_urls(entity: BaseEntity, paths: List[str]) -> Dict[str, str]:
+        """通过完整资源路径批量获取预签名下载链接，返回 path → url 映射。"""
+        if not paths:
+            return {}
+        resp = entity._post("/files/presigned/get", data={"paths": paths})
+        if not resp.ok or not isinstance(resp.data, dict):
+            return {}
+        urls = resp.data.get("urls", [])
+        return dict(zip(paths, urls)) if urls else {}
+
+    @staticmethod
     def _build_media_items(
         entry: Dict[str, Any],
         url_map: Dict[str, str],
@@ -424,6 +435,32 @@ class Metric(BaseEntity):
         if not url:
             return ApiResponseType(ok=False, errmsg="Invalid response format", data=None)
         return ApiResponseType(ok=True, data=ApiColumnCsvExportType(url=url))
+
+    def export_logs(self, start: int = 0, rows: int = 500_000) -> ApiResponseType:
+        """导出日志数据为 .log 文件，返回对象存储中的文件信息。"""
+        if self._metric_type != "LOG":
+            return ApiResponseType(ok=False, errmsg="export_logs() only supports LOG metric_type", data=None)
+        data: Dict[str, Any] = {
+            "projectId": self._project_id,
+            "experimentId": self._run_id,
+            "start": start,
+            "rows": min(rows, 500_000),
+        }
+        if self._root_pro_id:
+            data["rootProId"] = self._root_pro_id
+        if self._root_exp_id:
+            data["rootExpId"] = self._root_exp_id
+        resp = self._post("/house/metrics/log/export", data=data)
+        if not resp.ok or not resp.data:
+            return resp
+        cos_key = resp.data.get("cosKey", "")
+        if not cos_key:
+            return ApiResponseType(ok=False, errmsg="Invalid response format: missing cosKey", data=None)
+        url_map = Metric._fetch_file_presigned_urls(self, [cos_key])
+        url = url_map.get(cos_key, "")
+        if not url:
+            return ApiResponseType(ok=False, errmsg="Failed to get presigned download URL", data=None)
+        return ApiResponseType(ok=True, data={"url": url})
 
     def json(self) -> Dict[str, Any]:
         result = get_properties(self)

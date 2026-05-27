@@ -35,7 +35,10 @@ def run_cli():
 )
 @with_custom_host
 def get_experiment(path: str, save_name: str, api: Api):
-    """Get Experiment(Run) info by path (e.g. username/project_name/run_id)."""
+    """Get experiment info by path.
+
+    PATH format: username/project_name/run_id
+    """
     resp = api.run(path).wrapper()
     payload = format_output(resp)
     if payload["ok"] and save_name is not None:
@@ -74,7 +77,10 @@ def get_experiment(path: str, save_name: str, api: Api):
 )
 @with_custom_host
 def list_experiments(page_num: int, page_size: str, project_path: str, fetch_all: bool, save_name: str, api: Api):
-    """List experiments under a project by project path (e.g. username/project_name)."""
+    """List experiments under a project.
+
+    PROJECT_PATH format: username/project_name
+    """
     resp = ApiResponseType(
         ok=True, data=api.runs_get(path=project_path, page=page_num, size=int(page_size), all=fetch_all)
     )
@@ -107,7 +113,10 @@ def list_experiments(page_num: int, page_size: str, project_path: str, fetch_all
 )
 @with_custom_host
 def filter_experiments(project_path: str, filter_query: str, save_name: str, api: Api):
-    """Filter experiments under a project by query (e.g. username/project_name)."""
+    """Filter experiments under a project by query.
+
+    PROJECT_PATH format: username/project_name
+    """
     filters = validate_filter_query(filter_query)
     resp = ApiResponseType(ok=True, data=api.runs(path=project_path, filters=filters))
     payload = format_output(resp)
@@ -164,7 +173,10 @@ def list_experiment_columns(
     save_name: str,
     api: Api,
 ):
-    """List columns under an experiment by path (e.g. username/project_name/run_id)."""
+    """List columns of an experiment.
+
+    PATH format: username/project_name/run_id
+    """
     resp = ApiResponseType(
         ok=True,
         data=api.columns(
@@ -249,7 +261,10 @@ def get_experiment_metrics(
     save_name: str,
     api: Api,
 ):
-    """Get scalar metrics of an experiment by path (e.g. username/project_name/run_id)."""
+    """Get scalar metrics of an experiment.
+
+    PATH format: username/project_name/run_id
+    """
     if range_head is not None and range_tail is not None:
         raise click.BadParameter("--range-head and --range-tail are mutually exclusive.")
     if range_start is not None and range_end is not None and range_start > range_end:
@@ -275,6 +290,35 @@ def get_experiment_metrics(
         all=fetch_all,
         range_query=range_query,
     )
+    payload = format_output(ApiResponseType(ok=True, data=data))
+    if payload["ok"] and save_name is not None:
+        save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
+
+
+@run_cli.command("summary")
+@click.argument("path", required=True)
+@click.option(
+    "--keys",
+    required=False,
+    type=str,
+    help="Comma-separated scalar keys, e.g. 'loss,acc'. Omit to query all keys.",
+)
+@click.option(
+    "--save",
+    "save_name",
+    is_flag=False,
+    flag_value=".",
+    help="Save output as JSON to current directory.",
+)
+@with_custom_host
+def get_experiment_summary(path: str, keys: Optional[str], save_name: str, api: Api):
+    """Get scalar metric summaries of an experiment.
+
+    PATH format: username/project_name/run_id
+    """
+    key_list = parse_keys(keys) if keys else None
+    experiment = api.run(path)
+    data = experiment.summary(keys=key_list)
     payload = format_output(ApiResponseType(ok=True, data=data))
     if payload["ok"] and save_name is not None:
         save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
@@ -318,7 +362,10 @@ def get_experiment_column(
     save_name: str,
     api: Api,
 ):
-    """Get column info of an experiment by path (e.g. username/project_name/run_id)."""
+    """Get a single column of an experiment.
+
+    PATH format: username/project_name/run_id
+    """
     col = api.column(
         path=path,
         key=key,
@@ -363,7 +410,10 @@ def get_experiment_medias(
     save_name: str,
     api: Api,
 ):
-    """Get media metrics of an experiment by path (e.g. username/project_name/run_id)."""
+    """Get media metrics of an experiment.
+
+    PATH format: username/project_name/run_id
+    """
     key_list = parse_keys(keys)
     experiment = api.run(path)
     data = experiment.medias(keys=key_list, step=step, all=fetch_all)
@@ -411,9 +461,47 @@ def get_experiment_logs(
     save_name: str,
     api: Api,
 ):
-    """Get console logs of an experiment by path (e.g. username/project_name/run_id)."""
+    """Get console logs of an experiment.
+
+    PATH format: username/project_name/run_id
+    """
     experiment = api.run(path)
     data = experiment.logs(offset=offset, level=level.upper(), ignore_timestamp=ignore_timestamp)  # type: ignore
     payload = format_output(ApiResponseType(ok=True, data=data))
+    if payload["ok"] and save_name is not None:
+        save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
+
+
+@run_cli.command("export-logs")
+@click.argument("path", required=True)
+@click.option(
+    "--start",
+    default=0,
+    type=click.IntRange(min=0),
+    help="Start row index (0-based). Default 0.",
+)
+@click.option(
+    "--rows",
+    "-r",
+    default=500_000,
+    type=click.IntRange(min=1, max=500_000),
+    help="Number of rows to export. Default 500000, max 500000.",
+)
+@click.option(
+    "--save",
+    "save_name",
+    is_flag=False,
+    flag_value=".",
+    help="Save export URL as JSON to current directory.",
+)
+@with_custom_host
+def export_experiment_logs(path: str, start: int, rows: int, save_name: str, api: Api):
+    """Export experiment logs as downloadable .log file.
+
+    PATH format: username/project_name/run_id
+    """
+    experiment = api.run(path)
+    resp = experiment.export_logs(start=start, rows=rows)
+    payload = format_output(resp)
     if payload["ok"] and save_name is not None:
         save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)

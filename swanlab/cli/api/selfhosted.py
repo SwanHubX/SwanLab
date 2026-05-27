@@ -10,9 +10,9 @@ from swanlab.api.typings.common import ApiResponseType
 from swanlab.cli.api.helper import format_output, save_output, with_custom_host
 
 
-@click.group("selfhosted")
+@click.group("self-hosted")
 def selfhosted_cli():
-    """Self-hosted deployment management commands."""
+    """Self-Hosted deployment management commands."""
     pass
 
 
