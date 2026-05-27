@@ -6,7 +6,6 @@ metrics, matching the SwanLab table view.
 """
 
 import csv
-import io
 import os
 import time
 from pathlib import Path
@@ -156,11 +155,13 @@ class CSVWriter(Callback):
 
     def _update_header(self, new_headers: List[str]) -> None:
         with open(self._save_path, "r", newline="", encoding="utf-8") as f:
-            lines = f.readlines()
-        if not lines:
-            return
-        buf = io.StringIO()
-        csv.writer(buf).writerow(new_headers)
-        lines[0] = buf.getvalue()
+            reader = csv.reader(f)
+            try:
+                next(reader)  # skip old header
+            except StopIteration:
+                return
+            rows = list(reader)
         with open(self._save_path, "w", newline="", encoding="utf-8") as f:
-            f.writelines(lines)
+            writer = csv.writer(f)
+            writer.writerow(new_headers)
+            writer.writerows(rows)
