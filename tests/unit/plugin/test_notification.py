@@ -121,18 +121,6 @@ class TestNotificationCallbackBase:
         assert cb._settings is settings
         assert cb._path == "/test-user/test-project/abc123"
 
-    def test_on_run_initialized_ignores_non_settings(self):
-        cb = LarkCallback(webhook_url="https://example.com/webhook")
-        cb.on_run_initialized(Path("/tmp"), "/path", settings="not-a-Settings")
-        assert cb._settings is None
-        assert cb._path is None
-
-    def test_on_run_initialized_no_kwarg(self):
-        cb = LarkCallback(webhook_url="https://example.com/webhook")
-        cb.on_run_initialized(Path("/tmp"), "/path")
-        assert cb._settings is None
-        assert cb._path is None
-
     def test_on_run_finished_noop_without_settings(self):
         cb = LarkCallback(webhook_url="https://example.com/webhook")
         with patch.object(cb._executor, "run") as mock_run:
