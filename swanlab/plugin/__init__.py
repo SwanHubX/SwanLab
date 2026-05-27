@@ -9,8 +9,10 @@ from swanlab.plugin.notification import (
     WeComCallback,
     WXWorkCallback,
 )
+from swanlab.plugin.writer import CSVWriter
 
 __all__ = [
+    "CSVWriter",
     "LarkCallback",
     "DingTalkCallback",
     "WeComCallback",
