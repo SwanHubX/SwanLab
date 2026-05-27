@@ -9,12 +9,15 @@ import csv
 import os
 import time
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import ScalarRecord
 from swanlab.sdk.internal.pkg import safe
 from swanlab.sdk.internal.pkg.helper import fmt_run_path
 from swanlab.sdk.protocol import Callback
+
+if TYPE_CHECKING:
+    from swanlab.sdk.internal.settings import Settings
 
 _METADATA_COLUMNS = [
     "run_id",
@@ -74,15 +77,11 @@ class CSVWriter(Callback):
     def name(self) -> str:
         return "CSVWriter"
 
-    def on_run_initialized(self, run_dir: Path, path: str, *args, **kwargs) -> None:
-        settings = kwargs.get("settings")
+    def on_run_initialized(self, run_dir: Path, path: str, settings: "Settings", *args, **kwargs) -> None:
         self._run_dir = run_dir
         self._metadata = {}
         self._config = {}
         self._latest_scalars = {}
-
-        if settings is None:
-            return
 
         self._metadata = {
             "run_id": settings.run.id or "",

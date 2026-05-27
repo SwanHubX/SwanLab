@@ -73,11 +73,9 @@ class NotificationCallback(Callback):
 
     # -- Callback hooks -----------------------------------------------------
 
-    def on_run_initialized(self, run_dir: Path, path: str, *args, **kwargs) -> None:
-        settings = kwargs.get("settings")
-        if isinstance(settings, Settings):
-            self._settings = settings
-            self._path = path
+    def on_run_initialized(self, run_dir: Path, path: str, settings: Settings, *args, **kwargs) -> None:
+        self._settings = settings
+        self._path = path
 
     def on_run_finished(self, state: str, error: Optional[str] = None, **kwargs) -> None:
         if self._settings is not None:
