@@ -1,3 +1,6 @@
+from swanlab.converter.mlf.sync import sync_mlflow
+from swanlab.converter.tfb.sync import sync_tensorboard_torch, sync_tensorboardX
+from swanlab.converter.wb.sync import sync_wandb
 from swanlab.sdk import (
     Audio,
     Callback,
@@ -88,6 +91,11 @@ __all__ = [
     "pr_curve",
     "confusion_matrix",
     "register_callbacks",
+    # sync patches
+    "sync_wandb",
+    "sync_tensorboardX",
+    "sync_tensorboard_torch",
+    "sync_mlflow",
 ]
 
 

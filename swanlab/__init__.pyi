@@ -8,7 +8,7 @@ to swanlab/__init__.py.
 
 from concurrent.futures import Future
 from pathlib import Path
-from typing import Any, Callable, List, Mapping, Optional, Union
+from typing import Any, Callable, List, Mapping, Optional, Sequence, Union
 
 from . import utils
 from .api import Api
@@ -85,6 +85,11 @@ __all__ = [
     "Callback",
     # Api
     "Api",
+    # sync patches
+    "sync_wandb",
+    "sync_tensorboardX",
+    "sync_tensorboard_torch",
+    "sync_mlflow",
 ]
 
 # ── lifecycle ──────────────────────────────────────────────────────────────────
@@ -649,5 +654,123 @@ def save(
         - ``"live"`` — watch for file changes and re-upload automatically.
 
     :return: List of matched file paths (relative to base_path).
+    """
+    ...
+
+# ── sync patches ────────────────────────────────────────────────────────────────
+
+def sync_wandb(
+    mode: ModeType = "online",
+    wandb_run: bool = True,
+    workspace: Optional[str] = None,
+    log_dir: Optional[str] = None,
+) -> None:
+    """Monkey-patch wandb to mirror all logged data into SwanLab in real time.
+
+    Call this **before** ``wandb.init()``.  Once active, every call to
+    ``wandb.init``, ``wandb.log``, ``wandb.config.update``, and ``wandb.finish``
+    is forwarded to the corresponding SwanLab API.  The original wandb behaviour
+    is preserved — data is sent to both backends simultaneously.
+
+    :param mode: SwanLab run mode — ``"online"`` | ``"local"`` | ``"offline"`` | ``"disabled"``.
+    :param wandb_run: If ``False``, wandb is forced into offline mode so it does
+        not upload to its own cloud.  SwanLab still receives the data. Defaults to ``True``.
+    :param workspace: SwanLab workspace (organization) name. Defaults to the current user.
+    :param log_dir: Local directory for SwanLab log files.
+    :raises ImportError: If ``wandb`` is not installed.
+
+    Examples::
+
+        Mirror wandb logs to SwanLab Cloud:
+
+        >>> import swanlab
+        >>> swanlab.sync_wandb()
+        >>> import wandb
+        >>> wandb.init(project="demo", config={"lr": 0.01})
+        >>> wandb.log({"loss": 0.5})
+        >>> wandb.finish()
+
+        Disable wandb cloud upload while still recording in SwanLab:
+
+        >>> import swanlab
+        >>> swanlab.sync_wandb(wandb_run=False)
+        >>> import wandb
+        >>> wandb.init(project="demo")
+        >>> wandb.log({"loss": 0.5})
+        >>> wandb.finish()
+    """
+    ...
+
+def sync_tensorboardX(types: Optional[Sequence[str]] = None) -> None:
+    """Monkey-patch tensorboardX SummaryWriter to mirror logs to SwanLab.
+
+    Call this **before** creating a ``SummaryWriter`` instance.  Once active,
+    calls to ``add_scalar``, ``add_scalars``, ``add_image``, ``add_text``,
+    ``__init__``, and ``close`` are forwarded to the corresponding SwanLab API.
+
+    :param types: Data types to sync. Options: ``"scalar"``, ``"scalars"``,
+        ``"image"``, ``"text"``.  ``None`` syncs all types.
+    :raises ImportError: If ``tensorboardX`` is not installed.
+
+    Examples::
+
+        Sync all data types:
+
+        >>> import swanlab
+        >>> swanlab.sync_tensorboardX()
+        >>> from tensorboardX import SummaryWriter
+        >>> writer = SummaryWriter("runs/example")
+        >>> writer.add_scalar("loss", 0.5, 0)
+        >>> writer.close()
+
+        Sync only scalars:
+
+        >>> import swanlab
+        >>> swanlab.sync_tensorboardX(types=["scalar", "scalars"])
+    """
+    ...
+
+def sync_tensorboard_torch(types: Optional[Sequence[str]] = None) -> None:
+    """Monkey-patch ``torch.utils.tensorboard.SummaryWriter`` to mirror logs to SwanLab.
+
+    Call this **before** creating a ``SummaryWriter`` instance.  Once active,
+    calls to ``add_scalar``, ``add_scalars``, ``add_image``, ``add_text``,
+    ``__init__``, and ``close`` are forwarded to the corresponding SwanLab API.
+
+    :param types: Data types to sync. Options: ``"scalar"``, ``"scalars"``,
+        ``"image"``, ``"text"``.  ``None`` syncs all types.
+    :raises ImportError: If ``torch`` is not installed.
+
+    Examples::
+
+        >>> import swanlab
+        >>> swanlab.sync_tensorboard_torch()
+        >>> from torch.utils.tensorboard import SummaryWriter
+        >>> writer = SummaryWriter("runs/example")
+        >>> writer.add_scalar("loss", 0.5, 0)
+        >>> writer.close()
+    """
+    ...
+
+def sync_mlflow(mode: ModeType = "online") -> None:
+    """Monkey-patch mlflow to forward logs to SwanLab.
+
+    Call before any mlflow API usage. Intercepts ``mlflow.set_experiment``,
+    ``mlflow.start_run``, ``mlflow.end_run``, ``mlflow.log_param(s)``,
+    ``mlflow.log_metric(s)`` and mirrors the data into SwanLab.
+
+    Args:
+        mode: SwanLab run mode. Defaults to ``"online"``.
+
+    Example::
+
+        >>> import swanlab
+        >>> swanlab.sync_mlflow()
+        >>>
+        >>> import mlflow
+        >>> mlflow.set_experiment("my_experiment")
+        >>> with mlflow.start_run(run_name="my_run"):
+        ...     mlflow.log_param("lr", 0.01)
+        ...     mlflow.log_metric("loss", 0.5, step=0)
     """
     ...

@@ -32,10 +32,42 @@ For MLflow::
     mlf = MLFlowConverter(project="my-project")
     # Optional: `experiment`
     mlf.run(tracking_uri="http://localhost:5000", experiment: Optional[str]="1")
+
+Runtime sync (monkey-patch)::
+
+    import swanlab
+    swanlab.sync_wandb()           # intercept wandb calls → SwanLab
+
+    import wandb
+    wandb.init(project="test")
+    wandb.log({"loss": 0.5})
+    wandb.finish()
+
+Or sync MLflow::
+
+    import swanlab
+    swanlab.sync_mlflow()
+
+    import mlflow
+    mlflow.set_experiment("my_experiment")
+    with mlflow.start_run(run_name="my_run"):
+        mlflow.log_metric("loss", 0.5, step=0)
 """
 
 from swanlab.converter.mlf import MLFlowConverter
+from swanlab.converter.mlf.sync import sync_mlflow
 from swanlab.converter.tfb import TFBConverter
+from swanlab.converter.tfb.sync import sync_tensorboard_torch, sync_tensorboardX
 from swanlab.converter.wb import WandbConverter, WandbLocalConverter
+from swanlab.converter.wb.sync import sync_wandb
 
-__all__ = ["WandbConverter", "WandbLocalConverter", "TFBConverter", "MLFlowConverter"]
+__all__ = [
+    "WandbConverter",
+    "WandbLocalConverter",
+    "TFBConverter",
+    "MLFlowConverter",
+    "sync_wandb",
+    "sync_tensorboardX",
+    "sync_tensorboard_torch",
+    "sync_mlflow",
+]
