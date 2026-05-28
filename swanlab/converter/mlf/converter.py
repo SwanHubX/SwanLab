@@ -26,6 +26,7 @@ class MLFlowConverter(BaseConverter):
         MlflowException = mlflow.exceptions.MlflowException # type: ignore
 
         import swanlab
+        from swanlab.vendor.mlflow.exceptions import MlflowException  # type: ignore
 
         client = mlflow.MlflowClient(tracking_uri=tracking_uri)
 

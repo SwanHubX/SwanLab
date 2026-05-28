@@ -2,7 +2,7 @@ from abc import abstractmethod
 from pathlib import Path
 from typing import Dict, Optional
 
-from swanlab.sdk.internal.core_python.pkg.executor import SafeThreadPoolExecutor
+from swanlab.sdk.internal.pkg.executor import SafeThreadPoolExecutor
 from swanlab.sdk.internal.pkg.helper import fmt_run_path
 from swanlab.sdk.internal.settings import Settings
 from swanlab.sdk.protocol import Callback

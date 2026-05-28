@@ -5,7 +5,6 @@
 @description: SwanLab 硬件监控对象
 """
 
-from concurrent.futures.thread import ThreadPoolExecutor
 from typing import Dict, List, Optional
 
 from google.protobuf.timestamp_pb2 import Timestamp
@@ -13,6 +12,7 @@ from google.protobuf.timestamp_pb2 import Timestamp
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import ScalarRecord
 from swanlab.sdk.internal.pkg import console, safe, timer
+from swanlab.sdk.internal.pkg.executor import SafeThreadPoolExecutor
 from swanlab.sdk.internal.probe_python.context import ProbeContext
 from swanlab.sdk.internal.probe_python.hardware_vendor.accelerator import ACCELERATOR_REGISTRY
 from swanlab.sdk.internal.probe_python.hardware_vendor.apple import Apple
@@ -36,7 +36,7 @@ class Monitor:
         self._core = core
         self._shim = shim
         self._timer: Optional[timer.Timer] = None
-        self._executor: Optional[ThreadPoolExecutor] = None
+        self._executor: Optional[SafeThreadPoolExecutor] = None
 
     def start(self, ctx: ProbeContext) -> Optional["Monitor"]:
         now_step = ctx.config.global_system_step
@@ -87,7 +87,7 @@ class Monitor:
         # 使用线程池执行任务
         # 监控任务的执行效率不要求特别高，线程池的方式可以兼容大部分采集器的实现方式，同时也避免了某些采集器在执行过程中可能出现的阻塞问题
         first_execute = True
-        self._executor = ThreadPoolExecutor(max_workers=2)
+        self._executor = SafeThreadPoolExecutor(max_workers=2)
 
         def task():
             nonlocal now_step, column_records, first_execute

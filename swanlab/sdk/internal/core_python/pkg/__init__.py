@@ -5,6 +5,6 @@
 @description: core python 工具包
 """
 
-from . import builder, counter, executor
+from . import builder, counter
 
-__all__ = ["executor", "counter", "builder"]
+__all__ = ["counter", "builder"]

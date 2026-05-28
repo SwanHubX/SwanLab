@@ -8,6 +8,7 @@
 import asyncio
 import threading
 from concurrent.futures import Future, ThreadPoolExecutor
+from concurrent.futures import thread as futures_thread
 from typing import Any, Callable, Coroutine, Optional
 
 __all__ = ["SafeThreadPoolExecutor", "EventLoopExecutor"]
@@ -17,22 +18,23 @@ def _is_shutting_down() -> bool:
     """检测 Python 是否正在关闭。
 
     threading 模块在 atexit 中设置 _SHUTTING_DOWN = True，
-    此后 ThreadPoolExecutor 无法启动新线程，submit 后死锁。
-    该属性为私有，但无公开 API 替代。
+    concurrent.futures.thread 也会设置 _shutdown = True。
+    此后 ThreadPoolExecutor 无法启动新线程，submit 后可能抛 RuntimeError。
+    这些属性为私有，但无公开 API 替代。
     """
-    return getattr(threading, "_SHUTTING_DOWN", False)
+    return getattr(threading, "_SHUTTING_DOWN", False) or getattr(futures_thread, "_shutdown", False)
 
 
 class SafeThreadPoolExecutor(ThreadPoolExecutor):
     """在 Python 退出阶段仍能安全使用的线程池。
 
     - run(): 正常时异步提交（fire-and-forget），shutting down 时同步执行，保证任务不丢
-    - submit(): shutting down 时抛 RuntimeError 而非静默死锁
+    - submit(): shutting down 时同步执行并返回已完成 Future
     - shutdown(): 默认 wait=True，确保已提交任务执行完毕
     """
 
     def submit(self, fn: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
-        """重写：shutting down 时同步执行并返回已完成 Future，而非死锁。"""
+        """重写：shutting down 时同步执行并返回已完成 Future，而非死锁或抛错。"""
         if _is_shutting_down():
             future: Any = Future()
             try:
@@ -88,8 +90,7 @@ class EventLoopExecutor:
 
     def close(self) -> None:
         if self._loop is not None:
-            loop = self._loop  # make pylint happy
-            # noinspection PyTypeChecker
+            loop = self._loop
             loop.call_soon_threadsafe(loop.stop)
 
         if self._thread is not None:
