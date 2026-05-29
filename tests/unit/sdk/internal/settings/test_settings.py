@@ -335,6 +335,34 @@ def test_core_section_rule_env_overrides_legacy(monkeypatch):
     assert settings.core.section_rule == -1
 
 
+def test_core_consumer_batch_default():
+    """consumer_batch 默认值应为 100，与历史 Specter flush 阈值一致。"""
+    settings = Settings()
+    assert settings.core.consumer_batch == 100
+
+
+def test_core_consumer_batch_env(monkeypatch):
+    """consumer_batch 可通过 SWANLAB_CORE_CONSUMER_BATCH 环境变量注入。"""
+    monkeypatch.setenv("SWANLAB_CORE_CONSUMER_BATCH", "1000")
+
+    settings = Settings()
+
+    assert settings.core.consumer_batch == 1000
+
+
+def test_core_consumer_batch_rejects_overflow():
+    """consumer_batch 必须 > 0 且 < 100_000。"""
+    from pydantic import ValidationError
+
+    from swanlab.sdk.internal.settings.core import CoreSettings
+
+    with pytest.raises(ValidationError):
+        CoreSettings(consumer_batch=0)
+
+    with pytest.raises(ValidationError):
+        CoreSettings(consumer_batch=100_000)
+
+
 @pytest.fixture
 def netrc_file(tmp_path, monkeypatch):
     """

@@ -258,3 +258,119 @@ class TestFileHandling:
         r = DataStoreReader()
         with pytest.raises(AssertionError):
             r.scan()
+
+
+# ---------------------------------------------------------------------------
+# write / sync 分离：fsync 频率与落盘语义
+# ---------------------------------------------------------------------------
+
+
+class TestWriteSyncSeparation:
+    """write() 仅写缓冲区不 fsync，sync() 才落盘；批量写后一次 sync。"""
+
+    def test_write_does_not_fsync(self, tmp_path: Path, mocker):
+        """单纯 write 不应触发 os.fsync。"""
+        spy = mocker.patch("swanlab.sdk.internal.core_python.store.os.fsync")
+        p = tmp_path / "test.swanlab"
+        w = DataStoreWriter()
+        w.open(str(p))
+        w.write(b"a")
+        w.write(b"b")
+        assert spy.call_count == 0
+        w.close()
+
+    def test_sync_triggers_single_fsync(self, tmp_path: Path, mocker):
+        """连续多次 write 后，一次 sync 只产生一次 fsync。"""
+        spy = mocker.patch("swanlab.sdk.internal.core_python.store.os.fsync")
+        p = tmp_path / "test.swanlab"
+        w = DataStoreWriter()
+        w.open(str(p))
+        for i in range(50):
+            w.write(f"record_{i}".encode())
+        assert spy.call_count == 0
+        w.sync()
+        assert spy.call_count == 1
+        w.close()
+
+    def test_sync_without_dirty_is_noop(self, tmp_path: Path, mocker):
+        """无脏数据时 sync 不应调用 fsync（含重复 sync）。"""
+        spy = mocker.patch("swanlab.sdk.internal.core_python.store.os.fsync")
+        p = tmp_path / "test.swanlab"
+        w = DataStoreWriter()
+        w.open(str(p))
+        # 刚 open、未 write：sync 是 no-op
+        w.sync()
+        assert spy.call_count == 0
+        # write 后 sync 一次，再次 sync 不重复 fsync
+        w.write(b"x")
+        w.sync()
+        w.sync()
+        assert spy.call_count == 1
+        w.close()
+
+    def test_close_flushes_pending_writes(self, tmp_path: Path, mocker):
+        """write 后未显式 sync，close 也应保证落盘（close 内含 sync）。"""
+        spy = mocker.patch("swanlab.sdk.internal.core_python.store.os.fsync")
+        p = tmp_path / "test.swanlab"
+        w = DataStoreWriter()
+        w.open(str(p))
+        w.write(b"only via close")
+        assert spy.call_count == 0
+        w.close()
+        assert spy.call_count == 1
+        # 真实落盘内容可读回
+        assert read_all(p) == [b"only via close"]
+
+    def test_close_without_dirty_does_not_fsync(self, tmp_path: Path, mocker):
+        """已 sync 过、无新写入时 close 不应再 fsync。"""
+        spy = mocker.patch("swanlab.sdk.internal.core_python.store.os.fsync")
+        p = tmp_path / "test.swanlab"
+        w = DataStoreWriter()
+        w.open(str(p))
+        w.write(b"data")
+        w.sync()
+        assert spy.call_count == 1
+        w.close()
+        assert spy.call_count == 1
+
+    def test_ensure_flushed_delegates_to_sync(self, tmp_path: Path, mocker):
+        """ensure_flushed 等价于 sync，会落盘脏数据。"""
+        spy = mocker.patch("swanlab.sdk.internal.core_python.store.os.fsync")
+        p = tmp_path / "test.swanlab"
+        w = DataStoreWriter()
+        w.open(str(p))
+        w.write(b"data")
+        w.ensure_flushed()
+        assert spy.call_count == 1
+        w.close()
+
+    def test_data_in_buffer_not_visible_before_sync(self, tmp_path: Path):
+        """write/open 后未 sync 时，数据（连文件头）都停留在 Python 用户态缓冲区。
+
+        新开一个独立 reader 句柄此时连文件头都读不到；sync 后才推给 OS 可读回。
+        写入仅入用户态 buffer，sync() 才落盘。
+        """
+        p = tmp_path / "test.swanlab"
+        w = DataStoreWriter()
+        w.open(str(p))
+        w.write(b"buffered record")
+        # 此时另开句柄读取：连文件头都还在缓冲区，reader 校验文件头失败
+        r = DataStoreReader()
+        with pytest.raises(AssertionError):
+            r.open(str(p))
+        # sync 后数据推给 OS，可被完整读回
+        w.sync()
+        assert read_all(p) == [b"buffered record"]
+        w.close()
+
+    def test_batch_write_roundtrip(self, tmp_path: Path):
+        """批量 write + 一次 sync 后，全部记录可按序读回。"""
+        p = tmp_path / "test.swanlab"
+        payloads = [f"r{i}".encode() for i in range(200)]
+        w = DataStoreWriter()
+        w.open(str(p))
+        for payload in payloads:
+            w.write(payload)
+        w.sync()
+        w.close()
+        assert read_all(p) == payloads

@@ -109,6 +109,8 @@ class CorePython(CoreProtocol):
         self._store.open(str(self._ctx.run_file))
         record = builder.build_start_record(resp.run)
         self._store.write(record.SerializeToString())
+        # start record 是后续所有数据的前提（含 run_id / experiment 元信息），优先落盘
+        self._store.sync()
 
     def _start_without_online(self, start_request: DeliverRunStartRequest, message: str) -> DeliverRunStartResponse:
         self._ctx = CoreContext.from_proto(start_request.core_settings)
@@ -188,6 +190,8 @@ class CorePython(CoreProtocol):
         assert self._store is not None, "store must be initialized before upsert"
         for record in records:
             self._store.write(record.SerializeToString())
+        # 内存缓冲区写入批次结束后统一 fsync 落盘
+        self._store.sync()
 
     def _transport_put(self, records: List[Record]) -> None:
         """将一组 Record 推送到上传队列"""

@@ -137,7 +137,7 @@ def _factory_consumer(
 ) -> ConsumerProtocol:
     if ctx.config.settings.mode == "disabled":
         return NullConsumer(ctx, e.queue, b)
-    return BackgroundConsumer(ctx, e.queue, b)
+    return BackgroundConsumer(ctx, e.queue, b, batch_size=ctx.config.settings.core.consumer_batch)
 
 
 def _factory_config(ctx: RunContext, e: EmitterProtocol) -> Config:

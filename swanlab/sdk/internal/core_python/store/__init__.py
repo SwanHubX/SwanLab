@@ -47,12 +47,21 @@ for _x in range(1, LEVELDBLOG_LAST + 1):
 
 
 class DataStoreWriter:
-    """追加写入器，持有一个长期打开的二进制文件句柄。"""
+    """追加写入器，持有一个长期打开的二进制文件句柄。
+
+    写入与落盘分离：
+    - write(): 只把数据写进文件缓冲区并标记为脏，
+    - sync():  执行一次 ``flush()+os.fsync()`` 真正落盘。调用方应按批量写完后调用一次
+    ``sync()``，写入失败崩溃时最多丢失最后一个未 ``sync()`` 的批次，
+    - close(): 根据脏页状态内部保证落盘。
+    """
 
     def __init__(self):
         self._fp: Optional[IO[Any]] = None
         self._index: int = 0
         self._flush_offset: int = 0
+        # 是否存在尚未 fsync 的写入，避免无数据时空跑 fsync
+        self._dirty: bool = False
 
     def open(self, filename: Union[Path, str]) -> None:
         """创建并初始化文件，文件已存在时抛出 FileExistsError。"""
@@ -63,7 +72,10 @@ class DataStoreWriter:
         self._index += len(header)
 
     def write(self, data: bytes) -> None:
-        """写入任意字节，遵循 LevelDB log 分块规范。"""
+        """写入任意字节，遵循 LevelDB log 分块规范。
+
+        仅写入文件缓冲区并标记为脏，不触发 fsync；需调用 :meth:`sync` 才会落盘。
+        """
         assert self._fp is not None, "writer is not open"
         offset = self._index % LEVELDBLOG_BLOCK_LEN
         space_left = LEVELDBLOG_BLOCK_LEN - offset
@@ -89,21 +101,33 @@ class DataStoreWriter:
                 data_used += LEVELDBLOG_DATA_LEN
                 data_left -= LEVELDBLOG_DATA_LEN
             self._write_record(data[data_used:], LEVELDBLOG_LAST)
-        # 每次 write 后统一 fsync，保证落盘
+        # 标记为脏，待 sync() 统一落盘
+        self._dirty = True
+
+    def sync(self) -> None:
+        """将缓冲区内所有未落盘数据刷到磁盘（一次 flush + fsync）。
+
+        无脏数据时直接返回，避免空跑 fsync。批量 write 后调用一次即可。
+        """
+        if not self._dirty:
+            return
+        assert self._fp is not None, "writer is not open"
         try:
             self._fp.flush()
             os.fsync(self._fp.fileno())
         except OSError:
             pass
         self._flush_offset = self._index
+        self._dirty = False
 
     def ensure_flushed(self) -> None:
-        assert self._fp is not None, "writer is not open"
-        self._fp.flush()
+        """确保已写入数据落盘，等价于 :meth:`sync`。"""
+        self.sync()
 
     def close(self) -> None:
         assert self._fp is not None, "writer is not open"
-        self._fp.flush()
+        # 关闭前确保所有数据落盘
+        self.sync()
         self._fp.close()
         self._fp = None
 

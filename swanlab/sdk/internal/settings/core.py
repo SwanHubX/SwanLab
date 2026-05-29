@@ -24,7 +24,14 @@ class CoreSettings(BaseModel):
     """
     record_batch: int = Field(default=10_000, gt=0, lt=100_000)
     """
-    Batch size of records per HTTP request in Dispatch. Default 10000. 
+    Batch size of records per HTTP request in Dispatch. Default 10000.
+    """
+    consumer_batch: int = Field(default=100, gt=0, lt=100_000)
+    """
+    Number of records the BackgroundConsumer (Specter thread) accumulates before
+    flushing to Core. Each flush triggers at most one fsync per record type, so a
+    larger value reduces fsync frequency at the cost of more memory and latency.
+    Default 100.
     """
     record_interval: float = Field(default=5.0, gt=0)
     """
