@@ -88,7 +88,7 @@ class DataStoreWriter:
                 data_used += LEVELDBLOG_DATA_LEN
                 data_left -= LEVELDBLOG_DATA_LEN
             self._write_record(data[data_used:], LEVELDBLOG_LAST)
-        # 每次 write 后统一 fsync，保证落盘
+        # FIX: 【会导致磁盘高频 IO】每次 write 后统一 fsync，保证落盘
         try:
             self._fp.flush()
             # 指标量在较大的情况下高频 fsync 会影响上传效率
