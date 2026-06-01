@@ -27,7 +27,7 @@ from swanlab.sdk.internal.core_python.store import DataStoreReader, DataStoreWri
 # 参数配置
 # ===========================================================================
 
-NUM_RECORDS = 100_000
+NUM_RECORDS = 1_000_000
 PAYLOAD_SIZE = 120  # 模拟标量 protobuf 序列化后大小
 
 
