@@ -9,7 +9,6 @@ DataStore 大致代码借鉴自 W&B
 文件头版本区分了不同更新时的格式变化，这方面我们不会做向下兼容，即低版本文件不一定能被新版本读取，可以通过版本降级来区分不同版本号
 """
 
-import os
 import struct
 import zlib
 from pathlib import Path
@@ -89,10 +88,11 @@ class DataStoreWriter:
                 data_used += LEVELDBLOG_DATA_LEN
                 data_left -= LEVELDBLOG_DATA_LEN
             self._write_record(data[data_used:], LEVELDBLOG_LAST)
-        # 每次 write 后统一 fsync，保证落盘
+        # FIX: 【会导致磁盘高频 IO】每次 write 后统一 fsync，保证落盘
         try:
             self._fp.flush()
-            os.fsync(self._fp.fileno())
+            # 指标量在较大的情况下高频 fsync 会影响上传效率
+            # os.fsync(self._fp.fileno())
         except OSError:
             pass
         self._flush_offset = self._index
