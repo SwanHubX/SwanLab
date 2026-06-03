@@ -312,9 +312,9 @@ for i in range(10):
 
 詳細なデプロイメントドキュメント：
 
-- [🔗 Kubernetesデプロイメントドキュメント](https://docs.swanlab.cn/en/guide_cloud/self_host/kubernetes-deploy.html)
-- [🔗 Dockerデプロイメントドキュメント](https://docs.swanlab.cn/en/guide_cloud/self_host/docker-deploy.html)
-- [🔗 DockerからKubernetesへの移行ドキュメント](https://docs.swanlab.cn/en/guide_cloud/self_host/migration-docker-kubernetes.html)
+- [🔗 Kubernetesデプロイメントドキュメント](https://docs.swanlab.cn/en/self_host/kubernetes/deploy.html)
+- [🔗 Dockerデプロイメントドキュメント](https://docs.swanlab.cn/en/self_host/docker/deploy.html)
+- [🔗 DockerからKubernetesへの移行ドキュメント](https://docs.swanlab.cn/en/self_host/docker/migration-docker-kubernetes.html)
 
 <br>
 

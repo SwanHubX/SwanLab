@@ -316,9 +316,9 @@ for i in range(10):
 
 Подробные инструкции по развертыванию:
 
-- [🔗 Kubernetes развертывание документация](https://docs.swanlab.cn/en/guide_cloud/self_host/kubernetes-deploy.html)
-- [🔗 Docker развертывание документация](https://docs.swanlab.cn/en/guide_cloud/self_host/docker-deploy.html)
-- [🔗 Документация по миграции с Docker на Kubernetes](https://docs.swanlab.cn/en/guide_cloud/self_host/migration-docker-kubernetes.html)
+- [🔗 Kubernetes развертывание документация](https://docs.swanlab.cn/en/self_host/kubernetes/deploy.html)
+- [🔗 Docker развертывание документация](https://docs.swanlab.cn/en/self_host/docker/deploy.html)
+- [🔗 Документация по миграции с Docker на Kubernetes](https://docs.swanlab.cn/en/self_host/docker/migration-docker-kubernetes.html)
 
 <br>
 

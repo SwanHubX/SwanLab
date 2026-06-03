@@ -342,9 +342,9 @@ for i in range(10):
 
 详细部署文档见：
 
-- [🔗 Kubernetes部署文档](https://docs.swanlab.cn/guide_cloud/self_host/kubernetes-deploy.html)
-- [🔗 Docker部署文档](https://docs.swanlab.cn/guide_cloud/self_host/docker-deploy.html)
-- [🔗 从Docker到Kubernetes迁移文档](https://docs.swanlab.cn/guide_cloud/self_host/migration-docker-kubernetes.html)
+- [🔗 Kubernetes部署文档](https://docs.swanlab.cn/self_host/kubernetes/deploy.html)
+- [🔗 Docker部署文档](https://docs.swanlab.cn/self_host/docker/deploy.html)
+- [🔗 从Docker到Kubernetes迁移文档](https://docs.swanlab.cn/self_host/docker/migration-docker-kubernetes.html)
 
 <br>
 

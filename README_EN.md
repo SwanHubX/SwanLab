@@ -334,9 +334,9 @@ The self-hosted community edition supports offline viewing of the SwanLab dashbo
 
 Detailed deployment documentation:
 
-- [🔗 Kubernetes Deployment Documentation](https://docs.swanlab.cn/en/guide_cloud/self_host/kubernetes-deploy.html)
-- [🔗 Docker Deployment Documentation](https://docs.swanlab.cn/en/guide_cloud/self_host/docker-deploy.html)
-- [🔗 Migration from Docker to Kubernetes Documentation](https://docs.swanlab.cn/en/guide_cloud/self_host/migration-docker-kubernetes.html)
+- [🔗 Kubernetes Deployment Documentation](https://docs.swanlab.cn/en/self_host/kubernetes/deploy.html)
+- [🔗 Docker Deployment Documentation](https://docs.swanlab.cn/en/self_host/docker/deploy.html)
+- [🔗 Migration from Docker to Kubernetes Documentation](https://docs.swanlab.cn/en/self_host/docker/migration-docker-kubernetes.html)
 
 <br>
 
