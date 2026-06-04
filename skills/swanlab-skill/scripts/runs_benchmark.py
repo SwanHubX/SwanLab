@@ -101,6 +101,8 @@ def _extract(metric_data: Dict[str, Any], key: str) -> Tuple[List[int], List[flo
     steps: List[int] = []
     values: List[float] = []
     for pt in points:
+        if not isinstance(pt, dict):
+            continue
         step = pt.get("step")
         value = pt.get("value")
         if step is not None and value is not None:
@@ -152,7 +154,7 @@ def normalize_steps(steps: List[int]) -> List[float]:
     """Map steps to [0, 100] percentage scale."""
     if not steps:
         return []
-    total = steps[-1] if steps[-1] != 0 else 1
+    total = max(steps) if max(steps) != 0 else 1
     return [s / total * 100.0 for s in steps]
 
 
@@ -439,6 +441,12 @@ def main() -> int:
         for i, path in enumerate(args.paths):
             print(f"Fetching [{i + 1}/{len(args.paths)}] {path} ...")
             experiment = api.run(path)
+            if not experiment.run_id:
+                print(
+                    f"Error: Failed to fetch experiment at path '{path}'. Please verify the path and credentials.",
+                    file=sys.stderr,
+                )
+                return 1
             name = custom_labels[i] if custom_labels else experiment.name
             raw = experiment.metrics(keys=keys, sample=args.sample, ignore_timestamp=True)
 

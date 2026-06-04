@@ -55,7 +55,7 @@ run = swanlab.init(
 | `group` | `str` | none | Group name for distributed/related experiments — see §11 |
 | `job_type` | `str` | none | Role label, e.g. `"train"`, `"worker"` — see §11 |
 | `resume` | `str` / `bool` | `"never"` | Resume strategy — see §9 |
-| `id` | `str` | auto | Custom run ID (1–64 chars, no `/ \ # ? % :`). Required when `resume="must"`. |
+| `id` | `str` | auto | Custom run ID (1–512 chars, no `<>:"/\|?*#%` or control chars). Required when `resume="must"`. |
 | `log_dir` | `str` | `"./swanlog"` | Local log directory |
 | `callbacks` | `list` | none | Callback objects for lifecycle hooks |
 | `reinit` | `bool` | `False` | If True, finish current run before starting new one |

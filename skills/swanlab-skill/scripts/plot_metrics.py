@@ -52,6 +52,8 @@ def fetch_metrics(
     """Fetch scalar metric data via the SwanLab Api."""
     api = Api(api_key=api_key, host=host)
     experiment = api.run(path)
+    if not experiment.run_id:
+        raise ValueError(f"Failed to fetch experiment at path '{path}'. Please verify the path and credentials.")
     return experiment.metrics(keys=keys, sample=sample, ignore_timestamp=True)
 
 
@@ -64,6 +66,8 @@ def fetch_summary(
     """Fetch metric summary statistics via the SwanLab Api."""
     api = Api(api_key=api_key, host=host)
     experiment = api.run(path)
+    if not experiment.run_id:
+        raise ValueError(f"Failed to fetch experiment at path '{path}'. Please verify the path and credentials.")
     return experiment.summary(keys=keys)
 
 
@@ -94,6 +98,8 @@ def extract_series(metric_data: Dict[str, Any], key: str) -> Tuple[List[int], Li
     steps: List[int] = []
     values: List[float] = []
     for pt in points:
+        if not isinstance(pt, dict):
+            continue
         step = pt.get("step")
         value = pt.get("value")
         if step is not None and value is not None:

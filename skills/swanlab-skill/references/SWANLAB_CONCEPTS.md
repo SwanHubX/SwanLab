@@ -98,7 +98,7 @@ username/project_name/run_id    → Experiment
 
 - `username`: The workspace's unique identifier.
 - `project_name`: Human-readable project name (1-100 chars, `0-9a-zA-Z-_.+`).
-- `run_id`: A unique identifier (CUID) assigned to each experiment.
+- `run_id`: A unique identifier for each experiment. Auto-generated as a short experiment_id/run_id by default, not acutally CUID, or user-supplied custom ID (1–512 chars, no `<>:"/\|?*#%` or control chars).
 
 ---
 
