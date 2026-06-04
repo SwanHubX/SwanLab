@@ -97,6 +97,21 @@ Several CLI commands take a `PATH` argument:
 | "experiment config" | Hyperparameters | `CLI_REFERENCE.md > run info` |
 | "console output" | Captured logs | `CLI_REFERENCE.md > run logs` |
 | "what columns are tracked" | Metric definitions | `CLI_REFERENCE.md > run columns` |
+| "check connectivity" / "can I reach swanlab" | Environment check | `swanlab ping` |
+
+---
+
+## Environment Connectivity
+
+Before writing tracking code or running CLI queries, especially in `online` mode, use `swanlab ping` to verify that the current environment can reach the SwanLab server:
+
+```bash
+swanlab ping
+# Reports: API host, web host, latency, and login status.
+# If ping fails, check SWANLAB_API_HOST / network proxy / firewall settings.
+```
+
+This is the fastest way to diagnose connectivity issues — run it first when a user reports upload failures, login problems, or unknown mode fallbacks.
 
 ---
 
