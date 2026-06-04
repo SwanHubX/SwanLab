@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Cross-experiment benchmark plotter.
+Cross-experiment benchmark plotter (runs_benchmark.py).
 
 Fetch the same metric from multiple SwanLab experiments via the OOP Api,
 overlay line charts (raw trend + running-best step line) for visual
@@ -8,26 +8,30 @@ comparison, and print a summary statistics table.
 
 Usage:
     # Compare one metric across 3 experiments (requires `swanlab login`)
-    python benchmark.py user/proj/run1 user/proj/run2 user/proj/run3 -k loss
+    python runs_benchmark.py user/proj/run1 user/proj/run2 user/proj/run3 -k loss
 
     # Lower-is-better metric with custom labels
-    python benchmark.py user/proj/run1 user/proj/run2 -k latency_ms \\
+    python runs_benchmark.py user/proj/run1 user/proj/run2 -k latency_ms \\
            --direction lower --labels "v1,v2"
 
     # Multiple keys (one subplot per key)
-    python benchmark.py user/proj/run1 user/proj/run2 -k loss,acc
+    python runs_benchmark.py user/proj/run1 user/proj/run2 -k loss,acc
 
     # Normalize x-axis to 0-100% for unequal-length experiments
-    python benchmark.py user/proj/run1 user/proj/run2 -k loss --normalize
+    python runs_benchmark.py user/proj/run1 user/proj/run2 -k loss --normalize
 
     # Self-hosted server
-    python benchmark.py user/proj/run1 user/proj/run2 -k loss \\
+    python runs_benchmark.py user/proj/run1 user/proj/run2 -k loss \\
            --host https://your-swanserver --api-key YOUR_KEY
+
+    # Benchmark from a pre-fetched JSON file (skip API calls entirely)
+    python runs_benchmark.py --data benchmark_data.json -k loss
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import math
 import sys
 from dataclasses import dataclass
@@ -342,8 +346,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "paths",
-        nargs="+",
-        help="Experiment paths (username/project/run_id), at least one.",
+        nargs="*",
+        help="Experiment paths (username/project/run_id). Optional when --data is used.",
     )
     parser.add_argument(
         "--keys",
@@ -383,6 +387,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--title", "-t", default=None, help="Chart title (default: auto).")
     parser.add_argument("--dpi", type=int, default=150, help="Image DPI (default: 150).")
     parser.add_argument("--api-key", default=None, help="SwanLab API key (or use swanlab login).")
+    parser.add_argument(
+        "--data", default=None, help="Path to a JSON file with pre-fetched benchmark data. Skips API calls."
+    )
     parser.add_argument("--host", default=None, help="SwanLab API host URL (for self-hosted).")
     return parser.parse_args()
 
@@ -395,31 +402,49 @@ def main() -> int:
         print("Error: --keys must contain at least one key.", file=sys.stderr)
         return 1
 
-    # Parse optional labels
-    custom_labels: List[str] = []
-    if args.labels:
-        custom_labels = [lbl.strip() for lbl in args.labels.split(",")]
-        if len(custom_labels) != len(args.paths):
-            print(
-                f"Error: --labels has {len(custom_labels)} items but {len(args.paths)} paths given.",
-                file=sys.stderr,
-            )
-            return 1
+    if not args.paths and not args.data:
+        print("Error: provide either PATH arguments or --data <json_file>.", file=sys.stderr)
+        return 1
 
-    # Fetch data — one metrics call per (experiment, key-group), no repeated requests
-    # We fetch all keys for each experiment in a single Api call, then split by key.
-    api = _create_api(args.api_key, args.host)
     all_series: Dict[str, List[ExperimentSeries]] = {k: [] for k in keys}
 
-    for i, path in enumerate(args.paths):
-        print(f"Fetching [{i + 1}/{len(args.paths)}] {path} ...")
-        experiment = api.run(path)
-        name = custom_labels[i] if custom_labels else experiment.name
-        raw = experiment.metrics(keys=keys, sample=args.sample, ignore_timestamp=True)
+    if args.data:
+        # Load pre-fetched benchmark data from JSON
+        with open(args.data, "r", encoding="utf-8") as f:
+            raw_data = json.load(f)
+        # Expected structure: {"experiments": [{"name": "...", "path": "...", "metrics": {<key>: [{"step": s, "value": v}, ...]}}]}
+        experiments = raw_data if isinstance(raw_data, list) else raw_data.get("experiments", [raw_data])
+        for exp in experiments:
+            name = exp.get("name", "unknown")
+            path = exp.get("path", "")
+            metrics = exp.get("metrics", exp)  # fallback: top-level dict if flat
+            for key in keys:
+                steps, values = _extract(metrics, key)
+                all_series[key].append(ExperimentSeries(name=name, path=path, steps=steps, values=values))
+        print(f"Loaded benchmark data from: {args.data}")
+    else:
+        # Fetch from API
+        custom_labels: List[str] = []
+        if args.labels:
+            custom_labels = [lbl.strip() for lbl in args.labels.split(",")]
+            if len(custom_labels) != len(args.paths):
+                print(
+                    f"Error: --labels has {len(custom_labels)} items but {len(args.paths)} paths given.",
+                    file=sys.stderr,
+                )
+                return 1
 
-        for key in keys:
-            steps, values = _extract(raw, key)
-            all_series[key].append(ExperimentSeries(name=name, path=path, steps=steps, values=values))
+        api = _create_api(args.api_key, args.host)
+
+        for i, path in enumerate(args.paths):
+            print(f"Fetching [{i + 1}/{len(args.paths)}] {path} ...")
+            experiment = api.run(path)
+            name = custom_labels[i] if custom_labels else experiment.name
+            raw = experiment.metrics(keys=keys, sample=args.sample, ignore_timestamp=True)
+
+            for key in keys:
+                steps, values = _extract(raw, key)
+                all_series[key].append(ExperimentSeries(name=name, path=path, steps=steps, values=values))
 
     # Print comparison tables
     for key in keys:

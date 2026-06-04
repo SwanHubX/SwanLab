@@ -18,9 +18,13 @@ Usage:
 
     # Explicit API key (skip login)
     python plot_metrics.py username/project_name/run_id --keys loss --api-key YOUR_KEY
+
+    # Plot from a pre-fetched JSON file (skip API calls entirely)
+    python plot_metrics.py --data metrics.json --keys loss,acc -o chart.png
 """
 
 import argparse
+import json
 import math
 import sys
 from typing import Any, Dict, List, Optional, Tuple
@@ -223,7 +227,15 @@ def parse_args() -> argparse.Namespace:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
-    parser.add_argument("path", help="Experiment path: username/project_name/run_id")
+    parser.add_argument(
+        "path",
+        nargs="?",
+        default=None,
+        help="Experiment path: username/project_name/run_id (optional when --data is used)",
+    )
+    parser.add_argument(
+        "--data", default=None, help="Path to a JSON file with pre-fetched metric data. Skips API calls entirely."
+    )
     parser.add_argument("--keys", "-k", required=True, help="Comma-separated metric keys, e.g. 'loss,acc'")
     parser.add_argument("--sample", "-s", type=int, default=1500, help="Sample size (default: 1500)")
     parser.add_argument(
@@ -244,16 +256,25 @@ def main() -> None:
         print("Error: --keys must contain at least one key.", file=sys.stderr)
         sys.exit(1)
 
-    print(f"Fetching metrics for: {args.path}")
-    print(f"Keys: {keys}, sample: {args.sample}")
+    if not args.path and not args.data:
+        print("Error: provide either a PATH argument or --data <json_file>.", file=sys.stderr)
+        sys.exit(1)
 
-    metric_data = fetch_metrics(
-        path=args.path,
-        keys=keys,
-        sample=args.sample,
-        api_key=args.api_key,
-        host=args.host,
-    )
+    if args.data:
+        # Load metric data from a pre-fetched JSON file
+        with open(args.data, "r", encoding="utf-8") as f:
+            metric_data = json.load(f)
+        print(f"Loaded metric data from: {args.data}")
+    else:
+        print(f"Fetching metrics for: {args.path}")
+        print(f"Keys: {keys}, sample: {args.sample}")
+        metric_data = fetch_metrics(
+            path=args.path,
+            keys=keys,
+            sample=args.sample,
+            api_key=args.api_key,
+            host=args.host,
+        )
 
     plot_line_chart(
         metric_data=metric_data,
