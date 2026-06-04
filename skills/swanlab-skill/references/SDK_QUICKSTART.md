@@ -147,18 +147,6 @@ swanlab.finish(state="crashed", error="OOM")  # report a crash
 
 ## 6. Other SDK Utilities
 
-### Save Files — `swanlab.save()`
-
-```python
-swanlab.save("checkpoints/*.pt", policy="live")
-```
-
-| `policy` | Behavior |
-|----------|----------|
-| `"now"` | Upload matched files immediately |
-| `"end"` | Defer upload until run finishes |
-| `"live"` | Watch for file changes and re-upload automatically (default) |
-
 ### Async Logging — `swanlab.async_log()`
 
 Run a function in the background, auto-log its return dict when done:
