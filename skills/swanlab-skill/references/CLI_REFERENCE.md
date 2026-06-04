@@ -157,24 +157,11 @@ swanlab api run filter -p PROJECT_PATH -f FILTER_QUERY [--save [FILENAME]] [--ho
 # Filter by state
 swanlab api run filter -p user/project -f '[{"key":"state","type":"STABLE","op":"EQ","value":["FINISHED"]}]'
 
-# Filter by config value
-swanlab api run filter -p user/project -f '[{"key":"learning_rate","type":"CONFIG","op":"GTE","value":["0.001"]}]'
-
-# Filter by time range — filter values are UTC+8, response timestamps are UTC
-swanlab api run filter -p user/project -f '[
-  {"key":"createdAt","type":"STABLE","op":"GTE","value":["2026-01-01T00:00:00"]},
-  {"key":"createdAt","type":"STABLE","op":"LTE","value":["2026-04-29T23:59:59"]}
-]'
-
 # From a JSON file
 swanlab api run filter -p user/project -f ./filters.json
-
-# Multiple filters combined
-swanlab api run filter -p user/project -f '[
-  {"key":"state","type":"STABLE","op":"IN","value":["FINISHED","RUNNING"]},
-  {"key":"learning_rate","type":"CONFIG","op":"EQ","value":["0.01"]}
-]'
 ```
+
+For full filter syntax, operators, and advanced examples (config, scalar, time range, multi-condition), see `SWANLAB_CONCEPTS.md > Filter Query`.
 
 #### `swanlab api run columns PATH`
 
@@ -261,6 +248,8 @@ swanlab api run metrics PATH --keys loss --range-head 50
 # Get data by timestamp range (Unix milliseconds)
 swanlab api run metrics PATH --keys loss --range-type timestamp --range-start 1714368000000 --range-end 1714454400000
 ```
+
+> **Tip**: For large metric data, use `--save` to write JSON to file, then plot with `scripts/plot_metrics.py --data file.json -k loss`. For quick stats, prefer `run summary` over full metrics.
 
 #### `swanlab api run summary PATH`
 

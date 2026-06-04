@@ -76,10 +76,7 @@ Both scripts require `swanlab login` (or `--api-key` / `--host` flags).
 
 ## Path Convention
 
-Several CLI commands take a `PATH` argument:
-
-- **Project path**: `username/project_name`
-- **Experiment path**: `username/project_name/run_id`
+CLI commands use `username/project_name` (project) or `username/project_name/run_id` (experiment). See `SWANLAB_CONCEPTS.md > Path Convention` for details.
 
 ---
 
@@ -117,7 +114,8 @@ This is the fastest way to diagnose connectivity issues — run it first when a 
 
 ## Behavioral Constraints
 
-- **Never use `--all` unless the user explicitly asks for it.** This bypasses pagination and fetches everything. Always use default pagination first.
-- **Always ask for specific column keys before running `run metrics`, `run medias`, or `run column`.** If unknown, run `run columns PATH` first to discover keys.
-- **Always add `--ignore-timestamp` for `run metrics` and `run logs`** unless the user specifically needs timestamps.
-- All CLI output is JSON to stdout. Pipe to `jq` for further processing.
+See `CLI_REFERENCE.md > Behavioral Constraints` for the full list. Key rules:
+
+- **Never use `--all` unless the user explicitly asks for it.**
+- **Always ask for specific column keys before running `run metrics`, `run medias`, or `run column`.**
+- **Never dump large metric JSON directly into conversation.** Use `--save` to persist to file, then visualize with `scripts/plot_metrics.py --data file.json` or use `run summary` for aggregate stats.
