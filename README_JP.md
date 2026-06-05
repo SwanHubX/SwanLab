@@ -9,7 +9,7 @@
 プロフェッショナルな AI トレーニング分析プラットフォーム  
 実験のイテレーションを高速化、50 種以上のトップクラスの AI トレーニングフレームワークと統合
 
-<a href="https://swanlab.cn">🔥SwanLab オンライン版</a> · <a href="https://docs.swanlab.cn">📃 ドキュメント</a> · <a href="https://github.com/swanhubx/swanlab/issues">問題を報告</a> · <a href="https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc">フィードバックを提案</a> · <a href="https://docs.swanlab.cn/en/guide_cloud/general/changelog.html">更新履歴</a>
+<a href="https://swanlab.cn">🔥SwanLab オンライン版</a> · <a href="https://docs.swanlab.cn">📃 ドキュメント</a> · <a href="https://github.com/swanhubx/swanlab/issues">問題を報告</a> · <a href="https://rcnpx636fedp.feishu.cn/share/base/form/shrcnMFh9kkETFS6Hsc7fsBlKHc">フィードバックを提案</a> · <a href="https://docs.swanlab.cn/en/guide_cloud/general/changelog.html">更新履歴</a>
 
 [![][release-shield]][release-link]
 [![][dockerhub-shield]][dockerhub-link]

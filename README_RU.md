@@ -9,7 +9,7 @@
 Профессиональная платформа для анализа обучения искусственного интеллекта  
 Глубокий анализ миллионов показателей, ускоренная итерация экспериментов, интеграция с 50+ ведущими фреймворками для обучения искусственного интеллекта
 
-<a href="https://swanlab.cn">🔥SwanLab Online</a> · <a href="https://docs.swanlab.cn">📃 Документация</a> · <a href="https://github.com/swanhubx/swanlab/issues">Сообщить о проблеме</a> · <a href="https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc">Оставить отзыв</a> · <a href="https://docs.swanlab.cn/en/guide_cloud/general/changelog.html">История изменений</a>
+<a href="https://swanlab.cn">🔥SwanLab Online</a> · <a href="https://docs.swanlab.cn">📃 Документация</a> · <a href="https://github.com/swanhubx/swanlab/issues">Сообщить о проблеме</a> · <a href="https://rcnpx636fedp.feishu.cn/share/base/form/shrcnMFh9kkETFS6Hsc7fsBlKHc">Оставить отзыв</a> · <a href="https://docs.swanlab.cn/en/guide_cloud/general/changelog.html">История изменений</a>
 
 [![][release-shield]][release-link]
 [![][dockerhub-shield]][dockerhub-link]

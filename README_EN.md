@@ -9,7 +9,7 @@
 An Professional, Modern-Designed AI Training Analysis Platform  
 For Model Training Teams, Integrated with 50+ Leading AI Training Frameworks, Easily Combined with Your Experimental Code
 
-<a href="https://swanlab.cn">🔥SwanLab Online</a> · <a href="https://docs.swanlab.cn">📃 Documentation</a> · <a href="https://github.com/swanhubx/swanlab/issues">Report Issues</a> · <a href="https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc">Feedback</a> · <a href="https://docs.swanlab.cn/en/guide_cloud/general/changelog.html">Changelog</a>
+<a href="https://swanlab.cn">🔥SwanLab Online</a> · <a href="https://docs.swanlab.cn">📃 Documentation</a> · <a href="https://github.com/swanhubx/swanlab/issues">Report Issues</a> · <a href="https://rcnpx636fedp.feishu.cn/share/base/form/shrcnMFh9kkETFS6Hsc7fsBlKHc">Feedback</a> · <a href="https://docs.swanlab.cn/en/guide_cloud/general/changelog.html">Changelog</a>
 
 [![][release-shield]][release-link]
 [![][dockerhub-shield]][dockerhub-link]
