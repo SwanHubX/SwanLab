@@ -5,6 +5,8 @@ on:
     paths:
       - "swanlab/**"
       - "test/**"
+      - "pyproject.toml"
+      - "uv.lock"
 
 jobs:
   type-check:
