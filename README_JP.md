@@ -39,6 +39,7 @@
 - [📃 オンラインデモ](#-オンラインデモ)
 - [🏁 クイックスタート](#-クイックスタート)
 - [💻 セルフホスティング](#-セルフホスティング)
+- [🎮 ハードウェア監視](#-ハードウェア監視)
 - [🚗 フレームワーク統合](#-フレームワーク統合)
 - [🔌 プラグイン](#-プラグイン)
 - [🆚 既存ツールとの比較](#-既存ツールとの比較)
@@ -315,6 +316,30 @@ for i in range(10):
 - [🔗 Kubernetesデプロイメントドキュメント](https://docs.swanlab.cn/en/self_host/kubernetes/deploy.html)
 - [🔗 Dockerデプロイメントドキュメント](https://docs.swanlab.cn/en/self_host/docker/deploy.html)
 - [🔗 DockerからKubernetesへの移行ドキュメント](https://docs.swanlab.cn/en/self_host/docker/migration-docker-kubernetes.html)
+
+<br>
+
+## 🎮 ハードウェア監視
+
+SwanLabはAIトレーニング中に使用される**ハードウェア情報**と**リソース使用状況**を記録します。対応状況は以下の通りです：
+
+| ハードウェア | 情報記録 | リソース監視 | スクリプト |
+| --- | --- | --- | --- |
+| NVIDIA GPU | ✅ | ✅ | [nvidia.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/nvidia.py) |
+| AMD GPU | ✅ | ✅ | [amd.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/amd.py) |
+| 昇騰NPU（Huawei Ascend） | ✅ | ✅ | [ascend.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/huawei.py) |
+| 寒武紀MLU（Cambricon） | ✅ | ✅ | [cambricon.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/cambricon.py) |
+| 昆崙芯XPU（Kunlunxin） | ✅ | ✅ | [kunlunxin.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/kunlunxin.py) |
+| 摩爾線程GPU（Moore Threads） | ✅ | ✅ | [moorethreads.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/moorethreads.py) |
+| 沐曦GPU（MetaX） | ✅ | ✅ | [metax.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/metax.py) |
+| 天數智芯GPU（Iluvatar） | ✅ | ✅ | [tianshuchip.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/iluvatar.py) |
+| 海光DCU（Hygon） | ✅ | ✅ | [hygon.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/hygon.py) |
+| CPU | ✅ | ✅ | [cpu.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/cpu.py) |
+| メモリ | ✅ | ✅ | [memory.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/memory.py) |
+| ディスク | ✅ | ✅ | [builder.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/monitor/builder.py) |
+| ネットワーク | ✅ | ✅ | [builder.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/monitor/builder.py) |
+
+その他のハードウェアの監視をご希望の場合は、IssueやPRをお気軽にご提出ください！
 
 <br>
 

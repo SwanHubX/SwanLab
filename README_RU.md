@@ -39,6 +39,7 @@
 - [📃 Онлайн-демонстрация](#-онлайн-демонстрация)
 - [🏁 Быстрый старт](#-быстрый-старт)
 - [💻 Самостоятельное размещение](#-самостоятельное-размещение)
+- [🎮 Мониторинг оборудования](#-мониторинг-оборудования)
 - [🚗 Интеграция с фреймворками](#-интеграция-с-фреймворками)
 - [🔌 Плагины](#-Плагины)
 - [🆚 Сравнение с известными инструментами](#-сравнение-с-известными-инструментами)
@@ -319,6 +320,30 @@ for i in range(10):
 - [🔗 Kubernetes развертывание документация](https://docs.swanlab.cn/en/self_host/kubernetes/deploy.html)
 - [🔗 Docker развертывание документация](https://docs.swanlab.cn/en/self_host/docker/deploy.html)
 - [🔗 Документация по миграции с Docker на Kubernetes](https://docs.swanlab.cn/en/self_host/docker/migration-docker-kubernetes.html)
+
+<br>
+
+## 🎮 Мониторинг оборудования
+
+SwanLab записывает **информацию об оборудовании** и **использование ресурсов** во время обучения ИИ-моделей. Ниже приведена таблица поддерживаемого оборудования:
+
+| Оборудование | Информация | Мониторинг | Скрипт |
+| --- | --- | --- | --- |
+| NVIDIA GPU | ✅ | ✅ | [nvidia.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/nvidia.py) |
+| AMD GPU | ✅ | ✅ | [amd.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/amd.py) |
+| NPU Huawei Ascend | ✅ | ✅ | [ascend.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/huawei.py) |
+| MLU Cambricon | ✅ | ✅ | [cambricon.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/cambricon.py) |
+| XPU Kunlunxin | ✅ | ✅ | [kunlunxin.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/kunlunxin.py) |
+| GPU Moore Threads | ✅ | ✅ | [moorethreads.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/moorethreads.py) |
+| GPU MetaX | ✅ | ✅ | [metax.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/metax.py) |
+| GPU Iluvatar | ✅ | ✅ | [tianshuchip.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/iluvatar.py) |
+| DCU Hygon | ✅ | ✅ | [hygon.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/hygon.py) |
+| CPU | ✅ | ✅ | [cpu.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/cpu.py) |
+| Память | ✅ | ✅ | [memory.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/memory.py) |
+| Диск | ✅ | ✅ | [builder.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/monitor/builder.py) |
+| Сеть | ✅ | ✅ | [builder.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/monitor/builder.py) |
+
+Если вы хотите добавить поддержку другого оборудования, Issue и PR приветствуются!
 
 <br>
 
