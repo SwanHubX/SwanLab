@@ -51,6 +51,8 @@ For Model Training Teams, Integrated with 50+ Leading AI Training Frameworks, Ea
 
 ## 🌟 Recent Updates
 
+- 2026.06.05: ⚡️ The refactored SDK and [SwanLab skill](https://www.modelscope.cn/skills/SwanLab/swanlab-skill) are now available!
+
 - 2026.05.18: 📒 Logs now support **global filtering**, so you can quickly find the log snippets you need across the entire workspace; added **chart copy** feature; chart search now includes **search history**; chart details now show **relative time**;
 
 - 2026.04.28: 🪨 **Project Pinning** is now live — place the projects your team cares about most in the most prominent spot; improved the metric panel display when hovering over line charts;
@@ -69,9 +71,9 @@ https://github.com/user-attachments/assets/964380e0-feb2-480d-b1ca-eba1be239ebb
 
 - 2026.01.02: 🥳 Added support for **AMD ROCm** and **Iluvatar GPU** hardware monitoring; SDK added heartbeat package feature, implementing more robust cloud/offline connection;
 
-- 2025.12.15: 🎉 **Kubernetes Version** of SwanLab is now available! [Deployment Documentation](https://docs.swanlab.cn/en/self_host/kubernetes/deploy.html); [NVIDIA NeMo RL](https://github.com/NVIDIA-NeMo/RL) framework is now integrated with SwanLab, [documentation](https://docs.swanlab.cn/en/guide_cloud/integration/integration-nvidia-nemo-rl.html);
-
 <details><summary>Full Changelog</summary>
+
+- 2025.12.15: 🎉 **Kubernetes Version** of SwanLab is now available! [Deployment Documentation](https://docs.swanlab.cn/en/self_host/kubernetes/deploy.html); [NVIDIA NeMo RL](https://github.com/NVIDIA-NeMo/RL) framework is now integrated with SwanLab, [documentation](https://docs.swanlab.cn/en/guide_cloud/integration/integration-nvidia-nemo-rl.html);
 
 - 2025.12.01: 🕰 Added **detailed line chart information display**, when hovering over the line chart, clicking Shift will activate Detailed Mode, allowing the display of the log point time; 📊 Chart grouping supports **MIN/MAX area range display**;
 

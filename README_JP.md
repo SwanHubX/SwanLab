@@ -50,6 +50,8 @@
 
 ## 🌟 最近の更新
 
+- 2026.06.05: ⚡️ リファクタリング版 SDK と [SwanLab skill](https://www.modelscope.cn/skills/SwanLab/swanlab-skill) が公開されました！
+
 - 2026.05.18: 📒 ログで**グローバルフィルタリング**をサポートし、必要なログ断片をすばやく全体から見つけられるように；**チャート複製**機能を追加；チャート検索に**検索履歴**機能を追加；チャート詳細に**相対時間**表示を追加；
 
 - 2026.04.28: 🪨 **プロジェクトのピン留め**が利用可能になりました、チームが最も重視するプロジェクトカードを最も目立つ位置に固定可能；折れ線グラフを Hover した際の指標パネル表示を改善；
@@ -68,9 +70,9 @@ https://github.com/user-attachments/assets/964380e0-feb2-480d-b1ca-eba1be239ebb
 
 - 2026.01.02: 🥳 **AMD ROCm** と **Iluvatar GPU** のハードウェア監視をサポート；SDK に心跳パッケージ機能を追加、より安定したクラウド/オフライン接続を実現；
 
-- 2025.12.15: 🎉SwanLab **Kubernetes版** が利用可能になりました！[デプロイメントドキュメント](https://docs.swanlab.cn/en/self_host/kubernetes/deploy.html)；[NVIDIA NeMo RL](https://github.com/NVIDIA-NeMo/RL) フレームワークがSwanLabに統合，[ドキュメント](https://docs.swanlab.cn/en/guide_cloud/integration/integration-nvidia-nemo-rl.html)；
-
 <details><summary>完全な更新履歴</summary>
+
+- 2025.12.15: 🎉SwanLab **Kubernetes版** が利用可能になりました！[デプロイメントドキュメント](https://docs.swanlab.cn/en/self_host/kubernetes/deploy.html)；[NVIDIA NeMo RL](https://github.com/NVIDIA-NeMo/RL) フレームワークがSwanLabに統合，[ドキュメント](https://docs.swanlab.cn/en/guide_cloud/integration/integration-nvidia-nemo-rl.html)；
 
 - 2025.12.01: 🕰 追加 **折れ線グラフの詳細情報表示**，折れ線グラフ上にホバーした状態で Shift をクリックすると詳細モードが有効になり、ログポイントの時間を表示できます；📊 チャートのグループ化で **MIN/MAX 範囲エリアの表示** をサポート；
 
