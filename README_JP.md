@@ -387,7 +387,7 @@ for i in range(10):
 - [Omegaconf](https://docs.swanlab.cn/en/guide_cloud/integration/integration-omegaconf.html)
 - [SpecForge](https://docs.swanlab.cn/en/guide_cloud/integration/integration-specforge.html)
 
-[その他の統合](https://docs.swanlab.cn/en/guide_cloud/integration/)
+[その他の統合](https://docs.swanlab.cn/guide_cloud/integration/integration-any-library.html)
 
 <br>
 

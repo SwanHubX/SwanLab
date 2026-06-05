@@ -461,7 +461,7 @@ Below is a list of frameworks we have integrated. Feel free to submit an [Issue]
 - [Omegaconf](https://docs.swanlab.cn/en/guide_cloud/integration/integration-omegaconf.html)
 - [SpecForge](https://docs.swanlab.cn/en/guide_cloud/integration/integration-specforge.html)
 
-[More Integrations](https://docs.swanlab.cn/en/guide_cloud/integration/)
+[More Integrations](https://docs.swanlab.cn/guide_cloud/integration/integration-any-library.html)
 
 <br>
 
