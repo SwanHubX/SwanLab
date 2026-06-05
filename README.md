@@ -291,7 +291,7 @@ pip install git+https://github.com/SwanHubX/SwanLab.git
 
 <details><summary>离线看板拓展安装</summary>
 
-[离线看板文档](https://docs.swanlab.cn/guide_cloud/self_host/offline-board.html)
+[离线看板文档](https://docs.swanlab.cn/guide_cloud/offline-board.html)
 
 ```bash
 pip install 'swanlab[dashboard]'

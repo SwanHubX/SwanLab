@@ -263,7 +263,7 @@ pip install git+https://github.com/SwanHubX/SwanLab.git
 
 <details><summary>ダッシュボード拡張機能のインストール</summary>
 
-[ダッシュボード拡張機能ドキュメント](https://docs.swanlab.cn/en/guide_cloud/self_host/offline-board.html)
+[ダッシュボード拡張機能ドキュメント](https://docs.swanlab.cn/en/guide_cloud/offline-board.html)
 
 ```bash
 pip install 'swanlab[dashboard]'

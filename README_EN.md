@@ -284,7 +284,7 @@ pip install git+https://github.com/SwanHubX/SwanLab.git
 
 <details><summary>Dashboard Extension Installation</summary>
 
-[Dashboard Extension Documentation](https://docs.swanlab.cn/en/guide_cloud/self_host/offline-board.html)
+[Dashboard Extension Documentation](https://docs.swanlab.cn/en/guide_cloud/offline-board.html)
 
 ```bash
 pip install 'swanlab[dashboard]'

@@ -267,7 +267,7 @@ pip install git+https://github.com/SwanHubX/SwanLab.git
 
 <details><summary>Установка расширения панели управления</summary>
 
-[Документация по расширению панели управления](https://docs.swanlab.cn/en/guide_cloud/self_host/offline-board.html)
+[Документация по расширению панели управления](https://docs.swanlab.cn/en/guide_cloud/offline-board.html)
 
 ```bash
 pip install 'swanlab[dashboard]'
