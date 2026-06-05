@@ -205,7 +205,7 @@ Here is a list of its core features:
 
 - **Automatic background logging**: Logging, hardware environment, Git repository, Python environment, Python library list, project runtime directory.
 
-**2. ⚡️ Comprehensive Framework Integration**: PyTorch, 🤗HuggingFace Transformers, PyTorch Lightning, 🦙LLaMA Factory, MMDetection, Ultralytics, PaddleDetection, LightGBM, XGBoost, Keras, Tensorboard, Weights&Biases, OpenAI, Swift, XTuner, Stable Baseline3, Hydra, and more, totaling **30+** frameworks.
+**2. ⚡️ Comprehensive Framework Integration**: PyTorch, 🤗HuggingFace Transformers, PyTorch Lightning, 🦙LLaMA Factory, MMDetection, Ultralytics, PaddleDetection, LightGBM, XGBoost, Keras, Tensorboard, Weights&Biases, Swift, XTuner, Stable Baseline3, Hydra, and more, totaling **30+** frameworks.
 
 ![](readme_files/integrations.png)
 
@@ -459,8 +459,6 @@ Below is a list of frameworks we have integrated. Feel free to submit an [Issue]
 - [Ray](https://docs.swanlab.cn/en/guide_cloud/integration/integration-ray.html)
 - [Hydra](https://docs.swanlab.cn/en/guide_cloud/integration/integration-hydra.html)
 - [Omegaconf](https://docs.swanlab.cn/en/guide_cloud/integration/integration-omegaconf.html)
-- [OpenAI](https://docs.swanlab.cn/en/guide_cloud/integration/integration-openai.html)
-- [ZhipuAI](https://docs.swanlab.cn/en/guide_cloud/integration/integration-zhipuai.html)
 - [SpecForge](https://docs.swanlab.cn/en/guide_cloud/integration/integration-specforge.html)
 
 [More Integrations](https://docs.swanlab.cn/en/guide_cloud/integration/)

@@ -187,7 +187,7 @@ SwanLab ориентирован на исследователей в облас
 
 ![swanlab-architecture](readme_files/swanlab-architecture.png)
 
-**2. ⚡️ Полная интеграция с фреймворками**: PyTorch, 🤗HuggingFace Transformers, PyTorch Lightning, 🦙LLaMA Factory, MMDetection, Ultralytics, PaddleDetetion, LightGBM, XGBoost, Keras, Tensorboard, Weights&Biases, OpenAI, Swift, XTuner, Stable Baseline3, Hydra и более **30+** фреймворков.
+**2. ⚡️ Полная интеграция с фреймворками**: PyTorch, 🤗HuggingFace Transformers, PyTorch Lightning, 🦙LLaMA Factory, MMDetection, Ultralytics, PaddleDetetion, LightGBM, XGBoost, Keras, Tensorboard, Weights&Biases, Swift, XTuner, Stable Baseline3, Hydra и более **30+** фреймворков.
 
 ![](readme_files/integrations.png)
 
@@ -389,8 +389,6 @@ for i in range(10):
 - [Ray](https://docs.swanlab.cn/en/guide_cloud/integration/integration-ray.html)
 - [Hydra](https://docs.swanlab.cn/en/guide_cloud/integration/integration-hydra.html)
 - [Omegaconf](https://docs.swanlab.cn/en/guide_cloud/integration/integration-omegaconf.html)
-- [OpenAI](https://docs.swanlab.cn/en/guide_cloud/integration/integration-openai.html)
-- [ZhipuAI](https://docs.swanlab.cn/en/guide_cloud/integration/integration-zhipuai.html)
 - [SpecForge](https://docs.swanlab.cn/en/guide_cloud/integration/integration-specforge.html)
 
 [Больше интеграций](https://docs.swanlab.cn/en/guide_cloud/integration/)
