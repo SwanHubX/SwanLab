@@ -68,7 +68,7 @@ https://github.com/user-attachments/assets/964380e0-feb2-480d-b1ca-eba1be239ebb
 
 - 2026.01.02: 🥳 Добавлена поддержка **AMD ROCm** и **Iluvatar GPU** мониторинга оборудования; SDK добавлена функция отправки сердцебиений, обеспечивающая более стабильное подключение к облаку/оффлайн;
 
-- 2025.12.15: 🎉 SwanLab **Kubernetes版** теперь доступен! [🔗 Документация](https://docs.swanlab.cn/en/guide_cloud/self_host/kubernetes-deploy.html); [NVIDIA NeMo RL](https://github.com/NVIDIA-NeMo/RL) фреймворк теперь интегрирован с SwanLab, [документация](https://docs.swanlab.cn/en/guide_cloud/integration/integration-nvidia-nemo-rl.html);
+- 2025.12.15: 🎉 SwanLab **Kubernetes Version** теперь доступен! [🔗 Документация](https://docs.swanlab.cn/en/self_host/kubernetes-deploy.html); [NVIDIA NeMo RL](https://github.com/NVIDIA-NeMo/RL) фреймворк теперь интегрирован с SwanLab, [документация](https://docs.swanlab.cn/en/guide_cloud/integration/integration-nvidia-nemo-rl.html);
 
 <details><summary>Полный список изменений</summary>
 

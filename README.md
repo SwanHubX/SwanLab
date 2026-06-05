@@ -77,7 +77,7 @@ https://github.com/user-attachments/assets/964380e0-feb2-480d-b1ca-eba1be239ebb
 
 - 2026.01.02：🥳 新增对**AMD ROCm**与**天数智芯Iluvatar GPU**的硬件监控支持；SDK增加心跳包特性，实现更稳健的端云连接；
 
-- 2025.12.15：🎉 SwanLab **Kubernetes版** 现已发布！[部署文档](https://docs.swanlab.cn/guide_cloud/self_host/kubernetes-deploy.html)；[NVIDIA NeMo RL](https://github.com/NVIDIA-NeMo/RL) 框架已集成SwanLab，[文档](https://docs.swanlab.cn/guide_cloud/integration/integration-nvidia-nemo-rl.html)；
+- 2025.12.15：🎉 SwanLab **Kubernetes版** 现已发布！[部署文档](https://docs.swanlab.cn/self_host/kubernetes/deploy.html)；[NVIDIA NeMo RL](https://github.com/NVIDIA-NeMo/RL) 框架已集成SwanLab，[文档](https://docs.swanlab.cn/guide_cloud/integration/integration-nvidia-nemo-rl.html)；
 
 <details><summary>完整更新日志</summary>
 
