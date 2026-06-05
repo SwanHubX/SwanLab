@@ -9,7 +9,7 @@
 Профессиональная платформа для анализа обучения искусственного интеллекта  
 Глубокий анализ миллионов показателей, ускоренная итерация экспериментов, интеграция с 50+ ведущими фреймворками для обучения искусственного интеллекта
 
-<a href="https://swanlab.cn">🔥SwanLab Online</a> · <a href="https://docs.swanlab.cn">📃 Документация</a> · <a href="https://github.com/swanhubx/swanlab/issues">Сообщить о проблеме</a> · <a href="https://geektechstudio.feishu.cn/share/base/form/shrcnyBlK8OMD0eweoFcc2SvWKc">Оставить отзыв</a> · <a href="https://docs.swanlab.cn/en/guide_cloud/general/changelog.html">История изменений</a>
+<a href="https://swanlab.cn">🔥SwanLab Online</a> · <a href="https://docs.swanlab.cn">📃 Документация</a> · <a href="https://github.com/swanhubx/swanlab/issues">Сообщить о проблеме</a> · <a href="https://rcnpx636fedp.feishu.cn/share/base/form/shrcnMFh9kkETFS6Hsc7fsBlKHc">Оставить отзыв</a> · <a href="https://docs.swanlab.cn/en/guide_cloud/general/changelog.html">История изменений</a>
 
 [![][release-shield]][release-link]
 [![][dockerhub-shield]][dockerhub-link]
@@ -39,6 +39,7 @@
 - [📃 Онлайн-демонстрация](#-онлайн-демонстрация)
 - [🏁 Быстрый старт](#-быстрый-старт)
 - [💻 Самостоятельное размещение](#-самостоятельное-размещение)
+- [🎮 Мониторинг оборудования](#-мониторинг-оборудования)
 - [🚗 Интеграция с фреймворками](#-интеграция-с-фреймворками)
 - [🔌 Плагины](#-Плагины)
 - [🆚 Сравнение с известными инструментами](#-сравнение-с-известными-инструментами)
@@ -48,6 +49,8 @@
 <br/>
 
 ## 🌟 Последние обновления
+
+- 2026.06.05: ⚡️ Рефакторированная версия SDK и [SwanLab skill](https://www.modelscope.cn/skills/SwanLab/swanlab-skill) теперь доступны!
 
 - 2026.05.18: 📒 Логи теперь поддерживают **глобальную фильтрацию**, чтобы можно было быстро находить нужные фрагменты логов; добавлена функция **копирования графиков**; в поиске по графикам появилась **история запросов**; в деталях графиков теперь отображается **относительное время**;
 
@@ -59,7 +62,7 @@ https://github.com/user-attachments/assets/964380e0-feb2-480d-b1ca-eba1be239ebb
 
 - 2026.03.19: 📊 Добавлена функция **дублирования экспериментов**, поддержка создания копий экспериментов в разных проектах и командах; **parallel** режим теперь доступен, поддержка одновременного записи показателей в разных процессах; ID эксперимента теперь можно настраивать;
 
-- 2026.02.06: 🔥**swanlab.Api** теперь доступен, предоставляя более мощный, объектно-ориентированный открытый API интерфейс, [документация](https://docs.swanlab.cn/api/py-api.html); ECharts.Table поддерживает CSV-загрузку; теперь поддерживается однократное размещение графиков на вершине групп;
+- 2026.02.06: 🔥**swanlab.Api** теперь доступен, предоставляя более мощный, объектно-ориентированный открытый API интерфейс, [документация](https://docs.swanlab.cn/en/api/py-api.html); ECharts.Table поддерживает CSV-загрузку; теперь поддерживается однократное размещение графиков на вершине групп;
 
 - 2026.01.28: ⚡️ **LightningBoard V2** теперь доступен, значительно повышает производительность панели управления;
 
@@ -67,13 +70,13 @@ https://github.com/user-attachments/assets/964380e0-feb2-480d-b1ca-eba1be239ebb
 
 - 2026.01.02: 🥳 Добавлена поддержка **AMD ROCm** и **Iluvatar GPU** мониторинга оборудования; SDK добавлена функция отправки сердцебиений, обеспечивающая более стабильное подключение к облаку/оффлайн;
 
-- 2025.12.15: 🎉 SwanLab **Kubernetes版** теперь доступен! [🔗 Документация](https://docs.swanlab.cn/en/guide_cloud/self_host/kubernetes-deploy.html); [NVIDIA NeMo RL](https://github.com/NVIDIA-NeMo/RL) фреймворк теперь интегрирован с SwanLab, [документация](https://docs.swanlab.cn/en/guide_cloud/integration/integration-nvidia-nemo-rl.html);
-
 <details><summary>Полный список изменений</summary>
+
+- 2025.12.15: 🎉 **Kubernetes-версия** SwanLab теперь доступна! [🔗 Документация](https://docs.swanlab.cn/en/self_host/kubernetes/deploy.html); [NVIDIA NeMo RL](https://github.com/NVIDIA-NeMo/RL) фреймворк теперь интегрирован с SwanLab, [документация](https://docs.swanlab.cn/en/guide_cloud/integration/integration-nvidia-nemo-rl.html);
 
 - 2025.12.01: 🕰 Добавлено **подробное отображение информации линейного графика**, при наведении курсора на линейный график нажатие Shift включает подробный режим, позволяющий отображать время точки лога; 📊 Группировка графиков поддерживает **отображение диапазона областей MIN/MAX**;
 
-- 2025.11.17: 📊 Добавлена поддержка выбора источника данных для оси X в глобальной настройке графиков и поддержка режима наведения, что повышает опыт анализа графиков; добавлена функция `SWANLAB_WEBHOOK`, [документация](https://docs.swanlab.cn/guide_cloud/experiment_track/webhook-setup.html)
+- 2025.11.17: 📊 Добавлена поддержка выбора источника данных для оси X в глобальной настройке графиков и поддержка режима наведения, что повышает опыт анализа графиков; добавлена функция `SWANLAB_WEBHOOK`, [документация](https://docs.swanlab.cn/en/guide_cloud/experiment_track/webhook-setup.html)
 
 - 2025.11.06: 🔪 **Группировка экспериментов** теперь доступна — поддержка управления группами для больших партий экспериментов; страница рабочего пространства обновлена, позволяя быстро переключаться между несколькими организациями; значительно улучшена производительность рендеринга линейных графиков; `swanlab.init` теперь поддерживает параметры `group` и `job_type`;
 
@@ -87,19 +90,19 @@ https://github.com/user-attachments/assets/964380e0-feb2-480d-b1ca-eba1be239ebb
 
 - 2025.08.06: 👥 **Совместное обучение** теперь доступно, поддержка приглашения участников проекта, совместного просмотра проекта и QR-кода; поддержка спискового представления проекта;
 
-- 2025.07.29: 🚀 Добавлена поддержка фильтрации и сортировки экспериментов в боковой панели; 📊 Добавлена панель управления столбцами в табличном представлении, позволяющая легко скрывать и отображать столбцы; 🔐 Добавлена поддержка управления несколькими API Key, что делает ваши данные более безопасными; swanlab sync теперь поддерживает файлы журналов сбоев обучения; PR кривая, ROC кривая, матрица путаницы теперь доступны, [документация](https://docs.swanlab.cn/api/py-pr_curve.html);
+- 2025.07.29: 🚀 Добавлена поддержка фильтрации и сортировки экспериментов в боковой панели; 📊 Добавлена панель управления столбцами в табличном представлении, позволяющая легко скрывать и отображать столбцы; 🔐 Добавлена поддержка управления несколькими API Key, что делает ваши данные более безопасными; swanlab sync теперь поддерживает файлы журналов сбоев обучения; PR кривая, ROC кривая, матрица путаницы теперь доступны, [документация](https://docs.swanlab.cn/en/api/py-pr_curve.html);
 
 - 2025.07.17: 📊 Добавлена поддержка **настройки линейных графиков**, поддержка гибкой настройки типа линии, цвета, толщины, сетки, позиции легенды и т.д.; 📹 Добавлена поддержка типа данных **swanlab.Video**, поддержка записи и визуализации файлов в формате GIF; глобальная панель диаграмм теперь поддерживает настройку оси Y и максимальное количество отображаемых экспериментов;
 
 - 2025.07.10: 📚 Добавлена поддержка **текстового представления**, поддержка Markdown-рендеринга и переключения направления клавиатуры, которые можно создать с помощью `swanlab.echarts.table` и `swanlab.Text`, [демонстрация](https://swanlab.cn/@ZeyiLin/ms-swift-rlhf/runs/d661ty9mslogsgk41fp0p/chart)
 
-- 2025.07.06: 🚄 Поддержка возобновления обучения; новый плагин [Файловый логгер](https://docs.swanlab.cn/en/plugin/writer-filelogdir.html); интеграция [ray](https://github.com/ray-project/ray) фреймворка, [документация](https://docs.swanlab.cn/guide_cloud/integration/integration-ray.html); интеграция [ROLL](https://github.com/volcengine/ROLL) фреймворка, спасибо [@PanAndy](https://github.com/PanAndy), [документация](https://docs.swanlab.cn/guide_cloud/integration/integration-roll.html)
+- 2025.07.06: 🚄 Поддержка возобновления обучения; новый плагин Файловый логгер; интеграция [ray](https://github.com/ray-project/ray) фреймворка, [документация](https://docs.swanlab.cn/en/guide_cloud/integration/integration-ray.html); интеграция [ROLL](https://github.com/alibaba/ROLL) фреймворка, спасибо [@PanAndy](https://github.com/PanAndy), [документация](https://docs.swanlab.cn/en/guide_cloud/integration/integration-roll.html)
 
 - 2025.06.27: Добавлена поддержка **малого масштабирования** для линейных графиков; добавлена поддержка **плавного масштабирования** для отдельных линейных графиков; значительно улучшена интерактивность изображений после масштабирования.
 
-- 2025.06.20: 🤗 Интегрирована платформа [accelerate](https://github.com/huggingface/accelerate), [PR](https://github.com/huggingface/accelerate/pull/3605), [документация](https://docs.swanlab.cn/guide_cloud/integration/integration-huggingface-accelerate.html), улучшает опыт записи и анализа экспериментов в распределенном обучении.
+- 2025.06.20: 🤗 Интегрирована платформа [accelerate](https://github.com/huggingface/accelerate), [PR](https://github.com/huggingface/accelerate/pull/3605), [документация](https://docs.swanlab.cn/en/guide_cloud/integration/integration-huggingface-accelerate.html), улучшает опыт записи и анализа экспериментов в распределенном обучении.
 
-- 2025.06.18: 🐜 Интегрирована платформа [AREAL](https://github.com/inclusionAI/AReaL), спасибо [@xichengpro](https://github.com/xichengpro), [PR](https://github.com/inclusionAI/AReaL/pull/98), [документация](https://inclusionai.github.io/AReaL/tutorial/quickstart.html#monitoring-the-training-process); 🖱 Добавлена подсветка соответствующих кривых при наведении мыши на эксперименты в боковой панели; Поддержка сравнения линейных графиков между группами; Возможность настройки правил обрезки названий экспериментов;
+- 2025.06.18: 🐜 Интегрирована платформа [AREAL](https://github.com/areal-project/AReaL), спасибо [@xichengpro](https://github.com/xichengpro), [PR](https://github.com/areal-project/AReaL/pull/98), [документация](https://inclusionai.github.io/AReaL/tutorial/quickstart.html#monitoring-the-training-process); 🖱 Добавлена подсветка соответствующих кривых при наведении мыши на эксперименты в боковой панели; Поддержка сравнения линейных графиков между группами; Возможность настройки правил обрезки названий экспериментов;
 
 - 2025.06.11: 📊 Добавлена поддержка типа данных **swanlab.echarts.table**, позволяющая отображать чистые текстовые диаграммы; добавлена поддержка **растягивающего взаимодействия** для групп, позволяющая отображать больше диаграмм одновременно; добавлены опции **максимального/минимального значения** для табличных представлений;
 
@@ -123,11 +126,11 @@ https://github.com/user-attachments/assets/964380e0-feb2-480d-b1ca-eba1be239ebb
 
 - 2025.04.07: Мы завершили совместную интеграцию с [EvalScope](https://github.com/ModelScope/EvalScope). Теперь вы можете использовать **SwanLab** в EvalScope для **оценки производительности больших моделей**.
 
-- 2025.03.30: Добавлена поддержка метода **swanlab.Settings**, обеспечивающего более точный контроль над поведением экспериментов; добавлена поддержка мониторинга оборудования **Cambricon MLU**; интегрированы уведомления через [Slack](https://docs.swanlab.cn/plugin/notification-slack.html) и [Discord](https://docs.swanlab.cn/plugin/notification-discord.html).
+- 2025.03.30: Добавлена поддержка метода **swanlab.Settings**, обеспечивающего более точный контроль над поведением экспериментов; добавлена поддержка мониторинга оборудования **Cambricon MLU**; интегрированы уведомления через [Slack](https://docs.swanlab.cn/en/plugin/notification-slack.html) и [Discord](https://docs.swanlab.cn/en/plugin/notification-discord.html).
 
 - 2025.03.21: 🎉🤗 HuggingFace Transformers официально интегрировал SwanLab (версия >=4.50.0), [#36433](https://github.com/huggingface/transformers/pull/36433). Добавлена поддержка графиков Object3D, теперь вы можете отслеживать и визуализировать 3D облака точек, [docs](https://docs.swanlab.cn/en/api/py-object3d.html). Мониторинг оборудования поддерживает запись памяти GPU (МБ), использования диска, а также отправленных и полученных данных сети.
 
-- 2025.03.12: 🎉🎉 SwanLab**самостоятельное размещение** теперь доступно! [🔗 Документация](https://docs.swanlab.cn/en/guide_cloud/self_host/docker-deploy.html); SwanLab теперь поддерживает расширение плагинов, таких как [Email Notification](https://docs.swanlab.cn/en/plugin/notification-email.html) и [Lark Notification](https://docs.swanlab.cn/en/plugin/notification-lark.html).
+- 2025.03.12: 🎉🎉 SwanLab**самостоятельное размещение** теперь доступно! [🔗 Документация](https://docs.swanlab.cn/en/self_host/docker/deploy.html); SwanLab теперь поддерживает расширение плагинов, таких как [Email Notification](https://docs.swanlab.cn/en/plugin/notification-email.html) и [Lark Notification](https://docs.swanlab.cn/en/plugin/notification-lark.html).
 
 - 2025.03.09: Добавлена интеграция с [MLFlow](https://docs.swanlab.cn/en/guide_cloud/integration/integration-mlflow.html), теперь вы можете использовать SwanLab для **отслеживания и визуализации экспериментов MLFlow**.
 
@@ -143,7 +146,7 @@ https://github.com/user-attachments/assets/964380e0-feb2-480d-b1ca-eba1be239ebb
 
 - 2025.02.16: Добавлены функции перемещения групп и создания групп.
 
-- 2025.02.09: Мы объединили усилия с [veRL](https://github.com/volcengine/verl), теперь вы можете использовать SwanLab в veRL для **отслеживания и визуализации экспериментов по тонкой настройке больших моделей** в LLaMA Factory, [инструкция по использованию](https://docs.swanlab.cn/en/guide_cloud/integration/integration-verl.html).
+- 2025.02.09: Мы объединили усилия с [veRL](https://github.com/verl-project/verl), теперь вы можете использовать SwanLab в veRL для **отслеживания и визуализации экспериментов по обучению с подкреплением больших моделей**, [инструкция по использованию](https://docs.swanlab.cn/en/guide_cloud/integration/integration-verl.html).
 
 - 2025.02.05: `swanlab.log` поддерживает вложенные словари [#812](https://github.com/SwanHubX/SwanLab/pull/812), поддерживает параметры `name` и `notes`.
 
@@ -155,7 +158,7 @@ https://github.com/user-attachments/assets/964380e0-feb2-480d-b1ca-eba1be239ebb
 
 - 2025.01.01: Добавлено **сглаживание графиков** и возможность изменения размера графиков перетаскиванием, улучшено взаимодействие с графиками.
 
-- 2024.12.22: Интеграция с [LLaMA Factory](https://github.com/hiyouga/LLaMA-Factory), теперь можно использовать SwanLab для **отслеживания и визуализации экспериментов по тонкой настройке больших моделей** в LLaMA Factory, [инструкция по использованию](https://github.com/hiyouga/LLaMA-Factory?tab=readme-ov-file#use-swanlab-logger).
+- 2024.12.22: Интеграция с [LLaMA Factory](https://github.com/hiyouga/LlamaFactory), теперь можно использовать SwanLab для **отслеживания и визуализации экспериментов по тонкой настройке больших моделей** в LLaMA Factory, [инструкция по использованию](https://github.com/hiyouga/LlamaFactory?tab=readme-ov-file#use-swanlab-logger).
 
 - 2024.12.15: Добавлена функция **мониторинга оборудования (0.4.0)**, поддерживается запись и мониторинг системной информации для CPU, NPU (Ascend), GPU (Nvidia).
 
@@ -187,7 +190,7 @@ SwanLab ориентирован на исследователей в облас
 
 ![swanlab-architecture](readme_files/swanlab-architecture.png)
 
-**2. ⚡️ Полная интеграция с фреймворками**: PyTorch, 🤗HuggingFace Transformers, PyTorch Lightning, 🦙LLaMA Factory, MMDetection, Ultralytics, PaddleDetetion, LightGBM, XGBoost, Keras, Tensorboard, Weights&Biases, OpenAI, Swift, XTuner, Stable Baseline3, Hydra и более **30+** фреймворков.
+**2. ⚡️ Полная интеграция с фреймворками**: PyTorch, 🤗HuggingFace Transformers, PyTorch Lightning, 🦙LLaMA Factory, MMDetection, Ultralytics, PaddleDetetion, LightGBM, XGBoost, Keras, Tensorboard, Weights&Biases, Swift, XTuner, Stable Baseline3, Hydra и более **30+** фреймворков.
 
 ![](readme_files/integrations.png)
 
@@ -203,7 +206,7 @@ SwanLab ориентирован на исследователей в облас
 
 **8. 💻 Поддержка самостоятельного размещения**: Поддержка оффлайн использования, локальная версия также позволяет просматривать панель управления и управлять экспериментами.
 
-**9. 🔌 Плагины**: Поддержка расширения сценариев использования SwanLab с помощью плагинов, например [Lark Notification](https://docs.swanlab.cn/plugin/notification-lark.html), [Slack Notification](https://docs.swanlab.cn/plugin/notification-slack.html), [CSV Logger](https://docs.swanlab.cn/plugin/writer-csv.html) и т.д.
+**9. 🔌 Плагины**: Поддержка расширения сценариев использования SwanLab с помощью плагинов, например [Lark Notification](https://docs.swanlab.cn/en/plugin/notification-lark.html), [Slack Notification](https://docs.swanlab.cn/en/plugin/notification-slack.html), [CSV Logger](https://docs.swanlab.cn/en/plugin/writer-csv.html) и т.д.
 
 > \[!IMPORTANT]
 >
@@ -266,7 +269,7 @@ pip install git+https://github.com/SwanHubX/SwanLab.git
 
 <details><summary>Установка расширения панели управления</summary>
 
-[Документация по расширению панели управления](https://docs.swanlab.cn/en/guide_cloud/self_host/offline-board.html)
+[Документация по расширению панели управления](https://docs.swanlab.cn/en/guide_cloud/offline-board.html)
 
 ```bash
 pip install 'swanlab[dashboard]'
@@ -319,6 +322,30 @@ for i in range(10):
 - [🔗 Kubernetes развертывание документация](https://docs.swanlab.cn/en/self_host/kubernetes/deploy.html)
 - [🔗 Docker развертывание документация](https://docs.swanlab.cn/en/self_host/docker/deploy.html)
 - [🔗 Документация по миграции с Docker на Kubernetes](https://docs.swanlab.cn/en/self_host/docker/migration-docker-kubernetes.html)
+
+<br>
+
+## 🎮 Мониторинг оборудования
+
+SwanLab записывает **информацию об оборудовании** и **использование ресурсов** во время обучения ИИ-моделей. Ниже приведена таблица поддерживаемого оборудования:
+
+| Оборудование | Информация | Мониторинг | Скрипт |
+| --- | --- | --- | --- |
+| NVIDIA GPU | ✅ | ✅ | [nvidia.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/nvidia.py) |
+| AMD GPU | ✅ | ✅ | [amd.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/amd.py) |
+| NPU Huawei Ascend | ✅ | ✅ | [ascend.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/huawei.py) |
+| MLU Cambricon | ✅ | ✅ | [cambricon.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/cambricon.py) |
+| XPU Kunlunxin | ✅ | ✅ | [kunlunxin.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/kunlunxin.py) |
+| GPU Moore Threads | ✅ | ✅ | [moorethreads.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/moorethreads.py) |
+| GPU MetaX | ✅ | ✅ | [metax.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/metax.py) |
+| GPU Iluvatar | ✅ | ✅ | [iluvatar.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/iluvatar.py) |
+| DCU Hygon | ✅ | ✅ | [hygon.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/hygon.py) |
+| CPU | ✅ | ✅ | [cpu.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/cpu.py) |
+| Память | ✅ | ✅ | [memory.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/memory.py) |
+| Диск | ✅ | ✅ | [builder.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/monitor/builder.py) |
+| Сеть | ✅ | ✅ | [builder.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/monitor/builder.py) |
+
+Если вы хотите добавить поддержку другого оборудования, Issue и PR приветствуются!
 
 <br>
 
@@ -389,11 +416,9 @@ for i in range(10):
 - [Ray](https://docs.swanlab.cn/en/guide_cloud/integration/integration-ray.html)
 - [Hydra](https://docs.swanlab.cn/en/guide_cloud/integration/integration-hydra.html)
 - [Omegaconf](https://docs.swanlab.cn/en/guide_cloud/integration/integration-omegaconf.html)
-- [OpenAI](https://docs.swanlab.cn/en/guide_cloud/integration/integration-openai.html)
-- [ZhipuAI](https://docs.swanlab.cn/en/guide_cloud/integration/integration-zhipuai.html)
 - [SpecForge](https://docs.swanlab.cn/en/guide_cloud/integration/integration-specforge.html)
 
-[Больше интеграций](https://docs.swanlab.cn/en/guide_cloud/integration/)
+[Больше интеграций](https://docs.swanlab.cn/en/guide_cloud/integration/integration-any-library.html)
 
 <br>
 
@@ -432,9 +457,8 @@ for i in range(10):
 - [Уведомления в WXWork](https://docs.swanlab.cn/en/plugin/notification-wxwork.html)
 - [Уведомления в Discord](https://docs.swanlab.cn/en/plugin/notification-discord.html)
 - [Уведомления в Slack](https://docs.swanlab.cn/en/plugin/notification-slack.html)
-- [Уведомления в Bark](https://docs.swanlab.cn/plugin/notification-bark.html)
+- [Уведомления в Bark](https://docs.swanlab.cn/en/plugin/notification-bark.html)
 - [CSV-логгер](https://docs.swanlab.cn/en/plugin/writer-csv.html)
-- [Файловый логгер](https://docs.swanlab.cn/en/plugin/writer-filelogdir.html)
 
 <br>
 
