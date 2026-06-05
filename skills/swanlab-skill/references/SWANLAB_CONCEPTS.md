@@ -98,7 +98,7 @@ username/project_name/run_id    → Experiment
 
 - `username`: The workspace's unique identifier.
 - `project_name`: Human-readable project name (1-100 chars, `0-9a-zA-Z-_.+`).
-- `run_id`: A unique identifier (CUID) assigned to each experiment.
+- `run_id`: A unique identifier for each experiment. Auto-generated as a short experiment_id/run_id by default, not acutally CUID, or user-supplied custom ID (1–512 chars, no `<>:"/\|?*#%` or control chars).
 
 ---
 
@@ -120,6 +120,8 @@ Structure per data point:
 ```
 
 **Statistics** are computed server-side per scalar column: `min`, `max`, `avg`, `median`, `latest`.
+
+> **Tip**: When metric data is large, use `--save` to persist JSON to file, then visualize with `scripts/plot_metrics.py --data file.json -k loss`. For quick stats without full time-series, prefer `run summary`.
 
 **Sampling**: By default, `--sample 1500` returns downsampled data for visualization. Use `--all` to fetch all data points without sampling limit.
 
@@ -281,30 +283,6 @@ This differs from the regular `project list` / `workspace info` commands, which 
 
 ---
 
-## Quick Disambiguation
-
-| User says... | They probably mean... | CLI command |
-|---|---|---|
-| "my experiments" | Experiments in a project | `swanlab api run list -p user/project` |
-| "training metrics" | Scalar time-series data | `swanlab api run metrics PATH --keys loss,acc` |
-| "my loss curve" | Scalar data for the "loss" key | `swanlab api run metrics PATH --keys loss` |
-| "experiment config" | Hyperparameters set at init | `swanlab api run info PATH` (look at `profile.config`) |
-| "logged images" | Media metrics | `swanlab api run medias PATH --keys image` |
-| "console output" | Captured logs | `swanlab api run logs PATH` |
-| "download logs" | Export logs as file | `swanlab api run export-logs PATH` |
-| "what columns are tracked" | Metric definitions | `swanlab api run columns PATH` |
-| "my projects" | Projects in a workspace | `swanlab api project list` |
-| "create a new project" | Make a project | `swanlab api project create -n NAME` |
-| "who am I" | Current user info | `swanlab api user info` |
-| "self-hosted users" | User management | `swanlab api self-hosted list-users` |
-| "all projects on server" | Instance-wide project listing (self-hosted) | `swanlab api self-hosted list-projects` |
-| "all workspaces on server" | Instance-wide workspace listing (self-hosted) | `swanlab api self-hosted list-workspaces` |
-| "server usage summary" | System usage stats (self-hosted) | `swanlab api self-hosted summary` |
-| "filter experiments" | Query by conditions | `swanlab api run filter -p user/project -f QUERY` |
-| "best loss" | Minimum scalar value | `swanlab api run metrics PATH --keys loss` (check `min` field) |
-| "metric summary / statistics" | Per-key scalar aggregates | `swanlab api run summary PATH` |
-| "compare experiments at a glance" | Summary stats across keys | `swanlab api run summary PATH --keys loss,acc` |
-
 ---
 
 ## Filter Query (Experiment Filtering)
@@ -443,9 +421,4 @@ Multiple filters combined:
 
 ## Run Modes
 
-| Mode | Local Storage | Cloud Upload | Use Case |
-|------|--------------|-------------|----------|
-| `online` | Yes | Yes | Normal cloud usage |
-| `local` | Yes | No | Air-gapped / no account |
-| `offline` | Yes | No (syncable later via `swanlab sync`) | Cloud later |
-| `disabled` | No | No | Disable all logging |
+See `SKILL.md > Run Modes` for the mode table. CONCEPTS focuses on data model, not SDK configuration.
