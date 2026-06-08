@@ -54,10 +54,16 @@ class Html(TransformMedia):
                 self.content = path.read_text(encoding="utf-8")
             else:
                 self.content = data
+        elif isinstance(data, TransformMedia):
+            # Html instances are handled by _unwrap above; this is a type-safety guard
+            raise TypeError(
+                f"Unsupported HTML data type: {type(data).__name__}. "
+                "Please provide a file path (str/Path), raw HTML string, or a file object."
+            )
         elif hasattr(data, "read"):
             # TextIO → 读取内容
-            data.seek(0)
-            self.content = data.read()
+            data.seek(0)  # type: ignore[union-attr]
+            self.content = data.read()  # type: ignore[union-attr]
         else:
             raise TypeError(
                 f"Unsupported HTML data type: {type(data).__name__}. "
