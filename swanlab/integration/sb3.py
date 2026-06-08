@@ -25,6 +25,8 @@ class _SwanLabOutputFormat(_Sb3KVWriter):
             if isinstance(value, bool):
                 continue
             try:
+                # train/approx_kl 需要做一下 reduce 计算，不使用 .item()，返回类型为 numpy.float32
+                # numpy.float32 和 python float 类型判断不一致，需要手动转换
                 logs[key] = float(value)
             except Exception:
                 pass
