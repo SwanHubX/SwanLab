@@ -163,6 +163,35 @@ def test_upload_resource_reports_progress_after_successful_put():
     assert stats.uploaded_size >= 9  # 5 + 4
 
 
+def test_upload_resource_uses_provided_content_type(tmp_path: Path):
+    html_file = tmp_path / "report.html"
+    html_file.write_text("<h1>report</h1>", encoding="utf-8")
+    fake_session = _FakeSession()
+
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(
+            upload_api.client,
+            "post",
+            lambda *_args, **_kwargs: _FakePresignResponse(["https://s3.test/html"]),
+        )
+
+        upload_api.upload_resource(
+            cast(Session, fake_session),
+            "experiment-id",
+            paths=["media/html/report.html"],
+            buffers=[html_file],
+            content_types=["text/html"],
+        )
+
+    assert fake_session.puts == [
+        {
+            "url": "https://s3.test/html",
+            "data": b"<h1>report</h1>",
+            "headers": {"Content-Type": "text/html"},
+        }
+    ]
+
+
 def test_upload_resource_handles_standard_file_objects(tmp_path: Path):
     temp_file = tmp_path / "media_file.bin"
     temp_file.write_bytes(b"some media data")

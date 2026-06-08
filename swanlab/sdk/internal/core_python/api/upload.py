@@ -151,11 +151,13 @@ def upload_resource(
     *,
     paths: List[str],
     buffers: List[Union[IO[bytes], str, Path]],
+    content_types: Optional[List[str]] = None,
     tracker: Optional[UploadTracker] = None,
 ):
     """
     上传资源文件到对象存储，先向后端请求上传凭据，然后使用凭据上传文件到对象存储。
 
+    :param content_types: 可选的逐文件 Content-Type 列表，不传时使用二进制默认值。
     :param tracker: 可选的进度追踪器，非 None 时自动汇报字节级进度和完成事件。
     """
     resp = client.post(
@@ -164,20 +166,24 @@ def upload_resource(
     )
     urls = resp.data["urls"]
 
-    def upload_one(url: str, buffer: Union[IO[bytes], str, Path], file_key: str, size: int):
+    def upload_one(url: str, buffer: Union[IO[bytes], str, Path], file_key: str, size: int, content_type: str):
         # 上传单个文件，支持文件路径和内存 buffer 两种形式
         if isinstance(buffer, (str, Path)):
             with open(buffer, "rb") as f:
-                _put_with_progress(session, url, f, file_key, size, tracker)
+                _put_with_progress(session, url, f, file_key, size, tracker, content_type=content_type)
         else:
-            _put_with_progress(session, url, buffer, file_key, size, tracker)
+            _put_with_progress(session, url, buffer, file_key, size, tracker, content_type=content_type)
 
     with SafeThreadPoolExecutor(max_workers=10) as executor:
         futures = []
         for index, url in enumerate(urls):
-            size = get_buffer_size(buffers[index])
+            buffer = buffers[index]
+            size = get_buffer_size(buffer)
             file_key = f"{paths[index]}:{size}"
-            futures.append((executor.submit(upload_one, url, buffers[index], file_key, size), file_key))
+            content_type = "application/octet-stream"
+            if content_types is not None and index < len(content_types):
+                content_type = content_types[index]
+            futures.append((executor.submit(upload_one, url, buffer, file_key, size, content_type), file_key))
         for future, file_key in futures:
             try:
                 future.result()

@@ -178,6 +178,7 @@ class HttpRecordSender:
         metrics: UploadMediaBatch = []
         paths: list[str] = []
         buffers: list[Union[IO[bytes], str, Path]] = []
+        content_types: list[str] = []
         for record in records:
             if not record.HasField("media"):
                 continue
@@ -210,6 +211,7 @@ class HttpRecordSender:
                         record_paths.append(remote_path_str)
                         paths.append(remote_path_str)
                         buffers.append(local_path)
+                        content_types.append(mimetypes.guess_type(str(local_path))[0] or "application/octet-stream")
                         if media.caption:
                             metric_chunk["more"].append({"caption": media.caption})
                 if len(record_paths) > 0:
@@ -226,6 +228,7 @@ class HttpRecordSender:
             self._experiment_id,
             paths=paths,
             buffers=buffers,
+            content_types=content_types,
             tracker=self._tracker,
         )
 

@@ -75,14 +75,14 @@ def _make_save_record(source: Path, name: str = "checkpoints/model.txt") -> Reco
     return Record(save=SaveRecord(name=name, source_path=str(source), target_path=str(source)))
 
 
-def _make_media_record(filename: str) -> Record:
+def _make_media_record(filename: str, media_type=ColumnType.COLUMN_TYPE_IMAGE) -> Record:
     timestamp = Timestamp()
     timestamp.GetCurrentTime()
     return Record(
         media=MediaRecord(
             key="examples/image",
             step=1,
-            type=ColumnType.COLUMN_TYPE_IMAGE,
+            type=media_type,
             timestamp=timestamp,
             value=MediaValue(items=[MediaItem(filename=filename)]),
         )
@@ -274,6 +274,32 @@ def test_upload_save_tracks_multipart_parts_once_across_retries(tmp_path: Path):
     assert mock_complete.call_count == 2
 
 
+def test_upload_media_passes_guessed_content_type(tmp_path: Path):
+    media_dir = tmp_path / "media" / "html"
+    media_dir.mkdir(parents=True)
+    html_path = media_dir / "report.html"
+    html_path.write_text("<h1>report</h1>", encoding="utf-8")
+    sender = _make_sender(tmp_path)
+
+    def _fake_upload_resource(_, __, *, paths, buffers, content_types=None, tracker=None):
+        assert paths == ["media/html/report.html"]
+        assert buffers == [html_path]
+        assert content_types == ["text/html"]
+
+    with (
+        patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=MagicMock()),
+        patch(
+            "swanlab.sdk.internal.core_python.transport.sender.upload_resource",
+            side_effect=_fake_upload_resource,
+        ) as mock_upload_resource,
+        patch("swanlab.sdk.internal.core_python.transport.sender.upload_media") as mock_upload_media,
+    ):
+        sender.upload_media([_make_media_record("report.html", ColumnType.COLUMN_TYPE_HTML)])
+
+    mock_upload_resource.assert_called_once()
+    mock_upload_media.assert_called_once()
+
+
 def test_upload_media_finishes_file_inside_progress_callback(tmp_path: Path):
     media_dir = tmp_path / "media" / "image"
     media_dir.mkdir(parents=True)
@@ -286,8 +312,9 @@ def test_upload_media_finishes_file_inside_progress_callback(tmp_path: Path):
     sender.set_tracker(inner_tracker)
     snapshots = []
 
-    def _fake_upload_resource(_, __, *, paths, buffers, tracker=None):
+    def _fake_upload_resource(_, __, *, paths, buffers, content_types=None, tracker=None):
         assert paths == ["media/image/first.png", "media/image/second.png"]
+        assert content_types == ["image/png", "image/png"]
         assert tracker is not None
         tracker.finish_file("media/image/first.png:3")
         snapshots.append(inner_tracker.snapshot())
