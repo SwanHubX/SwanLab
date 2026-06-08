@@ -406,7 +406,7 @@ def send_webhook(ctx: RunContext) -> Tuple[bool, bool]:
             "swanlab": {
                 "version": helper.get_swanlab_version(),
                 "mode": ctx.config.settings.mode,
-                "run_dir": ctx.run_dir,
+                "run_dir": str(ctx.run_dir),
                 "exp_url": exp_url,
             },
         },
