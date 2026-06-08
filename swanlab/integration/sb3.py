@@ -26,7 +26,7 @@ class _SwanLabOutputFormat(_Sb3KVWriter):
                 continue
             try:
                 logs[key] = float(value)
-            except (ValueError, TypeError):
+            except Exception:
                 pass
         if logs:
             swanlab.log(logs, step=step)
