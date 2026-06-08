@@ -22,8 +22,14 @@ class _SwanLabOutputFormat(_Sb3KVWriter):
     ) -> None:
         logs: Dict[str, Any] = {}
         for key, value in key_values.items():
-            if isinstance(value, (int, float)):
-                logs[key] = value
+            if isinstance(value, bool):
+                continue
+            try:
+                # train/approx_kl 需要做一下 reduce 计算，不使用 .item()，返回类型为 numpy.float32
+                # numpy.float32 和 python float 类型判断不一致，需要手动转换
+                logs[key] = float(value)
+            except Exception:
+                pass
         if logs:
             swanlab.log(logs, step=step)
 
