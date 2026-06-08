@@ -22,8 +22,12 @@ class _SwanLabOutputFormat(_Sb3KVWriter):
     ) -> None:
         logs: Dict[str, Any] = {}
         for key, value in key_values.items():
-            if isinstance(value, (int, float)):
-                logs[key] = value
+            if isinstance(value, bool):
+                continue
+            try:
+                logs[key] = float(value)
+            except (ValueError, TypeError):
+                pass
         if logs:
             swanlab.log(logs, step=step)
 
