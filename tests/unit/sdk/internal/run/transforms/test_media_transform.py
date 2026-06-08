@@ -20,6 +20,7 @@ import swanlab.sdk.internal.run.transforms  # noqa: F401  # type: ignore — 触
 from swanlab.sdk.internal.context import TransformMedia
 from swanlab.sdk.internal.run.transforms.audio import Audio
 from swanlab.sdk.internal.run.transforms.echarts import ECharts
+from swanlab.sdk.internal.run.transforms.html import Html
 from swanlab.sdk.internal.run.transforms.image import Image
 from swanlab.sdk.internal.run.transforms.molecule import Molecule
 from swanlab.sdk.internal.run.transforms.object3d import Object3D
@@ -36,6 +37,7 @@ _GIF_1X1 = (
 MEDIA_FACTORIES = {
     Audio: lambda: Audio(np.zeros((1, 4410), dtype=np.float32), sample_rate=44100),
     ECharts: lambda: ECharts(pyecharts.charts.Bar().add_xaxis(["a"]).add_yaxis("b", [1])),
+    Html: lambda: Html("<h1>hello world</h1>"),
     Image: lambda: Image(np.zeros((10, 10, 3), dtype=np.uint8)),
     Object3D: lambda: Object3D(np.zeros((10, 3), dtype=np.float64)),
     Text: lambda: Text(content="hello world"),
