@@ -413,6 +413,35 @@ class TestInitLocalMode:
 
         assert run._ctx.config.settings.experiment.name == "test-save-exp"
 
+    def test_init_local_sends_webhook_with_path_run_dir(self):
+        """local init 发送 webhook 时应支持真实上下文中的 Path run_dir。"""
+        webhook_url = "https://example.com/webhook"
+        webhook_settings = Settings.model_validate(
+            {
+                "integration": {
+                    "webhook": {
+                        "url": webhook_url,
+                        "value": "test_webhook_value",
+                        "timeout": 5,
+                    }
+                },
+                "probe": {"monitor": False},
+            }
+        )
+
+        with responses_lib.RequestsMock(assert_all_requests_are_fired=False) as rsps:
+            rsps.add(responses_lib.POST, webhook_url, status=200)
+            run = init(mode="local", project="webhook-project", settings=webhook_settings)
+            try:
+                assert len(rsps.calls) == 1
+                request = rsps.calls[0].request
+                payload = json.loads(request.body)  # type: ignore
+                assert payload["value"] == "test_webhook_value"
+                assert payload["swanlab"]["mode"] == "local"
+                assert payload["swanlab"]["run_dir"] == str(run._ctx.run_dir)
+            finally:
+                run.finish()
+
 
 # ============================================================
 # TestInitOfflineMode

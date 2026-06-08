@@ -6,6 +6,7 @@
 """
 
 import json
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
@@ -119,3 +120,20 @@ def test_send_webhook_local_mode(mock_ctx, setup_mocks):
     payload = json.loads(request.body)  # type: ignore
     assert payload["swanlab"]["mode"] == "local"
     assert payload["swanlab"]["exp_url"] is None
+
+
+@responses.activate
+def test_send_webhook_serializes_path_run_dir(mock_ctx, setup_mocks):
+    """webhook 载荷中的 run_dir 应支持真实 RunContext 使用的 Path 类型。"""
+    settings = mock_ctx.config.settings
+    mock_ctx.run_dir = Path("/path/to/run_dir")
+    webhook_url = settings.integration.webhook.url
+
+    responses.add(responses.POST, webhook_url, status=200)
+
+    assert send_webhook(mock_ctx) == (True, True)
+
+    assert len(responses.calls) == 1
+    request = responses.calls[0].request
+    payload = json.loads(request.body)  # type: ignore
+    assert payload["swanlab"]["run_dir"] == "/path/to/run_dir"
