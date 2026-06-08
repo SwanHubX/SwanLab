@@ -500,8 +500,7 @@ SwanLab records the **hardware information** and **resource usage** during AI tr
 | Hygon DCU | ✅ | ✅ | [hygon.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/hygon.py) |  
 | CPU | ✅ | ✅ | [cpu.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/cpu.py) |  
 | Memory | ✅ | ✅ | [memory.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/memory.py) |  
-| Disk | ✅ | ✅ | [builder.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/monitor/builder.py) |  
-| Network | ✅ | ✅ | [builder.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/monitor/builder.py) |  
+
 
 If you wish to document other hardware, feel free to submit an Issue or PR!
 
