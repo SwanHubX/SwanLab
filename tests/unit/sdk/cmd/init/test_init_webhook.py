@@ -136,4 +136,4 @@ def test_send_webhook_serializes_path_run_dir(mock_ctx, setup_mocks):
     assert len(responses.calls) == 1
     request = responses.calls[0].request
     payload = json.loads(request.body)  # type: ignore
-    assert payload["swanlab"]["run_dir"] == "/path/to/run_dir"
+    assert payload["swanlab"]["run_dir"] == str(mock_ctx.run_dir)
