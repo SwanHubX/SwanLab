@@ -9,12 +9,16 @@ NOTE: 只允许在 swanlab/data 模块下访问，其他地方不允许访问
 import functools
 import inspect
 import os.path
-from typing import Optional, List, Literal, Dict, Tuple
+import time
+from typing import Dict, List, Literal, Optional, Tuple
 
 from pydantic import BaseModel
 
 # 定义远程指标类型
 RemoteMetric = Dict[str, Tuple[str, str, Optional[dict], Optional[int]]]
+
+_RUN_DIR_VERIFY_RETRIES = 20
+_RUN_DIR_VERIFY_INTERVAL = 0.05
 
 
 class RunStore(BaseModel):
@@ -63,22 +67,31 @@ class RunStore(BaseModel):
         """
         统一的 run_dir 校验入口。
         1. run_dir 不能为 None（未初始化）
-        2. run_dir 必须存在（被删除或路径错误）
+        2. run_dir 必须存在（被删除或路径错误），短暂不可见时等待重试
         首次校验通过后缓存结果，避免频繁 I/O。
         """
-        if self.run_dir is None:
+        run_dir = self.run_dir
+        if run_dir is None:
             raise RuntimeError(
                 "Run directory has not been initialized. "
                 "This means swanlab.init() has not been called, or the run has already been finished."
             )
         if not self._run_dir_verified:
-            if not os.path.exists(self.run_dir):
-                raise FileNotFoundError(
-                    f"Run directory does not exist: {self.run_dir}. "
-                    f"The experiment data may have been moved, deleted, or the path is incorrect."
-                )
+            self._wait_for_run_dir(run_dir)
             self._run_dir_verified = True
-        return self.run_dir
+        return run_dir
+
+    def _wait_for_run_dir(self, run_dir: str) -> None:
+        for i in range(_RUN_DIR_VERIFY_RETRIES + 1):
+            if os.path.isdir(run_dir):
+                return
+            if i < _RUN_DIR_VERIFY_RETRIES:
+                time.sleep(_RUN_DIR_VERIFY_INTERVAL)
+
+        raise FileNotFoundError(
+            f"Run directory does not exist: {run_dir}. "
+            f"The experiment data may have been moved, deleted, or the path is incorrect."
+        )
 
     # Pydantic private attribute, not included in schema or serialization.
     _run_dir_verified: bool = False
@@ -117,14 +130,15 @@ def inside(func):
     def wrapper(*args, **kwargs):
 
         frame = inspect.currentframe()
+        caller_frame = frame.f_back if frame is not None else None
         try:
-            caller_module = frame.f_back.f_globals.get('__name__', '')
-            if not caller_module.startswith('swanlab.data'):
-                if 'PYTEST_VERSION' not in os.environ:
-                    raise RuntimeError("This function can only be called from swanlab.data module.")
+            caller_module = caller_frame.f_globals.get('__name__', '') if caller_frame is not None else ''
+            if not caller_module.startswith('swanlab.data') and 'PYTEST_VERSION' not in os.environ:
+                raise RuntimeError("This function can only be called from swanlab.data module.")
         finally:
+            del caller_frame
             del frame
-        return func(*args, **kwargs)  # noqa: reachable
+        return func(*args, **kwargs)
 
     return wrapper
 
