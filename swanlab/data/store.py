@@ -71,21 +71,21 @@ class RunStore(BaseModel):
                 "Run directory has not been initialized. "
                 "This means swanlab.init() has not been called, or the run has already been finished."
             )
-        if not self.__run_dir_verified:
+        if not self._run_dir_verified:
             if not os.path.exists(self.run_dir):
                 raise FileNotFoundError(
                     f"Run directory does not exist: {self.run_dir}. "
                     f"The experiment data may have been moved, deleted, or the path is incorrect."
                 )
-            self.__run_dir_verified = True
+            self._run_dir_verified = True
         return self.run_dir
 
     # Pydantic v1 model 内部标记字段（不在 schema 中持久化）
-    __run_dir_verified: bool = False
+    _run_dir_verified: bool = False
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.__run_dir_verified = False
+        self._run_dir_verified = False
 
     @property
     def backup_file(self) -> str:
