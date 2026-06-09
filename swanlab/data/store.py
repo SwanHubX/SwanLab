@@ -59,30 +59,53 @@ class RunStore(BaseModel):
     # 运行目录
     run_dir: Optional[str] = None
 
-    @property
-    def backup_file(self):
-        assert os.path.exists(self.run_dir), "Run directory does not exist when accessing backup file."
-        return os.path.join(self.run_dir, "backup.swanlab")
+    def _ensure_run_dir(self) -> str:
+        """
+        统一的 run_dir 校验入口。
+        1. run_dir 不能为 None（未初始化）
+        2. run_dir 必须存在（被删除或路径错误）
+        首次校验通过后缓存结果，避免频繁 I/O。
+        """
+        if self.run_dir is None:
+            raise RuntimeError(
+                "Run directory has not been initialized. "
+                "This means swanlab.init() has not been called, or the run has already been finished."
+            )
+        if not self.__run_dir_verified:
+            if not os.path.exists(self.run_dir):
+                raise FileNotFoundError(
+                    f"Run directory does not exist: {self.run_dir}. "
+                    f"The experiment data may have been moved, deleted, or the path is incorrect."
+                )
+            self.__run_dir_verified = True
+        return self.run_dir
+
+    # Pydantic v1 model 内部标记字段（不在 schema 中持久化）
+    __run_dir_verified: bool = False
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.__run_dir_verified = False
 
     @property
-    def log_dir(self):
-        assert os.path.exists(self.run_dir), "Run directory does not exist when accessing log directory."
-        return os.path.join(self.run_dir, "logs")
+    def backup_file(self) -> str:
+        return os.path.join(self._ensure_run_dir(), "backup.swanlab")
 
     @property
-    def console_dir(self):
-        assert os.path.exists(self.run_dir), "Run directory does not exist when accessing console directory."
-        return os.path.join(self.run_dir, "console")
+    def log_dir(self) -> str:
+        return os.path.join(self._ensure_run_dir(), "logs")
 
     @property
-    def file_dir(self):
-        assert os.path.exists(self.run_dir), "Run directory does not exist when accessing file directory."
-        return os.path.join(self.run_dir, "files")
+    def console_dir(self) -> str:
+        return os.path.join(self._ensure_run_dir(), "console")
 
     @property
-    def media_dir(self):
-        assert os.path.exists(self.run_dir), "Run directory does not exist when accessing media directory."
-        return os.path.join(self.run_dir, "media")
+    def file_dir(self) -> str:
+        return os.path.join(self._ensure_run_dir(), "files")
+
+    @property
+    def media_dir(self) -> str:
+        return os.path.join(self._ensure_run_dir(), "media")
 
 
 run_store = RunStore()
