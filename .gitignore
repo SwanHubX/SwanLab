@@ -43,3 +43,8 @@ CLAUDE.md
 AGENTS.md
 FEATURE_SUMMARY.md
 .claude/
+
+.vscode/
+.omx/
+.codegraph/
+CODEBUDDY.md

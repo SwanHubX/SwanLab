@@ -89,6 +89,9 @@ class SwanKitLogger:
             # 处理 sep 参数，即使设置了 sep='' ，前缀后也会有一个空格
             if kwargs.get("sep") == '':
                 prefix += " "
+            # markup=False: 防止用户数据中的 [/...] 被 Rich 解析为闭合标签导致 MarkupError
+            # prefix 是 Text 对象，不受 markup 参数影响，仍按自身样式渲染
+            kwargs.setdefault("markup", False)
             self.console.print(prefix, *args, **kwargs)
 
     # 发送调试消息
