@@ -80,12 +80,8 @@ class RunStore(BaseModel):
             self._run_dir_verified = True
         return self.run_dir
 
-    # Pydantic v1 model 内部标记字段（不在 schema 中持久化）
+    # Pydantic private attribute, not included in schema or serialization.
     _run_dir_verified: bool = False
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self._run_dir_verified = False
 
     @property
     def backup_file(self) -> str:

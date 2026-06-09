@@ -74,3 +74,31 @@ class TestSwanKitLog:
             assert text in out
             assert name in out
             assert err == ""
+
+    def test_markup_disabled_by_default(self, capsys):
+        """
+        测试默认不解析用户日志中的 Rich markup
+        """
+        name = nanoid.generate()
+        text = "[/tmp/e2e/sub/compose.yml]"
+        t = SwanKitLogger(name)
+
+        t.info(text)
+        out, err = capsys.readouterr()
+
+        assert text in out
+        assert name in out
+        assert err == ""
+
+    def test_markup_kwarg_can_be_explicitly_passed(self, capsys):
+        """
+        测试显式传递 markup 参数不会产生重复参数错误
+        """
+        name = nanoid.generate()
+        t = SwanKitLogger(name)
+
+        t.info("[bold]hello[/bold]", markup=True)
+        out, err = capsys.readouterr()
+
+        assert "hello" in out
+        assert err == ""
