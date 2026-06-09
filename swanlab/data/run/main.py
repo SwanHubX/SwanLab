@@ -327,68 +327,71 @@ class SwanLabRun:
         ValueError:
             Unsupported key names.
         """
-        if self.__state != SwanLabRunState.RUNNING:
-            raise RuntimeError("After experiment finished, you can no longer log data to the current experiment")
-        self.__operator.on_log(data=data, step=step)
+        try:
+            if self.__state != SwanLabRunState.RUNNING:
+                raise RuntimeError("After experiment finished, you can no longer log data to the current experiment")
+            self.__operator.on_log(data=data, step=step)
 
-        if not isinstance(data, dict):
-            return swanlog.error(
-                "log data must be a dict, but got {}, SwanLab will ignore records it.".format(type(data))
-            )
-        # 检查step的类型
-        if step is not None and (not isinstance(step, int) or step < 0):
-            swanlog.error(
-                "'step' must be an integer not less than zero, but got {}, SwanLab will automatically set step".format(
-                    step
+            if not isinstance(data, dict):
+                return swanlog.error(
+                    "log data must be a dict, but got {}, SwanLab will ignore records it.".format(type(data))
                 )
-            )
-            step = None
+            # 检查step的类型
+            if step is not None and (not isinstance(step, int) or step < 0):
+                swanlog.error(
+                    "'step' must be an integer not less than zero, but got {}, SwanLab will automatically set step".format(
+                        step
+                    )
+                )
+                step = None
 
-        # 展平嵌套字典
-        flattened_data = _flatten_dict(data)
+            # 展平嵌套字典
+            flattened_data = _flatten_dict(data)
 
-        log_return = {}
-        # 遍历data，记录data
-        for k, v in flattened_data.items():
-            _k = k
-            k = check_key_format(k, auto_cut=True)
-            if k != _k:
-                # 超过512字符，截断
-                swanlog.warning(f"Key :{_k} ... is too long, cut to 512 characters.")
-                if k in flattened_data.keys():
-                    raise ValueError(f'tag: Not supported too long Key "{_k}" and auto cut failed')
-            # ---------------------------------- 包装数据 ----------------------------------
-            # 输入为可转换为float的数据类型
-            if isinstance(v, (int, float, FloatConvertible)):
-                v = DataWrapper(k, [Line(v)])
-            elif isinstance(v, (PyEchartsBase, PyEchartsTable)):
-                v = DataWrapper(k, [Echarts(v)])
-            # 为Line类型或者MediaType类型
-            elif isinstance(v, (Line, MediaType)):
-                v = DataWrapper(k, [v])
-            # 为List[MediaType]、List[PyEchartsBase]或者List[Line]类型，且长度大于0，且所有元素类型相同
-            elif (
-                isinstance(v, list)
-                and len(v) > 0
-                and all([isinstance(i, (Line, MediaType, PyEchartsBase, PyEchartsTable)) for i in v])
-                and all([i.__class__ == v[0].__class__ for i in v])
-            ):
-                if len(v) > MAX_LIST_LENGTH:
-                    swanlog.warning(f"List length '{k}' is too long, cut to {MAX_LIST_LENGTH}.")
-                    v = v[:MAX_LIST_LENGTH]
-                # echarts 类型需要转换
-                if isinstance(v[0], (PyEchartsBase, PyEchartsTable)):
-                    v = DataWrapper(k, [Echarts(i) for i in v])
+            log_return = {}
+            # 遍历data，记录data
+            for k, v in flattened_data.items():
+                _k = k
+                k = check_key_format(k, auto_cut=True)
+                if k != _k:
+                    # 超过512字符，截断
+                    swanlog.warning(f"Key :{_k} ... is too long, cut to 512 characters.")
+                    if k in flattened_data.keys():
+                        raise ValueError(f'tag: Not supported too long Key "{_k}" and auto cut failed')
+                # ---------------------------------- 包装数据 ----------------------------------
+                # 输入为可转换为float的数据类型
+                if isinstance(v, (int, float, FloatConvertible)):
+                    v = DataWrapper(k, [Line(v)])
+                elif isinstance(v, (PyEchartsBase, PyEchartsTable)):
+                    v = DataWrapper(k, [Echarts(v)])
+                # 为Line类型或者MediaType类型
+                elif isinstance(v, (Line, MediaType)):
+                    v = DataWrapper(k, [v])
+                # 为List[MediaType]、List[PyEchartsBase]或者List[Line]类型，且长度大于0，且所有元素类型相同
+                elif (
+                    isinstance(v, list)
+                    and len(v) > 0
+                    and all([isinstance(i, (Line, MediaType, PyEchartsBase, PyEchartsTable)) for i in v])
+                    and all([i.__class__ == v[0].__class__ for i in v])
+                ):
+                    if len(v) > MAX_LIST_LENGTH:
+                        swanlog.warning(f"List length '{k}' is too long, cut to {MAX_LIST_LENGTH}.")
+                        v = v[:MAX_LIST_LENGTH]
+                    # echarts 类型需要转换
+                    if isinstance(v[0], (PyEchartsBase, PyEchartsTable)):
+                        v = DataWrapper(k, [Echarts(i) for i in v])
+                    else:
+                        v = DataWrapper(k, v)
                 else:
-                    v = DataWrapper(k, v)
-            else:
-                # 其余情况被当作是非法的数据类型，交给Line处理
-                v = DataWrapper(k, [Line(v)])
-            # 数据类型的检查将在创建chart配置的时候完成，因为数据类型错误并不会影响实验进行
-            metric_info = self.__exp.add(key=k, data=v, step=step)
-            log_return[metric_info.column_info.key] = metric_info
-
-        return log_return
+                    # 其余情况被当作是非法的数据类型，交给Line处理
+                    v = DataWrapper(k, [Line(v)])
+                # 数据类型的检查将在创建chart配置的时候完成，因为数据类型错误并不会影响实验进行
+                metric_info = self.__exp.add(key=k, data=v, step=step)
+                log_return[metric_info.column_info.key] = metric_info
+            return log_return
+        except Exception as e:
+            swanlog.error(str(e))
+            return None
 
     def _flush_pending_saves(self) -> None:
         if len(self.__pending_saves) == 0:
