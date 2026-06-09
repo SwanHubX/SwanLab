@@ -76,9 +76,9 @@ class RunStore(BaseModel):
                 "Run directory has not been initialized. "
                 "This means swanlab.init() has not been called, or the run has already been finished."
             )
-        if not self._run_dir_verified:
+        if self._verified_run_dir != run_dir:
             self._wait_for_run_dir(run_dir)
-            self._run_dir_verified = True
+            self._verified_run_dir = run_dir
         return run_dir
 
     def _wait_for_run_dir(self, run_dir: str) -> None:
@@ -94,7 +94,7 @@ class RunStore(BaseModel):
         )
 
     # Pydantic private attribute, not included in schema or serialization.
-    _run_dir_verified: bool = False
+    _verified_run_dir: Optional[str] = None
 
     @property
     def backup_file(self) -> str:
@@ -132,9 +132,10 @@ def inside(func):
         frame = inspect.currentframe()
         caller_frame = frame.f_back if frame is not None else None
         try:
-            caller_module = caller_frame.f_globals.get('__name__', '') if caller_frame is not None else ''
-            if not caller_module.startswith('swanlab.data') and 'PYTEST_VERSION' not in os.environ:
-                raise RuntimeError("This function can only be called from swanlab.data module.")
+            if caller_frame is not None:
+                caller_module = caller_frame.f_globals.get('__name__', '')
+                if not caller_module.startswith('swanlab.data') and 'PYTEST_VERSION' not in os.environ:
+                    raise RuntimeError("This function can only be called from swanlab.data module.")
         finally:
             del caller_frame
             del frame
