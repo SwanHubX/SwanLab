@@ -336,8 +336,10 @@ class Run:
         """
         self._log_impl(data, step)
 
+    @safe.decorator(message="SwanLab failed to log data due to unexpected error")
     def _log_impl(self, data: Mapping[str, Any], step: Optional[int] = None):
         """log 的无锁内部实现，供 async_log 回调调用以避免与 finish() 的 _api_lock 死锁。"""
+        # 1. 验证输入
         if not (this_data := fmt.safe_validate_log_data(data)):
             console.error(f"Log data must be a dict, but got {type(data).__name__}. SwanLab will ignore this log.")
             return
@@ -351,14 +353,14 @@ class Run:
                 console.error(f"Step must be non-negative, but got {step}. SwanLab will ignore this log.")
                 return
 
+        # 2. 获取当前log快照，如步骤、时间戳等
         next_step = self._ctx.next_step(step)
-
         ts = Timestamp()
         ts.GetCurrentTime()
 
+        # 3. 推送日志事件
         # 展平字典并在内部进行合规性验证和截断
         flatten_data = fmt.flatten_dict(this_data)
-
         # 推送日志事件
         self._components.emitter.emit(MetricLogEvent(data=flatten_data, step=next_step, timestamp=ts))
 
