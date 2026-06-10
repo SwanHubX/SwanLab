@@ -49,7 +49,7 @@ runs/
 # test-integration-lightning
 LightningTest/
 
-# Coding Agent docs
+# Coding Agent & Tools
 CLAUDE.md
 AGENTS.md
 FEATURE_SUMMARY.md
@@ -60,3 +60,4 @@ QWEN.md
 .omx/
 .opencode/
 CODEBUDDY.md
+.codegraph/
