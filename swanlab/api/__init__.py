@@ -154,7 +154,7 @@ class Api(BaseEntity):
         search: Optional[str] = None,
         detail: Optional[bool] = True,
         page: int = 1,
-        size: int = 20,
+        size: int = 100,
         all: bool = False,
     ) -> Projects:
         """
@@ -165,7 +165,7 @@ class Api(BaseEntity):
         :param search: 搜索关键词
         :param detail: 是否返回详细信息
         :param page: 起始页码，默认 1
-        :param size: 每页数量，默认 20
+        :param size: 每页数量，默认 100
         :param all: 是否获取全部数据，默认 False
         """
         validate_api_path(path, segments=1, label="workspace")
@@ -225,7 +225,7 @@ class Api(BaseEntity):
         self,
         path: str,
         page: int = 1,
-        size: int = 20,
+        size: int = 100,
         all: bool = False,
     ) -> Experiments:
         """
@@ -233,7 +233,7 @@ class Api(BaseEntity):
 
         :param path: 项目路径，格式为 'username/project'
         :param page: 起始页码，默认 1
-        :param size: 每页数量，默认 20
+        :param size: 每页数量，默认 100
         :param all: 是否获取全部数据，默认 False
         """
         validate_api_path(path, segments=2, label="project")
@@ -247,22 +247,25 @@ class Api(BaseEntity):
         self,
         path: str,
         page: int = 1,
-        size: int = 20,
+        size: int = 100,
         search: Optional[str] = None,
         column_class: ApiColumnClassLiteral = "CUSTOM",
         column_type: Optional[ApiColumnDataTypeLiteral] = None,
         all: bool = False,
     ) -> Columns:
         """
-        获取实验下的列列表（分页查询，支持搜索）。
+        List columns under an experiment (paginated, with optional fuzzy search).
 
-        :param path: 实验路径，格式为 'username/project/run_id'
-        :param page: 起始页码，默认 1
-        :param size: 每页数量，默认 20
-        :param search: 搜索关键词，搜索的是列的 name
-        :param column_class: 列的分类，CUSTOM 或 SYSTEM, 默认为 CUSTOM
-        :param column_type: 列的类型，如 FLOAT、STRING、IMAGE 等
-        :param all: 是否获取全部数据，默认 False
+        The ``search`` parameter performs **fuzzy matching** (case-insensitive ``contains``)
+        on the column ``name`` field.
+
+        :param path: Experiment path, format: ``'username/project/run_id'``
+        :param page: Page number, default 1
+        :param size: Page size, default 100
+        :param search: Fuzzy search keyword (matches column **name**, not key)
+        :param column_class: Column class, ``CUSTOM`` or ``SYSTEM``, default ``CUSTOM``
+        :param column_type: Column data type, e.g. ``FLOAT``, ``STRING``, ``IMAGE``
+        :param all: If True, fetch all pages, default False
         """
         validate_api_path(path, segments=3, label="run")
         query = PaginatedQuery(page=page, size=size, search=search, all=all)
@@ -282,12 +285,16 @@ class Api(BaseEntity):
         column_type: Optional[ApiColumnDataTypeLiteral] = None,
     ) -> Column:
         """
-        获取单个列（通过搜索 key 匹配）。
+        Get a single column by key (fuzzy search, first match).
 
-        :param path: 实验路径，格式为 'username/project/run_id'
-        :param key: 列的键名, 输入不完整则模糊匹配 name 为首个 key.
-        :param column_class: 列的分类，CUSTOM 或 SYSTEM，默认 CUSTOM
-        :param column_type: 列的类型，如 FLOAT、STRING、IMAGE 等，默认为 None
+        Performs fuzzy search (``contains`` on ``name``) and returns the first matching
+        column. If multiple columns share a similar name, the first one (ordered by
+        ``id DESC``) is returned.
+
+        :param path: Experiment path, format: ``'username/project/run_id'``
+        :param key: Column key to search, e.g. ``"loss"``, ``"acc"``
+        :param column_class: Column class, ``CUSTOM`` or ``SYSTEM``, default ``CUSTOM``
+        :param column_type: Column data type, e.g. ``FLOAT``, ``STRING``, ``IMAGE``
         """
         validate_api_path(path, segments=3, label="run")
         validate_non_empty_string(key, label="column key")

@@ -21,10 +21,14 @@ from swanlab.api.utils import get_properties, parse_column_data_type, resolve_ru
 
 class Column(BaseEntity):
     """
-    表示一个 SwanLab 实验列。
+    A single column in a SwanLab experiment.
 
-    支持双模式：构造时传入 data（列表迭代注入），或 data=None（按需懒加载）。
-    注意：列不支持单个获取 API，只能通过列表接口获取。
+    Supports two construction modes: pass ``data`` for eager initialization (e.g. from
+    list iteration), or ``data=None`` for lazy loading on first property access.
+
+    ``_ensure_data()`` performs fuzzy search (``contains`` on ``name``) and returns the
+    first matching column. This is a soft lookup — if multiple columns share a similar
+    name, the first one (ordered by ``id DESC``) is returned.
     """
 
     @staticmethod
@@ -203,19 +207,22 @@ class Column(BaseEntity):
 
 class Columns(BaseEntity):
     """
-    实验下列集合的分页迭代器。
+    Paginated iterator over columns in an experiment.
 
-    用法::
+    The ``search`` parameter performs **fuzzy matching** (case-insensitive ``contains``)
+    on the column ``name`` field via the backend ``GET /experiment/:id/column`` endpoint.
 
-        # 获取所有列
+    Usage::
+
+        # All columns
         for column in experiment.columns():
-            print(column.name, column.data_type)
+            print(column.name, column.column_type)
 
-        # 分页获取列（支持搜索）
-        for column in experiment.columns(page=1, size=20, search="loss"):
+        # Fuzzy search by name
+        for column in experiment.columns(search="loss"):
             print(column.name)
 
-        # 获取全部列（自动翻页）
+        # Fetch all (auto-paginate)
         for column in experiment.columns(all=True):
             print(column.name)
     """
@@ -271,7 +278,13 @@ class Columns(BaseEntity):
         return self._project_id
 
     def __iter__(self) -> Iterator[Column]:
-        """迭代分页获取列。"""
+        """
+        Iterate columns with automatic pagination.
+
+        When ``all=True``, the backend skips ``search`` / ``type`` / ``class`` filters,
+        so we apply **client-side filtering** to ensure ``search + all`` returns only
+        matching columns.
+        """
         extra: Dict[str, Any] = {}
         run_id = self._ensure_run_id()
         if self._column_type:
@@ -279,12 +292,24 @@ class Columns(BaseEntity):
         if self._column_class:
             extra["class"] = self._column_class
 
+        # In all=True mode the backend skips search/type/class filters;
+        # apply client-side filtering instead so search + all works correctly.
+        _client_filter = self._query.all
+        _search_lower = (self._query.search or "").lower() if self._query.search else None
+
         for item in self._paginate(
             f"/experiment/{run_id}/column",
             self._query,
             page_info=self._page_info,
             extra=extra,
         ):
+            if _client_filter:
+                if _search_lower and _search_lower not in (item.get("name") or "").lower():
+                    continue
+                if self._column_type and item.get("type") != self._column_type:
+                    continue
+                if self._column_class and item.get("class") != self._column_class:
+                    continue
             data = {**item, "run_id": run_id}
             yield Column(
                 self._ctx,

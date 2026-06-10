@@ -69,7 +69,7 @@ class Workspace(BaseEntity):
         search: Optional[str] = None,
         detail: Optional[bool] = True,
         page: int = 1,
-        size: int = 20,
+        size: int = 100,
         all: bool = False,
     ):
         from swanlab.api.project import Projects

@@ -188,7 +188,7 @@ class PaginatedQuery:
     """
 
     page: int = 1
-    size: int = 20
+    size: int = 100
     search: Optional[str] = None
     sort: Optional[str] = None
     all: bool = False

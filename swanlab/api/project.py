@@ -98,14 +98,14 @@ class Project(BaseEntity):
     def runs_get(
         self,
         page: int = 1,
-        size: int = 20,
+        size: int = 100,
         all: bool = False,
     ):
         """
         获取项目下的实验列表（GET 模式，标准分页，返回精简信息）。
 
         :param page: 起始页码，默认 1
-        :param size: 每页数量，默认 20
+        :param size: 每页数量，默认 100
         :param all: 是否获取全部数据，默认 False
         """
         from swanlab.api.experiment import Experiments

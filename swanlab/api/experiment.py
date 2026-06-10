@@ -172,7 +172,11 @@ class Experiment(BaseEntity):
         column_type: Optional[ApiColumnDataTypeLiteral] = "FLOAT",
     ):
         """
-        Get a single column by key under this experiment.
+        Get a single column by key under this experiment (fuzzy search, first match).
+
+        Performs fuzzy search (``contains`` on ``name``) and returns the first matching
+        column. If multiple columns share a similar name, the first one (ordered by
+        ``id DESC``) is returned.
 
         :param key: Column key, e.g. ``"loss"``, ``"acc"``
         :param column_class: Column class, ``CUSTOM`` (default) or ``SYSTEM``
@@ -406,18 +410,21 @@ class Experiment(BaseEntity):
     def columns(
         self,
         page: int = 1,
-        size: int = 20,
+        size: int = 100,
         search: Optional[str] = None,
         column_type: Optional[ApiColumnDataTypeLiteral] = None,
         column_class: Optional[ApiColumnClassLiteral] = None,
         all: bool = False,
     ):
         """
-        List columns under this experiment (paginated, with optional search).
+        List columns under this experiment (paginated, with optional fuzzy search).
+
+        The ``search`` parameter performs **fuzzy matching** (case-insensitive ``contains``)
+        on the column ``name`` field.
 
         :param page: Page number, default 1
-        :param size: Page size, default 20
-        :param search: Search keyword (matches column name)
+        :param size: Page size, default 100
+        :param search: Fuzzy search keyword (matches column **name**, not key)
         :param column_type: Column type filter, e.g. FLOAT, STRING, IMAGE
         :param column_class: Column class filter, CUSTOM or SYSTEM
         :param all: If True, fetch all pages, default False
