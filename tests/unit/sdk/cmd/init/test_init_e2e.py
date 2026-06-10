@@ -363,7 +363,7 @@ class TestInitDisabledMode:
         assert not log_dir.exists()
 
     def test_log_ignores_unexpected_emitter_error(self, monkeypatch):
-        """log 内部 emit 未预期异常不应中断用户代码"""
+        """log 内部未预期异常不应中断用户代码"""
         with init(mode="disabled") as run:
             trace = MagicMock()
             monkeypatch.setattr(console, "trace", trace)
