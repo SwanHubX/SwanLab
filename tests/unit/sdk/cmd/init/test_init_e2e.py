@@ -29,7 +29,7 @@ from swanlab.sdk.cmd.init import init
 from swanlab.sdk.cmd.login import login_cli
 from swanlab.sdk.cmd.merge_settings import merge_settings
 from swanlab.sdk.internal.bus import MetricLogEvent, RunEmitter
-from swanlab.sdk.internal.pkg import fork
+from swanlab.sdk.internal.pkg import console, fork
 from swanlab.sdk.internal.run import Run, get_run, has_run
 from swanlab.sdk.internal.run.components import BackgroundConsumer, NullConsumer, NullEmitter
 from swanlab.sdk.internal.run.components.config import config as global_config
@@ -361,6 +361,28 @@ class TestInitDisabledMode:
 
         # log_dir 不应存在，或者即使存在也不应包含媒体文件
         assert not log_dir.exists()
+
+    def test_log_ignores_unexpected_emitter_error(self, monkeypatch):
+        """log 内部 emit 未预期异常不应中断用户代码"""
+        with init(mode="disabled") as run:
+            trace = MagicMock()
+            monkeypatch.setattr(console, "trace", trace)
+            run._components.emitter.emit = MagicMock(side_effect=RuntimeError("emit failed"))
+
+            try:
+                run.log({"loss": 0.5})
+            except RuntimeError as e:
+                pytest.fail(f"run.log() raised unexpected error: {e}")
+
+            event = run._components.emitter.emit.call_args.args[0]
+            assert isinstance(event, MetricLogEvent)
+            assert event.data == {"loss": 0.5}
+            trace.assert_called_once_with(
+                "SwanLab failed to log data due to unexpected error",
+                write_to_file=True,
+                write_to_tty=True,
+                level_name="error",
+            )
 
 
 # ============================================================
