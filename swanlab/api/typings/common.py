@@ -139,7 +139,7 @@ ApiSortOrderLiteral = Literal["ASC", "DESC"]
 # 后端允许的每页条数
 VALID_PAGE_SIZES = (10, 12, 15, 20, 24, 27, 50, 100)
 
-# asyncio 并发请求数
+# 并发请求数
 MAX_CONCURRENT_COUNT: int = 4
 
 

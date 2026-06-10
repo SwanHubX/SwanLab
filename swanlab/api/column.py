@@ -5,6 +5,7 @@
 @description: Column 实体类 — 实验列的查询与操作
 """
 
+import dataclasses
 from typing import Any, Callable, Dict, Iterator, Optional, cast
 
 from swanlab.api.base import ApiClientContext, BaseEntity
@@ -154,11 +155,6 @@ class Column(BaseEntity):
         """列的创建时间戳。"""
         return self._ensure_data().get("createdAt", 0)
 
-    @property
-    def error(self) -> Optional[Dict[str, Any]]:
-        """列的错误信息。"""
-        return self._ensure_data().get("error", {})
-
     def metric(
         self,
         sample: int = 1500,
@@ -278,13 +274,7 @@ class Columns(BaseEntity):
         return self._project_id
 
     def __iter__(self) -> Iterator[Column]:
-        """
-        Iterate columns with automatic pagination.
-
-        When ``all=True``, the backend skips ``search`` / ``type`` / ``class`` filters,
-        so we apply **client-side filtering** to ensure ``search + all`` returns only
-        matching columns.
-        """
+        """Iterate columns with automatic pagination."""
         extra: Dict[str, Any] = {}
         run_id = self._ensure_run_id()
         if self._column_type:
@@ -292,24 +282,20 @@ class Columns(BaseEntity):
         if self._column_class:
             extra["class"] = self._column_class
 
-        # In all=True mode the backend skips search/type/class filters;
-        # apply client-side filtering instead so search + all works correctly.
-        _client_filter = self._query.all
-        _search_lower = (self._query.search or "").lower() if self._query.search else None
+        # all=True + 有过滤条件时：后端 all=True 模式无视 search/type/class 仅做全量返回，
+        # 所以改为 all=False 走分页过滤 + 自动翻页收集全部结果
+        use_auto_paginate = self._query.all and (self._query.search or self._column_type or self._column_class)
+        query = dataclasses.replace(self._query, all=use_auto_paginate) if use_auto_paginate else self._query
+        if use_auto_paginate:
+            if self._query.search:
+                extra["search"] = self._query.search
 
         for item in self._paginate(
             f"/experiment/{run_id}/column",
-            self._query,
+            query,
             page_info=self._page_info,
             extra=extra,
         ):
-            if _client_filter:
-                if _search_lower and _search_lower not in (item.get("name") or "").lower():
-                    continue
-                if self._column_type and item.get("type") != self._column_type:
-                    continue
-                if self._column_class and item.get("class") != self._column_class:
-                    continue
             data = {**item, "run_id": run_id}
             yield Column(
                 self._ctx,
@@ -334,5 +320,11 @@ class Columns(BaseEntity):
         return self._page_info["total"]
 
     def json(self) -> Dict[str, Any]:
-        self._page_info["list"] = [c.json() for c in self]
+        items = [c.json() for c in self]
+        self._page_info["list"] = items
+        # 自动翻页后 total/size/pages 应与实际 list 对齐
+        if self._query.all:
+            self._page_info["total"] = len(items)
+            self._page_info["size"] = len(items)
+            self._page_info["pages"] = 1
         return self._page_info
