@@ -361,7 +361,6 @@ class Run:
         # 3. 推送日志事件
         # 展平字典并在内部进行合规性验证和截断
         flatten_data = fmt.flatten_dict(this_data)
-        # 推送日志事件
         self._components.emitter.emit(MetricLogEvent(data=flatten_data, step=next_step, timestamp=ts))
 
     @with_api("run.async_log()")
