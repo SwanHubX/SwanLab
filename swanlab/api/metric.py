@@ -43,8 +43,9 @@ def _stream_csv_rows(
     rq: Optional[RangeQuery] = None,
     timeout: int = 30,
 ) -> Optional[List[Dict[str, Any]]]:
-    """流式下载 CSV 并逐行解析，复用 Client session（保留 proxy/retry 配置）。"""
+    """Stream-download CSV and parse rows, reusing the Client session (preserving proxy/retry config)."""
     import csv
+    import time
     from collections import deque
 
     resp = client._session.get(url, stream=True, timeout=timeout)
@@ -56,6 +57,11 @@ def _stream_csv_rows(
 
     max_len = rq.tail if rq is not None and rq.tail is not None else None
     rows: Union[deque[Dict[str, Any]], List[Dict[str, Any]]] = deque(maxlen=max_len) if max_len is not None else []
+
+    # Pre-compute timestamp lower bound for ``last`` mode
+    last_start_ts: Optional[int] = None
+    if rq is not None and rq.last is not None:
+        last_start_ts = int(time.time() * 1000) - rq.last
 
     for row in csv.reader(lines):
         if not row or len(row) < 2:
@@ -75,7 +81,16 @@ def _stream_csv_rows(
                 pass
 
         if rq is not None:
-            if rq.type == "timestamp":
+            # --- ``last`` mode: filter by timestamp >= (now - last) ---
+            if last_start_ts is not None:
+                ts = item.get("timestamp")
+                if ts is None:
+                    console.warning(f"CSV row missing timestamp column: {row}")
+                    continue
+                if ts < last_start_ts:
+                    continue
+            # --- timestamp range mode ---
+            elif rq.type == "timestamp":
                 ts = item.get("timestamp")
                 if ts is None:
                     console.warning(f"CSV row missing timestamp column: {row}")
@@ -84,11 +99,13 @@ def _stream_csv_rows(
                     continue
                 if rq.end is not None and ts > rq.end:
                     break
+            # --- step range mode ---
             else:
                 if rq.start is not None and step < rq.start:
                     continue
                 if rq.end is not None and step > rq.end:
                     break
+            # --- head early-stop ---
             if rq.head is not None and len(rows) >= rq.head:
                 break
 

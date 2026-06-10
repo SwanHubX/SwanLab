@@ -145,20 +145,22 @@ MAX_CONCURRENT_COUNT: int = 4
 
 class RangeQuery(BaseModel, frozen=True):
     """
-    SCALAR 指标范围查询参数。
+    Scalar metric range query parameters.
 
-    type: 维度，支持 "step" / "timestamp"
-    start: 起始边界（含），None 表示从头开始
-    end: 结束边界（含），None 表示到最后
-    head: 取前 N 条（与 tail 互斥）
-    tail: 取后 N 条（与 head 互斥）
+    type:  Filter axis — ``"step"`` (default) or ``"timestamp"``
+    start: Lower bound (inclusive); None = from beginning
+    end:   Upper bound (inclusive); None = to end
+    last:  Last N milliseconds (mutually exclusive with start/end; SDK auto-converts to timestamp filter)
+    head:  First N data points (mutually exclusive with tail)
+    tail:  Last N data points (mutually exclusive with head)
 
-    head/tail 与 start/end 可组合：先 start/end 过滤，再取 head/tail。
+    head/tail can be combined with start/end/last: range filter first, then head/tail.
     """
 
     type: Literal["step", "timestamp"] = "step"
     start: Optional[int] = Field(default=None, ge=0)
     end: Optional[int] = Field(default=None, ge=0)
+    last: Optional[int] = Field(default=None, gt=0)
     head: Optional[int] = Field(default=None, gt=0)
     tail: Optional[int] = Field(default=None, gt=0)
 
@@ -168,6 +170,8 @@ class RangeQuery(BaseModel, frozen=True):
             raise ValueError("head and tail are mutually exclusive")
         if self.start is not None and self.end is not None and self.start > self.end:
             raise ValueError(f"start must be <= end, got ({self.start}, {self.end})")
+        if self.last is not None and (self.start is not None or self.end is not None):
+            raise ValueError("last is mutually exclusive with start/end")
         return self
 
 
