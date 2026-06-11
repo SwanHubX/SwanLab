@@ -18,7 +18,7 @@ from swanlab.api.column import Column, Columns
 from swanlab.api.experiment import Experiment, Experiments
 from swanlab.api.metric import Metric, Metrics
 from swanlab.api.project import Project
-from swanlab.api.selfhosted import SelfHosted
+from swanlab.api.self_hosted import SelfHosted
 from swanlab.api.typings.common import PaginatedQuery
 from swanlab.api.typings.selfhosted import ApiSelfHostedInfoType
 from swanlab.api.workspace import Workspace

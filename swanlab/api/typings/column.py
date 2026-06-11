@@ -5,16 +5,9 @@
 @description: 公共查询 API 实验列类型定义
 """
 
-from typing import Any, Dict, Optional, TypedDict
+from typing import TypedDict
 
 from .common import ApiColumnClassLiteral, ApiColumnDataTypeLiteral
-
-
-class ApiColumnErrorType(TypedDict, total=False):
-    """列错误信息"""
-
-    message: str
-    code: str
 
 
 class ApiColumnType(TypedDict, total=False):
@@ -40,8 +33,6 @@ class ApiColumnType(TypedDict, total=False):
     name: str
     # 创建时间戳
     createdAt: int
-    # 错误信息
-    error: Optional[Dict[str, Any]]
 
 
 class ApiColumnCsvExportType(TypedDict):

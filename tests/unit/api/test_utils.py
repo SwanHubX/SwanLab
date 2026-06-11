@@ -8,7 +8,7 @@ from typing import cast
 
 import pytest
 
-from swanlab.api.selfhosted import SelfHosted
+from swanlab.api.self_hosted import SelfHosted
 from swanlab.api.typings.common import PaginatedQuery
 from swanlab.api.typings.selfhosted import ApiSelfHostedInfoType
 from swanlab.api.utils import (
@@ -137,7 +137,7 @@ class TestValidateSort:
 class TestPaginatedQuery:
     def test_valid_defaults(self):
         q = PaginatedQuery()
-        assert q.page == 1 and q.size == 20
+        assert q.page == 1 and q.size == 100
 
     def test_page_less_than_1(self):
         with pytest.raises(ValueError, match="page must be >= 1"):

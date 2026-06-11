@@ -87,12 +87,12 @@ class SelfHosted(BaseEntity):
         data = {"users": [{"username": username, "password": password}]}
         return self._post("/self_hosted/users", data=data)
 
-    def get_users(self, page: int = 1, size: int = 20, all: bool = False) -> Iterator[dict]:
+    def get_users(self, page: int = 1, size: int = 100, all: bool = False) -> Iterator[dict]:
         """
         分页获取用户（管理员限定）。
 
         :param page: 起始页码，默认 1
-        :param size: 每页大小，默认 20
+        :param size: 每页大小，默认 100
         :param all: 是否获取全部数据，默认 False
         """
         SelfHosted.validate_root(self._ensure_data())
@@ -103,7 +103,7 @@ class SelfHosted(BaseEntity):
     def get_projects(
         self,
         page: int = 1,
-        size: int = 20,
+        size: int = 100,
         search: Optional[str] = None,
         sort: Optional[str] = None,
         state: Optional[str] = None,
@@ -115,7 +115,7 @@ class SelfHosted(BaseEntity):
         分页获取所有项目（管理员限定）。
 
         :param page: 起始页码，默认 1
-        :param size: 每页大小，默认 20
+        :param size: 每页大小，默认 100
         :param search: 搜索关键词
         :param sort: 排序字段，update(默认) / create / name
         :param state: 实验状态过滤，RUNNING / FINISHED
@@ -136,7 +136,7 @@ class SelfHosted(BaseEntity):
     def get_groups(
         self,
         page: int = 1,
-        size: int = 20,
+        size: int = 100,
         search: Optional[str] = None,
         type: Optional[str] = None,
         sort: Optional[str] = None,
@@ -146,7 +146,7 @@ class SelfHosted(BaseEntity):
         分页获取所有空间（管理员限定）。
 
         :param page: 起始页码，默认 1
-        :param size: 每页大小，默认 20
+        :param size: 每页大小，默认 100
         :param search: 搜索关键词
         :param type: 空间类型过滤，PERSON / TEAM
         :param sort: 排序字段，update(默认) / create / name

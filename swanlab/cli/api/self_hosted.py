@@ -29,7 +29,7 @@ def get_info(save_name: str, api: Api):
     """Show self-hosted instance info."""
     resp = api.self_hosted().wrapper()
     payload = format_output(resp)
-    if payload["ok"] and save_name is not None:
+    if save_name is not None:
         save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
 
 
@@ -51,7 +51,7 @@ def create_user(username: str, password: str, save_name: str, api: Api):
     except ValueError as e:
         resp = ApiResponseType(ok=False, errmsg=str(e))
     payload = format_output(resp)
-    if payload["ok"] and save_name is not None:
+    if save_name is not None:
         save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
 
 
@@ -69,14 +69,18 @@ def create_user(username: str, password: str, save_name: str, api: Api):
 @with_custom_host
 def list_users(page_num: int, page_size: int, fetch_all: bool, save_name: str, api: Api):
     """List users in the self-hosted instance."""
+    sh = api.self_hosted()
     try:
-        users = list(api.self_hosted().get_users(page=page_num, size=page_size, all=fetch_all))
+        users = list(sh.get_users(page=page_num, size=page_size, all=fetch_all))
     except ValueError as e:
         payload = format_output(ApiResponseType(ok=False, errmsg=str(e)))
     else:
-        resp = ApiResponseType(ok=True, data={"list": users})
-        payload = format_output(resp)
-    if payload["ok"] and save_name is not None:
+        if sh._errors:
+            payload = format_output(ApiResponseType(ok=False, errmsg="; ".join(sh._errors)))
+        else:
+            resp = ApiResponseType(ok=True, data={"list": users})
+            payload = format_output(resp)
+    if save_name is not None:
         save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
 
 
@@ -106,9 +110,10 @@ def list_projects(
     api: Api,
 ):
     """List all projects in the self-hosted instance."""
+    sh = api.self_hosted()
     try:
         projects = list(
-            api.self_hosted().get_projects(
+            sh.get_projects(
                 page=page_num,
                 size=page_size,
                 all=fetch_all,
@@ -120,9 +125,12 @@ def list_projects(
     except ValueError as e:
         payload = format_output(ApiResponseType(ok=False, errmsg=str(e)))
     else:
-        resp = ApiResponseType(ok=True, data={"list": projects})
-        payload = format_output(resp)
-    if payload["ok"] and save_name is not None:
+        if sh._errors:
+            payload = format_output(ApiResponseType(ok=False, errmsg="; ".join(sh._errors)))
+        else:
+            resp = ApiResponseType(ok=True, data={"list": projects})
+            payload = format_output(resp)
+    if save_name is not None:
         save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
 
 
@@ -142,7 +150,7 @@ def get_summary(save_name: str, api: Api):
     except ValueError as e:
         resp = ApiResponseType(ok=False, errmsg=str(e))
     payload = format_output(resp)
-    if payload["ok"] and save_name is not None:
+    if save_name is not None:
         save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
 
 
@@ -161,9 +169,10 @@ def get_summary(save_name: str, api: Api):
 @with_custom_host
 def list_groups(page_num: int, page_size: int, fetch_all: bool, search: Optional[str], save_name: str, api: Api):
     """List all workspaces in the self-hosted instance."""
+    sh = api.self_hosted()
     try:
         workspaces = list(
-            api.self_hosted().get_groups(
+            sh.get_groups(
                 page=page_num,
                 size=page_size,
                 all=fetch_all,
@@ -173,7 +182,10 @@ def list_groups(page_num: int, page_size: int, fetch_all: bool, search: Optional
     except ValueError as e:
         payload = format_output(ApiResponseType(ok=False, errmsg=str(e)))
     else:
-        resp = ApiResponseType(ok=True, data={"list": workspaces})
-        payload = format_output(resp)
-    if payload["ok"] and save_name is not None:
+        if sh._errors:
+            payload = format_output(ApiResponseType(ok=False, errmsg="; ".join(sh._errors)))
+        else:
+            resp = ApiResponseType(ok=True, data={"list": workspaces})
+            payload = format_output(resp)
+    if save_name is not None:
         save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)

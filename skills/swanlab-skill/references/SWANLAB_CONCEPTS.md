@@ -134,7 +134,11 @@ Structure per data point:
 | `--range-end` | none | End value, inclusive (int ≥ 0) |
 | `--range-head` | none | First N data points (int ≥ 1). Mutually exclusive with `--range-tail` |
 | `--range-tail` | none | Last N data points (int ≥ 1). Mutually exclusive with `--range-head` |
+| `--range-last` | none | Last N milliseconds of data (int > 0). Mutually exclusive with `--range-start`/`--range-end`. Can combine with `--range-head`/`--range-tail`. |
 
+- `--range-head` and `--range-tail` are mutually exclusive, acted as post-sampling.
+- `--range-last` is mutually exclusive with `--range-start`/`--range-end`.
+- `--range-head`/`--range-tail` can be combined with `--range-last` or `--range-start`/`--range-end`.
 - `--range-start` must be ≤ `--range-end`.
 - When `--range-type timestamp` is used, rows missing a timestamp column are skipped.
 - Range query bypasses the sampling API entirely — it streams and filters the CSV export directly. Statistics (min/max/avg/median/latest) are still fetched via the sampling API and are **not** affected by the range filter.
@@ -235,16 +239,16 @@ Each experiment carries a `profile` object containing metadata about the run:
 
 ## Self-Hosted Instance
 
-> **Self-hosted commands are only available for self-hosted (private) deployments.** If the resolved host contains `swanlab.cn`, these commands will fail — do not attempt them.
+> **Self-hosted commands are only available for self-hosted (private) deployments.** Only proceed with these commands when the resolved host points to a self-hosted deployment.
 
-SwanLab can be deployed as a self-hosted instance (private deployment). **Only use `swanlab api self-hosted` subcommands when the target is a self-hosted server, never on the public SwanLab cloud (`swanlab.cn`).**
+SwanLab can be deployed as a self-hosted instance (private deployment). **Use `swanlab api self-hosted` subcommands exclusively on self-hosted deployments. Always verify the host points to a private server before invoking these commands.**
 
 **Host detection rule**: Before using any self-hosted command, check where requests will be sent:
 1. If the user passes `--host` explicitly → use that value.
 2. Otherwise, check `SWANLAB_API_HOST` / `SWANLAB_WEB_HOST` environment variables.
 3. Otherwise, check `.netrc` or SwanLab config (`~/.swanlab`).
 
-If the resolved host contains `swanlab.cn`, self-hosted commands will fail and should not be attempted. Only proceed when the host points to a self-hosted deployment.
+Self-hosted commands only succeed on self-hosted deployments. Always confirm the resolved host points to a private server before proceeding.
 
 Self-hosted-specific features:
 

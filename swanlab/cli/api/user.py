@@ -24,5 +24,5 @@ def get_user(save_name: str, api: Api):
     """Get current User info"""
     resp = api.user().wrapper()
     payload = format_output(resp)
-    if payload["ok"] and save_name is not None:
+    if save_name is not None:
         save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)

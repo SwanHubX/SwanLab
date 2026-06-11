@@ -21,10 +21,14 @@ from swanlab.api.utils import get_properties, parse_column_data_type, resolve_ru
 
 class Column(BaseEntity):
     """
-    表示一个 SwanLab 实验列。
+    A single column in a SwanLab experiment.
 
-    支持双模式：构造时传入 data（列表迭代注入），或 data=None（按需懒加载）。
-    注意：列不支持单个获取 API，只能通过列表接口获取。
+    Supports two construction modes: pass ``data`` for eager initialization (e.g. from
+    list iteration), or ``data=None`` for lazy loading on first property access.
+
+    ``_ensure_data()`` performs fuzzy search (``contains`` on ``name``) and returns the
+    first matching column. This is a soft lookup — if multiple columns share a similar
+    name, the first one (ordered by ``id DESC``) is returned.
     """
 
     @staticmethod
@@ -150,11 +154,6 @@ class Column(BaseEntity):
         """列的创建时间戳。"""
         return self._ensure_data().get("createdAt", 0)
 
-    @property
-    def error(self) -> Optional[Dict[str, Any]]:
-        """列的错误信息。"""
-        return self._ensure_data().get("error", {})
-
     def metric(
         self,
         sample: int = 1500,
@@ -203,19 +202,22 @@ class Column(BaseEntity):
 
 class Columns(BaseEntity):
     """
-    实验下列集合的分页迭代器。
+    Paginated iterator over columns in an experiment.
 
-    用法::
+    The ``search`` parameter performs **fuzzy matching** (case-insensitive ``contains``)
+    on the column ``name`` field via the backend ``GET /experiment/:id/column`` endpoint.
 
-        # 获取所有列
+    Usage::
+
+        # All columns
         for column in experiment.columns():
-            print(column.name, column.data_type)
+            print(column.name, column.column_type)
 
-        # 分页获取列（支持搜索）
-        for column in experiment.columns(page=1, size=20, search="loss"):
+        # Fuzzy search by name
+        for column in experiment.columns(search="loss"):
             print(column.name)
 
-        # 获取全部列（自动翻页）
+        # Fetch all (auto-paginate)
         for column in experiment.columns(all=True):
             print(column.name)
     """
@@ -271,7 +273,7 @@ class Columns(BaseEntity):
         return self._project_id
 
     def __iter__(self) -> Iterator[Column]:
-        """迭代分页获取列。"""
+        """Iterate columns with automatic pagination."""
         extra: Dict[str, Any] = {}
         run_id = self._ensure_run_id()
         if self._column_type:
@@ -281,6 +283,8 @@ class Columns(BaseEntity):
 
         for item in self._paginate(
             f"/experiment/{run_id}/column",
+            # PaginatedQuery.all is client-side only: to_params() does not send it
+            # to the backend, so filtered all=True requests still use paged search.
             self._query,
             page_info=self._page_info,
             extra=extra,
@@ -309,5 +313,8 @@ class Columns(BaseEntity):
         return self._page_info["total"]
 
     def json(self) -> Dict[str, Any]:
-        self._page_info["list"] = [c.json() for c in self]
+        items = [c.json() for c in self]
+        self._page_info["list"] = items
+        # total/pages 来自后端第一页响应，始终为匹配 search 的真实总数；
+        # size 保持用户请求的分页大小，不因 all=True 而覆盖。
         return self._page_info

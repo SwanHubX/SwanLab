@@ -5,8 +5,6 @@
 @description: 所有实体类的公共基类
 """
 
-import random
-import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Optional, Sequence, Tuple
@@ -141,8 +139,6 @@ class BaseEntity(ABC):
             if not items:
                 break
             yield from items
-            # 随机休眠控制 qps
-            time.sleep(random.random())
             if page >= body.get("pages", 1):
                 break
             if not query.all:

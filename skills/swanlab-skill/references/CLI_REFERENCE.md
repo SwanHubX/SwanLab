@@ -179,10 +179,16 @@ swanlab api run columns PATH [OPTIONS]
 |--------|-------|---------|-------------|
 | `--page_num` | `-n` | 1 | Page number (>= 1) |
 | `--page_size` | `-s` | 20 | Page size. One of: 10, 12, 15, 20, 24, 27, 50, 100 |
+| `--search` | | none | Fuzzy search keyword (matches column **name**, case-insensitive) |
 | `--class` | | CUSTOM | Column class: `CUSTOM` or `SYSTEM` (see `SWANLAB_CONCEPTS.md > Column Classes`) |
 | `--type` | | all | Data type filter (see `SWANLAB_CONCEPTS.md > Column Data Types` for all valid values) |
 | `--all` | | false | Fetch all pages |
 | `--save` | | off | Save output to file |
+
+> **Notes on columns**:
+> - Columns are **paginated** — use `--page_num` / `--page_size` to iterate in order to fetch all pages.
+> - To query system metrics (CPU, GPU, memory, etc.), you must explicitly pass `--class SYSTEM`. The default is `CUSTOM` (user-defined metrics only).
+> - **Resumed experiments have no system columns.** When an experiment is resumed via `swanlab.init(resume=...)`, system metrics (hardware monitoring) are not re-collected, so `--class SYSTEM` will return an empty list.
 
 #### `swanlab api run column PATH --key KEY`
 
@@ -228,11 +234,14 @@ swanlab api run metrics PATH --keys KEYS [OPTIONS]
 | `--range-end` | | none | Range end value (inclusive). Same type as `--range-start`. |
 | `--range-head` | | none | Return only the first N data points (int >= 1). Mutually exclusive with `--range-tail`. |
 | `--range-tail` | | none | Return only the last N data points (int >= 1). Mutually exclusive with `--range-head`. |
+| `--range-last` | | none | Last N milliseconds of data (int >= 1). Mutually exclusive with `--range-start`/`--range-end`. Can combine with `--range-head`/`--range-tail`. |
 | `--save` | | off | Save output to file |
 
 **Range query constraints:**
 - `--range-head` and `--range-tail` are mutually exclusive.
+- `--range-last` is mutually exclusive with `--range-start`/`--range-end`.
 - `--range-start` must be ≤ `--range-end`.
+- `--range-head`/`--range-tail` can be combined with `--range-last` or `--range-start`/`--range-end`.
 - Range query is only supported for SCALAR metrics. It downloads CSV data and applies client-side filtering.
 - When using `--range-type timestamp`, each CSV row must have a timestamp column. Rows missing timestamps are skipped with a warning.
 
@@ -247,6 +256,12 @@ swanlab api run metrics PATH --keys loss --range-head 50
 
 # Get data by timestamp range (Unix milliseconds)
 swanlab api run metrics PATH --keys loss --range-type timestamp --range-start 1714368000000 --range-end 1714454400000
+
+# Get data from the last 5 minutes
+swanlab api run metrics PATH --keys loss --range-last 300000
+
+# Get last 30 data points
+swanlab api run metrics PATH --keys loss --range-tail 30
 ```
 
 > **Tip**: For large metric data, use `--save` to write JSON to file, then plot with `scripts/plot_metrics.py --data file.json -k loss`. For quick stats, prefer `run summary` over full metrics.
@@ -409,8 +424,8 @@ swanlab api self-hosted summary [--save [FILENAME]] [--host HOST] [--api-key KEY
 
 ## Behavioral Constraints
 
-- **Never use `--all` unless the user explicitly asks for it.** This flag bypasses pagination and fetches the entire dataset in one go, which puts heavy load on the database. For paginated list commands, always use default pagination (`--page_num` / `--page_size`). Only add `--all` if the user says something like "fetch all", "get everything", or "I want the complete list".
-- **Always ask the user for specific column keys before running `run metrics`, `run medias`, or `run column`.** These commands accept a `--keys` or `--key` parameter. Querying without a specific key forces the server to scan and return data for all columns, which is expensive. If the user doesn't know the key names, first run `run columns PATH` to list available columns, then use the returned keys to make targeted queries. Never guess or fabricate key names — always discover them first.
+- **Use `--all` only when the user explicitly asks for it.** This flag bypasses pagination and fetches the entire dataset in one go, which puts heavy load on the database. For paginated list commands, always use default pagination (`--page_num` / `--page_size`). Only add `--all` when the user says something like "fetch all", "get everything", or "I want the complete list".
+- **Always ask the user for specific column keys before running `run metrics`, `run medias`, or `run column`.** These commands accept a `--keys` or `--key` parameter. Querying without a specific key forces the server to scan and return data for all columns, which is expensive. If the user doesn't know the key names, first run `run columns PATH` to list available columns, then use the returned keys for targeted queries. Always discover key names from `run columns` output before querying specific metrics.
 - **Always add `--ignore-timestamp` for `run metrics` and `run logs`.** Unless the user specifically asks to keep timestamps, include this flag by default. It produces cleaner, more readable output by removing Unix timestamps from every data point.
 - All output is JSON to stdout. Pipe to `jq` or similar tools for further processing.
 - `--save` without a filename auto-generates `swanlab-YYYYMMDD_HHMMSS-xxxx.json` in the current directory.

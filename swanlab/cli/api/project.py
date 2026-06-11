@@ -29,7 +29,7 @@ def get_project(path: str, save_name: str, api: Api):
     """
     resp = api.project(path).wrapper()
     payload = format_output(resp)
-    if payload["ok"] and save_name is not None:
+    if save_name is not None:
         save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
 
 
@@ -70,7 +70,7 @@ def list_projects(page_num: int, page_size: str, workspace: str, fetch_all: bool
         ok=True, data=api.projects(path=workspace, page=page_num, size=int(page_size), all=fetch_all)
     )
     payload = format_output(resp)
-    if payload["ok"] and save_name is not None:
+    if save_name is not None:
         save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
 
 
@@ -119,5 +119,5 @@ def create_project(name: str, visibility: str, description: str, workspace: str,
         return
     resp = project.wrapper()
     payload = format_output(resp)
-    if payload["ok"] and save_name is not None:
+    if save_name is not None:
         save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)

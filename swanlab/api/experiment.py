@@ -36,10 +36,12 @@ from swanlab.sdk.internal.pkg import console
 
 class Experiment(BaseEntity):
     """
-    表示一个 SwanLab 实验（完整信息，通过 POST /runs/shows 或单实验详情接口获取）。
+    Represents a SwanLab experiment with lazy-loaded attributes and query / mutation methods.
 
-    支持双模式：构造时传入 data，或 data=None（按需懒加载）。
-    构造时从 data 中提取 _cuid 缓存，避免 _ensure_data 与 id 属性的循环调用。
+    Construct with ``data`` to eagerly cache experiment metadata, or ``data=None`` to lazily
+    load on first property access. Obtain instances via ``swanlab.Api``::
+
+        exp = api.run("username/project/run_id")
     """
 
     def __init__(
@@ -170,11 +172,15 @@ class Experiment(BaseEntity):
         column_type: Optional[ApiColumnDataTypeLiteral] = "FLOAT",
     ):
         """
-        获取实验下指定 key 的单个列。
+        Get a single column by key under this experiment (fuzzy search, first match).
 
-        :param key: 列的 key，如 "loss"、"acc"
-        :param column_class: 列的分类，CUSTOM 或 SYSTEM
-        :param column_type: 列的数据类型，如 FLOAT、STRING、IMAGE 等
+        Performs fuzzy search (``contains`` on ``name``) and returns the first matching
+        column. If multiple columns share a similar name, the first one (ordered by
+        ``id DESC``) is returned.
+
+        :param key: Column key, e.g. ``"loss"``, ``"acc"``
+        :param column_class: Column class, ``CUSTOM`` (default) or ``SYSTEM``
+        :param column_type: Column data type, e.g. ``FLOAT``, ``STRING``, ``IMAGE``
         """
         from swanlab.api.column import Column
 
@@ -200,17 +206,80 @@ class Experiment(BaseEntity):
         range_query: Optional[Union[Dict[str, Any], RangeQuery]] = None,
     ) -> Dict[str, Any]:
         """
-        Fetch scalar metrics for the given keys.
+        Fetch scalar metrics (e.g. loss, acc) with three query modes:
 
-        :param keys: Metric keys to fetch, e.g. ["loss", "acc"].
-        :param sample: Max number of sampled data points (default 1500). Ignored when ``all`` or ``range_query`` is set.
-        :param ignore_timestamp: If True, omit timestamp fields from the response.
-        :param all: If True, fetch full-resolution data without sampling limit.
-        :param range_query: Precise step(default)-range filter — accepts a ``RangeQuery`` object or a plain dict
-            with keys ``start``, ``end``, ``head``, ``tail``. Only supported for SCALAR metrics.
-            Example: ``{"type": "step", "start": 100, "end": 500}`` or ``{"tail": 50}``.
-            For timestamp-based filtering: ``{"type": "timestamp", "start": 1715769600000, "end": 1715773200000}``.
-            ``start``/``end`` accept int or str timestamps; values shorter than millisecond precision are auto-padded.
+        1. **Sampled** (default) — server-side LTTB downsampling, up to ``sample`` data points
+        2. **Full** — ``all=True``, no sampling limit
+        3. **Range** — filter by step / timestamp / recent time window via ``range_query``
+
+        .. note::
+           Modes 2 and 3 (``all`` / ``range_query``) download full-resolution CSV data and
+           perform range filtering client-side. Each metric point contains ``step``, ``value``,
+           and ``timestamp`` (if available).
+
+        :param keys: Metric keys to fetch, e.g. ``["loss", "acc"]``
+        :param sample: Max sampled data points (default 1500, max 1500). Ignored when ``all`` or ``range_query`` is set.
+        :param ignore_timestamp: If True, omit timestamp fields from the response
+        :param all: If True, fetch full-resolution data without sampling limit
+        :param range_query: Range filter — accepts a ``RangeQuery`` object or a plain dict.
+            Only supported for SCALAR metrics.
+
+        ---
+
+        **range_query fields**
+
+        ========== ============ =================================================
+        Field      Type         Description
+        ========== ============ =================================================
+        ``type``   ``str``      Filter axis: ``"step"`` (default) or ``"timestamp"``
+        ``start``  ``int``      Lower bound (inclusive); None = from beginning
+        ``end``    ``int``      Upper bound (inclusive); None = to end
+        ``last``   ``int``      Last N milliseconds (mutually exclusive with start/end)
+        ``head``   ``int``      First N data points (mutually exclusive with tail)
+        ``tail``   ``int``      Last N data points (mutually exclusive with head)
+        ========== ============ =================================================
+
+        **Mutual exclusivity**
+
+        - ``head`` and ``tail`` are mutually exclusive
+        - ``last`` is mutually exclusive with ``start`` / ``end``
+        - ``head`` / ``tail`` can be combined with ``last`` or ``start`` / ``end``
+
+        ---
+
+        **Examples — progressive**
+
+        1. Default sampled query::
+
+               exp.metrics(keys=["loss", "acc"])
+
+        2. Filter by step range::
+
+               exp.metrics(keys=["loss"], range_query={"start": 100, "end": 500})
+
+        3. Step range + first 50 points::
+
+               exp.metrics(keys=["loss"], range_query={"start": 0, "end": 500, "head": 50})
+
+        4. Filter by timestamp (Unix ms, auto-padded if < 13 digits)::
+
+               exp.metrics(keys=["loss"], range_query={
+                   "type": "timestamp",
+                   "start": 1715769600000,
+                   "end": 1715773200000,
+               })
+
+        5. Last 5 minutes::
+
+               exp.metrics(keys=["loss"], range_query={"last": 300_000})
+
+        6. Last 5 minutes + first 20 points::
+
+               exp.metrics(keys=["loss"], range_query={"last": 300_000, "head": 20})
+
+        7. Last 30 data points::
+
+               exp.metrics(keys=["loss"], range_query={"tail": 30})
         """
         run_id = self.run_id
         project_id = self.project_id
@@ -244,9 +313,14 @@ class Experiment(BaseEntity):
         keys: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """
-        获取实验的标量指标概要统计数据。
+        Get summary statistics for scalar metrics (latest, min, max, avg, median, etc.).
 
-        :param keys: 需要查询的标量 key 列表，为 None 表示查询全量 keys
+        :param keys: Scalar keys to query; None means all keys
+
+        ::
+
+            exp.summary()                 # all keys
+            exp.summary(keys=["loss"])    # specific keys
         """
         run_id = self.run_id
         project_id = self.project_id
@@ -313,10 +387,10 @@ class Experiment(BaseEntity):
         rows: int = 500_000,
     ) -> ApiResponseType:
         """
-        导出实验日志为 .log 文件。
+        Export experiment logs as a .log file.
 
-        :param start: 导出起始行号，0-based，默认 0
-        :param rows: 导出行数，默认 500000，最大 500000
+        :param start: Export start row (0-based), default 0
+        :param rows: Number of rows to export, default 500_000, max 500_000
         """
         run_id = self.run_id
         project_id = self.project_id
@@ -336,21 +410,24 @@ class Experiment(BaseEntity):
     def columns(
         self,
         page: int = 1,
-        size: int = 20,
+        size: int = 100,
         search: Optional[str] = None,
         column_type: Optional[ApiColumnDataTypeLiteral] = None,
         column_class: Optional[ApiColumnClassLiteral] = None,
         all: bool = False,
     ):
         """
-        获取实验下的列列表（分页查询，支持搜索）。
+        List columns under this experiment (paginated, with optional fuzzy search).
 
-        :param page: 起始页码，默认 1
-        :param size: 每页数量，默认 20
-        :param search: 搜索关键词，搜索的是列的 name
-        :param column_type: 列的类型，如 FLOAT、STRING、IMAGE 等
-        :param column_class: 列的分类，CUSTOM 或 SYSTEM
-        :param all: 是否获取全部数据，默认 False
+        The ``search`` parameter performs **fuzzy matching** (case-insensitive ``contains``)
+        on the column ``name`` field.
+
+        :param page: Page number, default 1
+        :param size: Page size, default 100
+        :param search: Fuzzy search keyword (matches column **name**, not key)
+        :param column_type: Column type filter, e.g. FLOAT, STRING, IMAGE
+        :param column_class: Column class filter, CUSTOM or SYSTEM
+        :param all: If True, fetch all pages, default False
         """
         self._ensure_data()
         from swanlab.api.column import Columns
@@ -370,7 +447,7 @@ class Experiment(BaseEntity):
         )
 
     def delete(self, commit: bool = False) -> bool:
-        """删除此实验。commit=False 时打印待删除信息，commit=True 时执行删除。"""
+        """Delete this experiment. ``commit=False`` prints the pending deletion; ``commit=True`` executes it."""
         if not commit:
             name = self.name
             if self._errors:
@@ -385,7 +462,7 @@ class Experiment(BaseEntity):
 
 
 def _flatten_runs(runs: Union[list, Dict]) -> list:
-    """展开分组后的实验数据，返回一个包含所有实验的列表。"""
+    """Flatten grouped experiment data into a flat list of experiments."""
     if isinstance(runs, dict):
         return [item for v in runs.values() for item in _flatten_runs(v)]
     if isinstance(runs, list):
@@ -395,19 +472,19 @@ def _flatten_runs(runs: Union[list, Dict]) -> list:
 
 class Experiments(BaseEntity):
     """
-    项目下实验集合的迭代器。
+    Iterator over experiments in a project.
 
-    支持两种模式：
-    - POST 模式（默认）：通过 /runs/shows 接口获取，支持复杂过滤，不支持分页
-    - GET 模式：通过 /runs 接口获取，支持标准分页，返回精简信息
+    Supports two modes:
+    - POST mode (default): fetches via ``/runs/shows``, supports complex filtering, no pagination
+    - GET mode: fetches via ``/runs``, supports standard pagination, returns summary info
 
-    用法::
+    Usage::
 
-        # POST 复杂过滤
+        # POST with complex filters
         for run in api.runs(path="username/project"):
             print(run.name)
 
-        # GET 分页
+        # GET with pagination
         for run in api.list_runs_simple(path="username/project"):
             print(run.name, run.state)
     """
@@ -445,7 +522,7 @@ class Experiments(BaseEntity):
             yield from self._iter_filtered()
 
     def _iter_filtered(self) -> Iterator[Experiment]:
-        """POST /runs/shows 模式：复杂过滤，不支持分页。"""
+        """POST /runs/shows mode: complex filtering, no pagination."""
         resp = self._post(
             f"/project/{self._proj_path}/runs/shows",
             data={
@@ -472,7 +549,7 @@ class Experiments(BaseEntity):
             yield Experiment(self._ctx, path=full_path, data=run_data)
 
     def _iter_paginated(self) -> Iterator[Experiment]:
-        """GET /runs 模式：标准分页，返回精简信息。"""
+        """GET /runs mode: standard pagination, returns summary info."""
         for item in self._paginate(
             f"/project/{self._proj_path}/runs",
             self._query,
