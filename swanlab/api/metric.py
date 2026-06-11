@@ -111,6 +111,8 @@ def _stream_csv_rows(
     if rq is not None and rq.last is not None:
         last_start_ts = int(time.time() * 1000) - rq.last
 
+    _warned_missing_ts = False
+
     for row in csv.reader(lines):
         if not row or len(row) < 2:
             continue
@@ -133,7 +135,9 @@ def _stream_csv_rows(
             if last_start_ts is not None:
                 ts = item.get("timestamp")
                 if ts is None:
-                    console.warning(f"CSV row missing timestamp column: {row}")
+                    if not _warned_missing_ts:
+                        console.warning("CSV row missing `timestamp` column.")
+                        _warned_missing_ts = True
                     continue
                 if ts < last_start_ts:
                     continue
@@ -141,7 +145,9 @@ def _stream_csv_rows(
             elif rq.type == "timestamp":
                 ts = item.get("timestamp")
                 if ts is None:
-                    console.warning(f"CSV row missing timestamp column: {row}")
+                    if not _warned_missing_ts:
+                        console.warning("CSV row missing `timestamp` column.")
+                        _warned_missing_ts = True
                     continue
                 if rq.start is not None and ts < rq.start:
                     continue
