@@ -585,7 +585,8 @@ class Metrics(BaseEntity):
             raise ValueError("range_query is only supported for SCALAR metric_type")
         self._project_id = project_id
         self._run_id = run_id
-        self._keys = keys
+        # 去重，保持插入顺序
+        self._keys = list(dict.fromkeys(keys))
         self._metric_type = metric_type
         self._ignore_timestamp = ignore_timestamp
         self._media_step = media_step
