@@ -34,24 +34,40 @@ _SCALAR_STATISTIC_FIELDS = ("min", "max", "avg", "median", "latest")
 _METRIC_SHARED_KEYS = frozenset({"project_id", "run_id", "metric_type"})
 
 
+def _index_entries_by_key(entries: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    """Build a key-indexed response map; House may omit columns or return them out of order."""
+    indexed: Dict[str, Dict[str, Any]] = {}
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        key = entry.get("key")
+        if isinstance(key, str) and key:
+            indexed[key] = entry
+    return indexed
+
+
 def _merge_value_stats(
     step_list: List[Dict[str, Any]],
     time_list: List[Dict[str, Any]],
     keys: List[str],
 ) -> List[Dict[str, Any]]:
     """合并 step/time 两种 x_type 的 value stat 响应为 per-key 统计字典。"""
+    step_by_key = _index_entries_by_key(step_list)
+    time_by_key = _index_entries_by_key(time_list)
     merged: List[Dict[str, Any]] = []
-    for i in range(len(keys)):
+    for key in keys:
+        step_entry = step_by_key.get(key, {})
+        time_entry = time_by_key.get(key, {})
         entry: Dict[str, Any] = {}
         for field in _SCALAR_STATISTIC_FIELDS:
-            step_val = step_list[i].get(field) if i < len(step_list) else None
-            time_val = time_list[i].get(field) if i < len(time_list) else None
-            if step_val is not None:
+            step_val = step_entry.get(field)
+            time_val = time_entry.get(field)
+            if isinstance(step_val, dict):
                 stat = dict(step_val)
-                if time_val is not None and time_val.get("index") is not None:
+                if isinstance(time_val, dict) and time_val.get("index") is not None:
                     stat["timestamp"] = time_val["index"]
                 entry[field] = stat
-            elif time_val is not None:
+            elif isinstance(time_val, dict):
                 entry[field] = dict(time_val)
         merged.append(entry)
     return merged
@@ -59,9 +75,12 @@ def _merge_value_stats(
 
 def _extract_csv_url(data: Any) -> str:
     if isinstance(data, list) and data:
-        return data[0].get("url", "")
+        return _extract_csv_url(data[0])
     if isinstance(data, dict):
-        return data.get("url", "")
+        url = data.get("url", "")
+        if isinstance(url, str) and url:
+            return url
+        return _extract_csv_url(data.get("data"))
     return ""
 
 
@@ -756,8 +775,8 @@ class Metrics(BaseEntity):
         scalar_resp, step_resp, time_resp = self._concurrent_request(requests)
 
         scalar_list = scalar_resp.data if scalar_resp.ok and isinstance(scalar_resp.data, list) else []
-        # scalar_list 元素是 dict，提取 .get("metrics", []) 统一为 List[List]
-        metrics_per_key = [entry.get("metrics", []) for entry in scalar_list]
+        scalar_by_key = _index_entries_by_key(scalar_list)
+        metrics_per_key = [scalar_by_key.get(key, {}).get("metrics", []) for key in keys]
         value_list = self._extract_value_stats(step_resp, time_resp, keys)
 
         return self._build_scalar_results(keys, metrics_per_key, value_list)
