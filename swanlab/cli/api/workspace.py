@@ -26,5 +26,5 @@ def get_workspace(username: str, save_name: str, api: Api):
     """Get Workspace info."""
     resp = api.workspace(username).wrapper()
     payload = format_output(resp)
-    if payload["ok"] and save_name is not None:
+    if save_name is not None:
         save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)

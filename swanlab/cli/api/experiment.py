@@ -4,7 +4,9 @@ import click
 import orjson
 
 from swanlab.api import Api
-from swanlab.api.typings.common import ApiResponseType
+from swanlab.api.metric import Metric, Metrics
+from swanlab.api.summary import Summary
+from swanlab.api.typings.common import RangeQuery
 from swanlab.cli.api.helper import (
     COLUMN_CLASS_TYPE,
     COLUMN_DATA_TYPE,
@@ -41,7 +43,7 @@ def get_experiment(path: str, save_name: str, api: Api):
     """
     resp = api.run(path).wrapper()
     payload = format_output(resp)
-    if payload["ok"] and save_name is not None:
+    if save_name is not None:
         save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
 
 
@@ -77,7 +79,7 @@ def list_experiments(page_num: int, page_size: str, project_path: str, fetch_all
     """
     resp = api.runs_get(path=project_path, page=page_num, size=int(page_size), all=fetch_all).wrapper()
     payload = format_output(resp)
-    if payload["ok"] and save_name is not None:
+    if save_name is not None:
         save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
 
 
@@ -106,7 +108,7 @@ def filter_experiments(project_path: str, filter_query: str, save_name: str, api
     filters = validate_filter_query(filter_query)
     resp = api.runs(path=project_path, filters=filters).wrapper()
     payload = format_output(resp)
-    if payload["ok"] and save_name is not None:
+    if save_name is not None:
         save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
 
 
@@ -181,7 +183,7 @@ def list_experiment_columns(
     )
     resp = columns.wrapper()
     payload = format_output(resp)
-    if payload["ok"] and save_name is not None:
+    if save_name is not None:
         save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
 
 
@@ -272,29 +274,36 @@ def get_experiment_metrics(
     if range_start is not None and range_end is not None and range_start > range_end:
         raise click.BadParameter(f"--range-start must be <= --range-end, got ({range_start}, {range_end}).")
 
-    range_query = None
+    rq = None
     has_range = any(v is not None for v in (range_type, range_start, range_end, range_head, range_tail, range_last))
     if has_range:
-        range_query = {
-            "type": (range_type or "step"),
-            "start": range_start,
-            "end": range_end,
-            "head": range_head,
-            "tail": range_tail,
-            "last": range_last,
-        }
+        rq = RangeQuery(
+            type=(range_type or "step"),  # type: ignore[arg-type]
+            start=range_start,
+            end=range_end,
+            head=range_head,
+            tail=range_tail,
+            last=range_last,
+        )
 
     key_list = parse_keys(keys)
     experiment = api.run(path)
-    data = experiment.metrics(
+    metrics = Metrics(
+        ctx=api._ctx,
+        project_id=experiment.project_id,
+        run_id=experiment.run_id,
         keys=key_list,
         sample=sample,
+        metric_type="SCALAR",
         ignore_timestamp=ignore_timestamp,
         all=fetch_all,
-        range_query=range_query,
+        range_query=rq,
+        root_pro_id=experiment.root_pro_id,
+        root_exp_id=experiment.root_exp_id,
     )
-    payload = format_output(ApiResponseType(ok=True, data=data))
-    if payload["ok"] and save_name is not None:
+    resp = metrics.wrapper()
+    payload = format_output(resp)
+    if save_name is not None:
         save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
 
 
@@ -321,9 +330,17 @@ def get_experiment_summary(path: str, keys: Optional[str], save_name: str, api: 
     """
     key_list = parse_keys(keys) if keys else None
     experiment = api.run(path)
-    data = experiment.summary(keys=key_list)
-    payload = format_output(ApiResponseType(ok=True, data=data))
-    if payload["ok"] and save_name is not None:
+    summary = Summary(
+        ctx=api._ctx,
+        project_id=experiment.project_id,
+        experiment_id=experiment.run_id,
+        keys=key_list,
+        root_pro_id=experiment.root_pro_id,
+        root_exp_id=experiment.root_exp_id,
+    )
+    resp = summary.wrapper()
+    payload = format_output(resp)
+    if save_name is not None:
         save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
 
 
@@ -377,7 +394,7 @@ def get_experiment_column(
     )
     resp = col.wrapper()
     payload = format_output(resp)
-    if payload["ok"] and save_name is not None:
+    if save_name is not None:
         save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
 
 
@@ -419,9 +436,20 @@ def get_experiment_medias(
     """
     key_list = parse_keys(keys)
     experiment = api.run(path)
-    data = experiment.medias(keys=key_list, step=step, all=fetch_all)
-    payload = format_output(ApiResponseType(ok=True, data=data))
-    if payload["ok"] and save_name is not None:
+    metrics = Metrics(
+        ctx=api._ctx,
+        project_id=experiment.project_id,
+        run_id=experiment.run_id,
+        keys=key_list,
+        metric_type="MEDIA",
+        media_step=step,
+        all=fetch_all,
+        root_pro_id=experiment.root_pro_id,
+        root_exp_id=experiment.root_exp_id,
+    )
+    resp = metrics.wrapper()
+    payload = format_output(resp)
+    if save_name is not None:
         save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
 
 
@@ -469,9 +497,21 @@ def get_experiment_logs(
     PATH format: username/project_name/run_id
     """
     experiment = api.run(path)
-    data = experiment.logs(offset=offset, level=level.upper(), ignore_timestamp=ignore_timestamp)  # type: ignore
-    payload = format_output(ApiResponseType(ok=True, data=data))
-    if payload["ok"] and save_name is not None:
+    metric = Metric(
+        ctx=api._ctx,
+        project_id=experiment.project_id,
+        run_id=experiment.run_id,
+        key="LOG",
+        log_offset=offset,
+        log_level=level.upper(),  # type: ignore
+        metric_type="LOG",
+        ignore_timestamp=ignore_timestamp,
+        root_pro_id=experiment.root_pro_id,
+        root_exp_id=experiment.root_exp_id,
+    )
+    resp = metric.wrapper()
+    payload = format_output(resp)
+    if save_name is not None:
         save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
 
 
@@ -506,5 +546,5 @@ def export_experiment_logs(path: str, start: int, rows: int, save_name: str, api
     experiment = api.run(path)
     resp = experiment.export_logs(start=start, rows=rows)
     payload = format_output(resp)
-    if payload["ok"] and save_name is not None:
+    if save_name is not None:
         save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
