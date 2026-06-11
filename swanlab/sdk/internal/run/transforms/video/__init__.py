@@ -99,7 +99,8 @@ class Video(TransformMedia):
 
     @classmethod
     def column_type(cls) -> ColumnType:
-        return ColumnType.COLUMN_TYPE_VIDEO
+        # TODO: 服务端支持 VIDEO 列类型后，改回 ColumnType.COLUMN_TYPE_VIDEO
+        return ColumnType.COLUMN_TYPE_IMAGE
 
     def transform(self, *, step: int, path: Path) -> MediaItem:
         content = self.buffer.getvalue()
