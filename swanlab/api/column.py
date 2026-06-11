@@ -5,7 +5,6 @@
 @description: Column 实体类 — 实验列的查询与操作
 """
 
-import dataclasses
 from typing import Any, Callable, Dict, Iterator, Optional, cast
 
 from swanlab.api.base import ApiClientContext, BaseEntity
@@ -282,17 +281,11 @@ class Columns(BaseEntity):
         if self._column_class:
             extra["class"] = self._column_class
 
-        # all=True + 有过滤条件时：后端 all=True 模式无视 search/type/class 仅做全量返回，
-        # 所以改为 all=False 走分页过滤 + 自动翻页收集全部结果
-        use_auto_paginate = self._query.all and (self._query.search or self._column_type or self._column_class)
-        query = dataclasses.replace(self._query, all=use_auto_paginate) if use_auto_paginate else self._query
-        if use_auto_paginate:
-            if self._query.search:
-                extra["search"] = self._query.search
-
         for item in self._paginate(
             f"/experiment/{run_id}/column",
-            query,
+            # PaginatedQuery.all is client-side only: to_params() does not send it
+            # to the backend, so filtered all=True requests still use paged search.
+            self._query,
             page_info=self._page_info,
             extra=extra,
         ):
