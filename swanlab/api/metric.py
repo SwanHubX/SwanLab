@@ -819,11 +819,11 @@ class Metrics(BaseEntity):
     # ------------------------------------------------------------------
 
     def _fetch_scalar_csv(self, keys: List[str]) -> List[Dict[str, Any]]:
-        """CSV 全量下载 + value stats，URL 获取与下载均并发。
+        """CSV 全量下载 + value stats，URL 获取并发，CSV 顺序下载。
 
         value stats 通过后端 ``columns`` 批量获取；
         CSV presigned URL 通过 ``GET /experiment/{run_id}/column/csv`` per-key 获取，
-        多 key 时并发拉取 URL + 并发下载 CSV。
+        多 key 时并发拉取 URL，但 CSV 下载为顺序执行（每批最多 4 个 key）。
         """
         # 并发：step 统计 + time 统计 + per-key CSV URL
         requests: List[tuple] = self._build_value_stats_requests(keys)
@@ -845,7 +845,7 @@ class Metrics(BaseEntity):
                 url = _extract_csv_url(csv_resps[i].data)
             url_by_key[key] = url or None
 
-        # 并发下载 CSV 并解析
+        # 下载 CSV 并解析（每批最多 _BATCH_SIZE 个 key，穿行执行防止并发膨胀）
         urls_ordered = [url_by_key.get(key) for key in keys]
         csv_rows_list = self._download_csvs(urls_ordered)
         metrics_by_key: Dict[str, Any] = {
@@ -883,19 +883,19 @@ class Metrics(BaseEntity):
         return results
 
     # ------------------------------------------------------------------
-    # CSV 并发下载
+    # CSV 后处理
     # ------------------------------------------------------------------
 
     def _download_csvs(self, urls: List[Optional[str]]) -> List[List[Dict[str, Any]]]:
-        """通过线程池并发下载并解析 CSV 文件。"""
-        if not any(urls):
-            return [[] for _ in urls]
-
-        with SafeThreadPoolExecutor(max_workers=min(len(urls), self._BATCH_SIZE)) as pool:
-            futures = [
-                pool.submit(_stream_csv_rows, self._ctx.client, url, self._range_query) if url else None for url in urls
-            ]
-            return [(f.result() or []) if f is not None else [] for f in futures]
+        """顺序下载并解析 CSV 文件（每批最多 ``_BATCH_SIZE`` 个 key，无需并发）。"""
+        results: List[List[Dict[str, Any]]] = []
+        for url in urls:
+            if url:
+                rows = _stream_csv_rows(self._ctx.client, url, self._range_query)
+                results.append(rows or [])
+            else:
+                results.append([])
+        return results
 
     # ------------------------------------------------------------------
     # Media fetch（后端 columns 批量，单次请求，无需分批）
