@@ -1,7 +1,7 @@
 ---
 name: swanlab-skill
 metadata:
-  version: "0.1.0"
+  version: "0.1.1"
 description: >
   Interact with SwanLab — both writing tracking code (init/log/finish/multimedia) and querying
   experiment data via CLI (`swanlab api`). Use this skill when the user wants to write training
@@ -95,12 +95,17 @@ CLI commands use `username/project_name` (project) or `username/project_name/run
 | "console output" | Captured logs | `CLI_REFERENCE.md > run logs` |
 | "what columns are tracked" | Metric definitions | `CLI_REFERENCE.md > run columns` |
 | "check connectivity" / "can I reach swanlab" | Environment check | `swanlab ping` |
+| "check login status" / "am I logged in" | Verify credentials | `swanlab verify` |
 
 ---
 
 ## Environment Connectivity
 
-Before writing tracking code or running CLI queries, especially in `online` mode, use `swanlab ping` to verify that the current environment can reach the SwanLab server:
+Before writing tracking code or running CLI queries, especially in `online` mode, run these two checks to confirm the environment is ready:
+
+### 1. `swanlab ping` — Test network reachability
+
+The fastest way to diagnose connectivity issues. Run it first when a user reports upload failures, login problems, or unknown mode fallbacks.
 
 ```bash
 swanlab ping
@@ -108,7 +113,25 @@ swanlab ping
 # If ping fails, check SWANLAB_API_HOST / network proxy / firewall settings.
 ```
 
-This is the fastest way to diagnose connectivity issues — run it first when a user reports upload failures, login problems, or unknown mode fallbacks.
+### 2. `swanlab verify` — Validate login credentials
+
+After confirming the server is reachable, use `swanlab verify` to check that stored credentials are valid and have not expired. This reads the API key and host from the local `.netrc` file (created by `swanlab login`).
+
+```bash
+swanlab verify
+# Validates stored API key against the server.
+# Reports: which host (default https://swanlab.cn) and the logged-in username.
+# Fails if: not logged in, API key is invalid, or key has expired.
+
+swanlab verify --local
+# Check local login status (.swanlab in current directory) instead of the global one.
+```
+
+**Recommended pre-flight sequence**:
+
+1. `swanlab ping` → confirm the server is reachable
+2. `swanlab verify` → confirm credentials are valid
+3. Proceed with `swanlab api` queries or SDK code
 
 ---
 
@@ -116,6 +139,6 @@ This is the fastest way to diagnose connectivity issues — run it first when a 
 
 See `CLI_REFERENCE.md > Behavioral Constraints` for the full list. Key rules:
 
-- **Never use `--all` unless the user explicitly asks for it.**
-- **Always ask for specific column keys before running `run metrics`, `run medias`, or `run column`.**
-- **Never dump large metric JSON directly into conversation.** Use `--save` to persist to file, then visualize with `scripts/plot_metrics.py --data file.json` or use `run summary` for aggregate stats.
+- **Use `--all` only when the user explicitly asks for it** (e.g. "fetch all", "get everything", "complete list"). For paginated list commands, always use default pagination (`--page_num` / `--page_size`).
+- **Always ask for specific column keys before running `run metrics`, `run medias`, or `run column`.** If the user doesn't know the key names, first run `run columns PATH` to discover them.
+- **Always persist large metric data to file via `--save`**, then visualize with `scripts/plot_metrics.py --data file.json` or use `run summary` for aggregate stats.
