@@ -141,6 +141,12 @@ def filter_experiments(project_path: str, filter_query: str, save_name: str, api
     help="Page size.",
 )
 @click.option(
+    "--search",
+    default=None,
+    type=str,
+    help="Fuzzy search keyword (matches column name).",
+)
+@click.option(
     "--class",
     "column_class",
     default="CUSTOM",
@@ -167,6 +173,7 @@ def list_experiment_columns(
     path: str,
     page_num: int,
     page_size: str,
+    search: Optional[str],
     column_class: str,
     column_type: str,
     fetch_all: bool,
@@ -183,6 +190,7 @@ def list_experiment_columns(
             path=path,
             page=page_num,
             size=int(page_size),
+            search=search,
             column_class=column_class.upper(),  # type: ignore
             column_type=column_type.upper() if column_type else None,  # type: ignore
             all=fetch_all,
@@ -240,6 +248,13 @@ def list_experiment_columns(
 @click.option("--range-head", "range_head", default=None, type=click.IntRange(min=1), help="First N data points.")
 @click.option("--range-tail", "range_tail", default=None, type=click.IntRange(min=1), help="Last N data points.")
 @click.option(
+    "--range-last",
+    "range_last",
+    default=None,
+    type=click.IntRange(min=1),
+    help="Last N milliseconds of data (mutually exclusive with --range-start/--range-end).",
+)
+@click.option(
     "--save",
     "save_name",
     is_flag=False,
@@ -258,6 +273,7 @@ def get_experiment_metrics(
     range_end: Optional[int],
     range_head: Optional[int],
     range_tail: Optional[int],
+    range_last: Optional[int],
     save_name: str,
     api: Api,
 ):
@@ -267,11 +283,13 @@ def get_experiment_metrics(
     """
     if range_head is not None and range_tail is not None:
         raise click.BadParameter("--range-head and --range-tail are mutually exclusive.")
+    if range_last is not None and (range_start is not None or range_end is not None):
+        raise click.BadParameter("--range-last is mutually exclusive with --range-start/--range-end.")
     if range_start is not None and range_end is not None and range_start > range_end:
         raise click.BadParameter(f"--range-start must be <= --range-end, got ({range_start}, {range_end}).")
 
     range_query = None
-    has_range = any(v is not None for v in (range_type, range_start, range_end, range_head, range_tail))
+    has_range = any(v is not None for v in (range_type, range_start, range_end, range_head, range_tail, range_last))
     if has_range:
         range_query = {
             "type": (range_type or "step"),
@@ -279,6 +297,7 @@ def get_experiment_metrics(
             "end": range_end,
             "head": range_head,
             "tail": range_tail,
+            "last": range_last,
         }
 
     key_list = parse_keys(keys)
