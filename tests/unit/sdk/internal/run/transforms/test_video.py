@@ -118,7 +118,8 @@ class TestVideoColumnType:
     def test_column_type(self):
         from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
 
-        assert Video.column_type() == ColumnType.COLUMN_TYPE_VIDEO
+        # TODO: 服务端 column 暂时不支持 VIDEO，临时回退为 IMAGE
+        assert Video.column_type() == ColumnType.COLUMN_TYPE_IMAGE
 
 
 class TestVideoBuildDataRecord:
