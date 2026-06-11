@@ -34,8 +34,8 @@ _SCALAR_STATISTIC_FIELDS = ("min", "max", "avg", "median", "latest")
 _METRIC_SHARED_KEYS = frozenset({"project_id", "run_id", "metric_type"})
 
 
-def _index_entries_by_key(entries: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
-    """Build a key-indexed response map; House may omit columns or return them out of order."""
+def _align_entries_by_key(entries: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    """将后端返回的列表按 ``key`` 字段映射为 dict，应对后端可能省略列或乱序返回。"""
     indexed: Dict[str, Dict[str, Any]] = {}
     for entry in entries:
         if not isinstance(entry, dict):
@@ -52,8 +52,8 @@ def _merge_value_stats(
     keys: List[str],
 ) -> List[Dict[str, Any]]:
     """合并 step/time 两种 x_type 的 value stat 响应为 per-key 统计字典。"""
-    step_by_key = _index_entries_by_key(step_list)
-    time_by_key = _index_entries_by_key(time_list)
+    step_by_key = _align_entries_by_key(step_list)
+    time_by_key = _align_entries_by_key(time_list)
     merged: List[Dict[str, Any]] = []
     for key in keys:
         step_entry = step_by_key.get(key, {})
@@ -242,6 +242,13 @@ class Metric(BaseEntity):
 
     @property
     def metrics(self) -> List[Any]:
+        """指标数据列表。SCALAR 类型为采样后的折线点（含 index/data/timestamp），
+        MEDIA 类型为 ``[{index, items}]`` 结构。
+
+        .. note::
+           当通过 ``Metrics`` 批量查询并使用 ``range_query`` 的 ``head`` / ``tail`` 时，
+           ``head`` / ``tail`` 是 post-sampling 操作——在采样/下载完成后截取，而非对原始全量数据截取后再采样。
+        """
         return self._ensure_data().get("metrics", [])
 
     @property
@@ -354,18 +361,31 @@ class Metric(BaseEntity):
             root_exp_id=self._root_exp_id,
         )
 
-        # 1. 获取折线数据
-        raw_data = self._extract_first(self._post("/house/metrics/scalar", data=payload))
-        if raw_data is None:
+        # 1. 获取折线数据 — 使用 key-indexed lookup 保证对齐
+        scalar_resp = self._post("/house/metrics/scalar", data=payload)
+        if scalar_resp.ok and isinstance(scalar_resp.data, list):
+            scalar_by_key = _align_entries_by_key(scalar_resp.data)
+            res["metrics"] = scalar_by_key.get(self.key, {}).get("metrics", [])
+        if not res.get("metrics"):
             return res
-        res["metrics"] = raw_data.get("metrics", [])
 
-        # 2. 获取统计值
-        stat_data = self._extract_first(self._post("/house/metrics/scalar/value", data=payload))
-        if stat_data is None:
-            return res
-        for field in _SCALAR_STATISTIC_FIELDS:
-            res[field] = stat_data.get(field, {})
+        # 2. 获取统计值 — step/time 并发，key-indexed 合并
+        step_payload = {**payload, "xType": "step"}
+        time_payload = {**payload, "xType": "timestamp"}
+        step_resp, time_resp = self._concurrent_request(
+            [
+                (self._post, "/house/metrics/scalar/value", {"data": step_payload}),
+                (self._post, "/house/metrics/scalar/value", {"data": time_payload}),
+            ]
+        )
+        step_list = step_resp.data if step_resp.ok and isinstance(step_resp.data, list) else []
+        time_list = time_resp.data if time_resp.ok and isinstance(time_resp.data, list) else []
+        value_list = _merge_value_stats(step_list, time_list, [self.key])
+        if value_list:
+            for field in _SCALAR_STATISTIC_FIELDS:
+                val = value_list[0].get(field)
+                if val:
+                    res[field] = val
         return res
 
     @staticmethod
@@ -569,6 +589,12 @@ class Metrics(BaseEntity):
 
     内部通过 ``_ensure_batch()`` 缓存结果，避免 ``__iter__`` 与 ``json()`` 重复请求。
     当 key 数量超过 ``_BATCH_SIZE``（默认 4）时自动分批，多批并发执行。
+
+    .. note::
+       ``range_query`` 的 ``head`` 和 ``tail`` 参数是 post-sampling 操作：
+       在 sampled 模式下，服务端先做 LTTB 降采样，再对采样结果截取 head/tail；
+       在 CSV 全量下载模式（``all`` 或 ``range_query``）下，先下载完整数据并做范围过滤，
+       再对过滤后的结果截取 head/tail。因此 head/tail 不等同于对原始全量数据截取后再采样。
 
     用法::
 
@@ -775,11 +801,12 @@ class Metrics(BaseEntity):
         scalar_resp, step_resp, time_resp = self._concurrent_request(requests)
 
         scalar_list = scalar_resp.data if scalar_resp.ok and isinstance(scalar_resp.data, list) else []
-        scalar_by_key = _index_entries_by_key(scalar_list)
-        metrics_per_key = [scalar_by_key.get(key, {}).get("metrics", []) for key in keys]
+        scalar_by_key = _align_entries_by_key(scalar_list)
+        metrics_by_key: Dict[str, Any] = {key: scalar_by_key.get(key, {}).get("metrics", []) for key in keys}
         value_list = self._extract_value_stats(step_resp, time_resp, keys)
+        value_by_key: Dict[str, Dict[str, Any]] = {keys[i]: v for i, v in enumerate(value_list)}
 
-        return self._build_scalar_results(keys, metrics_per_key, value_list)
+        return self._build_scalar_results(keys, metrics_by_key, value_by_key)
 
     # ------------------------------------------------------------------
     # Scalar: CSV 全量下载 + 统计值 (range_query 或 all 模式)
@@ -802,19 +829,24 @@ class Metrics(BaseEntity):
         csv_resps = all_resps[2:]
 
         value_list = self._extract_value_stats(step_resp, time_resp, keys)
+        value_by_key: Dict[str, Dict[str, Any]] = {keys[i]: v for i, v in enumerate(value_list)}
 
-        # 提取 presigned CSV URL
-        urls: List[Optional[str]] = []
-        for resp in csv_resps:
+        # 提取 presigned CSV URL（按 key 索引）
+        url_by_key: Dict[str, Optional[str]] = {}
+        for i, key in enumerate(keys):
             url = ""
-            if resp.ok and resp.data:
-                url = _extract_csv_url(resp.data)
-            urls.append(url or None)
+            if i < len(csv_resps) and csv_resps[i].ok and csv_resps[i].data:
+                url = _extract_csv_url(csv_resps[i].data)
+            url_by_key[key] = url or None
 
         # 并发下载 CSV 并解析
-        csv_data = self._download_csvs(urls)
+        urls_ordered = [url_by_key.get(key) for key in keys]
+        csv_rows_list = self._download_csvs(urls_ordered)
+        metrics_by_key: Dict[str, Any] = {
+            keys[i]: csv_rows_list[i] if i < len(csv_rows_list) else [] for i, key in enumerate(keys)
+        }
 
-        return self._build_scalar_results(keys, csv_data, value_list)
+        return self._build_scalar_results(keys, metrics_by_key, value_by_key)
 
     # ------------------------------------------------------------------
     # Scalar results 构建
@@ -823,20 +855,24 @@ class Metrics(BaseEntity):
     def _build_scalar_results(
         self,
         keys: List[str],
-        metrics_data: List[Any],
-        value_list: List[Dict[str, Any]],
+        metrics_by_key: Dict[str, Any],
+        value_by_key: Dict[str, Dict[str, Any]],
     ) -> List[Dict[str, Any]]:
-        """将折线/CSV 数据与 value stats 合并为 per-key 结果字典。"""
+        """将折线/CSV 数据与 value stats 合并为 per-key 结果字典。
+
+        所有数据通过 key 索引查找，保证与请求 keys 顺序对齐，不依赖后端返回顺序。
+        """
         results: List[Dict[str, Any]] = []
-        for i, key in enumerate(keys):
+        for key in keys:
             data: Dict[str, Any] = {
                 "projectId": self._project_id,
                 "experimentId": self._run_id,
                 "key": key,
-                "metrics": metrics_data[i] if i < len(metrics_data) else [],
+                "metrics": metrics_by_key.get(key, []),
             }
-            if i < len(value_list):
-                data.update(value_list[i])
+            stats = value_by_key.get(key, {})
+            if stats:
+                data.update(stats)
             results.append(data)
         return results
 
