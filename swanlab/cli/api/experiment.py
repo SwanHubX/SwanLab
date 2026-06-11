@@ -60,13 +60,7 @@ def get_experiment(path: str, save_name: str, api: Api):
     type=PAGE_SIZE_TYPE,
     help="Page size.",
 )
-@click.option(
-    "--project_path",
-    "-p",
-    required=True,
-    type=str,
-    help="Project path (e.g. username/project_name).",
-)
+@click.argument("project_path", required=True)
 @click.option("--all", "fetch_all", is_flag=True, default=False, help="Fetch all pages.")
 @click.option(
     "--save",
@@ -81,22 +75,14 @@ def list_experiments(page_num: int, page_size: str, project_path: str, fetch_all
 
     PROJECT_PATH format: username/project_name
     """
-    resp = ApiResponseType(
-        ok=True, data=api.runs_get(path=project_path, page=page_num, size=int(page_size), all=fetch_all)
-    )
+    resp = api.runs_get(path=project_path, page=page_num, size=int(page_size), all=fetch_all).wrapper()
     payload = format_output(resp)
     if payload["ok"] and save_name is not None:
         save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
 
 
 @run_cli.command("filter")
-@click.option(
-    "--project_path",
-    "-p",
-    required=True,
-    type=str,
-    help="Project path (e.g. username/project_name).",
-)
+@click.argument("project_path", required=True)
 @click.option(
     "--filter_query",
     "-f",
@@ -118,7 +104,7 @@ def filter_experiments(project_path: str, filter_query: str, save_name: str, api
     PROJECT_PATH format: username/project_name
     """
     filters = validate_filter_query(filter_query)
-    resp = ApiResponseType(ok=True, data=api.runs(path=project_path, filters=filters))
+    resp = api.runs(path=project_path, filters=filters).wrapper()
     payload = format_output(resp)
     if payload["ok"] and save_name is not None:
         save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
@@ -184,18 +170,16 @@ def list_experiment_columns(
 
     PATH format: username/project_name/run_id
     """
-    resp = ApiResponseType(
-        ok=True,
-        data=api.columns(
-            path=path,
-            page=page_num,
-            size=int(page_size),
-            search=search,
-            column_class=column_class.upper(),  # type: ignore
-            column_type=column_type.upper() if column_type else None,  # type: ignore
-            all=fetch_all,
-        ),
+    columns = api.columns(
+        path=path,
+        page=page_num,
+        size=int(page_size),
+        search=search,
+        column_class=column_class.upper(),  # type: ignore
+        column_type=column_type.upper() if column_type else None,  # type: ignore
+        all=fetch_all,
     )
+    resp = columns.wrapper()
     payload = format_output(resp)
     if payload["ok"] and save_name is not None:
         save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
