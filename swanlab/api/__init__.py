@@ -17,7 +17,7 @@ from .base import ApiClientContext, BaseEntity
 from .column import Column, Columns
 from .experiment import Experiment, Experiments
 from .project import Project, Projects
-from .selfhosted import SelfHosted
+from .self_hosted import SelfHosted
 from .typings.common import ApiColumnClassLiteral, ApiColumnDataTypeLiteral, ApiVisibilityLiteral, PaginatedQuery
 from .user import User
 from .utils import validate_api_path, validate_non_empty_string

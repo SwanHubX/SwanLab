@@ -9,7 +9,7 @@ import click
 
 from .experiment import run_cli
 from .project import project_cli
-from .selfhosted import selfhosted_cli
+from .self_hosted import selfhosted_cli
 from .user import user_cli
 from .workspace import workspace_cli
 

@@ -8,7 +8,7 @@ from typing import cast
 
 import pytest
 
-from swanlab.api.selfhosted import SelfHosted
+from swanlab.api.self_hosted import SelfHosted
 from swanlab.api.typings.common import PaginatedQuery
 from swanlab.api.typings.selfhosted import ApiSelfHostedInfoType
 from swanlab.api.utils import (
