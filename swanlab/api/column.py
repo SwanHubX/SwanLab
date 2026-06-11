@@ -315,9 +315,6 @@ class Columns(BaseEntity):
     def json(self) -> Dict[str, Any]:
         items = [c.json() for c in self]
         self._page_info["list"] = items
-        # 自动翻页后 total/size/pages 应与实际 list 对齐
-        if self._query.all:
-            self._page_info["total"] = len(items)
-            self._page_info["size"] = len(items)
-            self._page_info["pages"] = 1
+        # total/pages 来自后端第一页响应，始终为匹配 search 的真实总数；
+        # size 保持用户请求的分页大小，不因 all=True 而覆盖。
         return self._page_info
