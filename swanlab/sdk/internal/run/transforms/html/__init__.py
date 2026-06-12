@@ -2,7 +2,7 @@
 @author: caddiesnew
 @file: __init__.py
 @time: 2026/6/8
-@description: HTML 数据处理模块
+@description: HTML transform module — converts HTML strings or files into protobuf MediaItem records
 """
 
 import hashlib
@@ -19,18 +19,17 @@ from swanlab.sdk.typings.run.transforms.html import HtmlDataType
 
 class Html(TransformMedia):
     def __init__(self, data: HtmlDataType, caption: CaptionType = None):
-        """
-        HTML 数据类，支持多种输入格式。
+        """Html class constructor
 
         Parameters
         ----------
         data: str, pathlib.Path, TextIO, or Html
-            - str: 可以是 HTML 文件路径（.html 后缀且文件存在）或原始 HTML 字符串
-            - pathlib.Path: HTML 文件路径
-            - TextIO: 文件类对象，如 open("file.html") 返回的对象
-            - Html: 套娃加载，从另一个 Html 实例复制属性
+            - str: an HTML file path (must end with .html and exist on disk) or a raw HTML string.
+            - pathlib.Path: path to an HTML file.
+            - TextIO: a file-like object, e.g. the return value of open("file.html").
+            - Html: nesting — copies attributes from another Html instance.
         caption: str, optional
-            可选的标题说明
+            Optional caption for the HTML content.
         """
         super().__init__()
 
