@@ -34,6 +34,7 @@ class Text(TransformMedia):
         # 构建 filename
         # 历史版本直接将用户传入的content写入CH，这交给前端去适配
         filename = f"{step:03d}-{sha256[:8]}.txt"
-        # 写入数据
-        fs.safe_write(path / filename, self.content)
+        # 复用已编码的 bytes 直接以二进制写入: 既避免 safe_write 对 str 再做一次 UTF-8 编码,
+        # 也保证 Windows 下文件内容 (LF) 与上方 sha256/size 计算结果一致
+        fs.safe_write(path / filename, content_encode, mode="wb")
         return MediaItem(filename=filename, sha256=sha256, size=len(content_encode), caption=self.caption)
