@@ -208,18 +208,22 @@ class HttpRecordSender:
                         remote_path_str = remote_path.as_posix()
                         tracker_key = f"{remote_path_str}:{size}"
                         self._track_file(tracker_key, local_path.as_posix(), size)
+                        # 先计算 mime_type, 确保后续 record_paths/paths/buffers/content_types 原子化追加,
+                        # 避免 safe.block 内中途异常导致列表长度不一致、MIME 类型错位
+                        mime_type = mimetypes.guess_type(str(local_path))[0] or "application/octet-stream"
                         record_paths.append(remote_path_str)
                         paths.append(remote_path_str)
                         buffers.append(local_path)
-                        content_types.append(mimetypes.guess_type(str(local_path))[0] or "application/octet-stream")
+                        content_types.append(mime_type)
                         if media.caption:
                             metric_chunk["more"].append({"caption": media.caption})
                 if len(record_paths) > 0:
                     metric_chunk["data"] = record_paths
                     metrics.append(metric_chunk)
-        if len(paths) != len(buffers):
+        if not (len(paths) == len(buffers) == len(content_types)):
             console.warning(
-                f"Failed to upload media, quantity mismatch, skipping; got {len(paths)} paths, {len(buffers)} buffers"
+                f"Failed to upload media, quantity mismatch, skipping; "
+                f"got {len(paths)} paths, {len(buffers)} buffers, {len(content_types)} content_types"
             )
             return
         # 先上传资源再上传媒体

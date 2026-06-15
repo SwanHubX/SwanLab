@@ -6,7 +6,7 @@
 """
 
 import hashlib
-from io import StringIO
+from io import BytesIO, StringIO
 from pathlib import Path
 
 import pytest
@@ -84,6 +84,51 @@ class TestHtmlInit:
         content = "<h1>你好世界 🌍</h1>"
         h = Html(content)
         assert h.content == content
+
+    def test_long_raw_html_string_not_treated_as_path(self):
+        """超长原始 HTML 字符串 (超过路径上限) 即使以 .html 结尾也不触发文件系统调用
+
+        修复前: Path(超长字符串).is_file() 会抛 OSError (File name too long) 崩掉用户 run
+        """
+        # 长度超过 Linux PATH_MAX (4096), 且刻意以 .html 结尾以触发「路径 vs 内容」判定
+        content = "<body>" + "x" * 5000 + "</body>.html"
+        h = Html(content)
+        assert h.content == content
+
+    def test_html_path_string_with_null_byte(self):
+        """以 .html 结尾但含 null byte 的字符串走 try-except 兜底, 作为原始内容
+
+        修复前: Path(含 null).is_file() 抛 ValueError (embedded null byte)
+        """
+        content = "report\x00.html"
+        h = Html(content)
+        assert h.content == content
+
+    def test_path_pointing_to_directory_raises_error(self, tmp_path: Path):
+        """Path 指向目录 → FileNotFoundError (而非 IsADirectoryError)"""
+        d = tmp_path / "subdir"
+        d.mkdir()
+        with pytest.raises(FileNotFoundError, match="is not a file"):
+            Html(d)
+
+    def test_binary_file_object_decoded(self):
+        """二进制 file-like (BytesIO) 内容被解码为 str, 避免 transform() 中 encode() 失败"""
+        f = BytesIO("<p>binary mode</p>".encode("utf-8"))
+        h = Html(f)
+        assert h.content == "<p>binary mode</p>"
+
+    def test_non_seekable_file_object(self):
+        """不可 seek 的 file-like 对象不崩, 仍能读取内容"""
+
+        class NonSeekableStream:
+            def read(self) -> str:
+                return "<p>non-seekable</p>"
+
+            def seek(self, *_) -> int:
+                raise OSError("stream is not seekable")
+
+        h = Html(NonSeekableStream())  # type: ignore[arg-type]
+        assert h.content == "<p>non-seekable</p>"
 
 
 # ---------------------------------- 套娃加载测试 ----------------------------------
