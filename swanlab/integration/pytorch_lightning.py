@@ -10,6 +10,7 @@ import swanlab.vendor
 from swanlab.sdk.internal.pkg import console
 
 _LightningLogger = swanlab.vendor.lightning.pytorch.loggers.Logger
+_rank_zero_experiment = swanlab.vendor.lightning.pytorch.loggers.logger.rank_zero_experiment  # type: ignore
 _rank_zero_only = swanlab.vendor.lightning.pytorch.utilities.rank_zero_only
 _rank_zero_warn = getattr(swanlab.vendor.lightning.pytorch.utilities, "rank_zero_warn", console.warning)
 
@@ -82,6 +83,7 @@ class SwanLabLogger(_LightningLogger):
         return self._save_dir
 
     @property
+    @_rank_zero_experiment
     def experiment(self):
         if self._experiment is not None:
             return self._experiment
@@ -100,6 +102,7 @@ class SwanLabLogger(_LightningLogger):
 
     # --- Lightning Logger interface ---
 
+    @_rank_zero_only
     def update_config(self, config: Dict[str, Any]) -> None:
         self.experiment.config.update(config)
 
