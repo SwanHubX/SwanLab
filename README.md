@@ -9,7 +9,7 @@
 一个专业、现代化设计的AI训练分析平台  
 面向模型训练团队，与50+主流框架集成，与你的实验代码轻松结合
 
-<a href="https://swanlab.cn">🔥SwanLab 在线版</a> · <a href="https://docs.swanlab.cn">📃 文档</a> · <a href="https://github.com/swanhubx/swanlab/issues">报告问题</a> · <a href="https://rcnpx636fedp.feishu.cn/share/base/form/shrcnMFh9kkETFS6Hsc7fsBlKHc">建议反馈</a> · <a href="https://docs.swanlab.cn/guide_cloud/general/changelog.html">更新日志</a> · <img height="16" width="16" src="https://raw.githubusercontent.com/SwanHubX/assets/main/community.svg" alt="swanlab community Logo" /> <a href="https://swanlab.cn/benchmarks">基线社区</a>
+<a href="https://swanlab.cn">🔥SwanLab 在线版</a> · <a href="https://docs.swanlab.cn">📃 文档</a> · <a href="https://github.com/swanhubx/swanlab/issues">报告问题</a> · <a href="https://rcnpx636fedp.feishu.cn/share/base/form/shrcnMFh9kkETFS6Hsc7fsBlKHc">建议反馈</a> · <a href="https://docs.swanlab.cn/guide_cloud/general/changelog.html">更新日志</a> · <img height="16" width="16" src="https://raw.githubusercontent.com/SwanHubX/assets/main/community.svg" alt="swanlab community Logo" /> <a href="https://swanlab.cn/benchmarks">基线社区</a> · <a href="https://www.modelscope.cn/skills/SwanLab/swanlab-skill">SKILL</a>
 
 [![][release-shield]][release-link]
 [![][dockerhub-shield]][dockerhub-link]
@@ -59,7 +59,9 @@
 
 ## 🌟 最近更新
 
-- 2026.06.05: ⚡️ 重构版 SDK 与 [SwanLab skill](https://www.modelscope.cn/skills/SwanLab/swanlab-skill) 已上线!
+- 2026.06.16: 🔥 新增 **HTML** 图表，支持嵌入LLM Vibe Coding 生成页面；Kubenetes 部署 [Prometheus + Grafana 方案](https://docs.swanlab.cn/self_host/kubernetes/monitor-logging.html) 上线；
+
+- 2026.06.05: ⚡️ **重构版 SDK**（v0.8.0）上线，大幅提升了指标记录性能，配合大规模训练体验更佳； SwanLab [CLI](https://docs.swanlab.cn/api/cli-swanlab-api.html) 与 [Skill](https://www.modelscope.cn/skills/SwanLab/swanlab-skill) 上线，面向 AutoResearch范式；
 
 - 2026.05.18：📒 日志支持**全局筛选**，快速在全局找到你需要的日志片段；新增**图表复制**功能；图表搜索上线**历史记录**功能；图表详情新增**相对时间**显示；
 
@@ -73,13 +75,13 @@ https://github.com/user-attachments/assets/964380e0-feb2-480d-b1ca-eba1be239ebb
 
 - 2026.02.06: 🔥 **swanlab.Api**已正式上线，提供更强大的、面向对象式的开放API接口，[文档](https://docs.swanlab.cn/api/py-api.html)；ECharts.Table支持CSV下载；现在支持将图表一键置于分组首位了；
 
+<details><summary>完整更新日志</summary>
+
 - 2026.01.28：⚡️ **LightningBoard V2**上线，进一步提升仪表盘性能；
 
 - 2026.01.16：⚡️ **LightningBoard（闪电看板）V1** 现已上线，专为超大图表数量级场景打造；新增**图表嵌入链接**，现在可以把你的图表嵌入到在线文档当中（如Notion、飞书云文档等）；
 
 - 2026.01.02：🥳 新增对**AMD ROCm**与**天数智芯Iluvatar GPU**的硬件监控支持；SDK增加心跳包特性，实现更稳健的端云连接；
-
-<details><summary>完整更新日志</summary>
 
 - 2025.12.15：🎉 SwanLab **Kubernetes版** 现已发布！[部署文档](https://docs.swanlab.cn/self_host/kubernetes/deploy.html)；[NVIDIA NeMo RL](https://github.com/NVIDIA-NeMo/RL) 框架已集成SwanLab，[文档](https://docs.swanlab.cn/guide_cloud/integration/integration-nvidia-nemo-rl.html)；
 
@@ -360,9 +362,14 @@ for i in range(10):
 - [Qwen3-SmVL](https://github.com/ShaohonChen/Qwen3-SmVL): 将SmolVLM2的视觉头与Qwen3-0.6B模型进行了拼接微调 ![GitHub Repo stars](https://img.shields.io/github/stars/ShaohonChen/Qwen3-SmVL)
 - [OPPO/Agent_Foundation_Models](https://github.com/OPPO-PersonalAI/Agent_Foundation_Models): 通过多Agent蒸馏和Agent RL的端到端Agent基础模型。 ![GitHub Repo stars](https://img.shields.io/github/stars/OPPO-PersonalAI/Agent_Foundation_Models)
 - [Tree-GRPO](https://github.com/AMAP-ML/Tree-GRPO): [ICLR 2026] 树搜索在LLM Agent RL中的应用 ![GitHub Repo stars](https://img.shields.io/github/stars/AMAP-ML/Tree-GRPO)
-
+- [FIPO](https://github.com/qwenpilot/FIPO): This code implements the algorithm of FIPO, a value-free RL recipe for eliciting deeper reasoning from a clean base model. ![GitHub Repo stars](https://img.shields.io/github/stars/qwenpilot/FIPO)
 
 **使用SwanLab的优秀论文：**
+- [Accelerating AlphaZero Training for Connect6 via Behavioral Cloning Initialization and Prior Action Masking in Resource-Constrained Environments](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=6730709)
+- [SeePhys Pro: Diagnosing Modality Transfer and Blind-Training Effects in Multimodal RLVR for Physics Reasoning](https://arxiv.org/abs/2605.09266)
+- [MemFactory: Unified Inference & Training Framework for Agent Memory](https://arxiv.org/abs/2603.29493)
+- [ILL: A Lightweight Large Language Model for Legal and Courtroom Assistance](https://www.mdpi.com/2079-9292/15/11/2401)
+- [Retrieval, Reward, and Training Protocols: What Matters in Training Search Agents?](https://arxiv.org/pdf/2605.27881)
 - [MolAct: An Agentic RL Framework for Molecular Editing and Property Optimization](https://arxiv.org/abs/2512.20135)
 - [CQLLM: A Framework for Generating CodeQL Security Vulnerability Detection Code Based on Large Language Model](https://www.preprints.org/manuscript/202510.1458)
 - [Animation Needs Attention: A Holistic Approach to Slides Animation Comprehension with Visual-Language Models](https://arxiv.org/abs/2507.03916)

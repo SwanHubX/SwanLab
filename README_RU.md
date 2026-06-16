@@ -9,7 +9,7 @@
 Профессиональная платформа для анализа обучения искусственного интеллекта  
 Глубокий анализ миллионов показателей, ускоренная итерация экспериментов, интеграция с 50+ ведущими фреймворками для обучения искусственного интеллекта
 
-<a href="https://swanlab.cn">🔥SwanLab Online</a> · <a href="https://docs.swanlab.cn">📃 Документация</a> · <a href="https://github.com/swanhubx/swanlab/issues">Сообщить о проблеме</a> · <a href="https://rcnpx636fedp.feishu.cn/share/base/form/shrcnMFh9kkETFS6Hsc7fsBlKHc">Оставить отзыв</a> · <a href="https://docs.swanlab.cn/en/guide_cloud/general/changelog.html">История изменений</a>
+<a href="https://swanlab.cn">🔥SwanLab Online</a> · <a href="https://docs.swanlab.cn">📃 Документация</a> · <a href="https://github.com/swanhubx/swanlab/issues">Сообщить о проблеме</a> · <a href="https://rcnpx636fedp.feishu.cn/share/base/form/shrcnMFh9kkETFS6Hsc7fsBlKHc">Оставить отзыв</a> · <a href="https://docs.swanlab.cn/en/guide_cloud/general/changelog.html">История изменений</a> · <a href="https://www.modelscope.cn/skills/SwanLab/swanlab-skill">SKILL</a>
 
 [![][release-shield]][release-link]
 [![][dockerhub-shield]][dockerhub-link]
@@ -39,6 +39,7 @@
 - [📃 Онлайн-демонстрация](#-онлайн-демонстрация)
 - [🏁 Быстрый старт](#-быстрый-старт)
 - [💻 Самостоятельное размещение](#-самостоятельное-размещение)
+- [🔥 Научные работы с использованием SwanLab](#-научные-работы-с-использованием-swanlab)
 - [🎮 Мониторинг оборудования](#-мониторинг-оборудования)
 - [🚗 Интеграция с фреймворками](#-интеграция-с-фреймворками)
 - [🔌 Плагины](#-Плагины)
@@ -50,7 +51,9 @@
 
 ## 🌟 Последние обновления
 
-- 2026.06.05: ⚡️ Рефакторированная версия SDK и [SwanLab skill](https://www.modelscope.cn/skills/SwanLab/swanlab-skill) теперь доступны!
+- 2026.06.16: 📊 Добавлены **HTML**-графики с поддержкой встраивания страниц после LLM Vibe Coding; опубликовано [решение для мониторинга логов Prometheus](https://docs.swanlab.cn/en/self_host/kubernetes/monitor-logging.html) при развертывании в Kubernetes;
+
+- 2026.06.05: ⚡️ **Рефакторированная версия SDK** (v0.8.0) теперь доступна, значительно повышая производительность записи метрик и улучшая опыт крупномасштабного обучения; SwanLab [CLI](https://docs.swanlab.cn/en/api/cli-swanlab-api.html) и [Skill](https://www.modelscope.cn/skills/SwanLab/swanlab-skill) теперь доступны для парадигмы AutoResearch;
 
 - 2026.05.18: 📒 Логи теперь поддерживают **глобальную фильтрацию**, чтобы можно было быстро находить нужные фрагменты логов; добавлена функция **копирования графиков**; в поиске по графикам появилась **история запросов**; в деталях графиков теперь отображается **относительное время**;
 
@@ -64,13 +67,13 @@ https://github.com/user-attachments/assets/964380e0-feb2-480d-b1ca-eba1be239ebb
 
 - 2026.02.06: 🔥**swanlab.Api** теперь доступен, предоставляя более мощный, объектно-ориентированный открытый API интерфейс, [документация](https://docs.swanlab.cn/en/api/py-api.html); ECharts.Table поддерживает CSV-загрузку; теперь поддерживается однократное размещение графиков на вершине групп;
 
+<details><summary>Полный список изменений</summary>
+
 - 2026.01.28: ⚡️ **LightningBoard V2** теперь доступен, значительно повышает производительность панели управления;
 
 - 2026.01.16: ⚡️ **LightningBoard (Lightning Dashboard) V1** теперь доступен, предназначен для сценариев с очень большим количеством графиков; добавлена ссылка на встраивание графиков, теперь вы можете встраивать свои графики в онлайн-документы (например, Notion, Lark и т.д.);
 
 - 2026.01.02: 🥳 Добавлена поддержка **AMD ROCm** и **Iluvatar GPU** мониторинга оборудования; SDK добавлена функция отправки сердцебиений, обеспечивающая более стабильное подключение к облаку/оффлайн;
-
-<details><summary>Полный список изменений</summary>
 
 - 2025.12.15: 🎉 **Kubernetes-версия** SwanLab теперь доступна! [🔗 Документация](https://docs.swanlab.cn/en/self_host/kubernetes/deploy.html); [NVIDIA NeMo RL](https://github.com/NVIDIA-NeMo/RL) фреймворк теперь интегрирован с SwanLab, [документация](https://docs.swanlab.cn/en/guide_cloud/integration/integration-nvidia-nemo-rl.html);
 
@@ -322,6 +325,26 @@ for i in range(10):
 - [🔗 Kubernetes развертывание документация](https://docs.swanlab.cn/en/self_host/kubernetes/deploy.html)
 - [🔗 Docker развертывание документация](https://docs.swanlab.cn/en/self_host/docker/deploy.html)
 - [🔗 Документация по миграции с Docker на Kubernetes](https://docs.swanlab.cn/en/self_host/docker/migration-docker-kubernetes.html)
+
+<br>
+
+## 🔥 Научные работы с использованием SwanLab
+
+- [Accelerating AlphaZero Training for Connect6 via Behavioral Cloning Initialization and Prior Action Masking in Resource-Constrained Environments](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=6730709)
+- [SeePhys Pro: Diagnosing Modality Transfer and Blind-Training Effects in Multimodal RLVR for Physics Reasoning](https://arxiv.org/abs/2605.09266)
+- [MemFactory: Unified Inference & Training Framework for Agent Memory](https://arxiv.org/abs/2603.29493)
+- [ILL: A Lightweight Large Language Model for Legal and Courtroom Assistance](https://www.mdpi.com/2079-9292/15/11/2401)
+- [Retrieval, Reward, and Training Protocols: What Matters in Training Search Agents?](https://arxiv.org/pdf/2605.27881)
+- [MolAct: An Agentic RL Framework for Molecular Editing and Property Optimization](https://arxiv.org/abs/2512.20135)
+- [CQLLM: A Framework for Generating CodeQL Security Vulnerability Detection Code Based on Large Language Model](https://www.preprints.org/manuscript/202510.1458)
+- [Animation Needs Attention: A Holistic Approach to Slides Animation Comprehension with Visual-Language Models](https://arxiv.org/abs/2507.03916)
+- [Efficient Model Fine-Tuning with LoRA for Biomedical Named Entity Recognition](https://ieeexplore.ieee.org/abstract/document/11082049/)
+- [SpectrumWorld: Artificial Intelligence Foundation for Spectroscopy](https://arxiv.org/abs/2508.01188)
+- [CodeBoost: Boosting Code LLMs by Squeezing Knowledge from Code Snippets with RL](https://arxiv.org/pdf/2508.05242)
+- [A Joint Classification Method for Traditional Chinese Medicine Diseases and Syndromes Based on BertChinese-RCNNATTN](https://dl.acm.org/doi/full/10.1145/3759972.3759979)
+- [A Gradient-Norm-Aware Optimizer for Symmetry-Preserving and Stable Deep Learning](https://www.mdpi.com/2073-8994/18/2/374)
+- [TrafficBM: A Dual-Modality Pre-Training Framework for Network Traffic Classification](https://ieeexplore.ieee.org/document/11304658)
+- [Using Human Cumulative Prospect Theory to Understand Large Language Models Decision-Making](https://ieeexplore.ieee.org/document/11300712)
 
 <br>
 

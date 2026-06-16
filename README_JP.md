@@ -9,7 +9,7 @@
 プロフェッショナルな AI トレーニング分析プラットフォーム  
 実験のイテレーションを高速化、50 種以上のトップクラスの AI トレーニングフレームワークと統合
 
-<a href="https://swanlab.cn">🔥SwanLab オンライン版</a> · <a href="https://docs.swanlab.cn">📃 ドキュメント</a> · <a href="https://github.com/swanhubx/swanlab/issues">問題を報告</a> · <a href="https://rcnpx636fedp.feishu.cn/share/base/form/shrcnMFh9kkETFS6Hsc7fsBlKHc">フィードバックを提案</a> · <a href="https://docs.swanlab.cn/en/guide_cloud/general/changelog.html">更新履歴</a>
+<a href="https://swanlab.cn">🔥SwanLab オンライン版</a> · <a href="https://docs.swanlab.cn">📃 ドキュメント</a> · <a href="https://github.com/swanhubx/swanlab/issues">問題を報告</a> · <a href="https://rcnpx636fedp.feishu.cn/share/base/form/shrcnMFh9kkETFS6Hsc7fsBlKHc">フィードバックを提案</a> · <a href="https://docs.swanlab.cn/en/guide_cloud/general/changelog.html">更新履歴</a> · <a href="https://www.modelscope.cn/skills/SwanLab/swanlab-skill">SKILL</a>
 
 [![][release-shield]][release-link]
 [![][dockerhub-shield]][dockerhub-link]
@@ -39,6 +39,7 @@
 - [📃 オンラインデモ](#-オンラインデモ)
 - [🏁 クイックスタート](#-クイックスタート)
 - [💻 セルフホスティング](#-セルフホスティング)
+- [🔥 SwanLab を使用した論文](#-swanlab-を使用した論文)
 - [🎮 ハードウェア監視](#-ハードウェア監視)
 - [🚗 フレームワーク統合](#-フレームワーク統合)
 - [🔌 プラグイン](#-プラグイン)
@@ -50,7 +51,9 @@
 
 ## 🌟 最近の更新
 
-- 2026.06.05: ⚡️ リファクタリング版 SDK と [SwanLab skill](https://www.modelscope.cn/skills/SwanLab/swanlab-skill) が公開されました！
+- 2026.06.16: 📊 **HTML** チャートを追加し、LLM Vibe Coding 後のページ埋め込みをサポート；Kubernetes デプロイ向け [Prometheus ログ監視ソリューション](https://docs.swanlab.cn/en/self_host/kubernetes/monitor-logging.html) が公開されました；
+
+- 2026.06.05: ⚡️ **リファクタリング版 SDK**（v0.8.0）が公開され、指標記録性能が大幅に向上し、大規模トレーニングでより快適に利用できます；SwanLab [CLI](https://docs.swanlab.cn/en/api/cli-swanlab-api.html) と [Skill](https://www.modelscope.cn/skills/SwanLab/swanlab-skill) が公開され、AutoResearch パラダイムに対応しました；
 
 - 2026.05.18: 📒 ログで**グローバルフィルタリング**をサポートし、必要なログ断片をすばやく全体から見つけられるように；**チャート複製**機能を追加；チャート検索に**検索履歴**機能を追加；チャート詳細に**相対時間**表示を追加；
 
@@ -64,13 +67,13 @@ https://github.com/user-attachments/assets/964380e0-feb2-480d-b1ca-eba1be239ebb
 
 - 2026.02.06: 🔥**swanlab.Api** が利用可能になりました、より強力な、オブジェクト指向のオープン API インターフェースを提供、[ドキュメント](https://docs.swanlab.cn/en/api/py-api.html)；ECharts.Table は CSV ダウンロードをサポート；今はグラフをグループのトップに配置することができます；
 
+<details><summary>完全な更新履歴</summary>
+
 - 2026.01.28: ⚡️ **LightningBoard V2** が利用可能になりました、ダッシュボードのパフォーマンスを大幅に向上；
 
 - 2026.01.16: ⚡️ **LightningBoard (Lightning Dashboard) V1** が利用可能になりました、超大規模チャート数のシナリオに最適化；チャート埋め込みリンクを追加、オンラインドキュメント（Notion、Lark など）にチャートを埋め込むことができます；
 
 - 2026.01.02: 🥳 **AMD ROCm** と **Iluvatar GPU** のハードウェア監視をサポート；SDK に心跳パッケージ機能を追加、より安定したクラウド/オフライン接続を実現；
-
-<details><summary>完全な更新履歴</summary>
 
 - 2025.12.15: 🎉SwanLab **Kubernetes版** が利用可能になりました！[デプロイメントドキュメント](https://docs.swanlab.cn/en/self_host/kubernetes/deploy.html)；[NVIDIA NeMo RL](https://github.com/NVIDIA-NeMo/RL) フレームワークがSwanLabに統合，[ドキュメント](https://docs.swanlab.cn/en/guide_cloud/integration/integration-nvidia-nemo-rl.html)；
 
@@ -318,6 +321,26 @@ for i in range(10):
 - [🔗 Kubernetesデプロイメントドキュメント](https://docs.swanlab.cn/en/self_host/kubernetes/deploy.html)
 - [🔗 Dockerデプロイメントドキュメント](https://docs.swanlab.cn/en/self_host/docker/deploy.html)
 - [🔗 DockerからKubernetesへの移行ドキュメント](https://docs.swanlab.cn/en/self_host/docker/migration-docker-kubernetes.html)
+
+<br>
+
+## 🔥 SwanLab を使用した論文
+
+- [Accelerating AlphaZero Training for Connect6 via Behavioral Cloning Initialization and Prior Action Masking in Resource-Constrained Environments](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=6730709)
+- [SeePhys Pro: Diagnosing Modality Transfer and Blind-Training Effects in Multimodal RLVR for Physics Reasoning](https://arxiv.org/abs/2605.09266)
+- [MemFactory: Unified Inference & Training Framework for Agent Memory](https://arxiv.org/abs/2603.29493)
+- [ILL: A Lightweight Large Language Model for Legal and Courtroom Assistance](https://www.mdpi.com/2079-9292/15/11/2401)
+- [Retrieval, Reward, and Training Protocols: What Matters in Training Search Agents?](https://arxiv.org/pdf/2605.27881)
+- [MolAct: An Agentic RL Framework for Molecular Editing and Property Optimization](https://arxiv.org/abs/2512.20135)
+- [CQLLM: A Framework for Generating CodeQL Security Vulnerability Detection Code Based on Large Language Model](https://www.preprints.org/manuscript/202510.1458)
+- [Animation Needs Attention: A Holistic Approach to Slides Animation Comprehension with Visual-Language Models](https://arxiv.org/abs/2507.03916)
+- [Efficient Model Fine-Tuning with LoRA for Biomedical Named Entity Recognition](https://ieeexplore.ieee.org/abstract/document/11082049/)
+- [SpectrumWorld: Artificial Intelligence Foundation for Spectroscopy](https://arxiv.org/abs/2508.01188)
+- [CodeBoost: Boosting Code LLMs by Squeezing Knowledge from Code Snippets with RL](https://arxiv.org/pdf/2508.05242)
+- [A Joint Classification Method for Traditional Chinese Medicine Diseases and Syndromes Based on BertChinese-RCNNATTN](https://dl.acm.org/doi/full/10.1145/3759972.3759979)
+- [A Gradient-Norm-Aware Optimizer for Symmetry-Preserving and Stable Deep Learning](https://www.mdpi.com/2073-8994/18/2/374)
+- [TrafficBM: A Dual-Modality Pre-Training Framework for Network Traffic Classification](https://ieeexplore.ieee.org/document/11304658)
+- [Using Human Cumulative Prospect Theory to Understand Large Language Models Decision-Making](https://ieeexplore.ieee.org/document/11300712)
 
 <br>
 
