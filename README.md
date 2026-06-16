@@ -59,6 +59,8 @@
 
 ## 🌟 最近更新
 
+- 2026.06.16: 📊 新增 `swanlab.Html` 图表类型
+
 - 2026.06.05: ⚡️ 重构版 SDK 与 [SwanLab skill](https://www.modelscope.cn/skills/SwanLab/swanlab-skill) 已上线!
 
 - 2026.05.18：📒 日志支持**全局筛选**，快速在全局找到你需要的日志片段；新增**图表复制**功能；图表搜索上线**历史记录**功能；图表详情新增**相对时间**显示；
@@ -77,9 +79,9 @@ https://github.com/user-attachments/assets/964380e0-feb2-480d-b1ca-eba1be239ebb
 
 - 2026.01.16：⚡️ **LightningBoard（闪电看板）V1** 现已上线，专为超大图表数量级场景打造；新增**图表嵌入链接**，现在可以把你的图表嵌入到在线文档当中（如Notion、飞书云文档等）；
 
-- 2026.01.02：🥳 新增对**AMD ROCm**与**天数智芯Iluvatar GPU**的硬件监控支持；SDK增加心跳包特性，实现更稳健的端云连接；
-
 <details><summary>完整更新日志</summary>
+
+- 2026.01.02：🥳 新增对**AMD ROCm**与**天数智芯Iluvatar GPU**的硬件监控支持；SDK增加心跳包特性，实现更稳健的端云连接；
 
 - 2025.12.15：🎉 SwanLab **Kubernetes版** 现已发布！[部署文档](https://docs.swanlab.cn/self_host/kubernetes/deploy.html)；[NVIDIA NeMo RL](https://github.com/NVIDIA-NeMo/RL) 框架已集成SwanLab，[文档](https://docs.swanlab.cn/guide_cloud/integration/integration-nvidia-nemo-rl.html)；
 
