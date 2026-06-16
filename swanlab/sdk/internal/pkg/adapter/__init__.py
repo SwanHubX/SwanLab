@@ -47,6 +47,7 @@ column = BiMap(
         "ECHARTS": ColumnType.COLUMN_TYPE_ECHARTS,
         "OBJECT3D": ColumnType.COLUMN_TYPE_OBJECT3D,
         "MOLECULE": ColumnType.COLUMN_TYPE_MOLECULE,
+        "HTML": ColumnType.COLUMN_TYPE_HTML,
     }
 )
 """ColumnType 枚举适配器，映射本地proto枚举与云端类型枚举"""
@@ -61,6 +62,7 @@ medium = BiMap(
         "echarts": ColumnType.COLUMN_TYPE_ECHARTS,
         "object3d": ColumnType.COLUMN_TYPE_OBJECT3D,
         "molecule": ColumnType.COLUMN_TYPE_MOLECULE,
+        "html": ColumnType.COLUMN_TYPE_HTML,
     }
 )
 """媒体类型名称与 ColumnType 枚举的双向映射，同时作为存储目录名映射"""

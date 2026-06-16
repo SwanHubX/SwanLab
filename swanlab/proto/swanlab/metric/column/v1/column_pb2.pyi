@@ -17,6 +17,7 @@ class ColumnType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     COLUMN_TYPE_ECHARTS: _ClassVar[ColumnType]
     COLUMN_TYPE_OBJECT3D: _ClassVar[ColumnType]
     COLUMN_TYPE_MOLECULE: _ClassVar[ColumnType]
+    COLUMN_TYPE_HTML: _ClassVar[ColumnType]
 
 class ColumnClass(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -37,6 +38,7 @@ class ChartType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     CHART_TYPE_ECHARTS: _ClassVar[ChartType]
     CHART_TYPE_OBJECT3D: _ClassVar[ChartType]
     CHART_TYPE_MOLECULE: _ClassVar[ChartType]
+    CHART_TYPE_HTML: _ClassVar[ChartType]
 
 class SectionType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -54,6 +56,7 @@ COLUMN_TYPE_VIDEO: ColumnType
 COLUMN_TYPE_ECHARTS: ColumnType
 COLUMN_TYPE_OBJECT3D: ColumnType
 COLUMN_TYPE_MOLECULE: ColumnType
+COLUMN_TYPE_HTML: ColumnType
 COLUMN_CLASS_UNSPECIFIED: ColumnClass
 COLUMN_CLASS_CUSTOM: ColumnClass
 COLUMN_CLASS_SYSTEM: ColumnClass
@@ -68,6 +71,7 @@ CHART_TYPE_VIDEO: ChartType
 CHART_TYPE_ECHARTS: ChartType
 CHART_TYPE_OBJECT3D: ChartType
 CHART_TYPE_MOLECULE: ChartType
+CHART_TYPE_HTML: ChartType
 SECTION_TYPE_UNSPECIFIED: SectionType
 SECTION_TYPE_PINNED: SectionType
 SECTION_TYPE_HIDDEN: SectionType

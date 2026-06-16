@@ -12,6 +12,7 @@ from swanlab.sdk.internal.context import TransformMedia
 from .audio import Audio
 from .echarts import ECharts
 from .echarts import components as echarts
+from .html import Html
 from .image import Image
 from .molecule import Molecule
 from .object3d import Object3D
@@ -28,6 +29,7 @@ __all__ = [
     "ECharts",
     "Object3D",
     "Molecule",
+    "Html",
     "echarts",
     "normalize_media_input",
 ]

@@ -16,6 +16,7 @@ from .sdk import (
     Audio,
     Callback,
     ECharts,
+    Html,
     Image,
     Molecule,
     Object3D,
@@ -35,6 +36,7 @@ from .sdk.typings.run.column import ScalarXAxisType
 from .sdk.typings.run.transforms import CaptionsType
 from .sdk.typings.run.transforms.audio import AudioDatasType, AudioRatesType
 from .sdk.typings.run.transforms.echarts import EChartsDatasType
+from .sdk.typings.run.transforms.html import HtmlDatasType
 from .sdk.typings.run.transforms.image import ImageDatasType, ImageFilesType, ImageModesType, ImageSizesType
 from .sdk.typings.run.transforms.molecule import MoleculeDatasType
 from .sdk.typings.run.transforms.object3d import Object3DDatasType
@@ -56,6 +58,7 @@ __all__ = [
     "log_audio",
     "log_video",
     "log_echarts",
+    "log_html",
     "log_object3d",
     "log_molecule",
     "define_scalar",
@@ -73,6 +76,7 @@ __all__ = [
     "Text",
     "Audio",
     "ECharts",
+    "Html",
     "Image",
     "Video",
     "Object3D",
@@ -487,6 +491,47 @@ def log_echarts(
         >>> swanlab.init(mode="local")
         >>> chart = swanlab.echarts.Bar().add_xaxis(["a", "b"]).add_yaxis("series", [1, 2])
         >>> swanlab.log_echarts(key="chart", data=chart)
+        >>> swanlab.finish()
+    """
+    ...
+
+def log_html(
+    *,
+    key: str,
+    data: HtmlDatasType,
+    caption: CaptionsType = None,
+    step: Optional[int] = None,
+) -> None:
+    """A syntactic sugar for logging HTML data.
+
+    :param key: The key for the HTML data.
+    :param data: The HTML data (raw HTML string, file path, file object, or Html object).
+    :param caption: Optional caption for the HTML data.
+    :param step: Optional step number. If not provided, auto-increments.
+    :raises RuntimeError: If called without an active run.
+
+    Examples:
+
+        Log raw HTML string:
+
+        >>> import swanlab
+        >>> swanlab.init(mode="local")
+        >>> swanlab.log_html(key="report", data="<h1>Hello World</h1>")
+        >>> swanlab.finish()
+
+        Log HTML from a file path:
+
+        >>> import swanlab
+        >>> swanlab.init(mode="local")
+        >>> swanlab.log_html(key="page", data="./report.html", caption="My Report")
+        >>> swanlab.finish()
+
+        Log an Html object:
+
+        >>> import swanlab
+        >>> swanlab.init(mode="local")
+        >>> html = swanlab.Html("<p>Styled content</p>", caption="styled")
+        >>> swanlab.log_html(key="styled_page", data=html)
         >>> swanlab.finish()
     """
     ...

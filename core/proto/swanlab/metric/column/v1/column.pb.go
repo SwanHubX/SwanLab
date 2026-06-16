@@ -34,6 +34,7 @@ const (
 	ColumnType_COLUMN_TYPE_ECHARTS     ColumnType = 6 // ECharts 图表
 	ColumnType_COLUMN_TYPE_OBJECT3D    ColumnType = 7 // 3D 对象
 	ColumnType_COLUMN_TYPE_MOLECULE    ColumnType = 8 // 分子结构
+	ColumnType_COLUMN_TYPE_HTML        ColumnType = 9 // HTML 页面
 )
 
 // Enum value maps for ColumnType.
@@ -48,6 +49,7 @@ var (
 		6: "COLUMN_TYPE_ECHARTS",
 		7: "COLUMN_TYPE_OBJECT3D",
 		8: "COLUMN_TYPE_MOLECULE",
+		9: "COLUMN_TYPE_HTML",
 	}
 	ColumnType_value = map[string]int32{
 		"COLUMN_TYPE_UNSPECIFIED": 0,
@@ -59,6 +61,7 @@ var (
 		"COLUMN_TYPE_ECHARTS":     6,
 		"COLUMN_TYPE_OBJECT3D":    7,
 		"COLUMN_TYPE_MOLECULE":    8,
+		"COLUMN_TYPE_HTML":        9,
 	}
 )
 
@@ -154,6 +157,7 @@ const (
 	ChartType_CHART_TYPE_ECHARTS     ChartType = 8
 	ChartType_CHART_TYPE_OBJECT3D    ChartType = 9
 	ChartType_CHART_TYPE_MOLECULE    ChartType = 10
+	ChartType_CHART_TYPE_HTML        ChartType = 11 // HTML 图表
 )
 
 // Enum value maps for ChartType.
@@ -170,6 +174,7 @@ var (
 		8:  "CHART_TYPE_ECHARTS",
 		9:  "CHART_TYPE_OBJECT3D",
 		10: "CHART_TYPE_MOLECULE",
+		11: "CHART_TYPE_HTML",
 	}
 	ChartType_value = map[string]int32{
 		"CHART_TYPE_UNSPECIFIED": 0,
@@ -183,6 +188,7 @@ var (
 		"CHART_TYPE_ECHARTS":     8,
 		"CHART_TYPE_OBJECT3D":    9,
 		"CHART_TYPE_MOLECULE":    10,
+		"CHART_TYPE_HTML":        11,
 	}
 )
 
@@ -564,7 +570,7 @@ const file_swanlab_metric_column_v1_column_proto_rawDesc = "" +
 	" \x01(\x0e2#.swanlab.metric.column.v1.ChartTypeR\tchartType\x12\x1f\n" +
 	"\vmetric_name\x18\v \x01(\tR\n" +
 	"metricName\x12K\n" +
-	"\rmetric_colors\x18\f \x01(\v2&.swanlab.metric.column.v1.MetricColorsR\fmetricColors*\xe9\x01\n" +
+	"\rmetric_colors\x18\f \x01(\v2&.swanlab.metric.column.v1.MetricColorsR\fmetricColors*\xff\x01\n" +
 	"\n" +
 	"ColumnType\x12\x1b\n" +
 	"\x17COLUMN_TYPE_UNSPECIFIED\x10\x00\x12\x16\n" +
@@ -575,11 +581,12 @@ const file_swanlab_metric_column_v1_column_proto_rawDesc = "" +
 	"\x11COLUMN_TYPE_VIDEO\x10\x05\x12\x17\n" +
 	"\x13COLUMN_TYPE_ECHARTS\x10\x06\x12\x18\n" +
 	"\x14COLUMN_TYPE_OBJECT3D\x10\a\x12\x18\n" +
-	"\x14COLUMN_TYPE_MOLECULE\x10\b*]\n" +
+	"\x14COLUMN_TYPE_MOLECULE\x10\b\x12\x14\n" +
+	"\x10COLUMN_TYPE_HTML\x10\t*]\n" +
 	"\vColumnClass\x12\x1c\n" +
 	"\x18COLUMN_CLASS_UNSPECIFIED\x10\x00\x12\x17\n" +
 	"\x13COLUMN_CLASS_CUSTOM\x10\x01\x12\x17\n" +
-	"\x13COLUMN_CLASS_SYSTEM\x10\x02*\x88\x02\n" +
+	"\x13COLUMN_CLASS_SYSTEM\x10\x02*\x9d\x02\n" +
 	"\tChartType\x12\x1a\n" +
 	"\x16CHART_TYPE_UNSPECIFIED\x10\x00\x12\x13\n" +
 	"\x0fCHART_TYPE_LINE\x10\x01\x12\x12\n" +
@@ -592,7 +599,8 @@ const file_swanlab_metric_column_v1_column_proto_rawDesc = "" +
 	"\x12CHART_TYPE_ECHARTS\x10\b\x12\x17\n" +
 	"\x13CHART_TYPE_OBJECT3D\x10\t\x12\x17\n" +
 	"\x13CHART_TYPE_MOLECULE\x10\n" +
-	"*\x8f\x01\n" +
+	"\x12\x13\n" +
+	"\x0fCHART_TYPE_HTML\x10\v*\x8f\x01\n" +
 	"\vSectionType\x12\x1c\n" +
 	"\x18SECTION_TYPE_UNSPECIFIED\x10\x00\x12\x17\n" +
 	"\x13SECTION_TYPE_PINNED\x10\x01\x12\x17\n" +

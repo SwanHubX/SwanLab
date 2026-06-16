@@ -26,10 +26,10 @@ class CoreSettings(BaseModel):
     """
     Batch size of records per HTTP request in Dispatch. Default 10000. 
     """
-    record_interval: float = Field(default=5.0, gt=0)
+    record_interval: float = Field(default=1.5, gt=0)
     """
     Batch interval (seconds) for the Transport upload thread.
-    Default 5.0s. Use a smaller value (e.g. 0.5) in Converter scenarios for higher throughput.
+    Default 1.5s. Use a smaller value (e.g. 0.5) in Converter scenarios for higher throughput.
     """
     save_split: int = Field(default=100 * 1024 * 1024)
     """

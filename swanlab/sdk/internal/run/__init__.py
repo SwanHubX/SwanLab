@@ -38,6 +38,7 @@ from swanlab.sdk.internal.run.progress import run_with_progress
 from swanlab.sdk.internal.run.transforms import (
     Audio,
     ECharts,
+    Html,
     Image,
     Molecule,
     Object3D,
@@ -50,6 +51,7 @@ from swanlab.sdk.typings.run.column import ScalarXAxisType
 from swanlab.sdk.typings.run.transforms import CaptionsType
 from swanlab.sdk.typings.run.transforms.audio import AudioDatasType, AudioRatesType
 from swanlab.sdk.typings.run.transforms.echarts import EChartsDatasType
+from swanlab.sdk.typings.run.transforms.html import HtmlDatasType
 from swanlab.sdk.typings.run.transforms.image import ImageDatasType, ImageFilesType, ImageModesType, ImageSizesType
 from swanlab.sdk.typings.run.transforms.molecule import MoleculeDatasType
 from swanlab.sdk.typings.run.transforms.object3d import Object3DDatasType
@@ -589,6 +591,19 @@ class Run:
         :param step: Optional step for the molecule data.
         """
         normalized_data = normalize_media_input(Molecule, data, caption=caption)
+        self.log({key: normalized_data}, step=step)
+
+    @with_api("run.log_html()")
+    def log_html(self, *, key: str, data: HtmlDatasType, caption: CaptionsType = None, step: Optional[int] = None):
+        """
+        A syntactic sugar for logging HTML data.
+
+        :param key: The key for the HTML data.
+        :param data: The HTML data (raw HTML string, file path, file object, or Html object).
+        :param caption: Optional caption for the HTML data.
+        :param step: Optional step for the HTML data.
+        """
+        normalized_data = normalize_media_input(Html, data, caption=caption)
         self.log({key: normalized_data}, step=step)
 
     @with_api("run.define_scalar()")
