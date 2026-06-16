@@ -59,7 +59,7 @@
 
 ## 🌟 最近更新
 
-- 2026.06.16: 📊 新增 **HTML** 图表，支持嵌入LLM Vibe Coding后的页面；Kubenetes 部署 [Promethus 日志监控方案](https://docs.swanlab.cn/self_host/kubernetes/monitor-logging.html) 上线；
+- 2026.06.16: 🔥 新增 **HTML** 图表，支持嵌入LLM Vibe Coding 生成页面；Kubenetes 部署 [Prometheus + Grafana 方案](https://docs.swanlab.cn/self_host/kubernetes/monitor-logging.html) 上线；
 
 - 2026.06.05: ⚡️ **重构版 SDK**（v0.8.0）上线，大幅提升了指标记录性能，配合大规模训练体验更佳； SwanLab [CLI](https://docs.swanlab.cn/api/cli-swanlab-api.html) 与 [Skill](https://www.modelscope.cn/skills/SwanLab/swanlab-skill) 上线，面向 AutoResearch范式；
 
