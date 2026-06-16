@@ -9,7 +9,7 @@
 An Professional, Modern-Designed AI Training Analysis Platform  
 For Model Training Teams, Integrated with 50+ Leading AI Training Frameworks, Easily Combined with Your Experimental Code
 
-<a href="https://swanlab.cn">🔥SwanLab Online</a> · <a href="https://docs.swanlab.cn">📃 Documentation</a> · <a href="https://github.com/swanhubx/swanlab/issues">Report Issues</a> · <a href="https://rcnpx636fedp.feishu.cn/share/base/form/shrcnMFh9kkETFS6Hsc7fsBlKHc">Feedback</a> · <a href="https://docs.swanlab.cn/en/guide_cloud/general/changelog.html">Changelog</a>
+<a href="https://swanlab.cn">🔥SwanLab Online</a> · <a href="https://docs.swanlab.cn">📃 Documentation</a> · <a href="https://github.com/swanhubx/swanlab/issues">Report Issues</a> · <a href="https://rcnpx636fedp.feishu.cn/share/base/form/shrcnMFh9kkETFS6Hsc7fsBlKHc">Feedback</a> · <a href="https://docs.swanlab.cn/en/guide_cloud/general/changelog.html">Changelog</a> · <a href="https://www.modelscope.cn/skills/SwanLab/swanlab-skill">SKILL</a>
 
 [![][release-shield]][release-link]
 [![][dockerhub-shield]][dockerhub-link]
@@ -51,9 +51,9 @@ For Model Training Teams, Integrated with 50+ Leading AI Training Frameworks, Ea
 
 ## 🌟 Recent Updates
 
-- 2026.06.16: 📊 Added the `swanlab.Html` chart type
+- 2026.06.16: 📊 Added **HTML** charts, supporting pages embedded after LLM Vibe Coding; the Kubernetes deployment [Prometheus log monitoring solution](https://docs.swanlab.cn/en/self_host/kubernetes/monitor-logging.html) is now available;
 
-- 2026.06.05: ⚡️ The refactored SDK and [SwanLab skill](https://www.modelscope.cn/skills/SwanLab/swanlab-skill) are now available!
+- 2026.06.05: ⚡️ The **refactored SDK** (v0.8.0) is now available, significantly improving metric logging performance for large-scale training; SwanLab [CLI](https://docs.swanlab.cn/en/api/cli-swanlab-api.html) and [Skill](https://www.modelscope.cn/skills/SwanLab/swanlab-skill) are now available for the AutoResearch paradigm;
 
 - 2026.05.18: 📒 Logs now support **global filtering**, so you can quickly find the log snippets you need across the entire workspace; added **chart copy** feature; chart search now includes **search history**; chart details now show **relative time**;
 
@@ -67,11 +67,11 @@ https://github.com/user-attachments/assets/964380e0-feb2-480d-b1ca-eba1be239ebb
 
 - 2026.02.06: 🔥**swanlab.Api** is now available, providing a more powerful, object-oriented open API interface, [documentation](https://docs.swanlab.cn/en/api/py-api.html); ECharts.Table supports CSV download; now supports one-click placement of charts at the top of sections;
 
+<details><summary>Full Changelog</summary>
+
 - 2026.01.28: ⚡️ **LightningBoard V2** is now available, significantly improving dashboard performance;
 
 - 2026.01.16: ⚡️ **LightningBoard (Lightning Dashboard) V1** is now available, designed for extremely large chart number scenarios; added chart embedding link, now you can embed your charts into online documents (such as Notion, Lark, etc.);
-
-<details><summary>Full Changelog</summary>
 
 - 2026.01.02: 🥳 Added support for **AMD ROCm** and **Iluvatar GPU** hardware monitoring; SDK added heartbeat package feature, implementing more robust cloud/offline connection;
 

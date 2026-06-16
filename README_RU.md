@@ -9,7 +9,7 @@
 Профессиональная платформа для анализа обучения искусственного интеллекта  
 Глубокий анализ миллионов показателей, ускоренная итерация экспериментов, интеграция с 50+ ведущими фреймворками для обучения искусственного интеллекта
 
-<a href="https://swanlab.cn">🔥SwanLab Online</a> · <a href="https://docs.swanlab.cn">📃 Документация</a> · <a href="https://github.com/swanhubx/swanlab/issues">Сообщить о проблеме</a> · <a href="https://rcnpx636fedp.feishu.cn/share/base/form/shrcnMFh9kkETFS6Hsc7fsBlKHc">Оставить отзыв</a> · <a href="https://docs.swanlab.cn/en/guide_cloud/general/changelog.html">История изменений</a>
+<a href="https://swanlab.cn">🔥SwanLab Online</a> · <a href="https://docs.swanlab.cn">📃 Документация</a> · <a href="https://github.com/swanhubx/swanlab/issues">Сообщить о проблеме</a> · <a href="https://rcnpx636fedp.feishu.cn/share/base/form/shrcnMFh9kkETFS6Hsc7fsBlKHc">Оставить отзыв</a> · <a href="https://docs.swanlab.cn/en/guide_cloud/general/changelog.html">История изменений</a> · <a href="https://www.modelscope.cn/skills/SwanLab/swanlab-skill">SKILL</a>
 
 [![][release-shield]][release-link]
 [![][dockerhub-shield]][dockerhub-link]
@@ -50,9 +50,9 @@
 
 ## 🌟 Последние обновления
 
-- 2026.06.16: 📊 Добавлен тип графика `swanlab.Html`
+- 2026.06.16: 📊 Добавлены **HTML**-графики с поддержкой встраивания страниц после LLM Vibe Coding; опубликовано [решение для мониторинга логов Prometheus](https://docs.swanlab.cn/en/self_host/kubernetes/monitor-logging.html) при развертывании в Kubernetes;
 
-- 2026.06.05: ⚡️ Рефакторированная версия SDK и [SwanLab skill](https://www.modelscope.cn/skills/SwanLab/swanlab-skill) теперь доступны!
+- 2026.06.05: ⚡️ **Рефакторированная версия SDK** (v0.8.0) теперь доступна, значительно повышая производительность записи метрик и улучшая опыт крупномасштабного обучения; SwanLab [CLI](https://docs.swanlab.cn/en/api/cli-swanlab-api.html) и [Skill](https://www.modelscope.cn/skills/SwanLab/swanlab-skill) теперь доступны для парадигмы AutoResearch;
 
 - 2026.05.18: 📒 Логи теперь поддерживают **глобальную фильтрацию**, чтобы можно было быстро находить нужные фрагменты логов; добавлена функция **копирования графиков**; в поиске по графикам появилась **история запросов**; в деталях графиков теперь отображается **относительное время**;
 
@@ -66,11 +66,11 @@ https://github.com/user-attachments/assets/964380e0-feb2-480d-b1ca-eba1be239ebb
 
 - 2026.02.06: 🔥**swanlab.Api** теперь доступен, предоставляя более мощный, объектно-ориентированный открытый API интерфейс, [документация](https://docs.swanlab.cn/en/api/py-api.html); ECharts.Table поддерживает CSV-загрузку; теперь поддерживается однократное размещение графиков на вершине групп;
 
+<details><summary>Полный список изменений</summary>
+
 - 2026.01.28: ⚡️ **LightningBoard V2** теперь доступен, значительно повышает производительность панели управления;
 
 - 2026.01.16: ⚡️ **LightningBoard (Lightning Dashboard) V1** теперь доступен, предназначен для сценариев с очень большим количеством графиков; добавлена ссылка на встраивание графиков, теперь вы можете встраивать свои графики в онлайн-документы (например, Notion, Lark и т.д.);
-
-<details><summary>Полный список изменений</summary>
 
 - 2026.01.02: 🥳 Добавлена поддержка **AMD ROCm** и **Iluvatar GPU** мониторинга оборудования; SDK добавлена функция отправки сердцебиений, обеспечивающая более стабильное подключение к облаку/оффлайн;
 

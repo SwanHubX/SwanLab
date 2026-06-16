@@ -9,7 +9,7 @@
 一个专业、现代化设计的AI训练分析平台  
 面向模型训练团队，与50+主流框架集成，与你的实验代码轻松结合
 
-<a href="https://swanlab.cn">🔥SwanLab 在线版</a> · <a href="https://docs.swanlab.cn">📃 文档</a> · <a href="https://github.com/swanhubx/swanlab/issues">报告问题</a> · <a href="https://rcnpx636fedp.feishu.cn/share/base/form/shrcnMFh9kkETFS6Hsc7fsBlKHc">建议反馈</a> · <a href="https://docs.swanlab.cn/guide_cloud/general/changelog.html">更新日志</a> · <img height="16" width="16" src="https://raw.githubusercontent.com/SwanHubX/assets/main/community.svg" alt="swanlab community Logo" /> <a href="https://swanlab.cn/benchmarks">基线社区</a>
+<a href="https://swanlab.cn">🔥SwanLab 在线版</a> · <a href="https://docs.swanlab.cn">📃 文档</a> · <a href="https://github.com/swanhubx/swanlab/issues">报告问题</a> · <a href="https://rcnpx636fedp.feishu.cn/share/base/form/shrcnMFh9kkETFS6Hsc7fsBlKHc">建议反馈</a> · <a href="https://docs.swanlab.cn/guide_cloud/general/changelog.html">更新日志</a> · <img height="16" width="16" src="https://raw.githubusercontent.com/SwanHubX/assets/main/community.svg" alt="swanlab community Logo" /> <a href="https://swanlab.cn/benchmarks">基线社区</a> · <a href="https://www.modelscope.cn/skills/SwanLab/swanlab-skill">SKILL</a>
 
 [![][release-shield]][release-link]
 [![][dockerhub-shield]][dockerhub-link]
@@ -59,9 +59,9 @@
 
 ## 🌟 最近更新
 
-- 2026.06.16: 📊 新增 `swanlab.Html` 图表类型
+- 2026.06.16: 📊 新增 **HTML** 图表，支持嵌入LLM Vibe Coding后的页面；Kubenetes 部署 [Promethus 日志监控方案](https://docs.swanlab.cn/self_host/kubernetes/monitor-logging.html) 上线；
 
-- 2026.06.05: ⚡️ 重构版 SDK 与 [SwanLab skill](https://www.modelscope.cn/skills/SwanLab/swanlab-skill) 已上线!
+- 2026.06.05: ⚡️ **重构版 SDK**（v0.8.0）上线，大幅提升了指标记录性能，配合大规模训练体验更佳； SwanLab [CLI](https://docs.swanlab.cn/api/cli-swanlab-api.html) 与 [Skill](https://www.modelscope.cn/skills/SwanLab/swanlab-skill) 上线，面向 AutoResearch范式；
 
 - 2026.05.18：📒 日志支持**全局筛选**，快速在全局找到你需要的日志片段；新增**图表复制**功能；图表搜索上线**历史记录**功能；图表详情新增**相对时间**显示；
 
@@ -75,11 +75,11 @@ https://github.com/user-attachments/assets/964380e0-feb2-480d-b1ca-eba1be239ebb
 
 - 2026.02.06: 🔥 **swanlab.Api**已正式上线，提供更强大的、面向对象式的开放API接口，[文档](https://docs.swanlab.cn/api/py-api.html)；ECharts.Table支持CSV下载；现在支持将图表一键置于分组首位了；
 
+<details><summary>完整更新日志</summary>
+
 - 2026.01.28：⚡️ **LightningBoard V2**上线，进一步提升仪表盘性能；
 
 - 2026.01.16：⚡️ **LightningBoard（闪电看板）V1** 现已上线，专为超大图表数量级场景打造；新增**图表嵌入链接**，现在可以把你的图表嵌入到在线文档当中（如Notion、飞书云文档等）；
-
-<details><summary>完整更新日志</summary>
 
 - 2026.01.02：🥳 新增对**AMD ROCm**与**天数智芯Iluvatar GPU**的硬件监控支持；SDK增加心跳包特性，实现更稳健的端云连接；
 
