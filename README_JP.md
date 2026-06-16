@@ -50,6 +50,8 @@
 
 ## 🌟 最近の更新
 
+- 2026.06.16: 📊 `swanlab.Html` チャートタイプを追加
+
 - 2026.06.05: ⚡️ リファクタリング版 SDK と [SwanLab skill](https://www.modelscope.cn/skills/SwanLab/swanlab-skill) が公開されました！
 
 - 2026.05.18: 📒 ログで**グローバルフィルタリング**をサポートし、必要なログ断片をすばやく全体から見つけられるように；**チャート複製**機能を追加；チャート検索に**検索履歴**機能を追加；チャート詳細に**相対時間**表示を追加；
@@ -68,9 +70,9 @@ https://github.com/user-attachments/assets/964380e0-feb2-480d-b1ca-eba1be239ebb
 
 - 2026.01.16: ⚡️ **LightningBoard (Lightning Dashboard) V1** が利用可能になりました、超大規模チャート数のシナリオに最適化；チャート埋め込みリンクを追加、オンラインドキュメント（Notion、Lark など）にチャートを埋め込むことができます；
 
-- 2026.01.02: 🥳 **AMD ROCm** と **Iluvatar GPU** のハードウェア監視をサポート；SDK に心跳パッケージ機能を追加、より安定したクラウド/オフライン接続を実現；
-
 <details><summary>完全な更新履歴</summary>
+
+- 2026.01.02: 🥳 **AMD ROCm** と **Iluvatar GPU** のハードウェア監視をサポート；SDK に心跳パッケージ機能を追加、より安定したクラウド/オフライン接続を実現；
 
 - 2025.12.15: 🎉SwanLab **Kubernetes版** が利用可能になりました！[デプロイメントドキュメント](https://docs.swanlab.cn/en/self_host/kubernetes/deploy.html)；[NVIDIA NeMo RL](https://github.com/NVIDIA-NeMo/RL) フレームワークがSwanLabに統合，[ドキュメント](https://docs.swanlab.cn/en/guide_cloud/integration/integration-nvidia-nemo-rl.html)；
 
