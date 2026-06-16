@@ -39,6 +39,7 @@
 - [📃 オンラインデモ](#-オンラインデモ)
 - [🏁 クイックスタート](#-クイックスタート)
 - [💻 セルフホスティング](#-セルフホスティング)
+- [🔥 SwanLab を使用した論文](#-swanlab-を使用した論文)
 - [🎮 ハードウェア監視](#-ハードウェア監視)
 - [🚗 フレームワーク統合](#-フレームワーク統合)
 - [🔌 プラグイン](#-プラグイン)
@@ -320,6 +321,26 @@ for i in range(10):
 - [🔗 Kubernetesデプロイメントドキュメント](https://docs.swanlab.cn/en/self_host/kubernetes/deploy.html)
 - [🔗 Dockerデプロイメントドキュメント](https://docs.swanlab.cn/en/self_host/docker/deploy.html)
 - [🔗 DockerからKubernetesへの移行ドキュメント](https://docs.swanlab.cn/en/self_host/docker/migration-docker-kubernetes.html)
+
+<br>
+
+## 🔥 SwanLab を使用した論文
+
+- [Accelerating AlphaZero Training for Connect6 via Behavioral Cloning Initialization and Prior Action Masking in Resource-Constrained Environments](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=6730709)
+- [SeePhys Pro: Diagnosing Modality Transfer and Blind-Training Effects in Multimodal RLVR for Physics Reasoning](https://arxiv.org/abs/2605.09266)
+- [MemFactory: Unified Inference & Training Framework for Agent Memory](https://arxiv.org/abs/2603.29493)
+- [ILL: A Lightweight Large Language Model for Legal and Courtroom Assistance](https://www.mdpi.com/2079-9292/15/11/2401)
+- [Retrieval, Reward, and Training Protocols: What Matters in Training Search Agents?](https://arxiv.org/pdf/2605.27881)
+- [MolAct: An Agentic RL Framework for Molecular Editing and Property Optimization](https://arxiv.org/abs/2512.20135)
+- [CQLLM: A Framework for Generating CodeQL Security Vulnerability Detection Code Based on Large Language Model](https://www.preprints.org/manuscript/202510.1458)
+- [Animation Needs Attention: A Holistic Approach to Slides Animation Comprehension with Visual-Language Models](https://arxiv.org/abs/2507.03916)
+- [Efficient Model Fine-Tuning with LoRA for Biomedical Named Entity Recognition](https://ieeexplore.ieee.org/abstract/document/11082049/)
+- [SpectrumWorld: Artificial Intelligence Foundation for Spectroscopy](https://arxiv.org/abs/2508.01188)
+- [CodeBoost: Boosting Code LLMs by Squeezing Knowledge from Code Snippets with RL](https://arxiv.org/pdf/2508.05242)
+- [A Joint Classification Method for Traditional Chinese Medicine Diseases and Syndromes Based on BertChinese-RCNNATTN](https://dl.acm.org/doi/full/10.1145/3759972.3759979)
+- [A Gradient-Norm-Aware Optimizer for Symmetry-Preserving and Stable Deep Learning](https://www.mdpi.com/2073-8994/18/2/374)
+- [TrafficBM: A Dual-Modality Pre-Training Framework for Network Traffic Classification](https://ieeexplore.ieee.org/document/11304658)
+- [Using Human Cumulative Prospect Theory to Understand Large Language Models Decision-Making](https://ieeexplore.ieee.org/document/11300712)
 
 <br>
 
