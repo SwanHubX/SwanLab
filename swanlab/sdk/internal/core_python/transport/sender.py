@@ -138,9 +138,12 @@ class HttpRecordSender:
             handler(records)
         except ApiError as e:
             if e.response.status_code >= 500:
-                # 基础设施错误，不按业务逻辑处理，此时直接抛出异常，交给上游重试
+                # 基础设施错误（断网/5xx），向上抛出交由 transport 重试；raise 路径不会执行 advance
                 raise
+            # 4xx：后端业务拒绝，重试也不会成功；不计入 uploaded，进度条原地不动以如实反映失败
             console.warning(f"Failed to upload {record_type} records, skipping; error: {e}")
+            return
+        # 仅当本批真正上传成功后才递进 uploaded（网络失败会 raise，走不到这里）
         if self._tracker is not None:
             self._tracker.advance_records(len(records))
 
