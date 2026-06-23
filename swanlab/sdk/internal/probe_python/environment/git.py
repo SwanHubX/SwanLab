@@ -78,9 +78,12 @@ def parse_git_url(url: str) -> str:
         if ":" in host:
             # host 段含冒号: 右侧纯数字 → 视为 host:port 保留; 否则当作路径首段
             host, tail = host.rsplit(":", 1)
-            url = f"https://{host}:{tail}/{path}" if tail.isdigit() else f"https://{host}/{tail}/{path}"
-        else:
-            url = f"https://{host}/{path}"
+            if tail.isdigit():
+                host = f"{host}:{tail}"
+            else:
+                path = f"{tail}/{path}" if path else tail
+        # path 为空时不拼尾部斜杠, 避免生成 "https://host/" 这类畸形结果
+        url = f"https://{host}/{path}" if path else f"https://{host}"
     if url.endswith(".git"):
         url = url[:-4]
     return url

@@ -34,7 +34,10 @@ class TestParseGitUrl:
             ("http://github.com/user/repo.git", "http://github.com/user/repo"),
             ("git://github.com/user/repo.git", "git://github.com/user/repo"),
             ("ssh://git@github.com:22/user/repo.git", "ssh://git@github.com:22/user/repo"),
-            # ---- 边界 ----
+            # ---- 边界: 缺少路径段, 不应产生尾部斜杠 ----
+            ("git@github.com:repo", "https://github.com/repo"),
+            ("git@github.com", "https://github.com"),
+            ("git@github.com:22", "https://github.com:22"),
             ("", ""),
         ],
     )
