@@ -20,13 +20,21 @@ class TestParseGitUrl:
     @pytest.mark.parametrize(
         "url,expected",
         [
-            ("git@github.com:SwanHubX/SwanLab.git", "https://github.com/SwanHubX/SwanLab.git"),
-            ("git@gitlab.com:user/project.git", "https://gitlab.com/user/project.git"),
-            ("git@gitlab.com:group/subgroup/project.git", "https://gitlab.com/group/subgroup/project.git"),
+            # ---- SSH scp-like: 冒号分隔 host 与 path, 末尾剥 .git ----
+            ("git@github.com:SwanHubX/SwanLab.git", "https://github.com/SwanHubX/SwanLab"),
             ("git@github.com:user/repo", "https://github.com/user/repo"),
-            ("https://github.com/user/repo.git", "https://github.com/user/repo.git"),
-            ("http://github.com/user/repo.git", "http://github.com/user/repo.git"),
-            ("git://github.com/user/repo.git", "git://github.com/user/repo.git"),
+            ("git@gitlab.com:user/project.git", "https://gitlab.com/user/project"),
+            ("git@gitlab.com:group/subgroup/project.git", "https://gitlab.com/group/subgroup/project"),
+            # ---- SSH 带端口: host:port 形式, 端口被保留 ----
+            ("git@localhost:8000/swanhubx/swanlab.git", "https://localhost:8000/swanhubx/swanlab"),
+            ("git@localhost:8000/swanhubx/swanlab", "https://localhost:8000/swanhubx/swanlab"),
+            # ---- HTTPS / 其他协议: 不改协议, 仅剥 .git ----
+            ("https://github.com/user/repo.git", "https://github.com/user/repo"),
+            ("https://github.com/user/repo", "https://github.com/user/repo"),
+            ("http://github.com/user/repo.git", "http://github.com/user/repo"),
+            ("git://github.com/user/repo.git", "git://github.com/user/repo"),
+            ("ssh://git@github.com:22/user/repo.git", "ssh://git@github.com:22/user/repo"),
+            # ---- 边界 ----
             ("", ""),
         ],
     )
@@ -41,8 +49,8 @@ class TestGetRemoteUrl:
     @pytest.mark.parametrize(
         "stdout,expected",
         [
-            ("https://github.com/user/repo.git\n", "https://github.com/user/repo.git"),
-            ("git@github.com:user/repo.git\n", "https://github.com/user/repo.git"),
+            ("https://github.com/user/repo.git\n", "https://github.com/user/repo"),
+            ("git@github.com:user/repo.git\n", "https://github.com/user/repo"),
         ],
     )
     def test_get_remote_url_success(self, stdout, expected):
