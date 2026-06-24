@@ -50,35 +50,54 @@ def safe_mkdirs(*paths: Union[str, Path], timeout: float = TIMEOUT, ensure_clean
 
 def safe_mkdir(path: Union[str, Path], timeout: float = TIMEOUT, ensure_clean: bool = False) -> Path:
     """
-    安全地创建目录，带有抗 NAS 异步延迟的探针机制。
+    安全地创建目录，带有抗异步文件系统延迟的探针机制。
+
+    创建后会探测目录是否真正可见且可写，以容忍 NAS / NFS 等的异步IO延迟。
+    权限不足属于不可恢复错误，会立即抛出 PermissionError，不会重试。
 
     :param path: 目录路径
     :param timeout: 超时时间（秒）
     :param ensure_clean: 如果为 True，要求目标目录在创建前不存在（原子检查，通过 mkdir(exist_ok=False) 实现）
     :raises FileExistsError: ensure_clean=True 且目录已存在时抛出
+    :raises PermissionError: 目录不可创建或不可写时抛出
     """
     p = Path(path)
-    if ensure_clean:
-        p.mkdir(parents=True, exist_ok=False)
-    else:
-        p.mkdir(parents=True, exist_ok=True)
+    try:
+        if ensure_clean:
+            p.mkdir(parents=True, exist_ok=False)
+        else:
+            p.mkdir(parents=True, exist_ok=True)
+    except PermissionError:
+        raise PermissionError(
+            f"Cannot create directory [{p}]: permission denied. "
+            "Please choose a writable log_dir or update directory permissions."
+        ) from None
 
     start_time = time.time()
 
+    # 探测一：目录创建后可能因异步延迟暂不可见
     while not (p.exists() and p.is_dir()):
         if time.time() - start_time > timeout:
-            raise TimeoutError(f"Directory creation timeout (NAS delay too high): {p}")
+            raise TimeoutError(f"Directory creation timed out, filesystem may be slow or remote: {p}")
         time.sleep(0.05)
 
+    # 探测二：目录可见后可能仍暂不可写（权限问题立即失败，其余重试到超时）
     while True:
         try:
             with tempfile.TemporaryFile(dir=p, prefix=".swanlab_test_") as f:
                 f.write(b"0")
             break
+        except PermissionError:
+            # 权限不足不会因重试而恢复，立即失败，避免被误判为可重试的文件系统延迟
+            raise PermissionError(
+                f"Directory [{p}] is not writable. Please choose a writable log_dir or update directory permissions."
+            ) from None
         except OSError:
             if time.time() - start_time > timeout:
-                console.trace(f"NAS sync issue? Directory {p} exists but is not writable yet")
-                raise TimeoutError(f"Directory {p} is not writable within {timeout}s.")
+                console.trace(f"Directory {p} exists but is not writable within {timeout}s")
+                raise TimeoutError(
+                    f"Directory [{p}] exists but is not writable within {timeout}s, FILESYSTEM may be slow or remote."
+                )
             time.sleep(0.1)
 
     return p

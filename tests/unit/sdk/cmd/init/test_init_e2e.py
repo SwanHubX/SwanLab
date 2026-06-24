@@ -16,6 +16,7 @@
   - TestRunSave              : run.save() 各 policy / 各模式的端到端行为
 """
 
+import errno
 import json
 import multiprocessing
 from typing import cast
@@ -408,6 +409,20 @@ class TestInitLocalMode:
         assert ctx.media_dir.exists()
         assert ctx.files_dir.exists()
         assert ctx.debug_dir.exists()
+
+    def test_init_fails_when_log_dir_is_not_writable(self, tmp_path, monkeypatch):
+        """log_dir 不可写时应在 init 阶段明确失败，避免后续静默丢点。"""
+        log_dir = tmp_path / "root-owned-log-dir"
+        log_dir.mkdir()
+
+        def deny_tempfile(*args, **kwargs):
+            raise PermissionError(errno.EACCES, "Permission denied")
+
+        monkeypatch.setattr("swanlab.sdk.internal.pkg.fs.dir.tempfile.TemporaryFile", deny_tempfile)
+
+        with pytest.raises(PermissionError, match="Directory .* is not writable"):
+            init(mode="local", log_dir=str(log_dir))
+        assert not has_run()
 
     def test_init_workspace_is_none_by_default(self):
         """local 模式下 workspace 默认为 None"""
