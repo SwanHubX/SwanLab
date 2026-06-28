@@ -122,6 +122,22 @@ class TestCorePythonStart:
         MockHeartbeat.assert_called_once_with("test-experiment-id")
         MockHeartbeat.return_value.start.assert_called_once()
 
+    def test_start_failure_includes_original_error(self, tmp_path, monkeypatch):
+        core = CorePython("local")
+        error_message = "Cannot create SwanLab data store file /root/run.swanlab: permission denied."
+
+        def deny_store_open(self, filename):
+            raise PermissionError(error_message)
+
+        monkeypatch.setattr("swanlab.sdk.internal.core_python.store.DataStoreWriter.open", deny_store_open)
+
+        resp = core.deliver_run_start(make_start_request(tmp_path, make_start_record()))
+
+        assert resp.success is False
+        assert "Failed to start run" in resp.message
+        assert error_message in resp.message
+        assert core._active is False
+
 
 # ============================================================
 # TestCorePythonFinish

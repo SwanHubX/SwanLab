@@ -5,6 +5,7 @@
 @description: SwanLab SDK 文件系统辅助函数测试
 """
 
+import errno
 import importlib
 import sys
 from pathlib import Path
@@ -59,6 +60,19 @@ def test_safe_mkdir_nas_timeout(monkeypatch, tmp_path: Path):
     monkeypatch.setattr("swanlab.sdk.internal.pkg.fs.dir.tempfile.TemporaryFile", mock_tempfile)
 
     with pytest.raises(TimeoutError, match="is not writable within"):
+        dir.safe_mkdir(target, timeout=5.0)
+
+
+def test_safe_mkdir_permission_denied_raises_permission_error(monkeypatch, tmp_path: Path):
+    """权限不足时应立即抛 PermissionError，而不是伪装成 NAS 超时。"""
+    target = tmp_path / "readonly_dir"
+
+    def mock_tempfile(*args, **kwargs):
+        raise PermissionError(errno.EACCES, "Permission denied")
+
+    monkeypatch.setattr("swanlab.sdk.internal.pkg.fs.dir.tempfile.TemporaryFile", mock_tempfile)
+
+    with pytest.raises(PermissionError, match="Directory .* is not writable"):
         dir.safe_mkdir(target, timeout=5.0)
 
 

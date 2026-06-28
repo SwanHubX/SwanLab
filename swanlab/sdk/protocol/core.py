@@ -54,7 +54,8 @@ class CoreProtocol(ABC):
         交付运行开始事件，同步事件，等待确认
         约定应该在此处完成Core相关组件的初始化，在这里完成不同模式的初始化函数分发
         """
-        with safe.block(message="run start error"):
+        errors: list[BaseException] = []
+        with safe.block(message="run start error", on_error=errors.append):
             if self._mode == "online":
                 return self._start_when_online(start_request)
             elif self._mode == "local":
@@ -62,7 +63,10 @@ class CoreProtocol(ABC):
             elif self._mode == "offline":
                 return self._start_when_offline(start_request)
             return self._start_when_disabled(start_request)
-        return DeliverRunStartResponse(success=False, message="Failed to start run")
+        message = "Failed to start run"
+        if errors:
+            message = f"{message}: {errors[0]}"
+        return DeliverRunStartResponse(success=False, message=message)
 
     @staticmethod
     def _start_when_disabled(start_request: DeliverRunStartRequest) -> DeliverRunStartResponse:
