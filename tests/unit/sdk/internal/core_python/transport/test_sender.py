@@ -8,7 +8,7 @@ from swanlab.exceptions import ApiError
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaItem, MediaRecord, MediaValue
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
-from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord
+from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord, SaveType
 from swanlab.sdk.internal.core_python.context import CoreConfig, CoreContext
 from swanlab.sdk.internal.core_python.transport.sender import HttpRecordSender
 from swanlab.sdk.internal.core_python.transport.tracker import UploadTracker
@@ -71,8 +71,12 @@ def _make_sender(
     return HttpRecordSender(ctx=ctx)
 
 
-def _make_save_record(source: Path, name: str = "checkpoints/model.txt") -> Record:
-    return Record(save=SaveRecord(name=name, source_path=str(source), target_path=str(source)))
+def _make_save_record(
+    source: Path,
+    name: str = "checkpoints/model.txt",
+    save_type: SaveType = SaveType.SAVE_TYPE_CUSTOM,
+) -> Record:
+    return Record(save=SaveRecord(name=name, source_path=str(source), target_path=str(source), type=save_type))
 
 
 def _make_media_record(filename: str, media_type=ColumnType.COLUMN_TYPE_IMAGE) -> Record:
@@ -391,3 +395,134 @@ def test_upload_does_not_advance_records_for_retryable_api_error(tmp_path: Path)
         pass
 
     assert tracker.snapshot().uploaded_records == 0
+
+
+def _make_internal_save_record(source_path: str, save_type: SaveType, name: str = "") -> Record:
+    """构造内部保存（metadata/requirements/conda/config）记录，source_path 可指向不存在的训练机绝对路径。"""
+    return Record(save=SaveRecord(name=name, source_path=source_path, target_path=source_path, type=save_type))
+
+
+def test_resolve_save_source_prefers_primary_when_readable(tmp_path: Path):
+    """本机运行时 source_path 可读 → 直接返回 primary，不走回退、不打 debug。"""
+    source = tmp_path / "model.txt"
+    source.write_text("weights", encoding="utf-8")
+    rec = _make_save_record(source, name="checkpoints/model.txt")
+    sender = _make_sender(tmp_path)
+
+    with patch("swanlab.sdk.internal.core_python.transport.sender.console.debug") as mock_debug:
+        result = sender._resolve_save_source(rec.save)
+
+    assert result == source
+    mock_debug.assert_not_called()
+
+
+def test_resolve_save_source_falls_back_to_files_dir_for_custom(tmp_path: Path):
+    """CUSTOM 跨挂载根：source_path 不可读 → 回退到 files_dir/save.name。"""
+    # source_path 指向不存在路径，模拟训练机绝对路径在 sync 机不可读
+    rec = _make_save_record(Path("/nonexistent/training-host/model.txt"), name="checkpoints/model.txt")
+    sender = _make_sender(tmp_path)
+    # files 子目录下有镜像（含子目录层级）
+    fallback = tmp_path / "files" / "checkpoints" / "model.txt"
+    fallback.parent.mkdir(parents=True)
+    fallback.write_text("recovered", encoding="utf-8")
+
+    with patch("swanlab.sdk.internal.core_python.transport.sender.console.debug") as mock_debug:
+        result = sender._resolve_save_source(rec.save)
+
+    assert result == fallback
+    mock_debug.assert_called_once()
+
+
+def test_resolve_save_source_falls_back_for_internal_metadata(tmp_path: Path):
+    """内部 metadata：source_path 不可读 → 按 basename 回退到 files_dir/swanlab-metadata.json。"""
+    rec = _make_internal_save_record("/nonexistent/host/swanlab-metadata.json", SaveType.SAVE_TYPE_METADATA)
+    sender = _make_sender(tmp_path)
+    fallback = tmp_path / "files" / "swanlab-metadata.json"
+    fallback.parent.mkdir(parents=True)
+    fallback.write_text("{}", encoding="utf-8")
+
+    result = sender._resolve_save_source(rec.save)
+
+    assert result == fallback
+
+
+def test_resolve_save_source_uses_basename_not_name_for_config(tmp_path: Path):
+    """config 的 save.name 为 "config"，但文件名是 config.yaml → 必须用 basename 而非 name 回退。"""
+    rec = _make_internal_save_record("/nonexistent/host/config.yaml", SaveType.SAVE_TYPE_CONFIG, name="config")
+    sender = _make_sender(tmp_path)
+    fallback = tmp_path / "files" / "config.yaml"
+    fallback.parent.mkdir(parents=True)
+    fallback.write_text("key: value", encoding="utf-8")
+    # files/config（即 save.name）不应被命中
+    assert not (tmp_path / "files" / "config").exists()
+
+    result = sender._resolve_save_source(rec.save)
+
+    assert result == fallback
+
+
+def test_resolve_save_source_returns_none_when_both_unreadable(tmp_path: Path):
+    rec = _make_save_record(Path("/nonexistent/training-host/model.txt"), name="checkpoints/model.txt")
+    sender = _make_sender(tmp_path)
+    # 既无 primary 也无 files 镜像
+
+    assert sender._resolve_save_source(rec.save) is None
+
+
+def test_upload_save_recovers_internal_metadata_from_run_dir(tmp_path: Path):
+    """内部 metadata 跨挂载根 sync：source_path 不可读，但 files/swanlab-metadata.json 有内容 → 成功上传。"""
+    sender = _make_sender(tmp_path)
+    # files 目录下放置真实 metadata（probe 直接写入）
+    metadata_file = tmp_path / "files" / "swanlab-metadata.json"
+    metadata_file.parent.mkdir(parents=True)
+    metadata_file.write_text('{"hostname": "gpu-01"}', encoding="utf-8")
+    # source_path 指向训练机绝对路径（sync 机不可读）
+    rec = _make_internal_save_record("/nonexistent/host/swanlab-metadata.json", SaveType.SAVE_TYPE_METADATA)
+
+    with (
+        patch("swanlab.sdk.internal.core_python.transport.sender.upload_metadata") as mock_upload_meta,
+        patch("swanlab.sdk.internal.core_python.transport.sender.console.debug"),
+    ):
+        sender.upload_save([rec])
+
+    mock_upload_meta.assert_called_once()
+    assert mock_upload_meta.call_args.kwargs["content"] == {"hostname": "gpu-01"}
+
+
+def test_upload_save_recovers_custom_file_from_run_dir(tmp_path: Path):
+    """用户保存跨挂载根 sync：source_path 不可读，files/checkpoints/model.txt 有镜像 → 走 save 上传。"""
+    sender = _make_sender(tmp_path)
+    files_dir = tmp_path / "files"
+    files_dir.mkdir()
+    recovered = files_dir / "checkpoints" / "model.txt"
+    recovered.parent.mkdir(parents=True)
+    recovered.write_text("recovered-weights", encoding="utf-8")
+    # source_path 指向训练机绝对路径（含子目录），sync 机不可读
+    rec = _make_save_record(Path("/nonexistent/host/checkpoints/model.txt"), name="checkpoints/model.txt")
+
+    def _fake_upload(session, *, resources, tracker=None):
+        # 断言读取自回退路径，而非训练机绝对路径
+        assert all(r["source_path"] == str(recovered) for r in resources)
+        return {r["source_path"] for r in resources}
+
+    with (
+        patch(
+            "swanlab.sdk.internal.core_python.transport.sender.prepare_save_files",
+            return_value={"urls": ["https://s3.test/model"]},
+        ) as mock_prepare,
+        patch("swanlab.sdk.internal.core_python.transport.sender.complete_save_files") as mock_complete,
+        patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=MagicMock()),
+        patch(
+            "swanlab.sdk.internal.core_python.transport.sender.upload_saves", side_effect=_fake_upload
+        ) as mock_upload_saves,
+        patch("swanlab.sdk.internal.core_python.transport.sender.console.debug"),
+    ):
+        sender.upload_save([rec])
+
+    mock_prepare.assert_called_once()
+    # 远端 path 仍为记录的相对名
+    assert mock_prepare.call_args.kwargs["files"][0]["path"] == "checkpoints/model.txt"
+    mock_upload_saves.assert_called_once()
+    mock_complete.assert_called_once_with(
+        "experiment-id", files=[{"path": "checkpoints/model.txt", "state": "UPLOADED"}]
+    )
