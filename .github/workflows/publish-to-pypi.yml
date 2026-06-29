@@ -44,3 +44,158 @@ jobs:
         with:
           files: |
             *.whl
+
+      - name: Notify Feishu on New Release
+        if: success() && startsWith(github.ref, 'refs/tags/')
+        env:
+          FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
+          FEISHU_WEBHOOK_SECRET: ${{ secrets.FEISHU_WEBHOOK_SECRET }}
+        run: |
+          set -euo pipefail
+
+          FEISHU_WEBHOOK_URL="$(printf '%s' "${FEISHU_WEBHOOK_URL:-}" | tr -d '\r\n')"
+
+          if [ -z "${FEISHU_WEBHOOK_URL:-}" ]; then
+            echo "FEISHU_WEBHOOK_URL is empty, skip Feishu notification."
+            exit 0
+          fi
+
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          REPO="${GITHUB_REPOSITORY}"
+
+          RELEASE_URL="https://github.com/${REPO}/releases/tag/${TAG}"
+          PYPI_URL="https://pypi.org/project/swanlab/${VERSION}/"
+
+          echo "Notifying Feishu: SwanLab SDK ${TAG}"
+
+          PAYLOAD=$(VERSION="$VERSION" TAG="$TAG" RELEASE_URL="$RELEASE_URL" PYPI_URL="$PYPI_URL" python3 - <<'PY'
+          import json
+          import os
+
+          tag = os.environ["TAG"]
+          release_url = os.environ["RELEASE_URL"]
+          pypi_url = os.environ["PYPI_URL"]
+
+          body = {
+              "msg_type": "interactive",
+              "card": {
+                  "schema": "2.0",
+                  "config": {
+                      "update_multi": True,
+                      "wide_screen_mode": True,
+                  },
+                  "header": {
+                      "title": {
+                          "tag": "plain_text",
+                          "content": "📢 SwanLab SDK 版本更新通知",
+                      },
+                      "template": "blue",
+                  },
+                  "body": {
+                      "direction": "vertical",
+                      "elements": [
+                          {
+                              "tag": "markdown",
+                              "content": (
+                                  f"**版本:** {tag}\n"
+                                  f"**包名:** swanlab\n"
+                                  f"**发布状态:** 已发布到 PyPI / GitHub Release"
+                              ),
+                              "text_align": "left",
+                          },
+                          {
+                              "tag": "column_set",
+                              "flex_mode": "none",
+                              "background_style": "default",
+                              "columns": [
+                                  {
+                                      "tag": "column",
+                                      "width": "auto",
+                                      "elements": [
+                                          {
+                                              "tag": "button",
+                                              "text": {
+                                                  "tag": "plain_text",
+                                                  "content": "📦 查看 PyPI",
+                                              },
+                                              "type": "primary",
+                                              "size": "medium",
+                                              "behaviors": [
+                                                  {
+                                                      "type": "open_url",
+                                                      "default_url": pypi_url,
+                                                  }
+                                              ],
+                                          }
+                                      ],
+                                  },
+                                  {
+                                      "tag": "column",
+                                      "width": "auto",
+                                      "elements": [
+                                          {
+                                              "tag": "button",
+                                              "text": {
+                                                  "tag": "plain_text",
+                                                  "content": "🏷️ GitHub Release",
+                                              },
+                                              "type": "default",
+                                              "size": "medium",
+                                              "behaviors": [
+                                                  {
+                                                      "type": "open_url",
+                                                      "default_url": release_url,
+                                                  }
+                                              ],
+                                          }
+                                      ],
+                                  },
+                              ],
+                          },
+                      ],
+                  },
+              },
+          }
+
+          print(json.dumps(body, ensure_ascii=False))
+          PY
+          )
+
+          WEBHOOK_URL="$FEISHU_WEBHOOK_URL"
+
+          if [ -n "${FEISHU_WEBHOOK_SECRET:-}" ]; then
+            TIMESTAMP=$(python3 -c 'import time; print(int(time.time()))')
+
+            SIGN=$(FEISHU_TS="$TIMESTAMP" FEISHU_WEBHOOK_SECRET="$FEISHU_WEBHOOK_SECRET" python3 - <<'PY'
+          import base64
+          import hashlib
+          import hmac
+          import os
+          import urllib.parse
+
+          ts = os.environ["FEISHU_TS"]
+          secret = os.environ["FEISHU_WEBHOOK_SECRET"]
+          string_to_sign = f"{ts}\n{secret}"
+
+          digest = hmac.new(
+              string_to_sign.encode("utf-8"),
+              msg=b"",
+              digestmod=hashlib.sha256,
+          ).digest()
+
+          print(urllib.parse.quote_plus(base64.b64encode(digest).decode("utf-8")))
+          PY
+          )
+
+            case "$WEBHOOK_URL" in
+              *\?*) SEP="&" ;;
+              *) SEP="?" ;;
+            esac
+
+            WEBHOOK_URL="${WEBHOOK_URL}${SEP}timestamp=${TIMESTAMP}&sign=${SIGN}"
+          fi
+
+          curl -sS -X POST "$WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            --data-raw "$PAYLOAD"
