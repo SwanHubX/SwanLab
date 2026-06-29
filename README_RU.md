@@ -9,7 +9,7 @@
 Профессиональная платформа для анализа обучения искусственного интеллекта  
 Глубокий анализ миллионов показателей, ускоренная итерация экспериментов, интеграция с 50+ ведущими фреймворками для обучения искусственного интеллекта
 
-<a href="https://swanlab.cn">🔥SwanLab Online</a> · <a href="https://docs.swanlab.cn">📃 Документация</a> · <a href="https://github.com/swanhubx/swanlab/issues">Сообщить о проблеме</a> · <a href="https://rcnpx636fedp.feishu.cn/share/base/form/shrcnMFh9kkETFS6Hsc7fsBlKHc">Оставить отзыв</a> · <a href="https://docs.swanlab.cn/en/guide_cloud/general/changelog.html">История изменений</a> · <a href="https://www.modelscope.cn/skills/SwanLab/swanlab-skill">SKILL</a>
+<a href="https://swanlab.cn">🔥SwanLab Online</a> · <a href="https://docs.swanlab.cn">📃 Документация</a> · <a href="https://github.com/swanhubx/swanlab/issues">Сообщить о проблеме</a> · <a href="https://rcnpx636fedp.feishu.cn/share/base/form/shrcnMFh9kkETFS6Hsc7fsBlKHc">Оставить отзыв</a> · <a href="https://docs.swanlab.cn/en/guide_cloud/general/changelog.html">История изменений</a> · <a href="https://github.com/SwanHubX/SwanLab-Skill">SKILL</a>
 
 [![][release-shield]][release-link]
 [![][dockerhub-shield]][dockerhub-link]
@@ -53,7 +53,7 @@
 
 - 2026.06.16: 📊 Добавлены **HTML**-графики с поддержкой встраивания страниц после LLM Vibe Coding; опубликовано [решение для мониторинга логов Prometheus](https://docs.swanlab.cn/en/self_host/kubernetes/monitor-logging.html) при развертывании в Kubernetes;
 
-- 2026.06.05: ⚡️ **Рефакторированная версия SDK** (v0.8.0) теперь доступна, значительно повышая производительность записи метрик и улучшая опыт крупномасштабного обучения; SwanLab [CLI](https://docs.swanlab.cn/en/api/cli-swanlab-api.html) и [Skill](https://www.modelscope.cn/skills/SwanLab/swanlab-skill) теперь доступны для парадигмы AutoResearch;
+- 2026.06.05: ⚡️ **Рефакторированная версия SDK** (v0.8.0) теперь доступна, значительно повышая производительность записи метрик и улучшая опыт крупномасштабного обучения; SwanLab [CLI](https://docs.swanlab.cn/en/api/cli-swanlab-api.html) и [Skill](https://github.com/SwanHubX/SwanLab-Skill) теперь доступны для парадигмы AutoResearch;
 
 - 2026.05.18: 📒 Логи теперь поддерживают **глобальную фильтрацию**, чтобы можно было быстро находить нужные фрагменты логов; добавлена функция **копирования графиков**; в поиске по графикам появилась **история запросов**; в деталях графиков теперь отображается **относительное время**;
 

@@ -9,7 +9,7 @@
 プロフェッショナルな AI トレーニング分析プラットフォーム  
 実験のイテレーションを高速化、50 種以上のトップクラスの AI トレーニングフレームワークと統合
 
-<a href="https://swanlab.cn">🔥SwanLab オンライン版</a> · <a href="https://docs.swanlab.cn">📃 ドキュメント</a> · <a href="https://github.com/swanhubx/swanlab/issues">問題を報告</a> · <a href="https://rcnpx636fedp.feishu.cn/share/base/form/shrcnMFh9kkETFS6Hsc7fsBlKHc">フィードバックを提案</a> · <a href="https://docs.swanlab.cn/en/guide_cloud/general/changelog.html">更新履歴</a> · <a href="https://www.modelscope.cn/skills/SwanLab/swanlab-skill">SKILL</a>
+<a href="https://swanlab.cn">🔥SwanLab オンライン版</a> · <a href="https://docs.swanlab.cn">📃 ドキュメント</a> · <a href="https://github.com/swanhubx/swanlab/issues">問題を報告</a> · <a href="https://rcnpx636fedp.feishu.cn/share/base/form/shrcnMFh9kkETFS6Hsc7fsBlKHc">フィードバックを提案</a> · <a href="https://docs.swanlab.cn/en/guide_cloud/general/changelog.html">更新履歴</a> · <a href="https://github.com/SwanHubX/SwanLab-Skill">SKILL</a>
 
 [![][release-shield]][release-link]
 [![][dockerhub-shield]][dockerhub-link]
@@ -53,7 +53,7 @@
 
 - 2026.06.16: 📊 **HTML** チャートを追加し、LLM Vibe Coding 後のページ埋め込みをサポート；Kubernetes デプロイ向け [Prometheus ログ監視ソリューション](https://docs.swanlab.cn/en/self_host/kubernetes/monitor-logging.html) が公開されました；
 
-- 2026.06.05: ⚡️ **リファクタリング版 SDK**（v0.8.0）が公開され、指標記録性能が大幅に向上し、大規模トレーニングでより快適に利用できます；SwanLab [CLI](https://docs.swanlab.cn/en/api/cli-swanlab-api.html) と [Skill](https://www.modelscope.cn/skills/SwanLab/swanlab-skill) が公開され、AutoResearch パラダイムに対応しました；
+- 2026.06.05: ⚡️ **リファクタリング版 SDK**（v0.8.0）が公開され、指標記録性能が大幅に向上し、大規模トレーニングでより快適に利用できます；SwanLab [CLI](https://docs.swanlab.cn/en/api/cli-swanlab-api.html) と [Skill](https://github.com/SwanHubX/SwanLab-Skill) が公開され、AutoResearch パラダイムに対応しました；
 
 - 2026.05.18: 📒 ログで**グローバルフィルタリング**をサポートし、必要なログ断片をすばやく全体から見つけられるように；**チャート複製**機能を追加；チャート検索に**検索履歴**機能を追加；チャート詳細に**相対時間**表示を追加；
 
