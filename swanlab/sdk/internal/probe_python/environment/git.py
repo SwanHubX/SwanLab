@@ -6,7 +6,6 @@
 """
 
 import subprocess
-from pathlib import PurePosixPath
 from typing import Optional
 
 from swanlab.sdk.internal.pkg import safe
@@ -63,18 +62,28 @@ def get_commit() -> Optional[str]:
 
 
 def parse_git_url(url: str) -> str:
-    """将 SSH 格式转换为 HTTPS 格式"""
-    if not url.startswith("git@"):
-        return url
+    """将 Git 远程地址归一化为展示用 HTTPS 形式，并去掉 ``.git`` 后缀。
 
-    # 1. 去掉 'git@' 协议头
-    # 2. 将第一个 ':' 替换为 '/'，使其符合路径规范
-    # 比如: github.com:SwanHubX/SwanLab.git -> github.com/SwanHubX/SwanLab.git
-    normalized_path = url[4:].replace(":", "/", 1)
+    - SSH scp-like: ``git@host:owner/repo[.git]`` → ``https://host/owner/repo``
+    - SSH 带端口:   ``git@host:port/owner/repo[.git]`` → ``https://host:port/owner/repo``
 
-    # 3. 使用 PurePosixPath 包装 (强制使用正斜杠)
-    path_obj = PurePosixPath(normalized_path)
-
-    # 4. 重新组装成 HTTPS URL
-    # path_obj 此时代表了 github.com/SwanHubX/SwanLab.git
-    return f"https://{path_obj}"
+      host 段冒号右侧为纯数字时视为端口予以保留，否则当作路径首段（标准 scp-like 写法）。
+    - 其他 (HTTPS / ssh:// / git:// ...) 原样返回。
+    - 统一去掉末尾 ``.git`` 后缀。
+    """
+    if url.startswith("git@"):
+        # 去掉 'git@' 后按首个 '/' 切分: 之前是 host 段, 之后是仓库路径
+        parts = url[4:].split("/", 1)
+        host, path = parts[0], parts[1] if len(parts) > 1 else ""
+        if ":" in host:
+            # host 段含冒号: 右侧纯数字 → 视为 host:port 保留; 否则当作路径首段
+            host, tail = host.rsplit(":", 1)
+            if tail.isdigit():
+                host = f"{host}:{tail}"
+            else:
+                path = f"{tail}/{path}" if path else tail
+        # path 为空时不拼尾部斜杠, 避免生成 "https://host/" 这类畸形结果
+        url = f"https://{host}/{path}" if path else f"https://{host}"
+    if url.endswith(".git"):
+        url = url[:-4]
+    return url
