@@ -526,3 +526,35 @@ def test_upload_save_recovers_custom_file_from_run_dir(tmp_path: Path):
     mock_complete.assert_called_once_with(
         "experiment-id", files=[{"path": "checkpoints/model.txt", "state": "UPLOADED"}]
     )
+
+
+def test_resolve_save_source_handles_windows_separators_on_posix(tmp_path: Path):
+    """跨平台：训练在 Windows 记录（反斜杠），sync 在 POSIX 读取时回退正确。
+
+    - 内部保存 source_path='C:\\host\\config.yaml'：POSIX 的 Path 无法切分反斜杠，
+      直接取 .name 会得到整串；必须用 PureWindowsPath 取 basename。
+    - 用户保存 name='checkpoints\\model.pt'：files 下真实镜像是分层子目录 trees，
+      files_dir / name 会拼成单个含反斜杠的文件名，须用 PureWindowsPath 还原层级。
+    """
+    sender = _make_sender(tmp_path)
+
+    # ── 内部保存（config）：basename 解析 ──
+    config_fallback = tmp_path / "files" / "config.yaml"
+    config_fallback.parent.mkdir(parents=True)
+    config_fallback.write_text("key: value", encoding="utf-8")
+    internal_rec = _make_internal_save_record(r"C:\host\config.yaml", SaveType.SAVE_TYPE_CONFIG, name="config")
+    assert sender._resolve_save_source(internal_rec.save) == config_fallback
+
+    # ── 用户保存（CUSTOM）：层级还原 ──
+    custom_fallback = tmp_path / "files" / "checkpoints" / "model.pt"
+    custom_fallback.parent.mkdir(parents=True)
+    custom_fallback.write_text("weights", encoding="utf-8")
+    custom_rec = Record(
+        save=SaveRecord(
+            name=r"checkpoints\model.pt",
+            source_path=r"C:\host\checkpoints\model.pt",
+            target_path=r"C:\host\checkpoints\model.pt",
+            type=SaveType.SAVE_TYPE_CUSTOM,
+        )
+    )
+    assert sender._resolve_save_source(custom_rec.save) == custom_fallback

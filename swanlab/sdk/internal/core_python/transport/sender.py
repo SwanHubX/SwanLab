@@ -12,7 +12,7 @@ import math
 import mimetypes
 import threading
 from collections.abc import Callable, Sequence
-from pathlib import Path, PurePosixPath
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import IO, TYPE_CHECKING, Literal, Optional, Union, cast
 
 import yaml
@@ -279,10 +279,13 @@ class HttpRecordSender:
         primary = Path(save.source_path)
         if primary.is_file():
             return primary
+        # source_path/name 可能由异构系统写入（例如训练在 Windows，sync 在 POSIX），
+        # 其分隔符为反斜杠时，POSIX 的 Path 无法正确切分。用 PureWindowsPath 仅做分隔符解析，
+        # 再交给本地 Path 复原，确保 basename 取正确文件名、子目录层级被正确还原。
         if save.type == SaveType.SAVE_TYPE_CUSTOM:
-            fallback = self._ctx.files_dir / save.name
+            fallback = self._ctx.files_dir / Path(*PureWindowsPath(save.name).parts)
         else:
-            fallback = self._ctx.files_dir / primary.name
+            fallback = self._ctx.files_dir / PureWindowsPath(save.source_path).name
         if fallback.is_file():
             console.debug(f"Save source path not readable, recovered from run directory: {fallback}")
             return fallback
@@ -363,7 +366,9 @@ class HttpRecordSender:
                 )
                 continue
             # 用解析后的可读路径（可能是回退到 files 子目录的路径）作为实际读取路径
-            pending.append((source_ref_path.as_posix(), size, save.name))
+            # 保持 str() 原生路径形式，与下游 compute_md5 / upload_saves 返回的 source_path 字符串一致，
+            # 避免 Windows 上 .as_posix() 与 str() 形式不一致导致 source_to_path 映射查不到
+            pending.append((str(source_ref_path), size, save.name))
         if not pending:
             console.warning("No valid files to save.")
             return
