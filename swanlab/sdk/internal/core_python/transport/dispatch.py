@@ -68,7 +68,8 @@ class Dispatch:
         """单 chunk 上传。返回 True 表示成功，False 表示失败。"""
         if self._sender is None:
             raise RuntimeError("sender not set")
-        with safe.block(message=f"record chunk upload failed, record_type={record_type!r}"):
+        with safe.block(message=f"record chunk upload failed, record_type={record_type!r}", write_to_tty=False):
+            # ⚠️：在持续断网的状态下，上传失败可能会重复打印，破坏掉 transport 层的 UploadWarningThrottle
             self._sender.upload(record_type, chunk)
             return True
         return False

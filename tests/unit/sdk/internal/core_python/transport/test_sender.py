@@ -339,7 +339,20 @@ def test_upload_media_finishes_file_inside_progress_callback(tmp_path: Path):
     assert list(snapshots[1].files) == []
 
 
-def test_upload_advances_records_for_non_retryable_api_error(tmp_path: Path):
+def test_upload_advances_records_only_on_success(tmp_path: Path):
+    """成功上传才递进 uploaded，进度条仅保留上传成功的进度。"""
+    tracker = UploadTracker()
+    sender = _make_sender(tmp_path)
+    sender.set_tracker(tracker)
+    sender._upload_handlers["scalar"] = MagicMock()
+
+    sender.upload("scalar", [Record(), Record()])
+
+    assert tracker.snapshot().uploaded_records == 2
+
+
+def test_upload_does_not_advance_records_for_non_retryable_api_error(tmp_path: Path):
+    """4xx 业务拒绝不计入 uploaded：失败原地不动，进度条不递进（也不抛异常，避免上层无意义重试）。"""
     tracker = UploadTracker()
     sender = _make_sender(tmp_path)
     sender.set_tracker(tracker)
@@ -355,7 +368,7 @@ def test_upload_advances_records_for_non_retryable_api_error(tmp_path: Path):
 
     sender.upload("scalar", [Record()])
 
-    assert tracker.snapshot().uploaded_records == 1
+    assert tracker.snapshot().uploaded_records == 0
 
 
 def test_upload_does_not_advance_records_for_retryable_api_error(tmp_path: Path):
