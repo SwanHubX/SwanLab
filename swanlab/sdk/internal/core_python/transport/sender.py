@@ -12,7 +12,7 @@ import math
 import mimetypes
 import threading
 from collections.abc import Callable, Sequence
-from pathlib import Path, PurePosixPath
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import IO, TYPE_CHECKING, Literal, Optional, Union, cast
 
 import yaml
@@ -20,7 +20,7 @@ import yaml
 from swanlab.exceptions import ApiError
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnClass, ColumnRecord, ColumnType
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
-from swanlab.proto.swanlab.save.v1.save_pb2 import SaveType
+from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord, SaveType
 from swanlab.sdk.internal.core_python.api.save import (
     complete_multipart_save,
     complete_save_files,
@@ -261,6 +261,36 @@ class HttpRecordSender:
 
     # ── 文件保存上传 ──
 
+    def _resolve_save_source(self, save: SaveRecord) -> Optional[Path]:
+        """解析 save 记录对应的可读本地文件路径。
+
+        ``source_path`` 为训练机绝对路径；online/local/offline 本机运行时可读。
+        sync 在另一台机器、以不同挂载根读取同一 run 目录时该绝对路径不可读，
+        此时回退到当前 run 目录的 ``files`` 子目录按文件名重新定位：
+
+        - 用户保存（CUSTOM）：按记录相对名 ``save.name`` 定位（镜像位置，与 ``create_save_links`` 约定一致）；
+        - 内部保存（metadata/requirements/conda/config）：由 probe 直接写入 files 目录（真实文件），
+          按 ``source_path`` 的 basename 定位。注意 config 的 ``save.name`` 为 ``"config"`` 而非 ``config.yaml``，
+          故此处一律用 basename 而非 name。
+
+        :param save: 文件保存记录
+        :return: 可读的本地文件路径；若原始路径与回退路径均不可读则返回 None
+        """
+        primary = Path(save.source_path)
+        if primary.is_file():
+            return primary
+        # source_path/name 可能由异构系统写入（例如训练在 Windows，sync 在 POSIX），
+        # 其分隔符为反斜杠时，POSIX 的 Path 无法正确切分。用 PureWindowsPath 仅做分隔符解析，
+        # 再交给本地 Path 复原，确保 basename 取正确文件名、子目录层级被正确还原。
+        if save.type == SaveType.SAVE_TYPE_CUSTOM:
+            fallback = self._ctx.files_dir / Path(*PureWindowsPath(save.name).parts)
+        else:
+            fallback = self._ctx.files_dir / PureWindowsPath(save.source_path).name
+        if fallback.is_file():
+            console.debug(f"Save source path not readable, recovered from run directory: {fallback}")
+            return fallback
+        return None
+
     def upload_save(self, records: Sequence[Record]) -> None:
         """
         内部保存（如config、metadata等）和用户保存（文件保存）共用 SaveRecord 结构
@@ -276,27 +306,34 @@ class HttpRecordSender:
             # 根据约定的 type 字段区分内部保存和用户保存，内部保存直接上传内容，用户保存走后续文件上传逻辑
             if save.type == SaveType.SAVE_TYPE_CUSTOM:
                 save_records.append(record)
-            elif save.type == SaveType.SAVE_TYPE_METADATA:
-                with safe.block(message=f"Failed to upload metadata, skipping; file kept at {save.source_path}"):
-                    with open(save.source_path, "r", encoding="utf-8") as f:
+                continue
+            # 内部保存（metadata/requirements/conda/config）：source_path 为训练机绝对路径，
+            # 跨挂载根 sync 时不可读，回退到 run 目录 files 子目录按 basename 重新定位
+            source_ref_path = self._resolve_save_source(save)
+            if source_ref_path is None:
+                console.warning(f"Save file not found, skipping: {save.source_path}")
+                continue
+            if save.type == SaveType.SAVE_TYPE_METADATA:
+                with safe.block(message=f"Failed to upload metadata, skipping; file kept at {source_ref_path}"):
+                    with open(source_ref_path, "r", encoding="utf-8") as f:
                         content = json.load(f)
                     if isinstance(content, dict):
                         upload_metadata(self._username, self._project, self._experiment_id, content=content)
             elif save.type == SaveType.SAVE_TYPE_REQUIREMENTS:
-                with safe.block(message=f"Failed to upload requirements, skipping; file kept at {save.source_path}"):
-                    with open(save.source_path, "r", encoding="utf-8") as f:
+                with safe.block(message=f"Failed to upload requirements, skipping; file kept at {source_ref_path}"):
+                    with open(source_ref_path, "r", encoding="utf-8") as f:
                         content = f.read()
                     if len(content) > 0:
                         upload_requirements(self._username, self._project, self._experiment_id, content=content)
             elif save.type == SaveType.SAVE_TYPE_CONDA:
-                with safe.block(message=f"Failed to upload conda, skipping; file kept at {save.source_path}"):
-                    with open(save.source_path, "r", encoding="utf-8") as f:
+                with safe.block(message=f"Failed to upload conda, skipping; file kept at {source_ref_path}"):
+                    with open(source_ref_path, "r", encoding="utf-8") as f:
                         content = f.read()
                     if len(content) > 0:
                         upload_conda(self._username, self._project, self._experiment_id, content=content)
             elif save.type == SaveType.SAVE_TYPE_CONFIG:
-                with safe.block(message=f"Failed to upload config, skipping; file kept at {save.source_path}"):
-                    with open(save.source_path, "r", encoding="utf-8") as f:
+                with safe.block(message=f"Failed to upload config, skipping; file kept at {source_ref_path}"):
+                    with open(source_ref_path, "r", encoding="utf-8") as f:
                         content = yaml.safe_load(f)
                     if isinstance(content, dict):
                         upload_config(self._username, self._project, self._experiment_id, content=content)
@@ -314,21 +351,24 @@ class HttpRecordSender:
             if not record.HasField("save"):
                 continue
             save = record.save
-            source = Path(save.source_path)
-            if not source.is_file():
+            source_ref_path = self._resolve_save_source(save)
+            if source_ref_path is None:
                 console.warning(f"Save file not found, skipping: {save.source_path}")
                 continue
             size: Optional[int] = None
-            with safe.block(message=f"Failed to stat save file, skipping: {save.source_path}"):
-                size = source.stat().st_size
+            with safe.block(message=f"Failed to stat save file, skipping: {source_ref_path}"):
+                size = source_ref_path.stat().st_size
             if size is None:
                 continue
             if size > config.save_size:
                 console.warning(
-                    f"Save file exceeds size limit ({size} > {config.save_size}), skipping: {save.source_path}"
+                    f"Save file exceeds size limit ({size} > {config.save_size}), skipping: {source_ref_path}"
                 )
                 continue
-            pending.append((save.source_path, size, save.name))
+            # 用解析后的可读路径（可能是回退到 files 子目录的路径）作为实际读取路径
+            # 保持 str() 原生路径形式，与下游 compute_md5 / upload_saves 返回的 source_path 字符串一致，
+            # 避免 Windows 上 .as_posix() 与 str() 形式不一致导致 source_to_path 映射查不到
+            pending.append((str(source_ref_path), size, save.name))
         if not pending:
             console.warning("No valid files to save.")
             return
