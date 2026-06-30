@@ -41,14 +41,13 @@ from swanlab.sdk.internal.pkg import safe
 )
 @click.option(
     "-l",
-    "--logdir",
+    "--log-dir",
     type=str,
     default=None,
-    help="The directory where the swanlab log files are stored",
+    help="The directory where the swanlab log files are stored.",
 )
-# Tensorboard options
+# tensorboard options
 @click.option("--tb-log-dir", type=str, default=None, help="The directory where the tensorboard log files are stored.")
-@click.option("--tb-logdir", type=str, default=None, help="Deprecated: use --tb-log-dir instead.", hidden=True)
 @click.option(
     "--tb-types",
     default="scalar",
@@ -85,8 +84,7 @@ def convert(
     project: str,
     mode: str,
     workspace: str,
-    logdir: str,
-    tb_logdir: str,
+    log_dir: str,
     tb_log_dir: str,
     tb_types: str,
     wb_project: str,
@@ -100,10 +98,6 @@ def convert(
     resume: bool,
 ):
     """Convert the log files of other experiment tracking tools to SwanLab."""
-    if tb_logdir is not None:
-        click.echo("Warning: The option `--tb-logdir` is deprecated, use `--tb-log-dir` instead.")
-        tb_log_dir = tb_logdir
-
     if resume and not wb_runid:
         raise click.UsageError("--resume requires --wb-runid to specify a single run to resume.")
 
@@ -111,7 +105,7 @@ def convert(
         from swanlab.converter import TFBConverter
 
         with safe.block(message="TensorBoard conversion failed"):
-            TFBConverter(project=project, workspace=workspace, mode=mode, log_dir=logdir, types=tb_types).run(
+            TFBConverter(project=project, workspace=workspace, mode=mode, log_dir=log_dir, types=tb_types).run(
                 convert_dir=tb_log_dir or ".", depth=3
             )
 
@@ -122,7 +116,7 @@ def convert(
             raise click.UsageError("--wb-project is required when using wandb online converter")
 
         with safe.block(message="W&B conversion failed"):
-            WandbConverter(project=project, workspace=workspace, mode=mode, log_dir=logdir, resume=resume).run(
+            WandbConverter(project=project, workspace=workspace, mode=mode, log_dir=log_dir, resume=resume).run(
                 wb_project=wb_project, wb_entity=wb_entity, wb_run_id=wb_runid
             )
 
@@ -130,7 +124,7 @@ def convert(
         from swanlab.converter import WandbLocalConverter
 
         with safe.block(message="W&B local conversion failed"):
-            WandbLocalConverter(project=project, workspace=workspace, mode=mode, log_dir=logdir, resume=resume).run(
+            WandbLocalConverter(project=project, workspace=workspace, mode=mode, log_dir=log_dir, resume=resume).run(
                 root_wandb_dir=wb_dir, wandb_run_dir=wb_run_dir, wb_run_id=wb_runid
             )
 
@@ -141,6 +135,6 @@ def convert(
             raise click.UsageError("--mlflow-exp is required when using mlflow converter.")
 
         with safe.block(message="MLflow conversion failed"):
-            MLFlowConverter(project=project, workspace=workspace, mode=mode, log_dir=logdir).run(
+            MLFlowConverter(project=project, workspace=workspace, mode=mode, log_dir=log_dir).run(
                 tracking_uri=mlflow_url, experiment=mlflow_exp, run_id=mlflow_runid
             )
