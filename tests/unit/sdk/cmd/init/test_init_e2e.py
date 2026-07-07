@@ -82,6 +82,7 @@ def make_project_detail_resp(experiment_count: int = 0, **overrides) -> dict:
         "cuid": "test-project-cuid",
         "name": PROJECT,
         "version": 1,
+        "group": {"username": USERNAME},
         "username": USERNAME,
         "path": f"/{USERNAME}/{PROJECT}",
         "visibility": "PRIVATE",
