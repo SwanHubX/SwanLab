@@ -9,10 +9,10 @@ import threading
 import time
 from typing import List, Optional
 
+from swanlab.deprecated.sender import DeprecatedHttpRecordSender
 from swanlab.proto.swanlab.operation.v1.operation_pb2 import CoreState
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.core_python.context import CoreContext
-from swanlab.sdk.internal.core_python.transport.deprecated.sender import DeprecatedHttpRecordSender
 from swanlab.sdk.internal.pkg import console, safe
 
 from .buffer import RecordBuffer

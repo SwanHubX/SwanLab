@@ -31,7 +31,11 @@ def mock_api_url(mock_base_url):
 def mock_login():
     patcher = patch("swanlab.sdk.internal.pkg.client.login_by_api_key")
     mock_func = patcher.start()
-    mock_func.return_value = {"sid": "mock-token-123", "expiredAt": "2999-01-01T00:00:00.000Z"}
+    mock_func.return_value = {
+        "sid": "mock-token-123",
+        "expiredAt": "2999-01-01T00:00:00.000Z",
+        "userInfo": {"username": "test-user", "name": "Test User"},
+    }
     yield mock_func
     patcher.stop()
 

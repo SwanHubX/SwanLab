@@ -7,6 +7,7 @@
 
 from typing import Optional
 
+from swanlab.deprecated.project import get_or_create_old_project
 from swanlab.exceptions import ApiError
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.typings.core_python.api.project import ProjectType
@@ -35,12 +36,8 @@ def get_or_create_project(*, username: Optional[str], name: str, public: bool) -
         # 已创建：200 ; 创建成功：201 ; 失败：4xx/5xx
         client.post(f"/projects/{username}", data=data, log_error=False)
     except ApiError:
-        try:
-            # 3. 如果新接口失败，尝试调用旧接口创建项目
-            client.post("/project", data=data, log_error=False).data
-        except ApiError as e:
-            if e.response.status_code != 409:
-                raise e
+        # 3. 如果新接口创建失败，则调用旧接口创建项目
+        get_or_create_old_project(data=data)
 
     # 4. 获取项目信息
     return client.get(f"/project/{username}/{name}").data
