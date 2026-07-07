@@ -12,6 +12,7 @@ from typing import List, Optional
 from swanlab.proto.swanlab.operation.v1.operation_pb2 import CoreState
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.core_python.context import CoreContext
+from swanlab.sdk.internal.core_python.transport.deprecated.sender import DeprecatedHttpRecordSender
 from swanlab.sdk.internal.pkg import console, safe
 
 from .buffer import RecordBuffer
@@ -63,7 +64,17 @@ class Transport:
         """启动守护线程。"""
         if self._started or self._finished:
             return
-        sender = self._sender or HttpRecordSender(ctx=self._ctx)
+
+        # 初始化sender，根据不同的项目版本选择不同的请求器，以兼容历史版本
+        # NOTE: 相关兼容逻辑将在v0.10.0版本后移除
+        sender = self._sender
+        if sender is None:
+            sender = (
+                HttpRecordSender(ctx=self._ctx)
+                if self._ctx._project_version == 1
+                else DeprecatedHttpRecordSender(ctx=self._ctx)
+            )
+
         if self._tracker is not None:
             sender.set_tracker(self._tracker)
         self._dispatcher = Dispatch(

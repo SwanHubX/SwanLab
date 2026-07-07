@@ -525,7 +525,7 @@ def encode_column(record: ColumnRecord) -> Optional[UploadColumn]:
     """
     将列记录编码为后端所需的格式（DTO）
     """
-    # TODO 未来精简一下 column 的类型定义
+    # TODO 在 v0.10.0 版本 精简一下 column 的类型定义
     column: UploadColumn = {"key": record.column_key, "type": adapter.column[record.column_type]}
     if record.column_class == ColumnClass.COLUMN_CLASS_SYSTEM:
         column["type"] = "SYSTEM"
