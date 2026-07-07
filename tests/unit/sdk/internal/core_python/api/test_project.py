@@ -50,8 +50,7 @@ def test_get_or_create_project_defaults_to_current_username(monkeypatch):
     username.assert_called_once_with()
     post.assert_called_once_with(
         "/projects/alice",
-        data={"name": "demo", "visibility": "PRIVATE", "username": "alice"},
-        log_error=False,
+        data={"name": "demo", "visibility": "PRIVATE"},
     )
     get.assert_called_once_with("/project/alice/demo")
 
@@ -70,8 +69,7 @@ def test_get_or_create_project_uses_explicit_username_without_current_username(m
     username.assert_not_called()
     post.assert_called_once_with(
         "/projects/team",
-        data={"name": "demo", "visibility": "PUBLIC", "username": "team"},
-        log_error=False,
+        data={"name": "demo", "visibility": "PUBLIC"},
     )
     get.assert_called_once_with("/project/team/demo")
 
@@ -89,8 +87,7 @@ def test_get_or_create_project_falls_back_to_old_helper_when_new_endpoint_fails(
     assert result == _project_data(username="team", name="demo")
     post.assert_called_once_with(
         "/projects/team",
-        data={"name": "demo", "visibility": "PRIVATE", "username": "team"},
-        log_error=False,
+        data={"name": "demo", "visibility": "PRIVATE"},
     )
     get_or_create_old_project.assert_called_once_with(
         data={"name": "demo", "visibility": "PRIVATE", "username": "team"}
@@ -98,7 +95,7 @@ def test_get_or_create_project_falls_back_to_old_helper_when_new_endpoint_fails(
     get.assert_called_once_with("/project/team/demo")
 
 
-def test_get_or_create_project_currently_falls_back_for_any_new_endpoint_api_error(monkeypatch):
+def test_get_or_create_project_raises_non_not_found_new_endpoint_api_error(monkeypatch):
     post = MagicMock(side_effect=_api_error(500))
     get_or_create_old_project = MagicMock()
     get = MagicMock(return_value=SimpleNamespace(data=_project_data(username="team", name="demo")))
@@ -106,11 +103,11 @@ def test_get_or_create_project_currently_falls_back_for_any_new_endpoint_api_err
     monkeypatch.setattr(project_api, "get_or_create_old_project", get_or_create_old_project)
     monkeypatch.setattr(project_api.client, "get", get)
 
-    project_api.get_or_create_project(username="team", name="demo", public=False)
+    with pytest.raises(ApiError):
+        project_api.get_or_create_project(username="team", name="demo", public=False)
 
-    get_or_create_old_project.assert_called_once_with(
-        data={"name": "demo", "visibility": "PRIVATE", "username": "team"}
-    )
+    get_or_create_old_project.assert_not_called()
+    get.assert_not_called()
 
 
 def test_get_or_create_old_project_ignores_conflict(monkeypatch):

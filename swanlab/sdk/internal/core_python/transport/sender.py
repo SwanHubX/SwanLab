@@ -156,8 +156,8 @@ class HttpRecordSender:
         if not columns:
             return
         for i in range(0, len(columns), batch_size):
-            columns = columns[i : i + batch_size]
-            upload_columns(self._username, self._project, columns={"series": columns})
+            batch = columns[i : i + batch_size]
+            upload_columns(self._username, self._project, columns={"series": batch})
 
     def upload_scalar(self, records: Sequence[Record]) -> None:
         metrics: UploadScalarBatch = []

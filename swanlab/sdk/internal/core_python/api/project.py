@@ -36,11 +36,11 @@ def get_or_create_project(*, username: Optional[str], name: str, public: bool) -
         # 已创建：200 ; 创建成功：201 ; 失败：4xx/5xx
         client.post(f"/projects/{username}", data=data)
     except ApiError as e:
-        # 项目已存在同名项目且版本不兼容
-        if e.response.status_code == 409:
+        # 3. 如果新接口不存在，则调用旧接口创建项目
+        if e.response.status_code == 404:
+            get_or_create_old_project(data={**data, "username": username})
+        else:
             raise e
-        # 3. 如果新接口创建失败，则调用旧接口创建项目
-        get_or_create_old_project(data={**data, "username": username})
 
     # 4. 获取项目信息
     return client.get(f"/project/{username}/{name}").data
