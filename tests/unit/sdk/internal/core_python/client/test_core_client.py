@@ -18,6 +18,7 @@ from swanlab.sdk.internal.core_python.client import (
 )
 from swanlab.sdk.internal.core_python.client import get as global_get
 from swanlab.sdk.internal.core_python.client import post as global_post
+from swanlab.sdk.internal.core_python.client import username as global_username
 
 
 @pytest.fixture()
@@ -36,7 +37,11 @@ def mock_api_url(mock_base_url):
 def mock_login():
     patcher = patch("swanlab.sdk.internal.pkg.client.login_by_api_key")
     mock_func = patcher.start()
-    mock_func.return_value = {"sid": "mock-token-123", "expiredAt": "2999-01-01T00:00:00.000Z"}
+    mock_func.return_value = {
+        "sid": "mock-token-123",
+        "expiredAt": "2999-01-01T00:00:00.000Z",
+        "userInfo": {"username": "test-user", "name": "Test User"},
+    }
     yield mock_func
     patcher.stop()
 
@@ -62,6 +67,7 @@ def test_global_proxy_functions(mock_login, mock_base_url, mock_api_url):
     global_client = new("global-key", mock_base_url)
     assert exists() is True
     assert global_client._api_key == "global-key"
+    assert global_username() == "test-user"
 
     # 3. 重复初始化应该报错
     with pytest.raises(RuntimeError, match="already exists"):

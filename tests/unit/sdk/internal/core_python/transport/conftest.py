@@ -33,6 +33,7 @@ def _build_mock_ctx(**core_overrides):
         username="test-user",
         project="test-project",
         project_id="test-project-id",
+        project_version=1,
         experiment_id="test-experiment-id",
     )
     return ctx

@@ -41,7 +41,7 @@ def prepare_experiment_start(record: StartRecord) -> PrepareExperimentStartResul
         name=record.project,
         public=record.public,
     )
-    username, project = project_data["username"], project_data["name"]
+    username, project = project_data["group"]["username"], project_data["name"]
     history_experiment_count = project_data["_count"]["experiments"]
     name = record.name or generate_name(history_experiment_count)
     color = record.color or generate_color(history_experiment_count)

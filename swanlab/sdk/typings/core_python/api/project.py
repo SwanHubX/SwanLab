@@ -21,6 +21,10 @@ class _ProjectCount(TypedDict):
     clones: int
 
 
+class _ProjectGroup(TypedDict):
+    username: str
+
+
 class ProjectType(TypedDict):
     # 项目ID
     cuid: str
@@ -28,11 +32,11 @@ class ProjectType(TypedDict):
     name: str
     # 项目版本，如果不存在此字段则按照最低版本处理
     version: NotRequired[Literal[1]]
-    # 项目所属的用户名
-    username: str
     # 项目路径 '/:username/:name'
     path: str
     # 项目可见性
     visibility: Literal["PUBLIC", "PRIVATE"]
+    # 项目所属空间
+    group: _ProjectGroup
     # 项目统计信息
     _count: _ProjectCount

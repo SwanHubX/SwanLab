@@ -23,6 +23,7 @@ from typing import cast
 from unittest.mock import MagicMock
 
 import pytest
+import requests
 import responses as responses_lib
 import yaml
 
@@ -57,11 +58,16 @@ API_KEY = "test-api-key"
 
 def make_login_resp(**overrides) -> dict:
     """POST /api/login/api_key 响应体"""
-    return {"sid": "mock-sid", "expiredAt": "2099-12-31T23:59:59.000Z", **overrides}
+    return {
+        "sid": "mock-sid",
+        "expiredAt": "2099-12-31T23:59:59.000Z",
+        "userInfo": {"username": USERNAME, "name": "Test User"},
+        **overrides,
+    }
 
 
 def make_init_project_resp(**overrides) -> dict:
-    """POST /api/project 响应体（创建/获取项目）"""
+    """POST /api/projects/{username} 响应体（创建/获取项目）"""
     return {
         "name": PROJECT,
         "username": USERNAME,
@@ -75,6 +81,7 @@ def make_project_detail_resp(experiment_count: int = 0, **overrides) -> dict:
     return {
         "cuid": "test-project-cuid",
         "name": PROJECT,
+        "version": 1,
         "username": USERNAME,
         "path": f"/{USERNAME}/{PROJECT}",
         "visibility": "PRIVATE",
@@ -104,7 +111,7 @@ def make_profile_resp(**overrides) -> dict:
 
 
 def make_columns_resp(**overrides) -> dict:
-    """POST /api/experiment/{experiment_id}/columns 响应体"""
+    """列信息上传响应体"""
     return {"message": "ok", **overrides}
 
 
@@ -162,8 +169,8 @@ def mock_login_api(rsps):
 
 @pytest.fixture
 def mock_project_create_api(rsps):
-    """注册 POST /api/project 端点（创建或获取项目）"""
-    rsps.add(responses_lib.POST, f"{API_HOST}/api/project", json=make_init_project_resp(), status=201)
+    """注册 POST /api/projects/{username} 端点（创建或获取项目）"""
+    rsps.add(responses_lib.POST, f"{API_HOST}/api/projects/{USERNAME}", json=make_init_project_resp(), status=201)
     return rsps
 
 
@@ -214,7 +221,13 @@ def mock_profile_api(rsps):
 
 @pytest.fixture
 def mock_columns_api(rsps):
-    """注册 POST /api/experiment/{experiment_id}/columns 端点（列信息上传）"""
+    """注册新版和 legacy 端点（列信息上传）"""
+    rsps.add(
+        responses_lib.POST,
+        f"{API_HOST}/api/projects/{USERNAME}/{PROJECT}/series",
+        json=make_columns_resp(),
+        status=200,
+    )
     rsps.add(
         responses_lib.POST,
         f"{API_HOST}/api/experiment/{EXPERIMENT_CUID}/columns",
@@ -300,6 +313,15 @@ def mock_online_init_apis(
     所有子 fixture 通过 pytest 的 fixture 缓存机制共享同一个 rsps 实例。
     """
     pass
+
+
+def test_mock_columns_api_registers_new_and_legacy_endpoints(mock_columns_api):
+    """列上传 mock 同时覆盖新版项目和 legacy 项目的 sender。"""
+    new_resp = requests.post(f"{API_HOST}/api/projects/{USERNAME}/{PROJECT}/series", json={})
+    legacy_resp = requests.post(f"{API_HOST}/api/experiment/{EXPERIMENT_CUID}/columns", json={})
+
+    assert new_resp.status_code == 200
+    assert legacy_resp.status_code == 200
 
 
 @pytest.fixture
@@ -640,7 +662,8 @@ class TestInitOnlineMode:
         mock_profile_api,
         mock_heartbeat_api,
     ):
-        """POST /project 返回 409（项目已存在）时，应优雅降级为获取项目，继续初始化"""
+        """新版创建接口不可用且旧接口返回 409（项目已存在）时，应继续初始化"""
+        rsps.add(responses_lib.POST, f"{API_HOST}/api/projects/{USERNAME}", json={"message": "not found"}, status=404)
         rsps.add(responses_lib.POST, f"{API_HOST}/api/project", json=make_init_project_resp(), status=409)
 
         run = init(mode="online", project=PROJECT)

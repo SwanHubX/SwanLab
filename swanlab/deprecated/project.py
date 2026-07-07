@@ -21,8 +21,8 @@ def get_or_create_old_project(*, data: dict):
     warnings.warn(
         "You are accessing a legacy project that does not support views. "
         "Legacy projects will no longer be supported in v0.10, scheduled for release on 2026-10-01. "
-        "Please create a new project or migrate this project in the web app.",
-        DeprecationWarning,
+        "Please create a new project or upgrade this project in the web app.",
+        FutureWarning,
         stacklevel=2,
     )
     try:
