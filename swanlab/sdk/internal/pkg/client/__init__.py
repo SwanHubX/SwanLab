@@ -96,17 +96,17 @@ class Client:
         resp = self._session.request(method, full_url, **kwargs)
         return ApiResponse(data=decode_response(resp), raw=resp)
 
-    def get(self, url: str, params: Optional[JSONDict] = None, retries: Optional[int] = None):
-        return self.request("GET", url, params=params, retries=retries)
+    def get(self, url: str, params: Optional[JSONDict] = None, retries: Optional[int] = None, log_error: bool = True):
+        return self.request("GET", url, params=params, retries=retries, log_error=log_error)
 
-    def post(self, url: str, data: JSONBody = None, retries: Optional[int] = None):
-        return self.request("POST", url, json=data, retries=retries)
+    def post(self, url: str, data: JSONBody = None, retries: Optional[int] = None, log_error: bool = True):
+        return self.request("POST", url, json=data, retries=retries, log_error=log_error)
 
-    def put(self, url: str, data: JSONBody = None, retries: Optional[int] = None):
-        return self.request("PUT", url, json=data, retries=retries)
+    def put(self, url: str, data: JSONBody = None, retries: Optional[int] = None, log_error: bool = True):
+        return self.request("PUT", url, json=data, retries=retries, log_error=log_error)
 
-    def patch(self, url: str, data: JSONBody = None, retries: Optional[int] = None):
-        return self.request("PATCH", url, json=data, retries=retries)
+    def patch(self, url: str, data: JSONBody = None, retries: Optional[int] = None, log_error: bool = True):
+        return self.request("PATCH", url, json=data, retries=retries, log_error=log_error)
 
-    def delete(self, url: str, retries: Optional[int] = None):
-        return self.request("DELETE", url, retries=retries)
+    def delete(self, url: str, retries: Optional[int] = None, log_error: bool = True):
+        return self.request("DELETE", url, retries=retries, log_error=log_error)

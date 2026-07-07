@@ -17,6 +17,7 @@ from swanlab.sdk.internal.core_python.client import (
     reset,
 )
 from swanlab.sdk.internal.core_python.client import get as global_get
+from swanlab.sdk.internal.core_python.client import post as global_post
 
 
 @pytest.fixture()
@@ -76,8 +77,15 @@ def test_global_proxy_functions(mock_login, mock_base_url, mock_api_url):
     resp = global_get("/global-test")
 
     # 注意这里断言的应该是拼接后的 mock_api_url
-    global_client._session.request.assert_called_with("GET", mock_api_url + "/global-test", params=None, retries=None)
+    global_client._session.request.assert_called_with(
+        "GET", mock_api_url + "/global-test", params=None, retries=None, log_error=True
+    )
     assert resp.data == {"ok": True}
+
+    global_post("/global-submit", data={"name": "test"}, log_error=False)
+    global_client._session.request.assert_called_with(
+        "POST", mock_api_url + "/global-submit", json={"name": "test"}, retries=None, log_error=False
+    )
 
     # 5. 销毁并验证
     reset()

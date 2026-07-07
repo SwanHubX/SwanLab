@@ -51,21 +51,21 @@ def _get_client() -> client.Client:
     return _default_client
 
 
-def get(url: str, params: Optional[JSONDict] = None, retries: Optional[int] = None):
-    return _get_client().get(url, params=params, retries=retries)
+def get(url: str, params: Optional[JSONDict] = None, retries: Optional[int] = None, log_error: bool = True):
+    return _get_client().get(url, params=params, retries=retries, log_error=log_error)
 
 
-def post(url: str, data: JSONBody = None, retries: Optional[int] = None):
-    return _get_client().post(url, data=data, retries=retries)
+def post(url: str, data: JSONBody = None, retries: Optional[int] = None, log_error: bool = True):
+    return _get_client().post(url, data=data, retries=retries, log_error=log_error)
 
 
-def put(url: str, data: JSONBody = None, retries: Optional[int] = None):
-    return _get_client().put(url, data=data, retries=retries)
+def put(url: str, data: JSONBody = None, retries: Optional[int] = None, log_error: bool = True):
+    return _get_client().put(url, data=data, retries=retries, log_error=log_error)
 
 
-def patch(url: str, data: JSONBody = None, retries: Optional[int] = None):
-    return _get_client().patch(url, data=data, retries=retries)
+def patch(url: str, data: JSONBody = None, retries: Optional[int] = None, log_error: bool = True):
+    return _get_client().patch(url, data=data, retries=retries, log_error=log_error)
 
 
-def delete(url: str, retries: Optional[int] = None):
-    return _get_client().delete(url, retries=retries)
+def delete(url: str, retries: Optional[int] = None, log_error: bool = True):
+    return _get_client().delete(url, retries=retries, log_error=log_error)

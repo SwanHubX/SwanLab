@@ -91,6 +91,40 @@ def test_session_send_api_error_fallback(session):
 
 
 @responses.activate()
+def test_session_send_logs_project_error_by_default(session, mocker):
+    """测试 /api/project 不再被传输层 URL 特判静默"""
+    responses.add(responses.POST, "http://api.test/api/project", json={"code": "409", "message": "exists"}, status=409)
+    mock_error = mocker.patch("swanlab.sdk.internal.pkg.client.session.console.error")
+
+    with pytest.raises(ApiError):
+        session.post("http://api.test/api/project")
+
+    mock_error.assert_called_once()
+
+
+@responses.activate()
+def test_session_send_can_suppress_error_log_per_request(session, mocker):
+    """测试单次请求可以关闭错误日志，但仍然抛出 ApiError"""
+    responses.add(responses.POST, "http://api.test/submit", json={"code": "1001", "message": "invalid"}, status=401)
+    responses.add(
+        responses.POST, "http://api.test/submit-again", json={"code": "1002", "message": "invalid"}, status=401
+    )
+    mock_error = mocker.patch("swanlab.sdk.internal.pkg.client.session.console.error")
+
+    with pytest.raises(ApiError) as exc_info:
+        session.post("http://api.test/submit", log_error=False)
+
+    assert exc_info.value.code == "1001"
+    assert exc_info.value.message == "invalid"
+    mock_error.assert_not_called()
+
+    with pytest.raises(ApiError):
+        session.post("http://api.test/submit-again")
+
+    mock_error.assert_called_once()
+
+
+@responses.activate()
 def test_request_retries_context_cleanup(session):
     """测试无论请求成功与否，重试次数的 ContextVar 都会被清理"""
     responses.add(responses.GET, "http://api.test/fail", status=500)

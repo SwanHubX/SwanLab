@@ -82,12 +82,22 @@ def test_client_http_methods_and_url_join(client, mock_api_url):
 
     # 1. 测试 GET 请求
     resp = client.get("/project", params={"id": 1})
-    client._session.request.assert_called_with("GET", mock_api_url + "/project", params={"id": 1}, retries=None)
+    client._session.request.assert_called_with(
+        "GET", mock_api_url + "/project", params={"id": 1}, retries=None, log_error=True
+    )
     assert resp.data == {"msg": "success"}  # 顺便验证数据类的 data 是否正确包装
 
     # 2. 测试 POST 请求
     client.post("run", data={"name": "test"})
-    client._session.request.assert_called_with("POST", mock_api_url + "/run", json={"name": "test"}, retries=None)
+    client._session.request.assert_called_with(
+        "POST", mock_api_url + "/run", json={"name": "test"}, retries=None, log_error=True
+    )
+
+    # 3. 测试单次请求错误日志开关透传
+    client.post("run", data={"name": "test"}, log_error=False)
+    client._session.request.assert_called_with(
+        "POST", mock_api_url + "/run", json={"name": "test"}, retries=None, log_error=False
+    )
 
 
 # -------------------------------------------------------------------
