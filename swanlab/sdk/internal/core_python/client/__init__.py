@@ -69,3 +69,7 @@ def patch(url: str, data: JSONBody = None, retries: Optional[int] = None, log_er
 
 def delete(url: str, retries: Optional[int] = None, log_error: bool = True):
     return _get_client().delete(url, retries=retries, log_error=log_error)
+
+
+def username() -> str:
+    return _get_client().username

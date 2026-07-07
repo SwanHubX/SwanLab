@@ -37,6 +37,7 @@ class CoreContext:
         self._username: Optional[str] = None
         self._project: Optional[str] = None
         self._project_id: Optional[str] = None
+        self._project_version: Optional[Literal[1]] = None
         self._experiment_id: Optional[str] = None
 
     @classmethod
@@ -54,7 +55,14 @@ class CoreContext:
         )
         return cls(config=config, mode=mode)
 
-    def set_online_params(self, username: str, project: str, project_id: str, experiment_id: str):
+    def set_online_params(
+        self,
+        username: str,
+        project: str,
+        project_id: str,
+        project_version: Optional[Literal[1]],
+        experiment_id: str,
+    ):
         """
         设置云端信息
         :param username: 用户名
@@ -65,6 +73,7 @@ class CoreContext:
         self._username = username
         self._project = project
         self._project_id = project_id
+        self._project_version = project_version
         self._experiment_id = experiment_id
 
     @cached_property

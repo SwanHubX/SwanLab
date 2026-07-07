@@ -5,40 +5,42 @@
 @description: SwanLab 运行时项目API
 """
 
-from typing import Optional, cast
+from typing import Optional
 
 from swanlab.exceptions import ApiError
 from swanlab.sdk.internal.core_python import client
-from swanlab.sdk.internal.pkg import helper
-from swanlab.sdk.internal.pkg.client.utils import decode_response
-from swanlab.sdk.typings.core_python.api.project import InitProjectType, ProjectType
+from swanlab.sdk.typings.core_python.api.project import ProjectType
 
 
-def get_project(*, username: str, name: str) -> ProjectType:
+def get_or_create_project(*, username: Optional[str], name: str, public: bool) -> ProjectType:
     """
-    获取项目详情信息
-    :param username: 项目所属的用户名
-    :param name: 项目名称
-    :return: 项目信息
-    """
-    return client.get(f"/project/{username}/{name}").data
+    创建、获取项目信息，本函数还有个目标是完成多视图更新前后的兼容，breaking change 主要是在创建项目的接口上
+    多视图前后的创建项目接口发生变化，原本接口不再使用，这里的流程是：
+    1. 创建项目时先调用新接口，如果失败则调用旧接口
+    2. 创建成功或者项目存在时再次调用获取项目信息的接口
 
 
-def get_or_create_project(*, username: Optional[str], name: str, public: bool) -> InitProjectType:
-    """
-    创建项目，如果项目已存在，则获取项目信息
     :param name: 项目名称
     :param username: 项目所属的用户名
     :param public: 项目是否公开
     :return: 项目信息
     """
+    # 1. 参数准备
+    # username 默认使用当前用户名
+    username = username or client.username()
+    data = {"name": name, "visibility": "PUBLIC" if public else "PRIVATE", "username": username}
+
     try:
-        data = {"name": name, "visibility": "PUBLIC" if public else "PRIVATE", "username": username}
-        return client.post("/project", data=helper.strip_none(data, strip_empty_str=True)).data
-    except ApiError as e:
-        if e.response.status_code == 409:
-            # 项目已经存在，从对象中解析信息
-            return cast(InitProjectType, cast(object, decode_response(e.response)))
-        else:
-            # 此接口为后端处理，sdk 在理论上不会出现其他错误，因此不需要处理其他错误
-            raise e
+        # 2. 尝试调用新接口创建项目
+        # 已创建：200 ; 创建成功：201 ; 失败：4xx/5xx
+        client.post(f"/projects/{username}", data=data, log_error=False)
+    except ApiError:
+        try:
+            # 3. 如果新接口失败，尝试调用旧接口创建项目
+            client.post("/project", data=data, log_error=False).data
+        except ApiError as e:
+            if e.response.status_code != 409:
+                raise e
+
+    # 4. 获取项目信息
+    return client.get(f"/project/{username}/{name}").data

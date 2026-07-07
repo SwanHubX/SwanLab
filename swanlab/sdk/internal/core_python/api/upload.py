@@ -78,11 +78,11 @@ def upload_config(username: str, project: str, experiment_id: str, *, content: D
     client.put(f"/project/{username}/{project}/runs/{experiment_id}/profile", {"config": content})
 
 
-def upload_columns(experiment_id: str, *, columns: UploadColumns) -> None:
+def upload_columns(username: str, project: str, *, columns: UploadColumns) -> None:
     """
     上传列信息
     """
-    client.post(f"/experiment/{experiment_id}/columns", columns, retries=0)
+    client.post(f"/projects/{username}/{project}/series", columns, retries=0)
 
 
 def upload_log(project_id: str, experiment_id: str, *, metrics: UploadLogBatch) -> None:

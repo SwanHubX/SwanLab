@@ -14,7 +14,7 @@ from swanlab.proto.swanlab.run.v1.run_pb2 import StartRecord
 from swanlab.sdk.internal.core_python.api.experiment import (
     create_or_resume_experiment as api_create_or_resume_experiment,
 )
-from swanlab.sdk.internal.core_python.api.project import get_or_create_project, get_project
+from swanlab.sdk.internal.core_python.api.project import get_or_create_project
 from swanlab.sdk.internal.pkg import adapter
 from swanlab.sdk.typings.core_python.api.experiment import InitExperimentType
 from swanlab.sdk.typings.core_python.api.project import ProjectType
@@ -25,7 +25,7 @@ from swanlab.utils.experiment import generate_color, generate_name
 class PrepareExperimentStartResult:
     username: str
     project: str
-    project_info: ProjectType
+    project_data: ProjectType
     experiment: InitExperimentType
     new_experiment: bool
     name: str
@@ -42,9 +42,7 @@ def prepare_experiment_start(record: StartRecord) -> PrepareExperimentStartResul
         public=record.public,
     )
     username, project = project_data["username"], project_data["name"]
-
-    project_info = get_project(username=username, name=project)
-    history_experiment_count = project_info["_count"]["experiments"]
+    history_experiment_count = project_data["_count"]["experiments"]
     name = record.name or generate_name(history_experiment_count)
     color = record.color or generate_color(history_experiment_count)
     resume = adapter.resume[record.resume]
@@ -67,7 +65,7 @@ def prepare_experiment_start(record: StartRecord) -> PrepareExperimentStartResul
     return PrepareExperimentStartResult(
         username=username,
         project=project,
-        project_info=project_info,
+        project_data=project_data,
         experiment=experiment,
         new_experiment=new_experiment,
         name=name,
@@ -79,7 +77,7 @@ def generate_run_online_path(result: PrepareExperimentStartResult):
     # 获取path，/:username/:project_name/:run_id
     run_id = result.experiment.get("slug", "") or result.experiment["cuid"]
     # /:username/:project_name
-    project_path = result.project_info["path"]
+    project_path = result.project_data["path"]
     return f"{project_path}/{run_id}"
 
 

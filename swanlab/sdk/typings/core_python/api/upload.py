@@ -18,8 +18,8 @@ else:
 # ============================================================
 
 
-UploadColumn = TypedDict(
-    "UploadColumn",
+DeprecatedUploadColumn = TypedDict(
+    "DeprecatedUploadColumn",
     {
         # ---- 必填 ----
         "type": Required[str],
@@ -39,10 +39,25 @@ UploadColumn = TypedDict(
 )
 
 
-UploadColumns = List[UploadColumn]
+DeprecatedUploadColumns = List[DeprecatedUploadColumn]
 """
-列指标
+列指标，多视图之前的版本
 """
+
+UploadColumn = TypedDict(
+    "UploadColumn",
+    {
+        "key": Required[str],
+        "type": Required[str],
+        "sectionName": NotRequired[str],
+    },
+)
+
+
+class UploadColumns(TypedDict):
+    """列指标 DTO，多视图之后的版本"""
+
+    series: List[UploadColumn]
 
 
 # ============================================================

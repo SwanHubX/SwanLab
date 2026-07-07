@@ -66,6 +66,7 @@ def _make_sender(
         username="alice",
         project="demo",
         project_id="project-id",
+        project_version=1,
         experiment_id="experiment-id",
     )
     return HttpRecordSender(ctx=ctx)

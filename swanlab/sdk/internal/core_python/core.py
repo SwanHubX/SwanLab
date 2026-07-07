@@ -153,7 +153,8 @@ class CorePython(CoreProtocol):
         self._ctx.set_online_params(
             username=run_info.username,
             project=run_info.project,
-            project_id=run_info.project_info["cuid"],
+            project_id=run_info.project_data["cuid"],
+            project_version=run_info.project_data.get("version", None),
             experiment_id=run_info.experiment["cuid"],
         )
         # 3. resume 时，向后端获取数据

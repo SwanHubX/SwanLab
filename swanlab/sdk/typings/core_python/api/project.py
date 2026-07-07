@@ -7,6 +7,8 @@
 
 from typing import Literal, TypedDict
 
+from typing_extensions import NotRequired
+
 
 class _ProjectCount(TypedDict):
     # 项目历史实验数量
@@ -24,6 +26,8 @@ class ProjectType(TypedDict):
     cuid: str
     # 项目名称
     name: str
+    # 项目版本，如果不存在此字段则按照最低版本处理
+    version: NotRequired[Literal[1]]
     # 项目所属的用户名
     username: str
     # 项目路径 '/:username/:name'
@@ -32,12 +36,3 @@ class ProjectType(TypedDict):
     visibility: Literal["PUBLIC", "PRIVATE"]
     # 项目统计信息
     _count: _ProjectCount
-
-
-class InitProjectType(TypedDict):
-    # 项目名称
-    name: str
-    # 项目所属的用户名
-    username: str
-    # 项目路径 '/:username/:name'
-    path: str

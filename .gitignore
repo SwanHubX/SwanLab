@@ -1,6 +1,5 @@
 # test
 temp/
-deprecated/
 package.mock.json
 .env
 !swanlab/deprecated/

@@ -44,6 +44,7 @@ class Client:
         # 移除末尾的斜杠，防止 URL 拼接时出现双斜杠
         self._base_url = nrc.fmt(base_url) + "/api"
         self._expired_at: Optional[datetime] = None
+        self._username: Optional[str] = None
 
         # 初始化时仅创建一次会话，以复用底层 TCP 连接池
         self._session: session.SessionWithRetry = session.create()
@@ -75,6 +76,7 @@ class Client:
         self._expired_at = datetime.strptime(login_resp["expiredAt"], "%Y-%m-%dT%H:%M:%S.%fZ").replace(
             tzinfo=timezone.utc
         )
+        self._username = login_resp["userInfo"]["username"]
         return login_resp
 
     def _before_request(self):
@@ -86,6 +88,11 @@ class Client:
             console.debug("Session is about to expire. Triggering token refresh.")
             self._refresh_auth()
         return None
+
+    @property
+    def username(self) -> str:
+        assert self._username is not None, "Username is not set. Ensure that the client is authenticated."
+        return self._username
 
     # ---------------------------------- 实例 HTTP 方法 ----------------------------------
     def request(self, method: str, url: str, **kwargs):
