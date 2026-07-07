@@ -29,15 +29,18 @@ def get_or_create_project(*, username: Optional[str], name: str, public: bool) -
     # 1. 参数准备
     # username 默认使用当前用户名
     username = username or client.username()
-    data = {"name": name, "visibility": "PUBLIC" if public else "PRIVATE", "username": username}
+    data = {"name": name, "visibility": "PUBLIC" if public else "PRIVATE"}
 
     try:
         # 2. 尝试调用新接口创建项目
         # 已创建：200 ; 创建成功：201 ; 失败：4xx/5xx
-        client.post(f"/projects/{username}", data=data, log_error=False)
-    except ApiError:
+        client.post(f"/projects/{username}", data=data)
+    except ApiError as e:
+        # 项目已存在同名项目且版本不兼容
+        if e.response.status_code == 409:
+            raise e
         # 3. 如果新接口创建失败，则调用旧接口创建项目
-        get_or_create_old_project(data=data)
+        get_or_create_old_project(data={**data, "username": username})
 
     # 4. 获取项目信息
     return client.get(f"/project/{username}/{name}").data
