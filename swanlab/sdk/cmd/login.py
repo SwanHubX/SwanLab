@@ -5,7 +5,6 @@
 @description: swanlab.login 方法，登录到 SwanLab 平台
 """
 
-import getpass
 import sys
 from pathlib import Path
 from typing import Optional
@@ -236,17 +235,16 @@ def prompt_api_key(
 
     prompt_text += ": "
 
-    # 先使用 console 打印提示，因为 getpass() 原生不支持 Rich 的颜色标签渲染
+    # 先使用 console 打印提示，因为遮罩读取原生不支持 Rich 的颜色标签渲染
     console.print(prompt_text, end="")
 
     # 强制刷新输出缓冲区，确保提示语立刻显示
     sys.stdout.flush()
 
-    # 3. 安全读取用户输入
+    # 3. 安全读取用户输入（输入时以星号遮罩，避免用户误以为终端卡死）
     with safe.block(message="Failed to read API Key from terminal"):
         try:
-            # 隐藏输入内容
-            key = getpass.getpass("")
+            key = utils.prompt_masked()
             return key.strip()
         except (KeyboardInterrupt, EOFError):
             # 优雅处理用户按下 Ctrl+C 或 Ctrl+D 退出的情况，替代旧版的 sys.excepthook
