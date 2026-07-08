@@ -904,6 +904,12 @@ class TestForkDetection:
 
         def child():
             # fork 后 has_run() 为 False，可以重新 init
+            # 注：Xcode 自带 Python 3.9 的 pathlib.Path.cwd() 在 pytest 切到 tmp_path 后
+            # fork 出的子进程中调用存在段错误缺陷（CPython 3.10 修复），切回稳定目录规避
+            import os
+            import tempfile
+
+            os.chdir(tempfile.gettempdir())
             try:
                 run2 = init(mode="disabled")
                 result.put(("ok", run2.alive, has_run()))
