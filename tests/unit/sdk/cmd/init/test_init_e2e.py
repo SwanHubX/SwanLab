@@ -19,6 +19,7 @@
 import errno
 import json
 import multiprocessing
+import sys
 from typing import cast
 from unittest.mock import MagicMock
 
@@ -895,6 +896,17 @@ class TestForkDetection:
         assert fork.current_pid() == run._init_pid
         assert has_run()
 
+    # 参考: https://docs.python.org/3.9/library/multiprocessing.html#contexts-and-start-methods
+    # macOS 多进程不支持 fork
+    @pytest.mark.skipif(
+        sys.platform == "darwin" and sys.version_info < (3, 10),
+        reason=(
+            "CPython < 3.10 on macOS segfaults on Path.cwd()/os.getcwd() after fork in a "
+            "multithreaded process (corrupted malloc arena); fixed in CPython 3.10. "
+            "This is a CPython runtime bug, not a SwanLab bug — fork-safety of the Run "
+            "singleton is covered on other platforms."
+        ),
+    )
     def test_can_init_new_run_in_child_after_fork(self):
         """真实 fork 后，子进程中可以重新 init 创建新 Run"""
         init(mode="disabled")
@@ -904,12 +916,6 @@ class TestForkDetection:
 
         def child():
             # fork 后 has_run() 为 False，可以重新 init
-            # 注：Xcode 自带 Python 3.9 的 pathlib.Path.cwd() 在 pytest 切到 tmp_path 后
-            # fork 出的子进程中调用存在段错误缺陷（CPython 3.10 修复），切回稳定目录规避
-            import os
-            import tempfile
-
-            os.chdir(tempfile.gettempdir())
             try:
                 run2 = init(mode="disabled")
                 result.put(("ok", run2.alive, has_run()))
