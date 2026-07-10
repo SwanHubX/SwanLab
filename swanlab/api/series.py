@@ -2,7 +2,7 @@
 @author: caddiesnew
 @file: series.py
 @time: 2026/7/9
-@description: Series 实体类 — 实验指标序列的查询与操作（House key 模型）
+@description: Series 实体类 — 实验指标序列查询
 """
 
 from typing import Any, Callable, Dict, Iterator, List, Optional
@@ -16,18 +16,14 @@ _SYSTEM_KEY_PREFIX = "__swanlab__"
 
 
 class Key(BaseEntity):
-    """A single metric key in a SwanLab experiment — a lightweight handle for querying metric series.
-
-    Unlike Column, Key does not carry rich metadata (name/class/type/createdAt).
-    ``metric_type`` is set at construction time and maps directly to the House route
-    (scalar / media).
+    """A single metric key — lightweight handle for querying metric data and exporting CSV.
 
     Usage::
 
-        key = experiment.key("loss", metric_type="SCALAR")
-        print(key.json())          # basic info
+        key = experiment.key("loss")
+        print(key.json())          # {key, metric_type, key_class, ...}
         data = key.metric()        # scalar line data
-        url = key.export_csv()     # CSV export via House
+        url = key.export_csv()     # CSV download URL
     """
 
     def __init__(
@@ -79,7 +75,7 @@ class Key(BaseEntity):
 
     @property
     def key_class(self) -> ApiMetricKeyClassLiteral:
-        """CUSTOM or SYSTEM — SYSTEM if SCALAR and key starts with __swanlab__."""
+        """Key classification: ``"CUSTOM"`` or ``"SYSTEM"``."""
         if self._metric_type == "SCALAR" and self._key.startswith(_SYSTEM_KEY_PREFIX):
             return "SYSTEM"
         return "CUSTOM"
@@ -91,6 +87,14 @@ class Key(BaseEntity):
         media_step: Optional[int] = None,
         all: bool = False,
     ) -> Dict[str, Any]:
+        """Fetch metric data points for this key.
+
+        :param sample: Max data points (downsampled server-side). Default 1500, max 1500.
+        :param ignore_timestamp: If True, omit ``timestamp`` field from each data point.
+        :param media_step: Step filter for MEDIA metrics. If None, returns all steps.
+        :param all: If True, fetch full-resolution data without downsampling.
+        :returns: ``{"list": [{"step", "value", "timestamp", "key"}], ...}``
+        """
         from swanlab.api.metric import Metric
 
         metric = Metric(
@@ -109,11 +113,10 @@ class Key(BaseEntity):
         return metric.json()
 
     def export_csv(self) -> ApiResponseType:
-        """Export key data as CSV via House.
+        """Export this key's data as a CSV file (SCALAR only).
 
-        POST /house/metrics/scalar/export → cosKey → presigned download URL.
-        Only supported for SCALAR metric_type.
-        experiment_name is lazily resolved on first call.
+        :returns: ``ApiResponseType(ok=True, data={"url": "<download_url>"})``.
+            Returns ``ok=False`` for MEDIA keys.
         """
         from swanlab.api.metric import Metric
 
@@ -155,17 +158,16 @@ class Key(BaseEntity):
 
 
 class Series(BaseEntity):
-    """Metric key listing with full-fetch-and-cache strategy.
+    """Metric key listing for one or more experiments.
 
-    Fetches ALL keys from House on first access, caches them as a flat ``List[str]``,
-    then post-filters by ``metric_class``. No pagination state exposed.
+    Iterating yields :class:`Key` objects. Use :meth:`json` for a plain-dict summary.
 
     Usage::
 
-        for key in experiment.series():
+        series = experiment.series()
+        for key in series:              # iterate Key objects
             print(key.json())
-
-        availability = experiment.series().availability(["loss", "acc"])
+        series.availability(["loss"])   # check key existence
     """
 
     _PAGE_SIZE = 2000
@@ -283,10 +285,10 @@ class Series(BaseEntity):
         yield from self._ensure_batch()
 
     def availability(self, keys: List[str]) -> Dict[str, List[str]]:
-        """Check which experiments have data for the given keys.
+        """Check which of the given keys exist in the experiment(s).
 
-        POST /house/metrics/{scalar|media}/availability → {key: experimentId[]}.
-        An empty array means no experiment has this key.
+        :param keys: Key names to check.
+        :returns: ``{key_name: [experiment_id, ...]}``. An empty list means no experiment has that key.
         """
         if not isinstance(keys, list) or not keys:
             return {}
@@ -298,10 +300,24 @@ class Series(BaseEntity):
 
     @property
     def total(self) -> int:
-        """Total number of keys after metric_class filtering (triggers fetch)."""
+        """Number of keys after filtering."""
         return len(self._filtered_keys())
 
     def json(self) -> Dict[str, Any]:
+        """Serialize to a JSON-compatible dict.
+
+        :returns:
+
+            ========== ============ ===========================================
+            Field       Type         Description
+            ========== ============ ===========================================
+            ``keys``    ``list[str]`` Filtered key names.
+            ``metricClass`` ``str``   ``"CUSTOM"`` or ``"SYSTEM"``.
+            ``metricType`` ``str``    ``"SCALAR"`` or ``"MEDIA"``.
+            ``projectId`` ``str``     Project ID.
+            ``runId``   ``str``       Experiment (run) ID.
+            ========== ============ ===========================================
+        """
         return {
             "keys": self._filtered_keys(),
             "metricClass": self._metric_class,

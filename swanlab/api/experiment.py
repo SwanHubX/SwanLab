@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union, cast
 
+from typing_extensions import deprecated
+
 from swanlab.api.base import ApiClientContext, BaseEntity
 from swanlab.api.typings import ApiResponseType
 from swanlab.api.typings.common import (
@@ -172,6 +174,7 @@ class Experiment(BaseEntity):
                 data = self._data
         return cast(ApiExperimentProfileType, self._ensure_data().get("profile", {}))
 
+    @deprecated("Use `series()` method instead.")
     def column(
         self,
         key: str,
@@ -179,11 +182,6 @@ class Experiment(BaseEntity):
         column_type: Optional[ApiColumnDataTypeLiteral] = "FLOAT",
     ):
         """
-        .. deprecated::
-            Use :meth:`series` instead. Column metadata (name/class/type) is no longer
-            maintained by the House backend; use ``series()`` for per-key access
-            (e.g. ``series(keys=["loss"])``).
-
         Get a single column by key under this experiment (fuzzy search, first match).
 
         Performs fuzzy search (``contains`` on ``name``) and returns the first matching
@@ -420,6 +418,7 @@ class Experiment(BaseEntity):
         )
         return metric.export_logs(start=start, rows=rows)
 
+    @deprecated("Use `series()` method instead.")
     def columns(
         self,
         page: int = 1,
@@ -430,15 +429,7 @@ class Experiment(BaseEntity):
         all: bool = False,
     ):
         """
-        .. deprecated::
-            Use :meth:`series` instead. Column metadata (name/class/type) is no longer
-            maintained by the House backend; ``series()`` provides cursor-paginated
-            key listing directly from House.
-
         List columns under this experiment (paginated, with optional fuzzy search).
-
-        The ``search`` parameter performs **fuzzy matching** (case-insensitive ``contains``)
-        on the column ``name`` field.
 
         :param page: Page number, default 1
         :param size: Page size, default 100
@@ -471,12 +462,12 @@ class Experiment(BaseEntity):
         search: str = "",
     ) -> "Series":
         """
-        List all metric keys for this experiment (preferred over deprecated ``columns()``).
+        List all metric keys for this experiment.
 
-
-        :param metric_type: ``SCALAR`` (default) or ``MEDIA``
-        :param metric_class: ``CUSTOM`` (default) or ``SYSTEM``. Post-filter keys by class.
-            SCALAR keys with ``__swanlab__`` prefix are SYSTEM; all MEDIA keys are CUSTOM.
+        :param metric_type: ``"SCALAR"`` (default) or ``"MEDIA"``.
+        :param metric_class: ``"CUSTOM"`` (default) or ``"SYSTEM"`` — filter keys by class.
+        :param search: Fuzzy search filter — case-insensitive substring match on key names.
+        :returns: :class:`Series`
         """
         from swanlab.api.series import Series
 
