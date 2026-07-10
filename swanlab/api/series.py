@@ -9,7 +9,6 @@ from typing import Any, Callable, Dict, Iterator, List, Optional
 
 from swanlab.api.base import ApiClientContext, BaseEntity
 from swanlab.api.typings import ApiMetricKeyClassLiteral, ApiMetricKeyTypeLiteral, ApiResponseType
-from swanlab.api.typings.key import ApiSeriesKeyItem
 from swanlab.api.utils import get_properties
 
 # 系统指标 key 前缀：SCALAR 类型且以此前缀开头的 key 分类为 SYSTEM
@@ -203,6 +202,7 @@ class Series(BaseEntity):
         self._root_exp_id = root_exp_id
         self._experiment_name_getter = experiment_name_getter
         self._all_keys: Optional[List[str]] = None
+        self._cached_filtered: Optional[List[str]] = None
         self._cached_list: Optional[List[Key]] = None
 
     # ------------------------------------------------------------------
@@ -236,11 +236,17 @@ class Series(BaseEntity):
         return keys
 
     def _filtered_keys(self) -> List[str]:
-        """Apply metric_class + search post-filter on cached full key list."""
+        """Apply metric_class + search post-filter on cached full key list. Result is cached."""
+        if self._cached_filtered is not None:
+            return self._cached_filtered
         keys = self._fetch_all_keys()
         want_system = self._metric_class == "SYSTEM"
+        # 分支提循环外，用 not 替代 == bool 比较
         if self._metric_type == "SCALAR":
-            result = [k for k in keys if k.startswith(_SYSTEM_KEY_PREFIX) == want_system]
+            if want_system:
+                result = [k for k in keys if k.startswith(_SYSTEM_KEY_PREFIX)]
+            else:
+                result = [k for k in keys if not k.startswith(_SYSTEM_KEY_PREFIX)]
         else:
             # MEDIA: 全为 CUSTOM
             result = [] if want_system else keys
@@ -248,6 +254,7 @@ class Series(BaseEntity):
         if self._search:
             needle = self._search.lower()
             result = [k for k in result if needle in k.lower()]
+        self._cached_filtered = result
         return result
 
     def _ensure_batch(self) -> List["Key"]:
@@ -295,15 +302,9 @@ class Series(BaseEntity):
         return len(self._filtered_keys())
 
     def json(self) -> Dict[str, Any]:
-        keys = self._filtered_keys()
-        if self._metric_type == "SCALAR":
-            result_list: List[ApiSeriesKeyItem] = [
-                {"key": k, "metric_class": "SYSTEM" if k.startswith(_SYSTEM_KEY_PREFIX) else "CUSTOM"} for k in keys
-            ]
-        else:
-            result_list = [{"key": k, "metric_class": "CUSTOM"} for k in keys]
         return {
-            "list": result_list,
+            "keys": self._filtered_keys(),
+            "metricClass": self._metric_class,
             "metricType": self._metric_type,
             "projectId": self._project_id,
             "runId": self._run_id,
