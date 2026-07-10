@@ -3,6 +3,11 @@
 @file: column.py
 @time: 2026/4/20
 @description: Column 实体类 — 实验列的查询与操作
+
+.. deprecated::
+    Use :meth:`Api.series` / :meth:`Experiment.series` instead.
+    Column metadata (name/class/type) is no longer maintained by the backend;
+    ``Series`` offers cursor-paginated key listing directly from House.
 """
 
 from typing import Any, Callable, Dict, Iterator, Optional, cast

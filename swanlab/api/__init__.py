@@ -18,7 +18,14 @@ from .column import Column, Columns
 from .experiment import Experiment, Experiments
 from .project import Project, Projects
 from .self_hosted import SelfHosted
-from .typings.common import ApiColumnClassLiteral, ApiColumnDataTypeLiteral, ApiVisibilityLiteral, PaginatedQuery
+from .series import Series
+from .typings.common import (
+    ApiColumnClassLiteral,
+    ApiColumnDataTypeLiteral,
+    ApiMetricKeyTypeLiteral,
+    ApiVisibilityLiteral,
+    PaginatedQuery,
+)
 from .user import User
 from .utils import validate_api_path, validate_non_empty_string
 from .workspace import Workspace, Workspaces
@@ -254,6 +261,11 @@ class Api(BaseEntity):
         all: bool = False,
     ) -> Columns:
         """
+        .. deprecated::
+            Use :meth:`series` instead. Column metadata (name/class/type) is no longer
+            maintained by the House backend; ``series()`` provides cursor-paginated
+            key listing directly from House.
+
         List columns under an experiment (paginated, with optional fuzzy search).
 
         The ``search`` parameter performs **fuzzy matching** (case-insensitive ``contains``)
@@ -285,6 +297,11 @@ class Api(BaseEntity):
         column_type: Optional[ApiColumnDataTypeLiteral] = None,
     ) -> Column:
         """
+        .. deprecated::
+            Use :meth:`series` instead. Column metadata (name/class/type) is no longer
+            maintained by the House backend; use ``series()`` for per-key access
+            (e.g. ``series(keys=["loss"])``).
+
         Get a single column by key (fuzzy search, first match).
 
         Performs fuzzy search (``contains`` on ``name``) and returns the first matching
@@ -300,6 +317,27 @@ class Api(BaseEntity):
         validate_non_empty_string(key, label="column key")
         return Column(self._ctx, path=path, key=key, column_class=column_class, column_type=column_type)
 
+    def series(
+        self,
+        path: str,
+        metric_type: ApiMetricKeyTypeLiteral = "SCALAR",
+        limit: int = 2000,
+        cursor: str = "",
+    ) -> Series:
+        """
+        Cursor-paginated listing of metric keys (preferred over deprecated ``columns()``).
+
+        Use a single-key list for per-key access, e.g. ``series(keys=["loss"])``.
+
+        :param path: Experiment path, format: ``'username/project/run_id'``
+        :param metric_type: ``SCALAR`` (default) or ``MEDIA``
+        :param limit: Max keys per page (1..2000)
+        :param cursor: Pagination cursor (empty = first page)
+        """
+        validate_api_path(path, segments=3, label="run")
+        exp = Experiment(self._ctx, path=path)
+        return exp.series(metric_type=metric_type, limit=limit, cursor=cursor)
+
     # -------
     # 私有化相关接口
     # --------
@@ -307,4 +345,4 @@ class Api(BaseEntity):
         return SelfHosted(self._ctx)
 
 
-__all__ = ["Api"]
+__all__ = ["Api", "Series"]

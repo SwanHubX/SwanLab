@@ -5,13 +5,16 @@
 @description: Experiment 实体类 — 单个实验的查询与操作
 """
 
-from typing import Any, Dict, Iterator, List, Optional, Union, cast
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union, cast
 
 from swanlab.api.base import ApiClientContext, BaseEntity
 from swanlab.api.typings import ApiResponseType
 from swanlab.api.typings.common import (
     ApiColumnClassLiteral,
     ApiColumnDataTypeLiteral,
+    ApiMetricKeyTypeLiteral,
     ApiMetricLogLevelLiteral,
     PaginatedQuery,
     RangeQuery,
@@ -32,6 +35,9 @@ from swanlab.api.utils import (
     validate_update_active,
 )
 from swanlab.sdk.internal.pkg import console
+
+if TYPE_CHECKING:
+    from swanlab.api.series import Series
 
 
 class Experiment(BaseEntity):
@@ -172,6 +178,11 @@ class Experiment(BaseEntity):
         column_type: Optional[ApiColumnDataTypeLiteral] = "FLOAT",
     ):
         """
+        .. deprecated::
+            Use :meth:`series` instead. Column metadata (name/class/type) is no longer
+            maintained by the House backend; use ``series()`` for per-key access
+            (e.g. ``series(keys=["loss"])``).
+
         Get a single column by key under this experiment (fuzzy search, first match).
 
         Performs fuzzy search (``contains`` on ``name``) and returns the first matching
@@ -306,6 +317,7 @@ class Experiment(BaseEntity):
             range_query=rq,
             root_pro_id=self.root_pro_id,
             root_exp_id=self.root_exp_id,
+            experiment_name=self.name,
         ).json()
 
     def summary(
@@ -417,6 +429,11 @@ class Experiment(BaseEntity):
         all: bool = False,
     ):
         """
+        .. deprecated::
+            Use :meth:`series` instead. Column metadata (name/class/type) is no longer
+            maintained by the House backend; ``series()`` provides cursor-paginated
+            key listing directly from House.
+
         List columns under this experiment (paginated, with optional fuzzy search).
 
         The ``search`` parameter performs **fuzzy matching** (case-insensitive ``contains``)
@@ -444,6 +461,45 @@ class Experiment(BaseEntity):
             project_id_getter=lambda: self.project_id,
             root_pro_id=self.root_pro_id,
             root_exp_id=self.root_exp_id,
+        )
+
+    def series(
+        self,
+        metric_type: ApiMetricKeyTypeLiteral = "SCALAR",
+        limit: int = 2000,
+        cursor: str = "",
+    ) -> "Series":
+        """
+        Cursor-paginated listing of metric keys for this experiment (preferred over deprecated ``columns()``).
+
+        Use a single-key list for per-key access, e.g. ``series(keys=["loss"])``.
+
+        :param metric_type: ``SCALAR`` (default) or ``MEDIA``
+        :param limit: Max keys per page (1..2000)
+        :param cursor: Pagination cursor (empty = first page)
+        """
+        from swanlab.api.series import Series
+
+        run_id = self.run_id
+        project_id = self.project_id
+        root_pro_id = self.root_pro_id
+        root_exp_id = self.root_exp_id
+        experiments: List[Dict[str, str]] = [{"projectId": project_id, "experimentId": run_id}]
+        if root_pro_id:
+            experiments[0]["rootProId"] = root_pro_id
+        if root_exp_id:
+            experiments[0]["rootExpId"] = root_exp_id
+        return Series(
+            self._ctx,
+            experiments=experiments,
+            metric_type=metric_type,
+            limit=limit,
+            cursor=cursor,
+            project_id=project_id,
+            run_id=run_id,
+            root_pro_id=root_pro_id,
+            root_exp_id=root_exp_id,
+            experiment_name_getter=lambda: self.name,
         )
 
     def delete(self, commit: bool = False) -> bool:

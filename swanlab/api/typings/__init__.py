@@ -22,6 +22,7 @@ from .common import (
     ApiWorkspaceLiteral,
 )
 from .experiment import ApiExperimentLabelType, ApiExperimentType
+from .key import ApiKeysPageType
 from .metric import (
     ApiLogSeriesType,
     ApiMediaSeriesType,
@@ -67,6 +68,8 @@ __all__ = [
     # Column
     "ApiColumnType",
     "ApiColumnCsvExportType",
+    # Key
+    "ApiKeysPageType",
     # Metric
     "ApiLogSeriesType",
     "ApiMediaSeriesType",
