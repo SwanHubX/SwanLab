@@ -487,11 +487,11 @@ class Experiment(BaseEntity):
         project_id = self.project_id
         root_pro_id = self.root_pro_id
         root_exp_id = self.root_exp_id
-        experiments: List[Dict[str, str]] = [{"projectId": project_id, "experimentId": run_id}]
-        if root_pro_id:
-            experiments[0]["rootProId"] = root_pro_id
-        if root_exp_id:
-            experiments[0]["rootExpId"] = root_exp_id
+        # House /keys 接口不支持 rootProId/rootExpId 字段（不像 metrics/export）。
+        # 克隆实验的数据存在根实验下，因此查询时直接用根实验的 ID。
+        query_pro_id = root_pro_id or project_id
+        query_exp_id = root_exp_id or run_id
+        experiments: List[Dict[str, str]] = [{"projectId": query_pro_id, "experimentId": query_exp_id}]
         return Series(
             self._ctx,
             experiments=experiments,
