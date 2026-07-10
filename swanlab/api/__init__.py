@@ -322,21 +322,20 @@ class Api(BaseEntity):
         path: str,
         metric_type: ApiMetricKeyTypeLiteral = "SCALAR",
         limit: int = 2000,
-        cursor: str = "",
+        all: bool = False,
     ) -> Series:
         """
         Cursor-paginated listing of metric keys (preferred over deprecated ``columns()``).
 
-        Use a single-key list for per-key access, e.g. ``series(keys=["loss"])``.
-
         :param path: Experiment path, format: ``'username/project/run_id'``
         :param metric_type: ``SCALAR`` (default) or ``MEDIA``
         :param limit: Max keys per page (1..2000)
-        :param cursor: Pagination cursor (empty = first page)
+        :param all: If False (default), return only one page (up to ``limit`` keys) with ``hasMore``
+            indicating more keys exist. If True, iterate all pages.
         """
         validate_api_path(path, segments=3, label="run")
         exp = Experiment(self._ctx, path=path)
-        return exp.series(metric_type=metric_type, limit=limit, cursor=cursor)
+        return exp.series(metric_type=metric_type, limit=limit, all=all)
 
     # -------
     # 私有化相关接口

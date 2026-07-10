@@ -9,8 +9,9 @@ from typing import Any, Callable, Dict, Iterator, List, Optional
 
 from swanlab.api.base import ApiClientContext, BaseEntity
 from swanlab.api.typings import ApiResponseType
-from swanlab.api.typings.common import ApiMetricColumnTypeLiteral
+from swanlab.api.typings.common import ApiMetricKeyTypeLiteral
 from swanlab.api.utils import get_properties
+from swanlab.sdk.internal.pkg import console
 
 
 class Key(BaseEntity):
@@ -35,7 +36,7 @@ class Key(BaseEntity):
         project_id: str,
         run_id: str,
         key: str,
-        metric_type: ApiMetricColumnTypeLiteral = "SCALAR",
+        metric_type: ApiMetricKeyTypeLiteral = "SCALAR",
         experiment_name_getter: Optional[Callable[[], str]] = None,
         root_pro_id: str = "",
         root_exp_id: str = "",
@@ -169,9 +170,9 @@ class Series(BaseEntity):
         ctx: ApiClientContext,
         *,
         experiments: List[Dict[str, str]],
-        metric_type: ApiMetricColumnTypeLiteral = "SCALAR",
+        metric_type: ApiMetricKeyTypeLiteral = "SCALAR",
         limit: int = 2000,
-        cursor: str = "",
+        all: bool = False,
         project_id: str = "",
         run_id: str = "",
         root_pro_id: str = "",
@@ -181,27 +182,28 @@ class Series(BaseEntity):
         super().__init__(ctx)
         if metric_type not in ("SCALAR", "MEDIA"):
             raise ValueError(f"Invalid metric_type: {metric_type!r}, expected 'SCALAR' or 'MEDIA'")
-        if limit < 1 or limit > 2000:
-            raise ValueError(f"limit must be in [1, 2000], got {limit}")
+        if limit < 1:
+            raise ValueError(f"limit must be >= 1, got {limit}")
+        if limit > 2000:
+            console.warning(f"Get limit = [{limit}], expected <= 2000, will be constrained automatically.")
+            limit = 2000
         if not isinstance(experiments, list) or not experiments:
             raise ValueError("experiments must be a non-empty list of dicts")
 
         self._experiments = experiments
-        self._metric_type: ApiMetricColumnTypeLiteral = metric_type
+        self._metric_type: ApiMetricKeyTypeLiteral = metric_type
         self._limit = limit
-        self._cursor = cursor
         self._project_id = project_id
         self._run_id = run_id
         self._root_pro_id = root_pro_id
         self._root_exp_id = root_exp_id
         self._experiment_name_getter = experiment_name_getter
+        self._all = all
         self._page_info: Dict[str, Any] = {
             "keys": [],
-            "nextCursor": "",
             "hasMore": False,
             "metricType": metric_type,
             "projectId": project_id,
-            "list": [],
         }
         self._cached_list: Optional[List[Key]] = None
 
@@ -210,7 +212,7 @@ class Series(BaseEntity):
         return self._page_info
 
     def _cursor_iter(self) -> Iterator[str]:
-        cursor = self._cursor
+        cursor = ""
         path = f"/house/metrics/{self._metric_type.lower()}/keys"
         while True:
             resp = self._post(
@@ -228,15 +230,18 @@ class Series(BaseEntity):
             keys: List[str] = page.get("keys", [])
             self._page_info["keys"].extend(keys)
             self._page_info["hasMore"] = page.get("hasMore", False)
-            self._page_info["nextCursor"] = page.get("nextCursor", "")
+            next_cursor = page.get("nextCursor", "")
 
             yield from keys
 
+            # all=False: single-page mode — return after first page, keep hasMore for caller
+            if not self._all:
+                return
             if not self._page_info["hasMore"]:
                 return
-            cursor = self._page_info["nextCursor"]
-            if not cursor:
+            if not next_cursor:
                 return
+            cursor = next_cursor
 
     def _ensure_batch(self) -> List["Key"]:
         if self._cached_list is not None:
@@ -281,12 +286,11 @@ class Series(BaseEntity):
         return len(self._page_info["keys"])
 
     def json(self) -> Dict[str, Any]:
-        self._page_info["list"] = [
-            {k: v for k, v in key.json().items() if k not in ("project_id", "run_id")} for key in self._ensure_batch()
-        ]
+        self._ensure_batch()
         return {
             "keys": self._page_info["keys"],
             "metricType": self._metric_type,
             "projectId": self._project_id,
-            "list": self._page_info["list"],
+            "runId": self._run_id,
+            "hasMore": self._page_info["hasMore"],
         }

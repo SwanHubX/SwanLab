@@ -17,7 +17,7 @@ from swanlab.api.typings.column import ApiColumnType
 from swanlab.api.typings.common import (
     ApiColumnClassLiteral,
     ApiColumnDataTypeLiteral,
-    ApiMetricColumnTypeLiteral,
+    ApiMetricKeyTypeLiteral,
     ApiResponseType,
     PaginatedQuery,
 )
@@ -162,7 +162,7 @@ class Column(BaseEntity):
     def metric(
         self,
         sample: int = 1500,
-        metric_type: ApiMetricColumnTypeLiteral = "SCALAR",
+        metric_type: ApiMetricKeyTypeLiteral = "SCALAR",
         ignore_timestamp: bool = False,
         media_step: Optional[int] = None,
     ) -> Dict[str, Any]:

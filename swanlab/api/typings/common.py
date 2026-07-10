@@ -66,10 +66,7 @@ ApiIdentityLiteral = Literal["root", "user"]
 ApiLicensePlanLiteral = Literal["free", "commercial"]
 
 # 指标类型（log 不属于 column-backed metrics，使用独立查询方法）
-ApiMetricColumnTypeLiteral = Literal["SCALAR", "MEDIA"]
-
-# 指标类型重命名
-ApiMetricKeyTypeLiteral = ApiMetricColumnTypeLiteral
+ApiMetricKeyTypeLiteral = Literal["SCALAR", "MEDIA"]
 
 # 指标扩展类型（包含 LOG，用于内部 Metric 调度）
 ApiMetricAllTypeLiteral = Literal["SCALAR", "MEDIA", "LOG"]

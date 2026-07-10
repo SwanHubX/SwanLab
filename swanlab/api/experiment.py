@@ -467,16 +467,15 @@ class Experiment(BaseEntity):
         self,
         metric_type: ApiMetricKeyTypeLiteral = "SCALAR",
         limit: int = 2000,
-        cursor: str = "",
+        all: bool = False,
     ) -> "Series":
         """
         Cursor-paginated listing of metric keys for this experiment (preferred over deprecated ``columns()``).
 
-        Use a single-key list for per-key access, e.g. ``series(keys=["loss"])``.
-
         :param metric_type: ``SCALAR`` (default) or ``MEDIA``
         :param limit: Max keys per page (1..2000)
-        :param cursor: Pagination cursor (empty = first page)
+        :param all: If False (default), return only one page (up to ``limit`` keys) with ``hasMore``
+            indicating more keys exist. If True, iterate all pages.
         """
         from swanlab.api.series import Series
 
@@ -494,7 +493,7 @@ class Experiment(BaseEntity):
             experiments=experiments,
             metric_type=metric_type,
             limit=limit,
-            cursor=cursor,
+            all=all,
             project_id=project_id,
             run_id=run_id,
             root_pro_id=root_pro_id,
