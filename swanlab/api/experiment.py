@@ -14,6 +14,7 @@ from swanlab.api.typings import ApiResponseType
 from swanlab.api.typings.common import (
     ApiColumnClassLiteral,
     ApiColumnDataTypeLiteral,
+    ApiMetricKeyClassLiteral,
     ApiMetricKeyTypeLiteral,
     ApiMetricLogLevelLiteral,
     PaginatedQuery,
@@ -466,6 +467,7 @@ class Experiment(BaseEntity):
     def series(
         self,
         metric_type: ApiMetricKeyTypeLiteral = "SCALAR",
+        metric_class: ApiMetricKeyClassLiteral = "CUSTOM",
         limit: int = 2000,
         all: bool = False,
     ) -> "Series":
@@ -473,6 +475,8 @@ class Experiment(BaseEntity):
         Cursor-paginated listing of metric keys for this experiment (preferred over deprecated ``columns()``).
 
         :param metric_type: ``SCALAR`` (default) or ``MEDIA``
+        :param metric_class: ``CUSTOM`` (default) or ``SYSTEM``. Post-filter keys by class.
+            SCALAR keys with ``__swanlab__`` prefix are SYSTEM; all MEDIA keys are CUSTOM.
         :param limit: Max keys per page (1..2000)
         :param all: If False (default), return only one page (up to ``limit`` keys) with ``hasMore``
             indicating more keys exist. If True, iterate all pages.
@@ -492,6 +496,7 @@ class Experiment(BaseEntity):
             self._ctx,
             experiments=experiments,
             metric_type=metric_type,
+            metric_class=metric_class,
             limit=limit,
             all=all,
             project_id=project_id,

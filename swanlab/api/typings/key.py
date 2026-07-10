@@ -5,12 +5,11 @@
 @description: Key 实体类型定义 — House /metrics/*/keys 接口的请求/响应类型
 """
 
-from typing import List, TypedDict
+from typing import TypedDict
+
+from .common import ApiMetricKeyClassLiteral
 
 
-class ApiKeysPageType(TypedDict):
-    """House /metrics/*/keys 单页响应。"""
-
-    keys: List[str]
-    nextCursor: str
-    hasMore: bool
+class ApiSeriesKeyItem(TypedDict, total=False):
+    key: str
+    metric_class: ApiMetricKeyClassLiteral

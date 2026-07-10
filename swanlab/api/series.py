@@ -8,10 +8,13 @@
 from typing import Any, Callable, Dict, Iterator, List, Optional
 
 from swanlab.api.base import ApiClientContext, BaseEntity
-from swanlab.api.typings import ApiResponseType
-from swanlab.api.typings.common import ApiMetricKeyTypeLiteral
+from swanlab.api.typings import ApiMetricKeyClassLiteral, ApiMetricKeyTypeLiteral, ApiResponseType
+from swanlab.api.typings.key import ApiSeriesKeyItem
 from swanlab.api.utils import get_properties
 from swanlab.sdk.internal.pkg import console
+
+# 系统指标 key 前缀：SCALAR 类型且以此前缀开头的 key 分类为 SYSTEM
+_SYSTEM_KEY_PREFIX = "__swanlab__"
 
 
 class Key(BaseEntity):
@@ -75,6 +78,13 @@ class Key(BaseEntity):
     @property
     def metric_type(self) -> str:
         return self._metric_type
+
+    @property
+    def key_class(self) -> ApiMetricKeyClassLiteral:
+        """CUSTOM or SYSTEM — SYSTEM if SCALAR and key starts with __swanlab__."""
+        if self._metric_type == "SCALAR" and self._key.startswith(_SYSTEM_KEY_PREFIX):
+            return "SYSTEM"
+        return "CUSTOM"
 
     def metric(
         self,
@@ -171,6 +181,7 @@ class Series(BaseEntity):
         *,
         experiments: List[Dict[str, str]],
         metric_type: ApiMetricKeyTypeLiteral = "SCALAR",
+        metric_class: ApiMetricKeyClassLiteral = "CUSTOM",
         limit: int = 2000,
         all: bool = False,
         project_id: str = "",
@@ -187,12 +198,15 @@ class Series(BaseEntity):
         if limit > 2000:
             console.warning(f"Get limit = [{limit}], expected <= 2000, will be constrained automatically.")
             limit = 2000
+        if metric_class not in ("CUSTOM", "SYSTEM"):
+            raise ValueError(f"Invalid metric_class: {metric_class!r}, expected 'CUSTOM' or 'SYSTEM'")
         if not isinstance(experiments, list) or not experiments:
             raise ValueError("experiments must be a non-empty list of dicts")
 
         self._experiments = experiments
         self._metric_type: ApiMetricKeyTypeLiteral = metric_type
         self._limit = limit
+        self._metric_class: ApiMetricKeyClassLiteral = metric_class
         self._project_id = project_id
         self._run_id = run_id
         self._root_pro_id = root_pro_id
@@ -212,6 +226,9 @@ class Series(BaseEntity):
         return self._page_info
 
     def _cursor_iter(self) -> Iterator[str]:
+        # 后置过滤参数：仅 SCALAR 有系统指标，MEDIA 全为 CUSTOM
+        want_system = self._metric_class == "SYSTEM"
+        is_scalar = self._metric_type == "SCALAR"
         cursor = ""
         path = f"/house/metrics/{self._metric_type.lower()}/keys"
         while True:
@@ -227,12 +244,19 @@ class Series(BaseEntity):
                 return
 
             page: Dict[str, Any] = resp.data
-            keys: List[str] = page.get("keys", [])
-            self._page_info["keys"].extend(keys)
+            raw_keys: List[str] = page.get("keys", [])
             self._page_info["hasMore"] = page.get("hasMore", False)
             next_cursor = page.get("nextCursor", "")
 
-            yield from keys
+            # 后置过滤：按 metric_class 筛选 key
+            if is_scalar:
+                filtered = [k for k in raw_keys if (k.startswith(_SYSTEM_KEY_PREFIX) == want_system)]
+            else:
+                # MEDIA: 全为 CUSTOM，want_system 时跳过全部
+                filtered = [] if want_system else raw_keys
+
+            self._page_info["keys"].extend(filtered)
+            yield from filtered
 
             # all=False: single-page mode — return after first page, keep hasMore for caller
             if not self._all:
@@ -287,8 +311,16 @@ class Series(BaseEntity):
 
     def json(self) -> Dict[str, Any]:
         self._ensure_batch()
+        keys: List[str] = self._page_info["keys"]
+        # metric_type 分支提到循环外：MEDIA 全 CUSTOM，跳过 startswith
+        if self._metric_type == "SCALAR":
+            result_list: List[ApiSeriesKeyItem] = [
+                {"key": k, "metric_class": "SYSTEM" if k.startswith(_SYSTEM_KEY_PREFIX) else "CUSTOM"} for k in keys
+            ]
+        else:
+            result_list = [{"key": k, "metric_class": "CUSTOM"} for k in keys]
         return {
-            "keys": self._page_info["keys"],
+            "list": result_list,
             "metricType": self._metric_type,
             "projectId": self._project_id,
             "runId": self._run_id,

@@ -22,6 +22,7 @@ from .series import Series
 from .typings.common import (
     ApiColumnClassLiteral,
     ApiColumnDataTypeLiteral,
+    ApiMetricKeyClassLiteral,
     ApiMetricKeyTypeLiteral,
     ApiVisibilityLiteral,
     PaginatedQuery,
@@ -323,6 +324,7 @@ class Api(BaseEntity):
         metric_type: ApiMetricKeyTypeLiteral = "SCALAR",
         limit: int = 2000,
         all: bool = False,
+        metric_class: ApiMetricKeyClassLiteral = "CUSTOM",
     ) -> Series:
         """
         Cursor-paginated listing of metric keys (preferred over deprecated ``columns()``).
@@ -332,10 +334,12 @@ class Api(BaseEntity):
         :param limit: Max keys per page (1..2000)
         :param all: If False (default), return only one page (up to ``limit`` keys) with ``hasMore``
             indicating more keys exist. If True, iterate all pages.
+        :param metric_class: ``CUSTOM`` (default) or ``SYSTEM``. Post-filter keys by class.
+            SCALAR keys with ``__swanlab__`` prefix are SYSTEM; all MEDIA keys are CUSTOM.
         """
         validate_api_path(path, segments=3, label="run")
         exp = Experiment(self._ctx, path=path)
-        return exp.series(metric_type=metric_type, limit=limit, all=all)
+        return exp.series(metric_type=metric_type, limit=limit, all=all, metric_class=metric_class)
 
     # -------
     # 私有化相关接口
