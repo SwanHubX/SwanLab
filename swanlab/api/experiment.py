@@ -468,18 +468,15 @@ class Experiment(BaseEntity):
         self,
         metric_type: ApiMetricKeyTypeLiteral = "SCALAR",
         metric_class: ApiMetricKeyClassLiteral = "CUSTOM",
-        limit: int = 2000,
-        all: bool = False,
+        search: str = "",
     ) -> "Series":
         """
-        Cursor-paginated listing of metric keys for this experiment (preferred over deprecated ``columns()``).
+        List all metric keys for this experiment (preferred over deprecated ``columns()``).
+
 
         :param metric_type: ``SCALAR`` (default) or ``MEDIA``
         :param metric_class: ``CUSTOM`` (default) or ``SYSTEM``. Post-filter keys by class.
             SCALAR keys with ``__swanlab__`` prefix are SYSTEM; all MEDIA keys are CUSTOM.
-        :param limit: Max keys per page (1..2000)
-        :param all: If False (default), return only one page (up to ``limit`` keys) with ``hasMore``
-            indicating more keys exist. If True, iterate all pages.
         """
         from swanlab.api.series import Series
 
@@ -487,7 +484,7 @@ class Experiment(BaseEntity):
         project_id = self.project_id
         root_pro_id = self.root_pro_id
         root_exp_id = self.root_exp_id
-        # House /keys 接口不支持 rootProId/rootExpId 字段（不像 metrics/export）。
+
         # 克隆实验的数据存在根实验下，因此查询时直接用根实验的 ID。
         query_pro_id = root_pro_id or project_id
         query_exp_id = root_exp_id or run_id
@@ -497,8 +494,7 @@ class Experiment(BaseEntity):
             experiments=experiments,
             metric_type=metric_type,
             metric_class=metric_class,
-            limit=limit,
-            all=all,
+            search=search,
             project_id=project_id,
             run_id=run_id,
             root_pro_id=root_pro_id,

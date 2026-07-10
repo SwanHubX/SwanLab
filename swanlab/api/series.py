@@ -11,7 +11,6 @@ from swanlab.api.base import ApiClientContext, BaseEntity
 from swanlab.api.typings import ApiMetricKeyClassLiteral, ApiMetricKeyTypeLiteral, ApiResponseType
 from swanlab.api.typings.key import ApiSeriesKeyItem
 from swanlab.api.utils import get_properties
-from swanlab.sdk.internal.pkg import console
 
 # 系统指标 key 前缀：SCALAR 类型且以此前缀开头的 key 分类为 SYSTEM
 _SYSTEM_KEY_PREFIX = "__swanlab__"
@@ -157,23 +156,20 @@ class Key(BaseEntity):
 
 
 class Series(BaseEntity):
-    """Cursor-paginated iterator over metric keys across one or more experiments.
+    """Metric key listing with full-fetch-and-cache strategy.
 
-    Calls POST /house/metrics/{scalar|media}/keys with cursor pagination.
-    Supports multi-experiment key listing and key availability queries.
-
-    Unlike Columns (offset-paginated, single-experiment, SwanLab-Server),
-    Series uses House's native cursor pagination and is inherently multi-experiment.
+    Fetches ALL keys from House on first access, caches them as a flat ``List[str]``,
+    then post-filters by ``metric_class``. No pagination state exposed.
 
     Usage::
 
-        # Per-experiment (via Experiment.series())
         for key in experiment.series():
             print(key.json())
 
-        # Availability check
         availability = experiment.series().availability(["loss", "acc"])
     """
+
+    _PAGE_SIZE = 2000
 
     def __init__(
         self,
@@ -182,8 +178,7 @@ class Series(BaseEntity):
         experiments: List[Dict[str, str]],
         metric_type: ApiMetricKeyTypeLiteral = "SCALAR",
         metric_class: ApiMetricKeyClassLiteral = "CUSTOM",
-        limit: int = 2000,
-        all: bool = False,
+        search: str = "",
         project_id: str = "",
         run_id: str = "",
         root_pro_id: str = "",
@@ -193,11 +188,6 @@ class Series(BaseEntity):
         super().__init__(ctx)
         if metric_type not in ("SCALAR", "MEDIA"):
             raise ValueError(f"Invalid metric_type: {metric_type!r}, expected 'SCALAR' or 'MEDIA'")
-        if limit < 1:
-            raise ValueError(f"limit must be >= 1, got {limit}")
-        if limit > 2000:
-            console.warning(f"Get limit = [{limit}], expected <= 2000, will be constrained automatically.")
-            limit = 2000
         if metric_class not in ("CUSTOM", "SYSTEM"):
             raise ValueError(f"Invalid metric_class: {metric_class!r}, expected 'CUSTOM' or 'SYSTEM'")
         if not isinstance(experiments, list) or not experiments:
@@ -205,30 +195,25 @@ class Series(BaseEntity):
 
         self._experiments = experiments
         self._metric_type: ApiMetricKeyTypeLiteral = metric_type
-        self._limit = limit
         self._metric_class: ApiMetricKeyClassLiteral = metric_class
+        self._search = search
         self._project_id = project_id
         self._run_id = run_id
         self._root_pro_id = root_pro_id
         self._root_exp_id = root_exp_id
         self._experiment_name_getter = experiment_name_getter
-        self._all = all
-        self._page_info: Dict[str, Any] = {
-            "keys": [],
-            "hasMore": False,
-            "metricType": metric_type,
-            "projectId": project_id,
-        }
+        self._all_keys: Optional[List[str]] = None
         self._cached_list: Optional[List[Key]] = None
 
-    @property
-    def page_info(self) -> Dict[str, Any]:
-        return self._page_info
+    # ------------------------------------------------------------------
+    # 内部：全量拉取 + 缓存
+    # ------------------------------------------------------------------
 
-    def _cursor_iter(self) -> Iterator[str]:
-        # 后置过滤参数：仅 SCALAR 有系统指标，MEDIA 全为 CUSTOM
-        want_system = self._metric_class == "SYSTEM"
-        is_scalar = self._metric_type == "SCALAR"
+    def _fetch_all_keys(self) -> List[str]:
+        """Fetch all keys across all pages (cursor pagination), cache and return."""
+        if self._all_keys is not None:
+            return self._all_keys
+        keys: List[str] = []
         cursor = ""
         path = f"/house/metrics/{self._metric_type.lower()}/keys"
         while True:
@@ -236,36 +221,34 @@ class Series(BaseEntity):
                 path,
                 data={
                     "experiments": self._experiments,
-                    "limit": self._limit,
+                    "limit": self._PAGE_SIZE,
                     "cursor": cursor,
                 },
             )
             if not resp.ok or not resp.data:
-                return
-
+                break
             page: Dict[str, Any] = resp.data
-            raw_keys: List[str] = page.get("keys", [])
-            self._page_info["hasMore"] = page.get("hasMore", False)
-            next_cursor = page.get("nextCursor", "")
+            keys.extend(page.get("keys", []))
+            if not page.get("hasMore", False) or not page.get("nextCursor", ""):
+                break
+            cursor = page["nextCursor"]
+        self._all_keys = keys
+        return keys
 
-            # 后置过滤：按 metric_class 筛选 key
-            if is_scalar:
-                filtered = [k for k in raw_keys if (k.startswith(_SYSTEM_KEY_PREFIX) == want_system)]
-            else:
-                # MEDIA: 全为 CUSTOM，want_system 时跳过全部
-                filtered = [] if want_system else raw_keys
-
-            self._page_info["keys"].extend(filtered)
-            yield from filtered
-
-            # all=False: single-page mode — return after first page, keep hasMore for caller
-            if not self._all:
-                return
-            if not self._page_info["hasMore"]:
-                return
-            if not next_cursor:
-                return
-            cursor = next_cursor
+    def _filtered_keys(self) -> List[str]:
+        """Apply metric_class + search post-filter on cached full key list."""
+        keys = self._fetch_all_keys()
+        want_system = self._metric_class == "SYSTEM"
+        if self._metric_type == "SCALAR":
+            result = [k for k in keys if k.startswith(_SYSTEM_KEY_PREFIX) == want_system]
+        else:
+            # MEDIA: 全为 CUSTOM
+            result = [] if want_system else keys
+        # 模糊搜索：大小写不敏感的子串匹配
+        if self._search:
+            needle = self._search.lower()
+            result = [k for k in result if needle in k.lower()]
+        return result
 
     def _ensure_batch(self) -> List["Key"]:
         if self._cached_list is not None:
@@ -281,9 +264,13 @@ class Series(BaseEntity):
                 root_pro_id=self._root_pro_id,
                 root_exp_id=self._root_exp_id,
             )
-            for key_str in self._cursor_iter()
+            for key_str in self._filtered_keys()
         ]
         return self._cached_list
+
+    # ------------------------------------------------------------------
+    # 公开接口
+    # ------------------------------------------------------------------
 
     def __iter__(self) -> Iterator[Key]:
         yield from self._ensure_batch()
@@ -304,15 +291,11 @@ class Series(BaseEntity):
 
     @property
     def total(self) -> int:
-        """Total number of keys accumulated across all pages (triggers iteration)."""
-        if self._cached_list is None:
-            self._ensure_batch()
-        return len(self._page_info["keys"])
+        """Total number of keys after metric_class filtering (triggers fetch)."""
+        return len(self._filtered_keys())
 
     def json(self) -> Dict[str, Any]:
-        self._ensure_batch()
-        keys: List[str] = self._page_info["keys"]
-        # metric_type 分支提到循环外：MEDIA 全 CUSTOM，跳过 startswith
+        keys = self._filtered_keys()
         if self._metric_type == "SCALAR":
             result_list: List[ApiSeriesKeyItem] = [
                 {"key": k, "metric_class": "SYSTEM" if k.startswith(_SYSTEM_KEY_PREFIX) else "CUSTOM"} for k in keys
@@ -324,5 +307,4 @@ class Series(BaseEntity):
             "metricType": self._metric_type,
             "projectId": self._project_id,
             "runId": self._run_id,
-            "hasMore": self._page_info["hasMore"],
         }

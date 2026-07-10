@@ -322,24 +322,22 @@ class Api(BaseEntity):
         self,
         path: str,
         metric_type: ApiMetricKeyTypeLiteral = "SCALAR",
-        limit: int = 2000,
-        all: bool = False,
         metric_class: ApiMetricKeyClassLiteral = "CUSTOM",
+        search: str = "",
     ) -> Series:
         """
-        Cursor-paginated listing of metric keys (preferred over deprecated ``columns()``).
+        List all metric keys.
+
 
         :param path: Experiment path, format: ``'username/project/run_id'``
         :param metric_type: ``SCALAR`` (default) or ``MEDIA``
-        :param limit: Max keys per page (1..2000)
-        :param all: If False (default), return only one page (up to ``limit`` keys) with ``hasMore``
-            indicating more keys exist. If True, iterate all pages.
         :param metric_class: ``CUSTOM`` (default) or ``SYSTEM``. Post-filter keys by class.
             SCALAR keys with ``__swanlab__`` prefix are SYSTEM; all MEDIA keys are CUSTOM.
+        :param search: Fuzzy search filter — case-insensitive substring match against key names.
         """
         validate_api_path(path, segments=3, label="run")
         exp = Experiment(self._ctx, path=path)
-        return exp.series(metric_type=metric_type, limit=limit, all=all, metric_class=metric_class)
+        return exp.series(metric_type=metric_type, metric_class=metric_class, search=search)
 
     # -------
     # 私有化相关接口
