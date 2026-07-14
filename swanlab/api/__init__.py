@@ -2,13 +2,11 @@
 @author: caddiesnew
 @file: __init__.py
 @time: 2026/4/20
-@description: SwanLab public query API entry — OOP query interface for users
+@description: SwanLab 公共查询 API 入口，面向用户的 OOP 查询接口
 """
 
 import warnings
 from typing import Any, Dict, List, Optional
-
-from typing_extensions import deprecated
 
 from swanlab.exceptions import AuthenticationError
 from swanlab.sdk.internal.pkg import nrc, scope
@@ -20,15 +18,7 @@ from .column import Column, Columns
 from .experiment import Experiment, Experiments
 from .project import Project, Projects
 from .self_hosted import SelfHosted
-from .series import Series
-from .typings.common import (
-    ApiColumnClassLiteral,
-    ApiColumnDataTypeLiteral,
-    ApiMetricKeyClassLiteral,
-    ApiMetricKeyTypeLiteral,
-    ApiVisibilityLiteral,
-    PaginatedQuery,
-)
+from .typings.common import ApiColumnClassLiteral, ApiColumnDataTypeLiteral, ApiVisibilityLiteral, PaginatedQuery
 from .user import User
 from .utils import validate_api_path, validate_non_empty_string
 from .workspace import Workspace, Workspaces
@@ -36,14 +26,17 @@ from .workspace import Workspace, Workspaces
 
 class Api(BaseEntity):
     """
-    SwanLab public query API entry.
+    SwanLab 公共查询 API 入口。
 
-    Usage::
+    通过独立的 Client 实例与 SwanLab 云端交互，与 SDK 运行时客户端完全隔离。
+    继承 BaseEntity 以复用 _get/_post/_put/_delete/_paginate 等安全 HTTP 方法。
+
+    用法::
 
         from swanlab import Api
 
-        api = Api()                              # auto-read credentials from .netrc
-        api = Api(api_key="...", host="...")      # explicit credentials
+        api = Api()                              # 自动从 .netrc 读取凭证
+        api = Api(api_key="...", host="...")      # 显式传入凭证
 
         resp = api.project("username/project")
         if resp.ok:
@@ -57,15 +50,17 @@ class Api(BaseEntity):
         host: Optional[str] = None,
     ) -> None:
         """
-        Initialize an Api instance.
+        初始化 Api 实例。
 
-        Credential resolution order:
-        1. Explicit parameters (``api_key`` / ``host``)
-        2. In-process login state (available when ``swanlab.login`` has been called)
-        3. Settings (including ``.netrc`` / environment variables)
+        认证优先级：
+        1. 显式参数 (api_key / host)
+        2. scope 登录态（进程内已调用 swanlab.login 时可用）
+        3. Settings（含 .netrc / 环境变量）
 
-        :param api_key: API key; if None, resolved per the order above
-        :param host: API host address; if None, uses default configuration
+        始终创建独立的 Client 实例，与 SDK 运行时单例互不干扰。
+
+        :param api_key: API 密钥，为 None 时从 Settings / .netrc / 环境变量读取
+        :param host: API 主机地址，为 None 时从 Settings 读取
         """
         # 优先从 scope 获取已有登录态（如进程内已调用 swanlab.login），直接复用凭证
         login_resp = scope.get_context("login_resp")
@@ -83,12 +78,12 @@ class Api(BaseEntity):
         super().__init__(ctx)
 
     def json(self) -> dict:
-        """Return an empty dict."""
+        """Api 非数据实体，返回空字典。"""
         return {}
 
     @property
     def username(self) -> str:
-        """The authenticated user's username."""
+        """当前认证用户的 username。"""
         return self._ctx.username
 
     @staticmethod
@@ -97,8 +92,8 @@ class Api(BaseEntity):
         host: Optional[str],
     ) -> tuple[str, str, str]:
         """
-        Resolve credentials by priority: explicit params > in-process login state > Settings (.netrc / env vars).
-        Returns (api_key, api_host, web_host).
+        按优先级解析凭证：显式参数 > scope 登录态 > Settings（含 .netrc / 环境变量）。
+        返回 (api_key, api_host, web_host)。
         """
         if api_key is None:
             api_key = global_settings.api_key
@@ -123,9 +118,9 @@ class Api(BaseEntity):
 
     def workspace(self, username: Optional[str] = None) -> Workspace:
         """
-        Get workspace info, defaulting to the current logged-in user.
+        获取工作空间信息，默认为当前登录用户的工作空间。
 
-        :param username: Workspace username; None uses the current logged-in user
+        :param username: 指定工作空间用户名，为 None 时使用当前登录用户
         """
         if username is None:
             username = self._ctx.username
@@ -134,9 +129,9 @@ class Api(BaseEntity):
 
     def workspaces(self, username: Optional[str] = None) -> Workspaces:
         """
-        Get a workspace list iterator.
+        获取工作空间列表迭代器。
 
-        :param username: Username; None uses the current logged-in user
+        :param username: 指定用户名，为 None 时使用当前登录用户
         """
         if username is None:
             username = self._ctx.username
@@ -145,9 +140,9 @@ class Api(BaseEntity):
 
     def project(self, path: str) -> Project:
         """
-        Get project info.
+        获取项目信息。
 
-        :param path: Project path, format: ``'username/project-name'``
+        :param path: 项目路径，格式为 'username/project-name'
         """
         validate_api_path(path, segments=2, label="project")
         return Project(self._ctx, path=path)
@@ -163,15 +158,15 @@ class Api(BaseEntity):
         all: bool = False,
     ) -> Projects:
         """
-        Get a project list iterator under a workspace.
+        获取工作空间下的项目列表迭代器。
 
-        :param path: Workspace name, e.g. ``'username'``
-        :param sort: Sort field
-        :param search: Search keyword
-        :param detail: Whether to return detailed info
-        :param page: Page number, default 1
-        :param size: Page size, default 100
-        :param all: If True, fetch all pages, default False
+        :param path: 工作空间名称 'username'
+        :param sort: 排序方式
+        :param search: 搜索关键词
+        :param detail: 是否返回详细信息
+        :param page: 起始页码，默认 1
+        :param size: 每页数量，默认 100
+        :param all: 是否获取全部数据，默认 False
         """
         validate_api_path(path, segments=1, label="workspace")
         query = PaginatedQuery(page=page, size=size, search=search, sort=sort, all=all)
@@ -186,12 +181,12 @@ class Api(BaseEntity):
         description: Optional[str] = None,
     ) -> Optional[Project]:
         """
-        Create a project under the specified workspace.
+        在指定工作空间下创建项目。
 
-        :param username: Workspace username; None uses the current logged-in user
-        :param name: Project name (1-100 chars, only 0-9a-zA-Z-_.+ supported)
-        :param visibility: Visibility, ``PUBLIC`` or ``PRIVATE``, default ``PRIVATE``
-        :param description: Project description
+        :param username: 工作空间用户名，为 None 时使用当前登录用户
+        :param name: 项目名称 (1-100 字符，仅支持 0-9a-zA-Z-_.+)
+        :param visibility: 可见性，PUBLIC 或 PRIVATE，默认 PRIVATE
+        :param description: 项目描述
         """
         if username is None:
             username = self._ctx.username
@@ -201,9 +196,9 @@ class Api(BaseEntity):
 
     def run(self, path: str) -> Experiment:
         """
-        Get a single experiment.
+        获取单个实验。
 
-        :param path: Experiment path, format: ``'username/project/run_id'``
+        :param path: 实验路径，格式为 'username/project/run_id'
         """
         validate_api_path(path, segments=3, label="run")
         return Experiment(self._ctx, path=path)
@@ -214,10 +209,10 @@ class Api(BaseEntity):
         filters: Optional[List[Dict[str, Any]]] = None,
     ) -> Experiments:
         """
-        Get a filtered experiment list under a project.
+        通过条件过滤获取项目下的实验列表。
 
-        :param path: Project path, format: ``'username/project'``
-        :param filters: Filter rules list, each item is ``{key, type, op, value}``
+        :param path: 项目路径，格式为 'username/project'
+        :param filters: 过滤规则列表，每项为 {key, type, op, value}
         """
         validate_api_path(path, segments=2, label="project")
         if not isinstance(filters, list):
@@ -234,12 +229,12 @@ class Api(BaseEntity):
         all: bool = False,
     ) -> Experiments:
         """
-        Get a paginated experiment list under a project.
+        通过分页获取项目下的实验列表。
 
-        :param path: Project path, format: ``'username/project'``
-        :param page: Page number, default 1
-        :param size: Page size, default 100
-        :param all: If True, fetch all pages, default False
+        :param path: 项目路径，格式为 'username/project'
+        :param page: 起始页码，默认 1
+        :param size: 每页数量，默认 100
+        :param all: 是否获取全部数据，默认 False
         """
         validate_api_path(path, segments=2, label="project")
         query = PaginatedQuery(page=page, size=size, all=all)
@@ -248,7 +243,6 @@ class Api(BaseEntity):
     def user(self) -> User:
         return User(self._ctx)
 
-    @deprecated("Use `series()` method instead.")
     def columns(
         self,
         path: str,
@@ -262,10 +256,13 @@ class Api(BaseEntity):
         """
         List columns under an experiment (paginated, with optional fuzzy search).
 
+        The ``search`` parameter performs **fuzzy matching** (case-insensitive ``contains``)
+        on the column ``name`` field.
+
         :param path: Experiment path, format: ``'username/project/run_id'``
         :param page: Page number, default 1
         :param size: Page size, default 100
-        :param search: Fuzzy search keyword
+        :param search: Fuzzy search keyword (matches column **name**, not key)
         :param column_class: Column class, ``CUSTOM`` or ``SYSTEM``, default ``CUSTOM``
         :param column_type: Column data type, e.g. ``FLOAT``, ``STRING``, ``IMAGE``
         :param all: If True, fetch all pages, default False
@@ -280,7 +277,6 @@ class Api(BaseEntity):
             column_class=column_class,
         )
 
-    @deprecated("Use `series()` method instead.")
     def column(
         self,
         path: str,
@@ -291,6 +287,10 @@ class Api(BaseEntity):
         """
         Get a single column by key (fuzzy search, first match).
 
+        Performs fuzzy search (``contains`` on ``name``) and returns the first matching
+        column. If multiple columns share a similar name, the first one (ordered by
+        ``id DESC``) is returned.
+
         :param path: Experiment path, format: ``'username/project/run_id'``
         :param key: Column key to search, e.g. ``"loss"``, ``"acc"``
         :param column_class: Column class, ``CUSTOM`` or ``SYSTEM``, default ``CUSTOM``
@@ -300,26 +300,6 @@ class Api(BaseEntity):
         validate_non_empty_string(key, label="column key")
         return Column(self._ctx, path=path, key=key, column_class=column_class, column_type=column_type)
 
-    def series(
-        self,
-        path: str,
-        metric_type: ApiMetricKeyTypeLiteral = "SCALAR",
-        metric_class: ApiMetricKeyClassLiteral = "CUSTOM",
-        search: str = "",
-    ) -> Series:
-        """
-        List all metric keys for the given experiment.
-
-        :param path: Experiment path, format: ``'username/project/run_id'``
-        :param metric_type: ``"SCALAR"`` (default) or ``"MEDIA"``
-        :param metric_class: ``"CUSTOM"`` (default) or ``"SYSTEM"`` — filter keys by class.
-        :param search: Fuzzy search filter — case-insensitive substring match on key names.
-        :returns: :class:`Series`
-        """
-        validate_api_path(path, segments=3, label="run")
-        exp = Experiment(self._ctx, path=path)
-        return exp.series(metric_type=metric_type, metric_class=metric_class, search=search)
-
     # -------
     # 私有化相关接口
     # --------
@@ -327,4 +307,4 @@ class Api(BaseEntity):
         return SelfHosted(self._ctx)
 
 
-__all__ = ["Api", "Series"]
+__all__ = ["Api"]

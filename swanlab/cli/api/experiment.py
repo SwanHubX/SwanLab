@@ -10,8 +10,6 @@ from swanlab.api.typings.common import RangeQuery
 from swanlab.cli.api.helper import (
     COLUMN_CLASS_TYPE,
     COLUMN_DATA_TYPE,
-    METRIC_KEY_CLASS,
-    METRIC_KEY_TYPE,
     METRIC_LOG_LEVEL_TYPE,
     PAGE_SIZE_TYPE,
     format_output,
@@ -114,7 +112,7 @@ def filter_experiments(project_path: str, filter_query: str, save_name: str, api
         save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
 
 
-@run_cli.command("columns", deprecated=True)
+@run_cli.command("columns")
 @click.argument("path", required=True)
 @click.option(
     "--page_num",
@@ -184,60 +182,6 @@ def list_experiment_columns(
         all=fetch_all,
     )
     resp = columns.wrapper()
-    payload = format_output(resp)
-    if save_name is not None:
-        save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
-
-
-@run_cli.command("series")
-@click.argument("path", required=True)
-@click.option(
-    "--type",
-    "metric_type",
-    default="SCALAR",
-    type=METRIC_KEY_TYPE,
-    help="Metric type: SCALAR or MEDIA. Default SCALAR.",
-)
-@click.option(
-    "--class",
-    "metric_class",
-    default="CUSTOM",
-    type=METRIC_KEY_CLASS,
-    help="Metric class: CUSTOM or SYSTEM. Default CUSTOM.",
-)
-@click.option(
-    "--search",
-    default="",
-    type=str,
-    help="Fuzzy search keyword (case-insensitive substring match on key names).",
-)
-@click.option(
-    "--save",
-    "save_name",
-    is_flag=False,
-    flag_value=".",
-    help="Save output as JSON to current directory.",
-)
-@with_custom_host
-def list_experiment_series(
-    path: str,
-    metric_type: str,
-    metric_class: str,
-    search: str,
-    save_name: str,
-    api: Api,
-):
-    """List metric keys of an experiment.
-
-    PATH format: username/project_name/run_id
-    """
-    series = api.series(
-        path=path,
-        metric_type=metric_type.upper(),  # type: ignore
-        metric_class=metric_class.upper(),  # type: ignore
-        search=search,
-    )
-    resp = series.wrapper()
     payload = format_output(resp)
     if save_name is not None:
         save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
@@ -400,7 +344,7 @@ def get_experiment_summary(path: str, keys: Optional[str], save_name: str, api: 
         save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
 
 
-@run_cli.command("column", deprecated=True)
+@run_cli.command("column")
 @click.argument("path", required=True)
 @click.option(
     "--key",

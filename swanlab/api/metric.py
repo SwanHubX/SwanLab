@@ -7,13 +7,13 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Optional, Union
 
 from swanlab.api.base import ApiClientContext, BaseEntity
 from swanlab.api.typings import ApiColumnCsvExportType, ApiResponseType
 from swanlab.api.typings.common import (
     MAX_METRIC_KEY_BATCH_SIZE,
-    ApiMetricKeyTypeLiteral,
+    ApiMetricColumnTypeLiteral,
     ApiMetricLogLevelLiteral,
     RangeQuery,
 )
@@ -73,25 +73,25 @@ def _merge_value_stats(
     return merged
 
 
+def _extract_csv_url(data: Any) -> str:
+    if isinstance(data, list) and data:
+        return _extract_csv_url(data[0])
+    if isinstance(data, dict):
+        url = data.get("url", "")
+        if isinstance(url, str) and url:
+            return url
+        return _extract_csv_url(data.get("data"))
+    return ""
+
+
 @safe.decorator(message="Failed to download CSV")
-def _stream_export_csv(
+def _stream_csv_rows(
     client: "Client",
     url: str,
-    keys: List[str],
     rq: Optional[RangeQuery] = None,
     timeout: int = 30,
-) -> Optional[Dict[str, List[Dict[str, Any]]]]:
-    """Stream-download wide-format export CSV and parse per-key rows.
-
-    CSV layout (from ``POST /house/metrics/scalar/export``)::
-
-        step, {exp}-{key1}_step, {exp}-{key1}_timestamp,
-              {exp}-{key2}_step, {exp}-{key2}_timestamp, …
-
-    One row per step; columns are interleaved as ``(value, timestamp)`` pairs.
-    The ``{exp}-{key}_step`` column actually holds the metric **value** despite
-    its name — the suffix is a House naming convention.
-    """
+) -> Optional[List[Dict[str, Any]]]:
+    """Stream-download CSV and parse rows, reusing the Client session (preserving proxy/retry config)."""
     import csv
     import time
     from collections import deque
@@ -99,98 +99,73 @@ def _stream_export_csv(
     resp = client._session.get(url, stream=True, timeout=timeout)
     resp.raise_for_status()
     resp.encoding = "utf-8"
+
     lines = resp.iter_lines(decode_unicode=True)
-    next(lines, None)  # skip header — column order is known from ``keys``
+    next(lines, None)  # skip header
 
-    n_keys = len(keys)
-    tail_limit = rq.tail if rq is not None and rq.tail is not None else None
-    rows_per_key: List[Any] = [deque(maxlen=tail_limit) if tail_limit is not None else [] for _ in range(n_keys)]
+    max_len = rq.tail if rq is not None and rq.tail is not None else None
+    rows: Union[deque[Dict[str, Any]], List[Dict[str, Any]]] = deque(maxlen=max_len) if max_len is not None else []
 
+    # Pre-compute timestamp lower bound for ``last`` mode
     last_start_ts: Optional[int] = None
     if rq is not None and rq.last is not None:
         last_start_ts = int(time.time() * 1000) - rq.last
 
-    # CSV is ``ORDER BY step`` — safe to break once step exceeds the range end.
-    step_end_bound: Optional[int] = None
-    if rq is not None and rq.type != "timestamp" and last_start_ts is None and rq.end is not None:
-        step_end_bound = rq.end
-
-    head_limit = rq.head if rq is not None and rq.head is not None else None
     _warned_missing_ts = False
 
     for row in csv.reader(lines):
-        if not row:
+        if not row or len(row) < 2:
             continue
         try:
             step = int(row[0])
+            value = float(row[1])
         except (ValueError, IndexError):
             continue
 
-        if step_end_bound is not None and step > step_end_bound:
-            break
+        item: Dict[str, Any] = {"step": step, "value": value}
 
-        for i in range(n_keys):
-            vc = 1 + i * 2  # value column index
-            tc = 2 + i * 2  # timestamp column index
-            if vc >= len(row):
-                continue
-            raw_val = row[vc]
-            if not raw_val:
-                continue
+        if len(row) >= 3:
             try:
-                value = float(raw_val)
-            except ValueError:
-                continue
+                item["timestamp"] = int(row[2])
+            except (ValueError, IndexError):
+                pass
 
-            ts: Optional[int] = None
-            if tc < len(row) and row[tc]:
-                try:
-                    ts = int(row[tc])
-                except ValueError:
-                    pass
+        if rq is not None:
+            # --- ``last`` mode: filter by timestamp >= (now - last) ---
+            if last_start_ts is not None:
+                ts = item.get("timestamp")
+                if ts is None:
+                    if not _warned_missing_ts:
+                        console.warning("CSV row missing `timestamp` column.")
+                        _warned_missing_ts = True
+                    continue
+                if ts < last_start_ts:
+                    continue
+            # --- timestamp range mode ---
+            elif rq.type == "timestamp":
+                ts = item.get("timestamp")
+                if ts is None:
+                    if not _warned_missing_ts:
+                        console.warning("CSV row missing `timestamp` column.")
+                        _warned_missing_ts = True
+                    continue
+                if rq.start is not None and ts < rq.start:
+                    continue
+                if rq.end is not None and ts > rq.end:
+                    break
+            # --- step range mode ---
+            else:
+                if rq.start is not None and step < rq.start:
+                    continue
+                if rq.end is not None and step > rq.end:
+                    break
+            # --- head early-stop ---
+            if rq.head is not None and len(rows) >= rq.head:
+                break
 
-            if rq is not None:
-                # --- ``last`` mode: filter by timestamp >= (now - last) ---
-                if last_start_ts is not None:
-                    if ts is None:
-                        if not _warned_missing_ts:
-                            console.warning("CSV row missing `timestamp` column.")
-                            _warned_missing_ts = True
-                        continue
-                    if ts < last_start_ts:
-                        continue
-                # --- timestamp range mode ---
-                elif rq.type == "timestamp":
-                    if ts is None:
-                        if not _warned_missing_ts:
-                            console.warning("CSV row missing `timestamp` column.")
-                            _warned_missing_ts = True
-                        continue
-                    if rq.start is not None and ts < rq.start:
-                        continue
-                    if rq.end is not None and ts > rq.end:
-                        continue
-                # --- step range mode (end handled by step_end_bound break) ---
-                else:
-                    if rq.start is not None and step < rq.start:
-                        continue
+        rows.append(item)
 
-            item: Dict[str, Any] = {"step": step, "value": value}
-            if ts is not None:
-                item["timestamp"] = ts
-            rows_per_key[i].append(item)
-
-        # head early-stop: all keys collected enough rows
-        if head_limit is not None and all(len(r) >= head_limit for r in rows_per_key):
-            break
-
-    result: Dict[str, List[Dict[str, Any]]] = {}
-    for i, key in enumerate(keys):
-        rows = list(rows_per_key[i])
-        if head_limit is not None:
-            rows = rows[:head_limit]
-        result[key] = rows
-    return result
+    return list(rows)
 
 
 class Metric(BaseEntity):
@@ -217,7 +192,6 @@ class Metric(BaseEntity):
         all: bool = False,
         root_pro_id: str = "",
         root_exp_id: str = "",
-        experiment_name: str = "",
     ) -> None:
         super().__init__(ctx)
         validate_metric_type(metric_type, key)
@@ -238,7 +212,6 @@ class Metric(BaseEntity):
         self._all = all
         self._root_pro_id = root_pro_id
         self._root_exp_id = root_exp_id
-        self._experiment_name = experiment_name
 
     # 类型 → 加载方法 的分发表，新增类型只需在此注册
     _FETCH_DISPATCH = {
@@ -360,32 +333,6 @@ class Metric(BaseEntity):
         if step is not None:
             payload["step"] = step
         return payload
-
-    @staticmethod
-    def _build_export_payload(
-        project_id: str,
-        run_id: str,
-        keys: List[str],
-        experiment_name: str = "",
-        root_pro_id: str = "",
-        root_exp_id: str = "",
-    ) -> Dict[str, Any]:
-        """Build payload for ``POST /house/metrics/scalar/export``.
-
-        ``experimentName`` is required by the API but only used for CSV column
-        headers — the actual query uses ``experimentId``. Falls back to ``run_id``
-        when the real name is unavailable.
-        """
-        exp_name = experiment_name or run_id
-        columns: List[Dict[str, str]] = []
-        for key in keys:
-            col: Dict[str, str] = {"experimentName": exp_name, "experimentId": run_id, "key": key}
-            if root_pro_id:
-                col["rootProId"] = root_pro_id
-            if root_exp_id:
-                col["rootExpId"] = root_exp_id
-            columns.append(col)
-        return {"projectId": project_id, "columns": columns}
 
     def _build_log_params(self) -> Dict[str, Any]:
         params: Dict[str, Any] = {
@@ -569,31 +516,15 @@ class Metric(BaseEntity):
     # ------------------------------------------------------------------
 
     def export_csv(self) -> ApiResponseType:
-        """导出列数据为 CSV。
-
-        通过 ``POST /house/metrics/scalar/export`` 获取 ``key``，
-        再通过 ``/files/presigned/get`` 转换为预签名下载链接。
-        """
+        """导出列数据为 CSV。"""
         if self.metric_type != "SCALAR":
             return ApiResponseType(ok=False, errmsg="export_csv() only support SCALAR metric_type", data=None)
-        payload = Metric._build_export_payload(
-            self._project_id,
-            self._run_id,
-            [self.key],
-            experiment_name=self._experiment_name,
-            root_pro_id=self._root_pro_id,
-            root_exp_id=self._root_exp_id,
-        )
-        resp = self._post("/house/metrics/scalar/export", data=payload)
-        if not resp.ok or not resp.data:
+        resp = self._get(f"/experiment/{self._run_id}/column/csv", params={"key": self.key})
+        if not resp.ok:
             return resp
-        cos_key = resp.data.get("cosKey", "") if isinstance(resp.data, dict) else ""
-        if not cos_key:
-            return ApiResponseType(ok=False, errmsg="Invalid response format: missing cosKey", data=None)
-        url_map = Metric._fetch_file_presigned_urls(self, [cos_key])
-        url = url_map.get(cos_key, "")
+        url = _extract_csv_url(resp.data)
         if not url:
-            return ApiResponseType(ok=False, errmsg="Failed to get presigned download URL", data=None)
+            return ApiResponseType(ok=False, errmsg="Invalid response format", data=None)
         return ApiResponseType(ok=True, data=ApiColumnCsvExportType(url=url))
 
     def export_logs(self, start: int = 0, rows: int = 500_000) -> ApiResponseType:
@@ -687,7 +618,7 @@ class Metrics(BaseEntity):
         project_id: str,
         run_id: str,
         keys: List[str],
-        metric_type: ApiMetricKeyTypeLiteral,
+        metric_type: ApiMetricColumnTypeLiteral,
         sample: int = 1500,
         ignore_timestamp: bool = False,
         media_step: Optional[int] = None,
@@ -695,7 +626,6 @@ class Metrics(BaseEntity):
         range_query: Optional[RangeQuery] = None,
         root_pro_id: str = "",
         root_exp_id: str = "",
-        experiment_name: str = "",
     ) -> None:
         super().__init__(ctx)
         validate_metric_keys(keys)
@@ -715,7 +645,6 @@ class Metrics(BaseEntity):
         self._range_query = range_query
         self._root_pro_id = root_pro_id
         self._root_exp_id = root_exp_id
-        self._experiment_name = experiment_name
         self._page_info: Dict[str, Any] = {
             "keys": keys,
             "metricType": metric_type,
@@ -803,7 +732,6 @@ class Metrics(BaseEntity):
             all=self._all,
             root_pro_id=self._root_pro_id,
             root_exp_id=self._root_exp_id,
-            experiment_name=self._experiment_name,
         )
 
     # ------------------------------------------------------------------
@@ -891,43 +819,38 @@ class Metrics(BaseEntity):
     # ------------------------------------------------------------------
 
     def _fetch_scalar_csv(self, keys: List[str]) -> List[Dict[str, Any]]:
-        """CSV 全量下载 + value stats，使用 House 批量导出接口。
+        """CSV 全量下载 + value stats，URL 获取并发，CSV 顺序下载。
 
-        通过 ``POST /house/metrics/scalar/export`` 一次性导出所有 key 到一个 CSV 文件，
-        再通过 ``/files/presigned/get`` 获取预签名下载链接。
-        value stats 批量获取，与导出请求并发执行。
+        value stats 通过后端 ``columns`` 批量获取；
+        CSV presigned URL 通过 ``GET /experiment/{run_id}/column/csv`` per-key 获取，
+        多 key 时并发拉取 URL，但 CSV 下载为顺序执行（每批最多 4 个 key）。
         """
-        # 并发：step 统计 + time 统计 + 批量 CSV 导出
+        # 并发：step 统计 + time 统计 + per-key CSV URL
         requests: List[tuple] = self._build_value_stats_requests(keys)
-        export_payload = Metric._build_export_payload(
-            self._project_id,
-            self._run_id,
-            keys,
-            experiment_name=self._experiment_name,
-            root_pro_id=self._root_pro_id,
-            root_exp_id=self._root_exp_id,
-        )
-        requests.append((self._post, "/house/metrics/scalar/export", {"data": export_payload}))
+        for key in keys:
+            requests.append((self._get, f"/experiment/{self._run_id}/column/csv", {"params": {"key": key}}))
 
         all_resps = self._concurrent_request(requests)
         step_resp, time_resp = all_resps[0], all_resps[1]
-        export_resp = all_resps[2]
+        csv_resps = all_resps[2:]
 
         value_list = self._extract_value_stats(step_resp, time_resp, keys)
         value_by_key: Dict[str, Dict[str, Any]] = {keys[i]: v for i, v in enumerate(value_list)}
 
-        # cosKey → presigned URL → download → parse per-key rows
-        metrics_by_key: Dict[str, Any] = {key: [] for key in keys}
-        cos_key = ""
-        if export_resp.ok and isinstance(export_resp.data, dict):
-            cos_key = export_resp.data.get("cosKey", "")
-        if cos_key:
-            url_map = Metric._fetch_file_presigned_urls(self, [cos_key])
-            url = url_map.get(cos_key, "")
-            if url:
-                parsed = _stream_export_csv(self._ctx.client, url, keys, self._range_query)
-                if parsed:
-                    metrics_by_key = parsed
+        # 提取 presigned CSV URL（按 key 索引）
+        url_by_key: Dict[str, Optional[str]] = {}
+        for i, key in enumerate(keys):
+            url = ""
+            if i < len(csv_resps) and csv_resps[i].ok and csv_resps[i].data:
+                url = _extract_csv_url(csv_resps[i].data)
+            url_by_key[key] = url or None
+
+        # 下载 CSV 并解析（每批最多 _BATCH_SIZE 个 key，穿行执行防止并发膨胀）
+        urls_ordered = [url_by_key.get(key) for key in keys]
+        csv_rows_list = self._download_csvs(urls_ordered)
+        metrics_by_key: Dict[str, Any] = {
+            keys[i]: csv_rows_list[i] if i < len(csv_rows_list) else [] for i, key in enumerate(keys)
+        }
 
         return self._build_scalar_results(keys, metrics_by_key, value_by_key)
 
@@ -957,6 +880,21 @@ class Metrics(BaseEntity):
             if stats:
                 data.update(stats)
             results.append(data)
+        return results
+
+    # ------------------------------------------------------------------
+    # CSV 后处理
+    # ------------------------------------------------------------------
+
+    def _download_csvs(self, urls: List[Optional[str]]) -> List[List[Dict[str, Any]]]:
+        """顺序下载并解析 CSV 文件（每批最多 ``_BATCH_SIZE`` 个 key，无需并发）。"""
+        results: List[List[Dict[str, Any]]] = []
+        for url in urls:
+            if url:
+                rows = _stream_csv_rows(self._ctx.client, url, self._range_query)
+                results.append(rows or [])
+            else:
+                results.append([])
         return results
 
     # ------------------------------------------------------------------

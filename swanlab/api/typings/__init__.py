@@ -10,8 +10,7 @@ from .common import (
     ApiIdentityLiteral,
     ApiLicensePlanLiteral,
     ApiMetricAllTypeLiteral,
-    ApiMetricKeyClassLiteral,
-    ApiMetricKeyTypeLiteral,
+    ApiMetricColumnTypeLiteral,
     ApiMetricLogLevelLiteral,
     ApiMetricXAxisLiteral,
     ApiPaginationType,
@@ -44,7 +43,7 @@ __all__ = [
     "ApiLicensePlanLiteral",
     "ApiMetricLogLevelLiteral",
     "ApiMetricAllTypeLiteral",
-    "ApiMetricKeyTypeLiteral",
+    "ApiMetricColumnTypeLiteral",
     "ApiMetricXAxisLiteral",
     # General TypedDicts
     "ApiPaginationType",
@@ -69,7 +68,6 @@ __all__ = [
     "ApiColumnType",
     "ApiColumnCsvExportType",
     # Metric
-    "ApiMetricKeyClassLiteral",
     "ApiLogSeriesType",
     "ApiMediaSeriesType",
     "ApiScalarSeriesType",
