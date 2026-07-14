@@ -147,7 +147,7 @@ VALID_PAGE_SIZES = (10, 12, 15, 20, 24, 27, 50, 100)
 MAX_CONCURRENT_COUNT: int = 4
 
 # CH 每次查询 key 数量上限
-MAX_METRIC_KEY_BATCH_SIZE: int = 4
+MAX_METRIC_KEY_BATCH_SIZE: int = 16
 
 
 class RangeQuery(BaseModel, frozen=True):
