@@ -3,6 +3,11 @@
 @file: column.py
 @time: 2026/4/20
 @description: Column 实体类 — 实验列的查询与操作
+
+.. deprecated::
+    Use :meth:`Api.series` / :meth:`Experiment.series` instead.
+    Column metadata (name/class/type) is no longer maintained by the backend;
+    ``Series`` offers cursor-paginated key listing directly from House.
 """
 
 from typing import Any, Callable, Dict, Iterator, Optional, cast
@@ -12,7 +17,7 @@ from swanlab.api.typings.column import ApiColumnType
 from swanlab.api.typings.common import (
     ApiColumnClassLiteral,
     ApiColumnDataTypeLiteral,
-    ApiMetricColumnTypeLiteral,
+    ApiMetricKeyTypeLiteral,
     ApiResponseType,
     PaginatedQuery,
 )
@@ -157,7 +162,7 @@ class Column(BaseEntity):
     def metric(
         self,
         sample: int = 1500,
-        metric_type: ApiMetricColumnTypeLiteral = "SCALAR",
+        metric_type: ApiMetricKeyTypeLiteral = "SCALAR",
         ignore_timestamp: bool = False,
         media_step: Optional[int] = None,
     ) -> Dict[str, Any]:

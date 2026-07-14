@@ -12,6 +12,8 @@ from swanlab.api.typings.common import (
     VALID_PAGE_SIZES,
     ApiColumnClassLiteral,
     ApiColumnDataTypeLiteral,
+    ApiMetricKeyClassLiteral,
+    ApiMetricKeyTypeLiteral,
     ApiMetricLogLevelLiteral,
     ApiResponseType,
     ApiVisibilityLiteral,
@@ -26,6 +28,8 @@ class _SaveFormatEnum(enum.Enum):
 PAGE_SIZE_TYPE = click.Choice([str(s) for s in VALID_PAGE_SIZES])
 COLUMN_CLASS_TYPE = click.Choice(list(get_args(ApiColumnClassLiteral)), case_sensitive=False)
 COLUMN_DATA_TYPE = click.Choice(list(get_args(ApiColumnDataTypeLiteral)), case_sensitive=False)
+METRIC_KEY_TYPE = click.Choice(list(get_args(ApiMetricKeyTypeLiteral)), case_sensitive=False)
+METRIC_KEY_CLASS = click.Choice(list(get_args(ApiMetricKeyClassLiteral)), case_sensitive=False)
 VISIBILITY_TYPE = click.Choice(list(get_args(ApiVisibilityLiteral)), case_sensitive=False)
 METRIC_LOG_LEVEL_TYPE = click.Choice(list(get_args(ApiMetricLogLevelLiteral)), case_sensitive=False)
 
