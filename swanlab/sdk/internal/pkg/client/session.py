@@ -59,8 +59,8 @@ class TimeoutHTTPAdapter(HTTPAdapter):
         super().__init__(*args, **kwargs)
 
     def send(self, request, *args, **kwargs):
-        if self.timeout is not None:
-            kwargs.setdefault("timeout", self.timeout)
+        if self.timeout is not None and kwargs.get("timeout") is None:
+            kwargs["timeout"] = self.timeout
 
         # 2. 直接从上下文中读取 retries，无需触碰 request.headers
         retries = request_retries_ctx.get()

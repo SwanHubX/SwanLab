@@ -68,9 +68,19 @@ class Dispatch:
         """单 chunk 上传。返回 True 表示成功，False 表示失败。"""
         if self._sender is None:
             raise RuntimeError("sender not set")
+        if record_type == "log":
+            console.debug(
+                f"Dispatching log records: count={len(chunk)}, nums={chunk[0].num}..{chunk[-1].num}",
+                write_to_tty=False,
+            )
         with safe.block(message=f"record chunk upload failed, record_type={record_type!r}", write_to_tty=False):
             # ⚠️：在持续断网的状态下，上传失败可能会重复打印，破坏掉 transport 层的 UploadWarningThrottle
             self._sender.upload(record_type, chunk)
+            if record_type == "log":
+                console.debug(
+                    f"Log sender completed: count={len(chunk)}, nums={chunk[0].num}..{chunk[-1].num}",
+                    write_to_tty=False,
+                )
             return True
         return False
 

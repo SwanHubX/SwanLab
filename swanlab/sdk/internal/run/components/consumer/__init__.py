@@ -179,6 +179,7 @@ class BackgroundConsumer(ConsumerProtocol):
             self._save_batch.append(self._builder.build_config(event))
         elif isinstance(event, LogEvent):
             self._log_batch.append(self._builder.build_log(event))
+            console.debug(f"Buffered terminal log record: pending={len(self._log_batch)}", write_to_tty=False)
         elif isinstance(event, FileSaveEvent):
             self._save_batch.append(self._builder.build_save(event))
 
@@ -210,7 +211,9 @@ class BackgroundConsumer(ConsumerProtocol):
             on_error=lambda _: self._restore_batches(log_batch, column_batch, scalar_batch, media_batch, save_batch),
         ):
             if log_batch:
+                console.debug(f"Flushing log records to core: count={len(log_batch)}", write_to_tty=False)
                 self._core.upsert_logs(log_batch)
+                console.debug(f"Core log call completed: count={len(log_batch)}", write_to_tty=False)
                 self._callbacker.on_log_flush(log_batch)
                 log_batch = []
 
