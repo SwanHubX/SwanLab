@@ -123,7 +123,8 @@ class CoreSyncPython(CoreSyncProtocol):
             self._ctx.set_online_params(
                 username=result.username,
                 project=result.project,
-                project_id=result.project_info["cuid"],
+                project_id=result.project_data["cuid"],
+                project_version=result.project_data.get("version", None),
                 experiment_id=result.experiment["cuid"],
             )
 

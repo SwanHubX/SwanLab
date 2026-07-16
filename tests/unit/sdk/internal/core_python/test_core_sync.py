@@ -73,10 +73,10 @@ def make_prepare_result(new_experiment: bool = True) -> PrepareExperimentStartRe
     return PrepareExperimentStartResult(
         username="alice",
         project="demo",
-        project_info={
+        project_data={
             "cuid": "project-id",
             "name": "demo",
-            "username": "alice",
+            "group": {"username": "alice"},
             "path": "/alice/demo",
             "visibility": "PRIVATE",
             "_count": {"experiments": 1, "contributors": 0, "collaborators": 0, "clones": 0},
@@ -390,7 +390,7 @@ def test_deliver_sync_flush_returns_failure_when_metrics_init_fails(tmp_path: Pa
 def test_read_uploads_newer_logs_and_captures_finish_record(tmp_path: Path):
     core = CoreSyncPython()
     core._ctx = CoreContext(config=make_core_config(tmp_path), mode="sync")
-    core._ctx.set_online_params("alice", "demo", "project-id", "experiment-id")
+    core._ctx.set_online_params("alice", "demo", "project-id", None, "experiment-id")
     finish_record = FinishRecord(state=RunState.RUN_STATE_FINISHED, finished_at=make_timestamp())
     old_log = Record(log=LogRecord(epoch=1, level=LogLevel.LOG_LEVEL_INFO, line="old"))
     new_log = Record(log=LogRecord(epoch=3, level=LogLevel.LOG_LEVEL_INFO, line="new"))
@@ -411,7 +411,7 @@ def test_read_uploads_newer_logs_and_captures_finish_record(tmp_path: Path):
 def test_read_skips_columns_already_in_metrics(tmp_path: Path):
     core = CoreSyncPython()
     core._ctx = CoreContext(config=make_core_config(tmp_path), mode="sync")
-    core._ctx.set_online_params("alice", "demo", "project-id", "experiment-id")
+    core._ctx.set_online_params("alice", "demo", "project-id", None, "experiment-id")
     core._reader = FakeReader(  # type: ignore[assignment]
         [Record(column=ColumnRecord(column_key="loss", column_type=ColumnType.COLUMN_TYPE_SCALAR))]
     )
@@ -429,7 +429,7 @@ def test_read_skips_columns_already_in_metrics(tmp_path: Path):
 def test_read_auto_defines_scalar_column_when_metric_is_missing(tmp_path: Path):
     core = CoreSyncPython()
     core._ctx = CoreContext(config=make_core_config(tmp_path), mode="sync")
-    core._ctx.set_online_params("alice", "demo", "project-id", "experiment-id")
+    core._ctx.set_online_params("alice", "demo", "project-id", None, "experiment-id")
     scalar = ScalarRecord(
         key="loss",
         step=1,
@@ -453,7 +453,7 @@ def test_read_auto_defines_scalar_column_when_metric_is_missing(tmp_path: Path):
 def test_read_auto_defines_media_column_when_metric_is_missing(tmp_path: Path):
     core = CoreSyncPython()
     core._ctx = CoreContext(config=make_core_config(tmp_path), mode="sync")
-    core._ctx.set_online_params("alice", "demo", "project-id", "experiment-id")
+    core._ctx.set_online_params("alice", "demo", "project-id", None, "experiment-id")
     media = MediaRecord(key="images/sample", step=1, type=ColumnType.COLUMN_TYPE_IMAGE)
     core._reader = FakeReader([Record(media=media)])  # type: ignore[assignment]
     transport = FakeTransport(core._ctx)
@@ -472,7 +472,7 @@ def test_read_auto_defines_media_column_when_metric_is_missing(tmp_path: Path):
 def test_read_skips_invalid_protobuf_payload_and_continues(tmp_path: Path):
     core = CoreSyncPython()
     core._ctx = CoreContext(config=make_core_config(tmp_path), mode="sync")
-    core._ctx.set_online_params("alice", "demo", "project-id", "experiment-id")
+    core._ctx.set_online_params("alice", "demo", "project-id", None, "experiment-id")
     first = Record(
         scalar=ScalarRecord(
             key="loss",
@@ -506,7 +506,7 @@ def test_read_skips_invalid_protobuf_payload_and_continues(tmp_path: Path):
 def test_confirm_sync_finish_marks_missing_finish_record_as_crashed(tmp_path: Path, monkeypatch):
     core = CoreSyncPython()
     core._ctx = CoreContext(config=make_core_config(tmp_path), mode="sync")
-    core._ctx.set_online_params("alice", "demo", "project-id", "experiment-id")
+    core._ctx.set_online_params("alice", "demo", "project-id", None, "experiment-id")
     transport = FakeTransport(core._ctx)
     core._transport = transport  # type: ignore[assignment]
     core._read_executor = FakeExecutor()  # type: ignore[assignment]
@@ -528,7 +528,7 @@ def test_confirm_sync_finish_marks_missing_finish_record_as_crashed(tmp_path: Pa
 def test_confirm_sync_finish_uploads_error_log_for_failed_finish_record(tmp_path: Path, monkeypatch):
     core = CoreSyncPython()
     core._ctx = CoreContext(config=make_core_config(tmp_path), mode="sync")
-    core._ctx.set_online_params("alice", "demo", "project-id", "experiment-id")
+    core._ctx.set_online_params("alice", "demo", "project-id", None, "experiment-id")
     transport = FakeTransport(core._ctx)
     core._transport = transport  # type: ignore[assignment]
     core._read_executor = FakeExecutor()  # type: ignore[assignment]
@@ -557,7 +557,7 @@ def test_confirm_sync_finish_uploads_error_log_for_failed_finish_record(tmp_path
 def test_confirm_sync_finish_uses_existing_finish_record(tmp_path: Path, monkeypatch):
     core = CoreSyncPython()
     core._ctx = CoreContext(config=make_core_config(tmp_path), mode="sync")
-    core._ctx.set_online_params("alice", "demo", "project-id", "experiment-id")
+    core._ctx.set_online_params("alice", "demo", "project-id", None, "experiment-id")
     transport = FakeTransport(core._ctx)
     core._transport = transport  # type: ignore[assignment]
     core._read_executor = FakeExecutor()  # type: ignore[assignment]

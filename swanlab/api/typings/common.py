@@ -66,7 +66,11 @@ ApiIdentityLiteral = Literal["root", "user"]
 ApiLicensePlanLiteral = Literal["free", "commercial"]
 
 # 指标类型（log 不属于 column-backed metrics，使用独立查询方法）
-ApiMetricColumnTypeLiteral = Literal["SCALAR", "MEDIA"]
+ApiMetricKeyTypeLiteral = Literal["SCALAR", "MEDIA"]
+
+# 指标 key 分类(自定义与系统指标）
+ApiMetricKeyClassLiteral = Literal["CUSTOM", "SYSTEM"]
+
 
 # 指标扩展类型（包含 LOG，用于内部 Metric 调度）
 ApiMetricAllTypeLiteral = Literal["SCALAR", "MEDIA", "LOG"]
@@ -143,7 +147,7 @@ VALID_PAGE_SIZES = (10, 12, 15, 20, 24, 27, 50, 100)
 MAX_CONCURRENT_COUNT: int = 4
 
 # CH 每次查询 key 数量上限
-MAX_METRIC_KEY_BATCH_SIZE: int = 4
+MAX_METRIC_KEY_BATCH_SIZE: int = 16
 
 
 class RangeQuery(BaseModel, frozen=True):

@@ -61,10 +61,10 @@ def make_prepare_result(new_experiment: bool = True) -> PrepareExperimentStartRe
     return PrepareExperimentStartResult(
         username="alice",
         project="demo",
-        project_info={
+        project_data={
             "cuid": "project-id",
             "name": "demo",
-            "username": "alice",
+            "group": {"username": "alice"},
             "path": "/alice/demo",
             "visibility": "PRIVATE",
             "_count": {"experiments": 0, "contributors": 0, "collaborators": 0, "clones": 0},

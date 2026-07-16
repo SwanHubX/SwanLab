@@ -14,7 +14,7 @@ from swanlab.sdk.cmd.merge_callbacks import merge_callbacks
 def register_callbacks(*args, **kwargs):
     warnings.warn(
         "`swanlab.register_callbacks()` is deprecated, use `swanlab.merge_callbacks()` instead",
-        DeprecationWarning,
+        FutureWarning,
         stacklevel=2,
     )
     return merge_callbacks(*args, **kwargs)

@@ -5,7 +5,7 @@ from unittest.mock import ANY, MagicMock, patch
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.exceptions import ApiError
-from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
+from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord, ColumnType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaItem, MediaRecord, MediaValue
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord, SaveType
@@ -66,6 +66,7 @@ def _make_sender(
         username="alice",
         project="demo",
         project_id="project-id",
+        project_version=1,
         experiment_id="experiment-id",
     )
     return HttpRecordSender(ctx=ctx)
@@ -91,6 +92,22 @@ def _make_media_record(filename: str, media_type=ColumnType.COLUMN_TYPE_IMAGE) -
             value=MediaValue(items=[MediaItem(filename=filename)]),
         )
     )
+
+
+def test_upload_column_batches_all_columns_without_dropping_tail(tmp_path: Path):
+    sender = _make_sender(tmp_path)
+    records = [
+        Record(column=ColumnRecord(column_key=f"metric-{index}", column_type=ColumnType.COLUMN_TYPE_SCALAR))
+        for index in range(3)
+    ]
+
+    with patch("swanlab.sdk.internal.core_python.transport.sender.upload_columns") as mock_upload_columns:
+        sender.upload_column(records, batch_size=2)
+
+    assert mock_upload_columns.call_count == 2
+    assert [call.args[:2] for call in mock_upload_columns.call_args_list] == [("alice", "demo"), ("alice", "demo")]
+    batches = [call.kwargs["columns"]["series"] for call in mock_upload_columns.call_args_list]
+    assert [[column["key"] for column in batch] for batch in batches] == [["metric-0", "metric-1"], ["metric-2"]]
 
 
 def test_upload_save_delegates_small_file_s3_put_to_upload_resources(tmp_path: Path):

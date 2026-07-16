@@ -44,6 +44,7 @@ class Client:
         # 移除末尾的斜杠，防止 URL 拼接时出现双斜杠
         self._base_url = nrc.fmt(base_url) + "/api"
         self._expired_at: Optional[datetime] = None
+        self._username: Optional[str] = None
 
         # 初始化时仅创建一次会话，以复用底层 TCP 连接池
         self._session: session.SessionWithRetry = session.create()
@@ -75,6 +76,7 @@ class Client:
         self._expired_at = datetime.strptime(login_resp["expiredAt"], "%Y-%m-%dT%H:%M:%S.%fZ").replace(
             tzinfo=timezone.utc
         )
+        self._username = login_resp["userInfo"]["username"]
         return login_resp
 
     def _before_request(self):
@@ -87,6 +89,11 @@ class Client:
             self._refresh_auth()
         return None
 
+    @property
+    def username(self) -> str:
+        assert self._username is not None, "Username is not set. Ensure that the client is authenticated."
+        return self._username
+
     # ---------------------------------- 实例 HTTP 方法 ----------------------------------
     def request(self, method: str, url: str, **kwargs):
         """基础请求方法封装"""
@@ -96,17 +103,17 @@ class Client:
         resp = self._session.request(method, full_url, **kwargs)
         return ApiResponse(data=decode_response(resp), raw=resp)
 
-    def get(self, url: str, params: Optional[JSONDict] = None, retries: Optional[int] = None):
-        return self.request("GET", url, params=params, retries=retries)
+    def get(self, url: str, params: Optional[JSONDict] = None, retries: Optional[int] = None, log_error: bool = True):
+        return self.request("GET", url, params=params, retries=retries, log_error=log_error)
 
-    def post(self, url: str, data: JSONBody = None, retries: Optional[int] = None):
-        return self.request("POST", url, json=data, retries=retries)
+    def post(self, url: str, data: JSONBody = None, retries: Optional[int] = None, log_error: bool = True):
+        return self.request("POST", url, json=data, retries=retries, log_error=log_error)
 
-    def put(self, url: str, data: JSONBody = None, retries: Optional[int] = None):
-        return self.request("PUT", url, json=data, retries=retries)
+    def put(self, url: str, data: JSONBody = None, retries: Optional[int] = None, log_error: bool = True):
+        return self.request("PUT", url, json=data, retries=retries, log_error=log_error)
 
-    def patch(self, url: str, data: JSONBody = None, retries: Optional[int] = None):
-        return self.request("PATCH", url, json=data, retries=retries)
+    def patch(self, url: str, data: JSONBody = None, retries: Optional[int] = None, log_error: bool = True):
+        return self.request("PATCH", url, json=data, retries=retries, log_error=log_error)
 
-    def delete(self, url: str, retries: Optional[int] = None):
-        return self.request("DELETE", url, retries=retries)
+    def delete(self, url: str, retries: Optional[int] = None, log_error: bool = True):
+        return self.request("DELETE", url, retries=retries, log_error=log_error)

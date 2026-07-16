@@ -15,6 +15,15 @@ from swanlab.sdk.internal.pkg import nrc
 from swanlab.sdk.internal.settings import Settings, settings
 
 
+def make_login_resp(**overrides) -> dict:
+    return {
+        "sid": "mock_sid",
+        "expiredAt": "2099-12-31T23:59:59.000Z",
+        "userInfo": {"username": "mock_user", "name": "Mock User"},
+        **overrides,
+    }
+
+
 class TestLoginE2E:
     @staticmethod
     def _reinit_settings():
@@ -42,7 +51,7 @@ class TestLoginE2E:
         responses.add(
             responses.POST,
             f"{expected_clean_host}/api/login/api_key",
-            json={"sid": "mock_sid", "expiredAt": "2099-12-31T23:59:59.000Z"},
+            json=make_login_resp(),
             status=200,
         )
 
@@ -62,7 +71,7 @@ class TestLoginE2E:
         responses.add(
             responses.POST,
             f"{expected_api_host}/api/login/api_key",
-            json={"sid": "mock_sid", "expiredAt": "2099-12-31T23:59:59.000Z"},
+            json=make_login_resp(),
             status=200,
         )
 
@@ -81,7 +90,7 @@ class TestLoginE2E:
         responses.add(
             responses.POST,
             "https://api.swanlab.cn/api/login/api_key",
-            json={"sid": "mock_sid", "expiredAt": "2099-12-31T23:59:59.000Z"},
+            json=make_login_resp(),
             status=200,
         )
         login(api_key="first-key")
@@ -113,7 +122,7 @@ class TestLoginE2E:
         responses.add(
             responses.POST,
             "https://api.swanlab.cn/api/login/api_key",
-            json={"sid": "mock_sid", "user": "mock_user", "expiredAt": "2099-12-31T23:59:59.000Z"},
+            json=make_login_resp(user="mock_user"),
             status=200,
         )
 
@@ -133,7 +142,7 @@ class TestLoginE2E:
         responses.add(
             responses.POST,
             "https://fake.swanlab.cn/api/login/api_key",
-            json={"sid": "mock_sid", "user": "mock_user", "expiredAt": "2099-12-31T23:59:59.000Z"},
+            json=make_login_resp(user="mock_user"),
             status=200,
         )
 
@@ -159,13 +168,13 @@ class TestLoginE2E:
         responses.add(
             responses.POST,
             "https://api.swanlab.cn/api/login/api_key",
-            json={"sid": "initial_sid", "expiredAt": "2099-12-31T23:59:59.000Z"},
+            json=make_login_resp(sid="initial_sid"),
             status=200,
         )
         responses.add(
             responses.POST,
             f"{custom_host}/api/login/api_key",
-            json={"sid": "mock_private_sid", "expiredAt": "2099-12-31T23:59:59.000Z"},
+            json=make_login_resp(sid="mock_private_sid"),
             status=200,
         )
 
@@ -204,7 +213,7 @@ class TestLoginE2E:
         responses.add(
             responses.POST,
             f"{old_host}/api/login/api_key",
-            json={"sid": "mock_old_sid", "expiredAt": "2099-12-31T23:59:59.000Z"},
+            json=make_login_resp(sid="mock_old_sid"),
             status=200,
         )
 
@@ -226,13 +235,13 @@ class TestLoginE2E:
         responses.add(
             responses.POST,
             f"{host_a}/api/login/api_key",
-            json={"sid": "sid_a", "expiredAt": "2099-12-31T23:59:59.000Z"},
+            json=make_login_resp(sid="sid_a"),
             status=200,
         )
         responses.add(
             responses.POST,
             f"{host_b}/api/login/api_key",
-            json={"sid": "sid_b", "expiredAt": "2099-12-31T23:59:59.000Z"},
+            json=make_login_resp(sid="sid_b"),
             status=200,
         )
 
@@ -269,7 +278,7 @@ class TestLoginE2E:
         responses.add(
             responses.POST,
             f"{new_host}/api/login/api_key",
-            json={"sid": "mock_sid", "expiredAt": "2099-12-31T23:59:59.000Z"},
+            json=make_login_resp(),
             status=200,
         )
 
@@ -298,7 +307,7 @@ class TestLoginE2E:
         responses.add(
             responses.POST,
             f"{stored_host}/api/login/api_key",
-            json={"sid": "mock_sid", "expiredAt": "2099-12-31T23:59:59.000Z"},
+            json=make_login_resp(),
             status=200,
         )
 
@@ -352,7 +361,7 @@ class TestLoginE2E:
         responses.add(
             responses.POST,
             f"{new_host}/api/login/api_key",
-            json={"sid": "mock_sid", "expiredAt": "2099-12-31T23:59:59.000Z"},
+            json=make_login_resp(),
             status=200,
         )
 
@@ -381,7 +390,7 @@ class TestLoginE2E:
         responses.add(
             responses.POST,
             "https://api.swanlab.cn/api/login/api_key",
-            json={"sid": "mock_sid", "expiredAt": "2099-12-31T23:59:59.000Z"},
+            json=make_login_resp(),
             status=200,
         )
 
@@ -400,7 +409,7 @@ class TestLoginE2E:
         responses.add(
             responses.POST,
             "https://api.swanlab.cn/api/login/api_key",
-            json={"sid": "mock_sid", "expiredAt": "2099-12-31T23:59:59.000Z"},
+            json=make_login_resp(),
             status=200,
         )
 
@@ -420,7 +429,7 @@ class TestLoginE2E:
         responses.add(
             responses.POST,
             "https://api.swanlab.cn/api/login/api_key",
-            json={"sid": "mock_sid", "expiredAt": "2099-12-31T23:59:59.000Z"},
+            json=make_login_resp(),
             status=200,
         )
 

@@ -25,6 +25,7 @@ VERSION_HEADER = "X-SwanLab-SDK-Version"
 TRACE_ID = "swanlab.client"
 # 用于存储当前请求的重试次数，避免在请求中传递 retries 参数
 request_retries_ctx: contextvars.ContextVar[Optional[int]] = contextvars.ContextVar("request_retries", default=None)
+request_log_error_ctx: contextvars.ContextVar[bool] = contextvars.ContextVar("request_log_error", default=True)
 
 
 class WarningRetry(Retry):
@@ -78,23 +79,22 @@ class TimeoutHTTPAdapter(HTTPAdapter):
 
 class SessionWithRetry(Session):
     """
-    支持在请求级别自定义重试次数的 Session。
-    通过拦截 retries 参数并将其转化为隐式 Header 传递给 Adapter。
+    支持在请求级别自定义重试次数和错误日志开关的 Session。
     """
 
     def request(self, method, url, *args, **kwargs):
         retries = kwargs.pop("retries", None)
+        log_error = kwargs.pop("log_error", True)
 
-        if retries is not None:
-            # 3. 将自定义参数放入上下文，并获取 token 以便后续清理
-            token = request_retries_ctx.set(retries)
-            try:
-                return super().request(method, url, *args, **kwargs)
-            finally:
-                # 4. 请求结束后，务必清理上下文，避免影响复用该线程的其他请求
-                request_retries_ctx.reset(token)
-        else:
+        retries_token = request_retries_ctx.set(retries) if retries is not None else None
+        log_error_token = request_log_error_ctx.set(log_error)
+        try:
             return super().request(method, url, *args, **kwargs)
+        finally:
+            # 请求结束后清理上下文，避免影响复用该线程的其他请求。
+            request_log_error_ctx.reset(log_error_token)
+            if retries_token is not None:
+                request_retries_ctx.reset(retries_token)
 
     def send(self, request, **kwargs):
         """
@@ -127,9 +127,7 @@ class SessionWithRetry(Session):
             error_code, error_message = decoded
 
         # 4. 记录错误日志
-        # 对于 POST /api/project 接口不记录错误日志，因为是预期行为
-        # FIXME 等待后端新增专用接口后删除此特殊处理
-        if not (method == "POST" and request.url.endswith("/api/project")):
+        if request_log_error_ctx.get():
             console.error(
                 f"[HTTP] {method} {request.url} -> {response.status_code} ({elapsed_ms:.0f}ms) trace:{trace_id}"
                 f" | [ERR] code={error_code} message={error_message}"

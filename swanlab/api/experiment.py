@@ -5,13 +5,19 @@
 @description: Experiment 实体类 — 单个实验的查询与操作
 """
 
-from typing import Any, Dict, Iterator, List, Optional, Union, cast
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union, cast
+
+from typing_extensions import deprecated
 
 from swanlab.api.base import ApiClientContext, BaseEntity
 from swanlab.api.typings import ApiResponseType
 from swanlab.api.typings.common import (
     ApiColumnClassLiteral,
     ApiColumnDataTypeLiteral,
+    ApiMetricKeyClassLiteral,
+    ApiMetricKeyTypeLiteral,
     ApiMetricLogLevelLiteral,
     PaginatedQuery,
     RangeQuery,
@@ -32,6 +38,9 @@ from swanlab.api.utils import (
     validate_update_active,
 )
 from swanlab.sdk.internal.pkg import console
+
+if TYPE_CHECKING:
+    from swanlab.api.series import Series
 
 
 class Experiment(BaseEntity):
@@ -165,6 +174,7 @@ class Experiment(BaseEntity):
                 data = self._data
         return cast(ApiExperimentProfileType, self._ensure_data().get("profile", {}))
 
+    @deprecated("Use `series()` method instead.")
     def column(
         self,
         key: str,
@@ -306,6 +316,7 @@ class Experiment(BaseEntity):
             range_query=rq,
             root_pro_id=self.root_pro_id,
             root_exp_id=self.root_exp_id,
+            experiment_name=self.name,
         ).json()
 
     def summary(
@@ -407,6 +418,7 @@ class Experiment(BaseEntity):
         )
         return metric.export_logs(start=start, rows=rows)
 
+    @deprecated("Use `series()` method instead.")
     def columns(
         self,
         page: int = 1,
@@ -418,9 +430,6 @@ class Experiment(BaseEntity):
     ):
         """
         List columns under this experiment (paginated, with optional fuzzy search).
-
-        The ``search`` parameter performs **fuzzy matching** (case-insensitive ``contains``)
-        on the column ``name`` field.
 
         :param page: Page number, default 1
         :param size: Page size, default 100
@@ -444,6 +453,44 @@ class Experiment(BaseEntity):
             project_id_getter=lambda: self.project_id,
             root_pro_id=self.root_pro_id,
             root_exp_id=self.root_exp_id,
+        )
+
+    def series(
+        self,
+        metric_type: ApiMetricKeyTypeLiteral = "SCALAR",
+        metric_class: ApiMetricKeyClassLiteral = "CUSTOM",
+        search: str = "",
+    ) -> "Series":
+        """
+        List all metric keys for this experiment.
+
+        :param metric_type: ``"SCALAR"`` (default) or ``"MEDIA"``.
+        :param metric_class: ``"CUSTOM"`` (default) or ``"SYSTEM"`` — filter keys by class.
+        :param search: Fuzzy search filter — case-insensitive substring match on key names.
+        :returns: :class:`Series`
+        """
+        from swanlab.api.series import Series
+
+        run_id = self.run_id
+        project_id = self.project_id
+        root_pro_id = self.root_pro_id
+        root_exp_id = self.root_exp_id
+
+        # 克隆实验的数据存在根实验下，因此查询时直接用根实验的 ID。
+        query_pro_id = root_pro_id or project_id
+        query_exp_id = root_exp_id or run_id
+        experiments: List[Dict[str, str]] = [{"projectId": query_pro_id, "experimentId": query_exp_id}]
+        return Series(
+            self._ctx,
+            experiments=experiments,
+            metric_type=metric_type,
+            metric_class=metric_class,
+            search=search,
+            project_id=project_id,
+            run_id=run_id,
+            root_pro_id=root_pro_id,
+            root_exp_id=root_exp_id,
+            experiment_name_getter=lambda: self.name,
         )
 
     def delete(self, commit: bool = False) -> bool:

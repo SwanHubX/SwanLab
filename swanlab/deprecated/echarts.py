@@ -14,7 +14,7 @@ from swanlab.sdk.internal.run.transforms import echarts
 def roc_curve(*args, **kwargs):
     warnings.warn(
         "`swanlab.roc_curve()` is deprecated, use `swanlab.echarts.roc_curve()` instead",
-        DeprecationWarning,
+        FutureWarning,
         stacklevel=2,
     )
     return echarts.roc_curve(*args, **kwargs)
@@ -23,7 +23,7 @@ def roc_curve(*args, **kwargs):
 @deprecated("use `swanlab.echarts.pr_curve()` instead")
 def pr_curve(*args, **kwargs):
     warnings.warn(
-        "`swanlab.pr_curve()` is deprecated, use `swanlab.echarts.pr_curve()` instead", DeprecationWarning, stacklevel=2
+        "`swanlab.pr_curve()` is deprecated, use `swanlab.echarts.pr_curve()` instead", FutureWarning, stacklevel=2
     )
     return echarts.pr_curve(*args, **kwargs)
 
