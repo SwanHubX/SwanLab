@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Optional
 from swanlab.api.base import ApiClientContext, BaseEntity
 from swanlab.api.typings import ApiColumnCsvExportType, ApiResponseType
 from swanlab.api.typings.common import (
+    MAX_CONCURRENT_COUNT,
     MAX_METRIC_KEY_BATCH_SIZE,
     ApiMetricKeyTypeLiteral,
     ApiMetricLogLevelLiteral,
@@ -758,7 +759,7 @@ class Metrics(BaseEntity):
         """根据 metric_type 和模式分发到具体的获取方法。"""
         if self._metric_type == "SCALAR":
             if self._range_query is not None or self._all:
-                data_list = self._batch_keys(self._fetch_scalar_csv)
+                data_list = self._fetch_scalar_csv(self._keys)
             else:
                 data_list = self._batch_keys(self._fetch_scalar_lines)
         else:
@@ -892,6 +893,25 @@ class Metrics(BaseEntity):
 
     def _fetch_scalar_csv(self, keys: List[str]) -> List[Dict[str, Any]]:
         """CSV 全量下载 + value stats，使用 House 批量导出接口。
+
+        将 keys 按 ``_CSV_KEY_BATCH_SIZE``（16）个一组分批，4 线程并发获取。
+        通过 ``POST /house/metrics/scalar/export`` 一次性导出每批 key 到 CSV 文件，
+        再通过 ``/files/presigned/get`` 获取预签名下载链接。
+        value stats 批量获取，与导出请求并发执行。
+        """
+        if len(keys) <= MAX_METRIC_KEY_BATCH_SIZE:
+            return self._fetch_scalar_csv_batch(keys)
+
+        chunks = [keys[i : i + MAX_METRIC_KEY_BATCH_SIZE] for i in range(0, len(keys), MAX_METRIC_KEY_BATCH_SIZE)]
+        with SafeThreadPoolExecutor(max_workers=MAX_CONCURRENT_COUNT) as pool:
+            futures = [pool.submit(self._fetch_scalar_csv_batch, chunk) for chunk in chunks]
+            results: List[Dict[str, Any]] = []
+            for f in futures:
+                results.extend(f.result())
+            return results
+
+    def _fetch_scalar_csv_batch(self, keys: List[str]) -> List[Dict[str, Any]]:
+        """单批 CSV 导出 + value stats（≤16 keys）。
 
         通过 ``POST /house/metrics/scalar/export`` 一次性导出所有 key 到一个 CSV 文件，
         再通过 ``/files/presigned/get`` 获取预签名下载链接。
