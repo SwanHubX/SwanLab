@@ -341,7 +341,17 @@ class CorePython(CoreProtocol):
     def _upsert_logs_when_online(self, logs: List[LogRecord]) -> None:
         records = [builder.build_log_record(self._counter, self._epoch, c) for c in logs]
         self._store_records(records)
+        if records:
+            console.debug(
+                f"Stored log records locally: count={len(records)}, nums={records[0].num}..{records[-1].num}",
+                write_to_tty=False,
+            )
         self._transport_put(records)
+        if records:
+            console.debug(
+                f"Queued log records for upload: count={len(records)}, nums={records[0].num}..{records[-1].num}",
+                write_to_tty=False,
+            )
 
     # ---- upsert_saves ----
 

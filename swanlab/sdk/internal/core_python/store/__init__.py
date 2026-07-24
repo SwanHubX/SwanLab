@@ -89,13 +89,13 @@ class DataStoreWriter:
                 data_left -= LEVELDBLOG_DATA_LEN
             self._write_record(data[data_used:], LEVELDBLOG_LAST)
         # FIX: 【会导致磁盘高频 IO】每次 write 后统一 fsync，保证落盘
-        try:
-            self._fp.flush()
-            # 指标量在较大的情况下高频 fsync 会影响上传效率
-            # os.fsync(self._fp.fileno())
-        except OSError:
-            pass
-        self._flush_offset = self._index
+        # try:
+        #     self._fp.flush()
+        #     # 指标量在较大的情况下高频 fsync 会影响上传效率
+        #     # os.fsync(self._fp.fileno())
+        # except OSError:
+        #     pass
+        # self._flush_offset = self._index
 
     def ensure_flushed(self) -> None:
         assert self._fp is not None, "writer is not open"
