@@ -56,7 +56,7 @@ def _make_real_finish_run() -> Run:
     run._handle_atexit = MagicMock()
     run._sys_origin_excepthook = MagicMock()
     run._original_sigint_handler = signal.SIG_DFL
-    run._sigint_handler_registered = True
+    run._is_main_thread = True
     return run
 
 
@@ -205,34 +205,32 @@ class TestSigintHandler:
 class TestSigintRegistration:
     """Run.__init__ 的 SIGINT 注册应只在主线程进行（Ray actor 等非主线程环境不注册、不崩溃）"""
 
-    @staticmethod
-    def _init_run() -> Run:
-        """在重 mock 下执行一次真实的 Run.__init__，并还原全局副作用"""
-        ctx = MagicMock()
-        saved_excepthook = sys.excepthook
-        try:
-            with (
-                patch("swanlab.sdk.internal.run.Components"),
-                patch("swanlab.sdk.internal.run.DeliverProbeStartRequest"),
-                patch("swanlab.sdk.internal.run.console"),
-                patch("swanlab.sdk.internal.run.greeting"),
-                patch("swanlab.sdk.internal.run.atexit"),
-            ):
-                run = Run(ctx)
-        finally:
-            sys.excepthook = saved_excepthook
+    def setup_method(self):
+        self._saved_excepthook = sys.excepthook
+        self._original_sigint_handler = signal.getsignal(signal.SIGINT)
+
+    def teardown_method(self):
+        sys.excepthook = self._saved_excepthook
+        signal.signal(signal.SIGINT, self._original_sigint_handler)
         clear_run()
-        return run
+
+    def _init_run(self) -> Run:
+        """在重 mock 下执行一次真实的 Run.__init__"""
+        ctx = MagicMock()
+        with (
+            patch("swanlab.sdk.internal.run.Components"),
+            patch("swanlab.sdk.internal.run.DeliverProbeStartRequest"),
+            patch("swanlab.sdk.internal.run.console"),
+            patch("swanlab.sdk.internal.run.greeting"),
+            patch("swanlab.sdk.internal.run.atexit"),
+        ):
+            return Run(ctx)
 
     def test_register_in_main_thread(self):
         """主线程 init：正常注册 SIGINT handler"""
-        original = signal.getsignal(signal.SIGINT)
         run = self._init_run()
-        try:
-            assert run._sigint_handler_registered is True
-            assert signal.getsignal(signal.SIGINT) == run._handle_sigint
-        finally:
-            signal.signal(signal.SIGINT, original)
+        assert run._is_main_thread is True
+        assert signal.getsignal(signal.SIGINT) == run._handle_sigint
 
     def test_skip_in_non_main_thread(self):
         """非主线程 init（如 Ray actor）：跳过注册且不抛 ValueError"""
@@ -240,7 +238,7 @@ class TestSigintRegistration:
 
         def target():
             try:
-                holder["run"] = TestSigintRegistration._init_run()
+                holder["run"] = self._init_run()
             except Exception as e:  # noqa: BLE001
                 holder["error"] = e
 
@@ -250,27 +248,29 @@ class TestSigintRegistration:
         t.join()
         assert "error" not in holder, f"Run.__init__ raised in non-main thread: {holder.get('error')}"
         run = holder["run"]
-        assert run._sigint_handler_registered is False
+        assert run._is_main_thread is False
         assert signal.getsignal(signal.SIGINT) == before
 
 
 class TestFinishSigintRestore:
-    def test_restore_only_when_registered(self):
-        """finish() 仅在注册过 SIGINT handler 时才恢复原 handler（否则非主线程下会抛 ValueError）"""
-        saved_excepthook = sys.excepthook
-        try:
-            for registered, expected_calls in ((True, 1), (False, 0)):
-                run = _make_real_finish_run()
-                run._sigint_handler_registered = registered
-                with (
-                    patch("swanlab.sdk.internal.run.greeting.goodbye"),
-                    patch("swanlab.sdk.internal.run.run_with_progress") as mock_rwp,
-                    patch("swanlab.sdk.internal.run.atexit.unregister"),
-                    patch("swanlab.sdk.internal.run.signal.signal") as mock_signal,
-                    patch("swanlab.sdk.internal.run.console.reset"),
-                ):
-                    mock_rwp.return_value = ConfirmRunFinishResponse(success=True, message="OK")
-                    run.finish()
-                assert mock_signal.call_count == expected_calls
-        finally:
-            sys.excepthook = saved_excepthook
+    def setup_method(self):
+        self._saved_excepthook = sys.excepthook
+
+    def teardown_method(self):
+        sys.excepthook = self._saved_excepthook
+
+    def test_restore_only_in_main_thread(self):
+        """finish() 仅在主线程恢复原 handler（否则非主线程下会抛 ValueError）"""
+        for is_main_thread, expected_calls in ((True, 1), (False, 0)):
+            run = _make_real_finish_run()
+            run._is_main_thread = is_main_thread
+            with (
+                patch("swanlab.sdk.internal.run.greeting.goodbye"),
+                patch("swanlab.sdk.internal.run.run_with_progress") as mock_rwp,
+                patch("swanlab.sdk.internal.run.atexit.unregister"),
+                patch("swanlab.sdk.internal.run.signal.signal") as mock_signal,
+                patch("swanlab.sdk.internal.run.console.reset"),
+            ):
+                mock_rwp.return_value = ConfirmRunFinishResponse(success=True, message="OK")
+                run.finish()
+            assert mock_signal.call_count == expected_calls

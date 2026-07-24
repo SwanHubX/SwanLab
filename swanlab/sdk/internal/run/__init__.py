@@ -126,6 +126,7 @@ class Run:
     def __init__(self, ctx: RunContext, path: Optional[str] = None):
         # 1. 基础状态、组件准备
         self._ctx = ctx
+        self._is_main_thread = threading.current_thread() is threading.main_thread()
         # 运行实验路径，/:username/:project_name/:run_id
         self._path = path
         self._state: Union[FinishType, Literal["running"]] = "running"
@@ -148,13 +149,11 @@ class Run:
         atexit.register(self._handle_atexit)
         sys.excepthook = self._handle_except
         # 注册 SIGINT handler，确保 Ctrl+C 能可靠地将实验标记为 aborted，sys.excepthook 在主线程阻塞于 C 扩展时可能无法触发
+        # signal() 仅允许在主线程调用；Ray actor 等非主线程环境下跳过注册，
+        # atexit / excepthook 钩子仍然生效
         self._original_sigint_handler = signal.getsignal(signal.SIGINT)
-        self._sigint_handler_registered = False
-        if threading.current_thread() is threading.main_thread():
-            # signal() 仅允许在主线程调用；Ray actor 等非主线程环境下跳过注册，
-            # atexit / excepthook 钩子仍然生效
+        if self._is_main_thread:
             signal.signal(signal.SIGINT, self._handle_sigint)
-            self._sigint_handler_registered = True
 
         # 3. 启动组件 + 初始化日志
         # 回调的path在path为空的时候自动生成一个/:project_name/:run_id，否则使用path
@@ -786,7 +785,7 @@ class Run:
         console.debug("Cleanup system hook...")
         atexit.unregister(self._handle_atexit)
         sys.excepthook = self._sys_origin_excepthook
-        if self._sigint_handler_registered:
+        if self._is_main_thread:
             signal.signal(signal.SIGINT, self._original_sigint_handler)
         # 清理全局运行实例
         console.debug("Cleanup global instance...")
