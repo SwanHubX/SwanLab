@@ -14,7 +14,7 @@ import pytest
 
 from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import ConfirmRunFinishResponse, DeliverRunFinishResponse
 from swanlab.sdk.internal.pkg import fork
-from swanlab.sdk.internal.run import Run
+from swanlab.sdk.internal.run import Run, clear_run
 
 
 def _make_exc_info(exc: BaseException):
@@ -56,6 +56,7 @@ def _make_real_finish_run() -> Run:
     run._handle_atexit = MagicMock()
     run._sys_origin_excepthook = MagicMock()
     run._original_sigint_handler = signal.SIG_DFL
+    run._is_main_thread = True
     return run
 
 
@@ -199,3 +200,77 @@ class TestSigintHandler:
         # Should not raise
         Run._handle_sigint(run, signal.SIGINT, None)
         run.finish.assert_called_once_with(state="aborted", error="KeyboardInterrupt by user")
+
+
+class TestSigintRegistration:
+    """Run.__init__ 的 SIGINT 注册应只在主线程进行（Ray actor 等非主线程环境不注册、不崩溃）"""
+
+    def setup_method(self):
+        self._saved_excepthook = sys.excepthook
+        self._original_sigint_handler = signal.getsignal(signal.SIGINT)
+
+    def teardown_method(self):
+        sys.excepthook = self._saved_excepthook
+        signal.signal(signal.SIGINT, self._original_sigint_handler)
+        clear_run()
+
+    def _init_run(self) -> Run:
+        """在重 mock 下执行一次真实的 Run.__init__"""
+        ctx = MagicMock()
+        with (
+            patch("swanlab.sdk.internal.run.Components"),
+            patch("swanlab.sdk.internal.run.DeliverProbeStartRequest"),
+            patch("swanlab.sdk.internal.run.console"),
+            patch("swanlab.sdk.internal.run.greeting"),
+            patch("swanlab.sdk.internal.run.atexit"),
+        ):
+            return Run(ctx)
+
+    def test_register_in_main_thread(self):
+        """主线程 init：正常注册 SIGINT handler"""
+        run = self._init_run()
+        assert run._is_main_thread is True
+        assert signal.getsignal(signal.SIGINT) == run._handle_sigint
+
+    def test_skip_in_non_main_thread(self):
+        """非主线程 init（如 Ray actor）：跳过注册且不抛 ValueError"""
+        holder = {}
+
+        def target():
+            try:
+                holder["run"] = self._init_run()
+            except Exception as e:  # noqa: BLE001
+                holder["error"] = e
+
+        before = signal.getsignal(signal.SIGINT)
+        t = threading.Thread(target=target)
+        t.start()
+        t.join()
+        assert "error" not in holder, f"Run.__init__ raised in non-main thread: {holder.get('error')}"
+        run = holder["run"]
+        assert run._is_main_thread is False
+        assert signal.getsignal(signal.SIGINT) == before
+
+
+class TestFinishSigintRestore:
+    def setup_method(self):
+        self._saved_excepthook = sys.excepthook
+
+    def teardown_method(self):
+        sys.excepthook = self._saved_excepthook
+
+    def test_restore_only_in_main_thread(self):
+        """finish() 仅在主线程恢复原 handler（否则非主线程下会抛 ValueError）"""
+        for is_main_thread, expected_calls in ((True, 1), (False, 0)):
+            run = _make_real_finish_run()
+            run._is_main_thread = is_main_thread
+            with (
+                patch("swanlab.sdk.internal.run.greeting.goodbye"),
+                patch("swanlab.sdk.internal.run.run_with_progress") as mock_rwp,
+                patch("swanlab.sdk.internal.run.atexit.unregister"),
+                patch("swanlab.sdk.internal.run.signal.signal") as mock_signal,
+                patch("swanlab.sdk.internal.run.console.reset"),
+            ):
+                mock_rwp.return_value = ConfirmRunFinishResponse(success=True, message="OK")
+                run.finish()
+            assert mock_signal.call_count == expected_calls
