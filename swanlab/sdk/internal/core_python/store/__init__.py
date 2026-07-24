@@ -88,14 +88,16 @@ class DataStoreWriter:
                 data_used += LEVELDBLOG_DATA_LEN
                 data_left -= LEVELDBLOG_DATA_LEN
             self._write_record(data[data_used:], LEVELDBLOG_LAST)
-        # FIX: 【会导致磁盘高频 IO】每次 write 后统一 fsync，保证落盘
-        try:
-            self._fp.flush()
-            # 指标量在较大的情况下高频 fsync 会影响上传效率
-            # os.fsync(self._fp.fileno())
-        except OSError:
-            pass
-        self._flush_offset = self._index
+        # 不在每次 write 后调用 flush/fsync：高频指标会产生大量磁盘 IO；文件位于 NAS 等网络文件系统时，
+        # 网络重试还可能使写入线程长时间阻塞。正常关闭时由 close() 统一 flush；代价是进程异常退出时可能
+        # 丢失尚在 Python 缓冲区中的尾部数据。若需要增强耐久性，应采用按批次或定时刷新，而非逐条刷新。
+        # 后面用Go重写core时会考虑将本地持久化存储和远程上传分离在不同的channel中，避免阻塞写入线程，目前暂时注释掉flush/fsync
+        # try:
+        #     self._fp.flush()
+        #     os.fsync(self._fp.fileno())
+        # except OSError:
+        #     pass
+        # self._flush_offset = self._index
 
     def ensure_flushed(self) -> None:
         assert self._fp is not None, "writer is not open"

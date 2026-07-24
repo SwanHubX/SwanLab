@@ -22,7 +22,7 @@ from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogLevel
 from swanlab.sdk.internal.bus import EmitterProtocol, LogEvent
-from swanlab.sdk.internal.pkg import safe
+from swanlab.sdk.internal.pkg import console, safe
 
 from .capture import StreamCapture
 from .emulator import TerminalEmulator
@@ -232,4 +232,6 @@ class TerminalProxy(TerminalProxyProtocol):
 
         ts = Timestamp()
         ts.GetCurrentTime()
+        console.debug("Emitting terminal log event", write_to_tty=False)
         self._emitter.emit(LogEvent(line=line, level=log_level, timestamp=ts))
+        console.debug("Terminal log event emitted", write_to_tty=False)

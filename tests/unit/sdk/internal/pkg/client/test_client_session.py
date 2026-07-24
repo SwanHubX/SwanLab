@@ -7,6 +7,8 @@
 
 import pytest
 import responses
+from requests import Request, Response
+from requests.adapters import HTTPAdapter
 
 from swanlab.exceptions import ApiError
 from swanlab.sdk.internal.pkg.client.session import (
@@ -52,6 +54,19 @@ def test_session_send_success(session):
     resp = session.get("http://api.test/data")
     assert resp.status_code == 200
     assert resp.json() == {"ok": True}
+
+
+def test_timeout_adapter_applies_default_when_requests_passes_none(mocker):
+    """requests 会显式传 timeout=None，此时 adapter 应替换为配置的默认超时。"""
+    adapter = TimeoutHTTPAdapter(timeout=30)
+    request = Request("GET", "http://api.test/data").prepare()
+    response = Response()
+    response.status_code = 200
+    mock_send = mocker.patch.object(HTTPAdapter, "send", return_value=response)
+
+    adapter.send(request, timeout=None)
+
+    assert mock_send.call_args.kwargs["timeout"] == 30
 
 
 @responses.activate()
