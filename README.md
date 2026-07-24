@@ -363,6 +363,7 @@ for i in range(10):
 - [OPPO/Agent_Foundation_Models](https://github.com/OPPO-PersonalAI/Agent_Foundation_Models): 通过多Agent蒸馏和Agent RL的端到端Agent基础模型。 ![GitHub Repo stars](https://img.shields.io/github/stars/OPPO-PersonalAI/Agent_Foundation_Models)
 - [Tree-GRPO](https://github.com/AMAP-ML/Tree-GRPO): [ICLR 2026] 树搜索在LLM Agent RL中的应用 ![GitHub Repo stars](https://img.shields.io/github/stars/AMAP-ML/Tree-GRPO)
 - [FIPO](https://github.com/qwenpilot/FIPO): This code implements the algorithm of FIPO, a value-free RL recipe for eliciting deeper reasoning from a clean base model. ![GitHub Repo stars](https://img.shields.io/github/stars/qwenpilot/FIPO)
+- [llm-agent-rl-lab](https://github.com/KMnO4-zx/llm-agent-rl-lab): Reproducing and studying RL algorithms for LLM agents, including PPO, GRPO, GSPO, DAPO, OPD and beyond. ![GitHub Repo stars](https://img.shields.io/github/stars/KMnO4-zx/llm-agent-rl-lab)
 
 **使用SwanLab的优秀论文：**
 - [Accelerating AlphaZero Training for Connect6 via Behavioral Cloning Initialization and Prior Action Masking in Resource-Constrained Environments](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=6730709)
@@ -380,6 +381,7 @@ for i in range(10):
 - [A Gradient-Norm-Aware Optimizer for Symmetry-Preserving and Stable Deep Learning](https://www.mdpi.com/2073-8994/18/2/374)
 - [TrafficBM: A Dual-Modality Pre-Training Framework for Network Traffic Classification](https://ieeexplore.ieee.org/document/11304658)
 - [Using Human Cumulative Prospect Theory to Understand Large Language Models Decision-Making](https://ieeexplore.ieee.org/document/11300712)
+- [BiPACE: Bisimulation-Guided Policy Optimization with Action Counterfactual Estimation for LLM Agents](https://arxiv.org/abs/2606.25556)
 
 **教程文章：**
 - [MNIST手写体识别](https://docs.swanlab.cn/examples/mnist.html)

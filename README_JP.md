@@ -39,7 +39,7 @@
 - [📃 オンラインデモ](#-オンラインデモ)
 - [🏁 クイックスタート](#-クイックスタート)
 - [💻 セルフホスティング](#-セルフホスティング)
-- [🔥 SwanLab を使用した論文](#-swanlab-を使用した論文)
+- [🔥 実践事例](#-実践事例)
 - [🎮 ハードウェア監視](#-ハードウェア監視)
 - [🚗 フレームワーク統合](#-フレームワーク統合)
 - [🔌 プラグイン](#-プラグイン)
@@ -324,7 +324,13 @@ for i in range(10):
 
 <br>
 
-## 🔥 SwanLab を使用した論文
+## 🔥 実践事例
+
+**SwanLab を使用した優れたオープンソースチュートリアルプロジェクト：**
+
+- [llm-agent-rl-lab](https://github.com/KMnO4-zx/llm-agent-rl-lab): PPO、GRPO、GSPO、DAPO、OPD などを含む、LLM エージェント向け RL アルゴリズムの再現と研究。 ![GitHub Repo stars](https://img.shields.io/github/stars/KMnO4-zx/llm-agent-rl-lab)
+
+**SwanLab を使用した論文：**
 
 - [Accelerating AlphaZero Training for Connect6 via Behavioral Cloning Initialization and Prior Action Masking in Resource-Constrained Environments](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=6730709)
 - [SeePhys Pro: Diagnosing Modality Transfer and Blind-Training Effects in Multimodal RLVR for Physics Reasoning](https://arxiv.org/abs/2605.09266)
@@ -341,6 +347,7 @@ for i in range(10):
 - [A Gradient-Norm-Aware Optimizer for Symmetry-Preserving and Stable Deep Learning](https://www.mdpi.com/2073-8994/18/2/374)
 - [TrafficBM: A Dual-Modality Pre-Training Framework for Network Traffic Classification](https://ieeexplore.ieee.org/document/11304658)
 - [Using Human Cumulative Prospect Theory to Understand Large Language Models Decision-Making](https://ieeexplore.ieee.org/document/11300712)
+- [BiPACE: Bisimulation-Guided Policy Optimization with Action Counterfactual Estimation for LLM Agents](https://arxiv.org/abs/2606.25556)
 
 <br>
 
