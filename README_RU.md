@@ -39,7 +39,7 @@
 - [📃 Онлайн-демонстрация](#-онлайн-демонстрация)
 - [🏁 Быстрый старт](#-быстрый-старт)
 - [💻 Самостоятельное размещение](#-самостоятельное-размещение)
-- [🔥 Научные работы с использованием SwanLab](#-научные-работы-с-использованием-swanlab)
+- [🔥 Практические примеры](#-практические-примеры)
 - [🎮 Мониторинг оборудования](#-мониторинг-оборудования)
 - [🚗 Интеграция с фреймворками](#-интеграция-с-фреймворками)
 - [🔌 Плагины](#-Плагины)
@@ -328,7 +328,13 @@ for i in range(10):
 
 <br>
 
-## 🔥 Научные работы с использованием SwanLab
+## 🔥 Практические примеры
+
+**Отличные open-source учебные проекты с использованием SwanLab:**
+
+- [llm-agent-rl-lab](https://github.com/KMnO4-zx/llm-agent-rl-lab): Воспроизведение и изучение алгоритмов RL для LLM-агентов, включая PPO, GRPO, GSPO, DAPO, OPD и другие. ![GitHub Repo stars](https://img.shields.io/github/stars/KMnO4-zx/llm-agent-rl-lab)
+
+**Научные работы с использованием SwanLab:**
 
 - [Accelerating AlphaZero Training for Connect6 via Behavioral Cloning Initialization and Prior Action Masking in Resource-Constrained Environments](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=6730709)
 - [SeePhys Pro: Diagnosing Modality Transfer and Blind-Training Effects in Multimodal RLVR for Physics Reasoning](https://arxiv.org/abs/2605.09266)
@@ -345,6 +351,7 @@ for i in range(10):
 - [A Gradient-Norm-Aware Optimizer for Symmetry-Preserving and Stable Deep Learning](https://www.mdpi.com/2073-8994/18/2/374)
 - [TrafficBM: A Dual-Modality Pre-Training Framework for Network Traffic Classification](https://ieeexplore.ieee.org/document/11304658)
 - [Using Human Cumulative Prospect Theory to Understand Large Language Models Decision-Making](https://ieeexplore.ieee.org/document/11300712)
+- [BiPACE: Bisimulation-Guided Policy Optimization with Action Counterfactual Estimation for LLM Agents](https://arxiv.org/abs/2606.25556)
 
 <br>
 
