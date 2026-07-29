@@ -6,8 +6,8 @@
 
 检测原理：
 - 仅 Linux 支持，先检查 `/dev/davinci*` 设备文件，再调用华为官方 `npu-smi` 工具。
-- 静态映射使用 `npu-smi info -m`，文本表格从第二行开始解析：
-  `NPU ID  Chip ID  Chip Logic ID  Chip Name...`；其中 Chip Logic ID 非数字的 MCU 行会被过滤。
+- 静态映射使用 `npu-smi info -m`。旧设备输出 `NPU ID  Chip ID  Chip Logic ID  Chip Name...`，
+  Ascend 950 输出 `NPU ID  Slot ID  Chip ID  Chip Phy-ID  Chip Name...`。
 - 驱动版本使用 `npu-smi -v`，解析冒号后的版本号。
 - CANN 版本读取 `/usr/local/Ascend/ascend-toolkit/latest/{arch}-linux/ascend_toolkit_install.info`
   中的 `version=<value>`。
@@ -58,7 +58,8 @@ class AscendNPU(AcceleratorProtocol):
 
         hbm_value = 0
         for npu_id, chip_id in self._chips:
-            usage = AscendNPU._get_chip_usage(npu_id, chip_id)
+            chip_query = self._npu_map[npu_id][chip_id].get("chip_query", True)
+            usage = AscendNPU._get_chip_usage(npu_id, chip_id, chip_query=chip_query)
             if usage:
                 hbm = int(usage.get("hbm", 0))
                 if hbm > hbm_value:
@@ -125,23 +126,27 @@ class AscendNPU(AcceleratorProtocol):
             results: List[CollectResult] = []
             for npu_id, chip_id in self._chips:
                 label = f"{npu_id}-{chip_id}"
-                results.extend(self._collect_usage(npu_id, chip_id, label))
-                results.append(self._collect_temp(npu_id, chip_id, label))
-                results.append(self._collect_power(npu_id, chip_id, label))
+                chip_query = self._npu_map[npu_id][chip_id].get("chip_query", True)
+                results.extend(self._collect_usage(npu_id, chip_id, label, chip_query=chip_query))
+                results.append(self._collect_temp(npu_id, chip_id, label, chip_query=chip_query))
+                results.append(self._collect_power(npu_id, chip_id, label, chip_query=chip_query))
             return results
         return []
 
-    def _collect_usage(self, npu_id: str, chip_id: str, label: str) -> List[CollectResult]:
+    @staticmethod
+    def _query_info(info_type: str, npu_id: str, chip_id: str, *, chip_query: bool = True) -> str:
+        command = ["npu-smi", "info", "-t", info_type, "-i", npu_id]
+        if chip_query:
+            command.extend(["-c", chip_id])
+        return subprocess.run(command, capture_output=True, text=True).stdout
+
+    def _collect_usage(self, npu_id: str, chip_id: str, label: str, *, chip_query: bool = True) -> List[CollectResult]:
         util_val = math.nan
         hbm_val = math.nan
         hbm_mb = math.nan
         hbm_total_mb = math.nan
         with safe.block(message="Failed to collect Ascend NPU usage", level="debug"):
-            output = subprocess.run(
-                ["npu-smi", "info", "-t", "usages", "-i", npu_id, "-c", chip_id],
-                capture_output=True,
-                text=True,
-            ).stdout
+            output = self._query_info("usages", npu_id, chip_id, chip_query=chip_query)
             for line in output.split("\n"):
                 if "aicore usage rate" in line.lower():
                     util_str = line.split(":")[-1].strip()
@@ -169,25 +174,17 @@ class AscendNPU(AcceleratorProtocol):
             (f"npu.{label}.mem.value", hbm_mb),
         ]
 
-    def _collect_temp(self, npu_id: str, chip_id: str, label: str) -> CollectResult:
+    def _collect_temp(self, npu_id: str, chip_id: str, label: str, *, chip_query: bool = True) -> CollectResult:
         temp_val = math.nan
         with safe.block(message="Failed to collect Ascend NPU temperature", level="debug"):
-            output = subprocess.run(
-                ["npu-smi", "info", "-t", "temp", "-i", npu_id, "-c", chip_id],
-                capture_output=True,
-                text=True,
-            ).stdout.strip()
+            output = self._query_info("temp", npu_id, chip_id, chip_query=chip_query).strip()
             temp_val = float(output.split(":")[-1].strip())
         return (f"npu.{label}.temp", temp_val)
 
-    def _collect_power(self, npu_id: str, chip_id: str, label: str) -> CollectResult:
+    def _collect_power(self, npu_id: str, chip_id: str, label: str, *, chip_query: bool = True) -> CollectResult:
         power_val = math.nan
         with safe.block(message="Failed to collect Ascend NPU power", level="debug"):
-            output = subprocess.run(
-                ["npu-smi", "info", "-t", "power", "-i", npu_id, "-c", chip_id],
-                capture_output=True,
-                text=True,
-            ).stdout.strip()
+            output = self._query_info("power", npu_id, chip_id, chip_query=chip_query).strip()
             power_val = float(output.split(":")[-1].strip())
         return (f"npu.{label}.power", power_val)
 
@@ -212,7 +209,8 @@ class AscendNPU(AcceleratorProtocol):
         for npu_id in sorted(npu_map.keys(), key=int):
             for chip_id in sorted(npu_map[npu_id].keys(), key=int):
                 chip_info = npu_map[npu_id][chip_id]
-                usage = AscendNPU._get_chip_usage(npu_id, chip_id)
+                chip_query = chip_info.get("chip_query", True)
+                usage = AscendNPU._get_chip_usage(npu_id, chip_id, chip_query=chip_query)
                 hbm = int(usage.get("hbm", 0)) if usage else 0
                 devices.append(
                     DeviceSnapshot(
@@ -258,27 +256,36 @@ class AscendNPU(AcceleratorProtocol):
     def _map_npu_raw() -> dict:
         output = subprocess.run(["npu-smi", "info", "-m"], capture_output=True, check=True, text=True).stdout
         npu_map: dict = {}
-        for line in output.split("\n")[1:]:
+        lines = output.splitlines()
+        if not lines:
+            return npu_map
+        is_physical_id_format = "Slot ID" in lines[0] and "Chip Phy-ID" in lines[0]
+        for line in lines[1:]:
             parts = line.split()
-            if len(parts) < 4:
-                continue
-            npu_id, chip_id, chip_logic_id, *chip_name = parts
-            if not chip_logic_id.isdigit():
+            if is_physical_id_format:
+                if len(parts) < 5:
+                    continue
+                npu_id, _slot_id, chip_id, chip_logic_id, *chip_name = parts
+            else:
+                if len(parts) < 4:
+                    continue
+                npu_id, chip_id, chip_logic_id, *chip_name = parts
+            if not npu_id.isdigit() or not chip_id.isdigit() or not chip_logic_id.isdigit():
                 continue
             chip_name_str = " ".join(chip_name)
             if npu_id not in npu_map:
                 npu_map[npu_id] = {}
-            npu_map[npu_id][chip_id] = {"id": chip_logic_id, "name": chip_name_str}
+            npu_map[npu_id][chip_id] = {
+                "id": chip_logic_id,
+                "name": chip_name_str,
+                "chip_query": not is_physical_id_format,
+            }
         return npu_map
 
     @staticmethod
     @safe.decorator(level="debug", message="Failed to get Ascend NPU chip usage")
-    def _get_chip_usage(npu_id: str, chip_id: str) -> Optional[dict]:
-        output = subprocess.run(
-            ["npu-smi", "info", "-t", "usages", "-i", npu_id, "-c", chip_id],
-            capture_output=True,
-            text=True,
-        ).stdout
+    def _get_chip_usage(npu_id: str, chip_id: str, *, chip_query: bool = True) -> Optional[dict]:
+        output = AscendNPU._query_info("usages", npu_id, chip_id, chip_query=chip_query)
         for line in output.split("\n"):
             if "hbm capacity" in line.lower():
                 hbm = line.split(":")[-1].strip()
