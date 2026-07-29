@@ -5,6 +5,6 @@
 @description: core python 工具包
 """
 
-from . import builder, counter
+from . import builder, counter, mime
 
-__all__ = ["counter", "builder"]
+__all__ = ["builder", "counter", "mime"]
