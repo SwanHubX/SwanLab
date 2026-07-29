@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import json
 import math
-import mimetypes
 import threading
 from collections.abc import Callable, Sequence
 from pathlib import Path, PurePosixPath, PureWindowsPath
@@ -40,6 +39,7 @@ from swanlab.sdk.internal.core_python.api.upload import (
     upload_scalar,
 )
 from swanlab.sdk.internal.core_python.context import CoreContext
+from swanlab.sdk.internal.core_python.pkg.mime import guess_type
 from swanlab.sdk.internal.core_python.utils import ProgressFileWrapper, get_buffer_size
 from swanlab.sdk.internal.pkg import adapter, client, console, safe
 from swanlab.sdk.internal.pkg.client.session import SessionWithRetry
@@ -214,7 +214,7 @@ class HttpRecordSender:
                         self._track_file(tracker_key, local_path.as_posix(), size)
                         # 先计算 mime_type, 确保后续 record_paths/paths/buffers/content_types 原子化追加,
                         # 避免 safe.block 内中途异常导致列表长度不一致、MIME 类型错位
-                        mime_type = mimetypes.guess_type(str(local_path))[0] or "application/octet-stream"
+                        mime_type = guess_type(local_path)
                         record_paths.append(remote_path_str)
                         paths.append(remote_path_str)
                         buffers.append(local_path)
@@ -395,7 +395,7 @@ class HttpRecordSender:
                     if not isinstance(md5, str):
                         console.warning(f"Save file MD5 computation failed, skipping: {source_path}")
                         continue
-                    mime_type = mimetypes.guess_type(source_path)[0] or "application/octet-stream"
+                    mime_type = guess_type(source_path)
                     file_entries.append(
                         {
                             "path": name,
