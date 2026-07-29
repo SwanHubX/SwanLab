@@ -176,6 +176,9 @@ class TestCorePythonFinish:
         mock_heartbeat = MockHeartbeat.return_value
 
         monkeypatch.setattr("swanlab.sdk.internal.core_python.core.stop_experiment", lambda *a, **kw: None)
+        # _store_finish 在 finish_record.state != FINISHED 时会生成一条 error log record 并放入 transport，
+        # 需要注册 upload_log mock 让 transport 排空成功，否则 join 会因持续重试而超时
+        monkeypatch.setattr("swanlab.sdk.internal.core_python.transport.sender.upload_log", lambda *a, **kw: None)
         core.deliver_run_finish(DeliverRunFinishRequest(finish_record=FinishRecord()))
 
         assert core._store is None
