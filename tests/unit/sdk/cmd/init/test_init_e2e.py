@@ -630,6 +630,7 @@ class TestInitOnlineMode:
         mock_experiment_stop_api,
         mock_profile_api,
         mock_heartbeat_api,
+        mock_metrics_api,
     ):
         """online 模式完整 init 流程：返回 Run，has_run() 为 True"""
         run = init(mode="online", project=PROJECT)
@@ -646,6 +647,7 @@ class TestInitOnlineMode:
         mock_experiment_stop_api,
         mock_profile_api,
         mock_heartbeat_api,
+        mock_metrics_api,
     ):
         """online 模式下，workspace 和 project.name 应与后端响应同步"""
         run = init(mode="online", project=PROJECT)
@@ -663,6 +665,7 @@ class TestInitOnlineMode:
         mock_experiment_stop_api,
         mock_profile_api,
         mock_heartbeat_api,
+        mock_metrics_api,
     ):
         """新版创建接口不可用且旧接口返回 409（项目已存在）时，应继续初始化"""
         rsps.add(responses_lib.POST, f"{API_HOST}/api/projects/{USERNAME}", json={"message": "not found"}, status=404)
@@ -682,6 +685,7 @@ class TestInitOnlineMode:
         mock_experiment_stop_api,
         mock_profile_api,
         mock_heartbeat_api,
+        mock_metrics_api,
         rsps,
     ):
         """验证 online init 确实调用了 project 和 experiment 端点"""
@@ -699,6 +703,7 @@ class TestInitOnlineMode:
         mock_project_get_api,
         mock_experiment_stop_api,
         mock_profile_api,
+        mock_heartbeat_api,
         mock_metrics_api,
         rsps,
     ):
@@ -1118,6 +1123,7 @@ def mock_online_save_apis(
     mock_experiment_stop_api,
     mock_profile_api,
     mock_heartbeat_api,
+    mock_metrics_api,
     mock_save_prepare_api,
     mock_save_complete_api,
     mock_save_upload_api,
@@ -1136,6 +1142,7 @@ def mock_online_init_only(
     mock_experiment_stop_api,
     mock_profile_api,
     mock_heartbeat_api,
+    mock_metrics_api,
 ):
     """组合 fixture：仅注册 init(mode='online') 所需端点，不含 save/media 上传。"""
     pass

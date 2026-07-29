@@ -243,25 +243,24 @@ class HttpRecordSender:
         upload_media(self._project_id, self._experiment_id, metrics=metrics)
 
     def upload_log(self, records: Sequence[Record]) -> None:
-        with safe.block(message="Failed to upload terminal logs, skipping"):
-            console.debug(f"Preparing log HTTP request: records={len(records)}", write_to_tty=False)
-            metrics: UploadLogBatch = []
-            for record in records:
-                if not record.HasField("log"):
-                    continue
-                log_record = record.log
-                if log_record.HasField("timestamp"):
-                    create_time = log_record.timestamp.ToJsonString()
-                    metric: UploadLog = {
-                        "level": adapter.level[log_record.level],
-                        "epoch": log_record.epoch,
-                        "message": log_record.line,
-                        "create_time": create_time,
-                    }
-                    metrics.append(metric)
-            console.debug(f"Sending log HTTP request: metrics={len(metrics)}", write_to_tty=False)
-            upload_log(self._project_id, self._experiment_id, metrics=metrics)
-            console.debug(f"Log HTTP request completed: metrics={len(metrics)}", write_to_tty=False)
+        console.debug(f"Preparing log HTTP request: records={len(records)}", write_to_tty=False)
+        metrics: UploadLogBatch = []
+        for record in records:
+            if not record.HasField("log"):
+                continue
+            log_record = record.log
+            if log_record.HasField("timestamp"):
+                create_time = log_record.timestamp.ToJsonString()
+                metric: UploadLog = {
+                    "level": adapter.level[log_record.level],
+                    "epoch": log_record.epoch,
+                    "message": log_record.line,
+                    "create_time": create_time,
+                }
+                metrics.append(metric)
+        console.debug(f"Sending log HTTP request: metrics={len(metrics)}", write_to_tty=False)
+        upload_log(self._project_id, self._experiment_id, metrics=metrics)
+        console.debug(f"Log HTTP request completed: metrics={len(metrics)}", write_to_tty=False)
 
     # ── 文件保存上传 ──
 
