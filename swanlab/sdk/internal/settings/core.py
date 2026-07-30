@@ -1,13 +1,13 @@
 """SwanLab Core settings."""
 
-import os
-
 from pydantic import BaseModel, ConfigDict, Field
+
+from ._gate import env_or
 
 
 def section_rule_index_factory() -> int:
     # 向下兼容旧版本环境变量
-    return int(os.environ.get("SWANLAB_SECTION_RULE_IDX", "0"))
+    return int(env_or("SWANLAB_SECTION_RULE_IDX", "0"))
 
 
 class CoreSettings(BaseModel):
@@ -24,7 +24,7 @@ class CoreSettings(BaseModel):
     """
     record_batch: int = Field(default=10_000, gt=0, lt=100_000)
     """
-    Batch size of records per HTTP request in Dispatch. Default 10000. 
+    Batch size of records per HTTP request in Dispatch. Default 10000.
     """
     record_interval: float = Field(default=1.5, gt=0)
     """

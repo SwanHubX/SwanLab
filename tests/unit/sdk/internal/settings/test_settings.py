@@ -5,13 +5,17 @@
 @description: 测试 SwanLabSettings 基本方法
 """
 
+import os
+import subprocess
+import sys
 from pathlib import Path
+from typing import Optional
 
 import pytest
 from pydantic import ValidationError
 from pydantic_settings import SettingsConfigDict
 
-from swanlab.sdk.internal.settings import Settings
+from swanlab.sdk.internal.settings import Settings, load_external_enabled
 
 
 @pytest.fixture(autouse=True)
@@ -604,23 +608,29 @@ class TestSaveToYaml:
 
 
 def test_load_external_false_skips_env(monkeypatch):
-    """_load_external=False 时构造不读 env：即使环境变量非法也不抛，返回纯默认值"""
+    """defaults_only() 构造不读 env：即使环境变量非法也不抛，返回纯默认值"""
     monkeypatch.setenv("SWANLAB_MODE", "bogus")
     monkeypatch.setenv("SWANLAB_API_KEY", "env-key")
+    monkeypatch.setenv("SWANLAB_PROJ_NAME", "env-project")
+    monkeypatch.setenv("SWANLAB_WEBHOOK_TIMEOUT", "99")
+    monkeypatch.setenv("SWANLAB_SECTION_RULE_IDX", "3")
 
-    s = Settings(_load_external=False)
+    s = Settings.defaults_only()
 
-    # 未读 env：mode 为默认值，api_key 为 None
+    # 主配置与子模块兼容工厂都未读 env
     assert s.mode == "online"
     assert s.api_key is None
+    assert s.project.name is None
+    assert s.integration.webhook.timeout == 5
+    assert s.core.section_rule == 0
     # fields_set 为空：合并时经 exclude_unset 不会带入任何“假覆盖”
     assert s.__pydantic_fields_set__ == set()
-    # finally 已还原类标记，后续正常构造仍走完整 source
-    assert Settings._load_external is True
+    # finally 已还原线程本地标记，后续正常构造仍走完整 source
+    assert load_external_enabled() is True
 
 
 def test_load_external_true_raises_on_bad_env(monkeypatch):
-    """正常构造（默认 _load_external=True）在环境变量非法时照常抛 ValidationError
+    """正常构造 Settings() 在环境变量非法时照常抛 ValidationError
 
     这是 swanlab.init() 新建 Settings() 的行为：错误不在 import 期间抛，而在使用时抛。
     """
@@ -630,14 +640,74 @@ def test_load_external_true_raises_on_bad_env(monkeypatch):
         Settings()
 
 
-def test_load_external_restored_after_failure(monkeypatch):
-    """即便 _load_external=False 的构造因 validator 级 env 读取而失败，finally 也会还原标记"""
-    # SWANLAB_LOGDIR（旧版兼容变量）由 log_dir_factory 直接读取，绕过 source 门控；
-    # 指向一个已存在的文件（非目录）会触发 validate_log_dir 失败
-    monkeypatch.setenv("SWANLAB_LOGDIR", __file__)
+def _run_import_subprocess(
+    env_overrides: Optional[dict] = None, cwd: Optional[Path] = None, script: str = "import swanlab; print('IMPORT_OK')"
+) -> subprocess.CompletedProcess:
+    """以子进程运行真实 import 路径，返回完成结果。
 
-    with pytest.raises(ValidationError):
-        Settings(_load_external=False)
+    构造干净基线环境（剔除继承到的所有 SWANLAB_ 变量），再叠加本次用例所需变量，
+    确保端到端行为仅受 env_overrides 控制，不受宿主测试进程污染。
+    """
+    clean_env = {k: v for k, v in os.environ.items() if not k.startswith("SWANLAB_")}
+    if env_overrides:
+        clean_env.update({str(k): str(v) for k, v in env_overrides.items()})
+    return subprocess.run(
+        [sys.executable, "-c", script],
+        env=clean_env,
+        cwd=str(cwd) if cwd else None,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
 
-    # 标记必须被还原，不能泄漏成 False 污染后续构造
-    assert Settings._load_external is True
+
+class TestImportFallback:
+    """端到端验证 `import swanlab` 在配置异常时的容错行为（子进程级回归）"""
+
+    def test_import_survives_bad_mode(self):
+        """坏的 SWANLAB_MODE 不应阻断 import：降级为默认实例并输出告警"""
+        result = _run_import_subprocess({"SWANLAB_MODE": "bogus"})
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "IMPORT_OK" in result.stdout
+        # 降级时应输出 warning 提示
+        assert "falling back to defaults" in result.stdout
+
+    def test_import_survives_bad_logdir(self, tmp_path):
+        """坏的 SWANLAB_LOGDIR（指向已存在的非目录文件）不应阻断 import"""
+        bad_file = tmp_path / "not-a-dir"
+        bad_file.write_text("x")
+        result = _run_import_subprocess({"SWANLAB_LOGDIR": str(bad_file)})
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "IMPORT_OK" in result.stdout
+
+    def test_import_survives_bad_root(self, tmp_path):
+        """坏的 SWANLAB_ROOT（指向已存在的非目录文件）不应阻断 import"""
+        bad_file = tmp_path / "not-a-dir"
+        bad_file.write_text("x")
+        result = _run_import_subprocess({"SWANLAB_ROOT": str(bad_file)})
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "IMPORT_OK" in result.stdout
+
+    def test_import_degraded_does_not_leak_netrc(self, tmp_path):
+        """降级实例不应读取 .netrc：即便存在本地凭证也不应泄漏进兜底实例"""
+        netrc_dir = tmp_path / ".swanlab"
+        netrc_dir.mkdir()
+        (netrc_dir / ".netrc").write_text("machine api.swanlab.cn\nlogin web\npassword netrc-leaked-key\n")
+        result = _run_import_subprocess(
+            {"SWANLAB_MODE": "bogus"},
+            cwd=tmp_path,
+            script=(
+                "import swanlab; "
+                "from swanlab.sdk.internal.settings import settings; "
+                "print('APIKEY=' + str(settings.api_key))"
+            ),
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "netrc-leaked-key" not in result.stdout
+
+    @pytest.mark.parametrize("env_name", ["SWANLAB_SECTION_RULE_IDX", "SWANLAB_WEBHOOK_TIMEOUT"])
+    def test_import_survives_bad_legacy_nested_env(self, env_name):
+        """子模块中的旧版环境变量非法时也应通过共享门控完成降级"""
+        result = _run_import_subprocess({env_name: "not-an-integer"})
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "IMPORT_OK" in result.stdout
