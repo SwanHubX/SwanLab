@@ -2,7 +2,7 @@
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from ._gate import env_or
+from .gate import env_or
 
 
 def section_rule_index_factory() -> int:

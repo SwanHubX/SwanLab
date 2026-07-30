@@ -10,7 +10,7 @@ from typing import ClassVar, Type
 from pydantic import BaseModel, Field, model_validator
 from pydantic.config import ConfigDict
 
-from ._gate import env_or
+from .gate import env_or
 
 
 def webhook_url_factory() -> str:

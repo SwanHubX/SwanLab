@@ -18,7 +18,7 @@ from swanlab.sdk.internal.pkg import console
 from swanlab.sdk.internal.pkg import constraints as const
 from swanlab.sdk.typings.run import ParallelType, ResumeType
 
-from ._gate import env_or
+from .gate import env_or
 
 
 def project_name_factory() -> Optional[str]:
