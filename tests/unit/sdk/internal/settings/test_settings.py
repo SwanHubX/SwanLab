@@ -8,6 +8,7 @@
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 from pydantic_settings import SettingsConfigDict
 
 from swanlab.sdk.internal.settings import Settings
@@ -600,3 +601,43 @@ class TestSaveToYaml:
 
         assert target_dir.exists()
         assert file_path.exists()
+
+
+def test_load_external_false_skips_env(monkeypatch):
+    """_load_external=False 时构造不读 env：即使环境变量非法也不抛，返回纯默认值"""
+    monkeypatch.setenv("SWANLAB_MODE", "bogus")
+    monkeypatch.setenv("SWANLAB_API_KEY", "env-key")
+
+    s = Settings(_load_external=False)
+
+    # 未读 env：mode 为默认值，api_key 为 None
+    assert s.mode == "online"
+    assert s.api_key is None
+    # fields_set 为空：合并时经 exclude_unset 不会带入任何“假覆盖”
+    assert s.__pydantic_fields_set__ == set()
+    # finally 已还原类标记，后续正常构造仍走完整 source
+    assert Settings._load_external is True
+
+
+def test_load_external_true_raises_on_bad_env(monkeypatch):
+    """正常构造（默认 _load_external=True）在环境变量非法时照常抛 ValidationError
+
+    这是 swanlab.init() 新建 Settings() 的行为：错误不在 import 期间抛，而在使用时抛。
+    """
+    monkeypatch.setenv("SWANLAB_MODE", "bogus")
+
+    with pytest.raises(ValidationError):
+        Settings()
+
+
+def test_load_external_restored_after_failure(monkeypatch):
+    """即便 _load_external=False 的构造因 validator 级 env 读取而失败，finally 也会还原标记"""
+    # SWANLAB_LOGDIR（旧版兼容变量）由 log_dir_factory 直接读取，绕过 source 门控；
+    # 指向一个已存在的文件（非目录）会触发 validate_log_dir 失败
+    monkeypatch.setenv("SWANLAB_LOGDIR", __file__)
+
+    with pytest.raises(ValidationError):
+        Settings(_load_external=False)
+
+    # 标记必须被还原，不能泄漏成 False 污染后续构造
+    assert Settings._load_external is True

@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any, ClassVar, Dict, Optional, Tuple, Type, Union, get_args
 
 import yaml
-from pydantic import Field, field_validator
+from pydantic import Field, ValidationError, field_validator
 from pydantic.functional_validators import model_validator
 from pydantic_settings import (
     BaseSettings,
@@ -60,6 +60,9 @@ CONFIG_DIR: str = config_dir_env or "/etc/swanlab"
 
 def log_dir_factory() -> Path:
     # 向下兼容旧版本环境变量
+    # 注意：此 default_factory 直接读取 SWANLAB_LOGDIR，绕过 settings_customise_sources 的门控。
+    # 因此降级构造（Settings(_load_external=False)）时仍会触及它；若该值指向一个已存在的非目录文件，
+    # import 期间仍会抛校验错误。属旧版环境变量兼容的已知窄情况，概率极低。
     return Path(os.environ.get("SWANLAB_LOGDIR", str(Path.cwd() / "swanlog")))
 
 
@@ -111,6 +114,20 @@ class Settings(BaseSettings):
     Integration: ClassVar[Type[IntegrationSettings]] = IntegrationSettings
     Core: ClassVar[Type[CoreSettings]] = CoreSettings
     Probe: ClassVar[Type[ProbeSettings]] = ProbeSettings
+
+    # 控制构造时是否加载外部配置源（env / yaml / .netrc / secrets）。
+    # 仅用于 import 期间的降级构造：环境变量非法时，用 _load_external=False 构造一个纯默认实例，
+    # 避免在 import swanlab 时直接抛错；真正的校验错误会在后续 swanlab.init() 新建 Settings() 时照常抛出。
+    _load_external: ClassVar[bool] = True
+
+    def __init__(self, _load_external: bool = True, **kwargs: Any) -> None:
+        # 通过实例参数控制 settings_customise_sources 行为；finally 确保不污染后续正常构造
+        cls = type(self)
+        cls._load_external = _load_external
+        try:
+            super().__init__(**kwargs)
+        finally:
+            cls._load_external = True
 
     interactive: bool = True
     """
@@ -355,6 +372,10 @@ class Settings(BaseSettings):
         dotenv_settings: PydanticBaseSettingsSource,
         file_secret_settings: PydanticBaseSettingsSource,
     ) -> Tuple[PydanticBaseSettingsSource, ...]:
+        # _load_external=False 时仅保留 init_settings，构造一个不读任何外部配置的“纯默认”实例，
+        # 用于 import 期间的降级构造，避免环境变量非法导致 import swanlab 失败
+        if not cls._load_external:
+            return (init_settings,)
 
         # 优先级由高到低排列体现在返回的sources顺序：
         # 1. init_settings (merge_settings 传入的参数)
@@ -552,4 +573,14 @@ def _load_netrc(netrc_path: Path) -> Optional[Tuple[str, str, str]]:
     return None
 
 
-settings = Settings()
+# 全局单例：正常情况下解析全部外部配置源（env / yaml / .netrc）。
+# 若环境变量非法导致构造失败，降级为纯默认实例，避免在 import swanlab 期间抛错；
+# 真正的校验错误会在后续 swanlab.init() 新建 Settings() 时照常抛出。
+try:
+    settings = Settings()
+except ValidationError as e:
+    console.warning(
+        f"Failed to load SwanLab settings from environment, falling back to defaults. "
+        f"Call `swanlab.init()` to see the full error. Detail: {e}"
+    )
+    settings = Settings(_load_external=False)
