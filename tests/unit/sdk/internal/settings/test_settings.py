@@ -16,6 +16,7 @@ from pydantic import ValidationError
 from pydantic_settings import SettingsConfigDict
 
 from swanlab.sdk.internal.settings import Settings, load_external_enabled
+from swanlab.sdk.internal.settings.gate import DegradedSettings
 
 
 @pytest.fixture(autouse=True)
@@ -640,6 +641,22 @@ def test_load_external_true_raises_on_bad_env(monkeypatch):
         Settings()
 
 
+def test_degraded_settings_raises_on_access():
+    """DegradedSettings 代理：任意属性访问 re-raise 原始异常"""
+    err = ValueError("bad config")
+    proxy = DegradedSettings(err)
+    for attr in ("api_host", "api_key", "web_host", "mode", "integration", "core"):
+        with pytest.raises(ValueError, match="bad config"):
+            getattr(proxy, attr)
+
+
+def test_degraded_settings_repr():
+    """DegradedSettings.__repr__ 包含原始异常类型"""
+    proxy = DegradedSettings(ValueError("bad config"))
+    assert "ValueError" in repr(proxy)
+    assert "bad config" in repr(proxy)
+
+
 def _run_import_subprocess(
     env_overrides: Optional[dict] = None, cwd: Optional[Path] = None, script: str = "import swanlab; print('IMPORT_OK')"
 ) -> subprocess.CompletedProcess:
@@ -689,7 +706,7 @@ class TestImportFallback:
         assert "IMPORT_OK" in result.stdout
 
     def test_import_degraded_does_not_leak_netrc(self, tmp_path):
-        """降级实例不应读取 .netrc：即便存在本地凭证也不应泄漏进兜底实例"""
+        """降级代理不应读取 .netrc：即便存在本地凭证，属性访问即抛异常，根本不会读到"""
         netrc_dir = tmp_path / ".swanlab"
         netrc_dir.mkdir()
         (netrc_dir / ".netrc").write_text("machine api.swanlab.cn\nlogin web\npassword netrc-leaked-key\n")
@@ -697,12 +714,18 @@ class TestImportFallback:
             {"SWANLAB_MODE": "bogus"},
             cwd=tmp_path,
             script=(
-                "import swanlab; "
-                "from swanlab.sdk.internal.settings import settings; "
-                "print('APIKEY=' + str(settings.api_key))"
+                "import swanlab\n"
+                "from swanlab.sdk.internal.settings import settings\n"
+                "try:\n"
+                "    print('APIKEY=' + str(settings.api_key))\n"
+                "except Exception:\n"
+                "    print('DEGRADED_RAISE')"
             ),
         )
         assert result.returncode == 0, result.stdout + result.stderr
+        # 降级代理：属性访问即抛异常
+        assert "DEGRADED_RAISE" in result.stdout
+        # 无论如何都不应泄漏 .netrc 中的凭证
         assert "netrc-leaked-key" not in result.stdout
 
     @pytest.mark.parametrize("env_name", ["SWANLAB_SECTION_RULE_IDX", "SWANLAB_WEBHOOK_TIMEOUT"])
@@ -711,3 +734,21 @@ class TestImportFallback:
         result = _run_import_subprocess({env_name: "not-an-integer"})
         assert result.returncode == 0, result.stdout + result.stderr
         assert "IMPORT_OK" in result.stdout
+
+    def test_import_degraded_attr_access_raises(self):
+        """降级单例属性访问应 re-raise 原始配置错误，而非返回不可信默认值"""
+        result = _run_import_subprocess(
+            {"SWANLAB_MODE": "bogus"},
+            script=(
+                "import swanlab\n"
+                "from swanlab.sdk.internal.settings import settings\n"
+                "try:\n"
+                "    _ = settings.api_host\n"
+                "    print('NO_RAISE')\n"
+                "except Exception as e:\n"
+                "    print('RAISED=' + type(e).__name__)"
+            ),
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "RAISED=" in result.stdout
+        assert "NO_RAISE" not in result.stdout

@@ -23,9 +23,8 @@ from typing import Any, Optional, TextIO, cast
 
 import click
 
-from swanlab.sdk import settings
 from swanlab.sdk.internal import pkg
-from swanlab.sdk.internal.settings import Settings
+from swanlab.sdk.internal.settings import Settings, settings
 from swanlab.sdk.protocol.callbacker import Callback
 
 
@@ -63,7 +62,7 @@ def _get_free_port(address: str = "0.0.0.0", default_port: int = 5092) -> int:
 @click.option(
     "--host",
     "-h",
-    default=settings.integration.dashboard.host,
+    default=None,
     type=str,
     nargs=1,
     help="The host of swanlab web, default by 127.0.0.1",
@@ -71,7 +70,7 @@ def _get_free_port(address: str = "0.0.0.0", default_port: int = 5092) -> int:
 @click.option(
     "--port",
     "-p",
-    default=settings.integration.dashboard.port,
+    default=None,
     nargs=1,
     type=click.IntRange(1, 65535),
     help="The port of swanlab web, default by 5092",
@@ -120,6 +119,12 @@ def watch(path: str, host: str, port: int, log_dir: str, logdir: str):
 
     if path is not None:
         path = os.path.abspath(path)
+
+    # 懒解析 host/port 默认值：延迟到运行时读取全局单例，避免模块级 import 时触发降级代理
+    if host is None:
+        host = settings.integration.dashboard.host
+    if port is None:
+        port = settings.integration.dashboard.port
 
     port = _get_free_port(default_port=port)
 

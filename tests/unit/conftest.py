@@ -1,12 +1,13 @@
+import os
+
 import pytest
 
-import swanlab
-from swanlab.sdk.internal.context.components.callbacker import global_callbacker
-from swanlab.sdk.internal.core_python import client
-from swanlab.sdk.internal.pkg import console
-from swanlab.sdk.internal.run import clear_run
-from swanlab.sdk.internal.run.components.config import reset as reset_config
-from swanlab.sdk.internal.settings import Settings, settings
+# 在 import swanlab 前清理所有 SWANLAB_ 环境变量，
+# 确保 settings 全局单例在 import 期以干净环境构造（真 Settings，非 DegradedSettings 代理）。
+# per-test 隔离由下方 autouse fixture 通过 monkeypatch 精确控制。
+for _key in list(os.environ):
+    if _key.startswith("SWANLAB_"):
+        del os.environ[_key]
 
 
 @pytest.fixture(autouse=True)
@@ -24,6 +25,14 @@ def isolate_sdk_environment(tmp_path, monkeypatch):
       3. 清理 logger
       4. 清理 callbacker
     """
+
+    import swanlab
+    from swanlab.sdk.internal.context.components.callbacker import global_callbacker
+    from swanlab.sdk.internal.core_python import client
+    from swanlab.sdk.internal.pkg import console
+    from swanlab.sdk.internal.run import clear_run
+    from swanlab.sdk.internal.run.components.config import reset as reset_config
+    from swanlab.sdk.internal.settings import Settings, settings
 
     # 1. 路径与环境变量隔离
     # 清理可能干扰测试的常见环境变量

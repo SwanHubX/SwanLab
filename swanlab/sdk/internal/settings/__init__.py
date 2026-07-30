@@ -20,7 +20,7 @@
 
 import os
 from pathlib import Path
-from typing import Any, ClassVar, Dict, Optional, Tuple, Type, Union, get_args
+from typing import TYPE_CHECKING, Any, ClassVar, Dict, Optional, Tuple, Type, Union, get_args
 
 import yaml
 from pydantic import Field, ValidationError, field_validator
@@ -40,7 +40,7 @@ from swanlab.sdk.typings.run import ModeType
 
 from .core import CoreSettings
 from .experiment import ExperimentSettings, ProjectSettings, RunSettings
-from .gate import env_or, load_external_enabled, settings_local
+from .gate import DegradedSettings, env_or, load_external_enabled, set_degraded, settings_local
 from .integration import IntegrationSettings
 from .probe import ProbeSettings
 from .terminal import TerminalSettings
@@ -573,13 +573,18 @@ def _load_netrc(netrc_path: Path) -> Optional[Tuple[str, str, str]]:
 
 
 # 全局单例：正常情况下解析全部外部配置源（env / yaml / .netrc）。
-# 若环境变量非法导致构造失败，降级为纯默认实例，避免在 import swanlab 期间抛错；
+# 若环境变量非法导致构造失败，降级为 DegradedSettings 代理——任意属性访问 re-raise 原始错误，
+# 避免 import swanlab 期间抛错的同时，防止消费入口读到不可信的默认值（路由到公有云 / 凭证泄漏）。
 # 真正的校验错误会在后续 swanlab.init() 新建 Settings() 时照常抛出。
-try:
-    settings = Settings()
-except (ValidationError, ValueError) as e:
-    console.warning(
-        f"Failed to load SwanLab settings from environment, falling back to defaults. "
-        f"Call `swanlab.init()` to see the full error. Detail: {e}"
-    )
-    settings = Settings.defaults_only()
+if TYPE_CHECKING:
+    settings: Settings
+else:
+    try:
+        settings = Settings()
+    except (ValidationError, ValueError) as e:
+        console.warning(
+            f"Failed to load SwanLab settings from environment, falling back to defaults. "
+            f"Call `swanlab.init()` to see the full error. Detail: {e}"
+        )
+        settings = DegradedSettings(e)
+        set_degraded(e)
