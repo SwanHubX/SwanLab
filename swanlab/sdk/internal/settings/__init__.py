@@ -93,14 +93,10 @@ class _TolerantEnvSettingsSource(EnvSettingsSource):
                 raise
             console.warning(f'Failed to parse environment variable for "{field_name}"; ignoring.')
             return None
-        # 非严格模式下，对简单字段预校验类型，避免非法值（如 bool 字段传入非布尔字符串）在模型构造阶段抛出
+        # 非严格模式下，用 TypeAdapter 预校验结果值，避免非法值在模型构造阶段抛出
+        # 覆盖复杂字段（如 json.loads("1")=1 无法构造嵌套模型）和简单字段（如 bool 传入非布尔字符串）
         # 仅在 lenient 模式执行：strict 模式交给模型校验，以保留 before-validator 的转换行为（如 mode=cloud→online）
-        if (
-            not self._strict
-            and result is not None
-            and not (self.field_is_complex(field) or value_is_complex)
-            and field.annotation is not None
-        ):
+        if not self._strict and result is not None and field.annotation is not None:
             try:
                 TypeAdapter(field.annotation).validate_python(result)
             except ValidationError:

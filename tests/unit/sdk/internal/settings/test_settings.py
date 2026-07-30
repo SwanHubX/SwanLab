@@ -348,6 +348,16 @@ def test_nested_model_env_invalid_value_ignored(monkeypatch, field):
         assert settings.run.id is None
 
 
+@pytest.mark.parametrize("value", ["1", "42", "true", "[1,2,3]", '"hello"'])
+def test_nested_model_env_valid_json_but_not_dict_ignored(monkeypatch, value):
+    """嵌套模型字段收到合法 JSON 但非 dict（如 json.loads("1")=1）时也应跳过"""
+    monkeypatch.setenv("SWANLAB_RUN", value)
+
+    settings = Settings()
+
+    assert settings.run.id is None
+
+
 def test_nested_model_env_valid_json(monkeypatch):
     """嵌套模型字段接收合法 JSON 时仍应正常解析"""
     monkeypatch.setenv("SWANLAB_RUN", '{"id": "r-from-json"}')
