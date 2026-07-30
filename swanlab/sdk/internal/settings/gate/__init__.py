@@ -52,34 +52,6 @@ def env_or(key: str, default: Optional[str]) -> Optional[str]:
     return os.environ.get(key, default)
 
 
-# --------------------------------------------------------------------------------------------------
-# 降级状态追踪
-#
-# 全局单例 settings 在 import 期降级构造时，记住导致降级的原始异常。
-# 消费降级单例中 host / api_key 等不可靠值的入口（Api、login）通过 raise_if_degraded() re-raise，
-# 避免因降级默认值导致请求被路由到公有云或抛出误导性错误。
-#
-# 仅在 import 期写入一次，进程内只读，无需线程本地存储。
-# --------------------------------------------------------------------------------------------------
-_degraded_error: Optional[BaseException] = None
-
-
-def set_degraded(error: BaseException) -> None:
-    """记录降级构造时的原始异常。仅在全局单例降级时调用一次。"""
-    global _degraded_error
-    _degraded_error = error
-
-
-def raise_if_degraded() -> None:
-    """全局单例处于降级状态时 re-raise 原始配置错误。
-
-    供消费降级单例中 host / api_key 等不可靠值的入口调用，
-    让真正的配置错误在使用时暴露，而非静默路由到公有云或抛出误导性错误。
-    """
-    if _degraded_error is not None:
-        raise _degraded_error
-
-
 class DegradedSettings:
     """全局降级单例代理：任意属性访问 re-raise 原始配置错误。
 

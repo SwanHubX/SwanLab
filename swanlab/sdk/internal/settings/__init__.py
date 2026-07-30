@@ -40,7 +40,7 @@ from swanlab.sdk.typings.run import ModeType
 
 from .core import CoreSettings
 from .experiment import ExperimentSettings, ProjectSettings, RunSettings
-from .gate import DegradedSettings, env_or, load_external_enabled, set_degraded, settings_local
+from .gate import DegradedSettings, env_or, load_external_enabled, settings_local
 from .integration import IntegrationSettings
 from .probe import ProbeSettings
 from .terminal import TerminalSettings
@@ -587,4 +587,3 @@ else:
             f"Call `swanlab.init()` to see the full error. Detail: {e}"
         )
         settings = DegradedSettings(e)
-        set_degraded(e)
