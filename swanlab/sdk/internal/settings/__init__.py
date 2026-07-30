@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any, ClassVar, Dict, Optional, Tuple, Type, Union, get_args
 
 import yaml
-from pydantic import Field, field_validator
+from pydantic import Field, TypeAdapter, ValidationError, field_validator
 from pydantic.fields import FieldInfo
 from pydantic.functional_validators import model_validator
 from pydantic_settings import (
@@ -59,6 +59,10 @@ SECRETS_DIR: Optional[str] = secrets_dir_env or None
 config_dir_env = os.getenv("SWANLAB_CONFIG_DIR")
 CONFIG_DIR: str = config_dir_env or "/etc/swanlab"
 
+# SWANLAB_STRICT_ENV=1 时，环境变量解析失败将直接抛出（便于调试）；默认容忍并跳过
+strict_env = os.getenv("SWANLAB_STRICT_ENV", "")
+STRICT_ENV: bool = strict_env.lower() in ("1", "true", "yes")
+
 
 def log_dir_factory() -> Path:
     # 向下兼容旧版本环境变量
@@ -66,25 +70,43 @@ def log_dir_factory() -> Path:
 
 
 class _TolerantEnvSettingsSource(EnvSettingsSource):
-    """对默认 EnvSettingsSource 的扩展：容忍复杂字段（嵌套模型）的非 JSON 环境变量值。
+    """对默认 EnvSettingsSource 的扩展：可配置是否容忍环境变量解析错误。
 
-    当环境变量直接映射到某个嵌套模型字段（例如 SWANLAB_RUN=hello）但其值并非合法 JSON 时，
+    当环境变量值无法被解析时（例如嵌套模型字段收到非合法 JSON、或简单字段类型转换失败），
     pydantic-settings 默认会抛出 SettingsError，导致整个 SDK 导入失败。
-    此处在解析失败时跳过该字段并告警，避免单个环境变量配置错误影响导入。
-    嵌套子字段（如 SWANLAB_RUN_ID）的解析不受影响。
+
+    - strict=False（默认）：解析失败时跳过该字段并告警，字段回退到默认值，避免影响导入
+    - strict=True：解析失败时直接抛出，便于调试时暴露配置错误
+
+    可通过环境变量 SWANLAB_STRICT_ENV=1 开启严格模式，适用于复杂字段和简单字段。
     """
+
+    def __init__(self, settings_cls: Type[BaseSettings], *, strict: bool = False) -> None:
+        super().__init__(settings_cls)
+        self._strict = strict
 
     def prepare_field_value(self, field_name: str, field: FieldInfo, value: Any, value_is_complex: bool) -> Any:
         try:
-            return super().prepare_field_value(field_name, field, value, value_is_complex)
+            result = super().prepare_field_value(field_name, field, value, value_is_complex)
         except ValueError:
-            # 仅容忍复杂字段的非 JSON 值，简单字段的类型错误仍然抛出
-            if self.field_is_complex(field) or value_is_complex:
-                console.warning(
-                    f'Failed to parse environment variable for "{field_name}" (value is not valid JSON); ignoring.'
-                )
+            if self._strict:
+                raise
+            console.warning(f'Failed to parse environment variable for "{field_name}"; ignoring.')
+            return None
+        # 非严格模式下，对简单字段预校验类型，避免非法值（如 bool 字段传入非布尔字符串）在模型构造阶段抛出
+        # 仅在 lenient 模式执行：strict 模式交给模型校验，以保留 before-validator 的转换行为（如 mode=cloud→online）
+        if (
+            not self._strict
+            and result is not None
+            and not (self.field_is_complex(field) or value_is_complex)
+            and field.annotation is not None
+        ):
+            try:
+                TypeAdapter(field.annotation).validate_python(result)
+            except ValidationError:
+                console.warning(f'Invalid value for environment variable "{field_name}"; ignoring.')
                 return None
-            raise
+        return result
 
 
 class Settings(BaseSettings):
@@ -424,7 +446,7 @@ class Settings(BaseSettings):
         sources.append(file_secret_settings)
 
         # 6. 环境变量
-        sources.append(_TolerantEnvSettingsSource(settings_cls))
+        sources.append(_TolerantEnvSettingsSource(settings_cls, strict=STRICT_ENV))
 
         # 7. 当前工作目录下 .swanlab/config.{yaml,yml}
         # 项目级别的配置文件，优先级高于环境变量但低于 .env

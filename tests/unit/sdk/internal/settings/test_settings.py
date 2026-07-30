@@ -366,6 +366,51 @@ def test_nested_model_env_subfield_still_works(monkeypatch):
     assert settings.run.id == "r-subfield"
 
 
+def test_simple_field_env_invalid_value_ignored(monkeypatch):
+    """简单字段（如 bool）收到非法环境变量值时也应跳过并回退默认值"""
+    monkeypatch.setenv("SWANLAB_INTERACTIVE", "not-a-bool")
+
+    settings = Settings()
+
+    assert settings.interactive is True  # 回退到默认值
+
+
+def test_mode_cloud_alias_still_works(monkeypatch):
+    """mode=cloud 是 online 的历史别名，在 lenient 模式下应回退到默认值 online"""
+    monkeypatch.setenv("SWANLAB_MODE", "cloud")
+
+    settings = Settings()
+
+    assert settings.mode == "online"
+
+
+class TestStrictEnv:
+    """STRICT_ENV=True 时，环境变量解析错误应直接抛出（通过 patch 模块级常量控制）"""
+
+    def test_strict_complex_field_raises(self, monkeypatch):
+        monkeypatch.setattr("swanlab.sdk.internal.settings.STRICT_ENV", True)
+        monkeypatch.setenv("SWANLAB_RUN", "not-a-json")
+
+        with pytest.raises(Exception, match="run"):
+            Settings()
+
+    def test_strict_simple_field_raises(self, monkeypatch):
+        monkeypatch.setattr("swanlab.sdk.internal.settings.STRICT_ENV", True)
+        monkeypatch.setenv("SWANLAB_INTERACTIVE", "not-a-bool")
+
+        with pytest.raises(Exception):
+            Settings()
+
+    def test_strict_mode_cloud_works(self, monkeypatch):
+        """strict 模式下 mode=cloud 仍可通过 before-validator 转换为 online"""
+        monkeypatch.setattr("swanlab.sdk.internal.settings.STRICT_ENV", True)
+        monkeypatch.setenv("SWANLAB_MODE", "cloud")
+
+        settings = Settings()
+
+        assert settings.mode == "online"
+
+
 @pytest.fixture
 def netrc_file(tmp_path, monkeypatch):
     """
