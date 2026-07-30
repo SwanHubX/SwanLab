@@ -24,9 +24,11 @@ from typing import Any, ClassVar, Dict, Optional, Tuple, Type, Union, get_args
 
 import yaml
 from pydantic import Field, field_validator
+from pydantic.fields import FieldInfo
 from pydantic.functional_validators import model_validator
 from pydantic_settings import (
     BaseSettings,
+    EnvSettingsSource,
     PydanticBaseSettingsSource,
     SecretsSettingsSource,
     SettingsConfigDict,
@@ -61,6 +63,28 @@ CONFIG_DIR: str = config_dir_env or "/etc/swanlab"
 def log_dir_factory() -> Path:
     # 向下兼容旧版本环境变量
     return Path(os.environ.get("SWANLAB_LOGDIR", str(Path.cwd() / "swanlog")))
+
+
+class _TolerantEnvSettingsSource(EnvSettingsSource):
+    """对默认 EnvSettingsSource 的扩展：容忍复杂字段（嵌套模型）的非 JSON 环境变量值。
+
+    当环境变量直接映射到某个嵌套模型字段（例如 SWANLAB_RUN=hello）但其值并非合法 JSON 时，
+    pydantic-settings 默认会抛出 SettingsError，导致整个 SDK 导入失败。
+    此处在解析失败时跳过该字段并告警，避免单个环境变量配置错误影响导入。
+    嵌套子字段（如 SWANLAB_RUN_ID）的解析不受影响。
+    """
+
+    def prepare_field_value(self, field_name: str, field: FieldInfo, value: Any, value_is_complex: bool) -> Any:
+        try:
+            return super().prepare_field_value(field_name, field, value, value_is_complex)
+        except ValueError:
+            # 仅容忍复杂字段的非 JSON 值，简单字段的类型错误仍然抛出
+            if self.field_is_complex(field) or value_is_complex:
+                console.warning(
+                    f'Failed to parse environment variable for "{field_name}" (value is not valid JSON); ignoring.'
+                )
+                return None
+            raise
 
 
 class Settings(BaseSettings):
@@ -400,7 +424,7 @@ class Settings(BaseSettings):
         sources.append(file_secret_settings)
 
         # 6. 环境变量
-        sources.append(env_settings)
+        sources.append(_TolerantEnvSettingsSource(settings_cls))
 
         # 7. 当前工作目录下 .swanlab/config.{yaml,yml}
         # 项目级别的配置文件，优先级高于环境变量但低于 .env

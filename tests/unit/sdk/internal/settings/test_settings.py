@@ -335,6 +335,37 @@ def test_core_section_rule_env_overrides_legacy(monkeypatch):
     assert settings.core.section_rule == -1
 
 
+@pytest.mark.parametrize("field", ["run", "project", "experiment", "terminal", "integration", "core", "probe"])
+def test_nested_model_env_invalid_value_ignored(monkeypatch, field):
+    """嵌套模型字段直接收到非 JSON 环境变量值时不应导致导入崩溃，而是跳过并回退默认值"""
+    monkeypatch.setenv(f"SWANLAB_{field.upper()}", "not-a-json")
+
+    # 不应抛出异常
+    settings = Settings()
+
+    # 该字段应保持默认值（此处校验 run 的默认值，其余字段仅验证不崩溃）
+    if field == "run":
+        assert settings.run.id is None
+
+
+def test_nested_model_env_valid_json(monkeypatch):
+    """嵌套模型字段接收合法 JSON 时仍应正常解析"""
+    monkeypatch.setenv("SWANLAB_RUN", '{"id": "r-from-json"}')
+
+    settings = Settings()
+
+    assert settings.run.id == "r-from-json"
+
+
+def test_nested_model_env_subfield_still_works(monkeypatch):
+    """嵌套子字段（如 SWANLAB_RUN_ID）解析不受影响"""
+    monkeypatch.setenv("SWANLAB_RUN_ID", "r-subfield")
+
+    settings = Settings()
+
+    assert settings.run.id == "r-subfield"
+
+
 @pytest.fixture
 def netrc_file(tmp_path, monkeypatch):
     """
