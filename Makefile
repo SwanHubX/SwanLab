@@ -1,3 +1,8 @@
+SKILL_NAME := pr-review-lab
+SKILL_SOURCE := $(CURDIR)/docs/skills/$(SKILL_NAME)
+AGENTS_SKILL_DIR := $(CURDIR)/.agents/skills
+AGENTS_SKILL_LINK := $(AGENTS_SKILL_DIR)/$(SKILL_NAME)
+
 .PHONY:  init sync format proto unit bench clean build
 
 init:
@@ -38,3 +43,24 @@ publish:
 
 clean:
 	@bash scripts/clean_pycache.sh .
+
+link-skills:
+	@if [ ! -d "$(SKILL_SOURCE)" ]; then \
+		echo "Missing skill source: $(SKILL_SOURCE)"; \
+		exit 1; \
+	fi
+	@mkdir -p "$(AGENTS_SKILL_DIR)"
+	@if [ -e "$(AGENTS_SKILL_LINK)" ] && [ ! -L "$(AGENTS_SKILL_LINK)" ]; then \
+		echo "Refusing to replace non-symlink: $(AGENTS_SKILL_LINK)"; \
+		exit 1; \
+	fi
+	@ln -sfn "$(SKILL_SOURCE)" "$(AGENTS_SKILL_LINK)"
+
+unlink-skills:
+	@if [ -L "$(AGENTS_SKILL_LINK)" ]; then \
+		rm "$(AGENTS_SKILL_LINK)"; \
+	fi
+
+relink-skills:
+	@$(MAKE) unlink-skills
+	@$(MAKE) link-skills
