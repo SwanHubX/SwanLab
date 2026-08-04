@@ -1,9 +1,11 @@
 SKILL_NAME := pr-review-lab
-SKILL_SOURCE := $(CURDIR)/docs/skills/$(SKILL_NAME)
-AGENTS_SKILL_DIR := $(CURDIR)/.agents/skills
+SKILL_SOURCE := docs/skills/$(SKILL_NAME)
+AGENTS_SKILL_DIR := .agents/skills
 AGENTS_SKILL_LINK := $(AGENTS_SKILL_DIR)/$(SKILL_NAME)
+# symlink target relative to AGENTS_SKILL_DIR, so the link stays valid if the repo moves
+SKILL_LINK_TARGET := ../../$(SKILL_SOURCE)
 
-.PHONY:  init sync format proto unit bench clean build
+.PHONY:  init sync format proto unit bench clean build publish link-skills unlink-skills relink-skills
 
 init:
 	uv sync --all-extras
@@ -54,13 +56,11 @@ link-skills:
 		echo "Refusing to replace non-symlink: $(AGENTS_SKILL_LINK)"; \
 		exit 1; \
 	fi
-	@ln -sfn "$(SKILL_SOURCE)" "$(AGENTS_SKILL_LINK)"
+	@ln -sfn "$(SKILL_LINK_TARGET)" "$(AGENTS_SKILL_LINK)"
 
 unlink-skills:
 	@if [ -L "$(AGENTS_SKILL_LINK)" ]; then \
 		rm "$(AGENTS_SKILL_LINK)"; \
 	fi
 
-relink-skills:
-	@$(MAKE) unlink-skills
-	@$(MAKE) link-skills
+relink-skills: unlink-skills link-skills

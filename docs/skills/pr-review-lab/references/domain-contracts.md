@@ -6,7 +6,7 @@
 
 ## 公共 API 与类型兼容
 
-适用路径：`swanlab/__init__.py`、`swanlab/__init__.pyi`、`swanlab/sdk/__init__.py`、`swanlab/sdk/typings/**` 及公开类和函数。
+适用路径：`swanlab/__init__.py`、`swanlab/__init__.pyi`、`swanlab/sdk/__init__.py`、`swanlab/sdk/typings/**`、`swanlab/sdk/protocol/**`、`swanlab/exceptions.py`、`swanlab/deprecated/**` 及公开类和函数。
 
 - 顶层运行时导出、`__all__` 和 `swanlab/__init__.pyi` 保持同步。
 - 新增或修改公开参数时检查默认值、返回值、异常、文档和类型签名是否一致。
@@ -16,7 +16,7 @@
 
 ## Run 生命周期与运行时组件
 
-适用路径：`swanlab/sdk/cmd/**`、`swanlab/sdk/internal/run/**`、`swanlab/sdk/internal/context/**`、`swanlab/sdk/internal/bus/**`。
+适用路径：`swanlab/sdk/cmd/**`、`swanlab/sdk/internal/run/**`、`swanlab/sdk/internal/context/**`、`swanlab/sdk/internal/bus/**`、`swanlab/sdk/internal/impl.py`。
 
 - `init`、`log`、`finish` 和 reinit 的状态转换清晰，失败路径不会遗留半初始化的全局状态。
 - `online`、`offline`、`local`、`disabled` 四种模式保持各自边界；disabled 模式不应产生不必要的网络或文件副作用。
@@ -39,7 +39,7 @@
 
 ## 配置、认证与 HTTP 客户端
 
-适用路径：`swanlab/sdk/internal/settings/**`、`swanlab/sdk/internal/pkg/client/**`、`swanlab/sdk/internal/pkg/nrc/**`。
+适用路径：`swanlab/sdk/internal/settings/**`、`swanlab/sdk/internal/pkg/client/**`、`swanlab/sdk/internal/pkg/nrc/**`、`swanlab/sdk/internal/core_python/client/**`、`swanlab/sdk/internal/core_python/api/**`。
 
 - 保持 Settings 声明的配置源优先级；有意调整时同步兼容测试和用户文档。
 - Settings 负责类型、格式和默认值；目录创建、网络请求等业务副作用留在初始化阶段。
@@ -68,6 +68,30 @@
 - 文件句柄、临时文件、watcher、线程和大对象有释放路径。
 - 大文件和批量媒体避免一次性读入内存，并遵守上传大小、分片和批次限制。
 - `save` 的 glob、base path、符号链接和跨平台路径不能越过预期边界或上传错误文件。
+
+## 硬件与环境探测
+
+适用路径：`swanlab/sdk/internal/probe_python/**`（含 `hardware_vendor/**`、`monitor/**`、`environment/**`、`protocol/**`）、`swanlab/vendor/**`。
+
+- 第三方厂商 SDK、驱动或命令行工具缺失时降级为“不可用”，不能让 `import swanlab` 或 `init` 失败。
+- 厂商探测按已有约定判定可用性；探测失败、超时和权限不足都走统一的失败路径，不打断 Run。
+- 监控线程有明确的启动、采样间隔和停止路径；Run finish 后不残留线程或子进程。
+- 采集结果的字段名、单位和数据类型保持稳定，避免破坏云端已有的硬件面板。
+- 探测调用外部命令时限制超时、不拼接不可信输入，且不在日志中输出完整命令输出。
+- 环境采集（git、conda、requirements、runtime）只收集产品需要的信息；参见“安全与隐私”。
+- 探测层直接调用 Core，不经事件总线；改动时确认写入时机仍在 Run 就绪之后。
+- 新增厂商时补充无依赖环境下的隔离测试，不依赖真实硬件。
+
+## 共享工具与内部 pkg
+
+适用路径：`swanlab/sdk/internal/pkg/**`（`safe/`、`fs/`、`console/`、`fork/`、`timer/`、`executor/`、`scope/`、`adapter/`、`constraints/`、`helper/` 等）、`swanlab/utils/**`。
+
+- 这些是被多层复用的公共工具，改动前确认全部调用点，评估影响范围而不只看本地语义。
+- `safe` 系列的错误吞噬边界保持明确；不要用它掩盖应当上抛的错误，也不要留空 catch。
+- 文件、路径和控制台工具保持 Windows/POSIX 与编码兼容，不假设 UTF-8 终端或 POSIX 路径分隔符。
+- 线程、executor、timer 和 scope 工具的资源在异常路径同样释放；不引入全局可变状态。
+- 工具函数保持无副作用和可测试；导入期不做网络、文件写入或线程启动。
+- 修改共享工具时同步更新既有单测，并覆盖调用方的关键路径。
 
 ## 集成、转换器与插件
 
