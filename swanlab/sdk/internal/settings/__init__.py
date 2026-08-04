@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, Dict, Optional, Tuple, Type, Union, get_args
 
 import yaml
-from pydantic import Field, ValidationError, field_validator
+from pydantic import Field, field_validator
 from pydantic.functional_validators import model_validator
 from pydantic_settings import (
     BaseSettings,
@@ -39,13 +39,13 @@ from swanlab.sdk.internal.pkg import console, helper, nrc, safe
 from swanlab.sdk.typings.run import ModeType
 
 from .core import CoreSettings
+from .degraded import DegradedSettings
 from .experiment import ExperimentSettings, ProjectSettings, RunSettings
-from .gate import DegradedSettings, env_or, load_external_enabled, settings_local
 from .integration import IntegrationSettings
 from .probe import ProbeSettings
 from .terminal import TerminalSettings
 
-__all__ = ["Settings", "settings", "load_external_enabled"]
+__all__ = ["Settings", "settings"]
 
 
 ROOT_FOLDER = ".swanlab"
@@ -60,8 +60,8 @@ CONFIG_DIR: str = config_dir_env or "/etc/swanlab"
 
 
 def log_dir_factory() -> Path:
-    # 向下兼容旧版本环境变量；降级构造时不读 env，返回纯默认值
-    return Path(env_or("SWANLAB_LOGDIR", str(Path.cwd() / "swanlog")))
+    # 向下兼容旧版本环境变量
+    return Path(os.environ.get("SWANLAB_LOGDIR", str(Path.cwd() / "swanlog")))
 
 
 class Settings(BaseSettings):
@@ -100,8 +100,10 @@ class Settings(BaseSettings):
 
     @staticmethod
     def get_user_config_dir():
-        # SWANLAB_SAVE_DIR 用于向下兼容历史环境变量；降级构造时不读 env，返回默认 home 路径
-        return Path(env_or("SWANLAB_ROOT", None) or env_or("SWANLAB_SAVE_DIR", str(Path.home() / ROOT_FOLDER)))
+        # SWANLAB_SAVE_DIR 用于向下兼容历史环境变量
+        return Path(
+            os.environ.get("SWANLAB_ROOT") or os.environ.get("SWANLAB_SAVE_DIR", str(Path.home() / ROOT_FOLDER))
+        )
 
     Project: ClassVar[Type[ProjectSettings]] = ProjectSettings
     Run: ClassVar[Type[RunSettings]] = RunSettings
@@ -235,9 +237,6 @@ class Settings(BaseSettings):
         - login (username) -> web_host
         - password -> api_key
         """
-        # 降级构造时跳过 .netrc 读取：保证兜底实例为不含外部凭证的纯默认值
-        if not load_external_enabled():
-            return self
         # 获取被显式设置过的字段集合（在 Env 或 Yaml 中指定过的字段，跳过覆盖）
         fields_set = self.__pydantic_fields_set__
         # 如果 api_key 已经被设置，则跳过
@@ -357,11 +356,6 @@ class Settings(BaseSettings):
         dotenv_settings: PydanticBaseSettingsSource,
         file_secret_settings: PydanticBaseSettingsSource,
     ) -> Tuple[PydanticBaseSettingsSource, ...]:
-        # _load_external=False 时仅保留 init_settings，构造一个不读任何外部配置的“纯默认”实例，
-        # 用于 import 期间的降级构造，避免环境变量非法导致 import swanlab 失败
-        if not load_external_enabled():
-            return (init_settings,)
-
         # 优先级由高到低排列体现在返回的sources顺序：
         # 1. init_settings (merge_settings 传入的参数)
         # 2. 当前目录下 swanlab.{yaml,yml}
@@ -509,25 +503,13 @@ class Settings(BaseSettings):
             return [Settings._convert_paths(item) for item in obj]
         return obj
 
-    @classmethod
-    def defaults_only(cls) -> "Settings":
-        """构造纯默认实例：跳过所有外部配置源（env / yaml / .netrc / secrets）。
-
-        仅用于 import 期降级——环境变量非法导致正常构造失败时，用它生成兜底实例，避免 `import swanlab` 被阻断；
-        真正的校验错误会在后续 swanlab.init() 新建 Settings() 时照常抛出。
-        门控信号通过线程本地存储传递，finally 确保不污染同线程后续正常构造。
-        """
-        settings_local.load_external = False
-        try:
-            return cls()
-        finally:
-            settings_local.load_external = True
-
-    def merge_settings(self, other: Union["Settings", dict]) -> None:
+    def merge_settings(self, other: Union["Settings", DegradedSettings, dict]) -> None:
         """
         合并自定义设置
         """
-        if isinstance(other, self.__class__):
+        if isinstance(other, DegradedSettings):
+            other.raise_for_access("global settings")
+        elif isinstance(other, self.__class__):
             # 1. 使用 exclude_unset=True 提取用户显式设置的字段
             # 这样可以确保 SwanLabSettings("log_dir"="...") 不会带上默认的值
             update_data = other.model_dump(exclude_unset=True)
@@ -573,17 +555,16 @@ def _load_netrc(netrc_path: Path) -> Optional[Tuple[str, str, str]]:
 
 
 # 全局单例：正常情况下解析全部外部配置源（env / yaml / .netrc）。
-# 若环境变量非法导致构造失败，降级为 DegradedSettings 代理——任意属性访问 re-raise 原始错误，
-# 避免 import swanlab 期间抛错的同时，防止消费入口读到不可信的默认值（路由到公有云 / 凭证泄漏）。
-# 真正的校验错误会在后续 swanlab.init() 新建 Settings() 时照常抛出。
+# 若配置非法导致构造失败，使用 DegradedSettings 代理允许 import 继续；
+# 后续任何配置访问都会重新抛出原始错误，防止消费入口读取不可信值。
 if TYPE_CHECKING:
     settings: Settings
 else:
     try:
         settings = Settings()
-    except (ValidationError, ValueError) as e:
+    except ValueError as e:
         console.warning(
-            f"Failed to load SwanLab settings from environment, falling back to defaults. "
-            f"Call `swanlab.init()` to see the full error. Detail: {e}"
+            f"Failed to initialize SwanLab settings. Fix the configuration and restart the process before using "
+            f"settings-dependent operations. Detail: {e}"
         )
         settings = DegradedSettings(e)

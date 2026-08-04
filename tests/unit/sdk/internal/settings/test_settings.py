@@ -15,8 +15,8 @@ import pytest
 from pydantic import ValidationError
 from pydantic_settings import SettingsConfigDict
 
-from swanlab.sdk.internal.settings import Settings, load_external_enabled
-from swanlab.sdk.internal.settings.gate import DegradedSettings
+from swanlab.sdk.internal.settings import Settings
+from swanlab.sdk.internal.settings.degraded import DegradedSettings
 
 
 @pytest.fixture(autouse=True)
@@ -608,29 +608,7 @@ class TestSaveToYaml:
         assert file_path.exists()
 
 
-def test_load_external_false_skips_env(monkeypatch):
-    """defaults_only() 构造不读 env：即使环境变量非法也不抛，返回纯默认值"""
-    monkeypatch.setenv("SWANLAB_MODE", "bogus")
-    monkeypatch.setenv("SWANLAB_API_KEY", "env-key")
-    monkeypatch.setenv("SWANLAB_PROJ_NAME", "env-project")
-    monkeypatch.setenv("SWANLAB_WEBHOOK_TIMEOUT", "99")
-    monkeypatch.setenv("SWANLAB_SECTION_RULE_IDX", "3")
-
-    s = Settings.defaults_only()
-
-    # 主配置与子模块兼容工厂都未读 env
-    assert s.mode == "online"
-    assert s.api_key is None
-    assert s.project.name is None
-    assert s.integration.webhook.timeout == 5
-    assert s.core.section_rule == 0
-    # fields_set 为空：合并时经 exclude_unset 不会带入任何“假覆盖”
-    assert s.__pydantic_fields_set__ == set()
-    # finally 已还原线程本地标记，后续正常构造仍走完整 source
-    assert load_external_enabled() is True
-
-
-def test_load_external_true_raises_on_bad_env(monkeypatch):
+def test_settings_raises_on_bad_env(monkeypatch):
     """正常构造 Settings() 在环境变量非法时照常抛 ValidationError
 
     这是 swanlab.init() 新建 Settings() 的行为：错误不在 import 期间抛，而在使用时抛。
@@ -642,12 +620,46 @@ def test_load_external_true_raises_on_bad_env(monkeypatch):
 
 
 def test_degraded_settings_raises_on_access():
-    """DegradedSettings 代理：任意属性访问 re-raise 原始异常"""
+    """DegradedSettings 代理：普通属性访问抛出带原始 cause 的新异常"""
     err = ValueError("bad config")
     proxy = DegradedSettings(err)
     for attr in ("api_host", "api_key", "web_host", "mode", "integration", "core"):
-        with pytest.raises(ValueError, match="bad config"):
+        with pytest.raises(RuntimeError, match=f"cannot access `{attr}`") as exc_info:
             getattr(proxy, attr)
+        assert exc_info.value.__cause__ is err
+
+
+def test_degraded_settings_does_not_accumulate_tracebacks():
+    """重复访问代理不会修改原始异常的 traceback"""
+    try:
+        raise ValueError("bad config")
+    except ValueError as caught:
+        err = caught
+
+    proxy = DegradedSettings(err)
+    original_traceback = err.__traceback__
+    for _ in range(100):
+        with pytest.raises(RuntimeError) as exc_info:
+            proxy.api_host
+        assert exc_info.value.__cause__ is err
+    assert err.__traceback__ is original_traceback
+
+
+def test_degraded_settings_missing_dunder_uses_attribute_error():
+    """缺失的 dunder 属性遵循 Python 属性协议"""
+    proxy = DegradedSettings(ValueError("bad config"))
+    assert not hasattr(proxy, "__missing_dunder__")
+    assert getattr(proxy, "__missing_dunder__", "fallback") == "fallback"
+
+
+def test_merge_settings_rejects_degraded_proxy_with_clear_error():
+    """合并降级全局配置时提示修复配置并重启，而不是抛出类型错误"""
+    err = ValueError("bad config")
+    proxy = DegradedSettings(err)
+
+    with pytest.raises(RuntimeError, match="restart the process") as exc_info:
+        Settings().merge_settings(proxy)
+    assert exc_info.value.__cause__ is err
 
 
 def test_degraded_settings_repr():
@@ -682,12 +694,20 @@ class TestImportFallback:
     """端到端验证 `import swanlab` 在配置异常时的容错行为（子进程级回归）"""
 
     def test_import_survives_bad_mode(self):
-        """坏的 SWANLAB_MODE 不应阻断 import：降级为默认实例并输出告警"""
+        """坏的 SWANLAB_MODE 不应阻断 import：降级为错误代理并输出告警"""
         result = _run_import_subprocess({"SWANLAB_MODE": "bogus"})
         assert result.returncode == 0, result.stdout + result.stderr
         assert "IMPORT_OK" in result.stdout
         # 降级时应输出 warning 提示
-        assert "falling back to defaults" in result.stdout
+        assert "Fix the configuration" in result.stdout
+
+    def test_import_fails_on_malformed_yaml(self, tmp_path):
+        """YAML 语法错误属于文件格式错误，应直接阻断 import"""
+        (tmp_path / "swanlab.yaml").write_text("mode: [unclosed")
+        result = _run_import_subprocess(cwd=tmp_path)
+        assert result.returncode != 0
+        assert "IMPORT_OK" not in result.stdout
+        assert "ParserError" in result.stderr
 
     def test_import_survives_bad_logdir(self, tmp_path):
         """坏的 SWANLAB_LOGDIR（指向已存在的非目录文件）不应阻断 import"""
@@ -750,5 +770,25 @@ class TestImportFallback:
             ),
         )
         assert result.returncode == 0, result.stdout + result.stderr
-        assert "RAISED=" in result.stdout
+        assert "RAISED=RuntimeError" in result.stdout
+        assert "NO_RAISE" not in result.stdout
+
+    def test_import_degraded_requires_restart_after_config_is_fixed(self):
+        """import 后修复配置不会复用降级单例，init 应给出明确的重启提示"""
+        result = _run_import_subprocess(
+            {"SWANLAB_MODE": "bogus"},
+            script=(
+                "import os\n"
+                "import swanlab\n"
+                "os.environ.pop('SWANLAB_MODE')\n"
+                "try:\n"
+                "    swanlab.init(mode='disabled')\n"
+                "    print('NO_RAISE')\n"
+                "except Exception as e:\n"
+                "    print('RAISED=' + type(e).__name__ + ':' + str(e))"
+            ),
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "RAISED=RuntimeError" in result.stdout
+        assert "restart the process" in result.stdout
         assert "NO_RAISE" not in result.stdout

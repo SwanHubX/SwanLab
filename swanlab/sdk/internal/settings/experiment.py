@@ -7,6 +7,7 @@
 """
 
 import json
+import os
 from pathlib import Path
 from typing import Annotated, Any, List, Optional, cast, get_args
 
@@ -18,22 +19,20 @@ from swanlab.sdk.internal.pkg import console
 from swanlab.sdk.internal.pkg import constraints as const
 from swanlab.sdk.typings.run import ParallelType, ResumeType
 
-from .gate import env_or
-
 
 def project_name_factory() -> Optional[str]:
     # 向下兼容旧版本环境变量
-    return env_or("SWANLAB_PROJ_NAME", None)
+    return os.environ.get("SWANLAB_PROJ_NAME", None)
 
 
 def workspace_factory() -> Optional[str]:
     # 向下兼容旧版本环境变量
-    return env_or("SWANLAB_WORKSPACE", None)
+    return os.environ.get("SWANLAB_WORKSPACE", None)
 
 
 def project_public_factory() -> bool:
     # 向下兼容旧版本环境变量
-    return env_or("SWANLAB_PUBLIC", "").lower() in ["true", "yes", "1"]
+    return os.environ.get("SWANLAB_PUBLIC", "").lower() in ["true", "yes", "1"]
 
 
 class ProjectSettings(BaseModel):
@@ -63,33 +62,33 @@ class ProjectSettings(BaseModel):
 
 def experiment_name_factory() -> Optional[str]:
     # 向下兼容旧版本环境变量
-    return env_or("SWANLAB_EXP_NAME", None)
+    return os.environ.get("SWANLAB_EXP_NAME", None)
 
 
 def experiment_color_factory() -> Optional[str]:
     # 向下兼容旧版本环境变量
-    return env_or("SWANLAB_EXP_COLOR", None)
+    return os.environ.get("SWANLAB_EXP_COLOR", None)
 
 
 def experiment_description_factory() -> Optional[str]:
     # 向下兼容旧版本环境变量
-    return env_or("SWANLAB_DESCRIPTION", None)
+    return os.environ.get("SWANLAB_DESCRIPTION", None)
 
 
 def experiment_tags_factory() -> List[str]:
     # 向下兼容旧版本环境变量
-    env_value = env_or("SWANLAB_TAGS", "")
+    env_value = os.environ.get("SWANLAB_TAGS", "")
     return [item.strip() for item in env_value.split(",") if item.strip()]
 
 
 def experiment_group_factory() -> Optional[str]:
     # 向下兼容旧版本环境变量
-    return env_or("SWANLAB_GROUP", None)
+    return os.environ.get("SWANLAB_GROUP", None)
 
 
 def experiment_job_type_factory() -> Optional[str]:
     # 向下兼容旧版本环境变量
-    return env_or("SWANLAB_JOB_TYPE", None)
+    return os.environ.get("SWANLAB_JOB_TYPE", None)
 
 
 Tags = Field(default_factory=experiment_tags_factory, max_length=50, validate_default=True)
@@ -163,12 +162,12 @@ class ExperimentSettings(BaseModel):
 
 def run_id_factory() -> Optional[str]:
     # 向下兼容旧版本环境变量
-    return env_or("SWANLAB_RUN_ID", None)
+    return os.environ.get("SWANLAB_RUN_ID", None)
 
 
 def run_resume_factory() -> ResumeType:
     # 向下兼容旧版本环境变量
-    current_value = env_or("SWANLAB_RESUME", "").lower()
+    current_value = os.environ.get("SWANLAB_RESUME", "").lower()
     if current_value:
         try:
             return map_resume_value(current_value)
