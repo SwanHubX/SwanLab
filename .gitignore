@@ -52,6 +52,7 @@ LightningTest/
 CLAUDE.md
 AGENTS.md
 FEATURE_SUMMARY.md
+.agents/
 .claude/
 .skill/
 GEMINI.md
@@ -60,3 +61,6 @@ QWEN.md
 .opencode/
 CODEBUDDY.md
 .codegraph/
+.mimocode/
+.grok/
+.reasonix/
