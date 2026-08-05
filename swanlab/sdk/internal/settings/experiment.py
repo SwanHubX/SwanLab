@@ -11,7 +11,7 @@ import os
 from pathlib import Path
 from typing import Annotated, Any, List, Optional, cast, get_args
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, TypeAdapter, ValidationError, field_validator, model_validator
 from pydantic.config import ConfigDict
 from pydantic_settings import NoDecode
 
@@ -20,14 +20,34 @@ from swanlab.sdk.internal.pkg import constraints as const
 from swanlab.sdk.typings.run import ParallelType, ResumeType
 
 
+def normalize_env_value(value: Optional[str], annotation: Any) -> Optional[str]:
+    """根据字段约束移除环境变量最外层一对匹配的单引号或双引号。"""
+    if value is None or len(value) < 2 or value[0] != value[-1] or value[0] not in {"'", '"'}:
+        return value
+
+    # 只有发现外层引号后才创建 TypeAdapter，避免普通环境变量产生额外校验开销。
+    stripped = value[1:-1]
+    adapter = TypeAdapter(annotation)
+    try:
+        adapter.validate_python(stripped)
+    except ValidationError:
+        return value
+
+    try:
+        adapter.validate_python(value)
+    except ValidationError:
+        return stripped
+    return value
+
+
 def project_name_factory() -> Optional[str]:
     # 向下兼容旧版本环境变量
-    return os.environ.get("SWANLAB_PROJ_NAME", None)
+    return normalize_env_value(os.environ.get("SWANLAB_PROJ_NAME"), const.ProjectName)
 
 
 def workspace_factory() -> Optional[str]:
     # 向下兼容旧版本环境变量
-    return os.environ.get("SWANLAB_WORKSPACE", None)
+    return normalize_env_value(os.environ.get("SWANLAB_WORKSPACE"), const.Workspace)
 
 
 def project_public_factory() -> bool:
@@ -67,7 +87,7 @@ def experiment_name_factory() -> Optional[str]:
 
 def experiment_color_factory() -> Optional[str]:
     # 向下兼容旧版本环境变量
-    return os.environ.get("SWANLAB_EXP_COLOR", None)
+    return normalize_env_value(os.environ.get("SWANLAB_EXP_COLOR"), const.HexColor)
 
 
 def experiment_description_factory() -> Optional[str]:
@@ -162,7 +182,7 @@ class ExperimentSettings(BaseModel):
 
 def run_id_factory() -> Optional[str]:
     # 向下兼容旧版本环境变量
-    return os.environ.get("SWANLAB_RUN_ID", None)
+    return normalize_env_value(os.environ.get("SWANLAB_RUN_ID"), const.RunId)
 
 
 def run_resume_factory() -> ResumeType:
