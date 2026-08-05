@@ -6,9 +6,77 @@
 """
 
 import pytest
+from pydantic import ValidationError
 
 from swanlab.sdk.internal.settings import Settings
 from swanlab.sdk.internal.settings.experiment import map_resume_value
+
+QUOTE_NORMALIZATION_CASES = [
+    ("SWANLAB_PROJECT_NAME", "project.name", "quoted-project"),
+    ("SWANLAB_PROJ_NAME", "project.name", "legacy-project"),
+    ("SWANLAB_PROJECT_WORKSPACE", "project.workspace", "quoted_workspace"),
+    ("SWANLAB_WORKSPACE", "project.workspace", "legacy_workspace"),
+    ("SWANLAB_EXPERIMENT_COLOR", "experiment.color", "#123ABC"),
+    ("SWANLAB_EXP_COLOR", "experiment.color", "#ABC123"),
+    ("SWANLAB_RUN_ID", "run.id", "quoted-run"),
+    ("SWANLAB_RUN_DIR", "run.dir", "quoted-dir"),
+]
+
+
+def _get_nested_attr(value, path):
+    for part in path.split("."):
+        value = getattr(value, part)
+    return value
+
+
+@pytest.mark.parametrize("env_name,path,expected", QUOTE_NORMALIZATION_CASES)
+def test_marked_env_strips_double_outer_quote_pair(monkeypatch, env_name, path, expected):
+    for name, _, _ in QUOTE_NORMALIZATION_CASES:
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv(env_name, f'"{expected}"')
+
+    assert _get_nested_attr(Settings(), path) == expected
+
+
+@pytest.mark.parametrize(
+    "env_name,path,expected",
+    QUOTE_NORMALIZATION_CASES[:-2],
+)
+def test_marked_env_strips_single_outer_quote_pair(monkeypatch, env_name, path, expected):
+    for name, _, _ in QUOTE_NORMALIZATION_CASES:
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv(env_name, f"'{expected}'")
+
+    assert _get_nested_attr(Settings(), path) == expected
+
+
+@pytest.mark.parametrize("env_name,path,expected", QUOTE_NORMALIZATION_CASES[-2:])
+def test_run_values_preserve_allowed_single_quotes(monkeypatch, env_name, path, expected):
+    for name, _, _ in QUOTE_NORMALIZATION_CASES:
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv(env_name, f"'{expected}'")
+
+    assert _get_nested_attr(Settings(), path) == f"'{expected}'"
+
+
+def test_strict_env_strips_only_one_outer_quote_pair(monkeypatch):
+    monkeypatch.setenv("SWANLAB_RUN_ID", '""abc""')
+
+    with pytest.raises(ValidationError):
+        Settings()
+
+
+def test_non_strict_env_preserves_outer_quotes(monkeypatch):
+    value = "'quoted description'"
+    monkeypatch.setenv("SWANLAB_EXPERIMENT_DESCRIPTION", value)
+
+    assert Settings().experiment.description == value
+
+
+def test_outer_quote_normalization_only_applies_to_env():
+    value = "'quoted-run'"
+
+    assert Settings(run={"id": value}).run.id == value
 
 
 def test_experiment_tags_parse(monkeypatch):

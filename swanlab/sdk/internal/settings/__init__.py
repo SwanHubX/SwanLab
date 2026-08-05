@@ -27,6 +27,7 @@ from pydantic import Field, field_validator
 from pydantic.functional_validators import model_validator
 from pydantic_settings import (
     BaseSettings,
+    EnvSettingsSource,
     PydanticBaseSettingsSource,
     SecretsSettingsSource,
     SettingsConfigDict,
@@ -39,7 +40,12 @@ from swanlab.sdk.internal.pkg import console, helper, nrc, safe
 from swanlab.sdk.typings.run import ModeType
 
 from .core import CoreSettings
-from .experiment import ExperimentSettings, ProjectSettings, RunSettings
+from .experiment import (
+    ExperimentSettings,
+    ProjectSettings,
+    RunSettings,
+    normalize_env_value,
+)
 from .integration import IntegrationSettings
 from .probe import ProbeSettings
 from .terminal import TerminalSettings
@@ -61,6 +67,19 @@ CONFIG_DIR: str = config_dir_env or "/etc/swanlab"
 def log_dir_factory() -> Path:
     # 向下兼容旧版本环境变量
     return Path(os.environ.get("SWANLAB_LOGDIR", str(Path.cwd() / "swanlog")))
+
+
+class EnvQuoteNormalizationSource(EnvSettingsSource):
+    """在 Pydantic 转换单个进程环境变量时，按字段约束移除外层引号。"""
+
+    def __init__(self, source: EnvSettingsSource):
+        # 复用 Pydantic 已构建好的 source，保留 _env_* 参数和已读取的进程环境变量。
+        self.__dict__.update(source.__dict__)
+
+    def _coerce_env_val_strict(self, field, value: Any) -> Any:
+        if field is not None and isinstance(value, str):
+            value = normalize_env_value(value, field.annotation)
+        return super()._coerce_env_val_strict(field, value)
 
 
 class Settings(BaseSettings):
@@ -400,6 +419,8 @@ class Settings(BaseSettings):
         sources.append(file_secret_settings)
 
         # 6. 环境变量
+        # 处理环境变量可能携带容器或启动脚本额外包裹的引号
+        env_settings = EnvQuoteNormalizationSource(env_settings)
         sources.append(env_settings)
 
         # 7. 当前工作目录下 .swanlab/config.{yaml,yml}
