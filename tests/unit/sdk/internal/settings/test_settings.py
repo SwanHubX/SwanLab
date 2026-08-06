@@ -15,7 +15,7 @@ import pytest
 from pydantic import ValidationError
 from pydantic_settings import SettingsConfigDict
 
-from swanlab.sdk.internal.settings import Settings
+from swanlab.sdk.internal.settings import Settings, resolve_hosts
 
 
 @pytest.fixture(autouse=True)
@@ -271,6 +271,43 @@ def test_url_resolution_logic(monkeypatch):
     s_invalid_web = Settings(web_host="api.swanlab.cn?test=1dsa")
     assert s_invalid_web.web_host == "https://swanlab.cn"
     assert "web_host" not in s_invalid_web.__pydantic_fields_set__
+
+
+def test_resolve_hosts():
+    """测试 resolve_hosts 的推导与清理逻辑"""
+
+    # 1. 两者都未提供 → (None, None)
+    assert resolve_hosts() == (None, None)
+
+    # 2. 仅 api_host：清理路由/补全协议，并推导 web_host
+    api, web = resolve_hosts(api_host="http://10.0.0.1:8080/api/v1/run/")
+    assert api == "http://10.0.0.1:8080"
+    assert web == "http://10.0.0.1:8080"
+
+    # 3. 仅 api_host（无协议头）：补全 https
+    api, web = resolve_hosts(api_host="custom-api.com/api/")
+    assert api == "https://custom-api.com"
+    assert web == "https://custom-api.com"
+
+    # 4. 两者都提供：各自清理，不推导
+    api, web = resolve_hosts(api_host="http://api.local/v1/", web_host="http://web.local/")
+    assert api == "http://api.local"
+    assert web == "http://web.local"
+
+    # 5. 仅 web_host：清理但不推导 api_host
+    api, web = resolve_hosts(web_host="http://192.168.1.10/")
+    assert api is None
+    assert web == "http://192.168.1.10"
+
+    # 6. web_host 等于 api_host 默认值 → web_host 回退为 None
+    api, web = resolve_hosts(api_host="https://example.com", web_host="api.swanlab.cn?test=1dsa")
+    assert api == "https://example.com"
+    assert web is None
+
+    # 7. api_host 恰好为官方 api 默认值 → 推导出的 web_host 也为 None
+    api, web = resolve_hosts(api_host="api.swanlab.cn")
+    assert api == "https://api.swanlab.cn"
+    assert web is None
 
 
 def test_url_env_resolution(monkeypatch):

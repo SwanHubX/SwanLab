@@ -42,3 +42,29 @@ class TestMergeSettings:
         merge_settings({"mode": "disabled"})
 
         assert create_settings().mode == "disabled"
+
+    def test_api_host_derives_web_host(self):
+        """仅传 api_host 时，web_host 应自动从 api_host 推导"""
+        merge_settings({"api_host": "https://priv.x.cn"})
+
+        s = create_settings()
+        assert s.api_host == "https://priv.x.cn"
+        assert s.web_host == "https://priv.x.cn"
+
+    def test_api_host_with_web_host_keeps_both(self):
+        """同时传 api_host 和 web_host 时，各自独立、不推导"""
+        merge_settings({"api_host": "https://api.x.cn", "web_host": "https://web.x.cn"})
+
+        s = create_settings()
+        assert s.api_host == "https://api.x.cn"
+        assert s.web_host == "https://web.x.cn"
+
+    def test_repeated_api_host_merge_re_derives_web_host(self):
+        """连续两次仅传 api_host 时，web_host 应每次重新推导"""
+        merge_settings({"api_host": "https://a.x.cn"})
+        assert create_settings().web_host == "https://a.x.cn"
+
+        merge_settings({"api_host": "https://b.x.cn"})
+        s = create_settings()
+        assert s.api_host == "https://b.x.cn"
+        assert s.web_host == "https://b.x.cn"
