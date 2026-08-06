@@ -23,7 +23,8 @@ from typing import Any, Optional, TextIO, cast
 
 import click
 
-from swanlab.sdk import Settings, pkg, settings
+from swanlab.sdk import Settings, pkg
+from swanlab.sdk.internal.settings import create_settings
 from swanlab.sdk.protocol.callbacker import Callback
 
 
@@ -119,11 +120,13 @@ def watch(path: str, host: str, port: int, log_dir: str, logdir: str):
     if path is not None:
         path = os.path.abspath(path)
 
-    # 懒解析 host/port 默认值：延迟到运行时读取全局单例，避免模块级 import 时触发降级代理
-    if host is None:
-        host = settings.integration.dashboard.host
-    if port is None:
-        port = settings.integration.dashboard.port
+    # 懒解析 host/port 默认值，避免不使用默认值时加载无关配置。
+    if host is None or port is None:
+        dashboard = create_settings().integration.dashboard
+        if host is None:
+            host = dashboard.host
+        if port is None:
+            port = dashboard.port
 
     port = _get_free_port(default_port=port)
 

@@ -77,8 +77,8 @@ class TestApiEntryValidation:
         api_module = importlib.import_module("swanlab.api")
         monkeypatch.setattr(
             api_module,
-            "global_settings",
-            SimpleNamespace(api_key=None, api_host="https://api.swanlab.cn", web_host="https://swanlab.cn"),
+            "create_settings",
+            lambda: SimpleNamespace(api_key=None, api_host="https://api.swanlab.cn", web_host="https://swanlab.cn"),
         )
 
         with pytest.raises(AuthenticationError, match="No API key"):

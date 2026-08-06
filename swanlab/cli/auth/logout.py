@@ -10,6 +10,7 @@ import sys
 import click
 
 from swanlab import sdk
+from swanlab.sdk.internal.settings import create_settings
 
 
 @click.command()
@@ -32,7 +33,7 @@ def logout(force: bool, local: bool):
 
     # 2. 交互式确认（非 force 模式下）
     if not force:
-        if sdk.settings.interactive:
+        if create_settings().interactive:
             sdk.pkg.console.info("Are you sure you want to logout? (y/N): ", end="")
             try:
                 confirm = input()

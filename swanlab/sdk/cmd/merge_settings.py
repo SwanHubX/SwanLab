@@ -8,8 +8,7 @@
 from typing import Union
 
 from swanlab.sdk.cmd.guard import with_cmd_lock, without_run
-from swanlab.sdk.internal.settings import Settings
-from swanlab.sdk.internal.settings import settings as swanlab_settings
+from swanlab.sdk.internal.settings import Settings, create_settings, set_global_settings
 
 __all__ = ["merge_settings"]
 
@@ -47,4 +46,6 @@ def merge_settings(settings: Union[Settings, dict]) -> None:
         >>> swanlab.merge_settings(custom_settings)
         >>> swanlab.init()
     """
-    swanlab_settings.merge_settings(settings)
+    global_settings = create_settings()
+    global_settings.merge_settings(settings)
+    set_global_settings(global_settings)

@@ -24,8 +24,7 @@ from swanlab.sdk.internal import impl
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.pkg import console, helper
 from swanlab.sdk.internal.run.progress import run_with_progress
-from swanlab.sdk.internal.settings import Settings
-from swanlab.sdk.internal.settings import settings as global_settings
+from swanlab.sdk.internal.settings import Settings, create_settings
 from swanlab.sdk.protocol.core import CoreSyncProtocol
 from swanlab.utils.experiment import generate_id
 
@@ -45,10 +44,9 @@ def sync(run_dir: Union[Path, str], settings: Optional[Settings] = None):
     if not isinstance(run_dir, Path):
         run_dir = Path(run_dir)
     # 1. settings 合并，并做业务层额外参数限制
-    sync_settings = Settings()
+    sync_settings = create_settings()
     if settings is not None:
         sync_settings.merge_settings(settings)
-    sync_settings.merge_settings(global_settings)
     workspace = sync_settings.project.workspace
     project = sync_settings.project.name
     run_dir = ensure_run_dir(run_dir)
@@ -60,7 +58,6 @@ def sync(run_dir: Union[Path, str], settings: Optional[Settings] = None):
         if sync_settings.api_key is None:
             raise AuthenticationError("Please login first, or use `swanlab.login()`")
         login_raw(sync_settings.api_key, host=sync_settings.api_host, print_welcome=False)
-        sync_settings.merge_settings(global_settings)
     assert client.exists()
 
     # 3. 初始化core sync对象，并启动sync

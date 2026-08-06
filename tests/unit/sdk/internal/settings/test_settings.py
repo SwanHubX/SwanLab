@@ -16,7 +16,6 @@ from pydantic import ValidationError
 from pydantic_settings import SettingsConfigDict
 
 from swanlab.sdk.internal.settings import Settings
-from swanlab.sdk.internal.settings.degraded import DegradedSettings
 
 
 @pytest.fixture(autouse=True)
@@ -619,56 +618,6 @@ def test_settings_raises_on_bad_env(monkeypatch):
         Settings()
 
 
-def test_degraded_settings_raises_on_access():
-    """DegradedSettings 代理：普通属性访问抛出带原始 cause 的新异常"""
-    err = ValueError("bad config")
-    proxy = DegradedSettings(err)
-    for attr in ("api_host", "api_key", "web_host", "mode", "integration", "core"):
-        with pytest.raises(RuntimeError, match=f"cannot access `{attr}`") as exc_info:
-            getattr(proxy, attr)
-        assert exc_info.value.__cause__ is err
-
-
-def test_degraded_settings_does_not_accumulate_tracebacks():
-    """重复访问代理不会修改原始异常的 traceback"""
-    try:
-        raise ValueError("bad config")
-    except ValueError as caught:
-        err = caught
-
-    proxy = DegradedSettings(err)
-    original_traceback = err.__traceback__
-    for _ in range(100):
-        with pytest.raises(RuntimeError) as exc_info:
-            proxy.api_host
-        assert exc_info.value.__cause__ is err
-    assert err.__traceback__ is original_traceback
-
-
-def test_degraded_settings_missing_dunder_uses_attribute_error():
-    """缺失的 dunder 属性遵循 Python 属性协议"""
-    proxy = DegradedSettings(ValueError("bad config"))
-    assert not hasattr(proxy, "__missing_dunder__")
-    assert getattr(proxy, "__missing_dunder__", "fallback") == "fallback"
-
-
-def test_merge_settings_rejects_degraded_proxy_with_clear_error():
-    """合并降级全局配置时提示修复配置并重启，而不是抛出类型错误"""
-    err = ValueError("bad config")
-    proxy = DegradedSettings(err)
-
-    with pytest.raises(RuntimeError, match="restart the process") as exc_info:
-        Settings().merge_settings(proxy)
-    assert exc_info.value.__cause__ is err
-
-
-def test_degraded_settings_repr():
-    """DegradedSettings.__repr__ 包含原始异常类型"""
-    proxy = DegradedSettings(ValueError("bad config"))
-    assert "ValueError" in repr(proxy)
-    assert "bad config" in repr(proxy)
-
-
 def _run_import_subprocess(
     env_overrides: Optional[dict] = None, cwd: Optional[Path] = None, script: str = "import swanlab; print('IMPORT_OK')"
 ) -> subprocess.CompletedProcess:
@@ -690,24 +639,33 @@ def _run_import_subprocess(
     )
 
 
-class TestImportFallback:
-    """端到端验证 `import swanlab` 在配置异常时的容错行为（子进程级回归）"""
+class TestDeferredSettingsLoading:
+    """端到端验证 import 不加载配置，首次消费配置时才进行校验。"""
 
     def test_import_survives_bad_mode(self):
-        """坏的 SWANLAB_MODE 不应阻断 import：降级为错误代理并输出告警"""
+        """坏的 SWANLAB_MODE 不应阻断 import。"""
         result = _run_import_subprocess({"SWANLAB_MODE": "bogus"})
         assert result.returncode == 0, result.stdout + result.stderr
         assert "IMPORT_OK" in result.stdout
-        # 降级时应输出 warning 提示
-        assert "Fix the configuration" in result.stdout
 
-    def test_import_fails_on_malformed_yaml(self, tmp_path):
-        """YAML 语法错误属于文件格式错误，应直接阻断 import"""
+    def test_import_survives_malformed_yaml(self, tmp_path):
+        """YAML 语法错误应延迟到配置被消费时抛出。"""
         (tmp_path / "swanlab.yaml").write_text("mode: [unclosed")
-        result = _run_import_subprocess(cwd=tmp_path)
-        assert result.returncode != 0
-        assert "IMPORT_OK" not in result.stdout
-        assert "ParserError" in result.stderr
+        result = _run_import_subprocess(
+            cwd=tmp_path,
+            script=(
+                "import swanlab\n"
+                "print('IMPORT_OK')\n"
+                "from swanlab.sdk.internal.settings import create_settings\n"
+                "try:\n"
+                "    create_settings()\n"
+                "except Exception as e:\n"
+                "    print('SETTINGS_ERROR=' + type(e).__name__)"
+            ),
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "IMPORT_OK" in result.stdout
+        assert "SETTINGS_ERROR=ParserError" in result.stdout
 
     def test_import_survives_bad_logdir(self, tmp_path):
         """坏的 SWANLAB_LOGDIR（指向已存在的非目录文件）不应阻断 import"""
@@ -725,56 +683,33 @@ class TestImportFallback:
         assert result.returncode == 0, result.stdout + result.stderr
         assert "IMPORT_OK" in result.stdout
 
-    def test_import_degraded_does_not_leak_netrc(self, tmp_path):
-        """降级代理不应读取 .netrc：即便存在本地凭证，属性访问即抛异常，根本不会读到"""
-        netrc_dir = tmp_path / ".swanlab"
-        netrc_dir.mkdir()
-        (netrc_dir / ".netrc").write_text("machine api.swanlab.cn\nlogin web\npassword netrc-leaked-key\n")
-        result = _run_import_subprocess(
-            {"SWANLAB_MODE": "bogus"},
-            cwd=tmp_path,
-            script=(
-                "import swanlab\n"
-                "from swanlab.sdk.internal.settings import settings\n"
-                "try:\n"
-                "    print('APIKEY=' + str(settings.api_key))\n"
-                "except Exception:\n"
-                "    print('DEGRADED_RAISE')"
-            ),
-        )
-        assert result.returncode == 0, result.stdout + result.stderr
-        # 降级代理：属性访问即抛异常
-        assert "DEGRADED_RAISE" in result.stdout
-        # 无论如何都不应泄漏 .netrc 中的凭证
-        assert "netrc-leaked-key" not in result.stdout
-
     @pytest.mark.parametrize("env_name", ["SWANLAB_SECTION_RULE_IDX", "SWANLAB_WEBHOOK_TIMEOUT"])
     def test_import_survives_bad_legacy_nested_env(self, env_name):
-        """子模块中的旧版环境变量非法时也应通过共享门控完成降级"""
+        """子模块中的非法旧版环境变量也不应在 import 时求值。"""
         result = _run_import_subprocess({env_name: "not-an-integer"})
         assert result.returncode == 0, result.stdout + result.stderr
         assert "IMPORT_OK" in result.stdout
 
-    def test_import_degraded_attr_access_raises(self):
-        """降级单例属性访问应 re-raise 原始配置错误，而非返回不可信默认值"""
+    def test_create_settings_raises_after_import(self):
+        """配置错误应在 create_settings() 时抛出。"""
         result = _run_import_subprocess(
             {"SWANLAB_MODE": "bogus"},
             script=(
                 "import swanlab\n"
-                "from swanlab.sdk.internal.settings import settings\n"
+                "from swanlab.sdk.internal.settings import create_settings\n"
                 "try:\n"
-                "    _ = settings.api_host\n"
+                "    create_settings()\n"
                 "    print('NO_RAISE')\n"
                 "except Exception as e:\n"
                 "    print('RAISED=' + type(e).__name__)"
             ),
         )
         assert result.returncode == 0, result.stdout + result.stderr
-        assert "RAISED=RuntimeError" in result.stdout
+        assert "RAISED=ValidationError" in result.stdout
         assert "NO_RAISE" not in result.stdout
 
-    def test_import_degraded_requires_restart_after_config_is_fixed(self):
-        """import 后修复配置不会复用降级单例，init 应给出明确的重启提示"""
+    def test_fixed_config_works_without_restart(self):
+        """import 后修复配置即可继续使用，无需重启进程。"""
         result = _run_import_subprocess(
             {"SWANLAB_MODE": "bogus"},
             script=(
@@ -782,13 +717,13 @@ class TestImportFallback:
                 "import swanlab\n"
                 "os.environ.pop('SWANLAB_MODE')\n"
                 "try:\n"
-                "    swanlab.init(mode='disabled')\n"
-                "    print('NO_RAISE')\n"
+                "    run = swanlab.init(mode='disabled')\n"
+                "    run.finish()\n"
+                "    print('INIT_OK')\n"
                 "except Exception as e:\n"
                 "    print('RAISED=' + type(e).__name__ + ':' + str(e))"
             ),
         )
         assert result.returncode == 0, result.stdout + result.stderr
-        assert "RAISED=RuntimeError" in result.stdout
-        assert "restart the process" in result.stdout
-        assert "NO_RAISE" not in result.stdout
+        assert "INIT_OK" in result.stdout
+        assert "RAISED=" not in result.stdout

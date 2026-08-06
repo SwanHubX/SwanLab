@@ -16,8 +16,7 @@ from swanlab.sdk.cmd import utils
 from swanlab.sdk.cmd.guard import with_cmd_lock, without_run
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.pkg import console, helper, nrc, safe, scope
-from swanlab.sdk.internal.settings import Settings
-from swanlab.sdk.internal.settings import settings as global_settings
+from swanlab.sdk.internal.settings import Settings, create_settings, set_global_settings
 from swanlab.sdk.typings.cmd import LoginType
 from swanlab.sdk.typings.pkg.client.bootstrap import LoginResponse
 
@@ -96,20 +95,21 @@ def login_raw(
     if client.exists():
         client.reset()
     # 2. 获取当前配置
+    current_settings = create_settings()
     host = nrc.fmt(host) if host is not None else None
     # 先用入参，入参没有才考虑复用 settings 里的值
     if api_key is None:
         # host 变了，且 .netrc 中存有旧凭证 —— 旧 key 与新 host 不匹配，不能复用
-        if host is not None and host != global_settings.api_host and global_settings.api_key is not None:
+        if host is not None and host != current_settings.api_host and current_settings.api_key is not None:
             raise AuthenticationError(
-                f"Stored API key is for '{global_settings.api_host}', but you are logging in to '{host}'. "
+                f"Stored API key is for '{current_settings.api_host}', but you are logging in to '{host}'. "
                 "Please provide an API key for the new host."
             )
         else:
-            if global_settings.api_key is None:
+            if current_settings.api_key is None:
                 raise AuthenticationError("No API key provided and no stored API key found. Please provide an API key.")
-            api_key = global_settings.api_key
-    api_host = host or global_settings.api_host
+            api_key = current_settings.api_key
+    api_host = host or current_settings.api_host
     login_settings = Settings.model_validate({"api_key": api_key, "api_host": api_host, "web_host": host})
     # 3. 进入登录流程
     login_settings.merge_settings({"api_key": api_key})
@@ -123,7 +123,8 @@ def login_raw(
             nrc_path = utils.get_nrc_path(save=save)
             nrc.write(nrc_path, api_host=api_host, web_host=login_settings.web_host, api_key=api_key)
         # 4. 将登录设置合并到全局配置中
-        global_settings.merge_settings(login_settings)
+        current_settings.merge_settings(login_settings)
+        set_global_settings(current_settings)
         return True
 
 
@@ -166,7 +167,7 @@ def login_cli(
         web_host = Settings.model_fields["web_host"].default
     count = 0
     base_url = api_host + "/api"
-    interactive = global_settings.interactive
+    interactive = create_settings().interactive
     while True:
         if not api_key:
             api_key = prompt_api_key(web_host=web_host, interactive=interactive, again=count > 0)

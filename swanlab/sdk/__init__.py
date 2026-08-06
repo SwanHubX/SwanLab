@@ -31,7 +31,7 @@ from .cmd.sync import sync
 from .internal import impl, pkg
 from .internal.run import Run, clear_run, get_run, has_run, set_run
 from .internal.run.transforms import Audio, ECharts, Html, Image, Molecule, Object3D, Text, Video, echarts, plot
-from .internal.settings import Settings, settings
+from .internal.settings import Settings
 from .protocol import Callback
 
 __all__ = [
@@ -65,7 +65,6 @@ __all__ = [
     # utils
     "pkg",
     "impl",
-    "settings",
     # data
     "Audio",
     "ECharts",

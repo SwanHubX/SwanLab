@@ -20,7 +20,7 @@
 
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar, Dict, Optional, Tuple, Type, Union, get_args
+from typing import Any, ClassVar, Dict, Optional, Tuple, Type, Union, get_args
 
 import yaml
 from pydantic import Field, field_validator
@@ -39,13 +39,13 @@ from swanlab.sdk.internal.pkg import console, helper, nrc, safe
 from swanlab.sdk.typings.run import ModeType
 
 from .core import CoreSettings
-from .degraded import DegradedSettings
 from .experiment import ExperimentSettings, ProjectSettings, RunSettings
+from .global_settings import get_global_settings, set_global_settings
 from .integration import IntegrationSettings
 from .probe import ProbeSettings
 from .terminal import TerminalSettings
 
-__all__ = ["Settings", "settings"]
+__all__ = ["Settings", "create_settings", "set_global_settings"]
 
 
 ROOT_FOLDER = ".swanlab"
@@ -503,13 +503,11 @@ class Settings(BaseSettings):
             return [Settings._convert_paths(item) for item in obj]
         return obj
 
-    def merge_settings(self, other: Union["Settings", DegradedSettings, dict]) -> None:
+    def merge_settings(self, other: Union["Settings", dict]) -> None:
         """
         合并自定义设置
         """
-        if isinstance(other, DegradedSettings):
-            other.raise_for_access("global settings")
-        elif isinstance(other, self.__class__):
+        if isinstance(other, self.__class__):
             # 1. 使用 exclude_unset=True 提取用户显式设置的字段
             # 这样可以确保 SwanLabSettings("log_dir"="...") 不会带上默认的值
             update_data = other.model_dump(exclude_unset=True)
@@ -554,17 +552,12 @@ def _load_netrc(netrc_path: Path) -> Optional[Tuple[str, str, str]]:
     return None
 
 
-# 全局单例：正常情况下解析全部外部配置源（env / yaml / .netrc）。
-# 若配置非法导致构造失败，使用 DegradedSettings 代理允许 import 继续；
-# 后续任何配置访问都会重新抛出原始错误，防止消费入口读取不可信值。
-if TYPE_CHECKING:
-    settings: Settings
-else:
-    try:
-        settings = Settings()
-    except ValueError as e:
-        console.warning(
-            f"Failed to initialize SwanLab settings. Fix the configuration and restart the process before using "
-            f"settings-dependent operations. Detail: {e}"
-        )
-        settings = DegradedSettings(e)
+def create_settings() -> Settings:
+    """
+    创造一个配置实例，继承全局配置，如果全局配置不存在则忽略
+    """
+    this_settings = Settings()
+    global_settings = get_global_settings()
+    if global_settings is not None:
+        this_settings.merge_settings(global_settings)
+    return this_settings

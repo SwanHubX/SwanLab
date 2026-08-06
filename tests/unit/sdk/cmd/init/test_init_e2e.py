@@ -36,7 +36,7 @@ from swanlab.sdk.internal.pkg import console, fork
 from swanlab.sdk.internal.run import Run, get_run, has_run
 from swanlab.sdk.internal.run.components import BackgroundConsumer, NullConsumer, NullEmitter
 from swanlab.sdk.internal.run.components.config import config as global_config
-from swanlab.sdk.internal.settings import Settings, settings
+from swanlab.sdk.internal.settings import Settings, create_settings
 from swanlab.sdk.typings.run import ModeType
 
 # ============================================================
@@ -333,7 +333,7 @@ def logged_in_client(mock_login_api, mock_online_settings):
     依赖 mock_login_api，故登录请求不会触及真实网络。
     清理由上级 conftest.py 的 isolate_sdk_environment 统一处理。
     """
-    login_cli(api_key=API_KEY, host=settings.api_host)
+    login_cli(api_key=API_KEY, host=create_settings().api_host)
     yield
 
 
@@ -972,10 +972,8 @@ class TestEnsureRunDirE2E:
         """预先在 log_dir 下创建与当前时间戳同名的 run_dir，init 应自动重试并使用不同路径"""
         from datetime import datetime
 
-        from swanlab.sdk.internal.settings import settings
-
         run_id = "conflict-test"
-        log_dir = settings.log_dir
+        log_dir = create_settings().log_dir
         log_dir.mkdir(parents=True, exist_ok=True)
         # 预先创建多个连续秒的冲突目录，确保命中
         all_conflict_names = []
