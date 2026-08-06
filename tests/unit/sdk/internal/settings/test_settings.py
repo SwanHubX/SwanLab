@@ -319,6 +319,12 @@ def test_resolve_hosts():
     assert api == "https://api.swanlab.cn"
     assert web == "https://swanlab.cn"
 
+    # 9. 空字符串报错
+    with pytest.raises(ValueError, match="Host cannot be empty or whitespace"):
+        resolve_hosts(api_host="   ", web_host="http://valid.com")
+    with pytest.raises(ValueError, match="Host cannot be empty or whitespace"):
+        resolve_hosts(api_host="http://valid.com", web_host="")
+
 
 def test_url_env_resolution(monkeypatch):
     """测试环境变量注入时的 URL 路由清除与推导逻辑"""

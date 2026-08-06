@@ -557,8 +557,8 @@ def resolve_hosts(
     :return: (api_host, web_host)，两者均未提供时返回 (None, None)，否则两者均为解析后的 host
     """
     # 1. 规范化 host，清理路由、补全协议
-    cleaned_api = nrc.fmt(api_host) if api_host else None
-    cleaned_web = nrc.fmt(web_host) if web_host else None
+    cleaned_api = nrc.fmt(api_host) if api_host is not None else None
+    cleaned_web = nrc.fmt(web_host) if web_host is not None else None
 
     if cleaned_api is None and cleaned_web is None:
         return None, None
