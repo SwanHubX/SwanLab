@@ -82,8 +82,8 @@ Description = Annotated[
 ]
 """Description: 1-1024 chars."""
 
-TagString = Annotated[str, Field(max_length=20)]
-"""Single tag string: up to 20 chars."""
+TagString = Annotated[str, Field(max_length=512)]
+"""Single tag string: up to 512 chars."""
 
 Group = Annotated[str, Field(min_length=1, max_length=512)]
 """Experiment group: 1-512 chars."""

@@ -91,7 +91,7 @@ def experiment_job_type_factory() -> Optional[str]:
     return os.environ.get("SWANLAB_JOB_TYPE", None)
 
 
-Tags = Field(default_factory=experiment_tags_factory, max_length=50, validate_default=True)
+Tags = Field(default_factory=experiment_tags_factory, max_length=30, validate_default=True)
 
 
 class ExperimentSettings(BaseModel):

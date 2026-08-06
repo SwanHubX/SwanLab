@@ -168,11 +168,11 @@ class TestTagString:
 
     def test_valid(self):
         assert self.adapter.validate_python("tag") == "tag"
-        assert self.adapter.validate_python("t" * 20) == "t" * 20
+        assert self.adapter.validate_python("t" * 512) == "t" * 512
 
     def test_too_long(self):
         with pytest.raises(ValidationError):
-            self.adapter.validate_python("t" * 21)
+            self.adapter.validate_python("t" * 513)
 
 
 # ---------------------------------------------------------------------------
