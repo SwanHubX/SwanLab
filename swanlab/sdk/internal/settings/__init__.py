@@ -191,9 +191,16 @@ class Settings(BaseSettings):
             raw_web = data.get("web_host")
             if raw_api or raw_web:
                 resolved_api, resolved_web = resolve_hosts(raw_api, raw_web)
-                if resolved_api is not None:
+                if raw_api and resolved_api is not None:
                     data["api_host"] = resolved_api
-                if resolved_web is not None:
+
+                default_api = str(cls.model_fields["api_host"].default)
+                http_default_api = default_api.replace("https://", "http://", 1)
+                cleaned_raw_web = nrc.fmt(str(raw_web)) if raw_web else None
+                web_is_default_api = cleaned_raw_web in (default_api, http_default_api)
+                if web_is_default_api:
+                    data.pop("web_host", None)
+                elif resolved_web is not None and (raw_web or resolved_api != default_api):
                     data["web_host"] = resolved_web
                 else:
                     data.pop("web_host", None)
@@ -536,28 +543,43 @@ class Settings(BaseSettings):
 def resolve_hosts(
     api_host: Optional[str] = None,
     web_host: Optional[str] = None,
-) -> Tuple[Optional[str], Optional[str]]:
+) -> Union[Tuple[None, None], Tuple[str, str]]:
     """
     规范化 host 并在缺少 web_host 时从 api_host 推导。
 
     - api_host 和 web_host 都会通过 ``nrc.fmt`` 清理路由、补全协议
+    - 官方默认 host 的 http 形式会统一转换为 https
     - 当 api_host 非空而 web_host 未提供时，自动从 api_host 推导 web_host
-    - web_host 不允许等于 api_host 的默认值（``https://api.swanlab.cn``），命中时视为未提供
+    - 官方 api_host 对应官方 web_host；仅提供 web_host 时使用官方 api_host
 
     :param api_host: 原始 api_host，为空表示未提供
     :param web_host: 原始 web_host，为空表示未提供
-    :return: (api_host, web_host)，未提供的对应位为 None，由调用方自行使用默认值
+    :return: (api_host, web_host)，两者均未提供时返回 (None, None)，否则两者均为解析后的 host
     """
+    # 1. 规范化 host，清理路由、补全协议
     cleaned_api = nrc.fmt(api_host) if api_host else None
     cleaned_web = nrc.fmt(web_host) if web_host else None
 
-    # api_host 存在且 web_host 未显式提供时，从 api_host 推导
-    if cleaned_api and cleaned_web is None:
-        cleaned_web = cleaned_api
+    if cleaned_api is None and cleaned_web is None:
+        return None, None
 
-    # web_host 不允许等于 api_host 的默认值，视为未提供
-    if cleaned_web == Settings.model_fields["api_host"].default:
-        cleaned_web = None
+    # 2. 识别官方默认 host，后续只基于语义结果进行规范化和推导
+    default_api = str(Settings.model_fields["api_host"].default)
+    default_web = str(Settings.model_fields["web_host"].default)
+    http_default_api = default_api.replace("https://", "http://", 1)
+    http_default_web = default_web.replace("https://", "http://", 1)
+
+    # 3. 设置默认值和推导逻辑
+    if cleaned_api is None:
+        cleaned_api = default_api
+    api_is_default = cleaned_api in (default_api, http_default_api)
+    web_is_default = cleaned_web in (default_api, http_default_api, default_web, http_default_web)
+    if api_is_default:
+        cleaned_api = default_api
+    if web_is_default:
+        cleaned_web = default_web
+    elif cleaned_web is None:
+        cleaned_web = default_web if api_is_default else cleaned_api
 
     return cleaned_api, cleaned_web
 

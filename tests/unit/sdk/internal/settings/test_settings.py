@@ -272,6 +272,11 @@ def test_url_resolution_logic(monkeypatch):
     assert s_invalid_web.web_host == "https://swanlab.cn"
     assert "web_host" not in s_invalid_web.__pydantic_fields_set__
 
+    # 7. 官方默认 host 的 http 形式统一转换为 https
+    s_http_defaults = Settings(api_host="http://api.swanlab.cn/api", web_host="http://swanlab.cn/home")
+    assert s_http_defaults.api_host == "https://api.swanlab.cn"
+    assert s_http_defaults.web_host == "https://swanlab.cn"
+
 
 def test_resolve_hosts():
     """测试 resolve_hosts 的推导与清理逻辑"""
@@ -294,20 +299,25 @@ def test_resolve_hosts():
     assert api == "http://api.local"
     assert web == "http://web.local"
 
-    # 5. 仅 web_host：清理但不推导 api_host
+    # 5. 仅 web_host：清理并使用默认 api_host
     api, web = resolve_hosts(web_host="http://192.168.1.10/")
-    assert api is None
+    assert api == "https://api.swanlab.cn"
     assert web == "http://192.168.1.10"
 
-    # 6. web_host 等于 api_host 默认值 → web_host 回退为 None
+    # 6. web_host 等于 api_host 默认值 → web_host 回退为官方默认值
     api, web = resolve_hosts(api_host="https://example.com", web_host="api.swanlab.cn?test=1dsa")
     assert api == "https://example.com"
-    assert web is None
+    assert web == "https://swanlab.cn"
 
-    # 7. api_host 恰好为官方 api 默认值 → 推导出的 web_host 也为 None
+    # 7. api_host 恰好为官方 api 默认值 → 推导官方 web_host
     api, web = resolve_hosts(api_host="api.swanlab.cn")
     assert api == "https://api.swanlab.cn"
-    assert web is None
+    assert web == "https://swanlab.cn"
+
+    # 8. 官方默认 host 的 http 形式统一转换为 https
+    api, web = resolve_hosts(api_host="http://api.swanlab.cn/api", web_host="http://swanlab.cn/home")
+    assert api == "https://api.swanlab.cn"
+    assert web == "https://swanlab.cn"
 
 
 def test_url_env_resolution(monkeypatch):
