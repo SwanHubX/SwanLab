@@ -12,7 +12,7 @@ from swanlab.exceptions import AuthenticationError
 from swanlab.sdk.cmd.login import login
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.pkg import nrc
-from swanlab.sdk.internal.settings import Settings, settings
+from swanlab.sdk.internal.settings import Settings, create_settings, set_global_settings
 
 
 def make_login_resp(**overrides) -> dict:
@@ -27,16 +27,13 @@ def make_login_resp(**overrides) -> dict:
 class TestLoginE2E:
     @staticmethod
     def _reinit_settings():
-        """重新从环境变量、.netrc 等来源初始化全局 settings，模拟新会话启动。"""
-        fresh = Settings()
-        for field_name in Settings.model_fields.keys():
-            object.__setattr__(settings, field_name, getattr(fresh, field_name))
-        object.__setattr__(settings, "__pydantic_fields_set__", set())
+        """重新从环境变量、.netrc 等来源初始化全局配置，模拟新会话启动。"""
+        set_global_settings(Settings())
 
     @staticmethod
     def _save_netrc(host: str, key: str):
         """将凭证写入 .netrc 并重新初始化 settings，模拟上次会话保存、新会话加载的完整流程。"""
-        nrc_path = settings.get_user_config_dir() / ".netrc"
+        nrc_path = Settings.get_user_config_dir() / ".netrc"
         nrc_path.parent.mkdir(parents=True, exist_ok=True)
         nrc.write(nrc_path, api_host=host, web_host=host, api_key=key)
         TestLoginE2E._reinit_settings()
@@ -58,8 +55,8 @@ class TestLoginE2E:
         result = login(api_key=api_key, host=messy_host)
 
         assert result is True
-        assert settings.api_host == expected_clean_host
-        assert settings.web_host == expected_clean_host
+        assert create_settings().api_host == expected_clean_host
+        assert create_settings().web_host == expected_clean_host
 
     @responses.activate
     def test_login_official_host_protection(self):
@@ -75,14 +72,14 @@ class TestLoginE2E:
             status=200,
         )
 
-        assert settings.web_host == "https://swanlab.cn"
+        assert create_settings().web_host == "https://swanlab.cn"
 
         result = login(api_key=api_key, host=official_host, relogin=True)
 
         assert result is True
-        assert settings.api_host == expected_api_host
+        assert create_settings().api_host == expected_api_host
         # 官方 web_host 不得被 api 子域名覆盖
-        assert settings.web_host == "https://swanlab.cn"
+        assert create_settings().web_host == "https://swanlab.cn"
 
     @responses.activate
     def test_login_skip_if_already_logged_in(self):
@@ -129,7 +126,7 @@ class TestLoginE2E:
         result = login(api_key=api_key, save=False)
 
         assert result is True
-        assert settings.api_key == api_key
+        assert create_settings().api_key == api_key
         assert len(responses.calls) == 1
         assert responses.calls[0].request.headers["authorization"] == api_key
         assert client.exists()
@@ -148,12 +145,12 @@ class TestLoginE2E:
 
         result = login(api_key=api_key, host="fake.swanlab.cn", save=True)
 
-        assert settings.web_host == "https://fake.swanlab.cn"
-        assert settings.api_host == "https://fake.swanlab.cn"
-        assert settings.api_key == api_key
+        assert create_settings().web_host == "https://fake.swanlab.cn"
+        assert create_settings().api_host == "https://fake.swanlab.cn"
+        assert create_settings().api_key == api_key
         assert result is True
 
-        nrc_path = settings.get_user_config_dir() / ".netrc"
+        nrc_path = Settings.get_user_config_dir() / ".netrc"
         assert nrc_path.exists()
         content = nrc_path.read_text()
         assert api_key in content
@@ -187,8 +184,8 @@ class TestLoginE2E:
         assert result is True
         assert len(responses.calls) == 2
         assert responses.calls[1].request.url == f"{custom_host}/api/login/api_key"
-        assert settings.api_host == custom_host
-        assert settings.api_key == custom_key
+        assert create_settings().api_host == custom_host
+        assert create_settings().api_key == custom_key
 
     @responses.activate
     def test_login_network_failure(self):
@@ -248,16 +245,16 @@ class TestLoginE2E:
         # 第一次登录
         result = login(api_key=key_a, host=host_a)
         assert result is True
-        assert settings.api_host == host_a
-        assert settings.api_key == key_a
+        assert create_settings().api_host == host_a
+        assert create_settings().api_key == key_a
 
         # 第二次登录，传入不同凭证
         result = login(api_key=key_b, host=host_b, relogin=True)
         assert result is True
         assert len(responses.calls) == 2
         assert responses.calls[1].request.headers["authorization"] == key_b
-        assert settings.api_host == host_b
-        assert settings.api_key == key_b
+        assert create_settings().api_host == host_b
+        assert create_settings().api_key == key_b
 
     @responses.activate
     def test_login_explicit_params_override_netrc(self):
@@ -272,8 +269,8 @@ class TestLoginE2E:
         self._save_netrc(old_host, old_key)
 
         # 前提：settings 已从 .netrc 加载旧凭证
-        assert settings.api_key == old_key
-        assert settings.api_host == old_host
+        assert create_settings().api_key == old_key
+        assert create_settings().api_host == old_host
 
         responses.add(
             responses.POST,
@@ -288,8 +285,8 @@ class TestLoginE2E:
         assert result is True
         assert len(responses.calls) == 1
         assert responses.calls[0].request.headers["authorization"] == new_key
-        assert settings.api_host == new_host
-        assert settings.api_key == new_key
+        assert create_settings().api_host == new_host
+        assert create_settings().api_key == new_key
 
     @responses.activate
     def test_login_autouse_netrc_credentials(self):
@@ -301,8 +298,8 @@ class TestLoginE2E:
         # 写入凭证到 .netrc 并重新初始化 settings，模拟新会话从 .netrc 自动加载
         self._save_netrc(stored_host, stored_key)
 
-        assert settings.api_key == stored_key
-        assert settings.api_host == stored_host
+        assert create_settings().api_key == stored_key
+        assert create_settings().api_host == stored_host
 
         responses.add(
             responses.POST,
@@ -317,8 +314,8 @@ class TestLoginE2E:
         assert result is True
         assert len(responses.calls) == 1
         assert responses.calls[0].request.headers["authorization"] == stored_key
-        assert settings.api_host == stored_host
-        assert settings.api_key == stored_key
+        assert create_settings().api_host == stored_host
+        assert create_settings().api_key == stored_key
 
     @responses.activate
     def test_login_host_change_without_key_raises(self, monkeypatch):
@@ -334,9 +331,9 @@ class TestLoginE2E:
         self._reinit_settings()
 
         # 前提：env var 已加载，本地无 .netrc 文件
-        assert settings.api_key == env_key
-        assert settings.api_host == env_host
-        assert not (settings.get_user_config_dir() / ".netrc").exists()
+        assert create_settings().api_key == env_key
+        assert create_settings().api_host == env_host
+        assert not (Settings.get_user_config_dir() / ".netrc").exists()
 
         # 只传新 host，不传 api_key —— 旧 key 与新 host 不匹配，应抛出 AuthenticationError
         with pytest.raises(AuthenticationError, match="Stored API key is for"):
@@ -355,8 +352,8 @@ class TestLoginE2E:
         monkeypatch.setenv("SWANLAB_API_HOST", env_host)
         self._reinit_settings()
 
-        assert settings.api_key == env_key
-        assert settings.api_host == env_host
+        assert create_settings().api_key == env_key
+        assert create_settings().api_host == env_host
 
         responses.add(
             responses.POST,
@@ -370,8 +367,8 @@ class TestLoginE2E:
         assert result is True
         assert len(responses.calls) == 1
         assert responses.calls[0].request.headers["authorization"] == new_key
-        assert settings.api_host == new_host
-        assert settings.api_key == new_key
+        assert create_settings().api_host == new_host
+        assert create_settings().api_key == new_key
 
     # ========== 新增测试 ==========
 
@@ -416,7 +413,7 @@ class TestLoginE2E:
         result = login(api_key=api_key, save=True)
         assert result is True
 
-        nrc_path = settings.get_user_config_dir() / ".netrc"
+        nrc_path = Settings.get_user_config_dir() / ".netrc"
         assert nrc_path.exists()
         content = nrc_path.read_text()
         assert api_key in content
@@ -434,8 +431,8 @@ class TestLoginE2E:
         )
 
         login(api_key=stored_key)
-        assert settings.api_key == stored_key
+        assert create_settings().api_key == stored_key
 
         # 再次登录不传 api_key，同 host 应复用 settings 中的 key
         login(relogin=True)
-        assert settings.api_key == stored_key
+        assert create_settings().api_key == stored_key

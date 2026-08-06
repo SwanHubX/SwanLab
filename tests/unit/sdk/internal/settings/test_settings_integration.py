@@ -5,6 +5,9 @@
 @description: 测试 SwanLab 集成配置
 """
 
+import pytest
+from pydantic import ValidationError
+
 from swanlab.sdk.internal.settings import Settings
 
 
@@ -37,3 +40,12 @@ def test_integration_env_priority(monkeypatch):
 
     # 验证新版变量生效
     assert s.integration.webhook.url == "https://new.hook.com"
+
+
+@pytest.mark.parametrize("env_name", ["SWANLAB_DASHBOARD_PORT", "SWANLAB_INTEGRATION_DASHBOARD_PORT"])
+@pytest.mark.parametrize("port", ["0", "65536"])
+def test_dashboard_port_range(monkeypatch, env_name, port):
+    monkeypatch.setenv(env_name, port)
+
+    with pytest.raises(ValidationError):
+        Settings()

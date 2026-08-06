@@ -5,9 +5,14 @@
 @description: 测试 SwanLabSettings 基本方法
 """
 
+import os
+import subprocess
+import sys
 from pathlib import Path
+from typing import Optional
 
 import pytest
+from pydantic import ValidationError
 from pydantic_settings import SettingsConfigDict
 
 from swanlab.sdk.internal.settings import Settings
@@ -600,3 +605,125 @@ class TestSaveToYaml:
 
         assert target_dir.exists()
         assert file_path.exists()
+
+
+def test_settings_raises_on_bad_env(monkeypatch):
+    """正常构造 Settings() 在环境变量非法时照常抛 ValidationError
+
+    这是 swanlab.init() 新建 Settings() 的行为：错误不在 import 期间抛，而在使用时抛。
+    """
+    monkeypatch.setenv("SWANLAB_MODE", "bogus")
+
+    with pytest.raises(ValidationError):
+        Settings()
+
+
+def _run_import_subprocess(
+    env_overrides: Optional[dict] = None, cwd: Optional[Path] = None, script: str = "import swanlab; print('IMPORT_OK')"
+) -> subprocess.CompletedProcess:
+    """以子进程运行真实 import 路径，返回完成结果。
+
+    构造干净基线环境（剔除继承到的所有 SWANLAB_ 变量），再叠加本次用例所需变量，
+    确保端到端行为仅受 env_overrides 控制，不受宿主测试进程污染。
+    """
+    clean_env = {k: v for k, v in os.environ.items() if not k.startswith("SWANLAB_")}
+    if env_overrides:
+        clean_env.update({str(k): str(v) for k, v in env_overrides.items()})
+    return subprocess.run(
+        [sys.executable, "-c", script],
+        env=clean_env,
+        cwd=str(cwd) if cwd else None,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+
+class TestDeferredSettingsLoading:
+    """端到端验证 import 不加载配置，首次消费配置时才进行校验。"""
+
+    def test_import_survives_bad_mode(self):
+        """坏的 SWANLAB_MODE 不应阻断 import。"""
+        result = _run_import_subprocess({"SWANLAB_MODE": "bogus"})
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "IMPORT_OK" in result.stdout
+
+    def test_import_survives_malformed_yaml(self, tmp_path):
+        """YAML 语法错误应延迟到配置被消费时抛出。"""
+        (tmp_path / "swanlab.yaml").write_text("mode: [unclosed")
+        result = _run_import_subprocess(
+            cwd=tmp_path,
+            script=(
+                "import swanlab\n"
+                "print('IMPORT_OK')\n"
+                "from swanlab.sdk.internal.settings import create_settings\n"
+                "try:\n"
+                "    create_settings()\n"
+                "except Exception as e:\n"
+                "    print('SETTINGS_ERROR=' + type(e).__name__)"
+            ),
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "IMPORT_OK" in result.stdout
+        assert "SETTINGS_ERROR=ParserError" in result.stdout
+
+    def test_import_survives_bad_logdir(self, tmp_path):
+        """坏的 SWANLAB_LOGDIR（指向已存在的非目录文件）不应阻断 import"""
+        bad_file = tmp_path / "not-a-dir"
+        bad_file.write_text("x")
+        result = _run_import_subprocess({"SWANLAB_LOGDIR": str(bad_file)})
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "IMPORT_OK" in result.stdout
+
+    def test_import_survives_bad_root(self, tmp_path):
+        """坏的 SWANLAB_ROOT（指向已存在的非目录文件）不应阻断 import"""
+        bad_file = tmp_path / "not-a-dir"
+        bad_file.write_text("x")
+        result = _run_import_subprocess({"SWANLAB_ROOT": str(bad_file)})
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "IMPORT_OK" in result.stdout
+
+    @pytest.mark.parametrize("env_name", ["SWANLAB_SECTION_RULE_IDX", "SWANLAB_WEBHOOK_TIMEOUT"])
+    def test_import_survives_bad_legacy_nested_env(self, env_name):
+        """子模块中的非法旧版环境变量也不应在 import 时求值。"""
+        result = _run_import_subprocess({env_name: "not-an-integer"})
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "IMPORT_OK" in result.stdout
+
+    def test_create_settings_raises_after_import(self):
+        """配置错误应在 create_settings() 时抛出。"""
+        result = _run_import_subprocess(
+            {"SWANLAB_MODE": "bogus"},
+            script=(
+                "import swanlab\n"
+                "from swanlab.sdk.internal.settings import create_settings\n"
+                "try:\n"
+                "    create_settings()\n"
+                "    print('NO_RAISE')\n"
+                "except Exception as e:\n"
+                "    print('RAISED=' + type(e).__name__)"
+            ),
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "RAISED=ValidationError" in result.stdout
+        assert "NO_RAISE" not in result.stdout
+
+    def test_fixed_config_works_without_restart(self):
+        """import 后修复配置即可继续使用，无需重启进程。"""
+        result = _run_import_subprocess(
+            {"SWANLAB_MODE": "bogus"},
+            script=(
+                "import os\n"
+                "import swanlab\n"
+                "os.environ.pop('SWANLAB_MODE')\n"
+                "try:\n"
+                "    run = swanlab.init(mode='disabled')\n"
+                "    run.finish()\n"
+                "    print('INIT_OK')\n"
+                "except Exception as e:\n"
+                "    print('RAISED=' + type(e).__name__ + ':' + str(e))"
+            ),
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "INIT_OK" in result.stdout
+        assert "RAISED=" not in result.stdout

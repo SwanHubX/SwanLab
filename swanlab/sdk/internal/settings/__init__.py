@@ -40,11 +40,12 @@ from swanlab.sdk.typings.run import ModeType
 
 from .core import CoreSettings
 from .experiment import ExperimentSettings, ProjectSettings, RunSettings
+from .global_settings import get_global_settings, set_global_settings
 from .integration import IntegrationSettings
 from .probe import ProbeSettings
 from .terminal import TerminalSettings
 
-__all__ = ["Settings", "settings"]
+__all__ = ["Settings", "create_settings", "set_global_settings"]
 
 
 ROOT_FOLDER = ".swanlab"
@@ -355,7 +356,6 @@ class Settings(BaseSettings):
         dotenv_settings: PydanticBaseSettingsSource,
         file_secret_settings: PydanticBaseSettingsSource,
     ) -> Tuple[PydanticBaseSettingsSource, ...]:
-
         # 优先级由高到低排列体现在返回的sources顺序：
         # 1. init_settings (merge_settings 传入的参数)
         # 2. 当前目录下 swanlab.{yaml,yml}
@@ -552,4 +552,12 @@ def _load_netrc(netrc_path: Path) -> Optional[Tuple[str, str, str]]:
     return None
 
 
-settings = Settings()
+def create_settings() -> Settings:
+    """
+    创造一个配置实例，继承全局配置，如果全局配置不存在则忽略
+    """
+    this_settings = Settings()
+    global_settings = get_global_settings()
+    if global_settings is not None:
+        this_settings.merge_settings(global_settings)
+    return this_settings
