@@ -160,8 +160,7 @@ def login_cli(
     if host is not None:
         api_host, web_host = resolve_hosts(api_host=host, web_host=host)
         assert api_host is not None
-        if web_host is None:
-            web_host = Settings.model_fields["web_host"].default
+        assert web_host is not None
     else:
         api_host = Settings.model_fields["api_host"].default
         web_host = Settings.model_fields["web_host"].default

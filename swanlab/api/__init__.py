@@ -13,7 +13,7 @@ from typing_extensions import deprecated
 from swanlab.exceptions import AuthenticationError
 from swanlab.sdk.internal.pkg import scope
 from swanlab.sdk.internal.pkg.client import Client
-from swanlab.sdk.internal.settings import Settings, create_settings, resolve_hosts
+from swanlab.sdk.internal.settings import create_settings, resolve_hosts
 
 from .base import ApiClientContext, BaseEntity
 from .column import Column, Columns
@@ -112,8 +112,7 @@ class Api(BaseEntity):
             api_host, web_host = resolve_hosts(api_host=host)
             # 显式传入 host 时，必定能解析出 api_host，否则说明 host 格式不合法
             assert api_host is not None
-            if web_host is None:
-                web_host = Settings.model_fields["web_host"].default
+            assert web_host is not None
         else:
             assert current_settings is not None
             api_host = current_settings.api_host
