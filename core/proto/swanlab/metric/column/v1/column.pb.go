@@ -418,7 +418,13 @@ type ColumnRecord struct {
 	// 指标名称，仅对单实验图表生效
 	MetricName string `protobuf:"bytes,11,opt,name=metric_name,json=metricName,proto3" json:"metric_name,omitempty"`
 	// 指标颜色列表，十六进制颜色值，如 "#FF5733"
-	MetricColors  *MetricColors `protobuf:"bytes,12,opt,name=metric_colors,json=metricColors,proto3" json:"metric_colors,omitempty"`
+	MetricColors *MetricColors `protobuf:"bytes,12,opt,name=metric_colors,json=metricColors,proto3" json:"metric_colors,omitempty"`
+	// 项目级默认 X 轴：_step / _relative_time / 自定义 scalar key
+	XAxisKey string `protobuf:"bytes,13,opt,name=x_axis_key,json=xAxisKey,proto3" json:"x_axis_key,omitempty"`
+	// 自动图表在新 View 中是否默认进入 HIDDEN
+	Hidden bool `protobuf:"varint,14,opt,name=hidden,proto3" json:"hidden,omitempty"`
+	// overwrite=True：精确 key 字段级重写已存在图表；仅 ColumnClass=CUSTOM 且精确 key 有意义
+	Overwrite     bool `protobuf:"varint,15,opt,name=overwrite,proto3" json:"overwrite,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -537,6 +543,27 @@ func (x *ColumnRecord) GetMetricColors() *MetricColors {
 	return nil
 }
 
+func (x *ColumnRecord) GetXAxisKey() string {
+	if x != nil {
+		return x.XAxisKey
+	}
+	return ""
+}
+
+func (x *ColumnRecord) GetHidden() bool {
+	if x != nil {
+		return x.Hidden
+	}
+	return false
+}
+
+func (x *ColumnRecord) GetOverwrite() bool {
+	if x != nil {
+		return x.Overwrite
+	}
+	return false
+}
+
 var File_swanlab_metric_column_v1_column_proto protoreflect.FileDescriptor
 
 const file_swanlab_metric_column_v1_column_proto_rawDesc = "" +
@@ -549,7 +576,7 @@ const file_swanlab_metric_column_v1_column_proto_rawDesc = "" +
 	"\x04_max\"8\n" +
 	"\fMetricColors\x12\x14\n" +
 	"\x05light\x18\x01 \x01(\tR\x05light\x12\x12\n" +
-	"\x04dark\x18\x02 \x01(\tR\x04dark\"\xf9\x04\n" +
+	"\x04dark\x18\x02 \x01(\tR\x04dark\"\xcd\x05\n" +
 	"\fColumnRecord\x12H\n" +
 	"\fcolumn_class\x18\x01 \x01(\x0e2%.swanlab.metric.column.v1.ColumnClassR\vcolumnClass\x12E\n" +
 	"\vcolumn_type\x18\x02 \x01(\x0e2$.swanlab.metric.column.v1.ColumnTypeR\n" +
@@ -570,7 +597,11 @@ const file_swanlab_metric_column_v1_column_proto_rawDesc = "" +
 	" \x01(\x0e2#.swanlab.metric.column.v1.ChartTypeR\tchartType\x12\x1f\n" +
 	"\vmetric_name\x18\v \x01(\tR\n" +
 	"metricName\x12K\n" +
-	"\rmetric_colors\x18\f \x01(\v2&.swanlab.metric.column.v1.MetricColorsR\fmetricColors*\xff\x01\n" +
+	"\rmetric_colors\x18\f \x01(\v2&.swanlab.metric.column.v1.MetricColorsR\fmetricColors\x12\x1c\n" +
+	"\n" +
+	"x_axis_key\x18\r \x01(\tR\bxAxisKey\x12\x16\n" +
+	"\x06hidden\x18\x0e \x01(\bR\x06hidden\x12\x1c\n" +
+	"\toverwrite\x18\x0f \x01(\bR\toverwrite*\xff\x01\n" +
 	"\n" +
 	"ColumnType\x12\x1b\n" +
 	"\x17COLUMN_TYPE_UNSPECIFIED\x10\x00\x12\x16\n" +

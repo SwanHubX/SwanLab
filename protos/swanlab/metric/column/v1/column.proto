@@ -110,4 +110,13 @@ message ColumnRecord {
 
     // 指标颜色列表，十六进制颜色值，如 "#FF5733"
     MetricColors metric_colors = 12;
+
+    // 项目级默认 X 轴：_step / _relative_time / 自定义 scalar key
+    string x_axis_key = 13;
+
+    // 自动图表在新 View 中是否默认进入 HIDDEN
+    bool hidden = 14;
+
+    // overwrite=True：精确 key 字段级重写已存在图表；仅 ColumnClass=CUSTOM 且精确 key 有意义
+    bool overwrite = 15;
 }
