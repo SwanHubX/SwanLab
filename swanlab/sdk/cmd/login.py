@@ -2,7 +2,11 @@
 @author: cunyue
 @file: login.py
 @time: 2026/3/6 22:24
-@description: swanlab.login 方法，登录到 SwanLab 平台
+@description: swanlab.login 方法，登录到 SwanLab 平台。
+凭据解析契约：
+1. 显式提供 API host 时，由 API host 推导 Web host；否则从 Settings 读取 API host 和 Web host。
+2. 显式提供 API key 时优先使用该值；否则仅在未提供 API host，或 API host 与 Settings 一致时复用
+   Settings 中的 API key。API host 发生变化时不得复用旧 key，且无可用 key 时登录失败。
 """
 
 import sys
@@ -230,7 +234,7 @@ def prompt_api_key(
     :param tip: 提示信息
     :param again: 是否为重试模式，重试模式下会略微调整提示信息以区分首次输入与重试输入
 
-    :raises RuntimeError: 如果当前环境不支持交互式输入
+    :c
     :return: 用户输入的 API Key
     """
     if not interactive:
