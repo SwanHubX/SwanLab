@@ -11,9 +11,9 @@ from typing import Any, Dict, List, Optional
 from typing_extensions import deprecated
 
 from swanlab.exceptions import AuthenticationError
-from swanlab.sdk.internal.pkg import nrc, scope
+from swanlab.sdk.internal.pkg import scope
 from swanlab.sdk.internal.pkg.client import Client
-from swanlab.sdk.internal.settings import create_settings
+from swanlab.sdk.internal.settings import create_settings, resolve_hosts
 
 from .base import ApiClientContext, BaseEntity
 from .column import Column, Columns
@@ -109,8 +109,10 @@ class Api(BaseEntity):
         api_key = api_key.strip()
 
         if host is not None:
-            api_host: str = nrc.fmt(host)
-            web_host: str = api_host
+            api_host, web_host, _ = resolve_hosts(api_host=host)
+            # 显式传入 host 时，必定能解析出 api_host，否则说明 host 格式不合法
+            assert api_host is not None
+            assert web_host is not None
         else:
             assert current_settings is not None
             api_host = current_settings.api_host

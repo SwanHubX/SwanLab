@@ -15,7 +15,7 @@ import pytest
 from pydantic import ValidationError
 from pydantic_settings import SettingsConfigDict
 
-from swanlab.sdk.internal.settings import Settings
+from swanlab.sdk.internal.settings import Settings, resolve_hosts
 
 
 @pytest.fixture(autouse=True)
@@ -245,11 +245,13 @@ def test_url_resolution_logic(monkeypatch):
     s_default = Settings()
     assert s_default.api_host == "https://api.swanlab.cn"
     assert s_default.web_host == "https://swanlab.cn"
+    assert "web_host" not in s_default.__pydantic_fields_set__
 
     # 2. 仅自定义 api_host (带复杂路由)：自动清除路由，并顺便推导 web_host
     s_api = Settings(api_host="http://10.0.0.1:8080/api/v1/run/")
     assert s_api.api_host == "http://10.0.0.1:8080"
     assert s_api.web_host == "http://10.0.0.1:8080"
+    assert "web_host" in s_api.__pydantic_fields_set__
 
     # 3. 仅自定义 api_host (未带协议头)：自动补全 https://，清除路由，并推导 web_host
     s_api_no_scheme = Settings(api_host="custom-api.com/api/")
@@ -271,6 +273,66 @@ def test_url_resolution_logic(monkeypatch):
     s_invalid_web = Settings(web_host="api.swanlab.cn?test=1dsa")
     assert s_invalid_web.web_host == "https://swanlab.cn"
     assert "web_host" not in s_invalid_web.__pydantic_fields_set__
+
+    # 7. 官方默认 host 的 http 形式统一转换为 https
+    s_http_defaults = Settings(api_host="http://api.swanlab.cn/api", web_host="http://swanlab.cn/home")
+    assert s_http_defaults.api_host == "https://api.swanlab.cn"
+    assert s_http_defaults.web_host == "https://swanlab.cn"
+
+
+def test_resolve_hosts():
+    """测试 resolve_hosts 的推导与清理逻辑"""
+
+    # 1. 两者都未提供 → (None, None, False)
+    assert resolve_hosts() == (None, None, False)
+
+    # 2. 仅 api_host：清理路由/补全协议，并推导 web_host
+    api, web, web_is_set = resolve_hosts(api_host="http://10.0.0.1:8080/api/v1/run/")
+    assert api == "http://10.0.0.1:8080"
+    assert web == "http://10.0.0.1:8080"
+    assert web_is_set is True
+
+    # 3. 仅 api_host（无协议头）：补全 https
+    api, web, web_is_set = resolve_hosts(api_host="custom-api.com/api/")
+    assert api == "https://custom-api.com"
+    assert web == "https://custom-api.com"
+    assert web_is_set is True
+
+    # 4. 两者都提供：各自清理，不推导
+    api, web, web_is_set = resolve_hosts(api_host="http://api.local/v1/", web_host="http://web.local/")
+    assert api == "http://api.local"
+    assert web == "http://web.local"
+    assert web_is_set is True
+
+    # 5. 仅 web_host：清理并使用默认 api_host
+    api, web, web_is_set = resolve_hosts(web_host="http://192.168.1.10/")
+    assert api == "https://api.swanlab.cn"
+    assert web == "http://192.168.1.10"
+    assert web_is_set is True
+
+    # 6. web_host 等于 api_host 默认值 → web_host 回退为官方默认值
+    api, web, web_is_set = resolve_hosts(api_host="https://example.com", web_host="api.swanlab.cn?test=1dsa")
+    assert api == "https://example.com"
+    assert web == "https://swanlab.cn"
+    assert web_is_set is False
+
+    # 7. api_host 恰好为官方 api 默认值 → 推导官方 web_host
+    api, web, web_is_set = resolve_hosts(api_host="api.swanlab.cn")
+    assert api == "https://api.swanlab.cn"
+    assert web == "https://swanlab.cn"
+    assert web_is_set is False
+
+    # 8. 官方默认 host 的 http 形式统一转换为 https
+    api, web, web_is_set = resolve_hosts(api_host="http://api.swanlab.cn/api", web_host="http://swanlab.cn/home")
+    assert api == "https://api.swanlab.cn"
+    assert web == "https://swanlab.cn"
+    assert web_is_set is True
+
+    # 9. 空字符串报错
+    with pytest.raises(ValueError, match="Host cannot be empty or whitespace"):
+        resolve_hosts(api_host="   ", web_host="http://valid.com")
+    with pytest.raises(ValueError, match="Host cannot be empty or whitespace"):
+        resolve_hosts(api_host="http://valid.com", web_host="")
 
 
 def test_url_env_resolution(monkeypatch):

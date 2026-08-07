@@ -16,7 +16,7 @@ from swanlab.sdk.cmd import utils
 from swanlab.sdk.cmd.guard import with_cmd_lock, without_run
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.pkg import console, helper, nrc, safe, scope
-from swanlab.sdk.internal.settings import Settings, create_settings, set_global_settings
+from swanlab.sdk.internal.settings import Settings, create_settings, resolve_hosts, set_global_settings
 from swanlab.sdk.typings.cmd import LoginType
 from swanlab.sdk.typings.pkg.client.bootstrap import LoginResponse
 
@@ -158,10 +158,9 @@ def login_cli(
         )
         return True
     if host is not None:
-        host = nrc.fmt(host)
-        tmp = Settings(api_host=host, web_host=host)
-        api_host = tmp.api_host
-        web_host = tmp.web_host
+        api_host, web_host, _ = resolve_hosts(api_host=host, web_host=host)
+        assert api_host is not None
+        assert web_host is not None
     else:
         api_host = Settings.model_fields["api_host"].default
         web_host = Settings.model_fields["web_host"].default

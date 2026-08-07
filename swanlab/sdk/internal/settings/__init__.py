@@ -45,7 +45,7 @@ from .integration import IntegrationSettings
 from .probe import ProbeSettings
 from .terminal import TerminalSettings
 
-__all__ = ["Settings", "create_settings", "set_global_settings"]
+__all__ = ["Settings", "create_settings", "resolve_hosts", "set_global_settings"]
 
 
 ROOT_FOLDER = ".swanlab"
@@ -183,28 +183,21 @@ class Settings(BaseSettings):
     @classmethod
     def validate_hosts(cls, data: Dict) -> Dict:
         """
-        校验并清理 HOST 字段，确保它们以正确的格式存在
-        在设计上，api_host 是最基础URL，但是有时候展示的前端URL和后端URL可能不一致
-        所以在处理时，我们优先使用 api_host，然后根据需要（当没有显式配置 web_host 时）推导 web_host
+        校验并清理 HOST 字段，确保它们以正确的格式存在。
+        推导逻辑统一由 :func:`resolve_hosts` 处理。
         """
         if isinstance(data, dict):
-            if "api_host" in data and data["api_host"]:
-                clean_api = nrc.fmt(str(data["api_host"]))
-                data["api_host"] = clean_api
+            raw_api = data.get("api_host")
+            raw_web = data.get("web_host")
+            if raw_api or raw_web:
+                resolved_api, resolved_web, web_host_is_set = resolve_hosts(raw_api, raw_web)
+                if raw_api and resolved_api is not None:
+                    data["api_host"] = resolved_api
 
-                # 当且仅当没有显式配置 web_host 时，自动推导 web_host
-                if "web_host" not in data:
-                    data["web_host"] = clean_api
-
-            # 清理 web_host：用 fmt 统一格式
-            if "web_host" in data and data["web_host"]:
-                clean_web = nrc.fmt(str(data["web_host"]))
-                # web_host 不允许等于 api_host 的默认值，自动回退为 web_host 的默认值
-                if clean_web == str(cls.model_fields["api_host"].default):
+                if web_host_is_set and resolved_web is not None:
+                    data["web_host"] = resolved_web
+                else:
                     data.pop("web_host", None)
-                    return data
-                data["web_host"] = clean_web
-
         return data
 
     @model_validator(mode="after")
@@ -522,6 +515,11 @@ class Settings(BaseSettings):
         # 3. 递归合并数据 (确保嵌套的 dict 如 collect.metadata 不会被整个替换)
         merged_data = _deep_update(current_data, update_data)
 
+        # 本次更新显式指定了 api_host 但未显式指定 web_host 时，
+        # 移除 web_host 以便 validate_hosts 自动从 api_host 推导
+        if "api_host" in update_data and "web_host" not in update_data:
+            merged_data.pop("web_host", None)
+
         # 4. 验证新数据：通过类构造函数生成临时实例以触发校验和 Path 转换
         # 这一步能确保传入的路径字符串被 field_validator 处理成 Path 对象并创建目录
         validated_instance = self.__class__(**merged_data)
@@ -534,6 +532,52 @@ class Settings(BaseSettings):
 
         # 由于我们 绕过了 frozen=True 的限制，需要手动同步 __pydantic_fields_set__
         object.__setattr__(self, "__pydantic_fields_set__", validated_instance.__pydantic_fields_set__)
+
+
+def resolve_hosts(
+    api_host: Optional[str] = None,
+    web_host: Optional[str] = None,
+) -> Union[Tuple[None, None, bool], Tuple[str, str, bool]]:
+    """
+    规范化 host 并在缺少 web_host 时从 api_host 推导。
+
+    - api_host 和 web_host 都会通过 ``nrc.fmt`` 清理路由、补全协议
+    - 官方默认 host 的 http 形式会统一转换为 https
+    - 当 api_host 非空而 web_host 未提供时，自动从 api_host 推导 web_host
+    - 官方 api_host 对应官方 web_host；仅提供 web_host 时使用官方 api_host
+
+    :param api_host: 原始 api_host，为空表示未提供
+    :param web_host: 原始 web_host，为空表示未提供
+    :return: (api_host, web_host, web_host_is_set)，最后一项表示 web_host 应保留为显式或推导设置
+    """
+    # 1. 规范化 host，清理路由、补全协议
+    cleaned_api = nrc.fmt(api_host) if api_host is not None else None
+    cleaned_web = nrc.fmt(web_host) if web_host is not None else None
+
+    if cleaned_api is None and cleaned_web is None:
+        return None, None, False
+
+    # 2. 识别官方默认 host，后续只基于语义结果进行规范化和推导
+    default_api = str(Settings.model_fields["api_host"].default)
+    default_web = str(Settings.model_fields["web_host"].default)
+    http_default_api = default_api.replace("https://", "http://", 1)
+    http_default_web = default_web.replace("https://", "http://", 1)
+
+    # 3. 设置默认值和推导逻辑
+    if cleaned_api is None:
+        cleaned_api = default_api
+    api_is_default = cleaned_api in (default_api, http_default_api)
+    web_is_default_api = cleaned_web in (default_api, http_default_api)
+    web_is_default = cleaned_web in (default_api, http_default_api, default_web, http_default_web)
+    web_host_is_set = not web_is_default_api and (web_host is not None or not api_is_default)
+    if api_is_default:
+        cleaned_api = default_api
+    if web_is_default:
+        cleaned_web = default_web
+    elif cleaned_web is None:
+        cleaned_web = default_web if api_is_default else cleaned_api
+
+    return cleaned_api, cleaned_web, web_host_is_set
 
 
 def _deep_update(base_dict: dict, update_dict: dict) -> dict:
