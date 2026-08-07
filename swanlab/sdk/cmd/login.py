@@ -158,7 +158,7 @@ def login_cli(
         )
         return True
     if host is not None:
-        api_host, web_host = resolve_hosts(api_host=host, web_host=host)
+        api_host, web_host, _ = resolve_hosts(api_host=host, web_host=host)
         assert api_host is not None
         assert web_host is not None
     else:

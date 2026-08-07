@@ -109,7 +109,7 @@ class Api(BaseEntity):
         api_key = api_key.strip()
 
         if host is not None:
-            api_host, web_host = resolve_hosts(api_host=host)
+            api_host, web_host, _ = resolve_hosts(api_host=host)
             # 显式传入 host 时，必定能解析出 api_host，否则说明 host 格式不合法
             assert api_host is not None
             assert web_host is not None

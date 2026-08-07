@@ -190,17 +190,11 @@ class Settings(BaseSettings):
             raw_api = data.get("api_host")
             raw_web = data.get("web_host")
             if raw_api or raw_web:
-                resolved_api, resolved_web = resolve_hosts(raw_api, raw_web)
+                resolved_api, resolved_web, web_host_is_set = resolve_hosts(raw_api, raw_web)
                 if raw_api and resolved_api is not None:
                     data["api_host"] = resolved_api
 
-                default_api = str(cls.model_fields["api_host"].default)
-                http_default_api = default_api.replace("https://", "http://", 1)
-                cleaned_raw_web = nrc.fmt(str(raw_web)) if raw_web else None
-                web_is_default_api = cleaned_raw_web in (default_api, http_default_api)
-                if web_is_default_api:
-                    data.pop("web_host", None)
-                elif resolved_web is not None and (raw_web or resolved_api != default_api):
+                if web_host_is_set and resolved_web is not None:
                     data["web_host"] = resolved_web
                 else:
                     data.pop("web_host", None)
@@ -543,7 +537,7 @@ class Settings(BaseSettings):
 def resolve_hosts(
     api_host: Optional[str] = None,
     web_host: Optional[str] = None,
-) -> Union[Tuple[None, None], Tuple[str, str]]:
+) -> Union[Tuple[None, None, bool], Tuple[str, str, bool]]:
     """
     规范化 host 并在缺少 web_host 时从 api_host 推导。
 
@@ -554,14 +548,14 @@ def resolve_hosts(
 
     :param api_host: 原始 api_host，为空表示未提供
     :param web_host: 原始 web_host，为空表示未提供
-    :return: (api_host, web_host)，两者均未提供时返回 (None, None)，否则两者均为解析后的 host
+    :return: (api_host, web_host, web_host_is_set)，最后一项表示 web_host 应保留为显式或推导设置
     """
     # 1. 规范化 host，清理路由、补全协议
     cleaned_api = nrc.fmt(api_host) if api_host is not None else None
     cleaned_web = nrc.fmt(web_host) if web_host is not None else None
 
     if cleaned_api is None and cleaned_web is None:
-        return None, None
+        return None, None, False
 
     # 2. 识别官方默认 host，后续只基于语义结果进行规范化和推导
     default_api = str(Settings.model_fields["api_host"].default)
@@ -573,7 +567,9 @@ def resolve_hosts(
     if cleaned_api is None:
         cleaned_api = default_api
     api_is_default = cleaned_api in (default_api, http_default_api)
+    web_is_default_api = cleaned_web in (default_api, http_default_api)
     web_is_default = cleaned_web in (default_api, http_default_api, default_web, http_default_web)
+    web_host_is_set = not web_is_default_api and (web_host is not None or not api_is_default)
     if api_is_default:
         cleaned_api = default_api
     if web_is_default:
@@ -581,7 +577,7 @@ def resolve_hosts(
     elif cleaned_web is None:
         cleaned_web = default_web if api_is_default else cleaned_api
 
-    return cleaned_api, cleaned_web
+    return cleaned_api, cleaned_web, web_host_is_set
 
 
 def _deep_update(base_dict: dict, update_dict: dict) -> dict:
