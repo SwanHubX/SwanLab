@@ -2,12 +2,16 @@
 @author: cunyue
 @file: login.py
 @time: 2026/3/6 22:24
-@description: swanlab.login 方法，登录到 SwanLab 平台
+@description: swanlab.login 方法，登录到 SwanLab 平台。
+凭据解析契约：
+1. 显式提供 API host 时，由 API host 推导 Web host；否则从 Settings 读取 API host 和 Web host。
+2. 显式提供 API key 时优先使用该值；否则仅在未提供 API host，或 API host 与 Settings 一致时复用
+   Settings 中的 API key。API host 发生变化时不得复用旧 key，且无可用 key 时登录失败。
 """
 
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 
 from rich.text import Text
 
@@ -94,10 +98,13 @@ def login_raw(
         return True
     if client.exists():
         client.reset()
-    # 2. 获取当前配置
+
+    # 2. 获取当前api key、web host、api host的配置
     current_settings = create_settings()
     host = nrc.fmt(host) if host is not None else None
     # 先用入参，入参没有才考虑复用 settings 里的值
+    # 这里存在问题，如果用户输入了host但是没有输入api key，并且当前本地存在旧的api key，那么会导致host和api key不匹配，登录失败
+    # 所以这里额外增加api key不存在的时候的判断
     if api_key is None:
         # host 变了，且 .netrc 中存有旧凭证 —— 旧 key 与新 host 不匹配，不能复用
         if host is not None and host != current_settings.api_host and current_settings.api_key is not None:
@@ -109,10 +116,11 @@ def login_raw(
             if current_settings.api_key is None:
                 raise AuthenticationError("No API key provided and no stored API key found. Please provide an API key.")
             api_key = current_settings.api_key
-    api_host = host or current_settings.api_host
-    login_settings = Settings.model_validate({"api_key": api_key, "api_host": api_host, "web_host": host})
+    api_host, web_host = validate_host(host, current_settings)
+    login_settings = Settings.model_validate({"api_key": api_key, "api_host": api_host, "web_host": web_host})
+    # 至此，api_key、api_host、web_host 都已经确定，且 login_settings 已经准备好
+
     # 3. 进入登录流程
-    login_settings.merge_settings({"api_key": api_key})
     with scope.Scope() as s:
         f = utils.with_loading_animation("Waiting for response...")(create_client) if animation else create_client
         f(api_key=api_key, api_host=api_host, timeout=timeout)
@@ -157,16 +165,14 @@ def login_cli(
             sep=" ",
         )
         return True
-    if host is not None:
-        api_host, web_host, _ = resolve_hosts(api_host=host, web_host=host)
-        assert api_host is not None
-        assert web_host is not None
-    else:
-        api_host = Settings.model_fields["api_host"].default
-        web_host = Settings.model_fields["web_host"].default
+
+    # 获取当前配置，login 作为cli命令的入口，依赖于settings
+    current_settings = create_settings()
+    api_host, web_host = validate_host(host, current_settings)
+
     count = 0
     base_url = api_host + "/api"
-    interactive = create_settings().interactive
+    interactive = current_settings.interactive
     while True:
         if not api_key:
             api_key = prompt_api_key(web_host=web_host, interactive=interactive, again=count > 0)
@@ -193,6 +199,26 @@ def login_cli(
         count = count + 1
 
 
+def validate_host(host: Optional[str], settings: Settings) -> Tuple[str, str]:
+    """
+    验证并返回有效的 host 地址
+    :param host: 用户输入的 host 地址
+    :return: 验证后的 host 地址
+    """
+    api_host: Optional[str] = host
+    web_host: Optional[str] = None
+    if not host:
+        api_host = settings.api_host
+        web_host = settings.web_host
+
+    # 此时api_host必然存在
+    api_host, web_host, _ = resolve_hosts(api_host=api_host, web_host=web_host)
+    assert api_host is not None
+    assert web_host is not None
+
+    return api_host, web_host
+
+
 def prompt_api_key(
     web_host: str,
     interactive: bool,
@@ -208,7 +234,7 @@ def prompt_api_key(
     :param tip: 提示信息
     :param again: 是否为重试模式，重试模式下会略微调整提示信息以区分首次输入与重试输入
 
-    :raises RuntimeError: 如果当前环境不支持交互式输入
+    :c
     :return: 用户输入的 API Key
     """
     if not interactive:
