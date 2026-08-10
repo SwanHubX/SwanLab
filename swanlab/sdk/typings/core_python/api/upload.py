@@ -6,7 +6,7 @@
 """
 
 import sys
-from typing import Any, Dict, List, Literal, Tuple, TypedDict, Union
+from typing import Any, Dict, List, Literal, Optional, Tuple, TypedDict, Union
 
 if sys.version_info >= (3, 11):
     from typing import NotRequired, Required
@@ -49,7 +49,9 @@ UploadColumn = TypedDict(
     {
         "key": Required[str],
         "type": Required[str],
-        "sectionName": NotRequired[str],
+        "sectionName": NotRequired[Optional[str]],
+        "xAxis": NotRequired[Optional[str]],
+        "hidden": NotRequired[bool],
     },
 )
 

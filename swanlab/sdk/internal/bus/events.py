@@ -14,7 +14,33 @@ from google.protobuf.timestamp_pb2 import Timestamp
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord, ScalarRecord
 from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogLevel
 from swanlab.sdk.internal.context.transformer import TransformData
-from swanlab.sdk.typings.run.column import ScalarXAxisType
+
+# ── define_metric 用的 presence 哨兵 ──────────────────────────────────────────
+
+
+class _UnsetType:
+    """Sentinel for "field not provided" in definition patches.
+
+    Distinct from ``None`` (which means "clear to system default")
+    and ``False``. Used by :class:`MetricDefineEvent` and the resolver's
+    :class:`DefinitionPatch` to implement merge vs. replace semantics.
+    """
+
+    _instance: Optional["_UnsetType"] = None
+
+    def __new__(cls) -> "_UnsetType":
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
+    def __repr__(self) -> str:
+        return "UNSET"
+
+    def __bool__(self) -> bool:
+        return False
+
+
+UNSET: Any = _UnsetType()
 
 
 @dataclass
@@ -27,23 +53,29 @@ class MetricLogEvent:
 
 
 @dataclass
-class ScalarDefineEvent:
-    """显式创建标量列事件"""
+class MetricDefineEvent:
+    """define_metric 事件，携带参数归一化后的定义补丁。
 
-    # 指标键
+    字段使用 ``UNSET`` 哨兵区分 "未提供" 与显式 ``None`` / ``False``：
+
+    - ``UNSET``: 用户未提供该参数；merge 时保留旧值，replace 时重置为默认。
+    - ``None`` (x_axis / section_name): 显式清除为系统默认。
+    - 具体值: 使用该值。
+
+    注意：公开 API 的 ``x_axis=None`` / ``section_name=None`` 在归一化阶段统一转为 ``UNSET``，
+    因为公开签名无法区分 "省略" 与 "显式 None"。清除旧值必须使用 ``overwrite=True``。
+    """
+
+    # rule identity（exact key 或 glob pattern）
     key: str
-    # 指标名
-    name: Optional[str] = None
-    # 指标颜色
-    color: Optional[str] = None
-    # 是否为系统指标
-    system: bool = False
-    # x轴，可以是其他的标量，也可以是系统值"_step"或"_relative_time"
-    x_axis: Optional[ScalarXAxisType] = None
-    # 图表索引
-    chart: Optional[str] = None
-    # 图表名
-    chart_name: Optional[str] = None
+    # UNSET=not provided, None=system default (_step), str=custom X key
+    x_axis: Any = UNSET
+    # UNSET=not provided, None=default section, str=named section
+    section_name: Any = UNSET
+    # UNSET=not provided, True/False
+    hidden: Any = UNSET
+    # merge（False）vs replace（True）
+    overwrite: bool = False
 
 
 @dataclass
@@ -75,7 +107,7 @@ class FileSaveEvent:
 # 事件载体类型
 EventPayload = Union[
     MetricLogEvent,
-    ScalarDefineEvent,
+    MetricDefineEvent,
     ConfigEvent,
     LogEvent,
     FileSaveEvent,
