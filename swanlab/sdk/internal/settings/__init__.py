@@ -20,13 +20,14 @@
 
 import os
 from pathlib import Path
-from typing import Any, ClassVar, Dict, Optional, Tuple, Type, Union, get_args
+from typing import Any, ClassVar, Dict, Mapping, Optional, Tuple, Type, Union, get_args
 
 import yaml
 from pydantic import Field, field_validator
 from pydantic.functional_validators import model_validator
 from pydantic_settings import (
     BaseSettings,
+    EnvSettingsSource,
     PydanticBaseSettingsSource,
     SecretsSettingsSource,
     SettingsConfigDict,
@@ -62,6 +63,35 @@ CONFIG_DIR: str = config_dir_env or "/etc/swanlab"
 def log_dir_factory() -> Path:
     # 向下兼容旧版本环境变量
     return Path(os.environ.get("SWANLAB_LOGDIR", str(Path.cwd() / "swanlog")))
+
+
+class _QuoteAwareEnvSettingsSource(EnvSettingsSource):
+    """环境变量源：在加载阶段剥离 shell 脚本注入的成对引号。
+
+    通过覆写 ``_load_env_vars`` 在最底层清理 ``self.env_vars``，
+    使后续所有消费路径（简单字段读取、嵌套字段 explode、复杂字段 JSON 解析）均获得清理后的值。
+    """
+
+    @staticmethod
+    def _strip_env_quotes(value: str) -> str:
+        """剥离环境变量值首尾成对的同类引号。
+
+        某些 shell 脚本（eval、命令替换、/etc/environment）注入的环境变量会保留字面引号字符，
+        例如 ``SWANLAB_API_KEY='"abc123"'`` 的实际值为 ``"abc123"``（含引号）。
+        此函数检测并剥离首尾成对的双引号或单引号，恢复真实值。
+
+        仅当首尾字符相同且均为引号时才剥离，避免误伤仅单侧带引号或不匹配的情况。
+        """
+        if not isinstance(value, str) or len(value) < 2:
+            return value
+        first, last = value[0], value[-1]
+        if first == last and first in ('"', "'"):
+            return value[1:-1]
+        return value
+
+    def _load_env_vars(self) -> Mapping[str, Optional[str]]:
+        env_vars = super()._load_env_vars()
+        return {key: self._strip_env_quotes(val) if isinstance(val, str) else val for key, val in env_vars.items()}
 
 
 class Settings(BaseSettings):
@@ -392,8 +422,8 @@ class Settings(BaseSettings):
         # 优先级高于普通环境变量，防止敏感信息被低优先级的 Env 覆盖
         sources.append(file_secret_settings)
 
-        # 6. 环境变量
-        sources.append(env_settings)
+        # 6. 环境变量（剥离 shell 注入的成对引号）
+        sources.append(_QuoteAwareEnvSettingsSource(settings_cls))
 
         # 7. 当前工作目录下 .swanlab/config.{yaml,yml}
         # 项目级别的配置文件，优先级高于环境变量但低于 .env

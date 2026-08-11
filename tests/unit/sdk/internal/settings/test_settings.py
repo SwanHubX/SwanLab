@@ -680,6 +680,70 @@ def test_settings_raises_on_bad_env(monkeypatch):
         Settings()
 
 
+class TestEnvQuoteStripping:
+    """测试环境变量值首尾成对引号的智能剥离。"""
+
+    def test_double_quotes_stripped(self, monkeypatch):
+        """双引号包裹的值应被剥离"""
+        monkeypatch.setenv("SWANLAB_API_KEY", '"env_key"')
+        settings = Settings()
+        assert settings.api_key == "env_key"
+
+    def test_single_quotes_stripped(self, monkeypatch):
+        """单引号包裹的值应被剥离"""
+        monkeypatch.setenv("SWANLAB_API_KEY", "'env_key'")
+        settings = Settings()
+        assert settings.api_key == "env_key"
+
+    def test_no_quotes_unchanged(self, monkeypatch):
+        """无引号的值不受影响"""
+        monkeypatch.setenv("SWANLAB_API_KEY", "env_key")
+        settings = Settings()
+        assert settings.api_key == "env_key"
+
+    def test_mismatched_quotes_unchanged(self, monkeypatch):
+        """首尾引号不匹配时不应剥离"""
+        monkeypatch.setenv("SWANLAB_API_KEY", "\"env_key'")
+        settings = Settings()
+        assert settings.api_key == "\"env_key'"
+
+    def test_single_sided_quote_unchanged(self, monkeypatch):
+        """仅单侧带引号时不应剥离"""
+        monkeypatch.setenv("SWANLAB_API_KEY", '"env_key')
+        settings = Settings()
+        assert settings.api_key == '"env_key'
+
+    def test_nested_field_with_quotes(self, monkeypatch):
+        """嵌套字段环境变量带引号时应正确剥离并解析"""
+        monkeypatch.setenv("SWANLAB_CORE_SECTION_RULE", '"-1"')
+        settings = Settings()
+        assert settings.core.section_rule == -1
+
+    def test_bool_field_with_quotes(self, monkeypatch):
+        """布尔类型字段带引号时应正确剥离并解析"""
+        monkeypatch.setenv("SWANLAB_PROBE_MONITOR", '"false"')
+        settings = Settings()
+        assert settings.probe.monitor is False
+
+    def test_url_field_with_quotes(self, monkeypatch):
+        """URL 字段带引号时应正确剥离并解析"""
+        monkeypatch.setenv("SWANLAB_API_HOST", '"http://10.0.0.1:8080"')
+        settings = Settings()
+        assert settings.api_host == "http://10.0.0.1:8080"
+
+    def test_empty_quoted_string(self, monkeypatch):
+        """空引号剥离后为空字符串"""
+        monkeypatch.setenv("SWANLAB_API_KEY", '""')
+        settings = Settings()
+        assert settings.api_key == ""
+
+    def test_mode_with_quotes(self, monkeypatch):
+        """mode 字段带引号时应正确剥离"""
+        monkeypatch.setenv("SWANLAB_MODE", '"offline"')
+        settings = Settings()
+        assert settings.mode == "offline"
+
+
 def _run_import_subprocess(
     env_overrides: Optional[dict] = None, cwd: Optional[Path] = None, script: str = "import swanlab; print('IMPORT_OK')"
 ) -> subprocess.CompletedProcess:
