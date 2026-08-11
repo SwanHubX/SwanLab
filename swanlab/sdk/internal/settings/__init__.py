@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any, ClassVar, Dict, Optional, Tuple, Type, Union, cast, get_args
 
 import yaml
-from pydantic import Field, field_validator
+from pydantic import BaseModel, Field, field_validator
 from pydantic.functional_validators import model_validator
 from pydantic_settings import (
     BaseSettings,
@@ -89,10 +89,30 @@ class EnvQuoteNormalizationSource(EnvSettingsSource):
         # 保留 Pydantic 已经读取和规范化的进程环境变量，避免重复读取。
         self.env_vars = source.env_vars
 
-    def _coerce_env_val_strict(self, field, value: Any) -> Any:
-        if field is not None and isinstance(value, str):
-            value = normalize_env_value(value, field.annotation)
-        return super()._coerce_env_val_strict(field, value)
+    @staticmethod
+    def _normalize_env_value(value: Any, annotation: Any) -> Any:
+        if isinstance(value, str):
+            return normalize_env_value(value, annotation)
+        if not isinstance(value, dict):
+            return value
+
+        for candidate in (annotation, *get_args(annotation)):
+            if isinstance(candidate, type) and issubclass(candidate, BaseModel):
+                return {
+                    key: EnvQuoteNormalizationSource._normalize_env_value(
+                        item, candidate.model_fields[key].annotation if key in candidate.model_fields else Any
+                    )
+                    for key, item in value.items()
+                }
+        return value
+
+    def prepare_field_value(self, field_name, field, value: Any, value_is_complex):
+        value = self._normalize_env_value(value, field.annotation)
+        return super().prepare_field_value(field_name, field, value, value_is_complex)
+
+    def explode_env_vars(self, field_name, field, env_vars):
+        values = super().explode_env_vars(field_name, field, env_vars)
+        return self._normalize_env_value(values, field.annotation)
 
 
 class Settings(BaseSettings):

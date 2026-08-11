@@ -76,7 +76,7 @@ def test_non_strict_env_preserves_outer_quotes(monkeypatch):
 def test_outer_quote_normalization_only_applies_to_env():
     value = "'quoted-run'"
 
-    assert Settings(run={"id": value}).run.id == value
+    assert Settings(run=Settings.Run(id=value)).run.id == value
 
 
 def test_experiment_tags_parse(monkeypatch):
