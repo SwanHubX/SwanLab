@@ -61,7 +61,7 @@ class DashBoardSettings(BaseModel):
     Dashboard server host.
     """
 
-    port: int = Field(default_factory=dashboard_port_factory)
+    port: int = Field(default_factory=dashboard_port_factory, ge=1, le=65535, validate_default=True)
     """
     Dashboard server port.
     """

@@ -24,7 +24,7 @@ class CoreSettings(BaseModel):
     """
     record_batch: int = Field(default=10_000, gt=0, lt=100_000)
     """
-    Batch size of records per HTTP request in Dispatch. Default 10000. 
+    Batch size of records per HTTP request in Dispatch. Default 10000.
     """
     record_interval: float = Field(default=1.5, gt=0)
     """

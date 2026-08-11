@@ -36,8 +36,7 @@ from swanlab.sdk.typings.context import CallbacksType
 from swanlab.utils.experiment import generate_color, generate_id, generate_name
 
 from ..internal.run import Run, get_run, has_run
-from ..internal.settings import Settings
-from ..internal.settings import settings as global_settings
+from ..internal.settings import Settings, create_settings
 from ..typings.run import ModeType, ParallelType, ResumeType
 from . import utils
 from .login import login_cli, login_raw
@@ -197,15 +196,13 @@ def init(
             "`swanlab.init` requires an inactive Run. Please use `swanlab.finish()` or `swanlab.init(reinit=True)` first."
         )
     # 运行时配置
-    run_settings = Settings()
+    run_settings = create_settings()
     # --------------------- 合并配置，检查格式，与业务无关 ----------------------------
     # 配置具有优先级，从低到高依次是：全局配置 --> 自定义配置 --> 传入的参数
-    # 1. 合并全局配置
-    run_settings.merge_settings(global_settings)
-    # 2. 合并自定义配置
+    # 1. 合并自定义配置
     if settings:
         run_settings.merge_settings(settings)
-    # 3. 基于传入的参数，合并当前配置，此步骤必须在合并全局配置之后，因为传入的参数的优先级是高于全局配置的
+    # 2. 基于传入的参数，合并当前配置，此步骤必须在合并全局配置之后，因为传入的参数的优先级是高于全局配置的
     args_dict = compatible_kwargs({}, **kwargs)
     for key, value in {
         "log_dir": log_dir,

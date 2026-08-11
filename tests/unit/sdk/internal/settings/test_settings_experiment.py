@@ -108,6 +108,18 @@ def test_experiment_tags_parse(monkeypatch):
         Settings.model_validate({"experiment": {"tags": 123}})
 
 
+def test_experiment_tags_count_limit():
+    """
+    测试 tags 数量上限为 30
+    """
+    # 30 条 tag：通过
+    s = Settings.model_validate({"experiment": {"tags": [f"t{i}" for i in range(30)]}})
+    assert len(s.experiment.tags) == 30
+    # 31 条 tag：触发 ValidationError
+    with pytest.raises(ValidationError):
+        Settings.model_validate({"experiment": {"tags": [f"t{i}" for i in range(31)]}})
+
+
 def test_run_resume_parse(monkeypatch):
     """
     测试 RunSettings.resume 字段的解析

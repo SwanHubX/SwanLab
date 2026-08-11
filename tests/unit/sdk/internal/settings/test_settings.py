@@ -5,12 +5,17 @@
 @description: 测试 SwanLabSettings 基本方法
 """
 
+import os
+import subprocess
+import sys
 from pathlib import Path
+from typing import Optional
 
 import pytest
+from pydantic import ValidationError
 from pydantic_settings import SettingsConfigDict
 
-from swanlab.sdk.internal.settings import Settings
+from swanlab.sdk.internal.settings import Settings, resolve_hosts
 
 
 @pytest.fixture(autouse=True)
@@ -240,11 +245,13 @@ def test_url_resolution_logic(monkeypatch):
     s_default = Settings()
     assert s_default.api_host == "https://api.swanlab.cn"
     assert s_default.web_host == "https://swanlab.cn"
+    assert "web_host" not in s_default.__pydantic_fields_set__
 
     # 2. 仅自定义 api_host (带复杂路由)：自动清除路由，并顺便推导 web_host
     s_api = Settings(api_host="http://10.0.0.1:8080/api/v1/run/")
     assert s_api.api_host == "http://10.0.0.1:8080"
     assert s_api.web_host == "http://10.0.0.1:8080"
+    assert "web_host" in s_api.__pydantic_fields_set__
 
     # 3. 仅自定义 api_host (未带协议头)：自动补全 https://，清除路由，并推导 web_host
     s_api_no_scheme = Settings(api_host="custom-api.com/api/")
@@ -266,6 +273,66 @@ def test_url_resolution_logic(monkeypatch):
     s_invalid_web = Settings(web_host="api.swanlab.cn?test=1dsa")
     assert s_invalid_web.web_host == "https://swanlab.cn"
     assert "web_host" not in s_invalid_web.__pydantic_fields_set__
+
+    # 7. 官方默认 host 的 http 形式统一转换为 https
+    s_http_defaults = Settings(api_host="http://api.swanlab.cn/api", web_host="http://swanlab.cn/home")
+    assert s_http_defaults.api_host == "https://api.swanlab.cn"
+    assert s_http_defaults.web_host == "https://swanlab.cn"
+
+
+def test_resolve_hosts():
+    """测试 resolve_hosts 的推导与清理逻辑"""
+
+    # 1. 两者都未提供 → (None, None, False)
+    assert resolve_hosts() == (None, None, False)
+
+    # 2. 仅 api_host：清理路由/补全协议，并推导 web_host
+    api, web, web_is_set = resolve_hosts(api_host="http://10.0.0.1:8080/api/v1/run/")
+    assert api == "http://10.0.0.1:8080"
+    assert web == "http://10.0.0.1:8080"
+    assert web_is_set is True
+
+    # 3. 仅 api_host（无协议头）：补全 https
+    api, web, web_is_set = resolve_hosts(api_host="custom-api.com/api/")
+    assert api == "https://custom-api.com"
+    assert web == "https://custom-api.com"
+    assert web_is_set is True
+
+    # 4. 两者都提供：各自清理，不推导
+    api, web, web_is_set = resolve_hosts(api_host="http://api.local/v1/", web_host="http://web.local/")
+    assert api == "http://api.local"
+    assert web == "http://web.local"
+    assert web_is_set is True
+
+    # 5. 仅 web_host：清理并使用默认 api_host
+    api, web, web_is_set = resolve_hosts(web_host="http://192.168.1.10/")
+    assert api == "https://api.swanlab.cn"
+    assert web == "http://192.168.1.10"
+    assert web_is_set is True
+
+    # 6. web_host 等于 api_host 默认值 → web_host 回退为官方默认值
+    api, web, web_is_set = resolve_hosts(api_host="https://example.com", web_host="api.swanlab.cn?test=1dsa")
+    assert api == "https://example.com"
+    assert web == "https://swanlab.cn"
+    assert web_is_set is False
+
+    # 7. api_host 恰好为官方 api 默认值 → 推导官方 web_host
+    api, web, web_is_set = resolve_hosts(api_host="api.swanlab.cn")
+    assert api == "https://api.swanlab.cn"
+    assert web == "https://swanlab.cn"
+    assert web_is_set is False
+
+    # 8. 官方默认 host 的 http 形式统一转换为 https
+    api, web, web_is_set = resolve_hosts(api_host="http://api.swanlab.cn/api", web_host="http://swanlab.cn/home")
+    assert api == "https://api.swanlab.cn"
+    assert web == "https://swanlab.cn"
+    assert web_is_set is True
+
+    # 9. 空字符串报错
+    with pytest.raises(ValueError, match="Host cannot be empty or whitespace"):
+        resolve_hosts(api_host="   ", web_host="http://valid.com")
+    with pytest.raises(ValueError, match="Host cannot be empty or whitespace"):
+        resolve_hosts(api_host="http://valid.com", web_host="")
 
 
 def test_url_env_resolution(monkeypatch):
@@ -600,3 +667,125 @@ class TestSaveToYaml:
 
         assert target_dir.exists()
         assert file_path.exists()
+
+
+def test_settings_raises_on_bad_env(monkeypatch):
+    """正常构造 Settings() 在环境变量非法时照常抛 ValidationError
+
+    这是 swanlab.init() 新建 Settings() 的行为：错误不在 import 期间抛，而在使用时抛。
+    """
+    monkeypatch.setenv("SWANLAB_MODE", "bogus")
+
+    with pytest.raises(ValidationError):
+        Settings()
+
+
+def _run_import_subprocess(
+    env_overrides: Optional[dict] = None, cwd: Optional[Path] = None, script: str = "import swanlab; print('IMPORT_OK')"
+) -> subprocess.CompletedProcess:
+    """以子进程运行真实 import 路径，返回完成结果。
+
+    构造干净基线环境（剔除继承到的所有 SWANLAB_ 变量），再叠加本次用例所需变量，
+    确保端到端行为仅受 env_overrides 控制，不受宿主测试进程污染。
+    """
+    clean_env = {k: v for k, v in os.environ.items() if not k.startswith("SWANLAB_")}
+    if env_overrides:
+        clean_env.update({str(k): str(v) for k, v in env_overrides.items()})
+    return subprocess.run(
+        [sys.executable, "-c", script],
+        env=clean_env,
+        cwd=str(cwd) if cwd else None,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+
+class TestDeferredSettingsLoading:
+    """端到端验证 import 不加载配置，首次消费配置时才进行校验。"""
+
+    def test_import_survives_bad_mode(self):
+        """坏的 SWANLAB_MODE 不应阻断 import。"""
+        result = _run_import_subprocess({"SWANLAB_MODE": "bogus"})
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "IMPORT_OK" in result.stdout
+
+    def test_import_survives_malformed_yaml(self, tmp_path):
+        """YAML 语法错误应延迟到配置被消费时抛出。"""
+        (tmp_path / "swanlab.yaml").write_text("mode: [unclosed")
+        result = _run_import_subprocess(
+            cwd=tmp_path,
+            script=(
+                "import swanlab\n"
+                "print('IMPORT_OK')\n"
+                "from swanlab.sdk.internal.settings import create_settings\n"
+                "try:\n"
+                "    create_settings()\n"
+                "except Exception as e:\n"
+                "    print('SETTINGS_ERROR=' + type(e).__name__)"
+            ),
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "IMPORT_OK" in result.stdout
+        assert "SETTINGS_ERROR=ParserError" in result.stdout
+
+    def test_import_survives_bad_logdir(self, tmp_path):
+        """坏的 SWANLAB_LOGDIR（指向已存在的非目录文件）不应阻断 import"""
+        bad_file = tmp_path / "not-a-dir"
+        bad_file.write_text("x")
+        result = _run_import_subprocess({"SWANLAB_LOGDIR": str(bad_file)})
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "IMPORT_OK" in result.stdout
+
+    def test_import_survives_bad_root(self, tmp_path):
+        """坏的 SWANLAB_ROOT（指向已存在的非目录文件）不应阻断 import"""
+        bad_file = tmp_path / "not-a-dir"
+        bad_file.write_text("x")
+        result = _run_import_subprocess({"SWANLAB_ROOT": str(bad_file)})
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "IMPORT_OK" in result.stdout
+
+    @pytest.mark.parametrize("env_name", ["SWANLAB_SECTION_RULE_IDX", "SWANLAB_WEBHOOK_TIMEOUT"])
+    def test_import_survives_bad_legacy_nested_env(self, env_name):
+        """子模块中的非法旧版环境变量也不应在 import 时求值。"""
+        result = _run_import_subprocess({env_name: "not-an-integer"})
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "IMPORT_OK" in result.stdout
+
+    def test_create_settings_raises_after_import(self):
+        """配置错误应在 create_settings() 时抛出。"""
+        result = _run_import_subprocess(
+            {"SWANLAB_MODE": "bogus"},
+            script=(
+                "import swanlab\n"
+                "from swanlab.sdk.internal.settings import create_settings\n"
+                "try:\n"
+                "    create_settings()\n"
+                "    print('NO_RAISE')\n"
+                "except Exception as e:\n"
+                "    print('RAISED=' + type(e).__name__)"
+            ),
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "RAISED=ValidationError" in result.stdout
+        assert "NO_RAISE" not in result.stdout
+
+    def test_fixed_config_works_without_restart(self):
+        """import 后修复配置即可继续使用，无需重启进程。"""
+        result = _run_import_subprocess(
+            {"SWANLAB_MODE": "bogus"},
+            script=(
+                "import os\n"
+                "import swanlab\n"
+                "os.environ.pop('SWANLAB_MODE')\n"
+                "try:\n"
+                "    run = swanlab.init(mode='disabled')\n"
+                "    run.finish()\n"
+                "    print('INIT_OK')\n"
+                "except Exception as e:\n"
+                "    print('RAISED=' + type(e).__name__ + ':' + str(e))"
+            ),
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "INIT_OK" in result.stdout
+        assert "RAISED=" not in result.stdout
