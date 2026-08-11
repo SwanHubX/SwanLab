@@ -20,7 +20,7 @@
 
 import os
 from pathlib import Path
-from typing import Any, ClassVar, Dict, Optional, Tuple, Type, Union, get_args
+from typing import Any, ClassVar, Dict, Optional, Tuple, Type, Union, cast, get_args
 
 import yaml
 from pydantic import Field, field_validator
@@ -74,8 +74,20 @@ class EnvQuoteNormalizationSource(EnvSettingsSource):
     """在 Pydantic 转换单个进程环境变量时，按字段约束移除外层引号。"""
 
     def __init__(self, source: EnvSettingsSource):
-        # 复用 Pydantic 已构建好的 source，保留 _env_* 参数和已读取的进程环境变量。
-        self.__dict__.update(source.__dict__)
+        # 不复制 Pydantic 内部的 __dict__，以兼容 Python 3.9 及不同的
+        # pydantic-settings 版本；仅使用 EnvSettingsSource 的公开配置重建 source。
+        super().__init__(
+            source.settings_cls,
+            case_sensitive=source.case_sensitive,
+            env_prefix=source.env_prefix,
+            env_nested_delimiter=source.env_nested_delimiter,
+            env_nested_max_split=source.env_nested_max_split,
+            env_ignore_empty=source.env_ignore_empty,
+            env_parse_none_str=source.env_parse_none_str,
+            env_parse_enums=source.env_parse_enums,
+        )
+        # 保留 Pydantic 已经读取和规范化的进程环境变量，避免重复读取。
+        self.env_vars = source.env_vars
 
     def _coerce_env_val_strict(self, field, value: Any) -> Any:
         if field is not None and isinstance(value, str):
@@ -413,7 +425,7 @@ class Settings(BaseSettings):
 
         # 6. 环境变量
         # 处理环境变量可能携带容器或启动脚本额外包裹的引号
-        env_settings = EnvQuoteNormalizationSource(env_settings)
+        env_settings = EnvQuoteNormalizationSource(cast(EnvSettingsSource, env_settings))
         sources.append(env_settings)
 
         # 7. 当前工作目录下 .swanlab/config.{yaml,yml}
