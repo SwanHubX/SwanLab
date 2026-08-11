@@ -52,10 +52,12 @@ def get_core_impl() -> Literal["python", "go"]:
 
 
 # requirement token -> (人类可读说明, 设置器)
-# 过渡态：通过 swanlab.require("core"|"probe") 或 SWANLAB_REQUIRE 环境变量切换后端实现
+# 过渡态：通过 swanlab.require(...) 或 SWANLAB_REQUIRE 环境变量切换后端实现
 REQUIREMENTS: Dict[str, Tuple[str, Callable[[], None]]] = {
     "core": ("SwanLab Go core (swanlab-core)", lambda: set_core_impl(CoreEnum.CORE)),
     "probe": ("SwanLab Rust probe", lambda: set_probe_impl(ProbeEnum.PROBE)),
+    "core_python": ("SwanLab Python core (built-in)", lambda: set_core_impl(CoreEnum.CORE_PYTHON)),
+    "probe_python": ("SwanLab Python probe (built-in)", lambda: set_probe_impl(ProbeEnum.PROBE_PYTHON)),
 }
 
 

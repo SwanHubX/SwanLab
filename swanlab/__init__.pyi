@@ -297,6 +297,8 @@ def require(*requirements: str) -> List[str]:
 
     - ``"core"``: switch to the SwanLab Go core runtime (swanlab-core).
     - ``"probe"``: switch to the SwanLab Rust probe runtime.
+    - ``"core_python"``: explicitly use the built-in Python core.
+    - ``"probe_python"``: explicitly use the built-in Python probe.
 
     Equivalent to setting the ``SWANLAB_REQUIRE`` environment variable (comma-separated).
     Idempotent; unknown tokens raise ``ValueError``. This is a transitional API:
