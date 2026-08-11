@@ -8,7 +8,7 @@
 from pathlib import Path, PurePosixPath
 
 from .env import DEBUG, is_interactive, is_jupyter
-from .impl import get_core_impl, get_probe_impl
+from .impl import apply_requirement, get_core_impl, get_probe_impl, set_core_impl, set_probe_impl
 from .system import fmt_system_key, is_system_key
 from .version import get_swanlab_latest_version, get_swanlab_version
 
@@ -24,6 +24,9 @@ __all__ = [
     "get_swanlab_latest_version",
     "get_probe_impl",
     "get_core_impl",
+    "set_probe_impl",
+    "set_core_impl",
+    "apply_requirement",
     "mkdir_and_append_gitignore",
 ]
 

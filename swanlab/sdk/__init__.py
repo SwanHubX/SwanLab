@@ -12,6 +12,7 @@ from .cmd.init import init
 from .cmd.login import login, login_cli
 from .cmd.merge_callbacks import merge_callbacks
 from .cmd.merge_settings import merge_settings
+from .cmd.require import require
 from .cmd.run import (
     async_log,
     define_scalar,
@@ -55,6 +56,7 @@ __all__ = [
     "sync",
     "merge_settings",
     "merge_callbacks",
+    "require",
     "cmd_utils",
     # run
     "has_run",
