@@ -9,6 +9,10 @@ import (
 
 func TestBufferUntilInit(t *testing.T) {
 	l := New()
+	// 注意：Logger 设计上不要求调用方调用 Reset——core 生命周期内会统一管理，
+	// FD 泄漏风险很低，这是设计层面的约束。此处的 Reset 仅为测试场景兼容：
+	// Windows 不允许删除仍被打开的文件，若不关闭句柄，t.TempDir 的 RemoveAll
+	// 清理会失败（"being used by another process"）；POSIX 下删除已打开文件本就允许
 	defer l.Reset()
 	l.Debug("buffered line")
 	dir := t.TempDir()
@@ -35,7 +39,7 @@ func TestInitDisabledDiscards(t *testing.T) {
 
 func TestIdempotentInit(t *testing.T) {
 	l := New()
-	defer l.Reset()
+	defer l.Reset() // 关闭句柄以兼容 Windows TempDir 清理，详见 TestBufferUntilInit
 	dir := t.TempDir()
 	if err := l.Init(dir); err != nil {
 		t.Fatalf("Init: %v", err)
@@ -52,7 +56,7 @@ func TestIdempotentInit(t *testing.T) {
 
 func TestRotation(t *testing.T) {
 	l := New()
-	defer l.Reset()
+	defer l.Reset() // 关闭句柄以兼容 Windows TempDir 清理，详见 TestBufferUntilInit
 	l.maxBytes = 50 // 调小上限以触发轮转
 	dir := t.TempDir()
 	if err := l.Init(dir); err != nil {
@@ -68,7 +72,7 @@ func TestRotation(t *testing.T) {
 
 func TestResetAllowsRebind(t *testing.T) {
 	l := New()
-	defer l.Reset()
+	defer l.Reset() // 关闭句柄以兼容 Windows TempDir 清理，详见 TestBufferUntilInit
 	dir := t.TempDir()
 	if err := l.Init(dir); err != nil {
 		t.Fatalf("Init: %v", err)
