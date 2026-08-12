@@ -49,6 +49,7 @@ __all__ = [
     # cmd
     "merge_callbacks",
     "merge_settings",
+    "require",
     "init",
     "finish",
     "login",
@@ -286,6 +287,39 @@ def merge_callbacks(callbacks: CallbacksType) -> None:
         ...         print("Run initialized!")
         >>> swanlab.merge_callbacks(MyCallback())
         >>> swanlab.init()
+    """
+    ...
+
+def require(*requirements: str) -> List[str]:
+    """Enable a transitional SwanLab runtime backend (process-global).
+
+    Must be called before ``swanlab.init()``. Currently supported requirements:
+
+    - ``"core"``: switch to the SwanLab Go core runtime (swanlab-core).
+    - ``"probe"``: switch to the SwanLab Rust probe runtime.
+    - ``"core_python"``: explicitly use the built-in Python core.
+    - ``"probe_python"``: explicitly use the built-in Python probe.
+
+    Equivalent to setting the ``SWANLAB_REQUIRE`` environment variable (comma-separated).
+    Idempotent; unknown tokens raise ``ValueError``. This is a transitional API:
+    once the new backends become the default, it will degrade to a no-op or be deprecated.
+
+    :param requirements: One or more requirement tokens, e.g. ``"core"``, ``"probe"``.
+    :return: The list of activated requirement tokens.
+    :raises ValueError: If a requirement token is unknown.
+    :raises RuntimeError: If called while a run is active.
+
+    Examples:
+
+        Switch to the Go core for a single run:
+
+        >>> import swanlab
+        >>> swanlab.require("core")
+        >>> swanlab.init()
+
+        Enable both core and probe via the environment variable instead:
+
+        >>> # SWANLAB_REQUIRE=core,probe python train.py
     """
     ...
 

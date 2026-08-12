@@ -35,6 +35,7 @@ from swanlab.sdk import (
     merge_settings,
     pkg,
     plot,
+    require,
     save,
     sync,
 )
@@ -50,6 +51,7 @@ __all__ = [
     # cmd
     "merge_callbacks",
     "merge_settings",
+    "require",
     "init",
     "finish",
     "login",
