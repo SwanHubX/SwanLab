@@ -7,15 +7,25 @@ import (
 	"testing"
 )
 
+// tempLogDir 返回一个临时目录，并注册清理：在 t.TempDir 的 RemoveAll 之前关闭 Logger 句柄。
+//
+// Logger 设计上不要求调用方调用 Reset——core 生命周期内会统一管理，FD 泄漏风险很低。
+// 此处仅为测试场景：Windows 不允许删除仍被打开的文件，若不关闭句柄，t.TempDir 的
+// RemoveAll 清理会失败（"being used by another process"）；POSIX 下删除已打开文件本就允许。
+//
+// 顺序要点：t.Cleanup 按注册逆序（LIFO）执行，而 t.TempDir 的 RemoveAll 也是一次 Cleanup。
+// 这里先建目录、再注册 l.Reset，使 Reset 晚注册而先执行（先于 RemoveAll）。
+func tempLogDir(t *testing.T, l *Logger) string {
+	t.Helper()
+	dir := t.TempDir()
+	t.Cleanup(l.Reset)
+	return dir
+}
+
 func TestBufferUntilInit(t *testing.T) {
 	l := New()
-	// 注意：Logger 设计上不要求调用方调用 Reset——core 生命周期内会统一管理，
-	// FD 泄漏风险很低，这是设计层面的约束。此处的 Reset 仅为测试场景兼容：
-	// Windows 不允许删除仍被打开的文件，若不关闭句柄，t.TempDir 的 RemoveAll
-	// 清理会失败（"being used by another process"）；POSIX 下删除已打开文件本就允许
-	defer l.Reset()
 	l.Debug("buffered line")
-	dir := t.TempDir()
+	dir := tempLogDir(t, l)
 	if err := l.Init(dir); err != nil {
 		t.Fatalf("Init: %v", err)
 	}
@@ -39,8 +49,7 @@ func TestInitDisabledDiscards(t *testing.T) {
 
 func TestIdempotentInit(t *testing.T) {
 	l := New()
-	defer l.Reset() // 关闭句柄以兼容 Windows TempDir 清理，详见 TestBufferUntilInit
-	dir := t.TempDir()
+	dir := tempLogDir(t, l)
 	if err := l.Init(dir); err != nil {
 		t.Fatalf("Init: %v", err)
 	}
@@ -56,9 +65,8 @@ func TestIdempotentInit(t *testing.T) {
 
 func TestRotation(t *testing.T) {
 	l := New()
-	defer l.Reset() // 关闭句柄以兼容 Windows TempDir 清理，详见 TestBufferUntilInit
 	l.maxBytes = 50 // 调小上限以触发轮转
-	dir := t.TempDir()
+	dir := tempLogDir(t, l)
 	if err := l.Init(dir); err != nil {
 		t.Fatalf("Init: %v", err)
 	}
@@ -72,13 +80,12 @@ func TestRotation(t *testing.T) {
 
 func TestResetAllowsRebind(t *testing.T) {
 	l := New()
-	defer l.Reset() // 关闭句柄以兼容 Windows TempDir 清理，详见 TestBufferUntilInit
 	dir := t.TempDir()
 	if err := l.Init(dir); err != nil {
 		t.Fatalf("Init: %v", err)
 	}
 	l.Reset()
-	dir2 := t.TempDir()
+	dir2 := tempLogDir(t, l)
 	l.Debug("buffered after reset")
 	if err := l.Init(dir2); err != nil {
 		t.Fatalf("rebind Init: %v", err)
