@@ -29,7 +29,10 @@
       "formatter": {
         "external": {
           "command": "clang-format",
-          "arguments": ["-style={IndentWidth: 4, ColumnLimit: 0}"],
+          "arguments": [
+            "--assume-filename={buffer_path}",
+            "-style={IndentWidth: 4, ColumnLimit: 0, AlignConsecutiveAssignments: Consecutive}",
+          ],
         },
       },
       "language_servers": ["protobuf-language-server"],

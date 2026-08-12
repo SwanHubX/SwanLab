@@ -8,37 +8,37 @@ option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/run/v1;runv1
 
 // Run 创建记录，对应 swanlab.init(...) 调用，由sdk前端生成并同步交给后端，部分字段如果为空需要sdk后端填充
 message StartRecord {
-  string project         = 1;
-  string workspace       = 2;  // 组织或用户名
-  bool public            = 3;
-  string name            = 4;
-  string description     = 5;
-  repeated string tags   = 6;
-  string group           = 7;
-  string job_type        = 8;
-  string color           = 9;  // 十六进制颜色，如 "#FF5733"，如果为空则由sdk后端生成
-  string id              = 10;
-  ResumeMode resume      = 11;
-  google.protobuf.Timestamp started_at = 12;
+    string project                       = 1;
+    string workspace                     = 2; // 组织或用户名
+    bool public                          = 3;
+    string name                          = 4;
+    string description                   = 5;
+    repeated string tags                 = 6;
+    string group                         = 7;
+    string job_type                      = 8;
+    string color                         = 9; // 十六进制颜色，如 "#FF5733"，如果为空则由sdk后端生成
+    string id                            = 10;
+    ResumeMode resume                    = 11;
+    google.protobuf.Timestamp started_at = 12;
 }
 
 // Run 结束记录，对应 swanlab.finish() 或进程退出，由sdk前端生成并同步交给后端
 message FinishRecord {
-  RunState state    = 1;
-  // 异常信息，state=CRASHED 时填充
-  string   error    = 2;
-  google.protobuf.Timestamp finished_at = 3;
+    RunState state = 1;
+    // 异常信息，state=CRASHED 时填充
+    string error                          = 2;
+    google.protobuf.Timestamp finished_at = 3;
 }
 
 enum RunState {
-  RUN_STATE_RUNNING     = 0;
-  RUN_STATE_FINISHED    = 1;  // 正常结束
-  RUN_STATE_CRASHED     = 2;  // 异常退出
-  RUN_STATE_ABORTED     = 3;  // 用户主动中断（KeyboardInterrupt 等）
+    RUN_STATE_RUNNING  = 0;
+    RUN_STATE_FINISHED = 1; // 正常结束
+    RUN_STATE_CRASHED  = 2; // 异常退出
+    RUN_STATE_ABORTED  = 3; // 用户主动中断（KeyboardInterrupt 等）
 }
 
 enum ResumeMode {
-  RESUME_MODE_NEVER       = 0;
-  RESUME_MODE_ALLOW       = 1;
-  RESUME_MODE_MUST        = 2;
+    RESUME_MODE_NEVER = 0;
+    RESUME_MODE_ALLOW = 1;
+    RESUME_MODE_MUST  = 2;
 }
