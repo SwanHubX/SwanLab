@@ -1,5 +1,22 @@
 {
   "lsp": {
+    "gopls": {
+      "initialization_options": {
+        "gofumpt": true
+      }
+    },
+    "golangci-lint": {
+      "initialization_options": {
+        "command": [
+          "golangci-lint",
+          "run",
+          "--output.json.path",
+          "stdout",
+          "--show-stats=false",
+          "--output.text.path="
+        ]
+      }
+    },
     "protobuf-language-server": {
       "binary": {
         "path": "protols",
@@ -23,6 +40,10 @@
     },
   },
   "languages": {
+    "Go": {
+      "format_on_save": "on",
+      "language_servers": ["gopls", "golangci-lint"]
+    },
     "Proto": {
       "format_on_save": "on",
       "tab_size": 4,
