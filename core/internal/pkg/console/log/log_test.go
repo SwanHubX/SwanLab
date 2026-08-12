@@ -9,6 +9,7 @@ import (
 
 func TestBufferUntilInit(t *testing.T) {
 	l := New()
+	defer l.Reset()
 	l.Debug("buffered line")
 	dir := t.TempDir()
 	if err := l.Init(dir); err != nil {
@@ -34,6 +35,7 @@ func TestInitDisabledDiscards(t *testing.T) {
 
 func TestIdempotentInit(t *testing.T) {
 	l := New()
+	defer l.Reset()
 	dir := t.TempDir()
 	if err := l.Init(dir); err != nil {
 		t.Fatalf("Init: %v", err)
@@ -50,6 +52,7 @@ func TestIdempotentInit(t *testing.T) {
 
 func TestRotation(t *testing.T) {
 	l := New()
+	defer l.Reset()
 	l.maxBytes = 50 // 调小上限以触发轮转
 	dir := t.TempDir()
 	if err := l.Init(dir); err != nil {
@@ -65,6 +68,7 @@ func TestRotation(t *testing.T) {
 
 func TestResetAllowsRebind(t *testing.T) {
 	l := New()
+	defer l.Reset()
 	dir := t.TempDir()
 	if err := l.Init(dir); err != nil {
 		t.Fatalf("Init: %v", err)
