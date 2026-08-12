@@ -24,7 +24,6 @@
 [![][pypi-downloads-shield]][pypi-downloads-shield-link]
 [![][colab-shield]][colab-shield-link]
 
-
 ![](readme_files/swanlab-overview.png)
 
 中文 / [English](README_EN.md) / [日本語](README_JP.md) / [Русский](README_RU.md)
@@ -33,11 +32,9 @@
 
 <a href="https://hellogithub.com/repository/b442a9fa270e4ccb8847c9ee3445e41b" target="_blank"><img src="https://abroad.hellogithub.com/v1/widgets/recommend.svg?rid=b442a9fa270e4ccb8847c9ee3445e41b&claim_uid=Oh5UaGjfrblg0yZ" alt="Featured｜HelloGitHub" style="width: 250px; height: 54px;" width="250" height="54" /></a>
 
-
 </div>
 
 <br/>
-
 
 ## 目录
 
@@ -55,7 +52,6 @@
 - [📃 协议](#-协议)
 
 <br/>
-
 
 ## 🌟 最近更新
 
@@ -233,7 +229,6 @@ https://github.com/user-attachments/assets/7965fec4-c8b0-4956-803d-dbf177b44f54
 
 **9. 🔌 插件拓展**: 支持通过插件拓展SwanLab的使用场景，比如 [飞书通知](https://docs.swanlab.cn/plugin/notification-lark.html)、[Slack通知](https://docs.swanlab.cn/plugin/notification-slack.html)、[CSV记录器](https://docs.swanlab.cn/plugin/writer-csv.html)等
 
-
 > \[!IMPORTANT]
 >
 > **收藏项目**，你将从 GitHub 上无延迟地接收所有发布通知～ ⭐️
@@ -246,25 +241,25 @@ https://github.com/user-attachments/assets/7965fec4-c8b0-4956-803d-dbf177b44f54
 
 来看看 SwanLab 的在线演示：
 
-| [ResNet50 猫狗分类][demo-cats-dogs] | [Yolov8-COCO128 目标检测][demo-yolo] |
-| :--------: | :--------: |
-| [![][demo-cats-dogs-image]][demo-cats-dogs] | [![][demo-yolo-image]][demo-yolo] |
+|              [ResNet50 猫狗分类][demo-cats-dogs]               |                  [Yolov8-COCO128 目标检测][demo-yolo]                   |
+| :------------------------------------------------------------: | :---------------------------------------------------------------------: |
+|          [![][demo-cats-dogs-image]][demo-cats-dogs]           |                    [![][demo-yolo-image]][demo-yolo]                    |
 | 跟踪一个简单的 ResNet50 模型在猫狗数据集上训练的图像分类任务。 | 使用 Yolov8 在 COCO128 数据集上进行目标检测任务，跟踪训练超参数和指标。 |
 
-| [Qwen2 指令微调][demo-qwen2-sft] | [LSTM Google 股票预测][demo-google-stock] |
-| :--------: | :--------: |
-| [![][demo-qwen2-sft-image]][demo-qwen2-sft] | [![][demo-google-stock-image]][demo-google-stock] |
+|             [Qwen2 指令微调][demo-qwen2-sft]              |               [LSTM Google 股票预测][demo-google-stock]                |
+| :-------------------------------------------------------: | :--------------------------------------------------------------------: |
+|        [![][demo-qwen2-sft-image]][demo-qwen2-sft]        |           [![][demo-google-stock-image]][demo-google-stock]            |
 | 跟踪 Qwen2 大语言模型的指令微调训练，完成简单的指令遵循。 | 使用简单的 LSTM 模型在 Google 股价数据集上训练，实现对未来股价的预测。 |
 
-| [ResNeXt101 音频分类][demo-audio-classification] | [Qwen2-VL COCO数据集微调][demo-qwen2-vl] |
-| :--------: | :--------: |
-| [![][demo-audio-classification-image]][demo-audio-classification] | [![][demo-qwen2-vl-image]][demo-qwen2-vl] |
-| 从ResNet到ResNeXt在音频分类任务上的渐进式实验过程 | 基于Qwen2-VL多模态大模型，在COCO2014数据集上进行Lora微调。 |
+|         [ResNeXt101 音频分类][demo-audio-classification]          |          [Qwen2-VL COCO数据集微调][demo-qwen2-vl]          |
+| :---------------------------------------------------------------: | :--------------------------------------------------------: |
+| [![][demo-audio-classification-image]][demo-audio-classification] |         [![][demo-qwen2-vl-image]][demo-qwen2-vl]          |
+|         从ResNet到ResNeXt在音频分类任务上的渐进式实验过程         | 基于Qwen2-VL多模态大模型，在COCO2014数据集上进行Lora微调。 |
 
-| [EasyR1 多模态LLM RL训练][demo-easyr1-rl] | [Qwen2.5-0.5B GRPO训练][demo-qwen2-grpo] |
-| :--------: | :--------: |
-| [![][demo-easyr1-rl-image]][demo-easyr1-rl] | [![][demo-qwen2-grpo-image]][demo-qwen2-grpo] |
-| 使用EasyR1框架进行多模态LLM RL训练 | 基于Qwen2.5-0.5B模型在GSM8k数据集上进行GRPO训练 |
+|  [EasyR1 多模态LLM RL训练][demo-easyr1-rl]  |    [Qwen2.5-0.5B GRPO训练][demo-qwen2-grpo]     |
+| :-----------------------------------------: | :---------------------------------------------: |
+| [![][demo-easyr1-rl-image]][demo-easyr1-rl] |  [![][demo-qwen2-grpo-image]][demo-qwen2-grpo]  |
+|     使用EasyR1框架进行多模态LLM RL训练      | 基于Qwen2.5-0.5B模型在GSM8k数据集上进行GRPO训练 |
 
 [更多案例](https://docs.swanlab.cn/examples/mnist.html)
 
@@ -302,7 +297,6 @@ pip install 'swanlab[dashboard]'
 ```
 
 </details>
-
 
 ### 2.登录并获取 API Key
 
@@ -355,6 +349,7 @@ for i in range(10):
 ## 🔥 实战案例
 
 **使用SwanLab的优秀教程开源项目：**
+
 - [happy-llm](https://github.com/datawhalechina/happy-llm)：从零开始的大语言模型原理与实践教程 ![GitHub Repo stars](https://img.shields.io/github/stars/datawhalechina/happy-llm)
 - [self-llm](https://github.com/datawhalechina/self-llm)：《开源大模型食用指南》针对中国宝宝量身打造的基于Linux环境快速微调（全参数/Lora）、部署国内外开源大模型（LLM）/多模态大模型（MLLM）教程 ![GitHub Repo stars](https://img.shields.io/github/stars/datawhalechina/self-llm)
 - [Minimind](https://github.com/jingyaogong/minimind)：🚀🚀 「大模型」2小时完全从0训练26M的小参数GPT！![GitHub Repo stars](https://img.shields.io/github/stars/jingyaogong/minimind)
@@ -366,6 +361,7 @@ for i in range(10):
 - [llm-agent-rl-lab](https://github.com/KMnO4-zx/llm-agent-rl-lab): Reproducing and studying RL algorithms for LLM agents, including PPO, GRPO, GSPO, DAPO, OPD and beyond. ![GitHub Repo stars](https://img.shields.io/github/stars/KMnO4-zx/llm-agent-rl-lab)
 
 **使用SwanLab的优秀论文：**
+
 - [Accelerating AlphaZero Training for Connect6 via Behavioral Cloning Initialization and Prior Action Masking in Resource-Constrained Environments](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=6730709)
 - [SeePhys Pro: Diagnosing Modality Transfer and Blind-Training Effects in Multimodal RLVR for Physics Reasoning](https://arxiv.org/abs/2605.09266)
 - [MemFactory: Unified Inference & Training Framework for Agent Memory](https://arxiv.org/abs/2603.29493)
@@ -384,6 +380,7 @@ for i in range(10):
 - [BiPACE: Bisimulation-Guided Policy Optimization with Action Counterfactual Estimation for LLM Agents](https://arxiv.org/abs/2606.25556)
 
 **教程文章：**
+
 - [MNIST手写体识别](https://docs.swanlab.cn/examples/mnist.html)
 - [FashionMNIST服装分类](https://docs.swanlab.cn/examples/fashionmnist.html)
 - [Cifar10图像分类](https://docs.swanlab.cn/examples/cifar10.html)
@@ -415,20 +412,19 @@ for i in range(10):
 
 SwanLab会对AI训练过程中所使用的**硬件信息**和**资源使用情况**进行记录，下面是支持情况表格：
 
-| 硬件 | 信息记录 | 资源监控 | 脚本 |
-| --- | --- | --- | --- |
-| 英伟达GPU | ✅ | ✅ | [nvidia.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/nvidia.py) |
-| AMD GPU | ✅ | ✅ | [amd.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/amd.py) |
-| 昇腾NPU | ✅ | ✅ | [ascend.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/huawei.py) |
-| 寒武纪MLU | ✅ | ✅ | [cambricon.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/cambricon.py) |
-| 昆仑芯XPU | ✅ | ✅ | [kunlunxin.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/kunlunxin.py) |
-| 摩尔线程GPU | ✅ | ✅ | [moorethreads.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/moorethreads.py) |
-| 沐曦GPU | ✅ | ✅ | [metax.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/metax.py) |
-| 天数智芯GPU | ✅ | ✅ | [iluvatar.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/iluvatar.py) |
-| 海光DCU | ✅ | ✅ | [hygon.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/hygon.py) |
-| CPU | ✅ | ✅ | [cpu.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/cpu.py) |
-| 内存 | ✅ | ✅ | [memory.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/memory.py) |
-
+| 硬件        | 信息记录 | 资源监控 | 脚本                                                                                                                                           |
+| ----------- | -------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| 英伟达GPU   | ✅       | ✅       | [nvidia.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/nvidia.py)             |
+| AMD GPU     | ✅       | ✅       | [amd.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/amd.py)                   |
+| 昇腾NPU     | ✅       | ✅       | [ascend.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/huawei.py)             |
+| 寒武纪MLU   | ✅       | ✅       | [cambricon.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/cambricon.py)       |
+| 昆仑芯XPU   | ✅       | ✅       | [kunlunxin.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/kunlunxin.py)       |
+| 摩尔线程GPU | ✅       | ✅       | [moorethreads.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/moorethreads.py) |
+| 沐曦GPU     | ✅       | ✅       | [metax.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/metax.py)               |
+| 天数智芯GPU | ✅       | ✅       | [iluvatar.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/iluvatar.py)         |
+| 海光DCU     | ✅       | ✅       | [hygon.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/hygon.py)               |
+| CPU         | ✅       | ✅       | [cpu.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/cpu.py)                               |
+| 内存        | ✅       | ✅       | [memory.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/memory.py)                         |
 
 如果你希望记录其他硬件，欢迎提交Issue与PR！
 
@@ -440,11 +436,13 @@ SwanLab会对AI训练过程中所使用的**硬件信息**和**资源使用情�
 下面是我们已集成的框架列表，欢迎提交 [Issue](https://github.com/swanhubx/swanlab/issues) 来反馈你想要集成的框架。
 
 **基础框架**
+
 - [PyTorch](https://docs.swanlab.cn/guide_cloud/integration/integration-pytorch.html)
 - [MindSpore](https://docs.swanlab.cn/guide_cloud/integration/integration-ascend.html)
 - [Keras](https://docs.swanlab.cn/guide_cloud/integration/integration-keras.html)
 
 **LLM训练框架**
+
 - [HuggingFace Transformers](https://docs.swanlab.cn/guide_cloud/integration/integration-huggingface-transformers.html)
 - [LLaMA Factory](https://docs.swanlab.cn/guide_cloud/integration/integration-llama-factory.html)
 - [MS-Swift](https://docs.swanlab.cn/guide_cloud/integration/integration-swift.html)
@@ -457,6 +455,7 @@ SwanLab会对AI训练过程中所使用的**硬件信息**和**资源使用情�
 - [OpenMind](https://modelers.cn/docs/zh/openmind-library/1.0.0/basic_tutorial/finetune/finetune_pt.html#%E8%AE%AD%E7%BB%83%E7%9B%91%E6%8E%A7)
 
 **LLM强化学习框架**
+
 - [veRL](https://docs.swanlab.cn/guide_cloud/integration/integration-verl.html)
 - [HuggingFace trl](https://docs.swanlab.cn/guide_cloud/integration/integration-huggingface-trl.html)
 - [NVIDIA-NeMo RL](https://docs.swanlab.cn/guide_cloud/integration/integration-nvidia-nemo-rl.html)
@@ -465,17 +464,21 @@ SwanLab会对AI训练过程中所使用的**硬件信息**和**资源使用情�
 - [ROLL](https://docs.swanlab.cn/guide_cloud/integration/integration-roll.html)
 
 **机器人框架**
+
 - [RLinf](https://docs.swanlab.cn/guide_cloud/integration/integration-rlinf.html)
 
 **文生图/视频训练框架**
+
 - [DiffSynth Studio](https://docs.swanlab.cn/guide_cloud/integration/integration-diffsynth-studio.html)
 
 **深度学习框架**
+
 - [PyTorch Lightning](https://docs.swanlab.cn/guide_cloud/integration/integration-pytorch-lightning.html)
 - [MMEngine](https://docs.swanlab.cn/guide_cloud/integration/integration-mmengine.html)
 - [FastAI](https://docs.swanlab.cn/guide_cloud/integration/integration-fastai.html)
 
 **计算机视觉**
+
 - [Ultralytics](https://docs.swanlab.cn/guide_cloud/integration/integration-ultralytics.html)
 - [MMDetection](https://docs.swanlab.cn/guide_cloud/integration/integration-mmdetection.html)
 - [MMSegmentation](https://docs.swanlab.cn/guide_cloud/integration/integration-mmsegmentation.html)
@@ -483,17 +486,21 @@ SwanLab会对AI训练过程中所使用的**硬件信息**和**资源使用情�
 - [PaddleYOLO](https://docs.swanlab.cn/guide_cloud/integration/integration-paddleyolo.html)
 
 **机器学习框架**
+
 - [LightGBM](https://docs.swanlab.cn/guide_cloud/integration/integration-lightgbm.html)
 - [XGBoost](https://docs.swanlab.cn/guide_cloud/integration/integration-xgboost.html)
 - [CatBoost](https://docs.swanlab.cn/guide_cloud/integration/integration-catboost.html)
 
 **评估框架**
+
 - [EvalScope](https://docs.swanlab.cn/guide_cloud/integration/integration-evalscope.html)
 
 **传统强化学习框架**
+
 - [Stable Baseline3](https://docs.swanlab.cn/guide_cloud/integration/integration-sb3.html)
 
 **其他框架：**
+
 - [Tensorboard](https://docs.swanlab.cn/guide_cloud/integration/integration-tensorboard.html)
 - [Weights&Biases](https://docs.swanlab.cn/guide_cloud/integration/integration-wandb.html)
 - [MLFlow](https://docs.swanlab.cn/guide_cloud/integration/integration-mlflow.html)
@@ -506,7 +513,6 @@ SwanLab会对AI训练过程中所使用的**硬件信息**和**资源使用情�
 [更多集成](https://docs.swanlab.cn/guide_cloud/integration/integration-any-library.html)
 
 <br>
-
 
 ## 🔌 插件与API
 
@@ -523,6 +529,7 @@ SwanLab会对AI训练过程中所使用的**硬件信息**和**资源使用情�
 - [CSV记录器](https://docs.swanlab.cn/plugin/writer-csv.html)
 
 开放接口：
+
 - [OpenAPI](https://docs.swanlab.cn/api/py-openapi.html)
 
 <br>
@@ -613,7 +620,6 @@ SwanLab会对AI训练过程中所使用的**硬件信息**和**资源使用情�
 
 <img src="./readme_files/swanlab-and-user.png" width="50%" />
 
-
 ## 📃 协议
 
 本仓库遵循 [Apache 2.0 License](https://github.com/SwanHubX/SwanLab/blob/main/LICENSE) 开源协议
@@ -632,66 +638,45 @@ SwanLab会对AI训练过程中所使用的**硬件信息**和**资源使用情�
 
 [release-shield]: https://img.shields.io/github/v/release/swanhubx/swanlab?color=369eff&labelColor=black&logo=github&style=flat-square
 [release-link]: https://github.com/swanhubx/swanlab/releases
-
 [license-shield]: https://img.shields.io/badge/license-apache%202.0-white?labelColor=black&style=flat-square
 [license-shield-link]: https://github.com/SwanHubX/SwanLab/blob/main/LICENSE
-
 [last-commit-shield]: https://img.shields.io/github/last-commit/swanhubx/swanlab?color=c4f042&labelColor=black&style=flat-square
 [last-commit-shield-link]: https://github.com/swanhubx/swanlab/commits/main
-
 [pypi-version-shield]: https://img.shields.io/pypi/v/swanlab?color=orange&labelColor=black&style=flat-square
 [pypi-version-shield-link]: https://pypi.org/project/swanlab/
-
 [pypi-downloads-shield]: https://static.pepy.tech/badge/swanlab?labelColor=black&style=flat-square
 [pypi-downloads-shield-link]: https://pepy.tech/project/swanlab
-
 [swanlab-cloud-shield]: https://img.shields.io/badge/Product-SwanLab云端版-636a3f?labelColor=black&style=flat-square
 [swanlab-cloud-shield-link]: https://swanlab.cn/
-
 [wechat-shield]: https://img.shields.io/badge/WeChat-微信-4cb55e?labelColor=black&style=flat-square
 [wechat-shield-link]: https://docs.swanlab.cn/guide_cloud/community/online-support.html
-
 [colab-shield]: https://colab.research.google.com/assets/colab-badge.svg
 [colab-shield-link]: https://colab.research.google.com/drive/1RWsrY_1bS8ECzaHvYtLb_1eBkkdzekR3?usp=sharing
-
 [github-stars-shield]: https://img.shields.io/github/stars/swanhubx/swanlab?labelColor&style=flat-square&color=ffcb47
 [github-stars-link]: https://github.com/swanhubx/swanlab
-
 [github-issues-shield]: https://img.shields.io/github/issues/swanhubx/swanlab?labelColor=black&style=flat-square&color=ff80eb
 [github-issues-shield-link]: https://github.com/swanhubx/swanlab/issues
-
 [github-contributors-shield]: https://img.shields.io/github/contributors/swanhubx/swanlab?color=c4f042&labelColor=black&style=flat-square
 [github-contributors-link]: https://github.com/swanhubx/swanlab/graphs/contributors
-
 [demo-cats-dogs]: https://swanlab.cn/@ZeyiLin/Cats_Dogs_Classification/runs/jzo93k112f15pmx14vtxf/chart
 [demo-cats-dogs-image]: readme_files/example-catsdogs.png
-
 [demo-yolo]: https://swanlab.cn/@ZeyiLin/ultratest/runs/yux7vclmsmmsar9ear7u5/chart
 [demo-yolo-image]: readme_files/example-yolo.png
-
 [demo-qwen2-sft]: https://swanlab.cn/@ZeyiLin/Qwen2-fintune/runs/cfg5f8dzkp6vouxzaxlx6/chart
 [demo-qwen2-sft-image]: readme_files/example-qwen2.png
-
-[demo-google-stock]:https://swanlab.cn/@ZeyiLin/Google-Stock-Prediction/charts
+[demo-google-stock]: https://swanlab.cn/@ZeyiLin/Google-Stock-Prediction/charts
 [demo-google-stock-image]: readme_files/example-lstm.png
-
-[demo-audio-classification]:https://swanlab.cn/@ZeyiLin/PyTorch_Audio_Classification/charts
+[demo-audio-classification]: https://swanlab.cn/@ZeyiLin/PyTorch_Audio_Classification/charts
 [demo-audio-classification-image]: readme_files/example-audio-classification.png
-
-[demo-qwen2-vl]:https://swanlab.cn/@ZeyiLin/Qwen2-VL-finetune/runs/pkgest5xhdn3ukpdy6kv5/chart
+[demo-qwen2-vl]: https://swanlab.cn/@ZeyiLin/Qwen2-VL-finetune/runs/pkgest5xhdn3ukpdy6kv5/chart
 [demo-qwen2-vl-image]: readme_files/example-qwen2-vl.jpg
-
-[demo-easyr1-rl]:https://swanlab.cn/@Kedreamix/easy_r1/runs/wzezd8q36bb6dlza6wtpc/chart
+[demo-easyr1-rl]: https://swanlab.cn/@Kedreamix/easy_r1/runs/wzezd8q36bb6dlza6wtpc/chart
 [demo-easyr1-rl-image]: readme_files/example-easyr1-rl.png
-
-[demo-qwen2-grpo]:https://swanlab.cn/@kmno4/Qwen-R1/runs/t0zr3ak5r7188mjbjgdsc/chart
+[demo-qwen2-grpo]: https://swanlab.cn/@kmno4/Qwen-R1/runs/t0zr3ak5r7188mjbjgdsc/chart
 [demo-qwen2-grpo-image]: readme_files/example-qwen2-grpo.png
-
-[tracking-swanlab-shield-link]:https://swanlab.cn
+[tracking-swanlab-shield-link]: https://swanlab.cn
 [tracking-swanlab-shield]: https://raw.githubusercontent.com/SwanHubX/assets/main/badge2.svg
-
-[visualize-swanlab-shield-link]:https://swanlab.cn
+[visualize-swanlab-shield-link]: https://swanlab.cn
 [visualize-swanlab-shield]: https://raw.githubusercontent.com/SwanHubX/assets/main/badge1.svg
-
 [dockerhub-shield]: https://img.shields.io/docker/v/swanlab/swanlab-next?color=369eff&label=docker&labelColor=black&logoColor=white&style=flat-square
 [dockerhub-link]: https://hub.docker.com/r/swanlab/swanlab-next/tags

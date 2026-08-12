@@ -355,20 +355,19 @@ for i in range(10):
 
 SwanLabはAIトレーニング中に使用される**ハードウェア情報**と**リソース使用状況**を記録します。対応状況は以下の通りです：
 
-| ハードウェア | 情報記録 | リソース監視 | スクリプト |
-| --- | --- | --- | --- |
-| NVIDIA GPU | ✅ | ✅ | [nvidia.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/nvidia.py) |
-| AMD GPU | ✅ | ✅ | [amd.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/amd.py) |
-| 昇騰NPU（Huawei Ascend） | ✅ | ✅ | [ascend.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/huawei.py) |
-| 寒武紀MLU（Cambricon） | ✅ | ✅ | [cambricon.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/cambricon.py) |
-| 昆崙芯XPU（Kunlunxin） | ✅ | ✅ | [kunlunxin.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/kunlunxin.py) |
-| 摩爾線程GPU（Moore Threads） | ✅ | ✅ | [moorethreads.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/moorethreads.py) |
-| 沐曦GPU（MetaX） | ✅ | ✅ | [metax.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/metax.py) |
-| 天數智芯GPU（Iluvatar） | ✅ | ✅ | [iluvatar.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/iluvatar.py) |
-| 海光DCU（Hygon） | ✅ | ✅ | [hygon.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/hygon.py) |
-| CPU | ✅ | ✅ | [cpu.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/cpu.py) |
-| メモリ | ✅ | ✅ | [memory.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/memory.py) |
-
+| ハードウェア                 | 情報記録 | リソース監視 | スクリプト                                                                                                                                     |
+| ---------------------------- | -------- | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| NVIDIA GPU                   | ✅       | ✅           | [nvidia.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/nvidia.py)             |
+| AMD GPU                      | ✅       | ✅           | [amd.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/amd.py)                   |
+| 昇騰NPU（Huawei Ascend）     | ✅       | ✅           | [ascend.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/huawei.py)             |
+| 寒武紀MLU（Cambricon）       | ✅       | ✅           | [cambricon.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/cambricon.py)       |
+| 昆崙芯XPU（Kunlunxin）       | ✅       | ✅           | [kunlunxin.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/kunlunxin.py)       |
+| 摩爾線程GPU（Moore Threads） | ✅       | ✅           | [moorethreads.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/moorethreads.py) |
+| 沐曦GPU（MetaX）             | ✅       | ✅           | [metax.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/metax.py)               |
+| 天數智芯GPU（Iluvatar）      | ✅       | ✅           | [iluvatar.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/iluvatar.py)         |
+| 海光DCU（Hygon）             | ✅       | ✅           | [hygon.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/hygon.py)               |
+| CPU                          | ✅       | ✅           | [cpu.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/cpu.py)                               |
+| メモリ                       | ✅       | ✅           | [memory.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/memory.py)                         |
 
 その他のハードウェアの監視をご希望の場合は、IssueやPRをお気軽にご提出ください！
 
@@ -380,11 +379,13 @@ SwanLabはAIトレーニング中に使用される**ハードウェア情報**�
 以下は既に統合されているフレームワークのリストです。統合してほしいフレームワークがあれば、[Issue](https://github.com/swanhubx/swanlab/issues)を提出してフィードバックをお願いします。
 
 **基本フレームワーク**
+
 - [PyTorch](https://docs.swanlab.cn/en/guide_cloud/integration/integration-pytorch.html)
 - [MindSpore](https://docs.swanlab.cn/en/guide_cloud/integration/integration-ascend.html)
 - [Keras](https://docs.swanlab.cn/en/guide_cloud/integration/integration-keras.html)
 
 **LLMトレーニングフレームワーク**
+
 - [HuggingFace Transformers](https://docs.swanlab.cn/en/guide_cloud/integration/integration-huggingface-transformers.html)
 - [LLaMA Factory](https://docs.swanlab.cn/en/guide_cloud/integration/integration-llama-factory.html)
 - [MS-Swift](https://docs.swanlab.cn/en/guide_cloud/integration/integration-swift.html)
@@ -396,6 +397,7 @@ SwanLabはAIトレーニング中に使用される**ハードウェア情報**�
 - [OpenMind](https://modelers.cn/docs/en/openmind-library/1.0.0/basic_tutorial/finetune/finetune_pt.html#install-swanlab)
 
 **LLM強化学習フレームワーク**
+
 - [veRL](https://docs.swanlab.cn/en/guide_cloud/integration/integration-verl.html)
 - [HuggingFace trl](https://docs.swanlab.cn/en/guide_cloud/integration/integration-huggingface-trl.html)
 - [NVIDIA-NeMo RL](https://docs.swanlab.cn/en/guide_cloud/integration/integration-nvidia-nemo-rl.html)
@@ -404,17 +406,21 @@ SwanLabはAIトレーニング中に使用される**ハードウェア情報**�
 - [ROLL](https://docs.swanlab.cn/en/guide_cloud/integration/integration-roll.html)
 
 **ロボットフレームワーク**
+
 - [RLinf](https://docs.swanlab.cn/en/guide_cloud/integration/integration-rlinf.html)
 
 **テキストから画像/動画生成フレームワーク**
+
 - [DiffSynth Studio](https://docs.swanlab.cn/en/guide_cloud/integration/integration-diffsynth-studio.html)
 
 **ディープラーニングフレームワーク**
+
 - [PyTorch Lightning](https://docs.swanlab.cn/en/guide_cloud/integration/integration-pytorch-lightning.html)
 - [MMEngine](https://docs.swanlab.cn/en/guide_cloud/integration/integration-mmengine.html)
 - [FastAI](https://docs.swanlab.cn/en/guide_cloud/integration/integration-fastai.html)
 
 **コンピュータビジョンフレームワーク**
+
 - [Ultralytics](https://docs.swanlab.cn/en/guide_cloud/integration/integration-ultralytics.html)
 - [MMDetection](https://docs.swanlab.cn/en/guide_cloud/integration/integration-mmdetection.html)
 - [MMSegmentation](https://docs.swanlab.cn/en/guide_cloud/integration/integration-mmsegmentation.html)
@@ -423,17 +429,21 @@ SwanLabはAIトレーニング中に使用される**ハードウェア情報**�
 - [PaddleNLP](https://docs.swanlab.cn/en/guide_cloud/integration/integration-paddlenlp.html)
 
 **機械学習フレームワーク**
+
 - [LightGBM](https://docs.swanlab.cn/en/guide_cloud/integration/integration-lightgbm.html)
 - [XGBoost](https://docs.swanlab.cn/en/guide_cloud/integration/integration-xgboost.html)
 - [CatBoost](https://docs.swanlab.cn/en/guide_cloud/integration/integration-catboost.html)
 
 **評価フレームワーク**
+
 - [EvalScope](https://docs.swanlab.cn/en/guide_cloud/integration/integration-evalscope.html)
 
 **伝統的強化学習フレームワーク**
+
 - [Stable Baseline3](https://docs.swanlab.cn/en/guide_cloud/integration/integration-sb3.html)
 
 **その他のフレームワーク：**
+
 - [Tensorboard](https://docs.swanlab.cn/en/guide_cloud/integration/integration-tensorboard.html)
 - [Weights&Biases](https://docs.swanlab.cn/en/guide_cloud/integration/integration-wandb.html)
 - [MLFlow](https://docs.swanlab.cn/en/guide_cloud/integration/integration-mlflow.html)
@@ -460,7 +470,6 @@ SwanLabはAIトレーニング中に使用される**ハードウェア情報**�
 - [Slack 通知](https://docs.swanlab.cn/en/plugin/notification-slack.html)
 - [Bark 通知](https://docs.swanlab.cn/en/plugin/notification-bark.html)
 - [CSV ロガー](https://docs.swanlab.cn/en/plugin/writer-csv.html)
-
 
 <br>
 
