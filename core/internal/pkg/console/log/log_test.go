@@ -70,7 +70,7 @@ func TestRotation(t *testing.T) {
 	if err := l.Init(dir); err != nil {
 		t.Fatalf("Init: %v", err)
 	}
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		l.Error("rotation-test-line")
 	}
 	if _, err := os.Stat(filepath.Join(dir, filename+".1")); err != nil {
