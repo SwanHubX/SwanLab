@@ -359,20 +359,19 @@ for i in range(10):
 
 SwanLab записывает **информацию об оборудовании** и **использование ресурсов** во время обучения ИИ-моделей. Ниже приведена таблица поддерживаемого оборудования:
 
-| Оборудование | Информация | Мониторинг | Скрипт |
-| --- | --- | --- | --- |
-| NVIDIA GPU | ✅ | ✅ | [nvidia.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/nvidia.py) |
-| AMD GPU | ✅ | ✅ | [amd.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/amd.py) |
-| NPU Huawei Ascend | ✅ | ✅ | [ascend.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/huawei.py) |
-| MLU Cambricon | ✅ | ✅ | [cambricon.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/cambricon.py) |
-| XPU Kunlunxin | ✅ | ✅ | [kunlunxin.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/kunlunxin.py) |
-| GPU Moore Threads | ✅ | ✅ | [moorethreads.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/moorethreads.py) |
-| GPU MetaX | ✅ | ✅ | [metax.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/metax.py) |
-| GPU Iluvatar | ✅ | ✅ | [iluvatar.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/iluvatar.py) |
-| DCU Hygon | ✅ | ✅ | [hygon.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/hygon.py) |
-| CPU | ✅ | ✅ | [cpu.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/cpu.py) |
-| Память | ✅ | ✅ | [memory.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/memory.py) |
-
+| Оборудование      | Информация | Мониторинг | Скрипт                                                                                                                                         |
+| ----------------- | ---------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| NVIDIA GPU        | ✅         | ✅         | [nvidia.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/nvidia.py)             |
+| AMD GPU           | ✅         | ✅         | [amd.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/amd.py)                   |
+| NPU Huawei Ascend | ✅         | ✅         | [ascend.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/huawei.py)             |
+| MLU Cambricon     | ✅         | ✅         | [cambricon.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/cambricon.py)       |
+| XPU Kunlunxin     | ✅         | ✅         | [kunlunxin.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/kunlunxin.py)       |
+| GPU Moore Threads | ✅         | ✅         | [moorethreads.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/moorethreads.py) |
+| GPU MetaX         | ✅         | ✅         | [metax.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/metax.py)               |
+| GPU Iluvatar      | ✅         | ✅         | [iluvatar.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/iluvatar.py)         |
+| DCU Hygon         | ✅         | ✅         | [hygon.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/hygon.py)               |
+| CPU               | ✅         | ✅         | [cpu.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/cpu.py)                               |
+| Память            | ✅         | ✅         | [memory.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/memory.py)                         |
 
 Если вы хотите добавить поддержку другого оборудования, Issue и PR приветствуются!
 
@@ -384,11 +383,13 @@ SwanLab записывает **информацию об оборудовани�
 Ниже приведен список уже интегрированных фреймворков. Если вы хотите предложить интеграцию с другим фреймворком, создайте [Issue](https://github.com/swanhubx/swanlab/issues).
 
 **Основные фреймворки**
+
 - [PyTorch](https://docs.swanlab.cn/en/guide_cloud/integration/integration-pytorch.html)
 - [MindSpore](https://docs.swanlab.cn/en/guide_cloud/integration/integration-ascend.html)
 - [Keras](https://docs.swanlab.cn/en/guide_cloud/integration/integration-keras.html)
 
 **Фреймворки для обучения LLM**
+
 - [HuggingFace Transformers](https://docs.swanlab.cn/en/guide_cloud/integration/integration-huggingface-transformers.html)
 - [LLaMA Factory](https://docs.swanlab.cn/en/guide_cloud/integration/integration-llama-factory.html)
 - [MS-Swift](https://docs.swanlab.cn/en/guide_cloud/integration/integration-swift.html)
@@ -400,6 +401,7 @@ SwanLab записывает **информацию об оборудовани�
 - [OpenMind](https://modelers.cn/docs/en/openmind-library/1.0.0/basic_tutorial/finetune/finetune_pt.html#install-swanlab)
 
 **Фреймворки для обучения с подкреплением LLM**
+
 - [veRL](https://docs.swanlab.cn/en/guide_cloud/integration/integration-verl.html)
 - [HuggingFace trl](https://docs.swanlab.cn/en/guide_cloud/integration/integration-huggingface-trl.html)
 - [NVIDIA-NeMo RL](https://docs.swanlab.cn/en/guide_cloud/integration/integration-nvidia-nemo-rl.html)
@@ -408,17 +410,21 @@ SwanLab записывает **информацию об оборудовани�
 - [ROLL](https://docs.swanlab.cn/en/guide_cloud/integration/integration-roll.html)
 
 **Робототехнические фреймворки**
+
 - [RLinf](https://docs.swanlab.cn/en/guide_cloud/integration/integration-rlinf.html)
 
 **Фреймворки для текста в изображение/видео**
+
 - [DiffSynth Studio](https://docs.swanlab.cn/en/guide_cloud/integration/integration-diffsynth-studio.html)
 
 **Фреймворки глубокого обучения**
+
 - [PyTorch Lightning](https://docs.swanlab.cn/en/guide_cloud/integration/integration-pytorch-lightning.html)
 - [MMEngine](https://docs.swanlab.cn/en/guide_cloud/integration/integration-mmengine.html)
 - [FastAI](https://docs.swanlab.cn/en/guide_cloud/integration/integration-fastai.html)
 
 **Фреймворки компьютерного зрения**
+
 - [Ultralytics](https://docs.swanlab.cn/en/guide_cloud/integration/integration-ultralytics.html)
 - [MMDetection](https://docs.swanlab.cn/en/guide_cloud/integration/integration-mmdetection.html)
 - [MMSegmentation](https://docs.swanlab.cn/en/guide_cloud/integration/integration-mmsegmentation.html)
@@ -427,17 +433,21 @@ SwanLab записывает **информацию об оборудовани�
 - [PaddleNLP](https://docs.swanlab.cn/en/guide_cloud/integration/integration-paddlenlp.html)
 
 **Фреймворки машинного обучения**
+
 - [LightGBM](https://docs.swanlab.cn/en/guide_cloud/integration/integration-lightgbm.html)
 - [XGBoost](https://docs.swanlab.cn/en/guide_cloud/integration/integration-xgboost.html)
 - [CatBoost](https://docs.swanlab.cn/en/guide_cloud/integration/integration-catboost.html)
 
 **Оценочные фреймворки**
+
 - [EvalScope](https://docs.swanlab.cn/en/guide_cloud/integration/integration-evalscope.html)
 
 **Традиционные фреймворки обучения с подкреплением**
+
 - [Stable Baseline3](https://docs.swanlab.cn/en/guide_cloud/integration/integration-sb3.html)
 
 **Другие фреймворки:**
+
 - [Tensorboard](https://docs.swanlab.cn/en/guide_cloud/integration/integration-tensorboard.html)
 - [Weights&Biases](https://docs.swanlab.cn/en/guide_cloud/integration/integration-wandb.html)
 - [MLFlow](https://docs.swanlab.cn/en/guide_cloud/integration/integration-mlflow.html)
@@ -557,7 +567,13 @@ SwanLab записывает **информацию об оборудовани�
 
 ## История звезд
 
-[![Star History Chart](https://api.star-history.com/svg?repos=swanhubx/swanlab&type=Date)](https://star-history.com/#swanhubx/swanlab&Date)
+<a href="https://www.star-history.com/?repos=swanhubx%2Fswanlab&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=swanhubx/swanlab&type=date&theme=dark&legend=top-left&sealed_token=77bt2XJC-p2PM1tRv6wxVLEw_RaNVx2MVWL-FFg2yjKRstx-vq6M_Y0yszVSAAYT4CvkjYMlgSOPU-mvyq_FfRWs7hh2-VFJiwQMtvyr1-7i0F6VgeQwQw" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=swanhubx/swanlab&type=date&legend=top-left&sealed_token=77bt2XJC-p2PM1tRv6wxVLEw_RaNVx2MVWL-FFg2yjKRstx-vq6M_Y0yszVSAAYT4CvkjYMlgSOPU-mvyq_FfRWs7hh2-VFJiwQMtvyr1-7i0F6VgeQwQw" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=swanhubx/swanlab&type=date&legend=top-left&sealed_token=77bt2XJC-p2PM1tRv6wxVLEw_RaNVx2MVWL-FFg2yjKRstx-vq6M_Y0yszVSAAYT4CvkjYMlgSOPU-mvyq_FfRWs7hh2-VFJiwQMtvyr1-7i0F6VgeQwQw" />
+ </picture>
+</a>
 
 <!-- ссылки -->
 

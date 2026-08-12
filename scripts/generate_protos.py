@@ -6,7 +6,7 @@
 
 对于Go部分，你需要安装：
 
-1. brew install protobuf@34
+1. 前往页面安装protobuf 35.1: https://github.com/protocolbuffers/protobuf/releases/tag/v35.1，因为这是
 2. go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11
 3. go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.1
 
