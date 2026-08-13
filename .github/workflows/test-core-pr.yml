@@ -1,0 +1,60 @@
+name: Test When Core PR
+
+on:
+  pull_request:
+    paths:
+      - "core/**"
+      - ".github/workflows/test-core-pr.yml"
+
+jobs:
+  lint:
+    name: Lint / Go
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          # 从 core/.go-version 读取 Go 版本，保持与本地开发环境一致
+          go-version-file: core/.go-version
+          cache-dependency-path: core/go.sum
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          # 版本需匹配 core/.golangci.yml 的 version: "2"
+          version: v2.12.2
+          working-directory: core
+          args: --timeout=5m
+
+  test:
+    needs: lint
+    name: Test on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false # 设为 false，这样如果 Windows 挂了，Ubuntu 的测试依然会跑完，方便一次性排查所有系统的问题
+      matrix:
+        # core/internal/pkg/process 下有平台相关的源文件（parent_linux.go / parent_windows.go），需要跨系统验证编译与测试
+        # 跳过 core/proto：Unix 用 grep，Windows 用 findstr（findstr 遇到以 / 开头的串需用 /c:"..." 包成字面量）
+        include:
+          - os: ubuntu-latest
+            grep: 'grep -v /proto/'
+          - os: windows-latest
+            grep: 'findstr /v /c:"/proto/"'
+          - os: macos-latest
+            grep: 'grep -v /proto/'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: core/.go-version
+          cache-dependency-path: core/go.sum
+
+      - name: Run tests
+        # 跳过 core/proto（生成的 protobuf 代码，无测试），与 Makefile core-test 行为一致
+        working-directory: core
+        run: go test -race $(go list ./... | ${{ matrix.grep }})

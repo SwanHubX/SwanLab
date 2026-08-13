@@ -1,0 +1,72 @@
+version: "2"
+
+run:
+  modules-download-mode: readonly
+
+linters:
+  default: none
+  enable:
+    - bodyclose
+    - dogsled
+    - durationcheck
+    - errcheck
+    - goconst
+    - gocyclo
+    - govet
+    - ineffassign
+    - lll
+    - misspell
+    - mnd
+    - prealloc
+    - revive
+    - staticcheck
+    - unconvert
+    - unused
+    - wastedassign
+    - whitespace
+  settings:
+    gocyclo:
+      min-complexity: 30
+    govet:
+      enable:
+        - shadow
+    lll:
+      line-length: 160
+    misspell:
+      locale: US
+    mnd:
+      checks:
+        - case
+        - condition
+        - return
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - goconst
+        path: (.+)_test\.go
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+
+formatters:
+  enable:
+    - gofmt
+    - gofumpt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/swanhubx/swanlab/core
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

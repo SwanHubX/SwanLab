@@ -7,3 +7,22 @@ repos:
         # touch the same file, pre-commit's stash/restore flow can conflict.
         # args: [--fix]
       - id: ruff-format
+
+  - repo: https://github.com/golangci/golangci-lint
+    rev: v2.12.2
+    hooks:
+      - id: golangci-lint
+        # language: golang 由 pre-commit 从源码编译（匹配本机 Go 版本）
+        # 覆盖 entry 以 cd core，确保读取 core/.golangci.yml
+        entry: bash -c 'cd core && golangci-lint run'
+        pass_filenames: false
+        files: ^core/.*\.go$|^core/\.golangci\.yml$
+
+  - repo: local
+    hooks:
+      - id: go-mod-tidy
+        name: go mod tidy (core)
+        entry: bash -c 'cd core && go mod tidy && git diff --exit-code go.mod go.sum'
+        language: system
+        files: ^core/(go\.mod|go\.sum)$
+        pass_filenames: false

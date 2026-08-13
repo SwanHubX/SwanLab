@@ -7,6 +7,7 @@ on:
       - "tests/**"
       - "pyproject.toml"
       - "uv.lock"
+      - ".github/workflows/test-python-pr.yml"
 
 jobs:
   type-check:
@@ -14,9 +15,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Install uv and set up Python
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@v10.0.0
         with:
           python-version: "3.9"
           enable-cache: true
@@ -38,10 +39,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install uv and set up Python
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@v10.0.0
         with:
           python-version: ${{ matrix.python-version }}
           # 开启缓存，进一步加速后续的 CI 运行
