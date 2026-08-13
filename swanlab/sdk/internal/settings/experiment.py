@@ -11,7 +11,7 @@ import os
 from pathlib import Path
 from typing import Annotated, Any, List, Optional, cast, get_args
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
 from pydantic.config import ConfigDict
 from pydantic_settings import NoDecode
 
@@ -22,7 +22,21 @@ from swanlab.sdk.typings.run import ParallelType, ResumeType
 
 def project_name_factory() -> Optional[str]:
     # 向下兼容旧版本环境变量
-    return os.environ.get("SWANLAB_PROJ_NAME", None)
+    # 这里需要额外说明：
+    # 在0.7.x及以前环境变量中，即使设置了错误的 SWANLAB_PROJ_NAME ，也不会影响例如 swanlab.login 等命令
+    # 这是因为曾经swanlab没有一个全局settings解析，是按需、随用随解析的——而在0.8.x及以后，swanlab对用户参数的解析放到了全局
+    # 尽管这在大多数情况下不会出现行为差异，但是在一些极端情况下会出现错误
+    # 其中以 SWANLAB_PROJ_NAME 最为显著，有些行为会在login前设置一个错误（例如携带双引号）的 SWANLAB_PROJ_NAME
+    # 然后在login后，又手动设置回正确的 SWANLAB_PROJ_NAME —— 虽然这确实有些奇怪，但是确实导致了一些行为差异
+    # 因此这里对 SWANLAB_PROJ_NAME 做了一个特殊处理，尝试将 SWANLAB_PROJ_NAME 解析为一个合法的项目名，如果解析失败，则返回 None
+    value = os.environ.get("SWANLAB_PROJ_NAME", None)
+    if not value:
+        return None
+    try:
+        return const.ta_project.validate_python(value)
+    except ValidationError:
+        console.warning(f"Invalid SWANLAB_PROJ_NAME='{value}', ignored, using default project name instead.")
+        return None
 
 
 def workspace_factory() -> Optional[str]:

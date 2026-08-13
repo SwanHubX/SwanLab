@@ -60,11 +60,6 @@ config_dir_env = os.getenv("SWANLAB_CONFIG_DIR")
 CONFIG_DIR: str = config_dir_env or "/etc/swanlab"
 
 
-def log_dir_factory() -> Path:
-    # 向下兼容旧版本环境变量
-    return Path(os.environ.get("SWANLAB_LOGDIR", str(Path.cwd() / "swanlog")))
-
-
 class _QuoteAwareEnvSettingsSource(EnvSettingsSource):
     """环境变量源：在加载阶段剥离 shell 脚本注入的成对引号。
 
@@ -93,7 +88,13 @@ class _QuoteAwareEnvSettingsSource(EnvSettingsSource):
 
     def _load_env_vars(self) -> Mapping[str, Optional[str]]:
         env_vars = super()._load_env_vars()
+        print(f"Loaded environment variables: {env_vars}")
         return {key: self._strip_env_quotes(val) if isinstance(val, str) else val for key, val in env_vars.items()}
+
+
+def log_dir_factory() -> Path:
+    # 向下兼容旧版本环境变量
+    return Path(os.environ.get("SWANLAB_LOGDIR", str(Path.cwd() / "swanlog")))
 
 
 class Settings(BaseSettings):
