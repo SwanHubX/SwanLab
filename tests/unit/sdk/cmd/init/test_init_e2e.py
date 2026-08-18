@@ -834,6 +834,17 @@ class TestInitConfigIntegration:
 # ============================================================
 
 
+# 参考: https://docs.python.org/3.9/library/multiprocessing.html#contexts-and-start-methods
+# macOS 多进程不支持 fork
+@pytest.mark.skipif(
+    sys.platform == "darwin" and sys.version_info < (3, 10),
+    reason=(
+        "CPython < 3.10 on macOS segfaults in the forked child (e.g. queue feeder thread "
+        "_send_bytes / Path.cwd) when the parent is multithreaded — corrupted malloc arena; "
+        "fixed in CPython 3.10. This is a CPython runtime bug, not a SwanLab bug — fork-safety "
+        "of the Run singleton is covered on other platforms."
+    ),
+)
 @pytest.mark.skipif(not hasattr(__import__("os"), "register_at_fork"), reason="fork not available on this platform")
 class TestForkDetection:
     """测试 fork 检测机制：Run._init_pid 拦截 + fork.register(clear_run) 清理全局单例"""
@@ -925,17 +936,6 @@ class TestForkDetection:
         assert fork.current_pid() == run._init_pid
         assert has_run()
 
-    # 参考: https://docs.python.org/3.9/library/multiprocessing.html#contexts-and-start-methods
-    # macOS 多进程不支持 fork
-    @pytest.mark.skipif(
-        sys.platform == "darwin" and sys.version_info < (3, 10),
-        reason=(
-            "CPython < 3.10 on macOS segfaults on Path.cwd()/os.getcwd() after fork in a "
-            "multithreaded process (corrupted malloc arena); fixed in CPython 3.10. "
-            "This is a CPython runtime bug, not a SwanLab bug — fork-safety of the Run "
-            "singleton is covered on other platforms."
-        ),
-    )
     def test_can_init_new_run_in_child_after_fork(self):
         """真实 fork 后，子进程中可以重新 init 创建新 Run"""
         init(mode="disabled")
