@@ -15,7 +15,7 @@ TIMESTAMP_S_MIN = 1_000_000_000
 TIMESTAMP_S_MAX = 9_999_999_999
 
 
-def parse_timestamp_s(value: Union[int, str, None]) -> int:
+def parse_timestamp_s(value: Union[int, str]) -> int:
     """将时间统一转换为秒级 Unix 时间戳（10 位），用于 House 查询接口的 ``createdAt`` 参数。
 
     支持格式：

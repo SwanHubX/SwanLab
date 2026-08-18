@@ -71,13 +71,21 @@ def create_or_resume_experiment(
     resp = client.post(f"/project/{username}/{project}/experiment", helper.strip_none(body, strip_empty_str=True))
     # 200代表实验已存在，开启更新模式
     # 201代表实验不存在，新建实验
+    # NOTE: 后端返回值没有携带createdAt字段，如果实验不存在则使用前端传入的createdAt字段作为实验创建时间，否则再请求一次获取实验创建时间
+    experiment: InitExperimentType = resp.data
+    is_new_experiment = resp.raw.status_code == 201
+    if is_new_experiment:
+        experiment["createdAt"] = created_at.ToDatetime().isoformat() + "Z"
+    else:
+        exp_resp = client.get(f"/project/{username}/{project}/runs/{experiment['cuid']}")
+        experiment["createdAt"] = exp_resp.data["createdAt"]
     return resp.data, resp.raw.status_code == 201
 
 
 def get_experiment_summary(
     project_id: str,
     experiment_id: str,
-    created_at: Union[int, str, None],
+    created_at: Union[int, str],
 ) -> ResumeExperimentSummaryType:
     """
     获取实验摘要

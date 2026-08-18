@@ -139,7 +139,7 @@ class CoreSyncPython(CoreSyncProtocol):
                 summary = get_experiment_summary(
                     self._ctx.project_id,
                     self._ctx.experiment_id,
-                    created_at=result.experiment.get("createdAt"),
+                    created_at=result.experiment["createdAt"],
                 )
             self._metrics, self._epoch, _, _ = RunMetrics.new(summary, ctx=self._ctx)
             metrics_ready = True

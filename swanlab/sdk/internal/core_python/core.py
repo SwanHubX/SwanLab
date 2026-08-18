@@ -163,7 +163,7 @@ class CorePython(CoreProtocol):
             summary = get_experiment_summary(
                 self._ctx.project_id,
                 self._ctx.experiment_id,
-                created_at=run_info.experiment.get("createdAt"),
+                created_at=run_info.experiment["createdAt"],
             )
         self._metrics, console_epoch, global_step, global_system_step = RunMetrics.new(summary, ctx=self._ctx)
         self._epoch.reset(console_epoch)
