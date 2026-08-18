@@ -58,10 +58,11 @@ def create_or_resume_experiment(
             if e.response.status_code == 404 and e.response.reason == "Not Found":
                 raise RuntimeError(f"Experiment {run_id} does not exist in project {project}")
     labels = [{"name": tag} for tag in tags] if tags else []
+    created_at_for_request = created_at.ToDatetime().isoformat() + "Z"
     body = {
         "name": name,
         "description": description,
-        "createdAt": created_at.ToDatetime().isoformat() + "Z",
+        "createdAt": created_at_for_request,
         "colors": [color, color],
         "labels": labels if len(labels) else None,
         "job": job_type,
@@ -75,7 +76,7 @@ def create_or_resume_experiment(
     experiment: InitExperimentType = resp.data
     is_new_experiment = resp.raw.status_code == 201
     if is_new_experiment:
-        experiment["createdAt"] = created_at.ToDatetime().isoformat() + "Z"
+        experiment["createdAt"] = created_at_for_request
     else:
         exp_resp = client.get(f"/project/{username}/{project}/runs/{experiment['cuid']}")
         experiment["createdAt"] = exp_resp.data["createdAt"]
