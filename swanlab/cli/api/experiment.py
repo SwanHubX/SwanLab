@@ -7,6 +7,7 @@ from swanlab.api import Api
 from swanlab.api.metric import Metric, Metrics
 from swanlab.api.summary import Summary
 from swanlab.api.typings.common import RangeQuery
+from swanlab.api.utils import parse_timestamp_s
 from swanlab.cli.api.helper import (
     COLUMN_CLASS_TYPE,
     COLUMN_DATA_TYPE,
@@ -356,6 +357,7 @@ def get_experiment_metrics(
         range_query=rq,
         root_pro_id=experiment.root_pro_id,
         root_exp_id=experiment.root_exp_id,
+        created_at=parse_timestamp_s(experiment.created_at),
     )
     resp = metrics.wrapper()
     payload = format_output(resp)
@@ -393,6 +395,7 @@ def get_experiment_summary(path: str, keys: Optional[str], save_name: str, api: 
         keys=key_list,
         root_pro_id=experiment.root_pro_id,
         root_exp_id=experiment.root_exp_id,
+        created_at=parse_timestamp_s(experiment.created_at),
     )
     resp = summary.wrapper()
     payload = format_output(resp)
@@ -502,6 +505,7 @@ def get_experiment_medias(
         all=fetch_all,
         root_pro_id=experiment.root_pro_id,
         root_exp_id=experiment.root_exp_id,
+        created_at=parse_timestamp_s(experiment.created_at),
     )
     resp = metrics.wrapper()
     payload = format_output(resp)
@@ -564,6 +568,7 @@ def get_experiment_logs(
         ignore_timestamp=ignore_timestamp,
         root_pro_id=experiment.root_pro_id,
         root_exp_id=experiment.root_exp_id,
+        created_at=parse_timestamp_s(experiment.created_at),
     )
     resp = metric.wrapper()
     payload = format_output(resp)
