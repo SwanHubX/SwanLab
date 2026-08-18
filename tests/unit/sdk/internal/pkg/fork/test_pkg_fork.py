@@ -7,10 +7,20 @@
 
 import multiprocessing
 import os
+import sys
 
 import pytest
 
 from swanlab.sdk.internal.pkg import fork
+
+# 参考: https://docs.python.org/3.9/library/multiprocessing.html#contexts-and-start-methods
+# macOS 多进程不支持 fork
+# CPython < 3.10 on macOS segfaults in the forked child (e.g. queue feeder thread _send_bytes)
+# when the parent is multithreaded — corrupted malloc arena; fixed in CPython 3.10.
+skip_py39_darwin_fork = pytest.mark.skipif(
+    sys.platform == "darwin" and sys.version_info < (3, 10),
+    reason="CPython < 3.10 on macOS segfaults after fork in a multithreaded process; CPython runtime bug",
+)
 
 
 class TestCurrentPid:
@@ -28,6 +38,7 @@ class TestIsForked:
         """pre_pid 与当前 PID 不一致时返回 True"""
         assert fork.is_forked(0)
 
+    @skip_py39_darwin_fork
     @pytest.mark.skipif(not hasattr(os, "register_at_fork"), reason="fork not available on this platform")
     def test_returns_true_in_forked_child(self):
         """真实 fork 后，子进程中 is_forked(parent_pid) 应返回 True"""
@@ -44,6 +55,7 @@ class TestIsForked:
         p.join(timeout=5)
         assert result.get() is True
 
+    @skip_py39_darwin_fork
     @pytest.mark.skipif(not hasattr(os, "register_at_fork"), reason="fork not available on this platform")
     def test_returns_false_with_own_pid_in_child(self):
         """子进程中 is_forked(child_pid) 应返回 False"""
@@ -60,6 +72,7 @@ class TestIsForked:
 
 
 class TestRegister:
+    @skip_py39_darwin_fork
     @pytest.mark.skipif(not hasattr(os, "register_at_fork"), reason="fork not available on this platform")
     def test_callback_is_called_after_fork(self):
         """注册的回调应在 fork 后的子进程中被调用"""
@@ -78,6 +91,7 @@ class TestRegister:
         p.join(timeout=5)
         assert result.get() == ["called"]
 
+    @skip_py39_darwin_fork
     @pytest.mark.skipif(not hasattr(os, "register_at_fork"), reason="fork not available on this platform")
     def test_multiple_callbacks_execute_in_order(self):
         """多个回调按注册顺序执行"""
@@ -118,6 +132,7 @@ class TestUnregister:
         """unregister 不存在的回调不抛异常"""
         fork.unregister(lambda: None)  # 不应抛异常
 
+    @skip_py39_darwin_fork
     @pytest.mark.skipif(not hasattr(os, "register_at_fork"), reason="fork not available on this platform")
     def test_unregistered_callback_not_called_after_fork(self):
         """unregister 后的回调在 fork 子进程中不再被调用"""
