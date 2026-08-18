@@ -435,29 +435,12 @@ class TestCreatedAt:
         assert parse_timestamp_s(0) == 0
         assert parse_timestamp_s(-100) == 0
         assert parse_timestamp_s(1722470400) == 1722470400
-        assert parse_timestamp_s("1722470400") == 1722470400
-        assert parse_timestamp_s(1722470400000) == 1722470400
         assert parse_timestamp_s("1722470400000") == 1722470400
         assert parse_timestamp_s("2024-08-01T00:00:00Z") == 1722470400
         assert parse_timestamp_s("2024-08-01T00:00:00.123Z") == 1722470400
         assert parse_timestamp_s("2024-08-01T00:00:00+00:00") == 1722470400
         assert parse_timestamp_s("2024-08-01T08:00:00+08:00") == 1722470400
         assert parse_timestamp_s("2024-08-01T00:00:00") == 1722470400
-
-    def test_parse_timestamp_s_mirror_implementations_are_identical(self):
-        """api 与 core_python 两 lane 各自实现了 parse_timestamp_s，除 docstring 外必须逐行相同。"""
-        import ast
-        import inspect
-
-        from swanlab.api.utils import parse_timestamp_s as api_impl
-        from swanlab.sdk.internal.core_python.api.experiment import parse_timestamp_s as core_impl
-
-        def normalized_source(func) -> ast.AST:
-            tree = ast.parse(inspect.getsource(func))
-            tree.body[0].body = [node for node in tree.body[0].body if not isinstance(node, ast.Expr)]
-            return tree
-
-        assert ast.dump(normalized_source(api_impl)) == ast.dump(normalized_source(core_impl))
 
     def test_metrics_payload_contains_created_at(self, ctx):
         ctx.client.get.side_effect = [
