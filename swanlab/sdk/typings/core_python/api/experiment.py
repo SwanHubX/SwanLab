@@ -9,10 +9,6 @@ from typing import List, Optional, TypedDict
 
 from typing_extensions import NotRequired
 
-# createdAt 参数的合法区间（10 位 Unix Timestamp）
-CREATED_AT_MIN = 1_000_000_000
-CREATED_AT_MAX = 9_999_999_999
-
 
 class InitExperimentType(TypedDict):
     # 实验cuid

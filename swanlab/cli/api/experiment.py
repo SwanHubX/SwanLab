@@ -7,7 +7,6 @@ from swanlab.api import Api
 from swanlab.api.metric import Metric, Metrics
 from swanlab.api.summary import Summary
 from swanlab.api.typings.common import RangeQuery
-from swanlab.api.utils import parse_timestamp_s
 from swanlab.cli.api.helper import (
     COLUMN_CLASS_TYPE,
     COLUMN_DATA_TYPE,
@@ -21,6 +20,7 @@ from swanlab.cli.api.helper import (
     validate_filter_query,
     with_custom_host,
 )
+from swanlab.utils.time import parse_timestamp_s
 
 
 @click.group("run")

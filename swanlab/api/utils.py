@@ -6,7 +6,6 @@
 """
 
 import re
-from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set, Tuple, Type, Union, get_args, get_type_hints
 
 from swanlab.api.typings.common import (
@@ -233,36 +232,6 @@ def parse_timestamp_ms(value: Union[int, str]) -> int:
         while v < 1_000_000_000_000:
             v *= 10
     return v
-
-
-def parse_timestamp_s(value: Union[int, str, None]) -> int:
-    """将时间统一转换为秒级 Unix 时间戳（10 位），用于 House 查询接口的 ``createdAt`` 参数。
-
-    支持格式：
-    - int / 数字字符串：秒（10 位）或毫秒（13 位）级时间戳，自动归一化为秒
-    - ISO 8601 字符串：如 ``"2024-08-01T00:00:00Z"``、``"2024-08-01T08:00:00+08:00"``，无时区时按 UTC 解析
-    - None / 空字符串 / 无法解析：返回 0
-    """
-    if value is None:
-        return 0
-    if isinstance(value, str):
-        text = value.strip()
-        if not text:
-            return 0
-        if not text.isdigit():
-            try:
-                dt = datetime.fromisoformat(text.replace("Z", "+00:00"))
-            except ValueError:
-                return 0
-            if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc)
-            return int(dt.timestamp())
-        value = int(text)
-    if not isinstance(value, int) or value <= 0:
-        return 0
-    while value > 9_999_999_999:
-        value //= 1000
-    return value
 
 
 # ---------------------------------------------------------------------------

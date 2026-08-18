@@ -251,7 +251,9 @@ class TestExperimentRunIdResolution:
 
     def test_column_created_from_experiment_uses_run_cuid(self, ctx):
         ctx.client.get.side_effect = [
-            _api_response({"cuid": "run-cuid", "slug": "run-slug", "name": "test-run"}),
+            _api_response(
+                {"cuid": "run-cuid", "slug": "run-slug", "name": "test-run", "createdAt": "2024-08-01T00:00:00Z"}
+            ),
         ]
         exp = Experiment(ctx, path="user/proj/run-slug")
 
@@ -263,7 +265,13 @@ class TestExperimentRunIdResolution:
         def get(path, **kwargs):
             if path == "/project/user/proj/runs/run-slug":
                 return _api_response(
-                    {"cuid": "run-cuid", "slug": "run-slug", "name": "test-run", "project_id": "project-cuid"}
+                    {
+                        "cuid": "run-cuid",
+                        "slug": "run-slug",
+                        "name": "test-run",
+                        "project_id": "project-cuid",
+                        "createdAt": "2024-08-01T00:00:00Z",
+                    }
                 )
             raise AssertionError(f"unexpected GET {path}")
 
@@ -279,13 +287,19 @@ class TestExperimentRunIdResolution:
         payload = ctx.client.post.call_args_list[0].kwargs["data"]
         assert [call.args[0] for call in ctx.client.get.call_args_list] == ["/project/user/proj/runs/run-slug"]
         assert payload["projectId"] == "project-cuid"
-        assert payload["columns"] == [{"experimentId": "run-cuid", "key": "loss"}]
+        assert payload["columns"] == [{"experimentId": "run-cuid", "key": "loss", "createdAt": 1722470400}]
 
     def test_medias_uses_run_cuid_for_metric_payload(self, ctx):
         def get(path, **kwargs):
             if path == "/project/user/proj/runs/run-slug":
                 return _api_response(
-                    {"cuid": "run-cuid", "slug": "run-slug", "name": "test-run", "project_id": "project-cuid"}
+                    {
+                        "cuid": "run-cuid",
+                        "slug": "run-slug",
+                        "name": "test-run",
+                        "project_id": "project-cuid",
+                        "createdAt": "2024-08-01T00:00:00Z",
+                    }
                 )
             raise AssertionError(f"unexpected GET {path}")
 
@@ -300,13 +314,19 @@ class TestExperimentRunIdResolution:
         payload = ctx.client.post.call_args_list[0].kwargs["data"]
         assert [call.args[0] for call in ctx.client.get.call_args_list] == ["/project/user/proj/runs/run-slug"]
         assert payload["projectId"] == "project-cuid"
-        assert payload["columns"] == [{"experimentId": "run-cuid", "key": "image"}]
+        assert payload["columns"] == [{"experimentId": "run-cuid", "key": "image", "createdAt": 1722470400}]
 
     def test_logs_uses_run_cuid_for_log_params(self, ctx):
         def get(path, **kwargs):
             if path == "/project/user/proj/runs/run-slug":
                 return _api_response(
-                    {"cuid": "run-cuid", "slug": "run-slug", "name": "test-run", "project_id": "project-cuid"}
+                    {
+                        "cuid": "run-cuid",
+                        "slug": "run-slug",
+                        "name": "test-run",
+                        "project_id": "project-cuid",
+                        "createdAt": "2024-08-01T00:00:00Z",
+                    }
                 )
             if path == "/house/metrics/log":
                 return _api_response({"logs": [{"message": "ready"}], "count": 1})
@@ -324,6 +344,7 @@ class TestExperimentRunIdResolution:
         ]
         assert kwargs["params"]["projectId"] == "project-cuid"
         assert kwargs["params"]["experimentId"] == "run-cuid"
+        assert kwargs["params"]["createdAt"] == 1722470400
 
 
 # ---------------------------------------------------------------------------
@@ -425,23 +446,6 @@ class TestMetricValidation:
 # createdAt — 类型与精度兼容 + payload 注入
 # ---------------------------------------------------------------------------
 class TestCreatedAt:
-    def test_parse_timestamp_s_variants(self):
-        from swanlab.api.utils import parse_timestamp_s
-
-        assert parse_timestamp_s(None) == 0
-        assert parse_timestamp_s("") == 0
-        assert parse_timestamp_s("   ") == 0
-        assert parse_timestamp_s("not-a-date") == 0
-        assert parse_timestamp_s(0) == 0
-        assert parse_timestamp_s(-100) == 0
-        assert parse_timestamp_s(1722470400) == 1722470400
-        assert parse_timestamp_s("1722470400000") == 1722470400
-        assert parse_timestamp_s("2024-08-01T00:00:00Z") == 1722470400
-        assert parse_timestamp_s("2024-08-01T00:00:00.123Z") == 1722470400
-        assert parse_timestamp_s("2024-08-01T00:00:00+00:00") == 1722470400
-        assert parse_timestamp_s("2024-08-01T08:00:00+08:00") == 1722470400
-        assert parse_timestamp_s("2024-08-01T00:00:00") == 1722470400
-
     def test_metrics_payload_contains_created_at(self, ctx):
         ctx.client.get.side_effect = [
             _api_response(
@@ -515,17 +519,15 @@ class TestCreatedAt:
             }
         ]
 
-    def test_payload_omits_created_at_when_missing(self, ctx):
+    def test_payload_raises_when_created_at_missing(self, ctx):
         ctx.client.get.side_effect = [
             _api_response({"cuid": "run-cuid", "slug": "run-slug", "name": "test-run", "project_id": "project-cuid"})
         ]
-        ctx.client.post.return_value = _api_response({"run-cuid": {}})
         exp = Experiment(ctx, path="user/proj/run-slug")
 
-        exp.summary()
-
-        payload = ctx.client.post.call_args_list[0].kwargs["data"]
-        assert "createdAt" not in payload["experiments"][0]
+        # createdAt 缺失时必须强制报错，禁止静默降级为无下界查询（慢查询）
+        with pytest.raises(ValueError, match="timestamp"):
+            exp.summary()
 
     def test_series_requests_contain_created_at(self, ctx):
         ctx.client.get.side_effect = [

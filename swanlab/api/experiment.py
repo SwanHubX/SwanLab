@@ -31,7 +31,6 @@ from swanlab.api.typings.user import ApiUserType
 from swanlab.api.utils import (
     get_properties,
     parse_timestamp_ms,
-    parse_timestamp_s,
     resolve_run_path,
     validate_filter,
     validate_group,
@@ -39,6 +38,7 @@ from swanlab.api.utils import (
     validate_update_active,
 )
 from swanlab.sdk.internal.pkg import console
+from swanlab.utils.time import parse_timestamp_s
 
 if TYPE_CHECKING:
     from swanlab.api.series import Series
@@ -487,10 +487,11 @@ class Experiment(BaseEntity):
         # 克隆实验的数据存在根实验下，因此查询时直接用根实验的 ID。
         query_pro_id = root_pro_id or project_id
         query_exp_id = root_exp_id or run_id
-        experiment_ref: Dict[str, Any] = {"projectId": query_pro_id, "experimentId": query_exp_id}
-        created_at = parse_timestamp_s(self.created_at)
-        if created_at:
-            experiment_ref["createdAt"] = created_at
+        experiment_ref: Dict[str, Any] = {
+            "projectId": query_pro_id,
+            "experimentId": query_exp_id,
+            "createdAt": parse_timestamp_s(self.created_at),
+        }
         return Series(
             self._ctx,
             experiments=[experiment_ref],
