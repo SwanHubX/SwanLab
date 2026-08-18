@@ -54,6 +54,7 @@ dependencies = [
     "orjson; python_version > '3.9'",
     "watchdog",
     "pwinput>=1.0.3",
+    "pyroaring>=1.1.0",
 ]
 
 # 对应 requirements-media.txt 和 requirements-dashboard.txt [cite: 3, 5]
