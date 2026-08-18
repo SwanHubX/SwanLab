@@ -5,7 +5,8 @@
 @description: SwanLab 运行时实验API
 """
 
-from typing import List, Literal, Optional, Tuple
+from datetime import datetime, timezone
+from typing import List, Literal, Optional, Tuple, Union
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
@@ -13,8 +14,43 @@ from swanlab.exceptions import ApiError
 from swanlab.proto.swanlab.run.v1.run_pb2 import RUN_STATE_ABORTED, RUN_STATE_CRASHED, RunState
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.pkg import helper
-from swanlab.sdk.typings.core_python.api.experiment import InitExperimentType, ResumeExperimentSummaryType
+from swanlab.sdk.typings.core_python.api.experiment import (
+    CREATED_AT_MAX,
+    CREATED_AT_MIN,
+    InitExperimentType,
+    ResumeExperimentSummaryType,
+)
 from swanlab.sdk.typings.run import ResumeType
+
+
+def parse_timestamp_s(value: Union[int, str, None]) -> int:
+    """将时间统一转换为秒级 Unix 时间戳（10 位），用于 House 查询接口的 ``createdAt`` 参数。
+
+    支持格式：
+    - int / 数字字符串：秒（10 位）或毫秒（13 位）级时间戳，自动归一化为秒
+    - ISO 8601 字符串：如 ``"2024-08-01T00:00:00Z"``、``"2024-08-01T08:00:00+08:00"``，无时区时按 UTC 解析
+    - None / 空字符串 / 无法解析：返回 0
+    """
+    if value is None:
+        return 0
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return 0
+        if not text.isdigit():
+            try:
+                dt = datetime.fromisoformat(text.replace("Z", "+00:00"))
+            except ValueError:
+                return 0
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return int(dt.timestamp())
+        value = int(text)
+    if not isinstance(value, int) or value <= 0:
+        return 0
+    while value > 9_999_999_999:
+        value //= 1000
+    return value
 
 
 def create_or_resume_experiment(
@@ -70,13 +106,22 @@ def create_or_resume_experiment(
     return resp.data, resp.raw.status_code == 201
 
 
-def get_experiment_summary(project_id: str, experiment_id: str) -> ResumeExperimentSummaryType:
+def get_experiment_summary(
+    project_id: str,
+    experiment_id: str,
+    created_at: Union[int, str, None] = None,
+) -> ResumeExperimentSummaryType:
     """
     获取实验摘要
     :param project_id: 所属项目ID
     :param experiment_id: 所属实验ID
+    :param created_at: 实验创建时间（ISO 8601 字符串或秒/毫秒时间戳），作为数据入库时间的查询下界；
+        无法解析时回退到下界值（全历史扫描）以保证查询正确性
     """
-    resp = client.get(f"/house/metrics/summaries/{project_id}/{experiment_id}", {"all": True})
+    ts = parse_timestamp_s(created_at)
+    if not CREATED_AT_MIN <= ts <= CREATED_AT_MAX:
+        ts = CREATED_AT_MIN
+    resp = client.get(f"/house/metrics/summaries/{project_id}/{experiment_id}", {"all": True, "createdAt": ts})
     return resp.data
 
 

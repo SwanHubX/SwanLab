@@ -422,6 +422,152 @@ class TestMetricValidation:
 
 
 # ---------------------------------------------------------------------------
+# createdAt — 类型与精度兼容 + payload 注入
+# ---------------------------------------------------------------------------
+class TestCreatedAt:
+    def test_parse_timestamp_s_variants(self):
+        from swanlab.api.utils import parse_timestamp_s
+
+        assert parse_timestamp_s(None) == 0
+        assert parse_timestamp_s("") == 0
+        assert parse_timestamp_s("   ") == 0
+        assert parse_timestamp_s("not-a-date") == 0
+        assert parse_timestamp_s(0) == 0
+        assert parse_timestamp_s(-100) == 0
+        assert parse_timestamp_s(1722470400) == 1722470400
+        assert parse_timestamp_s("1722470400") == 1722470400
+        assert parse_timestamp_s(1722470400000) == 1722470400
+        assert parse_timestamp_s("1722470400000") == 1722470400
+        assert parse_timestamp_s("2024-08-01T00:00:00Z") == 1722470400
+        assert parse_timestamp_s("2024-08-01T00:00:00.123Z") == 1722470400
+        assert parse_timestamp_s("2024-08-01T00:00:00+00:00") == 1722470400
+        assert parse_timestamp_s("2024-08-01T08:00:00+08:00") == 1722470400
+        assert parse_timestamp_s("2024-08-01T00:00:00") == 1722470400
+
+    def test_parse_timestamp_s_mirror_implementations_are_identical(self):
+        """api 与 core_python 两 lane 各自实现了 parse_timestamp_s，除 docstring 外必须逐行相同。"""
+        import ast
+        import inspect
+
+        from swanlab.api.utils import parse_timestamp_s as api_impl
+        from swanlab.sdk.internal.core_python.api.experiment import parse_timestamp_s as core_impl
+
+        def normalized_source(func) -> ast.AST:
+            tree = ast.parse(inspect.getsource(func))
+            tree.body[0].body = [node for node in tree.body[0].body if not isinstance(node, ast.Expr)]
+            return tree
+
+        assert ast.dump(normalized_source(api_impl)) == ast.dump(normalized_source(core_impl))
+
+    def test_metrics_payload_contains_created_at(self, ctx):
+        ctx.client.get.side_effect = [
+            _api_response(
+                {
+                    "cuid": "run-cuid",
+                    "slug": "run-slug",
+                    "name": "test-run",
+                    "project_id": "project-cuid",
+                    "createdAt": "2024-08-01T00:00:00.000Z",
+                }
+            )
+        ]
+        ctx.client.post.return_value = _api_response([{"key": "loss", "metrics": []}, {"key": "loss", "latest": {}}])
+        exp = Experiment(ctx, path="user/proj/run-slug")
+
+        exp.metrics(keys=["loss"])
+
+        scalar_calls = [c for c in ctx.client.post.call_args_list if c.args[0] == "/house/metrics/scalar"]
+        assert len(scalar_calls) == 1
+        assert scalar_calls[0].kwargs["data"]["columns"] == [
+            {"experimentId": "run-cuid", "key": "loss", "createdAt": 1722470400}
+        ]
+
+    def test_logs_params_contain_created_at(self, ctx):
+        def get(path, **kwargs):
+            if path == "/project/user/proj/runs/run-slug":
+                return _api_response(
+                    {
+                        "cuid": "run-cuid",
+                        "slug": "run-slug",
+                        "name": "test-run",
+                        "project_id": "project-cuid",
+                        "createdAt": "2024-08-01T00:00:00Z",
+                    }
+                )
+            if path == "/house/metrics/log":
+                return _api_response({"logs": [{"message": "ready"}], "count": 1})
+            raise AssertionError(f"unexpected GET {path}")
+
+        ctx.client.get.side_effect = get
+        exp = Experiment(ctx, path="user/proj/run-slug")
+
+        exp.logs()
+
+        _, kwargs = ctx.client.get.call_args_list[-1]
+        assert kwargs["params"]["createdAt"] == 1722470400
+
+    def test_summary_payload_contains_created_at(self, ctx):
+        ctx.client.get.side_effect = [
+            _api_response(
+                {
+                    "cuid": "run-cuid",
+                    "slug": "run-slug",
+                    "name": "test-run",
+                    "project_id": "project-cuid",
+                    "createdAt": "2024-08-01T00:00:00Z",
+                }
+            )
+        ]
+        ctx.client.post.return_value = _api_response({"run-cuid": {"loss": {"latest": {"value": 1.0}}}})
+        exp = Experiment(ctx, path="user/proj/run-slug")
+
+        exp.summary()
+
+        payload = ctx.client.post.call_args_list[0].kwargs["data"]
+        assert payload["experiments"] == [
+            {
+                "projectId": "project-cuid",
+                "experimentId": "run-cuid",
+                "createdAt": 1722470400,
+            }
+        ]
+
+    def test_payload_omits_created_at_when_missing(self, ctx):
+        ctx.client.get.side_effect = [
+            _api_response({"cuid": "run-cuid", "slug": "run-slug", "name": "test-run", "project_id": "project-cuid"})
+        ]
+        ctx.client.post.return_value = _api_response({"run-cuid": {}})
+        exp = Experiment(ctx, path="user/proj/run-slug")
+
+        exp.summary()
+
+        payload = ctx.client.post.call_args_list[0].kwargs["data"]
+        assert "createdAt" not in payload["experiments"][0]
+
+    def test_series_requests_contain_created_at(self, ctx):
+        ctx.client.get.side_effect = [
+            _api_response(
+                {
+                    "cuid": "run-cuid",
+                    "slug": "run-slug",
+                    "name": "test-run",
+                    "project_id": "project-cuid",
+                    "createdAt": "2024-08-01T00:00:00Z",
+                }
+            )
+        ]
+        ctx.client.post.return_value = _api_response({"keys": ["loss"], "hasMore": False, "nextCursor": ""})
+        exp = Experiment(ctx, path="user/proj/run-slug")
+
+        list(exp.series())
+
+        keys_payload = ctx.client.post.call_args_list[0].kwargs["data"]
+        assert keys_payload["experiments"] == [
+            {"projectId": "project-cuid", "experimentId": "run-cuid", "createdAt": 1722470400}
+        ]
+
+
+# ---------------------------------------------------------------------------
 # Experiments POST 过滤 — 校验
 # ---------------------------------------------------------------------------
 class TestExperimentsFilterValidation:

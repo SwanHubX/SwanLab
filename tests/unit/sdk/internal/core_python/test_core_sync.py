@@ -348,7 +348,7 @@ def test_deliver_sync_flush_fetches_summary_for_existing_experiment(tmp_path: Pa
     resp = core.deliver_sync_flush()
 
     assert resp.success is True
-    get_summary.assert_called_once_with("project-id", "experiment-id")
+    get_summary.assert_called_once_with("project-id", "experiment-id", created_at=None)
 
 
 def test_deliver_sync_flush_returns_failure_when_prepare_fails(tmp_path: Path, monkeypatch):

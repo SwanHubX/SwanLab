@@ -95,3 +95,5 @@ class ApiExperimentType(TypedDict, total=False):
     user: ApiUserType
     rootProId: str
     rootExpId: str
+    # 实验创建时间，ISO 8601 字符串
+    createdAt: str

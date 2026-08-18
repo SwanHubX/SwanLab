@@ -31,6 +31,7 @@ from swanlab.api.typings.user import ApiUserType
 from swanlab.api.utils import (
     get_properties,
     parse_timestamp_ms,
+    parse_timestamp_s,
     resolve_run_path,
     validate_filter,
     validate_group,
@@ -205,6 +206,7 @@ class Experiment(BaseEntity):
             project_id_getter=lambda: self.project_id,
             root_pro_id=self.root_pro_id,
             root_exp_id=self.root_exp_id,
+            exp_created_at=parse_timestamp_s(self.created_at),
         )
 
     def metrics(
@@ -316,6 +318,7 @@ class Experiment(BaseEntity):
             range_query=rq,
             root_pro_id=self.root_pro_id,
             root_exp_id=self.root_exp_id,
+            created_at=parse_timestamp_s(self.created_at),
             experiment_name=self.name,
         ).json()
 
@@ -344,6 +347,7 @@ class Experiment(BaseEntity):
             keys=keys,
             root_pro_id=self.root_pro_id,
             root_exp_id=self.root_exp_id,
+            created_at=parse_timestamp_s(self.created_at),
         ).json()
 
     def medias(
@@ -366,6 +370,7 @@ class Experiment(BaseEntity):
             all=all,
             root_pro_id=self.root_pro_id,
             root_exp_id=self.root_exp_id,
+            created_at=parse_timestamp_s(self.created_at),
         ).json()
 
     def logs(
@@ -389,6 +394,7 @@ class Experiment(BaseEntity):
             ignore_timestamp=ignore_timestamp,
             root_pro_id=self.root_pro_id,
             root_exp_id=self.root_exp_id,
+            created_at=parse_timestamp_s(self.created_at),
         )
         return logs.json()
 
@@ -415,6 +421,7 @@ class Experiment(BaseEntity):
             metric_type="LOG",
             root_pro_id=self.root_pro_id,
             root_exp_id=self.root_exp_id,
+            created_at=parse_timestamp_s(self.created_at),
         )
         return metric.export_logs(start=start, rows=rows)
 
@@ -453,6 +460,7 @@ class Experiment(BaseEntity):
             project_id_getter=lambda: self.project_id,
             root_pro_id=self.root_pro_id,
             root_exp_id=self.root_exp_id,
+            exp_created_at=parse_timestamp_s(self.created_at),
         )
 
     def series(
@@ -479,10 +487,13 @@ class Experiment(BaseEntity):
         # 克隆实验的数据存在根实验下，因此查询时直接用根实验的 ID。
         query_pro_id = root_pro_id or project_id
         query_exp_id = root_exp_id or run_id
-        experiments: List[Dict[str, str]] = [{"projectId": query_pro_id, "experimentId": query_exp_id}]
+        experiment_ref: Dict[str, Any] = {"projectId": query_pro_id, "experimentId": query_exp_id}
+        created_at = parse_timestamp_s(self.created_at)
+        if created_at:
+            experiment_ref["createdAt"] = created_at
         return Series(
             self._ctx,
-            experiments=experiments,
+            experiments=[experiment_ref],
             metric_type=metric_type,
             metric_class=metric_class,
             search=search,

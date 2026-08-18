@@ -254,7 +254,7 @@ def test_e2e_sync_skips_records_already_in_remote_summary(monkeypatch):
     )
     monkeypatch.setattr(
         "swanlab.sdk.internal.core_python.sync.get_experiment_summary",
-        lambda project_id, experiment_id: {
+        lambda project_id, experiment_id, created_at=None: {
             "log": None,
             "media": None,
             "scalar": [{"key": "loss", "step": 1}, {"key": "acc", "step": 1}],

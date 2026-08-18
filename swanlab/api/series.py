@@ -37,6 +37,7 @@ class Key(BaseEntity):
         experiment_name_getter: Optional[Callable[[], str]] = None,
         root_pro_id: str = "",
         root_exp_id: str = "",
+        created_at: int = 0,
     ) -> None:
         super().__init__(ctx)
         self._project_id = project_id
@@ -47,6 +48,7 @@ class Key(BaseEntity):
         self._cached_experiment_name: Optional[str] = None
         self._root_pro_id = root_pro_id
         self._root_exp_id = root_exp_id
+        self._created_at = created_at
 
     def _resolve_experiment_name(self) -> str:
         if self._cached_experiment_name is not None:
@@ -125,7 +127,7 @@ class Key(BaseEntity):
 
         experiment_name = self._resolve_experiment_name()
 
-        export_column: Dict[str, str] = {
+        export_column: Dict[str, Any] = {
             "experimentId": self._run_id,
             "key": self._key,
         }
@@ -135,6 +137,8 @@ class Key(BaseEntity):
             export_column["rootProId"] = self._root_pro_id
         if self._root_exp_id:
             export_column["rootExpId"] = self._root_exp_id
+        if self._created_at:
+            export_column["createdAt"] = self._created_at
 
         resp = self._post(
             "/house/metrics/scalar/export",
@@ -176,7 +180,7 @@ class Series(BaseEntity):
         self,
         ctx: ApiClientContext,
         *,
-        experiments: List[Dict[str, str]],
+        experiments: List[Dict[str, Any]],
         metric_type: ApiMetricKeyTypeLiteral = "SCALAR",
         metric_class: ApiMetricKeyClassLiteral = "CUSTOM",
         search: str = "",
@@ -272,6 +276,7 @@ class Series(BaseEntity):
                 experiment_name_getter=self._experiment_name_getter,
                 root_pro_id=self._root_pro_id,
                 root_exp_id=self._root_exp_id,
+                created_at=self._experiments[0].get("createdAt", 0),
             )
             for key_str in self._filtered_keys()
         ]

@@ -218,6 +218,7 @@ class Metric(BaseEntity):
         all: bool = False,
         root_pro_id: str = "",
         root_exp_id: str = "",
+        created_at: int = 0,
         experiment_name: str = "",
     ) -> None:
         super().__init__(ctx)
@@ -239,6 +240,7 @@ class Metric(BaseEntity):
         self._all = all
         self._root_pro_id = root_pro_id
         self._root_exp_id = root_exp_id
+        self._created_at = created_at
         self._experiment_name = experiment_name
 
     # 类型 → 加载方法 的分发表，新增类型只需在此注册
@@ -319,12 +321,15 @@ class Metric(BaseEntity):
         key: str,
         root_pro_id: str = "",
         root_exp_id: str = "",
-    ) -> Dict[str, str]:
-        ref: Dict[str, str] = {"experimentId": experiment_id, "key": key}
+        created_at: int = 0,
+    ) -> Dict[str, Any]:
+        ref: Dict[str, Any] = {"experimentId": experiment_id, "key": key}
         if root_pro_id:
             ref["rootProId"] = root_pro_id
         if root_exp_id:
             ref["rootExpId"] = root_exp_id
+        if created_at:
+            ref["createdAt"] = created_at
         return ref
 
     @staticmethod
@@ -336,12 +341,13 @@ class Metric(BaseEntity):
         x_type: str = "step",
         root_pro_id: str = "",
         root_exp_id: str = "",
+        created_at: int = 0,
     ) -> Dict[str, Any]:
         return {
             "projectId": project_id,
             "xType": x_type,
             "range": [0, 0],
-            "columns": [Metric._build_column_ref(run_id, key, root_pro_id, root_exp_id) for key in keys],
+            "columns": [Metric._build_column_ref(run_id, key, root_pro_id, root_exp_id, created_at) for key in keys],
             "num": sample if sample <= 1500 else 1500,
         }
 
@@ -353,10 +359,11 @@ class Metric(BaseEntity):
         step: Optional[int] = None,
         root_pro_id: str = "",
         root_exp_id: str = "",
+        created_at: int = 0,
     ) -> Dict[str, Any]:
         payload: Dict[str, Any] = {
             "projectId": project_id,
-            "columns": [Metric._build_column_ref(run_id, key, root_pro_id, root_exp_id) for key in keys],
+            "columns": [Metric._build_column_ref(run_id, key, root_pro_id, root_exp_id, created_at) for key in keys],
         }
         if step is not None:
             payload["step"] = step
@@ -370,6 +377,7 @@ class Metric(BaseEntity):
         experiment_name: str = "",
         root_pro_id: str = "",
         root_exp_id: str = "",
+        created_at: int = 0,
     ) -> Dict[str, Any]:
         """Build payload for ``POST /house/metrics/scalar/export``.
 
@@ -378,13 +386,15 @@ class Metric(BaseEntity):
         when the real name is unavailable.
         """
         exp_name = experiment_name or run_id
-        columns: List[Dict[str, str]] = []
+        columns: List[Dict[str, Any]] = []
         for key in keys:
-            col: Dict[str, str] = {"experimentName": exp_name, "experimentId": run_id, "key": key}
+            col: Dict[str, Any] = {"experimentName": exp_name, "experimentId": run_id, "key": key}
             if root_pro_id:
                 col["rootProId"] = root_pro_id
             if root_exp_id:
                 col["rootExpId"] = root_exp_id
+            if created_at:
+                col["createdAt"] = created_at
             columns.append(col)
         return {"projectId": project_id, "columns": columns}
 
@@ -400,6 +410,8 @@ class Metric(BaseEntity):
             params["rootProId"] = self._root_pro_id
         if self._root_exp_id:
             params["rootExpId"] = self._root_exp_id
+        if self._created_at:
+            params["createdAt"] = self._created_at
         return params
 
     # ------------------------------------------------------------------
@@ -419,6 +431,7 @@ class Metric(BaseEntity):
             self._sample,
             root_pro_id=self._root_pro_id,
             root_exp_id=self._root_exp_id,
+            created_at=self._created_at,
         )
 
         # 1. 获取折线数据 — 使用 key-indexed lookup 保证对齐
@@ -497,6 +510,7 @@ class Metric(BaseEntity):
             step=self._media_step,
             root_pro_id=self._root_pro_id,
             root_exp_id=self._root_exp_id,
+            created_at=self._created_at,
         )
         raw_resp = self._post("/house/metrics/media", data=payload)
         if not raw_resp.ok or not raw_resp.data:
@@ -534,6 +548,7 @@ class Metric(BaseEntity):
             [self.key],
             root_pro_id=self._root_pro_id,
             root_exp_id=self._root_exp_id,
+            created_at=self._created_at,
         )
         raw_resp = self._post("/house/metrics/f_media", data=payload)
         raw_data = self._extract_first(raw_resp)
@@ -584,6 +599,7 @@ class Metric(BaseEntity):
             experiment_name=self._experiment_name,
             root_pro_id=self._root_pro_id,
             root_exp_id=self._root_exp_id,
+            created_at=self._created_at,
         )
         resp = self._post("/house/metrics/scalar/export", data=payload)
         if not resp.ok or not resp.data:
@@ -611,6 +627,8 @@ class Metric(BaseEntity):
             data["rootProId"] = self._root_pro_id
         if self._root_exp_id:
             data["rootExpId"] = self._root_exp_id
+        if self._created_at:
+            data["createdAt"] = self._created_at
         resp = self._post("/house/metrics/log/export", data=data)
         if not resp.ok or not resp.data:
             return resp
@@ -696,6 +714,7 @@ class Metrics(BaseEntity):
         range_query: Optional[RangeQuery] = None,
         root_pro_id: str = "",
         root_exp_id: str = "",
+        created_at: int = 0,
         experiment_name: str = "",
     ) -> None:
         super().__init__(ctx)
@@ -716,6 +735,7 @@ class Metrics(BaseEntity):
         self._range_query = range_query
         self._root_pro_id = root_pro_id
         self._root_exp_id = root_exp_id
+        self._created_at = created_at
         self._experiment_name = experiment_name
         self._page_info: Dict[str, Any] = {
             "keys": keys,
@@ -804,6 +824,7 @@ class Metrics(BaseEntity):
             all=self._all,
             root_pro_id=self._root_pro_id,
             root_exp_id=self._root_exp_id,
+            created_at=self._created_at,
             experiment_name=self._experiment_name,
         )
 
@@ -831,6 +852,7 @@ class Metrics(BaseEntity):
                         x_type=x_type,
                         root_pro_id=self._root_pro_id,
                         root_exp_id=self._root_exp_id,
+                        created_at=self._created_at,
                     )
                 },
             )
@@ -871,6 +893,7 @@ class Metrics(BaseEntity):
                         self._sample,
                         root_pro_id=self._root_pro_id,
                         root_exp_id=self._root_exp_id,
+                        created_at=self._created_at,
                     )
                 },
             ),
@@ -926,6 +949,7 @@ class Metrics(BaseEntity):
             experiment_name=self._experiment_name,
             root_pro_id=self._root_pro_id,
             root_exp_id=self._root_exp_id,
+            created_at=self._created_at,
         )
         requests.append((self._post, "/house/metrics/scalar/export", {"data": export_payload}))
 
@@ -992,6 +1016,7 @@ class Metrics(BaseEntity):
             step=self._media_step,
             root_pro_id=self._root_pro_id,
             root_exp_id=self._root_exp_id,
+            created_at=self._created_at,
         )
         raw_resp = self._post("/house/metrics/media", data=payload)
         if not raw_resp.ok or not raw_resp.data:
@@ -1038,6 +1063,7 @@ class Metrics(BaseEntity):
             self._keys,
             root_pro_id=self._root_pro_id,
             root_exp_id=self._root_exp_id,
+            created_at=self._created_at,
         )
         raw_resp = self._post("/house/metrics/f_media", data=payload)
         if not raw_resp.ok or not raw_resp.data:

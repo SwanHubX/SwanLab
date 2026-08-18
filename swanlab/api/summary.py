@@ -23,6 +23,7 @@ class Summary(BaseEntity):
         keys: Optional[List[str]] = None,
         root_pro_id: str = "",
         root_exp_id: str = "",
+        created_at: int = 0,
     ) -> None:
         super().__init__(ctx)
         self._project_id = project_id
@@ -30,10 +31,11 @@ class Summary(BaseEntity):
         self._keys = keys
         self._root_pro_id = root_pro_id
         self._root_exp_id = root_exp_id
+        self._created_at = created_at
         self._data: Optional[Dict[str, Any]] = None
 
-    def _build_experiment_ref(self) -> Dict[str, str]:
-        ref: Dict[str, str] = {
+    def _build_experiment_ref(self) -> Dict[str, Any]:
+        ref: Dict[str, Any] = {
             "projectId": self._project_id,
             "experimentId": self._experiment_id,
         }
@@ -41,6 +43,8 @@ class Summary(BaseEntity):
             ref["rootProId"] = self._root_pro_id
         if self._root_exp_id:
             ref["rootExpId"] = self._root_exp_id
+        if self._created_at:
+            ref["createdAt"] = self._created_at
         return ref
 
     def _ensure_data(self) -> Dict[str, ApiScalarSummaryItemType]:
