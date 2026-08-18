@@ -77,9 +77,15 @@ def create_or_resume_experiment(
     is_new_experiment = resp.raw.status_code == 201
     if is_new_experiment:
         experiment["createdAt"] = created_at_for_request
-    else:
+    elif not experiment.get("createdAt"):
+        # 旧后端 POST 响应未携带 createdAt，回退到 GET 获取
         exp_resp = client.get(f"/project/{username}/{project}/runs/{experiment['cuid']}")
-        experiment["createdAt"] = exp_resp.data["createdAt"]
+        created_at_for_response = exp_resp.data.get("createdAt", "")
+        if not created_at_for_response:
+            raise ValueError(
+                f"Backend did not return createdAt for experiment {experiment['cuid']}; please upgrade swanlab-server"
+            )
+        experiment["createdAt"] = created_at_for_response
     return resp.data, resp.raw.status_code == 201
 
 

@@ -69,7 +69,12 @@ def make_prepare_result(new_experiment: bool = True) -> PrepareExperimentStartRe
             "visibility": "PRIVATE",
             "_count": {"experiments": 0, "contributors": 0, "collaborators": 0, "clones": 0},
         },
-        experiment={"cuid": "experiment-id", "slug": "sync-e2e-run", "name": "sync-e2e-run"},
+        experiment={
+            "cuid": "experiment-id",
+            "slug": "sync-e2e-run",
+            "name": "sync-e2e-run",
+            "createdAt": "2024-08-01T00:00:00Z",
+        },
         new_experiment=new_experiment,
         name="sync-e2e-run",
         color="#abcdef",
