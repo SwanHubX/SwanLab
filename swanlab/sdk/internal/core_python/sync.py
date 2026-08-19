@@ -136,7 +136,11 @@ class CoreSyncPython(CoreSyncProtocol):
             # 2. 如果是旧实验，向后端请求实验摘要
             summary: Optional[ResumeExperimentSummaryType] = None
             if not result.new_experiment:
-                summary = get_experiment_summary(self._ctx.project_id, self._ctx.experiment_id)
+                summary = get_experiment_summary(
+                    self._ctx.project_id,
+                    self._ctx.experiment_id,
+                    created_at=result.experiment["createdAt"],
+                )
             self._metrics, self._epoch, _, _ = RunMetrics.new(summary, ctx=self._ctx)
             metrics_ready = True
 

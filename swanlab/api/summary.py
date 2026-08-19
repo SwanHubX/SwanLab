@@ -23,6 +23,7 @@ class Summary(BaseEntity):
         keys: Optional[List[str]] = None,
         root_pro_id: str = "",
         root_exp_id: str = "",
+        created_at: int,
     ) -> None:
         super().__init__(ctx)
         self._project_id = project_id
@@ -30,12 +31,15 @@ class Summary(BaseEntity):
         self._keys = keys
         self._root_pro_id = root_pro_id
         self._root_exp_id = root_exp_id
+        self._created_at = created_at
         self._data: Optional[Dict[str, Any]] = None
 
-    def _build_experiment_ref(self) -> Dict[str, str]:
-        ref: Dict[str, str] = {
+    def _build_experiment_ref(self) -> Dict[str, Any]:
+        # createdAt 为 House 查询的数据入库时间下界，必传
+        ref: Dict[str, Any] = {
             "projectId": self._project_id,
             "experimentId": self._experiment_id,
+            "createdAt": self._created_at,
         }
         if self._root_pro_id:
             ref["rootProId"] = self._root_pro_id

@@ -160,7 +160,11 @@ class CorePython(CoreProtocol):
         # 3. resume 时，向后端获取数据
         summary: Optional[ResumeExperimentSummaryType] = None
         if not run_info.new_experiment:
-            summary = get_experiment_summary(self._ctx.project_id, self._ctx.experiment_id)
+            summary = get_experiment_summary(
+                self._ctx.project_id,
+                self._ctx.experiment_id,
+                created_at=run_info.experiment["createdAt"],
+            )
         self._metrics, console_epoch, global_step, global_system_step = RunMetrics.new(summary, ctx=self._ctx)
         self._epoch.reset(console_epoch)
         # 4. 构建记录

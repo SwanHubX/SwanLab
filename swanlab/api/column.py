@@ -64,6 +64,7 @@ class Column(BaseEntity):
         project_id_getter: Optional[Callable[[], str]] = None,
         root_pro_id: str = "",
         root_exp_id: str = "",
+        exp_created_at: int,
     ) -> None:
         super().__init__(ctx)
         self._proj_path, self._run_slug = resolve_run_path(path=path)
@@ -76,6 +77,7 @@ class Column(BaseEntity):
         self._project_id_getter = project_id_getter
         self._root_pro_id = root_pro_id
         self._root_exp_id = root_exp_id
+        self._exp_created_at = exp_created_at
 
     def _ensure_data(self) -> ApiColumnType:
         if self._data is None:
@@ -180,6 +182,7 @@ class Column(BaseEntity):
             media_step=media_step,
             root_pro_id=self._root_pro_id,
             root_exp_id=self._root_exp_id,
+            created_at=self._exp_created_at,
         )
         return metric.json()
 
@@ -198,6 +201,7 @@ class Column(BaseEntity):
             metric_type=metric_type,
             root_pro_id=self._root_pro_id,
             root_exp_id=self._root_exp_id,
+            created_at=self._exp_created_at,
         )
         return metric.export_csv()
 
@@ -240,6 +244,7 @@ class Columns(BaseEntity):
         project_id_getter: Optional[Callable[[], str]] = None,
         root_pro_id: str = "",
         root_exp_id: str = "",
+        exp_created_at: int,
     ) -> None:
         super().__init__(ctx)
         self._run_path = path
@@ -250,6 +255,7 @@ class Columns(BaseEntity):
         self._query = query
         self._root_pro_id = root_pro_id
         self._root_exp_id = root_exp_id
+        self._exp_created_at = exp_created_at
         # 校验 column_type 和 column_class 的合法性
         validate_column_params(column_type=column_type, column_class=column_class)
         self._column_class = column_class
@@ -304,6 +310,7 @@ class Columns(BaseEntity):
                 project_id_getter=self._ensure_project_id,
                 root_pro_id=self._root_pro_id,
                 root_exp_id=self._root_exp_id,
+                exp_created_at=self._exp_created_at,
             )
 
     @property

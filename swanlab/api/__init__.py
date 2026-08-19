@@ -14,6 +14,7 @@ from swanlab.exceptions import AuthenticationError
 from swanlab.sdk.internal.pkg import scope
 from swanlab.sdk.internal.pkg.client import Client
 from swanlab.sdk.internal.settings import create_settings, resolve_hosts
+from swanlab.utils.time import parse_timestamp_s
 
 from .base import ApiClientContext, BaseEntity
 from .column import Column, Columns
@@ -277,12 +278,14 @@ class Api(BaseEntity):
         """
         validate_api_path(path, segments=3, label="run")
         query = PaginatedQuery(page=page, size=size, search=search, all=all)
+        exp = Experiment(self._ctx, path=path)
         return Columns(
             self._ctx,
             path=path,
             query=query,
             column_type=column_type,
             column_class=column_class,
+            exp_created_at=parse_timestamp_s(exp.created_at),
         )
 
     @deprecated("Use `series()` method instead.")
@@ -303,7 +306,15 @@ class Api(BaseEntity):
         """
         validate_api_path(path, segments=3, label="run")
         validate_non_empty_string(key, label="column key")
-        return Column(self._ctx, path=path, key=key, column_class=column_class, column_type=column_type)
+        exp = Experiment(self._ctx, path=path)
+        return Column(
+            self._ctx,
+            path=path,
+            key=key,
+            column_class=column_class,
+            column_type=column_type,
+            exp_created_at=parse_timestamp_s(exp.created_at),
+        )
 
     def series(
         self,

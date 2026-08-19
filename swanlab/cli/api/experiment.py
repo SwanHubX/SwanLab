@@ -20,6 +20,7 @@ from swanlab.cli.api.helper import (
     validate_filter_query,
     with_custom_host,
 )
+from swanlab.utils.time import parse_timestamp_s
 
 
 @click.group("run")
@@ -356,6 +357,7 @@ def get_experiment_metrics(
         range_query=rq,
         root_pro_id=experiment.root_pro_id,
         root_exp_id=experiment.root_exp_id,
+        created_at=parse_timestamp_s(experiment.created_at),
     )
     resp = metrics.wrapper()
     payload = format_output(resp)
@@ -393,6 +395,7 @@ def get_experiment_summary(path: str, keys: Optional[str], save_name: str, api: 
         keys=key_list,
         root_pro_id=experiment.root_pro_id,
         root_exp_id=experiment.root_exp_id,
+        created_at=parse_timestamp_s(experiment.created_at),
     )
     resp = summary.wrapper()
     payload = format_output(resp)
@@ -502,6 +505,7 @@ def get_experiment_medias(
         all=fetch_all,
         root_pro_id=experiment.root_pro_id,
         root_exp_id=experiment.root_exp_id,
+        created_at=parse_timestamp_s(experiment.created_at),
     )
     resp = metrics.wrapper()
     payload = format_output(resp)
@@ -564,6 +568,7 @@ def get_experiment_logs(
         ignore_timestamp=ignore_timestamp,
         root_pro_id=experiment.root_pro_id,
         root_exp_id=experiment.root_exp_id,
+        created_at=parse_timestamp_s(experiment.created_at),
     )
     resp = metric.wrapper()
     payload = format_output(resp)
