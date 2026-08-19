@@ -37,7 +37,7 @@ class Key(BaseEntity):
         experiment_name_getter: Optional[Callable[[], str]] = None,
         root_pro_id: str = "",
         root_exp_id: str = "",
-        created_at: int = 0,
+        created_at: int,
     ) -> None:
         super().__init__(ctx)
         self._project_id = project_id
@@ -111,6 +111,7 @@ class Key(BaseEntity):
             all=all,
             root_pro_id=self._root_pro_id,
             root_exp_id=self._root_exp_id,
+            created_at=self._created_at,
         )
         return metric.json()
 
@@ -127,9 +128,11 @@ class Key(BaseEntity):
 
         experiment_name = self._resolve_experiment_name()
 
+        # createdAt 为 House 查询的数据入库时间下界，必传
         export_column: Dict[str, Any] = {
             "experimentId": self._run_id,
             "key": self._key,
+            "createdAt": self._created_at,
         }
         if experiment_name:
             export_column["experimentName"] = experiment_name
@@ -137,8 +140,6 @@ class Key(BaseEntity):
             export_column["rootProId"] = self._root_pro_id
         if self._root_exp_id:
             export_column["rootExpId"] = self._root_exp_id
-        if self._created_at:
-            export_column["createdAt"] = self._created_at
 
         resp = self._post(
             "/house/metrics/scalar/export",
@@ -197,6 +198,10 @@ class Series(BaseEntity):
             raise ValueError(f"Invalid metric_class: {metric_class!r}, expected 'CUSTOM' or 'SYSTEM'")
         if not isinstance(experiments, list) or not experiments:
             raise ValueError("experiments must be a non-empty list of dicts")
+        # createdAt 为 House 查询的数据入库时间下界，必须携带；缺失时报错而非静默降级为无下界查询（慢查询）
+        for experiment_ref in experiments:
+            if not experiment_ref.get("createdAt"):
+                raise ValueError("each experiment ref must carry a non-zero 'createdAt' (Unix seconds)")
 
         self._experiments = experiments
         self._metric_type: ApiMetricKeyTypeLiteral = metric_type
@@ -276,7 +281,8 @@ class Series(BaseEntity):
                 experiment_name_getter=self._experiment_name_getter,
                 root_pro_id=self._root_pro_id,
                 root_exp_id=self._root_exp_id,
-                created_at=self._experiments[0].get("createdAt", 0),
+                # __init__ 已校验必携带 createdAt，直接取第一个实验的值（当前 series 仅由单实验构造）
+                created_at=self._experiments[0]["createdAt"],
             )
             for key_str in self._filtered_keys()
         ]

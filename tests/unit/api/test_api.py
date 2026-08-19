@@ -19,6 +19,7 @@ from swanlab.api.experiment import Experiment, Experiments
 from swanlab.api.metric import Metric, Metrics
 from swanlab.api.project import Project
 from swanlab.api.self_hosted import SelfHosted
+from swanlab.api.series import Series
 from swanlab.api.typings.common import PaginatedQuery
 from swanlab.api.typings.selfhosted import ApiSelfHostedInfoType
 from swanlab.api.workspace import Workspace
@@ -115,7 +116,10 @@ class TestApiEntryValidation:
             api.column("testuser/project/run1", key="")
 
     @pytest.mark.parametrize("column_type", ["STRING", "IMAGE"])
-    def test_columns_accept_documented_column_types(self, api, column_type):
+    def test_columns_accept_documented_column_types(self, ctx, api, column_type):
+        ctx.client.get.return_value = _api_response(
+            {"cuid": "run-cuid", "slug": "run1", "name": "test-run", "createdAt": "2024-08-01T00:00:00Z"}
+        )
         columns = api.columns("testuser/project/run1", column_type=column_type)
         assert isinstance(columns, Columns)
 
@@ -353,11 +357,11 @@ class TestExperimentRunIdResolution:
 class TestColumnValidation:
     def test_columns_invalid_type_raises(self, ctx):
         with pytest.raises(ValueError, match="Invalid column_type"):
-            Columns(ctx, path="user/proj/run1", query=PaginatedQuery(), column_type="INVALID")  # type: ignore
+            Columns(ctx, path="user/proj/run1", query=PaginatedQuery(), column_type="INVALID", exp_created_at=1)  # type: ignore
 
     def test_columns_invalid_class_raises(self, ctx):
         with pytest.raises(ValueError, match="Invalid column_class"):
-            Columns(ctx, path="user/proj/run1", query=PaginatedQuery(), column_class="INVALID")  # type: ignore
+            Columns(ctx, path="user/proj/run1", query=PaginatedQuery(), column_class="INVALID", exp_created_at=1)  # type: ignore
 
     def test_iterated_columns_resolve_run_cuid_once_for_local_fields(self, ctx):
         ctx.client.get.side_effect = [
@@ -374,7 +378,7 @@ class TestColumnValidation:
             ),
         ]
 
-        columns = Columns(ctx, path="user/proj/run-slug", query=PaginatedQuery())
+        columns = Columns(ctx, path="user/proj/run-slug", query=PaginatedQuery(), exp_created_at=1722470400)
 
         assert [column.name for column in columns] == ["loss", "acc"]
         assert [call.args[0] for call in ctx.client.get.call_args_list] == [
@@ -394,7 +398,7 @@ class TestColumnValidation:
             ),
         ]
 
-        col = Column(ctx, path="user/proj/run-slug", key="loss")
+        col = Column(ctx, path="user/proj/run-slug", key="loss", exp_created_at=1722470400)
 
         assert col.name == "loss"
         assert col.run_id == "run-cuid"
@@ -405,7 +409,7 @@ class TestColumnValidation:
 
     def test_column_project_id_fetches_project_lazily(self, ctx):
         item = {"key": "loss", "name": "loss", "type": "FLOAT", "class": "CUSTOM"}
-        col = Column(ctx, path="user/proj/run1", key="loss", data=cast(Any, item))
+        col = Column(ctx, path="user/proj/run1", key="loss", data=cast(Any, item), exp_created_at=1722470400)
         ctx.client.get.return_value = _api_response({"cuid": "project-cuid"})
 
         assert col.project_id == "project-cuid"
@@ -418,28 +422,28 @@ class TestColumnValidation:
 class TestMetricValidation:
     def test_metric_invalid_type_raises(self, ctx):
         with pytest.raises(ValueError, match="Invalid metric_type"):
-            Metric(ctx, project_id="p1", run_id="r1", key="loss", metric_type="INVALID")
+            Metric(ctx, project_id="p1", run_id="r1", key="loss", metric_type="INVALID", created_at=1)
 
     def test_metric_invalid_log_level_raises(self, ctx):
         with pytest.raises(ValueError, match="Invalid metric log level"):
-            Metric(ctx, project_id="p1", run_id="r1", key="LOG", metric_type="LOG", log_level="VERBOSE")  # type: ignore
+            Metric(ctx, project_id="p1", run_id="r1", key="LOG", metric_type="LOG", log_level="VERBOSE", created_at=1)  # type: ignore
 
     def test_metric_scalar_no_key_raises(self, ctx):
         with pytest.raises(ValueError, match="key is required"):
-            Metric(ctx, project_id="p1", run_id="r1", key="", metric_type="SCALAR")
+            Metric(ctx, project_id="p1", run_id="r1", key="", metric_type="SCALAR", created_at=1)
 
     def test_metrics_empty_keys_raises(self, ctx):
         with pytest.raises(ValueError, match="non-empty"):
-            Metrics(ctx, project_id="p1", run_id="r1", keys=[], metric_type="SCALAR")
+            Metrics(ctx, project_id="p1", run_id="r1", keys=[], metric_type="SCALAR", created_at=1)
 
     def test_metrics_invalid_type_raises(self, ctx):
         with pytest.raises(ValueError, match="Invalid metric_type"):
-            Metrics(ctx, project_id="p1", run_id="r1", keys=["loss"], metric_type=cast(Any, "INVALID"))
+            Metrics(ctx, project_id="p1", run_id="r1", keys=["loss"], metric_type=cast(Any, "INVALID"), created_at=1)
 
     @pytest.mark.parametrize("keys", ["loss", [""], None])
     def test_metrics_invalid_keys_raises(self, ctx, keys):
         with pytest.raises(ValueError, match="keys must be a non-empty list"):
-            Metrics(ctx, project_id="p1", run_id="r1", keys=cast(List[str], keys), metric_type="SCALAR")
+            Metrics(ctx, project_id="p1", run_id="r1", keys=cast(List[str], keys), metric_type="SCALAR", created_at=1)
 
 
 # ---------------------------------------------------------------------------
@@ -550,6 +554,16 @@ class TestCreatedAt:
         assert keys_payload["experiments"] == [
             {"projectId": "project-cuid", "experimentId": "run-cuid", "createdAt": 1722470400}
         ]
+
+    def test_series_raises_when_created_at_missing(self, ctx):
+        ctx.client.post.return_value = _api_response({"keys": ["loss"], "hasMore": False, "nextCursor": ""})
+
+        # experiment ref 缺失 createdAt 时必须强制报错，禁止静默降级为无下界查询（慢查询）
+        with pytest.raises(ValueError, match="createdAt"):
+            Series(
+                ctx.client,
+                experiments=[{"projectId": "project-cuid", "experimentId": "run-cuid"}],
+            )
 
 
 # ---------------------------------------------------------------------------

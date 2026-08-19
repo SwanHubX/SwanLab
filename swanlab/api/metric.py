@@ -207,6 +207,7 @@ class Metric(BaseEntity):
         *,
         project_id: str,
         run_id: str,
+        created_at: int,
         key: Optional[str] = "",
         sample: int = 1000,
         log_offset: Optional[int] = 0,  # 标记第几个分片，仅对 Log metric_type 有效
@@ -218,7 +219,6 @@ class Metric(BaseEntity):
         all: bool = False,
         root_pro_id: str = "",
         root_exp_id: str = "",
-        created_at: int = 0,
         experiment_name: str = "",
     ) -> None:
         super().__init__(ctx)
@@ -318,36 +318,35 @@ class Metric(BaseEntity):
     @staticmethod
     def _build_column_ref(
         experiment_id: str,
+        created_at: int,
         key: str,
         root_pro_id: str = "",
         root_exp_id: str = "",
-        created_at: int = 0,
     ) -> Dict[str, Any]:
-        ref: Dict[str, Any] = {"experimentId": experiment_id, "key": key}
+        # createdAt 为 House 查询的数据入库时间下界，必传
+        ref: Dict[str, Any] = {"experimentId": experiment_id, "key": key, "createdAt": created_at}
         if root_pro_id:
             ref["rootProId"] = root_pro_id
         if root_exp_id:
             ref["rootExpId"] = root_exp_id
-        if created_at:
-            ref["createdAt"] = created_at
         return ref
 
     @staticmethod
     def _build_scalar_payload(
         project_id: str,
         run_id: str,
+        created_at: int,
         keys: List[str],
         sample: int = 1500,
         x_type: str = "step",
         root_pro_id: str = "",
         root_exp_id: str = "",
-        created_at: int = 0,
     ) -> Dict[str, Any]:
         return {
             "projectId": project_id,
             "xType": x_type,
             "range": [0, 0],
-            "columns": [Metric._build_column_ref(run_id, key, root_pro_id, root_exp_id, created_at) for key in keys],
+            "columns": [Metric._build_column_ref(run_id, created_at, key, root_pro_id, root_exp_id) for key in keys],
             "num": sample if sample <= 1500 else 1500,
         }
 
@@ -355,15 +354,15 @@ class Metric(BaseEntity):
     def _build_media_payload(
         project_id: str,
         run_id: str,
+        created_at: int,
         keys: List[str],
         step: Optional[int] = None,
         root_pro_id: str = "",
         root_exp_id: str = "",
-        created_at: int = 0,
     ) -> Dict[str, Any]:
         payload: Dict[str, Any] = {
             "projectId": project_id,
-            "columns": [Metric._build_column_ref(run_id, key, root_pro_id, root_exp_id, created_at) for key in keys],
+            "columns": [Metric._build_column_ref(run_id, created_at, key, root_pro_id, root_exp_id) for key in keys],
         }
         if step is not None:
             payload["step"] = step
@@ -373,11 +372,11 @@ class Metric(BaseEntity):
     def _build_export_payload(
         project_id: str,
         run_id: str,
+        created_at: int,
         keys: List[str],
         experiment_name: str = "",
         root_pro_id: str = "",
         root_exp_id: str = "",
-        created_at: int = 0,
     ) -> Dict[str, Any]:
         """Build payload for ``POST /house/metrics/scalar/export``.
 
@@ -388,13 +387,17 @@ class Metric(BaseEntity):
         exp_name = experiment_name or run_id
         columns: List[Dict[str, Any]] = []
         for key in keys:
-            col: Dict[str, Any] = {"experimentName": exp_name, "experimentId": run_id, "key": key}
+            # createdAt 为 House 查询的数据入库时间下界，必传
+            col: Dict[str, Any] = {
+                "experimentName": exp_name,
+                "experimentId": run_id,
+                "key": key,
+                "createdAt": created_at,
+            }
             if root_pro_id:
                 col["rootProId"] = root_pro_id
             if root_exp_id:
                 col["rootExpId"] = root_exp_id
-            if created_at:
-                col["createdAt"] = created_at
             columns.append(col)
         return {"projectId": project_id, "columns": columns}
 
@@ -410,8 +413,8 @@ class Metric(BaseEntity):
             params["rootProId"] = self._root_pro_id
         if self._root_exp_id:
             params["rootExpId"] = self._root_exp_id
-        if self._created_at:
-            params["createdAt"] = self._created_at
+        # createdAt 为 House 查询的数据入库时间下界，必传
+        params["createdAt"] = self._created_at
         return params
 
     # ------------------------------------------------------------------
@@ -427,11 +430,11 @@ class Metric(BaseEntity):
         payload = self._build_scalar_payload(
             self.project_id,
             self.run_id,
+            self._created_at,
             [self.key],
             self._sample,
             root_pro_id=self._root_pro_id,
             root_exp_id=self._root_exp_id,
-            created_at=self._created_at,
         )
 
         # 1. 获取折线数据 — 使用 key-indexed lookup 保证对齐
@@ -506,11 +509,11 @@ class Metric(BaseEntity):
         payload = self._build_media_payload(
             self.project_id,
             self.run_id,
+            self._created_at,
             [self.key],
             step=self._media_step,
             root_pro_id=self._root_pro_id,
             root_exp_id=self._root_exp_id,
-            created_at=self._created_at,
         )
         raw_resp = self._post("/house/metrics/media", data=payload)
         if not raw_resp.ok or not raw_resp.data:
@@ -545,10 +548,10 @@ class Metric(BaseEntity):
         payload = self._build_media_payload(
             self.project_id,
             self.run_id,
+            self._created_at,
             [self.key],
             root_pro_id=self._root_pro_id,
             root_exp_id=self._root_exp_id,
-            created_at=self._created_at,
         )
         raw_resp = self._post("/house/metrics/f_media", data=payload)
         raw_data = self._extract_first(raw_resp)
@@ -595,11 +598,11 @@ class Metric(BaseEntity):
         payload = Metric._build_export_payload(
             self._project_id,
             self._run_id,
+            self._created_at,
             [self.key],
             experiment_name=self._experiment_name,
             root_pro_id=self._root_pro_id,
             root_exp_id=self._root_exp_id,
-            created_at=self._created_at,
         )
         resp = self._post("/house/metrics/scalar/export", data=payload)
         if not resp.ok or not resp.data:
@@ -627,8 +630,8 @@ class Metric(BaseEntity):
             data["rootProId"] = self._root_pro_id
         if self._root_exp_id:
             data["rootExpId"] = self._root_exp_id
-        if self._created_at:
-            data["createdAt"] = self._created_at
+        # createdAt 为 House 查询的数据入库时间下界，必传
+        data["createdAt"] = self._created_at
         resp = self._post("/house/metrics/log/export", data=data)
         if not resp.ok or not resp.data:
             return resp
@@ -714,7 +717,7 @@ class Metrics(BaseEntity):
         range_query: Optional[RangeQuery] = None,
         root_pro_id: str = "",
         root_exp_id: str = "",
-        created_at: int = 0,
+        created_at: int,
         experiment_name: str = "",
     ) -> None:
         super().__init__(ctx)
@@ -847,12 +850,12 @@ class Metrics(BaseEntity):
                     "data": Metric._build_scalar_payload(
                         self._project_id,
                         self._run_id,
+                        self._created_at,
                         keys,
                         self._sample,
                         x_type=x_type,
                         root_pro_id=self._root_pro_id,
                         root_exp_id=self._root_exp_id,
-                        created_at=self._created_at,
                     )
                 },
             )
@@ -889,11 +892,11 @@ class Metrics(BaseEntity):
                     "data": Metric._build_scalar_payload(
                         self._project_id,
                         self._run_id,
+                        self._created_at,
                         keys,
                         self._sample,
                         root_pro_id=self._root_pro_id,
                         root_exp_id=self._root_exp_id,
-                        created_at=self._created_at,
                     )
                 },
             ),
@@ -945,11 +948,11 @@ class Metrics(BaseEntity):
         export_payload = Metric._build_export_payload(
             self._project_id,
             self._run_id,
+            self._created_at,
             keys,
             experiment_name=self._experiment_name,
             root_pro_id=self._root_pro_id,
             root_exp_id=self._root_exp_id,
-            created_at=self._created_at,
         )
         requests.append((self._post, "/house/metrics/scalar/export", {"data": export_payload}))
 
@@ -1012,11 +1015,11 @@ class Metrics(BaseEntity):
         payload = Metric._build_media_payload(
             self._project_id,
             self._run_id,
+            self._created_at,
             self._keys,
             step=self._media_step,
             root_pro_id=self._root_pro_id,
             root_exp_id=self._root_exp_id,
-            created_at=self._created_at,
         )
         raw_resp = self._post("/house/metrics/media", data=payload)
         if not raw_resp.ok or not raw_resp.data:
@@ -1060,10 +1063,10 @@ class Metrics(BaseEntity):
         payload = Metric._build_media_payload(
             self._project_id,
             self._run_id,
+            self._created_at,
             self._keys,
             root_pro_id=self._root_pro_id,
             root_exp_id=self._root_exp_id,
-            created_at=self._created_at,
         )
         raw_resp = self._post("/house/metrics/f_media", data=payload)
         if not raw_resp.ok or not raw_resp.data:

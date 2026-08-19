@@ -64,7 +64,7 @@ class Column(BaseEntity):
         project_id_getter: Optional[Callable[[], str]] = None,
         root_pro_id: str = "",
         root_exp_id: str = "",
-        exp_created_at: int = 0,
+        exp_created_at: int,
     ) -> None:
         super().__init__(ctx)
         self._proj_path, self._run_slug = resolve_run_path(path=path)
@@ -244,7 +244,7 @@ class Columns(BaseEntity):
         project_id_getter: Optional[Callable[[], str]] = None,
         root_pro_id: str = "",
         root_exp_id: str = "",
-        exp_created_at: int = 0,
+        exp_created_at: int,
     ) -> None:
         super().__init__(ctx)
         self._run_path = path
