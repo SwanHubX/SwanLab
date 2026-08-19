@@ -11,7 +11,9 @@ import sys
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Optional, Set, Tuple, Union, cast
+from typing import Any, Dict, Optional, Tuple, Union, cast
+
+from pyroaring import BitMap64
 
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord, ColumnType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import ScalarRecord
@@ -26,12 +28,15 @@ __all__ = ["RunMetrics"]
 # 因此我们动态判断版本：如果是 3.10 及以上，开启 slots；否则传空字典
 DATACLASS_KWARGS = {"slots": True} if sys.version_info >= (3, 10) else {}
 
+# step 上限，超过此值视为病态输入，拒绝并抛 KeyError（由调用侧 safe.block catch）
+_MAX_STEP = 1 << 48
+
 
 @dataclass(**DATACLASS_KWARGS)
 class BaseMetric(ABC):
     _column: ColumnRecord
     min_step: int
-    steps: Set[int]
+    steps: BitMap64
 
     @property
     def column_type(self) -> ColumnType:
@@ -52,6 +57,8 @@ class BaseMetric(ABC):
         - step 小于等于 min_step
         - step 已经记录过
 
+        当 step 超过 _MAX_STEP 上限时抛出 KeyError（由调用侧 safe.block catch 并跳过该条 record）。
+
         当 step 可接受且此前未记录时：
         - 将 step 加入已记录集合
         - 返回 True
@@ -62,10 +69,16 @@ class BaseMetric(ABC):
         if step <= self.min_step:
             return False
 
+        if step > _MAX_STEP:
+            raise KeyError(f"step {step} exceeds the supported step limit {_MAX_STEP}")
+
         # 取消下面的处理是实现 https://github.com/SwanHubX/SwanLab/issues/1576 的前置条件，我们需要等待后端准备好
         if step in self.steps:
             return False
         self.steps.add(step)
+        # 周期性将连续游程压缩为 run 容器，收敛常驻内存（乱序数据下无收益时自动保持原容器，无害）
+        if len(self.steps) & 0xFFF == 0:
+            self.steps.run_optimize()
         return True
 
     @abstractmethod
@@ -177,7 +190,7 @@ class RunMetrics:
         :param min_step: 最小步数，代表用户无法再写入此步数之前的数据，这在阻止用户写入step小于0、resume时拒绝一定大小的step十分有用
         """
         assert key not in self._metrics, f"Metric '{key}' already exists."
-        scalar_metric = ScalarMetric(_column=column, steps=set(), min_step=min_step)
+        scalar_metric = ScalarMetric(_column=column, steps=BitMap64(), min_step=min_step)
         self._metrics[key] = scalar_metric
         return scalar_metric
 
@@ -190,7 +203,7 @@ class RunMetrics:
         :param min_step: 最小步数，代表用户无法再写入此步数之前的数据，这在阻止用户写入step小于0、resume时拒绝一定大小的step十分有用
         """
         assert key not in self._metrics, f"Metric '{key}' already exists."
-        media_metric = MediaMetric(_column=column, path=path, steps=set(), min_step=min_step)
+        media_metric = MediaMetric(_column=column, path=path, steps=BitMap64(), min_step=min_step)
         self._metrics[key] = media_metric
         return media_metric
 
