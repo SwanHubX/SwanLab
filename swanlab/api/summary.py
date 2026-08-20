@@ -54,7 +54,8 @@ class Summary(BaseEntity):
                 payload["keys"] = self._keys
             resp = self._post("/house/metrics/summaries", data=payload)
             if resp.ok and isinstance(resp.data, dict):
-                self._data = resp.data.get(self._experiment_id, {})
+                # 后端可能返回 {"<exp_id>": null}（该实验无标量摘要），兜底为空 dict
+                self._data = resp.data.get(self._experiment_id) or {}
             else:
                 self._data = {}
         assert self._data is not None
