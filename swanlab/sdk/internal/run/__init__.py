@@ -30,6 +30,7 @@ from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord
 from swanlab.sdk.internal.bus import MetricLogEvent
 from swanlab.sdk.internal.bus.events import FileSaveEvent
 from swanlab.sdk.internal.context import RunContext
+from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.pkg import adapter, console, fork, helper, safe
 from swanlab.sdk.internal.run import greeting
 from swanlab.sdk.internal.run.components import Components
@@ -790,6 +791,11 @@ class Run:
         # 清理全局运行实例
         console.debug("Cleanup global instance...")
         clear_run()
+        # [随临时方案删除] online 模式下销毁全局 client 单例，确保下次 init() 重新认证获取新 sid，
+        # 避免服务端在实验结束后使 sid 失效导致 401；待 client 生命周期归属 Core 后删除，跟踪 issue: #1742
+        if self.mode == "online" and client.exists():
+            console.debug("Reset online client...")
+            client.reset()
         console.debug("Clean & tidy! ciallo ( ∠・ω< ) ~ ★")
         # 释放日志，本次运行结束
         console.reset()

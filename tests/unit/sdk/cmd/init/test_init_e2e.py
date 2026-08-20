@@ -12,6 +12,7 @@
   - TestInitSettingsPriority : 配置优先级（全局 < 自定义 < 传参）
   - TestInitResumeValidation : resume/id 校验逻辑
   - TestInitOnlineMode       : online 模式，依赖本文件内的 HTTP mock fixtures
+  - TestOnlineMultipleInit   : online 模式多次 init/finish，验证 finish 后 client 重置与重新认证
   - TestInitFactoryDispatch  : 验证 factory 模式按模式分派组件类型
   - TestRunSave              : run.save() 各 policy / 各模式的端到端行为
 """
@@ -24,7 +25,6 @@ from typing import cast
 from unittest.mock import MagicMock
 
 import pytest
-import requests
 import responses as responses_lib
 import yaml
 
@@ -32,6 +32,7 @@ from swanlab.sdk.cmd.init import init
 from swanlab.sdk.cmd.login import login_cli
 from swanlab.sdk.cmd.merge_settings import merge_settings
 from swanlab.sdk.internal.bus import MetricLogEvent, RunEmitter
+from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.pkg import console, fork
 from swanlab.sdk.internal.run import Run, get_run, has_run
 from swanlab.sdk.internal.run.components import BackgroundConsumer, NullConsumer, NullEmitter
@@ -102,34 +103,9 @@ def make_experiment_resp(**overrides) -> dict:
     return {"cuid": EXPERIMENT_CUID, "slug": RUN_ID, "name": "test-experiment", **overrides}
 
 
-def make_stop_experiment_resp(**overrides) -> dict:
-    """PUT /api/project/{username}/{project}/runs/{cuid}/state 响应体"""
+def make_ok_resp(**overrides) -> dict:
+    """通用 {"message": "ok"} 响应体，适用于 stop/profile/columns/metrics/heartbeat 等端点"""
     return {"message": "ok", **overrides}
-
-
-def make_profile_resp(**overrides) -> dict:
-    """PUT /api/project/{username}/{project}/runs/{cuid}/profile 响应体"""
-    return {"message": "ok", **overrides}
-
-
-def make_columns_resp(**overrides) -> dict:
-    """列信息上传响应体"""
-    return {"message": "ok", **overrides}
-
-
-def make_metrics_resp(**overrides) -> dict:
-    """POST /api/house/metrics 响应体"""
-    return {"message": "ok", **overrides}
-
-
-def make_heartbeat_resp(**overrides) -> dict:
-    """POST /house/experiments/{experiment_id}/heartbeat 响应体"""
-    return {"message": "ok", **overrides}
-
-
-def make_presigned_put_resp(**overrides) -> dict:
-    """POST /api/resources/presigned/put 响应体"""
-    return {"urls": ["https://storage.fake.swanlab.cn/upload/0"], **overrides}
 
 
 # ============================================================
@@ -203,7 +179,7 @@ def mock_experiment_stop_api(rsps):
     rsps.add(
         responses_lib.PUT,
         f"{API_HOST}/api/project/{USERNAME}/{PROJECT}/runs/{EXPERIMENT_CUID}/state",
-        json=make_stop_experiment_resp(),
+        json=make_ok_resp(),
         status=200,
     )
     return rsps
@@ -215,7 +191,7 @@ def mock_profile_api(rsps):
     rsps.add(
         responses_lib.PUT,
         f"{API_HOST}/api/project/{USERNAME}/{PROJECT}/runs/{EXPERIMENT_CUID}/profile",
-        json=make_profile_resp(),
+        json=make_ok_resp(),
         status=200,
     )
     return rsps
@@ -223,17 +199,11 @@ def mock_profile_api(rsps):
 
 @pytest.fixture
 def mock_columns_api(rsps):
-    """注册新版和 legacy 端点（列信息上传）"""
+    """注册 POST /api/projects/{username}/{project}/series 端点（新版列信息上传）"""
     rsps.add(
         responses_lib.POST,
         f"{API_HOST}/api/projects/{USERNAME}/{PROJECT}/series",
-        json=make_columns_resp(),
-        status=200,
-    )
-    rsps.add(
-        responses_lib.POST,
-        f"{API_HOST}/api/experiment/{EXPERIMENT_CUID}/columns",
-        json=make_columns_resp(),
+        json=make_ok_resp(),
         status=200,
     )
     return rsps
@@ -245,7 +215,7 @@ def mock_metrics_api(rsps):
     rsps.add(
         responses_lib.POST,
         f"{API_HOST}/api/house/metrics",
-        json=make_metrics_resp(),
+        json=make_ok_resp(),
         status=200,
     )
     return rsps
@@ -257,31 +227,7 @@ def mock_heartbeat_api(rsps):
     rsps.add(
         responses_lib.POST,
         f"{API_HOST}/api/house/experiments/{EXPERIMENT_CUID}/heartbeat",
-        json=make_heartbeat_resp(),
-        status=200,
-    )
-    return rsps
-
-
-@pytest.fixture
-def mock_presigned_put_api(rsps):
-    """注册 POST /api/resources/presigned/put 端点（获取对象存储预签名 URL）"""
-    rsps.add(
-        responses_lib.POST,
-        f"{API_HOST}/api/resources/presigned/put",
-        json=make_presigned_put_resp(),
-        status=200,
-    )
-    return rsps
-
-
-@pytest.fixture
-def mock_resource_upload_api(rsps):
-    """注册 PUT 预签名 URL 端点（上传资源文件到对象存储）"""
-    rsps.add(
-        responses_lib.PUT,
-        "https://storage.fake.swanlab.cn/upload/0",
-        body="",
+        json=make_ok_resp(),
         status=200,
     )
     return rsps
@@ -306,24 +252,15 @@ def mock_online_init_apis(
     mock_profile_api,
     mock_columns_api,
     mock_metrics_api,
-    mock_presigned_put_api,
-    mock_resource_upload_api,
     mock_heartbeat_api,
 ):
     """
-    组合 fixture：一次性注册 init(mode='online') 当前所需的全部 HTTP 端点。
+    组合 fixture：一次性注册 init(mode='online') 常规流程所需的全部 HTTP 端点
+    （登录、项目、实验、列、指标、心跳），不包含媒体上传端点（presigned/对象存储），
+    需要媒体上传的测试请自行追加对应 fixture。
     所有子 fixture 通过 pytest 的 fixture 缓存机制共享同一个 rsps 实例。
     """
     pass
-
-
-def test_mock_columns_api_registers_new_and_legacy_endpoints(mock_columns_api):
-    """列上传 mock 同时覆盖新版项目和 legacy 项目的 sender。"""
-    new_resp = requests.post(f"{API_HOST}/api/projects/{USERNAME}/{PROJECT}/series", json={})
-    legacy_resp = requests.post(f"{API_HOST}/api/experiment/{EXPERIMENT_CUID}/columns", json={})
-
-    assert new_resp.status_code == 200
-    assert legacy_resp.status_code == 200
 
 
 @pytest.fixture
@@ -727,6 +664,57 @@ class TestInitOnlineMode:
 
 
 # ============================================================
+# TestOnlineMultipleInit
+# [随临时方案删除] 验证 finish() 后 client 单例被销毁、下次 init() 重新认证获取新 sid，
+# 避免 #1715：服务端在实验结束后使 sid 失效，二次 init 复用旧 client 导致 401。
+# 跟踪 issue: #1742，待 client 生命周期归属 Core 后删除本测试类
+# ============================================================
+
+
+class TestOnlineMultipleInit:
+    def test_second_init_relogin_after_finish(self, logged_in_client, mock_online_init_apis, rsps):
+        """两次 init/finish：finish 后 client 被重置，第二次 init 重新登录获取新 sid"""
+        # 第一次运行
+        run1 = init(mode="online", project=PROJECT)
+        run1.log({"loss": 0.5})
+        run1.finish()
+        assert not client.exists()
+
+        # 第二次运行：应重新认证并成功启动
+        run2 = init(mode="online", project=PROJECT)
+        assert isinstance(run2, Run)
+        assert has_run()
+        run2.log({"acc": 0.9})
+        run2.finish()
+
+        # 首次登录 1 次 + finish 后重登 1 次
+        login_calls = sum(1 for c in rsps.calls if c.request.url.endswith("/api/login/api_key"))
+        assert login_calls == 2
+
+    def test_client_reset_when_stop_experiment_fails(self, logged_in_client, mock_online_init_apis, rsps):
+        """stop_experiment 上报失败（404，不在重试 forcelist）时，finish 仍应重置 client"""
+        rsps.replace(
+            responses_lib.PUT,
+            f"{API_HOST}/api/project/{USERNAME}/{PROJECT}/runs/{EXPERIMENT_CUID}/state",
+            json={"message": "not found"},
+            status=404,
+        )
+
+        run = init(mode="online", project=PROJECT)
+        run.log({"loss": 0.5})
+        run.finish()
+
+        assert not client.exists()
+
+    def test_local_finish_keeps_client(self, logged_in_client):
+        """显式登录后运行 local 模式实验，finish 不应销毁 client（仅 online 模式重置）"""
+        run = init(mode="local", project=PROJECT)
+        run.finish()
+
+        assert client.exists()
+
+
+# ============================================================
 # TestInitConfigIntegration
 # ============================================================
 
@@ -1065,11 +1053,6 @@ def make_save_prepare_resp(**overrides) -> dict:
     return {"urls": ["https://storage.fake.swanlab.cn/save/0"], **overrides}
 
 
-def make_save_complete_resp(**overrides) -> dict:
-    """POST /api/experiment/{experiment_id}/files/complete 响应体"""
-    return {"message": "ok", **overrides}
-
-
 # ============================================================
 # Save HTTP Mock Fixtures
 # ============================================================
@@ -1093,7 +1076,7 @@ def mock_save_complete_api(rsps):
     rsps.add(
         responses_lib.POST,
         f"{API_HOST}/api/experiment/{EXPERIMENT_CUID}/files/complete",
-        json=make_save_complete_resp(),
+        json=make_ok_resp(),
         status=201,
     )
     return rsps
