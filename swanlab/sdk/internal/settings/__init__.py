@@ -88,7 +88,6 @@ class _QuoteAwareEnvSettingsSource(EnvSettingsSource):
 
     def _load_env_vars(self) -> Mapping[str, Optional[str]]:
         env_vars = super()._load_env_vars()
-        print(f"Loaded environment variables: {env_vars}")
         return {key: self._strip_env_quotes(val) if isinstance(val, str) else val for key, val in env_vars.items()}
 
 
