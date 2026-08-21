@@ -95,6 +95,8 @@
 | `release/vX.Y`             | 历史版本维护分支（如 `release/v0.7`）   | 仅 bug 修复            |
 | `backport/<branch>/pr-<N>` | backport 产生的临时分支（工具自动创建） | 合并后即可删除         |
 
+> 注：表中 `release/v0.7` 仅作为分支命名示例，当前实际维护的 release 分支以仓库为准。
+
 - 新大版本发布时，从当时的 `main` 切出对应的 `release/vX.Y` 分支，此后 `main` 进入下一版本的活跃开发。
 - `release/vX.Y` 分支只做缺陷修复，不接受新功能，以保证历史版本的稳定。
 
