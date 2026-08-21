@@ -110,4 +110,12 @@ message ColumnRecord {
 
     // 指标颜色列表，十六进制颜色值，如 "#FF5733"
     MetricColors metric_colors = 12;
+
+    // define_metric: 自定义 X 轴 key；none 表示系统默认（_step）
+    // media 类型图表暂时无视此字段
+    optional string x_axis = 13;
+
+    // define_metric: 自动建图表是否放入 HIDDEN section
+    // SDK 上行仅在 True 时携带（presence 编码）；first-log 后不可变更
+    optional bool hidden = 14;
 }
