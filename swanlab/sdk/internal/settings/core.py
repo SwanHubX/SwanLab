@@ -1,13 +1,8 @@
 """SwanLab Core settings."""
 
-import os
-
 from pydantic import BaseModel, ConfigDict, Field
 
-
-def section_rule_index_factory() -> int:
-    # 向下兼容旧版本环境变量
-    return int(os.environ.get("SWANLAB_SECTION_RULE_IDX", "0"))
+from .compat import section_rule_index_factory
 
 
 class CoreSettings(BaseModel):

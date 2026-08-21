@@ -18,7 +18,6 @@
 用户可以通过merge_settings动态合并配置，但是在设计上，在执行`swanlab.init`和`swanlab.finish`之间，无法使用merge_settings。
 """
 
-import os
 from pathlib import Path
 from typing import Any, ClassVar, Dict, Optional, Tuple, Type, Union, get_args
 
@@ -39,6 +38,7 @@ from swanlab.proto.swanlab.settings.probe.v1.probe_pb2 import ProbeSettings as P
 from swanlab.sdk.internal.pkg import console, helper, nrc, safe
 from swanlab.sdk.typings.run import ModeType
 
+from .compat import getenv, log_dir_factory, strip_env_quotes
 from .core import CoreSettings
 from .experiment import ExperimentSettings, ProjectSettings, RunSettings
 from .global_settings import get_global_settings, set_global_settings
@@ -52,11 +52,11 @@ __all__ = ["Settings", "create_settings", "resolve_hosts", "set_global_settings"
 ROOT_FOLDER = ".swanlab"
 # 根据环境变量自动设置 secrets_dir
 # 如果强制设置，会出现警告：https://github.com/pydantic/pydantic/issues/2175
-secrets_dir_env = os.getenv("SWANLAB_SECRETS_DIR")
+secrets_dir_env = getenv("SWANLAB_SECRETS_DIR")
 SECRETS_DIR: Optional[str] = secrets_dir_env or None
 
 # 根据环境变量选择全局配置文件路径
-config_dir_env = os.getenv("SWANLAB_CONFIG_DIR")
+config_dir_env = getenv("SWANLAB_CONFIG_DIR")
 CONFIG_DIR: str = config_dir_env or "/etc/swanlab"
 
 
@@ -72,30 +72,8 @@ class _QuoteAwareEnvSettingsSource(EnvSettingsSource):
     def __init__(self, settings_cls: Type[Any], **kwargs: Any) -> None:
         super().__init__(settings_cls, **kwargs)
         self.env_vars = {
-            key: self._strip_env_quotes(val) if isinstance(val, str) else val for key, val in self.env_vars.items()
+            key: strip_env_quotes(val) if isinstance(val, str) else val for key, val in self.env_vars.items()
         }
-
-    @staticmethod
-    def _strip_env_quotes(value: str) -> str:
-        """剥离环境变量值首尾成对的同类引号。
-
-        某些 shell 脚本（eval、命令替换、/etc/environment）注入的环境变量会保留字面引号字符，
-        例如 ``SWANLAB_API_KEY='"abc123"'`` 的实际值为 ``"abc123"``（含引号）。
-        此函数检测并剥离首尾成对的双引号或单引号，恢复真实值。
-
-        仅当首尾字符相同且均为引号时才剥离，避免误伤仅单侧带引号或不匹配的情况。
-        """
-        if not isinstance(value, str) or len(value) < 2:
-            return value
-        first, last = value[0], value[-1]
-        if first == last and first in ('"', "'"):
-            return value[1:-1]
-        return value
-
-
-def log_dir_factory() -> Path:
-    # 向下兼容旧版本环境变量
-    return Path(os.environ.get("SWANLAB_LOGDIR", str(Path.cwd() / "swanlog")))
 
 
 class Settings(BaseSettings):
@@ -135,9 +113,7 @@ class Settings(BaseSettings):
     @staticmethod
     def get_user_config_dir():
         # SWANLAB_SAVE_DIR 用于向下兼容历史环境变量
-        return Path(
-            os.environ.get("SWANLAB_ROOT") or os.environ.get("SWANLAB_SAVE_DIR", str(Path.home() / ROOT_FOLDER))
-        )
+        return Path(getenv("SWANLAB_ROOT") or getenv("SWANLAB_SAVE_DIR", str(Path.home() / ROOT_FOLDER)))
 
     Project: ClassVar[Type[ProjectSettings]] = ProjectSettings
     Run: ClassVar[Type[RunSettings]] = RunSettings

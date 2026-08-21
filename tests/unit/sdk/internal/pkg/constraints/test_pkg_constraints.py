@@ -347,7 +347,9 @@ class TestSettingsUsesConstraints:
     @pytest.mark.parametrize(
         "env_value, expected",
         [
-            ('"bad-name"', None),
+            ('"bad name"', None),
+            ('"bad-name"', "bad-name"),
+            ("bad name", None),
             ("valid-project", "valid-project"),
         ],
     )
