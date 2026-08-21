@@ -18,6 +18,7 @@ from swanlab.api.typings.common import (
     ApiResponseType,
     ApiVisibilityLiteral,
 )
+from swanlab.exceptions import ApiError, AuthenticationError
 from swanlab.utils import generate_id
 
 
@@ -32,41 +33,6 @@ METRIC_KEY_TYPE = click.Choice(list(get_args(ApiMetricKeyTypeLiteral)), case_sen
 METRIC_KEY_CLASS = click.Choice(list(get_args(ApiMetricKeyClassLiteral)), case_sensitive=False)
 VISIBILITY_TYPE = click.Choice(list(get_args(ApiVisibilityLiteral)), case_sensitive=False)
 METRIC_LOG_LEVEL_TYPE = click.Choice(list(get_args(ApiMetricLogLevelLiteral)), case_sensitive=False)
-
-
-def with_custom_host(func: Callable) -> Callable:
-    """
-    Add common SwanLab API host/auth options to a CLI command.
-
-    The wrapped command receives an `api` keyword argument. When no option is
-    provided, the default local login settings are used.
-    """
-
-    @click.option(
-        "--host",
-        "-h",
-        default=None,
-        type=str,
-        help="The host of the SwanLab server.",
-    )
-    @click.option(
-        "--api-key",
-        "--api_key",
-        "-k",
-        "api_key",
-        default=None,
-        type=str,
-        help="The API key to use for authentication.",
-    )
-    @wraps(func)
-    def wrapper(*args, host: Optional[str] = None, api_key: Optional[str] = None, **kwargs):
-        if host is None and api_key is None:
-            api = Api()
-        else:
-            api = Api(host=host, api_key=api_key)
-        return func(*args, api=api, **kwargs)
-
-    return wrapper
 
 
 def format_output(
@@ -91,6 +57,65 @@ def save_output(content: bytes, name: Optional[str] = None, fmt: _SaveFormatEnum
     with open(filename, "wb") as f:
         f.write(content)
     click.echo(f"Saved to {filename}")
+
+
+def api_command(func: Callable) -> Callable:
+    """
+    SwanLab API CLI 命令统一装饰器。
+
+    为命令附加 ``--host`` / ``--api-key`` / ``--save`` 选项并注入已认证的 ``api`` 参数；
+    命令体只需构造并返回 ``ApiResponseType``，输出、降级与保存统一由装饰器处理：
+
+    - 正常返回：打印 ``{"ok": true, "errmsg": "", "data": ...}`` 信封
+    - 命令体抛出 ``ValueError``（实体不存在、createdAt 缺失等）：降级为 ``ok=False`` 信封并注入 ``errmsg``
+    - 无论成功失败，``--save`` 均保存完整 JSON
+    - Api 构造阶段（未登录 / 认证失败）无法产出信封，转为单行 ClickException
+    """
+
+    @click.option(
+        "--host",
+        "-h",
+        default=None,
+        type=str,
+        help="The host of the SwanLab server.",
+    )
+    @click.option(
+        "--api-key",
+        "--api_key",
+        "-k",
+        "api_key",
+        default=None,
+        type=str,
+        help="The API key to use for authentication.",
+    )
+    @click.option(
+        "--save",
+        "save_name",
+        is_flag=False,
+        flag_value=".",
+        help="Save output as JSON to current directory.",
+    )
+    @wraps(func)
+    def wrapper(
+        *args, host: Optional[str] = None, api_key: Optional[str] = None, save_name: Optional[str] = None, **kwargs
+    ):
+        try:
+            if host is None and api_key is None:
+                api = Api()
+            else:
+                api = Api(host=host, api_key=api_key)
+        except (ApiError, AuthenticationError) as e:
+            raise click.ClickException(str(e)) from None
+        try:
+            resp = func(*args, api=api, **kwargs)
+        except ValueError as e:
+            resp = ApiResponseType(ok=False, errmsg=str(e))
+        payload = format_output(resp)
+        if save_name is not None:
+            save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
+        return payload
+
+    return wrapper
 
 
 def parse_keys(keys: str) -> list[str]:

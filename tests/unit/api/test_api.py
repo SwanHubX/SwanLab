@@ -565,6 +565,19 @@ class TestCreatedAt:
                 experiments=[{"projectId": "project-cuid", "experimentId": "run-cuid"}],
             )
 
+    def test_summary_raises_load_error_when_experiment_missing(self, ctx_404):
+        exp = Experiment(ctx_404, path="user/proj/run123")
+
+        # 实验不存在时必须抛出携带路径与原始服务端错误的异常，而非空字符串时间戳错误
+        with pytest.raises(ValueError, match="Failed to load experiment 'user/proj/run123'.*404"):
+            exp.summary()
+
+    def test_metrics_raises_load_error_when_experiment_missing(self, ctx_404):
+        exp = Experiment(ctx_404, path="user/proj/run123")
+
+        with pytest.raises(ValueError, match="Failed to load experiment 'user/proj/run123'.*404"):
+            exp.metrics(["loss"])
+
 
 # ---------------------------------------------------------------------------
 # Experiments POST 过滤 — 校验
