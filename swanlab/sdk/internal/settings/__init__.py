@@ -20,7 +20,7 @@
 
 import os
 from pathlib import Path
-from typing import Any, ClassVar, Dict, Mapping, Optional, Tuple, Type, Union, get_args
+from typing import Any, ClassVar, Dict, Optional, Tuple, Type, Union, get_args
 
 import yaml
 from pydantic import Field, field_validator
@@ -63,11 +63,17 @@ CONFIG_DIR: str = config_dir_env or "/etc/swanlab"
 class _QuoteAwareEnvSettingsSource(EnvSettingsSource):
     """环境变量源：在加载阶段剥离 shell 脚本注入的成对引号。
 
-    通过覆写 ``_load_env_vars`` 在最底层清理 ``self.env_vars``，
+    通过在 ``__init__`` 末尾清洗 ``self.env_vars``，
     使后续所有消费路径（简单字段读取、嵌套字段 explode、复杂字段 JSON 解析）均获得清理后的值。
 
     NOTE: 如果有需求，后续可以效仿 SWANLAB_CONFIG_DIR 等专门写一个 ``SWANLAB_STRIP_ENV_QUOTES`` 环境变量来控制是否启用剥离功能或者专门控制某几个key的剥离行为。
     """
+
+    def __init__(self, settings_cls: Type[Any], **kwargs: Any) -> None:
+        super().__init__(settings_cls, **kwargs)
+        self.env_vars = {
+            key: self._strip_env_quotes(val) if isinstance(val, str) else val for key, val in self.env_vars.items()
+        }
 
     @staticmethod
     def _strip_env_quotes(value: str) -> str:
@@ -85,10 +91,6 @@ class _QuoteAwareEnvSettingsSource(EnvSettingsSource):
         if first == last and first in ('"', "'"):
             return value[1:-1]
         return value
-
-    def _load_env_vars(self) -> Mapping[str, Optional[str]]:
-        env_vars = super()._load_env_vars()
-        return {key: self._strip_env_quotes(val) if isinstance(val, str) else val for key, val in env_vars.items()}
 
 
 def log_dir_factory() -> Path:
