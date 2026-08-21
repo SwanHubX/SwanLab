@@ -44,18 +44,10 @@ class SwanLabCallback(Callback):
         experiment_name: Optional[str] = None,
         description: Optional[str] = None,
         log_dir: Optional[str] = None,
-        logdir: Optional[str] = None,
         mode: Optional[str] = None,
         tags: Optional[List[str]] = None,
         **kwargs: Any,
     ) -> None:
-        if logdir is not None:
-            import warnings
-
-            warnings.warn(
-                "The `logdir` parameter is deprecated, use `log_dir` instead.", DeprecationWarning, stacklevel=2
-            )
-            log_dir = logdir
         self._init_kwargs: dict[str, Any] = {}
         for key, value in [
             ("project", project),
@@ -187,16 +179,10 @@ def add_swanlab_callback(
     experiment_name: Optional[str] = None,
     description: Optional[str] = None,
     log_dir: Optional[str] = None,
-    logdir: Optional[str] = None,
     mode: Optional[str] = None,
     tags: Optional[List[str]] = None,
     **kwargs: Any,
 ) -> Any:
-    if logdir is not None:
-        import warnings
-
-        warnings.warn("The `logdir` parameter is deprecated, use `log_dir` instead.", DeprecationWarning, stacklevel=2)
-        log_dir = logdir
     cb = SwanLabCallback(
         project=project,
         workspace=workspace,
@@ -225,16 +211,10 @@ def return_swanlab_callback(
     experiment_name: Optional[str] = None,
     description: Optional[str] = None,
     log_dir: Optional[str] = None,
-    logdir: Optional[str] = None,
     mode: Optional[str] = None,
     tags: Optional[List[str]] = None,
     **kwargs: Any,
 ) -> dict:
-    if logdir is not None:
-        import warnings
-
-        warnings.warn("The `logdir` parameter is deprecated, use `log_dir` instead.", DeprecationWarning, stacklevel=2)
-        log_dir = logdir
     cb = SwanLabCallback(
         project=project,
         workspace=workspace,
