@@ -58,3 +58,15 @@ jobs:
         # 跳过 core/proto（生成的 protobuf 代码，无测试），与 Makefile core-test 行为一致
         working-directory: core
         run: go test -race $(go list ./... | ${{ matrix.grep }})
+
+  check:
+    # 聚合所有前置 job 的结果，供 GitHub ruleset 配置单一 required status check
+    name: Check
+    needs: [lint, test]
+    # always() 确保前置失败时本 job 依然运行，从而汇报 failure 而不是被 skip
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if any required job failed or was cancelled
+        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: exit 1
