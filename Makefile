@@ -1,7 +1,7 @@
 AGENTS_SKILL_DIR := .agents/skills
 SKILLS_DIR := docs/skills
 
-.PHONY:  init sync format proto unit bench clean build publish link-skills unlink-skills relink-skills core-lint core-fmt core-test core-build core-tidy
+.PHONY: init sync format proto unit bench clean build publish backport link-skills unlink-skills relink-skills core-lint core-fmt core-test core-build core-tidy
 
 # ----------------------------------
 # SKILL (docs/skills)
@@ -41,6 +41,21 @@ proto:
 	uv run scripts/generate_protos.py
 
 # ----------------------------------
+# Backport (scripts/backport.sh)
+# ----------------------------------
+
+backport:
+	@if [ -z "$(PR)" ] || [ -z "$(BRANCH)" ]; then \
+		echo "Usage: make backport PR=<pr-number> BRANCH=<release-branch>"; \
+		echo "Example: make backport PR=1743 BRANCH=release/v0.8"; \
+		exit 1; \
+	fi
+	bash scripts/backport.sh PR=$(PR) BRANCH=$(BRANCH)
+
+clean:
+	@bash scripts/clean_pycache.sh .
+
+# ----------------------------------
 # Python package (swanlab/)
 # ----------------------------------
 
@@ -76,9 +91,6 @@ publish:
 		exit 1; \
 	fi
 	UV_PUBLISH_TOKEN="$$PYPI_TOKEN" uv publish
-
-clean:
-	@bash scripts/clean_pycache.sh .
 
 # ----------------------------------
 # Go core (core/)

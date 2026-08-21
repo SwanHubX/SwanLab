@@ -66,6 +66,7 @@ class Experiment(BaseEntity):
         self._cuid: str = (data or {}).get("cuid", "")
         self._data: Optional[ApiExperimentType] = data
         self._project_id = ""
+        self._load_error: Optional[str] = None
 
     def _refresh_cuid(self) -> None:
         if self._data:
@@ -74,7 +75,14 @@ class Experiment(BaseEntity):
     def _ensure_data(self) -> ApiExperimentType:
         if self._data is None:
             resp = self._get(f"/project/{self._proj_path}/runs/{self._run_slug}")
-            self._data = resp.data if resp.ok and resp.data else cast(ApiExperimentType, {})
+            if resp.ok and resp.data:
+                self._data = resp.data
+            else:
+                # 加载失败时缓存空数据避免重复请求，同时记录原因供 created_at_ts 抛出
+                self._data = {}
+                self._load_error = (
+                    resp.errmsg or f"API Request Failed: /project/{self._proj_path}/runs/{self._run_slug}"
+                )
         self._refresh_cuid()
         assert self._data is not None
         return self._data
@@ -160,6 +168,25 @@ class Experiment(BaseEntity):
         return self._ensure_data().get("createdAt", "")
 
     @property
+    def created_at_ts(self) -> int:
+        """秒级 createdAt 时间戳（House 查询接口的必传下界参数）
+
+        实验不存在 / 加载失败时抛出携带原始服务端错误的异常；
+        createdAt 缺失或非法时同样强制报错，禁止静默降级为无下界查询（慢查询）。
+
+        :raises ValueError: 加载失败或 createdAt 缺失 / 非法时抛出
+        """
+        data = self._ensure_data()
+        if self._load_error is not None:
+            raise ValueError(f"Failed to load experiment '{self._proj_path}/{self._run_slug}': {self._load_error}")
+        try:
+            return parse_timestamp_s(data.get("createdAt", ""))
+        except ValueError as e:
+            raise ValueError(
+                f"Failed to parse createdAt of experiment '{self._proj_path}/{self._run_slug}': {e}"
+            ) from None
+
+    @property
     def finished_at(self) -> str:
         return self._ensure_data().get("finishedAt", "")
 
@@ -206,7 +233,7 @@ class Experiment(BaseEntity):
             project_id_getter=lambda: self.project_id,
             root_pro_id=self.root_pro_id,
             root_exp_id=self.root_exp_id,
-            exp_created_at=parse_timestamp_s(self.created_at),
+            exp_created_at=self.created_at_ts,
         )
 
     def metrics(
@@ -318,7 +345,7 @@ class Experiment(BaseEntity):
             range_query=rq,
             root_pro_id=self.root_pro_id,
             root_exp_id=self.root_exp_id,
-            created_at=parse_timestamp_s(self.created_at),
+            created_at=self.created_at_ts,
             experiment_name=self.name,
         ).json()
 
@@ -347,7 +374,7 @@ class Experiment(BaseEntity):
             keys=keys,
             root_pro_id=self.root_pro_id,
             root_exp_id=self.root_exp_id,
-            created_at=parse_timestamp_s(self.created_at),
+            created_at=self.created_at_ts,
         ).json()
 
     def medias(
@@ -370,7 +397,7 @@ class Experiment(BaseEntity):
             all=all,
             root_pro_id=self.root_pro_id,
             root_exp_id=self.root_exp_id,
-            created_at=parse_timestamp_s(self.created_at),
+            created_at=self.created_at_ts,
         ).json()
 
     def logs(
@@ -394,7 +421,7 @@ class Experiment(BaseEntity):
             ignore_timestamp=ignore_timestamp,
             root_pro_id=self.root_pro_id,
             root_exp_id=self.root_exp_id,
-            created_at=parse_timestamp_s(self.created_at),
+            created_at=self.created_at_ts,
         )
         return logs.json()
 
@@ -421,7 +448,7 @@ class Experiment(BaseEntity):
             metric_type="LOG",
             root_pro_id=self.root_pro_id,
             root_exp_id=self.root_exp_id,
-            created_at=parse_timestamp_s(self.created_at),
+            created_at=self.created_at_ts,
         )
         return metric.export_logs(start=start, rows=rows)
 
@@ -460,7 +487,7 @@ class Experiment(BaseEntity):
             project_id_getter=lambda: self.project_id,
             root_pro_id=self.root_pro_id,
             root_exp_id=self.root_exp_id,
-            exp_created_at=parse_timestamp_s(self.created_at),
+            exp_created_at=self.created_at_ts,
         )
 
     def series(
@@ -490,7 +517,7 @@ class Experiment(BaseEntity):
         experiment_ref: Dict[str, Any] = {
             "projectId": query_pro_id,
             "experimentId": query_exp_id,
-            "createdAt": parse_timestamp_s(self.created_at),
+            "createdAt": self.created_at_ts,
         }
         return Series(
             self._ctx,

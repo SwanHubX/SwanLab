@@ -54,3 +54,15 @@ jobs:
       - name: Run tests with pytest
         # uv run 会自动识别当前的虚拟环境并执行 pytest
         run: uv run pytest
+
+  check:
+    # 聚合所有前置 job 的结果，供 GitHub ruleset 配置单一 required status check
+    name: Check
+    needs: [type-check, test]
+    # always() 确保前置失败时本 job 依然运行，从而汇报 failure 而不是被 skip
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if any required job failed or was cancelled
+        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: exit 1

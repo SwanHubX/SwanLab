@@ -472,7 +472,7 @@ class Metric(BaseEntity):
         resp = entity._post("/resources/presigned/get", data={"prefix": prefix, "paths": paths})
         if not resp.ok or not isinstance(resp.data, dict):
             return {}
-        urls = resp.data.get("urls", [])
+        urls = resp.data.get("urls") or []
         return dict(zip(paths, urls)) if urls else {}
 
     @staticmethod
@@ -483,7 +483,7 @@ class Metric(BaseEntity):
         resp = entity._post("/files/presigned/get", data={"paths": paths})
         if not resp.ok or not isinstance(resp.data, dict):
             return {}
-        urls = resp.data.get("urls", [])
+        urls = resp.data.get("urls") or []
         return dict(zip(paths, urls)) if urls else {}
 
     @staticmethod
@@ -492,8 +492,9 @@ class Metric(BaseEntity):
         url_map: Dict[str, str],
     ) -> List[ApiMediaItemDataType]:
         """将单个 metric entry 的 data/more 合并为 items，注入预签名 url。"""
-        paths = entry.get("data", [])
-        mores = entry.get("more", [])
+        # 后端对"无数据"可能返回显式 null（dict.get 的默认值不生效），统一兜底为空列表
+        paths = entry.get("data") or []
+        mores = entry.get("more") or []
         items: List[ApiMediaItemDataType] = []
         for i, path in enumerate(paths):
             item: ApiMediaItemDataType = {}
@@ -522,25 +523,26 @@ class Metric(BaseEntity):
         if not isinstance(data, dict):
             return res
 
-        res["steps"] = data.get("steps", [])
+        res["steps"] = data.get("steps") or []
         step_val = data.get("step")
         if step_val is not None:
             res["step"] = step_val
 
-        metrics_raw: List[Dict[str, Any]] = data.get("metrics", [])
+        # metrics 可能为 null（该步无数据）或含 None 条目，过滤后再匹配 key
+        metrics_raw: List[Dict[str, Any]] = [m for m in (data.get("metrics") or []) if isinstance(m, dict)]
         metric_entry = next((m for m in metrics_raw if m.get("key") == self.key), None)
         if metric_entry is None:
             return res
 
         prefix = f"{self.project_id}/{self.run_id}"
-        all_paths = metric_entry.get("data", [])
+        all_paths = metric_entry.get("data") or []
         url_map = self._fetch_presigned_urls(self, prefix, all_paths) if all_paths else {}
         if all_paths:
             console.debug(
                 f"Media fetched: run_id[{self.run_id}], key[{self.key}] - {len(all_paths)} items, requesting presigned urls..."
             )
         items = self._build_media_items(metric_entry, url_map)
-        res["metrics"] = [{"index": data.get("step", 0), "items": items}]
+        res["metrics"] = [{"index": data.get("step") or 0, "items": items}]
         return res
 
     def _fetch_media_all(self) -> ApiMediaSeriesType:
@@ -559,15 +561,16 @@ class Metric(BaseEntity):
             return res
 
         prefix = f"{self.project_id}/{self.run_id}"
-        all_paths = [p for entry in raw_data.get("metrics", []) for p in entry.get("data", [])]
+        # metrics 可能为 null 或含 None 条目，过滤后再展开
+        entries = [e for e in (raw_data.get("metrics") or []) if isinstance(e, dict)]
+        all_paths = [p for entry in entries for p in (entry.get("data") or [])]
         url_map = self._fetch_presigned_urls(self, prefix, all_paths) if all_paths else {}
         if all_paths:
             console.debug(
                 f"Media fetched (all): run_id[{self.run_id}], key[{self.key}] - {len(all_paths)} items, requesting presigned urls..."
             )
         res["metrics"] = [
-            {"index": entry.get("index", 0), "items": self._build_media_items(entry, url_map)}
-            for entry in raw_data.get("metrics", [])
+            {"index": entry.get("index", 0), "items": self._build_media_items(entry, url_map)} for entry in entries
         ]
         return res
 
@@ -1028,12 +1031,13 @@ class Metrics(BaseEntity):
         if not isinstance(resp_data, dict):
             return self._empty_scalar_results(self._keys)
 
-        steps = resp_data.get("steps", [])
+        steps = resp_data.get("steps") or []
         current_step = resp_data.get("step")
-        metrics_raw: List[Dict[str, Any]] = resp_data.get("metrics", [])
+        # metrics 可能为 null（请求的步数无数据）或含 None 条目，过滤后再展开
+        metrics_raw: List[Dict[str, Any]] = [m for m in (resp_data.get("metrics") or []) if isinstance(m, dict)]
 
         prefix = f"{self._project_id}/{self._run_id}"
-        all_paths = [p for entry in metrics_raw for p in entry.get("data", [])]
+        all_paths = [p for entry in metrics_raw for p in (entry.get("data") or [])]
         url_map = Metric._fetch_presigned_urls(self, prefix, all_paths) if all_paths else {}
         if all_paths:
             console.debug(
@@ -1076,14 +1080,22 @@ class Metrics(BaseEntity):
             return self._empty_scalar_results(self._keys)
 
         prefix = f"{self._project_id}/{self._run_id}"
-        all_paths = [p for entry in raw_list for m in entry.get("metrics", []) for p in m.get("data", [])]
+        # 列表元素可能为 None（无数据的 key），metrics 字段也可能为 null，逐层过滤
+        entries = [e for e in raw_list if isinstance(e, dict)]
+        all_paths = [
+            p
+            for entry in entries
+            for m in (entry.get("metrics") or [])
+            if isinstance(m, dict)
+            for p in (m.get("data") or [])
+        ]
         url_map = Metric._fetch_presigned_urls(self, prefix, all_paths) if all_paths else {}
         if all_paths:
             console.debug(
                 f"Media fetched (all): run_id[{self._run_id}] - {len(all_paths)} items across {len(self._keys)} keys, requesting presigned urls..."
             )
 
-        key_to_entry: Dict[str, Dict[str, Any]] = {e.get("key", ""): e for e in raw_list}
+        key_to_entry: Dict[str, Dict[str, Any]] = {e.get("key", ""): e for e in entries}
         results: List[Dict[str, Any]] = []
         for key in self._keys:
             data: Dict[str, Any] = {
@@ -1095,7 +1107,9 @@ class Metrics(BaseEntity):
             entry = key_to_entry.get(key)
             if entry:
                 metrics_list: List[Dict[str, Any]] = []
-                for m in entry.get("metrics", []):
+                for m in entry.get("metrics") or []:
+                    if not isinstance(m, dict):
+                        continue
                     items = Metric._build_media_items(m, url_map)
                     metrics_list.append({"index": m.get("index", 0), "items": items})
                 data["metrics"] = metrics_list

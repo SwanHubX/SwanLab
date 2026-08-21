@@ -1,8 +1,8 @@
 import click
-import orjson
 
 from swanlab.api import Api
-from swanlab.cli.api.helper import format_output, save_output, with_custom_host
+from swanlab.api.typings.common import ApiResponseType
+from swanlab.cli.api.helper import api_command
 
 
 @click.group("user")
@@ -12,17 +12,7 @@ def user_cli():
 
 
 @user_cli.command("info")
-@click.option(
-    "--save",
-    "save_name",
-    is_flag=False,
-    flag_value=".",
-    help="Save output as JSON to current directory.",
-)
-@with_custom_host
-def get_user(save_name: str, api: Api):
+@api_command
+def get_user(api: Api) -> ApiResponseType:
     """Get current User info"""
-    resp = api.user().wrapper()
-    payload = format_output(resp)
-    if save_name is not None:
-        save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
+    return api.user().wrapper()
