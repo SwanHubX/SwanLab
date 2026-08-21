@@ -293,7 +293,7 @@ def get_experiment_metrics(
         range_query=rq,
         root_pro_id=experiment.root_pro_id,
         root_exp_id=experiment.root_exp_id,
-        created_at=experiment._created_at_ts(),
+        created_at=experiment.created_at_ts,
     ).wrapper()
 
 
@@ -320,7 +320,7 @@ def get_experiment_summary(path: str, keys: Optional[str], api: Api) -> ApiRespo
         keys=key_list,
         root_pro_id=experiment.root_pro_id,
         root_exp_id=experiment.root_exp_id,
-        created_at=experiment._created_at_ts(),
+        created_at=experiment.created_at_ts,
     ).wrapper()
 
 
@@ -407,7 +407,7 @@ def get_experiment_medias(
         all=fetch_all,
         root_pro_id=experiment.root_pro_id,
         root_exp_id=experiment.root_exp_id,
-        created_at=experiment._created_at_ts(),
+        created_at=experiment.created_at_ts,
     ).wrapper()
 
 
@@ -458,7 +458,7 @@ def get_experiment_logs(
         ignore_timestamp=ignore_timestamp,
         root_pro_id=experiment.root_pro_id,
         root_exp_id=experiment.root_exp_id,
-        created_at=experiment._created_at_ts(),
+        created_at=experiment.created_at_ts,
     ).wrapper()
 
 

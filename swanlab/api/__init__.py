@@ -284,7 +284,7 @@ class Api(BaseEntity):
             query=query,
             column_type=column_type,
             column_class=column_class,
-            exp_created_at=exp._created_at_ts(),
+            exp_created_at=exp.created_at_ts,
         )
 
     @deprecated("Use `series()` method instead.")
@@ -312,7 +312,7 @@ class Api(BaseEntity):
             key=key,
             column_class=column_class,
             column_type=column_type,
-            exp_created_at=exp._created_at_ts(),
+            exp_created_at=exp.created_at_ts,
         )
 
     def series(
