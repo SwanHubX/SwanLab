@@ -1,0 +1,29 @@
+name: Backport
+
+on:
+  pull_request_target:
+    types: [closed]
+
+permissions:
+  contents: write # so it can push branches
+  pull-requests: write # so it can create pull requests and comment
+
+jobs:
+  backport:
+    name: Backport pull request
+    runs-on: ubuntu-latest
+    # Only run on merged PRs with a `backport <branch>` label
+    if: >
+      github.event.pull_request.merged &&
+      contains(toJSON(github.event.pull_request.labels.*.name), '"backport ')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+      - name: Create backport pull requests
+        # matches labels like `backport release/v0.8`; capture group is the target branch
+        uses: korthout/backport-action@v4
+        with:
+          # 与手动脚本 scripts/backport.sh 的 backport/<BRANCH>/pr-<N> 命名保持一致，
+          # 上游默认值为 backport-${pull_number}-to-${target_branch}
+          branch_name: "backport/${target_branch}/pr-${pull_number}"
+          pull_title: "[backport] ${pull_title}"

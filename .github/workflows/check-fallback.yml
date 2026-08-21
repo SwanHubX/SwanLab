@@ -1,0 +1,27 @@
+name: Check Fallback
+
+# 兜底：当 PR 改动完全不涉及 test-python-pr.yml / test-core-pr.yml 的 paths 时，
+# 两个 CI workflow 均不触发、不上报 Check；若 Check 被设为 required status check，
+# 这类 PR 会因 check 缺失被阻塞合并，故由本 workflow 上报同名 Check 直接通过。
+# paths-ignore 语义：存在任一改动文件不在忽略列表内即触发，
+# 因此该列表必须与上述两个 workflow 的 paths 保持同步维护。
+on:
+  pull_request:
+    paths-ignore:
+      - "swanlab/**"
+      - "tests/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - "core/**"
+      - ".github/workflows/test-python-pr.yml"
+      - ".github/workflows/test-core-pr.yml"
+
+jobs:
+  check:
+    # job name 必须与 test-python-pr.yml / test-core-pr.yml 的聚合 job 同名，
+    # required status check 按 check run 名称（Check）匹配
+    name: Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report success
+        run: echo "No Python/Core CI paths changed, skip tests and report Check as success."
