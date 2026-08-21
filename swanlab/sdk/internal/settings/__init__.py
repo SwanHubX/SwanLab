@@ -66,7 +66,10 @@ class _QuoteAwareEnvSettingsSource(EnvSettingsSource):
     通过在 ``__init__`` 末尾清洗 ``self.env_vars``，
     使后续所有消费路径（简单字段读取、嵌套字段 explode、复杂字段 JSON 解析）均获得清理后的值。
 
-    NOTE: 如果有需求，后续可以效仿 SWANLAB_CONFIG_DIR 等专门写一个 ``SWANLAB_STRIP_ENV_QUOTES`` 环境变量来控制是否启用剥离功能或者专门控制某几个key的剥离行为。
+    NOTE: 剥离行为仅覆盖环境变量源；Secret 文件源（SecretsSettingsSource，含 K8S/Docker 挂载的
+    secret 文件）不做引号剥离，文件内容中的字面引号会原样保留，属于已知限制。
+
+    如果有需求，后续可以效仿 SWANLAB_CONFIG_DIR 等专门写一个 ``SWANLAB_STRIP_ENV_QUOTES`` 环境变量来控制是否启用剥离功能或者专门控制某几个key的剥离行为。
     """
 
     def __init__(self, settings_cls: Type[Any], **kwargs: Any) -> None:
