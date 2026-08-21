@@ -680,6 +680,154 @@ def test_settings_raises_on_bad_env(monkeypatch):
         Settings()
 
 
+class TestEnvQuoteStripping:
+    """测试环境变量值首尾成对引号的智能剥离。"""
+
+    def test_double_quotes_stripped(self, monkeypatch):
+        """双引号包裹的值应被剥离"""
+        monkeypatch.setenv("SWANLAB_API_KEY", '"env_key"')
+        settings = Settings()
+        assert settings.api_key == "env_key"
+
+    def test_single_quotes_stripped(self, monkeypatch):
+        """单引号包裹的值应被剥离"""
+        monkeypatch.setenv("SWANLAB_API_KEY", "'env_key'")
+        settings = Settings()
+        assert settings.api_key == "env_key"
+
+    def test_no_quotes_unchanged(self, monkeypatch):
+        """无引号的值不受影响"""
+        monkeypatch.setenv("SWANLAB_API_KEY", "env_key")
+        settings = Settings()
+        assert settings.api_key == "env_key"
+
+    def test_mismatched_quotes_unchanged(self, monkeypatch):
+        """首尾引号不匹配时不应剥离"""
+        monkeypatch.setenv("SWANLAB_API_KEY", "\"env_key'")
+        settings = Settings()
+        assert settings.api_key == "\"env_key'"
+
+    def test_single_sided_quote_unchanged(self, monkeypatch):
+        """仅单侧带引号时不应剥离"""
+        monkeypatch.setenv("SWANLAB_API_KEY", '"env_key')
+        settings = Settings()
+        assert settings.api_key == '"env_key'
+
+    def test_nested_field_with_quotes(self, monkeypatch):
+        """嵌套字段环境变量带引号时应正确剥离并解析"""
+        monkeypatch.setenv("SWANLAB_CORE_SECTION_RULE", '"-1"')
+        settings = Settings()
+        assert settings.core.section_rule == -1
+
+    def test_bool_field_with_quotes(self, monkeypatch):
+        """布尔类型字段带引号时应正确剥离并解析"""
+        monkeypatch.setenv("SWANLAB_PROBE_MONITOR", '"false"')
+        settings = Settings()
+        assert settings.probe.monitor is False
+
+    def test_url_field_with_quotes(self, monkeypatch):
+        """URL 字段带引号时应正确剥离并解析"""
+        monkeypatch.setenv("SWANLAB_API_HOST", '"http://10.0.0.1:8080"')
+        settings = Settings()
+        assert settings.api_host == "http://10.0.0.1:8080"
+
+    def test_empty_quoted_string(self, monkeypatch):
+        """空引号剥离后为空字符串"""
+        monkeypatch.setenv("SWANLAB_API_KEY", '""')
+        settings = Settings()
+        assert settings.api_key == ""
+
+    def test_mode_with_quotes(self, monkeypatch):
+        """mode 字段带引号时应正确剥离"""
+        monkeypatch.setenv("SWANLAB_MODE", '"offline"')
+        settings = Settings()
+        assert settings.mode == "offline"
+
+
+class TestLegacyEnvQuoteStripping:
+    """测试遗留命名环境变量（default_factory 直接读取 os.environ）的成对引号剥离。"""
+
+    def test_workspace_with_quotes(self, monkeypatch):
+        """带引号的 SWANLAB_WORKSPACE 不再导致 ValidationError"""
+        monkeypatch.setenv("SWANLAB_WORKSPACE", '"myws"')
+        settings = Settings()
+        assert settings.project.workspace == "myws"
+
+    def test_exp_color_with_quotes(self, monkeypatch):
+        """带引号的 SWANLAB_EXP_COLOR 不再导致 ValidationError"""
+        monkeypatch.setenv("SWANLAB_EXP_COLOR", '"#ff0000"')
+        settings = Settings()
+        assert settings.experiment.color == "#ff0000"
+
+    def test_run_id_with_quotes(self, monkeypatch):
+        """带引号的 SWANLAB_RUN_ID 不再导致 ValidationError"""
+        monkeypatch.setenv("SWANLAB_RUN_ID", '"run123"')
+        settings = Settings()
+        assert settings.run.id == "run123"
+
+    def test_section_rule_idx_with_quotes(self, monkeypatch):
+        """带引号的 SWANLAB_SECTION_RULE_IDX 不再导致 ValidationError"""
+        monkeypatch.setenv("SWANLAB_SECTION_RULE_IDX", '"-1"')
+        settings = Settings()
+        assert settings.core.section_rule == -1
+
+    def test_int_integration_fields_with_quotes(self, monkeypatch):
+        """带引号的数值型集成环境变量不再导致 ValidationError"""
+        monkeypatch.setenv("SWANLAB_WEBHOOK_TIMEOUT", '"10"')
+        monkeypatch.setenv("SWANLAB_DASHBOARD_PORT", '"8080"')
+        settings = Settings()
+        assert settings.integration.webhook.timeout == 10
+        assert settings.integration.dashboard.port == 8080
+
+    @pytest.mark.parametrize(
+        "env_key, field_getter, expected",
+        [
+            ("SWANLAB_EXP_NAME", lambda s: s.experiment.name, "myexp"),
+            ("SWANLAB_DESCRIPTION", lambda s: s.experiment.description, "desc"),
+            ("SWANLAB_GROUP", lambda s: s.experiment.group, "g1"),
+            ("SWANLAB_JOB_TYPE", lambda s: s.experiment.job_type, "jt"),
+            ("SWANLAB_TAGS", lambda s: s.experiment.tags, ["t1"]),
+            ("SWANLAB_WEBHOOK", lambda s: s.integration.webhook.url, "https://example.com/hook"),
+            ("SWANLAB_DASHBOARD_HOST", lambda s: s.integration.dashboard.host, "0.0.0.0"),
+        ],
+    )
+    def test_string_fields_no_quote_leak(self, monkeypatch, env_key, field_getter, expected):
+        """字符串型遗留环境变量剥离后不携带字面引号"""
+        monkeypatch.setenv(env_key, f'"{expected}"' if env_key != "SWANLAB_TAGS" else '"t1"')
+        settings = Settings()
+        assert field_getter(settings) == expected
+
+    def test_public_with_quotes(self, monkeypatch):
+        """带引号的布尔型 SWANLAB_PUBLIC 正确解析为 True"""
+        monkeypatch.setenv("SWANLAB_PUBLIC", '"true"')
+        settings = Settings()
+        assert settings.project.public is True
+
+    def test_resume_with_quotes(self, monkeypatch):
+        """带引号的 SWANLAB_RESUME 正确解析而非静默回退 never"""
+        monkeypatch.setenv("SWANLAB_RESUME", '"must"')
+        settings = Settings()
+        assert settings.run.resume == "must"
+
+    def test_proj_name_stripped_before_validation(self, monkeypatch):
+        """带引号的合法 SWANLAB_PROJ_NAME 剥离后恢复，而非静默回退默认项目名"""
+        monkeypatch.setenv("SWANLAB_PROJ_NAME", '"valid-project"')
+        settings = Settings()
+        assert settings.project.name == "valid-project"
+
+    def test_proj_name_invalid_after_strip(self, monkeypatch):
+        """剥离后仍非法的 SWANLAB_PROJ_NAME 保持警告并回退 None"""
+        monkeypatch.setenv("SWANLAB_PROJ_NAME", '"bad name"')
+        settings = Settings()
+        assert settings.project.name is None
+
+    def test_mismatched_quotes_unchanged_legacy(self, monkeypatch):
+        """不匹配引号的遗留环境变量值原样保留"""
+        monkeypatch.setenv("SWANLAB_EXP_NAME", "\"myexp'")
+        settings = Settings()
+        assert settings.experiment.name == "\"myexp'"
+
+
 def _run_import_subprocess(
     env_overrides: Optional[dict] = None, cwd: Optional[Path] = None, script: str = "import swanlab; print('IMPORT_OK')"
 ) -> subprocess.CompletedProcess:

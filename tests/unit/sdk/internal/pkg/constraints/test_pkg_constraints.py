@@ -344,6 +344,21 @@ class TestSettingsUsesConstraints:
         s = ProjectSettings(name="valid-project")
         assert s.name == "valid-project"
 
+    @pytest.mark.parametrize(
+        "env_value, expected",
+        [
+            ('"bad name"', None),
+            ('"bad-name"', "bad-name"),
+            ("bad name", None),
+            ("valid-project", "valid-project"),
+        ],
+    )
+    def test_project_name_factory_env_var(self, monkeypatch, env_value, expected):
+        from swanlab.sdk.internal.settings.experiment import ProjectSettings
+
+        monkeypatch.setenv("SWANLAB_PROJ_NAME", env_value)
+        assert ProjectSettings().name == expected
+
     def test_experiment_name_too_long(self):
         from swanlab.sdk.internal.settings.experiment import ExperimentSettings
 

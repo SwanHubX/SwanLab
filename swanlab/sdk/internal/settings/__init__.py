@@ -18,7 +18,6 @@
 用户可以通过merge_settings动态合并配置，但是在设计上，在执行`swanlab.init`和`swanlab.finish`之间，无法使用merge_settings。
 """
 
-import os
 from pathlib import Path
 from typing import Any, ClassVar, Dict, Optional, Tuple, Type, Union, get_args
 
@@ -27,6 +26,7 @@ from pydantic import Field, field_validator
 from pydantic.functional_validators import model_validator
 from pydantic_settings import (
     BaseSettings,
+    EnvSettingsSource,
     PydanticBaseSettingsSource,
     SecretsSettingsSource,
     SettingsConfigDict,
@@ -38,6 +38,7 @@ from swanlab.proto.swanlab.settings.probe.v1.probe_pb2 import ProbeSettings as P
 from swanlab.sdk.internal.pkg import console, helper, nrc, safe
 from swanlab.sdk.typings.run import ModeType
 
+from .compat import getenv, log_dir_factory, strip_env_quotes
 from .core import CoreSettings
 from .experiment import ExperimentSettings, ProjectSettings, RunSettings
 from .global_settings import get_global_settings, set_global_settings
@@ -51,17 +52,31 @@ __all__ = ["Settings", "create_settings", "resolve_hosts", "set_global_settings"
 ROOT_FOLDER = ".swanlab"
 # 根据环境变量自动设置 secrets_dir
 # 如果强制设置，会出现警告：https://github.com/pydantic/pydantic/issues/2175
-secrets_dir_env = os.getenv("SWANLAB_SECRETS_DIR")
+secrets_dir_env = getenv("SWANLAB_SECRETS_DIR")
 SECRETS_DIR: Optional[str] = secrets_dir_env or None
 
 # 根据环境变量选择全局配置文件路径
-config_dir_env = os.getenv("SWANLAB_CONFIG_DIR")
+config_dir_env = getenv("SWANLAB_CONFIG_DIR")
 CONFIG_DIR: str = config_dir_env or "/etc/swanlab"
 
 
-def log_dir_factory() -> Path:
-    # 向下兼容旧版本环境变量
-    return Path(os.environ.get("SWANLAB_LOGDIR", str(Path.cwd() / "swanlog")))
+class _QuoteAwareEnvSettingsSource(EnvSettingsSource):
+    """环境变量源：在加载阶段剥离 shell 脚本注入的成对引号。
+
+    通过在 ``__init__`` 末尾清洗 ``self.env_vars``，
+    使后续所有消费路径（简单字段读取、嵌套字段 explode、复杂字段 JSON 解析）均获得清理后的值。
+
+    NOTE: 剥离行为仅覆盖环境变量源；Secret 文件源（SecretsSettingsSource，含 K8S/Docker 挂载的
+    secret 文件）不做引号剥离，文件内容中的字面引号会原样保留，属于已知限制。
+
+    如果有需求，后续可以效仿 SWANLAB_CONFIG_DIR 等专门写一个 ``SWANLAB_STRIP_ENV_QUOTES`` 环境变量来控制是否启用剥离功能或者专门控制某几个key的剥离行为。
+    """
+
+    def __init__(self, settings_cls: Type[Any], **kwargs: Any) -> None:
+        super().__init__(settings_cls, **kwargs)
+        self.env_vars = {
+            key: strip_env_quotes(val) if isinstance(val, str) else val for key, val in self.env_vars.items()
+        }
 
 
 class Settings(BaseSettings):
@@ -101,9 +116,7 @@ class Settings(BaseSettings):
     @staticmethod
     def get_user_config_dir():
         # SWANLAB_SAVE_DIR 用于向下兼容历史环境变量
-        return Path(
-            os.environ.get("SWANLAB_ROOT") or os.environ.get("SWANLAB_SAVE_DIR", str(Path.home() / ROOT_FOLDER))
-        )
+        return Path(getenv("SWANLAB_ROOT") or getenv("SWANLAB_SAVE_DIR", str(Path.home() / ROOT_FOLDER)))
 
     Project: ClassVar[Type[ProjectSettings]] = ProjectSettings
     Run: ClassVar[Type[RunSettings]] = RunSettings
@@ -392,8 +405,8 @@ class Settings(BaseSettings):
         # 优先级高于普通环境变量，防止敏感信息被低优先级的 Env 覆盖
         sources.append(file_secret_settings)
 
-        # 6. 环境变量
-        sources.append(env_settings)
+        # 6. 环境变量（剥离 shell 注入的成对引号）
+        sources.append(_QuoteAwareEnvSettingsSource(settings_cls))
 
         # 7. 当前工作目录下 .swanlab/config.{yaml,yml}
         # 项目级别的配置文件，优先级高于环境变量但低于 .env

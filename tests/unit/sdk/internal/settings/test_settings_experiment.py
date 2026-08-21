@@ -9,7 +9,7 @@ import pytest
 from pydantic import ValidationError
 
 from swanlab.sdk.internal.settings import Settings
-from swanlab.sdk.internal.settings.experiment import map_resume_value
+from swanlab.sdk.internal.settings.compat import map_resume_value
 
 
 def test_experiment_tags_parse(monkeypatch):

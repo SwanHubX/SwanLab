@@ -7,9 +7,8 @@
 """
 
 import json
-import os
 from pathlib import Path
-from typing import Annotated, Any, List, Optional, cast, get_args
+from typing import Annotated, Any, List, Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 from pydantic.config import ConfigDict
@@ -19,20 +18,20 @@ from swanlab.sdk.internal.pkg import console
 from swanlab.sdk.internal.pkg import constraints as const
 from swanlab.sdk.typings.run import ParallelType, ResumeType
 
-
-def project_name_factory() -> Optional[str]:
-    # 向下兼容旧版本环境变量
-    return os.environ.get("SWANLAB_PROJ_NAME", None)
-
-
-def workspace_factory() -> Optional[str]:
-    # 向下兼容旧版本环境变量
-    return os.environ.get("SWANLAB_WORKSPACE", None)
-
-
-def project_public_factory() -> bool:
-    # 向下兼容旧版本环境变量
-    return os.environ.get("SWANLAB_PUBLIC", "").lower() in ["true", "yes", "1"]
+from .compat import (
+    experiment_color_factory,
+    experiment_description_factory,
+    experiment_group_factory,
+    experiment_job_type_factory,
+    experiment_name_factory,
+    experiment_tags_factory,
+    map_resume_value,
+    project_name_factory,
+    project_public_factory,
+    run_id_factory,
+    run_resume_factory,
+    workspace_factory,
+)
 
 
 class ProjectSettings(BaseModel):
@@ -58,37 +57,6 @@ class ProjectSettings(BaseModel):
     """
 
     model_config = ConfigDict(frozen=True)
-
-
-def experiment_name_factory() -> Optional[str]:
-    # 向下兼容旧版本环境变量
-    return os.environ.get("SWANLAB_EXP_NAME", None)
-
-
-def experiment_color_factory() -> Optional[str]:
-    # 向下兼容旧版本环境变量
-    return os.environ.get("SWANLAB_EXP_COLOR", None)
-
-
-def experiment_description_factory() -> Optional[str]:
-    # 向下兼容旧版本环境变量
-    return os.environ.get("SWANLAB_DESCRIPTION", None)
-
-
-def experiment_tags_factory() -> List[str]:
-    # 向下兼容旧版本环境变量
-    env_value = os.environ.get("SWANLAB_TAGS", "")
-    return [item.strip() for item in env_value.split(",") if item.strip()]
-
-
-def experiment_group_factory() -> Optional[str]:
-    # 向下兼容旧版本环境变量
-    return os.environ.get("SWANLAB_GROUP", None)
-
-
-def experiment_job_type_factory() -> Optional[str]:
-    # 向下兼容旧版本环境变量
-    return os.environ.get("SWANLAB_JOB_TYPE", None)
 
 
 Tags = Field(default_factory=experiment_tags_factory, max_length=30, validate_default=True)
@@ -158,48 +126,6 @@ class ExperimentSettings(BaseModel):
     """
 
     model_config = ConfigDict(frozen=True)
-
-
-def run_id_factory() -> Optional[str]:
-    # 向下兼容旧版本环境变量
-    return os.environ.get("SWANLAB_RUN_ID", None)
-
-
-def run_resume_factory() -> ResumeType:
-    # 向下兼容旧版本环境变量
-    current_value = os.environ.get("SWANLAB_RESUME", "").lower()
-    if current_value:
-        try:
-            return map_resume_value(current_value)
-        except ValueError:
-            pass
-    return "never"
-
-
-def map_resume_value(value: Any) -> ResumeType:
-    """
-    将各种形式的 resume 值映射为允许的 ResumeType
-    """
-    if isinstance(value, bool):
-        return "allow" if value else "never"
-    if isinstance(value, str):
-        value_lower = value.lower()
-        if value_lower == "true":
-            return "allow"
-        if value_lower == "false":
-            return "never"
-        if value_lower == "yes":
-            return "allow"
-        if value_lower == "no":
-            return "never"
-        if value_lower == "1":
-            return "allow"
-        if value_lower == "0":
-            return "never"
-        if value_lower in get_args(ResumeType):
-            return cast(ResumeType, value_lower)
-        raise ValueError(f"Invalid resume value: {value_lower}, must be one of ['must', 'allow', 'never']")
-    raise ValueError(f"Invalid resume value type: {type(value).__name__}, must be one of ['must', 'allow', 'never']")
 
 
 class RunSettings(BaseModel):
