@@ -15,6 +15,8 @@ class InitExperimentType(TypedDict):
     slug: Optional[str]
     # 实验名称
     name: str
+    # 实验创建时间，ISO 8601 字符串，resume 时作为 House 查询的 createdAt 下界
+    createdAt: str
 
 
 _ColumnSummary = TypedDict("_ColumnSummary", {"key": str, "step": int})

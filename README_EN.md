@@ -409,11 +409,13 @@ Use your favorite frameworks with SwanLab!
 Below is a list of frameworks we have integrated. Feel free to submit an [Issue](https://github.com/swanhubx/swanlab/issues) to request integration for your desired framework.
 
 **Basic Frameworks**
+
 - [PyTorch](https://docs.swanlab.cn/en/guide_cloud/integration/integration-pytorch.html)
 - [MindSpore](https://docs.swanlab.cn/en/guide_cloud/integration/integration-ascend.html)
 - [Keras](https://docs.swanlab.cn/en/guide_cloud/integration/integration-keras.html)
 
 **LLM Training Frameworks**
+
 - [HuggingFace Transformers](https://docs.swanlab.cn/en/guide_cloud/integration/integration-huggingface-transformers.html)
 - [LLaMA Factory](https://docs.swanlab.cn/en/guide_cloud/integration/integration-llama-factory.html)
 - [MS-Swift](https://docs.swanlab.cn/en/guide_cloud/integration/integration-swift.html)
@@ -426,6 +428,7 @@ Below is a list of frameworks we have integrated. Feel free to submit an [Issue]
 - [OpenMind](https://modelers.cn/docs/en/openmind-library/1.0.0/basic_tutorial/finetune/finetune_pt.html#install-swanlab)
 
 **LLM Reinforcement Learning Frameworks**
+
 - [veRL](https://docs.swanlab.cn/en/guide_cloud/integration/integration-verl.html)
 - [HuggingFace trl](https://docs.swanlab.cn/en/guide_cloud/integration/integration-huggingface-trl.html)
 - [NVIDIA-NeMo RL](https://docs.swanlab.cn/en/guide_cloud/integration/integration-nvidia-nemo-rl.html)
@@ -434,17 +437,21 @@ Below is a list of frameworks we have integrated. Feel free to submit an [Issue]
 - [ROLL](https://docs.swanlab.cn/en/guide_cloud/integration/integration-roll.html)
 
 **Robot Frameworks**
+
 - [RLinf](https://docs.swanlab.cn/en/guide_cloud/integration/integration-rlinf.html)
 
 **Text-to-Image/Video Training Frameworks**
+
 - [DiffSynth Studio](https://docs.swanlab.cn/en/guide_cloud/integration/integration-diffsynth-studio.html)
 
 **Deep Learning Frameworks**
+
 - [PyTorch Lightning](https://docs.swanlab.cn/en/guide_cloud/integration/integration-pytorch-lightning.html)
 - [MMEngine](https://docs.swanlab.cn/en/guide_cloud/integration/integration-mmengine.html)
 - [FastAI](https://docs.swanlab.cn/en/guide_cloud/integration/integration-fastai.html)
 
 **Computer Vision Frameworks**
+
 - [Ultralytics](https://docs.swanlab.cn/en/guide_cloud/integration/integration-ultralytics.html)
 - [MMDetection](https://docs.swanlab.cn/en/guide_cloud/integration/integration-mmdetection.html)
 - [MMSegmentation](https://docs.swanlab.cn/en/guide_cloud/integration/integration-mmsegmentation.html)
@@ -452,17 +459,21 @@ Below is a list of frameworks we have integrated. Feel free to submit an [Issue]
 - [PaddleYOLO](https://docs.swanlab.cn/en/guide_cloud/integration/integration-paddleyolo.html)
 
 **Machine Learning Frameworks**
+
 - [LightGBM](https://docs.swanlab.cn/en/guide_cloud/integration/integration-lightgbm.html)
 - [XGBoost](https://docs.swanlab.cn/en/guide_cloud/integration/integration-xgboost.html)
 - [CatBoost](https://docs.swanlab.cn/en/guide_cloud/integration/integration-catboost.html)
 
 **Evaluation Frameworks**
+
 - [EvalScope](https://docs.swanlab.cn/en/guide_cloud/integration/integration-evalscope.html)
 
 **Traditional Reinforcement Learning Frameworks**
+
 - [Stable Baseline3](https://docs.swanlab.cn/en/guide_cloud/integration/integration-sb3.html)
 
 **Other Frameworks:**
+
 - [Tensorboard](https://docs.swanlab.cn/en/guide_cloud/integration/integration-tensorboard.html)
 - [Weights&Biases](https://docs.swanlab.cn/en/guide_cloud/integration/integration-wandb.html)
 - [MLFlow](https://docs.swanlab.cn/en/guide_cloud/integration/integration-mlflow.html)
@@ -496,20 +507,19 @@ Enhance your experiment management experience by extending SwanLab's functionali
 
 SwanLab records the **hardware information** and **resource usage** during AI training. Below is a table of supported hardware:
 
-| Hardware | Info Logging | Resource Monitoring | Script |  
-|----------|--------------|----------------------|--------|  
-| NVIDIA GPU | ✅ | ✅ | [nvidia.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/nvidia.py) |  
-| AMD GPU | ✅ | ✅ | [amd.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/amd.py) |  
-| Ascend NPU | ✅ | ✅ | [ascend.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/huawei.py) |  
-| Cambricon MLU | ✅ | ✅ | [cambricon.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/cambricon.py) |  
-| Kunlunxin XPU | ✅ | ✅ | [kunlunxin.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/kunlunxin.py) |  
-| MooreThread GPU | ✅ | ✅ | [moorethreads.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/moorethreads.py) |  
-| MetaX GPU | ✅ | ✅ | [metax.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/metax.py) |  
-| Iluvatar GPU | ✅ | ✅ | [iluvatar.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/iluvatar.py) |  
-| Hygon DCU | ✅ | ✅ | [hygon.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/hygon.py) |  
-| CPU | ✅ | ✅ | [cpu.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/cpu.py) |  
-| Memory | ✅ | ✅ | [memory.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/memory.py) |  
-
+| Hardware        | Info Logging | Resource Monitoring | Script                                                                                                                                         |
+| --------------- | ------------ | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| NVIDIA GPU      | ✅           | ✅                  | [nvidia.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/nvidia.py)             |
+| AMD GPU         | ✅           | ✅                  | [amd.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/amd.py)                   |
+| Ascend NPU      | ✅           | ✅                  | [ascend.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/huawei.py)             |
+| Cambricon MLU   | ✅           | ✅                  | [cambricon.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/cambricon.py)       |
+| Kunlunxin XPU   | ✅           | ✅                  | [kunlunxin.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/kunlunxin.py)       |
+| MooreThread GPU | ✅           | ✅                  | [moorethreads.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/moorethreads.py) |
+| MetaX GPU       | ✅           | ✅                  | [metax.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/metax.py)               |
+| Iluvatar GPU    | ✅           | ✅                  | [iluvatar.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/iluvatar.py)         |
+| Hygon DCU       | ✅           | ✅                  | [hygon.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/hygon.py)               |
+| CPU             | ✅           | ✅                  | [cpu.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/cpu.py)                               |
+| Memory          | ✅           | ✅                  | [memory.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/memory.py)                         |
 
 If you wish to document other hardware, feel free to submit an Issue or PR!
 
@@ -605,7 +615,13 @@ This repository is licensed under the [Apache 2.0 License](https://github.com/Sw
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=swanhubx/swanlab&type=Date)](https://star-history.com/#swanhubx/swanlab&Date)
+<a href="https://www.star-history.com/?repos=swanhubx%2Fswanlab&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=swanhubx/swanlab&type=date&theme=dark&legend=top-left&sealed_token=77bt2XJC-p2PM1tRv6wxVLEw_RaNVx2MVWL-FFg2yjKRstx-vq6M_Y0yszVSAAYT4CvkjYMlgSOPU-mvyq_FfRWs7hh2-VFJiwQMtvyr1-7i0F6VgeQwQw" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=swanhubx/swanlab&type=date&legend=top-left&sealed_token=77bt2XJC-p2PM1tRv6wxVLEw_RaNVx2MVWL-FFg2yjKRstx-vq6M_Y0yszVSAAYT4CvkjYMlgSOPU-mvyq_FfRWs7hh2-VFJiwQMtvyr1-7i0F6VgeQwQw" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=swanhubx/swanlab&type=date&legend=top-left&sealed_token=77bt2XJC-p2PM1tRv6wxVLEw_RaNVx2MVWL-FFg2yjKRstx-vq6M_Y0yszVSAAYT4CvkjYMlgSOPU-mvyq_FfRWs7hh2-VFJiwQMtvyr1-7i0F6VgeQwQw" />
+ </picture>
+</a>
 
 <!-- link -->
 

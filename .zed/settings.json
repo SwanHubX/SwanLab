@@ -1,0 +1,89 @@
+{
+  "lsp": {
+    "gopls": {
+      "initialization_options": {
+        "gofumpt": true
+      }
+    },
+    "golangci-lint": {
+      "initialization_options": {
+        "command": [
+          "golangci-lint",
+          "run",
+          "--output.json.path",
+          "stdout",
+          "--show-stats=false",
+          "--output.text.path="
+        ]
+      }
+    },
+    "protobuf-language-server": {
+      "binary": {
+        "path": "protols",
+        "arguments": ["--include-paths=./protos"],
+      },
+    },
+    "basedpyright": {
+      "settings": {
+        "basedpyright.analysis": {
+          "diagnosticMode": "openFilesOnly",
+        },
+      },
+    },
+    "oxfmt": {
+      "initialization_options": {
+        "settings": {
+          // 自动使用 .oxfmtrc.json
+          "fmt.configPath": null
+        }
+      }
+    },
+  },
+  "languages": {
+    "Go": {
+      "format_on_save": "on",
+      "language_servers": ["gopls", "golangci-lint"]
+    },
+    "Proto": {
+      "format_on_save": "on",
+      "tab_size": 4,
+      "formatter": {
+        "external": {
+          "command": "clang-format",
+          "arguments": [
+            "--assume-filename={buffer_path}",
+            "-style={IndentWidth: 4, ColumnLimit: 0, AlignConsecutiveAssignments: Consecutive}",
+          ],
+        },
+      },
+      "language_servers": ["protobuf-language-server"],
+    },
+    "Python": {
+      "show_edit_predictions": true,
+      "code_actions_on_format": {
+        "source.organizeImports.ruff": true,
+        "source.fixAll.ruff": true,
+      },
+      "format_on_save": "on",
+      "formatter": {
+        "language_server": {
+          "name": "ruff",
+        },
+      },
+      "language_servers": ["ruff", "basedpyright", "!pyright"],
+    },
+    "Markdown": {
+      "format_on_save": "on",
+      "prettier": {
+        "allowed": false
+      },
+      "formatter": [
+        {
+          "language_server": {
+            "name": "oxfmt"
+          }
+        }
+      ]
+    },
+  }
+}

@@ -11,13 +11,13 @@ option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/grpc/probe/v
 // ProbeService 用于启动硬件信息采集服务
 service ProbeService {
     // DeliverProbeStart 接收 ProbeSettings，启动硬件信息采集
-    rpc DeliverProbeStart(DeliverProbeStartRequest) returns(google.protobuf.Empty);
+    rpc DeliverProbeStart(DeliverProbeStartRequest) returns (google.protobuf.Empty);
 
     // GetMetadataSnapshot 获取当前环境元数据快照
-    rpc GetMetadataSnapshot(google.protobuf.Empty) returns(GetMetadataSnapshotResponse);
+    rpc GetMetadataSnapshot(google.protobuf.Empty) returns (GetMetadataSnapshotResponse);
 
     // DeliverProbeFinish 结束硬件信息采集
-    rpc DeliverProbeFinish(google.protobuf.Empty) returns(google.protobuf.Empty);
+    rpc DeliverProbeFinish(google.protobuf.Empty) returns (google.protobuf.Empty);
 }
 
 // DeliverProbeStart 请求，probe 启动配置
@@ -27,7 +27,7 @@ message DeliverProbeStartRequest {
 
 // GetMetadataSnapshot 响应，返回 probe 采集到的强类型元数据快照。
 message GetMetadataSnapshotResponse {
-    bool success = 1;                               // 请求是否成功
-    string message = 2;                             // 失败或降级原因
+    bool success                               = 1; // 请求是否成功
+    string message                             = 2; // 失败或降级原因
     swanlab.probe.v1.MetadataSnapshot metadata = 3; // 当前环境元数据快照
 }

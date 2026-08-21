@@ -1,11 +1,48 @@
-SKILL_NAME := pr-review-lab
-SKILL_SOURCE := docs/skills/$(SKILL_NAME)
 AGENTS_SKILL_DIR := .agents/skills
-AGENTS_SKILL_LINK := $(AGENTS_SKILL_DIR)/$(SKILL_NAME)
-# symlink target relative to AGENTS_SKILL_DIR, so the link stays valid if the repo moves
-SKILL_LINK_TARGET := ../../$(SKILL_SOURCE)
+SKILLS_DIR := docs/skills
 
-.PHONY:  init sync format proto unit bench clean build publish link-skills unlink-skills relink-skills
+.PHONY:  init sync format proto unit bench clean build publish link-skills unlink-skills relink-skills core-lint core-fmt core-test core-build core-tidy
+
+# ----------------------------------
+# SKILL (docs/skills)
+# ----------------------------------
+
+link-skills:
+	@if [ ! -d "$(SKILLS_DIR)" ]; then \
+		echo "Missing skills source: $(SKILLS_DIR)"; \
+		exit 1; \
+	fi
+	@mkdir -p "$(AGENTS_SKILL_DIR)"
+	@for skill_dir in $(SKILLS_DIR)/*/; do \
+		name=$$(basename "$$skill_dir"); \
+		link="$(AGENTS_SKILL_DIR)/$$name"; \
+		if [ -e "$$link" ] && [ ! -L "$$link" ]; then \
+			echo "Refusing to replace non-symlink: $$link"; \
+			exit 1; \
+		fi; \
+		ln -sfn "../../$(SKILLS_DIR)/$$name" "$$link"; \
+		echo "Linked $$name"; \
+	done
+
+unlink-skills:
+	@for link in $(AGENTS_SKILL_DIR)/*; do \
+		if [ -L "$$link" ]; then \
+			rm "$$link"; \
+		fi; \
+	done
+
+relink-skills: unlink-skills link-skills
+
+# ----------------------------------
+# Protobuf generation (scripts/generate_protos.py)
+# ----------------------------------
+
+proto:
+	uv run scripts/generate_protos.py
+
+# ----------------------------------
+# Python package (swanlab/)
+# ----------------------------------
 
 init:
 	uv sync --all-extras
@@ -13,9 +50,6 @@ init:
 
 sync:
 	uv sync --all-extras
-
-proto:
-	uv run scripts/generate_protos.py
 
 format:
 	-uvx ruff check --select I --fix . --quiet
@@ -46,21 +80,21 @@ publish:
 clean:
 	@bash scripts/clean_pycache.sh .
 
-link-skills:
-	@if [ ! -d "$(SKILL_SOURCE)" ]; then \
-		echo "Missing skill source: $(SKILL_SOURCE)"; \
-		exit 1; \
-	fi
-	@mkdir -p "$(AGENTS_SKILL_DIR)"
-	@if [ -e "$(AGENTS_SKILL_LINK)" ] && [ ! -L "$(AGENTS_SKILL_LINK)" ]; then \
-		echo "Refusing to replace non-symlink: $(AGENTS_SKILL_LINK)"; \
-		exit 1; \
-	fi
-	@ln -sfn "$(SKILL_LINK_TARGET)" "$(AGENTS_SKILL_LINK)"
+# ----------------------------------
+# Go core (core/)
+# ----------------------------------
 
-unlink-skills:
-	@if [ -L "$(AGENTS_SKILL_LINK)" ]; then \
-		rm "$(AGENTS_SKILL_LINK)"; \
-	fi
+core-lint:
+	cd core && golangci-lint run
 
-relink-skills: unlink-skills link-skills
+core-fmt:
+	cd core && golangci-lint fmt
+
+core-test:
+	cd core && go test $$(go list ./... | grep -v /proto/)
+
+core-build:
+	cd core && go build ./...
+
+core-tidy:
+	cd core && go mod tidy

@@ -81,7 +81,12 @@ def make_prepare_result(new_experiment: bool = True) -> PrepareExperimentStartRe
             "visibility": "PRIVATE",
             "_count": {"experiments": 1, "contributors": 0, "collaborators": 0, "clones": 0},
         },
-        experiment={"cuid": "experiment-id", "slug": "sync-run-id", "name": "synced-run"},
+        experiment={
+            "cuid": "experiment-id",
+            "slug": "sync-run-id",
+            "name": "synced-run",
+            "createdAt": "2024-08-01T00:00:00Z",
+        },
         new_experiment=new_experiment,
         name="synced-run",
         color="#abcdef",
@@ -348,7 +353,7 @@ def test_deliver_sync_flush_fetches_summary_for_existing_experiment(tmp_path: Pa
     resp = core.deliver_sync_flush()
 
     assert resp.success is True
-    get_summary.assert_called_once_with("project-id", "experiment-id")
+    get_summary.assert_called_once_with("project-id", "experiment-id", created_at="2024-08-01T00:00:00Z")
 
 
 def test_deliver_sync_flush_returns_failure_when_prepare_fails(tmp_path: Path, monkeypatch):

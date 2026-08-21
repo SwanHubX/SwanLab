@@ -15,6 +15,8 @@ description: Use when reviewing SwanLab Python SDK PRs, running gh pr diff or gh
 
 不适用：SwanLab-Cloud 前端 PR、其他仓库 PR、无 PR 上下文的单文件编辑、只要求解释代码。
 
+**CRITICAL — 审核 PR 前检查文件列表。当包含 `core/**`、`protos/**` 或 `scripts/generate_protos.py` 时，MUST 先用 Read 工具读取 [`../pr-review-core/SKILL.md`](../pr-review-core/SKILL.md) 及其 [`references/domain-contracts.md`](../pr-review-core/references/domain-contracts.md)，按其中的 Go core 领域契约审核对应文件。审核结论需同时覆盖两侧范围。**
+
 ## 审核流程
 
 审核分为两个阶段，**默认只执行阶段一**。未获得用户明确确认前，不得向 GitHub 提交任何 review、comment 或审批状态。
@@ -70,23 +72,23 @@ git branch -D pr-<PR>
 
 详细规则位于 [`references/domain-contracts.md`](references/domain-contracts.md)。先读取 PR 文件列表，再按下表加载适用章节。路径一律写完整前缀；同一文件命中多行时，读取所有命中章节。
 
-| 变更路径或内容 | 读取章节 |
-|---|---|
-| `swanlab/__init__.py`、`swanlab/__init__.pyi`、`swanlab/sdk/__init__.py`、`swanlab/sdk/typings/**`、`swanlab/sdk/protocol/**`、`swanlab/exceptions.py` | 公共 API 与类型兼容 |
-| `swanlab/sdk/cmd/**`、`swanlab/sdk/internal/run/**`、`swanlab/sdk/internal/context/**`、`swanlab/sdk/internal/bus/**`、`swanlab/sdk/internal/impl.py` | Run 生命周期与运行时组件 |
-| `swanlab/sdk/internal/core_python/**`（含 `transport/**`、`store/**`、`metrics/**`、`watcher/**`、`sync.py`） | Record、Core 与传输 |
-| `swanlab/sdk/internal/settings/**`、`swanlab/sdk/internal/pkg/client/**`、`swanlab/sdk/internal/pkg/nrc/**`、`swanlab/sdk/internal/core_python/client/**`、`swanlab/sdk/internal/core_python/api/**` | 配置、认证与 HTTP 客户端 |
-| `swanlab/api/**`、`swanlab/cli/**` | Public API 与 CLI |
-| `swanlab/sdk/internal/run/transforms/**`、文件保存和媒体处理 | 媒体、转换与文件 |
-| `swanlab/sdk/internal/probe_python/**`（含 `hardware_vendor/**`、`monitor/**`、`environment/**`）、`swanlab/vendor/**` | 硬件与环境探测 |
-| `swanlab/integration/**`、`swanlab/converter/**`、`swanlab/plugin/**` | 集成、转换器与插件 |
-| `swanlab/sdk/internal/pkg/**`（`safe/`、`fs/`、`console/`、`fork/`、`timer/`、`executor/`、`scope/`、`adapter/` 等）、`swanlab/utils/**` | 共享工具与内部 pkg |
-| `protos/**`、`swanlab/proto/**`、`core/proto/**` | Protobuf 与生成代码 |
-| `pyproject.toml`、`uv.lock`、`Makefile`、`swanlab/package.json`、`.github/workflows/**` | 构建、依赖与发布 |
-| `tests/**` | 测试与验证 |
-| `swanlab/deprecated/**` | 公共 API 与类型兼容 + 横切质量与代码规范 |
-| 所有 Python 代码、配置和依赖 | 横切质量与代码规范 |
-| 凭据、网络、日志、文件路径、用户数据 | 安全与隐私 |
+| 变更路径或内容                                                                                                                                                                                       | 读取章节                                 |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| `swanlab/__init__.py`、`swanlab/__init__.pyi`、`swanlab/sdk/__init__.py`、`swanlab/sdk/typings/**`、`swanlab/sdk/protocol/**`、`swanlab/exceptions.py`                                               | 公共 API 与类型兼容                      |
+| `swanlab/sdk/cmd/**`、`swanlab/sdk/internal/run/**`、`swanlab/sdk/internal/context/**`、`swanlab/sdk/internal/bus/**`、`swanlab/sdk/internal/impl.py`                                                | Run 生命周期与运行时组件                 |
+| `swanlab/sdk/internal/core_python/**`（含 `transport/**`、`store/**`、`metrics/**`、`watcher/**`、`sync.py`）                                                                                        | Record、Core 与传输                      |
+| `swanlab/sdk/internal/settings/**`、`swanlab/sdk/internal/pkg/client/**`、`swanlab/sdk/internal/pkg/nrc/**`、`swanlab/sdk/internal/core_python/client/**`、`swanlab/sdk/internal/core_python/api/**` | 配置、认证与 HTTP 客户端                 |
+| `swanlab/api/**`、`swanlab/cli/**`                                                                                                                                                                   | Public API 与 CLI                        |
+| `swanlab/sdk/internal/run/transforms/**`、文件保存和媒体处理                                                                                                                                         | 媒体、转换与文件                         |
+| `swanlab/sdk/internal/probe_python/**`（含 `hardware_vendor/**`、`monitor/**`、`environment/**`）、`swanlab/vendor/**`                                                                               | 硬件与环境探测                           |
+| `swanlab/integration/**`、`swanlab/converter/**`、`swanlab/plugin/**`                                                                                                                                | 集成、转换器与插件                       |
+| `swanlab/sdk/internal/pkg/**`（`safe/`、`fs/`、`console/`、`fork/`、`timer/`、`executor/`、`scope/`、`adapter/` 等）、`swanlab/utils/**`                                                             | 共享工具与内部 pkg                       |
+| `protos/**`、`swanlab/proto/**`、`core/proto/**`                                                                                                                                                     | Protobuf 与生成代码                      |
+| `pyproject.toml`、`uv.lock`、`Makefile`、`swanlab/package.json`、`.github/workflows/**`                                                                                                              | 构建、依赖与发布                         |
+| `tests/**`                                                                                                                                                                                           | 测试与验证                               |
+| `swanlab/deprecated/**`                                                                                                                                                                              | 公共 API 与类型兼容 + 横切质量与代码规范 |
+| 所有 Python 代码、配置和依赖                                                                                                                                                                         | 横切质量与代码规范                       |
+| 凭据、网络、日志、文件路径、用户数据                                                                                                                                                                 | 安全与隐私                               |
 
 上表未命中的路径仍需按“横切质量与代码规范”审核，并在 review 中说明该文件按通用标准处理。
 
@@ -117,13 +119,13 @@ CI 覆盖 Ubuntu、Windows、macOS 和 Python 3.9-3.14。无法在本地覆盖�
 
 ## 严重性
 
-| 前缀 | 含义 | 示例 |
-|---|---|---|
-| **阻塞:** | 阻塞合并 | 凭据泄露、数据丢失、公共 API 严重破坏、发布产物不可用 |
-| **必须修改:** | 合并前必须处理 | 类型契约不同步、生命周期错误、竞态、兼容性回归、必要测试缺失 |
-| **建议:** | 值得改进但通常不阻塞 | 局部可维护性、命名、适度简化 |
-| **细节:** | 次要问题 | 小范围风格或文档问题 |
-| **说明:** | 信息记录，不要求行动 | 验证限制、后续风险或上下文 |
+| 前缀          | 含义                 | 示例                                                         |
+| ------------- | -------------------- | ------------------------------------------------------------ |
+| **阻塞:**     | 阻塞合并             | 凭据泄露、数据丢失、公共 API 严重破坏、发布产物不可用        |
+| **必须修改:** | 合并前必须处理       | 类型契约不同步、生命周期错误、竞态、兼容性回归、必要测试缺失 |
+| **建议:**     | 值得改进但通常不阻塞 | 局部可维护性、命名、适度简化                                 |
+| **细节:**     | 次要问题             | 小范围风格或文档问题                                         |
+| **说明:**     | 信息记录，不要求行动 | 验证限制、后续风险或上下文                                   |
 
 每条 finding 必须使用显式前缀，并说明问题、影响和建议。不要用无前缀文本表达必须修改的问题。
 
@@ -181,9 +183,11 @@ Review JSON 使用以下结构：
 ## 审核结论: 通过 / 要求修改 / 评论
 
 ## 本次 PR 解决的问题
+
 <一句话概述>
 
 ## 审核范围
+
 - [x] 公共 API 与类型兼容: <详情>
 - [x] Run 生命周期与运行时: <详情>
 - [x] Record、Core 与传输: <详情>
@@ -194,9 +198,11 @@ Review JSON 使用以下结构：
 - [x] 测试与验证: <详情>
 
 ## 未挂行发现
+
 <没有则写：无>
 
 ## 验证
+
 - [ ] 相关测试
 - [ ] uv run ruff check .
 - [ ] uv run basedpyright
@@ -229,3 +235,7 @@ gh pr review <PR> --comment --body-file /tmp/pr-review-body.md
 - [ ] 可定位 finding 已提交为 inline comments
 - [ ] 最终 review 已通过 Reviews API 或 `gh pr review` 提交
 - [ ] 临时 worktree 和本地分支已清理
+
+## 参考
+
+- [pr-review-core](../pr-review-core/SKILL.md) — 当 PR 包含 `core/**` 变更时必读其 [`references/domain-contracts.md`](../pr-review-core/references/domain-contracts.md)

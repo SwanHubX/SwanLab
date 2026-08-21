@@ -5,7 +5,7 @@
 @description: SwanLab 运行时实验API
 """
 
-from typing import List, Literal, Optional, Tuple
+from typing import List, Literal, Optional, Tuple, Union
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
@@ -13,8 +13,12 @@ from swanlab.exceptions import ApiError
 from swanlab.proto.swanlab.run.v1.run_pb2 import RUN_STATE_ABORTED, RUN_STATE_CRASHED, RunState
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.pkg import helper
-from swanlab.sdk.typings.core_python.api.experiment import InitExperimentType, ResumeExperimentSummaryType
+from swanlab.sdk.typings.core_python.api.experiment import (
+    InitExperimentType,
+    ResumeExperimentSummaryType,
+)
 from swanlab.sdk.typings.run import ResumeType
+from swanlab.utils.time import parse_timestamp_s
 
 
 def create_or_resume_experiment(
@@ -54,10 +58,11 @@ def create_or_resume_experiment(
             if e.response.status_code == 404 and e.response.reason == "Not Found":
                 raise RuntimeError(f"Experiment {run_id} does not exist in project {project}")
     labels = [{"name": tag} for tag in tags] if tags else []
+    created_at_for_request = created_at.ToDatetime().isoformat() + "Z"
     body = {
         "name": name,
         "description": description,
-        "createdAt": created_at.ToDatetime().isoformat() + "Z",
+        "createdAt": created_at_for_request,
         "colors": [color, color],
         "labels": labels if len(labels) else None,
         "job": job_type,
@@ -67,16 +72,37 @@ def create_or_resume_experiment(
     resp = client.post(f"/project/{username}/{project}/experiment", helper.strip_none(body, strip_empty_str=True))
     # 200代表实验已存在，开启更新模式
     # 201代表实验不存在，新建实验
+    # NOTE: 后端返回值没有携带createdAt字段，如果实验不存在则使用前端传入的createdAt字段作为实验创建时间，否则再请求一次获取实验创建时间
+    experiment: InitExperimentType = resp.data
+    is_new_experiment = resp.raw.status_code == 201
+    if is_new_experiment:
+        experiment["createdAt"] = created_at_for_request
+    elif not experiment.get("createdAt"):
+        # 旧后端 POST 响应未携带 createdAt，回退到 GET 获取
+        exp_resp = client.get(f"/project/{username}/{project}/runs/{experiment['cuid']}")
+        created_at_for_response = exp_resp.data.get("createdAt", "")
+        if not created_at_for_response:
+            raise ValueError(
+                f"Backend did not return createdAt for experiment {experiment['cuid']}; please upgrade swanlab-server"
+            )
+        experiment["createdAt"] = created_at_for_response
     return resp.data, resp.raw.status_code == 201
 
 
-def get_experiment_summary(project_id: str, experiment_id: str) -> ResumeExperimentSummaryType:
+def get_experiment_summary(
+    project_id: str,
+    experiment_id: str,
+    created_at: Union[int, str],
+) -> ResumeExperimentSummaryType:
     """
     获取实验摘要
     :param project_id: 所属项目ID
     :param experiment_id: 所属实验ID
+    :param created_at: 实验创建时间（ISO 8601 字符串或秒/毫秒时间戳），作为数据入库时间的查询下界
+    :raises ValueError: created_at 缺失或无法解析时抛出，避免回退到全历史扫描导致慢查询
     """
-    resp = client.get(f"/house/metrics/summaries/{project_id}/{experiment_id}", {"all": True})
+    ts = parse_timestamp_s(created_at)
+    resp = client.get(f"/house/metrics/summaries/{project_id}/{experiment_id}", {"all": True, "createdAt": ts})
     return resp.data
 
 

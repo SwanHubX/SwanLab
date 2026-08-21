@@ -7,47 +7,47 @@ option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/metric/colum
 // ColumnType 列的数据类型
 enum ColumnType {
     COLUMN_TYPE_UNSPECIFIED = 0;
-    COLUMN_TYPE_SCALAR = 1;   // 标量
-    COLUMN_TYPE_IMAGE = 2;    // 图像
-    COLUMN_TYPE_AUDIO = 3;    // 音频
-    COLUMN_TYPE_TEXT = 4;     // 文本
-    COLUMN_TYPE_VIDEO = 5;    // 视频
-    COLUMN_TYPE_ECHARTS = 6;  // ECharts 图表
-    COLUMN_TYPE_OBJECT3D = 7; // 3D 对象
-    COLUMN_TYPE_MOLECULE = 8; // 分子结构
-    COLUMN_TYPE_HTML = 9;     // HTML 页面
+    COLUMN_TYPE_SCALAR      = 1; // 标量
+    COLUMN_TYPE_IMAGE       = 2; // 图像
+    COLUMN_TYPE_AUDIO       = 3; // 音频
+    COLUMN_TYPE_TEXT        = 4; // 文本
+    COLUMN_TYPE_VIDEO       = 5; // 视频
+    COLUMN_TYPE_ECHARTS     = 6; // ECharts 图表
+    COLUMN_TYPE_OBJECT3D    = 7; // 3D 对象
+    COLUMN_TYPE_MOLECULE    = 8; // 分子结构
+    COLUMN_TYPE_HTML        = 9; // HTML 页面
 }
 
 // ColumnClass 列的来源类别
 enum ColumnClass {
     COLUMN_CLASS_UNSPECIFIED = 0;
-    COLUMN_CLASS_CUSTOM = 1; // 用户自定义列（默认）
-    COLUMN_CLASS_SYSTEM = 2; // 系统列
+    COLUMN_CLASS_CUSTOM      = 1; // 用户自定义列（默认）
+    COLUMN_CLASS_SYSTEM      = 2; // 系统列
 }
 
 // ChartType 图表类型
 enum ChartType {
     CHART_TYPE_UNSPECIFIED = 0; // 默认情况下，后端根据 column_type 自动推导
-    CHART_TYPE_LINE = 1;
-    CHART_TYPE_BAR = 2;
-    CHART_TYPE_SCALAR = 3;
-    CHART_TYPE_IMAGE = 4;
-    CHART_TYPE_AUDIO = 5;
-    CHART_TYPE_TEXT = 6;
-    CHART_TYPE_VIDEO = 7;
-    CHART_TYPE_ECHARTS = 8;
-    CHART_TYPE_OBJECT3D = 9;
-    CHART_TYPE_MOLECULE = 10;
-    CHART_TYPE_HTML = 11;     // HTML 图表
+    CHART_TYPE_LINE        = 1;
+    CHART_TYPE_BAR         = 2;
+    CHART_TYPE_SCALAR      = 3;
+    CHART_TYPE_IMAGE       = 4;
+    CHART_TYPE_AUDIO       = 5;
+    CHART_TYPE_TEXT        = 6;
+    CHART_TYPE_VIDEO       = 7;
+    CHART_TYPE_ECHARTS     = 8;
+    CHART_TYPE_OBJECT3D    = 9;
+    CHART_TYPE_MOLECULE    = 10;
+    CHART_TYPE_HTML        = 11; // HTML 图表
 }
 
 // SectionType section 类型
 enum SectionType {
     SECTION_TYPE_UNSPECIFIED = 0;
-    SECTION_TYPE_PINNED = 1; // 固定，仅允许一个同类 section
-    SECTION_TYPE_HIDDEN = 2; // 隐藏，仅允许一个同类 section
-    SECTION_TYPE_PUBLIC = 3; // 公开，允许多个（默认）
-    SECTION_TYPE_SYSTEM = 4; // 系统，允许多个，可自定义 section_name
+    SECTION_TYPE_PINNED      = 1; // 固定，仅允许一个同类 section
+    SECTION_TYPE_HIDDEN      = 2; // 隐藏，仅允许一个同类 section
+    SECTION_TYPE_PUBLIC      = 3; // 公开，允许多个（默认）
+    SECTION_TYPE_SYSTEM      = 4; // 系统，允许多个，可自定义 section_name
 }
 
 // YRange Y 轴显示范围

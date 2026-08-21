@@ -19,6 +19,7 @@ from swanlab.api.experiment import Experiment, Experiments
 from swanlab.api.metric import Metric, Metrics
 from swanlab.api.project import Project
 from swanlab.api.self_hosted import SelfHosted
+from swanlab.api.series import Series
 from swanlab.api.typings.common import PaginatedQuery
 from swanlab.api.typings.selfhosted import ApiSelfHostedInfoType
 from swanlab.api.workspace import Workspace
@@ -115,7 +116,10 @@ class TestApiEntryValidation:
             api.column("testuser/project/run1", key="")
 
     @pytest.mark.parametrize("column_type", ["STRING", "IMAGE"])
-    def test_columns_accept_documented_column_types(self, api, column_type):
+    def test_columns_accept_documented_column_types(self, ctx, api, column_type):
+        ctx.client.get.return_value = _api_response(
+            {"cuid": "run-cuid", "slug": "run1", "name": "test-run", "createdAt": "2024-08-01T00:00:00Z"}
+        )
         columns = api.columns("testuser/project/run1", column_type=column_type)
         assert isinstance(columns, Columns)
 
@@ -251,7 +255,9 @@ class TestExperimentRunIdResolution:
 
     def test_column_created_from_experiment_uses_run_cuid(self, ctx):
         ctx.client.get.side_effect = [
-            _api_response({"cuid": "run-cuid", "slug": "run-slug", "name": "test-run"}),
+            _api_response(
+                {"cuid": "run-cuid", "slug": "run-slug", "name": "test-run", "createdAt": "2024-08-01T00:00:00Z"}
+            ),
         ]
         exp = Experiment(ctx, path="user/proj/run-slug")
 
@@ -263,7 +269,13 @@ class TestExperimentRunIdResolution:
         def get(path, **kwargs):
             if path == "/project/user/proj/runs/run-slug":
                 return _api_response(
-                    {"cuid": "run-cuid", "slug": "run-slug", "name": "test-run", "project_id": "project-cuid"}
+                    {
+                        "cuid": "run-cuid",
+                        "slug": "run-slug",
+                        "name": "test-run",
+                        "project_id": "project-cuid",
+                        "createdAt": "2024-08-01T00:00:00Z",
+                    }
                 )
             raise AssertionError(f"unexpected GET {path}")
 
@@ -279,13 +291,19 @@ class TestExperimentRunIdResolution:
         payload = ctx.client.post.call_args_list[0].kwargs["data"]
         assert [call.args[0] for call in ctx.client.get.call_args_list] == ["/project/user/proj/runs/run-slug"]
         assert payload["projectId"] == "project-cuid"
-        assert payload["columns"] == [{"experimentId": "run-cuid", "key": "loss"}]
+        assert payload["columns"] == [{"experimentId": "run-cuid", "key": "loss", "createdAt": 1722470400}]
 
     def test_medias_uses_run_cuid_for_metric_payload(self, ctx):
         def get(path, **kwargs):
             if path == "/project/user/proj/runs/run-slug":
                 return _api_response(
-                    {"cuid": "run-cuid", "slug": "run-slug", "name": "test-run", "project_id": "project-cuid"}
+                    {
+                        "cuid": "run-cuid",
+                        "slug": "run-slug",
+                        "name": "test-run",
+                        "project_id": "project-cuid",
+                        "createdAt": "2024-08-01T00:00:00Z",
+                    }
                 )
             raise AssertionError(f"unexpected GET {path}")
 
@@ -300,13 +318,19 @@ class TestExperimentRunIdResolution:
         payload = ctx.client.post.call_args_list[0].kwargs["data"]
         assert [call.args[0] for call in ctx.client.get.call_args_list] == ["/project/user/proj/runs/run-slug"]
         assert payload["projectId"] == "project-cuid"
-        assert payload["columns"] == [{"experimentId": "run-cuid", "key": "image"}]
+        assert payload["columns"] == [{"experimentId": "run-cuid", "key": "image", "createdAt": 1722470400}]
 
     def test_logs_uses_run_cuid_for_log_params(self, ctx):
         def get(path, **kwargs):
             if path == "/project/user/proj/runs/run-slug":
                 return _api_response(
-                    {"cuid": "run-cuid", "slug": "run-slug", "name": "test-run", "project_id": "project-cuid"}
+                    {
+                        "cuid": "run-cuid",
+                        "slug": "run-slug",
+                        "name": "test-run",
+                        "project_id": "project-cuid",
+                        "createdAt": "2024-08-01T00:00:00Z",
+                    }
                 )
             if path == "/house/metrics/log":
                 return _api_response({"logs": [{"message": "ready"}], "count": 1})
@@ -324,6 +348,7 @@ class TestExperimentRunIdResolution:
         ]
         assert kwargs["params"]["projectId"] == "project-cuid"
         assert kwargs["params"]["experimentId"] == "run-cuid"
+        assert kwargs["params"]["createdAt"] == 1722470400
 
 
 # ---------------------------------------------------------------------------
@@ -332,11 +357,11 @@ class TestExperimentRunIdResolution:
 class TestColumnValidation:
     def test_columns_invalid_type_raises(self, ctx):
         with pytest.raises(ValueError, match="Invalid column_type"):
-            Columns(ctx, path="user/proj/run1", query=PaginatedQuery(), column_type="INVALID")  # type: ignore
+            Columns(ctx, path="user/proj/run1", query=PaginatedQuery(), column_type="INVALID", exp_created_at=1)  # type: ignore
 
     def test_columns_invalid_class_raises(self, ctx):
         with pytest.raises(ValueError, match="Invalid column_class"):
-            Columns(ctx, path="user/proj/run1", query=PaginatedQuery(), column_class="INVALID")  # type: ignore
+            Columns(ctx, path="user/proj/run1", query=PaginatedQuery(), column_class="INVALID", exp_created_at=1)  # type: ignore
 
     def test_iterated_columns_resolve_run_cuid_once_for_local_fields(self, ctx):
         ctx.client.get.side_effect = [
@@ -353,7 +378,7 @@ class TestColumnValidation:
             ),
         ]
 
-        columns = Columns(ctx, path="user/proj/run-slug", query=PaginatedQuery())
+        columns = Columns(ctx, path="user/proj/run-slug", query=PaginatedQuery(), exp_created_at=1722470400)
 
         assert [column.name for column in columns] == ["loss", "acc"]
         assert [call.args[0] for call in ctx.client.get.call_args_list] == [
@@ -373,7 +398,7 @@ class TestColumnValidation:
             ),
         ]
 
-        col = Column(ctx, path="user/proj/run-slug", key="loss")
+        col = Column(ctx, path="user/proj/run-slug", key="loss", exp_created_at=1722470400)
 
         assert col.name == "loss"
         assert col.run_id == "run-cuid"
@@ -384,7 +409,7 @@ class TestColumnValidation:
 
     def test_column_project_id_fetches_project_lazily(self, ctx):
         item = {"key": "loss", "name": "loss", "type": "FLOAT", "class": "CUSTOM"}
-        col = Column(ctx, path="user/proj/run1", key="loss", data=cast(Any, item))
+        col = Column(ctx, path="user/proj/run1", key="loss", data=cast(Any, item), exp_created_at=1722470400)
         ctx.client.get.return_value = _api_response({"cuid": "project-cuid"})
 
         assert col.project_id == "project-cuid"
@@ -397,28 +422,148 @@ class TestColumnValidation:
 class TestMetricValidation:
     def test_metric_invalid_type_raises(self, ctx):
         with pytest.raises(ValueError, match="Invalid metric_type"):
-            Metric(ctx, project_id="p1", run_id="r1", key="loss", metric_type="INVALID")
+            Metric(ctx, project_id="p1", run_id="r1", key="loss", metric_type="INVALID", created_at=1)
 
     def test_metric_invalid_log_level_raises(self, ctx):
         with pytest.raises(ValueError, match="Invalid metric log level"):
-            Metric(ctx, project_id="p1", run_id="r1", key="LOG", metric_type="LOG", log_level="VERBOSE")  # type: ignore
+            Metric(ctx, project_id="p1", run_id="r1", key="LOG", metric_type="LOG", log_level="VERBOSE", created_at=1)  # type: ignore
 
     def test_metric_scalar_no_key_raises(self, ctx):
         with pytest.raises(ValueError, match="key is required"):
-            Metric(ctx, project_id="p1", run_id="r1", key="", metric_type="SCALAR")
+            Metric(ctx, project_id="p1", run_id="r1", key="", metric_type="SCALAR", created_at=1)
 
     def test_metrics_empty_keys_raises(self, ctx):
         with pytest.raises(ValueError, match="non-empty"):
-            Metrics(ctx, project_id="p1", run_id="r1", keys=[], metric_type="SCALAR")
+            Metrics(ctx, project_id="p1", run_id="r1", keys=[], metric_type="SCALAR", created_at=1)
 
     def test_metrics_invalid_type_raises(self, ctx):
         with pytest.raises(ValueError, match="Invalid metric_type"):
-            Metrics(ctx, project_id="p1", run_id="r1", keys=["loss"], metric_type=cast(Any, "INVALID"))
+            Metrics(ctx, project_id="p1", run_id="r1", keys=["loss"], metric_type=cast(Any, "INVALID"), created_at=1)
 
     @pytest.mark.parametrize("keys", ["loss", [""], None])
     def test_metrics_invalid_keys_raises(self, ctx, keys):
         with pytest.raises(ValueError, match="keys must be a non-empty list"):
-            Metrics(ctx, project_id="p1", run_id="r1", keys=cast(List[str], keys), metric_type="SCALAR")
+            Metrics(ctx, project_id="p1", run_id="r1", keys=cast(List[str], keys), metric_type="SCALAR", created_at=1)
+
+
+# ---------------------------------------------------------------------------
+# createdAt — 类型与精度兼容 + payload 注入
+# ---------------------------------------------------------------------------
+class TestCreatedAt:
+    def test_metrics_payload_contains_created_at(self, ctx):
+        ctx.client.get.side_effect = [
+            _api_response(
+                {
+                    "cuid": "run-cuid",
+                    "slug": "run-slug",
+                    "name": "test-run",
+                    "project_id": "project-cuid",
+                    "createdAt": "2024-08-01T00:00:00.000Z",
+                }
+            )
+        ]
+        ctx.client.post.return_value = _api_response([{"key": "loss", "metrics": []}, {"key": "loss", "latest": {}}])
+        exp = Experiment(ctx, path="user/proj/run-slug")
+
+        exp.metrics(keys=["loss"])
+
+        scalar_calls = [c for c in ctx.client.post.call_args_list if c.args[0] == "/house/metrics/scalar"]
+        assert len(scalar_calls) == 1
+        assert scalar_calls[0].kwargs["data"]["columns"] == [
+            {"experimentId": "run-cuid", "key": "loss", "createdAt": 1722470400}
+        ]
+
+    def test_logs_params_contain_created_at(self, ctx):
+        def get(path, **kwargs):
+            if path == "/project/user/proj/runs/run-slug":
+                return _api_response(
+                    {
+                        "cuid": "run-cuid",
+                        "slug": "run-slug",
+                        "name": "test-run",
+                        "project_id": "project-cuid",
+                        "createdAt": "2024-08-01T00:00:00Z",
+                    }
+                )
+            if path == "/house/metrics/log":
+                return _api_response({"logs": [{"message": "ready"}], "count": 1})
+            raise AssertionError(f"unexpected GET {path}")
+
+        ctx.client.get.side_effect = get
+        exp = Experiment(ctx, path="user/proj/run-slug")
+
+        exp.logs()
+
+        _, kwargs = ctx.client.get.call_args_list[-1]
+        assert kwargs["params"]["createdAt"] == 1722470400
+
+    def test_summary_payload_contains_created_at(self, ctx):
+        ctx.client.get.side_effect = [
+            _api_response(
+                {
+                    "cuid": "run-cuid",
+                    "slug": "run-slug",
+                    "name": "test-run",
+                    "project_id": "project-cuid",
+                    "createdAt": "2024-08-01T00:00:00Z",
+                }
+            )
+        ]
+        ctx.client.post.return_value = _api_response({"run-cuid": {"loss": {"latest": {"value": 1.0}}}})
+        exp = Experiment(ctx, path="user/proj/run-slug")
+
+        exp.summary()
+
+        payload = ctx.client.post.call_args_list[0].kwargs["data"]
+        assert payload["experiments"] == [
+            {
+                "projectId": "project-cuid",
+                "experimentId": "run-cuid",
+                "createdAt": 1722470400,
+            }
+        ]
+
+    def test_payload_raises_when_created_at_missing(self, ctx):
+        ctx.client.get.side_effect = [
+            _api_response({"cuid": "run-cuid", "slug": "run-slug", "name": "test-run", "project_id": "project-cuid"})
+        ]
+        exp = Experiment(ctx, path="user/proj/run-slug")
+
+        # createdAt 缺失时必须强制报错，禁止静默降级为无下界查询（慢查询）
+        with pytest.raises(ValueError, match="timestamp"):
+            exp.summary()
+
+    def test_series_requests_contain_created_at(self, ctx):
+        ctx.client.get.side_effect = [
+            _api_response(
+                {
+                    "cuid": "run-cuid",
+                    "slug": "run-slug",
+                    "name": "test-run",
+                    "project_id": "project-cuid",
+                    "createdAt": "2024-08-01T00:00:00Z",
+                }
+            )
+        ]
+        ctx.client.post.return_value = _api_response({"keys": ["loss"], "hasMore": False, "nextCursor": ""})
+        exp = Experiment(ctx, path="user/proj/run-slug")
+
+        list(exp.series())
+
+        keys_payload = ctx.client.post.call_args_list[0].kwargs["data"]
+        assert keys_payload["experiments"] == [
+            {"projectId": "project-cuid", "experimentId": "run-cuid", "createdAt": 1722470400}
+        ]
+
+    def test_series_raises_when_created_at_missing(self, ctx):
+        ctx.client.post.return_value = _api_response({"keys": ["loss"], "hasMore": False, "nextCursor": ""})
+
+        # experiment ref 缺失 createdAt 时必须强制报错，禁止静默降级为无下界查询（慢查询）
+        with pytest.raises(ValueError, match="createdAt"):
+            Series(
+                ctx.client,
+                experiments=[{"projectId": "project-cuid", "experimentId": "run-cuid"}],
+            )
 
 
 # ---------------------------------------------------------------------------

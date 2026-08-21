@@ -9,7 +9,8 @@ playground/
 
 
 # IDEs & OS
-.zed/
+.zed/*
+!.zed/settings.json
 .idea/
 .vscode/
 .cursor/
