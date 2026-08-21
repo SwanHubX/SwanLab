@@ -32,14 +32,12 @@ gh pr diff <PR>
 gh pr checks <PR>
 ```
 
-2. 把 head 分支拉到本地隔离工作区再审核，不要污染用户当前工作区：
+2. 直接在当前工作区 checkout 到 PR head 审核，不创建单独的 worktree 和分支。checkout 前确认当前工作区干净；存在未提交改动时停下来询问用户如何处理，不要继续：
 
 ```bash
-git fetch origin pull/<PR>/head:pr-<PR>
-git worktree add ../swanlab-pr-<PR> pr-<PR>
+git status
+gh pr checkout <PR>
 ```
-
-无法建立 worktree 时可用 `gh pr checkout <PR>`，但必须先确认当前工作区干净，并在结束后切回原分支。
 
 3. 根据文件列表判断适用领域，并按“范围参考”读取相关契约。所有应用代码都要检查横切质量；涉及凭据、网络、文件或用户数据时额外检查安全与隐私。
 4. 对关键发现检查 head 分支中的完整文件和调用关系，不只依据 diff 片段。
@@ -54,11 +52,10 @@ git worktree add ../swanlab-pr-<PR> pr-<PR>
 - 用户只是要求审查、看意见或讨论时，一律停在阶段一。
 - 用户要求修改草稿时，更新草稿后重新征求确认，不要顺带发布。
 - 发布前把最终结论和 `event` 类型（`APPROVE` / `REQUEST_CHANGES` / `COMMENT`）复述给用户确认，避免审批状态与用户意图不符。
-- 发布后回报 review 链接，并清理临时 worktree 和本地分支：
+- 发布后回报 review 链接，并切回原分支：
 
 ```bash
-git worktree remove ../swanlab-pr-<PR>
-git branch -D pr-<PR>
+git checkout <原分支>
 ```
 
 ## 独立审核原则
@@ -223,7 +220,7 @@ gh pr review <PR> --comment --body-file /tmp/pr-review-body.md
 阶段一（审查）：
 
 - [ ] 当前 PR 意图、base、head 和文件范围已确认
-- [ ] head 分支已拉到本地隔离工作区，关键发现在完整文件上验证
+- [ ] 已在当前工作区 checkout 到 PR head 分支，关键发现在完整文件上验证
 - [ ] 所有适用领域和横切质量已审核
 - [ ] 阻塞和必须修改 finding 已解决或明确记录
 - [ ] 本地验证结果和 PR Actions 状态已记录
@@ -234,7 +231,7 @@ gh pr review <PR> --comment --body-file /tmp/pr-review-body.md
 - [ ] 用户已明确要求发布，且已确认 `event` 类型
 - [ ] 可定位 finding 已提交为 inline comments
 - [ ] 最终 review 已通过 Reviews API 或 `gh pr review` 提交
-- [ ] 临时 worktree 和本地分支已清理
+- [ ] 已切回原分支
 
 ## 参考
 

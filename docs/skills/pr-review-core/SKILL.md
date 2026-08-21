@@ -32,11 +32,11 @@ gh pr diff <PR>
 gh pr checks <PR>
 ```
 
-2. 把 head 分支拉到本地隔离工作区再审核，不要污染用户当前工作区：
+2. 直接在当前工作区 checkout 到 PR head 审核，不创建单独的 worktree 和分支。checkout 前确认当前工作区干净；存在未提交改动时停下来询问用户如何处理，不要继续：
 
 ```bash
-git fetch origin pull/<PR>/head:pr-<PR>
-git worktree add ../swanlab-pr-<PR> pr-<PR>
+git status
+gh pr checkout <PR>
 ```
 
 3. 根据文件列表判断适用领域，按下方"范围参考"读取 [`references/domain-contracts.md`](references/domain-contracts.md) 中对应章节。所有 Go 代码都要检查"Go core 横切质量与代码规范"；涉及凭据、网络、日志或文件路径时额外检查安全（同 `pr-review-lab` 的"安全与隐私"）。
@@ -48,11 +48,10 @@ git worktree add ../swanlab-pr-<PR> pr-<PR>
 
 仅当用户在阶段一之后明确要求发布时才执行。发布前把最终结论和 `event` 类型（`APPROVE` / `REQUEST_CHANGES` / `COMMENT`）复述给用户确认。inline comment 提交方式、Review JSON 结构和顶层正文模板见 [`pr-review-lab` "提交审核"](../pr-review-lab/SKILL.md) 一节——提交时把审核范围复选框替换为下方的 Go core 版本。
 
-发布后回报 review 链接，并清理临时 worktree 和本地分支：
+发布后回报 review 链接，并切回原分支：
 
 ```bash
-git worktree remove ../swanlab-pr-<PR>
-git branch -D pr-<PR>
+git checkout <原分支>
 ```
 
 ## 范围参考
@@ -130,7 +129,7 @@ CI 覆盖 Ubuntu、Windows、macOS，跨平台构建标签和 `go test -race`。
 阶段一（审查）：
 
 - [ ] 当前 PR 意图、base、head 和文件范围已确认
-- [ ] head 分支已拉到本地隔离工作区，关键发现在完整文件上验证
+- [ ] 已在当前工作区 checkout 到 PR head 分支，关键发现在完整文件上验证
 - [ ] 所有适用 Go core 领域和横切质量已审核
 - [ ] 跨语言变更已读取 `pr-review-lab` 并覆盖 Python 范围
 - [ ] 阻塞和必须修改 finding 已解决或明确记录
@@ -142,7 +141,7 @@ CI 覆盖 Ubuntu、Windows、macOS，跨平台构建标签和 `go test -race`。
 - [ ] 用户已明确要求发布，且已确认 `event` 类型
 - [ ] 可定位 finding 已提交为 inline comments
 - [ ] 最终 review 已通过 Reviews API 或 `gh pr review` 提交
-- [ ] 临时 worktree 和本地分支已清理
+- [ ] 已切回原分支
 
 ## 参考
 
