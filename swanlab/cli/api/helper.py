@@ -36,11 +36,6 @@ METRIC_LOG_LEVEL_TYPE = click.Choice(list(get_args(ApiMetricLogLevelLiteral)), c
 
 
 def format_output(resp: ApiResponseType) -> bytes:
-    """将响应信封一次性序列化为缩进 JSON 字节并输出到终端。
-
-    返回同一份字节供 ``--save`` 复用，避免对同一 payload 二次序列化；
-    payload 字典在序列化后即可被回收，峰值内存不随 ``--save`` 增长。
-    """
     content = orjson.dumps(resp.json(), option=orjson.OPT_INDENT_2)
     click.echo(content)
     return content
@@ -64,10 +59,9 @@ def api_command(func: Callable) -> Callable:
     """
     SwanLab API CLI 命令统一装饰器。
 
-    为命令附加 ``--host`` / ``--api-key`` / ``--save`` 选项并注入已认证的 ``api`` 参数；
-    命令体只需构造并返回 ``ApiResponseType``，输出、降级与保存统一由装饰器处理：
+    为CLI附加 ``--host`` / ``--api-key`` / ``--save`` 选项并注入已认证的 ``api`` 参数；
 
-    - 正常返回：打印 ``{"ok": true, "errmsg": "", "data": ...}``
+    - 正常返回： ``{"ok": true, "errmsg": "", "data": ...}``
     - 命令体抛出 ``ValueError``（实体不存在、createdAt 缺失等）：降级为 ``ok=False`` 响应并注入 ``errmsg``
     - 无论成功失败，``--save`` 均保存完整 JSON
     - Api 构造阶段（未登录 / 认证失败）不输出 JSON，通过单行 ClickException 提示认证失败
