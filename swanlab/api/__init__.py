@@ -14,7 +14,6 @@ from swanlab.exceptions import AuthenticationError
 from swanlab.sdk.internal.pkg import scope
 from swanlab.sdk.internal.pkg.client import Client
 from swanlab.sdk.internal.settings import create_settings, resolve_hosts
-from swanlab.utils.time import parse_timestamp_s
 
 from .base import ApiClientContext, BaseEntity
 from .column import Column, Columns
@@ -285,7 +284,7 @@ class Api(BaseEntity):
             query=query,
             column_type=column_type,
             column_class=column_class,
-            exp_created_at=parse_timestamp_s(exp.created_at),
+            exp_created_at=exp.created_at_ts,
         )
 
     @deprecated("Use `series()` method instead.")
@@ -313,7 +312,7 @@ class Api(BaseEntity):
             key=key,
             column_class=column_class,
             column_type=column_type,
-            exp_created_at=parse_timestamp_s(exp.created_at),
+            exp_created_at=exp.created_at_ts,
         )
 
     def series(

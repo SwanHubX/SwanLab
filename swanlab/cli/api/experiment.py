@@ -1,12 +1,11 @@
 from typing import Optional
 
 import click
-import orjson
 
 from swanlab.api import Api
 from swanlab.api.metric import Metric, Metrics
 from swanlab.api.summary import Summary
-from swanlab.api.typings.common import RangeQuery
+from swanlab.api.typings.common import ApiResponseType, RangeQuery
 from swanlab.cli.api.helper import (
     COLUMN_CLASS_TYPE,
     COLUMN_DATA_TYPE,
@@ -14,13 +13,10 @@ from swanlab.cli.api.helper import (
     METRIC_KEY_TYPE,
     METRIC_LOG_LEVEL_TYPE,
     PAGE_SIZE_TYPE,
-    format_output,
+    api_command,
     parse_keys,
-    save_output,
     validate_filter_query,
-    with_custom_host,
 )
-from swanlab.utils.time import parse_timestamp_s
 
 
 @click.group("run")
@@ -31,23 +27,13 @@ def run_cli():
 
 @run_cli.command("info")
 @click.argument("path", required=True)
-@click.option(
-    "--save",
-    "save_name",
-    is_flag=False,
-    flag_value=".",
-    help="Save output as JSON to current directory.",
-)
-@with_custom_host
-def get_experiment(path: str, save_name: str, api: Api):
+@api_command
+def get_experiment(path: str, api: Api) -> ApiResponseType:
     """Get experiment info by path.
 
     PATH format: username/project_name/run_id
     """
-    resp = api.run(path).wrapper()
-    payload = format_output(resp)
-    if save_name is not None:
-        save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
+    return api.run(path).wrapper()
 
 
 @run_cli.command("list")
@@ -67,23 +53,13 @@ def get_experiment(path: str, save_name: str, api: Api):
 )
 @click.argument("project_path", required=True)
 @click.option("--all", "fetch_all", is_flag=True, default=False, help="Fetch all pages.")
-@click.option(
-    "--save",
-    "save_name",
-    is_flag=False,
-    flag_value=".",
-    help="Save output as JSON to current directory.",
-)
-@with_custom_host
-def list_experiments(page_num: int, page_size: str, project_path: str, fetch_all: bool, save_name: str, api: Api):
+@api_command
+def list_experiments(page_num: int, page_size: str, project_path: str, fetch_all: bool, api: Api) -> ApiResponseType:
     """List experiments under a project.
 
     PROJECT_PATH format: username/project_name
     """
-    resp = api.runs_get(path=project_path, page=page_num, size=int(page_size), all=fetch_all).wrapper()
-    payload = format_output(resp)
-    if save_name is not None:
-        save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
+    return api.runs_get(path=project_path, page=page_num, size=int(page_size), all=fetch_all).wrapper()
 
 
 @run_cli.command("filter")
@@ -95,24 +71,14 @@ def list_experiments(page_num: int, page_size: str, project_path: str, fetch_all
     type=str,
     help="Filter query as a JSON string or path to a JSON file.",
 )
-@click.option(
-    "--save",
-    "save_name",
-    is_flag=False,
-    flag_value=".",
-    help="Save output as JSON to current directory.",
-)
-@with_custom_host
-def filter_experiments(project_path: str, filter_query: str, save_name: str, api: Api):
+@api_command
+def filter_experiments(project_path: str, filter_query: str, api: Api) -> ApiResponseType:
     """Filter experiments under a project by query.
 
     PROJECT_PATH format: username/project_name
     """
     filters = validate_filter_query(filter_query)
-    resp = api.runs(path=project_path, filters=filters).wrapper()
-    payload = format_output(resp)
-    if save_name is not None:
-        save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
+    return api.runs(path=project_path, filters=filters).wrapper()
 
 
 @run_cli.command("columns", deprecated=True)
@@ -152,14 +118,7 @@ def filter_experiments(project_path: str, filter_query: str, save_name: str, api
     help="Column type, such as IMAGE, FLOAT, or STRING.",
 )
 @click.option("--all", "fetch_all", is_flag=True, default=False, help="Fetch all pages.")
-@click.option(
-    "--save",
-    "save_name",
-    is_flag=False,
-    flag_value=".",
-    help="Save output as JSON to current directory.",
-)
-@with_custom_host
+@api_command
 def list_experiment_columns(
     path: str,
     page_num: int,
@@ -168,9 +127,8 @@ def list_experiment_columns(
     column_class: str,
     column_type: str,
     fetch_all: bool,
-    save_name: str,
     api: Api,
-):
+) -> ApiResponseType:
     """List columns of an experiment.
 
     PATH format: username/project_name/run_id
@@ -184,10 +142,7 @@ def list_experiment_columns(
         column_type=column_type.upper() if column_type else None,  # type: ignore
         all=fetch_all,
     )
-    resp = columns.wrapper()
-    payload = format_output(resp)
-    if save_name is not None:
-        save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
+    return columns.wrapper()
 
 
 @run_cli.command("series")
@@ -212,22 +167,14 @@ def list_experiment_columns(
     type=str,
     help="Fuzzy search keyword (case-insensitive substring match on key names).",
 )
-@click.option(
-    "--save",
-    "save_name",
-    is_flag=False,
-    flag_value=".",
-    help="Save output as JSON to current directory.",
-)
-@with_custom_host
+@api_command
 def list_experiment_series(
     path: str,
     metric_type: str,
     metric_class: str,
     search: str,
-    save_name: str,
     api: Api,
-):
+) -> ApiResponseType:
     """List metric keys of an experiment.
 
     PATH format: username/project_name/run_id
@@ -238,10 +185,7 @@ def list_experiment_series(
         metric_class=metric_class.upper(),  # type: ignore
         search=search,
     )
-    resp = series.wrapper()
-    payload = format_output(resp)
-    if save_name is not None:
-        save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
+    return series.wrapper()
 
 
 @run_cli.command("metrics")
@@ -297,14 +241,7 @@ def list_experiment_series(
     type=click.IntRange(min=1),
     help="Last N milliseconds of data (mutually exclusive with --range-start/--range-end).",
 )
-@click.option(
-    "--save",
-    "save_name",
-    is_flag=False,
-    flag_value=".",
-    help="Save output as JSON to current directory.",
-)
-@with_custom_host
+@api_command
 def get_experiment_metrics(
     path: str,
     keys: str,
@@ -317,9 +254,8 @@ def get_experiment_metrics(
     range_head: Optional[int],
     range_tail: Optional[int],
     range_last: Optional[int],
-    save_name: str,
     api: Api,
-):
+) -> ApiResponseType:
     """Get scalar metrics of an experiment.
 
     PATH format: username/project_name/run_id
@@ -345,7 +281,7 @@ def get_experiment_metrics(
 
     key_list = parse_keys(keys)
     experiment = api.run(path)
-    metrics = Metrics(
+    return Metrics(
         ctx=api._ctx,
         project_id=experiment.project_id,
         run_id=experiment.run_id,
@@ -357,12 +293,8 @@ def get_experiment_metrics(
         range_query=rq,
         root_pro_id=experiment.root_pro_id,
         root_exp_id=experiment.root_exp_id,
-        created_at=parse_timestamp_s(experiment.created_at),
-    )
-    resp = metrics.wrapper()
-    payload = format_output(resp)
-    if save_name is not None:
-        save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
+        created_at=experiment.created_at_ts,
+    ).wrapper()
 
 
 @run_cli.command("summary")
@@ -373,34 +305,23 @@ def get_experiment_metrics(
     type=str,
     help="Comma-separated scalar keys, e.g. 'loss,acc'. Omit to query all keys.",
 )
-@click.option(
-    "--save",
-    "save_name",
-    is_flag=False,
-    flag_value=".",
-    help="Save output as JSON to current directory.",
-)
-@with_custom_host
-def get_experiment_summary(path: str, keys: Optional[str], save_name: str, api: Api):
+@api_command
+def get_experiment_summary(path: str, keys: Optional[str], api: Api) -> ApiResponseType:
     """Get scalar metric summaries of an experiment.
 
     PATH format: username/project_name/run_id
     """
     key_list = parse_keys(keys) if keys else None
     experiment = api.run(path)
-    summary = Summary(
+    return Summary(
         ctx=api._ctx,
         project_id=experiment.project_id,
         experiment_id=experiment.run_id,
         keys=key_list,
         root_pro_id=experiment.root_pro_id,
         root_exp_id=experiment.root_exp_id,
-        created_at=parse_timestamp_s(experiment.created_at),
-    )
-    resp = summary.wrapper()
-    payload = format_output(resp)
-    if save_name is not None:
-        save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
+        created_at=experiment.created_at_ts,
+    ).wrapper()
 
 
 @run_cli.command("column", deprecated=True)
@@ -425,22 +346,14 @@ def get_experiment_summary(path: str, keys: Optional[str], save_name: str, api: 
     type=COLUMN_DATA_TYPE,
     help="Column type, such as IMAGE, FLOAT, or STRING.",
 )
-@click.option(
-    "--save",
-    "save_name",
-    is_flag=False,
-    flag_value=".",
-    help="Save output as JSON to current directory.",
-)
-@with_custom_host
+@api_command
 def get_experiment_column(
     path: str,
     key: str,
     column_class: str,
     column_type: str,
-    save_name: str,
     api: Api,
-):
+) -> ApiResponseType:
     """Get a single column of an experiment.
 
     PATH format: username/project_name/run_id
@@ -451,10 +364,7 @@ def get_experiment_column(
         column_class=column_class.upper(),  # type: ignore
         column_type=column_type.upper() if column_type else None,  # type: ignore
     )
-    resp = col.wrapper()
-    payload = format_output(resp)
-    if save_name is not None:
-        save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
+    return col.wrapper()
 
 
 @run_cli.command("medias")
@@ -473,29 +383,21 @@ def get_experiment_column(
     help="Step number for media data. Default 0.",
 )
 @click.option("--all", "fetch_all", is_flag=True, default=False, help="Fetch all media steps.")
-@click.option(
-    "--save",
-    "save_name",
-    is_flag=False,
-    flag_value=".",
-    help="Save output as JSON to current directory.",
-)
-@with_custom_host
+@api_command
 def get_experiment_medias(
     path: str,
     keys: str,
     step: int,
     fetch_all: bool,
-    save_name: str,
     api: Api,
-):
+) -> ApiResponseType:
     """Get media metrics of an experiment.
 
     PATH format: username/project_name/run_id
     """
     key_list = parse_keys(keys)
     experiment = api.run(path)
-    metrics = Metrics(
+    return Metrics(
         ctx=api._ctx,
         project_id=experiment.project_id,
         run_id=experiment.run_id,
@@ -505,12 +407,8 @@ def get_experiment_medias(
         all=fetch_all,
         root_pro_id=experiment.root_pro_id,
         root_exp_id=experiment.root_exp_id,
-        created_at=parse_timestamp_s(experiment.created_at),
-    )
-    resp = metrics.wrapper()
-    payload = format_output(resp)
-    if save_name is not None:
-        save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
+        created_at=experiment.created_at_ts,
+    ).wrapper()
 
 
 @run_cli.command("logs")
@@ -536,28 +434,20 @@ def get_experiment_medias(
     default=False,
     help="Remove timestamp from log data.",
 )
-@click.option(
-    "--save",
-    "save_name",
-    is_flag=False,
-    flag_value=".",
-    help="Save output as JSON to current directory.",
-)
-@with_custom_host
+@api_command
 def get_experiment_logs(
     path: str,
     offset: int,
     level: str,
     ignore_timestamp: bool,
-    save_name: str,
     api: Api,
-):
+) -> ApiResponseType:
     """Get console logs of an experiment.
 
     PATH format: username/project_name/run_id
     """
     experiment = api.run(path)
-    metric = Metric(
+    return Metric(
         ctx=api._ctx,
         project_id=experiment.project_id,
         run_id=experiment.run_id,
@@ -568,12 +458,8 @@ def get_experiment_logs(
         ignore_timestamp=ignore_timestamp,
         root_pro_id=experiment.root_pro_id,
         root_exp_id=experiment.root_exp_id,
-        created_at=parse_timestamp_s(experiment.created_at),
-    )
-    resp = metric.wrapper()
-    payload = format_output(resp)
-    if save_name is not None:
-        save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
+        created_at=experiment.created_at_ts,
+    ).wrapper()
 
 
 @run_cli.command("export-logs")
@@ -591,21 +477,11 @@ def get_experiment_logs(
     type=click.IntRange(min=1, max=500_000),
     help="Number of rows to export. Default 500000, max 500000.",
 )
-@click.option(
-    "--save",
-    "save_name",
-    is_flag=False,
-    flag_value=".",
-    help="Save export URL as JSON to current directory.",
-)
-@with_custom_host
-def export_experiment_logs(path: str, start: int, rows: int, save_name: str, api: Api):
+@api_command
+def export_experiment_logs(path: str, start: int, rows: int, api: Api) -> ApiResponseType:
     """Export experiment logs as downloadable .log file.
 
     PATH format: username/project_name/run_id
     """
     experiment = api.run(path)
-    resp = experiment.export_logs(start=start, rows=rows)
-    payload = format_output(resp)
-    if save_name is not None:
-        save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
+    return experiment.export_logs(start=start, rows=rows)

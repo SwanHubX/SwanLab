@@ -530,8 +530,30 @@ class TestCreatedAt:
         exp = Experiment(ctx, path="user/proj/run-slug")
 
         # createdAt 缺失时必须强制报错，禁止静默降级为无下界查询（慢查询）
-        with pytest.raises(ValueError, match="timestamp"):
+        with pytest.raises(ValueError, match="Failed to parse createdAt of experiment 'user/proj/run-slug'"):
             exp.summary()
+
+    def test_created_at_ts_property(self, ctx):
+        ctx.client.get.side_effect = [
+            _api_response(
+                {
+                    "cuid": "run-cuid",
+                    "slug": "run-slug",
+                    "name": "test-run",
+                    "project_id": "project-cuid",
+                    "createdAt": "2024-08-01T00:00:00Z",
+                }
+            )
+        ]
+        exp = Experiment(ctx, path="user/proj/run-slug")
+
+        assert exp.created_at_ts == 1722470400
+
+    def test_created_at_ts_property_raises_when_experiment_missing(self, ctx_404):
+        exp = Experiment(ctx_404, path="user/proj/run123")
+
+        with pytest.raises(ValueError, match="Failed to load experiment 'user/proj/run123'.*404"):
+            _ = exp.created_at_ts
 
     def test_series_requests_contain_created_at(self, ctx):
         ctx.client.get.side_effect = [
@@ -564,6 +586,19 @@ class TestCreatedAt:
                 ctx.client,
                 experiments=[{"projectId": "project-cuid", "experimentId": "run-cuid"}],
             )
+
+    def test_summary_raises_load_error_when_experiment_missing(self, ctx_404):
+        exp = Experiment(ctx_404, path="user/proj/run123")
+
+        # 实验不存在时必须抛出携带路径与原始服务端错误的异常，而非空字符串时间戳错误
+        with pytest.raises(ValueError, match="Failed to load experiment 'user/proj/run123'.*404"):
+            exp.summary()
+
+    def test_metrics_raises_load_error_when_experiment_missing(self, ctx_404):
+        exp = Experiment(ctx_404, path="user/proj/run123")
+
+        with pytest.raises(ValueError, match="Failed to load experiment 'user/proj/run123'.*404"):
+            exp.metrics(["loss"])
 
 
 # ---------------------------------------------------------------------------
