@@ -472,7 +472,7 @@ class Metric(BaseEntity):
         resp = entity._post("/resources/presigned/get", data={"prefix": prefix, "paths": paths})
         if not resp.ok or not isinstance(resp.data, dict):
             return {}
-        urls = resp.data.get("urls", [])
+        urls = resp.data.get("urls") or []
         return dict(zip(paths, urls)) if urls else {}
 
     @staticmethod
@@ -483,7 +483,7 @@ class Metric(BaseEntity):
         resp = entity._post("/files/presigned/get", data={"paths": paths})
         if not resp.ok or not isinstance(resp.data, dict):
             return {}
-        urls = resp.data.get("urls", [])
+        urls = resp.data.get("urls") or []
         return dict(zip(paths, urls)) if urls else {}
 
     @staticmethod
@@ -535,14 +535,14 @@ class Metric(BaseEntity):
             return res
 
         prefix = f"{self.project_id}/{self.run_id}"
-        all_paths = metric_entry.get("data", [])
+        all_paths = metric_entry.get("data") or []
         url_map = self._fetch_presigned_urls(self, prefix, all_paths) if all_paths else {}
         if all_paths:
             console.debug(
                 f"Media fetched: run_id[{self.run_id}], key[{self.key}] - {len(all_paths)} items, requesting presigned urls..."
             )
         items = self._build_media_items(metric_entry, url_map)
-        res["metrics"] = [{"index": data.get("step", 0), "items": items}]
+        res["metrics"] = [{"index": data.get("step") or 0, "items": items}]
         return res
 
     def _fetch_media_all(self) -> ApiMediaSeriesType:
