@@ -10,10 +10,14 @@ from typing_extensions import deprecated
 from swanlab.sdk.cmd.merge_callbacks import merge_callbacks
 
 
-@deprecated("use `swanlab.merge_callbacks()` instead")
+@deprecated(
+    "`swanlab.register_callbacks()` is deprecated and will be removed in v0.11, "
+    "use `swanlab.merge_callbacks()` instead."
+)
 def register_callbacks(*args, **kwargs):
     warnings.warn(
-        "`swanlab.register_callbacks()` is deprecated, use `swanlab.merge_callbacks()` instead",
+        "`swanlab.register_callbacks()` is deprecated and will be removed in v0.11, "
+        "use `swanlab.merge_callbacks()` instead",
         FutureWarning,
         stacklevel=2,
     )
