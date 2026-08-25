@@ -66,7 +66,7 @@ class Transport:
             return
 
         # 初始化sender，根据不同的项目版本选择不同的请求器，以兼容历史版本
-        # NOTE: 相关兼容逻辑将在v0.10.0版本后移除
+        # NOTE: 相关兼容逻辑将在v0.11版本后移除
         sender = self._sender
         if sender is None:
             sender = (

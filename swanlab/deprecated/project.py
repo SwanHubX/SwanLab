@@ -11,7 +11,7 @@ from swanlab.exceptions import ApiError
 from swanlab.sdk.internal.core_python import client
 
 
-@deprecated("legacy projects without views will no longer be supported in v0.10.")
+@deprecated("legacy projects without views will no longer be supported in v0.11.")
 def get_or_create_old_project(*, data: dict):
     """
     旧接口创建、获取项目信息，主要用于兼容旧版本的项目创建接口
@@ -20,7 +20,7 @@ def get_or_create_old_project(*, data: dict):
     """
     warnings.warn(
         "You are accessing a legacy project that does not support views. "
-        "Legacy projects will no longer be supported in v0.10, scheduled for release on 2026-10-01. "
+        "Legacy projects will no longer be supported in v0.11 and will be removed soon. "
         "Please create a new project or upgrade this project in the web app.",
         FutureWarning,
         stacklevel=2,

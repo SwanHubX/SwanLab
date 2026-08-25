@@ -202,7 +202,7 @@ class Experiment(BaseEntity):
                 data = self._data
         return cast(ApiExperimentProfileType, self._ensure_data().get("profile", {}))
 
-    @deprecated("Use `series()` method instead.")
+    @deprecated("`column()` is deprecated and will be removed in v0.11, use `series()` instead.")
     def column(
         self,
         key: str,
@@ -452,7 +452,7 @@ class Experiment(BaseEntity):
         )
         return metric.export_logs(start=start, rows=rows)
 
-    @deprecated("Use `series()` method instead.")
+    @deprecated("`columns()` is deprecated and will be removed in v0.11, use `series()` instead.")
     def columns(
         self,
         page: int = 1,
