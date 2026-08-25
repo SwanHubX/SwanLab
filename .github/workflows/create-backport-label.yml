@@ -1,0 +1,25 @@
+name: Create backport label
+
+on:
+  create
+
+permissions:
+  issues: write # 创建 label 所需权限
+
+jobs:
+  create-label:
+    name: Create backport label for release branch
+    runs-on: ubuntu-latest
+    # create 事件在新建分支或 tag 时都会触发，这里只处理 release/v* 分支
+    if: startsWith(github.ref, 'refs/heads/release/v')
+    steps:
+      - name: Create label
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          gh label create "backport ${BRANCH}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --color 0E8A16 \
+            --description "Merge 后自动 backport 此 PR 到 ${BRANCH}" \
+            || echo "Label backport ${BRANCH} already exists, skip"
