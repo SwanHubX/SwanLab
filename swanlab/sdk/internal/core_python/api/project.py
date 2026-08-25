@@ -31,16 +31,23 @@ def get_or_create_project(*, username: Optional[str], name: str, public: bool) -
     username = username or client.username()
     data = {"name": name, "visibility": "PUBLIC" if public else "PRIVATE"}
 
+    # 2. 先请求接口获取项目信息，如果404再尝试创建项目
+    # 因为此时项目可能是已经存在的，但是当前用户只有写入权限，此时调用创建项目的接口返回403，属于非预期行为
     try:
-        # 2. 尝试调用新接口创建项目
+        return client.get(f"/project/{username}/{name}").data
+    except ApiError as e:
+        if e.response.status_code != 404:
+            raise e
+    try:
+        # 3. 尝试调用新接口创建项目
         # 已创建：200 ; 创建成功：201 ; 失败：4xx/5xx
         client.post(f"/projects/{username}", data=data)
     except ApiError as e:
-        # 3. 如果新接口不存在，则调用旧接口创建项目
+        # 4. 如果新接口不存在，则调用旧接口创建项目
         if e.response.status_code == 404:
             get_or_create_old_project(data={**data, "username": username})
         else:
             raise e
 
-    # 4. 获取项目信息
+    # 5. 获取项目信息
     return client.get(f"/project/{username}/{name}").data

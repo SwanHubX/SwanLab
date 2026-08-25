@@ -245,7 +245,6 @@ def mock_online_settings():
 def mock_online_init_apis(
     mock_online_settings,
     mock_login_api,
-    mock_project_create_api,
     mock_project_get_api,
     mock_experiment_create_api,
     mock_experiment_stop_api,
@@ -561,7 +560,6 @@ class TestInitOnlineMode:
     def test_init_online_success(
         self,
         logged_in_client,
-        mock_project_create_api,
         mock_project_get_api,
         mock_experiment_create_api,
         mock_experiment_stop_api,
@@ -578,7 +576,6 @@ class TestInitOnlineMode:
     def test_init_online_sets_project_and_workspace(
         self,
         logged_in_client,
-        mock_project_create_api,
         mock_project_get_api,
         mock_experiment_create_api,
         mock_experiment_stop_api,
@@ -597,7 +594,6 @@ class TestInitOnlineMode:
         self,
         logged_in_client,
         rsps,
-        mock_project_get_api,
         mock_experiment_create_api,
         mock_experiment_stop_api,
         mock_profile_api,
@@ -605,18 +601,57 @@ class TestInitOnlineMode:
         mock_metrics_api,
     ):
         """新版创建接口不可用且旧接口返回 409（项目已存在）时，应继续初始化"""
+        # 按调用顺序注册项目端点（responses 对同 URL 注册按顺序消费）：
+        # GET 项目 404 → POST 新版创建 404 → POST 旧版创建 409 → GET 项目 200
+        rsps.add(
+            responses_lib.GET, f"{API_HOST}/api/project/{USERNAME}/{PROJECT}", json={"message": "not found"}, status=404
+        )
         rsps.add(responses_lib.POST, f"{API_HOST}/api/projects/{USERNAME}", json={"message": "not found"}, status=404)
         rsps.add(responses_lib.POST, f"{API_HOST}/api/project", json=make_init_project_resp(), status=409)
+        rsps.add(
+            responses_lib.GET,
+            f"{API_HOST}/api/project/{USERNAME}/{PROJECT}",
+            json=make_project_detail_resp(),
+            status=200,
+        )
 
         run = init(mode="online", project=PROJECT)
 
         assert isinstance(run, Run)
         assert run._ctx.config.settings.project.workspace == USERNAME
 
+    def test_init_online_creates_project_when_missing(
+        self,
+        logged_in_client,
+        rsps,
+        mock_project_create_api,
+        mock_experiment_create_api,
+        mock_experiment_stop_api,
+        mock_profile_api,
+        mock_heartbeat_api,
+        mock_metrics_api,
+    ):
+        """项目不存在时应调用新版创建接口（GET 404 → POST 201 → GET 200）"""
+        # GET 项目 404 → （fixture 已注册 POST 创建 201）→ GET 项目 200
+        rsps.add(
+            responses_lib.GET, f"{API_HOST}/api/project/{USERNAME}/{PROJECT}", json={"message": "not found"}, status=404
+        )
+        rsps.add(
+            responses_lib.GET,
+            f"{API_HOST}/api/project/{USERNAME}/{PROJECT}",
+            json=make_project_detail_resp(),
+            status=200,
+        )
+
+        run = init(mode="online", project=PROJECT)
+
+        create_calls = [c for c in rsps.calls if c.request.url == f"{API_HOST}/api/projects/{USERNAME}"]
+        assert len(create_calls) == 1
+        assert isinstance(run, Run)
+
     def test_init_online_uses_all_expected_endpoints(
         self,
         logged_in_client,
-        mock_project_create_api,
         mock_project_get_api,
         mock_experiment_create_api,
         mock_experiment_stop_api,
@@ -636,7 +671,6 @@ class TestInitOnlineMode:
     def test_init_online_sends_custom_experiment_name(
         self,
         logged_in_client,
-        mock_project_create_api,
         mock_project_get_api,
         mock_experiment_stop_api,
         mock_profile_api,
@@ -1098,7 +1132,6 @@ def mock_save_upload_api(rsps):
 def mock_online_save_apis(
     mock_online_settings,
     mock_login_api,
-    mock_project_create_api,
     mock_project_get_api,
     mock_experiment_create_api,
     mock_experiment_stop_api,
@@ -1117,7 +1150,6 @@ def mock_online_save_apis(
 def mock_online_init_only(
     mock_online_settings,
     mock_login_api,
-    mock_project_create_api,
     mock_project_get_api,
     mock_experiment_create_api,
     mock_experiment_stop_api,
