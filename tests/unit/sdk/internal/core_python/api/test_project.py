@@ -57,7 +57,7 @@ def test_get_or_create_project_defaults_to_current_username(monkeypatch):
         "/projects/alice",
         data={"name": "demo", "visibility": "PRIVATE"},
     )
-    assert get.call_args_list == [call("/project/alice/demo"), call("/project/alice/demo")]
+    assert get.call_args_list == [call("/project/alice/demo", log_error=False), call("/project/alice/demo")]
 
 
 def test_get_or_create_project_uses_explicit_username_without_current_username(monkeypatch):
@@ -76,7 +76,7 @@ def test_get_or_create_project_uses_explicit_username_without_current_username(m
         "/projects/team",
         data={"name": "demo", "visibility": "PUBLIC"},
     )
-    assert get.call_args_list == [call("/project/team/demo"), call("/project/team/demo")]
+    assert get.call_args_list == [call("/project/team/demo", log_error=False), call("/project/team/demo")]
 
 
 def test_get_or_create_project_existing_project_skips_create(monkeypatch):
@@ -90,7 +90,7 @@ def test_get_or_create_project_existing_project_skips_create(monkeypatch):
 
     assert result == _project_data(username="team", name="demo")
     post.assert_not_called()
-    get.assert_called_once_with("/project/team/demo")
+    get.assert_called_once_with("/project/team/demo", log_error=False)
 
 
 def test_get_or_create_project_falls_back_to_old_helper_when_new_endpoint_fails(monkeypatch):
@@ -111,7 +111,7 @@ def test_get_or_create_project_falls_back_to_old_helper_when_new_endpoint_fails(
     get_or_create_old_project.assert_called_once_with(
         data={"name": "demo", "visibility": "PRIVATE", "username": "team"}
     )
-    assert get.call_args_list == [call("/project/team/demo"), call("/project/team/demo")]
+    assert get.call_args_list == [call("/project/team/demo", log_error=False), call("/project/team/demo")]
 
 
 def test_get_or_create_project_raises_non_not_found_new_endpoint_api_error(monkeypatch):
@@ -126,7 +126,7 @@ def test_get_or_create_project_raises_non_not_found_new_endpoint_api_error(monke
         project_api.get_or_create_project(username="team", name="demo", public=False)
 
     get_or_create_old_project.assert_not_called()
-    get.assert_called_once_with("/project/team/demo")
+    get.assert_called_once_with("/project/team/demo", log_error=False)
 
 
 def test_get_or_create_old_project_ignores_conflict(monkeypatch):
