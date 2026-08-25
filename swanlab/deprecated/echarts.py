@@ -10,29 +10,39 @@ from typing_extensions import deprecated
 from swanlab.sdk.internal.run.transforms import echarts
 
 
-@deprecated("use `swanlab.echarts.roc_curve()` instead")
+@deprecated(
+    "`swanlab.roc_curve()` is deprecated and will be removed in v0.11, use `swanlab.echarts.roc_curve()` instead."
+)
 def roc_curve(*args, **kwargs):
     warnings.warn(
-        "`swanlab.roc_curve()` is deprecated, use `swanlab.echarts.roc_curve()` instead",
+        "`swanlab.roc_curve()` is deprecated and will be removed in v0.11, use `swanlab.echarts.roc_curve()` instead",
         FutureWarning,
         stacklevel=2,
     )
     return echarts.roc_curve(*args, **kwargs)
 
 
-@deprecated("use `swanlab.echarts.pr_curve()` instead")
+@deprecated(
+    "`swanlab.pr_curve()` is deprecated and will be removed in v0.11, use `swanlab.echarts.pr_curve()` instead."
+)
 def pr_curve(*args, **kwargs):
     warnings.warn(
-        "`swanlab.pr_curve()` is deprecated, use `swanlab.echarts.pr_curve()` instead", FutureWarning, stacklevel=2
+        "`swanlab.pr_curve()` is deprecated and will be removed in v0.11, use `swanlab.echarts.pr_curve()` instead",
+        FutureWarning,
+        stacklevel=2,
     )
     return echarts.pr_curve(*args, **kwargs)
 
 
-@deprecated("use `swanlab.echarts.confusion_matrix()` instead")
+@deprecated(
+    "`swanlab.confusion_matrix()` is deprecated and will be removed in v0.11, "
+    "use `swanlab.echarts.confusion_matrix()` instead."
+)
 def confusion_matrix(*args, **kwargs):
     warnings.warn(
-        "`swanlab.confusion_matrix()` is deprecated, use `swanlab.echarts.confusion_matrix()` instead",
-        DeprecationWarning,
+        "`swanlab.confusion_matrix()` is deprecated and will be removed in v0.11, "
+        "use `swanlab.echarts.confusion_matrix()` instead",
+        FutureWarning,
         stacklevel=2,
     )
     return echarts.confusion_matrix(*args, **kwargs)
