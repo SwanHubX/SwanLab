@@ -35,7 +35,7 @@ def get_or_create_project(*, username: Optional[str], name: str, public: bool) -
     # 2. 先请求接口获取项目信息，如果404再尝试创建项目
     # 因为此时项目可能是已经存在的，但是当前用户只有写入权限，此时调用创建项目的接口返回403，属于非预期行为
     try:
-        return client.get(f"/project/{username}/{name}").data
+        return client.get(f"/project/{username}/{name}", log_error=False).data
     except ApiError as e:
         if e.response.status_code != 404:
             raise e
