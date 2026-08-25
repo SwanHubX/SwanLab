@@ -10,7 +10,7 @@ from swanlab.sdk.internal.pkg import adapter
 from swanlab.sdk.typings.core_python.api.upload import DeprecatedUploadColumn, DeprecatedUploadColumns
 
 
-@deprecated("legacy projects without views will no longer be supported in v0.10.")
+@deprecated("legacy projects without views will no longer be supported in v0.11.")
 class DeprecatedHttpRecordSender(HttpRecordSender):
     """
     DeprecatedHttpRecordSender 是一个过时的类，用于适应多视图版本前的列上传逻辑
