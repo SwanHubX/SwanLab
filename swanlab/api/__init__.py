@@ -253,7 +253,7 @@ class Api(BaseEntity):
     def user(self) -> User:
         return User(self._ctx)
 
-    @deprecated("Use `series()` method instead.")
+    @deprecated("`columns()` is deprecated and will be removed in v0.11, use `series()` instead.")
     def columns(
         self,
         path: str,
@@ -287,7 +287,7 @@ class Api(BaseEntity):
             exp_created_at=exp.created_at_ts,
         )
 
-    @deprecated("Use `series()` method instead.")
+    @deprecated("`column()` is deprecated and will be removed in v0.11, use `series()` instead.")
     def column(
         self,
         path: str,
