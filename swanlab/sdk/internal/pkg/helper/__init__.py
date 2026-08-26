@@ -20,6 +20,7 @@ __all__ = [
     "strip_none",
     "fmt_run_path",
     "fmt_system_key",
+    "calculate_section_name",
     "get_swanlab_version",
     "get_swanlab_latest_version",
     "get_probe_impl",
@@ -74,6 +75,15 @@ def fmt_run_path(run_path: str) -> str:
         username = f"@{username}"
 
     return PurePosixPath("/", username, project_name, "runs", run_id).as_posix()
+
+
+def calculate_section_name(key: str, section_rule_index: int) -> str:
+    """分组前缀计算：按 section_rule 切分多级 key 的前缀。"""
+    parts = key.split("/")
+    if len(parts) >= 2:
+        cut = section_rule_index % (len(parts) - 1) + 1
+        return "/".join(parts[:cut])
+    return ""
 
 
 def mkdir_and_append_gitignore(path: Path):

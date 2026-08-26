@@ -11,6 +11,7 @@ from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogLevel
 from swanlab.sdk.internal.bus.events import FileSaveEvent, LogEvent
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.run.components.consumer import BackgroundConsumer
+from swanlab.sdk.internal.run.components.resolver import DefinitionResolver
 
 
 def _make_consumer(tmp_path: Path, batch_size: int = 100):
@@ -28,7 +29,9 @@ def _make_consumer(tmp_path: Path, batch_size: int = 100):
         policy=SavePolicy.SAVE_POLICY_NOW,
     )
     return (
-        BackgroundConsumer(cast(RunContext, cast(object, ctx)), queue.Queue(), builder, batch_size=batch_size),
+        BackgroundConsumer(
+            cast(RunContext, cast(object, ctx)), queue.Queue(), builder, DefinitionResolver(), batch_size=batch_size
+        ),
         core,
         builder,
     )

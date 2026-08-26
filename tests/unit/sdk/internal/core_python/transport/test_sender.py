@@ -5,12 +5,12 @@ from unittest.mock import ANY, MagicMock, patch
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.exceptions import ApiError
-from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord, ColumnType
+from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnClass, ColumnRecord, ColumnType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaItem, MediaRecord, MediaValue
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord, SaveType
 from swanlab.sdk.internal.core_python.context import CoreConfig, CoreContext
-from swanlab.sdk.internal.core_python.transport.sender import HttpRecordSender
+from swanlab.sdk.internal.core_python.transport.sender import HttpRecordSender, encode_column
 from swanlab.sdk.internal.core_python.transport.tracker import UploadTracker
 from swanlab.sdk.internal.core_python.utils import ProgressFileWrapper
 
@@ -575,3 +575,147 @@ def test_resolve_save_source_handles_windows_separators_on_posix(tmp_path: Path)
         )
     )
     assert sender._resolve_save_source(custom_rec.save) == custom_fallback
+
+
+# ============================================================
+# encode_column: presence-based encoding
+# ============================================================
+
+
+class TestEncodeColumn:
+    """encode_column 的 presence-based 编码验证。"""
+
+    def test_inferred_column_only_section_name(self):
+        """inferred column 只发 sectionName，不发 xAxis/hidden。"""
+        col = ColumnRecord(
+            column_key="train/loss",
+            column_type=ColumnType.COLUMN_TYPE_SCALAR,
+            section_name="Training",
+        )
+        result = encode_column(col)
+        assert result == {"key": "train/loss", "type": "FLOAT", "sectionName": "Training"}
+
+    def test_inferred_column_no_section_name(self):
+        """inferred column 无 sectionName 时只发 key/type。"""
+        col = ColumnRecord(
+            column_key="train/loss",
+            column_type=ColumnType.COLUMN_TYPE_SCALAR,
+        )
+        result = encode_column(col)
+        assert result == {"key": "train/loss", "type": "FLOAT"}
+
+    def test_column_with_custom_xaxis(self):
+        """ColumnRecord 带 x_axis → xAxis 发送。"""
+        col = ColumnRecord(
+            column_key="train/loss",
+            column_type=ColumnType.COLUMN_TYPE_SCALAR,
+            x_axis="train/epoch",
+            section_name="Training",
+        )
+        result = encode_column(col)
+        assert result == {
+            "key": "train/loss",
+            "type": "FLOAT",
+            "xAxis": "train/epoch",
+            "sectionName": "Training",
+        }
+
+    def test_column_without_xaxis(self):
+        """ColumnRecord 无 x_axis → xAxis key 不发送。"""
+        col = ColumnRecord(
+            column_key="loss",
+            column_type=ColumnType.COLUMN_TYPE_SCALAR,
+            section_name="",
+        )
+        result = encode_column(col)
+        # section_name="" → falsy → 不发送
+        assert result == {"key": "loss", "type": "FLOAT"}
+
+    def test_column_with_relative_time_xaxis(self):
+        """xAxis=_relative_time → 字符串透传，由 Server 转换。"""
+        col = ColumnRecord(
+            column_key="loss",
+            column_type=ColumnType.COLUMN_TYPE_SCALAR,
+            x_axis="_relative_time",
+        )
+        result = encode_column(col)
+        assert result == {
+            "key": "loss",
+            "type": "FLOAT",
+            "xAxis": "_relative_time",
+        }
+
+    def test_column_hidden_true(self):
+        """hidden=True → hidden key 发送。"""
+        col = ColumnRecord(
+            column_key="secret",
+            column_type=ColumnType.COLUMN_TYPE_SCALAR,
+            hidden=True,
+        )
+        result = encode_column(col)
+        assert result == {
+            "key": "secret",
+            "type": "FLOAT",
+            "hidden": True,
+        }
+
+    def test_column_hidden_false_not_sent(self):
+        """hidden=False → hidden key 不发送（server 视 absent 为 false）。"""
+        col = ColumnRecord(
+            column_key="loss",
+            column_type=ColumnType.COLUMN_TYPE_SCALAR,
+            hidden=False,
+        )
+        result = encode_column(col)
+        assert result == {"key": "loss", "type": "FLOAT"}
+
+    def test_media_column(self):
+        """media ColumnRecord 无 x_axis（resolver 对 MEDIA 不设 x_axis）。"""
+        col = ColumnRecord(
+            column_key="train/img",
+            column_type=ColumnType.COLUMN_TYPE_IMAGE,
+            section_name="Images",
+        )
+        result = encode_column(col)
+        assert result == {
+            "key": "train/img",
+            "type": "IMAGE",
+            "sectionName": "Images",
+        }
+
+    def test_system_class_overrides_type(self):
+        """SYSTEM class → type 被覆写为 'SYSTEM'。"""
+        col = ColumnRecord(
+            column_key="system/cpu",
+            column_type=ColumnType.COLUMN_TYPE_SCALAR,
+            column_class=ColumnClass.COLUMN_CLASS_SYSTEM,
+        )
+        result = encode_column(col)
+        assert result == {"key": "system/cpu", "type": "SYSTEM"}
+
+    def test_upload_column_end_to_end(self, tmp_path: Path):
+        """upload_column 端到端：带 xAxis/hidden 的 ColumnRecord 正确编码并发送到 HTTP。"""
+        sender = _make_sender(tmp_path)
+        records = [
+            Record(
+                column=ColumnRecord(
+                    column_key="train/loss",
+                    column_type=ColumnType.COLUMN_TYPE_SCALAR,
+                    x_axis="train/epoch",
+                    section_name="Training",
+                    hidden=True,
+                )
+            )
+        ]
+        with patch("swanlab.sdk.internal.core_python.transport.sender.upload_columns") as mock_upload:
+            sender.upload_column(records)
+        assert mock_upload.call_count == 1
+        series = mock_upload.call_args.kwargs["columns"]["series"]
+        assert len(series) == 1
+        assert series[0] == {
+            "key": "train/loss",
+            "type": "FLOAT",
+            "xAxis": "train/epoch",
+            "sectionName": "Training",
+            "hidden": True,
+        }

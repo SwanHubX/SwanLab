@@ -28,13 +28,14 @@ from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
 from swanlab.proto.swanlab.grpc.probe.v1.probe_pb2 import DeliverProbeStartRequest
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord
 from swanlab.sdk.internal.bus import MetricLogEvent
-from swanlab.sdk.internal.bus.events import FileSaveEvent
+from swanlab.sdk.internal.bus.events import UNSET, FileSaveEvent, MetricDefineEvent
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.pkg import adapter, console, fork, helper, safe
 from swanlab.sdk.internal.run import greeting
 from swanlab.sdk.internal.run.components import Components
 from swanlab.sdk.internal.run.components.config import Config
+from swanlab.sdk.internal.run.components.resolver import is_custom_x
 from swanlab.sdk.internal.run.progress import run_with_progress
 from swanlab.sdk.internal.run.transforms import (
     Audio,
@@ -48,7 +49,6 @@ from swanlab.sdk.internal.run.transforms import (
     normalize_media_input,
 )
 from swanlab.sdk.typings.run import AsyncLogType, FinishType, ModeType, SaveType
-from swanlab.sdk.typings.run.column import ScalarXAxisType
 from swanlab.sdk.typings.run.transforms import CaptionsType
 from swanlab.sdk.typings.run.transforms.audio import AudioDatasType, AudioRatesType
 from swanlab.sdk.typings.run.transforms.echarts import EChartsDatasType
@@ -611,59 +611,150 @@ class Run:
         normalized_data = normalize_media_input(Html, data, caption=caption)
         self.log({key: normalized_data}, step=step)
 
-    @with_api("run.define_scalar()")
-    def define_scalar(
+    @with_api("run.define_metric()")
+    def define_metric(
         self,
-        *,
         key: str,
-        name: Optional[str] = None,
-        color: Optional[str] = None,
-        x_axis: Optional[ScalarXAxisType] = None,
-        chart_name: Optional[str] = None,
+        x_axis: Optional[str] = None,
+        section_name: Optional[str] = None,
+        hidden: bool = False,
+        step_sync: Optional[bool] = None,
+        overwrite: bool = False,
+        *args: Any,
+        **kwargs: Any,
     ):
-        """
-        Manually define a scalar column before logging.
+        """Define a metric's display configuration before logging.
 
-        :param key: The key for the scalar column. Supports wildcards (e.g. ``"train/*"``) to match multiple columns.
-        :param name: Optional display name for the column.
-        :param color: Optional color for the column, as a hex color code.
-        :param x_axis: Optional x-axis type for the column.
-        :param chart_name: Optional chart name to group the column into.
-        """
-        raise NotImplementedError("run.define_scalar() is not available yet. Support is planned for a future release.")
+        Customizes how an auto-generated chart for ``key`` appears in project Views:
+        X-axis, section placement, and visibility. The same ``(class, key)``
+        shares one chart across all runs in the project.
 
-        # TODO: 实现 glob 匹配逻辑
-        # if not (this_key := fmt.safe_validate_key(key)):
-        #     return console.error(
-        #         f"Invalid key for define scalar: {key}, please use valid characters (alphanumeric, '.', '-', '/') and avoid special characters."
-        #     )
-        #
-        # original_name = name
-        # if name and not (name := fmt.safe_validate_name(name)):
-        #     return console.error(f"Invalid name for define scalar: {original_name}, must be a string.")
-        #
-        # original_color = color
-        # if color and not (color := fmt.safe_validate_color(color)):
-        #     return console.error(f"Invalid color for define scalar: {original_color}, must be a hex color code.")
-        #
-        # if (this_x_axis := fmt.safe_validate_x_axis(x_axis)) is None:
-        #     return console.error(f"Invalid x_axis for define scalar: {x_axis}, must be a valid ScalarXAxisType.")
-        #
-        # original_chart_name = chart_name
-        # if chart_name and not (chart_name := fmt.safe_validate_chart_name(chart_name)):
-        #     return console.error(f"Invalid chart_name for define scalar: {original_chart_name}, must be a string.")
-        #
-        # self._components.emitter.emit(
-        #     ScalarDefineEvent(
-        #         key=this_key,
-        #         name=name,
-        #         color=color,
-        #         system=False,
-        #         x_axis=this_x_axis,
-        #         chart_name=chart_name,
-        #         chart=None,
-        #     )
-        # )
+        :param key: Metric key. Supports exact match and a single trailing ``*``
+            glob (e.g. ``"train/*"``). System keys are never matched.
+        :param x_axis: Custom X-axis key. ``None`` (default) means the system
+            step. Only affects scalar charts; media ignores this. The X series is
+            assumed monotonically non-decreasing — for a given X value, only the
+            first logged Y is kept (consecutive-duplicate X values are dropped).
+        :param section_name: Section name for the auto chart. ``None`` means
+            the default section derived from the key.
+        :param hidden: If ``True``, place the chart in the HIDDEN section.
+            In the default merge mode ``hidden`` is sticky (logical OR): once a
+            key is hidden it stays hidden, and passing ``hidden=False`` is
+            indistinguishable from "not provided". To clear a previously set
+            ``hidden=True``, use ``overwrite=True``.
+        :param step_sync: Whether to sync custom X values when X and Y are
+            logged separately. Defaults to ``True`` when a custom ``x_axis``
+            is set; ``False`` is accepted but forced on with a warning.
+        :param overwrite: If ``False`` (default), merge with previous calls for
+            the same ``key`` — unspecified fields reuse the previous value
+            (``hidden`` uses OR, so once hidden it stays hidden). If ``True``,
+            unspecified fields reset to their default, overwriting previous
+            values (e.g. clearing a prior ``hidden=True``). Only affects rules
+            not yet applied to a logged key.
+        :raises TypeError: If unknown positional or keyword arguments are passed.
+
+        .. note::
+            Project-wide first-definition-effective. A chart is shared across every run
+            in the project under the same ``(class, key)``, and
+            ``define_metric`` only shapes it on the **first** run that
+            introduces the key to the project. Once the chart exists — created
+            by this run's first log or by any earlier run — later
+            ``define_metric`` calls (including ``overwrite=True``) have no
+            effect, and no warning is raised. To change an existing chart,
+            edit it in the UI.
+
+        Examples:
+
+            Custom X-axis with separate logging:
+
+            >>> import swanlab
+            >>> swanlab.init(mode="local")
+            >>> run = swanlab.get_run()
+            >>> run.define_metric("train/loss", x_axis="train/epoch")
+            >>> swanlab.log({"train/epoch": 1})    # step=1
+            >>> swanlab.log({"train/loss": 0.8})   # step=2, auto-syncs train/epoch=1
+
+            Glob pattern for all validation metrics:
+
+            >>> run.define_metric("val/*", section_name="Validation")
+
+            ``step_metric`` alias:
+
+            >>> run.define_metric("loss", step_metric="custom_step")
+        """
+        # 1. key 校验
+        if not isinstance(key, str) or not key:
+            console.error(f"Invalid key for define_metric: {key!r}, must be a non-empty string.")
+            return
+        if not (this_key := fmt.safe_validate_key(key)):
+            console.error(
+                f"Invalid key for define_metric: {key}, please use valid characters "
+                f"(alphanumeric, '.', '-', '/') and avoid special characters."
+            )
+            return
+
+        # 2. step_metric 兼容别名（仅从 kwargs 读取）
+        step_metric = kwargs.pop("step_metric", None)
+        if step_metric is not None:
+            if x_axis is None:
+                x_axis = step_metric
+            elif x_axis != step_metric:
+                console.warning(
+                    f"Conflicting x_axis={x_axis!r} and step_metric={step_metric!r} "
+                    f"for key {this_key!r}, using x_axis={x_axis!r}"
+                )
+
+        # 3. x_axis / section_name 校验
+        if x_axis is not None:
+            validated_x = fmt.safe_validate_x_axis(x_axis)
+            if validated_x is None:
+                console.error(
+                    f"Invalid x_axis for define_metric: {x_axis}, must be a valid metric key, "
+                    f"'_step', '_relative_time', and must not be a system metric key."
+                )
+                return
+            x_axis = validated_x
+        # section_name：非法 / 空串降级为默认 section（不阻断整条 define）
+        if section_name is not None:
+            validated_section = fmt.safe_validate_name(section_name)
+            if validated_section is None or not validated_section.strip():
+                console.warning(
+                    f"Invalid section_name for define_metric: {section_name!r}, ignored; using default section."
+                )
+                section_name = None
+            else:
+                section_name = validated_section
+
+        # 4. 拒绝未知参数
+        if args:
+            raise TypeError(f"define_metric() got {len(args)} unexpected positional argument(s)")
+        if kwargs:
+            unknown = ", ".join(repr(k) for k in kwargs)
+            raise TypeError(f"define_metric() got unexpected keyword argument(s): {unknown}")
+
+        # 5. 参数归一化为 event 字段（None → UNSET 表示"未提供"）
+        evt_x_axis = x_axis if x_axis is not None else UNSET
+        evt_section_name = section_name if section_name is not None else UNSET
+        evt_hidden = hidden if hidden else UNSET
+
+        # 6. step_sync 检查：当前实现始终对自定义 X 启用 step 同步注入，
+        # 用户显式传 False 时给出警告（参数本身仅为兼容，不进入事件）
+        if x_axis is not None and is_custom_x(x_axis) and step_sync is False:
+            console.warning(
+                f"step_sync=False is ignored for key {this_key!r} with custom x_axis={x_axis!r}, "
+                f"step sync is forcibly enabled to ensure data alignment."
+            )
+
+        # 7. 发射事件
+        self._components.emitter.emit(
+            MetricDefineEvent(
+                key=this_key,
+                x_axis=evt_x_axis,
+                section_name=evt_section_name,
+                hidden=evt_hidden,
+                overwrite=overwrite,
+            )
+        )
 
     @with_api("run.save()")
     def save(

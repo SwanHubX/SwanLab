@@ -58,6 +58,7 @@ clean:
 # ----------------------------------
 # Python package (swanlab/)
 # ----------------------------------
+.PHONY:  init sync format proto unit bench clean build publish link-skills unlink-skills relink-skills
 
 init:
 	uv sync --all-extras

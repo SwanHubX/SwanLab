@@ -18,6 +18,7 @@ from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord, SaveType
 from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogRecord
 from swanlab.sdk.internal.core_python.context import CoreContext
 from swanlab.sdk.internal.core_python.pkg.counter import Counter
+from swanlab.sdk.internal.pkg import helper
 
 __all__ = [
     "DEC_NUM",
@@ -150,13 +151,7 @@ def build_auto_column(ctx: CoreContext, data_record: Union[ScalarRecord, MediaRe
     构建一个标量列记录，此函数一般用于自动构建用户已定义的指标
     """
     # Split section_name with `section_rule` setting
-    section_rule_index = ctx.config.section_rule
-    parts = data_record.key.split("/")
-    if len(parts) >= 2:
-        cut = section_rule_index % (len(parts) - 1) + 1
-        section_name = "/".join(parts[:cut])
-    else:
-        section_name = ""
+    section_name = helper.calculate_section_name(data_record.key, ctx.config.section_rule)
 
     return ColumnRecord(
         column_class=ColumnClass.COLUMN_CLASS_CUSTOM,

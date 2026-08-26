@@ -95,7 +95,7 @@ class MetricColors(_message.Message):
     def __init__(self, light: _Optional[str] = ..., dark: _Optional[str] = ...) -> None: ...
 
 class ColumnRecord(_message.Message):
-    __slots__ = ("column_class", "column_type", "column_key", "column_name", "section_name", "section_type", "y_range", "chart_index", "chart_name", "chart_type", "metric_name", "metric_colors")
+    __slots__ = ("column_class", "column_type", "column_key", "column_name", "section_name", "section_type", "y_range", "chart_index", "chart_name", "chart_type", "metric_name", "metric_colors", "x_axis", "hidden")
     COLUMN_CLASS_FIELD_NUMBER: _ClassVar[int]
     COLUMN_TYPE_FIELD_NUMBER: _ClassVar[int]
     COLUMN_KEY_FIELD_NUMBER: _ClassVar[int]
@@ -108,6 +108,8 @@ class ColumnRecord(_message.Message):
     CHART_TYPE_FIELD_NUMBER: _ClassVar[int]
     METRIC_NAME_FIELD_NUMBER: _ClassVar[int]
     METRIC_COLORS_FIELD_NUMBER: _ClassVar[int]
+    X_AXIS_FIELD_NUMBER: _ClassVar[int]
+    HIDDEN_FIELD_NUMBER: _ClassVar[int]
     column_class: ColumnClass
     column_type: ColumnType
     column_key: str
@@ -120,4 +122,6 @@ class ColumnRecord(_message.Message):
     chart_type: ChartType
     metric_name: str
     metric_colors: MetricColors
-    def __init__(self, column_class: _Optional[_Union[ColumnClass, str]] = ..., column_type: _Optional[_Union[ColumnType, str]] = ..., column_key: _Optional[str] = ..., column_name: _Optional[str] = ..., section_name: _Optional[str] = ..., section_type: _Optional[_Union[SectionType, str]] = ..., y_range: _Optional[_Union[YRange, _Mapping]] = ..., chart_index: _Optional[str] = ..., chart_name: _Optional[str] = ..., chart_type: _Optional[_Union[ChartType, str]] = ..., metric_name: _Optional[str] = ..., metric_colors: _Optional[_Union[MetricColors, _Mapping]] = ...) -> None: ...
+    x_axis: str
+    hidden: bool
+    def __init__(self, column_class: _Optional[_Union[ColumnClass, str]] = ..., column_type: _Optional[_Union[ColumnType, str]] = ..., column_key: _Optional[str] = ..., column_name: _Optional[str] = ..., section_name: _Optional[str] = ..., section_type: _Optional[_Union[SectionType, str]] = ..., y_range: _Optional[_Union[YRange, _Mapping]] = ..., chart_index: _Optional[str] = ..., chart_name: _Optional[str] = ..., chart_type: _Optional[_Union[ChartType, str]] = ..., metric_name: _Optional[str] = ..., metric_colors: _Optional[_Union[MetricColors, _Mapping]] = ..., x_axis: _Optional[str] = ..., hidden: bool = ...) -> None: ...
