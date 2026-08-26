@@ -147,6 +147,24 @@ check(any(m.count("/") == 1 and m.endswith("/hatch_build.py") for m in members),
 check(not any(m.count("/") == 1 and m.split("/")[1] == "core" for m in members), "sdist 不含 core/ 源码")
 check(not any("/swanlab/bin/" in m for m in members), "sdist 不含二进制")
 
+
+def py_files(wheel):
+    with zipfile.ZipFile(wheel) as zf:
+        return {n for n in zf.namelist() if n.endswith(".py")}
+
+
+# sdist 可重建性：从 sdist 重建 wheel，.py 清单须与 checkout 直建的 any wheel 一致
+# （防止 sdist exclude 误伤嵌套同名目录）
+any_wheel = next(w for w in wheels if w.name.endswith("-py3-none-any.whl"))
+with tempfile.TemporaryDirectory() as td:
+    with tarfile.open(sdists[0]) as tf:
+        tf.extractall(td)
+    src = next(pathlib.Path(td).glob("swanlab-*/"))
+    subprocess.run(["uv", "build", "--wheel", "--out-dir", td], cwd=src, check=True, capture_output=True)
+    rebuilt = next(pathlib.Path(td).glob("*.whl"))
+    diff = sorted(py_files(any_wheel) ^ py_files(rebuilt))
+    check(not diff, f"sdist 重建 wheel 与 any wheel 的 .py 清单一致（差异 {len(diff)} 项: {diff[:5]}）")
+
 if failures:
     print(f"\n{len(failures)} 项校验失败", file=sys.stderr)
     sys.exit(1)

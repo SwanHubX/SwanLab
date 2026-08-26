@@ -122,9 +122,9 @@ build-backend = "hatchling.build"
 path = "hatch_build.py"
 
 # sdist 不携带 Go core：从 sdist 构建恒为纯 py3-none-any wheel（core_python）；
-# 含二进制的平台 wheel 需从 git checkout 进行构建
+# 含二进制的平台 wheel 需从 git checkout 进行构建。
 [tool.hatch.build.targets.sdist]
-exclude = ["core"]
+exclude = ["/core"]
 
 
 [tool.hatch.version]
