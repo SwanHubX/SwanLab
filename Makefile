@@ -1,7 +1,7 @@
 AGENTS_SKILL_DIR := .agents/skills
 SKILLS_DIR := docs/skills
 
-.PHONY: init sync format proto unit bench clean build publish backport link-skills unlink-skills relink-skills core-lint core-fmt core-test core-build core-tidy
+.PHONY: init sync format proto unit bench clean build publish backport link-skills unlink-skills relink-skills core-lint core-fmt core-test core-build core-tidy core-bin release-build release-verify
 
 # ----------------------------------
 # SKILL (docs/skills)
@@ -110,3 +110,19 @@ core-build:
 
 core-tidy:
 	cd core && go mod tidy
+
+# ----------------------------------
+# Release (scripts/build_release.sh)
+# ----------------------------------
+
+# 本机平台编译 swanlab-core 到 swanlab/bin/，供日常联调（复用发布构建参数）
+core-bin:
+	python3 core/hatch.py
+
+# 完整发布构建：sdist + any 兜底 wheel + 6 平台 wheel + 校验，全部进 dist/
+release-build:
+	bash scripts/build_release.sh $(VERSION)
+
+# 仅校验 dist/ 中已有产物（twine check + 结构完整性）
+release-verify:
+	bash scripts/build_release.sh --verify-only
