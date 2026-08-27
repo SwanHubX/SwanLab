@@ -27,8 +27,7 @@ from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
 )
 from swanlab.proto.swanlab.grpc.probe.v1.probe_pb2 import DeliverProbeStartRequest
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord
-from swanlab.sdk.internal.bus import MetricLogEvent
-from swanlab.sdk.internal.bus.events import UNSET, FileSaveEvent, MetricDefineEvent
+from swanlab.sdk.internal.bus import UNSET, FileSaveEvent, MetricDefineEvent, MetricLogEvent
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.pkg import adapter, console, fork, helper, safe
@@ -615,13 +614,13 @@ class Run:
     def define_metric(
         self,
         key: str,
+        *,
         x_axis: Optional[str] = None,
         section_name: Optional[str] = None,
         hidden: bool = False,
         step_sync: Optional[bool] = None,
         overwrite: bool = False,
-        *args: Any,
-        **kwargs: Any,
+        **kwargs,
     ):
         """Define a metric's display configuration before logging.
 
@@ -651,7 +650,6 @@ class Run:
             unspecified fields reset to their default, overwriting previous
             values (e.g. clearing a prior ``hidden=True``). Only affects rules
             not yet applied to a logged key.
-        :raises TypeError: If unknown positional or keyword arguments are passed.
 
         .. note::
             Project-wide first-definition-effective. A chart is shared across every run
@@ -693,7 +691,7 @@ class Run:
             )
             return
 
-        # 2. step_metric 兼容别名（仅从 kwargs 读取）
+        # 2. step_metric 兼容别名（仅从 kwargs 读取；其余未知 kwargs 静默忽略，与 init 兼容风格一致）
         step_metric = kwargs.pop("step_metric", None)
         if step_metric is not None:
             if x_axis is None:
@@ -725,19 +723,12 @@ class Run:
             else:
                 section_name = validated_section
 
-        # 4. 拒绝未知参数
-        if args:
-            raise TypeError(f"define_metric() got {len(args)} unexpected positional argument(s)")
-        if kwargs:
-            unknown = ", ".join(repr(k) for k in kwargs)
-            raise TypeError(f"define_metric() got unexpected keyword argument(s): {unknown}")
-
-        # 5. 参数归一化为 event 字段（None → UNSET 表示"未提供"）
+        # 4. 参数归一化为 event 字段（None → UNSET 表示"未提供"）
         evt_x_axis = x_axis if x_axis is not None else UNSET
         evt_section_name = section_name if section_name is not None else UNSET
         evt_hidden = hidden if hidden else UNSET
 
-        # 6. step_sync 检查：当前实现始终对自定义 X 启用 step 同步注入，
+        # 5. step_sync 检查：当前实现始终对自定义 X 启用 step 同步注入，
         # 用户显式传 False 时给出警告（参数本身仅为兼容，不进入事件）
         if x_axis is not None and is_custom_x(x_axis) and step_sync is False:
             console.warning(
@@ -745,7 +736,7 @@ class Run:
                 f"step sync is forcibly enabled to ensure data alignment."
             )
 
-        # 7. 发射事件
+        # 6. 发射事件
         self._components.emitter.emit(
             MetricDefineEvent(
                 key=this_key,

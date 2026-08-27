@@ -3,19 +3,15 @@
 @file: state.py
 @time: 2026/8/10
 @description: define_metric resolver 状态数据结构。
-
-定义 rule、concrete、effective definition 等数据类，
-以及 presence-aware patch 用的 UNSET 哨兵（从 bus 。
 """
 
 import sys
 from dataclasses import dataclass
 from typing import Any, Dict, Optional, Tuple
 
-from swanlab.sdk.internal.bus.events import UNSET
+from swanlab.sdk.internal.bus import UNSET
 
 __all__ = [
-    "UNSET",
     "EffectiveDefinition",
     "DefinitionPatch",
     "RuleState",

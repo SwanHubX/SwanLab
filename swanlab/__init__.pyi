@@ -688,12 +688,12 @@ def async_log(
 
 def define_metric(
     key: str,
+    *,
     x_axis: Optional[str] = None,
     section_name: Optional[str] = None,
     hidden: bool = False,
     step_sync: Optional[bool] = None,
     overwrite: bool = False,
-    *args: Any,
     **kwargs: Any,
 ) -> None:
     """Define a metric's display configuration before logging.
@@ -720,7 +720,6 @@ def define_metric(
     :param overwrite: If ``False`` (default), merge — unspecified fields reuse
         the previous value. If ``True``, unspecified fields reset to default,
         overwriting prior values (e.g. clearing ``hidden=True``).
-    :raises TypeError: If unknown positional or keyword arguments are passed.
 
     .. note::
         Project-wide first-writer-wins: the chart for ``(class, key)`` is
