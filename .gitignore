@@ -33,6 +33,7 @@ dist/
 # testing & linting
 .pytest_cache/
 .ruff_cache/
+.uv-cache/
 .mypy_cache/
 .coverage
 htmlcov/
@@ -66,3 +67,6 @@ CODEBUDDY.md
 .grok/
 .reasonix/
 .mcp.json
+
+# go core binary
+swanlab/bin/
