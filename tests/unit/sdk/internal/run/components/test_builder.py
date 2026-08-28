@@ -8,7 +8,8 @@
 import pytest
 
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaItem, MediaRecord
-from swanlab.sdk.internal.run.components.builder import RecordBuilder
+from swanlab.sdk.internal.run.components.builder import _NON_SCALAR_TYPES, RecordBuilder, is_scalar_value
+from swanlab.sdk.internal.run.transforms import Text
 
 
 def _make_media_record(key: str = "test", step: int = 0, items=None) -> MediaRecord:
@@ -96,7 +97,36 @@ class TestEnsureMediaSize:
         assert result is record
 
     def test_exact_boundary_length_not_truncated(self, builder):
-        """长度恰好等于限制的项不被截断"""
+        """大小恰好等于限制的项不被截断"""
         record = _make_media_record(items=[("a.png", 10), ("b.png", 10), ("c.png", 10)])
         result = builder._ensure_media_size(record)
         assert result is record
+
+
+class TestIsScalarValue:
+    """is_scalar_value 必须与 build_scalar_or_media 的分派结果一致。
+
+    消费端用它做预扫描：若新增的媒体注册类型未同步 _NON_SCALAR_TYPES，
+    预扫描会把媒体值当标量 transform，导致 media 预处理异常或行为漂移。
+    """
+
+    def test_registry_types_all_covered(self):
+        """注册表中每个显式类型都必须在 _NON_SCALAR_TYPES 中"""
+        # Python 3.12 下经 __get__ 包装后的方法不含 registry，需取类上的原始 descriptor
+        sdm = RecordBuilder.__dict__["build_scalar_or_media"]
+        registered = {tp for tp in sdm.dispatcher.registry if tp is not object}
+        assert registered <= set(_NON_SCALAR_TYPES)
+
+    def test_scalars_return_true(self):
+        assert is_scalar_value(1.5) is True
+        assert is_scalar_value("str") is True
+
+    def test_media_returns_false(self):
+        assert is_scalar_value([Text("a"), Text("b")]) is False
+        assert is_scalar_value(Text("a")) is False
+
+    def test_echarts_returns_false(self):
+        """默认分支中 echarts 类型会被包装为 ECharts 媒体，非标量"""
+        from pyecharts.charts import Line
+
+        assert is_scalar_value(Line()) is False

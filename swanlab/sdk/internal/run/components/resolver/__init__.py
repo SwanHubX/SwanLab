@@ -103,13 +103,7 @@ class DefinitionResolver:
             existing = rules.get(key)
             base = existing.effective if existing else self._default_effective()
             effective = self._merge_effective(base, patch)
-        rules[key] = RuleState(
-            identity=key,
-            is_glob=is_glob,
-            effective=effective,
-            patch=patch,
-            overwrite=event.overwrite,
-        )
+        rules[key] = RuleState(is_glob=is_glob, effective=effective)
         # 记录该 rule 引用的 custom X 源 key，供 update_custom_x_cache 按需登记
         if is_custom_x(effective.x_axis):
             self._custom_x_keys.add(effective.x_axis)  # type: ignore[arg-type]
@@ -171,7 +165,7 @@ class DefinitionResolver:
         # 1. exact 优先
         exact_rule = self._exact_rules.get(key)
         if exact_rule:
-            effective = self._adjust_for_class(exact_rule.effective, metric_class, key)
+            effective = self._adjust_for_class(exact_rule.effective, metric_class)
             state = ConcreteState(
                 key=key,
                 metric_class=metric_class,
@@ -185,7 +179,7 @@ class DefinitionResolver:
         # 2. 最长 prefix glob
         glob_rule = self._match_glob(key)
         if glob_rule:
-            effective = self._adjust_for_class(glob_rule.effective, metric_class, key)
+            effective = self._adjust_for_class(glob_rule.effective, metric_class)
             state = ConcreteState(
                 key=key,
                 metric_class=metric_class,
@@ -197,7 +191,7 @@ class DefinitionResolver:
             return state
 
         # 3. automatic 兜底
-        effective = self._adjust_for_class(self._default_effective(), metric_class, key)
+        effective = self._adjust_for_class(self._default_effective(), metric_class)
         state = ConcreteState(
             key=key,
             metric_class=metric_class,
@@ -220,7 +214,7 @@ class DefinitionResolver:
         return best
 
     @staticmethod
-    def _adjust_for_class(effective: EffectiveDefinition, metric_class: str, key: str) -> EffectiveDefinition:
+    def _adjust_for_class(effective: EffectiveDefinition, metric_class: str) -> EffectiveDefinition:
         """根据 metric class 调整 effective definition。MEDIA 一律回退 _step；
         SCALAR 允许自引用（x_axis == key，图像为直线 y=x）。"""
         if metric_class == "MEDIA":
@@ -237,7 +231,6 @@ class DefinitionResolver:
         state = self._concrete.get(cache_key)
         if state is None:
             return None
-        state.column_type = int(column_type)
         if state.emitted_effective == state.effective:
             return None
         state.emitted_effective = state.effective

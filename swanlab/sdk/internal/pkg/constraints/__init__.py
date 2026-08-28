@@ -117,8 +117,8 @@ MetricKey = Annotated[
 ]
 """Metric / log key: 1-512 chars, no control characters, must not start or end with ``'.'`` or ``'/'``."""
 
-MetricName = Annotated[str, Field(max_length=512)]
-"""Display label for metrics and runs: up to 512 chars."""
+MetricName = Annotated[str, Field(max_length=512, pattern=r"^[^\x00-\x1f\x7f]+$")]
+"""Display label for metrics and runs: up to 512 chars, no control characters."""
 
 ChartName = Annotated[str, Field(min_length=1, max_length=512)]
 """Display name for charts: 1-512 chars."""

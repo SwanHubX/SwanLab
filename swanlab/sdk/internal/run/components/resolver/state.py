@@ -66,13 +66,10 @@ class DefinitionPatch:
 
 @dataclass(**_SLOTS_KWARGS)
 class RuleState:
-    """一条 define_metric rule（exact 或 glob）的状态。"""
+    """每次 define_metric rule（exact 或 glob）调用的规则状态"""
 
-    identity: str  # exact key 或 glob pattern，用于标识 rule
     is_glob: bool  # 是否为末尾带 * 的 prefix glob rule
     effective: EffectiveDefinition  # rule 经 merge/replace 后的完整定义快照
-    patch: DefinitionPatch  # 本次 define_metric 调用提供的 presence-aware 补丁
-    overwrite: bool  # True 表示从默认值 replace，False 表示在已有状态上 merge
 
 
 @dataclass(**_SLOTS_KWARGS)
@@ -84,4 +81,3 @@ class ConcreteState:
     effective: EffectiveDefinition  # 首次物化或 exact 更新后固定的定义快照
     source: str  # 定义来源：exact、glob 或 automatic
     emitted_effective: Optional[EffectiveDefinition] = None  # 最近一次已生成 ColumnRecord 的定义快照
-    column_type: Optional[int] = None  # 已识别的 protobuf ColumnType；未见数据时为 None
