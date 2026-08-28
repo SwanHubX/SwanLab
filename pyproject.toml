@@ -5,10 +5,11 @@ license = "Apache-2.0"
 description = "Python library for streamlined tracking and management of AI training processes."
 requires-python = ">=3.9"
 authors = [
-    { name = "Cunyue", email = "team@swanhub.co" },
-    { name = "ZeYi Lin", email = "team@swanhub.co" },
-    { name = "Kaikaikaifang", email = "team@swanhub.co" },
-    { name = "Feudalman", email = "team@swanhub.co" },
+    { name = "Cunyue", email = "kang.li@emotionmachine.cn" },
+    { name = "CaddiesNew", email = "shaobo.niu@emotionmachine.cn" },
+    { name = "ZeYi Lin", email = "zeyi.lin@emotionmachine.cn" },
+    { name = "Kaikaikaifang", email = "kaifang.ji@emotionmachine.cn" },
+    { name = "Feudalman", email = "zirui.cai@emotionmachine.cn" },
 ]
 keywords = [
     "machine learning",
