@@ -31,19 +31,22 @@ class EffectiveDefinition:
     x_axis: str  # X 轴 metric key；"_step" 表示系统默认
     section_name: Optional[str]  # 图表分组名称；None 表示使用默认 section
     hidden: bool  # 是否隐藏该 metric 对应的图表
+    step_sync: bool = True  # 该 Y 是否在 X 分次 log 时触发 custom X 注入；默认开启
 
 
-# EffectiveDefinition 是 frozen+hashable，相同 (x_axis, section_name, hidden) 复用同一实例，
-# intern cache 为进程级，distinct 组合数量有界（默认值 + 少量显式定义），无需清理。
-_EFF_INTERN: Dict[Tuple[str, Optional[str], bool], EffectiveDefinition] = {}
+# EffectiveDefinition 是 frozen+hashable，相同 (x_axis, section_name, hidden, step_sync)
+# 复用同一实例。intern cache 为进程级，distinct 组合数量有界，无需清理。
+_EFF_INTERN: Dict[Tuple[str, Optional[str], bool, bool], EffectiveDefinition] = {}
 
 
-def make_effective(x_axis: str, section_name: Optional[str], hidden: bool) -> EffectiveDefinition:
+def make_effective(
+    x_axis: str, section_name: Optional[str], hidden: bool, step_sync: bool = True
+) -> EffectiveDefinition:
     """构造并 intern 一个 EffectiveDefinition。"""
-    key = (x_axis, section_name, hidden)
+    key = (x_axis, section_name, hidden, step_sync)
     eff = _EFF_INTERN.get(key)
     if eff is None:
-        eff = EffectiveDefinition(x_axis=x_axis, section_name=section_name, hidden=hidden)
+        eff = EffectiveDefinition(x_axis=x_axis, section_name=section_name, hidden=hidden, step_sync=step_sync)
         _EFF_INTERN[key] = eff
     return eff
 
@@ -58,6 +61,7 @@ class DefinitionPatch:
     x_axis: Any = UNSET  # X 轴补丁；UNSET 表示调用方未提供
     section_name: Any = UNSET  # section 补丁；UNSET 表示调用方未提供
     hidden: Any = UNSET  # 隐藏状态补丁；UNSET 表示调用方未提供
+    step_sync: Any = UNSET  # 注入开关补丁；UNSET 表示调用方未提供，True/False 为显式值
 
 
 @dataclass(**_SLOTS_KWARGS)

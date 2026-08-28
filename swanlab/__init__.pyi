@@ -714,9 +714,9 @@ def define_metric(
     :param hidden: If ``True``, place the chart in the HIDDEN section. In merge
         mode ``hidden`` is sticky (OR); to clear a previously set
         ``hidden=True``, use ``overwrite=True``.
-    :param step_sync: Whether to sync custom X values when X and Y are logged
-        separately. Defaults to ``True`` when a custom ``x_axis`` is set;
-        ``False`` is accepted but forced on with a warning.
+    :param step_sync: When X and Y are logged separately, whether to reuse the
+        latest custom X value on the current step. Defaults to ``True`` if ``x_axis``
+        or ``step_metric`` is set, ``False`` means they only align when logged together.
     :param overwrite: If ``False`` (default), merge — unspecified fields reuse
         the previous value. If ``True``, unspecified fields reset to default,
         overwriting prior values (e.g. clearing ``hidden=True``).
@@ -726,24 +726,6 @@ def define_metric(
         shared across all runs, and ``define_metric`` only takes effect on the
         first run that introduces the key to the project. Once the chart
         exists, later calls (including ``overwrite=True``) have no effect.
-
-    Examples:
-
-        Custom X-axis with separate logging:
-
-        >>> import swanlab
-        >>> swanlab.init(mode="local")
-        >>> swanlab.define_metric("train/loss", x_axis="train/epoch")
-        >>> swanlab.log({"train/epoch": 1})
-        >>> swanlab.log({"train/loss": 0.8})
-
-        Glob pattern:
-
-        >>> swanlab.define_metric("val/*", section_name="Validation")
-
-        W&B-compatible alias:
-
-        >>> swanlab.define_metric("loss", step_metric="step")
     """
     ...
 

@@ -217,6 +217,63 @@ class TestXValueDedup:
         assert r.try_accept_x_value("acc", 5.0) is True  # acc 与 loss 独立
 
 
+class TestStepSyncMergeReplace:
+    """step_sync 在 define 时的默认值、merge、replace。"""
+
+    def test_default_step_sync_is_true(self):
+        r = DefinitionResolver()
+        r.handle_define(MetricDefineEvent("loss", x_axis="epoch"))
+        assert r.resolve_concrete("loss", "SCALAR").effective.step_sync is True
+
+    def test_explicit_false_is_kept(self):
+        r = DefinitionResolver()
+        r.handle_define(MetricDefineEvent("loss", x_axis="epoch", step_sync=False))
+        assert r.resolve_concrete("loss", "SCALAR").effective.step_sync is False
+
+    def test_merge_updates_step_sync_without_clearing_x_axis(self):
+        r = DefinitionResolver()
+        r.handle_define(MetricDefineEvent("loss", x_axis="epoch"))
+        r.handle_define(MetricDefineEvent("loss", step_sync=False))
+        effective = r.resolve_concrete("loss", "SCALAR").effective
+        assert effective.x_axis == "epoch"
+        assert effective.step_sync is False
+
+    def test_merge_omitted_step_sync_keeps_previous(self):
+        r = DefinitionResolver()
+        r.handle_define(MetricDefineEvent("loss", x_axis="epoch", step_sync=False))
+        r.handle_define(MetricDefineEvent("loss", section_name="Train"))
+        effective = r.resolve_concrete("loss", "SCALAR").effective
+        assert effective.step_sync is False
+        assert effective.section_name == "Train"
+
+    def test_overwrite_unspecified_resets_step_sync_to_true(self):
+        r = DefinitionResolver()
+        r.handle_define(MetricDefineEvent("loss", x_axis="epoch", step_sync=False))
+        r.handle_define(MetricDefineEvent("loss", x_axis="epoch", overwrite=True))
+        assert r.resolve_concrete("loss", "SCALAR").effective.step_sync is True
+
+    def test_overwrite_explicit_false_is_kept(self):
+        r = DefinitionResolver()
+        r.handle_define(MetricDefineEvent("loss", x_axis="epoch"))
+        r.handle_define(MetricDefineEvent("loss", x_axis="epoch", step_sync=False, overwrite=True))
+        assert r.resolve_concrete("loss", "SCALAR").effective.step_sync is False
+
+    def test_glob_step_sync_false_applies_to_matching_key(self):
+        r = DefinitionResolver()
+        r.handle_define(MetricDefineEvent("train/*", x_axis="epoch", step_sync=False))
+        assert r.resolve_concrete("train/loss", "SCALAR").effective.step_sync is False
+
+    def test_define_after_materialize_does_not_change_step_sync(self):
+        r = DefinitionResolver()
+        r.handle_define(MetricDefineEvent("loss", x_axis="epoch"))
+        first = r.resolve_concrete("loss", "SCALAR")
+        r.materialize_column("loss", "SCALAR", ColumnType.COLUMN_TYPE_SCALAR, 0)
+        r.handle_define(MetricDefineEvent("loss", step_sync=False))
+        second = r.resolve_concrete("loss", "SCALAR")
+        assert second is first
+        assert second.effective.step_sync is True
+
+
 class TestEffectiveDefinitionFrozen:
     """EffectiveDefinition frozen=True 不可变。"""
 

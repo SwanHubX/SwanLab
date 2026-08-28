@@ -89,7 +89,12 @@ class DefinitionResolver:
             return
         is_glob = star_count == 1
 
-        patch = DefinitionPatch(x_axis=event.x_axis, section_name=event.section_name, hidden=event.hidden)
+        patch = DefinitionPatch(
+            x_axis=event.x_axis,
+            section_name=event.section_name,
+            hidden=event.hidden,
+            step_sync=event.step_sync,
+        )
 
         rules = self._glob_rules if is_glob else self._exact_rules
         if event.overwrite:
@@ -111,12 +116,12 @@ class DefinitionResolver:
 
         # rule 登记完成。exact 不再立即重新物化已出现的 concrete：
         # 图表定义遵循 first-writer-wins，由首次 log 时的 materialize_column 决定。
-        # 后续 define 只更新 rule，影响之后首次出现的 key（glob）或 step_sync 的 effective。
+        # 后续 define 只更新 rule，影响之后首次出现的 key。
         return
 
     @staticmethod
     def _default_effective() -> EffectiveDefinition:
-        return make_effective("_step", None, False)
+        return make_effective("_step", None, False, True)
 
     @staticmethod
     def _merge_effective(base: EffectiveDefinition, patch: DefinitionPatch) -> EffectiveDefinition:
@@ -127,14 +132,18 @@ class DefinitionResolver:
         if patch.section_name is not UNSET:
             section_name = patch.section_name
         hidden = base.hidden or (patch.hidden is True)
-        return make_effective(x_axis, section_name, hidden)
+        step_sync = base.step_sync
+        if patch.step_sync is not UNSET:
+            step_sync = bool(patch.step_sync)
+        return make_effective(x_axis, section_name, hidden, step_sync)
 
     @staticmethod
     def _replace_effective(patch: DefinitionPatch) -> EffectiveDefinition:
         x_axis = patch.x_axis if patch.x_axis is not UNSET and patch.x_axis is not None else "_step"
         section_name = patch.section_name if patch.section_name is not UNSET else None
         hidden = patch.hidden if patch.hidden is not UNSET else False
-        return make_effective(x_axis, section_name, hidden)
+        step_sync = patch.step_sync if patch.step_sync is not UNSET else True
+        return make_effective(x_axis, section_name, hidden, bool(step_sync))
 
     # ── concrete 解析 ──────────────────────────────────────────
 
@@ -208,7 +217,7 @@ class DefinitionResolver:
         """根据 metric class 调整 effective definition。MEDIA 一律回退 _step；
         SCALAR 允许自引用（x_axis == key，图像为直线 y=x）。"""
         if metric_class == "MEDIA":
-            return make_effective("_step", effective.section_name, effective.hidden)
+            return make_effective("_step", effective.section_name, effective.hidden, effective.step_sync)
         return effective
 
     # ── ColumnRecord 生成 ──────────────────────────────────────

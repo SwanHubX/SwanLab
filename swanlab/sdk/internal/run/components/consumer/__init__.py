@@ -233,9 +233,12 @@ class BackgroundConsumer(ConsumerProtocol):
         # 2. 计算候选注入（不 commit）：为 custom X 且 event 未含 X 的 Y 缓存最近真实 X 值。
         #    此处只算候选值、不调 try_inject_x——commit 推迟到第 4 步确认有存活 Y 之后，
         #    否则 Y 被去重丢弃后仍会留下孤儿注入点 / 误标 INJECTED 触发误告警（S2）。
+        #    仅 step_sync=True（默认）的 Y 会成为注入原因；False 的 Y 不加入候选。
         candidate_x: dict[str, float] = {}
         for key in explicit_scalars:
             concrete = self._resolver.resolve_concrete(key, "SCALAR")
+            if not concrete.effective.step_sync:
+                continue
             x_axis = concrete.effective.x_axis
             if x_axis in SYSTEM_X_AXES:
                 continue
@@ -279,7 +282,9 @@ class BackgroundConsumer(ConsumerProtocol):
                         x_axis = concrete.effective.x_axis
                         x_value = explicit_scalars.get(x_axis)
                         used_candidate = False
-                        if x_value is None:
+                        if x_value is None and concrete.effective.step_sync:
+                            # True：可用跨 step 的 cache（candidate）。
+                            # False：只用本 event 里的显式 X，避免没绑到 X 的 Y 被 cache 误删。
                             x_value = candidate_x.get(x_axis)
                             used_candidate = x_value is not None
                         if x_value is not None and not self._resolver.try_accept_x_value(key, x_value):

@@ -61,6 +61,7 @@ class MetricDefineEvent:
     - ``UNSET``: 用户未提供该参数；merge 时保留旧值，replace 时重置为默认。
     - ``None`` (x_axis / section_name): 显式清除为系统默认。
     - 具体值: 使用该值。
+    - ``step_sync``: ``UNSET`` / ``True`` / ``False``。``False`` 是有效值，不可收成 UNSET。
 
     注意：公开 API 的 ``x_axis=None`` / ``section_name=None`` 在归一化阶段统一转为 ``UNSET``，
     因为公开签名无法区分 "省略" 与 "显式 None"。清除旧值必须使用 ``overwrite=True``。
@@ -74,6 +75,8 @@ class MetricDefineEvent:
     section_name: Any = UNSET
     # UNSET=not provided, True/False
     hidden: Any = UNSET
+    # UNSET=not provided, True/False。仅对 custom X 有意义：该 Y 是否触发跨 step 的 X 注入
+    step_sync: Any = UNSET
     # merge（False）vs replace（True）
     overwrite: bool = False
 

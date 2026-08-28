@@ -34,7 +34,6 @@ from swanlab.sdk.internal.pkg import adapter, console, fork, helper, safe
 from swanlab.sdk.internal.run import greeting
 from swanlab.sdk.internal.run.components import Components
 from swanlab.sdk.internal.run.components.config import Config
-from swanlab.sdk.internal.run.components.resolver import is_custom_x
 from swanlab.sdk.internal.run.progress import run_with_progress
 from swanlab.sdk.internal.run.transforms import (
     Audio,
@@ -641,9 +640,14 @@ class Run:
             key is hidden it stays hidden, and passing ``hidden=False`` is
             indistinguishable from "not provided". To clear a previously set
             ``hidden=True``, use ``overwrite=True``.
-        :param step_sync: Whether to sync custom X values when X and Y are
-            logged separately. Defaults to ``True`` when a custom ``x_axis``
-            is set; ``False`` is accepted but forced on with a warning.
+        :param step_sync: Whether this Y key should copy the latest custom X
+            value onto the current step when X and Y are logged separately.
+            Defaults to ``True`` for a custom ``x_axis``. ``False`` means this
+            Y will not trigger X injection: the two series only align when they
+            share a step (same ``log()`` or the same explicit ``step``).
+            Duplicate-X dropping then uses only an X value present in this
+            event. Sibling Y keys that keep ``step_sync=True`` can still inject
+            X for the shared series.
         :param overwrite: If ``False`` (default), merge with previous calls for
             the same ``key`` — unspecified fields reuse the previous value
             (``hidden`` uses OR, so once hidden it stays hidden). If ``True``,
@@ -675,6 +679,12 @@ class Run:
             Glob pattern for all validation metrics:
 
             >>> run.define_metric("val/*", section_name="Validation")
+
+            Disable X injection (X/Y must share a step to align):
+
+            >>> run.define_metric("train/acc", x_axis="train/epoch", step_sync=False)
+            >>> swanlab.log({"train/epoch": 1}, step=1)
+            >>> swanlab.log({"train/acc": 0.9}, step=2)  # no injected epoch at step=2
 
             ``step_metric`` alias:
 
@@ -727,22 +737,17 @@ class Run:
         evt_x_axis = x_axis if x_axis is not None else UNSET
         evt_section_name = section_name if section_name is not None else UNSET
         evt_hidden = hidden if hidden else UNSET
+        # False 是有效值，不能像 hidden 那样收成 UNSET
+        evt_step_sync = UNSET if step_sync is None else bool(step_sync)
 
-        # 5. step_sync 检查：当前实现始终对自定义 X 启用 step 同步注入，
-        # 用户显式传 False 时给出警告（参数本身仅为兼容，不进入事件）
-        if x_axis is not None and is_custom_x(x_axis) and step_sync is False:
-            console.warning(
-                f"step_sync=False is ignored for key {this_key!r} with custom x_axis={x_axis!r}, "
-                f"step sync is forcibly enabled to ensure data alignment."
-            )
-
-        # 6. 发射事件
+        # 5. 发射事件
         self._components.emitter.emit(
             MetricDefineEvent(
                 key=this_key,
                 x_axis=evt_x_axis,
                 section_name=evt_section_name,
                 hidden=evt_hidden,
+                step_sync=evt_step_sync,
                 overwrite=overwrite,
             )
         )

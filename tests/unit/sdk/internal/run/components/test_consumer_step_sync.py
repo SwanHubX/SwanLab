@@ -278,6 +278,109 @@ def test_dropped_y_no_spurious_real_conflict_warning(tmp_path: Path, monkeypatch
     assert conflict == []
 
 
+def test_step_sync_false_does_not_inject_cached_x(tmp_path: Path):
+    """step_sync=False：X/Y 分次 log 时不注入 X。"""
+    consumer = _make_consumer(tmp_path)
+    consumer._handle_event(MetricDefineEvent("train/loss", x_axis="epoch", step_sync=False))
+    _log(consumer, {"epoch": 3}, step=0, seconds=10)
+    start = len(consumer._scalar_batch)
+
+    _log(consumer, {"train/loss": 0.8}, step=1, seconds=20)
+
+    records = _records_by_key(consumer, start)
+    assert set(records) == {"train/loss"}
+    assert records["train/loss"][0].value.number == pytest.approx(0.8)
+    assert records["train/loss"][0].step == 1
+
+
+def test_step_sync_false_does_not_drop_y_from_cached_x(tmp_path: Path):
+    """False 不用跨 step cache 去重：event 不含 X 时 Y 保留。"""
+    consumer = _make_consumer(tmp_path)
+    consumer._handle_event(MetricDefineEvent("acc", x_axis="x1", step_sync=False))
+    _log(consumer, {"x1": 5, "acc": 0.9}, step=0, seconds=10)
+    start = len(consumer._scalar_batch)
+
+    _log(consumer, {"acc": 1.0}, step=1, seconds=20)
+
+    acc_records = [r for r in consumer._scalar_batch[start:] if r.key == "acc"]
+    assert len(acc_records) == 1
+    assert acc_records[0].value.number == pytest.approx(1.0)
+    assert [r for r in consumer._scalar_batch[start:] if r.key == "x1"] == []
+
+
+def test_step_sync_false_still_drops_y_when_event_has_duplicate_x(tmp_path: Path):
+    """False 仍按本 event 显式 X 去重。"""
+    consumer = _make_consumer(tmp_path)
+    consumer._handle_event(MetricDefineEvent("acc", x_axis="x1", step_sync=False))
+    _log(consumer, {"x1": 5, "acc": 0.9}, step=0, seconds=10)
+    _log(consumer, {"x1": 5, "acc": 1.0}, step=1, seconds=20)
+
+    acc_records = [r for r in consumer._scalar_batch if r.key == "acc"]
+    assert len(acc_records) == 1
+    assert acc_records[0].value.number == pytest.approx(0.9)
+
+
+def test_step_sync_false_same_step_real_x_does_not_inject_or_drop(tmp_path: Path):
+    """False 不用本 step 真实 X：分次 log 时 Y 保留、不注入。"""
+    consumer = _make_consumer(tmp_path)
+    consumer._handle_event(MetricDefineEvent("acc", x_axis="x1", step_sync=False))
+    _log(consumer, {"x1": 5}, step=1, seconds=10)
+    start = len(consumer._scalar_batch)
+
+    _log(consumer, {"acc": 0.9}, step=1, seconds=20)
+
+    records = _records_by_key(consumer, start)
+    assert set(records) == {"acc"}
+    assert records["acc"][0].value.number == pytest.approx(0.9)
+
+
+def test_step_sync_false_sibling_does_not_block_true_sibling_inject(tmp_path: Path):
+    """False 的 Y 不触发注入；同 event 的 True 兄弟仍注入共享 X。"""
+    consumer = _make_consumer(tmp_path)
+    consumer._handle_event(MetricDefineEvent("train/acc", x_axis="epoch", step_sync=False))
+    consumer._handle_event(MetricDefineEvent("train/loss", x_axis="epoch"))
+    _log(consumer, {"epoch": 3}, step=0, seconds=10)
+    start = len(consumer._scalar_batch)
+
+    _log(consumer, {"train/acc": 0.9, "train/loss": 0.1}, step=1, seconds=20)
+
+    records = _records_by_key(consumer, start)
+    assert set(records) == {"epoch", "train/acc", "train/loss"}
+    assert len(records["epoch"]) == 1
+    assert records["epoch"][0].value.number == 3
+    assert records["epoch"][0].step == 1
+
+
+def test_step_sync_false_alone_does_not_inject_even_with_true_sibling_defined(tmp_path: Path):
+    """仅 False 的 Y 出现时不注入，即使存在 step_sync=True 的兄弟 rule。"""
+    consumer = _make_consumer(tmp_path)
+    consumer._handle_event(MetricDefineEvent("train/acc", x_axis="epoch", step_sync=False))
+    consumer._handle_event(MetricDefineEvent("train/loss", x_axis="epoch"))
+    _log(consumer, {"epoch": 3}, step=0, seconds=10)
+    start = len(consumer._scalar_batch)
+
+    _log(consumer, {"train/acc": 0.9}, step=1, seconds=20)
+
+    records = _records_by_key(consumer, start)
+    assert set(records) == {"train/acc"}
+
+
+def test_overwrite_resets_step_sync_to_true_before_first_log(tmp_path: Path):
+    """overwrite=True 且未指定 step_sync 时恢复默认注入。"""
+    consumer = _make_consumer(tmp_path)
+    consumer._handle_event(MetricDefineEvent("train/loss", x_axis="epoch", step_sync=False))
+    consumer._handle_event(MetricDefineEvent("train/loss", x_axis="epoch", overwrite=True))
+    _log(consumer, {"epoch": 3}, step=0, seconds=10)
+    start = len(consumer._scalar_batch)
+
+    _log(consumer, {"train/loss": 0.8}, step=1, seconds=20)
+
+    records = _records_by_key(consumer, start)
+    assert "epoch" in records
+    assert records["epoch"][0].value.number == 3
+    assert records["epoch"][0].step == 1
+
+
 def test_self_reference_x_axis_keeps_first_log_wins(tmp_path: Path):
     """自引用 x_axis（x_axis == key）：正常落盘自身值，且 first-writer-wins 语义不变。
 
