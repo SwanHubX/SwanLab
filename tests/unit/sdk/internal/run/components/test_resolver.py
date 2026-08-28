@@ -1,8 +1,9 @@
-"""DefinitionResolver glob 校验测试。
+"""DefinitionResolver 单元测试。
 
-define_metric 的 glob 只支持末尾单个 '*'（如 ``train/*``）；
-``*loss``、``train/*/loss``、``train/**`` 等非法模式必须被拒绝（不写入 rule），
-且不影响后续合法 rule 的注册。
+覆盖：glob 校验（仅支持末尾单个 ``*``，``*loss`` / ``train/*/loss`` / ``train/**``
+等非法模式被拒绝且不影响后续合法 rule）、metric class 适配（MEDIA 回退 _step、
+SCALAR 自引用放行）、解析优先级（exact > 最长前缀 glob > automatic）、
+X 值去重、merge/replace 语义、effective definition 冻结。
 """
 
 import pytest
@@ -218,12 +219,30 @@ class TestXValueDedup:
 
 
 class TestStepSyncMergeReplace:
-    """step_sync 在 define 时的默认值、merge、replace。"""
+    """step_sync 在 define 时的默认值、merge、replace。
+
+    默认值语义：从未显式指定时，step_sync = is_custom_x(effective.x_axis)，
+    即提供 x_axis / step_metric 时默认 True，否则 False；显式 False 永远优先。
+    """
 
     def test_default_step_sync_is_true(self):
         r = DefinitionResolver()
         r.handle_define(MetricDefineEvent("loss", x_axis="epoch"))
         assert r.resolve_concrete("loss", "SCALAR").effective.step_sync is True
+
+    def test_default_step_sync_false_without_x_axis(self):
+        r = DefinitionResolver()
+        r.handle_define(MetricDefineEvent("loss", section_name="Train"))
+        assert r.resolve_concrete("loss", "SCALAR").effective.step_sync is False
+
+    def test_attaching_x_axis_later_defaults_step_sync_true(self):
+        """先无 x_axis 定义、后补 x_axis 且未显式指定 step_sync → 默认 True。"""
+        r = DefinitionResolver()
+        r.handle_define(MetricDefineEvent("loss", section_name="Train"))
+        r.handle_define(MetricDefineEvent("loss", x_axis="epoch"))
+        effective = r.resolve_concrete("loss", "SCALAR").effective
+        assert effective.x_axis == "epoch"
+        assert effective.step_sync is True
 
     def test_explicit_false_is_kept(self):
         r = DefinitionResolver()
@@ -251,6 +270,15 @@ class TestStepSyncMergeReplace:
         r.handle_define(MetricDefineEvent("loss", x_axis="epoch", step_sync=False))
         r.handle_define(MetricDefineEvent("loss", x_axis="epoch", overwrite=True))
         assert r.resolve_concrete("loss", "SCALAR").effective.step_sync is True
+
+    def test_overwrite_unspecified_resets_step_sync_to_false_without_x_axis(self):
+        """overwrite 未指定 step_sync 时重置为默认值：无 custom X 则 False。"""
+        r = DefinitionResolver()
+        r.handle_define(MetricDefineEvent("loss", x_axis="epoch"))
+        r.handle_define(MetricDefineEvent("loss", overwrite=True))
+        effective = r.resolve_concrete("loss", "SCALAR").effective
+        assert effective.x_axis == "_step"
+        assert effective.step_sync is False
 
     def test_overwrite_explicit_false_is_kept(self):
         r = DefinitionResolver()
@@ -280,6 +308,6 @@ class TestEffectiveDefinitionFrozen:
     def test_cannot_mutate_field(self):
         from swanlab.sdk.internal.run.components.resolver.state import EffectiveDefinition
 
-        ed = EffectiveDefinition(x_axis="epoch", section_name="Train", hidden=False)
+        ed = EffectiveDefinition(x_axis="epoch", section_name="Train", hidden=False, step_sync=True)
         with pytest.raises(AttributeError):
             setattr(ed, "x_axis", "step")

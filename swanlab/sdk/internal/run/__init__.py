@@ -630,9 +630,13 @@ class Run:
         :param key: Metric key. Supports exact match and a single trailing ``*``
             glob (e.g. ``"train/*"``). System keys are never matched.
         :param x_axis: Custom X-axis key. ``None`` (default) means the system
-            step. Only affects scalar charts; media ignores this. The X series is
-            assumed monotonically non-decreasing — for a given X value, only the
-            first logged Y is kept (consecutive-duplicate X values are dropped).
+            step. The system axes ``"_step"`` and ``"_relative_time"`` are also
+            accepted: they are resolved by the server, and the SDK performs no
+            step injection or X dedup for them. Only affects scalar charts;
+            media ignores this. The X series is assumed monotonically
+            non-decreasing — for a given X value, only the first logged Y is
+            kept (consecutive-duplicate X values are dropped). ``step_metric``
+            is accepted as a ``**kwargs`` alias for backward compatibility.
         :param section_name: Section name for the auto chart. ``None`` means
             the default section derived from the key.
         :param hidden: If ``True``, place the chart in the HIDDEN section.
@@ -642,12 +646,13 @@ class Run:
             ``hidden=True``, use ``overwrite=True``.
         :param step_sync: Whether this Y key should copy the latest custom X
             value onto the current step when X and Y are logged separately.
-            Defaults to ``True`` for a custom ``x_axis``. ``False`` means this
-            Y will not trigger X injection: the two series only align when they
-            share a step (same ``log()`` or the same explicit ``step``).
-            Duplicate-X dropping then uses only an X value present in this
-            event. Sibling Y keys that keep ``step_sync=True`` can still inject
-            X for the shared series.
+            Defaults to ``True`` when ``x_axis`` (or ``step_metric``) is set,
+            ``False`` otherwise — without a custom X axis it has no effect.
+            ``False`` means this Y will not trigger X injection: the two series
+            only align when they share a step (same ``log()`` or the same
+            explicit ``step``). Duplicate-X dropping then uses only an X value
+            present in this event. Sibling Y keys that keep ``step_sync=True``
+            can still inject X for the shared series.
         :param overwrite: If ``False`` (default), merge with previous calls for
             the same ``key`` — unspecified fields reuse the previous value
             (``hidden`` uses OR, so once hidden it stays hidden). If ``True``,

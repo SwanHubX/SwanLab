@@ -31,7 +31,7 @@ class EffectiveDefinition:
     x_axis: str  # X 轴 metric key；"_step" 表示系统默认
     section_name: Optional[str]  # 图表分组名称；None 表示使用默认 section
     hidden: bool  # 是否隐藏该 metric 对应的图表
-    step_sync: bool = True  # 该 Y 是否在 X 分次 log 时触发 custom X 注入；默认开启
+    step_sync: bool = False  # 该 Y 是否在 X 分次 log 时触发 custom X 注入；默认值 = is_custom_x(x_axis)，显式指定优先
 
 
 # EffectiveDefinition 是 frozen+hashable，相同 (x_axis, section_name, hidden, step_sync)

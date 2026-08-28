@@ -56,26 +56,28 @@ class MetricLogEvent:
 class MetricDefineEvent:
     """define_metric 事件，携带参数归一化后的定义补丁。
 
-    字段使用 ``UNSET`` 哨兵区分 "未提供" 与显式 ``None`` / ``False``：
+    字段使用 ``UNSET`` 哨兵区分 "未提供" 与显式值：
 
-    - ``UNSET``: 用户未提供该参数；merge 时保留旧值，replace 时重置为默认。
-    - ``None`` (x_axis / section_name): 显式清除为系统默认。
-    - 具体值: 使用该值。
-    - ``step_sync``: ``UNSET`` / ``True`` / ``False``。``False`` 是有效值，不可收成 UNSET。
-
-    注意：公开 API 的 ``x_axis=None`` / ``section_name=None`` 在归一化阶段统一转为 ``UNSET``，
-    因为公开签名无法区分 "省略" 与 "显式 None"。清除旧值必须使用 ``overwrite=True``。
+    - ``UNSET``: 参数未提供。公开 API 的省略与显式 ``None`` / ``False``
+      在归一化阶段统一转为 ``UNSET``（公开签名无法区分 "省略" 与
+      "显式 None"）；merge 时保留旧值，replace 时重置为默认。
+    - ``x_axis`` / ``section_name``: ``UNSET`` 或具体值。清除旧值必须
+      使用 ``overwrite=True``；resolver 对 ``None`` 的处理分支当前不可达，
+      仅为数据模型完备性保留。
+    - ``hidden``: ``UNSET`` 或 ``True``（公开层 ``False`` 亦收成 ``UNSET``）。
+    - ``step_sync``: ``UNSET`` / ``True`` / ``False``。``False`` 是有效值，
+      不可收成 ``UNSET``。
     """
 
     # rule identity（exact key 或 glob pattern）
     key: str
-    # UNSET=not provided, None=system default (_step), str=custom X key
+    # UNSET=未提供（含公开层显式 None），str=custom X key；None 分支当前不可达
     x_axis: Any = UNSET
-    # UNSET=not provided, None=default section, str=named section
+    # UNSET=未提供（含公开层显式 None），str=named section；None 分支当前不可达
     section_name: Any = UNSET
-    # UNSET=not provided, True/False
+    # UNSET=未提供（公开层 False 亦收成 UNSET），True=隐藏
     hidden: Any = UNSET
-    # UNSET=not provided, True/False。仅对 custom X 有意义：该 Y 是否触发跨 step 的 X 注入
+    # UNSET=未提供，True/False。仅对 custom X 有意义：该 Y 是否触发跨 step 的 X 注入
     step_sync: Any = UNSET
     # merge（False）vs replace（True）
     overwrite: bool = False
