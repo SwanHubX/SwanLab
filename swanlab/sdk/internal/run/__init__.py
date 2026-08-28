@@ -27,7 +27,7 @@ from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
 )
 from swanlab.proto.swanlab.grpc.probe.v1.probe_pb2 import DeliverProbeStartRequest
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord
-from swanlab.sdk.internal.bus import UNSET, FileSaveEvent, MetricDefineEvent, MetricLogEvent
+from swanlab.sdk.internal.bus import FileSaveEvent, MetricDefineEvent, MetricLogEvent
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.pkg import adapter, console, fork, helper, safe
@@ -616,7 +616,7 @@ class Run:
         *,
         x_axis: Optional[str] = None,
         section_name: Optional[str] = None,
-        hidden: bool = False,
+        hidden: Optional[bool] = None,
         step_sync: Optional[bool] = None,
         overwrite: bool = False,
         **kwargs,
@@ -636,10 +636,9 @@ class Run:
         :param section_name: Section name for the auto chart. ``None`` means
             the default section derived from the key.
         :param hidden: If ``True``, place the chart in the HIDDEN section.
-            In the default merge mode ``hidden`` is sticky (logical OR): once a
-            key is hidden it stays hidden, and passing ``hidden=False`` is
-            indistinguishable from "not provided". To clear a previously set
-            ``hidden=True``, use ``overwrite=True``.
+            Three states: ``None`` (default) means "not provided" — merge mode
+            keeps the previous value; ``True`` hides; ``False`` explicitly
+            unhides (also effective in merge mode).
         :param step_sync: Whether this Y key should copy the latest custom X
             value onto the current step when X and Y are logged separately.
             Defaults to ``True`` for a custom ``x_axis``. ``False`` means this
@@ -649,11 +648,9 @@ class Run:
             event. Sibling Y keys that keep ``step_sync=True`` can still inject
             X for the shared series.
         :param overwrite: If ``False`` (default), merge with previous calls for
-            the same ``key`` — unspecified fields reuse the previous value
-            (``hidden`` uses OR, so once hidden it stays hidden). If ``True``,
-            unspecified fields reset to their default, overwriting previous
-            values (e.g. clearing a prior ``hidden=True``). Only affects rules
-            not yet applied to a logged key.
+            the same ``key`` — unspecified fields reuse the previous value.
+            If ``True``, unspecified fields reset to their default, overwriting
+            previous values. Only affects rules not yet applied to a logged key.
 
         .. note::
             Project-wide first-definition-effective. A chart is shared across every run
@@ -690,15 +687,14 @@ class Run:
 
             >>> run.define_metric("loss", step_metric="custom_step")
         """
-        # 1. key 校验
-        if not isinstance(key, str) or not key:
-            console.error(f"Invalid key for define_metric: {key!r}, must be a non-empty string.")
-            return
-        if not (this_key := fmt.safe_validate_key(key)):
-            console.error(
-                f"Invalid key for define_metric: {key}, please use valid characters "
-                f"(alphanumeric, '.', '-', '/') and avoid special characters."
-            )
+        # 1. key 校验，完全复用 log 侧的 validate_key（非字符串强转 str、清洗首尾空白与'./'、超长截断）
+        # 保证规则与 log 实际产生的规范 key 落在同一形式，避免发出永不匹配的规则
+        #
+        # 边界情况：>512 的 key 截断可能截掉末尾 glob '*'，glob 退化为 exact 匹配，此时属病态输入且 log 侧同样截断、两边落点一致，暂不特殊处理
+        try:
+            this_key = fmt.validate_key(key)
+        except ValueError as e:
+            console.error(f"Invalid key for define_metric: {key!r}, {e}")
             return
 
         # 2. step_metric 兼容别名（仅从 kwargs 读取；其余未知 kwargs 静默忽略，与 init 兼容风格一致）
@@ -733,21 +729,14 @@ class Run:
             else:
                 section_name = validated_section
 
-        # 4. 参数归一化为 event 字段（None → UNSET 表示"未提供"）
-        evt_x_axis = x_axis if x_axis is not None else UNSET
-        evt_section_name = section_name if section_name is not None else UNSET
-        evt_hidden = hidden if hidden else UNSET
-        # False 是有效值，不能像 hidden 那样收成 UNSET
-        evt_step_sync = UNSET if step_sync is None else bool(step_sync)
-
-        # 5. 发射事件
+        # 4. 发射事件（三态字段校验后即为 None|str / None|bool，直接透传）
         self._components.emitter.emit(
             MetricDefineEvent(
                 key=this_key,
-                x_axis=evt_x_axis,
-                section_name=evt_section_name,
-                hidden=evt_hidden,
-                step_sync=evt_step_sync,
+                x_axis=x_axis,
+                section_name=section_name,
+                hidden=hidden,
+                step_sync=step_sync,
                 overwrite=overwrite,
             )
         )

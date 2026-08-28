@@ -691,7 +691,7 @@ def define_metric(
     *,
     x_axis: Optional[str] = None,
     section_name: Optional[str] = None,
-    hidden: bool = False,
+    hidden: Optional[bool] = None,
     step_sync: Optional[bool] = None,
     overwrite: bool = False,
     **kwargs: Any,
@@ -711,15 +711,16 @@ def define_metric(
         compatibility.
     :param section_name: Section name for the auto chart. ``None`` means the
         default section derived from the key.
-    :param hidden: If ``True``, place the chart in the HIDDEN section. In merge
-        mode ``hidden`` is sticky (OR); to clear a previously set
-        ``hidden=True``, use ``overwrite=True``.
+    :param hidden: If ``True``, place the chart in the HIDDEN section.
+        Three states: ``None`` (default) means "not provided" — merge mode
+        keeps the previous value; ``True`` hides; ``False`` explicitly
+        unhides (also effective in merge mode).
     :param step_sync: When X and Y are logged separately, whether to reuse the
         latest custom X value on the current step. Defaults to ``True`` if ``x_axis``
         or ``step_metric`` is set, ``False`` means they only align when logged together.
     :param overwrite: If ``False`` (default), merge — unspecified fields reuse
         the previous value. If ``True``, unspecified fields reset to default,
-        overwriting prior values (e.g. clearing ``hidden=True``).
+        overwriting prior values.
 
     .. note::
         Project-wide first-writer-wins: the chart for ``(class, key)`` is

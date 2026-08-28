@@ -13,7 +13,7 @@ from swanlab.sdk.internal.run.components.resolver import DefinitionResolver
 
 
 def _define(resolver: DefinitionResolver, key: str) -> None:
-    """对给定 key 触发一次 handle_define（其余字段默认 UNSET）。"""
+    """对给定 key 触发一次 handle_define（其余字段默认未提供）。"""
     resolver.handle_define(MetricDefineEvent(key=key))
 
 
@@ -136,6 +136,24 @@ class TestWandbAlignedResolution:
         assert column is not None
         assert column.x_axis == "iter"
         assert column.section_name == "Training"
+
+    def test_hidden_three_state_merge_semantics(self):
+        """hidden 三态：None=保留旧值，True=隐藏，False=显式解除（merge 模式下同样生效）。"""
+        r = DefinitionResolver()
+        r.handle_define(MetricDefineEvent("train/loss", hidden=True))
+        # 未提供（None）→ 保留 True
+        r.handle_define(MetricDefineEvent("train/loss", section_name="Train"))
+        assert r._exact_rules["train/loss"].effective.hidden is True
+        # 显式 False → merge 下解除隐藏
+        r.handle_define(MetricDefineEvent("train/loss", hidden=False))
+        assert r._exact_rules["train/loss"].effective.hidden is False
+
+    def test_hidden_replace_resets_to_default(self):
+        """overwrite=True（replace）下未提供 hidden → 重置为 False。"""
+        r = DefinitionResolver()
+        r.handle_define(MetricDefineEvent("train/loss", hidden=True))
+        r.handle_define(MetricDefineEvent("train/loss", overwrite=True))
+        assert r._exact_rules["train/loss"].effective.hidden is False
 
     def test_subsequent_log_after_define_does_not_upgrade_automatic_concrete(self):
         """log → define → 再 log：concrete 保持首次 automatic 快照，不升级、不重发。"""

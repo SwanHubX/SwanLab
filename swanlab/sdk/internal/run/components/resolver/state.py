@@ -7,9 +7,7 @@
 
 import sys
 from dataclasses import dataclass
-from typing import Any, Dict, Optional, Tuple
-
-from swanlab.sdk.internal.bus import UNSET
+from typing import Dict, Optional, Tuple
 
 __all__ = [
     "EffectiveDefinition",
@@ -55,13 +53,13 @@ def make_effective(
 class DefinitionPatch:
     """presence-aware 定义补丁。
 
-    UNSET 表示 "未提供"，merge 时保留旧值，replace 时重置为默认。
+    None 表示 "未提供"，merge 时保留旧值，replace 时重置为默认。
     """
 
-    x_axis: Any = UNSET  # X 轴补丁；UNSET 表示调用方未提供
-    section_name: Any = UNSET  # section 补丁；UNSET 表示调用方未提供
-    hidden: Any = UNSET  # 隐藏状态补丁；UNSET 表示调用方未提供
-    step_sync: Any = UNSET  # 注入开关补丁；UNSET 表示调用方未提供，True/False 为显式值
+    x_axis: Optional[str] = None  # X 轴补丁；None 表示调用方未提供
+    section_name: Optional[str] = None  # section 补丁；None 表示调用方未提供
+    hidden: Optional[bool] = None  # 隐藏状态补丁；None 表示调用方未提供
+    step_sync: Optional[bool] = None  # 注入开关补丁；None 表示调用方未提供，True/False 为显式值
 
 
 @dataclass(**_SLOTS_KWARGS)

@@ -15,33 +15,6 @@ from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord, ScalarRec
 from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogLevel
 from swanlab.sdk.internal.context.transformer import TransformData
 
-# ── define_metric 用的 presence 哨兵 ──────────────────────────────────────────
-
-
-class _UnsetType:
-    """Sentinel for "field not provided" in definition patches.
-
-    Distinct from ``None`` (which means "clear to system default")
-    and ``False``. Used by :class:`MetricDefineEvent` and the resolver's
-    :class:`DefinitionPatch` to implement merge vs. replace semantics.
-    """
-
-    _instance: Optional["_UnsetType"] = None
-
-    def __new__(cls) -> "_UnsetType":
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-        return cls._instance
-
-    def __repr__(self) -> str:
-        return "UNSET"
-
-    def __bool__(self) -> bool:
-        return False
-
-
-UNSET: Any = _UnsetType()
-
 
 @dataclass
 class MetricLogEvent:
@@ -56,27 +29,23 @@ class MetricLogEvent:
 class MetricDefineEvent:
     """define_metric 事件，携带参数归一化后的定义补丁。
 
-    字段使用 ``UNSET`` 哨兵区分 "未提供" 与显式 ``None`` / ``False``：
+    字段为两态：``None`` 表示 "未提供"（merge 时保留旧值，replace 时重置为默认），
+    具体值表示使用该值。``step_sync=False`` / ``hidden=False`` 是有效值，不会被收成 "未提供"。
 
-    - ``UNSET``: 用户未提供该参数；merge 时保留旧值，replace 时重置为默认。
-    - ``None`` (x_axis / section_name): 显式清除为系统默认。
-    - 具体值: 使用该值。
-    - ``step_sync``: ``UNSET`` / ``True`` / ``False``。``False`` 是有效值，不可收成 UNSET。
-
-    注意：公开 API 的 ``x_axis=None`` / ``section_name=None`` 在归一化阶段统一转为 ``UNSET``，
-    因为公开签名无法区分 "省略" 与 "显式 None"。清除旧值必须使用 ``overwrite=True``。
+    注意：公开签名无法区分 "省略" 与 "显式 None"（``x_axis`` / ``section_name``），
+    两者均为 ``None``（"未提供"）；清除旧值使用 ``overwrite=True``。
     """
 
     # rule identity（exact key 或 glob pattern）
     key: str
-    # UNSET=not provided, None=system default (_step), str=custom X key
-    x_axis: Any = UNSET
-    # UNSET=not provided, None=default section, str=named section
-    section_name: Any = UNSET
-    # UNSET=not provided, True/False
-    hidden: Any = UNSET
-    # UNSET=not provided, True/False。仅对 custom X 有意义：该 Y 是否触发跨 step 的 X 注入
-    step_sync: Any = UNSET
+    # None=not provided, str=custom X key
+    x_axis: Optional[str] = None
+    # None=not provided, str=named section
+    section_name: Optional[str] = None
+    # None=not provided, True/False
+    hidden: Optional[bool] = None
+    # None=not provided, True/False。仅对 custom X 有意义：该 Y 是否触发跨 step 的 X 注入
+    step_sync: Optional[bool] = None
     # merge（False）vs replace（True）
     overwrite: bool = False
 

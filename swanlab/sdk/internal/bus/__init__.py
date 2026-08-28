@@ -8,7 +8,6 @@
 
 from .emitter import EmitterProtocol, RunEmitter, RunQueue
 from .events import (
-    UNSET,
     ConfigEvent,
     EventPayload,
     FileSaveEvent,
@@ -29,5 +28,4 @@ __all__ = [
     "FileSaveEvent",
     "EventPayload",
     "ParseResult",
-    "UNSET",
 ]

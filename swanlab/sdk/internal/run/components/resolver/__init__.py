@@ -18,7 +18,7 @@ from swanlab.proto.swanlab.metric.column.v1.column_pb2 import (
     ColumnType,
     SectionType,
 )
-from swanlab.sdk.internal.bus import UNSET, MetricDefineEvent
+from swanlab.sdk.internal.bus import MetricDefineEvent
 from swanlab.sdk.internal.pkg import console, helper
 from swanlab.sdk.internal.run.components.resolver.state import (
     ConcreteState,
@@ -125,25 +125,19 @@ class DefinitionResolver:
 
     @staticmethod
     def _merge_effective(base: EffectiveDefinition, patch: DefinitionPatch) -> EffectiveDefinition:
-        x_axis = base.x_axis
-        if patch.x_axis is not UNSET:
-            x_axis = patch.x_axis if patch.x_axis is not None else "_step"
-        section_name = base.section_name
-        if patch.section_name is not UNSET:
-            section_name = patch.section_name
-        hidden = base.hidden or (patch.hidden is True)
-        step_sync = base.step_sync
-        if patch.step_sync is not UNSET:
-            step_sync = bool(patch.step_sync)
+        x_axis = patch.x_axis if patch.x_axis is not None else base.x_axis
+        section_name = patch.section_name if patch.section_name is not None else base.section_name
+        hidden = patch.hidden if patch.hidden is not None else base.hidden
+        step_sync = patch.step_sync if patch.step_sync is not None else base.step_sync
         return make_effective(x_axis, section_name, hidden, step_sync)
 
     @staticmethod
     def _replace_effective(patch: DefinitionPatch) -> EffectiveDefinition:
-        x_axis = patch.x_axis if patch.x_axis is not UNSET and patch.x_axis is not None else "_step"
-        section_name = patch.section_name if patch.section_name is not UNSET else None
-        hidden = patch.hidden if patch.hidden is not UNSET else False
-        step_sync = patch.step_sync if patch.step_sync is not UNSET else True
-        return make_effective(x_axis, section_name, hidden, bool(step_sync))
+        x_axis = patch.x_axis if patch.x_axis is not None else "_step"
+        section_name = patch.section_name
+        hidden = patch.hidden if patch.hidden is not None else False
+        step_sync = patch.step_sync if patch.step_sync is not None else True
+        return make_effective(x_axis, section_name, hidden, step_sync)
 
     # ── concrete 解析 ──────────────────────────────────────────
 
