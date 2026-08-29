@@ -32,7 +32,6 @@ from .sdk import (
 from .sdk.typings.cmd import ConfigLike, LoginType
 from .sdk.typings.context import CallbacksType
 from .sdk.typings.run import AsyncLogType, FinishType, ModeType, ParallelType, ResumeType, SaveType
-from .sdk.typings.run.column import ScalarXAxisType
 from .sdk.typings.run.transforms import CaptionsType
 from .sdk.typings.run.transforms.audio import AudioDatasType, AudioRatesType
 from .sdk.typings.run.transforms.echarts import EChartsDatasType
@@ -62,7 +61,7 @@ __all__ = [
     "log_html",
     "log_object3d",
     "log_molecule",
-    "define_scalar",
+    "define_metric",
     "async_log",
     "save",
     "sync",
@@ -687,33 +686,58 @@ def async_log(
     """
     ...
 
-def define_scalar(
-    *,
+def define_metric(
     key: str,
-    name: Optional[str] = None,
-    color: Optional[str] = None,
-    x_axis: Optional[ScalarXAxisType] = None,
-    chart_name: Optional[str] = None,
+    *,
+    x_axis: Optional[str] = None,
+    section_name: Optional[str] = None,
+    hidden: Optional[bool] = None,
+    step_sync: Optional[bool] = None,
+    overwrite: bool = False,
+    **kwargs: Any,
 ) -> None:
-    """Explicitly define a scalar column.
+    """Define a metric's display configuration before logging.
 
-    Call this before logging to customize how a scalar metric is displayed,
-    such as setting a display name, color, or x-axis type.
+    Customizes how an auto-generated chart for *key* appears in project Views:
+    X-axis, section placement, and visibility. The same ``(class, key)``
+    shares one chart across all runs in the project.
 
-    :param key: The key for the scalar column. Supports glob patterns (e.g. "train/*") to match multiple columns at once.
-    :param name: Optional display name for the scalar column.
-    :param color: Optional hex color for the scalar line in charts.
-    :param x_axis: Optional x-axis type. One of "_step", "_relative_time", or a custom key.
-    :param chart_name: Optional name for the chart group this column belongs to.
-    :raises RuntimeError: If called without an active run.
+    :param key: Metric key. Supports exact match and a single trailing ``*``
+        glob (e.g. ``"train/*"``). System keys are never matched.
+    :param x_axis: Custom X-axis key; ``None`` means the system step.
+        ``step_metric`` is accepted as a ``**kwargs`` alias.
+    :param section_name: Section name for the auto chart. ``None`` means the
+        default section derived from the key.
+    :param hidden: If ``True``, place the chart in the HIDDEN section.
+        Three states: ``None`` (default) means "not provided" — merge mode
+        keeps the previous value; ``True`` hides; ``False`` explicitly
+        unhides (also effective in merge mode).
+    :param step_sync: When X and Y are logged separately, whether to reuse the
+        latest X value on the current step. Defaults to ``True`` when
+        ``x_axis`` (or ``step_metric``) is set, ``False`` otherwise.
+    :param overwrite: If ``False`` (default), merge with previous calls for
+        the same ``key``. If ``True``, unspecified fields reset to default.
+
+    .. note::
+        Project-wide first-writer-wins: the chart for ``(class, key)`` is
+        shared across all runs, and ``define_metric`` only takes effect on
+        the first run that introduces the key to the project. Once the chart
+        exists, later calls (including ``overwrite=True``) have no effect.
 
     Examples:
 
+        Custom X-axis with separate logging:
+
         >>> import swanlab
         >>> swanlab.init(mode="local")
-        >>> swanlab.define_scalar("loss", color="#FF5733", x_axis="_step")
-        >>> swanlab.log({"loss": 0.5})
-        >>> swanlab.finish()
+        >>> run = swanlab.get_run()
+        >>> run.define_metric("train/loss", x_axis="train/epoch")
+        >>> swanlab.log({"train/epoch": 1})    # step=1
+        >>> swanlab.log({"train/loss": 0.8})   # step=2, auto-syncs train/epoch=1
+
+        Glob pattern for all validation metrics:
+
+        >>> run.define_metric("val/*", section_name="Validation")
     """
     ...
 

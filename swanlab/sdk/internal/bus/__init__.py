@@ -10,10 +10,11 @@ from .emitter import EmitterProtocol, RunEmitter, RunQueue
 from .events import (
     ConfigEvent,
     EventPayload,
+    FileSaveEvent,
     LogEvent,
+    MetricDefineEvent,
     MetricLogEvent,
     ParseResult,
-    ScalarDefineEvent,
 )
 
 __all__ = [
@@ -21,9 +22,10 @@ __all__ = [
     "RunQueue",
     "EmitterProtocol",
     "MetricLogEvent",
-    "ScalarDefineEvent",
+    "MetricDefineEvent",
     "ConfigEvent",
     "LogEvent",
+    "FileSaveEvent",
     "EventPayload",
     "ParseResult",
 ]
