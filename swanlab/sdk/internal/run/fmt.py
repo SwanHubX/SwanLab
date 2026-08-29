@@ -146,21 +146,6 @@ def safe_validate_name(name: Optional[str]) -> Optional[str]:
         return None
 
 
-def safe_validate_chart_name(name: Optional[str]) -> Optional[str]:
-    """
-    检查并清洗图表名称，如果出现非法字符或长度超过限制，返回 None。
-
-    :param name: 待检查的图表名称
-    :return: 清洗后的图表名称或 None
-    """
-    if name is None:
-        return None
-    try:
-        return constraints.ta_chart_name.validate_python(name)
-    except ValidationError:
-        return None
-
-
 def safe_validate_x_axis(x_axis: Optional[ScalarXAxisType]) -> Optional[ScalarXAxisType]:
     """
     校验 ``define_metric`` 的 x 轴值，非法时返回 None。
@@ -177,22 +162,7 @@ def safe_validate_x_axis(x_axis: Optional[ScalarXAxisType]) -> Optional[ScalarXA
         return x_axis
     if helper.is_system_key(x_axis):
         return None
-    return safe_validate_key(x_axis)
-
-
-def safe_validate_color(color: Optional[str]) -> Optional[str]:
-    """
-    检查并清洗颜色字符串格式，必须是#开头的十六进制颜色代码
-
-    :param color: 待检查的颜色字符串
-    :return: 清洗后的颜色字符串或 None
-    """
-    if color is None:
-        return None
-    try:
-        return constraints.ta_hex_color.validate_python(color)
-    except ValidationError:
-        return None
+        return safe_validate_key(x_axis)
 
 
 def safe_validate_state(state: FinishType) -> Optional[FinishType]:
