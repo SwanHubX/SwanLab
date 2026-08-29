@@ -133,12 +133,11 @@ class DefinitionResolver:
     # ── concrete 解析 ──────────────────────────────────────────
 
     def resolve_concrete(self, key: str, metric_class: str) -> ConcreteState:
-        """为 log 中的 key 解析 concrete definition。
+        """为 log 中的 key 解析 concrete 定义，首次调用时注册并冻结快照。
 
-        首次调用时按 exact → glob → automatic 优先级解析并注册 key；之后同一
-        (metric_class, key) 的所有调用直接返回首次快照，不再升级或回溯——
-        这同时钉住了 "key 首次 log 后 define 不再生效" 的契约（automatic 状态
-        表示该 key 在无定义下被 log 过，后续 define 无法认领）。
+        解析优先级：exact > 最长前缀 glob > automatic。首次调用（log）按命中结果注册 ConcreteState；
+        之后同一 (metric_class, key) 的调用直接返回该快照，不再受后续 define_metric 影响。
+        这意味着一旦log，后续 define_metric 对已出现的 key 不再回溯修改图表定义，遵循 first-writer-wins的原则。
         """
         cache_key = (metric_class, key)
         existing = self._concrete.get(cache_key)
