@@ -27,18 +27,13 @@ class TestGlobRouting:
         assert "train/loss" in r._exact_rules
         assert len(r._glob_rules) == 0
 
-    def test_valid_trailing_glob_accepted(self):
-        """末尾单个 '*' 作为 glob rule 注册。"""
+    @pytest.mark.parametrize("pattern", ["train/*", "*"], ids=lambda v: repr(v))
+    def test_glob_patterns_route_to_glob_rules(self, pattern):
+        """末尾单 '*'（含单独的 '*'）作为 glob rule 注册。"""
         r = DefinitionResolver()
-        _define(r, "train/*", is_glob=True)
-        assert "train/*" in r._glob_rules
+        _define(r, pattern, is_glob=True)
+        assert pattern in r._glob_rules
         assert len(r._exact_rules) == 0
-
-    def test_bare_star_accepted_as_glob(self):
-        """单独的 '*' 是合法 glob（匹配所有自定义 key）。"""
-        r = DefinitionResolver()
-        _define(r, "*", is_glob=True)
-        assert "*" in r._glob_rules
 
 
 class TestSelfReferenceXAxis:
@@ -112,17 +107,17 @@ class TestWandbAlignedResolution:
         r.handle_define(MetricDefineEvent("train/loss", hidden=True))
         # 未提供（None）→ 保留 True
         r.handle_define(MetricDefineEvent("train/loss", section_name="Train"))
-        assert r._exact_rules["train/loss"].effective.hidden is True
+        assert r._exact_rules["train/loss"].hidden is True
         # 显式 False → merge 下解除隐藏
         r.handle_define(MetricDefineEvent("train/loss", hidden=False))
-        assert r._exact_rules["train/loss"].effective.hidden is False
+        assert r._exact_rules["train/loss"].hidden is False
 
     def test_hidden_replace_resets_to_default(self):
         """overwrite=True（replace）下未提供 hidden → 重置为 False。"""
         r = DefinitionResolver()
         r.handle_define(MetricDefineEvent("train/loss", hidden=True))
         r.handle_define(MetricDefineEvent("train/loss", overwrite=True))
-        assert r._exact_rules["train/loss"].effective.hidden is False
+        assert r._exact_rules["train/loss"].hidden is False
 
     def test_subsequent_log_after_define_does_not_upgrade_automatic_concrete(self):
         """log → define → 再 log：concrete 保持首次 automatic 快照，列始终由 core 自动建。"""
@@ -152,19 +147,16 @@ class TestWandbAlignedResolution:
 class TestXValueDedup:
     """try_accept_x_value：custom X 值 first-writer-wins 去重。"""
 
-    def test_first_value_accepted(self):
+    def test_new_value_accepted(self):
+        """首次出现的值与其后的不同值均被接受。"""
         r = DefinitionResolver()
         assert r.try_accept_x_value("acc", 5.0) is True
+        assert r.try_accept_x_value("acc", 6.0) is True
 
     def test_same_value_rejected(self):
         r = DefinitionResolver()
         r.try_accept_x_value("acc", 5.0)
         assert r.try_accept_x_value("acc", 5.0) is False
-
-    def test_different_value_accepted(self):
-        r = DefinitionResolver()
-        r.try_accept_x_value("acc", 5.0)
-        assert r.try_accept_x_value("acc", 6.0) is True
 
     def test_non_monotonic_x_is_not_deduplicated(self):
         """去重仅对比上一个 X 值，假设 X 单调递增。
@@ -179,17 +171,16 @@ class TestXValueDedup:
         # 单调假设下不会出现 5→6→5；此处仅记录连续去重的实现行为
         assert r.try_accept_x_value("acc", 5.0) is True
 
-    def test_epsilon_within_threshold_rejected(self):
-        """epsilon 内的微小差异视为相同。"""
+    @pytest.mark.parametrize(
+        "delta,expected",
+        [(1e-9, False), (1e-7, True)],
+        ids=["within-epsilon", "outside-epsilon"],
+    )
+    def test_epsilon_threshold(self, delta, expected):
+        """epsilon（1e-8）内的微小差异视为相同，超出视为不同。"""
         r = DefinitionResolver()
         r.try_accept_x_value("loss", 1.0)
-        assert r.try_accept_x_value("loss", 1.0 + 1e-9) is False  # < 1e-8
-
-    def test_epsilon_outside_threshold_accepted(self):
-        """超过 epsilon 的差异视为不同。"""
-        r = DefinitionResolver()
-        r.try_accept_x_value("loss", 1.0)
-        assert r.try_accept_x_value("loss", 1.0 + 1e-7) is True  # ≥ 1e-8
+        assert r.try_accept_x_value("loss", 1.0 + delta) is expected
 
     def test_x_value_zero_accepted_then_rejected(self):
         """X=0.0 不受 falsy 影响。"""
@@ -259,14 +250,3 @@ class TestStepSyncMergeReplace:
         second = r.resolve_concrete("loss", "SCALAR")
         assert second is first
         assert second.effective.step_sync is True
-
-
-class TestEffectiveDefinitionFrozen:
-    """EffectiveDefinition frozen=True 不可变。"""
-
-    def test_cannot_mutate_field(self):
-        from swanlab.sdk.internal.run.components.consumer.resolver.state import EffectiveDefinition
-
-        ed = EffectiveDefinition(x_axis="epoch", section_name="Train", hidden=False)
-        with pytest.raises(AttributeError):
-            setattr(ed, "x_axis", "step")

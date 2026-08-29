@@ -23,17 +23,13 @@ from swanlab.sdk.internal.pkg import console, helper
 
 from .state import (
     ConcreteState,
-    DefinitionPatch,
     EffectiveDefinition,
-    RuleState,
     make_effective,
 )
 
 __all__ = [
     "DefinitionResolver",
-    "DefinitionPatch",
     "EffectiveDefinition",
-    "RuleState",
     "ConcreteState",
 ]
 
@@ -52,10 +48,10 @@ class DefinitionResolver:
     """
 
     def __init__(self) -> None:
-        # exact key → rule 状态（define_metric 中不含 '*' 的 key 注册于此）
-        self._exact_rules: Dict[str, RuleState] = {}
-        # glob pattern（末尾单 '*'）→ rule 状态，物化时按最长前缀匹配
-        self._glob_rules: Dict[str, RuleState] = {}
+        # exact key → 定义快照（define_metric 中不含 '*' 的 key 注册于此）
+        self._exact_rules: Dict[str, EffectiveDefinition] = {}
+        # glob pattern（末尾单 '*'）→ 定义快照，物化时按最长前缀匹配
+        self._glob_rules: Dict[str, EffectiveDefinition] = {}
         # (metric_class, key) → 首次 log 时物化的 concrete 定义快照；
         # first-writer-wins，之后的 define 不回溯修改已物化条目
         self._concrete: Dict[Tuple[str, str], ConcreteState] = {}
@@ -82,36 +78,23 @@ class DefinitionResolver:
         materialize_column 决定；后续 define 不回溯已物化的 key、也不产出 ColumnRecord。
         同一 key 在 log 前多次 define 仍以最后一次为准（merge/replace 在 rule 上累积）。
         """
-        # 1. 从事件提取 presence-aware 补丁，并按 is_glob 选定 rule 分区
+        # 1. 按 is_glob 选定 rule 分区
         key = event.key
-        patch = DefinitionPatch(
-            x_axis=event.x_axis,
-            section_name=event.section_name,
-            hidden=event.hidden,
-            step_sync=event.step_sync,
-        )
         rules = self._glob_rules if event.is_glob else self._exact_rules
 
         # 2. 计算 effective：overwrite 从默认值 replace，否则在已有 rule（或默认）上 merge
         if event.overwrite:
-            effective = self._replace_effective(patch)
+            effective = self._replace_effective(event)
         else:
-            existing = rules.get(key)
-            base = existing.effective if existing else self._default_effective()
-            effective = self._merge_effective(base, patch)
+            base = rules.get(key) or self._default_effective()
+            effective = self._merge_effective(base, event)
 
         # 3. 登记 rule（exact / glob 分区，同 key 后一次 define 覆盖前一次）
-        rules[key] = RuleState(
-            identity=key,
-            is_glob=event.is_glob,
-            effective=effective,
-            patch=patch,
-            overwrite=event.overwrite,
-        )
+        rules[key] = effective
 
         # 4. 记录该 rule 引用的 custom X 源 key，供 update_custom_x_cache 按需登记
         if helper.is_custom_x(effective.x_axis):
-            self._custom_x_keys.add(effective.x_axis)  # type: ignore[arg-type]
+            self._custom_x_keys.add(effective.x_axis)
 
         # rule 登记完成。exact 不再立即重新物化已出现的 concrete：
         # 图表定义遵循 first-writer-wins，由首次 log 时的 materialize_column 决定。
@@ -123,19 +106,19 @@ class DefinitionResolver:
         return make_effective("_step", None, False, True)
 
     @staticmethod
-    def _merge_effective(base: EffectiveDefinition, patch: DefinitionPatch) -> EffectiveDefinition:
-        x_axis = patch.x_axis if patch.x_axis is not None else base.x_axis
-        section_name = patch.section_name if patch.section_name is not None else base.section_name
-        hidden = patch.hidden if patch.hidden is not None else base.hidden
-        step_sync = patch.step_sync if patch.step_sync is not None else base.step_sync
+    def _merge_effective(base: EffectiveDefinition, event: MetricDefineEvent) -> EffectiveDefinition:
+        x_axis = event.x_axis if event.x_axis is not None else base.x_axis
+        section_name = event.section_name if event.section_name is not None else base.section_name
+        hidden = event.hidden if event.hidden is not None else base.hidden
+        step_sync = event.step_sync if event.step_sync is not None else base.step_sync
         return make_effective(x_axis, section_name, hidden, step_sync)
 
     @staticmethod
-    def _replace_effective(patch: DefinitionPatch) -> EffectiveDefinition:
-        x_axis = patch.x_axis if patch.x_axis is not None else "_step"
-        section_name = patch.section_name
-        hidden = patch.hidden if patch.hidden is not None else False
-        step_sync = patch.step_sync if patch.step_sync is not None else True
+    def _replace_effective(event: MetricDefineEvent) -> EffectiveDefinition:
+        x_axis = event.x_axis if event.x_axis is not None else "_step"
+        section_name = event.section_name
+        hidden = event.hidden if event.hidden is not None else False
+        step_sync = event.step_sync if event.step_sync is not None else True
         return make_effective(x_axis, section_name, hidden, step_sync)
 
     # ── concrete 解析 ──────────────────────────────────────────
@@ -158,7 +141,7 @@ class DefinitionResolver:
         # 1. exact 优先
         exact_rule = self._exact_rules.get(key)
         if exact_rule:
-            effective = self._adjust_for_class(exact_rule.effective, metric_class, key)
+            effective = self._adjust_for_class(exact_rule, metric_class)
             state = ConcreteState(
                 key=key,
                 metric_class=metric_class,
@@ -171,7 +154,7 @@ class DefinitionResolver:
         # 2. 最长 prefix glob
         glob_rule = self._match_glob(key)
         if glob_rule:
-            effective = self._adjust_for_class(glob_rule.effective, metric_class, key)
+            effective = self._adjust_for_class(glob_rule, metric_class)
             state = ConcreteState(
                 key=key,
                 metric_class=metric_class,
@@ -182,7 +165,7 @@ class DefinitionResolver:
             return state
 
         # 3. automatic 兜底：无 rule 命中，仅注册钉住状态（materialize 不会为其产出列）
-        effective = self._adjust_for_class(self._default_effective(), metric_class, key)
+        effective = self._adjust_for_class(self._default_effective(), metric_class)
         state = ConcreteState(
             key=key,
             metric_class=metric_class,
@@ -192,9 +175,9 @@ class DefinitionResolver:
         self._concrete[cache_key] = state
         return state
 
-    def _match_glob(self, key: str) -> Optional[RuleState]:
-        """找到最长 prefix glob rule。"""
-        best: Optional[RuleState] = None
+    def _match_glob(self, key: str) -> Optional[EffectiveDefinition]:
+        """找到最长 prefix glob rule 的定义快照。"""
+        best: Optional[EffectiveDefinition] = None
         best_len = -1
         for pattern, rule in self._glob_rules.items():
             prefix = pattern[:-1]
@@ -204,7 +187,7 @@ class DefinitionResolver:
         return best
 
     @staticmethod
-    def _adjust_for_class(effective: EffectiveDefinition, metric_class: str, key: str) -> EffectiveDefinition:
+    def _adjust_for_class(effective: EffectiveDefinition, metric_class: str) -> EffectiveDefinition:
         """根据 metric class 调整 effective definition。MEDIA 一律回退 _step；
         SCALAR 允许自引用（x_axis == key，图像为直线 y=x）。"""
         if metric_class == "MEDIA":

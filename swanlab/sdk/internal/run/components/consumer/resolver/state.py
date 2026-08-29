@@ -7,12 +7,10 @@
 
 import sys
 from dataclasses import dataclass
-from typing import Dict, Optional, Tuple
+from typing import Optional
 
 __all__ = [
     "EffectiveDefinition",
-    "DefinitionPatch",
-    "RuleState",
     "ConcreteState",
     "make_effective",
 ]
@@ -32,45 +30,11 @@ class EffectiveDefinition:
     step_sync: bool = True  # 该 Y 是否在 X 分次 log 时触发 custom X 注入；默认开启
 
 
-# EffectiveDefinition 是 frozen+hashable，相同 (x_axis, section_name, hidden, step_sync)
-# 复用同一实例。intern cache 为进程级，distinct 组合数量有界，无需清理。
-_EFF_INTERN: Dict[Tuple[str, Optional[str], bool, bool], EffectiveDefinition] = {}
-
-
 def make_effective(
     x_axis: str, section_name: Optional[str], hidden: bool, step_sync: bool = True
 ) -> EffectiveDefinition:
-    """构造并 intern 一个 EffectiveDefinition。"""
-    key = (x_axis, section_name, hidden, step_sync)
-    eff = _EFF_INTERN.get(key)
-    if eff is None:
-        eff = EffectiveDefinition(x_axis=x_axis, section_name=section_name, hidden=hidden, step_sync=step_sync)
-        _EFF_INTERN[key] = eff
-    return eff
-
-
-@dataclass(**_SLOTS_KWARGS)
-class DefinitionPatch:
-    """presence-aware 定义补丁。
-
-    None 表示 "未提供"，merge 时保留旧值，replace 时重置为默认。
-    """
-
-    x_axis: Optional[str] = None  # X 轴补丁；None 表示调用方未提供
-    section_name: Optional[str] = None  # section 补丁；None 表示调用方未提供
-    hidden: Optional[bool] = None  # 隐藏状态补丁；None 表示调用方未提供
-    step_sync: Optional[bool] = None  # 注入开关补丁；None 表示调用方未提供，True/False 为显式值
-
-
-@dataclass(**_SLOTS_KWARGS)
-class RuleState:
-    """一条 define_metric rule（exact 或 glob）的状态。"""
-
-    identity: str  # exact key 或 glob pattern，用于标识 rule
-    is_glob: bool  # 是否为末尾带 * 的 prefix glob rule
-    effective: EffectiveDefinition  # rule 经 merge/replace 后的完整定义快照
-    patch: DefinitionPatch  # 本次 define_metric 调用提供的 presence-aware 补丁
-    overwrite: bool  # True 表示从默认值 replace，False 表示在已有状态上 merge
+    """构造一个 EffectiveDefinition。"""
+    return EffectiveDefinition(x_axis=x_axis, section_name=section_name, hidden=hidden, step_sync=step_sync)
 
 
 @dataclass(**_SLOTS_KWARGS)

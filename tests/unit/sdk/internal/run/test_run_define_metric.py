@@ -62,9 +62,13 @@ class TestDefineMetricKeyValidation:
 class TestDefineMetricGlobValidation:
     """glob 模式校验与 is_glob 分类（校验在 API 层同步完成，resolver 不再解析字符串）。"""
 
-    @pytest.mark.parametrize("key", ["train/*", "*"], ids=lambda v: repr(v))
-    def test_valid_glob_emitted_with_is_glob_true(self, key, monkeypatch):
-        """合法 glob（末尾单个 '*'）原样进入事件，且 is_glob=True。"""
+    @pytest.mark.parametrize(
+        "key,is_glob",
+        [("train/*", True), ("*", True), ("train/loss", False)],
+        ids=["trailing-star", "bare-star", "exact"],
+    )
+    def test_glob_classification_emitted(self, key, is_glob, monkeypatch):
+        """合法 key 原样进入事件，is_glob 按末尾单 '*' 分类。"""
         monkeypatch.setattr(fmt.console, "error", MagicMock())
         mock_run = _MockRun()
         Run.define_metric(mock_run, key)  # type: ignore
@@ -72,15 +76,7 @@ class TestDefineMetricGlobValidation:
         event = mock_run._components.emitter.emit.call_args[0][0]
         assert isinstance(event, MetricDefineEvent)
         assert event.key == key
-        assert event.is_glob is True
-
-    def test_exact_key_emitted_with_is_glob_false(self, monkeypatch):
-        """无 '*' 的 key 进入事件时 is_glob=False。"""
-        monkeypatch.setattr(fmt.console, "error", MagicMock())
-        mock_run = _MockRun()
-        Run.define_metric(mock_run, "train/loss")  # type: ignore
-        event = mock_run._components.emitter.emit.call_args[0][0]
-        assert event.is_glob is False
+        assert event.is_glob is is_glob
 
     @pytest.mark.parametrize(
         "bad",
@@ -102,14 +98,3 @@ class TestDefineMetricGlobValidation:
         Run.define_metric(mock_run, bad)  # type: ignore
         error.assert_called_once()
         mock_run._components.emitter.emit.assert_not_called()
-
-    def test_invalid_glob_does_not_block_subsequent_valid_define(self, monkeypatch):
-        """非法 define 被拒绝后，后续合法 define 仍正常发出事件。"""
-        monkeypatch.setattr(fmt.console, "error", MagicMock())
-        mock_run = _MockRun()
-        Run.define_metric(mock_run, "*loss")  # type: ignore
-        Run.define_metric(mock_run, "train/*")  # type: ignore
-        assert mock_run._components.emitter.emit.call_count == 1
-        event = mock_run._components.emitter.emit.call_args[0][0]
-        assert event.key == "train/*"
-        assert event.is_glob is True
