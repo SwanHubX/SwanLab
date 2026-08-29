@@ -50,6 +50,8 @@ UploadColumn = TypedDict(
         "key": Required[str],
         "type": Required[str],
         "sectionName": NotRequired[str],
+        "xAxis": NotRequired[str],
+        "hidden": NotRequired[bool],
     },
 )
 

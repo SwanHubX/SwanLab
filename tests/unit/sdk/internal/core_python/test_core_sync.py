@@ -199,8 +199,10 @@ class FakeRawReader:
 
 
 class FakeMetric:
-    def __init__(self):
+    def __init__(self, column_type=None, column=None):
         self.updated = []
+        self.column_type = column_type
+        self._column = column
 
     def ensure_type_match(self, _: ColumnType) -> None:
         pass
@@ -220,12 +222,14 @@ class FakeMetrics:
         return self.metrics.get(key)
 
     def define_scalar(self, **kwargs) -> FakeMetric:
-        metric = FakeMetric()
+        column = kwargs.get("column")
+        metric = FakeMetric(column_type=column.column_type if column else None, column=column)
         self.metrics[kwargs["key"]] = metric
         return metric
 
     def define_media(self, **kwargs) -> FakeMetric:
-        metric = FakeMetric()
+        column = kwargs.get("column")
+        metric = FakeMetric(column_type=column.column_type if column else None, column=column)
         self.metrics[kwargs["key"]] = metric
         return metric
 
@@ -581,3 +585,53 @@ def test_confirm_sync_finish_uses_existing_finish_record(tmp_path: Path, monkeyp
     assert call_kwargs.kwargs["finished_at"] == finished_at
     assert transport.records == []
     assert transport.finished is True
+
+
+# ============================================================
+# define_metric: offline sync parity tests
+# ============================================================
+
+
+def test_sync_replays_column_with_xaxis_hidden(tmp_path: Path):
+    """带 x_axis/hidden 的 ColumnRecord 在 sync 回放时保留字段。"""
+    core = CoreSyncPython()
+    core._ctx = CoreContext(config=make_core_config(tmp_path), mode="sync")
+    core._ctx.set_online_params("alice", "demo", "project-id", None, "experiment-id")
+    col = ColumnRecord(
+        column_key="train/loss",
+        column_type=ColumnType.COLUMN_TYPE_SCALAR,
+        x_axis="train/epoch",
+        section_name="Training",
+        hidden=True,
+    )
+    core._reader = FakeReader([Record(column=col)])  # type: ignore[assignment]
+    transport = FakeTransport(core._ctx)
+    core._transport = transport  # type: ignore[assignment]
+    core._metrics = FakeMetrics()  # type: ignore[assignment]
+
+    asyncio.run(core.read())
+
+    assert len(transport.records) == 1
+    replayed = transport.records[0].column
+    assert replayed.x_axis == "train/epoch"
+    assert replayed.section_name == "Training"
+    assert replayed.hidden is True
+
+
+def test_sync_skips_when_key_already_exists(tmp_path: Path):
+    """两条同 key column → 只上传第一条，第二条跳过（first-writer-wins）。"""
+    core = CoreSyncPython()
+    core._ctx = CoreContext(config=make_core_config(tmp_path), mode="sync")
+    core._ctx.set_online_params("alice", "demo", "project-id", None, "experiment-id")
+    col1 = ColumnRecord(column_key="loss", column_type=ColumnType.COLUMN_TYPE_SCALAR, section_name="A")
+    col2 = ColumnRecord(column_key="loss", column_type=ColumnType.COLUMN_TYPE_SCALAR, section_name="B")
+    core._reader = FakeReader([Record(column=col1), Record(column=col2)])  # type: ignore[assignment]
+    transport = FakeTransport(core._ctx)
+    core._transport = transport  # type: ignore[assignment]
+    core._metrics = FakeMetrics()  # type: ignore[assignment]
+
+    asyncio.run(core.read())
+
+    col_records = [r.column for r in transport.records if record_kind(r) == "column"]
+    assert len(col_records) == 1
+    assert col_records[0].section_name == "A"

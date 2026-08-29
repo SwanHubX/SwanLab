@@ -15,7 +15,7 @@ from .cmd.merge_settings import merge_settings
 from .cmd.require import require
 from .cmd.run import (
     async_log,
-    define_scalar,
+    define_metric,
     finish,
     log,
     log_audio,
@@ -51,7 +51,7 @@ __all__ = [
     "log_object3d",
     "log_molecule",
     "async_log",
-    "define_scalar",
+    "define_metric",
     "save",
     "sync",
     "merge_settings",
