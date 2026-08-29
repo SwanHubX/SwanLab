@@ -147,14 +147,13 @@ def build_resume_column(key: str, *, media: bool = False, system: bool = False) 
 
 def build_auto_column(ctx: CoreContext, data_record: Union[ScalarRecord, MediaRecord]) -> ColumnRecord:
     """
-    构建一个标量列记录，此函数一般用于自动构建用户已定义的指标。
-    v0.10 保持既有分组语义；section_rule 随 v0.11 移除（见 issue #1753）。
+    构建一个标量列记录，此函数一般用于自动构建用户已定义的指标
     """
-    # 按 section_rule 切分多级 key 的前缀作为分组名（原 pkg/helper.calculate_section_name 内联）
-    key = data_record.key
-    parts = key.split("/")
+    # Split section_name with `section_rule` setting
+    section_rule_index = ctx.config.section_rule
+    parts = data_record.key.split("/")
     if len(parts) >= 2:
-        cut = ctx.config.section_rule % (len(parts) - 1) + 1
+        cut = section_rule_index % (len(parts) - 1) + 1
         section_name = "/".join(parts[:cut])
     else:
         section_name = ""
