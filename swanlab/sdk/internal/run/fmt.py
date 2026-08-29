@@ -172,7 +172,8 @@ def safe_validate_x_axis(x_axis: Optional[ScalarXAxisType]) -> Optional[ScalarXA
     :param x_axis: 待校验的 x 轴值
     :return: 校验通过的 x 轴值，或 None
     """
-    if x_axis is None or x_axis in ("_step", "_relative_time"):
+    # 系统默认与系统 X 轴（_step / _relative_time）原样放行，判定统一走 helper.is_custom_x
+    if x_axis is None or not helper.is_custom_x(x_axis):
         return x_axis
     if helper.is_system_key(x_axis):
         return None
