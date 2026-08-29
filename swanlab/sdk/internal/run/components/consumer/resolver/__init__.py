@@ -35,11 +35,7 @@ __all__ = [
     "EffectiveDefinition",
     "RuleState",
     "ConcreteState",
-    "is_custom_x",
 ]
-
-# 系统 X 轴：由服务端/SDK 内部维护，不视为自定义 metric key
-SYSTEM_X_AXES = frozenset({"_step", "_relative_time"})
 
 # 每个 key 的 step 来源记录上限，防止长训练中 _x_step_origins 无限增长。
 # 注入去重只关心"当前 step 是否已注入过"，历史 step 的来源记录无需长期保留。
@@ -49,11 +45,6 @@ _MAX_ORIGIN_STEPS_PER_KEY = 16
 _X_EPSILON = 1e-8
 
 
-def is_custom_x(x_axis: str) -> bool:
-    """判断 x_axis 是否为自定义（非系统 _step / _relative_time）的 scalar key。"""
-    return x_axis not in SYSTEM_X_AXES
-
-
 class DefinitionResolver:
     """define_metric resolver，生命周期与 Run 一致。
 
@@ -61,16 +52,25 @@ class DefinitionResolver:
     """
 
     def __init__(self) -> None:
+        # exact key → rule 状态（define_metric 中不含 '*' 的 key 注册于此）
         self._exact_rules: Dict[str, RuleState] = {}
+        # glob pattern（末尾单 '*'）→ rule 状态，物化时按最长前缀匹配
         self._glob_rules: Dict[str, RuleState] = {}
+        # (metric_class, key) → 首次 log 时物化的 concrete 定义快照；
+        # first-writer-wins，之后的 define 不回溯修改已物化条目
         self._concrete: Dict[Tuple[str, str], ConcreteState] = {}
+        # custom X 源 key → 最近一次真实 log 的 X 值，是跨 step 注入的取值来源
         self._custom_x_cache: Dict[str, float] = {}
+        # custom X 源 key → {step → 来源标记 REAL / INJECTED / REAL_CONFLICT}；
+        # 用于同 step 注入去重与"真实 X 晚于注入 X"的冲突判定（记录数有上限，见 _prune_origins）
         self._x_step_origins: Dict[str, Dict[int, str]] = {}
+        # 已发过 X 冲突警告的 key，保证每 key 只警告一次
         self._warned_conflict_x: Set[str] = set()
         # 被某 rule 当作 custom X 轴的 key 集合。
         # 只有这些 key 才需要在 _custom_x_cache / _x_step_origins 中注册，
         # 避免对未参与 X 关系的海量 key 产生额外开销
         self._custom_x_keys: Set[str] = set()
+        # Y key → 上次消费的 X 值；连续重复 X 值上的后续 Y 被去重（try_accept_x_value，epsilon 容差）
         self._y_last_x_value: Dict[str, float] = {}
 
     # ── rule 管理 ──────────────────────────────────────────────
@@ -82,37 +82,35 @@ class DefinitionResolver:
         materialize_column 决定；后续 define 不回溯已物化的 key、也不产出 ColumnRecord。
         同一 key 在 log 前多次 define 仍以最后一次为准（merge/replace 在 rule 上累积）。
         """
+        # 1. 从事件提取 presence-aware 补丁，并按 is_glob 选定 rule 分区
         key = event.key
-        star_count = key.count("*")
-        if star_count > 0 and not (star_count == 1 and key.endswith("*")):
-            # 仅支持末尾单个 '*'（如 train/*）；拒绝 *loss、train/*/loss、train/** 等
-            console.warning(f"Invalid glob pattern: {key}, only a single trailing '*' is supported (e.g. 'train/*')")
-            return
-        is_glob = star_count == 1
-
         patch = DefinitionPatch(
             x_axis=event.x_axis,
             section_name=event.section_name,
             hidden=event.hidden,
             step_sync=event.step_sync,
         )
+        rules = self._glob_rules if event.is_glob else self._exact_rules
 
-        rules = self._glob_rules if is_glob else self._exact_rules
+        # 2. 计算 effective：overwrite 从默认值 replace，否则在已有 rule（或默认）上 merge
         if event.overwrite:
             effective = self._replace_effective(patch)
         else:
             existing = rules.get(key)
             base = existing.effective if existing else self._default_effective()
             effective = self._merge_effective(base, patch)
+
+        # 3. 登记 rule（exact / glob 分区，同 key 后一次 define 覆盖前一次）
         rules[key] = RuleState(
             identity=key,
-            is_glob=is_glob,
+            is_glob=event.is_glob,
             effective=effective,
             patch=patch,
             overwrite=event.overwrite,
         )
-        # 记录该 rule 引用的 custom X 源 key，供 update_custom_x_cache 按需登记
-        if is_custom_x(effective.x_axis):
+
+        # 4. 记录该 rule 引用的 custom X 源 key，供 update_custom_x_cache 按需登记
+        if helper.is_custom_x(effective.x_axis):
             self._custom_x_keys.add(effective.x_axis)  # type: ignore[arg-type]
 
         # rule 登记完成。exact 不再立即重新物化已出现的 concrete：

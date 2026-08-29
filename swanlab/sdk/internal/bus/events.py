@@ -38,6 +38,8 @@ class MetricDefineEvent:
 
     # rule identity（exact key 或 glob pattern）
     key: str
+    # key 是否为末尾单个 '*' 的 glob 模式；由上层校验分类后传入，resolver 不再解析字符串
+    is_glob: bool = False
     # None=not provided, str=custom X key
     x_axis: Optional[str] = None
     # None=not provided, str=named section

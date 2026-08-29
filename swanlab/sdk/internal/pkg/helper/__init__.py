@@ -9,7 +9,7 @@ from pathlib import Path, PurePosixPath
 
 from .env import DEBUG, is_interactive, is_jupyter
 from .impl import apply_requirement, get_core_impl, get_probe_impl, set_core_impl, set_probe_impl
-from .system import fmt_system_key, is_system_key
+from .metric import fmt_system_key, is_custom_x, is_system_key
 from .version import get_swanlab_latest_version, get_swanlab_version
 
 __all__ = [
@@ -17,6 +17,7 @@ __all__ = [
     "is_jupyter",
     "is_interactive",
     "is_system_key",
+    "is_custom_x",
     "strip_none",
     "fmt_run_path",
     "fmt_system_key",

@@ -697,7 +697,17 @@ class Run:
             console.error(f"Invalid key for define_metric: {key!r}, {e}")
             return
 
-        # 2. step_metric 兼容别名（仅从 kwargs 读取；其余未知 kwargs 静默忽略，与 init 兼容风格一致）
+        # 2. glob 校验与分类：仅支持末尾单个 '*'（如 train/*），拒绝 *loss、train/*/loss、train/** 等
+        star_count = this_key.count("*")
+        if star_count > 0 and not (star_count == 1 and this_key.endswith("*")):
+            console.error(
+                f"Invalid glob pattern for define_metric: {key!r}, "
+                f"only a single trailing '*' is supported (e.g. 'train/*')"
+            )
+            return
+        is_glob = star_count == 1
+
+        # 3. step_metric 兼容别名（仅从 kwargs 读取；其余未知 kwargs 静默忽略，与 init 兼容风格一致）
         step_metric = kwargs.pop("step_metric", None)
         if step_metric is not None:
             if x_axis is None:
@@ -708,7 +718,7 @@ class Run:
                     f"for key {this_key!r}, using x_axis={x_axis!r}"
                 )
 
-        # 3. x_axis / section_name 校验
+        # 4. x_axis / section_name 校验
         if x_axis is not None:
             validated_x = fmt.safe_validate_x_axis(x_axis)
             if validated_x is None:
@@ -729,10 +739,11 @@ class Run:
             else:
                 section_name = validated_section
 
-        # 4. 发射事件（三态字段校验后即为 None|str / None|bool，直接透传）
+        # 5. 发射事件（三态字段校验后即为 None|str / None|bool，直接透传；is_glob 已在第 2 步分类）
         self._components.emitter.emit(
             MetricDefineEvent(
                 key=this_key,
+                is_glob=is_glob,
                 x_axis=x_axis,
                 section_name=section_name,
                 hidden=hidden,

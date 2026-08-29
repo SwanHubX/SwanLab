@@ -28,7 +28,7 @@ from swanlab.sdk.internal.pkg import console, helper, safe
 from swanlab.sdk.internal.run.transforms import Scalar, echarts
 
 from .builder import RecordBuilder
-from .resolver import SYSTEM_X_AXES, DefinitionResolver, is_custom_x
+from .resolver import DefinitionResolver
 
 LogBatch = List[LogRecord]
 ColumnBatch = List[ColumnRecord]
@@ -204,11 +204,30 @@ class BackgroundConsumer(ConsumerProtocol):
             self._save_batch.append(self._builder.build_save(event))
 
     def _handle_metric_log(self, event: MetricLogEvent) -> None:
+        """处理指标日志事件：构建 scalar/media 记录、首次物化图表定义（ColumnRecord），
+        并为 custom X 轴指标做跨 step 的 X/Y 对齐（step_sync 注入与 X 值去重）。
+
+        需求：define_metric(key, x_axis=...) 后 X 与 Y 常分开 log、处于不同 step，
+        而图表上每个 Y 点都需要 X 值。本函数在消费事件时把最近的真实 X 值
+        注入到 Y 所在的 step，并在同一 X 值上仅保留首个 Y 点（first-writer-wins）。
+        X/Y 在同一 data 内的顺序不可知，故必须先整体预扫描、再逐 key 构建。
+
+        步骤：
+        1. 预扫描（仅有 custom X 规则时执行）：缓存显式标量值与 transform 结果，
+           更新 custom X 缓存并登记 REAL 来源；
+        2. 计算候选注入（不提交）：为本 event 未携带 X 的 Y 取最近真实 X 值，
+           step_sync=False 的 Y 不参与注入；
+        3. 构建 data record：首次物化 ColumnRecord；custom-X 标量按 X 值去重
+           （同值仅留首个 Y），记录被存活 Y 消费的候选 X；
+        4. 提交注入：仅为被存活 Y 消费的候选构建 X 的 scalar record，
+           同 (x_key, step) 只注入一次。
+
+        各步骤的详细正确性约束（孤儿注入 S2、nan 误注入 M1 等）见行内注释。
+        """
         data = event.data
 
-        # 1. 预扫描：收集显式 scalar 值，更新 cache + 登记 REAL 来源。
-        #    仅在登记过 custom X 规则时执行：update_custom_x_cache 以 _custom_x_keys 为门槛，
-        #    explicit_scalars 的消费点也全部位于 is_custom_x 分支之后，无 custom X 时本段为死值。
+        # 1. 预扫描，仅在登记过 custom X 规则时执行
+        # 收集显式 scalar 值，更新 cache + 登记 REAL 来源。仅在登记过 custom X 规则时执行
         explicit_scalars: dict[str, float] = {}
         scalar_values: dict[str, ScalarValue] = {}
         if self._resolver.has_custom_x:
@@ -224,29 +243,27 @@ class BackgroundConsumer(ConsumerProtocol):
                     val = scalar_value.number
                     if math.isfinite(val):
                         explicit_scalars[key] = val
-
+            # 收集完毕，更新 custom X 缓存（仅显式标量值，避免 media/nan 注入）
             for key, val in explicit_scalars.items():
                 self._resolver.update_custom_x_cache(key, val, event.step)
 
         section_rule_index = self._ctx.config.settings.core.section_rule
 
-        # 2. 计算候选注入（不 commit）：为 custom X 且 event 未含 X 的 Y 缓存最近真实 X 值。
-        #    此处只算候选值、不调 try_inject_x——commit 推迟到第 4 步确认有存活 Y 之后，
-        #    否则 Y 被去重丢弃后仍会留下孤儿注入点 / 误标 INJECTED 触发误告警（S2）。
-        #    仅 step_sync=True（默认）的 Y 会成为注入原因；False 的 Y 不加入候选。
+        # 2. 计算候选注入，为 custom X 且 event 未含 X 的 Y 缓存最近真实 X 值
         candidate_x: dict[str, float] = {}
         for key in explicit_scalars:
             concrete = self._resolver.resolve_concrete(key, "SCALAR")
+            # 2.1 如果显式规定不同步 step_sync，则不参与注入
             if not concrete.effective.step_sync:
                 continue
+            # 2.2 如果x轴为系统内部step，则不参与注入
             x_axis = concrete.effective.x_axis
-            if x_axis in SYSTEM_X_AXES:
+            if not helper.is_custom_x(x_axis):
                 continue
-            # 跳过条件看 event.data（用户是否提供过该 key），而非 explicit_scalars：
-            # 否则 X 为 nan / 非法值时会被 isfinite 过滤掉，误判为"未提供"而注入，
-            # 随后注入值覆盖用户显式值（M1 数据保真 bug）。
+            # 2.3 如果用户在本次 event 里显式 log 了 X 值，则不注入
             if x_axis in data or x_axis in candidate_x:
                 continue
+            # 2.4 从 cache 取最近真实 X 值
             cached_x = self._resolver.get_custom_x(x_axis)
             if cached_x is None:
                 continue
@@ -278,7 +295,7 @@ class BackgroundConsumer(ConsumerProtocol):
                         self._column_batch.append(col)
 
                     # custom X 轴 first-writer-wins：同一 X 值上首次 Y 值为准
-                    if is_scalar and is_custom_x(concrete.effective.x_axis):
+                    if is_scalar and helper.is_custom_x(concrete.effective.x_axis):
                         x_axis = concrete.effective.x_axis
                         x_value = explicit_scalars.get(x_axis)
                         used_candidate = False

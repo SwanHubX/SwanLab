@@ -1,8 +1,8 @@
-"""DefinitionResolver glob 校验测试。
+"""DefinitionResolver glob 路由与状态管理测试。
 
-define_metric 的 glob 只支持末尾单个 '*'（如 ``train/*``）；
-``*loss``、``train/*/loss``、``train/**`` 等非法模式必须被拒绝（不写入 rule），
-且不影响后续合法 rule 的注册。
+glob 形式合法性由 Run.define_metric 在 API 层校验（见 test_run_define_metric.py），
+事件通过 ``is_glob`` 显式携带分类结果；此处验证 exact/glob 的 rule 分区注册
+与 merge/replace 状态语义。
 """
 
 import pytest
@@ -12,13 +12,13 @@ from swanlab.sdk.internal.bus.events import MetricDefineEvent
 from swanlab.sdk.internal.run.components.consumer.resolver import DefinitionResolver
 
 
-def _define(resolver: DefinitionResolver, key: str) -> None:
+def _define(resolver: DefinitionResolver, key: str, is_glob: bool = False) -> None:
     """对给定 key 触发一次 handle_define（其余字段默认未提供）。"""
-    resolver.handle_define(MetricDefineEvent(key=key))
+    resolver.handle_define(MetricDefineEvent(key=key, is_glob=is_glob))
 
 
-class TestGlobValidation:
-    """glob 模式合法性校验。"""
+class TestGlobRouting:
+    """事件 is_glob 的 exact/glob 分区路由。"""
 
     def test_exact_key_accepted(self):
         """无 '*' 的 key 作为 exact rule 注册。"""
@@ -30,46 +30,15 @@ class TestGlobValidation:
     def test_valid_trailing_glob_accepted(self):
         """末尾单个 '*' 作为 glob rule 注册。"""
         r = DefinitionResolver()
-        _define(r, "train/*")
+        _define(r, "train/*", is_glob=True)
         assert "train/*" in r._glob_rules
         assert len(r._exact_rules) == 0
 
     def test_bare_star_accepted_as_glob(self):
         """单独的 '*' 是合法 glob（匹配所有自定义 key）。"""
         r = DefinitionResolver()
-        _define(r, "*")
+        _define(r, "*", is_glob=True)
         assert "*" in r._glob_rules
-
-    @pytest.mark.parametrize(
-        "bad",
-        [
-            "*loss",  # '*' 在开头
-            "train/*/loss",  # '*' 在中间
-            "train/**",  # 末尾两个 '*'
-            "**",  # 多个 '*'
-            "a*b",  # '*' 在中间且非末尾
-            "a***b",  # 多个 '*'
-        ],
-        ids=lambda v: repr(v),
-    )
-    def test_invalid_glob_rejected(self, bad):
-        """非法 glob 不进任何 rule（exact / glob 都不含）。"""
-        r = DefinitionResolver()
-        _define(r, bad)
-        assert bad not in r._exact_rules
-        assert bad not in r._glob_rules
-        assert len(r._exact_rules) == 0
-        assert len(r._glob_rules) == 0
-
-    def test_invalid_glob_does_not_block_subsequent_valid_rule(self):
-        """非法 glob 被拒绝后，后续合法 rule 仍可正常注册。"""
-        r = DefinitionResolver()
-        _define(r, "*loss")  # 非法，被拒
-        _define(r, "train/*")  # 合法 glob
-        _define(r, "val/acc")  # 合法 exact
-        assert "train/*" in r._glob_rules
-        assert "val/acc" in r._exact_rules
-        assert "*loss" not in r._exact_rules
 
 
 class TestSelfReferenceXAxis:
@@ -94,11 +63,11 @@ class TestSelfReferenceXAxis:
 class TestWandbAlignedResolution:
     def test_glob_update_does_not_retroactively_change_materialized_concrete(self):
         r = DefinitionResolver()
-        r.handle_define(MetricDefineEvent("train/*", section_name="A"))
+        r.handle_define(MetricDefineEvent("train/*", is_glob=True, section_name="A"))
         first = r.resolve_concrete("train/loss", "SCALAR")
         r.materialize_column("train/loss", "SCALAR", ColumnType.COLUMN_TYPE_SCALAR, 0)
 
-        r.handle_define(MetricDefineEvent("train/*", section_name="B"))
+        r.handle_define(MetricDefineEvent("train/*", is_glob=True, section_name="B"))
 
         assert r.resolve_concrete("train/loss", "SCALAR") is first
         assert first.effective.section_name == "A"
@@ -106,7 +75,7 @@ class TestWandbAlignedResolution:
 
     def test_exact_define_does_not_retroactively_change_glob_concrete(self):
         r = DefinitionResolver()
-        r.handle_define(MetricDefineEvent("train/*", section_name="Train", hidden=True))
+        r.handle_define(MetricDefineEvent("train/*", is_glob=True, section_name="Train", hidden=True))
         r.resolve_concrete("train/loss", "SCALAR")
         r.materialize_column("train/loss", "SCALAR", ColumnType.COLUMN_TYPE_SCALAR, 0)
 
@@ -278,7 +247,7 @@ class TestStepSyncMergeReplace:
 
     def test_glob_step_sync_false_applies_to_matching_key(self):
         r = DefinitionResolver()
-        r.handle_define(MetricDefineEvent("train/*", x_axis="epoch", step_sync=False))
+        r.handle_define(MetricDefineEvent("train/*", is_glob=True, x_axis="epoch", step_sync=False))
         assert r.resolve_concrete("train/loss", "SCALAR").effective.step_sync is False
 
     def test_define_after_materialize_does_not_change_step_sync(self):
