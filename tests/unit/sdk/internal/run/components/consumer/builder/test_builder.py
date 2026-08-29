@@ -8,7 +8,7 @@
 import pytest
 
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaItem, MediaRecord
-from swanlab.sdk.internal.run.components.builder import RecordBuilder
+from swanlab.sdk.internal.run.components.consumer.builder import RecordBuilder
 
 
 def _make_media_record(key: str = "test", step: int = 0, items=None) -> MediaRecord:

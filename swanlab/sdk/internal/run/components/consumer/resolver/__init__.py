@@ -20,7 +20,8 @@ from swanlab.proto.swanlab.metric.column.v1.column_pb2 import (
 )
 from swanlab.sdk.internal.bus import MetricDefineEvent
 from swanlab.sdk.internal.pkg import console, helper
-from swanlab.sdk.internal.run.components.resolver.state import (
+
+from .state import (
     ConcreteState,
     DefinitionPatch,
     EffectiveDefinition,

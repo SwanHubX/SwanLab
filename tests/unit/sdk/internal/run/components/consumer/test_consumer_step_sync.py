@@ -13,9 +13,7 @@ from google.protobuf.timestamp_pb2 import Timestamp
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
 from swanlab.sdk.internal.bus.events import MetricDefineEvent, MetricLogEvent
 from swanlab.sdk.internal.context import RunContext
-from swanlab.sdk.internal.run.components.builder import RecordBuilder
 from swanlab.sdk.internal.run.components.consumer import BackgroundConsumer
-from swanlab.sdk.internal.run.components.resolver import DefinitionResolver
 from swanlab.sdk.internal.run.transforms import Text
 
 
@@ -27,7 +25,7 @@ def _make_consumer(tmp_path: Path) -> BackgroundConsumer:
         config=SimpleNamespace(settings=SimpleNamespace(core=SimpleNamespace(section_rule=0))),
     )
     run_ctx = cast(RunContext, cast(object, ctx))
-    return BackgroundConsumer(run_ctx, queue.Queue(), RecordBuilder(run_ctx), DefinitionResolver())
+    return BackgroundConsumer(run_ctx, queue.Queue())
 
 
 def _timestamp(seconds: int) -> Timestamp:
@@ -116,7 +114,7 @@ def test_step_sync_does_not_inject_shared_x_twice_at_same_step(tmp_path: Path):
 def test_real_x_after_injected_x_warns_once_and_updates_next_step_cache(tmp_path: Path, monkeypatch):
     warnings = []
     monkeypatch.setattr(
-        "swanlab.sdk.internal.run.components.resolver.console.warning",
+        "swanlab.sdk.internal.run.components.consumer.resolver.console.warning",
         lambda message: warnings.append(message),
     )
     consumer = _make_consumer(tmp_path)
@@ -265,7 +263,8 @@ def test_dropped_y_no_spurious_real_conflict_warning(tmp_path: Path, monkeypatch
     """Y 被丢弃后未标 INJECTED，真实 X 晚到同 step 不触发误 REAL_CONFLICT。"""
     warnings = []
     monkeypatch.setattr(
-        "swanlab.sdk.internal.run.components.resolver.console.warning", lambda message: warnings.append(message)
+        "swanlab.sdk.internal.run.components.consumer.resolver.console.warning",
+        lambda message: warnings.append(message),
     )
     consumer = _make_consumer(tmp_path)
     consumer._handle_event(MetricDefineEvent("loss", x_axis="epoch"))

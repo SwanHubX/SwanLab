@@ -9,7 +9,7 @@ import pytest
 
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
 from swanlab.sdk.internal.bus.events import MetricDefineEvent
-from swanlab.sdk.internal.run.components.resolver import DefinitionResolver
+from swanlab.sdk.internal.run.components.consumer.resolver import DefinitionResolver
 
 
 def _define(resolver: DefinitionResolver, key: str) -> None:
@@ -296,7 +296,7 @@ class TestEffectiveDefinitionFrozen:
     """EffectiveDefinition frozen=True 不可变。"""
 
     def test_cannot_mutate_field(self):
-        from swanlab.sdk.internal.run.components.resolver.state import EffectiveDefinition
+        from swanlab.sdk.internal.run.components.consumer.resolver.state import EffectiveDefinition
 
         ed = EffectiveDefinition(x_axis="epoch", section_name="Train", hidden=False)
         with pytest.raises(AttributeError):

@@ -11,7 +11,6 @@ from swanlab.sdk.internal.bus import EmitterProtocol, RunEmitter
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.pkg import console, fork
 from swanlab.sdk.internal.run.components.asynctask import AsyncTaskManager
-from swanlab.sdk.internal.run.components.builder import RecordBuilder
 from swanlab.sdk.internal.run.components.config import (
     Config,
     create_run_config,
@@ -20,7 +19,6 @@ from swanlab.sdk.internal.run.components.config import (
 )
 from swanlab.sdk.internal.run.components.consumer import BackgroundConsumer, ConsumerProtocol
 from swanlab.sdk.internal.run.components.null import NullConsumer, NullEmitter, NullTerminalProxy
-from swanlab.sdk.internal.run.components.resolver import DefinitionResolver
 from swanlab.sdk.internal.run.components.terminal import TerminalProxy, TerminalProxyProtocol
 
 __all__ = [
@@ -29,12 +27,10 @@ __all__ = [
     "ConsumerProtocol",
     "TerminalProxyProtocol",
     "AsyncTaskManager",
-    "RecordBuilder",
     "BackgroundConsumer",
     "NullConsumer",
     "NullEmitter",
     "NullTerminalProxy",
-    "DefinitionResolver",
 ]
 
 
@@ -55,10 +51,8 @@ class Components:
 
         # 核心组件
         self._asynctask = AsyncTaskManager()
-        self._builder = RecordBuilder(ctx)
-        self._resolver = DefinitionResolver()
         self._emitter = _factory_emitter(ctx)
-        self._consumer = _factory_consumer(ctx, self._emitter, self._builder, self._resolver)
+        self._consumer = _factory_consumer(ctx, self._emitter)
         self._config = _factory_config(ctx, self._emitter)
         self._terminal: TerminalProxyProtocol = _factory_terminal(ctx, self._emitter, self._init_pid)
 
@@ -85,10 +79,6 @@ class Components:
     @property
     def terminal(self) -> TerminalProxyProtocol:
         return self._terminal
-
-    @property
-    def resolver(self) -> DefinitionResolver:
-        return self._resolver
 
     # ----------------------------------
     # 生命周期：启动
@@ -120,12 +110,10 @@ class Components:
         # 3. 解绑 config
         deactivate_run_config()
 
-        # 4. 停止消费者线程（消费剩余事件包括最后的 ConsoleEvent）
-        console.debug("SwanLab Run is finishing, waiting for logs to flush...")
+        # 4. 停止消费者线程
+        console.debug("Swanlab Run is finishing, waiting for logs to flush...")
         self._consumer.stop()
         self._consumer.join()
-        # 5. 清理 resolver run-local 状态
-        self._resolver.clear()
 
 
 # ==========================================
@@ -142,12 +130,10 @@ def _factory_emitter(ctx: RunContext) -> EmitterProtocol:
 def _factory_consumer(
     ctx: RunContext,
     e: EmitterProtocol,
-    b: RecordBuilder,
-    r: DefinitionResolver,
 ) -> ConsumerProtocol:
     if ctx.config.settings.mode == "disabled":
-        return NullConsumer(ctx, e.queue, b, r)
-    return BackgroundConsumer(ctx, e.queue, b, r)
+        return NullConsumer(ctx, e.queue)
+    return BackgroundConsumer(ctx, e.queue)
 
 
 def _factory_config(ctx: RunContext, e: EmitterProtocol) -> Config:

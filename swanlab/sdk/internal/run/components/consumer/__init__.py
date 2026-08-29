@@ -25,9 +25,10 @@ from swanlab.sdk.internal.bus.events import (
 )
 from swanlab.sdk.internal.context import RunContext, TransformMedia
 from swanlab.sdk.internal.pkg import console, helper, safe
-from swanlab.sdk.internal.run.components.builder import RecordBuilder
-from swanlab.sdk.internal.run.components.resolver import SYSTEM_X_AXES, DefinitionResolver, is_custom_x
 from swanlab.sdk.internal.run.transforms import Scalar, echarts
+
+from .builder import RecordBuilder
+from .resolver import SYSTEM_X_AXES, DefinitionResolver, is_custom_x
 
 LogBatch = List[LogRecord]
 ColumnBatch = List[ColumnRecord]
@@ -61,12 +62,10 @@ class ConsumerProtocol(ABC):
         self,
         ctx: RunContext,
         event_queue: RunQueue,
-        builder: RecordBuilder,
-        resolver: DefinitionResolver,
         flush_timeout: float = 0.5,
         batch_size: int = 100,
     ):
-        _ = (ctx, event_queue, builder, resolver, flush_timeout, batch_size)
+        _ = (ctx, event_queue, flush_timeout, batch_size)
 
     def start(self) -> None: ...
 
@@ -87,16 +86,15 @@ class BackgroundConsumer(ConsumerProtocol):
         self,
         ctx: RunContext,
         event_queue: RunQueue,
-        builder: RecordBuilder,
-        resolver: DefinitionResolver,
         flush_timeout: float = 0.5,
         batch_size: int = 100,
     ):
-        super().__init__(ctx, event_queue, builder, resolver, flush_timeout, batch_size)
+        super().__init__(ctx, event_queue, flush_timeout, batch_size)
         self._ctx = ctx
         self._queue = event_queue
-        self._builder = builder
-        self._resolver = resolver
+        # builder / resolver 均由 consumer 独占创建与维护，所有状态访问都发生在本线程内
+        self._builder = RecordBuilder(ctx)
+        self._resolver = DefinitionResolver()
         self._core = ctx.core
         self._flush_timeout = flush_timeout
         self._batch_size = batch_size
@@ -189,6 +187,8 @@ class BackgroundConsumer(ConsumerProtocol):
                 self._handle_event(event)
                 if self._batch_full:
                     self._flush()
+        # 线程退出时清理状态
+        self._resolver.clear()
 
     def _handle_event(self, event) -> None:
         if isinstance(event, MetricLogEvent):

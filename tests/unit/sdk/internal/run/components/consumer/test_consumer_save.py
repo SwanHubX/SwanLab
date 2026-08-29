@@ -11,7 +11,6 @@ from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogLevel
 from swanlab.sdk.internal.bus.events import FileSaveEvent, LogEvent
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.run.components.consumer import BackgroundConsumer
-from swanlab.sdk.internal.run.components.resolver import DefinitionResolver
 
 
 def _make_consumer(tmp_path: Path, batch_size: int = 100):
@@ -28,10 +27,11 @@ def _make_consumer(tmp_path: Path, batch_size: int = 100):
         source_path=str(tmp_path / "model.pt"),
         policy=SavePolicy.SAVE_POLICY_NOW,
     )
+    consumer = BackgroundConsumer(cast(RunContext, cast(object, ctx)), queue.Queue(), batch_size=batch_size)
+    # builder 由 consumer 内部创建，测试以 mock 替换以拦截 build_save 结果
+    consumer._builder = builder
     return (
-        BackgroundConsumer(
-            cast(RunContext, cast(object, ctx)), queue.Queue(), builder, DefinitionResolver(), batch_size=batch_size
-        ),
+        consumer,
         core,
         builder,
     )
