@@ -80,6 +80,6 @@ class ConcreteState:
     key: str  # log 中实际出现的 metric key
     metric_class: str  # resolver identity 的类别：SCALAR 或 MEDIA
     effective: EffectiveDefinition  # 首次物化或 exact 更新后固定的定义快照
-    source: str  # 定义来源：exact、glob 或 automatic
-    emitted_effective: Optional[EffectiveDefinition] = None  # 最近一次已生成 ColumnRecord 的定义快照
+    source: str  # 定义来源：exact、glob；automatic 表示无 define 下被 log（仅钉住，不产出列）
+    emitted: bool = False  # 是否已产出过 ColumnRecord（定义不回溯，每 (class, key) 只发一次）
     column_type: Optional[int] = None  # 已识别的 protobuf ColumnType；未见数据时为 None

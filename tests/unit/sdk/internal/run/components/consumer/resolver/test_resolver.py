@@ -48,7 +48,7 @@ class TestSelfReferenceXAxis:
         r.handle_define(MetricDefineEvent("epoch", x_axis="epoch"))
         concrete = r.resolve_concrete("epoch", "SCALAR")
         assert concrete.effective.x_axis == "epoch"
-        column = r.materialize_column("epoch", "SCALAR", ColumnType.COLUMN_TYPE_SCALAR, 0)
+        column = r.materialize_column("epoch", "SCALAR", ColumnType.COLUMN_TYPE_SCALAR)
         assert column is not None
         assert column.x_axis == "epoch"
 
@@ -65,7 +65,7 @@ class TestWandbAlignedResolution:
         r = DefinitionResolver()
         r.handle_define(MetricDefineEvent("train/*", is_glob=True, section_name="A"))
         first = r.resolve_concrete("train/loss", "SCALAR")
-        r.materialize_column("train/loss", "SCALAR", ColumnType.COLUMN_TYPE_SCALAR, 0)
+        r.materialize_column("train/loss", "SCALAR", ColumnType.COLUMN_TYPE_SCALAR)
 
         r.handle_define(MetricDefineEvent("train/*", is_glob=True, section_name="B"))
 
@@ -77,7 +77,7 @@ class TestWandbAlignedResolution:
         r = DefinitionResolver()
         r.handle_define(MetricDefineEvent("train/*", is_glob=True, section_name="Train", hidden=True))
         r.resolve_concrete("train/loss", "SCALAR")
-        r.materialize_column("train/loss", "SCALAR", ColumnType.COLUMN_TYPE_SCALAR, 0)
+        r.materialize_column("train/loss", "SCALAR", ColumnType.COLUMN_TYPE_SCALAR)
 
         columns = r.handle_define(MetricDefineEvent("train/loss", x_axis="epoch"))
 
@@ -101,7 +101,7 @@ class TestWandbAlignedResolution:
         assert concrete.effective.x_axis == "iter"
         assert concrete.effective.section_name == "Training"
 
-        column = r.materialize_column("train/loss", "SCALAR", ColumnType.COLUMN_TYPE_SCALAR, 0)
+        column = r.materialize_column("train/loss", "SCALAR", ColumnType.COLUMN_TYPE_SCALAR)
         assert column is not None
         assert column.x_axis == "iter"
         assert column.section_name == "Training"
@@ -125,13 +125,13 @@ class TestWandbAlignedResolution:
         assert r._exact_rules["train/loss"].effective.hidden is False
 
     def test_subsequent_log_after_define_does_not_upgrade_automatic_concrete(self):
-        """log → define → 再 log：concrete 保持首次 automatic 快照，不升级、不重发。"""
+        """log → define → 再 log：concrete 保持首次 automatic 快照，列始终由 core 自动建。"""
         r = DefinitionResolver()
-        # ① 首次 log（无 rule → automatic）
+        # ① 首次 log（无 rule → automatic 钉住，不产出列）
         first = r.resolve_concrete("train/loss", "SCALAR")
         assert first.source == "automatic"
-        col1 = r.materialize_column("train/loss", "SCALAR", ColumnType.COLUMN_TYPE_SCALAR, 0)
-        assert col1 is not None  # 首次必产出
+        col1 = r.materialize_column("train/loss", "SCALAR", ColumnType.COLUMN_TYPE_SCALAR)
+        assert col1 is None  # automatic 不产出 ColumnRecord，列由 core 收到数据后自动创建
 
         # ② define 登记 exact rule（x_axis=epoch），不产出 ColumnRecord
         columns = r.handle_define(MetricDefineEvent("train/loss", x_axis="epoch"))
@@ -144,8 +144,8 @@ class TestWandbAlignedResolution:
         assert second.source == "automatic"  # 仍是 automatic，未被 exact 认领
         assert second.effective.x_axis == "_step"  # x_axis 未变
 
-        # ④ materialize_column 不产出（concrete 未变，emitted_effective == effective）
-        col2 = r.materialize_column("train/loss", "SCALAR", ColumnType.COLUMN_TYPE_SCALAR, 0)
+        # ④ materialize_column 仍不产出（automatic 来源永不物化）
+        col2 = r.materialize_column("train/loss", "SCALAR", ColumnType.COLUMN_TYPE_SCALAR)
         assert col2 is None
 
 
@@ -254,7 +254,7 @@ class TestStepSyncMergeReplace:
         r = DefinitionResolver()
         r.handle_define(MetricDefineEvent("loss", x_axis="epoch"))
         first = r.resolve_concrete("loss", "SCALAR")
-        r.materialize_column("loss", "SCALAR", ColumnType.COLUMN_TYPE_SCALAR, 0)
+        r.materialize_column("loss", "SCALAR", ColumnType.COLUMN_TYPE_SCALAR)
         r.handle_define(MetricDefineEvent("loss", step_sync=False))
         second = r.resolve_concrete("loss", "SCALAR")
         assert second is first

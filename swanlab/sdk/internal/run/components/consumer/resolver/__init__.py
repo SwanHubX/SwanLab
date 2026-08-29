@@ -143,16 +143,17 @@ class DefinitionResolver:
     def resolve_concrete(self, key: str, metric_class: str) -> ConcreteState:
         """为 log 中的 key 解析 concrete definition。
 
-        首次调用时按 exact → glob → automatic 优先级解析并注册 key；
-        之后同一 (metric_class, key) 的所有调用直接返回首次快照，不再升级或回溯。
-        define_metric 在 key 首次 log 后无法改变其定义
+        首次调用时按 exact → glob → automatic 优先级解析并注册 key；之后同一
+        (metric_class, key) 的所有调用直接返回首次快照，不再升级或回溯——
+        这同时钉住了 "key 首次 log 后 define 不再生效" 的契约（automatic 状态
+        表示该 key 在无定义下被 log 过，后续 define 无法认领）。
         """
         cache_key = (metric_class, key)
         existing = self._concrete.get(cache_key)
         if existing is not None:
             return existing
 
-        # 以下仅在首次物化时执行
+        # 以下仅在首次解析时执行
 
         # 1. exact 优先
         exact_rule = self._exact_rules.get(key)
@@ -163,7 +164,6 @@ class DefinitionResolver:
                 metric_class=metric_class,
                 effective=effective,
                 source="exact",
-                emitted_effective=None,
             )
             self._concrete[cache_key] = state
             return state
@@ -177,19 +177,17 @@ class DefinitionResolver:
                 metric_class=metric_class,
                 effective=effective,
                 source="glob",
-                emitted_effective=None,
             )
             self._concrete[cache_key] = state
             return state
 
-        # 3. automatic 兜底
+        # 3. automatic 兜底：无 rule 命中，仅注册钉住状态（materialize 不会为其产出列）
         effective = self._adjust_for_class(self._default_effective(), metric_class, key)
         state = ConcreteState(
             key=key,
             metric_class=metric_class,
             effective=effective,
             source="automatic",
-            emitted_effective=None,
         )
         self._concrete[cache_key] = state
         return state
@@ -215,31 +213,26 @@ class DefinitionResolver:
 
     # ── ColumnRecord 生成 ──────────────────────────────────────
 
-    def materialize_column(
-        self, key: str, metric_class: str, column_type: ColumnType, section_rule_index: int
-    ) -> Optional[ColumnRecord]:
-        """检查 effective 变化，返回 ColumnRecord 或 None。"""
+    def materialize_column(self, key: str, metric_class: str, column_type: ColumnType) -> Optional[ColumnRecord]:
+        """物化列定义：每个 (metric_class, key) 仅在首次产出一条 ColumnRecord。
+        当一个 key 首次 log 之后，本 run 内后续的 define 同样不再生效。
+
+        automatic 来源（无 define 的 key）不产出列——列由 core 收到数据后自动创建，
+        SDK 侧不重复发送。
+        """
         cache_key = (metric_class, key)
         state = self._concrete.get(cache_key)
-        if state is None:
+        if state is None or state.source == "automatic":
             return None
         state.column_type = int(column_type)
-        if state.emitted_effective == state.effective:
+        if state.emitted:
             return None
-        state.emitted_effective = state.effective
-        return self._build_column_record(state, column_type, section_rule_index)
+        state.emitted = True
+        return self._build_column_record(state, column_type)
 
     @staticmethod
-    def _build_column_record(state: ConcreteState, column_type: ColumnType, section_rule_index: int) -> ColumnRecord:
+    def _build_column_record(state: ConcreteState, column_type: ColumnType) -> ColumnRecord:
         effective = state.effective
-        if state.source == "automatic":
-            return ColumnRecord(
-                column_class=ColumnClass.COLUMN_CLASS_CUSTOM,
-                column_key=state.key,
-                column_type=column_type,
-                section_name=helper.calculate_section_name(state.key, section_rule_index),
-                section_type=SectionType.SECTION_TYPE_PUBLIC,
-            )
         col = ColumnRecord(
             column_class=ColumnClass.COLUMN_CLASS_CUSTOM,
             column_key=state.key,
@@ -255,14 +248,9 @@ class DefinitionResolver:
     # ── custom X 值去重 ───────────────────────────────────────
 
     def try_accept_x_value(self, y_key: str, x_value: float) -> bool:
-        """X 值与上次相同（epsilon 内）→ 重复返回 False；不同 → 记录并返回 True。
+        """X 值去重：与该 Y 上次消费的 X 值相同（epsilon 内）返回 False，否则记录新值并返回 True。
 
-        类比 BaseMetric.try_accept_step(step)：同一 X 值上首次 Y 值为准，后续丢弃。
-
-        .. note::
-            仅抑制**连续重复**的 X 值。"每个 X 值仅保留首个 Y" 的完整保证依赖
-            调用方保证 custom X 单调递增；非单调 X（如 5→6→5）下回退值会被当作新值
-            接受，可能在同一 X 值上出现多个 Y 点。
+        仅抑制连续重复；非单调 X（如 5→6→5）的回退值会被当作新值接受，同一 X 值上可能出现多个 Y 点。
         """
         last = self._y_last_x_value.get(y_key)
         if last is not None and abs(last - x_value) < _X_EPSILON:
@@ -271,6 +259,15 @@ class DefinitionResolver:
         return True
 
     # ── step_sync: custom X cache ─────────────────────────────
+
+    @property
+    def has_rules(self) -> bool:
+        """是否登记过任何 exact/glob rule（即 define_metric 是否被调用过）。
+
+        为 False 时消费端走纯构建路径：不物化列、不做 custom X 处理，
+        列全部由 core 收到数据后自动创建。
+        """
+        return bool(self._exact_rules or self._glob_rules)
 
     @property
     def has_custom_x(self) -> bool:

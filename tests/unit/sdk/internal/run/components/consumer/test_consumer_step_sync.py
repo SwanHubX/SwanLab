@@ -58,7 +58,8 @@ def test_step_sync_injects_cached_x_with_current_y_step_and_timestamp(tmp_path: 
     assert records["train/loss"][0].value.number == pytest.approx(0.8)
     assert records["train/loss"][0].step == 1
     assert records["train/loss"][0].timestamp == _timestamp(20)
-    assert [column.column_key for column in consumer._column_batch].count("epoch") == 1
+    # 只有 define 过的 train/loss 产出列；epoch 未 define，列由 core 收到数据后自动创建
+    assert [column.column_key for column in consumer._column_batch] == ["train/loss"]
 
 
 @pytest.mark.parametrize(
@@ -431,5 +432,5 @@ def test_no_custom_x_mixed_media_and_scalar_log(tmp_path: Path):
     assert len(media) == 1
     assert media[0].type == ColumnType.COLUMN_TYPE_TEXT
     assert media[0].value.items[0].filename.endswith(".txt")
-    # 列定义仍正常产出
-    assert {c.column_key for c in consumer._column_batch} == {"train/loss", "train/text"}
+    # 无 define：SDK 不产出 ColumnRecord，列由 core 收到数据后自动创建
+    assert consumer._column_batch == []
