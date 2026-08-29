@@ -29,11 +29,12 @@ class MetricLogEvent:
 class MetricDefineEvent:
     """define_metric 事件，携带参数归一化后的定义补丁。
 
-    字段为两态：``None`` 表示 "未提供"（merge 时保留旧值，replace 时重置为默认），
-    具体值表示使用该值。``step_sync=False`` / ``hidden=False`` 是有效值，不会被收成 "未提供"。
+    字段为两态：``None`` 表示 "未提供"，具体值表示使用该值：
 
-    注意：公开签名无法区分 "省略" 与 "显式 None"（``x_axis`` / ``section_name``），
-    两者均为 ``None``（"未提供"）；清除旧值使用 ``overwrite=True``。
+    - 公开签名无法区分 "省略" 与 "显式 None"（``x_axis`` / ``section_name``），
+      两者均为 ``None``（"未提供"）；merge 时保留旧值，replace 时重置为默认。
+      清除旧值必须使用 ``overwrite=True``。
+    - ``hidden`` / ``step_sync`` 的 ``False`` 是有效值，不会被收成 "未提供"。
     """
 
     # rule identity（exact key 或 glob pattern）

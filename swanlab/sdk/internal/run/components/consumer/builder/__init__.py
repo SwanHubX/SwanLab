@@ -20,6 +20,19 @@ from swanlab.sdk.internal.run.transforms import ECharts, Scalar, echarts
 
 _EchartsType = (echarts.Base, echarts.Table)
 
+# 会被 build_scalar_or_media 处理为媒体（非标量）的类型
+_NON_SCALAR_TYPES = (list, TransformMedia, *_EchartsType)
+
+
+def is_scalar_value(value: object) -> bool:
+    """判断是否会被 build_scalar_or_media 处理为标量
+
+    在不触发 media transform 落盘的前提下决定是否预 transform。
+    判定必须与 build_scalar_or_media 的 dispatch 结果一致：显式注册类型走媒体
+    分支，默认分支中的 echarts 类型会被包装为 ECharts 媒体，其余按标量处理。
+    """
+    return not isinstance(value, _NON_SCALAR_TYPES)
+
 
 class RecordBuilder:
     _MEDIA_MAX_SIZE = 10 * 1024**2  # 10 MB

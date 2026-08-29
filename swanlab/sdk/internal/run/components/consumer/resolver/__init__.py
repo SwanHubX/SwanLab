@@ -103,14 +103,22 @@ class DefinitionResolver:
 
     @staticmethod
     def _default_effective() -> EffectiveDefinition:
-        return make_effective("_step", None, False, True)
+        # step_sync 默认值：从未显式指定时等价于 is_custom_x(effective.x_axis)
+        # （见 _merge_effective / _replace_effective 的默认推导）
+        return make_effective("_step", None, False, False)
 
     @staticmethod
     def _merge_effective(base: EffectiveDefinition, event: MetricDefineEvent) -> EffectiveDefinition:
         x_axis = event.x_axis if event.x_axis is not None else base.x_axis
         section_name = event.section_name if event.section_name is not None else base.section_name
         hidden = event.hidden if event.hidden is not None else base.hidden
-        step_sync = event.step_sync if event.step_sync is not None else base.step_sync
+        step_sync = event.step_sync
+        if step_sync is None:
+            step_sync = base.step_sync
+            if base.x_axis == "_step" and helper.is_custom_x(x_axis):
+                # 本次 define 首次为 rule 引入 custom X（x_axis / step_metric）且未显式指定
+                # step_sync → 默认 True；显式 False 永远优先（上面分支已处理）
+                step_sync = True
         return make_effective(x_axis, section_name, hidden, step_sync)
 
     @staticmethod
@@ -118,7 +126,8 @@ class DefinitionResolver:
         x_axis = event.x_axis if event.x_axis is not None else "_step"
         section_name = event.section_name
         hidden = event.hidden if event.hidden is not None else False
-        step_sync = event.step_sync if event.step_sync is not None else True
+        # 未指定 step_sync 时重置为默认值：结果 x_axis 为 custom X 则 True，否则 False
+        step_sync = event.step_sync if event.step_sync is not None else helper.is_custom_x(x_axis)
         return make_effective(x_axis, section_name, hidden, step_sync)
 
     # ── concrete 解析 ──────────────────────────────────────────
@@ -207,7 +216,6 @@ class DefinitionResolver:
         state = self._concrete.get(cache_key)
         if state is None or state.source == "automatic":
             return None
-        state.column_type = int(column_type)
         if state.emitted:
             return None
         state.emitted = True
@@ -260,6 +268,11 @@ class DefinitionResolver:
         update_custom_x_cache 本就以 _custom_x_keys 为门槛，explicit_scalars
         的消费点也全部位于 is_custom_x 分支之后。_custom_x_keys 仅由
         handle_define 添加、clear() 清空，FIFO 队列保证 define 先于后续 log。
+
+        .. note::
+            ``_custom_x_keys`` 只增不减：即使后续 ``overwrite=True`` 把 ``x_axis``
+            重置回 ``_step``，本属性仍返回 True，预扫描对余下训练保持开启。
+            预扫描的 transform 结果会被后续构建复用，额外开销可忽略。
         """
         return bool(self._custom_x_keys)
 

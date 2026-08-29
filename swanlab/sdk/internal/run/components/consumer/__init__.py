@@ -23,11 +23,11 @@ from swanlab.sdk.internal.bus.events import (
     MetricDefineEvent,
     MetricLogEvent,
 )
-from swanlab.sdk.internal.context import RunContext, TransformMedia
+from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.pkg import console, helper, safe
-from swanlab.sdk.internal.run.transforms import Scalar, echarts
+from swanlab.sdk.internal.run.transforms import Scalar
 
-from .builder import RecordBuilder
+from .builder import RecordBuilder, is_scalar_value
 from .resolver import DefinitionResolver
 
 LogBatch = List[LogRecord]
@@ -36,23 +36,6 @@ ScalarBatch = List[ScalarRecord]
 MediaBatch = List[MediaRecord]
 SaveBatch = List[SaveRecord]
 BatchTuple = Tuple[LogBatch, ColumnBatch, ScalarBatch, MediaBatch, SaveBatch]
-
-
-_EchartsType = (echarts.Base, echarts.Table)
-
-
-def _is_scalar_value(value: object) -> bool:
-    """预判断 value 是否会被 build_scalar_or_media 处理为标量。
-
-    不能调用 build_scalar_or_media：media transform 会往 media_dir 落盘。
-    """
-    if isinstance(value, TransformMedia):
-        return False
-    if isinstance(value, list):
-        return False
-    if isinstance(value, _EchartsType):
-        return False
-    return True
 
 
 class ConsumerProtocol(ABC):
@@ -253,9 +236,11 @@ class BackgroundConsumer(ConsumerProtocol):
         scalar_values: dict[str, ScalarValue] = {}
         if self._resolver.has_custom_x:
             for key, value in data.items():
-                if not _is_scalar_value(value):
+                if not is_scalar_value(value):
                     continue
-                with safe.block(message=f"Error when pre-scanning scalar '{key}'", write_to_tty=False):
+                # 预扫描失败不单独报 error：第 3 步 build 时同一值会再次 transform，
+                # 届时以完整上下文上报；此处仅留 debug 级别
+                with safe.block(message=f"Error when pre-scanning scalar '{key}'", level="debug", write_to_tty=False):
                     scalar_value = Scalar.transform(value)
                     # transform 结果（含 nan）缓存供第 4 步复用，避免 build 时二次提取 tensor/numpy
                     scalar_values[key] = scalar_value

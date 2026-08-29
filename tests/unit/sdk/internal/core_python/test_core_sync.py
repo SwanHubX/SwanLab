@@ -602,7 +602,7 @@ def test_sync_replays_column_with_xaxis_hidden(tmp_path: Path):
         column_type=ColumnType.COLUMN_TYPE_SCALAR,
         x_axis="train/epoch",
         section_name="Training",
-        hidden=False,
+        hidden=True,
     )
     core._reader = FakeReader([Record(column=col)])  # type: ignore[assignment]
     transport = FakeTransport(core._ctx)
@@ -615,7 +615,7 @@ def test_sync_replays_column_with_xaxis_hidden(tmp_path: Path):
     replayed = transport.records[0].column
     assert replayed.x_axis == "train/epoch"
     assert replayed.section_name == "Training"
-    assert replayed.hidden is False
+    assert replayed.hidden is True
 
 
 def test_sync_skips_when_key_already_exists(tmp_path: Path):

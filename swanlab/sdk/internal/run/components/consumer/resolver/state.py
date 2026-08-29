@@ -27,7 +27,7 @@ class EffectiveDefinition:
     x_axis: str  # X 轴 metric key；"_step" 表示系统默认
     section_name: Optional[str]  # 图表分组名称；None 表示使用默认 section
     hidden: bool  # 是否隐藏该 metric 对应的图表
-    step_sync: bool = True  # 该 Y 是否在 X 分次 log 时触发 custom X 注入；默认开启
+    step_sync: bool = False  # 该 Y 是否在 X 分次 log 时触发 custom X 注入；默认值 = is_custom_x(x_axis)，显式指定优先
 
 
 def make_effective(
@@ -46,4 +46,3 @@ class ConcreteState:
     effective: EffectiveDefinition  # 首次物化或 exact 更新后固定的定义快照
     source: str  # 定义来源：exact、glob；automatic 表示无 define 下被 log（仅钉住，不产出列）
     emitted: bool = False  # 是否已产出过 ColumnRecord（定义不回溯，每 (class, key) 只发一次）
-    column_type: Optional[int] = None  # 已识别的 protobuf ColumnType；未见数据时为 None

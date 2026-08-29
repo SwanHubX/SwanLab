@@ -1,8 +1,10 @@
-"""DefinitionResolver glob 路由与状态管理测试。
+"""DefinitionResolver 单元测试。
 
-glob 形式合法性由 Run.define_metric 在 API 层校验（见 test_run_define_metric.py），
-事件通过 ``is_glob`` 显式携带分类结果；此处验证 exact/glob 的 rule 分区注册
-与 merge/replace 状态语义。
+覆盖：glob 路由（glob 形式合法性由 Run.define_metric 在 API 层校验，
+见 test_run_define_metric.py；事件经 ``is_glob`` 显式携带分类结果）、
+metric class 适配（MEDIA 回退 _step、SCALAR 自引用放行）、解析优先级
+（exact > 最长前缀 glob > automatic 钉住）、X 值去重、
+merge/replace 语义（含 step_sync 默认值 = is_custom_x(x_axis)）。
 """
 
 import pytest
@@ -196,12 +198,30 @@ class TestXValueDedup:
 
 
 class TestStepSyncMergeReplace:
-    """step_sync 在 define 时的默认值、merge、replace。"""
+    """step_sync 在 define 时的默认值、merge、replace。
+
+    默认值语义：从未显式指定时，step_sync = is_custom_x(effective.x_axis)，
+    即提供 x_axis / step_metric 时默认 True，否则 False；显式 False 永远优先。
+    """
 
     def test_default_step_sync_is_true(self):
         r = DefinitionResolver()
         r.handle_define(MetricDefineEvent("loss", x_axis="epoch"))
         assert r.resolve_concrete("loss", "SCALAR").effective.step_sync is True
+
+    def test_default_step_sync_false_without_x_axis(self):
+        r = DefinitionResolver()
+        r.handle_define(MetricDefineEvent("loss", section_name="Train"))
+        assert r.resolve_concrete("loss", "SCALAR").effective.step_sync is False
+
+    def test_attaching_x_axis_later_defaults_step_sync_true(self):
+        """先无 x_axis 定义、后补 x_axis 且未显式指定 step_sync → 默认 True。"""
+        r = DefinitionResolver()
+        r.handle_define(MetricDefineEvent("loss", section_name="Train"))
+        r.handle_define(MetricDefineEvent("loss", x_axis="epoch"))
+        effective = r.resolve_concrete("loss", "SCALAR").effective
+        assert effective.x_axis == "epoch"
+        assert effective.step_sync is True
 
     def test_explicit_false_is_kept(self):
         r = DefinitionResolver()
@@ -229,6 +249,15 @@ class TestStepSyncMergeReplace:
         r.handle_define(MetricDefineEvent("loss", x_axis="epoch", step_sync=False))
         r.handle_define(MetricDefineEvent("loss", x_axis="epoch", overwrite=True))
         assert r.resolve_concrete("loss", "SCALAR").effective.step_sync is True
+
+    def test_overwrite_unspecified_resets_step_sync_to_false_without_x_axis(self):
+        """overwrite 未指定 step_sync 时重置为默认值：无 custom X 则 False。"""
+        r = DefinitionResolver()
+        r.handle_define(MetricDefineEvent("loss", x_axis="epoch"))
+        r.handle_define(MetricDefineEvent("loss", overwrite=True))
+        effective = r.resolve_concrete("loss", "SCALAR").effective
+        assert effective.x_axis == "_step"
+        assert effective.step_sync is False
 
     def test_overwrite_explicit_false_is_kept(self):
         r = DefinitionResolver()

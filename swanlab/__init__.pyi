@@ -699,16 +699,13 @@ def define_metric(
     """Define a metric's display configuration before logging.
 
     Customizes how an auto-generated chart for *key* appears in project Views:
-    X-axis, section placement, and visibility.  The same ``(class, key)``
+    X-axis, section placement, and visibility. The same ``(class, key)``
     shares one chart across all runs in the project.
 
     :param key: Metric key. Supports exact match and a single trailing ``*``
         glob (e.g. ``"train/*"``). System keys are never matched.
-    :param x_axis: Custom X-axis key. ``None`` (default) means the system step.
-        Only affects scalar charts; media ignores this. The X series is assumed
-        monotonically non-decreasing — for a given X value, only the first logged
-        Y is kept. ``step_metric`` is accepted as a ``**kwargs`` alias for backward
-        compatibility.
+    :param x_axis: Custom X-axis key; ``None`` means the system step.
+        ``step_metric`` is accepted as a ``**kwargs`` alias.
     :param section_name: Section name for the auto chart. ``None`` means the
         default section derived from the key.
     :param hidden: If ``True``, place the chart in the HIDDEN section.
@@ -716,17 +713,31 @@ def define_metric(
         keeps the previous value; ``True`` hides; ``False`` explicitly
         unhides (also effective in merge mode).
     :param step_sync: When X and Y are logged separately, whether to reuse the
-        latest custom X value on the current step. Defaults to ``True`` if ``x_axis``
-        or ``step_metric`` is set, ``False`` means they only align when logged together.
-    :param overwrite: If ``False`` (default), merge — unspecified fields reuse
-        the previous value. If ``True``, unspecified fields reset to default,
-        overwriting prior values.
+        latest X value on the current step. Defaults to ``True`` when
+        ``x_axis`` (or ``step_metric``) is set, ``False`` otherwise.
+    :param overwrite: If ``False`` (default), merge with previous calls for
+        the same ``key``. If ``True``, unspecified fields reset to default.
 
     .. note::
         Project-wide first-writer-wins: the chart for ``(class, key)`` is
-        shared across all runs, and ``define_metric`` only takes effect on the
-        first run that introduces the key to the project. Once the chart
+        shared across all runs, and ``define_metric`` only takes effect on
+        the first run that introduces the key to the project. Once the chart
         exists, later calls (including ``overwrite=True``) have no effect.
+
+    Examples:
+
+        Custom X-axis with separate logging:
+
+        >>> import swanlab
+        >>> swanlab.init(mode="local")
+        >>> run = swanlab.get_run()
+        >>> run.define_metric("train/loss", x_axis="train/epoch")
+        >>> swanlab.log({"train/epoch": 1})    # step=1
+        >>> swanlab.log({"train/loss": 0.8})   # step=2, auto-syncs train/epoch=1
+
+        Glob pattern for all validation metrics:
+
+        >>> run.define_metric("val/*", section_name="Validation")
     """
     ...
 
