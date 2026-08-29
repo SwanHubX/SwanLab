@@ -18,7 +18,6 @@ from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord, SaveType
 from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogRecord
 from swanlab.sdk.internal.core_python.context import CoreContext
 from swanlab.sdk.internal.core_python.pkg.counter import Counter
-from swanlab.sdk.internal.pkg import helper
 
 __all__ = [
     "DEC_NUM",
@@ -148,10 +147,17 @@ def build_resume_column(key: str, *, media: bool = False, system: bool = False) 
 
 def build_auto_column(ctx: CoreContext, data_record: Union[ScalarRecord, MediaRecord]) -> ColumnRecord:
     """
-    构建一个标量列记录，此函数一般用于自动构建用户已定义的指标
+    构建一个标量列记录，此函数一般用于自动构建用户已定义的指标。
+    v0.10 保持既有分组语义；section_rule 随 v0.11 移除（见 issue #1753）。
     """
-    # Split section_name with `section_rule` setting
-    section_name = helper.calculate_section_name(data_record.key, ctx.config.section_rule)
+    # 按 section_rule 切分多级 key 的前缀作为分组名（原 pkg/helper.calculate_section_name 内联）
+    key = data_record.key
+    parts = key.split("/")
+    if len(parts) >= 2:
+        cut = ctx.config.section_rule % (len(parts) - 1) + 1
+        section_name = "/".join(parts[:cut])
+    else:
+        section_name = ""
 
     return ColumnRecord(
         column_class=ColumnClass.COLUMN_CLASS_CUSTOM,
