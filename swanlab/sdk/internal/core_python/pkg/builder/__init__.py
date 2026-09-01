@@ -29,6 +29,7 @@ __all__ = [
     "build_auto_column",
     "build_resume_column",
     "build_save_record",
+    "build_column_record",
 ]
 
 
