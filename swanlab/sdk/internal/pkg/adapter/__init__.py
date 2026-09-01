@@ -15,7 +15,7 @@ from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogLevel
 
 from .bimap import BiMap
 
-__all__ = ["resume", "medium", "state", "level", "policy", "memory_unit", "accelerator_vendor"]
+__all__ = ["resume", "medium", "column", "state", "level", "policy", "memory_unit", "accelerator_vendor"]
 
 
 resume = BiMap(
