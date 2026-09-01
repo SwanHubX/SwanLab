@@ -162,7 +162,7 @@ def safe_validate_x_axis(x_axis: Optional[ScalarXAxisType]) -> Optional[ScalarXA
         return x_axis
     if helper.is_system_key(x_axis):
         return None
-        return safe_validate_key(x_axis)
+    return safe_validate_key(x_axis)
 
 
 def safe_validate_state(state: FinishType) -> Optional[FinishType]:
