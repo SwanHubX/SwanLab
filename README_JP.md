@@ -298,7 +298,7 @@ import swanlab
 # 新しいSwanLab実験を初期化
 swanlab.init(
     project="my-first-ml",
-    config={'learning-rate': 0.003},
+    config={"learning-rate": 0.003},
 )
 
 # 指標を記録

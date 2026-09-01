@@ -112,6 +112,36 @@ def test_step_sync_does_not_inject_shared_x_twice_at_same_step(tmp_path: Path):
     assert records["epoch"][0].timestamp == _timestamp(20)
 
 
+def test_step_sync_injects_default_zero_before_first_real_x(tmp_path: Path):
+    """X 从未 log 过时，绑定 Y 触发注入默认 0，X 序列从首个绑定 Y 的 step 出现（对齐 wandb）。"""
+    consumer = _make_consumer(tmp_path)
+    consumer._handle_event(MetricDefineEvent("train/acc", x_axis="epoch"))
+    start = len(consumer._scalar_batch)
+
+    _log(consumer, {"train/acc": 0.9}, step=0, seconds=10)
+
+    records = _records_by_key(consumer, start)
+    assert set(records) == {"train/acc", "epoch"}
+    assert records["epoch"][0].value.number == 0
+    assert records["epoch"][0].step == 0
+    assert records["epoch"][0].timestamp == _timestamp(10)
+
+
+def test_step_sync_default_zero_at_each_y_step_then_forward_fill_after_real_x(tmp_path: Path):
+    """无值窗口内每个 Y event 在各自 step 注入 0；真实 X 到达后恢复取最近真实值。"""
+    consumer = _make_consumer(tmp_path)
+    consumer._handle_event(MetricDefineEvent("train/acc", x_axis="epoch"))
+    consumer._handle_event(MetricDefineEvent("train/loss", x_axis="epoch"))
+
+    _log(consumer, {"train/acc": 0.9}, step=0, seconds=10)
+    _log(consumer, {"train/loss": 0.1}, step=1, seconds=20)
+    _log(consumer, {"epoch": 3}, step=2, seconds=30)
+    _log(consumer, {"train/acc": 0.8}, step=3, seconds=40)
+
+    epoch_records = [r for r in consumer._scalar_batch if r.key == "epoch"]
+    assert [(r.step, r.value.number) for r in epoch_records] == [(0, 0), (1, 0), (2, 3), (3, 3)]
+
+
 def test_real_x_after_injected_x_warns_once_and_updates_next_step_cache(tmp_path: Path, monkeypatch):
     warnings = []
     monkeypatch.setattr(
