@@ -320,7 +320,7 @@ import swanlab
 # 初始化一个新的swanlab实验
 swanlab.init(
     project="my-first-ml",
-    config={'learning-rate': 0.003},
+    config={"learning-rate": 0.003},
 )
 
 # 记录指标
