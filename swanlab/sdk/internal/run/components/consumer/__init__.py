@@ -266,7 +266,7 @@ class BackgroundConsumer(ConsumerProtocol):
             # 3.3 如果用户在本次 event 里显式 log 了 X 值，则不注入
             if x_axis in data or x_axis in candidate_x:
                 continue
-            # 3.4 从 cache 取最近真实 X 值；X 尚无任何真实值时注入默认 0（对齐 wandb 的 step_sync 语义），
+            # 3.4 从 cache 取最近真实 X 值；X 尚无任何真实值时注入默认 0，
             # 使 X 序列从首个绑定 Y 的 step 起出现，而非等到 X 自身首次 log
             cached_x = self._resolver.get_custom_x(x_axis)
             if cached_x is None:
