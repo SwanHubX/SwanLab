@@ -8,9 +8,9 @@
 from typing import Any, Dict, Iterator, Optional, cast
 
 from swanlab.api.base import ApiClientContext, BaseEntity
+from swanlab.api.helper import get_properties, validate_non_empty_string
 from swanlab.api.typings.common import ApiResponseType, PaginatedQuery
 from swanlab.api.typings.selfhosted import ApiLicensePlanLiteral, ApiSelfHostedInfoType
-from swanlab.api.utils import get_properties, validate_non_empty_string
 
 
 class SelfHosted(BaseEntity):

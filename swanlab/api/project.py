@@ -8,9 +8,9 @@
 from typing import Any, Dict, Iterator, List, Optional, cast
 
 from swanlab.api.base import ApiClientContext, BaseEntity
+from swanlab.api.helper import get_properties
 from swanlab.api.typings.common import PaginatedQuery
 from swanlab.api.typings.project import ApiProjectCountType, ApiProjectLabelType, ApiProjectType
-from swanlab.api.utils import get_properties
 from swanlab.sdk.internal.pkg import console
 
 

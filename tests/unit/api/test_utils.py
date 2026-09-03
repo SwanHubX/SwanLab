@@ -8,10 +8,11 @@ from typing import cast
 
 import pytest
 
-from swanlab.api.self_hosted import SelfHosted
-from swanlab.api.typings.common import PaginatedQuery
-from swanlab.api.typings.selfhosted import ApiSelfHostedInfoType
-from swanlab.api.utils import (
+from swanlab.api.helper import (
+    RELATIVE_TIME_AXIS,
+    STEP_AXIS,
+    TIME_AXIS,
+    builtin_x_axis,
     parse_timestamp_ms,
     validate_column_params,
     validate_filter,
@@ -20,7 +21,11 @@ from swanlab.api.utils import (
     validate_metric_type,
     validate_project_name,
     validate_sort,
+    validate_x_axis,
 )
+from swanlab.api.self_hosted import SelfHosted
+from swanlab.api.typings.common import PaginatedQuery, RangeQuery
+from swanlab.api.typings.selfhosted import ApiSelfHostedInfoType
 
 
 # ---------------------------------------------------------------------------
@@ -221,3 +226,104 @@ class TestParseTimestampMs:
     def test_float_raises(self):
         with pytest.raises(ValueError, match="Expected str or int"):
             parse_timestamp_ms(1715769600.0)  # type: ignore[arg-type]
+
+
+# ---------------------------------------------------------------------------
+# validate_x_axis
+# ---------------------------------------------------------------------------
+class TestValidateXAxis:
+    @pytest.mark.parametrize("axis", ["step", "time", "relative_time"])
+    def test_valid_builtins(self, axis: str):
+        assert validate_x_axis(axis) == axis
+
+    @pytest.mark.parametrize("axis", ["epoch", "iter", "custom_axis", "123", "lr/step"])
+    def test_valid_custom_key(self, axis: str):
+        assert validate_x_axis(axis) == axis
+
+    @pytest.mark.parametrize("axis", ["", "   ", "\t\n"])
+    def test_reject_empty_or_whitespace(self, axis: str):
+        with pytest.raises(ValueError, match="non-empty string"):
+            validate_x_axis(axis)
+
+    @pytest.mark.parametrize("axis", [None, 123, ["epoch"]])
+    def test_reject_non_string(self, axis):
+        with pytest.raises(ValueError, match="non-empty string"):
+            validate_x_axis(axis)  # type: ignore[arg-type]
+
+    @pytest.mark.parametrize("metric_type", ["MEDIA", "LOG"])
+    def test_non_scalar_accepts_step(self, metric_type: str):
+        assert validate_x_axis("step", metric_type=metric_type) == "step"
+
+    @pytest.mark.parametrize("metric_type", ["MEDIA", "LOG"])
+    @pytest.mark.parametrize("axis", ["time", "relative_time"])
+    def test_non_scalar_rejects_builtin_time_axes(self, metric_type: str, axis: str):
+        with pytest.raises(ValueError, match="only supported for SCALAR metrics"):
+            validate_x_axis(axis, metric_type=metric_type)
+
+    @pytest.mark.parametrize("metric_type", ["MEDIA", "LOG"])
+    def test_non_scalar_rejects_custom_key(self, metric_type: str):
+        with pytest.raises(ValueError, match="custom x_axis key 'epoch' is only supported for SCALAR metrics"):
+            validate_x_axis("epoch", metric_type=metric_type)
+
+
+# ---------------------------------------------------------------------------
+# builtin_x_axis & axis_request_params
+# ---------------------------------------------------------------------------
+class TestBuiltinXAxis:
+    def test_builtins(self):
+        assert builtin_x_axis("step") == STEP_AXIS
+        assert builtin_x_axis("time") == TIME_AXIS
+        assert builtin_x_axis("relative_time") == RELATIVE_TIME_AXIS
+
+    @pytest.mark.parametrize("axis", ["epoch", "auto", "timestamp", "unknown", ""])
+    def test_non_builtins_return_none(self, axis: str):
+        assert builtin_x_axis(axis) is None
+
+
+# ---------------------------------------------------------------------------
+# RangeQuery custom & bounds validation
+# ---------------------------------------------------------------------------
+class TestRangeQueryBounds:
+    def test_step_integer_bounds_accepted(self):
+        rq = RangeQuery(type="step", start=0, end=100)
+        assert rq.start == 0.0
+        assert rq.end == 100.0
+
+        rq_float_int = RangeQuery(type="step", start=5.0, end=10.0)
+        assert rq_float_int.start == 5.0
+        assert rq_float_int.end == 10.0
+
+    @pytest.mark.parametrize("invalid_val", [1.5, -1, -0.1])
+    def test_step_rejects_fraction_or_negative(self, invalid_val):
+        with pytest.raises(ValueError, match="must be a non-negative integer for type 'step'"):
+            RangeQuery(type="step", start=invalid_val)
+        with pytest.raises(ValueError, match="must be a non-negative integer for type 'step'"):
+            RangeQuery(type="step", end=invalid_val)
+
+    def test_timestamp_bounds(self):
+        rq = RangeQuery(type="timestamp", start=1700000000000, end=1700000001000)
+        assert rq.start == 1700000000000.0
+
+        with pytest.raises(ValueError, match="must be a non-negative integer for type 'timestamp'"):
+            RangeQuery(type="timestamp", start=-100)
+        with pytest.raises(ValueError, match="must be a non-negative integer for type 'timestamp'"):
+            RangeQuery(type="timestamp", end=10.5)
+
+    def test_custom_bounds_allow_negative_and_floats(self):
+        rq = RangeQuery(type="custom", start=-10.5, end=1.25e-3)
+        assert rq.start == -10.5
+        assert rq.end == 1.25e-3
+
+    def test_custom_bounds_start_greater_than_end_raises(self):
+        with pytest.raises(ValueError, match="start must be <= end"):
+            RangeQuery(type="custom", start=10.0, end=5.0)
+
+    def test_head_and_tail_mutually_exclusive(self):
+        with pytest.raises(ValueError, match="head and tail are mutually exclusive"):
+            RangeQuery(type="step", head=10, tail=10)
+
+    def test_last_and_start_end_mutually_exclusive(self):
+        with pytest.raises(ValueError, match="last is mutually exclusive with start/end"):
+            RangeQuery(type="step", last=1000, start=10)
+        with pytest.raises(ValueError, match="last is mutually exclusive with start/end"):
+            RangeQuery(type="step", last=1000, end=20)
