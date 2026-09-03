@@ -263,13 +263,23 @@ def validate_metric_keys(keys: List[str]) -> None:
 def validate_x_axis(x_axis: str, *, metric_type: str = "SCALAR") -> str:
     """校验 x_axis 参数并原样返回。
 
-    内置轴字面量（auto/step/time/relative_time）按已知集合校验；其余非空字符串放行为自定义
-    x 列 key。非 SCALAR 查询（MEDIA/LOG）没有 x 轴概念，只允许 auto/step，其余取值尽早报错。
+    内置轴字面量（step/time/relative_time）按已知集合校验；其余非空字符串放行为自定义
+    x 列 key。非 SCALAR 查询（MEDIA/LOG）没有 x 轴概念，只允许 step，其余取值尽早报错。
     """
     if not isinstance(x_axis, str) or not x_axis.strip():
         raise ValueError("x_axis must be a non-empty string")
+    if x_axis == "auto":
+        raise ValueError(
+            "x_axis='auto' is not supported; pass 'step', a built-in axis ('time', 'relative_time'), "
+            "or an explicit custom column key."
+        )
+    if x_axis == "timestamp":
+        raise ValueError(
+            "Invalid x_axis 'timestamp'. Built-in time axis is 'time' (or 'relative_time'); "
+            "'timestamp' is only supported as a range_query type."
+        )
     if x_axis in _VALID_X_AXIS_LITERALS:
-        if metric_type != "SCALAR" and x_axis not in ("auto", "step"):
+        if metric_type != "SCALAR" and x_axis != "step":
             raise ValueError(f"x_axis={x_axis!r} is only supported for SCALAR metrics")
         return x_axis
     if metric_type != "SCALAR":

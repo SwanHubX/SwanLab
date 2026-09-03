@@ -78,8 +78,8 @@ ApiMetricAllTypeLiteral = Literal["SCALAR", "MEDIA", "LOG"]
 # 指标日志级别
 ApiMetricLogLevelLiteral = Literal["DEBUG", "INFO", "WARN", "ERROR"]
 
-# X 轴类型（"auto" 仅作为查询参数默认值：按 DEFAULT 视图配置解析 key，默认回退 step）
-ApiMetricXAxisLiteral = Literal["auto", "step", "time", "relative_time"]
+# X 轴内置类型
+ApiMetricXAxisLiteral = Literal["step", "time", "relative_time"]
 
 
 # ---------------------------------------------------------------------------

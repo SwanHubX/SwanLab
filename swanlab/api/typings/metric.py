@@ -50,11 +50,12 @@ class ApiMetricColumnRefType(TypedDict, total=False):
 # Scalar — 标量指标类型
 # ---------------------------------------------------------------------------
 # 使用 index 因为 x 轴可以是 step / time / relative_time / 自定义列
-# step 仅在 CSV 全量路径（all / range_query + 自定义 x）下填充：采样响应无 step 字段
-# （step 模式下 index 即 step；自定义 x 模式下 index 为 x 值）
+# 采样响应使用 data，CSV 导出记录使用 value；
+# step 仅在 CSV 全量路径（all / range_query）下填充
 class ApiScalarType(TypedDict, total=False):
     index: float
     data: ApiMetricValueType
+    value: ApiMetricValueType
     timestamp: int
     step: int
 

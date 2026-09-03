@@ -15,7 +15,6 @@ from swanlab.api.helper.extractor import (
     builtin_x_axis,
     extract_first,
     extract_value_stats,
-    group_keys_by_axis,
     merge_value_stats,
     stream_export_csv,
 )
@@ -60,7 +59,6 @@ __all__ = [
     "builtin_x_axis",
     "extract_first",
     "extract_value_stats",
-    "group_keys_by_axis",
     "merge_value_stats",
     "stream_export_csv",
     # request —— House 请求体构建与预签名资源获取

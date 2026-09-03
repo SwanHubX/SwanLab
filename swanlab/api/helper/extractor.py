@@ -49,17 +49,6 @@ def axis_request_params(axis: ApiMetricXAxisType) -> Tuple[str, str]:
     return ("step", "")
 
 
-def group_keys_by_axis(axes: Dict[str, ApiMetricXAxisType]) -> List[Tuple[ApiMetricXAxisType, List[str]]]:
-    """按解析后的轴分组（保持 key 首次出现顺序）。"""
-    groups: Dict[Tuple[str, str], Tuple[ApiMetricXAxisType, List[str]]] = {}
-    for key, axis in axes.items():
-        group_id = (axis.get("type", "step"), axis.get("key", ""))
-        if group_id not in groups:
-            groups[group_id] = (axis, [])
-        groups[group_id][1].append(key)
-    return list(groups.values())
-
-
 # ---------------------------------------------------------------------------
 # 响应对齐与统计值合并
 # ---------------------------------------------------------------------------
@@ -154,12 +143,13 @@ def stream_export_csv(
     same row as every y value — alignment is applied in this single streaming
     pass.
 
-    **NaN 占位语义**（区别于采样路径）：pivot 行集是所有请求列 step 的并集，每个 key
-    在每一行都产出一个点——单元格缺失、NaN、无法解析时以 ``float("nan")`` 占位（自定义
-    x 缺失时 ``index`` 同样占位 NaN），保证多 key / x 轴之间按下标对齐；±Inf 照常保留。
-    仅时间戳类过滤（``last`` / ``type="timestamp"``）会丢弃缺失 timestamp 的行（无 ts
-    可判）。采样路径（House 服务端）仍是 INNER JOIN + ``NOT isNaN`` + LTTB，会丢弃
-    NaN 点——两条路径的行集差异为已知且有意为之。
+    **NaN 占位与契约说明**：
+    - 非自定义轴（纯 step 轴，``not x_key``）：保持原有历史行为，单元格缺失或无法解析时跳过
+      （不生成占位点，保证 ``head`` 计数为真实有效点数且不输出 NaN/null）；
+    - 自定义 x 轴（``x_key`` 存在）：无 timestamp 类过滤时，单元格缺失/NaN 以 ``float("nan")``
+      占位（自定义 x 缺失时 ``index`` 同样占位 NaN），保证多 key / x 轴之间按下标对齐；±Inf 照常保留；
+    - ``type="custom"`` 范围过滤：若指定了 ``start`` / ``end``，x 缺失为 NaN 的行不属于合法值域，
+      予以过滤丢弃。
     """
     import csv
     import time
@@ -172,8 +162,13 @@ def stream_export_csv(
     next(lines, None)  # skip header — column order is known from ``keys`` (+ optional trailing x)
 
     n_keys = len(keys)
-    # x 列追加在所有 y 列之后，占最后一个 (value, timestamp) 槽位
-    x_value_col = 1 + n_keys * 2 if x_key else None
+    # x 列定位：若 x_key 已在 keys 中，复用其对应列；若为额外追加列，占末尾 (value, timestamp) 槽位
+    if not x_key:
+        x_value_col = None
+    elif x_key in keys:
+        x_value_col = 1 + keys.index(x_key) * 2
+    else:
+        x_value_col = 1 + n_keys * 2
     tail_limit = rq.tail if rq is not None and rq.tail is not None else None
     rows_per_key: List[Any] = [deque(maxlen=tail_limit) if tail_limit is not None else [] for _ in range(n_keys)]
 
@@ -217,13 +212,16 @@ def stream_export_csv(
                     x_value = parsed_x
 
         # --- type="custom"：按 x 值域纯谓词过滤（不假设单调，无提前终止依据） ---
-        # x 占位 NaN 的行不参与谓词（IEEE 比较恒 False 会使 NaN 行意外通过有界过滤，
-        # 这里显式放行占位行）
-        if rq is not None and rq.type == "custom" and x_value is not None:
-            if rq.start is not None and x_value < rq.start:
-                continue
-            if rq.end is not None and x_value > rq.end:
-                continue
+        # 若指定了有界范围，缺失 x（x_value is None）的行不属于合法值域，予以过滤
+        if rq is not None and rq.type == "custom":
+            if x_value is None:
+                if rq.start is not None or rq.end is not None:
+                    continue
+            else:
+                if rq.start is not None and x_value < rq.start:
+                    continue
+                if rq.end is not None and x_value > rq.end:
+                    continue
 
         for i in range(n_keys):
             vc = 1 + i * 2  # value column index
@@ -232,11 +230,20 @@ def stream_export_csv(
                 continue
             raw_val = row[vc]
             value: float
-            try:
-                # 缺失（空串）/ NaN / 无法解析 → float("nan") 占位；±Inf 照常保留
-                value = float(raw_val) if raw_val else float("nan")
-            except ValueError:
-                value = float("nan")
+            if not x_key:
+                # 纯 step 轴（非自定义）：保持历史行为，缺失/无效时跳过当前 key 的该行
+                if not raw_val:
+                    continue
+                try:
+                    value = float(raw_val)
+                except ValueError:
+                    continue
+            else:
+                # 自定义 x 轴：缺失（空串）/ NaN / 无法解析 → float("nan") 占位；±Inf 照常保留
+                try:
+                    value = float(raw_val) if raw_val else float("nan")
+                except ValueError:
+                    value = float("nan")
 
             ts: Optional[int] = None
             if tc < len(row) and row[tc]:

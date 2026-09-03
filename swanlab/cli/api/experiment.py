@@ -214,12 +214,9 @@ def list_experiment_series(
 @click.option(
     "--x-axis",
     "x_axis",
-    default="auto",
+    default="step",
     type=str,
-    help=(
-        "X axis of index values: 'auto' (default, from the DEFAULT view), 'step' / 'time' / "
-        "'relative_time', or a custom x column key."
-    ),
+    help=("X axis of index values: 'step' (default), 'time' / 'relative_time', or a custom x column key."),
 )
 @click.option(
     "--range-type",
@@ -297,8 +294,6 @@ def get_experiment_metrics(
         )
 
     key_list = parse_keys(keys)
-    # view 发现需要 username/projname，从 run path（三段）截取前两段
-    proj_path = path.rsplit("/", 1)[0]
     experiment = api.run(path)
     return Metrics(
         ctx=api._ctx,
@@ -314,7 +309,6 @@ def get_experiment_metrics(
         root_exp_id=experiment.root_exp_id,
         created_at=experiment.created_at_ts,
         x_axis=x_axis,
-        proj_path=proj_path,
     ).wrapper()
 
 
