@@ -5,7 +5,9 @@
 @description: 指标数据类型定义（用于 column 采样值）
 """
 
-from typing import Any, List, TypedDict, Union
+from typing import Any, List, Literal, TypedDict, Union
+
+from swanlab.api.typings.common import ApiMetricXAxisLiteral
 
 # ---------------------------------------------------------------------------
 # Common — 通用指标类型定义
@@ -14,6 +16,23 @@ from typing import Any, List, TypedDict, Union
 
 # 指标值类型（"NaN", "INF", "-INF"）
 ApiMetricValueType = Union[int, float, str]
+
+
+# ---------------------------------------------------------------------------
+# X Axis — 查询参数与回显标记
+# ---------------------------------------------------------------------------
+# x_axis 查询参数：内置轴字面量，或自定义 x 列 key（任意非空字符串）
+ApiMetricXAxisParam = Union[ApiMetricXAxisLiteral, str]
+
+# 回显中 axis 的类别："step" 为内置步数轴；CUSTOM/SYSTEM 携带 key
+ApiMetricXAxisKindLiteral = Literal["step", "CUSTOM", "SYSTEM"]
+
+
+class ApiMetricXAxisType(TypedDict, total=False):
+    """描述 ``metrics[].index`` 的实际语义，随每个 per-key metric 回显。"""
+
+    type: ApiMetricXAxisKindLiteral
+    key: str
 
 
 # ---------------------------------------------------------------------------
@@ -31,10 +50,13 @@ class ApiMetricColumnRefType(TypedDict, total=False):
 # Scalar — 标量指标类型
 # ---------------------------------------------------------------------------
 # 使用 index 因为 x 轴可以是 step / time / relative_time / 自定义列
+# step 仅在 CSV 全量路径（all / range_query + 自定义 x）下填充：采样响应无 step 字段
+# （step 模式下 index 即 step；自定义 x 模式下 index 为 x 值）
 class ApiScalarType(TypedDict, total=False):
     index: float
     data: ApiMetricValueType
     timestamp: int
+    step: int
 
 
 # 组合 /metrics/scalar 和 /metrics/scalar/value 的标量序列
@@ -43,6 +65,7 @@ class ApiScalarSeriesType(ApiMetricColumnRefType, total=False):
 
     metrics: List[ApiScalarType]
     url: str
+    xAxis: ApiMetricXAxisType
     min: ApiScalarType
     max: ApiScalarType
     avg: ApiScalarType

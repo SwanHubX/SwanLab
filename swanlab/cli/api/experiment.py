@@ -212,25 +212,41 @@ def list_experiment_series(
 )
 @click.option("--all", "fetch_all", is_flag=True, default=False, help="Fetch all data (CSV export for scalars).")
 @click.option(
+    "--x-axis",
+    "x_axis",
+    default="auto",
+    type=str,
+    help=(
+        "X axis of index values: 'auto' (default, from the DEFAULT view), 'step' / 'time' / "
+        "'relative_time', or a custom x column key."
+    ),
+)
+@click.option(
     "--range-type",
     "range_type",
     default=None,
-    type=click.Choice(["step", "timestamp"], case_sensitive=False),
-    help="Range query type: 'step' or 'timestamp'.",
+    type=click.Choice(["step", "timestamp", "custom"], case_sensitive=False),
+    help="Range query type: 'step', 'timestamp', or 'custom' (custom x value domain; requires a custom x axis).",
 )
 @click.option(
     "--range-start",
     "range_start",
     default=None,
-    type=click.IntRange(min=0),
-    help="Range start (inclusive). Step number or Unix timestamp in milliseconds.",
+    type=click.FLOAT,
+    help=(
+        "Range start (inclusive). Step number, Unix timestamp in milliseconds, or custom x value "
+        "(float allowed). Non-negative integer required for step/timestamp."
+    ),
 )
 @click.option(
     "--range-end",
     "range_end",
     default=None,
-    type=click.IntRange(min=0),
-    help="Range end (inclusive). Step number or Unix timestamp in milliseconds.",
+    type=click.FLOAT,
+    help=(
+        "Range end (inclusive). Step number, Unix timestamp in milliseconds, or custom x value "
+        "(float allowed). Non-negative integer required for step/timestamp."
+    ),
 )
 @click.option("--range-head", "range_head", default=None, type=click.IntRange(min=1), help="First N data points.")
 @click.option("--range-tail", "range_tail", default=None, type=click.IntRange(min=1), help="Last N data points.")
@@ -248,9 +264,10 @@ def get_experiment_metrics(
     sample: int,
     ignore_timestamp: bool,
     fetch_all: bool,
+    x_axis: str,
     range_type: Optional[str],
-    range_start: Optional[int],
-    range_end: Optional[int],
+    range_start: Optional[float],
+    range_end: Optional[float],
     range_head: Optional[int],
     range_tail: Optional[int],
     range_last: Optional[int],
@@ -280,6 +297,8 @@ def get_experiment_metrics(
         )
 
     key_list = parse_keys(keys)
+    # view 发现需要 username/projname，从 run path（三段）截取前两段
+    proj_path = path.rsplit("/", 1)[0]
     experiment = api.run(path)
     return Metrics(
         ctx=api._ctx,
@@ -294,6 +313,8 @@ def get_experiment_metrics(
         root_pro_id=experiment.root_pro_id,
         root_exp_id=experiment.root_exp_id,
         created_at=experiment.created_at_ts,
+        x_axis=x_axis,
+        proj_path=proj_path,
     ).wrapper()
 
 

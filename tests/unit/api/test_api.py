@@ -277,6 +277,9 @@ class TestExperimentRunIdResolution:
                         "createdAt": "2024-08-01T00:00:00Z",
                     }
                 )
+            if path == "/views/user/proj":
+                # 默认 x_axis="auto" 触发 DEFAULT 视图发现；无视图 → 回落 step
+                return _api_response([])
             raise AssertionError(f"unexpected GET {path}")
 
         ctx.client.get.side_effect = get
@@ -289,7 +292,10 @@ class TestExperimentRunIdResolution:
         exp.metrics(["loss"])
 
         payload = ctx.client.post.call_args_list[0].kwargs["data"]
-        assert [call.args[0] for call in ctx.client.get.call_args_list] == ["/project/user/proj/runs/run-slug"]
+        assert [call.args[0] for call in ctx.client.get.call_args_list] == [
+            "/project/user/proj/runs/run-slug",
+            "/views/user/proj",
+        ]
         assert payload["projectId"] == "project-cuid"
         assert payload["columns"] == [{"experimentId": "run-cuid", "key": "loss", "createdAt": 1722470400}]
 

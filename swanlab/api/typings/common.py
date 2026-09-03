@@ -78,8 +78,8 @@ ApiMetricAllTypeLiteral = Literal["SCALAR", "MEDIA", "LOG"]
 # 指标日志级别
 ApiMetricLogLevelLiteral = Literal["DEBUG", "INFO", "WARN", "ERROR"]
 
-# X 轴类型
-ApiMetricXAxisLiteral = Literal["step", "time", "relative_time"]
+# X 轴类型（"auto" 仅作为查询参数默认值：按 DEFAULT 视图配置解析 key，默认回退 step）
+ApiMetricXAxisLiteral = Literal["auto", "step", "time", "relative_time"]
 
 
 # ---------------------------------------------------------------------------
@@ -154,7 +154,9 @@ class RangeQuery(BaseModel, frozen=True):
     """
     Scalar metric range query parameters.
 
-    type:  Filter axis — ``"step"`` (default) or ``"timestamp"``
+    type:  Filter axis — ``"step"`` (default), ``"timestamp"``, or ``"custom"``
+           (filters on the custom x-axis value domain; only valid when the queried
+           keys resolve to a custom x axis)
     start: Lower bound (inclusive); None = from beginning
     end:   Upper bound (inclusive); None = to end
     last:  Last N milliseconds (mutually exclusive with start/end; SDK auto-converts to timestamp filter)
@@ -162,17 +164,33 @@ class RangeQuery(BaseModel, frozen=True):
     tail:  Last N data points (mutually exclusive with head)
 
     head/tail can be combined with start/end/last: range filter first, then head/tail.
+
+    ``start`` / ``end`` are stored as ``float`` uniformly (int inputs coerced by
+    pydantic; downstream comparisons are float-vs-float). Numeric rules depend on
+    ``type``: ``step`` / ``timestamp`` require non-negative integral values;
+    ``custom`` allows any finite float, including negative ones. NaN / ±Inf bounds
+    are rejected in every mode (a NaN bound would silently disable its filter).
     """
 
-    type: Literal["step", "timestamp"] = "step"
-    start: Optional[int] = Field(default=None, ge=0)
-    end: Optional[int] = Field(default=None, ge=0)
+    type: Literal["step", "timestamp", "custom"] = "step"
+    start: Optional[float] = Field(default=None, allow_inf_nan=False)
+    end: Optional[float] = Field(default=None, allow_inf_nan=False)
     last: Optional[int] = Field(default=None, gt=0)
     head: Optional[int] = Field(default=None, gt=0)
     tail: Optional[int] = Field(default=None, gt=0)
 
     @model_validator(mode="after")
     def _validate_range_query(self) -> "RangeQuery":
+        if self.type in ("step", "timestamp"):
+            for name in ("start", "end"):
+                value = getattr(self, name)
+                if value is None:
+                    continue
+                if not value.is_integer() or value < 0:
+                    raise ValueError(
+                        f"{name} must be a non-negative integer for type {self.type!r}, got {value!r}; "
+                        "fractional or negative bounds are only allowed with type='custom'"
+                    )
         if self.head is not None and self.tail is not None:
             raise ValueError("head and tail are mutually exclusive")
         if self.start is not None and self.end is not None and self.start > self.end:

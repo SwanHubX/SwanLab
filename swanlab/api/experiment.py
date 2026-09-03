@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union, ca
 from typing_extensions import deprecated
 
 from swanlab.api.base import ApiClientContext, BaseEntity
-from swanlab.api.typings import ApiResponseType
+from swanlab.api.typings import ApiMetricXAxisParam, ApiResponseType
 from swanlab.api.typings.common import (
     ApiColumnClassLiteral,
     ApiColumnDataTypeLiteral,
@@ -243,18 +243,31 @@ class Experiment(BaseEntity):
         ignore_timestamp: bool = False,
         all: bool = False,
         range_query: Optional[Union[Dict[str, Any], RangeQuery]] = None,
+        x_axis: ApiMetricXAxisParam = "auto",
     ) -> Dict[str, Any]:
         """
         Fetch scalar metrics (e.g. loss, acc) with three query modes:
 
         1. **Sampled** (default) — server-side LTTB downsampling, up to ``sample`` data points
         2. **Full** — ``all=True``, no sampling limit
-        3. **Range** — filter by step / timestamp / recent time window via ``range_query``
+        3. **Range** — filter by step / timestamp / custom x value domain via ``range_query``
 
         .. note::
            Modes 2 and 3 (``all`` / ``range_query``) download full-resolution CSV data and
            perform range filtering client-side. Each metric point contains ``step``, ``value``,
-           and ``timestamp`` (if available).
+           and ``timestamp`` (if available); under a custom x axis it additionally carries
+           ``index`` (the custom x value). Missing cells (a key that logged no value at a step,
+           or a missing custom x) are emitted as ``NaN`` placeholders instead of being skipped,
+           so the per-key lists align by position and can be zipped directly. Note that the CLI
+           (orjson) renders ``NaN`` / infinities as ``null``; the sampled mode (default) drops
+           such points server-side instead.
+
+        .. note::
+           **Default x axis is ``"auto"``**: each key's x axis is resolved from the DEFAULT
+           view chart config (unknown keys fall back to ``step``), and the effective axis is
+           echoed per key as ``xAxis``. Scripts relying on step-indexed output must pass
+           ``x_axis="step"`` explicitly. CSV mode (``all`` / ``range_query``) does not support
+           the built-in ``time`` / ``relative_time`` axes.
 
         :param keys: Metric keys to fetch, e.g. ``["loss", "acc"]``
         :param sample: Max sampled data points (default 1500, max 1500). Ignored when ``all`` or ``range_query`` is set.
@@ -262,6 +275,9 @@ class Experiment(BaseEntity):
         :param all: If True, fetch full-resolution data without sampling limit
         :param range_query: Range filter — accepts a ``RangeQuery`` object or a plain dict.
             Only supported for SCALAR metrics.
+        :param x_axis: X axis of the ``index`` values — ``"auto"`` (default, resolve per key
+            from the DEFAULT view), ``"step"`` / ``"time"`` / ``"relative_time"`` (built-in
+            axes), or any other non-empty string as a custom x column key.
 
         ---
 
@@ -270,9 +286,13 @@ class Experiment(BaseEntity):
         ========== ============ =================================================
         Field      Type         Description
         ========== ============ =================================================
-        ``type``   ``str``      Filter axis: ``"step"`` (default) or ``"timestamp"``
-        ``start``  ``int``      Lower bound (inclusive); None = from beginning
-        ``end``    ``int``      Upper bound (inclusive); None = to end
+        ``type``   ``str``      Filter axis: ``"step"`` (default), ``"timestamp"``, or
+                               ``"custom"`` (custom x value domain; requires a custom x axis)
+        ``start``  ``float``     Lower bound (inclusive); None = from beginning. Stored
+                               as float (int input accepted). Must be a non-negative
+                               integer value for step/timestamp; any finite float (incl.
+                               negative) for custom
+        ``end``    ``float``     Upper bound (inclusive); None = to end. Same rules as start
         ``last``   ``int``      Last N milliseconds (mutually exclusive with start/end)
         ``head``   ``int``      First N data points (mutually exclusive with tail)
         ``tail``   ``int``      Last N data points (mutually exclusive with head)
@@ -288,19 +308,27 @@ class Experiment(BaseEntity):
 
         **Examples — progressive**
 
-        1. Default sampled query::
+        1. Default sampled query (auto x axis from the DEFAULT view)::
 
                exp.metrics(keys=["loss", "acc"])
 
-        2. Filter by step range::
+        2. Explicit custom x axis (e.g. plot loss against epoch)::
+
+               exp.metrics(keys=["loss"], x_axis="epoch")
+
+        3. Filter by step range::
 
                exp.metrics(keys=["loss"], range_query={"start": 100, "end": 500})
 
-        3. Step range + first 50 points::
+        4. Filter by custom x value domain (floats / negatives allowed)::
+
+               exp.metrics(keys=["loss"], x_axis="lr", range_query={"type": "custom", "start": 1e-4, "end": 1e-3})
+
+        5. Step range + first 50 points::
 
                exp.metrics(keys=["loss"], range_query={"start": 0, "end": 500, "head": 50})
 
-        4. Filter by timestamp (Unix ms, auto-padded if < 13 digits)::
+        6. Filter by timestamp (Unix ms, auto-padded if < 13 digits)::
 
                exp.metrics(keys=["loss"], range_query={
                    "type": "timestamp",
@@ -308,15 +336,15 @@ class Experiment(BaseEntity):
                    "end": 1715773200000,
                })
 
-        5. Last 5 minutes::
+        7. Last 5 minutes::
 
                exp.metrics(keys=["loss"], range_query={"last": 300_000})
 
-        6. Last 5 minutes + first 20 points::
+        8. Last 5 minutes + first 20 points::
 
                exp.metrics(keys=["loss"], range_query={"last": 300_000, "head": 20})
 
-        7. Last 30 data points::
+        9. Last 30 data points::
 
                exp.metrics(keys=["loss"], range_query={"tail": 30})
         """
@@ -347,6 +375,8 @@ class Experiment(BaseEntity):
             root_exp_id=self.root_exp_id,
             created_at=self.created_at_ts,
             experiment_name=self.name,
+            x_axis=x_axis,
+            proj_path=self._proj_path,
         ).json()
 
     def summary(
@@ -530,6 +560,7 @@ class Experiment(BaseEntity):
             root_pro_id=root_pro_id,
             root_exp_id=root_exp_id,
             experiment_name_getter=lambda: self.name,
+            proj_path=self._proj_path,
         )
 
     def delete(self, commit: bool = False) -> bool:

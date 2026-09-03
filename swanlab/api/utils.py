@@ -16,6 +16,7 @@ from swanlab.api.typings.common import (
     ApiFilterStableKeyLiteral,
     ApiMetricAllTypeLiteral,
     ApiMetricLogLevelLiteral,
+    ApiMetricXAxisLiteral,
     ApiSidebarLiteral,
     ApiSortOrderLiteral,
     ApiVisibilityLiteral,
@@ -99,6 +100,7 @@ _VALID_COLUMN_SCALAR_TYPES = frozenset(get_args(ApiColumnScalarTypeLiteral))
 # 指标相关校验常量
 _VALID_METRIC_ALL_TYPES = frozenset(get_args(ApiMetricAllTypeLiteral))
 _VALID_METRIC_LOG_LEVELS = frozenset(get_args(ApiMetricLogLevelLiteral))
+_VALID_X_AXIS_LITERALS = frozenset(get_args(ApiMetricXAxisLiteral))
 
 
 def _check_required(item: Dict[str, Any], keys: Set[str]) -> None:
@@ -256,3 +258,20 @@ def validate_metric_keys(keys: List[str]) -> None:
     """校验 metric keys 列表的合法性。"""
     if not isinstance(keys, list) or not keys or any(not isinstance(key, str) or not key.strip() for key in keys):
         raise ValueError("keys must be a non-empty list of non-empty strings")
+
+
+def validate_x_axis(x_axis: str, *, metric_type: str = "SCALAR") -> str:
+    """校验 x_axis 参数并原样返回。
+
+    内置轴字面量（auto/step/time/relative_time）按已知集合校验；其余非空字符串放行为自定义
+    x 列 key。非 SCALAR 查询（MEDIA/LOG）没有 x 轴概念，只允许 auto/step，其余取值尽早报错。
+    """
+    if not isinstance(x_axis, str) or not x_axis.strip():
+        raise ValueError("x_axis must be a non-empty string")
+    if x_axis in _VALID_X_AXIS_LITERALS:
+        if metric_type != "SCALAR" and x_axis not in ("auto", "step"):
+            raise ValueError(f"x_axis={x_axis!r} is only supported for SCALAR metrics")
+        return x_axis
+    if metric_type != "SCALAR":
+        raise ValueError(f"custom x_axis key {x_axis!r} is only supported for SCALAR metrics")
+    return x_axis

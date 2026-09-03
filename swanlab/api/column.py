@@ -183,6 +183,8 @@ class Column(BaseEntity):
             root_pro_id=self._root_pro_id,
             root_exp_id=self._root_exp_id,
             created_at=self._exp_created_at,
+            # Column 已废弃：不参与 x 轴扩展，显式冻结 step 语义
+            x_axis="step",
         )
         return metric.json()
 

@@ -38,6 +38,7 @@ class Key(BaseEntity):
         root_pro_id: str = "",
         root_exp_id: str = "",
         created_at: int,
+        proj_path: str = "",
     ) -> None:
         super().__init__(ctx)
         self._project_id = project_id
@@ -49,6 +50,8 @@ class Key(BaseEntity):
         self._root_pro_id = root_pro_id
         self._root_exp_id = root_exp_id
         self._created_at = created_at
+        # DEFAULT 视图 X 轴发现需要 username/projname（cuid 不可用）
+        self._proj_path = proj_path
 
     def _resolve_experiment_name(self) -> str:
         if self._cached_experiment_name is not None:
@@ -88,6 +91,7 @@ class Key(BaseEntity):
         ignore_timestamp: bool = False,
         media_step: Optional[int] = None,
         all: bool = False,
+        x_axis: str = "auto",
     ) -> Dict[str, Any]:
         """Fetch metric data points for this key.
 
@@ -95,6 +99,9 @@ class Key(BaseEntity):
         :param ignore_timestamp: If True, omit ``timestamp`` field from each data point.
         :param media_step: Step filter for MEDIA metrics. If None, returns all steps.
         :param all: If True, fetch full-resolution data without downsampling.
+        :param x_axis: X axis of the ``index`` values — ``"auto"`` (default, resolved from
+            the DEFAULT view), a built-in axis (``"step"`` / ``"time"`` / ``"relative_time"``),
+            or any other non-empty string as a custom x column key (SCALAR only).
         :returns: ``{"list": [{"step", "value", "timestamp", "key"}], ...}``
         """
         from swanlab.api.metric import Metric
@@ -112,6 +119,8 @@ class Key(BaseEntity):
             root_pro_id=self._root_pro_id,
             root_exp_id=self._root_exp_id,
             created_at=self._created_at,
+            x_axis=x_axis,
+            proj_path=self._proj_path,
         )
         return metric.json()
 
@@ -190,6 +199,7 @@ class Series(BaseEntity):
         root_pro_id: str = "",
         root_exp_id: str = "",
         experiment_name_getter: Optional[Callable[[], str]] = None,
+        proj_path: str = "",
     ) -> None:
         super().__init__(ctx)
         if metric_type not in ("SCALAR", "MEDIA"):
@@ -212,6 +222,7 @@ class Series(BaseEntity):
         self._root_pro_id = root_pro_id
         self._root_exp_id = root_exp_id
         self._experiment_name_getter = experiment_name_getter
+        self._proj_path = proj_path
         self._all_keys: Optional[List[str]] = None
         self._cached_filtered: Optional[List[str]] = None
         self._cached_list: Optional[List[Key]] = None
@@ -283,6 +294,7 @@ class Series(BaseEntity):
                 root_exp_id=self._root_exp_id,
                 # __init__ 已校验必携带 createdAt，直接取第一个实验的值（当前 series 仅由单实验构造）
                 created_at=self._experiments[0]["createdAt"],
+                proj_path=self._proj_path,
             )
             for key_str in self._filtered_keys()
         ]

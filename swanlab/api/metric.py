@@ -7,7 +7,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Optional
+import math
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Tuple
 
 from swanlab.api.base import ApiClientContext, BaseEntity
 from swanlab.api.typings import ApiColumnCsvExportType, ApiResponseType
@@ -22,9 +23,16 @@ from swanlab.api.typings.metric import (
     ApiLogSeriesType,
     ApiMediaItemDataType,
     ApiMediaSeriesType,
+    ApiMetricXAxisType,
     ApiScalarSeriesType,
 )
-from swanlab.api.utils import get_properties, validate_metric_keys, validate_metric_log_level, validate_metric_type
+from swanlab.api.utils import (
+    get_properties,
+    validate_metric_keys,
+    validate_metric_log_level,
+    validate_metric_type,
+    validate_x_axis,
+)
 from swanlab.sdk.internal.pkg import console, safe
 from swanlab.sdk.internal.pkg.executor import SafeThreadPoolExecutor
 
@@ -33,6 +41,38 @@ if TYPE_CHECKING:
 
 _SCALAR_STATISTIC_FIELDS = ("min", "max", "avg", "median", "latest")
 _METRIC_SHARED_KEYS = frozenset({"project_id", "run_id", "metric_type"})
+
+# ---------------------------------------------------------------------------
+# X 轴解析辅助
+# ---------------------------------------------------------------------------
+# 回显形式：描述 metrics[].index 的实际语义
+_STEP_AXIS: ApiMetricXAxisType = {"type": "step"}
+_TIME_AXIS: ApiMetricXAxisType = {"type": "SYSTEM", "key": "time"}
+_RELATIVE_TIME_AXIS: ApiMetricXAxisType = {"type": "SYSTEM", "key": "relative_time"}
+
+
+def _builtin_x_axis(x_axis: str) -> Optional[ApiMetricXAxisType]:
+    """显式内置轴字面量 → 回显形式；自定义 key 字符串返回 None。"""
+    return {
+        "step": _STEP_AXIS,
+        "time": _TIME_AXIS,
+        "relative_time": _RELATIVE_TIME_AXIS,
+    }.get(x_axis)
+
+
+def _axis_request_params(axis: ApiMetricXAxisType) -> Tuple[str, str]:
+    """解析后的轴 → House 折线请求参数 ``(xType, xKey)``。
+
+    CUSTOM 轴走 ``xKey``（服务端 xKey != "" 时自动切换 range/join 语义，xType 不参与）；
+    SYSTEM 内置轴走 ``xType``；step 轴即现状默认。
+    """
+    axis_type = axis.get("type", "step")
+    if axis_type == "CUSTOM":
+        return ("step", axis.get("key", ""))
+    key = axis.get("key", "")
+    if axis_type == "SYSTEM" and key in ("time", "relative_time"):
+        return (key, "")
+    return ("step", "")
 
 
 def _align_entries_by_key(entries: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
@@ -81,17 +121,30 @@ def _stream_export_csv(
     keys: List[str],
     rq: Optional[RangeQuery] = None,
     timeout: int = 30,
+    x_key: str = "",
 ) -> Optional[Dict[str, List[Dict[str, Any]]]]:
     """Stream-download wide-format export CSV and parse per-key rows.
 
     CSV layout (from ``POST /house/metrics/scalar/export``)::
 
         step, {exp}-{key1}_step, {exp}-{key1}_timestamp,
-              {exp}-{key2}_step, {exp}-{key2}_timestamp, …
+              {exp}-{key2}_step, {exp}-{key2}_timestamp, … [, {exp}-{x}_step, {exp}-{x}_timestamp]
 
     One row per step; columns are interleaved as ``(value, timestamp)`` pairs.
     The ``{exp}-{key}_step`` column actually holds the metric **value** despite
     its name — the suffix is a House naming convention.
+
+    When ``x_key`` is given (custom x axis), it is exported as one extra trailing
+    column. Because House pivots by ``GROUP BY step``, the x value sits on the
+    same row as every y value — alignment is applied in this single streaming
+    pass.
+
+    **NaN 占位语义**（区别于采样路径）：pivot 行集是所有请求列 step 的并集，每个 key
+    在每一行都产出一个点——单元格缺失、NaN、无法解析时以 ``float("nan")`` 占位（自定义
+    x 缺失时 ``index`` 同样占位 NaN），保证多 key / x 轴之间按下标对齐；±Inf 照常保留。
+    仅时间戳类过滤（``last`` / ``type="timestamp"``）会丢弃缺失 timestamp 的行（无 ts
+    可判）。采样路径（House 服务端）仍是 INNER JOIN + ``NOT isNaN`` + LTTB，会丢弃
+    NaN 点——两条路径的行集差异为已知且有意为之。
     """
     import csv
     import time
@@ -101,9 +154,11 @@ def _stream_export_csv(
     resp.raise_for_status()
     resp.encoding = "utf-8"
     lines = resp.iter_lines(decode_unicode=True)
-    next(lines, None)  # skip header — column order is known from ``keys``
+    next(lines, None)  # skip header — column order is known from ``keys`` (+ optional trailing x)
 
     n_keys = len(keys)
+    # x 列追加在所有 y 列之后，占最后一个 (value, timestamp) 槽位
+    x_value_col = 1 + n_keys * 2 if x_key else None
     tail_limit = rq.tail if rq is not None and rq.tail is not None else None
     rows_per_key: List[Any] = [deque(maxlen=tail_limit) if tail_limit is not None else [] for _ in range(n_keys)]
 
@@ -112,9 +167,13 @@ def _stream_export_csv(
         last_start_ts = int(time.time() * 1000) - rq.last
 
     # CSV is ``ORDER BY step`` — safe to break once step exceeds the range end.
+    # ``type="custom"`` filters on the (possibly non-monotonic) x value domain instead,
+    # so the step-order early break must be disabled there; head's count-based early
+    # stop below remains valid in every mode.
     step_end_bound: Optional[int] = None
-    if rq is not None and rq.type != "timestamp" and last_start_ts is None and rq.end is not None:
-        step_end_bound = rq.end
+    if rq is not None and rq.type not in ("timestamp", "custom") and last_start_ts is None and rq.end is not None:
+        # step/timestamp 语义下校验器已保证非负整值（边界统一 float 存储，int() 截断安全）
+        step_end_bound = int(rq.end)
 
     head_limit = rq.head if rq is not None and rq.head is not None else None
     _warned_missing_ts = False
@@ -130,18 +189,39 @@ def _stream_export_csv(
         if step_end_bound is not None and step > step_end_bound:
             break
 
+        # --- 自定义 x 列：缺失/NaN → index 以 NaN 占位（不丢行，保持多 key 按下标对齐） ---
+        x_value: Optional[float] = None
+        if x_value_col is not None:
+            raw_x = row[x_value_col] if x_value_col < len(row) else ""
+            if raw_x:
+                try:
+                    parsed_x = float(raw_x)
+                except ValueError:
+                    parsed_x = None
+                if parsed_x is not None and not math.isnan(parsed_x):
+                    x_value = parsed_x
+
+        # --- type="custom"：按 x 值域纯谓词过滤（不假设单调，无提前终止依据） ---
+        # x 占位 NaN 的行不参与谓词（IEEE 比较恒 False 会使 NaN 行意外通过有界过滤，
+        # 这里显式放行占位行）
+        if rq is not None and rq.type == "custom" and x_value is not None:
+            if rq.start is not None and x_value < rq.start:
+                continue
+            if rq.end is not None and x_value > rq.end:
+                continue
+
         for i in range(n_keys):
             vc = 1 + i * 2  # value column index
             tc = 2 + i * 2  # timestamp column index
             if vc >= len(row):
                 continue
             raw_val = row[vc]
-            if not raw_val:
-                continue
+            value: float
             try:
-                value = float(raw_val)
+                # 缺失（空串）/ NaN / 无法解析 → float("nan") 占位；±Inf 照常保留
+                value = float(raw_val) if raw_val else float("nan")
             except ValueError:
-                continue
+                value = float("nan")
 
             ts: Optional[int] = None
             if tc < len(row) and row[tc]:
@@ -172,11 +252,15 @@ def _stream_export_csv(
                     if rq.end is not None and ts > rq.end:
                         continue
                 # --- step range mode (end handled by step_end_bound break) ---
-                else:
+                # 仅 type="step"：custom 已按 x 值域过滤，不得再用 start 当 step 下界
+                elif rq.type == "step":
                     if rq.start is not None and step < rq.start:
                         continue
 
             item: Dict[str, Any] = {"step": step, "value": value}
+            if x_value_col is not None:
+                # x 缺失/NaN 时以 NaN 占位，保持 index 槽位存在
+                item["index"] = x_value if x_value is not None else float("nan")
             if ts is not None:
                 item["timestamp"] = ts
             rows_per_key[i].append(item)
@@ -220,11 +304,14 @@ class Metric(BaseEntity):
         root_pro_id: str = "",
         root_exp_id: str = "",
         experiment_name: str = "",
+        x_axis: str = "auto",
+        proj_path: str = "",
     ) -> None:
         super().__init__(ctx)
         validate_metric_type(metric_type, key)
         if metric_type == "LOG":
             validate_metric_log_level(log_level)
+        validate_x_axis(x_axis, metric_type=metric_type)
         self._project_id = project_id
         self._run_id = run_id
         self._key = key
@@ -242,6 +329,9 @@ class Metric(BaseEntity):
         self._root_exp_id = root_exp_id
         self._created_at = created_at
         self._experiment_name = experiment_name
+        # X 轴：auto 按 DEFAULT 视图配置逐 key 解析（需 proj_path，缺失时回落 step）
+        self._x_axis = x_axis
+        self._proj_path = proj_path
 
     # 类型 → 加载方法 的分发表，新增类型只需在此注册
     _FETCH_DISPATCH = {
@@ -339,16 +429,21 @@ class Metric(BaseEntity):
         keys: List[str],
         sample: int = 1500,
         x_type: str = "step",
+        x_key: Optional[str] = None,
         root_pro_id: str = "",
         root_exp_id: str = "",
     ) -> Dict[str, Any]:
-        return {
+        payload: Dict[str, Any] = {
             "projectId": project_id,
             "xType": x_type,
             "range": [0, 0],
             "columns": [Metric._build_column_ref(run_id, created_at, key, root_pro_id, root_exp_id) for key in keys],
             "num": sample if sample <= 1500 else 1500,
         }
+        # xKey != "" 时服务端自动把 range/join 语义切换为 x 值域；"range": [0, 0] 用不到
+        if x_key:
+            payload["xKey"] = x_key
+        return payload
 
     @staticmethod
     def _build_media_payload(
@@ -421,18 +516,38 @@ class Metric(BaseEntity):
     # 类型专属加载
     # ------------------------------------------------------------------
 
+    def _resolve_axis(self) -> ApiMetricXAxisType:
+        """解析当前 key 的 X 轴：显式字面量直接映射，auto 走 DEFAULT 视图发现（缺 proj_path 回落 step）。"""
+        builtin = _builtin_x_axis(self._x_axis)
+        if builtin is not None:
+            return builtin
+        if self._x_axis == "auto":
+            if self._proj_path and self._metric_type == "SCALAR":
+                from swanlab.api.view import fetch_default_view_xaxis_map
+
+                axis_map = fetch_default_view_xaxis_map(self._ctx, self._proj_path)
+                return axis_map.get(self.key) or _STEP_AXIS
+            return _STEP_AXIS
+        return {"type": "CUSTOM", "key": self._x_axis}
+
     def _fetch_scalar(self) -> ApiScalarSeriesType:
         res = ApiScalarSeriesType(projectId=self.project_id, experimentId=self.run_id, key=self.key)
         if self._root_pro_id:
             res["rootProId"] = self._root_pro_id
         if self._root_exp_id:
             res["rootExpId"] = self._root_exp_id
+
+        axis = self._resolve_axis()
+        res["xAxis"] = axis
+        x_type, x_key = _axis_request_params(axis)
         payload = self._build_scalar_payload(
             self.project_id,
             self.run_id,
             self._created_at,
             [self.key],
             self._sample,
+            x_type=x_type,
+            x_key=x_key or None,
             root_pro_id=self._root_pro_id,
             root_exp_id=self._root_exp_id,
         )
@@ -446,8 +561,27 @@ class Metric(BaseEntity):
             return res
 
         # 2. 获取统计值 — step/time 并发，key-indexed 合并
-        step_payload = {**payload, "xType": "step"}
-        time_payload = {**payload, "xType": "timestamp"}
+        #    /scalar/value 不支持 xKey，stats payload 一律新建（不能从折线 payload 派生）
+        step_payload = self._build_scalar_payload(
+            self.project_id,
+            self.run_id,
+            self._created_at,
+            [self.key],
+            self._sample,
+            x_type="step",
+            root_pro_id=self._root_pro_id,
+            root_exp_id=self._root_exp_id,
+        )
+        time_payload = self._build_scalar_payload(
+            self.project_id,
+            self.run_id,
+            self._created_at,
+            [self.key],
+            self._sample,
+            x_type="timestamp",
+            root_pro_id=self._root_pro_id,
+            root_exp_id=self._root_exp_id,
+        )
         step_resp, time_resp = self._concurrent_request(
             [
                 (self._post, "/house/metrics/scalar/value", {"data": step_payload}),
@@ -655,6 +789,9 @@ class Metric(BaseEntity):
             if "url" in data:
                 result.pop("metrics", None)
                 result["url"] = data["url"]
+            # 回显 metrics[].index 的实际轴语义（自定义 x / 内置轴 / 回落 step）
+            if "xAxis" in data:
+                result["xAxis"] = data["xAxis"]
             for field in _SCALAR_STATISTIC_FIELDS:
                 val = data.get(field)
                 if val:
@@ -722,6 +859,8 @@ class Metrics(BaseEntity):
         root_exp_id: str = "",
         created_at: int,
         experiment_name: str = "",
+        x_axis: str = "auto",
+        proj_path: str = "",
     ) -> None:
         super().__init__(ctx)
         validate_metric_keys(keys)
@@ -730,6 +869,24 @@ class Metrics(BaseEntity):
             raise ValueError("Metrics does not support LOG metric_type, use Experiment.logs() instead")
         if range_query is not None and metric_type != "SCALAR":
             raise ValueError("range_query is only supported for SCALAR metric_type")
+        validate_x_axis(x_axis, metric_type=metric_type)
+        # CSV 全量管线围绕自定义 x 列构建：显式内置时间轴 + all/range_query 在构造期报错，
+        # 不静默回落 step（回落会掩盖"用户要的轴没生效"）；auto 的 relative_time 分组在
+        # 分组解析期回落 step + warning（见 _fetch_scalar_csv_grouped）
+        if (range_query is not None or all) and x_axis in ("time", "relative_time"):
+            raise ValueError(
+                f"x_axis={x_axis!r} is not supported in CSV mode (all=True or range_query); "
+                "use the sampled mode (default) or a custom x column key instead"
+            )
+        # type="custom" 的构造期校验：显式内置轴时所有分组必然非 custom，直接报错；
+        # auto 模式需等发现 + 分组解析后按分组判定（见 _validate_custom_range_groups）
+        if range_query is not None and range_query.type == "custom":
+            builtin = _builtin_x_axis(x_axis)
+            if builtin is not None and builtin.get("type") != "CUSTOM":
+                raise ValueError(
+                    "range_query type='custom' filters on custom x-axis values and requires a custom x axis; "
+                    f"got x_axis={x_axis!r}. Pass x_axis=<custom column key> instead"
+                )
         self._project_id = project_id
         self._run_id = run_id
         # 去重，保持插入顺序
@@ -743,6 +900,8 @@ class Metrics(BaseEntity):
         self._root_exp_id = root_exp_id
         self._created_at = created_at
         self._experiment_name = experiment_name
+        self._x_axis = x_axis
+        self._proj_path = proj_path
         self._page_info: Dict[str, Any] = {
             "keys": keys,
             "metricType": metric_type,
@@ -785,9 +944,9 @@ class Metrics(BaseEntity):
         """根据 metric_type 和模式分发到具体的获取方法。"""
         if self._metric_type == "SCALAR":
             if self._range_query is not None or self._all:
-                data_list = self._fetch_scalar_csv(self._keys)
+                data_list = self._fetch_scalar_csv_grouped()
             else:
-                data_list = self._batch_keys(self._fetch_scalar_lines)
+                data_list = self._fetch_scalar_sampled_grouped()
         else:
             # media 后端已支持 columns 批量，无需分批
             if self._all:
@@ -798,15 +957,105 @@ class Metrics(BaseEntity):
         for data in data_list:
             yield self._build_metric(data.get("key", ""), data)
 
-    def _batch_keys(self, fetch_fn: Callable[[List[str]], List[Dict[str, Any]]]) -> List[Dict[str, Any]]:
+    # ------------------------------------------------------------------
+    # X 轴解析与分组（单次 House 请求只能携带一个轴）
+    # ------------------------------------------------------------------
+
+    def _resolve_axes(self) -> Dict[str, ApiMetricXAxisType]:
+        """逐 key 解析 X 轴：显式字面量统一映射；auto 走 DEFAULT 视图发现，未知 key 回落 step。"""
+        builtin = _builtin_x_axis(self._x_axis)
+        if builtin is not None:
+            return {key: builtin for key in self._keys}
+        if self._x_axis == "auto":
+            if self._proj_path:
+                from swanlab.api.view import fetch_default_view_xaxis_map
+
+                axis_map = fetch_default_view_xaxis_map(self._ctx, self._proj_path)
+                return {key: axis_map.get(key) or _STEP_AXIS for key in self._keys}
+            return {key: _STEP_AXIS for key in self._keys}
+        custom: ApiMetricXAxisType = {"type": "CUSTOM", "key": self._x_axis}
+        return {key: custom for key in self._keys}
+
+    @staticmethod
+    def _group_keys_by_axis(axes: Dict[str, ApiMetricXAxisType]) -> List[Tuple[ApiMetricXAxisType, List[str]]]:
+        """按解析后的轴分组（保持 key 首次出现顺序）。"""
+        groups: Dict[Tuple[str, str], Tuple[ApiMetricXAxisType, List[str]]] = {}
+        for key, axis in axes.items():
+            group_id = (axis.get("type", "step"), axis.get("key", ""))
+            if group_id not in groups:
+                groups[group_id] = (axis, [])
+            groups[group_id][1].append(key)
+        return list(groups.values())
+
+    def _validate_custom_range_groups(self, axes: Dict[str, ApiMetricXAxisType]) -> None:
+        """``type="custom"`` 合法性按分组判定（auto 模式的分组解析期校验）。
+
+        任何回落 step（或解析为 SYSTEM 内置轴）的分组都不能按 x 值域过滤——静默按 step
+        过滤即是"静默重解释"，直接报错并列出违规 keys。
+        """
+        if self._range_query is None or self._range_query.type != "custom":
+            return
+        violating = [key for key in self._keys if axes[key].get("type") != "CUSTOM"]
+        if violating:
+            raise ValueError(
+                f"range_query type='custom' filters on custom x-axis values, but keys {violating} did not "
+                "resolve to a custom x axis; pass an explicit x_axis=<custom column key> or fix the "
+                "DEFAULT view chart config"
+            )
+
+    def _merge_grouped_results(self, merged: Dict[str, Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """按调用方 key 顺序合并各分组结果。"""
+        return [merged[key] for key in self._keys if key in merged]
+
+    def _fetch_scalar_sampled_grouped(self) -> List[Dict[str, Any]]:
+        """采样路径：按轴分组，组内走现有分批；结果按调用方 key 顺序合并。"""
+        axes = self._resolve_axes()
+        self._validate_custom_range_groups(axes)
+        merged: Dict[str, Dict[str, Any]] = {}
+        for axis, keys in self._group_keys_by_axis(axes):
+            x_type, x_key = _axis_request_params(axis)
+            for data in self._batch_keys(keys, x_type=x_type, x_key=x_key):
+                merged[data["key"]] = {**data, "xAxis": axis}
+        return self._merge_grouped_results(merged)
+
+    def _fetch_scalar_csv_grouped(self) -> List[Dict[str, Any]]:
+        """CSV 全量路径：auto 解析出 SYSTEM relative_time 的分组回落 step + warning（v4）。
+
+        显式 time/relative_time 已在构造期报错；回落信息无损（每个 item 仍携带 timestamp，
+        relative time 可自行推导），xAxis 回显如实标注 step。
+        """
+        axes = self._resolve_axes()
+        csv_axes: Dict[str, ApiMetricXAxisType] = {}
+        for key, axis in axes.items():
+            if axis.get("type") == "SYSTEM" and axis.get("key") == "relative_time":
+                console.warning(
+                    f"Metric key '{key}' is configured with a relative_time x-axis in the DEFAULT view, "
+                    "which the CSV mode (all/range_query) does not support; falling back to 'step'. "
+                    "Each point still carries its 'timestamp' for deriving relative time."
+                )
+                axis = _STEP_AXIS
+            csv_axes[key] = axis
+        self._validate_custom_range_groups(csv_axes)
+        merged: Dict[str, Dict[str, Any]] = {}
+        for axis, keys in self._group_keys_by_axis(csv_axes):
+            x_key = axis.get("key", "") if axis.get("type") == "CUSTOM" else ""
+            for data in self._fetch_scalar_csv(keys, x_key=x_key):
+                merged[data["key"]] = {**data, "xAxis": axis}
+        return self._merge_grouped_results(merged)
+
+    def _batch_keys(
+        self,
+        keys: List[str],
+        x_type: str = "step",
+        x_key: str = "",
+    ) -> List[Dict[str, Any]]:
         """将 keys 按 ``_BATCH_SIZE`` 分批；单批直接执行，多批并发。"""
-        keys = self._keys
         if len(keys) <= self._BATCH_SIZE:
-            return fetch_fn(keys)
+            return self._fetch_scalar_lines(keys, x_type=x_type, x_key=x_key)
 
         chunks = [keys[i : i + self._BATCH_SIZE] for i in range(0, len(keys), self._BATCH_SIZE)]
         with SafeThreadPoolExecutor(max_workers=min(len(chunks), self._BATCH_SIZE)) as pool:
-            futures = [pool.submit(fetch_fn, chunk) for chunk in chunks]
+            futures = [pool.submit(self._fetch_scalar_lines, chunk, x_type, x_key) for chunk in chunks]
             results: List[Dict[str, Any]] = []
             for f in futures:
                 results.extend(f.result())
@@ -880,11 +1129,12 @@ class Metrics(BaseEntity):
     # Scalar: 折线数据 + 统计值 (后端 columns 批量)
     # ------------------------------------------------------------------
 
-    def _fetch_scalar_lines(self, keys: List[str]) -> List[Dict[str, Any]]:
+    def _fetch_scalar_lines(self, keys: List[str], x_type: str = "step", x_key: str = "") -> List[Dict[str, Any]]:
         """获取标量折线数据 + step/time 统计值，3 路并发。
 
         后端 ``POST /house/metrics/scalar`` 和 ``/scalar/value`` 的 ``columns``
         数组天然支持多 key，此处将 keys 打包为一个批量请求。
+        同一分组内的 keys 共享一个轴（xKey / xType）；stats 请求不支持 xKey，不带。
         """
         # 3 路并发：折线数据 + step 统计 + time 统计
         requests: List[tuple] = [
@@ -898,6 +1148,8 @@ class Metrics(BaseEntity):
                         self._created_at,
                         keys,
                         self._sample,
+                        x_type=x_type,
+                        x_key=x_key or None,
                         root_pro_id=self._root_pro_id,
                         root_exp_id=self._root_exp_id,
                     )
@@ -920,39 +1172,43 @@ class Metrics(BaseEntity):
     # Scalar: CSV 全量下载 + 统计值 (range_query 或 all 模式)
     # ------------------------------------------------------------------
 
-    def _fetch_scalar_csv(self, keys: List[str]) -> List[Dict[str, Any]]:
+    def _fetch_scalar_csv(self, keys: List[str], x_key: str = "") -> List[Dict[str, Any]]:
         """CSV 全量下载 + value stats，使用 House 批量导出接口。
 
-        将 keys 按 ``_CSV_KEY_BATCH_SIZE``（16）个一组分批，4 线程并发获取。
+        将 keys 按 ``MAX_METRIC_KEY_BATCH_SIZE``（16）个一组分批，4 线程并发获取。
+        自定义 x 轴下 ``x_key`` 作为额外的普通导出列追加，占用一个分批槽位
+        （每批 y keys 上限降为 15）。
         通过 ``POST /house/metrics/scalar/export`` 一次性导出每批 key 到 CSV 文件，
         再通过 ``/files/presigned/get`` 获取预签名下载链接。
         value stats 批量获取，与导出请求并发执行。
         """
-        if len(keys) <= MAX_METRIC_KEY_BATCH_SIZE:
-            return self._fetch_scalar_csv_batch(keys)
+        chunk_size = MAX_METRIC_KEY_BATCH_SIZE - 1 if x_key else MAX_METRIC_KEY_BATCH_SIZE
+        if len(keys) <= chunk_size:
+            return self._fetch_scalar_csv_batch(keys, x_key=x_key)
 
-        chunks = [keys[i : i + MAX_METRIC_KEY_BATCH_SIZE] for i in range(0, len(keys), MAX_METRIC_KEY_BATCH_SIZE)]
+        chunks = [keys[i : i + chunk_size] for i in range(0, len(keys), chunk_size)]
         with SafeThreadPoolExecutor(max_workers=MAX_CONCURRENT_COUNT) as pool:
-            futures = [pool.submit(self._fetch_scalar_csv_batch, chunk) for chunk in chunks]
+            futures = [pool.submit(self._fetch_scalar_csv_batch, chunk, x_key) for chunk in chunks]
             results: List[Dict[str, Any]] = []
             for f in futures:
                 results.extend(f.result())
             return results
 
-    def _fetch_scalar_csv_batch(self, keys: List[str]) -> List[Dict[str, Any]]:
-        """单批 CSV 导出 + value stats（≤16 keys）。
+    def _fetch_scalar_csv_batch(self, keys: List[str], x_key: str = "") -> List[Dict[str, Any]]:
+        """单批 CSV 导出 + value stats（≤16 列；自定义 x 时 ≤15 y keys + 1 x 列）。
 
         通过 ``POST /house/metrics/scalar/export`` 一次性导出所有 key 到一个 CSV 文件，
         再通过 ``/files/presigned/get`` 获取预签名下载链接。
-        value stats 批量获取，与导出请求并发执行。
+        value stats 批量获取，与导出请求并发执行；stats 请求只含 y keys，不含 x 列。
         """
         # 并发：step 统计 + time 统计 + 批量 CSV 导出
         requests: List[tuple] = self._build_value_stats_requests(keys)
+        export_columns = keys + ([x_key] if x_key else [])
         export_payload = Metric._build_export_payload(
             self._project_id,
             self._run_id,
             self._created_at,
-            keys,
+            export_columns,
             experiment_name=self._experiment_name,
             root_pro_id=self._root_pro_id,
             root_exp_id=self._root_exp_id,
@@ -975,7 +1231,7 @@ class Metrics(BaseEntity):
             url_map = Metric._fetch_file_presigned_urls(self, [cos_key])
             url = url_map.get(cos_key, "")
             if url:
-                parsed = _stream_export_csv(self._ctx.client, url, keys, self._range_query)
+                parsed = _stream_export_csv(self._ctx.client, url, keys, self._range_query, x_key=x_key)
                 if parsed:
                     metrics_by_key = parsed
 
