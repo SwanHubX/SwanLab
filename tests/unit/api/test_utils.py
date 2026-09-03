@@ -8,10 +8,7 @@ from typing import cast
 
 import pytest
 
-from swanlab.api.self_hosted import SelfHosted
-from swanlab.api.typings.common import PaginatedQuery
-from swanlab.api.typings.selfhosted import ApiSelfHostedInfoType
-from swanlab.api.utils import (
+from swanlab.api.helper import (
     parse_timestamp_ms,
     validate_column_params,
     validate_filter,
@@ -21,6 +18,9 @@ from swanlab.api.utils import (
     validate_project_name,
     validate_sort,
 )
+from swanlab.api.self_hosted import SelfHosted
+from swanlab.api.typings.common import PaginatedQuery
+from swanlab.api.typings.selfhosted import ApiSelfHostedInfoType
 
 
 # ---------------------------------------------------------------------------

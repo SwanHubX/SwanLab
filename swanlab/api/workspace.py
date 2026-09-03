@@ -8,10 +8,10 @@
 from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, cast
 
 from swanlab.api.base import ApiClientContext, BaseEntity
+from swanlab.api.helper import get_properties, strip_dict, validate_project_name, validate_visibility
 from swanlab.api.typings.common import ApiVisibilityLiteral, PaginatedQuery
 from swanlab.api.typings.project import ApiProjectType
 from swanlab.api.typings.workspace import ApiWorkspaceLiteral, ApiWorkspaceProfileType, ApiWorkspaceType
-from swanlab.api.utils import get_properties, strip_dict, validate_project_name, validate_visibility
 
 if TYPE_CHECKING:
     from swanlab.api.project import Project

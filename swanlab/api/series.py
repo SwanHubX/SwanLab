@@ -8,8 +8,8 @@
 from typing import Any, Callable, Dict, Iterator, List, Optional
 
 from swanlab.api.base import ApiClientContext, BaseEntity
+from swanlab.api.helper import fetch_file_presigned_urls, get_properties
 from swanlab.api.typings import ApiMetricKeyClassLiteral, ApiMetricKeyTypeLiteral, ApiResponseType
-from swanlab.api.utils import get_properties
 
 # 系统指标 key 前缀：SCALAR 类型且以此前缀开头的 key 分类为 SYSTEM
 _SYSTEM_KEY_PREFIX = "__swanlab__"
@@ -130,7 +130,6 @@ class Key(BaseEntity):
         :returns: ``ApiResponseType(ok=True, data={"url": "<download_url>"})``.
             Returns ``ok=False`` for MEDIA keys.
         """
-        from swanlab.api.metric import Metric
 
         if self._metric_type != "SCALAR":
             return ApiResponseType(ok=False, errmsg="export_csv() only support SCALAR metric_type", data=None)
@@ -161,7 +160,7 @@ class Key(BaseEntity):
         if not cos_key:
             return ApiResponseType(ok=False, errmsg="Invalid response format: missing cosKey", data=None)
 
-        url_map = Metric._fetch_file_presigned_urls(self, [cos_key])
+        url_map = fetch_file_presigned_urls(self, [cos_key])
         url = url_map.get(cos_key, "")
         if not url:
             return ApiResponseType(ok=False, errmsg="Failed to get presigned download URL", data=None)

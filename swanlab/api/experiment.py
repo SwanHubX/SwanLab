@@ -12,6 +12,15 @@ from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union, ca
 from typing_extensions import deprecated
 
 from swanlab.api.base import ApiClientContext, BaseEntity
+from swanlab.api.helper import (
+    get_properties,
+    parse_timestamp_ms,
+    resolve_run_path,
+    validate_filter,
+    validate_group,
+    validate_sort,
+    validate_update_active,
+)
 from swanlab.api.typings import ApiMetricXAxisParam, ApiResponseType
 from swanlab.api.typings.common import (
     ApiColumnClassLiteral,
@@ -28,15 +37,6 @@ from swanlab.api.typings.experiment import (
     ApiExperimentType,
 )
 from swanlab.api.typings.user import ApiUserType
-from swanlab.api.utils import (
-    get_properties,
-    parse_timestamp_ms,
-    resolve_run_path,
-    validate_filter,
-    validate_group,
-    validate_sort,
-    validate_update_active,
-)
 from swanlab.sdk.internal.pkg import console
 from swanlab.utils.time import parse_timestamp_s
 
