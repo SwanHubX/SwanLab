@@ -207,10 +207,19 @@ class Metric(BaseEntity):
         batch = metrics_obj._ensure_batch()
         if batch and batch[0]._data:
             return cast(ApiScalarSeriesType, batch[0]._data)
-        return ApiScalarSeriesType(projectId=self.project_id, experimentId=self.run_id, key=self.key, metrics=[])
+        res = ApiScalarSeriesType(projectId=self.project_id, experimentId=self.run_id, key=self.key, metrics=[])
+        if self._root_pro_id:
+            res["rootProId"] = self._root_pro_id
+        if self._root_exp_id:
+            res["rootExpId"] = self._root_exp_id
+        return res
 
     def _fetch_media(self) -> ApiMediaSeriesType:
         res = ApiMediaSeriesType(projectId=self.project_id, experimentId=self.run_id, key=self.key)
+        if self._root_pro_id:
+            res["rootProId"] = self._root_pro_id
+        if self._root_exp_id:
+            res["rootExpId"] = self._root_exp_id
         payload = build_media_payload(
             self.project_id,
             self.run_id,
@@ -251,6 +260,10 @@ class Metric(BaseEntity):
 
     def _fetch_media_all(self) -> ApiMediaSeriesType:
         res = ApiMediaSeriesType(projectId=self.project_id, experimentId=self.run_id, key=self.key)
+        if self._root_pro_id:
+            res["rootProId"] = self._root_pro_id
+        if self._root_exp_id:
+            res["rootExpId"] = self._root_exp_id
         payload = build_media_payload(
             self.project_id,
             self.run_id,
@@ -354,6 +367,10 @@ class Metric(BaseEntity):
     def json(self) -> Dict[str, Any]:
         result = get_properties(self)
         data = self._ensure_data()
+        if "rootProId" in data:
+            result["rootProId"] = data["rootProId"]
+        if "rootExpId" in data:
+            result["rootExpId"] = data["rootExpId"]
 
         if self._metric_type == "SCALAR":
             if "url" in data:
@@ -598,7 +615,20 @@ class Metrics(BaseEntity):
 
     def _empty_scalar_results(self, keys: List[str]) -> List[Dict[str, Any]]:
         """返回 per-key 空结果列表（用于 early return）。"""
-        return [{"projectId": self._project_id, "experimentId": self._run_id, "key": k, "metrics": []} for k in keys]
+        results: List[Dict[str, Any]] = []
+        for k in keys:
+            data: Dict[str, Any] = {
+                "projectId": self._project_id,
+                "experimentId": self._run_id,
+                "key": k,
+                "metrics": [],
+            }
+            if self._root_pro_id:
+                data["rootProId"] = self._root_pro_id
+            if self._root_exp_id:
+                data["rootExpId"] = self._root_exp_id
+            results.append(data)
+        return results
 
     def _build_value_stats_requests(self, keys: List[str]) -> List[tuple]:
         """构建 step/time value stats 的并发请求列表（2 路并发）。"""
@@ -759,6 +789,10 @@ class Metrics(BaseEntity):
                 "key": key,
                 "metrics": metrics_by_key.get(key, []),
             }
+            if self._root_pro_id:
+                data["rootProId"] = self._root_pro_id
+            if self._root_exp_id:
+                data["rootExpId"] = self._root_exp_id
             stats = value_by_key.get(key, {})
             if stats:
                 data.update(stats)
@@ -811,6 +845,10 @@ class Metrics(BaseEntity):
                 "step": current_step,
                 "metrics": [],
             }
+            if self._root_pro_id:
+                data["rootProId"] = self._root_pro_id
+            if self._root_exp_id:
+                data["rootExpId"] = self._root_exp_id
             entry = key_to_entry.get(key)
             if entry:
                 items = build_media_items(entry, url_map)
@@ -860,6 +898,10 @@ class Metrics(BaseEntity):
                 "key": key,
                 "metrics": [],
             }
+            if self._root_pro_id:
+                data["rootProId"] = self._root_pro_id
+            if self._root_exp_id:
+                data["rootExpId"] = self._root_exp_id
             entry = key_to_entry.get(key)
             if entry:
                 metrics_list: List[Dict[str, Any]] = []

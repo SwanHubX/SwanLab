@@ -718,3 +718,23 @@ class TestMetricsWithCustomXAxis:
         exp = Experiment(ctx, path="user/proj/run-slug")
         with pytest.raises(ValueError, match="requires a custom x axis"):
             exp.metrics(["loss"], range_query={"type": "custom", "start": 0}, x_axis="step")
+
+    def test_metrics_retains_root_ids(self, ctx):
+        ctx.client.post.side_effect = [
+            _api_response([{"metrics": [{"step": 1, "value": 0.5}], "key": "loss"}]),
+            _api_response([{"min": {"value": 0.5}}]),
+        ]
+        metrics = Metrics(
+            ctx,
+            project_id="p-1",
+            run_id="r-1",
+            keys=["loss"],
+            metric_type="SCALAR",
+            root_pro_id="root-p",
+            root_exp_id="root-r",
+            created_at=1700000000,
+        )
+        res = list(metrics)
+        assert len(res) == 1
+        assert res[0].json()["rootProId"] == "root-p"
+        assert res[0].json()["rootExpId"] == "root-r"

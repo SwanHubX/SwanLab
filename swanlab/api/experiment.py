@@ -300,7 +300,7 @@ class Experiment(BaseEntity):
 
         **Examples — progressive**
 
-        1. Default sampled query (auto x axis from the DEFAULT view)::
+        1. Default sampled query (step x axis)::
 
                exp.metrics(keys=["loss", "acc"])
 
