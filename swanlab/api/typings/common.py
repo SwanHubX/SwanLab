@@ -186,7 +186,7 @@ class RangeQuery(BaseModel, frozen=True):
                 value = getattr(self, name)
                 if value is None:
                     continue
-                if not value.is_integer() or value < 0:
+                if value % 1 != 0 or value < 0:
                     raise ValueError(
                         f"{name} must be a non-negative integer for type {self.type!r}, got {value!r}; "
                         "fractional or negative bounds are only allowed with type='custom'"

@@ -199,6 +199,10 @@ def stream_export_csv(
         if step_end_bound is not None and step > step_end_bound:
             break
 
+        # --- type="step"：start 前的行直接跳过（行级提前过滤） ---
+        if rq is not None and rq.type == "step" and rq.start is not None and step < rq.start:
+            continue
+
         # --- 自定义 x 列：缺失/NaN → index 以 NaN 占位（不丢行，保持多 key 按下标对齐） ---
         x_value: Optional[float] = None
         if x_value_col is not None:
@@ -272,11 +276,6 @@ def stream_export_csv(
                     if rq.start is not None and ts < rq.start:
                         continue
                     if rq.end is not None and ts > rq.end:
-                        continue
-                # --- step range mode (end handled by step_end_bound break) ---
-                # 仅 type="step"：custom 已按 x 值域过滤，不得再用 start 当 step 下界
-                elif rq.type == "step":
-                    if rq.start is not None and step < rq.start:
                         continue
 
             item: Dict[str, Any] = {"step": step, "value": value}
