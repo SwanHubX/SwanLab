@@ -35,7 +35,7 @@ import subprocess
 import sys
 import tempfile
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 RESULT_MARK = "##BENCH_JSON## "
 
@@ -128,6 +128,10 @@ def run_worker(
     call_latencies_ns: List[int] = []
     step_latencies_ns: List[int] = []
 
+    # 上报调用闭包，在 init 分支内绑定到具体实现，热循环内不做模式分支
+    log_fn: Optional[Callable[[Dict[str, float], int], Any]] = None
+    finish_fn: Optional[Callable[[], Any]] = None
+
     try:
         if mode != "no_sdk":
             import swanlab
@@ -140,6 +144,19 @@ def run_worker(
                 log_level="warning",
                 log_dir=tmp_log_dir,
             )
+            finish_fn = swanlab.finish
+            if mode == "sync_log":
+
+                def sync_log_fn(d: Dict[str, float], s: int) -> None:
+                    swanlab.log(d, step=s)
+
+                log_fn = sync_log_fn
+            else:
+
+                def async_log_fn(d: Dict[str, float], s: int) -> Any:
+                    return swanlab.async_log(lambda d=d: d, step=s, mode="threading")
+
+                log_fn = async_log_fn
 
         # ----------------------------------
         # 预热阶段 (Warmup)
@@ -148,10 +165,8 @@ def run_worker(
             data = generate_payload(num_keys, w)
             if test_type == "macro":
                 simulate_training_workload(workload_ms)
-            if mode == "sync_log":
-                swanlab.log(data, step=w)
-            elif mode == "async_log":
-                swanlab.async_log(lambda d=data: d, step=w, mode="threading")
+            if log_fn is not None:
+                log_fn(data, w)
 
         # ----------------------------------
         # 测量阶段 (Measurement)
@@ -167,10 +182,8 @@ def run_worker(
                 simulate_training_workload(workload_ms)
 
             t_call_start = time.perf_counter_ns()
-            if mode == "sync_log":
-                swanlab.log(data, step=s)
-            elif mode == "async_log":
-                swanlab.async_log(lambda d=data: d, step=s, mode="threading")
+            if log_fn is not None:
+                log_fn(data, s)
             t_call_end = time.perf_counter_ns()
 
             t_step_end = time.perf_counter_ns()
@@ -182,8 +195,8 @@ def run_worker(
         t_total_end = time.perf_counter_ns()
 
         t_finish_start = time.perf_counter_ns()
-        if mode != "no_sdk":
-            swanlab.finish()
+        if finish_fn is not None:
+            finish_fn()
         t_finish_end = time.perf_counter_ns()
 
         # ----------------------------------
