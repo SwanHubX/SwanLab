@@ -29,6 +29,7 @@ from .cmd.run import (
     save,
 )
 from .cmd.sync import sync
+from .cmd.temporary import log_backfill
 from .internal import impl, pkg
 from .internal.run import Run, clear_run, get_run, has_run, set_run
 from .internal.run.transforms import Audio, ECharts, Html, Image, Molecule, Object3D, Text, Video, echarts, plot
@@ -42,6 +43,7 @@ __all__ = [
     "login",
     "login_cli",
     "log",
+    "log_backfill",
     "log_text",
     "log_image",
     "log_audio",
