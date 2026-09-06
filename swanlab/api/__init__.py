@@ -18,6 +18,7 @@ from swanlab.sdk.internal.settings import create_settings, resolve_hosts
 from .base import ApiClientContext, BaseEntity
 from .column import Column, Columns
 from .experiment import Experiment, Experiments
+from .helper import validate_api_path, validate_non_empty_string
 from .project import Project, Projects
 from .self_hosted import SelfHosted
 from .series import Series
@@ -30,7 +31,6 @@ from .typings.common import (
     PaginatedQuery,
 )
 from .user import User
-from .utils import validate_api_path, validate_non_empty_string
 from .workspace import Workspace, Workspaces
 
 

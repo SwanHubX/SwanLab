@@ -7,9 +7,29 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Optional
+from typing import Any, Dict, Iterator, List, Optional, cast
 
 from swanlab.api.base import ApiClientContext, BaseEntity
+from swanlab.api.helper import (
+    SCALAR_STATISTIC_FIELDS,
+    align_entries_by_key,
+    axis_request_params,
+    build_export_payload,
+    build_media_items,
+    build_media_payload,
+    build_scalar_payload,
+    builtin_x_axis,
+    extract_first,
+    extract_value_stats,
+    fetch_file_presigned_urls,
+    fetch_presigned_urls,
+    get_properties,
+    stream_export_csv,
+    validate_metric_keys,
+    validate_metric_log_level,
+    validate_metric_type,
+    validate_x_axis,
+)
 from swanlab.api.typings import ApiColumnCsvExportType, ApiResponseType
 from swanlab.api.typings.common import (
     MAX_CONCURRENT_COUNT,
@@ -20,178 +40,14 @@ from swanlab.api.typings.common import (
 )
 from swanlab.api.typings.metric import (
     ApiLogSeriesType,
-    ApiMediaItemDataType,
     ApiMediaSeriesType,
+    ApiMetricXAxisType,
     ApiScalarSeriesType,
 )
-from swanlab.api.utils import get_properties, validate_metric_keys, validate_metric_log_level, validate_metric_type
-from swanlab.sdk.internal.pkg import console, safe
+from swanlab.sdk.internal.pkg import console
 from swanlab.sdk.internal.pkg.executor import SafeThreadPoolExecutor
 
-if TYPE_CHECKING:
-    from swanlab.sdk.internal.pkg.client import Client
-
-_SCALAR_STATISTIC_FIELDS = ("min", "max", "avg", "median", "latest")
 _METRIC_SHARED_KEYS = frozenset({"project_id", "run_id", "metric_type"})
-
-
-def _align_entries_by_key(entries: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
-    """将后端返回的列表按 ``key`` 字段映射为 dict，应对后端可能省略列或乱序返回。"""
-    indexed: Dict[str, Dict[str, Any]] = {}
-    for entry in entries:
-        if not isinstance(entry, dict):
-            continue
-        key = entry.get("key")
-        if isinstance(key, str) and key:
-            indexed[key] = entry
-    return indexed
-
-
-def _merge_value_stats(
-    step_list: List[Dict[str, Any]],
-    time_list: List[Dict[str, Any]],
-    keys: List[str],
-) -> List[Dict[str, Any]]:
-    """合并 step/time 两种 x_type 的 value stat 响应为 per-key 统计字典。"""
-    step_by_key = _align_entries_by_key(step_list)
-    time_by_key = _align_entries_by_key(time_list)
-    merged: List[Dict[str, Any]] = []
-    for key in keys:
-        step_entry = step_by_key.get(key, {})
-        time_entry = time_by_key.get(key, {})
-        entry: Dict[str, Any] = {}
-        for field in _SCALAR_STATISTIC_FIELDS:
-            step_val = step_entry.get(field)
-            time_val = time_entry.get(field)
-            if isinstance(step_val, dict):
-                stat = dict(step_val)
-                if isinstance(time_val, dict) and time_val.get("index") is not None:
-                    stat["timestamp"] = time_val["index"]
-                entry[field] = stat
-            elif isinstance(time_val, dict):
-                entry[field] = dict(time_val)
-        merged.append(entry)
-    return merged
-
-
-@safe.decorator(message="Failed to download CSV")
-def _stream_export_csv(
-    client: "Client",
-    url: str,
-    keys: List[str],
-    rq: Optional[RangeQuery] = None,
-    timeout: int = 30,
-) -> Optional[Dict[str, List[Dict[str, Any]]]]:
-    """Stream-download wide-format export CSV and parse per-key rows.
-
-    CSV layout (from ``POST /house/metrics/scalar/export``)::
-
-        step, {exp}-{key1}_step, {exp}-{key1}_timestamp,
-              {exp}-{key2}_step, {exp}-{key2}_timestamp, …
-
-    One row per step; columns are interleaved as ``(value, timestamp)`` pairs.
-    The ``{exp}-{key}_step`` column actually holds the metric **value** despite
-    its name — the suffix is a House naming convention.
-    """
-    import csv
-    import time
-    from collections import deque
-
-    resp = client._session.get(url, stream=True, timeout=timeout)
-    resp.raise_for_status()
-    resp.encoding = "utf-8"
-    lines = resp.iter_lines(decode_unicode=True)
-    next(lines, None)  # skip header — column order is known from ``keys``
-
-    n_keys = len(keys)
-    tail_limit = rq.tail if rq is not None and rq.tail is not None else None
-    rows_per_key: List[Any] = [deque(maxlen=tail_limit) if tail_limit is not None else [] for _ in range(n_keys)]
-
-    last_start_ts: Optional[int] = None
-    if rq is not None and rq.last is not None:
-        last_start_ts = int(time.time() * 1000) - rq.last
-
-    # CSV is ``ORDER BY step`` — safe to break once step exceeds the range end.
-    step_end_bound: Optional[int] = None
-    if rq is not None and rq.type != "timestamp" and last_start_ts is None and rq.end is not None:
-        step_end_bound = rq.end
-
-    head_limit = rq.head if rq is not None and rq.head is not None else None
-    _warned_missing_ts = False
-
-    for row in csv.reader(lines):
-        if not row:
-            continue
-        try:
-            step = int(row[0])
-        except (ValueError, IndexError):
-            continue
-
-        if step_end_bound is not None and step > step_end_bound:
-            break
-
-        for i in range(n_keys):
-            vc = 1 + i * 2  # value column index
-            tc = 2 + i * 2  # timestamp column index
-            if vc >= len(row):
-                continue
-            raw_val = row[vc]
-            if not raw_val:
-                continue
-            try:
-                value = float(raw_val)
-            except ValueError:
-                continue
-
-            ts: Optional[int] = None
-            if tc < len(row) and row[tc]:
-                try:
-                    ts = int(row[tc])
-                except ValueError:
-                    pass
-
-            if rq is not None:
-                # --- ``last`` mode: filter by timestamp >= (now - last) ---
-                if last_start_ts is not None:
-                    if ts is None:
-                        if not _warned_missing_ts:
-                            console.warning("CSV row missing `timestamp` column.")
-                            _warned_missing_ts = True
-                        continue
-                    if ts < last_start_ts:
-                        continue
-                # --- timestamp range mode ---
-                elif rq.type == "timestamp":
-                    if ts is None:
-                        if not _warned_missing_ts:
-                            console.warning("CSV row missing `timestamp` column.")
-                            _warned_missing_ts = True
-                        continue
-                    if rq.start is not None and ts < rq.start:
-                        continue
-                    if rq.end is not None and ts > rq.end:
-                        continue
-                # --- step range mode (end handled by step_end_bound break) ---
-                else:
-                    if rq.start is not None and step < rq.start:
-                        continue
-
-            item: Dict[str, Any] = {"step": step, "value": value}
-            if ts is not None:
-                item["timestamp"] = ts
-            rows_per_key[i].append(item)
-
-        # head early-stop: all keys collected enough rows
-        if head_limit is not None and all(len(r) >= head_limit for r in rows_per_key):
-            break
-
-    result: Dict[str, List[Dict[str, Any]]] = {}
-    for i, key in enumerate(keys):
-        rows = list(rows_per_key[i])
-        if head_limit is not None:
-            rows = rows[:head_limit]
-        result[key] = rows
-    return result
 
 
 class Metric(BaseEntity):
@@ -220,11 +76,13 @@ class Metric(BaseEntity):
         root_pro_id: str = "",
         root_exp_id: str = "",
         experiment_name: str = "",
+        x_axis: str = "step",
     ) -> None:
         super().__init__(ctx)
         validate_metric_type(metric_type, key)
         if metric_type == "LOG":
             validate_metric_log_level(log_level)
+        validate_x_axis(x_axis, metric_type=metric_type)
         self._project_id = project_id
         self._run_id = run_id
         self._key = key
@@ -242,6 +100,7 @@ class Metric(BaseEntity):
         self._root_exp_id = root_exp_id
         self._created_at = created_at
         self._experiment_name = experiment_name
+        self._x_axis = x_axis
 
     # 类型 → 加载方法 的分发表，新增类型只需在此注册
     _FETCH_DISPATCH = {
@@ -308,99 +167,6 @@ class Metric(BaseEntity):
     # 请求辅助函数
     # ------------------------------------------------------------------
 
-    @staticmethod
-    def _extract_first(resp: ApiResponseType) -> Optional[Dict[str, Any]]:
-        """从列表型 API 响应中提取第一个元素，失败返回 None。"""
-        if resp.ok and isinstance(resp.data, list) and resp.data:
-            return resp.data[0]
-        return None
-
-    @staticmethod
-    def _build_column_ref(
-        experiment_id: str,
-        created_at: int,
-        key: str,
-        root_pro_id: str = "",
-        root_exp_id: str = "",
-    ) -> Dict[str, Any]:
-        # createdAt 为 House 查询的数据入库时间下界，必传
-        ref: Dict[str, Any] = {"experimentId": experiment_id, "key": key, "createdAt": created_at}
-        if root_pro_id:
-            ref["rootProId"] = root_pro_id
-        if root_exp_id:
-            ref["rootExpId"] = root_exp_id
-        return ref
-
-    @staticmethod
-    def _build_scalar_payload(
-        project_id: str,
-        run_id: str,
-        created_at: int,
-        keys: List[str],
-        sample: int = 1500,
-        x_type: str = "step",
-        root_pro_id: str = "",
-        root_exp_id: str = "",
-    ) -> Dict[str, Any]:
-        return {
-            "projectId": project_id,
-            "xType": x_type,
-            "range": [0, 0],
-            "columns": [Metric._build_column_ref(run_id, created_at, key, root_pro_id, root_exp_id) for key in keys],
-            "num": sample if sample <= 1500 else 1500,
-        }
-
-    @staticmethod
-    def _build_media_payload(
-        project_id: str,
-        run_id: str,
-        created_at: int,
-        keys: List[str],
-        step: Optional[int] = None,
-        root_pro_id: str = "",
-        root_exp_id: str = "",
-    ) -> Dict[str, Any]:
-        payload: Dict[str, Any] = {
-            "projectId": project_id,
-            "columns": [Metric._build_column_ref(run_id, created_at, key, root_pro_id, root_exp_id) for key in keys],
-        }
-        if step is not None:
-            payload["step"] = step
-        return payload
-
-    @staticmethod
-    def _build_export_payload(
-        project_id: str,
-        run_id: str,
-        created_at: int,
-        keys: List[str],
-        experiment_name: str = "",
-        root_pro_id: str = "",
-        root_exp_id: str = "",
-    ) -> Dict[str, Any]:
-        """Build payload for ``POST /house/metrics/scalar/export``.
-
-        ``experimentName`` is required by the API but only used for CSV column
-        headers — the actual query uses ``experimentId``. Falls back to ``run_id``
-        when the real name is unavailable.
-        """
-        exp_name = experiment_name or run_id
-        columns: List[Dict[str, Any]] = []
-        for key in keys:
-            # createdAt 为 House 查询的数据入库时间下界，必传
-            col: Dict[str, Any] = {
-                "experimentName": exp_name,
-                "experimentId": run_id,
-                "key": key,
-                "createdAt": created_at,
-            }
-            if root_pro_id:
-                col["rootProId"] = root_pro_id
-            if root_exp_id:
-                col["rootExpId"] = root_exp_id
-            columns.append(col)
-        return {"projectId": project_id, "columns": columns}
-
     def _build_log_params(self) -> Dict[str, Any]:
         params: Dict[str, Any] = {
             "projectId": self.project_id,
@@ -422,92 +188,39 @@ class Metric(BaseEntity):
     # ------------------------------------------------------------------
 
     def _fetch_scalar(self) -> ApiScalarSeriesType:
-        res = ApiScalarSeriesType(projectId=self.project_id, experimentId=self.run_id, key=self.key)
+        """委托给单 key Metrics 获取标量数据（统一走轴发现、采样/全量 CSV 及回显）。"""
+        metrics_obj = Metrics(
+            self._ctx,
+            project_id=self._project_id,
+            run_id=self._run_id,
+            keys=[self.key],
+            metric_type="SCALAR",
+            sample=self._sample,
+            ignore_timestamp=self._ignore_timestamp,
+            all=self._all,
+            x_axis=self._x_axis,
+            root_pro_id=self._root_pro_id,
+            root_exp_id=self._root_exp_id,
+            created_at=self._created_at,
+            experiment_name=self._experiment_name,
+        )
+        batch = metrics_obj._ensure_batch()
+        if batch and batch[0]._data:
+            return cast(ApiScalarSeriesType, batch[0]._data)
+        res = ApiScalarSeriesType(projectId=self.project_id, experimentId=self.run_id, key=self.key, metrics=[])
         if self._root_pro_id:
             res["rootProId"] = self._root_pro_id
         if self._root_exp_id:
             res["rootExpId"] = self._root_exp_id
-        payload = self._build_scalar_payload(
-            self.project_id,
-            self.run_id,
-            self._created_at,
-            [self.key],
-            self._sample,
-            root_pro_id=self._root_pro_id,
-            root_exp_id=self._root_exp_id,
-        )
-
-        # 1. 获取折线数据 — 使用 key-indexed lookup 保证对齐
-        scalar_resp = self._post("/house/metrics/scalar", data=payload)
-        if scalar_resp.ok and isinstance(scalar_resp.data, list):
-            scalar_by_key = _align_entries_by_key(scalar_resp.data)
-            res["metrics"] = scalar_by_key.get(self.key, {}).get("metrics", [])
-        if not res.get("metrics"):
-            return res
-
-        # 2. 获取统计值 — step/time 并发，key-indexed 合并
-        step_payload = {**payload, "xType": "step"}
-        time_payload = {**payload, "xType": "timestamp"}
-        step_resp, time_resp = self._concurrent_request(
-            [
-                (self._post, "/house/metrics/scalar/value", {"data": step_payload}),
-                (self._post, "/house/metrics/scalar/value", {"data": time_payload}),
-            ]
-        )
-        step_list = step_resp.data if step_resp.ok and isinstance(step_resp.data, list) else []
-        time_list = time_resp.data if time_resp.ok and isinstance(time_resp.data, list) else []
-        value_list = _merge_value_stats(step_list, time_list, [self.key])
-        if value_list:
-            for field in _SCALAR_STATISTIC_FIELDS:
-                val = value_list[0].get(field)
-                if val:
-                    res[field] = val
         return res
-
-    @staticmethod
-    def _fetch_presigned_urls(entity: BaseEntity, prefix: str, paths: List[str]) -> Dict[str, str]:
-        """批量获取预签名下载链接，返回 path → url 映射。"""
-        if not paths:
-            return {}
-        resp = entity._post("/resources/presigned/get", data={"prefix": prefix, "paths": paths})
-        if not resp.ok or not isinstance(resp.data, dict):
-            return {}
-        urls = resp.data.get("urls") or []
-        return dict(zip(paths, urls)) if urls else {}
-
-    @staticmethod
-    def _fetch_file_presigned_urls(entity: BaseEntity, paths: List[str]) -> Dict[str, str]:
-        """通过完整资源路径批量获取预签名下载链接，返回 path → url 映射。"""
-        if not paths:
-            return {}
-        resp = entity._post("/files/presigned/get", data={"paths": paths})
-        if not resp.ok or not isinstance(resp.data, dict):
-            return {}
-        urls = resp.data.get("urls") or []
-        return dict(zip(paths, urls)) if urls else {}
-
-    @staticmethod
-    def _build_media_items(
-        entry: Dict[str, Any],
-        url_map: Dict[str, str],
-    ) -> List[ApiMediaItemDataType]:
-        """将单个 metric entry 的 data/more 合并为 items，注入预签名 url。"""
-        # 后端对"无数据"可能返回显式 null（dict.get 的默认值不生效），统一兜底为空列表
-        paths = entry.get("data") or []
-        mores = entry.get("more") or []
-        items: List[ApiMediaItemDataType] = []
-        for i, path in enumerate(paths):
-            item: ApiMediaItemDataType = {}
-            if path in url_map:
-                item["url"] = url_map[path]
-            if i < len(mores) and isinstance(mores[i], dict):
-                item.update(mores[i])
-            items.append(item)
-        return items
 
     def _fetch_media(self) -> ApiMediaSeriesType:
         res = ApiMediaSeriesType(projectId=self.project_id, experimentId=self.run_id, key=self.key)
-        payload = self._build_media_payload(
+        if self._root_pro_id:
+            res["rootProId"] = self._root_pro_id
+        if self._root_exp_id:
+            res["rootExpId"] = self._root_exp_id
+        payload = build_media_payload(
             self.project_id,
             self.run_id,
             self._created_at,
@@ -536,18 +249,22 @@ class Metric(BaseEntity):
 
         prefix = f"{self.project_id}/{self.run_id}"
         all_paths = metric_entry.get("data") or []
-        url_map = self._fetch_presigned_urls(self, prefix, all_paths) if all_paths else {}
+        url_map = fetch_presigned_urls(self, prefix, all_paths) if all_paths else {}
         if all_paths:
             console.debug(
                 f"Media fetched: run_id[{self.run_id}], key[{self.key}] - {len(all_paths)} items, requesting presigned urls..."
             )
-        items = self._build_media_items(metric_entry, url_map)
+        items = build_media_items(metric_entry, url_map)
         res["metrics"] = [{"index": data.get("step") or 0, "items": items}]
         return res
 
     def _fetch_media_all(self) -> ApiMediaSeriesType:
         res = ApiMediaSeriesType(projectId=self.project_id, experimentId=self.run_id, key=self.key)
-        payload = self._build_media_payload(
+        if self._root_pro_id:
+            res["rootProId"] = self._root_pro_id
+        if self._root_exp_id:
+            res["rootExpId"] = self._root_exp_id
+        payload = build_media_payload(
             self.project_id,
             self.run_id,
             self._created_at,
@@ -556,7 +273,7 @@ class Metric(BaseEntity):
             root_exp_id=self._root_exp_id,
         )
         raw_resp = self._post("/house/metrics/f_media", data=payload)
-        raw_data = self._extract_first(raw_resp)
+        raw_data = extract_first(raw_resp)
         if raw_data is None:
             return res
 
@@ -564,13 +281,13 @@ class Metric(BaseEntity):
         # metrics 可能为 null 或含 None 条目，过滤后再展开
         entries = [e for e in (raw_data.get("metrics") or []) if isinstance(e, dict)]
         all_paths = [p for entry in entries for p in (entry.get("data") or [])]
-        url_map = self._fetch_presigned_urls(self, prefix, all_paths) if all_paths else {}
+        url_map = fetch_presigned_urls(self, prefix, all_paths) if all_paths else {}
         if all_paths:
             console.debug(
                 f"Media fetched (all): run_id[{self.run_id}], key[{self.key}] - {len(all_paths)} items, requesting presigned urls..."
             )
         res["metrics"] = [
-            {"index": entry.get("index", 0), "items": self._build_media_items(entry, url_map)} for entry in entries
+            {"index": entry.get("index", 0), "items": build_media_items(entry, url_map)} for entry in entries
         ]
         return res
 
@@ -598,7 +315,7 @@ class Metric(BaseEntity):
         """
         if self.metric_type != "SCALAR":
             return ApiResponseType(ok=False, errmsg="export_csv() only support SCALAR metric_type", data=None)
-        payload = Metric._build_export_payload(
+        payload = build_export_payload(
             self._project_id,
             self._run_id,
             self._created_at,
@@ -613,7 +330,7 @@ class Metric(BaseEntity):
         cos_key = resp.data.get("cosKey", "") if isinstance(resp.data, dict) else ""
         if not cos_key:
             return ApiResponseType(ok=False, errmsg="Invalid response format: missing cosKey", data=None)
-        url_map = Metric._fetch_file_presigned_urls(self, [cos_key])
+        url_map = fetch_file_presigned_urls(self, [cos_key])
         url = url_map.get(cos_key, "")
         if not url:
             return ApiResponseType(ok=False, errmsg="Failed to get presigned download URL", data=None)
@@ -641,7 +358,7 @@ class Metric(BaseEntity):
         cos_key = resp.data.get("cosKey", "")
         if not cos_key:
             return ApiResponseType(ok=False, errmsg="Invalid response format: missing cosKey", data=None)
-        url_map = Metric._fetch_file_presigned_urls(self, [cos_key])
+        url_map = fetch_file_presigned_urls(self, [cos_key])
         url = url_map.get(cos_key, "")
         if not url:
             return ApiResponseType(ok=False, errmsg="Failed to get presigned download URL", data=None)
@@ -650,12 +367,19 @@ class Metric(BaseEntity):
     def json(self) -> Dict[str, Any]:
         result = get_properties(self)
         data = self._ensure_data()
+        if "rootProId" in data:
+            result["rootProId"] = data["rootProId"]
+        if "rootExpId" in data:
+            result["rootExpId"] = data["rootExpId"]
 
         if self._metric_type == "SCALAR":
             if "url" in data:
                 result.pop("metrics", None)
                 result["url"] = data["url"]
-            for field in _SCALAR_STATISTIC_FIELDS:
+            # 回显 metrics[].index 的实际轴语义（自定义 x / 内置轴 / 回落 step）
+            if "xAxis" in data:
+                result["xAxis"] = data["xAxis"]
+            for field in SCALAR_STATISTIC_FIELDS:
                 val = data.get(field)
                 if val:
                     result[field] = val
@@ -722,6 +446,7 @@ class Metrics(BaseEntity):
         root_exp_id: str = "",
         created_at: int,
         experiment_name: str = "",
+        x_axis: str = "step",
     ) -> None:
         super().__init__(ctx)
         validate_metric_keys(keys)
@@ -730,6 +455,19 @@ class Metrics(BaseEntity):
             raise ValueError("Metrics does not support LOG metric_type, use Experiment.logs() instead")
         if range_query is not None and metric_type != "SCALAR":
             raise ValueError("range_query is only supported for SCALAR metric_type")
+        validate_x_axis(x_axis, metric_type=metric_type)
+        if (range_query is not None or all) and x_axis in ("time", "relative_time"):
+            raise ValueError(
+                f"x_axis={x_axis!r} is not supported in CSV mode (all=True or range_query); "
+                "use the sampled mode (default) or a custom x column key instead"
+            )
+        if range_query is not None and range_query.type == "custom":
+            builtin = builtin_x_axis(x_axis)
+            if builtin is not None and builtin.get("type") != "CUSTOM":
+                raise ValueError(
+                    "range_query type='custom' filters on custom x-axis values and requires a custom x axis; "
+                    f"got x_axis={x_axis!r}. Pass x_axis=<custom column key> instead"
+                )
         self._project_id = project_id
         self._run_id = run_id
         # 去重，保持插入顺序
@@ -743,6 +481,7 @@ class Metrics(BaseEntity):
         self._root_exp_id = root_exp_id
         self._created_at = created_at
         self._experiment_name = experiment_name
+        self._x_axis = x_axis
         self._page_info: Dict[str, Any] = {
             "keys": keys,
             "metricType": metric_type,
@@ -768,6 +507,9 @@ class Metrics(BaseEntity):
         self._cached_list = list(self._fetch_batch())
         return self._cached_list
 
+    def _ensure_data(self) -> Any:
+        return self._ensure_batch()
+
     def __iter__(self) -> Iterator[Metric]:
         yield from self._ensure_batch()
 
@@ -785,9 +527,9 @@ class Metrics(BaseEntity):
         """根据 metric_type 和模式分发到具体的获取方法。"""
         if self._metric_type == "SCALAR":
             if self._range_query is not None or self._all:
-                data_list = self._fetch_scalar_csv(self._keys)
+                data_list = self._fetch_scalar_csv_data()
             else:
-                data_list = self._batch_keys(self._fetch_scalar_lines)
+                data_list = self._fetch_scalar_sampled_data()
         else:
             # media 后端已支持 columns 批量，无需分批
             if self._all:
@@ -798,15 +540,48 @@ class Metrics(BaseEntity):
         for data in data_list:
             yield self._build_metric(data.get("key", ""), data)
 
-    def _batch_keys(self, fetch_fn: Callable[[List[str]], List[Dict[str, Any]]]) -> List[Dict[str, Any]]:
+    # ------------------------------------------------------------------
+    # X 轴解析与数据获取
+    # ------------------------------------------------------------------
+
+    def _resolve_axis(self) -> ApiMetricXAxisType:
+        """解析当前查询的 X 轴（显式内置轴或自定义列 key）。"""
+        builtin = builtin_x_axis(self._x_axis)
+        if builtin is not None:
+            return builtin
+        return {"type": "CUSTOM", "key": self._x_axis}
+
+    def _fetch_scalar_sampled_data(self) -> List[Dict[str, Any]]:
+        """采样路径：单次请求统一按 self._x_axis 请求 House，按 keys 顺序回显。"""
+        axis = self._resolve_axis()
+        x_type, x_key = axis_request_params(axis)
+        results = self._batch_keys(self._keys, x_type=x_type, x_key=x_key)
+        for r in results:
+            r["xAxis"] = axis
+        return results
+
+    def _fetch_scalar_csv_data(self) -> List[Dict[str, Any]]:
+        """CSV 全量路径：导出并提取单轴数据。"""
+        axis = self._resolve_axis()
+        x_key = axis.get("key", "") if axis.get("type") == "CUSTOM" else ""
+        results = self._fetch_scalar_csv(self._keys, x_key=x_key)
+        for r in results:
+            r["xAxis"] = axis
+        return results
+
+    def _batch_keys(
+        self,
+        keys: List[str],
+        x_type: str = "step",
+        x_key: str = "",
+    ) -> List[Dict[str, Any]]:
         """将 keys 按 ``_BATCH_SIZE`` 分批；单批直接执行，多批并发。"""
-        keys = self._keys
         if len(keys) <= self._BATCH_SIZE:
-            return fetch_fn(keys)
+            return self._fetch_scalar_lines(keys, x_type=x_type, x_key=x_key)
 
         chunks = [keys[i : i + self._BATCH_SIZE] for i in range(0, len(keys), self._BATCH_SIZE)]
         with SafeThreadPoolExecutor(max_workers=min(len(chunks), self._BATCH_SIZE)) as pool:
-            futures = [pool.submit(fetch_fn, chunk) for chunk in chunks]
+            futures = [pool.submit(self._fetch_scalar_lines, chunk, x_type, x_key) for chunk in chunks]
             results: List[Dict[str, Any]] = []
             for f in futures:
                 results.extend(f.result())
@@ -840,7 +615,20 @@ class Metrics(BaseEntity):
 
     def _empty_scalar_results(self, keys: List[str]) -> List[Dict[str, Any]]:
         """返回 per-key 空结果列表（用于 early return）。"""
-        return [{"projectId": self._project_id, "experimentId": self._run_id, "key": k, "metrics": []} for k in keys]
+        results: List[Dict[str, Any]] = []
+        for k in keys:
+            data: Dict[str, Any] = {
+                "projectId": self._project_id,
+                "experimentId": self._run_id,
+                "key": k,
+                "metrics": [],
+            }
+            if self._root_pro_id:
+                data["rootProId"] = self._root_pro_id
+            if self._root_exp_id:
+                data["rootExpId"] = self._root_exp_id
+            results.append(data)
+        return results
 
     def _build_value_stats_requests(self, keys: List[str]) -> List[tuple]:
         """构建 step/time value stats 的并发请求列表（2 路并发）。"""
@@ -850,7 +638,7 @@ class Metrics(BaseEntity):
                 self._post,
                 value_path,
                 {
-                    "data": Metric._build_scalar_payload(
+                    "data": build_scalar_payload(
                         self._project_id,
                         self._run_id,
                         self._created_at,
@@ -865,26 +653,16 @@ class Metrics(BaseEntity):
             for x_type in ("step", "timestamp")
         ]
 
-    @staticmethod
-    def _extract_value_stats(
-        step_resp: ApiResponseType,
-        time_resp: ApiResponseType,
-        keys: List[str],
-    ) -> List[Dict[str, Any]]:
-        """从并发的 step/time 响应中提取并合并 value stats。"""
-        step_list = step_resp.data if step_resp.ok and isinstance(step_resp.data, list) else []
-        time_list = time_resp.data if time_resp.ok and isinstance(time_resp.data, list) else []
-        return _merge_value_stats(step_list, time_list, keys)
-
     # ------------------------------------------------------------------
     # Scalar: 折线数据 + 统计值 (后端 columns 批量)
     # ------------------------------------------------------------------
 
-    def _fetch_scalar_lines(self, keys: List[str]) -> List[Dict[str, Any]]:
+    def _fetch_scalar_lines(self, keys: List[str], x_type: str = "step", x_key: str = "") -> List[Dict[str, Any]]:
         """获取标量折线数据 + step/time 统计值，3 路并发。
 
         后端 ``POST /house/metrics/scalar`` 和 ``/scalar/value`` 的 ``columns``
         数组天然支持多 key，此处将 keys 打包为一个批量请求。
+        同一分组内的 keys 共享一个轴（xKey / xType）；stats 请求不支持 xKey，不带。
         """
         # 3 路并发：折线数据 + step 统计 + time 统计
         requests: List[tuple] = [
@@ -892,12 +670,14 @@ class Metrics(BaseEntity):
                 self._post,
                 "/house/metrics/scalar",
                 {
-                    "data": Metric._build_scalar_payload(
+                    "data": build_scalar_payload(
                         self._project_id,
                         self._run_id,
                         self._created_at,
                         keys,
                         self._sample,
+                        x_type=x_type,
+                        x_key=x_key or None,
                         root_pro_id=self._root_pro_id,
                         root_exp_id=self._root_exp_id,
                     )
@@ -909,9 +689,9 @@ class Metrics(BaseEntity):
         scalar_resp, step_resp, time_resp = self._concurrent_request(requests)
 
         scalar_list = scalar_resp.data if scalar_resp.ok and isinstance(scalar_resp.data, list) else []
-        scalar_by_key = _align_entries_by_key(scalar_list)
+        scalar_by_key = align_entries_by_key(scalar_list)
         metrics_by_key: Dict[str, Any] = {key: scalar_by_key.get(key, {}).get("metrics", []) for key in keys}
-        value_list = self._extract_value_stats(step_resp, time_resp, keys)
+        value_list = extract_value_stats(step_resp, time_resp, keys)
         value_by_key: Dict[str, Dict[str, Any]] = {keys[i]: v for i, v in enumerate(value_list)}
 
         return self._build_scalar_results(keys, metrics_by_key, value_by_key)
@@ -920,39 +700,45 @@ class Metrics(BaseEntity):
     # Scalar: CSV 全量下载 + 统计值 (range_query 或 all 模式)
     # ------------------------------------------------------------------
 
-    def _fetch_scalar_csv(self, keys: List[str]) -> List[Dict[str, Any]]:
+    def _fetch_scalar_csv(self, keys: List[str], x_key: str = "") -> List[Dict[str, Any]]:
         """CSV 全量下载 + value stats，使用 House 批量导出接口。
 
-        将 keys 按 ``_CSV_KEY_BATCH_SIZE``（16）个一组分批，4 线程并发获取。
+        将 keys 按 ``MAX_METRIC_KEY_BATCH_SIZE``（16）个一组分批，4 线程并发获取。
+        自定义 x 轴下 ``x_key`` 作为额外的普通导出列追加，占用一个分批槽位
+        （每批 y keys 上限降为 15）。
         通过 ``POST /house/metrics/scalar/export`` 一次性导出每批 key 到 CSV 文件，
         再通过 ``/files/presigned/get`` 获取预签名下载链接。
         value stats 批量获取，与导出请求并发执行。
         """
-        if len(keys) <= MAX_METRIC_KEY_BATCH_SIZE:
-            return self._fetch_scalar_csv_batch(keys)
+        chunk_size = MAX_METRIC_KEY_BATCH_SIZE - 1 if x_key else MAX_METRIC_KEY_BATCH_SIZE
+        if len(keys) <= chunk_size:
+            return self._fetch_scalar_csv_batch(keys, x_key=x_key)
 
-        chunks = [keys[i : i + MAX_METRIC_KEY_BATCH_SIZE] for i in range(0, len(keys), MAX_METRIC_KEY_BATCH_SIZE)]
+        chunks = [keys[i : i + chunk_size] for i in range(0, len(keys), chunk_size)]
         with SafeThreadPoolExecutor(max_workers=MAX_CONCURRENT_COUNT) as pool:
-            futures = [pool.submit(self._fetch_scalar_csv_batch, chunk) for chunk in chunks]
+            futures = [pool.submit(self._fetch_scalar_csv_batch, chunk, x_key) for chunk in chunks]
             results: List[Dict[str, Any]] = []
             for f in futures:
                 results.extend(f.result())
             return results
 
-    def _fetch_scalar_csv_batch(self, keys: List[str]) -> List[Dict[str, Any]]:
-        """单批 CSV 导出 + value stats（≤16 keys）。
+    def _fetch_scalar_csv_batch(self, keys: List[str], x_key: str = "") -> List[Dict[str, Any]]:
+        """单批 CSV 导出 + value stats（≤16 列；自定义 x 时 ≤15 y keys + 1 x 列）。
 
         通过 ``POST /house/metrics/scalar/export`` 一次性导出所有 key 到一个 CSV 文件，
         再通过 ``/files/presigned/get`` 获取预签名下载链接。
-        value stats 批量获取，与导出请求并发执行。
+        value stats 批量获取，与导出请求并发执行；stats 请求只含 y keys，不含 x 列。
         """
         # 并发：step 统计 + time 统计 + 批量 CSV 导出
         requests: List[tuple] = self._build_value_stats_requests(keys)
-        export_payload = Metric._build_export_payload(
+        export_columns = list(keys)
+        if x_key and x_key not in keys:
+            export_columns.append(x_key)
+        export_payload = build_export_payload(
             self._project_id,
             self._run_id,
             self._created_at,
-            keys,
+            export_columns,
             experiment_name=self._experiment_name,
             root_pro_id=self._root_pro_id,
             root_exp_id=self._root_exp_id,
@@ -963,7 +749,7 @@ class Metrics(BaseEntity):
         step_resp, time_resp = all_resps[0], all_resps[1]
         export_resp = all_resps[2]
 
-        value_list = self._extract_value_stats(step_resp, time_resp, keys)
+        value_list = extract_value_stats(step_resp, time_resp, keys)
         value_by_key: Dict[str, Dict[str, Any]] = {keys[i]: v for i, v in enumerate(value_list)}
 
         # cosKey → presigned URL → download → parse per-key rows
@@ -972,10 +758,10 @@ class Metrics(BaseEntity):
         if export_resp.ok and isinstance(export_resp.data, dict):
             cos_key = export_resp.data.get("cosKey", "")
         if cos_key:
-            url_map = Metric._fetch_file_presigned_urls(self, [cos_key])
+            url_map = fetch_file_presigned_urls(self, [cos_key])
             url = url_map.get(cos_key, "")
             if url:
-                parsed = _stream_export_csv(self._ctx.client, url, keys, self._range_query)
+                parsed = stream_export_csv(self._ctx.client, url, keys, self._range_query, x_key=x_key)
                 if parsed:
                     metrics_by_key = parsed
 
@@ -1003,6 +789,10 @@ class Metrics(BaseEntity):
                 "key": key,
                 "metrics": metrics_by_key.get(key, []),
             }
+            if self._root_pro_id:
+                data["rootProId"] = self._root_pro_id
+            if self._root_exp_id:
+                data["rootExpId"] = self._root_exp_id
             stats = value_by_key.get(key, {})
             if stats:
                 data.update(stats)
@@ -1015,7 +805,7 @@ class Metrics(BaseEntity):
 
     def _fetch_media_data(self) -> List[Dict[str, Any]]:
         """获取媒体数据（单步），后端 columns 批量一次返回。"""
-        payload = Metric._build_media_payload(
+        payload = build_media_payload(
             self._project_id,
             self._run_id,
             self._created_at,
@@ -1038,7 +828,7 @@ class Metrics(BaseEntity):
 
         prefix = f"{self._project_id}/{self._run_id}"
         all_paths = [p for entry in metrics_raw for p in (entry.get("data") or [])]
-        url_map = Metric._fetch_presigned_urls(self, prefix, all_paths) if all_paths else {}
+        url_map = fetch_presigned_urls(self, prefix, all_paths) if all_paths else {}
         if all_paths:
             console.debug(
                 f"Media fetched: run_id[{self._run_id}] - {len(all_paths)} items across {len(self._keys)} keys, requesting presigned urls..."
@@ -1055,16 +845,20 @@ class Metrics(BaseEntity):
                 "step": current_step,
                 "metrics": [],
             }
+            if self._root_pro_id:
+                data["rootProId"] = self._root_pro_id
+            if self._root_exp_id:
+                data["rootExpId"] = self._root_exp_id
             entry = key_to_entry.get(key)
             if entry:
-                items = Metric._build_media_items(entry, url_map)
+                items = build_media_items(entry, url_map)
                 data["metrics"] = [{"index": current_step or 0, "items": items}]
             results.append(data)
         return results
 
     def _fetch_media_all(self) -> List[Dict[str, Any]]:
         """获取全部媒体数据，后端 columns 批量一次返回。"""
-        payload = Metric._build_media_payload(
+        payload = build_media_payload(
             self._project_id,
             self._run_id,
             self._created_at,
@@ -1089,7 +883,7 @@ class Metrics(BaseEntity):
             if isinstance(m, dict)
             for p in (m.get("data") or [])
         ]
-        url_map = Metric._fetch_presigned_urls(self, prefix, all_paths) if all_paths else {}
+        url_map = fetch_presigned_urls(self, prefix, all_paths) if all_paths else {}
         if all_paths:
             console.debug(
                 f"Media fetched (all): run_id[{self._run_id}] - {len(all_paths)} items across {len(self._keys)} keys, requesting presigned urls..."
@@ -1104,13 +898,17 @@ class Metrics(BaseEntity):
                 "key": key,
                 "metrics": [],
             }
+            if self._root_pro_id:
+                data["rootProId"] = self._root_pro_id
+            if self._root_exp_id:
+                data["rootExpId"] = self._root_exp_id
             entry = key_to_entry.get(key)
             if entry:
                 metrics_list: List[Dict[str, Any]] = []
                 for m in entry.get("metrics") or []:
                     if not isinstance(m, dict):
                         continue
-                    items = Metric._build_media_items(m, url_map)
+                    items = build_media_items(m, url_map)
                     metrics_list.append({"index": m.get("index", 0), "items": items})
                 data["metrics"] = metrics_list
             results.append(data)

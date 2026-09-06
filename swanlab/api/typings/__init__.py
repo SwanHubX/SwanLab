@@ -26,6 +26,9 @@ from .experiment import ApiExperimentLabelType, ApiExperimentType
 from .metric import (
     ApiLogSeriesType,
     ApiMediaSeriesType,
+    ApiMetricXAxisKindLiteral,
+    ApiMetricXAxisParam,
+    ApiMetricXAxisType,
     ApiScalarSeriesType,
 )
 from .project import ApiProjectCountType, ApiProjectLabelType, ApiProjectType
@@ -73,4 +76,7 @@ __all__ = [
     "ApiLogSeriesType",
     "ApiMediaSeriesType",
     "ApiScalarSeriesType",
+    "ApiMetricXAxisKindLiteral",
+    "ApiMetricXAxisParam",
+    "ApiMetricXAxisType",
 ]
