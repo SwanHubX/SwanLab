@@ -13,6 +13,7 @@
 from typing import Any, Callable, Dict, Iterator, Optional, cast
 
 from swanlab.api.base import ApiClientContext, BaseEntity
+from swanlab.api.helper import get_properties, parse_column_data_type, resolve_run_path, validate_column_params
 from swanlab.api.typings.column import ApiColumnType
 from swanlab.api.typings.common import (
     ApiColumnClassLiteral,
@@ -21,7 +22,6 @@ from swanlab.api.typings.common import (
     ApiResponseType,
     PaginatedQuery,
 )
-from swanlab.api.utils import get_properties, parse_column_data_type, resolve_run_path, validate_column_params
 
 
 class Column(BaseEntity):
@@ -183,6 +183,8 @@ class Column(BaseEntity):
             root_pro_id=self._root_pro_id,
             root_exp_id=self._root_exp_id,
             created_at=self._exp_created_at,
+            # Column 已废弃：不参与 x 轴扩展，显式冻结 step 语义
+            x_axis="step",
         )
         return metric.json()
 
