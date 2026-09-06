@@ -289,7 +289,9 @@ class TestExperimentRunIdResolution:
         exp.metrics(["loss"])
 
         payload = ctx.client.post.call_args_list[0].kwargs["data"]
-        assert [call.args[0] for call in ctx.client.get.call_args_list] == ["/project/user/proj/runs/run-slug"]
+        assert [call.args[0] for call in ctx.client.get.call_args_list] == [
+            "/project/user/proj/runs/run-slug",
+        ]
         assert payload["projectId"] == "project-cuid"
         assert payload["columns"] == [{"experimentId": "run-cuid", "key": "loss", "createdAt": 1722470400}]
 
@@ -628,3 +630,111 @@ class TestExperimentsFilterValidation:
         exps = Experiments(ctx, path="user/proj", sorts=bad_sorts, mode="post")
         with pytest.raises(ValueError, match="Invalid sort order"):
             list(exps)
+
+
+# ---------------------------------------------------------------------------
+# Metrics 自定义 X 轴单测
+# ---------------------------------------------------------------------------
+class TestMetricsWithCustomXAxis:
+    def test_metrics_sampled_with_custom_x_axis(self, ctx):
+        def get(path, **kwargs):
+            if path == "/project/user/proj/runs/run-slug":
+                return _api_response(
+                    {
+                        "cuid": "run-cuid",
+                        "slug": "run-slug",
+                        "name": "test-run",
+                        "project_id": "project-cuid",
+                        "createdAt": "2024-08-01T00:00:00Z",
+                    }
+                )
+            raise AssertionError(f"unexpected GET {path}")
+
+        ctx.client.get.side_effect = get
+        ctx.client.post.side_effect = [
+            _api_response([{"metrics": [{"step": 1, "value": 0.5}], "key": "loss"}]),
+            _api_response([{"min": {"value": 0.5}}]),
+        ]
+        exp = Experiment(ctx, path="user/proj/run-slug")
+        res = exp.metrics(["loss"], x_axis="epoch")
+
+        payload = ctx.client.post.call_args_list[0].kwargs["data"]
+        assert payload["xKey"] == "epoch"
+        assert payload["xType"] == "step"
+
+        loss_item = res["list"][0]
+        assert loss_item["xAxis"] == {"type": "CUSTOM", "key": "epoch"}
+
+    def test_metrics_with_x_axis_in_keys_identity(self, ctx):
+        """当 x_axis='epoch' 且 'epoch' 在 keys 中，epoch 序列的 value == index。"""
+
+        def get(path, **kwargs):
+            return _api_response(
+                {
+                    "cuid": "run-cuid",
+                    "slug": "run-slug",
+                    "name": "test-run",
+                    "project_id": "project-cuid",
+                    "createdAt": "2024-08-01T00:00:00Z",
+                }
+            )
+
+        ctx.client.get.side_effect = get
+        ctx.client.post.side_effect = [
+            _api_response(
+                [
+                    {"metrics": [{"index": 10.0, "data": 10.0}], "key": "epoch"},
+                    {"metrics": [{"index": 10.0, "data": 0.5}], "key": "loss"},
+                ]
+            ),
+            _api_response([{"min": {"value": 10.0}}, {"min": {"value": 0.5}}]),
+        ]
+        exp = Experiment(ctx, path="user/proj/run-slug")
+        res = exp.metrics(["epoch", "loss"], x_axis="epoch")
+
+        assert len(res["list"]) == 2
+        epoch_series = res["list"][0]
+        loss_series = res["list"][1]
+
+        assert epoch_series["key"] == "epoch"
+        for pt in epoch_series["metrics"]:
+            assert pt["data"] == pt["index"]
+
+        assert loss_series["key"] == "loss"
+        assert loss_series["xAxis"] == {"type": "CUSTOM", "key": "epoch"}
+
+    def test_metrics_rejects_time_axis_in_csv_mode(self, ctx):
+        ctx.client.get.return_value = _api_response(
+            {"cuid": "run-cuid", "project_id": "p-1", "createdAt": "2024-08-01T00:00:00Z"}
+        )
+        exp = Experiment(ctx, path="user/proj/run-slug")
+        with pytest.raises(ValueError, match="is not supported in CSV mode"):
+            exp.metrics(["loss"], all=True, x_axis="time")
+
+    def test_metrics_rejects_custom_range_without_custom_x_axis(self, ctx):
+        ctx.client.get.return_value = _api_response(
+            {"cuid": "run-cuid", "project_id": "p-1", "createdAt": "2024-08-01T00:00:00Z"}
+        )
+        exp = Experiment(ctx, path="user/proj/run-slug")
+        with pytest.raises(ValueError, match="requires a custom x axis"):
+            exp.metrics(["loss"], range_query={"type": "custom", "start": 0}, x_axis="step")
+
+    def test_metrics_retains_root_ids(self, ctx):
+        ctx.client.post.side_effect = [
+            _api_response([{"metrics": [{"step": 1, "value": 0.5}], "key": "loss"}]),
+            _api_response([{"min": {"value": 0.5}}]),
+        ]
+        metrics = Metrics(
+            ctx,
+            project_id="p-1",
+            run_id="r-1",
+            keys=["loss"],
+            metric_type="SCALAR",
+            root_pro_id="root-p",
+            root_exp_id="root-r",
+            created_at=1700000000,
+        )
+        res = list(metrics)
+        assert len(res) == 1
+        assert res[0].json()["rootProId"] == "root-p"
+        assert res[0].json()["rootExpId"] == "root-r"

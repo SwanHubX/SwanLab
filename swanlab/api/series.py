@@ -8,8 +8,8 @@
 from typing import Any, Callable, Dict, Iterator, List, Optional
 
 from swanlab.api.base import ApiClientContext, BaseEntity
+from swanlab.api.helper import fetch_file_presigned_urls, get_properties
 from swanlab.api.typings import ApiMetricKeyClassLiteral, ApiMetricKeyTypeLiteral, ApiResponseType
-from swanlab.api.utils import get_properties
 
 # 系统指标 key 前缀：SCALAR 类型且以此前缀开头的 key 分类为 SYSTEM
 _SYSTEM_KEY_PREFIX = "__swanlab__"
@@ -88,6 +88,7 @@ class Key(BaseEntity):
         ignore_timestamp: bool = False,
         media_step: Optional[int] = None,
         all: bool = False,
+        x_axis: str = "step",
     ) -> Dict[str, Any]:
         """Fetch metric data points for this key.
 
@@ -95,6 +96,9 @@ class Key(BaseEntity):
         :param ignore_timestamp: If True, omit ``timestamp`` field from each data point.
         :param media_step: Step filter for MEDIA metrics. If None, returns all steps.
         :param all: If True, fetch full-resolution data without downsampling.
+        :param x_axis: X axis of the ``index`` values — ``"step"`` (default), a built-in axis
+            (``"time"`` / ``"relative_time"``), or any other non-empty string as a custom
+            x column key (SCALAR only).
         :returns: ``{"list": [{"step", "value", "timestamp", "key"}], ...}``
         """
         from swanlab.api.metric import Metric
@@ -112,6 +116,7 @@ class Key(BaseEntity):
             root_pro_id=self._root_pro_id,
             root_exp_id=self._root_exp_id,
             created_at=self._created_at,
+            x_axis=x_axis,
         )
         return metric.json()
 
@@ -121,7 +126,6 @@ class Key(BaseEntity):
         :returns: ``ApiResponseType(ok=True, data={"url": "<download_url>"})``.
             Returns ``ok=False`` for MEDIA keys.
         """
-        from swanlab.api.metric import Metric
 
         if self._metric_type != "SCALAR":
             return ApiResponseType(ok=False, errmsg="export_csv() only support SCALAR metric_type", data=None)
@@ -152,7 +156,7 @@ class Key(BaseEntity):
         if not cos_key:
             return ApiResponseType(ok=False, errmsg="Invalid response format: missing cosKey", data=None)
 
-        url_map = Metric._fetch_file_presigned_urls(self, [cos_key])
+        url_map = fetch_file_presigned_urls(self, [cos_key])
         url = url_map.get(cos_key, "")
         if not url:
             return ApiResponseType(ok=False, errmsg="Failed to get presigned download URL", data=None)
