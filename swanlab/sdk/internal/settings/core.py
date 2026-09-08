@@ -42,4 +42,12 @@ class CoreSettings(BaseModel):
     """
     Maximum number of files per save upload batch. Default 100.
     """
+    skip_store: bool = Field(default=False)
+    """
+    Skip the local Record store (run-*.swanlab) and upload records to the cloud only.
+
+    Only valid in ``online`` mode; any other mode combined with ``True`` raises ``ValueError``.
+    Media, saved files, probe metadata and debug logs are still written locally. 
+    NOTE: Without the local store a crashed run CANNOT be recovered or synced afterwards.
+    """
     model_config = ConfigDict(frozen=True)
