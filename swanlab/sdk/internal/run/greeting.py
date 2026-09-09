@@ -25,6 +25,10 @@ def _print_version():
 
 
 def _print_save_dir(ctx: RunContext):
+    # skip_store 仅 online 模式合法，此时本地不产生 run-*.swanlab，不再展示"数据已保存"提示
+    if ctx.config.settings.core.skip_store:
+        console.info("☁️ Local record store disabled (core.skip_store); data is uploaded to cloud only")
+        return
     console.info("💾 Run data saved at", Text(str(ctx.config.run_dir), "magenta bold"))
 
 

@@ -27,6 +27,8 @@ class CoreConfig:
     save_split: int
     save_part: int
     save_batch: int
+    # 跳过本地 datastore 落盘（仅 online 模式合法，由根 Settings 校验器保证），见 cloud-only 方案 §5.2.1
+    skip_store: bool = False
 
 
 class CoreContext:
@@ -52,6 +54,7 @@ class CoreContext:
             save_split=proto.save_split,
             save_part=proto.save_part,
             save_batch=proto.save_batch,
+            skip_store=proto.skip_store,
         )
         return cls(config=config, mode=mode)
 

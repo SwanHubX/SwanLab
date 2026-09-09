@@ -105,7 +105,8 @@ class CorePython(CoreProtocol):
         return resp
 
     def _start_store(self, resp: DeliverRunStartResponse):
-        self._store = DataStoreWriter()
+        # skip_store 仅 online 模式为 True（根 Settings 校验器保证），此时不创建本地 datastore 文件
+        self._store = DataStoreWriter(skip=self._ctx.config.skip_store)
         self._store.open(str(self._ctx.run_file))
         record = builder.build_start_record(resp.run)
         self._store.write(record.SerializeToString())
@@ -346,8 +347,9 @@ class CorePython(CoreProtocol):
         records = [builder.build_log_record(self._counter, self._epoch, c) for c in logs]
         self._store_records(records)
         if records:
+            action = "Skipped storing" if self._ctx.config.skip_store else "Stored"
             console.debug(
-                f"Stored log records locally: count={len(records)}, nums={records[0].num}..{records[-1].num}",
+                f"{action} log records locally: count={len(records)}, nums={records[0].num}..{records[-1].num}",
                 write_to_tty=False,
             )
         self._transport_put(records)

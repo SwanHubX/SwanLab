@@ -12,6 +12,7 @@
   - TestInitSettingsPriority : 配置优先级（全局 < 自定义 < 传参）
   - TestInitResumeValidation : resume/id 校验逻辑
   - TestInitOnlineMode       : online 模式，依赖本文件内的 HTTP mock fixtures
+  - TestInitOnlineSkipStore  : online + core.skip_store，本地不产生 datastore
   - TestOnlineMultipleInit   : online 模式多次 init/finish，验证 finish 后 client 重置与重新认证
   - TestInitFactoryDispatch  : 验证 factory 模式按模式分派组件类型
   - TestRunSave              : run.save() 各 policy / 各模式的端到端行为
@@ -695,6 +696,48 @@ class TestInitOnlineMode:
         payload = json.loads(cast(bytes, experiment_calls[0].request.body))
         assert payload["name"] == "test-save-exp"
         assert run._ctx.config.settings.experiment.name == "test-save-exp"
+
+
+# ============================================================
+# TestInitOnlineSkipStore
+# ============================================================
+
+
+class TestInitOnlineSkipStore:
+    """core.skip_store=true：online run 正常初始化，本地不产生 run-*.swanlab。"""
+
+    def test_skip_store_creates_no_datastore(
+        self,
+        logged_in_client,
+        mock_project_get_api,
+        mock_experiment_create_api,
+        mock_experiment_stop_api,
+        mock_profile_api,
+        mock_heartbeat_api,
+        mock_metrics_api,
+    ):
+        run = init(project=PROJECT, settings=Settings(core=Settings.Core(skip_store=True)))
+
+        assert isinstance(run, Run)
+        assert run._ctx.config.settings.core.skip_store is True
+        # run_dir 仍创建（Phase 1 边界：probe/media/files/debug 仍在本地），但没有 datastore 文件
+        assert run._ctx.run_dir.exists()
+        assert list(run._ctx.run_dir.glob("run-*.swanlab")) == []
+
+    def test_default_creates_datastore(
+        self,
+        logged_in_client,
+        mock_project_get_api,
+        mock_experiment_create_api,
+        mock_experiment_stop_api,
+        mock_profile_api,
+        mock_heartbeat_api,
+        mock_metrics_api,
+    ):
+        run = init(mode="online", project=PROJECT)
+
+        assert run._ctx.config.settings.core.skip_store is False
+        assert list(run._ctx.run_dir.glob("run-*.swanlab"))
 
 
 # ============================================================

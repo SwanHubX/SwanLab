@@ -9,6 +9,7 @@
   - TestCorePythonPublish: 各模式 publish 行为
   - TestCorePythonFinish : 各模式 deliver_run_finish 行为
   - TestCorePythonGuard  : 防御逻辑
+  - TestCorePythonSkipStore: core.skip_store 主链路（无本地 datastore + live save 回归）
 """
 
 from unittest.mock import MagicMock, patch
@@ -23,6 +24,7 @@ from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
 )
 from swanlab.proto.swanlab.operation.v1.operation_pb2 import CoreState
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord, StartRecord
+from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord
 from swanlab.proto.swanlab.settings.core.v1.core_pb2 import CoreSettings as CoreSettingsPb
 from swanlab.sdk.internal.core_python import CorePython
 from swanlab.sdk.internal.core_python.context import CoreConfig, CoreContext
@@ -262,3 +264,75 @@ class TestCorePythonGuard:
 
         with pytest.raises(RuntimeError, match="should not be called"):
             core.fork()
+
+
+# ============================================================
+# TestCorePythonSkipStore
+# ============================================================
+
+
+class TestCorePythonSkipStore:
+    """core.skip_store=true（仅 online 合法）：本地不产生 datastore，记录仍进 Transport。"""
+
+    def _start_online_core(self, tmp_path, monkeypatch, skip_store: bool) -> CorePython:
+        core = CorePython("online")
+        record = make_start_record()
+        mock_start = MagicMock(return_value=DeliverRunStartResponse(success=True, message="OK", run=record))
+
+        def _report_run_start_and_set_attrs(rec):
+            set_online_params(core)
+            core._metrics = MagicMock()
+            return mock_start(rec)
+
+        monkeypatch.setattr(core, "_report_run_start", _report_run_start_and_set_attrs)
+        req = make_start_request(tmp_path, record)
+        req.core_settings.skip_store = skip_store
+        with patch("swanlab.sdk.internal.core_python.core.Heartbeat"):
+            resp = core.deliver_run_start(req)
+        assert resp.success is True
+        return core
+
+    def test_skip_store_creates_no_datastore_file(self, tmp_path, monkeypatch):
+        core = self._start_online_core(tmp_path, monkeypatch, skip_store=True)
+        # from_proto 已解析该字段，store 处于 skip 模式且不产生文件
+        assert core._ctx.config.skip_store is True
+        assert core._store is not None
+        assert core._store._skip is True
+        assert not core._ctx.run_file.exists()
+        assert core._transport is not None
+
+    def test_default_creates_datastore_file(self, tmp_path, monkeypatch):
+        core = self._start_online_core(tmp_path, monkeypatch, skip_store=False)
+        assert core._ctx.config.skip_store is False
+        assert core._store is not None
+        assert core._store._skip is False
+        assert core._ctx.run_file.exists()
+
+    def test_live_save_still_reaches_transport(self, tmp_path, monkeypatch):
+        """回归 §5.2.1 的坑：skip 模式下 _on_file_changed 不能早退，record 必须进 Transport。"""
+        core = self._start_online_core(tmp_path, monkeypatch, skip_store=True)
+        transport = MagicMock()
+        core._transport = transport
+        store = core._store
+        assert store is not None
+        skipped_before = store._skipped_records  # start record 已经过 write()
+
+        core._on_file_changed(SaveRecord())
+
+        transport.put.assert_called_once()
+        assert store._skipped_records == skipped_before + 1
+        assert not core._ctx.run_file.exists()
+
+    def test_live_save_after_finish_is_ignored(self, tmp_path, monkeypatch):
+        """finish 将 store 置 None 后，watcher 回调应被早退条件拦住，不触发 assert。"""
+        core = self._start_online_core(tmp_path, monkeypatch, skip_store=True)
+        monkeypatch.setattr("swanlab.sdk.internal.core_python.core.stop_experiment", lambda *a, **kw: None)
+        # _store_finish 在非 FINISHED 状态会生成 error log record 进 transport，需让上传成功以便排空
+        monkeypatch.setattr("swanlab.sdk.internal.core_python.transport.sender.upload_log", lambda *a, **kw: None)
+        core.deliver_run_finish(DeliverRunFinishRequest(finish_record=FinishRecord()))
+        assert core._store is None
+
+        core._on_file_changed(SaveRecord())  # 不抛 assert
+
+        assert core._store is None
+        assert not core._ctx.run_file.exists()
