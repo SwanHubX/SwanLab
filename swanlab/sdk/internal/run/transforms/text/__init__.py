@@ -7,6 +7,7 @@
 
 import hashlib
 from pathlib import Path
+from typing import Optional
 
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaItem
@@ -27,7 +28,7 @@ class Text(TransformMedia):
     def column_type(cls) -> ColumnType:
         return ColumnType.COLUMN_TYPE_TEXT
 
-    def transform(self, *, step: int, path: Path) -> MediaItem:
+    def transform(self, *, step: int, path: Optional[Path]) -> MediaItem:
         content_encode = self.content.encode()
         # 计算 sha256
         sha256 = hashlib.sha256(content_encode).hexdigest()
@@ -36,5 +37,12 @@ class Text(TransformMedia):
         filename = f"{step:03d}-{sha256[:8]}.txt"
         # 复用已编码的 bytes 直接以二进制写入: 既避免 safe_write 对 str 再做一次 UTF-8 编码,
         # 也保证 Windows 下文件内容 (LF) 与上方 sha256/size 计算结果一致
-        fs.safe_write(path / filename, content_encode, mode="wb")
-        return MediaItem(filename=filename, sha256=sha256, size=len(content_encode), caption=self.caption)
+        if path is not None:
+            fs.safe_write(path / filename, content_encode, mode="wb")
+        return MediaItem(
+            filename=filename,
+            sha256=sha256,
+            size=len(content_encode),
+            caption=self.caption,
+            payload=content_encode if path is None else b"",
+        )

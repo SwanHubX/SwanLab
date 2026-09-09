@@ -5,6 +5,8 @@
 @description: RecordBuilder 单元测试
 """
 
+from types import SimpleNamespace
+
 import pytest
 
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaItem, MediaRecord
@@ -101,6 +103,19 @@ class TestEnsureMediaSize:
         record = _make_media_record(items=[("a.png", 10), ("b.png", 10), ("c.png", 10)])
         result = builder._ensure_media_size(record)
         assert result is record
+
+
+class TestResolveMediaDir:
+    """_resolve_media_dir 依据 core.skip_store 决定媒体是否落盘"""
+
+    def test_skip_store_returns_none_and_never_mkdir(self, tmp_path):
+        """skip_store 下返回 None 且不创建 media 目录"""
+        media_dir = tmp_path / "media"
+        settings = SimpleNamespace(core=SimpleNamespace(skip_store=True))
+        ctx = SimpleNamespace(config=SimpleNamespace(settings=settings), media_dir=media_dir)
+        builder = RecordBuilder(ctx)  # type: ignore[arg-type]
+        assert builder._resolve_media_dir(Text.column_type()) is None
+        assert not media_dir.exists()
 
 
 class TestIsScalarValue:

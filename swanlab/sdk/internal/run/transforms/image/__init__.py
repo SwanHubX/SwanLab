@@ -155,9 +155,19 @@ class Image(TransformMedia):
     def column_type(cls) -> ColumnType:
         return ColumnType.COLUMN_TYPE_IMAGE
 
-    def transform(self, *, step: int, path: Path) -> MediaItem:
+    def transform(self, *, step: int, path: Optional[Path]) -> MediaItem:
         content = self.buffer.getvalue()
         sha256 = hashlib.sha256(content).hexdigest()
         filename = f"{step:03d}-{sha256[:8]}.{self.file_type}"
-        fs.safe_write(path / filename, content, mode="wb")
-        return MediaItem(filename=filename, sha256=sha256, size=len(content), caption=self.caption or "")
+        if path is None:
+            # skip_store：不落盘，内容随 record 走 payload；释放 buffer 避免双份内存驻留
+            self.buffer.close()
+        else:
+            fs.safe_write(path / filename, content, mode="wb")
+        return MediaItem(
+            filename=filename,
+            sha256=sha256,
+            size=len(content),
+            caption=self.caption or "",
+            payload=content if path is None else b"",
+        )
