@@ -24,7 +24,7 @@ const (
 type ProbeSettings struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
 	RunId            *string                `protobuf:"bytes,1,opt,name=run_id,json=runId,proto3,oneof" json:"run_id,omitempty"`                                     // probe 侧需要校验 run_id 是否存在，不存在拒绝上报
-	RunDir           *string                `protobuf:"bytes,2,opt,name=run_dir,json=runDir,proto3,oneof" json:"run_dir,omitempty"`                                  // probe 侧需要校验 run_dir 是否存在，不存在拒绝上报
+	RunDir           *string                `protobuf:"bytes,2,opt,name=run_dir,json=runDir,proto3,oneof" json:"run_dir,omitempty"`                                  // 运行目录
 	GlobalSystemStep *int64                 `protobuf:"varint,3,opt,name=global_system_step,json=globalSystemStep,proto3,oneof" json:"global_system_step,omitempty"` // probe 侧需要校验 global_system_step 是否存在，不存在拒绝上报
 	Hardware         bool                   `protobuf:"varint,4,opt,name=hardware,proto3" json:"hardware,omitempty"`
 	Runtime          bool                   `protobuf:"varint,5,opt,name=runtime,proto3" json:"runtime,omitempty"`
