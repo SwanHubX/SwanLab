@@ -59,6 +59,9 @@ class ConfigEvent:
 
     path: Path
     timestamp: Timestamp
+    # 配置内容快照，与 config.yaml 落盘内容与后端一致: {key: {value, desc, sort}} 
+    # 默认模式下仅作信息载体；skip_store 下 config 不落盘，消费端据此序列化出 SaveRecord.payload。
+    content: Dict[str, Any]
 
 
 @dataclass

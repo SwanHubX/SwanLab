@@ -12,7 +12,27 @@ import yaml
 
 from swanlab.sdk.internal.pkg import fs
 
-__all__ = ["write_config"]
+__all__ = ["dump_config", "format_config", "write_config"]
+
+
+def format_config(config: dict, sort_map: dict) -> dict:
+    """
+    将内部存储的 {key: value} 归一化为后端约定的 {key: {value, desc, sort}} 结构。
+
+    :param config:  内部存储的原始 {key: value} dict（value 已经过 parse()）
+    :param sort_map: key → sort index 映射，用于还原插入顺序
+    """
+    return {key: {"value": value, "desc": "", "sort": sort_map.get(key, 0)} for key, value in config.items()}
+
+
+def dump_config(content: dict) -> str:
+    """
+    将归一化后的 config 结构序列化为 YAML 文本。
+    落盘（write_config）与 skip_store 下的内联上传共用同一份编码，避免两种模式云端 config 结构漂移。
+
+    :param content: format_config 产出的归一化结构
+    """
+    return yaml.safe_dump(content, allow_unicode=True, default_flow_style=False)
 
 
 def write_config(path: Path, config: dict, sort_map: dict) -> None:
@@ -25,6 +45,4 @@ def write_config(path: Path, config: dict, sort_map: dict) -> None:
     :param config:   内部存储的原始 {key: value} dict（value 已经过 parse()）
     :param sort_map: key → sort index 映射，用于还原插入顺序
     """
-    formatted = {key: {"value": value, "desc": "", "sort": sort_map.get(key, 0)} for key, value in config.items()}
-    content = yaml.safe_dump(formatted, allow_unicode=True, default_flow_style=False)
-    fs.safe_write(path, content)
+    fs.safe_write(path, dump_config(format_config(config, sort_map)))

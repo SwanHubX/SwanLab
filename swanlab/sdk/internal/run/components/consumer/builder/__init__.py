@@ -18,6 +18,7 @@ from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogRecord
 from swanlab.sdk.internal.bus.events import ConfigEvent, FileSaveEvent, LogEvent, ParseResult
 from swanlab.sdk.internal.context import RunContext, TransformMedia
 from swanlab.sdk.internal.pkg import adapter, console, fs
+from swanlab.sdk.internal.run.components.config.writer import dump_config
 from swanlab.sdk.internal.run.transforms import ECharts, Scalar, echarts
 
 _EchartsType = (echarts.Base, echarts.Table)
@@ -141,9 +142,18 @@ class RecordBuilder:
         return media_record, cls
 
     # ── 系统元数据 ──
-    @staticmethod
-    def build_config(event: ConfigEvent) -> SaveRecord:
-        """构建 Config Save envelope"""
+    def build_config(self, event: ConfigEvent) -> SaveRecord:
+        """构建 Config Save envelope。
+
+        skip_store 下 config 不落盘，内容按落盘同款 YAML 编码填入 payload，
+        默认模式 payload 为 None，Core 按 source_path 读取 config.yaml。
+        """
+        if self._ctx.config.settings.core.skip_store:
+            return SaveRecord(
+                name="config",
+                type=SaveType.SAVE_TYPE_CONFIG,
+                payload=dump_config(event.content).encode("utf-8"),
+            )
         return SaveRecord(name="config", source_path=event.path.absolute().as_posix(), type=SaveType.SAVE_TYPE_CONFIG)
 
     @staticmethod

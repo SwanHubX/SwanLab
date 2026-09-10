@@ -724,6 +724,25 @@ class TestInitOnlineSkipStore:
         assert run._ctx.run_dir.exists()
         assert list(run._ctx.run_dir.glob("run-*.swanlab")) == []
 
+    def test_skip_store_creates_no_config_file(
+        self,
+        logged_in_client,
+        mock_project_get_api,
+        mock_experiment_create_api,
+        mock_experiment_stop_api,
+        mock_profile_api,
+        mock_heartbeat_api,
+        mock_metrics_api,
+    ):
+        """config 内容随 SaveRecord.payload 内联上传，绑定时的全量 flush 与后续写入都不落盘"""
+        run = init(project=PROJECT, settings=Settings(core=Settings.Core(skip_store=True)))
+
+        assert not run._ctx.config_file.exists()
+
+        run.config["lr"] = 0.01
+
+        assert not run._ctx.config_file.exists()
+
     def test_default_creates_datastore(
         self,
         logged_in_client,

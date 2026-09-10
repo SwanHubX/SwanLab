@@ -7,6 +7,7 @@
 生命周期：
   未绑定（bindctx 调用前）：所有写操作仅保留在内存，不触发 IO 和事件
   已绑定（bindctx 调用后）：每次写操作 → 全量覆写 config.yaml → 发出 ConfigEvent
+                            （skip_store 下跳过落盘，内容随 ConfigEvent 内联上传云端）
   重置（reset 调用后）    ：清空内存与绑定状态，用于测试隔离或下一次 init
 
 线程安全：
@@ -28,7 +29,7 @@ from swanlab.sdk.internal.bus import ConfigEvent
 
 from .helper import revert_config
 from .parse import parse
-from .writer import write_config
+from .writer import format_config, write_config
 
 __all__ = [
     "Config",
@@ -63,6 +64,7 @@ class Config(MutableMapping):
     _file: Optional[Path]
     _emit: Optional[Callable[[ConfigEvent], None]]
     _bound: bool
+    _skip_store: bool
 
     def __init__(self) -> None:
         # 直接操作 __dict__ 绕过自定义 __setattr__
@@ -74,6 +76,7 @@ class Config(MutableMapping):
                 "_file": None,  # Path | None
                 "_emit": None,  # Callable | None
                 "_bound": False,  # 是否已绑定
+                "_skip_store": False,  # 是否跳过 config.yaml 落盘（内容内联上传）
             }
         )
 
@@ -90,26 +93,32 @@ class Config(MutableMapping):
             self.__dict__["_seq"] = self._seq + 1
 
     def _flush(self) -> None:
-        """全量写文件并发出 ConfigEvent。"""
+        """全量写文件并发出 ConfigEvent（skip_store 下只发事件，不写文件）。"""
         assert self._file is not None and self._emit is not None, "Config not bound"
-        write_config(self._file, self._config, self._sort)
+        content = format_config(self._config, self._sort)
+        # fs.safe_write 会自动建父目录，写入即静默重建 swanlog 目录树
+        if not self._skip_store:
+            write_config(self._file, self._config, self._sort)
         ts = Timestamp()
         ts.GetCurrentTime()
-        self._emit(ConfigEvent(path=self._file, timestamp=ts))
+        self._emit(ConfigEvent(path=self._file, timestamp=ts, content=content))
 
     # ------------------------------------------------------------------
     # 绑定 / 重置（线程安全）
     # ------------------------------------------------------------------
 
-    def _bindctx(self, config_file: Path, emit: Callable[[ConfigEvent], None]) -> None:
+    def _bindctx(self, config_file: Path, emit: Callable[[ConfigEvent], None], skip_store: bool = False) -> None:
         """
         绑定运行上下文。将内存中已有的 config 全量 flush 到文件，
         之后的每次写操作均实时同步。可安全重复调用（幂等）。
+
+        :param skip_store: 跳过 config.yaml 落盘（仅 online + core.skip_store 合法），
+                           内容随 ConfigEvent 内联，由消费端填入 SaveRecord.payload
         """
         with _lock:
             if self._bound:
                 return
-            self.__dict__.update({"_file": config_file, "_emit": emit, "_bound": True})
+            self.__dict__.update({"_file": config_file, "_emit": emit, "_skip_store": skip_store, "_bound": True})
             self._flush()
 
     def _reset(self) -> None:
@@ -117,7 +126,7 @@ class Config(MutableMapping):
         with _lock:
             self._config.clear()
             self._sort.clear()
-            self.__dict__.update({"_seq": 0, "_file": None, "_emit": None, "_bound": False})
+            self.__dict__.update({"_seq": 0, "_file": None, "_emit": None, "_skip_store": False, "_bound": False})
 
     def _snapshot(self) -> tuple[dict, dict, int]:
         """深拷贝内部状态（config、sort、seq），供 create_run_config 使用。"""
@@ -351,12 +360,12 @@ else:
     config = _ConfigProxy()
 
 
-def create_run_config(config_file: Path, emit: Callable) -> Config:
+def create_run_config(config_file: Path, emit: Callable, skip_store: bool = False) -> Config:
     """从 global config 创建并绑定 per-run config，激活代理。"""
     global _active_run_config
     run_cfg = Config()
     getattr(run_cfg, "_copy_from")(_global_config)
-    getattr(run_cfg, "_bindctx")(config_file, emit)
+    getattr(run_cfg, "_bindctx")(config_file, emit, skip_store)
     _active_run_config = run_cfg
     return run_cfg
 
