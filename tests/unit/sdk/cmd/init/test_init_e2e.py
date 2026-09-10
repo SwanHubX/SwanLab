@@ -707,9 +707,7 @@ class TestInitOnlineMode:
 class TestInitOnlineSkipStore:
     """core.skip_store=true：online run 正常初始化，本地不产生 run-*.swanlab。
 
-    注意：skip 下 metadata/config 等内部 save 以 payload 内联，Transport 尚未支持 payload 上传
-    （方案 §10.1 中间态），不会触发 profile 端点，因此 skip 用例不注册 mock_profile_api；
-    步骤 7（sender 双源）落地后应重新加入并断言上传。
+    skip 下内部 save 以 payload 内联，由 sender 解析后上传 profile。
     """
 
     @staticmethod
@@ -733,6 +731,7 @@ class TestInitOnlineSkipStore:
         mock_project_get_api,
         mock_experiment_create_api,
         mock_experiment_stop_api,
+        mock_profile_api,
         mock_heartbeat_api,
         mock_metrics_api,
     ):
@@ -751,10 +750,11 @@ class TestInitOnlineSkipStore:
         mock_project_get_api,
         mock_experiment_create_api,
         mock_experiment_stop_api,
+        mock_profile_api,
         mock_heartbeat_api,
         mock_metrics_api,
     ):
-        """skip_store 下 probe settings 不携带 run_dir：缺省即禁止文件落点（方案 #5）。"""
+        """skip_store 下 probe settings 不携带 run_dir：缺省即禁止文件落点。"""
         probe_settings = self._capture_probe_settings(monkeypatch, skip_store=True)
 
         assert probe_settings.HasField("run_dir") is False
@@ -781,17 +781,28 @@ class TestInitOnlineSkipStore:
         mock_project_get_api,
         mock_experiment_create_api,
         mock_experiment_stop_api,
+        mock_profile_api,
         mock_heartbeat_api,
         mock_metrics_api,
+        rsps,
     ):
         """config 内容随 SaveRecord.payload 内联上传，绑定时的全量 flush 与后续写入都不落盘"""
+        # init 前写入，绑定时的全量 flush 已包含该键；连续写入受保留 num 去重影响，不作断言依据
+        global_config["lr"] = 0.01
         run = init(project=PROJECT, settings=Settings(core=Settings.Core(skip_store=True)))
 
         assert not run._ctx.config_file.exists()
 
-        run.config["lr"] = 0.01
+        run.config["epochs"] = 5
 
         assert not run._ctx.config_file.exists()
+
+        # finish 排空 Transport 后，config payload 已上云
+        run.finish()
+        profile_bodies = [
+            json.loads(cast(bytes, call.request.body)) for call in rsps.calls if call.request.url.endswith("/profile")
+        ]
+        assert any(body.get("config", {}).get("lr", {}).get("value") == 0.01 for body in profile_bodies)
 
     def test_default_creates_datastore(
         self,

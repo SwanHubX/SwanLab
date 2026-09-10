@@ -116,7 +116,7 @@ class TransformMedia(TransformData, ABC):
         """
         将媒体数据转换为Protobuf格式
         :param step: 步数
-        :param path: 存储目录；None 表示 skip_store 模式，不落盘，内容写入 MediaItem.payload
+        :param path: 存储目录；None 即 skip_store，不落盘，内容写入 MediaItem.payload
         :return: Protobuf消息
         """
         ...

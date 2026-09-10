@@ -3,7 +3,7 @@
 
 两种注册模式：
   1. 镜像模式（默认）：监听 swanlog/{run_id}/files/ 下的软链接镜像；
-  2. direct-source 模式（skip_store）：没有本地镜像目录，直接监听用户源文件所在目录，
+  2. direct-source（skip_store 下）：没有本地镜像目录，直接监听用户源文件所在目录，
      事件路径与注册的源文件绝对路径精确匹配，同目录其他文件的变化被忽略。
 
 文件稳定（停止写入 debounce_delay 秒）后触发 on_change 回调。
@@ -173,7 +173,7 @@ class FileWatcher:
         self.watch(str(files_dir), [s.name for s in live_files], [s.policy for s in live_files])
 
     def register_source_watches(self, save_records: List[SaveRecord]) -> None:
-        """direct-source 模式（skip_store）：对 policy=SAVE_POLICY_LIVE 的记录直接监听源文件。"""
+        """direct-source 模式（skip_store 下）：对 policy=SAVE_POLICY_LIVE 的记录直接监听源文件。"""
         live_files = [s for s in save_records if s.policy == SavePolicy.SAVE_POLICY_LIVE]
         if not live_files:
             return

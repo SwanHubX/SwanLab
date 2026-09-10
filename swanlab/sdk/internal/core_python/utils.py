@@ -5,6 +5,7 @@
 @description: Core 服务共享工具函数
 """
 
+import io
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -115,6 +116,50 @@ def get_buffer_size(buffer: Any) -> int:
         buffer.seek(curr)
         return size
     raise TypeError("Object has no len")
+
+
+class MemoryViewReader(io.RawIOBase):
+    """基于 memoryview 的只读、可 seek reader，避免 payload → BytesIO 的整段拷贝。
+
+    接口与 BytesIO 兼容，可直接作为 requests 的上传 body。
+    """
+
+    def __init__(self, data: bytes) -> None:
+        self._view = memoryview(data)
+        self._position = 0
+
+    def read(self, size: int = -1) -> bytes:
+        if size is None or size < 0:
+            chunk = self._view[self._position :]
+            self._position = len(self._view)
+        else:
+            chunk = self._view[self._position : self._position + size]
+            self._position += len(chunk)
+        return chunk.tobytes()
+
+    def seek(self, offset: int, whence: int = 0) -> int:
+        if whence == 0:
+            position = offset
+        elif whence == 1:
+            position = self._position + offset
+        elif whence == 2:
+            position = len(self._view) + offset
+        else:
+            raise ValueError(f"Invalid whence: {whence}")
+        self._position = min(max(int(position), 0), len(self._view))
+        return self._position
+
+    def tell(self) -> int:
+        return self._position
+
+    def readable(self) -> bool:
+        return True
+
+    def seekable(self) -> bool:
+        return True
+
+    def __len__(self) -> int:
+        return len(self._view)
 
 
 class ProgressFileWrapper:

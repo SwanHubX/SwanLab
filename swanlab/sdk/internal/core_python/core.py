@@ -399,7 +399,7 @@ class CorePython(CoreProtocol):
 
     def _handle_custom_save(self, saves: List[SaveRecord]) -> List[Record]:
         # skip_store：不创建本地镜像软链接（不触碰 files_dir、不填 target_path），
-        # live 监听直接对准源文件（见 cloud-only 方案 §4-13/14）
+        # live 监听直接对准源文件
         if self._ctx.config.skip_store:
             records = [builder.build_save_record(self._counter, s) for s in saves]
             self._store_records(records)

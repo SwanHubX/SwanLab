@@ -49,7 +49,7 @@ class RecordBuilder:
     def _resolve_media_dir(self, column_type: ColumnType) -> Optional[Path]:
         """解析媒体存储目录。
 
-        skip_store 模式下返回 None：不创建 media 目录，由 transform 将内容写入 MediaItem.payload。
+        skip_store 下返回 None：不创建 media 目录，由 transform 将内容写入 MediaItem.payload。
         """
         if self._ctx.config.settings.core.skip_store:
             return None
@@ -145,8 +145,8 @@ class RecordBuilder:
     def build_config(self, event: ConfigEvent) -> SaveRecord:
         """构建 Config Save envelope。
 
-        skip_store 下 config 不落盘，内容按落盘同款 YAML 编码填入 payload，
-        默认模式 payload 为 None，Core 按 source_path 读取 config.yaml。
+        skip_store 下 config 不落盘，内容按落盘同款 YAML 编码填入 payload；
+        未启用时 payload 为 None，Core 按 source_path 读取 config.yaml。
         """
         if self._ctx.config.settings.core.skip_store:
             return SaveRecord(

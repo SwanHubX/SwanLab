@@ -44,10 +44,11 @@ class CoreSettings(BaseModel):
     """
     skip_store: bool = Field(default=False)
     """
-    Skip the local Record store (run-*.swanlab) and upload records to the cloud only.
+    Skip all SDK-owned local files and upload to the cloud only (requires ``online`` mode).
 
-    Only valid in ``online`` mode; any other mode combined with ``True`` raises ``ValueError``.
-    Media, saved files, probe metadata and debug logs are still written locally. 
-    NOTE: Without the local store a crashed run CANNOT be recovered or synced afterwards.
+    Media contents and internal texts (config/metadata/requirements/conda) are inlined
+    into records and uploaded directly; ``run.save()`` files are read from their original
+    path without local links.
+    ``swanlab sync`` / ``swanlab watch`` do not apply; a crashed run cannot be recovered.
     """
     model_config = ConfigDict(frozen=True)

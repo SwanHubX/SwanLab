@@ -262,7 +262,7 @@ class TestFileHandling:
 
 
 # ---------------------------------------------------------------------------
-# skip 模式（core.skip_store，仅 online 模式合法）
+# skip 设置（core.skip_store，仅 online 模式合法）
 # ---------------------------------------------------------------------------
 
 
@@ -287,7 +287,7 @@ class TestSkipMode:
         assert not p.exists()
 
     def test_open_twice_is_noop(self, tmp_path: Path):
-        """非 skip 模式重复 open 会抛 FileExistsError，skip 模式则始终无副作用。"""
+        """未启用 skip 时重复 open 抛 FileExistsError；启用后始终无副作用。"""
         p = tmp_path / "skip.swanlab"
         w = DataStoreWriter(skip=True)
         w.open(str(p))

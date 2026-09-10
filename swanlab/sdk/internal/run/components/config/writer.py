@@ -28,7 +28,7 @@ def format_config(config: dict, sort_map: dict) -> dict:
 def dump_config(content: dict) -> str:
     """
     将归一化后的 config 结构序列化为 YAML 文本。
-    落盘（write_config）与 skip_store 下的内联上传共用同一份编码，避免两种模式云端 config 结构漂移。
+    落盘（write_config）与 skip_store 下的内联上传共用同一份编码，避免云端 config 结构漂移。
 
     :param content: format_config 产出的归一化结构
     """

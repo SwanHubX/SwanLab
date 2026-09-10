@@ -131,7 +131,7 @@ func (SaveType) EnumDescriptor() ([]byte, []int) {
 // payload 仅用于 online + skip_store 下的四类内部 save
 // （CONFIG/METADATA/REQUIREMENTS/CONDA）：此时 source_path/target_path 为空，
 // Core 直接从 payload 解析并上传；CUSTOM 的 payload 必须为空，只使用 source_path；
-// 默认模式 payload 为空，Core 按 source_path 处理。
+// 未启用 skip_store 时 payload 为空，Core 按 source_path 处理。
 type SaveRecord struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`                                      // 文件标识（相对于 base_path 的路径）

@@ -294,7 +294,7 @@ class TestCorePythonSkipStore:
 
     def test_skip_store_creates_no_datastore_file(self, tmp_path, monkeypatch):
         core = self._start_online_core(tmp_path, monkeypatch, skip_store=True)
-        # from_proto 已解析该字段，store 处于 skip 模式且不产生文件
+        # from_proto 已解析该字段，skip 设置后 store 不产生文件
         assert core._ctx.config.skip_store is True
         assert core._store is not None
         assert core._store._skip is True
@@ -309,7 +309,7 @@ class TestCorePythonSkipStore:
         assert core._ctx.run_file.exists()
 
     def test_live_save_still_reaches_transport(self, tmp_path, monkeypatch):
-        """回归 §5.2.1 的坑：skip 模式下 _on_file_changed 不能早退，record 必须进 Transport。"""
+        """skip 设置时 _on_file_changed 不能早退，record 必须进 Transport。"""
         core = self._start_online_core(tmp_path, monkeypatch, skip_store=True)
         transport = MagicMock()
         core._transport = transport

@@ -24,7 +24,7 @@ message MediaItem {
     string sha256   = 2;
     int64 size      = 3; // 文件大小（bytes）
     string caption  = 4;
-    bytes payload   = 5; // 媒体内容，仅 online + skip_store 模式写入，默认为空
+    bytes payload   = 5; // 媒体内容，仅 online + skip_store=true 时写入，默认为空
 }
 
 message ScalarRecord {

@@ -48,7 +48,7 @@ for _x in range(1, LEVELDBLOG_LAST + 1):
 class DataStoreWriter:
     """追加写入器，持有一个长期打开的二进制文件句柄。
 
-    ``skip=True`` 时进入"跳过落盘"模式（对应 ``core.skip_store``，仅 online 模式合法）：
+    ``skip=True`` 时跳过落盘（对应 ``core.skip_store``，仅 online 模式合法）：
     ``open()`` 不创建文件、``write()`` 仅累加计数、``close()`` 输出 debug 统计。
     此时记录只经 Transport 上传云端，本地不产生 ``run-*.swanlab``，因此进程崩溃后
     未确认的 record 无法恢复、也无法通过 ``swanlab sync`` 补传。默认 ``skip=False`` 行为不变。
@@ -59,11 +59,11 @@ class DataStoreWriter:
         self._index: int = 0
         self._flush_offset: int = 0
         self._skip = skip
-        # skip 模式下 write() 的次数，即未持久化的 record 数，仅用于 close() 的 debug 统计
+        # skip 设置时 write() 的次数，即未持久化的 record 数，仅用于 close() 的 debug 统计
         self._skipped_records: int = 0
 
     def open(self, filename: Union[Path, str]) -> None:
-        """创建并初始化文件，文件已存在时抛出 FileExistsError；skip 模式不创建文件。"""
+        """创建并初始化文件，文件已存在时抛出 FileExistsError；skip 设置时不创建文件。"""
         if self._skip:
             return
         self._fp = open(filename, "xb")
@@ -73,7 +73,7 @@ class DataStoreWriter:
         self._index += len(header)
 
     def write(self, data: bytes) -> None:
-        """写入任意字节，遵循 LevelDB log 分块规范；skip 模式仅累加计数。"""
+        """写入任意字节，遵循 LevelDB log 分块规范；skip 设置时仅累加计数。"""
         if self._skip:
             self.skip_records()
             return
@@ -114,7 +114,7 @@ class DataStoreWriter:
         # self._flush_offset = self._index
 
     def skip_records(self, count: int = 1) -> None:
-        """skip 模式下登记 count 条未持久化的 record。
+        """skip 设置时登记 count 条未持久化的 record。
 
         Core 在跳过序列化时不经过 write()，由本方法维持 close() 统计的完整性。
         """
