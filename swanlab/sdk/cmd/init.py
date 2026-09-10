@@ -538,6 +538,7 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
     上下文生命周期通过 `Run` 管理，而非全局 `ContextVar`
     """
     mode = run_settings.mode
+    skip_store = run_settings.core.skip_store
     # 实验路径，/:username/:project_name/:slug(run_id)，与open api命名一致
     path = None
     # 1. 生成run_id
@@ -546,7 +547,7 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
     run_id = run_settings.run.id
     assert run_id, "Run id is not provided."
     # 2. 创建运行目录
-    if mode != "disabled":
+    if mode != "disabled" and not skip_store:
         # 安全创建目录，并写入 .gitignore（如果目录为空）
         helper.mkdir_and_append_gitignore(run_settings.log_dir)
         # 创建运行子目录，run_dir 必须是新建的，防止误覆盖已有实验数据
@@ -559,7 +560,7 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
             parallel=run_settings.run.parallel,
         )
     else:
-        # 禁用模式下的run_dir为一个示例目录，仅用于满足上下文类型限制
+        # disabled / skip_store 下 run_dir 仅作逻辑路径，不创建目录
         if run_settings.run.dir:
             run_dir = run_settings.log_dir / run_settings.run.dir
         else:
@@ -646,7 +647,7 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
             set_nested_value(sync_args, key, value)
         run_settings.merge_settings(sync_args)
     # 4. 创建运行目录
-    if mode != "disabled":
+    if mode != "disabled" and not skip_store:
         fs.safe_mkdirs(ctx.media_dir, ctx.files_dir, ctx.debug_dir)
     return ctx, path
 

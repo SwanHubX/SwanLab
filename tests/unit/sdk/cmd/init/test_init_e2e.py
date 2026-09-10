@@ -12,7 +12,7 @@
   - TestInitSettingsPriority : 配置优先级（全局 < 自定义 < 传参）
   - TestInitResumeValidation : resume/id 校验逻辑
   - TestInitOnlineMode       : online 模式，依赖本文件内的 HTTP mock fixtures
-  - TestInitOnlineSkipStore  : online + core.skip_store，本地不产生 datastore
+  - TestInitOnlineSkipStore  : online + core.skip_store，本地不产生任何文件
   - TestOnlineMultipleInit   : online 模式多次 init/finish，验证 finish 后 client 重置与重新认证
   - TestInitFactoryDispatch  : 验证 factory 模式按模式分派组件类型
   - TestRunSave              : run.save() 各 policy / 各模式的端到端行为
@@ -705,7 +705,7 @@ class TestInitOnlineMode:
 
 
 class TestInitOnlineSkipStore:
-    """core.skip_store=true：online run 正常初始化，本地不产生 run-*.swanlab。
+    """core.skip_store=true：online run 全程不产生任何本地文件。
 
     skip 下内部 save 以 payload 内联，由 sender 解析后上传 profile。
     """
@@ -725,23 +725,19 @@ class TestInitOnlineSkipStore:
         init(project=PROJECT, settings=settings)
         return captured["probe_settings"]
 
-    def test_skip_store_creates_no_datastore(
-        self,
-        logged_in_client,
-        mock_project_get_api,
-        mock_experiment_create_api,
-        mock_experiment_stop_api,
-        mock_profile_api,
-        mock_heartbeat_api,
-        mock_metrics_api,
-    ):
+    def test_skip_store_creates_no_local_dirs(self, logged_in_client, mock_online_init_apis):
+        """整个 log_dir（含 run/media/files/debug 子目录）都不落盘"""
         run = init(project=PROJECT, settings=Settings(core=Settings.Core(skip_store=True)))
+        log_dir = run._ctx.config.settings.log_dir
 
         assert isinstance(run, Run)
         assert run._ctx.config.settings.core.skip_store is True
-        # run_dir 仍创建（Phase 1 边界：probe/media/files/debug 仍在本地），但没有 datastore 文件
-        assert run._ctx.run_dir.exists()
-        assert list(run._ctx.run_dir.glob("run-*.swanlab")) == []
+
+        run.log({"loss": 0.5})
+        run.finish()
+
+        assert not log_dir.exists()
+        assert not run._ctx.run_dir.exists()
 
     def test_skip_store_probe_has_no_run_dir(
         self,
@@ -803,6 +799,62 @@ class TestInitOnlineSkipStore:
             json.loads(cast(bytes, call.request.body)) for call in rsps.calls if call.request.url.endswith("/profile")
         ]
         assert any(body.get("config", {}).get("lr", {}).get("value") == 0.01 for body in profile_bodies)
+
+    def test_skip_store_uploads_full_run_to_cloud(
+        self,
+        logged_in_client,
+        mock_online_skip_store_apis,
+        tmp_path,
+        rsps,
+    ):
+        """record 全部上云，本地零文件"""
+        import numpy as np
+
+        global_config["lr"] = 0.01
+        run = init(project=PROJECT, settings=Settings(core=Settings.Core(skip_store=True)))
+        checkpoint = tmp_path / "model.pt"
+        checkpoint.write_text("weights", encoding="utf-8")
+
+        run.log({"loss": 0.5})
+        run.log_image(key="img", data=np.zeros((10, 10, 3), dtype=np.uint8))
+        for policy in ("now", "end", "live"):
+            run.save("model.pt", base_path=str(tmp_path), policy=policy)
+
+        log_dir = run._ctx.config.settings.log_dir
+        run.finish()
+
+        # 本地零文件
+        assert not log_dir.exists()
+
+        # 标量 / 日志 / 媒体元数据经 /house/metrics 上传，列经 /series 上传
+        metric_bodies = [
+            json.loads(cast(bytes, c.request.body)) for c in rsps.calls if c.request.url.endswith("/house/metrics")
+        ]
+        assert {body["type"] for body in metric_bodies} >= {"scalar", "media", "log"}
+        assert any(c.request.url.endswith("/series") for c in rsps.calls)
+
+        # 媒体内容经预签名 URL 直传对象存储
+        assert len([c for c in rsps.calls if c.request.url == MEDIA_UPLOAD_URL]) == 1
+        presigned = [
+            json.loads(cast(bytes, c.request.body))
+            for c in rsps.calls
+            if c.request.url.endswith("/resources/presigned/put")
+        ]
+        assert any(body["paths"][0].startswith("media/image/") for body in presigned)
+
+        # 内部 save（config / metadata / requirements）经 profile 上传
+        profile_bodies = [
+            json.loads(cast(bytes, c.request.body)) for c in rsps.calls if c.request.url.endswith("/profile")
+        ]
+        assert any("config" in body for body in profile_bodies)
+        assert any("metadata" in body for body in profile_bodies)
+        assert any("requirements" in body for body in profile_bodies)
+
+        # custom save：prepare → 对象存储 PUT → complete
+        save_urls = [c.request.url for c in rsps.calls]
+        assert any("files/prepare" in url for url in save_urls)
+        assert sum(1 for url in save_urls if url in SKIP_STORE_SAVE_URLS) == 3
+        assert any("files/complete" in url for url in save_urls)
 
     def test_default_creates_datastore(
         self,
@@ -1281,6 +1333,79 @@ def mock_online_init_only(
     mock_metrics_api,
 ):
     """组合 fixture：仅注册 init(mode='online') 所需端点，不含 save/media 上传。"""
+    pass
+
+
+# ============================================================
+# Media / skip_store 全量 run Mock Fixtures
+# ============================================================
+
+MEDIA_UPLOAD_URL = "https://storage.fake.swanlab.cn/media/0"
+SKIP_STORE_SAVE_URLS = [f"https://storage.fake.swanlab.cn/save/{i}" for i in range(3)]
+
+
+def make_media_presigned_resp(**overrides) -> dict:
+    """POST /api/resources/presigned/put 响应体"""
+    return {"urls": [MEDIA_UPLOAD_URL], **overrides}
+
+
+@pytest.fixture
+def mock_media_presigned_api(rsps):
+    """注册 POST /api/resources/presigned/put 端点（媒体上传凭据）"""
+    rsps.add(
+        responses_lib.POST,
+        f"{API_HOST}/api/resources/presigned/put",
+        json=make_media_presigned_resp(),
+        status=200,
+    )
+    return rsps
+
+
+@pytest.fixture
+def mock_media_upload_api(rsps):
+    """注册 PUT 媒体预签名 URL 端点（媒体内容直传对象存储）"""
+    rsps.add(responses_lib.PUT, MEDIA_UPLOAD_URL, body="", status=200)
+    return rsps
+
+
+@pytest.fixture
+def mock_save_prepare_multi_api(rsps):
+    """注册 POST files/prepare 端点，返回与待上传文件数一致的预签名 URL"""
+    rsps.add(
+        responses_lib.POST,
+        f"{API_HOST}/api/experiment/{EXPERIMENT_CUID}/files/prepare",
+        json={"urls": list(SKIP_STORE_SAVE_URLS)},
+        status=200,
+    )
+    return rsps
+
+
+@pytest.fixture
+def mock_save_upload_multi_api(rsps):
+    """注册多个 save 预签名 URL 的 PUT 端点"""
+    for url in SKIP_STORE_SAVE_URLS:
+        rsps.add(responses_lib.PUT, url, body="", status=200)
+    return rsps
+
+
+@pytest.fixture
+def mock_online_skip_store_apis(
+    mock_online_settings,
+    mock_login_api,
+    mock_project_get_api,
+    mock_experiment_create_api,
+    mock_experiment_stop_api,
+    mock_profile_api,
+    mock_heartbeat_api,
+    mock_metrics_api,
+    mock_columns_api,
+    mock_media_presigned_api,
+    mock_media_upload_api,
+    mock_save_prepare_multi_api,
+    mock_save_complete_api,
+    mock_save_upload_multi_api,
+):
+    """组合 fixture：skip_store 全量 run（指标 + 媒体 + 三类 save）所需端点。"""
     pass
 
 
