@@ -1,5 +1,6 @@
 from io import BytesIO
 from pathlib import Path
+from typing import Optional
 from unittest.mock import ANY, MagicMock, patch
 
 import pytest
@@ -83,16 +84,23 @@ def _make_save_record(
     return Record(save=SaveRecord(name=name, source_path=str(source), target_path=str(source), type=save_type))
 
 
-def _make_media_record(filename: str, media_type=ColumnType.COLUMN_TYPE_IMAGE, payload: bytes = b"") -> Record:
+def _make_media_record(
+    filename: str, media_type=ColumnType.COLUMN_TYPE_IMAGE, payload: Optional[bytes] = None
+) -> Record:
     timestamp = Timestamp()
     timestamp.GetCurrentTime()
+    # payload=None 表示未提供 payload（默认模式，从本地路径读取）；
+    # payload=b"" 表示合法的空文件（skip_store），两者必须可区分。
+    item = MediaItem(filename=filename)
+    if payload is not None:
+        item.payload = payload
     return Record(
         media=MediaRecord(
             key="examples/image",
             step=1,
             type=media_type,
             timestamp=timestamp,
-            value=MediaValue(items=[MediaItem(filename=filename, payload=payload)]),
+            value=MediaValue(items=[item]),
         )
     )
 
@@ -391,6 +399,34 @@ def test_upload_media_uses_payload_without_touching_disk(tmp_path: Path):
     assert "Media payload missing" in mock_warning.call_args.args[0]
     # 不得访问/创建本地 media 目录
     assert not (tmp_path / "media").exists()
+
+
+def test_upload_media_uploads_empty_payload_as_zero_byte_file(tmp_path: Path):
+    """skip_store 下合法的空文件（payload 存在但为 b""）必须上传，不能被当作缺失丢弃。"""
+    sender = _make_sender(tmp_path, skip_store=True)
+    captured = {}
+
+    def _fake_upload_resource(_, __, *, paths, buffers, content_types=None, tracker=None):
+        captured["paths"] = paths
+        captured["content_types"] = content_types
+        captured["content"] = buffers[0].read()
+
+    with (
+        patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=MagicMock()),
+        patch(
+            "swanlab.sdk.internal.core_python.transport.sender.upload_resource",
+            side_effect=_fake_upload_resource,
+        ),
+        patch("swanlab.sdk.internal.core_python.transport.sender.upload_media") as mock_upload_media,
+        patch("swanlab.sdk.internal.core_python.transport.sender.console.warning") as mock_warning,
+    ):
+        sender.upload_media([_make_media_record("empty.txt", ColumnType.COLUMN_TYPE_TEXT, payload=b"")])
+
+    assert captured["paths"] == ["media/text/empty.txt"]
+    assert captured["content_types"] == ["text/plain"]
+    assert captured["content"] == b""
+    mock_upload_media.assert_called_once()
+    mock_warning.assert_not_called()
 
 
 def test_upload_advances_records_only_on_success(tmp_path: Path):

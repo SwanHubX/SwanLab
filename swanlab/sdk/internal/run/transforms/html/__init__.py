@@ -99,12 +99,15 @@ class Html(TransformMedia):
         sha256 = hashlib.sha256(content_encode).hexdigest()
         filename = f"{step:03d}-{sha256[:8]}.html"
         # 复用已编码的 bytes 直接以二进制写入, 避免 safe_write 内部对 str 再做一次 UTF-8 编码 (双重编码)
-        if path is not None:
-            fs.safe_write(path / filename, content_encode, mode="wb")
-        return MediaItem(
+        item = MediaItem(
             filename=filename,
             sha256=sha256,
             size=len(content_encode),
             caption=self.caption or "",
-            payload=content_encode if path is None else b"",
         )
+        if path is None:
+            # skip_store：内容随 payload 走；空内容也赋值以保留 presence（与缺失 payload 区分）。
+            item.payload = content_encode
+        else:
+            fs.safe_write(path / filename, content_encode, mode="wb")
+        return item

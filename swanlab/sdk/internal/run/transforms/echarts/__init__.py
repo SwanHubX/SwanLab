@@ -53,12 +53,15 @@ class ECharts(TransformMedia):
         filename = f"{step:03d}-{sha256[:8]}.json"
         # safe_write 默认 mode="w"（文本模式），Windows 上会将 \n 转换为 \r\n。而 ECharts.transform 中
         # json_content.encode("utf-8") 计算的 size 和 sha256 是基于 \n 的。
-        if path is not None:
-            fs.safe_write(path / filename, content_encode, mode="wb")
-        return MediaItem(
+        item = MediaItem(
             filename=filename,
             sha256=sha256,
             size=len(content_encode),
             caption=self.caption or "",
-            payload=content_encode if path is None else b"",
         )
+        if path is None:
+            # skip_store：内容随 payload 走；空内容也赋值以保留 presence（与缺失 payload 区分）。
+            item.payload = content_encode
+        else:
+            fs.safe_write(path / filename, content_encode, mode="wb")
+        return item

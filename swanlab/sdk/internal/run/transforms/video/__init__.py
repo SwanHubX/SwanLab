@@ -106,15 +106,15 @@ class Video(TransformMedia):
         content = self.buffer.getvalue()
         sha256 = hashlib.sha256(content).hexdigest()
         filename = f"{step:03d}-{sha256[:8]}.{self.format}"
-        if path is None:
-            # skip_store：不落盘，内容随 record 走 payload；释放 buffer 避免双份内存驻留
-            self.buffer.close()
-        else:
-            fs.safe_write(path / filename, content, mode="wb")
-        return MediaItem(
+        item = MediaItem(
             filename=filename,
             sha256=sha256,
             size=len(content),
             caption=self.caption or "",
-            payload=content if path is None else b"",
         )
+        if path is None:
+            # skip_store：payload 保存二进制字节流。
+            item.payload = content
+        else:
+            fs.safe_write(path / filename, content, mode="wb")
+        return item

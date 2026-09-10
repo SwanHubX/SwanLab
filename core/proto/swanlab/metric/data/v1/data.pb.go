@@ -116,12 +116,13 @@ func (x *MediaValue) GetItems() []*MediaItem {
 
 // 单条媒体的文件引用与元数据。
 type MediaItem struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Filename      string                 `protobuf:"bytes,1,opt,name=filename,proto3" json:"filename,omitempty"`
-	Sha256        string                 `protobuf:"bytes,2,opt,name=sha256,proto3" json:"sha256,omitempty"`
-	Size          int64                  `protobuf:"varint,3,opt,name=size,proto3" json:"size,omitempty"` // 文件大小（bytes）
-	Caption       string                 `protobuf:"bytes,4,opt,name=caption,proto3" json:"caption,omitempty"`
-	Payload       []byte                 `protobuf:"bytes,5,opt,name=payload,proto3" json:"payload,omitempty"` // 媒体内容，仅 online + skip_store=true 时写入，默认为空
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Filename string                 `protobuf:"bytes,1,opt,name=filename,proto3" json:"filename,omitempty"`
+	Sha256   string                 `protobuf:"bytes,2,opt,name=sha256,proto3" json:"sha256,omitempty"`
+	Size     int64                  `protobuf:"varint,3,opt,name=size,proto3" json:"size,omitempty"` // 文件大小（bytes）
+	Caption  string                 `protobuf:"bytes,4,opt,name=caption,proto3" json:"caption,omitempty"`
+	// 媒体内容，仅 online + skip_store=true 时写入
+	Payload       []byte `protobuf:"bytes,5,opt,name=payload,proto3,oneof" json:"payload,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -362,13 +363,15 @@ const file_swanlab_metric_data_v1_data_proto_rawDesc = "" +
 	"\x06number\x18\x01 \x01(\x01R\x06number\"E\n" +
 	"\n" +
 	"MediaValue\x127\n" +
-	"\x05items\x18\x01 \x03(\v2!.swanlab.metric.data.v1.MediaItemR\x05items\"\x87\x01\n" +
+	"\x05items\x18\x01 \x03(\v2!.swanlab.metric.data.v1.MediaItemR\x05items\"\x98\x01\n" +
 	"\tMediaItem\x12\x1a\n" +
 	"\bfilename\x18\x01 \x01(\tR\bfilename\x12\x16\n" +
 	"\x06sha256\x18\x02 \x01(\tR\x06sha256\x12\x12\n" +
 	"\x04size\x18\x03 \x01(\x03R\x04size\x12\x18\n" +
-	"\acaption\x18\x04 \x01(\tR\acaption\x12\x18\n" +
-	"\apayload\x18\x05 \x01(\fR\apayload\"\xe3\x01\n" +
+	"\acaption\x18\x04 \x01(\tR\acaption\x12\x1d\n" +
+	"\apayload\x18\x05 \x01(\fH\x00R\apayload\x88\x01\x01B\n" +
+	"\n" +
+	"\b_payload\"\xe3\x01\n" +
 	"\fScalarRecord\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04step\x18\x02 \x01(\x03R\x04step\x128\n" +
@@ -424,6 +427,7 @@ func file_swanlab_metric_data_v1_data_proto_init() {
 	if File_swanlab_metric_data_v1_data_proto != nil {
 		return
 	}
+	file_swanlab_metric_data_v1_data_proto_msgTypes[2].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

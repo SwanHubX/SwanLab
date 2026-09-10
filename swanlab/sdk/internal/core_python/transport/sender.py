@@ -200,8 +200,8 @@ class HttpRecordSender:
                     remote_path = PurePosixPath("media", medium, media.filename)
                     remote_path_str = remote_path.as_posix()
 
-                    if media.payload:
-                        # skip_store：内容在 payload，直接内存上传，不触碰本地 media 路径
+                    if media.HasField("payload"):
+                        # skip_store：内容在 payload（允许为空文件），直接内存上传，不触碰本地 media 路径
                         size = len(media.payload)
                         mime_type = guess_type(media.filename)
                         self._track_file(f"{remote_path_str}:{size}", remote_path_str, size)

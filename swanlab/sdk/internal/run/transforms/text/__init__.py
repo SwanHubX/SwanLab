@@ -37,12 +37,15 @@ class Text(TransformMedia):
         filename = f"{step:03d}-{sha256[:8]}.txt"
         # 复用已编码的 bytes 直接以二进制写入: 既避免 safe_write 对 str 再做一次 UTF-8 编码,
         # 也保证 Windows 下文件内容 (LF) 与上方 sha256/size 计算结果一致
-        if path is not None:
-            fs.safe_write(path / filename, content_encode, mode="wb")
-        return MediaItem(
+        item = MediaItem(
             filename=filename,
             sha256=sha256,
             size=len(content_encode),
             caption=self.caption,
-            payload=content_encode if path is None else b"",
         )
+        if path is None:
+            # skip_store：内容随 payload 走；空内容也赋值以保留 presence（与缺失 payload 区分）。
+            item.payload = content_encode
+        else:
+            fs.safe_write(path / filename, content_encode, mode="wb")
+        return item
