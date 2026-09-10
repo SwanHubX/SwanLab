@@ -157,7 +157,7 @@ class TestBuildConfig:
         """默认模式 payload 恒空，由 Core 按 source_path 回读 config.yaml"""
         record = self._builder(False).build_config(self._event())
 
-        assert record.source_path == self.CONFIG_PATH.as_posix()
+        assert record.source_path == self.CONFIG_PATH.absolute().as_posix()
         assert record.payload == b""
 
 
