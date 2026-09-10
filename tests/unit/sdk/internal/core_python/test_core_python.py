@@ -24,7 +24,7 @@ from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
 )
 from swanlab.proto.swanlab.operation.v1.operation_pb2 import CoreState
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord, StartRecord
-from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord
+from swanlab.proto.swanlab.save.v1.save_pb2 import SavePolicy, SaveRecord
 from swanlab.proto.swanlab.settings.core.v1.core_pb2 import CoreSettings as CoreSettingsPb
 from swanlab.sdk.internal.core_python import CorePython
 from swanlab.sdk.internal.core_python.context import CoreConfig, CoreContext
@@ -336,3 +336,40 @@ class TestCorePythonSkipStore:
 
         assert core._store is None
         assert not core._ctx.run_file.exists()
+
+    def test_store_records_skips_serialization(self, tmp_path, monkeypatch):
+        """skip 下 _store_records 不调用 SerializeToString，仅登记未持久化计数。"""
+        core = self._start_online_core(tmp_path, monkeypatch, skip_store=True)
+        store = core._store
+        assert store is not None
+        skipped_before = store._skipped_records
+
+        record = MagicMock()
+        core._store_records([record, record, record])
+
+        record.SerializeToString.assert_not_called()
+        assert store._skipped_records == skipped_before + 3
+
+    def test_custom_save_skips_local_links(self, tmp_path, monkeypatch):
+        """skip 下不创建镜像软链接、不填 target_path，也不触碰 files 目录。"""
+        core = self._start_online_core(tmp_path, monkeypatch, skip_store=True)
+        transport = MagicMock()
+        core._transport = transport
+        core._watcher = MagicMock()
+        source = tmp_path / "checkpoints" / "model.pt"
+        source.parent.mkdir()
+        source.write_bytes(b"weights")
+
+        save = SaveRecord(
+            name="checkpoints/model.pt",
+            source_path=str(source),
+            policy=SavePolicy.SAVE_POLICY_NOW,
+        )
+        core.upsert_saves([save])
+
+        assert save.target_path == ""
+        assert source.read_bytes() == b"weights"  # 源文件只读不动
+        assert not (core._ctx.config.run_dir / "files").exists()
+        core._watcher.register_source_watches.assert_called_once_with([save])
+        core._watcher.register_live_watches.assert_not_called()
+        transport.put.assert_called_once()

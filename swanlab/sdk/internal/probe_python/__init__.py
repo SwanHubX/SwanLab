@@ -88,30 +88,54 @@ class ProbePython(ProbeProtocol):
         )
         if self._core is not None:
             # 4. 向core发送记录
+            # skip_store 下 run_dir 缺省：不落盘，内容直接内联 SaveRecord.payload、source_path 留空，
+            skip_store = ctx.config.run_dir is None
             payload: List[SaveRecord] = []
             if sys_info.metadata:
-                fs.safe_write(ctx.metadata_file, sys_info.metadata.model_dump_json(by_alias=True))
-                metadata_record = SaveRecord(
-                    name="metadata",
-                    source_path=ctx.metadata_file.absolute().as_posix(),
-                    type=SaveType.SAVE_TYPE_METADATA,
-                )
+                content = sys_info.metadata.model_dump_json(by_alias=True)
+                if skip_store:
+                    metadata_record = SaveRecord(
+                        name="metadata",
+                        type=SaveType.SAVE_TYPE_METADATA,
+                        payload=content.encode("utf-8"),
+                    )
+                else:
+                    fs.safe_write(ctx.metadata_file, content)
+                    metadata_record = SaveRecord(
+                        name="metadata",
+                        source_path=ctx.metadata_file.absolute().as_posix(),
+                        type=SaveType.SAVE_TYPE_METADATA,
+                    )
                 payload.append(metadata_record)
             if sys_info.requirements:
-                fs.safe_write(ctx.requirements_file, sys_info.requirements)
-                requirements_record = SaveRecord(
-                    name="requirements",
-                    source_path=ctx.requirements_file.absolute().as_posix(),
-                    type=SaveType.SAVE_TYPE_REQUIREMENTS,
-                )
+                if skip_store:
+                    requirements_record = SaveRecord(
+                        name="requirements",
+                        type=SaveType.SAVE_TYPE_REQUIREMENTS,
+                        payload=sys_info.requirements.encode("utf-8"),
+                    )
+                else:
+                    fs.safe_write(ctx.requirements_file, sys_info.requirements)
+                    requirements_record = SaveRecord(
+                        name="requirements",
+                        source_path=ctx.requirements_file.absolute().as_posix(),
+                        type=SaveType.SAVE_TYPE_REQUIREMENTS,
+                    )
                 payload.append(requirements_record)
             if sys_info.conda:
-                fs.safe_write(ctx.conda_file, sys_info.conda)
-                conda_record = SaveRecord(
-                    name="conda",
-                    source_path=ctx.conda_file.absolute().as_posix(),
-                    type=SaveType.SAVE_TYPE_CONDA,
-                )
+                if skip_store:
+                    conda_record = SaveRecord(
+                        name="conda",
+                        type=SaveType.SAVE_TYPE_CONDA,
+                        payload=sys_info.conda.encode("utf-8"),
+                    )
+                else:
+                    fs.safe_write(ctx.conda_file, sys_info.conda)
+                    conda_record = SaveRecord(
+                        name="conda",
+                        source_path=ctx.conda_file.absolute().as_posix(),
+                        type=SaveType.SAVE_TYPE_CONDA,
+                    )
                 payload.append(conda_record)
             if payload:
                 self._core.upsert_saves(payload)

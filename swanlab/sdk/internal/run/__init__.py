@@ -165,10 +165,12 @@ class Run:
         # 启动组件
         self._components.start()
         # 启动硬件监控探针
+        # skip_store 下不传递 run_dir，probe 负责将 metadata 信息注入 SaveRecord.payload
+        probe_run_dir = None if run_settings.core.skip_store else self._ctx.run_dir
         start_request = DeliverProbeStartRequest(
             probe_settings=run_settings.to_probe_proto(
                 run_id=run_settings.run.id,
-                run_dir=self._ctx.run_dir,
+                run_dir=probe_run_dir,
                 global_system_step=self._ctx.global_system_step,
             )
         )

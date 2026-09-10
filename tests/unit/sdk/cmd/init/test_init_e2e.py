@@ -35,6 +35,7 @@ from swanlab.sdk.cmd.merge_settings import merge_settings
 from swanlab.sdk.internal.bus import MetricLogEvent, RunEmitter
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.pkg import console, fork
+from swanlab.sdk.internal.probe_python import ProbePython
 from swanlab.sdk.internal.run import Run, get_run, has_run
 from swanlab.sdk.internal.run.components import BackgroundConsumer, NullConsumer, NullEmitter
 from swanlab.sdk.internal.run.components.config import config as global_config
@@ -704,7 +705,27 @@ class TestInitOnlineMode:
 
 
 class TestInitOnlineSkipStore:
-    """core.skip_store=true：online run 正常初始化，本地不产生 run-*.swanlab。"""
+    """core.skip_store=true：online run 正常初始化，本地不产生 run-*.swanlab。
+
+    注意：skip 下 metadata/config 等内部 save 以 payload 内联，Transport 尚未支持 payload 上传
+    （方案 §10.1 中间态），不会触发 profile 端点，因此 skip 用例不注册 mock_profile_api；
+    步骤 7（sender 双源）落地后应重新加入并断言上传。
+    """
+
+    @staticmethod
+    def _capture_probe_settings(monkeypatch, *, skip_store: bool):
+        """init 并捕获 probe 收到的 ProbeSettings。"""
+        captured = {}
+        original = ProbePython._start_when_enabled
+
+        def _capture(self, start_request):
+            captured["probe_settings"] = start_request.probe_settings
+            return original(self, start_request)
+
+        monkeypatch.setattr(ProbePython, "_start_when_enabled", _capture)
+        settings = Settings(core=Settings.Core(skip_store=True)) if skip_store else None
+        init(project=PROJECT, settings=settings)
+        return captured["probe_settings"]
 
     def test_skip_store_creates_no_datastore(
         self,
@@ -712,7 +733,6 @@ class TestInitOnlineSkipStore:
         mock_project_get_api,
         mock_experiment_create_api,
         mock_experiment_stop_api,
-        mock_profile_api,
         mock_heartbeat_api,
         mock_metrics_api,
     ):
@@ -724,13 +744,43 @@ class TestInitOnlineSkipStore:
         assert run._ctx.run_dir.exists()
         assert list(run._ctx.run_dir.glob("run-*.swanlab")) == []
 
+    def test_skip_store_probe_has_no_run_dir(
+        self,
+        monkeypatch,
+        logged_in_client,
+        mock_project_get_api,
+        mock_experiment_create_api,
+        mock_experiment_stop_api,
+        mock_heartbeat_api,
+        mock_metrics_api,
+    ):
+        """skip_store 下 probe settings 不携带 run_dir：缺省即禁止文件落点（方案 #5）。"""
+        probe_settings = self._capture_probe_settings(monkeypatch, skip_store=True)
+
+        assert probe_settings.HasField("run_dir") is False
+
+    def test_default_probe_has_run_dir(
+        self,
+        monkeypatch,
+        logged_in_client,
+        mock_project_get_api,
+        mock_experiment_create_api,
+        mock_experiment_stop_api,
+        mock_profile_api,
+        mock_heartbeat_api,
+        mock_metrics_api,
+    ):
+        """默认模式回归：probe settings 仍携带 run_dir。"""
+        probe_settings = self._capture_probe_settings(monkeypatch, skip_store=False)
+
+        assert probe_settings.HasField("run_dir") is True
+
     def test_skip_store_creates_no_config_file(
         self,
         logged_in_client,
         mock_project_get_api,
         mock_experiment_create_api,
         mock_experiment_stop_api,
-        mock_profile_api,
         mock_heartbeat_api,
         mock_metrics_api,
     ):

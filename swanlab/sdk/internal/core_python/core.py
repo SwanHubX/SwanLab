@@ -190,8 +190,12 @@ class CorePython(CoreProtocol):
     # ---------------------------------- 数据上报 ----------------------------------
 
     def _store_records(self, records: List[Record]) -> None:
-        """将一组 Record 写入本地存储"""
+        """将一组 Record 写入本地存储（skip_store 下不序列化、不落盘）"""
         assert self._store is not None, "store must be initialized before upsert"
+        if self._ctx.config.skip_store:
+            # 跳过 SerializeToString 与落盘，仅登记未持久化计数（writer.close() 统计用）
+            self._store.skip_records(len(records))
+            return
         for record in records:
             self._store.write(record.SerializeToString())
 
@@ -394,6 +398,13 @@ class CorePython(CoreProtocol):
                 self._upsert_saves_when_online(custom_saves)
 
     def _handle_custom_save(self, saves: List[SaveRecord]) -> List[Record]:
+        # skip_store：不创建本地镜像软链接（不触碰 files_dir、不填 target_path），
+        # live 监听直接对准源文件（见 cloud-only 方案 §4-13/14）
+        if self._ctx.config.skip_store:
+            records = [builder.build_save_record(self._counter, s) for s in saves]
+            self._store_records(records)
+            self._watcher.register_source_watches(saves)
+            return records
         linked = create_save_links(saves, self._ctx.files_dir)
         if linked > 0:
             console.info(

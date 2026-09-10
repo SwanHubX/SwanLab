@@ -75,7 +75,7 @@ class DataStoreWriter:
     def write(self, data: bytes) -> None:
         """写入任意字节，遵循 LevelDB log 分块规范；skip 模式仅累加计数。"""
         if self._skip:
-            self._skipped_records += 1
+            self.skip_records()
             return
         assert self._fp is not None, "writer is not open"
         offset = self._index % LEVELDBLOG_BLOCK_LEN
@@ -112,6 +112,13 @@ class DataStoreWriter:
         # except OSError:
         #     pass
         # self._flush_offset = self._index
+
+    def skip_records(self, count: int = 1) -> None:
+        """skip 模式下登记 count 条未持久化的 record。
+
+        Core 在跳过序列化时不经过 write()，由本方法维持 close() 统计的完整性。
+        """
+        self._skipped_records += count
 
     def ensure_flushed(self) -> None:
         assert self._fp is not None, "writer is not open"
