@@ -357,6 +357,7 @@ class Settings(BaseSettings):
             monitor=self.probe.monitor,
             monitor_interval=self.probe.monitor_interval,
             monitor_disk_dir=str(self.probe.monitor_disk_dir.absolute()),
+            skip_store=self.core.skip_store,
         )
         if run_id is not None:
             ps.run_id = run_id

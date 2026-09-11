@@ -17,4 +17,5 @@ message ProbeSettings {
     bool monitor                      = 10;
     int32 monitor_interval            = 11;
     string monitor_disk_dir           = 12;
+    bool skip_store                   = 13; // 跳过探针本地文件落盘，内容直接内联 SaveRecord.payload（仅 online 合法）
 }

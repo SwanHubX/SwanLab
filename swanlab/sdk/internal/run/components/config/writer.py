@@ -7,6 +7,7 @@
 """
 
 from pathlib import Path
+from typing import Optional
 
 import yaml
 
@@ -35,7 +36,7 @@ def dump_config(content: dict) -> str:
     return yaml.safe_dump(content, allow_unicode=True, default_flow_style=False)
 
 
-def write_config(path: Path, config: dict, sort_map: dict) -> None:
+def write_config(path: Path, config: dict, sort_map: dict, content: Optional[dict] = None) -> None:
     """
     将 config 序列化为 {key: {value, desc, sort}} 格式并写入 YAML 文件。
 
@@ -44,5 +45,8 @@ def write_config(path: Path, config: dict, sort_map: dict) -> None:
     :param path:     目标文件路径（config.yaml）
     :param config:   内部存储的原始 {key: value} dict（value 已经过 parse()）
     :param sort_map: key → sort index 映射，用于还原插入顺序
+    :param content:  已由 format_config 归一化的结构；传入可复用，避免重复格式化
     """
-    fs.safe_write(path, dump_config(format_config(config, sort_map)))
+    if content is None:
+        content = format_config(config, sort_map)
+    fs.safe_write(path, dump_config(content))

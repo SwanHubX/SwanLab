@@ -724,15 +724,27 @@ def test_upload_save_rejects_invalid_payload_usage(tmp_path: Path):
     assert any("Internal save payload missing" in message for message in messages)
 
 
-@pytest.mark.parametrize(
-    "payload, api_error_raised",
-    [(b"{not-json", False), (b'{"hostname": "gpu-01"}', True)],
-    ids=["parse-error", "upload-error"],
-)
-def test_upload_save_payload_failure_is_not_swallowed(tmp_path: Path, payload: bytes, api_error_raised: bool):
-    """payload 解析/上传失败上抛，交 Transport 重试，不静默吞掉。"""
+def test_upload_save_skips_unparseable_payload(tmp_path: Path):
+    """payload 无法解析属确定性脏数据：告警跳过，不进入上传、不触发 Transport 无上限重试。"""
     sender = _make_sender(tmp_path)
-    record = Record(save=SaveRecord(name="metadata", type=SaveType.SAVE_TYPE_METADATA, payload=payload))
+    record = Record(save=SaveRecord(name="metadata", type=SaveType.SAVE_TYPE_METADATA, payload=b"{not-json"))
+
+    with (
+        patch("swanlab.sdk.internal.core_python.transport.sender.upload_metadata") as mock_upload_meta,
+        patch("swanlab.sdk.internal.core_python.transport.sender.console.warning") as mock_warning,
+    ):
+        sender.upload("save", [record])  # 不得抛异常
+
+    mock_upload_meta.assert_not_called()
+    assert "Failed to parse internal save payload" in mock_warning.call_args.args[0]
+
+
+def test_upload_save_payload_upload_error_is_not_swallowed(tmp_path: Path):
+    """payload 解析成功但上传失败（5xx）时上抛，交 Transport 重试，不静默吞掉。"""
+    sender = _make_sender(tmp_path)
+    record = Record(
+        save=SaveRecord(name="metadata", type=SaveType.SAVE_TYPE_METADATA, payload=b'{"hostname": "gpu-01"}')
+    )
     error = ApiError(
         _FakeApiErrorResponse(502),
         method="PUT",
@@ -743,9 +755,9 @@ def test_upload_save_payload_failure_is_not_swallowed(tmp_path: Path, payload: b
 
     with patch(
         "swanlab.sdk.internal.core_python.transport.sender.upload_metadata",
-        side_effect=error if api_error_raised else None,
+        side_effect=error,
     ):
-        with pytest.raises((ValueError, ApiError)):
+        with pytest.raises(ApiError):
             sender.upload("save", [record])
 
 

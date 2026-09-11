@@ -739,6 +739,18 @@ class TestInitOnlineSkipStore:
         assert not log_dir.exists()
         assert not run._ctx.run_dir.exists()
 
+    def test_interactive_downgrade_disables_skip_store(self, monkeypatch, tmp_path):
+        """online 交互式降级到 offline 时，skip_store 被显式关闭而非抛裸 ValidationError。"""
+        monkeypatch.setenv("SWANLAB_CORE_SKIP_STORE", "true")
+        monkeypatch.setattr("swanlab.sdk.cmd.init.prompt_init_mode", lambda _: "offline")
+
+        run = init(mode="online", log_dir=str(tmp_path / "swanlog"))
+
+        assert run.mode == "offline"
+        assert run._ctx.config.settings.core.skip_store is False
+        assert run._ctx.config_file.exists()
+        run.finish()
+
     def test_skip_store_probe_has_no_run_dir(
         self,
         monkeypatch,
@@ -750,9 +762,10 @@ class TestInitOnlineSkipStore:
         mock_heartbeat_api,
         mock_metrics_api,
     ):
-        """skip_store 下 probe settings 不携带 run_dir：缺省即禁止文件落点。"""
+        """skip_store 下 probe settings 显式携带 skip_store 且不携带 run_dir。"""
         probe_settings = self._capture_probe_settings(monkeypatch, skip_store=True)
 
+        assert probe_settings.skip_store is True
         assert probe_settings.HasField("run_dir") is False
 
     def test_default_probe_has_run_dir(
@@ -766,10 +779,11 @@ class TestInitOnlineSkipStore:
         mock_heartbeat_api,
         mock_metrics_api,
     ):
-        """默认模式回归：probe settings 仍携带 run_dir。"""
+        """默认模式回归：probe settings 携带 run_dir 且 skip_store 为 False。"""
         probe_settings = self._capture_probe_settings(monkeypatch, skip_store=False)
 
         assert probe_settings.HasField("run_dir") is True
+        assert probe_settings.skip_store is False
 
     def test_skip_store_creates_no_config_file(
         self,

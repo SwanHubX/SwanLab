@@ -12,7 +12,7 @@ import math
 import threading
 from collections.abc import Callable, Sequence
 from pathlib import Path, PurePosixPath, PureWindowsPath
-from typing import IO, TYPE_CHECKING, Literal, Optional, Union, cast
+from typing import IO, TYPE_CHECKING, Any, Literal, Optional, Union, cast
 
 import yaml
 
@@ -308,29 +308,42 @@ class HttpRecordSender:
             return fallback
         return None
 
+    def _parse_internal_save_payload(self, save: SaveRecord) -> Optional[tuple[Callable[..., None], Any]]:
+        """解析内部 save 的 payload，返回 (上传函数, content)；脏数据返回 None。
+
+        只捕获确定性的解码/解析异常：这类数据无法通过重试修复，必须告警后跳过，
+        否则会在 Transport 中无上限重试并阻塞 finish。上传阶段的异常不在此处理，
+        保持既有 ApiError 分类（5xx 交 Transport 重试 / 4xx 跳过）。
+        """
+        try:
+            if save.type == SaveType.SAVE_TYPE_METADATA:
+                content = json.loads(save.payload.decode("utf-8"))
+                return (upload_metadata, content) if isinstance(content, dict) else None
+            if save.type == SaveType.SAVE_TYPE_REQUIREMENTS:
+                content = save.payload.decode("utf-8")
+                return (upload_requirements, content) if len(content) > 0 else None
+            if save.type == SaveType.SAVE_TYPE_CONDA:
+                content = save.payload.decode("utf-8")
+                return (upload_conda, content) if len(content) > 0 else None
+            if save.type == SaveType.SAVE_TYPE_CONFIG:
+                content = yaml.safe_load(save.payload.decode("utf-8"))
+                return (upload_config, content) if isinstance(content, dict) else None
+        except (UnicodeDecodeError, json.JSONDecodeError, yaml.YAMLError) as e:
+            console.warning(f"Failed to parse internal save payload, skipping: type={save.type}, error={e}")
+            return None
+        console.warning(f"Unknown save type {save.type}, skipping payload")
+        return None
+
     def _upload_internal_save_payload(self, save: SaveRecord) -> None:
         """从 payload 解析并上传内部 save（skip_store）。
 
-        不使用 safe.block：解析/上传失败上抛，交由 Transport 重试。
+        解析失败（脏数据）告警跳过；上传失败保持既有 ApiError 分类，交由 Transport 处理。
         """
-        if save.type == SaveType.SAVE_TYPE_METADATA:
-            content = json.loads(save.payload.decode("utf-8"))
-            if isinstance(content, dict):
-                upload_metadata(self._username, self._project, self._experiment_id, content=content)
-        elif save.type == SaveType.SAVE_TYPE_REQUIREMENTS:
-            content = save.payload.decode("utf-8")
-            if len(content) > 0:
-                upload_requirements(self._username, self._project, self._experiment_id, content=content)
-        elif save.type == SaveType.SAVE_TYPE_CONDA:
-            content = save.payload.decode("utf-8")
-            if len(content) > 0:
-                upload_conda(self._username, self._project, self._experiment_id, content=content)
-        elif save.type == SaveType.SAVE_TYPE_CONFIG:
-            content = yaml.safe_load(save.payload.decode("utf-8"))
-            if isinstance(content, dict):
-                upload_config(self._username, self._project, self._experiment_id, content=content)
-        else:
-            console.warning(f"Unknown save type {save.type}, skipping payload")
+        parsed = self._parse_internal_save_payload(save)
+        if parsed is None:
+            return
+        func, content = parsed
+        func(self._username, self._project, self._experiment_id, content=content)
 
     def upload_save(self, records: Sequence[Record]) -> None:
         """

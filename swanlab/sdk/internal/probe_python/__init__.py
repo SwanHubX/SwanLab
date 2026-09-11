@@ -88,8 +88,8 @@ class ProbePython(ProbeProtocol):
         )
         if self._core is not None:
             # 4. 向core发送记录
-            # skip_store 下 run_dir 默认不设置：内容直接进入 SaveRecord.payload、source_path 留空，
-            skip_store = ctx.config.run_dir is None
+            # skip_store：内容直接进入 SaveRecord.payload、source_path 留空，不落盘
+            skip_store = ctx.config.skip_store
             payload: List[SaveRecord] = []
             if sys_info.metadata:
                 content = sys_info.metadata.model_dump_json(by_alias=True)

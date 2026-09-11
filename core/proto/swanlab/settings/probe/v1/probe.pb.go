@@ -35,6 +35,7 @@ type ProbeSettings struct {
 	Monitor          bool                   `protobuf:"varint,10,opt,name=monitor,proto3" json:"monitor,omitempty"`
 	MonitorInterval  int32                  `protobuf:"varint,11,opt,name=monitor_interval,json=monitorInterval,proto3" json:"monitor_interval,omitempty"`
 	MonitorDiskDir   string                 `protobuf:"bytes,12,opt,name=monitor_disk_dir,json=monitorDiskDir,proto3" json:"monitor_disk_dir,omitempty"`
+	SkipStore        bool                   `protobuf:"varint,13,opt,name=skip_store,json=skipStore,proto3" json:"skip_store,omitempty"` // 跳过探针本地文件落盘，内容直接内联 SaveRecord.payload（仅 online 合法）
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
@@ -153,11 +154,18 @@ func (x *ProbeSettings) GetMonitorDiskDir() string {
 	return ""
 }
 
+func (x *ProbeSettings) GetSkipStore() bool {
+	if x != nil {
+		return x.SkipStore
+	}
+	return false
+}
+
 var File_swanlab_settings_probe_v1_probe_proto protoreflect.FileDescriptor
 
 const file_swanlab_settings_probe_v1_probe_proto_rawDesc = "" +
 	"\n" +
-	"%swanlab/settings/probe/v1/probe.proto\x12\x19swanlab.settings.probe.v1\"\xb5\x03\n" +
+	"%swanlab/settings/probe/v1/probe.proto\x12\x19swanlab.settings.probe.v1\"\xd4\x03\n" +
 	"\rProbeSettings\x12\x1a\n" +
 	"\x06run_id\x18\x01 \x01(\tH\x00R\x05runId\x88\x01\x01\x12\x1c\n" +
 	"\arun_dir\x18\x02 \x01(\tH\x01R\x06runDir\x88\x01\x01\x121\n" +
@@ -171,7 +179,9 @@ const file_swanlab_settings_probe_v1_probe_proto_rawDesc = "" +
 	"\amonitor\x18\n" +
 	" \x01(\bR\amonitor\x12)\n" +
 	"\x10monitor_interval\x18\v \x01(\x05R\x0fmonitorInterval\x12(\n" +
-	"\x10monitor_disk_dir\x18\f \x01(\tR\x0emonitorDiskDirB\t\n" +
+	"\x10monitor_disk_dir\x18\f \x01(\tR\x0emonitorDiskDir\x12\x1d\n" +
+	"\n" +
+	"skip_store\x18\r \x01(\bR\tskipStoreB\t\n" +
 	"\a_run_idB\n" +
 	"\n" +
 	"\b_run_dirB\x15\n" +

@@ -226,7 +226,14 @@ def init(
     # ---------------------------------- 再次确认参数 ----------------------------------
     # 根据交互式引导确定最终的模式
     mode = prompt_init_mode(run_settings)
-    run_settings.merge_settings({"mode": mode})
+    if run_settings.core.skip_store and mode != "online":
+        # 交互式引导允许用户从 online 降级到 offline；skip_store 仅 online 合法，
+        # 此处显式关闭并告警，避免 merge_settings 抛出裸 ValidationError，
+        # 同时保证离线数据正常落盘（否则与 “Results will be saved locally” 提示矛盾）。
+        console.warning("core.skip_store is only supported in online mode; it has been disabled for this run.")
+        run_settings.merge_settings({"mode": mode, "core": {"skip_store": False}})
+    else:
+        run_settings.merge_settings({"mode": mode})
     # 校验 run id 与 resume，仅在对两者存在性有要求的模式下校验
     if run_settings.mode == "online":
         if run_settings.run.resume == "must":

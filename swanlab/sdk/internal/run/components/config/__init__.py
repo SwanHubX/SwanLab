@@ -98,7 +98,7 @@ class Config(MutableMapping):
         content = format_config(self._config, self._sort)
         # fs.safe_write 会自动建父目录，写入即静默重建 swanlog 目录树
         if not self._skip_store:
-            write_config(self._file, self._config, self._sort)
+            write_config(self._file, self._config, self._sort, content)
         ts = Timestamp()
         ts.GetCurrentTime()
         self._emit(ConfigEvent(path=self._file, timestamp=ts, content=content))
