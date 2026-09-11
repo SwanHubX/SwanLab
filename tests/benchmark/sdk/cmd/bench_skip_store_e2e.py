@@ -394,7 +394,7 @@ def _print_report(persist: Dict[str, Any], skip: Dict[str, Any]) -> None:
 # ===========================================================================
 
 
-def test_bench_skip_store_e2e(tmp_path):
+def test_bench_skip_store_e2e():
     """online + mock HTTP 下端到端对比 skip_store 的吞吐量与延时。"""
     persist = best_of(skip_store=False, steps=STEPS, keys=KEYS, save_count=SAVE_COUNT, repeats=REPEATS)
     skip = best_of(skip_store=True, steps=STEPS, keys=KEYS, save_count=SAVE_COUNT, repeats=REPEATS)
