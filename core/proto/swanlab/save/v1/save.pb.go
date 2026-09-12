@@ -126,8 +126,12 @@ func (SaveType) EnumDescriptor() ([]byte, []int) {
 }
 
 // 文件保存记录，由 swanlab.save() API 产生。
-// 每条记录对应一个用户文件的保存操作。
 // size/md5/mime_type 不在此处存储，由 Core 在持久化/上传时按需计算。
+//
+// payload 仅用于 online + skip_store 下的四类内部 save
+// （CONFIG/METADATA/REQUIREMENTS/CONDA）：此时 source_path/target_path 为空，
+// Core 直接从 payload 解析并上传；CUSTOM 的 payload 必须为空，只使用 source_path；
+// 未启用 skip_store 时 payload 为空，Core 按 source_path 处理。
 type SaveRecord struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`                                      // 文件标识（相对于 base_path 的路径）
@@ -135,6 +139,7 @@ type SaveRecord struct {
 	TargetPath    string                 `protobuf:"bytes,3,opt,name=target_path,json=targetPath,proto3" json:"target_path,omitempty"`        // 本地镜像目标路径（软链接位置，由 Core 填充）
 	Policy        SavePolicy             `protobuf:"varint,4,opt,name=policy,proto3,enum=swanlab.save.v1.SavePolicy" json:"policy,omitempty"` // 保存策略
 	Type          SaveType               `protobuf:"varint,5,opt,name=type,proto3,enum=swanlab.save.v1.SaveType" json:"type,omitempty"`       // 文件类型
+	Payload       []byte                 `protobuf:"bytes,6,opt,name=payload,proto3,oneof" json:"payload,omitempty"`                          // 内部 metadata 元文件内容，skip_store 设置下有效
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -204,11 +209,18 @@ func (x *SaveRecord) GetType() SaveType {
 	return SaveType_SAVE_TYPE_CUSTOM
 }
 
+func (x *SaveRecord) GetPayload() []byte {
+	if x != nil {
+		return x.Payload
+	}
+	return nil
+}
+
 var File_swanlab_save_v1_save_proto protoreflect.FileDescriptor
 
 const file_swanlab_save_v1_save_proto_rawDesc = "" +
 	"\n" +
-	"\x1aswanlab/save/v1/save.proto\x12\x0fswanlab.save.v1\"\xc6\x01\n" +
+	"\x1aswanlab/save/v1/save.proto\x12\x0fswanlab.save.v1\"\xf1\x01\n" +
 	"\n" +
 	"SaveRecord\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1f\n" +
@@ -217,7 +229,10 @@ const file_swanlab_save_v1_save_proto_rawDesc = "" +
 	"\vtarget_path\x18\x03 \x01(\tR\n" +
 	"targetPath\x123\n" +
 	"\x06policy\x18\x04 \x01(\x0e2\x1b.swanlab.save.v1.SavePolicyR\x06policy\x12-\n" +
-	"\x04type\x18\x05 \x01(\x0e2\x19.swanlab.save.v1.SaveTypeR\x04type*L\n" +
+	"\x04type\x18\x05 \x01(\x0e2\x19.swanlab.save.v1.SaveTypeR\x04type\x12\x1d\n" +
+	"\apayload\x18\x06 \x01(\fH\x00R\apayload\x88\x01\x01B\n" +
+	"\n" +
+	"\b_payload*L\n" +
 	"\n" +
 	"SavePolicy\x12\x13\n" +
 	"\x0fSAVE_POLICY_NOW\x10\x00\x12\x13\n" +
@@ -264,6 +279,7 @@ func file_swanlab_save_v1_save_proto_init() {
 	if File_swanlab_save_v1_save_proto != nil {
 		return
 	}
+	file_swanlab_save_v1_save_proto_msgTypes[0].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

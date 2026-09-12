@@ -7,7 +7,7 @@
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, List, Union
+from typing import Any, List, Optional, Union
 
 from google.protobuf.message import Message
 from google.protobuf.timestamp_pb2 import Timestamp
@@ -112,11 +112,11 @@ class TransformMedia(TransformData, ABC):
         )
 
     @abstractmethod
-    def transform(self, *, step: int, path: Path) -> MediaItem:
+    def transform(self, *, step: int, path: Optional[Path]) -> MediaItem:
         """
-        将媒体数据转换为Protobuf格式，并将结果写入指定目录下
+        将媒体数据转换为Protobuf格式
         :param step: 步数
-        :param path: 存储目录
+        :param path: 存储目录；None 即 skip_store，不落盘，内容写入 MediaItem.payload
         :return: Protobuf消息
         """
         ...

@@ -1,7 +1,9 @@
 from io import BytesIO
 from pathlib import Path
+from typing import Optional
 from unittest.mock import ANY, MagicMock, patch
 
+import pytest
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.exceptions import ApiError
@@ -48,6 +50,7 @@ def _make_sender(
     save_batch: int = 100,
     save_split: int = 100 * 1024 * 1024,
     save_part: int = 32 * 1024 * 1024,
+    skip_store: bool = False,
 ) -> HttpRecordSender:
     ctx = CoreContext(
         config=CoreConfig(
@@ -60,6 +63,7 @@ def _make_sender(
             save_size=50 * 1024 * 1024 * 1024,
             save_part=save_part,
             save_batch=save_batch,
+            skip_store=skip_store,
         )
     )
     ctx.set_online_params(
@@ -80,16 +84,23 @@ def _make_save_record(
     return Record(save=SaveRecord(name=name, source_path=str(source), target_path=str(source), type=save_type))
 
 
-def _make_media_record(filename: str, media_type=ColumnType.COLUMN_TYPE_IMAGE) -> Record:
+def _make_media_record(
+    filename: str, media_type=ColumnType.COLUMN_TYPE_IMAGE, payload: Optional[bytes] = None
+) -> Record:
     timestamp = Timestamp()
     timestamp.GetCurrentTime()
+    # payload=None 表示未提供 payload（默认模式，从本地路径读取）；
+    # payload=b"" 表示合法的空文件（skip_store），两者必须可区分。
+    item = MediaItem(filename=filename)
+    if payload is not None:
+        item.payload = payload
     return Record(
         media=MediaRecord(
             key="examples/image",
             step=1,
             type=media_type,
             timestamp=timestamp,
-            value=MediaValue(items=[MediaItem(filename=filename)]),
+            value=MediaValue(items=[item]),
         )
     )
 
@@ -360,6 +371,64 @@ def test_upload_media_finishes_file_inside_progress_callback(tmp_path: Path):
     assert list(snapshots[1].files) == []
 
 
+def test_upload_media_uses_payload_without_touching_disk(tmp_path: Path):
+    """payload 走内存上传、不读本地文件；缺 payload 时告警丢弃。"""
+    sender = _make_sender(tmp_path, skip_store=True)
+    captured = {}
+
+    def _fake_upload_resource(_, __, *, paths, buffers, content_types=None, tracker=None):
+        captured["paths"] = paths
+        captured["content_types"] = content_types
+        captured["content"] = buffers[0].read()
+
+    with (
+        patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=MagicMock()),
+        patch(
+            "swanlab.sdk.internal.core_python.transport.sender.upload_resource",
+            side_effect=_fake_upload_resource,
+        ),
+        patch("swanlab.sdk.internal.core_python.transport.sender.upload_media") as mock_upload_media,
+        patch("swanlab.sdk.internal.core_python.transport.sender.console.warning") as mock_warning,
+    ):
+        sender.upload_media([_make_media_record("ok.png", payload=b"ok"), _make_media_record("missing.png")])
+
+    assert captured["paths"] == ["media/image/ok.png"]
+    assert captured["content_types"] == ["image/png"]
+    assert captured["content"] == b"ok"
+    mock_upload_media.assert_called_once()
+    assert "Media payload missing" in mock_warning.call_args.args[0]
+    # 不得访问/创建本地 media 目录
+    assert not (tmp_path / "media").exists()
+
+
+def test_upload_media_uploads_empty_payload_as_zero_byte_file(tmp_path: Path):
+    """skip_store 下合法的空文件（payload 存在但为 b""）必须上传，不能被当作缺失丢弃。"""
+    sender = _make_sender(tmp_path, skip_store=True)
+    captured = {}
+
+    def _fake_upload_resource(_, __, *, paths, buffers, content_types=None, tracker=None):
+        captured["paths"] = paths
+        captured["content_types"] = content_types
+        captured["content"] = buffers[0].read()
+
+    with (
+        patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=MagicMock()),
+        patch(
+            "swanlab.sdk.internal.core_python.transport.sender.upload_resource",
+            side_effect=_fake_upload_resource,
+        ),
+        patch("swanlab.sdk.internal.core_python.transport.sender.upload_media") as mock_upload_media,
+        patch("swanlab.sdk.internal.core_python.transport.sender.console.warning") as mock_warning,
+    ):
+        sender.upload_media([_make_media_record("empty.txt", ColumnType.COLUMN_TYPE_TEXT, payload=b"")])
+
+    assert captured["paths"] == ["media/text/empty.txt"]
+    assert captured["content_types"] == ["text/plain"]
+    assert captured["content"] == b""
+    mock_upload_media.assert_called_once()
+    mock_warning.assert_not_called()
+
+
 def test_upload_advances_records_only_on_success(tmp_path: Path):
     """成功上传才递进 uploaded，进度条仅保留上传成功的进度。"""
     tracker = UploadTracker()
@@ -575,6 +644,121 @@ def test_resolve_save_source_handles_windows_separators_on_posix(tmp_path: Path)
         )
     )
     assert sender._resolve_save_source(custom_rec.save) == custom_fallback
+
+
+# ============================================================
+# skip_store：内部 save payload 双源
+# ============================================================
+
+
+_INTERNAL_PAYLOAD_CASES = [
+    pytest.param(
+        SaveType.SAVE_TYPE_METADATA,
+        b'{"hostname": "gpu-01"}',
+        "upload_metadata",
+        {"hostname": "gpu-01"},
+        id="metadata",
+    ),
+    pytest.param(
+        SaveType.SAVE_TYPE_REQUIREMENTS,
+        b"numpy==1.0",
+        "upload_requirements",
+        "numpy==1.0",
+        id="requirements",
+    ),
+    pytest.param(
+        SaveType.SAVE_TYPE_CONFIG,
+        b"lr:\n  value: 0.01\n",
+        "upload_config",
+        {"lr": {"value": 0.01}},
+        id="config",
+    ),
+]
+
+
+@pytest.mark.parametrize("save_type, payload, api_func, expected_content", _INTERNAL_PAYLOAD_CASES)
+def test_upload_save_uses_internal_payload_without_disk(tmp_path, save_type, payload, api_func, expected_content):
+    """内部 save payload 非空：直接解析上传，不走 files 回退。"""
+    sender = _make_sender(tmp_path)
+    record = Record(save=SaveRecord(name="internal", type=save_type, payload=payload))
+
+    with (
+        patch(f"swanlab.sdk.internal.core_python.transport.sender.{api_func}") as mock_api,
+        patch.object(sender, "_resolve_save_source") as mock_resolve,
+    ):
+        sender.upload_save([record])
+
+    mock_resolve.assert_not_called()
+    mock_api.assert_called_once()
+    assert mock_api.call_args.kwargs["content"] == expected_content
+
+
+def test_upload_save_rejects_invalid_payload_usage(tmp_path: Path):
+    """CUSTOM 带 payload、skip_store 下内部 save 缺 payload，均告警跳过、不走上传。"""
+    source = tmp_path / "model.pt"
+    source.write_bytes(b"weights")
+    sender = _make_sender(tmp_path, skip_store=True)
+    custom_with_payload = Record(
+        save=SaveRecord(
+            name="model.pt",
+            source_path=str(source),
+            type=SaveType.SAVE_TYPE_CUSTOM,
+            payload=b"forbidden",
+        )
+    )
+    internal_without_payload = _make_internal_save_record("", SaveType.SAVE_TYPE_METADATA)
+
+    with (
+        patch("swanlab.sdk.internal.core_python.transport.sender.prepare_save_files") as mock_prepare,
+        patch.object(sender, "_resolve_save_source") as mock_resolve,
+        patch("swanlab.sdk.internal.core_python.transport.sender.upload_metadata") as mock_upload_meta,
+        patch("swanlab.sdk.internal.core_python.transport.sender.console.warning") as mock_warning,
+    ):
+        sender.upload_save([custom_with_payload, internal_without_payload])
+
+    mock_prepare.assert_not_called()
+    mock_resolve.assert_not_called()
+    mock_upload_meta.assert_not_called()
+    messages = [call.args[0] for call in mock_warning.call_args_list]
+    assert any("CUSTOM save must not carry payload" in message for message in messages)
+    assert any("Internal save payload missing" in message for message in messages)
+
+
+def test_upload_save_skips_unparseable_payload(tmp_path: Path):
+    """payload 无法解析属确定性脏数据：告警跳过，不进入上传、不触发 Transport 无上限重试。"""
+    sender = _make_sender(tmp_path)
+    record = Record(save=SaveRecord(name="metadata", type=SaveType.SAVE_TYPE_METADATA, payload=b"{not-json"))
+
+    with (
+        patch("swanlab.sdk.internal.core_python.transport.sender.upload_metadata") as mock_upload_meta,
+        patch("swanlab.sdk.internal.core_python.transport.sender.console.warning") as mock_warning,
+    ):
+        sender.upload("save", [record])  # 不得抛异常
+
+    mock_upload_meta.assert_not_called()
+    assert "Failed to parse internal save payload" in mock_warning.call_args.args[0]
+
+
+def test_upload_save_payload_upload_error_is_not_swallowed(tmp_path: Path):
+    """payload 解析成功但上传失败（5xx）时上抛，交 Transport 重试，不静默吞掉。"""
+    sender = _make_sender(tmp_path)
+    record = Record(
+        save=SaveRecord(name="metadata", type=SaveType.SAVE_TYPE_METADATA, payload=b'{"hostname": "gpu-01"}')
+    )
+    error = ApiError(
+        _FakeApiErrorResponse(502),
+        method="PUT",
+        trace_id="trace-id",
+        code="bad-gateway",
+        message="server error",
+    )
+
+    with patch(
+        "swanlab.sdk.internal.core_python.transport.sender.upload_metadata",
+        side_effect=error,
+    ):
+        with pytest.raises(ApiError):
+            sender.upload("save", [record])
 
 
 # ============================================================

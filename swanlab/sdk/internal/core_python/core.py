@@ -105,10 +105,10 @@ class CorePython(CoreProtocol):
         return resp
 
     def _start_store(self, resp: DeliverRunStartResponse):
-        self._store = DataStoreWriter()
+        # skip_store 仅 online 模式为 True（根 Settings 校验器保证），此时不创建本地 datastore 文件
+        self._store = DataStoreWriter(skip=self._ctx.config.skip_store)
         self._store.open(str(self._ctx.run_file))
-        record = builder.build_start_record(resp.run)
-        self._store.write(record.SerializeToString())
+        self._store_records([builder.build_start_record(resp.run)])
 
     def _start_without_online(self, start_request: DeliverRunStartRequest, message: str) -> DeliverRunStartResponse:
         self._ctx = CoreContext.from_proto(start_request.core_settings)
@@ -189,8 +189,15 @@ class CorePython(CoreProtocol):
     # ---------------------------------- 数据上报 ----------------------------------
 
     def _store_records(self, records: List[Record]) -> None:
-        """将一组 Record 写入本地存储"""
+        """将一组 Record 写入本地存储；start、普通 record 与 finish 的统一入口。
+
+        skip_store 下不序列化、不落盘，仅登记未持久化计数（writer.close() 统计用）。
+        """
         assert self._store is not None, "store must be initialized before upsert"
+        if self._ctx.config.skip_store:
+            # 跳过 SerializeToString 与落盘，仅登记未持久化计数（writer.close() 统计用）
+            self._store.skip_records(len(records))
+            return
         for record in records:
             self._store.write(record.SerializeToString())
 
@@ -346,8 +353,9 @@ class CorePython(CoreProtocol):
         records = [builder.build_log_record(self._counter, self._epoch, c) for c in logs]
         self._store_records(records)
         if records:
+            action = "Skipped storing" if self._ctx.config.skip_store else "Stored"
             console.debug(
-                f"Stored log records locally: count={len(records)}, nums={records[0].num}..{records[-1].num}",
+                f"{action} log records locally: count={len(records)}, nums={records[0].num}..{records[-1].num}",
                 write_to_tty=False,
             )
         self._transport_put(records)
@@ -392,6 +400,13 @@ class CorePython(CoreProtocol):
                 self._upsert_saves_when_online(custom_saves)
 
     def _handle_custom_save(self, saves: List[SaveRecord]) -> List[Record]:
+        # skip_store：不创建本地镜像软链接（不触碰 files_dir、不填 target_path），
+        # live 监听直接对准源文件
+        if self._ctx.config.skip_store:
+            records = [builder.build_save_record(self._counter, s) for s in saves]
+            self._store_records(records)
+            self._watcher.register_source_watches(saves)
+            return records
         linked = create_save_links(saves, self._ctx.files_dir)
         if linked > 0:
             console.info(
@@ -467,7 +482,7 @@ class CorePython(CoreProtocol):
             # 不将 log_record 写入 store 中，一方面具体的报错信息存储在 finish_record 中
             # 另一方面因为这个 record 也是为了适应后端“报错信息写在CH”的设计
         # 2. 关闭存储、文件监视器等本地资源，停止接受新的记录
-        self._store.write(record.SerializeToString())
+        self._store_records([record])
         self._store.close()
         self._store = None
         self._watcher.stop()
@@ -548,5 +563,13 @@ class CorePython(CoreProtocol):
             )
             self._pending_online_finish_record = None
             return ConfirmRunFinishResponse(success=True, message="OK")
-        # 虽然本地已经完成了全部流程，但由于网络等原因导致无法通知后端，因此返回失败状态，但是影响不大
-        return ConfirmRunFinishResponse(success=False, message="Failed to finish run, but it has been saved locally.")
+        # 虽然本地已经完成了全部流程，但由于网络等原因导致无法通知后端，因此返回失败状态，但是影响不大。
+        # skip_store 下没有本地副本，提示语不能暗示数据仍可从本地恢复
+        if self._ctx.config.skip_store:
+            message = (
+                "Failed to finish run, and no local copy was kept (skip_store); "
+                "the run state on the cloud is unconfirmed."
+            )
+        else:
+            message = "Failed to finish run, but it has been saved locally."
+        return ConfirmRunFinishResponse(success=False, message=message)

@@ -14,7 +14,7 @@ from typing import IO, TYPE_CHECKING, Dict, List, Optional, Union
 from requests.sessions import Session
 
 from swanlab.sdk.internal.core_python import client
-from swanlab.sdk.internal.core_python.utils import ProgressFileWrapper, get_buffer_size
+from swanlab.sdk.internal.core_python.utils import MemoryViewReader, ProgressFileWrapper, get_buffer_size
 from swanlab.sdk.internal.pkg import safe
 from swanlab.sdk.internal.pkg.executor import SafeThreadPoolExecutor
 from swanlab.sdk.typings.core_python.api.upload import (
@@ -150,7 +150,7 @@ def upload_resource(
     experiment_id: str,
     *,
     paths: List[str],
-    buffers: List[Union[IO[bytes], str, Path]],
+    buffers: List[Union[IO[bytes], MemoryViewReader, str, Path]],
     content_types: Optional[List[str]] = None,
     tracker: Optional[UploadTracker] = None,
 ):
@@ -166,7 +166,9 @@ def upload_resource(
     )
     urls = resp.data["urls"]
 
-    def upload_one(url: str, buffer: Union[IO[bytes], str, Path], file_key: str, size: int, content_type: str):
+    def upload_one(
+        url: str, buffer: Union[IO[bytes], MemoryViewReader, str, Path], file_key: str, size: int, content_type: str
+    ):
         # 上传单个文件，支持文件路径和内存 buffer 两种形式
         if isinstance(buffer, (str, Path)):
             with open(buffer, "rb") as f:
@@ -245,7 +247,7 @@ def _reset_tracked_file(tracker: Optional[UploadTracker], file_key: Optional[str
 def _put_with_progress(
     session: Session,
     url: str,
-    file_obj: IO[bytes],
+    file_obj: Union[IO[bytes], MemoryViewReader],
     file_key: Optional[str],
     size: Optional[int],
     tracker: Optional[UploadTracker],
@@ -254,7 +256,7 @@ def _put_with_progress(
 ) -> None:
     """PUT 上传单个文件，有 tracker 时用 ProgressFileWrapper 汇报读字节进度。"""
     if tracker is not None and file_key is not None and size:
-        data: Union[IO[bytes], ProgressFileWrapper] = ProgressFileWrapper(
+        data: Union[IO[bytes], MemoryViewReader, ProgressFileWrapper] = ProgressFileWrapper(
             file_obj,
             on_read=lambda current: tracker.update_file_progress(file_key, file_key, current),
             total_size=size,

@@ -7,6 +7,7 @@
 
 import hashlib
 from pathlib import Path
+from typing import Optional
 
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaItem
@@ -46,11 +47,21 @@ class ECharts(TransformMedia):
     def column_type(cls) -> ColumnType:
         return ColumnType.COLUMN_TYPE_ECHARTS
 
-    def transform(self, *, step: int, path: Path) -> MediaItem:
+    def transform(self, *, step: int, path: Optional[Path]) -> MediaItem:
         content_encode = self.json_content.encode("utf-8")
         sha256 = hashlib.sha256(content_encode).hexdigest()
         filename = f"{step:03d}-{sha256[:8]}.json"
         # safe_write 默认 mode="w"（文本模式），Windows 上会将 \n 转换为 \r\n。而 ECharts.transform 中
         # json_content.encode("utf-8") 计算的 size 和 sha256 是基于 \n 的。
-        fs.safe_write(path / filename, content_encode, mode="wb")
-        return MediaItem(filename=filename, sha256=sha256, size=len(content_encode), caption=self.caption or "")
+        item = MediaItem(
+            filename=filename,
+            sha256=sha256,
+            size=len(content_encode),
+            caption=self.caption or "",
+        )
+        if path is None:
+            # skip_store：内容随 payload 走；空内容也赋值以保留 presence（与缺失 payload 区分）。
+            item.payload = content_encode
+        else:
+            fs.safe_write(path / filename, content_encode, mode="wb")
+        return item

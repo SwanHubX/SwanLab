@@ -5,9 +5,16 @@
 @description: RecordBuilder 单元测试
 """
 
+from pathlib import Path
+from types import SimpleNamespace
+
 import pytest
+import yaml
+from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaItem, MediaRecord
+from swanlab.proto.swanlab.save.v1.save_pb2 import SaveType
+from swanlab.sdk.internal.bus.events import ConfigEvent
 from swanlab.sdk.internal.run.components.consumer.builder import _NON_SCALAR_TYPES, RecordBuilder, is_scalar_value
 from swanlab.sdk.internal.run.transforms import Text
 
@@ -101,6 +108,57 @@ class TestEnsureMediaSize:
         record = _make_media_record(items=[("a.png", 10), ("b.png", 10), ("c.png", 10)])
         result = builder._ensure_media_size(record)
         assert result is record
+
+
+class TestResolveMediaDir:
+    """_resolve_media_dir 依据 core.skip_store 决定媒体是否落盘"""
+
+    def test_skip_store_returns_none_and_never_mkdir(self, tmp_path):
+        """skip_store 下返回 None 且不创建 media 目录"""
+        media_dir = tmp_path / "media"
+        settings = SimpleNamespace(core=SimpleNamespace(skip_store=True))
+        ctx = SimpleNamespace(config=SimpleNamespace(settings=settings), media_dir=media_dir)
+        builder = RecordBuilder(ctx)  # type: ignore[arg-type]
+        assert builder._resolve_media_dir(Text.column_type()) is None
+        assert not media_dir.exists()
+
+
+class TestBuildConfig:
+    """build_config 依据 core.skip_store 决定内容内联进 payload 还是回读磁盘"""
+
+    CONFIG_PATH = Path("/tmp/run/files/config.yaml")
+
+    @staticmethod
+    def _builder(skip_store: bool) -> RecordBuilder:
+        settings = SimpleNamespace(core=SimpleNamespace(skip_store=skip_store))
+        ctx = SimpleNamespace(config=SimpleNamespace(settings=settings))
+        return RecordBuilder(ctx)  # type: ignore[arg-type]
+
+    def _event(self) -> ConfigEvent:
+        ts = Timestamp()
+        ts.GetCurrentTime()
+        return ConfigEvent(
+            path=self.CONFIG_PATH,
+            timestamp=ts,
+            content={"lr": {"value": 0.01, "desc": "", "sort": 0}},
+        )
+
+    def test_skip_store_inlines_payload(self):
+        """skip_store 下内容按落盘同款 YAML 编码填入 payload，source_path 留空"""
+        event = self._event()
+        record = self._builder(True).build_config(event)
+
+        assert record.name == "config"
+        assert record.type == SaveType.SAVE_TYPE_CONFIG
+        assert record.source_path == ""
+        assert yaml.safe_load(record.payload) == event.content
+
+    def test_default_reads_from_disk(self):
+        """默认模式 payload 恒空，由 Core 按 source_path 回读 config.yaml"""
+        record = self._builder(False).build_config(self._event())
+
+        assert record.source_path == self.CONFIG_PATH.absolute().as_posix()
+        assert record.payload == b""
 
 
 class TestIsScalarValue:
