@@ -275,16 +275,22 @@ class TestSkipMode:
         assert w._fp is None
         w.close()
 
-    def test_write_counts_records_without_persisting(self, tmp_path: Path):
+    def test_skip_records_counts_without_persisting(self, tmp_path: Path):
         p = tmp_path / "skip.swanlab"
         w = DataStoreWriter(skip=True)
         w.open(str(p))
-        for payload in (b"record_1", b"record_2", b"record_3"):
-            w.write(payload)
+        w.skip_records(3)
         assert w._skipped_records == 3
         assert not p.exists()
         w.close()
         assert not p.exists()
+
+    def test_write_rejected(self, tmp_path: Path):
+        """skip writer 不接受写入：record 只能经 skip_records() 登记。"""
+        w = DataStoreWriter(skip=True)
+        w.open(str(tmp_path / "skip.swanlab"))
+        with pytest.raises(AssertionError, match="skip writer"):
+            w.write(b"record_1")
 
     def test_open_twice_is_noop(self, tmp_path: Path):
         """未启用 skip 时重复 open 抛 FileExistsError；启用后始终无副作用。"""
@@ -300,8 +306,7 @@ class TestSkipMode:
         monkeypatch.setattr("swanlab.sdk.internal.core_python.store.console.debug", debug)
         w = DataStoreWriter(skip=True)
         w.open(str(tmp_path / "skip.swanlab"))
-        w.write(b"a")
-        w.write(b"b")
+        w.skip_records(2)
         w.close()
         debug.assert_called_once_with("local store skipped, 2 records not persisted")
 

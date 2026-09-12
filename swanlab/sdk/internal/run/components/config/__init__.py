@@ -29,7 +29,7 @@ from swanlab.sdk.internal.bus import ConfigEvent
 
 from .helper import revert_config
 from .parse import parse
-from .writer import format_config, write_config
+from .writer import dump_config, format_config, write_config
 
 __all__ = [
     "Config",
@@ -98,7 +98,7 @@ class Config(MutableMapping):
         content = format_config(self._config, self._sort)
         # fs.safe_write 会自动建父目录，写入即静默重建 swanlog 目录树
         if not self._skip_store:
-            write_config(self._file, self._config, self._sort, content)
+            write_config(self._file, dump_config(content))
         ts = Timestamp()
         ts.GetCurrentTime()
         self._emit(ConfigEvent(path=self._file, timestamp=ts, content=content))
