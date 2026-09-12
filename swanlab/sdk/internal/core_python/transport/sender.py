@@ -361,14 +361,14 @@ class HttpRecordSender:
             save = record.save
             # 根据约定的 type 字段区分内部保存和用户保存，内部保存直接上传内容，用户保存走后续文件上传逻辑
             if save.type == SaveType.SAVE_TYPE_CUSTOM:
-                # CUSTOM 的 payload 恒空；非空视为协议违约，丢弃（防用户大文件误入内存通道）
-                if save.payload:
+                # CUSTOM 的 payload 必须缺席；present（包括 b""）视为协议违约，丢弃（防用户大文件误入内存通道）
+                if save.HasField("payload"):
                     console.warning(f"CUSTOM save must not carry payload, skipping: {save.name or save.source_path}")
                     continue
                 save_records.append(record)
                 continue
-            # 内部保存 payload 非空（skip_store）：直接解析上传，不触碰 run_dir
-            if save.payload:
+            # 内部保存 payload（skip_store）：直接解析上传
+            if save.HasField("payload"):
                 self._upload_internal_save_payload(save)
                 continue
             # skip_store 下缺 payload：告警跳过，不回退读 run_dir

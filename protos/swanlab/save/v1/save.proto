@@ -31,5 +31,5 @@ message SaveRecord {
     string target_path = 3; // 本地镜像目标路径（软链接位置，由 Core 填充）
     SavePolicy policy  = 4; // 保存策略
     SaveType type      = 5; // 文件类型
-    bytes payload      = 6; // 内部小文本内容，仅 online + skip_store 的内部 save 使用
+    optional bytes payload = 6; // 内部 metadata 元文件内容，skip_store 设置下有效
 }
