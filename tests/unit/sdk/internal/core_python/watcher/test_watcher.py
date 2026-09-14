@@ -1,8 +1,14 @@
+import os
+import time
 from pathlib import Path
+from typing import Callable, List
 from unittest.mock import MagicMock
+
+from watchdog.events import FileMovedEvent
 
 from swanlab.proto.swanlab.save.v1.save_pb2 import SavePolicy, SaveRecord
 from swanlab.sdk.internal.core_python.watcher import FileWatcher
+from swanlab.sdk.internal.core_python.watcher.helper import _Handler
 
 
 def _make_watcher() -> FileWatcher:
@@ -11,6 +17,16 @@ def _make_watcher() -> FileWatcher:
 
 def _make_save(name: str, source: Path, policy: SavePolicy = SavePolicy.SAVE_POLICY_LIVE) -> SaveRecord:
     return SaveRecord(name=name, source_path=str(source), policy=policy)
+
+
+def _wait_until(predicate: Callable[[], bool], timeout: float = 15.0) -> bool:
+    """轮询等待条件成立，用于真实 observer 测试（事件到达时间因平台而异）。"""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if predicate():
+            return True
+        time.sleep(0.05)
+    return False
 
 
 # ── watch idempotency ──
@@ -121,7 +137,8 @@ def test_watch_sources_ignores_other_files_in_same_dir(tmp_path: Path):
     on_change.assert_not_called()
 
 
-def test_watch_sources_deleted_source_removes_registration(tmp_path: Path):
+def test_watch_sources_missing_source_keeps_registration(tmp_path: Path):
+    """文件暂时缺失时保留注册：不回调，且删除后重建仍能触发回调。"""
     on_change = MagicMock()
     watcher = FileWatcher(on_change=on_change, debounce_delay=0.1)
     source = tmp_path / "model.pt"
@@ -129,8 +146,83 @@ def test_watch_sources_deleted_source_removes_registration(tmp_path: Path):
 
     watcher.watch_sources([_make_save("model.pt", source)])
     key = str(source.resolve())
+
+    # debounce 窗口内文件被删除：不回调，也不移除注册
     source.unlink()
     watcher._process_change(key)
-
-    assert key not in watcher._registered
+    assert key in watcher._registered
     on_change.assert_not_called()
+
+    # 删除后重建：签名变化触发回调
+    source.write_bytes(b"v2")
+    watcher._process_change(key)
+    on_change.assert_called_once()
+    assert on_change.call_args[0][0].source_path == key
+
+
+def test_on_moved_matches_registered_dest_only(tmp_path: Path):
+    """on_moved 按 dest_path 匹配注册表：tmp 源路径与未注册目标都不触发。"""
+    watcher = _make_watcher()
+    source = tmp_path / "model.pt"
+    source.write_bytes(b"v1")
+    watcher.watch_sources([_make_save("model.pt", source)])
+    key = str(source.resolve())
+
+    handler = _Handler(watcher)
+    handler.on_moved(FileMovedEvent(src_path=str(tmp_path / "model.pt.tmp"), dest_path=key))
+    assert key in watcher._timers
+
+    # 同目录其他文件的原子替换：dest 未注册，不触发
+    watcher._timers.clear()
+    handler.on_moved(FileMovedEvent(src_path=str(tmp_path / "a.tmp"), dest_path=str(tmp_path / "other.pt")))
+    assert watcher._timers == {}
+
+
+# ── 真实 observer（跨平台事件语义）──
+
+
+def test_watch_sources_real_observer_atomic_replace(tmp_path: Path):
+    """真实 observer 下 tmp + os.replace 的原子替换必须触发回调。
+
+    Linux/Windows 将原子替换上报为 moved 事件而非 modified，依赖 on_moved；
+    macOS/FSEvents 可能附带 modified 事件，因此断言只针对最终回调。
+    """
+    calls: List[SaveRecord] = []
+    watcher = FileWatcher(on_change=calls.append, debounce_delay=0.2)
+    source = tmp_path / "model.pt"
+    source.write_bytes(b"v1")
+    watcher.watch_sources([_make_save("model.pt", source)])
+
+    try:
+        # in-place 写作为 warm-up，确认 observer 已开始接收事件
+        source.write_bytes(b"v2")
+        assert _wait_until(lambda: len(calls) >= 1), "observer warm-up write not detected"
+
+        tmp = tmp_path / "model.pt.tmp"
+        tmp.write_bytes(b"v3-atomic-replace")
+        os.replace(tmp, source)
+        assert _wait_until(lambda: len(calls) >= 2), f"atomic replace not detected, calls: {len(calls)}"
+        assert calls[-1].source_path == str(source.resolve())
+    finally:
+        watcher.stop()
+
+
+def test_watch_sources_real_observer_delete_and_recreate(tmp_path: Path):
+    """删除后重建的文件仍在监听范围内（注册不因文件暂时缺失而丢失）。"""
+    calls: List[SaveRecord] = []
+    watcher = FileWatcher(on_change=calls.append, debounce_delay=0.2)
+    source = tmp_path / "model.pt"
+    source.write_bytes(b"v1")
+    watcher.watch_sources([_make_save("model.pt", source)])
+
+    try:
+        source.write_bytes(b"v2")
+        assert _wait_until(lambda: len(calls) >= 1), "observer warm-up write not detected"
+
+        source.unlink()
+        # 等待超过 debounce_delay，覆盖“删除发生在 debounce 窗口内”的场景
+        time.sleep(0.5)
+        source.write_bytes(b"v4-recreated")
+        assert _wait_until(lambda: len(calls) >= 2), f"recreated file not detected, calls: {len(calls)}"
+    finally:
+        watcher.stop()

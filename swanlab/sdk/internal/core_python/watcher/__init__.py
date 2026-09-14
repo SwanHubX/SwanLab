@@ -142,11 +142,10 @@ class FileWatcher:
                 return
             entries = list(entries)
 
-        # 文件被删除则移除注册
+        # 文件暂时不存在（删除后重建、替换窗口等）时保留注册，由后续 on_created/on_moved
+        # 复活监听；若此时移除注册，重建后的 on_created 会因路径不在注册表被忽略，监听永久丢失
         new_sig = compute_signature(path)
         if new_sig is None:
-            with self._lock:
-                self._registered.pop(path, None)
             return
 
         for entry in entries:
