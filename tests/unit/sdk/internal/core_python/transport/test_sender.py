@@ -1,6 +1,6 @@
 from io import BytesIO
 from pathlib import Path
-from typing import Optional
+from typing import Optional, cast
 from unittest.mock import ANY, MagicMock, patch
 
 import pytest
@@ -496,7 +496,7 @@ def test_resolve_save_source_prefers_primary_when_readable(tmp_path: Path):
     sender = _make_sender(tmp_path)
 
     with patch("swanlab.sdk.internal.core_python.transport.sender.console.debug") as mock_debug:
-        result = sender._resolve_save_source(rec.save)
+        result = sender.resolve_save_source(rec.save)
 
     assert result == source
     mock_debug.assert_not_called()
@@ -513,7 +513,7 @@ def test_resolve_save_source_falls_back_to_files_dir_for_custom(tmp_path: Path):
     fallback.write_text("recovered", encoding="utf-8")
 
     with patch("swanlab.sdk.internal.core_python.transport.sender.console.debug") as mock_debug:
-        result = sender._resolve_save_source(rec.save)
+        result = sender.resolve_save_source(rec.save)
 
     assert result == fallback
     mock_debug.assert_called_once()
@@ -527,7 +527,7 @@ def test_resolve_save_source_falls_back_for_internal_metadata(tmp_path: Path):
     fallback.parent.mkdir(parents=True)
     fallback.write_text("{}", encoding="utf-8")
 
-    result = sender._resolve_save_source(rec.save)
+    result = sender.resolve_save_source(rec.save)
 
     assert result == fallback
 
@@ -542,7 +542,7 @@ def test_resolve_save_source_uses_basename_not_name_for_config(tmp_path: Path):
     # files/config（即 save.name）不应被命中
     assert not (tmp_path / "files" / "config").exists()
 
-    result = sender._resolve_save_source(rec.save)
+    result = sender.resolve_save_source(rec.save)
 
     assert result == fallback
 
@@ -552,7 +552,7 @@ def test_resolve_save_source_returns_none_when_both_unreadable(tmp_path: Path):
     sender = _make_sender(tmp_path)
     # 既无 primary 也无 files 镜像
 
-    assert sender._resolve_save_source(rec.save) is None
+    assert sender.resolve_save_source(rec.save) is None
 
 
 def test_upload_save_recovers_internal_metadata_from_run_dir(tmp_path: Path):
@@ -629,7 +629,7 @@ def test_resolve_save_source_handles_windows_separators_on_posix(tmp_path: Path)
     config_fallback.parent.mkdir(parents=True)
     config_fallback.write_text("key: value", encoding="utf-8")
     internal_rec = _make_internal_save_record(r"C:\host\config.yaml", SaveType.SAVE_TYPE_CONFIG, name="config")
-    assert sender._resolve_save_source(internal_rec.save) == config_fallback
+    assert sender.resolve_save_source(internal_rec.save) == config_fallback
 
     # ── 用户保存（CUSTOM）：层级还原 ──
     custom_fallback = tmp_path / "files" / "checkpoints" / "model.pt"
@@ -643,7 +643,7 @@ def test_resolve_save_source_handles_windows_separators_on_posix(tmp_path: Path)
             type=SaveType.SAVE_TYPE_CUSTOM,
         )
     )
-    assert sender._resolve_save_source(custom_rec.save) == custom_fallback
+    assert sender.resolve_save_source(custom_rec.save) == custom_fallback
 
 
 # ============================================================
@@ -684,7 +684,7 @@ def test_upload_save_uses_internal_payload_without_disk(tmp_path, save_type, pay
 
     with (
         patch(f"swanlab.sdk.internal.core_python.transport.sender.{api_func}") as mock_api,
-        patch.object(sender, "_resolve_save_source") as mock_resolve,
+        patch.object(sender, "resolve_save_source") as mock_resolve,
     ):
         sender.upload_save([record])
 
@@ -710,7 +710,7 @@ def test_upload_save_rejects_invalid_payload_usage(tmp_path: Path):
 
     with (
         patch("swanlab.sdk.internal.core_python.transport.sender.prepare_save_files") as mock_prepare,
-        patch.object(sender, "_resolve_save_source") as mock_resolve,
+        patch.object(sender, "resolve_save_source") as mock_resolve,
         patch("swanlab.sdk.internal.core_python.transport.sender.upload_metadata") as mock_upload_meta,
         patch("swanlab.sdk.internal.core_python.transport.sender.console.warning") as mock_warning,
     ):
@@ -759,6 +759,44 @@ def test_upload_save_payload_upload_error_is_not_swallowed(tmp_path: Path):
     ):
         with pytest.raises(ApiError):
             sender.upload("save", [record])
+
+
+def test_upload_save_disk_channel_upload_error_is_not_swallowed(tmp_path: Path):
+    """默认模式磁盘回读：上传失败（5xx）同样上抛交 Transport 重试，不被静默吞掉。"""
+    sender = _make_sender(tmp_path)
+    metadata_file = tmp_path / "files" / "swanlab-metadata.json"
+    metadata_file.parent.mkdir(parents=True)
+    metadata_file.write_text('{"hostname": "gpu-01"}', encoding="utf-8")
+    record = _make_internal_save_record("/nonexistent/host/swanlab-metadata.json", SaveType.SAVE_TYPE_METADATA)
+    error = ApiError(
+        _FakeApiErrorResponse(502),
+        method="PUT",
+        trace_id="trace-id",
+        code="bad-gateway",
+        message="server error",
+    )
+
+    with patch(
+        "swanlab.sdk.internal.core_python.transport.sender.upload_metadata",
+        side_effect=error,
+    ):
+        with pytest.raises(ApiError):
+            sender.upload("save", [record])
+
+
+def test_upload_save_warns_once_for_unknown_internal_type(tmp_path: Path):
+    """未知内部 save 类型：单次告警跳过，不读盘、不上传。"""
+    sender = _make_sender(tmp_path)
+    record = Record(save=SaveRecord(name="unknown", type=cast(SaveType, 99), payload=b"opaque"))
+
+    with (
+        patch.object(sender, "resolve_save_source") as mock_resolve,
+        patch("swanlab.sdk.internal.core_python.transport.sender.console.warning") as mock_warning,
+    ):
+        sender.upload_save([record])
+
+    mock_resolve.assert_not_called()
+    assert "Unknown internal save type" in mock_warning.call_args.args[0]
 
 
 # ============================================================
