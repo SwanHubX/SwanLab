@@ -94,10 +94,20 @@ class Html(TransformMedia):
     def column_type(cls) -> ColumnType:
         return ColumnType.COLUMN_TYPE_HTML
 
-    def transform(self, *, step: int, path: Path) -> MediaItem:
+    def transform(self, *, step: int, path: Optional[Path]) -> MediaItem:
         content_encode = self.content.encode("utf-8")
         sha256 = hashlib.sha256(content_encode).hexdigest()
         filename = f"{step:03d}-{sha256[:8]}.html"
         # 复用已编码的 bytes 直接以二进制写入, 避免 safe_write 内部对 str 再做一次 UTF-8 编码 (双重编码)
-        fs.safe_write(path / filename, content_encode, mode="wb")
-        return MediaItem(filename=filename, sha256=sha256, size=len(content_encode), caption=self.caption or "")
+        item = MediaItem(
+            filename=filename,
+            sha256=sha256,
+            size=len(content_encode),
+            caption=self.caption or "",
+        )
+        if path is None:
+            # skip_store：内容随 payload 走；空内容也赋值以保留 presence（与缺失 payload 区分）。
+            item.payload = content_encode
+        else:
+            fs.safe_write(path / filename, content_encode, mode="wb")
+        return item

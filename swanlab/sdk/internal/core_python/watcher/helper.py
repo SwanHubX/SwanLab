@@ -56,6 +56,11 @@ class _Handler(FileSystemEventHandler):
         if not event.is_directory:
             self._watcher._schedule_debounce(str(event.src_path))
 
+    def on_moved(self, event):
+        # 原子替换（写临时文件后 os.replace 到目标路径）在 Linux/Windows 上只上报 moved 事件
+        if not event.is_directory:
+            self._watcher._schedule_debounce(str(event.dest_path))
+
 
 def create_save_links(saves: List[SaveRecord], files_dir: Path) -> int:
     """为 SaveRecord 创建软链接并填充 target_path，返回新建链接数量。"""
