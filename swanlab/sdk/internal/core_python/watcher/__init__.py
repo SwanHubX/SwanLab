@@ -27,10 +27,10 @@ class FileWatcher:
 
     参数:
         on_change: 文件变化后的回调，接收 (abs_path, SaveRecord)
-        debounce_delay: 文件停止变化后等待多少秒再触发回调，默认 1.0
+        debounce_delay: 文件停止变化后等待多少秒再触发回调，默认 1.5
     """
 
-    def __init__(self, on_change: OnChangeCallback, debounce_delay: float = 1.0):
+    def __init__(self, on_change: OnChangeCallback, debounce_delay: float = 1.5):
         self._on_change = on_change
         self._debounce_delay = debounce_delay
         self._observer = Observer()
