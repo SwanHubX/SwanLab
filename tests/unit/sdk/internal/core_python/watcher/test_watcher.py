@@ -29,6 +29,11 @@ def _wait_until(predicate: Callable[[], bool], timeout: float = 15.0) -> bool:
     return False
 
 
+# Windows 的 os.stat 读 NTFS 目录项缓存，句柄关闭后约 1s 内文件签名仍然是旧值；
+# 若 debounce 定时在该窗口内触发，签名比较会读到旧签名而误判"未变化"。
+REAL_OBSERVER_DEBOUNCE = 1.5
+
+
 # ── watch idempotency ──
 
 
@@ -188,14 +193,14 @@ def test_watch_sources_real_observer_atomic_replace(tmp_path: Path):
     macOS/FSEvents 可能附带 modified 事件，因此断言只针对最终回调。
     """
     calls: List[SaveRecord] = []
-    watcher = FileWatcher(on_change=calls.append, debounce_delay=0.2)
+    watcher = FileWatcher(on_change=calls.append, debounce_delay=REAL_OBSERVER_DEBOUNCE)
     source = tmp_path / "model.pt"
     source.write_bytes(b"v1")
     watcher.watch_sources([_make_save("model.pt", source)])
 
     try:
         # in-place 写作为 warm-up，确认 observer 已开始接收事件
-        source.write_bytes(b"v2")
+        source.write_bytes(b"v2-warm-up")
         assert _wait_until(lambda: len(calls) >= 1), "observer warm-up write not detected"
 
         tmp = tmp_path / "model.pt.tmp"
@@ -208,20 +213,22 @@ def test_watch_sources_real_observer_atomic_replace(tmp_path: Path):
 
 
 def test_watch_sources_real_observer_delete_and_recreate(tmp_path: Path):
-    """删除后重建的文件仍在监听范围内（注册不因文件暂时缺失而丢失）。"""
+    """删除后重建的文件仍在监听范围内：debounce 窗口内删除（定时器在文件缺失时触发）不得移除注册。"""
     calls: List[SaveRecord] = []
-    watcher = FileWatcher(on_change=calls.append, debounce_delay=0.2)
+    watcher = FileWatcher(on_change=calls.append, debounce_delay=REAL_OBSERVER_DEBOUNCE)
     source = tmp_path / "model.pt"
     source.write_bytes(b"v1")
     watcher.watch_sources([_make_save("model.pt", source)])
 
     try:
-        source.write_bytes(b"v2")
+        source.write_bytes(b"v2-warm-up")
         assert _wait_until(lambda: len(calls) >= 1), "observer warm-up write not detected"
 
+        # 写入后立刻删除：pending 的 debounce 定时器将在文件缺失时触发，
+        # 注册不得因此被移除，重建后仍要能触发回调
+        source.write_bytes(b"v3-doomed")
         source.unlink()
-        # 等待超过 debounce_delay，覆盖“删除发生在 debounce 窗口内”的场景
-        time.sleep(0.5)
+        time.sleep(REAL_OBSERVER_DEBOUNCE + 0.3)
         source.write_bytes(b"v4-recreated")
         assert _wait_until(lambda: len(calls) >= 2), f"recreated file not detected, calls: {len(calls)}"
     finally:
