@@ -37,6 +37,9 @@ def _get_fs_timeout(default: float = 5.0) -> float:
 # 模块加载时安全获取
 TIMEOUT = _get_fs_timeout()
 
+# 可写性探针临时文件前缀
+PROBE_PREFIX = ".swanlab_test_"
+
 
 def safe_mkdirs(*paths: Union[str, Path], timeout: float = TIMEOUT, ensure_clean: bool = False):
     """
@@ -51,24 +54,30 @@ def safe_mkdirs(*paths: Union[str, Path], timeout: float = TIMEOUT, ensure_clean
 
 def _probe_writable(p: Path) -> None:
     """
-    目录可写性探针：在目标目录内创建命名文件 → 写入 → 关闭 → 删除。
+    目录可写性探针：清理历史残留 → 创建命名文件 → 写入 → 关闭 → 删除。
 
     不使用 tempfile.TemporaryFile：其匿名文件（O_TMPFILE）或「fd 仍打开时立即
-    unlink」的语义在部分 NAS 上会返回 EIO。删除失败视为探测失败交由上层重试，
-    清理失败不掩盖原始异常。
+    unlink」的语义在部分 NAS 上会返回 EIO。残留没清干净不算探测成功，交由
+    safe_mkdir 重试；清理动作不掩盖原始异常。
     """
-    fd, name = tempfile.mkstemp(dir=p, prefix=".swanlab_test_")
+    # 先清理历史残留（上次 unlink 失败 / 进程中断遗留），清理失败视为探测失败
+    for stale in p.glob(PROBE_PREFIX + "*"):
+        # 并发探测时可能已被另一进程清掉
+        with contextlib.suppress(FileNotFoundError):
+            os.unlink(stale)
+
+    fd, name = tempfile.mkstemp(dir=p, prefix=PROBE_PREFIX)
     try:
         try:
             os.write(fd, b"0")
-        except OSError:
-            # close 的异常不得覆盖原始写入错误
+        except BaseException:
+            # close 的异常不得覆盖原始错误
             with contextlib.suppress(OSError):
                 os.close(fd)
             raise
         os.close(fd)
-    except OSError:
-        # 清理失败不得掩盖原始异常
+    except BaseException:
+        # 任意失败（含 KeyboardInterrupt）：尽力清理，不掩盖原始异常
         with contextlib.suppress(OSError):
             os.unlink(name)
         raise

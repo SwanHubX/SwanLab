@@ -97,48 +97,78 @@ def test_safe_mkdir_does_not_depend_on_temporary_file(monkeypatch, tmp_path: Pat
 
     assert result == target
     # 探针不应留下任何垃圾文件
-    assert not list(target.glob(".swanlab_test_*"))
+    assert not list(target.glob(dir.PROBE_PREFIX + "*"))
 
 
 def test_probe_writable_no_leftover(tmp_path: Path):
     """探针正常路径：写入成功后应清理探针文件，不留垃圾"""
     dir._probe_writable(tmp_path)
 
-    assert not list(tmp_path.glob(".swanlab_test_*"))
+    assert not list(tmp_path.glob(dir.PROBE_PREFIX + "*"))
 
 
 def test_probe_unlink_failure_is_not_silent(monkeypatch, tmp_path: Path):
-    """写入成功但删除失败时，探针不得静默判定成功，应进入重试并最终 TimeoutError"""
+    """持续 unlink 失败：不静默成功，重试时先清理残留而非再建新探针，最终超时"""
     target = tmp_path / "unlink_fail_dir"
     target.mkdir()
 
-    time_calls = [0, 10, 20, 30]
+    time_calls = [0, 1, 20, 30]
     monkeypatch.setattr("swanlab.sdk.internal.pkg.fs.dir.time.time", lambda: time_calls.pop(0))
 
-    def mock_unlink(*args, **kwargs):
-        raise OSError(errno.EIO, "Input/output error")
+    real_unlink = dir.os.unlink
+    unlink_calls = []
+
+    def mock_unlink(path, *args, **kwargs):
+        if Path(path).name.startswith(dir.PROBE_PREFIX):
+            unlink_calls.append(path)
+            raise OSError(errno.EIO, "Input/output error")
+        return real_unlink(path, *args, **kwargs)
 
     monkeypatch.setattr("swanlab.sdk.internal.pkg.fs.dir.os.unlink", mock_unlink)
 
     with pytest.raises(TimeoutError, match="is not writable within") as exc_info:
         dir.safe_mkdir(target, timeout=5.0)
 
-    # 超时错误链上根因 errno，且删除确实被尝试过（留下了一个探针文件）
+    # 超时错误链上根因 errno；两次尝试都在清理同一残留，不会累积新探针文件
     assert isinstance(exc_info.value.__cause__, OSError)
     assert exc_info.value.__cause__.errno == errno.EIO
-    assert len(list(target.glob(".swanlab_test_*"))) == 1
+    assert len(unlink_calls) == 2
+    assert len(list(target.glob(dir.PROBE_PREFIX + "*"))) == 1
+
+
+def test_probe_transient_unlink_failure_heals(monkeypatch, tmp_path: Path):
+    """unlink 短暂失败后恢复：重试先清掉上次残留再重新探测，成功后无任何残留"""
+    target = tmp_path / "transient_dir"
+    target.mkdir()
+
+    real_unlink = dir.os.unlink
+    failed_once = [True]
+
+    def mock_unlink(path, *args, **kwargs):
+        if failed_once[0] and Path(path).name.startswith(dir.PROBE_PREFIX):
+            failed_once[0] = False
+            raise OSError(errno.EIO, "Input/output error")
+        return real_unlink(path, *args, **kwargs)
+
+    monkeypatch.setattr("swanlab.sdk.internal.pkg.fs.dir.os.unlink", mock_unlink)
+
+    assert dir.safe_mkdir(target, timeout=5.0) == target
+    assert not list(target.glob(dir.PROBE_PREFIX + "*"))
 
 
 def test_probe_cleanup_failure_does_not_mask_original_error(monkeypatch, tmp_path: Path):
     """写入失败且清理（close/unlink）也失败时，原始写入异常不得被覆盖"""
+    real_unlink = dir.os.unlink
     unlink_calls = []
 
     def mock_write(fd, data):
         raise OSError(errno.EIO, "simulated write failure")
 
     def mock_unlink(path, *args, **kwargs):
-        unlink_calls.append(str(path))
-        raise OSError(errno.EPERM, "simulated unlink failure")
+        if Path(path).name.startswith(dir.PROBE_PREFIX):
+            unlink_calls.append(str(path))
+            raise OSError(errno.EPERM, "simulated unlink failure")
+        return real_unlink(path, *args, **kwargs)
 
     monkeypatch.setattr("swanlab.sdk.internal.pkg.fs.dir.os.write", mock_write)
     monkeypatch.setattr("swanlab.sdk.internal.pkg.fs.dir.os.unlink", mock_unlink)
