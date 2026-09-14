@@ -54,26 +54,101 @@ def test_safe_mkdir_nas_timeout(monkeypatch, tmp_path: Path):
     time_calls = [0, 10, 20, 30]
     monkeypatch.setattr("swanlab.sdk.internal.pkg.fs.dir.time.time", lambda: time_calls.pop(0))
 
-    def mock_tempfile(*args, **kwargs):
-        raise OSError("Simulated NAS Permission Denied")
+    def mock_mkstemp(*args, **kwargs):
+        raise OSError("Simulated NAS IO Error")
 
-    monkeypatch.setattr("swanlab.sdk.internal.pkg.fs.dir.tempfile.TemporaryFile", mock_tempfile)
+    monkeypatch.setattr("swanlab.sdk.internal.pkg.fs.dir.tempfile.mkstemp", mock_mkstemp)
 
-    with pytest.raises(TimeoutError, match="is not writable within"):
+    with pytest.raises(TimeoutError, match="is not writable within") as exc_info:
         dir.safe_mkdir(target, timeout=5.0)
+
+    # 超时错误应链上最后一次原始 OSError，便于诊断根因
+    assert isinstance(exc_info.value.__cause__, OSError)
 
 
 def test_safe_mkdir_permission_denied_raises_permission_error(monkeypatch, tmp_path: Path):
     """权限不足时应立即抛 PermissionError，而不是伪装成 NAS 超时。"""
     target = tmp_path / "readonly_dir"
 
-    def mock_tempfile(*args, **kwargs):
+    def mock_mkstemp(*args, **kwargs):
         raise PermissionError(errno.EACCES, "Permission denied")
 
-    monkeypatch.setattr("swanlab.sdk.internal.pkg.fs.dir.tempfile.TemporaryFile", mock_tempfile)
+    monkeypatch.setattr("swanlab.sdk.internal.pkg.fs.dir.tempfile.mkstemp", mock_mkstemp)
 
     with pytest.raises(PermissionError, match="Directory .* is not writable"):
         dir.safe_mkdir(target, timeout=5.0)
+
+
+def test_safe_mkdir_does_not_depend_on_temporary_file(monkeypatch, tmp_path: Path):
+    """依赖约束：可写性探测不得回退使用 tempfile.TemporaryFile。
+
+    其匿名文件 / 「打开时 unlink」语义在部分 FUSE / NAS 上会返回 EIO（bpo-22326）；
+    本测试只固化「不依赖它」这一约束，真实兼容性需在原 NAS 环境验证。
+    """
+    target = tmp_path / "fuse_dir"
+    target.mkdir()
+
+    def mock_temporary_file(*args, **kwargs):
+        raise OSError(errno.EIO, "Input/output error")
+
+    monkeypatch.setattr("swanlab.sdk.internal.pkg.fs.dir.tempfile.TemporaryFile", mock_temporary_file)
+
+    result = dir.safe_mkdir(target, timeout=1.0)
+
+    assert result == target
+    # 探针不应留下任何垃圾文件
+    assert not list(target.glob(".swanlab_test_*"))
+
+
+def test_probe_writable_no_leftover(tmp_path: Path):
+    """探针正常路径：写入成功后应清理探针文件，不留垃圾"""
+    dir._probe_writable(tmp_path)
+
+    assert not list(tmp_path.glob(".swanlab_test_*"))
+
+
+def test_probe_unlink_failure_is_not_silent(monkeypatch, tmp_path: Path):
+    """写入成功但删除失败时，探针不得静默判定成功，应进入重试并最终 TimeoutError"""
+    target = tmp_path / "unlink_fail_dir"
+    target.mkdir()
+
+    time_calls = [0, 10, 20, 30]
+    monkeypatch.setattr("swanlab.sdk.internal.pkg.fs.dir.time.time", lambda: time_calls.pop(0))
+
+    def mock_unlink(*args, **kwargs):
+        raise OSError(errno.EIO, "Input/output error")
+
+    monkeypatch.setattr("swanlab.sdk.internal.pkg.fs.dir.os.unlink", mock_unlink)
+
+    with pytest.raises(TimeoutError, match="is not writable within") as exc_info:
+        dir.safe_mkdir(target, timeout=5.0)
+
+    # 超时错误链上根因 errno，且删除确实被尝试过（留下了一个探针文件）
+    assert isinstance(exc_info.value.__cause__, OSError)
+    assert exc_info.value.__cause__.errno == errno.EIO
+    assert len(list(target.glob(".swanlab_test_*"))) == 1
+
+
+def test_probe_cleanup_failure_does_not_mask_original_error(monkeypatch, tmp_path: Path):
+    """写入失败且清理（close/unlink）也失败时，原始写入异常不得被覆盖"""
+    unlink_calls = []
+
+    def mock_write(fd, data):
+        raise OSError(errno.EIO, "simulated write failure")
+
+    def mock_unlink(path, *args, **kwargs):
+        unlink_calls.append(str(path))
+        raise OSError(errno.EPERM, "simulated unlink failure")
+
+    monkeypatch.setattr("swanlab.sdk.internal.pkg.fs.dir.os.write", mock_write)
+    monkeypatch.setattr("swanlab.sdk.internal.pkg.fs.dir.os.unlink", mock_unlink)
+
+    with pytest.raises(OSError, match="simulated write failure") as exc_info:
+        dir._probe_writable(tmp_path)
+
+    # 抛出的是原始写入错误而非清理错误，且清理确实被尝试
+    assert exc_info.value.errno == errno.EIO
+    assert len(unlink_calls) == 1
 
 
 def test_timeout_env_invalid_string(monkeypatch):
