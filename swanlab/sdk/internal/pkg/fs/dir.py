@@ -10,7 +10,7 @@ import os
 import tempfile
 import time
 from pathlib import Path
-from typing import Any, List, Union
+from typing import List, Union
 
 from .. import console
 
@@ -52,7 +52,7 @@ def safe_mkdirs(*paths: Union[str, Path], timeout: float = TIMEOUT, ensure_clean
         safe_mkdir(path, timeout=timeout, ensure_clean=ensure_clean)
 
 
-def _probe_writable(p: Path, stale: List[Any]) -> None:
+def _probe_writable(p: Path, stale: List[str]) -> None:
     """
     目录可写性探针：创建命名文件 → 写入 → 关闭 → 删除。
 
@@ -127,14 +127,15 @@ def safe_mkdir(path: Union[str, Path], timeout: float = TIMEOUT, ensure_clean: b
         time.sleep(0.05)
 
     # 探测二：目录可见后可能仍暂不可写（权限问题立即失败，其余重试到超时）
-    stale = []  # 上次尝试未删掉的探针文件名（如有），重试时只精确清理这一个
+    stale: List[str] = []  # 上次尝试未删掉的探针文件名（如有），重试时只精确清理这一个
     while True:
         try:
             _probe_writable(p, stale)
             break
-        except PermissionError:
+        except PermissionError as e:
             # 只可能是探针本体（mkstemp/写/删自己的文件）被拒：权限不足不会因
             # 重试而恢复，立即失败。探针从不 unlink 其他进程文件，无清理阶段误伤。
+            console.trace(f"Directory [{p}] is not writable, underlying error: {e}")
             raise PermissionError(
                 f"Directory [{p}] is not writable. Please choose a writable log_dir or update directory permissions."
             ) from None
