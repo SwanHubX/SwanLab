@@ -10,7 +10,7 @@ import os
 import tempfile
 import time
 from pathlib import Path
-from typing import Union
+from typing import Any, List, Union
 
 from .. import console
 
@@ -52,19 +52,21 @@ def safe_mkdirs(*paths: Union[str, Path], timeout: float = TIMEOUT, ensure_clean
         safe_mkdir(path, timeout=timeout, ensure_clean=ensure_clean)
 
 
-def _probe_writable(p: Path) -> None:
+def _probe_writable(p: Path, stale: List[Any]) -> None:
     """
-    目录可写性探针：清理历史残留 → 创建命名文件 → 写入 → 关闭 → 删除。
+    目录可写性探针：创建命名文件 → 写入 → 关闭 → 删除。
 
     不使用 tempfile.TemporaryFile：其匿名文件（O_TMPFILE）或「fd 仍打开时立即
-    unlink」的语义在部分 NAS 上会返回 EIO。残留没清干净不算探测成功，交由
-    safe_mkdir 重试；清理动作不掩盖原始异常。
+    unlink」的语义在部分 NAS 上会返回 EIO。清理动作不掩盖原始异常。
     """
-    # 先清理历史残留（上次 unlink 失败 / 进程中断遗留），清理失败视为探测失败
-    for stale in p.glob(PROBE_PREFIX + "*"):
-        # 并发探测时可能已被另一进程清掉
-        with contextlib.suppress(FileNotFoundError):
-            os.unlink(stale)
+    if stale:
+        # 上一轮自己的残留：先删（FileNotFoundError = 已被清掉，视为干净）
+        try:
+            os.unlink(stale[0])
+        except FileNotFoundError:
+            pass
+        stale.clear()
+        # 其他 OSError 如实抛出，由上层重试
 
     fd, name = tempfile.mkstemp(dir=p, prefix=PROBE_PREFIX)
     try:
@@ -78,11 +80,17 @@ def _probe_writable(p: Path) -> None:
         os.close(fd)
     except BaseException:
         # 任意失败（含 KeyboardInterrupt）：尽力清理，不掩盖原始异常
-        with contextlib.suppress(OSError):
+        try:
             os.unlink(name)
+        except OSError:
+            stale.append(name)
         raise
-    # 删除失败如实上报，由上层重试
-    os.unlink(name)
+    # 删除失败如实上报（文件名留在 stale 里），由上层重试
+    try:
+        os.unlink(name)
+    except OSError:
+        stale.append(name)
+        raise
 
 
 def safe_mkdir(path: Union[str, Path], timeout: float = TIMEOUT, ensure_clean: bool = False) -> Path:
@@ -119,12 +127,14 @@ def safe_mkdir(path: Union[str, Path], timeout: float = TIMEOUT, ensure_clean: b
         time.sleep(0.05)
 
     # 探测二：目录可见后可能仍暂不可写（权限问题立即失败，其余重试到超时）
+    stale = []  # 上次尝试未删掉的探针文件名（如有），重试时只精确清理这一个
     while True:
         try:
-            _probe_writable(p)
+            _probe_writable(p, stale)
             break
         except PermissionError:
-            # 权限不足不会因重试而恢复，立即失败，避免被误判为可重试的文件系统延迟
+            # 只可能是探针本体（mkstemp/写/删自己的文件）被拒：权限不足不会因
+            # 重试而恢复，立即失败。探针从不 unlink 其他进程文件，无清理阶段误伤。
             raise PermissionError(
                 f"Directory [{p}] is not writable. Please choose a writable log_dir or update directory permissions."
             ) from None

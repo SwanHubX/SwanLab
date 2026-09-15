@@ -101,10 +101,12 @@ def test_safe_mkdir_does_not_depend_on_temporary_file(monkeypatch, tmp_path: Pat
 
 
 def test_probe_writable_no_leftover(tmp_path: Path):
-    """探针正常路径：写入成功后应清理探针文件，不留垃圾"""
-    dir._probe_writable(tmp_path)
+    """探针正常路径：写入成功后应清理探针文件，不留垃圾，stale 槽位保持为空"""
+    stale: list = []
+    dir._probe_writable(tmp_path, stale)
 
     assert not list(tmp_path.glob(dir.PROBE_PREFIX + "*"))
+    assert stale == []
 
 
 def test_probe_unlink_failure_is_not_silent(monkeypatch, tmp_path: Path):
@@ -173,12 +175,14 @@ def test_probe_cleanup_failure_does_not_mask_original_error(monkeypatch, tmp_pat
     monkeypatch.setattr("swanlab.sdk.internal.pkg.fs.dir.os.write", mock_write)
     monkeypatch.setattr("swanlab.sdk.internal.pkg.fs.dir.os.unlink", mock_unlink)
 
+    stale = []
     with pytest.raises(OSError, match="simulated write failure") as exc_info:
-        dir._probe_writable(tmp_path)
+        dir._probe_writable(tmp_path, stale)
 
-    # 抛出的是原始写入错误而非清理错误，且清理确实被尝试
+    # 抛出的是原始写入错误而非清理错误，且清理确实被尝试；清不掉的文件名留给下一轮
     assert exc_info.value.errno == errno.EIO
     assert len(unlink_calls) == 1
+    assert len(stale) == 1
 
 
 def test_timeout_env_invalid_string(monkeypatch):
