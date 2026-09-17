@@ -302,7 +302,7 @@ import swanlab
 # Инициализация нового эксперимента SwanLab
 swanlab.init(
     project="my-first-ml",
-    config={'learning-rate': 0.003},
+    config={"learning-rate": 0.003},
 )
 
 # Запись метрик

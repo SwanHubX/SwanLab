@@ -22,8 +22,8 @@ import json
 import multiprocessing
 import sys
 from typing import cast
-from uuid import uuid4
 from unittest.mock import MagicMock
+from uuid import uuid4
 
 import pytest
 import responses as responses_lib
