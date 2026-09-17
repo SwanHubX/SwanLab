@@ -559,7 +559,8 @@ class TestInitResumeValidation:
         assert run._ctx.config.settings.run.id == str(run_id)
         assert len(warnings) == 1
         assert "beta" in warnings[0]
-        assert "future release" in warnings[0]
+        assert "specific organization" in warnings[0]
+        assert "v0.10.0" in warnings[0]
         run.finish()
 
     def test_resume_validation_skipped_for_non_online_mode(self):

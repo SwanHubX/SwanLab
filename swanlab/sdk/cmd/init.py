@@ -191,8 +191,9 @@ def init(
     """
     if isinstance(id, UUID):
         console.warning(
-            "Passing a UUID object to `swanlab.init(id=...)` is supported in this beta version only "
-            "and will not be supported in a future release. Please convert it to a string instead."
+            "Passing a UUID object to `swanlab.init(id=...)` is supported only by this beta build, "
+            "which is customized for a specific organization. UUID object support will be formally removed "
+            "in v0.10.0; please switch back to passing a string with `id=str(your_uuid)` as soon as possible."
         )
         id = str(id)
 
