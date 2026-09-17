@@ -22,6 +22,7 @@ import json
 import multiprocessing
 import sys
 from typing import cast
+from uuid import uuid4
 from unittest.mock import MagicMock
 
 import pytest
@@ -544,6 +545,22 @@ class TestInitResumeValidation:
 
         with pytest.raises(AssertionError, match="Run id should not be provided"):
             init(mode="online", resume="never", id="some-run-id")
+
+    def test_uuid_id_is_converted_and_warns(self, monkeypatch):
+        """UUID 类型的 id 在 beta 版本中可用，并提示未来将移除支持。"""
+        run_id = uuid4()
+        warnings = []
+        monkeypatch.setattr(
+            "swanlab.sdk.cmd.init.console.warning",
+            lambda message, *args, **kwargs: warnings.append(message),
+        )
+
+        run = init(mode="offline", id=run_id)
+        assert run._ctx.config.settings.run.id == str(run_id)
+        assert len(warnings) == 1
+        assert "beta" in warnings[0]
+        assert "future release" in warnings[0]
+        run.finish()
 
     def test_resume_validation_skipped_for_non_online_mode(self):
         """非 online 模式下，resume/id 校验不触发（即使传了也不报错）"""

@@ -16,6 +16,7 @@ from datetime import datetime
 from functools import partial
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
+from uuid import UUID
 
 import requests
 import yaml
@@ -100,7 +101,7 @@ def init(
     job_type: Optional[str] = None,
     group: Optional[str] = None,
     tags: Optional[List[str]] = None,
-    id: Optional[str] = None,
+    id: Optional[Union[str, UUID]] = None,
     resume: Optional[Union[ResumeType, bool]] = None,
     parallel: Optional[ParallelType] = None,
     config: Optional[ConfigLike] = None,
@@ -188,6 +189,13 @@ def init(
         ...     resume="must"
         ... )
     """
+    if isinstance(id, UUID):
+        console.warning(
+            "Passing a UUID object to `swanlab.init(id=...)` is supported in this beta version only "
+            "and will not be supported in a future release. Please convert it to a string instead."
+        )
+        id = str(id)
+
     if reinit and has_run():
         run = get_run()
         run.finish()

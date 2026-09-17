@@ -9,6 +9,7 @@ to swanlab/__init__.py.
 from concurrent.futures import Future
 from pathlib import Path
 from typing import Any, Callable, List, Mapping, Optional, Sequence, Union
+from uuid import UUID
 
 from . import utils
 from .api import Api
@@ -113,7 +114,7 @@ def init(
     job_type: Optional[str] = None,
     group: Optional[str] = None,
     tags: Optional[List[str]] = None,
-    id: Optional[str] = None,
+    id: Optional[Union[str, UUID]] = None,
     resume: Optional[Union[ResumeType, bool]] = None,
     parallel: Optional[ParallelType] = None,
     config: Optional[ConfigLike] = None,
