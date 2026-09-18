@@ -1,16 +1,19 @@
 // Command swanlab-core 是 SwanLab Go core 的进程入口。
 //
-// 当前为发布脚手架阶段：仅建立进程生命周期骨架——版本上报（--version）、
-// 端点监听、父进程退出监控与信号处理；gRPC 服务端（CoreService /
-// CoreSyncService / ProbeService）在后续迭代中接入，届时替换 serve 循环。
-//
 // 端点约定：
 //
-//	--listen unix:///path/to/uds   Linux/macOS 进程内通信（默认路径由 Python SDK 分配）
-//	--listen tcp://127.0.0.1:port  Windows 回环地址（uds 不可用，named pipe 支持后续提供）
+//	--listen unix:///path/to/uds   Linux/macOS 进程内通信（手动调试入口）
+//	--listen tcp://127.0.0.1:port  Windows 回环地址
+//	--port-filename <路径>         listen 成功后原子写入端点回报文件（SDK 启动约定）
 //
-// 生命周期：父进程退出（process 包监控）或收到 SIGINT/SIGTERM 时优雅退出，
-// 防止 Python SDK 崩溃后 core 沦为孤儿进程。
+// 未传 --listen 时按平台自选端点：POSIX 使用 port-filename 同目录下的
+// core.sock（UDS，目录需已存在），Windows 使用 127.0.0.1 随机回环端口。
+// --port-filename 与 --owner-token-file 成对出现，owner token 是唯一允许
+// 触发服务级关闭的凭证，通过私有文件传入，不得出现在命令行或日志中。
+//
+// 生命周期：Teardown RPC、SIGINT/SIGTERM、父进程退出（process 包监控）或
+// Serve 异常统一汇入 service controller 的关闭路径（GracefulStop → 超时
+// 强制 Stop）；退出时只清理自己创建的 socket 文件与 port-file。
 package main
 
 import (
@@ -21,13 +24,19 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
+
+	"google.golang.org/grpc"
 
 	"github.com/swanhubx/swanlab/core/internal/pkg/console"
+	"github.com/swanhubx/swanlab/core/internal/pkg/portinfo"
 	"github.com/swanhubx/swanlab/core/internal/pkg/process"
+	"github.com/swanhubx/swanlab/core/internal/server"
 )
 
 // version 与 commit 由构建管线通过 -ldflags -X 注入（见 core/hatch.py），
@@ -49,6 +58,14 @@ const (
 	exitRunError   = 1
 )
 
+// 自选端点与收尾参数。
+const (
+	coreSocketName    = "core.sock"
+	loopbackAddr      = "127.0.0.1:0"
+	shutdownGrace     = 10 * time.Second
+	secretFileMaxSize = 4096
+)
+
 func main() {
 	os.Exit(run(os.Args[1:]))
 }
@@ -57,7 +74,11 @@ func run(args []string) int {
 	fs := flag.NewFlagSet("swanlab-core", flag.ContinueOnError)
 	printVersion := fs.Bool("version", false, "打印版本信息后退出")
 	listenAddr := fs.String("listen", os.Getenv(envListenAddr),
-		"监听端点，格式 unix://<uds路径> 或 tcp://<地址:端口>；Windows 仅支持 tcp:// 回环地址")
+		"监听端点，格式 unix://<uds路径> 或 tcp://<地址:端口>；未指定时按平台自选端点")
+	portFilename := fs.String("port-filename", "",
+		"端点回报文件路径；listen 成功后原子写入，供调用方轮询获取端点与鉴权 token")
+	ownerTokenFile := fs.String("owner-token-file", "",
+		"owner token 文件路径，仅服务所有者持有，是触发服务级关闭的唯一凭证")
 	parentPID := fs.Int("parent-pid", envInt(envParentPID),
 		"预期父进程 PID，父进程退出时 core 随之退出；未指定时取启动瞬间的实际父进程")
 	if err := fs.Parse(args); err != nil {
@@ -71,20 +92,44 @@ func run(args []string) int {
 		fmt.Printf("swanlab-core %s (commit %s)\n", version, commit)
 		return 0
 	}
-	if *listenAddr == "" {
-		console.Error("未指定监听端点：通过 --listen 或环境变量 " + envListenAddr + " 传入")
+	if *listenAddr == "" && *portFilename == "" {
+		console.Error("未指定监听端点：通过 --listen（手动调试）或 --port-filename（启动约定）传入")
+		return exitUsageError
+	}
+	if (*portFilename != "") != (*ownerTokenFile != "") {
+		console.Error("--port-filename 与 --owner-token-file 必须成对提供")
 		return exitUsageError
 	}
 
-	ln, err := listen(*listenAddr)
+	// 自建资源记录，退出时只清理自己创建的部分。
+	var socketPath string
+	wrotePortFile := false
+	defer func() {
+		cleanupSocket(socketPath)
+		if wrotePortFile {
+			_ = os.Remove(*portFilename)
+		}
+	}()
+
+	// owner token 先于任何资源创建读取，尽早失败。
+	ownerToken, err := readOwnerToken(*ownerTokenFile)
+	if err != nil {
+		console.Error("读取 owner token 失败:", err)
+		return exitRunError
+	}
+
+	ln, err := openEndpoint(*listenAddr, *portFilename)
 	if err != nil {
 		console.Error("监听失败:", err)
 		return exitRunError
 	}
-	defer ln.Close()
+	defer func() { _ = ln.Close() }()
+	if addr, ok := ln.Addr().(*net.UnixAddr); ok && !strings.HasPrefix(addr.Name, "@") {
+		socketPath = addr.Name
+	}
 
-	// 父进程监控：显式传入的 PID 优先（Python SDK 启动约定），未传时回退为
-	// 监控启动瞬间的实际父进程（本地终端运行场景）。监控建立失败按约定终止启动。
+	// 父进程监控：显式传入的 PID 优先（启动约定），未传时回退为监控启动
+	// 瞬间的实际父进程（本地终端运行场景）。监控建立失败按约定终止启动。
 	pid := *parentPID
 	if pid <= 0 {
 		pid = os.Getppid()
@@ -95,36 +140,85 @@ func run(args []string) int {
 		return exitRunError
 	}
 
+	grpcServer := grpc.NewServer()
+	ctrl := server.NewController(grpcServer, shutdownGrace)
+	server.NewService(ownerToken, ctrl).Register(grpcServer)
+
+	// listen 与 server 初始化均成功后才写 port-file。
+	if *portFilename != "" {
+		authToken, err2 := portinfo.NewAuthToken()
+		if err2 != nil {
+			console.Error("生成 auth token 失败:", err2)
+			return exitRunError
+		}
+		info := portinfo.Info{Protocol: portinfo.ProtocolVersion, AuthToken: authToken}
+		switch addr := ln.Addr().(type) {
+		case *net.UnixAddr:
+			info.UnixPath = addr.Name
+		case *net.TCPAddr:
+			info.SockPort = addr.Port
+		default:
+			console.Error("无法识别的监听端点类型:", ln.Addr())
+			return exitRunError
+		}
+		if err2 = portinfo.WriteFile(*portFilename, &info); err2 != nil {
+			console.Error("写入 port-file 失败:", err2)
+			return exitRunError
+		}
+		wrotePortFile = true
+	}
+
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	console.Infof("swanlab-core %s listening on %s (parent pid %d)", version, *listenAddr, pid)
+	console.Infof("swanlab-core %s listening on %s (parent pid %d)", version, ln.Addr(), pid)
 
 	serveErr := make(chan error, 1)
 	go func() {
-		serveErr <- serve(ln)
+		serveErr <- grpcServer.Serve(ln)
 	}()
 
+	exitCode := 0
+	var cause string
+	var serveFailure error
 	select {
 	case <-ctx.Done():
 		console.Info("收到退出信号，正在关闭")
+		cause = "signal"
 	case <-parentExited:
 		console.Warning("父进程已退出，core 随之退出")
+		cause = "parent-exit"
 	case err := <-serveErr:
-		if err != nil {
-			console.Error("监听异常退出:", err)
-			return exitRunError
-		}
+		serveFailure = err
+		cause = "serve-error"
 	}
-	return 0
+	ctrl.Shutdown(cause)
+	// 等待 Serve 返回与关闭序列完成（两者任一先行均可）。
+	select {
+	case serveFailure = <-serveErr:
+	case <-ctrl.Done():
+	}
+	<-ctrl.Done()
+	if serveFailure != nil {
+		console.Error("gRPC Serve 异常退出:", serveFailure)
+		exitCode = exitRunError
+	}
+	return exitCode
 }
 
-// listen 按协议前缀创建监听器。uds 仅在非 Windows 平台可用；Windows 使用
-// TCP 回环地址兜底（named pipe 接入后在此分支扩展）。
-func listen(addr string) (net.Listener, error) {
-	scheme, rest, ok := strings.Cut(addr, "://")
+// openEndpoint 创建监听器。显式 --listen 优先（手动调试）；否则按平台自选：
+// POSIX 使用 port-filename 同目录下的 UDS，Windows 使用随机回环端口。
+func openEndpoint(listenAddr, portFilename string) (net.Listener, error) {
+	if listenAddr == "" {
+		if runtime.GOOS == "windows" {
+			return net.Listen("tcp", loopbackAddr)
+		}
+		sockPath := filepath.Join(filepath.Dir(portFilename), coreSocketName)
+		return net.Listen("unix", sockPath)
+	}
+	scheme, rest, ok := strings.Cut(listenAddr, "://")
 	if !ok {
-		return nil, fmt.Errorf("监听端点缺少协议前缀（unix:// 或 tcp://）: %s", addr)
+		return nil, fmt.Errorf("监听端点缺少协议前缀（unix:// 或 tcp://）: %s", listenAddr)
 	}
 	switch scheme {
 	case "unix":
@@ -139,19 +233,33 @@ func listen(addr string) (net.Listener, error) {
 	}
 }
 
-// serve 接受连接后立即关闭。脚手架阶段仅验证端点连通性，
-// gRPC 服务端就绪后由此接入 serve 逻辑。
-func serve(ln net.Listener) error {
-	for {
-		conn, err := ln.Accept()
-		if err != nil {
-			if errors.Is(err, net.ErrClosed) {
-				return nil
-			}
-			return err
-		}
-		_ = conn.Close()
+// readOwnerToken 读取 owner token 文件；路径为空返回空串。内容去除首尾空白，
+// 拒绝空文件与超长文件，token 值不进入日志。
+func readOwnerToken(path string) (string, error) {
+	if path == "" {
+		return "", nil
 	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("read %s: %w", path, err)
+	}
+	if len(data) > secretFileMaxSize {
+		return "", fmt.Errorf("owner token file exceeds %d bytes: %s", secretFileMaxSize, path)
+	}
+	token := strings.TrimSpace(string(data))
+	if token == "" {
+		return "", fmt.Errorf("owner token file is empty: %s", path)
+	}
+	return token, nil
+}
+
+// cleanupSocket 删除自己创建的 UDS socket 文件；Linux 抽象 socket（@ 前缀）
+// 不占文件系统，无需清理。
+func cleanupSocket(path string) {
+	if path == "" || strings.HasPrefix(path, "@") {
+		return
+	}
+	_ = os.Remove(path)
 }
 
 // envInt 解析整型环境变量，缺失或非法时返回 0。
