@@ -33,7 +33,7 @@ func NewController(g *grpc.Server, grace time.Duration) *Controller {
 // Shutdown 幂等触发关闭；cause 仅用于日志，标识关闭来源。
 func (c *Controller) Shutdown(cause string) {
 	c.once.Do(func() {
-		console.Infof("core 服务开始关闭（%s）", cause)
+		console.Infof("core service shutting down (%s)", cause)
 		go func() {
 			defer close(c.done)
 			graceful := make(chan struct{})

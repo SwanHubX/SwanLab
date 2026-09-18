@@ -72,15 +72,15 @@ func main() {
 
 func run(args []string) int {
 	fs := flag.NewFlagSet("swanlab-core", flag.ContinueOnError)
-	printVersion := fs.Bool("version", false, "打印版本信息后退出")
+	printVersion := fs.Bool("version", false, "print version and exit")
 	listenAddr := fs.String("listen", os.Getenv(envListenAddr),
-		"监听端点，格式 unix://<uds路径> 或 tcp://<地址:端口>；未指定时按平台自选端点")
+		"listen endpoint, unix://<uds path> or tcp://<addr:port>; auto-selected per platform when unset")
 	portFilename := fs.String("port-filename", "",
-		"端点回报文件路径；listen 成功后原子写入，供调用方轮询获取端点与鉴权 token")
+		"endpoint report file; atomically written once listen succeeds, for callers to poll")
 	ownerTokenFile := fs.String("owner-token-file", "",
-		"owner token 文件路径，仅服务所有者持有，是触发服务级关闭的唯一凭证")
+		"owner token file, held only by the service owner; sole credential for service-level teardown")
 	parentPID := fs.Int("parent-pid", envInt(envParentPID),
-		"预期父进程 PID，父进程退出时 core 随之退出；未指定时取启动瞬间的实际父进程")
+		"expected parent PID; core exits when the parent exits, defaults to the actual parent at startup")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
@@ -93,11 +93,11 @@ func run(args []string) int {
 		return 0
 	}
 	if *listenAddr == "" && *portFilename == "" {
-		console.Error("未指定监听端点：通过 --listen（手动调试）或 --port-filename（启动约定）传入")
+		console.Error("no listen endpoint: pass --listen (manual debug) or --port-filename (SDK startup convention)")
 		return exitUsageError
 	}
 	if (*portFilename != "") != (*ownerTokenFile != "") {
-		console.Error("--port-filename 与 --owner-token-file 必须成对提供")
+		console.Error("--port-filename and --owner-token-file must be provided together")
 		return exitUsageError
 	}
 
@@ -114,13 +114,13 @@ func run(args []string) int {
 	// owner token 先于任何资源创建读取，尽早失败。
 	ownerToken, err := readOwnerToken(*ownerTokenFile)
 	if err != nil {
-		console.Error("读取 owner token 失败:", err)
+		console.Error("failed to read owner token:", err)
 		return exitRunError
 	}
 
 	ln, err := openEndpoint(*listenAddr, *portFilename)
 	if err != nil {
-		console.Error("监听失败:", err)
+		console.Error("listen failed:", err)
 		return exitRunError
 	}
 	defer func() { _ = ln.Close() }()
@@ -136,7 +136,7 @@ func run(args []string) int {
 	}
 	parentExited, err := process.NotifyOnParentExit(pid)
 	if err != nil {
-		console.Error("父进程监控建立失败，终止启动:", err)
+		console.Error("failed to watch parent process, aborting startup:", err)
 		return exitRunError
 	}
 
@@ -148,7 +148,7 @@ func run(args []string) int {
 	if *portFilename != "" {
 		authToken, err2 := portinfo.NewAuthToken()
 		if err2 != nil {
-			console.Error("生成 auth token 失败:", err2)
+			console.Error("failed to generate auth token:", err2)
 			return exitRunError
 		}
 		info := portinfo.Info{Protocol: portinfo.ProtocolVersion, AuthToken: authToken}
@@ -158,11 +158,11 @@ func run(args []string) int {
 		case *net.TCPAddr:
 			info.SockPort = addr.Port
 		default:
-			console.Error("无法识别的监听端点类型:", ln.Addr())
+			console.Error("unrecognized listener address type:", ln.Addr())
 			return exitRunError
 		}
 		if err2 = portinfo.WriteFile(*portFilename, &info); err2 != nil {
-			console.Error("写入 port-file 失败:", err2)
+			console.Error("failed to write port-file:", err2)
 			return exitRunError
 		}
 		wrotePortFile = true
@@ -183,10 +183,10 @@ func run(args []string) int {
 	var serveFailure error
 	select {
 	case <-ctx.Done():
-		console.Info("收到退出信号，正在关闭")
+		console.Info("shutdown signal received, stopping")
 		cause = "signal"
 	case <-parentExited:
-		console.Warning("父进程已退出，core 随之退出")
+		console.Warning("parent process exited, stopping core")
 		cause = "parent-exit"
 	case err := <-serveErr:
 		serveFailure = err
@@ -200,7 +200,7 @@ func run(args []string) int {
 	}
 	<-ctrl.Done()
 	if serveFailure != nil {
-		console.Error("gRPC Serve 异常退出:", serveFailure)
+		console.Error("gRPC Serve exited with error:", serveFailure)
 		exitCode = exitRunError
 	}
 	return exitCode
@@ -218,18 +218,18 @@ func openEndpoint(listenAddr, portFilename string) (net.Listener, error) {
 	}
 	scheme, rest, ok := strings.Cut(listenAddr, "://")
 	if !ok {
-		return nil, fmt.Errorf("监听端点缺少协议前缀（unix:// 或 tcp://）: %s", listenAddr)
+		return nil, fmt.Errorf("listen endpoint missing scheme prefix (unix:// or tcp://): %s", listenAddr)
 	}
 	switch scheme {
 	case "unix":
 		if runtime.GOOS == "windows" {
-			return nil, errors.New("windows 平台不支持 unix:// 端点，请使用 tcp://127.0.0.1:<端口>")
+			return nil, errors.New("unix:// endpoints are not supported on Windows; use tcp://127.0.0.1:<port>")
 		}
 		return net.Listen("unix", rest)
 	case "tcp":
 		return net.Listen("tcp", rest)
 	default:
-		return nil, fmt.Errorf("不支持的监听协议 %q（仅 unix:// 或 tcp://）", scheme)
+		return nil, fmt.Errorf("unsupported listen scheme %q (only unix:// or tcp://)", scheme)
 	}
 }
 
