@@ -140,17 +140,24 @@ func run(args []string) int {
 		return exitRunError
 	}
 
-	grpcServer := grpc.NewServer()
-	ctrl := server.NewController(grpcServer, shutdownGrace)
-	server.NewService(ownerToken, ctrl).Register(grpcServer)
-
-	// listen 与 server 初始化均成功后才写 port-file。
+	// auth token 先于 gRPC server 创建生成：interceptor 与 port-file 使用同一值；
+	// 仅 --listen 手动调试（无 port-file）时不生成，鉴权随之关闭。
+	authToken := ""
 	if *portFilename != "" {
-		authToken, err2 := portinfo.NewAuthToken()
+		var err2 error
+		authToken, err2 = portinfo.NewAuthToken()
 		if err2 != nil {
 			console.Error("failed to generate auth token:", err2)
 			return exitRunError
 		}
+	}
+
+	grpcServer := grpc.NewServer(grpc.ChainUnaryInterceptor(server.UnaryAuthInterceptor(authToken)))
+	ctrl := server.NewController(grpcServer, shutdownGrace)
+	server.NewService(ownerToken, authToken, ctrl).Register(grpcServer)
+
+	// listen 与 server 初始化均成功后才写 port-file。
+	if *portFilename != "" {
 		info := portinfo.Info{Protocol: portinfo.ProtocolVersion, AuthToken: authToken}
 		switch addr := ln.Addr().(type) {
 		case *net.UnixAddr:
@@ -161,7 +168,7 @@ func run(args []string) int {
 			console.Error("unrecognized listener address type:", ln.Addr())
 			return exitRunError
 		}
-		if err2 = portinfo.WriteFile(*portFilename, &info); err2 != nil {
+		if err2 := portinfo.WriteFile(*portFilename, &info); err2 != nil {
 			console.Error("failed to write port-file:", err2)
 			return exitRunError
 		}
