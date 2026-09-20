@@ -29,9 +29,9 @@ if _version_not_supported:
 class CoreServiceStub(object):
     """CoreService 是核心业务接口，用于同步或异步地接收实验记录。
 
-    生命周期约定（在协议正式发布前引入，作为一次性 breaking change 完成）：
+    生命周期约定：
 
-    1. 服务级与 run 级生命周期严格分离：GetCapabilities / TeardownService 作用于整个服务进程；
+    1. Core 与 run 级生命周期严格分离：SpinupService / TeardownService 作用于整个 core 服务进程；
     2. 所有 run 级 RPC 通过显式 run_handle 路由到具体会话，不依赖 channel 隐式绑定 run；
     3. ConfirmRunFinish 只确认单个 run 已排空、资源可释放，不会关闭 gRPC Server；
     4. GetOperationStats / ConfirmRunFinish 输入使用专用 request，由 run_handle 指定目标 run。
@@ -43,10 +43,10 @@ class CoreServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
-        self.GetCapabilities = channel.unary_unary(
-                '/swanlab.grpc.core.v1.CoreService/GetCapabilities',
-                request_serializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.GetCapabilitiesRequest.SerializeToString,
-                response_deserializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.GetCapabilitiesResponse.FromString,
+        self.SpinupService = channel.unary_unary(
+                '/swanlab.grpc.core.v1.CoreService/SpinupService',
+                request_serializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.SpinupServiceRequest.SerializeToString,
+                response_deserializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.SpinupServiceResponse.FromString,
                 _registered_method=True)
         self.TeardownService = channel.unary_unary(
                 '/swanlab.grpc.core.v1.CoreService/TeardownService',
@@ -103,16 +103,17 @@ class CoreServiceStub(object):
 class CoreServiceServicer(object):
     """CoreService 是核心业务接口，用于同步或异步地接收实验记录。
 
-    生命周期约定（在协议正式发布前引入，作为一次性 breaking change 完成）：
+    生命周期约定：
 
-    1. 服务级与 run 级生命周期严格分离：GetCapabilities / TeardownService 作用于整个服务进程；
+    1. Core 与 run 级生命周期严格分离：SpinupService / TeardownService 作用于整个 core 服务进程；
     2. 所有 run 级 RPC 通过显式 run_handle 路由到具体会话，不依赖 channel 隐式绑定 run；
     3. ConfirmRunFinish 只确认单个 run 已排空、资源可释放，不会关闭 gRPC Server；
     4. GetOperationStats / ConfirmRunFinish 输入使用专用 request，由 run_handle 指定目标 run。
     """
 
-    def GetCapabilities(self, request, context):
-        """GetCapabilities 返回服务能力描述，用于启动阶段的能力协商（capability handshake）。
+    def SpinupService(self, request, context):
+        """SpinupService 完成服务级初始化并把服务置为 READY，不负责创建 run 级 datastore 和 transport
+        启动失败 RPC 返回 FAILED_PRECONDITION；重复 Spinup 在 READY 下幂等成功，共享一个 core 服务进程。
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -192,10 +193,10 @@ class CoreServiceServicer(object):
 
 def add_CoreServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'GetCapabilities': grpc.unary_unary_rpc_method_handler(
-                    servicer.GetCapabilities,
-                    request_deserializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.GetCapabilitiesRequest.FromString,
-                    response_serializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.GetCapabilitiesResponse.SerializeToString,
+            'SpinupService': grpc.unary_unary_rpc_method_handler(
+                    servicer.SpinupService,
+                    request_deserializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.SpinupServiceRequest.FromString,
+                    response_serializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.SpinupServiceResponse.SerializeToString,
             ),
             'TeardownService': grpc.unary_unary_rpc_method_handler(
                     servicer.TeardownService,
@@ -258,16 +259,16 @@ def add_CoreServiceServicer_to_server(servicer, server):
 class CoreService(object):
     """CoreService 是核心业务接口，用于同步或异步地接收实验记录。
 
-    生命周期约定（在协议正式发布前引入，作为一次性 breaking change 完成）：
+    生命周期约定：
 
-    1. 服务级与 run 级生命周期严格分离：GetCapabilities / TeardownService 作用于整个服务进程；
+    1. Core 与 run 级生命周期严格分离：SpinupService / TeardownService 作用于整个 core 服务进程；
     2. 所有 run 级 RPC 通过显式 run_handle 路由到具体会话，不依赖 channel 隐式绑定 run；
     3. ConfirmRunFinish 只确认单个 run 已排空、资源可释放，不会关闭 gRPC Server；
     4. GetOperationStats / ConfirmRunFinish 输入使用专用 request，由 run_handle 指定目标 run。
     """
 
     @staticmethod
-    def GetCapabilities(request,
+    def SpinupService(request,
             target,
             options=(),
             channel_credentials=None,
@@ -280,9 +281,9 @@ class CoreService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/swanlab.grpc.core.v1.CoreService/GetCapabilities',
-            swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.GetCapabilitiesRequest.SerializeToString,
-            swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.GetCapabilitiesResponse.FromString,
+            '/swanlab.grpc.core.v1.CoreService/SpinupService',
+            swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.SpinupServiceRequest.SerializeToString,
+            swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.SpinupServiceResponse.FromString,
             options,
             channel_credentials,
             insecure,

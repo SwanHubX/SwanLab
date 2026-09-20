@@ -14,31 +14,15 @@ from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
-class GetCapabilitiesRequest(_message.Message):
+class SpinupServiceRequest(_message.Message):
+    __slots__ = ("owner_token",)
+    OWNER_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    owner_token: str
+    def __init__(self, owner_token: _Optional[str] = ...) -> None: ...
+
+class SpinupServiceResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
-
-class GetCapabilitiesResponse(_message.Message):
-    __slots__ = ("protocol_version", "core_version", "lifecycle", "supported_modes", "store", "transport", "payload", "sync", "max_receive_message_bytes")
-    PROTOCOL_VERSION_FIELD_NUMBER: _ClassVar[int]
-    CORE_VERSION_FIELD_NUMBER: _ClassVar[int]
-    LIFECYCLE_FIELD_NUMBER: _ClassVar[int]
-    SUPPORTED_MODES_FIELD_NUMBER: _ClassVar[int]
-    STORE_FIELD_NUMBER: _ClassVar[int]
-    TRANSPORT_FIELD_NUMBER: _ClassVar[int]
-    PAYLOAD_FIELD_NUMBER: _ClassVar[int]
-    SYNC_FIELD_NUMBER: _ClassVar[int]
-    MAX_RECEIVE_MESSAGE_BYTES_FIELD_NUMBER: _ClassVar[int]
-    protocol_version: str
-    core_version: str
-    lifecycle: bool
-    supported_modes: _containers.RepeatedScalarFieldContainer[str]
-    store: bool
-    transport: bool
-    payload: bool
-    sync: bool
-    max_receive_message_bytes: int
-    def __init__(self, protocol_version: _Optional[str] = ..., core_version: _Optional[str] = ..., lifecycle: bool = ..., supported_modes: _Optional[_Iterable[str]] = ..., store: bool = ..., transport: bool = ..., payload: bool = ..., sync: bool = ..., max_receive_message_bytes: _Optional[int] = ...) -> None: ...
 
 class TeardownServiceRequest(_message.Message):
     __slots__ = ("owner_token",)

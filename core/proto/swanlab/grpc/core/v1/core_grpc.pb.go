@@ -20,7 +20,7 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	CoreService_GetCapabilities_FullMethodName   = "/swanlab.grpc.core.v1.CoreService/GetCapabilities"
+	CoreService_SpinupService_FullMethodName     = "/swanlab.grpc.core.v1.CoreService/SpinupService"
 	CoreService_TeardownService_FullMethodName   = "/swanlab.grpc.core.v1.CoreService/TeardownService"
 	CoreService_DeliverRunStart_FullMethodName   = "/swanlab.grpc.core.v1.CoreService/DeliverRunStart"
 	CoreService_UpsertColumns_FullMethodName     = "/swanlab.grpc.core.v1.CoreService/UpsertColumns"
@@ -39,15 +39,16 @@ const (
 //
 // CoreService 是核心业务接口，用于同步或异步地接收实验记录。
 //
-// 生命周期约定（在协议正式发布前引入，作为一次性 breaking change 完成）：
+// 生命周期约定：
 //
-//  1. 服务级与 run 级生命周期严格分离：GetCapabilities / TeardownService 作用于整个服务进程；
+//  1. Core 与 run 级生命周期严格分离：SpinupService / TeardownService 作用于整个 core 服务进程；
 //  2. 所有 run 级 RPC 通过显式 run_handle 路由到具体会话，不依赖 channel 隐式绑定 run；
 //  3. ConfirmRunFinish 只确认单个 run 已排空、资源可释放，不会关闭 gRPC Server；
 //  4. GetOperationStats / ConfirmRunFinish 输入使用专用 request，由 run_handle 指定目标 run。
 type CoreServiceClient interface {
-	// GetCapabilities 返回服务能力描述，用于启动阶段的能力协商（capability handshake）。
-	GetCapabilities(ctx context.Context, in *GetCapabilitiesRequest, opts ...grpc.CallOption) (*GetCapabilitiesResponse, error)
+	// SpinupService 完成服务级初始化并把服务置为 READY，不负责创建 run 级 datastore 和 transport
+	// 启动失败 RPC 返回 FAILED_PRECONDITION；重复 Spinup 在 READY 下幂等成功，共享一个 core 服务进程。
+	SpinupService(ctx context.Context, in *SpinupServiceRequest, opts ...grpc.CallOption) (*SpinupServiceResponse, error)
 	// TeardownService 关闭整个服务进程。仅持有 owner token 的调用方（spawn owner）允许执行，
 	// 校验失败返回 PERMISSION_DENIED；与 ConfirmRunFinish 不同，本 RPC 不针对单个 run。
 	TeardownService(ctx context.Context, in *TeardownServiceRequest, opts ...grpc.CallOption) (*TeardownServiceResponse, error)
@@ -79,10 +80,10 @@ func NewCoreServiceClient(cc grpc.ClientConnInterface) CoreServiceClient {
 	return &coreServiceClient{cc}
 }
 
-func (c *coreServiceClient) GetCapabilities(ctx context.Context, in *GetCapabilitiesRequest, opts ...grpc.CallOption) (*GetCapabilitiesResponse, error) {
+func (c *coreServiceClient) SpinupService(ctx context.Context, in *SpinupServiceRequest, opts ...grpc.CallOption) (*SpinupServiceResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(GetCapabilitiesResponse)
-	err := c.cc.Invoke(ctx, CoreService_GetCapabilities_FullMethodName, in, out, cOpts...)
+	out := new(SpinupServiceResponse)
+	err := c.cc.Invoke(ctx, CoreService_SpinupService_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -195,15 +196,16 @@ func (c *coreServiceClient) ConfirmRunFinish(ctx context.Context, in *ConfirmRun
 //
 // CoreService 是核心业务接口，用于同步或异步地接收实验记录。
 //
-// 生命周期约定（在协议正式发布前引入，作为一次性 breaking change 完成）：
+// 生命周期约定：
 //
-//  1. 服务级与 run 级生命周期严格分离：GetCapabilities / TeardownService 作用于整个服务进程；
+//  1. Core 与 run 级生命周期严格分离：SpinupService / TeardownService 作用于整个 core 服务进程；
 //  2. 所有 run 级 RPC 通过显式 run_handle 路由到具体会话，不依赖 channel 隐式绑定 run；
 //  3. ConfirmRunFinish 只确认单个 run 已排空、资源可释放，不会关闭 gRPC Server；
 //  4. GetOperationStats / ConfirmRunFinish 输入使用专用 request，由 run_handle 指定目标 run。
 type CoreServiceServer interface {
-	// GetCapabilities 返回服务能力描述，用于启动阶段的能力协商（capability handshake）。
-	GetCapabilities(context.Context, *GetCapabilitiesRequest) (*GetCapabilitiesResponse, error)
+	// SpinupService 完成服务级初始化并把服务置为 READY，不负责创建 run 级 datastore 和 transport
+	// 启动失败 RPC 返回 FAILED_PRECONDITION；重复 Spinup 在 READY 下幂等成功，共享一个 core 服务进程。
+	SpinupService(context.Context, *SpinupServiceRequest) (*SpinupServiceResponse, error)
 	// TeardownService 关闭整个服务进程。仅持有 owner token 的调用方（spawn owner）允许执行，
 	// 校验失败返回 PERMISSION_DENIED；与 ConfirmRunFinish 不同，本 RPC 不针对单个 run。
 	TeardownService(context.Context, *TeardownServiceRequest) (*TeardownServiceResponse, error)
@@ -235,8 +237,8 @@ type CoreServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedCoreServiceServer struct{}
 
-func (UnimplementedCoreServiceServer) GetCapabilities(context.Context, *GetCapabilitiesRequest) (*GetCapabilitiesResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method GetCapabilities not implemented")
+func (UnimplementedCoreServiceServer) SpinupService(context.Context, *SpinupServiceRequest) (*SpinupServiceResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SpinupService not implemented")
 }
 func (UnimplementedCoreServiceServer) TeardownService(context.Context, *TeardownServiceRequest) (*TeardownServiceResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method TeardownService not implemented")
@@ -289,20 +291,20 @@ func RegisterCoreServiceServer(s grpc.ServiceRegistrar, srv CoreServiceServer) {
 	s.RegisterService(&CoreService_ServiceDesc, srv)
 }
 
-func _CoreService_GetCapabilities_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetCapabilitiesRequest)
+func _CoreService_SpinupService_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SpinupServiceRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(CoreServiceServer).GetCapabilities(ctx, in)
+		return srv.(CoreServiceServer).SpinupService(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: CoreService_GetCapabilities_FullMethodName,
+		FullMethod: CoreService_SpinupService_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CoreServiceServer).GetCapabilities(ctx, req.(*GetCapabilitiesRequest))
+		return srv.(CoreServiceServer).SpinupService(ctx, req.(*SpinupServiceRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -495,8 +497,8 @@ var CoreService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*CoreServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "GetCapabilities",
-			Handler:    _CoreService_GetCapabilities_Handler,
+			MethodName: "SpinupService",
+			Handler:    _CoreService_SpinupService_Handler,
 		},
 		{
 			MethodName: "TeardownService",

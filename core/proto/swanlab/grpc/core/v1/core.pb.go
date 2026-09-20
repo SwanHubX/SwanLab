@@ -29,74 +29,72 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// GetCapabilities 请求。当前无字段，预留后续扩展。
-type GetCapabilitiesRequest struct {
+// SpinupService 请求。
+type SpinupServiceRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	OwnerToken    string                 `protobuf:"bytes,1,opt,name=owner_token,json=ownerToken,proto3" json:"owner_token,omitempty"` // 服务所有者令牌，仅 spawn owner 持有
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SpinupServiceRequest) Reset() {
+	*x = SpinupServiceRequest{}
+	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SpinupServiceRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SpinupServiceRequest) ProtoMessage() {}
+
+func (x *SpinupServiceRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SpinupServiceRequest.ProtoReflect.Descriptor instead.
+func (*SpinupServiceRequest) Descriptor() ([]byte, []int) {
+	return file_swanlab_grpc_core_v1_core_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *SpinupServiceRequest) GetOwnerToken() string {
+	if x != nil {
+		return x.OwnerToken
+	}
+	return ""
+}
+
+// SpinupService 响应。无字段，返回即表示服务已 READY。
+type SpinupServiceResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *GetCapabilitiesRequest) Reset() {
-	*x = GetCapabilitiesRequest{}
-	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[0]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetCapabilitiesRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetCapabilitiesRequest) ProtoMessage() {}
-
-func (x *GetCapabilitiesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[0]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetCapabilitiesRequest.ProtoReflect.Descriptor instead.
-func (*GetCapabilitiesRequest) Descriptor() ([]byte, []int) {
-	return file_swanlab_grpc_core_v1_core_proto_rawDescGZIP(), []int{0}
-}
-
-// GetCapabilities 响应，服务能力快照。能力位必须如实反映实现现状，
-// 调用方应校验所需能力后再接入数据路径，能力缺失时不得继续写入。
-type GetCapabilitiesResponse struct {
-	state                  protoimpl.MessageState `protogen:"open.v1"`
-	ProtocolVersion        string                 `protobuf:"bytes,1,opt,name=protocol_version,json=protocolVersion,proto3" json:"protocol_version,omitempty"`                           // 协议版本，与 Python SDK 期望版本锁步
-	CoreVersion            string                 `protobuf:"bytes,2,opt,name=core_version,json=coreVersion,proto3" json:"core_version,omitempty"`                                       // core 二进制编译版本（构建管线注入）
-	Lifecycle              bool                   `protobuf:"varint,3,opt,name=lifecycle,proto3" json:"lifecycle,omitempty"`                                                             // 生命周期与进程管理能力
-	SupportedModes         []string               `protobuf:"bytes,4,rep,name=supported_modes,json=supportedModes,proto3" json:"supported_modes,omitempty"`                              // 支持的 run 模式，如 online/local/offline
-	Store                  bool                   `protobuf:"varint,5,opt,name=store,proto3" json:"store,omitempty"`                                                                     // 本地持久化能力
-	Transport              bool                   `protobuf:"varint,6,opt,name=transport,proto3" json:"transport,omitempty"`                                                             // 云端上传能力
-	Payload                bool                   `protobuf:"varint,7,opt,name=payload,proto3" json:"payload,omitempty"`                                                                 // 内联 payload 能力（online skip_store 模式）
-	Sync                   bool                   `protobuf:"varint,8,opt,name=sync,proto3" json:"sync,omitempty"`                                                                       // 离线数据同步能力
-	MaxReceiveMessageBytes int64                  `protobuf:"varint,9,opt,name=max_receive_message_bytes,json=maxReceiveMessageBytes,proto3" json:"max_receive_message_bytes,omitempty"` // 服务端单条消息接收上限，用于客户端协商
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
-}
-
-func (x *GetCapabilitiesResponse) Reset() {
-	*x = GetCapabilitiesResponse{}
+func (x *SpinupServiceResponse) Reset() {
+	*x = SpinupServiceResponse{}
 	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *GetCapabilitiesResponse) String() string {
+func (x *SpinupServiceResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*GetCapabilitiesResponse) ProtoMessage() {}
+func (*SpinupServiceResponse) ProtoMessage() {}
 
-func (x *GetCapabilitiesResponse) ProtoReflect() protoreflect.Message {
+func (x *SpinupServiceResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -108,72 +106,9 @@ func (x *GetCapabilitiesResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use GetCapabilitiesResponse.ProtoReflect.Descriptor instead.
-func (*GetCapabilitiesResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use SpinupServiceResponse.ProtoReflect.Descriptor instead.
+func (*SpinupServiceResponse) Descriptor() ([]byte, []int) {
 	return file_swanlab_grpc_core_v1_core_proto_rawDescGZIP(), []int{1}
-}
-
-func (x *GetCapabilitiesResponse) GetProtocolVersion() string {
-	if x != nil {
-		return x.ProtocolVersion
-	}
-	return ""
-}
-
-func (x *GetCapabilitiesResponse) GetCoreVersion() string {
-	if x != nil {
-		return x.CoreVersion
-	}
-	return ""
-}
-
-func (x *GetCapabilitiesResponse) GetLifecycle() bool {
-	if x != nil {
-		return x.Lifecycle
-	}
-	return false
-}
-
-func (x *GetCapabilitiesResponse) GetSupportedModes() []string {
-	if x != nil {
-		return x.SupportedModes
-	}
-	return nil
-}
-
-func (x *GetCapabilitiesResponse) GetStore() bool {
-	if x != nil {
-		return x.Store
-	}
-	return false
-}
-
-func (x *GetCapabilitiesResponse) GetTransport() bool {
-	if x != nil {
-		return x.Transport
-	}
-	return false
-}
-
-func (x *GetCapabilitiesResponse) GetPayload() bool {
-	if x != nil {
-		return x.Payload
-	}
-	return false
-}
-
-func (x *GetCapabilitiesResponse) GetSync() bool {
-	if x != nil {
-		return x.Sync
-	}
-	return false
-}
-
-func (x *GetCapabilitiesResponse) GetMaxReceiveMessageBytes() int64 {
-	if x != nil {
-		return x.MaxReceiveMessageBytes
-	}
-	return 0
 }
 
 // TeardownService 请求。
@@ -999,18 +934,11 @@ var File_swanlab_grpc_core_v1_core_proto protoreflect.FileDescriptor
 
 const file_swanlab_grpc_core_v1_core_proto_rawDesc = "" +
 	"\n" +
-	"\x1fswanlab/grpc/core/v1/core.proto\x12\x14swanlab.grpc.core.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x18swanlab/run/v1/run.proto\x1a!swanlab/metric/data/v1/data.proto\x1a%swanlab/metric/column/v1/column.proto\x1a\x1dswanlab/terminal/v1/log.proto\x1a\x1aswanlab/save/v1/save.proto\x1a$swanlab/operation/v1/operation.proto\x1a#swanlab/settings/core/v1/core.proto\"\x18\n" +
-	"\x16GetCapabilitiesRequest\"\xcb\x02\n" +
-	"\x17GetCapabilitiesResponse\x12)\n" +
-	"\x10protocol_version\x18\x01 \x01(\tR\x0fprotocolVersion\x12!\n" +
-	"\fcore_version\x18\x02 \x01(\tR\vcoreVersion\x12\x1c\n" +
-	"\tlifecycle\x18\x03 \x01(\bR\tlifecycle\x12'\n" +
-	"\x0fsupported_modes\x18\x04 \x03(\tR\x0esupportedModes\x12\x14\n" +
-	"\x05store\x18\x05 \x01(\bR\x05store\x12\x1c\n" +
-	"\ttransport\x18\x06 \x01(\bR\ttransport\x12\x18\n" +
-	"\apayload\x18\a \x01(\bR\apayload\x12\x12\n" +
-	"\x04sync\x18\b \x01(\bR\x04sync\x129\n" +
-	"\x19max_receive_message_bytes\x18\t \x01(\x03R\x16maxReceiveMessageBytes\"9\n" +
+	"\x1fswanlab/grpc/core/v1/core.proto\x12\x14swanlab.grpc.core.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x18swanlab/run/v1/run.proto\x1a!swanlab/metric/data/v1/data.proto\x1a%swanlab/metric/column/v1/column.proto\x1a\x1dswanlab/terminal/v1/log.proto\x1a\x1aswanlab/save/v1/save.proto\x1a$swanlab/operation/v1/operation.proto\x1a#swanlab/settings/core/v1/core.proto\"7\n" +
+	"\x14SpinupServiceRequest\x12\x1f\n" +
+	"\vowner_token\x18\x01 \x01(\tR\n" +
+	"ownerToken\"\x17\n" +
+	"\x15SpinupServiceResponse\"9\n" +
 	"\x16TeardownServiceRequest\x12\x1f\n" +
 	"\vowner_token\x18\x01 \x01(\tR\n" +
 	"ownerToken\"\x19\n" +
@@ -1069,9 +997,9 @@ const file_swanlab_grpc_core_v1_core_proto_rawDesc = "" +
 	"run_handle\x18\x01 \x01(\tR\trunHandle\"N\n" +
 	"\x18ConfirmRunFinishResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage2\xd4\b\n" +
-	"\vCoreService\x12n\n" +
-	"\x0fGetCapabilities\x12,.swanlab.grpc.core.v1.GetCapabilitiesRequest\x1a-.swanlab.grpc.core.v1.GetCapabilitiesResponse\x12n\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage2\xce\b\n" +
+	"\vCoreService\x12h\n" +
+	"\rSpinupService\x12*.swanlab.grpc.core.v1.SpinupServiceRequest\x1a+.swanlab.grpc.core.v1.SpinupServiceResponse\x12n\n" +
 	"\x0fTeardownService\x12,.swanlab.grpc.core.v1.TeardownServiceRequest\x1a-.swanlab.grpc.core.v1.TeardownServiceResponse\x12n\n" +
 	"\x0fDeliverRunStart\x12,.swanlab.grpc.core.v1.DeliverRunStartRequest\x1a-.swanlab.grpc.core.v1.DeliverRunStartResponse\x12S\n" +
 	"\rUpsertColumns\x12*.swanlab.grpc.core.v1.UpsertColumnsRequest\x1a\x16.google.protobuf.Empty\x12S\n" +
@@ -1098,8 +1026,8 @@ func file_swanlab_grpc_core_v1_core_proto_rawDescGZIP() []byte {
 
 var file_swanlab_grpc_core_v1_core_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
 var file_swanlab_grpc_core_v1_core_proto_goTypes = []any{
-	(*GetCapabilitiesRequest)(nil),    // 0: swanlab.grpc.core.v1.GetCapabilitiesRequest
-	(*GetCapabilitiesResponse)(nil),   // 1: swanlab.grpc.core.v1.GetCapabilitiesResponse
+	(*SpinupServiceRequest)(nil),      // 0: swanlab.grpc.core.v1.SpinupServiceRequest
+	(*SpinupServiceResponse)(nil),     // 1: swanlab.grpc.core.v1.SpinupServiceResponse
 	(*TeardownServiceRequest)(nil),    // 2: swanlab.grpc.core.v1.TeardownServiceRequest
 	(*TeardownServiceResponse)(nil),   // 3: swanlab.grpc.core.v1.TeardownServiceResponse
 	(*DeliverRunStartRequest)(nil),    // 4: swanlab.grpc.core.v1.DeliverRunStartRequest
@@ -1137,7 +1065,7 @@ var file_swanlab_grpc_core_v1_core_proto_depIdxs = []int32{
 	23, // 7: swanlab.grpc.core.v1.UpsertSavesRequest.saves:type_name -> swanlab.save.v1.SaveRecord
 	24, // 8: swanlab.grpc.core.v1.DeliverRunFinishRequest.finish_record:type_name -> swanlab.run.v1.FinishRecord
 	25, // 9: swanlab.grpc.core.v1.GetOperationStatsResponse.stats:type_name -> swanlab.operation.v1.OperationStats
-	0,  // 10: swanlab.grpc.core.v1.CoreService.GetCapabilities:input_type -> swanlab.grpc.core.v1.GetCapabilitiesRequest
+	0,  // 10: swanlab.grpc.core.v1.CoreService.SpinupService:input_type -> swanlab.grpc.core.v1.SpinupServiceRequest
 	2,  // 11: swanlab.grpc.core.v1.CoreService.TeardownService:input_type -> swanlab.grpc.core.v1.TeardownServiceRequest
 	4,  // 12: swanlab.grpc.core.v1.CoreService.DeliverRunStart:input_type -> swanlab.grpc.core.v1.DeliverRunStartRequest
 	6,  // 13: swanlab.grpc.core.v1.CoreService.UpsertColumns:input_type -> swanlab.grpc.core.v1.UpsertColumnsRequest
@@ -1148,7 +1076,7 @@ var file_swanlab_grpc_core_v1_core_proto_depIdxs = []int32{
 	11, // 18: swanlab.grpc.core.v1.CoreService.DeliverRunFinish:input_type -> swanlab.grpc.core.v1.DeliverRunFinishRequest
 	13, // 19: swanlab.grpc.core.v1.CoreService.GetOperationStats:input_type -> swanlab.grpc.core.v1.GetOperationStatsRequest
 	15, // 20: swanlab.grpc.core.v1.CoreService.ConfirmRunFinish:input_type -> swanlab.grpc.core.v1.ConfirmRunFinishRequest
-	1,  // 21: swanlab.grpc.core.v1.CoreService.GetCapabilities:output_type -> swanlab.grpc.core.v1.GetCapabilitiesResponse
+	1,  // 21: swanlab.grpc.core.v1.CoreService.SpinupService:output_type -> swanlab.grpc.core.v1.SpinupServiceResponse
 	3,  // 22: swanlab.grpc.core.v1.CoreService.TeardownService:output_type -> swanlab.grpc.core.v1.TeardownServiceResponse
 	5,  // 23: swanlab.grpc.core.v1.CoreService.DeliverRunStart:output_type -> swanlab.grpc.core.v1.DeliverRunStartResponse
 	26, // 24: swanlab.grpc.core.v1.CoreService.UpsertColumns:output_type -> google.protobuf.Empty

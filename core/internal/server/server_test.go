@@ -91,12 +91,14 @@ func TestTeardownServiceRejectsEmptyConfiguredToken(t *testing.T) {
 	}
 }
 
-func TestRunLevelRPCsUnimplemented(t *testing.T) {
+// TestSkeletonRPCsUnimplemented 锁定 PR-1 骨架语义：READY 状态机（PR-2）落地前，
+// 除 TeardownService 外的 RPC 一律 UNIMPLEMENTED，不得假成功。
+func TestSkeletonRPCsUnimplemented(t *testing.T) {
 	env := newTestEnv(t, "owner-secret")
 	ctx, cancel := context.WithTimeout(context.Background(), callTimeout)
 	defer cancel()
-	if _, err := env.client.GetCapabilities(ctx, &corev1.GetCapabilitiesRequest{}); status.Code(err) != codes.Unimplemented {
-		t.Fatalf("GetCapabilities err = %v, want Unimplemented", err)
+	if _, err := env.client.SpinupService(ctx, &corev1.SpinupServiceRequest{OwnerToken: "owner-secret"}); status.Code(err) != codes.Unimplemented {
+		t.Fatalf("SpinupService err = %v, want Unimplemented", err)
 	}
 	if _, err := env.client.UpsertScalars(ctx, &corev1.UpsertScalarsRequest{}); status.Code(err) != codes.Unimplemented {
 		t.Fatalf("UpsertScalars err = %v, want Unimplemented", err)
