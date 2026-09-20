@@ -12,7 +12,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
 
-	corev2 "github.com/swanhubx/swanlab/core/proto/swanlab/grpc/core/v2"
+	corev1 "github.com/swanhubx/swanlab/core/proto/swanlab/grpc/core/v1"
 )
 
 const (
@@ -23,7 +23,7 @@ const (
 )
 
 type testEnv struct {
-	client corev2.CoreServiceClient
+	client corev1.CoreServiceClient
 	ctrl   *Controller
 }
 
@@ -49,14 +49,14 @@ func newTestEnv(t *testing.T, ownerToken string) *testEnv {
 		ctrl.Shutdown("test-cleanup")
 		<-ctrl.Done()
 	})
-	return &testEnv{client: corev2.NewCoreServiceClient(conn), ctrl: ctrl}
+	return &testEnv{client: corev1.NewCoreServiceClient(conn), ctrl: ctrl}
 }
 
 func TestTeardownServiceRejectsWrongToken(t *testing.T) {
 	env := newTestEnv(t, "owner-secret")
 	ctx, cancel := context.WithTimeout(context.Background(), callTimeout)
 	defer cancel()
-	_, err := env.client.TeardownService(ctx, &corev2.TeardownServiceRequest{OwnerToken: "wrong-token"})
+	_, err := env.client.TeardownService(ctx, &corev1.TeardownServiceRequest{OwnerToken: "wrong-token"})
 	if status.Code(err) != codes.PermissionDenied {
 		t.Fatalf("TeardownService err = %v, want PermissionDenied", err)
 	}
@@ -71,7 +71,7 @@ func TestTeardownServiceShutsDownServer(t *testing.T) {
 	env := newTestEnv(t, "owner-secret")
 	ctx, cancel := context.WithTimeout(context.Background(), callTimeout)
 	defer cancel()
-	if _, err := env.client.TeardownService(ctx, &corev2.TeardownServiceRequest{OwnerToken: "owner-secret"}); err != nil {
+	if _, err := env.client.TeardownService(ctx, &corev1.TeardownServiceRequest{OwnerToken: "owner-secret"}); err != nil {
 		t.Fatalf("TeardownService: %v", err)
 	}
 	select {
@@ -85,7 +85,7 @@ func TestTeardownServiceRejectsEmptyConfiguredToken(t *testing.T) {
 	env := newTestEnv(t, "")
 	ctx, cancel := context.WithTimeout(context.Background(), callTimeout)
 	defer cancel()
-	_, err := env.client.TeardownService(ctx, &corev2.TeardownServiceRequest{OwnerToken: ""})
+	_, err := env.client.TeardownService(ctx, &corev1.TeardownServiceRequest{OwnerToken: ""})
 	if status.Code(err) != codes.PermissionDenied {
 		t.Fatalf("TeardownService err = %v, want PermissionDenied", err)
 	}
@@ -95,13 +95,13 @@ func TestRunLevelRPCsUnimplemented(t *testing.T) {
 	env := newTestEnv(t, "owner-secret")
 	ctx, cancel := context.WithTimeout(context.Background(), callTimeout)
 	defer cancel()
-	if _, err := env.client.GetCapabilities(ctx, &corev2.GetCapabilitiesRequest{}); status.Code(err) != codes.Unimplemented {
+	if _, err := env.client.GetCapabilities(ctx, &corev1.GetCapabilitiesRequest{}); status.Code(err) != codes.Unimplemented {
 		t.Fatalf("GetCapabilities err = %v, want Unimplemented", err)
 	}
-	if _, err := env.client.UpsertScalars(ctx, &corev2.UpsertScalarsRequest{}); status.Code(err) != codes.Unimplemented {
+	if _, err := env.client.UpsertScalars(ctx, &corev1.UpsertScalarsRequest{}); status.Code(err) != codes.Unimplemented {
 		t.Fatalf("UpsertScalars err = %v, want Unimplemented", err)
 	}
-	if _, err := env.client.DeliverRunStart(ctx, &corev2.DeliverRunStartRequest{}); status.Code(err) != codes.Unimplemented {
+	if _, err := env.client.DeliverRunStart(ctx, &corev1.DeliverRunStartRequest{}); status.Code(err) != codes.Unimplemented {
 		t.Fatalf("DeliverRunStart err = %v, want Unimplemented", err)
 	}
 }

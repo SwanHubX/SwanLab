@@ -20,6 +20,8 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
+	CoreService_GetCapabilities_FullMethodName   = "/swanlab.grpc.core.v1.CoreService/GetCapabilities"
+	CoreService_TeardownService_FullMethodName   = "/swanlab.grpc.core.v1.CoreService/TeardownService"
 	CoreService_DeliverRunStart_FullMethodName   = "/swanlab.grpc.core.v1.CoreService/DeliverRunStart"
 	CoreService_UpsertColumns_FullMethodName     = "/swanlab.grpc.core.v1.CoreService/UpsertColumns"
 	CoreService_UpsertScalars_FullMethodName     = "/swanlab.grpc.core.v1.CoreService/UpsertScalars"
@@ -35,8 +37,20 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// CoreService 是核心业务接口，用于同步或异步地接收实验记录
+// CoreService 是核心业务接口，用于同步或异步地接收实验记录。
+//
+// 生命周期约定（在协议正式发布前引入，作为一次性 breaking change 完成）：
+//
+//  1. 服务级与 run 级生命周期严格分离：GetCapabilities / TeardownService 作用于整个服务进程；
+//  2. 所有 run 级 RPC 通过显式 run_handle 路由到具体会话，不依赖 channel 隐式绑定 run；
+//  3. ConfirmRunFinish 只确认单个 run 已排空、资源可释放，不会关闭 gRPC Server；
+//  4. GetOperationStats / ConfirmRunFinish 输入使用专用 request，由 run_handle 指定目标 run。
 type CoreServiceClient interface {
+	// GetCapabilities 返回服务能力描述，用于启动阶段的能力协商（capability handshake）。
+	GetCapabilities(ctx context.Context, in *GetCapabilitiesRequest, opts ...grpc.CallOption) (*GetCapabilitiesResponse, error)
+	// TeardownService 关闭整个服务进程。仅持有 owner token 的调用方（spawn owner）允许执行，
+	// 校验失败返回 PERMISSION_DENIED；与 ConfirmRunFinish 不同，本 RPC 不针对单个 run。
+	TeardownService(ctx context.Context, in *TeardownServiceRequest, opts ...grpc.CallOption) (*TeardownServiceResponse, error)
 	// DeliverRunStart 接收单条 StartRecord，用于实验开始，并返回必要的信息。
 	DeliverRunStart(ctx context.Context, in *DeliverRunStartRequest, opts ...grpc.CallOption) (*DeliverRunStartResponse, error)
 	// UpsertColumns 接收一组 ColumnRecord 并写入，每一条记录用于定义某一个指标
@@ -51,10 +65,10 @@ type CoreServiceClient interface {
 	UpsertSaves(ctx context.Context, in *UpsertSavesRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// DeliverRunFinish 接收单条 FinishRecord，用于实验结束。
 	DeliverRunFinish(ctx context.Context, in *DeliverRunFinishRequest, opts ...grpc.CallOption) (*DeliverRunFinishResponse, error)
-	// GetOperationStats 返回 Core 当前运行状态和上传进度快照。
-	GetOperationStats(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetOperationStatsResponse, error)
-	// ConfirmRunFinish 确认 Core 运行结束，可以安全退出
-	ConfirmRunFinish(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ConfirmRunFinishResponse, error)
+	// GetOperationStats 返回指定 run 当前运行状态和上传进度快照。
+	GetOperationStats(ctx context.Context, in *GetOperationStatsRequest, opts ...grpc.CallOption) (*GetOperationStatsResponse, error)
+	// ConfirmRunFinish 确认指定 run 已排空、资源可释放，但不关闭整个 gRPC Server。
+	ConfirmRunFinish(ctx context.Context, in *ConfirmRunFinishRequest, opts ...grpc.CallOption) (*ConfirmRunFinishResponse, error)
 }
 
 type coreServiceClient struct {
@@ -63,6 +77,26 @@ type coreServiceClient struct {
 
 func NewCoreServiceClient(cc grpc.ClientConnInterface) CoreServiceClient {
 	return &coreServiceClient{cc}
+}
+
+func (c *coreServiceClient) GetCapabilities(ctx context.Context, in *GetCapabilitiesRequest, opts ...grpc.CallOption) (*GetCapabilitiesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetCapabilitiesResponse)
+	err := c.cc.Invoke(ctx, CoreService_GetCapabilities_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *coreServiceClient) TeardownService(ctx context.Context, in *TeardownServiceRequest, opts ...grpc.CallOption) (*TeardownServiceResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TeardownServiceResponse)
+	err := c.cc.Invoke(ctx, CoreService_TeardownService_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *coreServiceClient) DeliverRunStart(ctx context.Context, in *DeliverRunStartRequest, opts ...grpc.CallOption) (*DeliverRunStartResponse, error) {
@@ -135,7 +169,7 @@ func (c *coreServiceClient) DeliverRunFinish(ctx context.Context, in *DeliverRun
 	return out, nil
 }
 
-func (c *coreServiceClient) GetOperationStats(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetOperationStatsResponse, error) {
+func (c *coreServiceClient) GetOperationStats(ctx context.Context, in *GetOperationStatsRequest, opts ...grpc.CallOption) (*GetOperationStatsResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetOperationStatsResponse)
 	err := c.cc.Invoke(ctx, CoreService_GetOperationStats_FullMethodName, in, out, cOpts...)
@@ -145,7 +179,7 @@ func (c *coreServiceClient) GetOperationStats(ctx context.Context, in *emptypb.E
 	return out, nil
 }
 
-func (c *coreServiceClient) ConfirmRunFinish(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ConfirmRunFinishResponse, error) {
+func (c *coreServiceClient) ConfirmRunFinish(ctx context.Context, in *ConfirmRunFinishRequest, opts ...grpc.CallOption) (*ConfirmRunFinishResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ConfirmRunFinishResponse)
 	err := c.cc.Invoke(ctx, CoreService_ConfirmRunFinish_FullMethodName, in, out, cOpts...)
@@ -159,8 +193,20 @@ func (c *coreServiceClient) ConfirmRunFinish(ctx context.Context, in *emptypb.Em
 // All implementations must embed UnimplementedCoreServiceServer
 // for forward compatibility.
 //
-// CoreService 是核心业务接口，用于同步或异步地接收实验记录
+// CoreService 是核心业务接口，用于同步或异步地接收实验记录。
+//
+// 生命周期约定（在协议正式发布前引入，作为一次性 breaking change 完成）：
+//
+//  1. 服务级与 run 级生命周期严格分离：GetCapabilities / TeardownService 作用于整个服务进程；
+//  2. 所有 run 级 RPC 通过显式 run_handle 路由到具体会话，不依赖 channel 隐式绑定 run；
+//  3. ConfirmRunFinish 只确认单个 run 已排空、资源可释放，不会关闭 gRPC Server；
+//  4. GetOperationStats / ConfirmRunFinish 输入使用专用 request，由 run_handle 指定目标 run。
 type CoreServiceServer interface {
+	// GetCapabilities 返回服务能力描述，用于启动阶段的能力协商（capability handshake）。
+	GetCapabilities(context.Context, *GetCapabilitiesRequest) (*GetCapabilitiesResponse, error)
+	// TeardownService 关闭整个服务进程。仅持有 owner token 的调用方（spawn owner）允许执行，
+	// 校验失败返回 PERMISSION_DENIED；与 ConfirmRunFinish 不同，本 RPC 不针对单个 run。
+	TeardownService(context.Context, *TeardownServiceRequest) (*TeardownServiceResponse, error)
 	// DeliverRunStart 接收单条 StartRecord，用于实验开始，并返回必要的信息。
 	DeliverRunStart(context.Context, *DeliverRunStartRequest) (*DeliverRunStartResponse, error)
 	// UpsertColumns 接收一组 ColumnRecord 并写入，每一条记录用于定义某一个指标
@@ -175,10 +221,10 @@ type CoreServiceServer interface {
 	UpsertSaves(context.Context, *UpsertSavesRequest) (*emptypb.Empty, error)
 	// DeliverRunFinish 接收单条 FinishRecord，用于实验结束。
 	DeliverRunFinish(context.Context, *DeliverRunFinishRequest) (*DeliverRunFinishResponse, error)
-	// GetOperationStats 返回 Core 当前运行状态和上传进度快照。
-	GetOperationStats(context.Context, *emptypb.Empty) (*GetOperationStatsResponse, error)
-	// ConfirmRunFinish 确认 Core 运行结束，可以安全退出
-	ConfirmRunFinish(context.Context, *emptypb.Empty) (*ConfirmRunFinishResponse, error)
+	// GetOperationStats 返回指定 run 当前运行状态和上传进度快照。
+	GetOperationStats(context.Context, *GetOperationStatsRequest) (*GetOperationStatsResponse, error)
+	// ConfirmRunFinish 确认指定 run 已排空、资源可释放，但不关闭整个 gRPC Server。
+	ConfirmRunFinish(context.Context, *ConfirmRunFinishRequest) (*ConfirmRunFinishResponse, error)
 	mustEmbedUnimplementedCoreServiceServer()
 }
 
@@ -189,6 +235,12 @@ type CoreServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedCoreServiceServer struct{}
 
+func (UnimplementedCoreServiceServer) GetCapabilities(context.Context, *GetCapabilitiesRequest) (*GetCapabilitiesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetCapabilities not implemented")
+}
+func (UnimplementedCoreServiceServer) TeardownService(context.Context, *TeardownServiceRequest) (*TeardownServiceResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method TeardownService not implemented")
+}
 func (UnimplementedCoreServiceServer) DeliverRunStart(context.Context, *DeliverRunStartRequest) (*DeliverRunStartResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeliverRunStart not implemented")
 }
@@ -210,10 +262,10 @@ func (UnimplementedCoreServiceServer) UpsertSaves(context.Context, *UpsertSavesR
 func (UnimplementedCoreServiceServer) DeliverRunFinish(context.Context, *DeliverRunFinishRequest) (*DeliverRunFinishResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeliverRunFinish not implemented")
 }
-func (UnimplementedCoreServiceServer) GetOperationStats(context.Context, *emptypb.Empty) (*GetOperationStatsResponse, error) {
+func (UnimplementedCoreServiceServer) GetOperationStats(context.Context, *GetOperationStatsRequest) (*GetOperationStatsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetOperationStats not implemented")
 }
-func (UnimplementedCoreServiceServer) ConfirmRunFinish(context.Context, *emptypb.Empty) (*ConfirmRunFinishResponse, error) {
+func (UnimplementedCoreServiceServer) ConfirmRunFinish(context.Context, *ConfirmRunFinishRequest) (*ConfirmRunFinishResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ConfirmRunFinish not implemented")
 }
 func (UnimplementedCoreServiceServer) mustEmbedUnimplementedCoreServiceServer() {}
@@ -235,6 +287,42 @@ func RegisterCoreServiceServer(s grpc.ServiceRegistrar, srv CoreServiceServer) {
 		t.testEmbeddedByValue()
 	}
 	s.RegisterService(&CoreService_ServiceDesc, srv)
+}
+
+func _CoreService_GetCapabilities_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetCapabilitiesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CoreServiceServer).GetCapabilities(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CoreService_GetCapabilities_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CoreServiceServer).GetCapabilities(ctx, req.(*GetCapabilitiesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CoreService_TeardownService_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TeardownServiceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CoreServiceServer).TeardownService(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CoreService_TeardownService_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CoreServiceServer).TeardownService(ctx, req.(*TeardownServiceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _CoreService_DeliverRunStart_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -364,7 +452,7 @@ func _CoreService_DeliverRunFinish_Handler(srv interface{}, ctx context.Context,
 }
 
 func _CoreService_GetOperationStats_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
+	in := new(GetOperationStatsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -376,13 +464,13 @@ func _CoreService_GetOperationStats_Handler(srv interface{}, ctx context.Context
 		FullMethod: CoreService_GetOperationStats_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CoreServiceServer).GetOperationStats(ctx, req.(*emptypb.Empty))
+		return srv.(CoreServiceServer).GetOperationStats(ctx, req.(*GetOperationStatsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _CoreService_ConfirmRunFinish_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
+	in := new(ConfirmRunFinishRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -394,7 +482,7 @@ func _CoreService_ConfirmRunFinish_Handler(srv interface{}, ctx context.Context,
 		FullMethod: CoreService_ConfirmRunFinish_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CoreServiceServer).ConfirmRunFinish(ctx, req.(*emptypb.Empty))
+		return srv.(CoreServiceServer).ConfirmRunFinish(ctx, req.(*ConfirmRunFinishRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -406,6 +494,14 @@ var CoreService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "swanlab.grpc.core.v1.CoreService",
 	HandlerType: (*CoreServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "GetCapabilities",
+			Handler:    _CoreService_GetCapabilities_Handler,
+		},
+		{
+			MethodName: "TeardownService",
+			Handler:    _CoreService_TeardownService_Handler,
+		},
 		{
 			MethodName: "DeliverRunStart",
 			Handler:    _CoreService_DeliverRunStart_Handler,

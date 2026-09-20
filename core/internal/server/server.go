@@ -1,6 +1,6 @@
 // Package server 提供 swanlab-core 的 gRPC 服务端实现。
 //
-// 当前为脚手架阶段：CoreService v2 已注册并可完成服务级关闭，
+// 当前为脚手架阶段：CoreService 已注册并可完成服务级关闭，
 // 鉴权 interceptor、capability 应答与 run 会话路由在后续迭代接入。
 package server
 
@@ -12,15 +12,15 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	corev2 "github.com/swanhubx/swanlab/core/proto/swanlab/grpc/core/v2"
+	corev1 "github.com/swanhubx/swanlab/core/proto/swanlab/grpc/core/v1"
 )
 
-// Service 实现 CoreService v2。
+// Service 实现 CoreService。
 //
 // 除 TeardownService 外的所有 RPC 暂由嵌入的 Unimplemented 实现接管，
 // 返回 UNIMPLEMENTED；run 级接口在会话路由迭代中逐步补齐。
 type Service struct {
-	corev2.UnimplementedCoreServiceServer
+	corev1.UnimplementedCoreServiceServer
 
 	ownerToken string
 	controller *Controller
@@ -37,16 +37,16 @@ func NewService(ownerToken string, controller *Controller) *Service {
 
 // Register 将服务注册到 gRPC Server。
 func (s *Service) Register(g *grpc.Server) {
-	corev2.RegisterCoreServiceServer(g, s)
+	corev1.RegisterCoreServiceServer(g, s)
 }
 
 // TeardownService 关闭整个服务进程，仅接受正确的 owner token。
 // 校验使用常量时间比较；token 值不得出现在日志或错误消息中。
-func (s *Service) TeardownService(_ context.Context, req *corev2.TeardownServiceRequest) (*corev2.TeardownServiceResponse, error) {
+func (s *Service) TeardownService(_ context.Context, req *corev1.TeardownServiceRequest) (*corev1.TeardownServiceResponse, error) {
 	if s.ownerToken == "" || !hmac.Equal([]byte(req.OwnerToken), []byte(s.ownerToken)) {
 		return nil, status.Error(codes.PermissionDenied, "invalid owner token")
 	}
 	// 异步触发统一关闭路径，保证本响应先于连接关闭送达调用方。
 	s.controller.Shutdown("teardown")
-	return &corev2.TeardownServiceResponse{}, nil
+	return &corev1.TeardownServiceResponse{}, nil
 }
