@@ -131,6 +131,10 @@ func runMonitoredChildHelper() {
 // 三级结构与 TestNotifyOnParentExitNotifiesCaller 一致：
 // 测试进程 -> parent helper（从 LockOSThread 的 goroutine spawn child）-> monitored child。
 func TestNotifyOnParentExitSurvivesSpawnThreadExit(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("PDEATHSIG spawn-thread semantics are Linux-specific")
+	}
+
 	switch os.Getenv(parentExitHelperMode) {
 	case "thread-parent":
 		runThreadParentHelper()
