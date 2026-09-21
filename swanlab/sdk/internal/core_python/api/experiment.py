@@ -113,18 +113,21 @@ def stop_experiment(username: str, project: str, experiment_id: str, *, state: R
     :param project: 所属项目名称
     :param experiment_id: 所属实验名称
     :param state: 实验状态
-    :param finished_at: 实验结束时间
+    :param finished_at: 实验结束时间，仅用于本地记录；上报的 finishedAt 取调用时刻，
+        避免 House 按入库时间过滤时裁掉结束时间之后入库的数据导致图表不可见
     """
     this_state: Literal["FINISHED", "CRASHED", "ABORTED"] = "FINISHED"
     if state == RUN_STATE_CRASHED:
         this_state = "CRASHED"
     elif state == RUN_STATE_ABORTED:
         this_state = "ABORTED"
+    reported_at = Timestamp()
+    reported_at.GetCurrentTime()
     client.put(
         f"/project/{username}/{project}/runs/{experiment_id}/state",
         {
             "state": this_state,
-            "finishedAt": finished_at.ToDatetime().isoformat() + "Z",
+            "finishedAt": reported_at.ToDatetime().isoformat() + "Z",
             "from": "sdk",
         },
     )

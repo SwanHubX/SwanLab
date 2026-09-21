@@ -1,10 +1,11 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
 from google.protobuf.timestamp_pb2 import Timestamp
 
+from swanlab.proto.swanlab.run.v1.run_pb2 import RUN_STATE_ABORTED, RUN_STATE_FINISHED
 from swanlab.sdk.internal.core_python.api import experiment as experiment_api
 
 
@@ -93,3 +94,42 @@ def test_resume_raises_when_get_also_missing_created_at(monkeypatch):
         _call_create_or_resume()
 
     get.assert_called_once_with("/project/alice/demo/runs/experiment-id")
+
+
+def _stale_timestamp() -> Timestamp:
+    ts = Timestamp()
+    ts.FromDatetime(datetime(2024, 8, 1, tzinfo=timezone.utc))
+    return ts
+
+
+def _stop_experiment(monkeypatch) -> MagicMock:
+    put = MagicMock()
+    monkeypatch.setattr(experiment_api.client, "put", put)
+    return put
+
+
+def test_stop_experiment_reports_current_time_as_finished_at(monkeypatch):
+    # finishedAt 必须取上报时刻，而不是本地记录的结束时间，否则 House 按入库时间过滤时会裁掉图表数据
+    put = _stop_experiment(monkeypatch)
+    before = datetime.now(timezone.utc)
+
+    experiment_api.stop_experiment(
+        "alice", "demo", "experiment-id", state=RUN_STATE_FINISHED, finished_at=_stale_timestamp()
+    )
+
+    body = put.call_args.args[1]
+    assert body["state"] == "FINISHED"
+    assert body["from"] == "sdk"
+    finished_at = datetime.fromisoformat(body["finishedAt"].replace("Z", "+00:00"))
+    assert finished_at != datetime(2024, 8, 1, tzinfo=timezone.utc)
+    assert before <= finished_at <= datetime.now(timezone.utc)
+
+
+def test_stop_experiment_maps_crashed_and_aborted_states(monkeypatch):
+    put = _stop_experiment(monkeypatch)
+
+    experiment_api.stop_experiment(
+        "alice", "demo", "experiment-id", state=RUN_STATE_ABORTED, finished_at=_stale_timestamp()
+    )
+
+    assert put.call_args.args[1]["state"] == "ABORTED"
