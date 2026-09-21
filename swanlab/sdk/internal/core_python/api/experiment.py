@@ -47,7 +47,8 @@ def create_or_resume_experiment(
     :param job_type: 任务类型
     :param group: 实验组
     :param tags: 实验标签
-    :param created_at: 实验创建时间，格式为 ISO 8601
+    :param created_at: 实验创建时间，协议保留字段，当前不上报：后端按数据入库时间过滤查询，
+        上报的 createdAt 须为指标开始上报的时刻，因此取调用时的当前时间
     """
     if resume == "must":
         if run_id is None:
@@ -58,7 +59,9 @@ def create_or_resume_experiment(
             if e.response.status_code == 404 and e.response.reason == "Not Found":
                 raise RuntimeError(f"Experiment {run_id} does not exist in project {project}")
     labels = [{"name": tag} for tag in tags] if tags else []
-    created_at_for_request = created_at.ToDatetime().isoformat() + "Z"
+    reported_at = Timestamp()
+    reported_at.GetCurrentTime()
+    created_at_for_request = reported_at.ToDatetime().isoformat() + "Z"
     body = {
         "name": name,
         "description": description,
@@ -72,7 +75,7 @@ def create_or_resume_experiment(
     resp = client.post(f"/project/{username}/{project}/experiment", helper.strip_none(body, strip_empty_str=True))
     # 200代表实验已存在，开启更新模式
     # 201代表实验不存在，新建实验
-    # NOTE: 后端返回值没有携带createdAt字段，如果实验不存在则使用前端传入的createdAt字段作为实验创建时间，否则再请求一次获取实验创建时间
+    # NOTE: 后端返回值没有携带createdAt字段，如果实验不存在则使用上报的 createdAt（当前时刻）作为实验创建时间，否则再请求一次获取实验创建时间
     experiment: InitExperimentType = resp.data
     is_new_experiment = resp.raw.status_code == 201
     if is_new_experiment:
@@ -113,18 +116,21 @@ def stop_experiment(username: str, project: str, experiment_id: str, *, state: R
     :param project: 所属项目名称
     :param experiment_id: 所属实验名称
     :param state: 实验状态
-    :param finished_at: 实验结束时间
+    :param finished_at: 实验结束时间，协议保留字段，当前不上报：后端按数据入库时间过滤查询，
+        上报的 finishedAt 须为指标结束上报的时刻，因此取调用时的当前时间
     """
     this_state: Literal["FINISHED", "CRASHED", "ABORTED"] = "FINISHED"
     if state == RUN_STATE_CRASHED:
         this_state = "CRASHED"
     elif state == RUN_STATE_ABORTED:
         this_state = "ABORTED"
+    reported_at = Timestamp()
+    reported_at.GetCurrentTime()
     client.put(
         f"/project/{username}/{project}/runs/{experiment_id}/state",
         {
             "state": this_state,
-            "finishedAt": finished_at.ToDatetime().isoformat() + "Z",
+            "finishedAt": reported_at.ToDatetime().isoformat() + "Z",
             "from": "sdk",
         },
     )
