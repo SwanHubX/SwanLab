@@ -59,13 +59,13 @@ def create_or_resume_experiment(
             if e.response.status_code == 404 and e.response.reason == "Not Found":
                 raise RuntimeError(f"Experiment {run_id} does not exist in project {project}")
     labels = [{"name": tag} for tag in tags] if tags else []
-    reported_at = Timestamp()
-    reported_at.GetCurrentTime()
-    created_at_for_request = reported_at.ToDatetime().isoformat() + "Z"
+    current_ts = Timestamp()
+    current_ts.GetCurrentTime()
+    reported_at = current_ts.ToDatetime().isoformat() + "Z"
     body = {
         "name": name,
         "description": description,
-        "createdAt": created_at_for_request,
+        "createdAt": reported_at,
         "colors": [color, color],
         "labels": labels if len(labels) else None,
         "job": job_type,
@@ -79,7 +79,7 @@ def create_or_resume_experiment(
     experiment: InitExperimentType = resp.data
     is_new_experiment = resp.raw.status_code == 201
     if is_new_experiment:
-        experiment["createdAt"] = created_at_for_request
+        experiment["createdAt"] = reported_at
     elif not experiment.get("createdAt"):
         # 旧后端 POST 响应未携带 createdAt，回退到 GET 获取
         exp_resp = client.get(f"/project/{username}/{project}/runs/{experiment['cuid']}")
@@ -124,13 +124,14 @@ def stop_experiment(username: str, project: str, experiment_id: str, *, state: R
         this_state = "CRASHED"
     elif state == RUN_STATE_ABORTED:
         this_state = "ABORTED"
-    reported_at = Timestamp()
-    reported_at.GetCurrentTime()
+    current_ts = Timestamp()
+    current_ts.GetCurrentTime()
+    reported_at = current_ts.ToDatetime().isoformat() + "Z"
     client.put(
         f"/project/{username}/{project}/runs/{experiment_id}/state",
         {
             "state": this_state,
-            "finishedAt": reported_at.ToDatetime().isoformat() + "Z",
+            "finishedAt": reported_at,
             "from": "sdk",
         },
     )
