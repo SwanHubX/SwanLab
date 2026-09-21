@@ -23,16 +23,18 @@ class MediaValue(_message.Message):
     def __init__(self, items: _Optional[_Iterable[_Union[MediaItem, _Mapping]]] = ...) -> None: ...
 
 class MediaItem(_message.Message):
-    __slots__ = ("filename", "sha256", "size", "caption")
+    __slots__ = ("filename", "sha256", "size", "caption", "payload")
     FILENAME_FIELD_NUMBER: _ClassVar[int]
     SHA256_FIELD_NUMBER: _ClassVar[int]
     SIZE_FIELD_NUMBER: _ClassVar[int]
     CAPTION_FIELD_NUMBER: _ClassVar[int]
+    PAYLOAD_FIELD_NUMBER: _ClassVar[int]
     filename: str
     sha256: str
     size: int
     caption: str
-    def __init__(self, filename: _Optional[str] = ..., sha256: _Optional[str] = ..., size: _Optional[int] = ..., caption: _Optional[str] = ...) -> None: ...
+    payload: bytes
+    def __init__(self, filename: _Optional[str] = ..., sha256: _Optional[str] = ..., size: _Optional[int] = ..., caption: _Optional[str] = ..., payload: _Optional[bytes] = ...) -> None: ...
 
 class ScalarRecord(_message.Message):
     __slots__ = ("key", "step", "type", "timestamp", "value")

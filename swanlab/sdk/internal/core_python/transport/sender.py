@@ -12,7 +12,7 @@ import math
 import threading
 from collections.abc import Callable, Sequence
 from pathlib import Path, PurePosixPath, PureWindowsPath
-from typing import IO, TYPE_CHECKING, Literal, Optional, Union, cast
+from typing import IO, TYPE_CHECKING, Any, Literal, Optional, Union, cast
 
 import yaml
 
@@ -40,7 +40,7 @@ from swanlab.sdk.internal.core_python.api.upload import (
 )
 from swanlab.sdk.internal.core_python.context import CoreContext
 from swanlab.sdk.internal.core_python.pkg.mime import guess_type
-from swanlab.sdk.internal.core_python.utils import ProgressFileWrapper, get_buffer_size
+from swanlab.sdk.internal.core_python.utils import MemoryViewReader, ProgressFileWrapper, get_buffer_size
 from swanlab.sdk.internal.pkg import adapter, client, console, safe
 from swanlab.sdk.internal.pkg.client.session import SessionWithRetry
 from swanlab.sdk.internal.pkg.executor import SafeThreadPoolExecutor
@@ -177,7 +177,7 @@ class HttpRecordSender:
     def upload_media(self, records: Sequence[Record]) -> None:
         metrics: UploadMediaBatch = []
         paths: list[str] = []
-        buffers: list[Union[IO[bytes], str, Path]] = []
+        buffers: list[Union[IO[bytes], MemoryViewReader, str, Path]] = []
         content_types: list[str] = []
         for record in records:
             if not record.HasField("media"):
@@ -198,14 +198,32 @@ class HttpRecordSender:
                     # 约定保存到对象存储中的文件路径类似于本地文件路径
                     medium = adapter.medium[media_record.type]
                     remote_path = PurePosixPath("media", medium, media.filename)
-                    local_path = self._ctx.media_dir / medium / media.filename
+                    remote_path_str = remote_path.as_posix()
 
+                    if media.HasField("payload"):
+                        # skip_store：内容在 payload（允许为空文件），直接内存上传，不触碰本地 media 路径
+                        size = len(media.payload)
+                        mime_type = guess_type(media.filename)
+                        self._track_file(f"{remote_path_str}:{size}", remote_path_str, size)
+                        record_paths.append(remote_path_str)
+                        paths.append(remote_path_str)
+                        buffers.append(MemoryViewReader(media.payload))
+                        content_types.append(mime_type)
+                        if media.caption:
+                            metric_chunk["more"].append({"caption": media.caption})
+                        continue
+
+                    if self._ctx.config.skip_store:
+                        # skip_store 下缺 payload：告警丢弃，不回退读本地路径
+                        console.warning(f"Media payload missing with skip_store enabled, skipping: {remote_path_str}")
+                        continue
+
+                    local_path = self._ctx.media_dir / medium / media.filename
                     if not local_path.is_file():
                         continue
 
                     with safe.block(message="Failed to process media file, skipping"):
                         size = get_buffer_size(local_path)
-                        remote_path_str = remote_path.as_posix()
                         tracker_key = f"{remote_path_str}:{size}"
                         self._track_file(tracker_key, local_path.as_posix(), size)
                         # 先计算 mime_type, 确保后续 record_paths/paths/buffers/content_types 原子化追加,
@@ -260,84 +278,46 @@ class HttpRecordSender:
 
     # ── 文件保存上传 ──
 
-    def _resolve_save_source(self, save: SaveRecord) -> Optional[Path]:
-        """解析 save 记录对应的可读本地文件路径。
+    def upload_internal_save(self, record: Record) -> None:
+        """上传单条内部 save：读数据 → 解码 → 上传（payload 与磁盘双通道）。
 
-        ``source_path`` 为训练机绝对路径；online/local/offline 本机运行时可读。
-        sync 在另一台机器、以不同挂载根读取同一 run 目录时该绝对路径不可读，
-        此时回退到当前 run 目录的 ``files`` 子目录按文件名重新定位：
-
-        - 用户保存（CUSTOM）：按记录相对名 ``save.name`` 定位（镜像位置，与 ``create_save_links`` 约定一致）；
-        - 内部保存（metadata/requirements/conda/config）：由 probe 直接写入 files 目录（真实文件），
-          按 ``source_path`` 的 basename 定位。注意 config 的 ``save.name`` 为 ``"config"`` 而非 ``config.yaml``，
-          故此处一律用 basename 而非 name。
-
-        :param save: 文件保存记录
-        :return: 可读的本地文件路径；若原始路径与回退路径均不可读则返回 None
+        前两步返回 None 即已告警跳过；上传异常不捕获，5xx 交 Transport 重试、4xx 由外层跳过。
         """
-        primary = Path(save.source_path)
-        if primary.is_file():
-            return primary
-        # source_path/name 可能由异构系统写入（例如训练在 Windows，sync 在 POSIX），
-        # 其分隔符为反斜杠时，POSIX 的 Path 无法正确切分。用 PureWindowsPath 仅做分隔符解析，
-        # 再交给本地 Path 复原，确保 basename 取正确文件名、子目录层级被正确还原。
-        if save.type == SaveType.SAVE_TYPE_CUSTOM:
-            fallback = self._ctx.files_dir / Path(*PureWindowsPath(save.name).parts)
-        else:
-            fallback = self._ctx.files_dir / PureWindowsPath(save.source_path).name
-        if fallback.is_file():
-            console.debug(f"Save source path not readable, recovered from run directory: {fallback}")
-            return fallback
-        return None
+        save = record.save
+        data = self.read_internal_save(save)
+        if data is None:
+            return
+        content = self.decode_internal_save(save.type, data)
+        if content is None:
+            return
+        if save.type == SaveType.SAVE_TYPE_METADATA:
+            upload_metadata(self._username, self._project, self._experiment_id, content=content)
+        elif save.type == SaveType.SAVE_TYPE_REQUIREMENTS:
+            upload_requirements(self._username, self._project, self._experiment_id, content=content)
+        elif save.type == SaveType.SAVE_TYPE_CONDA:
+            upload_conda(self._username, self._project, self._experiment_id, content=content)
+        elif save.type == SaveType.SAVE_TYPE_CONFIG:
+            upload_config(self._username, self._project, self._experiment_id, content=content)
 
     def upload_save(self, records: Sequence[Record]) -> None:
+        """内部保存仅上传内容，用户保存（CUSTOM）走文件上传（小文件 presigned URL，大文件分片）。
+
+        skip_store 下内部保存在 payload 中，CUSTOM 只读 source_path。
         """
-        内部保存（如config、metadata等）和用户保存（文件保存）共用 SaveRecord 结构
-        目前它们在产品设计上暂未统一，换句话说上传config、metadata文件的时候并不会保存对应文件
-        因此需要区分两者，内部保存仅上传，用户保存走save逻辑：小文件走 presigned URL，大文件走分片上传。
-        """
-        # 1. 区分内部保存和用户保存，过滤出需要走文件上传逻辑的记录，并处理内部保存的上传
+        # 1. 分流：内部保存直接上传，CUSTOM 收集后走文件上传
         save_records = []
         for record in records:
             if not record.HasField("save"):
                 continue
             save = record.save
-            # 根据约定的 type 字段区分内部保存和用户保存，内部保存直接上传内容，用户保存走后续文件上传逻辑
             if save.type == SaveType.SAVE_TYPE_CUSTOM:
+                # CUSTOM 的 payload 必须缺席，present 视为协议违约丢弃（防大文件误入内存通道）
+                if save.HasField("payload"):
+                    console.warning(f"CUSTOM save must not carry payload, skipping: {save.name or save.source_path}")
+                    continue
                 save_records.append(record)
-                continue
-            # 内部保存（metadata/requirements/conda/config）：source_path 为训练机绝对路径，
-            # 跨挂载根 sync 时不可读，回退到 run 目录 files 子目录按 basename 重新定位
-            source_ref_path = self._resolve_save_source(save)
-            if source_ref_path is None:
-                console.warning(f"Save file not found, skipping: {save.source_path}")
-                continue
-            if save.type == SaveType.SAVE_TYPE_METADATA:
-                with safe.block(message=f"Failed to upload metadata, skipping; file kept at {source_ref_path}"):
-                    with open(source_ref_path, "r", encoding="utf-8") as f:
-                        content = json.load(f)
-                    if isinstance(content, dict):
-                        upload_metadata(self._username, self._project, self._experiment_id, content=content)
-            elif save.type == SaveType.SAVE_TYPE_REQUIREMENTS:
-                with safe.block(message=f"Failed to upload requirements, skipping; file kept at {source_ref_path}"):
-                    with open(source_ref_path, "r", encoding="utf-8") as f:
-                        content = f.read()
-                    if len(content) > 0:
-                        upload_requirements(self._username, self._project, self._experiment_id, content=content)
-            elif save.type == SaveType.SAVE_TYPE_CONDA:
-                with safe.block(message=f"Failed to upload conda, skipping; file kept at {source_ref_path}"):
-                    with open(source_ref_path, "r", encoding="utf-8") as f:
-                        content = f.read()
-                    if len(content) > 0:
-                        upload_conda(self._username, self._project, self._experiment_id, content=content)
-            elif save.type == SaveType.SAVE_TYPE_CONFIG:
-                with safe.block(message=f"Failed to upload config, skipping; file kept at {source_ref_path}"):
-                    with open(source_ref_path, "r", encoding="utf-8") as f:
-                        content = yaml.safe_load(f)
-                    if isinstance(content, dict):
-                        upload_config(self._username, self._project, self._experiment_id, content=content)
             else:
-                console.warning(f"Unknown save type {save.type} for record num {record.num}, skipping")
+                self.upload_internal_save(record)
         if not save_records:
             console.debug("No user save records to upload after filtering; all saves are internal files.")
             return
@@ -350,7 +330,7 @@ class HttpRecordSender:
             if not record.HasField("save"):
                 continue
             save = record.save
-            source_ref_path = self._resolve_save_source(save)
+            source_ref_path = self.resolve_save_source(save)
             if source_ref_path is None:
                 console.warning(f"Save file not found, skipping: {save.source_path}")
                 continue
@@ -378,6 +358,67 @@ class HttpRecordSender:
         # 2.2 按 save_batch 拆分文件列表，避免单次 prepare/complete 超过后端限制
         for index in range(0, len(pending), config.save_batch):
             self._upload_save_batch(pending[index : index + config.save_batch])
+
+    # ── upload save  辅助方法 ──
+
+    def resolve_save_source(self, save: SaveRecord) -> Optional[Path]:
+        """解析 save 记录的可读本地文件路径，原始路径与回退路径均不可读时返回 None。
+
+        ``source_path`` 为绝对路径，跨挂载根 sync 时不可读，回退到 run 目录 ``files`` 子目录：
+        CUSTOM 按相对名 ``save.name`` 定位，内部保存按 ``source_path`` 的 basename 定位
+        （config 的 ``save.name`` 为 ``"config"`` 而非 ``config.yaml``，故一律用 basename）。
+        """
+        primary = Path(save.source_path)
+        if primary.is_file():
+            return primary
+        # 反斜杠路径（在 Windows、sync 在 POSIX）需经 PureWindowsPath 解析分隔符，
+        # 本地 Path 才能取到正确的 basename 和子目录层级
+        if save.type == SaveType.SAVE_TYPE_CUSTOM:
+            fallback = self._ctx.files_dir / Path(*PureWindowsPath(save.name).parts)
+        else:
+            fallback = self._ctx.files_dir / PureWindowsPath(save.source_path).name
+        if fallback.is_file():
+            console.debug(f"Save source path not readable, recovered from run directory: {fallback}")
+            return fallback
+        return None
+
+    def read_internal_save(self, save: SaveRecord) -> Optional[bytes]:
+        """内部 save 数据源：payload 优先，默认模式回退磁盘；无法访问时告警并返回 None。"""
+        if save.HasField("payload"):
+            return save.payload
+        if self._ctx.config.skip_store:
+            console.warning(f"Internal save payload missing with skip_store enabled, skipping: {save.type}")
+            return None
+        source = self.resolve_save_source(save)
+        if source is None:
+            console.warning(f"Save file not found, skipping: {save.source_path}")
+            return None
+        try:
+            return source.read_bytes()
+        except OSError as e:
+            console.warning(f"Failed to read save file, skipping; file kept at {source}: {e}")
+            return None
+
+    def decode_internal_save(self, save_type: SaveType, data: bytes) -> Optional[Any]:
+        """按 SaveType 解码内部 save 字节：metadata/config 为 dict，requirements/conda 为非空 str。
+
+        脏数据告警后返回 None，空内容静默返回 None，均不进入 Transport 无上限重试。
+        """
+        try:
+            if save_type == SaveType.SAVE_TYPE_METADATA:
+                content = json.loads(data.decode("utf-8"))
+                return content if isinstance(content, dict) else None
+            if save_type in (SaveType.SAVE_TYPE_REQUIREMENTS, SaveType.SAVE_TYPE_CONDA):
+                text = data.decode("utf-8")
+                return text or None
+            if save_type == SaveType.SAVE_TYPE_CONFIG:
+                content = yaml.safe_load(data.decode("utf-8"))
+                return content if isinstance(content, dict) else None
+        except (UnicodeDecodeError, json.JSONDecodeError, yaml.YAMLError) as e:
+            console.warning(f"Failed to parse internal save payload, skipping: type={save_type}, error={e}")
+            return None
+        console.warning(f"Unknown internal save type {save_type}, skipping")
+        return None
 
     def _upload_save_batch(self, pending: Sequence[tuple[str, int, str]]) -> None:
         """上传一个 save_batch 内的文件列表。"""

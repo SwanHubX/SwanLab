@@ -73,9 +73,19 @@ class Audio(TransformMedia):
     def column_type(cls) -> ColumnType:
         return ColumnType.COLUMN_TYPE_AUDIO
 
-    def transform(self, *, step: int, path: Path) -> MediaItem:
+    def transform(self, *, step: int, path: Optional[Path]) -> MediaItem:
         content = self.buffer.getvalue()
         sha256 = hashlib.sha256(content).hexdigest()
         filename = f"{step:03d}-{sha256[:8]}.wav"
-        fs.safe_write(path / filename, content, mode="wb")
-        return MediaItem(filename=filename, sha256=sha256, size=len(content), caption=self.caption or "")
+        item = MediaItem(
+            filename=filename,
+            sha256=sha256,
+            size=len(content),
+            caption=self.caption or "",
+        )
+        if path is None:
+            # skip_store：payload 保存二进制字节流。
+            item.payload = content
+        else:
+            fs.safe_write(path / filename, content, mode="wb")
+        return item

@@ -12,19 +12,36 @@ import yaml
 
 from swanlab.sdk.internal.pkg import fs
 
-__all__ = ["write_config"]
+__all__ = ["dump_config", "format_config", "write_config"]
 
 
-def write_config(path: Path, config: dict, sort_map: dict) -> None:
+def format_config(config: dict, sort_map: dict) -> dict:
     """
-    将 config 序列化为 {key: {value, desc, sort}} 格式并写入 YAML 文件。
+    将内部存储的 {key: value} 归一化为后端约定的 {key: {value, desc, sort}} 结构。
+
+    :param config:  内部存储的原始 {key: value} dict（value 已经过 parse()）
+    :param sort_map: key → sort index 映射，用于还原插入顺序
+    """
+    return {key: {"value": value, "desc": "", "sort": sort_map.get(key, 0)} for key, value in config.items()}
+
+
+def dump_config(content: dict) -> str:
+    """
+    将归一化后的 config 结构序列化为 YAML 文本。
+    落盘（write_config）与 skip_store 下的内联上传共用同一份编码，避免云端 config 结构漂移。
+
+    :param content: format_config 产出的归一化结构
+    """
+    return yaml.safe_dump(content, allow_unicode=True, default_flow_style=False)
+
+
+def write_config(path: Path, data: str) -> None:
+    """
+    将已序列化的 config YAML 文本写入文件，只负责落盘，不负责格式化。
 
     每次调用均全量覆写（INIT 和 PATCH 均如此），消费方以最新文件内容为准。
 
-    :param path:     目标文件路径（config.yaml）
-    :param config:   内部存储的原始 {key: value} dict（value 已经过 parse()）
-    :param sort_map: key → sort index 映射，用于还原插入顺序
+    :param path: 目标文件路径（config.yaml）
+    :param data: dump_config 产出的 YAML 文本
     """
-    formatted = {key: {"value": value, "desc": "", "sort": sort_map.get(key, 0)} for key, value in config.items()}
-    content = yaml.safe_dump(formatted, allow_unicode=True, default_flow_style=False)
-    fs.safe_write(path, content)
+    fs.safe_write(path, data)

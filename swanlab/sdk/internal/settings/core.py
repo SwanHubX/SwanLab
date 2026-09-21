@@ -42,4 +42,13 @@ class CoreSettings(BaseModel):
     """
     Maximum number of files per save upload batch. Default 100.
     """
+    skip_store: bool = Field(default=False)
+    """
+    Skip all SDK-owned local files and upload to the cloud only (requires ``online`` mode).
+
+    Media contents and internal texts (config/metadata/requirements/conda) are inlined
+    into records and uploaded directly; ``run.save()`` files are read from their original
+    path without local links.
+    ``swanlab sync`` / ``swanlab watch`` do not apply; a crashed run cannot be recovered.
+    """
     model_config = ConfigDict(frozen=True)

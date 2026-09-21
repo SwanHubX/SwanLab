@@ -7,6 +7,7 @@
 
 import struct
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -258,3 +259,63 @@ class TestFileHandling:
         r = DataStoreReader()
         with pytest.raises(AssertionError):
             r.scan()
+
+
+# ---------------------------------------------------------------------------
+# skip 设置（core.skip_store，仅 online 模式合法）
+# ---------------------------------------------------------------------------
+
+
+class TestSkipMode:
+    def test_open_does_not_create_file(self, tmp_path: Path):
+        p = tmp_path / "skip.swanlab"
+        w = DataStoreWriter(skip=True)
+        w.open(str(p))
+        assert not p.exists()
+        assert w._fp is None
+        w.close()
+
+    def test_skip_records_counts_without_persisting(self, tmp_path: Path):
+        p = tmp_path / "skip.swanlab"
+        w = DataStoreWriter(skip=True)
+        w.open(str(p))
+        w.skip_records(3)
+        assert w._skipped_records == 3
+        assert not p.exists()
+        w.close()
+        assert not p.exists()
+
+    def test_write_rejected(self, tmp_path: Path):
+        """skip writer 不接受写入：record 只能经 skip_records() 登记。"""
+        w = DataStoreWriter(skip=True)
+        w.open(str(tmp_path / "skip.swanlab"))
+        with pytest.raises(AssertionError, match="skip writer"):
+            w.write(b"record_1")
+
+    def test_open_twice_is_noop(self, tmp_path: Path):
+        """未启用 skip 时重复 open 抛 FileExistsError；启用后始终无副作用。"""
+        p = tmp_path / "skip.swanlab"
+        w = DataStoreWriter(skip=True)
+        w.open(str(p))
+        w.open(str(p))
+        assert not p.exists()
+        w.close()
+
+    def test_close_logs_skipped_count(self, tmp_path: Path, monkeypatch):
+        debug = MagicMock()
+        monkeypatch.setattr("swanlab.sdk.internal.core_python.store.console.debug", debug)
+        w = DataStoreWriter(skip=True)
+        w.open(str(tmp_path / "skip.swanlab"))
+        w.skip_records(2)
+        w.close()
+        debug.assert_called_once_with("local store skipped, 2 records not persisted")
+
+    def test_default_writer_still_persists(self, tmp_path: Path):
+        """默认 skip=False 行为不变：文件照常创建、写入、可读回。"""
+        p = tmp_path / "keep.swanlab"
+        w = DataStoreWriter()
+        w.open(str(p))
+        w.write(b"persist me")
+        w.close()
+        assert p.exists()
+        assert read_all(p) == [b"persist me"]

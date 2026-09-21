@@ -46,15 +46,27 @@ for _x in range(1, LEVELDBLOG_LAST + 1):
 
 
 class DataStoreWriter:
-    """追加写入器，持有一个长期打开的二进制文件句柄。"""
+    """追加写入器，持有一个长期打开的二进制文件句柄。
 
-    def __init__(self):
+    ``skip=True`` 时跳过落盘（对应 ``core.skip_store``，仅 online 模式合法）：
+    ``open()`` 不创建文件、``write()`` 拒绝写入、``close()`` 输出 debug 统计，
+    跳过的 record 由调用方（Core 的 ``_store_records``）经 ``skip_records()`` 登记计数。
+    此时记录只经 Transport 上传云端，本地不产生 ``run-*.swanlab``，因此进程崩溃后
+    未确认的 record 无法恢复、也无法通过 ``swanlab sync`` 补传。默认 ``skip=False`` 行为不变。
+    """
+
+    def __init__(self, skip: bool = False):
         self._fp: Optional[IO[Any]] = None
         self._index: int = 0
         self._flush_offset: int = 0
+        self._skip = skip
+        # skip 设置时经 skip_records() 登记的未持久化 record 数，仅用于 close() 的 debug 统计
+        self._skipped_records: int = 0
 
     def open(self, filename: Union[Path, str]) -> None:
-        """创建并初始化文件，文件已存在时抛出 FileExistsError。"""
+        """创建并初始化文件，文件已存在时抛出 FileExistsError；skip 设置时不创建文件。"""
+        if self._skip:
+            return
         self._fp = open(filename, "xb")
         header = struct.pack("<4sHB", LEVELDBLOG_HEADER_IDENT, LEVELDBLOG_HEADER_MAGIC, LEVELDBLOG_HEADER_VERSION)
         assert len(header) == LEVELDBLOG_HEADER_LEN
@@ -62,7 +74,8 @@ class DataStoreWriter:
         self._index += len(header)
 
     def write(self, data: bytes) -> None:
-        """写入任意字节，遵循 LevelDB log 分块规范。"""
+        """写入任意字节，遵循 LevelDB log 分块规范；skip writer 不接受写入。"""
+        assert not self._skip, "cannot write records to a skip writer"
         assert self._fp is not None, "writer is not open"
         offset = self._index % LEVELDBLOG_BLOCK_LEN
         space_left = LEVELDBLOG_BLOCK_LEN - offset
@@ -99,11 +112,21 @@ class DataStoreWriter:
         #     pass
         # self._flush_offset = self._index
 
+    def skip_records(self, count: int) -> None:
+        """skip 设置时登记 count 条未持久化的 record。
+
+        skip writer 不接受 write()，跳过的 record 均经此方法维持 close() 统计的完整性。
+        """
+        self._skipped_records += count
+
     def ensure_flushed(self) -> None:
         assert self._fp is not None, "writer is not open"
         self._fp.flush()
 
     def close(self) -> None:
+        if self._skip:
+            console.debug(f"local store skipped, {self._skipped_records} records not persisted")
+            return
         assert self._fp is not None, "writer is not open"
         self._fp.flush()
         self._fp.close()
