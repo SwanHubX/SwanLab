@@ -1,10 +1,11 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
 from google.protobuf.timestamp_pb2 import Timestamp
 
+from swanlab.proto.swanlab.run.v1.run_pb2 import RUN_STATE_ABORTED, RUN_STATE_FINISHED
 from swanlab.sdk.internal.core_python.api import experiment as experiment_api
 
 
@@ -39,20 +40,25 @@ def _call_create_or_resume():
     )
 
 
-def test_create_new_experiment_uses_local_created_at(monkeypatch):
+def test_create_new_experiment_reports_current_created_at(monkeypatch):
+    # createdAt 上报的是指标开始上报的时刻（当前时间），而非本地记录的创建时间
     post = MagicMock(return_value=_post_resp(_experiment_data(), 201))
     get = MagicMock()
     monkeypatch.setattr(experiment_api.client, "post", post)
     monkeypatch.setattr(experiment_api.client, "get", get)
 
+    before = datetime.now(timezone.utc)
     experiment, is_new = _call_create_or_resume()
 
     assert is_new is True
-    assert experiment["createdAt"] == "2024-08-01T00:00:00Z"
-    # 新建实验直接复用请求中的 createdAt，不做额外请求
-    get.assert_not_called()
     assert post.call_args.args[0] == "/project/alice/demo/experiment"
-    assert post.call_args.args[1]["createdAt"] == "2024-08-01T00:00:00Z"
+    reported_created_at = post.call_args.args[1]["createdAt"]
+    assert reported_created_at != "2024-08-01T00:00:00Z"
+    # 新建实验直接复用上报的 createdAt，不做额外请求
+    get.assert_not_called()
+    assert experiment["createdAt"] == reported_created_at
+    parsed = datetime.fromisoformat(reported_created_at.replace("Z", "+00:00"))
+    assert before <= parsed <= datetime.now(timezone.utc)
 
 
 def test_resume_skips_get_when_post_response_contains_created_at(monkeypatch):
@@ -93,3 +99,42 @@ def test_resume_raises_when_get_also_missing_created_at(monkeypatch):
         _call_create_or_resume()
 
     get.assert_called_once_with("/project/alice/demo/runs/experiment-id")
+
+
+def _stale_timestamp() -> Timestamp:
+    ts = Timestamp()
+    ts.FromDatetime(datetime(2024, 8, 1, tzinfo=timezone.utc))
+    return ts
+
+
+def _stop_experiment(monkeypatch) -> MagicMock:
+    put = MagicMock()
+    monkeypatch.setattr(experiment_api.client, "put", put)
+    return put
+
+
+def test_stop_experiment_reports_current_time_as_finished_at(monkeypatch):
+    # finishedAt 上报的是指标结束上报的时刻（当前时间），而非本地记录的结束时间
+    put = _stop_experiment(monkeypatch)
+    before = datetime.now(timezone.utc)
+
+    experiment_api.stop_experiment(
+        "alice", "demo", "experiment-id", state=RUN_STATE_FINISHED, finished_at=_stale_timestamp()
+    )
+
+    body = put.call_args.args[1]
+    assert body["state"] == "FINISHED"
+    assert body["from"] == "sdk"
+    finished_at = datetime.fromisoformat(body["finishedAt"].replace("Z", "+00:00"))
+    assert finished_at != datetime(2024, 8, 1, tzinfo=timezone.utc)
+    assert before <= finished_at <= datetime.now(timezone.utc)
+
+
+def test_stop_experiment_maps_crashed_and_aborted_states(monkeypatch):
+    put = _stop_experiment(monkeypatch)
+
+    experiment_api.stop_experiment(
+        "alice", "demo", "experiment-id", state=RUN_STATE_ABORTED, finished_at=_stale_timestamp()
+    )
+
+    assert put.call_args.args[1]["state"] == "ABORTED"
