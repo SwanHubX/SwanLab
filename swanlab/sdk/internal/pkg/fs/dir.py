@@ -5,14 +5,13 @@
 @description: SwanLab SDK 目录辅助函数
 """
 
-import contextlib
 import os
 import tempfile
 import time
 from pathlib import Path
-from typing import List, Union
+from typing import Union
 
-from .. import console
+from swanlab.sdk.internal.pkg import console, safe
 
 
 def _get_fs_timeout(default: float = 5.0) -> float:
@@ -52,45 +51,40 @@ def safe_mkdirs(*paths: Union[str, Path], timeout: float = TIMEOUT, ensure_clean
         safe_mkdir(path, timeout=timeout, ensure_clean=ensure_clean)
 
 
-def _probe_writable(p: Path, stale: List[str]) -> None:
+def _probe_writable(p: Path) -> None:
     """
     目录可写性探针：创建命名文件 → 写入 → 关闭 → 删除。
 
     不使用 tempfile.TemporaryFile：其匿名文件（O_TMPFILE）或「fd 仍打开时立即
-    unlink」的语义在部分 NAS 上会返回 EIO。清理动作不掩盖原始异常。
-    """
-    if stale:
-        # 上一轮自己的残留：先删（FileNotFoundError = 已被清掉，视为干净）
-        try:
-            os.unlink(stale[0])
-        except FileNotFoundError:
-            pass
-        stale.clear()
-        # 其他 OSError 如实抛出，由上层重试
+    unlink」的语义在部分 NAS 上会返回 EIO。只有创建、写入和关闭
+    用于判定目录可写；删除仅尽力清理本次探针文件。
 
+    实现思路：
+    1. 用 mkstemp 在目标目录创建命名探针文件。
+    2. 写入一个字节，验证文件可写。
+    3. 先关闭 fd，避免部分 FUSE / NAS 在文件仍打开时 unlink 返回 EIO。
+    4. 只尝试删除本次探针文件，不扫描或清理历史文件。
+    5. 创建、写入或关闭失败时上抛供 safe_mkdir 重试；删除失败仅记录 trace。
+    """
     fd, name = tempfile.mkstemp(dir=p, prefix=PROBE_PREFIX)
     try:
         try:
             os.write(fd, b"0")
         except BaseException:
             # close 的异常不得覆盖原始错误
-            with contextlib.suppress(OSError):
+            with safe.block(OSError, message=None):
                 os.close(fd)
             raise
         os.close(fd)
-    except BaseException:
-        # 任意失败（含 KeyboardInterrupt）：尽力清理，不掩盖原始异常
-        try:
+    finally:
+        # 目录已经通过创建、写入和关闭完成可写性探测。
+        # 清理失败不参与可写性判定，也不扫描或删除历史探针文件。
+        with safe.block(
+            OSError,
+            message=f"Failed to clean up writability probe file [{name}]",
+            write_to_tty=False,
+        ):
             os.unlink(name)
-        except OSError:
-            stale.append(name)
-        raise
-    # 删除失败如实上报（文件名留在 stale 里），由上层重试
-    try:
-        os.unlink(name)
-    except OSError:
-        stale.append(name)
-        raise
 
 
 def safe_mkdir(path: Union[str, Path], timeout: float = TIMEOUT, ensure_clean: bool = False) -> Path:
@@ -127,14 +121,12 @@ def safe_mkdir(path: Union[str, Path], timeout: float = TIMEOUT, ensure_clean: b
         time.sleep(0.05)
 
     # 探测二：目录可见后可能仍暂不可写（权限问题立即失败，其余重试到超时）
-    stale: List[str] = []  # 上次尝试未删掉的探针文件名（如有），重试时只精确清理这一个
     while True:
         try:
-            _probe_writable(p, stale)
+            _probe_writable(p)
             break
         except PermissionError as e:
-            # 只可能是探针本体（mkstemp/写/删自己的文件）被拒：权限不足不会因
-            # 重试而恢复，立即失败。探针从不 unlink 其他进程文件，无清理阶段误伤。
+            # 创建、写入或关闭探针文件被拒：权限不足不会因重试而恢复。
             console.trace(f"Directory [{p}] is not writable, underlying error: {e}")
             raise PermissionError(
                 f"Directory [{p}] is not writable. Please choose a writable log_dir or update directory permissions."
