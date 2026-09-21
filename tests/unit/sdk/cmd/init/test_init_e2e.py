@@ -375,10 +375,10 @@ class TestInitLocalMode:
         log_dir = tmp_path / "root-owned-log-dir"
         log_dir.mkdir()
 
-        def deny_tempfile(*args, **kwargs):
+        def deny_mkstemp(*args, **kwargs):
             raise PermissionError(errno.EACCES, "Permission denied")
 
-        monkeypatch.setattr("swanlab.sdk.internal.pkg.fs.dir.tempfile.TemporaryFile", deny_tempfile)
+        monkeypatch.setattr("swanlab.sdk.internal.pkg.fs.dir.tempfile.mkstemp", deny_mkstemp)
 
         with pytest.raises(PermissionError, match="Directory .* is not writable"):
             init(mode="local", log_dir=str(log_dir))
