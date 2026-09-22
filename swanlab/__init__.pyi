@@ -53,6 +53,7 @@ __all__ = [
     "finish",
     "login",
     "log",
+    "log_backfill",
     "log_text",
     "log_image",
     "log_audio",
@@ -382,6 +383,15 @@ def log(data: Mapping[str, Any], step: Optional[int] = None) -> None:
         >>> swanlab.init(mode="local")
         >>> swanlab.log({"loss": 0.5}, step=10)
         >>> swanlab.finish()
+    """
+    ...
+
+def log_backfill(data: Mapping[str, Any], step: int) -> None:
+    """Temporarily log historical metric data at an explicit step.
+
+    This compatibility API has no stability or performance guarantees and may
+    change or be removed. It queries the server before uploading: existing
+    scalar points are skipped with a warning, missing ones are uploaded.
     """
     ...
 
