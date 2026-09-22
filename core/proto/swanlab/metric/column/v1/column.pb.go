@@ -418,7 +418,13 @@ type ColumnRecord struct {
 	// 指标名称，仅对单实验图表生效
 	MetricName string `protobuf:"bytes,11,opt,name=metric_name,json=metricName,proto3" json:"metric_name,omitempty"`
 	// 指标颜色列表，十六进制颜色值，如 "#FF5733"
-	MetricColors  *MetricColors `protobuf:"bytes,12,opt,name=metric_colors,json=metricColors,proto3" json:"metric_colors,omitempty"`
+	MetricColors *MetricColors `protobuf:"bytes,12,opt,name=metric_colors,json=metricColors,proto3" json:"metric_colors,omitempty"`
+	// define_metric: 自定义 X 轴 key；none 表示系统默认（_step）
+	// media 类型图表暂时无视此字段
+	XAxis *string `protobuf:"bytes,13,opt,name=x_axis,json=xAxis,proto3,oneof" json:"x_axis,omitempty"`
+	// define_metric: 自动建图表是否放入 HIDDEN section
+	// SDK 上行仅在 True 时携带（presence 编码）；first-log 后不可变更
+	Hidden        *bool `protobuf:"varint,14,opt,name=hidden,proto3,oneof" json:"hidden,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -537,6 +543,20 @@ func (x *ColumnRecord) GetMetricColors() *MetricColors {
 	return nil
 }
 
+func (x *ColumnRecord) GetXAxis() string {
+	if x != nil && x.XAxis != nil {
+		return *x.XAxis
+	}
+	return ""
+}
+
+func (x *ColumnRecord) GetHidden() bool {
+	if x != nil && x.Hidden != nil {
+		return *x.Hidden
+	}
+	return false
+}
+
 var File_swanlab_metric_column_v1_column_proto protoreflect.FileDescriptor
 
 const file_swanlab_metric_column_v1_column_proto_rawDesc = "" +
@@ -549,7 +569,7 @@ const file_swanlab_metric_column_v1_column_proto_rawDesc = "" +
 	"\x04_max\"8\n" +
 	"\fMetricColors\x12\x14\n" +
 	"\x05light\x18\x01 \x01(\tR\x05light\x12\x12\n" +
-	"\x04dark\x18\x02 \x01(\tR\x04dark\"\xf9\x04\n" +
+	"\x04dark\x18\x02 \x01(\tR\x04dark\"\xc8\x05\n" +
 	"\fColumnRecord\x12H\n" +
 	"\fcolumn_class\x18\x01 \x01(\x0e2%.swanlab.metric.column.v1.ColumnClassR\vcolumnClass\x12E\n" +
 	"\vcolumn_type\x18\x02 \x01(\x0e2$.swanlab.metric.column.v1.ColumnTypeR\n" +
@@ -570,7 +590,11 @@ const file_swanlab_metric_column_v1_column_proto_rawDesc = "" +
 	" \x01(\x0e2#.swanlab.metric.column.v1.ChartTypeR\tchartType\x12\x1f\n" +
 	"\vmetric_name\x18\v \x01(\tR\n" +
 	"metricName\x12K\n" +
-	"\rmetric_colors\x18\f \x01(\v2&.swanlab.metric.column.v1.MetricColorsR\fmetricColors*\xff\x01\n" +
+	"\rmetric_colors\x18\f \x01(\v2&.swanlab.metric.column.v1.MetricColorsR\fmetricColors\x12\x1a\n" +
+	"\x06x_axis\x18\r \x01(\tH\x00R\x05xAxis\x88\x01\x01\x12\x1b\n" +
+	"\x06hidden\x18\x0e \x01(\bH\x01R\x06hidden\x88\x01\x01B\t\n" +
+	"\a_x_axisB\t\n" +
+	"\a_hidden*\xff\x01\n" +
 	"\n" +
 	"ColumnType\x12\x1b\n" +
 	"\x17COLUMN_TYPE_UNSPECIFIED\x10\x00\x12\x16\n" +
@@ -651,6 +675,7 @@ func file_swanlab_metric_column_v1_column_proto_init() {
 		return
 	}
 	file_swanlab_metric_column_v1_column_proto_msgTypes[0].OneofWrappers = []any{}
+	file_swanlab_metric_column_v1_column_proto_msgTypes[2].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

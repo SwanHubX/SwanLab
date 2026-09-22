@@ -10,7 +10,7 @@ from typing import Any, Dict, Mapping, Optional, Tuple, Union, cast, get_args
 
 from pydantic import ValidationError
 
-from swanlab.sdk.internal.pkg import console, constraints, safe
+from swanlab.sdk.internal.pkg import console, constraints, helper, safe
 from swanlab.sdk.typings.run import FinishType, SaveType
 from swanlab.sdk.typings.run.column import ScalarXAxisType
 
@@ -146,46 +146,23 @@ def safe_validate_name(name: Optional[str]) -> Optional[str]:
         return None
 
 
-def safe_validate_chart_name(name: Optional[str]) -> Optional[str]:
-    """
-    检查并清洗图表名称，如果出现非法字符或长度超过限制，返回 None。
-
-    :param name: 待检查的图表名称
-    :return: 清洗后的图表名称或 None
-    """
-    if name is None:
-        return None
-    try:
-        return constraints.ta_chart_name.validate_python(name)
-    except ValidationError:
-        return None
-
-
 def safe_validate_x_axis(x_axis: Optional[ScalarXAxisType]) -> Optional[ScalarXAxisType]:
     """
-    检查并清洗 x 轴指标名称，如果出现非法字符或长度超过限制，返回 None。
+    校验 ``define_metric`` 的 x 轴值，非法时返回 None。
 
-    :param x_axis: 待检查的 x 轴指标名称
-    :return: 清洗后的 x 轴指标名称或 None
+    - ``None`` 原样返回（未提供，由调用方处理）。
+    - ``_step`` / ``_relative_time`` 原样返回（系统 X 轴）。
+    - 自定义 key 经 ``MetricKey`` 校验，且拒绝系统指标前缀（``__swanlab__.``）。
+
+    :param x_axis: 待校验的 x 轴值
+    :return: 校验通过的 x 轴值，或 None
     """
-    if x_axis is None:
-        x_axis = "_step"
+    # 系统默认与系统 X 轴（_step / _relative_time）原样放行，判定统一走 helper.is_custom_x
+    if x_axis is None or not helper.is_custom_x(x_axis):
+        return x_axis
+    if helper.is_system_key(x_axis):
+        return None
     return safe_validate_key(x_axis)
-
-
-def safe_validate_color(color: Optional[str]) -> Optional[str]:
-    """
-    检查并清洗颜色字符串格式，必须是#开头的十六进制颜色代码
-
-    :param color: 待检查的颜色字符串
-    :return: 清洗后的颜色字符串或 None
-    """
-    if color is None:
-        return None
-    try:
-        return constraints.ta_hex_color.validate_python(color)
-    except ValidationError:
-        return None
 
 
 def safe_validate_state(state: FinishType) -> Optional[FinishType]:

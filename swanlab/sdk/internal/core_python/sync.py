@@ -323,7 +323,6 @@ class CoreSyncPython(CoreSyncProtocol):
                     state=finish_record.state,
                     finished_at=finish_record.finished_at,
                 )
-                self._pending_online_finish_record = None
                 return ConfirmSyncFinishResponse(success=True, message="OK")
                 # 如果仅仅是与后端同步出现问题，则换一个让用户安心一些的提示信息
             return ConfirmSyncFinishResponse(

@@ -457,8 +457,8 @@ class SystemEnvironment(BaseModel):
 class SystemScalar(BaseModel):
     """系统监控标量信息，作为定义标量中间载体
 
-    与 run.define_scalar() 参数对齐，由系统监控模块内部使用，
-    用于在硬件监控线程启动前批量注册系统标量定义。
+    由系统监控模块内部使用，用于在硬件监控线程启动前
+    批量注册系统标量定义。
     """
 
     key: str = Field(..., pattern=r"^[a-z0-9\.\-]+$", max_length=512, min_length=1)

@@ -8,8 +8,8 @@
 from typing import Any, Dict, Optional
 
 from swanlab.api.base import ApiClientContext, BaseEntity
+from swanlab.api.helper import get_properties, strip_dict
 from swanlab.api.typings.user import ApiUserProfileType
-from swanlab.api.utils import get_properties, strip_dict
 
 
 class User(BaseEntity):

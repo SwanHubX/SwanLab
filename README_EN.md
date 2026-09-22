@@ -318,7 +318,7 @@ import swanlab
 # Initialize a new SwanLab experiment
 swanlab.init(
     project="my-first-ml",
-    config={'learning-rate': 0.003},
+    config={"learning-rate": 0.003},
 )
 
 # Log metrics

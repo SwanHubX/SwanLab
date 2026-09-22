@@ -27,8 +27,7 @@ from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
 )
 from swanlab.proto.swanlab.grpc.probe.v1.probe_pb2 import DeliverProbeStartRequest
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord
-from swanlab.sdk.internal.bus import MetricLogEvent
-from swanlab.sdk.internal.bus.events import FileSaveEvent
+from swanlab.sdk.internal.bus import FileSaveEvent, MetricDefineEvent, MetricLogEvent
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.pkg import adapter, console, fork, helper, safe
@@ -48,7 +47,6 @@ from swanlab.sdk.internal.run.transforms import (
     normalize_media_input,
 )
 from swanlab.sdk.typings.run import AsyncLogType, FinishType, ModeType, SaveType
-from swanlab.sdk.typings.run.column import ScalarXAxisType
 from swanlab.sdk.typings.run.transforms import CaptionsType
 from swanlab.sdk.typings.run.transforms.audio import AudioDatasType, AudioRatesType
 from swanlab.sdk.typings.run.transforms.echarts import EChartsDatasType
@@ -611,59 +609,153 @@ class Run:
         normalized_data = normalize_media_input(Html, data, caption=caption)
         self.log({key: normalized_data}, step=step)
 
-    @with_api("run.define_scalar()")
-    def define_scalar(
+    @with_api("run.define_metric()")
+    def define_metric(
         self,
-        *,
         key: str,
-        name: Optional[str] = None,
-        color: Optional[str] = None,
-        x_axis: Optional[ScalarXAxisType] = None,
-        chart_name: Optional[str] = None,
+        *,
+        x_axis: Optional[str] = None,
+        section_name: Optional[str] = None,
+        hidden: Optional[bool] = None,
+        step_sync: Optional[bool] = None,
+        overwrite: bool = False,
+        **kwargs,
     ):
-        """
-        Manually define a scalar column before logging.
+        """Define a metric's display configuration before logging.
 
-        :param key: The key for the scalar column. Supports wildcards (e.g. ``"train/*"``) to match multiple columns.
-        :param name: Optional display name for the column.
-        :param color: Optional color for the column, as a hex color code.
-        :param x_axis: Optional x-axis type for the column.
-        :param chart_name: Optional chart name to group the column into.
-        """
-        raise NotImplementedError("run.define_scalar() is not available yet. Support is planned for a future release.")
+        Customizes how an auto-generated chart for ``key`` appears in project Views:
+        X-axis, section placement, and visibility. The same ``(class, key)``
+        shares one chart across all runs in the project.
 
-        # TODO: 实现 glob 匹配逻辑
-        # if not (this_key := fmt.safe_validate_key(key)):
-        #     return console.error(
-        #         f"Invalid key for define scalar: {key}, please use valid characters (alphanumeric, '.', '-', '/') and avoid special characters."
-        #     )
+        :param key: Metric key. Supports exact match and a single trailing ``*``
+            glob (e.g. ``"train/*"``). System keys are never matched.
+        :param x_axis: Custom X-axis key. ``None`` (default) means the system
+            step. The system axes ``"_step"`` and ``"_relative_time"`` are also
+            accepted: they are resolved by the server, and the SDK performs no
+            step injection or X dedup for them. Only affects scalar charts;
+            media ignores this. The X series is assumed monotonically
+            non-decreasing — for a given X value, only the first logged Y is
+            kept (consecutive-duplicate X values are dropped). ``step_metric``
+            is accepted as a ``**kwargs`` alias for backward compatibility.
+        :param section_name: Section name for the auto chart. ``None`` means
+            the default section derived from the key.
+        :param hidden: If ``True``, place the chart in the HIDDEN section.
+            Three states: ``None`` (default) means "not provided" — merge mode
+            keeps the previous value; ``True`` hides; ``False`` explicitly
+            unhides (also effective in merge mode).
+        :param step_sync: Whether this Y key should copy the latest custom X
+            value onto the current step when X and Y are logged separately.
+            Defaults to ``True`` when ``x_axis`` (or ``step_metric``) is set,
+            ``False`` otherwise — without a custom X axis it has no effect.
+            ``False`` means this Y will not trigger X injection: the two series
+            only align when they share a step (same ``log()`` or the same
+            explicit ``step``). Duplicate-X dropping then uses only an X value
+            present in this event. Sibling Y keys that keep ``step_sync=True``
+            can still inject X for the shared series.
+        :param overwrite: If ``False`` (default), merge with previous calls for
+            the same ``key`` — unspecified fields reuse the previous value.
+            If ``True``, unspecified fields reset to their default, overwriting
+            previous values. Only affects rules not yet applied to a logged key.
+
+        .. note::
+            Project-wide first-definition-effective. A chart is shared across every run
+            in the project under the same ``(class, key)``, and
+            ``define_metric`` only shapes it on the **first** run that
+            introduces the key to the project. Once the chart exists — created
+            by this run's first log or by any earlier run — later
+            ``define_metric`` calls (including ``overwrite=True``) have no
+            effect, and no warning is raised. To change an existing chart,
+            edit it in the UI.
+
+        Examples:
+
+            Custom X-axis with separate logging:
+
+            >>> import swanlab
+            >>> swanlab.init(mode="local")
+            >>> run = swanlab.get_run()
+            >>> run.define_metric("train/loss", x_axis="train/epoch")
+            >>> swanlab.log({"train/epoch": 1})    # step=1
+            >>> swanlab.log({"train/loss": 0.8})   # step=2, auto-syncs train/epoch=1
+
+            Glob pattern for all validation metrics:
+
+            >>> run.define_metric("val/*", section_name="Validation")
+
+            Disable X injection (X/Y must share a step to align):
+
+            >>> run.define_metric("train/acc", x_axis="train/epoch", step_sync=False)
+            >>> swanlab.log({"train/epoch": 1}, step=1)
+            >>> swanlab.log({"train/acc": 0.9}, step=2)  # no injected epoch at step=2
+
+            ``step_metric`` alias:
+
+            >>> run.define_metric("loss", step_metric="custom_step")
+        """
+        # 1. key 校验，完全复用 log 侧的 validate_key（非字符串强转 str、清洗首尾空白与'./'、超长截断）
+        # 保证规则与 log 实际产生的规范 key 落在同一形式，避免发出永不匹配的规则
         #
-        # original_name = name
-        # if name and not (name := fmt.safe_validate_name(name)):
-        #     return console.error(f"Invalid name for define scalar: {original_name}, must be a string.")
-        #
-        # original_color = color
-        # if color and not (color := fmt.safe_validate_color(color)):
-        #     return console.error(f"Invalid color for define scalar: {original_color}, must be a hex color code.")
-        #
-        # if (this_x_axis := fmt.safe_validate_x_axis(x_axis)) is None:
-        #     return console.error(f"Invalid x_axis for define scalar: {x_axis}, must be a valid ScalarXAxisType.")
-        #
-        # original_chart_name = chart_name
-        # if chart_name and not (chart_name := fmt.safe_validate_chart_name(chart_name)):
-        #     return console.error(f"Invalid chart_name for define scalar: {original_chart_name}, must be a string.")
-        #
-        # self._components.emitter.emit(
-        #     ScalarDefineEvent(
-        #         key=this_key,
-        #         name=name,
-        #         color=color,
-        #         system=False,
-        #         x_axis=this_x_axis,
-        #         chart_name=chart_name,
-        #         chart=None,
-        #     )
-        # )
+        # 边界情况：>512 的 key 截断可能截掉末尾 glob '*'，glob 退化为 exact 匹配，此时属病态输入且 log 侧同样截断、两边落点一致，暂不特殊处理
+        try:
+            this_key = fmt.validate_key(key)
+        except ValueError as e:
+            console.error(f"Invalid key for define_metric: {key!r}, {e}")
+            return
+
+        # 2. glob 校验与分类：仅支持末尾单个 '*'（如 train/*），拒绝 *loss、train/*/loss、train/** 等
+        star_count = this_key.count("*")
+        if star_count > 0 and not (star_count == 1 and this_key.endswith("*")):
+            console.error(
+                f"Invalid glob pattern for define_metric: {key!r}, "
+                f"only a single trailing '*' is supported (e.g. 'train/*')"
+            )
+            return
+        is_glob = star_count == 1
+
+        # 3. step_metric 兼容别名（仅从 kwargs 读取；其余未知 kwargs 静默忽略，与 init 兼容风格一致）
+        step_metric = kwargs.pop("step_metric", None)
+        if step_metric is not None:
+            if x_axis is None:
+                x_axis = step_metric
+            elif x_axis != step_metric:
+                console.warning(
+                    f"Conflicting x_axis={x_axis!r} and step_metric={step_metric!r} "
+                    f"for key {this_key!r}, using x_axis={x_axis!r}"
+                )
+
+        # 4. x_axis / section_name 校验
+        if x_axis is not None:
+            validated_x = fmt.safe_validate_x_axis(x_axis)
+            if validated_x is None:
+                console.error(
+                    f"Invalid x_axis for define_metric: {x_axis}, must be a valid metric key, "
+                    f"'_step', '_relative_time', and must not be a system metric key."
+                )
+                return
+            x_axis = validated_x
+        # section_name：非法 / 空串降级为默认 section（不阻断整条 define）
+        if section_name is not None:
+            validated_section = fmt.safe_validate_name(section_name)
+            if validated_section is None or not validated_section.strip():
+                console.warning(
+                    f"Invalid section_name for define_metric: {section_name!r}, ignored; using default section."
+                )
+                section_name = None
+            else:
+                section_name = validated_section
+
+        # 5. 发射事件（三态字段校验后即为 None|str / None|bool，直接透传；is_glob 已在第 2 步分类）
+        self._components.emitter.emit(
+            MetricDefineEvent(
+                key=this_key,
+                is_glob=is_glob,
+                x_axis=x_axis,
+                section_name=section_name,
+                hidden=hidden,
+                step_sync=step_sync,
+                overwrite=overwrite,
+            )
+        )
 
     @with_api("run.save()")
     def save(

@@ -10,22 +10,28 @@ from typing import Optional
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
-from swanlab.proto.swanlab.metric.column.v1.column_pb2 import (
-    ColumnClass,
-    ColumnRecord,
-    ColumnType,
-    MetricColors,
-    SectionType,
-)
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord
 from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord, SaveType
 from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogRecord
-from swanlab.sdk.internal.bus.events import ConfigEvent, FileSaveEvent, LogEvent, ParseResult, ScalarDefineEvent
+from swanlab.sdk.internal.bus.events import ConfigEvent, FileSaveEvent, LogEvent, ParseResult
 from swanlab.sdk.internal.context import RunContext, TransformMedia
 from swanlab.sdk.internal.pkg import adapter, console, fs
 from swanlab.sdk.internal.run.transforms import ECharts, Scalar, echarts
 
 _EchartsType = (echarts.Base, echarts.Table)
+
+# 会被 build_scalar_or_media 处理为媒体（非标量）的类型
+_NON_SCALAR_TYPES = (list, TransformMedia, *_EchartsType)
+
+
+def is_scalar_value(value: object) -> bool:
+    """判断是否会被 build_scalar_or_media 处理为标量
+
+    在不触发 media transform 落盘的前提下决定是否预 transform。
+    判定必须与 build_scalar_or_media 的 dispatch 结果一致：显式注册类型走媒体
+    分支，默认分支中的 echarts 类型会被包装为 ECharts 媒体，其余按标量处理。
+    """
+    return not isinstance(value, _NON_SCALAR_TYPES)
 
 
 class RecordBuilder:
@@ -122,23 +128,6 @@ class RecordBuilder:
             cls.build_data_record(key=key, step=step, timestamp=timestamp, data=values)
         )
         return media_record, cls
-
-    @staticmethod
-    def build_column_from_scalar_define(event: ScalarDefineEvent) -> ColumnRecord:
-        """显式创建标量列（DefineEvent）"""
-        section_type = SectionType.SECTION_TYPE_SYSTEM if event.system else SectionType.SECTION_TYPE_PUBLIC
-        col = ColumnRecord(
-            column_key=event.key,
-            column_type=ColumnType.COLUMN_TYPE_SCALAR,
-            column_class=ColumnClass.COLUMN_CLASS_CUSTOM,
-            section_name=event.chart_name or "",
-            section_type=section_type,
-            chart_index=event.chart or "",
-            chart_name=event.chart_name or "",
-            metric_name=event.name or "",
-            metric_colors=MetricColors(light=event.color, dark=event.color) if event.color else None,
-        )
-        return col
 
     # ── 系统元数据 ──
     @staticmethod

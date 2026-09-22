@@ -148,11 +148,7 @@ class HttpRecordSender:
             self._tracker.advance_records(len(records))
 
     def upload_column(self, records: Sequence[Record], batch_size: int = 3000) -> None:
-        columns = []
-        for record in records:
-            r = encode_column(record.column)
-            if r:
-                columns.append(r)
+        columns = [encode_column(record.column) for record in records]
         if not columns:
             return
         for i in range(0, len(columns), batch_size):
@@ -563,7 +559,7 @@ class HttpRecordSender:
         return completed_parts
 
 
-def encode_column(record: ColumnRecord) -> Optional[UploadColumn]:
+def encode_column(record: ColumnRecord) -> UploadColumn:
     """
     将列记录编码为后端所需的格式（DTO）
     """
@@ -571,8 +567,12 @@ def encode_column(record: ColumnRecord) -> Optional[UploadColumn]:
     column: UploadColumn = {"key": record.column_key, "type": adapter.column[record.column_type]}
     if record.column_class == ColumnClass.COLUMN_CLASS_SYSTEM:
         column["type"] = "SYSTEM"
+    if record.HasField("x_axis"):
+        column["xAxis"] = record.x_axis
     if record.section_name:
         column["sectionName"] = record.section_name
+    if record.hidden:
+        column["hidden"] = True
     return column
 
 
