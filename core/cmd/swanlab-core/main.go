@@ -7,7 +7,8 @@
 //	--port-filename <路径>         listen 成功后原子写入端点回报文件（SDK 启动约定）
 //
 // 未传 --listen 时按平台自选端点：POSIX 使用 port-filename 同目录下的
-// core.sock（UDS，目录需已存在），Windows 使用 127.0.0.1 随机回环端口。
+// core.sock（UDS，目录需已存在），listen 失败记录 warning 后回退
+// 127.0.0.1 随机回环端口；Windows 直接使用随机回环端口。
 // --port-filename 与 --owner-token-file 成对出现，owner token 是唯一允许
 // 触发服务级关闭的凭证，通过私有文件传入，不得出现在命令行或日志中。
 //
@@ -213,15 +214,21 @@ func run(args []string) int {
 	return exitCode
 }
 
-// openEndpoint 创建监听器。显式 --listen 优先（手动调试）；否则按平台自选：
-// POSIX 使用 port-filename 同目录下的 UDS，Windows 使用随机回环端口。
+// openEndpoint 创建监听器。显式 --listen 优先（手动调试，失败不回退）；
+// 否则按平台自选：POSIX 先尝试 port-filename 同目录下的 UDS，失败记录
+// warning 后回退随机回环 TCP；Windows 直接使用随机回环端口。
 func openEndpoint(listenAddr, portFilename string) (net.Listener, error) {
 	if listenAddr == "" {
 		if runtime.GOOS == "windows" {
 			return net.Listen("tcp", loopbackAddr)
 		}
 		sockPath := filepath.Join(filepath.Dir(portFilename), coreSocketName)
-		return net.Listen("unix", sockPath)
+		ln, err := net.Listen("unix", sockPath)
+		if err != nil {
+			console.Warningf("unix listen on %s failed: %v; falling back to loopback tcp %s", sockPath, err, loopbackAddr)
+			return net.Listen("tcp", loopbackAddr)
+		}
+		return ln, nil
 	}
 	scheme, rest, ok := strings.Cut(listenAddr, "://")
 	if !ok {
