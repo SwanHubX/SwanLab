@@ -11,8 +11,8 @@ import (
 )
 
 // AuthTokenMetadataKey 是每个 RPC 必须携带的 auth token metadata 键，
-// token 值来自 port-file 的 auth 字段。
-const AuthTokenMetadataKey = "x-swanlab-core-auth-token"
+// token 值来自 port-file 的 auth_token 字段。
+const AuthTokenMetadataKey = "auth_token"
 
 // UnaryAuthInterceptor 校验每个 unary RPC 的 auth token，使用常量时间比较，
 // 拒绝缺失或错误的 token。expectedToken 为空表示未启用鉴权，仅限 --listen

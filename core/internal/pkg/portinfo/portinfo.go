@@ -7,7 +7,7 @@
 //	protocol=1
 //	unix=/short/private/runtime/core.sock   （POSIX 平台）
 //	sock=12345                              （Windows 平台，替代 unix 行）
-//	auth=<base64url 编码的 256-bit 随机 token>
+//	auth_token=<base64url 编码的 256-bit 随机 token>
 //	EOF
 //
 // 写入通过同目录临时文件 + fsync + chmod(0600) + rename 原子提交，读者只会看到
@@ -45,10 +45,10 @@ const (
 
 // 字段名约定，解析与序列化共用。
 const (
-	keyProtocol = "protocol"
-	keyUnix     = "unix"
-	keySock     = "sock"
-	keyAuth     = "auth"
+	keyProtocol  = "protocol"
+	keyUnix      = "unix"
+	keySock      = "sock"
+	keyAuthToken = "auth_token"
 )
 
 // Info 是 port-file 的结构化内容，UnixPath 与 SockPort 二选一。
@@ -81,7 +81,7 @@ func Marshal(info *Info) ([]byte, error) {
 	} else {
 		fmt.Fprintf(&b, "%s=%d\n", keySock, info.SockPort)
 	}
-	fmt.Fprintf(&b, "%s=%s\n", keyAuth, info.AuthToken)
+	fmt.Fprintf(&b, "%s=%s\n", keyAuthToken, info.AuthToken)
 	b.WriteString(eofMarker + "\n")
 	return []byte(b.String()), nil
 }
@@ -109,9 +109,6 @@ func WriteFile(path string, info *Info) error {
 		_ = tmp.Close()
 		return fmt.Errorf("write temp port-file: %w", err)
 	}
-	// fsync 尽力而为：部分网络文件系统（如 smbfs）不支持 fsync 而返回 EINVAL。
-	// port-file 为短命文件且由同机读者在秒级内读取，可见性一致性由 rename 原子性保证，
-	// fsync 仅作为崩溃防护，失败不阻塞端点回报。
 	_ = tmp.Sync()
 	if err := tmp.Close(); err != nil {
 		return fmt.Errorf("close temp port-file: %w", err)
@@ -186,7 +183,7 @@ func Parse(data []byte) (Info, error) {
 				return Info{}, err
 			}
 			info.SockPort = port
-		case keyAuth:
+		case keyAuthToken:
 			if err := validateAuthToken(value); err != nil {
 				return Info{}, err
 			}
@@ -200,8 +197,8 @@ func Parse(data []byte) (Info, error) {
 	if !seen[keyProtocol] {
 		return Info{}, fmt.Errorf("port-file missing %q field", keyProtocol)
 	}
-	if !seen[keyAuth] {
-		return Info{}, fmt.Errorf("port-file missing %q field", keyAuth)
+	if !seen[keyAuthToken] {
+		return Info{}, fmt.Errorf("port-file missing %q field", keyAuthToken)
 	}
 	if seen[keyUnix] == seen[keySock] {
 		return Info{}, fmt.Errorf("port-file must contain exactly one of %q or %q", keyUnix, keySock)

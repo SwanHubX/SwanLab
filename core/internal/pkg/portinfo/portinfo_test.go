@@ -16,7 +16,7 @@ func testToken() string {
 }
 
 func validUnixContent() string {
-	return "protocol=1\nunix=/tmp/swanlab/core.sock\nauth=" + testToken() + "\nEOF\n"
+	return "protocol=1\nunix=/tmp/swanlab/core.sock\nauth_token=" + testToken() + "\nEOF\n"
 }
 
 func TestMarshalUnixFormat(t *testing.T) {
@@ -34,7 +34,7 @@ func TestMarshalSockFormat(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Marshal: %v", err)
 	}
-	want := "protocol=1\nsock=12345\nauth=" + testToken() + "\nEOF\n"
+	want := "protocol=1\nsock=12345\nauth_token=" + testToken() + "\nEOF\n"
 	if got := string(data); got != want {
 		t.Fatalf("Marshal output mismatch:\n got: %q\nwant: %q", got, want)
 	}
@@ -164,12 +164,12 @@ func TestParseAcceptsValidVariants(t *testing.T) {
 		t.Fatalf("parse without trailing newline: %v", err)
 	}
 	// 键值行顺序不影响解析
-	reordered := "auth=" + testToken() + "\nunix=/tmp/swanlab/core.sock\nprotocol=1\nEOF\n"
+	reordered := "auth_token=" + testToken() + "\nunix=/tmp/swanlab/core.sock\nprotocol=1\nEOF\n"
 	if _, err := Parse([]byte(reordered)); err != nil {
 		t.Fatalf("parse reordered lines: %v", err)
 	}
 	// sock 端点（Windows 形态）
-	sockContent := "protocol=1\nsock=12345\nauth=" + testToken() + "\nEOF\n"
+	sockContent := "protocol=1\nsock=12345\nauth_token=" + testToken() + "\nEOF\n"
 	info, err := Parse([]byte(sockContent))
 	if err != nil {
 		t.Fatalf("parse sock content: %v", err)
@@ -181,30 +181,31 @@ func TestParseAcceptsValidVariants(t *testing.T) {
 
 func TestParseRejectsMalformed(t *testing.T) {
 	cases := map[string]string{
-		"missing EOF":          "protocol=1\nunix=/tmp/a.sock\nauth=" + testToken() + "\n",
-		"EOF not own line":     "protocol=1\nunix=/tmp/a.sock\nauth=" + testToken() + "EOF\n",
+		"missing EOF":          "protocol=1\nunix=/tmp/a.sock\nauth_token=" + testToken() + "\n",
+		"EOF not own line":     "protocol=1\nunix=/tmp/a.sock\nauth_token=" + testToken() + "EOF\n",
 		"content after EOF":    validUnixContent() + "extra\n",
 		"torn write":           "protocol=1\nunix=/tmp/a.sock\n",
 		"empty body":           "EOF\n",
-		"empty line":           "protocol=1\n\nunix=/tmp/a.sock\nauth=" + testToken() + "\nEOF\n",
-		"not key value":        "protocol=1\nunix=/tmp/a.sock\nauth\nEOF\n",
-		"unknown key":          "protocol=1\nunix=/tmp/a.sock\nauth=" + testToken() + "\nextra=1\nEOF\n",
-		"duplicate key":        "protocol=1\nprotocol=1\nunix=/tmp/a.sock\nauth=" + testToken() + "\nEOF\n",
-		"unknown protocol":     "protocol=2\nunix=/tmp/a.sock\nauth=" + testToken() + "\nEOF\n",
-		"non numeric protocol": "protocol=abc\nunix=/tmp/a.sock\nauth=" + testToken() + "\nEOF\n",
-		"missing protocol":     "unix=/tmp/a.sock\nauth=" + testToken() + "\nEOF\n",
-		"missing auth":         "protocol=1\nunix=/tmp/a.sock\nEOF\n",
-		"missing endpoint":     "protocol=1\nauth=" + testToken() + "\nEOF\n",
-		"both endpoints":       "protocol=1\nunix=/tmp/a.sock\nsock=12345\nauth=" + testToken() + "\nEOF\n",
-		"relative unix path":   "protocol=1\nunix=tmp/a.sock\nauth=" + testToken() + "\nEOF\n",
-		"oversize unix path":   "protocol=1\nunix=/" + strings.Repeat("a", maxUnixPathLen) + "\nauth=" + testToken() + "\nEOF\n",
-		"port zero":            "protocol=1\nsock=0\nauth=" + testToken() + "\nEOF\n",
-		"port range":           "protocol=1\nsock=65536\nauth=" + testToken() + "\nEOF\n",
-		"port leading zero":    "protocol=1\nsock=01234\nauth=" + testToken() + "\nEOF\n",
-		"port not digits":      "protocol=1\nsock=12a45\nauth=" + testToken() + "\nEOF\n",
-		"token too short":      "protocol=1\nunix=/tmp/a.sock\nauth=QiQi\nEOF\n",
-		"token std alphabet":   "protocol=1\nunix=/tmp/a.sock\nauth=" + strings.Repeat("+", 43) + "\nEOF\n",
-		"token padded":         "protocol=1\nunix=/tmp/a.sock\nauth=" + strings.TrimSuffix(testToken(), "i") + "i=\nEOF\n",
+		"empty line":           "protocol=1\n\nunix=/tmp/a.sock\nauth_token=" + testToken() + "\nEOF\n",
+		"not key value":        "protocol=1\nunix=/tmp/a.sock\nauth_token\nEOF\n",
+		"unknown key":          "protocol=1\nunix=/tmp/a.sock\nauth_token=" + testToken() + "\nextra=1\nEOF\n",
+		"duplicate key":        "protocol=1\nprotocol=1\nunix=/tmp/a.sock\nauth_token=" + testToken() + "\nEOF\n",
+		"unknown protocol":     "protocol=2\nunix=/tmp/a.sock\nauth_token=" + testToken() + "\nEOF\n",
+		"non numeric protocol": "protocol=abc\nunix=/tmp/a.sock\nauth_token=" + testToken() + "\nEOF\n",
+		"missing protocol":     "unix=/tmp/a.sock\nauth_token=" + testToken() + "\nEOF\n",
+		"missing auth_token":   "protocol=1\nunix=/tmp/a.sock\nEOF\n",
+		"legacy auth key":      "protocol=1\nunix=/tmp/a.sock\nauth=" + testToken() + "\nEOF\n",
+		"missing endpoint":     "protocol=1\nauth_token=" + testToken() + "\nEOF\n",
+		"both endpoints":       "protocol=1\nunix=/tmp/a.sock\nsock=12345\nauth_token=" + testToken() + "\nEOF\n",
+		"relative unix path":   "protocol=1\nunix=tmp/a.sock\nauth_token=" + testToken() + "\nEOF\n",
+		"oversize unix path":   "protocol=1\nunix=/" + strings.Repeat("a", maxUnixPathLen) + "\nauth_token=" + testToken() + "\nEOF\n",
+		"port zero":            "protocol=1\nsock=0\nauth_token=" + testToken() + "\nEOF\n",
+		"port range":           "protocol=1\nsock=65536\nauth_token=" + testToken() + "\nEOF\n",
+		"port leading zero":    "protocol=1\nsock=01234\nauth_token=" + testToken() + "\nEOF\n",
+		"port not digits":      "protocol=1\nsock=12a45\nauth_token=" + testToken() + "\nEOF\n",
+		"token too short":      "protocol=1\nunix=/tmp/a.sock\nauth_token=QiQi\nEOF\n",
+		"token std alphabet":   "protocol=1\nunix=/tmp/a.sock\nauth_token=" + strings.Repeat("+", 43) + "\nEOF\n",
+		"token padded":         "protocol=1\nunix=/tmp/a.sock\nauth_token=" + strings.TrimSuffix(testToken(), "i") + "i=\nEOF\n",
 	}
 	for name, content := range cases {
 		if _, err := Parse([]byte(content)); err == nil {
@@ -214,7 +215,7 @@ func TestParseRejectsMalformed(t *testing.T) {
 }
 
 func TestParseRejectsOversizeContent(t *testing.T) {
-	content := "protocol=1\nunix=/tmp/" + strings.Repeat("a", MaxFileSize) + "\nauth=" + testToken() + "\nEOF\n"
+	content := "protocol=1\nunix=/tmp/" + strings.Repeat("a", MaxFileSize) + "\nauth_token=" + testToken() + "\nEOF\n"
 	if _, err := Parse([]byte(content)); err == nil {
 		t.Fatal("Parse unexpectedly succeeded for oversize content")
 	}
