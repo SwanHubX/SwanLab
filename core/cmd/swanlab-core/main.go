@@ -1,5 +1,9 @@
 // Command swanlab-core 是 SwanLab Go core 的进程入口。
 //
+// 启动约定（Owner Mode）：
+//
+//	swanlab-core --port-filename <runtime>/core.port --parent-pid <pid>
+//
 // 端点约定：
 //
 //	--listen unix:///path/to/uds   Linux/macOS 进程内通信（手动调试入口）
@@ -8,13 +12,19 @@
 //
 // 未传 --listen 时按平台自选端点：POSIX 使用 port-filename 同目录下的
 // core.sock（UDS，目录需已存在），listen 失败记录 warning 后回退
-// 127.0.0.1 随机回环端口；Windows 直接使用随机回环端口。
-// --port-filename 与 --owner-token-file 成对出现，owner token 是唯一允许
-// 触发服务级关闭的凭证，通过私有文件传入，不得出现在命令行或日志中。
+// 127.0.0.1 随机回环端口；Windows 使用随机回环端口。
+//
+// 信任模型：Owner Mode 不使用应用层 token，安全边界由本地 transport 与
+// 文件系统权限承担：POSIX 使用 UDS（socket 文件位于 owner-only 私有
+// runtime 目录），port-file 以 0600 权限原子发布；TCP 回退对同机同用户
+// 进程开放，不提供应用层访问控制。
+//
+// --detach 与 --idle-timeout 为 detached 模式预留：detached 未实现，
+// 传入报用法错误退出。
 //
 // 生命周期：Teardown RPC、SIGINT/SIGTERM、父进程退出（process 包监控）或
-// Serve 异常统一汇入 service controller 的关闭路径（GracefulStop → 超时
-// 强制 Stop）；退出时只清理自己创建的 socket 文件与 port-file。
+// Serve 异常汇入 service controller 的关闭路径（GracefulStop → 超时强制
+// Stop）；退出时清理自己创建的 socket 文件与 port-file。
 package main
 
 import (
@@ -41,7 +51,7 @@ import (
 )
 
 // version 与 commit 由构建管线通过 -ldflags -X 注入（见 core/hatch.py），
-// 缺省值仅供本地 go run / go build 使用。
+// 缺省值供本地 go run / go build 使用。
 var (
 	version = "dev"
 	commit  = "unknown"
@@ -61,10 +71,9 @@ const (
 
 // 自选端点与收尾参数。
 const (
-	coreSocketName    = "core.sock"
-	loopbackAddr      = "127.0.0.1:0"
-	shutdownGrace     = 10 * time.Second
-	secretFileMaxSize = 4096
+	coreSocketName = "core.sock"
+	loopbackAddr   = "127.0.0.1:0"
+	shutdownGrace  = 10 * time.Second
 )
 
 func main() {
@@ -78,10 +87,12 @@ func run(args []string) int {
 		"listen endpoint, unix://<uds path> or tcp://<addr:port>; auto-selected per platform when unset")
 	portFilename := fs.String("port-filename", "",
 		"endpoint report file; atomically written once listen succeeds, for callers to poll")
-	ownerTokenFile := fs.String("owner-token-file", "",
-		"owner token file, held only by the service owner; sole credential for service-level teardown")
 	parentPID := fs.Int("parent-pid", envInt(envParentPID),
 		"expected parent PID; core exits when the parent exits, defaults to the actual parent at startup")
+	detach := fs.Bool("detach", false,
+		"detached mode (not implemented in this build)")
+	idleTimeout := fs.Duration("idle-timeout", 0,
+		"detached idle timeout (not implemented in this build)")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
@@ -93,32 +104,25 @@ func run(args []string) int {
 		fmt.Printf("swanlab-core %s (commit %s)\n", version, commit)
 		return 0
 	}
+	if *detach || *idleTimeout != 0 {
+		console.Error("--detach/--idle-timeout: detached mode is not implemented in this build")
+		return exitUsageError
+	}
 	if *listenAddr == "" && *portFilename == "" {
 		console.Error("no listen endpoint: pass --listen (manual debug) or --port-filename (SDK startup convention)")
 		return exitUsageError
 	}
-	if (*portFilename != "") != (*ownerTokenFile != "") {
-		console.Error("--port-filename and --owner-token-file must be provided together")
-		return exitUsageError
-	}
 
-	// 自建资源记录，退出时只清理自己创建的部分。
+	// 自建资源记录，退出时清理自己创建的部分。
 	var socketPath string
-	authToken := "" // 退出时凭它确认 port-file 仍属本实例
+	selfPID := os.Getpid() // 退出时凭它确认 port-file 属本实例
 	wrotePortFile := false
 	defer func() {
 		cleanupSocket(socketPath)
 		if wrotePortFile {
-			cleanupPortFile(*portFilename, authToken)
+			cleanupPortFile(*portFilename, selfPID)
 		}
 	}()
-
-	// owner token 先于任何资源创建读取，尽早失败。
-	ownerToken, err := readOwnerToken(*ownerTokenFile)
-	if err != nil {
-		console.Error("failed to read owner token:", err)
-		return exitRunError
-	}
 
 	ln, err := openEndpoint(*listenAddr, *portFilename)
 	if err != nil {
@@ -130,8 +134,8 @@ func run(args []string) int {
 		socketPath = addr.Name
 	}
 
-	// 父进程监控：显式传入的 PID 优先（启动约定），未传时回退为监控启动
-	// 瞬间的实际父进程（本地终端运行场景）。监控建立失败按约定终止启动。
+	// 父进程监控：显式传入的 PID 生效（启动约定）；未传时监控启动瞬间的
+	// 实际父进程（本地终端运行场景）。监控建立失败终止启动。
 	pid := *parentPID
 	if pid <= 0 {
 		pid = os.Getppid()
@@ -142,24 +146,13 @@ func run(args []string) int {
 		return exitRunError
 	}
 
-	// auth token 先于 gRPC server 创建生成：interceptor 与 port-file 使用同一值；
-	// 仅 --listen 手动调试（无 port-file）时不生成，鉴权随之关闭。
-	if *portFilename != "" {
-		var err2 error
-		authToken, err2 = portinfo.NewAuthToken()
-		if err2 != nil {
-			console.Error("failed to generate auth token:", err2)
-			return exitRunError
-		}
-	}
-
-	grpcServer := grpc.NewServer(grpc.ChainUnaryInterceptor(server.UnaryAuthInterceptor(authToken)))
+	grpcServer := grpc.NewServer()
 	ctrl := server.NewController(grpcServer, shutdownGrace)
-	server.NewService(ownerToken, authToken, ctrl).Register(grpcServer)
+	server.NewService(ctrl).Register(grpcServer)
 
-	// listen 与 server 初始化均成功后才写 port-file。
+	// listen 与 server 初始化成功后写 port-file。
 	if *portFilename != "" {
-		info := portinfo.Info{Protocol: portinfo.ProtocolVersion, AuthToken: authToken}
+		info := portinfo.Info{Protocol: portinfo.ProtocolVersion, PID: selfPID}
 		switch addr := ln.Addr().(type) {
 		case *net.UnixAddr:
 			info.UnixPath = addr.Name
@@ -214,9 +207,9 @@ func run(args []string) int {
 	return exitCode
 }
 
-// openEndpoint 创建监听器。显式 --listen 优先（手动调试，失败不回退，tcp:// 仅允许回环）；
-// 否则按平台自选：POSIX 先尝试 port-filename 同目录下的 UDS，失败记录
-// warning 后回退随机回环 TCP；Windows 直接使用随机回环端口。
+// openEndpoint 创建监听器。显式 --listen 生效（手动调试，失败不回退，
+// tcp:// 限定回环）；未传时按平台自选：POSIX 尝试 port-filename 同目录
+// 下的 UDS，失败记录 warning 后回退随机回环 TCP；Windows 使用随机回环端口。
 func openEndpoint(listenAddr, portFilename string) (net.Listener, error) {
 	if listenAddr == "" {
 		if runtime.GOOS == "windows" {
@@ -250,26 +243,6 @@ func openEndpoint(listenAddr, portFilename string) (net.Listener, error) {
 	}
 }
 
-// readOwnerToken 读取 owner token 文件；路径为空返回空串。内容去除首尾空白，
-// 拒绝空文件与超长文件，token 值不进入日志。
-func readOwnerToken(path string) (string, error) {
-	if path == "" {
-		return "", nil
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return "", fmt.Errorf("read %s: %w", path, err)
-	}
-	if len(data) > secretFileMaxSize {
-		return "", fmt.Errorf("owner token file exceeds %d bytes: %s", secretFileMaxSize, path)
-	}
-	token := strings.TrimSpace(string(data))
-	if token == "" {
-		return "", fmt.Errorf("owner token file is empty: %s", path)
-	}
-	return token, nil
-}
-
 // cleanupSocket 删除自己创建的 UDS socket 文件；Linux 抽象 socket（@ 前缀）
 // 不占文件系统，无需清理。
 func cleanupSocket(path string) {
@@ -279,25 +252,24 @@ func cleanupSocket(path string) {
 	_ = os.Remove(path)
 }
 
-// cleanupPortFile 删除 port-file 前先确认内容仍属本实例（auth token 匹配）。
-// port-file 是服务级单例发现文件：同一路径被后启动实例覆盖后，本实例退出
-// 不得误删他者文件；缺失、损坏或 token 不匹配一律不删。
-func cleanupPortFile(path, authToken string) {
-	if path == "" || authToken == "" {
+// cleanupPortFile 在 pid 匹配时删除 port-file。同一路径被后启动实例
+// 覆盖后，本实例退出不得误删他者文件；文件缺失、损坏或 pid 不匹配时不删。
+func cleanupPortFile(path string, pid int) {
+	if path == "" || pid <= 0 {
 		return
 	}
 	info, err := portinfo.ParseFile(path)
 	if err != nil {
 		return
 	}
-	if info.AuthToken != authToken {
+	if info.PID != pid {
 		return
 	}
 	_ = os.Remove(path)
 }
 
-// requireLoopbackHost 限制显式 tcp:// 监听地址为回环。手动调试模式鉴权关闭，
-// 绑定非回环地址会把无鉴权服务暴露到网络，故仅放行 127.0.0.1/::1/localhost。
+// requireLoopbackHost 限制显式 tcp:// 监听地址为回环，避免服务暴露到
+// 网络；放行 127.0.0.1/::1/localhost。
 func requireLoopbackHost(addr string) error {
 	host, _, err := net.SplitHostPort(addr)
 	if err != nil {
@@ -309,7 +281,7 @@ func requireLoopbackHost(addr string) error {
 	if ip := net.ParseIP(host); ip != nil && ip.IsLoopback() {
 		return nil
 	}
-	return fmt.Errorf("tcp listen address %q is not loopback; use 127.0.0.1 or ::1 (manual debug runs without auth)", addr)
+	return fmt.Errorf("tcp listen address %q is not loopback; use 127.0.0.1 or ::1", addr)
 }
 
 // envInt 解析整型环境变量，缺失或非法时返回 0。

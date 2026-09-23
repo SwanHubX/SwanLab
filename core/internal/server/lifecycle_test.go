@@ -14,10 +14,10 @@ import (
 	runv1 "github.com/swanhubx/swanlab/core/proto/swanlab/run/v1"
 )
 
-// spinup 是测试辅助：用正确的 owner/auth token 把服务置为 READY。
+// spinup 是测试辅助：把服务置为 READY。
 func spinup(t *testing.T, env *testEnv) {
 	t.Helper()
-	if _, err := env.client.SpinupService(authCtx(t, testAuthToken), &corev1.SpinupServiceRequest{OwnerToken: testOwnerToken}); err != nil {
+	if _, err := env.client.SpinupService(callCtx(t), &corev1.SpinupServiceRequest{}); err != nil {
 		t.Fatalf("SpinupService: %v", err)
 	}
 }
@@ -26,7 +26,7 @@ func spinup(t *testing.T, env *testEnv) {
 func startRun(t *testing.T, env *testEnv) string {
 	t.Helper()
 	resp, err := env.client.DeliverRunStart(
-		authCtx(t, testAuthToken),
+		callCtx(t),
 		&corev1.DeliverRunStartRequest{StartRecord: &runv1.StartRecord{}},
 	)
 	if err != nil {
@@ -70,50 +70,19 @@ func TestLifecycleStateTransitions(t *testing.T) {
 	lc.Close() // 幂等
 }
 
-func TestAuthInterceptor(t *testing.T) {
-	env := newTestEnv(t, testOwnerToken, testAuthToken)
-	ctx := plainCtx(t)
-
-	// 无 auth metadata：被 interceptor 拒绝
-	if _, err := env.client.SpinupService(ctx, &corev1.SpinupServiceRequest{OwnerToken: testOwnerToken}); status.Code(err) != codes.PermissionDenied {
-		t.Fatalf("no-auth SpinupService err = %v, want PermissionDenied", err)
-	}
-	// 错误 auth token
-	wrong := authCtx(t, "wrong-auth")
-	if _, err := env.client.SpinupService(wrong, &corev1.SpinupServiceRequest{OwnerToken: testOwnerToken}); status.Code(err) != codes.PermissionDenied {
-		t.Fatalf("wrong-auth SpinupService err = %v, want PermissionDenied", err)
-	}
-	select {
-	case <-env.ctrl.Done():
-		t.Fatal("auth failure must not trigger shutdown")
-	case <-afterWindow():
-	}
-}
-
-func TestSpinupOwnerCheck(t *testing.T) {
-	env := newTestEnv(t, testOwnerToken, testAuthToken)
-	// 正确 auth 但错误 owner token
-	_, err := env.client.SpinupService(authCtx(t, testAuthToken), &corev1.SpinupServiceRequest{OwnerToken: "wrong-owner"})
-	if status.Code(err) != codes.PermissionDenied {
-		t.Fatalf("wrong-owner SpinupService err = %v, want PermissionDenied", err)
-	}
-	// 未配置 owner token 的服务一律拒绝
-	env2 := newTestEnv(t, "", testAuthToken)
-	_, err = env2.client.SpinupService(authCtx(t, testAuthToken), &corev1.SpinupServiceRequest{OwnerToken: "any"})
-	if status.Code(err) != codes.PermissionDenied {
-		t.Fatalf("empty-configured-owner SpinupService err = %v, want PermissionDenied", err)
-	}
-}
-
 func TestSpinupIdempotent(t *testing.T) {
-	env := newTestEnv(t, testOwnerToken, testAuthToken)
+	env := newTestEnv(t)
 	spinup(t, env)
 	spinup(t, env) // 重复 Spinup 在 READY 下幂等成功
+	// owner_token 字段保留但忽略：任意值不影响 READY 幂等
+	if _, err := env.client.SpinupService(callCtx(t), &corev1.SpinupServiceRequest{OwnerToken: "ignored"}); err != nil {
+		t.Fatalf("SpinupService with ignored owner_token: %v", err)
+	}
 }
 
 func TestRunRPCsRejectedBeforeReady(t *testing.T) {
-	env := newTestEnv(t, testOwnerToken, testAuthToken)
-	ctx := authCtx(t, testAuthToken)
+	env := newTestEnv(t)
+	ctx := callCtx(t)
 	checks := []struct {
 		name string
 		call func() error
@@ -162,10 +131,10 @@ func TestRunRPCsRejectedBeforeReady(t *testing.T) {
 }
 
 func TestUpsertsUnimplementedAfterReady(t *testing.T) {
-	env := newTestEnv(t, testOwnerToken, testAuthToken)
+	env := newTestEnv(t)
 	spinup(t, env)
 	handle := startRun(t, env)
-	ctx := authCtx(t, testAuthToken)
+	ctx := callCtx(t)
 	for _, tc := range []struct {
 		name string
 		call func() error
@@ -213,18 +182,18 @@ func TestUpsertsUnimplementedAfterReady(t *testing.T) {
 }
 
 func TestDeliverRunStartRequiresStartRecord(t *testing.T) {
-	env := newTestEnv(t, testOwnerToken, testAuthToken)
+	env := newTestEnv(t)
 	spinup(t, env)
-	_, err := env.client.DeliverRunStart(authCtx(t, testAuthToken), &corev1.DeliverRunStartRequest{})
+	_, err := env.client.DeliverRunStart(callCtx(t), &corev1.DeliverRunStartRequest{})
 	if status.Code(err) != codes.InvalidArgument {
 		t.Fatalf("DeliverRunStart without start_record: err = %v, want InvalidArgument", err)
 	}
 }
 
 func TestHandleValidation(t *testing.T) {
-	env := newTestEnv(t, testOwnerToken, testAuthToken)
+	env := newTestEnv(t)
 	spinup(t, env)
-	ctx := authCtx(t, testAuthToken)
+	ctx := callCtx(t)
 
 	// 空 handle：InvalidArgument
 	if _, err := env.client.GetOperationStats(ctx, &corev1.GetOperationStatsRequest{}); status.Code(err) != codes.InvalidArgument {
@@ -237,10 +206,10 @@ func TestHandleValidation(t *testing.T) {
 }
 
 func TestRunLifecycleCoreStateMapping(t *testing.T) {
-	env := newTestEnv(t, testOwnerToken, testAuthToken)
+	env := newTestEnv(t)
 	spinup(t, env)
 	handle := startRun(t, env)
-	ctx := authCtx(t, testAuthToken)
+	ctx := callCtx(t)
 
 	// start 后：RUNNING
 	resp, err := env.client.GetOperationStats(ctx, &corev1.GetOperationStatsRequest{RunHandle: handle})
@@ -263,7 +232,7 @@ func TestRunLifecycleCoreStateMapping(t *testing.T) {
 		t.Fatalf("stats state after finish = %v, want FINISHED", resp.GetStats().GetState())
 	}
 
-	// confirm：释放会话，但绝不关闭 server
+	// confirm：释放会话，不关闭 server
 	if _, err = env.client.ConfirmRunFinish(ctx, &corev1.ConfirmRunFinishRequest{RunHandle: handle}); err != nil {
 		t.Fatalf("ConfirmRunFinish: %v", err)
 	}
@@ -282,15 +251,15 @@ func TestRunLifecycleCoreStateMapping(t *testing.T) {
 }
 
 func TestTwoRunHandleIsolation(t *testing.T) {
-	env := newTestEnv(t, testOwnerToken, testAuthToken)
+	env := newTestEnv(t)
 	spinup(t, env)
 	handleA, handleB := startRun(t, env), startRun(t, env)
 	if handleA == handleB {
 		t.Fatal("two runs must receive distinct run_handles")
 	}
-	ctx := authCtx(t, testAuthToken)
+	ctx := callCtx(t)
 
-	// 只结束 A：A 报 FINISHED，B 仍是 RUNNING，互不串扰
+	// 结束 A：A 报 FINISHED，B 保持 RUNNING，互不串扰
 	if _, err := env.client.DeliverRunFinish(ctx, &corev1.DeliverRunFinishRequest{RunHandle: handleA}); err != nil {
 		t.Fatalf("finish A: %v", err)
 	}
@@ -310,7 +279,7 @@ func TestTwoRunHandleIsolation(t *testing.T) {
 		}
 	}
 
-	// confirm A：B 仍可正常走完生命周期
+	// confirm A：B 可正常走完生命周期
 	if _, err := env.client.ConfirmRunFinish(ctx, &corev1.ConfirmRunFinishRequest{RunHandle: handleA}); err != nil {
 		t.Fatalf("confirm A: %v", err)
 	}
@@ -326,7 +295,7 @@ func TestTwoRunHandleIsolation(t *testing.T) {
 // TestConcurrentRunSessions 模拟两个并发 client 各自跑完生命周期，
 // 配合 -race 验证 session registry 的并发安全与会话隔离。
 func TestConcurrentRunSessions(t *testing.T) {
-	env := newTestEnv(t, testOwnerToken, testAuthToken)
+	env := newTestEnv(t)
 	spinup(t, env)
 
 	const clients = 4
@@ -336,7 +305,7 @@ func TestConcurrentRunSessions(t *testing.T) {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
-			ctx := authCtx(t, testAuthToken)
+			ctx := callCtx(t)
 			resp, err := env.client.DeliverRunStart(ctx, &corev1.DeliverRunStartRequest{StartRecord: &runv1.StartRecord{}})
 			if err != nil {
 				errs <- fmt.Errorf("client %d start: %w", id, err)

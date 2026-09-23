@@ -7,10 +7,7 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
 
 	corev1 "github.com/swanhubx/swanlab/core/proto/swanlab/grpc/core/v1"
@@ -21,9 +18,6 @@ const (
 	testGrace        = 2 * time.Second
 	noShutdownWindow = 200 * time.Millisecond
 	callTimeout      = 2 * time.Second
-
-	testOwnerToken = "owner-secret"
-	testAuthToken  = "auth-secret"
 )
 
 type testEnv struct {
@@ -31,12 +25,12 @@ type testEnv struct {
 	ctrl   *Controller
 }
 
-// newTestEnv 在内存连接上启动完整服务端（含 auth interceptor），返回客户端句柄与关闭控制器。
-func newTestEnv(t *testing.T, ownerToken, authToken string) *testEnv {
+// newTestEnv 在内存连接上启动完整服务端，返回客户端句柄与关闭控制器。
+func newTestEnv(t *testing.T) *testEnv {
 	t.Helper()
-	g := grpc.NewServer(grpc.ChainUnaryInterceptor(UnaryAuthInterceptor(authToken)))
+	g := grpc.NewServer()
 	ctrl := NewController(g, testGrace)
-	NewService(ownerToken, authToken, ctrl).Register(g)
+	NewService(ctrl).Register(g)
 	lis := bufconn.Listen(bufconnSize)
 	go func() { _ = g.Serve(lis) }()
 	conn, err := grpc.NewClient("passthrough:///bufnet",
@@ -56,38 +50,17 @@ func newTestEnv(t *testing.T, ownerToken, authToken string) *testEnv {
 	return &testEnv{client: corev1.NewCoreServiceClient(conn), ctrl: ctrl}
 }
 
-// authCtx 返回携带 auth token metadata 的带超时 context。
-func authCtx(t *testing.T, token string) context.Context {
-	t.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), callTimeout)
-	t.Cleanup(cancel)
-	return metadata.AppendToOutgoingContext(ctx, AuthTokenMetadataKey, token)
-}
-
-// plainCtx 返回不带 auth metadata 的带超时 context。
-func plainCtx(t *testing.T) context.Context {
+// callCtx 返回带超时的 context。
+func callCtx(t *testing.T) context.Context {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), callTimeout)
 	t.Cleanup(cancel)
 	return ctx
 }
 
-func TestTeardownServiceRejectsWrongToken(t *testing.T) {
-	env := newTestEnv(t, testOwnerToken, testAuthToken)
-	_, err := env.client.TeardownService(authCtx(t, testAuthToken), &corev1.TeardownServiceRequest{OwnerToken: "wrong-token"})
-	if status.Code(err) != codes.PermissionDenied {
-		t.Fatalf("TeardownService err = %v, want PermissionDenied", err)
-	}
-	select {
-	case <-env.ctrl.Done():
-		t.Fatal("wrong owner token must not trigger shutdown")
-	case <-time.After(noShutdownWindow):
-	}
-}
-
 func TestTeardownServiceShutsDownServer(t *testing.T) {
-	env := newTestEnv(t, testOwnerToken, testAuthToken)
-	if _, err := env.client.TeardownService(authCtx(t, testAuthToken), &corev1.TeardownServiceRequest{OwnerToken: testOwnerToken}); err != nil {
+	env := newTestEnv(t)
+	if _, err := env.client.TeardownService(callCtx(t), &corev1.TeardownServiceRequest{}); err != nil {
 		t.Fatalf("TeardownService: %v", err)
 	}
 	select {
@@ -97,11 +70,16 @@ func TestTeardownServiceShutsDownServer(t *testing.T) {
 	}
 }
 
-func TestTeardownServiceRejectsEmptyConfiguredToken(t *testing.T) {
-	env := newTestEnv(t, "", testAuthToken)
-	_, err := env.client.TeardownService(authCtx(t, testAuthToken), &corev1.TeardownServiceRequest{OwnerToken: ""})
-	if status.Code(err) != codes.PermissionDenied {
-		t.Fatalf("TeardownService err = %v, want PermissionDenied", err)
+// TestTeardownServiceIgnoresOwnerToken 不校验 owner_token：proto 字段保留但忽略。
+func TestTeardownServiceIgnoresOwnerToken(t *testing.T) {
+	env := newTestEnv(t)
+	if _, err := env.client.TeardownService(callCtx(t), &corev1.TeardownServiceRequest{OwnerToken: "ignored"}); err != nil {
+		t.Fatalf("TeardownService: %v", err)
+	}
+	select {
+	case <-env.ctrl.Done():
+	case <-time.After(callTimeout):
+		t.Fatal("shutdown not completed after teardown")
 	}
 }
 
