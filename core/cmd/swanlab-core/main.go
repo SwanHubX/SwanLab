@@ -104,11 +104,12 @@ func run(args []string) int {
 
 	// 自建资源记录，退出时只清理自己创建的部分。
 	var socketPath string
+	authToken := "" // 退出时凭它确认 port-file 仍属本实例
 	wrotePortFile := false
 	defer func() {
 		cleanupSocket(socketPath)
 		if wrotePortFile {
-			_ = os.Remove(*portFilename)
+			cleanupPortFile(*portFilename, authToken)
 		}
 	}()
 
@@ -143,7 +144,6 @@ func run(args []string) int {
 
 	// auth token 先于 gRPC server 创建生成：interceptor 与 port-file 使用同一值；
 	// 仅 --listen 手动调试（无 port-file）时不生成，鉴权随之关闭。
-	authToken := ""
 	if *portFilename != "" {
 		var err2 error
 		authToken, err2 = portinfo.NewAuthToken()
@@ -214,7 +214,7 @@ func run(args []string) int {
 	return exitCode
 }
 
-// openEndpoint 创建监听器。显式 --listen 优先（手动调试，失败不回退）；
+// openEndpoint 创建监听器。显式 --listen 优先（手动调试，失败不回退，tcp:// 仅允许回环）；
 // 否则按平台自选：POSIX 先尝试 port-filename 同目录下的 UDS，失败记录
 // warning 后回退随机回环 TCP；Windows 直接使用随机回环端口。
 func openEndpoint(listenAddr, portFilename string) (net.Listener, error) {
@@ -241,6 +241,9 @@ func openEndpoint(listenAddr, portFilename string) (net.Listener, error) {
 		}
 		return net.Listen("unix", rest)
 	case "tcp":
+		if err := requireLoopbackHost(rest); err != nil {
+			return nil, err
+		}
 		return net.Listen("tcp", rest)
 	default:
 		return nil, fmt.Errorf("unsupported listen scheme %q (only unix:// or tcp://)", scheme)
@@ -274,6 +277,39 @@ func cleanupSocket(path string) {
 		return
 	}
 	_ = os.Remove(path)
+}
+
+// cleanupPortFile 删除 port-file 前先确认内容仍属本实例（auth token 匹配）。
+// port-file 是服务级单例发现文件：同一路径被后启动实例覆盖后，本实例退出
+// 不得误删他者文件；缺失、损坏或 token 不匹配一律不删。
+func cleanupPortFile(path, authToken string) {
+	if path == "" || authToken == "" {
+		return
+	}
+	info, err := portinfo.ParseFile(path)
+	if err != nil {
+		return
+	}
+	if info.AuthToken != authToken {
+		return
+	}
+	_ = os.Remove(path)
+}
+
+// requireLoopbackHost 限制显式 tcp:// 监听地址为回环。手动调试模式鉴权关闭，
+// 绑定非回环地址会把无鉴权服务暴露到网络，故仅放行 127.0.0.1/::1/localhost。
+func requireLoopbackHost(addr string) error {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		return fmt.Errorf("parse tcp listen address %q: %w", addr, err)
+	}
+	if host == "localhost" {
+		return nil
+	}
+	if ip := net.ParseIP(host); ip != nil && ip.IsLoopback() {
+		return nil
+	}
+	return fmt.Errorf("tcp listen address %q is not loopback; use 127.0.0.1 or ::1 (manual debug runs without auth)", addr)
 }
 
 // envInt 解析整型环境变量，缺失或非法时返回 0。
