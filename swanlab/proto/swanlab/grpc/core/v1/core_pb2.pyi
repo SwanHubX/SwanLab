@@ -15,20 +15,16 @@ from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class SpinupServiceRequest(_message.Message):
-    __slots__ = ("owner_token",)
-    OWNER_TOKEN_FIELD_NUMBER: _ClassVar[int]
-    owner_token: str
-    def __init__(self, owner_token: _Optional[str] = ...) -> None: ...
+    __slots__ = ()
+    def __init__(self) -> None: ...
 
 class SpinupServiceResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
 
 class TeardownServiceRequest(_message.Message):
-    __slots__ = ("owner_token",)
-    OWNER_TOKEN_FIELD_NUMBER: _ClassVar[int]
-    owner_token: str
-    def __init__(self, owner_token: _Optional[str] = ...) -> None: ...
+    __slots__ = ()
+    def __init__(self) -> None: ...
 
 class TeardownServiceResponse(_message.Message):
     __slots__ = ()

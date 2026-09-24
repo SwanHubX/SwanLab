@@ -19,15 +19,15 @@ option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/grpc/core/v1
 //
 //  1. Core 与 run 级生命周期严格分离：SpinupService / TeardownService 作用于整个 core 服务进程；
 //  2. 所有 run 级 RPC 通过显式 run_handle 路由到具体会话，不依赖 channel 隐式绑定 run；
-//  3. ConfirmRunFinish 只确认单个 run 已排空、资源可释放，不会关闭 gRPC Server；
+//  3. ConfirmRunFinish 确认单个 run 已排空并释放其资源，不关闭 gRPC Server；
+//     须在对应 run 的 DeliverRunFinish 之后调用，提前调用返回 FAILED_PRECONDITION 且会话保留；
 //  4. GetOperationStats / ConfirmRunFinish 输入使用专用 request，由 run_handle 指定目标 run。
 service CoreService {
     // SpinupService 完成服务级初始化并把服务置为 READY，不负责创建 run 级 datastore 和 transport
     // 启动失败 RPC 返回 FAILED_PRECONDITION；重复 Spinup 在 READY 下幂等成功，共享一个 core 服务进程。
     rpc SpinupService(SpinupServiceRequest) returns (SpinupServiceResponse);
 
-    // TeardownService 关闭整个服务进程。仅持有 owner token 的调用方（spawn owner）允许执行，
-    // 校验失败返回 PERMISSION_DENIED；与 ConfirmRunFinish 不同，本 RPC 不针对单个 run。
+    // TeardownService 关闭整个服务进程。不同于 ConfirmRunFinish ，能连接 core 的 client 都可调用。
     rpc TeardownService(TeardownServiceRequest) returns (TeardownServiceResponse);
 
     // DeliverRunStart 接收单条 StartRecord，用于实验开始，并返回必要的信息。
@@ -54,22 +54,21 @@ service CoreService {
     // GetOperationStats 返回指定 run 当前运行状态和上传进度快照。
     rpc GetOperationStats(GetOperationStatsRequest) returns (GetOperationStatsResponse);
 
-    // ConfirmRunFinish 确认指定 run 已排空、资源可释放，但不关闭整个 gRPC Server。
+    // ConfirmRunFinish 确认指定 run 已排空并释放其资源，不关闭 gRPC Server。
+    // 前置条件：该 run 的 DeliverRunFinish 已上传完成，提前调用返回 FAILED_PRECONDITION。
     rpc ConfirmRunFinish(ConfirmRunFinishRequest) returns (ConfirmRunFinishResponse);
 }
 
-// SpinupService 请求。
+// SpinupService 请求。无身份字段：core 面向同一本地信任域，不做应用层鉴权。
 message SpinupServiceRequest {
-    string owner_token = 1;  // 服务所有者令牌，仅 spawn owner 持有
 }
 
 // SpinupService 响应。无字段，返回即表示服务已 READY。
 message SpinupServiceResponse {
 }
 
-// TeardownService 请求。
+// TeardownService 请求。无身份字段，同 SpinupServiceRequest。
 message TeardownServiceRequest {
-    string owner_token = 1;  // 服务所有者令牌，仅 spawn owner 持有
 }
 
 // TeardownService 响应。

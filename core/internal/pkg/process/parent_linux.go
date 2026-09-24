@@ -31,6 +31,8 @@ func notifyOnParentExit(parentPID int) (<-chan struct{}, error) {
 	// 快路径：PR_SET_PDEATHSIG 绑定的是调用 prctl 时的父进程线程。
 	// 若 Python 从非主线程 spawn 且该线程先于进程退出，PDEATHSIG 只会触发一次
 	// 伪通知，由下方的 PPID 复查过滤；此后不会再有信号，必须依赖进程级兜底。
+	// SIGUSR1 保留给父死监控，signal.Notify 接管后不再触发默认终止行为，
+	// 其他组件不得复用该信号。
 	parentDeathSignals := make(chan os.Signal, 1)
 	signal.Notify(parentDeathSignals, unix.SIGUSR1)
 	if err := unix.Prctl(unix.PR_SET_PDEATHSIG, uintptr(unix.SIGUSR1), 0, 0, 0); err != nil {

@@ -1,12 +1,13 @@
 // Package server 提供 swanlab-core 的 gRPC 服务端实现。
 //
 // 生命周期（骨架）：
-//   - Owner Mode 不使用应用层 token，信任边界由本地 transport 与文件系统
-//     权限承担（UDS socket 权限、owner-only 私有 runtime 目录、0600 port-file）；
-//   - SpinupService 是幂等的 READY 屏障；proto 中的 owner_token 字段保留但忽略；
-//   - 五类 Upsert* 在 store/transport 实现前返回 UNIMPLEMENTED，不假成功；
+//   - 不使用应用层 token；信任边界是本地 transport 与文件系统权限
+//     （UDS socket、owner-only runtime 目录、0600 port-file），能连接端点的
+//     client 可调用全部 RPC，包括 Teardown；
+//   - SpinupService 是幂等的 READY 屏障；
+//   - 五类 Upsert* 在 store/transport 实现前返回 UNIMPLEMENTED；
 //   - DeliverRunStart 创建 run_handle 会话，finish/stats/confirm 按 handle 路由；
-//   - ConfirmRunFinish 释放对应会话，不关闭 gRPC Server；
+//   - ConfirmRunFinish 在 finish 交付后原子释放对应会话，不关闭 gRPC Server；
 //   - TeardownService 触发 controller 的关闭路径。
 package server
 
@@ -66,7 +67,6 @@ func (s *Service) rejectUpsert() error {
 }
 
 // SpinupService 把服务置为 READY，幂等；STOPPING/CLOSED 下拒绝。
-// 请求的 owner_token 字段保留但忽略。
 func (s *Service) SpinupService(_ context.Context, _ *corev1.SpinupServiceRequest) (*corev1.SpinupServiceResponse, error) {
 	if !s.lc.Spinup() {
 		return nil, status.Error(codes.FailedPrecondition, "service is stopping or closed")
@@ -74,8 +74,8 @@ func (s *Service) SpinupService(_ context.Context, _ *corev1.SpinupServiceReques
 	return &corev1.SpinupServiceResponse{}, nil
 }
 
-// TeardownService 关闭整个服务进程，不校验 owner token；异步触发关闭
-// 路径，保证本响应先于连接关闭送达调用方。
+// TeardownService 关闭整个服务进程。无 owner 校验：能连接端点的 client
+// 都可调用，SDK 约定由 owner 发起。异步触发关闭路径，响应先于连接关闭送达。
 func (s *Service) TeardownService(_ context.Context, _ *corev1.TeardownServiceRequest) (*corev1.TeardownServiceResponse, error) {
 	s.controller.Shutdown("teardown")
 	return &corev1.TeardownServiceResponse{}, nil
@@ -150,14 +150,14 @@ func (s *Service) GetOperationStats(_ context.Context, req *corev1.GetOperationS
 	}, nil
 }
 
-// ConfirmRunFinish 确认对应会话已排空并释放资源，不关闭 gRPC Server。
+// ConfirmRunFinish 确认对应会话已排空并原子释放资源，不关闭 gRPC Server。
+// finish 未交付时返回 FAILED_PRECONDITION，会话保留。
 func (s *Service) ConfirmRunFinish(_ context.Context, req *corev1.ConfirmRunFinishRequest) (*corev1.ConfirmRunFinishResponse, error) {
 	if err := s.requireReady(); err != nil {
 		return nil, err
 	}
-	if _, err := s.registry.lookup(req.GetRunHandle()); err != nil {
+	if err := s.registry.confirm(req.GetRunHandle()); err != nil {
 		return nil, err
 	}
-	s.registry.release(req.GetRunHandle())
 	return &corev1.ConfirmRunFinishResponse{Success: true}, nil
 }

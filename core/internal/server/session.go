@@ -33,6 +33,14 @@ func (s *runSession) finish() {
 	s.state = sessionFinishStaged
 }
 
+// finished 报告 finish 是否完成 record 上传
+// ConfirmRunFinish 的前置条件
+func (s *runSession) finished() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.state == sessionFinishStaged
+}
+
 // coreState 把内部会话状态映射为线上契约 CoreState（run 级数据排空轴）。
 // finish 交付后骨架无数据可排空，直接报 FINISHED，drain 轮询即可判停。
 func (s *runSession) coreState() operationv1.CoreState {
@@ -88,9 +96,23 @@ func (r *sessionRegistry) create() (string, *runSession, error) {
 	return handle, s, nil
 }
 
-// release 摘除会话，仅由 ConfirmRunFinish 成功路径调用。
-func (r *sessionRegistry) release(handle string) {
+// confirm 在 registry 锁下原子校验并摘除会话：handle 为空返回
+// InvalidArgument，未知或已释放返回 NotFound，finish 未交付返回
+// FailedPrecondition 且会话保留。confirm 成功时 finish 已生效。
+// 锁顺序：registry mu → session mu。
+func (r *sessionRegistry) confirm(handle string) error {
+	if handle == "" {
+		return status.Error(codes.InvalidArgument, "run_handle must not be empty")
+	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	s, ok := r.sessions[handle]
+	if !ok {
+		return status.Error(codes.NotFound, "unknown or released run_handle")
+	}
+	if !s.finished() {
+		return status.Error(codes.FailedPrecondition, "run finish has not been delivered for this handle")
+	}
 	delete(r.sessions, handle)
+	return nil
 }

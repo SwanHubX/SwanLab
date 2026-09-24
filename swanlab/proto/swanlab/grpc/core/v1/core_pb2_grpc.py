@@ -33,7 +33,8 @@ class CoreServiceStub(object):
 
     1. Core 与 run 级生命周期严格分离：SpinupService / TeardownService 作用于整个 core 服务进程；
     2. 所有 run 级 RPC 通过显式 run_handle 路由到具体会话，不依赖 channel 隐式绑定 run；
-    3. ConfirmRunFinish 只确认单个 run 已排空、资源可释放，不会关闭 gRPC Server；
+    3. ConfirmRunFinish 确认单个 run 已排空并释放其资源，不关闭 gRPC Server；
+    须在对应 run 的 DeliverRunFinish 之后调用，提前调用返回 FAILED_PRECONDITION 且会话保留；
     4. GetOperationStats / ConfirmRunFinish 输入使用专用 request，由 run_handle 指定目标 run。
     """
 
@@ -107,7 +108,8 @@ class CoreServiceServicer(object):
 
     1. Core 与 run 级生命周期严格分离：SpinupService / TeardownService 作用于整个 core 服务进程；
     2. 所有 run 级 RPC 通过显式 run_handle 路由到具体会话，不依赖 channel 隐式绑定 run；
-    3. ConfirmRunFinish 只确认单个 run 已排空、资源可释放，不会关闭 gRPC Server；
+    3. ConfirmRunFinish 确认单个 run 已排空并释放其资源，不关闭 gRPC Server；
+    须在对应 run 的 DeliverRunFinish 之后调用，提前调用返回 FAILED_PRECONDITION 且会话保留；
     4. GetOperationStats / ConfirmRunFinish 输入使用专用 request，由 run_handle 指定目标 run。
     """
 
@@ -120,8 +122,7 @@ class CoreServiceServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def TeardownService(self, request, context):
-        """TeardownService 关闭整个服务进程。仅持有 owner token 的调用方（spawn owner）允许执行，
-        校验失败返回 PERMISSION_DENIED；与 ConfirmRunFinish 不同，本 RPC 不针对单个 run。
+        """TeardownService 关闭整个服务进程。不同于 ConfirmRunFinish ，能连接 core 的 client 都可调用。
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -184,7 +185,8 @@ class CoreServiceServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def ConfirmRunFinish(self, request, context):
-        """ConfirmRunFinish 确认指定 run 已排空、资源可释放，但不关闭整个 gRPC Server。
+        """ConfirmRunFinish 确认指定 run 已排空并释放其资源，不关闭 gRPC Server。
+        前置条件：该 run 的 DeliverRunFinish 已上传完成，提前调用返回 FAILED_PRECONDITION。
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -263,7 +265,8 @@ class CoreService(object):
 
     1. Core 与 run 级生命周期严格分离：SpinupService / TeardownService 作用于整个 core 服务进程；
     2. 所有 run 级 RPC 通过显式 run_handle 路由到具体会话，不依赖 channel 隐式绑定 run；
-    3. ConfirmRunFinish 只确认单个 run 已排空、资源可释放，不会关闭 gRPC Server；
+    3. ConfirmRunFinish 确认单个 run 已排空并释放其资源，不关闭 gRPC Server；
+    须在对应 run 的 DeliverRunFinish 之后调用，提前调用返回 FAILED_PRECONDITION 且会话保留；
     4. GetOperationStats / ConfirmRunFinish 输入使用专用 request，由 run_handle 指定目标 run。
     """
 

@@ -29,10 +29,9 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// SpinupService 请求。
+// SpinupService 请求。无身份字段：core 面向同一本地信任域，不做应用层鉴权。
 type SpinupServiceRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	OwnerToken    string                 `protobuf:"bytes,1,opt,name=owner_token,json=ownerToken,proto3" json:"owner_token,omitempty"` // 服务所有者令牌，仅 spawn owner 持有
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -65,13 +64,6 @@ func (x *SpinupServiceRequest) ProtoReflect() protoreflect.Message {
 // Deprecated: Use SpinupServiceRequest.ProtoReflect.Descriptor instead.
 func (*SpinupServiceRequest) Descriptor() ([]byte, []int) {
 	return file_swanlab_grpc_core_v1_core_proto_rawDescGZIP(), []int{0}
-}
-
-func (x *SpinupServiceRequest) GetOwnerToken() string {
-	if x != nil {
-		return x.OwnerToken
-	}
-	return ""
 }
 
 // SpinupService 响应。无字段，返回即表示服务已 READY。
@@ -111,10 +103,9 @@ func (*SpinupServiceResponse) Descriptor() ([]byte, []int) {
 	return file_swanlab_grpc_core_v1_core_proto_rawDescGZIP(), []int{1}
 }
 
-// TeardownService 请求。
+// TeardownService 请求。无身份字段，同 SpinupServiceRequest。
 type TeardownServiceRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	OwnerToken    string                 `protobuf:"bytes,1,opt,name=owner_token,json=ownerToken,proto3" json:"owner_token,omitempty"` // 服务所有者令牌，仅 spawn owner 持有
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -147,13 +138,6 @@ func (x *TeardownServiceRequest) ProtoReflect() protoreflect.Message {
 // Deprecated: Use TeardownServiceRequest.ProtoReflect.Descriptor instead.
 func (*TeardownServiceRequest) Descriptor() ([]byte, []int) {
 	return file_swanlab_grpc_core_v1_core_proto_rawDescGZIP(), []int{2}
-}
-
-func (x *TeardownServiceRequest) GetOwnerToken() string {
-	if x != nil {
-		return x.OwnerToken
-	}
-	return ""
 }
 
 // TeardownService 响应。
@@ -934,14 +918,10 @@ var File_swanlab_grpc_core_v1_core_proto protoreflect.FileDescriptor
 
 const file_swanlab_grpc_core_v1_core_proto_rawDesc = "" +
 	"\n" +
-	"\x1fswanlab/grpc/core/v1/core.proto\x12\x14swanlab.grpc.core.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x18swanlab/run/v1/run.proto\x1a!swanlab/metric/data/v1/data.proto\x1a%swanlab/metric/column/v1/column.proto\x1a\x1dswanlab/terminal/v1/log.proto\x1a\x1aswanlab/save/v1/save.proto\x1a$swanlab/operation/v1/operation.proto\x1a#swanlab/settings/core/v1/core.proto\"7\n" +
-	"\x14SpinupServiceRequest\x12\x1f\n" +
-	"\vowner_token\x18\x01 \x01(\tR\n" +
-	"ownerToken\"\x17\n" +
-	"\x15SpinupServiceResponse\"9\n" +
-	"\x16TeardownServiceRequest\x12\x1f\n" +
-	"\vowner_token\x18\x01 \x01(\tR\n" +
-	"ownerToken\"\x19\n" +
+	"\x1fswanlab/grpc/core/v1/core.proto\x12\x14swanlab.grpc.core.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x18swanlab/run/v1/run.proto\x1a!swanlab/metric/data/v1/data.proto\x1a%swanlab/metric/column/v1/column.proto\x1a\x1dswanlab/terminal/v1/log.proto\x1a\x1aswanlab/save/v1/save.proto\x1a$swanlab/operation/v1/operation.proto\x1a#swanlab/settings/core/v1/core.proto\"\x16\n" +
+	"\x14SpinupServiceRequest\"\x17\n" +
+	"\x15SpinupServiceResponse\"\x18\n" +
+	"\x16TeardownServiceRequest\"\x19\n" +
 	"\x17TeardownServiceResponse\"\xa5\x01\n" +
 	"\x16DeliverRunStartRequest\x12K\n" +
 	"\rcore_settings\x18\x01 \x01(\v2&.swanlab.settings.core.v1.CoreSettingsR\fcoreSettings\x12>\n" +

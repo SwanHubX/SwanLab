@@ -74,10 +74,6 @@ func TestSpinupIdempotent(t *testing.T) {
 	env := newTestEnv(t)
 	spinup(t, env)
 	spinup(t, env) // 重复 Spinup 在 READY 下幂等成功
-	// owner_token 字段保留但忽略：任意值不影响 READY 幂等
-	if _, err := env.client.SpinupService(callCtx(t), &corev1.SpinupServiceRequest{OwnerToken: "ignored"}); err != nil {
-		t.Fatalf("SpinupService with ignored owner_token: %v", err)
-	}
 }
 
 func TestRunRPCsRejectedBeforeReady(t *testing.T) {
@@ -247,6 +243,76 @@ func TestRunLifecycleCoreStateMapping(t *testing.T) {
 	}
 	if _, err = env.client.ConfirmRunFinish(ctx, &corev1.ConfirmRunFinishRequest{RunHandle: handle}); status.Code(err) != codes.NotFound {
 		t.Fatalf("repeat confirm err = %v, want NotFound", err)
+	}
+}
+
+// TestConfirmBeforeFinishRejected 验证 ConfirmRunFinish 的前置条件：
+// finish 未交付时 confirm 返回 FailedPrecondition 且会话保留，
+// 之后可完成 finish/confirm 流程。
+func TestConfirmBeforeFinishRejected(t *testing.T) {
+	env := newTestEnv(t)
+	spinup(t, env)
+	handle := startRun(t, env)
+	ctx := callCtx(t)
+
+	if _, err := env.client.ConfirmRunFinish(ctx, &corev1.ConfirmRunFinishRequest{RunHandle: handle}); status.Code(err) != codes.FailedPrecondition {
+		t.Fatalf("confirm before finish err = %v, want FailedPrecondition", err)
+	}
+	// 会话未被摘除：stats 报 RUNNING
+	resp, err := env.client.GetOperationStats(ctx, &corev1.GetOperationStatsRequest{RunHandle: handle})
+	if err != nil || resp.GetStats().GetState() != operationv1.CoreState_CORE_STATE_RUNNING {
+		t.Fatalf("stats after rejected confirm: err = %v, state = %v, want RUNNING", err, resp.GetStats().GetState())
+	}
+	// finish 后 confirm 成功，会话被释放
+	if _, err = env.client.DeliverRunFinish(ctx, &corev1.DeliverRunFinishRequest{RunHandle: handle}); err != nil {
+		t.Fatalf("DeliverRunFinish: %v", err)
+	}
+	if _, err = env.client.ConfirmRunFinish(ctx, &corev1.ConfirmRunFinishRequest{RunHandle: handle}); err != nil {
+		t.Fatalf("ConfirmRunFinish after finish: %v", err)
+	}
+	if _, err = env.client.GetOperationStats(ctx, &corev1.GetOperationStatsRequest{RunHandle: handle}); status.Code(err) != codes.NotFound {
+		t.Fatalf("stats after confirm err = %v, want NotFound", err)
+	}
+}
+
+// TestFinishConfirmRace 并发执行 finish 与 confirm，验证 registry 的
+// 原子校验：confirm 在 finish 标记后才会摘除会话，因此 finish 必然成功；
+// confirm 的合法结果为成功（后于 finish）或 FailedPrecondition（先于 finish）。
+func TestFinishConfirmRace(t *testing.T) {
+	env := newTestEnv(t)
+	spinup(t, env)
+	ctx := callCtx(t)
+
+	for i := 0; i < 20; i++ {
+		handle := startRun(t, env)
+		var wg sync.WaitGroup
+		var finishErr, confirmErr error
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			_, finishErr = env.client.DeliverRunFinish(ctx, &corev1.DeliverRunFinishRequest{RunHandle: handle})
+		}()
+		go func() {
+			defer wg.Done()
+			_, confirmErr = env.client.ConfirmRunFinish(ctx, &corev1.ConfirmRunFinishRequest{RunHandle: handle})
+		}()
+		wg.Wait()
+
+		if finishErr != nil {
+			t.Fatalf("iter %d: finish must always succeed (session must survive a losing confirm): %v", i, finishErr)
+		}
+		if confirmErr != nil && status.Code(confirmErr) != codes.FailedPrecondition {
+			t.Fatalf("iter %d: confirm err = %v, want nil or FailedPrecondition", i, confirmErr)
+		}
+		// confirm 输了竞态时会话未释放，补一次 confirm
+		if confirmErr != nil {
+			if _, err := env.client.ConfirmRunFinish(ctx, &corev1.ConfirmRunFinishRequest{RunHandle: handle}); err != nil {
+				t.Fatalf("iter %d: retry confirm after finish: %v", i, err)
+			}
+		}
+		if _, err := env.client.GetOperationStats(ctx, &corev1.GetOperationStatsRequest{RunHandle: handle}); status.Code(err) != codes.NotFound {
+			t.Fatalf("iter %d: stats after release err = %v, want NotFound", i, err)
+		}
 	}
 }
 

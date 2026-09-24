@@ -14,13 +14,12 @@
 // core.sock（UDS，目录需已存在），listen 失败记录 warning 后回退
 // 127.0.0.1 随机回环端口；Windows 使用随机回环端口。
 //
-// 信任模型：Owner Mode 不使用应用层 token，安全边界由本地 transport 与
-// 文件系统权限承担：POSIX 使用 UDS（socket 文件位于 owner-only 私有
-// runtime 目录），port-file 以 0600 权限原子发布；TCP 回退对同机同用户
-// 进程开放，不提供应用层访问控制。
+// 信任模型：不使用应用层 token。POSIX 使用 UDS（socket 位于 owner-only
+// 私有 runtime 目录），port-file 以 0600 原子发布；loopback TCP 回退
+// 不隔离本机用户，能连接端口的本机进程可调用全部 RPC（含 Teardown）。
 //
 // --detach 与 --idle-timeout 为 detached 模式预留：detached 未实现，
-// 传入报用法错误退出。
+// 传入时忽略（no-op）并记录 warning，core 仍以 owner 模式运行。
 //
 // 生命周期：Teardown RPC、SIGINT/SIGTERM、父进程退出（process 包监控）或
 // Serve 异常汇入 service controller 的关闭路径（GracefulStop → 超时强制
@@ -90,9 +89,9 @@ func run(args []string) int {
 	parentPID := fs.Int("parent-pid", envInt(envParentPID),
 		"expected parent PID; core exits when the parent exits, defaults to the actual parent at startup")
 	detach := fs.Bool("detach", false,
-		"detached mode (not implemented in this build)")
+		"detached mode (reserved; accepted but ignored in this build)")
 	idleTimeout := fs.Duration("idle-timeout", 0,
-		"detached idle timeout (not implemented in this build)")
+		"detached idle timeout (reserved; accepted but ignored in this build)")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
@@ -105,8 +104,7 @@ func run(args []string) int {
 		return 0
 	}
 	if *detach || *idleTimeout != 0 {
-		console.Error("--detach/--idle-timeout: detached mode is not implemented in this build")
-		return exitUsageError
+		console.Warning("--detach/--idle-timeout accepted but ignored: detached mode is not implemented; running in owner mode")
 	}
 	if *listenAddr == "" && *portFilename == "" {
 		console.Error("no listen endpoint: pass --listen (manual debug) or --port-filename (SDK startup convention)")
@@ -182,6 +180,7 @@ func run(args []string) int {
 	exitCode := 0
 	var cause string
 	var serveFailure error
+	served := false
 	select {
 	case <-ctx.Done():
 		console.Info("shutdown signal received, stopping")
@@ -189,15 +188,15 @@ func run(args []string) int {
 	case <-parentExited:
 		console.Warning("parent process exited, stopping core")
 		cause = "parent-exit"
-	case err := <-serveErr:
-		serveFailure = err
+	case serveFailure = <-serveErr:
+		served = true
 		cause = "serve-error"
 	}
 	ctrl.Shutdown(cause)
-	// 等待 Serve 返回与关闭序列完成（两者任一先行均可）。
-	select {
-	case serveFailure = <-serveErr:
-	case <-ctrl.Done():
+	// Shutdown 的关闭序列会让 Serve 返回（GracefulStop 超时转 Stop）；
+	// 上面的 select 未消费 serveErr 时，在此收取其结果。
+	if !served {
+		serveFailure = <-serveErr
 	}
 	<-ctrl.Done()
 	if serveFailure != nil {

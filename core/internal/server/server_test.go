@@ -70,19 +70,6 @@ func TestTeardownServiceShutsDownServer(t *testing.T) {
 	}
 }
 
-// TestTeardownServiceIgnoresOwnerToken 不校验 owner_token：proto 字段保留但忽略。
-func TestTeardownServiceIgnoresOwnerToken(t *testing.T) {
-	env := newTestEnv(t)
-	if _, err := env.client.TeardownService(callCtx(t), &corev1.TeardownServiceRequest{OwnerToken: "ignored"}); err != nil {
-		t.Fatalf("TeardownService: %v", err)
-	}
-	select {
-	case <-env.ctrl.Done():
-	case <-time.After(callTimeout):
-		t.Fatal("shutdown not completed after teardown")
-	}
-}
-
 func TestControllerShutdownIdempotent(t *testing.T) {
 	g := grpc.NewServer()
 	ctrl := NewController(g, testGrace)
