@@ -1,29 +1,19 @@
 // Command swanlab-core 是 SwanLab Go core 的进程入口。
 //
-// 启动约定（Owner Mode）：
+// 启动与端点约定：
 //
-//	swanlab-core --port-filename <runtime>/core.port --parent-pid <pid>
-//
-// 端点约定：
-//
-//	--listen unix:///path/to/uds   Linux/macOS 进程内通信（手动调试入口）
+//	--port-filename <路径>         listen 成功后原子写入端点回报文件（SDK 发现端点依据）
+//	--parent-pid <pid>             监控指定的父进程 PID，父进程退出则 core 联动退出
+//	--listen unix:///path/to/uds   Linux/macOS 本地通信（手动调试入口）
 //	--listen tcp://127.0.0.1:port  Windows 回环地址
-//	--port-filename <路径>         listen 成功后原子写入端点回报文件（SDK 启动约定）
 //
-// 未传 --listen 时按平台自选端点：POSIX 使用 port-filename 同目录下的
-// core.sock（UDS，目录需已存在），listen 失败记录 warning 后回退
-// 127.0.0.1 随机回环端口；Windows 使用随机回环端口。
+// 未显式指定 --listen 时按平台自选端点：
+// POSIX 优先使用 port-filename 同目录下的 core.sock（UDS），listen 失败时记录 warning 并回退至 127.0.0.1 随机回环端口；
+// Windows 默认直接使用随机回环端口。
 //
-// 信任模型：不使用应用层 token。POSIX 使用 UDS（socket 位于 owner-only
-// 私有 runtime 目录），port-file 以 0600 原子发布；loopback TCP 回退
-// 不隔离本机用户，能连接端口的本机进程可调用全部 RPC（含 Teardown）。
-//
-// --detach 与 --idle-timeout 为 detached 模式预留：detached 未实现，
-// 传入时忽略（no-op）并记录 warning，core 仍以 owner 模式运行。
-//
-// 生命周期：Teardown RPC、SIGINT/SIGTERM、父进程退出（process 包监控）或
-// Serve 异常汇入 service controller 的关闭路径（GracefulStop → 超时强制
-// Stop）；退出时清理自己创建的 socket 文件与 port-file。
+// 生命周期管理：
+// 汇集 Teardown RPC、系统信号、父进程退出监控或 Serve 异常，统一触发 Controller 的
+// 关闭序列（优先 GracefulStop，超时强制 Stop）；退出时清理自己创建的 socket 与 port-file 文件。
 package main
 
 import (
@@ -43,10 +33,12 @@ import (
 
 	"google.golang.org/grpc"
 
+	"github.com/swanhubx/swanlab/core/internal/manager"
 	"github.com/swanhubx/swanlab/core/internal/pkg/console"
 	"github.com/swanhubx/swanlab/core/internal/pkg/portinfo"
 	"github.com/swanhubx/swanlab/core/internal/pkg/process"
 	"github.com/swanhubx/swanlab/core/internal/server"
+	"github.com/swanhubx/swanlab/core/internal/service"
 )
 
 // version 与 commit 由构建管线通过 -ldflags -X 注入（见 core/hatch.py），
@@ -144,9 +136,13 @@ func run(args []string) int {
 		return exitRunError
 	}
 
+	// 装配服务核心分层：
+	// - server.Controller: 负责 gRPC 进程宿主生命周期与优雅退出控制；
+	// - manager.Manager: 负责 Run 领域会话管理与路由注册；
+	// - service.CoreService: 负责 gRPC 请求接入与协议映射。
 	grpcServer := grpc.NewServer()
 	ctrl := server.NewController(grpcServer, shutdownGrace)
-	server.NewService(ctrl).Register(grpcServer)
+	service.NewCoreService(ctrl, manager.New()).Register(grpcServer)
 
 	// listen 与 server 初始化成功后写 port-file。
 	if *portFilename != "" {

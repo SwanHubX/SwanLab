@@ -1,3 +1,8 @@
+// Package server 负责管理本地 gRPC 服务的宿主环境与生命周期。
+//
+// 职责：
+// - 管理服务级生命周期状态（NotReady、Ready、Stopping、Closed）；
+// - 统一仲裁服务退出流程，支持优雅退出与超时兜底强制关闭。
 package server
 
 import (
@@ -9,12 +14,12 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/pkg/console"
 )
 
-// Controller 仲裁服务的统一关闭路径，并持有服务状态机。
+// Controller 负责协调服务的统一关闭路径，并管理服务生命周期。
 //
-// Teardown RPC、SIGINT/SIGTERM、父进程退出通知与 Serve 异常都汇入同一条
-// 收尾序列：先 GracefulStop 等待在途请求完成，超过 grace 时限后强制 Stop，
-// 并保证 Serve 一定返回。Shutdown 幂等，多次触发只执行一次。
-// 进入收尾时服务状态转为 STOPPING，收尾完成后转为 CLOSED。
+// 实现方式：
+// 汇集 Teardown RPC、系统信号、父进程退出及 Serve 异常等所有退出来源；
+// 通过 sync.Once 保证幂等执行：先触发 GracefulStop 尝试优雅退出，
+// 超时后强制调用 Stop 兜底，确保进程可靠结束。
 type Controller struct {
 	server *grpc.Server
 	grace  time.Duration
@@ -23,7 +28,7 @@ type Controller struct {
 	lc     *Lifecycle
 }
 
-// NewController 包装一个 gRPC Server，grace 为优雅关闭的等待上限。
+// NewController 创建服务控制器，grace 为优雅退出的等待上限。
 func NewController(g *grpc.Server, grace time.Duration) *Controller {
 	return &Controller{
 		server: g,
@@ -33,12 +38,12 @@ func NewController(g *grpc.Server, grace time.Duration) *Controller {
 	}
 }
 
-// Lifecycle 返回由本 controller 仲裁的服务状态机。
+// Lifecycle 返回由本控制器管理的服务生命周期状态机。
 func (c *Controller) Lifecycle() *Lifecycle {
 	return c.lc
 }
 
-// Shutdown 幂等触发关闭；cause 仅用于日志，标识关闭来源。
+// Shutdown 触发服务关闭流程，操作具备幂等性；cause 仅用于日志标识退出来源。
 func (c *Controller) Shutdown(cause string) {
 	c.once.Do(func() {
 		c.lc.BeginStopping()
