@@ -13,8 +13,23 @@ import "swanlab/settings/core/v1/core.proto";
 
 option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/grpc/core/v1;corev1";
 
-// CoreService 是核心业务接口，用于同步或异步地接收实验记录
+// CoreService 是核心业务接口，用于同步或异步地接收实验记录。
+//
+// 生命周期约定：
+//
+//  1. Core 与 run 级生命周期严格分离：SpinupService / TeardownService 作用于整个 core 服务进程；
+//  2. 所有 run 级 RPC 通过显式 run_handle 路由到具体会话，不依赖 channel 隐式绑定 run；
+//  3. ConfirmRunFinish 确认单个 run 已排空并释放其资源，不关闭 gRPC Server；
+//     须在对应 run 的 DeliverRunFinish 之后调用，提前调用返回 FAILED_PRECONDITION 且会话保留；
+//  4. GetOperationStats / ConfirmRunFinish 输入使用专用 request，由 run_handle 指定目标 run。
 service CoreService {
+    // SpinupService 完成服务级初始化并把服务置为 READY，不负责创建 run 级 datastore 和 transport
+    // 启动失败 RPC 返回 FAILED_PRECONDITION；重复 Spinup 在 READY 下幂等成功，共享一个 core 服务进程。
+    rpc SpinupService(SpinupServiceRequest) returns (SpinupServiceResponse);
+
+    // TeardownService 关闭整个服务进程。不同于 ConfirmRunFinish ，能连接 core 的 client 都可调用。
+    rpc TeardownService(TeardownServiceRequest) returns (TeardownServiceResponse);
+
     // DeliverRunStart 接收单条 StartRecord，用于实验开始，并返回必要的信息。
     rpc DeliverRunStart(DeliverRunStartRequest) returns (DeliverRunStartResponse);
 
@@ -36,11 +51,28 @@ service CoreService {
     // DeliverRunFinish 接收单条 FinishRecord，用于实验结束。
     rpc DeliverRunFinish(DeliverRunFinishRequest) returns (DeliverRunFinishResponse);
 
-    // GetOperationStats 返回 Core 当前运行状态和上传进度快照。
-    rpc GetOperationStats(google.protobuf.Empty) returns (GetOperationStatsResponse);
+    // GetOperationStats 返回指定 run 当前运行状态和上传进度快照。
+    rpc GetOperationStats(GetOperationStatsRequest) returns (GetOperationStatsResponse);
 
-    // ConfirmRunFinish 确认 Core 运行结束，可以安全退出
-    rpc ConfirmRunFinish(google.protobuf.Empty) returns (ConfirmRunFinishResponse);
+    // ConfirmRunFinish 确认指定 run 已排空并释放其资源，不关闭 gRPC Server。
+    // 前置条件：该 run 的 DeliverRunFinish 已上传完成，提前调用返回 FAILED_PRECONDITION。
+    rpc ConfirmRunFinish(ConfirmRunFinishRequest) returns (ConfirmRunFinishResponse);
+}
+
+// SpinupService 请求。无身份字段：core 面向同一本地信任域，不做应用层鉴权。
+message SpinupServiceRequest {
+}
+
+// SpinupService 响应。无字段，返回即表示服务已 READY。
+message SpinupServiceResponse {
+}
+
+// TeardownService 请求。无身份字段，同 SpinupServiceRequest。
+message TeardownServiceRequest {
+}
+
+// TeardownService 响应。
+message TeardownServiceResponse {
 }
 
 // DeliverRunStart 请求，生命周期函数，运行正式开始
@@ -51,44 +83,51 @@ message DeliverRunStartRequest {
 
 // DeliverRunStart 响应
 message DeliverRunStartResponse {
-    bool success                   = 1; // 请求是否成功
-    string message                 = 2; // 请求失败的响应
-    swanlab.run.v1.StartRecord run = 3; // 最终创建的 Run 记录
-    string path                    = 4; // 对应的实验路径，格式为 /:username/:project_name/:slug(run_id)
-    string name                    = 5; // 对应的实验名称
-    int64 global_step              = 6; // 起始全局步数
-    int64 global_system_step       = 7; // 起始全局系统步数
-    bool new_experiment            = 8; // 是否是新实验
+    bool success                   = 1;  // 请求是否成功
+    string message                 = 2;  // 请求失败的响应
+    swanlab.run.v1.StartRecord run = 3;  // 最终创建的 Run 记录
+    string path                    = 4;  // 对应的实验路径，格式为 /:username/:project_name/:slug(run_id)
+    string name                    = 5;  // 对应的实验名称
+    int64 global_step              = 6;  // 起始全局步数
+    int64 global_system_step       = 7;  // 起始全局系统步数
+    bool new_experiment            = 8;  // 是否是新实验
+    string run_handle              = 9;  // 服务端生成的 opaque 会话标识，后续所有 run 级 RPC 必须携带
 }
 
 // UpsertColumns 请求，异步插入一批列定义
 message UpsertColumnsRequest {
     repeated swanlab.metric.column.v1.ColumnRecord columns = 1; // 列定义列表
+    string run_handle = 2; // 目标 run 会话标识
 }
 
 // UpsertScalars 请求，异步插入一批标量数据
 message UpsertScalarsRequest {
     repeated swanlab.metric.data.v1.ScalarRecord data = 1; // 标量记录列表
+    string run_handle = 2; // 目标 run 会话标识
 }
 
 // UpsertMedia 请求，异步插入一批媒体数据
 message UpsertMediaRequest {
     repeated swanlab.metric.data.v1.MediaRecord data = 1; // 媒体记录列表
+    string run_handle = 2; // 目标 run 会话标识
 }
 
 // UpsertLogs 请求，异步插入一批终端输出
 message UpsertLogsRequest {
     repeated swanlab.terminal.v1.LogRecord logs = 1; // 终端日志记录列表
+    string run_handle = 2; // 目标 run 会话标识
 }
 
 // UpsertSaves 请求，异步插入一批文件保存记录
 message UpsertSavesRequest {
     repeated swanlab.save.v1.SaveRecord saves = 1; // 保存记录列表
+    string run_handle = 2; // 目标 run 会话标识
 }
 
 // DeliverRunFinish 请求，生命周期函数，运行结束
 message DeliverRunFinishRequest {
     swanlab.run.v1.FinishRecord finish_record = 1; // Run 结束记录
+    string run_handle = 2; // 目标 run 会话标识
 }
 
 // DeliverRunFinish 响应
@@ -97,11 +136,21 @@ message DeliverRunFinishResponse {
     string message = 2; // 请求失败的响应
 }
 
+// GetOperationStats 请求。
+message GetOperationStatsRequest {
+    string run_handle = 1; // 目标 run 会话标识
+}
+
 // GetOperationStats 相应
 message GetOperationStatsResponse {
     bool success                              = 1; // 请求是否成功
     string message                            = 2; // 请求失败的响应
     swanlab.operation.v1.OperationStats stats = 3; // Core 当前运行状态和上传进度快照
+}
+
+// ConfirmRunFinish 请求。
+message ConfirmRunFinishRequest {
+    string run_handle = 1; // 目标 run 会话标识
 }
 
 // ConfirmRunFinish 响应

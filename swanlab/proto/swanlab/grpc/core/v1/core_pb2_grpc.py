@@ -27,7 +27,15 @@ if _version_not_supported:
 
 
 class CoreServiceStub(object):
-    """CoreService 是核心业务接口，用于同步或异步地接收实验记录
+    """CoreService 是核心业务接口，用于同步或异步地接收实验记录。
+
+    生命周期约定：
+
+    1. Core 与 run 级生命周期严格分离：SpinupService / TeardownService 作用于整个 core 服务进程；
+    2. 所有 run 级 RPC 通过显式 run_handle 路由到具体会话，不依赖 channel 隐式绑定 run；
+    3. ConfirmRunFinish 确认单个 run 已排空并释放其资源，不关闭 gRPC Server；
+    须在对应 run 的 DeliverRunFinish 之后调用，提前调用返回 FAILED_PRECONDITION 且会话保留；
+    4. GetOperationStats / ConfirmRunFinish 输入使用专用 request，由 run_handle 指定目标 run。
     """
 
     def __init__(self, channel):
@@ -36,6 +44,16 @@ class CoreServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
+        self.SpinupService = channel.unary_unary(
+                '/swanlab.grpc.core.v1.CoreService/SpinupService',
+                request_serializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.SpinupServiceRequest.SerializeToString,
+                response_deserializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.SpinupServiceResponse.FromString,
+                _registered_method=True)
+        self.TeardownService = channel.unary_unary(
+                '/swanlab.grpc.core.v1.CoreService/TeardownService',
+                request_serializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.TeardownServiceRequest.SerializeToString,
+                response_deserializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.TeardownServiceResponse.FromString,
+                _registered_method=True)
         self.DeliverRunStart = channel.unary_unary(
                 '/swanlab.grpc.core.v1.CoreService/DeliverRunStart',
                 request_serializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.DeliverRunStartRequest.SerializeToString,
@@ -73,19 +91,42 @@ class CoreServiceStub(object):
                 _registered_method=True)
         self.GetOperationStats = channel.unary_unary(
                 '/swanlab.grpc.core.v1.CoreService/GetOperationStats',
-                request_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+                request_serializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.GetOperationStatsRequest.SerializeToString,
                 response_deserializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.GetOperationStatsResponse.FromString,
                 _registered_method=True)
         self.ConfirmRunFinish = channel.unary_unary(
                 '/swanlab.grpc.core.v1.CoreService/ConfirmRunFinish',
-                request_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+                request_serializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.ConfirmRunFinishRequest.SerializeToString,
                 response_deserializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.ConfirmRunFinishResponse.FromString,
                 _registered_method=True)
 
 
 class CoreServiceServicer(object):
-    """CoreService 是核心业务接口，用于同步或异步地接收实验记录
+    """CoreService 是核心业务接口，用于同步或异步地接收实验记录。
+
+    生命周期约定：
+
+    1. Core 与 run 级生命周期严格分离：SpinupService / TeardownService 作用于整个 core 服务进程；
+    2. 所有 run 级 RPC 通过显式 run_handle 路由到具体会话，不依赖 channel 隐式绑定 run；
+    3. ConfirmRunFinish 确认单个 run 已排空并释放其资源，不关闭 gRPC Server；
+    须在对应 run 的 DeliverRunFinish 之后调用，提前调用返回 FAILED_PRECONDITION 且会话保留；
+    4. GetOperationStats / ConfirmRunFinish 输入使用专用 request，由 run_handle 指定目标 run。
     """
+
+    def SpinupService(self, request, context):
+        """SpinupService 完成服务级初始化并把服务置为 READY，不负责创建 run 级 datastore 和 transport
+        启动失败 RPC 返回 FAILED_PRECONDITION；重复 Spinup 在 READY 下幂等成功，共享一个 core 服务进程。
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def TeardownService(self, request, context):
+        """TeardownService 关闭整个服务进程。不同于 ConfirmRunFinish ，能连接 core 的 client 都可调用。
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
 
     def DeliverRunStart(self, request, context):
         """DeliverRunStart 接收单条 StartRecord，用于实验开始，并返回必要的信息。
@@ -137,14 +178,15 @@ class CoreServiceServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def GetOperationStats(self, request, context):
-        """GetOperationStats 返回 Core 当前运行状态和上传进度快照。
+        """GetOperationStats 返回指定 run 当前运行状态和上传进度快照。
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def ConfirmRunFinish(self, request, context):
-        """ConfirmRunFinish 确认 Core 运行结束，可以安全退出
+        """ConfirmRunFinish 确认指定 run 已排空并释放其资源，不关闭 gRPC Server。
+        前置条件：该 run 的 DeliverRunFinish 已上传完成，提前调用返回 FAILED_PRECONDITION。
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -153,6 +195,16 @@ class CoreServiceServicer(object):
 
 def add_CoreServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
+            'SpinupService': grpc.unary_unary_rpc_method_handler(
+                    servicer.SpinupService,
+                    request_deserializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.SpinupServiceRequest.FromString,
+                    response_serializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.SpinupServiceResponse.SerializeToString,
+            ),
+            'TeardownService': grpc.unary_unary_rpc_method_handler(
+                    servicer.TeardownService,
+                    request_deserializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.TeardownServiceRequest.FromString,
+                    response_serializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.TeardownServiceResponse.SerializeToString,
+            ),
             'DeliverRunStart': grpc.unary_unary_rpc_method_handler(
                     servicer.DeliverRunStart,
                     request_deserializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.DeliverRunStartRequest.FromString,
@@ -190,12 +242,12 @@ def add_CoreServiceServicer_to_server(servicer, server):
             ),
             'GetOperationStats': grpc.unary_unary_rpc_method_handler(
                     servicer.GetOperationStats,
-                    request_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                    request_deserializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.GetOperationStatsRequest.FromString,
                     response_serializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.GetOperationStatsResponse.SerializeToString,
             ),
             'ConfirmRunFinish': grpc.unary_unary_rpc_method_handler(
                     servicer.ConfirmRunFinish,
-                    request_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                    request_deserializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.ConfirmRunFinishRequest.FromString,
                     response_serializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.ConfirmRunFinishResponse.SerializeToString,
             ),
     }
@@ -207,8 +259,70 @@ def add_CoreServiceServicer_to_server(servicer, server):
 
  # This class is part of an EXPERIMENTAL API.
 class CoreService(object):
-    """CoreService 是核心业务接口，用于同步或异步地接收实验记录
+    """CoreService 是核心业务接口，用于同步或异步地接收实验记录。
+
+    生命周期约定：
+
+    1. Core 与 run 级生命周期严格分离：SpinupService / TeardownService 作用于整个 core 服务进程；
+    2. 所有 run 级 RPC 通过显式 run_handle 路由到具体会话，不依赖 channel 隐式绑定 run；
+    3. ConfirmRunFinish 确认单个 run 已排空并释放其资源，不关闭 gRPC Server；
+    须在对应 run 的 DeliverRunFinish 之后调用，提前调用返回 FAILED_PRECONDITION 且会话保留；
+    4. GetOperationStats / ConfirmRunFinish 输入使用专用 request，由 run_handle 指定目标 run。
     """
+
+    @staticmethod
+    def SpinupService(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/swanlab.grpc.core.v1.CoreService/SpinupService',
+            swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.SpinupServiceRequest.SerializeToString,
+            swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.SpinupServiceResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def TeardownService(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/swanlab.grpc.core.v1.CoreService/TeardownService',
+            swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.TeardownServiceRequest.SerializeToString,
+            swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.TeardownServiceResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
 
     @staticmethod
     def DeliverRunStart(request,
@@ -414,7 +528,7 @@ class CoreService(object):
             request,
             target,
             '/swanlab.grpc.core.v1.CoreService/GetOperationStats',
-            google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.GetOperationStatsRequest.SerializeToString,
             swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.GetOperationStatsResponse.FromString,
             options,
             channel_credentials,
@@ -441,7 +555,7 @@ class CoreService(object):
             request,
             target,
             '/swanlab.grpc.core.v1.CoreService/ConfirmRunFinish',
-            google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.ConfirmRunFinishRequest.SerializeToString,
             swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.ConfirmRunFinishResponse.FromString,
             options,
             channel_credentials,
