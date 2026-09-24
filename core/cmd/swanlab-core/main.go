@@ -81,7 +81,7 @@ func run(args []string) int {
 	parentPID := fs.Int("parent-pid", envInt(envParentPID),
 		"expected parent PID; core exits when the parent exits, defaults to the actual parent at startup")
 	detach := fs.Bool("detach", false,
-		"detached mode (reserved; accepted but ignored in this build)")
+		"detach from parent process (reserved; accepted but ignored in this build)")
 	idleTimeout := fs.Duration("idle-timeout", 0,
 		"detached idle timeout (reserved; accepted but ignored in this build)")
 	if err := fs.Parse(args); err != nil {
@@ -96,7 +96,7 @@ func run(args []string) int {
 		return 0
 	}
 	if *detach || *idleTimeout != 0 {
-		console.Warning("--detach/--idle-timeout accepted but ignored: detached mode is not implemented; running in owner mode")
+		console.Warning("--detach/--idle-timeout accepted but ignored: detached service is not implemented; core stays bound to the parent process")
 	}
 	if *listenAddr == "" && *portFilename == "" {
 		console.Error("no listen endpoint: pass --listen (manual debug) or --port-filename (SDK startup convention)")
