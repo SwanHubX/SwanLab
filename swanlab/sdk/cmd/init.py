@@ -553,8 +553,9 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
         run_settings.merge_settings({"run": {"id": generate_id()}})
     run_id = run_settings.run.id
     assert run_id, "Run id is not provided."
+    should_mkdirs = mode != "disabled" and not skip_store
     # 2. 创建运行目录
-    if mode != "disabled" and not skip_store:
+    if should_mkdirs:
         # 安全创建目录，并写入 .gitignore（如果目录为空）
         helper.mkdir_and_append_gitignore(run_settings.log_dir)
         # 创建运行子目录，run_dir 必须是新建的，防止误覆盖已有实验数据
@@ -576,7 +577,7 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
     # 3. 创建一个临时的上下文，避免出现任何问题导致上下文残留
     with use_context(RunContext(config=RunConfig(settings=run_settings, run_dir=run_dir), callbacks=callbacks)) as ctx:
         assert run_settings.project.name, "Project name is required."
-        # 1. 前置操作
+        # 3.1. 前置操作
         # online 模式前置：确保 client 已就绪
         if mode == "online":
             _ensure_online_client(run_settings)
@@ -585,7 +586,7 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
             from swanlab.deprecated.local import LocalCallbacker
 
             ctx.callbacker.merge_callbacks(LocalCallbacker())
-        # 2. 非云端模式，确定 name/color，合并到 settings
+        # 3.2. 非云端模式，确定 name/color，合并到 settings
         if mode != "online":
             args_dict = {}
             for key, value in {
@@ -595,7 +596,7 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
             }.items():
                 set_nested_value(args_dict, key, value)
             run_settings.merge_settings(args_dict)
-        # 3. 统一调用 deliver_run_start（core 内部按 mode 分发：online 走网络，其余本地处理）
+        # 3.3. 统一调用 deliver_run_start（core 内部按 mode 分发：online 走网络，其余本地处理）
         ts = Timestamp()
         ts.GetCurrentTime()
         start_record = StartRecord(
@@ -638,7 +639,7 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
             console.info(
                 "Hardware information collection, monitor, and terminal proxy have been disabled in resume mode."
             )
-        # 4. 从 core 响应同步配置（online 模式会覆盖为服务端分配的值）
+        # 3.4. 从 core 响应同步配置（online 模式会覆盖为服务端分配的值）
         sync_args = {}
         merge_dict = helper.strip_none(
             {
@@ -653,8 +654,8 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
         for key, value in merge_dict.items():
             set_nested_value(sync_args, key, value)
         run_settings.merge_settings(sync_args)
-    # 4. 创建运行目录
-    if mode != "disabled" and not skip_store:
+    # 4. 创建数据目录
+    if should_mkdirs:
         fs.safe_mkdirs(ctx.media_dir, ctx.files_dir, ctx.debug_dir)
     return ctx, path
 

@@ -176,8 +176,10 @@ class Run:
         )
         self._probe.deliver_probe_start(start_request)
         # skip_store 下没有 debug 目录，诊断日志只输出终端
-        bind_to = None if self.mode == "disabled" or run_settings.core.skip_store else self._ctx.debug_dir
-        console.init(bind_to=bind_to)
+        if self.mode == "disabled" or run_settings.core.skip_store:
+            console.init(bind_to=None)
+        else:
+            console.init(bind_to=self._ctx.debug_dir)
         greeting.welcome(self._ctx, self)
 
     # ----------------------------------
