@@ -28,6 +28,7 @@ from swanlab.proto.swanlab.save.v1.save_pb2 import SavePolicy, SaveRecord
 from swanlab.proto.swanlab.settings.core.v1.core_pb2 import CoreSettings as CoreSettingsPb
 from swanlab.sdk.internal.core_python import CorePython
 from swanlab.sdk.internal.core_python.context import CoreConfig, CoreContext
+from swanlab.sdk.internal.core_python.store import DataStoreWriter, NullDataStoreWriter
 from swanlab.sdk.internal.core_python.transport.tracker import UploadTracker
 
 
@@ -297,7 +298,7 @@ class TestCorePythonSkipStore:
         # from_proto 已解析该字段，skip 设置后 store 不产生文件
         assert core._ctx.config.skip_store is True
         assert core._store is not None
-        assert core._store._skip is True
+        assert isinstance(core._store, NullDataStoreWriter)
         assert not core._ctx.run_file.exists()
         assert core._transport is not None
 
@@ -305,7 +306,7 @@ class TestCorePythonSkipStore:
         core = self._start_online_core(tmp_path, monkeypatch, skip_store=False)
         assert core._ctx.config.skip_store is False
         assert core._store is not None
-        assert core._store._skip is False
+        assert isinstance(core._store, DataStoreWriter)
         assert core._ctx.run_file.exists()
 
     def test_live_save_still_reaches_transport(self, tmp_path, monkeypatch):

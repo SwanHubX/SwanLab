@@ -2,7 +2,7 @@
 @author: cunyue
 @file: test_datastore.py
 @time: 2026/3/13
-@description: 测试 DataStoreWriter / DataStoreReader（LevelDB log 格式）的读写行为
+@description: 测试 DataStoreWriter / NullDataStoreWriter / DataStoreReader（LevelDB log 格式）的读写行为
 """
 
 import struct
@@ -21,6 +21,7 @@ from swanlab.sdk.internal.core_python.store import (
     DataStoreError,
     DataStoreReader,
     DataStoreWriter,
+    NullDataStoreWriter,
 )
 
 # ---------------------------------------------------------------------------
@@ -262,22 +263,21 @@ class TestFileHandling:
 
 
 # ---------------------------------------------------------------------------
-# skip 设置（core.skip_store，仅 online 模式合法）
+# skip_store（NullDataStoreWriter 空写入器，仅 online 模式合法）
 # ---------------------------------------------------------------------------
 
 
 class TestSkipMode:
     def test_open_does_not_create_file(self, tmp_path: Path):
+        """open() 不创建文件。"""
         p = tmp_path / "skip.swanlab"
-        w = DataStoreWriter(skip=True)
+        w = NullDataStoreWriter()
         w.open(str(p))
         assert not p.exists()
-        assert w._fp is None
-        w.close()
 
     def test_skip_records_counts_without_persisting(self, tmp_path: Path):
         p = tmp_path / "skip.swanlab"
-        w = DataStoreWriter(skip=True)
+        w = NullDataStoreWriter()
         w.open(str(p))
         w.skip_records(3)
         assert w._skipped_records == 3
@@ -285,17 +285,19 @@ class TestSkipMode:
         w.close()
         assert not p.exists()
 
-    def test_write_rejected(self, tmp_path: Path):
-        """skip writer 不接受写入：record 只能经 skip_records() 登记。"""
-        w = DataStoreWriter(skip=True)
-        w.open(str(tmp_path / "skip.swanlab"))
-        with pytest.raises(AssertionError, match="skip writer"):
-            w.write(b"record_1")
+    def test_write_is_noop(self, tmp_path: Path):
+        """空写入器丢弃写入：不抛错、不落盘。"""
+        p = tmp_path / "skip.swanlab"
+        w = NullDataStoreWriter()
+        w.open(str(p))
+        w.write(b"record_1")
+        w.close()
+        assert not p.exists()
 
     def test_open_twice_is_noop(self, tmp_path: Path):
         """未启用 skip 时重复 open 抛 FileExistsError；启用后始终无副作用。"""
         p = tmp_path / "skip.swanlab"
-        w = DataStoreWriter(skip=True)
+        w = NullDataStoreWriter()
         w.open(str(p))
         w.open(str(p))
         assert not p.exists()
@@ -304,7 +306,7 @@ class TestSkipMode:
     def test_close_logs_skipped_count(self, tmp_path: Path, monkeypatch):
         debug = MagicMock()
         monkeypatch.setattr("swanlab.sdk.internal.core_python.store.console.debug", debug)
-        w = DataStoreWriter(skip=True)
+        w = NullDataStoreWriter()
         w.open(str(tmp_path / "skip.swanlab"))
         w.skip_records(2)
         w.close()

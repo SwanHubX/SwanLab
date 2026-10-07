@@ -18,7 +18,7 @@ Core 同时需要根据不同模式处理不同的业务，这是设计模式决
 值得说明的是，在当前的上层设计中，upsert 方法在 disabled 模式下永远不会触发，但是考虑到设计完整性，我们增加了相关业务逻辑判断
 """
 
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
     ConfirmRunFinishResponse,
@@ -43,7 +43,7 @@ from swanlab.sdk.internal.core_python.context import CoreContext
 from swanlab.sdk.internal.core_python.heartbeat import Heartbeat
 from swanlab.sdk.internal.core_python.metrics import RunMetrics
 from swanlab.sdk.internal.core_python.pkg import builder, counter
-from swanlab.sdk.internal.core_python.store import DataStoreWriter
+from swanlab.sdk.internal.core_python.store import DataStoreWriter, NullDataStoreWriter
 from swanlab.sdk.internal.core_python.transport import Transport
 from swanlab.sdk.internal.core_python.transport.tracker import UploadTracker
 from swanlab.sdk.internal.core_python.utils import generate_run_online_path, prepare_experiment_start
@@ -65,7 +65,7 @@ class CorePython(CoreProtocol):
     def __init__(self, mode: ModeType):
         super().__init__(mode)
         self._run_ctx: Optional[CoreContext] = None
-        self._store: Optional[DataStoreWriter] = None
+        self._store: Optional[Union[DataStoreWriter, NullDataStoreWriter]] = None
         self._transport: Optional[Transport] = None
         # 标记core是否激活，未激活时拒绝接受上报数据，表达一个完整的生命周期状态：
         # initialized but not started -> active -> finished
@@ -105,8 +105,11 @@ class CorePython(CoreProtocol):
         return resp
 
     def _start_store(self, resp: DeliverRunStartResponse):
-        # skip_store 仅 online 模式为 True（根 Settings 校验器保证），此时不创建本地 datastore 文件
-        self._store = DataStoreWriter(skip=self._ctx.config.skip_store)
+        # skip_store 模式下使用空写入器跳过本地存储
+        if self._ctx.config.skip_store:
+            self._store = NullDataStoreWriter()
+        else:
+            self._store = DataStoreWriter()
         self._store.open(str(self._ctx.run_file))
         self._store_records([builder.build_start_record(resp.run)])
 
@@ -189,13 +192,10 @@ class CorePython(CoreProtocol):
     # ---------------------------------- 数据上报 ----------------------------------
 
     def _store_records(self, records: List[Record]) -> None:
-        """将一组 Record 写入本地存储；start、普通 record 与 finish 的统一入口。
-
-        skip_store 下不序列化、不落盘，仅登记未持久化计数（writer.close() 统计用）。
-        """
+        """将一组 Record 写入本地存储。"""
         assert self._store is not None, "store must be initialized before upsert"
         if self._ctx.config.skip_store:
-            # 跳过 SerializeToString 与落盘，仅登记未持久化计数（writer.close() 统计用）
+            assert isinstance(self._store, NullDataStoreWriter)
             self._store.skip_records(len(records))
             return
         for record in records:

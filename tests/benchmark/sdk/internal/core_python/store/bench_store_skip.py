@@ -50,7 +50,7 @@ from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.save.v1.save_pb2 import SavePolicy, SaveRecord, SaveType
 from swanlab.sdk.internal.core_python.context import CoreConfig, CoreContext
 from swanlab.sdk.internal.core_python.core import CorePython
-from swanlab.sdk.internal.core_python.store import DataStoreReader, DataStoreWriter
+from swanlab.sdk.internal.core_python.store import DataStoreReader, DataStoreWriter, NullDataStoreWriter
 from swanlab.sdk.internal.core_python.watcher import create_save_links
 from swanlab.sdk.internal.pkg import adapter, fs
 
@@ -187,7 +187,7 @@ def _make_core(root: Path, skip_store: bool, tag: str) -> CorePython:
             skip_store=skip_store,
         )
     )
-    core._store = DataStoreWriter(skip=skip_store)
+    core._store = NullDataStoreWriter() if skip_store else DataStoreWriter()
     core._store.open(str(core._ctx.run_file))
     return core
 
