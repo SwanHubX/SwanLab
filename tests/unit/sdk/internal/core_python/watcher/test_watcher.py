@@ -1,14 +1,24 @@
 import os
 import time
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Callable, List
 from unittest.mock import MagicMock
 
+import pytest
 from watchdog.events import FileMovedEvent
 
 from swanlab.proto.swanlab.save.v1.save_pb2 import SavePolicy, SaveRecord
+from swanlab.sdk.internal.core_python import watcher as watcher_module
 from swanlab.sdk.internal.core_python.watcher import FileWatcher
+from swanlab.sdk.internal.core_python.watcher import helper as watcher_helper
 from swanlab.sdk.internal.core_python.watcher.helper import _Handler
+
+
+@pytest.fixture
+def mock_watcher_threads(monkeypatch):
+    monkeypatch.setattr(watcher_module, "Observer", MagicMock())
+    monkeypatch.setattr(watcher_module.threading, "Timer", MagicMock())
 
 
 def _make_watcher() -> FileWatcher:
@@ -29,14 +39,14 @@ def _wait_until(predicate: Callable[[], bool], timeout: float = 15.0) -> bool:
     return False
 
 
-# Windows 的 os.stat 读 NTFS 目录项缓存，句柄关闭后约 1s 内文件签名仍然是旧值；
-# 若 debounce 定时在该窗口内触发，签名比较会读到旧签名而误判"未变化"。
+# 为文件事件投递和签名更新预留 debounce 窗口。
 REAL_OBSERVER_DEBOUNCE = 1.5
 
 
 # ── watch idempotency ──
 
 
+@pytest.mark.usefixtures("mock_watcher_threads")
 def test_watch_skips_already_registered_file(tmp_path: Path):
     watcher = _make_watcher()
     f = tmp_path / "model.pt"
@@ -55,6 +65,7 @@ def test_watch_skips_already_registered_file(tmp_path: Path):
     assert watcher._registered[abs_path][0].signature is not None
 
 
+@pytest.mark.usefixtures("mock_watcher_threads")
 def test_watch_registers_different_files(tmp_path: Path):
     watcher = _make_watcher()
     (tmp_path / "a.pt").write_bytes(b"a")
@@ -66,6 +77,7 @@ def test_watch_registers_different_files(tmp_path: Path):
     assert len(watcher._registered) == 2
 
 
+@pytest.mark.usefixtures("mock_watcher_threads")
 def test_watch_batch_idempotent(tmp_path: Path):
     watcher = _make_watcher()
     (tmp_path / "a.pt").write_bytes(b"a")
@@ -80,6 +92,7 @@ def test_watch_batch_idempotent(tmp_path: Path):
 # ── observer started once ──
 
 
+@pytest.mark.usefixtures("mock_watcher_threads")
 def test_observer_starts_only_once(tmp_path: Path):
     watcher = _make_watcher()
     (tmp_path / "a.pt").write_bytes(b"a")
@@ -98,6 +111,7 @@ def test_observer_starts_only_once(tmp_path: Path):
 # ── direct-source（skip_store，无本地镜像）──
 
 
+@pytest.mark.usefixtures("mock_watcher_threads")
 def test_watch_sources_and_notifies_each_name(tmp_path: Path):
     """同一源文件保存为多个 name：一对多注册，变化时每个 name 各回调一次。"""
     calls = []
@@ -125,6 +139,7 @@ def test_watch_sources_and_notifies_each_name(tmp_path: Path):
     assert all(r.source_path == key and r.target_path == "" for r in calls)
 
 
+@pytest.mark.usefixtures("mock_watcher_threads")
 def test_watch_sources_ignores_other_files_in_same_dir(tmp_path: Path):
     on_change = MagicMock()
     watcher = FileWatcher(on_change=on_change, debounce_delay=0.1)
@@ -142,7 +157,8 @@ def test_watch_sources_ignores_other_files_in_same_dir(tmp_path: Path):
     on_change.assert_not_called()
 
 
-def test_watch_sources_missing_source_keeps_registration(tmp_path: Path):
+@pytest.mark.usefixtures("mock_watcher_threads")
+def test_watch_sources_missing_source_keeps_registration(tmp_path: Path, monkeypatch):
     """文件暂时缺失时保留注册：不回调，且删除后重建仍能触发回调。"""
     on_change = MagicMock()
     watcher = FileWatcher(on_change=on_change, debounce_delay=0.1)
@@ -152,19 +168,26 @@ def test_watch_sources_missing_source_keeps_registration(tmp_path: Path):
     watcher.watch_sources([_make_save("model.pt", source)])
     key = str(source.resolve())
 
-    # debounce 窗口内文件被删除：不回调，也不移除注册
+    original_signature = watcher._registered[key][0].signature
+
+    # 文件缺失时保留注册、清空签名。
     source.unlink()
     watcher._process_change(key)
     assert key in watcher._registered
+    assert watcher._registered[key][0].signature is None
     on_change.assert_not_called()
 
-    # 删除后重建：签名变化触发回调
+    # 重建后的签名与删除前相同。
     source.write_bytes(b"v2")
+    monkeypatch.setattr(watcher_module, "compute_signature", lambda path: original_signature)
+    watcher._process_change(key)
+    on_change.assert_called_once()
     watcher._process_change(key)
     on_change.assert_called_once()
     assert on_change.call_args[0][0].source_path == key
 
 
+@pytest.mark.usefixtures("mock_watcher_threads")
 def test_on_moved_matches_registered_dest_only(tmp_path: Path):
     """on_moved 按 dest_path 匹配注册表：tmp 源路径与未注册目标都不触发。"""
     watcher = _make_watcher()
@@ -178,9 +201,39 @@ def test_on_moved_matches_registered_dest_only(tmp_path: Path):
     assert key in watcher._timers
 
     # 同目录其他文件的原子替换：dest 未注册，不触发
-    watcher._timers.clear()
+    watcher._timers.pop(key).cancel()
     handler.on_moved(FileMovedEvent(src_path=str(tmp_path / "a.tmp"), dest_path=str(tmp_path / "other.pt")))
     assert watcher._timers == {}
+
+
+@pytest.mark.usefixtures("mock_watcher_threads")
+def test_stat_error_keeps_signature(tmp_path: Path, monkeypatch):
+    on_change = MagicMock()
+    watcher = FileWatcher(on_change=on_change, debounce_delay=0.1)
+    source = tmp_path / "model.pt"
+    source.write_bytes(b"v1")
+    watcher.watch_sources([_make_save("model.pt", source)])
+    key = str(source.resolve())
+    original_signature = watcher._registered[key][0].signature
+    stat = MagicMock(side_effect=PermissionError("access denied"))
+    monkeypatch.setattr(watcher_helper, "os", SimpleNamespace(stat=stat))
+
+    watcher._process_change(key)
+
+    assert watcher._registered[key][0].signature == original_signature
+    on_change.assert_not_called()
+
+
+def test_signature_detects_inode_change(monkeypatch):
+    stat = MagicMock(
+        side_effect=[
+            SimpleNamespace(st_mtime_ns=100, st_size=2, st_ino=7),
+            SimpleNamespace(st_mtime_ns=100, st_size=2, st_ino=8),
+        ]
+    )
+    monkeypatch.setattr(watcher_helper, "os", SimpleNamespace(stat=stat))
+
+    assert watcher_helper.compute_signature("model.pt") != watcher_helper.compute_signature("model.pt")
 
 
 # ── 真实 observer（跨平台事件语义）──
@@ -196,9 +249,8 @@ def test_watch_sources_real_observer_atomic_replace(tmp_path: Path):
     watcher = FileWatcher(on_change=calls.append, debounce_delay=REAL_OBSERVER_DEBOUNCE)
     source = tmp_path / "model.pt"
     source.write_bytes(b"v1")
-    watcher.watch_sources([_make_save("model.pt", source)])
-
     try:
+        watcher.watch_sources([_make_save("model.pt", source)])
         # in-place 写作为 warm-up，确认 observer 已开始接收事件
         source.write_bytes(b"v2-warm-up")
         assert _wait_until(lambda: len(calls) >= 1), "observer warm-up write not detected"
@@ -218,9 +270,8 @@ def test_watch_sources_real_observer_delete_and_recreate(tmp_path: Path):
     watcher = FileWatcher(on_change=calls.append, debounce_delay=REAL_OBSERVER_DEBOUNCE)
     source = tmp_path / "model.pt"
     source.write_bytes(b"v1")
-    watcher.watch_sources([_make_save("model.pt", source)])
-
     try:
+        watcher.watch_sources([_make_save("model.pt", source)])
         source.write_bytes(b"v2-warm-up")
         assert _wait_until(lambda: len(calls) >= 1), "observer warm-up write not detected"
 

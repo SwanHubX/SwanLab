@@ -133,6 +133,7 @@ class FileWatcher:
             self._timers[path] = timer
         timer.start()
 
+    @safe.decorator(OSError, level="debug", message=None)
     def _process_change(self, path: str) -> None:
         """定时器到期后执行：计算签名 → 对比 → 触发回调。同一路径的所有条目各回调一次。"""
         with self._lock:
@@ -142,10 +143,11 @@ class FileWatcher:
                 return
             entries = list(entries)
 
-        # 文件暂时不存在（删除后重建、替换窗口等）时保留注册，由后续 on_created/on_moved
-        # 复活监听；若此时移除注册，重建后的 on_created 会因路径不在注册表被忽略，监听永久丢失
+        # 文件缺失时保留注册、清空签名，重建后触发回调。
         new_sig = compute_signature(path)
         if new_sig is None:
+            for entry in entries:
+                entry.signature = None
             return
 
         for entry in entries:
