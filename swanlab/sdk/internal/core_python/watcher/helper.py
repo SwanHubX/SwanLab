@@ -28,14 +28,19 @@ class FileEntry:
     source_path: str  # 源文件绝对路径
     target_path: str  # 本地镜像路径（软链接位置）
     policy: Optional[int] = None  # SavePolicy enum int value
-    signature: Optional[str] = None  # 上次已知的 mtime+size 签名
+    signature: Optional[str] = None  # 上次已知的 mtime+size+inode 签名
 
 
 @safe.decorator(OSError, level="debug", message=None)
 def compute_signature(path: str) -> Optional[str]:
-    """基于 mtime + size 计算快速签名，避免每次读文件算 MD5。"""
+    """基于 mtime + size + inode 计算快速签名，避免每次读文件算 MD5。
+
+    inode（Windows 上为 NTFS 文件索引）保证"删除后同尺寸重建"也能检出变化：
+    NTFS 时间戳粒度内 mtime 可能与重建前相同，且 os.stat 可能读到目录项缓存中的旧值，
+    仅凭 mtime+size 会误判"未变化"而漏报。
+    """
     st = os.stat(path)
-    return f"{st.st_mtime_ns}:{st.st_size}"
+    return f"{st.st_mtime_ns}:{st.st_size}:{st.st_ino}"
 
 
 OnChangeCallback = Callable[[SaveRecord], None]
