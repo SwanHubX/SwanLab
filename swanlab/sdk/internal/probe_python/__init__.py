@@ -94,7 +94,12 @@ class ProbePython(ProbeProtocol):
             if sys_info.metadata:
                 content = sys_info.metadata.model_dump_json(by_alias=True)
                 payload.append(
-                    make_save_record("metadata", SaveType.SAVE_TYPE_METADATA, content, ctx.metadata_file, skip_store)
+                    make_save_record(
+                        "metadata",
+                        SaveType.SAVE_TYPE_METADATA,
+                        content,
+                        None if skip_store else ctx.metadata_file,
+                    )
                 )
             if sys_info.requirements:
                 payload.append(
@@ -102,13 +107,17 @@ class ProbePython(ProbeProtocol):
                         "requirements",
                         SaveType.SAVE_TYPE_REQUIREMENTS,
                         sys_info.requirements,
-                        ctx.requirements_file,
-                        skip_store,
+                        None if skip_store else ctx.requirements_file,
                     )
                 )
             if sys_info.conda:
                 payload.append(
-                    make_save_record("conda", SaveType.SAVE_TYPE_CONDA, sys_info.conda, ctx.conda_file, skip_store)
+                    make_save_record(
+                        "conda",
+                        SaveType.SAVE_TYPE_CONDA,
+                        sys_info.conda,
+                        None if skip_store else ctx.conda_file,
+                    )
                 )
             if payload:
                 self._core.upsert_saves(payload)
