@@ -12,7 +12,6 @@ from typing import Optional
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaItem
 from swanlab.sdk.internal.context import TransformMedia
-from swanlab.sdk.internal.pkg import fs
 from swanlab.sdk.typings.run.transforms import CaptionType
 from swanlab.sdk.typings.run.transforms.echarts import EChartsDataType
 
@@ -59,9 +58,4 @@ class ECharts(TransformMedia):
             size=len(content_encode),
             caption=self.caption or "",
         )
-        if path is None:
-            # skip_store：内容随 payload 走；空内容也赋值以保留 presence（与缺失 payload 区分）。
-            item.payload = content_encode
-        else:
-            fs.safe_write(path / filename, content_encode, mode="wb")
-        return item
+        return self._attach_content(item, path, content_encode)

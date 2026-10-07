@@ -15,7 +15,6 @@ from swanlab import vendor
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaItem
 from swanlab.sdk.internal.context import TransformMedia
-from swanlab.sdk.internal.pkg import fs
 from swanlab.sdk.typings.run.transforms import CaptionType
 from swanlab.sdk.typings.run.transforms.object3d import Object3DDataType
 
@@ -234,12 +233,7 @@ class Object3D(TransformMedia):
             size=len(content),
             caption=self.caption or "",
         )
-        if path is None:
-            # skip_store：payload 保存二进制字节流。
-            item.payload = content
-        else:
-            fs.safe_write(path / filename, content, mode="wb")
-        return item
+        return self._attach_content(item, path, content)
 
 
 # ---------- 辅助函数 ----------
