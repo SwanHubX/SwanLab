@@ -315,7 +315,7 @@ class TestCorePythonSkipStore:
         transport = MagicMock()
         core._transport = transport
         store = core._store
-        assert store is not None
+        assert isinstance(store, NullDataStoreWriter)
         skipped_before = store._skipped_records  # start record 已经过 write()
 
         core._on_file_changed(SaveRecord())
@@ -342,7 +342,7 @@ class TestCorePythonSkipStore:
         """skip 下 _store_records 不调用 SerializeToString，仅登记未持久化计数。"""
         core = self._start_online_core(tmp_path, monkeypatch, skip_store=True)
         store = core._store
-        assert store is not None
+        assert isinstance(store, NullDataStoreWriter)
         skipped_before = store._skipped_records
 
         record = MagicMock()
