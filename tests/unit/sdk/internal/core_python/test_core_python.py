@@ -317,14 +317,10 @@ class TestCorePythonSkipStore:
         core = self._start_online_core(tmp_path, monkeypatch, skip_store=True)
         transport = MagicMock()
         core._transport = transport
-        store = core._store
-        assert isinstance(store, NullDataStoreWriter)
-        skipped_before = store._skipped_records  # start record 已经过 write()
 
         core._on_file_changed(SaveRecord())
 
         transport.put.assert_called_once()
-        assert store._skipped_records == skipped_before + 1
         assert not core._ctx.run_file.exists()
 
     def test_live_save_after_finish_is_ignored(self, tmp_path, monkeypatch):
@@ -342,17 +338,13 @@ class TestCorePythonSkipStore:
         assert not core._ctx.run_file.exists()
 
     def test_store_records_skips_serialization(self, tmp_path, monkeypatch):
-        """skip 下 _store_records 不调用 SerializeToString，仅登记未持久化计数。"""
+        """skip 下 _store_records 直接返回，不调用 SerializeToString。"""
         core = self._start_online_core(tmp_path, monkeypatch, skip_store=True)
-        store = core._store
-        assert isinstance(store, NullDataStoreWriter)
-        skipped_before = store._skipped_records
 
         record = MagicMock()
         core._store_records([record, record, record])
 
         record.SerializeToString.assert_not_called()
-        assert store._skipped_records == skipped_before + 3
 
     def test_custom_save_skips_local_links(self, tmp_path, monkeypatch):
         """skip 下不创建镜像软链接、不填 target_path，也不触碰 files 目录；live 记录无监听路径，正常上传。"""

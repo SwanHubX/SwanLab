@@ -10,7 +10,7 @@ skip_store 模式下没有本地镜像目录，使用 NullFileWatcher 跳过所�
 import os
 import threading
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Protocol
 
 from watchdog.observers import Observer
 
@@ -20,7 +20,17 @@ from swanlab.sdk.internal.pkg import safe
 from .helper import FileEntry, OnChangeCallback, _Handler, compute_signature, create_save_links
 
 
-class FileWatcher:
+class FileWatcherProtocol(Protocol):
+    """文件监听协议：真实 watcher 与空实现共用。"""
+
+    def register_live_watches(self, save_records: List[SaveRecord], files_dir: Path) -> None: ...
+
+    def stop(self) -> None: ...
+
+    def watch(self, dir_path: str, file_paths: List[str], policies: Optional[List[int]] = None) -> None: ...
+
+
+class FileWatcher(FileWatcherProtocol):
     """基于 watchdog + trailing debounce 的文件监听器。
 
     参数:
@@ -141,7 +151,7 @@ class FileWatcher:
             self._started = False
 
 
-class NullFileWatcher:
+class NullFileWatcher(FileWatcherProtocol):
     """空文件监听器，用于 skip_store：不创建 observer、定时器或监听线程。"""
 
     def register_live_watches(self, save_records: List[SaveRecord], files_dir: Path) -> None:
@@ -150,5 +160,8 @@ class NullFileWatcher:
     def stop(self) -> None:
         pass
 
+    def watch(self, dir_path: str, file_paths: List[str], policies: Optional[List[int]] = None) -> None:
+        pass
 
-__all__ = ["create_save_links", "FileWatcher", "NullFileWatcher"]
+
+__all__ = ["create_save_links", "FileWatcher", "FileWatcherProtocol", "NullFileWatcher"]

@@ -7,7 +7,6 @@
 
 import struct
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import pytest
 
@@ -275,16 +274,6 @@ class TestSkipMode:
         w.open(str(p))
         assert not p.exists()
 
-    def test_skip_records_counts_without_persisting(self, tmp_path: Path):
-        p = tmp_path / "skip.swanlab"
-        w = NullDataStoreWriter()
-        w.open(str(p))
-        w.skip_records(3)
-        assert w._skipped_records == 3
-        assert not p.exists()
-        w.close()
-        assert not p.exists()
-
     def test_write_is_noop(self, tmp_path: Path):
         """空写入器丢弃写入：不抛错、不落盘。"""
         p = tmp_path / "skip.swanlab"
@@ -302,15 +291,6 @@ class TestSkipMode:
         w.open(str(p))
         assert not p.exists()
         w.close()
-
-    def test_close_logs_skipped_count(self, tmp_path: Path, monkeypatch):
-        debug = MagicMock()
-        monkeypatch.setattr("swanlab.sdk.internal.core_python.store.console.debug", debug)
-        w = NullDataStoreWriter()
-        w.open(str(tmp_path / "skip.swanlab"))
-        w.skip_records(2)
-        w.close()
-        debug.assert_called_once_with("local store skipped, 2 records not persisted")
 
     def test_default_writer_still_persists(self, tmp_path: Path):
         """默认 skip=False 行为不变：文件照常创建、写入、可读回。"""

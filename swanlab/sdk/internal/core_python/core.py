@@ -18,7 +18,7 @@ Core 同时需要根据不同模式处理不同的业务，这是设计模式决
 值得说明的是，在当前的上层设计中，upsert 方法在 disabled 模式下永远不会触发，但是考虑到设计完整性，我们增加了相关业务逻辑判断
 """
 
-from typing import List, Optional, Union
+from typing import List, Optional
 
 from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
     ConfirmRunFinishResponse,
@@ -43,11 +43,16 @@ from swanlab.sdk.internal.core_python.context import CoreContext
 from swanlab.sdk.internal.core_python.heartbeat import Heartbeat
 from swanlab.sdk.internal.core_python.metrics import RunMetrics
 from swanlab.sdk.internal.core_python.pkg import builder, counter
-from swanlab.sdk.internal.core_python.store import DataStoreWriter, NullDataStoreWriter
+from swanlab.sdk.internal.core_python.store import DataStoreWriter, DataStoreWriterProtocol, NullDataStoreWriter
 from swanlab.sdk.internal.core_python.transport import Transport
 from swanlab.sdk.internal.core_python.transport.tracker import UploadTracker
 from swanlab.sdk.internal.core_python.utils import generate_run_online_path, prepare_experiment_start
-from swanlab.sdk.internal.core_python.watcher import FileWatcher, NullFileWatcher, create_save_links
+from swanlab.sdk.internal.core_python.watcher import (
+    FileWatcher,
+    FileWatcherProtocol,
+    NullFileWatcher,
+    create_save_links,
+)
 from swanlab.sdk.internal.pkg import adapter, console, safe
 from swanlab.sdk.protocol import CoreProtocol
 from swanlab.sdk.typings.core_python.api.experiment import ResumeExperimentSummaryType
@@ -65,7 +70,7 @@ class CorePython(CoreProtocol):
     def __init__(self, mode: ModeType):
         super().__init__(mode)
         self._run_ctx: Optional[CoreContext] = None
-        self._store: Optional[Union[DataStoreWriter, NullDataStoreWriter]] = None
+        self._store: Optional[DataStoreWriterProtocol] = None
         self._transport: Optional[Transport] = None
         # 标记core是否激活，未激活时拒绝接受上报数据，表达一个完整的生命周期状态：
         # initialized but not started -> active -> finished
@@ -83,7 +88,7 @@ class CorePython(CoreProtocol):
         # finish 时暂存的记录，等待 confirm_run_finish 时上报，用于online模式的两阶段 finish 设计
         self._pending_online_finish_record: Optional[FinishRecord] = None
         # save 相关
-        self._watcher: Union[FileWatcher, NullFileWatcher] = NullFileWatcher()
+        self._watcher: Optional[FileWatcherProtocol] = None
         self._pending_end_saves: List[Record] = []
 
     @property
@@ -105,9 +110,10 @@ class CorePython(CoreProtocol):
         return resp
 
     def _start_store(self, resp: DeliverRunStartResponse):
-        # skip_store 模式下保持空写入器与空监听器，跳过本地存储和文件监听
+        # skip_store 模式下使用空写入器与空监听器，跳过本地存储和文件监听
         if self._ctx.config.skip_store:
             self._store = NullDataStoreWriter()
+            self._watcher = NullFileWatcher()
         else:
             self._store = DataStoreWriter()
             self._watcher = FileWatcher(on_change=self._on_file_changed)
@@ -196,8 +202,7 @@ class CorePython(CoreProtocol):
         """将一组 Record 写入本地存储。"""
         assert self._store is not None, "store must be initialized before upsert"
         if self._ctx.config.skip_store:
-            assert isinstance(self._store, NullDataStoreWriter)
-            self._store.skip_records(len(records))
+            # skip_store：跳过本地序列化与写入
             return
         for record in records:
             self._store.write(record.SerializeToString())
@@ -403,6 +408,7 @@ class CorePython(CoreProtocol):
     def _handle_custom_save(self, saves: List[SaveRecord]) -> List[Record]:
         # skip_store：不创建本地镜像软链接（不触碰 files_dir、不填 target_path），无文件监听
         if not self._ctx.config.skip_store:
+            assert self._watcher is not None, "watcher must be initialized before upsert"
             linked = create_save_links(saves, self._ctx.files_dir)
             if linked > 0:
                 console.info(
@@ -481,7 +487,9 @@ class CorePython(CoreProtocol):
         self._store_records([record])
         self._store.close()
         self._store = None
-        self._watcher.stop()
+        if self._watcher is not None:
+            self._watcher.stop()
+            self._watcher = None
         return log_record
 
     def _finish_when_local(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse:
