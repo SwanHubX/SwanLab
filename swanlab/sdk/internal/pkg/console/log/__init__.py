@@ -88,7 +88,7 @@ def init(bind_to: Optional[Path] = None) -> None:
     if _initialized:
         return
 
-    # bind_to=None：disabled 模式，移除 MemoryHandler，日志无 handler 直接丢弃
+    # bind_to=None：disabled/skip_store 模式，移除内存缓冲、丢弃诊断日志（NullHandler 常驻兜底）
     if bind_to is None:
         if _memory_handler is not None:
             _logger.removeHandler(_memory_handler)

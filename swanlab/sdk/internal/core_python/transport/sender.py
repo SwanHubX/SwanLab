@@ -370,10 +370,14 @@ class HttpRecordSender:
         ``source_path`` 为绝对路径，跨挂载根 sync 时不可读，回退到 run 目录 ``files`` 子目录：
         CUSTOM 按相对名 ``save.name`` 定位，内部保存按 ``source_path`` 的 basename 定位
         （config 的 ``save.name`` 为 ``"config"`` 而非 ``config.yaml``，故一律用 basename）。
+        skip_store 下本 run 不创建镜像，源不可读时直接返回 None（回退命中的是旧 run 遗留文件）。
         """
         primary = Path(save.source_path)
         if primary.is_file():
             return primary
+        # skip_store：files 子目录无本 run 镜像，同名文件属于旧 run，回退会上传错误内容
+        if self._ctx.config.skip_store:
+            return None
         # 反斜杠路径（在 Windows、sync 在 POSIX）需经 PureWindowsPath 解析分隔符，
         # 本地 Path 才能取到正确的 basename 和子目录层级
         if save.type == SaveType.SAVE_TYPE_CUSTOM:

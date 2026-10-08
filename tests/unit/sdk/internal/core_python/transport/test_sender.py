@@ -555,6 +555,17 @@ def test_resolve_save_source_returns_none_when_both_unreadable(tmp_path: Path):
     assert sender.resolve_save_source(rec.save) is None
 
 
+def test_resolve_save_source_skips_stale_fallback_when_skip_store(tmp_path: Path):
+    """skip_store：本 run 无镜像，源不可读时不回退——files 下的同名文件属于旧 run，不能上传。"""
+    rec = _make_save_record(Path("/nonexistent/training-host/model.txt"), name="checkpoints/model.txt")
+    sender = _make_sender(tmp_path, skip_store=True)
+    fallback = tmp_path / "files" / "checkpoints" / "model.txt"
+    fallback.parent.mkdir(parents=True)
+    fallback.write_text("old-run-weights", encoding="utf-8")
+
+    assert sender.resolve_save_source(rec.save) is None
+
+
 def test_upload_save_recovers_internal_metadata_from_run_dir(tmp_path: Path):
     """内部 metadata 跨挂载根 sync：source_path 不可读，但 files/swanlab-metadata.json 有内容 → 成功上传。"""
     sender = _make_sender(tmp_path)
