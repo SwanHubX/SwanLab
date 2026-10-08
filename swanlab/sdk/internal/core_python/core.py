@@ -83,7 +83,7 @@ class CorePython(CoreProtocol):
         # finish 时暂存的记录，等待 confirm_run_finish 时上报，用于online模式的两阶段 finish 设计
         self._pending_online_finish_record: Optional[FinishRecord] = None
         # save 相关
-        self._watcher: Union[FileWatcher, NullFileWatcher] = FileWatcher(on_change=self._on_file_changed)
+        self._watcher: Union[FileWatcher, NullFileWatcher] = NullFileWatcher()
         self._pending_end_saves: List[Record] = []
 
     @property
@@ -105,12 +105,12 @@ class CorePython(CoreProtocol):
         return resp
 
     def _start_store(self, resp: DeliverRunStartResponse):
-        # skip_store 模式下使用空写入器与空监听器，跳过本地存储和文件监听
+        # skip_store 模式下保持空写入器与空监听器，跳过本地存储和文件监听
         if self._ctx.config.skip_store:
             self._store = NullDataStoreWriter()
-            self._watcher = NullFileWatcher()
         else:
             self._store = DataStoreWriter()
+            self._watcher = FileWatcher(on_change=self._on_file_changed)
         self._store.open(str(self._ctx.run_file))
         self._store_records([builder.build_start_record(resp.run)])
 
@@ -402,18 +402,15 @@ class CorePython(CoreProtocol):
 
     def _handle_custom_save(self, saves: List[SaveRecord]) -> List[Record]:
         # skip_store：不创建本地镜像软链接（不触碰 files_dir、不填 target_path），无文件监听
-        if self._ctx.config.skip_store:
-            records = [builder.build_save_record(self._counter, s) for s in saves]
-            self._store_records(records)
-            return records
-        linked = create_save_links(saves, self._ctx.files_dir)
-        if linked > 0:
-            console.info(
-                f"Symlinked {linked} files into the SwanLab run directory; call swanlab.save again to sync new files."
-            )
+        if not self._ctx.config.skip_store:
+            linked = create_save_links(saves, self._ctx.files_dir)
+            if linked > 0:
+                console.info(
+                    f"Symlinked {linked} files into the SwanLab run directory; call swanlab.save again to sync new files."
+                )
+            self._watcher.register_live_watches(saves, self._ctx.files_dir)
         records = [builder.build_save_record(self._counter, s) for s in saves]
         self._store_records(records)
-        self._watcher.register_live_watches(saves, self._ctx.files_dir)
         return records
 
     def _upsert_saves_when_local(self, saves: List[SaveRecord]) -> None:

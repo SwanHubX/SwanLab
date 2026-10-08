@@ -32,7 +32,7 @@ import yaml
 from swanlab.sdk.cmd.init import init
 from swanlab.sdk.cmd.login import login_cli
 from swanlab.sdk.cmd.merge_settings import merge_settings
-from swanlab.sdk.internal.bus import MetricLogEvent, RunEmitter
+from swanlab.sdk.internal.bus import FileSaveEvent, MetricLogEvent, RunEmitter
 from swanlab.sdk.internal.core_python import CorePython, client
 from swanlab.sdk.internal.core_python.watcher import NullFileWatcher
 from swanlab.sdk.internal.pkg import console, fork
@@ -871,37 +871,36 @@ class TestInitOnlineSkipStore:
         assert sum(1 for url in save_urls if url in SKIP_STORE_SAVE_URLS) == 3
         assert any("files/complete" in url for url in save_urls)
 
-    def test_skip_store_live_policy_downgraded_to_now(
-        self,
-        logged_in_client,
-        mock_online_skip_store_apis,
-        tmp_path,
-        rsps,
-        monkeypatch,
-    ):
-        """live 策略（含默认值）在 skip_store 下按 now 发事件，告警每 Run 只发一次，且无文件监听。"""
-        import numpy as np
+    def test_skip_store_save_policy_normalization(self, logged_in_client, mock_online_init_apis, tmp_path, monkeypatch):
+        """skip_store 下 save 策略归一化：live（默认值与显式）→ now，now/end 原样；告警每 Run 一次。"""
+        emitted = []
+        original_emit = RunEmitter.emit
 
+        def _capture_emit(self, event):
+            if isinstance(event, FileSaveEvent):
+                emitted.append(event)
+                return None
+            return original_emit(self, event)
+
+        monkeypatch.setattr(RunEmitter, "emit", _capture_emit)
         warnings: list = []
         monkeypatch.setattr(console, "warning", lambda *args, **kwargs: warnings.append(args))
+
         run = init(project=PROJECT, settings=Settings(core=Settings.Core(skip_store=True)))
         assert isinstance(cast(CorePython, run._core)._watcher, NullFileWatcher)
 
         checkpoint = tmp_path / "model.pt"
         checkpoint.write_text("weights", encoding="utf-8")
         run.log({"loss": 0.5})
-        run.log_image(key="img", data=np.zeros((10, 10, 3), dtype=np.uint8))
-        run.save("model.pt", base_path=str(tmp_path), policy="live")
-        run.save("model.pt", base_path=str(tmp_path), policy="live")
-        run.save("model.pt", base_path=str(tmp_path))  # 默认 policy 同样降级
-
+        run.save("model.pt", base_path=str(tmp_path))  # 默认 policy=live → 降级
+        run.save("model.pt", base_path=str(tmp_path), policy="live")  # 显式 live → 降级
+        run.save("model.pt", base_path=str(tmp_path), policy="now")
+        run.save("model.pt", base_path=str(tmp_path), policy="end")
         run.finish()
 
+        assert [e.policy for e in emitted] == ["now", "now", "now", "end"]
         downgrade_warnings = [w for w in warnings if "core.skip_store=True" in str(w)]
         assert len(downgrade_warnings) == 1
-        # 三次 save 均按 now 上传对象存储（无 end 延迟、无监听）
-        save_urls = [c.request.url for c in rsps.calls]
-        assert sum(1 for url in save_urls if url in SKIP_STORE_SAVE_URLS) == 3
 
     def test_default_creates_datastore(
         self,

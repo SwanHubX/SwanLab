@@ -1,8 +1,8 @@
 """
 基于 watchdog 的文件监听器，采用 trailing debounce 策略。
 
-监听 swanlog/{run_id}/files/ 下的软链接镜像，文件稳定（停止写入
-debounce_delay 秒）后触发 on_change 回调。
+监听 swanlog/{run_id}/files/ 目录下的文件变化，
+文件稳定（停止写入 debounce_delay 秒）后触发 on_change 回调。
 
 skip_store 模式下没有本地镜像目录，使用 NullFileWatcher 跳过所有监听。
 """
@@ -10,7 +10,7 @@ skip_store 模式下没有本地镜像目录，使用 NullFileWatcher 跳过所�
 import os
 import threading
 from pathlib import Path
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional
 
 from watchdog.observers import Observer
 
@@ -33,13 +33,12 @@ class FileWatcher:
         self._debounce_delay = debounce_delay
         self._observer = Observer()
         self._timers: Dict[str, threading.Timer] = {}
-        self._registered: Dict[str, List[FileEntry]] = {}  # 事件路径 → entries（同源多 name 时为多条）
-        self._scheduled_dirs: Set[str] = set()  # 已调度监听的目录绝对路径
+        self._registered: Dict[str, FileEntry] = {}  # abs_path → entry
         self._lock = threading.Lock()
         self._started = False
 
     def watch(self, dir_path: str, file_paths: List[str], policies: Optional[List[int]] = None) -> None:
-        """镜像模式：注册并开始监听指定目录下的文件。
+        """注册并开始监听指定目录下的文件。
 
         :param dir_path: 监听目录的绝对路径
         :param file_paths: 相对于 dir_path 的文件路径列表
@@ -51,6 +50,8 @@ class FileWatcher:
         with self._lock:
             for idx, rel in enumerate(file_paths):
                 abs_path = str(Path(dir_abs) / rel)
+                if abs_path in self._registered:
+                    continue
                 source_path = self._resolve_source(abs_path)
                 entry = FileEntry(
                     name=rel,
@@ -59,24 +60,11 @@ class FileWatcher:
                     policy=policies[idx] if policies and idx < len(policies) else None,
                     signature=compute_signature(abs_path),
                 )
-                self._register(abs_path, entry)
+                self._registered[abs_path] = entry
 
-        self._ensure_scheduled(dir_abs)
-
-    def _register(self, event_path: str, entry: FileEntry) -> None:
-        """登记一条监听（调用方持锁）。同一事件路径可挂多个 name，按 (name, source_path) 幂等。"""
-        entries = self._registered.setdefault(event_path, [])
-        if any(e.name == entry.name and e.source_path == entry.source_path for e in entries):
-            return
-        entries.append(entry)
-
-    def _ensure_scheduled(self, dir_abs: str) -> None:
-        """确保目录已被 watchdog 监听；首次调度时启动 observer 线程。"""
-        if dir_abs in self._scheduled_dirs:
-            return
-        self._scheduled_dirs.add(dir_abs)
-        self._observer.schedule(_Handler(self), dir_abs, recursive=False)
+        # 启动 watchdog（只需一次）
         if not self._started:
+            self._observer.schedule(_Handler(self), dir_abs, recursive=False)
             self._observer.start()
             self._started = True
 
@@ -103,36 +91,34 @@ class FileWatcher:
 
     @safe.decorator(OSError, level="debug", message=None)
     def _process_change(self, path: str) -> None:
-        """定时器到期后执行：计算签名 → 对比 → 触发回调。同一路径的所有条目各回调一次。"""
+        """定时器到期后执行：计算签名 → 对比 → 触发回调。"""
         with self._lock:
             self._timers.pop(path, None)
-            entries = self._registered.get(path)
-            if not entries:
+            entry = self._registered.get(path)
+            if entry is None:
                 return
-            entries = list(entries)
 
         # 文件缺失时保留注册、清空签名，重建后触发回调。
         new_sig = compute_signature(path)
         if new_sig is None:
-            for entry in entries:
-                entry.signature = None
+            entry.signature = None
             return
 
-        for entry in entries:
-            # 签名未变则忽略
-            if new_sig == entry.signature:
-                continue
-            # 签名变化，更新并触发回调
-            entry.signature = new_sig
-            record = SaveRecord(
-                name=entry.name,
-                source_path=entry.source_path,
-                target_path=entry.target_path,
-            )
-            if entry.policy is not None:
-                record.policy = entry.policy  # type: ignore[assignment]
-            with safe.block(message=f"FileWatcher on_change callback error for {path}"):
-                self._on_change(record)
+        # 签名未变则忽略
+        if new_sig == entry.signature:
+            return
+
+        # 签名变化，更新并触发回调
+        entry.signature = new_sig
+        record = SaveRecord(
+            name=entry.name,
+            source_path=entry.source_path,
+            target_path=entry.target_path,
+        )
+        if entry.policy is not None:
+            record.policy = entry.policy  # type: ignore[assignment]
+        with safe.block(message=f"FileWatcher on_change callback error for {path}"):
+            self._on_change(record)
 
     def register_live_watches(self, save_records: List[SaveRecord], files_dir: Path) -> None:
         """对 policy=SAVE_POLICY_LIVE 的记录注册文件监听。"""
@@ -147,7 +133,6 @@ class FileWatcher:
             for timer in self._timers.values():
                 timer.cancel()
             self._timers.clear()
-            self._scheduled_dirs.clear()
 
         if self._started:
             self._observer.stop()
@@ -157,16 +142,13 @@ class FileWatcher:
 
 
 class NullFileWatcher:
-    """空文件监听器：不创建 observer、定时器或监听线程，注册与停止均为无操作。
-
-    skip_store 模式下没有本地镜像目录，文件变化监听不可用。
-    """
+    """空文件监听器，用于 skip_store：不创建 observer、定时器或监听线程。"""
 
     def register_live_watches(self, save_records: List[SaveRecord], files_dir: Path) -> None:
-        """无操作，不注册任何监听。"""
+        pass
 
     def stop(self) -> None:
-        """无操作，无资源需要释放。"""
+        pass
 
 
 __all__ = ["create_save_links", "FileWatcher", "NullFileWatcher"]

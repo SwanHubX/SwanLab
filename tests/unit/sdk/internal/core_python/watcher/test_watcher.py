@@ -1,6 +1,6 @@
-import threading
 from pathlib import Path
 from types import SimpleNamespace
+from typing import cast
 from unittest.mock import MagicMock
 
 import pytest
@@ -42,7 +42,7 @@ def test_watch_skips_already_registered_file(tmp_path: Path):
     # 仍然只有一条记录，且签名是第一次注册时的
     assert len(watcher._registered) == 1
     abs_path = str((tmp_path / "model.pt").resolve())
-    assert watcher._registered[abs_path][0].signature is not None
+    assert watcher._registered[abs_path].signature is not None
 
 
 @pytest.mark.usefixtures("mock_watcher_threads")
@@ -111,21 +111,29 @@ def test_on_moved_matches_registered_dest_only(tmp_path: Path):
 
 
 @pytest.mark.usefixtures("mock_watcher_threads")
-def test_stat_error_keeps_signature(tmp_path: Path, monkeypatch):
+def test_missing_file_keeps_registration(tmp_path: Path):
+    """文件缺失时保留注册并清空签名；重建后签名变化触发回调，且不重复触发。"""
     on_change = MagicMock()
     watcher = FileWatcher(on_change=on_change, debounce_delay=0.1)
     source = tmp_path / "model.pt"
     source.write_bytes(b"v1")
     watcher.watch(str(tmp_path), ["model.pt"])
     key = str((tmp_path / "model.pt").resolve())
-    original_signature = watcher._registered[key][0].signature
-    stat = MagicMock(side_effect=PermissionError("access denied"))
-    monkeypatch.setattr(watcher_helper, "os", SimpleNamespace(stat=stat))
 
+    # 文件缺失：保留注册、清空签名、不回调
+    source.unlink()
     watcher._process_change(key)
-
-    assert watcher._registered[key][0].signature == original_signature
+    assert key in watcher._registered
+    assert watcher._registered[key].signature is None
     on_change.assert_not_called()
+
+    # 重建后签名变化，触发一次回调；再次触发时签名未变，不重复回调
+    source.write_bytes(b"v2")
+    watcher._process_change(key)
+    on_change.assert_called_once()
+    assert on_change.call_args[0][0].source_path == key
+    watcher._process_change(key)
+    on_change.assert_called_once()
 
 
 def test_signature_detects_inode_change(monkeypatch):
@@ -145,12 +153,12 @@ def test_signature_detects_inode_change(monkeypatch):
 
 @pytest.mark.usefixtures("mock_watcher_threads")
 def test_null_watcher_is_noop(tmp_path: Path):
-    """空监听器：注册 LIVE 记录与 stop 均为无操作，不创建监听线程。"""
+    """空监听器：注册与停止均为无操作，不创建 Observer 或 Timer。"""
     watcher = NullFileWatcher()
     save = SaveRecord(name="model.pt", source_path=str(tmp_path / "model.pt"), policy=SavePolicy.SAVE_POLICY_LIVE)
 
-    threads_before = threading.active_count()
     watcher.register_live_watches([save], tmp_path)
     watcher.stop()
 
-    assert threading.active_count() == threads_before
+    cast(MagicMock, watcher_module.Observer).assert_not_called()
+    cast(MagicMock, watcher_module.threading.Timer).assert_not_called()
