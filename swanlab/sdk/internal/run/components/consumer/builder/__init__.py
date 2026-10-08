@@ -6,16 +6,19 @@
 """
 
 from functools import singledispatchmethod
+from pathlib import Path
 from typing import Optional
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
+from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord
 from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord, SaveType
 from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogRecord
 from swanlab.sdk.internal.bus.events import ConfigEvent, FileSaveEvent, LogEvent, ParseResult
 from swanlab.sdk.internal.context import RunContext, TransformMedia
 from swanlab.sdk.internal.pkg import adapter, console, fs
+from swanlab.sdk.internal.run.components.config.writer import dump_config
 from swanlab.sdk.internal.run.transforms import ECharts, Scalar, echarts
 
 _EchartsType = (echarts.Base, echarts.Table)
@@ -42,6 +45,17 @@ class RecordBuilder:
         self._ctx = ctx
         # 由 BackgroundConsumer 单线程调用，无需锁
         self._num: int = 0
+
+    def _resolve_media_dir(self, column_type: ColumnType) -> Optional[Path]:
+        """解析媒体存储目录。
+
+        skip_store 下返回 None：不创建 media 目录，由 transform 将内容写入 MediaItem.payload。
+        """
+        if self._ctx.config.settings.core.skip_store:
+            return None
+        path = self._ctx.media_dir / adapter.medium[column_type]
+        fs.safe_mkdir(path)
+        return path
 
     def _ensure_media_size(self, record: MediaRecord) -> Optional[MediaRecord]:
         """
@@ -109,8 +123,7 @@ class RecordBuilder:
         if not all(isinstance(item, cls) for item in value):
             raise TypeError(f"All items in the list must be of the same type {cls.__name__}, got mixed types.")
         # 3. 构建媒体记录
-        path = self._ctx.media_dir / adapter.medium[cls.column_type()]
-        fs.safe_mkdir(path)
+        path = self._resolve_media_dir(cls.column_type())
         items = [item.transform(step=step, path=path) for item in value]
         media_record = self._ensure_media_size(
             cls.build_data_record(key=key, step=step, timestamp=timestamp, data=items)
@@ -121,8 +134,7 @@ class RecordBuilder:
     def _(self, value: TransformMedia, key: str, timestamp: Timestamp, step: int) -> ParseResult:
         """将单个 TransformMediaType 转换为 MediaRecord"""
         cls = value.__class__
-        path = self._ctx.media_dir / adapter.medium[cls.column_type()]
-        fs.safe_mkdir(path)
+        path = self._resolve_media_dir(cls.column_type())
         values = [value.transform(step=step, path=path)]
         media_record = self._ensure_media_size(
             cls.build_data_record(key=key, step=step, timestamp=timestamp, data=values)
@@ -130,9 +142,18 @@ class RecordBuilder:
         return media_record, cls
 
     # ── 系统元数据 ──
-    @staticmethod
-    def build_config(event: ConfigEvent) -> SaveRecord:
-        """构建 Config Save envelope"""
+    def build_config(self, event: ConfigEvent) -> SaveRecord:
+        """构建 Config Save envelope。
+
+        skip_store 下 config 不落盘，内容按落盘同款 YAML 编码填入 payload；
+        未启用时 payload 为 None，Core 按 source_path 读取 config.yaml。
+        """
+        if self._ctx.config.settings.core.skip_store:
+            return SaveRecord(
+                name="config",
+                type=SaveType.SAVE_TYPE_CONFIG,
+                payload=dump_config(event.content).encode("utf-8"),
+            )
         return SaveRecord(name="config", source_path=event.path.absolute().as_posix(), type=SaveType.SAVE_TYPE_CONFIG)
 
     @staticmethod

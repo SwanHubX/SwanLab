@@ -12,14 +12,14 @@ DataStore 大致代码借鉴自 W&B
 import struct
 import zlib
 from pathlib import Path
-from typing import IO, Any, Optional, Tuple
+from typing import IO, Any, Optional, Protocol, Tuple
 
 from typing_extensions import Union
 
 from swanlab.exceptions import DataStoreError
 from swanlab.sdk.internal.pkg import console, safe
 
-__all__ = ["DataStoreWriter", "DataStoreReader", "DataStoreError"]
+__all__ = ["DataStoreWriter", "DataStoreWriterProtocol", "NullDataStoreWriter", "DataStoreReader", "DataStoreError"]
 
 LEVELDBLOG_HEADER_LEN = 7
 LEVELDBLOG_BLOCK_LEN = 32768
@@ -45,7 +45,19 @@ for _x in range(1, LEVELDBLOG_LAST + 1):
 # ===========================================================================
 
 
-class DataStoreWriter:
+class DataStoreWriterProtocol(Protocol):
+    """数据写入协议。"""
+
+    def open(self, filename: Union[Path, str]) -> None: ...
+
+    def write(self, data: bytes) -> None: ...
+
+    def ensure_flushed(self) -> None: ...
+
+    def close(self) -> None: ...
+
+
+class DataStoreWriter(DataStoreWriterProtocol):
     """追加写入器，持有一个长期打开的二进制文件句柄。"""
 
     def __init__(self):
@@ -119,6 +131,22 @@ class DataStoreWriter:
         if data:
             self._fp.write(data)
         self._index += LEVELDBLOG_HEADER_LEN + len(data)
+
+
+class NullDataStoreWriter(DataStoreWriterProtocol):
+    """空数据写入器，用于 skip_store：跳过所有本地文件操作。"""
+
+    def open(self, filename: Union[Path, str]) -> None:
+        """空操作，不创建本地文件。"""
+
+    def write(self, data: bytes) -> None:
+        """空操作，丢弃写入数据。"""
+
+    def ensure_flushed(self) -> None:
+        """空操作。"""
+
+    def close(self) -> None:
+        """空操作。"""
 
 
 # ===========================================================================

@@ -28,15 +28,17 @@ SAVE_TYPE_REQUIREMENTS: SaveType
 SAVE_TYPE_CONDA: SaveType
 
 class SaveRecord(_message.Message):
-    __slots__ = ("name", "source_path", "target_path", "policy", "type")
+    __slots__ = ("name", "source_path", "target_path", "policy", "type", "payload")
     NAME_FIELD_NUMBER: _ClassVar[int]
     SOURCE_PATH_FIELD_NUMBER: _ClassVar[int]
     TARGET_PATH_FIELD_NUMBER: _ClassVar[int]
     POLICY_FIELD_NUMBER: _ClassVar[int]
     TYPE_FIELD_NUMBER: _ClassVar[int]
+    PAYLOAD_FIELD_NUMBER: _ClassVar[int]
     name: str
     source_path: str
     target_path: str
     policy: SavePolicy
     type: SaveType
-    def __init__(self, name: _Optional[str] = ..., source_path: _Optional[str] = ..., target_path: _Optional[str] = ..., policy: _Optional[_Union[SavePolicy, str]] = ..., type: _Optional[_Union[SaveType, str]] = ...) -> None: ...
+    payload: bytes
+    def __init__(self, name: _Optional[str] = ..., source_path: _Optional[str] = ..., target_path: _Optional[str] = ..., policy: _Optional[_Union[SavePolicy, str]] = ..., type: _Optional[_Union[SaveType, str]] = ..., payload: _Optional[bytes] = ...) -> None: ...

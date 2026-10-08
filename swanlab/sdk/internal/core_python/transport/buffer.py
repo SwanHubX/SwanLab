@@ -2,7 +2,7 @@
 @author: caddiesnew
 @file: buffer.py
 @time: 2026/4/17
-@description: 基于 list + set 去重索引的 RecordBuffer
+@description: 按编号去重的 RecordBuffer
 """
 
 from typing import Iterable, List
@@ -12,16 +12,15 @@ from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 
 class RecordBuffer:
     """
-    Record 缓冲区，内部用 list 存储 Record、set[int] 做 num 去重索引。
+    Record 缓冲区，按插入顺序存储记录，同编号保留最后写入的内容。
 
     调用方需要在外部加锁（如 threading.Condition）。
     """
 
-    __slots__ = ("_records", "_record_num_index")
+    __slots__ = ("_records",)
 
     def __init__(self) -> None:
-        self._records: List[Record] = []
-        self._record_num_index: set[int] = set()
+        self._records: dict[int, Record] = {}
 
     def __len__(self) -> int:
         return len(self._records)
@@ -32,32 +31,30 @@ class RecordBuffer:
     # ── 写入 ──
 
     def extend(self, records: Iterable[Record]) -> int:
-        """追加 records，自动按 num 去重。返回实际入队的数量。"""
-        accepted_records = [record for record in records if self._try_enqueue(record)]
-        self._records.extend(accepted_records)
-        return len(accepted_records)
+        """覆盖同编号记录，保留原位置。返回新增记录数。"""
+        previous_size = len(self._records)
+        for record in records:
+            self._records[record.num] = record
+        return len(self._records) - previous_size
 
     def prepend(self, records: List[Record]) -> int:
-        """回滚到头部，自动按 num 去重。返回实际入队的数量。"""
-        accepted_records = [record for record in records if self._try_enqueue(record)]
-        if accepted_records:
-            self._records[:0] = accepted_records
-        return len(accepted_records)
-
-    def _try_enqueue(self, record: Record) -> bool:
-        """根据 record num 去重，未存在则注册并返回 True。"""
-        if record.num in self._record_num_index:
-            return False
-        self._record_num_index.add(record.num)
-        return True
+        """回滚到头部，保留缓冲中的同编号记录。返回新增记录数。"""
+        accepted_records: dict[int, Record] = {}
+        for record in records:
+            if record.num not in self._records:
+                accepted_records[record.num] = record
+        accepted = len(accepted_records)
+        if accepted:
+            accepted_records.update(self._records)
+            self._records = accepted_records
+        return accepted
 
     # ── 读取 ──
 
     def drain(self) -> List[Record]:
         """取出全部 records 并清空缓冲区（含索引）。"""
-        pending_records = self._records[:]
+        pending_records = list(self._records.values())
         self._records.clear()
-        self._record_num_index.clear()
         return pending_records
 
 

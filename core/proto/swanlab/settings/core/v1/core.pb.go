@@ -33,8 +33,10 @@ type CoreSettings struct {
 	SaveSplit      int64   `protobuf:"varint,7,opt,name=save_split,json=saveSplit,proto3" json:"save_split,omitempty"`
 	SavePart       int64   `protobuf:"varint,8,opt,name=save_part,json=savePart,proto3" json:"save_part,omitempty"`
 	SaveBatch      int32   `protobuf:"varint,9,opt,name=save_batch,json=saveBatch,proto3" json:"save_batch,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// Skip the local Record store (run-*.swanlab). Only valid in online mode.
+	SkipStore     bool `protobuf:"varint,10,opt,name=skip_store,json=skipStore,proto3" json:"skip_store,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CoreSettings) Reset() {
@@ -130,11 +132,18 @@ func (x *CoreSettings) GetSaveBatch() int32 {
 	return 0
 }
 
+func (x *CoreSettings) GetSkipStore() bool {
+	if x != nil {
+		return x.SkipStore
+	}
+	return false
+}
+
 var File_swanlab_settings_core_v1_core_proto protoreflect.FileDescriptor
 
 const file_swanlab_settings_core_v1_core_proto_rawDesc = "" +
 	"\n" +
-	"#swanlab/settings/core/v1/core.proto\x12\x18swanlab.settings.core.v1\"\xa5\x02\n" +
+	"#swanlab/settings/core/v1/core.proto\x12\x18swanlab.settings.core.v1\"\xc4\x02\n" +
 	"\fCoreSettings\x12\x15\n" +
 	"\x06run_id\x18\x01 \x01(\tR\x05runId\x12\x17\n" +
 	"\arun_dir\x18\x02 \x01(\tR\x06runDir\x12!\n" +
@@ -146,7 +155,10 @@ const file_swanlab_settings_core_v1_core_proto_rawDesc = "" +
 	"save_split\x18\a \x01(\x03R\tsaveSplit\x12\x1b\n" +
 	"\tsave_part\x18\b \x01(\x03R\bsavePart\x12\x1d\n" +
 	"\n" +
-	"save_batch\x18\t \x01(\x05R\tsaveBatchBPZNgithub.com/swanhubx/swanlab/core/proto/swanlab/settings/core/v1;settingscorev1b\x06proto3"
+	"save_batch\x18\t \x01(\x05R\tsaveBatch\x12\x1d\n" +
+	"\n" +
+	"skip_store\x18\n" +
+	" \x01(\bR\tskipStoreBPZNgithub.com/swanhubx/swanlab/core/proto/swanlab/settings/core/v1;settingscorev1b\x06proto3"
 
 var (
 	file_swanlab_settings_core_v1_core_proto_rawDescOnce sync.Once

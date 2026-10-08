@@ -143,6 +143,65 @@ class TestBindCtx:
 
 
 # ============================================================
+# skip_store：不落盘，内容随 ConfigEvent 内联
+# ============================================================
+
+
+class TestSkipStore:
+    """online + core.skip_store：config.yaml 不落盘，内容随 ConfigEvent 内联上传云端"""
+
+    def test_bind_never_writes_file(self, tmp_path):
+        """绑定与后续写入均不落盘，也不重建父目录（swanlog 目录树必须保持不存在）"""
+        cfg = Config()
+        config_file = tmp_path / "files" / "config.yaml"
+
+        cfg["lr"] = 0.01
+        cfg._bindctx(config_file, make_emit(), skip_store=True)
+        cfg["epochs"] = 10
+
+        assert not config_file.exists()
+        assert not config_file.parent.exists()
+
+    def test_event_carries_canonical_content(self, tmp_path):
+        """事件 content 为与 config.yaml 同构的 {key: {value, desc, sort}} 结构"""
+        cfg = Config()
+        emit = make_emit()
+        cfg["lr"] = 0.01
+        cfg._bindctx(tmp_path / "config.yaml", emit, skip_store=True)
+        emit.reset_mock()
+
+        cfg["epochs"] = 10
+
+        emit.assert_called_once()
+        event: ConfigEvent = emit.call_args[0][0]
+        assert event.content == {
+            "lr": {"value": 0.01, "desc": "", "sort": 0},
+            "epochs": {"value": 10, "desc": "", "sort": 1},
+        }
+
+    def test_default_mode_content_matches_file(self, tmp_path):
+        """默认模式同样携带 content，且与落盘 YAML 还原结果一致"""
+        cfg, emit, config_file = bound_config(tmp_path)
+        emit.reset_mock()
+
+        cfg["lr"] = 0.01
+
+        event: ConfigEvent = emit.call_args[0][0]
+        assert event.content == yaml.safe_load(config_file.read_text())
+
+    def test_reset_restores_file_writing(self, tmp_path):
+        """reset 后重新绑定回到默认落盘行为"""
+        cfg = Config()
+        cfg._bindctx(tmp_path / "a" / "config.yaml", make_emit(), skip_store=True)
+        cfg._reset()
+
+        config_file = tmp_path / "config.yaml"
+        cfg._bindctx(config_file, make_emit())
+
+        assert config_file.exists()
+
+
+# ============================================================
 # 生命周期：绑定后写操作
 # ============================================================
 

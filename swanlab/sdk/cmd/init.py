@@ -226,7 +226,14 @@ def init(
     # ---------------------------------- 再次确认参数 ----------------------------------
     # 根据交互式引导确定最终的模式
     mode = prompt_init_mode(run_settings)
-    run_settings.merge_settings({"mode": mode})
+    if run_settings.core.skip_store and mode != "online":
+        # 交互式引导允许用户从 online 降级到 offline；skip_store 仅 online 合法，
+        # 此处显式关闭并告警，避免 merge_settings 抛出裸 ValidationError，
+        # 同时保证离线数据正常落盘（否则与 “Results will be saved locally” 提示矛盾）。
+        console.warning("core.skip_store is only supported in online mode; it has been disabled for this run.")
+        run_settings.merge_settings({"mode": mode, "core": {"skip_store": False}})
+    else:
+        run_settings.merge_settings({"mode": mode})
     # 校验 run id 与 resume，仅在对两者存在性有要求的模式下校验
     if run_settings.mode == "online":
         if run_settings.run.resume == "must":
@@ -538,6 +545,7 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
     上下文生命周期通过 `Run` 管理，而非全局 `ContextVar`
     """
     mode = run_settings.mode
+    skip_store = run_settings.core.skip_store
     # 实验路径，/:username/:project_name/:slug(run_id)，与open api命名一致
     path = None
     # 1. 生成run_id
@@ -545,8 +553,9 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
         run_settings.merge_settings({"run": {"id": generate_id()}})
     run_id = run_settings.run.id
     assert run_id, "Run id is not provided."
+    should_mkdirs = mode != "disabled" and not skip_store
     # 2. 创建运行目录
-    if mode != "disabled":
+    if should_mkdirs:
         # 安全创建目录，并写入 .gitignore（如果目录为空）
         helper.mkdir_and_append_gitignore(run_settings.log_dir)
         # 创建运行子目录，run_dir 必须是新建的，防止误覆盖已有实验数据
@@ -559,7 +568,7 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
             parallel=run_settings.run.parallel,
         )
     else:
-        # 禁用模式下的run_dir为一个示例目录，仅用于满足上下文类型限制
+        # disabled / skip_store 下 run_dir 仅作逻辑路径，不创建目录
         if run_settings.run.dir:
             run_dir = run_settings.log_dir / run_settings.run.dir
         else:
@@ -568,7 +577,7 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
     # 3. 创建一个临时的上下文，避免出现任何问题导致上下文残留
     with use_context(RunContext(config=RunConfig(settings=run_settings, run_dir=run_dir), callbacks=callbacks)) as ctx:
         assert run_settings.project.name, "Project name is required."
-        # 1. 前置操作
+        # 3.1. 前置操作
         # online 模式前置：确保 client 已就绪
         if mode == "online":
             _ensure_online_client(run_settings)
@@ -577,7 +586,7 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
             from swanlab.deprecated.local import LocalCallbacker
 
             ctx.callbacker.merge_callbacks(LocalCallbacker())
-        # 2. 非云端模式，确定 name/color，合并到 settings
+        # 3.2. 非云端模式，确定 name/color，合并到 settings
         if mode != "online":
             args_dict = {}
             for key, value in {
@@ -587,7 +596,7 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
             }.items():
                 set_nested_value(args_dict, key, value)
             run_settings.merge_settings(args_dict)
-        # 3. 统一调用 deliver_run_start（core 内部按 mode 分发：online 走网络，其余本地处理）
+        # 3.3. 统一调用 deliver_run_start（core 内部按 mode 分发：online 走网络，其余本地处理）
         ts = Timestamp()
         ts.GetCurrentTime()
         start_record = StartRecord(
@@ -630,7 +639,7 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
             console.info(
                 "Hardware information collection, monitor, and terminal proxy have been disabled in resume mode."
             )
-        # 4. 从 core 响应同步配置（online 模式会覆盖为服务端分配的值）
+        # 3.4. 从 core 响应同步配置（online 模式会覆盖为服务端分配的值）
         sync_args = {}
         merge_dict = helper.strip_none(
             {
@@ -645,8 +654,8 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
         for key, value in merge_dict.items():
             set_nested_value(sync_args, key, value)
         run_settings.merge_settings(sync_args)
-    # 4. 创建运行目录
-    if mode != "disabled":
+    # 4. 创建数据目录
+    if should_mkdirs:
         fs.safe_mkdirs(ctx.media_dir, ctx.files_dir, ctx.debug_dir)
     return ctx, path
 

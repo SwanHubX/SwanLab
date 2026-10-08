@@ -402,6 +402,49 @@ def test_core_section_rule_env_overrides_legacy(monkeypatch):
     assert settings.core.section_rule == -1
 
 
+class TestSkipStore:
+    """core.skip_store 校验矩阵：仅 online 模式合法"""
+
+    def test_default_false(self):
+        assert Settings().core.skip_store is False
+
+    def test_online_true_passes(self):
+        settings = Settings(mode="online", core=Settings.Core(skip_store=True))
+        assert settings.core.skip_store is True
+
+    def test_legacy_cloud_alias_with_true_passes(self):
+        """历史 mode="cloud" 先归一化为 online，skip_store 校验必须兼容。"""
+        settings = Settings(mode="cloud", core=Settings.Core(skip_store=True))  # type: ignore
+        assert settings.mode == "online"
+        assert settings.core.skip_store is True
+
+    @pytest.mark.parametrize("mode", ["local", "offline", "disabled"])
+    def test_non_online_true_raises(self, mode):
+        with pytest.raises(ValidationError):
+            Settings(mode=mode, core=Settings.Core(skip_store=True))
+
+    def test_env_var_enables(self, monkeypatch):
+        monkeypatch.setenv("SWANLAB_CORE_SKIP_STORE", "true")
+        assert Settings().core.skip_store is True
+
+    def test_global_env_with_offline_raises(self, monkeypatch):
+        """全局设 True 后 init(mode="offline") 的最终组合仍被拦截。"""
+        monkeypatch.setenv("SWANLAB_CORE_SKIP_STORE", "true")
+        with pytest.raises(ValidationError):
+            Settings(mode="offline")
+
+    def test_merge_downgrade_raises(self):
+        """merge_settings 重建实例会重跑校验，交互降级路径被拦截。"""
+        settings = Settings(mode="online", core=Settings.Core(skip_store=True))
+        with pytest.raises(ValidationError):
+            settings.merge_settings({"mode": "offline"})
+
+    def test_to_core_proto_passthrough(self, tmp_path):
+        settings = Settings(mode="online", core=Settings.Core(skip_store=True))
+        proto = settings.to_core_proto(run_id="r1", run_dir=tmp_path)
+        assert proto.skip_store is True
+
+
 @pytest.fixture
 def netrc_file(tmp_path, monkeypatch):
     """

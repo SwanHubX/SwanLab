@@ -43,11 +43,16 @@ from swanlab.sdk.internal.core_python.context import CoreContext
 from swanlab.sdk.internal.core_python.heartbeat import Heartbeat
 from swanlab.sdk.internal.core_python.metrics import RunMetrics
 from swanlab.sdk.internal.core_python.pkg import builder, counter
-from swanlab.sdk.internal.core_python.store import DataStoreWriter
+from swanlab.sdk.internal.core_python.store import DataStoreWriter, DataStoreWriterProtocol, NullDataStoreWriter
 from swanlab.sdk.internal.core_python.transport import Transport
 from swanlab.sdk.internal.core_python.transport.tracker import UploadTracker
 from swanlab.sdk.internal.core_python.utils import generate_run_online_path, prepare_experiment_start
-from swanlab.sdk.internal.core_python.watcher import FileWatcher, create_save_links
+from swanlab.sdk.internal.core_python.watcher import (
+    FileWatcher,
+    FileWatcherProtocol,
+    NullFileWatcher,
+    create_save_links,
+)
 from swanlab.sdk.internal.pkg import adapter, console, safe
 from swanlab.sdk.protocol import CoreProtocol
 from swanlab.sdk.typings.core_python.api.experiment import ResumeExperimentSummaryType
@@ -65,7 +70,7 @@ class CorePython(CoreProtocol):
     def __init__(self, mode: ModeType):
         super().__init__(mode)
         self._run_ctx: Optional[CoreContext] = None
-        self._store: Optional[DataStoreWriter] = None
+        self._store: Optional[DataStoreWriterProtocol] = None
         self._transport: Optional[Transport] = None
         # 标记core是否激活，未激活时拒绝接受上报数据，表达一个完整的生命周期状态：
         # initialized but not started -> active -> finished
@@ -83,7 +88,7 @@ class CorePython(CoreProtocol):
         # finish 时暂存的记录，等待 confirm_run_finish 时上报，用于online模式的两阶段 finish 设计
         self._pending_online_finish_record: Optional[FinishRecord] = None
         # save 相关
-        self._watcher = FileWatcher(on_change=self._on_file_changed)
+        self._watcher: Optional[FileWatcherProtocol] = None
         self._pending_end_saves: List[Record] = []
 
     @property
@@ -105,10 +110,15 @@ class CorePython(CoreProtocol):
         return resp
 
     def _start_store(self, resp: DeliverRunStartResponse):
-        self._store = DataStoreWriter()
+        # skip_store 模式下使用空写入器与空监听器，跳过本地存储和文件监听
+        if self._ctx.config.skip_store:
+            self._store = NullDataStoreWriter()
+            self._watcher = NullFileWatcher()
+        else:
+            self._store = DataStoreWriter()
+            self._watcher = FileWatcher(on_change=self._on_file_changed)
         self._store.open(str(self._ctx.run_file))
-        record = builder.build_start_record(resp.run)
-        self._store.write(record.SerializeToString())
+        self._store_records([builder.build_start_record(resp.run)])
 
     def _start_without_online(self, start_request: DeliverRunStartRequest, message: str) -> DeliverRunStartResponse:
         self._ctx = CoreContext.from_proto(start_request.core_settings)
@@ -189,8 +199,11 @@ class CorePython(CoreProtocol):
     # ---------------------------------- 数据上报 ----------------------------------
 
     def _store_records(self, records: List[Record]) -> None:
-        """将一组 Record 写入本地存储"""
+        """将一组 Record 写入本地存储。"""
         assert self._store is not None, "store must be initialized before upsert"
+        if self._ctx.config.skip_store:
+            # skip_store：跳过本地序列化与写入
+            return
         for record in records:
             self._store.write(record.SerializeToString())
 
@@ -346,8 +359,9 @@ class CorePython(CoreProtocol):
         records = [builder.build_log_record(self._counter, self._epoch, c) for c in logs]
         self._store_records(records)
         if records:
+            action = "Skipped storing" if self._ctx.config.skip_store else "Stored"
             console.debug(
-                f"Stored log records locally: count={len(records)}, nums={records[0].num}..{records[-1].num}",
+                f"{action} log records locally: count={len(records)}, nums={records[0].num}..{records[-1].num}",
                 write_to_tty=False,
             )
         self._transport_put(records)
@@ -392,14 +406,17 @@ class CorePython(CoreProtocol):
                 self._upsert_saves_when_online(custom_saves)
 
     def _handle_custom_save(self, saves: List[SaveRecord]) -> List[Record]:
-        linked = create_save_links(saves, self._ctx.files_dir)
-        if linked > 0:
-            console.info(
-                f"Symlinked {linked} files into the SwanLab run directory; call swanlab.save again to sync new files."
-            )
+        # skip_store：不创建本地镜像软链接（不触碰 files_dir、不填 target_path），无文件监听
+        if not self._ctx.config.skip_store:
+            assert self._watcher is not None, "watcher must be initialized before upsert"
+            linked = create_save_links(saves, self._ctx.files_dir)
+            if linked > 0:
+                console.info(
+                    f"Symlinked {linked} files into the SwanLab run directory; call swanlab.save again to sync new files."
+                )
+            self._watcher.register_live_watches(saves, self._ctx.files_dir)
         records = [builder.build_save_record(self._counter, s) for s in saves]
         self._store_records(records)
-        self._watcher.register_live_watches(saves, self._ctx.files_dir)
         return records
 
     def _upsert_saves_when_local(self, saves: List[SaveRecord]) -> None:
@@ -467,10 +484,12 @@ class CorePython(CoreProtocol):
             # 不将 log_record 写入 store 中，一方面具体的报错信息存储在 finish_record 中
             # 另一方面因为这个 record 也是为了适应后端“报错信息写在CH”的设计
         # 2. 关闭存储、文件监视器等本地资源，停止接受新的记录
-        self._store.write(record.SerializeToString())
+        self._store_records([record])
         self._store.close()
         self._store = None
-        self._watcher.stop()
+        if self._watcher is not None:
+            self._watcher.stop()
+            self._watcher = None
         return log_record
 
     def _finish_when_local(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse:
@@ -548,5 +567,13 @@ class CorePython(CoreProtocol):
             )
             self._pending_online_finish_record = None
             return ConfirmRunFinishResponse(success=True, message="OK")
-        # 虽然本地已经完成了全部流程，但由于网络等原因导致无法通知后端，因此返回失败状态，但是影响不大
-        return ConfirmRunFinishResponse(success=False, message="Failed to finish run, but it has been saved locally.")
+        # 虽然本地已经完成了全部流程，但由于网络等原因导致无法通知后端，因此返回失败状态，但是影响不大。
+        # skip_store 下没有本地副本，提示语不能暗示数据仍可从本地恢复
+        if self._ctx.config.skip_store:
+            message = (
+                "Failed to finish run, and no local copy was kept (skip_store); "
+                "the run state on the cloud is unconfirmed."
+            )
+        else:
+            message = "Failed to finish run, but it has been saved locally."
+        return ConfirmRunFinishResponse(success=False, message=message)

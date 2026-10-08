@@ -3,12 +3,14 @@
 
 监听 swanlog/{run_id}/files/ 目录下的文件变化，
 文件稳定（停止写入 debounce_delay 秒）后触发 on_change 回调。
+
+skip_store 模式下没有本地镜像目录，使用 NullFileWatcher 跳过所有监听。
 """
 
 import os
 import threading
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Protocol
 
 from watchdog.observers import Observer
 
@@ -18,15 +20,25 @@ from swanlab.sdk.internal.pkg import safe
 from .helper import FileEntry, OnChangeCallback, _Handler, compute_signature, create_save_links
 
 
-class FileWatcher:
+class FileWatcherProtocol(Protocol):
+    """文件监听协议：真实 watcher 与空实现共用。"""
+
+    def register_live_watches(self, save_records: List[SaveRecord], files_dir: Path) -> None: ...
+
+    def stop(self) -> None: ...
+
+    def watch(self, dir_path: str, file_paths: List[str], policies: Optional[List[int]] = None) -> None: ...
+
+
+class FileWatcher(FileWatcherProtocol):
     """基于 watchdog + trailing debounce 的文件监听器。
 
     参数:
         on_change: 文件变化后的回调，接收 (abs_path, SaveRecord)
-        debounce_delay: 文件停止变化后等待多少秒再触发回调，默认 1.0
+        debounce_delay: 文件停止变化后等待多少秒再触发回调，默认 1.5
     """
 
-    def __init__(self, on_change: OnChangeCallback, debounce_delay: float = 1.0):
+    def __init__(self, on_change: OnChangeCallback, debounce_delay: float = 1.5):
         self._on_change = on_change
         self._debounce_delay = debounce_delay
         self._observer = Observer()
@@ -87,6 +99,7 @@ class FileWatcher:
             self._timers[path] = timer
         timer.start()
 
+    @safe.decorator(OSError, level="debug", message=None)
     def _process_change(self, path: str) -> None:
         """定时器到期后执行：计算签名 → 对比 → 触发回调。"""
         with self._lock:
@@ -95,11 +108,10 @@ class FileWatcher:
             if entry is None:
                 return
 
-        # 文件被删除则移除注册
+        # 文件缺失时保留注册、清空签名，重建后触发回调。
         new_sig = compute_signature(path)
         if new_sig is None:
-            with self._lock:
-                self._registered.pop(path, None)
+            entry.signature = None
             return
 
         # 签名未变则忽略
@@ -139,4 +151,17 @@ class FileWatcher:
             self._started = False
 
 
-__all__ = ["create_save_links", "FileWatcher"]
+class NullFileWatcher(FileWatcherProtocol):
+    """空文件监听器，用于 skip_store：不创建 observer、定时器或监听线程。"""
+
+    def register_live_watches(self, save_records: List[SaveRecord], files_dir: Path) -> None:
+        pass
+
+    def stop(self) -> None:
+        pass
+
+    def watch(self, dir_path: str, file_paths: List[str], policies: Optional[List[int]] = None) -> None:
+        pass
+
+
+__all__ = ["create_save_links", "FileWatcher", "FileWatcherProtocol", "NullFileWatcher"]
