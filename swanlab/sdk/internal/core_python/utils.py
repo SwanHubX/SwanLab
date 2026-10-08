@@ -5,7 +5,6 @@
 @description: Core 服务共享工具函数
 """
 
-import io
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -86,15 +85,20 @@ def get_buffer_size(buffer: Any) -> int:
     """获取文件类对象的字节大小，支持 str/Path（文件路径）、BytesIO、文件句柄等。
 
     对于有 fileno 的真实文件优先走 fstat（无副作用）；
-    对于内存 buffer 走 getbuffer / getvalue / __len__；
+    对于 BytesIO 走 seek/tell（零拷贝，并恢复游标），其余内存 buffer 走 getvalue / __len__；
     最后用 seek+tell 回退方案。无法确定大小时抛 TypeError。
     """
     # 文件路径：直接 stat，不打开文件
     if isinstance(buffer, (str, Path)):
         return os.path.getsize(buffer)
-    # BytesIO / StringIO
+    # BytesIO：getbuffer 会导致共享缓冲区整段复制，改用 seek/tell 取长度并恢复游标
     if hasattr(buffer, "getbuffer"):
-        return buffer.getbuffer().nbytes
+        curr = buffer.tell()
+        try:
+            buffer.seek(0, os.SEEK_END)
+            return buffer.tell()
+        finally:
+            buffer.seek(curr)
     if hasattr(buffer, "getvalue"):
         return len(buffer.getvalue())
     # 通用有 __len__ 的对象
@@ -116,50 +120,6 @@ def get_buffer_size(buffer: Any) -> int:
         buffer.seek(curr)
         return size
     raise TypeError("Object has no len")
-
-
-class MemoryViewReader(io.RawIOBase):
-    """基于 memoryview 的只读、可 seek reader，避免 payload → BytesIO 的整段拷贝。
-
-    接口与 BytesIO 兼容，可直接作为 requests 的上传 body。
-    """
-
-    def __init__(self, data: bytes) -> None:
-        self._view = memoryview(data)
-        self._position = 0
-
-    def read(self, size: int = -1) -> bytes:
-        if size is None or size < 0:
-            chunk = self._view[self._position :]
-            self._position = len(self._view)
-        else:
-            chunk = self._view[self._position : self._position + size]
-            self._position += len(chunk)
-        return chunk.tobytes()
-
-    def seek(self, offset: int, whence: int = 0) -> int:
-        if whence == 0:
-            position = offset
-        elif whence == 1:
-            position = self._position + offset
-        elif whence == 2:
-            position = len(self._view) + offset
-        else:
-            raise ValueError(f"Invalid whence: {whence}")
-        self._position = min(max(int(position), 0), len(self._view))
-        return self._position
-
-    def tell(self) -> int:
-        return self._position
-
-    def readable(self) -> bool:
-        return True
-
-    def seekable(self) -> bool:
-        return True
-
-    def __len__(self) -> int:
-        return len(self._view)
 
 
 class ProgressFileWrapper:

@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import io
 import json
 import math
 import threading
@@ -40,7 +41,7 @@ from swanlab.sdk.internal.core_python.api.upload import (
 )
 from swanlab.sdk.internal.core_python.context import CoreContext
 from swanlab.sdk.internal.core_python.pkg.mime import guess_type
-from swanlab.sdk.internal.core_python.utils import MemoryViewReader, ProgressFileWrapper, get_buffer_size
+from swanlab.sdk.internal.core_python.utils import ProgressFileWrapper, get_buffer_size
 from swanlab.sdk.internal.pkg import adapter, client, console, safe
 from swanlab.sdk.internal.pkg.client.session import SessionWithRetry
 from swanlab.sdk.internal.pkg.executor import SafeThreadPoolExecutor
@@ -177,7 +178,7 @@ class HttpRecordSender:
     def upload_media(self, records: Sequence[Record]) -> None:
         metrics: UploadMediaBatch = []
         paths: list[str] = []
-        buffers: list[Union[IO[bytes], MemoryViewReader, str, Path]] = []
+        buffers: list[Union[IO[bytes], str, Path]] = []
         content_types: list[str] = []
         for record in records:
             if not record.HasField("media"):
@@ -202,12 +203,14 @@ class HttpRecordSender:
 
                     if media.HasField("payload"):
                         # skip_store：内容在 payload（允许为空文件），直接内存上传，不触碰本地 media 路径
-                        size = len(media.payload)
+                        # media.payload 每次访问都会生成新的 bytes，先取一次用于长度计算和上传流构造
+                        payload = media.payload
+                        size = len(payload)
                         mime_type = guess_type(media.filename)
                         self._track_file(f"{remote_path_str}:{size}", remote_path_str, size)
                         record_paths.append(remote_path_str)
                         paths.append(remote_path_str)
-                        buffers.append(MemoryViewReader(media.payload))
+                        buffers.append(io.BytesIO(payload))
                         content_types.append(mime_type)
                         if media.caption:
                             metric_chunk["more"].append({"caption": media.caption})

@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Optional, cast
 
 import pytest
+from requests import Request
 from requests.sessions import Session
 
 from swanlab.sdk.internal.core_python.api import upload as upload_api
@@ -248,3 +249,34 @@ def test_upload_resource_read_progress_stays_within_buffer_size_on_seek():
     # 文件大小 5，不应该超过
     assert stats.uploaded_size == 5
     assert stats.uploaded_number == 1
+
+
+# ── 长度推断零拷贝（getbuffer 不得被调用）──────────────────────
+
+
+class _NoGetbufferBytesIO(BytesIO):
+    """BytesIO 替身：getbuffer 一旦被调用即失败，用于验证取长度走零拷贝路径。"""
+
+    def getbuffer(self):  # noqa: D102 - 测试替身
+        raise AssertionError("getbuffer() must not be used to infer size")
+
+
+def test_get_buffer_size_bytesio_avoids_getbuffer_and_keeps_cursor():
+    """BytesIO 取长度不触发 getbuffer（避免共享缓冲区整段复制），且游标恢复原位。"""
+    buf = _NoGetbufferBytesIO(b"hello")
+    buf.seek(2)
+
+    assert upload_api.get_buffer_size(buf) == 5
+    assert buf.tell() == 2
+
+
+def test_progress_wrapper_prepare_keeps_content_length_without_getbuffer():
+    """进度包装的 BytesIO 经 requests 请求准备仍得到正确 Content-Length，且不触发 getbuffer、游标不变。"""
+    buf = _NoGetbufferBytesIO(b"12345")
+    wrapper = upload_api.ProgressFileWrapper(buf, on_read=lambda _: None, total_size=5)
+
+    prepared = Request("PUT", "https://s3.test/media", data=wrapper).prepare()
+
+    assert prepared.headers["Content-Length"] == "5"
+    # requests 的 super_len 按 len(o) - o.tell() 计算流长度；取长内部的 seek/恢复不应残留游标
+    assert buf.tell() == 0
