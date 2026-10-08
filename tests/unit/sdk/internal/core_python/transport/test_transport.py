@@ -137,6 +137,61 @@ def test_transport_put_tracks_only_deduped_records(mock_ctx, make_scalar_record)
     assert tracker.snapshot().total_records == 1
 
 
+def test_transport_config_replacement_keeps_record_total(mock_ctx, make_config_record):
+    tracker = UploadTracker()
+    sender = MagicMock()
+    sender.upload.side_effect = lambda _, records: tracker.advance_records(len(records))
+    t = _make_transport(mock_ctx, tracker=tracker, sender=sender)
+    first = make_config_record()
+    latest = make_config_record()
+    first.num = latest.num = -3
+    first.save.payload = b"first"
+    latest.save.payload = b"latest"
+
+    t.put([first])
+    t.put([latest])
+    assert tracker.snapshot().total_records == 1
+
+    t.start()
+    assert t.finish()
+    sender.upload.assert_called_once_with("save", [latest])
+    assert tracker.snapshot().uploaded_records == 1
+
+
+def test_transport_uploads_latest_config_after_pending_retry(mock_ctx, make_config_record):
+    tracker = UploadTracker()
+    sender = MagicMock()
+    t = _make_transport(mock_ctx, tracker=tracker, sender=sender)
+    old = make_config_record()
+    latest = make_config_record()
+    old.num = latest.num = -3
+    old.save.payload = b"old"
+    latest.save.payload = b"latest"
+    attempts = []
+    latest_queued = threading.Event()
+
+    def upload(_, records):
+        attempts.append([record.save.payload for record in records])
+        if len(attempts) == 1:
+            t.put([latest])
+            latest_queued.set()
+            raise RuntimeError("upload failed")
+        tracker.advance_records(len(records))
+
+    sender.upload.side_effect = upload
+    t.put([old])
+    t.start()
+    try:
+        assert latest_queued.wait(timeout=2.0)
+        assert t.finish()
+    finally:
+        t.finish()
+
+    assert attempts == [[b"old"], [b"old"], [b"latest"]]
+    stats = tracker.snapshot()
+    assert stats.total_records == stats.uploaded_records == 2
+
+
 def test_transport_put_warns_after_finish(mock_ctx, make_scalar_record):
     """put() after finish() logs an error."""
     t = _make_transport(mock_ctx)

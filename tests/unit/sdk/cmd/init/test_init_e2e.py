@@ -786,8 +786,10 @@ class TestInitOnlineSkipStore:
         assert probe_settings.HasField("run_dir") is True
         assert probe_settings.skip_store is False
 
-    def test_skip_store_creates_no_config_file(
+    @pytest.mark.parametrize("skip_store", [False, True])
+    def test_config_updates_upload_final_content(
         self,
+        skip_store,
         logged_in_client,
         mock_project_get_api,
         mock_experiment_create_api,
@@ -797,23 +799,32 @@ class TestInitOnlineSkipStore:
         mock_metrics_api,
         rsps,
     ):
-        """config 内容随 SaveRecord.payload 内联上传，绑定时的全量 flush 与后续写入都不落盘"""
-        # init 前写入，绑定时的全量 flush 已包含该键；连续写入受保留 num 去重影响，不作断言依据
+        """config 新增、覆盖和删除后上传最终内容，skip_store 下不落盘。"""
         global_config["lr"] = 0.01
-        run = init(project=PROJECT, settings=Settings(core=Settings.Core(skip_store=True)))
+        global_config["removed"] = "initial"
+        run = init(
+            project=PROJECT,
+            settings=Settings(core=Settings.Core(skip_store=skip_store, record_interval=3600)),
+        )
 
-        assert not run._ctx.config_file.exists()
+        assert run._ctx.config_file.exists() is not skip_store
 
         run.config["epochs"] = 5
+        run.config["lr"] = 0.02
+        del run.config["removed"]
 
-        assert not run._ctx.config_file.exists()
+        assert run._ctx.config_file.exists() is not skip_store
 
-        # finish 排空 Transport 后，config payload 已上云
         run.finish()
         profile_bodies = [
             json.loads(cast(bytes, call.request.body)) for call in rsps.calls if call.request.url.endswith("/profile")
         ]
-        assert any(body.get("config", {}).get("lr", {}).get("value") == 0.01 for body in profile_bodies)
+        uploaded_configs = [body["config"] for body in profile_bodies if "config" in body]
+        assert len(uploaded_configs) == 1
+        assert uploaded_configs[-1] == {
+            "lr": {"value": 0.02, "desc": "", "sort": 0},
+            "epochs": {"value": 5, "desc": "", "sort": 2},
+        }
 
     def test_skip_store_uploads_full_run_to_cloud(
         self,
