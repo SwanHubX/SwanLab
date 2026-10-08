@@ -7,12 +7,11 @@
 package savev1
 
 import (
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
-
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (
@@ -129,10 +128,10 @@ func (SaveType) EnumDescriptor() ([]byte, []int) {
 // 文件保存记录，由 swanlab.save() API 产生。
 // size/md5/mime_type 不在此处存储，由 Core 在持久化/上传时按需计算。
 //
-// payload 仅用于 online + skip_store 下的四类内部 save：
-// 此时 source_path/target_path 为空，Core 直接从 payload 解析并上传；
-// CUSTOM 的 payload 必须为空，只使用 source_path；
-// 未启用 skip_store 时 payload 为空，Core 按正常流程（source_path）处理。
+// payload 仅用于 online + skip_store 下的四类内部 save
+// （CONFIG/METADATA/REQUIREMENTS/CONDA）：此时 source_path/target_path 为空，
+// Core 直接从 payload 解析并上传；CUSTOM 的 payload 必须为空，只使用 source_path；
+// 未启用 skip_store 时 payload 为空，Core 按 source_path 处理。
 type SaveRecord struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`                                      // 文件标识（相对于 base_path 的路径）
@@ -258,16 +257,13 @@ func file_swanlab_save_v1_save_proto_rawDescGZIP() []byte {
 	return file_swanlab_save_v1_save_proto_rawDescData
 }
 
-var (
-	file_swanlab_save_v1_save_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-	file_swanlab_save_v1_save_proto_msgTypes  = make([]protoimpl.MessageInfo, 1)
-	file_swanlab_save_v1_save_proto_goTypes   = []any{
-		SavePolicy(0),      // 0: swanlab.save.v1.SavePolicy
-		SaveType(0),        // 1: swanlab.save.v1.SaveType
-		(*SaveRecord)(nil), // 2: swanlab.save.v1.SaveRecord
-	}
-)
-
+var file_swanlab_save_v1_save_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_swanlab_save_v1_save_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_swanlab_save_v1_save_proto_goTypes = []any{
+	(SavePolicy)(0),    // 0: swanlab.save.v1.SavePolicy
+	(SaveType)(0),      // 1: swanlab.save.v1.SaveType
+	(*SaveRecord)(nil), // 2: swanlab.save.v1.SaveRecord
+}
 var file_swanlab_save_v1_save_proto_depIdxs = []int32{
 	0, // 0: swanlab.save.v1.SaveRecord.policy:type_name -> swanlab.save.v1.SavePolicy
 	1, // 1: swanlab.save.v1.SaveRecord.type:type_name -> swanlab.save.v1.SaveType
