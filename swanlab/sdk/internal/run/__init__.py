@@ -132,6 +132,8 @@ class Run:
         self._init_pid = fork.current_pid()
         # 外部API锁，防止并发调用
         self._api_lock = threading.RLock()
+        # skip_store 下 live 策略降级为 now 的告警是否已发出（每 Run 一次）
+        self._skip_store_live_warned = False
         # 运行时组件
         self._components = Components(ctx)
         # 回调器
@@ -779,6 +781,8 @@ class Run:
             - ``"now"`` — upload matched files immediately.
             - ``"end"`` — defer upload until the run finishes.
             - ``"live"`` — watch for file changes and re-upload automatically.
+              Unavailable with ``core.skip_store=True``: downgraded to ``"now"``
+              with a warning, so later file changes are not uploaded.
 
         :return: List of matched file paths (relative to base_path).
         """
@@ -817,6 +821,16 @@ class Run:
         # 校验批次大小
         if len(files) > core_settings.save_batch:
             raise ValueError(f"Too many files matched ({len(files)}), limit is {core_settings.save_batch}")
+
+        # skip_store 下文件监听不可用，live 策略统一降级为 now（告警每 Run 只发一次）
+        if core_settings.skip_store and this_policy == "live":
+            this_policy = "now"
+            if not self._skip_store_live_warned:
+                self._skip_store_live_warned = True
+                console.warning(
+                    "File watching is unavailable with core.skip_store=True.\n"
+                    "Using policy='now'; later file changes will not be uploaded automatically."
+                )
 
         # 按 policy 分发事件
         # Core 负责创建 symlink 处理和 end policy 下的延迟上传

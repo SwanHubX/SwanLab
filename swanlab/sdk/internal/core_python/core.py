@@ -47,7 +47,7 @@ from swanlab.sdk.internal.core_python.store import DataStoreWriter, NullDataStor
 from swanlab.sdk.internal.core_python.transport import Transport
 from swanlab.sdk.internal.core_python.transport.tracker import UploadTracker
 from swanlab.sdk.internal.core_python.utils import generate_run_online_path, prepare_experiment_start
-from swanlab.sdk.internal.core_python.watcher import FileWatcher, create_save_links
+from swanlab.sdk.internal.core_python.watcher import FileWatcher, NullFileWatcher, create_save_links
 from swanlab.sdk.internal.pkg import adapter, console, safe
 from swanlab.sdk.protocol import CoreProtocol
 from swanlab.sdk.typings.core_python.api.experiment import ResumeExperimentSummaryType
@@ -83,7 +83,7 @@ class CorePython(CoreProtocol):
         # finish 时暂存的记录，等待 confirm_run_finish 时上报，用于online模式的两阶段 finish 设计
         self._pending_online_finish_record: Optional[FinishRecord] = None
         # save 相关
-        self._watcher = FileWatcher(on_change=self._on_file_changed)
+        self._watcher: Union[FileWatcher, NullFileWatcher] = FileWatcher(on_change=self._on_file_changed)
         self._pending_end_saves: List[Record] = []
 
     @property
@@ -105,9 +105,10 @@ class CorePython(CoreProtocol):
         return resp
 
     def _start_store(self, resp: DeliverRunStartResponse):
-        # skip_store 模式下使用空写入器跳过本地存储
+        # skip_store 模式下使用空写入器与空监听器，跳过本地存储和文件监听
         if self._ctx.config.skip_store:
             self._store = NullDataStoreWriter()
+            self._watcher = NullFileWatcher()
         else:
             self._store = DataStoreWriter()
         self._store.open(str(self._ctx.run_file))
@@ -400,12 +401,10 @@ class CorePython(CoreProtocol):
                 self._upsert_saves_when_online(custom_saves)
 
     def _handle_custom_save(self, saves: List[SaveRecord]) -> List[Record]:
-        # skip_store：不创建本地镜像软链接（不触碰 files_dir、不填 target_path），
-        # live 监听直接对准源文件
+        # skip_store：不创建本地镜像软链接（不触碰 files_dir、不填 target_path），无文件监听
         if self._ctx.config.skip_store:
             records = [builder.build_save_record(self._counter, s) for s in saves]
             self._store_records(records)
-            self._watcher.register_source_watches(saves)
             return records
         linked = create_save_links(saves, self._ctx.files_dir)
         if linked > 0:

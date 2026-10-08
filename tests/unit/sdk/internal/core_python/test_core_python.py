@@ -9,7 +9,7 @@
   - TestCorePythonPublish: 各模式 publish 行为
   - TestCorePythonFinish : 各模式 deliver_run_finish 行为
   - TestCorePythonGuard  : 防御逻辑
-  - TestCorePythonSkipStore: core.skip_store 主链路（无本地 datastore + live save 回归）
+  - TestCorePythonSkipStore: core.skip_store 主链路（无本地 datastore、Null watcher + live save 回归）
 """
 
 from unittest.mock import MagicMock, patch
@@ -30,6 +30,7 @@ from swanlab.sdk.internal.core_python import CorePython
 from swanlab.sdk.internal.core_python.context import CoreConfig, CoreContext
 from swanlab.sdk.internal.core_python.store import DataStoreWriter, NullDataStoreWriter
 from swanlab.sdk.internal.core_python.transport.tracker import UploadTracker
+from swanlab.sdk.internal.core_python.watcher import FileWatcher, NullFileWatcher
 
 
 def make_core_ctx(tmp_path) -> CoreContext:
@@ -299,6 +300,7 @@ class TestCorePythonSkipStore:
         assert core._ctx.config.skip_store is True
         assert core._store is not None
         assert isinstance(core._store, NullDataStoreWriter)
+        assert isinstance(core._watcher, NullFileWatcher)
         assert not core._ctx.run_file.exists()
         assert core._transport is not None
 
@@ -307,6 +309,7 @@ class TestCorePythonSkipStore:
         assert core._ctx.config.skip_store is False
         assert core._store is not None
         assert isinstance(core._store, DataStoreWriter)
+        assert isinstance(core._watcher, FileWatcher)
         assert core._ctx.run_file.exists()
 
     def test_live_save_still_reaches_transport(self, tmp_path, monkeypatch):
@@ -352,11 +355,11 @@ class TestCorePythonSkipStore:
         assert store._skipped_records == skipped_before + 3
 
     def test_custom_save_skips_local_links(self, tmp_path, monkeypatch):
-        """skip 下不创建镜像软链接、不填 target_path，也不触碰 files 目录。"""
+        """skip 下不创建镜像软链接、不填 target_path，也不触碰 files 目录；live 记录无监听路径，正常上传。"""
         core = self._start_online_core(tmp_path, monkeypatch, skip_store=True)
         transport = MagicMock()
         core._transport = transport
-        core._watcher = MagicMock()
+        assert isinstance(core._watcher, NullFileWatcher)
         source = tmp_path / "checkpoints" / "model.pt"
         source.parent.mkdir()
         source.write_bytes(b"weights")
@@ -364,13 +367,11 @@ class TestCorePythonSkipStore:
         save = SaveRecord(
             name="checkpoints/model.pt",
             source_path=str(source),
-            policy=SavePolicy.SAVE_POLICY_NOW,
+            policy=SavePolicy.SAVE_POLICY_LIVE,
         )
         core.upsert_saves([save])
 
         assert save.target_path == ""
         assert source.read_bytes() == b"weights"  # 源文件只读不动
         assert not (core._ctx.config.run_dir / "files").exists()
-        core._watcher.register_source_watches.assert_called_once_with([save])
-        core._watcher.register_live_watches.assert_not_called()
         transport.put.assert_called_once()

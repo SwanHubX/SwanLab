@@ -14,7 +14,8 @@
 工作负载（每个场景一致）：
   - 标量：STEPS 步 × KEYS 个 key，逐 step 调用 ``run.log``
   - 媒体：每隔 IMAGE_EVERY 步调用一次 ``run.log_image``（小图），共约 STEPS/IMAGE_EVERY 张
-  - 文件保存：SAVE_COUNT 个 CUSTOM save，policy=end（生成阶段只登记，finish 时上传）
+  - 文件保存：SAVE_COUNT 个 CUSTOM save，policy=end（生成阶段只登记，finish 时上传）；
+    skip_store 下 policy='live'（含默认值）会被降级为 'now' 且不注册文件监听，本基准不使用 live
 
 关注指标：
   1. 生产阶段墙钟耗时与吞吐量（records/s）
