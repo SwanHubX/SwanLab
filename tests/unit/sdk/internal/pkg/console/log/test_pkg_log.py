@@ -5,6 +5,7 @@
 @description: 测试 swanlab.sdk.pkg.log 诊断日志模块 (极简黑盒版)
 """
 
+import logging
 import os
 import stat
 
@@ -77,11 +78,26 @@ def test_init_with_none_discards_logs(tmp_path):
     log_mod.warning("discarded warning")
     log_mod.error("discarded error")
 
-    # logger 无 handler，日志直接丢弃
+    # logger 仅剩常驻 NullHandler：日志丢弃，且不会落入 lastResort 写 stderr
     assert log_mod._memory_handler is None
     assert log_mod._file_handler is None
-    assert len(log_mod._logger.handlers) == 0
+    assert [type(h) for h in log_mod._logger.handlers] == [logging.NullHandler]
 
+    log_mod.reset()
+
+
+def test_init_none_does_not_leak_warning_to_stderr(capfd):
+    """init(None)（disabled/skip_store）后 warning 不经 logging.lastResort 裸写 stderr。
+
+    console 模块已在 stdout 打印过一次，lastResort 再写一次 stderr 会导致终端重复两行。
+    """
+    log_mod.reset()
+    log_mod.init(bind_to=None)
+
+    log_mod.warning("should-not-leak-to-stderr")
+
+    captured = capfd.readouterr()
+    assert "should-not-leak-to-stderr" not in captured.err
     log_mod.reset()
 
 
@@ -96,7 +112,7 @@ def test_init_none_then_reset_restores_buffering(tmp_path):
     # reset 恢复内存缓冲
     log_mod.reset()
     assert log_mod._memory_handler is not None
-    assert len(log_mod._logger.handlers) == 1
+    assert log_mod._memory_handler in log_mod._logger.handlers
 
 
 def test_log_format(tmp_path):

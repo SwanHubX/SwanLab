@@ -828,8 +828,8 @@ class Run:
             if not self._skip_store_live_warned:
                 self._skip_store_live_warned = True
                 console.warning(
-                    "File watching is unavailable with core.skip_store=True.\n"
-                    "Using policy='now'; later file changes will not be uploaded automatically."
+                    "File watching is unavailable with core.skip_store=True.",
+                    "Using policy='now'; later file changes will NOT be uploaded automatically.",
                 )
 
         # 按 policy 分发事件
