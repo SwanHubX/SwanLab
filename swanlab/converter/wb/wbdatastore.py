@@ -14,7 +14,6 @@ from typing import IO, Optional, Tuple, Union
 
 from swanlab.exceptions import DataStoreError
 from swanlab.sdk.internal.core_python.store import (
-    _CRC,
     LEVELDBLOG_BLOCK_LEN,
     LEVELDBLOG_FIRST,
     LEVELDBLOG_FULL,
@@ -31,6 +30,8 @@ LEVELDBLOG_TYPES = (LEVELDBLOG_FULL, LEVELDBLOG_FIRST, LEVELDBLOG_MIDDLE, LEVELD
 WANDB_HEADER_IDENT = b":W&B"
 WANDB_HEADER_MAGIC = 0xBEE1  # zlib.crc32(b"Weights & Biases") & 0xffff
 WANDB_HEADER_VERSION = 0
+# 预计算各分片类型字节的 crc32，作为数据校验和的种子（键即类型值）
+_CRC = {t: zlib.crc32(bytes([t])) & 0xFFFFFFFF for t in LEVELDBLOG_TYPES}
 
 
 class DataStoreCorruptionError(DataStoreError):
@@ -56,6 +57,8 @@ class WBDataStoreReader:
 
     def open(self, filename: Union[Path, str]) -> None:
         """打开文件并校验 W&B 文件头；校验失败时关闭文件句柄。"""
+        if self._fp is not None:
+            raise DataStoreError("reader is already open")
         self._fp = open(filename, "rb")
         self._index = 0
         try:
@@ -79,18 +82,20 @@ class WBDataStoreReader:
         if dtype == LEVELDBLOG_FULL:
             return data
         if dtype != LEVELDBLOG_FIRST:
-            raise DataStoreCorruptionError(f"chunk type {dtype} at offset {self._index}: expected FULL or FIRST")
+            raise DataStoreCorruptionError(f"chunk type {dtype} ending at offset {self._index}: expected FULL or FIRST")
 
         chunks = [data]
         while True:
             dtype, chunk = self._read_record_strict()
             if dtype is None:
-                raise DataStoreTruncatedError(f"fragmented record has no LAST chunk (offset {self._index})")
+                raise DataStoreTruncatedError(f"fragmented record ends at offset {self._index} without a LAST chunk")
             chunks.append(chunk)
             if dtype == LEVELDBLOG_LAST:
                 return b"".join(chunks)
             if dtype != LEVELDBLOG_MIDDLE:
-                raise DataStoreCorruptionError(f"chunk type {dtype} at offset {self._index}: expected MIDDLE or LAST")
+                raise DataStoreCorruptionError(
+                    f"chunk type {dtype} ending at offset {self._index}: expected MIDDLE or LAST"
+                )
 
     def _read_header(self) -> None:
         assert self._fp is not None
