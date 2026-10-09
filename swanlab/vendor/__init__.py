@@ -181,6 +181,22 @@ _SUBMODULE_IMPORTS = {
 
 
 # 6. Module-level __getattr__ for lazy loading (PEP 562)
+def _install_hint(name: str, module_path: str) -> str:
+    """顶层包缺失时的安装提示文案。"""
+    extra_tag = _EXTRA_DEPS.get(name)
+    if extra_tag:
+        return (
+            f"The '{name}' feature requires additional dependencies. "
+            f"To enable it, please install the '{extra_tag}' extra by running:\n"
+            f'    pip install "swanlab[{extra_tag}]"'
+        )
+    return (
+        f"The '{name}' feature requires the '{module_path}' package, "
+        f"which is not currently installed. Please install it by running:\n"
+        f"    pip install {module_path}"
+    )
+
+
 def __getattr__(name: str) -> Any:
     if name in _LAZY_IMPORTS:
         module_path = _LAZY_IMPORTS[name]
@@ -211,19 +227,3 @@ def __getattr__(name: str) -> Any:
         return obj
 
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-
-
-def _install_hint(name: str, module_path: str) -> str:
-    """顶层包缺失时的安装提示文案。"""
-    extra_tag = _EXTRA_DEPS.get(name)
-    if extra_tag:
-        return (
-            f"The '{name}' feature requires additional dependencies. "
-            f"To enable it, please install the '{extra_tag}' extra by running:\n"
-            f'    pip install "swanlab[{extra_tag}]"'
-        )
-    return (
-        f"The '{name}' feature requires the '{module_path}' package, "
-        f"which is not currently installed. Please install it by running:\n"
-        f"    pip install {module_path}"
-    )
