@@ -10,7 +10,6 @@
 """
 
 import sys
-from pathlib import Path
 from typing import Optional, Tuple
 
 from rich.text import Text
@@ -18,8 +17,8 @@ from rich.text import Text
 from swanlab.exceptions import AuthenticationError
 from swanlab.sdk.cmd import utils
 from swanlab.sdk.cmd.guard import with_cmd_lock, without_run
-from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.pkg import console, helper, nrc, safe
+from swanlab.sdk.internal.pkg.client import verify_api_key
 from swanlab.sdk.internal.settings import Settings, create_settings, resolve_hosts, set_global_settings
 from swanlab.sdk.typings.cmd import LoginType
 from swanlab.sdk.typings.pkg.client.bootstrap import UserProfile
@@ -38,14 +37,16 @@ def login(
 ) -> bool:
     """Authenticate with SwanLab Cloud.
 
-    This function authenticates your environment with SwanLab. If already logged in
-    and `relogin` is False, this function does nothing. Call this before `swanlab.init()`
-    to use cloud features.
+    This function authenticates your environment with SwanLab by verifying the
+    provided (or stored) API key online. Every call performs an online check so
+    revoked keys fail immediately. Call this before `swanlab.init()` to use cloud
+    features; the runtime client itself is created and managed by the core during
+    `swanlab.init()`.
 
     :param api_key: Your SwanLab API key. If not provided, will attempt to read from
         environment or prompt for input.
-    :param relogin: If True, forces re-authentication and overwrites existing credentials.
-        Defaults to False.
+    :param relogin: Kept for signature compatibility only. Login always verifies
+        online, so this flag no longer changes behavior. Defaults to False.
     :param host: Custom API host URL. If not provided, uses the default SwanLab cloud host.
     :param save: Whether to save the API key locally for future sessions. Defaults to False.
     :param timeout: Network request timeout in seconds. Defaults to 10.
@@ -87,22 +88,13 @@ def login_raw(
     animation: bool = True,
     print_welcome: bool = True,
 ) -> bool:
-    # 1. 判断是否允许重新登录
-    # 如果已经登录且不需要重新登录，则直接返回
-    # 仅当运行时 client 已存在时才视为已登录；本地凭证仅表示可复用，不代表本次会话已完成认证
-    already_logged_in = client.exists()
-    if already_logged_in and not relogin:
-        console.info(
-            "You are already logged in. Use",
-            Text("`swanlab.login(relogin=True)`", style="bold"),
-            "to force relogin.",
-            sep=" ",
-        )
-        return True
-    if client.exists():
-        client.reset()
+    """显式登录：每次调用都在线验证凭证并获取用户档案，随后关闭临时 client。
 
-    # 2. 获取当前api key、web host、api host的配置
+    - 不驻留任何运行时 client 单例：online run 的 client 由 Core 在启动时基于 Proto 凭据自建。
+    - `relogin` 仅保留为接口签名兼容：登录始终在线验证，不再承载"跳过/强制"分支。
+    - `save` 独立控制是否将凭证持久化到本地 netrc 文件。
+    """
+    # 1. 获取当前 api key、web host、api host 的配置
     current_settings = create_settings()
     host = nrc.fmt(host) if host is not None else None
     # 先用入参，入参没有才考虑复用 settings 里的值
@@ -123,22 +115,18 @@ def login_raw(
     login_settings = Settings.model_validate({"api_key": api_key, "api_host": api_host, "web_host": web_host})
     # 至此，api_key、api_host、web_host 都已经确定，且 login_settings 已经准备好
 
-    # 3. 进入登录流程
-    f = utils.with_loading_animation("Waiting for response...")(create_client) if animation else create_client
-    c = f(api_key=api_key, api_host=api_host, timeout=timeout)
+    # 2. 临时认证：在线验证凭证并取得 profile，随后立即关闭临时 client（无副作用，不创建运行时单例）
+    f = utils.with_loading_animation("Waiting for response...")(verify_api_key) if animation else verify_api_key
+    profile = f(api_key=api_key, base_url=api_host, timeout=timeout)
     if print_welcome:
-        welcome(api_host, c.profile)
+        welcome(api_host, profile)
+    # 3. 持久化（由 save 单独控制）并将登录设置合并到全局配置
     if save:
         nrc_path = utils.get_nrc_path(save=save)
         nrc.write(nrc_path, api_host=api_host, web_host=login_settings.web_host, api_key=api_key)
-    # 4. 将登录设置合并到全局配置中
     current_settings.merge_settings(login_settings)
     set_global_settings(current_settings)
     return True
-
-
-def create_client(api_key: str, api_host: str, timeout: int = 10):
-    return client.new(api_key, api_host, timeout=timeout)
 
 
 def login_cli(
@@ -150,26 +138,16 @@ def login_cli(
 ) -> bool:
     """
     带循环输入容错的交互式登录接口。
-    主要为 CLI 环境或需要极高容错的终端调用设计。
+    本地凭证仅用于选择 API key，每次调用都会在线校验。relogin 保留为签名兼容。
     当捕获到 AuthenticationError 时，如果环境允许交互，则会无限循环提示用户重新输入 API Key。
     """
     assert save is not False, "login_cli must save credentials locally to support CLI usage"
-    # CLI 每次是新进程，需要检查本地凭证判断是否已登录
-    nrc_path: Path
     nrc_path = utils.get_nrc_path(save)
-    already_logged_in = nrc.read(nrc_path) is not None
-    if already_logged_in and not relogin:
-        console.info(
-            "You are already logged in. Use",
-            Text("`swanlab login --relogin`", style="bold"),
-            "to force relogin.",
-            sep=" ",
-        )
-        return True
-
-    # 获取当前配置，login 作为cli命令的入口，依赖于settings
     current_settings = create_settings()
     api_host, web_host = validate_host(host, current_settings)
+    stored = nrc.read(nrc_path)
+    if api_key is None and stored is not None and stored[1] == api_host:
+        api_key = stored[0]
 
     count = 0
     interactive = current_settings.interactive
@@ -177,8 +155,9 @@ def login_cli(
         if not api_key:
             api_key = prompt_api_key(web_host=web_host, interactive=interactive, again=count > 0)
         try:
-            c = client.new(api_key, api_host, timeout=timeout)
-            welcome(api_host, c.profile)
+            # 临时认证：验证凭证并取得 profile，随后关闭临时 client，不驻留运行时单例
+            profile = verify_api_key(api_key=api_key, base_url=api_host, timeout=timeout)
+            welcome(api_host, profile)
             # 如果存储当前目录，添加gitignore文件
             # mkdir_and_append_gitignore 自动判断是否为空文件夹，如果是则写入
             if save == "local":

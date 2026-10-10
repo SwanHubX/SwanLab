@@ -21,16 +21,16 @@ import requests
 import yaml
 from google.protobuf.timestamp_pb2 import Timestamp
 
-from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import DeliverRunStartRequest
-from swanlab.proto.swanlab.run.v1.run_pb2 import StartRecord
+from swanlab.exceptions import AuthenticationError
+from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import DeliverRunFinishRequest, DeliverRunStartRequest
+from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord, RunState, StartRecord
 from swanlab.sdk.cmd.guard import with_cmd_lock
 from swanlab.sdk.internal.context import (
     RunConfig,
     RunContext,
     use_context,
 )
-from swanlab.sdk.internal.core_python import client
-from swanlab.sdk.internal.pkg import adapter, console, fork, fs, helper, safe
+from swanlab.sdk.internal.pkg import adapter, console, fork, fs, helper, nrc, safe
 from swanlab.sdk.typings.cmd import ConfigLike
 from swanlab.sdk.typings.context import CallbacksType
 from swanlab.utils.experiment import generate_color, generate_id, generate_name
@@ -39,7 +39,7 @@ from ..internal.run import Run, get_run, has_run
 from ..internal.settings import Settings, create_settings
 from ..typings.run import ModeType, ParallelType, ResumeType
 from . import utils
-from .login import login_cli, login_raw
+from .login import login_cli
 
 __all__ = [
     "init",
@@ -246,18 +246,47 @@ def init(
     if run_settings.mode == "online":
         generate_ctx = utils.with_loading_animation()(_init)
     ctx, path = generate_ctx(run_settings, callbacks)
-    # 初始化run
-    run = Run(ctx, path)
-    # 发送webhook回调，在除了disabled模式外，都会触发
-    success = send_webhook(ctx)
-    if not success:
-        webhook_url = ctx.config.settings.integration.webhook.url
-        console.warning(f"Failed to send webhook, maybe due to network issues or invalid webhook URL: {webhook_url}.")
-    # 加载配置并合并到 run.config
-    config_data = load_config(run_settings, config)
-    if config_data:
-        run.config.update(config_data)
-    return run
+    try:
+        # 初始化run
+        run = Run(ctx, path)
+        # 发送webhook回调，在除了disabled模式外，都会触发
+        success = send_webhook(ctx)
+        if not success:
+            webhook_url = ctx.config.settings.integration.webhook.url
+            console.warning(
+                f"Failed to send webhook, maybe due to network issues or invalid webhook URL: {webhook_url}."
+            )
+        # 加载配置并合并到 run.config
+        config_data = load_config(run_settings, config)
+        if config_data:
+            run.config.update(config_data)
+        return run
+    except BaseException:
+        if has_run():
+            with safe.block(message="Failed to finish partially initialized run"):
+                get_run().finish(state="crashed", error="Run initialization failed")
+        else:
+            _finish_failed_init(ctx)
+        raise
+
+
+def _finish_failed_init(ctx: RunContext) -> None:
+    timestamp = Timestamp()
+    timestamp.GetCurrentTime()
+    with safe.block(message="Failed to stop core after initialization error"):
+        ctx.core.deliver_run_finish(
+            DeliverRunFinishRequest(
+                finish_record=FinishRecord(
+                    state=RunState.RUN_STATE_CRASHED,
+                    error="Run initialization failed",
+                    finished_at=timestamp,
+                )
+            )
+        )
+    with safe.block(message="Failed to confirm core cleanup after initialization error"):
+        response = ctx.core.confirm_run_finish()
+        if not response.success:
+            console.error(response.message)
 
 
 def load_config(run_settings: Settings, config: Optional[ConfigLike]) -> Dict[str, Any]:
@@ -305,65 +334,92 @@ def load_config(run_settings: Settings, config: Optional[ConfigLike]) -> Dict[st
 
 def prompt_init_mode(settings: Settings) -> ModeType:
     """
-    在 swanlab.init 阶段，针对 online 模式且未登录的用户进行交互式引导。
+    在 swanlab.init 阶段，针对 online 模式且未配置凭证的用户进行交互式引导。
 
     规则：
-    1. 只有在 settings.interactive 为 True 且 settings.mode 为 'online' 时触发 。
-    2. 如果 client 已存在（已登录），直接跳过 。
+    1. 只有在 settings.interactive 为 True 且 settings.mode 为 'online' 时触发。
+    2. 本地已配置 API key（settings.api_key 来自 netrc / 环境变量 / 显式传参）时直接跳过——
+       client 由 Core 在 deliver_run_start 时基于 Proto 凭证自建，此处不依赖运行时单例判断登录态。
     3. 提供三个选项：(1) 使用已有的Key (2) 注册 (3) 切换为 offline 模式。
+    4. 登录取消时拒绝 online，不读取或回填旧凭证；登录成功后仅回填与目标 host 一致的凭证。
 
-    :param settings: 当前的 Settings 实例 。
+    :param settings: 当前的 Settings 实例。
     :return: 最终确定的 mode
     """
-    # 如果不是云模式，或者已经登录，或者非交互环境，直接返回当前状态
+    # 非 online 模式不引导登录
     mode = settings.mode
-    if mode != "online" or client.exists():
+    if mode != "online":
         return mode
-    login_func = partial(login_cli, save=True, host=settings.api_host)
-    if mode == "online":
-        if settings.api_key is not None:
-            # 不登录，交给后面处理，否则会出现闪烁动画，比较影响美感
-            # login_func(api_key=settings.api_key)
-            return "online"
+    # 强制针对当前目标 host 登录（relogin=True），确保校验匹配的凭证
+    login_func = partial(login_cli, save=True, host=settings.api_host, relogin=True)
+    if settings.api_key is not None:
+        # 不在此处登录，交给 Core 启动时校验并自建 client，否则会出现闪烁动画，比较影响美感
+        return "online"
 
-        if not settings.interactive:
-            raise RuntimeError(
-                "Failed to initialize SwanLab in online mode: no API key was provided, "
-                "and interactive prompts are disabled."
-            )
-        if not helper.is_interactive():
-            raise RuntimeError(
-                "Failed to initialize SwanLab in online mode: no TTY is available for interactive login."
-            )
-
-        console.info("Using SwanLab to track your experiments. To get started, choose one of the following options:")
-        console.print(
-            "(1) Use an existing API key.",
-            "(2) Create a new SwanLab account.",
-            "(3) Continue without visualization (Offline mode).",
-            "Learn more in the documentation: https://docs.swanlab.cn",
-            sep="\n",
+    if not settings.interactive:
+        raise RuntimeError(
+            "Failed to initialize SwanLab in online mode: no API key was provided, "
+            "and interactive prompts are disabled."
         )
-        while True:
-            choice = input("Enter your choice [1/2/3]: ").strip()
+    if not helper.is_interactive():
+        raise RuntimeError("Failed to initialize SwanLab in online mode: no TTY is available for interactive login.")
 
+    console.info("Using SwanLab to track your experiments. To get started, choose one of the following options:")
+    console.print(
+        "(1) Use an existing API key.",
+        "(2) Create a new SwanLab account.",
+        "(3) Continue without visualization (Offline mode).",
+        "Learn more in the documentation: https://docs.swanlab.cn",
+        sep="\n",
+    )
+    while True:
+        choice = input("Enter your choice [1/2/3]: ").strip()
+
+        if choice in ("1", "2"):
             if choice == "1":
                 console.info("Using an existing SwanLab API key.")
-                login_func()
-                return "online"
-
-            if choice == "2":
+            else:
                 console.info(f"Create a SwanLab account here: {settings.web_host}/login")
-                login_func()
-                return "online"
+            if not login_func():
+                raise AuthenticationError(
+                    "Cannot start online run: login was cancelled. Please complete login or choose offline mode."
+                )
+            _backfill_login_credentials(settings)
+            if not settings.api_key:
+                raise AuthenticationError(
+                    f"Cannot start online run: no valid API key for host '{settings.api_host}'. "
+                    "Please complete login or choose offline mode."
+                )
+            return "online"
 
-            if choice == "3":
-                console.info("Continuing in Offline mode. Results will be saved locally.")
-                return "offline"
+        if choice == "3":
+            console.info("Continuing in Offline mode. Results will be saved locally.")
+            return "offline"
 
-            console.warning("Invalid choice. Please enter 1, 2, or 3.")
-    # 其他模式不登录
-    return mode
+        console.warning("Invalid choice. Please enter 1, 2, or 3.")
+
+
+def _backfill_login_credentials(settings: Settings) -> None:
+    """
+    交互式登录成功后，将验证过的凭证回填到本次 run 的 settings 快照。
+    login_cli 只负责校验与写 netrc，不会更新已创建的 Settings 实例；
+    而 client 由 Core 基于 CoreSettings proto 凭据自建，必须确保快照中携带凭证。
+
+    回填前确认 host 一致：仅当 netrc 中的 host 与本次目标 host 一致时才回填，
+    避免将错误环境的凭证发往用户显式指定的目标环境。
+    """
+    with safe.block(message="Failed to backfill login credentials", level="debug"):
+        creds = nrc.read(utils.get_nrc_path(save=True))
+        if creds is not None:
+            api_key, api_host, web_host = creds
+            # 仅当 netrc 中的 host 与本次 settings 的目标 host 一致时才回填
+            if api_host == settings.api_host:
+                settings.merge_settings({"api_key": api_key, "api_host": api_host, "web_host": web_host})
+            else:
+                console.debug(
+                    f"Netrc credentials are for '{api_host}', but current target is '{settings.api_host}'. "
+                    "Skipping backfill to avoid cross-host data leakage."
+                )
 
 
 @safe.decorator(message="Failed to send webhook")
@@ -574,101 +630,93 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
         else:
             run_dir_name, _ = _generate_run_dir_name(run_id, run_settings.run.dir_max_length, run_settings.run.parallel)
             run_dir = run_settings.log_dir / run_dir_name
-    # 3. 创建一个临时的上下文，避免出现任何问题导致上下文残留
-    with use_context(RunContext(config=RunConfig(settings=run_settings, run_dir=run_dir), callbacks=callbacks)) as ctx:
-        assert run_settings.project.name, "Project name is required."
-        # 3.1. 前置操作
-        # online 模式前置：确保 client 已就绪
-        if mode == "online":
-            _ensure_online_client(run_settings)
-        # local 模式前置：注入 LocalCallback 到 callbacks 中
-        elif mode == "local":
-            from swanlab.deprecated.local import LocalCallbacker
+    ctx = RunContext(config=RunConfig(settings=run_settings, run_dir=run_dir), callbacks=callbacks)
+    core_started = False
+    try:
+        # 3. 创建一个临时的上下文，避免出现任何问题导致上下文残留
+        with use_context(ctx):
+            assert run_settings.project.name, "Project name is required."
+            # 3.1. 前置操作（online 模式的 client 由 Core 在 deliver_run_start 内自建并管理生命周期，
+            #      凭证校验与互斥检查见 CorePython._start_when_online）
+            if mode == "local":
+                # local 模式前置：注入 LocalCallback 到 callbacks 中
+                from swanlab.deprecated.local import LocalCallbacker
 
-            ctx.callbacker.merge_callbacks(LocalCallbacker())
-        # 3.2. 非云端模式，确定 name/color，合并到 settings
-        if mode != "online":
-            args_dict = {}
-            for key, value in {
-                "experiment.name": run_settings.experiment.name or generate_name("beauty"),
-                "experiment.color": run_settings.experiment.color or generate_color("beauty"),
-                "run.id": run_id,
-            }.items():
-                set_nested_value(args_dict, key, value)
-            run_settings.merge_settings(args_dict)
-        # 3.3. 统一调用 deliver_run_start（core 内部按 mode 分发：online 走网络，其余本地处理）
-        ts = Timestamp()
-        ts.GetCurrentTime()
-        start_record = StartRecord(
-            project=run_settings.project.name,
-            workspace=run_settings.project.workspace,
-            public=run_settings.project.public,
-            name=run_settings.experiment.name,
-            color=run_settings.experiment.color,
-            description=run_settings.experiment.description,
-            job_type=run_settings.experiment.job_type,
-            group=run_settings.experiment.group,
-            tags=run_settings.experiment.tags,
-            id=run_id,
-            resume=adapter.resume[run_settings.run.resume],
-            started_at=ts,
-        )
-        resp = ctx.core.deliver_run_start(
-            DeliverRunStartRequest(
-                start_record=start_record,
-                core_settings=ctx.config.settings.to_core_proto(run_id=run_id, run_dir=run_dir),
+                ctx.callbacker.merge_callbacks(LocalCallbacker())
+            # 3.2. 非云端模式，确定 name/color，合并到 settings
+            if mode != "online":
+                args_dict = {}
+                for key, value in {
+                    "experiment.name": run_settings.experiment.name or generate_name("beauty"),
+                    "experiment.color": run_settings.experiment.color or generate_color("beauty"),
+                    "run.id": run_id,
+                }.items():
+                    set_nested_value(args_dict, key, value)
+                run_settings.merge_settings(args_dict)
+            # 3.3. 统一调用 deliver_run_start（core 内部按 mode 分发：online 走网络，其余本地处理）
+            ts = Timestamp()
+            ts.GetCurrentTime()
+            start_record = StartRecord(
+                project=run_settings.project.name,
+                workspace=run_settings.project.workspace,
+                public=run_settings.project.public,
+                name=run_settings.experiment.name,
+                color=run_settings.experiment.color,
+                description=run_settings.experiment.description,
+                job_type=run_settings.experiment.job_type,
+                group=run_settings.experiment.group,
+                tags=run_settings.experiment.tags,
+                id=run_id,
+                resume=adapter.resume[run_settings.run.resume],
+                started_at=ts,
             )
-        )
-        if not resp.success:
-            raise RuntimeError(resp.message)
-        path = resp.path or path
-        if mode == "online":
-            assert path, "Initialization path failed when mode=online"
-        ctx.next_step(user_step=resp.global_step)
-        ctx.global_system_step = resp.global_system_step
-        # 暂时不允许resume时、旧实验进行硬件信息采集、终端代理
-        resume_limit_kwargs = {}
-        if not resp.new_experiment:
-            resume_limit_kwargs["probe.hardware"] = False
-            resume_limit_kwargs["probe.requirements"] = False
-            resume_limit_kwargs["probe.conda"] = False
-            resume_limit_kwargs["probe.git"] = False
-            resume_limit_kwargs["probe.swanlab"] = False
-            resume_limit_kwargs["probe.monitor"] = False
-            resume_limit_kwargs["console.proxy_type"] = "none"
-            console.info(
-                "Hardware information collection, monitor, and terminal proxy have been disabled in resume mode."
+            resp = ctx.core.deliver_run_start(
+                DeliverRunStartRequest(
+                    start_record=start_record,
+                    core_settings=ctx.config.settings.to_core_proto(run_id=run_id, run_dir=run_dir),
+                )
             )
-        # 3.4. 从 core 响应同步配置（online 模式会覆盖为服务端分配的值）
-        sync_args = {}
-        merge_dict = helper.strip_none(
-            {
-                "project.workspace": resp.run.workspace,
-                "project.name": resp.run.project,
-                "experiment.name": resp.name,
-                "experiment.color": resp.run.color,
-                **resume_limit_kwargs,
-            },
-            strip_empty_str=True,
-        )
-        for key, value in merge_dict.items():
-            set_nested_value(sync_args, key, value)
-        run_settings.merge_settings(sync_args)
-    # 4. 创建数据目录
-    if should_mkdirs:
-        fs.safe_mkdirs(ctx.media_dir, ctx.files_dir, ctx.debug_dir)
-    return ctx, path
-
-
-def _ensure_online_client(run_settings: Settings):
-    """
-    确保 online 模式下 client 已就绪，未登录时自动执行登录。
-    :param run_settings: 运行时配置
-    """
-    if not client.exists():
-        assert run_settings.api_key, "API key is required."
-        assert run_settings.api_host, "API host is required."
-        login_raw(
-            api_key=run_settings.api_key, host=run_settings.api_host, save=False, animation=False, print_welcome=False
-        )
-    assert client.exists(), "No client found, please login first."
+            if not resp.success:
+                raise RuntimeError(resp.message)
+            core_started = True
+            path = resp.path or path
+            if mode == "online":
+                assert path, "Initialization path failed when mode=online"
+            ctx.next_step(user_step=resp.global_step)
+            ctx.global_system_step = resp.global_system_step
+            # 暂时不允许resume时、旧实验进行硬件信息采集、终端代理
+            resume_limit_kwargs = {}
+            if not resp.new_experiment:
+                resume_limit_kwargs["probe.hardware"] = False
+                resume_limit_kwargs["probe.requirements"] = False
+                resume_limit_kwargs["probe.conda"] = False
+                resume_limit_kwargs["probe.git"] = False
+                resume_limit_kwargs["probe.swanlab"] = False
+                resume_limit_kwargs["probe.monitor"] = False
+                resume_limit_kwargs["console.proxy_type"] = "none"
+                console.info(
+                    "Hardware information collection, monitor, and terminal proxy have been disabled in resume mode."
+                )
+            # 3.4. 从 core 响应同步配置（online 模式会覆盖为服务端分配的值）
+            sync_args = {}
+            merge_dict = helper.strip_none(
+                {
+                    "project.workspace": resp.run.workspace,
+                    "project.name": resp.run.project,
+                    "experiment.name": resp.name,
+                    "experiment.color": resp.run.color,
+                    **resume_limit_kwargs,
+                },
+                strip_empty_str=True,
+            )
+            for key, value in merge_dict.items():
+                set_nested_value(sync_args, key, value)
+            run_settings.merge_settings(sync_args)
+        # 4. 创建数据目录
+        if should_mkdirs:
+            fs.safe_mkdirs(ctx.media_dir, ctx.files_dir, ctx.debug_dir)
+        return ctx, path
+    except BaseException:
+        if core_started:
+            _finish_failed_init(ctx)
+        raise

@@ -31,6 +31,16 @@ class TestLoginE2E:
         responses.add(responses.GET, "https://server.example/api/auth/verify", json=make_profile())
         assert login_cli(api_key="test-key", host="https://server.example", relogin=True)
         assert responses.calls[0].request.headers["Authorization"] == "ApiKey test-key"
+        assert not client.exists()  # 交互登录同样不驻留运行时单例
+
+    @responses.activate
+    def test_login_cli_revalidates_saved_credentials(self):
+        host = "https://server.example"
+        responses.add(responses.GET, host + "/api/auth/verify", json=make_profile())
+        assert login_cli(api_key="test-key", host=host)
+        assert login_cli(host=host)
+        assert len(responses.calls) == 2
+        assert not client.exists()
 
     @staticmethod
     def _reinit_settings():
@@ -89,8 +99,8 @@ class TestLoginE2E:
         assert create_settings().web_host == "https://swanlab.cn"
 
     @responses.activate
-    def test_login_skip_if_already_logged_in(self):
-        """测试：如果已经登录且没有强制 relogin，无论是否传入入参，应直接跳过并返回 True"""
+    def test_login_always_verifies_online(self):
+        """测试：显式 login 每次都在线验证——同一 key 第二次 login 仍发起 verify，已撤销的 key 能当场反馈"""
         responses.add(
             responses.GET,
             "https://api.swanlab.cn/api/auth/verify",
@@ -98,12 +108,12 @@ class TestLoginE2E:
             status=200,
         )
         login(api_key="first-key")
-        assert client.exists()
+        assert not client.exists()  # login 不驻留运行时单例
 
-        # 第二次调用不带 relogin=True，应直接跳过，不再发起网络请求
+        # 第二次调用不带 relogin=True，仍应在线验证并成功
         result = login(relogin=False)
         assert result is True
-        assert len(responses.calls) == 1
+        assert len(responses.calls) == 2
 
     def test_login_block_if_run_active(self):
         """测试：如果 SwanLab Run 正在运行，不允许登录"""
@@ -136,7 +146,7 @@ class TestLoginE2E:
         assert create_settings().api_key == api_key
         assert len(responses.calls) == 1
         assert responses.calls[0].request.headers["authorization"] == f"ApiKey {api_key}"
-        assert client.exists()
+        assert not client.exists()  # login 仅做临时校验，不驻留运行时单例
 
     @responses.activate
     def test_login_custom_host_and_relogin(self):
@@ -158,9 +168,9 @@ class TestLoginE2E:
             status=200,
         )
 
-        # 先做一次真实登录，使 client 进入已登录状态
+        # 先做一次真实登录（临时校验，不驻留单例）
         login(api_key=initial_key)
-        assert client.exists()
+        assert not client.exists()
 
         result = login(api_key=custom_key, host=custom_host, relogin=True)
 

@@ -186,9 +186,7 @@ class TestApiAuthentication:
         try:
             assert a.username == "alice"
             assert b.username == "bob"
-            assert a._ctx.client is not client._get_client()
-            client.reset()
-            assert b.username == "bob"
+            assert not client.exists()
         finally:
             a._ctx.client.close()
             b._ctx.client.close()

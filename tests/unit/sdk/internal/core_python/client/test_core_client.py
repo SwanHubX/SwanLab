@@ -5,6 +5,7 @@
 @description: 测试 SwanLab 运行时全局客户端单例生命周期
 """
 
+import multiprocessing
 from unittest.mock import MagicMock
 
 import pytest
@@ -95,8 +96,6 @@ def test_global_proxy_functions(mock_base_url, mock_api_url):
     reset()
     close.assert_called_once()
     assert exists() is False
-    with pytest.raises(RuntimeError, match="not initialized"):
-        reset()  # 再次销毁应报错
 
 
 @responses.activate
@@ -109,3 +108,41 @@ def test_failed_authentication_does_not_publish_singleton(mock_base_url, mock_ap
     c = new("test-key", mock_base_url)
     assert c.username == "test-user"
     reset()
+
+
+@pytest.mark.skipif("fork" not in multiprocessing.get_all_start_methods(), reason="fork is unavailable")
+@pytest.mark.parametrize("locked", [False, True])
+@responses.activate
+def test_fork_discards_inherited_client_and_lock(locked, mock_base_url, mock_api_url):
+    from swanlab.sdk.internal.core_python import client as runtime
+
+    responses.add(responses.GET, mock_api_url + "/auth/verify", json=PROFILE)
+    owned = new("parent-key", mock_base_url)
+    context = multiprocessing.get_context("fork")
+    receive, send = context.Pipe(duplex=False)
+
+    def child():
+        send.send(runtime.exists())
+        send.close()
+
+    process = context.Process(target=child)
+    try:
+        if locked:
+            runtime._client_lock.acquire()
+        try:
+            process.start()
+        finally:
+            if locked:
+                runtime._client_lock.release()
+        assert receive.poll(3), "child blocked on inherited client lock"
+        assert receive.recv() is False
+        process.join(3)
+        assert process.exitcode == 0
+        assert _get_client() is owned
+    finally:
+        if process.is_alive():
+            process.terminate()
+            process.join(3)
+        receive.close()
+        send.close()
+        reset(owned)
