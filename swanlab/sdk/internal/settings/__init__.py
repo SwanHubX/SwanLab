@@ -255,7 +255,6 @@ class Settings(BaseSettings):
         if netrc_result is None:
             with safe.block(message="Failed to load credentials from root directory"):
                 netrc_result = _load_netrc(self.get_user_config_dir() / ".netrc")
-        console.debug(f"Loaded credentials: {netrc_result}")
         if netrc_result is not None:
             api_key, api_host, web_host = netrc_result
             # 前提条件：读取到的 api_host 与当前配置的 api_host 匹配，或者 api_host 未被显式设置
@@ -339,6 +338,8 @@ class Settings(BaseSettings):
             save_part=self.core.save_part,
             save_batch=self.core.save_batch,
             skip_store=self.core.skip_store,
+            api_key=self.api_key,
+            api_host=self.api_host,
         )
 
     def to_probe_proto(
