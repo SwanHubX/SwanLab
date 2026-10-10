@@ -61,12 +61,13 @@ API_KEY = "test-api-key"
 # ============================================================
 
 
-def make_login_resp(**overrides) -> dict:
-    """POST /api/login/api_key 响应体"""
+def make_profile(**overrides) -> dict:
+    """GET /api/auth/verify 响应体"""
     return {
-        "sid": "mock-sid",
-        "expiredAt": "2099-12-31T23:59:59.000Z",
-        "userInfo": {"username": USERNAME, "name": "Test User"},
+        "uid": 1,
+        "username": USERNAME,
+        "name": "Test User",
+        "createdAt": "2026-01-01T00:00:00.000Z",
         **overrides,
     }
 
@@ -142,9 +143,9 @@ def rsps():
 
 
 @pytest.fixture
-def mock_login_api(rsps):
-    """注册 POST /api/login/api_key 端点"""
-    rsps.add(responses_lib.POST, f"{API_HOST}/api/login/api_key", json=make_login_resp(), status=200)
+def mock_verify_api(rsps):
+    """注册 GET /api/auth/verify 端点"""
+    rsps.add(responses_lib.GET, f"{API_HOST}/api/auth/verify", json=make_profile(), status=200)
     return rsps
 
 
@@ -247,7 +248,7 @@ def mock_online_settings():
 @pytest.fixture
 def mock_online_init_apis(
     mock_online_settings,
-    mock_login_api,
+    mock_verify_api,
     mock_project_get_api,
     mock_experiment_create_api,
     mock_experiment_stop_api,
@@ -266,10 +267,10 @@ def mock_online_init_apis(
 
 
 @pytest.fixture
-def logged_in_client(mock_login_api, mock_online_settings):
+def logged_in_client(mock_verify_api, mock_online_settings):
     """
     调用 login_raw() 完成登录流程，确保全局 client 已创建。
-    依赖 mock_login_api，故登录请求不会触及真实网络。
+    依赖 mock_verify_api，故登录请求不会触及真实网络。
     清理由上级 conftest.py 的 isolate_sdk_environment 统一处理。
     """
     login_cli(api_key=API_KEY, host=create_settings().api_host)
@@ -666,10 +667,10 @@ class TestInitOnlineMode:
         """验证 online init 确实调用了 project 和 experiment 端点"""
         init(mode="online", project=PROJECT)
 
-        non_login_calls = [c.request.url for c in rsps.calls if "login" not in c.request.url]
+        business_calls = [c.request.url for c in rsps.calls if not c.request.url.endswith("/api/auth/verify")]
 
-        assert any("project" in u for u in non_login_calls), "应调用 project 端点"
-        assert any("experiment" in u for u in non_login_calls), "应调用 experiment 端点"
+        assert any("project" in u for u in business_calls), "应调用 project 端点"
+        assert any("experiment" in u for u in business_calls), "应调用 experiment 端点"
 
     def test_init_online_sends_custom_experiment_name(
         self,
@@ -931,7 +932,7 @@ class TestInitOnlineSkipStore:
 
 # ============================================================
 # TestOnlineMultipleInit
-# [随临时方案删除] 验证 finish() 后 client 单例被销毁、下次 init() 重新认证获取新 sid，
+# [随临时方案删除] 验证 finish() 后 client 单例被销毁、下次 init() 重新校验 API Key，
 # 避免 #1715：服务端在实验结束后使 sid 失效，二次 init 复用旧 client 导致 401。
 # 跟踪 issue: #1742，待 client 生命周期归属 Core 后删除本测试类
 # ============================================================
@@ -939,7 +940,7 @@ class TestInitOnlineSkipStore:
 
 class TestOnlineMultipleInit:
     def test_second_init_relogin_after_finish(self, logged_in_client, mock_online_init_apis, rsps):
-        """两次 init/finish：finish 后 client 被重置，第二次 init 重新登录获取新 sid"""
+        """两次 init/finish：finish 后 client 被重置，第二次 init 重新校验 API Key"""
         # 第一次运行
         run1 = init(mode="online", project=PROJECT)
         run1.log({"loss": 0.5})
@@ -954,8 +955,8 @@ class TestOnlineMultipleInit:
         run2.finish()
 
         # 首次登录 1 次 + finish 后重登 1 次
-        login_calls = sum(1 for c in rsps.calls if c.request.url.endswith("/api/login/api_key"))
-        assert login_calls == 2
+        verify_calls = sum(1 for c in rsps.calls if c.request.url.endswith("/api/auth/verify"))
+        assert verify_calls == 2
 
     def test_client_reset_when_stop_experiment_fails(self, logged_in_client, mock_online_init_apis, rsps):
         """stop_experiment 上报失败（404，不在重试 forcelist）时，finish 仍应重置 client"""
@@ -1363,7 +1364,7 @@ def mock_save_upload_api(rsps):
 @pytest.fixture
 def mock_online_save_apis(
     mock_online_settings,
-    mock_login_api,
+    mock_verify_api,
     mock_project_get_api,
     mock_experiment_create_api,
     mock_experiment_stop_api,
@@ -1381,7 +1382,7 @@ def mock_online_save_apis(
 @pytest.fixture
 def mock_online_init_only(
     mock_online_settings,
-    mock_login_api,
+    mock_verify_api,
     mock_project_get_api,
     mock_experiment_create_api,
     mock_experiment_stop_api,
@@ -1448,7 +1449,7 @@ def mock_save_upload_multi_api(rsps):
 @pytest.fixture
 def mock_online_skip_store_apis(
     mock_online_settings,
-    mock_login_api,
+    mock_verify_api,
     mock_project_get_api,
     mock_experiment_create_api,
     mock_experiment_stop_api,

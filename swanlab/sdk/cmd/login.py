@@ -19,10 +19,10 @@ from swanlab.exceptions import AuthenticationError
 from swanlab.sdk.cmd import utils
 from swanlab.sdk.cmd.guard import with_cmd_lock, without_run
 from swanlab.sdk.internal.core_python import client
-from swanlab.sdk.internal.pkg import console, helper, nrc, safe, scope
+from swanlab.sdk.internal.pkg import console, helper, nrc, safe
 from swanlab.sdk.internal.settings import Settings, create_settings, resolve_hosts, set_global_settings
 from swanlab.sdk.typings.cmd import LoginType
-from swanlab.sdk.typings.pkg.client.bootstrap import LoginResponse
+from swanlab.sdk.typings.pkg.client.bootstrap import UserProfile
 
 __all__ = ["login", "login_cli", "login_raw"]
 
@@ -51,7 +51,10 @@ def login(
     :param timeout: Network request timeout in seconds. Defaults to 10.
     :return: True if login was successful, False otherwise.
     :raises RuntimeError: If called while a run is active.
-    :raises AuthenticationError: If login fails due to invalid credentials or network issues.
+    :raises AuthenticationError: If credentials are rejected or unavailable.
+    :raises RequestException: If a network or HTTP request fails.
+    :raises RuntimeError: If the backend does not support ApiKey authentication.
+    :raises ValueError: If the authentication response is malformed.
 
     Examples:
 
@@ -121,19 +124,17 @@ def login_raw(
     # 至此，api_key、api_host、web_host 都已经确定，且 login_settings 已经准备好
 
     # 3. 进入登录流程
-    with scope.Scope() as s:
-        f = utils.with_loading_animation("Waiting for response...")(create_client) if animation else create_client
-        f(api_key=api_key, api_host=api_host, timeout=timeout)
-        login_resp: Optional[LoginResponse] = s.get("login_resp", None)
-        if print_welcome:
-            welcome(api_host, login_resp)
-        if save:
-            nrc_path = utils.get_nrc_path(save=save)
-            nrc.write(nrc_path, api_host=api_host, web_host=login_settings.web_host, api_key=api_key)
-        # 4. 将登录设置合并到全局配置中
-        current_settings.merge_settings(login_settings)
-        set_global_settings(current_settings)
-        return True
+    f = utils.with_loading_animation("Waiting for response...")(create_client) if animation else create_client
+    c = f(api_key=api_key, api_host=api_host, timeout=timeout)
+    if print_welcome:
+        welcome(api_host, c.profile)
+    if save:
+        nrc_path = utils.get_nrc_path(save=save)
+        nrc.write(nrc_path, api_host=api_host, web_host=login_settings.web_host, api_key=api_key)
+    # 4. 将登录设置合并到全局配置中
+    current_settings.merge_settings(login_settings)
+    set_global_settings(current_settings)
+    return True
 
 
 def create_client(api_key: str, api_host: str, timeout: int = 10):
@@ -171,16 +172,13 @@ def login_cli(
     api_host, web_host = validate_host(host, current_settings)
 
     count = 0
-    base_url = api_host + "/api"
     interactive = current_settings.interactive
     while True:
         if not api_key:
             api_key = prompt_api_key(web_host=web_host, interactive=interactive, again=count > 0)
         try:
-            with scope.Scope() as s:
-                client.new(api_key, base_url, timeout=timeout)
-                login_resp: Optional[LoginResponse] = s.get("login_resp", None)
-            welcome(base_url, login_resp)
+            c = client.new(api_key, api_host, timeout=timeout)
+            welcome(api_host, c.profile)
             # 如果存储当前目录，添加gitignore文件
             # mkdir_and_append_gitignore 自动判断是否为空文件夹，如果是则写入
             if save == "local":
@@ -278,16 +276,15 @@ def prompt_api_key(
             sys.exit(0)
 
 
-def welcome(base_url: str, login_resp: Optional[LoginResponse]):
+def welcome(base_url: str, profile: UserProfile):
     """
     登录成功后打印欢迎信息
     :param base_url: 登录地址
-    :param login_resp: 登录响应对象，包含用户信息等数据
+    :param profile: 用户档案对象，包含用户信息等数据
     :return:
     """
-    assert login_resp is not None, "Login response is missing"
-    username = login_resp.get("userInfo", {}).get("username", "")
-    nickname = login_resp.get("userInfo", {}).get("name", "")
+    username = profile.get("username", "")
+    nickname = profile.get("name", "")
     name = nickname or username
     if name:
         console.info(

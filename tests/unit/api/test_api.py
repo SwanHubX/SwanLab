@@ -11,6 +11,7 @@ from unittest.mock import MagicMock
 
 import pytest
 import requests
+import responses
 
 from swanlab.api import Api
 from swanlab.api.base import ApiClientContext, BaseEntity
@@ -122,6 +123,84 @@ class TestApiEntryValidation:
         )
         columns = api.columns("testuser/project/run1", column_type=column_type)
         assert isinstance(columns, Columns)
+
+
+class TestApiAuthentication:
+    @responses.activate
+    def test_standalone_instances_use_their_own_credentials(self):
+        from swanlab.sdk.internal.core_python import client
+
+        for host, username in (("https://server-a.example", "alice"), ("https://server-b.example", "bob")):
+            responses.add(
+                responses.GET,
+                host + "/api/auth/verify",
+                json={
+                    "uid": 1,
+                    "username": username,
+                    "createdAt": "2026-01-01T00:00:00Z",
+                },
+            )
+        a = Api(api_key="alice-key", host="https://server-a.example")
+        b = Api(api_key="bob-key", host="https://server-b.example")
+        try:
+            assert (a.username, b.username) == ("alice", "bob")
+            assert a._ctx.client is not b._ctx.client
+            assert [call.request.headers["Authorization"] for call in responses.calls] == [
+                "ApiKey alice-key",
+                "ApiKey bob-key",
+            ]
+            assert not client.exists()
+        finally:
+            a._ctx.client.close()
+            b._ctx.client.close()
+
+    @responses.activate
+    def test_api_after_login_resolves_profile_without_reusing_runtime_client(self):
+        from swanlab.sdk.cmd.login import login
+        from swanlab.sdk.internal.core_python import client
+
+        host = "https://server.example"
+        responses.add(
+            responses.GET,
+            host + "/api/auth/verify",
+            json={
+                "uid": 1,
+                "username": "alice",
+                "createdAt": "2026-01-01T00:00:00Z",
+            },
+            match=[responses.matchers.header_matcher({"Authorization": "ApiKey alice-key"})],
+        )
+        login(api_key="alice-key", host=host, save=False)
+        responses.add(
+            responses.GET,
+            host + "/api/auth/verify",
+            json={
+                "uid": 2,
+                "username": "bob",
+                "createdAt": "2026-01-01T00:00:00Z",
+            },
+            match=[responses.matchers.header_matcher({"Authorization": "ApiKey bob-key"})],
+        )
+        a = Api()
+        b = Api(api_key="bob-key", host=host)
+        try:
+            assert a.username == "alice"
+            assert b.username == "bob"
+            assert a._ctx.client is not client._get_client()
+            client.reset()
+            assert b.username == "bob"
+        finally:
+            a._ctx.client.close()
+            b._ctx.client.close()
+
+    @responses.activate
+    def test_invalid_key_does_not_create_runtime_client(self):
+        from swanlab.sdk.internal.core_python import client
+
+        responses.add(responses.GET, "https://server.example/api/auth/verify", status=401)
+        with pytest.raises(AuthenticationError):
+            Api(api_key="bad-key", host="https://server.example")
+        assert not client.exists()
 
 
 # ---------------------------------------------------------------------------

@@ -36,11 +36,12 @@ def exists() -> bool:
 
 
 def reset():
-    """重置/销毁当前的 SwanLab 运行时客户端。"""
+    """重置/销毁当前的 SwanLab 运行时客户端，释放底层连接池。"""
     global _default_client
     console.debug("Resetting SwanLab client.")
     if _default_client is None:
         raise RuntimeError("SwanLab client is not initialized. Call `new` first.")
+    _default_client.close()
     _default_client = None
 
 
