@@ -16,7 +16,7 @@ from swanlab.sdk.typings.pkg.client.bootstrap import UserProfile
 
 from .. import nrc
 from . import session
-from .utils import decode_response
+from .utils import decode_profile, decode_response
 
 __all__ = ["Client", "session", "ApiResponse", "decode_response", "verify_api_key"]
 
@@ -44,7 +44,7 @@ class Client:
         self._session.headers["Authorization"] = f"ApiKey {api_key}"
         try:
             data = self.request("GET", "auth/verify", timeout=timeout, retries=0, log_error=False).data
-            self._profile = _decode_profile(data)
+            self._profile = decode_profile(data)
         except ApiError as e:
             # 认证阶段失败必须释放连接池，避免资源泄漏
             self._session.close()
@@ -97,29 +97,6 @@ class Client:
 
     def delete(self, url: str, retries: Optional[int] = None, log_error: bool = True):
         return self.request("DELETE", url, retries=retries, log_error=log_error)
-
-
-def _decode_profile(data: Any) -> UserProfile:
-    if not isinstance(data, dict):
-        raise ValueError("Invalid authentication response: expected a user profile.")
-    uid = data.get("uid")
-    username = data.get("username")
-    created_at = data.get("createdAt")
-    avatar = data.get("avatar", "")
-    name = data.get("name", "")
-    verified = data.get("verified", False)
-    if (
-        type(uid) is not int
-        or uid <= 0
-        or not isinstance(username, str)
-        or not username.strip()
-        or not isinstance(created_at, str)
-        or not isinstance(avatar, str)
-        or not isinstance(name, str)
-        or not isinstance(verified, bool)
-    ):
-        raise ValueError("Invalid authentication response: malformed user profile.")
-    return UserProfile(uid=uid, username=username, createdAt=created_at, avatar=avatar, name=name, verified=verified)
 
 
 def verify_api_key(base_url: str, api_key: str, timeout: int = 10) -> UserProfile:

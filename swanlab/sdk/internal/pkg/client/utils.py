@@ -6,11 +6,12 @@
 """
 
 import json
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import requests
 
 from swanlab.sdk.internal.pkg import safe
+from swanlab.sdk.typings.pkg.client.bootstrap import UserProfile
 
 
 def decode_response(resp: requests.Response) -> Union[Dict, List, str]:
@@ -47,3 +48,27 @@ def decode_error_response(resp: requests.Response) -> Optional[Tuple[str, str]]:
         return code, message
 
     return None
+
+
+def decode_profile(data: Any) -> UserProfile:
+    """解码认证返回的用户身份信息。"""
+    if not isinstance(data, dict):
+        raise ValueError("Invalid authentication response: expected a user profile.")
+    uid = data.get("uid")
+    username = data.get("username")
+    created_at = data.get("createdAt")
+    avatar = data.get("avatar", "")
+    name = data.get("name", "")
+    verified = data.get("verified", False)
+    if (
+        type(uid) is not int
+        or uid <= 0
+        or not isinstance(username, str)
+        or not username.strip()
+        or not isinstance(created_at, str)
+        or not isinstance(avatar, str)
+        or not isinstance(name, str)
+        or not isinstance(verified, bool)
+    ):
+        raise ValueError("Invalid authentication response: malformed user profile.")
+    return UserProfile(uid=uid, username=username, createdAt=created_at, avatar=avatar, name=name, verified=verified)

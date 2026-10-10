@@ -132,10 +132,11 @@ def _install_http_mocks(rsps) -> None:
         urls = [f"https://storage.fake.swanlab.cn/save/{i}" for i in range(count)]
         return (200, {"Content-Type": "application/json"}, json.dumps({"urls": urls}))
 
+    # 纯 ApiKey 认证端点，login_raw 显式校验与 Core 启动自建 client 各调用一次
     rsps.add(
-        responses_lib.POST,
-        f"{API_HOST}/api/login/api_key",
-        json={"sid": "mock-sid", "expiredAt": "2099-12-31T23:59:59.000Z", "userInfo": {"username": USERNAME}},
+        responses_lib.GET,
+        f"{API_HOST}/api/auth/verify",
+        json={"uid": 1, "username": USERNAME, "name": "Test User", "createdAt": "2026-01-01T00:00:00.000Z"},
         status=200,
     )
     rsps.add(
@@ -239,8 +240,14 @@ def run_worker(skip_store: bool, steps: int, keys: int, save_count: int) -> None
             merge_settings({"api_host": API_HOST, "web_host": WEB_HOST, "probe": {"monitor": False}})
             login_raw(api_key=API_KEY, host=API_HOST, save=False, print_welcome=False)
 
+            # 凭证必须显式传入：Settings() 构造会把 ~/.swanlab/.netrc 的真实凭证
+            # 记为"显式设置"并在 init 合并时覆盖 mock 的 api_host，导致认证请求
+            # 打到真实后端而非 responses mock（client 由 Core 基于 run settings 自建）
             settings = swanlab.Settings(
-                core=swanlab.Settings.Core(skip_store=skip_store, record_interval=RECORD_INTERVAL)
+                api_key=API_KEY,
+                api_host=API_HOST,
+                web_host=WEB_HOST,
+                core=swanlab.Settings.Core(skip_store=skip_store, record_interval=RECORD_INTERVAL),
             )
             run = swanlab.init(mode="online", project=PROJECT, log_dir=tmp_dir, settings=settings)
 
