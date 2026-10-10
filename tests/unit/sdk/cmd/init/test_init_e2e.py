@@ -13,7 +13,7 @@
   - TestInitResumeValidation : resume/id 校验逻辑
   - TestInitOnlineMode       : online 模式，依赖本文件内的 HTTP mock fixtures
   - TestInitOnlineSkipStore  : online + core.skip_store，本地不产生任何文件
-  - TestOnlineMultipleInit   : online 模式多次 init/finish，验证 finish 后 client 重置与重新认证
+  - TestOnlineMultipleInit   : client 生命周期契约（Step 3b）：Core 自建/失败回滚/finish 释放/二次 init
   - TestInitFactoryDispatch  : 验证 factory 模式按模式分派组件类型
   - TestRunSave              : run.save() 各 policy / 各模式的端到端行为
 """
@@ -61,12 +61,13 @@ API_KEY = "test-api-key"
 # ============================================================
 
 
-def make_login_resp(**overrides) -> dict:
-    """POST /api/login/api_key 响应体"""
+def make_profile(**overrides) -> dict:
+    """GET /api/auth/verify 响应体"""
     return {
-        "sid": "mock-sid",
-        "expiredAt": "2099-12-31T23:59:59.000Z",
-        "userInfo": {"username": USERNAME, "name": "Test User"},
+        "uid": 1,
+        "username": USERNAME,
+        "name": "Test User",
+        "createdAt": "2026-01-01T00:00:00.000Z",
         **overrides,
     }
 
@@ -142,9 +143,9 @@ def rsps():
 
 
 @pytest.fixture
-def mock_login_api(rsps):
-    """注册 POST /api/login/api_key 端点"""
-    rsps.add(responses_lib.POST, f"{API_HOST}/api/login/api_key", json=make_login_resp(), status=200)
+def mock_verify_api(rsps):
+    """注册 GET /api/auth/verify 端点"""
+    rsps.add(responses_lib.GET, f"{API_HOST}/api/auth/verify", json=make_profile(), status=200)
     return rsps
 
 
@@ -247,7 +248,7 @@ def mock_online_settings():
 @pytest.fixture
 def mock_online_init_apis(
     mock_online_settings,
-    mock_login_api,
+    mock_verify_api,
     mock_project_get_api,
     mock_experiment_create_api,
     mock_experiment_stop_api,
@@ -266,10 +267,11 @@ def mock_online_init_apis(
 
 
 @pytest.fixture
-def logged_in_client(mock_login_api, mock_online_settings):
+def logged_in_client(mock_verify_api, mock_online_settings):
     """
-    调用 login_raw() 完成登录流程，确保全局 client 已创建。
-    依赖 mock_login_api，故登录请求不会触及真实网络。
+    调用 login_cli() 完成登录流程（临时在线校验 + netrc 持久化）。
+    login 不再驻留运行时 client 单例；后续 init() 由 Core 基于 settings 凭证自建 client。
+    依赖 mock_verify_api，故登录请求不会触及真实网络。
     清理由上级 conftest.py 的 isolate_sdk_environment 统一处理。
     """
     login_cli(api_key=API_KEY, host=create_settings().api_host)
@@ -666,10 +668,10 @@ class TestInitOnlineMode:
         """验证 online init 确实调用了 project 和 experiment 端点"""
         init(mode="online", project=PROJECT)
 
-        non_login_calls = [c.request.url for c in rsps.calls if "login" not in c.request.url]
+        business_calls = [c.request.url for c in rsps.calls if not c.request.url.endswith("/api/auth/verify")]
 
-        assert any("project" in u for u in non_login_calls), "应调用 project 端点"
-        assert any("experiment" in u for u in non_login_calls), "应调用 experiment 端点"
+        assert any("project" in u for u in business_calls), "应调用 project 端点"
+        assert any("experiment" in u for u in business_calls), "应调用 experiment 端点"
 
     def test_init_online_sends_custom_experiment_name(
         self,
@@ -931,34 +933,36 @@ class TestInitOnlineSkipStore:
 
 # ============================================================
 # TestOnlineMultipleInit
-# [随临时方案删除] 验证 finish() 后 client 单例被销毁、下次 init() 重新认证获取新 sid，
-# 避免 #1715：服务端在实验结束后使 sid 失效，二次 init 复用旧 client 导致 401。
-# 跟踪 issue: #1742，待 client 生命周期归属 Core 后删除本测试类
+# 验证 Step 3b client 生命周期契约：client 由 Core 在 _start_when_online 自建（含凭证校验
+# 与互斥检查）、启动半途失败严格回滚、finish（无论上报成败）后集中释放、二次 init 重新自建，
+# 根治 #1715：实验结束后同进程二次 init 复用失效会话导致 401。跟踪 issue: #1742
 # ============================================================
 
 
 class TestOnlineMultipleInit:
-    def test_second_init_relogin_after_finish(self, logged_in_client, mock_online_init_apis, rsps):
-        """两次 init/finish：finish 后 client 被重置，第二次 init 重新登录获取新 sid"""
+    def test_second_init_rebuilds_client_after_finish(self, logged_in_client, mock_online_init_apis, rsps):
+        """两次 init/finish：运行期间 client 存活，finish 后集中销毁，第二次 init 重新自建"""
         # 第一次运行
         run1 = init(mode="online", project=PROJECT)
+        assert client.exists()  # client 由 Core 自建
         run1.log({"loss": 0.5})
         run1.finish()
-        assert not client.exists()
+        assert not client.exists()  # finish 后集中释放
 
-        # 第二次运行：应重新认证并成功启动
+        # 第二次运行：重新自建 client 并成功启动
         run2 = init(mode="online", project=PROJECT)
         assert isinstance(run2, Run)
+        assert client.exists()
         assert has_run()
         run2.log({"acc": 0.9})
         run2.finish()
 
-        # 首次登录 1 次 + finish 后重登 1 次
-        login_calls = sum(1 for c in rsps.calls if c.request.url.endswith("/api/login/api_key"))
-        assert login_calls == 2
+        # login 1 次 + 两次 init 各自创建 client（verify 探活）1 次
+        verify_calls = sum(1 for c in rsps.calls if c.request.url.endswith("/api/auth/verify"))
+        assert verify_calls == 3
 
-    def test_client_reset_when_stop_experiment_fails(self, logged_in_client, mock_online_init_apis, rsps):
-        """stop_experiment 上报失败（404，不在重试 forcelist）时，finish 仍应重置 client"""
+    def test_client_released_when_stop_experiment_fails(self, logged_in_client, mock_online_init_apis, rsps):
+        """stop_experiment 上报失败（404，不在重试 forcelist）时，finish 仍应释放 client（释放与上报解耦）"""
         rsps.replace(
             responses_lib.PUT,
             f"{API_HOST}/api/project/{USERNAME}/{PROJECT}/runs/{EXPERIMENT_CUID}/state",
@@ -972,12 +976,108 @@ class TestOnlineMultipleInit:
 
         assert not client.exists()
 
-    def test_local_finish_keeps_client(self, logged_in_client):
-        """显式登录后运行 local 模式实验，finish 不应销毁 client（仅 online 模式重置）"""
-        run = init(mode="local", project=PROJECT)
-        run.finish()
+    def test_local_run_never_creates_client(self, logged_in_client):
+        """local 模式全程不创建 client：login 只做临时校验不驻留单例，Core 仅在 online 模式自建"""
+        assert not client.exists()
 
+        run = init(mode="local", project=PROJECT)
+        assert not client.exists()
+
+        run.finish()
+        assert not client.exists()
+
+    def test_client_released_when_startup_fails_midway(
+        self, logged_in_client, rsps, mock_profile_api, mock_metrics_api
+    ):
+        """启动半途失败（client 已自建、实验创建失败）→ 回滚销毁单例，下次 init 不被 already exists 阻塞"""
+        rsps.add(responses_lib.GET, f"{API_HOST}/api/auth/verify", json=make_profile(), status=200)
+        rsps.add(
+            responses_lib.GET,
+            f"{API_HOST}/api/project/{USERNAME}/{PROJECT}",
+            json=make_project_detail_resp(),
+            status=200,
+        )
+        rsps.add(
+            responses_lib.POST,
+            f"{API_HOST}/api/project/{USERNAME}/{PROJECT}/experiment",
+            json={"message": "bad request"},
+            status=400,
+        )
+        rsps.add(
+            responses_lib.POST,
+            f"{API_HOST}/api/project/{USERNAME}/{PROJECT}/experiment",
+            json=make_experiment_resp(),
+            status=201,
+        )
+        rsps.add(
+            responses_lib.POST,
+            f"{API_HOST}/api/house/experiments/{EXPERIMENT_CUID}/heartbeat",
+            json=make_ok_resp(),
+            status=200,
+        )
+        rsps.add(
+            responses_lib.PUT,
+            f"{API_HOST}/api/project/{USERNAME}/{PROJECT}/runs/{EXPERIMENT_CUID}/state",
+            json=make_ok_resp(),
+            status=200,
+        )
+
+        with pytest.raises(RuntimeError, match="Failed to start run"):
+            init(mode="online", project=PROJECT)
+        assert not client.exists()
+
+        # 服务恢复后，同一进程内再次 init 成功
+        run = init(mode="online", project=PROJECT)
+        assert isinstance(run, Run)
         assert client.exists()
+        run.finish()
+        assert not client.exists()
+
+    def test_client_not_created_when_auth_fails(self, rsps, mock_online_settings):
+        """verify 拒绝（401）→ client.new 失败不发布单例，init 给出可读的认证错误"""
+        merge_settings({"api_key": API_KEY})
+        rsps.add(
+            responses_lib.GET,
+            f"{API_HOST}/api/auth/verify",
+            json={"message": "Invalid API Key"},
+            status=401,
+        )
+
+        with pytest.raises(RuntimeError, match="Authentication failed"):
+            init(mode="online", project=PROJECT)
+        assert not client.exists()
+
+    def test_init_rejected_when_client_already_exists(self, logged_in_client):
+        """进程内互斥：残留的联网单例导致新 init 在创建资源前被拒绝，且不得误杀已有 client"""
+        # 预置一个"残留" client（模拟异常路径泄漏的运行时单例）
+        client.new(API_KEY, API_HOST)
+        try:
+            with pytest.raises(RuntimeError, match="already active in this process"):
+                init(mode="online", project=PROJECT)
+            assert client.exists()  # 被拒绝的 init 不得释放他人创建的单例（所有权隔离）
+        finally:
+            client.reset()
+
+    @pytest.mark.parametrize("stage", ["directories", "run", "probe", "config"])
+    def test_failure_after_core_start_releases_client_and_allows_reinit(
+        self, stage, logged_in_client, mock_online_init_apis, monkeypatch
+    ):
+        target = {
+            "directories": "swanlab.sdk.cmd.init.fs.safe_mkdirs",
+            "run": "swanlab.sdk.cmd.init.Run",
+            "probe": "swanlab.sdk.internal.probe_python.ProbePython.deliver_probe_start",
+            "config": "swanlab.sdk.cmd.init.load_config",
+        }[stage]
+        with monkeypatch.context() as patcher:
+            patcher.setattr(target, MagicMock(side_effect=RuntimeError("frontend init failed")))
+            with pytest.raises(RuntimeError, match="frontend init failed"):
+                init(mode="online", project=PROJECT)
+        assert not client.exists()
+        assert not has_run()
+        run = init(mode="online", project=PROJECT)
+        run.log({"loss": 0.5})
+        run.finish()
+        assert not client.exists()
 
 
 # ============================================================
@@ -1363,7 +1463,7 @@ def mock_save_upload_api(rsps):
 @pytest.fixture
 def mock_online_save_apis(
     mock_online_settings,
-    mock_login_api,
+    mock_verify_api,
     mock_project_get_api,
     mock_experiment_create_api,
     mock_experiment_stop_api,
@@ -1381,7 +1481,7 @@ def mock_online_save_apis(
 @pytest.fixture
 def mock_online_init_only(
     mock_online_settings,
-    mock_login_api,
+    mock_verify_api,
     mock_project_get_api,
     mock_experiment_create_api,
     mock_experiment_stop_api,
@@ -1448,7 +1548,7 @@ def mock_save_upload_multi_api(rsps):
 @pytest.fixture
 def mock_online_skip_store_apis(
     mock_online_settings,
-    mock_login_api,
+    mock_verify_api,
     mock_project_get_api,
     mock_experiment_create_api,
     mock_experiment_stop_api,

@@ -7,9 +7,9 @@
 
 from typing import Union
 
-from requests.exceptions import HTTPError
+from requests.exceptions import HTTPError, RequestException
 
-__all__ = ["ApiError", "AuthenticationError", "DataStoreError"]
+__all__ = ["ApiError", "AuthenticationError", "DataStoreError", "RequestException"]
 
 
 class ApiError(HTTPError):

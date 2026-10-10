@@ -2,17 +2,26 @@
 @author: cunyue
 @file: test_client.py
 @time: 2026/4/14 00:44
-@description: 测试 SwanLab 运行时客户端的核心功能，包括初始化、认证、请求发送和错误处理。
+@description: 测试 SwanLab 运行时客户端的核心功能，包括初始化、鉴权、请求发送和重试。
 """
 
-from datetime import datetime, timedelta, timezone
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
+import requests
 import responses
 
-from swanlab.exceptions import ApiError
-from swanlab.sdk.internal.pkg.client import Client
+from swanlab.exceptions import ApiError, AuthenticationError
+from swanlab.sdk.internal.pkg.client import Client, session, verify_api_key
+
+PROFILE = {
+    "uid": 1,
+    "avatar": "",
+    "username": "test-user",
+    "name": "Test User",
+    "createdAt": "2026-01-01T00:00:00.000Z",
+    "verified": True,
+}
 
 
 @pytest.fixture()
@@ -28,61 +37,45 @@ def mock_api_url(mock_base_url):
 
 
 @pytest.fixture()
-def mock_login():
-    patcher = patch("swanlab.sdk.internal.pkg.client.login_by_api_key")
-    mock_func = patcher.start()
-    mock_func.return_value = {
-        "sid": "mock-token-123",
-        "expiredAt": "2999-01-01T00:00:00.000Z",
-        "userInfo": {"username": "test-user", "name": "Test User"},
-    }
-    yield mock_func
-    patcher.stop()
+def authenticated_client(mock_base_url, mock_api_url):
+    with responses.RequestsMock() as rsps:
+        rsps.add(responses.GET, f"{mock_api_url}/auth/verify", json=PROFILE)
+        client = Client(api_key="test-key", base_url=mock_base_url)
+        try:
+            yield client, rsps
+        finally:
+            client.close()
 
 
 @pytest.fixture()
-def client(mock_login, mock_base_url):
-    _ = mock_login
-    return Client(api_key="test-key", base_url=mock_base_url)
+def session_close_spy(monkeypatch):
+    http = session.create()
+    close = MagicMock(wraps=http.close)
+    monkeypatch.setattr(http, "close", close)
+    monkeypatch.setattr(session, "create", lambda: http)
+    try:
+        yield close
+    finally:
+        http.close()
 
 
-def test_token_refresh_logic(client, mock_login):
-    """测试当 token 即将过期时，发起请求是否会自动触发鉴权刷新"""
-    assert mock_login.call_count == 1
+def test_client_init_and_auth(authenticated_client, mock_api_url):
+    """初始化时挂载 ApiKey 常驻头，并通过 /verify 缓存用户档案"""
+    client, _ = authenticated_client
 
-    # 将过期时间设置为当前时间，模拟即将过期
-    client._expired_at = datetime.now(timezone.utc)
-    client._session.request = MagicMock()
-
-    # 模拟正常响应防止 decode 报错
-    mock_resp = MagicMock()
-    mock_resp.json.return_value = {}
-    client._session.request.return_value = mock_resp
-
-    client.get("/test-refresh")
-
-    # 验证：初始化调了 1 次，过期刷新调了 1 次，共 2 次
-    assert mock_login.call_count == 2
-
-
-def test_client_init_and_auth(mock_login, client, mock_base_url, mock_api_url):
-    """测试客户端初始化时，是否正确调用了登录接口并挂载 Cookie"""
-    # 验证强制 /api 后缀拼接
     assert client._base_url == mock_api_url
+    assert client._session.headers["Authorization"] == "ApiKey test-key"
+    assert client.profile["username"] == "test-user"
+    assert client.username == "test-user"
 
-    # 验证鉴权时使用的是拼接后的 URL
-    mock_login.assert_called_once_with(mock_api_url, "test-key", timeout=10)
-    assert client._session.cookies.get("sid") == "mock-token-123"
 
-
-def test_client_http_methods_and_url_join(client, mock_api_url):
+def test_client_http_methods_and_url_join(authenticated_client, mock_api_url):
     """测试 HTTP 请求的方法分发与 URL 拼接是否正确"""
+    client, _ = authenticated_client
     client._session.request = MagicMock()
     mock_response = MagicMock()
     mock_response.json.return_value = {"msg": "success"}
     client._session.request.return_value = mock_response
-
-    client._expired_at = datetime.now(timezone.utc) + timedelta(days=30)
 
     # 1. 测试 GET 请求
     resp = client.get("/project", params={"id": 1})
@@ -109,64 +102,63 @@ def test_client_http_methods_and_url_join(client, mock_api_url):
 # -------------------------------------------------------------------
 
 
-@responses.activate()
-def test_retry_default_on_server_error(client, mock_api_url):
+def test_retry_default_on_server_error(authenticated_client, mock_api_url):
     """默认重试：服务端持续返回 500，最终应抛出异常（而非静默失败）"""
-    client._expired_at = datetime.now(timezone.utc) + timedelta(days=30)
+    client, rsps = authenticated_client
 
-    # 拦截拼接后的完整 URL
-    responses.add(responses.GET, mock_api_url + "/health", status=500)
+    rsps.add(responses.GET, mock_api_url + "/health", status=500)
 
     with pytest.raises(ApiError):
         client.get("/health")
 
-    assert len(responses.calls) == 6
+    # verify(1) + health(1 + 5 次默认重试)
+    assert len(rsps.calls) == 7
 
 
-@responses.activate()
-def test_retry_custom_zero_disables_retry(client, mock_api_url):
-    """retries=0：禁用重试，第一次失败后立即抛出，调用次数恰好为 1"""
-    client._expired_at = datetime.now(timezone.utc) + timedelta(days=30)
-    responses.add(responses.POST, mock_api_url + "/run", status=503)
+def test_retry_custom_zero_disables_retry(authenticated_client, mock_api_url):
+    """retries=0：禁用重试，第一次失败后立即抛出"""
+    client, rsps = authenticated_client
+
+    rsps.add(responses.POST, mock_api_url + "/run", status=503)
 
     with pytest.raises(ApiError):
         client.post("/run", data={"name": "test"}, retries=0)
 
-    assert len(responses.calls) == 1
+    # verify(1) + run(1)
+    assert len(rsps.calls) == 2
 
 
-@responses.activate()
-def test_retry_custom_count(client, mock_api_url):
+def test_retry_custom_count(authenticated_client, mock_api_url):
     """retries=2：前两次返回 500，第三次成功，最终应正常返回"""
-    client._expired_at = datetime.now(timezone.utc) + timedelta(days=30)
+    client, rsps = authenticated_client
     target_url = mock_api_url + "/data"
 
-    responses.add(responses.GET, target_url, status=500)
-    responses.add(responses.GET, target_url, status=500)
-    responses.add(responses.GET, target_url, json={"result": "ok"}, status=200)
+    rsps.add(responses.GET, target_url, status=500)
+    rsps.add(responses.GET, target_url, status=500)
+    rsps.add(responses.GET, target_url, json={"result": "ok"}, status=200)
 
     resp = client.get("/data", retries=2)
 
     assert resp.raw.status_code == 200
     assert resp.data == {"result": "ok"}
-    assert len(responses.calls) == 3
+    # verify(1) + data(3)
+    assert len(rsps.calls) == 4
 
 
-def test_retry_invalid_negative_raises(client):
+def test_retry_invalid_negative_raises(authenticated_client, mock_api_url):
     """retries 为负数时，Adapter 应抛出 ValueError"""
-    client._expired_at = datetime.now(timezone.utc) + timedelta(days=30)
+    client, _ = authenticated_client
 
     with pytest.raises(ValueError, match="Invalid retry count"):
         client.get("/bad", retries=-1)
 
 
-@responses.activate()
-def test_retry_context_isolation(client, mock_api_url):
+def test_retry_context_isolation(authenticated_client, mock_api_url):
     """ContextVar 隔离：一次带 retries 的请求结束后，不影响下一次普通请求"""
-    client._expired_at = datetime.now(timezone.utc) + timedelta(days=30)
+    client, rsps = authenticated_client
 
-    responses.add(responses.GET, mock_api_url + "/a", status=500)
-    responses.add(responses.GET, mock_api_url + "/b", json={"ok": True})
+    rsps.add(responses.GET, mock_api_url + "/a", status=500)
+    rsps.add(responses.GET, mock_api_url + "/b", json={"ok": True})
 
     with pytest.raises(ApiError):
         client.get("/a", retries=0)
@@ -174,3 +166,90 @@ def test_retry_context_isolation(client, mock_api_url):
     resp = client.get("/b")
     assert resp.raw.status_code == 200
     assert resp.data == {"ok": True}
+    # verify(1) + a(1) + b(1)
+    assert len(rsps.calls) == 3
+
+
+@pytest.mark.parametrize("status", [401, 403, 404, 429, 503])
+@responses.activate
+def test_verification_error_preserves_category_and_closes_session(
+    status, session_close_spy, mock_base_url, mock_api_url
+):
+    responses.add(
+        responses.GET,
+        f"{mock_api_url}/auth/verify",
+        status=status,
+        json={"message": "user is not verified"},
+        headers={"Retry-After": "5"},
+    )
+    error_type = AuthenticationError if status in (401, 403) else RuntimeError if status == 404 else ApiError
+    with pytest.raises(error_type) as caught:
+        verify_api_key(mock_base_url, "test-key")
+    session_close_spy.assert_called_once()
+    assert len(responses.calls) == 1
+    if status in (401, 403):
+        assert "user is not verified" in str(caught.value)
+    elif status == 404:
+        assert "Please upgrade" in str(caught.value)
+    else:
+        assert isinstance(caught.value, ApiError)
+        assert caught.value.response.status_code == status
+        assert caught.value.response.headers["Retry-After"] == "5"
+
+
+@pytest.mark.parametrize("body", ["", "<html>wrong route</html>"])
+@responses.activate
+def test_empty_unauthorized_response_has_fallback(body, mock_base_url, mock_api_url):
+    responses.add(responses.GET, f"{mock_api_url}/auth/verify", status=401, body=body)
+    with pytest.raises(AuthenticationError, match="invalid API key"):
+        Client("test-key", mock_base_url)
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        None,
+        [],
+        "<html>wrong route</html>",
+        {},
+        {**PROFILE, "uid": True},
+        {**PROFILE, "uid": 0},
+        {**PROFILE, "username": " "},
+        {**PROFILE, "createdAt": None},
+        {**PROFILE, "verified": "true"},
+        {**PROFILE, "name": None},
+    ],
+)
+@responses.activate
+def test_malformed_profile_closes_session(data, session_close_spy, mock_base_url, mock_api_url):
+    responses.add(responses.GET, f"{mock_api_url}/auth/verify", status=200, json=data)
+    with pytest.raises(ValueError, match="Invalid authentication response"):
+        Client("test-key", mock_base_url)
+    session_close_spy.assert_called_once()
+
+
+@responses.activate
+def test_verify_accepts_omitted_optional_fields_and_closes(session_close_spy, mock_base_url, mock_api_url):
+    responses.add(
+        responses.GET,
+        f"{mock_api_url}/auth/verify",
+        json={
+            "uid": 1,
+            "username": "test-user",
+            "createdAt": PROFILE["createdAt"],
+        },
+    )
+    profile = verify_api_key(mock_base_url, "test-key")
+    assert profile["name"] == ""
+    assert profile["verified"] is False
+    session_close_spy.assert_called_once()
+
+
+@pytest.mark.parametrize("failure", [requests.Timeout("timeout"), KeyboardInterrupt()])
+def test_verification_interruption_closes_session(failure, monkeypatch, mock_base_url):
+    http = MagicMock()
+    http.request.side_effect = failure
+    monkeypatch.setattr("swanlab.sdk.internal.pkg.client.session.create", lambda: http)
+    with pytest.raises(type(failure)):
+        verify_api_key(mock_base_url, "test-key")
+    http.close.assert_called_once()

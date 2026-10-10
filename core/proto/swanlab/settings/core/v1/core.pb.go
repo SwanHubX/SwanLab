@@ -34,7 +34,10 @@ type CoreSettings struct {
 	SavePart       int64   `protobuf:"varint,8,opt,name=save_part,json=savePart,proto3" json:"save_part,omitempty"`
 	SaveBatch      int32   `protobuf:"varint,9,opt,name=save_batch,json=saveBatch,proto3" json:"save_batch,omitempty"`
 	// Skip the local Record store (run-*.swanlab). Only valid in online mode.
-	SkipStore     bool `protobuf:"varint,10,opt,name=skip_store,json=skipStore,proto3" json:"skip_store,omitempty"`
+	SkipStore bool `protobuf:"varint,10,opt,name=skip_store,json=skipStore,proto3" json:"skip_store,omitempty"`
+	// Sensitive credential, must not be logged in debug output.
+	ApiKey        string `protobuf:"bytes,11,opt,name=api_key,json=apiKey,proto3" json:"api_key,omitempty"`
+	ApiHost       string `protobuf:"bytes,12,opt,name=api_host,json=apiHost,proto3" json:"api_host,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -139,11 +142,25 @@ func (x *CoreSettings) GetSkipStore() bool {
 	return false
 }
 
+func (x *CoreSettings) GetApiKey() string {
+	if x != nil {
+		return x.ApiKey
+	}
+	return ""
+}
+
+func (x *CoreSettings) GetApiHost() string {
+	if x != nil {
+		return x.ApiHost
+	}
+	return ""
+}
+
 var File_swanlab_settings_core_v1_core_proto protoreflect.FileDescriptor
 
 const file_swanlab_settings_core_v1_core_proto_rawDesc = "" +
 	"\n" +
-	"#swanlab/settings/core/v1/core.proto\x12\x18swanlab.settings.core.v1\"\xc4\x02\n" +
+	"#swanlab/settings/core/v1/core.proto\x12\x18swanlab.settings.core.v1\"\xf8\x02\n" +
 	"\fCoreSettings\x12\x15\n" +
 	"\x06run_id\x18\x01 \x01(\tR\x05runId\x12\x17\n" +
 	"\arun_dir\x18\x02 \x01(\tR\x06runDir\x12!\n" +
@@ -158,7 +175,9 @@ const file_swanlab_settings_core_v1_core_proto_rawDesc = "" +
 	"save_batch\x18\t \x01(\x05R\tsaveBatch\x12\x1d\n" +
 	"\n" +
 	"skip_store\x18\n" +
-	" \x01(\bR\tskipStoreBPZNgithub.com/swanhubx/swanlab/core/proto/swanlab/settings/core/v1;settingscorev1b\x06proto3"
+	" \x01(\bR\tskipStore\x12\x17\n" +
+	"\aapi_key\x18\v \x01(\tR\x06apiKey\x12\x19\n" +
+	"\bapi_host\x18\f \x01(\tR\aapiHostBPZNgithub.com/swanhubx/swanlab/core/proto/swanlab/settings/core/v1;settingscorev1b\x06proto3"
 
 var (
 	file_swanlab_settings_core_v1_core_proto_rawDescOnce sync.Once
