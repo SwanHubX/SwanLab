@@ -21,7 +21,8 @@ def prepare_save_files(experiment_id: str, *, files: list[PrepareSaveFile]) -> P
 
     响应 data 结构：{"urls": ["https://...", ...]}
     """
-    resp = client.post(f"/experiment/{experiment_id}/files/prepare", {"files": files})
+    # retries 设置为 0 表示不重试，重试机制交给 transport 层的退避调度
+    resp = client.post(f"/experiment/{experiment_id}/files/prepare", {"files": files}, retries=0)
     return resp.data
 
 
@@ -30,7 +31,8 @@ def complete_save_files(experiment_id: str, *, files: list[CompleteSaveFile]) ->
 
     状态码：201 成功，404 文件不存在。
     """
-    client.post(f"/experiment/{experiment_id}/files/complete", {"files": files})
+    # retries 设置为 0 表示不重试，重试机制交给 transport 层的退避调度
+    client.post(f"/experiment/{experiment_id}/files/complete", {"files": files}, retries=0)
 
 
 def prepare_multipart_save(
@@ -40,7 +42,8 @@ def prepare_multipart_save(
 
     响应 data 结构：{"files": [{"uploadId": "...", "parts": [{"partNumber": 1, "url": "..."}]}]}
     """
-    resp = client.post(f"/experiment/{experiment_id}/files/prepare-multipart", {"files": files})
+    # retries 设置为 0 表示不重试，重试机制交给 transport 层的退避调度
+    resp = client.post(f"/experiment/{experiment_id}/files/prepare-multipart", {"files": files}, retries=0)
     return resp.data
 
 
@@ -49,4 +52,5 @@ def complete_multipart_save(experiment_id: str, *, files: list[CompletedMultipar
 
     状态码：201 成功，400 参数错误，404 文件不存在。
     """
-    client.post(f"/experiment/{experiment_id}/files/complete-multipart", {"files": files})
+    # retries 设置为 0 表示不重试，重试机制交给 transport 层的退避调度
+    client.post(f"/experiment/{experiment_id}/files/complete-multipart", {"files": files}, retries=0)

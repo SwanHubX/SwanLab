@@ -452,6 +452,19 @@ def test_upload_does_not_advance_records(tmp_path: Path):
     assert tracker.snapshot().uploaded_records == 0
 
 
+def test_sender_resource_session_is_single_shot(tmp_path: Path):
+    """对象存储 session 单次执行（default_retry=0）：媒体 PUT、save PUT 与分片子线程不自行重试。"""
+    sender = _make_sender(tmp_path)
+
+    with patch(
+        "swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=MagicMock()
+    ) as mock_create:
+        session = sender._ensure_session()
+
+    mock_create.assert_called_once_with(default_retry=0)
+    assert session is sender._ensure_session()
+
+
 def test_upload_maps_business_reject_to_failure_result(tmp_path: Path):
     """4xx 业务拒绝：转为结果内的失败，记录保留，不抛异常、不消费。"""
     tracker = UploadTracker()

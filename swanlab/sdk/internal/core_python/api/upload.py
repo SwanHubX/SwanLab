@@ -38,7 +38,8 @@ def upload_conda(username: str, project: str, experiment_id: str, *, content: st
     :param experiment_id: 实验唯一标识符
     :param content: conda.yaml 的原始文本内容
     """
-    client.put(f"/project/{username}/{project}/runs/{experiment_id}/profile", {"conda": content})
+    # retries 设置为 0 表示不重试，重试机制交给 transport 层的退避调度
+    client.put(f"/project/{username}/{project}/runs/{experiment_id}/profile", {"conda": content}, retries=0)
 
 
 def upload_requirements(username: str, project: str, experiment_id: str, *, content: str) -> None:
@@ -50,7 +51,8 @@ def upload_requirements(username: str, project: str, experiment_id: str, *, cont
     :param experiment_id: 实验唯一标识符
     :param content: requirements.txt 的原始文本内容
     """
-    client.put(f"/project/{username}/{project}/runs/{experiment_id}/profile", {"requirements": content})
+    # retries 设置为 0 表示不重试，重试机制交给 transport 层的退避调度
+    client.put(f"/project/{username}/{project}/runs/{experiment_id}/profile", {"requirements": content}, retries=0)
 
 
 def upload_metadata(username: str, project: str, experiment_id: str, *, content: Dict) -> None:
@@ -62,7 +64,8 @@ def upload_metadata(username: str, project: str, experiment_id: str, *, content:
     :param experiment_id: 实验唯一标识符
     :param content: 元数据字典
     """
-    client.put(f"/project/{username}/{project}/runs/{experiment_id}/profile", {"metadata": content})
+    # retries 设置为 0 表示不重试，重试机制交给 transport 层的退避调度
+    client.put(f"/project/{username}/{project}/runs/{experiment_id}/profile", {"metadata": content}, retries=0)
 
 
 def upload_config(username: str, project: str, experiment_id: str, *, content: Dict) -> None:
@@ -74,7 +77,8 @@ def upload_config(username: str, project: str, experiment_id: str, *, content: D
     :param experiment_id: 实验唯一标识符
     :param content: 配置字典，格式为 {key: {value, sort, desc}}
     """
-    client.put(f"/project/{username}/{project}/runs/{experiment_id}/profile", {"config": content})
+    # retries 设置为 0 表示不重试，重试机制交给 transport 层的退避调度
+    client.put(f"/project/{username}/{project}/runs/{experiment_id}/profile", {"config": content}, retries=0)
 
 
 def upload_columns(username: str, project: str, *, columns: UploadColumns) -> None:
@@ -160,9 +164,11 @@ def upload_resource(
     :param tracker: 可选的进度追踪器，非 None 时汇报字节级进度；文件完成确认由调用方
         在后续阶段（如媒体指标提交）成功后执行，本函数只负责传输字节进度。
     """
+    # retries 设置为 0 表示不重试，重试机制交给 transport 层的退避调度
     resp = client.post(
         "/resources/presigned/put",
         {"experimentId": experiment_id, "paths": paths},
+        retries=0,
     )
     urls = resp.data["urls"]
     if len(urls) != len(paths):

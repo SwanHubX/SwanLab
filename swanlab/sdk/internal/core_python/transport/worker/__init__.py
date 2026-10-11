@@ -20,6 +20,7 @@ from ..dispatch import Dispatch
 from ..sender import HttpRecordSender
 from ..tracker import UploadTracker
 from .buffer import RecordBuffer
+from .utils import RetryPolicy, RetrySchedule
 
 
 class Transport:
@@ -31,6 +32,9 @@ class Transport:
     - wait(timeout=batch_interval) 周期性唤醒线程，攒批后统一 drain
     - finish() 时 notify_all() 立刻唤醒线程排空剩余 buffer
     - 清空 buffer 后在锁外委托 Dispatch，不阻塞生产者
+
+    失败轮的重试由 RetryPolicy 调度：指数退避 / Retry-After / 低频受阻间隔（plan §6）。
+    等待可被唤醒（新入队、finish），但每次唤醒重新检查截止时间，不绕过退避。
 
     未确认记录与最近一轮失败原因始终由实例持有（self._pending / self._last_failures），
     线程退出后仍可通过 pending_records() / last_failures() 查询。
@@ -45,6 +49,7 @@ class Transport:
         tracker: Optional[UploadTracker] = None,
         sender: Optional[HttpRecordSender] = None,
         auto_start: bool = True,
+        retry: Optional[RetryPolicy] = None,
     ):
         self._ctx = ctx
         self._batch = ctx.config.record_batch
@@ -61,6 +66,10 @@ class Transport:
         self._started = False
         self._thread: Optional[threading.Thread] = None
         self._throttle = UploadWarningThrottle()
+        # 重试调度：失败轮截止时间（单调时钟）与连续失败计数（整轮成功后清零）
+        self._retry = retry if retry is not None else RetryPolicy()
+        self._retry_at: Optional[float] = None
+        self._failed_rounds = 0
 
         # Transport 持有 sender，负责创建/注入/关闭
         self._dispatcher: Optional[Dispatch] = None
@@ -149,11 +158,23 @@ class Transport:
     def _take_snapshot(self) -> Optional[List[Record]]:
         """取下一批任务快照：优先重试未确认记录，其次排空缓冲。
 
+        失败重试按 RetryPolicy 计算的截止时间等待（plan §6.3）：等待可被唤醒
+        （finish 等控制信号），但每次唤醒重新检查截止时间，新入队、finish 或
+        重复通知都不会绕过退避或 Retry-After。
         快照在执行期间保持登记在 self._pending 上，线程意外终止时数据仍可查询。
         返回 None 表示缓冲与未确认任务均已空且已 finish，应退出。
         """
         with self._cond:
             if self._pending:
+                deadline = self._retry_at
+                if deadline is not None:
+                    remaining = deadline - self._retry.clock()
+                    while remaining > 0:
+                        self._cond.wait(timeout=remaining)
+                        deadline = self._retry_at
+                        if deadline is None:
+                            break
+                        remaining = deadline - self._retry.clock()
                 return self._pending
             while not self._buf and not self._finished:
                 self._cond.wait(timeout=self._batch_interval)
@@ -175,17 +196,26 @@ class Transport:
                 with safe.block(message="Transport dispatch error", write_to_tty=False):
                     result = self._dispatcher(pending)
                 if result is None:
-                    # 未预期异常（编程错误等）：保留本轮任务，交由节流告警
+                    # 未预期异常（编程错误等）：保留本轮任务，交由节流告警与低频重试
                     remaining, failures = pending, []
                 else:
                     remaining, failures = result.remaining_records, result.failures
+                schedule: Optional[RetrySchedule] = None
                 with self._cond:
                     self._pending = remaining
                     self._last_failures = failures
-                if not remaining and not failures:
+                    if not remaining and not failures:
+                        # 整轮成功：清零连续失败计数与重试等待（plan §6.2）
+                        self._failed_rounds = 0
+                        self._retry_at = None
+                    else:
+                        self._failed_rounds += 1
+                        schedule = self._retry.schedule(failures, self._failed_rounds)
+                        self._retry_at = self._retry.clock() + schedule.delay
+                if schedule is None:
                     self._throttle.reset()
                 else:
-                    self._throttle.warn(message=self._failure_message(failures, remaining))
+                    self._throttle.warn(message=self._failure_message(schedule, failures, remaining))
         finally:
             # 无论 dispatch 是否出错，transport 线程退出时标记 tracker 为 FINISHED，
             # 让进度展示停止轮询。
@@ -193,11 +223,13 @@ class Transport:
                 self._tracker.set_state(CoreState.CORE_STATE_FINISHED)
 
     @staticmethod
-    def _failure_message(failures: List[UploadFailure], remaining: List[Record]) -> str:
-        """节流告警文案：只含安全摘要（来源/阶段/状态/业务码）与保留数量。"""
+    def _failure_message(schedule: RetrySchedule, failures: List[UploadFailure], remaining: List[Record]) -> str:
+        """节流告警文案：只含安全摘要（来源/阶段/状态/业务码）、重试间隔与保留数量。"""
         if failures:
-            return f"Upload failed ({failures[0].summary}); {len(remaining)} record(s) retained and will be retried."
-        return f"Upload did not complete; {len(remaining)} record(s) retained and will be retried."
+            prefix = f"Upload failed ({failures[0].summary})"
+        else:
+            prefix = "Upload did not complete"
+        return f"{prefix}; retrying in {schedule.delay:.0f}s; {len(remaining)} record(s) retained in this process."
 
 
 class UploadWarningThrottle:

@@ -24,6 +24,7 @@ from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord, Colu
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import ScalarRecord, ScalarValue
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogLevel, LogRecord
+from swanlab.sdk.internal.core_python.api import save as save_api
 from swanlab.sdk.internal.core_python.api import upload as upload_api
 from swanlab.sdk.internal.core_python.context import CoreConfig, CoreContext
 from swanlab.sdk.internal.core_python.transport.sender import HttpRecordSender
@@ -145,6 +146,54 @@ _RETRIES_ZERO_CASES = [
         {"columns": {"series": [{"key": "loss"}]}},
         id="column",
     ),
+    pytest.param(
+        upload_api.upload_conda,
+        ("user", "proj", "eid"),
+        {"content": "conda-list"},
+        id="conda",
+    ),
+    pytest.param(
+        upload_api.upload_requirements,
+        ("user", "proj", "eid"),
+        {"content": "numpy==1.0"},
+        id="requirements",
+    ),
+    pytest.param(
+        upload_api.upload_metadata,
+        ("user", "proj", "eid"),
+        {"content": {"hostname": "gpu-01"}},
+        id="metadata",
+    ),
+    pytest.param(
+        upload_api.upload_config,
+        ("user", "proj", "eid"),
+        {"content": {"lr": {"value": 0.01}}},
+        id="config",
+    ),
+    pytest.param(
+        save_api.prepare_save_files,
+        ("eid",),
+        {"files": [{"path": "model.bin", "size": 8, "md5": "0", "mimeType": "text/plain"}]},
+        id="save-prepare",
+    ),
+    pytest.param(
+        save_api.complete_save_files,
+        ("eid",),
+        {"files": [{"path": "model.bin", "state": "UPLOADED"}]},
+        id="save-complete",
+    ),
+    pytest.param(
+        save_api.prepare_multipart_save,
+        ("eid",),
+        {"files": [{"path": "large.bin", "size": 8, "md5": "0", "mimeType": "text/plain", "count": 1}]},
+        id="save-prepare-multipart",
+    ),
+    pytest.param(
+        save_api.complete_multipart_save,
+        ("eid",),
+        {"files": [{"path": "large.bin", "parts": [], "uploadId": "uid"}]},
+        id="save-complete-multipart",
+    ),
 ]
 
 
@@ -152,17 +201,40 @@ _RETRIES_ZERO_CASES = [
 def test_upload_api_uses_retries_zero(monkeypatch, api_func, args, kwargs):
     """验证所有上传 API 函数都传 retries=0，确保 HTTP 层不自行重试。
 
-    retries=0 是刻意设计：将重试责任上移到 transport 层，
+    retries=0 是刻意设计：将重试责任上移到 transport 层的退避调度，
     避免 HTTP 层（urllib3）与 transport 层同时重试造成行为不可预期。
     """
     captured: list = []
 
-    def fake_post(url, data=None, **post_kwargs):
-        captured.append(post_kwargs.get("retries"))
+    class _FakeResponse:
+        data = {}
 
-    monkeypatch.setattr(upload_api.client, "post", fake_post)
+    def fake_request(url, data=None, **request_kwargs):
+        captured.append(request_kwargs.get("retries"))
+        return _FakeResponse()
+
+    monkeypatch.setattr(upload_api.client, "post", fake_request)
+    monkeypatch.setattr(upload_api.client, "put", fake_request)
 
     api_func(*args, **kwargs)
+
+    assert captured == [0]
+
+
+def test_presigned_put_uses_retries_zero(monkeypatch):
+    """upload_resource 的预签名地址请求同样单次执行。"""
+
+    class _FakePresignResponse:
+        data = {"urls": []}
+
+    captured: list = []
+
+    def fake_post(url, data=None, **post_kwargs):
+        captured.append(post_kwargs.get("retries"))
+        return _FakePresignResponse()
+
+    monkeypatch.setattr(upload_api.client, "post", fake_post)
+    upload_api.upload_resource(MagicMock(), "eid", paths=[], buffers=[])
 
     assert captured == [0]
 

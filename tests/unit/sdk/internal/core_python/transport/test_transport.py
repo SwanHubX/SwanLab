@@ -1,10 +1,12 @@
 import threading
+import time
 from unittest.mock import MagicMock, patch
 
 from swanlab.proto.swanlab.operation.v1.operation_pb2 import CoreState
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.core_python.transport.tracker import UploadTracker
 from swanlab.sdk.internal.core_python.transport.worker import Transport
+from swanlab.sdk.internal.core_python.transport.worker.utils import RetryPolicy, RetrySchedule
 from swanlab.sdk.typings.core_python.transport import UploadFailure, UploadResult
 
 
@@ -19,6 +21,42 @@ def _failed_result(records: list[Record], message: str = "upload failed") -> Upl
         remaining_records=list(records),
         failures=[UploadFailure(source="swanlab_api", message=message, records=list(records))],
     )
+
+
+def _fast_retry(*, base_delay: float = 0.01, max_delay: float = 0.04, blocked_delay: float = 0.02) -> RetryPolicy:
+    """毫秒级退避的极速策略：避免测试真实等待，抖动固定 1.0 保证确定性。"""
+    return RetryPolicy(
+        base_delay=base_delay,
+        max_delay=max_delay,
+        blocked_delay=blocked_delay,
+        rng=lambda _low, _high: 1.0,
+    )
+
+
+class _RecordingPolicy(RetryPolicy):
+    """记录 schedule 调用的策略替身：捕获 (failed_rounds, schedule) 序列供断言。"""
+
+    def __init__(self, *, base_delay: float = 0.01, max_delay: float = 0.04, blocked_delay: float = 0.02) -> None:
+        super().__init__(
+            base_delay=base_delay,
+            max_delay=max_delay,
+            blocked_delay=blocked_delay,
+            rng=lambda _low, _high: 1.0,
+        )
+        self.calls: list[tuple[int, RetrySchedule]] = []
+
+    def schedule(self, failures, failed_rounds: int) -> RetrySchedule:
+        result = super().schedule(failures, failed_rounds)
+        self.calls.append((failed_rounds, result))
+        return result
+
+
+def _wait_attempts(attempts: list, count: int, timeout: float = 2.0) -> bool:
+    """轮询等待 dispatch 尝试次数到达 count（事件在 dispatch 内 set 早于结果应用，轮询更稳）。"""
+    deadline = time.monotonic() + timeout
+    while len(attempts) < count and time.monotonic() < deadline:
+        time.sleep(0.005)
+    return len(attempts) >= count
 
 
 def _make_transport(ctx, **kwargs) -> Transport:
@@ -177,7 +215,7 @@ def test_transport_config_replacement_keeps_record_total(mock_ctx, make_config_r
 def test_transport_uploads_latest_config_after_pending_retry(mock_ctx, make_config_record):
     tracker = UploadTracker()
     sender = MagicMock()
-    t = _make_transport(mock_ctx, tracker=tracker, sender=sender)
+    t = _make_transport(mock_ctx, tracker=tracker, sender=sender, retry=_fast_retry())
     old = make_config_record()
     latest = make_config_record()
     old.num = latest.num = -3
@@ -373,7 +411,7 @@ def test_transport_keeps_pending_records_and_warns_on_failure(make_ctx, make_sca
             return _ok_result(records)
 
     ctx = make_ctx(batch_interval=0.01)
-    t = _make_transport(ctx)
+    t = _make_transport(ctx, retry=_fast_retry())
     t.start()
     t._dispatcher = FlakyDispatch()  # type: ignore
 
@@ -415,7 +453,7 @@ def test_transport_pending_and_failures_queryable_during_retry(make_ctx, make_sc
             return _ok_result(records)
 
     ctx = make_ctx(batch_interval=0.01)
-    t = _make_transport(ctx)
+    t = _make_transport(ctx, retry=_fast_retry())
     t.start()
     t._dispatcher = FlakyDispatch()  # type: ignore
     record = make_scalar_record(step=1)
@@ -435,3 +473,107 @@ def test_transport_pending_and_failures_queryable_during_retry(make_ctx, make_sc
     # 恢复并排空后清空
     assert t.pending_records() == []
     assert t.last_failures() == []
+
+
+# ─────────────────── 退避重试调度（P3） ───────────────────
+
+
+def test_transport_retry_waits_for_deadline_and_wake_does_not_bypass(make_ctx, make_scalar_record):
+    """失败后按退避截止时间重试：唤醒（finish 通知）不绕过截止时间，不提前重试。"""
+    attempts = []
+    first_dispatch_done = threading.Event()
+
+    class FlakyDispatch:
+        def __call__(self, records):
+            attempts.append(time.monotonic())
+            if len(attempts) == 1:
+                first_dispatch_done.set()
+                return _failed_result(records)
+            return _ok_result(records)
+
+    ctx = make_ctx(batch_interval=0.01)
+    # 真实时钟 + 0.5s 首次退避：足够区分"立即重试"与"按截止时间重试"
+    t = _make_transport(ctx, retry=RetryPolicy(base_delay=0.5, max_delay=0.5, rng=lambda _low, _high: 1.0))
+    t.start()
+    t._dispatcher = FlakyDispatch()  # type: ignore
+    record = make_scalar_record(step=1)
+    record.num = 1
+    t.put([record])
+    assert first_dispatch_done.wait(timeout=2.0)
+
+    t.request_finish()  # 唤醒 worker：必须重新检查截止时间，不得提前重试
+    time.sleep(0.15)
+    assert len(attempts) == 1
+
+    assert t.join(timeout=3.0), "worker should retry after the backoff deadline and finish"
+    assert len(attempts) == 2
+    # 首次重试发生在退避截止时间之后（0.5s ± 调度误差）
+    assert attempts[1] - attempts[0] >= 0.4
+
+
+def test_transport_backoff_counter_resets_after_success_round(make_ctx, make_scalar_record):
+    """连续失败轮计数递增（1、2），整轮成功后清零，再次失败从 1 重新开始（plan §6.2）。"""
+    attempts = []
+    second = make_scalar_record(step=2)
+    second.num = 2
+
+    class FlakyDispatch:
+        def __call__(self, records):
+            attempts.append(len(attempts))
+            if len(attempts) == 3:
+                # 本轮成功，同时补一条新记录驱动第 4 轮
+                t.put([second])
+                return _ok_result(records)
+            if len(attempts) <= 2 or len(attempts) == 4:
+                return _failed_result(records)
+            return _ok_result(records)
+
+    policy = _RecordingPolicy()
+    ctx = make_ctx(batch_interval=0.01)
+    t = _make_transport(ctx, retry=policy)
+    t.start()
+    t._dispatcher = FlakyDispatch()  # type: ignore
+    record = make_scalar_record(step=1)
+    record.num = 1
+    t.put([record])
+    # 失败(1) → 失败(2) → 成功(重置) → 失败(1) → 成功排空
+    assert _wait_attempts(attempts, 4)
+    assert t.finish()
+    assert len(attempts) == 5
+
+    assert [round_ for round_, _ in policy.calls] == [1, 2, 1]
+    # 退避随计数指数增长后回落
+    delays = [schedule.delay for _, schedule in policy.calls]
+    assert delays[0] < delays[1]
+    assert delays[2] == delays[0]
+
+
+def test_transport_blocked_failure_uses_blocked_interval(make_ctx, make_scalar_record):
+    """本地坏数据等确定性失败走 blocked 低频间隔，恢复后仍可排空（文件恢复可自愈）。"""
+    attempts = []
+
+    class BlockedDispatch:
+        def __call__(self, records):
+            attempts.append(len(attempts))
+            if len(attempts) == 1:
+                return UploadResult(
+                    remaining_records=list(records),
+                    failures=[UploadFailure(source="local_data", message="save file not found", records=list(records))],
+                )
+            return _ok_result(records)
+
+    policy = _RecordingPolicy(blocked_delay=0.05)
+    ctx = make_ctx(batch_interval=0.01)
+    t = _make_transport(ctx, retry=policy)
+    t.start()
+    t._dispatcher = BlockedDispatch()  # type: ignore
+    record = make_scalar_record(step=1)
+    record.num = 1
+    t.put([record])
+    assert _wait_attempts(attempts, 2)
+    assert t.finish()
+
+    assert len(policy.calls) == 1
+    assert policy.calls[0][1].kind == "blocked"
+    assert policy.calls[0][1].delay == 0.05
+    assert t.pending_records() == []

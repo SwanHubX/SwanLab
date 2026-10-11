@@ -81,9 +81,13 @@ class HttpRecordSender:
         self._tracker = tracker
 
     def _ensure_session(self) -> SessionWithRetry:
-        """懒初始化资源上传 session（复用 TCP 连接）。"""
+        """懒初始化资源上传 session（复用 TCP 连接）。
+
+        default_retry=0：对象存储 PUT 与分片子线程单次执行（plan §6.3），
+        重试由 transport 层的退避调度统一控制。
+        """
         if self._buffer_session is None:
-            self._buffer_session = client.session.create()
+            self._buffer_session = client.session.create(default_retry=0)
         return self._buffer_session
 
     def _mark_upload_progress(self, file_key: str, upload_key: str, current_bytes: int, *, final: bool = False) -> None:
