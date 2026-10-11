@@ -465,6 +465,22 @@ def test_sender_resource_session_is_single_shot(tmp_path: Path):
     assert session is sender._ensure_session()
 
 
+def test_sender_close_is_idempotent_and_releases_session(tmp_path: Path):
+    """close() 关闭对象存储 session 且幂等；关闭后再次使用会重建新 session。"""
+    sender = _make_sender(tmp_path)
+    first_session = MagicMock()
+    with patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=first_session):
+        sender._ensure_session()
+        sender.close()
+        sender.close()
+    first_session.close.assert_called_once()
+    assert sender._buffer_session is None
+
+    second_session = MagicMock()
+    with patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=second_session):
+        assert sender._ensure_session() is second_session
+
+
 def test_upload_maps_business_reject_to_failure_result(tmp_path: Path):
     """4xx 业务拒绝：转为结果内的失败，记录保留，不抛异常、不消费。"""
     tracker = UploadTracker()

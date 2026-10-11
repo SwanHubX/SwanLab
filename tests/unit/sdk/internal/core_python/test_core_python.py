@@ -23,6 +23,7 @@ from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
     DeliverRunStartResponse,
 )
 from swanlab.proto.swanlab.operation.v1.operation_pb2 import CoreState
+from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord, StartRecord
 from swanlab.proto.swanlab.save.v1.save_pb2 import SavePolicy, SaveRecord
 from swanlab.proto.swanlab.settings.core.v1.core_pb2 import CoreSettings as CoreSettingsPb
@@ -31,6 +32,7 @@ from swanlab.sdk.internal.core_python.context import CoreConfig, CoreContext
 from swanlab.sdk.internal.core_python.store import DataStoreWriter, NullDataStoreWriter
 from swanlab.sdk.internal.core_python.transport.tracker import UploadTracker
 from swanlab.sdk.internal.core_python.watcher import FileWatcher, NullFileWatcher
+from swanlab.sdk.typings.core_python.transport import UploadFailure
 
 
 def make_core_ctx(tmp_path) -> CoreContext:
@@ -222,6 +224,8 @@ class TestCorePythonFinish:
         set_online_params(core)
         transport = MagicMock()
         transport.finish.return_value = False
+        transport.pending_records.return_value = [Record(), Record()]
+        transport.last_failures.return_value = []
         heartbeat = MagicMock()
         stop_experiment_mock = MagicMock()
         core._transport = transport
@@ -233,10 +237,48 @@ class TestCorePythonFinish:
 
         assert isinstance(resp, ConfirmRunFinishResponse)
         assert resp.success is False
+        # 失败消息携带真实积压数量与原因，不伪报成功（plan §8.4）
+        assert "2 record(s) retained" in resp.message
+        assert "worker exited unexpectedly" in resp.message
         assert core._transport is transport
         transport.finish.assert_called_once_with(timeout=None)
         heartbeat.stop.assert_not_called()
         stop_experiment_mock.assert_not_called()
+
+    def test_confirm_run_finish_failure_message_includes_last_failure(self, tmp_path, monkeypatch):
+        """finish 失败且存在失败原因时，消息携带最近一轮失败摘要。"""
+        core = CorePython("online")
+        core._ctx = make_core_ctx(tmp_path)
+        set_online_params(core)
+        transport = MagicMock()
+        transport.finish.return_value = False
+        transport.pending_records.return_value = [Record()]
+        transport.last_failures.return_value = [
+            UploadFailure(source="swanlab_api", message="http 503", status=503, records=[Record()])
+        ]
+        core._transport = transport
+        core._pending_online_finish_record = FinishRecord()
+        monkeypatch.setattr("swanlab.sdk.internal.core_python.core.stop_experiment", MagicMock())
+
+        resp = core.confirm_run_finish()
+
+        assert resp.success is False
+        assert "1 record(s) retained" in resp.message
+        assert "last failure: swanlab_api - http 503" in resp.message
+
+    def test_has_pending_uploads_reflects_transport_state(self, tmp_path):
+        core = CorePython("online")
+        core._ctx = make_core_ctx(tmp_path)
+        # transport 未初始化或已释放
+        assert core.has_pending_uploads() is False
+
+        transport = MagicMock()
+        transport.pending_records.return_value = [Record()]
+        core._transport = transport
+        assert core.has_pending_uploads() is True
+
+        transport.pending_records.return_value = []
+        assert core.has_pending_uploads() is False
 
 
 # ============================================================

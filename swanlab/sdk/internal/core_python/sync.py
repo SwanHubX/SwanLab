@@ -311,10 +311,19 @@ class CoreSyncPython(CoreSyncProtocol):
         self._read_executor.close()
         self._reader.close()
         finish_record = self._get_finish_record()
-        # 3. 确保结束日志已入队，等待上传线程退出，然后上报最终实验状态
+        # 3. 确保结束日志已入队，等待上传线程排空，然后上报最终实验状态
         try:
             self._request_transport_finish()
-            self._transport.join(timeout=None)
+            if not self._transport.finish(timeout=None):
+                # 线程退出但未排空（worker 崩溃或积压无法上传）：不伪报成功，
+                # 未确认记录仍由 transport 持有
+                retained = len(self._transport.pending_records())
+                failures = self._transport.last_failures()
+                reason = f"last failure: {failures[0].summary}" if failures else "worker exited unexpectedly"
+                return ConfirmSyncFinishResponse(
+                    success=False,
+                    message=f"Upload did not finish: {retained} record(s) retained ({reason}).",
+                )
             with safe.block(message="Failed to report run finish"):
                 stop_experiment(
                     self._ctx.username,

@@ -248,6 +248,10 @@ class CoreProtocol(ABC):
     @abstractmethod
     def _get_operation_when_online(self) -> GetOperationStatsResponse: ...
 
+    def has_pending_uploads(self) -> bool:
+        """是否存在未确认的上传数据；仅持有上传队列的实现需要覆写（online 模式）。"""
+        return False
+
     def confirm_run_finish(self) -> ConfirmRunFinishResponse:
         """确认运行结束：等待上传排空、停止后台组件并上报最终 finish 状态。"""
         if self._mode == "disabled":

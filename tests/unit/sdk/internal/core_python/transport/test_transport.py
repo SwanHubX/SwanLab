@@ -247,13 +247,17 @@ def test_transport_uploads_latest_config_after_pending_retry(mock_ctx, make_conf
 
 
 def test_transport_put_warns_after_finish(mock_ctx, make_scalar_record):
-    """put() after finish() logs an error."""
+    """put() after finish() 在锁内判定拒绝：返回 False 并报错，不只打印（plan §5）。"""
     t = _make_transport(mock_ctx)
     t.start()
     t.finish()
     with patch("swanlab.sdk.internal.core_python.transport.worker.console.error") as mock_error:
-        t.put([make_scalar_record(step=1)])
+        assert t.put([make_scalar_record(step=1)]) is False
     mock_error.assert_called_once()
+    # 接受路径返回 True；空输入视为无操作（非拒绝）
+    accepted_transport = _make_transport(mock_ctx)
+    assert accepted_transport.put([make_scalar_record(step=1)]) is True
+    assert accepted_transport.put([]) is True
 
 
 # ─────────────────── finish ───────────────────
@@ -289,10 +293,11 @@ def test_transport_finish_drains_remaining(make_ctx, make_scalar_record):
 
 
 def test_transport_finish_waits_for_thread(mock_ctx):
-    """finish() calls join with timeout from class constant."""
+    """finish() calls join with timeout from class constant; 排空成功才返回 True。"""
     t = _make_transport(mock_ctx)
     t._thread = MagicMock()
     t._thread.is_alive.return_value = False
+    t._drained = True  # 模拟线程已正常排空退出
 
     assert t.finish() is True
 
@@ -577,3 +582,57 @@ def test_transport_blocked_failure_uses_blocked_interval(make_ctx, make_scalar_r
     assert policy.calls[0][1].kind == "blocked"
     assert policy.calls[0][1].delay == 0.05
     assert t.pending_records() == []
+
+
+# ─────────────────── finish 语义与资源关闭（P4） ───────────────────
+
+
+def test_transport_worker_crash_retains_data_and_finish_reports_failure(make_ctx, make_scalar_record):
+    """worker 内部未预期异常：线程退出、sender 关闭、tracker 置 FINISHED，
+    但 finish 为 False 且数据保留——不伪报成功（plan §8.4）。"""
+    record = make_scalar_record(step=1)
+    record.num = 1
+    crashed = threading.Event()
+    tracker = UploadTracker()
+    sender = MagicMock()
+
+    class CrashingDispatch:
+        def __call__(self, records):
+            crashed.set()
+            return object()  # 非 UploadResult：worker 在结果解包处崩溃
+
+    ctx = make_ctx(batch_interval=0.01)
+    t = _make_transport(ctx, tracker=tracker, sender=sender, retry=_fast_retry())
+    t.start()
+    t._dispatcher = CrashingDispatch()  # type: ignore
+    with patch("swanlab.sdk.internal.core_python.transport.worker.console.error") as mock_error:
+        t.put([record])
+        assert crashed.wait(timeout=2.0)
+        assert t.join(timeout=3.0), "worker should exit after unexpected error"
+        assert any("unexpectedly" in str(call.args[0]) for call in mock_error.call_args_list)
+
+    assert t.finish() is False  # 线程已退出但未排空，不得伪报成功
+    assert t.pending_records() == [record]
+    assert tracker.snapshot().state == CoreState.CORE_STATE_FINISHED  # 进度轮询可退出
+    sender.close.assert_called_once()  # 崩溃路径同样关闭 sender 资源
+
+
+def test_transport_closes_sender_on_clean_drain(mock_ctx):
+    """正常排空退出时关闭 sender 自持资源。"""
+    sender = MagicMock()
+    t = _make_transport(mock_ctx, sender=sender)
+    t.start()
+    assert t.finish()
+    sender.close.assert_called_once()
+
+
+def test_transport_finish_false_when_never_started_with_buffered_records(mock_ctx, make_scalar_record):
+    """从未启动但缓冲有数据：finish 不得报告成功。"""
+    t = _make_transport(mock_ctx)  # auto_start=False
+    record = make_scalar_record(step=1)
+    record.num = 1
+    t.put([record])
+    assert t.finish() is False
+
+    empty = _make_transport(mock_ctx)
+    assert empty.finish() is True

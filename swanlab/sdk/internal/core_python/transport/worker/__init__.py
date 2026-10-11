@@ -36,8 +36,10 @@ class Transport:
     失败轮的重试由 RetryPolicy 调度：指数退避 / Retry-After / 低频受阻间隔（plan §6）。
     等待可被唤醒（新入队、finish），但每次唤醒重新检查截止时间，不绕过退避。
 
-    未确认记录与最近一轮失败原因始终由实例持有（self._pending / self._last_failures），
-    线程退出后仍可通过 pending_records() / last_failures() 查询。
+    finish() 的返回值区分"排空成功"与"线程退出"：只有线程正常退出且缓冲与未确认
+    任务均已清空（_drained）才返回 True；worker 崩溃或等待超时返回 False，
+    未确认记录与最近一轮失败原因仍由实例持有（pending_records() / last_failures()
+    线程退出后可查询）。
     """
 
     THREAD_NAME: str = "SwanLab·Transport"
@@ -70,6 +72,9 @@ class Transport:
         self._retry = retry if retry is not None else RetryPolicy()
         self._retry_at: Optional[float] = None
         self._failed_rounds = 0
+        # 排空标志与 worker 崩溃原因：finish() 返回值的依据（plan §8.1/§8.4）
+        self._drained = False
+        self._worker_error: Optional[BaseException] = None
 
         # Transport 持有 sender，负责创建/注入/关闭
         self._dispatcher: Optional[Dispatch] = None
@@ -93,6 +98,8 @@ class Transport:
 
         if self._tracker is not None:
             sender.set_tracker(self._tracker)
+        # Transport 持有实际使用的 sender，负责在 worker 退出时关闭其自持资源
+        self._sender = sender
         self._dispatcher = Dispatch(
             batch_size=self._batch,
             sender=sender,
@@ -103,17 +110,27 @@ class Transport:
         self._thread.start()
         self._started = True
 
-    def put(self, records: List[Record]) -> None:
-        """追加 records 到 buffer，等待下次 batch_interval 唤醒时统一处理。"""
-        if self._finished:
-            console.error("Transport has already been finished.")
-            return
+    def put(self, records: List[Record]) -> bool:
+        """追加 records 到 buffer，等待下次 batch_interval 唤醒时统一处理。
+
+        返回是否接受：draining 后的入队在锁内判定拒绝并向调用方报告（plan §5），
+        不再仅打印错误；空输入视为无操作（非拒绝）。
+        """
         if not records:
-            return
+            return True
+        accepted = 0
         with self._cond:
-            accepted = self._buf.extend(records)
+            if self._finished:
+                rejected = True
+            else:
+                rejected = False
+                accepted = self._buf.extend(records)
+        if rejected:
+            console.error("Transport has already been finished; records were rejected.")
+            return False
         if self._tracker is not None:
             self._tracker.add_total_records(accepted)
+        return True
 
     def request_finish(self) -> None:
         """通知线程停止并排空 buffer，不等待线程退出。"""
@@ -137,11 +154,19 @@ class Transport:
         return self._thread is not None and self._thread.is_alive()
 
     def finish(self, timeout: Optional[float] = FINISH_JOIN_TIMEOUT) -> bool:
-        """
-        通知线程停止，等待最终排空，由线程自行关闭 sender。
+        """通知线程停止并等待最终排空（plan §8.1）。
+
+        只有线程在 timeout 内退出且缓冲与未确认任务均已清空才返回 True；
+        等待超时、worker 崩溃退出或从未启动但有积压数据时返回 False，
+        未确认记录保留在本实例中，调用方不得据此报告上传成功。
         """
         self.request_finish()
-        return self.join(timeout=timeout)
+        if self._thread is None:
+            # 从未启动：无数据视为已排空，缓冲中的记录无法上传
+            return not self._buf and not self._pending
+        if not self.join(timeout=timeout):
+            return False
+        return self._drained
 
     def pending_records(self) -> List[Record]:
         """当前未确认任务与缓冲中的记录快照（诊断用，线程退出后仍可查询）。"""
@@ -191,6 +216,8 @@ class Transport:
             while True:
                 pending = self._take_snapshot()
                 if pending is None:
+                    # 缓冲与未确认任务均已空且已 finish：正常排空退出
+                    self._drained = True
                     return
                 result: Optional[UploadResult] = None
                 with safe.block(message="Transport dispatch error", write_to_tty=False):
@@ -216,9 +243,18 @@ class Transport:
                     self._throttle.reset()
                 else:
                     self._throttle.warn(message=self._failure_message(schedule, failures, remaining))
+        except BaseException as e:
+            # worker 内部未预期异常（plan §6.1）：标记内部失败并结束线程，
+            # 未确认任务保留在实例上，由 finish() 向调用方报告失败
+            self._worker_error = e
+            console.error(f"Transport worker exited unexpectedly: {type(e).__name__}: {e}")
         finally:
+            # 关闭 sender 自持资源（清理边界，吞错不掩盖主流程）
+            if self._sender is not None:
+                with safe.block(message="Failed to close sender resources"):
+                    self._sender.close()
             # 无论 dispatch 是否出错，transport 线程退出时标记 tracker 为 FINISHED，
-            # 让进度展示停止轮询。
+            # 让进度展示停止轮询；是否排空成功由 _drained 区分。
             if self._tracker is not None:
                 self._tracker.set_state(CoreState.CORE_STATE_FINISHED)
 

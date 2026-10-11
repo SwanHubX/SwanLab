@@ -531,6 +531,10 @@ class CorePython(CoreProtocol):
             stats=stats,
         )
 
+    def has_pending_uploads(self) -> bool:
+        """是否存在未确认的上传数据（Run 判断失败上下文是否需要保留时调用）。"""
+        return self._transport is not None and len(self._transport.pending_records()) > 0
+
     # ---------------------------------- 确认完成 ----------------------------------
 
     def _confirm_finish_when_enabled(self) -> ConfirmRunFinishResponse:
@@ -540,7 +544,15 @@ class CorePython(CoreProtocol):
         # 1. 等待 transport 排空
         if self._transport is not None:
             if not self._transport.finish(timeout=None):
-                return ConfirmRunFinishResponse(success=False, message="Transport is still running.")
+                # 线程退出但未排空（worker 崩溃或积压无法上传）：不伪报成功，
+                # 未确认记录与失败原因仍由 transport 持有
+                retained = len(self._transport.pending_records())
+                failures = self._transport.last_failures()
+                reason = f"last failure: {failures[0].summary}" if failures else "worker exited unexpectedly"
+                return ConfirmRunFinishResponse(
+                    success=False,
+                    message=f"Upload did not finish: {retained} record(s) retained ({reason}).",
+                )
             self._transport = None
         # 2. 停止心跳和上传跟踪器，释放资源
         if self._tracker is not None:

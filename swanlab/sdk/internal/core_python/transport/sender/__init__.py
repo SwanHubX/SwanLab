@@ -80,6 +80,12 @@ class HttpRecordSender:
     def set_tracker(self, tracker: UploadTracker) -> None:
         self._tracker = tracker
 
+    def close(self) -> None:
+        """关闭自持的对象存储上传 session 等资源（worker 退出时调用，幂等）。"""
+        if self._buffer_session is not None:
+            self._buffer_session.close()
+            self._buffer_session = None
+
     def _ensure_session(self) -> SessionWithRetry:
         """懒初始化资源上传 session（复用 TCP 连接）。
 
