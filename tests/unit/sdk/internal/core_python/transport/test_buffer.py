@@ -1,6 +1,6 @@
 import pytest
 
-from swanlab.sdk.internal.core_python.transport.buffer import RecordBuffer
+from swanlab.sdk.internal.core_python.transport.worker.buffer import RecordBuffer
 
 
 def test_record_buffer_has_no_records_property():

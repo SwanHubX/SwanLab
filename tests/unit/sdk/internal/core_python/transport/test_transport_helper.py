@@ -1,7 +1,7 @@
 import pytest
 
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
-from swanlab.sdk.internal.core_python.transport.helper import generate_chunks, group_records_by_type
+from swanlab.sdk.internal.core_python.transport.dispatch import generate_chunks, group_records_by_type
 
 # ─────────────────── generate_chunks ───────────────────
 

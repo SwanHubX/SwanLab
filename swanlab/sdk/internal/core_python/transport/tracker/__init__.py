@@ -1,5 +1,7 @@
 """
-@file: tracker.py
+@author: caddiesnew
+@file: __init__.py
+@time: 2026/4/16
 @description: Thread-safe upload progress tracker.
 """
 
@@ -219,4 +221,6 @@ class UploadTracker:
         return int(amount)
 
 
-__all__ = ["UploadTracker"]
+__all__ = [
+    "UploadTracker",
+]

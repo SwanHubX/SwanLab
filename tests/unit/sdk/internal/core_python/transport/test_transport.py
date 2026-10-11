@@ -2,8 +2,8 @@ import threading
 from unittest.mock import MagicMock, patch
 
 from swanlab.proto.swanlab.operation.v1.operation_pb2 import CoreState
-from swanlab.sdk.internal.core_python.transport.thread import Transport
 from swanlab.sdk.internal.core_python.transport.tracker import UploadTracker
+from swanlab.sdk.internal.core_python.transport.worker import Transport
 
 
 def _make_transport(ctx, **kwargs) -> Transport:
@@ -197,7 +197,7 @@ def test_transport_put_warns_after_finish(mock_ctx, make_scalar_record):
     t = _make_transport(mock_ctx)
     t.start()
     t.finish()
-    with patch("swanlab.sdk.internal.core_python.transport.thread.console.error") as mock_error:
+    with patch("swanlab.sdk.internal.core_python.transport.worker.console.error") as mock_error:
         t.put([make_scalar_record(step=1)])
     mock_error.assert_called_once()
 
@@ -366,7 +366,7 @@ def test_transport_keeps_pending_records_and_warns_after_retry_exhaustion(make_c
     first.num = 1
     second.num = 2
 
-    with patch("swanlab.sdk.internal.core_python.transport.thread.UploadWarningThrottle.warn") as mock_warn:
+    with patch("swanlab.sdk.internal.core_python.transport.worker.UploadWarningThrottle.warn") as mock_warn:
         t.put([first])
         assert first_dispatch_done.wait(timeout=2.0)
         t.put([second])

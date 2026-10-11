@@ -1,8 +1,8 @@
 """
 @author: caddiesnew
-@file: thread.py
+@file: __init__.py
 @time: 2026/4/16
-@description: 事件驱动的 Record 上传守护线程
+@description: 事件驱动的 Record 上传守护线程：线程、调度、入队、排空
 """
 
 import threading
@@ -15,10 +15,10 @@ from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.core_python.context import CoreContext
 from swanlab.sdk.internal.pkg import console, safe
 
+from ..dispatch import Dispatch
+from ..sender import HttpRecordSender
+from ..tracker import UploadTracker
 from .buffer import RecordBuffer
-from .dispatch import Dispatch
-from .sender import HttpRecordSender
-from .tracker import UploadTracker
 
 
 class Transport:
