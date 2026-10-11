@@ -14,6 +14,7 @@ from swanlab.proto.swanlab.operation.v1.operation_pb2 import CoreState
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.core_python.context import CoreContext
 from swanlab.sdk.internal.pkg import console, safe
+from swanlab.sdk.typings.core_python.transport import UploadFailure, UploadResult
 
 from ..dispatch import Dispatch
 from ..sender import HttpRecordSender
@@ -30,6 +31,9 @@ class Transport:
     - wait(timeout=batch_interval) 周期性唤醒线程，攒批后统一 drain
     - finish() 时 notify_all() 立刻唤醒线程排空剩余 buffer
     - 清空 buffer 后在锁外委托 Dispatch，不阻塞生产者
+
+    未确认记录与最近一轮失败原因始终由实例持有（self._pending / self._last_failures），
+    线程退出后仍可通过 pending_records() / last_failures() 查询。
     """
 
     THREAD_NAME: str = "SwanLab·Transport"
@@ -50,6 +54,9 @@ class Transport:
 
         self._cond = threading.Condition()
         self._buf = RecordBuffer()
+        # 未确认任务：从取任务快照到结果应用期间始终由实例持有，worker 退出后仍可查询
+        self._pending: List[Record] = []
+        self._last_failures: List[UploadFailure] = []
         self._finished = False
         self._started = False
         self._thread: Optional[threading.Thread] = None
@@ -80,6 +87,7 @@ class Transport:
         self._dispatcher = Dispatch(
             batch_size=self._batch,
             sender=sender,
+            tracker=self._tracker,
         )
         assert self._dispatcher is not None, "Dispatcher must be initialized when transport starting"
         self._thread = threading.Thread(target=self._loop, name=self.THREAD_NAME, daemon=True)
@@ -126,47 +134,70 @@ class Transport:
         self.request_finish()
         return self.join(timeout=timeout)
 
+    def pending_records(self) -> List[Record]:
+        """当前未确认任务与缓冲中的记录快照（诊断用，线程退出后仍可查询）。"""
+        with self._cond:
+            return list(self._pending) + self._buf.snapshot()
+
+    def last_failures(self) -> List[UploadFailure]:
+        """最近一轮上传的失败原因快照（诊断用，线程退出后仍可查询）。"""
+        with self._cond:
+            return list(self._last_failures)
+
     # ── 线程主循环 ──
 
+    def _take_snapshot(self) -> Optional[List[Record]]:
+        """取下一批任务快照：优先重试未确认记录，其次排空缓冲。
+
+        快照在执行期间保持登记在 self._pending 上，线程意外终止时数据仍可查询。
+        返回 None 表示缓冲与未确认任务均已空且已 finish，应退出。
+        """
+        with self._cond:
+            if self._pending:
+                return self._pending
+            while not self._buf and not self._finished:
+                self._cond.wait(timeout=self._batch_interval)
+            if self._buf:
+                pending = self._buf.drain()
+                self._pending = pending
+                return pending
+            return None
+
     def _loop(self) -> None:
-        pending: List[Record] = []
         assert self._dispatcher is not None, "Dispatcher must be initialized when transport starting"
-
-        def refill_pending() -> bool:
-            """尝试为 pending 补充数据。
-
-            :returns
-                True: 可以继续循环
-                False: 没有更多数据且已 finish，应退出
-            """
-            nonlocal pending
-
-            with self._cond:
-                while not self._buf and not self._finished:
-                    self._cond.wait(timeout=self._batch_interval)
-                if self._buf:
-                    pending = self._buf.drain()
-                    return True
-                return not self._finished
 
         try:
             while True:
-                if not pending and not refill_pending():
+                pending = self._take_snapshot()
+                if pending is None:
                     return
-                is_success, retry_records = False, pending
-                with safe.block(message="Transport dispatch error"):
-                    is_success, retry_records = self._dispatcher(pending)
-                if is_success:
-                    pending = []
+                result: Optional[UploadResult] = None
+                with safe.block(message="Transport dispatch error", write_to_tty=False):
+                    result = self._dispatcher(pending)
+                if result is None:
+                    # 未预期异常（编程错误等）：保留本轮任务，交由节流告警
+                    remaining, failures = pending, []
+                else:
+                    remaining, failures = result.remaining_records, result.failures
+                with self._cond:
+                    self._pending = remaining
+                    self._last_failures = failures
+                if not remaining and not failures:
                     self._throttle.reset()
                 else:
-                    pending = retry_records
-                    self._throttle.warn()
+                    self._throttle.warn(message=self._failure_message(failures, remaining))
         finally:
             # 无论 dispatch 是否出错，transport 线程退出时标记 tracker 为 FINISHED，
             # 让进度展示停止轮询。
             if self._tracker is not None:
                 self._tracker.set_state(CoreState.CORE_STATE_FINISHED)
+
+    @staticmethod
+    def _failure_message(failures: List[UploadFailure], remaining: List[Record]) -> str:
+        """节流告警文案：只含安全摘要（来源/阶段/状态/业务码）与保留数量。"""
+        if failures:
+            return f"Upload failed ({failures[0].summary}); {len(remaining)} record(s) retained and will be retried."
+        return f"Upload did not complete; {len(remaining)} record(s) retained and will be retried."
 
 
 class UploadWarningThrottle:

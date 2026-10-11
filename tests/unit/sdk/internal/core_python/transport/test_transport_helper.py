@@ -103,6 +103,7 @@ def test_group_records_by_type_rejects_non_record():
         group_records_by_type(["not_a_record"])  # type: ignore[list-item]
 
 
-def test_group_records_by_type_skips_empty_record():
-    """验证未设置任何 record_type 的空 Record 不抛出异常。"""
-    group_records_by_type([Record()])
+def test_group_records_by_type_rejects_untypeable_record():
+    """验证未设置任何 record_type 的空 Record 抛出 ValueError，由 Dispatch 整批保留（见 test_dispatch）。"""
+    with pytest.raises(ValueError, match="record type"):
+        group_records_by_type([Record()])

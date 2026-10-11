@@ -101,14 +101,14 @@ def test_upload_resources_uploads_files_and_reports_progress(tmp_path: Path):
             "headers": {"Content-Type": "application/octet-stream"},
         },
     }
-    assert uploaded == {str(first), str(second)}
-    # tracker 应记录两个已完成文件
+    # 无失败索引即全部上传成功；完成确认由调用方在 complete 成功后执行
+    assert uploaded == {}
     stats = tracker.snapshot()
-    assert stats.uploaded_number == 2
+    assert stats.uploaded_number == 0
     assert stats.uploaded_size >= 7  # 5 + 2
 
 
-def test_upload_saves_does_not_report_progress_when_put_fails(tmp_path: Path):
+def test_upload_saves_returns_per_file_put_failures(tmp_path: Path):
     source = tmp_path / "failed.bin"
     source.write_bytes(b"failed")
     fake_session = _FakeSession(failing_urls={"https://s3.test/failed"})
@@ -129,10 +129,12 @@ def test_upload_saves_does_not_report_progress_when_put_fails(tmp_path: Path):
         tracker=tracker,
     )
 
-    assert uploaded == set()
-    # tracker 不应记录完成
+    # 失败以 {索引: 异常} 返回，不吞错、不过滤；失败文件字节进度回退
+    assert list(uploaded.keys()) == [0]
+    assert "put failed" in str(uploaded[0])
     stats = tracker.snapshot()
     assert stats.uploaded_number == 0
+    assert stats.uploaded_size == 0
 
 
 def test_upload_resource_reports_progress_after_successful_put():
@@ -158,9 +160,9 @@ def test_upload_resource_reports_progress_after_successful_put():
             tracker=tracker,
         )
 
-    # tracker 应记录两个已完成文件（由 upload_resource 内部 finish_file）
+    # 本函数只负责字节进度；文件完成确认由调用方在后续确认阶段（媒体指标/complete）执行
     stats = tracker.snapshot()
-    assert stats.uploaded_number == 2
+    assert stats.uploaded_number == 0
     assert stats.uploaded_size >= 9  # 5 + 4
 
 
@@ -218,7 +220,8 @@ def test_upload_resource_handles_standard_file_objects(tmp_path: Path):
             )
 
     stats = tracker.snapshot()
-    assert stats.uploaded_number == 1
+    # 只上报字节进度，完成确认由调用方执行
+    assert stats.uploaded_number == 0
     assert stats.uploaded_size == 15
     assert len(fake_session.puts) == 1
     assert fake_session.puts[0]["data"] == b"some media data"
@@ -246,9 +249,9 @@ def test_upload_resource_read_progress_stays_within_buffer_size_on_seek():
         )
 
     stats = tracker.snapshot()
-    # 文件大小 5，不应该超过
+    # 文件大小 5，进度不应该超过；完成确认由调用方执行
     assert stats.uploaded_size == 5
-    assert stats.uploaded_number == 1
+    assert stats.uploaded_number == 0
 
 
 # ── 长度推断零拷贝（getbuffer 不得被调用）──────────────────────

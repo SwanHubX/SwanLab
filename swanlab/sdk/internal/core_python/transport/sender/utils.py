@@ -13,15 +13,17 @@ from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import IO, Optional, Sequence, Union
 
+from swanlab.exceptions import ApiError
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnClass, ColumnRecord
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord, SaveType
 from swanlab.sdk.internal.core_python.context import CoreContext
 from swanlab.sdk.internal.core_python.pkg.mime import guess_type
 from swanlab.sdk.internal.core_python.utils import get_buffer_size
-from swanlab.sdk.internal.pkg import adapter, console, safe
+from swanlab.sdk.internal.pkg import adapter, console
 from swanlab.sdk.typings.core_python.api.save import SaveFileEntry
 from swanlab.sdk.typings.core_python.api.upload import UploadColumn, UploadMedia, UploadMediaBatch
+from swanlab.sdk.typings.core_python.transport import FailureSource, FailureStage, UploadFailure
 
 # ── 媒体载荷收集 ──────────────────────────────────────────────
 
@@ -42,26 +44,37 @@ class MediaPayload:
 class MediaUploadPlan:
     """一次媒体上传的收集结果：对象存储载荷与媒体指标 DTO。
 
-    payloads 与 metrics 一一对应：payload 必然归属某个 metric 的 data 列表。
+    payloads 与 metrics、metric_records 一一对应：payload 必然归属某个 metric 的 data 列表，
+    metric_records[i] 即产出 metrics[i] 的原 Record；blocked_failures 是未产出任何指标的
+    Record 及其原因（缺时间戳、payload 缺失、文件不可用等），由调用方保留并报告。
     """
 
     payloads: list[MediaPayload] = field(default_factory=list)
     metrics: UploadMediaBatch = field(default_factory=list)
+    metric_records: list[Record] = field(default_factory=list)
+    blocked_failures: list[UploadFailure] = field(default_factory=list)
 
 
 def collect_media_payloads(ctx: CoreContext, records: Sequence[Record]) -> MediaUploadPlan:
     """将 media Record 收集为对象存储载荷与媒体指标，纯收集，不发起网络请求。
 
     - payload 携带内容（skip_store）：内存 buffer 上传，允许空文件，不触碰本地 media 路径
-    - skip_store 下缺 payload：告警跳过，不回退读本地路径
-    - 本地文件缺失或 size 统计失败：跳过该文件，不影响同批其他文件
+    - skip_store 下缺 payload：告警并归入 blocked，不回退读本地路径
+    - 本地文件缺失或读取失败：跳过该文件；整条 Record 均无可用文件时归入 blocked
     """
     plan = MediaUploadPlan()
     for record in records:
         if not record.HasField("media"):
+            # 无 media 载荷属确定性脏数据：归入 blocked 保留并报告，不静默消失
+            plan.blocked_failures.append(
+                UploadFailure(source="local_data", message="media record without media payload", records=[record])
+            )
             continue
         media_record = record.media
         if not media_record.HasField("timestamp"):
+            plan.blocked_failures.append(
+                UploadFailure(source="local_data", message="media record without timestamp", records=[record])
+            )
             continue
         create_time = media_record.timestamp.ToJsonString()
         metric_chunk: UploadMedia = {
@@ -72,6 +85,7 @@ def collect_media_payloads(ctx: CoreContext, records: Sequence[Record]) -> Media
             "create_time": create_time,
         }
         record_paths: list[str] = []
+        reasons: list[str] = []
         for media in media_record.value.items:
             # 目前约定的本地文件路径格式为：media/<type>/filename，不区分key
             # 约定保存到对象存储中的文件路径类似于本地文件路径
@@ -102,34 +116,77 @@ def collect_media_payloads(ctx: CoreContext, records: Sequence[Record]) -> Media
             if ctx.config.skip_store:
                 # skip_store 下缺 payload：告警丢弃，不回退读本地路径
                 console.warning(f"Media payload missing with skip_store enabled, skipping: {remote_path}")
+                reasons.append(f"payload missing with skip_store enabled: {remote_path}")
                 continue
 
             local_path = ctx.media_dir / medium / media.filename
             if not local_path.is_file():
+                reasons.append(f"media file not found: {local_path}")
                 continue
-
-            with safe.block(message="Failed to process media file, skipping"):
+            try:
                 # size 与 mime_type 先于载荷入列完成计算，保证单文件失败时整个 payload
                 # 不入列，载荷与指标列表保持原子一致
                 size = get_buffer_size(local_path)
                 mime_type = guess_type(local_path)
-                plan.payloads.append(
-                    MediaPayload(
-                        remote_path=remote_path,
-                        tracker_key=f"{remote_path}:{size}",
-                        display_path=local_path.as_posix(),
-                        size=size,
-                        buffer=local_path,
-                        content_type=mime_type,
-                    )
+            except OSError as e:
+                reasons.append(f"media file unreadable: {local_path}: {e}")
+                continue
+            plan.payloads.append(
+                MediaPayload(
+                    remote_path=remote_path,
+                    tracker_key=f"{remote_path}:{size}",
+                    display_path=local_path.as_posix(),
+                    size=size,
+                    buffer=local_path,
+                    content_type=mime_type,
                 )
-                record_paths.append(remote_path)
-                if media.caption:
-                    metric_chunk["more"].append({"caption": media.caption})
+            )
+            record_paths.append(remote_path)
+            if media.caption:
+                metric_chunk["more"].append({"caption": media.caption})
+
         if record_paths:
             metric_chunk["data"] = record_paths
             plan.metrics.append(metric_chunk)
+            plan.metric_records.append(record)
+        else:
+            reason = reasons[0] if reasons else "media record without files"
+            plan.blocked_failures.append(UploadFailure(source="local_data", message=reason, records=[record]))
     return plan
+
+
+# ── 错误映射 ──────────────────────────────────────────────────
+
+
+def transport_failure(
+    records: Sequence[Record],
+    error: BaseException,
+    *,
+    source: FailureSource,
+    stage: Optional[FailureStage] = None,
+    message: Optional[str] = None,
+) -> UploadFailure:
+    """将上传链路异常转为结构化失败：ApiError 提取 HTTP 状态与业务码，其余按异常类型名描述。
+
+    message 缺省时取业务错误信息或异常类型名，均不包含 URL、凭据或完整响应。
+    """
+    if isinstance(error, ApiError):
+        return UploadFailure(
+            source=source,
+            stage=stage,
+            message=message if message is not None else str(error.message),
+            records=list(records),
+            status=getattr(error.response, "status_code", None),
+            code=error.code,
+            exception=error,
+        )
+    return UploadFailure(
+        source=source,
+        stage=stage,
+        message=message if message is not None else type(error).__name__,
+        records=list(records),
+        exception=error,
+    )
 
 
 # ── DTO 编码 ──────────────────────────────────────────────────
@@ -209,4 +266,5 @@ __all__ = [
     "encode_column",
     "resolve_save_source",
     "save_tracker_key",
+    "transport_failure",
 ]

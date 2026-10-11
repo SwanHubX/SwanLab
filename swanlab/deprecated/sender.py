@@ -1,13 +1,16 @@
-from typing import Literal, Optional, Sequence, cast
+from typing import List, Literal, Optional, Sequence, Tuple, cast
 
+import requests
 from typing_extensions import deprecated
 
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnClass, ColumnRecord, ColumnType
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.core_python.transport.sender import HttpRecordSender
+from swanlab.sdk.internal.core_python.transport.sender.utils import transport_failure
 from swanlab.sdk.internal.pkg import adapter
 from swanlab.sdk.typings.core_python.api.upload import DeprecatedUploadColumn, DeprecatedUploadColumns
+from swanlab.sdk.typings.core_python.transport import UploadFailure, UploadResult
 
 
 @deprecated("legacy projects without views will no longer be supported in v0.11.")
@@ -16,16 +19,41 @@ class DeprecatedHttpRecordSender(HttpRecordSender):
     DeprecatedHttpRecordSender 是一个过时的类，用于适应多视图版本前的列上传逻辑
     """
 
-    def upload_column(self, records: Sequence[Record], batch_size: int = 3000) -> None:
-        columns = []
+    def upload_column(self, records: Sequence[Record], batch_size: int = 3000) -> UploadResult:
+        encoded: List[Tuple[Record, DeprecatedUploadColumn]] = []
+        blocked: List[Record] = []
         for record in records:
-            r = encode_desprecated_column(record.column)
-            if r:
-                columns.append(r)
-        if not columns:
-            return
-        for i in range(0, len(columns), batch_size):
-            upload_deprecated_columns(self._experiment_id, columns=columns[i : i + batch_size])
+            column = encode_desprecated_column(record.column)
+            if column is None:
+                # 编码无产物属确定性脏数据：保留并报告，不冒充完成
+                blocked.append(record)
+                continue
+            encoded.append((record, column))
+        confirmed: List[Record] = []
+        for start in range(0, len(encoded), batch_size):
+            batch = encoded[start : start + batch_size]
+            try:
+                upload_deprecated_columns(self._experiment_id, columns=[column for _, column in batch])
+            except requests.RequestException as e:
+                failure = transport_failure(
+                    [record for record, _ in batch], e, source="swanlab_api", stage="submit_metrics"
+                )
+                untried = [record for record, _ in encoded[start + len(batch) :]]
+                return UploadResult(
+                    confirmed_records=confirmed,
+                    remaining_records=blocked + [record for record, _ in batch] + untried,
+                    failures=[failure],
+                )
+            confirmed.extend(record for record, _ in batch)
+        if blocked:
+            return UploadResult(
+                confirmed_records=confirmed,
+                remaining_records=blocked,
+                failures=[
+                    UploadFailure(source="local_data", message="column encoding produced no DTO", records=blocked)
+                ],
+            )
+        return UploadResult(confirmed_records=confirmed)
 
 
 def upload_deprecated_columns(experiment_id: str, *, columns: DeprecatedUploadColumns) -> None:

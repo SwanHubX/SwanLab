@@ -2,8 +2,23 @@ import threading
 from unittest.mock import MagicMock, patch
 
 from swanlab.proto.swanlab.operation.v1.operation_pb2 import CoreState
+from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.core_python.transport.tracker import UploadTracker
 from swanlab.sdk.internal.core_python.transport.worker import Transport
+from swanlab.sdk.typings.core_python.transport import UploadFailure, UploadResult
+
+
+def _ok_result(records: list[Record]) -> UploadResult:
+    """构造全部确认的 Dispatch 结果（测试替身用）。"""
+    return UploadResult(confirmed_records=list(records))
+
+
+def _failed_result(records: list[Record], message: str = "upload failed") -> UploadResult:
+    """构造全部保留的 Dispatch 失败结果（测试替身用）。"""
+    return UploadResult(
+        remaining_records=list(records),
+        failures=[UploadFailure(source="swanlab_api", message=message, records=list(records))],
+    )
 
 
 def _make_transport(ctx, **kwargs) -> Transport:
@@ -140,7 +155,7 @@ def test_transport_put_tracks_only_deduped_records(mock_ctx, make_scalar_record)
 def test_transport_config_replacement_keeps_record_total(mock_ctx, make_config_record):
     tracker = UploadTracker()
     sender = MagicMock()
-    sender.upload.side_effect = lambda _, records: tracker.advance_records(len(records))
+    sender.upload.side_effect = lambda _, records: _ok_result(records)
     t = _make_transport(mock_ctx, tracker=tracker, sender=sender)
     first = make_config_record()
     latest = make_config_record()
@@ -155,6 +170,7 @@ def test_transport_config_replacement_keeps_record_total(mock_ctx, make_config_r
     t.start()
     assert t.finish()
     sender.upload.assert_called_once_with("save", [latest])
+    # 统计推进由 Dispatch 依据 confirmed_records 完成
     assert tracker.snapshot().uploaded_records == 1
 
 
@@ -175,8 +191,8 @@ def test_transport_uploads_latest_config_after_pending_retry(mock_ctx, make_conf
         if len(attempts) == 1:
             t.put([latest])
             latest_queued.set()
-            raise RuntimeError("upload failed")
-        tracker.advance_records(len(records))
+            return _failed_result(records)
+        return _ok_result(records)
 
     sender.upload.side_effect = upload
     t.put([old])
@@ -220,7 +236,7 @@ def test_transport_finish_drains_remaining(make_ctx, make_scalar_record):
     class FakeDispatch:
         def __call__(self, records):
             dispatched.extend(records)
-            return True, []
+            return _ok_result(records)
 
     ctx = make_ctx(batch_interval=0.01)
     t = _make_transport(ctx)
@@ -300,7 +316,7 @@ def test_transport_drains_on_batch_interval(make_ctx, make_scalar_record):
         def __call__(self, records):
             dispatched.extend(records)
             event.set()
-            return True, []
+            return _ok_result(records)
 
     ctx = make_ctx(batch_interval=0.01)
     t = _make_transport(ctx)
@@ -326,7 +342,7 @@ def test_transport_integration_auto_start(make_ctx, make_scalar_record):
         def __call__(self, records):
             dispatched.extend(records)
             event.set()
-            return True, []
+            return _ok_result(records)
 
     ctx = make_ctx(batch_interval=0.01)
     t = _make_transport(ctx, auto_start=True)
@@ -341,8 +357,8 @@ def test_transport_integration_auto_start(make_ctx, make_scalar_record):
     # ─────────────────── consecutive failure ───────────────────
 
 
-def test_transport_keeps_pending_records_and_warns_after_retry_exhaustion(make_ctx, make_scalar_record):
-    """After retry exhaustion, pending records are kept and a warning is emitted."""
+def test_transport_keeps_pending_records_and_warns_on_failure(make_ctx, make_scalar_record):
+    """失败轮记录保留为实例 pending 并节流告警，优先重试；恢复后继续排空。"""
     attempts = []
     first_dispatch_done = threading.Event()
     success_event = threading.Event()
@@ -352,9 +368,9 @@ def test_transport_keeps_pending_records_and_warns_after_retry_exhaustion(make_c
             attempts.append([record.num for record in records])
             if len(attempts) == 1:
                 first_dispatch_done.set()
-                return False, records
+                return _failed_result(records)
             success_event.set()
-            return True, []
+            return _ok_result(records)
 
     ctx = make_ctx(batch_interval=0.01)
     t = _make_transport(ctx)
@@ -377,3 +393,45 @@ def test_transport_keeps_pending_records_and_warns_after_retry_exhaustion(make_c
     assert attempts[1] == [1]
     assert attempts[2] == [2]
     mock_warn.assert_called_once()
+
+
+def test_transport_pending_and_failures_queryable_during_retry(make_ctx, make_scalar_record):
+    """失败重试期间：未确认任务与失败原因由实例持有，pending_records()/last_failures() 可查询。"""
+    first_dispatch_done = threading.Event()
+    second_dispatch_started = threading.Event()
+    release_retry = threading.Event()
+    attempts = 0
+
+    class FlakyDispatch:
+        def __call__(self, records):
+            nonlocal attempts
+            attempts += 1
+            if attempts == 1:
+                first_dispatch_done.set()
+                return _failed_result(records, message="http 503")
+            # 重试轮已开始，说明首轮失败结果已应用到实例状态（pending/failures 已登记）
+            second_dispatch_started.set()
+            assert release_retry.wait(timeout=5)
+            return _ok_result(records)
+
+    ctx = make_ctx(batch_interval=0.01)
+    t = _make_transport(ctx)
+    t.start()
+    t._dispatcher = FlakyDispatch()  # type: ignore
+    record = make_scalar_record(step=1)
+    record.num = 1
+    t.put([record])
+    assert first_dispatch_done.wait(timeout=2.0)
+    assert second_dispatch_started.wait(timeout=2.0)
+
+    # 失败轮：任务快照登记在实例 pending 上，失败原因可查询
+    assert t.pending_records() == [record]
+    failure = t.last_failures()[0]
+    assert failure.message == "http 503"
+    assert failure.records == [record]
+
+    release_retry.set()
+    assert t.finish()
+    # 恢复并排空后清空
+    assert t.pending_records() == []
+    assert t.last_failures() == []

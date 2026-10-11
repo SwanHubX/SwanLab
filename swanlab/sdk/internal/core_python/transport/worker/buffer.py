@@ -51,6 +51,10 @@ class RecordBuffer:
 
     # ── 读取 ──
 
+    def snapshot(self) -> List[Record]:
+        """返回当前缓冲的只读快照，不清空。"""
+        return list(self._records.values())
+
     def drain(self) -> List[Record]:
         """取出全部 records 并清空缓冲区（含索引）。"""
         pending_records = list(self._records.values())

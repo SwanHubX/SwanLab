@@ -15,7 +15,6 @@ from requests.sessions import Session
 
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.core_python.utils import ProgressFileWrapper, get_buffer_size
-from swanlab.sdk.internal.pkg import safe
 from swanlab.sdk.internal.pkg.executor import SafeThreadPoolExecutor
 from swanlab.sdk.typings.core_python.api.upload import (
     UploadColumns,
@@ -158,13 +157,16 @@ def upload_resource(
     上传资源文件到对象存储，先向后端请求上传凭据，然后使用凭据上传文件到对象存储。
 
     :param content_types: 可选的逐文件 Content-Type 列表，不传时使用二进制默认值。
-    :param tracker: 可选的进度追踪器，非 None 时自动汇报字节级进度和完成事件。
+    :param tracker: 可选的进度追踪器，非 None 时汇报字节级进度；文件完成确认由调用方
+        在后续阶段（如媒体指标提交）成功后执行，本函数只负责传输字节进度。
     """
     resp = client.post(
         "/resources/presigned/put",
         {"experimentId": experiment_id, "paths": paths},
     )
     urls = resp.data["urls"]
+    if len(urls) != len(paths):
+        raise ValueError(f"presigned response returned {len(urls)} urls for {len(paths)} paths")
 
     def upload_one(url: str, buffer: Union[IO[bytes], str, Path], file_key: str, size: int, content_type: str):
         # 上传单个文件，支持文件路径和内存 buffer 两种形式
@@ -174,6 +176,7 @@ def upload_resource(
         else:
             _put_with_progress(session, url, buffer, file_key, size, tracker, content_type=content_type)
 
+    first_error: Optional[BaseException] = None
     with SafeThreadPoolExecutor(max_workers=10) as executor:
         futures = []
         for index, url in enumerate(urls):
@@ -184,13 +187,16 @@ def upload_resource(
             if content_types is not None and index < len(content_types):
                 content_type = content_types[index]
             futures.append((executor.submit(upload_one, url, buffer, file_key, size, content_type), file_key))
+        # 收集全部并发结果后再上抛首个错误，不因第一个异常丢掉其余任务的状态回退
         for future, file_key in futures:
             try:
                 future.result()
-                _finish_tracked_file(tracker, file_key)
-            except Exception:
+            except Exception as e:
                 _reset_tracked_file(tracker, file_key)
-                raise
+                if first_error is None:
+                    first_error = e
+    if first_error is not None:
+        raise first_error
 
 
 def upload_saves(
@@ -198,33 +204,32 @@ def upload_saves(
     *,
     resources: Sequence[UploadResource],
     tracker: Optional[UploadTracker] = None,
-) -> set[str]:
-    """通过预签名 URL 批量上传本地文件到对象存储，返回成功上传的 source_path 集合。
+) -> Dict[int, BaseException]:
+    """通过预签名 URL 批量上传本地文件到对象存储。
 
-    :param tracker: 可选的进度追踪器，非 None 时自动汇报字节级进度和完成事件。
+    返回 ``{resources 索引: 异常}``，未出现的索引即为上传成功；
+    文件完成确认（finish）由调用方在 complete 成功后执行，本函数只负责传输与字节进度。
+    失败文件不在此吞错或过滤，由调用方保留对应 SaveRecord 并决定重试。
     """
 
-    def upload_one(resource: UploadResource) -> Optional[bool]:
+    def upload_one(resource: UploadResource) -> None:
         file_key = resource.get("tracker_key")
         size = resource.get("size")
-        with safe.block(
-            message="Failed to upload save file, skipping", on_error=lambda _: _reset_tracked_file(tracker, file_key)
-        ):
-            with open(resource["source_path"], "rb") as f:
-                _put_with_progress(
-                    session, resource["url"], f, file_key, size, tracker, content_type=resource["content_type"]
-                )
-            _finish_tracked_file(tracker, file_key)
-            return True
+        with open(resource["source_path"], "rb") as f:
+            _put_with_progress(
+                session, resource["url"], f, file_key, size, tracker, content_type=resource["content_type"]
+            )
 
-    uploaded: set[str] = set()
+    failures: Dict[int, BaseException] = {}
     with SafeThreadPoolExecutor(max_workers=8) as executor:
-        futures = [(executor.submit(upload_one, resource), resource["source_path"]) for resource in resources]
-        for future, source_path in futures:
-            if future.result() is True:
-                uploaded.add(source_path)
-
-    return uploaded
+        futures = [(executor.submit(upload_one, resource), index) for index, resource in enumerate(resources)]
+        for future, index in futures:
+            try:
+                future.result()
+            except Exception as e:
+                _reset_tracked_file(tracker, resources[index].get("tracker_key"))
+                failures[index] = e
+    return failures
 
 
 # ── 内部工具 ──────────────────────────────────────────────────
