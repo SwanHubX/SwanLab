@@ -483,23 +483,25 @@ def test_transport_pending_and_failures_queryable_during_retry(make_ctx, make_sc
 
 def test_transport_outage_recovers_and_resumes_backlog(make_ctx, make_scalar_record):
     """停机恢复：503 持续失败期间可继续入队且记录可查询，worker 不退出；
-    恢复后旧 pending 与停机期间的新记录全部续传，确认计数正确。"""
+    恢复后旧 pending 与停机期间的新记录全部续传，确认计数正确。
+
+    恢复时机由测试线程经 recovered 事件控制：设置前 sender 恒返回失败，
+    停机期间的断言不依赖测试线程的调度速度；失败尝试次数随调度变化，
+    只断言恢复后旧记录、新记录各成功一次。
+    """
     sender = MagicMock()
     tracker = UploadTracker()
     attempts: list[tuple[list[int], str]] = []
-    outage_failures = 2
-    outage_done = threading.Event()
-    fail_remaining = outage_failures
+    first_failure_seen = threading.Event()
+    recovered = threading.Event()
 
     def upload(_record_type, records):
-        nonlocal fail_remaining
-        if fail_remaining > 0:
-            fail_remaining -= 1
-            attempts.append(([record.num for record in records], "fail"))
-            if fail_remaining == 0:
-                outage_done.set()
+        nums = [record.num for record in records]
+        if not recovered.is_set():
+            attempts.append((nums, "fail"))
+            first_failure_seen.set()
             return _failed_result(records, message="http 503")
-        attempts.append(([record.num for record in records], "ok"))
+        attempts.append((nums, "ok"))
         return _ok_result(records)
 
     sender.upload.side_effect = upload
@@ -511,24 +513,35 @@ def test_transport_outage_recovers_and_resumes_backlog(make_ctx, make_scalar_rec
 
     t.start()
     t.put([first])
-    assert outage_done.wait(timeout=2.0)
+    try:
+        assert first_failure_seen.wait(timeout=2.0)
 
-    # 停机期间：新记录入队成功，worker 存活，两条记录均可查询
-    assert t.put([second]) is True
-    assert t.is_alive() is True
-    pending_nums = sorted(record.num for record in t.pending_records())
-    assert pending_nums == [1, 2]
-    assert tracker.snapshot().total_records == 2
+        # 停机期间：新记录入队成功，worker 存活，两条记录均可查询
+        assert t.put([second]) is True
+        assert t.is_alive() is True
+        pending_nums = sorted(record.num for record in t.pending_records())
+        assert pending_nums == [1, 2]
+        assert tracker.snapshot().total_records == 2
 
-    assert t.finish()
+        recovered.set()
+        assert t.finish()
 
-    # 旧 pending 先续传成功，随后新记录排空；成功前缀不重复上传
-    assert attempts == [([1], "fail"), ([1], "fail"), ([1], "ok"), ([2], "ok")]
-    stats = tracker.snapshot()
-    assert stats.uploaded_records == stats.total_records == 2
-    assert t.pending_records() == []
-    assert t.last_failures() == []
-    sender.close.assert_called_once()
+        # 停机期间仅旧记录反复失败（次数随调度变化，不小于一次）；
+        # 恢复后旧 pending 先续传成功，随后新记录排空，各恰好成功一次
+        failed_attempts = [attempt for attempt in attempts if attempt[1] == "fail"]
+        assert failed_attempts
+        assert all(attempt == ([1], "fail") for attempt in failed_attempts)
+        ok_attempts = [attempt for attempt in attempts if attempt[1] == "ok"]
+        assert ok_attempts == [([1], "ok"), ([2], "ok")]
+        stats = tracker.snapshot()
+        assert stats.uploaded_records == stats.total_records == 2
+        assert t.pending_records() == []
+        assert t.last_failures() == []
+        sender.close.assert_called_once()
+    finally:
+        # 断言失败也先解除停机再关闭 worker，避免遗留自旋线程
+        recovered.set()
+        t.finish()
 
 
 # ─────────────────── 退避重试调度（P3） ───────────────────
