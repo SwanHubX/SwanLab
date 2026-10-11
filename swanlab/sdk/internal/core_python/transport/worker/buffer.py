@@ -37,18 +37,6 @@ class RecordBuffer:
             self._records[record.num] = record
         return len(self._records) - previous_size
 
-    def prepend(self, records: List[Record]) -> int:
-        """回滚到头部，保留缓冲中的同编号记录。返回新增记录数。"""
-        accepted_records: dict[int, Record] = {}
-        for record in records:
-            if record.num not in self._records:
-                accepted_records[record.num] = record
-        accepted = len(accepted_records)
-        if accepted:
-            accepted_records.update(self._records)
-            self._records = accepted_records
-        return accepted
-
     # ── 读取 ──
 
     def snapshot(self) -> List[Record]:

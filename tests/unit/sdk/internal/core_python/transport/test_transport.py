@@ -2,6 +2,8 @@ import threading
 import time
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from swanlab.proto.swanlab.operation.v1.operation_pb2 import CoreState
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.core_python.transport.tracker import UploadTracker
@@ -67,17 +69,15 @@ def _make_transport(ctx, **kwargs) -> Transport:
 # ─────────────────── defaults ───────────────────
 
 
-def test_transport_defaults(mock_ctx):
-    """Default batch_interval reads from ctx settings."""
-    t = _make_transport(mock_ctx)
-    assert t._batch_interval == mock_ctx.config.record_interval
-
-
-def test_transport_custom_batch_interval(make_ctx):
-    """Custom batch_interval via ctx settings."""
-    ctx = make_ctx(batch_interval=0.5)
+@pytest.mark.parametrize("custom_interval", [None, 0.5], ids=["default", "custom"])
+def test_transport_batch_interval_reads_ctx_settings(make_ctx, custom_interval):
+    """batch_interval 从 ctx 设置读取：默认与自定义值均生效。"""
+    overrides = {} if custom_interval is None else {"batch_interval": custom_interval}
+    ctx = make_ctx(**overrides)
     t = _make_transport(ctx)
-    assert t._batch_interval == 0.5
+    assert t._batch_interval == ctx.config.record_interval
+    if custom_interval is not None:
+        assert t._batch_interval == custom_interval
 
 
 # ─────────────────── start ───────────────────
@@ -121,12 +121,13 @@ def test_transport_start_uses_injected_sender_and_tracker(mock_ctx):
 
 
 def test_transport_start_after_finish_is_noop(mock_ctx):
-    """start() after finish() is a no-op."""
+    """start() after finish() is a no-op：不创建新线程，线程身份保持不变。"""
     t = _make_transport(mock_ctx)
     t.start()
+    original_thread = t._thread
     t.finish()
     t.start()
-    assert t._thread is not None
+    assert t._thread is original_thread
 
 
 # ─────────────────── put ───────────────────
@@ -478,6 +479,56 @@ def test_transport_pending_and_failures_queryable_during_retry(make_ctx, make_sc
     # 恢复并排空后清空
     assert t.pending_records() == []
     assert t.last_failures() == []
+
+
+def test_transport_outage_recovers_and_resumes_backlog(make_ctx, make_scalar_record):
+    """停机恢复：503 持续失败期间可继续入队且记录可查询，worker 不退出；
+    恢复后旧 pending 与停机期间的新记录全部续传，确认计数正确。"""
+    sender = MagicMock()
+    tracker = UploadTracker()
+    attempts: list[tuple[list[int], str]] = []
+    outage_failures = 2
+    outage_done = threading.Event()
+    fail_remaining = outage_failures
+
+    def upload(_record_type, records):
+        nonlocal fail_remaining
+        if fail_remaining > 0:
+            fail_remaining -= 1
+            attempts.append(([record.num for record in records], "fail"))
+            if fail_remaining == 0:
+                outage_done.set()
+            return _failed_result(records, message="http 503")
+        attempts.append(([record.num for record in records], "ok"))
+        return _ok_result(records)
+
+    sender.upload.side_effect = upload
+    ctx = make_ctx(batch_interval=0.01)
+    t = _make_transport(ctx, sender=sender, tracker=tracker, retry=_fast_retry())
+    first = make_scalar_record(step=1)
+    second = make_scalar_record(step=2)
+    first.num, second.num = 1, 2
+
+    t.start()
+    t.put([first])
+    assert outage_done.wait(timeout=2.0)
+
+    # 停机期间：新记录入队成功，worker 存活，两条记录均可查询
+    assert t.put([second]) is True
+    assert t.is_alive() is True
+    pending_nums = sorted(record.num for record in t.pending_records())
+    assert pending_nums == [1, 2]
+    assert tracker.snapshot().total_records == 2
+
+    assert t.finish()
+
+    # 旧 pending 先续传成功，随后新记录排空；成功前缀不重复上传
+    assert attempts == [([1], "fail"), ([1], "fail"), ([1], "ok"), ([2], "ok")]
+    stats = tracker.snapshot()
+    assert stats.uploaded_records == stats.total_records == 2
+    assert t.pending_records() == []
+    assert t.last_failures() == []
+    sender.close.assert_called_once()
 
 
 # ─────────────────── 退避重试调度（P3） ───────────────────

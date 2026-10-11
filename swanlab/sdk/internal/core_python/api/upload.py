@@ -241,12 +241,6 @@ def upload_saves(
 # ── 内部工具 ──────────────────────────────────────────────────
 
 
-def _finish_tracked_file(tracker: Optional[UploadTracker], file_key: Optional[str]) -> None:
-    """上传成功后标记文件完成。"""
-    if tracker is not None and file_key is not None:
-        tracker.finish_file(file_key)
-
-
 def _reset_tracked_file(tracker: Optional[UploadTracker], file_key: Optional[str]) -> None:
     """上传失败后重置文件字节级进度。"""
     if tracker is not None and file_key is not None:

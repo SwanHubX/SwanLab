@@ -5,8 +5,11 @@
 """
 
 import email.utils
+import math
 from typing import Dict, Optional
 from unittest.mock import MagicMock
+
+import pytest
 
 from swanlab.exceptions import ApiError
 from swanlab.sdk.internal.core_python.transport.worker.utils import RetryPolicy
@@ -77,6 +80,15 @@ def test_backoff_grows_exponentially_and_caps():
     policy = RetryPolicy(rng=lambda _low, _high: 1.0)
     delays = [policy.schedule([_plain_failure("swanlab_api")], round_).delay for round_ in range(1, 8)]
     assert delays == [1.0, 2.0, 4.0, 8.0, 16.0, 30.0, 30.0]
+
+
+@pytest.mark.parametrize("failed_rounds", [1025, 1_000_000])
+def test_backoff_does_not_overflow_on_huge_round_counts(failed_rounds):
+    """长期停机下失败轮数任意大：不抛异常，返回有限数值且不超过 max_delay。"""
+    policy = RetryPolicy(rng=lambda _low, high_: high_)  # 抖动取上界，最不利情形
+    delay = policy.schedule([_plain_failure("swanlab_api")], failed_rounds).delay
+    assert math.isfinite(delay)
+    assert 0 < delay <= policy.max_delay
 
 
 def test_backoff_jitter_within_bounds_and_restricted_by_cap():

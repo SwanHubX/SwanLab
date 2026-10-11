@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Dict, Iterator, List, Optional, Sequence, Tupl
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.core_python.transport.sender import HttpRecordSender
 from swanlab.sdk.internal.pkg import console
-from swanlab.sdk.typings.core_python.transport import UploadFailure, UploadResult
+from swanlab.sdk.typings.core_python.transport import FailureSource, UploadFailure, UploadResult
 
 if TYPE_CHECKING:
     from swanlab.sdk.internal.core_python.transport.tracker import UploadTracker
@@ -68,7 +68,8 @@ class Dispatch:
     遍历待上传 records，用 WhichOneof("record_type") 取 record_type 并按类型分组，
     再逐个交给 _upload_record_type() 分批上传。sender 返回的 UploadResult 按记录级汇总：
     confirmed_records 推进 tracker 统计（每次确认恰好推进一次），remaining 连同后续
-    未处理分组按原顺序返回给上层保留。Dispatch 不吞错误，失败原因原样进入结果。
+    未处理分组按原顺序返回给上层保留。sender 已知错误由其自身转为 failures；
+    调用边界上的未预期普通异常在 chunk 级兜底转换，成功前缀不会被整轮重放。
     """
 
     # ── record 类型分发 ──
@@ -158,7 +159,10 @@ class Dispatch:
         return UploadResult(confirmed_records=confirmed, failures=failures)
 
     def _upload_chunk(self, record_type: str, chunk: Sequence[Record]) -> UploadResult:
-        """单 chunk 上传。错误由 sender 转为结果内的 failures，此处不吞异常。"""
+        """单 chunk 上传。sender 已知错误由其自身转为结果内的 failures；
+        此处兜底捕获调用边界上的未预期普通异常，转为当前 chunk 全量保留的
+        失败结果，避免整轮重放已成功的 chunk 前缀。
+        """
         if self._sender is None:
             raise RuntimeError("sender not set")
         if record_type == "log":
@@ -166,7 +170,23 @@ class Dispatch:
                 f"Dispatching log records: count={len(chunk)}, nums={chunk[0].num}..{chunk[-1].num}",
                 write_to_tty=False,
             )
-        result = self._sender.upload(record_type, chunk)
+        try:
+            result = self._sender.upload(record_type, chunk)
+        except Exception as e:
+            # 消息只含异常类型等安全摘要，原始异常仅进 exception 供内部诊断；
+            # OSError 视为本地数据问题，其余视为 worker 内部错误
+            source: FailureSource = "local_data" if isinstance(e, OSError) else "worker_internal"
+            return UploadResult(
+                remaining_records=list(chunk),
+                failures=[
+                    UploadFailure(
+                        source=source,
+                        message=f"unexpected {type(e).__name__} while uploading {record_type!r} chunk",
+                        records=list(chunk),
+                        exception=e,
+                    )
+                ],
+            )
         if record_type == "log":
             console.debug(
                 f"Log sender completed: count={len(chunk)}, nums={chunk[0].num}..{chunk[-1].num}",

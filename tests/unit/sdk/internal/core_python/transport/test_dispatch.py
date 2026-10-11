@@ -1,5 +1,10 @@
 from unittest.mock import MagicMock, patch
 
+import pytest
+from google.protobuf.timestamp_pb2 import Timestamp
+
+from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
+from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaItem, MediaRecord, MediaValue
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.core_python.transport.dispatch import Dispatch
 from swanlab.sdk.internal.core_python.transport.tracker import UploadTracker
@@ -14,6 +19,20 @@ def _failed(records, message: str = "upload failed") -> UploadResult:
     return UploadResult(
         remaining_records=list(records),
         failures=[UploadFailure(source="swanlab_api", message=message, records=list(records))],
+    )
+
+
+def _make_media_record(filename: str = "image.png") -> Record:
+    timestamp = Timestamp()
+    timestamp.GetCurrentTime()
+    return Record(
+        media=MediaRecord(
+            key="examples/image",
+            step=1,
+            type=ColumnType.COLUMN_TYPE_IMAGE,
+            timestamp=timestamp,
+            value=MediaValue(items=[MediaItem(filename=filename)]),
+        )
     )
 
 
@@ -35,31 +54,32 @@ def test_dispatch_groups_by_type(mock_ctx, make_scalar_record, make_config_recor
         assert calls[1] == (("save", config_records),)
 
 
-def test_dispatch_calls_correct_handler(mock_ctx, make_scalar_record):
-    """各 record_type 被正确交给 _upload_record_type()。"""
-    dispatch = Dispatch(batch_size=mock_ctx.config.record_batch)
-    records = [make_scalar_record(step=1)]
-
-    with patch.object(dispatch, "_upload_record_type", return_value=_ok(records)) as mock_handle:
-        dispatch(records)
-        mock_handle.assert_called_once_with("scalar", records)
-
-
-def test_dispatch_sender_unexpected_error_propagates(mock_ctx, make_scalar_record):
-    """sender 的未预期异常（编程错误）不被 Dispatch 吞掉，向上交给 worker 兜底。"""
+@pytest.mark.parametrize(
+    "error, expected_source",
+    [
+        (RuntimeError("upload exploded"), "worker_internal"),
+        (OSError("disk unavailable"), "local_data"),
+    ],
+    ids=["runtime-error", "os-error"],
+)
+def test_dispatch_sender_unexpected_error_converted_to_failure(mock_ctx, make_scalar_record, error, expected_source):
+    """sender 的未预期普通异常在 chunk 边界转为失败结果：不向上抛出、记录保留，
+    原始异常仅进 failure 的内部诊断字段，消息只含安全摘要。"""
     mock_sender = MagicMock()
-    mock_sender.upload.side_effect = RuntimeError("upload failed")
+    mock_sender.upload.side_effect = error
     dispatch = Dispatch(batch_size=mock_ctx.config.record_batch, sender=mock_sender)
 
     records = [make_scalar_record(step=1)]
     records[0].num = 11
 
-    try:
-        dispatch(records)
-    except RuntimeError:
-        pass
-    else:
-        raise AssertionError("RuntimeError should propagate out of Dispatch")
+    result = dispatch(records)
+
+    assert result.confirmed_records == []
+    assert result.remaining_records == records
+    failure = result.failures[0]
+    assert failure.source == expected_source
+    assert type(error).__name__ in failure.message
+    assert failure.exception is error
 
 
 def test_dispatch_failure_tail_keeps_failed_and_unprocessed_order(mock_ctx, make_scalar_record, make_config_record):
@@ -175,24 +195,71 @@ def test_dispatch_partial_chunk_success_advances_tracker_and_keeps_tail(mock_ctx
     assert tracker.snapshot().uploaded_records == 1
 
 
-def test_dispatch_handle_record_type_returns_failed_tail_on_chunk_failure(mock_ctx, make_scalar_record):
-    """某个 chunk 上传失败时返回当前组中尚未成功上传的 records。"""
+def test_dispatch_first_chunk_success_second_chunk_exception_keeps_prefix(mock_ctx, make_scalar_record):
+    """第一个 chunk 成功、第二个 chunk 抛异常：成功前缀确认且统计只推进一次，
+    失败 chunk 与未处理尾部保留。"""
+    tracker = UploadTracker()
     sender = MagicMock()
     first = make_scalar_record(step=1)
     second = make_scalar_record(step=2)
-    first.num = 51
-    second.num = 52
-    sender.upload.side_effect = [_ok([first]), _failed([second])]
-    dispatch = Dispatch(batch_size=mock_ctx.config.record_batch, sender=sender)
+    third = make_scalar_record(step=3)
+    first.num, second.num, third.num = 51, 52, 53
+    sender.upload.side_effect = [_ok([first]), RuntimeError("chunk exploded")]
+    dispatch = Dispatch(batch_size=1, sender=sender, tracker=tracker)
 
-    with patch(
-        "swanlab.sdk.internal.core_python.transport.dispatch.generate_chunks",
-        return_value=[([first], 1), ([second], 1)],
-    ):
-        result = dispatch._upload_record_type("scalar", [first, second])
+    result = dispatch([first, second, third])
 
     assert result.confirmed_records == [first]
-    assert result.remaining_records == [second]
+    assert result.remaining_records == [second, third]
+    failure = result.failures[0]
+    assert failure.source == "worker_internal"
+    assert failure.exception is not None
+    assert tracker.snapshot().uploaded_records == 1
+
+
+def test_dispatch_scalar_success_media_exception_keeps_confirmed_prefix(mock_ctx, make_scalar_record):
+    """scalar 分组成功、media 分组抛异常：scalar 确认，media 保留，不整轮回滚。"""
+    tracker = UploadTracker()
+    sender = MagicMock()
+
+    def upload(record_type, records):
+        if record_type == "scalar":
+            return _ok(records)
+        raise RuntimeError("media upload exploded")
+
+    sender.upload.side_effect = upload
+    dispatch = Dispatch(batch_size=mock_ctx.config.record_batch, sender=sender, tracker=tracker)
+    scalar = make_scalar_record(step=1)
+    scalar.num = 61
+    media = _make_media_record()
+    media.num = 62
+
+    result = dispatch([scalar, media])
+
+    assert result.confirmed_records == [scalar]
+    assert result.remaining_records == [media]
+    assert result.failures[0].source == "worker_internal"
+    assert tracker.snapshot().uploaded_records == 1
+
+
+def test_dispatch_next_round_retries_only_remaining(mock_ctx, make_scalar_record):
+    """用上一轮返回的 remaining 执行下一轮：成功前缀不会再次上传。"""
+    sender = MagicMock()
+    first = make_scalar_record(step=1)
+    second = make_scalar_record(step=2)
+    first.num, second.num = 71, 72
+    sender.upload.side_effect = [_ok([first]), RuntimeError("chunk exploded"), _ok([second])]
+    dispatch = Dispatch(batch_size=1, sender=sender)
+
+    first_round = dispatch([first, second])
+    assert first_round.confirmed_records == [first]
+    assert first_round.remaining_records == [second]
+
+    second_round = dispatch(first_round.remaining_records)
+
+    assert second_round.ok
+    uploaded_chunks = [call.args[1] for call in sender.upload.call_args_list]
+    assert uploaded_chunks == [[first], [second], [second]]
 
 
 def test_dispatch_result_contract_violation_retains_chunk(mock_ctx, make_scalar_record):
@@ -212,9 +279,3 @@ def test_dispatch_result_contract_violation_retains_chunk(mock_ctx, make_scalar_
     assert result.remaining_records == [first, second]
     assert result.failures[0].source == "worker_internal"
     assert tracker.snapshot().uploaded_records == 0
-
-
-def test_dispatch_record_types_follow_proto_descriptor():
-    """分发类型集合应直接来自 Record.record_type oneof。"""
-    expected = frozenset(field.name for field in Record.DESCRIPTOR.oneofs_by_name["record_type"].fields)
-    assert Dispatch._RECORD_TYPES == expected

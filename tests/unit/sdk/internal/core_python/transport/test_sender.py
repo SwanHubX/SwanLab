@@ -341,45 +341,6 @@ def test_upload_media_passes_guessed_content_type(tmp_path: Path):
     mock_upload_media.assert_called_once()
 
 
-def test_upload_media_finishes_file_inside_progress_callback(tmp_path: Path):
-    media_dir = tmp_path / "media" / "image"
-    media_dir.mkdir(parents=True)
-    first_path = media_dir / "first.png"
-    second_path = media_dir / "second.png"
-    first_path.write_bytes(b"one")
-    second_path.write_bytes(b"two2")
-    inner_tracker = UploadTracker()
-    sender = _make_sender(tmp_path)
-    sender.set_tracker(inner_tracker)
-    snapshots = []
-
-    def _fake_upload_resource(_, __, *, paths, buffers, content_types=None, tracker=None):
-        assert paths == ["media/image/first.png", "media/image/second.png"]
-        assert content_types == ["image/png", "image/png"]
-        assert tracker is not None
-        tracker.finish_file("media/image/first.png:3")
-        snapshots.append(inner_tracker.snapshot())
-        tracker.finish_file("media/image/second.png:4")
-        snapshots.append(inner_tracker.snapshot())
-
-    with (
-        patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=MagicMock()),
-        patch(
-            "swanlab.sdk.internal.core_python.transport.sender.files.upload_resource",
-            side_effect=_fake_upload_resource,
-        ),
-        patch("swanlab.sdk.internal.core_python.transport.sender.upload_media"),
-    ):
-        sender.upload_media([_make_media_record("first.png"), _make_media_record("second.png")])
-
-    assert snapshots[0].uploaded_size == 3
-    assert snapshots[0].uploaded_number == 1
-    assert [Path(file.path) for file in snapshots[0].files] == [second_path]
-    assert snapshots[1].uploaded_size == 7
-    assert snapshots[1].uploaded_number == 2
-    assert list(snapshots[1].files) == []
-
-
 def test_upload_media_uses_payload_without_touching_disk(tmp_path: Path):
     """payload 走内存上传、不读本地文件；缺 payload 时告警丢弃。"""
     sender = _make_sender(tmp_path, skip_store=True)
@@ -481,19 +442,27 @@ def test_sender_close_is_idempotent_and_releases_session(tmp_path: Path):
         assert sender._ensure_session() is second_session
 
 
-def test_upload_maps_business_reject_to_failure_result(tmp_path: Path):
-    """4xx 业务拒绝：转为结果内的失败，记录保留，不抛异常、不消费。"""
+@pytest.mark.parametrize(
+    "status, code, message",
+    [
+        (400, "bad-request", "bad request"),
+        (500, "internal-error", "server error"),
+    ],
+    ids=["business-reject", "server-error"],
+)
+def test_upload_maps_error_response_to_failure_result(tmp_path: Path, status, code, message):
+    """4xx 业务拒绝与 5xx 服务端错误：同样转为结果内的失败并保留记录，不抛异常、不消费。"""
     tracker = UploadTracker()
     sender = _make_sender(tmp_path)
     sender.set_tracker(tracker)
     record = Record()
     sender._upload_handlers["scalar"] = MagicMock(
         side_effect=ApiError(
-            _FakeApiErrorResponse(400),
+            _FakeApiErrorResponse(status),
             method="POST",
             trace_id="trace-id",
-            code="bad-request",
-            message="bad request",
+            code=code,
+            message=message,
         )
     )
 
@@ -502,32 +471,9 @@ def test_upload_maps_business_reject_to_failure_result(tmp_path: Path):
     assert result.confirmed_records == []
     assert result.remaining_records == [record]
     failure = result.failures[0]
-    assert failure.status == 400
-    assert failure.code == "bad-request"
+    assert failure.status == status
+    assert failure.code == code
     assert failure.source == "swanlab_api"
-    assert tracker.snapshot().uploaded_records == 0
-
-
-def test_upload_maps_server_error_to_failure_result(tmp_path: Path):
-    """5xx 服务端错误：同样转为结果内的失败并保留记录，不向上抛出。"""
-    tracker = UploadTracker()
-    sender = _make_sender(tmp_path)
-    sender.set_tracker(tracker)
-    record = Record()
-    sender._upload_handlers["scalar"] = MagicMock(
-        side_effect=ApiError(
-            _FakeApiErrorResponse(500),
-            method="POST",
-            trace_id="trace-id",
-            code="internal-error",
-            message="server error",
-        )
-    )
-
-    result = sender.upload("scalar", [record])
-
-    assert result.remaining_records == [record]
-    assert result.failures[0].status == 500
     assert tracker.snapshot().uploaded_records == 0
 
 

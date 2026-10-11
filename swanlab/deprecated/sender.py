@@ -1,4 +1,4 @@
-from typing import List, Literal, Optional, Sequence, Tuple, cast
+from typing import List, Literal, Sequence, Tuple, cast
 
 import requests
 from typing_extensions import deprecated
@@ -10,7 +10,7 @@ from swanlab.sdk.internal.core_python.transport.sender import HttpRecordSender
 from swanlab.sdk.internal.core_python.transport.sender.utils import transport_failure
 from swanlab.sdk.internal.pkg import adapter
 from swanlab.sdk.typings.core_python.api.upload import DeprecatedUploadColumn, DeprecatedUploadColumns
-from swanlab.sdk.typings.core_python.transport import UploadFailure, UploadResult
+from swanlab.sdk.typings.core_python.transport import UploadResult
 
 
 @deprecated("legacy projects without views will no longer be supported in v0.11.")
@@ -20,15 +20,9 @@ class DeprecatedHttpRecordSender(HttpRecordSender):
     """
 
     def upload_column(self, records: Sequence[Record], batch_size: int = 3000) -> UploadResult:
-        encoded: List[Tuple[Record, DeprecatedUploadColumn]] = []
-        blocked: List[Record] = []
-        for record in records:
-            column = encode_desprecated_column(record.column)
-            if column is None:
-                # 编码无产物属确定性脏数据：保留并报告，不冒充完成
-                blocked.append(record)
-                continue
-            encoded.append((record, column))
+        encoded: List[Tuple[Record, DeprecatedUploadColumn]] = [
+            (record, encode_desprecated_column(record.column)) for record in records
+        ]
         confirmed: List[Record] = []
         for start in range(0, len(encoded), batch_size):
             batch = encoded[start : start + batch_size]
@@ -41,18 +35,10 @@ class DeprecatedHttpRecordSender(HttpRecordSender):
                 untried = [record for record, _ in encoded[start + len(batch) :]]
                 return UploadResult(
                     confirmed_records=confirmed,
-                    remaining_records=blocked + [record for record, _ in batch] + untried,
+                    remaining_records=[record for record, _ in batch] + untried,
                     failures=[failure],
                 )
             confirmed.extend(record for record, _ in batch)
-        if blocked:
-            return UploadResult(
-                confirmed_records=confirmed,
-                remaining_records=blocked,
-                failures=[
-                    UploadFailure(source="local_data", message="column encoding produced no DTO", records=blocked)
-                ],
-            )
         return UploadResult(confirmed_records=confirmed)
 
 
@@ -63,7 +49,7 @@ def upload_deprecated_columns(experiment_id: str, *, columns: DeprecatedUploadCo
     client.post(f"/experiment/{experiment_id}/columns", columns, retries=0)
 
 
-def encode_desprecated_column(record: ColumnRecord) -> Optional[DeprecatedUploadColumn]:
+def encode_desprecated_column(record: ColumnRecord) -> DeprecatedUploadColumn:
     """
     将列记录编码为后端所需的格式（DTO）
     NOTE: 此接口为多视图之前的版本

@@ -8,6 +8,7 @@
 等待与唤醒由 worker 的 Condition 循环负责（plan §6.3）。
 """
 
+import math
 import random
 import time
 from dataclasses import dataclass
@@ -69,6 +70,13 @@ class RetryPolicy:
         self.clock = clock
         self.wall_clock = wall_clock
         self._rng = rng if rng is not None else random.uniform
+        # 幂指数饱和点：base_delay * multiplier^n 首次达到 max_delay 的最小指数 n。
+        # 后端长时间停机时失败轮数任意大，超过饱和点的幂只会溢出（如 2.0**1000000），
+        # 结果已恒为 max_delay，故计算幂之前先将指数限制到饱和点
+        if self.multiplier > 1.0 and self.max_delay > self.base_delay:
+            self._saturation_exponent = math.ceil(math.log(self.max_delay / self.base_delay, self.multiplier))
+        else:
+            self._saturation_exponent = 0
 
     # ── 错误分类（plan §6.1） ──
 
@@ -116,8 +124,13 @@ class RetryPolicy:
         return max(schedules, key=lambda item: item.delay)
 
     def _backoff_delay(self, failed_rounds: int) -> float:
-        """指数退避：base * multiplier^(n-1)，乘抖动后限制到普通上限（plan §6.2）。"""
+        """指数退避：base * multiplier^(n-1)，乘抖动后限制到普通上限（plan §6.2）。
+
+        幂指数先限制到饱和点再计算：连续失败轮数任意大时不溢出，结果在
+        max_delay 处饱和（默认 1 → 2 → 4 → 8 → 16 → 30，之后恒为 30）。
+        """
         exponent = max(failed_rounds, 1) - 1
+        exponent = min(exponent, self._saturation_exponent)
         base = min(self.base_delay * (self.multiplier**exponent), self.max_delay)
         low, high = self.JITTER_RANGE
         return min(base * self._rng(low, high), self.max_delay)
