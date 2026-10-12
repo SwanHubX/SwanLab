@@ -25,7 +25,7 @@ from swanlab.sdk.internal.core_python.api.upload import upload_resource, upload_
 from swanlab.sdk.internal.core_python.context import CoreContext
 from swanlab.sdk.internal.core_python.pkg.mime import guess_type
 from swanlab.sdk.internal.core_python.utils import ProgressFileWrapper
-from swanlab.sdk.internal.pkg import console
+from swanlab.sdk.internal.pkg import console, safe
 from swanlab.sdk.internal.pkg.client.session import SessionWithRetry
 from swanlab.sdk.internal.pkg.executor import SafeThreadPoolExecutor
 from swanlab.sdk.typings.core_python.api.save import (
@@ -402,10 +402,9 @@ def _upload_large_saves(
     # 向后端报告分片 PUT 失败的文件，触发后端清理对象存储
     if skipped:
         failed_items: List[CompleteSaveFile] = [{"path": task.entry["path"], "state": "FAILED"} for task in skipped]
-        try:
+        with safe.block(requests.RequestException, message=None):
+            # 报告失败不阻塞流程，后端依赖超时清理兜底
             complete_save_files(ctx.experiment_id, files=failed_items)
-        except requests.RequestException:
-            pass  # 报告失败不阻塞流程，后端依赖超时清理兜底
 
     if not ready:
         return UploadResult(
