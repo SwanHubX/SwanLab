@@ -578,18 +578,17 @@ def test_transport_blocked_failure_uses_blocked_interval(make_ctx, make_scalar_r
     assert t.pending_records() == []
 
 
-def test_transport_huge_retry_delay_waits_in_slices_without_crashing(make_ctx, make_scalar_record):
-    """超大有限 Retry-After（如 1e20 秒）：分段等待不使 Condition.wait 按平台
-    time_t 换算溢出，worker 不崩溃、记录保留，截止时间未到时不提前重试；
-    等待仍可被唤醒，截止时间到达后正常排空。"""
+def test_transport_huge_retry_delay_waits_in_slices_without_crashing(make_ctx, make_scalar_record, monkeypatch):
+    """超大重试间隔按平台上限分段等待，保留记录且不提前重试。"""
     attempts = []
-    first_dispatch_done = threading.Event()
+    waiting = threading.Event()
+    timeout_max = 0.05
+    monkeypatch.setattr(threading, "TIMEOUT_MAX", timeout_max)
 
     class FlakyDispatch:
         def __call__(self, records):
             attempts.append(len(attempts))
             if len(attempts) == 1:
-                first_dispatch_done.set()
                 return _failed_result(records)
             return _ok_result(records)
 
@@ -599,25 +598,37 @@ def test_transport_huge_retry_delay_waits_in_slices_without_crashing(make_ctx, m
 
     ctx = make_ctx(batch_interval=0.01)
     t = _make_transport(ctx, retry=HugeDelayPolicy())
+    original_wait = t._cond.wait
+
+    def wait_in_slice(timeout=None):
+        assert timeout is not None and 0 <= timeout <= timeout_max
+        if timeout == timeout_max:
+            waiting.set()
+        return original_wait(timeout=timeout)
+
+    monkeypatch.setattr(t._cond, "wait", wait_in_slice)
     t.start()
     t._dispatcher = FlakyDispatch()  # type: ignore
     record = make_scalar_record(step=1)
     record.num = 1
 
     t.put([record])
-    assert first_dispatch_done.wait(timeout=2.0)
+    try:
+        assert waiting.wait(timeout=2.0)
+        assert t.is_alive() is True
+        assert len(attempts) == 1
+        assert t.pending_records() == [record]
 
-    time.sleep(0.1)
-    assert t.is_alive() is True  # 等待未溢出抛异常，worker 仍存活
-    assert len(attempts) == 1  # 截止时间未到，未被唤醒绕过
-    assert t.pending_records() == [record]
-
-    # 测试收尾：将截止时间提前到当前时刻并唤醒，验证可正常排空退出
-    with t._cond:
-        t._retry_at = t._retry.clock()
-        t._cond.notify_all()
-    assert t.finish()
-    assert len(attempts) == 2
+        with t._cond:
+            t._retry_at = t._retry.clock()
+            t._cond.notify_all()
+        assert t.finish(timeout=2.0)
+        assert len(attempts) == 2
+    finally:
+        with t._cond:
+            t._retry_at = t._retry.clock()
+            t._cond.notify_all()
+        t.finish(timeout=2.0)
 
 
 # ─────────────────── finish 语义与资源关闭（P4） ───────────────────

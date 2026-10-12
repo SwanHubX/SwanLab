@@ -44,11 +44,6 @@ class Transport:
 
     THREAD_NAME: str = "SwanLab·Transport"
     FINISH_JOIN_TIMEOUT: int = 30
-    # 单次条件等待的时长上限（秒）。Condition.wait 的超时最终按平台 time_t/微秒换算，
-    # 有限的超大 Retry-After（如 1e20 秒）会使换算溢出抛 OverflowError 并终止 worker，
-    # 故分段等待：每次醒来重新检查原截止时间，既不溢出也不提前违反 Retry-After。
-    # 2**31 秒远小于 64 位 time_t 与微秒换算的安全边界，单段即约 68 年。
-    MAX_WAIT_SLICE: float = 2**31
 
     def __init__(
         self,
@@ -219,7 +214,7 @@ class Transport:
                     remaining = deadline - self._retry.clock()
                     while remaining > 0:
                         # 分段等待：单次 wait 不超过平台上限，醒来后重查原截止时间
-                        self._cond.wait(timeout=min(remaining, self.MAX_WAIT_SLICE))
+                        self._cond.wait(timeout=min(remaining, threading.TIMEOUT_MAX))
                         deadline = self._retry_at
                         if deadline is None:
                             break
