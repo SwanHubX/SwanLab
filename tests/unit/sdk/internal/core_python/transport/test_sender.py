@@ -4,6 +4,7 @@ from typing import Optional, cast
 from unittest.mock import ANY, MagicMock, patch
 
 import pytest
+import requests
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.exceptions import ApiError
@@ -165,34 +166,59 @@ def test_upload_save_delegates_small_file_s3_put_to_upload_resources(tmp_path: P
     )
 
 
-def test_upload_save_retains_record_when_put_fails(tmp_path: Path):
+@pytest.mark.parametrize("multipart", [False, True], ids=["small", "multipart"])
+def test_upload_save_retains_record_when_put_fails(tmp_path: Path, multipart):
     """PUT 失败的文件不向后端补报 FAILED（后端会删对象），记录保留在结果中等待重试。"""
     source = tmp_path / "failed.bin"
     source.write_bytes(b"failed")
-    sender = _make_sender(tmp_path)
+    sender = _make_sender(tmp_path, save_split=1 if multipart else 100 * 1024 * 1024)
+    url = "https://s3.test/failed?X-Amz-Signature=test-signature"
+    response = requests.Response()
+    response.status_code = 403
+    response.url = url
+    with pytest.raises(requests.HTTPError) as exc_info:
+        response.raise_for_status()
+    error = exc_info.value
 
     with (
         patch(
             "swanlab.sdk.internal.core_python.transport.sender.files.prepare_save_files",
-            return_value={"urls": ["https://s3.test/failed"]},
+            return_value={"urls": [url]},
+        ),
+        patch(
+            "swanlab.sdk.internal.core_python.transport.sender.files.prepare_multipart_save",
+            return_value={"files": [{"uploadId": "test-upload", "parts": []}]},
         ),
         patch("swanlab.sdk.internal.core_python.transport.sender.files.complete_save_files") as mock_complete,
+        patch(
+            "swanlab.sdk.internal.core_python.transport.sender.files.complete_multipart_save"
+        ) as mock_multipart_complete,
         patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=MagicMock()),
         patch(
             "swanlab.sdk.internal.core_python.transport.sender.files.upload_saves",
-            return_value={0: RuntimeError("s3 failed")},
+            return_value={0: error},
         ),
+        patch(
+            "swanlab.sdk.internal.core_python.transport.sender.files._upload_multipart_parts",
+            return_value=([], error),
+        ),
+        patch("swanlab.sdk.internal.core_python.transport.sender.files.console.warning") as mock_warning,
     ):
         record = _make_save_record(source, name="failed.bin")
         result = sender.upload_save([record])
 
     # 不调用 complete，记录保留并携带对象存储失败
     mock_complete.assert_not_called()
+    mock_multipart_complete.assert_not_called()
+    mock_warning.assert_not_called()
     assert result.confirmed_records == []
     assert result.remaining_records == [record]
     failure = result.failures[0]
     assert failure.source == "object_storage"
     assert failure.stage == "transfer"
+    assert failure.exception is error
+    assert "test-signature" not in failure.summary
+    assert "test-signature" not in failure.message
 
 
 def test_upload_save_splits_pending_files_by_save_batch(tmp_path: Path):
@@ -1014,55 +1040,48 @@ class TestEncodeColumn:
         result = encode_column(col)
         assert result == {"key": "train/loss", "type": "FLOAT", "sectionName": "Training"}
 
-    def test_inferred_column_no_section_name(self):
-        """inferred column 无 sectionName 时只发 key/type。"""
+    @pytest.mark.parametrize(
+        "optional_fields",
+        [{}, {"section_name": ""}, {"hidden": False}],
+        ids=["absent", "empty-section", "hidden-false"],
+    )
+    def test_column_omits_optional_fields(self, optional_fields):
+        """未设置或为空的可选字段不发送。"""
         col = ColumnRecord(
             column_key="train/loss",
             column_type=ColumnType.COLUMN_TYPE_SCALAR,
+            **optional_fields,
         )
         result = encode_column(col)
         assert result == {"key": "train/loss", "type": "FLOAT"}
 
-    def test_column_with_custom_xaxis(self):
-        """ColumnRecord 带 x_axis → xAxis 发送。"""
+    @pytest.mark.parametrize(
+        "x_axis, section_name, expected",
+        [
+            pytest.param(
+                "train/epoch",
+                "Training",
+                {"key": "train/loss", "type": "FLOAT", "xAxis": "train/epoch", "sectionName": "Training"},
+                id="custom",
+            ),
+            pytest.param(
+                "_relative_time",
+                "",
+                {"key": "train/loss", "type": "FLOAT", "xAxis": "_relative_time"},
+                id="relative-time",
+            ),
+        ],
+    )
+    def test_column_with_xaxis(self, x_axis, section_name, expected):
+        """自定义及相对时间 xAxis 透传，sectionName 按存在性发送。"""
         col = ColumnRecord(
             column_key="train/loss",
             column_type=ColumnType.COLUMN_TYPE_SCALAR,
-            x_axis="train/epoch",
-            section_name="Training",
+            x_axis=x_axis,
+            section_name=section_name,
         )
         result = encode_column(col)
-        assert result == {
-            "key": "train/loss",
-            "type": "FLOAT",
-            "xAxis": "train/epoch",
-            "sectionName": "Training",
-        }
-
-    def test_column_without_xaxis(self):
-        """ColumnRecord 无 x_axis → xAxis key 不发送。"""
-        col = ColumnRecord(
-            column_key="loss",
-            column_type=ColumnType.COLUMN_TYPE_SCALAR,
-            section_name="",
-        )
-        result = encode_column(col)
-        # section_name="" → falsy → 不发送
-        assert result == {"key": "loss", "type": "FLOAT"}
-
-    def test_column_with_relative_time_xaxis(self):
-        """xAxis=_relative_time → 字符串透传，由 Server 转换。"""
-        col = ColumnRecord(
-            column_key="loss",
-            column_type=ColumnType.COLUMN_TYPE_SCALAR,
-            x_axis="_relative_time",
-        )
-        result = encode_column(col)
-        assert result == {
-            "key": "loss",
-            "type": "FLOAT",
-            "xAxis": "_relative_time",
-        }
+        assert result == expected
 
     def test_column_hidden_true(self):
         """hidden=True → hidden key 发送。"""
@@ -1077,16 +1096,6 @@ class TestEncodeColumn:
             "type": "FLOAT",
             "hidden": True,
         }
-
-    def test_column_hidden_false_not_sent(self):
-        """hidden=False → hidden key 不发送（server 视 absent 为 false）。"""
-        col = ColumnRecord(
-            column_key="loss",
-            column_type=ColumnType.COLUMN_TYPE_SCALAR,
-            hidden=False,
-        )
-        result = encode_column(col)
-        assert result == {"key": "loss", "type": "FLOAT"}
 
     def test_media_column(self):
         """media ColumnRecord 无 x_axis（resolver 对 MEDIA 不设 x_axis）。"""

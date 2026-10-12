@@ -253,8 +253,9 @@ _RETRY_CONTRACT_CASES = [
 
 
 @pytest.mark.parametrize("record_type, api_func_name, make_record", _RETRY_CONTRACT_CASES)
-def test_5xx_becomes_failure_result(tmp_path, record_type, api_func_name, make_record):
-    """5xx ApiError 转为结果内的失败：记录全部保留在 remaining，不向上抛出。"""
+@pytest.mark.parametrize("status", [400, 502], ids=["4xx", "5xx"])
+def test_http_error_becomes_failure_result(tmp_path, record_type, api_func_name, make_record, status):
+    """HTTP 失败保留记录与错误详情，不提前确认或推进统计。"""
     tracker = UploadTracker()
     sender = _make_sender(tmp_path)
     sender.set_tracker(tracker)
@@ -262,42 +263,19 @@ def test_5xx_becomes_failure_result(tmp_path, record_type, api_func_name, make_r
 
     with patch(
         f"swanlab.sdk.internal.core_python.transport.sender.{api_func_name}",
-        side_effect=_make_api_error(502),
+        side_effect=_make_api_error(status),
     ):
         result = sender.upload(record_type, [record])
 
     assert result.confirmed_records == []
     assert result.remaining_records == [record]
     failure = result.failures[0]
-    assert failure.status == 502
+    assert failure.status == status
     assert failure.source == "swanlab_api"
     assert failure.stage == "submit_metrics"
     assert failure.code == "test-error"
     assert failure.exception is not None
     # sender 不推进统计，统计由 Dispatch 依据 confirmed_records 推进
-    assert tracker.snapshot().uploaded_records == 0
-
-
-@pytest.mark.parametrize("record_type, api_func_name, make_record", _RETRY_CONTRACT_CASES)
-def test_4xx_becomes_failure_result(tmp_path, record_type, api_func_name, make_record):
-    """4xx 业务拒绝同样保留记录并报告失败：不吞错、不消费、不冒充成功。"""
-    tracker = UploadTracker()
-    sender = _make_sender(tmp_path)
-    sender.set_tracker(tracker)
-    record = make_record()
-
-    with patch(
-        f"swanlab.sdk.internal.core_python.transport.sender.{api_func_name}",
-        side_effect=_make_api_error(400),
-    ):
-        result = sender.upload(record_type, [record])
-
-    assert result.confirmed_records == []
-    assert result.remaining_records == [record]
-    failure = result.failures[0]
-    assert failure.status == 400
-    assert failure.source == "swanlab_api"
-    assert failure.code == "test-error"
     assert tracker.snapshot().uploaded_records == 0
 
 

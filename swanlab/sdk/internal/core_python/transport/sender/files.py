@@ -315,7 +315,6 @@ def _upload_small_saves(
         if error is None:
             uploaded.append(task)
             continue
-        console.warning(f"Failed to upload save file, retained for retry: {task.entry['source_path']}: {error}")
         failures.append(
             transport_failure(
                 [task.record],
@@ -408,7 +407,6 @@ def _upload_large_saves(
         _track_file(tracker, task.tracker_key, task.entry["source_path"], task.entry["size"])
         completed_parts, part_error = _upload_multipart_parts(session, task, parts, part_size, on_part_progress)
         if part_error is not None:
-            console.warning(f"Multipart upload failed for {task.entry['path']}, retained for retry: {part_error}")
             failures.append(
                 transport_failure(
                     [task.record],

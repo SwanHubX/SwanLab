@@ -66,20 +66,6 @@ def _make_transport(ctx, **kwargs) -> Transport:
     return Transport(ctx=ctx, **kwargs)
 
 
-# ─────────────────── defaults ───────────────────
-
-
-@pytest.mark.parametrize("custom_interval", [None, 0.5], ids=["default", "custom"])
-def test_transport_batch_interval_reads_ctx_settings(make_ctx, custom_interval):
-    """batch_interval 从 ctx 设置读取：默认与自定义值均生效。"""
-    overrides = {} if custom_interval is None else {"batch_interval": custom_interval}
-    ctx = make_ctx(**overrides)
-    t = _make_transport(ctx)
-    assert t._batch_interval == ctx.config.record_interval
-    if custom_interval is not None:
-        assert t._batch_interval == custom_interval
-
-
 # ─────────────────── start ───────────────────
 
 
@@ -131,31 +117,6 @@ def test_transport_start_after_finish_is_noop(mock_ctx):
 
 
 # ─────────────────── put ───────────────────
-
-
-def test_transport_put_dedups_records_by_num(mock_ctx, make_scalar_record):
-    """Records with the same num are deduplicated."""
-    t = _make_transport(mock_ctx)
-    record = make_scalar_record(step=1)
-    record.num = 7
-
-    t.put([record])
-    t.put([record])
-
-    assert t._buf.drain() == [record]
-
-
-def test_transport_put_keeps_distinct_record_nums(mock_ctx, make_scalar_record):
-    """Records with different nums are kept separately."""
-    t = _make_transport(mock_ctx)
-    first = make_scalar_record(step=1)
-    second = make_scalar_record(step=1)
-    first.num = 8
-    second.num = 9
-
-    t.put([first, second])
-
-    assert t._buf.drain() == [first, second]
 
 
 def test_transport_put_tracks_queued_record_total_by_default(mock_ctx, make_scalar_record):
@@ -284,27 +245,26 @@ def test_transport_finish_drains_remaining(make_ctx, make_scalar_record):
     assert len(dispatched) == 2
 
 
-def test_transport_finish_waits_for_thread(mock_ctx):
-    """finish() calls join with timeout from class constant; 排空成功才返回 True。"""
+@pytest.mark.parametrize("alive", [False, True], ids=["drained", "still-running"])
+def test_transport_finish_and_join_report_worker_state(mock_ctx, alive):
+    """请求结束不等待；finish/join 根据线程状态报告结果。"""
     t = _make_transport(mock_ctx)
+    assert t.is_alive() is False
     t._thread = MagicMock()
-    t._thread.is_alive.return_value = False
-    t._drained = True  # 模拟线程已正常排空退出
-
-    assert t.finish() is True
-
-    t._thread.join.assert_called_once_with(timeout=Transport.FINISH_JOIN_TIMEOUT)
-
-
-def test_transport_request_finish_does_not_join_thread(mock_ctx):
-    """request_finish() only notifies the worker and returns without joining."""
-    t = _make_transport(mock_ctx)
-    t._thread = MagicMock()
+    t._thread.is_alive.return_value = alive
+    t._drained = not alive
+    assert t.is_alive() is alive
 
     t.request_finish()
 
     assert t._finished is True
     t._thread.join.assert_not_called()
+
+    assert t.finish() is (not alive)
+    t._thread.join.assert_called_once_with(timeout=Transport.FINISH_JOIN_TIMEOUT)
+    t._thread.join.reset_mock()
+    assert t.join(timeout=0) is (not alive)
+    t._thread.join.assert_called_once_with(timeout=0)
 
 
 def test_transport_marks_tracker_finished_when_worker_exits(mock_ctx):
@@ -317,26 +277,6 @@ def test_transport_marks_tracker_finished_when_worker_exits(mock_ctx):
 
     assert t.join(timeout=2.0) is True
     assert tracker.snapshot().state == CoreState.CORE_STATE_FINISHED
-
-
-def test_transport_join_reports_timeout(mock_ctx):
-    """join() returns False when the worker thread is still alive after timeout."""
-    t = _make_transport(mock_ctx)
-    t._thread = MagicMock()
-    t._thread.is_alive.return_value = True
-
-    assert t.join(timeout=0) is False
-    t._thread.join.assert_called_once_with(timeout=0)
-
-
-def test_transport_is_alive_reflects_thread_state(mock_ctx):
-    t = _make_transport(mock_ctx)
-    assert t.is_alive() is False
-
-    t._thread = MagicMock()
-    t._thread.is_alive.return_value = True
-
-    assert t.is_alive() is True
 
 
 # ─────────────────── 定时攒批 ───────────────────

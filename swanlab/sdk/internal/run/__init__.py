@@ -961,7 +961,7 @@ def get_run() -> Run:
         >>> print(run.id)
         >>> swanlab.finish()
     """
-    if _current_run is None:
+    if _current_run is None or not _current_run.alive:
         raise RuntimeError("No active Run. Call swanlab.init() first.")
     return _current_run
 

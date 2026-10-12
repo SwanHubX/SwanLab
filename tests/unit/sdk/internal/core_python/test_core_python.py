@@ -225,9 +225,8 @@ class TestCorePythonFinish:
         ],
         ids=["worker-exited", "last-failure"],
     )
-    def test_confirm_run_finish_failure_keeps_transport_and_components(self, tmp_path, monkeypatch, summary):
-        """finish 失败：消息透传 transport 摘要（构造见 test_transport）；
-        不释放 transport、不停止心跳、不上报最终状态（plan §8.4）。"""
+    def test_confirm_run_finish_failure_keeps_transport_and_stops_components(self, tmp_path, monkeypatch, summary):
+        """worker 退出但未排空：保留诊断数据，停止心跳并释放 client。"""
         core = CorePython("online")
         core._ctx = make_core_ctx(tmp_path)
         set_online_params(core)
@@ -235,11 +234,23 @@ class TestCorePythonFinish:
         transport.finish.return_value = False
         transport.finish_summary.return_value = summary
         heartbeat = MagicMock()
+        tracker = UploadTracker()
+        tracker.set_state(CoreState.CORE_STATE_RUNNING)
         stop_experiment_mock = MagicMock()
         core._transport = transport
         core._heartbeat = heartbeat
+        core._tracker = tracker
         core._pending_online_finish_record = FinishRecord()
         monkeypatch.setattr("swanlab.sdk.internal.core_python.core.stop_experiment", stop_experiment_mock)
+        monkeypatch.setattr("swanlab.sdk.internal.core_python.core.client.exists", lambda: True)
+
+        def reset_client():
+            heartbeat.stop.assert_called_once()
+            assert core._heartbeat is None
+            transport.finish.assert_called_once_with(timeout=None)
+
+        reset_mock = MagicMock(side_effect=reset_client)
+        monkeypatch.setattr("swanlab.sdk.internal.core_python.core.client.reset", reset_mock)
 
         resp = core.confirm_run_finish()
 
@@ -248,7 +259,10 @@ class TestCorePythonFinish:
         assert resp.message == summary
         assert core._transport is transport
         transport.finish.assert_called_once_with(timeout=None)
-        heartbeat.stop.assert_not_called()
+        heartbeat.stop.assert_called_once()
+        assert core._heartbeat is None
+        assert tracker.snapshot().state == CoreState.CORE_STATE_FINISHED
+        reset_mock.assert_called_once()
         stop_experiment_mock.assert_not_called()
 
     def test_has_pending_uploads_reflects_transport_state(self, tmp_path):

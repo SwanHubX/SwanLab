@@ -1,3 +1,5 @@
+"""Dispatch 的分片与分组工具测试。"""
+
 import pytest
 
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
