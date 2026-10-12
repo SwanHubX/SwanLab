@@ -33,6 +33,7 @@ class RetryPolicy:
     MAX_DELAY: float = 30.0
     JITTER_RANGE: Tuple[float, float] = (0.8, 1.2)
     BLOCKED_DELAY: float = 60.0
+    MAX_RETRY_AFTER: float = 3600.0
 
     def __init__(
         self,
@@ -82,6 +83,7 @@ class RetryPolicy:
             if kind == "rate_limited":
                 retry_after = self.retry_after_of(failure)
                 if retry_after is not None:
+                    # 将解析出的等待秒数写入 failure.retry_after，供调用方（如日志、诊断）读取实际生效的间隔。
                     failure.retry_after = retry_after
                     schedules.append(RetrySchedule(kind, retry_after))
                     continue
@@ -120,7 +122,7 @@ class RetryPolicy:
             seconds = date - self.wall_clock()
         if seconds < 0 or not math.isfinite(seconds):
             return None
-        return seconds
+        return min(seconds, self.MAX_RETRY_AFTER)
 
 
 def _parse_http_date(text: str) -> Optional[float]:

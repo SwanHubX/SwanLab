@@ -113,7 +113,6 @@ def test_transport_start_after_finish_is_noop(mock_ctx):
     assert t._thread is original_thread
 
 
-
 def test_transport_config_replacement_keeps_record_total(mock_ctx, make_config_record):
     tracker = UploadTracker()
     sender = MagicMock()

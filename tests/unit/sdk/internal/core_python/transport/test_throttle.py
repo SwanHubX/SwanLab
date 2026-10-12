@@ -1,4 +1,3 @@
-import time
 from unittest.mock import patch
 
 from swanlab.sdk.internal.core_python.transport.worker import UploadWarningThrottle
@@ -6,17 +5,20 @@ from swanlab.sdk.internal.core_python.transport.worker import UploadWarningThrot
 
 def test_warn_throttles_within_interval():
     """间隔内调用 warn() 抑制重复告警，超过间隔后输出告警。"""
+    clock = [0.0]
     t = UploadWarningThrottle()
     t.INTERVAL = 1.0
-    with patch("swanlab.sdk.internal.core_python.transport.worker.console.warning") as mock:
-        t.warn()
-        t.warn()
-    mock.assert_called_once()
+    # 注入单调时钟，避免真实 sleep
+    with patch("swanlab.sdk.internal.core_python.transport.worker.time.monotonic", side_effect=lambda: clock[0]):
+        with patch("swanlab.sdk.internal.core_python.transport.worker.console.warning") as mock:
+            t.warn()
+            t.warn()
+        mock.assert_called_once()
 
-    time.sleep(1.1)
-    with patch("swanlab.sdk.internal.core_python.transport.worker.console.warning") as mock:
-        t.warn()
-    mock.assert_called_once()
+        clock[0] = 1.1
+        with patch("swanlab.sdk.internal.core_python.transport.worker.console.warning") as mock:
+            t.warn()
+        mock.assert_called_once()
 
 
 def test_reset_clears_throttle_and_prints_recovery():

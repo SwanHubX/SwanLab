@@ -167,12 +167,12 @@ def test_rate_limited_non_finite_header_falls_back_to_backoff():
         assert schedule.delay == 2.0
 
 
-def test_rate_limited_huge_finite_retry_after_is_honored():
-    """大有限值 Retry-After 原样保留。"""
+def test_rate_limited_huge_finite_retry_after_capped():
+    """超大有限值 Retry-After 被 MAX_RETRY_AFTER 截断，避免 finish() 永久阻塞。"""
     failure = _api_failure(429, headers={"Retry-After": "1e20"})
     schedule = RetryPolicy().schedule([failure], 1)
     assert schedule.kind == "rate_limited"
-    assert schedule.delay == 1e20
+    assert schedule.delay == RetryPolicy.MAX_RETRY_AFTER
 
 
 def test_multiple_failures_take_longest_constraint():

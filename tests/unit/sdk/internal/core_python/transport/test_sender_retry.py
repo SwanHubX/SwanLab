@@ -198,8 +198,6 @@ def test_upload_api_uses_retries_zero(monkeypatch, api_func, args, kwargs):
     assert captured == [0]
 
 
-
-
 _RETRY_CONTRACT_CASES = [
     pytest.param("scalar", "upload_scalar", _make_scalar_record, id="scalar"),
     pytest.param("log", "upload_log", _make_log_record, id="log"),
