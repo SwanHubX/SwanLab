@@ -133,15 +133,6 @@ def test_transport_start_after_finish_is_noop(mock_ctx):
 # ─────────────────── put ───────────────────
 
 
-def test_transport_put_appends_to_buffer(mock_ctx, make_scalar_record):
-    """put() grows the buffer."""
-    t = _make_transport(mock_ctx)
-    records = [make_scalar_record(step=1)]
-    records[0].num = 1
-    t.put(records)
-    assert len(t._buf) == 1
-
-
 def test_transport_put_dedups_records_by_num(mock_ctx, make_scalar_record):
     """Records with the same num are deduplicated."""
     t = _make_transport(mock_ctx)

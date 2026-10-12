@@ -105,7 +105,6 @@ class Transport:
             sender=sender,
             tracker=self._tracker,
         )
-        assert self._dispatcher is not None, "Dispatcher must be initialized when transport starting"
         self._thread = threading.Thread(target=self._loop, name=self.THREAD_NAME, daemon=True)
         self._thread.start()
         self._started = True
@@ -134,9 +133,9 @@ class Transport:
 
     def request_finish(self) -> None:
         """通知线程停止并排空 buffer，不等待线程退出。"""
-        if self._finished:
-            return
         with self._cond:
+            if self._finished:
+                return
             self._finished = True
             self._cond.notify_all()
 
