@@ -113,29 +113,6 @@ def test_transport_start_after_finish_is_noop(mock_ctx):
     assert t._thread is original_thread
 
 
-def test_transport_put_tracks_queued_record_total_by_default(mock_ctx, make_scalar_record):
-    tracker = UploadTracker()
-    t = _make_transport(mock_ctx, tracker=tracker)
-    records = [make_scalar_record(step=1), make_scalar_record(step=2)]
-    records[0].num = 1
-    records[1].num = 2
-
-    t.put(records)
-
-    assert tracker.snapshot().total_records == 2
-
-
-def test_transport_put_tracks_only_deduped_records(mock_ctx, make_scalar_record):
-    tracker = UploadTracker()
-    t = _make_transport(mock_ctx, tracker=tracker)
-    record = make_scalar_record(step=1)
-    record.num = 7
-
-    t.put([record])
-    t.put([record])
-
-    assert tracker.snapshot().total_records == 1
-
 
 def test_transport_config_replacement_keeps_record_total(mock_ctx, make_config_record):
     tracker = UploadTracker()

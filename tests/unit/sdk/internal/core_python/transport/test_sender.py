@@ -167,8 +167,8 @@ def test_upload_save_delegates_small_file_s3_put_to_upload_resources(tmp_path: P
 
 
 @pytest.mark.parametrize("multipart", [False, True], ids=["small", "multipart"])
-def test_upload_save_retains_record_when_put_fails(tmp_path: Path, multipart):
-    """PUT 失败的文件不向后端补报 FAILED，记录保留在结果中等待重试。"""
+def test_upload_save_skips_and_reports_failed_when_put_fails(tmp_path: Path, multipart):
+    """PUT 失败的文件向后端报 FAILED 触发清理，记录视为已终结不再重试。"""
     source = tmp_path / "failed.bin"
     source.write_bytes(b"failed")
     sender = _make_sender(tmp_path, save_split=1 if multipart else 100 * 1024 * 1024)
@@ -202,17 +202,17 @@ def test_upload_save_retains_record_when_put_fails(tmp_path: Path, multipart):
             "swanlab.sdk.internal.core_python.transport.sender.files._upload_multipart_parts",
             return_value=([], error),
         ),
-        patch("swanlab.sdk.internal.core_python.transport.sender.files.console.warning") as mock_warning,
+        patch("swanlab.sdk.internal.core_python.transport.sender.files.console.warning"),
     ):
         record = _make_save_record(source, name="failed.bin")
         result = sender.upload_save([record])
 
-    # 不调用 complete，记录保留并携带对象存储失败
-    mock_complete.assert_not_called()
+    # 对象存储 PUT 失败：向后端报 FAILED 触发清理，multipart complete 不调用
+    mock_complete.assert_called_once_with("experiment-id", files=[{"path": "failed.bin", "state": "FAILED"}])
     mock_multipart_complete.assert_not_called()
-    mock_warning.assert_not_called()
-    assert result.confirmed_records == []
-    assert result.remaining_records == [record]
+    # 记录视为已终结（不再重试），携带对象存储失败诊断
+    assert result.confirmed_records == [record]
+    assert result.remaining_records == []
     failure = result.failures[0]
     assert failure.source == "object_storage"
     assert failure.stage == "transfer"
@@ -927,8 +927,8 @@ def test_upload_media_confirms_records_after_metrics_success(tmp_path: Path):
     assert list(stats.files) == []
 
 
-def test_upload_save_small_files_partial_success_completes_only_uploaded(tmp_path: Path):
-    """小文件上传部分失败时，complete 包含成功文件，保留失败记录。"""
+def test_upload_save_small_files_partial_success_completes_uploaded_and_failed(tmp_path: Path):
+    """小文件上传部分失败时，complete 同时包含 UPLOADED 和 FAILED 条目；失败文件不重试。"""
     first = tmp_path / "ok.txt"
     second = tmp_path / "failed.txt"
     first.write_text("weights-1", encoding="utf-8")
@@ -953,10 +953,13 @@ def test_upload_save_small_files_partial_success_completes_only_uploaded(tmp_pat
         ]
         result = sender.upload_save(records)
 
-    # complete 上报成功文件
-    assert mock_complete.call_args.kwargs["files"] == [{"path": "checkpoints/ok.txt", "state": "UPLOADED"}]
-    assert result.confirmed_records == [records[0]]
-    assert result.remaining_records == [records[1]]
+    # complete 同时上报成功和失败，由后端负责清理失败文件的对象存储资源
+    complete_files = mock_complete.call_args.kwargs["files"]
+    assert {"path": "checkpoints/ok.txt", "state": "UPLOADED"} in complete_files
+    assert {"path": "checkpoints/failed.txt", "state": "FAILED"} in complete_files
+    # 两个记录都视为已终结，失败的不再重试
+    assert sorted(id(r) for r in result.confirmed_records) == sorted(id(r) for r in records)
+    assert result.remaining_records == []
     assert result.failures[0].source == "object_storage"
 
 

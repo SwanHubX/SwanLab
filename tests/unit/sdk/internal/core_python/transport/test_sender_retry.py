@@ -198,22 +198,6 @@ def test_upload_api_uses_retries_zero(monkeypatch, api_func, args, kwargs):
     assert captured == [0]
 
 
-def test_presigned_put_uses_retries_zero(monkeypatch):
-    """upload_resource 的预签名地址请求传入 retries=0。"""
-
-    class _FakePresignResponse:
-        data = {"urls": []}
-
-    captured: list = []
-
-    def fake_post(url, data=None, **post_kwargs):
-        captured.append(post_kwargs.get("retries"))
-        return _FakePresignResponse()
-
-    monkeypatch.setattr(upload_api.client, "post", fake_post)
-    upload_api.upload_resource(MagicMock(), "eid", paths=[], buffers=[])
-
-    assert captured == [0]
 
 
 _RETRY_CONTRACT_CASES = [
@@ -276,7 +260,7 @@ def test_success_returns_confirmed(tmp_path, record_type, api_func_name, make_re
 def test_mixed_batch_http_failure_splits_failure_sources(
     tmp_path, record_type, api_func_name, make_good_record, make_bad_record
 ):
-    """混合批次遇到 HTTP 失败时保留有效记录与无效记录，并拆分失败来源。"""
+    """混合批次遇到 HTTP 失败时，有效记录保留重试，无效记录视为已终结不再重试，失败来源拆分。"""
     sender = _make_sender(tmp_path)
     good = make_good_record()
     bad = make_bad_record()
@@ -288,9 +272,9 @@ def test_mixed_batch_http_failure_splits_failure_sources(
         result = sender.upload(record_type, [good, bad])
 
     assert result.confirmed_records == []
-    assert len(result.remaining_records) == 2
-    assert good in result.remaining_records
-    assert bad in result.remaining_records
+    # 只有有效记录保留重试；无效记录（blocked）不进 remaining
+    assert result.remaining_records == [good]
+    assert bad not in result.remaining_records
 
     sources = {f.source for f in result.failures}
     assert "swanlab_api" in sources

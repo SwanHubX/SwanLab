@@ -165,7 +165,7 @@ class HttpRecordSender:
             if blocked:
                 failures.append(self._blocked_failure(blocked, "scalar record without value or timestamp"))
             return UploadResult(
-                remaining_records=list(records),
+                remaining_records=confirmed,
                 failures=failures,
             )
         return UploadResult(
@@ -206,7 +206,7 @@ class HttpRecordSender:
             if blocked:
                 failures.append(self._blocked_failure(blocked, "log record without line or timestamp"))
             return UploadResult(
-                remaining_records=list(records),
+                remaining_records=confirmed,
                 failures=failures,
             )
         console.debug(f"Log HTTP request completed: metrics={len(metrics)}", write_to_tty=False)

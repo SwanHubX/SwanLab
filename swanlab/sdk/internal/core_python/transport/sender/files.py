@@ -10,7 +10,7 @@ from __future__ import annotations
 import math
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, List, Optional, Protocol, Tuple
+from typing import TYPE_CHECKING, List, Optional, Protocol, Tuple, cast
 
 import requests
 
@@ -278,12 +278,14 @@ def _upload_small_saves(
     put_failures = upload_saves(session, resources=resources, tracker=tracker)
 
     uploaded: List[_SaveFileTask] = []
+    skipped: List[_SaveFileTask] = []
     failures: List[UploadFailure] = []
     for index, task in enumerate(tasks):
         error = put_failures.get(index)
         if error is None:
             uploaded.append(task)
             continue
+        console.warning(f"Save file upload failed, skipping: {task.entry['path']}")
         failures.append(
             transport_failure(
                 [task.record],
@@ -293,25 +295,37 @@ def _upload_small_saves(
                 message=f"save file upload failed: {task.entry['path']}",
             )
         )
-    if not uploaded:
-        return UploadResult(remaining_records=[task.record for task in tasks], failures=failures)
+        skipped.append(task)
 
-    complete_items: List[CompleteSaveFile] = [{"path": task.entry["path"], "state": "UPLOADED"} for task in uploaded]
-    try:
-        complete_save_files(ctx.experiment_id, files=complete_items)
-    except requests.RequestException as e:
-        return UploadResult(
-            remaining_records=[task.record for task in tasks],
-            failures=failures
-            + [transport_failure([task.record for task in uploaded], e, source="swanlab_api", stage="complete")],
-        )
+    # 统一通知后端：上传成功的标记 UPLOADED，失败的标记 FAILED 由后端清理对象存储
+    complete_items: List[CompleteSaveFile] = cast(
+        List[CompleteSaveFile],
+        [{"path": task.entry["path"], "state": "UPLOADED"} for task in uploaded]
+        + [{"path": task.entry["path"], "state": "FAILED"} for task in skipped],
+    )
+    if complete_items:
+        try:
+            complete_save_files(ctx.experiment_id, files=complete_items)
+        except requests.RequestException as e:
+            return UploadResult(
+                remaining_records=[task.record for task in uploaded + skipped],
+                failures=failures
+                + [
+                    transport_failure(
+                        [task.record for task in uploaded + skipped],
+                        e,
+                        source="swanlab_api",
+                        stage="complete",
+                    )
+                ],
+            )
     for task in uploaded:
         if tracker is not None:
             tracker.finish_file(task.tracker_key)
-    console.info(f"Synced {len(uploaded)} save file(s)")
+    if uploaded:
+        console.info(f"Synced {len(uploaded)} save file(s)")
     return UploadResult(
-        confirmed_records=[task.record for task in uploaded],
-        remaining_records=[task.record for index, task in enumerate(tasks) if index in put_failures],
+        confirmed_records=[task.record for task in uploaded + skipped],
         failures=failures,
     )
 
@@ -362,7 +376,7 @@ def _upload_large_saves(
         )
 
     confirmed: List[Record] = []
-    remaining: List[Record] = []
+    skipped: List[_SaveFileTask] = []
     failures: List[UploadFailure] = []
     ready: List[Tuple[_SaveFileTask, str, List[CompletedPart]]] = []
     for task, multipart_info in zip(tasks, multipart_files):
@@ -371,6 +385,7 @@ def _upload_large_saves(
         _track_file(tracker, task.tracker_key, task.entry["source_path"], task.entry["size"])
         completed_parts, part_error = _upload_multipart_parts(session, task, parts, part_size, on_part_progress)
         if part_error is not None:
+            console.warning(f"Multipart upload failed, skipping: {task.entry['path']}")
             failures.append(
                 transport_failure(
                     [task.record],
@@ -380,12 +395,23 @@ def _upload_large_saves(
                     message=f"multipart upload failed: {task.entry['path']}",
                 )
             )
-            remaining.append(task.record)
+            skipped.append(task)
             continue
         ready.append((task, upload_id, completed_parts))
 
+    # 向后端报告分片 PUT 失败的文件，触发后端清理对象存储
+    if skipped:
+        failed_items: List[CompleteSaveFile] = [{"path": task.entry["path"], "state": "FAILED"} for task in skipped]
+        try:
+            complete_save_files(ctx.experiment_id, files=failed_items)
+        except requests.RequestException:
+            pass  # 报告失败不阻塞流程，后端依赖超时清理兜底
+
     if not ready:
-        return UploadResult(remaining_records=remaining, failures=failures)
+        return UploadResult(
+            confirmed_records=[task.record for task in skipped],
+            failures=failures,
+        )
 
     try:
         complete_multipart_save(
@@ -395,8 +421,10 @@ def _upload_large_saves(
             ],
         )
     except requests.RequestException as e:
+        # complete-multipart 失败时，已上传的分片记录保留重试（后端负责 finalize）
         return UploadResult(
-            remaining_records=remaining + [task.record for task, _, _ in ready],
+            confirmed_records=[task.record for task in skipped],
+            remaining_records=[task.record for task, _, _ in ready],
             failures=failures
             + [transport_failure([task.record for task, _, _ in ready], e, source="swanlab_api", stage="complete")],
         )
@@ -404,8 +432,12 @@ def _upload_large_saves(
         if tracker is not None:
             tracker.finish_file(task.tracker_key)
         confirmed.append(task.record)
-    console.info(f"Synced {len(ready)} save file(s)")
-    return UploadResult(confirmed_records=confirmed, remaining_records=remaining, failures=failures)
+    if confirmed:
+        console.info(f"Synced {len(confirmed)} save file(s)")
+    return UploadResult(
+        confirmed_records=confirmed + [task.record for task in skipped],
+        failures=failures,
+    )
 
 
 def _upload_multipart_parts(
