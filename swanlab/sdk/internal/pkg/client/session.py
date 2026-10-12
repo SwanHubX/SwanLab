@@ -30,7 +30,7 @@ request_log_error_ctx: contextvars.ContextVar[bool] = contextvars.ContextVar("re
 
 class WarningRetry(Retry):
     """
-    在每次触发重试时打印 warning 日志。
+    在每次触发重试时打印 debug 日志（transport 层负责用户可见的重试告警）。
     """
 
     def increment(self, *args, **kwargs):
@@ -45,7 +45,7 @@ class WarningRetry(Retry):
         reason = f"status={status}" if status is not None else f"error={error!r}"
         retry_count = len(new_retry.history)
 
-        console.warning(f"[HTTP] retry #{retry_count} {method or 'UNKNOWN'} {url or ''} because {reason}")
+        console.debug(f"[HTTP] retry #{retry_count} {method or 'UNKNOWN'} {url or ''} because {reason}")
 
         return new_retry
 

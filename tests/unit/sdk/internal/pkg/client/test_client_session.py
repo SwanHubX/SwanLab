@@ -161,18 +161,18 @@ def test_request_retries_context_cleanup(session):
 
 
 def test_warning_retry_increment_with_response(mocker):
-    """测试因服务端状态码触发重试时，打印包含 status 的 warning 日志"""
+    """测试因服务端状态码触发重试时，打印包含 status 的 debug 日志"""
     retry = WarningRetry(total=3, status_forcelist=[500], raise_on_status=False)
     mock_resp = mocker.MagicMock()
     mock_resp.status = 500
     mock_resp.get_redirect_location.return_value = None
 
-    mock_warning = mocker.patch("swanlab.sdk.internal.pkg.client.session.console.warning")
+    mock_debug = mocker.patch("swanlab.sdk.internal.pkg.client.session.console.debug")
 
     new_retry = retry.increment(method="GET", url="http://api.test/data", response=mock_resp)
 
-    mock_warning.assert_called_once()
-    log_msg = mock_warning.call_args[0][0]
+    mock_debug.assert_called_once()
+    log_msg = mock_debug.call_args[0][0]
     assert "[HTTP] retry #1" in log_msg
     assert "GET" in log_msg
     assert "http://api.test/data" in log_msg
@@ -181,16 +181,16 @@ def test_warning_retry_increment_with_response(mocker):
 
 
 def test_warning_retry_increment_with_error(mocker):
-    """测试因连接错误触发重试时，打印包含 error 的 warning 日志"""
+    """测试因连接错误触发重试时，打印包含 error 的 debug 日志"""
     retry = WarningRetry(total=3, raise_on_status=False)
     err = ConnectionError("Connection refused")
 
-    mock_warning = mocker.patch("swanlab.sdk.internal.pkg.client.session.console.warning")
+    mock_debug = mocker.patch("swanlab.sdk.internal.pkg.client.session.console.debug")
 
     new_retry = retry.increment(method="POST", url="http://api.test/submit", error=err)
 
-    mock_warning.assert_called_once()
-    log_msg = mock_warning.call_args[0][0]
+    mock_debug.assert_called_once()
+    log_msg = mock_debug.call_args[0][0]
     assert "[HTTP] retry #1" in log_msg
     assert "POST" in log_msg
     assert "http://api.test/submit" in log_msg
@@ -203,11 +203,11 @@ def test_warning_retry_increment_without_method_or_url(mocker):
     retry = WarningRetry(total=3, raise_on_status=False)
     err = TimeoutError("timed out")
 
-    mock_warning = mocker.patch("swanlab.sdk.internal.pkg.client.session.console.warning")
+    mock_debug = mocker.patch("swanlab.sdk.internal.pkg.client.session.console.debug")
 
     retry.increment(error=err)
 
-    log_msg = mock_warning.call_args[0][0]
+    log_msg = mock_debug.call_args[0][0]
     assert "UNKNOWN" in log_msg
 
 
@@ -218,12 +218,12 @@ def test_warning_retry_increment_retry_count_increments(mocker):
     mock_resp.status = 500
     mock_resp.get_redirect_location.return_value = None
 
-    mock_warning = mocker.patch("swanlab.sdk.internal.pkg.client.session.console.warning")
+    mock_debug = mocker.patch("swanlab.sdk.internal.pkg.client.session.console.debug")
 
     retry = retry.increment(method="GET", url="http://api.test/data", response=mock_resp)
     assert len(retry.history) == 1
-    assert "retry #1" in mock_warning.call_args[0][0]
+    assert "retry #1" in mock_debug.call_args[0][0]
 
     retry = retry.increment(method="GET", url="http://api.test/data", response=mock_resp)
     assert len(retry.history) == 2
-    assert "retry #2" in mock_warning.call_args[0][0]
+    assert "retry #2" in mock_debug.call_args[0][0]

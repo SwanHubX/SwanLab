@@ -11,6 +11,8 @@ from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord, Colu
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import ScalarRecord, ScalarValue
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogLevel, LogRecord
+from swanlab.sdk.internal.core_python.api import save as save_api
+from swanlab.sdk.internal.core_python.api import upload as upload_api
 from swanlab.sdk.internal.core_python.context import CoreConfig, CoreContext
 from swanlab.sdk.internal.core_python.transport.sender import HttpRecordSender
 from swanlab.sdk.internal.core_python.transport.tracker import UploadTracker
@@ -105,6 +107,80 @@ _RETRY_CONTRACT_CASES = [
     pytest.param("log", "upload_log", _make_log_record, id="log"),
     pytest.param("column", "upload_columns", _make_column_record, id="column"),
 ]
+
+
+_RETRIES_ZERO_CASES = [
+    pytest.param(
+        upload_api.upload_scalar,
+        ("pid", "eid"),
+        {"metrics": [{"key": "loss", "index": 0, "data": 0.1, "create_time": "2024-01-01T00:00:00+08:00"}]},
+        id="scalar",
+    ),
+    pytest.param(
+        upload_api.upload_log,
+        ("pid", "eid"),
+        {"metrics": [{"level": "INFO", "epoch": 0, "message": "hi", "create_time": "2024-01-01T00:00:00+08:00"}]},
+        id="log",
+    ),
+    pytest.param(
+        upload_api.upload_media,
+        ("pid", "eid"),
+        {"metrics": [{"key": "img", "index": 0, "data": [], "more": [], "create_time": "2024-01-01T00:00:00+08:00"}]},
+        id="media",
+    ),
+    pytest.param(upload_api.upload_columns, ("user", "proj"), {"columns": {"series": [{"key": "loss"}]}}, id="column"),
+    pytest.param(upload_api.upload_conda, ("user", "proj", "eid"), {"content": "conda-list"}, id="conda"),
+    pytest.param(upload_api.upload_requirements, ("user", "proj", "eid"), {"content": "numpy==1.0"}, id="requirements"),
+    pytest.param(
+        upload_api.upload_metadata, ("user", "proj", "eid"), {"content": {"hostname": "gpu-01"}}, id="metadata"
+    ),
+    pytest.param(upload_api.upload_config, ("user", "proj", "eid"), {"content": {"lr": {"value": 0.01}}}, id="config"),
+    pytest.param(
+        save_api.prepare_save_files,
+        ("eid",),
+        {"files": [{"path": "model.bin", "size": 8, "md5": "0", "mimeType": "text/plain"}]},
+        id="save-prepare",
+    ),
+    pytest.param(
+        save_api.complete_save_files,
+        ("eid",),
+        {"files": [{"path": "model.bin", "state": "UPLOADED"}]},
+        id="save-complete",
+    ),
+    pytest.param(
+        save_api.prepare_multipart_save,
+        ("eid",),
+        {"files": [{"path": "large.bin", "size": 8, "md5": "0", "mimeType": "text/plain", "count": 1}]},
+        id="save-prepare-multipart",
+    ),
+    pytest.param(
+        save_api.complete_multipart_save,
+        ("eid",),
+        {"files": [{"path": "large.bin", "parts": [], "uploadId": "uid"}]},
+        id="save-complete-multipart",
+    ),
+]
+
+
+@pytest.mark.parametrize("api_func, args, kwargs", _RETRIES_ZERO_CASES)
+def test_upload_api_uses_retries_zero(monkeypatch, api_func, args, kwargs):
+    """上传 API 传 retries=0，由 transport 层统一控制重试。"""
+    captured: list = []
+
+    class _FakeResponse:
+        data = {}
+
+    def fake_request(url, data=None, **request_kwargs):
+        captured.append(request_kwargs.get("retries"))
+        return _FakeResponse()
+
+    monkeypatch.setattr(upload_api.client, "post", fake_request)
+    monkeypatch.setattr(upload_api.client, "put", fake_request)
+    monkeypatch.setattr(save_api.client, "post", fake_request)
+
+    api_func(*args, **kwargs)
+
+    assert captured == [0]
 
 
 @pytest.mark.parametrize("record_type, api_func_name, make_record", _RETRY_CONTRACT_CASES)
