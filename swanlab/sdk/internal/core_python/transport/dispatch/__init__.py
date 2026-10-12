@@ -31,10 +31,6 @@ def generate_chunks(records: Sequence[Record], batch_size: int) -> Iterator[Tupl
         raise ValueError(f"max_records_per_request must be -1 or > 0, got {batch_size}")
 
     total = len(records)
-    if total <= batch_size:
-        yield records, total
-        return
-
     for index in range(0, total, batch_size):
         chunk = records[index : index + batch_size]
         yield chunk, len(chunk)

@@ -316,3 +316,52 @@ def test_success_returns_confirmed(tmp_path, record_type, api_func_name, make_re
     assert result.confirmed_records == [record]
     assert result.remaining_records == []
     assert tracker.snapshot().uploaded_records == 0
+
+
+# ── Section 3: 混合批次（有效记录 + 坏记录）HTTP 失败时的来源分类 ─────────
+# scalar/log：HTTP 失败时 remaining 包含全部记录（含坏记录），但 failures 中
+# swanlab_api 只关联已编码的有效记录，local_data 独立关联坏记录。
+
+
+@pytest.mark.parametrize(
+    "record_type, api_func_name, make_good_record, make_bad_record",
+    [
+        pytest.param("scalar", "upload_scalar", _make_scalar_record, lambda: Record(), id="scalar"),
+        pytest.param("log", "upload_log", _make_log_record, lambda: Record(), id="log"),
+    ],
+)
+def test_mixed_batch_http_failure_splits_failure_sources(
+    tmp_path, record_type, api_func_name, make_good_record, make_bad_record
+):
+    """有效记录与坏记录混批，HTTP 失败时：
+    - remaining_records 保留全部（好 + 坏）
+    - swanlab_api 失败只关联已编码的有效记录
+    - local_data 失败独立关联坏记录
+    - confirmed_records 为空（编码完成不等于上传确认）
+    """
+    sender = _make_sender(tmp_path)
+    good = make_good_record()
+    bad = make_bad_record()  # 无 scalar/log 字段，编码时会归入 blocked
+
+    with patch(
+        f"swanlab.sdk.internal.core_python.transport.sender.{api_func_name}",
+        side_effect=_make_api_error(503),
+    ):
+        result = sender.upload(record_type, [good, bad])
+
+    assert result.confirmed_records == []
+    assert len(result.remaining_records) == 2
+    assert good in result.remaining_records
+    assert bad in result.remaining_records
+
+    sources = {f.source for f in result.failures}
+    assert "swanlab_api" in sources
+    assert "local_data" in sources
+
+    api_failure = next(f for f in result.failures if f.source == "swanlab_api")
+    local_failure = next(f for f in result.failures if f.source == "local_data")
+
+    assert good in api_failure.records
+    assert bad not in api_failure.records
+    assert bad in local_failure.records
+    assert good not in local_failure.records

@@ -351,8 +351,11 @@ def test_transport_is_alive_reflects_thread_state(mock_ctx):
 # ─────────────────── 定时攒批 ───────────────────
 
 
-def test_transport_drains_on_batch_interval(make_ctx, make_scalar_record):
-    """After put(), the thread auto-drains and dispatches on batch_interval timeout."""
+@pytest.mark.parametrize("auto_start", [False, True], ids=["manual_start", "auto_start"])
+def test_transport_drains_on_batch_interval(make_ctx, make_scalar_record, auto_start):
+    """After put(), the thread auto-drains and dispatches on batch_interval timeout.
+    Covers both manual start() and auto_start=True constructor paths.
+    """
     dispatched = []
     event = threading.Event()
 
@@ -363,8 +366,9 @@ def test_transport_drains_on_batch_interval(make_ctx, make_scalar_record):
             return _ok_result(records)
 
     ctx = make_ctx(batch_interval=0.01)
-    t = _make_transport(ctx)
-    t.start()
+    t = _make_transport(ctx, auto_start=auto_start)
+    if not auto_start:
+        t.start()
     t._dispatcher = FakeDispatch()  # type: ignore
     record = make_scalar_record(step=1)
     record.num = 1
@@ -372,33 +376,6 @@ def test_transport_drains_on_batch_interval(make_ctx, make_scalar_record):
     assert event.wait(timeout=2.0)
     t.finish()
     assert len(dispatched) == 1
-
-
-# ─────────────────── auto_start 端到端 ───────────────────
-
-
-def test_transport_integration_auto_start(make_ctx, make_scalar_record):
-    """auto_start=True starts the thread and processes records normally."""
-    dispatched = []
-    event = threading.Event()
-
-    class FakeDispatch:
-        def __call__(self, records):
-            dispatched.extend(records)
-            event.set()
-            return _ok_result(records)
-
-    ctx = make_ctx(batch_interval=0.01)
-    t = _make_transport(ctx, auto_start=True)
-    t._dispatcher = FakeDispatch()  # type: ignore
-    record = make_scalar_record(step=1)
-    record.num = 1
-    t.put([record])
-    assert event.wait(timeout=2.0)
-    t.finish()
-    assert len(dispatched) == 1
-
-    # ─────────────────── consecutive failure ───────────────────
 
 
 def test_transport_outage_recovers_and_resumes_backlog(make_ctx, make_scalar_record):

@@ -183,9 +183,12 @@ class HttpRecordSender:
         try:
             upload_scalar(self._project_id, self._experiment_id, metrics=metrics)
         except requests.RequestException as e:
+            failures = [transport_failure(confirmed, e, source="swanlab_api", stage="submit_metrics")]
+            if blocked:
+                failures.append(self._blocked_failure(blocked, "scalar record without value or timestamp"))
             return UploadResult(
                 remaining_records=list(records),
-                failures=[transport_failure(list(records), e, source="swanlab_api", stage="submit_metrics")],
+                failures=failures,
             )
         return UploadResult(
             confirmed_records=confirmed,
@@ -221,9 +224,12 @@ class HttpRecordSender:
         try:
             upload_log(self._project_id, self._experiment_id, metrics=metrics)
         except requests.RequestException as e:
+            failures = [transport_failure(confirmed, e, source="swanlab_api", stage="submit_metrics")]
+            if blocked:
+                failures.append(self._blocked_failure(blocked, "log record without line or timestamp"))
             return UploadResult(
                 remaining_records=list(records),
-                failures=[transport_failure(list(records), e, source="swanlab_api", stage="submit_metrics")],
+                failures=failures,
             )
         console.debug(f"Log HTTP request completed: metrics={len(metrics)}", write_to_tty=False)
         return UploadResult(

@@ -149,12 +149,9 @@ def test_rate_limited_invalid_or_missing_header_falls_back_to_backoff():
         assert schedule.delay == 2.0
 
 
-def test_parse_retry_after_invalid_forms():
-    policy = RetryPolicy()
-    assert policy.parse_retry_after(None) is None
-    assert policy.parse_retry_after("") is None
-    assert policy.parse_retry_after("   ") is None
-    assert policy.parse_retry_after("garbage") is None
+@pytest.mark.parametrize("value", [None, "", "   ", "garbage"])
+def test_parse_retry_after_invalid_forms(value):
+    assert RetryPolicy().parse_retry_after(value) is None
 
 
 def test_parse_retry_after_zero_is_valid():
