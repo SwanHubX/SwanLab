@@ -101,7 +101,6 @@ def test_upload_resources_uploads_files_and_reports_progress(tmp_path: Path):
             "headers": {"Content-Type": "application/octet-stream"},
         },
     }
-    # 无失败索引即全部上传成功；完成确认由调用方在 complete 成功后执行
     assert uploaded == {}
     stats = tracker.snapshot()
     assert stats.uploaded_number == 0
@@ -129,7 +128,6 @@ def test_upload_saves_returns_per_file_put_failures(tmp_path: Path):
         tracker=tracker,
     )
 
-    # 失败以 {索引: 异常} 返回，不吞错、不过滤；失败文件字节进度回退
     assert list(uploaded.keys()) == [0]
     assert "put failed" in str(uploaded[0])
     stats = tracker.snapshot()
@@ -160,7 +158,6 @@ def test_upload_resource_reports_progress_after_successful_put():
             tracker=tracker,
         )
 
-    # 本函数只负责字节进度；文件完成确认由调用方在后续确认阶段（媒体指标/complete）执行
     stats = tracker.snapshot()
     assert stats.uploaded_number == 0
     assert stats.uploaded_size >= 9  # 5 + 4
@@ -220,7 +217,6 @@ def test_upload_resource_handles_standard_file_objects(tmp_path: Path):
             )
 
     stats = tracker.snapshot()
-    # 只上报字节进度，完成确认由调用方执行
     assert stats.uploaded_number == 0
     assert stats.uploaded_size == 15
     assert len(fake_session.puts) == 1
@@ -249,7 +245,6 @@ def test_upload_resource_read_progress_stays_within_buffer_size_on_seek():
         )
 
     stats = tracker.snapshot()
-    # 文件大小 5，进度不应该超过；完成确认由调用方执行
     assert stats.uploaded_size == 5
     assert stats.uploaded_number == 0
 

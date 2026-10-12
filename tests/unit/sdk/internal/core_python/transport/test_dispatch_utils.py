@@ -1,15 +1,13 @@
-"""Dispatch 的分片与分组工具测试。"""
+"""Dispatch 分片与分组工具测试。"""
 
 import pytest
 
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.core_python.transport.dispatch import generate_chunks, group_records_by_type
 
-# ─────────────────── generate_chunks ───────────────────
-
 
 def test_generate_chunks_single_chunk(make_scalar_record):
-    """验证记录数不超过 max_records_per_request 时产出单个分片。"""
+    """记录数不超过 batch_size 时产出单个分片。"""
     records = [make_scalar_record(step=i) for i in range(5)]
     chunks = list(generate_chunks(records, batch_size=10))
 
@@ -18,7 +16,7 @@ def test_generate_chunks_single_chunk(make_scalar_record):
 
 
 def test_generate_chunks_exact_boundary(make_scalar_record):
-    """验证记录数恰好等于 max_records_per_request 时产出单个分片，不拆分。"""
+    """记录数等于 batch_size 时产出单个分片。"""
     records = [make_scalar_record(step=i) for i in range(100)]
     chunks = list(generate_chunks(records, batch_size=100))
 
@@ -27,7 +25,7 @@ def test_generate_chunks_exact_boundary(make_scalar_record):
 
 
 def test_generate_chunks_multiple_chunks(make_scalar_record):
-    """验证记录数超过 max_records_per_request 时正确拆分为多个分片，最后一片长度不足也正常产出。"""
+    """记录数超过 batch_size 时拆分为多个分片。"""
     records = [make_scalar_record(step=i) for i in range(25)]
     chunks = list(generate_chunks(records, batch_size=10))
 
@@ -38,7 +36,7 @@ def test_generate_chunks_multiple_chunks(make_scalar_record):
 
 
 def test_generate_chunks_no_limit(make_scalar_record):
-    """验证 max_records_per_request=-1 时不拆分，一次性返回全部记录。"""
+    """batch_size=-1 时返回单个分片。"""
     records = [make_scalar_record(step=i) for i in range(9999)]
     chunks = list(generate_chunks(records, batch_size=-1))
 
@@ -47,7 +45,7 @@ def test_generate_chunks_no_limit(make_scalar_record):
 
 
 def test_generate_chunks_invalid_max_records_per_request(make_scalar_record):
-    """验证 max_records_per_request 为 0 或负数（非 -1）时抛出 ValueError。"""
+    """batch_size 为 0 或小于 -1 时抛出 ValueError。"""
     records = [make_scalar_record(step=1)]
 
     with pytest.raises(ValueError, match="max_records_per_request"):
@@ -58,22 +56,19 @@ def test_generate_chunks_invalid_max_records_per_request(make_scalar_record):
 
 
 def test_generate_chunks_empty_records():
-    """验证空记录列表产出空迭代器（短路返回，不产出任何分片）。"""
+    """空记录列表产出空迭代器。"""
     chunks = list(generate_chunks([], batch_size=10))
     assert len(chunks) == 0
 
 
 def test_generate_chunks_no_limit_empty():
-    """验证 max_records_per_request=-1 且空列表时产出空迭代器。"""
+    """batch_size=-1 且列表为空时产出空迭代器。"""
     chunks = list(generate_chunks([], batch_size=-1))
     assert len(chunks) == 0
 
 
-# ─────────────────── group_records_by_type ───────────────────
-
-
 def test_group_records_by_type_basic(make_scalar_record, make_config_record):
-    """验证不同 record_type 的 Record 被正确分组到各自的列表中。"""
+    """按 record_type 对 Record 分组。"""
     metric_1 = make_scalar_record(step=1)
     config = make_config_record()
     metric_2 = make_scalar_record(step=2)
@@ -86,7 +81,7 @@ def test_group_records_by_type_basic(make_scalar_record, make_config_record):
 
 
 def test_group_records_by_type_preserves_order(make_scalar_record, make_config_record):
-    """验证分组的 key 按 Record 首次出现顺序排列（OrderedDict）。"""
+    """分组 key 保持首次出现顺序。"""
     config = make_config_record()
     metric = make_scalar_record(step=1)
 
@@ -95,17 +90,17 @@ def test_group_records_by_type_preserves_order(make_scalar_record, make_config_r
 
 
 def test_group_records_by_type_empty():
-    """验证空列表返回空字典。"""
+    """空列表返回空字典。"""
     assert group_records_by_type([]) == {}
 
 
 def test_group_records_by_type_rejects_non_record():
-    """验证传入非 Record 实例时抛出 TypeError。"""
+    """传入非 Record 实例时抛出 TypeError。"""
     with pytest.raises(TypeError, match="Record"):
         group_records_by_type(["not_a_record"])  # type: ignore[list-item]
 
 
 def test_group_records_by_type_rejects_untypeable_record():
-    """验证未设置任何 record_type 的空 Record 抛出 ValueError，由 Dispatch 整批保留（见 test_dispatch）。"""
+    """未设置 record_type 的空 Record 抛出 ValueError。"""
     with pytest.raises(ValueError, match="record type"):
         group_records_by_type([Record()])

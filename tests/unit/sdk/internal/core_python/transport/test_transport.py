@@ -13,12 +13,12 @@ from swanlab.sdk.typings.core_python.transport import UploadFailure, UploadResul
 
 
 def _ok_result(records: list[Record]) -> UploadResult:
-    """构造全部确认的 Dispatch 结果（测试替身用）。"""
+    """构造确认成功的 UploadResult。"""
     return UploadResult(confirmed_records=list(records))
 
 
 def _failed_result(records: list[Record], message: str = "upload failed") -> UploadResult:
-    """构造全部保留的 Dispatch 失败结果（测试替身用）。"""
+    """构造失败保留的 UploadResult。"""
     return UploadResult(
         remaining_records=list(records),
         failures=[UploadFailure(source="swanlab_api", message=message, records=list(records))],
@@ -26,7 +26,7 @@ def _failed_result(records: list[Record], message: str = "upload failed") -> Upl
 
 
 def _fast_retry(*, base_delay: float = 0.01, max_delay: float = 0.04, blocked_delay: float = 0.02) -> RetryPolicy:
-    """毫秒级退避的极速策略：避免测试真实等待，抖动固定 1.0 保证确定性。"""
+    """毫秒级退避策略，用于加速测试。"""
     return RetryPolicy(
         base_delay=base_delay,
         max_delay=max_delay,
@@ -36,7 +36,7 @@ def _fast_retry(*, base_delay: float = 0.01, max_delay: float = 0.04, blocked_de
 
 
 class _RecordingPolicy(RetryPolicy):
-    """记录 schedule 调用的策略替身：捕获 (failed_rounds, schedule) 序列供断言。"""
+    """记录 schedule 调用参数的重试策略替身。"""
 
     def __init__(self, *, base_delay: float = 0.01, max_delay: float = 0.04, blocked_delay: float = 0.02) -> None:
         super().__init__(
@@ -54,7 +54,7 @@ class _RecordingPolicy(RetryPolicy):
 
 
 def _wait_attempts(attempts: list, count: int, timeout: float = 2.0) -> bool:
-    """轮询等待 dispatch 尝试次数到达 count（事件在 dispatch 内 set 早于结果应用，轮询更稳）。"""
+    """轮询等待 dispatch 调用次数达到 count。"""
     deadline = time.monotonic() + timeout
     while len(attempts) < count and time.monotonic() < deadline:
         time.sleep(0.005)
@@ -66,11 +66,8 @@ def _make_transport(ctx, **kwargs) -> Transport:
     return Transport(ctx=ctx, **kwargs)
 
 
-# ─────────────────── start ───────────────────
-
-
 def test_transport_start_creates_daemon_thread(mock_ctx):
-    """start() creates a daemon thread named THREAD_NAME."""
+    """start() 创建名为 THREAD_NAME 的守护线程。"""
     t = _make_transport(mock_ctx)
     t.start()
     try:
@@ -82,7 +79,7 @@ def test_transport_start_creates_daemon_thread(mock_ctx):
 
 
 def test_transport_start_is_idempotent(mock_ctx):
-    """Repeated start() does not create a second thread."""
+    """重复调用 start() 不创建新线程。"""
     t = _make_transport(mock_ctx)
     t.start()
     first_thread = t._thread
@@ -92,7 +89,7 @@ def test_transport_start_is_idempotent(mock_ctx):
 
 
 def test_transport_start_uses_injected_sender_and_tracker(mock_ctx):
-    """start() wires an injected sender to Dispatch and injects the tracker into it."""
+    """start() 将注入的 sender 与 tracker 绑定至 Dispatch。"""
     sender = MagicMock()
     tracker = MagicMock()
     t = _make_transport(mock_ctx, sender=sender, tracker=tracker)
@@ -107,16 +104,13 @@ def test_transport_start_uses_injected_sender_and_tracker(mock_ctx):
 
 
 def test_transport_start_after_finish_is_noop(mock_ctx):
-    """start() after finish() is a no-op：不创建新线程，线程身份保持不变。"""
+    """finish() 之后调用 start() 不创建新线程。"""
     t = _make_transport(mock_ctx)
     t.start()
     original_thread = t._thread
     t.finish()
     t.start()
     assert t._thread is original_thread
-
-
-# ─────────────────── put ───────────────────
 
 
 def test_transport_put_tracks_queued_record_total_by_default(mock_ctx, make_scalar_record):
@@ -161,7 +155,6 @@ def test_transport_config_replacement_keeps_record_total(mock_ctx, make_config_r
     t.start()
     assert t.finish()
     sender.upload.assert_called_once_with("save", [latest])
-    # 统计推进由 Dispatch 依据 confirmed_records 完成
     assert tracker.snapshot().uploaded_records == 1
 
 
@@ -200,32 +193,28 @@ def test_transport_uploads_latest_config_after_pending_retry(mock_ctx, make_conf
 
 
 def test_transport_put_warns_after_finish(mock_ctx, make_scalar_record):
-    """put() after finish() 在锁内判定拒绝：返回 False 并报错，不只打印（plan §5）。"""
+    """finish() 之后调用 put() 返回 False 并报错，空输入返回 True。"""
     t = _make_transport(mock_ctx)
     t.start()
     t.finish()
     with patch("swanlab.sdk.internal.core_python.transport.worker.console.error") as mock_error:
         assert t.put([make_scalar_record(step=1)]) is False
     mock_error.assert_called_once()
-    # 接受路径返回 True；空输入视为无操作（非拒绝）
     accepted_transport = _make_transport(mock_ctx)
     assert accepted_transport.put([make_scalar_record(step=1)]) is True
     assert accepted_transport.put([]) is True
 
 
-# ─────────────────── finish ───────────────────
-
-
 def test_transport_finish_is_idempotent(mock_ctx):
-    """Repeated finish() only runs once."""
+    """重复调用 finish() 保持幂等。"""
     t = _make_transport(mock_ctx)
     t.start()
     t.finish()
-    t.finish()  # should not raise
+    t.finish()
 
 
 def test_transport_finish_drains_remaining(make_ctx, make_scalar_record):
-    """finish() drains the remaining buffer."""
+    """finish() 排空缓冲区剩余记录。"""
     dispatched = []
 
     class FakeDispatch:
@@ -247,7 +236,7 @@ def test_transport_finish_drains_remaining(make_ctx, make_scalar_record):
 
 @pytest.mark.parametrize("alive", [False, True], ids=["drained", "still-running"])
 def test_transport_finish_and_join_report_worker_state(mock_ctx, alive):
-    """请求结束不等待；finish/join 根据线程状态报告结果。"""
+    """request_finish 不阻塞等待，finish/join 根据线程状态返回结果。"""
     t = _make_transport(mock_ctx)
     assert t.is_alive() is False
     t._thread = MagicMock()
@@ -279,14 +268,9 @@ def test_transport_marks_tracker_finished_when_worker_exits(mock_ctx):
     assert tracker.snapshot().state == CoreState.CORE_STATE_FINISHED
 
 
-# ─────────────────── 定时攒批 ───────────────────
-
-
 @pytest.mark.parametrize("auto_start", [False, True], ids=["manual_start", "auto_start"])
 def test_transport_drains_on_batch_interval(make_ctx, make_scalar_record, auto_start):
-    """After put(), the thread auto-drains and dispatches on batch_interval timeout.
-    Covers both manual start() and auto_start=True constructor paths.
-    """
+    """put() 后到达 batch_interval 时排空并分发记录。"""
     dispatched = []
     event = threading.Event()
 
@@ -310,13 +294,7 @@ def test_transport_drains_on_batch_interval(make_ctx, make_scalar_record, auto_s
 
 
 def test_transport_outage_recovers_and_resumes_backlog(make_ctx, make_scalar_record):
-    """停机恢复：503 持续失败期间可继续入队、记录与失败原因可查询、节流告警触发、worker 不退出；
-    恢复后旧 pending 与停机期间的新记录全部续传，确认计数正确。
-
-    恢复时机由测试线程经 recovered 事件控制：设置前 sender 恒返回失败，
-    停机期间的断言不依赖测试线程的调度速度；失败尝试次数随调度变化，
-    只断言恢复后旧记录、新记录各成功一次。
-    """
+    """服务停机期间接受新记录入队并保留未确认记录，恢复后完成续传与排空。"""
     sender = MagicMock()
     tracker = UploadTracker()
     attempts: list[tuple[list[int], str]] = []
@@ -344,7 +322,6 @@ def test_transport_outage_recovers_and_resumes_backlog(make_ctx, make_scalar_rec
         t.put([first])
         try:
             assert first_failure_seen.wait(timeout=2.0)
-            # 失败事件在 dispatch 内 set，早于结果应用到实例状态，这里轮询等待登记完成
             deadline = time.monotonic() + 2.0
             while not t.last_failures() and time.monotonic() < deadline:
                 time.sleep(0.005)
@@ -352,7 +329,6 @@ def test_transport_outage_recovers_and_resumes_backlog(make_ctx, make_scalar_rec
             assert failure.message == "http 503"
             assert failure.records == [first]
 
-            # 停机期间：新记录入队成功，worker 存活，两条记录均可查询
             assert t.put([second]) is True
             assert t.is_alive() is True
             pending_nums = sorted(record.num for record in t.pending_records())
@@ -362,14 +338,11 @@ def test_transport_outage_recovers_and_resumes_backlog(make_ctx, make_scalar_rec
             recovered.set()
             assert t.finish()
 
-            # 停机期间仅旧记录反复失败（次数随调度变化，不小于一次）；
-            # 恢复后旧 pending 先续传成功，随后新记录排空，各恰好成功一次
             failed_attempts = [attempt for attempt in attempts if attempt[1] == "fail"]
             assert failed_attempts
             assert all(attempt == ([1], "fail") for attempt in failed_attempts)
             ok_attempts = [attempt for attempt in attempts if attempt[1] == "ok"]
             assert ok_attempts == [([1], "ok"), ([2], "ok")]
-            # 失败轮触发节流告警（每个失败轮调用一次 warn，实际打印频率由节流器控制）
             assert mock_warn.called
             stats = tracker.snapshot()
             assert stats.uploaded_records == stats.total_records == 2
@@ -377,16 +350,12 @@ def test_transport_outage_recovers_and_resumes_backlog(make_ctx, make_scalar_rec
             assert t.last_failures() == []
             sender.close.assert_called_once()
         finally:
-            # 断言失败也先解除停机再关闭 worker，避免遗留自旋线程
             recovered.set()
             t.finish()
 
 
-# ─────────────────── 退避重试调度（P3） ───────────────────
-
-
 def test_transport_retry_waits_for_deadline_and_wake_does_not_bypass(make_ctx, make_scalar_record):
-    """失败后按退避截止时间重试：唤醒（finish 通知）不绕过截止时间，不提前重试。"""
+    """失败重试等待退避截止时间，request_finish 唤醒不跳过等待。"""
     attempts = []
     first_dispatch_done = threading.Event()
 
@@ -399,7 +368,6 @@ def test_transport_retry_waits_for_deadline_and_wake_does_not_bypass(make_ctx, m
             return _ok_result(records)
 
     ctx = make_ctx(batch_interval=0.01)
-    # 真实时钟 + 0.5s 首次退避：足够区分"立即重试"与"按截止时间重试"
     t = _make_transport(ctx, retry=RetryPolicy(base_delay=0.5, max_delay=0.5, rng=lambda _low, _high: 1.0))
     t.start()
     t._dispatcher = FlakyDispatch()  # type: ignore
@@ -408,18 +376,17 @@ def test_transport_retry_waits_for_deadline_and_wake_does_not_bypass(make_ctx, m
     t.put([record])
     assert first_dispatch_done.wait(timeout=2.0)
 
-    t.request_finish()  # 唤醒 worker：必须重新检查截止时间，不得提前重试
+    t.request_finish()
     time.sleep(0.15)
     assert len(attempts) == 1
 
     assert t.join(timeout=3.0), "worker should retry after the backoff deadline and finish"
     assert len(attempts) == 2
-    # 首次重试发生在退避截止时间之后（0.5s ± 调度误差）
     assert attempts[1] - attempts[0] >= 0.4
 
 
 def test_transport_backoff_counter_resets_after_success_round(make_ctx, make_scalar_record):
-    """连续失败轮计数递增（1、2），整轮成功后清零，再次失败从 1 重新开始（plan §6.2）。"""
+    """连续失败轮数在整轮成功后归零。"""
     attempts = []
     second = make_scalar_record(step=2)
     second.num = 2
@@ -428,7 +395,6 @@ def test_transport_backoff_counter_resets_after_success_round(make_ctx, make_sca
         def __call__(self, records):
             attempts.append(len(attempts))
             if len(attempts) == 3:
-                # 本轮成功，同时补一条新记录驱动第 4 轮
                 t.put([second])
                 return _ok_result(records)
             if len(attempts) <= 2 or len(attempts) == 4:
@@ -443,20 +409,18 @@ def test_transport_backoff_counter_resets_after_success_round(make_ctx, make_sca
     record = make_scalar_record(step=1)
     record.num = 1
     t.put([record])
-    # 失败(1) → 失败(2) → 成功(重置) → 失败(1) → 成功排空
     assert _wait_attempts(attempts, 4)
     assert t.finish()
     assert len(attempts) == 5
 
     assert [round_ for round_, _ in policy.calls] == [1, 2, 1]
-    # 退避随计数指数增长后回落
     delays = [schedule.delay for _, schedule in policy.calls]
     assert delays[0] < delays[1]
     assert delays[2] == delays[0]
 
 
 def test_transport_blocked_failure_uses_blocked_interval(make_ctx, make_scalar_record):
-    """本地坏数据等确定性失败走 blocked 低频间隔，恢复后仍可排空（文件恢复可自愈）。"""
+    """local_data 失败使用 blocked 间隔调度，恢复后完成排空。"""
     attempts = []
 
     class BlockedDispatch:
@@ -487,7 +451,7 @@ def test_transport_blocked_failure_uses_blocked_interval(make_ctx, make_scalar_r
 
 
 def test_transport_huge_retry_delay_waits_in_slices_without_crashing(make_ctx, make_scalar_record, monkeypatch):
-    """超大重试间隔按平台上限分段等待，保留记录且不提前重试。"""
+    """大重试间隔按 TIMEOUT_MAX 分段等待。"""
     attempts = []
     waiting = threading.Event()
     timeout_max = 0.05
@@ -539,12 +503,8 @@ def test_transport_huge_retry_delay_waits_in_slices_without_crashing(make_ctx, m
         t.finish(timeout=2.0)
 
 
-# ─────────────────── finish 语义与资源关闭（P4） ───────────────────
-
-
 def test_transport_worker_crash_retains_data_and_finish_reports_failure(make_ctx, make_scalar_record):
-    """worker 内部未预期异常：线程退出、sender 关闭、tracker 置 FINISHED，
-    但 finish 为 False 且数据保留——不伪报成功（plan §8.4）。"""
+    """worker 内部异常退出时保留未确认数据，finish() 返回 False。"""
     record = make_scalar_record(step=1)
     record.num = 1
     crashed = threading.Event()
@@ -554,7 +514,7 @@ def test_transport_worker_crash_retains_data_and_finish_reports_failure(make_ctx
     class CrashingDispatch:
         def __call__(self, records):
             crashed.set()
-            return object()  # 非 UploadResult：worker 在结果解包处崩溃
+            return object()
 
     ctx = make_ctx(batch_interval=0.01)
     t = _make_transport(ctx, tracker=tracker, sender=sender, retry=_fast_retry())
@@ -566,19 +526,18 @@ def test_transport_worker_crash_retains_data_and_finish_reports_failure(make_ctx
         assert t.join(timeout=3.0), "worker should exit after unexpected error"
         assert any("unexpectedly" in str(call.args[0]) for call in mock_error.call_args_list)
 
-    assert t.finish() is False  # 线程已退出但未排空，不得伪报成功
+    assert t.finish() is False
     assert t.pending_records() == [record]
-    assert tracker.snapshot().state == CoreState.CORE_STATE_FINISHED  # 进度轮询可退出
-    sender.close.assert_called_once()  # 崩溃路径同样关闭 sender 资源
-    # 摘要优先报告崩溃类型并携带积压数量，不拼接原始异常文本
+    assert tracker.snapshot().state == CoreState.CORE_STATE_FINISHED
+    sender.close.assert_called_once()
     summary = t.finish_summary()
     assert "worker crashed: AttributeError" in summary
     assert "1 record(s) retained" in summary
 
 
 def test_transport_finish_summarizes_last_failure_and_fallback(mock_ctx, make_scalar_record):
-    """无崩溃时：最近一轮失败进入摘要，无失败回退通用文案；积压数量含 buffer 与 pending。"""
-    t = _make_transport(mock_ctx)  # 从未启动
+    """finish_summary() 包含保留记录数与最近失败摘要。"""
+    t = _make_transport(mock_ctx)
     record = make_scalar_record(step=1)
     record.num = 1
     t.put([record])
@@ -596,7 +555,7 @@ def test_transport_finish_summarizes_last_failure_and_fallback(mock_ctx, make_sc
 
 
 def test_transport_closes_sender_on_clean_drain(mock_ctx):
-    """正常排空退出时关闭 sender 自持资源。"""
+    """排空退出时关闭 sender 资源。"""
     sender = MagicMock()
     t = _make_transport(mock_ctx, sender=sender)
     t.start()
@@ -605,8 +564,8 @@ def test_transport_closes_sender_on_clean_drain(mock_ctx):
 
 
 def test_transport_finish_false_when_never_started_with_buffered_records(mock_ctx, make_scalar_record):
-    """从未启动但缓冲有数据：finish 不得报告成功。"""
-    t = _make_transport(mock_ctx)  # auto_start=False
+    """未启动且缓冲区非空时 finish() 返回 False。"""
+    t = _make_transport(mock_ctx)
     record = make_scalar_record(step=1)
     record.num = 1
     t.put([record])

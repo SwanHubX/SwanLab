@@ -161,8 +161,7 @@ def upload_resource(
     上传资源文件到对象存储，先向后端请求上传凭据，然后使用凭据上传文件到对象存储。
 
     :param content_types: 可选的逐文件 Content-Type 列表，不传时使用二进制默认值。
-    :param tracker: 可选的进度追踪器，非 None 时汇报字节级进度；文件完成确认由调用方
-        在后续阶段（如媒体指标提交）成功后执行，本函数只负责传输字节进度。
+    :param tracker: 可选的进度追踪器，非 None 时汇报字节级进度。
     """
     # retries 设置为 0 表示不重试，重试机制交给 transport 层的退避调度
     resp = client.post(
@@ -193,7 +192,6 @@ def upload_resource(
             if content_types is not None and index < len(content_types):
                 content_type = content_types[index]
             futures.append((executor.submit(upload_one, url, buffer, file_key, size, content_type), file_key))
-        # 收集全部并发结果后再上抛首个错误，不因第一个异常丢掉其余任务的状态回退
         for future, file_key in futures:
             try:
                 future.result()
@@ -211,12 +209,7 @@ def upload_saves(
     resources: Sequence[UploadResource],
     tracker: Optional[UploadTracker] = None,
 ) -> Dict[int, BaseException]:
-    """通过预签名 URL 批量上传本地文件到对象存储。
-
-    返回 ``{resources 索引: 异常}``，未出现的索引即为上传成功；
-    文件完成确认（finish）由调用方在 complete 成功后执行，本函数只负责传输与字节进度。
-    失败文件不在此吞错或过滤，由调用方保留对应 SaveRecord 并决定重试。
-    """
+    """通过预签名 URL 批量上传本地文件到对象存储，返回 {索引: 异常} 字典。"""
 
     def upload_one(resource: UploadResource) -> None:
         file_key = resource.get("tracker_key")
@@ -236,9 +229,6 @@ def upload_saves(
                 _reset_tracked_file(tracker, resources[index].get("tracker_key"))
                 failures[index] = e
     return failures
-
-
-# ── 内部工具 ──────────────────────────────────────────────────
 
 
 def _reset_tracked_file(tracker: Optional[UploadTracker], file_key: Optional[str]) -> None:

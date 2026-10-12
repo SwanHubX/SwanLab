@@ -2,12 +2,7 @@
 @author: caddiesnew
 @file: files.py
 @time: 2026/4/16
-@description: 媒体与 CUSTOM save 的对象存储传输：presigned PUT 并发、分片上传、字节进度上报
-
-本模块是自由函数集合，session/tracker 等依赖全部显式传参，不持有模块级状态；
-Record 编码与收集见 utils.py，record 路由与业务指标提交见 sender/__init__.py。
-错误不在此吞掉：网络与业务异常转为结果中的 UploadFailure 并映射回原 Record；
-文件完成确认（finish_file）一律在对应后端确认阶段（complete / 媒体指标提交）成功后执行。
+@description: 媒体与 CUSTOM save 的对象存储传输
 """
 
 from __future__ import annotations
@@ -57,13 +52,10 @@ class PartProgressReporter(Protocol):
 
 
 def _track_file(tracker: Optional[UploadTracker], key: str, path: str, size: int) -> None:
-    """在 tracker 中注册文件显示行，重复 key 由 UploadTracker 自动去重。"""
+    """在 tracker 中注册文件显示行。"""
     if tracker is None or size <= 0:
         return
     tracker.add_file(key=key, path=path, total=size)
-
-
-# ── 媒体 ──────────────────────────────────────────────────────
 
 
 def put_media_resources(
@@ -73,11 +65,7 @@ def put_media_resources(
     *,
     tracker: Optional[UploadTracker] = None,
 ) -> None:
-    """媒体载荷批量传输到对象存储（presigned PUT 并发），并注册字节进度显示行。
-
-    传输失败向上抛出，由调用方转为失败结果；文件完成确认由调用方在媒体指标
-    提交成功后执行，本函数只负责传输字节进度。
-    """
+    """批量上传媒体文件至对象存储，并注册字节进度显示行。"""
     if not payloads:
         return
     for payload in payloads:
@@ -92,12 +80,9 @@ def put_media_resources(
     )
 
 
-# ── CUSTOM save ───────────────────────────────────────────────
-
-
 @dataclass
 class _SaveFileTask:
-    """单个 CUSTOM save 文件的上传任务：API DTO 与原 Record、tracker key 的关联。"""
+    """单个 CUSTOM save 文件的上传任务。"""
 
     record: Record
     entry: SaveFileEntry
@@ -112,19 +97,12 @@ def upload_save_files(
     tracker: Optional[UploadTracker] = None,
     on_part_progress: Optional[PartProgressReporter] = None,
 ) -> UploadResult:
-    """CUSTOM save 文件上传编排：解析来源 → 校验大小 → 按 save_batch 分批 → 小/大文件分流。
-
-    调用方保证 records 均为 CUSTOM 类型且不携带 payload。
-    返回记录级结果：complete 确认成功的文件进入 confirmed；来源缺失、超限、协议不匹配、
-    传输或 complete 失败的 Record 进入 remaining 并携带失败原因，等待整流程重试
-    （重跑会重新 prepare——后端幂等并重置 state、发新地址；同 key 重复 PUT 为覆盖写）。
-    """
+    """解析、校验并分批上传 CUSTOM save 文件，返回 UploadResult。"""
     config = ctx.config
     confirmed: List[Record] = []
     remaining: List[Record] = []
     failures: List[UploadFailure] = []
 
-    # 1. 收集合法文件（不读内容，避免大批次内存爆炸）
     pending: List[Tuple[str, int, str, Record]] = []  # (source_path, size, name, record)
     for record in records:
         if not record.HasField("save"):
@@ -163,14 +141,10 @@ def upload_save_files(
             )
             remaining.append(record)
             continue
-        # 用解析后的可读路径（可能是回退到 files 子目录的路径）作为实际读取路径
-        # 保持 str() 原生路径形式，与下游 compute_md5 / upload_saves 的路径形式一致，
-        # 避免 Windows 上 .as_posix() 与 str() 形式不一致导致映射查不到
         pending.append((str(source_ref_path), size, save.name, record))
     if not pending:
         return UploadResult(remaining_records=remaining, failures=failures)
     if config.save_batch <= 0:
-        # 配置错误属确定性阻塞：整批保留并报告，不发起请求
         console.warning(f"Invalid save batch size ({config.save_batch}), retaining save upload")
         batch_records = [record for *_, record in pending]
         failures.append(
@@ -180,7 +154,6 @@ def upload_save_files(
         )
         return UploadResult(remaining_records=remaining + batch_records, failures=failures)
 
-    # 2. 按 save_batch 拆分文件列表，避免单次 prepare/complete 超过后端限制
     for index in range(0, len(pending), config.save_batch):
         result = _upload_save_batch(
             ctx,
@@ -203,7 +176,7 @@ def _upload_save_batch(
     tracker: Optional[UploadTracker] = None,
     on_part_progress: Optional[PartProgressReporter] = None,
 ) -> UploadResult:
-    """上传一个 save_batch 内的文件列表，返回记录级结果。"""
+    """上传单个批次内的 save 文件。"""
     config = ctx.config
     confirmed: List[Record] = []
     remaining: List[Record] = []
@@ -257,11 +230,7 @@ def _upload_small_saves(
     *,
     tracker: Optional[UploadTracker] = None,
 ) -> UploadResult:
-    """小文件：prepare → presigned PUT（并发）→ complete（仅确认上传成功的文件）。
-
-    PUT 失败的文件不再向后端补报 FAILED（后端对 FAILED 会删除对象），保留在结果中
-    等待整流程重试；complete 只包含 PUT 成功的文件，complete 成功后才确认并结束文件行。
-    """
+    """上传小文件：prepare → 并发 PUT → complete。"""
     prepare_items: List[PrepareSaveFile] = [
         {
             "path": task.entry["path"],
@@ -331,7 +300,6 @@ def _upload_small_saves(
     try:
         complete_save_files(ctx.experiment_id, files=complete_items)
     except requests.RequestException as e:
-        # complete 失败：内容可能已在对象存储，但未获后端确认 → 全部保留等待整流程重试
         return UploadResult(
             remaining_records=[task.record for task in tasks],
             failures=failures
@@ -356,11 +324,7 @@ def _upload_large_saves(
     tracker: Optional[UploadTracker] = None,
     on_part_progress: Optional[PartProgressReporter] = None,
 ) -> UploadResult:
-    """大文件：prepare-multipart → 分片 PUT（并发，收齐全部结果）→ 批量 complete-multipart。
-
-    分片或 complete 失败的文件保留在结果中等待整流程重跑（重新 prepare 会生成新 uploadId，
-    不复用旧会话）；分片全部成功的文件在 complete-multipart 成功后才确认并结束文件行。
-    """
+    """上传大文件：prepare-multipart → 分片 PUT → complete-multipart。"""
     part_size = ctx.config.save_part
     prepare_items: List[PrepareMultipartSaveFile] = []
     for task in tasks:
@@ -431,7 +395,6 @@ def _upload_large_saves(
             ],
         )
     except requests.RequestException as e:
-        # complete-multipart 失败：分片可能已在对象存储，但未获后端确认 → 保留等待整流程重跑
         return UploadResult(
             remaining_records=remaining + [task.record for task, _, _ in ready],
             failures=failures
@@ -452,11 +415,7 @@ def _upload_multipart_parts(
     part_size: int,
     on_part_progress: Optional[PartProgressReporter],
 ) -> Tuple[List[CompletedPart], Optional[BaseException]]:
-    """上传单个大文件的所有分片，返回 (已完成分片, 首个错误)。
-
-    收集全部并发结果后才返回，不因第一个异常丢掉其余分片的完成状态；
-    错误非 None 时文件整体未完成，已完成分片仅用于字节进度展示。
-    """
+    """并发上传大文件的分片，返回 (完成分片, 首个错误)。"""
     completed_parts: List[CompletedPart] = []
     source_path = task.entry["source_path"]
     file_key = task.tracker_key

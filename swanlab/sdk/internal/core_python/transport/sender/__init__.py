@@ -2,7 +2,7 @@
 @author: caddiesnew
 @file: __init__.py
 @time: 2026/3/19
-@description: Record 与后端对接的唯一上传接口（HTTP 传输层）
+@description: Record HTTP 上传接口
 """
 
 from __future__ import annotations
@@ -47,15 +47,7 @@ if TYPE_CHECKING:
 
 
 class HttpRecordSender:
-    """Record 与后端对接的真实上传接口。
-
-    全部 upload_* 方法显式定义于本类，每个方法是一个完整短流程：
-    编码/收集（utils.py）→ 对象存储字节传输（files.py）→ 业务指标提交（api 层）。
-    所有 upload_* 方法返回 UploadResult：网络与业务错误转为结果内的 UploadFailure，
-    未确认阶段的 Record 保留在 remaining，不因失败丢弃；未预期异常（编程错误）仍然上抛，
-    由 worker 兜底。记录数统计由 Dispatch 依据 confirmed_records 推进，本类不推进。
-    重试调度、错误分类不属于本类，由 worker 决定何时再次调用 upload。
-    """
+    """Record HTTP 上传接口，按类型分发请求并返回 UploadResult。"""
 
     def __init__(self, ctx: CoreContext) -> None:
         self._ctx = ctx
@@ -64,10 +56,8 @@ class HttpRecordSender:
         self._project_id = ctx.project_id
         self._experiment_id = ctx.experiment_id
         self._tracker: Optional[UploadTracker] = None
-        # 分片字节进度的已完成 upload-key 去重集合，跨重试生效（见 _mark_upload_progress）
         self._completed_upload_keys: set[str] = set()
         self._completed_upload_keys_lock = threading.Lock()
-        # 资源上传 session，作用在Sender对象中复用TCP链接
         self._buffer_session: Optional[SessionWithRetry] = None
         self._upload_handlers: dict[str, Callable[[Sequence[Record]], UploadResult]] = {
             "column": self.upload_column,
@@ -81,26 +71,19 @@ class HttpRecordSender:
         self._tracker = tracker
 
     def close(self) -> None:
-        """关闭自持的对象存储上传 session 等资源（worker 退出时调用，幂等）。"""
+        """关闭对象存储上传 session。"""
         if self._buffer_session is not None:
             self._buffer_session.close()
             self._buffer_session = None
 
     def _ensure_session(self) -> SessionWithRetry:
-        """懒初始化资源上传 session（复用 TCP 连接）。
-
-        default_retry=0：对象存储 PUT 与分片子线程单次执行（plan §6.3），
-        重试由 transport 层的退避调度统一控制。
-        """
+        """获取对象存储上传 session（default_retry=0，由 transport 层控制重试）。"""
         if self._buffer_session is None:
             self._buffer_session = client.session.create(default_retry=0)
         return self._buffer_session
 
     def _mark_upload_progress(self, file_key: str, upload_key: str, current_bytes: int, *, final: bool = False) -> None:
-        """推送分片字节进度到 tracker，跳过已完成的上传事件 key（跨重试去重）。
-
-        final=True 时将 upload_key 标记为已完成，后续对该 key 的调用（包括中间进度）将被跳过。
-        """
+        """上报分片字节进度，跳过完成的 upload_key。"""
         with self._completed_upload_keys_lock:
             if upload_key in self._completed_upload_keys:
                 return
@@ -110,13 +93,11 @@ class HttpRecordSender:
             self._tracker.update_file_progress(file_key, upload_key, current_bytes)
 
     def _blocked_failure(self, records: Sequence[Record], message: str) -> UploadFailure:
-        """本地数据不可执行的确定性失败：记录保留并报告，等待重试策略暂停调度。"""
+        """构造本地数据校验失败结果。"""
         return UploadFailure(source="local_data", message=message, records=list(records))
 
-    # ── 通用上传入口 ──
-
     def upload(self, record_type: str, records: Sequence[Record]) -> UploadResult:
-        """通用上传入口。空输入返回空结果；未知类型整批保留并报告。"""
+        """按 record_type 分发上传，返回 UploadResult。"""
         if not records:
             return UploadResult()
         handler = self._upload_handlers.get(record_type)
@@ -129,16 +110,13 @@ class HttpRecordSender:
         try:
             return handler(records)
         except requests.RequestException as e:
-            # 兜底：handler 内部未分类的上传异常（含 ApiError），整批保留
             return UploadResult(
                 remaining_records=list(records),
                 failures=[transport_failure(list(records), e, source="swanlab_api")],
             )
 
-    # ── 普通记录 ──
-
     def upload_column(self, records: Sequence[Record], batch_size: int = 3000) -> UploadResult:
-        """列上传：分批提交，前序批次成功即确认（内层部分成功保留）。"""
+        """分批上传列定义。"""
         confirmed: List[Record] = []
         for start in range(0, len(records), batch_size):
             batch = list(records[start : start + batch_size])
@@ -238,16 +216,10 @@ class HttpRecordSender:
             failures=[self._blocked_failure(blocked, "log record without line or timestamp")] if blocked else [],
         )
 
-    # ── 媒体 ──
-
     def upload_media(self, records: Sequence[Record]) -> UploadResult:
-        """媒体：收集载荷 → 对象存储 PUT → 提交媒体指标，两阶段均成功才算完成。
-
-        文件行完成确认在指标提交成功后执行（plan §4.2）；未产出指标的 Record 保留并报告。
-        """
+        """收集媒体载荷，上传至对象存储后提交媒体指标。"""
         plan = collect_media_payloads(self._ctx, records)
         if not plan.payloads:
-            # 全部 Record 均无可用载荷：保留并报告，不发起请求
             return UploadResult(
                 remaining_records=list(records),
                 failures=plan.blocked_failures or [self._blocked_failure(records, "no media payload collected")],
@@ -263,13 +235,11 @@ class HttpRecordSender:
         try:
             upload_media(self._project_id, self._experiment_id, metrics=plan.metrics)
         except requests.RequestException as e:
-            # 内容已上传但指标未确认：全部保留，重试时整流程重跑（重新签名 + 覆盖写）
             return UploadResult(
                 remaining_records=list(records),
                 failures=plan.blocked_failures
                 + [transport_failure(plan.metric_records, e, source="swanlab_api", stage="submit_metrics")],
             )
-        # 内容与指标均确认成功：完成文件行，确认产出过指标的 Record
         if self._tracker is not None:
             for payload in plan.payloads:
                 self._tracker.finish_file(payload.tracker_key)
@@ -279,13 +249,8 @@ class HttpRecordSender:
             failures=plan.blocked_failures,
         )
 
-    # ── 文件保存上传 ──
-
     def upload_save(self, records: Sequence[Record]) -> UploadResult:
-        """内部保存仅上传内容，用户保存（CUSTOM）走文件上传（小文件 presigned URL，大文件分片）。
-
-        skip_store 下内部保存在 payload 中，CUSTOM 只读 source_path。
-        """
+        """分发内部保存文件与用户保存文件（CUSTOM）上传。"""
         confirmed: List[Record] = []
         remaining: List[Record] = []
         failures: List[UploadFailure] = []
@@ -297,7 +262,6 @@ class HttpRecordSender:
                 continue
             save = record.save
             if save.type == SaveType.SAVE_TYPE_CUSTOM:
-                # CUSTOM 的 payload 必须缺席，present 视为协议违约保留（防大文件误入内存通道）
                 if save.HasField("payload"):
                     console.warning(f"CUSTOM save must not carry payload: {save.name or save.source_path}")
                     failures.append(self._blocked_failure([record], "CUSTOM save must not carry payload"))
@@ -325,10 +289,7 @@ class HttpRecordSender:
         return UploadResult(confirmed_records=confirmed, remaining_records=remaining, failures=failures)
 
     def upload_internal_save(self, record: Record) -> UploadResult:
-        """上传单条内部 save：读数据 → 解码 → 上传（payload 与磁盘双通道）。
-
-        读取/解码失败与上传错误均转为结果内的失败，记录保留；不在此吞错。
-        """
+        """读取、解码并上传单条内部 save 记录。"""
         save = record.save
         data = self.read_internal_save(save)
         if data is None:
@@ -359,7 +320,7 @@ class HttpRecordSender:
         return UploadResult(confirmed_records=[record])
 
     def read_internal_save(self, save: SaveRecord) -> Optional[bytes]:
-        """内部 save 数据源：payload 优先，默认模式回退磁盘；无法访问时告警并返回 None。"""
+        """读取内部 save 字节内容（payload 或本地文件）。"""
         if save.HasField("payload"):
             return save.payload
         if self._ctx.config.skip_store:
@@ -376,10 +337,7 @@ class HttpRecordSender:
             return None
 
     def decode_internal_save(self, save_type: SaveType, data: bytes) -> Optional[Any]:
-        """按 SaveType 解码内部 save 字节：metadata/config 为 dict，requirements/conda 为非空 str。
-
-        脏数据与空内容告警后返回 None，由调用方保留记录并报告失败。
-        """
+        """按 SaveType 解码内部 save 字节内容。"""
         try:
             if save_type == SaveType.SAVE_TYPE_METADATA:
                 content = json.loads(data.decode("utf-8"))

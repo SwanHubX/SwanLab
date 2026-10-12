@@ -168,7 +168,7 @@ def test_upload_save_delegates_small_file_s3_put_to_upload_resources(tmp_path: P
 
 @pytest.mark.parametrize("multipart", [False, True], ids=["small", "multipart"])
 def test_upload_save_retains_record_when_put_fails(tmp_path: Path, multipart):
-    """PUT 失败的文件不向后端补报 FAILED（后端会删对象），记录保留在结果中等待重试。"""
+    """PUT 失败的文件不向后端补报 FAILED，记录保留在结果中等待重试。"""
     source = tmp_path / "failed.bin"
     source.write_bytes(b"failed")
     sender = _make_sender(tmp_path, save_split=1 if multipart else 100 * 1024 * 1024)
@@ -440,7 +440,7 @@ def test_upload_does_not_advance_records(tmp_path: Path):
 
 
 def test_sender_resource_session_is_single_shot(tmp_path: Path):
-    """对象存储 session 单次执行（default_retry=0）：媒体 PUT、save PUT 与分片子线程不自行重试。"""
+    """对象存储 session 单次执行（default_retry=0），媒体 PUT、save PUT 与分片上传不触发底层重试。"""
     sender = _make_sender(tmp_path)
 
     with patch(
@@ -453,7 +453,7 @@ def test_sender_resource_session_is_single_shot(tmp_path: Path):
 
 
 def test_sender_close_is_idempotent_and_releases_session(tmp_path: Path):
-    """close() 关闭对象存储 session 且幂等；关闭后再次使用会重建新 session。"""
+    """close() 关闭对象存储 session 且幂等；关闭后调用会重建 session。"""
     sender = _make_sender(tmp_path)
     first_session = MagicMock()
     with patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=first_session):
@@ -721,7 +721,7 @@ def test_upload_save_rejects_invalid_payload_usage(tmp_path: Path):
 
 
 def test_upload_save_retains_unparseable_payload(tmp_path: Path):
-    """payload 无法解析属确定性脏数据：保留记录并报告失败，不进入上传、不冒充完成。"""
+    """payload 解析失败时保留记录并报告失败，不发起上传。"""
     sender = _make_sender(tmp_path)
     record = Record(save=SaveRecord(name="metadata", type=SaveType.SAVE_TYPE_METADATA, payload=b"{not-json"))
 
@@ -729,7 +729,7 @@ def test_upload_save_retains_unparseable_payload(tmp_path: Path):
         patch("swanlab.sdk.internal.core_python.transport.sender.upload_metadata") as mock_upload_meta,
         patch("swanlab.sdk.internal.core_python.transport.sender.console.warning") as mock_warning,
     ):
-        result = sender.upload("save", [record])  # 不得抛异常
+        result = sender.upload("save", [record])
 
     mock_upload_meta.assert_not_called()
     assert result.remaining_records == [record]
@@ -738,7 +738,7 @@ def test_upload_save_retains_unparseable_payload(tmp_path: Path):
 
 
 def test_upload_save_payload_upload_error_is_retained(tmp_path: Path):
-    """payload 解析成功但上传失败（5xx）：记录保留在结果中，不静默吞掉。"""
+    """payload 解析成功但上传失败（5xx）时保留记录。"""
     sender = _make_sender(tmp_path)
     record = Record(
         save=SaveRecord(name="metadata", type=SaveType.SAVE_TYPE_METADATA, payload=b'{"hostname": "gpu-01"}')
@@ -762,7 +762,7 @@ def test_upload_save_payload_upload_error_is_retained(tmp_path: Path):
 
 
 def test_upload_save_disk_channel_upload_error_is_retained(tmp_path: Path):
-    """默认模式磁盘回读：上传失败（5xx）同样保留记录，不被静默吞掉。"""
+    """磁盘回读模式上传失败（5xx）时保留记录。"""
     sender = _make_sender(tmp_path)
     metadata_file = tmp_path / "files" / "swanlab-metadata.json"
     metadata_file.parent.mkdir(parents=True)
@@ -801,13 +801,8 @@ def test_upload_save_warns_once_for_unknown_internal_type(tmp_path: Path):
     assert "Unknown internal save type" in mock_warning.call_args.args[0]
 
 
-# ============================================================
-# P2：部分成功与数据保留
-# ============================================================
-
-
 def test_upload_column_partial_success_keeps_failed_tail(tmp_path: Path):
-    """列上传分批部分成功：前序批次确认，失败批次及后续保留。"""
+    """列上传分批成功时确认前序批次，保留失败批次及后续记录。"""
     sender = _make_sender(tmp_path)
     records = [
         Record(column=ColumnRecord(column_key=f"metric-{index}", column_type=ColumnType.COLUMN_TYPE_SCALAR))
@@ -833,7 +828,7 @@ def test_upload_column_partial_success_keeps_failed_tail(tmp_path: Path):
 
 
 def test_upload_media_transfer_failure_retains_all_records(tmp_path: Path):
-    """媒体对象存储 PUT 失败：全部参与记录保留，失败来源为对象存储。"""
+    """媒体对象存储 PUT 失败时保留记录，标记失败来源为对象存储。"""
     media_dir = tmp_path / "media" / "image"
     media_dir.mkdir(parents=True)
     (media_dir / "a.png").write_bytes(b"image")
@@ -863,7 +858,7 @@ def test_upload_media_transfer_failure_retains_all_records(tmp_path: Path):
 
 
 def test_upload_media_metrics_failure_keeps_file_rows_open(tmp_path: Path):
-    """媒体 PUT 成功但指标提交失败：记录保留，文件行不得提前确认完成。"""
+    """媒体 PUT 成功但指标提交失败时保留记录，文件进度不标记完成。"""
     media_dir = tmp_path / "media" / "image"
     media_dir.mkdir(parents=True)
     image_path = media_dir / "a.png"
@@ -874,7 +869,7 @@ def test_upload_media_metrics_failure_keeps_file_rows_open(tmp_path: Path):
     record = _make_media_record("a.png")
 
     def _fake_upload_resource(_, __, *, paths, buffers, content_types=None, tracker=None):
-        # 模拟 PUT 全部字节传输完成（finish 留给指标提交成功后的确认阶段）
+        # 模拟 PUT 字节传输完成，finish 在指标提交成功后触发
         if tracker is not None:
             for path in paths:
                 tracker.update_file_progress(f"{path}:5", f"{path}:5", 5)
@@ -901,14 +896,13 @@ def test_upload_media_metrics_failure_keeps_file_rows_open(tmp_path: Path):
     assert result.remaining_records == [record]
     assert result.failures[0].stage == "submit_metrics"
     stats = tracker.snapshot()
-    # 字节进度已全部上报，但文件完成计数为 0：finish_file 只在指标提交成功后调用，
-    # 旧的"PUT 成功即确认"行为会让 uploaded_number 提前变为 1
+    # 字节进度上报完成，finish_file 在指标提交成功后调用
     assert stats.uploaded_size == 5
     assert stats.uploaded_number == 0
 
 
 def test_upload_media_confirms_records_after_metrics_success(tmp_path: Path):
-    """媒体内容与指标均成功：文件行完成，Record 进入 confirmed。"""
+    """媒体内容与指标上传成功时标记文件完成并确认记录。"""
     media_dir = tmp_path / "media" / "image"
     media_dir.mkdir(parents=True)
     image_path = media_dir / "a.png"
@@ -934,7 +928,7 @@ def test_upload_media_confirms_records_after_metrics_success(tmp_path: Path):
 
 
 def test_upload_save_small_files_partial_success_completes_only_uploaded(tmp_path: Path):
-    """两个小文件其中一个 PUT 失败：complete 只含成功文件，失败记录保留。"""
+    """小文件上传部分失败时，complete 包含成功文件，保留失败记录。"""
     first = tmp_path / "ok.txt"
     second = tmp_path / "failed.txt"
     first.write_text("weights-1", encoding="utf-8")
@@ -959,7 +953,7 @@ def test_upload_save_small_files_partial_success_completes_only_uploaded(tmp_pat
         ]
         result = sender.upload_save(records)
 
-    # complete 只上报成功的文件
+    # complete 上报成功文件
     assert mock_complete.call_args.kwargs["files"] == [{"path": "checkpoints/ok.txt", "state": "UPLOADED"}]
     assert result.confirmed_records == [records[0]]
     assert result.remaining_records == [records[1]]
@@ -967,7 +961,7 @@ def test_upload_save_small_files_partial_success_completes_only_uploaded(tmp_pat
 
 
 def test_upload_save_oversize_file_is_retained_not_uploaded(tmp_path: Path):
-    """超过 save_size 限制的文件：明确拒绝结果，记录保留，不伪报上传成功。"""
+    """超过 save_size 限制的文件返回拒绝结果并保留记录。"""
     source = tmp_path / "huge.bin"
     source.write_bytes(b"0" * 16)
     sender = _make_sender(tmp_path, save_split=100 * 1024 * 1024, save_size=8)  # 模拟超限
@@ -986,7 +980,7 @@ def test_upload_save_oversize_file_is_retained_not_uploaded(tmp_path: Path):
 
 
 def test_upload_save_invalid_save_batch_retains_records(tmp_path: Path):
-    """save_batch 配置非法：整批保留并报告，不发起请求。"""
+    """save_batch 配置非法时保留整批记录并报告失败。"""
     source = tmp_path / "model.txt"
     source.write_text("weights", encoding="utf-8")
     sender = _make_sender(tmp_path, save_batch=0)
@@ -1005,7 +999,7 @@ def test_upload_save_invalid_save_batch_retains_records(tmp_path: Path):
 
 
 def test_upload_save_missing_source_file_is_retained(tmp_path: Path):
-    """源文件缺失：记录保留并报告 local_data 失败，不静默过滤。"""
+    """源文件缺失时保留记录并报告 local_data 失败。"""
     sender = _make_sender(tmp_path)
     record = _make_save_record(Path("/nonexistent/training-host/model.txt"), name="checkpoints/model.txt")
 

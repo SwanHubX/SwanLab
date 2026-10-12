@@ -24,23 +24,7 @@ from .utils import RetryPolicy, RetrySchedule
 
 
 class Transport:
-    """
-    定时攒批的 Record Action 线程。
-
-    用 Condition 驱动上传事件：
-    - put() 仅写入 buffer，不唤醒线程
-    - wait(timeout=batch_interval) 周期性唤醒线程，攒批后统一 drain
-    - finish() 时 notify_all() 立刻唤醒线程排空剩余 buffer
-    - 清空 buffer 后在锁外委托 Dispatch，不阻塞生产者
-
-    失败轮的重试由 RetryPolicy 调度：指数退避 / Retry-After / 低频受阻间隔（plan §6）。
-    等待可被唤醒（新入队、finish），但每次唤醒重新检查截止时间，不绕过退避。
-
-    finish() 的返回值区分"排空成功"与"线程退出"：只有线程正常退出且缓冲与未确认
-    任务均已清空（_drained）才返回 True；worker 崩溃或等待超时返回 False，
-    未确认记录与最近一轮失败原因仍由实例持有（pending_records() / last_failures()
-    线程退出后可查询）。
-    """
+    """周期攒批并上传 Record 的后台守护线程。"""
 
     THREAD_NAME: str = "SwanLab·Transport"
     FINISH_JOIN_TIMEOUT: int = 30
@@ -61,22 +45,21 @@ class Transport:
 
         self._cond = threading.Condition()
         self._buf = RecordBuffer()
-        # 未确认任务：从取任务快照到结果应用期间始终由实例持有，worker 退出后仍可查询
+        # 未确认 records
         self._pending: List[Record] = []
         self._last_failures: List[UploadFailure] = []
         self._finished = False
         self._started = False
         self._thread: Optional[threading.Thread] = None
         self._throttle = UploadWarningThrottle()
-        # 重试调度：失败轮截止时间（单调时钟）与连续失败计数（整轮成功后清零）
+        # 重试调度
         self._retry = retry if retry is not None else RetryPolicy()
         self._retry_at: Optional[float] = None
         self._failed_rounds = 0
-        # 排空标志与 worker 崩溃原因：finish() 返回值的依据（plan §8.1/§8.4）
+         # 排空标志与 worker 崩溃原因
         self._drained = False
         self._worker_error: Optional[BaseException] = None
 
-        # Transport 持有 sender，负责创建/注入/关闭
         self._dispatcher: Optional[Dispatch] = None
         if auto_start:
             self.start()
@@ -98,7 +81,6 @@ class Transport:
 
         if self._tracker is not None:
             sender.set_tracker(self._tracker)
-        # Transport 持有实际使用的 sender，负责在 worker 退出时关闭其自持资源
         self._sender = sender
         self._dispatcher = Dispatch(
             batch_size=self._batch,
@@ -110,11 +92,7 @@ class Transport:
         self._started = True
 
     def put(self, records: List[Record]) -> bool:
-        """追加 records 到 buffer，等待下次 batch_interval 唤醒时统一处理。
-
-        返回是否接受：draining 后的入队在锁内判定拒绝并向调用方报告（plan §5），
-        不再仅打印错误；空输入视为无操作（非拒绝）。
-        """
+        """追加 records 到缓冲区，返回是否接受入队。"""
         if not records:
             return True
         accepted = 0
@@ -132,7 +110,7 @@ class Transport:
         return True
 
     def request_finish(self) -> None:
-        """通知线程停止并排空 buffer，不等待线程退出。"""
+        """通知线程停止并排空缓冲区。"""
         with self._cond:
             if self._finished:
                 return
@@ -140,7 +118,7 @@ class Transport:
             self._cond.notify_all()
 
     def join(self, timeout: Optional[float] = FINISH_JOIN_TIMEOUT) -> bool:
-        """等待线程退出，返回是否在 timeout 内正常退出。"""
+        """等待线程退出，返回是否在 timeout 内退出。"""
         if self._thread is None:
             return True
         console.debug("Waiting for Transport to finish...")
@@ -149,41 +127,30 @@ class Transport:
         return not self._thread.is_alive()
 
     def is_alive(self) -> bool:
-        """Transport worker thread is still running."""
+        """后台线程是否运行中。"""
         return self._thread is not None and self._thread.is_alive()
 
     def finish(self, timeout: Optional[float] = FINISH_JOIN_TIMEOUT) -> bool:
-        """通知线程停止并等待最终排空（plan §8.1）。
-
-        只有线程在 timeout 内退出且缓冲与未确认任务均已清空才返回 True；
-        等待超时、worker 崩溃退出或从未启动但有积压数据时返回 False，
-        未确认记录保留在本实例中，调用方不得据此报告上传成功。
-        """
+        """通知线程停止并等待缓冲区与未确认记录排空。"""
         self.request_finish()
         if self._thread is None:
-            # 从未启动：无数据视为已排空，缓冲中的记录无法上传
             return not self._buf and not self._pending
         if not self.join(timeout=timeout):
             return False
         return self._drained
 
     def pending_records(self) -> List[Record]:
-        """当前未确认任务与缓冲中的记录快照（诊断用，线程退出后仍可查询）。"""
+        """返回未确认记录与缓冲区记录快照。"""
         with self._cond:
             return list(self._pending) + self._buf.snapshot()
 
     def last_failures(self) -> List[UploadFailure]:
-        """最近一轮上传的失败原因快照（诊断用，线程退出后仍可查询）。"""
+        """返回最近一轮上传失败列表快照。"""
         with self._cond:
             return list(self._last_failures)
 
     def finish_summary(self) -> str:
-        """排空失败的一行安全摘要（plan §8.4），供 finish 调用方构建失败消息。
-
-        worker 崩溃原因优先，其次积压数量与最近一轮失败。只含异常类型与
-        安全摘要字段（来源/阶段/状态/业务码），不拼接原始异常文本——其可能
-        携带 URL、凭据等内容；完整崩溃信息在 worker 退出时已由 console.error 输出。
-        """
+        """生成排空失败的单行诊断摘要。"""
         reasons: List[str] = []
         if self._worker_error is not None:
             reasons.append(f"worker crashed: {type(self._worker_error).__name__}")
@@ -195,24 +162,14 @@ class Transport:
         retained = len(self.pending_records())
         return f"Upload did not finish: {retained} record(s) retained ({'; '.join(reasons)})."
 
-    # ── 线程主循环 ──
-
     def _take_snapshot(self) -> Optional[List[Record]]:
-        """取下一批任务快照：优先重试未确认记录，其次排空缓冲。
-
-        失败重试按 RetryPolicy 计算的截止时间等待（plan §6.3）：等待可被唤醒
-        （finish 等控制信号），但每次唤醒重新检查截止时间，新入队、finish 或
-        重复通知都不会绕过退避或 Retry-After。
-        快照在执行期间保持登记在 self._pending 上，线程意外终止时数据仍可查询。
-        返回 None 表示缓冲与未确认任务均已空且已 finish，应退出。
-        """
+        """获取下一批待上传记录，失败重试按截止时间等待。"""
         with self._cond:
             if self._pending:
                 deadline = self._retry_at
                 if deadline is not None:
                     remaining = deadline - self._retry.clock()
                     while remaining > 0:
-                        # 分段等待：单次 wait 不超过平台上限，醒来后重查原截止时间
                         self._cond.wait(timeout=min(remaining, threading.TIMEOUT_MAX))
                         deadline = self._retry_at
                         if deadline is None:
@@ -234,14 +191,12 @@ class Transport:
             while True:
                 pending = self._take_snapshot()
                 if pending is None:
-                    # 缓冲与未确认任务均已空且已 finish：正常排空退出
                     self._drained = True
                     return
                 result: Optional[UploadResult] = None
                 with safe.block(message="Transport dispatch error", write_to_tty=False):
                     result = self._dispatcher(pending)
                 if result is None:
-                    # 未预期异常（编程错误等）：保留本轮任务，交由节流告警与低频重试
                     remaining, failures = pending, []
                 else:
                     remaining, failures = result.remaining_records, result.failures
@@ -250,7 +205,6 @@ class Transport:
                     self._pending = remaining
                     self._last_failures = failures
                     if not remaining and not failures:
-                        # 整轮成功：清零连续失败计数与重试等待（plan §6.2）
                         self._failed_rounds = 0
                         self._retry_at = None
                     else:
@@ -262,23 +216,18 @@ class Transport:
                 else:
                     self._throttle.warn(message=self._failure_message(schedule, failures, remaining))
         except BaseException as e:
-            # worker 内部未预期异常（plan §6.1）：标记内部失败并结束线程，
-            # 未确认任务保留在实例上，由 finish() 向调用方报告失败
             self._worker_error = e
             console.error(f"Transport worker exited unexpectedly: {type(e).__name__}: {e}")
         finally:
-            # 关闭 sender 自持资源（清理边界，吞错不掩盖主流程）
             if self._sender is not None:
                 with safe.block(message="Failed to close sender resources"):
                     self._sender.close()
-            # 无论 dispatch 是否出错，transport 线程退出时标记 tracker 为 FINISHED，
-            # 让进度展示停止轮询；是否排空成功由 _drained 区分。
             if self._tracker is not None:
                 self._tracker.set_state(CoreState.CORE_STATE_FINISHED)
 
     @staticmethod
     def _failure_message(schedule: RetrySchedule, failures: List[UploadFailure], remaining: List[Record]) -> str:
-        """节流告警文案：只含安全摘要（来源/阶段/状态/业务码）、重试间隔与保留数量。"""
+        """生成上传失败节流告警文案。"""
         if failures:
             prefix = f"Upload failed ({failures[0].summary})"
         else:
@@ -287,13 +236,12 @@ class Transport:
 
 
 class UploadWarningThrottle:
-    """控制上传失败警告的打印频率，成功后重置并提示恢复。"""
+    """控制上传失败警告输出频率，恢复时提示。"""
 
     INTERVAL: float = 30.0
 
     def __init__(self) -> None:
-        # 用 -INTERVAL 而非 0.0，确保 time.monotonic() 返回值小于 INTERVAL 时
-        # （如 CI 容器刚启动）仍能首次触发 warn()
+        # 初始值设为 -INTERVAL，使首次调用触发告警
         self._last_warn_at: float = -self.INTERVAL
         self._in_failure: bool = False
 
@@ -307,7 +255,6 @@ class UploadWarningThrottle:
     def reset(self, message: str = "Upload recovered, resuming normally.") -> None:
         if self._in_failure:
             console.info(message)
-        # 同 __init__，用 -INTERVAL 保证 reset 后下次 warn() 立刻触发
         self._last_warn_at = -self.INTERVAL
         self._in_failure = False
 

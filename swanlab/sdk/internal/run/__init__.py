@@ -900,9 +900,7 @@ class Run:
         sys.excepthook = self._sys_origin_excepthook
         if self._is_main_thread:
             signal.signal(signal.SIGINT, self._original_sigint_handler)
-        # 存在未确认数据时不做全局清理：保留 Run → Core → Transport → 数据的引用链，
-        # 避免失败上下文被 GC（plan §8.4）；仅状态上报失败但已排空的情况允许继续清理。
-        # 首版已知边界：全局引用会在下一次 init 时被覆盖
+        # 存在未确认上传记录时保留全局实例引用
         if self._core.has_pending_uploads():
             console.warning(
                 "Some records were not uploaded; keeping the run context in memory",

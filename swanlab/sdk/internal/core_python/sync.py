@@ -311,12 +311,10 @@ class CoreSyncPython(CoreSyncProtocol):
         self._read_executor.close()
         self._reader.close()
         finish_record = self._get_finish_record()
-        # 3. 确保结束日志已入队，等待上传线程排空，然后上报最终实验状态
+        # 2. 触发结束日志入队，等待上传线程排空并上报实验状态
         try:
             self._request_transport_finish()
             if not self._transport.finish(timeout=None):
-                # 线程退出但未排空（worker 崩溃或积压无法上传）：不伪报成功，
-                # 摘要（崩溃原因/积压数量/最近失败）由 transport 统一生成
                 return ConfirmSyncFinishResponse(success=False, message=self._transport.finish_summary())
             with safe.block(message="Failed to report run finish"):
                 stop_experiment(

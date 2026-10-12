@@ -533,7 +533,7 @@ class CorePython(CoreProtocol):
         )
 
     def has_pending_uploads(self) -> bool:
-        """是否存在未确认的上传数据（Run 判断失败上下文是否需要保留时调用）。"""
+        """是否存在未确认的上传记录。"""
         return self._transport is not None and len(self._transport.pending_records()) > 0
 
     # ---------------------------------- 确认完成 ----------------------------------
@@ -552,7 +552,6 @@ class CorePython(CoreProtocol):
             self._heartbeat.stop()
             self._heartbeat = None
         if self._transport is not None:
-            # worker 已退出但未排空：保留记录，停止后台使用者后释放 client。
             if client.exists():
                 client.reset()
             return ConfirmRunFinishResponse(success=False, message=self._transport.finish_summary())

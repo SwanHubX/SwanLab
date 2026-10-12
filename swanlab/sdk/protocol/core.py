@@ -249,7 +249,7 @@ class CoreProtocol(ABC):
     def _get_operation_when_online(self) -> GetOperationStatsResponse: ...
 
     def has_pending_uploads(self) -> bool:
-        """是否存在未确认的上传数据；仅持有上传队列的实现需要覆写（online 模式）。"""
+        """是否存在未确认的上传记录。"""
         return False
 
     def confirm_run_finish(self) -> ConfirmRunFinishResponse:

@@ -37,7 +37,7 @@ def _make_media_record(filename: str = "image.png") -> Record:
 
 
 def test_dispatch_groups_by_type(mock_ctx, make_scalar_record, make_config_record):
-    """混合类型 record 被正确分组分发。"""
+    """混合类型 record 按类型分组分发。"""
     dispatch = Dispatch(batch_size=mock_ctx.config.record_batch)
 
     metric_records = [make_scalar_record(step=1), make_scalar_record(step=2)]
@@ -63,8 +63,7 @@ def test_dispatch_groups_by_type(mock_ctx, make_scalar_record, make_config_recor
     ids=["runtime-error", "os-error"],
 )
 def test_dispatch_sender_unexpected_error_converted_to_failure(mock_ctx, make_scalar_record, error, expected_source):
-    """sender 的未预期普通异常在 chunk 边界转为失败结果：不向上抛出、记录保留，
-    原始异常仅进 failure 的内部诊断字段，消息只含安全摘要。"""
+    """sender 未预期异常转为当前分片失败结果并保留记录。"""
     mock_sender = MagicMock()
     mock_sender.upload.side_effect = error
     dispatch = Dispatch(batch_size=mock_ctx.config.record_batch, sender=mock_sender)
@@ -83,7 +82,7 @@ def test_dispatch_sender_unexpected_error_converted_to_failure(mock_ctx, make_sc
 
 
 def test_dispatch_retains_unknown_type(mock_ctx, make_scalar_record):
-    """未知 kind 无 handler：整组保留并报告失败，不静默跳过冒充完成。"""
+    """未知 record_type 保留整组记录并返回失败。"""
     dispatch = Dispatch(batch_size=mock_ctx.config.record_batch)
     record = make_scalar_record(step=1)
 
@@ -102,9 +101,9 @@ def test_dispatch_retains_unknown_type(mock_ctx, make_scalar_record):
 
 
 def test_dispatch_retains_untypeable_records(mock_ctx):
-    """无法确定 record_type 的记录：整批保留并报告，不静默丢弃。"""
+    """缺失 record_type 的记录保留并返回失败。"""
     dispatch = Dispatch(batch_size=mock_ctx.config.record_batch)
-    record = Record()  # 未设置任何 record_type
+    record = Record()
 
     result = dispatch([record])
 
@@ -114,7 +113,7 @@ def test_dispatch_retains_untypeable_records(mock_ctx):
 
 
 def test_dispatch_mixed_type_partial_failure_rollback(mock_ctx, make_scalar_record, make_config_record):
-    """混合类型中一种上传失败时，返回当前失败组和后续组，成功部分不回滚。"""
+    """混合类型中前序组失败时保留当前组与后续组。"""
     mock_sender = MagicMock()
 
     def upload_side_effect(record_type, records):
@@ -140,7 +139,7 @@ def test_dispatch_mixed_type_partial_failure_rollback(mock_ctx, make_scalar_reco
 
 
 def test_dispatch_advances_tracker_by_confirmed_records(mock_ctx, make_scalar_record):
-    """统计由 Dispatch 依据 confirmed_records 推进：成功确认的数量恰好推进一次。"""
+    """根据 confirmed_records 推进 tracker 统计。"""
     tracker = UploadTracker()
     sender = MagicMock()
     records = [make_scalar_record(step=1), make_scalar_record(step=2)]
@@ -156,7 +155,7 @@ def test_dispatch_advances_tracker_by_confirmed_records(mock_ctx, make_scalar_re
 
 
 def test_dispatch_partial_chunk_success_advances_tracker_and_keeps_tail(mock_ctx, make_scalar_record):
-    """前一个 chunk 成功、后一个失败：成功部分推进统计，失败 chunk 及后续保留。"""
+    """前序分片成功、后续分片失败时，确认成功分片并保留剩余分片。"""
     tracker = UploadTracker()
     sender = MagicMock()
     first = make_scalar_record(step=1)
@@ -174,8 +173,7 @@ def test_dispatch_partial_chunk_success_advances_tracker_and_keeps_tail(mock_ctx
 
 
 def test_dispatch_first_chunk_success_second_chunk_exception_keeps_prefix(mock_ctx, make_scalar_record):
-    """第一个 chunk 成功、第二个 chunk 抛异常：成功前缀确认且统计只推进一次，
-    失败 chunk 与未处理尾部保留。"""
+    """前序分片成功、后续分片抛异常时，确认成功前缀并保留剩余分片。"""
     tracker = UploadTracker()
     sender = MagicMock()
     first = make_scalar_record(step=1)
@@ -196,7 +194,7 @@ def test_dispatch_first_chunk_success_second_chunk_exception_keeps_prefix(mock_c
 
 
 def test_dispatch_scalar_success_media_exception_keeps_confirmed_prefix(mock_ctx, make_scalar_record):
-    """scalar 分组成功、media 分组抛异常：scalar 确认，media 保留，不整轮回滚。"""
+    """scalar 分组成功、media 分组抛异常时，确认 scalar 并保留 media。"""
     tracker = UploadTracker()
     sender = MagicMock()
 
@@ -221,7 +219,7 @@ def test_dispatch_scalar_success_media_exception_keeps_confirmed_prefix(mock_ctx
 
 
 def test_dispatch_next_round_retries_only_remaining(mock_ctx, make_scalar_record):
-    """用上一轮返回的 remaining 执行下一轮：成功前缀不会再次上传。"""
+    """下一轮重试剩余记录，不重放成功前缀。"""
     sender = MagicMock()
     first = make_scalar_record(step=1)
     second = make_scalar_record(step=2)
@@ -241,13 +239,12 @@ def test_dispatch_next_round_retries_only_remaining(mock_ctx, make_scalar_record
 
 
 def test_dispatch_result_contract_violation_retains_chunk(mock_ctx, make_scalar_record):
-    """sender 结果未覆盖全部输入（契约违约）：整段保留并报告，不静默丢数据。"""
+    """sender 返回结果记录数不匹配时保留当前及后续分片。"""
     tracker = UploadTracker()
     sender = MagicMock()
     first = make_scalar_record(step=1)
     second = make_scalar_record(step=2)
     first.num, second.num = 61, 62
-    # 返回空结果：1 条输入没有任何归属，违反结果契约
     sender.upload.return_value = UploadResult()
     dispatch = Dispatch(batch_size=1, sender=sender, tracker=tracker)
 

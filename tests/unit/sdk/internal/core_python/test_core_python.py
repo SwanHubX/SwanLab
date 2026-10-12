@@ -181,8 +181,6 @@ class TestCorePythonFinish:
         mock_heartbeat = MockHeartbeat.return_value
 
         monkeypatch.setattr("swanlab.sdk.internal.core_python.core.stop_experiment", lambda *a, **kw: None)
-        # _store_finish 在 finish_record.state != FINISHED 时会生成一条 error log record 并放入 transport，
-        # 需要注册 upload_log mock 让 transport 排空成功，否则 join 会因持续重试而超时
         monkeypatch.setattr("swanlab.sdk.internal.core_python.transport.sender.upload_log", lambda *a, **kw: None)
         core.deliver_run_finish(DeliverRunFinishRequest(finish_record=FinishRecord()))
 
@@ -226,7 +224,7 @@ class TestCorePythonFinish:
         ids=["worker-exited", "last-failure"],
     )
     def test_confirm_run_finish_failure_keeps_transport_and_stops_components(self, tmp_path, monkeypatch, summary):
-        """worker 退出但未排空：保留诊断数据，停止心跳并释放 client。"""
+        """上传未排空时保留诊断数据，停止心跳并重置 client。"""
         core = CorePython("online")
         core._ctx = make_core_ctx(tmp_path)
         set_online_params(core)
@@ -268,7 +266,6 @@ class TestCorePythonFinish:
     def test_has_pending_uploads_reflects_transport_state(self, tmp_path):
         core = CorePython("online")
         core._ctx = make_core_ctx(tmp_path)
-        # transport 未初始化或已释放
         assert core.has_pending_uploads() is False
 
         transport = MagicMock()

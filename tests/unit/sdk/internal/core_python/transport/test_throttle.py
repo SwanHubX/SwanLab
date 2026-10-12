@@ -5,11 +5,7 @@ from swanlab.sdk.internal.core_python.transport.worker import UploadWarningThrot
 
 
 def test_warn_throttles_within_interval():
-    """间隔内重复 warn() 不重复打印，超过间隔后再次打印。
-
-    INTERVAL 设为 1.0s 而非极小值，因为 Windows 上 time.monotonic() 分辨率约 15ms，
-    过小的间隔会导致连续两次 warn() 被判定为"已超过间隔"，节流失效。
-    """
+    """间隔内调用 warn() 抑制重复告警，超过间隔后输出告警。"""
     t = UploadWarningThrottle()
     t.INTERVAL = 1.0
     with patch("swanlab.sdk.internal.core_python.transport.worker.console.warning") as mock:
@@ -24,7 +20,7 @@ def test_warn_throttles_within_interval():
 
 
 def test_reset_clears_throttle_and_prints_recovery():
-    """失败状态下 reset() 打印恢复消息，之后 warn() 不再被节流。"""
+    """失败状态下调用 reset() 输出恢复信息并重置节流状态。"""
     t = UploadWarningThrottle()
     with patch("swanlab.sdk.internal.core_python.transport.worker.console.warning"):
         t.warn()
@@ -39,7 +35,7 @@ def test_reset_clears_throttle_and_prints_recovery():
 
 
 def test_reset_without_failure_no_recovery():
-    """未进入失败状态时 reset() 不打印恢复消息。"""
+    """未处于失败状态时 reset() 不输出恢复信息。"""
     t = UploadWarningThrottle()
     with patch("swanlab.sdk.internal.core_python.transport.worker.console.info") as mock_info:
         t.reset()

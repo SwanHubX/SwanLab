@@ -4,13 +4,13 @@ from swanlab.sdk.internal.core_python.transport.worker.buffer import RecordBuffe
 
 
 def test_record_buffer_has_no_records_property():
-    """不应暴露内部 records 引用。"""
+    """不暴露内部 records 属性。"""
     buf = RecordBuffer()
     assert not hasattr(buf, "records")
 
 
 def test_record_buffer_drain_clears_contents(make_scalar_record):
-    """drain() 取出全部记录并清空自身。"""
+    """drain() 取出记录并清空缓冲区。"""
     buf = RecordBuffer()
     record = make_scalar_record(step=1)
     record.num = 7
