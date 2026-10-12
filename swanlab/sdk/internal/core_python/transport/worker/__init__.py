@@ -56,7 +56,7 @@ class Transport:
         self._retry = retry if retry is not None else RetryPolicy()
         self._retry_at: Optional[float] = None
         self._failed_rounds = 0
-         # 排空标志与 worker 崩溃原因
+        # 排空标志与 worker 崩溃原因
         self._drained = False
         self._worker_error: Optional[BaseException] = None
 
