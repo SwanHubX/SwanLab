@@ -548,8 +548,6 @@ class CorePython(CoreProtocol):
             self._heartbeat.stop()
             self._heartbeat = None
         if self._transport is not None:
-            # 未确认上传记录的处置属于 confirm_finish 职责：保留 transport 在后台重试至进程退出，
-            # 停止心跳并重置 client，仅向调用方报告失败摘要
             if client.exists():
                 client.reset()
             return ConfirmRunFinishResponse(success=False, message=self._transport.finish_summary())
