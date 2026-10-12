@@ -13,6 +13,8 @@ from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import IO, Optional, Sequence, Union
 
+import requests
+
 from swanlab.exceptions import ApiError
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnClass, ColumnRecord
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
@@ -164,6 +166,14 @@ def transport_failure(
     )
 
 
+def is_retryable_error(error: requests.RequestException) -> bool:
+    """判断请求失败是否属于可恢复的网络或服务端故障。"""
+    if not isinstance(error, ApiError):
+        return True
+    status = getattr(error.response, "status_code", None)
+    return status is None or status >= 500
+
+
 def encode_column(record: ColumnRecord) -> UploadColumn:
     """将列记录编码为后端所需的格式（DTO）。"""
     # TODO 在 v0.11 版本 精简一下 column 的类型定义
@@ -219,6 +229,7 @@ __all__ = [
     "collect_media_payloads",
     "compute_md5",
     "encode_column",
+    "is_retryable_error",
     "resolve_save_source",
     "save_tracker_key",
     "transport_failure",

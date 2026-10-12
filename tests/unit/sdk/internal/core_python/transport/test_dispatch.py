@@ -48,7 +48,8 @@ def test_dispatch_groups_by_type(mock_ctx, make_scalar_record, make_config_recor
     ) as mock_handle:
         result = dispatch(metric_records + config_records)
         calls = mock_handle.call_args_list
-        assert result.ok
+        assert result.remaining_records == []
+        assert result.failures == []
         assert result.confirmed_records == metric_records + config_records
         assert calls[0] == (("scalar", metric_records),)
         assert calls[1] == (("save", config_records),)
@@ -63,7 +64,7 @@ def test_dispatch_groups_by_type(mock_ctx, make_scalar_record, make_config_recor
     ids=["runtime-error", "os-error"],
 )
 def test_dispatch_sender_unexpected_error_converted_to_failure(mock_ctx, make_scalar_record, error, expected_source):
-    """sender 未预期异常转为当前分片失败结果并保留记录。"""
+    """sender 未预期异常转为失败结果，本地错误终结，内部错误保留重试。"""
     mock_sender = MagicMock()
     mock_sender.upload.side_effect = error
     dispatch = Dispatch(batch_size=mock_ctx.config.record_batch, sender=mock_sender)
@@ -73,16 +74,20 @@ def test_dispatch_sender_unexpected_error_converted_to_failure(mock_ctx, make_sc
 
     result = dispatch(records)
 
-    assert result.confirmed_records == []
-    assert result.remaining_records == records
+    if expected_source == "local_data":
+        assert result.confirmed_records == records
+        assert result.remaining_records == []
+    else:
+        assert result.confirmed_records == []
+        assert result.remaining_records == records
     failure = result.failures[0]
     assert failure.source == expected_source
     assert type(error).__name__ in failure.message
     assert failure.exception is error
 
 
-def test_dispatch_retains_unknown_type(mock_ctx, make_scalar_record):
-    """未知 record_type 保留整组记录并返回失败。"""
+def test_dispatch_settles_unknown_type(mock_ctx, make_scalar_record):
+    """未知 record_type 终结整组记录并返回失败。"""
     dispatch = Dispatch(batch_size=mock_ctx.config.record_batch)
     record = make_scalar_record(step=1)
 
@@ -94,20 +99,22 @@ def test_dispatch_retains_unknown_type(mock_ctx, make_scalar_record):
         with patch("swanlab.sdk.internal.core_python.transport.dispatch.console.warning") as mock_warning:
             result = dispatch([record])
 
-    assert result.remaining_records == [record]
+    assert result.confirmed_records == [record]
+    assert result.remaining_records == []
     assert result.failures[0].source == "local_data"
     assert "unknown record type" in result.failures[0].message
     mock_warning.assert_called_once()
 
 
-def test_dispatch_retains_untypeable_records(mock_ctx):
-    """缺失 record_type 的记录保留并返回失败。"""
+def test_dispatch_settles_untypeable_records(mock_ctx):
+    """缺失 record_type 的记录终结并返回失败。"""
     dispatch = Dispatch(batch_size=mock_ctx.config.record_batch)
     record = Record()
 
     result = dispatch([record])
 
-    assert result.remaining_records == [record]
+    assert result.confirmed_records == [record]
+    assert result.remaining_records == []
     assert len(result.failures) == 1
     assert result.failures[0].source == "local_data"
 
@@ -132,7 +139,7 @@ def test_dispatch_mixed_type_partial_failure_rollback(mock_ctx, make_scalar_reco
     with patch("swanlab.sdk.internal.core_python.transport.dispatch.console"):
         result = dispatch(metric_records + config_records)
 
-    assert not result.ok
+    assert result.remaining_records
     assert result.remaining_records[0] is metric_records[0]
     assert result.remaining_records[1] is config_records[0]
     assert result.failures[0].message == "upload failed"
@@ -150,7 +157,8 @@ def test_dispatch_advances_tracker_by_confirmed_records(mock_ctx, make_scalar_re
 
     result = dispatch(records)
 
-    assert result.ok
+    assert result.remaining_records == []
+    assert result.failures == []
     assert tracker.snapshot().uploaded_records == 2
 
 
@@ -233,7 +241,8 @@ def test_dispatch_next_round_retries_only_remaining(mock_ctx, make_scalar_record
 
     second_round = dispatch(first_round.remaining_records)
 
-    assert second_round.ok
+    assert second_round.remaining_records == []
+    assert second_round.failures == []
     uploaded_chunks = [call.args[1] for call in sender.upload.call_args_list]
     assert uploaded_chunks == [[first], [second], [second]]
 

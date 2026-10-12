@@ -8,17 +8,7 @@
 import math
 import random
 import time
-from dataclasses import dataclass
-from typing import Callable, Optional, Sequence, Tuple
-
-from swanlab.sdk.typings.core_python.transport import UploadFailure
-
-
-@dataclass(frozen=True)
-class RetrySchedule:
-    """单轮失败后的重试调度结果。"""
-
-    delay: float
+from typing import Callable, Optional, Tuple
 
 
 class RetryPolicy:
@@ -49,9 +39,9 @@ class RetryPolicy:
         else:
             self._saturation_exponent = 0
 
-    def schedule(self, _failures: Sequence[UploadFailure], failed_rounds: int) -> RetrySchedule:
+    def schedule(self, failed_rounds: int) -> float:
         """根据连续失败轮数计算指数退避间隔。"""
-        return RetrySchedule(self._backoff_delay(failed_rounds))
+        return self._backoff_delay(failed_rounds)
 
     def _backoff_delay(self, failed_rounds: int) -> float:
         """计算带随机抖动的指数退避等待时长。"""
@@ -64,5 +54,4 @@ class RetryPolicy:
 
 __all__ = [
     "RetryPolicy",
-    "RetrySchedule",
 ]

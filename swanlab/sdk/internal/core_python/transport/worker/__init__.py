@@ -20,7 +20,7 @@ from ..dispatch import Dispatch
 from ..sender import HttpRecordSender
 from ..tracker import UploadTracker
 from .buffer import RecordBuffer
-from .utils import RetryPolicy, RetrySchedule
+from .utils import RetryPolicy
 
 
 class Transport:
@@ -170,7 +170,7 @@ class Transport:
                 if deadline is not None:
                     remaining = deadline - self._retry.clock()
                     while remaining > 0:
-                        self._cond.wait(timeout=min(remaining, threading.TIMEOUT_MAX))
+                        self._cond.wait(timeout=remaining)
                         deadline = self._retry_at
                         if deadline is None:
                             break
@@ -200,21 +200,21 @@ class Transport:
                     remaining, failures = pending, []
                 else:
                     remaining, failures = result.remaining_records, result.failures
-                schedule: Optional[RetrySchedule] = None
+                retry_delay: Optional[float] = None
                 with self._cond:
                     self._pending = remaining
                     self._last_failures = failures
-                    if not remaining and not failures:
+                    if not remaining:
                         self._failed_rounds = 0
                         self._retry_at = None
                     else:
                         self._failed_rounds += 1
-                        schedule = self._retry.schedule(failures, self._failed_rounds)
-                        self._retry_at = self._retry.clock() + schedule.delay
-                if schedule is None:
+                        retry_delay = self._retry.schedule(self._failed_rounds)
+                        self._retry_at = self._retry.clock() + retry_delay
+                if retry_delay is None:
                     self._throttle.reset()
                 else:
-                    self._throttle.warn(message=self._failure_message(schedule, failures, remaining))
+                    self._throttle.warn(message=self._failure_message(retry_delay, failures, remaining))
         except BaseException as e:
             self._worker_error = e
             console.error(f"Transport worker exited unexpectedly: {type(e).__name__}: {e}")
@@ -226,13 +226,13 @@ class Transport:
                 self._tracker.set_state(CoreState.CORE_STATE_FINISHED)
 
     @staticmethod
-    def _failure_message(schedule: RetrySchedule, failures: List[UploadFailure], remaining: List[Record]) -> str:
+    def _failure_message(retry_delay: float, failures: List[UploadFailure], remaining: List[Record]) -> str:
         """生成上传失败节流告警文案。"""
         if failures:
             prefix = f"Upload failed ({failures[0].summary})"
         else:
             prefix = "Upload did not complete"
-        return f"{prefix}; retrying in {schedule.delay:.0f}s; {len(remaining)} record(s) retained in this process."
+        return f"{prefix}; retrying in {retry_delay:.0f}s; {len(remaining)} record(s) retained in this process."
 
 
 class UploadWarningThrottle:

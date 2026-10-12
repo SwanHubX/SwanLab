@@ -70,7 +70,7 @@ class Dispatch:
             records_by_type = group_records_by_type(records)
         except ValueError as e:
             return UploadResult(
-                remaining_records=list(records),
+                confirmed_records=list(records),
                 failures=[UploadFailure(source="local_data", message=str(e), records=list(records))],
             )
         confirmed: List[Record] = []
@@ -96,9 +96,9 @@ class Dispatch:
     def _upload_record_type(self, record_type: str, records: List[Record]) -> UploadResult:
         """上传单个 record_type 分组。"""
         if record_type not in self._RECORD_TYPES:
-            console.warning(f"No handler for record kind={record_type!r}, retaining {len(records)} record(s).")
+            console.warning(f"No handler for record kind={record_type!r}, skipping {len(records)} record(s).")
             return UploadResult(
-                remaining_records=list(records),
+                confirmed_records=list(records),
                 failures=[
                     UploadFailure(
                         source="local_data", message=f"unknown record type {record_type!r}", records=list(records)
@@ -148,7 +148,8 @@ class Dispatch:
         except Exception as e:
             source: FailureSource = "local_data" if isinstance(e, OSError) else "worker_internal"
             return UploadResult(
-                remaining_records=list(chunk),
+                confirmed_records=list(chunk) if source == "local_data" else [],
+                remaining_records=[] if source == "local_data" else list(chunk),
                 failures=[
                     UploadFailure(
                         source=source,

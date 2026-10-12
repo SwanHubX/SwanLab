@@ -39,7 +39,14 @@ from swanlab.sdk.typings.core_python.api.save import (
 from swanlab.sdk.typings.core_python.api.upload import UploadResource
 from swanlab.sdk.typings.core_python.transport import UploadFailure, UploadResult
 
-from .utils import MediaPayload, compute_md5, resolve_save_source, save_tracker_key, transport_failure
+from .utils import (
+    MediaPayload,
+    compute_md5,
+    is_retryable_error,
+    resolve_save_source,
+    save_tracker_key,
+    transport_failure,
+)
 
 if TYPE_CHECKING:
     from swanlab.sdk.internal.core_python.transport.tracker import UploadTracker
@@ -107,7 +114,7 @@ def upload_save_files(
     for record in records:
         if not record.HasField("save"):
             failures.append(UploadFailure(source="local_data", message="record without save payload", records=[record]))
-            remaining.append(record)
+            confirmed.append(record)
             continue
         save = record.save
         source_ref_path = resolve_save_source(ctx, save)
@@ -116,12 +123,12 @@ def upload_save_files(
             failures.append(
                 UploadFailure(source="local_data", message=f"save file not found: {save.source_path}", records=[record])
             )
-            remaining.append(record)
+            confirmed.append(record)
             continue
         try:
             size = source_ref_path.stat().st_size
         except OSError as e:
-            console.warning(f"Failed to stat save file, retained for retry: {source_ref_path}: {e}")
+            console.warning(f"Failed to stat save file, skipping: {source_ref_path}: {e}")
             failures.append(
                 UploadFailure(
                     source="local_data",
@@ -130,7 +137,7 @@ def upload_save_files(
                     exception=e,
                 )
             )
-            remaining.append(record)
+            confirmed.append(record)
             continue
         if size > config.save_size:
             console.warning(f"Save file exceeds size limit ({size} > {config.save_size}): {source_ref_path}")
@@ -139,20 +146,20 @@ def upload_save_files(
                     source="local_data", message=f"save file exceeds size limit: {source_ref_path}", records=[record]
                 )
             )
-            remaining.append(record)
+            confirmed.append(record)
             continue
         pending.append((str(source_ref_path), size, save.name, record))
     if not pending:
-        return UploadResult(remaining_records=remaining, failures=failures)
+        return UploadResult(confirmed_records=confirmed, remaining_records=remaining, failures=failures)
     if config.save_batch <= 0:
-        console.warning(f"Invalid save batch size ({config.save_batch}), retaining save upload")
+        console.warning(f"Invalid save batch size ({config.save_batch}), skipping save upload")
         batch_records = [record for *_, record in pending]
         failures.append(
             UploadFailure(
                 source="local_data", message=f"invalid save batch size {config.save_batch}", records=batch_records
             )
         )
-        return UploadResult(remaining_records=remaining + batch_records, failures=failures)
+        return UploadResult(confirmed_records=confirmed + batch_records, remaining_records=remaining, failures=failures)
 
     for index in range(0, len(pending), config.save_batch):
         result = _upload_save_batch(
@@ -188,7 +195,7 @@ def _upload_save_batch(
             try:
                 md5 = md5_futures[source_path].result()
             except Exception as e:
-                console.warning(f"Save file MD5 computation failed, retained for retry: {source_path}: {e}")
+                console.warning(f"Save file MD5 computation failed, skipping: {source_path}: {e}")
                 failures.append(
                     UploadFailure(
                         source="local_data",
@@ -197,7 +204,7 @@ def _upload_save_batch(
                         exception=e,
                     )
                 )
-                remaining.append(record)
+                confirmed.append(record)
                 continue
             entry: SaveFileEntry = {
                 "path": name,
@@ -243,8 +250,10 @@ def _upload_small_saves(
     try:
         resp = prepare_save_files(ctx.experiment_id, files=prepare_items)
     except requests.RequestException as e:
+        retryable = is_retryable_error(e)
         return UploadResult(
-            remaining_records=[task.record for task in tasks],
+            confirmed_records=[] if retryable else [task.record for task in tasks],
+            remaining_records=[task.record for task in tasks] if retryable else [],
             failures=[
                 transport_failure([task.record for task in tasks], e, source="swanlab_api", stage="request_address")
             ],
@@ -307,8 +316,13 @@ def _upload_small_saves(
         try:
             complete_save_files(ctx.experiment_id, files=complete_items)
         except requests.RequestException as e:
+            retryable = is_retryable_error(e)
+            if not retryable and tracker is not None:
+                for task in uploaded + skipped:
+                    tracker.fail_file(task.tracker_key)
             return UploadResult(
-                remaining_records=[task.record for task in uploaded + skipped],
+                confirmed_records=[] if retryable else [task.record for task in uploaded + skipped],
+                remaining_records=[task.record for task in uploaded + skipped] if retryable else [],
                 failures=failures
                 + [
                     transport_failure(
@@ -322,6 +336,9 @@ def _upload_small_saves(
     for task in uploaded:
         if tracker is not None:
             tracker.finish_file(task.tracker_key)
+    for task in skipped:
+        if tracker is not None:
+            tracker.fail_file(task.tracker_key)
     if uploaded:
         console.info(f"Synced {len(uploaded)} save file(s)")
     return UploadResult(
@@ -355,8 +372,10 @@ def _upload_large_saves(
     try:
         resp = prepare_multipart_save(ctx.experiment_id, files=prepare_items)
     except requests.RequestException as e:
+        retryable = is_retryable_error(e)
         return UploadResult(
-            remaining_records=[task.record for task in tasks],
+            confirmed_records=[] if retryable else [task.record for task in tasks],
+            remaining_records=[task.record for task in tasks] if retryable else [],
             failures=[
                 transport_failure([task.record for task in tasks], e, source="swanlab_api", stage="request_address")
             ],
@@ -407,6 +426,9 @@ def _upload_large_saves(
             complete_save_files(ctx.experiment_id, files=failed_items)
 
     if not ready:
+        if tracker is not None:
+            for task in skipped:
+                tracker.fail_file(task.tracker_key)
         return UploadResult(
             confirmed_records=[task.record for task in skipped],
             failures=failures,
@@ -420,13 +442,21 @@ def _upload_large_saves(
             ],
         )
     except requests.RequestException as e:
-        # complete-multipart 失败时，已上传的分片记录保留重试（后端负责 finalize）
+        # complete-multipart 遇到网络或 5xx 时保留重试，确定性 4xx 终结。
+        retryable = is_retryable_error(e)
+        if not retryable and tracker is not None:
+            for task in skipped + [task for task, _, _ in ready]:
+                tracker.fail_file(task.tracker_key)
         return UploadResult(
-            confirmed_records=[task.record for task in skipped],
-            remaining_records=[task.record for task, _, _ in ready],
+            confirmed_records=[task.record for task in skipped]
+            + ([] if retryable else [task.record for task, _, _ in ready]),
+            remaining_records=[task.record for task, _, _ in ready] if retryable else [],
             failures=failures
             + [transport_failure([task.record for task, _, _ in ready], e, source="swanlab_api", stage="complete")],
         )
+    for task in skipped:
+        if tracker is not None:
+            tracker.fail_file(task.tracker_key)
     for task, _, _ in ready:
         if tracker is not None:
             tracker.finish_file(task.tracker_key)

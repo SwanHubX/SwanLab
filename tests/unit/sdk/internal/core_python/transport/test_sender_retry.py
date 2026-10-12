@@ -4,6 +4,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+import requests
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.exceptions import ApiError
@@ -15,6 +16,7 @@ from swanlab.sdk.internal.core_python.api import save as save_api
 from swanlab.sdk.internal.core_python.api import upload as upload_api
 from swanlab.sdk.internal.core_python.context import CoreConfig, CoreContext
 from swanlab.sdk.internal.core_python.transport.sender import HttpRecordSender
+from swanlab.sdk.internal.core_python.transport.sender.utils import is_retryable_error
 from swanlab.sdk.internal.core_python.transport.tracker import UploadTracker
 
 
@@ -35,6 +37,15 @@ def _make_api_error(status_code: int) -> ApiError:
         code="test-error",
         message=f"http {status_code}",
     )
+
+
+@pytest.mark.parametrize("status, expected", [(400, False), (429, False), (500, True), (503, True)])
+def test_api_error_retryability_uses_minimal_status_rule(status, expected):
+    assert is_retryable_error(_make_api_error(status)) is expected
+
+
+def test_network_error_is_retryable():
+    assert is_retryable_error(requests.ConnectionError("connection refused")) is True
 
 
 def _make_sender(tmp_path: Path) -> HttpRecordSender:
@@ -184,9 +195,9 @@ def test_upload_api_uses_retries_zero(monkeypatch, api_func, args, kwargs):
 
 
 @pytest.mark.parametrize("record_type, api_func_name, make_record", _RETRY_CONTRACT_CASES)
-@pytest.mark.parametrize("status", [400, 502], ids=["4xx", "5xx"])
-def test_http_error_becomes_failure_result(tmp_path, record_type, api_func_name, make_record, status):
-    """HTTP 失败时保留记录与错误详情，不推进 tracker 统计。"""
+@pytest.mark.parametrize("status, retryable", [(400, False), (502, True)], ids=["4xx", "5xx"])
+def test_http_error_becomes_failure_result(tmp_path, record_type, api_func_name, make_record, status, retryable):
+    """4xx 终结记录，5xx 保留重试，两者都保留错误详情。"""
     tracker = UploadTracker()
     sender = _make_sender(tmp_path)
     sender.set_tracker(tracker)
@@ -198,8 +209,8 @@ def test_http_error_becomes_failure_result(tmp_path, record_type, api_func_name,
     ):
         result = sender.upload(record_type, [record])
 
-    assert result.confirmed_records == []
-    assert result.remaining_records == [record]
+    assert result.confirmed_records == ([] if retryable else [record])
+    assert result.remaining_records == ([record] if retryable else [])
     failure = result.failures[0]
     assert failure.status == status
     assert failure.source == "swanlab_api"
@@ -220,9 +231,9 @@ def test_success_returns_confirmed(tmp_path, record_type, api_func_name, make_re
     with patch(f"swanlab.sdk.internal.core_python.transport.sender.{api_func_name}"):
         result = sender.upload(record_type, [record])
 
-    assert result.ok
     assert result.confirmed_records == [record]
     assert result.remaining_records == []
+    assert result.failures == []
     assert tracker.snapshot().uploaded_records == 0
 
 
@@ -247,7 +258,7 @@ def test_mixed_batch_http_failure_splits_failure_sources(
     ):
         result = sender.upload(record_type, [good, bad])
 
-    assert result.confirmed_records == []
+    assert result.confirmed_records == [bad]
     # 只有有效记录保留重试；无效记录（blocked）不进 remaining
     assert result.remaining_records == [good]
     assert bad not in result.remaining_records

@@ -39,7 +39,7 @@ from swanlab.sdk.typings.core_python.api.upload import (
 from swanlab.sdk.typings.core_python.transport import UploadFailure, UploadResult
 
 from .files import put_media_resources, upload_save_files
-from .utils import collect_media_payloads, encode_column, resolve_save_source, transport_failure
+from .utils import collect_media_payloads, encode_column, is_retryable_error, resolve_save_source, transport_failure
 
 if TYPE_CHECKING:
     from swanlab.sdk.internal.core_python.transport.tracker import UploadTracker
@@ -104,20 +104,23 @@ class HttpRecordSender:
         if handler is None:
             console.warning(f"No upload handler registered for record type {record_type!r}.")
             return UploadResult(
-                remaining_records=list(records),
+                confirmed_records=list(records),
                 failures=[self._blocked_failure(records, f"no upload handler for record type {record_type!r}")],
             )
         try:
             return handler(records)
         except requests.RequestException as e:
+            retryable = is_retryable_error(e)
             return UploadResult(
-                remaining_records=list(records),
+                confirmed_records=[] if retryable else list(records),
+                remaining_records=list(records) if retryable else [],
                 failures=[transport_failure(list(records), e, source="swanlab_api")],
             )
 
     def upload_column(self, records: Sequence[Record], batch_size: int = 3000) -> UploadResult:
         """分批上传列定义。"""
         confirmed: List[Record] = []
+        failures: List[UploadFailure] = []
         for start in range(0, len(records), batch_size):
             batch = list(records[start : start + batch_size])
             columns = [encode_column(record.column) for record in batch]
@@ -125,13 +128,17 @@ class HttpRecordSender:
                 upload_columns(self._username, self._project, columns={"series": columns})
             except requests.RequestException as e:
                 failure = transport_failure(batch, e, source="swanlab_api", stage="submit_metrics")
-                return UploadResult(
-                    confirmed_records=confirmed,
-                    remaining_records=list(records[start:]),
-                    failures=[failure],
-                )
+                failures.append(failure)
+                if is_retryable_error(e):
+                    return UploadResult(
+                        confirmed_records=confirmed,
+                        remaining_records=list(records[start:]),
+                        failures=failures,
+                    )
+                confirmed.extend(batch)
+                continue
             confirmed.extend(batch)
-        return UploadResult(confirmed_records=confirmed)
+        return UploadResult(confirmed_records=confirmed, failures=failures)
 
     def upload_scalar(self, records: Sequence[Record]) -> UploadResult:
         metrics: UploadScalarBatch = []
@@ -155,7 +162,7 @@ class HttpRecordSender:
         console.debug(f"HTTP upload: upload_scalar with metrics count: {len(metrics)}")
         if not metrics:
             return UploadResult(
-                remaining_records=list(records),
+                confirmed_records=list(records),
                 failures=[self._blocked_failure(blocked or list(records), "scalar record without value or timestamp")],
             )
         try:
@@ -164,13 +171,14 @@ class HttpRecordSender:
             failures = [transport_failure(confirmed, e, source="swanlab_api", stage="submit_metrics")]
             if blocked:
                 failures.append(self._blocked_failure(blocked, "scalar record without value or timestamp"))
+            retryable = is_retryable_error(e)
             return UploadResult(
-                remaining_records=confirmed,
+                confirmed_records=blocked + ([] if retryable else confirmed),
+                remaining_records=confirmed if retryable else [],
                 failures=failures,
             )
         return UploadResult(
-            confirmed_records=confirmed,
-            remaining_records=blocked,
+            confirmed_records=confirmed + blocked,
             failures=[self._blocked_failure(blocked, "scalar record without value or timestamp")] if blocked else [],
         )
 
@@ -196,7 +204,7 @@ class HttpRecordSender:
         console.debug(f"Sending log HTTP request: metrics={len(metrics)}", write_to_tty=False)
         if not metrics:
             return UploadResult(
-                remaining_records=list(records),
+                confirmed_records=list(records),
                 failures=[self._blocked_failure(blocked or list(records), "log record without line or timestamp")],
             )
         try:
@@ -205,38 +213,56 @@ class HttpRecordSender:
             failures = [transport_failure(confirmed, e, source="swanlab_api", stage="submit_metrics")]
             if blocked:
                 failures.append(self._blocked_failure(blocked, "log record without line or timestamp"))
+            retryable = is_retryable_error(e)
             return UploadResult(
-                remaining_records=confirmed,
+                confirmed_records=blocked + ([] if retryable else confirmed),
+                remaining_records=confirmed if retryable else [],
                 failures=failures,
             )
         console.debug(f"Log HTTP request completed: metrics={len(metrics)}", write_to_tty=False)
         return UploadResult(
-            confirmed_records=confirmed,
-            remaining_records=blocked,
+            confirmed_records=confirmed + blocked,
             failures=[self._blocked_failure(blocked, "log record without line or timestamp")] if blocked else [],
         )
 
     def upload_media(self, records: Sequence[Record]) -> UploadResult:
         """收集媒体载荷，上传至对象存储后提交媒体指标。"""
         plan = collect_media_payloads(self._ctx, records)
+        blocked_records = [record for failure in plan.blocked_failures for record in failure.records]
         if not plan.payloads:
             return UploadResult(
-                remaining_records=list(records),
+                confirmed_records=list(records),
                 failures=plan.blocked_failures or [self._blocked_failure(records, "no media payload collected")],
             )
         try:
             put_media_resources(self._ensure_session(), self._experiment_id, plan.payloads, tracker=self._tracker)
         except requests.RequestException as e:
+            if self._tracker is not None:
+                for payload in plan.payloads:
+                    self._tracker.fail_file(payload.tracker_key)
             return UploadResult(
-                remaining_records=list(records),
+                confirmed_records=list(records),
                 failures=plan.blocked_failures
                 + [transport_failure(list(records), e, source="object_storage", stage="transfer")],
+            )
+        except OSError as e:
+            if self._tracker is not None:
+                for payload in plan.payloads:
+                    self._tracker.fail_file(payload.tracker_key)
+            return UploadResult(
+                confirmed_records=list(records),
+                failures=plan.blocked_failures + [self._blocked_failure(plan.metric_records, type(e).__name__)],
             )
         try:
             upload_media(self._project_id, self._experiment_id, metrics=plan.metrics)
         except requests.RequestException as e:
+            retryable = is_retryable_error(e)
+            if not retryable and self._tracker is not None:
+                for payload in plan.payloads:
+                    self._tracker.fail_file(payload.tracker_key)
             return UploadResult(
-                remaining_records=list(records),
+                confirmed_records=blocked_records + ([] if retryable else plan.metric_records),
+                remaining_records=plan.metric_records if retryable else [],
                 failures=plan.blocked_failures
                 + [transport_failure(plan.metric_records, e, source="swanlab_api", stage="submit_metrics")],
             )
@@ -244,8 +270,7 @@ class HttpRecordSender:
             for payload in plan.payloads:
                 self._tracker.finish_file(payload.tracker_key)
         return UploadResult(
-            confirmed_records=plan.metric_records,
-            remaining_records=[failure.records[0] for failure in plan.blocked_failures],
+            confirmed_records=plan.metric_records + blocked_records,
             failures=plan.blocked_failures,
         )
 
@@ -258,14 +283,14 @@ class HttpRecordSender:
         for record in records:
             if not record.HasField("save"):
                 failures.append(self._blocked_failure([record], "record without save payload"))
-                remaining.append(record)
+                confirmed.append(record)
                 continue
             save = record.save
             if save.type == SaveType.SAVE_TYPE_CUSTOM:
                 if save.HasField("payload"):
                     console.warning(f"CUSTOM save must not carry payload: {save.name or save.source_path}")
                     failures.append(self._blocked_failure([record], "CUSTOM save must not carry payload"))
-                    remaining.append(record)
+                    confirmed.append(record)
                     continue
                 custom_records.append(record)
                 continue
@@ -294,13 +319,13 @@ class HttpRecordSender:
         data = self.read_internal_save(save)
         if data is None:
             return UploadResult(
-                remaining_records=[record],
+                confirmed_records=[record],
                 failures=[self._blocked_failure([record], f"internal save content unavailable: {save.source_path}")],
             )
         content = self.decode_internal_save(save.type, data)
         if content is None:
             return UploadResult(
-                remaining_records=[record],
+                confirmed_records=[record],
                 failures=[self._blocked_failure([record], f"internal save payload unparseable: {save.type}")],
             )
         try:
@@ -313,8 +338,10 @@ class HttpRecordSender:
             elif save.type == SaveType.SAVE_TYPE_CONFIG:
                 upload_config(self._username, self._project, self._experiment_id, content=content)
         except requests.RequestException as e:
+            retryable = is_retryable_error(e)
             return UploadResult(
-                remaining_records=[record],
+                confirmed_records=[] if retryable else [record],
+                remaining_records=[record] if retryable else [],
                 failures=[transport_failure([record], e, source="swanlab_api", stage="submit_metrics")],
             )
         return UploadResult(confirmed_records=[record])

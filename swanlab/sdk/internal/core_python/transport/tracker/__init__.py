@@ -188,6 +188,11 @@ class UploadTracker:
                     self._uploaded_size += remaining
                 self._uploaded_number += 1
 
+    def fail_file(self, key: str) -> None:
+        """移除已终结但未成功上传的文件，不计入完成字节与文件数。"""
+        with self._lock:
+            self._files.pop(key, None)
+
     def snapshot(self) -> OperationStats:
         with self._lock:
             stats = OperationStats(

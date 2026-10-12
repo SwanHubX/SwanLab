@@ -8,7 +8,7 @@ from swanlab.proto.swanlab.operation.v1.operation_pb2 import CoreState
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.core_python.transport.tracker import UploadTracker
 from swanlab.sdk.internal.core_python.transport.worker import Transport
-from swanlab.sdk.internal.core_python.transport.worker.utils import RetryPolicy, RetrySchedule
+from swanlab.sdk.internal.core_python.transport.worker.utils import RetryPolicy
 from swanlab.sdk.typings.core_python.transport import UploadFailure, UploadResult
 
 
@@ -43,10 +43,10 @@ class _RecordingPolicy(RetryPolicy):
             max_delay=max_delay,
             rng=lambda _low, _high: 1.0,
         )
-        self.calls: list[tuple[int, RetrySchedule]] = []
+        self.calls: list[tuple[int, float]] = []
 
-    def schedule(self, failures, failed_rounds: int) -> RetrySchedule:
-        result = super().schedule(failures, failed_rounds)
+    def schedule(self, failed_rounds: int) -> float:
+        result = super().schedule(failed_rounds)
         self.calls.append((failed_rounds, result))
         return result
 
@@ -388,24 +388,22 @@ def test_transport_backoff_counter_resets_after_success_round(make_ctx, make_sca
     assert len(attempts) == 5
 
     assert [round_ for round_, _ in policy.calls] == [1, 2, 1]
-    delays = [schedule.delay for _, schedule in policy.calls]
+    delays = [delay for _, delay in policy.calls]
     assert delays[0] < delays[1]
     assert delays[2] == delays[0]
 
 
-def test_transport_blocked_failure_uses_blocked_interval(make_ctx, make_scalar_record):
-    """local_data 失败使用 blocked 间隔调度，恢复后完成排空。"""
+def test_transport_terminal_failure_does_not_retry(make_ctx, make_scalar_record):
+    """没有 remaining records 的失败只记录诊断信息，不触发重试。"""
     attempts = []
 
     class BlockedDispatch:
         def __call__(self, records):
             attempts.append(len(attempts))
-            if len(attempts) == 1:
-                return UploadResult(
-                    remaining_records=list(records),
-                    failures=[UploadFailure(source="local_data", message="save file not found", records=list(records))],
-                )
-            return _ok_result(records)
+            return UploadResult(
+                confirmed_records=list(records),
+                failures=[UploadFailure(source="local_data", message="save file not found", records=list(records))],
+            )
 
     policy = _RecordingPolicy(base_delay=0.05, max_delay=0.05)
     ctx = make_ctx(batch_interval=0.01)
@@ -415,65 +413,11 @@ def test_transport_blocked_failure_uses_blocked_interval(make_ctx, make_scalar_r
     record = make_scalar_record(step=1)
     record.num = 1
     t.put([record])
-    assert _wait_attempts(attempts, 2)
     assert t.finish()
 
-    assert len(policy.calls) == 1
-    assert policy.calls[0][1].delay == 0.05
+    assert attempts == [0]
+    assert policy.calls == []
     assert t.pending_records() == []
-
-
-def test_transport_huge_retry_delay_waits_in_slices_without_crashing(make_ctx, make_scalar_record, monkeypatch):
-    """大重试间隔按 TIMEOUT_MAX 分段等待。"""
-    attempts = []
-    waiting = threading.Event()
-    timeout_max = 0.05
-    monkeypatch.setattr(threading, "TIMEOUT_MAX", timeout_max)
-
-    class FlakyDispatch:
-        def __call__(self, records):
-            attempts.append(len(attempts))
-            if len(attempts) == 1:
-                return _failed_result(records)
-            return _ok_result(records)
-
-    class HugeDelayPolicy(RetryPolicy):
-        def schedule(self, failures, failed_rounds: int) -> RetrySchedule:
-            return RetrySchedule(1e20)
-
-    ctx = make_ctx(batch_interval=0.01)
-    t = _make_transport(ctx, retry=HugeDelayPolicy())
-    original_wait = t._cond.wait
-
-    def wait_in_slice(timeout=None):
-        assert timeout is not None and 0 <= timeout <= timeout_max
-        if timeout == timeout_max:
-            waiting.set()
-        return original_wait(timeout=timeout)
-
-    monkeypatch.setattr(t._cond, "wait", wait_in_slice)
-    t.start()
-    t._dispatcher = FlakyDispatch()  # type: ignore
-    record = make_scalar_record(step=1)
-    record.num = 1
-
-    t.put([record])
-    try:
-        assert waiting.wait(timeout=2.0)
-        assert t.is_alive() is True
-        assert len(attempts) == 1
-        assert t.pending_records() == [record]
-
-        with t._cond:
-            t._retry_at = t._retry.clock()
-            t._cond.notify_all()
-        assert t.finish(timeout=2.0)
-        assert len(attempts) == 2
-    finally:
-        with t._cond:
-            t._retry_at = t._retry.clock()
-            t._cond.notify_all()
-        t.finish(timeout=2.0)
 
 
 def test_transport_worker_crash_retains_data_and_finish_reports_failure(make_ctx, make_scalar_record):

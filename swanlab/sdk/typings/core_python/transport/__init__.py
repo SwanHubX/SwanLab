@@ -42,14 +42,10 @@ class UploadFailure:
 class UploadResult:
     """单次上传或分发汇总结果。"""
 
+    # confirmed_records 表示本轮已终结、不再重试的记录，包括成功记录和已报告的确定性失败记录。
     confirmed_records: List[Record] = field(default_factory=list)
     remaining_records: List[Record] = field(default_factory=list)
     failures: List[UploadFailure] = field(default_factory=list)
-
-    @property
-    def ok(self) -> bool:
-        """本轮任务是否完成。"""
-        return not self.remaining_records and not self.failures
 
 
 __all__ = [

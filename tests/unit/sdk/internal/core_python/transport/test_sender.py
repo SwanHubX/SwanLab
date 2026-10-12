@@ -720,8 +720,8 @@ def test_upload_save_rejects_invalid_payload_usage(tmp_path: Path):
     assert any("Internal save payload missing" in message for message in messages)
 
 
-def test_upload_save_retains_unparseable_payload(tmp_path: Path):
-    """payload 解析失败时保留记录并报告失败，不发起上传。"""
+def test_upload_save_settles_unparseable_payload(tmp_path: Path):
+    """payload 解析失败时终结记录并报告失败，不发起上传。"""
     sender = _make_sender(tmp_path)
     record = Record(save=SaveRecord(name="metadata", type=SaveType.SAVE_TYPE_METADATA, payload=b"{not-json"))
 
@@ -732,7 +732,8 @@ def test_upload_save_retains_unparseable_payload(tmp_path: Path):
         result = sender.upload("save", [record])
 
     mock_upload_meta.assert_not_called()
-    assert result.remaining_records == [record]
+    assert result.confirmed_records == [record]
+    assert result.remaining_records == []
     assert result.failures[0].source == "local_data"
     assert "Failed to parse internal save payload" in mock_warning.call_args.args[0]
 
@@ -827,8 +828,8 @@ def test_upload_column_partial_success_keeps_failed_tail(tmp_path: Path):
     assert result.failures[0].status == 502
 
 
-def test_upload_media_transfer_failure_retains_all_records(tmp_path: Path):
-    """媒体对象存储 PUT 失败时保留记录，标记失败来源为对象存储。"""
+def test_upload_media_transfer_failure_is_terminal(tmp_path: Path):
+    """媒体对象存储 PUT 失败时终结记录，标记失败来源为对象存储。"""
     media_dir = tmp_path / "media" / "image"
     media_dir.mkdir(parents=True)
     (media_dir / "a.png").write_bytes(b"image")
@@ -850,7 +851,8 @@ def test_upload_media_transfer_failure_retains_all_records(tmp_path: Path):
     ):
         result = sender.upload_media([record])
 
-    assert result.remaining_records == [record]
+    assert result.confirmed_records == [record]
+    assert result.remaining_records == []
     failure = result.failures[0]
     assert failure.source == "object_storage"
     assert failure.stage == "transfer"
@@ -919,7 +921,8 @@ def test_upload_media_confirms_records_after_metrics_success(tmp_path: Path):
     ):
         result = sender.upload_media([record])
 
-    assert result.ok
+    assert result.remaining_records == []
+    assert result.failures == []
     assert result.confirmed_records == [record]
     stats = tracker.snapshot()
     assert stats.uploaded_size == 5
@@ -963,8 +966,8 @@ def test_upload_save_small_files_partial_success_completes_uploaded_and_failed(t
     assert result.failures[0].source == "object_storage"
 
 
-def test_upload_save_oversize_file_is_retained_not_uploaded(tmp_path: Path):
-    """超过 save_size 限制的文件返回拒绝结果并保留记录。"""
+def test_upload_save_oversize_file_is_settled_not_uploaded(tmp_path: Path):
+    """超过 save_size 限制的文件终结并报告失败。"""
     source = tmp_path / "huge.bin"
     source.write_bytes(b"0" * 16)
     sender = _make_sender(tmp_path, save_split=100 * 1024 * 1024, save_size=8)  # 模拟超限
@@ -977,13 +980,14 @@ def test_upload_save_oversize_file_is_retained_not_uploaded(tmp_path: Path):
         result = sender.upload_save([record])
 
     mock_prepare.assert_not_called()
-    assert result.remaining_records == [record]
+    assert result.confirmed_records == [record]
+    assert result.remaining_records == []
     assert result.failures[0].source == "local_data"
     assert "size limit" in result.failures[0].message
 
 
-def test_upload_save_invalid_save_batch_retains_records(tmp_path: Path):
-    """save_batch 配置非法时保留整批记录并报告失败。"""
+def test_upload_save_invalid_save_batch_settles_records(tmp_path: Path):
+    """save_batch 配置非法时终结整批记录并报告失败。"""
     source = tmp_path / "model.txt"
     source.write_text("weights", encoding="utf-8")
     sender = _make_sender(tmp_path, save_batch=0)
@@ -997,12 +1001,13 @@ def test_upload_save_invalid_save_batch_retains_records(tmp_path: Path):
         result = sender.upload_save([record])
 
     mock_prepare.assert_not_called()
-    assert result.remaining_records == [record]
+    assert result.confirmed_records == [record]
+    assert result.remaining_records == []
     assert "save batch size" in result.failures[0].message
 
 
-def test_upload_save_missing_source_file_is_retained(tmp_path: Path):
-    """源文件缺失时保留记录并报告 local_data 失败。"""
+def test_upload_save_missing_source_file_is_settled(tmp_path: Path):
+    """源文件缺失时终结记录并报告 local_data 失败。"""
     sender = _make_sender(tmp_path)
     record = _make_save_record(Path("/nonexistent/training-host/model.txt"), name="checkpoints/model.txt")
 
@@ -1014,7 +1019,8 @@ def test_upload_save_missing_source_file_is_retained(tmp_path: Path):
         result = sender.upload_save([record])
 
     mock_prepare.assert_not_called()
-    assert result.remaining_records == [record]
+    assert result.confirmed_records == [record]
+    assert result.remaining_records == []
     assert result.failures[0].source == "local_data"
     assert "not found" in result.failures[0].message
 

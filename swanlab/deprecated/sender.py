@@ -7,10 +7,10 @@ from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnClass, Colum
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.core_python.transport.sender import HttpRecordSender
-from swanlab.sdk.internal.core_python.transport.sender.utils import transport_failure
+from swanlab.sdk.internal.core_python.transport.sender.utils import is_retryable_error, transport_failure
 from swanlab.sdk.internal.pkg import adapter
 from swanlab.sdk.typings.core_python.api.upload import DeprecatedUploadColumn, DeprecatedUploadColumns
-from swanlab.sdk.typings.core_python.transport import UploadResult
+from swanlab.sdk.typings.core_python.transport import UploadFailure, UploadResult
 
 
 @deprecated("legacy projects without views will no longer be supported in v0.11.")
@@ -24,6 +24,7 @@ class DeprecatedHttpRecordSender(HttpRecordSender):
             (record, encode_desprecated_column(record.column)) for record in records
         ]
         confirmed: List[Record] = []
+        failures: List[UploadFailure] = []
         for start in range(0, len(encoded), batch_size):
             batch = encoded[start : start + batch_size]
             try:
@@ -32,14 +33,18 @@ class DeprecatedHttpRecordSender(HttpRecordSender):
                 failure = transport_failure(
                     [record for record, _ in batch], e, source="swanlab_api", stage="submit_metrics"
                 )
+                failures.append(failure)
+                if not is_retryable_error(e):
+                    confirmed.extend(record for record, _ in batch)
+                    continue
                 untried = [record for record, _ in encoded[start + len(batch) :]]
                 return UploadResult(
                     confirmed_records=confirmed,
                     remaining_records=[record for record, _ in batch] + untried,
-                    failures=[failure],
+                    failures=failures,
                 )
             confirmed.extend(record for record, _ in batch)
-        return UploadResult(confirmed_records=confirmed)
+        return UploadResult(confirmed_records=confirmed, failures=failures)
 
 
 def upload_deprecated_columns(experiment_id: str, *, columns: DeprecatedUploadColumns) -> None:
