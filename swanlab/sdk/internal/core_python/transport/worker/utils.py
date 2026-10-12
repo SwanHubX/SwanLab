@@ -146,9 +146,11 @@ class RetryPolicy:
         return self.parse_retry_after(header)
 
     def parse_retry_after(self, value: Optional[str]) -> Optional[float]:
-        """Retry-After 头 → 相对秒数；缺失、负值、格式无效返回 None，回退普通退避。
+        """Retry-After 头 → 相对秒数；缺失、负值、非有限值、格式无效返回 None，回退普通退避。
 
         支持秒数与 HTTP 日期两种形式；日期用墙钟换算一次为相对时长（plan §6.2）。
+        非有限值（nan/inf/1e999 等）视为无效：nan 会绕过截止时间立即重试，
+        inf 会使 worker 的条件等待溢出退出，均不能作为调度约束。
         """
         if value is None or not value.strip():
             return None
@@ -160,7 +162,7 @@ class RetryPolicy:
             if date is None:
                 return None
             seconds = date - self.wall_clock()
-        if seconds < 0:
+        if seconds < 0 or not math.isfinite(seconds):
             return None
         return seconds
 

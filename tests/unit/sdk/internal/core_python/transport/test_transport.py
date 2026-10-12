@@ -401,88 +401,8 @@ def test_transport_integration_auto_start(make_ctx, make_scalar_record):
     # ─────────────────── consecutive failure ───────────────────
 
 
-def test_transport_keeps_pending_records_and_warns_on_failure(make_ctx, make_scalar_record):
-    """失败轮记录保留为实例 pending 并节流告警，优先重试；恢复后继续排空。"""
-    attempts = []
-    first_dispatch_done = threading.Event()
-    success_event = threading.Event()
-
-    class FlakyDispatch:
-        def __call__(self, records):
-            attempts.append([record.num for record in records])
-            if len(attempts) == 1:
-                first_dispatch_done.set()
-                return _failed_result(records)
-            success_event.set()
-            return _ok_result(records)
-
-    ctx = make_ctx(batch_interval=0.01)
-    t = _make_transport(ctx, retry=_fast_retry())
-    t.start()
-    t._dispatcher = FlakyDispatch()  # type: ignore
-
-    first = make_scalar_record(step=1)
-    second = make_scalar_record(step=2)
-    first.num = 1
-    second.num = 2
-
-    with patch("swanlab.sdk.internal.core_python.transport.worker.UploadWarningThrottle.warn") as mock_warn:
-        t.put([first])
-        assert first_dispatch_done.wait(timeout=2.0)
-        t.put([second])
-        assert success_event.wait(timeout=2.0)
-        t.finish()
-
-    assert attempts[0] == [1]
-    assert attempts[1] == [1]
-    assert attempts[2] == [2]
-    mock_warn.assert_called_once()
-
-
-def test_transport_pending_and_failures_queryable_during_retry(make_ctx, make_scalar_record):
-    """失败重试期间：未确认任务与失败原因由实例持有，pending_records()/last_failures() 可查询。"""
-    first_dispatch_done = threading.Event()
-    second_dispatch_started = threading.Event()
-    release_retry = threading.Event()
-    attempts = 0
-
-    class FlakyDispatch:
-        def __call__(self, records):
-            nonlocal attempts
-            attempts += 1
-            if attempts == 1:
-                first_dispatch_done.set()
-                return _failed_result(records, message="http 503")
-            # 重试轮已开始，说明首轮失败结果已应用到实例状态（pending/failures 已登记）
-            second_dispatch_started.set()
-            assert release_retry.wait(timeout=5)
-            return _ok_result(records)
-
-    ctx = make_ctx(batch_interval=0.01)
-    t = _make_transport(ctx, retry=_fast_retry())
-    t.start()
-    t._dispatcher = FlakyDispatch()  # type: ignore
-    record = make_scalar_record(step=1)
-    record.num = 1
-    t.put([record])
-    assert first_dispatch_done.wait(timeout=2.0)
-    assert second_dispatch_started.wait(timeout=2.0)
-
-    # 失败轮：任务快照登记在实例 pending 上，失败原因可查询
-    assert t.pending_records() == [record]
-    failure = t.last_failures()[0]
-    assert failure.message == "http 503"
-    assert failure.records == [record]
-
-    release_retry.set()
-    assert t.finish()
-    # 恢复并排空后清空
-    assert t.pending_records() == []
-    assert t.last_failures() == []
-
-
 def test_transport_outage_recovers_and_resumes_backlog(make_ctx, make_scalar_record):
-    """停机恢复：503 持续失败期间可继续入队且记录可查询，worker 不退出；
+    """停机恢复：503 持续失败期间可继续入队、记录与失败原因可查询、节流告警触发、worker 不退出；
     恢复后旧 pending 与停机期间的新记录全部续传，确认计数正确。
 
     恢复时机由测试线程经 recovered 事件控制：设置前 sender 恒返回失败，
@@ -512,36 +432,46 @@ def test_transport_outage_recovers_and_resumes_backlog(make_ctx, make_scalar_rec
     first.num, second.num = 1, 2
 
     t.start()
-    t.put([first])
-    try:
-        assert first_failure_seen.wait(timeout=2.0)
+    with patch("swanlab.sdk.internal.core_python.transport.worker.UploadWarningThrottle.warn") as mock_warn:
+        t.put([first])
+        try:
+            assert first_failure_seen.wait(timeout=2.0)
+            # 失败事件在 dispatch 内 set，早于结果应用到实例状态，这里轮询等待登记完成
+            deadline = time.monotonic() + 2.0
+            while not t.last_failures() and time.monotonic() < deadline:
+                time.sleep(0.005)
+            failure = t.last_failures()[0]
+            assert failure.message == "http 503"
+            assert failure.records == [first]
 
-        # 停机期间：新记录入队成功，worker 存活，两条记录均可查询
-        assert t.put([second]) is True
-        assert t.is_alive() is True
-        pending_nums = sorted(record.num for record in t.pending_records())
-        assert pending_nums == [1, 2]
-        assert tracker.snapshot().total_records == 2
+            # 停机期间：新记录入队成功，worker 存活，两条记录均可查询
+            assert t.put([second]) is True
+            assert t.is_alive() is True
+            pending_nums = sorted(record.num for record in t.pending_records())
+            assert pending_nums == [1, 2]
+            assert tracker.snapshot().total_records == 2
 
-        recovered.set()
-        assert t.finish()
+            recovered.set()
+            assert t.finish()
 
-        # 停机期间仅旧记录反复失败（次数随调度变化，不小于一次）；
-        # 恢复后旧 pending 先续传成功，随后新记录排空，各恰好成功一次
-        failed_attempts = [attempt for attempt in attempts if attempt[1] == "fail"]
-        assert failed_attempts
-        assert all(attempt == ([1], "fail") for attempt in failed_attempts)
-        ok_attempts = [attempt for attempt in attempts if attempt[1] == "ok"]
-        assert ok_attempts == [([1], "ok"), ([2], "ok")]
-        stats = tracker.snapshot()
-        assert stats.uploaded_records == stats.total_records == 2
-        assert t.pending_records() == []
-        assert t.last_failures() == []
-        sender.close.assert_called_once()
-    finally:
-        # 断言失败也先解除停机再关闭 worker，避免遗留自旋线程
-        recovered.set()
-        t.finish()
+            # 停机期间仅旧记录反复失败（次数随调度变化，不小于一次）；
+            # 恢复后旧 pending 先续传成功，随后新记录排空，各恰好成功一次
+            failed_attempts = [attempt for attempt in attempts if attempt[1] == "fail"]
+            assert failed_attempts
+            assert all(attempt == ([1], "fail") for attempt in failed_attempts)
+            ok_attempts = [attempt for attempt in attempts if attempt[1] == "ok"]
+            assert ok_attempts == [([1], "ok"), ([2], "ok")]
+            # 失败轮触发节流告警（每个失败轮调用一次 warn，实际打印频率由节流器控制）
+            assert mock_warn.called
+            stats = tracker.snapshot()
+            assert stats.uploaded_records == stats.total_records == 2
+            assert t.pending_records() == []
+            assert t.last_failures() == []
+            sender.close.assert_called_once()
+        finally:
+            # 断言失败也先解除停机再关闭 worker，避免遗留自旋线程
+            recovered.set()
+            t.finish()
 
 
 # ─────────────────── 退避重试调度（P3） ───────────────────
@@ -648,6 +578,48 @@ def test_transport_blocked_failure_uses_blocked_interval(make_ctx, make_scalar_r
     assert t.pending_records() == []
 
 
+def test_transport_huge_retry_delay_waits_in_slices_without_crashing(make_ctx, make_scalar_record):
+    """超大有限 Retry-After（如 1e20 秒）：分段等待不使 Condition.wait 按平台
+    time_t 换算溢出，worker 不崩溃、记录保留，截止时间未到时不提前重试；
+    等待仍可被唤醒，截止时间到达后正常排空。"""
+    attempts = []
+    first_dispatch_done = threading.Event()
+
+    class FlakyDispatch:
+        def __call__(self, records):
+            attempts.append(len(attempts))
+            if len(attempts) == 1:
+                first_dispatch_done.set()
+                return _failed_result(records)
+            return _ok_result(records)
+
+    class HugeDelayPolicy(RetryPolicy):
+        def schedule(self, failures, failed_rounds: int) -> RetrySchedule:
+            return RetrySchedule("rate_limited", 1e20)
+
+    ctx = make_ctx(batch_interval=0.01)
+    t = _make_transport(ctx, retry=HugeDelayPolicy())
+    t.start()
+    t._dispatcher = FlakyDispatch()  # type: ignore
+    record = make_scalar_record(step=1)
+    record.num = 1
+
+    t.put([record])
+    assert first_dispatch_done.wait(timeout=2.0)
+
+    time.sleep(0.1)
+    assert t.is_alive() is True  # 等待未溢出抛异常，worker 仍存活
+    assert len(attempts) == 1  # 截止时间未到，未被唤醒绕过
+    assert t.pending_records() == [record]
+
+    # 测试收尾：将截止时间提前到当前时刻并唤醒，验证可正常排空退出
+    with t._cond:
+        t._retry_at = t._retry.clock()
+        t._cond.notify_all()
+    assert t.finish()
+    assert len(attempts) == 2
+
+
 # ─────────────────── finish 语义与资源关闭（P4） ───────────────────
 
 
@@ -679,6 +651,29 @@ def test_transport_worker_crash_retains_data_and_finish_reports_failure(make_ctx
     assert t.pending_records() == [record]
     assert tracker.snapshot().state == CoreState.CORE_STATE_FINISHED  # 进度轮询可退出
     sender.close.assert_called_once()  # 崩溃路径同样关闭 sender 资源
+    # 摘要优先报告崩溃类型并携带积压数量，不拼接原始异常文本
+    summary = t.finish_summary()
+    assert "worker crashed: AttributeError" in summary
+    assert "1 record(s) retained" in summary
+
+
+def test_transport_finish_summarizes_last_failure_and_fallback(mock_ctx, make_scalar_record):
+    """无崩溃时：最近一轮失败进入摘要，无失败回退通用文案；积压数量含 buffer 与 pending。"""
+    t = _make_transport(mock_ctx)  # 从未启动
+    record = make_scalar_record(step=1)
+    record.num = 1
+    t.put([record])
+    with t._cond:
+        t._last_failures = [UploadFailure(source="swanlab_api", message="http 503", status=503)]
+
+    summary = t.finish_summary()
+
+    assert "1 record(s) retained" in summary
+    assert "last failure: swanlab_api - http 503" in summary
+
+    with t._cond:
+        t._last_failures = []
+    assert "worker exited unexpectedly" in t.finish_summary()
 
 
 def test_transport_closes_sender_on_clean_drain(mock_ctx):

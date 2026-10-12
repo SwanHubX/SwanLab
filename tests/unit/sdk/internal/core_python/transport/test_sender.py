@@ -442,41 +442,6 @@ def test_sender_close_is_idempotent_and_releases_session(tmp_path: Path):
         assert sender._ensure_session() is second_session
 
 
-@pytest.mark.parametrize(
-    "status, code, message",
-    [
-        (400, "bad-request", "bad request"),
-        (500, "internal-error", "server error"),
-    ],
-    ids=["business-reject", "server-error"],
-)
-def test_upload_maps_error_response_to_failure_result(tmp_path: Path, status, code, message):
-    """4xx 业务拒绝与 5xx 服务端错误：同样转为结果内的失败并保留记录，不抛异常、不消费。"""
-    tracker = UploadTracker()
-    sender = _make_sender(tmp_path)
-    sender.set_tracker(tracker)
-    record = Record()
-    sender._upload_handlers["scalar"] = MagicMock(
-        side_effect=ApiError(
-            _FakeApiErrorResponse(status),
-            method="POST",
-            trace_id="trace-id",
-            code=code,
-            message=message,
-        )
-    )
-
-    result = sender.upload("scalar", [record])
-
-    assert result.confirmed_records == []
-    assert result.remaining_records == [record]
-    failure = result.failures[0]
-    assert failure.status == status
-    assert failure.code == code
-    assert failure.source == "swanlab_api"
-    assert tracker.snapshot().uploaded_records == 0
-
-
 def _make_internal_save_record(source_path: str, save_type: SaveType, name: str = "") -> Record:
     """构造内部保存（metadata/requirements/conda/config）记录，source_path 可指向不存在的训练机绝对路径。"""
     return Record(save=SaveRecord(name=name, source_path=source_path, target_path=source_path, type=save_type))

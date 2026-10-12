@@ -316,14 +316,8 @@ class CoreSyncPython(CoreSyncProtocol):
             self._request_transport_finish()
             if not self._transport.finish(timeout=None):
                 # 线程退出但未排空（worker 崩溃或积压无法上传）：不伪报成功，
-                # 未确认记录仍由 transport 持有
-                retained = len(self._transport.pending_records())
-                failures = self._transport.last_failures()
-                reason = f"last failure: {failures[0].summary}" if failures else "worker exited unexpectedly"
-                return ConfirmSyncFinishResponse(
-                    success=False,
-                    message=f"Upload did not finish: {retained} record(s) retained ({reason}).",
-                )
+                # 摘要（崩溃原因/积压数量/最近失败）由 transport 统一生成
+                return ConfirmSyncFinishResponse(success=False, message=self._transport.finish_summary())
             with safe.block(message="Failed to report run finish"):
                 stop_experiment(
                     self._ctx.username,

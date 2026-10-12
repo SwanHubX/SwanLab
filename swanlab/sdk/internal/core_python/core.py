@@ -545,14 +545,8 @@ class CorePython(CoreProtocol):
         if self._transport is not None:
             if not self._transport.finish(timeout=None):
                 # 线程退出但未排空（worker 崩溃或积压无法上传）：不伪报成功，
-                # 未确认记录与失败原因仍由 transport 持有
-                retained = len(self._transport.pending_records())
-                failures = self._transport.last_failures()
-                reason = f"last failure: {failures[0].summary}" if failures else "worker exited unexpectedly"
-                return ConfirmRunFinishResponse(
-                    success=False,
-                    message=f"Upload did not finish: {retained} record(s) retained ({reason}).",
-                )
+                # 摘要（崩溃原因/积压数量/最近失败）由 transport 统一生成
+                return ConfirmRunFinishResponse(success=False, message=self._transport.finish_summary())
             self._transport = None
         # 2. 停止心跳和上传跟踪器，释放资源
         if self._tracker is not None:

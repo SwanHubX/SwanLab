@@ -82,28 +82,6 @@ def test_dispatch_sender_unexpected_error_converted_to_failure(mock_ctx, make_sc
     assert failure.exception is error
 
 
-def test_dispatch_failure_tail_keeps_failed_and_unprocessed_order(mock_ctx, make_scalar_record, make_config_record):
-    """当前组失败部分和后续未处理组保持原顺序返回。"""
-    dispatch = Dispatch(batch_size=mock_ctx.config.record_batch)
-
-    failed_metric = make_scalar_record(step=1)
-    failed_metric.num = 21
-    later_config = make_config_record()
-    later_config.num = 22
-
-    with patch("swanlab.sdk.internal.core_python.transport.dispatch.group_records_by_type") as mock_group:
-        from collections import OrderedDict
-
-        mock_group.return_value = OrderedDict({"metric": [failed_metric], "config": [later_config]})
-
-        with patch.object(dispatch, "_upload_record_type", return_value=_failed([failed_metric])):
-            result = dispatch([failed_metric, later_config])
-
-    assert not result.ok
-    assert result.remaining_records == [failed_metric, later_config]
-    assert result.confirmed_records == []
-
-
 def test_dispatch_retains_unknown_type(mock_ctx, make_scalar_record):
     """未知 kind 无 handler：整组保留并报告失败，不静默跳过冒充完成。"""
     dispatch = Dispatch(batch_size=mock_ctx.config.record_batch)

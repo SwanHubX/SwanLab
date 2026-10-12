@@ -272,6 +272,7 @@ def test_5xx_becomes_failure_result(tmp_path, record_type, api_func_name, make_r
     assert failure.status == 502
     assert failure.source == "swanlab_api"
     assert failure.stage == "submit_metrics"
+    assert failure.code == "test-error"
     assert failure.exception is not None
     # sender 不推进统计，统计由 Dispatch 依据 confirmed_records 推进
     assert tracker.snapshot().uploaded_records == 0
@@ -296,6 +297,7 @@ def test_4xx_becomes_failure_result(tmp_path, record_type, api_func_name, make_r
     failure = result.failures[0]
     assert failure.status == 400
     assert failure.source == "swanlab_api"
+    assert failure.code == "test-error"
     assert tracker.snapshot().uploaded_records == 0
 
 

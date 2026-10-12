@@ -170,6 +170,33 @@ def test_http_date_in_past_is_invalid():
     assert policy.parse_retry_after(header) is None
 
 
+def test_parse_retry_after_rejects_non_finite():
+    """nan/inf/1e999 等非有限值视为无效：nan 会绕过截止时间立即重试，
+    inf 会使 worker 的条件等待溢出退出，均不能作为调度约束。"""
+    policy = RetryPolicy()
+    for value in ("nan", "inf", "-inf", "Infinity", "1e999"):
+        assert policy.parse_retry_after(value) is None
+
+
+def test_rate_limited_non_finite_header_falls_back_to_backoff():
+    """429 携带非有限 Retry-After：回退普通指数退避，不产生 nan/inf 调度。"""
+    policy = RetryPolicy(rng=lambda _low, _high: 1.0)
+    for value in ("nan", "inf", "1e999"):
+        failure = _api_failure(429, headers={"Retry-After": value})
+        schedule = policy.schedule([failure], 2)
+        assert schedule.kind == "transient"
+        assert schedule.delay == 2.0
+
+
+def test_rate_limited_huge_finite_retry_after_is_honored():
+    """超大但有限的 Retry-After 仍是有效约束：不被普通上限截短，
+    由 worker 分段等待（见 test_transport.py），不提前重试。"""
+    failure = _api_failure(429, headers={"Retry-After": "1e20"})
+    schedule = RetryPolicy().schedule([failure], 1)
+    assert schedule.kind == "rate_limited"
+    assert schedule.delay == 1e20
+
+
 # ── 多失败取最长约束（plan §6.2） ────────────────────────────
 
 

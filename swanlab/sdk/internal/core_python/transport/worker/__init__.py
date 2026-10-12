@@ -44,6 +44,11 @@ class Transport:
 
     THREAD_NAME: str = "SwanLab·Transport"
     FINISH_JOIN_TIMEOUT: int = 30
+    # 单次条件等待的时长上限（秒）。Condition.wait 的超时最终按平台 time_t/微秒换算，
+    # 有限的超大 Retry-After（如 1e20 秒）会使换算溢出抛 OverflowError 并终止 worker，
+    # 故分段等待：每次醒来重新检查原截止时间，既不溢出也不提前违反 Retry-After。
+    # 2**31 秒远小于 64 位 time_t 与微秒换算的安全边界，单段即约 68 年。
+    MAX_WAIT_SLICE: float = 2**31
 
     def __init__(
         self,
@@ -178,6 +183,24 @@ class Transport:
         with self._cond:
             return list(self._last_failures)
 
+    def finish_summary(self) -> str:
+        """排空失败的一行安全摘要（plan §8.4），供 finish 调用方构建失败消息。
+
+        worker 崩溃原因优先，其次积压数量与最近一轮失败。只含异常类型与
+        安全摘要字段（来源/阶段/状态/业务码），不拼接原始异常文本——其可能
+        携带 URL、凭据等内容；完整崩溃信息在 worker 退出时已由 console.error 输出。
+        """
+        reasons: List[str] = []
+        if self._worker_error is not None:
+            reasons.append(f"worker crashed: {type(self._worker_error).__name__}")
+        failures = self.last_failures()
+        if failures:
+            reasons.append(f"last failure: {failures[0].summary}")
+        if not reasons:
+            reasons.append("worker exited unexpectedly")
+        retained = len(self.pending_records())
+        return f"Upload did not finish: {retained} record(s) retained ({'; '.join(reasons)})."
+
     # ── 线程主循环 ──
 
     def _take_snapshot(self) -> Optional[List[Record]]:
@@ -195,7 +218,8 @@ class Transport:
                 if deadline is not None:
                     remaining = deadline - self._retry.clock()
                     while remaining > 0:
-                        self._cond.wait(timeout=remaining)
+                        # 分段等待：单次 wait 不超过平台上限，醒来后重查原截止时间
+                        self._cond.wait(timeout=min(remaining, self.MAX_WAIT_SLICE))
                         deadline = self._retry_at
                         if deadline is None:
                             break
