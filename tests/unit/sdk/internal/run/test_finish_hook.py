@@ -82,7 +82,6 @@ class TestFinish:
         run = _make_real_finish_run()
 
         with (
-            patch.object(run._core, "has_pending_uploads", return_value=pending),
             patch("swanlab.sdk.internal.run.greeting.goodbye"),
             patch("swanlab.sdk.internal.run.run_with_progress") as mock_run_with_progress,
             patch("swanlab.sdk.internal.run.atexit.unregister"),
@@ -97,8 +96,8 @@ class TestFinish:
             with pytest.raises(RuntimeError, match="No active Run"):
                 get_run()
             assert swanlab.run is None
-            if pending:
-                assert run_module._current_run is run
+            # confirm 失败（如存在未确认上传记录）时也照常清理全局实例，失败原因已在 finish 内报告
+            assert run_module._current_run is None
 
         mock_run_with_progress.assert_called_once_with(
             stats_fn=run._core.get_operation_stats,

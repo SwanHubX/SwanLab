@@ -23,7 +23,6 @@ from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
     DeliverRunStartResponse,
 )
 from swanlab.proto.swanlab.operation.v1.operation_pb2 import CoreState
-from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord, StartRecord
 from swanlab.proto.swanlab.save.v1.save_pb2 import SavePolicy, SaveRecord
 from swanlab.proto.swanlab.settings.core.v1.core_pb2 import CoreSettings as CoreSettingsPb
@@ -263,18 +262,34 @@ class TestCorePythonFinish:
         reset_mock.assert_called_once()
         stop_experiment_mock.assert_not_called()
 
-    def test_has_pending_uploads_reflects_transport_state(self, tmp_path):
+    def test_confirm_run_finish_returns_failure_when_report_fails(self, tmp_path, monkeypatch):
+        """后端上报失败时 confirm 释放传输组件并返回失败，本地数据已保存。"""
         core = CorePython("online")
         core._ctx = make_core_ctx(tmp_path)
-        assert core.has_pending_uploads() is False
-
+        set_online_params(core)
+        tracker = UploadTracker()
+        tracker.set_state(CoreState.CORE_STATE_RUNNING)
         transport = MagicMock()
-        transport.pending_records.return_value = [Record()]
+        transport.finish.return_value = True
+        heartbeat = MagicMock()
+        core._tracker = tracker
         core._transport = transport
-        assert core.has_pending_uploads() is True
+        core._heartbeat = heartbeat
+        core._pending_online_finish_record = FinishRecord()
 
-        transport.pending_records.return_value = []
-        assert core.has_pending_uploads() is False
+        def fail_report(*args, **kwargs):
+            raise ConnectionError("network unreachable")
+
+        monkeypatch.setattr("swanlab.sdk.internal.core_python.core.stop_experiment", fail_report)
+
+        resp = core.confirm_run_finish()
+
+        assert isinstance(resp, ConfirmRunFinishResponse)
+        assert resp.success is False
+        assert "Failed to finish run" in resp.message
+        assert core._transport is None
+        heartbeat.stop.assert_called_once()
+        assert tracker.snapshot().state == CoreState.CORE_STATE_FINISHED
 
 
 # ============================================================

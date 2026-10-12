@@ -900,14 +900,6 @@ class Run:
         sys.excepthook = self._sys_origin_excepthook
         if self._is_main_thread:
             signal.signal(signal.SIGINT, self._original_sigint_handler)
-        # 存在未确认上传记录时保留全局实例引用
-        if self._core.has_pending_uploads():
-            console.warning(
-                "Some records were not uploaded; keeping the run context in memory",
-                "until this process exits.",
-            )
-            console.reset()
-            return
         # 清理全局运行实例
         console.debug("Cleanup global instance...")
         clear_run()
