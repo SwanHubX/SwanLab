@@ -25,12 +25,11 @@ def _failed_result(records: list[Record], message: str = "upload failed") -> Upl
     )
 
 
-def _fast_retry(*, base_delay: float = 0.01, max_delay: float = 0.04, blocked_delay: float = 0.02) -> RetryPolicy:
+def _fast_retry(*, base_delay: float = 0.01, max_delay: float = 0.04) -> RetryPolicy:
     """毫秒级退避策略，用于加速测试。"""
     return RetryPolicy(
         base_delay=base_delay,
         max_delay=max_delay,
-        blocked_delay=blocked_delay,
         rng=lambda _low, _high: 1.0,
     )
 
@@ -38,11 +37,10 @@ def _fast_retry(*, base_delay: float = 0.01, max_delay: float = 0.04, blocked_de
 class _RecordingPolicy(RetryPolicy):
     """记录 schedule 调用参数的重试策略替身。"""
 
-    def __init__(self, *, base_delay: float = 0.01, max_delay: float = 0.04, blocked_delay: float = 0.02) -> None:
+    def __init__(self, *, base_delay: float = 0.01, max_delay: float = 0.04) -> None:
         super().__init__(
             base_delay=base_delay,
             max_delay=max_delay,
-            blocked_delay=blocked_delay,
             rng=lambda _low, _high: 1.0,
         )
         self.calls: list[tuple[int, RetrySchedule]] = []
@@ -409,7 +407,7 @@ def test_transport_blocked_failure_uses_blocked_interval(make_ctx, make_scalar_r
                 )
             return _ok_result(records)
 
-    policy = _RecordingPolicy(blocked_delay=0.05)
+    policy = _RecordingPolicy(base_delay=0.05, max_delay=0.05)
     ctx = make_ctx(batch_interval=0.01)
     t = _make_transport(ctx, retry=policy)
     t.start()
@@ -421,7 +419,6 @@ def test_transport_blocked_failure_uses_blocked_interval(make_ctx, make_scalar_r
     assert t.finish()
 
     assert len(policy.calls) == 1
-    assert policy.calls[0][1].kind == "blocked"
     assert policy.calls[0][1].delay == 0.05
     assert t.pending_records() == []
 
@@ -442,7 +439,7 @@ def test_transport_huge_retry_delay_waits_in_slices_without_crashing(make_ctx, m
 
     class HugeDelayPolicy(RetryPolicy):
         def schedule(self, failures, failed_rounds: int) -> RetrySchedule:
-            return RetrySchedule("rate_limited", 1e20)
+            return RetrySchedule(1e20)
 
     ctx = make_ctx(batch_interval=0.01)
     t = _make_transport(ctx, retry=HugeDelayPolicy())

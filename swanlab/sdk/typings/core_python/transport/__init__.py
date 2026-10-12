@@ -25,7 +25,6 @@ class UploadFailure:
     stage: Optional[FailureStage] = None
     status: Optional[int] = None
     code: Optional[Union[int, str]] = None
-    retry_after: Optional[float] = None
     exception: Optional[BaseException] = None
 
     @property
