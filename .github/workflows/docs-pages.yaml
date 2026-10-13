@@ -1,0 +1,69 @@
+name: deploy-api-docs
+
+# 发布 docs/swagger 下的 OpenAPI 规范：
+# 中文版部署到根路径，英文版部署到 /en/；任一 json 变更即重新构建。
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "docs/swagger/**.json"
+      - ".github/workflows/docs-pages.yaml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Validate OpenAPI specs
+        run: |
+          for f in docs/swagger/*.json; do
+            npx --yes @redocly/cli lint "$f" || exit 1
+          done
+
+      - name: Generate Swagger UI (zh-cn, default)
+        uses: Legion2/swagger-ui-action@v1
+        with:
+          output: out
+          spec-file: docs/swagger/zh-cn.json
+          version: 5.x
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate Swagger UI (en)
+        uses: Legion2/swagger-ui-action@v1
+        with:
+          output: out/en
+          spec-file: docs/swagger/en.json
+          version: 5.x
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Copy spec files for download
+        run: |
+          cp docs/swagger/zh-cn.json out/zh-cn.json
+          cp docs/swagger/en.json out/en.json
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

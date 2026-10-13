@@ -49,3 +49,14 @@ docker run --rm -p 8080:8080 \
 ```
 
 打开 `http://localhost:8080` 查看；切换英文版把 `SWAGGER_JSON` 改成 `/specs/en.json` 即可。
+
+## 自动部署
+
+推送 `*.json` 改动到 `main` 分支时，[`.github/workflows/docs-pages.yaml`](../../.github/workflows/docs-pages.yaml) 会自动重新构建并部署文档，也可在 Actions 页面手动触发。
+
+### 访问地址
+
+| 页面           | 地址  |
+| -------------- | ----- |
+| 中文版（默认） | 待定  |
+| 英文版         | 待定  |
