@@ -16,7 +16,7 @@ class RetryPolicy:
 
     BASE_DELAY: float = 1.0
     MULTIPLIER: float = 2.0
-    MAX_DELAY: float = 30.0
+    MAX_DELAY: float = 10.0
     JITTER_RANGE: Tuple[float, float] = (0.8, 1.2)
 
     def __init__(

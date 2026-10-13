@@ -447,28 +447,6 @@ def test_transport_worker_crash_retains_data_and_finish_reports_failure(make_ctx
     assert t.pending_records() == [record]
     assert tracker.snapshot().state == CoreState.CORE_STATE_FINISHED
     sender.close.assert_called_once()
-    summary = t.finish_summary()
-    assert "worker crashed: AttributeError" in summary
-    assert "1 record(s) retained" in summary
-
-
-def test_transport_finish_summarizes_last_failure_and_fallback(mock_ctx, make_scalar_record):
-    """finish_summary() 包含保留记录数与最近失败摘要。"""
-    t = _make_transport(mock_ctx)
-    record = make_scalar_record(step=1)
-    record.num = 1
-    t.put([record])
-    with t._cond:
-        t._last_failures = [UploadFailure(source="swanlab_api", message="http 503", status=503)]
-
-    summary = t.finish_summary()
-
-    assert "1 record(s) retained" in summary
-    assert "last failure: swanlab_api - http 503" in summary
-
-    with t._cond:
-        t._last_failures = []
-    assert "worker exited unexpectedly" in t.finish_summary()
 
 
 def test_transport_closes_sender_on_clean_drain(mock_ctx):

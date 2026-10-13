@@ -214,7 +214,7 @@ class Transport:
                 if retry_delay is None:
                     self._throttle.reset()
                 else:
-                    self._throttle.warn(message=self._failure_message(retry_delay, failures, remaining))
+                    self._throttle.warn()
         except BaseException as e:
             self._worker_error = e
             console.error(f"Transport worker exited unexpectedly: {type(e).__name__}: {e}")
@@ -224,15 +224,6 @@ class Transport:
                     self._sender.close()
             if self._tracker is not None:
                 self._tracker.set_state(CoreState.CORE_STATE_FINISHED)
-
-    @staticmethod
-    def _failure_message(retry_delay: float, failures: List[UploadFailure], remaining: List[Record]) -> str:
-        """生成上传失败节流告警文案。"""
-        if failures:
-            prefix = f"Upload failed ({failures[0].summary})"
-        else:
-            prefix = "Upload did not complete"
-        return f"{prefix}; retrying in {retry_delay:.0f}s; {len(remaining)} record(s) retained in this process."
 
 
 class UploadWarningThrottle:
