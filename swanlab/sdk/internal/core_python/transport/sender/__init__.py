@@ -136,8 +136,9 @@ class HttpRecordSender:
                         remaining_records=list(records[start:]),
                         failures=failures,
                     )
-                confirmed.extend(batch)
-                continue
+                # 确定性错误：剩余批次同样会失败，一并终结不再重复提交
+                confirmed.extend(records[start:])
+                return UploadResult(confirmed_records=confirmed, failures=failures)
             confirmed.extend(batch)
         return UploadResult(confirmed_records=confirmed, failures=failures)
 
@@ -238,13 +239,16 @@ class HttpRecordSender:
         try:
             put_media_resources(self._ensure_session(), self._experiment_id, plan.payloads, tracker=self._tracker)
         except requests.RequestException as e:
-            if self._tracker is not None:
+            # 对象存储 PUT 失败：网络/5xx 保留重试（重试会重新取预签名 URL）
+            retryable = is_retryable_error(e)
+            if not retryable and self._tracker is not None:
                 for payload in plan.payloads:
                     self._tracker.fail_file(payload.tracker_key)
             return UploadResult(
-                confirmed_records=list(records),
+                confirmed_records=blocked_records + ([] if retryable else plan.metric_records),
+                remaining_records=plan.metric_records if retryable else [],
                 failures=plan.blocked_failures
-                + [transport_failure(list(records), e, source="object_storage", stage="transfer")],
+                + [transport_failure(plan.metric_records, e, source="object_storage", stage="transfer")],
             )
         except OSError as e:
             if self._tracker is not None:
@@ -252,7 +256,8 @@ class HttpRecordSender:
                     self._tracker.fail_file(payload.tracker_key)
             return UploadResult(
                 confirmed_records=list(records),
-                failures=plan.blocked_failures + [self._blocked_failure(plan.metric_records, type(e).__name__)],
+                failures=plan.blocked_failures
+                + [self._blocked_failure(plan.metric_records, f"{type(e).__name__}: {e}")],
             )
         try:
             upload_media(self._project_id, self._experiment_id, metrics=plan.metrics)

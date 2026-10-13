@@ -34,15 +34,16 @@ class DeprecatedHttpRecordSender(HttpRecordSender):
                     [record for record, _ in batch], e, source="swanlab_api", stage="submit_metrics"
                 )
                 failures.append(failure)
-                if not is_retryable_error(e):
-                    confirmed.extend(record for record, _ in batch)
-                    continue
-                untried = [record for record, _ in encoded[start + len(batch) :]]
-                return UploadResult(
-                    confirmed_records=confirmed,
-                    remaining_records=[record for record, _ in batch] + untried,
-                    failures=failures,
-                )
+                if is_retryable_error(e):
+                    untried = [record for record, _ in encoded[start + len(batch) :]]
+                    return UploadResult(
+                        confirmed_records=confirmed,
+                        remaining_records=[record for record, _ in batch] + untried,
+                        failures=failures,
+                    )
+                # 确定性错误：剩余批次同样会失败，一并终结不再重复提交
+                confirmed.extend(record for record, _ in encoded[start:])
+                return UploadResult(confirmed_records=confirmed, failures=failures)
             confirmed.extend(record for record, _ in batch)
         return UploadResult(confirmed_records=confirmed, failures=failures)
 

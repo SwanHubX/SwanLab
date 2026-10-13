@@ -68,7 +68,8 @@ class Dispatch:
         """按 record_type 聚合并上传，返回汇总结果。"""
         try:
             records_by_type = group_records_by_type(records)
-        except ValueError as e:
+        except (ValueError, TypeError) as e:
+            # 本地 record 格式异常丢弃，避免被 worker 重试
             return UploadResult(
                 confirmed_records=list(records),
                 failures=[UploadFailure(source="local_data", message=str(e), records=list(records))],

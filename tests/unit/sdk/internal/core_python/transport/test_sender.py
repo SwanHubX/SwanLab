@@ -127,6 +127,32 @@ def test_upload_column_batches_all_columns_without_dropping_tail(tmp_path: Path)
     assert [[column["key"] for column in batch] for batch in batches] == [["metric-0", "metric-1"], ["metric-2"]]
 
 
+def test_upload_column_terminal_error_settles_remaining_batches(tmp_path: Path):
+    """列上传遇到确定性 4xx 时终结当前及剩余批次，不再重复提交后续批次。"""
+    sender = _make_sender(tmp_path)
+    records = [
+        Record(column=ColumnRecord(column_key=f"metric-{index}", column_type=ColumnType.COLUMN_TYPE_SCALAR))
+        for index in range(3)
+    ]
+
+    with patch(
+        "swanlab.sdk.internal.core_python.transport.sender.upload_columns",
+        side_effect=ApiError(
+            _FakeApiErrorResponse(400),
+            method="POST",
+            trace_id="trace-id",
+            code="bad-request",
+            message="invalid series",
+        ),
+    ) as mock_upload_columns:
+        result = sender.upload_column(records, batch_size=2)
+
+    assert mock_upload_columns.call_count == 1
+    assert result.confirmed_records == records
+    assert result.remaining_records == []
+    assert result.failures[0].status == 400
+
+
 def test_upload_save_delegates_small_file_s3_put_to_upload_resources(tmp_path: Path):
     source = tmp_path / "model.txt"
     source.write_text("weights", encoding="utf-8")
@@ -830,7 +856,38 @@ def test_upload_column_partial_success_keeps_failed_tail(tmp_path: Path):
 
 
 def test_upload_media_transfer_failure_is_terminal(tmp_path: Path):
-    """媒体对象存储 PUT 失败时终结记录，标记失败来源为对象存储。"""
+    """媒体对象存储 PUT 遇到确定性 4xx 时终结记录，标记失败来源为对象存储。"""
+    media_dir = tmp_path / "media" / "image"
+    media_dir.mkdir(parents=True)
+    (media_dir / "a.png").write_bytes(b"image")
+    sender = _make_sender(tmp_path)
+    record = _make_media_record("a.png")
+
+    with (
+        patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=MagicMock()),
+        patch(
+            "swanlab.sdk.internal.core_python.transport.sender.media.upload_resource",
+            side_effect=ApiError(
+                _FakeApiErrorResponse(403),
+                method="PUT",
+                trace_id="trace-id",
+                code="forbidden",
+                message="storage forbidden",
+            ),
+        ),
+    ):
+        result = sender.upload_media([record])
+
+    assert result.confirmed_records == [record]
+    assert result.remaining_records == []
+    failure = result.failures[0]
+    assert failure.source == "object_storage"
+    assert failure.stage == "transfer"
+    assert failure.status == 403
+
+
+def test_upload_media_transfer_failure_is_retryable(tmp_path: Path):
+    """媒体对象存储 PUT 遇到网络/5xx 时保留重试，不终结记录。"""
     media_dir = tmp_path / "media" / "image"
     media_dir.mkdir(parents=True)
     (media_dir / "a.png").write_bytes(b"image")
@@ -852,8 +909,8 @@ def test_upload_media_transfer_failure_is_terminal(tmp_path: Path):
     ):
         result = sender.upload_media([record])
 
-    assert result.confirmed_records == [record]
-    assert result.remaining_records == []
+    assert result.confirmed_records == []
+    assert result.remaining_records == [record]
     failure = result.failures[0]
     assert failure.source == "object_storage"
     assert failure.stage == "transfer"

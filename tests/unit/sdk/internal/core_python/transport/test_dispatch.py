@@ -119,6 +119,22 @@ def test_dispatch_settles_untypeable_records(mock_ctx):
     assert result.failures[0].source == "local_data"
 
 
+def test_dispatch_settles_group_type_error(mock_ctx, make_scalar_record):
+    """分组抛出 TypeError（非 Record）时不重试。"""
+    dispatch = Dispatch(batch_size=mock_ctx.config.record_batch)
+    record = make_scalar_record(step=1)
+
+    with patch(
+        "swanlab.sdk.internal.core_python.transport.dispatch.group_records_by_type",
+        side_effect=TypeError("Expected Record instance"),
+    ):
+        result = dispatch([record])
+
+    assert result.confirmed_records == [record]
+    assert result.remaining_records == []
+    assert result.failures[0].source == "local_data"
+
+
 def test_dispatch_mixed_type_partial_failure_rollback(mock_ctx, make_scalar_record, make_config_record):
     """混合类型中前序组失败时保留当前组与后续组。"""
     mock_sender = MagicMock()
