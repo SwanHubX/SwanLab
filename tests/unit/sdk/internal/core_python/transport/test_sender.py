@@ -13,9 +13,10 @@ from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaItem, MediaRecord
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord, SaveType
 from swanlab.sdk.internal.core_python.context import CoreConfig, CoreContext
-from swanlab.sdk.internal.core_python.transport.sender import HttpRecordSender, encode_column
-from swanlab.sdk.internal.core_python.transport.sender import files as sender_files
-from swanlab.sdk.internal.core_python.transport.sender.utils import resolve_save_source
+from swanlab.sdk.internal.core_python.transport.sender import HttpRecordSender
+from swanlab.sdk.internal.core_python.transport.sender import save as sender_save
+from swanlab.sdk.internal.core_python.transport.sender.save import resolve_save_source
+from swanlab.sdk.internal.core_python.transport.sender.utils import encode_column
 from swanlab.sdk.internal.core_python.transport.tracker import UploadTracker
 from swanlab.sdk.internal.core_python.utils import ProgressFileWrapper
 from swanlab.sdk.typings.core_python.transport import UploadResult
@@ -137,13 +138,13 @@ def test_upload_save_delegates_small_file_s3_put_to_upload_resources(tmp_path: P
 
     with (
         patch(
-            "swanlab.sdk.internal.core_python.transport.sender.files.prepare_save_files",
+            "swanlab.sdk.internal.core_python.transport.sender.save.prepare_save_files",
             return_value={"urls": ["https://s3.test/model"]},
         ) as mock_prepare,
-        patch("swanlab.sdk.internal.core_python.transport.sender.files.complete_save_files") as mock_complete,
+        patch("swanlab.sdk.internal.core_python.transport.sender.save.complete_save_files") as mock_complete,
         patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=session),
         patch(
-            "swanlab.sdk.internal.core_python.transport.sender.files.upload_saves",
+            "swanlab.sdk.internal.core_python.transport.sender.save.upload_saves",
             side_effect=_fake_upload,
         ) as mock_upload_saves,
     ):
@@ -182,27 +183,27 @@ def test_upload_save_skips_and_reports_failed_when_put_fails(tmp_path: Path, mul
 
     with (
         patch(
-            "swanlab.sdk.internal.core_python.transport.sender.files.prepare_save_files",
+            "swanlab.sdk.internal.core_python.transport.sender.save.prepare_save_files",
             return_value={"urls": [url]},
         ),
         patch(
-            "swanlab.sdk.internal.core_python.transport.sender.files.prepare_multipart_save",
+            "swanlab.sdk.internal.core_python.transport.sender.save.prepare_multipart_save",
             return_value={"files": [{"uploadId": "test-upload", "parts": []}]},
         ),
-        patch("swanlab.sdk.internal.core_python.transport.sender.files.complete_save_files") as mock_complete,
+        patch("swanlab.sdk.internal.core_python.transport.sender.save.complete_save_files") as mock_complete,
         patch(
-            "swanlab.sdk.internal.core_python.transport.sender.files.complete_multipart_save"
+            "swanlab.sdk.internal.core_python.transport.sender.save.complete_multipart_save"
         ) as mock_multipart_complete,
         patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=MagicMock()),
         patch(
-            "swanlab.sdk.internal.core_python.transport.sender.files.upload_saves",
+            "swanlab.sdk.internal.core_python.transport.sender.save.upload_saves",
             return_value={0: error},
         ),
         patch(
-            "swanlab.sdk.internal.core_python.transport.sender.files._upload_multipart_parts",
+            "swanlab.sdk.internal.core_python.transport.sender.save._upload_multipart_parts",
             return_value=([], error),
         ),
-        patch("swanlab.sdk.internal.core_python.transport.sender.files.console.warning"),
+        patch("swanlab.sdk.internal.core_python.transport.sender.save.console.warning"),
     ):
         record = _make_save_record(source, name="failed.bin")
         result = sender.upload_save([record])
@@ -239,13 +240,13 @@ def test_upload_save_splits_pending_files_by_save_batch(tmp_path: Path):
 
     with (
         patch(
-            "swanlab.sdk.internal.core_python.transport.sender.files.prepare_save_files",
+            "swanlab.sdk.internal.core_python.transport.sender.save.prepare_save_files",
             side_effect=_fake_prepare,
         ) as mock_prepare,
-        patch("swanlab.sdk.internal.core_python.transport.sender.files.complete_save_files") as mock_complete,
+        patch("swanlab.sdk.internal.core_python.transport.sender.save.complete_save_files") as mock_complete,
         patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=session),
         patch(
-            "swanlab.sdk.internal.core_python.transport.sender.files.upload_saves",
+            "swanlab.sdk.internal.core_python.transport.sender.save.upload_saves",
             side_effect=_fake_upload,
         ) as mock_upload_saves,
     ):
@@ -270,12 +271,12 @@ def test_upload_save_tracks_small_file_progress_once_across_retries(tmp_path: Pa
 
     with (
         patch(
-            "swanlab.sdk.internal.core_python.transport.sender.files.prepare_save_files",
+            "swanlab.sdk.internal.core_python.transport.sender.save.prepare_save_files",
             return_value={"urls": ["https://s3.test/model"]},
         ),
-        patch("swanlab.sdk.internal.core_python.transport.sender.files.complete_save_files"),
+        patch("swanlab.sdk.internal.core_python.transport.sender.save.complete_save_files"),
         patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=MagicMock()),
-        patch("swanlab.sdk.internal.core_python.transport.sender.files.upload_saves", side_effect=_fake_upload),
+        patch("swanlab.sdk.internal.core_python.transport.sender.save.upload_saves", side_effect=_fake_upload),
     ):
         sender.upload_save([_make_save_record(source)])
         sender.upload_save([_make_save_record(source)])
@@ -310,7 +311,7 @@ def test_upload_save_tracks_multipart_parts_once_across_retries(tmp_path: Path):
     }
 
     tracked_keys = []
-    original_track_file = sender_files._track_file
+    original_track_file = sender_save._track_file
 
     def _capture_track_file(tracker, key: str, path: str, size: int) -> None:
         tracked_keys.append(key)
@@ -318,12 +319,12 @@ def test_upload_save_tracks_multipart_parts_once_across_retries(tmp_path: Path):
 
     with (
         patch(
-            "swanlab.sdk.internal.core_python.transport.sender.files.prepare_multipart_save",
+            "swanlab.sdk.internal.core_python.transport.sender.save.prepare_multipart_save",
             return_value=multipart_response,
         ),
-        patch("swanlab.sdk.internal.core_python.transport.sender.files.complete_multipart_save") as mock_complete,
+        patch("swanlab.sdk.internal.core_python.transport.sender.save.complete_multipart_save") as mock_complete,
         patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=session),
-        patch("swanlab.sdk.internal.core_python.transport.sender.files._track_file", side_effect=_capture_track_file),
+        patch("swanlab.sdk.internal.core_python.transport.sender.save._track_file", side_effect=_capture_track_file),
     ):
         sender.upload_save([_make_save_record(source, name="large.bin")])
         sender.upload_save([_make_save_record(source, name="large.bin")])
@@ -356,7 +357,7 @@ def test_upload_media_passes_guessed_content_type(tmp_path: Path):
     with (
         patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=MagicMock()),
         patch(
-            "swanlab.sdk.internal.core_python.transport.sender.files.upload_resource",
+            "swanlab.sdk.internal.core_python.transport.sender.media.upload_resource",
             side_effect=_fake_upload_resource,
         ) as mock_upload_resource,
         patch("swanlab.sdk.internal.core_python.transport.sender.upload_media") as mock_upload_media,
@@ -380,7 +381,7 @@ def test_upload_media_uses_payload_without_touching_disk(tmp_path: Path):
     with (
         patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=MagicMock()),
         patch(
-            "swanlab.sdk.internal.core_python.transport.sender.files.upload_resource",
+            "swanlab.sdk.internal.core_python.transport.sender.media.upload_resource",
             side_effect=_fake_upload_resource,
         ),
         patch("swanlab.sdk.internal.core_python.transport.sender.upload_media") as mock_upload_media,
@@ -410,7 +411,7 @@ def test_upload_media_uploads_empty_payload_as_zero_byte_file(tmp_path: Path):
     with (
         patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=MagicMock()),
         patch(
-            "swanlab.sdk.internal.core_python.transport.sender.files.upload_resource",
+            "swanlab.sdk.internal.core_python.transport.sender.media.upload_resource",
             side_effect=_fake_upload_resource,
         ),
         patch("swanlab.sdk.internal.core_python.transport.sender.upload_media") as mock_upload_media,
@@ -589,13 +590,13 @@ def test_upload_save_recovers_custom_file_from_run_dir(tmp_path: Path):
 
     with (
         patch(
-            "swanlab.sdk.internal.core_python.transport.sender.files.prepare_save_files",
+            "swanlab.sdk.internal.core_python.transport.sender.save.prepare_save_files",
             return_value={"urls": ["https://s3.test/model"]},
         ) as mock_prepare,
-        patch("swanlab.sdk.internal.core_python.transport.sender.files.complete_save_files") as mock_complete,
+        patch("swanlab.sdk.internal.core_python.transport.sender.save.complete_save_files") as mock_complete,
         patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=MagicMock()),
         patch(
-            "swanlab.sdk.internal.core_python.transport.sender.files.upload_saves", side_effect=_fake_upload
+            "swanlab.sdk.internal.core_python.transport.sender.save.upload_saves", side_effect=_fake_upload
         ) as mock_upload_saves,
         patch("swanlab.sdk.internal.core_python.transport.sender.console.debug"),
     ):
@@ -705,7 +706,7 @@ def test_upload_save_rejects_invalid_payload_usage(tmp_path: Path):
     internal_without_payload = _make_internal_save_record("", SaveType.SAVE_TYPE_METADATA)
 
     with (
-        patch("swanlab.sdk.internal.core_python.transport.sender.files.prepare_save_files") as mock_prepare,
+        patch("swanlab.sdk.internal.core_python.transport.sender.save.prepare_save_files") as mock_prepare,
         patch("swanlab.sdk.internal.core_python.transport.sender.resolve_save_source") as mock_resolve,
         patch("swanlab.sdk.internal.core_python.transport.sender.upload_metadata") as mock_upload_meta,
         patch("swanlab.sdk.internal.core_python.transport.sender.console.warning") as mock_warning,
@@ -839,7 +840,7 @@ def test_upload_media_transfer_failure_is_terminal(tmp_path: Path):
     with (
         patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=MagicMock()),
         patch(
-            "swanlab.sdk.internal.core_python.transport.sender.files.upload_resource",
+            "swanlab.sdk.internal.core_python.transport.sender.media.upload_resource",
             side_effect=ApiError(
                 _FakeApiErrorResponse(503),
                 method="PUT",
@@ -879,7 +880,7 @@ def test_upload_media_metrics_failure_keeps_file_rows_open(tmp_path: Path):
     with (
         patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=MagicMock()),
         patch(
-            "swanlab.sdk.internal.core_python.transport.sender.files.upload_resource",
+            "swanlab.sdk.internal.core_python.transport.sender.media.upload_resource",
             side_effect=_fake_upload_resource,
         ),
         patch(
@@ -916,7 +917,7 @@ def test_upload_media_confirms_records_after_metrics_success(tmp_path: Path):
 
     with (
         patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=MagicMock()),
-        patch("swanlab.sdk.internal.core_python.transport.sender.files.upload_resource"),
+        patch("swanlab.sdk.internal.core_python.transport.sender.media.upload_resource"),
         patch("swanlab.sdk.internal.core_python.transport.sender.upload_media"),
     ):
         result = sender.upload_media([record])
@@ -943,12 +944,12 @@ def test_upload_save_small_files_partial_success_completes_uploaded_and_failed(t
 
     with (
         patch(
-            "swanlab.sdk.internal.core_python.transport.sender.files.prepare_save_files",
+            "swanlab.sdk.internal.core_python.transport.sender.save.prepare_save_files",
             side_effect=lambda _, *, files: {"urls": [f"https://s3.test/{item['path']}" for item in files]},
         ),
-        patch("swanlab.sdk.internal.core_python.transport.sender.files.complete_save_files") as mock_complete,
+        patch("swanlab.sdk.internal.core_python.transport.sender.save.complete_save_files") as mock_complete,
         patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=MagicMock()),
-        patch("swanlab.sdk.internal.core_python.transport.sender.files.upload_saves", side_effect=_fake_upload),
+        patch("swanlab.sdk.internal.core_python.transport.sender.save.upload_saves", side_effect=_fake_upload),
     ):
         records = [
             _make_save_record(first, name="checkpoints/ok.txt"),
@@ -974,7 +975,7 @@ def test_upload_save_oversize_file_is_settled_not_uploaded(tmp_path: Path):
     record = _make_save_record(source, name="huge.bin")
 
     with (
-        patch("swanlab.sdk.internal.core_python.transport.sender.files.prepare_save_files") as mock_prepare,
+        patch("swanlab.sdk.internal.core_python.transport.sender.save.prepare_save_files") as mock_prepare,
         patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=MagicMock()),
     ):
         result = sender.upload_save([record])
@@ -994,7 +995,7 @@ def test_upload_save_invalid_save_batch_settles_records(tmp_path: Path):
     record = _make_save_record(source, name="checkpoints/model.txt")
 
     with (
-        patch("swanlab.sdk.internal.core_python.transport.sender.files.prepare_save_files") as mock_prepare,
+        patch("swanlab.sdk.internal.core_python.transport.sender.save.prepare_save_files") as mock_prepare,
         patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=MagicMock()),
         patch("swanlab.sdk.internal.core_python.transport.sender.console.warning"),
     ):
@@ -1012,7 +1013,7 @@ def test_upload_save_missing_source_file_is_settled(tmp_path: Path):
     record = _make_save_record(Path("/nonexistent/training-host/model.txt"), name="checkpoints/model.txt")
 
     with (
-        patch("swanlab.sdk.internal.core_python.transport.sender.files.prepare_save_files") as mock_prepare,
+        patch("swanlab.sdk.internal.core_python.transport.sender.save.prepare_save_files") as mock_prepare,
         patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=MagicMock()),
         patch("swanlab.sdk.internal.core_python.transport.sender.console.warning"),
     ):

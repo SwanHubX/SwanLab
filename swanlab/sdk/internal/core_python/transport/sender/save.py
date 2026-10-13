@@ -1,8 +1,8 @@
 """
 @author: caddiesnew
-@file: files.py
+@file: save.py
 @time: 2026/4/16
-@description: 媒体与 CUSTOM save 的对象存储传输
+@description: CUSTOM save 的对象存储传输与 save 来源解析
 """
 
 from __future__ import annotations
@@ -10,18 +10,20 @@ from __future__ import annotations
 import math
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, List, Optional, Protocol, Tuple, cast
+from pathlib import Path, PureWindowsPath
+from typing import TYPE_CHECKING, List, Optional, Tuple, cast
 
 import requests
 
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
+from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord, SaveType
 from swanlab.sdk.internal.core_python.api.save import (
     complete_multipart_save,
     complete_save_files,
     prepare_multipart_save,
     prepare_save_files,
 )
-from swanlab.sdk.internal.core_python.api.upload import upload_resource, upload_saves
+from swanlab.sdk.internal.core_python.api.upload import upload_saves
 from swanlab.sdk.internal.core_python.context import CoreContext
 from swanlab.sdk.internal.core_python.pkg.mime import guess_type
 from swanlab.sdk.internal.core_python.utils import ProgressFileWrapper
@@ -39,52 +41,33 @@ from swanlab.sdk.typings.core_python.api.save import (
 from swanlab.sdk.typings.core_python.api.upload import UploadResource
 from swanlab.sdk.typings.core_python.transport import UploadFailure, UploadResult
 
-from .utils import (
-    MediaPayload,
-    compute_md5,
-    is_retryable_error,
-    resolve_save_source,
-    save_tracker_key,
-    transport_failure,
-)
+from .media import PartProgressReporter, _track_file
+from .utils import compute_md5, is_retryable_error, transport_failure
 
 if TYPE_CHECKING:
     from swanlab.sdk.internal.core_python.transport.tracker import UploadTracker
 
 
-class PartProgressReporter(Protocol):
-    """分片字节进度上报回调：(文件 key, 分片 upload key, 当前字节数, final 是否完成)。"""
+def resolve_save_source(ctx: CoreContext, save: SaveRecord) -> Optional[Path]:
+    """解析 save 记录的本地文件路径，源路径不可读时回退至 run 目录下的 files 子目录。"""
+    primary = Path(save.source_path)
+    if primary.is_file():
+        return primary
+    if ctx.config.skip_store:
+        return None
+    if save.type == SaveType.SAVE_TYPE_CUSTOM:
+        fallback = ctx.files_dir / Path(*PureWindowsPath(save.name).parts)
+    else:
+        fallback = ctx.files_dir / PureWindowsPath(save.source_path).name
+    if fallback.is_file():
+        console.debug(f"Save source path not readable, recovered from run directory: {fallback}")
+        return fallback
+    return None
 
-    def __call__(self, file_key: str, upload_key: str, current_bytes: int, *, final: bool = False) -> None: ...
 
-
-def _track_file(tracker: Optional[UploadTracker], key: str, path: str, size: int) -> None:
-    """在 tracker 中注册文件显示行。"""
-    if tracker is None or size <= 0:
-        return
-    tracker.add_file(key=key, path=path, total=size)
-
-
-def put_media_resources(
-    session: SessionWithRetry,
-    experiment_id: str,
-    payloads: Sequence[MediaPayload],
-    *,
-    tracker: Optional[UploadTracker] = None,
-) -> None:
-    """批量上传媒体文件至对象存储，并注册字节进度显示行。"""
-    if not payloads:
-        return
-    for payload in payloads:
-        _track_file(tracker, payload.tracker_key, payload.display_path, payload.size)
-    upload_resource(
-        session,
-        experiment_id,
-        paths=[payload.remote_path for payload in payloads],
-        buffers=[payload.buffer for payload in payloads],
-        content_types=[payload.content_type for payload in payloads],
-        tracker=tracker,
-    )
+def save_tracker_key(file_info: SaveFileEntry) -> str:
+    """构造 save 文件在 tracker 中的注册 key。"""
+    return f"{file_info['path']}:{file_info['size']}:{file_info['md5']}"
 
 
 @dataclass
@@ -260,8 +243,9 @@ def _upload_small_saves(
         )
     urls = resp["urls"]
     if len(urls) != len(tasks):
+        # 数量不匹配是确定性协议错误，终结记录而非重试
         return UploadResult(
-            remaining_records=[task.record for task in tasks],
+            confirmed_records=[task.record for task in tasks],
             failures=[
                 UploadFailure(
                     source="swanlab_api",
@@ -382,8 +366,9 @@ def _upload_large_saves(
         )
     multipart_files = resp["files"]
     if len(multipart_files) != len(tasks):
+        # 数量不匹配是确定性协议错误，终结记录而非重试
         return UploadResult(
-            remaining_records=[task.record for task in tasks],
+            confirmed_records=[task.record for task in tasks],
             failures=[
                 UploadFailure(
                     source="swanlab_api",
@@ -519,7 +504,7 @@ def _upload_multipart_parts(
 
 
 __all__ = [
-    "PartProgressReporter",
-    "put_media_resources",
+    "resolve_save_source",
+    "save_tracker_key",
     "upload_save_files",
 ]
