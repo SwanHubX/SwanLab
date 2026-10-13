@@ -10,7 +10,7 @@ from __future__ import annotations
 import io
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
-from typing import IO, TYPE_CHECKING, Optional, Protocol, Sequence, Union
+from typing import IO, TYPE_CHECKING, Optional, Sequence, Union
 
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.core_python.api.upload import upload_resource
@@ -22,14 +22,10 @@ from swanlab.sdk.internal.pkg.client.session import SessionWithRetry
 from swanlab.sdk.typings.core_python.api.upload import UploadMedia, UploadMediaBatch
 from swanlab.sdk.typings.core_python.transport import UploadFailure
 
+from .utils import track_file
+
 if TYPE_CHECKING:
     from swanlab.sdk.internal.core_python.transport.tracker import UploadTracker
-
-
-class PartProgressReporter(Protocol):
-    """分片字节进度上报回调：(文件 key, 分片 upload key, 当前字节数, final 是否完成)。"""
-
-    def __call__(self, file_key: str, upload_key: str, current_bytes: int, *, final: bool = False) -> None: ...
 
 
 @dataclass
@@ -142,13 +138,6 @@ def collect_media_payloads(ctx: CoreContext, records: Sequence[Record]) -> Media
     return plan
 
 
-def _track_file(tracker: Optional[UploadTracker], key: str, path: str, size: int) -> None:
-    """在 tracker 中注册文件显示行。"""
-    if tracker is None or size <= 0:
-        return
-    tracker.add_file(key=key, path=path, total=size)
-
-
 def put_media_resources(
     session: SessionWithRetry,
     experiment_id: str,
@@ -160,7 +149,7 @@ def put_media_resources(
     if not payloads:
         return
     for payload in payloads:
-        _track_file(tracker, payload.tracker_key, payload.display_path, payload.size)
+        track_file(tracker, payload.tracker_key, payload.display_path, payload.size)
     upload_resource(
         session,
         experiment_id,
@@ -174,7 +163,6 @@ def put_media_resources(
 __all__ = [
     "MediaPayload",
     "MediaUploadPlan",
-    "PartProgressReporter",
     "collect_media_payloads",
     "put_media_resources",
 ]

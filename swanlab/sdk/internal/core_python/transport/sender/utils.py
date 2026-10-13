@@ -2,11 +2,13 @@
 @author: caddiesnew
 @file: utils.py
 @time: 2026/3/30 15:33
-@description: sender 通用工具：异常转换、可重试判定与 DTO 编码
+@description: sender 通用工具：异常转换、可重试判定、DTO 编码与进度上报
 """
 
+from __future__ import annotations
+
 import hashlib
-from typing import Optional, Sequence, Union
+from typing import TYPE_CHECKING, Optional, Protocol, Sequence, Union
 
 import requests
 
@@ -16,6 +18,22 @@ from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.pkg import adapter
 from swanlab.sdk.typings.core_python.api.upload import UploadColumn
 from swanlab.sdk.typings.core_python.transport import FailureSource, FailureStage, UploadFailure
+
+if TYPE_CHECKING:
+    from swanlab.sdk.internal.core_python.transport.tracker import UploadTracker
+
+
+class PartProgressReporter(Protocol):
+    """分片字节进度上报回调：(文件 key, 分片 upload key, 当前字节数, final 是否完成)。"""
+
+    def __call__(self, file_key: str, upload_key: str, current_bytes: int, *, final: bool = False) -> None: ...
+
+
+def track_file(tracker: Optional[UploadTracker], key: str, path: str, size: int) -> None:
+    """在 tracker 中注册文件显示行。"""
+    if tracker is None or size <= 0:
+        return
+    tracker.add_file(key=key, path=path, total=size)
 
 
 def compute_md5(source: Union[str, bytes], chunk_size: int = 8 * 1024 * 1024) -> str:
@@ -82,6 +100,7 @@ def encode_column(record: ColumnRecord) -> UploadColumn:
 
 
 __all__ = [
+    "PartProgressReporter",
     "compute_md5",
     "encode_column",
     "is_retryable_error",

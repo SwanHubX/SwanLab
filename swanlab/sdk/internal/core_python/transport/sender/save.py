@@ -41,8 +41,7 @@ from swanlab.sdk.typings.core_python.api.save import (
 from swanlab.sdk.typings.core_python.api.upload import UploadResource
 from swanlab.sdk.typings.core_python.transport import UploadFailure, UploadResult
 
-from .media import PartProgressReporter, _track_file
-from .utils import compute_md5, is_retryable_error, transport_failure
+from .utils import PartProgressReporter, compute_md5, is_retryable_error, track_file, transport_failure
 
 if TYPE_CHECKING:
     from swanlab.sdk.internal.core_python.transport.tracker import UploadTracker
@@ -258,7 +257,7 @@ def _upload_small_saves(
 
     resources: List[UploadResource] = []
     for task, url in zip(tasks, urls):
-        _track_file(tracker, task.tracker_key, task.entry["source_path"], task.entry["size"])
+        track_file(tracker, task.tracker_key, task.entry["source_path"], task.entry["size"])
         resources.append(
             {
                 "url": url,
@@ -386,7 +385,7 @@ def _upload_large_saves(
     for task, multipart_info in zip(tasks, multipart_files):
         upload_id = multipart_info["uploadId"]
         parts = multipart_info["parts"]
-        _track_file(tracker, task.tracker_key, task.entry["source_path"], task.entry["size"])
+        track_file(tracker, task.tracker_key, task.entry["source_path"], task.entry["size"])
         completed_parts, part_error = _upload_multipart_parts(session, task, parts, part_size, on_part_progress)
         if part_error is not None:
             console.warning(f"Multipart upload failed, skipping: {task.entry['path']}")
