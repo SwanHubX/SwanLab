@@ -32,6 +32,8 @@ from swanlab.sdk.internal.core_python.store import DataStoreWriter, NullDataStor
 from swanlab.sdk.internal.core_python.transport.tracker import UploadTracker
 from swanlab.sdk.internal.core_python.watcher import FileWatcher, NullFileWatcher
 
+pytestmark = pytest.mark.usefixtures("core_auth")
+
 
 def make_core_ctx(tmp_path) -> CoreContext:
     run_dir = tmp_path / "run"
@@ -69,6 +71,8 @@ def make_start_request(tmp_path, record: StartRecord) -> DeliverRunStartRequest:
             save_size=50 * 1024 * 1024 * 1024,
             save_part=32 * 1024 * 1024,
             save_batch=100,
+            api_key="core-test-key",
+            api_host="https://core.example.invalid",
         ),
         start_record=record,
     )

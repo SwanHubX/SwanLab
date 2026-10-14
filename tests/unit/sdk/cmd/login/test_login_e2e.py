@@ -9,22 +9,39 @@ import pytest
 import responses
 
 from swanlab.exceptions import AuthenticationError
-from swanlab.sdk.cmd.login import login
+from swanlab.sdk.cmd.login import login, login_cli
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.pkg import nrc
 from swanlab.sdk.internal.settings import Settings, create_settings, set_global_settings
 
 
-def make_login_resp(**overrides) -> dict:
+def make_profile(**overrides) -> dict:
     return {
-        "sid": "mock_sid",
-        "expiredAt": "2099-12-31T23:59:59.000Z",
-        "userInfo": {"username": "mock_user", "name": "Mock User"},
+        "uid": 1,
+        "username": "mock_user",
+        "name": "Mock User",
+        "createdAt": "2026-01-01T00:00:00.000Z",
         **overrides,
     }
 
 
 class TestLoginE2E:
+    @responses.activate
+    def test_login_cli_uses_verify_without_duplicate_api_prefix(self):
+        responses.add(responses.GET, "https://server.example/api/auth/verify", json=make_profile())
+        assert login_cli(api_key="test-key", host="https://server.example", relogin=True)
+        assert responses.calls[0].request.headers["Authorization"] == "ApiKey test-key"
+        assert not client.exists()  # 交互登录同样不驻留运行时单例
+
+    @responses.activate
+    def test_login_cli_revalidates_saved_credentials(self):
+        host = "https://server.example"
+        responses.add(responses.GET, host + "/api/auth/verify", json=make_profile())
+        assert login_cli(api_key="test-key", host=host)
+        assert login_cli(host=host)
+        assert len(responses.calls) == 2
+        assert not client.exists()
+
     @staticmethod
     def _reinit_settings():
         """重新从环境变量、.netrc 等来源初始化全局配置，模拟新会话启动。"""
@@ -46,9 +63,9 @@ class TestLoginE2E:
         api_key = "test-key"
 
         responses.add(
-            responses.POST,
-            f"{expected_clean_host}/api/login/api_key",
-            json=make_login_resp(),
+            responses.GET,
+            f"{expected_clean_host}/api/auth/verify",
+            json=make_profile(),
             status=200,
         )
 
@@ -66,9 +83,9 @@ class TestLoginE2E:
         api_key = "test-key"
 
         responses.add(
-            responses.POST,
-            f"{expected_api_host}/api/login/api_key",
-            json=make_login_resp(),
+            responses.GET,
+            f"{expected_api_host}/api/auth/verify",
+            json=make_profile(),
             status=200,
         )
 
@@ -82,21 +99,21 @@ class TestLoginE2E:
         assert create_settings().web_host == "https://swanlab.cn"
 
     @responses.activate
-    def test_login_skip_if_already_logged_in(self):
-        """测试：如果已经登录且没有强制 relogin，无论是否传入入参，应直接跳过并返回 True"""
+    def test_login_always_verifies_online(self):
+        """测试：显式 login 每次都在线验证——同一 key 第二次 login 仍发起 verify，已撤销的 key 能当场反馈"""
         responses.add(
-            responses.POST,
-            "https://api.swanlab.cn/api/login/api_key",
-            json=make_login_resp(),
+            responses.GET,
+            "https://api.swanlab.cn/api/auth/verify",
+            json=make_profile(),
             status=200,
         )
         login(api_key="first-key")
-        assert client.exists()
+        assert not client.exists()  # login 不驻留运行时单例
 
-        # 第二次调用不带 relogin=True，应直接跳过，不再发起网络请求
+        # 第二次调用不带 relogin=True，仍应在线验证并成功
         result = login(relogin=False)
         assert result is True
-        assert len(responses.calls) == 1
+        assert len(responses.calls) == 2
 
     def test_login_block_if_run_active(self):
         """测试：如果 SwanLab Run 正在运行，不允许登录"""
@@ -117,9 +134,9 @@ class TestLoginE2E:
         api_key = "test-explicit-key"
 
         responses.add(
-            responses.POST,
-            "https://api.swanlab.cn/api/login/api_key",
-            json=make_login_resp(user="mock_user"),
+            responses.GET,
+            "https://api.swanlab.cn/api/auth/verify",
+            json=make_profile(),
             status=200,
         )
 
@@ -128,32 +145,8 @@ class TestLoginE2E:
         assert result is True
         assert create_settings().api_key == api_key
         assert len(responses.calls) == 1
-        assert responses.calls[0].request.headers["authorization"] == api_key
-        assert client.exists()
-
-    @responses.activate
-    def test_login_with_save(self):
-        """测试：显式传入 API Key 并测试凭证保存 (save=True)"""
-        api_key = "test-save-key"
-
-        responses.add(
-            responses.POST,
-            "https://fake.swanlab.cn/api/login/api_key",
-            json=make_login_resp(user="mock_user"),
-            status=200,
-        )
-
-        result = login(api_key=api_key, host="fake.swanlab.cn", save=True)
-
-        assert create_settings().web_host == "https://fake.swanlab.cn"
-        assert create_settings().api_host == "https://fake.swanlab.cn"
-        assert create_settings().api_key == api_key
-        assert result is True
-
-        nrc_path = Settings.get_user_config_dir() / ".netrc"
-        assert nrc_path.exists()
-        content = nrc_path.read_text()
-        assert api_key in content
+        assert responses.calls[0].request.headers["authorization"] == f"ApiKey {api_key}"
+        assert not client.exists()  # login 仅做临时校验，不驻留运行时单例
 
     @responses.activate
     def test_login_custom_host_and_relogin(self):
@@ -163,41 +156,41 @@ class TestLoginE2E:
         custom_key = "private-key"
 
         responses.add(
-            responses.POST,
-            "https://api.swanlab.cn/api/login/api_key",
-            json=make_login_resp(sid="initial_sid"),
+            responses.GET,
+            "https://api.swanlab.cn/api/auth/verify",
+            json=make_profile(),
             status=200,
         )
         responses.add(
-            responses.POST,
-            f"{custom_host}/api/login/api_key",
-            json=make_login_resp(sid="mock_private_sid"),
+            responses.GET,
+            f"{custom_host}/api/auth/verify",
+            json=make_profile(),
             status=200,
         )
 
-        # 先做一次真实登录，使 client 进入已登录状态
+        # 先做一次真实登录（临时校验，不驻留单例）
         login(api_key=initial_key)
-        assert client.exists()
+        assert not client.exists()
 
         result = login(api_key=custom_key, host=custom_host, relogin=True)
 
         assert result is True
         assert len(responses.calls) == 2
-        assert responses.calls[1].request.url == f"{custom_host}/api/login/api_key"
+        assert responses.calls[1].request.url == f"{custom_host}/api/auth/verify"
         assert create_settings().api_host == custom_host
         assert create_settings().api_key == custom_key
 
     @responses.activate
-    def test_login_network_failure(self):
-        """测试：网络请求失败或者 API Key 错误时抛出 AuthenticationError"""
+    def test_login_invalid_key(self):
+        """测试：API Key 错误时保留服务端认证原因"""
         responses.add(
-            responses.POST,
-            "https://api.swanlab.cn/api/login/api_key",
+            responses.GET,
+            "https://api.swanlab.cn/api/auth/verify",
             json={"code": 401, "message": "Invalid API Key"},
             status=401,
         )
 
-        with pytest.raises(AuthenticationError, match="Failed to initialize the SwanLab client"):
+        with pytest.raises(AuthenticationError, match="Invalid API Key"):
             login(api_key="wrong-key", relogin=True)
 
     @responses.activate
@@ -208,9 +201,9 @@ class TestLoginE2E:
         new_host = "https://private.swanlab.com"
 
         responses.add(
-            responses.POST,
-            f"{old_host}/api/login/api_key",
-            json=make_login_resp(sid="mock_old_sid"),
+            responses.GET,
+            f"{old_host}/api/auth/verify",
+            json=make_profile(),
             status=200,
         )
 
@@ -230,15 +223,15 @@ class TestLoginE2E:
         key_b = "key-for-server-b"
 
         responses.add(
-            responses.POST,
-            f"{host_a}/api/login/api_key",
-            json=make_login_resp(sid="sid_a"),
+            responses.GET,
+            f"{host_a}/api/auth/verify",
+            json=make_profile(),
             status=200,
         )
         responses.add(
-            responses.POST,
-            f"{host_b}/api/login/api_key",
-            json=make_login_resp(sid="sid_b"),
+            responses.GET,
+            f"{host_b}/api/auth/verify",
+            json=make_profile(),
             status=200,
         )
 
@@ -252,7 +245,7 @@ class TestLoginE2E:
         result = login(api_key=key_b, host=host_b, relogin=True)
         assert result is True
         assert len(responses.calls) == 2
-        assert responses.calls[1].request.headers["authorization"] == key_b
+        assert responses.calls[1].request.headers["authorization"] == f"ApiKey {key_b}"
         assert create_settings().api_host == host_b
         assert create_settings().api_key == key_b
 
@@ -273,9 +266,9 @@ class TestLoginE2E:
         assert create_settings().api_host == old_host
 
         responses.add(
-            responses.POST,
-            f"{new_host}/api/login/api_key",
-            json=make_login_resp(),
+            responses.GET,
+            f"{new_host}/api/auth/verify",
+            json=make_profile(),
             status=200,
         )
 
@@ -284,7 +277,7 @@ class TestLoginE2E:
 
         assert result is True
         assert len(responses.calls) == 1
-        assert responses.calls[0].request.headers["authorization"] == new_key
+        assert responses.calls[0].request.headers["authorization"] == f"ApiKey {new_key}"
         assert create_settings().api_host == new_host
         assert create_settings().api_key == new_key
 
@@ -302,9 +295,9 @@ class TestLoginE2E:
         assert create_settings().api_host == stored_host
 
         responses.add(
-            responses.POST,
-            f"{stored_host}/api/login/api_key",
-            json=make_login_resp(),
+            responses.GET,
+            f"{stored_host}/api/auth/verify",
+            json=make_profile(),
             status=200,
         )
 
@@ -313,7 +306,7 @@ class TestLoginE2E:
 
         assert result is True
         assert len(responses.calls) == 1
-        assert responses.calls[0].request.headers["authorization"] == stored_key
+        assert responses.calls[0].request.headers["authorization"] == f"ApiKey {stored_key}"
         assert create_settings().api_host == stored_host
         assert create_settings().api_key == stored_key
 
@@ -356,9 +349,9 @@ class TestLoginE2E:
         assert create_settings().api_host == env_host
 
         responses.add(
-            responses.POST,
-            f"{new_host}/api/login/api_key",
-            json=make_login_resp(),
+            responses.GET,
+            f"{new_host}/api/auth/verify",
+            json=make_profile(),
             status=200,
         )
 
@@ -366,7 +359,7 @@ class TestLoginE2E:
 
         assert result is True
         assert len(responses.calls) == 1
-        assert responses.calls[0].request.headers["authorization"] == new_key
+        assert responses.calls[0].request.headers["authorization"] == f"ApiKey {new_key}"
         assert create_settings().api_host == new_host
         assert create_settings().api_key == new_key
 
@@ -378,45 +371,21 @@ class TestLoginE2E:
         with pytest.raises(AuthenticationError, match="No API key provided"):
             login()
 
+    @pytest.mark.parametrize("save", [True, "local"], ids=["global", "local"])
     @responses.activate
-    def test_login_save_local(self, tmp_path, monkeypatch):
-        """测试：save='local' 时凭证保存到项目级目录"""
-        api_key = "local-save-key"
-        monkeypatch.chdir(tmp_path)
+    def test_login_saves_credentials_to_selected_location(self, save, tmp_path, monkeypatch):
+        project_dir = tmp_path / "project"
+        project_dir.mkdir()
+        monkeypatch.chdir(project_dir)
+        api_key = "save-key"
+        host = "https://server.example"
+        responses.add(responses.GET, host + "/api/auth/verify", json=make_profile())
 
-        responses.add(
-            responses.POST,
-            "https://api.swanlab.cn/api/login/api_key",
-            json=make_login_resp(),
-            status=200,
-        )
-
-        result = login(api_key=api_key, save="local")
-        assert result is True
-
-        # save="local" 保存到 cwd/.netrc
-        local_nrc = tmp_path / ".swanlab" / ".netrc"
-        assert local_nrc.exists()
-
-    @responses.activate
-    def test_login_save_global(self):
-        """测试：save=True 时凭证保存到全局目录"""
-        api_key = "global-save-key"
-
-        responses.add(
-            responses.POST,
-            "https://api.swanlab.cn/api/login/api_key",
-            json=make_login_resp(),
-            status=200,
-        )
-
-        result = login(api_key=api_key, save=True)
-        assert result is True
-
-        nrc_path = Settings.get_user_config_dir() / ".netrc"
-        assert nrc_path.exists()
-        content = nrc_path.read_text()
-        assert api_key in content
+        assert login(api_key=api_key, host=host, save=save)
+        directory = project_dir / ".swanlab" if save == "local" else Settings.get_user_config_dir()
+        assert nrc.read(directory / ".netrc") == (api_key, host, host)
+        other_directory = Settings.get_user_config_dir() if save == "local" else project_dir / ".swanlab"
+        assert not (other_directory / ".netrc").exists()
 
     @responses.activate
     def test_login_reuses_settings_key_same_host(self):
@@ -424,9 +393,9 @@ class TestLoginE2E:
         stored_key = "stored-key"
 
         responses.add(
-            responses.POST,
-            "https://api.swanlab.cn/api/login/api_key",
-            json=make_login_resp(),
+            responses.GET,
+            "https://api.swanlab.cn/api/auth/verify",
+            json=make_profile(),
             status=200,
         )
 

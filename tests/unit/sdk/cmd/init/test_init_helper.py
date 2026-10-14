@@ -9,7 +9,9 @@ import json
 from unittest.mock import MagicMock
 
 import pytest
+import responses
 
+from swanlab.exceptions import AuthenticationError
 from swanlab.sdk.cmd.init import (
     compatible_kwargs,
     ensure_run_dir,
@@ -17,6 +19,8 @@ from swanlab.sdk.cmd.init import (
     prompt_init_mode,
     set_nested_value,
 )
+from swanlab.sdk.internal.pkg import nrc
+from swanlab.sdk.internal.settings import Settings, set_global_settings
 
 
 # ==========================================
@@ -68,34 +72,38 @@ def test_load_config_exceptions(mock_settings):
 # Tests for `prompt_init_mode`
 # ==========================================
 def test_prompt_fast_exits(mock_settings, monkeypatch):
-    """测试快速跳过的条件：非 online 模式、非交互模式、已登录"""
-    # 1. 模拟已登录 (client.exists 返回 True)
-    monkeypatch.setattr("swanlab.sdk.cmd.init.client.exists", lambda: True)
-    assert prompt_init_mode(mock_settings) == "online"
-
-    monkeypatch.setattr("swanlab.sdk.cmd.init.client.exists", lambda: False)
-
-    # 2. 模拟非交互模式
-    mock_settings.interactive = False
-    assert prompt_init_mode(mock_settings) == "online"
-
-    # 3. 模拟非云端模式
-    mock_settings.interactive = True
+    """测试快速跳过的条件：非 online 模式、本地已配置凭证"""
+    # 1. 非 online 模式直接返回，不做任何引导
     mock_settings.mode = "local"
     assert prompt_init_mode(mock_settings) == "local"
 
+    # 2. online 模式且本地已配置 api_key（netrc/env/显式传参），无需交互直接返回 online
+    mock_settings.mode = "online"
+    mock_settings.api_key = "fake-key"
+    mock_login_cli = MagicMock(return_value=True)
+    monkeypatch.setattr("swanlab.sdk.cmd.init.login_cli", mock_login_cli)
+    assert prompt_init_mode(mock_settings) == "online"
+    mock_login_cli.assert_not_called()
+
+
+def test_prompt_no_key_non_interactive_raises(mock_settings):
+    """测试：online 模式无凭证且禁用交互时，直接抛出 RuntimeError"""
+    mock_settings.mode = "online"
+    mock_settings.api_key = None
+    mock_settings.interactive = False
+    with pytest.raises(RuntimeError, match="no API key was provided"):
+        prompt_init_mode(mock_settings)
+
 
 def test_prompt_auto_login(mock_settings, monkeypatch):
-    """测试本地已存在 apikey 时直接返回 online 模式"""
-    monkeypatch.setattr("swanlab.sdk.cmd.init.client.exists", lambda: False)
-    # 设置 api_key 模拟已存在凭证
+    """测试本地已存在 apikey 时直接返回 online 模式，登录校验交给 Core 启动时处理"""
     mock_settings.api_key = "fake-key"
 
-    mock_login_raw = MagicMock(return_value=True)
-    monkeypatch.setattr("swanlab.sdk.cmd.init.login_raw", mock_login_raw)
+    mock_login_cli = MagicMock(return_value=True)
+    monkeypatch.setattr("swanlab.sdk.cmd.init.login_cli", mock_login_cli)
 
     assert prompt_init_mode(mock_settings) == "online"
-    # 有 api_key 时不再调用 login_raw，登录推迟到后续流程
+    mock_login_cli.assert_not_called()
 
 
 @pytest.mark.parametrize(
@@ -105,18 +113,23 @@ def test_prompt_auto_login(mock_settings, monkeypatch):
         (["3"], False, "offline"),
         # 直接选 1 -> 触发交互登录并返回成功
         (["1"], True, "online"),
-        # 直接选 2 -> 触发交互登录并返回失败
-        (["2"], False, "online"),
+        # 直接选 2 -> 触发交互登录并返回成功
+        (["2"], True, "online"),
         # 乱输一通后选 3 -> 循环容错测试
         (["invalid", "wrong", "3"], False, "offline"),
     ],
 )
 def test_prompt_interactive_choices(mock_settings, monkeypatch, inputs, mock_login_success, expected_mode):
     """使用参数化和猴子补丁极致压缩终端交互的测试代码"""
-    monkeypatch.setattr("swanlab.sdk.cmd.init.client.exists", lambda: False)
     mock_settings.api_key = None
+    monkeypatch.setattr("swanlab.sdk.cmd.init.helper.is_interactive", lambda: True)
 
-    # 模拟 login_raw 返回值
+    def backfill(settings):
+        settings.api_key = "verified-key"
+
+    monkeypatch.setattr("swanlab.sdk.cmd.init._backfill_login_credentials", backfill)
+
+    # 模拟 login_cli 返回值
     monkeypatch.setattr("swanlab.sdk.cmd.init.login_cli", lambda **kwargs: mock_login_success)
 
     # 模拟 input，通过迭代器按顺序弹出输入值
@@ -124,6 +137,56 @@ def test_prompt_interactive_choices(mock_settings, monkeypatch, inputs, mock_log
     monkeypatch.setattr("builtins.input", lambda prompt: next(input_iterator))
 
     assert prompt_init_mode(mock_settings) == expected_mode
+
+
+@pytest.mark.parametrize("choice", ["1", "2"])
+def test_prompt_cancelled_login_does_not_read_stored_credentials(monkeypatch, tmp_path, choice):
+    host = "https://server.example"
+    nrc_path = tmp_path / ".netrc"
+    nrc.write(nrc_path, api_host=host, web_host=host, api_key="old-key")
+    settings = Settings.model_validate({"mode": "online", "interactive": True, "api_host": host})
+    monkeypatch.setattr("swanlab.sdk.cmd.init.helper.is_interactive", lambda: True)
+    monkeypatch.setattr("builtins.input", lambda prompt: choice)
+    monkeypatch.setattr("swanlab.sdk.cmd.init.utils.get_nrc_path", lambda save: nrc_path)
+    login = MagicMock(return_value=False)
+    monkeypatch.setattr("swanlab.sdk.cmd.init.login_cli", login)
+    read = MagicMock(return_value=("old-key", host, host))
+    monkeypatch.setattr("swanlab.sdk.cmd.init.nrc.read", read)
+
+    with pytest.raises(AuthenticationError, match="login was cancelled"):
+        prompt_init_mode(settings)
+
+    read.assert_not_called()
+    assert settings.api_key is None
+
+
+@pytest.mark.parametrize("choice", ["1", "2"])
+@responses.activate
+def test_prompt_verifies_new_host_and_backfills_credentials(monkeypatch, tmp_path, choice):
+    host_a = "https://server-a.example"
+    host_b = "https://server-b.example"
+    nrc_path = tmp_path / ".netrc"
+    nrc.write(nrc_path, api_host=host_a, web_host=host_a, api_key="key-a")
+    set_global_settings(Settings.model_validate({"api_host": host_a, "api_key": "key-a", "interactive": True}))
+    settings = Settings.model_validate({"mode": "online", "interactive": True, "api_host": host_b})
+    monkeypatch.setattr("swanlab.sdk.cmd.init.helper.is_interactive", lambda: True)
+    monkeypatch.setattr("builtins.input", lambda prompt: choice)
+    monkeypatch.setattr("swanlab.sdk.cmd.init.utils.get_nrc_path", lambda save: nrc_path)
+    monkeypatch.setattr("swanlab.sdk.cmd.login.prompt_api_key", lambda **kwargs: "key-b")
+    responses.add(
+        responses.GET,
+        f"{host_b}/api/auth/verify",
+        json={"uid": 1, "username": "user-b", "name": "User B", "createdAt": "2026-01-01T00:00:00.000Z"},
+    )
+
+    assert prompt_init_mode(settings) == "online"
+
+    assert len(responses.calls) == 1
+    assert responses.calls[0].request.headers["Authorization"] == "ApiKey key-b"
+    assert settings.api_key == "key-b"
+    assert settings.api_host == host_b
+    assert settings.web_host == host_b
+    assert nrc.read(nrc_path) == ("key-b", host_b, host_b)
 
 
 class TestSetNestedValue:

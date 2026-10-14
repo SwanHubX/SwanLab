@@ -22,6 +22,7 @@ from swanlab.proto.swanlab.operation.v1.operation_pb2 import CoreState
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord, ResumeMode, RunState, StartRecord
 from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogLevel, LogRecord
+from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.core_python.api.experiment import get_experiment_summary, stop_experiment
 from swanlab.sdk.internal.core_python.context import CoreContext
 from swanlab.sdk.internal.core_python.metrics import RunMetrics
@@ -35,6 +36,7 @@ from swanlab.sdk.internal.core_python.utils import (
     prepare_experiment_start,
 )
 from swanlab.sdk.internal.pkg import adapter, console, executor, safe
+from swanlab.sdk.internal.pkg.client import Client
 from swanlab.sdk.protocol.core import CoreSyncProtocol
 from swanlab.sdk.typings.core_python.api.experiment import ResumeExperimentSummaryType
 
@@ -60,6 +62,8 @@ class CoreSyncPython(CoreSyncProtocol):
         # 日志行数，仅大于此行数的才上传
         self._epoch = -1
         self._counter = counter.Counter(builder.DEC_NUM)
+        # 按实例身份释放本 Sync 创建的 client。
+        self._client_instance: Optional[Client] = None
 
     @property
     def _ctx(self) -> CoreContext:
@@ -70,90 +74,160 @@ class CoreSyncPython(CoreSyncProtocol):
     def _ctx(self, ctx: CoreContext):
         self._run_ctx = ctx
 
+    def _teardown_client(self) -> bool:
+        if self._client_instance is None:
+            return True
+        with safe.block(message="Failed to release SwanLab client"):
+            client.reset(client=self._client_instance)
+            self._client_instance = None
+        return self._client_instance is None
+
     def deliver_sync_start(self, start_request: DeliverSyncStartRequest) -> DeliverSyncStartResponse:
+        if self._client_instance is not None:
+            return DeliverSyncStartResponse(success=False, message="Sync is already active.")
+        self._reader.close()
+        self._start_record = None
         self._start_request = start_request
         self._ctx = CoreContext.from_proto(start_request.core_settings, mode="sync")
-        # 安全地开启sync，DataStoreError 通常是run头文件损坏，属于已知错误
-        with safe.block(message="Failed to open sync store with unexpected error"):
-            try:
-                self._reader.open(self._ctx.run_file)
-                start_record_bytes = self._reader.scan()
-                if start_record_bytes is None:
-                    return DeliverSyncStartResponse(
-                        success=False, message=f"Cannot scan records from {self._ctx.run_file}"
-                    )
-                # 第一个记录必然是 start_record 如果不是说明记录是损坏的，不符合生命周期设计，不过由于协议本身兜底，一般不会出现这种情况
-                record = Record()
-                record.ParseFromString(start_record_bytes)
-                if not record.HasField("start"):
-                    return DeliverSyncStartResponse(
-                        success=False,
-                        message=(
-                            "Failed to sync this run because its log file is missing the required start record. "
-                            "The file may be corrupted, incomplete, or not a valid SwanLab run file."
-                        ),
-                    )
-                self._start_record = record.start
-                return DeliverSyncStartResponse(success=True, message="success")
-            except DataStoreError as e:
-                return DeliverSyncStartResponse(success=False, message=str(e))
-        return DeliverSyncStartResponse(success=False, message="unknown error")
+        try:
+            self._reader.open(self._ctx.run_file)
+            start_record_bytes = self._reader.scan()
+            if start_record_bytes is None:
+                return DeliverSyncStartResponse(success=False, message=f"Cannot scan records from {self._ctx.run_file}")
+            record = Record()
+            record.ParseFromString(start_record_bytes)
+            if not record.HasField("start"):
+                return DeliverSyncStartResponse(
+                    success=False,
+                    message=(
+                        "Failed to sync this run because its log file is missing the required start record. "
+                        "The file may be corrupted, incomplete, or not a valid SwanLab run file."
+                    ),
+                )
+            self._start_record = record.start
+            return DeliverSyncStartResponse(success=True, message="success")
+        except DataStoreError as e:
+            return DeliverSyncStartResponse(success=False, message=str(e))
+        except Exception:
+            with safe.block(message="Failed to open sync store with unexpected error"):
+                raise
+            return DeliverSyncStartResponse(success=False, message="unknown error")
+        finally:
+            if self._start_record is None:
+                self._reader.close()
 
     def deliver_sync_flush(self) -> DeliverSyncFlushResponse:
         assert self._start_request is not None and self._start_record is not None, (
             "Please run deliver_sync_start first before calling deliver_sync_flush"
         )
 
-        result: Optional[PrepareExperimentStartResult] = None
-        with safe.block(message="Failed to prepare sync experiment"):
-            # 1. 通知后端，启动实验
-            start_record = StartRecord()
-            start_record.CopyFrom(self._start_record)
-            if self._start_request.project:
-                start_record.project = self._start_request.project
-            if self._start_request.workspace:
-                start_record.workspace = self._start_request.workspace
-            if self._start_request.id:
-                start_record.id = self._start_request.id
-            # sync 实验统一开启宽松resume限制，resume设置为allow，后端自动创建新实验
-            start_record.resume = ResumeMode.RESUME_MODE_ALLOW
-            # sync的实验不同步实验颜色，否则会给用户一些奇怪的感觉：https://github.com/SwanHubX/SwanLab/issues/1434
-            start_record.color = ""
-            result = prepare_experiment_start(start_record)
-            self._ctx.set_online_params(
-                username=result.username,
-                project=result.project,
-                project_id=result.project_data["cuid"],
-                project_version=result.project_data.get("version", None),
-                experiment_id=result.experiment["cuid"],
+        # 1. 进程内独占互斥：确保无残留单例（正常流程下 login 不驻留、Run finish 已释放）
+        if client.exists():
+            if self._client_instance is None:
+                self._reader.close()
+            return DeliverSyncFlushResponse(
+                success=False,
+                message=("A networked SwanLab core is already active in this process. Finish it before starting sync."),
             )
 
-        if result is None:
-            return DeliverSyncFlushResponse(success=False, message="Failed to prepare sync experiment")
+        # 2. 凭证合法性校验：与 CorePython._start_when_online 对称
+        api_key = self._ctx.config.api_key
+        if api_key is None or not api_key.strip():
+            self._reader.close()
+            return DeliverSyncFlushResponse(
+                success=False,
+                message=(
+                    "Sync requires a valid API key. "
+                    "Login via `swanlab.login()` or configure SWANLAB_API_KEY / .netrc credentials."
+                ),
+            )
 
-        metrics_ready = False
-        with safe.block(message="Failed to initialize sync metrics", write_to_tty=False):
-            # 2. 如果是旧实验，向后端请求实验摘要
-            summary: Optional[ResumeExperimentSummaryType] = None
-            if not result.new_experiment:
-                summary = get_experiment_summary(
-                    self._ctx.project_id,
-                    self._ctx.experiment_id,
-                    created_at=result.experiment["createdAt"],
+        # 3. 自建 client：仅由 Sync 基于 Proto 下沉的凭据创建，创建成功后记录所有权
+        try:
+            owned_instance = client.new(api_key=api_key, base_url=self._ctx.config.api_host)
+            self._client_instance = owned_instance
+
+            result: Optional[PrepareExperimentStartResult] = None
+            with safe.block(message="Failed to prepare sync experiment"):
+                # 4. 通知后端，启动实验
+                start_record = StartRecord()
+                start_record.CopyFrom(self._start_record)
+                if self._start_request.project:
+                    start_record.project = self._start_request.project
+                if self._start_request.workspace:
+                    start_record.workspace = self._start_request.workspace
+                if self._start_request.id:
+                    start_record.id = self._start_request.id
+                # sync 实验统一开启宽松resume限制，resume设置为allow，后端自动创建新实验
+                start_record.resume = ResumeMode.RESUME_MODE_ALLOW
+                # sync的实验不同步实验颜色，否则会给用户一些奇怪的感觉：https://github.com/SwanHubX/SwanLab/issues/1434
+                start_record.color = ""
+                prepared = prepare_experiment_start(start_record)
+                self._ctx.set_online_params(
+                    username=prepared.username,
+                    project=prepared.project,
+                    project_id=prepared.project_data["cuid"],
+                    project_version=prepared.project_data.get("version", None),
+                    experiment_id=prepared.experiment["cuid"],
                 )
-            self._metrics, self._epoch, _, _ = RunMetrics.new(summary, ctx=self._ctx)
-            metrics_ready = True
+                result = prepared
 
-        if not metrics_ready:
-            return DeliverSyncFlushResponse(success=False, message="Failed to initialize sync metrics")
+            if result is None:
+                self._rollback_sync_start()
+                return DeliverSyncFlushResponse(success=False, message="Failed to prepare sync experiment")
 
-        # 3. 开始读取本地文件并开始上传
-        self._tracker = UploadTracker()
-        self._tracker.set_state(CoreState.CORE_STATE_RUNNING)
-        self._transport = Transport(self._ctx, tracker=self._tracker)
-        self._read_executor.start(self._read_and_request_finish())
-        self._transport.start()
-        return DeliverSyncFlushResponse(success=True, message="success", path=generate_run_online_path(result))
+            self._metrics = None
+            with safe.block(message="Failed to initialize sync metrics", write_to_tty=False):
+                # 5. 如果是旧实验，向后端请求实验摘要
+                summary: Optional[ResumeExperimentSummaryType] = None
+                if not result.new_experiment:
+                    summary = get_experiment_summary(
+                        self._ctx.project_id,
+                        self._ctx.experiment_id,
+                        created_at=result.experiment["createdAt"],
+                    )
+                self._metrics, self._epoch, _, _ = RunMetrics.new(summary, ctx=self._ctx)
+
+            if self._metrics is None:
+                self._rollback_sync_start()
+                return DeliverSyncFlushResponse(success=False, message="Failed to initialize sync metrics")
+
+            # 6. 开始读取本地文件并开始上传
+            self._tracker = UploadTracker()
+            self._tracker.set_state(CoreState.CORE_STATE_RUNNING)
+            self._transport = Transport(self._ctx, tracker=self._tracker)
+            self._read_executor.start(self._read_and_request_finish())
+            self._transport.start()
+            return DeliverSyncFlushResponse(success=True, message="success", path=generate_run_online_path(result))
+        except BaseException:
+            # 启动半途失败必须严格回滚：先停止已启动的消费者，确认退出后才释放 client
+            self._rollback_sync_start()
+            raise
+
+    def _shutdown_sync_consumers(self, timeout: Optional[float]) -> bool:
+        """Stop the reader producer before draining transport; fail closed on cleanup errors."""
+        errors: list[BaseException] = []
+        with safe.block(message="Failed to stop sync reader", on_error=errors.append):
+            self._read_executor.close()
+        if errors:
+            return False
+        # The producer has exited; a local file close failure cannot leave a network consumer alive.
+        with safe.block(BaseException, message="Failed to close sync store", level="debug"):
+            self._reader.close()
+        if self._transport is not None:
+            with safe.block(message="Failed to stop sync transport", on_error=errors.append):
+                if self._transport.finish(timeout=timeout):
+                    self._transport = None
+        stopped = not errors and self._transport is None
+        if stopped and self._tracker is not None:
+            self._tracker.set_state(CoreState.CORE_STATE_FINISHED)
+        return stopped
+
+    def _rollback_sync_start(self) -> None:
+        if self._shutdown_sync_consumers(timeout=Transport.FINISH_JOIN_TIMEOUT):
+            self._teardown_client()
+        else:
+            console.warning("Sync rollback could not confirm all consumers stopped. Client ownership retained.")
 
     async def _read_and_request_finish(self):
         try:
@@ -303,18 +377,25 @@ class CoreSyncPython(CoreSyncProtocol):
 
     def confirm_sync_finish(self) -> ConfirmSyncFinishResponse:
         """
-        确认同步完成，关闭文件流，上报最终实验状态
+        确认同步完成，关闭文件流，上报最终实验状态。
+        与 CorePython._confirm_finish_when_enabled 对称：无论上报成功或失败，
+        都在 finally 中集中释放 client，确保单例不泄漏。
+        前置操作（wait/close）也必须在异常收尾范围内，避免绕过 teardown。
+        异常路径（KeyboardInterrupt 等）必须先停止消费者，确认退出后才释放 client。
         """
         assert self._transport is not None, "Transport not set before confirming sync finish"
-        # 1. 等待读任务完成，并构建结束记录
-        self._read_executor.wait()
-        self._read_executor.close()
-        self._reader.close()
-        finish_record = self._get_finish_record()
-        # 3. 确保结束日志已入队，等待上传线程退出，然后上报最终实验状态
+        response = ConfirmSyncFinishResponse(success=False, message="Transport is still running.")
+        consumers_stopped = False
         try:
+            # 1. 等待读任务完成，并构建结束记录（这些操作可能抛异常或被 Ctrl+C 中断）
+            self._read_executor.wait()
+            self._reader.close()
+            finish_record = self._get_finish_record()
+            # 2. 确保结束日志已入队，等待上传线程退出，然后上报最终实验状态
             self._request_transport_finish()
-            self._transport.join(timeout=None)
+            consumers_stopped = self._shutdown_sync_consumers(timeout=None)
+            if not consumers_stopped:
+                return response
             with safe.block(message="Failed to report run finish"):
                 stop_experiment(
                     self._ctx.username,
@@ -323,11 +404,23 @@ class CoreSyncPython(CoreSyncProtocol):
                     state=finish_record.state,
                     finished_at=finish_record.finished_at,
                 )
-                return ConfirmSyncFinishResponse(success=True, message="OK")
-                # 如果仅仅是与后端同步出现问题，则换一个让用户安心一些的提示信息
-            return ConfirmSyncFinishResponse(
-                success=False, message="Failed to finish run, but all records have been uploaded to the server."
-            )
+                response.success = True
+                response.message = "OK"
+                return response
+            # 如果仅仅是与后端同步出现问题，则换一个让用户安心一些的提示信息
+            response.message = "Failed to finish run, but all records have been uploaded to the server."
+            return response
+        except BaseException:
+            consumers_stopped = self._shutdown_sync_consumers(timeout=Transport.FINISH_JOIN_TIMEOUT)
+            if not consumers_stopped:
+                console.warning(
+                    "Sync finish interrupted: could not confirm all consumers stopped. Client ownership retained."
+                )
+            raise
         finally:
-            if self._tracker is not None:
-                self._tracker.set_state(CoreState.CORE_STATE_FINISHED)
+            if consumers_stopped:
+                if self._tracker is not None:
+                    self._tracker.set_state(CoreState.CORE_STATE_FINISHED)
+                if not self._teardown_client():
+                    response.success = False
+                    response.message = "Failed to release SwanLab client; sync still owns its client."

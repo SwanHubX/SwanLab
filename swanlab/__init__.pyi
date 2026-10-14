@@ -218,20 +218,21 @@ def login(
 ) -> bool:
     """Authenticate with SwanLab Cloud.
 
-    This function authenticates your environment with SwanLab. If already logged in
-    and `relogin` is False, this function does nothing. Call this before `swanlab.init()`
-    to use cloud features.
+    This function verifies credentials online and stores them in the current settings.
+    It does not create the runtime client used by `swanlab.init()`.
 
     :param api_key: Your SwanLab API key. If not provided, will attempt to read from
         environment or prompt for input.
-    :param relogin: If True, forces re-authentication and overwrites existing credentials.
-        Defaults to False.
+    :param relogin: Kept for signature compatibility. Login always verifies credentials online.
     :param host: Custom API host URL. If not provided, uses the default SwanLab cloud host.
     :param save: Whether to save the API key locally for future sessions. Defaults to False.
     :param timeout: Network request timeout in seconds. Defaults to 10.
     :return: True if login was successful, False otherwise.
     :raises RuntimeError: If called while a run is active.
-    :raises AuthenticationError: If login fails due to invalid credentials or network issues.
+    :raises AuthenticationError: If credentials are rejected or unavailable.
+    :raises RequestException: If a network or HTTP request fails.
+    :raises RuntimeError: If the backend does not support ApiKey authentication.
+    :raises ValueError: If the authentication response is malformed.
 
     Examples:
 

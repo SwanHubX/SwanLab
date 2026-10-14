@@ -5,7 +5,7 @@ from typing import ClassVar as _ClassVar, Optional as _Optional
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class CoreSettings(_message.Message):
-    __slots__ = ("run_id", "run_dir", "section_rule", "record_batch", "record_interval", "save_size", "save_split", "save_part", "save_batch", "skip_store")
+    __slots__ = ("run_id", "run_dir", "section_rule", "record_batch", "record_interval", "save_size", "save_split", "save_part", "save_batch", "skip_store", "api_key", "api_host")
     RUN_ID_FIELD_NUMBER: _ClassVar[int]
     RUN_DIR_FIELD_NUMBER: _ClassVar[int]
     SECTION_RULE_FIELD_NUMBER: _ClassVar[int]
@@ -16,6 +16,8 @@ class CoreSettings(_message.Message):
     SAVE_PART_FIELD_NUMBER: _ClassVar[int]
     SAVE_BATCH_FIELD_NUMBER: _ClassVar[int]
     SKIP_STORE_FIELD_NUMBER: _ClassVar[int]
+    API_KEY_FIELD_NUMBER: _ClassVar[int]
+    API_HOST_FIELD_NUMBER: _ClassVar[int]
     run_id: str
     run_dir: str
     section_rule: int
@@ -26,4 +28,6 @@ class CoreSettings(_message.Message):
     save_part: int
     save_batch: int
     skip_store: bool
-    def __init__(self, run_id: _Optional[str] = ..., run_dir: _Optional[str] = ..., section_rule: _Optional[int] = ..., record_batch: _Optional[int] = ..., record_interval: _Optional[float] = ..., save_size: _Optional[int] = ..., save_split: _Optional[int] = ..., save_part: _Optional[int] = ..., save_batch: _Optional[int] = ..., skip_store: bool = ...) -> None: ...
+    api_key: str
+    api_host: str
+    def __init__(self, run_id: _Optional[str] = ..., run_dir: _Optional[str] = ..., section_rule: _Optional[int] = ..., record_batch: _Optional[int] = ..., record_interval: _Optional[float] = ..., save_size: _Optional[int] = ..., save_split: _Optional[int] = ..., save_part: _Optional[int] = ..., save_batch: _Optional[int] = ..., skip_store: bool = ..., api_key: _Optional[str] = ..., api_host: _Optional[str] = ...) -> None: ...
