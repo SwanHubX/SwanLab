@@ -207,7 +207,7 @@ def init(
     for key, value in {
         "log_dir": log_dir,
         "mode": mode,
-        "project.name": project or Path.cwd().name,
+        "project.name": project,
         "project.workspace": workspace,
         "project.public": public,
         "experiment.name": name,
@@ -223,6 +223,9 @@ def init(
     }.items():
         set_nested_value(args_dict, key, value)
     run_settings.merge_settings(args_dict)
+    # 仅在合并后的配置仍没有项目名时，使用当前目录名兜底
+    if run_settings.project.name is None:
+        run_settings.merge_settings({"project": {"name": Path.cwd().name}})
     # ---------------------------------- 再次确认参数 ----------------------------------
     # 根据交互式引导确定最终的模式
     mode = prompt_init_mode(run_settings)
