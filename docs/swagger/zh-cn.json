@@ -1,0 +1,1731 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "SwanLab API",
+    "description": "SwanLab 开放 API 文档，包含 OAuth2 授权与使用接口，以及私有化 root 管理接口。\n\n<a href=\"./zh-cn.json\" download>下载中文文档 (zh-cn.json)</a> · <a href=\"./en.json\" download>download English document (en.json)</a>",
+    "version": "1.0.0"
+  },
+  "host": "api.swanlab.cn",
+  "basePath": "/api",
+  "schemes": [
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "securityDefinitions": {
+    "basicAuth": {
+      "type": "basic",
+      "description": "Authorization: Basic <app_id:app_secret(base64编码)>"
+    },
+    "bearerAuth": {
+      "type": "apiKey",
+      "name": "Authorization",
+      "in": "header",
+      "description": "Authorization: Bearer <access_token>"
+    },
+    "apiKeyAuth": {
+      "type": "apiKey",
+      "name": "Authorization",
+      "in": "header",
+      "description": "Authorization: ApiKey <实例 root 用户的 API Key>"
+    }
+  },
+  "tags": [
+    {
+      "name": "OAuth2",
+      "description": "OAuth2 授权与使用接口\n`POST /auth/oauth2/token` 使用 `Basic` 认证，请求头格式为 `Authorization: Basic base64(app_id:app_secret)`；\n`GET /auth/oauth2/user/info` 与 `GET /auth/oauth2/user/api_key` 使用 `Bearer` token，请求头格式为 `Authorization: Bearer <access_token>`。"
+    },
+    {
+      "name": "Self-hosted",
+      "description": "私有化部署（Self-hosted）管理接口\n除 `POST /self_hosted/root` 外，调用这些接口需要携带实例 root 用户的 API Key，请求头格式为 `Authorization: ApiKey <api_key>`。"
+    }
+  ],
+  "paths": {
+    "/self_hosted/root": {
+      "post": {
+        "operationId": "self-hosted-root",
+        "summary": "创建根用户",
+        "description": "1. 根用户只能存在一个，重复创建会响应 `409 Conflict`;\n2. License 通过云端验证，`cloud_url` 可配置，默认为 `https://api.swanlab.cn/api`\n\t1. license 过期响应 `403 Forbidden`;\n\t2. license 不存在响应 `404 Not Found`;\n\t3. 其他情况下响应 `502 Bad Gateway`;\n3. 创建成功响应 `201`;\n4. 根用户通过 `group.comment` 标识为 `root`;\n5. License 通过云端验证后会在本地创建 License 对象，用于后续验证。\n6. 商业版 license 必须在线验证，离线将以 `403` 返回",
+        "security": [],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "description": "请求体",
+            "schema": {
+              "type": "object",
+              "required": [
+                "username",
+                "password",
+                "license"
+              ],
+              "properties": {
+                "username": {
+                  "type": "string"
+                },
+                "password": {
+                  "type": "string"
+                },
+                "license": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "创建根用户成功，返回用户信息",
+            "schema": {
+              "type": "object",
+              "required": [
+                "username",
+                "name",
+                "avatar",
+                "createdAt",
+                "verified",
+                "tag"
+              ],
+              "properties": {
+                "username": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "avatar": {
+                  "type": "string"
+                },
+                "createdAt": {
+                  "type": "string"
+                },
+                "verified": {
+                  "type": "boolean"
+                },
+                "tag": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "license 错误：License_Expired: 过期；License_Verification_Failed: token 错误；License_Activation_Expired: 超过激活截止时间；License_User_Count_Exceeded: 系统已有用户超过套餐最大用户数；License_Activation_Failed: 联网激活失败",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数错误",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "已有根用户，重复激活",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "异常错误",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Self-hosted"
+        ]
+      }
+    },
+    "/self_hosted/users": {
+      "post": {
+        "operationId": "self-hosted-create-users",
+        "summary": "批量添加用户",
+        "security": [
+          {
+            "apiKeyAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "description": "请求体",
+            "schema": {
+              "type": "object",
+              "required": [
+                "users"
+              ],
+              "properties": {
+                "users": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "username",
+                      "password"
+                    ],
+                    "properties": {
+                      "username": {
+                        "type": "string",
+                        "description": "用户名，必选"
+                      },
+                      "password": {
+                        "type": "string",
+                        "description": "密码"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created，添加成功；已存在的用户及请求内重复的 username 会被跳过"
+          },
+          "403": {
+            "description": "Forbidden，无权增加用户；Max_Limit 组织人数达到限制，此次添加的用户将全部取消",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized，未携带有效身份凭证",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Self-hosted"
+        ]
+      }
+    },
+    "/self_hosted/user/password": {
+      "post": {
+        "operationId": "self-hosted-change-password",
+        "summary": "根用户修改密码",
+        "description": "1. 根用户可以修改所有用户的密码。\n2. 非根用户只能修改自己的密码。",
+        "security": [
+          {
+            "apiKeyAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "description": "上述请求体包含的字段均为必填项，响应为空。",
+            "schema": {
+              "type": "object",
+              "required": [
+                "username",
+                "password"
+              ],
+              "properties": {
+                "username": {
+                  "type": "string"
+                },
+                "password": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "403": {
+            "description": "Forbidden，非 root 用户修改其他用户的密码",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found 目标用户不存在",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized，未携带有效身份凭证",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Self-hosted"
+        ]
+      }
+    },
+    "/self_hosted/user/pause": {
+      "post": {
+        "operationId": "self-hosted-pause-user",
+        "summary": "超管停用指定用户",
+        "description": "停用用户会删除该用户的 API Key 和会话缓存，但会保留 SSO ProviderUser 绑定记录。",
+        "security": [
+          {
+            "apiKeyAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "description": "请求体",
+            "schema": {
+              "type": "object",
+              "required": [
+                "username"
+              ],
+              "properties": {
+                "username": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content，停用成功并撤销该用户的登录凭证，返回空响应体"
+          },
+          "403": {
+            "description": "Forbidden 无权限停用",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not_Found 用户不存在",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict 无法停用root用户",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized，未携带有效身份凭证",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Self-hosted"
+        ]
+      }
+    },
+    "/self_hosted/user/unpause": {
+      "post": {
+        "operationId": "self-hosted-unpause-user",
+        "summary": "超管恢复指定用户",
+        "security": [
+          {
+            "apiKeyAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "description": "请求体",
+            "schema": {
+              "type": "object",
+              "required": [
+                "username"
+              ],
+              "properties": {
+                "username": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content 恢复成功，返回空响应体"
+          },
+          "403": {
+            "description": "Forbidden 无权限恢复",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not_Found 用户不存在",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized，未携带有效身份凭证",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Self-hosted"
+        ]
+      }
+    },
+    "/self_hosted/user/del": {
+      "post": {
+        "operationId": "self-hosted-delete-user",
+        "summary": "超管删除成员",
+        "description": "1. 只有根用户可以删除成员\n2. 根用户无法删除自己，否则 `409 Conflict`\n3. 删除操作为软删除, `user`表`status`和`group`表`type=PERSON`的`status`会变更为 `DISABLED`\n4. 会硬删除session表中所有关于该用户的会话信息\n5. 删除缓存中所有该用户的会话信息\n6. 若目标用户是某个非个人组织的管理员，则需要先进行退出组织/修改角色等操作\n7. 删除所有关联的项目、协作者、申请信息\n8. 删除该用户关联的 SSO ProviderUser 绑定记录",
+        "security": [
+          {
+            "apiKeyAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "description": "请求体",
+            "schema": {
+              "type": "object",
+              "required": [
+                "username"
+              ],
+              "properties": {
+                "username": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content，删除成功（软删除），返回空响应体"
+          },
+          "403": {
+            "description": "Forbidden 无权限删除",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not_Found 用户不存在",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict 无法删除root用户；Conflict 目标用户是某个组织的管理员（排除个人组织）",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized，未携带有效身份凭证",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Self-hosted"
+        ]
+      }
+    },
+    "/self_hosted/team/member": {
+      "post": {
+        "operationId": "self-hosted-upsert-team-member",
+        "summary": "超管邀请&修改成员权限",
+        "security": [
+          {
+            "apiKeyAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "description": "请求体",
+            "schema": {
+              "type": "object",
+              "required": [
+                "group",
+                "username",
+                "role"
+              ],
+              "properties": {
+                "group": {
+                  "type": "string",
+                  "description": "组织空间`username`，必选"
+                },
+                "username": {
+                  "type": "string",
+                  "description": "指定用户, 必选"
+                },
+                "role": {
+                  "type": "string",
+                  "enum": [
+                    "OWNER",
+                    "MEMBER",
+                    "VIEWER"
+                  ],
+                  "description": "指定角色, 必选, `OWNER`, `MEMBER`, `VIEWER`"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK，修改成功"
+          },
+          "404": {
+            "description": "Not Found：组织不存在；用户不存在",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden，对组织无权限邀请成员",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict，组织内至少保留一名管理员（降级最后一名 OWNER 时返回）",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized，未携带有效身份凭证",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Self-hosted"
+        ]
+      }
+    },
+    "/self_hosted/team/member/del": {
+      "post": {
+        "operationId": "self-hosted-delete-team-member",
+        "summary": "超管移除成员",
+        "security": [
+          {
+            "apiKeyAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "description": "请求体",
+            "schema": {
+              "type": "object",
+              "required": [
+                "group",
+                "username"
+              ],
+              "properties": {
+                "group": {
+                  "type": "string",
+                  "description": "组织空间 `username`，必选"
+                },
+                "username": {
+                  "type": "string",
+                  "description": "指定用户, 必选"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content，移除成功"
+          },
+          "404": {
+            "description": "Not Found：组织不存在；用户不存在；目标用户不是组织成员",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden，对组织无权限移除成员",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict，组织最后一个管理员无法被移除",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized，未携带有效身份凭证",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Self-hosted"
+        ]
+      }
+    },
+    "/self_hosted/project/collaborator": {
+      "post": {
+        "operationId": "self-hosted-upsert-collaborator",
+        "summary": "超管邀请协作者&修改协作者权限",
+        "security": [
+          {
+            "apiKeyAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "description": "请求体",
+            "schema": {
+              "type": "object",
+              "required": [
+                "project",
+                "username",
+                "role"
+              ],
+              "properties": {
+                "project": {
+                  "type": "string",
+                  "description": "项目`cuid`，必选"
+                },
+                "username": {
+                  "type": "string",
+                  "description": "指定用户, 必选"
+                },
+                "role": {
+                  "type": "string",
+                  "enum": [
+                    "READ",
+                    "WRITE",
+                    "ADMIN"
+                  ],
+                  "description": "指定角色, 必选, `READ`, `WRITE`,  `ADMIN`"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK，修改成功"
+          },
+          "400": {
+            "description": "Reach_Max，单项目下协作者数量达上限",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found：项目不存在；目标用户不存在",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden，对项目无权限邀请协作者",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized，未携带有效身份凭证",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Self-hosted"
+        ]
+      }
+    },
+    "/self_hosted/project/collaborator/del": {
+      "post": {
+        "operationId": "self-hosted-delete-collaborator",
+        "summary": "超管删除协作者",
+        "security": [
+          {
+            "apiKeyAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "description": "请求体",
+            "schema": {
+              "type": "object",
+              "required": [
+                "project",
+                "username"
+              ],
+              "properties": {
+                "project": {
+                  "type": "string",
+                  "description": "项目 `cuid`"
+                },
+                "username": {
+                  "type": "string",
+                  "description": "用户的的 `username`"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content，删除成功"
+          },
+          "403": {
+            "description": "Forbidden，无权限删除",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found：用户不存在；项目不存在；用户不是项目协作者",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized，未携带有效身份凭证",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Self-hosted"
+        ]
+      }
+    },
+    "/auth/oauth2/token": {
+      "post": {
+        "operationId": "oauth2-token",
+        "summary": "获取或刷新 Access Token",
+        "description": "根据 authorization code 签发 access token 和 refresh token，或使用 refresh token 刷新 access token。",
+        "security": [
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "description": "请求体",
+            "schema": {
+              "type": "object",
+              "required": [
+                "grant_type"
+              ],
+              "properties": {
+                "grant_type": {
+                  "type": "string",
+                  "enum": [
+                    "authorization_code",
+                    "refresh_token"
+                  ],
+                  "description": "授权类型"
+                },
+                "code": {
+                  "type": "string",
+                  "description": "传入回调地址的 authorization code"
+                },
+                "refresh_token": {
+                  "type": "string",
+                  "description": "refresh token"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功获取或刷新 Access Token",
+            "schema": {
+              "type": "object",
+              "required": [
+                "access_token",
+                "expires_in"
+              ],
+              "properties": {
+                "access_token": {
+                  "type": "string",
+                  "description": "access token，有效期 2 小时"
+                },
+                "refresh_token": {
+                  "type": "string",
+                  "description": "refresh token，有效期 30 天（仅在 grant_type=authorization_code 时返回）"
+                },
+                "expires_in": {
+                  "type": "integer",
+                  "format": "int32",
+                  "description": "access token 有效期（秒），固定为 7200"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "bad_request：请求体错误或 grant_type 不支持；error_code：code 无效、已过期或已被消费；error_token：refresh_token 无效或已过期",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "unauthorized：Basic Auth 缺失、app_secret 错误，或 code / refresh token 不属于当前应用",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "not_found：app_id 不存在",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "parse_error：JSON 解析失败；random_error：生成 token 失败；database_error：Redis 操作失败",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "OAuth2"
+        ]
+      }
+    },
+    "/auth/oauth2/user/info": {
+      "get": {
+        "operationId": "oauth2-user-info",
+        "summary": "获取用户信息",
+        "description": "根据 access token 获取 SwanLab 用户公开信息。",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功获取用户信息",
+            "schema": {
+              "type": "object",
+              "required": [
+                "username",
+                "nickname",
+                "avatar",
+                "profile"
+              ],
+              "properties": {
+                "username": {
+                  "type": "string",
+                  "description": "SwanLab 用户名"
+                },
+                "nickname": {
+                  "type": "string",
+                  "description": "SwanLab 昵称"
+                },
+                "avatar": {
+                  "type": "string",
+                  "description": "用户头像 URL"
+                },
+                "profile": {
+                  "type": "object",
+                  "properties": {
+                    "bio": {
+                      "type": "string",
+                      "description": "简介"
+                    },
+                    "website": {
+                      "type": "string",
+                      "description": "用户个人网站"
+                    },
+                    "location": {
+                      "type": "string",
+                      "description": "地址"
+                    },
+                    "idc": {
+                      "type": "string",
+                      "description": "国家或地区"
+                    },
+                    "organization": {
+                      "type": "string",
+                      "description": "公司或机构"
+                    },
+                    "education": {
+                      "type": "string",
+                      "description": "学校"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "bad_request：缺少 token 或 Authorization 格式错误",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "unauthorized：access token 不存在或已过期",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "error_internal：请求 SwanLab Server 用户信息失败；parse_error：token 数据解析失败；database_error：Redis 操作失败",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "OAuth2"
+        ]
+      }
+    },
+    "/auth/oauth2/user/api_key": {
+      "get": {
+        "operationId": "oauth2-user-api_key",
+        "summary": "获取 API Key",
+        "description": "根据 access token 获取该用户用于调用 SwanLab OpenAPI 的最新 API Key。实现逻辑与获取用户信息一致：Auth 将 access token 作为 Redis 索引解析出用户上下文，再请求 SwanLab Server 内部接口获取该用户最新的 API Key。",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功获取 API Key",
+            "schema": {
+              "type": "object",
+              "required": [
+                "api_key"
+              ],
+              "properties": {
+                "api_key": {
+                  "type": "string",
+                  "description": "用户最新的 API Key"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "bad_request：缺少 token 或 Authorization 格式错误",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "unauthorized：access token 不存在或已过期",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "error_internal：请求 SwanLab Server 获取 API Key 失败；parse_error：token 数据解析失败；database_error：Redis 操作失败",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "OAuth2"
+        ]
+      }
+    }
+  }
+}

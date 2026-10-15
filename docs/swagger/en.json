@@ -1,0 +1,1731 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "SwanLab API",
+    "description": "Open API documentation for SwanLab, covering the OAuth2 authorization and usage API as well as the self-hosted management API.\n\n<a href=\"./zh-cn.json\" download>download Chinese document (zh-cn.json)</a> · <a href=\"./en.json\" download>download English document (en.json)</a>",
+    "version": "1.0.0"
+  },
+  "host": "api.swanlab.cn",
+  "basePath": "/api",
+  "schemes": [
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "securityDefinitions": {
+    "basicAuth": {
+      "type": "basic",
+      "description": "Authorization: Basic <app_id:app_secret(base64-encoded)>"
+    },
+    "bearerAuth": {
+      "type": "apiKey",
+      "name": "Authorization",
+      "in": "header",
+      "description": "Authorization: Bearer <access_token>"
+    },
+    "apiKeyAuth": {
+      "type": "apiKey",
+      "name": "Authorization",
+      "in": "header",
+      "description": "Authorization: ApiKey <instance root user's API Key>"
+    }
+  },
+  "tags": [
+    {
+      "name": "OAuth2",
+      "description": "OAuth2 authorization and usage API.\n`POST /auth/oauth2/token` uses `Basic` authentication, with the request header `Authorization: Basic base64(app_id:app_secret)`;\n`GET /auth/oauth2/user/info` and `GET /auth/oauth2/user/api_key` use a `Bearer` token, with the request header `Authorization: Bearer <access_token>`."
+    },
+    {
+      "name": "Self-hosted",
+      "description": "Self-hosted management API. Except for `POST /self_hosted/root`, calling these endpoints requires the instance root user's API Key, with the request header `Authorization: ApiKey <api_key>`."
+    }
+  ],
+  "paths": {
+    "/self_hosted/root": {
+      "post": {
+        "operationId": "self-hosted-root",
+        "summary": "Create root user",
+        "description": "1. Only one root user can exist; creating another returns `409 Conflict`;\n2. The License is verified online; `cloud_url` is configurable and defaults to `https://api.swanlab.cn/api`\n\t1. an expired license returns `403 Forbidden`;\n\t2. a missing license returns `404 Not Found`;\n\t3. otherwise it returns `502 Bad Gateway`;\n3. A successful creation returns `201`;\n4. The root user is marked by `group.comment` set to `root`;\n5. After online verification a License record is created locally for later validation.\n6. A commercial license must be verified online; offline use returns `403`",
+        "security": [],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "description": "Request body",
+            "schema": {
+              "type": "object",
+              "required": [
+                "username",
+                "password",
+                "license"
+              ],
+              "properties": {
+                "username": {
+                  "type": "string"
+                },
+                "password": {
+                  "type": "string"
+                },
+                "license": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Root user created successfully; returns the user information",
+            "schema": {
+              "type": "object",
+              "required": [
+                "username",
+                "name",
+                "avatar",
+                "createdAt",
+                "verified",
+                "tag"
+              ],
+              "properties": {
+                "username": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "avatar": {
+                  "type": "string"
+                },
+                "createdAt": {
+                  "type": "string"
+                },
+                "verified": {
+                  "type": "boolean"
+                },
+                "tag": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "license error: License_Expired: expired; License_Verification_Failed: invalid token; License_Activation_Expired: past the activation deadline; License_User_Count_Exceeded: the existing user count exceeds the plan limit; License_Activation_Failed: online activation failed",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A root user already exists; repeated activation",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected error",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Self-hosted"
+        ]
+      }
+    },
+    "/self_hosted/users": {
+      "post": {
+        "operationId": "self-hosted-create-users",
+        "summary": "Bulk add users",
+        "security": [
+          {
+            "apiKeyAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "description": "Request body",
+            "schema": {
+              "type": "object",
+              "required": [
+                "users"
+              ],
+              "properties": {
+                "users": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "username",
+                      "password"
+                    ],
+                    "properties": {
+                      "username": {
+                        "type": "string",
+                        "description": "Username, required"
+                      },
+                      "password": {
+                        "type": "string",
+                        "description": "Password"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created, added successfully; existing users and duplicate usernames within the request are skipped"
+          },
+          "403": {
+            "description": "Forbidden, no permission to add users; Max_Limit the organization member limit has been reached, and all users added this time are cancelled",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized, no valid credentials were provided",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Self-hosted"
+        ]
+      }
+    },
+    "/self_hosted/user/password": {
+      "post": {
+        "operationId": "self-hosted-change-password",
+        "summary": "Root user changes password",
+        "description": "1. The root user can change the password of any user.\n2. A non-root user can only change their own password.",
+        "security": [
+          {
+            "apiKeyAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "description": "All fields in the request body above are required; the response is empty.",
+            "schema": {
+              "type": "object",
+              "required": [
+                "username",
+                "password"
+              ],
+              "properties": {
+                "username": {
+                  "type": "string"
+                },
+                "password": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "403": {
+            "description": "Forbidden, a non-root user cannot change another user's password",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found the target user does not exist",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized, no valid credentials were provided",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Self-hosted"
+        ]
+      }
+    },
+    "/self_hosted/user/pause": {
+      "post": {
+        "operationId": "self-hosted-pause-user",
+        "summary": "Admin deactivates a user",
+        "description": "Deactivating a user deletes their API Key and session cache, but keeps SSO ProviderUser bindings.",
+        "security": [
+          {
+            "apiKeyAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "description": "Request body",
+            "schema": {
+              "type": "object",
+              "required": [
+                "username"
+              ],
+              "properties": {
+                "username": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content, deactivated successfully and the login credentials of the user were revoked; empty response body"
+          },
+          "403": {
+            "description": "Forbidden no permission to deactivate",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not_Found the user does not exist",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict the root user cannot be deactivated",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized, no valid credentials were provided",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Self-hosted"
+        ]
+      }
+    },
+    "/self_hosted/user/unpause": {
+      "post": {
+        "operationId": "self-hosted-unpause-user",
+        "summary": "Admin restores a user",
+        "security": [
+          {
+            "apiKeyAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "description": "Request body",
+            "schema": {
+              "type": "object",
+              "required": [
+                "username"
+              ],
+              "properties": {
+                "username": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content restored successfully, empty response body"
+          },
+          "403": {
+            "description": "Forbidden no permission to restore",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not_Found the user does not exist",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized, no valid credentials were provided",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Self-hosted"
+        ]
+      }
+    },
+    "/self_hosted/user/del": {
+      "post": {
+        "operationId": "self-hosted-delete-user",
+        "summary": "Admin deletes a member",
+        "description": "1. Only the root user can delete members\n2. The root user cannot delete itself, otherwise `409 Conflict`\n3. Deletion is a soft delete: `status` on the `user` table and on the `group` table (`type=PERSON`) is set to `DISABLED`\n4. All sessions of the user in the session table are hard-deleted\n5. All cached sessions of the user are removed\n6. If the target user is an administrator of a non-personal organization, they must first leave the organization or have their role changed\n7. All related projects, collaborators and applications are deleted\n8. The user's SSO ProviderUser bindings are deleted",
+        "security": [
+          {
+            "apiKeyAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "description": "Request body",
+            "schema": {
+              "type": "object",
+              "required": [
+                "username"
+              ],
+              "properties": {
+                "username": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content, deleted successfully (soft delete); empty response body"
+          },
+          "403": {
+            "description": "Forbidden no permission to delete",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not_Found the user does not exist",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict the root user cannot be deleted; Conflict the target user is an administrator of an organization (excluding the personal one)",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized, no valid credentials were provided",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Self-hosted"
+        ]
+      }
+    },
+    "/self_hosted/team/member": {
+      "post": {
+        "operationId": "self-hosted-upsert-team-member",
+        "summary": "Admin invites & changes member permissions",
+        "security": [
+          {
+            "apiKeyAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "description": "Request body",
+            "schema": {
+              "type": "object",
+              "required": [
+                "group",
+                "username",
+                "role"
+              ],
+              "properties": {
+                "group": {
+                  "type": "string",
+                  "description": "The organization's `username`, required"
+                },
+                "username": {
+                  "type": "string",
+                  "description": "Target user, required"
+                },
+                "role": {
+                  "type": "string",
+                  "enum": [
+                    "OWNER",
+                    "MEMBER",
+                    "VIEWER"
+                  ],
+                  "description": "Role to assign (required), one of: `OWNER`, `MEMBER`, `VIEWER`"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK, updated successfully"
+          },
+          "404": {
+            "description": "Not Found: the organization does not exist; or the user does not exist",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden, no permission to invite members to the organization",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict, the organization must keep at least one administrator (returned when downgrading the last OWNER)",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized, no valid credentials were provided",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Self-hosted"
+        ]
+      }
+    },
+    "/self_hosted/team/member/del": {
+      "post": {
+        "operationId": "self-hosted-delete-team-member",
+        "summary": "Admin removes a member",
+        "security": [
+          {
+            "apiKeyAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "description": "Request body",
+            "schema": {
+              "type": "object",
+              "required": [
+                "group",
+                "username"
+              ],
+              "properties": {
+                "group": {
+                  "type": "string",
+                  "description": "the organization's `username`, required"
+                },
+                "username": {
+                  "type": "string",
+                  "description": "the target user, required"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content, removed successfully"
+          },
+          "404": {
+            "description": "Not Found: the organization does not exist; the user does not exist; or the target user is not an organization member",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden, no permission to remove members from the organization",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict, the last administrator of the organization cannot be removed",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized, no valid credentials were provided",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Self-hosted"
+        ]
+      }
+    },
+    "/self_hosted/project/collaborator": {
+      "post": {
+        "operationId": "self-hosted-upsert-collaborator",
+        "summary": "Admin invites a collaborator & changes collaborator permissions",
+        "security": [
+          {
+            "apiKeyAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "description": "Request body",
+            "schema": {
+              "type": "object",
+              "required": [
+                "project",
+                "username",
+                "role"
+              ],
+              "properties": {
+                "project": {
+                  "type": "string",
+                  "description": "Project `cuid`, required"
+                },
+                "username": {
+                  "type": "string",
+                  "description": "Target user, required"
+                },
+                "role": {
+                  "type": "string",
+                  "enum": [
+                    "READ",
+                    "WRITE",
+                    "ADMIN"
+                  ],
+                  "description": "Role to assign (required), one of: `READ`, `WRITE`, `ADMIN`"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK, updated successfully"
+          },
+          "400": {
+            "description": "Reach_Max, the project collaborator limit has been reached",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found: the project does not exist; or the target user does not exist",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden, no permission to invite collaborators to the project",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized, no valid credentials were provided",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Self-hosted"
+        ]
+      }
+    },
+    "/self_hosted/project/collaborator/del": {
+      "post": {
+        "operationId": "self-hosted-delete-collaborator",
+        "summary": "Admin deletes a collaborator",
+        "security": [
+          {
+            "apiKeyAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "description": "Request body",
+            "schema": {
+              "type": "object",
+              "required": [
+                "project",
+                "username"
+              ],
+              "properties": {
+                "project": {
+                  "type": "string",
+                  "description": "project `cuid`"
+                },
+                "username": {
+                  "type": "string",
+                  "description": "the user's `username`"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content, deleted successfully"
+          },
+          "403": {
+            "description": "Forbidden, no permission to delete",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found: the user does not exist; the project does not exist; or the user is not a project collaborator",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized, no valid credentials were provided",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Self-hosted"
+        ]
+      }
+    },
+    "/auth/oauth2/token": {
+      "post": {
+        "operationId": "oauth2-token",
+        "summary": "Obtain or refresh an Access Token",
+        "description": "Issue an access token and refresh token from an authorization code, or refresh the access token using a refresh token.",
+        "security": [
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "description": "Request body",
+            "schema": {
+              "type": "object",
+              "required": [
+                "grant_type"
+              ],
+              "properties": {
+                "grant_type": {
+                  "type": "string",
+                  "enum": [
+                    "authorization_code",
+                    "refresh_token"
+                  ],
+                  "description": "Grant type"
+                },
+                "code": {
+                  "type": "string",
+                  "description": "The authorization code passed to the callback URL"
+                },
+                "refresh_token": {
+                  "type": "string",
+                  "description": "Refresh token"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully obtained or refreshed the access token",
+            "schema": {
+              "type": "object",
+              "required": [
+                "access_token",
+                "expires_in"
+              ],
+              "properties": {
+                "access_token": {
+                  "type": "string",
+                  "description": "Access token, valid for 2 hours"
+                },
+                "refresh_token": {
+                  "type": "string",
+                  "description": "Refresh token, valid for 30 days (only returned when grant_type=authorization_code)"
+                },
+                "expires_in": {
+                  "type": "integer",
+                  "format": "int32",
+                  "description": "Access token validity period in seconds, fixed at 7200"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "bad_request: malformed request body or unsupported grant_type; error_code: the code is invalid, expired, or already consumed; error_token: the refresh_token is invalid or expired",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "unauthorized: missing Basic Auth, incorrect app_secret, or the code / refresh token does not belong to the current application",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "not_found: the app_id does not exist",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "parse_error: failed to parse JSON; random_error: failed to generate token; database_error: Redis operation failed",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "OAuth2"
+        ]
+      }
+    },
+    "/auth/oauth2/user/info": {
+      "get": {
+        "operationId": "oauth2-user-info",
+        "summary": "Get user info",
+        "description": "Retrieve public SwanLab user info based on the access token.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved the user info",
+            "schema": {
+              "type": "object",
+              "required": [
+                "username",
+                "nickname",
+                "avatar",
+                "profile"
+              ],
+              "properties": {
+                "username": {
+                  "type": "string",
+                  "description": "SwanLab username"
+                },
+                "nickname": {
+                  "type": "string",
+                  "description": "SwanLab nickname"
+                },
+                "avatar": {
+                  "type": "string",
+                  "description": "User avatar URL"
+                },
+                "profile": {
+                  "type": "object",
+                  "properties": {
+                    "bio": {
+                      "type": "string",
+                      "description": "Bio"
+                    },
+                    "website": {
+                      "type": "string",
+                      "description": "User's personal website"
+                    },
+                    "location": {
+                      "type": "string",
+                      "description": "Location"
+                    },
+                    "idc": {
+                      "type": "string",
+                      "description": "Country or region"
+                    },
+                    "organization": {
+                      "type": "string",
+                      "description": "Company or organization"
+                    },
+                    "education": {
+                      "type": "string",
+                      "description": "School"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "bad_request: missing token or malformed Authorization header",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "unauthorized: the access token does not exist or has expired",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "error_internal: failed to request user info from the SwanLab Server; parse_error: failed to parse token data; database_error: Redis operation failed",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "OAuth2"
+        ]
+      }
+    },
+    "/auth/oauth2/user/api_key": {
+      "get": {
+        "operationId": "oauth2-user-api_key",
+        "summary": "Get API Key",
+        "description": "Retrieve the user's latest API Key for calling the SwanLab OpenAPI based on the access token. The implementation logic is the same as getting user info: Auth resolves the user context from the access token as a Redis index, then calls the SwanLab Server internal API to fetch the user's latest API Key.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved the API Key",
+            "schema": {
+              "type": "object",
+              "required": [
+                "api_key"
+              ],
+              "properties": {
+                "api_key": {
+                  "type": "string",
+                  "description": "The user's latest API Key"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "bad_request: missing token or malformed Authorization header",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "unauthorized: the access token does not exist or has expired",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "error_internal: failed to request the API Key from the SwanLab Server; parse_error: failed to parse token data; database_error: Redis operation failed",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "OAuth2"
+        ]
+      }
+    }
+  }
+}
