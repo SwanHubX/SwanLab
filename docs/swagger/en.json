@@ -254,10 +254,32 @@
         ],
         "responses": {
           "201": {
-            "description": "Created, added successfully"
+            "description": "Created, added successfully; existing users and duplicate usernames within the request are skipped"
           },
           "403": {
             "description": "Forbidden, no permission to add users; Max_Limit the organization member limit has been reached, and all users added this time are cancelled",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized, no valid credentials were provided",
             "schema": {
               "type": "object",
               "required": [
@@ -322,7 +344,7 @@
             "description": "OK"
           },
           "403": {
-            "description": "Forbidden a non-root user is changing a password",
+            "description": "Forbidden, a non-root user cannot change another user's password",
             "schema": {
               "type": "object",
               "required": [
@@ -345,6 +367,28 @@
           },
           "404": {
             "description": "Not Found the target user does not exist",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized, no valid credentials were provided",
             "schema": {
               "type": "object",
               "required": [
@@ -402,7 +446,7 @@
         ],
         "responses": {
           "204": {
-            "description": "No Content deactivated successfully, empty response body"
+            "description": "No Content, deactivated successfully and the login credentials of the user were revoked; empty response body"
           },
           "403": {
             "description": "Forbidden no permission to deactivate",
@@ -450,6 +494,28 @@
           },
           "409": {
             "description": "Conflict the root user cannot be deactivated",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized, no valid credentials were provided",
             "schema": {
               "type": "object",
               "required": [
@@ -551,6 +617,28 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "Unauthorized, no valid credentials were provided",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -589,7 +677,7 @@
         ],
         "responses": {
           "204": {
-            "description": "No Content deleted successfully, empty response body"
+            "description": "No Content, deleted successfully (soft delete); empty response body"
           },
           "403": {
             "description": "Forbidden no permission to delete",
@@ -637,6 +725,28 @@
           },
           "409": {
             "description": "Conflict the root user cannot be deleted; Conflict the target user is an administrator of an organization (excluding the personal one)",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized, no valid credentials were provided",
             "schema": {
               "type": "object",
               "required": [
@@ -712,7 +822,7 @@
             "description": "OK, updated successfully"
           },
           "404": {
-            "description": "Not Found, the member whose role is being changed does not exist; Not Found, the organization whose role is being changed does not exist",
+            "description": "Not Found: the organization does not exist; or the user does not exist",
             "schema": {
               "type": "object",
               "required": [
@@ -735,6 +845,50 @@
           },
           "403": {
             "description": "Forbidden, no permission to invite members to the organization",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict, the organization must keep at least one administrator (returned when downgrading the last OWNER)",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized, no valid credentials were provided",
             "schema": {
               "type": "object",
               "required": [
@@ -800,7 +954,7 @@
             "description": "No Content, removed successfully"
           },
           "404": {
-            "description": "Not Found: the member being removed does not exist; the organization does not exist; or the user is not an organization member",
+            "description": "Not Found: the organization does not exist; the user does not exist; or the target user is not an organization member",
             "schema": {
               "type": "object",
               "required": [
@@ -845,6 +999,28 @@
           },
           "409": {
             "description": "Conflict, the last administrator of the organization cannot be removed",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized, no valid credentials were provided",
             "schema": {
               "type": "object",
               "required": [
@@ -942,7 +1118,7 @@
             }
           },
           "404": {
-            "description": "Not Found, the collaborator whose role is being changed does not exist",
+            "description": "Not Found: the project does not exist; or the target user does not exist",
             "schema": {
               "type": "object",
               "required": [
@@ -965,6 +1141,28 @@
           },
           "403": {
             "description": "Forbidden, no permission to invite collaborators to the project",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized, no valid credentials were provided",
             "schema": {
               "type": "object",
               "required": [
@@ -1052,7 +1250,29 @@
             }
           },
           "404": {
-            "description": "Not Found, the resource does not exist; the user does not exist; the project does not exist; or the user is not a project collaborator",
+            "description": "Not Found: the user does not exist; the project does not exist; or the user is not a project collaborator",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized, no valid credentials were provided",
             "schema": {
               "type": "object",
               "required": [

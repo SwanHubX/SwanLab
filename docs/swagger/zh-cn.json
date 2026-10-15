@@ -254,10 +254,32 @@
         ],
         "responses": {
           "201": {
-            "description": "Created，添加成功"
+            "description": "Created，添加成功；已存在的用户及请求内重复的 username 会被跳过"
           },
           "403": {
             "description": "Forbidden，无权增加用户；Max_Limit 组织人数达到限制，此次添加的用户将全部取消",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized，未携带有效身份凭证",
             "schema": {
               "type": "object",
               "required": [
@@ -322,7 +344,7 @@
             "description": "OK"
           },
           "403": {
-            "description": "Forbidden 非根用户修改密码",
+            "description": "Forbidden，非 root 用户修改其他用户的密码",
             "schema": {
               "type": "object",
               "required": [
@@ -345,6 +367,28 @@
           },
           "404": {
             "description": "Not Found 目标用户不存在",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized，未携带有效身份凭证",
             "schema": {
               "type": "object",
               "required": [
@@ -402,7 +446,7 @@
         ],
         "responses": {
           "204": {
-            "description": "No Content 停用成功，返回空响应体"
+            "description": "No Content，停用成功并撤销该用户的登录凭证，返回空响应体"
           },
           "403": {
             "description": "Forbidden 无权限停用",
@@ -450,6 +494,28 @@
           },
           "409": {
             "description": "Conflict 无法停用root用户",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized，未携带有效身份凭证",
             "schema": {
               "type": "object",
               "required": [
@@ -551,6 +617,28 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "Unauthorized，未携带有效身份凭证",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -589,7 +677,7 @@
         ],
         "responses": {
           "204": {
-            "description": "No Content 删除成功，返回空响应体"
+            "description": "No Content，删除成功（软删除），返回空响应体"
           },
           "403": {
             "description": "Forbidden 无权限删除",
@@ -637,6 +725,28 @@
           },
           "409": {
             "description": "Conflict 无法删除root用户；Conflict 目标用户是某个组织的管理员（排除个人组织）",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized，未携带有效身份凭证",
             "schema": {
               "type": "object",
               "required": [
@@ -712,7 +822,7 @@
             "description": "OK，修改成功"
           },
           "404": {
-            "description": "Not Found，修改权限的成员不存在；Not Found，修改权限的组织不存在",
+            "description": "Not Found：组织不存在；用户不存在",
             "schema": {
               "type": "object",
               "required": [
@@ -735,6 +845,50 @@
           },
           "403": {
             "description": "Forbidden，对组织无权限邀请成员",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict，组织内至少保留一名管理员（降级最后一名 OWNER 时返回）",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized，未携带有效身份凭证",
             "schema": {
               "type": "object",
               "required": [
@@ -800,7 +954,7 @@
             "description": "No Content，移除成功"
           },
           "404": {
-            "description": "Not Found：移除权限的成员不存在；组织不存在；不是组织成员",
+            "description": "Not Found：组织不存在；用户不存在；目标用户不是组织成员",
             "schema": {
               "type": "object",
               "required": [
@@ -845,6 +999,28 @@
           },
           "409": {
             "description": "Conflict，组织最后一个管理员无法被移除",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized，未携带有效身份凭证",
             "schema": {
               "type": "object",
               "required": [
@@ -942,7 +1118,7 @@
             }
           },
           "404": {
-            "description": "Not Found，修改权限的协作者不存在",
+            "description": "Not Found：项目不存在；目标用户不存在",
             "schema": {
               "type": "object",
               "required": [
@@ -965,6 +1141,28 @@
           },
           "403": {
             "description": "Forbidden，对项目无权限邀请协作者",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized，未携带有效身份凭证",
             "schema": {
               "type": "object",
               "required": [
@@ -1052,7 +1250,29 @@
             }
           },
           "404": {
-            "description": "Not Found，资源不存在；用户不存在；项目不存在；用户不是项目协作者",
+            "description": "Not Found：用户不存在；项目不存在；用户不是项目协作者",
+            "schema": {
+              "type": "object",
+              "required": [
+                "status",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized，未携带有效身份凭证",
             "schema": {
               "type": "object",
               "required": [
