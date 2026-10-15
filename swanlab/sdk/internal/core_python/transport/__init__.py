@@ -5,6 +5,6 @@
 @description: 事件驱动的 Record 上传模块
 """
 
-from .thread import Transport
+from .worker import Transport
 
 __all__ = ["Transport"]

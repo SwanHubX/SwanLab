@@ -35,6 +35,7 @@ from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord, RunState, StartRecord
 from swanlab.proto.swanlab.save.v1.save_pb2 import SavePolicy, SaveRecord, SaveType
 from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogLevel, LogRecord
+from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.core_python.api.experiment import (
     get_experiment_summary,
     stop_experiment,
@@ -538,9 +539,7 @@ class CorePython(CoreProtocol):
             return ConfirmRunFinishResponse(success=False, message="Run is still active, cannot confirm finish.")
 
         # 1. 等待 transport 排空
-        if self._transport is not None:
-            if not self._transport.finish(timeout=None):
-                return ConfirmRunFinishResponse(success=False, message="Transport is still running.")
+        if self._transport is not None and self._transport.finish(timeout=None):
             self._transport = None
         # 2. 停止心跳和上传跟踪器，释放资源
         if self._tracker is not None:
@@ -548,6 +547,10 @@ class CorePython(CoreProtocol):
         if self._heartbeat is not None:
             self._heartbeat.stop()
             self._heartbeat = None
+        if self._transport is not None:
+            if client.exists():
+                client.reset()
+            return ConfirmRunFinishResponse(success=False, message=self._transport.finish_summary())
         # 3. 上报最终的 finish_record 给后端，完成实验结束流程
         # 约定仅 online 模式暂存 finish_record，offline/local 模式在 deliver_run_finish 时就完成了全部流程，因此这里无需上报
         if self._mode != "online":

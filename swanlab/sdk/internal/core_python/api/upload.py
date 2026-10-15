@@ -15,7 +15,6 @@ from requests.sessions import Session
 
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.core_python.utils import ProgressFileWrapper, get_buffer_size
-from swanlab.sdk.internal.pkg import safe
 from swanlab.sdk.internal.pkg.executor import SafeThreadPoolExecutor
 from swanlab.sdk.typings.core_python.api.upload import (
     UploadColumns,
@@ -39,7 +38,8 @@ def upload_conda(username: str, project: str, experiment_id: str, *, content: st
     :param experiment_id: 实验唯一标识符
     :param content: conda.yaml 的原始文本内容
     """
-    client.put(f"/project/{username}/{project}/runs/{experiment_id}/profile", {"conda": content})
+    # retries 设置为 0 表示不重试，重试机制交给 transport 层的退避调度
+    client.put(f"/project/{username}/{project}/runs/{experiment_id}/profile", {"conda": content}, retries=0)
 
 
 def upload_requirements(username: str, project: str, experiment_id: str, *, content: str) -> None:
@@ -51,7 +51,8 @@ def upload_requirements(username: str, project: str, experiment_id: str, *, cont
     :param experiment_id: 实验唯一标识符
     :param content: requirements.txt 的原始文本内容
     """
-    client.put(f"/project/{username}/{project}/runs/{experiment_id}/profile", {"requirements": content})
+    # retries 设置为 0 表示不重试，重试机制交给 transport 层的退避调度
+    client.put(f"/project/{username}/{project}/runs/{experiment_id}/profile", {"requirements": content}, retries=0)
 
 
 def upload_metadata(username: str, project: str, experiment_id: str, *, content: Dict) -> None:
@@ -63,7 +64,8 @@ def upload_metadata(username: str, project: str, experiment_id: str, *, content:
     :param experiment_id: 实验唯一标识符
     :param content: 元数据字典
     """
-    client.put(f"/project/{username}/{project}/runs/{experiment_id}/profile", {"metadata": content})
+    # retries 设置为 0 表示不重试，重试机制交给 transport 层的退避调度
+    client.put(f"/project/{username}/{project}/runs/{experiment_id}/profile", {"metadata": content}, retries=0)
 
 
 def upload_config(username: str, project: str, experiment_id: str, *, content: Dict) -> None:
@@ -75,13 +77,15 @@ def upload_config(username: str, project: str, experiment_id: str, *, content: D
     :param experiment_id: 实验唯一标识符
     :param content: 配置字典，格式为 {key: {value, sort, desc}}
     """
-    client.put(f"/project/{username}/{project}/runs/{experiment_id}/profile", {"config": content})
+    # retries 设置为 0 表示不重试，重试机制交给 transport 层的退避调度
+    client.put(f"/project/{username}/{project}/runs/{experiment_id}/profile", {"config": content}, retries=0)
 
 
 def upload_columns(username: str, project: str, *, columns: UploadColumns) -> None:
     """
     上传列信息
     """
+    # retries 设置为 0 表示不重试，重试机制交给 transport 层的退避调度
     client.post(f"/projects/{username}/{project}/series", columns, retries=0)
 
 
@@ -101,7 +105,7 @@ def upload_log(project_id: str, experiment_id: str, *, metrics: UploadLogBatch) 
         "experimentId": experiment_id,
         "metrics": metrics,
     }
-    # retries 设置为 0 表示不重试，重试机制交给sender外层实现
+    # retries 设置为 0 表示不重试，重试机制交给 transport 层的退避调度
     client.post("/house/metrics", data, retries=0)
 
 
@@ -121,7 +125,7 @@ def upload_scalar(project_id: str, experiment_id: str, *, metrics: UploadScalarB
         "experimentId": experiment_id,
         "metrics": metrics,
     }
-    # retries 设置为 0 表示不重试，重试机制交给sender外层实现
+    # retries 设置为 0 表示不重试，重试机制交给 transport 层的退避调度
     client.post("/house/metrics", data, retries=0)
 
 
@@ -141,7 +145,7 @@ def upload_media(project_id: str, experiment_id: str, *, metrics: UploadMediaBat
         "experimentId": experiment_id,
         "metrics": metrics,
     }
-    # retries 设置为 0 表示不重试，重试机制交给sender外层实现
+    # retries 设置为 0 表示不重试，重试机制交给 transport 层的退避调度
     client.post("/house/metrics", data, retries=0)
 
 
@@ -158,13 +162,17 @@ def upload_resource(
     上传资源文件到对象存储，先向后端请求上传凭据，然后使用凭据上传文件到对象存储。
 
     :param content_types: 可选的逐文件 Content-Type 列表，不传时使用二进制默认值。
-    :param tracker: 可选的进度追踪器，非 None 时自动汇报字节级进度和完成事件。
+    :param tracker: 可选的进度追踪器，非 None 时汇报字节级进度。
     """
+    # retries 设置为 0 表示不重试，重试机制交给 transport 层的退避调度
     resp = client.post(
         "/resources/presigned/put",
         {"experimentId": experiment_id, "paths": paths},
+        retries=0,
     )
     urls = resp.data["urls"]
+    if len(urls) != len(paths):
+        raise ValueError(f"presigned response returned {len(urls)} urls for {len(paths)} paths")
 
     def upload_one(url: str, buffer: Union[IO[bytes], str, Path], file_key: str, size: int, content_type: str):
         # 上传单个文件，支持文件路径和内存 buffer 两种形式
@@ -174,6 +182,7 @@ def upload_resource(
         else:
             _put_with_progress(session, url, buffer, file_key, size, tracker, content_type=content_type)
 
+    first_error: Optional[BaseException] = None
     with SafeThreadPoolExecutor(max_workers=10) as executor:
         futures = []
         for index, url in enumerate(urls):
@@ -187,10 +196,12 @@ def upload_resource(
         for future, file_key in futures:
             try:
                 future.result()
-                _finish_tracked_file(tracker, file_key)
-            except Exception:
+            except Exception as e:
                 _reset_tracked_file(tracker, file_key)
-                raise
+                if first_error is None:
+                    first_error = e
+    if first_error is not None:
+        raise first_error
 
 
 def upload_saves(
@@ -198,42 +209,27 @@ def upload_saves(
     *,
     resources: Sequence[UploadResource],
     tracker: Optional[UploadTracker] = None,
-) -> set[str]:
-    """通过预签名 URL 批量上传本地文件到对象存储，返回成功上传的 source_path 集合。
+) -> Dict[int, BaseException]:
+    """通过预签名 URL 批量上传本地文件到对象存储，返回 {索引: 异常} 字典。"""
 
-    :param tracker: 可选的进度追踪器，非 None 时自动汇报字节级进度和完成事件。
-    """
-
-    def upload_one(resource: UploadResource) -> Optional[bool]:
+    def upload_one(resource: UploadResource) -> None:
         file_key = resource.get("tracker_key")
         size = resource.get("size")
-        with safe.block(
-            message="Failed to upload save file, skipping", on_error=lambda _: _reset_tracked_file(tracker, file_key)
-        ):
-            with open(resource["source_path"], "rb") as f:
-                _put_with_progress(
-                    session, resource["url"], f, file_key, size, tracker, content_type=resource["content_type"]
-                )
-            _finish_tracked_file(tracker, file_key)
-            return True
+        with open(resource["source_path"], "rb") as f:
+            _put_with_progress(
+                session, resource["url"], f, file_key, size, tracker, content_type=resource["content_type"]
+            )
 
-    uploaded: set[str] = set()
+    failures: Dict[int, BaseException] = {}
     with SafeThreadPoolExecutor(max_workers=8) as executor:
-        futures = [(executor.submit(upload_one, resource), resource["source_path"]) for resource in resources]
-        for future, source_path in futures:
-            if future.result() is True:
-                uploaded.add(source_path)
-
-    return uploaded
-
-
-# ── 内部工具 ──────────────────────────────────────────────────
-
-
-def _finish_tracked_file(tracker: Optional[UploadTracker], file_key: Optional[str]) -> None:
-    """上传成功后标记文件完成。"""
-    if tracker is not None and file_key is not None:
-        tracker.finish_file(file_key)
+        futures = [(executor.submit(upload_one, resource), index) for index, resource in enumerate(resources)]
+        for future, index in futures:
+            try:
+                future.result()
+            except Exception as e:
+                _reset_tracked_file(tracker, resources[index].get("tracker_key"))
+                failures[index] = e
+    return failures
 
 
 def _reset_tracked_file(tracker: Optional[UploadTracker], file_key: Optional[str]) -> None:

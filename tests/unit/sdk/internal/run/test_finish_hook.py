@@ -12,9 +12,11 @@ from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 
+import swanlab
 from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import ConfirmRunFinishResponse, DeliverRunFinishResponse
+from swanlab.sdk.internal import run as run_module
 from swanlab.sdk.internal.pkg import fork
-from swanlab.sdk.internal.run import Run, clear_run
+from swanlab.sdk.internal.run import Run, clear_run, get_run, has_run
 
 
 def _make_exc_info(exc: BaseException):
@@ -75,7 +77,8 @@ class TestAtexitCleanup:
 
 
 class TestFinish:
-    def test_online_finish_uses_run_with_progress(self):
+    @pytest.mark.parametrize("pending", [False, True], ids=["drained", "retained"])
+    def test_online_finish_uses_run_with_progress(self, pending):
         run = _make_real_finish_run()
 
         with (
@@ -84,9 +87,17 @@ class TestFinish:
             patch("swanlab.sdk.internal.run.atexit.unregister"),
             patch("swanlab.sdk.internal.run.signal.signal"),
             patch("swanlab.sdk.internal.run.console.reset"),
+            patch("swanlab.sdk.internal.run._current_run", run),
         ):
-            mock_run_with_progress.return_value = ConfirmRunFinishResponse(success=True, message="OK")
+            mock_run_with_progress.return_value = ConfirmRunFinishResponse(success=not pending, message="finish result")
             run.finish()
+            assert run.alive is False
+            assert has_run() is False
+            with pytest.raises(RuntimeError, match="No active Run"):
+                get_run()
+            assert swanlab.run is None
+            # confirm 失败（如存在未确认上传记录）时也照常清理全局实例，失败原因已在 finish 内报告
+            assert run_module._current_run is None
 
         mock_run_with_progress.assert_called_once_with(
             stats_fn=run._core.get_operation_stats,

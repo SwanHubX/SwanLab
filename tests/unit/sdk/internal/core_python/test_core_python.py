@@ -180,8 +180,6 @@ class TestCorePythonFinish:
         mock_heartbeat = MockHeartbeat.return_value
 
         monkeypatch.setattr("swanlab.sdk.internal.core_python.core.stop_experiment", lambda *a, **kw: None)
-        # _store_finish 在 finish_record.state != FINISHED 时会生成一条 error log record 并放入 transport，
-        # 需要注册 upload_log mock 让 transport 排空成功，否则 join 会因持续重试而超时
         monkeypatch.setattr("swanlab.sdk.internal.core_python.transport.sender.upload_log", lambda *a, **kw: None)
         core.deliver_run_finish(DeliverRunFinishRequest(finish_record=FinishRecord()))
 
@@ -216,27 +214,82 @@ class TestCorePythonFinish:
         transport.finish.assert_called_once_with(timeout=None)
         stop_experiment_mock.assert_called_once()
 
-    def test_confirm_run_finish_preserves_running_transport(self, tmp_path, monkeypatch):
+    @pytest.mark.parametrize(
+        "summary",
+        [
+            "Upload did not finish: 2 record(s) retained (worker exited unexpectedly).",
+            "Upload did not finish: 1 record(s) retained (last failure: swanlab_api - http 503).",
+        ],
+        ids=["worker-exited", "last-failure"],
+    )
+    def test_confirm_run_finish_failure_keeps_transport_and_stops_components(self, tmp_path, monkeypatch, summary):
+        """上传未排空时保留诊断数据，停止心跳并重置 client。"""
         core = CorePython("online")
         core._ctx = make_core_ctx(tmp_path)
         set_online_params(core)
         transport = MagicMock()
         transport.finish.return_value = False
+        transport.finish_summary.return_value = summary
         heartbeat = MagicMock()
+        tracker = UploadTracker()
+        tracker.set_state(CoreState.CORE_STATE_RUNNING)
         stop_experiment_mock = MagicMock()
         core._transport = transport
         core._heartbeat = heartbeat
+        core._tracker = tracker
         core._pending_online_finish_record = FinishRecord()
         monkeypatch.setattr("swanlab.sdk.internal.core_python.core.stop_experiment", stop_experiment_mock)
+        monkeypatch.setattr("swanlab.sdk.internal.core_python.core.client.exists", lambda: True)
+
+        def reset_client():
+            heartbeat.stop.assert_called_once()
+            assert core._heartbeat is None
+            transport.finish.assert_called_once_with(timeout=None)
+
+        reset_mock = MagicMock(side_effect=reset_client)
+        monkeypatch.setattr("swanlab.sdk.internal.core_python.core.client.reset", reset_mock)
 
         resp = core.confirm_run_finish()
 
         assert isinstance(resp, ConfirmRunFinishResponse)
         assert resp.success is False
+        assert resp.message == summary
         assert core._transport is transport
         transport.finish.assert_called_once_with(timeout=None)
-        heartbeat.stop.assert_not_called()
+        heartbeat.stop.assert_called_once()
+        assert core._heartbeat is None
+        assert tracker.snapshot().state == CoreState.CORE_STATE_FINISHED
+        reset_mock.assert_called_once()
         stop_experiment_mock.assert_not_called()
+
+    def test_confirm_run_finish_returns_failure_when_report_fails(self, tmp_path, monkeypatch):
+        """后端上报失败时 confirm 释放传输组件并返回失败，本地数据已保存。"""
+        core = CorePython("online")
+        core._ctx = make_core_ctx(tmp_path)
+        set_online_params(core)
+        tracker = UploadTracker()
+        tracker.set_state(CoreState.CORE_STATE_RUNNING)
+        transport = MagicMock()
+        transport.finish.return_value = True
+        heartbeat = MagicMock()
+        core._tracker = tracker
+        core._transport = transport
+        core._heartbeat = heartbeat
+        core._pending_online_finish_record = FinishRecord()
+
+        def fail_report(*args, **kwargs):
+            raise ConnectionError("network unreachable")
+
+        monkeypatch.setattr("swanlab.sdk.internal.core_python.core.stop_experiment", fail_report)
+
+        resp = core.confirm_run_finish()
+
+        assert isinstance(resp, ConfirmRunFinishResponse)
+        assert resp.success is False
+        assert "Failed to finish run" in resp.message
+        assert core._transport is None
+        heartbeat.stop.assert_called_once()
+        assert tracker.snapshot().state == CoreState.CORE_STATE_FINISHED
 
 
 # ============================================================

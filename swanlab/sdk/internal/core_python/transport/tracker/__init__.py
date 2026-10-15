@@ -1,5 +1,7 @@
 """
-@file: tracker.py
+@author: caddiesnew
+@file: __init__.py
+@time: 2026/4/16
 @description: Thread-safe upload progress tracker.
 """
 
@@ -182,10 +184,14 @@ class UploadTracker:
             if file_progress is not None:
                 remaining = file_progress.progress.total - file_progress.progress.uploaded
                 if remaining > 0:
-                    # 将已完成/跳过的文件视为全部上传，使总进度条可达 100%，
-                    # 即使后端接受了部分上传（如去重跳过）也能正确收敛。
+                    # 文件完成时补齐剩余字节数
                     self._uploaded_size += remaining
                 self._uploaded_number += 1
+
+    def fail_file(self, key: str) -> None:
+        """移除已终结但未成功上传的文件，不计入完成字节与文件数。"""
+        with self._lock:
+            self._files.pop(key, None)
 
     def snapshot(self) -> OperationStats:
         with self._lock:
@@ -207,7 +213,7 @@ class UploadTracker:
             return stats
 
     def _visible_files(self) -> list[_TrackedFileProgress]:
-        """返回前 N 个未完成文件，已开始上传的优先显示。"""
+        """返回前 N 个未完成文件，上传中的文件排在前面。"""
         unfinished = [file for file in self._files.values() if file.progress.uploaded < file.progress.total]
         unfinished.sort(key=lambda file: (file.progress.uploaded <= 0, file.sequence))
         return unfinished[: self._uploading_files_limit]
@@ -219,4 +225,6 @@ class UploadTracker:
         return int(amount)
 
 
-__all__ = ["UploadTracker"]
+__all__ = [
+    "UploadTracker",
+]
