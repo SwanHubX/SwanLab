@@ -151,7 +151,8 @@ class TerminalEmulator:
 
     _MAX_LINES = 1024
 
-    def __init__(self) -> None:
+    def __init__(self, on_flush: Callable[[], None] | None = None) -> None:
+        self._on_flush = on_flush
         self._buffer: defaultdict[int, defaultdict[int, Char]] = defaultdict(lambda: defaultdict(lambda: _default_char))
         self._cursor = Cursor()
         self._num_lines_cache: int | None = None
@@ -336,6 +337,13 @@ class TerminalEmulator:
 
     def _write_plain_text(self, plain_text: str) -> None:
         """在当前光标位置写入纯文本。"""
+        self._num_lines_cache = None
+        if self._on_flush is not None and self.num_lines > self._MAX_LINES:
+            # Emit unread lines before read() scrolls them out, before allocating
+            # character cells for the next row in a large write().
+            self._on_flush()
+        if not plain_text:
+            return
         self._buffer[self._cursor.y].update(
             [(self._cursor.x + i, self._cursor.char.copy(data=c)) for i, c in enumerate(plain_text)]
         )
