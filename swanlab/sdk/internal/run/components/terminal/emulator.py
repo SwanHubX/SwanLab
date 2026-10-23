@@ -341,9 +341,10 @@ class TerminalEmulator:
     def _write_plain_text(self, plain_text: str) -> None:
         """在当前光标位置写入纯文本。"""
         self._num_lines_cache = None
-        if self._on_flush is not None and self.num_lines > self._MAX_LINES + self._FLUSH_SLACK:
+        if self._on_flush is not None and self._cursor.y >= self._MAX_LINES + self._FLUSH_SLACK:
             # Emit unread lines before read() scrolls them out, before allocating
-            # character cells for the next row in a large write().
+            # character cells for the next row in a large write(). Check the row
+            # index directly: num_lines scans the whole buffer on every call.
             self._on_flush()
         if not plain_text:
             return
