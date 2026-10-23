@@ -17,7 +17,7 @@ from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnClass, Colum
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.pkg import adapter
 from swanlab.sdk.typings.core_python.api.upload import UploadColumn
-from swanlab.sdk.typings.core_python.transport import FailureSource, FailureStage, UploadFailure
+from swanlab.sdk.typings.core_python.transport import UploadFailure
 
 if TYPE_CHECKING:
     from swanlab.sdk.internal.core_python.transport.tracker import UploadTracker
@@ -52,15 +52,11 @@ def transport_failure(
     records: Sequence[Record],
     error: BaseException,
     *,
-    source: FailureSource,
-    stage: Optional[FailureStage] = None,
     message: Optional[str] = None,
 ) -> UploadFailure:
     """将上传异常转换为 UploadFailure。"""
     if isinstance(error, ApiError):
         return UploadFailure(
-            source=source,
-            stage=stage,
             message=message if message is not None else str(error.message),
             records=list(records),
             status=getattr(error.response, "status_code", None),
@@ -68,8 +64,6 @@ def transport_failure(
             exception=error,
         )
     return UploadFailure(
-        source=source,
-        stage=stage,
         message=message if message is not None else type(error).__name__,
         records=list(records),
         exception=error,

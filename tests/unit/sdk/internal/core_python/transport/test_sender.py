@@ -296,10 +296,7 @@ def test_upload_save_skips_and_reports_failed_when_put_fails(tmp_path: Path, mul
     assert result.confirmed_records == [record]
     assert result.remaining_records == []
     failure = result.failures[0]
-    assert failure.source == "object_storage"
-    assert failure.stage == "transfer"
     assert failure.exception is error
-    assert "test-signature" not in failure.summary
     assert "test-signature" not in failure.message
 
 
@@ -581,7 +578,6 @@ def test_upload_unknown_record_type_settles(tmp_path: Path):
 
     assert result.confirmed_records == [record]
     assert result.remaining_records == []
-    assert result.failures[0].source == "local_data"
     assert "no upload handler" in result.failures[0].message
 
 
@@ -880,7 +876,6 @@ def test_upload_save_settles_unparseable_payload(tmp_path: Path):
     mock_upload_meta.assert_not_called()
     assert result.confirmed_records == [record]
     assert result.remaining_records == []
-    assert result.failures[0].source == "local_data"
     assert "Failed to parse internal save payload" in mock_warning.call_args.args[0]
 
 
@@ -1000,8 +995,6 @@ def test_upload_media_transfer_failure_is_terminal(tmp_path: Path):
     assert result.confirmed_records == [record]
     assert result.remaining_records == []
     failure = result.failures[0]
-    assert failure.source == "object_storage"
-    assert failure.stage == "transfer"
     assert failure.status == 403
 
 
@@ -1031,8 +1024,6 @@ def test_upload_media_transfer_failure_is_retryable(tmp_path: Path):
     assert result.confirmed_records == []
     assert result.remaining_records == [record]
     failure = result.failures[0]
-    assert failure.source == "object_storage"
-    assert failure.stage == "transfer"
     assert failure.status == 503
 
 
@@ -1062,8 +1053,6 @@ def test_upload_media_settles_on_non_retryable_protocol_error(tmp_path: Path):
     assert result.confirmed_records == [record]
     assert result.remaining_records == []
     failure = result.failures[0]
-    assert failure.source == "object_storage"
-    assert failure.stage == "transfer"
     assert "presigned response" in failure.message
     stats = tracker.snapshot()
     assert stats.total_number == 1
@@ -1107,7 +1096,6 @@ def test_upload_media_metrics_failure_keeps_file_rows_open(tmp_path: Path):
         result = sender.upload_media([record])
 
     assert result.remaining_records == [record]
-    assert result.failures[0].stage == "submit_metrics"
     stats = tracker.snapshot()
     # 字节进度上报完成，finish_file 在指标提交成功后调用
     assert stats.uploaded_size == 5
@@ -1174,7 +1162,6 @@ def test_upload_save_small_files_partial_success_completes_uploaded_and_failed(t
     # 两个记录都视为已终结，失败的不再重试
     assert sorted(id(r) for r in result.confirmed_records) == sorted(id(r) for r in records)
     assert result.remaining_records == []
-    assert result.failures[0].source == "object_storage"
 
 
 @pytest.mark.parametrize("status, retryable", [(400, False), (503, True)], ids=["4xx", "5xx"])
@@ -1193,7 +1180,6 @@ def test_upload_save_small_prepare_failure(tmp_path: Path, status, retryable):
 
     assert result.confirmed_records == ([] if retryable else [record])
     assert result.remaining_records == ([record] if retryable else [])
-    assert result.failures[0].stage == "request_address"
 
 
 @pytest.mark.parametrize("status, retryable", [(400, False), (503, True)], ids=["4xx", "5xx"])
@@ -1222,7 +1208,6 @@ def test_upload_save_small_complete_failure(tmp_path: Path, status, retryable):
 
     assert result.confirmed_records == ([] if retryable else [record])
     assert result.remaining_records == ([record] if retryable else [])
-    assert result.failures[0].stage == "complete"
     assert len(tracker.snapshot().files) == (1 if retryable else 0)
 
 
@@ -1242,7 +1227,6 @@ def test_upload_save_oversize_file_is_settled_not_uploaded(tmp_path: Path):
     mock_prepare.assert_not_called()
     assert result.confirmed_records == [record]
     assert result.remaining_records == []
-    assert result.failures[0].source == "local_data"
     assert "size limit" in result.failures[0].message
 
 
@@ -1281,7 +1265,6 @@ def test_upload_save_missing_source_file_is_settled(tmp_path: Path):
     mock_prepare.assert_not_called()
     assert result.confirmed_records == [record]
     assert result.remaining_records == []
-    assert result.failures[0].source == "local_data"
     assert "not found" in result.failures[0].message
 
 
@@ -1501,8 +1484,6 @@ def test_http_error_becomes_failure_result(tmp_path, record_type, api_func_name,
     assert result.remaining_records == ([record] if retryable else [])
     failure = result.failures[0]
     assert failure.status == status
-    assert failure.source == "swanlab_api"
-    assert failure.stage == "submit_metrics"
     assert failure.code == "test-error"
     assert failure.exception is not None
     assert tracker.snapshot().uploaded_records == 0
@@ -1551,12 +1532,8 @@ def test_mixed_batch_http_failure_splits_failure_sources(
     assert result.remaining_records == [good]
     assert bad not in result.remaining_records
 
-    sources = {f.source for f in result.failures}
-    assert "swanlab_api" in sources
-    assert "local_data" in sources
-
-    api_failure = next(f for f in result.failures if f.source == "swanlab_api")
-    local_failure = next(f for f in result.failures if f.source == "local_data")
+    api_failure = next(f for f in result.failures if isinstance(f.exception, ApiError))
+    local_failure = next(f for f in result.failures if not isinstance(f.exception, ApiError))
 
     assert good in api_failure.records
     assert bad not in api_failure.records

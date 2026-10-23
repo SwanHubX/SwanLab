@@ -95,7 +95,7 @@ class HttpRecordSender:
 
     def _blocked_failure(self, records: Sequence[Record], message: str) -> UploadFailure:
         """构造本地数据校验失败结果。"""
-        return UploadFailure(source="local_data", message=message, records=list(records))
+        return UploadFailure(message=message, records=list(records))
 
     def upload(self, record_type: str, records: Sequence[Record]) -> UploadResult:
         """按 record_type 分发上传，返回 UploadResult。"""
@@ -115,7 +115,7 @@ class HttpRecordSender:
             return UploadResult(
                 confirmed_records=[] if retryable else list(records),
                 remaining_records=list(records) if retryable else [],
-                failures=[transport_failure(list(records), e, source="swanlab_api")],
+                failures=[transport_failure(list(records), e)],
             )
 
     def upload_column(self, records: Sequence[Record], batch_size: int = 3000) -> UploadResult:
@@ -128,7 +128,7 @@ class HttpRecordSender:
             try:
                 upload_columns(self._username, self._project, columns={"series": columns})
             except requests.RequestException as e:
-                failure = transport_failure(batch, e, source="swanlab_api", stage="submit_metrics")
+                failure = transport_failure(batch, e)
                 failures.append(failure)
                 if is_retryable_error(e):
                     return UploadResult(
@@ -170,7 +170,7 @@ class HttpRecordSender:
         try:
             upload_scalar(self._project_id, self._experiment_id, metrics=metrics)
         except requests.RequestException as e:
-            failures = [transport_failure(confirmed, e, source="swanlab_api", stage="submit_metrics")]
+            failures = [transport_failure(confirmed, e)]
             if blocked:
                 failures.append(self._blocked_failure(blocked, "scalar record without value or timestamp"))
             retryable = is_retryable_error(e)
@@ -212,7 +212,7 @@ class HttpRecordSender:
         try:
             upload_log(self._project_id, self._experiment_id, metrics=metrics)
         except requests.RequestException as e:
-            failures = [transport_failure(confirmed, e, source="swanlab_api", stage="submit_metrics")]
+            failures = [transport_failure(confirmed, e)]
             if blocked:
                 failures.append(self._blocked_failure(blocked, "log record without line or timestamp"))
             retryable = is_retryable_error(e)
@@ -247,8 +247,7 @@ class HttpRecordSender:
             return UploadResult(
                 confirmed_records=blocked_records + ([] if retryable else plan.metric_records),
                 remaining_records=plan.metric_records if retryable else [],
-                failures=plan.blocked_failures
-                + [transport_failure(plan.metric_records, e, source="object_storage", stage="transfer")],
+                failures=plan.blocked_failures + [transport_failure(plan.metric_records, e)],
             )
         except OSError as e:
             if self._tracker is not None:
@@ -269,8 +268,7 @@ class HttpRecordSender:
             return UploadResult(
                 confirmed_records=blocked_records + ([] if retryable else plan.metric_records),
                 remaining_records=plan.metric_records if retryable else [],
-                failures=plan.blocked_failures
-                + [transport_failure(plan.metric_records, e, source="swanlab_api", stage="submit_metrics")],
+                failures=plan.blocked_failures + [transport_failure(plan.metric_records, e)],
             )
         if self._tracker is not None:
             for payload in plan.payloads:
@@ -348,7 +346,7 @@ class HttpRecordSender:
             return UploadResult(
                 confirmed_records=[] if retryable else [record],
                 remaining_records=[record] if retryable else [],
-                failures=[transport_failure([record], e, source="swanlab_api", stage="submit_metrics")],
+                failures=[transport_failure([record], e)],
             )
         return UploadResult(confirmed_records=[record])
 

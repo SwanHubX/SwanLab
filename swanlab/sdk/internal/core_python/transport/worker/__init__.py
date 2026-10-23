@@ -158,7 +158,7 @@ class Transport:
             reasons.append(f"worker crashed: {type(self._worker_error).__name__}")
         failures = self.last_failures()
         if failures:
-            reasons.append(f"last failure: {failures[0].summary}")
+            reasons.append(f"last failure: {failures[0].message}")
         if not reasons:
             reasons.append("worker exited unexpectedly")
         retained = len(self.pending_records())

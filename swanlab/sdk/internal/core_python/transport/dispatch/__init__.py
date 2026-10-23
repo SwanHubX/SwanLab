@@ -12,7 +12,7 @@ from swanlab.exceptions import ApiError
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.core_python.transport.sender import HttpRecordSender
 from swanlab.sdk.internal.pkg import console
-from swanlab.sdk.typings.core_python.transport import FailureSource, UploadFailure, UploadResult
+from swanlab.sdk.typings.core_python.transport import UploadFailure, UploadResult
 
 if TYPE_CHECKING:
     from swanlab.sdk.internal.core_python.transport.tracker import UploadTracker
@@ -101,7 +101,6 @@ class Dispatch:
                 console.error(f"Upload result did not account for all {chunk_size} record(s) of {record_type!r}.")
                 failures.append(
                     UploadFailure(
-                        source="worker_internal",
                         message=f"upload result did not account for all {chunk_size} record(s)",
                         records=list(chunk),
                     )
@@ -137,16 +136,14 @@ class Dispatch:
                 # 确定性失败：终结当前分片，避免阻塞同批后续 record 的上传
                 return UploadResult(
                     confirmed_records=list(chunk),
-                    failures=[UploadFailure(source="swanlab_api", message=str(e), records=list(chunk), exception=e)],
+                    failures=[UploadFailure(message=str(e), records=list(chunk), exception=e)],
                 )
             local_failure = isinstance(e, OSError) and not isinstance(e, ApiError)
-            source: FailureSource = "local_data" if local_failure else "worker_internal"
             return UploadResult(
-                confirmed_records=list(chunk) if source == "local_data" else [],
-                remaining_records=[] if source == "local_data" else list(chunk),
+                confirmed_records=list(chunk) if local_failure else [],
+                remaining_records=[] if local_failure else list(chunk),
                 failures=[
                     UploadFailure(
-                        source=source,
                         message=f"unexpected {type(e).__name__} while uploading {record_type!r} chunk",
                         records=list(chunk),
                         exception=e,
@@ -165,7 +162,7 @@ class Dispatch:
         self._advance_records(len(records))
         return UploadResult(
             confirmed_records=list(records),
-            failures=[UploadFailure(source="local_data", message=message, records=list(records))],
+            failures=[UploadFailure(message=message, records=list(records))],
         )
 
     def _advance_records(self, count: int) -> None:

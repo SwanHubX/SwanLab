@@ -21,7 +21,7 @@ def _failed_result(records: list[Record], message: str = "upload failed") -> Upl
     """构造失败保留的 UploadResult。"""
     return UploadResult(
         remaining_records=list(records),
-        failures=[UploadFailure(source="swanlab_api", message=message, records=list(records))],
+        failures=[UploadFailure(message=message, records=list(records))],
     )
 
 
@@ -401,7 +401,7 @@ def test_transport_terminal_failure_does_not_retry(make_ctx, make_scalar_record)
             attempts.append(len(attempts))
             return UploadResult(
                 confirmed_records=list(records),
-                failures=[UploadFailure(source="local_data", message="save file not found", records=list(records))],
+                failures=[UploadFailure(message="save file not found", records=list(records))],
             )
 
     policy = _RecordingPolicy(base_delay=0.05, max_delay=0.05)
@@ -481,14 +481,12 @@ def test_finish_summary_reports_worker_crash(mock_ctx):
 def test_finish_summary_reports_last_failure(mock_ctx):
     """未崩溃时摘要使用最近一次失败详情。"""
     t = _make_transport(mock_ctx)
-    t._last_failures = [
-        UploadFailure(source="swanlab_api", message="upload failed", stage="submit_metrics", status=503)
-    ]
+    t._last_failures = [UploadFailure(message="upload failed", status=503)]
 
     summary = t.finish_summary()
 
     assert summary.startswith("Upload did not finish: 0 record(s) retained")
-    assert "last failure: swanlab_api submit_metrics http 503" in summary
+    assert "last failure: upload failed" in summary
 
 
 def test_finish_summary_falls_back_without_diagnosis(mock_ctx):

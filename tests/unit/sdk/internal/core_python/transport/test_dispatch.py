@@ -19,7 +19,7 @@ def _ok(records) -> UploadResult:
 def _failed(records, message: str = "upload failed") -> UploadResult:
     return UploadResult(
         remaining_records=list(records),
-        failures=[UploadFailure(source="swanlab_api", message=message, records=list(records))],
+        failures=[UploadFailure(message=message, records=list(records))],
     )
 
 
@@ -57,14 +57,14 @@ def test_dispatch_groups_by_type(mock_ctx, make_scalar_record, make_config_recor
 
 
 @pytest.mark.parametrize(
-    "error, expected_source",
+    "error, terminal",
     [
-        (RuntimeError("upload exploded"), "worker_internal"),
-        (OSError("disk unavailable"), "local_data"),
+        (RuntimeError("upload exploded"), False),
+        (OSError("disk unavailable"), True),
     ],
     ids=["runtime-error", "os-error"],
 )
-def test_dispatch_sender_unexpected_error_converted_to_failure(mock_ctx, make_scalar_record, error, expected_source):
+def test_dispatch_sender_unexpected_error_converted_to_failure(mock_ctx, make_scalar_record, error, terminal):
     """sender 未预期异常转为失败结果，本地错误终结，内部错误保留重试。"""
     mock_sender = MagicMock()
     mock_sender.upload.side_effect = error
@@ -75,14 +75,13 @@ def test_dispatch_sender_unexpected_error_converted_to_failure(mock_ctx, make_sc
 
     result = dispatch(records)
 
-    if expected_source == "local_data":
+    if terminal:
         assert result.confirmed_records == records
         assert result.remaining_records == []
     else:
         assert result.confirmed_records == []
         assert result.remaining_records == records
     failure = result.failures[0]
-    assert failure.source == expected_source
     assert type(error).__name__ in failure.message
     assert failure.exception is error
 
@@ -115,7 +114,6 @@ def test_dispatch_settles_non_retryable_sender_error(mock_ctx, make_scalar_recor
 
     assert result.confirmed_records == records
     assert result.remaining_records == []
-    assert result.failures[0].source == "swanlab_api"
     assert tracker.snapshot().uploaded_records == 2
 
 
@@ -128,7 +126,7 @@ def test_dispatch_settled_type_does_not_block_next_type(mock_ctx, make_scalar_re
         if record_type == "media":
             return UploadResult(
                 confirmed_records=list(chunk),
-                failures=[UploadFailure(source="swanlab_api", message="presigned url mismatch", records=list(chunk))],
+                failures=[UploadFailure(message="presigned url mismatch", records=list(chunk))],
             )
         return _ok(chunk)
 
@@ -152,7 +150,6 @@ def test_dispatch_settles_untypeable_records(mock_ctx):
     assert result.confirmed_records == [record]
     assert result.remaining_records == []
     assert len(result.failures) == 1
-    assert result.failures[0].source == "local_data"
 
 
 def test_dispatch_settles_group_type_error(mock_ctx, make_scalar_record):
@@ -168,7 +165,6 @@ def test_dispatch_settles_group_type_error(mock_ctx, make_scalar_record):
 
     assert result.confirmed_records == [record]
     assert result.remaining_records == []
-    assert result.failures[0].source == "local_data"
 
 
 def test_dispatch_mixed_type_partial_failure_rollback(mock_ctx, make_scalar_record, make_config_record):
@@ -248,7 +244,6 @@ def test_dispatch_first_chunk_success_second_chunk_exception_keeps_prefix(mock_c
     assert result.confirmed_records == [first]
     assert result.remaining_records == [second, third]
     failure = result.failures[0]
-    assert failure.source == "worker_internal"
     assert failure.exception is not None
     assert tracker.snapshot().uploaded_records == 1
 
@@ -274,7 +269,6 @@ def test_dispatch_scalar_success_media_exception_keeps_confirmed_prefix(mock_ctx
 
     assert result.confirmed_records == [scalar]
     assert result.remaining_records == [media]
-    assert result.failures[0].source == "worker_internal"
     assert tracker.snapshot().uploaded_records == 1
 
 
@@ -313,5 +307,4 @@ def test_dispatch_result_contract_violation_retains_chunk(mock_ctx, make_scalar_
         result = dispatch([first, second])
 
     assert result.remaining_records == [first, second]
-    assert result.failures[0].source == "worker_internal"
     assert tracker.snapshot().uploaded_records == 0

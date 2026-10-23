@@ -85,7 +85,7 @@ def _prepare_failure(tasks: Sequence[_SaveFileTask], error: requests.RequestExce
     return UploadResult(
         confirmed_records=[] if retryable else records,
         remaining_records=records if retryable else [],
-        failures=[transport_failure(records, error, source="swanlab_api", stage="request_address")],
+        failures=[transport_failure(records, error)],
     )
 
 
@@ -96,8 +96,6 @@ def _prepare_count_mismatch(tasks: Sequence[_SaveFileTask], *, kind: str, receiv
         confirmed_records=records,
         failures=[
             UploadFailure(
-                source="swanlab_api",
-                stage="request_address",
                 message=f"{kind} prepare returned {received} entries for {len(records)} files",
                 records=records,
             )
@@ -122,16 +120,14 @@ def upload_save_files(
     pending: List[Tuple[str, int, str, Record]] = []  # (source_path, size, name, record)
     for record in records:
         if not record.HasField("save"):
-            failures.append(UploadFailure(source="local_data", message="record without save payload", records=[record]))
+            failures.append(UploadFailure(message="record without save payload", records=[record]))
             confirmed.append(record)
             continue
         save = record.save
         source_ref_path = resolve_save_source(ctx, save)
         if source_ref_path is None:
             console.warning(f"Save file not found: {save.source_path}")
-            failures.append(
-                UploadFailure(source="local_data", message=f"save file not found: {save.source_path}", records=[record])
-            )
+            failures.append(UploadFailure(message=f"save file not found: {save.source_path}", records=[record]))
             confirmed.append(record)
             continue
         try:
@@ -140,7 +136,6 @@ def upload_save_files(
             console.warning(f"Failed to stat save file, skipping: {source_ref_path}: {e}")
             failures.append(
                 UploadFailure(
-                    source="local_data",
                     message=f"save file unreadable: {source_ref_path}",
                     records=[record],
                     exception=e,
@@ -150,11 +145,7 @@ def upload_save_files(
             continue
         if size > config.save_size:
             console.warning(f"Save file exceeds size limit ({size} > {config.save_size}): {source_ref_path}")
-            failures.append(
-                UploadFailure(
-                    source="local_data", message=f"save file exceeds size limit: {source_ref_path}", records=[record]
-                )
-            )
+            failures.append(UploadFailure(message=f"save file exceeds size limit: {source_ref_path}", records=[record]))
             confirmed.append(record)
             continue
         pending.append((str(source_ref_path), size, save.name, record))
@@ -163,11 +154,7 @@ def upload_save_files(
     if config.save_batch <= 0:
         console.warning(f"Invalid save batch size ({config.save_batch}), skipping save upload")
         batch_records = [record for *_, record in pending]
-        failures.append(
-            UploadFailure(
-                source="local_data", message=f"invalid save batch size {config.save_batch}", records=batch_records
-            )
-        )
+        failures.append(UploadFailure(message=f"invalid save batch size {config.save_batch}", records=batch_records))
         return UploadResult(confirmed_records=confirmed + batch_records, remaining_records=remaining, failures=failures)
 
     for index in range(0, len(pending), config.save_batch):
@@ -207,7 +194,6 @@ def _upload_save_batch(
                 console.warning(f"Save file MD5 computation failed, skipping: {source_path}: {e}")
                 failures.append(
                     UploadFailure(
-                        source="local_data",
                         message=f"save file md5 computation failed: {source_path}",
                         records=[record],
                         exception=e,
@@ -291,8 +277,6 @@ def _upload_small_saves(
             transport_failure(
                 [task.record],
                 error,
-                source="object_storage",
-                stage="transfer",
                 message=f"save file upload failed: {task.entry['path']}",
             )
         )
@@ -320,8 +304,6 @@ def _upload_small_saves(
                     transport_failure(
                         [task.record for task in uploaded + skipped],
                         e,
-                        source="swanlab_api",
-                        stage="complete",
                     )
                 ],
             )
@@ -384,8 +366,6 @@ def _upload_large_saves(
                 transport_failure(
                     [task.record],
                     part_error,
-                    source="object_storage",
-                    stage="transfer",
                     message=f"multipart upload failed: {task.entry['path']}",
                 )
             )
@@ -427,8 +407,7 @@ def _upload_large_saves(
             confirmed_records=[task.record for task in skipped]
             + ([] if retryable else [task.record for task, _, _ in ready]),
             remaining_records=[task.record for task, _, _ in ready] if retryable else [],
-            failures=failures
-            + [transport_failure([task.record for task, _, _ in ready], e, source="swanlab_api", stage="complete")],
+            failures=failures + [transport_failure([task.record for task, _, _ in ready], e)],
         )
     for task, _, _ in ready:
         if tracker is not None:

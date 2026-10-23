@@ -55,15 +55,11 @@ def collect_media_payloads(ctx: CoreContext, records: Sequence[Record]) -> Media
     plan = MediaUploadPlan()
     for record in records:
         if not record.HasField("media"):
-            plan.blocked_failures.append(
-                UploadFailure(source="local_data", message="media record without media payload", records=[record])
-            )
+            plan.blocked_failures.append(UploadFailure(message="media record without media payload", records=[record]))
             continue
         media_record = record.media
         if not media_record.HasField("timestamp"):
-            plan.blocked_failures.append(
-                UploadFailure(source="local_data", message="media record without timestamp", records=[record])
-            )
+            plan.blocked_failures.append(UploadFailure(message="media record without timestamp", records=[record]))
             continue
         create_time = media_record.timestamp.ToJsonString()
         metric_chunk: UploadMedia = {
@@ -134,7 +130,7 @@ def collect_media_payloads(ctx: CoreContext, records: Sequence[Record]) -> Media
             plan.metric_records.append(record)
         else:
             reason = reasons[0] if reasons else "media record without files"
-            plan.blocked_failures.append(UploadFailure(source="local_data", message=reason, records=[record]))
+            plan.blocked_failures.append(UploadFailure(message=reason, records=[record]))
     return plan
 
 

@@ -30,9 +30,7 @@ class DeprecatedHttpRecordSender(HttpRecordSender):
             try:
                 upload_deprecated_columns(self._experiment_id, columns=[column for _, column in batch])
             except requests.RequestException as e:
-                failure = transport_failure(
-                    [record for record, _ in batch], e, source="swanlab_api", stage="submit_metrics"
-                )
+                failure = transport_failure([record for record, _ in batch], e)
                 failures.append(failure)
                 if is_retryable_error(e):
                     untried = [record for record, _ in encoded[start + len(batch) :]]

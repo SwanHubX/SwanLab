@@ -9,8 +9,7 @@
 上传结果统计：
 - confirmed_records：本轮已终结，不再重试（上传成功，或确定性失败）；
 - remaining_records：交回 worker 退避重试；
-- failures：失败诊断，用 source（swanlab_api / object_storage / local_data / worker_internal）与
-  stage（request_address / transfer / submit_metrics / complete）区分失败来源与阶段，不参与重试决策。
+- failures：失败诊断（message / status / code / exception），不参与重试决策。
 
 重试边界由 sender.utils.is_retryable_error 统一判定：
 - 网络异常与 5xx 保留重试；
