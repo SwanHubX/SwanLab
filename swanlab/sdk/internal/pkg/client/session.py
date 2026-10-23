@@ -33,13 +33,9 @@ class WarningRetry(Retry):
     在每次触发重试时打印 warning 日志。
     """
 
-    def increment(self, *args, **kwargs):
-        new_retry = super().increment(*args, **kwargs)
-
-        method = kwargs.get("method")
-        url = kwargs.get("url")
-        response = kwargs.get("response")
-        error = kwargs.get("error")
+    def increment(self, method=None, url=None, response=None, error=None, _pool=None, _stacktrace=None):
+        # urllib3 以位置参数传入 method/url，必须显式声明形参，否则日志里拿不到请求信息
+        new_retry = super().increment(method, url, response=response, error=error, _pool=_pool, _stacktrace=_stacktrace)
 
         status = getattr(response, "status", None) if response is not None else None
         reason = f"status={status}" if status is not None else f"error={error!r}"
