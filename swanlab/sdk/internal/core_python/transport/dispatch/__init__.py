@@ -53,8 +53,6 @@ def group_records_by_type(records: Sequence[Record]) -> Dict[str, List[Record]]:
 class Dispatch:
     """按 record_type 聚合记录并分批上传，汇总上传结果与记录数统计。"""
 
-    _RECORD_TYPES = frozenset(f.name for f in Record.DESCRIPTOR.oneofs_by_name["record_type"].fields)
-
     def __init__(
         self,
         batch_size: int,
@@ -94,9 +92,6 @@ class Dispatch:
 
     def _upload_record_type(self, record_type: str, records: List[Record]) -> UploadResult:
         """上传单个 record_type 分组。"""
-        if record_type not in self._RECORD_TYPES:
-            console.warning(f"No handler for record kind={record_type!r}, skipping {len(records)} record(s).")
-            return self._settle(records, f"unknown record type {record_type!r}")
         confirmed: List[Record] = []
         failures: List[UploadFailure] = []
         offset = 0

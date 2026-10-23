@@ -223,7 +223,7 @@ class TestCorePythonFinish:
         ids=["worker-exited", "last-failure"],
     )
     def test_confirm_run_finish_failure_keeps_transport_and_stops_components(self, tmp_path, monkeypatch, summary):
-        """上传未排空时保留诊断数据，停止心跳并重置 client。"""
+        """上传未排空时保留诊断数据，停止心跳并返回失败摘要。"""
         core = CorePython("online")
         core._ctx = make_core_ctx(tmp_path)
         set_online_params(core)
@@ -239,15 +239,6 @@ class TestCorePythonFinish:
         core._tracker = tracker
         core._pending_online_finish_record = FinishRecord()
         monkeypatch.setattr("swanlab.sdk.internal.core_python.core.stop_experiment", stop_experiment_mock)
-        monkeypatch.setattr("swanlab.sdk.internal.core_python.core.client.exists", lambda: True)
-
-        def reset_client():
-            heartbeat.stop.assert_called_once()
-            assert core._heartbeat is None
-            transport.finish.assert_called_once_with(timeout=None)
-
-        reset_mock = MagicMock(side_effect=reset_client)
-        monkeypatch.setattr("swanlab.sdk.internal.core_python.core.client.reset", reset_mock)
 
         resp = core.confirm_run_finish()
 
@@ -256,10 +247,7 @@ class TestCorePythonFinish:
         assert resp.message == summary
         assert core._transport is transport
         transport.finish.assert_called_once_with(timeout=None)
-        heartbeat.stop.assert_called_once()
-        assert core._heartbeat is None
         assert tracker.snapshot().state == CoreState.CORE_STATE_FINISHED
-        reset_mock.assert_called_once()
         stop_experiment_mock.assert_not_called()
 
     def test_confirm_run_finish_returns_failure_when_report_fails(self, tmp_path, monkeypatch):

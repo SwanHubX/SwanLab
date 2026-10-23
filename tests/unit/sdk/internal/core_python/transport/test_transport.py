@@ -468,3 +468,32 @@ def test_transport_finish_false_when_never_started_with_buffered_records(mock_ct
 
     empty = _make_transport(mock_ctx)
     assert empty.finish() is True
+
+
+def test_finish_summary_reports_worker_crash(mock_ctx):
+    """worker 崩溃时摘要给出异常类型与保留条数。"""
+    t = _make_transport(mock_ctx)
+    t._worker_error = RuntimeError("boom")
+    t._pending = [Record(num=1)]
+
+    assert t.finish_summary() == "Upload did not finish: 1 record(s) retained (worker crashed: RuntimeError)."
+
+
+def test_finish_summary_reports_last_failure(mock_ctx):
+    """未崩溃时摘要使用最近一次失败详情。"""
+    t = _make_transport(mock_ctx)
+    t._last_failures = [
+        UploadFailure(source="swanlab_api", message="upload failed", stage="submit_metrics", status=503)
+    ]
+
+    summary = t.finish_summary()
+
+    assert summary.startswith("Upload did not finish: 0 record(s) retained")
+    assert "last failure: swanlab_api submit_metrics http 503" in summary
+
+
+def test_finish_summary_falls_back_without_diagnosis(mock_ctx):
+    """既无崩溃也无失败记录时给出兜底原因。"""
+    t = _make_transport(mock_ctx)
+
+    assert "worker exited unexpectedly" in t.finish_summary()

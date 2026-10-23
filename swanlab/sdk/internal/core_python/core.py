@@ -35,7 +35,6 @@ from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord, RunState, StartRecord
 from swanlab.proto.swanlab.save.v1.save_pb2 import SavePolicy, SaveRecord, SaveType
 from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogLevel, LogRecord
-from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.core_python.api.experiment import (
     get_experiment_summary,
     stop_experiment,
@@ -548,8 +547,6 @@ class CorePython(CoreProtocol):
             self._heartbeat.stop()
             self._heartbeat = None
         if self._transport is not None:
-            if client.exists():
-                client.reset()
             return ConfirmRunFinishResponse(success=False, message=self._transport.finish_summary())
         # 3. 上报最终的 finish_record 给后端，完成实验结束流程
         # 约定仅 online 模式暂存 finish_record，offline/local 模式在 deliver_run_finish 时就完成了全部流程，因此这里无需上报

@@ -78,6 +78,33 @@ class _SaveFileTask:
     tracker_key: str
 
 
+def _prepare_failure(tasks: Sequence[_SaveFileTask], error: requests.RequestException) -> UploadResult:
+    """prepare 请求失败：可重试错误保留记录，其余终结。"""
+    records = [task.record for task in tasks]
+    retryable = is_retryable_error(error)
+    return UploadResult(
+        confirmed_records=[] if retryable else records,
+        remaining_records=records if retryable else [],
+        failures=[transport_failure(records, error, source="swanlab_api", stage="request_address")],
+    )
+
+
+def _prepare_count_mismatch(tasks: Sequence[_SaveFileTask], *, kind: str, received: int) -> UploadResult:
+    """prepare 返回数量不匹配是协议错误，终结整批记录而非重试。"""
+    records = [task.record for task in tasks]
+    return UploadResult(
+        confirmed_records=records,
+        failures=[
+            UploadFailure(
+                source="swanlab_api",
+                stage="request_address",
+                message=f"{kind} prepare returned {received} entries for {len(records)} files",
+                records=records,
+            )
+        ],
+    )
+
+
 def upload_save_files(
     ctx: CoreContext,
     session: SessionWithRetry,
@@ -232,28 +259,10 @@ def _upload_small_saves(
     try:
         resp = prepare_save_files(ctx.experiment_id, files=prepare_items)
     except requests.RequestException as e:
-        retryable = is_retryable_error(e)
-        return UploadResult(
-            confirmed_records=[] if retryable else [task.record for task in tasks],
-            remaining_records=[task.record for task in tasks] if retryable else [],
-            failures=[
-                transport_failure([task.record for task in tasks], e, source="swanlab_api", stage="request_address")
-            ],
-        )
+        return _prepare_failure(tasks, e)
     urls = resp["urls"]
     if len(urls) != len(tasks):
-        # 数量不匹配是确定性协议错误，终结记录而非重试
-        return UploadResult(
-            confirmed_records=[task.record for task in tasks],
-            failures=[
-                UploadFailure(
-                    source="swanlab_api",
-                    stage="request_address",
-                    message=f"save prepare returned {len(urls)} URLs for {len(tasks)} files",
-                    records=[task.record for task in tasks],
-                )
-            ],
-        )
+        return _prepare_count_mismatch(tasks, kind="save", received=len(urls))
 
     resources: List[UploadResource] = []
     for task, url in zip(tasks, urls):
@@ -355,28 +364,10 @@ def _upload_large_saves(
     try:
         resp = prepare_multipart_save(ctx.experiment_id, files=prepare_items)
     except requests.RequestException as e:
-        retryable = is_retryable_error(e)
-        return UploadResult(
-            confirmed_records=[] if retryable else [task.record for task in tasks],
-            remaining_records=[task.record for task in tasks] if retryable else [],
-            failures=[
-                transport_failure([task.record for task in tasks], e, source="swanlab_api", stage="request_address")
-            ],
-        )
+        return _prepare_failure(tasks, e)
     multipart_files = resp["files"]
     if len(multipart_files) != len(tasks):
-        # 数量不匹配是确定性协议错误，终结记录而非重试
-        return UploadResult(
-            confirmed_records=[task.record for task in tasks],
-            failures=[
-                UploadFailure(
-                    source="swanlab_api",
-                    stage="request_address",
-                    message=f"multipart prepare returned {len(multipart_files)} entries for {len(tasks)} files",
-                    records=[task.record for task in tasks],
-                )
-            ],
-        )
+        return _prepare_count_mismatch(tasks, kind="multipart", received=len(multipart_files))
 
     confirmed: List[Record] = []
     skipped: List[_SaveFileTask] = []

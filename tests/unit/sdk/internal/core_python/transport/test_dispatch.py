@@ -87,28 +87,6 @@ def test_dispatch_sender_unexpected_error_converted_to_failure(mock_ctx, make_sc
     assert failure.exception is error
 
 
-def test_dispatch_settles_unknown_type(mock_ctx, make_scalar_record):
-    """未知 record_type 终结整组记录并返回失败。"""
-    tracker = UploadTracker()
-    dispatch = Dispatch(batch_size=mock_ctx.config.record_batch, tracker=tracker)
-    record = make_scalar_record(step=1)
-
-    with patch("swanlab.sdk.internal.core_python.transport.dispatch.group_records_by_type") as mock_group:
-        from collections import OrderedDict
-
-        mock_group.return_value = OrderedDict({"unknown_kind": [record]})
-
-        with patch("swanlab.sdk.internal.core_python.transport.dispatch.console.warning") as mock_warning:
-            result = dispatch([record])
-
-    assert result.confirmed_records == [record]
-    assert result.remaining_records == []
-    assert result.failures[0].source == "local_data"
-    assert "unknown record type" in result.failures[0].message
-    assert tracker.snapshot().uploaded_records == 1
-    mock_warning.assert_called_once()
-
-
 def test_dispatch_settled_group_failure_advances_tracker(mock_ctx):
     """分组失败的记录已终结，uploaded_records 同步推进，finish 摘要不会停在 0/N。"""
     tracker = UploadTracker()

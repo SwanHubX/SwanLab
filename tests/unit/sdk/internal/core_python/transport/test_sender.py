@@ -6,6 +6,7 @@ from unittest.mock import ANY, MagicMock, patch
 import pytest
 import requests
 from google.protobuf.timestamp_pb2 import Timestamp
+from requests.sessions import Session
 
 from swanlab.exceptions import ApiError, NonRetryableUploadError
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnClass, ColumnRecord, ColumnType
@@ -569,6 +570,19 @@ def test_upload_does_not_advance_records(tmp_path: Path):
 
     assert result.confirmed_records == records
     assert tracker.snapshot().uploaded_records == 0
+
+
+def test_upload_unknown_record_type_settles(tmp_path: Path):
+    """未注册 handler 的 record 类型终结并给出 local_data 失败，不进入重试。"""
+    sender = _make_sender(tmp_path)
+    record = _make_scalar_record()
+
+    result = sender.upload("unknown_kind", [record])
+
+    assert result.confirmed_records == [record]
+    assert result.remaining_records == []
+    assert result.failures[0].source == "local_data"
+    assert "no upload handler" in result.failures[0].message
 
 
 def test_sender_resource_session_is_single_shot(tmp_path: Path):
@@ -1159,6 +1173,55 @@ def test_upload_save_small_files_partial_success_completes_uploaded_and_failed(t
     assert result.failures[0].source == "object_storage"
 
 
+@pytest.mark.parametrize("status, retryable", [(400, False), (503, True)], ids=["4xx", "5xx"])
+def test_upload_save_small_prepare_failure(tmp_path: Path, status, retryable):
+    """小文件 prepare 失败：5xx 保留重试，4xx 终结。"""
+    source = tmp_path / "a.txt"
+    source.write_text("weights", encoding="utf-8")
+    sender = _make_sender(tmp_path)
+    record = _make_save_record(source, name="a.txt")
+
+    with patch(
+        "swanlab.sdk.internal.core_python.transport.sender.save.prepare_save_files",
+        side_effect=_make_api_error(status),
+    ):
+        result = sender.upload_save([record])
+
+    assert result.confirmed_records == ([] if retryable else [record])
+    assert result.remaining_records == ([record] if retryable else [])
+    assert result.failures[0].stage == "request_address"
+
+
+@pytest.mark.parametrize("status, retryable", [(400, False), (503, True)], ids=["4xx", "5xx"])
+def test_upload_save_small_complete_failure(tmp_path: Path, status, retryable):
+    """小文件 complete 失败：5xx 保留重试并保持进度行，4xx 终结并关闭进度行。"""
+    source = tmp_path / "a.txt"
+    source.write_text("weights", encoding="utf-8")
+    sender = _make_sender(tmp_path)
+    tracker = UploadTracker()
+    sender.set_tracker(tracker)
+    record = _make_save_record(source, name="a.txt")
+
+    with (
+        patch(
+            "swanlab.sdk.internal.core_python.transport.sender.save.prepare_save_files",
+            return_value={"urls": ["https://s3.test/a.txt"]},
+        ),
+        patch("swanlab.sdk.internal.core_python.transport.sender.save.upload_saves", return_value={}),
+        patch(
+            "swanlab.sdk.internal.core_python.transport.sender.save.complete_save_files",
+            side_effect=_make_api_error(status),
+        ),
+        patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=MagicMock()),
+    ):
+        result = sender.upload_save([record])
+
+    assert result.confirmed_records == ([] if retryable else [record])
+    assert result.remaining_records == ([record] if retryable else [])
+    assert result.failures[0].stage == "complete"
+    assert len(tracker.snapshot().files) == (1 if retryable else 0)
+
+
 def test_upload_save_oversize_file_is_settled_not_uploaded(tmp_path: Path):
     """超过 save_size 限制的文件终结并报告失败。"""
     source = tmp_path / "huge.bin"
@@ -1495,3 +1558,29 @@ def test_mixed_batch_http_failure_splits_failure_sources(
     assert bad not in api_failure.records
     assert bad in local_failure.records
     assert good not in local_failure.records
+
+
+@pytest.mark.parametrize("func, args, kwargs", _RETRIES_ZERO_CASES)
+def test_api_calls_disable_adapter_retries(func, args, kwargs):
+    """上传 API 一律显式关闭 requests 层重试，重试统一由 transport 调度。"""
+    with (
+        patch("swanlab.sdk.internal.core_python.client.post") as mock_post,
+        patch("swanlab.sdk.internal.core_python.client.put") as mock_put,
+    ):
+        func(*args, **kwargs)
+
+    called = mock_post if mock_post.called else mock_put
+    assert called.call_args.kwargs["retries"] == 0
+
+
+def test_upload_resource_disables_adapter_retries():
+    """预签名 POST 同样关闭 requests 层重试。"""
+    fake = MagicMock()
+    fake.data = {"urls": ["https://s3.test/a"]}
+
+    with patch("swanlab.sdk.internal.core_python.client.post", return_value=fake) as mock_post:
+        upload_api.upload_resource(
+            cast(Session, _FakeSession()), "eid", paths=["media/image/a.png"], buffers=[BytesIO(b"x")]
+        )
+
+    assert mock_post.call_args.kwargs["retries"] == 0
