@@ -9,7 +9,8 @@ from swanlab.sdk.internal.run.components.terminal.emulator import Char, Terminal
 
 
 @pytest.fixture
-def proxy():
+def proxy(monkeypatch):
+    monkeypatch.setattr(TerminalEmulator, "_FLUSH_SLACK", 2)
     return TerminalProxy(Mock(spec=EmitterProtocol), "all", max_log_length=1024, init_pid=os.getpid())
 
 
@@ -25,8 +26,8 @@ def test_large_write_flushes_before_allocating_rows(proxy, monkeypatch, stream):
 
     def checked_copy(char, **kwargs):
         # Check during allocation, not after the final read() has trimmed rows.
-        assert emulator.num_lines <= emulator._MAX_LINES
-        assert len(emulator._buffer) <= emulator._MAX_LINES
+        assert emulator.num_lines <= emulator._MAX_LINES + emulator._FLUSH_SLACK
+        assert len(emulator._buffer) <= emulator._MAX_LINES + emulator._FLUSH_SLACK
         return original_copy(char, **kwargs)
 
     monkeypatch.setattr(Char, "copy", checked_copy)
@@ -74,3 +75,23 @@ def test_streams_keep_independent_pending_lines(proxy, monkeypatch):
     proxy._stderr_emulator.write("\r\033[2Kerror complete\n")
     proxy._flush()
     assert emitted_lines(proxy) == lines + ["error complete"]
+
+
+def test_default_window_amortizes_internal_flushes(monkeypatch):
+    calls = 0
+    original_flush = TerminalProxy._flush
+
+    def counted_flush(self):
+        nonlocal calls
+        calls += 1
+        original_flush(self)
+
+    monkeypatch.setattr(TerminalProxy, "_flush", counted_flush)
+    proxy = TerminalProxy(Mock(spec=EmitterProtocol), "stdout", max_log_length=1024, init_pid=os.getpid())
+    line_count = 5000
+    proxy._stdout_emulator.write("sample\n" * line_count)
+    # 旧实现从第 1025 行起每行触发一次 read() 滚动；有 slack 后按批摊销。
+    assert calls <= line_count // (TerminalEmulator._FLUSH_SLACK + 1) + 3
+
+    proxy._flush()
+    assert emitted_lines(proxy) == ["sample"] * line_count
