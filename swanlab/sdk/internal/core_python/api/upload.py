@@ -13,7 +13,7 @@ from typing import IO, TYPE_CHECKING, Dict, List, Optional, Union
 
 from requests.sessions import Session
 
-from swanlab.exceptions import NonRetryableUploadError
+from swanlab.exceptions import ApiError
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.core_python.utils import ProgressFileWrapper, get_buffer_size
 from swanlab.sdk.internal.pkg.executor import SafeThreadPoolExecutor
@@ -174,7 +174,11 @@ def upload_resource(
     urls = resp.data["urls"]
     if len(urls) != len(paths):
         # 数量不匹配属于协议错误，重试也不会恢复，交由 transport 终结记录
-        raise NonRetryableUploadError(f"presigned response returned {len(urls)} urls for {len(paths)} paths")
+        raise ApiError(
+            code="invalid_presigned_response",
+            message=f"presigned response returned {len(urls)} urls for {len(paths)} paths",
+            retryable=False,
+        )
 
     def upload_one(url: str, buffer: Union[IO[bytes], str, Path], file_key: str, size: int, content_type: str):
         # 上传单个文件，支持文件路径和内存 buffer 两种形式

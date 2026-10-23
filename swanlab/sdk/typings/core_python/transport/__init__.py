@@ -14,7 +14,7 @@ from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 FailureSource = Literal["swanlab_api", "object_storage", "local_data", "worker_internal"]
 # - swanlab_api：SwanLab 后端接口，如 house/metrics、columns、profile、prepare / complete
 # - object_storage：对象存储字节传输，如媒体 PUT、save 文件与分片 PUT
-# - local_data：本地数据不可用，如文件缺失/不可读/超限/解析失败、协议数量不匹配
+# - local_data：本地数据不可用，如文件缺失/不可读/超限/解析失败
 # - worker_internal：dispatch 未预期异常，无法确认请求是否完成
 
 # 失败阶段：说明"流程走到哪一步失败了"

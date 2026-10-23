@@ -77,11 +77,8 @@ def transport_failure(
 
 
 def is_retryable_error(error: requests.RequestException) -> bool:
-    """判断请求失败是否属于可恢复的网络或服务端故障。"""
-    if not isinstance(error, ApiError):
-        return True
-    status = getattr(error.response, "status_code", None)
-    return status is None or status >= 500
+    """重试策略入口：异常自带 retryable 时以其为准，网络异常等未知错误默认重试。"""
+    return getattr(error, "retryable", True)
 
 
 def encode_column(record: ColumnRecord) -> UploadColumn:

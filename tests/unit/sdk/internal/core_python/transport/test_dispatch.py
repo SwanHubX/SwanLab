@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from google.protobuf.timestamp_pb2 import Timestamp
 
-from swanlab.exceptions import NonRetryableUploadError
+from swanlab.exceptions import ApiError
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaItem, MediaRecord, MediaValue
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
@@ -103,7 +103,11 @@ def test_dispatch_settles_non_retryable_sender_error(mock_ctx, make_scalar_recor
     """sender 抛确定性协议错误时终结当前分片，不交给 worker 退避重试。"""
     tracker = UploadTracker()
     sender = MagicMock()
-    sender.upload.side_effect = NonRetryableUploadError("presigned response returned 1 urls for 2 paths")
+    sender.upload.side_effect = ApiError(
+        code="invalid_presigned_response",
+        message="presigned response returned 1 urls for 2 paths",
+        retryable=False,
+    )
     records = [make_scalar_record(step=1), make_scalar_record(step=2)]
     dispatch = Dispatch(batch_size=mock_ctx.config.record_batch, sender=sender, tracker=tracker)
 

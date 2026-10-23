@@ -8,7 +8,7 @@
 from collections import OrderedDict
 from typing import TYPE_CHECKING, Dict, Iterator, List, Optional, Sequence, Tuple
 
-from swanlab.exceptions import NonRetryableUploadError
+from swanlab.exceptions import ApiError
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.core_python.transport.sender import HttpRecordSender
 from swanlab.sdk.internal.pkg import console
@@ -132,14 +132,15 @@ class Dispatch:
             )
         try:
             result = self._sender.upload(record_type, chunk)
-        except NonRetryableUploadError as e:
-            # 确定性失败：终结当前分片，避免阻塞同批后续 record 的上传
-            return UploadResult(
-                confirmed_records=list(chunk),
-                failures=[UploadFailure(source="swanlab_api", message=str(e), records=list(chunk), exception=e)],
-            )
         except Exception as e:
-            source: FailureSource = "local_data" if isinstance(e, OSError) else "worker_internal"
+            if isinstance(e, ApiError) and not e.retryable:
+                # 确定性失败：终结当前分片，避免阻塞同批后续 record 的上传
+                return UploadResult(
+                    confirmed_records=list(chunk),
+                    failures=[UploadFailure(source="swanlab_api", message=str(e), records=list(chunk), exception=e)],
+                )
+            local_failure = isinstance(e, OSError) and not isinstance(e, ApiError)
+            source: FailureSource = "local_data" if local_failure else "worker_internal"
             return UploadResult(
                 confirmed_records=list(chunk) if source == "local_data" else [],
                 remaining_records=[] if source == "local_data" else list(chunk),

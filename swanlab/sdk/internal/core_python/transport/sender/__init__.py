@@ -16,7 +16,6 @@ from typing import TYPE_CHECKING, Any, List, Literal, Optional, Union, cast
 import requests
 import yaml
 
-from swanlab.exceptions import NonRetryableUploadError
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord, SaveType
 from swanlab.sdk.internal.core_python.api.upload import (
@@ -259,20 +258,6 @@ class HttpRecordSender:
                 confirmed_records=list(records),
                 failures=plan.blocked_failures
                 + [self._blocked_failure(plan.metric_records, f"{type(e).__name__}: {e}")],
-            )
-        except NonRetryableUploadError as e:
-            # 协议错误重试不会恢复，终结本批媒体记录，避免阻塞同批其他 record
-            if self._tracker is not None:
-                for payload in plan.payloads:
-                    self._tracker.fail_file(payload.tracker_key)
-            return UploadResult(
-                confirmed_records=list(records),
-                failures=plan.blocked_failures
-                + [
-                    transport_failure(
-                        plan.metric_records, e, source="swanlab_api", stage="request_address", message=str(e)
-                    )
-                ],
             )
         try:
             upload_media(self._project_id, self._experiment_id, metrics=plan.metrics)

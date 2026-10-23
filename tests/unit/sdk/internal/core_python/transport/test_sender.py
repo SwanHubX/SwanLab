@@ -8,7 +8,7 @@ import requests
 from google.protobuf.timestamp_pb2 import Timestamp
 from requests.sessions import Session
 
-from swanlab.exceptions import ApiError, NonRetryableUploadError
+from swanlab.exceptions import ApiError
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnClass, ColumnRecord, ColumnType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaItem, MediaRecord, MediaValue, ScalarRecord, ScalarValue
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
@@ -1050,7 +1050,11 @@ def test_upload_media_settles_on_non_retryable_protocol_error(tmp_path: Path):
         patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=MagicMock()),
         patch(
             "swanlab.sdk.internal.core_python.transport.sender.media.upload_resource",
-            side_effect=NonRetryableUploadError("presigned response returned 1 urls for 2 paths"),
+            side_effect=ApiError(
+                code="invalid_presigned_response",
+                message="presigned response returned 1 urls for 2 paths",
+                retryable=False,
+            ),
         ),
     ):
         result = sender.upload_media([record])
@@ -1058,8 +1062,8 @@ def test_upload_media_settles_on_non_retryable_protocol_error(tmp_path: Path):
     assert result.confirmed_records == [record]
     assert result.remaining_records == []
     failure = result.failures[0]
-    assert failure.source == "swanlab_api"
-    assert failure.stage == "request_address"
+    assert failure.source == "object_storage"
+    assert failure.stage == "transfer"
     assert "presigned response" in failure.message
     stats = tracker.snapshot()
     assert stats.total_number == 1
