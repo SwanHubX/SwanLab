@@ -60,7 +60,47 @@ from swanlab.sdk import sync as sync_cmd
     "-i",
     default=None,
     type=str,
-    help="The run id to sync the logs to.",
+    help=(
+        "The run id to sync the logs to. If it matches an existing experiment, the data is "
+        "written back to that experiment (in-place restore)."
+    ),
+)
+@click.option(
+    "--step-start",
+    default=None,
+    type=click.IntRange(min=0),
+    help="Only sync scalar/media records whose step is greater than or equal to this value.",
+)
+@click.option(
+    "--step-end",
+    default=None,
+    type=click.IntRange(min=0),
+    help="Only sync scalar/media records whose step is less than or equal to this value.",
+)
+@click.option(
+    "--start-time",
+    default=None,
+    type=str,
+    help=(
+        "Only sync records at or after this time. Accepts ISO 8601 (e.g. '2026-10-20 10:00:00') "
+        "or a Unix timestamp in seconds/milliseconds. Times without offset use --timezone."
+    ),
+)
+@click.option(
+    "--end-time",
+    default=None,
+    type=str,
+    help="Only sync records at or before this time. Same formats as --start-time.",
+)
+@click.option(
+    "--timezone",
+    "--tz",
+    default=None,
+    type=str,
+    help=(
+        "Timezone for interpreting and displaying times without an offset, e.g. 'Asia/Shanghai' "
+        "or '+08:00'. Defaults to the system timezone of this machine."
+    ),
 )
 def sync(
     path: Tuple[str],
@@ -69,8 +109,20 @@ def sync(
     project: Optional[str],
     host: Optional[str],
     id: Optional[str],
+    step_start: Optional[int],
+    step_end: Optional[int],
+    start_time: Optional[str],
+    end_time: Optional[str],
+    timezone: Optional[str],
 ):
-    """Synchronize local logs to the cloud."""
+    """Synchronize local logs to the cloud.
+
+    Passing any of --step-start/--step-end/--start-time/--end-time enables range
+    sync, which only replays records inside the window. Combine it with --id of an
+    existing run to restore that period in place; the experiment lifecycle state is
+    then left untouched. Times without an explicit offset follow --timezone (system
+    local time by default).
+    """
     model = pkg.helper.strip_none(
         {
             "api_key": api_key,
@@ -83,4 +135,12 @@ def sync(
     )
     settings = Settings.model_validate(model)
     for p in path:
-        sync_cmd(Path(p), settings=settings)
+        sync_cmd(
+            Path(p),
+            settings=settings,
+            step_start=step_start,
+            step_end=step_end,
+            start_time=start_time,
+            end_time=end_time,
+            timezone=timezone,
+        )
