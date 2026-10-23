@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Iterable
 
 import pytest
+from google.protobuf.timestamp_pb2 import Timestamp
 
 import swanlab
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
@@ -386,3 +387,191 @@ def test_e2e_sync_fails_with_legacy_version_file(tmp_path: Path, monkeypatch):
                 run=Settings.Run(id="legacy-run"),
             ),
         )
+
+
+def test_e2e_sync_time_range_only_uploads_selected_records(tmp_path: Path, monkeypatch):
+    """范围同步只上传时间窗口内的指标。"""
+    first_ts = Timestamp()
+    first_ts.seconds = 100
+    second_ts = Timestamp()
+    second_ts.seconds = 200
+    write_raw_run(
+        tmp_path,
+        [
+            Record(start=make_start_record()),
+            Record(
+                scalar=ScalarRecord(
+                    key="loss",
+                    step=1,
+                    type=ColumnType.COLUMN_TYPE_SCALAR,
+                    value=ScalarValue(number=1.0),
+                    timestamp=first_ts,
+                )
+            ),
+            Record(
+                scalar=ScalarRecord(
+                    key="loss",
+                    step=2,
+                    type=ColumnType.COLUMN_TYPE_SCALAR,
+                    value=ScalarValue(number=2.0),
+                    timestamp=second_ts,
+                )
+            ),
+        ],
+    )
+    transports: list[FakeTransport] = []
+
+    core = CoreSyncPython()
+    core._read_executor = ImmediateExecutor()  # type: ignore[assignment]
+
+    def make_transport(ctx, tracker=None) -> FakeTransport:
+        transport = FakeTransport(ctx, tracker=tracker)
+        transports.append(transport)
+        return transport
+
+    monkeypatch.setattr("swanlab.sdk.cmd.sync.client.exists", lambda: True)
+    monkeypatch.setattr("swanlab.sdk.cmd.sync.impl.create_core_sync", lambda: core)
+    monkeypatch.setattr(
+        "swanlab.sdk.internal.core_python.sync.prepare_experiment_start", lambda record: make_prepare_result()
+    )
+    monkeypatch.setattr("swanlab.sdk.internal.core_python.sync.Transport", make_transport)
+    monkeypatch.setattr("swanlab.sdk.internal.core_python.sync.stop_experiment", lambda *args, **kwargs: None)
+
+    sync_cmd.sync(
+        tmp_path,
+        settings=Settings(
+            api_key="test-api-key",
+            project=Settings.Project(workspace="alice", name="demo"),
+            run=Settings.Run(id="sync-e2e-run"),
+        ),
+        start_time=100,
+        end_time=100,
+    )
+
+    assert scalar_signatures(transports[0].records) == {("loss", 1)}
+
+
+def test_e2e_sync_step_range_only_uploads_selected_steps(monkeypatch):
+    """范围同步只上传 step 窗口内的指标。"""
+    run_dir = create_offline_run()
+    transports: list[FakeTransport] = []
+
+    core = CoreSyncPython()
+    core._read_executor = ImmediateExecutor()  # type: ignore[assignment]
+
+    def make_transport(ctx, tracker=None) -> FakeTransport:
+        transport = FakeTransport(ctx, tracker=tracker)
+        transports.append(transport)
+        return transport
+
+    monkeypatch.setattr("swanlab.sdk.cmd.sync.client.exists", lambda: True)
+    monkeypatch.setattr("swanlab.sdk.cmd.sync.impl.create_core_sync", lambda: core)
+    monkeypatch.setattr(
+        "swanlab.sdk.internal.core_python.sync.prepare_experiment_start", lambda record: make_prepare_result()
+    )
+    monkeypatch.setattr("swanlab.sdk.internal.core_python.sync.Transport", make_transport)
+    monkeypatch.setattr("swanlab.sdk.internal.core_python.sync.stop_experiment", lambda *args, **kwargs: None)
+
+    sync_cmd.sync(
+        run_dir,
+        settings=Settings(
+            api_key="test-api-key",
+            project=Settings.Project(workspace="alice", name="demo"),
+            run=Settings.Run(id="sync-e2e-run"),
+        ),
+        step_start=2,
+        step_end=2,
+    )
+
+    assert scalar_signatures(transports[0].records) == {("loss", 2), ("acc", 2)}
+
+
+def test_e2e_sync_range_restores_steps_in_place(monkeypatch):
+    """原地恢复：允许写回云端已存在的 step，且不改写实验生命周期。"""
+    run_dir = create_offline_run()
+    transports: list[FakeTransport] = []
+    stopped = []
+
+    core = CoreSyncPython()
+    core._read_executor = ImmediateExecutor()  # type: ignore[assignment]
+
+    def make_transport(ctx, tracker=None) -> FakeTransport:
+        transport = FakeTransport(ctx, tracker=tracker)
+        transports.append(transport)
+        return transport
+
+    monkeypatch.setattr("swanlab.sdk.cmd.sync.client.exists", lambda: True)
+    monkeypatch.setattr("swanlab.sdk.cmd.sync.impl.create_core_sync", lambda: core)
+    monkeypatch.setattr(
+        "swanlab.sdk.internal.core_python.sync.prepare_experiment_start",
+        lambda record: make_prepare_result(new_experiment=False),
+    )
+    monkeypatch.setattr(
+        "swanlab.sdk.internal.core_python.sync.get_experiment_summary",
+        lambda project_id, experiment_id, created_at=None: {
+            "log": None,
+            "media": None,
+            "scalar": [{"key": "loss", "step": 2}, {"key": "acc", "step": 2}],
+        },
+    )
+    monkeypatch.setattr("swanlab.sdk.internal.core_python.sync.Transport", make_transport)
+    monkeypatch.setattr(
+        "swanlab.sdk.internal.core_python.sync.stop_experiment",
+        lambda *args, **kwargs: stopped.append(args),
+    )
+
+    sync_cmd.sync(
+        run_dir,
+        settings=Settings(
+            api_key="test-api-key",
+            project=Settings.Project(workspace="alice", name="demo"),
+            run=Settings.Run(id="sync-e2e-run"),
+        ),
+        step_start=1,
+        step_end=2,
+    )
+
+    assert scalar_signatures(transports[0].records) == {("loss", 1), ("loss", 2), ("acc", 1), ("acc", 2)}
+    assert stopped == []
+
+
+def test_e2e_sync_full_sync_still_reports_experiment_state(monkeypatch):
+    """未开启范围同步时，恢复实验仍然上报结束状态（保持原有行为）。"""
+    run_dir = create_offline_run()
+    transports: list[FakeTransport] = []
+    stopped = []
+
+    core = CoreSyncPython()
+    core._read_executor = ImmediateExecutor()  # type: ignore[assignment]
+
+    def make_transport(ctx, tracker=None) -> FakeTransport:
+        transport = FakeTransport(ctx, tracker=tracker)
+        transports.append(transport)
+        return transport
+
+    monkeypatch.setattr("swanlab.sdk.cmd.sync.client.exists", lambda: True)
+    monkeypatch.setattr("swanlab.sdk.cmd.sync.impl.create_core_sync", lambda: core)
+    monkeypatch.setattr(
+        "swanlab.sdk.internal.core_python.sync.prepare_experiment_start",
+        lambda record: make_prepare_result(new_experiment=False),
+    )
+    monkeypatch.setattr(
+        "swanlab.sdk.internal.core_python.sync.get_experiment_summary",
+        lambda project_id, experiment_id, created_at=None: {"log": None, "media": None, "scalar": None},
+    )
+    monkeypatch.setattr("swanlab.sdk.internal.core_python.sync.Transport", make_transport)
+    monkeypatch.setattr(
+        "swanlab.sdk.internal.core_python.sync.stop_experiment",
+        lambda *args, **kwargs: stopped.append(args),
+    )
+
+    sync_cmd.sync(
+        run_dir,
+        settings=Settings(
+            api_key="test-api-key",
+            project=Settings.Project(workspace="alice", name="demo"),
+            run=Settings.Run(id="sync-e2e-run"),
+        ),
+    )
+
+    assert stopped

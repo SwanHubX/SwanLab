@@ -16,6 +16,7 @@ from swanlab.proto.swanlab.grpc.core.v1.sync_pb2 import (
     DeliverSyncFlushResponse,
     DeliverSyncStartRequest,
     DeliverSyncStartResponse,
+    SyncRange,
 )
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
 from swanlab.proto.swanlab.operation.v1.operation_pb2 import CoreState
@@ -27,6 +28,7 @@ from swanlab.sdk.internal.core_python.context import CoreContext
 from swanlab.sdk.internal.core_python.metrics import RunMetrics
 from swanlab.sdk.internal.core_python.pkg import builder, counter
 from swanlab.sdk.internal.core_python.store import DataStoreReader
+from swanlab.sdk.internal.core_python.sync_range import SyncRangeFilter
 from swanlab.sdk.internal.core_python.transport import Transport
 from swanlab.sdk.internal.core_python.transport.tracker import UploadTracker
 from swanlab.sdk.internal.core_python.utils import (
@@ -60,6 +62,10 @@ class CoreSyncPython(CoreSyncProtocol):
         # 日志行数，仅大于此行数的才上传
         self._epoch = -1
         self._counter = counter.Counter(builder.DEC_NUM)
+        # 范围同步过滤器，默认关闭表示全量同步
+        self._filter = SyncRangeFilter()
+        # 是否原地恢复到已存在的实验，原地恢复不改变实验生命周期
+        self._in_place = False
 
     @property
     def _ctx(self) -> CoreContext:
@@ -70,8 +76,29 @@ class CoreSyncPython(CoreSyncProtocol):
     def _ctx(self, ctx: CoreContext):
         self._run_ctx = ctx
 
+    @staticmethod
+    def _validate_range(sync_range: Optional[SyncRange]) -> Optional[str]:
+        """校验范围参数，合法返回 None，否则返回错误信息。"""
+        if sync_range is None:
+            return None
+        if sync_range.HasField("start_step"):
+            if sync_range.start_step < 0:
+                return "Invalid sync step range: start_step must be non-negative."
+            if sync_range.HasField("end_step") and sync_range.start_step > sync_range.end_step:
+                return "Invalid sync step range: start_step is greater than end_step."
+        if sync_range.HasField("end_step") and sync_range.end_step < 0:
+            return "Invalid sync step range: end_step must be non-negative."
+        if sync_range.HasField("start_time") and sync_range.HasField("end_time"):
+            if sync_range.start_time.ToNanoseconds() > sync_range.end_time.ToNanoseconds():
+                return "Invalid sync time range: start_time is later than end_time."
+        return None
+
     def deliver_sync_start(self, start_request: DeliverSyncStartRequest) -> DeliverSyncStartResponse:
         self._start_request = start_request
+        message = self._validate_range(start_request.range)
+        if message is not None:
+            return DeliverSyncStartResponse(success=False, message=message)
+        self._filter = SyncRangeFilter.from_proto(start_request.range)
         self._ctx = CoreContext.from_proto(start_request.core_settings, mode="sync")
         # 安全地开启sync，DataStoreError 通常是run头文件损坏，属于已知错误
         with safe.block(message="Failed to open sync store with unexpected error"):
@@ -142,6 +169,11 @@ class CoreSyncPython(CoreSyncProtocol):
                     created_at=result.experiment["createdAt"],
                 )
             self._metrics, self._epoch, _, _ = RunMetrics.new(summary, ctx=self._ctx)
+            if self._filter.enabled:
+                # 范围同步用于回放/恢复历史数据，必须允许写回已存在的 step
+                self._metrics.allow_replay()
+                # 命中已有实验即为原地恢复，结束时不再改写实验生命周期
+                self._in_place = not result.new_experiment
             metrics_ready = True
 
         if not metrics_ready:
@@ -180,12 +212,21 @@ class CoreSyncPython(CoreSyncProtocol):
                             "Multiple finish records were found in the run file. SwanLab will use the first one."
                         )
                 elif record.HasField("log"):
-                    if record.log.epoch > self._epoch:
+                    log = record.log
+                    if self._filter.enabled:
+                        # step 范围只约束指标；终端日志仅按时间范围回放
+                        if not self._filter.has_time:
+                            continue
+                        if not self._filter.match(timestamp=self._pick_timestamp(log.timestamp, record.timestamp)):
+                            continue
+                        self._epoch = max(self._epoch, log.epoch)
+                        self._transport.put([record])
+                    elif log.epoch > self._epoch:
                         # 仅大于 console_epoch 的 record 才能上传
-                        self._epoch = record.log.epoch
+                        self._epoch = log.epoch
                         self._transport.put([record])
                     else:
-                        console.debug(f"Log at epoch {record.log.epoch} was skipped syncing because it is too old.")
+                        console.debug(f"Log at epoch {log.epoch} was skipped syncing because it is too old.")
                 elif record.HasField("column"):
                     # 如果 column 不存在于 _metrics 中则上传，并且定义此column
                     column = record.column
@@ -202,6 +243,10 @@ class CoreSyncPython(CoreSyncProtocol):
                 elif record.HasField("scalar"):
                     # 如果scalar对应的column不存在于metrics（sync的实验本身就是resume的），则需要创建默认的column并上传
                     scalar = record.scalar
+                    if self._filter.enabled and not self._filter.match(
+                        step=scalar.step, timestamp=self._pick_timestamp(scalar.timestamp, record.timestamp)
+                    ):
+                        continue
                     # 1. 创建列
                     metric = self._metrics.get(scalar.key)
                     if not metric:
@@ -220,6 +265,10 @@ class CoreSyncPython(CoreSyncProtocol):
                 elif record.HasField("media"):
                     # 如果media对应的column不存在于metrics（sync的实验本身就是resume的），则需要创建默认的column并上传
                     media = record.media
+                    if self._filter.enabled and not self._filter.match(
+                        step=media.step, timestamp=self._pick_timestamp(media.timestamp, record.timestamp)
+                    ):
+                        continue
                     # 1. 创建列
                     metric = self._metrics.get(media.key)
                     if not metric:
@@ -237,9 +286,19 @@ class CoreSyncPython(CoreSyncProtocol):
                         console.debug(
                             f"Metric '{media.key}' at step {media.step} was skipped syncing because it is duplicate or too old."
                         )
+                elif record.HasField("save"):
+                    if self._filter.enabled:
+                        # 范围同步只回放时间片内的数据，不重放实验级文件，避免覆盖已有实验的配置与元信息
+                        continue
+                    self._transport.put([record])
                 else:
                     # 其余的直接上传（覆盖式）
                     self._transport.put([record])
+
+    @staticmethod
+    def _pick_timestamp(payload: Timestamp, record: Timestamp) -> Timestamp:
+        """优先使用业务时间（指标/日志时间），未设置时回退到记录落盘时间。"""
+        return payload if payload.seconds or payload.nanos else record
 
     def get_operation_stats(self) -> GetOperationStatsResponse:
         if self._tracker is None:
@@ -270,6 +329,11 @@ class CoreSyncPython(CoreSyncProtocol):
     def _queue_finish_records(self) -> None:
         assert self._transport is not None, "Transport not set before queueing finish records"
         if self._finish_records_queued:
+            return
+
+        if self._filter.enabled:
+            # 范围同步只回放选定时间片，不注入原实验结束时的错误日志
+            self._finish_records_queued = True
             return
 
         finish_record = self._get_finish_record()
@@ -315,6 +379,9 @@ class CoreSyncPython(CoreSyncProtocol):
         try:
             self._request_transport_finish()
             self._transport.join(timeout=None)
+            if self._in_place:
+                # 原地恢复只补写指定范围的数据，不改写已有实验的生命周期状态
+                return ConfirmSyncFinishResponse(success=True, message="OK")
             with safe.block(message="Failed to report run finish"):
                 stop_experiment(
                     self._ctx.username,
