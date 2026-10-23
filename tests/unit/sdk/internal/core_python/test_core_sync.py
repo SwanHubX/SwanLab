@@ -20,6 +20,8 @@ from swanlab.sdk.internal.core_python.store import DataStoreWriter
 from swanlab.sdk.internal.core_python.sync import CoreSyncPython
 from swanlab.sdk.internal.core_python.utils import PrepareExperimentStartResult
 
+pytestmark = pytest.mark.usefixtures("core_auth")
+
 
 def make_timestamp() -> Timestamp:
     ts = Timestamp()
@@ -38,6 +40,8 @@ def make_core_config(run_dir: Path, run_id: str = "sync-run-id") -> CoreConfig:
         save_size=50 * 1024 * 1024 * 1024,
         save_part=32 * 1024 * 1024,
         save_batch=100,
+        api_key="core-test-key",
+        api_host="https://core.example.invalid",
     )
 
 
@@ -53,6 +57,8 @@ def make_core_settings(run_dir: Path, run_id: str = "sync-run-id") -> CoreSettin
         save_size=config.save_size,
         save_part=config.save_part,
         save_batch=config.save_batch,
+        api_key=config.api_key,
+        api_host=config.api_host,
     )
 
 
@@ -635,3 +641,84 @@ def test_sync_skips_when_key_already_exists(tmp_path: Path):
     col_records = [r.column for r in transport.records if record_kind(r) == "column"]
     assert len(col_records) == 1
     assert col_records[0].section_name == "A"
+
+
+def test_reader_start_failure_stops_real_transport_and_releases_client(tmp_path, monkeypatch):
+    from swanlab.sdk.internal.core_python import client
+    from swanlab.sdk.internal.core_python.transport.thread import Transport
+
+    core = CoreSyncPython()
+    core._ctx = CoreContext(config=make_core_config(tmp_path), mode="sync")
+    core._start_record = make_start_record()
+    core._start_request = make_start_request(tmp_path)
+    monkeypatch.setattr(
+        "swanlab.sdk.internal.core_python.sync.prepare_experiment_start", lambda record: make_prepare_result()
+    )
+    monkeypatch.setattr(
+        "swanlab.sdk.internal.core_python.sync.RunMetrics.new", lambda *args, **kwargs: (FakeMetrics(), 0, 0, 0)
+    )
+    transports = []
+
+    class RecordingTransport(Transport):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            transports.append(self)
+
+    def fail_reader_start(coro):
+        coro.close()
+        raise RuntimeError("cannot start reader thread")
+
+    monkeypatch.setattr("swanlab.sdk.internal.core_python.sync.Transport", RecordingTransport)
+    monkeypatch.setattr(core._read_executor, "start", fail_reader_start)
+    with pytest.raises(RuntimeError, match="cannot start reader thread"):
+        core.deliver_sync_flush()
+    assert not transports[0].is_alive()
+    assert not client.exists()
+    assert core._client_instance is None
+
+
+def test_sync_preparation_error_after_backend_success_rolls_back(tmp_path, monkeypatch):
+    from swanlab.sdk.internal.core_python import client
+
+    core = CoreSyncPython()
+    write_run_file(tmp_path, Record(start=make_start_record()))
+    assert core.deliver_sync_start(make_start_request(tmp_path)).success
+    result = make_prepare_result()
+    result.project_data.pop("cuid")
+    monkeypatch.setattr("swanlab.sdk.internal.core_python.sync.prepare_experiment_start", lambda record: result)
+
+    response = core.deliver_sync_flush()
+
+    assert not response.success
+    assert not client.exists()
+    assert core._client_instance is None
+    # Startup rollback closes the file even though no reader worker was started.
+    with pytest.raises(AssertionError, match="reader is not open"):
+        core._reader.scan()
+
+
+@pytest.mark.parametrize("reason", ["missing_key", "occupied"])
+def test_sync_early_rejection_closes_reader(tmp_path, core_auth, reason):
+    from swanlab.sdk.internal.core_python import client
+
+    core = CoreSyncPython()
+    write_run_file(tmp_path, Record(start=make_start_record()))
+    request = make_start_request(tmp_path)
+    if reason == "missing_key":
+        request.core_settings.api_key = ""
+    else:
+        client.new("other-core", core_auth)
+    assert core.deliver_sync_start(request).success
+    response = core.deliver_sync_flush()
+    assert not response.success
+    with pytest.raises(AssertionError, match="reader is not open"):
+        core._reader.scan()
+    assert client.exists() == (reason == "occupied")
+
+
+def test_sync_start_failure_closes_reader(tmp_path):
+    core = CoreSyncPython()
+    write_run_file(tmp_path, Record())
+    assert not core.deliver_sync_start(make_start_request(tmp_path)).success
+    with pytest.raises(AssertionError, match="reader is not open"):
+        core._reader.scan()

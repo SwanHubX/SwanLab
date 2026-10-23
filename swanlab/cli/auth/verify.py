@@ -11,6 +11,7 @@ import click
 from rich.text import Text
 
 from swanlab import sdk
+from swanlab.exceptions import AuthenticationError, RequestException
 
 
 @click.command()
@@ -30,14 +31,17 @@ def verify(local: bool):
         sdk.pkg.console.error("You are not logged in. Use `swanlab login` to login.")
         sys.exit(1)
     api_key, api_host, web_host = netrc_result
-    login_resp = sdk.pkg.client.login_by_api_key(base_url=api_host + "/api", api_key=api_key)
-
-    if login_resp is None:
-        sdk.pkg.console.error(
-            "Verification failed. Please check if your API key is correct and try again. Use `swanlab login` to login if you haven't done so.",
-        )
-        sys.exit(1)
-
-    # 3. 展示验证结果
-    username = login_resp.get("userInfo", {}).get("username", "unknown")
-    sdk.pkg.console.info("You are logged into", Text(web_host, style="blue"), "as", Text(username, "bold"), sep=" ")
+    with sdk.pkg.safe.block(
+        AuthenticationError,
+        RequestException,
+        RuntimeError,
+        ValueError,
+        message=None,
+        on_error=lambda e: sdk.pkg.console.error(f"Verification failed: {e}"),
+    ):
+        profile = sdk.pkg.client.verify_api_key(base_url=api_host, api_key=api_key)
+        # 3. 展示验证结果
+        username = profile.get("username", "unknown")
+        sdk.pkg.console.info("You are logged into", Text(web_host, style="blue"), "as", Text(username, "bold"), sep=" ")
+        return
+    sys.exit(1)

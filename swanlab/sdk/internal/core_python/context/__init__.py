@@ -5,7 +5,7 @@
 @description: core 运行上下文
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import cached_property
 from pathlib import Path
 from typing import Literal, Optional
@@ -27,6 +27,8 @@ class CoreConfig:
     save_split: int
     save_part: int
     save_batch: int
+    api_key: Optional[str] = field(default=None, repr=False)
+    api_host: str = ""
     # 跳过本地 datastore 落盘（仅 online 模式合法，由根 Settings 校验器保证）
     skip_store: bool = False
 
@@ -55,6 +57,8 @@ class CoreContext:
             save_part=proto.save_part,
             save_batch=proto.save_batch,
             skip_store=proto.skip_store,
+            api_key=proto.api_key,
+            api_host=proto.api_host,
         )
         return cls(config=config, mode=mode)
 

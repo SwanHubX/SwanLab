@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Iterable
 
 import pytest
+import responses as responses_lib
 
 import swanlab
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
@@ -10,10 +11,31 @@ from swanlab.proto.swanlab.operation.v1.operation_pb2 import CoreState
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.run.v1.run_pb2 import RunState, StartRecord
 from swanlab.sdk.cmd import sync as sync_cmd
+from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.core_python.store import LEVELDBLOG_HEADER_LEN, DataStoreReader, DataStoreWriter
 from swanlab.sdk.internal.core_python.sync import CoreSyncPython
 from swanlab.sdk.internal.core_python.utils import PrepareExperimentStartResult
 from swanlab.sdk.internal.settings import Settings
+
+API_HOST = "https://api.fake.swanlab.cn"
+
+
+@pytest.fixture
+def rsps():
+    with responses_lib.RequestsMock() as responses:
+        yield responses
+
+
+@pytest.fixture
+def mock_verify_api(rsps):
+    # 上级 conftest 隔离凭证和单例；只 mock HTTP 校验，保留 Core 的真实 client 创建/释放。
+    rsps.add(
+        responses_lib.GET,
+        f"{API_HOST}/api/auth/verify",
+        json={"uid": 1, "username": "alice", "name": "Alice", "createdAt": "2026-01-01T00:00:00.000Z"},
+        status=200,
+    )
+    return rsps
 
 
 def read_records(run_dir: Path) -> list[Record]:
@@ -192,7 +214,7 @@ def test_e2e_offline_run_writes_expected_records_to_swanlab_file():
     assert {"loss", "acc"} <= column_signatures(records)
 
 
-def test_e2e_sync_uploads_records_from_generated_swanlab_file(monkeypatch):
+def test_e2e_sync_uploads_records_from_generated_swanlab_file(monkeypatch, mock_verify_api):
     run_dir = create_offline_run()
     source_records = read_records(run_dir)
     transports: list[FakeTransport] = []
@@ -209,7 +231,6 @@ def test_e2e_sync_uploads_records_from_generated_swanlab_file(monkeypatch):
     def fake_stop_experiment(username, project, experiment_id, *, state, finished_at):
         stopped.append((username, project, experiment_id, state, finished_at))
 
-    monkeypatch.setattr("swanlab.sdk.cmd.sync.client.exists", lambda: True)
     monkeypatch.setattr("swanlab.sdk.cmd.sync.impl.create_core_sync", lambda: core)
     monkeypatch.setattr(
         "swanlab.sdk.internal.core_python.sync.prepare_experiment_start", lambda record: make_prepare_result()
@@ -221,6 +242,7 @@ def test_e2e_sync_uploads_records_from_generated_swanlab_file(monkeypatch):
         run_dir,
         settings=Settings(
             api_key="test-api-key",
+            api_host=API_HOST,
             project=Settings.Project(workspace="alice", name="demo"),
             run=Settings.Run(id="sync-e2e-run"),
         ),
@@ -237,9 +259,10 @@ def test_e2e_sync_uploads_records_from_generated_swanlab_file(monkeypatch):
     assert scalar_signatures(source_records) <= scalar_signatures(uploaded_records)
     assert stopped
     assert stopped[0][0:3] == ("alice", "demo", "experiment-id")
+    assert not client.exists()
 
 
-def test_e2e_sync_skips_records_already_in_remote_summary(monkeypatch):
+def test_e2e_sync_skips_records_already_in_remote_summary(monkeypatch, mock_verify_api):
     run_dir = create_offline_run()
     transports: list[FakeTransport] = []
 
@@ -251,7 +274,6 @@ def test_e2e_sync_skips_records_already_in_remote_summary(monkeypatch):
         transports.append(transport)
         return transport
 
-    monkeypatch.setattr("swanlab.sdk.cmd.sync.client.exists", lambda: True)
     monkeypatch.setattr("swanlab.sdk.cmd.sync.impl.create_core_sync", lambda: core)
     monkeypatch.setattr(
         "swanlab.sdk.internal.core_python.sync.prepare_experiment_start",
@@ -272,6 +294,7 @@ def test_e2e_sync_skips_records_already_in_remote_summary(monkeypatch):
         run_dir,
         settings=Settings(
             api_key="test-api-key",
+            api_host=API_HOST,
             project=Settings.Project(workspace="alice", name="demo"),
             run=Settings.Run(id="sync-e2e-run"),
         ),
@@ -279,9 +302,10 @@ def test_e2e_sync_skips_records_already_in_remote_summary(monkeypatch):
 
     assert len(transports) == 1
     assert scalar_signatures(transports[0].records) == {("loss", 2), ("acc", 2)}
+    assert not client.exists()
 
 
-def test_e2e_sync_stops_uploading_after_corrupted_record(tmp_path: Path, monkeypatch):
+def test_e2e_sync_stops_uploading_after_corrupted_record(tmp_path: Path, monkeypatch, mock_verify_api):
     records = [
         Record(start=make_start_record()),
         make_scalar_record(step=1, value=0.3),
@@ -301,7 +325,6 @@ def test_e2e_sync_stops_uploading_after_corrupted_record(tmp_path: Path, monkeyp
         transports.append(transport)
         return transport
 
-    monkeypatch.setattr("swanlab.sdk.cmd.sync.client.exists", lambda: True)
     monkeypatch.setattr("swanlab.sdk.cmd.sync.impl.create_core_sync", lambda: core)
     monkeypatch.setattr(
         "swanlab.sdk.internal.core_python.sync.prepare_experiment_start", lambda record: make_prepare_result()
@@ -313,6 +336,7 @@ def test_e2e_sync_stops_uploading_after_corrupted_record(tmp_path: Path, monkeyp
         tmp_path,
         settings=Settings(
             api_key="test-api-key",
+            api_host=API_HOST,
             project=Settings.Project(workspace="alice", name="demo"),
             run=Settings.Run(id="sync-e2e-run"),
         ),
@@ -320,9 +344,10 @@ def test_e2e_sync_stops_uploading_after_corrupted_record(tmp_path: Path, monkeyp
 
     assert len(transports) == 1
     assert scalar_signatures(transports[0].records) == {("loss", 1)}
+    assert not client.exists()
 
 
-def test_e2e_sync_marks_missing_finish_record_as_crashed(tmp_path: Path, monkeypatch):
+def test_e2e_sync_marks_missing_finish_record_as_crashed(tmp_path: Path, monkeypatch, mock_verify_api):
     write_raw_run(tmp_path, [Record(start=make_start_record()), make_scalar_record(step=1, value=0.3)])
     transports: list[FakeTransport] = []
     stopped = []
@@ -338,7 +363,6 @@ def test_e2e_sync_marks_missing_finish_record_as_crashed(tmp_path: Path, monkeyp
     def fake_stop_experiment(username, project, experiment_id, *, state, finished_at):
         stopped.append((username, project, experiment_id, state, finished_at))
 
-    monkeypatch.setattr("swanlab.sdk.cmd.sync.client.exists", lambda: True)
     monkeypatch.setattr("swanlab.sdk.cmd.sync.impl.create_core_sync", lambda: core)
     monkeypatch.setattr(
         "swanlab.sdk.internal.core_python.sync.prepare_experiment_start", lambda record: make_prepare_result()
@@ -350,6 +374,7 @@ def test_e2e_sync_marks_missing_finish_record_as_crashed(tmp_path: Path, monkeyp
         tmp_path,
         settings=Settings(
             api_key="test-api-key",
+            api_host=API_HOST,
             project=Settings.Project(workspace="alice", name="demo"),
             run=Settings.Run(id="sync-e2e-run"),
         ),
@@ -360,6 +385,7 @@ def test_e2e_sync_marks_missing_finish_record_as_crashed(tmp_path: Path, monkeyp
     assert "log" in record_kinds(transports[0].records)
     error_logs = [record.log.line for record in transports[0].records if record.HasField("log")]
     assert any("before writing a finish record" in line for line in error_logs)
+    assert not client.exists()
 
 
 def test_e2e_sync_fails_with_legacy_version_file(tmp_path: Path, monkeypatch):
@@ -374,7 +400,6 @@ def test_e2e_sync_fails_with_legacy_version_file(tmp_path: Path, monkeypatch):
 
     core = CoreSyncPython()
 
-    monkeypatch.setattr("swanlab.sdk.cmd.sync.client.exists", lambda: True)
     monkeypatch.setattr("swanlab.sdk.cmd.sync.impl.create_core_sync", lambda: core)
 
     with pytest.raises(RuntimeError, match="version"):
@@ -382,7 +407,9 @@ def test_e2e_sync_fails_with_legacy_version_file(tmp_path: Path, monkeypatch):
             tmp_path,
             settings=Settings(
                 api_key="test-api-key",
+                api_host=API_HOST,
                 project=Settings.Project(workspace="alice", name="demo"),
                 run=Settings.Run(id="legacy-run"),
             ),
         )
+    assert not client.exists()

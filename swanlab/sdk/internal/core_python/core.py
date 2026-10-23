@@ -35,6 +35,7 @@ from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord, RunState, StartRecord
 from swanlab.proto.swanlab.save.v1.save_pb2 import SavePolicy, SaveRecord, SaveType
 from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogLevel, LogRecord
+from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.core_python.api.experiment import (
     get_experiment_summary,
     stop_experiment,
@@ -54,6 +55,7 @@ from swanlab.sdk.internal.core_python.watcher import (
     create_save_links,
 )
 from swanlab.sdk.internal.pkg import adapter, console, safe
+from swanlab.sdk.internal.pkg.client import Client
 from swanlab.sdk.protocol import CoreProtocol
 from swanlab.sdk.typings.core_python.api.experiment import ResumeExperimentSummaryType
 from swanlab.sdk.typings.run import ModeType
@@ -90,6 +92,8 @@ class CorePython(CoreProtocol):
         # save 相关
         self._watcher: Optional[FileWatcherProtocol] = None
         self._pending_end_saves: List[Record] = []
+        # 按实例身份释放本 Core 创建的 client。
+        self._client_instance: Optional[Client] = None
 
     @property
     def _ctx(self) -> CoreContext:
@@ -143,14 +147,42 @@ class CorePython(CoreProtocol):
 
     def _start_when_online(self, start_request: DeliverRunStartRequest) -> DeliverRunStartResponse:
         self._ctx = CoreContext.from_proto(start_request.core_settings)
-        resp = self._report_run_start(start_request.start_record)
-        self._start_store(resp)
-        self._tracker = UploadTracker()
-        self._tracker.set_state(CoreState.CORE_STATE_RUNNING)
-        self._transport = Transport(ctx=self._ctx, tracker=self._tracker)
-        self._heartbeat = Heartbeat(self._ctx.experiment_id)
-        self._heartbeat.start()
-        return resp
+        # 1. 进程内独占互斥：联网 Core（Run/Sync）至多一个，client 单例即原子占用位。
+        #    正常流程下此处不应存在残留单例（init 不再预建、login 不驻留、sync 用后即毁），
+        #    该检查用于在创建任何资源前给出可读的拒绝信息，而非撞上 client.new 的 already exists。
+        if client.exists():
+            return DeliverRunStartResponse(
+                success=False,
+                message=(
+                    "A networked SwanLab core is already active in this process. Finish it before starting a new one."
+                ),
+            )
+        # 2. 凭证合法性校验：None / 空字符串 / 仅空白均视为无效，直接阻断启动
+        api_key = self._ctx.config.api_key
+        if api_key is None or not api_key.strip():
+            return DeliverRunStartResponse(
+                success=False,
+                message=(
+                    "Online mode requires a valid API key. "
+                    "Login via `swanlab.login()` or configure SWANLAB_API_KEY / .netrc credentials."
+                ),
+            )
+        # 3. 自建 client：仅由 Core 基于 Proto 下沉的凭据创建，创建成功后记录所有权
+        try:
+            owned_instance = client.new(api_key=api_key, base_url=self._ctx.config.api_host)
+            self._client_instance = owned_instance
+            resp = self._report_run_start(start_request.start_record)
+            self._start_store(resp)
+            self._tracker = UploadTracker()
+            self._tracker.set_state(CoreState.CORE_STATE_RUNNING)
+            self._transport = Transport(ctx=self._ctx, tracker=self._tracker)
+            self._heartbeat = Heartbeat(self._ctx.experiment_id)
+            self._heartbeat.start()
+            return resp
+        except BaseException:
+            # 启动半途失败必须严格回滚：先停止已启动的消费者，再集中释放单例，严禁残留活动单例
+            self._rollback_run_start()
+            raise
 
     def _report_run_start(self, record: StartRecord) -> DeliverRunStartResponse:
         """
@@ -195,6 +227,56 @@ class CorePython(CoreProtocol):
             global_system_step=global_system_step,
             new_experiment=run_info.new_experiment,
         )
+
+    # ---------------------------------- client 生命周期 ----------------------------------
+
+    def _rollback_run_start(self) -> None:
+        """
+        启动失败回滚：停止已启动的在线消费者、关闭本地存储，最后集中释放 client 单例。
+        严格确认消费者退出后才允许释放：未确认退出时保留所有权，不允许新联网 Core 启动。
+        """
+        consumers_stopped = self._shutdown_online_consumers(timeout=Transport.FINISH_JOIN_TIMEOUT)
+        if self._watcher is not None:
+            with safe.block(message="Failed to stop file watcher during rollback", level="debug"):
+                self._watcher.stop()
+            self._watcher = None
+        if self._store is not None:
+            with safe.block(message="Failed to close local store during rollback", level="debug"):
+                self._store.close()
+            self._store = None
+        # 仅当消费者确认退出时才允许释放 client；未确认时保留占用和所有权
+        if consumers_stopped:
+            self._teardown_client()
+        else:
+            console.warning(
+                "Run rollback could not confirm all consumers stopped. "
+                "Client ownership retained to prevent concurrent Core startup with active workers."
+            )
+
+    def _shutdown_online_consumers(self, timeout: Optional[float]) -> bool:
+        """Stop consumers, retaining references and ownership unless every stop succeeds."""
+        if self._transport is not None:
+            with safe.block(message="Failed to stop transport during shutdown"):
+                if self._transport.finish(timeout=timeout):
+                    self._transport = None
+        if self._transport is not None:
+            return False
+        if self._heartbeat is not None:
+            with safe.block(message="Failed to stop heartbeat during shutdown"):
+                self._heartbeat.stop()
+                self._heartbeat = None
+        stopped = self._transport is None and self._heartbeat is None
+        if stopped and self._tracker is not None:
+            self._tracker.set_state(CoreState.CORE_STATE_FINISHED)
+        return stopped
+
+    def _teardown_client(self) -> bool:
+        if self._client_instance is None:
+            return True
+        with safe.block(message="Failed to release SwanLab client"):
+            client.reset(client=self._client_instance)
+            self._client_instance = None
+        return self._client_instance is None
 
     # ---------------------------------- 数据上报 ----------------------------------
 
@@ -458,6 +540,8 @@ class CorePython(CoreProtocol):
             return DeliverRunFinishResponse(success=False, message="Run is not active, refusing to finish.")
         resp = super().deliver_run_finish(finish_request)
         self._active = False
+        if not resp.success:
+            self._rollback_run_start()
         return resp
 
     def _store_finish(self, finish_record: FinishRecord) -> Optional[Record]:
@@ -537,43 +621,52 @@ class CorePython(CoreProtocol):
         if self._active:
             return ConfirmRunFinishResponse(success=False, message="Run is still active, cannot confirm finish.")
 
-        # 1. 等待 transport 排空
-        if self._transport is not None:
-            if not self._transport.finish(timeout=None):
-                return ConfirmRunFinishResponse(success=False, message="Transport is still running.")
-            self._transport = None
-        # 2. 停止心跳和上传跟踪器，释放资源
-        if self._tracker is not None:
-            self._tracker.set_state(CoreState.CORE_STATE_FINISHED)
-        if self._heartbeat is not None:
-            self._heartbeat.stop()
-            self._heartbeat = None
-        # 3. 上报最终的 finish_record 给后端，完成实验结束流程
-        # 约定仅 online 模式暂存 finish_record，offline/local 模式在 deliver_run_finish 时就完成了全部流程，因此这里无需上报
-        if self._mode != "online":
-            return ConfirmRunFinishResponse(success=True, message="OK")
-        if self._pending_online_finish_record is None:
-            return ConfirmRunFinishResponse(
-                success=False,
-                message="Failed to confirm run finish: no pending finish record found.",
-            )
-        with safe.block(message="Failed to report run finish"):
-            stop_experiment(
-                self._ctx.username,
-                self._ctx.project,
-                self._ctx.experiment_id,
-                state=self._pending_online_finish_record.state,
-                finished_at=self._pending_online_finish_record.finished_at,
-            )
-            self._pending_online_finish_record = None
-            return ConfirmRunFinishResponse(success=True, message="OK")
-        # 虽然本地已经完成了全部流程，但由于网络等原因导致无法通知后端，因此返回失败状态，但是影响不大。
-        # skip_store 下没有本地副本，提示语不能暗示数据仍可从本地恢复
-        if self._ctx.config.skip_store:
-            message = (
-                "Failed to finish run, and no local copy was kept (skip_store); "
-                "the run state on the cloud is unconfirmed."
-            )
-        else:
-            message = "Failed to finish run, but it has been saved locally."
-        return ConfirmRunFinishResponse(success=False, message=message)
+        response = ConfirmRunFinishResponse(success=False, message="Transport or heartbeat is still running.")
+        consumers_stopped = False
+        try:
+            consumers_stopped = self._shutdown_online_consumers(timeout=None)
+            if not consumers_stopped:
+                return response
+            # 3. 上报最终的 finish_record 给后端，完成实验结束流程
+            # 约定仅 online 模式暂存 finish_record，offline/local 模式在 deliver_run_finish 时就完成了全部流程，因此这里无需上报
+            if self._mode != "online":
+                response.success = True
+                response.message = "OK"
+                return response
+            if self._pending_online_finish_record is None:
+                response.message = "Failed to confirm run finish: no pending finish record found."
+                return response
+            with safe.block(message="Failed to report run finish"):
+                stop_experiment(
+                    self._ctx.username,
+                    self._ctx.project,
+                    self._ctx.experiment_id,
+                    state=self._pending_online_finish_record.state,
+                    finished_at=self._pending_online_finish_record.finished_at,
+                )
+                self._pending_online_finish_record = None
+                response.success = True
+                response.message = "OK"
+                return response
+            # 虽然本地已经完成了全部流程，但由于网络等原因导致无法通知后端，因此返回失败状态，但是影响不大。
+            # skip_store 下没有本地副本，提示语不能暗示数据仍可从本地恢复
+            if self._ctx.config.skip_store:
+                message = (
+                    "Failed to finish run, and no local copy was kept (skip_store); "
+                    "the run state on the cloud is unconfirmed."
+                )
+            else:
+                message = "Failed to finish run, but it has been saved locally."
+            response.message = message
+            return response
+        except BaseException:
+            consumers_stopped = self._shutdown_online_consumers(timeout=Transport.FINISH_JOIN_TIMEOUT)
+            if not consumers_stopped:
+                console.warning(
+                    "Run finish interrupted: could not confirm all consumers stopped. Client ownership retained."
+                )
+            raise
+        finally:
+            if consumers_stopped and not self._teardown_client():
+                response.success = False
+                response.message = "Failed to release SwanLab client; the core still owns its client."

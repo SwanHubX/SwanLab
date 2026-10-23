@@ -17,4 +17,7 @@ message CoreSettings {
     int32 save_batch       = 9;
     // Skip the local Record store (run-*.swanlab). Only valid in online mode.
     bool skip_store        = 10;
+    // Sensitive credential, must not be logged in debug output.
+    string api_key         = 11;
+    string api_host        = 12;
 }

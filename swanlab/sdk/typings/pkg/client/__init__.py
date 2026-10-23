@@ -15,11 +15,11 @@ else:
 
 from typing import Any, Union
 
-from .bootstrap import LoginResponse
+from .bootstrap import UserProfile
 
 JSONDict: TypeAlias = Mapping[str, Any]
 JSONList: TypeAlias = Sequence[Any]
 JSONBody: TypeAlias = Union[JSONDict, JSONList, None]
 
 
-__all__ = ["JSONBody", "JSONDict", "JSONList", "LoginResponse"]
+__all__ = ["JSONBody", "JSONDict", "JSONList", "UserProfile"]

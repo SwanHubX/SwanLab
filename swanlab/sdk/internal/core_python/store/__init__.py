@@ -196,7 +196,8 @@ class DataStoreReader:
             assert dtype == LEVELDBLOG_MIDDLE, f"expected record type {LEVELDBLOG_MIDDLE}, got {dtype}"
 
     def close(self) -> None:
-        assert self._fp is not None, "reader is not open"
+        if self._fp is None:
+            return
         self._fp.close()
         self._fp = None
 

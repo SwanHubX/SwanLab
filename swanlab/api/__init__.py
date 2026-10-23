@@ -11,7 +11,6 @@ from typing import Any, Dict, List, Optional
 from typing_extensions import deprecated
 
 from swanlab.exceptions import AuthenticationError
-from swanlab.sdk.internal.pkg import scope
 from swanlab.sdk.internal.pkg.client import Client
 from swanlab.sdk.internal.settings import create_settings, resolve_hosts
 
@@ -61,25 +60,22 @@ class Api(BaseEntity):
 
         Credential resolution order:
         1. Explicit parameters (``api_key`` / ``host``)
-        2. In-process login state (available when ``swanlab.login`` has been called)
-        3. Settings (including ``.netrc`` / environment variables)
+        2. Settings (including ``.netrc`` / environment variables)
 
         :param api_key: API key; if None, resolved per the order above
         :param host: API host address; if None, uses default configuration
         """
-        # 优先从 scope 获取已有登录态（如进程内已调用 swanlab.login），直接复用凭证
-        login_resp = scope.get_context("login_resp")
+        # 自持 Client 实例：构造即完成 ApiKey 鉴权并缓存用户档案，不依赖全局登录态
         api_key, api_host, web_host = self._resolve_credentials(api_key, host)
-        _client = Client(api_key=str(api_key), base_url=api_host)
-
-        if login_resp is None:
-            from swanlab.sdk.internal.pkg.client.bootstrap import login_by_api_key
-
-            login_resp = login_by_api_key(base_url=api_host + "/api", api_key=api_key)
-        user_info = login_resp.get("userInfo", {}) if login_resp else {}
-        username = user_info.get("username", "")
-        name = user_info.get("name", "") or ""
-        ctx = ApiClientContext(client=_client, web_host=web_host, api_host=api_host, username=username, name=name)
+        _client = Client(api_key=api_key, base_url=api_host)
+        profile = _client.profile
+        ctx = ApiClientContext(
+            client=_client,
+            web_host=web_host,
+            api_host=api_host,
+            username=profile.get("username", ""),
+            name=profile.get("name", "") or "",
+        )
         super().__init__(ctx)
 
     def json(self) -> dict:
@@ -97,7 +93,7 @@ class Api(BaseEntity):
         host: Optional[str],
     ) -> tuple[str, str, str]:
         """
-        Resolve credentials by priority: explicit params > in-process login state > Settings (.netrc / env vars).
+        Resolve credentials by priority: explicit params > Settings (.netrc / env vars).
         Returns (api_key, api_host, web_host).
         """
         current_settings = create_settings() if api_key is None or host is None else None

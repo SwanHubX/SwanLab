@@ -1,26 +1,25 @@
 """
 @author: cunyue
-@file: auth.py
+@file: bootstrap.py
 @time: 2026/3/7 18:37
 @description: 鉴权相关API类型提示
 """
 
-from typing import Optional, TypedDict
+from typing import TypedDict
 
 
-class _UserInfo(TypedDict):
-    # 用户昵称
-    name: Optional[str]
+class UserProfile(TypedDict):
+    """`GET /api/auth/verify` 返回的用户档案"""
+
+    # 用户ID
+    uid: int
+    # 头像
+    avatar: str
     # 用户名
     username: str
-
-
-class LoginResponse(TypedDict):
-    """登录响应"""
-
-    # 会话ID
-    sid: str
-    # 过期时间，格式为 ISO 8601
-    expiredAt: str
-    # 用户信息
-    userInfo: _UserInfo
+    # 用户昵称
+    name: str
+    # 创建时间，格式为 ISO 8601
+    createdAt: str
+    # 是否已验证
+    verified: bool
