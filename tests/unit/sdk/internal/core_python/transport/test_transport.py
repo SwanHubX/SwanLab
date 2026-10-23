@@ -328,8 +328,8 @@ def test_transport_outage_recovers_and_resumes_backlog(make_ctx, make_scalar_rec
             t.finish()
 
 
-def test_transport_retry_waits_for_deadline_and_wake_does_not_bypass(make_ctx, make_scalar_record):
-    """失败重试等待退避截止时间，request_finish 唤醒不跳过等待。"""
+def test_transport_finish_bypasses_remaining_backoff(make_ctx, make_scalar_record):
+    """request_finish 会清零退避截止时间，立即发起排空重试。"""
     attempts = []
     first_dispatch_done = threading.Event()
 
@@ -349,14 +349,13 @@ def test_transport_retry_waits_for_deadline_and_wake_does_not_bypass(make_ctx, m
     record.num = 1
     t.put([record])
     assert first_dispatch_done.wait(timeout=2.0)
+    # 等 worker 进入退避等待，确保 request_finish 能唤醒它
+    time.sleep(0.05)
 
     t.request_finish()
-    time.sleep(0.15)
-    assert len(attempts) == 1
-
-    assert t.join(timeout=3.0), "worker should retry after the backoff deadline and finish"
+    assert t.join(timeout=3.0), "worker should drain immediately after finish"
     assert len(attempts) == 2
-    assert attempts[1] - attempts[0] >= 0.4
+    assert attempts[1] - attempts[0] < 0.4, "finish should not wait out the backoff window"
 
 
 def test_transport_backoff_counter_resets_after_success_round(make_ctx, make_scalar_record):
@@ -497,3 +496,13 @@ def test_finish_summary_falls_back_without_diagnosis(mock_ctx):
     t = _make_transport(mock_ctx)
 
     assert "worker exited unexpectedly" in t.finish_summary()
+
+
+def test_transport_request_finish_clears_retry_deadline(mock_ctx):
+    """finish 时不再等剩余退避窗口，立即发起排空。"""
+    t = _make_transport(mock_ctx)
+    t._retry_at = time.monotonic() + 10
+
+    t.request_finish()
+
+    assert t._retry_at is None

@@ -115,6 +115,8 @@ class Transport:
             if self._finished:
                 return
             self._finished = True
+            # 立即发起一轮排空，不再等剩余的退避窗口
+            self._retry_at = None
             self._cond.notify_all()
 
     def join(self, timeout: Optional[float] = FINISH_JOIN_TIMEOUT) -> bool:

@@ -10,9 +10,19 @@ from typing import List, Literal, Optional, Union
 
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 
+# 失败来源：说明"哪一层失败了"，用于诊断，不参与重试决策
 FailureSource = Literal["swanlab_api", "object_storage", "local_data", "worker_internal"]
+# - swanlab_api：SwanLab 后端接口，如 house/metrics、columns、profile、prepare / complete
+# - object_storage：对象存储字节传输，如媒体 PUT、save 文件与分片 PUT
+# - local_data：本地数据不可用，如文件缺失/不可读/超限/解析失败、协议数量不匹配
+# - worker_internal：dispatch 未预期异常，无法确认请求是否完成
 
+# 失败阶段：说明"流程走到哪一步失败了"
 FailureStage = Literal["request_address", "transfer", "submit_metrics", "complete"]
+# - request_address：申请上传地址（save prepare、预签名数量校验）
+# - transfer：对象存储字节传输（媒体与 save 的 PUT，含分片；媒体预签名请求失败也归入此阶段）
+# - submit_metrics：提交指标与配置（house/metrics、columns、profile）
+# - complete：确认上传完成（complete / complete-multipart）
 
 
 @dataclass
