@@ -7,7 +7,7 @@ import pytest
 import requests
 from google.protobuf.timestamp_pb2 import Timestamp
 
-from swanlab.exceptions import ApiError
+from swanlab.exceptions import ApiError, NonRetryableUploadError
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnClass, ColumnRecord, ColumnType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaItem, MediaRecord, MediaValue, ScalarRecord, ScalarValue
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
@@ -420,6 +420,57 @@ def test_upload_save_tracks_multipart_parts_once_across_retries(tmp_path: Path):
     assert all(isinstance(item["data"], ProgressFileWrapper) for item in session.puts)
     assert all(not isinstance(item["data"]._file_obj, BytesIO) for item in session.puts)
     assert mock_complete.call_count == 2
+
+
+def test_upload_save_large_file_failure_closes_row_before_retry_wait(tmp_path: Path):
+    """complete-multipart 可重试失败时，分片 PUT 已失败的文件必须立刻关闭进度行。"""
+    first = tmp_path / "first.bin"
+    second = tmp_path / "second.bin"
+    first.write_bytes(b"0123456789")
+    second.write_bytes(b"abcdefghij")
+    first_record = _make_save_record(first, name="first.bin")
+    second_record = _make_save_record(second, name="second.bin")
+    sender = _make_sender(tmp_path, save_split=5, save_part=4)
+    tracker = UploadTracker()
+    sender.set_tracker(tracker)
+
+    class _FailingPartSession(_FakeSession):
+        def put(self, url, *, data, headers):
+            if url == "https://s3.test/first-1":
+                raise _make_api_error(400)
+            return super().put(url, data=data, headers=headers)
+
+    multipart_response = {
+        "files": [
+            {"uploadId": "upload-first", "parts": [{"partNumber": 1, "url": "https://s3.test/first-1"}]},
+            {"uploadId": "upload-second", "parts": [{"partNumber": 1, "url": "https://s3.test/second-1"}]},
+        ]
+    }
+
+    with (
+        patch(
+            "swanlab.sdk.internal.core_python.transport.sender.save.prepare_multipart_save",
+            return_value=multipart_response,
+        ),
+        patch(
+            "swanlab.sdk.internal.core_python.transport.sender.save.complete_multipart_save",
+            side_effect=_make_api_error(503),
+        ),
+        patch("swanlab.sdk.internal.core_python.transport.sender.save.complete_save_files"),
+        patch(
+            "swanlab.sdk.internal.core_python.transport.sender.client.session.create",
+            return_value=_FailingPartSession(),
+        ),
+    ):
+        result = sender.upload_save([first_record, second_record])
+
+    # 分片失败的文件已终结，未失败的文件等待 worker 重试
+    assert result.confirmed_records == [first_record]
+    assert result.remaining_records == [second_record]
+    stats = tracker.snapshot()
+    assert stats.total_number == 2
+    assert stats.uploaded_number == 0
+    assert [file.path for file in stats.files] == [str(second)]
 
 
 def test_upload_media_passes_guessed_content_type(tmp_path: Path):
@@ -969,6 +1020,36 @@ def test_upload_media_transfer_failure_is_retryable(tmp_path: Path):
     assert failure.source == "object_storage"
     assert failure.stage == "transfer"
     assert failure.status == 503
+
+
+def test_upload_media_settles_on_non_retryable_protocol_error(tmp_path: Path):
+    """预签名协议错误终结媒体记录并关闭进度行，不进入退避重试。"""
+    media_dir = tmp_path / "media" / "image"
+    media_dir.mkdir(parents=True)
+    (media_dir / "a.png").write_bytes(b"image")
+    sender = _make_sender(tmp_path)
+    tracker = UploadTracker()
+    sender.set_tracker(tracker)
+    record = _make_media_record("a.png")
+
+    with (
+        patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=MagicMock()),
+        patch(
+            "swanlab.sdk.internal.core_python.transport.sender.media.upload_resource",
+            side_effect=NonRetryableUploadError("presigned response returned 1 urls for 2 paths"),
+        ),
+    ):
+        result = sender.upload_media([record])
+
+    assert result.confirmed_records == [record]
+    assert result.remaining_records == []
+    failure = result.failures[0]
+    assert failure.source == "swanlab_api"
+    assert failure.stage == "request_address"
+    assert "presigned response" in failure.message
+    stats = tracker.snapshot()
+    assert stats.total_number == 1
+    assert len(stats.files) == 0
 
 
 def test_upload_media_metrics_failure_keeps_file_rows_open(tmp_path: Path):

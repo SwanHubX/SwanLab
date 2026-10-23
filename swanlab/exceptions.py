@@ -9,7 +9,7 @@ from typing import Union
 
 from requests.exceptions import HTTPError
 
-__all__ = ["ApiError", "AuthenticationError", "DataStoreError"]
+__all__ = ["ApiError", "AuthenticationError", "DataStoreError", "NonRetryableUploadError"]
 
 
 class ApiError(HTTPError):
@@ -40,6 +40,14 @@ class AuthenticationError(Exception):
 class DataStoreError(Exception):
     """
     DataStore 读写异常。
+    """
+
+    pass
+
+
+class NonRetryableUploadError(Exception):
+    """
+    确定性上传失败：重试也不会成功，transport 应终结相关记录而不是退避重试。
     """
 
     pass

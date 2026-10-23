@@ -6,6 +6,7 @@ import pytest
 from requests import Request
 from requests.sessions import Session
 
+from swanlab.exceptions import NonRetryableUploadError
 from swanlab.sdk.internal.core_python.api import upload as upload_api
 from swanlab.sdk.internal.core_python.transport.tracker import UploadTracker
 
@@ -190,6 +191,28 @@ def test_upload_resource_uses_provided_content_type(tmp_path: Path):
             "headers": {"Content-Type": "text/html"},
         }
     ]
+
+
+def test_upload_resource_raises_non_retryable_on_url_count_mismatch():
+    """预签名 URL 数量不匹配属于协议错误：抛不可重试异常，且不发起任何 PUT。"""
+    fake_session = _FakeSession()
+
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(
+            upload_api.client,
+            "post",
+            lambda *_args, **_kwargs: _FakePresignResponse(["https://s3.test/only-one"]),
+        )
+
+        with pytest.raises(NonRetryableUploadError):
+            upload_api.upload_resource(
+                cast(Session, fake_session),
+                "experiment-id",
+                paths=["media/image/a.png", "media/image/b.png"],
+                buffers=[BytesIO(b"a"), BytesIO(b"b")],
+            )
+
+    assert fake_session.puts == []
 
 
 def test_upload_resource_handles_standard_file_objects(tmp_path: Path):

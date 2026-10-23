@@ -408,11 +408,12 @@ def _upload_large_saves(
         with safe.block(requests.RequestException, message=None):
             # 报告失败不阻塞流程，后端依赖超时清理兜底
             complete_save_files(ctx.experiment_id, files=failed_items)
-
-    if not ready:
+        # 分片 PUT 已确定性失败，文件在此处即终结，与 complete-multipart 的结果无关
         if tracker is not None:
             for task in skipped:
                 tracker.fail_file(task.tracker_key)
+
+    if not ready:
         return UploadResult(
             confirmed_records=[task.record for task in skipped],
             failures=failures,
@@ -429,7 +430,7 @@ def _upload_large_saves(
         # complete-multipart 遇到网络或 5xx 时保留重试，确定性 4xx 终结。
         retryable = is_retryable_error(e)
         if not retryable and tracker is not None:
-            for task in skipped + [task for task, _, _ in ready]:
+            for task, _, _ in ready:
                 tracker.fail_file(task.tracker_key)
         return UploadResult(
             confirmed_records=[task.record for task in skipped]
@@ -438,9 +439,6 @@ def _upload_large_saves(
             failures=failures
             + [transport_failure([task.record for task, _, _ in ready], e, source="swanlab_api", stage="complete")],
         )
-    for task in skipped:
-        if tracker is not None:
-            tracker.fail_file(task.tracker_key)
     for task, _, _ in ready:
         if tracker is not None:
             tracker.finish_file(task.tracker_key)

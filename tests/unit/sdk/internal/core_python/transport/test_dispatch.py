@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from google.protobuf.timestamp_pb2 import Timestamp
 
+from swanlab.exceptions import NonRetryableUploadError
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaItem, MediaRecord, MediaValue
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
@@ -88,7 +89,8 @@ def test_dispatch_sender_unexpected_error_converted_to_failure(mock_ctx, make_sc
 
 def test_dispatch_settles_unknown_type(mock_ctx, make_scalar_record):
     """未知 record_type 终结整组记录并返回失败。"""
-    dispatch = Dispatch(batch_size=mock_ctx.config.record_batch)
+    tracker = UploadTracker()
+    dispatch = Dispatch(batch_size=mock_ctx.config.record_batch, tracker=tracker)
     record = make_scalar_record(step=1)
 
     with patch("swanlab.sdk.internal.core_python.transport.dispatch.group_records_by_type") as mock_group:
@@ -103,7 +105,59 @@ def test_dispatch_settles_unknown_type(mock_ctx, make_scalar_record):
     assert result.remaining_records == []
     assert result.failures[0].source == "local_data"
     assert "unknown record type" in result.failures[0].message
+    assert tracker.snapshot().uploaded_records == 1
     mock_warning.assert_called_once()
+
+
+def test_dispatch_settled_group_failure_advances_tracker(mock_ctx):
+    """分组失败的记录已终结，uploaded_records 同步推进，finish 摘要不会停在 0/N。"""
+    tracker = UploadTracker()
+    dispatch = Dispatch(batch_size=mock_ctx.config.record_batch, tracker=tracker)
+
+    result = dispatch([Record(), Record()])
+
+    assert len(result.confirmed_records) == 2
+    assert result.remaining_records == []
+    assert tracker.snapshot().uploaded_records == 2
+
+
+def test_dispatch_settles_non_retryable_sender_error(mock_ctx, make_scalar_record):
+    """sender 抛确定性协议错误时终结当前分片，不交给 worker 退避重试。"""
+    tracker = UploadTracker()
+    sender = MagicMock()
+    sender.upload.side_effect = NonRetryableUploadError("presigned response returned 1 urls for 2 paths")
+    records = [make_scalar_record(step=1), make_scalar_record(step=2)]
+    dispatch = Dispatch(batch_size=mock_ctx.config.record_batch, sender=sender, tracker=tracker)
+
+    result = dispatch(records)
+
+    assert result.confirmed_records == records
+    assert result.remaining_records == []
+    assert result.failures[0].source == "swanlab_api"
+    assert tracker.snapshot().uploaded_records == 2
+
+
+def test_dispatch_settled_type_does_not_block_next_type(mock_ctx, make_scalar_record):
+    """某个类型确定性失败后，同批后续类型仍继续上传，不被失败文件阻塞。"""
+    media = _make_media_record()
+    scalar = make_scalar_record(step=1)
+
+    def _upload(record_type, chunk):
+        if record_type == "media":
+            return UploadResult(
+                confirmed_records=list(chunk),
+                failures=[UploadFailure(source="swanlab_api", message="presigned url mismatch", records=list(chunk))],
+            )
+        return _ok(chunk)
+
+    sender = MagicMock()
+    sender.upload.side_effect = _upload
+    dispatch = Dispatch(batch_size=mock_ctx.config.record_batch, sender=sender)
+
+    result = dispatch([media, scalar])
+
+    assert result.confirmed_records == [media, scalar]
+    assert result.remaining_records == []
 
 
 def test_dispatch_settles_untypeable_records(mock_ctx):

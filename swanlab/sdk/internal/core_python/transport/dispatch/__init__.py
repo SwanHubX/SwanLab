@@ -8,6 +8,7 @@
 from collections import OrderedDict
 from typing import TYPE_CHECKING, Dict, Iterator, List, Optional, Sequence, Tuple
 
+from swanlab.exceptions import NonRetryableUploadError
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.core_python.transport.sender import HttpRecordSender
 from swanlab.sdk.internal.pkg import console
@@ -70,10 +71,7 @@ class Dispatch:
             records_by_type = group_records_by_type(records)
         except (ValueError, TypeError) as e:
             # 本地 record 格式异常丢弃，避免被 worker 重试
-            return UploadResult(
-                confirmed_records=list(records),
-                failures=[UploadFailure(source="local_data", message=str(e), records=list(records))],
-            )
+            return self._settle(records, str(e))
         confirmed: List[Record] = []
         failures: List[UploadFailure] = []
         record_types = list(records_by_type.keys())
@@ -98,14 +96,7 @@ class Dispatch:
         """上传单个 record_type 分组。"""
         if record_type not in self._RECORD_TYPES:
             console.warning(f"No handler for record kind={record_type!r}, skipping {len(records)} record(s).")
-            return UploadResult(
-                confirmed_records=list(records),
-                failures=[
-                    UploadFailure(
-                        source="local_data", message=f"unknown record type {record_type!r}", records=list(records)
-                    )
-                ],
-            )
+            return self._settle(records, f"unknown record type {record_type!r}")
         confirmed: List[Record] = []
         failures: List[UploadFailure] = []
         offset = 0
@@ -146,6 +137,12 @@ class Dispatch:
             )
         try:
             result = self._sender.upload(record_type, chunk)
+        except NonRetryableUploadError as e:
+            # 确定性失败：终结当前分片，避免阻塞同批后续 record 的上传
+            return UploadResult(
+                confirmed_records=list(chunk),
+                failures=[UploadFailure(source="swanlab_api", message=str(e), records=list(chunk), exception=e)],
+            )
         except Exception as e:
             source: FailureSource = "local_data" if isinstance(e, OSError) else "worker_internal"
             return UploadResult(
@@ -166,6 +163,14 @@ class Dispatch:
                 write_to_tty=False,
             )
         return result
+
+    def _settle(self, records: Sequence[Record], message: str) -> UploadResult:
+        """本地数据无法处理：终结整批记录并推进统计。"""
+        self._advance_records(len(records))
+        return UploadResult(
+            confirmed_records=list(records),
+            failures=[UploadFailure(source="local_data", message=message, records=list(records))],
+        )
 
     def _advance_records(self, count: int) -> None:
         """根据确认记录数更新 tracker 统计。"""
