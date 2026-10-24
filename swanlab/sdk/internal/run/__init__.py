@@ -935,11 +935,11 @@ def has_run() -> bool:
 
 
 def get_run() -> Run:
-    """Get the current active SwanLab run.
+    """Get the current SwanLab run.
 
-    :return: The active Run instance.
+    :return: The current Run instance; it may have already finished.
 
-    :raises RuntimeError: If no run is currently active.
+    :raises RuntimeError: If ``swanlab.init()`` has not been called.
 
     Examples:
 

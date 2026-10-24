@@ -1,13 +1,16 @@
-from typing import Literal, Optional, Sequence, cast
+from typing import List, Literal, Sequence, Tuple, cast
 
+import requests
 from typing_extensions import deprecated
 
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnClass, ColumnRecord, ColumnType
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.core_python.transport.sender import HttpRecordSender
+from swanlab.sdk.internal.core_python.transport.sender.utils import is_retryable_error, transport_failure
 from swanlab.sdk.internal.pkg import adapter
 from swanlab.sdk.typings.core_python.api.upload import DeprecatedUploadColumn, DeprecatedUploadColumns
+from swanlab.sdk.typings.core_python.transport import UploadFailure, UploadResult
 
 
 @deprecated("legacy projects without views will no longer be supported in v0.11.")
@@ -16,16 +19,31 @@ class DeprecatedHttpRecordSender(HttpRecordSender):
     DeprecatedHttpRecordSender 是一个过时的类，用于适应多视图版本前的列上传逻辑
     """
 
-    def upload_column(self, records: Sequence[Record], batch_size: int = 3000) -> None:
-        columns = []
-        for record in records:
-            r = encode_desprecated_column(record.column)
-            if r:
-                columns.append(r)
-        if not columns:
-            return
-        for i in range(0, len(columns), batch_size):
-            upload_deprecated_columns(self._experiment_id, columns=columns[i : i + batch_size])
+    def upload_column(self, records: Sequence[Record], batch_size: int = 3000) -> UploadResult:
+        encoded: List[Tuple[Record, DeprecatedUploadColumn]] = [
+            (record, encode_desprecated_column(record.column)) for record in records
+        ]
+        confirmed: List[Record] = []
+        failures: List[UploadFailure] = []
+        for start in range(0, len(encoded), batch_size):
+            batch = encoded[start : start + batch_size]
+            try:
+                upload_deprecated_columns(self._experiment_id, columns=[column for _, column in batch])
+            except requests.RequestException as e:
+                failure = transport_failure([record for record, _ in batch], e)
+                failures.append(failure)
+                if is_retryable_error(e):
+                    untried = [record for record, _ in encoded[start + len(batch) :]]
+                    return UploadResult(
+                        confirmed_records=confirmed,
+                        remaining_records=[record for record, _ in batch] + untried,
+                        failures=failures,
+                    )
+                # 确定性错误：剩余批次同样会失败，一并终结不再重复提交
+                confirmed.extend(record for record, _ in encoded[start:])
+                return UploadResult(confirmed_records=confirmed, failures=failures)
+            confirmed.extend(record for record, _ in batch)
+        return UploadResult(confirmed_records=confirmed, failures=failures)
 
 
 def upload_deprecated_columns(experiment_id: str, *, columns: DeprecatedUploadColumns) -> None:
@@ -35,7 +53,7 @@ def upload_deprecated_columns(experiment_id: str, *, columns: DeprecatedUploadCo
     client.post(f"/experiment/{experiment_id}/columns", columns, retries=0)
 
 
-def encode_desprecated_column(record: ColumnRecord) -> Optional[DeprecatedUploadColumn]:
+def encode_desprecated_column(record: ColumnRecord) -> DeprecatedUploadColumn:
     """
     将列记录编码为后端所需的格式（DTO）
     NOTE: 此接口为多视图之前的版本

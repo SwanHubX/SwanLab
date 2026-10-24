@@ -1,46 +1,44 @@
-import time
 from unittest.mock import patch
 
-from swanlab.sdk.internal.core_python.transport.thread import UploadWarningThrottle
+from swanlab.sdk.internal.core_python.transport.worker import UploadWarningThrottle
 
 
 def test_warn_throttles_within_interval():
-    """间隔内重复 warn() 不重复打印，超过间隔后再次打印。
-
-    INTERVAL 设为 1.0s 而非极小值，因为 Windows 上 time.monotonic() 分辨率约 15ms，
-    过小的间隔会导致连续两次 warn() 被判定为"已超过间隔"，节流失效。
-    """
+    """间隔内调用 warn() 抑制重复告警，超过间隔后输出告警。"""
+    clock = [0.0]
     t = UploadWarningThrottle()
     t.INTERVAL = 1.0
-    with patch("swanlab.sdk.internal.core_python.transport.thread.console.warning") as mock:
-        t.warn()
-        t.warn()
-    mock.assert_called_once()
+    # 注入单调时钟，避免真实 sleep
+    with patch("swanlab.sdk.internal.core_python.transport.worker.time.monotonic", side_effect=lambda: clock[0]):
+        with patch("swanlab.sdk.internal.core_python.transport.worker.console.warning") as mock:
+            t.warn()
+            t.warn()
+        mock.assert_called_once()
 
-    time.sleep(1.1)
-    with patch("swanlab.sdk.internal.core_python.transport.thread.console.warning") as mock:
-        t.warn()
-    mock.assert_called_once()
+        clock[0] = 1.1
+        with patch("swanlab.sdk.internal.core_python.transport.worker.console.warning") as mock:
+            t.warn()
+        mock.assert_called_once()
 
 
 def test_reset_clears_throttle_and_prints_recovery():
-    """失败状态下 reset() 打印恢复消息，之后 warn() 不再被节流。"""
+    """失败状态下调用 reset() 输出恢复信息并重置节流状态。"""
     t = UploadWarningThrottle()
-    with patch("swanlab.sdk.internal.core_python.transport.thread.console.warning"):
+    with patch("swanlab.sdk.internal.core_python.transport.worker.console.warning"):
         t.warn()
 
-    with patch("swanlab.sdk.internal.core_python.transport.thread.console.info") as mock_info:
+    with patch("swanlab.sdk.internal.core_python.transport.worker.console.info") as mock_info:
         t.reset()
     mock_info.assert_called_once()
 
-    with patch("swanlab.sdk.internal.core_python.transport.thread.console.warning") as mock_warn:
+    with patch("swanlab.sdk.internal.core_python.transport.worker.console.warning") as mock_warn:
         t.warn()
     mock_warn.assert_called_once()
 
 
 def test_reset_without_failure_no_recovery():
-    """未进入失败状态时 reset() 不打印恢复消息。"""
+    """未处于失败状态时 reset() 不输出恢复信息。"""
     t = UploadWarningThrottle()
-    with patch("swanlab.sdk.internal.core_python.transport.thread.console.info") as mock_info:
+    with patch("swanlab.sdk.internal.core_python.transport.worker.console.info") as mock_info:
         t.reset()
     mock_info.assert_not_called()

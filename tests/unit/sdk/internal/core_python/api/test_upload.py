@@ -6,6 +6,7 @@ import pytest
 from requests import Request
 from requests.sessions import Session
 
+from swanlab.exceptions import ApiError
 from swanlab.sdk.internal.core_python.api import upload as upload_api
 from swanlab.sdk.internal.core_python.transport.tracker import UploadTracker
 
@@ -101,14 +102,13 @@ def test_upload_resources_uploads_files_and_reports_progress(tmp_path: Path):
             "headers": {"Content-Type": "application/octet-stream"},
         },
     }
-    assert uploaded == {str(first), str(second)}
-    # tracker 应记录两个已完成文件
+    assert uploaded == {}
     stats = tracker.snapshot()
-    assert stats.uploaded_number == 2
+    assert stats.uploaded_number == 0
     assert stats.uploaded_size >= 7  # 5 + 2
 
 
-def test_upload_saves_does_not_report_progress_when_put_fails(tmp_path: Path):
+def test_upload_saves_returns_per_file_put_failures(tmp_path: Path):
     source = tmp_path / "failed.bin"
     source.write_bytes(b"failed")
     fake_session = _FakeSession(failing_urls={"https://s3.test/failed"})
@@ -129,10 +129,11 @@ def test_upload_saves_does_not_report_progress_when_put_fails(tmp_path: Path):
         tracker=tracker,
     )
 
-    assert uploaded == set()
-    # tracker 不应记录完成
+    assert list(uploaded.keys()) == [0]
+    assert "put failed" in str(uploaded[0])
     stats = tracker.snapshot()
     assert stats.uploaded_number == 0
+    assert stats.uploaded_size == 0
 
 
 def test_upload_resource_reports_progress_after_successful_put():
@@ -158,9 +159,8 @@ def test_upload_resource_reports_progress_after_successful_put():
             tracker=tracker,
         )
 
-    # tracker 应记录两个已完成文件（由 upload_resource 内部 finish_file）
     stats = tracker.snapshot()
-    assert stats.uploaded_number == 2
+    assert stats.uploaded_number == 0
     assert stats.uploaded_size >= 9  # 5 + 4
 
 
@@ -193,6 +193,29 @@ def test_upload_resource_uses_provided_content_type(tmp_path: Path):
     ]
 
 
+def test_upload_resource_raises_non_retryable_on_url_count_mismatch():
+    """预签名 URL 数量不匹配属于协议错误：抛不可重试的 ApiError，且不发起任何 PUT。"""
+    fake_session = _FakeSession()
+
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(
+            upload_api.client,
+            "post",
+            lambda *_args, **_kwargs: _FakePresignResponse(["https://s3.test/only-one"]),
+        )
+
+        with pytest.raises(ApiError) as exc_info:
+            upload_api.upload_resource(
+                cast(Session, fake_session),
+                "experiment-id",
+                paths=["media/image/a.png", "media/image/b.png"],
+                buffers=[BytesIO(b"a"), BytesIO(b"b")],
+            )
+
+    assert exc_info.value.retryable is False
+    assert fake_session.puts == []
+
+
 def test_upload_resource_handles_standard_file_objects(tmp_path: Path):
     temp_file = tmp_path / "media_file.bin"
     temp_file.write_bytes(b"some media data")
@@ -218,7 +241,7 @@ def test_upload_resource_handles_standard_file_objects(tmp_path: Path):
             )
 
     stats = tracker.snapshot()
-    assert stats.uploaded_number == 1
+    assert stats.uploaded_number == 0
     assert stats.uploaded_size == 15
     assert len(fake_session.puts) == 1
     assert fake_session.puts[0]["data"] == b"some media data"
@@ -246,9 +269,8 @@ def test_upload_resource_read_progress_stays_within_buffer_size_on_seek():
         )
 
     stats = tracker.snapshot()
-    # 文件大小 5，不应该超过
     assert stats.uploaded_size == 5
-    assert stats.uploaded_number == 1
+    assert stats.uploaded_number == 0
 
 
 # ── 长度推断零拷贝（getbuffer 不得被调用）──────────────────────
