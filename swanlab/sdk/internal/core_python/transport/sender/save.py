@@ -302,9 +302,13 @@ def _upload_small_saves(
         except requests.RequestException as e:
             retryable = is_retryable_error(e)
             pending = uploaded + storage_failed
-            if not retryable and tracker is not None:
-                for task in pending:
+            if tracker is not None:
+                # local_failed 已终结，无论 complete 是否保留重试都关闭其进度行
+                for task in local_failed:
                     tracker.fail_file(task.tracker_key)
+                if not retryable:
+                    for task in pending:
+                        tracker.fail_file(task.tracker_key)
             return UploadResult(
                 confirmed_records=[task.record for task in local_failed]
                 + ([] if retryable else [task.record for task in pending]),
@@ -415,7 +419,7 @@ def _upload_large_saves(
         retryable = is_retryable_error(e)
         pending = ready_tasks + storage_failed
         if not retryable and tracker is not None:
-            for task in ready_tasks:
+            for task in pending:
                 tracker.fail_file(task.tracker_key)
         return UploadResult(
             confirmed_records=[task.record for task in local_failed]
