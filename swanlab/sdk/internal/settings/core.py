@@ -34,7 +34,7 @@ class CoreSettings(BaseModel):
     """
     Maximum saved size per file. Default 50 GiB.
     """
-    save_part: int = Field(default=32 * 1024 * 1024)
+    save_part: int = Field(default=32 * 1024 * 1024, gt=0)
     """
     Multipart upload part size in bytes. Default 32 MiB.
     """

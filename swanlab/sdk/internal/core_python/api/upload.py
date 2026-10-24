@@ -158,12 +158,13 @@ def upload_resource(
     buffers: List[Union[IO[bytes], str, Path]],
     content_types: Optional[List[str]] = None,
     tracker: Optional[UploadTracker] = None,
-):
+) -> Dict[int, BaseException]:
     """
     上传资源文件到对象存储，先向后端请求上传凭据，然后使用凭据上传文件到对象存储。
 
     :param content_types: 可选的逐文件 Content-Type 列表，不传时使用二进制默认值。
     :param tracker: 可选的进度追踪器，非 None 时汇报字节级进度。
+    :return: {索引: 异常} 字典，索引与 paths 对齐；全部成功时为空字典。
     """
     # retries 设置为 0 表示不重试，重试机制交给 transport 层的退避调度
     resp = client.post(
@@ -188,7 +189,7 @@ def upload_resource(
         else:
             _put_with_progress(session, url, buffer, file_key, size, tracker, content_type=content_type)
 
-    first_error: Optional[BaseException] = None
+    failures: Dict[int, BaseException] = {}
     with SafeThreadPoolExecutor(max_workers=10) as executor:
         futures = []
         for index, url in enumerate(urls):
@@ -198,16 +199,14 @@ def upload_resource(
             content_type = "application/octet-stream"
             if content_types is not None and index < len(content_types):
                 content_type = content_types[index]
-            futures.append((executor.submit(upload_one, url, buffer, file_key, size, content_type), file_key))
-        for future, file_key in futures:
+            futures.append((executor.submit(upload_one, url, buffer, file_key, size, content_type), index, file_key))
+        for future, index, file_key in futures:
             try:
                 future.result()
             except Exception as e:
                 _reset_tracked_file(tracker, file_key)
-                if first_error is None:
-                    first_error = e
-    if first_error is not None:
-        raise first_error
+                failures[index] = e
+    return failures
 
 
 def upload_saves(

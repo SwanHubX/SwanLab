@@ -10,8 +10,8 @@ from __future__ import annotations
 import json
 import math
 import threading
-from collections.abc import Callable, Sequence
-from typing import TYPE_CHECKING, Any, List, Literal, Optional, Union, cast
+from collections.abc import Callable, Iterable, Sequence
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Union, cast
 
 import requests
 import yaml
@@ -31,14 +31,16 @@ from swanlab.sdk.internal.core_python.api.upload import (
 from swanlab.sdk.internal.core_python.context import CoreContext
 from swanlab.sdk.internal.pkg import adapter, client, console
 from swanlab.sdk.typings.core_python.api.upload import (
+    UploadColumn,
     UploadLog,
     UploadLogBatch,
+    UploadMediaBatch,
     UploadScalar,
     UploadScalarBatch,
 )
 from swanlab.sdk.typings.core_python.transport import UploadFailure, UploadResult
 
-from .media import collect_media_payloads, put_media_resources
+from .media import MediaPayload, MediaRecordTask, collect_media_tasks, put_media_resources
 from .save import resolve_save_source, upload_save_files
 from .utils import encode_column, is_retryable_error, transport_failure
 
@@ -103,7 +105,9 @@ class HttpRecordSender:
             return UploadResult()
         handler = self._upload_handlers.get(record_type)
         if handler is None:
-            console.warning(f"No upload handler registered for record type {record_type!r}.")
+            console.warning(
+                f"No upload handler registered for record type {record_type!r}; skipping {len(records)} record(s)."
+            )
             return UploadResult(
                 confirmed_records=list(records),
                 failures=[self._blocked_failure(records, f"no upload handler for record type {record_type!r}")],
@@ -112,6 +116,8 @@ class HttpRecordSender:
             return handler(records)
         except requests.RequestException as e:
             retryable = is_retryable_error(e)
+            if not retryable:
+                console.warning(f"Failed to upload {record_type} records, skipping; error: {e}")
             return UploadResult(
                 confirmed_records=[] if retryable else list(records),
                 remaining_records=list(records) if retryable else [],
@@ -120,11 +126,19 @@ class HttpRecordSender:
 
     def upload_column(self, records: Sequence[Record], batch_size: int = 3000) -> UploadResult:
         """分批上传列定义。"""
+        # 先完成全部编码再发请求：编码失败必须发生在首个请求之前，避免重发已成功的批次
+        try:
+            encoded: List[UploadColumn] = [encode_column(record.column) for record in records]
+        except KeyError as e:
+            return UploadResult(
+                confirmed_records=list(records),
+                failures=[self._blocked_failure(records, f"failed to encode column: {e}")],
+            )
         confirmed: List[Record] = []
         failures: List[UploadFailure] = []
-        for start in range(0, len(records), batch_size):
+        for start in range(0, len(encoded), batch_size):
             batch = list(records[start : start + batch_size])
-            columns = [encode_column(record.column) for record in batch]
+            columns = encoded[start : start + batch_size]
             try:
                 upload_columns(self._username, self._project, columns={"series": columns})
             except requests.RequestException as e:
@@ -228,55 +242,106 @@ class HttpRecordSender:
         )
 
     def upload_media(self, records: Sequence[Record]) -> UploadResult:
-        """收集媒体载荷，上传至对象存储后提交媒体指标。"""
-        plan = collect_media_payloads(self._ctx, records)
-        blocked_records = [record for failure in plan.blocked_failures for record in failure.records]
-        if not plan.payloads:
+        """收集媒体上传任务，上传至对象存储后提交媒体指标。"""
+        tasks = collect_media_tasks(self._ctx, records)
+        payloads: List[MediaPayload] = []
+        blocked_records: List[Record] = []
+        blocked_failures: List[UploadFailure] = []
+        for task in tasks:
+            payloads.extend(task.payloads)
+            if task.failure is not None:
+                blocked_records.append(task.record)
+                blocked_failures.append(task.failure)
+
+        if not payloads:
             return UploadResult(
                 confirmed_records=list(records),
-                failures=plan.blocked_failures or [self._blocked_failure(records, "no media payload collected")],
+                failures=blocked_failures or [self._blocked_failure(records, "no media payload collected")],
             )
+        uploadable_records = [task.record for task in tasks if task.metric is not None]
         try:
-            put_media_resources(self._ensure_session(), self._experiment_id, plan.payloads, tracker=self._tracker)
+            put_failures = put_media_resources(
+                self._ensure_session(), self._experiment_id, payloads, tracker=self._tracker
+            )
         except requests.RequestException as e:
-            # 对象存储 PUT 失败：网络/5xx 保留重试（重试会重新取预签名 URL）
+            # 取预签名 URL 失败属于整批失败：网络/5xx 保留重试，确定性错误整批终结
             retryable = is_retryable_error(e)
-            if not retryable and self._tracker is not None:
-                for payload in plan.payloads:
-                    self._tracker.fail_file(payload.tracker_key)
+            if not retryable:
+                self._fail_task_files(tasks)
             return UploadResult(
-                confirmed_records=blocked_records + ([] if retryable else plan.metric_records),
-                remaining_records=plan.metric_records if retryable else [],
-                failures=plan.blocked_failures + [transport_failure(plan.metric_records, e)],
+                confirmed_records=blocked_records + ([] if retryable else uploadable_records),
+                remaining_records=uploadable_records if retryable else [],
+                failures=blocked_failures + [transport_failure(uploadable_records, e)],
             )
         except OSError as e:
-            if self._tracker is not None:
-                for payload in plan.payloads:
-                    self._tracker.fail_file(payload.tracker_key)
+            self._fail_task_files(tasks)
             return UploadResult(
                 confirmed_records=list(records),
-                failures=plan.blocked_failures
-                + [self._blocked_failure(plan.metric_records, f"{type(e).__name__}: {e}")],
+                failures=blocked_failures
+                + [self._blocked_failure([task.record for task in tasks], f"{type(e).__name__}: {e}")],
             )
-        try:
-            upload_media(self._project_id, self._experiment_id, metrics=plan.metrics)
-        except requests.RequestException as e:
-            retryable = is_retryable_error(e)
-            if not retryable and self._tracker is not None:
-                for payload in plan.payloads:
-                    self._tracker.fail_file(payload.tracker_key)
-            return UploadResult(
-                confirmed_records=blocked_records + ([] if retryable else plan.metric_records),
-                remaining_records=plan.metric_records if retryable else [],
-                failures=plan.blocked_failures + [transport_failure(plan.metric_records, e)],
-            )
-        if self._tracker is not None:
-            for payload in plan.payloads:
+
+        # 对象存储 PUT 错误逐文件存在：按任务聚合，结果不随文件顺序变化
+        errors_by_task: Dict[int, List[BaseException]] = {}
+        for payload_index, error in put_failures.items():
+            errors_by_task.setdefault(payloads[payload_index].task_index, []).append(error)
+
+        confirmed: List[Record] = list(blocked_records)
+        remaining: List[Record] = []
+        failures: List[UploadFailure] = list(blocked_failures)
+        ready: List[MediaRecordTask] = []
+        for task in tasks:
+            if task.metric is None:
+                continue
+            errors = errors_by_task.get(task.index)
+            if errors is None:
+                ready.append(task)
+                continue
+            for error in errors:
+                failures.append(transport_failure([task.record], error))
+            if any(not isinstance(error, requests.RequestException) for error in errors):
+                # 本地文件不可读：重试不会恢复，终结该记录
+                confirmed.append(task.record)
+                self._fail_task_files([task])
+            else:
+                # 对象存储问题：保留记录重试，下一轮重新取预签名 URL
+                remaining.append(task.record)
+
+        if ready:
+            ready_records = [task.record for task in ready]
+            # ready 中的任务一定有 metric
+            metrics = cast(UploadMediaBatch, [task.metric for task in ready])
+            try:
+                upload_media(self._project_id, self._experiment_id, metrics=metrics)
+            except requests.RequestException as e:
+                retryable = is_retryable_error(e)
+                failures.append(transport_failure(ready_records, e))
+                if retryable:
+                    remaining.extend(ready_records)
+                else:
+                    confirmed.extend(ready_records)
+                    self._fail_task_files(ready)
+            else:
+                self._finish_task_files(ready)
+                confirmed.extend(ready_records)
+
+        return UploadResult(confirmed_records=confirmed, remaining_records=remaining, failures=failures)
+
+    def _fail_task_files(self, tasks: Iterable[MediaRecordTask]) -> None:
+        """关闭已终结媒体任务的文件进度行。"""
+        if self._tracker is None:
+            return
+        for task in tasks:
+            for payload in task.payloads:
+                self._tracker.fail_file(payload.tracker_key)
+
+    def _finish_task_files(self, tasks: Iterable[MediaRecordTask]) -> None:
+        """标记已成功上传媒体任务的文件进度行。"""
+        if self._tracker is None:
+            return
+        for task in tasks:
+            for payload in task.payloads:
                 self._tracker.finish_file(payload.tracker_key)
-        return UploadResult(
-            confirmed_records=plan.metric_records + blocked_records,
-            failures=plan.blocked_failures,
-        )
 
     def upload_save(self, records: Sequence[Record]) -> UploadResult:
         """分发内部保存文件与用户保存文件（CUSTOM）上传。"""
@@ -292,7 +357,7 @@ class HttpRecordSender:
             save = record.save
             if save.type == SaveType.SAVE_TYPE_CUSTOM:
                 if save.HasField("payload"):
-                    console.warning(f"CUSTOM save must not carry payload: {save.name or save.source_path}")
+                    console.warning(f"CUSTOM save must not carry payload, skipping: {save.name or save.source_path}")
                     failures.append(self._blocked_failure([record], "CUSTOM save must not carry payload"))
                     confirmed.append(record)
                     continue
@@ -359,12 +424,12 @@ class HttpRecordSender:
             return None
         source = resolve_save_source(self._ctx, save)
         if source is None:
-            console.warning(f"Save file not found: {save.source_path}")
+            console.warning(f"Save file not found, skipping: {save.source_path}")
             return None
         try:
             return source.read_bytes()
         except OSError as e:
-            console.warning(f"Failed to read save file, file kept at {source}: {e}")
+            console.warning(f"Failed to read save file, skipping; file kept at {source}: {e}")
             return None
 
     def decode_internal_save(self, save_type: SaveType, data: bytes) -> Optional[Any]:
@@ -380,9 +445,9 @@ class HttpRecordSender:
                 content = yaml.safe_load(data.decode("utf-8"))
                 return content if isinstance(content, dict) else None
         except (UnicodeDecodeError, json.JSONDecodeError, yaml.YAMLError) as e:
-            console.warning(f"Failed to parse internal save payload: type={save_type}, error={e}")
+            console.warning(f"Failed to parse internal save payload, skipping: type={save_type}, error={e}")
             return None
-        console.warning(f"Unknown internal save type {save_type}")
+        console.warning(f"Unknown internal save type {save_type}, skipping")
         return None
 
 

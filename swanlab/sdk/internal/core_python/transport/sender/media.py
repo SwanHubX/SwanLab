@@ -10,7 +10,7 @@ from __future__ import annotations
 import io
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
-from typing import IO, TYPE_CHECKING, Optional, Sequence, Union
+from typing import IO, TYPE_CHECKING, Dict, Optional, Sequence, Union
 
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.core_python.api.upload import upload_resource
@@ -19,7 +19,7 @@ from swanlab.sdk.internal.core_python.pkg.mime import guess_type
 from swanlab.sdk.internal.core_python.utils import get_buffer_size
 from swanlab.sdk.internal.pkg import adapter, console
 from swanlab.sdk.internal.pkg.client.session import SessionWithRetry
-from swanlab.sdk.typings.core_python.api.upload import UploadMedia, UploadMediaBatch
+from swanlab.sdk.typings.core_python.api.upload import UploadMedia
 from swanlab.sdk.typings.core_python.transport import UploadFailure
 
 from .utils import track_file
@@ -38,36 +38,43 @@ class MediaPayload:
     size: int
     buffer: Union[IO[bytes], str, Path]
     content_type: str
+    # 归属上传任务的下标，对应 MediaRecordTask.index
+    task_index: int
 
 
 @dataclass
-class MediaUploadPlan:
-    """媒体上传收集结果：对象存储载荷、媒体指标与失败记录。"""
+class MediaRecordTask:
+    """一条 media record 的上传任务：媒体指标与逐文件载荷。"""
 
+    # 扁平载荷列表中的归属下标，对应 MediaPayload.task_index
+    index: int
+    record: Record
     payloads: list[MediaPayload] = field(default_factory=list)
-    metrics: UploadMediaBatch = field(default_factory=list)
-    metric_records: list[Record] = field(default_factory=list)
-    blocked_failures: list[UploadFailure] = field(default_factory=list)
+    # 无可传文件时为 None，此时 failure 记录终结原因
+    metric: Optional[UploadMedia] = None
+    # 与 metric 互斥：已终结的任务携带失败诊断
+    failure: Optional[UploadFailure] = None
 
 
-def collect_media_payloads(ctx: CoreContext, records: Sequence[Record]) -> MediaUploadPlan:
-    """从 media Record 收集对象存储载荷与媒体指标。"""
-    plan = MediaUploadPlan()
+def collect_media_tasks(ctx: CoreContext, records: Sequence[Record]) -> list[MediaRecordTask]:
+    """把 media Record 拆成逐记录的上传任务：指标、载荷与终结原因。"""
+    tasks: list[MediaRecordTask] = []
     for record in records:
+        task = MediaRecordTask(index=len(tasks), record=record)
+        tasks.append(task)
         if not record.HasField("media"):
-            plan.blocked_failures.append(UploadFailure(message="media record without media payload", records=[record]))
+            task.failure = UploadFailure(message="media record without media payload", records=[record])
             continue
         media_record = record.media
         if not media_record.HasField("timestamp"):
-            plan.blocked_failures.append(UploadFailure(message="media record without timestamp", records=[record]))
+            task.failure = UploadFailure(message="media record without timestamp", records=[record])
             continue
-        create_time = media_record.timestamp.ToJsonString()
-        metric_chunk: UploadMedia = {
+        metric: UploadMedia = {
             "key": media_record.key,
             "index": media_record.step,
             "data": [],
             "more": [],
-            "create_time": create_time,
+            "create_time": media_record.timestamp.ToJsonString(),
         }
         record_paths: list[str] = []
         reasons: list[str] = []
@@ -80,19 +87,19 @@ def collect_media_payloads(ctx: CoreContext, records: Sequence[Record]) -> Media
                 payload = media.payload
                 size = len(payload)
                 mime_type = guess_type(media.filename)
-                plan.payloads.append(
-                    MediaPayload(
-                        remote_path=remote_path,
-                        tracker_key=f"{remote_path}:{size}",
-                        display_path=remote_path,
-                        size=size,
-                        buffer=io.BytesIO(payload),
-                        content_type=mime_type,
-                    )
+                item_payload = MediaPayload(
+                    remote_path=remote_path,
+                    tracker_key=f"{remote_path}:{size}",
+                    display_path=remote_path,
+                    size=size,
+                    buffer=io.BytesIO(payload),
+                    content_type=mime_type,
+                    task_index=task.index,
                 )
+                task.payloads.append(item_payload)
                 record_paths.append(remote_path)
                 if media.caption:
-                    metric_chunk["more"].append({"caption": media.caption})
+                    metric["more"].append({"caption": media.caption})
                 continue
 
             if ctx.config.skip_store:
@@ -110,28 +117,27 @@ def collect_media_payloads(ctx: CoreContext, records: Sequence[Record]) -> Media
             except OSError as e:
                 reasons.append(f"media file unreadable: {local_path}: {e}")
                 continue
-            plan.payloads.append(
-                MediaPayload(
-                    remote_path=remote_path,
-                    tracker_key=f"{remote_path}:{size}",
-                    display_path=local_path.as_posix(),
-                    size=size,
-                    buffer=local_path,
-                    content_type=mime_type,
-                )
+            item_payload = MediaPayload(
+                remote_path=remote_path,
+                tracker_key=f"{remote_path}:{size}",
+                display_path=local_path.as_posix(),
+                size=size,
+                buffer=local_path,
+                content_type=mime_type,
+                task_index=task.index,
             )
+            task.payloads.append(item_payload)
             record_paths.append(remote_path)
             if media.caption:
-                metric_chunk["more"].append({"caption": media.caption})
+                metric["more"].append({"caption": media.caption})
 
         if record_paths:
-            metric_chunk["data"] = record_paths
-            plan.metrics.append(metric_chunk)
-            plan.metric_records.append(record)
+            metric["data"] = record_paths
+            task.metric = metric
         else:
             reason = reasons[0] if reasons else "media record without files"
-            plan.blocked_failures.append(UploadFailure(message=reason, records=[record]))
-    return plan
+            task.failure = UploadFailure(message=reason, records=[record])
+    return tasks
 
 
 def put_media_resources(
@@ -140,13 +146,13 @@ def put_media_resources(
     payloads: Sequence[MediaPayload],
     *,
     tracker: Optional[UploadTracker] = None,
-) -> None:
-    """批量上传媒体文件至对象存储，并注册字节进度显示行。"""
+) -> Dict[int, BaseException]:
+    """批量上传媒体文件至对象存储，并注册字节进度显示行。返回 {索引: 异常} 字典。"""
     if not payloads:
-        return
+        return {}
     for payload in payloads:
         track_file(tracker, payload.tracker_key, payload.display_path, payload.size)
-    upload_resource(
+    return upload_resource(
         session,
         experiment_id,
         paths=[payload.remote_path for payload in payloads],
@@ -158,7 +164,7 @@ def put_media_resources(
 
 __all__ = [
     "MediaPayload",
-    "MediaUploadPlan",
-    "collect_media_payloads",
+    "MediaRecordTask",
+    "collect_media_tasks",
     "put_media_resources",
 ]

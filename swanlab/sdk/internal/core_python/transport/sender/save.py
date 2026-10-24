@@ -92,6 +92,8 @@ def _prepare_failure(tasks: Sequence[_SaveFileTask], error: requests.RequestExce
 def _prepare_count_mismatch(tasks: Sequence[_SaveFileTask], *, kind: str, received: int) -> UploadResult:
     """prepare 返回数量不匹配是协议错误，终结整批记录而非重试。"""
     records = [task.record for task in tasks]
+    unit = "URLs" if kind == "save" else "entries"
+    console.warning(f"{kind.title()} prepare returned {received} {unit} for {len(records)} files, skipping")
     return UploadResult(
         confirmed_records=records,
         failures=[
@@ -126,7 +128,7 @@ def upload_save_files(
         save = record.save
         source_ref_path = resolve_save_source(ctx, save)
         if source_ref_path is None:
-            console.warning(f"Save file not found: {save.source_path}")
+            console.warning(f"Save file not found, skipping: {save.source_path}")
             failures.append(UploadFailure(message=f"save file not found: {save.source_path}", records=[record]))
             confirmed.append(record)
             continue
@@ -144,7 +146,7 @@ def upload_save_files(
             confirmed.append(record)
             continue
         if size > config.save_size:
-            console.warning(f"Save file exceeds size limit ({size} > {config.save_size}): {source_ref_path}")
+            console.warning(f"Save file exceeds size limit ({size} > {config.save_size}), skipping: {source_ref_path}")
             failures.append(UploadFailure(message=f"save file exceeds size limit: {source_ref_path}", records=[record]))
             confirmed.append(record)
             continue
@@ -265,14 +267,14 @@ def _upload_small_saves(
     put_failures = upload_saves(session, resources=resources, tracker=tracker)
 
     uploaded: List[_SaveFileTask] = []
-    skipped: List[_SaveFileTask] = []
+    storage_failed: List[_SaveFileTask] = []
+    local_failed: List[_SaveFileTask] = []
     failures: List[UploadFailure] = []
     for index, task in enumerate(tasks):
         error = put_failures.get(index)
         if error is None:
             uploaded.append(task)
             continue
-        console.warning(f"Save file upload failed, skipping: {task.entry['path']}")
         failures.append(
             transport_failure(
                 [task.record],
@@ -280,43 +282,46 @@ def _upload_small_saves(
                 message=f"save file upload failed: {task.entry['path']}",
             )
         )
-        skipped.append(task)
+        if isinstance(error, requests.RequestException):
+            # 对象存储问题：保留记录重试，下一轮重新 prepare 取新链接
+            storage_failed.append(task)
+        else:
+            # 本地读取失败：重试不会恢复，终结该文件
+            console.warning(f"Failed to upload save file, skipping: {task.entry['path']}: {error}")
+            local_failed.append(task)
 
-    # 统一通知后端：上传成功的标记 UPLOADED，失败的标记 FAILED 由后端清理对象存储
+    # 通知后端：上传成功的标记 UPLOADED，本地失败的标记 FAILED；待重试的文件保持 PENDING
     complete_items: List[CompleteSaveFile] = cast(
         List[CompleteSaveFile],
         [{"path": task.entry["path"], "state": "UPLOADED"} for task in uploaded]
-        + [{"path": task.entry["path"], "state": "FAILED"} for task in skipped],
+        + [{"path": task.entry["path"], "state": "FAILED"} for task in local_failed],
     )
     if complete_items:
         try:
             complete_save_files(ctx.experiment_id, files=complete_items)
         except requests.RequestException as e:
             retryable = is_retryable_error(e)
+            pending = uploaded + storage_failed
             if not retryable and tracker is not None:
-                for task in uploaded + skipped:
+                for task in pending:
                     tracker.fail_file(task.tracker_key)
             return UploadResult(
-                confirmed_records=[] if retryable else [task.record for task in uploaded + skipped],
-                remaining_records=[task.record for task in uploaded + skipped] if retryable else [],
-                failures=failures
-                + [
-                    transport_failure(
-                        [task.record for task in uploaded + skipped],
-                        e,
-                    )
-                ],
+                confirmed_records=[task.record for task in local_failed]
+                + ([] if retryable else [task.record for task in pending]),
+                remaining_records=[task.record for task in pending] if retryable else [],
+                failures=failures + [transport_failure([task.record for task in pending], e)],
             )
     for task in uploaded:
         if tracker is not None:
             tracker.finish_file(task.tracker_key)
-    for task in skipped:
+    for task in local_failed:
         if tracker is not None:
             tracker.fail_file(task.tracker_key)
     if uploaded:
         console.info(f"Synced {len(uploaded)} save file(s)")
     return UploadResult(
-        confirmed_records=[task.record for task in uploaded + skipped],
+        confirmed_records=[task.record for task in uploaded + local_failed],
+        remaining_records=[task.record for task in storage_failed],
         failures=failures,
     )
 
@@ -352,7 +357,8 @@ def _upload_large_saves(
         return _prepare_count_mismatch(tasks, kind="multipart", received=len(multipart_files))
 
     confirmed: List[Record] = []
-    skipped: List[_SaveFileTask] = []
+    local_failed: List[_SaveFileTask] = []
+    storage_failed: List[_SaveFileTask] = []
     failures: List[UploadFailure] = []
     ready: List[Tuple[_SaveFileTask, str, List[CompletedPart]]] = []
     for task, multipart_info in zip(tasks, multipart_files):
@@ -361,7 +367,6 @@ def _upload_large_saves(
         track_file(tracker, task.tracker_key, task.entry["source_path"], task.entry["size"])
         completed_parts, part_error = _upload_multipart_parts(session, task, parts, part_size, on_part_progress)
         if part_error is not None:
-            console.warning(f"Multipart upload failed, skipping: {task.entry['path']}")
             failures.append(
                 transport_failure(
                     [task.record],
@@ -369,27 +374,35 @@ def _upload_large_saves(
                     message=f"multipart upload failed: {task.entry['path']}",
                 )
             )
-            skipped.append(task)
+            if isinstance(part_error, requests.RequestException):
+                # 对象存储问题：保留记录重试，下一轮重新 prepare 取新 uploadId
+                storage_failed.append(task)
+            else:
+                # 本地读取失败：重试不会恢复，终结该文件
+                console.warning(f"Multipart upload failed for {task.entry['path']}, skipping: {part_error}")
+                local_failed.append(task)
             continue
         ready.append((task, upload_id, completed_parts))
 
-    # 向后端报告分片 PUT 失败的文件，触发后端清理对象存储
-    if skipped:
-        failed_items: List[CompleteSaveFile] = [{"path": task.entry["path"], "state": "FAILED"} for task in skipped]
+    # 向后端报告本地失败的文件，触发后端清理对象存储
+    if local_failed:
+        failed_items: List[CompleteSaveFile] = [
+            {"path": task.entry["path"], "state": "FAILED"} for task in local_failed
+        ]
         with safe.block(requests.RequestException, message=None):
-            # 报告失败不阻塞流程，后端依赖超时清理兜底
             complete_save_files(ctx.experiment_id, files=failed_items)
-        # 分片 PUT 已确定性失败，文件在此处即终结，与 complete-multipart 的结果无关
         if tracker is not None:
-            for task in skipped:
+            for task in local_failed:
                 tracker.fail_file(task.tracker_key)
 
     if not ready:
         return UploadResult(
-            confirmed_records=[task.record for task in skipped],
+            confirmed_records=[task.record for task in local_failed],
+            remaining_records=[task.record for task in storage_failed],
             failures=failures,
         )
 
+    ready_tasks = [task for task, _, _ in ready]
     try:
         complete_multipart_save(
             ctx.experiment_id,
@@ -400,14 +413,15 @@ def _upload_large_saves(
     except requests.RequestException as e:
         # complete-multipart 遇到网络或 5xx 时保留重试，确定性 4xx 终结。
         retryable = is_retryable_error(e)
+        pending = ready_tasks + storage_failed
         if not retryable and tracker is not None:
-            for task, _, _ in ready:
+            for task in ready_tasks:
                 tracker.fail_file(task.tracker_key)
         return UploadResult(
-            confirmed_records=[task.record for task in skipped]
-            + ([] if retryable else [task.record for task, _, _ in ready]),
-            remaining_records=[task.record for task, _, _ in ready] if retryable else [],
-            failures=failures + [transport_failure([task.record for task, _, _ in ready], e)],
+            confirmed_records=[task.record for task in local_failed]
+            + ([] if retryable else [task.record for task in pending]),
+            remaining_records=[task.record for task in pending] if retryable else [],
+            failures=failures + [transport_failure([task.record for task in pending], e)],
         )
     for task, _, _ in ready:
         if tracker is not None:
@@ -416,7 +430,8 @@ def _upload_large_saves(
     if confirmed:
         console.info(f"Synced {len(confirmed)} save file(s)")
     return UploadResult(
-        confirmed_records=confirmed + [task.record for task in skipped],
+        confirmed_records=confirmed + [task.record for task in local_failed],
+        remaining_records=[task.record for task in storage_failed],
         failures=failures,
     )
 

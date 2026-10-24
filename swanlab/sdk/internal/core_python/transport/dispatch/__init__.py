@@ -37,17 +37,23 @@ def generate_chunks(records: Sequence[Record], batch_size: int) -> Iterator[Tupl
         yield chunk, len(chunk)
 
 
-def group_records_by_type(records: Sequence[Record]) -> Dict[str, List[Record]]:
-    """按 record_type 对 Record 序列分组，保持插入顺序。"""
+def group_records_by_type(records: Sequence[Record]) -> Tuple[Dict[str, List[Record]], List[Record]]:
+    """按 record_type 对 Record 序列分组，保持插入顺序。
+
+    返回 (分组结果, 无法识别类型的记录)。后者已终止处理，由调用方计入 confirmed，
+    不影响同批其他记录的上传。
+    """
     records_by_type: Dict[str, List[Record]] = OrderedDict()
+    invalid_records: List[Record] = []
     for record in records:
         if not isinstance(record, Record):
             raise TypeError(f"Expected Record instance, got {type(record).__name__}")
         record_type = record.WhichOneof("record_type")
         if record_type is None:
-            raise ValueError("Failed to determine record type, maybe you are using an incompatible proto version?")
+            invalid_records.append(record)
+            continue
         records_by_type.setdefault(record_type, []).append(record)
-    return records_by_type
+    return records_by_type, invalid_records
 
 
 class Dispatch:
@@ -65,13 +71,13 @@ class Dispatch:
 
     def __call__(self, records: List[Record]) -> UploadResult:
         """按 record_type 聚合并上传，返回汇总结果。"""
-        try:
-            records_by_type = group_records_by_type(records)
-        except (ValueError, TypeError) as e:
-            # 本地 record 格式异常丢弃，避免被 worker 重试
-            return self._settle(records, str(e))
-        confirmed: List[Record] = []
+        records_by_type, invalid_records = group_records_by_type(records)
+        confirmed: List[Record] = list(invalid_records)
         failures: List[UploadFailure] = []
+        if invalid_records:
+            # 无法识别类型的记录已终止处理：跳过上传但计入 confirmed
+            console.warning(f"Failed to determine record type, skipping {len(invalid_records)} record(s).")
+            self._advance_records(len(invalid_records))
         record_types = list(records_by_type.keys())
         for index, record_type in enumerate(record_types):
             result = self._upload_record_type(record_type, records_by_type[record_type])
@@ -108,6 +114,7 @@ class Dispatch:
                 return UploadResult(
                     confirmed_records=confirmed, remaining_records=list(records[offset:]), failures=failures
                 )
+            # uploaded_records 表示“已终止处理 Record 数”，confirmed 均计入
             self._advance_records(len(result.confirmed_records))
             confirmed.extend(result.confirmed_records)
             failures.extend(result.failures)
@@ -156,14 +163,6 @@ class Dispatch:
                 write_to_tty=False,
             )
         return result
-
-    def _settle(self, records: Sequence[Record], message: str) -> UploadResult:
-        """本地数据无法处理：终结整批记录并推进统计。"""
-        self._advance_records(len(records))
-        return UploadResult(
-            confirmed_records=list(records),
-            failures=[UploadFailure(message=message, records=list(records))],
-        )
 
     def _advance_records(self, count: int) -> None:
         """根据确认记录数更新 tracker 统计。"""

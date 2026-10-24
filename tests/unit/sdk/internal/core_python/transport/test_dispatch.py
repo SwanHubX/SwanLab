@@ -86,15 +86,18 @@ def test_dispatch_sender_unexpected_error_converted_to_failure(mock_ctx, make_sc
     assert failure.exception is error
 
 
-def test_dispatch_settled_group_failure_advances_tracker(mock_ctx):
-    """分组失败的记录已终结，uploaded_records 同步推进，finish 摘要不会停在 0/N。"""
+def test_dispatch_confirms_untypeable_records(mock_ctx):
+    """不可识别记录跳过上传，但已终止处理，计入 confirmed 与 uploaded_records。"""
     tracker = UploadTracker()
     dispatch = Dispatch(batch_size=mock_ctx.config.record_batch, tracker=tracker)
+    records = [Record(), Record()]
 
-    result = dispatch([Record(), Record()])
+    with patch("swanlab.sdk.internal.core_python.transport.dispatch.console"):
+        result = dispatch(records)
 
-    assert len(result.confirmed_records) == 2
+    assert result.confirmed_records == records
     assert result.remaining_records == []
+    assert result.failures == []
     assert tracker.snapshot().uploaded_records == 2
 
 
@@ -114,7 +117,31 @@ def test_dispatch_settles_non_retryable_sender_error(mock_ctx, make_scalar_recor
 
     assert result.confirmed_records == records
     assert result.remaining_records == []
+    # confirmed 表示“已终止处理”，确定性失败同样计入
     assert tracker.snapshot().uploaded_records == 2
+
+
+def test_dispatch_advances_uploaded_for_confirmed_records(mock_ctx, make_scalar_record):
+    """uploaded_records 统计已终止处理数，含终结失败的记录。"""
+    tracker = UploadTracker()
+    records = [make_scalar_record(step=i) for i in range(3)]
+    for index, record in enumerate(records):
+        record.num = 300 + index
+
+    def _upload(record_type, chunk):
+        return UploadResult(
+            confirmed_records=list(chunk),
+            failures=[UploadFailure(message="http 400", records=[chunk[0]])],
+        )
+
+    sender = MagicMock()
+    sender.upload.side_effect = _upload
+    dispatch = Dispatch(batch_size=mock_ctx.config.record_batch, sender=sender, tracker=tracker)
+
+    result = dispatch(records)
+
+    assert len(result.confirmed_records) == 3
+    assert tracker.snapshot().uploaded_records == 3
 
 
 def test_dispatch_settled_type_does_not_block_next_type(mock_ctx, make_scalar_record):
@@ -140,31 +167,41 @@ def test_dispatch_settled_type_does_not_block_next_type(mock_ctx, make_scalar_re
     assert result.remaining_records == []
 
 
-def test_dispatch_settles_untypeable_records(mock_ctx):
-    """缺失 record_type 的记录终结并返回失败。"""
-    dispatch = Dispatch(batch_size=mock_ctx.config.record_batch)
-    record = Record()
+@pytest.mark.parametrize("position", [0, 1, 2], ids=["head", "middle", "tail"])
+def test_dispatch_keeps_valid_records_when_untypeable(mock_ctx, make_scalar_record, position):
+    """一条不可识别 record 只跳过自身，有效记录继续上传。"""
+    valid = [make_scalar_record(step=1), make_scalar_record(step=2)]
+    valid[0].num, valid[1].num = 101, 102
+    batch: list[Record] = list(valid)
+    batch.insert(position, Record())
 
-    result = dispatch([record])
+    sender = MagicMock()
+    sender.upload.return_value = _ok(valid)
+    dispatch = Dispatch(batch_size=mock_ctx.config.record_batch, sender=sender)
 
-    assert result.confirmed_records == [record]
+    with patch("swanlab.sdk.internal.core_python.transport.dispatch.console"):
+        result = dispatch(batch)
+
+    assert sender.upload.call_count == 1
+    assert sender.upload.call_args.args[1] == valid
+    assert result.confirmed_records == [batch[position]] + valid
     assert result.remaining_records == []
-    assert len(result.failures) == 1
+    assert result.failures == []
 
 
-def test_dispatch_settles_group_type_error(mock_ctx, make_scalar_record):
-    """分组抛出 TypeError（非 Record）时不重试。"""
+def test_dispatch_propagates_type_error(mock_ctx, make_scalar_record):
+    """非 Record 属于调用方 bug，直接抛错，不做整批恢复。"""
     dispatch = Dispatch(batch_size=mock_ctx.config.record_batch)
     record = make_scalar_record(step=1)
 
-    with patch(
-        "swanlab.sdk.internal.core_python.transport.dispatch.group_records_by_type",
-        side_effect=TypeError("Expected Record instance"),
+    with (
+        patch(
+            "swanlab.sdk.internal.core_python.transport.dispatch.group_records_by_type",
+            side_effect=TypeError("Expected Record instance"),
+        ),
+        pytest.raises(TypeError, match="Expected Record instance"),
     ):
-        result = dispatch([record])
-
-    assert result.confirmed_records == [record]
-    assert result.remaining_records == []
+        dispatch([record])
 
 
 def test_dispatch_mixed_type_partial_failure_rollback(mock_ctx, make_scalar_record, make_config_record):

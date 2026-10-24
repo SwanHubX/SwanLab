@@ -73,8 +73,9 @@ def test_group_records_by_type_basic(make_scalar_record, make_config_record):
     config = make_config_record()
     metric_2 = make_scalar_record(step=2)
 
-    grouped = group_records_by_type([metric_1, config, metric_2])
+    grouped, invalid = group_records_by_type([metric_1, config, metric_2])
 
+    assert invalid == []
     assert set(grouped.keys()) == {"scalar", "save"}
     assert grouped["scalar"] == [metric_1, metric_2]
     assert grouped["save"] == [config]
@@ -85,13 +86,13 @@ def test_group_records_by_type_preserves_order(make_scalar_record, make_config_r
     config = make_config_record()
     metric = make_scalar_record(step=1)
 
-    grouped = group_records_by_type([config, metric])
+    grouped, _ = group_records_by_type([config, metric])
     assert list(grouped.keys()) == ["save", "scalar"]
 
 
 def test_group_records_by_type_empty():
     """空列表返回空字典。"""
-    assert group_records_by_type([]) == {}
+    assert group_records_by_type([]) == ({}, [])
 
 
 def test_group_records_by_type_rejects_non_record():
@@ -100,7 +101,10 @@ def test_group_records_by_type_rejects_non_record():
         group_records_by_type(["not_a_record"])  # type: ignore[list-item]
 
 
-def test_group_records_by_type_rejects_untypeable_record():
-    """未设置 record_type 的空 Record 抛出 ValueError。"""
-    with pytest.raises(ValueError, match="record type"):
-        group_records_by_type([Record()])
+def test_group_records_by_type_collects_untypeable_record():
+    """未设置 record_type 的空 Record 被单独返回，不影响有效分组。"""
+    empty = Record()
+    grouped, invalid = group_records_by_type([empty])
+
+    assert grouped == {}
+    assert invalid == [empty]
