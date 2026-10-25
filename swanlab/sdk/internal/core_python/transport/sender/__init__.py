@@ -300,7 +300,7 @@ class HttpRecordSender:
             for error in errors:
                 failures.append(transport_failure([task.record], error))
             if any(not isinstance(error, requests.RequestException) for error in errors):
-                # 本地文件不可读：重试不会恢复，终结该记录
+                # 本地文件不可读或未知异常：重试不会恢复，终结该记录
                 confirmed.append(task.record)
                 self._fail_task_files([task])
             else:

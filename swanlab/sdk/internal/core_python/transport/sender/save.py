@@ -343,7 +343,7 @@ def _upload_small_saves(
             # 对象存储问题：保留记录重试，下一轮重新 prepare 取新链接
             storage_failed.append(task)
         else:
-            # 本地读取失败：重试不会恢复，终结该文件
+            # 本地读取失败或未知异常：终结该文件
             console.warning(f"Failed to upload save file, skipping: {task.entry['path']}: {error}")
             local_failed.append(task)
 
@@ -457,7 +457,7 @@ def _upload_large_saves(
                 # 对象存储问题：保留记录重试，下一轮重新 prepare 取新 uploadId
                 storage_failed.append(task)
             else:
-                # 本地读取失败：重试不会恢复，终结该文件
+                # 本地读取失败或未知异常：终结该文件
                 console.warning(f"Multipart upload failed for {task.entry['path']}, skipping: {part_error}")
                 local_failed.append(task)
             continue

@@ -128,7 +128,14 @@ class Dispatch:
         return UploadResult(confirmed_records=confirmed, failures=failures)
 
     def _upload_chunk(self, record_type: str, chunk: Sequence[Record]) -> UploadResult:
-        """上传单个分片，未预期异常转为当前分片失败结果。"""
+        """上传单个分片，兜底 sender 未处理的未预期异常。
+
+        正常的业务/网络错误由 sender 转为 UploadResult，不会进入这里的 except。
+        兜底策略：
+        - 不可重试的 ApiError：确定性业务拒绝，终结当前分片；
+        - 非 ApiError 的 OSError：本地数据问题，重试不会恢复，终结；
+        - 其它未知异常：fail-open 保留重试，避免整片记录被误丢。
+        """
         if self._sender is None:
             raise RuntimeError("sender not set")
         if record_type == "log":
@@ -139,23 +146,33 @@ class Dispatch:
         try:
             result = self._sender.upload(record_type, chunk)
         except Exception as e:
+            # sender.upload 会捕获所有的 requests.RequestException，本本部分仅做兜底处理
+            # upload 的捕获行为在此处通过注释做隐式约定：如果没有捕获 RequestException ，本部分会直接丢掉这部分网络错误，重试行为实效
+            # 1. 后端明确拒绝（通常是 4xx）：终结当前分片，避免阻塞同批后续 record 的上传
             if isinstance(e, ApiError) and not e.retryable:
-                # 确定性失败：终结当前分片，避免阻塞同批后续 record 的上传
                 return UploadResult(
                     confirmed_records=list(chunk),
                     failures=[UploadFailure(message=str(e), records=list(chunk), exception=e)],
                 )
+            # 2. 根据异常类型决定终结还是重试
             local_failure = isinstance(e, OSError) and not isinstance(e, ApiError)
+            if local_failure:
+                # 2.1. 非 HTTP 的 OSError 视为本地数据问题：重试不会恢复，终结当前分片
+                # 注意：requests.RequestException 也继承 OSError；当前 sender.upload 已把它转为 UploadResult，因此这里只应收到非 HTTP 的本地 OSError。
+                confirmed_records = list(chunk)
+                remaining_records = []
+            else:
+                # 2.2. 其它未知异常：fail-open 保留重试，避免整片记录被误丢，代价是确定性的未知异常可能长时间重试。
+                confirmed_records = []
+                remaining_records = list(chunk)
+
+            failure = UploadFailure(
+                message=f"unexpected {type(e).__name__} while uploading {record_type!r} chunk",
+                records=list(chunk),
+                exception=e,
+            )
             return UploadResult(
-                confirmed_records=list(chunk) if local_failure else [],
-                remaining_records=[] if local_failure else list(chunk),
-                failures=[
-                    UploadFailure(
-                        message=f"unexpected {type(e).__name__} while uploading {record_type!r} chunk",
-                        records=list(chunk),
-                        exception=e,
-                    )
-                ],
+                confirmed_records=confirmed_records, remaining_records=remaining_records, failures=[failure]
             )
         if record_type == "log":
             console.debug(
