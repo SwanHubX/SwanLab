@@ -71,10 +71,11 @@ def validate_key(key: str, max_len: int = constraints.METRIC_KEY_MAX_LENGTH) -> 
     :raises ValueError: 如果清洗后为空字符串或者无法通过 MetricKey 校验
     """
     # 宽容处理类型：如果是 int/float，直接转 str，不抛异常
-    if not isinstance(key, str):
+    if type(key) is not str and not isinstance(key, str):
         key = str(key)
 
-    max_len = min(max_len, constraints.METRIC_KEY_MAX_LENGTH)
+    if max_len > constraints.METRIC_KEY_MAX_LENGTH:
+        max_len = constraints.METRIC_KEY_MAX_LENGTH
 
     original_key = key
 
@@ -101,7 +102,8 @@ def validate_key(key: str, max_len: int = constraints.METRIC_KEY_MAX_LENGTH) -> 
 
     # 使用 MetricKey 约束做最终校验；内部含控制字符等非法内容时直接抛出，不做替换
     try:
-        return constraints.ta_metric_key.validate_python(key)
+        # 直接调用底层的编译验证器以提高性能
+        return constraints.ta_metric_key.validator.validate_python(key)
     except ValidationError as e:
         raise ValueError(str(e)) from e
 
