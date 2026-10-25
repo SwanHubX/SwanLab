@@ -287,7 +287,9 @@ def test_upload_save_retries_when_object_storage_fails(tmp_path: Path, multipart
         ),
         patch(
             "swanlab.sdk.internal.core_python.transport.sender.save.prepare_multipart_save",
-            return_value={"files": [{"uploadId": "test-upload", "parts": []}]},
+            return_value={
+                "files": [{"uploadId": "test-upload", "parts": [{"partNumber": 1, "url": "https://s3.test/part-1"}]}]
+            },
         ),
         patch("swanlab.sdk.internal.core_python.transport.sender.save.complete_save_files") as mock_complete,
         patch(
@@ -486,8 +488,22 @@ def test_upload_save_large_file_retries_when_storage_fails(tmp_path: Path):
 
     multipart_response = {
         "files": [
-            {"uploadId": "upload-first", "parts": [{"partNumber": 1, "url": "https://s3.test/first-1"}]},
-            {"uploadId": "upload-second", "parts": [{"partNumber": 1, "url": "https://s3.test/second-1"}]},
+            {
+                "uploadId": "upload-first",
+                "parts": [
+                    {"partNumber": 1, "url": "https://s3.test/first-1"},
+                    {"partNumber": 2, "url": "https://s3.test/first-2"},
+                    {"partNumber": 3, "url": "https://s3.test/first-3"},
+                ],
+            },
+            {
+                "uploadId": "upload-second",
+                "parts": [
+                    {"partNumber": 1, "url": "https://s3.test/second-1"},
+                    {"partNumber": 2, "url": "https://s3.test/second-2"},
+                    {"partNumber": 3, "url": "https://s3.test/second-3"},
+                ],
+            },
         ]
     }
 
@@ -514,8 +530,8 @@ def test_upload_save_large_file_retries_when_storage_fails(tmp_path: Path):
     stats = tracker.snapshot()
     assert stats.total_number == 2
     assert stats.uploaded_number == 0
-    # 两个文件行都保留，等待重试
-    assert {file.path for file in stats.files} == {str(first), str(second)}
+    # 两个文件行都保留，等待重试（第二个文件字节已传完，可能不在可见列表中）
+    assert len(tracker._files) == 2
 
 
 def test_upload_media_passes_guessed_content_type(tmp_path: Path):
@@ -1292,6 +1308,95 @@ def test_upload_save_small_prepare_failure(tmp_path: Path, status, retryable):
 
     assert result.confirmed_records == ([] if retryable else [record])
     assert result.remaining_records == ([record] if retryable else [])
+
+
+@pytest.mark.parametrize(
+    "response",
+    [None, {}, {"urls": None}, {"urls": "not-a-list"}, {"urls": [None]}],
+    ids=["none", "empty", "none-value", "not-list", "invalid-url"],
+)
+def test_upload_save_small_prepare_protocol_error_settles(tmp_path: Path, response):
+    """prepare 响应字段缺失或结构错误时终结记录，不进入无界重试。"""
+    source = tmp_path / "a.txt"
+    source.write_text("weights", encoding="utf-8")
+    sender = _make_sender(tmp_path)
+    record = _make_save_record(source, name="a.txt")
+
+    with patch(
+        "swanlab.sdk.internal.core_python.transport.sender.save.prepare_save_files",
+        return_value=response,
+    ):
+        result = sender.upload_save([record])
+
+    assert result.confirmed_records == [record]
+    assert result.remaining_records == []
+    assert "prepare response invalid" in result.failures[0].message
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        {"files": "not-a-list"},
+        {"files": [{"parts": [{"partNumber": 1, "url": "u"}] * 3}]},
+        {"files": [{"uploadId": "upload-id"}]},
+        {"files": [{"uploadId": "upload-id", "parts": [{"partNumber": 1, "url": "u"}] * 2}]},
+        {
+            "files": [
+                {
+                    "uploadId": "upload-id",
+                    "parts": [
+                        {"partNumber": 1, "url": "u"},
+                        {"partNumber": 2, "url": "u"},
+                        {"partNumber": 2, "url": "u"},
+                    ],
+                }
+            ]
+        },
+        {
+            "files": [
+                {
+                    "uploadId": "upload-id",
+                    "parts": [
+                        {"partNumber": 1, "url": "u"},
+                        {"partNumber": 2, "url": "u"},
+                        {"partNumber": 3},
+                    ],
+                }
+            ]
+        },
+    ],
+    ids=[
+        "not-list",
+        "missing-upload-id",
+        "missing-parts",
+        "too-few-parts",
+        "duplicate-part-number",
+        "part-missing-url",
+    ],
+)
+def test_upload_save_large_prepare_protocol_error_settles(tmp_path: Path, response):
+    """prepare-multipart 响应字段或分片数量错误时终结记录，不发起任何 PUT。"""
+    source = tmp_path / "large.bin"
+    source.write_bytes(b"0123456789")
+    sender = _make_sender(tmp_path, save_split=5, save_part=4)
+    record = _make_save_record(source, name="large.bin")
+    fake_session = _FakeSession()
+
+    with (
+        patch(
+            "swanlab.sdk.internal.core_python.transport.sender.save.prepare_multipart_save",
+            return_value=response,
+        ),
+        patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=fake_session),
+        patch("swanlab.sdk.internal.core_python.transport.sender.save.complete_multipart_save") as mock_complete,
+    ):
+        result = sender.upload_save([record])
+
+    assert result.confirmed_records == [record]
+    assert result.remaining_records == []
+    assert "prepare response invalid" in result.failures[0].message
+    assert fake_session.puts == []
+    mock_complete.assert_not_called()
 
 
 @pytest.mark.parametrize("status, retryable", [(400, False), (503, True)], ids=["4xx", "5xx"])

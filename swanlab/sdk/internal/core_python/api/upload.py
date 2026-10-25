@@ -172,7 +172,15 @@ def upload_resource(
         {"experimentId": experiment_id, "paths": paths},
         retries=0,
     )
-    urls = resp.data["urls"]
+    data = resp.data
+    urls = data.get("urls") if isinstance(data, dict) else None
+    if not isinstance(urls, list) or not all(isinstance(url, str) and url for url in urls):
+        # 字段缺失或类型错误属于协议错误，重试也不会恢复，交由 transport 终结记录
+        raise ApiError(
+            code="invalid_presigned_response",
+            message="presigned response missing a valid 'urls' list",
+            retryable=False,
+        )
     if len(urls) != len(paths):
         # 数量不匹配属于协议错误，重试也不会恢复，交由 transport 终结记录
         raise ApiError(

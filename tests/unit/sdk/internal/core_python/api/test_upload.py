@@ -216,6 +216,34 @@ def test_upload_resource_raises_non_retryable_on_url_count_mismatch():
     assert fake_session.puts == []
 
 
+@pytest.mark.parametrize(
+    "data",
+    [{}, {"urls": None}, {"urls": "not-a-list"}, {"urls": [""]}, {"urls": [1]}],
+    ids=["missing", "none", "not-list", "empty-url", "non-string-url"],
+)
+def test_upload_resource_raises_non_retryable_on_invalid_urls(data):
+    """预签名响应缺少合法 urls 列表属于协议错误：抛不可重试的 ApiError，且不发起 PUT。"""
+    fake_session = _FakeSession()
+
+    class _Response:
+        def __init__(self, payload):
+            self.data = payload
+
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(upload_api.client, "post", lambda *_args, **_kwargs: _Response(data))
+
+        with pytest.raises(ApiError) as exc_info:
+            upload_api.upload_resource(
+                cast(Session, fake_session),
+                "experiment-id",
+                paths=["media/image/a.png"],
+                buffers=[BytesIO(b"a")],
+            )
+
+    assert exc_info.value.retryable is False
+    assert fake_session.puts == []
+
+
 def test_upload_resource_handles_standard_file_objects(tmp_path: Path):
     temp_file = tmp_path / "media_file.bin"
     temp_file.write_bytes(b"some media data")

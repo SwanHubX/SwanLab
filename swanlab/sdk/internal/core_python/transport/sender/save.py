@@ -49,11 +49,14 @@ if TYPE_CHECKING:
 
 def resolve_save_source(ctx: CoreContext, save: SaveRecord) -> Optional[Path]:
     """解析 save 记录的本地文件路径，源路径不可读时回退至 run 目录下的 files 子目录。"""
+    # 1. 优先使用记录中的原始绝对路径
     primary = Path(save.source_path)
     if primary.is_file():
         return primary
+    # 2. skip_store 模式没有本 run 的 files 镜像，禁止回退到可能属于旧 run 的同名文件
     if ctx.config.skip_store:
         return None
+    # 3. 按 save 类型在 run 目录的 files 子目录中回退定位
     if save.type == SaveType.SAVE_TYPE_CUSTOM:
         fallback = ctx.files_dir / Path(*PureWindowsPath(save.name).parts)
     else:
@@ -105,6 +108,47 @@ def _prepare_count_mismatch(tasks: Sequence[_SaveFileTask], *, kind: str, receiv
     )
 
 
+def _prepare_protocol_failure(tasks: Sequence[_SaveFileTask], *, kind: str, message: str) -> UploadResult:
+    """prepare 响应字段缺失或结构错误时终结整批记录，避免进入无界重试。"""
+    records = [task.record for task in tasks]
+    console.warning(f"{kind.title()} prepare response invalid, skipping: {message}")
+    return UploadResult(
+        confirmed_records=records,
+        failures=[UploadFailure(message=f"{kind} prepare response invalid: {message}", records=records)],
+    )
+
+
+def _response_list(response: object, key: str) -> Optional[list]:
+    """读取响应中的列表字段，缺失或类型错误时返回 None。"""
+    if not isinstance(response, dict):
+        return None
+    value = response.get(key)
+    return value if isinstance(value, list) else None
+
+
+def _validated_parts(value: object, expected_count: int) -> Tuple[Optional[List[MultipartPart]], str]:
+    """校验分片列表的结构、数量与编号，返回 (分片列表, 错误描述)。"""
+    # 1. 校验列表类型与分片数量
+    if not isinstance(value, list):
+        return None, "missing parts list"
+    if len(value) != expected_count:
+        return None, f"returned {len(value)} parts for {expected_count} expected"
+    # 2. 逐项校验 partNumber/url 并重建类型安全的列表
+    parts: List[MultipartPart] = []
+    for entry in value:
+        if not isinstance(entry, dict):
+            return None, "part entry is not an object"
+        part_number = entry.get("partNumber")
+        url = entry.get("url")
+        if not isinstance(part_number, int) or not isinstance(url, str) or not url:
+            return None, "part entry missing partNumber or url"
+        parts.append({"partNumber": part_number, "url": url})
+    # 3. 校验编号连续为 1..N，避免缺片、重复或越界
+    if sorted(part["partNumber"] for part in parts) != list(range(1, expected_count + 1)):
+        return None, "part numbers are not consecutive from 1"
+    return parts, ""
+
+
 def upload_save_files(
     ctx: CoreContext,
     session: SessionWithRetry,
@@ -119,6 +163,7 @@ def upload_save_files(
     remaining: List[Record] = []
     failures: List[UploadFailure] = []
 
+    # 1. 逐条解析源文件：缺失、不可 stat、超限的记录直接终结，其余进入待上传列表
     pending: List[Tuple[str, int, str, Record]] = []  # (source_path, size, name, record)
     for record in records:
         if not record.HasField("save"):
@@ -151,6 +196,7 @@ def upload_save_files(
             confirmed.append(record)
             continue
         pending.append((str(source_ref_path), size, save.name, record))
+    # 2. 没有可上传文件，或 save_batch 配置非法时，直接汇总返回
     if not pending:
         return UploadResult(confirmed_records=confirmed, remaining_records=remaining, failures=failures)
     if config.save_batch <= 0:
@@ -159,6 +205,7 @@ def upload_save_files(
         failures.append(UploadFailure(message=f"invalid save batch size {config.save_batch}", records=batch_records))
         return UploadResult(confirmed_records=confirmed + batch_records, remaining_records=remaining, failures=failures)
 
+    # 3. 按 save_batch 分批上传，逐批合并 confirmed/remaining/failures
     for index in range(0, len(pending), config.save_batch):
         result = _upload_save_batch(
             ctx,
@@ -187,6 +234,7 @@ def _upload_save_batch(
     remaining: List[Record] = []
     failures: List[UploadFailure] = []
     tasks: List[_SaveFileTask] = []
+    # 1. 并发计算 MD5，计算失败的记录直接终结
     with SafeThreadPoolExecutor(max_workers=4) as executor:
         md5_futures = {source_path: executor.submit(compute_md5, source_path) for source_path, _, _, _ in pending}
         for source_path, size, name, record in pending:
@@ -212,8 +260,10 @@ def _upload_save_batch(
             }
             tasks.append(_SaveFileTask(record=record, entry=entry, tracker_key=save_tracker_key(entry)))
 
+    # 2. 按 save_split 拆成“小文件”和“分片上传”两组
     small_tasks = [task for task in tasks if task.entry["size"] < config.save_split]
     large_tasks = [task for task in tasks if task.entry["size"] >= config.save_split]
+    # 3. 分别上传两组，并合并确认、待重试与失败结果
     if small_tasks:
         result = _upload_small_saves(ctx, session, small_tasks, tracker=tracker)
         confirmed.extend(result.confirmed_records)
@@ -235,6 +285,7 @@ def _upload_small_saves(
     tracker: Optional[UploadTracker] = None,
 ) -> UploadResult:
     """上传小文件：prepare → 并发 PUT → complete。"""
+    # 1. prepare 申请预签名 URL，并校验响应字段、数量与 URL 合法性
     prepare_items: List[PrepareSaveFile] = [
         {
             "path": task.entry["path"],
@@ -248,10 +299,16 @@ def _upload_small_saves(
         resp = prepare_save_files(ctx.experiment_id, files=prepare_items)
     except requests.RequestException as e:
         return _prepare_failure(tasks, e)
-    urls = resp["urls"]
+    urls = _response_list(resp, "urls")
+    if urls is None:
+        return _prepare_protocol_failure(tasks, kind="save", message="missing 'urls' list")
     if len(urls) != len(tasks):
         return _prepare_count_mismatch(tasks, kind="save", received=len(urls))
+    if not all(isinstance(url, str) and url for url in urls):
+        return _prepare_protocol_failure(tasks, kind="save", message="urls must be non-empty strings")
+    urls = cast(List[str], urls)
 
+    # 2. 并发 PUT 到对象存储，按错误类型分为成功、待重试与本地终结
     resources: List[UploadResource] = []
     for task, url in zip(tasks, urls):
         track_file(tracker, task.tracker_key, task.entry["source_path"], task.entry["size"])
@@ -290,7 +347,7 @@ def _upload_small_saves(
             console.warning(f"Failed to upload save file, skipping: {task.entry['path']}: {error}")
             local_failed.append(task)
 
-    # 通知后端：上传成功的标记 UPLOADED，本地失败的标记 FAILED；待重试的文件保持 PENDING
+    # 3. 通知后端：上传成功的标记 UPLOADED，本地失败的标记 FAILED，待重试的文件保持 PENDING
     complete_items: List[CompleteSaveFile] = cast(
         List[CompleteSaveFile],
         [{"path": task.entry["path"], "state": "UPLOADED"} for task in uploaded]
@@ -339,10 +396,11 @@ def _upload_large_saves(
     on_part_progress: Optional[PartProgressReporter] = None,
 ) -> UploadResult:
     """上传大文件：prepare-multipart → 分片 PUT → complete-multipart。"""
+    # 1. prepare-multipart：计算分片数、申请 uploadId 与分片 URL，并校验响应结构与数量
     part_size = ctx.config.save_part
+    expected_part_counts = [math.ceil(task.entry["size"] / part_size) for task in tasks]
     prepare_items: List[PrepareMultipartSaveFile] = []
-    for task in tasks:
-        part_count = math.ceil(task.entry["size"] / part_size)
+    for task, part_count in zip(tasks, expected_part_counts):
         prepare_items.append(
             {
                 "path": task.entry["path"],
@@ -356,18 +414,35 @@ def _upload_large_saves(
         resp = prepare_multipart_save(ctx.experiment_id, files=prepare_items)
     except requests.RequestException as e:
         return _prepare_failure(tasks, e)
-    multipart_files = resp["files"]
+    multipart_files = _response_list(resp, "files")
+    if multipart_files is None:
+        return _prepare_protocol_failure(tasks, kind="multipart", message="missing 'files' list")
     if len(multipart_files) != len(tasks):
         return _prepare_count_mismatch(tasks, kind="multipart", received=len(multipart_files))
+
+    validated: List[Tuple[_SaveFileTask, str, List[MultipartPart]]] = []
+    for task, expected_count, multipart_info in zip(tasks, expected_part_counts, multipart_files):
+        if not isinstance(multipart_info, dict):
+            return _prepare_protocol_failure(tasks, kind="multipart", message="file entry is not an object")
+        upload_id = multipart_info.get("uploadId")
+        if not isinstance(upload_id, str) or not upload_id:
+            return _prepare_protocol_failure(
+                tasks, kind="multipart", message=f"invalid uploadId for {task.entry['path']!r}"
+            )
+        parts, error = _validated_parts(multipart_info.get("parts"), expected_count)
+        if parts is None:
+            return _prepare_protocol_failure(
+                tasks, kind="multipart", message=f"invalid parts for {task.entry['path']!r}: {error}"
+            )
+        validated.append((task, upload_id, parts))
 
     confirmed: List[Record] = []
     local_failed: List[_SaveFileTask] = []
     storage_failed: List[_SaveFileTask] = []
     failures: List[UploadFailure] = []
     ready: List[Tuple[_SaveFileTask, str, List[CompletedPart]]] = []
-    for task, multipart_info in zip(tasks, multipart_files):
-        upload_id = multipart_info["uploadId"]
-        parts = multipart_info["parts"]
+    # 2. 并发上传分片，按错误类型分为 ready、待重试与本地终结
+    for task, upload_id, parts in validated:
         track_file(tracker, task.tracker_key, task.entry["source_path"], task.entry["size"])
         completed_parts, part_error = _upload_multipart_parts(session, task, parts, part_size, on_part_progress)
         if part_error is not None:
@@ -388,7 +463,7 @@ def _upload_large_saves(
             continue
         ready.append((task, upload_id, completed_parts))
 
-    # 向后端报告本地失败的文件，触发后端清理对象存储
+    # 3. 上报本地失败文件、complete-multipart，并关闭对应的进度行
     if local_failed:
         failed_items: List[CompleteSaveFile] = [
             {"path": task.entry["path"], "state": "FAILED"} for task in local_failed
@@ -453,9 +528,11 @@ def _upload_multipart_parts(
     file_key = task.tracker_key
     first_error: Optional[BaseException] = None
 
+    # 1. 定义单个分片的上传任务：计算偏移、流式上传并返回 ETag
     def upload_part(part_info: MultipartPart) -> CompletedPart:
         part_number = part_info["partNumber"]
         url = part_info["url"]
+        # 根据 partNumber 计算分片在文件中的偏移与长度
         offset = (part_number - 1) * part_size
         part_key = f"{file_key}:part:{part_number}"
         part_length = min(part_size, max(task.entry["size"] - offset, 0))
@@ -465,6 +542,7 @@ def _upload_multipart_parts(
                 on_part_progress(file_key, part_key, current_bytes)
 
         try:
+            # 流式读取该区间并 PUT，同时上报字节进度
             with open(source_path, "rb") as f:
                 wrapped_data = ProgressFileWrapper(f, on_read, part_length, offset=offset, size=part_length)
                 resp = session.put(url, data=wrapped_data, headers={"Content-Type": "application/octet-stream"})
@@ -474,10 +552,12 @@ def _upload_multipart_parts(
             etag = resp.headers.get("ETag", "").strip('"')
             return {"partNumber": part_number, "etag": etag}
         except Exception:
+            # 失败时把当前分片进度归零，交给上层决定重试或终结
             if on_part_progress is not None:
                 on_part_progress(file_key, part_key, 0)
             raise
 
+    # 2. 并发提交所有分片，不因单个分片失败而提前中断其它分片
     with SafeThreadPoolExecutor(max_workers=3) as executor:
         futures = [executor.submit(upload_part, p) for p in parts]
         for future in futures:
@@ -486,6 +566,7 @@ def _upload_multipart_parts(
             except Exception as e:
                 if first_error is None:
                     first_error = e
+    # 3. 返回已完成分片与首个错误，调用方据此决定 complete 或重试
     return completed_parts, first_error
 
 
