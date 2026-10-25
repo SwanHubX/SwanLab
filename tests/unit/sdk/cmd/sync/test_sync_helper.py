@@ -16,8 +16,67 @@ from swanlab.proto.swanlab.grpc.core.v1.sync_pb2 import (
     DeliverSyncStartResponse,
 )
 from swanlab.proto.swanlab.operation.v1.operation_pb2 import CoreState, OperationStats
-from swanlab.sdk.cmd.sync import ensure_run_dir, sync
+from swanlab.sdk.cmd.sync import build_sync_range, ensure_run_dir, format_sync_range, sync
 from swanlab.sdk.internal.settings import Settings
+
+
+def test_build_sync_range_returns_none_without_bounds():
+    assert build_sync_range() is None
+
+
+def test_build_sync_range_keeps_open_bounds():
+    sync_range = build_sync_range(step_start=10, end_time="2026-10-20 12:00:00")
+
+    assert sync_range is not None
+    assert sync_range.HasField("start_step") is True
+    assert sync_range.HasField("end_step") is False
+    assert sync_range.HasField("start_time") is False
+    assert sync_range.HasField("end_time") is True
+
+
+def test_build_sync_range_formats_bounds():
+    sync_range = build_sync_range(step_start=10, start_time="2026-10-20 10:00:00")
+
+    assert sync_range is not None
+    assert format_sync_range(sync_range) == "step 10..*, time 2026-10-20 10:00:00..*"
+
+
+def test_build_sync_range_uses_given_timezone():
+    sync_range = build_sync_range(start_time="2024-08-01 00:00:00", timezone="+08:00")
+
+    assert sync_range is not None
+    assert sync_range.start_time.ToNanoseconds() == 1722441600 * 1_000_000_000
+
+
+def test_format_sync_range_displays_in_given_timezone():
+    sync_range = build_sync_range(start_time="2024-08-01 00:00:00", timezone="+08:00")
+
+    assert sync_range is not None
+    assert format_sync_range(sync_range, timezone="UTC") == "time 2024-07-31 16:00:00..*"
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"step_start": -1},
+        {"step_start": 10, "step_end": 5},
+        {"start_time": "2026-10-20 12:00:00", "end_time": "2026-10-20 10:00:00"},
+        {"start_time": "not-a-time"},
+    ],
+)
+def test_build_sync_range_rejects_invalid_bounds(kwargs):
+    with pytest.raises(ValueError):
+        build_sync_range(**kwargs)
+
+
+def test_sync_rejects_invalid_range_before_authentication(tmp_path):
+    with pytest.raises(ValueError, match="step_start"):
+        sync(tmp_path, settings=Settings(), step_start=10, step_end=5)
+
+
+def test_sync_rejects_invalid_timezone_before_authentication(tmp_path):
+    with pytest.raises(ValueError, match="timezone"):
+        sync(tmp_path, settings=Settings(), start_time="2024-08-01 00:00:00", timezone="bad/zone")
 
 
 def test_ensure_run_dir_ok(tmp_path):

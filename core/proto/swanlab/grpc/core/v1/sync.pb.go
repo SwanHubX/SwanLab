@@ -12,6 +12,7 @@ import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -31,6 +32,7 @@ type DeliverSyncStartRequest struct {
 	Workspace     string                 `protobuf:"bytes,2,opt,name=workspace,proto3" json:"workspace,omitempty"`                           // 用于标识同步到哪个工作空间上，如果不传递，默认使用start record中记录的工作空间
 	Project       string                 `protobuf:"bytes,3,opt,name=project,proto3" json:"project,omitempty"`                               // 用于标识同步到哪个项目上，如果不传递，默认使用start record中记录的项目
 	Id            string                 `protobuf:"bytes,4,opt,name=id,proto3" json:"id,omitempty"`                                         // 运行id，如果run id在对应实验上已经存在，则等同于resume模式
+	Range         *SyncRange             `protobuf:"bytes,5,opt,name=range,proto3" json:"range,omitempty"`                                   // 仅同步指定范围内的指标与终端日志，如果不传递则全量同步
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -93,6 +95,85 @@ func (x *DeliverSyncStartRequest) GetId() string {
 	return ""
 }
 
+func (x *DeliverSyncStartRequest) GetRange() *SyncRange {
+	if x != nil {
+		return x.Range
+	}
+	return nil
+}
+
+// SyncRange 指定同步范围，所有字段均可选，未设置（或时间戳为0）表示该维度不限制。
+//
+// step 范围对 scalar/media 记录生效，时间范围对 scalar/media/log 记录生效，
+// 两者同时设置时取交集。时间范围与 step 范围的上下界均为闭区间。
+type SyncRange struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	StartStep     *int64                 `protobuf:"varint,1,opt,name=start_step,json=startStep,proto3,oneof" json:"start_step,omitempty"` // 起始step（含），仅对 scalar/media 生效
+	EndStep       *int64                 `protobuf:"varint,2,opt,name=end_step,json=endStep,proto3,oneof" json:"end_step,omitempty"`       // 结束step（含），仅对 scalar/media 生效
+	StartTime     *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=start_time,json=startTime,proto3" json:"start_time,omitempty"`        // 起始时间（含），按记录的指标/日志时间过滤
+	EndTime       *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=end_time,json=endTime,proto3" json:"end_time,omitempty"`              // 结束时间（含），按记录的指标/日志时间过滤
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SyncRange) Reset() {
+	*x = SyncRange{}
+	mi := &file_swanlab_grpc_core_v1_sync_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SyncRange) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SyncRange) ProtoMessage() {}
+
+func (x *SyncRange) ProtoReflect() protoreflect.Message {
+	mi := &file_swanlab_grpc_core_v1_sync_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SyncRange.ProtoReflect.Descriptor instead.
+func (*SyncRange) Descriptor() ([]byte, []int) {
+	return file_swanlab_grpc_core_v1_sync_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *SyncRange) GetStartStep() int64 {
+	if x != nil && x.StartStep != nil {
+		return *x.StartStep
+	}
+	return 0
+}
+
+func (x *SyncRange) GetEndStep() int64 {
+	if x != nil && x.EndStep != nil {
+		return *x.EndStep
+	}
+	return 0
+}
+
+func (x *SyncRange) GetStartTime() *timestamppb.Timestamp {
+	if x != nil {
+		return x.StartTime
+	}
+	return nil
+}
+
+func (x *SyncRange) GetEndTime() *timestamppb.Timestamp {
+	if x != nil {
+		return x.EndTime
+	}
+	return nil
+}
+
 // DeliverSyncStartResponse 同步服务启动响应
 type DeliverSyncStartResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -104,7 +185,7 @@ type DeliverSyncStartResponse struct {
 
 func (x *DeliverSyncStartResponse) Reset() {
 	*x = DeliverSyncStartResponse{}
-	mi := &file_swanlab_grpc_core_v1_sync_proto_msgTypes[1]
+	mi := &file_swanlab_grpc_core_v1_sync_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -116,7 +197,7 @@ func (x *DeliverSyncStartResponse) String() string {
 func (*DeliverSyncStartResponse) ProtoMessage() {}
 
 func (x *DeliverSyncStartResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_swanlab_grpc_core_v1_sync_proto_msgTypes[1]
+	mi := &file_swanlab_grpc_core_v1_sync_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -129,7 +210,7 @@ func (x *DeliverSyncStartResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeliverSyncStartResponse.ProtoReflect.Descriptor instead.
 func (*DeliverSyncStartResponse) Descriptor() ([]byte, []int) {
-	return file_swanlab_grpc_core_v1_sync_proto_rawDescGZIP(), []int{1}
+	return file_swanlab_grpc_core_v1_sync_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *DeliverSyncStartResponse) GetSuccess() bool {
@@ -158,7 +239,7 @@ type DeliverSyncFlushResponse struct {
 
 func (x *DeliverSyncFlushResponse) Reset() {
 	*x = DeliverSyncFlushResponse{}
-	mi := &file_swanlab_grpc_core_v1_sync_proto_msgTypes[2]
+	mi := &file_swanlab_grpc_core_v1_sync_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -170,7 +251,7 @@ func (x *DeliverSyncFlushResponse) String() string {
 func (*DeliverSyncFlushResponse) ProtoMessage() {}
 
 func (x *DeliverSyncFlushResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_swanlab_grpc_core_v1_sync_proto_msgTypes[2]
+	mi := &file_swanlab_grpc_core_v1_sync_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -183,7 +264,7 @@ func (x *DeliverSyncFlushResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeliverSyncFlushResponse.ProtoReflect.Descriptor instead.
 func (*DeliverSyncFlushResponse) Descriptor() ([]byte, []int) {
-	return file_swanlab_grpc_core_v1_sync_proto_rawDescGZIP(), []int{2}
+	return file_swanlab_grpc_core_v1_sync_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *DeliverSyncFlushResponse) GetSuccess() bool {
@@ -218,7 +299,7 @@ type ConfirmSyncFinishResponse struct {
 
 func (x *ConfirmSyncFinishResponse) Reset() {
 	*x = ConfirmSyncFinishResponse{}
-	mi := &file_swanlab_grpc_core_v1_sync_proto_msgTypes[3]
+	mi := &file_swanlab_grpc_core_v1_sync_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -230,7 +311,7 @@ func (x *ConfirmSyncFinishResponse) String() string {
 func (*ConfirmSyncFinishResponse) ProtoMessage() {}
 
 func (x *ConfirmSyncFinishResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_swanlab_grpc_core_v1_sync_proto_msgTypes[3]
+	mi := &file_swanlab_grpc_core_v1_sync_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -243,7 +324,7 @@ func (x *ConfirmSyncFinishResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConfirmSyncFinishResponse.ProtoReflect.Descriptor instead.
 func (*ConfirmSyncFinishResponse) Descriptor() ([]byte, []int) {
-	return file_swanlab_grpc_core_v1_sync_proto_rawDescGZIP(), []int{3}
+	return file_swanlab_grpc_core_v1_sync_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *ConfirmSyncFinishResponse) GetSuccess() bool {
@@ -264,12 +345,22 @@ var File_swanlab_grpc_core_v1_sync_proto protoreflect.FileDescriptor
 
 const file_swanlab_grpc_core_v1_sync_proto_rawDesc = "" +
 	"\n" +
-	"\x1fswanlab/grpc/core/v1/sync.proto\x12\x14swanlab.grpc.core.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fswanlab/grpc/core/v1/core.proto\x1a\x18swanlab/run/v1/run.proto\x1a#swanlab/settings/core/v1/core.proto\"\xae\x01\n" +
+	"\x1fswanlab/grpc/core/v1/sync.proto\x12\x14swanlab.grpc.core.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1fswanlab/grpc/core/v1/core.proto\x1a\x18swanlab/run/v1/run.proto\x1a#swanlab/settings/core/v1/core.proto\"\xe5\x01\n" +
 	"\x17DeliverSyncStartRequest\x12K\n" +
 	"\rcore_settings\x18\x01 \x01(\v2&.swanlab.settings.core.v1.CoreSettingsR\fcoreSettings\x12\x1c\n" +
 	"\tworkspace\x18\x02 \x01(\tR\tworkspace\x12\x18\n" +
 	"\aproject\x18\x03 \x01(\tR\aproject\x12\x0e\n" +
-	"\x02id\x18\x04 \x01(\tR\x02id\"N\n" +
+	"\x02id\x18\x04 \x01(\tR\x02id\x125\n" +
+	"\x05range\x18\x05 \x01(\v2\x1f.swanlab.grpc.core.v1.SyncRangeR\x05range\"\xdd\x01\n" +
+	"\tSyncRange\x12\"\n" +
+	"\n" +
+	"start_step\x18\x01 \x01(\x03H\x00R\tstartStep\x88\x01\x01\x12\x1e\n" +
+	"\bend_step\x18\x02 \x01(\x03H\x01R\aendStep\x88\x01\x01\x129\n" +
+	"\n" +
+	"start_time\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\tstartTime\x125\n" +
+	"\bend_time\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\aendTimeB\r\n" +
+	"\v_start_stepB\v\n" +
+	"\t_end_step\"N\n" +
 	"\x18DeliverSyncStartResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\"b\n" +
@@ -298,31 +389,36 @@ func file_swanlab_grpc_core_v1_sync_proto_rawDescGZIP() []byte {
 	return file_swanlab_grpc_core_v1_sync_proto_rawDescData
 }
 
-var file_swanlab_grpc_core_v1_sync_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_swanlab_grpc_core_v1_sync_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_swanlab_grpc_core_v1_sync_proto_goTypes = []any{
 	(*DeliverSyncStartRequest)(nil),   // 0: swanlab.grpc.core.v1.DeliverSyncStartRequest
-	(*DeliverSyncStartResponse)(nil),  // 1: swanlab.grpc.core.v1.DeliverSyncStartResponse
-	(*DeliverSyncFlushResponse)(nil),  // 2: swanlab.grpc.core.v1.DeliverSyncFlushResponse
-	(*ConfirmSyncFinishResponse)(nil), // 3: swanlab.grpc.core.v1.ConfirmSyncFinishResponse
-	(*v1.CoreSettings)(nil),           // 4: swanlab.settings.core.v1.CoreSettings
-	(*emptypb.Empty)(nil),             // 5: google.protobuf.Empty
-	(*GetOperationStatsResponse)(nil), // 6: swanlab.grpc.core.v1.GetOperationStatsResponse
+	(*SyncRange)(nil),                 // 1: swanlab.grpc.core.v1.SyncRange
+	(*DeliverSyncStartResponse)(nil),  // 2: swanlab.grpc.core.v1.DeliverSyncStartResponse
+	(*DeliverSyncFlushResponse)(nil),  // 3: swanlab.grpc.core.v1.DeliverSyncFlushResponse
+	(*ConfirmSyncFinishResponse)(nil), // 4: swanlab.grpc.core.v1.ConfirmSyncFinishResponse
+	(*v1.CoreSettings)(nil),           // 5: swanlab.settings.core.v1.CoreSettings
+	(*timestamppb.Timestamp)(nil),     // 6: google.protobuf.Timestamp
+	(*emptypb.Empty)(nil),             // 7: google.protobuf.Empty
+	(*GetOperationStatsResponse)(nil), // 8: swanlab.grpc.core.v1.GetOperationStatsResponse
 }
 var file_swanlab_grpc_core_v1_sync_proto_depIdxs = []int32{
-	4, // 0: swanlab.grpc.core.v1.DeliverSyncStartRequest.core_settings:type_name -> swanlab.settings.core.v1.CoreSettings
-	0, // 1: swanlab.grpc.core.v1.CoreSyncService.DeliverSyncStart:input_type -> swanlab.grpc.core.v1.DeliverSyncStartRequest
-	5, // 2: swanlab.grpc.core.v1.CoreSyncService.DeliverSyncFlush:input_type -> google.protobuf.Empty
-	5, // 3: swanlab.grpc.core.v1.CoreSyncService.GetOperationStats:input_type -> google.protobuf.Empty
-	5, // 4: swanlab.grpc.core.v1.CoreSyncService.ConfirmSyncFinish:input_type -> google.protobuf.Empty
-	1, // 5: swanlab.grpc.core.v1.CoreSyncService.DeliverSyncStart:output_type -> swanlab.grpc.core.v1.DeliverSyncStartResponse
-	2, // 6: swanlab.grpc.core.v1.CoreSyncService.DeliverSyncFlush:output_type -> swanlab.grpc.core.v1.DeliverSyncFlushResponse
-	6, // 7: swanlab.grpc.core.v1.CoreSyncService.GetOperationStats:output_type -> swanlab.grpc.core.v1.GetOperationStatsResponse
-	3, // 8: swanlab.grpc.core.v1.CoreSyncService.ConfirmSyncFinish:output_type -> swanlab.grpc.core.v1.ConfirmSyncFinishResponse
-	5, // [5:9] is the sub-list for method output_type
-	1, // [1:5] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	5, // 0: swanlab.grpc.core.v1.DeliverSyncStartRequest.core_settings:type_name -> swanlab.settings.core.v1.CoreSettings
+	1, // 1: swanlab.grpc.core.v1.DeliverSyncStartRequest.range:type_name -> swanlab.grpc.core.v1.SyncRange
+	6, // 2: swanlab.grpc.core.v1.SyncRange.start_time:type_name -> google.protobuf.Timestamp
+	6, // 3: swanlab.grpc.core.v1.SyncRange.end_time:type_name -> google.protobuf.Timestamp
+	0, // 4: swanlab.grpc.core.v1.CoreSyncService.DeliverSyncStart:input_type -> swanlab.grpc.core.v1.DeliverSyncStartRequest
+	7, // 5: swanlab.grpc.core.v1.CoreSyncService.DeliverSyncFlush:input_type -> google.protobuf.Empty
+	7, // 6: swanlab.grpc.core.v1.CoreSyncService.GetOperationStats:input_type -> google.protobuf.Empty
+	7, // 7: swanlab.grpc.core.v1.CoreSyncService.ConfirmSyncFinish:input_type -> google.protobuf.Empty
+	2, // 8: swanlab.grpc.core.v1.CoreSyncService.DeliverSyncStart:output_type -> swanlab.grpc.core.v1.DeliverSyncStartResponse
+	3, // 9: swanlab.grpc.core.v1.CoreSyncService.DeliverSyncFlush:output_type -> swanlab.grpc.core.v1.DeliverSyncFlushResponse
+	8, // 10: swanlab.grpc.core.v1.CoreSyncService.GetOperationStats:output_type -> swanlab.grpc.core.v1.GetOperationStatsResponse
+	4, // 11: swanlab.grpc.core.v1.CoreSyncService.ConfirmSyncFinish:output_type -> swanlab.grpc.core.v1.ConfirmSyncFinishResponse
+	8, // [8:12] is the sub-list for method output_type
+	4, // [4:8] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_swanlab_grpc_core_v1_sync_proto_init() }
@@ -331,13 +427,14 @@ func file_swanlab_grpc_core_v1_sync_proto_init() {
 		return
 	}
 	file_swanlab_grpc_core_v1_core_proto_init()
+	file_swanlab_grpc_core_v1_sync_proto_msgTypes[1].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_swanlab_grpc_core_v1_sync_proto_rawDesc), len(file_swanlab_grpc_core_v1_sync_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   4,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
