@@ -84,6 +84,21 @@ def test_tracker_finish_file_removes_file_display_but_keeps_aggregate_progress()
     assert list(stats.files) == []
 
 
+def test_tracker_fail_file_removes_display_without_counting_success():
+    tracker = UploadTracker()
+
+    tracker.add_file("failed", "/tmp/failed.bin", 200)
+    tracker.update_file_progress("failed", "failed", 50)
+    tracker.fail_file("failed")
+
+    stats = tracker.snapshot()
+    assert stats.total_number == 1
+    assert stats.uploaded_number == 0
+    assert stats.total_size == 200
+    assert stats.uploaded_size == 50
+    assert list(stats.files) == []
+
+
 def test_tracker_repeated_file_key_is_not_registered_twice():
     tracker = UploadTracker()
 

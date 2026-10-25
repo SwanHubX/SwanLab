@@ -28,8 +28,6 @@ class RecordBuffer:
     def __bool__(self) -> bool:
         return bool(self._records)
 
-    # ── 写入 ──
-
     def extend(self, records: Iterable[Record]) -> int:
         """覆盖同编号记录，保留原位置。返回新增记录数。"""
         previous_size = len(self._records)
@@ -37,22 +35,12 @@ class RecordBuffer:
             self._records[record.num] = record
         return len(self._records) - previous_size
 
-    def prepend(self, records: List[Record]) -> int:
-        """回滚到头部，保留缓冲中的同编号记录。返回新增记录数。"""
-        accepted_records: dict[int, Record] = {}
-        for record in records:
-            if record.num not in self._records:
-                accepted_records[record.num] = record
-        accepted = len(accepted_records)
-        if accepted:
-            accepted_records.update(self._records)
-            self._records = accepted_records
-        return accepted
-
-    # ── 读取 ──
+    def snapshot(self) -> List[Record]:
+        """返回缓冲区记录快照。"""
+        return list(self._records.values())
 
     def drain(self) -> List[Record]:
-        """取出全部 records 并清空缓冲区（含索引）。"""
+        """取出记录并清空缓冲区。"""
         pending_records = list(self._records.values())
         self._records.clear()
         return pending_records
