@@ -72,6 +72,11 @@ def sync(
         start_time=start_time,
         end_time=end_time,
     )
+    # step 范围只约束指标，终端日志仅受时间范围约束
+    if sync_range is not None and not (sync_range.HasField("start_time") or sync_range.HasField("end_time")):
+        console.warning(
+            "Terminal logs are not replayed for a step-only range; pass start_time/end_time to include them."
+        )
     # 1. settings 合并，并做业务层额外参数限制
     sync_settings = create_settings()
     if settings is not None:

@@ -64,8 +64,10 @@ class CoreSyncPython(CoreSyncProtocol):
         self._counter = counter.Counter(builder.DEC_NUM)
         # 范围同步过滤器，默认关闭表示全量同步
         self._filter = SyncRangeFilter()
-        # 是否原地恢复到已存在的实验，原地恢复不改变实验生命周期
+        # 是否原地恢复到已存在的实验，原地恢复不重放 SaveRecord
         self._in_place = False
+        # 是否通过只读查询命中已有实验，命中时不接管实验生命周期
+        self._readonly_hit = False
 
     @property
     def _ctx(self) -> CoreContext:
@@ -132,19 +134,30 @@ class CoreSyncPython(CoreSyncProtocol):
         )
 
         result: Optional[PrepareExperimentStartResult] = None
-        with safe.block(message="Failed to prepare sync experiment"):
-            # 1. 通知后端，启动实验
-            start_record = StartRecord()
-            start_record.CopyFrom(self._start_record)
-            if self._start_request.project:
-                start_record.project = self._start_request.project
-            if self._start_request.workspace:
-                start_record.workspace = self._start_request.workspace
-            if self._start_request.id:
-                start_record.id = self._start_request.id
-            # 范围回填优先只读解析目标实验，避免 POST upsert 触发 resume 改写实验生命周期
-            if self._filter.enabled:
+        # 1. 通知后端，启动实验
+        start_record = StartRecord()
+        start_record.CopyFrom(self._start_record)
+        if self._start_request.project:
+            start_record.project = self._start_request.project
+        if self._start_request.workspace:
+            start_record.workspace = self._start_request.workspace
+        if self._start_request.id:
+            start_record.id = self._start_request.id
+        # 范围回填优先只读解析目标实验，避免 POST upsert 触发 resume 改写实验生命周期
+        if self._filter.enabled:
+            try:
                 result = resolve_existing_experiment(start_record)
+            except ValueError as e:
+                # 实验存在但无法继续时直接失败：此时回退 POST 会把实验改回 RUNNING
+                return DeliverSyncFlushResponse(success=False, message=str(e))
+            except Exception:
+                # 只读查询失败也不能回退 POST，否则同样会触发 resume
+                console.trace("Failed to resolve sync target experiment")
+                return DeliverSyncFlushResponse(success=False, message="Failed to resolve sync target experiment")
+            # 只读命中不拥有实验生命周期，结束时不再上报实验状态
+            self._readonly_hit = result is not None
+
+        with safe.block(message="Failed to prepare sync experiment"):
             if result is None:
                 # sync 实验统一开启宽松resume限制，resume设置为allow，后端自动创建新实验
                 start_record.resume = ResumeMode.RESUME_MODE_ALLOW
@@ -176,7 +189,7 @@ class CoreSyncPython(CoreSyncProtocol):
             if self._filter.enabled:
                 # 范围同步用于回放/恢复历史数据，必须允许写回已存在的 step
                 self._metrics.allow_replay()
-                # 命中已有实验即为原地恢复，结束时不再改写实验生命周期
+                # 命中已有实验时跳过 SaveRecord，避免覆盖已有实验的配置与元信息
                 self._in_place = not result.new_experiment
             metrics_ready = True
 
@@ -386,8 +399,8 @@ class CoreSyncPython(CoreSyncProtocol):
             # join 只保证线程退出，finish 才能确认缓冲区与未确认记录已排空
             if not self._transport.finish(timeout=None):
                 return ConfirmSyncFinishResponse(success=False, message=self._transport.finish_summary())
-            if self._in_place:
-                # 原地恢复只补写指定范围的数据，不改写已有实验的生命周期状态
+            if self._readonly_hit:
+                # 只读命中：实验从未被 sync 置为 RUNNING，保持原有生命周期状态
                 return ConfirmSyncFinishResponse(success=True, message="OK")
             with safe.block(message="Failed to report run finish"):
                 stop_experiment(

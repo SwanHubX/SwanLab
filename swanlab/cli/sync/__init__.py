@@ -12,6 +12,7 @@ import click
 
 from swanlab.sdk import Settings, pkg
 from swanlab.sdk import sync as sync_cmd
+from swanlab.sdk.cmd.sync import build_sync_range
 
 
 @click.command()
@@ -124,6 +125,15 @@ def sync(
         strip_empty_dict=True,
     )
     settings = Settings.model_validate(model)
+    try:
+        build_sync_range(
+            step_start=step_start,
+            step_end=step_end,
+            start_time=start_time,
+            end_time=end_time,
+        )
+    except ValueError as e:
+        raise click.BadParameter(str(e)) from e
     for p in path:
         sync_cmd(
             Path(p),

@@ -81,8 +81,9 @@ def resolve_existing_experiment(record: StartRecord) -> Optional[PrepareExperime
     POST upsert 命中已有实验时会触发 resume：把已结束实验改回 RUNNING、写入 resume 记录、
     清理结束时间缓存，范围回填不应改写实验生命周期，因此这里改用两次只读查询。
 
-    :return: 命中已有实验时返回结果；项目/实验不存在或后端数据不完整时返回 None，
-        由调用方回退到常规的创建流程
+    :return: 命中已有实验时返回结果；项目/实验不存在时返回 None，由调用方回退到常规的创建流程
+    :raises ValueError: 实验存在但缺少 createdAt 时抛出。该字段是摘要查询的下界，
+        回退到 POST 只会把实验改回 RUNNING 后依然无法继续，必须在创建流程之前失败
     """
     if not record.id:
         return None
@@ -91,9 +92,12 @@ def resolve_existing_experiment(record: StartRecord) -> Optional[PrepareExperime
         return None
     username, project = project_data["group"]["username"], project_data["name"]
     experiment = get_experiment(username, project, record.id)
-    if experiment is None or not experiment.get("createdAt"):
-        # 缺少 createdAt（resume 摘要需要它作为查询下界），此时退回常规流程
+    if experiment is None:
         return None
+    if not experiment.get("createdAt"):
+        raise ValueError(
+            f"Experiment {record.id} exists but server did not return createdAt."
+        )
     return PrepareExperimentStartResult(
         username=username,
         project=project,

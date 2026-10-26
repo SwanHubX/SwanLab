@@ -82,8 +82,11 @@ def parse_timestamp_ns(value: TimeLike) -> int:
     不带时区的字符串和 ``datetime`` 按**系统本地时区**解析，与用户在终端输入墙上时间的习惯一致；
     带时区的输入始终以输入自带的时区为准。
 
+    合法区间与 :func:`parse_timestamp_s` 一致（约 2001-09-09 ~ 2286-11-20），
+    用于拦截漏写分隔符的日期（如 ``20261020`` 会被当作秒解析成 1970 年）。
+
     :param value: 待解析的时间
-    :raises ValueError: 值为空、无法解析、非正数或非有限数字时抛出
+    :raises ValueError: 值为空、无法解析、非正数、非有限数字或越出合法区间时抛出
     """
     if isinstance(value, bool):
         raise TypeError("bool is not a valid timestamp")
@@ -120,7 +123,10 @@ def _datetime_timestamp_ns(value: datetime) -> int:
         # 无时区输入按系统本地时区解释，与终端输入习惯一致
         value = value.astimezone()
     delta = value - _EPOCH
-    return (delta.days * 86400 + delta.seconds) * NANOSECONDS_PER_SECOND + delta.microseconds * 1000
+    ns = (delta.days * 86400 + delta.seconds) * NANOSECONDS_PER_SECOND + delta.microseconds * 1000
+    if not TIMESTAMP_S_MIN * NANOSECONDS_PER_SECOND <= ns <= TIMESTAMP_S_MAX * NANOSECONDS_PER_SECOND:
+        raise ValueError(f"Timestamp {value!r} out of range [{TIMESTAMP_S_MIN}, {TIMESTAMP_S_MAX}] seconds")
+    return ns
 
 
 def _numeric_timestamp_ns(value: Union[int, float]) -> int:
@@ -139,8 +145,9 @@ def _numeric_timestamp_ns(value: Union[int, float]) -> int:
         raise ValueError(f"Invalid timestamp value: {value!r}") from exc
     while abs(number) > TIMESTAMP_S_MAX:
         number = number.scaleb(-3)
-    if number <= 0:
-        raise ValueError(f"Expected positive timestamp, got {value!r}")
+    # 下界校验拦截漏写分隔符的日期（如 20261020 会被当作秒），否则过滤条件等于失效
+    if not TIMESTAMP_S_MIN <= number <= TIMESTAMP_S_MAX:
+        raise ValueError(f"Timestamp {value!r} out of range [{TIMESTAMP_S_MIN}, {TIMESTAMP_S_MAX}] seconds")
     # 归一化后 number 已是秒，统一放大到纳秒；Decimal 运算不引入浮点误差
     return int(number.scaleb(9).to_integral_value(rounding=ROUND_HALF_EVEN))
 

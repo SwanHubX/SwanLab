@@ -67,6 +67,19 @@ class TestParseTimestampNs:
         with pytest.raises(ValueError):
             parse_timestamp_ns(value)
 
+    @pytest.mark.parametrize(
+        "value",
+        [20261020, "20261020", "1970-01-01T00:00:01Z", datetime(1960, 1, 1, tzinfo=timezone.utc)],
+    )
+    def test_rejects_out_of_range(self, value):
+        """漏写分隔符的日期（20261020）不能被当作秒静默放行，否则过滤条件等于失效。"""
+        with pytest.raises(ValueError, match="out of range"):
+            parse_timestamp_ns(value)
+
+    def test_accepts_lower_bound(self):
+        assert parse_timestamp_ns(TIMESTAMP_S_MIN) == TIMESTAMP_S_MIN * 1_000_000_000
+        assert parse_timestamp_ns(TIMESTAMP_S_MAX) == TIMESTAMP_S_MAX * 1_000_000_000
+
     def test_rejects_bool(self):
         with pytest.raises(TypeError):
             parse_timestamp_ns(True)

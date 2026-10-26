@@ -7,6 +7,7 @@
 
 import importlib
 
+import pytest
 from click.testing import CliRunner
 
 from swanlab.cli.sync import sync as sync_cli
@@ -75,3 +76,24 @@ def test_sync_cli_rejects_negative_step(tmp_path, monkeypatch):
 
     assert result.exit_code != 0
     assert calls == []
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        ["--start-time", "not-a-time"],
+        ["--start-time", "2026-10-20 12:00:00", "--end-time", "2026-10-20 10:00:00"],
+        ["--step-start", "10", "--step-end", "5"],
+    ],
+)
+def test_sync_cli_rejects_invalid_range_without_traceback(tmp_path, monkeypatch, args):
+    """非法范围参数应在 CLI 边界转成 click 错误，不打印 traceback。"""
+    calls = []
+    monkeypatch.setattr(sync_module, "sync_cmd", lambda *a, **k: calls.append(a))
+
+    result = CliRunner().invoke(sync_cli, [str(tmp_path), *args])
+
+    assert result.exit_code == 2
+    assert calls == []
+    assert "Traceback" not in result.output
+    assert "Invalid value" in result.output

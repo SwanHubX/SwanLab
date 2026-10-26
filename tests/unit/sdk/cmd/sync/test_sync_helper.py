@@ -60,6 +60,19 @@ def test_sync_rejects_invalid_range_before_authentication(tmp_path):
         sync(tmp_path, settings=Settings(), step_start=10, step_end=5)
 
 
+def test_sync_warns_when_only_step_range_is_given(tmp_path, monkeypatch):
+    """step 范围不覆盖终端日志，静默丢弃前应先提示用户。"""
+    warnings = []
+    monkeypatch.setattr("swanlab.sdk.cmd.sync.console.warning", lambda message, *a, **k: warnings.append(message))
+    monkeypatch.setattr("swanlab.sdk.cmd.sync.client.exists", lambda: False)
+
+    with pytest.raises(AuthenticationError):
+        sync(tmp_path, settings=Settings(), step_start=0)
+
+    assert len(warnings) == 1
+    assert "log" in warnings[0].lower()
+
+
 def test_ensure_run_dir_ok(tmp_path):
     assert ensure_run_dir(tmp_path) == tmp_path.resolve()
 

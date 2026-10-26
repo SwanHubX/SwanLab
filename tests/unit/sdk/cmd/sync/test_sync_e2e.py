@@ -391,10 +391,11 @@ def test_e2e_sync_fails_with_legacy_version_file(tmp_path: Path, monkeypatch):
 
 def test_e2e_sync_time_range_only_uploads_selected_records(tmp_path: Path, monkeypatch):
     """范围同步只上传时间窗口内的指标。"""
+    base = 1722470400
     first_ts = Timestamp()
-    first_ts.seconds = 100
+    first_ts.seconds = base
     second_ts = Timestamp()
-    second_ts.seconds = 200
+    second_ts.seconds = base + 100
     write_raw_run(
         tmp_path,
         [
@@ -445,8 +446,8 @@ def test_e2e_sync_time_range_only_uploads_selected_records(tmp_path: Path, monke
             project=Settings.Project(workspace="alice", name="demo"),
             run=Settings.Run(id="sync-e2e-run"),
         ),
-        start_time=100,
-        end_time=100,
+        start_time=base,
+        end_time=base,
     )
 
     assert scalar_signatures(transports[0].records) == {("loss", 1)}
