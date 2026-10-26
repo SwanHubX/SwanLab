@@ -358,7 +358,7 @@ class CoreSyncPython(CoreSyncProtocol):
         self._transport.request_finish()
         self._finish_requested = True
 
-    def _resolve_finish_state(self) -> Optional[Tuple[RunState, Timestamp]]:
+    def _resolve_finish_state(self) -> Optional[Tuple["RunState", Timestamp]]:
         """确定本次 sync 是否上报实验终态。
 
         - 有真实 FinishRecord：按记录中的状态收尾；
