@@ -480,8 +480,8 @@ def test_e2e_sync_step_range_only_uploads_selected_steps(monkeypatch):
             project=Settings.Project(workspace="alice", name="demo"),
             run=Settings.Run(id="sync-e2e-run"),
         ),
-        step_start=2,
-        step_end=2,
+        start_step=2,
+        end_step=2,
     )
 
     assert scalar_signatures(transports[0].records) == {("loss", 2), ("acc", 2)}
@@ -526,8 +526,8 @@ def test_e2e_sync_range_restores_steps_in_place(monkeypatch):
             project=Settings.Project(workspace="alice", name="demo"),
             run=Settings.Run(id="sync-e2e-run"),
         ),
-        step_start=1,
-        step_end=2,
+        start_step=1,
+        end_step=2,
     )
 
     assert scalar_signatures(transports[0].records) == {("loss", 1), ("loss", 2), ("acc", 1), ("acc", 2)}

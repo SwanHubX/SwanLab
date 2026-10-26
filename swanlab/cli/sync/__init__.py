@@ -67,13 +67,13 @@ from swanlab.sdk.cmd.sync import build_sync_range
     ),
 )
 @click.option(
-    "--step-start",
+    "--start-step",
     default=None,
     type=click.IntRange(min=0),
     help="Only sync scalar/media records whose step is greater than or equal to this value.",
 )
 @click.option(
-    "--step-end",
+    "--end-step",
     default=None,
     type=click.IntRange(min=0),
     help="Only sync scalar/media records whose step is less than or equal to this value.",
@@ -101,14 +101,14 @@ def sync(
     project: Optional[str],
     host: Optional[str],
     id: Optional[str],
-    step_start: Optional[int],
-    step_end: Optional[int],
+    start_step: Optional[int],
+    end_step: Optional[int],
     start_time: Optional[str],
     end_time: Optional[str],
 ):
     """Synchronize local logs to the cloud.
 
-    Passing any of --step-start/--step-end/--start-time/--end-time enables range
+    Passing any of --start-step/--start-time/--end-step/--end-time enables range
     sync, which only replays records inside the window. Sync always creates or
     resumes the target experiment; combine it with --id of an existing run to
     backfill that experiment. The local finish record decides the final state,
@@ -130,8 +130,8 @@ def sync(
     settings = Settings.model_validate(model)
     try:
         build_sync_range(
-            step_start=step_start,
-            step_end=step_end,
+            start_step=start_step,
+            end_step=end_step,
             start_time=start_time,
             end_time=end_time,
         )
@@ -141,8 +141,8 @@ def sync(
         sync_cmd(
             Path(p),
             settings=settings,
-            step_start=step_start,
-            step_end=step_end,
+            start_step=start_step,
+            end_step=end_step,
             start_time=start_time,
             end_time=end_time,
         )

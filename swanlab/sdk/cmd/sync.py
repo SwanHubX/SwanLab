@@ -37,8 +37,8 @@ def sync(
     run_dir: Union[Path, str],
     settings: Optional[Settings] = None,
     *,
-    step_start: Optional[int] = None,
-    step_end: Optional[int] = None,
+    start_step: Optional[int] = None,
+    end_step: Optional[int] = None,
     start_time: Optional[TimeLike] = None,
     end_time: Optional[TimeLike] = None,
 ):
@@ -48,7 +48,7 @@ def sync(
     to SwanLab Cloud. Authentication must be available before syncing, either
     from existing credentials or from the API key configured in `settings`.
 
-    Passing any of ``step_start``/``step_end``/``start_time``/``end_time`` enables
+    Passing any of ``start_step``/``end_step``/``start_time``/``end_time`` enables
     range sync: only scalar/media records inside the step and time window, plus
     terminal logs inside the time window, are replayed. Range sync bypasses the
     duplicate-step guard, so it can backfill history into an existing experiment
@@ -67,8 +67,8 @@ def sync(
 
     :param run_dir: Existing local SwanLab run directory to synchronize.
     :param settings: Optional sync configuration, including API key, host, workspace, project, and run options. Uses default Settings if not provided.
-    :param step_start: Only sync scalar/media records whose step is >= this value.
-    :param step_end: Only sync scalar/media records whose step is <= this value.
+    :param start_step: Only sync scalar/media records whose step is >= this value.
+    :param end_step: Only sync scalar/media records whose step is <= this value.
     :param start_time: Only sync records at or after this time. Times without an offset
         are interpreted in the system local timezone.
     :param end_time: Only sync records at or before this time. Same as ``start_time``.
@@ -77,8 +77,8 @@ def sync(
         run_dir = Path(run_dir)
     # 0. 构建范围过滤器，参数非法时直接失败，避免创建实验后才发现问题
     sync_range = build_sync_range(
-        step_start=step_start,
-        step_end=step_end,
+        start_step=start_step,
+        end_step=end_step,
         start_time=start_time,
         end_time=end_time,
     )
@@ -142,8 +142,8 @@ def ensure_run_dir(run_dir: DirectoryPath) -> DirectoryPath:
 
 def build_sync_range(
     *,
-    step_start: Optional[int] = None,
-    step_end: Optional[int] = None,
+    start_step: Optional[int] = None,
+    end_step: Optional[int] = None,
     start_time: Optional[TimeLike] = None,
     end_time: Optional[TimeLike] = None,
 ) -> Optional[SyncRange]:
@@ -151,20 +151,20 @@ def build_sync_range(
 
     不带时区的时间按系统本地时区解释。
     """
-    if step_start is None and step_end is None and start_time is None and end_time is None:
+    if start_step is None and end_step is None and start_time is None and end_time is None:
         return None
-    if step_start is not None and step_start < 0:
-        raise ValueError("step_start must be a non-negative integer")
-    if step_end is not None and step_end < 0:
-        raise ValueError("step_end must be a non-negative integer")
-    if step_start is not None and step_end is not None and step_start > step_end:
-        raise ValueError("step_start must be less than or equal to step_end")
+    if start_step is not None and start_step < 0:
+        raise ValueError("start_step must be a non-negative integer")
+    if end_step is not None and end_step < 0:
+        raise ValueError("end_step must be a non-negative integer")
+    if start_step is not None and end_step is not None and start_step > end_step:
+        raise ValueError("start_step must be less than or equal to end_step")
 
     sync_range = SyncRange()
-    if step_start is not None:
-        sync_range.start_step = step_start
-    if step_end is not None:
-        sync_range.end_step = step_end
+    if start_step is not None:
+        sync_range.start_step = start_step
+    if end_step is not None:
+        sync_range.end_step = end_step
     if start_time is not None:
         set_timestamp(sync_range.start_time, start_time)
     if end_time is not None:

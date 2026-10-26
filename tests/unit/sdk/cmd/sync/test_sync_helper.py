@@ -25,7 +25,7 @@ def test_build_sync_range_returns_none_without_bounds():
 
 
 def test_build_sync_range_keeps_open_bounds():
-    sync_range = build_sync_range(step_start=10, end_time="2026-10-20 12:00:00")
+    sync_range = build_sync_range(start_step=10, end_time="2026-10-20 12:00:00")
 
     assert sync_range is not None
     assert sync_range.HasField("start_step") is True
@@ -35,7 +35,7 @@ def test_build_sync_range_keeps_open_bounds():
 
 
 def test_build_sync_range_formats_bounds():
-    sync_range = build_sync_range(step_start=10, start_time="2026-10-20 10:00:00")
+    sync_range = build_sync_range(start_step=10, start_time="2026-10-20 10:00:00")
 
     assert sync_range is not None
     assert format_sync_range(sync_range) == "step 10..*, time 2026-10-20 10:00:00..*"
@@ -44,8 +44,8 @@ def test_build_sync_range_formats_bounds():
 @pytest.mark.parametrize(
     "kwargs",
     [
-        {"step_start": -1},
-        {"step_start": 10, "step_end": 5},
+        {"start_step": -1},
+        {"start_step": 10, "end_step": 5},
         {"start_time": "2026-10-20 12:00:00", "end_time": "2026-10-20 10:00:00"},
         {"start_time": "not-a-time"},
     ],
@@ -56,8 +56,8 @@ def test_build_sync_range_rejects_invalid_bounds(kwargs):
 
 
 def test_sync_rejects_invalid_range_before_authentication(tmp_path):
-    with pytest.raises(ValueError, match="step_start"):
-        sync(tmp_path, settings=Settings(), step_start=10, step_end=5)
+    with pytest.raises(ValueError, match="start_step"):
+        sync(tmp_path, settings=Settings(), start_step=10, end_step=5)
 
 
 def test_sync_warns_when_only_step_range_is_given(tmp_path, monkeypatch):
@@ -67,7 +67,7 @@ def test_sync_warns_when_only_step_range_is_given(tmp_path, monkeypatch):
     monkeypatch.setattr("swanlab.sdk.cmd.sync.client.exists", lambda: False)
 
     with pytest.raises(AuthenticationError):
-        sync(tmp_path, settings=Settings(), step_start=0)
+        sync(tmp_path, settings=Settings(), start_step=0)
 
     assert len(warnings) == 1
     assert "log" in warnings[0].lower()
