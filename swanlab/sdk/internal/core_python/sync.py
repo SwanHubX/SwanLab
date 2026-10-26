@@ -35,6 +35,7 @@ from swanlab.sdk.internal.core_python.utils import (
     PrepareExperimentStartResult,
     generate_run_online_path,
     prepare_experiment_start,
+    resolve_resumed_experiment,
 )
 from swanlab.sdk.internal.pkg import adapter, console, executor, safe
 from swanlab.sdk.protocol.core import CoreSyncProtocol
@@ -142,11 +143,15 @@ class CoreSyncPython(CoreSyncProtocol):
                 start_record.workspace = self._start_request.workspace
             if self._start_request.id:
                 start_record.id = self._start_request.id
-            # sync 实验统一开启宽松resume限制，resume设置为allow，后端自动创建新实验
-            start_record.resume = ResumeMode.RESUME_MODE_ALLOW
-            # sync的实验不同步实验颜色，否则会给用户一些奇怪的感觉：https://github.com/SwanHubX/SwanLab/issues/1434
-            start_record.color = ""
-            result = prepare_experiment_start(start_record)
+            # 范围回填优先只读解析目标实验，避免 POST upsert 触发 resume 改写实验生命周期
+            if self._filter.enabled:
+                result = resolve_resumed_experiment(start_record)
+            if result is None:
+                # sync 实验统一开启宽松resume限制，resume设置为allow，后端自动创建新实验
+                start_record.resume = ResumeMode.RESUME_MODE_ALLOW
+                # sync的实验不同步实验颜色，否则会给用户一些奇怪的感觉：https://github.com/SwanHubX/SwanLab/issues/1434
+                start_record.color = ""
+                result = prepare_experiment_start(start_record)
             self._ctx.set_online_params(
                 username=result.username,
                 project=result.project,
@@ -287,8 +292,9 @@ class CoreSyncPython(CoreSyncProtocol):
                             f"Metric '{media.key}' at step {media.step} was skipped syncing because it is duplicate or too old."
                         )
                 elif record.HasField("save"):
-                    if self._filter.enabled:
-                        # 范围同步只回放时间片内的数据，不重放实验级文件，避免覆盖已有实验的配置与元信息
+                    if self._filter.enabled and self._in_place:
+                        # 原地回填不重放实验级文件，避免覆盖已有实验的配置与元信息；
+                        # 新建实验仍需要这批记录，否则实验缺少 config/metadata 等元信息
                         continue
                     self._transport.put([record])
                 else:
@@ -378,7 +384,9 @@ class CoreSyncPython(CoreSyncProtocol):
         # 2. 触发结束日志入队，等待上传线程排空并上报实验状态
         try:
             self._request_transport_finish()
-            self._transport.join(timeout=None)
+            # join 只保证线程退出，finish 才能确认缓冲区与未确认记录已排空
+            if not self._transport.finish(timeout=None):
+                return ConfirmSyncFinishResponse(success=False, message=self._transport.finish_summary())
             if self._in_place:
                 # 原地恢复只补写指定范围的数据，不改写已有实验的生命周期状态
                 return ConfirmSyncFinishResponse(success=True, message="OK")

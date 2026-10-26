@@ -13,6 +13,23 @@ from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.typings.core_python.api.project import ProjectType
 
 
+def get_project(*, username: Optional[str], name: str) -> Optional[ProjectType]:
+    """
+    只读获取项目信息，不创建项目。
+
+    :param name: 项目名称
+    :param username: 项目所属的用户名
+    :return: 项目信息，项目不存在时返回 None
+    """
+    username = username or client.username()
+    try:
+        return client.get(f"/project/{username}/{name}", log_error=False).data
+    except ApiError as e:
+        if e.response.status_code == 404:
+            return None
+        raise e
+
+
 def get_or_create_project(*, username: Optional[str], name: str, public: bool) -> ProjectType:
     """
     创建、获取项目信息，本函数还有个目标是完成多视图更新前后的兼容，breaking change 主要是在创建项目的接口上

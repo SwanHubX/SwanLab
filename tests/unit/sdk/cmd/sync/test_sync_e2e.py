@@ -431,6 +431,7 @@ def test_e2e_sync_time_range_only_uploads_selected_records(tmp_path: Path, monke
 
     monkeypatch.setattr("swanlab.sdk.cmd.sync.client.exists", lambda: True)
     monkeypatch.setattr("swanlab.sdk.cmd.sync.impl.create_core_sync", lambda: core)
+    monkeypatch.setattr("swanlab.sdk.internal.core_python.sync.resolve_replay_experiment", lambda record: None)
     monkeypatch.setattr(
         "swanlab.sdk.internal.core_python.sync.prepare_experiment_start", lambda record: make_prepare_result()
     )
@@ -466,6 +467,7 @@ def test_e2e_sync_step_range_only_uploads_selected_steps(monkeypatch):
 
     monkeypatch.setattr("swanlab.sdk.cmd.sync.client.exists", lambda: True)
     monkeypatch.setattr("swanlab.sdk.cmd.sync.impl.create_core_sync", lambda: core)
+    monkeypatch.setattr("swanlab.sdk.internal.core_python.sync.resolve_replay_experiment", lambda record: None)
     monkeypatch.setattr(
         "swanlab.sdk.internal.core_python.sync.prepare_experiment_start", lambda record: make_prepare_result()
     )
@@ -503,9 +505,18 @@ def test_e2e_sync_range_restores_steps_in_place(monkeypatch):
     monkeypatch.setattr("swanlab.sdk.cmd.sync.client.exists", lambda: True)
     monkeypatch.setattr("swanlab.sdk.cmd.sync.impl.create_core_sync", lambda: core)
     monkeypatch.setattr(
-        "swanlab.sdk.internal.core_python.sync.prepare_experiment_start",
-        lambda record: make_prepare_result(new_experiment=False),
+        "swanlab.sdk.internal.core_python.utils.get_project",
+        lambda **kwargs: make_prepare_result().project_data,
     )
+    monkeypatch.setattr(
+        "swanlab.sdk.internal.core_python.utils.get_experiment",
+        lambda *args: make_prepare_result().experiment,
+    )
+
+    def fail_prepare(record):
+        raise AssertionError("range replay must not create or resume an experiment")
+
+    monkeypatch.setattr("swanlab.sdk.internal.core_python.sync.prepare_experiment_start", fail_prepare)
     monkeypatch.setattr(
         "swanlab.sdk.internal.core_python.sync.get_experiment_summary",
         lambda project_id, experiment_id, created_at=None: {

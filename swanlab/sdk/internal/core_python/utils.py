@@ -14,7 +14,8 @@ from swanlab.proto.swanlab.run.v1.run_pb2 import StartRecord
 from swanlab.sdk.internal.core_python.api.experiment import (
     create_or_resume_experiment as api_create_or_resume_experiment,
 )
-from swanlab.sdk.internal.core_python.api.project import get_or_create_project
+from swanlab.sdk.internal.core_python.api.experiment import get_experiment
+from swanlab.sdk.internal.core_python.api.project import get_or_create_project, get_project
 from swanlab.sdk.internal.pkg import adapter
 from swanlab.sdk.typings.core_python.api.experiment import InitExperimentType
 from swanlab.sdk.typings.core_python.api.project import ProjectType
@@ -70,6 +71,37 @@ def prepare_experiment_start(record: StartRecord) -> PrepareExperimentStartResul
         new_experiment=new_experiment,
         name=name,
         color=color,
+    )
+
+
+def resolve_resumed_experiment(record: StartRecord) -> Optional[PrepareExperimentStartResult]:
+    """
+    只读解析范围回填的目标实验，不产生任何服务端副作用。
+
+    POST upsert 命中已有实验时会触发 resume：把已结束实验改回 RUNNING、写入 resume 记录、
+    清理结束时间缓存，范围回填不应改写实验生命周期，因此这里改用两次只读查询。
+
+    :return: 命中已有实验时返回结果；项目/实验不存在或后端数据不完整时返回 None，
+        由调用方回退到常规的创建流程
+    """
+    if not record.id:
+        return None
+    project_data = get_project(username=record.workspace, name=record.project)
+    if project_data is None:
+        return None
+    username, project = project_data["group"]["username"], project_data["name"]
+    experiment = get_experiment(username, project, record.id)
+    if experiment is None or not experiment.get("createdAt"):
+        # 缺少 createdAt（resume 摘要需要它作为查询下界），此时退回常规流程
+        return None
+    return PrepareExperimentStartResult(
+        username=username,
+        project=project,
+        project_data=project_data,
+        experiment=experiment,
+        new_experiment=False,
+        name=experiment.get("name") or record.name,
+        color=record.color,
     )
 
 

@@ -20,7 +20,7 @@ from swanlab.sdk.internal.core_python.metrics import RunMetrics
 from swanlab.sdk.internal.core_python.store import DataStoreWriter
 from swanlab.sdk.internal.core_python.sync import CoreSyncPython
 from swanlab.sdk.internal.core_python.sync_range import SyncRangeFilter
-from swanlab.sdk.internal.core_python.utils import PrepareExperimentStartResult
+from swanlab.sdk.internal.core_python.utils import PrepareExperimentStartResult, resolve_resumed_experiment
 
 
 def make_timestamp() -> Timestamp:
@@ -133,6 +133,9 @@ class FakeTransport:
         self.started = False
         self.finished = False
         self.joined = False
+        # 模拟上传线程异常退出：join 成功但缓冲区未排空
+        self.drain_ok = True
+        self.finish_error = "Upload did not finish: 1 record(s) retained (worker crashed: RuntimeError)."
 
     def put(self, records: list[Record]) -> None:
         self.records.extend(records)
@@ -153,7 +156,10 @@ class FakeTransport:
 
     def finish(self, timeout=None) -> bool:
         self.request_finish()
-        return self.join(timeout=timeout)
+        return self.join(timeout=timeout) and self.drain_ok
+
+    def finish_summary(self) -> str:
+        return self.finish_error
 
 
 class FakeExecutor:
@@ -786,8 +792,9 @@ def test_read_keeps_old_log_epochs_in_range_mode(tmp_path: Path):
     assert core._epoch == 10
 
 
-def test_read_skips_save_records_in_range_mode(tmp_path: Path):
+def test_read_skips_save_records_in_inplace_replay(tmp_path: Path):
     core = make_range_core(tmp_path, SyncRange(start_step=0))
+    core._in_place = True
     core._reader = FakeReader(  # type: ignore[assignment]
         [Record(save=SaveRecord(name="config", type=SaveType.SAVE_TYPE_CONFIG))]
     )
@@ -798,6 +805,22 @@ def test_read_skips_save_records_in_range_mode(tmp_path: Path):
     asyncio.run(core.read())
 
     assert transport.records == []
+
+
+def test_read_keeps_save_records_when_range_creates_new_experiment(tmp_path: Path):
+    """范围同步新建实验时仍需要 config/metadata，否则实验缺少元信息。"""
+    core = make_range_core(tmp_path, SyncRange(start_step=0))
+    core._in_place = False
+    core._reader = FakeReader(  # type: ignore[assignment]
+        [Record(save=SaveRecord(name="config", type=SaveType.SAVE_TYPE_CONFIG))]
+    )
+    transport = FakeTransport(core._ctx)
+    core._transport = transport  # type: ignore[assignment]
+    core._metrics = FakeMetrics()  # type: ignore[assignment]
+
+    asyncio.run(core.read())
+
+    assert [record_kind(record) for record in transport.records] == ["save"]
 
 
 def test_read_keeps_columns_in_range_mode(tmp_path: Path):
@@ -918,3 +941,91 @@ def test_confirm_sync_finish_in_place_keeps_experiment_state(tmp_path: Path, mon
     assert resp.success is True
     stop_mock.assert_not_called()
     assert transport.finished is True
+
+
+def make_confirm_core(tmp_path: Path) -> CoreSyncPython:
+    core = CoreSyncPython()
+    core._ctx = CoreContext(config=make_core_config(tmp_path), mode="sync")
+    core._ctx.set_online_params("alice", "demo", "project-id", None, "experiment-id")
+    core._read_executor = FakeExecutor()  # type: ignore[assignment]
+    core._reader = FakeReader([])  # type: ignore[assignment]
+    return core
+
+
+def test_confirm_sync_finish_reports_upload_failure(tmp_path: Path, monkeypatch):
+    """上传线程异常退出时，全量同步必须报告失败，而不是当作成功结束实验。"""
+    core = make_confirm_core(tmp_path)
+    transport = FakeTransport(core._ctx)
+    transport.drain_ok = False
+    core._transport = transport  # type: ignore[assignment]
+    stop_mock = MagicMock()
+    monkeypatch.setattr("swanlab.sdk.internal.core_python.sync.stop_experiment", stop_mock)
+
+    resp = core.confirm_sync_finish()
+
+    assert resp.success is False
+    assert "retained" in resp.message
+    stop_mock.assert_not_called()
+
+
+def test_confirm_sync_finish_in_place_reports_upload_failure(tmp_path: Path, monkeypatch):
+    """原地回填同样要报告排空失败，不能用成功掩盖未上传的数据。"""
+    core = make_confirm_core(tmp_path)
+    core._in_place = True
+    transport = FakeTransport(core._ctx)
+    transport.drain_ok = False
+    core._transport = transport  # type: ignore[assignment]
+    stop_mock = MagicMock()
+    monkeypatch.setattr("swanlab.sdk.internal.core_python.sync.stop_experiment", stop_mock)
+
+    resp = core.confirm_sync_finish()
+
+    assert resp.success is False
+    assert "retained" in resp.message
+    stop_mock.assert_not_called()
+
+
+def test_resolve_replay_experiment_returns_existing_target(monkeypatch):
+    """命中已有实验时返回只读结果，调用方据此跳过创建/resume。"""
+    project_data = make_prepare_result().project_data
+    experiment = make_prepare_result(new_experiment=False).experiment
+    monkeypatch.setattr("swanlab.sdk.internal.core_python.utils.get_project", lambda **kwargs: project_data)
+    monkeypatch.setattr("swanlab.sdk.internal.core_python.utils.get_experiment", lambda *args: experiment)
+
+    result = resolve_resumed_experiment(make_start_record())
+
+    assert result is not None
+    assert result.new_experiment is False
+    assert result.username == "alice"
+    assert result.project == "demo"
+    assert result.experiment["cuid"] == "experiment-id"
+
+
+def test_resolve_replay_experiment_falls_back_without_project(monkeypatch):
+    monkeypatch.setattr("swanlab.sdk.internal.core_python.utils.get_project", lambda **kwargs: None)
+
+    assert resolve_resumed_experiment(make_start_record()) is None
+
+
+def test_resolve_replay_experiment_falls_back_without_experiment(monkeypatch):
+    monkeypatch.setattr(
+        "swanlab.sdk.internal.core_python.utils.get_project",
+        lambda **kwargs: make_prepare_result().project_data,
+    )
+    monkeypatch.setattr("swanlab.sdk.internal.core_python.utils.get_experiment", lambda *args: None)
+
+    assert resolve_resumed_experiment(make_start_record()) is None
+
+
+def test_resolve_replay_experiment_falls_back_without_created_at(monkeypatch):
+    """老后端缺少 createdAt 时退回常规流程，避免 resume 摘要查询拿不到下界。"""
+    monkeypatch.setattr(
+        "swanlab.sdk.internal.core_python.utils.get_project",
+        lambda **kwargs: make_prepare_result().project_data,
+    )
+    monkeypatch.setattr(
+        "swanlab.sdk.internal.core_python.utils.get_experiment",
+        lambda *args: {"cuid": "experiment-id", "slug": "sync-run-id", "name": "synced-run"},
+    )
+
+    assert resolve_resumed_experiment(make_start_record()) is None

@@ -92,6 +92,26 @@ def create_or_resume_experiment(
     return resp.data, resp.raw.status_code == 201
 
 
+def get_experiment(username: str, project: str, run_id: str) -> Optional[InitExperimentType]:
+    """
+    以只读方式获取实验信息，不触发服务端的创建或 resume。
+
+    用于范围回填前解析目标实验：POST upsert 会把已结束实验重新置为 RUNNING 并写入
+    resume 记录，只读查询不会产生任何副作用。
+
+    :param username: 实验所属空间
+    :param project: 实验所属项目
+    :param run_id: 实验 cuid 或 slug
+    :return: 实验信息，实验不存在时返回 None
+    """
+    try:
+        return client.get(f"/project/{username}/{project}/runs/{run_id}", log_error=False).data
+    except ApiError as e:
+        if e.response.status_code == 404:
+            return None
+        raise
+
+
 def get_experiment_summary(
     project_id: str,
     experiment_id: str,

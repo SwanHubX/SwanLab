@@ -145,3 +145,26 @@ def test_parse_timestamp_ns_keeps_explicit_offset():
 
     # 输入自带时区时，tz 参数不覆盖输入
     assert parse_timestamp_ns("2024-08-01T00:00:00Z", tz=timezone(timedelta(hours=8))) == expected
+
+
+def test_parse_timestamp_ns_keeps_subsecond_precision():
+    """亚秒输入必须精确到纳秒，否则闭区间端点会被判到范围外。"""
+    base = 1722470400 * 1_000_000_000
+
+    assert parse_timestamp_ns("2024-08-01T00:00:00.000001Z") == base + 1_000
+    assert parse_timestamp_ns("2024-08-01T00:00:00.000002Z") == base + 2_000
+    assert parse_timestamp_ns(datetime(2024, 8, 1, 0, 0, 0, 1, tzinfo=timezone.utc)) == base + 1_000
+    assert parse_timestamp_ns(1722470400123) == base + 123_000_000
+    assert parse_timestamp_ns("1722470400123") == base + 123_000_000
+    assert parse_timestamp_ns(1722470400.001) == base + 1_000_000
+
+
+def test_filter_keeps_subsecond_endpoint():
+    """从同一字面量解析出的时间戳必须命中它自己构成的闭区间。"""
+    instant = parse_timestamp_ns("2024-08-01T00:00:00.000001Z")
+    timestamp = Timestamp()
+    timestamp.FromNanoseconds(instant)
+
+    f = SyncRangeFilter(start_ns=instant, end_ns=instant)
+
+    assert f.match(timestamp=timestamp) is True

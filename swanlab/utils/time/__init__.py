@@ -8,6 +8,7 @@
 import math
 import re
 from datetime import datetime, timedelta, timezone, tzinfo
+from decimal import ROUND_HALF_EVEN, Decimal, InvalidOperation
 from typing import Optional, Union
 
 __all__ = [
@@ -27,6 +28,7 @@ NANOSECONDS_PER_SECOND = 1_000_000_000
 
 _UTC_NAMES = frozenset({"UTC", "Z", "GMT", "UCT", "UNIVERSAL"})
 _OFFSET_RE = re.compile(r"^([+-])(\d{1,2})(?::?(\d{2}))?$")
+_EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
 
 
 def parse_timestamp_s(value: Union[int, str]) -> int:
@@ -127,9 +129,7 @@ def parse_timestamp_ns(value: Union[int, float, str, datetime], *, tz: Optional[
     if isinstance(value, bool):
         raise TypeError("bool is not a valid timestamp")
     if isinstance(value, datetime):
-        if value.tzinfo is None and tz is not None:
-            value = value.replace(tzinfo=tz)
-        return int(round(value.timestamp() * NANOSECONDS_PER_SECOND))
+        return _datetime_timestamp_ns(value, tz)
     if isinstance(value, (int, float)):
         return _numeric_timestamp_ns(value)
     if isinstance(value, str):
@@ -137,26 +137,50 @@ def parse_timestamp_ns(value: Union[int, float, str, datetime], *, tz: Optional[
         if not text:
             raise ValueError("timestamp value must not be an empty string")
         try:
-            seconds = float(text)
+            seconds: Union[int, float] = int(text)
         except ValueError:
             try:
-                dt = datetime.fromisoformat(text.replace("Z", "+00:00"))
-            except ValueError as exc:
-                raise ValueError(f"Invalid ISO 8601 timestamp: {text!r}") from exc
-            if dt.tzinfo is None and tz is not None:
-                dt = dt.replace(tzinfo=tz)
-            return int(round(dt.timestamp() * NANOSECONDS_PER_SECOND))
+                seconds = float(text)
+            except ValueError:
+                try:
+                    dt = datetime.fromisoformat(text.replace("Z", "+00:00"))
+                except ValueError as exc:
+                    raise ValueError(f"Invalid ISO 8601 timestamp: {text!r}") from exc
+                return _datetime_timestamp_ns(dt, tz)
         return _numeric_timestamp_ns(seconds)
     raise TypeError(f"Unsupported timestamp type: {type(value).__name__}")
 
 
+def _datetime_timestamp_ns(value: datetime, tz: Optional[tzinfo]) -> int:
+    """把 datetime 转换为纳秒时间戳。
+
+    使用整数时间差而非 ``timestamp() * 1e9``，避免浮点在亚秒位上产生 ns 级误差，
+    否则闭区间端点上的记录会被过滤器判到范围外。
+    """
+    if value.tzinfo is None:
+        # 无时区输入：显式时区优先，否则按系统本地时区解释，与终端输入习惯一致
+        value = value.replace(tzinfo=tz) if tz is not None else value.astimezone()
+    delta = value - _EPOCH
+    return (delta.days * 86400 + delta.seconds) * NANOSECONDS_PER_SECOND + delta.microseconds * 1000
+
+
 def _numeric_timestamp_ns(value: Union[int, float]) -> int:
-    """把秒/毫秒级数字时间戳归一化为纳秒。"""
+    """把秒/毫秒级数字时间戳归一化为纳秒。
+
+    使用 ``Decimal`` 做整数标度换算，避免 ``value / 1000`` 与 ``* 1e9`` 的浮点误差
+    （整数毫秒时间戳经浮点归一化后可能偏出数十到数百纳秒）。
+    """
     if isinstance(value, float) and not math.isfinite(value):
         raise ValueError(f"Timestamp must be a finite number, got {value!r}")
     # 超过 10 位的视为毫秒（或微秒），逐级归一化到秒
-    while abs(value) > TIMESTAMP_S_MAX:
-        value = value / 1000
-    if value <= 0:
+    try:
+        # str(float) 还原用户输入的字面量，Decimal(str(x)) 比 Decimal(x) 更接近预期值
+        number = Decimal(str(value)) if isinstance(value, float) else Decimal(value)
+    except InvalidOperation as exc:  # pragma: no cover - 仅防御非法输入
+        raise ValueError(f"Invalid timestamp value: {value!r}") from exc
+    while abs(number) > TIMESTAMP_S_MAX:
+        number = number.scaleb(-3)
+    if number <= 0:
         raise ValueError(f"Expected positive timestamp, got {value!r}")
-    return int(round(value * NANOSECONDS_PER_SECOND))
+    # 归一化后 number 已是秒，统一放大到纳秒；Decimal 运算不引入浮点误差
+    return int(number.scaleb(9).to_integral_value(rounding=ROUND_HALF_EVEN))
