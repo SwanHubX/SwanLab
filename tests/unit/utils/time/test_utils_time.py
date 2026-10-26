@@ -1,6 +1,8 @@
+from datetime import datetime, timezone
+
 import pytest
 
-from swanlab.utils.time import TIMESTAMP_S_MAX, TIMESTAMP_S_MIN, parse_timestamp_s
+from swanlab.utils.time import TIMESTAMP_S_MAX, TIMESTAMP_S_MIN, parse_timestamp_ns, parse_timestamp_s
 
 
 class TestParseTimestampS:
@@ -30,3 +32,41 @@ class TestParseTimestampS:
         """缺失 / 空值 / 无法解析 / 非正数 / 越界必须抛错，禁止回退默认值导致慢查询"""
         with pytest.raises(ValueError):
             parse_timestamp_s(value)
+
+
+class TestParseTimestampNs:
+    def test_accepts_iso_and_unix(self):
+        """ISO 8601 字符串与秒/毫秒时间戳都归一化为同一个纳秒时间戳"""
+        expected = 1722470400 * 1_000_000_000
+
+        assert parse_timestamp_ns("2024-08-01T00:00:00Z") == expected
+        assert parse_timestamp_ns(1722470400) == expected
+        assert parse_timestamp_ns(1722470400000) == expected
+        assert parse_timestamp_ns("1722470400") == expected
+
+    def test_keeps_subsecond_precision(self):
+        """亚秒输入必须精确到纳秒，否则闭区间端点会被判到范围外。"""
+        base = 1722470400 * 1_000_000_000
+
+        assert parse_timestamp_ns("2024-08-01T00:00:00.000001Z") == base + 1_000
+        assert parse_timestamp_ns("2024-08-01T00:00:00.000002Z") == base + 2_000
+        assert parse_timestamp_ns(datetime(2024, 8, 1, 0, 0, 0, 1, tzinfo=timezone.utc)) == base + 1_000
+        assert parse_timestamp_ns(1722470400123) == base + 123_000_000
+        assert parse_timestamp_ns("1722470400123") == base + 123_000_000
+        assert parse_timestamp_ns(1722470400.001) == base + 1_000_000
+
+    def test_treats_naive_datetime_as_local(self):
+        """不带时区的输入按系统本地时区解释，与终端输入墙上时间的习惯一致"""
+        naive = datetime(2024, 8, 1, 8, 30, 0)
+
+        assert parse_timestamp_ns(naive) == int(round(naive.timestamp() * 1_000_000_000))
+        assert parse_timestamp_ns("2024-08-01 08:30:00") == int(round(naive.timestamp() * 1_000_000_000))
+
+    @pytest.mark.parametrize("value", ["", "  ", "not-a-time", -1, 0, float("nan")])
+    def test_rejects_invalid_values(self, value):
+        with pytest.raises(ValueError):
+            parse_timestamp_ns(value)
+
+    def test_rejects_bool(self):
+        with pytest.raises(TypeError):
+            parse_timestamp_ns(True)

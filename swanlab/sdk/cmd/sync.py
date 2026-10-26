@@ -6,11 +6,9 @@
 """
 
 import os
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, Union
 
-from google.protobuf.timestamp_pb2 import Timestamp
 from pydantic import DirectoryPath, TypeAdapter
 from rich.text import Text
 
@@ -29,13 +27,11 @@ from swanlab.sdk.internal.pkg import console, helper
 from swanlab.sdk.internal.run.progress import run_with_progress
 from swanlab.sdk.internal.settings import Settings, create_settings
 from swanlab.sdk.protocol.core import CoreSyncProtocol
+from swanlab.sdk.typings.cmd import TimeLike
 from swanlab.utils.experiment import generate_id
-from swanlab.utils.time import parse_timestamp_ns
+from swanlab.utils.time import format_time, set_timestamp
 
 __all__ = ["sync", "ensure_run_dir"]
-
-TimeLike = Union[int, float, str, datetime]
-"""sync 范围同步允许的时间输入：Unix 时间戳（秒/毫秒）、ISO 8601 字符串或 datetime。"""
 
 
 def sync(
@@ -156,9 +152,9 @@ def build_sync_range(
     if step_end is not None:
         sync_range.end_step = step_end
     if start_time is not None:
-        _set_timestamp(sync_range.start_time, start_time)
+        set_timestamp(sync_range.start_time, start_time)
     if end_time is not None:
-        _set_timestamp(sync_range.end_time, end_time)
+        set_timestamp(sync_range.end_time, end_time)
     if start_time is not None and end_time is not None:
         if sync_range.start_time.ToNanoseconds() > sync_range.end_time.ToNanoseconds():
             raise ValueError("start_time must be earlier than or equal to end_time")
@@ -173,22 +169,10 @@ def format_sync_range(sync_range: SyncRange) -> str:
         end = str(sync_range.end_step) if sync_range.HasField("end_step") else "*"
         parts.append(f"step {start}..{end}")
     if sync_range.HasField("start_time") or sync_range.HasField("end_time"):
-        start = _format_time(sync_range.start_time) if sync_range.HasField("start_time") else "*"
-        end = _format_time(sync_range.end_time) if sync_range.HasField("end_time") else "*"
+        start = format_time(sync_range.start_time) if sync_range.HasField("start_time") else "*"
+        end = format_time(sync_range.end_time) if sync_range.HasField("end_time") else "*"
         parts.append(f"time {start}..{end}")
     return ", ".join(parts)
-
-
-def _set_timestamp(target: Timestamp, value: TimeLike) -> None:
-    try:
-        target.FromNanoseconds(parse_timestamp_ns(value))
-    except (TypeError, ValueError) as e:
-        raise ValueError(f"Invalid time value {value!r}: {e}") from e
-
-
-def _format_time(ts: Timestamp) -> str:
-    dt = ts.ToDatetime().replace(tzinfo=timezone.utc)
-    return dt.astimezone().strftime("%Y-%m-%d %H:%M:%S")
 
 
 @utils.with_loading_animation("Starting core to sync data...")

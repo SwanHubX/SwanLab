@@ -2,12 +2,9 @@
 @author: nexisato
 @file: test_sync_range.py
 @time: 2026/10/23
-@description: sync 范围过滤器与时间解析测试
+@description: sync 范围过滤器测试
 """
 
-from datetime import datetime, timezone
-
-import pytest
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.proto.swanlab.grpc.core.v1.sync_pb2 import SyncRange
@@ -80,45 +77,6 @@ def test_filter_combines_step_and_time():
     assert f.match(step=2, timestamp=make_timestamp(100)) is True
     assert f.match(step=1, timestamp=make_timestamp(100)) is False
     assert f.match(step=2, timestamp=make_timestamp(99)) is False
-
-
-def test_parse_timestamp_ns_accepts_iso_and_unix():
-    expected = 1722470400 * 1_000_000_000
-
-    assert parse_timestamp_ns("2024-08-01T00:00:00Z") == expected
-    assert parse_timestamp_ns(1722470400) == expected
-    assert parse_timestamp_ns(1722470400000) == expected
-    assert parse_timestamp_ns("1722470400") == expected
-
-
-def test_parse_timestamp_ns_treats_naive_datetime_as_local():
-    naive = datetime(2024, 8, 1, 8, 30, 0)
-
-    assert parse_timestamp_ns(naive) == int(round(naive.timestamp() * 1_000_000_000))
-    assert parse_timestamp_ns("2024-08-01 08:30:00") == int(round(naive.timestamp() * 1_000_000_000))
-
-
-@pytest.mark.parametrize("value", ["", "  ", "not-a-time", -1, 0, float("nan")])
-def test_parse_timestamp_ns_rejects_invalid_values(value):
-    with pytest.raises(ValueError):
-        parse_timestamp_ns(value)
-
-
-def test_parse_timestamp_ns_rejects_bool():
-    with pytest.raises(TypeError):
-        parse_timestamp_ns(True)
-
-
-def test_parse_timestamp_ns_keeps_subsecond_precision():
-    """亚秒输入必须精确到纳秒，否则闭区间端点会被判到范围外。"""
-    base = 1722470400 * 1_000_000_000
-
-    assert parse_timestamp_ns("2024-08-01T00:00:00.000001Z") == base + 1_000
-    assert parse_timestamp_ns("2024-08-01T00:00:00.000002Z") == base + 2_000
-    assert parse_timestamp_ns(datetime(2024, 8, 1, 0, 0, 0, 1, tzinfo=timezone.utc)) == base + 1_000
-    assert parse_timestamp_ns(1722470400123) == base + 123_000_000
-    assert parse_timestamp_ns("1722470400123") == base + 123_000_000
-    assert parse_timestamp_ns(1722470400.001) == base + 1_000_000
 
 
 def test_filter_keeps_subsecond_endpoint():

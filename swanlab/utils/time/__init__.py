@@ -10,12 +10,17 @@ from datetime import datetime, timezone
 from decimal import ROUND_HALF_EVEN, Decimal, InvalidOperation
 from typing import Union
 
+from google.protobuf.timestamp_pb2 import Timestamp
+
 __all__ = [
+    "TimeLike",
     "TIMESTAMP_S_MAX",
     "TIMESTAMP_S_MIN",
     "NANOSECONDS_PER_SECOND",
     "parse_timestamp_s",
     "parse_timestamp_ns",
+    "format_time",
+    "set_timestamp",
 ]
 
 # 秒级 Unix 时间戳的合法区间（10 位）
@@ -25,6 +30,9 @@ TIMESTAMP_S_MAX = 9_999_999_999
 NANOSECONDS_PER_SECOND = 1_000_000_000
 
 _EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
+
+# Unix 时间戳（秒/毫秒）、ISO 8601 字符串或 datetime
+TimeLike = Union[int, float, str, datetime]
 
 
 def parse_timestamp_s(value: Union[int, str]) -> int:
@@ -62,7 +70,7 @@ def parse_timestamp_s(value: Union[int, str]) -> int:
     return value
 
 
-def parse_timestamp_ns(value: Union[int, float, str, datetime]) -> int:
+def parse_timestamp_ns(value: TimeLike) -> int:
     """将时间统一转换为纳秒级 Unix 时间戳，用于 ``swanlab sync`` 的时间范围过滤。
 
     支持格式：
@@ -135,3 +143,15 @@ def _numeric_timestamp_ns(value: Union[int, float]) -> int:
         raise ValueError(f"Expected positive timestamp, got {value!r}")
     # 归一化后 number 已是秒，统一放大到纳秒；Decimal 运算不引入浮点误差
     return int(number.scaleb(9).to_integral_value(rounding=ROUND_HALF_EVEN))
+
+
+def set_timestamp(target: Timestamp, value: TimeLike) -> None:
+    try:
+        target.FromNanoseconds(parse_timestamp_ns(value))
+    except (TypeError, ValueError) as e:
+        raise ValueError(f"Invalid time value {value!r}: {e}") from e
+
+
+def format_time(ts: Timestamp) -> str:
+    dt = ts.ToDatetime().replace(tzinfo=timezone.utc)
+    return dt.astimezone().strftime("%Y-%m-%d %H:%M:%S")
