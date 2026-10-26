@@ -922,31 +922,6 @@ def test_read_skips_step_at_or_below_summary_min_step_without_replay(tmp_path: P
     assert [record for record in transport.records if record.HasField("scalar")] == []
 
 
-def test_deliver_sync_start_rejects_invalid_step_range(tmp_path: Path):
-    write_run_file(tmp_path, Record(start=make_start_record()))
-    core = CoreSyncPython()
-
-    resp = core.deliver_sync_start(make_start_request(tmp_path, range=SyncRange(start_step=10, end_step=5)))
-
-    assert resp.success is False
-    assert "start_step is greater than end_step" in resp.message
-
-
-def test_deliver_sync_start_rejects_invalid_time_range(tmp_path: Path):
-    write_run_file(tmp_path, Record(start=make_start_record()))
-    core = CoreSyncPython()
-
-    resp = core.deliver_sync_start(
-        make_start_request(
-            tmp_path,
-            range=SyncRange(start_time=make_timestamp_at(200), end_time=make_timestamp_at(100)),
-        )
-    )
-
-    assert resp.success is False
-    assert "start_time is later than end_time" in resp.message
-
-
 def test_queue_finish_records_skipped_in_range_mode(tmp_path: Path):
     core = make_range_core(tmp_path, SyncRange(start_step=1))
     transport = FakeTransport(core._ctx)

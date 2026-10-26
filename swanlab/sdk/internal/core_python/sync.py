@@ -16,7 +16,6 @@ from swanlab.proto.swanlab.grpc.core.v1.sync_pb2 import (
     DeliverSyncFlushResponse,
     DeliverSyncStartRequest,
     DeliverSyncStartResponse,
-    SyncRange,
 )
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord, ScalarRecord
@@ -76,28 +75,8 @@ class CoreSyncPython(CoreSyncProtocol):
     def _ctx(self, ctx: CoreContext):
         self._run_ctx = ctx
 
-    @staticmethod
-    def _validate_range(sync_range: Optional[SyncRange]) -> Optional[str]:
-        """校验范围参数，合法返回 None，否则返回错误信息。"""
-        if sync_range is None:
-            return None
-        if sync_range.HasField("start_step"):
-            if sync_range.start_step < 0:
-                return "Invalid sync step range: start_step must be non-negative."
-            if sync_range.HasField("end_step") and sync_range.start_step > sync_range.end_step:
-                return "Invalid sync step range: start_step is greater than end_step."
-        if sync_range.HasField("end_step") and sync_range.end_step < 0:
-            return "Invalid sync step range: end_step must be non-negative."
-        if sync_range.HasField("start_time") and sync_range.HasField("end_time"):
-            if sync_range.start_time.ToNanoseconds() > sync_range.end_time.ToNanoseconds():
-                return "Invalid sync time range: start_time is later than end_time."
-        return None
-
     def deliver_sync_start(self, start_request: DeliverSyncStartRequest) -> DeliverSyncStartResponse:
         self._start_request = start_request
-        message = self._validate_range(start_request.range)
-        if message is not None:
-            return DeliverSyncStartResponse(success=False, message=message)
         self._filter = SyncRangeFilter.from_proto(start_request.range)
         self._ctx = CoreContext.from_proto(start_request.core_settings, mode="sync")
         # 安全地开启sync，DataStoreError 通常是run头文件损坏，属于已知错误
