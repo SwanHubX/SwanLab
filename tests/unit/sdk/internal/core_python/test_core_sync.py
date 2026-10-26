@@ -19,7 +19,7 @@ from swanlab.proto.swanlab.settings.core.v1.core_pb2 import CoreSettings
 from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogLevel, LogRecord
 from swanlab.sdk.internal.core_python.context import CoreConfig, CoreContext
 from swanlab.sdk.internal.core_python.metrics import RunMetrics
-from swanlab.sdk.internal.core_python.pkg.range import SyncRangeFilter
+from swanlab.sdk.internal.core_python.pkg.window import SyncRangeFilter
 from swanlab.sdk.internal.core_python.store import DataStoreWriter
 from swanlab.sdk.internal.core_python.sync import CoreSyncPython
 from swanlab.sdk.internal.core_python.transport import Transport
