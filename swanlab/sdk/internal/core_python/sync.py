@@ -5,7 +5,7 @@
 @description: sync 协议实现
 """
 
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
@@ -19,6 +19,7 @@ from swanlab.proto.swanlab.grpc.core.v1.sync_pb2 import (
     SyncRange,
 )
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
+from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord, ScalarRecord
 from swanlab.proto.swanlab.operation.v1.operation_pb2 import CoreState
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord, ResumeMode, RunState, StartRecord
@@ -207,92 +208,92 @@ class CoreSyncPython(CoreSyncProtocol):
             with safe.block(message="Failed to parse record"):
                 record = Record()
                 record.ParseFromString(record_bytes)
-                # 记录开始和结束记录作为生命周期记录，不通过 _transport 上传
-                if record.HasField("finish"):
-                    if self._finish_record is None:
-                        self._finish_record = record.finish
-                    else:
-                        console.error(
-                            "Multiple finish records were found in the run file. SwanLab will use the first one."
-                        )
-                elif record.HasField("log"):
-                    log = record.log
-                    if self._filter.enabled:
-                        # step 范围只约束指标；终端日志仅按时间范围回放
-                        if not self._filter.has_time:
-                            continue
-                        if not self._filter.match(timestamp=self._pick_timestamp(log.timestamp, record.timestamp)):
-                            continue
-                        self._epoch = max(self._epoch, log.epoch)
-                        self._transport.put([record])
-                    elif log.epoch > self._epoch:
-                        # 仅大于 console_epoch 的 record 才能上传
-                        self._epoch = log.epoch
-                        self._transport.put([record])
-                    else:
-                        console.debug(f"Log at epoch {log.epoch} was skipped syncing because it is too old.")
-                elif record.HasField("column"):
-                    # 如果 column 不存在于 _metrics 中则上传，并且定义此column
-                    column = record.column
-                    if self._metrics.get(column.column_key) is not None:
-                        console.debug(f"Column '{column.column_key}' was skipped syncing because it already exists.")
-                        continue
-                    if column.column_type == ColumnType.COLUMN_TYPE_SCALAR:
-                        self._metrics.define_scalar(key=column.column_key, column=column)
-                    else:
-                        self._metrics.define_media(
-                            key=column.column_key, column=column, path=adapter.medium[column.column_type]
-                        )
-                    self._transport.put([record])
-                elif record.HasField("scalar"):
-                    # 如果scalar对应的column不存在于metrics（sync的实验本身就是resume的），则需要创建默认的column并上传
-                    scalar = record.scalar
-                    if self._filter.enabled and not self._filter.match(
-                        step=scalar.step, timestamp=self._pick_timestamp(scalar.timestamp, record.timestamp)
-                    ):
-                        continue
-                    # 1. 创建列
-                    metric = self._metrics.get(scalar.key)
-                    if not metric:
-                        column_record = builder.build_auto_column(self._ctx, scalar)
-                        metric = self._metrics.define_scalar(key=scalar.key, column=column_record)
-                        self._transport.put([builder.build_column_record(self._counter, column_record, positive=False)])
-                    # 2. 检查类型是否匹配，判断指定的step是否允许写入
-                    metric.ensure_type_match(scalar.type)
-                    if metric.try_accept_step(scalar.step):
-                        metric.update(scalar)
-                        self._transport.put([record])
-                    else:
-                        console.debug(
-                            f"Metric '{scalar.key}' at step {scalar.step} was skipped syncing because it is duplicate or too old."
-                        )
-                elif record.HasField("media"):
-                    # 如果media对应的column不存在于metrics（sync的实验本身就是resume的），则需要创建默认的column并上传
-                    media = record.media
-                    if self._filter.enabled and not self._filter.match(
-                        step=media.step, timestamp=self._pick_timestamp(media.timestamp, record.timestamp)
-                    ):
-                        continue
-                    # 1. 创建列
-                    metric = self._metrics.get(media.key)
-                    if not metric:
-                        column_record = builder.build_auto_column(self._ctx, media)
-                        metric = self._metrics.define_media(
-                            key=media.key, column=column_record, path=self._ctx.media_dir / adapter.medium[media.type]
-                        )
-                        self._transport.put([builder.build_column_record(self._counter, column_record, positive=False)])
-                    # 2. 检查类型是否匹配，判断指定的step是否允许写入
-                    metric.ensure_type_match(media.type)
-                    if metric.try_accept_step(media.step):
-                        metric.update(media)
-                        self._transport.put([record])
-                    else:
-                        console.debug(
-                            f"Metric '{media.key}' at step {media.step} was skipped syncing because it is duplicate or too old."
-                        )
-                else:
-                    # 其余的直接上传（覆盖式）
-                    self._transport.put([record])
+                self._handle_record(record)
+
+    def _handle_record(self, record: Record) -> None:
+        """按记录类型分发处理。"""
+        assert self._transport is not None, "Transport not set before reading records"
+        # 记录开始和结束记录作为生命周期记录，不通过 _transport 上传
+        if record.HasField("finish"):
+            self._handle_finish(record.finish)
+        elif record.HasField("log"):
+            self._handle_log(record)
+        elif record.HasField("column"):
+            self._handle_column(record)
+        elif record.HasField("scalar"):
+            self._handle_metric(record, record.scalar, is_media=False)
+        elif record.HasField("media"):
+            self._handle_metric(record, record.media, is_media=True)
+        else:
+            # 其余的直接上传（覆盖式）
+            self._transport.put([record])
+
+    def _handle_finish(self, finish: FinishRecord) -> None:
+        if self._finish_record is None:
+            self._finish_record = finish
+        else:
+            console.error("Multiple finish records were found in the run file. SwanLab will use the first one.")
+
+    def _handle_log(self, record: Record) -> None:
+        assert self._transport is not None, "Transport not set before reading records"
+        log = record.log
+        if self._filter.enabled:
+            # step 范围只约束指标；终端日志仅按时间范围回放
+            if not self._filter.has_time:
+                return
+            if not self._filter.match(timestamp=self._pick_timestamp(log.timestamp, record.timestamp)):
+                return
+            self._epoch = max(self._epoch, log.epoch)
+            self._transport.put([record])
+        elif log.epoch > self._epoch:
+            # 仅大于 console_epoch 的 record 才能上传
+            self._epoch = log.epoch
+            self._transport.put([record])
+        else:
+            console.debug(f"Log at epoch {log.epoch} was skipped syncing because it is too old.")
+
+    def _handle_column(self, record: Record) -> None:
+        assert self._transport is not None, "Transport not set before reading records"
+        assert self._metrics is not None, "Metrics not set before reading records"
+        # 如果 column 不存在于 _metrics 中则上传，并且定义此column
+        column = record.column
+        if self._metrics.get(column.column_key) is not None:
+            console.debug(f"Column '{column.column_key}' was skipped syncing because it already exists.")
+            return
+        if column.column_type == ColumnType.COLUMN_TYPE_SCALAR:
+            self._metrics.define_scalar(key=column.column_key, column=column)
+        else:
+            self._metrics.define_media(key=column.column_key, column=column, path=adapter.medium[column.column_type])
+        self._transport.put([record])
+
+    def _handle_metric(self, record: Record, data: Union[ScalarRecord, MediaRecord], *, is_media: bool) -> None:
+        """处理 scalar/media 数据记录，按需自动补建列。"""
+        assert self._transport is not None, "Transport not set before reading records"
+        assert self._metrics is not None, "Metrics not set before reading records"
+        if self._filter.enabled and not self._filter.match(
+            step=data.step, timestamp=self._pick_timestamp(data.timestamp, record.timestamp)
+        ):
+            return
+        # 1. 创建列
+        metric = self._metrics.get(data.key)
+        if not metric:
+            column = builder.build_auto_column(self._ctx, data)
+            if is_media:
+                metric = self._metrics.define_media(
+                    key=data.key, column=column, path=self._ctx.media_dir / adapter.medium[data.type]
+                )
+            else:
+                metric = self._metrics.define_scalar(key=data.key, column=column)
+            self._transport.put([builder.build_column_record(self._counter, column, positive=False)])
+        # 2. 检查类型是否匹配，判断指定的step是否允许写入
+        metric.ensure_type_match(data.type)
+        if metric.try_accept_step(data.step):
+            metric.update(data)
+            self._transport.put([record])
+        else:
+            console.debug(
+                f"Metric '{data.key}' at step {data.step} was skipped syncing because it is duplicate or too old."
+            )
 
     @staticmethod
     def _pick_timestamp(payload: Timestamp, record: Timestamp) -> Timestamp:
