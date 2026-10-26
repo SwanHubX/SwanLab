@@ -62,8 +62,6 @@ class CoreSyncPython(CoreSyncProtocol):
         self._counter = counter.Counter(builder.DEC_NUM)
         # 范围同步过滤器，默认关闭表示全量同步
         self._filter = SyncRangeFilter()
-        # 是否原地恢复到已存在的实验，原地恢复不重放 SaveRecord
-        self._in_place = False
         # 本次 sync 是否新建了实验，用于决定缺失 finish record 时是否按 CRASHED 收尾
         self._new_experiment = False
 
@@ -179,8 +177,6 @@ class CoreSyncPython(CoreSyncProtocol):
             if self._filter.enabled:
                 # 范围同步用于回放/恢复历史数据，必须允许写回已存在的 step
                 self._metrics.allow_replay()
-                # 命中已有实验时跳过 SaveRecord，避免覆盖已有实验的配置与元信息
-                self._in_place = not result.new_experiment
             metrics_ready = True
 
         if not metrics_ready:
@@ -293,12 +289,6 @@ class CoreSyncPython(CoreSyncProtocol):
                         console.debug(
                             f"Metric '{media.key}' at step {media.step} was skipped syncing because it is duplicate or too old."
                         )
-                elif record.HasField("save"):
-                    if self._filter.enabled and self._in_place:
-                        # 原地回填不重放实验级文件，避免覆盖已有实验的配置与元信息；
-                        # 新建实验仍需要这批记录，否则实验缺少 config/metadata 等元信息
-                        continue
-                    self._transport.put([record])
                 else:
                     # 其余的直接上传（覆盖式）
                     self._transport.put([record])

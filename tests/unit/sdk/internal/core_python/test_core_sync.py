@@ -5,7 +5,9 @@ from unittest.mock import MagicMock
 
 import pytest
 from google.protobuf.timestamp_pb2 import Timestamp
+from requests import Response
 
+from swanlab.exceptions import ApiError
 from swanlab.proto.swanlab.grpc.core.v1.sync_pb2 import DeliverSyncStartRequest, SyncRange
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord, ColumnType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord, ScalarRecord, ScalarValue
@@ -19,6 +21,8 @@ from swanlab.sdk.internal.core_python.context import CoreConfig, CoreContext
 from swanlab.sdk.internal.core_python.metrics import RunMetrics
 from swanlab.sdk.internal.core_python.store import DataStoreWriter
 from swanlab.sdk.internal.core_python.sync import CoreSyncPython, SyncRangeFilter
+from swanlab.sdk.internal.core_python.transport import Transport
+from swanlab.sdk.internal.core_python.transport.sender import HttpRecordSender
 from swanlab.sdk.internal.core_python.utils import PrepareExperimentStartResult
 from swanlab.utils.time import parse_timestamp_ns
 
@@ -819,11 +823,13 @@ def test_read_keeps_old_log_epochs_in_range_mode(tmp_path: Path):
     assert core._epoch == 10
 
 
-def test_read_skips_save_records_in_inplace_replay(tmp_path: Path):
+@pytest.mark.parametrize(
+    "save_type", [SaveType.SAVE_TYPE_CONFIG, SaveType.SAVE_TYPE_METADATA, SaveType.SAVE_TYPE_CUSTOM]
+)
+def test_read_keeps_save_records_in_range_replay(tmp_path: Path, save_type):
     core = make_range_core(tmp_path, SyncRange(start_step=0))
-    core._in_place = True
     core._reader = FakeReader(  # type: ignore[assignment]
-        [Record(save=SaveRecord(name="config", type=SaveType.SAVE_TYPE_CONFIG))]
+        [Record(save=SaveRecord(name="saved", type=save_type))]
     )
     transport = FakeTransport(core._ctx)
     core._transport = transport  # type: ignore[assignment]
@@ -831,13 +837,13 @@ def test_read_skips_save_records_in_inplace_replay(tmp_path: Path):
 
     asyncio.run(core.read())
 
-    assert transport.records == []
+    assert [record_kind(record) for record in transport.records] == ["save"]
 
 
 def test_read_keeps_save_records_when_range_creates_new_experiment(tmp_path: Path):
     """范围同步新建实验时仍需要 config/metadata，否则实验缺少元信息。"""
     core = make_range_core(tmp_path, SyncRange(start_step=0))
-    core._in_place = False
+    core._new_experiment = True
     core._reader = FakeReader(  # type: ignore[assignment]
         [Record(save=SaveRecord(name="config", type=SaveType.SAVE_TYPE_CONFIG))]
     )
@@ -962,6 +968,35 @@ def make_confirm_core(tmp_path: Path) -> CoreSyncPython:
     return core
 
 
+def test_save_failure_does_not_fail_sync_or_block_scalar_upload(tmp_path: Path, monkeypatch):
+    core = make_confirm_core(tmp_path)
+    response = Response()
+    response.status_code = 403
+    upload_metadata = MagicMock(side_effect=ApiError(response, message="profile update forbidden"))
+    upload_scalar = MagicMock()
+    monkeypatch.setattr("swanlab.sdk.internal.core_python.transport.sender.upload_metadata", upload_metadata)
+    monkeypatch.setattr("swanlab.sdk.internal.core_python.transport.sender.upload_scalar", upload_scalar)
+    transport = Transport(core._ctx, sender=HttpRecordSender(core._ctx), auto_start=False)
+    core._transport = transport
+    transport.put(
+        [
+            Record(num=1, save=SaveRecord(type=SaveType.SAVE_TYPE_METADATA, payload=b"{}")),
+            Record(
+                num=2,
+                scalar=ScalarRecord(key="loss", step=1, value=ScalarValue(number=0.5), timestamp=make_timestamp()),
+            ),
+        ]
+    )
+    transport.start()
+
+    resp = core.confirm_sync_finish()
+
+    assert resp.success is True
+    assert transport.pending_records() == []
+    upload_metadata.assert_called_once()
+    upload_scalar.assert_called_once()
+
+
 def test_confirm_sync_finish_reports_upload_failure(tmp_path: Path, monkeypatch):
     """上传线程异常退出时，全量同步必须报告失败，而不是当作成功结束实验。"""
     core = make_confirm_core(tmp_path)
@@ -981,7 +1016,7 @@ def test_confirm_sync_finish_reports_upload_failure(tmp_path: Path, monkeypatch)
 def test_confirm_sync_finish_in_place_reports_upload_failure(tmp_path: Path, monkeypatch):
     """原地回填同样要报告排空失败，不能用成功掩盖未上传的数据。"""
     core = make_confirm_core(tmp_path)
-    core._in_place = True
+    core._filter = SyncRangeFilter(start_step=0)
     transport = FakeTransport(core._ctx)
     transport.drain_ok = False
     core._transport = transport  # type: ignore[assignment]
@@ -1020,7 +1055,6 @@ def test_deliver_sync_flush_range_resumes_existing_experiment(tmp_path: Path, mo
     assert core.deliver_sync_flush().success is True
     prepare.assert_called_once()
     assert core._new_experiment is False
-    assert core._in_place is True
 
 
 # ============================================================
