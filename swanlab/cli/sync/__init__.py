@@ -63,7 +63,7 @@ from swanlab.sdk.cmd.sync import build_sync_range
     type=str,
     help=(
         "The run id to sync the logs to. If it matches an existing experiment, the data is "
-        "written back to that experiment (in-place restore)."
+        "replayed into that experiment. Only valid with a single path."
     ),
 )
 @click.option(
@@ -109,11 +109,14 @@ def sync(
     """Synchronize local logs to the cloud.
 
     Passing any of --step-start/--step-end/--start-time/--end-time enables range
-    sync, which only replays records inside the window. Combine it with --id of an
-    existing run to restore that period in place; the experiment lifecycle state is
-    then left untouched. Times without an explicit offset use the system local
-    timezone.
+    sync, which only replays records inside the window. Sync always creates or
+    resumes the target experiment; combine it with --id of an existing run to
+    backfill that experiment. The local finish record decides the final state,
+    and an existing experiment without one is left running. Times without an
+    explicit offset use the system local timezone.
     """
+    if id is not None and len(path) > 1:
+        raise click.BadParameter("--id can only be used with a single path.", param_hint="--id")
     model = pkg.helper.strip_none(
         {
             "api_key": api_key,

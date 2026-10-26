@@ -97,3 +97,17 @@ def test_sync_cli_rejects_invalid_range_without_traceback(tmp_path, monkeypatch,
     assert calls == []
     assert "Traceback" not in result.output
     assert "Invalid value" in result.output
+
+
+def test_sync_cli_rejects_id_with_multiple_paths(tmp_path, monkeypatch):
+    """--id 只适用于单个目录，多目录会混写到同一个实验。"""
+    calls = []
+    monkeypatch.setattr(sync_module, "sync_cmd", lambda *a, **k: calls.append(a))
+    other = tmp_path / "other"
+    other.mkdir()
+
+    result = CliRunner().invoke(sync_cli, [str(tmp_path), str(other), "--id", "run-1"])
+
+    assert result.exit_code == 2
+    assert calls == []
+    assert "--id" in result.output

@@ -52,8 +52,18 @@ def sync(
     range sync: only scalar/media records inside the step and time window, plus
     terminal logs inside the time window, are replayed. Range sync bypasses the
     duplicate-step guard, so it can backfill history into an existing experiment
-    by passing ``settings.run.id`` (in-place restore); in that case the experiment
-    lifecycle state is left untouched. Range bounds are inclusive.
+    by passing ``settings.run.id``.
+
+    Sync always creates or resumes the target experiment first. A finished target
+    is resumed to RUNNING, so the replayed rows stay inside the server-side query
+    window; afterwards the local FinishRecord decides the final state (a new
+    experiment without a FinishRecord is reported as CRASHED, while an existing
+    experiment without one is left RUNNING for other writers). Range bounds are
+    inclusive.
+
+    .. note::
+        A step-only range does not replay terminal logs; pass ``start_time`` /
+        ``end_time`` to include them.
 
     :param run_dir: Existing local SwanLab run directory to synchronize.
     :param settings: Optional sync configuration, including API key, host, workspace, project, and run options. Uses default Settings if not provided.

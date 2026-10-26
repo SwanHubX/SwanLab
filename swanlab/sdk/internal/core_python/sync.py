@@ -5,7 +5,7 @@
 @description: sync 协议实现
 """
 
-from typing import Optional
+from typing import Optional, Tuple
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
@@ -34,7 +34,6 @@ from swanlab.sdk.internal.core_python.utils import (
     PrepareExperimentStartResult,
     generate_run_online_path,
     prepare_experiment_start,
-    resolve_existing_experiment,
 )
 from swanlab.sdk.internal.pkg import adapter, console, executor, safe
 from swanlab.sdk.protocol.core import CoreSyncProtocol
@@ -54,9 +53,8 @@ class CoreSyncPython(CoreSyncProtocol):
         self._start_request: Optional[DeliverSyncStartRequest] = None
         self._start_record: Optional[StartRecord] = None
         self._metrics: Optional[RunMetrics] = None
-        # finish record 有可能不存在，此时Sync自己mock一下数据
+        # finish record 只来自本地文件，缺失表示运行未正常结束或仍在写
         self._finish_record: Optional[FinishRecord] = None
-        self._prepared_finish_record: Optional[FinishRecord] = None
         self._finish_records_queued = False
         self._finish_requested = False
         # 日志行数，仅大于此行数的才上传
@@ -66,8 +64,8 @@ class CoreSyncPython(CoreSyncProtocol):
         self._filter = SyncRangeFilter()
         # 是否原地恢复到已存在的实验，原地恢复不重放 SaveRecord
         self._in_place = False
-        # 是否通过只读查询命中已有实验，命中时不接管实验生命周期
-        self._readonly_hit = False
+        # 本次 sync 是否新建了实验，用于决定缺失 finish record 时是否按 CRASHED 收尾
+        self._new_experiment = False
 
     @property
     def _ctx(self) -> CoreContext:
@@ -134,36 +132,25 @@ class CoreSyncPython(CoreSyncProtocol):
         )
 
         result: Optional[PrepareExperimentStartResult] = None
-        # 1. 通知后端，启动实验
-        start_record = StartRecord()
-        start_record.CopyFrom(self._start_record)
-        if self._start_request.project:
-            start_record.project = self._start_request.project
-        if self._start_request.workspace:
-            start_record.workspace = self._start_request.workspace
-        if self._start_request.id:
-            start_record.id = self._start_request.id
-        # 范围回填优先只读解析目标实验，避免 POST upsert 触发 resume 改写实验生命周期
-        if self._filter.enabled:
-            try:
-                result = resolve_existing_experiment(start_record)
-            except ValueError as e:
-                # 实验存在但无法继续时直接失败：此时回退 POST 会把实验改回 RUNNING
-                return DeliverSyncFlushResponse(success=False, message=str(e))
-            except Exception:
-                # 只读查询失败也不能回退 POST，否则同样会触发 resume
-                console.trace("Failed to resolve sync target experiment")
-                return DeliverSyncFlushResponse(success=False, message="Failed to resolve sync target experiment")
-            # 只读命中不拥有实验生命周期，结束时不再上报实验状态
-            self._readonly_hit = result is not None
-
-        with safe.block(message="Failed to prepare sync experiment"):
-            if result is None:
-                # sync 实验统一开启宽松resume限制，resume设置为allow，后端自动创建新实验
-                start_record.resume = ResumeMode.RESUME_MODE_ALLOW
-                # sync的实验不同步实验颜色，否则会给用户一些奇怪的感觉：https://github.com/SwanHubX/SwanLab/issues/1434
-                start_record.color = ""
-                result = prepare_experiment_start(start_record)
+        # 记录服务端拒绝原因（403、COPY 实验等），随失败响应返回给调用方
+        prepare_errors: list[BaseException] = []
+        with safe.block(message="Failed to prepare sync experiment", on_error=prepare_errors.append):
+            # 1. 通知后端，创建或恢复实验
+            start_record = StartRecord()
+            start_record.CopyFrom(self._start_record)
+            if self._start_request.project:
+                start_record.project = self._start_request.project
+            if self._start_request.workspace:
+                start_record.workspace = self._start_request.workspace
+            if self._start_request.id:
+                start_record.id = self._start_request.id
+            # sync 实验统一开启宽松resume限制，resume设置为allow，后端自动创建新实验
+            start_record.resume = ResumeMode.RESUME_MODE_ALLOW
+            # sync的实验不同步实验颜色，否则会给用户一些奇怪的感觉：https://github.com/SwanHubX/SwanLab/issues/1434
+            start_record.color = ""
+            # 已有实验会通过 Server 的 resume 流程置回 RUNNING，
+            # 使本次回填写入落在有效查询窗口内（结束后再按真实 FinishRecord 收尾）
+            result = prepare_experiment_start(start_record)
             self._ctx.set_online_params(
                 username=result.username,
                 project=result.project,
@@ -173,7 +160,10 @@ class CoreSyncPython(CoreSyncProtocol):
             )
 
         if result is None:
-            return DeliverSyncFlushResponse(success=False, message="Failed to prepare sync experiment")
+            detail = f": {prepare_errors[0]}" if prepare_errors else ""
+            return DeliverSyncFlushResponse(success=False, message=f"Failed to prepare sync experiment{detail}")
+
+        self._new_experiment = result.new_experiment
 
         metrics_ready = False
         with safe.block(message="Failed to initialize sync metrics", write_to_tty=False):
@@ -324,37 +314,22 @@ class CoreSyncPython(CoreSyncProtocol):
         stats = self._tracker.snapshot()
         return GetOperationStatsResponse(success=True, message="success", stats=stats)
 
-    def _get_finish_record(self) -> FinishRecord:
-        if self._prepared_finish_record is not None:
-            return self._prepared_finish_record
-
-        finish_record = FinishRecord()
-        if self._finish_record is not None:
-            finish_record.CopyFrom(self._finish_record)
-        else:
-            # 找不到 Finish Record，一般情况为整个进程被Kill了，此时需要mock一个Finish Record
-            finish_record.state = RunState.RUN_STATE_CRASHED
-            ts = Timestamp()
-            ts.GetCurrentTime()
-            finish_record.finished_at.CopyFrom(ts)
-            finish_record.error = (
-                "Run process was interrupted or killed before writing a finish record. "
-                "The run is marked as crashed during sync."
-            )
-        self._prepared_finish_record = finish_record
-        return finish_record
-
     def _queue_finish_records(self) -> None:
         assert self._transport is not None, "Transport not set before queueing finish records"
         if self._finish_records_queued:
             return
 
+        # 范围同步只回放选定时间片，不注入原实验结束时的错误日志
         if self._filter.enabled:
-            # 范围同步只回放选定时间片，不注入原实验结束时的错误日志
             self._finish_records_queued = True
             return
 
-        finish_record = self._get_finish_record()
+        finish_record = self._finish_record
+        # 没有真实 FinishRecord 时不推断运行失败，也不生成“进程中断”日志
+        if finish_record is None:
+            self._finish_records_queued = True
+            return
+
         if finish_record.state != RunState.RUN_STATE_FINISHED:
             error_message = (
                 finish_record.error
@@ -383,32 +358,46 @@ class CoreSyncPython(CoreSyncProtocol):
         self._transport.request_finish()
         self._finish_requested = True
 
+    def _resolve_finish_state(self) -> Optional[Tuple[RunState, Timestamp]]:
+        """确定本次 sync 是否上报实验终态。
+
+        - 有真实 FinishRecord：按记录中的状态收尾；
+        - 没有记录且实验是本次新建：按 CRASHED 收尾（离线补传的既有行为）；
+        - 没有记录且恢复到已有实验：只结束本次同步，实验保持 RUNNING，
+          避免误停其他终端仍在训练的实验。
+        """
+        if self._finish_record is not None:
+            return self._finish_record.state, self._finish_record.finished_at
+        if self._new_experiment:
+            finished_at = Timestamp()
+            finished_at.GetCurrentTime()
+            return RunState.RUN_STATE_CRASHED, finished_at
+        return None
+
     def confirm_sync_finish(self) -> ConfirmSyncFinishResponse:
         """
         确认同步完成，关闭文件流，上报最终实验状态
         """
         assert self._transport is not None, "Transport not set before confirming sync finish"
-        # 1. 等待读任务完成，并构建结束记录
-        self._read_executor.wait()
-        self._read_executor.close()
-        self._reader.close()
-        finish_record = self._get_finish_record()
-        # 2. 触发结束日志入队，等待上传线程排空并上报实验状态
         try:
+            # 1. 等待读任务完成
+            self._read_executor.wait()
+            finish_state = self._resolve_finish_state()
+            # 2. 触发结束日志入队，等待上传线程排空并上报实验状态
             self._request_transport_finish()
             # join 只保证线程退出，finish 才能确认缓冲区与未确认记录已排空
             if not self._transport.finish(timeout=None):
                 return ConfirmSyncFinishResponse(success=False, message=self._transport.finish_summary())
-            if self._readonly_hit:
-                # 只读命中：实验从未被 sync 置为 RUNNING，保持原有生命周期状态
+            if finish_state is None:
                 return ConfirmSyncFinishResponse(success=True, message="OK")
+            state, finished_at = finish_state
             with safe.block(message="Failed to report run finish"):
                 stop_experiment(
                     self._ctx.username,
                     self._ctx.project,
                     self._ctx.experiment_id,
-                    state=finish_record.state,
-                    finished_at=finish_record.finished_at,
+                    state=state,
+                    finished_at=finished_at,
                 )
                 return ConfirmSyncFinishResponse(success=True, message="OK")
                 # 如果仅仅是与后端同步出现问题，则换一个让用户安心一些的提示信息
@@ -416,6 +405,8 @@ class CoreSyncPython(CoreSyncProtocol):
                 success=False, message="Failed to finish run, but all records have been uploaded to the server."
             )
         finally:
+            self._read_executor.close()
+            self._reader.close()
             if self._tracker is not None:
                 self._tracker.set_state(CoreState.CORE_STATE_FINISHED)
 

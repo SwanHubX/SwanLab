@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Iterable
+from unittest.mock import MagicMock
 
 import pytest
 from google.protobuf.timestamp_pb2 import Timestamp
@@ -358,9 +359,8 @@ def test_e2e_sync_marks_missing_finish_record_as_crashed(tmp_path: Path, monkeyp
 
     assert len(transports) == 1
     assert stopped[0][0:4] == ("alice", "demo", "experiment-id", RunState.RUN_STATE_CRASHED)
-    assert "log" in record_kinds(transports[0].records)
-    error_logs = [record.log.line for record in transports[0].records if record.HasField("log")]
-    assert any("before writing a finish record" in line for line in error_logs)
+    # 不再注入伪造的“进程中断”日志
+    assert "log" not in record_kinds(transports[0].records)
 
 
 def test_e2e_sync_fails_with_legacy_version_file(tmp_path: Path, monkeypatch):
@@ -432,7 +432,6 @@ def test_e2e_sync_time_range_only_uploads_selected_records(tmp_path: Path, monke
 
     monkeypatch.setattr("swanlab.sdk.cmd.sync.client.exists", lambda: True)
     monkeypatch.setattr("swanlab.sdk.cmd.sync.impl.create_core_sync", lambda: core)
-    monkeypatch.setattr("swanlab.sdk.internal.core_python.sync.resolve_existing_experiment", lambda record: None)
     monkeypatch.setattr(
         "swanlab.sdk.internal.core_python.sync.prepare_experiment_start", lambda record: make_prepare_result()
     )
@@ -468,7 +467,6 @@ def test_e2e_sync_step_range_only_uploads_selected_steps(monkeypatch):
 
     monkeypatch.setattr("swanlab.sdk.cmd.sync.client.exists", lambda: True)
     monkeypatch.setattr("swanlab.sdk.cmd.sync.impl.create_core_sync", lambda: core)
-    monkeypatch.setattr("swanlab.sdk.internal.core_python.sync.resolve_existing_experiment", lambda record: None)
     monkeypatch.setattr(
         "swanlab.sdk.internal.core_python.sync.prepare_experiment_start", lambda record: make_prepare_result()
     )
@@ -490,7 +488,7 @@ def test_e2e_sync_step_range_only_uploads_selected_steps(monkeypatch):
 
 
 def test_e2e_sync_range_restores_steps_in_place(monkeypatch):
-    """原地恢复：允许写回云端已存在的 step，且不改写实验生命周期。"""
+    """原地恢复：已有实验走 resume 流程，回放后按真实 FinishRecord 收尾。"""
     run_dir = create_offline_run()
     transports: list[FakeTransport] = []
     stopped = []
@@ -505,19 +503,8 @@ def test_e2e_sync_range_restores_steps_in_place(monkeypatch):
 
     monkeypatch.setattr("swanlab.sdk.cmd.sync.client.exists", lambda: True)
     monkeypatch.setattr("swanlab.sdk.cmd.sync.impl.create_core_sync", lambda: core)
-    monkeypatch.setattr(
-        "swanlab.sdk.internal.core_python.utils.get_project",
-        lambda **kwargs: make_prepare_result().project_data,
-    )
-    monkeypatch.setattr(
-        "swanlab.sdk.internal.core_python.utils.get_experiment",
-        lambda *args: make_prepare_result().experiment,
-    )
-
-    def fail_prepare(record):
-        raise AssertionError("range replay must not create or resume an experiment")
-
-    monkeypatch.setattr("swanlab.sdk.internal.core_python.sync.prepare_experiment_start", fail_prepare)
+    prepare = MagicMock(return_value=make_prepare_result(new_experiment=False))
+    monkeypatch.setattr("swanlab.sdk.internal.core_python.sync.prepare_experiment_start", prepare)
     monkeypatch.setattr(
         "swanlab.sdk.internal.core_python.sync.get_experiment_summary",
         lambda project_id, experiment_id, created_at=None: {
@@ -529,7 +516,7 @@ def test_e2e_sync_range_restores_steps_in_place(monkeypatch):
     monkeypatch.setattr("swanlab.sdk.internal.core_python.sync.Transport", make_transport)
     monkeypatch.setattr(
         "swanlab.sdk.internal.core_python.sync.stop_experiment",
-        lambda *args, **kwargs: stopped.append(args),
+        lambda *args, **kwargs: stopped.append((args, kwargs)),
     )
 
     sync_cmd.sync(
@@ -544,7 +531,9 @@ def test_e2e_sync_range_restores_steps_in_place(monkeypatch):
     )
 
     assert scalar_signatures(transports[0].records) == {("loss", 1), ("loss", 2), ("acc", 1), ("acc", 2)}
-    assert stopped == []
+    prepare.assert_called_once()
+    assert len(stopped) == 1
+    assert stopped[0][1]["state"] == RunState.RUN_STATE_FINISHED
 
 
 def test_e2e_sync_full_sync_still_reports_experiment_state(monkeypatch):

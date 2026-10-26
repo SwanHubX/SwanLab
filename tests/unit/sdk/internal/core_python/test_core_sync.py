@@ -19,7 +19,7 @@ from swanlab.sdk.internal.core_python.context import CoreConfig, CoreContext
 from swanlab.sdk.internal.core_python.metrics import RunMetrics
 from swanlab.sdk.internal.core_python.store import DataStoreWriter
 from swanlab.sdk.internal.core_python.sync import CoreSyncPython, SyncRangeFilter
-from swanlab.sdk.internal.core_python.utils import PrepareExperimentStartResult, resolve_existing_experiment
+from swanlab.sdk.internal.core_python.utils import PrepareExperimentStartResult
 from swanlab.utils.time import parse_timestamp_ns
 
 
@@ -340,6 +340,7 @@ def test_deliver_sync_flush_prepares_experiment_with_overrides(tmp_path: Path, m
     assert core._ctx.project == "demo"
     assert core._ctx.project_id == "project-id"
     assert core._ctx.experiment_id == "experiment-id"
+    assert core._new_experiment is True
     assert transports[0].tracker is core._tracker
     assert transports[0].started is True
     assert fake_executor.started is True
@@ -384,7 +385,8 @@ def test_deliver_sync_flush_returns_failure_when_prepare_fails(tmp_path: Path, m
     resp = core.deliver_sync_flush()
 
     assert resp.success is False
-    assert resp.message == "Failed to prepare sync experiment"
+    assert resp.message.startswith("Failed to prepare sync experiment")
+    assert "backend failed" in resp.message
 
 
 def test_deliver_sync_flush_returns_failure_when_metrics_init_fails(tmp_path: Path, monkeypatch):
@@ -523,10 +525,12 @@ def test_read_skips_invalid_protobuf_payload_and_continues(tmp_path: Path):
     ]
 
 
-def test_confirm_sync_finish_marks_missing_finish_record_as_crashed(tmp_path: Path, monkeypatch):
+def test_confirm_sync_finish_marks_new_experiment_as_crashed_without_finish_record(tmp_path: Path, monkeypatch):
+    """新建实验且没有 FinishRecord：按 CRASHED 收尾，但不注入伪造的错误日志。"""
     core = CoreSyncPython()
     core._ctx = CoreContext(config=make_core_config(tmp_path), mode="sync")
     core._ctx.set_online_params("alice", "demo", "project-id", None, "experiment-id")
+    core._new_experiment = True
     transport = FakeTransport(core._ctx)
     core._transport = transport  # type: ignore[assignment]
     core._read_executor = FakeExecutor()  # type: ignore[assignment]
@@ -541,8 +545,28 @@ def test_confirm_sync_finish_marks_missing_finish_record_as_crashed(tmp_path: Pa
     call_kwargs = stop_mock.call_args
     assert call_kwargs.kwargs["state"] == RunState.RUN_STATE_CRASHED
     assert transport.finished is True
-    assert [record_kind(record) for record in transport.records] == ["log"]
-    assert "before writing a finish record" in transport.records[0].log.line
+    assert transport.records == []
+
+
+def test_confirm_sync_finish_keeps_existing_experiment_running_without_finish_record(tmp_path: Path, monkeypatch):
+    """已存在的实验且没有 FinishRecord：只结束本次同步，保持 RUNNING。"""
+    core = CoreSyncPython()
+    core._ctx = CoreContext(config=make_core_config(tmp_path), mode="sync")
+    core._ctx.set_online_params("alice", "demo", "project-id", None, "experiment-id")
+    core._new_experiment = False
+    transport = FakeTransport(core._ctx)
+    core._transport = transport  # type: ignore[assignment]
+    core._read_executor = FakeExecutor()  # type: ignore[assignment]
+    core._reader = FakeReader([])  # type: ignore[assignment]
+    stop_mock = MagicMock()
+    monkeypatch.setattr("swanlab.sdk.internal.core_python.sync.stop_experiment", stop_mock)
+
+    resp = core.confirm_sync_finish()
+
+    assert resp.success is True
+    stop_mock.assert_not_called()
+    assert transport.finished is True
+    assert transport.records == []
 
 
 def test_confirm_sync_finish_uploads_error_log_for_failed_finish_record(tmp_path: Path, monkeypatch):
@@ -929,24 +953,6 @@ def test_queue_finish_records_skipped_in_range_mode(tmp_path: Path):
     assert transport.records == []
 
 
-def test_confirm_sync_finish_readonly_hit_keeps_experiment_state(tmp_path: Path, monkeypatch):
-    core = make_range_core(tmp_path, SyncRange(start_step=1))
-    core._in_place = True
-    core._readonly_hit = True
-    transport = FakeTransport(core._ctx)
-    core._transport = transport  # type: ignore[assignment]
-    core._read_executor = FakeExecutor()  # type: ignore[assignment]
-    core._reader = FakeReader([])  # type: ignore[assignment]
-    stop_mock = MagicMock()
-    monkeypatch.setattr("swanlab.sdk.internal.core_python.sync.stop_experiment", stop_mock)
-
-    resp = core.confirm_sync_finish()
-
-    assert resp.success is True
-    stop_mock.assert_not_called()
-    assert transport.finished is True
-
-
 def make_confirm_core(tmp_path: Path) -> CoreSyncPython:
     core = CoreSyncPython()
     core._ctx = CoreContext(config=make_core_config(tmp_path), mode="sync")
@@ -989,112 +995,15 @@ def test_confirm_sync_finish_in_place_reports_upload_failure(tmp_path: Path, mon
     stop_mock.assert_not_called()
 
 
-def test_resolve_existing_experiment_returns_existing_target(monkeypatch):
-    """命中已有实验时返回只读结果，调用方据此跳过创建/resume。"""
-    project_data = make_prepare_result().project_data
-    experiment = make_prepare_result(new_experiment=False).experiment
-    monkeypatch.setattr("swanlab.sdk.internal.core_python.utils.get_project", lambda **kwargs: project_data)
-    monkeypatch.setattr("swanlab.sdk.internal.core_python.utils.get_experiment", lambda *args: experiment)
-
-    result = resolve_existing_experiment(make_start_record())
-
-    assert result is not None
-    assert result.new_experiment is False
-    assert result.username == "alice"
-    assert result.project == "demo"
-    assert result.experiment["cuid"] == "experiment-id"
-
-
-def test_resolve_existing_experiment_falls_back_without_project(monkeypatch):
-    monkeypatch.setattr("swanlab.sdk.internal.core_python.utils.get_project", lambda **kwargs: None)
-
-    assert resolve_existing_experiment(make_start_record()) is None
-
-
-def test_resolve_existing_experiment_falls_back_without_experiment(monkeypatch):
-    monkeypatch.setattr(
-        "swanlab.sdk.internal.core_python.utils.get_project",
-        lambda **kwargs: make_prepare_result().project_data,
-    )
-    monkeypatch.setattr("swanlab.sdk.internal.core_python.utils.get_experiment", lambda *args: None)
-
-    assert resolve_existing_experiment(make_start_record()) is None
-
-
-def test_resolve_existing_experiment_rejects_missing_created_at(monkeypatch):
-    """实验存在但缺 createdAt 时必须失败：回退 POST 会把实验改回 RUNNING 后依然无法继续。"""
-    monkeypatch.setattr(
-        "swanlab.sdk.internal.core_python.utils.get_project",
-        lambda **kwargs: make_prepare_result().project_data,
-    )
-    monkeypatch.setattr(
-        "swanlab.sdk.internal.core_python.utils.get_experiment",
-        lambda *args: {"cuid": "experiment-id", "slug": "sync-run-id", "name": "synced-run"},
-    )
-
-    with pytest.raises(ValueError, match="createdAt"):
-        resolve_existing_experiment(make_start_record())
-
-
-def test_deliver_sync_flush_fails_before_post_without_created_at(tmp_path: Path, monkeypatch):
-    """目标实验存在但缺 createdAt 时必须在 POST 之前失败，否则 upsert 会把实验改回 RUNNING。"""
+def test_deliver_sync_flush_range_resumes_existing_experiment(tmp_path: Path, monkeypatch):
+    """范围同步也统一走创建/恢复流程，已有实验由 Server 执行 resume。"""
     core = CoreSyncPython()
     core._ctx = CoreContext(config=make_core_config(tmp_path), mode="sync")
     core._start_record = make_start_record()
     core._start_request = make_start_request(tmp_path, range=SyncRange(start_step=1))
     core._filter = SyncRangeFilter.from_proto(SyncRange(start_step=1))
-    monkeypatch.setattr(
-        "swanlab.sdk.internal.core_python.utils.get_project",
-        lambda **kwargs: make_prepare_result().project_data,
-    )
-    monkeypatch.setattr(
-        "swanlab.sdk.internal.core_python.utils.get_experiment",
-        lambda *args: {"cuid": "experiment-id", "slug": "sync-run-id", "name": "synced-run"},
-    )
-    prepare = MagicMock()
+    prepare = MagicMock(return_value=make_prepare_result(new_experiment=False))
     monkeypatch.setattr("swanlab.sdk.internal.core_python.sync.prepare_experiment_start", prepare)
-
-    resp = core.deliver_sync_flush()
-
-    assert resp.success is False
-    assert "createdAt" in resp.message
-    prepare.assert_not_called()
-
-
-def test_deliver_sync_flush_does_not_post_when_resolve_fails(tmp_path: Path, monkeypatch):
-    """只读查询异常时直接失败，不能回退 POST 触发 resume。"""
-    core = CoreSyncPython()
-    core._ctx = CoreContext(config=make_core_config(tmp_path), mode="sync")
-    core._start_record = make_start_record()
-    core._start_request = make_start_request(tmp_path, range=SyncRange(start_step=1))
-    core._filter = SyncRangeFilter.from_proto(SyncRange(start_step=1))
-    monkeypatch.setattr(
-        "swanlab.sdk.internal.core_python.sync.resolve_existing_experiment",
-        MagicMock(side_effect=RuntimeError("boom")),
-    )
-    monkeypatch.setattr("swanlab.sdk.internal.core_python.sync.console.trace", MagicMock())
-    prepare = MagicMock()
-    monkeypatch.setattr("swanlab.sdk.internal.core_python.sync.prepare_experiment_start", prepare)
-
-    resp = core.deliver_sync_flush()
-
-    assert resp.success is False
-    assert "resolve" in resp.message
-    prepare.assert_not_called()
-
-
-def test_confirm_sync_finish_stops_experiment_when_resolve_falls_back(tmp_path: Path, monkeypatch):
-    """只读解析落空但 POST 命中已有实验时，结束阶段必须补写状态，避免实验卡在 RUNNING。"""
-    core = CoreSyncPython()
-    core._ctx = CoreContext(config=make_core_config(tmp_path), mode="sync")
-    core._start_record = make_start_record()
-    core._start_request = make_start_request(tmp_path, range=SyncRange(start_step=1))
-    core._filter = SyncRangeFilter.from_proto(SyncRange(start_step=1))
-    monkeypatch.setattr("swanlab.sdk.internal.core_python.sync.resolve_existing_experiment", lambda record: None)
-    monkeypatch.setattr(
-        "swanlab.sdk.internal.core_python.sync.prepare_experiment_start",
-        MagicMock(return_value=make_prepare_result(new_experiment=False)),
-    )
     monkeypatch.setattr(
         "swanlab.sdk.internal.core_python.sync.get_experiment_summary",
         MagicMock(return_value={"log": None, "media": None, "scalar": None}),
@@ -1107,16 +1016,11 @@ def test_confirm_sync_finish_stops_experiment_when_resolve_falls_back(tmp_path: 
         lambda ctx, tracker=None: FakeTransport(ctx, tracker),
     )
     core._read_executor = FakeExecutor()  # type: ignore[assignment]
-    stop_mock = MagicMock()
-    monkeypatch.setattr("swanlab.sdk.internal.core_python.sync.stop_experiment", stop_mock)
 
     assert core.deliver_sync_flush().success is True
+    prepare.assert_called_once()
+    assert core._new_experiment is False
     assert core._in_place is True
-    assert core._readonly_hit is False
-
-    core._reader = FakeReader([])  # type: ignore[assignment]
-    assert core.confirm_sync_finish().success is True
-    stop_mock.assert_called_once()
 
 
 # ============================================================
