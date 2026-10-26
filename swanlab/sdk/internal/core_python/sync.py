@@ -35,7 +35,7 @@ from swanlab.sdk.internal.core_python.utils import (
     PrepareExperimentStartResult,
     generate_run_online_path,
     prepare_experiment_start,
-    resolve_resumed_experiment,
+    resolve_existing_experiment,
 )
 from swanlab.sdk.internal.pkg import adapter, console, executor, safe
 from swanlab.sdk.protocol.core import CoreSyncProtocol
@@ -145,7 +145,7 @@ class CoreSyncPython(CoreSyncProtocol):
                 start_record.id = self._start_request.id
             # 范围回填优先只读解析目标实验，避免 POST upsert 触发 resume 改写实验生命周期
             if self._filter.enabled:
-                result = resolve_resumed_experiment(start_record)
+                result = resolve_existing_experiment(start_record)
             if result is None:
                 # sync 实验统一开启宽松resume限制，resume设置为allow，后端自动创建新实验
                 start_record.resume = ResumeMode.RESUME_MODE_ALLOW

@@ -6,10 +6,9 @@
 """
 
 import math
-import re
-from datetime import datetime, timedelta, timezone, tzinfo
+from datetime import datetime, timezone
 from decimal import ROUND_HALF_EVEN, Decimal, InvalidOperation
-from typing import Optional, Union
+from typing import Union
 
 __all__ = [
     "TIMESTAMP_S_MAX",
@@ -17,7 +16,6 @@ __all__ = [
     "NANOSECONDS_PER_SECOND",
     "parse_timestamp_s",
     "parse_timestamp_ns",
-    "parse_timezone",
 ]
 
 # 秒级 Unix 时间戳的合法区间（10 位）
@@ -26,8 +24,6 @@ TIMESTAMP_S_MAX = 9_999_999_999
 
 NANOSECONDS_PER_SECOND = 1_000_000_000
 
-_UTC_NAMES = frozenset({"UTC", "Z", "GMT", "UCT", "UNIVERSAL"})
-_OFFSET_RE = re.compile(r"^([+-])(\d{1,2})(?::?(\d{2}))?$")
 _EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
 
 
@@ -66,51 +62,7 @@ def parse_timestamp_s(value: Union[int, str]) -> int:
     return value
 
 
-def parse_timezone(value: Optional[Union[str, tzinfo]]) -> Optional[tzinfo]:
-    """解析时区参数，返回 ``tzinfo``；``None`` 表示使用系统本地时区。
-
-    支持格式：
-    - ``None``：跟随系统本地时区
-    - ``tzinfo`` 实例：原样返回
-    - ``"UTC"`` / ``"Z"`` / ``"GMT"``：UTC
-    - UTC 偏移：``"+08:00"``、``"-0530"``、``"+8"``
-    - IANA 时区名：``"Asia/Shanghai"``（依赖系统时区数据库，Windows 无 tzdata 时请改用偏移）
-
-    :raises ValueError: 时区为空、格式非法或 IANA 时区不存在时抛出
-    """
-    if value is None:
-        return None
-    if isinstance(value, tzinfo):
-        return value
-    if not isinstance(value, str):
-        raise TypeError(f"Unsupported timezone type: {type(value).__name__}")
-    text = value.strip()
-    if not text:
-        raise ValueError("timezone must not be an empty string")
-    if text.upper() in _UTC_NAMES:
-        return timezone.utc
-    matched = _OFFSET_RE.match(text)
-    if matched:
-        sign = -1 if matched.group(1) == "-" else 1
-        hours, minutes = int(matched.group(2)), int(matched.group(3) or 0)
-        if hours > 23 or minutes > 59:
-            raise ValueError(f"Invalid UTC offset: {text!r}")
-        return timezone(timedelta(hours=hours, minutes=minutes) * sign)
-    try:
-        from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
-    except ImportError as exc:  # pragma: no cover - Python 3.9+ 自带 zoneinfo
-        raise ValueError(
-            f"Timezone database is unavailable, use a UTC offset like '+08:00' instead of {text!r}"
-        ) from exc
-    try:
-        return ZoneInfo(text)
-    except (ZoneInfoNotFoundError, ValueError, OSError) as exc:
-        raise ValueError(
-            f"Unknown timezone {text!r}. Use an IANA name like 'Asia/Shanghai' or a UTC offset like '+08:00'."
-        ) from exc
-
-
-def parse_timestamp_ns(value: Union[int, float, str, datetime], *, tz: Optional[tzinfo] = None) -> int:
+def parse_timestamp_ns(value: Union[int, float, str, datetime]) -> int:
     """将时间统一转换为纳秒级 Unix 时间戳，用于 ``swanlab sync`` 的时间范围过滤。
 
     支持格式：
@@ -119,17 +71,16 @@ def parse_timestamp_ns(value: Union[int, float, str, datetime], *, tz: Optional[
     - ISO 8601 字符串：如 ``"2024-08-01T00:00:00Z"``、``"2024-08-01 08:00:00"``，也支持纯日期
     - ``datetime``：直接取时间戳
 
-    不带时区的字符串和 ``datetime`` 按 *tz* 解析；*tz* 为 ``None`` 时跟随**系统本地时区**，
-    与用户在终端输入墙上时间的习惯一致。带时区的输入始终以输入自带的时区为准。
+    不带时区的字符串和 ``datetime`` 按**系统本地时区**解析，与用户在终端输入墙上时间的习惯一致；
+    带时区的输入始终以输入自带的时区为准。
 
     :param value: 待解析的时间
-    :param tz: 无时区输入所使用的时区，``None`` 表示系统本地时区
     :raises ValueError: 值为空、无法解析、非正数或非有限数字时抛出
     """
     if isinstance(value, bool):
         raise TypeError("bool is not a valid timestamp")
     if isinstance(value, datetime):
-        return _datetime_timestamp_ns(value, tz)
+        return _datetime_timestamp_ns(value)
     if isinstance(value, (int, float)):
         return _numeric_timestamp_ns(value)
     if isinstance(value, str):
@@ -146,20 +97,20 @@ def parse_timestamp_ns(value: Union[int, float, str, datetime], *, tz: Optional[
                     dt = datetime.fromisoformat(text.replace("Z", "+00:00"))
                 except ValueError as exc:
                     raise ValueError(f"Invalid ISO 8601 timestamp: {text!r}") from exc
-                return _datetime_timestamp_ns(dt, tz)
+                return _datetime_timestamp_ns(dt)
         return _numeric_timestamp_ns(seconds)
     raise TypeError(f"Unsupported timestamp type: {type(value).__name__}")
 
 
-def _datetime_timestamp_ns(value: datetime, tz: Optional[tzinfo]) -> int:
+def _datetime_timestamp_ns(value: datetime) -> int:
     """把 datetime 转换为纳秒时间戳。
 
     使用整数时间差而非 ``timestamp() * 1e9``，避免浮点在亚秒位上产生 ns 级误差，
     否则闭区间端点上的记录会被过滤器判到范围外。
     """
     if value.tzinfo is None:
-        # 无时区输入：显式时区优先，否则按系统本地时区解释，与终端输入习惯一致
-        value = value.replace(tzinfo=tz) if tz is not None else value.astimezone()
+        # 无时区输入按系统本地时区解释，与终端输入习惯一致
+        value = value.astimezone()
     delta = value - _EPOCH
     return (delta.days * 86400 + delta.seconds) * NANOSECONDS_PER_SECOND + delta.microseconds * 1000
 

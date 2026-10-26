@@ -6,7 +6,7 @@
 """
 
 import os
-from datetime import datetime, timezone, tzinfo
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, Union
 
@@ -30,15 +30,12 @@ from swanlab.sdk.internal.run.progress import run_with_progress
 from swanlab.sdk.internal.settings import Settings, create_settings
 from swanlab.sdk.protocol.core import CoreSyncProtocol
 from swanlab.utils.experiment import generate_id
-from swanlab.utils.time import parse_timestamp_ns, parse_timezone
+from swanlab.utils.time import parse_timestamp_ns
 
 __all__ = ["sync", "ensure_run_dir"]
 
 TimeLike = Union[int, float, str, datetime]
 """sync 范围同步允许的时间输入：Unix 时间戳（秒/毫秒）、ISO 8601 字符串或 datetime。"""
-
-TimezoneLike = Union[str, tzinfo]
-"""sync 范围同步允许的时区输入：IANA 时区名、UTC 偏移或 tzinfo。"""
 
 
 def sync(
@@ -49,7 +46,6 @@ def sync(
     step_end: Optional[int] = None,
     start_time: Optional[TimeLike] = None,
     end_time: Optional[TimeLike] = None,
-    timezone: Optional[TimezoneLike] = None,
 ):
     """Synchronize local SwanLab run data to the cloud.
 
@@ -68,22 +64,18 @@ def sync(
     :param settings: Optional sync configuration, including API key, host, workspace, project, and run options. Uses default Settings if not provided.
     :param step_start: Only sync scalar/media records whose step is >= this value.
     :param step_end: Only sync scalar/media records whose step is <= this value.
-    :param start_time: Only sync records at or after this time.
-    :param end_time: Only sync records at or before this time.
-    :param timezone: Timezone used to interpret and display times without an explicit
-        offset, e.g. ``"Asia/Shanghai"`` or ``"+08:00"``. Defaults to the system timezone.
-        Inputs that already carry an offset (e.g. ``"2026-10-20T10:00:00Z"``) keep their own.
+    :param start_time: Only sync records at or after this time. Times without an offset
+        are interpreted in the system local timezone.
+    :param end_time: Only sync records at or before this time. Same as ``start_time``.
     """
     if not isinstance(run_dir, Path):
         run_dir = Path(run_dir)
     # 0. 构建范围过滤器，参数非法时直接失败，避免创建实验后才发现问题
-    tz = parse_timezone(timezone)
     sync_range = build_sync_range(
         step_start=step_start,
         step_end=step_end,
         start_time=start_time,
         end_time=end_time,
-        timezone=tz,
     )
     # 1. settings 合并，并做业务层额外参数限制
     sync_settings = create_settings()
@@ -103,7 +95,7 @@ def sync(
     assert client.exists()
 
     if sync_range is not None:
-        console.info(f"Syncing records in {format_sync_range(sync_range, timezone=tz)}")
+        console.info(f"Syncing records in {format_sync_range(sync_range)}")
 
     # 3. 初始化core sync对象，并启动sync
     core = impl.create_core_sync()
@@ -144,9 +136,11 @@ def build_sync_range(
     step_end: Optional[int] = None,
     start_time: Optional[TimeLike] = None,
     end_time: Optional[TimeLike] = None,
-    timezone: Optional[TimezoneLike] = None,
 ) -> Optional[SyncRange]:
-    """构建范围同步协议对象，所有参数为空时返回 None，表示全量同步。"""
+    """构建范围同步协议对象，所有参数为空时返回 None，表示全量同步。
+
+    不带时区的时间按系统本地时区解释。
+    """
     if step_start is None and step_end is None and start_time is None and end_time is None:
         return None
     if step_start is not None and step_start < 0:
@@ -156,47 +150,45 @@ def build_sync_range(
     if step_start is not None and step_end is not None and step_start > step_end:
         raise ValueError("step_start must be less than or equal to step_end")
 
-    tz = parse_timezone(timezone)
     sync_range = SyncRange()
     if step_start is not None:
         sync_range.start_step = step_start
     if step_end is not None:
         sync_range.end_step = step_end
     if start_time is not None:
-        _set_timestamp(sync_range.start_time, start_time, tz)
+        _set_timestamp(sync_range.start_time, start_time)
     if end_time is not None:
-        _set_timestamp(sync_range.end_time, end_time, tz)
+        _set_timestamp(sync_range.end_time, end_time)
     if start_time is not None and end_time is not None:
         if sync_range.start_time.ToNanoseconds() > sync_range.end_time.ToNanoseconds():
             raise ValueError("start_time must be earlier than or equal to end_time")
     return sync_range
 
 
-def format_sync_range(sync_range: SyncRange, *, timezone: Optional[TimezoneLike] = None) -> str:
-    """将范围同步配置格式化为可读文本，用于终端提示。"""
-    tz = parse_timezone(timezone)
+def format_sync_range(sync_range: SyncRange) -> str:
+    """将范围同步配置格式化为可读文本，用于终端提示（按系统本地时区展示）。"""
     parts = []
     if sync_range.HasField("start_step") or sync_range.HasField("end_step"):
         start = str(sync_range.start_step) if sync_range.HasField("start_step") else "*"
         end = str(sync_range.end_step) if sync_range.HasField("end_step") else "*"
         parts.append(f"step {start}..{end}")
     if sync_range.HasField("start_time") or sync_range.HasField("end_time"):
-        start = _format_time(sync_range.start_time, tz) if sync_range.HasField("start_time") else "*"
-        end = _format_time(sync_range.end_time, tz) if sync_range.HasField("end_time") else "*"
+        start = _format_time(sync_range.start_time) if sync_range.HasField("start_time") else "*"
+        end = _format_time(sync_range.end_time) if sync_range.HasField("end_time") else "*"
         parts.append(f"time {start}..{end}")
     return ", ".join(parts)
 
 
-def _set_timestamp(target: Timestamp, value: TimeLike, tz: Optional[tzinfo]) -> None:
+def _set_timestamp(target: Timestamp, value: TimeLike) -> None:
     try:
-        target.FromNanoseconds(parse_timestamp_ns(value, tz=tz))
+        target.FromNanoseconds(parse_timestamp_ns(value))
     except (TypeError, ValueError) as e:
         raise ValueError(f"Invalid time value {value!r}: {e}") from e
 
 
-def _format_time(ts: Timestamp, tz: Optional[tzinfo]) -> str:
+def _format_time(ts: Timestamp) -> str:
     dt = ts.ToDatetime().replace(tzinfo=timezone.utc)
-    return (dt.astimezone(tz) if tz is not None else dt.astimezone()).strftime("%Y-%m-%d %H:%M:%S")
+    return dt.astimezone().strftime("%Y-%m-%d %H:%M:%S")
 
 
 @utils.with_loading_animation("Starting core to sync data...")

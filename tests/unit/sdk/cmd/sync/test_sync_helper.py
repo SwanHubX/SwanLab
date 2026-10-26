@@ -41,20 +41,6 @@ def test_build_sync_range_formats_bounds():
     assert format_sync_range(sync_range) == "step 10..*, time 2026-10-20 10:00:00..*"
 
 
-def test_build_sync_range_uses_given_timezone():
-    sync_range = build_sync_range(start_time="2024-08-01 00:00:00", timezone="+08:00")
-
-    assert sync_range is not None
-    assert sync_range.start_time.ToNanoseconds() == 1722441600 * 1_000_000_000
-
-
-def test_format_sync_range_displays_in_given_timezone():
-    sync_range = build_sync_range(start_time="2024-08-01 00:00:00", timezone="+08:00")
-
-    assert sync_range is not None
-    assert format_sync_range(sync_range, timezone="UTC") == "time 2024-07-31 16:00:00..*"
-
-
 @pytest.mark.parametrize(
     "kwargs",
     [
@@ -72,11 +58,6 @@ def test_build_sync_range_rejects_invalid_bounds(kwargs):
 def test_sync_rejects_invalid_range_before_authentication(tmp_path):
     with pytest.raises(ValueError, match="step_start"):
         sync(tmp_path, settings=Settings(), step_start=10, step_end=5)
-
-
-def test_sync_rejects_invalid_timezone_before_authentication(tmp_path):
-    with pytest.raises(ValueError, match="timezone"):
-        sync(tmp_path, settings=Settings(), start_time="2024-08-01 00:00:00", timezone="bad/zone")
 
 
 def test_ensure_run_dir_ok(tmp_path):

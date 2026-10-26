@@ -83,7 +83,8 @@ from swanlab.sdk import sync as sync_cmd
     type=str,
     help=(
         "Only sync records at or after this time. Accepts ISO 8601 (e.g. '2026-10-20 10:00:00') "
-        "or a Unix timestamp in seconds/milliseconds. Times without offset use --timezone."
+        "or a Unix timestamp in seconds/milliseconds. Times without offset use the system "
+        "local timezone."
     ),
 )
 @click.option(
@@ -91,16 +92,6 @@ from swanlab.sdk import sync as sync_cmd
     default=None,
     type=str,
     help="Only sync records at or before this time. Same formats as --start-time.",
-)
-@click.option(
-    "--timezone",
-    "--tz",
-    default=None,
-    type=str,
-    help=(
-        "Timezone for interpreting and displaying times without an offset, e.g. 'Asia/Shanghai' "
-        "or '+08:00'. Defaults to the system timezone of this machine."
-    ),
 )
 def sync(
     path: Tuple[str],
@@ -113,15 +104,14 @@ def sync(
     step_end: Optional[int],
     start_time: Optional[str],
     end_time: Optional[str],
-    timezone: Optional[str],
 ):
     """Synchronize local logs to the cloud.
 
     Passing any of --step-start/--step-end/--start-time/--end-time enables range
     sync, which only replays records inside the window. Combine it with --id of an
     existing run to restore that period in place; the experiment lifecycle state is
-    then left untouched. Times without an explicit offset follow --timezone (system
-    local time by default).
+    then left untouched. Times without an explicit offset use the system local
+    timezone.
     """
     model = pkg.helper.strip_none(
         {
@@ -142,5 +132,4 @@ def sync(
             step_end=step_end,
             start_time=start_time,
             end_time=end_time,
-            timezone=timezone,
         )

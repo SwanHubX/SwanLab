@@ -49,21 +49,7 @@ def test_sync_cli_forwards_range_options(tmp_path, monkeypatch):
         "step_end": 20,
         "start_time": "2026-10-20 10:00:00",
         "end_time": "2026-10-20 12:00:00",
-        "timezone": None,
     }
-
-
-def test_sync_cli_forwards_timezone(tmp_path, monkeypatch):
-    calls = []
-    monkeypatch.setattr(sync_module, "sync_cmd", lambda path, settings, **kwargs: calls.append(kwargs))
-
-    result = CliRunner().invoke(
-        sync_cli,
-        [str(tmp_path), "--start-time", "2026-10-20 10:00:00", "--timezone", "Asia/Shanghai"],
-    )
-
-    assert result.exit_code == 0, result.output
-    assert calls[0]["timezone"] == "Asia/Shanghai"
 
 
 def test_sync_cli_without_range_passes_none(tmp_path, monkeypatch):
@@ -78,7 +64,6 @@ def test_sync_cli_without_range_passes_none(tmp_path, monkeypatch):
         "step_end": None,
         "start_time": None,
         "end_time": None,
-        "timezone": None,
     }
 
 

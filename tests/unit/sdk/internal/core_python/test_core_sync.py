@@ -20,7 +20,7 @@ from swanlab.sdk.internal.core_python.metrics import RunMetrics
 from swanlab.sdk.internal.core_python.store import DataStoreWriter
 from swanlab.sdk.internal.core_python.sync import CoreSyncPython
 from swanlab.sdk.internal.core_python.sync_range import SyncRangeFilter
-from swanlab.sdk.internal.core_python.utils import PrepareExperimentStartResult, resolve_resumed_experiment
+from swanlab.sdk.internal.core_python.utils import PrepareExperimentStartResult, resolve_existing_experiment
 
 
 def make_timestamp() -> Timestamp:
@@ -985,14 +985,14 @@ def test_confirm_sync_finish_in_place_reports_upload_failure(tmp_path: Path, mon
     stop_mock.assert_not_called()
 
 
-def test_resolve_replay_experiment_returns_existing_target(monkeypatch):
+def test_resolve_existing_experiment_returns_existing_target(monkeypatch):
     """命中已有实验时返回只读结果，调用方据此跳过创建/resume。"""
     project_data = make_prepare_result().project_data
     experiment = make_prepare_result(new_experiment=False).experiment
     monkeypatch.setattr("swanlab.sdk.internal.core_python.utils.get_project", lambda **kwargs: project_data)
     monkeypatch.setattr("swanlab.sdk.internal.core_python.utils.get_experiment", lambda *args: experiment)
 
-    result = resolve_resumed_experiment(make_start_record())
+    result = resolve_existing_experiment(make_start_record())
 
     assert result is not None
     assert result.new_experiment is False
@@ -1001,23 +1001,23 @@ def test_resolve_replay_experiment_returns_existing_target(monkeypatch):
     assert result.experiment["cuid"] == "experiment-id"
 
 
-def test_resolve_replay_experiment_falls_back_without_project(monkeypatch):
+def test_resolve_existing_experiment_falls_back_without_project(monkeypatch):
     monkeypatch.setattr("swanlab.sdk.internal.core_python.utils.get_project", lambda **kwargs: None)
 
-    assert resolve_resumed_experiment(make_start_record()) is None
+    assert resolve_existing_experiment(make_start_record()) is None
 
 
-def test_resolve_replay_experiment_falls_back_without_experiment(monkeypatch):
+def test_resolve_existing_experiment_falls_back_without_experiment(monkeypatch):
     monkeypatch.setattr(
         "swanlab.sdk.internal.core_python.utils.get_project",
         lambda **kwargs: make_prepare_result().project_data,
     )
     monkeypatch.setattr("swanlab.sdk.internal.core_python.utils.get_experiment", lambda *args: None)
 
-    assert resolve_resumed_experiment(make_start_record()) is None
+    assert resolve_existing_experiment(make_start_record()) is None
 
 
-def test_resolve_replay_experiment_falls_back_without_created_at(monkeypatch):
+def test_resolve_existing_experiment_falls_back_without_created_at(monkeypatch):
     """老后端缺少 createdAt 时退回常规流程，避免 resume 摘要查询拿不到下界。"""
     monkeypatch.setattr(
         "swanlab.sdk.internal.core_python.utils.get_project",
@@ -1028,4 +1028,4 @@ def test_resolve_replay_experiment_falls_back_without_created_at(monkeypatch):
         lambda *args: {"cuid": "experiment-id", "slug": "sync-run-id", "name": "synced-run"},
     )
 
-    assert resolve_resumed_experiment(make_start_record()) is None
+    assert resolve_existing_experiment(make_start_record()) is None

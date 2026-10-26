@@ -74,7 +74,7 @@ def prepare_experiment_start(record: StartRecord) -> PrepareExperimentStartResul
     )
 
 
-def resolve_resumed_experiment(record: StartRecord) -> Optional[PrepareExperimentStartResult]:
+def resolve_existing_experiment(record: StartRecord) -> Optional[PrepareExperimentStartResult]:
     """
     只读解析范围回填的目标实验，不产生任何服务端副作用。
 

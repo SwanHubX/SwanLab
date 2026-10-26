@@ -5,14 +5,14 @@
 @description: sync 范围过滤器与时间解析测试
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 import pytest
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.proto.swanlab.grpc.core.v1.sync_pb2 import SyncRange
 from swanlab.sdk.internal.core_python.sync_range import SyncRangeFilter
-from swanlab.utils.time import parse_timestamp_ns, parse_timezone
+from swanlab.utils.time import parse_timestamp_ns
 
 
 def make_timestamp(seconds: int, nanos: int = 0) -> Timestamp:
@@ -107,44 +107,6 @@ def test_parse_timestamp_ns_rejects_invalid_values(value):
 def test_parse_timestamp_ns_rejects_bool():
     with pytest.raises(TypeError):
         parse_timestamp_ns(True)
-
-
-def test_parse_timezone_supports_utc_and_offsets():
-    assert parse_timezone(None) is None
-    assert parse_timezone("UTC") is timezone.utc
-    assert parse_timezone("Z") is timezone.utc
-    assert parse_timezone("+08:00") == timezone(timedelta(hours=8))
-    assert parse_timezone("-0530") == timezone(timedelta(hours=-5, minutes=-30))
-    assert parse_timezone("+8") == timezone(timedelta(hours=8))
-
-
-def test_parse_timezone_rejects_invalid_values():
-    for value in ("", "+25:00", "+08:70", "not/a-timezone"):
-        with pytest.raises(ValueError):
-            parse_timezone(value)
-
-
-def test_parse_timezone_supports_iana_names():
-    try:
-        parsed = parse_timezone("Asia/Shanghai")
-    except ValueError:
-        pytest.skip("system timezone database is unavailable")
-    assert parsed is not None
-    assert parsed.utcoffset(datetime(2024, 8, 1)) == timedelta(hours=8)
-
-
-def test_parse_timestamp_ns_applies_given_timezone():
-    expected = 1722441600 * 1_000_000_000  # 2024-08-01T00:00:00+08:00
-
-    assert parse_timestamp_ns("2024-08-01 00:00:00", tz=timezone(timedelta(hours=8))) == expected
-    assert parse_timestamp_ns(datetime(2024, 8, 1, 0, 0, 0), tz=timezone(timedelta(hours=8))) == expected
-
-
-def test_parse_timestamp_ns_keeps_explicit_offset():
-    expected = 1722470400 * 1_000_000_000  # 2024-08-01T00:00:00Z
-
-    # 输入自带时区时，tz 参数不覆盖输入
-    assert parse_timestamp_ns("2024-08-01T00:00:00Z", tz=timezone(timedelta(hours=8))) == expected
 
 
 def test_parse_timestamp_ns_keeps_subsecond_precision():
