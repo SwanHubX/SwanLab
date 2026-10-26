@@ -25,7 +25,7 @@ from swanlab.sdk.internal.core_python.sync import CoreSyncPython
 from swanlab.sdk.internal.core_python.transport import Transport
 from swanlab.sdk.internal.core_python.transport.sender import HttpRecordSender
 from swanlab.sdk.internal.core_python.utils import PrepareExperimentStartResult
-from swanlab.utils.time import parse_timestamp_ns
+from swanlab.utils.time import parse_cli_timestamp_ns
 
 
 def make_timestamp() -> Timestamp:
@@ -1100,7 +1100,7 @@ def test_filter_combines_step_and_time():
 
 def test_filter_keeps_subsecond_endpoint():
     """从同一字面量解析出的时间戳必须命中它自己构成的闭区间。"""
-    instant = parse_timestamp_ns("2024-08-01T00:00:00.000001Z")
+    instant = parse_cli_timestamp_ns("2024-08-01T00:00:00.000001Z")
     timestamp = Timestamp()
     timestamp.FromNanoseconds(instant)
 

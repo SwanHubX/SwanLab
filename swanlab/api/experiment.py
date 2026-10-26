@@ -38,7 +38,7 @@ from swanlab.api.typings.experiment import (
 )
 from swanlab.api.typings.user import ApiUserType
 from swanlab.sdk.internal.pkg import console
-from swanlab.utils.time import parse_timestamp_s
+from swanlab.utils.time import parse_resp_timestamp_s
 
 if TYPE_CHECKING:
     from swanlab.api.series import Series
@@ -180,7 +180,7 @@ class Experiment(BaseEntity):
         if self._load_error is not None:
             raise ValueError(f"Failed to load experiment '{self._proj_path}/{self._run_slug}': {self._load_error}")
         try:
-            return parse_timestamp_s(data.get("createdAt", ""))
+            return parse_resp_timestamp_s(data.get("createdAt", ""))
         except ValueError as e:
             raise ValueError(
                 f"Failed to parse createdAt of experiment '{self._proj_path}/{self._run_slug}': {e}"

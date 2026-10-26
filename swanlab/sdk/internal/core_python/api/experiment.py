@@ -18,7 +18,7 @@ from swanlab.sdk.typings.core_python.api.experiment import (
     ResumeExperimentSummaryType,
 )
 from swanlab.sdk.typings.run import ResumeType
-from swanlab.utils.time import parse_timestamp_s
+from swanlab.utils.time import parse_resp_timestamp_s
 
 
 def create_or_resume_experiment(
@@ -104,7 +104,7 @@ def get_experiment_summary(
     :param created_at: 实验创建时间（ISO 8601 字符串或秒/毫秒时间戳），作为数据入库时间的查询下界
     :raises ValueError: created_at 缺失或无法解析时抛出，避免回退到全历史扫描导致慢查询
     """
-    ts = parse_timestamp_s(created_at)
+    ts = parse_resp_timestamp_s(created_at)
     resp = client.get(f"/house/metrics/summaries/{project_id}/{experiment_id}", {"all": True, "createdAt": ts})
     return resp.data
 

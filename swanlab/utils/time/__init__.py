@@ -17,8 +17,8 @@ __all__ = [
     "TIMESTAMP_S_MAX",
     "TIMESTAMP_S_MIN",
     "NANOSECONDS_PER_SECOND",
-    "parse_timestamp_s",
-    "parse_timestamp_ns",
+    "parse_resp_timestamp_s",
+    "parse_cli_timestamp_ns",
     "format_time",
     "set_timestamp",
 ]
@@ -35,18 +35,12 @@ _EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
 TimeLike = Union[int, float, str, datetime]
 
 
-def parse_timestamp_s(value: Union[int, str]) -> int:
-    """解析 OpenAPI/House 返回的 ``createdAt`` 参数为秒级 Unix 时间戳（10 位）。
+def parse_resp_timestamp_s(value: Union[int, str]) -> int:
+    """解析响应体中的时间戳为秒级 Unix 时间戳。
 
-    无时区 ISO 时间按 UTC 解释；带时区输入按其 offset 解释。此函数保留
-    OpenAPI 使用的 Unix 秒/毫秒归一化和合法时间范围。
+    支持秒/毫秒级数字时间戳和 ISO 8601 字符串；无时区字符串按 UTC 解释。
 
-    支持格式：
-    - int / 数字字符串：秒（10 位）或毫秒（13 位）级时间戳，自动归一化为秒
-    - ISO 8601 字符串：如 ``"2024-08-01T00:00:00Z"``、``"2024-08-01T08:00:00+08:00"``，无时区时按 UTC 解析
-
-    :raises ValueError: ``value`` 为 None、空字符串、无法解析、非正数或越出合法区间时抛出；
-        不做默认值回退，避免 House 退化为全历史扫描（慢查询）
+    :raises ValueError: 值为空、无法解析、非正数或越界时抛出
     """
     if value is None:
         raise ValueError("timestamp value is required, got None")
@@ -73,27 +67,14 @@ def parse_timestamp_s(value: Union[int, str]) -> int:
     return value
 
 
-def parse_timestamp_ns(value: TimeLike) -> int:
-    """解析 CLI 层级时间范围为纳秒级 Unix 时间戳。
+def parse_cli_timestamp_ns(value: TimeLike) -> int:
+    """解析 CLI 输入的时间为纳秒级 Unix 时间戳。
 
-    无时区字符串和 naive ``datetime`` 按系统本地时区解释；带时区输入按其
-    offset 解释。与 :func:`parse_timestamp_s` 的 UTC naive 语义不同，这是 CLI
-    按调用方本地时钟输入范围约定。
+    支持 int / float / 数字字符串 / ISO 8601 字符串 / datetime；
+    无时区字符串和 naive datetime 按系统本地时区解释。
 
-    支持格式：
-    - int / float：秒级或毫秒级 Unix 时间戳，大于 10 位时自动按毫秒归一化为秒
-    - 数字字符串：同上
-    - ISO 8601 字符串：如 ``"2024-08-01T00:00:00Z"``、``"2024-08-01 08:00:00"``，也支持纯日期
-    - ``datetime``：直接取时间戳
-
-    不带时区的字符串和 ``datetime`` 按**系统本地时区**解析，与用户在终端输入墙上时间的习惯一致；
-    带时区的输入始终以输入自带的时区为准。
-
-    合法区间与 :func:`parse_timestamp_s` 一致（约 2001-09-09 ~ 2286-11-20），
-    用于拦截漏写分隔符的日期（如 ``20261020`` 会被当作秒解析成 1970 年）。
-
-    :param value: 待解析的时间
-    :raises ValueError: 值为空、无法解析、非正数、非有限数字或越出合法区间时抛出
+    :raises TypeError: 输入类型不支持时抛出
+    :raises ValueError: 值为空、无法解析、非有限数字或越界时抛出
     """
     if isinstance(value, bool):
         raise TypeError("bool is not a valid timestamp")
@@ -121,13 +102,9 @@ def parse_timestamp_ns(value: TimeLike) -> int:
 
 
 def _datetime_timestamp_ns(value: datetime) -> int:
-    """把 datetime 转换为纳秒时间戳。
-
-    使用整数时间差而非 ``timestamp() * 1e9``，避免浮点在亚秒位上产生 ns 级误差，
-    否则闭区间端点上的记录会被过滤器判到范围外。
-    """
+    """把 datetime 转为纳秒时间戳，用整数时间差避免亚秒精度损失。"""
     if value.tzinfo is None:
-        # 无时区输入按系统本地时区解释，与终端输入习惯一致
+        # 无时区按本地时区解释
         value = value.astimezone()
     delta = value - _EPOCH
     ns = (delta.days * 86400 + delta.seconds) * NANOSECONDS_PER_SECOND + delta.microseconds * 1000
@@ -137,31 +114,27 @@ def _datetime_timestamp_ns(value: datetime) -> int:
 
 
 def _numeric_timestamp_ns(value: Union[int, float]) -> int:
-    """把秒/毫秒级数字时间戳归一化为纳秒。
-
-    使用 ``Decimal`` 做整数标度换算，避免 ``value / 1000`` 与 ``* 1e9`` 的浮点误差
-    （整数毫秒时间戳经浮点归一化后可能偏出数十到数百纳秒）。
-    """
+    """把秒/毫秒级数字时间戳归一化为纳秒，用 Decimal 避免浮点误差。"""
     if isinstance(value, float) and not math.isfinite(value):
         raise ValueError(f"Timestamp must be a finite number, got {value!r}")
     # 超过 10 位的视为毫秒（或微秒），逐级归一化到秒
     try:
-        # str(float) 还原用户输入的字面量，Decimal(str(x)) 比 Decimal(x) 更接近预期值
+        # 用 str 还原浮点字面量
         number = Decimal(str(value)) if isinstance(value, float) else Decimal(value)
-    except InvalidOperation as exc:  # pragma: no cover - 仅防御非法输入
+    except InvalidOperation as exc:  # pragma: no cover
         raise ValueError(f"Invalid timestamp value: {value!r}") from exc
     while abs(number) > TIMESTAMP_S_MAX:
         number = number.scaleb(-3)
-    # 下界校验拦截漏写分隔符的日期（如 20261020 会被当作秒），否则过滤条件等于失效
+    # 拦截漏写分隔符的日期（如 20261020）
     if not TIMESTAMP_S_MIN <= number <= TIMESTAMP_S_MAX:
         raise ValueError(f"Timestamp {value!r} out of range [{TIMESTAMP_S_MIN}, {TIMESTAMP_S_MAX}] seconds")
-    # 归一化后 number 已是秒，统一放大到纳秒；Decimal 运算不引入浮点误差
+    # 已归一化为秒，放大到纳秒
     return int(number.scaleb(9).to_integral_value(rounding=ROUND_HALF_EVEN))
 
 
 def set_timestamp(target: Timestamp, value: TimeLike) -> None:
     try:
-        target.FromNanoseconds(parse_timestamp_ns(value))
+        target.FromNanoseconds(parse_cli_timestamp_ns(value))
     except (TypeError, ValueError) as e:
         raise ValueError(f"Invalid time value {value!r}: {e}") from e
 
