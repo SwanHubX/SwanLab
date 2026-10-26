@@ -36,7 +36,10 @@ TimeLike = Union[int, float, str, datetime]
 
 
 def parse_timestamp_s(value: Union[int, str]) -> int:
-    """将时间统一转换为秒级 Unix 时间戳（10 位），用于 House 查询接口的 ``createdAt`` 参数。
+    """解析 OpenAPI/House 返回的 ``createdAt`` 参数为秒级 Unix 时间戳（10 位）。
+
+    无时区 ISO 时间按 UTC 解释；带时区输入按其 offset 解释。此函数保留
+    OpenAPI 使用的 Unix 秒/毫秒归一化和合法时间范围。
 
     支持格式：
     - int / 数字字符串：秒（10 位）或毫秒（13 位）级时间戳，自动归一化为秒
@@ -71,7 +74,11 @@ def parse_timestamp_s(value: Union[int, str]) -> int:
 
 
 def parse_timestamp_ns(value: TimeLike) -> int:
-    """将时间统一转换为纳秒级 Unix 时间戳，用于 ``swanlab sync`` 的时间范围过滤。
+    """解析 CLI 层级时间范围为纳秒级 Unix 时间戳。
+
+    无时区字符串和 naive ``datetime`` 按系统本地时区解释；带时区输入按其
+    offset 解释。与 :func:`parse_timestamp_s` 的 UTC naive 语义不同，这是 CLI
+    按调用方本地时钟输入范围约定。
 
     支持格式：
     - int / float：秒级或毫秒级 Unix 时间戳，大于 10 位时自动按毫秒归一化为秒
