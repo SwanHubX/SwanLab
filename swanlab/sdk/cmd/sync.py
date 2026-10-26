@@ -27,9 +27,8 @@ from swanlab.sdk.internal.pkg import console, helper
 from swanlab.sdk.internal.run.progress import run_with_progress
 from swanlab.sdk.internal.settings import Settings, create_settings
 from swanlab.sdk.protocol.core import CoreSyncProtocol
-from swanlab.sdk.typings.cmd import TimeLike
 from swanlab.utils.experiment import generate_id
-from swanlab.utils.time import format_time, set_timestamp
+from swanlab.utils.time import TimeLike, format_time, set_timestamp
 
 __all__ = ["sync", "ensure_run_dir"]
 

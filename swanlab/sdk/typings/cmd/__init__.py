@@ -8,10 +8,6 @@
 import os
 from typing import Any, Dict, Literal, Union
 
-from swanlab.utils.time import TimeLike  # 定义在 leaf 层，此处仅导出，避免两处定义漂移
-
-__all__ = ["LoginType", "ConfigLike", "TimeLike"]
-
 LoginType = Union[bool, Literal["local", "root"]]
 """
 登录类型
