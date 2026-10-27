@@ -98,7 +98,7 @@ func (s *CoreService) DeliverRunStart(
 	}
 	sessionID, err := s.manager.Start()
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "start run session: %v", err)
+		return nil, managerStatus(err)
 	}
 	// 骨架阶段没有云端，new_experiment 无法由 create-or-resume 判定，恒报 true。
 	return &corev1.DeliverRunStartResponse{
@@ -188,6 +188,8 @@ func managerStatus(err error) error {
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, manager.ErrRunNotFinished):
 		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, manager.ErrTooManySessions):
+		return status.Error(codes.ResourceExhausted, err.Error())
 	default:
 		return status.Error(codes.Internal, err.Error())
 	}

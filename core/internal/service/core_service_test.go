@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"testing"
 	"time"
@@ -234,5 +235,12 @@ func TestRunLifecycleAndErrorMapping(t *testing.T) {
 	}
 	if _, err := env.client.GetOperationStats(ctx, &corev1.GetOperationStatsRequest{SessionId: handle}); status.Code(err) != codes.NotFound {
 		t.Fatalf("released handle err=%v, want NotFound", err)
+	}
+}
+
+func TestManagerStatusMapsSessionCapacity(t *testing.T) {
+	err := managerStatus(fmt.Errorf("start: %w", manager.ErrTooManySessions))
+	if code := status.Code(err); code != codes.ResourceExhausted {
+		t.Fatalf("code = %v, want ResourceExhausted", code)
 	}
 }

@@ -107,6 +107,34 @@ func TestRunIsolation(t *testing.T) {
 	}
 }
 
+func TestStartRejectsWhenFull(t *testing.T) {
+	m := New()
+	handles := make([]string, 0, maxSessions)
+	for i := 0; i < maxSessions; i++ {
+		handle, err := m.Start()
+		if err != nil {
+			t.Fatalf("start %d: %v", i, err)
+		}
+		handles = append(handles, handle)
+	}
+	if _, err := m.Start(); !errors.Is(err, ErrTooManySessions) {
+		t.Fatalf("err = %v, want ErrTooManySessions", err)
+	}
+	// 释放一个会话后应重新可创建，且不影响其它会话
+	if err := m.Finish(handles[0]); err != nil {
+		t.Fatalf("Finish: %v", err)
+	}
+	if err := m.Confirm(handles[0]); err != nil {
+		t.Fatalf("Confirm: %v", err)
+	}
+	if _, err := m.Start(); err != nil {
+		t.Fatalf("Start after release: %v", err)
+	}
+	if state, err := m.State(handles[1]); err != nil || state != RunStateRunning {
+		t.Fatalf("peer session state=%v err=%v, want Running", state, err)
+	}
+}
+
 func TestConcurrentRuns(t *testing.T) {
 	m := New()
 	const clients = 4

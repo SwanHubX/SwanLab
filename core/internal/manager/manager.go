@@ -15,7 +15,14 @@ var (
 	ErrSessionNotFound = errors.New("unknown or released session_id")
 	// ErrRunNotFinished 表示会话尚未标记结束，不能提前确认释放。
 	ErrRunNotFinished = errors.New("run finish has not been delivered for this handle")
+	// ErrTooManySessions 表示会话数已达上限，需要先释放已结束的会话。
+	ErrTooManySessions = errors.New("session registry is full")
 )
+
+// maxSessions 是单个 core 同时存在的会话上限。取值远高于单机多 rank 的进程数，
+// 触顶通常意味着调用方没有释放会话（例如循环 init 未 finish），此时明确失败
+// 而不是让注册表无限增长。
+const maxSessions = 512
 
 // Manager 维护 session_id 到会话的映射注册表，并统一编排 Run 级的生命周期。
 //
@@ -44,6 +51,9 @@ func (m *Manager) Start() (string, error) {
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if len(m.sessions) >= maxSessions {
+		return "", fmt.Errorf("%w: limit %d", ErrTooManySessions, maxSessions)
+	}
 	m.sessions[sessionID] = newSession()
 	return sessionID, nil
 }
