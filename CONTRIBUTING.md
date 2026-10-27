@@ -231,8 +231,7 @@ make bench
 make format
 ```
 
-CI 会在每个 PR 上运行 `ruff check` 与 `basedpyright` 类型检查（见
-[test-python-pr.yml](.github/workflows/test-python-pr.yml)），提交前建议本地先行验证：
+PR 在 Draft 状态下打开、更新提交或从草稿转为可审查时，CI 会运行 `ruff check`、`basedpyright` 以及全平台测试矩阵（见 [test-python-pr.yml](.github/workflows/test-python-pr.yml)）。开发阶段若需频繁提交且暂不需要跑完整 CI，可将 PR 设为 **Draft（草稿）** 以跳过 CI 消耗；准备合并时点击 **Ready for review** 即可自动触发完整检查。合并到 `main` 前，required `Check` 必须通过。提交前建议本地先行验证：
 
 ```bash
 uv run ruff check .
