@@ -5,6 +5,8 @@
 @description: SwanLab Go core 的 Python RPC 客户端。
 
 公共出口只做 re-export，不承载逻辑。
-
-规划导出：CoreGo / CoreGoError / ReasonCode
 """
+
+from .errors import CoreGoError, ReasonCode, Stage, reason_for_grpc
+
+__all__ = ["CoreGoError", "ReasonCode", "Stage", "reason_for_grpc"]
