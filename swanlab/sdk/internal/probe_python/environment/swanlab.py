@@ -14,4 +14,5 @@ from swanlab.sdk.internal.probe_python.typings import SwanLabSnapshot
 @safe.decorator(level="debug", message="Failed to get swanlab environment")
 def get(ctx: ProbeContext) -> SwanLabSnapshot:
     """获取 SwanLab 信息快照"""
-    return SwanLabSnapshot(version=get_swanlab_version(), run_dir=str(ctx.config.run_dir))
+    run_dir = str(ctx.config.run_dir) if ctx.config.run_dir is not None else None
+    return SwanLabSnapshot(version=get_swanlab_version(), run_dir=run_dir)

@@ -104,3 +104,14 @@ class TestMediaTransformContract:
         item1 = factory().transform(step=1, path=tmp_path)
         item2 = factory().transform(step=1, path=tmp_path)
         assert item1.filename == item2.filename
+
+    def test_reusable_across_steps_when_no_path(self, factory):
+        """skip_store（path=None）下同一对象可跨 step 复用，首次 transform 不得使其失效。"""
+        media = factory()
+        first = media.transform(step=1, path=None)
+        second = media.transform(step=2, path=None)
+        assert first.HasField("payload")
+        assert second.HasField("payload")
+        assert first.payload == second.payload
+        assert first.filename.startswith("001-")
+        assert second.filename.startswith("002-")

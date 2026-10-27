@@ -68,6 +68,9 @@ CODEBUDDY.md
 .grok/
 .reasonix/
 .mcp.json
+.zcodeignore
 
 # go core binary
 swanlab/bin/
+
+

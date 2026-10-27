@@ -19,12 +19,17 @@ enum SaveType {
 }
 
 // 文件保存记录，由 swanlab.save() API 产生。
-// 每条记录对应一个用户文件的保存操作。
 // size/md5/mime_type 不在此处存储，由 Core 在持久化/上传时按需计算。
+//
+// payload 仅用于 online + skip_store 下的四类内部 save
+// （CONFIG/METADATA/REQUIREMENTS/CONDA）：此时 source_path/target_path 为空，
+// Core 直接从 payload 解析并上传；CUSTOM 的 payload 必须为空，只使用 source_path；
+// 未启用 skip_store 时 payload 为空，Core 按 source_path 处理。
 message SaveRecord {
     string name        = 1; // 文件标识（相对于 base_path 的路径）
     string source_path = 2; // 源文件绝对路径
     string target_path = 3; // 本地镜像目标路径（软链接位置，由 Core 填充）
     SavePolicy policy  = 4; // 保存策略
     SaveType type      = 5; // 文件类型
+    optional bytes payload = 6; // 内部 metadata 元文件内容，skip_store 设置下有效
 }

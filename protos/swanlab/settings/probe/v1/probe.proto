@@ -6,7 +6,7 @@ option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/settings/pro
 
 message ProbeSettings {
     optional string run_id            = 1; // probe 侧需要校验 run_id 是否存在，不存在拒绝上报
-    optional string run_dir           = 2; // probe 侧需要校验 run_dir 是否存在，不存在拒绝上报
+    optional string run_dir           = 2; // 运行目录
     optional int64 global_system_step = 3; // probe 侧需要校验 global_system_step 是否存在，不存在拒绝上报
     bool hardware                     = 4;
     bool runtime                      = 5;
@@ -17,4 +17,5 @@ message ProbeSettings {
     bool monitor                      = 10;
     int32 monitor_interval            = 11;
     string monitor_disk_dir           = 12;
+    bool skip_store                   = 13; // 跳过探针本地文件落盘，内容直接内联 SaveRecord.payload（仅 online 合法）
 }

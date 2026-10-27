@@ -28,14 +28,14 @@ class FileEntry:
     source_path: str  # 源文件绝对路径
     target_path: str  # 本地镜像路径（软链接位置）
     policy: Optional[int] = None  # SavePolicy enum int value
-    signature: Optional[str] = None  # 上次已知的 mtime+size 签名
+    signature: Optional[str] = None  # mtime+size+inode 签名；None 表示文件缺失
 
 
-@safe.decorator(OSError, level="debug", message=None)
+@safe.decorator(FileNotFoundError, level="debug", message=None)
 def compute_signature(path: str) -> Optional[str]:
-    """基于 mtime + size 计算快速签名，避免每次读文件算 MD5。"""
+    """用 mtime、size 和 inode 识别文件变化，文件缺失时返回 None。"""
     st = os.stat(path)
-    return f"{st.st_mtime_ns}:{st.st_size}"
+    return f"{st.st_mtime_ns}:{st.st_size}:{st.st_ino}"
 
 
 OnChangeCallback = Callable[[SaveRecord], None]
@@ -55,6 +55,11 @@ class _Handler(FileSystemEventHandler):
     def on_created(self, event):
         if not event.is_directory:
             self._watcher._schedule_debounce(str(event.src_path))
+
+    def on_moved(self, event):
+        # 原子替换（写临时文件后 os.replace 到目标路径）在 Linux/Windows 上只上报 moved 事件
+        if not event.is_directory:
+            self._watcher._schedule_debounce(str(event.dest_path))
 
 
 def create_save_links(saves: List[SaveRecord], files_dir: Path) -> int:

@@ -1,15 +1,28 @@
 import gc
 import glob
+import importlib
 import os
 import re
 from typing import List, Optional
 
-from swanlab import vendor
 from swanlab.converter.base import BaseConverter
 from swanlab.converter.wb.utils import json_loads, proto_items_to_dict, validate_path
+from swanlab.converter.wb.wbdatastore import DataStoreTruncatedError, WBDataStoreReader
 from swanlab.sdk.internal.pkg import safe
 
 GC_INTERVAL: int = 10_000
+
+
+def _import_wandb_proto():
+    """按需导入 wandb 的 Record protobuf 定义，仅本地转换需要。"""
+    try:
+        return importlib.import_module("wandb.proto.wandb_internal_pb2")
+    except ImportError as e:
+        raise ImportError(
+            "Converting local .wandb files requires the 'wandb' package with its protobuf "
+            "definitions ('wandb.proto.wandb_internal_pb2'), which could not be imported. "
+            "Please make sure a compatible version of wandb is installed (`pip install wandb`)."
+        ) from e
 
 
 class WandbLocalConverter(BaseConverter):
@@ -120,8 +133,7 @@ class WandbLocalConverter(BaseConverter):
     def _parse_run(self, run_dir: str, wb_run_id: Optional[str] = None) -> None:
         import swanlab
 
-        DataStore = vendor.wandb.sdk.internal.datastore.DataStore  # type: ignore
-        wandb_internal_pb2 = vendor.wandb.proto.wandb_internal_pb2  # type: ignore
+        wandb_internal_pb2 = _import_wandb_proto()
 
         wandb_files = glob.glob(os.path.join(run_dir, "*.wandb"))
         if not wandb_files:
@@ -130,8 +142,7 @@ class WandbLocalConverter(BaseConverter):
         wandb_file_path = wandb_files[0]
         files_root_dir = os.path.join(run_dir, "files")
 
-        ds = DataStore()
-        ds.open_for_scan(wandb_file_path)
+        ds = WBDataStoreReader()
 
         swanlab_run = None
         run_metadata: dict = {"id": None, "name": None, "notes": None, "project": None}
@@ -178,131 +189,152 @@ class WandbLocalConverter(BaseConverter):
 
         record_count = 0
 
-        while True:
-            record_bin = ds.scan_data()
-            if record_bin is None:
-                break
+        try:
+            ds.open(wandb_file_path)
 
-            record_pb = wandb_internal_pb2.Record()
-            record_pb.ParseFromString(record_bin)
+            while True:
+                record_bin = ds.scan()
+                if record_bin is None:
+                    break
 
-            record_type = record_pb.WhichOneof("record_type")
+                record_pb = wandb_internal_pb2.Record()
+                record_pb.ParseFromString(record_bin)
 
-            if record_type == "run":
-                run = record_pb.run
-                run_metadata.update(
-                    {
-                        "id": run.run_id or None,
-                        "name": run.display_name or None,
-                        "notes": run.notes or None,
-                        "project": run.project or None,
-                    }
-                )
-                config_update = proto_items_to_dict(run.config.update)
-                run_config.update(config_update)
-                if swanlab_run is not None:
-                    swanlab_run.config.update(config_update)
+                record_type = record_pb.WhichOneof("record_type")
 
-            elif record_type == "config":
-                config_update = proto_items_to_dict(record_pb.config.update)
-                run_config.update(config_update)
-                if swanlab_run is not None:
-                    swanlab_run.config.update(config_update)
+                if record_type == "run":
+                    run = record_pb.run
+                    run_metadata.update(
+                        {
+                            "id": run.run_id or None,
+                            "name": run.display_name or None,
+                            "notes": run.notes or None,
+                            "project": run.project or None,
+                        }
+                    )
+                    config_update = proto_items_to_dict(run.config.update)
+                    run_config.update(config_update)
+                    if swanlab_run is not None:
+                        swanlab_run.config.update(config_update)
 
-            elif record_type == "history":
-                initialize_swanlab_run()
-                scalar_dict: dict = {}
-                media_dict: dict = {}
-                grouped_items: dict = {}
-                step = 0
+                elif record_type == "config":
+                    config_update = proto_items_to_dict(record_pb.config.update)
+                    run_config.update(config_update)
+                    if swanlab_run is not None:
+                        swanlab_run.config.update(config_update)
 
-                for item in record_pb.history.item:
-                    key = item.key or "/".join(item.nested_key)
-                    if not key:
-                        continue
-                    value_json = item.value_json
+                elif record_type == "history":
+                    initialize_swanlab_run()
+                    scalar_dict: dict = {}
+                    media_dict: dict = {}
+                    grouped_items: dict = {}
+                    step = 0
 
-                    if key == "_step":
-                        with safe.block(message=None, write_to_tty=False):
-                            step = int(float(value_json))
-                        continue
-                    if key.startswith("_"):
-                        continue
-
-                    # Fast path: scalar
-                    try:
-                        scalar_dict[key] = float(value_json)
-                        continue
-                    except (ValueError, TypeError):
-                        pass
-
-                    # Slow path: media objects
-                    with safe.block(message=None, write_to_tty=False):
-                        value = json_loads(value_json)
-                        if isinstance(value, int):
-                            scalar_dict[key] = float(value)
+                    for item in record_pb.history.item:
+                        key = item.key or "/".join(item.nested_key)
+                        if not key:
                             continue
-                        if isinstance(value, dict) and "path" in value:
-                            validated_path = validate_path(files_root_dir, value["path"])
-                            if validated_path and os.path.exists(validated_path):
-                                if value.get("_type") == "image-file":
-                                    media_dict[key] = swanlab.Image(validated_path)
-                                    continue
-                                elif value.get("_type") == "audio-file":
-                                    media_dict[key] = swanlab.Audio(validated_path)
-                                    continue
+                        value_json = item.value_json
 
-                    # Grouped path: tables etc.
-                    if "/" in key:
-                        parts = key.split("/", 1)
-                        base_key = parts[0]
-                        if base_key not in grouped_items:
-                            grouped_items[base_key] = {}
+                        if key == "_step":
+                            with safe.block(message=None, write_to_tty=False):
+                                step = int(float(value_json))
+                            continue
+                        if key.startswith("_"):
+                            continue
+
+                        # Fast path: scalar
+                        try:
+                            scalar_dict[key] = float(value_json)
+                            continue
+                        except (ValueError, TypeError):
+                            pass
+
+                        # Slow path: media objects
                         with safe.block(message=None, write_to_tty=False):
-                            grouped_items[base_key][parts[1]] = json_loads(value_json)
+                            value = json_loads(value_json)
+                            if isinstance(value, int):
+                                scalar_dict[key] = float(value)
+                                continue
+                            if isinstance(value, dict) and "path" in value:
+                                validated_path = validate_path(files_root_dir, value["path"])
+                                if validated_path and os.path.exists(validated_path):
+                                    if value.get("_type") == "image-file":
+                                        media_dict[key] = swanlab.Image(validated_path)
+                                        continue
+                                    elif value.get("_type") == "audio-file":
+                                        media_dict[key] = swanlab.Audio(validated_path)
+                                        continue
 
-                # Process grouped items (tables, grouped media)
-                for base_key, props in grouped_items.items():
-                    if props.get("_type") == "table-file" and "path" in props:
-                        validated_path = validate_path(files_root_dir, props["path"])
-                        if validated_path and os.path.exists(validated_path):
-                            with safe.block(message=f"Failed to parse table from {validated_path}"):
-                                with open(validated_path, "rb") as f:
-                                    table_data = json_loads(f.read())
-                                columns = table_data.get("columns", [])
-                                data = table_data.get("data", [])
-                                echarts_obj = self._make_table_echarts(columns, data)
-                                if echarts_obj is not None:
-                                    media_dict[base_key] = echarts_obj
-                    elif props.get("_type") == "image-file" and "path" in props:
-                        validated_path = validate_path(files_root_dir, props["path"])
-                        if validated_path and os.path.exists(validated_path):
-                            media_dict[base_key] = swanlab.Image(validated_path)
-                    elif props.get("_type") == "audio-file" and "path" in props:
-                        validated_path = validate_path(files_root_dir, props["path"])
-                        if validated_path and os.path.exists(validated_path):
-                            media_dict[base_key] = swanlab.Audio(validated_path)
+                        # Grouped path: tables etc.
+                        if "/" in key:
+                            parts = key.split("/", 1)
+                            base_key = parts[0]
+                            if base_key not in grouped_items:
+                                grouped_items[base_key] = {}
+                            with safe.block(message=None, write_to_tty=False):
+                                grouped_items[base_key][parts[1]] = json_loads(value_json)
 
-                if scalar_dict or media_dict:
-                    if scalar_dict and swanlab_run:
-                        swanlab_run.log(scalar_dict, step=step)
-                    if media_dict and swanlab_run:
-                        swanlab_run.log(media_dict, step=step)
-                del scalar_dict, media_dict
+                    # Process grouped items (tables, grouped media)
+                    for base_key, props in grouped_items.items():
+                        if props.get("_type") == "table-file" and "path" in props:
+                            validated_path = validate_path(files_root_dir, props["path"])
+                            if validated_path and os.path.exists(validated_path):
+                                with safe.block(message=f"Failed to parse table from {validated_path}"):
+                                    with open(validated_path, "rb") as f:
+                                        table_data = json_loads(f.read())
+                                    columns = table_data.get("columns", [])
+                                    data = table_data.get("data", [])
+                                    echarts_obj = self._make_table_echarts(columns, data)
+                                    if echarts_obj is not None:
+                                        media_dict[base_key] = echarts_obj
+                        elif props.get("_type") == "image-file" and "path" in props:
+                            validated_path = validate_path(files_root_dir, props["path"])
+                            if validated_path and os.path.exists(validated_path):
+                                media_dict[base_key] = swanlab.Image(validated_path)
+                        elif props.get("_type") == "audio-file" and "path" in props:
+                            validated_path = validate_path(files_root_dir, props["path"])
+                            if validated_path and os.path.exists(validated_path):
+                                media_dict[base_key] = swanlab.Audio(validated_path)
 
-            record_count += 1
-            if record_count % GC_INTERVAL == 0:
-                gc.collect()
+                    if scalar_dict or media_dict:
+                        if scalar_dict and swanlab_run:
+                            swanlab_run.log(scalar_dict, step=step)
+                        if media_dict and swanlab_run:
+                            swanlab_run.log(media_dict, step=step)
+                    del scalar_dict, media_dict
 
-        if swanlab_run:
-            print(f"Finished converting run: {run_metadata['name']}")
-            swanlab_run.finish()
+                record_count += 1
+                if record_count % GC_INTERVAL == 0:
+                    gc.collect()
+
+            if swanlab_run:
+                print(f"Finished converting run: {run_metadata['name']}")
+                swanlab_run.finish()
+            else:
+                with safe.block(message=f"Failed to initialize run for {run_dir}"):
+                    initialize_swanlab_run()
+                    if swanlab_run:
+                        print(f"Warning: Run in {run_dir} has no metrics, config was saved.")
+                        swanlab_run.finish()
+        except Exception as e:
+            # 失败前已创建的 run 必须收尾，否则会泄漏到批处理的下一个文件
+            self._finish_failed_run(swanlab_run, run_dir, e)
+            raise
+        finally:
+            ds.close()
+            gc.collect()
+
+    @staticmethod
+    def _finish_failed_run(swanlab_run, run_dir: str, exc: BaseException) -> None:
+        """Finalize a run created before a mid-conversion failure."""
+        if swanlab_run is None:
+            return
+        if isinstance(exc, DataStoreTruncatedError):
+            # 尾部不完整：标记为 aborted 而非 crashed
+            print(f"Warning: incomplete .wandb file, conversion may be partial: {exc}")
+            state = "aborted"
         else:
-            with safe.block(message=f"Failed to initialize run for {run_dir}"):
-                initialize_swanlab_run()
-                if swanlab_run:
-                    print(f"Warning: Run in {run_dir} has no metrics, config was saved.")
-                    swanlab_run.finish()
-
-        del ds
-        gc.collect()
+            state = "crashed"
+        with safe.block(message=f"Failed to close SwanLab run for {run_dir}"):
+            swanlab_run.finish(state=state, error=str(exc))

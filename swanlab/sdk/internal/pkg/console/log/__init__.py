@@ -35,6 +35,8 @@ _logger = logging.getLogger(_LOGGER_NAME)
 _logger.propagate = False
 # 内部诊断日志默认捕获 DEBUG 及以上级别的所有信息
 _logger.setLevel(logging.DEBUG)
+# 常驻 NullHandler：保证任何时刻至少有一个 handler。否则 stdlib 的 lastResort 会把 warning 及以上级别以裸消息写到 stderr，与 console 模块的终端输出重复
+_logger.addHandler(logging.NullHandler())
 
 # 日志格式：由调用方（console 模块）负责按 loguru 风格预格式化后传入，此处直接写原始消息
 _FORMATTER = logging.Formatter(fmt="%(message)s")
@@ -86,7 +88,7 @@ def init(bind_to: Optional[Path] = None) -> None:
     if _initialized:
         return
 
-    # bind_to=None：disabled 模式，移除 MemoryHandler，日志无 handler 直接丢弃
+    # bind_to=None：disabled/skip_store 模式，移除内存缓冲、丢弃诊断日志（NullHandler 常驻兜底）
     if bind_to is None:
         if _memory_handler is not None:
             _logger.removeHandler(_memory_handler)
@@ -134,8 +136,10 @@ def reset() -> None:
     """
     global _memory_handler, _file_handler, _initialized
 
-    # 1. 安全关闭并移除所有现有的 Handlers（防止文件句柄泄露）
+    # 1. 安全关闭并移除所有现有的 Handlers（防止文件句柄泄露）；NullHandler 常驻，不移除
     for handler in _logger.handlers[:]:
+        if isinstance(handler, logging.NullHandler):
+            continue
         handler.close()
         _logger.removeHandler(handler)
 

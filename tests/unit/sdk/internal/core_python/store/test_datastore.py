@@ -2,7 +2,7 @@
 @author: cunyue
 @file: test_datastore.py
 @time: 2026/3/13
-@description: 测试 DataStoreWriter / DataStoreReader（LevelDB log 格式）的读写行为
+@description: 测试 DataStoreWriter / NullDataStoreWriter / DataStoreReader（LevelDB log 格式）的读写行为
 """
 
 import struct
@@ -20,6 +20,7 @@ from swanlab.sdk.internal.core_python.store import (
     DataStoreError,
     DataStoreReader,
     DataStoreWriter,
+    NullDataStoreWriter,
 )
 
 # ---------------------------------------------------------------------------
@@ -258,3 +259,45 @@ class TestFileHandling:
         r = DataStoreReader()
         with pytest.raises(AssertionError):
             r.scan()
+
+
+# ---------------------------------------------------------------------------
+# skip_store（NullDataStoreWriter 空写入器，仅 online 模式合法）
+# ---------------------------------------------------------------------------
+
+
+class TestSkipMode:
+    def test_open_does_not_create_file(self, tmp_path: Path):
+        """open() 不创建文件。"""
+        p = tmp_path / "skip.swanlab"
+        w = NullDataStoreWriter()
+        w.open(str(p))
+        assert not p.exists()
+
+    def test_write_is_noop(self, tmp_path: Path):
+        """空写入器丢弃写入：不抛错、不落盘。"""
+        p = tmp_path / "skip.swanlab"
+        w = NullDataStoreWriter()
+        w.open(str(p))
+        w.write(b"record_1")
+        w.close()
+        assert not p.exists()
+
+    def test_open_twice_is_noop(self, tmp_path: Path):
+        """未启用 skip 时重复 open 抛 FileExistsError；启用后始终无副作用。"""
+        p = tmp_path / "skip.swanlab"
+        w = NullDataStoreWriter()
+        w.open(str(p))
+        w.open(str(p))
+        assert not p.exists()
+        w.close()
+
+    def test_default_writer_still_persists(self, tmp_path: Path):
+        """默认 skip=False 行为不变：文件照常创建、写入、可读回。"""
+        p = tmp_path / "keep.swanlab"
+        w = DataStoreWriter()
+        w.open(str(p))
+        w.write(b"persist me")
+        w.close()
+        assert p.exists()
+        assert read_all(p) == [b"persist me"]

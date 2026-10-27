@@ -150,8 +150,12 @@ class TerminalEmulator:
     """
 
     _MAX_LINES = 1024
+    # 留出少量余量再触发内部 flush：read() 滚动会整块复制保留窗口，
+    # 每写一行都触发会把大批量短行的输出放大成 O(行数 * _MAX_LINES)。
+    _FLUSH_SLACK = 64
 
-    def __init__(self) -> None:
+    def __init__(self, on_flush: Callable[[], None] | None = None) -> None:
+        self._on_flush = on_flush
         self._buffer: defaultdict[int, defaultdict[int, Char]] = defaultdict(lambda: defaultdict(lambda: _default_char))
         self._cursor = Cursor()
         self._num_lines_cache: int | None = None
@@ -336,6 +340,14 @@ class TerminalEmulator:
 
     def _write_plain_text(self, plain_text: str) -> None:
         """在当前光标位置写入纯文本。"""
+        self._num_lines_cache = None
+        if self._on_flush is not None and self._cursor.y >= self._MAX_LINES + self._FLUSH_SLACK:
+            # Emit unread lines before read() scrolls them out, before allocating
+            # character cells for the next row in a large write(). Check the row
+            # index directly: num_lines scans the whole buffer on every call.
+            self._on_flush()
+        if not plain_text:
+            return
         self._buffer[self._cursor.y].update(
             [(self._cursor.x + i, self._cursor.char.copy(data=c)) for i, c in enumerate(plain_text)]
         )

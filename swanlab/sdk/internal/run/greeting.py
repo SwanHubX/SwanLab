@@ -25,6 +25,10 @@ def _print_version():
 
 
 def _print_save_dir(ctx: RunContext):
+    # skip_store 仅 online 模式合法，此时本地不再创建 swanlog 日志目录，所有数据只传云端.
+    if ctx.config.settings.core.skip_store:
+        console.info("⚠️ ", Text("Local record store disabled; data will be uploaded to cloud only", "yellow"))
+        return
     console.info("💾 Run data saved at", Text(str(ctx.config.run_dir), "magenta bold"))
 
 

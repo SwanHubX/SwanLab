@@ -34,12 +34,21 @@ class CoreSettings(BaseModel):
     """
     Maximum saved size per file. Default 50 GiB.
     """
-    save_part: int = Field(default=32 * 1024 * 1024)
+    save_part: int = Field(default=32 * 1024 * 1024, gt=0)
     """
     Multipart upload part size in bytes. Default 32 MiB.
     """
     save_batch: int = Field(default=100)
     """
     Maximum number of files per save upload batch. Default 100.
+    """
+    skip_store: bool = Field(default=False)
+    """
+    Skip all SDK-owned local files and upload to the cloud only (requires ``online`` mode).
+
+    Media contents and internal texts (config/metadata/requirements/conda) are inlined
+    into records and uploaded directly; ``run.save()`` files are read from their original
+    path without local links.
+    ``swanlab sync`` / ``swanlab watch`` do not apply; a crashed run cannot be recovered.
     """
     model_config = ConfigDict(frozen=True)

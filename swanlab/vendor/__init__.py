@@ -172,7 +172,6 @@ _SUBMODULE_IMPORTS = {
     "paddlenlp": ["paddlenlp.trainer.trainer"],
     "stable_baselines3": ["stable_baselines3.common"],
     "torchtune": ["torchtune.utils.metric_logging"],
-    "wandb": ["wandb.sdk.internal.datastore", "wandb.proto"],
     "tensorboard": [
         "tensorboard.backend.event_processing",
         "tensorboard.backend.event_processing.event_file_loader",
@@ -182,6 +181,22 @@ _SUBMODULE_IMPORTS = {
 
 
 # 6. Module-level __getattr__ for lazy loading (PEP 562)
+def _install_hint(name: str, module_path: str) -> str:
+    """顶层包缺失时的安装提示文案。"""
+    extra_tag = _EXTRA_DEPS.get(name)
+    if extra_tag:
+        return (
+            f"The '{name}' feature requires additional dependencies. "
+            f"To enable it, please install the '{extra_tag}' extra by running:\n"
+            f'    pip install "swanlab[{extra_tag}]"'
+        )
+    return (
+        f"The '{name}' feature requires the '{module_path}' package, "
+        f"which is not currently installed. Please install it by running:\n"
+        f"    pip install {module_path}"
+    )
+
+
 def __getattr__(name: str) -> Any:
     if name in _LAZY_IMPORTS:
         module_path = _LAZY_IMPORTS[name]
@@ -194,33 +209,21 @@ def __getattr__(name: str) -> Any:
             else:
                 # Handle direct third-party library imports
                 obj = importlib.import_module(module_path)
-
-            # Import required submodules so their attributes are accessible on the parent package
-            for submodule_path in _SUBMODULE_IMPORTS.get(name, []):
-                importlib.import_module(submodule_path)
-
-            # Cache the imported object in the module's global namespace
-            globals()[name] = obj
-            return obj
-
         except ImportError as e:
-            extra_tag = _EXTRA_DEPS.get(name)
+            # 仅当顶层包本身缺失时才提示安装，否则报告真实错误
+            if isinstance(e, ModuleNotFoundError) and e.name == module_path:
+                raise ImportError(_install_hint(name, module_path)) from e
+            raise ImportError(f"The '{name}' feature failed to import '{module_path}': {e}") from e
 
-            if extra_tag:
-                error_msg = (
-                    f"The '{name}' feature requires additional dependencies. "
-                    f"To enable it, please install the '{extra_tag}' extra by running:\n"
-                    f'    pip install "swanlab[{extra_tag}]"'
-                )
-            else:
-                # Fallback: if not mapped in _EXTRA_DEPS, suggest the underlying package
-                underlying_pkg = module_path.strip(".")
-                error_msg = (
-                    f"The '{name}' feature requires the '{underlying_pkg}' package, "
-                    f"which is not currently installed. Please install it by running:\n"
-                    f"    pip install {underlying_pkg}"
-                )
+        # Import required submodules so their attributes are accessible on the parent package
+        for submodule_path in _SUBMODULE_IMPORTS.get(name, []):
+            try:
+                importlib.import_module(submodule_path)
+            except ImportError as e:
+                raise ImportError(f"The '{name}' feature requires '{submodule_path}' of '{module_path}': {e}") from e
 
-            raise ImportError(error_msg) from e
+        # Cache the imported object in the module's global namespace
+        globals()[name] = obj
+        return obj
 
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

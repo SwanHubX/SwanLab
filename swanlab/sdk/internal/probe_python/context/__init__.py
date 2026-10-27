@@ -30,6 +30,7 @@ class ProbeConfig:
     monitor: bool
     monitor_interval: int
     monitor_disk_dir: Path
+    skip_store: bool = False
 
 
 class ProbeContext:
@@ -59,6 +60,7 @@ class ProbeContext:
             monitor=proto.monitor,
             monitor_interval=proto.monitor_interval,
             monitor_disk_dir=Path(proto.monitor_disk_dir),
+            skip_store=proto.skip_store,
         )
         return cls(config=config)
 

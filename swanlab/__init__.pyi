@@ -755,6 +755,8 @@ def save(
         - ``"now"`` — upload matched files immediately.
         - ``"end"`` — defer upload until the run finishes.
         - ``"live"`` — watch for file changes and re-upload automatically.
+          Unavailable with ``core.skip_store=True``: downgraded to ``"now"``
+          with a warning, so later file changes are not uploaded.
 
     :return: List of matched file paths (relative to base_path).
     """

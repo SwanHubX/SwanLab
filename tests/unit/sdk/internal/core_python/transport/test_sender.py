@@ -1,18 +1,29 @@
 from io import BytesIO
 from pathlib import Path
+from typing import Optional, cast
 from unittest.mock import ANY, MagicMock, patch
 
+import pytest
+import requests
 from google.protobuf.timestamp_pb2 import Timestamp
+from requests.sessions import Session
 
 from swanlab.exceptions import ApiError
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnClass, ColumnRecord, ColumnType
-from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaItem, MediaRecord, MediaValue
+from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaItem, MediaRecord, MediaValue, ScalarRecord, ScalarValue
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord, SaveType
+from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogLevel, LogRecord
+from swanlab.sdk.internal.core_python.api import save as save_api
+from swanlab.sdk.internal.core_python.api import upload as upload_api
 from swanlab.sdk.internal.core_python.context import CoreConfig, CoreContext
-from swanlab.sdk.internal.core_python.transport.sender import HttpRecordSender, encode_column
+from swanlab.sdk.internal.core_python.transport.sender import HttpRecordSender
+from swanlab.sdk.internal.core_python.transport.sender import save as sender_save
+from swanlab.sdk.internal.core_python.transport.sender.save import resolve_save_source
+from swanlab.sdk.internal.core_python.transport.sender.utils import encode_column, is_retryable_error
 from swanlab.sdk.internal.core_python.transport.tracker import UploadTracker
 from swanlab.sdk.internal.core_python.utils import ProgressFileWrapper
+from swanlab.sdk.typings.core_python.transport import UploadResult
 
 
 class _FakeResponse:
@@ -48,6 +59,8 @@ def _make_sender(
     save_batch: int = 100,
     save_split: int = 100 * 1024 * 1024,
     save_part: int = 32 * 1024 * 1024,
+    save_size: int = 50 * 1024 * 1024 * 1024,
+    skip_store: bool = False,
 ) -> HttpRecordSender:
     ctx = CoreContext(
         config=CoreConfig(
@@ -57,9 +70,10 @@ def _make_sender(
             record_batch=10000,
             record_interval=5.0,
             save_split=save_split,
-            save_size=50 * 1024 * 1024 * 1024,
+            save_size=save_size,
             save_part=save_part,
             save_batch=save_batch,
+            skip_store=skip_store,
         )
     )
     ctx.set_online_params(
@@ -80,18 +94,76 @@ def _make_save_record(
     return Record(save=SaveRecord(name=name, source_path=str(source), target_path=str(source), type=save_type))
 
 
-def _make_media_record(filename: str, media_type=ColumnType.COLUMN_TYPE_IMAGE) -> Record:
+def _make_media_record(
+    filename: str, media_type=ColumnType.COLUMN_TYPE_IMAGE, payload: Optional[bytes] = None
+) -> Record:
     timestamp = Timestamp()
     timestamp.GetCurrentTime()
+    # payload=None 表示未提供 payload（默认模式，从本地路径读取）；
+    # payload=b"" 表示合法的空文件（skip_store），两者必须可区分。
+    item = MediaItem(filename=filename)
+    if payload is not None:
+        item.payload = payload
     return Record(
         media=MediaRecord(
             key="examples/image",
             step=1,
             type=media_type,
             timestamp=timestamp,
-            value=MediaValue(items=[MediaItem(filename=filename)]),
+            value=MediaValue(items=[item]),
         )
     )
+
+
+def _make_api_error(status_code: int) -> ApiError:
+    return ApiError(
+        _FakeApiErrorResponse(status_code),
+        method="POST",
+        trace_id="trace-id",
+        code="test-error",
+        message=f"http {status_code}",
+    )
+
+
+def _make_scalar_record() -> Record:
+    ts = Timestamp()
+    ts.GetCurrentTime()
+    return Record(
+        scalar=ScalarRecord(
+            key="train/loss",
+            step=1,
+            timestamp=ts,
+            type=ColumnType.COLUMN_TYPE_SCALAR,
+            value=ScalarValue(number=0.125),
+        )
+    )
+
+
+def _make_log_record() -> Record:
+    ts = Timestamp()
+    ts.GetCurrentTime()
+    return Record(
+        log=LogRecord(
+            line="training step done",
+            level=LogLevel.LOG_LEVEL_INFO,
+            timestamp=ts,
+            epoch=1,
+        )
+    )
+
+
+def _make_column_record() -> Record:
+    return Record(column=ColumnRecord(column_key="metric-0", column_type=ColumnType.COLUMN_TYPE_SCALAR))
+
+
+@pytest.fixture(autouse=True)
+def _silence_console():
+    """抑制测试期间的 console 输出。"""
+    with (
+        patch("swanlab.sdk.internal.pkg.console.trace"),
+        patch("swanlab.sdk.internal.pkg.console.warning"),
+    ):
+        yield
 
 
 def test_upload_column_batches_all_columns_without_dropping_tail(tmp_path: Path):
@@ -110,6 +182,50 @@ def test_upload_column_batches_all_columns_without_dropping_tail(tmp_path: Path)
     assert [[column["key"] for column in batch] for batch in batches] == [["metric-0", "metric-1"], ["metric-2"]]
 
 
+def test_upload_column_terminal_error_settles_remaining_batches(tmp_path: Path):
+    """列上传遇到确定性 4xx 时终结当前及剩余批次，不再重复提交后续批次。"""
+    sender = _make_sender(tmp_path)
+    records = [
+        Record(column=ColumnRecord(column_key=f"metric-{index}", column_type=ColumnType.COLUMN_TYPE_SCALAR))
+        for index in range(3)
+    ]
+
+    with patch(
+        "swanlab.sdk.internal.core_python.transport.sender.upload_columns",
+        side_effect=ApiError(
+            _FakeApiErrorResponse(400),
+            method="POST",
+            trace_id="trace-id",
+            code="bad-request",
+            message="invalid series",
+        ),
+    ) as mock_upload_columns:
+        result = sender.upload_column(records, batch_size=2)
+
+    assert mock_upload_columns.call_count == 1
+    assert result.confirmed_records == records
+    assert result.remaining_records == []
+    assert result.failures[0].status == 400
+
+
+def test_upload_column_encode_failure_happens_before_any_request(tmp_path: Path):
+    """编码失败必须发生在首个请求之前，否则重试会重放已上传的批次。"""
+    sender = _make_sender(tmp_path)
+    records = [
+        Record(column=ColumnRecord(column_key=f"metric-{index}", column_type=ColumnType.COLUMN_TYPE_SCALAR))
+        for index in range(3)
+    ]
+    records[-1].column.column_type = 99  # type: ignore[assignment]
+
+    with patch("swanlab.sdk.internal.core_python.transport.sender.upload_columns") as mock_upload_columns:
+        result = sender.upload_column(records, batch_size=2)
+
+    mock_upload_columns.assert_not_called()
+    assert result.confirmed_records == records
+    assert result.remaining_records == []
+    assert "encode column" in result.failures[0].message
+
+
 def test_upload_save_delegates_small_file_s3_put_to_upload_resources(tmp_path: Path):
     source = tmp_path / "model.txt"
     source.write_text("weights", encoding="utf-8")
@@ -117,17 +233,17 @@ def test_upload_save_delegates_small_file_s3_put_to_upload_resources(tmp_path: P
     session = MagicMock()
 
     def _fake_upload(session, *, resources, tracker=None):
-        return {r["source_path"] for r in resources}
+        return {}
 
     with (
         patch(
-            "swanlab.sdk.internal.core_python.transport.sender.prepare_save_files",
+            "swanlab.sdk.internal.core_python.transport.sender.save.prepare_save_files",
             return_value={"urls": ["https://s3.test/model"]},
         ) as mock_prepare,
-        patch("swanlab.sdk.internal.core_python.transport.sender.complete_save_files") as mock_complete,
+        patch("swanlab.sdk.internal.core_python.transport.sender.save.complete_save_files") as mock_complete,
         patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=session),
         patch(
-            "swanlab.sdk.internal.core_python.transport.sender.upload_saves",
+            "swanlab.sdk.internal.core_python.transport.sender.save.upload_saves",
             side_effect=_fake_upload,
         ) as mock_upload_saves,
     ):
@@ -150,25 +266,86 @@ def test_upload_save_delegates_small_file_s3_put_to_upload_resources(tmp_path: P
     )
 
 
-def test_upload_save_skips_complete_when_s3_upload_fails(tmp_path: Path):
+@pytest.mark.parametrize("multipart", [False, True], ids=["small", "multipart"])
+def test_upload_save_retries_when_object_storage_fails(tmp_path: Path, multipart):
+    """对象存储 PUT 失败保留记录重试，不向上报 FAILED（只有本地问题才终结）。"""
     source = tmp_path / "failed.bin"
     source.write_bytes(b"failed")
-    sender = _make_sender(tmp_path)
+    sender = _make_sender(tmp_path, save_split=1 if multipart else 100 * 1024 * 1024)
+    url = "https://s3.test/failed?X-Amz-Signature=test-signature"
+    response = requests.Response()
+    response.status_code = 403
+    response.url = url
+    with pytest.raises(requests.HTTPError) as exc_info:
+        response.raise_for_status()
+    error = exc_info.value
 
     with (
         patch(
-            "swanlab.sdk.internal.core_python.transport.sender.prepare_save_files",
-            return_value={"urls": ["https://s3.test/failed"]},
+            "swanlab.sdk.internal.core_python.transport.sender.save.prepare_save_files",
+            return_value={"urls": [url]},
         ),
-        patch("swanlab.sdk.internal.core_python.transport.sender.complete_save_files") as mock_complete,
+        patch(
+            "swanlab.sdk.internal.core_python.transport.sender.save.prepare_multipart_save",
+            return_value={
+                "files": [{"uploadId": "test-upload", "parts": [{"partNumber": 1, "url": "https://s3.test/part-1"}]}]
+            },
+        ),
+        patch("swanlab.sdk.internal.core_python.transport.sender.save.complete_save_files") as mock_complete,
+        patch(
+            "swanlab.sdk.internal.core_python.transport.sender.save.complete_multipart_save"
+        ) as mock_multipart_complete,
         patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=MagicMock()),
-        patch("swanlab.sdk.internal.core_python.transport.sender.upload_saves", side_effect=RuntimeError("s3 failed")),
-        patch("swanlab.sdk.internal.pkg.safe.console.trace"),
+        patch(
+            "swanlab.sdk.internal.core_python.transport.sender.save.upload_saves",
+            return_value={0: error},
+        ),
+        patch(
+            "swanlab.sdk.internal.core_python.transport.sender.save._upload_multipart_parts",
+            return_value=([], error),
+        ),
+        patch("swanlab.sdk.internal.core_python.transport.sender.save.console.warning"),
     ):
-        sender.upload_save([_make_save_record(source, name="failed.bin")])
+        record = _make_save_record(source, name="failed.bin")
+        result = sender.upload_save([record])
 
-    # 上传失败时仍应调用 complete，但标记为 FAILED
-    mock_complete.assert_called_once_with("experiment-id", files=[{"path": "failed.bin", "state": "FAILED"}])
+    # 对象存储失败既不报 FAILED 也不推进 complete，记录留给下一轮重试
+    mock_complete.assert_not_called()
+    mock_multipart_complete.assert_not_called()
+    assert result.confirmed_records == []
+    assert result.remaining_records == [record]
+    failure = result.failures[0]
+    assert failure.exception is error
+    assert "test-signature" not in failure.message
+
+
+def test_upload_save_settles_when_source_unreadable_at_put(tmp_path: Path):
+    """本地读取失败才跳过：报 FAILED 且不重试。"""
+    source = tmp_path / "gone.bin"
+    source.write_bytes(b"payload")
+    sender = _make_sender(tmp_path)
+    tracker = UploadTracker()
+    sender.set_tracker(tracker)
+    record = _make_save_record(source, name="gone.bin")
+
+    with (
+        patch(
+            "swanlab.sdk.internal.core_python.transport.sender.save.prepare_save_files",
+            return_value={"urls": ["https://s3.test/gone"]},
+        ),
+        patch(
+            "swanlab.sdk.internal.core_python.transport.sender.save.upload_saves",
+            return_value={0: FileNotFoundError("gone.bin")},
+        ),
+        patch("swanlab.sdk.internal.core_python.transport.sender.save.complete_save_files") as mock_complete,
+        patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=MagicMock()),
+    ):
+        result = sender.upload_save([record])
+
+    mock_complete.assert_called_once_with("experiment-id", files=[{"path": "gone.bin", "state": "FAILED"}])
+    assert result.confirmed_records == [record]
+    assert result.remaining_records == []
+    assert tracker._files == {}
 
 
 def test_upload_save_splits_pending_files_by_save_batch(tmp_path: Path):
@@ -185,17 +362,17 @@ def test_upload_save_splits_pending_files_by_save_batch(tmp_path: Path):
         return {"urls": [f"https://s3.test/{item['path']}" for item in files]}
 
     def _fake_upload(_, *, resources, tracker=None):
-        return {r["source_path"] for r in resources}
+        return {}
 
     with (
         patch(
-            "swanlab.sdk.internal.core_python.transport.sender.prepare_save_files",
+            "swanlab.sdk.internal.core_python.transport.sender.save.prepare_save_files",
             side_effect=_fake_prepare,
         ) as mock_prepare,
-        patch("swanlab.sdk.internal.core_python.transport.sender.complete_save_files") as mock_complete,
+        patch("swanlab.sdk.internal.core_python.transport.sender.save.complete_save_files") as mock_complete,
         patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=session),
         patch(
-            "swanlab.sdk.internal.core_python.transport.sender.upload_saves",
+            "swanlab.sdk.internal.core_python.transport.sender.save.upload_saves",
             side_effect=_fake_upload,
         ) as mock_upload_saves,
     ):
@@ -216,20 +393,16 @@ def test_upload_save_tracks_small_file_progress_once_across_retries(tmp_path: Pa
     sender.set_tracker(tracker)
 
     def _fake_upload(_, *, resources, tracker=None):
-        assert tracker is not None
-        # 模拟 upload_saves 内部行为：finish_file
-        for resource in resources:
-            tracker.finish_file(resource["tracker_key"])
-        return {resource["source_path"] for resource in resources}
+        return {}
 
     with (
         patch(
-            "swanlab.sdk.internal.core_python.transport.sender.prepare_save_files",
+            "swanlab.sdk.internal.core_python.transport.sender.save.prepare_save_files",
             return_value={"urls": ["https://s3.test/model"]},
         ),
-        patch("swanlab.sdk.internal.core_python.transport.sender.complete_save_files"),
+        patch("swanlab.sdk.internal.core_python.transport.sender.save.complete_save_files"),
         patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=MagicMock()),
-        patch("swanlab.sdk.internal.core_python.transport.sender.upload_saves", side_effect=_fake_upload),
+        patch("swanlab.sdk.internal.core_python.transport.sender.save.upload_saves", side_effect=_fake_upload),
     ):
         sender.upload_save([_make_save_record(source)])
         sender.upload_save([_make_save_record(source)])
@@ -264,20 +437,20 @@ def test_upload_save_tracks_multipart_parts_once_across_retries(tmp_path: Path):
     }
 
     tracked_keys = []
-    original_track_file = sender._track_file
+    original_track_file = sender_save.track_file
 
-    def _capture_track_file(key: str, path: str, size: int) -> None:
+    def _capture_track_file(tracker, key: str, path: str, size: int) -> None:
         tracked_keys.append(key)
-        original_track_file(key, path, size)
+        original_track_file(tracker, key, path, size)
 
     with (
         patch(
-            "swanlab.sdk.internal.core_python.transport.sender.prepare_multipart_save",
+            "swanlab.sdk.internal.core_python.transport.sender.save.prepare_multipart_save",
             return_value=multipart_response,
         ),
-        patch("swanlab.sdk.internal.core_python.transport.sender.complete_multipart_save") as mock_complete,
+        patch("swanlab.sdk.internal.core_python.transport.sender.save.complete_multipart_save") as mock_complete,
         patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=session),
-        patch.object(sender, "_track_file", side_effect=_capture_track_file),
+        patch("swanlab.sdk.internal.core_python.transport.sender.utils.track_file", side_effect=_capture_track_file),
     ):
         sender.upload_save([_make_save_record(source, name="large.bin")])
         sender.upload_save([_make_save_record(source, name="large.bin")])
@@ -295,6 +468,72 @@ def test_upload_save_tracks_multipart_parts_once_across_retries(tmp_path: Path):
     assert mock_complete.call_count == 2
 
 
+def test_upload_save_large_file_retries_when_storage_fails(tmp_path: Path):
+    """分片 PUT 属于对象存储问题：文件保留重试，进度行不关闭。"""
+    first = tmp_path / "first.bin"
+    second = tmp_path / "second.bin"
+    first.write_bytes(b"0123456789")
+    second.write_bytes(b"abcdefghij")
+    first_record = _make_save_record(first, name="first.bin")
+    second_record = _make_save_record(second, name="second.bin")
+    sender = _make_sender(tmp_path, save_split=5, save_part=4)
+    tracker = UploadTracker()
+    sender.set_tracker(tracker)
+
+    class _FailingPartSession(_FakeSession):
+        def put(self, url, *, data, headers):
+            if url == "https://s3.test/first-1":
+                raise _make_api_error(400)
+            return super().put(url, data=data, headers=headers)
+
+    multipart_response = {
+        "files": [
+            {
+                "uploadId": "upload-first",
+                "parts": [
+                    {"partNumber": 1, "url": "https://s3.test/first-1"},
+                    {"partNumber": 2, "url": "https://s3.test/first-2"},
+                    {"partNumber": 3, "url": "https://s3.test/first-3"},
+                ],
+            },
+            {
+                "uploadId": "upload-second",
+                "parts": [
+                    {"partNumber": 1, "url": "https://s3.test/second-1"},
+                    {"partNumber": 2, "url": "https://s3.test/second-2"},
+                    {"partNumber": 3, "url": "https://s3.test/second-3"},
+                ],
+            },
+        ]
+    }
+
+    with (
+        patch(
+            "swanlab.sdk.internal.core_python.transport.sender.save.prepare_multipart_save",
+            return_value=multipart_response,
+        ),
+        patch(
+            "swanlab.sdk.internal.core_python.transport.sender.save.complete_multipart_save",
+            side_effect=_make_api_error(503),
+        ),
+        patch("swanlab.sdk.internal.core_python.transport.sender.save.complete_save_files"),
+        patch(
+            "swanlab.sdk.internal.core_python.transport.sender.client.session.create",
+            return_value=_FailingPartSession(),
+        ),
+    ):
+        result = sender.upload_save([first_record, second_record])
+
+    # 两条记录都等待重试：分片失败的分片 + complete 5xx 的 ready 文件
+    assert result.confirmed_records == []
+    assert result.remaining_records == [second_record, first_record]
+    stats = tracker.snapshot()
+    assert stats.total_number == 2
+    assert stats.uploaded_number == 0
+    # 两个文件行都保留，等待重试（第二个文件字节已传完，可能不在可见列表中）
+    assert len(tracker._files) == 2
+
+
 def test_upload_media_passes_guessed_content_type(tmp_path: Path):
     media_dir = tmp_path / "media" / "html"
     media_dir.mkdir(parents=True)
@@ -306,11 +545,12 @@ def test_upload_media_passes_guessed_content_type(tmp_path: Path):
         assert paths == ["media/html/report.html"]
         assert buffers == [html_path]
         assert content_types == ["text/html"]
+        return {}
 
     with (
         patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=MagicMock()),
         patch(
-            "swanlab.sdk.internal.core_python.transport.sender.upload_resource",
+            "swanlab.sdk.internal.core_python.transport.sender.media.upload_resource",
             side_effect=_fake_upload_resource,
         ) as mock_upload_resource,
         patch("swanlab.sdk.internal.core_python.transport.sender.upload_media") as mock_upload_media,
@@ -321,97 +561,119 @@ def test_upload_media_passes_guessed_content_type(tmp_path: Path):
     mock_upload_media.assert_called_once()
 
 
-def test_upload_media_finishes_file_inside_progress_callback(tmp_path: Path):
-    media_dir = tmp_path / "media" / "image"
-    media_dir.mkdir(parents=True)
-    first_path = media_dir / "first.png"
-    second_path = media_dir / "second.png"
-    first_path.write_bytes(b"one")
-    second_path.write_bytes(b"two2")
-    inner_tracker = UploadTracker()
-    sender = _make_sender(tmp_path)
-    sender.set_tracker(inner_tracker)
-    snapshots = []
+def test_upload_media_uses_payload_without_touching_disk(tmp_path: Path):
+    """payload 走内存上传、不读本地文件；缺 payload 时告警丢弃。"""
+    sender = _make_sender(tmp_path, skip_store=True)
+    captured = {}
 
     def _fake_upload_resource(_, __, *, paths, buffers, content_types=None, tracker=None):
-        assert paths == ["media/image/first.png", "media/image/second.png"]
-        assert content_types == ["image/png", "image/png"]
-        assert tracker is not None
-        tracker.finish_file("media/image/first.png:3")
-        snapshots.append(inner_tracker.snapshot())
-        tracker.finish_file("media/image/second.png:4")
-        snapshots.append(inner_tracker.snapshot())
+        captured["paths"] = paths
+        captured["content_types"] = content_types
+        captured["content"] = buffers[0].read()
+        return {}
 
     with (
         patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=MagicMock()),
         patch(
-            "swanlab.sdk.internal.core_python.transport.sender.upload_resource",
+            "swanlab.sdk.internal.core_python.transport.sender.media.upload_resource",
             side_effect=_fake_upload_resource,
         ),
-        patch("swanlab.sdk.internal.core_python.transport.sender.upload_media"),
+        patch("swanlab.sdk.internal.core_python.transport.sender.upload_media") as mock_upload_media,
+        patch("swanlab.sdk.internal.core_python.transport.sender.console.warning") as mock_warning,
     ):
-        sender.upload_media([_make_media_record("first.png"), _make_media_record("second.png")])
+        sender.upload_media([_make_media_record("ok.png", payload=b"ok"), _make_media_record("missing.png")])
 
-    assert snapshots[0].uploaded_size == 3
-    assert snapshots[0].uploaded_number == 1
-    assert [Path(file.path) for file in snapshots[0].files] == [second_path]
-    assert snapshots[1].uploaded_size == 7
-    assert snapshots[1].uploaded_number == 2
-    assert list(snapshots[1].files) == []
+    assert captured["paths"] == ["media/image/ok.png"]
+    assert captured["content_types"] == ["image/png"]
+    assert captured["content"] == b"ok"
+    mock_upload_media.assert_called_once()
+    assert "Media payload missing" in mock_warning.call_args.args[0]
+    # 不得访问/创建本地 media 目录
+    assert not (tmp_path / "media").exists()
 
 
-def test_upload_advances_records_only_on_success(tmp_path: Path):
-    """成功上传才递进 uploaded，进度条仅保留上传成功的进度。"""
+def test_upload_media_uploads_empty_payload_as_zero_byte_file(tmp_path: Path):
+    """skip_store 下合法的空文件（payload 存在但为 b""）必须上传，不能被当作缺失丢弃。"""
+    sender = _make_sender(tmp_path, skip_store=True)
+    captured = {}
+
+    def _fake_upload_resource(_, __, *, paths, buffers, content_types=None, tracker=None):
+        captured["paths"] = paths
+        captured["content_types"] = content_types
+        captured["content"] = buffers[0].read()
+        return {}
+
+    with (
+        patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=MagicMock()),
+        patch(
+            "swanlab.sdk.internal.core_python.transport.sender.media.upload_resource",
+            side_effect=_fake_upload_resource,
+        ),
+        patch("swanlab.sdk.internal.core_python.transport.sender.upload_media") as mock_upload_media,
+        patch("swanlab.sdk.internal.core_python.transport.sender.console.warning") as mock_warning,
+    ):
+        sender.upload_media([_make_media_record("empty.txt", ColumnType.COLUMN_TYPE_TEXT, payload=b"")])
+
+    assert captured["paths"] == ["media/text/empty.txt"]
+    assert captured["content_types"] == ["text/plain"]
+    assert captured["content"] == b""
+    mock_upload_media.assert_called_once()
+    mock_warning.assert_not_called()
+
+
+def test_upload_does_not_advance_records(tmp_path: Path):
+    """sender.upload 不推进统计：确认计数由 Dispatch 依据 confirmed_records 推进。"""
     tracker = UploadTracker()
     sender = _make_sender(tmp_path)
     sender.set_tracker(tracker)
-    sender._upload_handlers["scalar"] = MagicMock()
+    records = [Record(), Record()]
+    sender._upload_handlers["scalar"] = MagicMock(return_value=UploadResult(confirmed_records=records))
 
-    sender.upload("scalar", [Record(), Record()])
+    result = sender.upload("scalar", records)
 
-    assert tracker.snapshot().uploaded_records == 2
-
-
-def test_upload_does_not_advance_records_for_non_retryable_api_error(tmp_path: Path):
-    """4xx 业务拒绝不计入 uploaded：失败原地不动，进度条不递进（也不抛异常，避免上层无意义重试）。"""
-    tracker = UploadTracker()
-    sender = _make_sender(tmp_path)
-    sender.set_tracker(tracker)
-    sender._upload_handlers["scalar"] = MagicMock(
-        side_effect=ApiError(
-            _FakeApiErrorResponse(400),
-            method="POST",
-            trace_id="trace-id",
-            code="bad-request",
-            message="bad request",
-        )
-    )
-
-    sender.upload("scalar", [Record()])
-
+    assert result.confirmed_records == records
     assert tracker.snapshot().uploaded_records == 0
 
 
-def test_upload_does_not_advance_records_for_retryable_api_error(tmp_path: Path):
-    tracker = UploadTracker()
+def test_upload_unknown_record_type_settles(tmp_path: Path):
+    """未注册 handler 的 record 类型终结并给出 local_data 失败，不进入重试。"""
     sender = _make_sender(tmp_path)
-    sender.set_tracker(tracker)
-    sender._upload_handlers["scalar"] = MagicMock(
-        side_effect=ApiError(
-            _FakeApiErrorResponse(500),
-            method="POST",
-            trace_id="trace-id",
-            code="internal-error",
-            message="server error",
-        )
-    )
+    record = _make_scalar_record()
 
-    try:
-        sender.upload("scalar", [Record()])
-    except ApiError:
-        pass
+    result = sender.upload("unknown_kind", [record])
 
-    assert tracker.snapshot().uploaded_records == 0
+    assert result.confirmed_records == [record]
+    assert result.remaining_records == []
+    assert "no upload handler" in result.failures[0].message
+
+
+def test_sender_resource_session_is_single_shot(tmp_path: Path):
+    """对象存储 session 单次执行（default_retry=0），媒体 PUT、save PUT 与分片上传不触发底层重试。"""
+    sender = _make_sender(tmp_path)
+
+    with patch(
+        "swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=MagicMock()
+    ) as mock_create:
+        session = sender._ensure_session()
+
+    mock_create.assert_called_once_with(default_retry=0)
+    assert session is sender._ensure_session()
+
+
+def test_sender_close_is_idempotent_and_releases_session(tmp_path: Path):
+    """close() 关闭对象存储 session 且幂等；关闭后调用会重建 session。"""
+    sender = _make_sender(tmp_path)
+    first_session = MagicMock()
+    with patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=first_session):
+        sender._ensure_session()
+        sender.close()
+        sender.close()
+    first_session.close.assert_called_once()
+    assert sender._buffer_session is None
+
+    second_session = MagicMock()
+    with patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=second_session):
+        assert sender._ensure_session() is second_session
 
 
 def _make_internal_save_record(source_path: str, save_type: SaveType, name: str = "") -> Record:
@@ -427,7 +689,7 @@ def test_resolve_save_source_prefers_primary_when_readable(tmp_path: Path):
     sender = _make_sender(tmp_path)
 
     with patch("swanlab.sdk.internal.core_python.transport.sender.console.debug") as mock_debug:
-        result = sender._resolve_save_source(rec.save)
+        result = resolve_save_source(sender._ctx, rec.save)
 
     assert result == source
     mock_debug.assert_not_called()
@@ -444,7 +706,7 @@ def test_resolve_save_source_falls_back_to_files_dir_for_custom(tmp_path: Path):
     fallback.write_text("recovered", encoding="utf-8")
 
     with patch("swanlab.sdk.internal.core_python.transport.sender.console.debug") as mock_debug:
-        result = sender._resolve_save_source(rec.save)
+        result = resolve_save_source(sender._ctx, rec.save)
 
     assert result == fallback
     mock_debug.assert_called_once()
@@ -458,7 +720,7 @@ def test_resolve_save_source_falls_back_for_internal_metadata(tmp_path: Path):
     fallback.parent.mkdir(parents=True)
     fallback.write_text("{}", encoding="utf-8")
 
-    result = sender._resolve_save_source(rec.save)
+    result = resolve_save_source(sender._ctx, rec.save)
 
     assert result == fallback
 
@@ -473,7 +735,7 @@ def test_resolve_save_source_uses_basename_not_name_for_config(tmp_path: Path):
     # files/config（即 save.name）不应被命中
     assert not (tmp_path / "files" / "config").exists()
 
-    result = sender._resolve_save_source(rec.save)
+    result = resolve_save_source(sender._ctx, rec.save)
 
     assert result == fallback
 
@@ -483,7 +745,18 @@ def test_resolve_save_source_returns_none_when_both_unreadable(tmp_path: Path):
     sender = _make_sender(tmp_path)
     # 既无 primary 也无 files 镜像
 
-    assert sender._resolve_save_source(rec.save) is None
+    assert resolve_save_source(sender._ctx, rec.save) is None
+
+
+def test_resolve_save_source_skips_stale_fallback_when_skip_store(tmp_path: Path):
+    """skip_store：本 run 无镜像，源不可读时不回退——files 下的同名文件属于旧 run，不能上传。"""
+    rec = _make_save_record(Path("/nonexistent/training-host/model.txt"), name="checkpoints/model.txt")
+    sender = _make_sender(tmp_path, skip_store=True)
+    fallback = tmp_path / "files" / "checkpoints" / "model.txt"
+    fallback.parent.mkdir(parents=True)
+    fallback.write_text("old-run-weights", encoding="utf-8")
+
+    assert resolve_save_source(sender._ctx, rec.save) is None
 
 
 def test_upload_save_recovers_internal_metadata_from_run_dir(tmp_path: Path):
@@ -520,17 +793,17 @@ def test_upload_save_recovers_custom_file_from_run_dir(tmp_path: Path):
     def _fake_upload(session, *, resources, tracker=None):
         # 断言读取自回退路径，而非训练机绝对路径
         assert all(r["source_path"] == str(recovered) for r in resources)
-        return {r["source_path"] for r in resources}
+        return {}
 
     with (
         patch(
-            "swanlab.sdk.internal.core_python.transport.sender.prepare_save_files",
+            "swanlab.sdk.internal.core_python.transport.sender.save.prepare_save_files",
             return_value={"urls": ["https://s3.test/model"]},
         ) as mock_prepare,
-        patch("swanlab.sdk.internal.core_python.transport.sender.complete_save_files") as mock_complete,
+        patch("swanlab.sdk.internal.core_python.transport.sender.save.complete_save_files") as mock_complete,
         patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=MagicMock()),
         patch(
-            "swanlab.sdk.internal.core_python.transport.sender.upload_saves", side_effect=_fake_upload
+            "swanlab.sdk.internal.core_python.transport.sender.save.upload_saves", side_effect=_fake_upload
         ) as mock_upload_saves,
         patch("swanlab.sdk.internal.core_python.transport.sender.console.debug"),
     ):
@@ -560,7 +833,7 @@ def test_resolve_save_source_handles_windows_separators_on_posix(tmp_path: Path)
     config_fallback.parent.mkdir(parents=True)
     config_fallback.write_text("key: value", encoding="utf-8")
     internal_rec = _make_internal_save_record(r"C:\host\config.yaml", SaveType.SAVE_TYPE_CONFIG, name="config")
-    assert sender._resolve_save_source(internal_rec.save) == config_fallback
+    assert resolve_save_source(sender._ctx, internal_rec.save) == config_fallback
 
     # ── 用户保存（CUSTOM）：层级还原 ──
     custom_fallback = tmp_path / "files" / "checkpoints" / "model.pt"
@@ -574,7 +847,642 @@ def test_resolve_save_source_handles_windows_separators_on_posix(tmp_path: Path)
             type=SaveType.SAVE_TYPE_CUSTOM,
         )
     )
-    assert sender._resolve_save_source(custom_rec.save) == custom_fallback
+    assert resolve_save_source(sender._ctx, custom_rec.save) == custom_fallback
+
+
+# ============================================================
+# skip_store：内部 save payload 双源
+# ============================================================
+
+
+_INTERNAL_PAYLOAD_CASES = [
+    pytest.param(
+        SaveType.SAVE_TYPE_METADATA,
+        b'{"hostname": "gpu-01"}',
+        "upload_metadata",
+        {"hostname": "gpu-01"},
+        id="metadata",
+    ),
+    pytest.param(
+        SaveType.SAVE_TYPE_REQUIREMENTS,
+        b"numpy==1.0",
+        "upload_requirements",
+        "numpy==1.0",
+        id="requirements",
+    ),
+    pytest.param(
+        SaveType.SAVE_TYPE_CONFIG,
+        b"lr:\n  value: 0.01\n",
+        "upload_config",
+        {"lr": {"value": 0.01}},
+        id="config",
+    ),
+]
+
+
+@pytest.mark.parametrize("save_type, payload, api_func, expected_content", _INTERNAL_PAYLOAD_CASES)
+def test_upload_save_uses_internal_payload_without_disk(tmp_path, save_type, payload, api_func, expected_content):
+    """内部 save payload 非空：直接解析上传，不走 files 回退。"""
+    sender = _make_sender(tmp_path)
+    record = Record(save=SaveRecord(name="internal", type=save_type, payload=payload))
+
+    with (
+        patch(f"swanlab.sdk.internal.core_python.transport.sender.{api_func}") as mock_api,
+        patch("swanlab.sdk.internal.core_python.transport.sender.resolve_save_source") as mock_resolve,
+    ):
+        sender.upload_save([record])
+
+    mock_resolve.assert_not_called()
+    mock_api.assert_called_once()
+    assert mock_api.call_args.kwargs["content"] == expected_content
+
+
+def test_upload_save_rejects_invalid_payload_usage(tmp_path: Path):
+    """CUSTOM 带 payload、skip_store 下内部 save 缺 payload，均告警跳过、不走上传。"""
+    source = tmp_path / "model.pt"
+    source.write_bytes(b"weights")
+    sender = _make_sender(tmp_path, skip_store=True)
+    custom_with_payload = Record(
+        save=SaveRecord(
+            name="model.pt",
+            source_path=str(source),
+            type=SaveType.SAVE_TYPE_CUSTOM,
+            payload=b"forbidden",
+        )
+    )
+    internal_without_payload = _make_internal_save_record("", SaveType.SAVE_TYPE_METADATA)
+
+    with (
+        patch("swanlab.sdk.internal.core_python.transport.sender.save.prepare_save_files") as mock_prepare,
+        patch("swanlab.sdk.internal.core_python.transport.sender.resolve_save_source") as mock_resolve,
+        patch("swanlab.sdk.internal.core_python.transport.sender.upload_metadata") as mock_upload_meta,
+        patch("swanlab.sdk.internal.core_python.transport.sender.console.warning") as mock_warning,
+    ):
+        sender.upload_save([custom_with_payload, internal_without_payload])
+
+    mock_prepare.assert_not_called()
+    mock_resolve.assert_not_called()
+    mock_upload_meta.assert_not_called()
+    messages = [call.args[0] for call in mock_warning.call_args_list]
+    assert any("CUSTOM save must not carry payload" in message for message in messages)
+    assert any("Internal save payload missing" in message for message in messages)
+
+
+def test_upload_save_settles_unparseable_payload(tmp_path: Path):
+    """payload 解析失败时终结记录并报告失败，不发起上传。"""
+    sender = _make_sender(tmp_path)
+    record = Record(save=SaveRecord(name="metadata", type=SaveType.SAVE_TYPE_METADATA, payload=b"{not-json"))
+
+    with (
+        patch("swanlab.sdk.internal.core_python.transport.sender.upload_metadata") as mock_upload_meta,
+        patch("swanlab.sdk.internal.core_python.transport.sender.console.warning") as mock_warning,
+    ):
+        result = sender.upload("save", [record])
+
+    mock_upload_meta.assert_not_called()
+    assert result.confirmed_records == [record]
+    assert result.remaining_records == []
+    assert "Failed to parse internal save payload" in mock_warning.call_args.args[0]
+
+
+def test_upload_save_payload_upload_error_is_retained(tmp_path: Path):
+    """payload 解析成功但上传失败（5xx）时保留记录。"""
+    sender = _make_sender(tmp_path)
+    record = Record(
+        save=SaveRecord(name="metadata", type=SaveType.SAVE_TYPE_METADATA, payload=b'{"hostname": "gpu-01"}')
+    )
+    error = ApiError(
+        _FakeApiErrorResponse(502),
+        method="PUT",
+        trace_id="trace-id",
+        code="bad-gateway",
+        message="server error",
+    )
+
+    with patch(
+        "swanlab.sdk.internal.core_python.transport.sender.upload_metadata",
+        side_effect=error,
+    ):
+        result = sender.upload("save", [record])
+
+    assert result.remaining_records == [record]
+    assert result.failures[0].status == 502
+
+
+def test_upload_save_disk_channel_upload_error_is_retained(tmp_path: Path):
+    """磁盘回读模式上传失败（5xx）时保留记录。"""
+    sender = _make_sender(tmp_path)
+    metadata_file = tmp_path / "files" / "swanlab-metadata.json"
+    metadata_file.parent.mkdir(parents=True)
+    metadata_file.write_text('{"hostname": "gpu-01"}', encoding="utf-8")
+    record = _make_internal_save_record("/nonexistent/host/swanlab-metadata.json", SaveType.SAVE_TYPE_METADATA)
+    error = ApiError(
+        _FakeApiErrorResponse(502),
+        method="PUT",
+        trace_id="trace-id",
+        code="bad-gateway",
+        message="server error",
+    )
+
+    with patch(
+        "swanlab.sdk.internal.core_python.transport.sender.upload_metadata",
+        side_effect=error,
+    ):
+        result = sender.upload("save", [record])
+
+    assert result.remaining_records == [record]
+    assert result.failures[0].status == 502
+
+
+def test_upload_save_warns_once_for_unknown_internal_type(tmp_path: Path):
+    """未知内部 save 类型：单次告警跳过，不读盘、不上传。"""
+    sender = _make_sender(tmp_path)
+    record = Record(save=SaveRecord(name="unknown", type=cast(SaveType, 99), payload=b"opaque"))
+
+    with (
+        patch("swanlab.sdk.internal.core_python.transport.sender.resolve_save_source") as mock_resolve,
+        patch("swanlab.sdk.internal.core_python.transport.sender.console.warning") as mock_warning,
+    ):
+        sender.upload_save([record])
+
+    mock_resolve.assert_not_called()
+    assert "Unknown internal save type" in mock_warning.call_args.args[0]
+
+
+def test_upload_column_partial_success_keeps_failed_tail(tmp_path: Path):
+    """列上传分批成功时确认前序批次，保留失败批次及后续记录。"""
+    sender = _make_sender(tmp_path)
+    records = [
+        Record(column=ColumnRecord(column_key=f"metric-{index}", column_type=ColumnType.COLUMN_TYPE_SCALAR))
+        for index in range(3)
+    ]
+    error = ApiError(
+        _FakeApiErrorResponse(502),
+        method="POST",
+        trace_id="trace-id",
+        code="bad-gateway",
+        message="server error",
+    )
+
+    with patch(
+        "swanlab.sdk.internal.core_python.transport.sender.upload_columns",
+        side_effect=[None, error],
+    ):
+        result = sender.upload_column(records, batch_size=2)
+
+    assert result.confirmed_records == records[:2]
+    assert result.remaining_records == records[2:]
+    assert result.failures[0].status == 502
+
+
+def test_upload_media_transfer_failure_is_terminal(tmp_path: Path):
+    """媒体对象存储 PUT 遇到确定性 4xx 时终结记录，标记失败来源为对象存储。"""
+    media_dir = tmp_path / "media" / "image"
+    media_dir.mkdir(parents=True)
+    (media_dir / "a.png").write_bytes(b"image")
+    sender = _make_sender(tmp_path)
+    record = _make_media_record("a.png")
+
+    with (
+        patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=MagicMock()),
+        patch(
+            "swanlab.sdk.internal.core_python.transport.sender.media.upload_resource",
+            side_effect=ApiError(
+                _FakeApiErrorResponse(403),
+                method="PUT",
+                trace_id="trace-id",
+                code="forbidden",
+                message="storage forbidden",
+            ),
+        ),
+    ):
+        result = sender.upload_media([record])
+
+    assert result.confirmed_records == [record]
+    assert result.remaining_records == []
+    failure = result.failures[0]
+    assert failure.status == 403
+
+
+def test_upload_media_transfer_failure_is_retryable(tmp_path: Path):
+    """媒体对象存储 PUT 遇到网络/5xx 时保留重试，不终结记录。"""
+    media_dir = tmp_path / "media" / "image"
+    media_dir.mkdir(parents=True)
+    (media_dir / "a.png").write_bytes(b"image")
+    sender = _make_sender(tmp_path)
+    record = _make_media_record("a.png")
+
+    with (
+        patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=MagicMock()),
+        patch(
+            "swanlab.sdk.internal.core_python.transport.sender.media.upload_resource",
+            side_effect=ApiError(
+                _FakeApiErrorResponse(503),
+                method="PUT",
+                trace_id="trace-id",
+                code="slow-down",
+                message="storage unavailable",
+            ),
+        ),
+    ):
+        result = sender.upload_media([record])
+
+    assert result.confirmed_records == []
+    assert result.remaining_records == [record]
+    failure = result.failures[0]
+    assert failure.status == 503
+
+
+def test_upload_media_settles_on_non_retryable_protocol_error(tmp_path: Path):
+    """预签名协议错误终结媒体记录并关闭进度行，不进入退避重试。"""
+    media_dir = tmp_path / "media" / "image"
+    media_dir.mkdir(parents=True)
+    (media_dir / "a.png").write_bytes(b"image")
+    sender = _make_sender(tmp_path)
+    tracker = UploadTracker()
+    sender.set_tracker(tracker)
+    record = _make_media_record("a.png")
+
+    with (
+        patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=MagicMock()),
+        patch(
+            "swanlab.sdk.internal.core_python.transport.sender.media.upload_resource",
+            side_effect=ApiError(
+                code="invalid_presigned_response",
+                message="presigned response returned 1 urls for 2 paths",
+                retryable=False,
+            ),
+        ),
+    ):
+        result = sender.upload_media([record])
+
+    assert result.confirmed_records == [record]
+    assert result.remaining_records == []
+    failure = result.failures[0]
+    assert "presigned response" in failure.message
+    stats = tracker.snapshot()
+    assert stats.total_number == 1
+    assert len(stats.files) == 0
+
+
+@pytest.mark.parametrize("statuses", [(503, 403), (403, 503)], ids=["503-then-403", "403-then-503"])
+def test_upload_media_retries_object_storage_failures(tmp_path: Path, statuses):
+    """对象存储错误一律重试，结果不随文件顺序变化。"""
+    first_status, second_status = statuses
+    media_dir = tmp_path / "media" / "image"
+    media_dir.mkdir(parents=True)
+    (media_dir / "a.png").write_bytes(b"aaa")
+    (media_dir / "b.png").write_bytes(b"bbb")
+    sender = _make_sender(tmp_path)
+    tracker = UploadTracker()
+    sender.set_tracker(tracker)
+    first = _make_media_record("a.png")
+    second = _make_media_record("b.png")
+    first.num, second.num = 1, 2
+
+    with (
+        patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=MagicMock()),
+        patch(
+            "swanlab.sdk.internal.core_python.transport.sender.media.upload_resource",
+            return_value={0: _make_api_error(first_status), 1: _make_api_error(second_status)},
+        ),
+        patch("swanlab.sdk.internal.core_python.transport.sender.upload_media") as mock_metrics,
+    ):
+        result = sender.upload_media([first, second])
+
+    # 全部文件失败，没有可提交的媒体指标
+    mock_metrics.assert_not_called()
+    assert result.remaining_records == [first, second]
+    assert result.confirmed_records == []
+    # 文件行全部保留，等待重试
+    assert len(tracker._files) == 2
+
+
+def test_upload_media_settles_on_local_read_failure(tmp_path: Path):
+    """本地文件不可读才终结记录，不进入无意义重试。"""
+    media_dir = tmp_path / "media" / "image"
+    media_dir.mkdir(parents=True)
+    (media_dir / "a.png").write_bytes(b"aaa")
+    sender = _make_sender(tmp_path)
+    tracker = UploadTracker()
+    sender.set_tracker(tracker)
+    record = _make_media_record("a.png")
+    record.num = 1
+
+    with (
+        patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=MagicMock()),
+        patch(
+            "swanlab.sdk.internal.core_python.transport.sender.media.upload_resource",
+            return_value={0: FileNotFoundError("a.png")},
+        ),
+        patch("swanlab.sdk.internal.core_python.transport.sender.upload_media") as mock_metrics,
+    ):
+        result = sender.upload_media([record])
+
+    mock_metrics.assert_not_called()
+    assert result.confirmed_records == [record]
+    assert result.remaining_records == []
+    # 终结记录的文件行关闭
+    assert tracker._files == {}
+
+
+def test_upload_media_metrics_failure_keeps_file_rows_open(tmp_path: Path):
+    """媒体 PUT 成功但指标提交失败时保留记录，文件进度不标记完成。"""
+    media_dir = tmp_path / "media" / "image"
+    media_dir.mkdir(parents=True)
+    image_path = media_dir / "a.png"
+    image_path.write_bytes(b"image")
+    tracker = UploadTracker()
+    sender = _make_sender(tmp_path)
+    sender.set_tracker(tracker)
+    record = _make_media_record("a.png")
+
+    def _fake_upload_resource(_, __, *, paths, buffers, content_types=None, tracker=None):
+        # 模拟 PUT 字节传输完成，finish 在指标提交成功后触发
+        if tracker is not None:
+            for path in paths:
+                tracker.update_file_progress(f"{path}:5", f"{path}:5", 5)
+        return {}
+
+    with (
+        patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=MagicMock()),
+        patch(
+            "swanlab.sdk.internal.core_python.transport.sender.media.upload_resource",
+            side_effect=_fake_upload_resource,
+        ),
+        patch(
+            "swanlab.sdk.internal.core_python.transport.sender.upload_media",
+            side_effect=ApiError(
+                _FakeApiErrorResponse(500),
+                method="POST",
+                trace_id="trace-id",
+                code="internal-error",
+                message="server error",
+            ),
+        ),
+    ):
+        result = sender.upload_media([record])
+
+    assert result.remaining_records == [record]
+    stats = tracker.snapshot()
+    # 字节进度上报完成，finish_file 在指标提交成功后调用
+    assert stats.uploaded_size == 5
+    assert stats.uploaded_number == 0
+
+
+def test_upload_media_confirms_records_after_metrics_success(tmp_path: Path):
+    """媒体内容与指标上传成功时标记文件完成并确认记录。"""
+    media_dir = tmp_path / "media" / "image"
+    media_dir.mkdir(parents=True)
+    image_path = media_dir / "a.png"
+    image_path.write_bytes(b"image")
+    tracker = UploadTracker()
+    sender = _make_sender(tmp_path)
+    sender.set_tracker(tracker)
+    record = _make_media_record("a.png")
+
+    with (
+        patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=MagicMock()),
+        patch("swanlab.sdk.internal.core_python.transport.sender.media.upload_resource"),
+        patch("swanlab.sdk.internal.core_python.transport.sender.upload_media"),
+    ):
+        result = sender.upload_media([record])
+
+    assert result.remaining_records == []
+    assert result.failures == []
+    assert result.confirmed_records == [record]
+    stats = tracker.snapshot()
+    assert stats.uploaded_size == 5
+    assert stats.uploaded_number == 1
+    assert list(stats.files) == []
+
+
+def test_upload_save_small_files_partial_success_completes_uploaded_and_failed(tmp_path: Path):
+    """小文件上传部分失败时，complete 同时包含 UPLOADED 和 FAILED 条目；失败文件不重试。"""
+    first = tmp_path / "ok.txt"
+    second = tmp_path / "failed.txt"
+    first.write_text("weights-1", encoding="utf-8")
+    second.write_text("weights-2", encoding="utf-8")
+    sender = _make_sender(tmp_path)
+
+    def _fake_upload(session, *, resources, tracker=None):
+        return {1: RuntimeError("s3 failed")}  # 第二个文件失败
+
+    with (
+        patch(
+            "swanlab.sdk.internal.core_python.transport.sender.save.prepare_save_files",
+            side_effect=lambda _, *, files: {"urls": [f"https://s3.test/{item['path']}" for item in files]},
+        ),
+        patch("swanlab.sdk.internal.core_python.transport.sender.save.complete_save_files") as mock_complete,
+        patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=MagicMock()),
+        patch("swanlab.sdk.internal.core_python.transport.sender.save.upload_saves", side_effect=_fake_upload),
+    ):
+        records = [
+            _make_save_record(first, name="checkpoints/ok.txt"),
+            _make_save_record(second, name="checkpoints/failed.txt"),
+        ]
+        result = sender.upload_save(records)
+
+    # complete 同时上报成功和失败，由后端负责清理失败文件的对象存储资源
+    complete_files = mock_complete.call_args.kwargs["files"]
+    assert {"path": "checkpoints/ok.txt", "state": "UPLOADED"} in complete_files
+    assert {"path": "checkpoints/failed.txt", "state": "FAILED"} in complete_files
+    # 两个记录都视为已终结，失败的不再重试
+    assert sorted(id(r) for r in result.confirmed_records) == sorted(id(r) for r in records)
+    assert result.remaining_records == []
+
+
+@pytest.mark.parametrize("status, retryable", [(400, False), (503, True)], ids=["4xx", "5xx"])
+def test_upload_save_small_prepare_failure(tmp_path: Path, status, retryable):
+    """小文件 prepare 失败：5xx 保留重试，4xx 终结。"""
+    source = tmp_path / "a.txt"
+    source.write_text("weights", encoding="utf-8")
+    sender = _make_sender(tmp_path)
+    record = _make_save_record(source, name="a.txt")
+
+    with patch(
+        "swanlab.sdk.internal.core_python.transport.sender.save.prepare_save_files",
+        side_effect=_make_api_error(status),
+    ):
+        result = sender.upload_save([record])
+
+    assert result.confirmed_records == ([] if retryable else [record])
+    assert result.remaining_records == ([record] if retryable else [])
+
+
+@pytest.mark.parametrize(
+    "response",
+    [None, {}, {"urls": None}, {"urls": "not-a-list"}, {"urls": [None]}],
+    ids=["none", "empty", "none-value", "not-list", "invalid-url"],
+)
+def test_upload_save_small_prepare_protocol_error_settles(tmp_path: Path, response):
+    """prepare 响应字段缺失或结构错误时终结记录，不进入无界重试。"""
+    source = tmp_path / "a.txt"
+    source.write_text("weights", encoding="utf-8")
+    sender = _make_sender(tmp_path)
+    record = _make_save_record(source, name="a.txt")
+
+    with patch(
+        "swanlab.sdk.internal.core_python.transport.sender.save.prepare_save_files",
+        return_value=response,
+    ):
+        result = sender.upload_save([record])
+
+    assert result.confirmed_records == [record]
+    assert result.remaining_records == []
+    assert "prepare response invalid" in result.failures[0].message
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        {"files": "not-a-list"},
+        {"files": [{"parts": [{"partNumber": 1, "url": "u"}] * 3}]},
+        {"files": [{"uploadId": "upload-id"}]},
+        {"files": [{"uploadId": "upload-id", "parts": [{"partNumber": 1, "url": "u"}] * 2}]},
+        {
+            "files": [
+                {
+                    "uploadId": "upload-id",
+                    "parts": [
+                        {"partNumber": 1, "url": "u"},
+                        {"partNumber": 2, "url": "u"},
+                        {"partNumber": 2, "url": "u"},
+                    ],
+                }
+            ]
+        },
+        {
+            "files": [
+                {
+                    "uploadId": "upload-id",
+                    "parts": [
+                        {"partNumber": 1, "url": "u"},
+                        {"partNumber": 2, "url": "u"},
+                        {"partNumber": 3},
+                    ],
+                }
+            ]
+        },
+    ],
+    ids=[
+        "not-list",
+        "missing-upload-id",
+        "missing-parts",
+        "too-few-parts",
+        "duplicate-part-number",
+        "part-missing-url",
+    ],
+)
+def test_upload_save_large_prepare_protocol_error_settles(tmp_path: Path, response):
+    """prepare-multipart 响应字段或分片数量错误时终结记录，不发起任何 PUT。"""
+    source = tmp_path / "large.bin"
+    source.write_bytes(b"0123456789")
+    sender = _make_sender(tmp_path, save_split=5, save_part=4)
+    record = _make_save_record(source, name="large.bin")
+    fake_session = _FakeSession()
+
+    with (
+        patch(
+            "swanlab.sdk.internal.core_python.transport.sender.save.prepare_multipart_save",
+            return_value=response,
+        ),
+        patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=fake_session),
+        patch("swanlab.sdk.internal.core_python.transport.sender.save.complete_multipart_save") as mock_complete,
+    ):
+        result = sender.upload_save([record])
+
+    assert result.confirmed_records == [record]
+    assert result.remaining_records == []
+    assert "prepare response invalid" in result.failures[0].message
+    assert fake_session.puts == []
+    mock_complete.assert_not_called()
+
+
+@pytest.mark.parametrize("status, retryable", [(400, False), (503, True)], ids=["4xx", "5xx"])
+def test_upload_save_small_complete_failure(tmp_path: Path, status, retryable):
+    """小文件 complete 失败：5xx 保留重试并保持进度行，4xx 终结并关闭进度行。"""
+    source = tmp_path / "a.txt"
+    source.write_text("weights", encoding="utf-8")
+    sender = _make_sender(tmp_path)
+    tracker = UploadTracker()
+    sender.set_tracker(tracker)
+    record = _make_save_record(source, name="a.txt")
+
+    with (
+        patch(
+            "swanlab.sdk.internal.core_python.transport.sender.save.prepare_save_files",
+            return_value={"urls": ["https://s3.test/a.txt"]},
+        ),
+        patch("swanlab.sdk.internal.core_python.transport.sender.save.upload_saves", return_value={}),
+        patch(
+            "swanlab.sdk.internal.core_python.transport.sender.save.complete_save_files",
+            side_effect=_make_api_error(status),
+        ),
+        patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=MagicMock()),
+    ):
+        result = sender.upload_save([record])
+
+    assert result.confirmed_records == ([] if retryable else [record])
+    assert result.remaining_records == ([record] if retryable else [])
+    assert len(tracker.snapshot().files) == (1 if retryable else 0)
+
+
+def test_upload_save_oversize_file_is_settled_not_uploaded(tmp_path: Path):
+    """超过 save_size 限制的文件终结并报告失败。"""
+    source = tmp_path / "huge.bin"
+    source.write_bytes(b"0" * 16)
+    sender = _make_sender(tmp_path, save_split=100 * 1024 * 1024, save_size=8)  # 模拟超限
+    record = _make_save_record(source, name="huge.bin")
+
+    with (
+        patch("swanlab.sdk.internal.core_python.transport.sender.save.prepare_save_files") as mock_prepare,
+        patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=MagicMock()),
+    ):
+        result = sender.upload_save([record])
+
+    mock_prepare.assert_not_called()
+    assert result.confirmed_records == [record]
+    assert result.remaining_records == []
+    assert "size limit" in result.failures[0].message
+
+
+def test_upload_save_invalid_save_batch_settles_records(tmp_path: Path):
+    """save_batch 配置非法时终结整批记录并报告失败。"""
+    source = tmp_path / "model.txt"
+    source.write_text("weights", encoding="utf-8")
+    sender = _make_sender(tmp_path, save_batch=0)
+    record = _make_save_record(source, name="checkpoints/model.txt")
+
+    with (
+        patch("swanlab.sdk.internal.core_python.transport.sender.save.prepare_save_files") as mock_prepare,
+        patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=MagicMock()),
+        patch("swanlab.sdk.internal.core_python.transport.sender.console.warning"),
+    ):
+        result = sender.upload_save([record])
+
+    mock_prepare.assert_not_called()
+    assert result.confirmed_records == [record]
+    assert result.remaining_records == []
+    assert "save batch size" in result.failures[0].message
+
+
+def test_upload_save_missing_source_file_is_settled(tmp_path: Path):
+    """源文件缺失时终结记录并报告 local_data 失败。"""
+    sender = _make_sender(tmp_path)
+    record = _make_save_record(Path("/nonexistent/training-host/model.txt"), name="checkpoints/model.txt")
+
+    with (
+        patch("swanlab.sdk.internal.core_python.transport.sender.save.prepare_save_files") as mock_prepare,
+        patch("swanlab.sdk.internal.core_python.transport.sender.client.session.create", return_value=MagicMock()),
+        patch("swanlab.sdk.internal.core_python.transport.sender.console.warning"),
+    ):
+        result = sender.upload_save([record])
+
+    mock_prepare.assert_not_called()
+    assert result.confirmed_records == [record]
+    assert result.remaining_records == []
+    assert "not found" in result.failures[0].message
 
 
 # ============================================================
@@ -595,55 +1503,48 @@ class TestEncodeColumn:
         result = encode_column(col)
         assert result == {"key": "train/loss", "type": "FLOAT", "sectionName": "Training"}
 
-    def test_inferred_column_no_section_name(self):
-        """inferred column 无 sectionName 时只发 key/type。"""
+    @pytest.mark.parametrize(
+        "optional_fields",
+        [{}, {"section_name": ""}, {"hidden": False}],
+        ids=["absent", "empty-section", "hidden-false"],
+    )
+    def test_column_omits_optional_fields(self, optional_fields):
+        """未设置或为空的可选字段不发送。"""
         col = ColumnRecord(
             column_key="train/loss",
             column_type=ColumnType.COLUMN_TYPE_SCALAR,
+            **optional_fields,
         )
         result = encode_column(col)
         assert result == {"key": "train/loss", "type": "FLOAT"}
 
-    def test_column_with_custom_xaxis(self):
-        """ColumnRecord 带 x_axis → xAxis 发送。"""
+    @pytest.mark.parametrize(
+        "x_axis, section_name, expected",
+        [
+            pytest.param(
+                "train/epoch",
+                "Training",
+                {"key": "train/loss", "type": "FLOAT", "xAxis": "train/epoch", "sectionName": "Training"},
+                id="custom",
+            ),
+            pytest.param(
+                "_relative_time",
+                "",
+                {"key": "train/loss", "type": "FLOAT", "xAxis": "_relative_time"},
+                id="relative-time",
+            ),
+        ],
+    )
+    def test_column_with_xaxis(self, x_axis, section_name, expected):
+        """自定义及相对时间 xAxis 透传，sectionName 按存在性发送。"""
         col = ColumnRecord(
             column_key="train/loss",
             column_type=ColumnType.COLUMN_TYPE_SCALAR,
-            x_axis="train/epoch",
-            section_name="Training",
+            x_axis=x_axis,
+            section_name=section_name,
         )
         result = encode_column(col)
-        assert result == {
-            "key": "train/loss",
-            "type": "FLOAT",
-            "xAxis": "train/epoch",
-            "sectionName": "Training",
-        }
-
-    def test_column_without_xaxis(self):
-        """ColumnRecord 无 x_axis → xAxis key 不发送。"""
-        col = ColumnRecord(
-            column_key="loss",
-            column_type=ColumnType.COLUMN_TYPE_SCALAR,
-            section_name="",
-        )
-        result = encode_column(col)
-        # section_name="" → falsy → 不发送
-        assert result == {"key": "loss", "type": "FLOAT"}
-
-    def test_column_with_relative_time_xaxis(self):
-        """xAxis=_relative_time → 字符串透传，由 Server 转换。"""
-        col = ColumnRecord(
-            column_key="loss",
-            column_type=ColumnType.COLUMN_TYPE_SCALAR,
-            x_axis="_relative_time",
-        )
-        result = encode_column(col)
-        assert result == {
-            "key": "loss",
-            "type": "FLOAT",
-            "xAxis": "_relative_time",
-        }
+        assert result == expected
 
     def test_column_hidden_true(self):
         """hidden=True → hidden key 发送。"""
@@ -658,16 +1559,6 @@ class TestEncodeColumn:
             "type": "FLOAT",
             "hidden": True,
         }
-
-    def test_column_hidden_false_not_sent(self):
-        """hidden=False → hidden key 不发送（server 视 absent 为 false）。"""
-        col = ColumnRecord(
-            column_key="loss",
-            column_type=ColumnType.COLUMN_TYPE_SCALAR,
-            hidden=False,
-        )
-        result = encode_column(col)
-        assert result == {"key": "loss", "type": "FLOAT"}
 
     def test_media_column(self):
         """media ColumnRecord 无 x_axis（resolver 对 MEDIA 不设 x_axis）。"""
@@ -719,3 +1610,175 @@ class TestEncodeColumn:
             "sectionName": "Training",
             "hidden": True,
         }
+
+
+# ── 重试契约：错误转换与 retries=0 ──
+
+_RETRY_CONTRACT_CASES = [
+    pytest.param("scalar", "upload_scalar", _make_scalar_record, id="scalar"),
+    pytest.param("log", "upload_log", _make_log_record, id="log"),
+    pytest.param("column", "upload_columns", _make_column_record, id="column"),
+]
+
+_RETRIES_ZERO_CASES = [
+    pytest.param(
+        upload_api.upload_scalar,
+        ("pid", "eid"),
+        {"metrics": [{"key": "loss", "index": 0, "data": 0.1, "create_time": "2024-01-01T00:00:00+08:00"}]},
+        id="scalar",
+    ),
+    pytest.param(
+        upload_api.upload_log,
+        ("pid", "eid"),
+        {"metrics": [{"level": "INFO", "epoch": 0, "message": "hi", "create_time": "2024-01-01T00:00:00+08:00"}]},
+        id="log",
+    ),
+    pytest.param(
+        upload_api.upload_media,
+        ("pid", "eid"),
+        {"metrics": [{"key": "img", "index": 0, "data": [], "more": [], "create_time": "2024-01-01T00:00:00+08:00"}]},
+        id="media",
+    ),
+    pytest.param(upload_api.upload_columns, ("user", "proj"), {"columns": {"series": [{"key": "loss"}]}}, id="column"),
+    pytest.param(upload_api.upload_conda, ("user", "proj", "eid"), {"content": "conda-list"}, id="conda"),
+    pytest.param(upload_api.upload_requirements, ("user", "proj", "eid"), {"content": "numpy==1.0"}, id="requirements"),
+    pytest.param(
+        upload_api.upload_metadata, ("user", "proj", "eid"), {"content": {"hostname": "gpu-01"}}, id="metadata"
+    ),
+    pytest.param(upload_api.upload_config, ("user", "proj", "eid"), {"content": {"lr": {"value": 0.01}}}, id="config"),
+    pytest.param(
+        save_api.prepare_save_files,
+        ("eid",),
+        {"files": [{"path": "model.bin", "size": 8, "md5": "0", "mimeType": "text/plain"}]},
+        id="save-prepare",
+    ),
+    pytest.param(
+        save_api.complete_save_files,
+        ("eid",),
+        {"files": [{"path": "model.bin", "state": "UPLOADED"}]},
+        id="save-complete",
+    ),
+    pytest.param(
+        save_api.prepare_multipart_save,
+        ("eid",),
+        {"files": [{"path": "large.bin", "size": 8, "md5": "0", "mimeType": "text/plain", "count": 1}]},
+        id="save-prepare-multipart",
+    ),
+    pytest.param(
+        save_api.complete_multipart_save,
+        ("eid",),
+        {"files": [{"path": "large.bin", "parts": [], "uploadId": "uid"}]},
+        id="save-complete-multipart",
+    ),
+]
+
+
+@pytest.mark.parametrize("status, expected", [(400, False), (429, False), (500, True), (503, True)])
+def test_api_error_retryability_uses_minimal_status_rule(status, expected):
+    assert is_retryable_error(_make_api_error(status)) is expected
+
+
+def test_network_error_is_retryable():
+    assert is_retryable_error(requests.ConnectionError("connection refused")) is True
+
+
+@pytest.mark.parametrize("record_type, api_func_name, make_record", _RETRY_CONTRACT_CASES)
+@pytest.mark.parametrize("status, retryable", [(400, False), (502, True)], ids=["4xx", "5xx"])
+def test_http_error_becomes_failure_result(tmp_path, record_type, api_func_name, make_record, status, retryable):
+    """4xx 终结记录，5xx 保留重试，两者都保留错误详情。"""
+    tracker = UploadTracker()
+    sender = _make_sender(tmp_path)
+    sender.set_tracker(tracker)
+    record = make_record()
+
+    with patch(
+        f"swanlab.sdk.internal.core_python.transport.sender.{api_func_name}",
+        side_effect=_make_api_error(status),
+    ):
+        result = sender.upload(record_type, [record])
+
+    assert result.confirmed_records == ([] if retryable else [record])
+    assert result.remaining_records == ([record] if retryable else [])
+    failure = result.failures[0]
+    assert failure.status == status
+    assert failure.code == "test-error"
+    assert failure.exception is not None
+    assert tracker.snapshot().uploaded_records == 0
+
+
+@pytest.mark.parametrize("record_type, api_func_name, make_record", _RETRY_CONTRACT_CASES)
+def test_success_returns_confirmed(tmp_path, record_type, api_func_name, make_record):
+    """上传成功时返回 confirmed_records，统计推进由 Dispatch 负责。"""
+    tracker = UploadTracker()
+    sender = _make_sender(tmp_path)
+    sender.set_tracker(tracker)
+    record = make_record()
+
+    with patch(f"swanlab.sdk.internal.core_python.transport.sender.{api_func_name}"):
+        result = sender.upload(record_type, [record])
+
+    assert result.confirmed_records == [record]
+    assert result.remaining_records == []
+    assert result.failures == []
+    assert tracker.snapshot().uploaded_records == 0
+
+
+@pytest.mark.parametrize(
+    "record_type, api_func_name, make_good_record, make_bad_record",
+    [
+        pytest.param("scalar", "upload_scalar", _make_scalar_record, lambda: Record(), id="scalar"),
+        pytest.param("log", "upload_log", _make_log_record, lambda: Record(), id="log"),
+    ],
+)
+def test_mixed_batch_http_failure_splits_failure_sources(
+    tmp_path, record_type, api_func_name, make_good_record, make_bad_record
+):
+    """混合批次遇到 HTTP 失败时，有效记录保留重试，无效记录视为已终结不再重试，失败来源拆分。"""
+    sender = _make_sender(tmp_path)
+    good = make_good_record()
+    bad = make_bad_record()
+
+    with patch(
+        f"swanlab.sdk.internal.core_python.transport.sender.{api_func_name}",
+        side_effect=_make_api_error(503),
+    ):
+        result = sender.upload(record_type, [good, bad])
+
+    assert result.confirmed_records == [bad]
+    # 只有有效记录保留重试；无效记录（blocked）不进 remaining
+    assert result.remaining_records == [good]
+    assert bad not in result.remaining_records
+
+    api_failure = next(f for f in result.failures if isinstance(f.exception, ApiError))
+    local_failure = next(f for f in result.failures if not isinstance(f.exception, ApiError))
+
+    assert good in api_failure.records
+    assert bad not in api_failure.records
+    assert bad in local_failure.records
+    assert good not in local_failure.records
+
+
+@pytest.mark.parametrize("func, args, kwargs", _RETRIES_ZERO_CASES)
+def test_api_calls_disable_adapter_retries(func, args, kwargs):
+    """上传 API 一律显式关闭 requests 层重试，重试统一由 transport 调度。"""
+    with (
+        patch("swanlab.sdk.internal.core_python.client.post") as mock_post,
+        patch("swanlab.sdk.internal.core_python.client.put") as mock_put,
+    ):
+        func(*args, **kwargs)
+
+    called = mock_post if mock_post.called else mock_put
+    assert called.call_args.kwargs["retries"] == 0
+
+
+def test_upload_resource_disables_adapter_retries():
+    """预签名 POST 同样关闭 requests 层重试。"""
+    fake = MagicMock()
+    fake.data = {"urls": ["https://s3.test/a"]}
+
+    with patch("swanlab.sdk.internal.core_python.client.post", return_value=fake) as mock_post:
+        upload_api.upload_resource(
+            cast(Session, _FakeSession()), "eid", paths=["media/image/a.png"], buffers=[BytesIO(b"x")]
+        )
+
+    assert mock_post.call_args.kwargs["retries"] == 0

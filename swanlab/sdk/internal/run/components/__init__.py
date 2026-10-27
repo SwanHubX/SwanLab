@@ -139,7 +139,7 @@ def _factory_consumer(
 def _factory_config(ctx: RunContext, e: EmitterProtocol) -> Config:
     if ctx.config.settings.mode == "disabled":
         return create_unbound_run_config()
-    return create_run_config(ctx.config_file, e.emit)
+    return create_run_config(ctx.config_file, e.emit, skip_store=ctx.config.settings.core.skip_store)
 
 
 def _factory_terminal(ctx: RunContext, e: EmitterProtocol, init_pid: int) -> TerminalProxyProtocol:

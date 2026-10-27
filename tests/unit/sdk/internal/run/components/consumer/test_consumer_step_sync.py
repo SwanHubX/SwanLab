@@ -22,7 +22,7 @@ def _make_consumer(tmp_path: Path) -> BackgroundConsumer:
         core=MagicMock(),
         callbacker=MagicMock(),
         media_dir=tmp_path,
-        config=SimpleNamespace(settings=SimpleNamespace(core=SimpleNamespace(section_rule=0))),
+        config=SimpleNamespace(settings=SimpleNamespace(core=SimpleNamespace(section_rule=0, skip_store=False))),
     )
     run_ctx = cast(RunContext, cast(object, ctx))
     return BackgroundConsumer(run_ctx, queue.Queue())

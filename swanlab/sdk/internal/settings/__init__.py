@@ -272,6 +272,18 @@ class Settings(BaseSettings):
                     fields_set.add("web_host")
         return self
 
+    @model_validator(mode="after")
+    def validate_skip_store(self) -> "Settings":
+        """
+        ``core.skip_store`` 仅 online mode 合法。
+        """
+        if self.mode != "online" and self.core.skip_store:
+            raise ValueError(
+                f"core.skip_store=true is only supported in online mode, but mode is '{self.mode}'. "
+                "Set mode='online' or core.skip_store=false."
+            )
+        return self
+
     project: ProjectSettings = Field(default_factory=ProjectSettings)
     """
     Configuration for the project of this SwanLab run.
@@ -326,6 +338,7 @@ class Settings(BaseSettings):
             save_size=self.core.save_size,
             save_part=self.core.save_part,
             save_batch=self.core.save_batch,
+            skip_store=self.core.skip_store,
         )
 
     def to_probe_proto(
@@ -344,6 +357,7 @@ class Settings(BaseSettings):
             monitor=self.probe.monitor,
             monitor_interval=self.probe.monitor_interval,
             monitor_disk_dir=str(self.probe.monitor_disk_dir.absolute()),
+            skip_store=self.core.skip_store,
         )
         if run_id is not None:
             ps.run_id = run_id

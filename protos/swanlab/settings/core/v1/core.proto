@@ -15,4 +15,6 @@ message CoreSettings {
     int64 save_split       = 7;
     int64 save_part        = 8;
     int32 save_batch       = 9;
+    // Skip the local Record store (run-*.swanlab). Only valid in online mode.
+    bool skip_store        = 10;
 }

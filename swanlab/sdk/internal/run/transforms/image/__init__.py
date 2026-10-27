@@ -14,7 +14,6 @@ from swanlab import vendor
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaItem
 from swanlab.sdk.internal.context import TransformMedia
-from swanlab.sdk.internal.pkg import fs
 from swanlab.sdk.typings.run.transforms import CaptionType
 from swanlab.sdk.typings.run.transforms.image import ImageDataType, ImageFileType, ImageModeType, ImageSizeType
 
@@ -155,9 +154,14 @@ class Image(TransformMedia):
     def column_type(cls) -> ColumnType:
         return ColumnType.COLUMN_TYPE_IMAGE
 
-    def transform(self, *, step: int, path: Path) -> MediaItem:
+    def transform(self, *, step: int, path: Optional[Path]) -> MediaItem:
         content = self.buffer.getvalue()
         sha256 = hashlib.sha256(content).hexdigest()
         filename = f"{step:03d}-{sha256[:8]}.{self.file_type}"
-        fs.safe_write(path / filename, content, mode="wb")
-        return MediaItem(filename=filename, sha256=sha256, size=len(content), caption=self.caption or "")
+        item = MediaItem(
+            filename=filename,
+            sha256=sha256,
+            size=len(content),
+            caption=self.caption or "",
+        )
+        return self._attach_content(item, path, content)

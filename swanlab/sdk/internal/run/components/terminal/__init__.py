@@ -66,8 +66,8 @@ class TerminalProxy(TerminalProxyProtocol):
         self._init_pid = init_pid
 
         # 双 Emulator
-        self._stdout_emulator = TerminalEmulator()
-        self._stderr_emulator = TerminalEmulator()
+        self._stdout_emulator = TerminalEmulator(on_flush=self._flush)
+        self._stderr_emulator = TerminalEmulator(on_flush=self._flush)
 
         # 双队列
         self._stdout_queue: queue.Queue[str] = queue.Queue()

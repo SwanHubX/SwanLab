@@ -11,12 +11,13 @@ from typing import List, Optional
 
 from swanlab.proto.swanlab.grpc.probe.v1.probe_pb2 import DeliverProbeStartRequest, GetMetadataSnapshotResponse
 from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord, SaveType
-from swanlab.sdk.internal.pkg import console, fs
+from swanlab.sdk.internal.pkg import console
 from swanlab.sdk.internal.probe_python.context import ProbeContext
 from swanlab.sdk.internal.probe_python.environment import conda, git, requirements, runtime, swanlab
 from swanlab.sdk.internal.probe_python.hardware_vendor import ACCELERATOR_REGISTRY, CPU, Apple, Memory
 from swanlab.sdk.internal.probe_python.monitor import Monitor
 from swanlab.sdk.internal.probe_python.typings import HardwareSnapshot, MetadataSnapshot, SystemEnvironment, SystemShim
+from swanlab.sdk.internal.probe_python.utils import make_save_record
 from swanlab.sdk.protocol.core import CoreProtocol
 from swanlab.sdk.protocol.probe import ProbeProtocol
 
@@ -88,31 +89,36 @@ class ProbePython(ProbeProtocol):
         )
         if self._core is not None:
             # 4. 向core发送记录
+            skip_store = ctx.config.skip_store
             payload: List[SaveRecord] = []
             if sys_info.metadata:
-                fs.safe_write(ctx.metadata_file, sys_info.metadata.model_dump_json(by_alias=True))
-                metadata_record = SaveRecord(
-                    name="metadata",
-                    source_path=ctx.metadata_file.absolute().as_posix(),
-                    type=SaveType.SAVE_TYPE_METADATA,
+                content = sys_info.metadata.model_dump_json(by_alias=True)
+                payload.append(
+                    make_save_record(
+                        "metadata",
+                        SaveType.SAVE_TYPE_METADATA,
+                        content,
+                        None if skip_store else ctx.metadata_file,
+                    )
                 )
-                payload.append(metadata_record)
             if sys_info.requirements:
-                fs.safe_write(ctx.requirements_file, sys_info.requirements)
-                requirements_record = SaveRecord(
-                    name="requirements",
-                    source_path=ctx.requirements_file.absolute().as_posix(),
-                    type=SaveType.SAVE_TYPE_REQUIREMENTS,
+                payload.append(
+                    make_save_record(
+                        "requirements",
+                        SaveType.SAVE_TYPE_REQUIREMENTS,
+                        sys_info.requirements,
+                        None if skip_store else ctx.requirements_file,
+                    )
                 )
-                payload.append(requirements_record)
             if sys_info.conda:
-                fs.safe_write(ctx.conda_file, sys_info.conda)
-                conda_record = SaveRecord(
-                    name="conda",
-                    source_path=ctx.conda_file.absolute().as_posix(),
-                    type=SaveType.SAVE_TYPE_CONDA,
+                payload.append(
+                    make_save_record(
+                        "conda",
+                        SaveType.SAVE_TYPE_CONDA,
+                        sys_info.conda,
+                        None if skip_store else ctx.conda_file,
+                    )
                 )
-                payload.append(conda_record)
             if payload:
                 self._core.upsert_saves(payload)
             else:

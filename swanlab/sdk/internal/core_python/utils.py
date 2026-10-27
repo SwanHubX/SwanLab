@@ -85,15 +85,20 @@ def get_buffer_size(buffer: Any) -> int:
     """获取文件类对象的字节大小，支持 str/Path（文件路径）、BytesIO、文件句柄等。
 
     对于有 fileno 的真实文件优先走 fstat（无副作用）；
-    对于内存 buffer 走 getbuffer / getvalue / __len__；
+    对于 BytesIO 走 seek/tell（零拷贝，并恢复游标），其余内存 buffer 走 getvalue / __len__；
     最后用 seek+tell 回退方案。无法确定大小时抛 TypeError。
     """
     # 文件路径：直接 stat，不打开文件
     if isinstance(buffer, (str, Path)):
         return os.path.getsize(buffer)
-    # BytesIO / StringIO
+    # BytesIO：getbuffer 会导致共享缓冲区整段复制，改用 seek/tell 取长度并恢复游标
     if hasattr(buffer, "getbuffer"):
-        return buffer.getbuffer().nbytes
+        curr = buffer.tell()
+        try:
+            buffer.seek(0, os.SEEK_END)
+            return buffer.tell()
+        finally:
+            buffer.seek(curr)
     if hasattr(buffer, "getvalue"):
         return len(buffer.getvalue())
     # 通用有 __len__ 的对象
