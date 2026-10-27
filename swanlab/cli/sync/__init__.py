@@ -12,6 +12,7 @@ import click
 
 from swanlab.sdk import Settings, pkg
 from swanlab.sdk import sync as sync_cmd
+from swanlab.sdk.cmd.sync import build_sync_range
 
 
 @click.command()
@@ -60,7 +61,38 @@ from swanlab.sdk import sync as sync_cmd
     "-i",
     default=None,
     type=str,
-    help="The run id to sync the logs to.",
+    help=(
+        "The run id to sync the logs to. If it matches an existing experiment, the data is "
+        "replayed into that experiment. Only valid with a single path."
+    ),
+)
+@click.option(
+    "--start-step",
+    default=None,
+    type=click.IntRange(min=0),
+    help="Only sync scalar/media records whose step is greater than or equal to this value.",
+)
+@click.option(
+    "--end-step",
+    default=None,
+    type=click.IntRange(min=0),
+    help="Only sync scalar/media records whose step is less than or equal to this value.",
+)
+@click.option(
+    "--start-time",
+    default=None,
+    type=str,
+    help=(
+        "Only sync records at or after this time. Accepts ISO 8601 (e.g. '2026-10-20 10:00:00') "
+        "or a Unix timestamp in seconds/milliseconds. Times without offset use the system "
+        "local timezone."
+    ),
+)
+@click.option(
+    "--end-time",
+    default=None,
+    type=str,
+    help="Only sync records at or before this time. Same formats as --start-time.",
 )
 def sync(
     path: Tuple[str],
@@ -69,8 +101,22 @@ def sync(
     project: Optional[str],
     host: Optional[str],
     id: Optional[str],
+    start_step: Optional[int],
+    end_step: Optional[int],
+    start_time: Optional[str],
+    end_time: Optional[str],
 ):
-    """Synchronize local logs to the cloud."""
+    """Synchronize local logs to the cloud.
+
+    Passing any of --start-step/--start-time/--end-step/--end-time enables range
+    sync, which only replays records inside the window. Sync always creates or
+    resumes the target experiment; combine it with --id of an existing run to
+    backfill that experiment. The local finish record decides the final state,
+    and an existing experiment without one is left running. Times without an
+    explicit offset use the system local timezone.
+    """
+    if id is not None and len(path) > 1:
+        raise click.BadParameter("--id can only be used with a single path.", param_hint="--id")
     model = pkg.helper.strip_none(
         {
             "api_key": api_key,
@@ -82,5 +128,21 @@ def sync(
         strip_empty_dict=True,
     )
     settings = Settings.model_validate(model)
+    try:
+        build_sync_range(
+            start_step=start_step,
+            end_step=end_step,
+            start_time=start_time,
+            end_time=end_time,
+        )
+    except ValueError as e:
+        raise click.BadParameter(str(e)) from e
     for p in path:
-        sync_cmd(Path(p), settings=settings)
+        sync_cmd(
+            Path(p),
+            settings=settings,
+            start_step=start_step,
+            end_step=end_step,
+            start_time=start_time,
+            end_time=end_time,
+        )

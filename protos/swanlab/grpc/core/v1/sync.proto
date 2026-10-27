@@ -3,6 +3,7 @@ syntax = "proto3";
 package swanlab.grpc.core.v1;
 
 import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
 import "swanlab/grpc/core/v1/core.proto";
 import "swanlab/run/v1/run.proto";
 import "swanlab/settings/core/v1/core.proto";
@@ -30,6 +31,18 @@ message DeliverSyncStartRequest {
     string workspace                                    = 2; // 用于标识同步到哪个工作空间上，如果不传递，默认使用start record中记录的工作空间
     string project                                      = 3; // 用于标识同步到哪个项目上，如果不传递，默认使用start record中记录的项目
     string id                                           = 4; // 运行id，如果run id在对应实验上已经存在，则等同于resume模式
+    SyncRange range                                     = 5; // 仅同步指定范围内的指标与终端日志，如果不传递则全量同步
+}
+
+// SyncRange 指定同步范围，所有字段均可选，未设置（或时间戳为0）表示该维度不限制。
+//
+// step 范围对 scalar/media 记录生效，时间范围对 scalar/media/log 记录生效，
+// 两者同时设置时取交集。时间范围与 step 范围的上下界均为闭区间。
+message SyncRange {
+    optional int64 start_step            = 1; // 起始step（含），仅对 scalar/media 生效
+    optional int64 end_step              = 2; // 结束step（含），仅对 scalar/media 生效
+    google.protobuf.Timestamp start_time = 3; // 起始时间（含），按记录的指标/日志时间过滤
+    google.protobuf.Timestamp end_time   = 4; // 结束时间（含），按记录的指标/日志时间过滤
 }
 
 // DeliverSyncStartResponse 同步服务启动响应
