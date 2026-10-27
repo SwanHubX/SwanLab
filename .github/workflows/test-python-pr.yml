@@ -2,17 +2,28 @@ name: Test When Python PR
 
 on:
   pull_request:
+    # Run automatically for non-draft PRs and when a draft PR becomes ready for review.
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "swanlab/**"
       - "tests/**"
       - "pyproject.toml"
       - "uv.lock"
       - ".github/workflows/test-python-pr.yml"
+  workflow_dispatch:
+
+concurrency:
+  # Share concurrency group between PR runs and manual runs on the same repo/branch,
+  # while keeping fork PRs with identical branch names isolated.
+  group: ${{ github.workflow }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
 
 jobs:
   type-check:
     name: Type check / Python 3.9
+    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -30,7 +41,9 @@ jobs:
   test:
     needs: type-check
     name: Test on ${{ matrix.os }} / Python ${{ matrix.python-version }}
+    if: ${{ !github.event.pull_request.draft }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     strategy:
       fail-fast: false # 设为 false，这样如果 Windows 挂了，Ubuntu 的测试依然会跑完，方便一次性排查所有系统的问题
       matrix:
@@ -59,10 +72,11 @@ jobs:
     # 聚合所有前置 job 的结果，供 GitHub ruleset 配置单一 required status check
     name: Check
     needs: [type-check, test]
-    # always() 确保前置失败时本 job 依然运行，从而汇报 failure 而不是被 skip
-    if: always()
+    # 非 Draft 时始终运行，确保前置失败或取消时汇报 failure 而不是被 skip
+    if: ${{ !github.event.pull_request.draft && always() }}
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Fail if any required job failed or was cancelled
-        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped') }}
         run: exit 1

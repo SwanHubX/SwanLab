@@ -182,6 +182,16 @@ class RunMetrics:
                 metrics.define_scalar(key=scalar_key, column=column_record, min_step=scalar_step)
         return metrics, console_epoch, global_step, global_system_step
 
+    def allow_replay(self) -> None:
+        """
+        允许写回已存在的 step。
+
+        按范围 sync 回放到已有实验时，摘要中的 min_step 会拦截这些旧 step，
+        这里统一重置下界，由本次回放线程自身负责去重。
+        """
+        for metric in self._metrics.values():
+            metric.min_step = -1
+
     def define_scalar(self, *, key: str, column: ColumnRecord, min_step: int = -1) -> ScalarMetric:
         """
         定义一个标量指标

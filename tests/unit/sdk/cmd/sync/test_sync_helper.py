@@ -16,8 +16,61 @@ from swanlab.proto.swanlab.grpc.core.v1.sync_pb2 import (
     DeliverSyncStartResponse,
 )
 from swanlab.proto.swanlab.operation.v1.operation_pb2 import CoreState, OperationStats
-from swanlab.sdk.cmd.sync import ensure_run_dir, sync
+from swanlab.sdk.cmd.sync import build_sync_range, ensure_run_dir, format_sync_range, sync
 from swanlab.sdk.internal.settings import Settings
+
+
+def test_build_sync_range_returns_none_without_bounds():
+    assert build_sync_range() is None
+
+
+def test_build_sync_range_keeps_open_bounds():
+    sync_range = build_sync_range(start_step=10, end_time="2026-10-20 12:00:00")
+
+    assert sync_range is not None
+    assert sync_range.HasField("start_step") is True
+    assert sync_range.HasField("end_step") is False
+    assert sync_range.HasField("start_time") is False
+    assert sync_range.HasField("end_time") is True
+
+
+def test_build_sync_range_formats_bounds():
+    sync_range = build_sync_range(start_step=10, start_time="2026-10-20 10:00:00")
+
+    assert sync_range is not None
+    assert format_sync_range(sync_range) == "step 10..*, time 2026-10-20 10:00:00..*"
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"start_step": -1},
+        {"start_step": 10, "end_step": 5},
+        {"start_time": "2026-10-20 12:00:00", "end_time": "2026-10-20 10:00:00"},
+        {"start_time": "not-a-time"},
+    ],
+)
+def test_build_sync_range_rejects_invalid_bounds(kwargs):
+    with pytest.raises(ValueError):
+        build_sync_range(**kwargs)
+
+
+def test_sync_rejects_invalid_range_before_authentication(tmp_path):
+    with pytest.raises(ValueError, match="start_step"):
+        sync(tmp_path, settings=Settings(), start_step=10, end_step=5)
+
+
+def test_sync_warns_when_only_step_range_is_given(tmp_path, monkeypatch):
+    """step 范围不覆盖终端日志，静默丢弃前应先提示用户。"""
+    warnings = []
+    monkeypatch.setattr("swanlab.sdk.cmd.sync.console.warning", lambda message, *a, **k: warnings.append(message))
+    monkeypatch.setattr("swanlab.sdk.cmd.sync.client.exists", lambda: False)
+
+    with pytest.raises(AuthenticationError):
+        sync(tmp_path, settings=Settings(), start_step=0)
+
+    assert len(warnings) == 1
+    assert "log" in warnings[0].lower()
 
 
 def test_ensure_run_dir_ok(tmp_path):

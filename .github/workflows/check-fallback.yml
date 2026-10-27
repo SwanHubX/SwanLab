@@ -7,6 +7,7 @@ name: Check Fallback
 # 因此该列表必须与上述两个 workflow 的 paths 保持同步维护。
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths-ignore:
       - "swanlab/**"
       - "tests/**"
@@ -15,13 +16,20 @@ on:
       - "core/**"
       - ".github/workflows/test-python-pr.yml"
       - ".github/workflows/test-core-pr.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
 
 jobs:
   check:
     # job name 必须与 test-python-pr.yml / test-core-pr.yml 的聚合 job 同名，
     # required status check 按 check run 名称（Check）匹配
     name: Check
+    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Report success
         run: echo "No Python/Core CI paths changed, skip tests and report Check as success."

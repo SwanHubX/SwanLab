@@ -5,8 +5,10 @@ from unittest.mock import MagicMock
 
 import pytest
 from google.protobuf.timestamp_pb2 import Timestamp
+from requests import Response
 
-from swanlab.proto.swanlab.grpc.core.v1.sync_pb2 import DeliverSyncStartRequest
+from swanlab.exceptions import ApiError
+from swanlab.proto.swanlab.grpc.core.v1.sync_pb2 import DeliverSyncStartRequest, SyncRange
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord, ColumnType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord, ScalarRecord, ScalarValue
 from swanlab.proto.swanlab.operation.v1.operation_pb2 import CoreState
@@ -16,9 +18,14 @@ from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord, SaveType
 from swanlab.proto.swanlab.settings.core.v1.core_pb2 import CoreSettings
 from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogLevel, LogRecord
 from swanlab.sdk.internal.core_python.context import CoreConfig, CoreContext
+from swanlab.sdk.internal.core_python.metrics import RunMetrics
+from swanlab.sdk.internal.core_python.pkg.window import SyncRangeFilter
 from swanlab.sdk.internal.core_python.store import DataStoreWriter
 from swanlab.sdk.internal.core_python.sync import CoreSyncPython
+from swanlab.sdk.internal.core_python.transport import Transport
+from swanlab.sdk.internal.core_python.transport.sender import HttpRecordSender
 from swanlab.sdk.internal.core_python.utils import PrepareExperimentStartResult
+from swanlab.utils.time import parse_cli_timestamp_ns
 
 
 def make_timestamp() -> Timestamp:
@@ -131,6 +138,9 @@ class FakeTransport:
         self.started = False
         self.finished = False
         self.joined = False
+        # 模拟上传线程异常退出：join 成功但缓冲区未排空
+        self.drain_ok = True
+        self.finish_error = "Upload did not finish: 1 record(s) retained (worker crashed: RuntimeError)."
 
     def put(self, records: list[Record]) -> None:
         self.records.extend(records)
@@ -151,7 +161,10 @@ class FakeTransport:
 
     def finish(self, timeout=None) -> bool:
         self.request_finish()
-        return self.join(timeout=timeout)
+        return self.join(timeout=timeout) and self.drain_ok
+
+    def finish_summary(self) -> str:
+        return self.finish_error
 
 
 class FakeExecutor:
@@ -220,6 +233,9 @@ class FakeMetrics:
 
     def get(self, key: str) -> Optional[FakeMetric]:
         return self.metrics.get(key)
+
+    def allow_replay(self) -> None:
+        pass
 
     def define_scalar(self, **kwargs) -> FakeMetric:
         column = kwargs.get("column")
@@ -329,6 +345,7 @@ def test_deliver_sync_flush_prepares_experiment_with_overrides(tmp_path: Path, m
     assert core._ctx.project == "demo"
     assert core._ctx.project_id == "project-id"
     assert core._ctx.experiment_id == "experiment-id"
+    assert core._new_experiment is True
     assert transports[0].tracker is core._tracker
     assert transports[0].started is True
     assert fake_executor.started is True
@@ -373,7 +390,8 @@ def test_deliver_sync_flush_returns_failure_when_prepare_fails(tmp_path: Path, m
     resp = core.deliver_sync_flush()
 
     assert resp.success is False
-    assert resp.message == "Failed to prepare sync experiment"
+    assert resp.message.startswith("Failed to prepare sync experiment")
+    assert "backend failed" in resp.message
 
 
 def test_deliver_sync_flush_returns_failure_when_metrics_init_fails(tmp_path: Path, monkeypatch):
@@ -512,10 +530,12 @@ def test_read_skips_invalid_protobuf_payload_and_continues(tmp_path: Path):
     ]
 
 
-def test_confirm_sync_finish_marks_missing_finish_record_as_crashed(tmp_path: Path, monkeypatch):
+def test_confirm_sync_finish_marks_new_experiment_as_crashed_without_finish_record(tmp_path: Path, monkeypatch):
+    """新建实验且没有 FinishRecord：按 CRASHED 收尾，但不注入伪造的错误日志。"""
     core = CoreSyncPython()
     core._ctx = CoreContext(config=make_core_config(tmp_path), mode="sync")
     core._ctx.set_online_params("alice", "demo", "project-id", None, "experiment-id")
+    core._new_experiment = True
     transport = FakeTransport(core._ctx)
     core._transport = transport  # type: ignore[assignment]
     core._read_executor = FakeExecutor()  # type: ignore[assignment]
@@ -530,8 +550,28 @@ def test_confirm_sync_finish_marks_missing_finish_record_as_crashed(tmp_path: Pa
     call_kwargs = stop_mock.call_args
     assert call_kwargs.kwargs["state"] == RunState.RUN_STATE_CRASHED
     assert transport.finished is True
-    assert [record_kind(record) for record in transport.records] == ["log"]
-    assert "before writing a finish record" in transport.records[0].log.line
+    assert transport.records == []
+
+
+def test_confirm_sync_finish_keeps_existing_experiment_running_without_finish_record(tmp_path: Path, monkeypatch):
+    """已存在的实验且没有 FinishRecord：只结束本次同步，保持 RUNNING。"""
+    core = CoreSyncPython()
+    core._ctx = CoreContext(config=make_core_config(tmp_path), mode="sync")
+    core._ctx.set_online_params("alice", "demo", "project-id", None, "experiment-id")
+    core._new_experiment = False
+    transport = FakeTransport(core._ctx)
+    core._transport = transport  # type: ignore[assignment]
+    core._read_executor = FakeExecutor()  # type: ignore[assignment]
+    core._reader = FakeReader([])  # type: ignore[assignment]
+    stop_mock = MagicMock()
+    monkeypatch.setattr("swanlab.sdk.internal.core_python.sync.stop_experiment", stop_mock)
+
+    resp = core.confirm_sync_finish()
+
+    assert resp.success is True
+    stop_mock.assert_not_called()
+    assert transport.finished is True
+    assert transport.records == []
 
 
 def test_confirm_sync_finish_uploads_error_log_for_failed_finish_record(tmp_path: Path, monkeypatch):
@@ -635,3 +675,435 @@ def test_sync_skips_when_key_already_exists(tmp_path: Path):
     col_records = [r.column for r in transport.records if record_kind(r) == "column"]
     assert len(col_records) == 1
     assert col_records[0].section_name == "A"
+
+
+# ============================================================
+# range sync: step / time filtering and in-place replay
+# ============================================================
+
+
+def make_timestamp_at(seconds: int, nanos: int = 0) -> Timestamp:
+    ts = Timestamp()
+    ts.seconds = seconds
+    ts.nanos = nanos
+    return ts
+
+
+def make_range_core(tmp_path: Path, sync_range: SyncRange) -> CoreSyncPython:
+    core = CoreSyncPython()
+    core._ctx = CoreContext(config=make_core_config(tmp_path), mode="sync")
+    core._ctx.set_online_params("alice", "demo", "project-id", None, "experiment-id")
+    core._filter = SyncRangeFilter.from_proto(sync_range)
+    return core
+
+
+def test_read_filters_scalars_by_step_range(tmp_path: Path):
+    core = make_range_core(tmp_path, SyncRange(start_step=2, end_step=2))
+    records = [
+        Record(scalar=ScalarRecord(key="loss", step=step, type=ColumnType.COLUMN_TYPE_SCALAR)) for step in (1, 2, 3)
+    ]
+    core._reader = FakeReader(records)  # type: ignore[assignment]
+    transport = FakeTransport(core._ctx)
+    core._transport = transport  # type: ignore[assignment]
+    core._metrics = FakeMetrics()  # type: ignore[assignment]
+
+    asyncio.run(core.read())
+
+    assert [record.scalar.step for record in transport.records if record.HasField("scalar")] == [2]
+
+
+def test_read_filters_scalars_by_time_range(tmp_path: Path):
+    core = make_range_core(tmp_path, SyncRange(start_time=make_timestamp_at(100), end_time=make_timestamp_at(200)))
+    records = [
+        Record(scalar=ScalarRecord(key="loss", step=step, type=ColumnType.COLUMN_TYPE_SCALAR, timestamp=ts))
+        for step, ts in (
+            (1, make_timestamp_at(99)),
+            (2, make_timestamp_at(100)),
+            (3, make_timestamp_at(200)),
+            (4, make_timestamp_at(201)),
+        )
+    ]
+    core._reader = FakeReader(records)  # type: ignore[assignment]
+    transport = FakeTransport(core._ctx)
+    core._transport = transport  # type: ignore[assignment]
+    core._metrics = FakeMetrics()  # type: ignore[assignment]
+
+    asyncio.run(core.read())
+
+    assert [record.scalar.step for record in transport.records if record.HasField("scalar")] == [2, 3]
+
+
+def test_read_falls_back_to_record_timestamp(tmp_path: Path):
+    """指标自身没有时间戳时，使用记录落盘时间参与时间过滤。"""
+    core = make_range_core(tmp_path, SyncRange(start_time=make_timestamp_at(100)))
+    core._reader = FakeReader(  # type: ignore[assignment]
+        [
+            Record(
+                timestamp=make_timestamp_at(150),
+                scalar=ScalarRecord(key="loss", step=1, type=ColumnType.COLUMN_TYPE_SCALAR),
+            ),
+            Record(
+                timestamp=make_timestamp_at(50),
+                scalar=ScalarRecord(key="loss", step=2, type=ColumnType.COLUMN_TYPE_SCALAR),
+            ),
+        ]
+    )
+    transport = FakeTransport(core._ctx)
+    core._transport = transport  # type: ignore[assignment]
+    core._metrics = FakeMetrics()  # type: ignore[assignment]
+
+    asyncio.run(core.read())
+
+    assert [record.scalar.step for record in transport.records if record.HasField("scalar")] == [1]
+
+
+def test_read_filters_media_by_step_range(tmp_path: Path):
+    core = make_range_core(tmp_path, SyncRange(end_step=1))
+    media = MediaRecord(key="images/sample", step=2, type=ColumnType.COLUMN_TYPE_IMAGE)
+    core._reader = FakeReader([Record(media=media)])  # type: ignore[assignment]
+    transport = FakeTransport(core._ctx)
+    core._transport = transport  # type: ignore[assignment]
+    core._metrics = FakeMetrics()  # type: ignore[assignment]
+
+    asyncio.run(core.read())
+
+    assert transport.records == []
+
+
+def test_read_filters_logs_by_time_range(tmp_path: Path):
+    core = make_range_core(tmp_path, SyncRange(start_time=make_timestamp_at(100), end_time=make_timestamp_at(200)))
+    records = [
+        Record(log=LogRecord(epoch=1, level=LogLevel.LOG_LEVEL_INFO, line="old", timestamp=make_timestamp_at(99))),
+        Record(log=LogRecord(epoch=1, level=LogLevel.LOG_LEVEL_INFO, line="in", timestamp=make_timestamp_at(150))),
+        Record(log=LogRecord(epoch=2, level=LogLevel.LOG_LEVEL_INFO, line="new", timestamp=make_timestamp_at(201))),
+    ]
+    core._reader = FakeReader(records)  # type: ignore[assignment]
+    transport = FakeTransport(core._ctx)
+    core._transport = transport  # type: ignore[assignment]
+    core._metrics = FakeMetrics()  # type: ignore[assignment]
+
+    asyncio.run(core.read())
+
+    assert [record.log.line for record in transport.records] == ["in"]
+    assert core._epoch == 1
+
+
+def test_read_skips_logs_when_only_step_range_is_set(tmp_path: Path):
+    """step 范围只约束指标，未设置时间范围时不回放终端日志。"""
+    core = make_range_core(tmp_path, SyncRange(start_step=1))
+    core._reader = FakeReader(  # type: ignore[assignment]
+        [Record(log=LogRecord(epoch=1, level=LogLevel.LOG_LEVEL_INFO, line="line"))]
+    )
+    transport = FakeTransport(core._ctx)
+    core._transport = transport  # type: ignore[assignment]
+    core._metrics = FakeMetrics()  # type: ignore[assignment]
+
+    asyncio.run(core.read())
+
+    assert transport.records == []
+
+
+def test_read_keeps_old_log_epochs_in_range_mode(tmp_path: Path):
+    """范围回放不受云端已有 epoch 下界限制，保留原始 epoch 以便原地恢复对齐。"""
+    core = make_range_core(tmp_path, SyncRange(start_time=make_timestamp_at(100)))
+    core._epoch = 10
+    core._reader = FakeReader(  # type: ignore[assignment]
+        [
+            Record(
+                log=LogRecord(epoch=3, level=LogLevel.LOG_LEVEL_INFO, line="old line", timestamp=make_timestamp_at(150))
+            )
+        ]
+    )
+    transport = FakeTransport(core._ctx)
+    core._transport = transport  # type: ignore[assignment]
+    core._metrics = FakeMetrics()  # type: ignore[assignment]
+
+    asyncio.run(core.read())
+
+    assert [record.log.epoch for record in transport.records] == [3]
+    assert core._epoch == 10
+
+
+@pytest.mark.parametrize(
+    "save_type", [SaveType.SAVE_TYPE_CONFIG, SaveType.SAVE_TYPE_METADATA, SaveType.SAVE_TYPE_CUSTOM]
+)
+def test_read_keeps_save_records_in_range_replay(tmp_path: Path, save_type):
+    core = make_range_core(tmp_path, SyncRange(start_step=0))
+    core._reader = FakeReader(  # type: ignore[assignment]
+        [Record(save=SaveRecord(name="saved", type=save_type))]
+    )
+    transport = FakeTransport(core._ctx)
+    core._transport = transport  # type: ignore[assignment]
+    core._metrics = FakeMetrics()  # type: ignore[assignment]
+
+    asyncio.run(core.read())
+
+    assert [record_kind(record) for record in transport.records] == ["save"]
+
+
+def test_read_keeps_save_records_when_range_creates_new_experiment(tmp_path: Path):
+    """范围同步新建实验时仍需要 config/metadata，否则实验缺少元信息。"""
+    core = make_range_core(tmp_path, SyncRange(start_step=0))
+    core._new_experiment = True
+    core._reader = FakeReader(  # type: ignore[assignment]
+        [Record(save=SaveRecord(name="config", type=SaveType.SAVE_TYPE_CONFIG))]
+    )
+    transport = FakeTransport(core._ctx)
+    core._transport = transport  # type: ignore[assignment]
+    core._metrics = FakeMetrics()  # type: ignore[assignment]
+
+    asyncio.run(core.read())
+
+    assert [record_kind(record) for record in transport.records] == ["save"]
+
+
+def test_read_keeps_columns_in_range_mode(tmp_path: Path):
+    core = make_range_core(tmp_path, SyncRange(start_step=100))
+    core._reader = FakeReader(  # type: ignore[assignment]
+        [Record(column=ColumnRecord(column_key="loss", column_type=ColumnType.COLUMN_TYPE_SCALAR))]
+    )
+    transport = FakeTransport(core._ctx)
+    core._transport = transport  # type: ignore[assignment]
+    core._metrics = FakeMetrics()  # type: ignore[assignment]
+
+    asyncio.run(core.read())
+
+    assert [record_kind(record) for record in transport.records] == ["column"]
+
+
+def test_read_replays_steps_already_in_remote_summary(tmp_path: Path):
+    """范围同步重置摘要中的 min_step，允许回放已存在的 step。"""
+    core = make_range_core(tmp_path, SyncRange(start_step=1, end_step=3))
+    metrics, _, _, _ = RunMetrics.new(
+        {"log": None, "media": None, "scalar": [{"key": "loss", "step": 5}]}, ctx=core._ctx
+    )
+    metrics.allow_replay()
+    core._metrics = metrics
+    core._reader = FakeReader(  # type: ignore[assignment]
+        [
+            Record(
+                scalar=ScalarRecord(
+                    key="loss", step=3, type=ColumnType.COLUMN_TYPE_SCALAR, value=ScalarValue(number=1.0)
+                )
+            )
+        ]
+    )
+    transport = FakeTransport(core._ctx)
+    core._transport = transport  # type: ignore[assignment]
+
+    asyncio.run(core.read())
+
+    assert [record.scalar.step for record in transport.records if record.HasField("scalar")] == [3]
+
+
+def test_read_skips_step_at_or_below_summary_min_step_without_replay(tmp_path: Path):
+    """未开启范围同步时，摘要中的 min_step 仍然拦截旧 step。"""
+    core = CoreSyncPython()
+    core._ctx = CoreContext(config=make_core_config(tmp_path), mode="sync")
+    core._ctx.set_online_params("alice", "demo", "project-id", None, "experiment-id")
+    metrics, _, _, _ = RunMetrics.new(
+        {"log": None, "media": None, "scalar": [{"key": "loss", "step": 5}]}, ctx=core._ctx
+    )
+    core._metrics = metrics
+    core._reader = FakeReader(  # type: ignore[assignment]
+        [
+            Record(
+                scalar=ScalarRecord(
+                    key="loss", step=3, type=ColumnType.COLUMN_TYPE_SCALAR, value=ScalarValue(number=1.0)
+                )
+            )
+        ]
+    )
+    transport = FakeTransport(core._ctx)
+    core._transport = transport  # type: ignore[assignment]
+
+    asyncio.run(core.read())
+
+    assert [record for record in transport.records if record.HasField("scalar")] == []
+
+
+def test_queue_finish_records_skipped_in_range_mode(tmp_path: Path):
+    core = make_range_core(tmp_path, SyncRange(start_step=1))
+    transport = FakeTransport(core._ctx)
+    core._transport = transport  # type: ignore[assignment]
+    core._finish_record = FinishRecord(
+        state=RunState.RUN_STATE_CRASHED, error="boom", finished_at=make_timestamp_at(100)
+    )
+
+    core._queue_finish_records()
+
+    assert transport.records == []
+
+
+def make_confirm_core(tmp_path: Path) -> CoreSyncPython:
+    core = CoreSyncPython()
+    core._ctx = CoreContext(config=make_core_config(tmp_path), mode="sync")
+    core._ctx.set_online_params("alice", "demo", "project-id", None, "experiment-id")
+    core._read_executor = FakeExecutor()  # type: ignore[assignment]
+    core._reader = FakeReader([])  # type: ignore[assignment]
+    return core
+
+
+def test_save_failure_does_not_fail_sync_or_block_scalar_upload(tmp_path: Path, monkeypatch):
+    core = make_confirm_core(tmp_path)
+    response = Response()
+    response.status_code = 403
+    upload_metadata = MagicMock(side_effect=ApiError(response, message="profile update forbidden"))
+    upload_scalar = MagicMock()
+    monkeypatch.setattr("swanlab.sdk.internal.core_python.transport.sender.upload_metadata", upload_metadata)
+    monkeypatch.setattr("swanlab.sdk.internal.core_python.transport.sender.upload_scalar", upload_scalar)
+    transport = Transport(core._ctx, sender=HttpRecordSender(core._ctx), auto_start=False)
+    core._transport = transport
+    transport.put(
+        [
+            Record(num=1, save=SaveRecord(type=SaveType.SAVE_TYPE_METADATA, payload=b"{}")),
+            Record(
+                num=2,
+                scalar=ScalarRecord(key="loss", step=1, value=ScalarValue(number=0.5), timestamp=make_timestamp()),
+            ),
+        ]
+    )
+    transport.start()
+
+    resp = core.confirm_sync_finish()
+
+    assert resp.success is True
+    assert transport.pending_records() == []
+    upload_metadata.assert_called_once()
+    upload_scalar.assert_called_once()
+
+
+def test_confirm_sync_finish_reports_upload_failure(tmp_path: Path, monkeypatch):
+    """上传线程异常退出时，全量同步必须报告失败，而不是当作成功结束实验。"""
+    core = make_confirm_core(tmp_path)
+    transport = FakeTransport(core._ctx)
+    transport.drain_ok = False
+    core._transport = transport  # type: ignore[assignment]
+    stop_mock = MagicMock()
+    monkeypatch.setattr("swanlab.sdk.internal.core_python.sync.stop_experiment", stop_mock)
+
+    resp = core.confirm_sync_finish()
+
+    assert resp.success is False
+    assert "retained" in resp.message
+    stop_mock.assert_not_called()
+
+
+def test_confirm_sync_finish_in_place_reports_upload_failure(tmp_path: Path, monkeypatch):
+    """原地回填同样要报告排空失败，不能用成功掩盖未上传的数据。"""
+    core = make_confirm_core(tmp_path)
+    core._filter = SyncRangeFilter(start_step=0)
+    transport = FakeTransport(core._ctx)
+    transport.drain_ok = False
+    core._transport = transport  # type: ignore[assignment]
+    stop_mock = MagicMock()
+    monkeypatch.setattr("swanlab.sdk.internal.core_python.sync.stop_experiment", stop_mock)
+
+    resp = core.confirm_sync_finish()
+
+    assert resp.success is False
+    assert "retained" in resp.message
+    stop_mock.assert_not_called()
+
+
+def test_deliver_sync_flush_range_resumes_existing_experiment(tmp_path: Path, monkeypatch):
+    """范围同步也统一走创建/恢复流程，已有实验由 Server 执行 resume。"""
+    core = CoreSyncPython()
+    core._ctx = CoreContext(config=make_core_config(tmp_path), mode="sync")
+    core._start_record = make_start_record()
+    core._start_request = make_start_request(tmp_path, range=SyncRange(start_step=1))
+    core._filter = SyncRangeFilter.from_proto(SyncRange(start_step=1))
+    prepare = MagicMock(return_value=make_prepare_result(new_experiment=False))
+    monkeypatch.setattr("swanlab.sdk.internal.core_python.sync.prepare_experiment_start", prepare)
+    monkeypatch.setattr(
+        "swanlab.sdk.internal.core_python.sync.get_experiment_summary",
+        MagicMock(return_value={"log": None, "media": None, "scalar": None}),
+    )
+    monkeypatch.setattr(
+        "swanlab.sdk.internal.core_python.sync.RunMetrics.new", MagicMock(return_value=(FakeMetrics(), -1, -1, -1))
+    )
+    monkeypatch.setattr(
+        "swanlab.sdk.internal.core_python.sync.Transport",
+        lambda ctx, tracker=None: FakeTransport(ctx, tracker),
+    )
+    core._read_executor = FakeExecutor()  # type: ignore[assignment]
+
+    assert core.deliver_sync_flush().success is True
+    prepare.assert_called_once()
+    assert core._new_experiment is False
+
+
+# ============================================================
+# range filter: step / time boundary matching
+# ============================================================
+
+
+def test_filter_disabled_without_range():
+    f = SyncRangeFilter.from_proto(None)
+
+    assert f.enabled is False
+    assert f.match(step=1, timestamp=make_timestamp_at(1)) is True
+
+
+def test_filter_disabled_when_timestamps_are_zero():
+    f = SyncRangeFilter.from_proto(SyncRange(start_time=Timestamp(), end_time=Timestamp()))
+
+    assert f.enabled is False
+
+
+def test_filter_step_range_is_inclusive():
+    f = SyncRangeFilter.from_proto(SyncRange(start_step=10, end_step=20))
+
+    assert f.enabled is True
+    assert f.match(step=10) is True
+    assert f.match(step=20) is True
+    assert f.match(step=9) is False
+    assert f.match(step=21) is False
+
+
+def test_filter_step_range_ignores_records_without_step():
+    f = SyncRangeFilter.from_proto(SyncRange(start_step=10, end_step=20))
+
+    # 终端日志没有 step，只受时间范围约束
+    assert f.match(timestamp=make_timestamp_at(1)) is True
+
+
+def test_filter_reports_time_bounds():
+    assert SyncRangeFilter.from_proto(SyncRange(start_step=1)).has_time is False
+    assert SyncRangeFilter.from_proto(SyncRange(start_time=make_timestamp_at(1))).has_time is True
+
+
+def test_filter_open_ended_step_range():
+    f = SyncRangeFilter.from_proto(SyncRange(start_step=100))
+
+    assert f.match(step=100) is True
+    assert f.match(step=10_000) is True
+    assert f.match(step=99) is False
+
+
+def test_filter_time_range_is_inclusive():
+    f = SyncRangeFilter.from_proto(SyncRange(start_time=make_timestamp_at(100, 500), end_time=make_timestamp_at(200)))
+
+    assert f.match(step=1, timestamp=make_timestamp_at(100, 500)) is True
+    assert f.match(step=1, timestamp=make_timestamp_at(200)) is True
+    assert f.match(step=1, timestamp=make_timestamp_at(100, 499)) is False
+    assert f.match(step=1, timestamp=make_timestamp_at(201)) is False
+
+
+def test_filter_combines_step_and_time():
+    f = SyncRangeFilter.from_proto(SyncRange(start_step=2, end_step=3, start_time=make_timestamp_at(100)))
+
+    assert f.match(step=2, timestamp=make_timestamp_at(100)) is True
+    assert f.match(step=1, timestamp=make_timestamp_at(100)) is False
+    assert f.match(step=2, timestamp=make_timestamp_at(99)) is False
+
+
+def test_filter_keeps_subsecond_endpoint():
+    """从同一字面量解析出的时间戳必须命中它自己构成的闭区间。"""
+    instant = parse_cli_timestamp_ns("2024-08-01T00:00:00.000001Z")
+    timestamp = Timestamp()
+    timestamp.FromNanoseconds(instant)
+
+    f = SyncRangeFilter(start_ns=instant, end_ns=instant)
+
+    assert f.match(timestamp=timestamp) is True
