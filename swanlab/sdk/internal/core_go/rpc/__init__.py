@@ -13,11 +13,11 @@ Channel 是唯一 import grpc 的地方：延迟导入、channel-ready 等待、
 import threading
 from typing import Any, Callable
 
-from ..config import CHANNEL_READY_TIMEOUT, GRPC_MAX_MESSAGE_BYTES, RPC_TIMEOUT
-from ..discovery import Endpoint
-from ..errors import CoreGoError, ReasonCode, Stage, reason_for_grpc
+from swanlab.sdk.internal.core_go.config import CHANNEL_READY_TIMEOUT, GRPC_MAX_MESSAGE_BYTES, RPC_TIMEOUT
+from swanlab.sdk.internal.core_go.discovery import Endpoint
+from swanlab.sdk.internal.core_go.errors import CoreGoError, ReasonCode, Stage, reason_for_grpc
 
-__all__ = ["Channel", "CoreServiceRpc"]
+__all__ = ["Channel"]
 
 
 class Channel:
@@ -125,6 +125,3 @@ class Channel:
             raw.close()
         except Exception:  # noqa: BLE001 - 关闭失败不影响回收流程
             pass
-
-
-from .core_service import CoreServiceRpc  # noqa: E402 - 放在 Channel 定义之后避免循环导入

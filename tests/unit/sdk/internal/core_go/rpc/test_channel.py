@@ -41,6 +41,19 @@ def test_rpc_package_does_not_load_grpc():
     assert result.stdout.strip() == "False False", result.stderr
 
 
+def test_channel_missing_grpcio_is_reported_as_unavailable(monkeypatch):
+    """grpcio 不在环境里时给出明确错误，而不是 ImportError 冒到上层。"""
+    monkeypatch.setitem(sys.modules, "grpc", None)
+    endpoint = Endpoint(kind="tcp", pid=os.getpid(), tcp_port=1)
+
+    with pytest.raises(CoreGoError) as caught:
+        Channel.open(endpoint, timeout=0.1)
+
+    assert caught.value.stage is Stage.CHANNEL
+    assert caught.value.reason is ReasonCode.GRPC_UNAVAILABLE
+    assert "grpcio is required" in caught.value.message
+
+
 def _free_port() -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.bind(("127.0.0.1", 0))

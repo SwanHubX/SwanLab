@@ -7,6 +7,6 @@
 公共出口只做 re-export，不承载逻辑。
 """
 
-from .errors import CoreGoError, ReasonCode, Stage, reason_for_grpc
+from swanlab.sdk.internal.core_go.errors import CoreGoError, ReasonCode, Stage, reason_for_grpc
 
 __all__ = ["CoreGoError", "ReasonCode", "Stage", "reason_for_grpc"]

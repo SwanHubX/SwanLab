@@ -20,8 +20,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from ..config import MAX_UNIX_PATH_BYTES, PORT_FILE_MAX_BYTES
-from ..errors import CoreGoError, ReasonCode, Stage
+from swanlab.sdk.internal.core_go.config import MAX_UNIX_PATH_BYTES, PORT_FILE_MAX_BYTES
+from swanlab.sdk.internal.core_go.errors import CoreGoError, ReasonCode, Stage
 
 __all__ = ["Endpoint", "parse_port_file", "read_port_file", "validate_ownership"]
 

@@ -53,10 +53,7 @@ def test_spawn_core_passes_argv_and_sanitizes_env(tmp_path, monkeypatch):
     env_file = tmp_path / "env.txt"
     script = _write_script(
         tmp_path / "fake-core",
-        f'printf "%s\\n" "$@" > "{argv_file}"\n'
-        f'env > "{env_file}"\n'
-        'echo "stderr-line" >&2\n'
-        "sleep 30\n",
+        f'printf "%s\\n" "$@" > "{argv_file}"\nenv > "{env_file}"\necho "stderr-line" >&2\nsleep 30\n',
     )
     monkeypatch.setenv("SWANLAB_CORE_LISTEN", "unix:/tmp/other.sock")
     monkeypatch.setenv("SWANLAB_CORE_PARENT_PID", "1")
@@ -148,9 +145,7 @@ def test_wait_endpoint_rejects_pid_mismatch_immediately():
     lease = acquire_runtime()
     proc = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
     try:
-        lease.port_file.write_bytes(
-            f"protocol=1\npid={proc.pid + 1}\nunix={lease.dir / 'core.sock'}\nEOF\n".encode()
-        )
+        lease.port_file.write_bytes(f"protocol=1\npid={proc.pid + 1}\nunix={lease.dir / 'core.sock'}\nEOF\n".encode())
 
         started = time.monotonic()
         with pytest.raises(CoreGoError) as caught:

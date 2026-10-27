@@ -29,7 +29,7 @@ from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
 )
 from swanlab.sdk.internal.core_go.config import RPC_TIMEOUT
 from swanlab.sdk.internal.core_go.errors import CoreGoError, ReasonCode, Stage
-from swanlab.sdk.internal.core_go.rpc import CoreServiceRpc
+from swanlab.sdk.internal.core_go.rpc.core_service import CoreServiceRpc
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
 

@@ -24,8 +24,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from ...pkg import console
-from ..config import (
+from swanlab.sdk.internal.core_go.config import (
     ENDPOINT_POLL_INTERVAL,
     KILL_TIMEOUT,
     MAX_UNIX_PATH_BYTES,
@@ -38,8 +37,9 @@ from ..config import (
     TERMINATE_TIMEOUT,
     WAIT_TIMEOUT,
 )
-from ..discovery import Endpoint, read_port_file, validate_ownership
-from ..errors import CoreGoError, ReasonCode, Stage
+from swanlab.sdk.internal.core_go.discovery import Endpoint, read_port_file, validate_ownership
+from swanlab.sdk.internal.core_go.errors import CoreGoError, ReasonCode, Stage
+from swanlab.sdk.internal.pkg import console
 
 __all__ = [
     "RuntimeLease",
@@ -91,10 +91,12 @@ def _validate_runtime_dir(path: Path) -> None:
         raise _runtime_error(f"runtime dir {path} is a symlink")
     if not stat.S_ISDIR(info.st_mode):
         raise _runtime_error(f"runtime path {path} is not a directory")
-    if stat.S_IMODE(info.st_mode) != RUNTIME_DIR_MODE:
-        raise _runtime_error(f"runtime dir {path} mode is {oct(stat.S_IMODE(info.st_mode))}, want 0o700")
-    if hasattr(os, "getuid") and info.st_uid != os.getuid():
-        raise _runtime_error(f"runtime dir {path} is not owned by current user")
+    # Windows 的 chmod 只切换只读位，没有 POSIX 0700/uid 语义。
+    if os.name != "nt":
+        if stat.S_IMODE(info.st_mode) != RUNTIME_DIR_MODE:
+            raise _runtime_error(f"runtime dir {path} mode is {oct(stat.S_IMODE(info.st_mode))}, want 0o700")
+        if hasattr(os, "getuid") and info.st_uid != os.getuid():
+            raise _runtime_error(f"runtime dir {path} is not owned by current user")
 
 
 def acquire_runtime() -> RuntimeLease:
@@ -114,9 +116,7 @@ def acquire_runtime() -> RuntimeLease:
         if os.name != "nt":
             socket_path = runtime_dir / _SOCKET_NAME
             if len(os.fsencode(str(socket_path))) > MAX_UNIX_PATH_BYTES:
-                raise _runtime_error(
-                    f"unix socket path exceeds {MAX_UNIX_PATH_BYTES} bytes: {socket_path}"
-                )
+                raise _runtime_error(f"unix socket path exceeds {MAX_UNIX_PATH_BYTES} bytes: {socket_path}")
     except BaseException:
         shutil.rmtree(runtime_dir, ignore_errors=True)
         raise

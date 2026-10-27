@@ -9,7 +9,7 @@
 不重试、不重连，success=False 在这里转成协议错误。
 """
 
-from typing import TYPE_CHECKING, List
+from typing import List
 
 from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
     ConfirmRunFinishRequest,
@@ -32,12 +32,9 @@ from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord, ScalarRecord
 from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord
 from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogRecord
-
-from ..config import TEARDOWN_TIMEOUT
-from ..errors import CoreGoError, ReasonCode, Stage
-
-if TYPE_CHECKING:
-    from . import Channel
+from swanlab.sdk.internal.core_go.config import TEARDOWN_TIMEOUT
+from swanlab.sdk.internal.core_go.errors import CoreGoError, ReasonCode, Stage
+from swanlab.sdk.typings.core_go import RpcChannelType
 
 __all__ = ["CoreServiceRpc"]
 
@@ -45,7 +42,7 @@ __all__ = ["CoreServiceRpc"]
 class CoreServiceRpc:
     """CoreService 的强类型薄封装，不持有 channel 生命周期。"""
 
-    def __init__(self, channel: "Channel") -> None:
+    def __init__(self, channel: RpcChannelType) -> None:
         # core_pb2_grpc 依赖 grpcio，延迟到真正构造 RPC 客户端时再导入。
         from swanlab.proto.swanlab.grpc.core.v1.core_pb2_grpc import CoreServiceStub
 
