@@ -39,12 +39,13 @@ from swanlab.sdk.internal.core_go.config import (
 )
 from swanlab.sdk.internal.core_go.discovery import Endpoint, read_port_file, validate_ownership
 from swanlab.sdk.internal.core_go.errors import CoreGoError, ReasonCode, Stage
-from swanlab.sdk.internal.pkg import console
+from swanlab.sdk.internal.pkg import console, fork
 
 __all__ = [
     "RuntimeLease",
     "acquire_runtime",
     "cleanup_runtime",
+    "validate_core_binary",
     "spawn_core",
     "wait_endpoint",
     "reap_process",
@@ -125,14 +126,14 @@ def acquire_runtime() -> RuntimeLease:
         dir=runtime_dir,
         port_file=runtime_dir / PORT_FILE_NAME,
         stderr_file=runtime_dir / STDERR_FILE_NAME,
-        owner_pid=os.getpid(),
+        owner_pid=fork.current_pid(),
     )
 
 
 def cleanup_runtime(lease: RuntimeLease) -> None:
     """删除本进程创建的 runtime 目录；任何失败只记录，不抛出。"""
     try:
-        if lease.owner_pid != os.getpid():
+        if fork.is_forked(lease.owner_pid):
             return
         runtime_dir = Path(lease.dir)
         if not runtime_dir.name.startswith(RUNTIME_DIR_PREFIX):
@@ -159,12 +160,8 @@ def stderr_tail(lease: RuntimeLease) -> str:
     return data.decode("utf-8", "replace")
 
 
-def spawn_core(binary: Path, lease: RuntimeLease, parent_pid: Optional[int] = None) -> subprocess.Popen:
-    """拉起 swanlab-core，返回 Popen。
-
-    只传 --port-filename / --parent-pid；不传 --listen / --detach，
-    避免外部环境变量改变本次启动行为。
-    """
+def validate_core_binary(binary: Path) -> None:
+    """校验 core 二进制存在且可执行；launcher 在创建 runtime 前复用它。"""
     binary_path = Path(binary)
     if not binary_path.is_file():
         raise CoreGoError(
@@ -179,6 +176,16 @@ def spawn_core(binary: Path, lease: RuntimeLease, parent_pid: Optional[int] = No
             f"core binary is not executable: {binary_path}",
         )
 
+
+def spawn_core(binary: Path, lease: RuntimeLease, parent_pid: Optional[int] = None) -> subprocess.Popen:
+    """拉起 swanlab-core，返回 Popen。
+
+    只传 --port-filename / --parent-pid；不传 --listen / --detach，
+    避免外部环境变量改变本次启动行为。
+    """
+    binary_path = Path(binary)
+    validate_core_binary(binary_path)
+
     env = dict(os.environ)
     env.pop("SWANLAB_CORE_LISTEN", None)
     env.pop("SWANLAB_CORE_PARENT_PID", None)
@@ -188,7 +195,7 @@ def spawn_core(binary: Path, lease: RuntimeLease, parent_pid: Optional[int] = No
         "--port-filename",
         str(lease.port_file),
         "--parent-pid",
-        str(parent_pid if parent_pid is not None else os.getpid()),
+        str(parent_pid if parent_pid is not None else fork.current_pid()),
     ]
 
     kwargs = {
