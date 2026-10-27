@@ -28,7 +28,7 @@ from .cmd.run import (
     log_video,
     save,
 )
-from .cmd.sync import sync
+from .cmd.sync import build_sync_range, sync
 from .internal import impl, pkg
 from .internal.run import Run, clear_run, get_run, has_run, set_run
 from .internal.run.transforms import Audio, ECharts, Html, Image, Molecule, Object3D, Text, Video, echarts, plot
@@ -54,6 +54,7 @@ __all__ = [
     "define_metric",
     "save",
     "sync",
+    "build_sync_range",
     "merge_settings",
     "merge_callbacks",
     "require",
