@@ -1,8 +1,5 @@
 // Package clienttest 提供 internal/client 与 internal/api 共用的测试辅助：
-// 运行在 httptest 上的假 SwanLab 后端，以及可注入的假时钟。
-//
-// 按 core-io-plan §6.1 的测试工程规范集中放置，避免两个包各自重复实现同一套 Mock。
-// 本包只被 `*_test.go` 引用，不进入任何生产路径。
+// httptest 假后端与可注入的假时钟。只被 *_test.go 引用，不进入生产路径。
 package clienttest
 
 import (

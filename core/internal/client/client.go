@@ -1,13 +1,7 @@
 // Package client 是 SwanLab 云端的 HTTP 传输层：连接池复用、身份注入与底层重试。
 //
-// 分层约定（对应 core-io-plan §2.4-1）：
-//   - 底层：进程内共享同一个 *http.Transport 连接池，重试规则对齐 Python urllib3
-//     （5 次、退避因子 0.5、状态码 429/500/502/503/504）；
-//   - 中层：按 (api_host, sha256(api_key)) 复用的 Client，承载身份与 SDK 版本头，
-//     并通过 Do 暴露「一次 HTTP 往返」这一唯一原语。
-//
-// 本包不含任何业务端点：REST 协议封装与请求/响应体模型在 internal/api。
-// 传输策略（超时、重试、鉴权、错误分类）与协议语义（House 只认 200 等）因此各自独立演进。
+// 本包只提供「一次 HTTP 往返」（Do），不含业务端点；REST 协议封装与请求/响应体
+// 模型在 internal/api。
 package client
 
 import (
@@ -219,9 +213,8 @@ func (r *Response) Decode(target any) error {
 	return nil
 }
 
-// Do 执行一次云端调用：注入身份与版本头，按需重登，非 2xx 统一转成 APIError。
-//
-// 这是传输层对外暴露的唯一请求原语；业务端点与响应语义由 internal/api 在此之上封装。
+// Do 执行一次云端调用：注入身份与版本头，按需重登，非 2xx 转成 APIError。
+// 这是传输层唯一的请求原语，业务端点与响应语义由 internal/api 封装。
 func (c *Client) Do(ctx context.Context, spec Request) (*Response, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -330,7 +323,7 @@ func encodeQuery(query map[string]string) string {
 }
 
 // Factory 按 (api_host, sha256(api_key)) 复用已认证 Client，并让所有 Client
-// 共享同一个底层连接池（对应 core-io-plan §2.4-1）。
+// 共享同一个底层连接池。
 //
 // 同账号多会话复用同一 Client 与连接；不同账号或不同站点严格隔离，杜绝串号。
 type Factory struct {

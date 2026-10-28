@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-// 与 Python urllib3 Retry 对齐的默认参数（见 core-io-plan §1.2「HTTP 重试」）。
+// 与 Python urllib3 Retry 对齐的默认参数。
 const (
 	// DefaultMaxRetries 是底层 HTTP 的重试次数：首次请求 + 5 次重放。
 	DefaultMaxRetries = 5
@@ -52,8 +52,6 @@ type RetryPolicy struct {
 	OnRetry       func(RetryEvent)
 }
 
-// 默认值散落在 Default* 常量中，由 Options.withDefaults 填充。
-
 // statusSet 把状态码列表转换成集合。
 func statusSet(codes []int) map[int]struct{} {
 	set := make(map[int]struct{}, len(codes))
@@ -80,8 +78,8 @@ func sleepContext(ctx context.Context, d time.Duration) error {
 
 // retryLimitKey 是请求级重试次数覆盖的 context key。
 //
-// 上传类接口需要关闭底层重试（Python 侧统一传 retries=0），把重试权交给上传管线的
-// 指数退避，避免「HTTP 5 次 × 管线退避」叠加放大请求量。
+// 上传类接口用 NoRetries() 关闭底层重试，把重试交给上传管线的退避，
+// 避免两层退避叠加放大请求量。
 type retryLimitKey struct{}
 
 // WithRetries 返回携带请求级重试次数覆盖的 context，用于关闭或收窄底层重试。

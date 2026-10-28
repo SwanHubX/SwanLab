@@ -1,4 +1,3 @@
-// 本文件定义 APIError 与重试/鉴权/协议错误的分类判据。
 package client
 
 import (
@@ -147,10 +146,8 @@ func newAPIError(method, endpoint string, status int, header http.Header, body [
 	return apiErr
 }
 
-// NewProtocolError 构造不可重试的协议错误：请求可能已发出，但响应无法按契约解读。
-//
-// 供协议层（internal/api）在响应体字段缺失、数量不匹配等场景复用，保证
-// errors.Is(err, ErrInvalidResponse) 对所有协议错误一致成立。
+// NewProtocolError 构造不可重试的协议错误：响应无法按契约解读。
+// 供 internal/api 在字段缺失、数量不匹配等场景复用，保证错误分类一致。
 func NewProtocolError(method, url, code, message string, cause error) *APIError {
 	return &APIError{
 		Method:    method,

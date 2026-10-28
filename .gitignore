@@ -74,5 +74,5 @@ CODEBUDDY.md
 swanlab/bin/
 core/bin/
 
-# smoke staging (playground/core-plan/io-plan/smoke)
+# smoke staging
 core/.smoke-tmp/

@@ -134,8 +134,7 @@ type completedFilesResponse struct {
 
 // CreateExperimentParams 是 create-or-resume 的入参。
 //
-// createdAt 不在这里暴露：后端按数据入库时间过滤查询，上报值必须是「发起请求的时刻」，
-// 因此由 api 层在发送请求时取当前 UTC 时间（对齐 core_python/api/experiment.py）。
+// createdAt 不在入参里：上报值必须是发起请求的时刻，由 api 层在发送时取当前 UTC 时间。
 type CreateExperimentParams struct {
 	Username    string
 	Project     string

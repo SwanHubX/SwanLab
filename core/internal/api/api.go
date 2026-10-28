@@ -1,16 +1,8 @@
-// Package api 封装 SwanLab 云端的 REST 业务协议：端点路径、请求体组装，以及
-// 「按业务语义严格校验响应」（House 只认 200、实验创建区分 200/201、预签名数量校验）。
+// Package api 封装 SwanLab 云端的 REST 业务协议：端点路径、请求体组装与响应校验
+// （House 只认 200、实验创建区分 200/201、预签名数量校验）。
 //
-// 分层边界（对应 core-io-plan §2.3）：
-//   - internal/client：一次 HTTP 往返、身份注入、底层重试与错误模型；
-//   - internal/api（本包）：业务端点 + 协议模型 + 结果判定；
-//   - 上层（uploader / manager）：只通过本包表达「要做什么业务」。
-//
-// 文件分工：端点方法与结果判定在 api.go；与云端 JSON 一一对应的请求体/响应体结构体、
-// 协议枚举集中在 model.go（只描述字段映射，不含逻辑）。
-//
-// 本包不感知会话、记录、上传管线与容量预算：它只把一次业务调用表达成
-// 「成功」或「可分类的错误」。
+// 传输（连接池、鉴权、重试、错误模型）在 internal/client；协议模型在 model.go。
+// 本包不感知会话、记录与上传管线，只把一次业务调用表达成成功或可分类的错误。
 package api
 
 import (
@@ -55,10 +47,8 @@ func (c *Client) Username() string { return c.http.Username() }
 
 // GetOrCreateProject 获取项目，不存在时创建，返回最终的项目信息。
 //
-// 流程与 Python api/project.py 一致：
-//  1. 先查询，已存在直接返回（避免只写权限用户触发创建接口的 403）；
-//  2. 查询 404 时调用新接口创建；新接口 404（旧后端）时回退到旧接口，409 视为已存在；
-//  3. 创建后重新查询，拿到后端归一化后的项目信息。
+// 流程：先查询，已存在直接返回（避免只写权限用户触发创建接口的 403）；404 时调用
+// 新接口创建，新接口 404（旧后端）回退旧接口且 409 视为已存在；最后重新查询。
 func (c *Client) GetOrCreateProject(ctx context.Context, username, name string, public bool) (*Project, error) {
 	owner := username
 	if owner == "" {
