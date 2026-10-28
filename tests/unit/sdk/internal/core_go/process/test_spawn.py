@@ -48,6 +48,7 @@ def _write_script(path: Path, body: str) -> Path:
     return path
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="fake core is a POSIX shell script")
 def test_spawn_core_passes_argv_and_sanitizes_env(tmp_path, monkeypatch):
     argv_file = tmp_path / "argv.txt"
     env_file = tmp_path / "env.txt"
@@ -145,7 +146,9 @@ def test_wait_endpoint_rejects_pid_mismatch_immediately():
     lease = acquire_runtime()
     proc = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
     try:
-        lease.port_file.write_bytes(f"protocol=1\npid={proc.pid + 1}\nunix={lease.dir / 'core.sock'}\nEOF\n".encode())
+        # Windows 的 Go core 发布 sock=<port>，unix 路径只在 POSIX 下合法。
+        endpoint = "sock=12345" if sys.platform == "win32" else f"unix={lease.dir / 'core.sock'}"
+        lease.port_file.write_bytes(f"protocol=1\npid={proc.pid + 1}\n{endpoint}\nEOF\n".encode())
 
         started = time.monotonic()
         with pytest.raises(CoreGoError) as caught:

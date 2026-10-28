@@ -7,6 +7,7 @@
 
 import os
 import stat
+import sys
 
 import pytest
 
@@ -21,7 +22,9 @@ def test_acquire_runtime_creates_private_directory():
     try:
         assert lease.dir.name.startswith(RUNTIME_DIR_PREFIX)
         assert lease.dir.is_dir()
-        assert stat.S_IMODE(lease.dir.stat().st_mode) == 0o700
+        # Windows 的 chmod 只有只读位，没有 POSIX 0700 语义。
+        if sys.platform != "win32":
+            assert stat.S_IMODE(lease.dir.stat().st_mode) == 0o700
         assert lease.owner_pid == os.getpid()
         assert lease.port_file.parent == lease.dir
         assert lease.stderr_file.parent == lease.dir
@@ -70,6 +73,7 @@ def test_cleanup_runtime_skips_unprefixed_directory(tmp_path):
     assert runtime_dir.exists()
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="UDS path limit is POSIX-only")
 def test_acquire_runtime_rejects_oversized_socket_path(tmp_path, monkeypatch):
     root = tmp_path / "runtime-root"
     root.mkdir()
