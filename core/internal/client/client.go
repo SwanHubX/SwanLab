@@ -213,7 +213,7 @@ func (r *Response) Decode(target any) error {
 	return nil
 }
 
-// Do 执行一次云端调用：注入身份与版本头，按需重登，非 2xx 转成 APIError。
+// Do 执行一次云端调用：注入身份与版本头，非 2xx 转成 APIError。
 // 这是传输层唯一的请求原语，业务端点与响应语义由 internal/api 封装。
 func (c *Client) Do(ctx context.Context, spec Request) (*Response, error) {
 	if err := ctx.Err(); err != nil {
@@ -232,26 +232,14 @@ func (c *Client) Do(ctx context.Context, spec Request) (*Response, error) {
 		goCtx = WithRetries(ctx, *spec.Retries)
 	}
 
-	// 最多两轮：第二次仅在过渡期 Cookie 模式下 401 换发凭证后发生。
-	for attempt := 0; ; attempt++ {
-		res, err := c.send(goCtx, spec.Method, endpoint, payload)
-		if err != nil {
-			return nil, err
-		}
-		if res.Status == http.StatusUnauthorized && attempt == 0 {
-			refreshed, refreshErr := c.auth.refresh(ctx)
-			if refreshErr != nil {
-				return nil, refreshErr
-			}
-			if refreshed {
-				continue
-			}
-		}
-		if res.Status < http.StatusOK || res.Status >= http.StatusMultipleChoices {
-			return nil, newAPIError(res.Method, res.Endpoint, res.Status, res.Header, res.Body)
-		}
-		return res, nil
+	res, err := c.send(goCtx, spec.Method, endpoint, payload)
+	if err != nil {
+		return nil, err
 	}
+	if res.Status < http.StatusOK || res.Status >= http.StatusMultipleChoices {
+		return nil, newAPIError(res.Method, res.Endpoint, res.Status, res.Header, res.Body)
+	}
+	return res, nil
 }
 
 // send 发出单次请求并读完全部响应体。

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -158,9 +159,9 @@ func TestLegacyCookieFallback(t *testing.T) {
 	}
 }
 
-// TestLegacyCookieReloginOnUnauthorized 覆盖过渡期 401 加锁重登：首次请求被拒绝后
-// 换发 sid 并重放一次，成功返回。
-func TestLegacyCookieReloginOnUnauthorized(t *testing.T) {
+// TestLegacyCookieDoesNotReloginOnUnauthorized 覆盖过渡期 401：与 Python 一致，
+// 请求层不重放，直接返回鉴权错误，也不会额外登录。
+func TestLegacyCookieDoesNotReloginOnUnauthorized(t *testing.T) {
 	cloud := clienttest.NewCloud(t)
 	var logins atomic.Int32
 	cloud.Handle(http.MethodPost, loginRoute, func(w http.ResponseWriter, _ *http.Request) {
@@ -172,16 +173,9 @@ func TestLegacyCookieReloginOnUnauthorized(t *testing.T) {
 		})
 	})
 	var hits atomic.Int32
-	cloud.Handle(http.MethodPost, "/api/house/metrics", func(w http.ResponseWriter, r *http.Request) {
-		if hits.Add(1) == 1 {
-			clienttest.WriteJSON(w, http.StatusUnauthorized, map[string]string{"code": "unauthorized", "message": "sid expired"})
-			return
-		}
-		if cookie := r.Header.Get("Cookie"); !strings.Contains(cookie, "sid=sid-2") {
-			clienttest.WriteJSON(w, http.StatusUnauthorized, map[string]string{"code": "unauthorized", "message": "stale sid"})
-			return
-		}
-		clienttest.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
+	cloud.Handle(http.MethodPost, "/api/house/metrics", func(w http.ResponseWriter, _ *http.Request) {
+		hits.Add(1)
+		clienttest.WriteJSON(w, http.StatusUnauthorized, map[string]string{"code": "unauthorized", "message": "sid expired"})
 	})
 
 	clock := clienttest.NewClock()
@@ -189,14 +183,15 @@ func TestLegacyCookieReloginOnUnauthorized(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create legacy client: %v", err)
 	}
-	if _, err := authed.Do(context.Background(), metricsRequest()); err != nil {
-		t.Fatalf("do request after relogin: %v", err)
+	_, err = authed.Do(context.Background(), metricsRequest())
+	if !IsAuthenticationError(err) {
+		t.Fatalf("error = %v, want authentication error", err)
 	}
-	if got := logins.Load(); got != 2 {
-		t.Fatalf("logins = %d, want 2 (initial + relogin)", got)
+	if got := hits.Load(); got != 1 {
+		t.Fatalf("metrics attempts = %d, want 1 (401 must not be replayed)", got)
 	}
-	if got := hits.Load(); got != 2 {
-		t.Fatalf("metrics attempts = %d, want 2", got)
+	if got := logins.Load(); got != 1 {
+		t.Fatalf("logins = %d, want 1 (initial login only)", got)
 	}
 }
 
@@ -407,6 +402,69 @@ func TestCloneDefaultTransportPools(t *testing.T) {
 	}
 }
 
+// closeTracker 是只统计 CloseIdleConnections 调用的 RoundTripper。
+type closeTracker struct {
+	closed atomic.Int32
+}
+
+func (c *closeTracker) RoundTrip(*http.Request) (*http.Response, error) {
+	return nil, errors.New("transport is not used by this test")
+}
+
+func (c *closeTracker) CloseIdleConnections() { c.closed.Add(1) }
+
+// TestFactoryCloseReleasesIdleConnections 覆盖 Factory.Close 会透传到共享连接池。
+func TestFactoryCloseReleasesIdleConnections(t *testing.T) {
+	tracker := &closeTracker{}
+	factory := NewFactory(Options{BaseTransport: tracker})
+	if err := factory.Close(); err != nil {
+		t.Fatalf("close factory: %v", err)
+	}
+	if got := tracker.closed.Load(); got != 1 {
+		t.Fatalf("CloseIdleConnections calls = %d, want 1", got)
+	}
+}
+
+// truncatedBodyTransport 返回 2xx 但读取响应体时中断，用于覆盖鉴权链路的读错误分类。
+type truncatedBodyTransport struct {
+	verifyStatus int
+}
+
+func (t truncatedBodyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	status := http.StatusOK
+	if strings.HasSuffix(req.URL.Path, verifyPath) {
+		status = t.verifyStatus
+	}
+	return &http.Response{
+		StatusCode: status,
+		Header:     http.Header{},
+		Body:       io.NopCloser(errReader{}),
+		Request:    req,
+	}, nil
+}
+
+type errReader struct{}
+
+func (errReader) Read([]byte) (int, error) { return 0, io.ErrUnexpectedEOF }
+
+// TestVerifyReadErrorIsRetryable 覆盖探活响应读取中断：按传输错误处理，保留重试。
+func TestVerifyReadErrorIsRetryable(t *testing.T) {
+	_, err := New(context.Background(), "https://api.example.com", "smoke-key",
+		Options{BaseTransport: truncatedBodyTransport{verifyStatus: http.StatusOK}})
+	if !IsRetryable(err) || IsInvalidResponse(err) {
+		t.Fatalf("error = %v, want retryable transport error", err)
+	}
+}
+
+// TestLoginReadErrorIsRetryable 覆盖旧后端登录响应读取中断：同样保留重试。
+func TestLoginReadErrorIsRetryable(t *testing.T) {
+	_, err := New(context.Background(), "https://api.example.com", "smoke-key",
+		Options{BaseTransport: truncatedBodyTransport{verifyStatus: http.StatusNotFound}})
+	if !IsRetryable(err) || IsInvalidResponse(err) {
+		t.Fatalf("error = %v, want retryable transport error", err)
+	}
+}
+
 // TestNormalizeHost 覆盖 host 归一化：补协议、剥离路由/查询串、保留端口。
 func TestNormalizeHost(t *testing.T) {
 	cases := []struct {
@@ -419,6 +477,8 @@ func TestNormalizeHost(t *testing.T) {
 		{"https://api.swanlab.cn/api/v1?x=1", "https://api.swanlab.cn"},
 		{"http://127.0.0.1:8080", "http://127.0.0.1:8080"},
 		{"http://127.0.0.1:8080/prefix", "http://127.0.0.1:8080"},
+		{"http://[::1]:8080", "http://[::1]:8080"},
+		{"[::1]:8080", "https://[::1]:8080"},
 		{"  https://api.swanlab.cn  ", "https://api.swanlab.cn"},
 	}
 	for _, tc := range cases {

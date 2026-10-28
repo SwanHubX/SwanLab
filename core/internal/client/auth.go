@@ -53,14 +53,13 @@ func (p *Profile) validate(method, path string) error {
 	return nil
 }
 
-// authenticator 负责把身份注入每个请求，并在服务端拒绝身份时尝试换发凭证。
+// authenticator 负责把身份注入每个请求。
 //
 // 两种实现的切换完全收敛在本文件：上层业务代码只认 Client，不感知鉴权形态。
+// 与 Python 一致，401 不在请求层重放：凭证失效由上层按鉴权错误处理。
 type authenticator interface {
 	// authorize 在请求发出前注入凭证。
 	authorize(ctx context.Context, req *http.Request) error
-	// refresh 处理 401：返回 true 表示凭证已更新、该请求可以重放一次。
-	refresh(ctx context.Context) (bool, error)
 	// profile 返回初始化时校验通过的身份信息。
 	profile() *Profile
 }
@@ -79,14 +78,12 @@ func (a *apiKeyAuth) authorize(_ context.Context, req *http.Request) error {
 	return nil
 }
 
-func (a *apiKeyAuth) refresh(context.Context) (bool, error) { return false, nil }
-
 func (a *apiKeyAuth) profile() *Profile { return a.user }
 
 // cookieAuth 是过渡期兜底：后端尚未支持 ApiKey 请求头直连时，退化为
-// POST /api/login/api_key 换取 sid Cookie，并在距过期 7 天内提前换发、401 时加锁重登。
+// POST /api/login/api_key 换取 sid Cookie，并在距过期 7 天内提前换发。
 //
-// 过渡完成后本实现可直接删除，上层零改动。
+// 与 Python 一致，401 不触发重登；过渡完成后本实现可直接删除，上层零改动。
 type cookieAuth struct {
 	apiBase string
 	apiKey  string
@@ -125,18 +122,13 @@ func (a *cookieAuth) authorize(ctx context.Context, req *http.Request) error {
 	return nil
 }
 
-// refresh 强制换发 sid，用于服务端返回 401 的情形（例如后端回收了旧会话）。
-func (a *cookieAuth) refresh(ctx context.Context) (bool, error) {
-	return a.login(ctx)
-}
-
 func (a *cookieAuth) profile() *Profile {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	return a.user
 }
 
-// login 换发 sid。串行化在 a.mu 内，保证并发 401 只触发一次登录。
+// login 换发 sid，串行化在 a.mu 内。
 func (a *cookieAuth) login(ctx context.Context) (bool, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -160,7 +152,7 @@ func (a *cookieAuth) login(ctx context.Context) (bool, error) {
 		return false, newAPIError(http.MethodPost, endpoint, resp.StatusCode, resp.Header, body)
 	}
 	if readErr != nil {
-		return false, NewProtocolError(http.MethodPost, endpoint, "invalid_login_response", readErr.Error(), readErr)
+		return false, newTransportError(http.MethodPost, endpoint, readErr)
 	}
 
 	var payload loginResponse
@@ -242,7 +234,7 @@ func authenticate(
 		return nil, newTransportError(http.MethodGet, endpoint, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
-	body, _ := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
+	body, readErr := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
 
 	if resp.StatusCode == http.StatusNotFound {
 		console.Warning(
@@ -260,6 +252,10 @@ func authenticate(
 			return nil, err
 		}
 		return cookie, nil
+	}
+	// 读取中断属于传输层问题，保留重试语义，不能当成协议错误终结。
+	if readErr != nil {
+		return nil, newTransportError(http.MethodGet, endpoint, readErr)
 	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, newAPIError(http.MethodGet, endpoint, resp.StatusCode, resp.Header, body)
@@ -294,11 +290,8 @@ func normalizeHost(raw string) (string, error) {
 	if scheme == "" {
 		scheme = "https"
 	}
-	normalized := scheme + "://" + parsed.Hostname()
-	if port := parsed.Port(); port != "" {
-		normalized += ":" + port
-	}
-	return normalized, nil
+	// 直接使用 parsed.Host：它保留 IPv6 的方括号与端口，且不含 userinfo。
+	return scheme + "://" + parsed.Host, nil
 }
 
 // hasScheme 判断是否已经带协议前缀。

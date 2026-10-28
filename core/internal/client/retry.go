@@ -177,6 +177,13 @@ func (t *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 }
 
+// CloseIdleConnections 转发给底层连接池，供 Factory.Close 释放空闲连接。
+func (t *retryTransport) CloseIdleConnections() {
+	if closer, ok := t.base.(interface{ CloseIdleConnections() }); ok {
+		closer.CloseIdleConnections()
+	}
+}
+
 // replay 为第 attempt 次发送准备请求副本。首次直接克隆原请求，之后通过 GetBody
 // 重放请求体；缺少 GetBody 时明确失败，避免发出残缺请求。
 func replay(req *http.Request, attempt int) (*http.Request, error) {
