@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -357,6 +358,57 @@ func TestFactoryReusesAndIsolates(t *testing.T) {
 	}
 }
 
+// TestFactoryConcurrentSameIdentity 覆盖并发取用：鉴权探活移出全局锁后，同 key 的
+// 并发调用仍收敛到首个写入缓存的实例，不会各自返回不同的 Client。
+func TestFactoryConcurrentSameIdentity(t *testing.T) {
+	cloud := clienttest.NewCloud(t)
+	cloud.ServeJSON(http.MethodGet, verifyRoute, http.StatusOK, apiKeyProfile("alice"))
+
+	factory := NewFactory(Options{Now: clienttest.NewClock().Now})
+	t.Cleanup(func() { _ = factory.Close() })
+
+	const callers = 8
+	clients := make([]*Client, callers)
+	errs := make([]error, callers)
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	for i := 0; i < callers; i++ {
+		wg.Add(1)
+		go func(index int) {
+			defer wg.Done()
+			<-start
+			clients[index], errs[index] = factory.Client(context.Background(), cloud.URL(), "key-a")
+		}(i)
+	}
+	close(start)
+	wg.Wait()
+
+	for i := range clients {
+		if errs[i] != nil {
+			t.Fatalf("caller %d: %v", i, errs[i])
+		}
+		if clients[i] != clients[0] {
+			t.Fatalf("caller %d got a different client; concurrent callers must converge on one instance", i)
+		}
+	}
+}
+
+// TestCloneDefaultTransportPools 覆盖连接池参数与隔离性：克隆后的空闲连接上限被
+// 调高，且不会回写 http.DefaultTransport。
+func TestCloneDefaultTransportPools(t *testing.T) {
+	transport := cloneDefaultTransport()
+	if got := transport.MaxIdleConnsPerHost; got != defaultMaxIdleConnsPerHost {
+		t.Fatalf("MaxIdleConnsPerHost = %d, want %d", got, defaultMaxIdleConnsPerHost)
+	}
+	if got := transport.MaxIdleConns; got != defaultMaxIdleConns {
+		t.Fatalf("MaxIdleConns = %d, want %d", got, defaultMaxIdleConns)
+	}
+	base, ok := http.DefaultTransport.(*http.Transport)
+	if ok && base.MaxIdleConnsPerHost == defaultMaxIdleConnsPerHost {
+		t.Fatal("clone must not mutate http.DefaultTransport")
+	}
+}
+
 // TestNormalizeHost 覆盖 host 归一化：补协议、剥离路由/查询串、保留端口。
 func TestNormalizeHost(t *testing.T) {
 	cases := []struct {
@@ -397,19 +449,37 @@ func TestIdentityKeyHidesSecret(t *testing.T) {
 }
 
 // TestContextCancellationIsNotRetried 覆盖调用方取消：不重试且返回 ctx 错误。
+//
+// 取消时机由 handler 收到请求后发出的信号驱动，不依赖睡眠时长：CI 容器负载高时
+// 固定 sleep 会在请求发出前就过去，导致断言偶发失败。
 func TestContextCancellationIsNotRetried(t *testing.T) {
 	cloud := clienttest.NewCloud(t)
 	cloud.ServeJSON(http.MethodGet, verifyRoute, http.StatusOK, apiKeyProfile("alice"))
+	requested := make(chan struct{}, 1)
 	cloud.Handle(http.MethodPost, "/api/house/metrics", func(_ http.ResponseWriter, r *http.Request) {
+		select {
+		case requested <- struct{}{}:
+		default:
+		}
 		<-r.Context().Done()
 	})
 
 	authed, clock := newAuthedClient(t, cloud, Options{})
 	ctx, cancel := context.WithCancel(context.Background())
+	// done 用于在请求根本没发出时叫停等待协程，避免它一直阻塞到进程退出。
+	done := make(chan struct{})
+	t.Cleanup(func() {
+		close(done)
+		cancel()
+	})
 	go func() {
-		time.Sleep(20 * time.Millisecond)
+		select {
+		case <-requested:
+		case <-done:
+		}
 		cancel()
 	}()
+
 	_, err := authed.Do(ctx, metricsRequest())
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("error = %v, want context.Canceled", err)

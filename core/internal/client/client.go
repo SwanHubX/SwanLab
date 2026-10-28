@@ -33,6 +33,12 @@ const (
 	maxResponseBytes = 8 << 20
 	// DefaultSDKVersion 是未经构建注入时的版本占位。
 	DefaultSDKVersion = "dev"
+
+	// defaultMaxIdleConns / defaultMaxIdleConnsPerHost 是共享连接池的空闲连接上限。
+	// 上传管线会同时使用 column / scalar / log 多条轨道，文件上传的并发更高；
+	// 沿用 http.DefaultTransport 的 2 会在持续并发下反复建连、丢掉连接复用。
+	defaultMaxIdleConns        = 64
+	defaultMaxIdleConnsPerHost = 16
 )
 
 // Options 配置连接池、重试与可测试性注入点。零值即生产默认。
@@ -354,8 +360,9 @@ func NewFactory(opts Options) *Factory {
 
 // Client 返回指定身份的客户端，已缓存则直接复用。
 //
-// 创建过程会做一次鉴权探活，因此持锁期间只做一次网络往返；同 key 并发取用
-// 至多重复一次探活，换取实现简单（会话启动不在热路径上）。
+// 鉴权探活在锁外完成：不同身份并发建 Client 时互不阻塞，单个身份探活慢不会
+// 拖住其它会话启动。代价是同 key 并发取用可能各自探活一次，最终只保留首个
+// 写入缓存的实例，其余丢弃（transport 是共享的，丢弃不会额外占用连接池）。
 func (f *Factory) Client(ctx context.Context, apiHost, apiKey string) (*Client, error) {
 	normalized, err := normalizeHost(apiHost)
 	if err != nil {
@@ -367,8 +374,9 @@ func (f *Factory) Client(ctx context.Context, apiHost, apiKey string) (*Client, 
 	key := identityKey(normalized, apiKey)
 
 	f.mu.Lock()
-	defer f.mu.Unlock()
-	if existing, ok := f.clients[key]; ok {
+	existing, cached := f.clients[key]
+	f.mu.Unlock()
+	if cached {
 		return existing, nil
 	}
 
@@ -377,7 +385,7 @@ func (f *Factory) Client(ctx context.Context, apiHost, apiKey string) (*Client, 
 	if err != nil {
 		return nil, err
 	}
-	client := &Client{
+	created := &Client{
 		apiHost: normalized,
 		apiBase: normalized + apiPrefix,
 		version: f.opts.Version,
@@ -385,8 +393,14 @@ func (f *Factory) Client(ctx context.Context, apiHost, apiKey string) (*Client, 
 		auth:    auth,
 		now:     f.opts.Now,
 	}
-	f.clients[key] = client
-	return client, nil
+
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if existing, ok := f.clients[key]; ok {
+		return existing, nil
+	}
+	f.clients[key] = created
+	return created, nil
 }
 
 // Close 释放空闲连接；已取出的 Client 不因此失效，但不应在关闭后继续发起新请求。
@@ -404,9 +418,15 @@ func identityKey(apiHost, apiKey string) string {
 }
 
 // cloneDefaultTransport 克隆默认连接池，保证进程级共享时不影响其它使用默认值的代码。
+//
+// 空闲连接上限在克隆后显式调高：默认的 MaxIdleConnsPerHost 只有 2，而上传管线
+// 会在同一站点上并发使用多条轨道与更高的文件并发，沿用默认值会持续建连。
 func cloneDefaultTransport() *http.Transport {
+	transport := &http.Transport{}
 	if base, ok := http.DefaultTransport.(*http.Transport); ok {
-		return base.Clone()
+		transport = base.Clone()
 	}
-	return &http.Transport{}
+	transport.MaxIdleConns = defaultMaxIdleConns
+	transport.MaxIdleConnsPerHost = defaultMaxIdleConnsPerHost
+	return transport
 }
