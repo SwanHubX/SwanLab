@@ -64,9 +64,10 @@ func TestRunFile(t *testing.T) {
 		{"超长截断", strings.Repeat("id", 80), "run-" + "idi" + "..." + strings.Repeat("id", 47) + ".swanlab"},
 		{"全非法回退", "???###", "run-unknown_run_id.swanlab"},
 	}
+	runDir := filepath.Join("tmp", "run")
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			c := newContext(t, tc.runID, "/rd")
+			c := newContext(t, tc.runID, runDir)
 			got, err := c.RunFile()
 			if err != nil {
 				t.Fatalf("RunFile() 报错: %v", err)
@@ -74,8 +75,8 @@ func TestRunFile(t *testing.T) {
 			if filepath.Base(got) != tc.wantBase {
 				t.Fatalf("RunFile() base = %q, want %q", filepath.Base(got), tc.wantBase)
 			}
-			if filepath.Dir(got) != "/rd" {
-				t.Fatalf("RunFile() dir = %q", filepath.Dir(got))
+			if filepath.Dir(got) != runDir {
+				t.Fatalf("RunFile() dir = %q, want %q", filepath.Dir(got), runDir)
 			}
 			// 文件名字节长度约束：run-(≤100).swanlab
 			if n := len(filepath.Base(got)); n > len("run-.swanlab")+100 {
