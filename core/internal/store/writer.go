@@ -79,7 +79,7 @@ func (w *Writer) write(p []byte) error {
 	space := int(BlockLen - w.Offset()%BlockLen)
 	// 块尾放不下一个 chunk 头：补零对齐到下一块
 	if space < HeaderLen {
-		if err := w.writeZeros(int(space)); err != nil {
+		if err := w.writeZeros(space); err != nil {
 			return err
 		}
 		space = BlockLen

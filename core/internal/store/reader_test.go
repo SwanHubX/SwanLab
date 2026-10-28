@@ -38,14 +38,29 @@ func TestOpenOffsetAndLimit(t *testing.T) {
 	}
 
 	// limit 小于 offset 时视为空窗口
-	if got := readLimit(t, path, off[2], off[1]); len(got) != 0 {
-		t.Fatalf("empty window returned %d records", len(got))
+	if empty := readLimit(t, path, off[2], off[1]); len(empty) != 0 {
+		t.Fatalf("empty window returned %d records", len(empty))
 	}
 
 	// 无上界时可读到文件末尾
 	got = readLimit(t, path, off[1], -1)
 	if len(got) != 2 || !bytes.Equal(got[1], payloads[2]) {
 		t.Fatalf("open-ended read from offset %d got %d records", off[1], len(got))
+	}
+}
+
+func TestLimitInsideRecord(t *testing.T) {
+	payloads := [][]byte{[]byte("first-record"), []byte("second-record")}
+	path, off := writeFile(t, payloads...)
+
+	// 上界落在第二条记录的 payload 中间：不得返回半条记录
+	r, err := OpenOffset(path, off[1], off[1]+HeaderLen+4)
+	if err != nil {
+		t.Fatalf("OpenOffset: %v", err)
+	}
+	defer r.Close()
+	if p, err := r.Scan(); !errors.Is(err, ErrTruncated) {
+		t.Fatalf("Scan = %q, %v; want ErrTruncated", p, err)
 	}
 }
 
@@ -71,7 +86,7 @@ func TestBadHeader(t *testing.T) {
 		{"empty", nil, ""},
 		{"ident", []byte{'X', 'S', 'W', 'L', 0xD6, 0xE1, HeaderVersion}, "ident"},
 		{"magic", []byte{':', 'S', 'W', 'L', 0x00, 0xE1, HeaderVersion}, "magic"},
-		{"version", []byte{':', 'S', 'W', 'L', 0xD6, 0xE1, 1}, "version=1"},
+		{"version", []byte{':', 'S', 'W', 'L', 0xD6, 0xE1, 1}, "invalid run version: 1"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -114,7 +129,7 @@ func TestReaderTruncated(t *testing.T) {
 			if err != nil {
 				t.Fatalf("ReadFile: %v", err)
 			}
-			if err := os.WriteFile(truncated, data[:c.size], 0o644); err != nil {
+			if err = os.WriteFile(truncated, data[:c.size], 0o644); err != nil {
 				t.Fatalf("WriteFile: %v", err)
 			}
 			r, err := Open(truncated)
@@ -200,7 +215,7 @@ func TestReaderNonZeroPadding(t *testing.T) {
 	}
 	data[BlockLen-1] = 0x01
 	p := filepath.Join(t.TempDir(), "pad.swanlab")
-	if err := os.WriteFile(p, data, 0o644); err != nil {
+	if err = os.WriteFile(p, data, 0o644); err != nil {
 		t.Fatalf("WriteFile: %v", err)
 	}
 	r, err := Open(p)

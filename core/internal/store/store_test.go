@@ -87,7 +87,7 @@ func TestRoundTrip(t *testing.T) {
 		// 同一文件连续写：覆盖记录之间的块尾填充与跨块拼接
 		path := filepath.Join(t.TempDir(), "run.swanlab")
 		w := mustCreate(t, path)
-		var want [][]byte
+		want := make([][]byte, 0, len(sizes))
 		for _, n := range sizes {
 			p := payloadN(n)
 			want = append(want, p)
@@ -128,7 +128,7 @@ func TestFileLayout(t *testing.T) {
 		t.Fatalf("ReadFile: %v", err)
 	}
 
-	var want []byte
+	want := make([]byte, 0, HeaderLen+HeaderLen+len(payload))
 	want = append(want, ':', 'S', 'W', 'L', 0xD6, 0xE1, HeaderVersion)
 	var hdr [HeaderLen]byte
 	// CRC 覆盖「类型字节 + payload」，等价于以 crc32(类型字节) 为预置基值
@@ -166,7 +166,7 @@ func TestWriterOffset(t *testing.T) {
 	if err := w.Write(second); err != nil {
 		t.Fatalf("Write second: %v", err)
 	}
-	wantEnd := firstEnd + int64(BlockLen-firstEnd%BlockLen) + HeaderLen + int64(len(second))
+	wantEnd := firstEnd + (BlockLen - firstEnd%BlockLen) + HeaderLen + int64(len(second))
 	if off := w.Offset(); off != wantEnd {
 		t.Fatalf("offset after second = %d, want %d (padding not accounted)", off, wantEnd)
 	}

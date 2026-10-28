@@ -157,7 +157,7 @@ func (a *AsyncWriter) run() {
 	defer ticker.Stop()
 
 	var seq uint64 // 已写入文件的最后一条记录序号
-	var lastFlush int64 = a.w.Offset()
+	lastFlush := a.w.Offset()
 	for {
 		select {
 		case req, ok := <-a.ch:

@@ -28,6 +28,17 @@ func anyPayload(i int) []byte {
 	return payloadN(1 + i*37%300)
 }
 
+func TestNewAsyncWriterOptions(t *testing.T) {
+	if _, err := NewAsyncWriter(nil, AsyncOptions{Queue: 1}); err == nil {
+		t.Fatal("nil writer should be rejected")
+	}
+	w := mustCreate(t, filepath.Join(t.TempDir(), "run.swanlab"))
+	defer w.Close()
+	if _, err := NewAsyncWriter(w, AsyncOptions{}); err == nil {
+		t.Fatal("non-positive Queue should be rejected")
+	}
+}
+
 func TestAsyncWriteAndClose(t *testing.T) {
 	a, path := newTestAsync(t, AsyncOptions{Queue: 64})
 

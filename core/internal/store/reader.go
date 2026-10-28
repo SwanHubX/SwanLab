@@ -122,8 +122,10 @@ func (r *Reader) readHeader() error {
 		return fmt.Errorf("%w: magic=0x%04X", ErrBadHeader, magic)
 	}
 	if v := h[6]; v != HeaderVersion {
-		return fmt.Errorf("%w: version=%d (expected %d), 该文件由不兼容的 SwanLab SDK 版本生成",
-			ErrBadHeader, v, HeaderVersion)
+		// 与 Python DataStoreReader 的错误语义保持一致：版本不兼容时明确提示升级 SDK。
+		return fmt.Errorf("%w: invalid run version: %d (expected %d); "+
+			"this file was created by an incompatible version of SwanLab SDK, "+
+			"please use a matching SDK version to sync this run", ErrBadHeader, v, HeaderVersion)
 	}
 	return nil
 }
@@ -149,7 +151,7 @@ func (r *Reader) skipPadding() error {
 			return fmt.Errorf("%w: non-zero block padding at offset %d", ErrCorrupt, r.index+int64(i))
 		}
 	}
-	r.index += int64(rest)
+	r.index += rest
 	return nil
 }
 
