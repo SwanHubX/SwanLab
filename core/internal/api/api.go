@@ -279,6 +279,9 @@ func (c *Client) StopExperiment(ctx context.Context, params StopExperimentParams
 //
 // House 接口只把 200 OK 视为成功：后端在会话/flagId 校验失败时返回 202 且不写库，
 // 必须判定为非成功，否则会掩盖会话已失效的事实。
+//
+// 注意：Python 侧当前按 response.ok 判定，202 会被当作成功；此处有意收紧，
+// 让被静默丢弃的写入显式失败（同步 Python 行为属于独立变更）。
 func (c *Client) SendHeartbeat(ctx context.Context, experimentID string) error {
 	res, err := c.http.Do(ctx, client.Request{
 		Method: http.MethodPost,
@@ -318,6 +321,9 @@ func (c *Client) UploadColumns(
 //
 // metrics 由上层 sender 编码（标量/日志/媒体各有字段差异），本层只负责信封与
 // 严格的结果判定：仅 200 OK 视为写入成功，202 等其它状态一律判为失败。
+//
+// 空批次由调用方跳过：Python 在 api 层短路（`if not metrics: return`），Go 侧
+// metrics 是 any、判空需要反射，因此约定由 sender 在组批后过滤空批。
 func (c *Client) UploadMetrics(
 	ctx context.Context,
 	kind MetricKind,
