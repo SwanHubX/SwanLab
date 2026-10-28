@@ -3,6 +3,7 @@ module github.com/swanhubx/swanlab/core
 go 1.26.5
 
 require (
+	github.com/google/uuid v1.6.0
 	golang.org/x/sys v0.47.0
 	google.golang.org/grpc v1.83.0
 	google.golang.org/protobuf v1.36.12

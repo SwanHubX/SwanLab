@@ -5,9 +5,11 @@
 @description: 测试 swanlab.sdk.internal.pkg.fork 模块
 """
 
+import gc
 import multiprocessing
 import os
 import sys
+import weakref
 
 import pytest
 
@@ -154,3 +156,58 @@ class TestUnregister:
         p.start()
         p.join(timeout=5)
         assert result.get() == []
+
+
+class _Owner:
+    """用于验证 bound method 回调的持有方式。"""
+
+    def __init__(self):
+        self.calls = 0
+
+    def cleanup(self):
+        self.calls += 1
+
+
+class TestBoundMethodWeakref:
+    """bound method 以弱引用存储：注册不延长实例生命周期，死条目自动失效。"""
+
+    def test_register_does_not_extend_instance_lifetime(self):
+        """注册 bound method 后释放实例，实例应被回收"""
+        from swanlab.sdk.internal.pkg.fork import _callbacks, _resolve_entry
+
+        owner = _Owner()
+        ref = weakref.ref(owner)
+        fork.register(owner.cleanup)
+        try:
+            del owner
+            gc.collect()
+            assert ref() is None, "注册回调不应延长实例生命周期"
+        finally:
+            _callbacks[:] = [e for e in _callbacks if _resolve_entry(e) is not None]
+
+    def test_unregister_matches_bound_method(self):
+        """unregister 按 self+func 匹配，能移除同名方法注册的条目"""
+        from swanlab.sdk.internal.pkg.fork import _callbacks, _resolve_entry
+
+        owner = _Owner()
+        fork.register(owner.cleanup)
+        fork.unregister(owner.cleanup)
+        assert all(_resolve_entry(e) != owner.cleanup for e in _callbacks)
+
+    def test_dead_entry_is_pruned_on_next_register(self):
+        """实例回收后，残留的弱引用条目在下一次注册时被清除"""
+        from swanlab.sdk.internal.pkg.fork import _callbacks, _resolve_entry
+
+        owner = _Owner()
+        fork.register(owner.cleanup)
+        del owner
+        gc.collect()
+
+        def noop():
+            pass
+
+        fork.register(noop)
+        try:
+            assert all(_resolve_entry(e) is not None for e in _callbacks)
+        finally:
+            fork.unregister(noop)
