@@ -16,6 +16,7 @@ from typing import Any, Callable
 from swanlab.sdk.internal.core_go.config import CHANNEL_READY_TIMEOUT, GRPC_MAX_MESSAGE_BYTES, RPC_TIMEOUT
 from swanlab.sdk.internal.core_go.discovery import Endpoint
 from swanlab.sdk.internal.core_go.errors import CoreGoError, ReasonCode, Stage, reason_for_grpc
+from swanlab.sdk.internal.pkg import safe
 
 __all__ = ["Channel"]
 
@@ -121,7 +122,5 @@ class Channel:
                 return
             self._closed = True
             raw = self._raw
-        try:
+        with safe.block(level="debug", message=f"failed to close grpc channel {self._target}"):
             raw.close()
-        except Exception:  # noqa: BLE001 - 关闭失败不影响回收流程
-            pass

@@ -181,9 +181,18 @@ def spawn_core(binary: Path, lease: RuntimeLease, parent_pid: Optional[int] = No
     """拉起 swanlab-core，返回 Popen。
 
     只传 --port-filename / --parent-pid；不传 --listen / --detach，
-    避免外部环境变量改变本次启动行为。
+    避免外部环境变量改变本次启动行为。子进程 cwd 是 runtime 目录，
+    因此相对路径必须先按调用方 cwd 解析为绝对路径。
     """
-    binary_path = Path(binary)
+    try:
+        binary_path = Path(binary).resolve()
+    except OSError as exc:
+        raise CoreGoError(
+            Stage.SPAWN,
+            ReasonCode.SPAWN_FAILED,
+            f"failed to resolve core binary {binary}: {exc}",
+            cause=exc,
+        ) from exc
     validate_core_binary(binary_path)
 
     env = dict(os.environ)

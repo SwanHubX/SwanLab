@@ -29,7 +29,7 @@ from swanlab.sdk.internal.core_go.config import TEARDOWN_TIMEOUT
 from swanlab.sdk.internal.core_go.errors import CoreGoError, ReasonCode, Stage
 from swanlab.sdk.internal.core_go.launcher import CoreLauncher
 from swanlab.sdk.internal.core_go.rpc.core_service import CoreServiceRpc
-from swanlab.sdk.internal.pkg import console, fork
+from swanlab.sdk.internal.pkg import console, fork, safe
 from swanlab.sdk.protocol import CoreProtocol, NullCoreProtocol
 from swanlab.sdk.typings.run import ModeType
 
@@ -376,15 +376,11 @@ class CoreGo(CoreProtocol):
 
         try:
             if rpc is not None:
-                try:
+                with safe.block(level="debug", message="core teardown failed during close"):
                     rpc.teardown(timeout=TEARDOWN_TIMEOUT)
-                except Exception as exc:
-                    console.debug(f"core teardown failed during close: {exc}")
             if launcher is not None:
-                try:
+                with safe.block(level="debug", message="core launcher close failed"):
                     launcher.close()
-                except Exception as exc:
-                    console.debug(f"core launcher close failed: {exc}")
         finally:
             with self._lock:
                 self._rpc = None
@@ -408,15 +404,11 @@ class CoreGo(CoreProtocol):
 
         try:
             if rpc is not None:
-                try:
+                with safe.block(level="debug", message="core teardown failed during abort"):
                     rpc.teardown(timeout=TEARDOWN_TIMEOUT)
-                except Exception as exc:
-                    console.debug(f"core teardown failed during abort: {exc}")
             if launcher is not None:
-                try:
+                with safe.block(level="debug", message="core launcher abort failed"):
                     launcher.abort()
-                except Exception as exc:
-                    console.debug(f"core launcher abort failed: {exc}")
         finally:
             with self._lock:
                 self._rpc = None

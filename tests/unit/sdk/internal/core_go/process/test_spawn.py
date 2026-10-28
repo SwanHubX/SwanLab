@@ -81,6 +81,30 @@ def test_spawn_core_passes_argv_and_sanitizes_env(tmp_path, monkeypatch):
         cleanup_runtime(lease)
 
 
+def test_spawn_core_resolves_relative_binary(tmp_path, monkeypatch):
+    """回归：子进程 cwd 是 runtime 目录，相对路径必须提前解析为绝对路径。"""
+    binary = tmp_path / "fake-core"
+    binary.write_text("")
+    binary.chmod(0o755)
+
+    captured = {}
+
+    class FakePopen:
+        def __init__(self, *args, **kwargs):
+            captured.update(kwargs)
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(process_module.subprocess, "Popen", FakePopen)
+
+    lease = acquire_runtime()
+    try:
+        spawn_core(Path("fake-core"), lease)
+    finally:
+        cleanup_runtime(lease)
+
+    assert Path(captured["args"][0]) == binary.resolve()
+
+
 def test_spawn_core_rejects_missing_binary(tmp_path):
     lease = acquire_runtime()
     try:
