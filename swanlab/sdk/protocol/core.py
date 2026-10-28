@@ -7,7 +7,7 @@
 
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import List
+from typing import List, Optional
 
 from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
     ConfirmRunFinishResponse,
@@ -30,7 +30,7 @@ from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogRecord
 from swanlab.sdk.internal.pkg import safe
 from swanlab.sdk.typings.run import ModeType
 
-__all__ = ["CoreEnum", "CoreProtocol", "CoreSyncProtocol"]
+__all__ = ["CoreEnum", "CoreProtocol", "CoreSyncProtocol", "NullCoreProtocol"]
 
 
 class CoreEnum(str, Enum):
@@ -267,6 +267,113 @@ class CoreProtocol(ABC):
         创建一个新的 CoreProtocol，此函数用于处理多进程fork的情况
         """
         ...
+
+
+class NullCoreProtocol(CoreProtocol):
+    """空 Core 实现：不启动进程、不发送 RPC。
+
+    生命周期调用统一返回失败，Upsert 全部空操作；用于 fork child 等需要与真实
+    Core 脱钩的场景，子类可通过 message 定制失败原因。
+    """
+
+    def __init__(self, mode: ModeType, *, message: str = "null core does not support this operation") -> None:
+        super().__init__(mode)
+        self._message = message
+
+    # ---------------------------------- 实验开始 ----------------------------------
+
+    def _start_when_local(self, start_request: DeliverRunStartRequest) -> DeliverRunStartResponse:
+        return self._reject_start()
+
+    def _start_when_offline(self, start_request: DeliverRunStartRequest) -> DeliverRunStartResponse:
+        return self._reject_start()
+
+    def _start_when_online(self, start_request: DeliverRunStartRequest) -> DeliverRunStartResponse:
+        return self._reject_start()
+
+    def _reject_start(self) -> DeliverRunStartResponse:
+        return DeliverRunStartResponse(success=False, message=self._message)
+
+    # ---------------------------------- 数据上报：全部空操作 ----------------------------------
+
+    def _upsert_columns_when_local(self, columns: List[ColumnRecord]) -> None:
+        return None
+
+    def _upsert_columns_when_offline(self, columns: List[ColumnRecord]) -> None:
+        return None
+
+    def _upsert_columns_when_online(self, columns: List[ColumnRecord]) -> None:
+        return None
+
+    def _upsert_scalars_when_local(self, scalars: List[ScalarRecord]) -> None:
+        return None
+
+    def _upsert_scalars_when_offline(self, scalars: List[ScalarRecord]) -> None:
+        return None
+
+    def _upsert_scalars_when_online(self, scalars: List[ScalarRecord]) -> None:
+        return None
+
+    def _upsert_media_when_local(self, media: List[MediaRecord]) -> None:
+        return None
+
+    def _upsert_media_when_offline(self, media: List[MediaRecord]) -> None:
+        return None
+
+    def _upsert_media_when_online(self, media: List[MediaRecord]) -> None:
+        return None
+
+    def _upsert_logs_when_local(self, logs: List[LogRecord]) -> None:
+        return None
+
+    def _upsert_logs_when_offline(self, logs: List[LogRecord]) -> None:
+        return None
+
+    def _upsert_logs_when_online(self, logs: List[LogRecord]) -> None:
+        return None
+
+    def _upsert_saves_when_local(self, saves: List[SaveRecord]) -> None:
+        return None
+
+    def _upsert_saves_when_offline(self, saves: List[SaveRecord]) -> None:
+        return None
+
+    def _upsert_saves_when_online(self, saves: List[SaveRecord]) -> None:
+        return None
+
+    # ---------------------------------- 通知运行结束 ----------------------------------
+
+    def _finish_when_local(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse:
+        return self._reject_finish()
+
+    def _finish_when_offline(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse:
+        return self._reject_finish()
+
+    def _finish_when_online(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse:
+        return self._reject_finish()
+
+    def _reject_finish(self) -> DeliverRunFinishResponse:
+        return DeliverRunFinishResponse(success=False, message=self._message)
+
+    # ---------------------------------- 进度查询与确认 ----------------------------------
+
+    def _get_operation_when_online(self) -> GetOperationStatsResponse:
+        return GetOperationStatsResponse(success=False, message=self._message)
+
+    def _confirm_finish_when_enabled(self) -> ConfirmRunFinishResponse:
+        return ConfirmRunFinishResponse(success=False, message=self._message)
+
+    # ---------------------------------- 进程 fork 与回收 ----------------------------------
+
+    def fork(self) -> "CoreProtocol":
+        """空 Core 没有可脱离的资源，返回自身。"""
+        return self
+
+    def close(self) -> None:
+        """空操作。"""
+
+    def abort(self, cause: Optional[BaseException] = None) -> None:
+        """空操作。"""
 
 
 class CoreSyncProtocol(ABC):
