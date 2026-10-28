@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"math"
 	"strings"
 	"testing"
 )
@@ -51,6 +52,9 @@ func TestValidate(t *testing.T) {
 		{"record_batch 上界内", func(s *Settings) { s.RecordBatch = recordBatchMax - 1 }, nil, ""},
 		{"record_interval 为 0", func(s *Settings) { s.RecordInterval = 0 }, nil, "record_interval"},
 		{"record_interval 为负", func(s *Settings) { s.RecordInterval = -1.5 }, nil, "record_interval"},
+		{"record_interval 为 NaN", func(s *Settings) { s.RecordInterval = math.NaN() }, nil, "record_interval"},
+		{"record_interval 为正无穷", func(s *Settings) { s.RecordInterval = math.Inf(1) }, nil, ""},
+		{"record_interval 为负无穷", func(s *Settings) { s.RecordInterval = math.Inf(-1) }, nil, "record_interval"},
 		{"save_part 为 0", func(s *Settings) { s.SavePart = 0 }, nil, "save_part"},
 		// save_size / save_split / save_batch 不额外约束。
 		{"save_batch 无 bounds", func(s *Settings) { s.SaveBatch = -1 }, nil, ""},

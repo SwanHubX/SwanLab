@@ -1,6 +1,8 @@
 package builder
 
 import (
+	"math"
+	"strconv"
 	"testing"
 
 	"github.com/swanhubx/swanlab/core/internal/pkg/counter"
@@ -256,6 +258,10 @@ func TestGenerateNameAndColor(t *testing.T) {
 	// 负数 slug 取模（-1 % 20 = 19）
 	if got := GenerateName(-1); got != "fresh-zebra--1" {
 		t.Fatalf("GenerateName(-1) = %q", got)
+	}
+	// MinInt 取负会溢出，尾部数字不能丢
+	if got, want := GenerateName(math.MinInt), "clever-pig-"+strconv.Itoa(math.MinInt); got != want {
+		t.Fatalf("GenerateName(math.MinInt) = %q, want %q", got, want)
 	}
 }
 

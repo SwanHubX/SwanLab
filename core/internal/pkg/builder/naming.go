@@ -1,5 +1,7 @@
 package builder
 
+import "strconv"
+
 // 本文件提供默认实验名与颜色词表：按历史实验数取模，
 // 词表内容与顺序必须与 Python 客户端一致。
 
@@ -51,28 +53,5 @@ func GenerateColor(slug int) string {
 // 例如 slug=5 → "old-dragon-5"、slug=128 → "happy-goat-128"（与 Python 一致）。
 func GenerateName(slug int) string {
 	i := pyMod(slug, len(presetAnimals))
-	return normalAdjectives[i] + "-" + presetAnimals[i] + "-" + itoa(slug)
-}
-
-// itoa 避免为两个热点函数引入 strconv/fmt 的格式化开销。
-func itoa(v int) string {
-	if v == 0 {
-		return "0"
-	}
-	neg := v < 0
-	if neg {
-		v = -v
-	}
-	var buf [24]byte
-	i := len(buf)
-	for v > 0 {
-		i--
-		buf[i] = byte('0' + v%10)
-		v /= 10
-	}
-	if neg {
-		i--
-		buf[i] = '-'
-	}
-	return string(buf[i:])
+	return normalAdjectives[i] + "-" + presetAnimals[i] + "-" + strconv.Itoa(slug)
 }

@@ -10,6 +10,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"math"
 )
 
 // 默认值与 Python 客户端一致，供测试、工具与冒烟驱动使用。
@@ -99,8 +100,8 @@ func Defaults() Settings {
 
 // Validate 校验必填项与数值边界。
 //
-// record_batch 必须落在开区间 (0, 100_000)，record_interval 与 save_part
-// 必须为正；save_size / save_split / save_batch 不做限制。
+// record_batch 必须落在 (0, 100_000)；record_interval 与 save_part 必须为正，
+// record_interval 额外拒绝 NaN（+Inf 允许）；其余 save_* 不限制。
 func (s Settings) Validate() error {
 	if s.RunID == "" {
 		return fmt.Errorf("config: %w", ErrRunIDRequired)
@@ -111,7 +112,7 @@ func (s Settings) Validate() error {
 	if s.RecordBatch <= 0 || int64(s.RecordBatch) >= recordBatchMax {
 		return fmt.Errorf("config: record_batch (%d) must be in (0, %d)", s.RecordBatch, recordBatchMax)
 	}
-	if s.RecordInterval <= 0 {
+	if math.IsNaN(s.RecordInterval) || s.RecordInterval <= 0 {
 		return fmt.Errorf("config: record_interval (%v) must be positive", s.RecordInterval)
 	}
 	if s.SavePart <= 0 {

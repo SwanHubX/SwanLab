@@ -121,16 +121,19 @@ func TestNewFromSummaryDuplicateKey(t *testing.T) {
 }
 
 func TestNewFromSummaryNegativeSteps(t *testing.T) {
-	// 云端摘要含负 step（异常数据）：水位线为负 ⇒ step 0 起可写
+	// 摘要含负 step（异常数据）：非负 step 可写，负 step 在写位图前拒绝。
 	res, err := NewFromSummary(&Summary{Scalar: []SummaryItem{{Key: "loss", Step: -3}}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if ok, err := res.Metrics.CommitScalar(scalarRec("loss", -2, 1.0), nil); !ok || err != nil {
-		t.Fatalf("step -2 = (%v, %v), want 接纳（水位线 -3）", ok, err)
+	if ok, err := res.Metrics.CommitScalar(scalarRec("loss", -2, 1.0), nil); ok || !errors.Is(err, ErrStepNegative) {
+		t.Fatalf("step -2 = (%v, %v), want ErrStepNegative", ok, err)
 	}
-	if ok, _ := res.Metrics.CommitScalar(scalarRec("loss", -3, 1.0), nil); ok {
-		t.Fatal("step == 水位线应拒绝")
+	if ok, err := res.Metrics.CommitScalar(scalarRec("loss", -3, 1.0), nil); ok || err != nil {
+		t.Fatalf("step == 水位线 = (%v, %v), want Skip", ok, err)
+	}
+	if ok, err := res.Metrics.CommitScalar(scalarRec("loss", 0, 1.0), nil); !ok || err != nil {
+		t.Fatalf("step 0 = (%v, %v), want 接纳", ok, err)
 	}
 }
 

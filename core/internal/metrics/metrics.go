@@ -31,6 +31,8 @@ const MaxStep int64 = 1 << 48
 var (
 	// ErrStepLimit: step 超过 MaxStep。
 	ErrStepLimit = errors.New("step exceeds the supported step limit")
+	// ErrStepNegative: step 为负数，仅在异常 Resume 水位线下可达。
+	ErrStepNegative = errors.New("step must be non-negative")
 	// ErrTypeMismatch: 已定义列与记录类型冲突。
 	ErrTypeMismatch = errors.New("metric type mismatch")
 	// ErrColumnExists: DefineXxx / Commit 携带列定义时 key 已存在。
@@ -274,14 +276,18 @@ func (mt *metric) ensureTypeMatch(t columnv1.ColumnType) error {
 // verdict 判定顺序：
 //  1. step ≤ minStep → Skip（先于超限判定，因此水位线之上的病态 step 也走 Skip）
 //  2. step > MaxStep → ErrStepLimit
-//  3. 位图已存在 → Skip
-//  4. 其余 → Accept
+//  3. step < 0 → ErrStepNegative
+//  4. 位图已存在 → Skip
+//  5. 其余 → Accept
 func (mt *metric) verdict(step int64) (Decision, error) {
 	if step <= mt.minStep {
 		return DecisionSkip, nil
 	}
 	if step > MaxStep {
 		return DecisionSkip, fmt.Errorf("step %d: %w (max %d)", step, ErrStepLimit, MaxStep)
+	}
+	if step < 0 {
+		return DecisionSkip, fmt.Errorf("step %d: %w", step, ErrStepNegative)
 	}
 	if mt.steps.Contains(uint64(step)) {
 		return DecisionSkip, nil
@@ -290,7 +296,7 @@ func (mt *metric) verdict(step int64) (Decision, error) {
 }
 
 // accept 登记 step 并按周期压缩位图；false 且 err 为 nil 表示重复/过期，
-// false 且 err 非 nil 表示超限。
+// false 且 err 非 nil 表示 step 非法（超限或负数）。
 func (mt *metric) accept(step int64) (bool, error) {
 	d, err := mt.verdict(step)
 	if err != nil {
