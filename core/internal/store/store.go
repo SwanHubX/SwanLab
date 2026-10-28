@@ -1,15 +1,11 @@
-// Package store 实现 SwanLab 运行日志（run-*.swanlab）的本地持久化读写。
+// Package store 实现 run-*.swanlab 的本地读写，格式与 Python core_python.store 一致：
+//   - 7 字节文件头：":SWL" + u16le 魔数 0xE1D6 + u8 版本 2
+//   - LevelDB log 分帧：32 KiB 一块，块内紧凑排列 chunk
+//   - 7 字节 chunk 头：CRC32(4B) + payload 长度(2B) + 类型(1B)
+//   - 类型 FULL=1 / FIRST=2 / MIDDLE=3 / LAST=4；跨块记录为 FIRST + MIDDLE* + LAST
+//   - 块尾不足 7 字节补 0；CRC 覆盖「类型字节 + payload」
 //
-// 文件格式与 Python 侧 swanlab/sdk/internal/core_python/store 完全一致：
-//   - 文件头 7 字节：":SWL" + uint16 小端魔数 0xE1D6 + uint8 版本号 2
-//   - 其后为 LevelDB log 分帧：整个字节流按 32 KiB 分块，块内紧凑排列 chunk
-//   - chunk 头 7 字节：CRC32(4B) + payload 长度(2B) + chunk 类型(1B)
-//   - chunk 类型 1=FULL、2=FIRST、3=MIDDLE、4=LAST；跨块记录拆成 FIRST + MIDDLE* + LAST
-//   - 块尾剩余不足 7 字节时以 0 填充，对齐到下一块
-//   - CRC 校验范围是「类型字节 + payload」，即以 crc32(类型字节) 为预置基值
-//
-// payload 是序列化后的 swanlab.record.v1.Record。本包只负责字节搬运，
-// 不 import proto，也不解释记录语义。
+// payload 是序列化的 record.v1.Record；本包只搬运字节，不 import proto。
 package store
 
 import (
@@ -26,11 +22,11 @@ import (
 )
 
 const (
-	// HeaderLen 是文件头与 chunk 头的长度，两者恰好都是 7 字节。
+	// HeaderLen 是文件头与 chunk 头的长度。
 	HeaderLen = 7
 	// BlockLen 是物理块大小。
 	BlockLen = 32768
-	// HeaderVersion 是当前文件格式版本号，与 Python 侧保持一致。
+	// HeaderVersion 是文件格式版本号，与 Python 侧一致。
 	HeaderVersion = 2
 
 	// dataLen 是单个 chunk 能承载的最大 payload 长度。
@@ -46,11 +42,11 @@ const (
 )
 
 var (
-	// ErrBadHeader 表示文件头不符合 :SWL 格式，或版本号不兼容。
+	// ErrBadHeader 表示文件头不是 :SWL 格式，或版本号不兼容。
 	ErrBadHeader = errors.New("store: invalid file header")
-	// ErrCorrupt 表示帧结构非法或 CRC 校验失败，其后的数据已不可信。
+	// ErrCorrupt 表示帧结构非法或 CRC 校验失败。
 	ErrCorrupt = errors.New("store: corrupt record")
-	// ErrTruncated 表示文件在记录中间结束（写入方尚未写完或进程异常退出）。
+	// ErrTruncated 表示文件在记录中间结束。
 	ErrTruncated = errors.New("store: truncated record")
 	// ErrClosed 表示操作发生在已关闭的 Writer 或 AsyncWriter 上。
 	ErrClosed = errors.New("store: closed")
@@ -64,12 +60,11 @@ var crcSeed = func() (s [5]uint32) {
 	return s
 }()
 
-// Writer 以排他方式创建日志文件，并按 LevelDB log 格式顺序追加记录。
+// Writer 以排他方式创建日志文件，按 LevelDB log 格式追加记录。
 //
-// Writer 只负责字节落盘与偏移记账，不解释 payload 语义，也不决定何时刷盘；
-// 刷盘节奏由 AsyncWriter 控制。写入方法并发安全，但块内偏移只在单写者下才有意义，
-// 因此仍应只由一个 goroutine 调用 Write。任意一次写入或刷盘失败后，
-// Writer 的缓冲与文件可能已不一致，应视为不可用并整体关闭。
+// 只负责落盘与偏移记账，不解释 payload；刷盘节奏由 AsyncWriter 控制。
+// Write 并发安全，但块内偏移只在单写者下有意义，应只由一个 goroutine 调用。
+// 写入或刷盘失败后 Writer 不可再用，应整体关闭。
 type Writer struct {
 	mu     sync.Mutex
 	fp     *os.File
@@ -78,10 +73,8 @@ type Writer struct {
 	index  atomic.Int64 // 当前文件末尾偏移，含文件头与块尾填充
 }
 
-// Create 排他创建日志文件并写入 7 字节文件头。
-//
-// 文件已存在时返回的错误满足 errors.Is(err, fs.ErrExist)；调用方据此识别
-// 同一 run_dir 被重复打开或 Resume 冲突。
+// Create 排他创建日志文件并写入文件头。文件已存在时返回的错误满足
+// errors.Is(err, fs.ErrExist)，用于识别重复打开或 Resume 冲突。
 func Create(path string) (*Writer, error) {
 	fp, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
 	if err != nil {
@@ -93,8 +86,7 @@ func Create(path string) (*Writer, error) {
 		fp.Close()
 		return nil, err
 	}
-	// 文件头立即刷出：AsyncWriter 发布的初始 (flushedStoreSeq, flushedOffset)
-	// 以「文件头对读取方可见」为前提。
+	// 立即刷出文件头，保证初始 (0, HeaderLen) 对读取方可见。
 	if err := w.buf.Flush(); err != nil {
 		fp.Close()
 		return nil, err
@@ -111,12 +103,10 @@ func (w *Writer) writeHeader() error {
 	return err
 }
 
-// Offset 返回下一条记录写入的起始字节偏移（等于当前文件末尾，含块尾填充）。
-// 它是 Reader.OpenOffset 唯一接受的起点，也是上层登记记录边界的依据。
+// Offset 返回下一条记录的起始偏移（当前文件末尾，含块尾填充）。
 //
-// 注意：经 AsyncWriter 异步写入时，Offset 只反映已由写协程消费的部分，
-// 调用方不能据此给刚入队的记录记账；那种场景应使用 AsyncWriter.Flushed
-// 发布的进度，或事后用 Reader 扫描得到记录边界。
+// 经 AsyncWriter 异步写入时只反映已消费的部分，不能用于给刚入队的记录记账，
+// 应改用 AsyncWriter.Flushed 或事后扫描。
 func (w *Writer) Offset() int64 { return w.index.Load() }
 
 // Write 追加一条完整记录。
@@ -129,7 +119,7 @@ func (w *Writer) Write(payload []byte) error {
 	return w.write(payload)
 }
 
-// write 按 LevelDB log 规范把一个逻辑记录切成若干 chunk，调用方需持有 mu。
+// write 按 LevelDB log 规范切分记录；调用方需持有 mu。
 func (w *Writer) write(p []byte) error {
 	space := int(BlockLen - w.Offset()%BlockLen)
 	// 块尾放不下一个 chunk 头：补零对齐到下一块
@@ -142,7 +132,7 @@ func (w *Writer) write(p []byte) error {
 	if len(p)+HeaderLen <= space {
 		return w.writeChunk(p, chunkFull)
 	}
-	// 跨块：FIRST 填满当前块剩余空间，此后每个 MIDDLE 独占整块，最后一段为 LAST
+	// 跨块：FIRST 填满当前块，MIDDLE 独占整块，末段为 LAST
 	room := space - HeaderLen
 	if err := w.writeChunk(p[:room], chunkFirst); err != nil {
 		return err
@@ -158,7 +148,7 @@ func (w *Writer) write(p []byte) error {
 	return w.writeChunk(p[used:], chunkLast)
 }
 
-// writeChunk 写入一个 chunk 头与 payload，并推进索引。
+// writeChunk 写入 chunk 头与 payload，并推进 index。
 func (w *Writer) writeChunk(p []byte, typ byte) error {
 	var h [HeaderLen]byte
 	binary.LittleEndian.PutUint32(h[0:4], crc32.Update(crcSeed[typ], crc32.IEEETable, p))
@@ -176,7 +166,7 @@ func (w *Writer) writeChunk(p []byte, typ byte) error {
 	return nil
 }
 
-// writeZeros 写入块尾填充；n 一定小于 HeaderLen。
+// writeZeros 写入块尾填充；n < HeaderLen。
 func (w *Writer) writeZeros(n int) error {
 	var zeros [HeaderLen]byte
 	if _, err := w.buf.Write(zeros[:n]); err != nil {
@@ -186,8 +176,7 @@ func (w *Writer) writeZeros(n int) error {
 	return nil
 }
 
-// Flush 把用户态缓冲写入操作系统。只有 Flush 成功后，已写入的字节才对
-// 并发 Reader 可见——AsyncWriter 依赖这一点发布 (flushedStoreSeq, flushedOffset)。
+// Flush 把缓冲写入内核；成功后已写字节才对并发 Reader 可见。
 func (w *Writer) Flush() error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -212,12 +201,12 @@ func (w *Writer) Close() error {
 	return err
 }
 
-// Reader 顺序扫描日志文件，逐条返回完整记录的 payload。
+// Reader 顺序扫描日志，逐条返回完整记录的 payload。
 //
-// Scan 的错误分类是调用方判断「能否继续读」的唯一依据：
-//   - io.EOF：正常读尽，或到达 OpenOffset 设置的 limit 上界；
-//   - ErrTruncated：文件在记录中间结束，此前返回的记录仍然有效；
-//   - ErrCorrupt：帧结构非法或 CRC 不一致，其后的数据不可信。
+// Scan 的错误用于判断能否继续读：
+//   - io.EOF：正常读完，或到达 limit；
+//   - ErrTruncated：记录中间结束，此前记录有效；
+//   - ErrCorrupt：帧结构非法或 CRC 不符，其后数据不可信。
 type Reader struct {
 	fp    *os.File
 	br    *bufio.Reader
@@ -227,11 +216,9 @@ type Reader struct {
 // Open 打开日志文件并从第一条记录开始读取，不设上界。
 func Open(path string) (*Reader, error) { return OpenOffset(path, HeaderLen, -1) }
 
-// OpenOffset 从指定字节偏移开始读取，并可选择以 limit 作为读取上界。
-//
-// offset 必须是某条记录的起始偏移（即 Writer.Offset 在写入前的返回值），
-// 且不小于 HeaderLen。limit < 0 表示不设上界；否则读取绝不越过 limit 字节——
-// 传入 AsyncWriter 发布的 flushedOffset，即可保证并发读取时看不到尚未刷盘的半条记录。
+// OpenOffset 从 offset 开始读，limit 为上界（<0 表示不限）。offset 必须是
+// 记录起始偏移且不小于 HeaderLen；读取绝不越过 limit，传入 flushedOffset
+// 即可避免读到未刷盘的半条记录。
 func OpenOffset(path string, offset, limit int64) (*Reader, error) {
 	if offset < HeaderLen {
 		return nil, fmt.Errorf("store: offset %d is before the first record (%d)", offset, HeaderLen)
@@ -261,7 +248,7 @@ func OpenOffset(path string, offset, limit int64) (*Reader, error) {
 	return r, nil
 }
 
-// Position 返回下一条记录起始处的文件字节偏移，用于增量扫描的进度展示。
+// Position 返回下一条记录的起始偏移。
 func (r *Reader) Position() int64 { return r.index }
 
 // Close 关闭底层文件。可重复调用。
@@ -323,7 +310,7 @@ func (r *Reader) readHeader() error {
 		return fmt.Errorf("%w: magic=0x%04X", ErrBadHeader, magic)
 	}
 	if v := h[6]; v != HeaderVersion {
-		// 与 Python DataStoreReader 的错误语义保持一致：版本不兼容时明确提示升级 SDK。
+		// 与 Python 侧保持同样的版本不兼容提示。
 		return fmt.Errorf("%w: invalid run version: %d (expected %d); "+
 			"this file was created by an incompatible version of SwanLab SDK, "+
 			"please use a matching SDK version to sync this run", ErrBadHeader, v, HeaderVersion)
@@ -331,9 +318,8 @@ func (r *Reader) readHeader() error {
 	return nil
 }
 
-// skipPadding 跳过块尾的零填充。
-//
-// 填充只在写入下一条记录时才会补上，因此文件恰好停在记录末尾时读到 EOF 属于正常结束。
+// skipPadding 跳过块尾零填充。填充在下一次写入时才补，因此文件恰好停在
+// 记录末尾时读到 EOF 属于正常结束。
 func (r *Reader) skipPadding() error {
 	rest := BlockLen - r.index%BlockLen
 	if rest >= HeaderLen {
@@ -356,8 +342,7 @@ func (r *Reader) skipPadding() error {
 	return nil
 }
 
-// readChunk 读取一个 chunk 头与 payload 并校验 CRC。
-// 只有连续 0 字节可读时才返回 io.EOF，其余情况都归入 ErrTruncated。
+// readChunk 读取一个 chunk 并校验 CRC；只有零字节可读时返回 io.EOF。
 func (r *Reader) readChunk() (byte, []byte, error) {
 	var h [HeaderLen]byte
 	n, err := io.ReadFull(r.br, h[:])
