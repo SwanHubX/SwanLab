@@ -14,7 +14,7 @@ from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class Record(_message.Message):
-    __slots__ = ("num", "timestamp", "start", "finish", "column", "scalar", "media", "log", "save")
+    __slots__ = ("num", "timestamp", "start", "finish", "column", "scalar", "media", "histogram", "log", "save")
     NUM_FIELD_NUMBER: _ClassVar[int]
     TIMESTAMP_FIELD_NUMBER: _ClassVar[int]
     START_FIELD_NUMBER: _ClassVar[int]
@@ -22,6 +22,7 @@ class Record(_message.Message):
     COLUMN_FIELD_NUMBER: _ClassVar[int]
     SCALAR_FIELD_NUMBER: _ClassVar[int]
     MEDIA_FIELD_NUMBER: _ClassVar[int]
+    HISTOGRAM_FIELD_NUMBER: _ClassVar[int]
     LOG_FIELD_NUMBER: _ClassVar[int]
     SAVE_FIELD_NUMBER: _ClassVar[int]
     num: int
@@ -31,6 +32,7 @@ class Record(_message.Message):
     column: _column_pb2.ColumnRecord
     scalar: _data_pb2.ScalarRecord
     media: _data_pb2.MediaRecord
+    histogram: _data_pb2.HistogramRecord
     log: _log_pb2.LogRecord
     save: _save_pb2.SaveRecord
-    def __init__(self, num: _Optional[int] = ..., timestamp: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., start: _Optional[_Union[_run_pb2.StartRecord, _Mapping]] = ..., finish: _Optional[_Union[_run_pb2.FinishRecord, _Mapping]] = ..., column: _Optional[_Union[_column_pb2.ColumnRecord, _Mapping]] = ..., scalar: _Optional[_Union[_data_pb2.ScalarRecord, _Mapping]] = ..., media: _Optional[_Union[_data_pb2.MediaRecord, _Mapping]] = ..., log: _Optional[_Union[_log_pb2.LogRecord, _Mapping]] = ..., save: _Optional[_Union[_save_pb2.SaveRecord, _Mapping]] = ...) -> None: ...
+    def __init__(self, num: _Optional[int] = ..., timestamp: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., start: _Optional[_Union[_run_pb2.StartRecord, _Mapping]] = ..., finish: _Optional[_Union[_run_pb2.FinishRecord, _Mapping]] = ..., column: _Optional[_Union[_column_pb2.ColumnRecord, _Mapping]] = ..., scalar: _Optional[_Union[_data_pb2.ScalarRecord, _Mapping]] = ..., media: _Optional[_Union[_data_pb2.MediaRecord, _Mapping]] = ..., histogram: _Optional[_Union[_data_pb2.HistogramRecord, _Mapping]] = ..., log: _Optional[_Union[_log_pb2.LogRecord, _Mapping]] = ..., save: _Optional[_Union[_save_pb2.SaveRecord, _Mapping]] = ...) -> None: ...
