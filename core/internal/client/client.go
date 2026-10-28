@@ -34,9 +34,8 @@ const (
 	// DefaultSDKVersion 是未经构建注入时的版本占位。
 	DefaultSDKVersion = "dev"
 
-	// defaultMaxIdleConns / defaultMaxIdleConnsPerHost 是共享连接池的空闲连接上限。
-	// 上传管线会同时使用 column / scalar / log 多条轨道，文件上传的并发更高；
-	// 沿用 http.DefaultTransport 的 2 会在持续并发下反复建连、丢掉连接复用。
+	// 共享连接池的空闲连接上限。上传管线同时有多条指标轨与较高的文件并发，
+	// http.DefaultTransport 的 2 会在持续并发下反复建连。
 	defaultMaxIdleConns        = 64
 	defaultMaxIdleConnsPerHost = 16
 )
@@ -360,9 +359,8 @@ func NewFactory(opts Options) *Factory {
 
 // Client 返回指定身份的客户端，已缓存则直接复用。
 //
-// 鉴权探活在锁外完成：不同身份并发建 Client 时互不阻塞，单个身份探活慢不会
-// 拖住其它会话启动。代价是同 key 并发取用可能各自探活一次，最终只保留首个
-// 写入缓存的实例，其余丢弃（transport 是共享的，丢弃不会额外占用连接池）。
+// 鉴权探活在锁外完成，慢探活不会阻塞其它身份；同 key 并发可能重复探活，
+// 最终只保留首个写入缓存的实例（transport 共享，丢弃不额外占用连接池）。
 func (f *Factory) Client(ctx context.Context, apiHost, apiKey string) (*Client, error) {
 	normalized, err := normalizeHost(apiHost)
 	if err != nil {
@@ -417,10 +415,8 @@ func identityKey(apiHost, apiKey string) string {
 	return apiHost + "|" + hex.EncodeToString(sum[:])
 }
 
-// cloneDefaultTransport 克隆默认连接池，保证进程级共享时不影响其它使用默认值的代码。
-//
-// 空闲连接上限在克隆后显式调高：默认的 MaxIdleConnsPerHost 只有 2，而上传管线
-// 会在同一站点上并发使用多条轨道与更高的文件并发，沿用默认值会持续建连。
+// cloneDefaultTransport 克隆默认连接池，避免影响其它使用 http.DefaultTransport 的代码。
+// 克隆后调高空闲连接上限，适配上传管线的并发轨道与文件上传。
 func cloneDefaultTransport() *http.Transport {
 	transport := &http.Transport{}
 	if base, ok := http.DefaultTransport.(*http.Transport); ok {

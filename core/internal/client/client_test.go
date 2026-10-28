@@ -358,8 +358,7 @@ func TestFactoryReusesAndIsolates(t *testing.T) {
 	}
 }
 
-// TestFactoryConcurrentSameIdentity 覆盖并发取用：鉴权探活移出全局锁后，同 key 的
-// 并发调用仍收敛到首个写入缓存的实例，不会各自返回不同的 Client。
+// TestFactoryConcurrentSameIdentity 覆盖并发取用：同 key 的并发调用收敛到同一实例。
 func TestFactoryConcurrentSameIdentity(t *testing.T) {
 	cloud := clienttest.NewCloud(t)
 	cloud.ServeJSON(http.MethodGet, verifyRoute, http.StatusOK, apiKeyProfile("alice"))
@@ -393,8 +392,7 @@ func TestFactoryConcurrentSameIdentity(t *testing.T) {
 	}
 }
 
-// TestCloneDefaultTransportPools 覆盖连接池参数与隔离性：克隆后的空闲连接上限被
-// 调高，且不会回写 http.DefaultTransport。
+// TestCloneDefaultTransportPools 校验池参数已调高，且不污染 http.DefaultTransport。
 func TestCloneDefaultTransportPools(t *testing.T) {
 	transport := cloneDefaultTransport()
 	if got := transport.MaxIdleConnsPerHost; got != defaultMaxIdleConnsPerHost {
@@ -449,9 +447,7 @@ func TestIdentityKeyHidesSecret(t *testing.T) {
 }
 
 // TestContextCancellationIsNotRetried 覆盖调用方取消：不重试且返回 ctx 错误。
-//
-// 取消时机由 handler 收到请求后发出的信号驱动，不依赖睡眠时长：CI 容器负载高时
-// 固定 sleep 会在请求发出前就过去，导致断言偶发失败。
+// 取消时机由 handler 信号驱动，避免 sleep 与请求发出竞速导致的偶发失败。
 func TestContextCancellationIsNotRetried(t *testing.T) {
 	cloud := clienttest.NewCloud(t)
 	cloud.ServeJSON(http.MethodGet, verifyRoute, http.StatusOK, apiKeyProfile("alice"))
@@ -466,7 +462,7 @@ func TestContextCancellationIsNotRetried(t *testing.T) {
 
 	authed, clock := newAuthedClient(t, cloud, Options{})
 	ctx, cancel := context.WithCancel(context.Background())
-	// done 用于在请求根本没发出时叫停等待协程，避免它一直阻塞到进程退出。
+	// done 在请求未发出时叫停等待协程，避免永久阻塞。
 	done := make(chan struct{})
 	t.Cleanup(func() {
 		close(done)
