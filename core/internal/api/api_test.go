@@ -440,6 +440,85 @@ func TestSaveFileEndpoints(t *testing.T) {
 	}
 }
 
+// TestPrepareSaveFilesRejectsEmptyURL 覆盖 prepare 响应中的空 URL：属于不可重试的协议错误。
+func TestPrepareSaveFilesRejectsEmptyURL(t *testing.T) {
+	cloud := clienttest.NewCloud(t)
+	svc, _ := newTestClient(t, cloud, client.Options{})
+	cloud.ServeJSON(http.MethodPost, "/api/experiment/exp-1/files/prepare", http.StatusOK, map[string]any{
+		"urls": []string{"https://s3/1", ""},
+	})
+
+	_, err := svc.PrepareSaveFiles(context.Background(), "exp-1", []PrepareSaveFile{
+		{Path: "files/a.txt"}, {Path: "files/b.txt"},
+	})
+	if !client.IsInvalidResponse(err) || client.IsRetryable(err) {
+		t.Fatalf("error = %v, want non-retryable invalid response", err)
+	}
+}
+
+// TestPrepareMultipartRejectsInvalidResponse 覆盖 prepare-multipart 的结构校验：
+// 空 uploadId、分片数不符、编号不连续、空分片 URL 都应按协议错误终结。
+func TestPrepareMultipartRejectsInvalidResponse(t *testing.T) {
+	const path = "/api/experiment/exp-1/files/prepare-multipart"
+	files := []PrepareMultipartSaveFile{{Path: "files/big.bin", Count: 2}}
+
+	cases := []struct {
+		name    string
+		payload any
+	}{
+		{
+			name: "empty upload id",
+			payload: map[string]any{"files": []map[string]any{{
+				"uploadId": "",
+				"parts": []map[string]any{
+					{"partNumber": 1, "url": "https://s3/p1"},
+					{"partNumber": 2, "url": "https://s3/p2"},
+				},
+			}}},
+		},
+		{
+			name: "part count mismatch",
+			payload: map[string]any{"files": []map[string]any{{
+				"uploadId": "up-1",
+				"parts":    []map[string]any{{"partNumber": 1, "url": "https://s3/p1"}},
+			}}},
+		},
+		{
+			name: "duplicate part numbers",
+			payload: map[string]any{"files": []map[string]any{{
+				"uploadId": "up-1",
+				"parts": []map[string]any{
+					{"partNumber": 1, "url": "https://s3/p1"},
+					{"partNumber": 1, "url": "https://s3/p2"},
+				},
+			}}},
+		},
+		{
+			name: "empty part url",
+			payload: map[string]any{"files": []map[string]any{{
+				"uploadId": "up-1",
+				"parts": []map[string]any{
+					{"partNumber": 1, "url": "https://s3/p1"},
+					{"partNumber": 2, "url": ""},
+				},
+			}}},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cloud := clienttest.NewCloud(t)
+			svc, _ := newTestClient(t, cloud, client.Options{})
+			cloud.ServeJSON(http.MethodPost, path, http.StatusOK, tc.payload)
+
+			_, err := svc.PrepareMultipartSave(context.Background(), "exp-1", files)
+			if !client.IsInvalidResponse(err) || client.IsRetryable(err) {
+				t.Fatalf("error = %v, want non-retryable invalid response", err)
+			}
+		})
+	}
+}
+
 // TestCompleteMultipartParsesFileStates 覆盖 complete-multipart 的逐文件状态解析：
 // 顶层数组、{"files": [...]} 与空响应体三种形态。
 func TestCompleteMultipartParsesFileStates(t *testing.T) {

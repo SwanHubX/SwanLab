@@ -371,15 +371,8 @@ func (c *Client) RequestPresignedURLs(ctx context.Context, experimentID string, 
 	if err := res.Decode(&payload); err != nil {
 		return nil, err
 	}
-	if len(payload.URLs) != len(paths) {
-		return nil, client.NewProtocolError(res.Method, res.Endpoint, "invalid_presigned_response",
-			fmt.Sprintf("presigned response returned %d urls for %d paths", len(payload.URLs), len(paths)), nil)
-	}
-	for i, raw := range payload.URLs {
-		if strings.TrimSpace(raw) == "" {
-			return nil, client.NewProtocolError(res.Method, res.Endpoint, "invalid_presigned_response",
-				fmt.Sprintf("presigned response url[%d] is empty", i), nil)
-		}
+	if err := validateURLs(res, "invalid_presigned_response", "presigned", payload.URLs, len(paths)); err != nil {
+		return nil, err
 	}
 	return payload.URLs, nil
 }
@@ -403,9 +396,8 @@ func (c *Client) PrepareSaveFiles(
 	if err := res.Decode(&payload); err != nil {
 		return nil, err
 	}
-	if len(payload.URLs) != len(files) {
-		return nil, client.NewProtocolError(res.Method, res.Endpoint, "invalid_prepare_response",
-			fmt.Sprintf("prepare response returned %d urls for %d files", len(payload.URLs), len(files)), nil)
+	if err := validateURLs(res, "invalid_prepare_response", "prepare", payload.URLs, len(files)); err != nil {
+		return nil, err
 	}
 	return payload.URLs, nil
 }
@@ -444,9 +436,8 @@ func (c *Client) PrepareMultipartSave(
 	if err := res.Decode(&payload); err != nil {
 		return nil, err
 	}
-	if len(payload.Files) != len(files) {
-		return nil, client.NewProtocolError(res.Method, res.Endpoint, "invalid_prepare_multipart_response",
-			fmt.Sprintf("prepare-multipart response returned %d files for %d files", len(payload.Files), len(files)), nil)
+	if err := validateMultipartFiles(res, payload.Files, files); err != nil {
+		return nil, err
 	}
 	return payload.Files, nil
 }
@@ -495,6 +486,61 @@ func decodeMultipartStates(res *client.Response) ([]MultipartState, error) {
 // ---------------------------------------------------------------------------
 // 内部工具
 // ---------------------------------------------------------------------------
+
+// validateURLs 校验预签名响应：与请求项等长，且逐项非空。
+func validateURLs(res *client.Response, code, what string, urls []string, want int) error {
+	if len(urls) != want {
+		return client.NewProtocolError(res.Method, res.Endpoint, code,
+			fmt.Sprintf("%s response returned %d urls, want %d", what, len(urls), want), nil)
+	}
+	for i, raw := range urls {
+		if strings.TrimSpace(raw) == "" {
+			return client.NewProtocolError(res.Method, res.Endpoint, code,
+				fmt.Sprintf("%s response url[%d] is empty", what, i), nil)
+		}
+	}
+	return nil
+}
+
+// validateMultipartFiles 校验 prepare-multipart 响应：文件数、uploadId 与分片编号。
+func validateMultipartFiles(res *client.Response, files []MultipartFile, want []PrepareMultipartSaveFile) error {
+	if len(files) != len(want) {
+		return client.NewProtocolError(res.Method, res.Endpoint, "invalid_prepare_multipart_response",
+			fmt.Sprintf("prepare-multipart response returned %d files, want %d", len(files), len(want)), nil)
+	}
+	for i, file := range files {
+		if strings.TrimSpace(file.UploadID) == "" {
+			return client.NewProtocolError(res.Method, res.Endpoint, "invalid_prepare_multipart_response",
+				fmt.Sprintf("prepare-multipart file[%d] uploadId is empty", i), nil)
+		}
+		if err := validateParts(res, file.Parts, want[i].Count, i); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// validateParts 校验分片数与编号连续为 1..N，且每片 URL 非空。
+func validateParts(res *client.Response, parts []MultipartPart, want, fileIndex int) error {
+	invalid := func(message string) error {
+		return client.NewProtocolError(res.Method, res.Endpoint, "invalid_prepare_multipart_response",
+			fmt.Sprintf("prepare-multipart file[%d] %s", fileIndex, message), nil)
+	}
+	if len(parts) != want {
+		return invalid(fmt.Sprintf("returned %d parts, want %d", len(parts), want))
+	}
+	seen := make([]bool, want+1)
+	for _, part := range parts {
+		if part.PartNumber < 1 || part.PartNumber > want || seen[part.PartNumber] {
+			return invalid("part numbers are not consecutive from 1")
+		}
+		seen[part.PartNumber] = true
+		if strings.TrimSpace(part.URL) == "" {
+			return invalid(fmt.Sprintf("part[%d] url is empty", part.PartNumber))
+		}
+	}
+	return nil
+}
 
 // projectPath 拼出 /project/{username}/{project} 路径。
 func projectPath(username, project string) string {
