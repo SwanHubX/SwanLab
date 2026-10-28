@@ -25,6 +25,9 @@ linters:
     - wastedassign
     - whitespace
   settings:
+    goconst:
+      # 只统计生产代码中的重复字面量
+      ignore-tests: true
     gocyclo:
       min-complexity: 30
     govet:
@@ -46,10 +49,6 @@ linters:
       - common-false-positives
       - legacy
       - std-error-handling
-    rules:
-      - linters:
-          - goconst
-        path: (.+)_test\.go
     paths:
       - third_party$
       - builtin$
