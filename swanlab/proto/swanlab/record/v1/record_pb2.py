@@ -30,7 +30,7 @@ from swanlab.proto.swanlab.terminal.v1 import log_pb2 as swanlab_dot_terminal_do
 from swanlab.proto.swanlab.save.v1 import save_pb2 as swanlab_dot_save_dot_v1_dot_save__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1eswanlab/record/v1/record.proto\x12\x11swanlab.record.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x18swanlab/run/v1/run.proto\x1a!swanlab/metric/data/v1/data.proto\x1a%swanlab/metric/column/v1/column.proto\x1a\x1dswanlab/terminal/v1/log.proto\x1a\x1aswanlab/save/v1/save.proto\"\xb5\x03\n\x06Record\x12\x0b\n\x03num\x18\x01 \x01(\x03\x12-\n\ttimestamp\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12,\n\x05start\x18\n \x01(\x0b\x32\x1b.swanlab.run.v1.StartRecordH\x00\x12.\n\x06\x66inish\x18\x0b \x01(\x0b\x32\x1c.swanlab.run.v1.FinishRecordH\x00\x12\x38\n\x06\x63olumn\x18\x0c \x01(\x0b\x32&.swanlab.metric.column.v1.ColumnRecordH\x00\x12\x36\n\x06scalar\x18\r \x01(\x0b\x32$.swanlab.metric.data.v1.ScalarRecordH\x00\x12\x34\n\x05media\x18\x0e \x01(\x0b\x32#.swanlab.metric.data.v1.MediaRecordH\x00\x12-\n\x03log\x18\x10 \x01(\x0b\x32\x1e.swanlab.terminal.v1.LogRecordH\x00\x12+\n\x04save\x18\x14 \x01(\x0b\x32\x1b.swanlab.save.v1.SaveRecordH\x00\x42\r\n\x0brecord_typeBCZAgithub.com/swanhubx/swanlab/core/proto/swanlab/record/v1;recordv1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1eswanlab/record/v1/record.proto\x12\x11swanlab.record.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x18swanlab/run/v1/run.proto\x1a!swanlab/metric/data/v1/data.proto\x1a%swanlab/metric/column/v1/column.proto\x1a\x1dswanlab/terminal/v1/log.proto\x1a\x1aswanlab/save/v1/save.proto\"\xf3\x03\n\x06Record\x12\x0b\n\x03num\x18\x01 \x01(\x03\x12-\n\ttimestamp\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12,\n\x05start\x18\n \x01(\x0b\x32\x1b.swanlab.run.v1.StartRecordH\x00\x12.\n\x06\x66inish\x18\x0b \x01(\x0b\x32\x1c.swanlab.run.v1.FinishRecordH\x00\x12\x38\n\x06\x63olumn\x18\x0c \x01(\x0b\x32&.swanlab.metric.column.v1.ColumnRecordH\x00\x12\x36\n\x06scalar\x18\r \x01(\x0b\x32$.swanlab.metric.data.v1.ScalarRecordH\x00\x12\x34\n\x05media\x18\x0e \x01(\x0b\x32#.swanlab.metric.data.v1.MediaRecordH\x00\x12<\n\thistogram\x18\x0f \x01(\x0b\x32\'.swanlab.metric.data.v1.HistogramRecordH\x00\x12-\n\x03log\x18\x10 \x01(\x0b\x32\x1e.swanlab.terminal.v1.LogRecordH\x00\x12+\n\x04save\x18\x14 \x01(\x0b\x32\x1b.swanlab.save.v1.SaveRecordH\x00\x42\r\n\x0brecord_typeBCZAgithub.com/swanhubx/swanlab/core/proto/swanlab/record/v1;recordv1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -39,5 +39,5 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'ZAgithub.com/swanhubx/swanlab/core/proto/swanlab/record/v1;recordv1'
   _globals['_RECORD']._serialized_start=246
-  _globals['_RECORD']._serialized_end=683
+  _globals['_RECORD']._serialized_end=745
 # @@protoc_insertion_point(module_scope)

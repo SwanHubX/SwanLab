@@ -27,6 +27,9 @@ service CoreService {
     // UpsertMedia 接收一组 MediaRecord 并写入，每一条记录用于记录某一个指标的值
     rpc UpsertMedia(UpsertMediaRequest) returns (google.protobuf.Empty);
 
+    // UpsertHistograms 接收一组 HistogramRecord 并写入，每一条记录为某个指标在某个 step 的直方图数据
+    rpc UpsertHistograms(UpsertHistogramsRequest) returns (google.protobuf.Empty);
+
     // UpsertLogs 接收一组 LogRecord 并写入，每一条记录对应一行用户的终端输出
     rpc UpsertLogs(UpsertLogsRequest) returns (google.protobuf.Empty);
 
@@ -74,6 +77,11 @@ message UpsertScalarsRequest {
 // UpsertMedia 请求，异步插入一批媒体数据
 message UpsertMediaRequest {
     repeated swanlab.metric.data.v1.MediaRecord data = 1; // 媒体记录列表
+}
+
+// UpsertHistograms 请求，异步插入一批直方图数据
+message UpsertHistogramsRequest {
+    repeated swanlab.metric.data.v1.HistogramRecord data = 1; // 直方图记录列表
 }
 
 // UpsertLogs 请求，异步插入一批终端输出

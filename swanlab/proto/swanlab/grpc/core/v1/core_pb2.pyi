@@ -60,6 +60,12 @@ class UpsertMediaRequest(_message.Message):
     data: _containers.RepeatedCompositeFieldContainer[_data_pb2.MediaRecord]
     def __init__(self, data: _Optional[_Iterable[_Union[_data_pb2.MediaRecord, _Mapping]]] = ...) -> None: ...
 
+class UpsertHistogramsRequest(_message.Message):
+    __slots__ = ("data",)
+    DATA_FIELD_NUMBER: _ClassVar[int]
+    data: _containers.RepeatedCompositeFieldContainer[_data_pb2.HistogramRecord]
+    def __init__(self, data: _Optional[_Iterable[_Union[_data_pb2.HistogramRecord, _Mapping]]] = ...) -> None: ...
+
 class UpsertLogsRequest(_message.Message):
     __slots__ = ("logs",)
     LOGS_FIELD_NUMBER: _ClassVar[int]

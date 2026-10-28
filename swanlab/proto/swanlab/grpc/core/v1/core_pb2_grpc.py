@@ -56,6 +56,11 @@ class CoreServiceStub(object):
                 request_serializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.UpsertMediaRequest.SerializeToString,
                 response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
                 _registered_method=True)
+        self.UpsertHistograms = channel.unary_unary(
+                '/swanlab.grpc.core.v1.CoreService/UpsertHistograms',
+                request_serializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.UpsertHistogramsRequest.SerializeToString,
+                response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                _registered_method=True)
         self.UpsertLogs = channel.unary_unary(
                 '/swanlab.grpc.core.v1.CoreService/UpsertLogs',
                 request_serializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.UpsertLogsRequest.SerializeToString,
@@ -110,6 +115,13 @@ class CoreServiceServicer(object):
 
     def UpsertMedia(self, request, context):
         """UpsertMedia 接收一组 MediaRecord 并写入，每一条记录用于记录某一个指标的值
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def UpsertHistograms(self, request, context):
+        """UpsertHistograms 接收一组 HistogramRecord 并写入，每一条记录为某个指标在某个 step 的直方图数据
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -171,6 +183,11 @@ def add_CoreServiceServicer_to_server(servicer, server):
             'UpsertMedia': grpc.unary_unary_rpc_method_handler(
                     servicer.UpsertMedia,
                     request_deserializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.UpsertMediaRequest.FromString,
+                    response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            ),
+            'UpsertHistograms': grpc.unary_unary_rpc_method_handler(
+                    servicer.UpsertHistograms,
+                    request_deserializer=swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.UpsertHistogramsRequest.FromString,
                     response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
             ),
             'UpsertLogs': grpc.unary_unary_rpc_method_handler(
@@ -307,6 +324,33 @@ class CoreService(object):
             target,
             '/swanlab.grpc.core.v1.CoreService/UpsertMedia',
             swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.UpsertMediaRequest.SerializeToString,
+            google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def UpsertHistograms(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/swanlab.grpc.core.v1.CoreService/UpsertHistograms',
+            swanlab_dot_grpc_dot_core_dot_v1_dot_core__pb2.UpsertHistogramsRequest.SerializeToString,
             google_dot_protobuf_dot_empty__pb2.Empty.FromString,
             options,
             channel_credentials,

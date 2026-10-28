@@ -26,30 +26,32 @@ type ColumnType int32
 
 const (
 	ColumnType_COLUMN_TYPE_UNSPECIFIED ColumnType = 0
-	ColumnType_COLUMN_TYPE_SCALAR      ColumnType = 1 // 标量
-	ColumnType_COLUMN_TYPE_IMAGE       ColumnType = 2 // 图像
-	ColumnType_COLUMN_TYPE_AUDIO       ColumnType = 3 // 音频
-	ColumnType_COLUMN_TYPE_TEXT        ColumnType = 4 // 文本
-	ColumnType_COLUMN_TYPE_VIDEO       ColumnType = 5 // 视频
-	ColumnType_COLUMN_TYPE_ECHARTS     ColumnType = 6 // ECharts 图表
-	ColumnType_COLUMN_TYPE_OBJECT3D    ColumnType = 7 // 3D 对象
-	ColumnType_COLUMN_TYPE_MOLECULE    ColumnType = 8 // 分子结构
-	ColumnType_COLUMN_TYPE_HTML        ColumnType = 9 // HTML 页面
+	ColumnType_COLUMN_TYPE_SCALAR      ColumnType = 1  // 标量
+	ColumnType_COLUMN_TYPE_IMAGE       ColumnType = 2  // 图像
+	ColumnType_COLUMN_TYPE_AUDIO       ColumnType = 3  // 音频
+	ColumnType_COLUMN_TYPE_TEXT        ColumnType = 4  // 文本
+	ColumnType_COLUMN_TYPE_VIDEO       ColumnType = 5  // 视频
+	ColumnType_COLUMN_TYPE_ECHARTS     ColumnType = 6  // ECharts 图表
+	ColumnType_COLUMN_TYPE_OBJECT3D    ColumnType = 7  // 3D 对象
+	ColumnType_COLUMN_TYPE_MOLECULE    ColumnType = 8  // 分子结构
+	ColumnType_COLUMN_TYPE_HTML        ColumnType = 9  // HTML 页面
+	ColumnType_COLUMN_TYPE_HISTOGRAM   ColumnType = 10 // 直方图
 )
 
 // Enum value maps for ColumnType.
 var (
 	ColumnType_name = map[int32]string{
-		0: "COLUMN_TYPE_UNSPECIFIED",
-		1: "COLUMN_TYPE_SCALAR",
-		2: "COLUMN_TYPE_IMAGE",
-		3: "COLUMN_TYPE_AUDIO",
-		4: "COLUMN_TYPE_TEXT",
-		5: "COLUMN_TYPE_VIDEO",
-		6: "COLUMN_TYPE_ECHARTS",
-		7: "COLUMN_TYPE_OBJECT3D",
-		8: "COLUMN_TYPE_MOLECULE",
-		9: "COLUMN_TYPE_HTML",
+		0:  "COLUMN_TYPE_UNSPECIFIED",
+		1:  "COLUMN_TYPE_SCALAR",
+		2:  "COLUMN_TYPE_IMAGE",
+		3:  "COLUMN_TYPE_AUDIO",
+		4:  "COLUMN_TYPE_TEXT",
+		5:  "COLUMN_TYPE_VIDEO",
+		6:  "COLUMN_TYPE_ECHARTS",
+		7:  "COLUMN_TYPE_OBJECT3D",
+		8:  "COLUMN_TYPE_MOLECULE",
+		9:  "COLUMN_TYPE_HTML",
+		10: "COLUMN_TYPE_HISTOGRAM",
 	}
 	ColumnType_value = map[string]int32{
 		"COLUMN_TYPE_UNSPECIFIED": 0,
@@ -62,6 +64,7 @@ var (
 		"COLUMN_TYPE_OBJECT3D":    7,
 		"COLUMN_TYPE_MOLECULE":    8,
 		"COLUMN_TYPE_HTML":        9,
+		"COLUMN_TYPE_HISTOGRAM":   10,
 	}
 )
 
@@ -158,6 +161,7 @@ const (
 	ChartType_CHART_TYPE_OBJECT3D    ChartType = 9
 	ChartType_CHART_TYPE_MOLECULE    ChartType = 10
 	ChartType_CHART_TYPE_HTML        ChartType = 11 // HTML 图表
+	ChartType_CHART_TYPE_HISTOGRAM   ChartType = 12 // 直方图
 )
 
 // Enum value maps for ChartType.
@@ -175,6 +179,7 @@ var (
 		9:  "CHART_TYPE_OBJECT3D",
 		10: "CHART_TYPE_MOLECULE",
 		11: "CHART_TYPE_HTML",
+		12: "CHART_TYPE_HISTOGRAM",
 	}
 	ChartType_value = map[string]int32{
 		"CHART_TYPE_UNSPECIFIED": 0,
@@ -189,6 +194,7 @@ var (
 		"CHART_TYPE_OBJECT3D":    9,
 		"CHART_TYPE_MOLECULE":    10,
 		"CHART_TYPE_HTML":        11,
+		"CHART_TYPE_HISTOGRAM":   12,
 	}
 )
 
@@ -594,7 +600,7 @@ const file_swanlab_metric_column_v1_column_proto_rawDesc = "" +
 	"\x06x_axis\x18\r \x01(\tH\x00R\x05xAxis\x88\x01\x01\x12\x1b\n" +
 	"\x06hidden\x18\x0e \x01(\bH\x01R\x06hidden\x88\x01\x01B\t\n" +
 	"\a_x_axisB\t\n" +
-	"\a_hidden*\xff\x01\n" +
+	"\a_hidden*\x9a\x02\n" +
 	"\n" +
 	"ColumnType\x12\x1b\n" +
 	"\x17COLUMN_TYPE_UNSPECIFIED\x10\x00\x12\x16\n" +
@@ -606,11 +612,13 @@ const file_swanlab_metric_column_v1_column_proto_rawDesc = "" +
 	"\x13COLUMN_TYPE_ECHARTS\x10\x06\x12\x18\n" +
 	"\x14COLUMN_TYPE_OBJECT3D\x10\a\x12\x18\n" +
 	"\x14COLUMN_TYPE_MOLECULE\x10\b\x12\x14\n" +
-	"\x10COLUMN_TYPE_HTML\x10\t*]\n" +
+	"\x10COLUMN_TYPE_HTML\x10\t\x12\x19\n" +
+	"\x15COLUMN_TYPE_HISTOGRAM\x10\n" +
+	"*]\n" +
 	"\vColumnClass\x12\x1c\n" +
 	"\x18COLUMN_CLASS_UNSPECIFIED\x10\x00\x12\x17\n" +
 	"\x13COLUMN_CLASS_CUSTOM\x10\x01\x12\x17\n" +
-	"\x13COLUMN_CLASS_SYSTEM\x10\x02*\x9d\x02\n" +
+	"\x13COLUMN_CLASS_SYSTEM\x10\x02*\xb7\x02\n" +
 	"\tChartType\x12\x1a\n" +
 	"\x16CHART_TYPE_UNSPECIFIED\x10\x00\x12\x13\n" +
 	"\x0fCHART_TYPE_LINE\x10\x01\x12\x12\n" +
@@ -624,7 +632,8 @@ const file_swanlab_metric_column_v1_column_proto_rawDesc = "" +
 	"\x13CHART_TYPE_OBJECT3D\x10\t\x12\x17\n" +
 	"\x13CHART_TYPE_MOLECULE\x10\n" +
 	"\x12\x13\n" +
-	"\x0fCHART_TYPE_HTML\x10\v*\x8f\x01\n" +
+	"\x0fCHART_TYPE_HTML\x10\v\x12\x18\n" +
+	"\x14CHART_TYPE_HISTOGRAM\x10\f*\x8f\x01\n" +
 	"\vSectionType\x12\x1c\n" +
 	"\x18SECTION_TYPE_UNSPECIFIED\x10\x00\x12\x17\n" +
 	"\x13SECTION_TYPE_PINNED\x10\x01\x12\x17\n" +
