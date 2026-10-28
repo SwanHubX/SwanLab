@@ -530,6 +530,35 @@ class TestNetrcFallback:
         assert settings.api_host == "https://api.sync.com"
         assert settings.mode == "online"
 
+    def test_netrc_credentials_log_redacts_api_key(self, netrc_file, monkeypatch):
+        """API key must never appear in debug logs when credentials are loaded from .netrc."""
+        secret = "super_secret_api_key_should_not_leak"
+        netrc_file.write_text(
+            f"machine api.redact.com login web.redact.com password {secret}\n"
+        )
+        monkeypatch.setenv("SWANLAB_DEBUG", "true")
+
+        # Reload helper.DEBUG which is read at import time for some paths;
+        # console.debug also checks helper.DEBUG at call time.
+        from swanlab.sdk.internal.pkg import helper, console
+
+        monkeypatch.setattr(helper, "DEBUG", True)
+
+        messages = []
+
+        def capture_debug(*args, **kwargs):
+            messages.append(" ".join(str(a) for a in args))
+
+        monkeypatch.setattr(console, "debug", capture_debug)
+
+        settings = Settings()
+        assert settings.api_key == secret
+
+        joined = "\n".join(messages)
+        assert secret not in joined
+        assert "REDACTED" in joined or "***" in joined
+        assert "api.redact.com" in joined or "None" not in joined
+
 
 def test_directory_validators(tmp_path, monkeypatch):
     """测试 root 和 log_dir 的路径校验逻辑：如果存在，必须是文件夹"""

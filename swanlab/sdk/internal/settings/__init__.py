@@ -255,7 +255,12 @@ class Settings(BaseSettings):
         if netrc_result is None:
             with safe.block(message="Failed to load credentials from root directory"):
                 netrc_result = _load_netrc(self.get_user_config_dir() / ".netrc")
-        console.debug(f"Loaded credentials: {netrc_result}")
+        if netrc_result is not None:
+            # Redact API key (password field) before logging to avoid leaking secrets
+            _ak, _ah, _wh = netrc_result
+            console.debug(f"Loaded credentials: (***REDACTED***, {_ah!r}, {_wh!r})")
+        else:
+            console.debug("Loaded credentials: None")
         if netrc_result is not None:
             api_key, api_host, web_host = netrc_result
             # 前提条件：读取到的 api_host 与当前配置的 api_host 匹配，或者 api_host 未被显式设置
