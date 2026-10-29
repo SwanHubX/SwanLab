@@ -69,6 +69,7 @@ CODEBUDDY.md
 .reasonix/
 .mcp.json
 .zcodeignore
+graphify-out/
 
 # go core binary
 swanlab/bin/
