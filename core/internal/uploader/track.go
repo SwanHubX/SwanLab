@@ -165,6 +165,13 @@ func (r *Registry) stop() {
 // wait 等待所有 worker 退出。
 func (r *Registry) wait() { r.workers.Wait() }
 
+// has 报告某个类型是否注册了轨道。
+func (r *Registry) has(typ record.Type) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.tracks[typ] != nil
+}
+
 // dispatch 把一批分组记录追加到各自轨道队尾并唤醒；未注册类型忽略。
 func (r *Registry) dispatch(groups []recordGroup) {
 	if len(groups) == 0 {
@@ -432,7 +439,12 @@ func (r *Registry) upload(t *track, batch []*recordv1.Record) {
 	} else {
 		t.failed++
 		t.queue = append(remainingInBatchOrder(batch, result.Remaining), t.queue...)
-		t.retryAt = r.cfg.now().Add(r.cfg.retry.Delay(t.failed))
+		if r.finishing {
+			// 收尾期间产生的失败不再退避，避免 RequestFinish 与在途批次的竞态。
+			t.retryAt = time.Time{}
+		} else {
+			t.retryAt = r.cfg.now().Add(r.cfg.retry.Delay(t.failed))
+		}
 	}
 	retrying := len(result.Remaining) > 0
 	r.mu.Unlock()

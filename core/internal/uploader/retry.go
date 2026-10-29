@@ -1,8 +1,3 @@
-// Package uploader 把 intake 出队的记录攒批、按类型分轨，并以可重试的方式交给云端。
-//
-// 上传管线只有一条读入口（buffer.Intake.UploadOut），下游按记录类型拆成多条
-// 互不阻塞的轨道：某条轨道失败只退避自己，其他轨道继续前进。列记录先于
-// 依赖它的数据记录送达（Column Gate），全部终结后进入可判定的 Drained 状态。
 package uploader
 
 import (
@@ -62,6 +57,12 @@ func (p RetryPolicy) Delay(failedRounds int) time.Duration {
 	delay = math.Min(delay, float64(p.Max))
 	delay *= p.jitter()
 	return time.Duration(math.Round(math.Min(delay, float64(p.Max))))
+}
+
+// isZero 报告是否为零值，用于 Options 回落到默认策略。
+func (p RetryPolicy) isZero() bool {
+	return p.Base == 0 && p.Multiplier == 0 && p.Max == 0 &&
+		p.JitterLow == 0 && p.JitterHigh == 0 && p.Rand == nil
 }
 
 // withDefaults 把零值字段补成默认值，保证 Delay 在任何入参下都有定义。
