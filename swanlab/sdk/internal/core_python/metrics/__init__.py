@@ -137,11 +137,20 @@ class MediaMetric(BaseMetric):
         pass
 
 
+@dataclass(**DATACLASS_KWARGS)
+class HistogramMetric(BaseMetric):
+    def update(self, data_record: Any):
+        """
+        更新直方图指标值，直方图没有 latest/max/min 这类可维护的衍生状态，因此直接pass
+        """
+        pass
+
+
 # 指标状态，实验运行过程中不断更新
 # 注意：此类不加锁保护，如果未来引入多线程并发写入此对象，需要重新评估线程安全。
 @dataclass
 class RunMetrics:
-    _metrics: Dict[str, Union[ScalarMetric, MediaMetric]] = field(default_factory=dict)
+    _metrics: Dict[str, Union[ScalarMetric, MediaMetric, HistogramMetric]] = field(default_factory=dict)
 
     @classmethod
     def new(cls, data: Optional[ResumeExperimentSummaryType], ctx: CoreContext) -> Tuple["RunMetrics", int, int, int]:
@@ -217,7 +226,19 @@ class RunMetrics:
         self._metrics[key] = media_metric
         return media_metric
 
-    def get(self, key: str) -> Optional[Union[ScalarMetric, MediaMetric]]:
+    def define_histogram(self, *, key: str, column: ColumnRecord, min_step: int = -1) -> HistogramMetric:
+        """
+        定义一个直方图指标
+        :param key: 指标键
+        :param column: 指标列记录
+        :param min_step: 最小步数，代表用户无法再写入此步数之前的数据，这在阻止用户写入step小于0、resume时拒绝一定大小的step十分有用
+        """
+        assert key not in self._metrics, f"Metric '{key}' already exists."
+        histogram_metric = HistogramMetric(_column=column, steps=BitMap64(), min_step=min_step)
+        self._metrics[key] = histogram_metric
+        return histogram_metric
+
+    def get(self, key: str) -> Optional[Union[ScalarMetric, MediaMetric, HistogramMetric]]:
         """
         根据key获取指标
         :param key: 指标键

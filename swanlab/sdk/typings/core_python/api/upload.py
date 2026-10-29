@@ -122,6 +122,34 @@ UploadMediaBatch = List[UploadMedia]
 
 
 # ============================================================
+# Histogram 直方图 DTO
+# ============================================================
+
+
+class HistogramPayload(TypedDict):
+    """直方图单条 metric 的 data 字段：每桶计数与桶边界"""
+
+    _type: NotRequired[Literal["histogram"]]  # House 侧可省略、不写进数据库的类型标记
+    values: List[int]
+    bins: List[float]
+
+
+class UploadHistogram(TypedDict):
+    """直方图指标 DTO，对应 POST /house/metrics type="histogram" 的单条 metric"""
+
+    key: str
+    index: int
+    data: HistogramPayload
+    create_time: NotRequired[str]
+
+
+UploadHistogramBatch = List[UploadHistogram]
+"""
+直方图指标
+"""
+
+
+# ============================================================
 # Object storage resource upload
 # ============================================================
 
@@ -147,4 +175,4 @@ class UploadMetricPayload(TypedDict):
     projectId: str
     experimentId: str
     type: str
-    metrics: Union[UploadScalarBatch, UploadMediaBatch, UploadLogBatch]
+    metrics: Union[UploadScalarBatch, UploadMediaBatch, UploadLogBatch, UploadHistogramBatch]

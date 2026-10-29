@@ -203,6 +203,8 @@ class CoreSyncPython(CoreSyncProtocol):
             self._handle_metric(record, record.scalar, is_media=False)
         elif record.HasField("media"):
             self._handle_metric(record, record.media, is_media=True)
+        elif record.HasField("histogram"):
+            self._handle_histogram(record)
         else:
             # 其余的直接上传（覆盖式）
             self._transport.put([record])
@@ -241,6 +243,8 @@ class CoreSyncPython(CoreSyncProtocol):
             return
         if column.column_type == ColumnType.COLUMN_TYPE_SCALAR:
             self._metrics.define_scalar(key=column.column_key, column=column)
+        elif column.column_type == ColumnType.COLUMN_TYPE_HISTOGRAM:
+            self._metrics.define_histogram(key=column.column_key, column=column)
         else:
             self._metrics.define_media(key=column.column_key, column=column, path=adapter.medium[column.column_type])
         self._transport.put([record])
@@ -263,6 +267,31 @@ class CoreSyncPython(CoreSyncProtocol):
                 )
             else:
                 metric = self._metrics.define_scalar(key=data.key, column=column)
+            self._transport.put([builder.build_column_record(self._counter, column, positive=False)])
+        # 2. 检查类型是否匹配，判断指定的step是否允许写入
+        metric.ensure_type_match(data.type)
+        if metric.try_accept_step(data.step):
+            metric.update(data)
+            self._transport.put([record])
+        else:
+            console.debug(
+                f"Metric '{data.key}' at step {data.step} was skipped syncing because it is duplicate or too old."
+            )
+
+    def _handle_histogram(self, record: Record) -> None:
+        """处理 histogram 数据记录，按需自动补建列。"""
+        assert self._transport is not None, "Transport not set before reading records"
+        assert self._metrics is not None, "Metrics not set before reading records"
+        data = record.histogram
+        if self._filter.enabled and not self._filter.match(
+            step=data.step, timestamp=self._pick_timestamp(data.timestamp, record.timestamp)
+        ):
+            return
+        # 1. 创建列
+        metric = self._metrics.get(data.key)
+        if not metric:
+            column = builder.build_auto_column(self._ctx, data)
+            metric = self._metrics.define_histogram(key=data.key, column=column)
             self._transport.put([builder.build_column_record(self._counter, column, positive=False)])
         # 2. 检查类型是否匹配，判断指定的step是否允许写入
         metric.ensure_type_match(data.type)

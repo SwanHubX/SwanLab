@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import TYPE_CHECKING, List, Optional
 
-from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord, ScalarRecord
+from swanlab.proto.swanlab.metric.data.v1.data_pb2 import HistogramRecord, MediaRecord, ScalarRecord
 from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogRecord
 
 if TYPE_CHECKING:
@@ -46,6 +46,14 @@ class Callback(ABC):
         Called when new media records are flushed.
 
         :param media_records: A list of media records that have been flushed.
+        """
+        ...
+
+    def on_histogram_flush(self, histogram_records: List[HistogramRecord], *args, **kwargs) -> None:
+        """
+        Called when new histogram records are flushed.
+
+        :param histogram_records: A list of histogram records that have been flushed.
         """
         ...
 
