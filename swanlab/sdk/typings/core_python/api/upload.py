@@ -138,7 +138,6 @@ class UploadHistogram(TypedDict):
     """直方图指标 DTO，对应 POST /house/metrics type="histogram" 的单条 metric"""
 
     key: str
-    epoch: Literal[0]
     index: int
     data: HistogramPayload
     create_time: NotRequired[str]

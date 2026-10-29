@@ -1664,7 +1664,7 @@ _RETRIES_ZERO_CASES = [
     pytest.param(
         upload_api.upload_histogram,
         ("pid", "eid"),
-        {"metrics": [{"key": "w", "epoch": 0, "index": 0, "data": {"values": [1], "bins": [0.0, 1.0]}}]},
+        {"metrics": [{"key": "w", "index": 0, "data": {"values": [1], "bins": [0.0, 1.0]}}]},
         id="histogram",
     ),
     pytest.param(upload_api.upload_columns, ("user", "proj"), {"columns": {"series": [{"key": "loss"}]}}, id="column"),
@@ -1824,7 +1824,7 @@ def test_upload_histogram_encodes_values_and_bins(tmp_path: Path):
     assert len(metrics) == 1
     metric = metrics[0]
     assert metric["key"] == "train/w"
-    assert metric["epoch"] == 0
+    assert "epoch" not in metric
     assert metric["index"] == 3
     assert metric["data"]["_type"] == "histogram"
     assert metric["data"]["values"] == [2, 5, 0]

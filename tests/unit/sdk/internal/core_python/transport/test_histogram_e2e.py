@@ -132,7 +132,7 @@ def test_upload_histogram_http_roundtrip(placeholder_client, tmp_path: Path):
     assert payload["projectId"] == "project-id"
     assert payload["experimentId"] == "experiment-id"
     assert len(payload["metrics"]) == 2
-    assert [metric["epoch"] for metric in payload["metrics"]] == [0, 0]
+    assert all("epoch" not in metric for metric in payload["metrics"])
     metric = payload["metrics"][0]
     assert metric["key"] == "train/w"
     assert metric["index"] == 3

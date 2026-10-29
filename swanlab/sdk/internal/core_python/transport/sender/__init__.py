@@ -257,8 +257,6 @@ class HttpRecordSender:
             histogram_record = record.histogram
             metric: UploadHistogram = {
                 "key": histogram_record.key,
-                # Histogram 未记录训练轮次，显式使用 0，避免 House 转发 null。
-                "epoch": 0,
                 "index": histogram_record.step,
                 "data": {
                     "_type": "histogram",
