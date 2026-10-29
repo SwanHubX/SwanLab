@@ -20,7 +20,7 @@ func New(initial int64) *Counter {
 	return c
 }
 
-// Inc 计数加 delta（默认路径 delta=1），返回增加后的值。
+// Inc 计数加 1，返回增加后的值。
 func (c *Counter) Inc() int64 { return c.v.Add(1) }
 
 // IncBy 计数加 delta，返回增加后的值；delta 可为负数。

@@ -207,6 +207,13 @@ func TestBuildResumeColumn(t *testing.T) {
 	}
 }
 
+func TestIsSystemKey(t *testing.T) {
+	// 前缀必须带点：__swanlab__ 本身不算系统 key
+	if !IsSystemKey("__swanlab__.gpu") || IsSystemKey("__swanlab__") || IsSystemKey("loss") {
+		t.Fatal("IsSystemKey 前缀判定错误")
+	}
+}
+
 func TestMediumName(t *testing.T) {
 	tests := []struct {
 		typ  columnv1.ColumnType

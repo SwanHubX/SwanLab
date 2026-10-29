@@ -17,7 +17,6 @@ import (
 
 	"github.com/RoaringBitmap/roaring/v2/roaring64"
 
-	"github.com/swanhubx/swanlab/core/internal/pkg/builder"
 	"github.com/swanhubx/swanlab/core/internal/pkg/console"
 	columnv1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/column/v1"
 	datav1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/data/v1"
@@ -31,7 +30,8 @@ const MaxStep int64 = 1 << 48
 var (
 	// ErrStepLimit: step 超过 MaxStep。
 	ErrStepLimit = errors.New("step exceeds the supported step limit")
-	// ErrStepNegative: step 为负数，仅在异常 Resume 水位线下可达。
+	// ErrStepNegative: step 为负数，仅异常 Resume 水位线下可达；
+	// Python 侧由 pyroaring 抛 OverflowError 拒绝（被 safe.block 吞掉），行为一致。
 	ErrStepNegative = errors.New("step must be non-negative")
 	// ErrTypeMismatch: 已定义列与记录类型冲突。
 	ErrTypeMismatch = errors.New("metric type mismatch")
@@ -65,14 +65,15 @@ const (
 //	记录产出 = NeedsColumn ? [ColumnRecord, 数据记录?] : [数据记录?]
 //
 // 注意 NeedsColumn 与 step 结论可以同时成立：即使 step 被拒绝（重复、过期
-// 或超限），新列仍会先定义。
+// 或超限），新列仍会先定义，调用方在 Commit 报错时仍须投递该列记录
+// （对齐 Python：列记录先于 step 校验产出，拒绝只作用于数据记录）。
 type Precheck struct {
 	// NeedsColumn: key 尚未定义，提交阶段需要先构建并传入列定义。
 	NeedsColumn bool
 	// Decision: 数据记录的接纳结论；Err 非空时无意义。
 	Decision Decision
-	// Err: 确定性错误（wrap ErrStepLimit / ErrTypeMismatch），非 nil 时
-	// 该条记录不产生数据记录。
+	// Err: 确定性错误（wrap ErrStepLimit / ErrStepNegative / ErrTypeMismatch），
+	// 非 nil 时该条记录不产生数据记录。
 	Err error
 }
 
@@ -332,7 +333,3 @@ func (s *scalarState) update(key string, value float64) {
 func isFinite(v float64) bool {
 	return !math.IsNaN(v) && !math.IsInf(v, 0)
 }
-
-// SystemKey 判断指标 key 是否为系统指标（前缀 __swanlab__.），
-// 转发自 builder 以方便本包的消费方（Resume 摘要解析）。
-func SystemKey(key string) bool { return builder.IsSystemKey(key) }

@@ -130,8 +130,8 @@ func TestNewValidates(t *testing.T) {
 
 func TestOnlineParams(t *testing.T) {
 	c := newContext(t, "r", "/rd")
-	if _, ok := c.OnlineParams(); ok {
-		t.Fatal("未注入时 OnlineParams 应返回 false")
+	if _, ok := c.Online(); ok {
+		t.Fatal("未注入时 Online 应返回 false")
 	}
 	p := OnlineParams{
 		Username:     "u",
@@ -140,8 +140,8 @@ func TestOnlineParams(t *testing.T) {
 		ExperimentID: "eid",
 	}
 	c.SetOnlineParams(p)
-	got, ok := c.OnlineParams()
+	got, ok := c.Online()
 	if !ok || got != p {
-		t.Fatalf("OnlineParams = (%+v, %v)", got, ok)
+		t.Fatalf("Online = (%+v, %v)", got, ok)
 	}
 }

@@ -84,7 +84,7 @@ func (c *RunContext) SetOnlineParams(p OnlineParams) {
 	c.hasOnline = true
 }
 
-// OnlineParams 返回已注入的云端身份信息；未注入时第二个返回值为 false。
-func (c *RunContext) OnlineParams() (OnlineParams, bool) {
+// Online 返回已注入的云端身份信息；未注入时第二个返回值为 false。
+func (c *RunContext) Online() (OnlineParams, bool) {
 	return c.online, c.hasOnline
 }

@@ -118,6 +118,11 @@ func TestNewFromSummaryDuplicateKey(t *testing.T) {
 	} else if !errors.Is(err, ErrColumnExists) {
 		t.Fatalf("err = %v, want wrap ErrColumnExists", err)
 	}
+	// 媒体列走同一条定义路径，重复同样视为异常摘要
+	s = &Summary{Media: []SummaryItem{{Key: "pic", Step: 1}, {Key: "pic", Step: 2}}}
+	if _, err := NewFromSummary(s); !errors.Is(err, ErrColumnExists) {
+		t.Fatalf("媒体重复 key err = %v, want wrap ErrColumnExists", err)
+	}
 }
 
 func TestNewFromSummaryNegativeSteps(t *testing.T) {
@@ -134,11 +139,5 @@ func TestNewFromSummaryNegativeSteps(t *testing.T) {
 	}
 	if ok, err := res.Metrics.CommitScalar(scalarRec("loss", 0, 1.0), nil); !ok || err != nil {
 		t.Fatalf("step 0 = (%v, %v), want 接纳", ok, err)
-	}
-}
-
-func TestSystemKey(t *testing.T) {
-	if !SystemKey("__swanlab__.gpu") || SystemKey("loss") || SystemKey("__swanlab__") {
-		t.Fatal("SystemKey 前缀判定错误")
 	}
 }

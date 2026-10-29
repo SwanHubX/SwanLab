@@ -58,6 +58,9 @@ func TestDefineDuplicate(t *testing.T) {
 	if ms, ok := m.MinStep("loss"); !ok || ms != -1 {
 		t.Fatalf("MinStep = (%d,%v), want (-1,true)", ms, ok)
 	}
+	if ms, ok := m.MinStep("nope"); ok || ms != 0 {
+		t.Fatalf("未定义 key 的 MinStep = (%d,%v), want (0,false)", ms, ok)
+	}
 }
 
 func TestPrecheckIsReadOnly(t *testing.T) {
@@ -236,6 +239,29 @@ func TestScalarExtremesFiniteOnly(t *testing.T) {
 	}
 }
 
+// TestCommitNewKeyRejectedStepStillDefinesColumn：新 key 因 step 非法被拒绝时列仍已定义，
+// 调用方必须继续投递该列记录（对齐 Python safe.block）。
+func TestCommitNewKeyRejectedStepStillDefinesColumn(t *testing.T) {
+	m := New()
+	col := autoCol("hot")
+	if ok, err := m.CommitScalar(scalarRec("hot", MaxStep+1, 1.0), col); ok || !errors.Is(err, ErrStepLimit) {
+		t.Fatalf("新 key 超限 = (%v, %v), want (false, ErrStepLimit)", ok, err)
+	}
+	if !m.Defined("hot") {
+		t.Fatal("被拒绝的超限记录也应定义新列")
+	}
+	if ms, ok := m.MinStep("hot"); !ok || ms != -1 {
+		t.Fatalf("MinStep = (%d,%v), want (-1,true)", ms, ok)
+	}
+	// 列已定义后，合法 step 不再需要列记录
+	if ok, err := m.CommitScalar(scalarRec("hot", 0, 1.0), nil); !ok || err != nil {
+		t.Fatalf("合法 step = (%v, %v), want 接纳", ok, err)
+	}
+	if m.cardinality("hot") != 1 {
+		t.Fatalf("位图计数 = %d, want 1", m.cardinality("hot"))
+	}
+}
+
 func TestCommitMediaAndTypeMatch(t *testing.T) {
 	m := New()
 	// 新媒体列 + IMAGE 类型
@@ -258,6 +284,80 @@ func TestCommitMediaAndTypeMatch(t *testing.T) {
 	// 标量落到 IMAGE 列：类型冲突
 	if _, err := m.CommitScalar(scalarRec("pic", 2, 1.0), nil); !errors.Is(err, ErrTypeMismatch) {
 		t.Fatalf("标量落媒体列 err = %v", err)
+	}
+}
+
+func TestCommitMediaFlowErrors(t *testing.T) {
+	m := New()
+	// 新 key 未携带列定义：流程错误，且不得定义列
+	if _, err := m.CommitMedia(mediaRec("ghost", 0), nil); !errors.Is(err, ErrColumnMissing) {
+		t.Fatalf("新 key 缺列 = %v, want ErrColumnMissing", err)
+	}
+	if m.Defined("ghost") {
+		t.Fatal("ErrColumnMissing 不应定义新列")
+	}
+	// 已定义 key 再次携带列定义：流程错误
+	col := &columnv1.ColumnRecord{ColumnKey: "pic", ColumnType: columnv1.ColumnType_COLUMN_TYPE_IMAGE}
+	if ok, err := m.CommitMedia(mediaRec("pic", 0), col); !ok || err != nil {
+		t.Fatalf("首次提交 = (%v, %v)", ok, err)
+	}
+	if _, err := m.CommitMedia(mediaRec("pic", 1), col); !errors.Is(err, ErrColumnExists) {
+		t.Fatalf("已定义携带列 = %v, want ErrColumnExists", err)
+	}
+}
+
+func TestPrecheckMedia(t *testing.T) {
+	m := New()
+	// 新 key：媒体列由调用方构建，step 合法则接纳
+	if p := m.PrecheckMedia(mediaRec("pic", 0)); !p.NeedsColumn || p.Decision != DecisionAccept || p.Err != nil {
+		t.Fatalf("新 key 预检 = %+v, want NeedsColumn+Accept", p)
+	}
+	// 新 key 且 step 超限：列仍会定义，数据拒绝
+	if p := m.PrecheckMedia(mediaRec("pic", MaxStep+1)); !p.NeedsColumn ||
+		p.Decision != DecisionSkip || !errors.Is(p.Err, ErrStepLimit) {
+		t.Fatalf("新 key 超限预检 = %+v, want NeedsColumn+Skip+ErrStepLimit", p)
+	}
+	if m.Len() != 0 {
+		t.Fatal("预检不应定义列")
+	}
+
+	col := &columnv1.ColumnRecord{ColumnKey: "pic", ColumnType: columnv1.ColumnType_COLUMN_TYPE_IMAGE}
+	if ok, err := m.CommitMedia(mediaRec("pic", 0), col); !ok || err != nil {
+		t.Fatalf("提交 = (%v, %v)", ok, err)
+	}
+	// 已定义列：重复 step 静默跳过，新 step 接纳
+	if p := m.PrecheckMedia(mediaRec("pic", 0)); p.NeedsColumn || p.Decision != DecisionSkip || p.Err != nil {
+		t.Fatalf("重复 step 预检 = %+v, want Skip", p)
+	}
+	if p := m.PrecheckMedia(mediaRec("pic", 1)); p.NeedsColumn || p.Decision != DecisionAccept || p.Err != nil {
+		t.Fatalf("新 step 预检 = %+v, want Accept", p)
+	}
+	// 类型冲突：确定性错误，且不写位图
+	audio := &datav1.MediaRecord{Key: "pic", Step: 1, Type: columnv1.ColumnType_COLUMN_TYPE_AUDIO}
+	if p := m.PrecheckMedia(audio); p.Decision != DecisionSkip || !errors.Is(p.Err, ErrTypeMismatch) {
+		t.Fatalf("类型冲突预检 = %+v, want Skip+ErrTypeMismatch", p)
+	}
+	if m.cardinality("pic") != 1 {
+		t.Fatalf("预检改动了位图: %d, want 1", m.cardinality("pic"))
+	}
+}
+
+func TestPrecheckMediaResumePlaceholder(t *testing.T) {
+	// UNSPECIFIED 占位列放行任意媒体类型，但水位线依旧生效
+	res, err := NewFromSummary(&Summary{Media: []SummaryItem{{Key: "camera", Step: 9}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := res.Metrics
+	if p := m.PrecheckMedia(&datav1.MediaRecord{
+		Key: "camera", Step: 9, Type: columnv1.ColumnType_COLUMN_TYPE_VIDEO,
+	}); p.Decision != DecisionSkip || p.Err != nil {
+		t.Fatalf("水位线预检 = %+v, want Skip", p)
+	}
+	if p := m.PrecheckMedia(&datav1.MediaRecord{
+		Key: "camera", Step: 10, Type: columnv1.ColumnType_COLUMN_TYPE_VIDEO,
+	}); p.NeedsColumn || p.Decision != DecisionAccept || p.Err != nil {
+		t.Fatalf("占位列预检 = %+v, want Accept", p)
 	}
 }
 
