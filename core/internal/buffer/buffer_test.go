@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -58,23 +59,24 @@ func saveRecord(num int64, policy savev1.SavePolicy) *recordv1.Record {
 
 func demandFor(recs []*recordv1.Record) Demand {
 	var d Demand
-	var bytes int64
 	for _, rec := range recs {
 		d.Store++
-		bytes += record.Size(rec)
+		size := record.Size(rec)
 		switch record.TypeOf(rec) {
 		case record.TypeStart, record.TypeFinish:
 		case record.TypeSave:
 			if rec.GetSave().GetPolicy() == savev1.SavePolicy_SAVE_POLICY_END {
 				d.Deferred++
+				d.DeferredBytes += size
 				continue
 			}
 			d.Upload++
+			d.Bytes += size
 		default:
 			d.Upload++
+			d.Bytes += size
 		}
 	}
-	d.Bytes = bytes
 	return d
 }
 
@@ -273,6 +275,46 @@ func TestPausedEndSavesHoldBudget(t *testing.T) {
 	}
 	if records, _ := b.Usage(); records != 1 {
 		t.Fatalf("budget usage = %d, want 1 until the uploader confirms", records)
+	}
+}
+
+// TestPausedMixedBatchHoldsOnlyDeferredBytes 覆盖“立即记录字节超限、END 保存
+// 未超限”的混合批次：暂停只需为延迟记录申请自身的字节配额。
+func TestPausedMixedBatchHoldsOnlyDeferredBytes(t *testing.T) {
+	sink := newStoreSink(8)
+	defer sink.stop()
+	save := saveRecord(1, savev1.SavePolicy_SAVE_POLICY_END)
+	immediate := scalarRecord(2)
+	immediate.GetScalar().Key = strings.Repeat("k", 128)
+	if record.Size(immediate) <= record.Size(save) {
+		t.Fatalf("immediate bytes %d <= deferred bytes %d", record.Size(immediate), record.Size(save))
+	}
+	b := budget.New(budget.Limits{Bytes: record.Size(save) + 8})
+	in := newIntake(t, Options{Store: sink.ch, Budget: b, UploadQueue: 4})
+
+	recs := []*recordv1.Record{immediate, save}
+	tk, err := in.Reserve(context.Background(), demandFor(recs))
+	if err != nil {
+		t.Fatalf("Reserve: %v", err)
+	}
+	if !tk.paused {
+		t.Fatal("mixed batch should pause upload when the immediate record exceeds the byte limit")
+	}
+	if err = in.Commit(tk, recs); err != nil {
+		t.Fatalf("Commit: %v", err)
+	}
+	if _, bytes := b.Usage(); bytes != record.Size(save) {
+		t.Fatalf("budget bytes = %d, want %d (deferred only)", bytes, record.Size(save))
+	}
+	if got := len(drainUpload(in)); got != 0 {
+		t.Fatalf("upload got %d, want 0 before close", got)
+	}
+
+	if err = in.Close(context.Background()); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	if got := recordNums(drainUpload(in)); len(got) != 1 || got[0] != 1 {
+		t.Fatalf("upload after close = %v, want [1]", got)
 	}
 }
 
