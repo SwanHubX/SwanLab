@@ -57,11 +57,25 @@ func saveRecord(num int64, policy savev1.SavePolicy) *recordv1.Record {
 }
 
 func demandFor(recs []*recordv1.Record) Demand {
+	var d Demand
 	var bytes int64
 	for _, rec := range recs {
+		d.Store++
 		bytes += record.Size(rec)
+		switch record.TypeOf(rec) {
+		case record.TypeStart, record.TypeFinish:
+		case record.TypeSave:
+			if rec.GetSave().GetPolicy() == savev1.SavePolicy_SAVE_POLICY_END {
+				d.Deferred++
+				continue
+			}
+			d.Upload++
+		default:
+			d.Upload++
+		}
 	}
-	return Demand{Store: len(recs), Upload: len(recs), Bytes: bytes}
+	d.Bytes = bytes
+	return d
 }
 
 type storeSink struct {
@@ -205,7 +219,9 @@ func TestCommitEmptyAndNil(t *testing.T) {
 	}
 }
 
-func TestCloseRetriesPendingEndSaves(t *testing.T) {
+// TestPausedEndSavesHoldBudget 覆盖暂停期间连续提交 END 保存：延迟记录必须
+// 从 Reserve 起占用上传预算，预算不足时反压，不能先暂存到 Close 再补扣。
+func TestPausedEndSavesHoldBudget(t *testing.T) {
 	sink := newStoreSink(8)
 	defer sink.stop()
 	b := budget.New(budget.Limits{Records: 1})
@@ -216,32 +232,47 @@ func TestCloseRetriesPendingEndSaves(t *testing.T) {
 	if got := len(drainUpload(in)); got != 1 {
 		t.Fatalf("upload got %d, want 1", got)
 	}
+	// 预算已满 → 下一条立即记录进入暂停并发布暂停状态。
+	mustCommit(t, in, scalarRecord(2))
+	if paused, seq := in.PauseState(); !paused || seq != 2 {
+		t.Fatalf("PauseState = (%v, %d), want (true, 2)", paused, seq)
+	}
 
-	// 预算已满 → 暂停投递；END 保存落本地并暂存为未扣配额。
-	save := []*recordv1.Record{saveRecord(2, savev1.SavePolicy_SAVE_POLICY_END)}
-	mustCommit(t, in, save...)
+	// 暂停期间预算已满：END 保存必须被反压，不得无配额暂存。
+	save := []*recordv1.Record{saveRecord(3, savev1.SavePolicy_SAVE_POLICY_END)}
+	for i := 0; i < 2; i++ {
+		if _, err := in.Reserve(context.Background(), demandFor(save)); !errors.Is(err, ErrOverloaded) {
+			t.Fatalf("Reserve END save #%d err = %v, want ErrOverloaded", i+1, err)
+		}
+	}
+	if records, _ := b.Usage(); records != 1 {
+		t.Fatalf("budget usage = %d, want 1 (rejected saves must not be charged)", records)
+	}
 	if got := waitStore(t, sink, 2); len(got) != 2 {
 		t.Fatalf("store got %d, want 2", len(got))
 	}
 
-	// 预算仍被第一条记录占用：Close 有界等待超时，暂存记录放回队列。
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
-	defer cancel()
-	if err := in.Close(ctx); !errors.Is(err, context.DeadlineExceeded) {
-		t.Fatalf("Close err = %v, want context.DeadlineExceeded", err)
-	}
-
-	// 模拟 uploader 确认第一条后归还配额，重试 Close 应补扣并投递 END 保存。
+	// 模拟 uploader 确认后归还配额：END 保存被接收，并从 Reserve 起持续占用配额。
 	records, bytes := b.Usage()
 	b.Release(records, bytes)
-	if err := in.Close(context.Background()); err != nil {
-		t.Fatalf("second Close: %v", err)
+	mustCommit(t, in, save...)
+	if records, _ := b.Usage(); records != 1 {
+		t.Fatalf("budget usage = %d, want 1 (deferred save charged at reserve)", records)
 	}
-	if got := len(drainUpload(in)); got != 1 {
-		t.Fatalf("upload after close got %d, want 1", got)
+	second := []*recordv1.Record{saveRecord(4, savev1.SavePolicy_SAVE_POLICY_END)}
+	if _, err := in.Reserve(context.Background(), demandFor(second)); !errors.Is(err, ErrOverloaded) {
+		t.Fatalf("second pending save err = %v, want ErrOverloaded", err)
+	}
+
+	if err := in.Close(context.Background()); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	got := drainUpload(in)
+	if len(got) != 1 || got[0].GetNum() != 3 {
+		t.Fatalf("upload after close = %v, want record num 3", recordNums(got))
 	}
 	if records, _ := b.Usage(); records != 1 {
-		t.Fatalf("budget usage = %d, want 1 (deferred save charged at close)", records)
+		t.Fatalf("budget usage = %d, want 1 until the uploader confirms", records)
 	}
 }
 
@@ -364,7 +395,7 @@ func TestCommitRoutes(t *testing.T) {
 			in := newIntake(t, Options{Store: sink.ch, Budget: b, UploadQueue: 8})
 
 			d := tc.demand
-			if len(tc.records) > 0 && (d.Store == 0 && d.Upload == 0) {
+			if len(tc.records) > 0 && (d.Store == 0 && d.Upload == 0 && d.Deferred == 0) {
 				d = demandFor(tc.records)
 			}
 			tk, err := in.Reserve(context.Background(), d)
@@ -523,6 +554,81 @@ func TestPausedTicketAfterResumeStartsNewInterval(t *testing.T) {
 	}
 	if paused, seq := in.PauseState(); paused || seq != 0 {
 		t.Fatalf("PauseState = (%v, %d), want (false, 0)", paused, seq)
+	}
+}
+
+// TestAbandonedPausedTicketLeavesNoGlobalPause 覆盖暂停票据未成功提交的路径：
+// 主动放弃、空提交、nil 记录与超预留都只能归还容量，不能遗留全局暂停状态。
+func TestAbandonedPausedTicketLeavesNoGlobalPause(t *testing.T) {
+	tests := []struct {
+		name    string
+		abandon func(t *testing.T, in *Intake, tk Ticket)
+	}{
+		{
+			name:    "release",
+			abandon: func(_ *testing.T, in *Intake, tk Ticket) { in.Release(tk) },
+		},
+		{
+			name: "empty commit",
+			abandon: func(t *testing.T, in *Intake, tk Ticket) {
+				if err := in.Commit(tk, nil); err != nil {
+					t.Fatalf("Commit empty: %v", err)
+				}
+			},
+		},
+		{
+			name: "nil record",
+			abandon: func(t *testing.T, in *Intake, tk Ticket) {
+				if err := in.Commit(tk, []*recordv1.Record{nil}); err == nil {
+					t.Fatal("Commit nil record returned nil error")
+				}
+			},
+		},
+		{
+			name: "over reserved",
+			abandon: func(t *testing.T, in *Intake, tk Ticket) {
+				err := in.Commit(tk, []*recordv1.Record{scalarRecord(1), scalarRecord(2), scalarRecord(3)})
+				if !errors.Is(err, ErrOverReserved) {
+					t.Fatalf("Commit err = %v, want ErrOverReserved", err)
+				}
+			},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			sink := newStoreSink(8)
+			defer sink.stop()
+			b := budget.New(budget.Limits{Records: 1})
+			if !b.TryAcquire(1, 0) {
+				t.Fatal("seed TryAcquire = false")
+			}
+			in := newIntake(t, Options{Store: sink.ch, Budget: b, UploadQueue: 4})
+
+			tk, err := in.Reserve(context.Background(), Demand{Store: 2, Upload: 2, Bytes: 20})
+			if err != nil {
+				t.Fatalf("Reserve: %v", err)
+			}
+			if !tk.paused {
+				t.Fatal("ticket should be paused while the budget is full")
+			}
+			tc.abandon(t, in, tk)
+			if paused, seq := in.PauseState(); paused || seq != 0 {
+				t.Fatalf("PauseState = (%v, %d), want (false, 0)", paused, seq)
+			}
+			if got := len(sink.snapshot()); got != 0 {
+				t.Fatalf("store received %d records, want 0", got)
+			}
+
+			// 预算空闲后下一次提交必须重新尝试获取配额并正常上传。
+			b.Release(1, 0)
+			mustCommit(t, in, scalarRecord(1))
+			if got := len(drainUpload(in)); got != 1 {
+				t.Fatalf("upload got %d, want 1", got)
+			}
+			if paused, seq := in.PauseState(); paused || seq != 0 {
+				t.Fatalf("PauseState after commit = (%v, %d), want (false, 0)", paused, seq)
+			}
+		})
 	}
 }
 
@@ -721,6 +827,53 @@ func TestCloseIsIdempotentAndRejectsCommits(t *testing.T) {
 	}
 	if _, err = in.Reserve(context.Background(), Demand{Store: 1, Upload: 1}); !errors.Is(err, ErrClosed) {
 		t.Fatalf("Reserve after close err = %v, want ErrClosed", err)
+	}
+}
+
+// TestCloseRestoresPendingWhenRecoverySendingFails 覆盖 Close 在补投回收记录时
+// 被取消：已暂存的 END 保存不能随快照一起丢失，重试 Close 必须补发。
+func TestCloseRestoresPendingWhenRecoverySendingFails(t *testing.T) {
+	sink := newStoreSink(8)
+	defer sink.stop()
+	b := budget.New(budget.Limits{Records: 1})
+	var degraded atomic.Bool
+	in := newIntake(t, Options{
+		Store:       sink.ch,
+		Budget:      b,
+		Degraded:    &degraded,
+		UploadQueue: 1,
+		Flushed:     func() uint64 { return 0 },
+	})
+
+	mustCommit(t, in, scalarRecord(1)) // 占满预算并填满上传通道
+	mustCommit(t, in, scalarRecord(2)) // 暂停，尚未确认落盘
+	b.Release(1, record.Size(scalarRecord(1)))
+	mustCommit(t, in, saveRecord(3, savev1.SavePolicy_SAVE_POLICY_END))
+
+	degraded.Store(true)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+	if err := in.Close(ctx); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("Close err = %v, want context.DeadlineExceeded", err)
+	}
+	if got := recordNums(drainUpload(in)); len(got) != 1 || got[0] != 1 {
+		t.Fatalf("upload = %v, want [1]", got)
+	}
+
+	var got []int64
+	consumed := make(chan struct{})
+	go func() {
+		defer close(consumed)
+		for rec := range in.UploadOut() {
+			got = append(got, rec.GetNum())
+		}
+	}()
+	if err := in.Close(context.Background()); err != nil {
+		t.Fatalf("second Close: %v", err)
+	}
+	<-consumed
+	if len(got) != 2 || got[0] != 2 || got[1] != 3 {
+		t.Fatalf("upload after retry = %v, want [2 3]", got)
 	}
 }
 
@@ -1045,6 +1198,82 @@ func TestPausedBatchUsesRecoveryWhenUploadQueueFull(t *testing.T) {
 	}
 	if got := waitStore(t, sink, 1); len(got) != 1 {
 		t.Fatalf("store got %d, want 1 (only the first record)", len(got))
+	}
+}
+
+// TestRecoveryKeepsUploadOrderAfterDegrade 覆盖“暂停记录 + 后续正常预留批次”：
+// 降级补传必须先把更早的暂停记录送出，后续批次不能反超。
+func TestRecoveryKeepsUploadOrderAfterDegrade(t *testing.T) {
+	sink := newStoreSink(8)
+	defer sink.stop()
+	b := budget.New(budget.Limits{Records: 2})
+	var degraded atomic.Bool
+	in := newIntake(t, Options{
+		Store:       sink.ch,
+		Budget:      b,
+		Degraded:    &degraded,
+		UploadQueue: 8,
+		// 暂停记录尚未确认落盘，降级后必须重新投入上传。
+		Flushed: func() uint64 { return 0 },
+	})
+
+	mustCommit(t, in, scalarRecord(1), scalarRecord(2))
+	if got := recordNums(drainUpload(in)); len(got) != 2 || got[0] != 1 || got[1] != 2 {
+		t.Fatalf("upload = %v, want [1 2]", got)
+	}
+
+	// 预算已满 → 记录 3 暂停，只落本地并保留未确认引用。
+	mustCommit(t, in, scalarRecord(3))
+	if paused, seq := in.PauseState(); !paused || seq != 3 {
+		t.Fatalf("PauseState = (%v, %d), want (true, 3)", paused, seq)
+	}
+
+	// 模拟上传确认一条并归还配额；本地随后降级。
+	b.Release(1, record.Size(scalarRecord(1)))
+	degraded.Store(true)
+	mustCommit(t, in, scalarRecord(4))
+
+	if got := recordNums(drainUpload(in)); len(got) != 2 || got[0] != 3 || got[1] != 4 {
+		t.Fatalf("upload after degrade = %v, want [3 4]", got)
+	}
+}
+
+// TestPauseKeepsDeferredQuota 覆盖“暂停前预留、暂停后提交”的票据：
+// 暂停只归还立即记录的配额，延迟记录继续持有到 Close。
+func TestPauseKeepsDeferredQuota(t *testing.T) {
+	sink := newStoreSink(8)
+	defer sink.stop()
+	b := budget.New(budget.Limits{Records: 2})
+	in := newIntake(t, Options{Store: sink.ch, Budget: b, UploadQueue: 4})
+
+	save := saveRecord(2, savev1.SavePolicy_SAVE_POLICY_END)
+	batch := []*recordv1.Record{scalarRecord(1), save}
+	tk, err := in.Reserve(context.Background(), demandFor(batch))
+	if err != nil {
+		t.Fatalf("Reserve: %v", err)
+	}
+
+	// 票据占满预算 → 另一批暂停，随后旧票据才提交。
+	mustCommit(t, in, scalarRecord(3))
+	if err = in.Commit(tk, batch); err != nil {
+		t.Fatalf("Commit deferred batch: %v", err)
+	}
+	if records, _ := b.Usage(); records != 1 {
+		t.Fatalf("budget usage = %d, want 1 (only the deferred save stays charged)", records)
+	}
+	if got := len(drainUpload(in)); got != 0 {
+		t.Fatalf("upload got %d, want 0 before close", got)
+	}
+
+	if err = in.Close(context.Background()); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	got := drainUpload(in)
+	if len(got) != 1 || got[0].GetNum() != 2 {
+		t.Fatalf("upload after close = %v, want record num 2", recordNums(got))
+	}
+	if records, _ := b.Usage(); records != 1 {
+		t.Fatalf("budget usage = %d, want 1", records)
 	}
 }
 
