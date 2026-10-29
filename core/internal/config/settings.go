@@ -73,6 +73,7 @@ type Settings struct {
 	SaveBatch int32
 
 	// SkipStore 跳过本地 Record 落盘（仅 online 模式合法，由上游校验）。
+	// 启动期配置，运行期不得修改；磁盘写满等故障属于会话运行期状态。
 	SkipStore bool
 
 	// APIKey 云端认证凭据；日志输出必须脱敏。
