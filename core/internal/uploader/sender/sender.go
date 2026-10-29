@@ -1,8 +1,5 @@
-// Package sender 把 uploader 分发的整批记录编码成云端请求，并给出三态结果。
-//
-// 三态判定在这里完成：sender 持有 api 与 client.IsRetryable，Track 只做守恒校验
-// 与记账。Confirmed 表示已终结（含 4xx、House 202、编码失败等确定性失败），
-// Remaining 表示可重试。
+// Package sender 把整批记录编码成云端请求并给出三态结果：
+// Confirmed 为终结（含确定性失败），Remaining 为可重试。
 package sender
 
 import (
@@ -24,19 +21,19 @@ import (
 )
 
 const (
-	// columnChunk 是 /series 单次请求的列数上限，对齐 Python upload_column。
+	// columnChunk 是 /series 单次请求的列数上限。
 	columnChunk = 3000
-	// columnTypeSystem 是系统列在云端的类型标签，优先于真实类型。
+	// columnTypeSystem 是系统列的云端类型标签，优先于真实类型。
 	columnTypeSystem = "SYSTEM"
-	// scalarBlockedMessage 对应 Python 的 blocked 分支文案。
+	// scalarBlockedMessage 是标量本地校验失败的文案。
 	scalarBlockedMessage = "scalar record without value or timestamp"
-	// logBlockedMessage 对应 Python 的 blocked 分支文案。
+	// logBlockedMessage 是日志本地校验失败的文案。
 	logBlockedMessage = "log record without line or timestamp"
-	// logUnknownLevelMessage 是 Go 侧新增的确定性失败：Python 遇到未知级别会崩溃。
+	// logUnknownLevelMessage 是未知日志级别的确定性失败文案。
 	logUnknownLevelMessage = "log record with unknown level"
 )
 
-// columnTypeNames 是 ColumnType 到云端类型标签的映射，对齐 adapter.column。
+// columnTypeNames 是 ColumnType 到云端类型标签的映射。
 var columnTypeNames = map[columnv1.ColumnType]string{
 	columnv1.ColumnType_COLUMN_TYPE_SCALAR:   "FLOAT",
 	columnv1.ColumnType_COLUMN_TYPE_IMAGE:    "IMAGE",
@@ -49,7 +46,7 @@ var columnTypeNames = map[columnv1.ColumnType]string{
 	columnv1.ColumnType_COLUMN_TYPE_HTML:     "HTML",
 }
 
-// logLevelNames 是 LogLevel 到云端日志级别的映射，对齐 adapter.level。
+// logLevelNames 是 LogLevel 到云端日志级别的映射。
 var logLevelNames = map[terminalv1.LogLevel]string{
 	terminalv1.LogLevel_LOG_LEVEL_INFO:  "INFO",
 	terminalv1.LogLevel_LOG_LEVEL_ERROR: "ERROR",
@@ -116,7 +113,7 @@ func (s *ColumnSender) Upload(ctx context.Context, records []*recordv1.Record) u
 	return uploader.Result{Confirmed: confirmed, Failures: failures}
 }
 
-// encodeColumn 把列记录转换成云端 DTO；未知类型返回错误。
+// encodeColumn 把列记录转成云端 DTO；未知类型返回错误。
 func encodeColumn(record *columnv1.ColumnRecord) (api.ColumnUpload, error) {
 	if record == nil {
 		return api.ColumnUpload{}, errors.New("missing column payload")
@@ -294,8 +291,7 @@ func encodeLog(record *terminalv1.LogRecord) (map[string]any, logEncodeStatus) {
 	}, logOK
 }
 
-// encodeTimestamp 按 Python Timestamp.ToJsonString 的排版编码时间戳：
-// 复用 protojson 保证 0/3/6/9 位小数规则一致，再去掉外层引号。
+// encodeTimestamp 复用 protojson 的 0/3/6/9 位小数排版，去掉外层引号。
 func encodeTimestamp(ts *timestamppb.Timestamp) (string, bool) {
 	raw, err := protojson.Marshal(ts)
 	if err != nil || len(raw) < 2 || raw[0] != '"' {
@@ -304,7 +300,7 @@ func encodeTimestamp(ts *timestamppb.Timestamp) (string, bool) {
 	return string(raw[1 : len(raw)-1]), true
 }
 
-// blockedFailures 把一组本地校验失败的记录包装成 Failure；空集合返回 nil。
+// blockedFailures 包装本地校验失败的记录；空集合返回 nil。
 func blockedFailures(message string, records []*recordv1.Record) []uploader.Failure {
 	if len(records) == 0 {
 		return nil

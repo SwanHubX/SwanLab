@@ -8,18 +8,15 @@ import (
 )
 
 const (
-	// DefaultWarningInterval 是同一次故障期内两条失败告警的最小间隔。
+	// DefaultWarningInterval 是失败告警的最小间隔。
 	DefaultWarningInterval = 30 * time.Second
-	// uploadFailureWarning 对齐 Python UploadWarningThrottle.warn 的默认文案。
+	// uploadFailureWarning 是失败告警文案。
 	uploadFailureWarning = "Upload failed due to network or server issues, retrying automatically."
-	// uploadRecoveredNotice 对齐 Python UploadWarningThrottle.reset 的默认文案。
+	// uploadRecoveredNotice 是恢复提示文案。
 	uploadRecoveredNotice = "Upload recovered, resuming normally."
 )
 
-// WarningThrottle 控制上传失败告警的输出频率，并在恢复时提示一次。
-//
-// 首次失败立即告警，其后同一次故障期内每 DefaultWarningInterval 至多一条；
-// 恢复提示只在故障期内输出过警报后触发，避免正常路径刷屏。
+// WarningThrottle 控制失败告警频率：首次立即，其后每个间隔至多一条；恢复时提示一次。
 type WarningThrottle struct {
 	mu       sync.Mutex
 	now      func() time.Time
@@ -31,12 +28,12 @@ type WarningThrottle struct {
 	inFailure  bool
 }
 
-// NewWarningThrottle 构造默认节流器：间隔 30s，时钟取 time.Now。
+// NewWarningThrottle 构造默认节流器（间隔 30s）。
 func NewWarningThrottle() *WarningThrottle {
 	return newWarningThrottle(time.Now, DefaultWarningInterval)
 }
 
-// newWarningThrottle 是测试入口，允许注入时钟与间隔。
+// newWarningThrottle 允许注入时钟与间隔。
 func newWarningThrottle(now func() time.Time, interval time.Duration) *WarningThrottle {
 	return &WarningThrottle{
 		now:        now,
@@ -47,7 +44,7 @@ func newWarningThrottle(now func() time.Time, interval time.Duration) *WarningTh
 	}
 }
 
-// Warn 记录一次上传失败，必要时输出告警。
+// Warn 记录一次失败，必要时输出告警。
 func (t *WarningThrottle) Warn() {
 	t.mu.Lock()
 	t.inFailure = true
@@ -63,7 +60,7 @@ func (t *WarningThrottle) Warn() {
 	}
 }
 
-// Reset 标记上传已恢复：故障期内提示一次恢复，并复位告警窗口。
+// Reset 标记已恢复：故障期内提示一次，并复位告警窗口。
 func (t *WarningThrottle) Reset() {
 	t.mu.Lock()
 	inFailure := t.inFailure

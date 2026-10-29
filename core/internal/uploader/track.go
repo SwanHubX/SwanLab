@@ -12,10 +12,8 @@ import (
 	recordv1 "github.com/swanhubx/swanlab/core/proto/swanlab/record/v1"
 )
 
-// Result 是一批记录的三态结果：每个输入记录必须恰好出现在 Confirmed 或 Remaining 之一。
-//
-// Confirmed 表示已终结（含 4xx、House 202、编码失败等确定性失败），Remaining 表示
-// 可重试；Failures 供 LastFailures 与确认摘要使用，可跨两类记录。
+// Result 是一批记录的三态结果：每条输入记录恰好出现在 Confirmed 或 Remaining 之一。
+// Confirmed 含确定性失败；Failures 跨两类记录，供诊断使用。
 type Result struct {
 	Confirmed []*recordv1.Record
 	Remaining []*recordv1.Record
@@ -29,8 +27,8 @@ type Failure struct {
 	Err     error
 }
 
-// Sender 处理某一类型的整批记录。实现必须并发安全：同一 Track 串行调用，
-// 不同 Track 可能并发。Upload 不得修改入参切片，也不得返回入参之外的记录。
+// Sender 处理某一类型的整批记录。同一 Track 串行调用、不同 Track 并发，
+// 实现必须并发安全；Upload 不得修改入参或返回入参之外的记录。
 type Sender interface {
 	Upload(ctx context.Context, records []*recordv1.Record) Result
 }
@@ -79,9 +77,7 @@ type registryConfig struct {
 }
 
 // Registry 管理所有类型轨道：入队、门控取批、结果记账与停复机。
-//
-// 全局只有一把 Registry 锁，sender 调用与配额归还都在锁外完成；缓冲区分发、
-// 门控判定与出队在同一临界区内，保证被门控的轨道不会越过依赖。
+// 全局一把锁；sender 调用与配额归还在锁外，门控判定与出队在同一临界区。
 type Registry struct {
 	cfg registryConfig
 
@@ -195,7 +191,7 @@ func (r *Registry) dispatch(groups []recordGroup) {
 	r.notify()
 }
 
-// beginFinish 进入收尾：不再等待退避窗口，队列中的记录立即重试。
+// beginFinish 进入收尾：清空退避，队列中的记录立即重试。
 func (r *Registry) beginFinish() {
 	r.mu.Lock()
 	r.finishing = true
@@ -206,7 +202,7 @@ func (r *Registry) beginFinish() {
 	r.wakeAll()
 }
 
-// markIngestClosed 记录入口已封闭；这是 Drained 成立的前提。
+// markIngestClosed 记录入口已封闭，是 Drained 的前提。
 func (r *Registry) markIngestClosed() {
 	r.mu.Lock()
 	r.ingestClosed = true
@@ -234,7 +230,7 @@ func (r *Registry) drained() bool {
 	return true
 }
 
-// suspend 暂停取批：已出队的批次照常完成，队列保留在内存中。
+// suspend 暂停取批，在途批次照常完成。
 func (r *Registry) suspend() {
 	r.mu.Lock()
 	if !r.suspended {
@@ -244,7 +240,7 @@ func (r *Registry) suspend() {
 	r.mu.Unlock()
 }
 
-// resume 恢复取批，并把暂停时长顺延到各轨的退避截止时间（冻结语义）。
+// resume 恢复取批，并把暂停时长顺延到各轨退避截止时间。
 func (r *Registry) resume() {
 	r.mu.Lock()
 	if !r.suspended {
@@ -303,7 +299,7 @@ func (r *Registry) lastFailures() []Failure {
 	return append([]Failure(nil), r.failures...)
 }
 
-// notify 是进度信号，可为空。
+// notify 发送进度信号（可为空）。
 func (r *Registry) notify() {
 	if r.cfg.notify != nil {
 		r.cfg.notify()
@@ -363,10 +359,8 @@ func (t *track) waitFor(r *Registry, wait time.Duration) bool {
 	}
 }
 
-// take 在临界区内判定门控与退避，满足条件时取走队首一批。
-//
-// 返回 exit 表示 worker 应当退出；batch 非空表示可以上传；否则按 wait
-// 等待下一次唤醒（wait<=0 表示只等信号）。
+// take 在锁内判定门控与退避，满足条件时取走队首一批。
+// exit 表示 worker 应退出；batch 非空表示可上传；否则按 wait 等待唤醒。
 func (r *Registry) take(t *track) (batch []*recordv1.Record, wait time.Duration, exit bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -390,7 +384,7 @@ func (r *Registry) take(t *track) (batch []*recordv1.Record, wait time.Duration,
 	return batch, 0, false
 }
 
-// gateOpen 报告 typ 的依赖轨道是否已全部空闲（队列空且无在途批次）。
+// gateOpen 报告依赖轨道是否全部空闲。
 func (r *Registry) gateOpen(typ record.Type) bool {
 	for _, dep := range r.gates[typ] {
 		t := r.tracks[dep]
@@ -417,7 +411,7 @@ func (r *Registry) upload(t *track, batch []*recordv1.Record) {
 		}
 	}
 
-	// 配额与进度在锁外结算；此时 inflight 尚未归零，Drained 不会被提前判定。
+	// 配额与进度在锁外结算；inflight 尚未归零，Drained 不会被提前判定。
 	if len(result.Confirmed) > 0 {
 		for _, rec := range result.Confirmed {
 			r.cfg.budget.Release(1, record.Size(rec))
@@ -475,8 +469,7 @@ func safeUpload(ctx context.Context, sender Sender, batch []*recordv1.Record) (r
 	return sender.Upload(ctx, batch)
 }
 
-// conserved 校验结果守恒：每条输入记录恰好出现在 Confirmed 或 Remaining 之一，
-// 且没有重复、没有入参之外的记录。
+// conserved 校验每条输入记录恰好出现一次，且没有重复或入参之外的记录。
 func conserved(batch []*recordv1.Record, result Result) bool {
 	if len(result.Confirmed)+len(result.Remaining) != len(batch) {
 		return false
@@ -502,7 +495,7 @@ func conserved(batch []*recordv1.Record, result Result) bool {
 	return true
 }
 
-// remainingInBatchOrder 按原批次顺序过滤出 remaining，避免 sender 返回顺序打乱 FIFO。
+// remainingInBatchOrder 按原批序过滤 remaining，避免打乱 FIFO。
 func remainingInBatchOrder(batch, remaining []*recordv1.Record) []*recordv1.Record {
 	if len(remaining) == 0 {
 		return nil

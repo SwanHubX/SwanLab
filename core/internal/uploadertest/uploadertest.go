@@ -1,4 +1,4 @@
-// Package uploadertest 提供 uploader.Sender 的测试替身，供 PR-6/PR-7 的用例复用。
+// Package uploadertest 提供 uploader.Sender 的测试替身。
 package uploadertest
 
 import (
@@ -9,25 +9,24 @@ import (
 	recordv1 "github.com/swanhubx/swanlab/core/proto/swanlab/record/v1"
 )
 
-// Sender 是可编排的假 sender：记录每次调用的批次，并按调用序号返回预置结果。
-// 零值不可用，应由 New 构造；Upload 并发安全。
+// Sender 是可编排的假 sender：记录调用批次，并按序号返回预置结果（并发安全）。
 type Sender struct {
 	mu    sync.Mutex
 	steps []func([]*recordv1.Record) uploader.Result
 	calls [][]*recordv1.Record
 }
 
-// New 构造默认全部确认的假 sender。
+// New 构造全部确认的假 sender。
 func New() *Sender { return &Sender{} }
 
-// AlwaysRetry 返回永远把整批判为可重试的 sender。
+// AlwaysRetry 返回永远可重试的 sender。
 func AlwaysRetry() *Sender {
 	return New().On(func(records []*recordv1.Record) uploader.Result {
 		return uploader.Result{Remaining: records}
 	})
 }
 
-// On 追加一个脚本步骤；超出脚本后重复最后一步，无脚本时全部确认。
+// On 追加脚本步骤；超出后重复最后一步，无脚本时全部确认。
 func (s *Sender) On(step func([]*recordv1.Record) uploader.Result) *Sender {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -54,7 +53,7 @@ func (s *Sender) Upload(_ context.Context, records []*recordv1.Record) uploader.
 	return step(records)
 }
 
-// Calls 返回所有调用批次的快照。
+// Calls 返回调用批次快照。
 func (s *Sender) Calls() [][]*recordv1.Record {
 	s.mu.Lock()
 	defer s.mu.Unlock()

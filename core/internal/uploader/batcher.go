@@ -6,8 +6,7 @@ import (
 	recordv1 "github.com/swanhubx/swanlab/core/proto/swanlab/record/v1"
 )
 
-// dispatchOrder 是出批分组的固定顺序：列记录永远排在最前，其余类型顺序固定，
-// 保证日志与测试可读。跨轨门控由轨道依赖表决定，不依赖这里的顺序。
+// dispatchOrder 是出批分组的固定顺序；门控由轨道依赖表决定，与此无关。
 var dispatchOrder = []record.Type{
 	record.TypeColumn,
 	record.TypeScalar,
@@ -22,10 +21,7 @@ type recordGroup struct {
 	records []*recordv1.Record
 }
 
-// recordBuffer 是攒批缓冲区，由 batcher 协程独占，因此不加锁。
-//
-// 以 num 为主键原地覆盖：同一 num 再次写入时保留首次出现的位置，只替换
-// 记录内容，并立刻归还旧记录占用的配额；新位置才计入总记录数。
+// recordBuffer 是 batcher 独占的缓冲区（不加锁），按 num 原地覆盖并归还旧记录配额。
 type recordBuffer struct {
 	budget  *budget.Budget
 	tracker *Tracker
@@ -34,7 +30,7 @@ type recordBuffer struct {
 	items map[int64]*recordv1.Record
 }
 
-// newRecordBuffer 构造空缓冲区；budget 与 tracker 必须非空。
+// newRecordBuffer 构造空缓冲区。
 func newRecordBuffer(b *budget.Budget, tracker *Tracker) *recordBuffer {
 	return &recordBuffer{
 		budget:  b,
@@ -43,8 +39,7 @@ func newRecordBuffer(b *budget.Budget, tracker *Tracker) *recordBuffer {
 	}
 }
 
-// add 写入一条记录。added 表示新增了一个位置，replaced 表示覆盖了同 num 的
-// 旧记录；两者互斥。覆盖时旧记录的配额在这里归还。
+// add 写入一条记录；added 与 replaced 互斥，覆盖时归还旧记录配额。
 func (b *recordBuffer) add(rec *recordv1.Record) (added, replaced bool) {
 	num := rec.GetNum()
 	if old, ok := b.items[num]; ok {
@@ -58,10 +53,10 @@ func (b *recordBuffer) add(rec *recordv1.Record) (added, replaced bool) {
 	return true, false
 }
 
-// len 返回当前条数，覆盖不改变长度。
+// len 返回当前条数。
 func (b *recordBuffer) len() int { return len(b.order) }
 
-// drain 按插入序返回全部记录并清空缓冲区；items 换新 map，避免长期持有大对象。
+// drain 按插入序返回全部记录并清空缓冲区。
 func (b *recordBuffer) drain() []*recordv1.Record {
 	if len(b.order) == 0 {
 		return nil
@@ -75,9 +70,7 @@ func (b *recordBuffer) drain() []*recordv1.Record {
 	return out
 }
 
-// groupRecords 按 dispatchOrder 分组，组内保持批内原始顺序。
-// dispatchOrder 之外的类型（未知 oneof、start/finish）按首次出现顺序追加在
-// 末尾，由调用方决定如何终结。
+// groupRecords 按 dispatchOrder 分组，组内保持批内顺序；未知类型按首次出现顺序追加在末尾。
 func groupRecords(records []*recordv1.Record) []recordGroup {
 	if len(records) == 0 {
 		return nil
@@ -110,7 +103,7 @@ func groupRecords(records []*recordv1.Record) []recordGroup {
 	return groups
 }
 
-// isDispatched 报告 typ 是否属于固定分发顺序中的上传类型。
+// isDispatched 报告 typ 是否在固定分发顺序中。
 func isDispatched(typ record.Type) bool {
 	for _, candidate := range dispatchOrder {
 		if candidate == typ {

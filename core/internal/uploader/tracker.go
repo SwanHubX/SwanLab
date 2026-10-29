@@ -10,18 +10,15 @@ import (
 )
 
 const (
-	// trackerRateAlpha 是 EMA 平滑因子，越大越贴近近期吞吐。
+	// trackerRateAlpha 是 EMA 平滑因子。
 	trackerRateAlpha = 0.3
-	// trackerRateWindow 是速率采样窗口：窗口内的增量累积后一次性混合。
+	// trackerRateWindow 是速率采样窗口。
 	trackerRateWindow = 500 * time.Millisecond
-	// defaultVisibleFiles 是快照里展示的文件条数上限。
+	// defaultVisibleFiles 是快照中的文件数上限。
 	defaultVisibleFiles = 5
 )
 
-// rateTracker 是 EMA 速率追踪器，对齐 Python transport/tracker/_RateTracker。
-//
-// 窗口内的增量先累积，到窗口边界才换算成瞬时速率并混合，避免逐字节抖动；
-// 快照读取时按距上次混合的间隔做指数衰减，长时间无进展的速率会自然归零。
+// rateTracker 是 EMA 速率追踪器：窗口内累积增量，边界处混合，读取时按间隔衰减。
 type rateTracker struct {
 	rate    float64
 	last    time.Time
@@ -65,7 +62,7 @@ func (r *rateTracker) decayed(now time.Time) float64 {
 	return r.rate * math.Pow(1-trackerRateAlpha, intervals)
 }
 
-// touch 在首次活动时记录起点，使首个窗口有可用的时间基准。
+// touch 在首次活动时记录时间基准。
 func (r *rateTracker) touch(now time.Time) {
 	if r.last.IsZero() {
 		r.last = now
@@ -82,11 +79,8 @@ type trackedFile struct {
 	rate     rateTracker
 }
 
-// Tracker 是并发安全的上传进度账本，对齐 Python transport/tracker/UploadTracker。
-//
-// 记录维度供上传管线记账（总记录数 / 已终结记录数），文件维度供 PR-6 使用；
-// Snapshot 直接产出 operationv1.OperationStats，供心跳与状态查询共用。
-// 零值不可用，应由 NewTracker 构造。
+// Tracker 是并发安全的上传进度账本，记录维度供上传管线记账，文件维度供媒体上传使用。
+// Snapshot 产出 OperationStats；零值不可用，应由 NewTracker 构造。
 type Tracker struct {
 	mu sync.Mutex
 
@@ -107,7 +101,7 @@ type Tracker struct {
 	sequence   int
 }
 
-// NewTracker 构造默认追踪器：可见文件上限 5，时钟取 time.Now。
+// NewTracker 构造默认追踪器（文件上限 5，时钟取 time.Now）。
 func NewTracker() *Tracker {
 	return &Tracker{
 		now:        time.Now,
@@ -215,7 +209,7 @@ func (t *Tracker) FailFile(key string) {
 	delete(t.files, key)
 }
 
-// Snapshot 返回当前进度快照；返回的 OperationStats 归调用方所有。
+// Snapshot 返回进度快照，结果归调用方所有。
 func (t *Tracker) Snapshot() *operationv1.OperationStats {
 	t.mu.Lock()
 	defer t.mu.Unlock()

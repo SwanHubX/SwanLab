@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-// 默认退避参数，对齐 Python transport/worker/utils.py::RetryPolicy。
+// 默认退避参数，对齐 Python RetryPolicy。
 const (
 	// DefaultRetryBase 是首次失败后的等待时长。
 	DefaultRetryBase = time.Second
@@ -20,9 +20,7 @@ const (
 	DefaultRetryJitterHigh = 1.2
 )
 
-// RetryPolicy 计算单条轨道连续失败后的等待时长：纯指数退避外接均匀抖动。
-//
-// 等待时长只与失败轮次有关，同一实例可被多条轨道并发使用。
+// RetryPolicy 计算单轨连续失败后的等待时长（指数退避 + 抖动），可并发使用。
 type RetryPolicy struct {
 	Base       time.Duration  // 首轮等待，<=0 取 DefaultRetryBase
 	Multiplier float64        // 每轮放大倍数，<=0 取 DefaultRetryMultiplier
@@ -44,11 +42,8 @@ func DefaultRetryPolicy() RetryPolicy {
 	}
 }
 
-// Delay 返回第 failedRounds 轮连续失败后的等待时长，failedRounds < 1 按 1 处理。
-//
-// 计算顺序对齐 Python _backoff_delay：先按饱和指数算出指数项并截断到 Max，
-// 再乘 U(JitterLow, JitterHigh)，最后再截断一次。指数饱和保证轮次极大时
-// 既不会溢出，也不会随轮次继续增长。
+// Delay 返回第 failedRounds 轮失败后的等待时长（<1 按 1 处理）。
+// 指数项先饱和并截断到 Max，再乘抖动后二次截断，轮次极大也不会溢出。
 func (p RetryPolicy) Delay(failedRounds int) time.Duration {
 	p = p.withDefaults()
 	exponent := min(max(failedRounds, 1)-1, p.saturationExponent())
@@ -59,13 +54,13 @@ func (p RetryPolicy) Delay(failedRounds int) time.Duration {
 	return time.Duration(math.Round(math.Min(delay, float64(p.Max))))
 }
 
-// isZero 报告是否为零值，用于 Options 回落到默认策略。
+// isZero 报告是否为零值。
 func (p RetryPolicy) isZero() bool {
 	return p.Base == 0 && p.Multiplier == 0 && p.Max == 0 &&
 		p.JitterLow == 0 && p.JitterHigh == 0 && p.Rand == nil
 }
 
-// withDefaults 把零值字段补成默认值，保证 Delay 在任何入参下都有定义。
+// withDefaults 把零值字段补成默认值。
 func (p RetryPolicy) withDefaults() RetryPolicy {
 	if p.Base <= 0 {
 		p.Base = DefaultRetryBase
@@ -88,7 +83,7 @@ func (p RetryPolicy) withDefaults() RetryPolicy {
 	return p
 }
 
-// saturationExponent 是达到 Max 所需的指数上限，避免轮次过大时幂运算溢出。
+// saturationExponent 是达到 Max 所需的指数上限。
 func (p RetryPolicy) saturationExponent() int {
 	if p.Multiplier <= 1 || p.Max <= p.Base {
 		return 0
@@ -96,7 +91,7 @@ func (p RetryPolicy) saturationExponent() int {
 	return int(math.Ceil(math.Log(float64(p.Max)/float64(p.Base)) / math.Log(p.Multiplier)))
 }
 
-// jitter 返回 [JitterLow, JitterHigh] 内的均匀抖动系数。
+// jitter 返回抖动区间内的均匀系数。
 func (p RetryPolicy) jitter() float64 {
 	r := math.Min(math.Max(p.Rand(), 0), 1)
 	return p.JitterLow + r*(p.JitterHigh-p.JitterLow)

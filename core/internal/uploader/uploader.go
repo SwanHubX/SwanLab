@@ -1,8 +1,6 @@
-// Package uploader 把 intake 出队的记录攒批、按类型分轨，并以可重试的方式交给云端。
+// Package uploader 把 intake 的记录攒批、按类型分轨上传，并提供可等待的排空状态。
 //
-// 上传管线只有一条读入口（buffer.Intake.UploadOut），下游按记录类型拆成多条
-// 互不阻塞的轨道：某条轨道失败只退避自己，其他轨道继续前进。列记录先于
-// 依赖它的数据记录送达（Column Gate），全部终结后进入可判定的 Drained 状态。
+// 各轨独立重试；列记录先于依赖它的数据记录送达；入口封闭且全部记录终结才判定 Drained。
 package uploader
 
 import (
@@ -19,7 +17,7 @@ import (
 	recordv1 "github.com/swanhubx/swanlab/core/proto/swanlab/record/v1"
 )
 
-// ErrNotDrained 表示 Close 时仍有记录未终结；记录仍占用配额，由调用方决定补传或丢弃。
+// ErrNotDrained 表示 Close 时仍有记录未终结（配额由调用方决定补传或丢弃）。
 var ErrNotDrained = errors.New("uploader: closed before drained")
 
 // ErrClosed 表示 uploader 已停止，不能再接受调度请求。
@@ -47,10 +45,7 @@ type Stats struct {
 	Tracks          []TrackStats
 }
 
-// Uploader 是上传管线的门面：独占地读入口通道、攒批并分发到类型轨道。
-//
-// 生命周期：New 启动 batcher、轨道 worker 与排空判定器；RequestFinish 或入口
-// 关闭后进入收尾；全部记录终结且缓冲区为空时关闭 Done。Close 强制停止。
+// Uploader 是上传管线门面：独占读入口通道，攒批后分发到类型轨道。
 type Uploader struct {
 	in       <-chan *recordv1.Record
 	batch    int
@@ -83,7 +78,7 @@ type Uploader struct {
 	warnUnsupported func(typ record.Type, count int)
 }
 
-// New 校验参数、启动后台协程并返回门面。调用方必须在退出前 Close。
+// New 校验参数并启动后台协程；调用方必须在退出前 Close。
 func New(opts Options) (*Uploader, error) {
 	if opts.In == nil {
 		return nil, errors.New("uploader: In is required")
@@ -158,7 +153,7 @@ func New(opts Options) (*Uploader, error) {
 	return u, nil
 }
 
-// defaultUnsupportedWarning 是未注册类型的默认告警，每种类型只提醒一次。
+// defaultUnsupportedWarning 对未注册类型告警，每种类型只提醒一次。
 func defaultUnsupportedWarning(typ record.Type, count int) {
 	label := string(typ)
 	if label == "" {
@@ -167,7 +162,7 @@ func defaultUnsupportedWarning(typ record.Type, count int) {
 	console.Warningf("uploader: no sender registered for %q records, %d record(s) dropped", label, count)
 }
 
-// signal 非阻塞地产生一次进度信号；重复信号会合并。
+// signal 非阻塞地产生一次进度信号，重复信号合并。
 func (u *Uploader) signal() {
 	select {
 	case u.progress <- struct{}{}:
@@ -175,7 +170,7 @@ func (u *Uploader) signal() {
 	}
 }
 
-// runBatcher 是攒批协程：串行处理入队、定量/定时出批、显式 flush 与收尾。
+// runBatcher 串行处理入队、定量/定时出批、显式 flush 与收尾。
 func (u *Uploader) runBatcher() {
 	defer u.wg.Done()
 	defer close(u.batcherDone)
@@ -229,7 +224,7 @@ func (u *Uploader) runBatcher() {
 			disarm()
 			u.flush()
 		case ack := <-u.flushReq:
-			// 先吃掉调用方已写入通道的记录，保证 flush 覆盖调用前的全部输入。
+			// 先读尽入口通道，保证 flush 覆盖调用前的全部输入。
 			closed := u.pumpReady()
 			disarm()
 			u.flush()
@@ -246,7 +241,7 @@ func (u *Uploader) runBatcher() {
 	}
 }
 
-// pumpReady 非阻塞地读走入口通道中已就绪的记录；返回 true 表示通道已关闭。
+// pumpReady 非阻塞读尽入口通道；返回 true 表示通道已关闭。
 func (u *Uploader) pumpReady() (closed bool) {
 	for {
 		select {
@@ -265,7 +260,7 @@ func (u *Uploader) pumpReady() (closed bool) {
 	}
 }
 
-// flush 取走整个缓冲区并按类型分发；空缓冲区直接返回。
+// flush 取走整个缓冲区并按类型分发。
 func (u *Uploader) flush() {
 	records := u.buf.drain()
 	u.buffered.Store(0)
@@ -289,8 +284,7 @@ func (u *Uploader) route(groups []recordGroup) {
 	u.registry.dispatch(accepted)
 }
 
-// terminateUnsupported 把未注册类型的记录当作确定性失败终结：归还配额、
-// 计入已终结记录数，并保证每种类型只告警一次。
+// terminateUnsupported 终结未注册类型的记录：归还配额、计数并告警一次。
 func (u *Uploader) terminateUnsupported(group recordGroup) {
 	for _, rec := range group.records {
 		u.budget.Release(1, record.Size(rec))
@@ -303,7 +297,7 @@ func (u *Uploader) terminateUnsupported(group recordGroup) {
 	u.warnUnsupported(group.typ, len(group.records))
 }
 
-// runDrainWatcher 消费进度信号，在判定式成立时关闭 Done 并回调一次。
+// runDrainWatcher 消费进度信号，排空时关闭 Done 并回调一次。
 func (u *Uploader) runDrainWatcher() {
 	defer u.wg.Done()
 	if u.isDrained() {
@@ -323,12 +317,12 @@ func (u *Uploader) runDrainWatcher() {
 	}
 }
 
-// isDrained 是排空判定式：入口已封闭、缓冲区为空、所有轨道无队列与在途批次。
+// isDrained 判定入口封闭、缓冲区为空且所有轨道空闲。
 func (u *Uploader) isDrained() bool {
 	return u.buffered.Load() == 0 && u.registry.drained()
 }
 
-// markDrained 保证 Done 只关闭一次，并回调 OnDrained。
+// markDrained 只执行一次：关闭 Done 并回调 OnDrained。
 func (u *Uploader) markDrained() {
 	u.doneOnce.Do(func() {
 		close(u.done)
@@ -338,7 +332,7 @@ func (u *Uploader) markDrained() {
 	})
 }
 
-// RequestFinish 进入收尾：立即出批、打断所有轨道的退避。非阻塞且幂等。
+// RequestFinish 立即出批并打断退避；非阻塞、幂等。
 func (u *Uploader) RequestFinish() {
 	u.registry.beginFinish()
 	select {
@@ -347,7 +341,7 @@ func (u *Uploader) RequestFinish() {
 	}
 }
 
-// Drained 报告排空是否已经发生。
+// Drained 报告是否已排空。
 func (u *Uploader) Drained() bool {
 	select {
 	case <-u.done:
@@ -360,7 +354,7 @@ func (u *Uploader) Drained() bool {
 // Done 在排空时关闭。
 func (u *Uploader) Done() <-chan struct{} { return u.done }
 
-// Wait 等待排空；ctx 到期返回 ctx.Err()，已 Close 且未排空返回 ErrNotDrained。
+// Wait 等待排空；超时返回 ctx.Err()，已 Close 返回 ErrNotDrained。
 func (u *Uploader) Wait(ctx context.Context) error {
 	select {
 	case <-u.done:
@@ -377,10 +371,10 @@ func (u *Uploader) Wait(ctx context.Context) error {
 	}
 }
 
-// Suspend 暂停取批，已在途的批次照常完成。仅测试与后续 PR 使用。
+// Suspend 暂停取批，在途批次照常完成；仅测试使用。
 func (u *Uploader) Suspend() { u.registry.suspend() }
 
-// Resume 恢复取批，并把暂停时长顺延到各轨的退避截止时间。
+// Resume 恢复取批，并把暂停时长顺延到各轨退避截止时间。
 func (u *Uploader) Resume() { u.registry.resume() }
 
 // Stats 返回缓冲、记录进度与各轨状态。
