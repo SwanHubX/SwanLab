@@ -120,8 +120,7 @@ type Intake struct {
 	pending       []*recordv1.Record
 	unconfirmed   []unconfirmedRec
 	recovery      []*recordv1.Record
-	paused        bool
-	pauseSeq      uint64
+	pauseSeq      uint64 // 0 表示未暂停；非零为首个未投递记录的 storeSeq
 	closed        bool
 }
 
@@ -188,7 +187,7 @@ func (t *Intake) Reserve(ctx context.Context, d Demand) (Ticket, error) {
 		t.mu.Unlock()
 		return Ticket{}, ErrClosed
 	}
-	paused := t.paused
+	paused := t.pauseSeq != 0
 	if t.degraded.Load() {
 		t.collectUnconfirmedLocked()
 	}
@@ -333,7 +332,7 @@ func (t *Intake) Commit(tk Ticket, records []*recordv1.Record) error {
 		return fmt.Errorf("%w: store %d > reserved %d", ErrOverReserved, len(records), tk.store)
 	}
 	// 票据自身的暂停标记在 ResumeUpload 之后仍然生效。
-	paused := t.paused || tk.paused
+	paused := t.pauseSeq != 0 || tk.paused
 	if paused {
 		// 暂停批次只需为延迟记录持有配额，立即记录只落本地。
 		if len(deferred) > tk.upload {

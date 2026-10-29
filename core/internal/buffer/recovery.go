@@ -15,18 +15,17 @@ type unconfirmedRec struct {
 	rec *recordv1.Record
 }
 
-// PauseState 返回暂停状态与首个未投递记录的 storeSeq（0 表示无）。
+// PauseState 返回暂停状态与首个未投递记录的 storeSeq（0 表示未暂停）。
 func (t *Intake) PauseState() (paused bool, storeSeq uint64) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	return t.paused, t.pauseSeq
+	return t.pauseSeq != 0, t.pauseSeq
 }
 
 // ResumeUpload 恢复上传投递。调用方必须先补传 pauseSeq 之后的本地记录；
 // 恢复后仍可能因旧票据或预算再次进入暂停，须重新观察 PauseState。
 func (t *Intake) ResumeUpload() {
 	t.mu.Lock()
-	t.paused = false
 	t.pauseSeq = 0
 	t.mu.Unlock()
 }
@@ -72,8 +71,7 @@ func (t *Intake) drainRecoveryLocked() bool {
 func (t *Intake) pauseLocked(records []*recordv1.Record, immediate, deferred []int, tk Ticket, seqOf []uint64) bool {
 	published := false
 	if t.pauseSeq == 0 && len(immediate) > 0 {
-		// 全局暂停状态只在暂停记录真正提交时发布，票据被放弃不会遗留暂停。
-		t.paused = true
+		// 暂停状态只在暂停记录真正提交时发布，票据被放弃不会遗留暂停。
 		t.pauseSeq = seqOf[immediate[0]]
 		published = true
 	}
