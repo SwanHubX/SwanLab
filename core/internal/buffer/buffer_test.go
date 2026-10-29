@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -101,11 +102,34 @@ func (s *storeSink) snapshot() []store.Request {
 
 func newIntake(t *testing.T, opts Options) *Intake {
 	t.Helper()
+	if !opts.SkipStore && opts.Flushed == nil {
+		// 默认视为全部已刷盘；需要验证未确认记录时由用例自行注入。
+		opts.Flushed = func() uint64 { return ^uint64(0) }
+	}
 	in, err := New(opts)
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
 	return in
+}
+
+// mustReserve 按记录数推导预留并返回票据。
+func mustReserve(t *testing.T, in *Intake, recs ...*recordv1.Record) Ticket {
+	t.Helper()
+	tk, err := in.Reserve(context.Background(), demandFor(recs))
+	if err != nil {
+		t.Fatalf("Reserve: %v", err)
+	}
+	return tk
+}
+
+// mustCommit 按记录数推导预留并提交一批记录。
+func mustCommit(t *testing.T, in *Intake, recs ...*recordv1.Record) {
+	t.Helper()
+	tk := mustReserve(t, in, recs...)
+	if err := in.Commit(tk, recs); err != nil {
+		t.Fatalf("Commit: %v", err)
+	}
 }
 
 func drainUpload(in *Intake) []*recordv1.Record {
@@ -144,6 +168,9 @@ func TestNewValidatesOptions(t *testing.T) {
 	if _, err := New(Options{Budget: b}); err == nil {
 		t.Fatal("New without store channel returned nil error")
 	}
+	if _, err := New(Options{Budget: b, Store: make(chan store.Request, 1)}); err == nil {
+		t.Fatal("New without flushed callback returned nil error")
+	}
 	if _, err := New(Options{Budget: b, SkipStore: true}); err != nil {
 		t.Fatalf("New with skip_store: %v", err)
 	}
@@ -178,27 +205,6 @@ func TestCommitEmptyAndNil(t *testing.T) {
 	}
 }
 
-func TestCommitAfterClose(t *testing.T) {
-	sink := newStoreSink(4)
-	defer sink.stop()
-	b := budget.New(budget.Limits{Records: 4})
-	in := newIntake(t, Options{Store: sink.ch, Budget: b, UploadQueue: 4})
-
-	tk, err := in.Reserve(context.Background(), Demand{Store: 1, Upload: 1, Bytes: 10})
-	if err != nil {
-		t.Fatalf("Reserve: %v", err)
-	}
-	if err := in.Close(context.Background()); err != nil {
-		t.Fatalf("Close: %v", err)
-	}
-	if err := in.Commit(tk, []*recordv1.Record{scalarRecord(1)}); !errors.Is(err, ErrClosed) {
-		t.Fatalf("Commit err = %v, want ErrClosed", err)
-	}
-	if records, bytes := b.Usage(); records != 0 || bytes != 0 {
-		t.Fatalf("budget usage = (%d, %d), want (0, 0)", records, bytes)
-	}
-}
-
 func TestCloseRetriesPendingEndSaves(t *testing.T) {
 	sink := newStoreSink(8)
 	defer sink.stop()
@@ -206,26 +212,14 @@ func TestCloseRetriesPendingEndSaves(t *testing.T) {
 	in := newIntake(t, Options{Store: sink.ch, Budget: b, UploadQueue: 4})
 
 	first := []*recordv1.Record{scalarRecord(1)}
-	tk, err := in.Reserve(context.Background(), demandFor(first))
-	if err != nil {
-		t.Fatalf("Reserve first: %v", err)
-	}
-	if err = in.Commit(tk, first); err != nil {
-		t.Fatalf("Commit first: %v", err)
-	}
+	mustCommit(t, in, first...)
 	if got := len(drainUpload(in)); got != 1 {
 		t.Fatalf("upload got %d, want 1", got)
 	}
 
 	// 预算已满 → 暂停投递；END 保存落本地并暂存为未扣配额。
 	save := []*recordv1.Record{saveRecord(2, savev1.SavePolicy_SAVE_POLICY_END)}
-	tk, err = in.Reserve(context.Background(), demandFor(save))
-	if err != nil {
-		t.Fatalf("Reserve save: %v", err)
-	}
-	if err = in.Commit(tk, save); err != nil {
-		t.Fatalf("Commit save: %v", err)
-	}
+	mustCommit(t, in, save...)
 	if got := waitStore(t, sink, 2); len(got) != 2 {
 		t.Fatalf("store got %d, want 2", len(got))
 	}
@@ -299,13 +293,7 @@ func TestPendingEndSaveUploadsAtClose(t *testing.T) {
 	in := newIntake(t, Options{Store: sink.ch, Budget: b, UploadQueue: 4})
 
 	save := []*recordv1.Record{saveRecord(1, savev1.SavePolicy_SAVE_POLICY_END)}
-	tk, err := in.Reserve(context.Background(), demandFor(save))
-	if err != nil {
-		t.Fatalf("Reserve: %v", err)
-	}
-	if err := in.Commit(tk, save); err != nil {
-		t.Fatalf("Commit: %v", err)
-	}
+	mustCommit(t, in, save...)
 	if got := len(drainUpload(in)); got != 0 {
 		t.Fatalf("upload before close got %d, want 0", got)
 	}
@@ -494,42 +482,47 @@ func TestPauseAndResume(t *testing.T) {
 	}
 }
 
-func TestCommitAfterResumeKeepsPausedTicket(t *testing.T) {
+func TestPausedTicketAfterResumeStartsNewInterval(t *testing.T) {
 	sink := newStoreSink(8)
 	defer sink.stop()
 	b := budget.New(budget.Limits{Records: 1})
 	in := newIntake(t, Options{Store: sink.ch, Budget: b, UploadQueue: 4})
 
 	first := []*recordv1.Record{scalarRecord(1)}
-	tk, err := in.Reserve(context.Background(), demandFor(first))
-	if err != nil {
-		t.Fatalf("Reserve first: %v", err)
-	}
-	if err = in.Commit(tk, first); err != nil {
-		t.Fatalf("Commit first: %v", err)
-	}
-
-	second := []*recordv1.Record{scalarRecord(2)}
-	tk, err = in.Reserve(context.Background(), demandFor(second))
-	if err != nil {
-		t.Fatalf("Reserve second: %v", err)
-	}
-	// 模拟恢复投递发生在 Commit 之前：票据仍按暂停处理，不能报超额。
-	in.ResumeUpload()
-	if err = in.Commit(tk, second); err != nil {
-		t.Fatalf("Commit after resume: %v", err)
-	}
+	mustCommit(t, in, first...)
 	if got := len(drainUpload(in)); got != 1 {
 		t.Fatalf("upload got %d, want 1", got)
 	}
-	if records, _ := b.Usage(); records != 1 {
-		t.Fatalf("budget usage = %d, want 1", records)
+
+	second := []*recordv1.Record{scalarRecord(2)}
+	tk := mustReserve(t, in, second...)
+	// 回填完成并恢复投递，旧票据随后才提交：必须开启新的回填区间，
+	// 不能既不投递又不记录 pauseSeq。
+	in.ResumeUpload()
+	if err := in.Commit(tk, second); err != nil {
+		t.Fatalf("Commit after resume: %v", err)
+	}
+	if got := len(drainUpload(in)); got != 0 {
+		t.Fatalf("upload got %d, want 0 (record must wait for backfill)", got)
+	}
+	if paused, seq := in.PauseState(); !paused || seq != 2 {
+		t.Fatalf("PauseState = (%v, %d), want (true, 2)", paused, seq)
 	}
 	if got := waitStore(t, sink, 2); len(got) != 2 {
 		t.Fatalf("store got %d, want 2", len(got))
 	}
+
+	// 模拟第二次回填完成后恢复，新记录应正常上传。
+	records, bytes := b.Usage()
+	b.Release(records, bytes)
+	in.ResumeUpload()
+	third := []*recordv1.Record{scalarRecord(3)}
+	mustCommit(t, in, third...)
+	if got := len(drainUpload(in)); got != 1 {
+		t.Fatalf("upload after second resume got %d, want 1", got)
+	}
 	if paused, seq := in.PauseState(); paused || seq != 0 {
-		t.Fatalf("PauseState after resume = (%v, %d), want (false, 0)", paused, seq)
+		t.Fatalf("PauseState = (%v, %d), want (false, 0)", paused, seq)
 	}
 }
 
@@ -638,69 +631,33 @@ func TestPausedBatchFallsBackToUploadWhenStoreDegrades(t *testing.T) {
 	in := newIntake(t, Options{Store: sink.ch, Budget: b, Degraded: &degraded, UploadQueue: 4})
 
 	first := []*recordv1.Record{scalarRecord(1)}
-	tk, err := in.Reserve(context.Background(), demandFor(first))
-	if err != nil {
-		t.Fatalf("Reserve first: %v", err)
-	}
-	if err = in.Commit(tk, first); err != nil {
-		t.Fatalf("Commit first: %v", err)
-	}
+	mustCommit(t, in, first...)
 	if got := len(drainUpload(in)); got != 1 {
 		t.Fatalf("upload got %d, want 1", got)
 	}
 
 	// 预算满 → 第二批按暂停处理；随后本地存储降级，Commit 必须改走上传。
 	second := []*recordv1.Record{scalarRecord(2)}
-	tk, err = in.Reserve(context.Background(), demandFor(second))
-	if err != nil {
-		t.Fatalf("Reserve second: %v", err)
-	}
+	tk := mustReserve(t, in, second...)
 	degraded.Store(true)
-	if err = in.Commit(tk, second); err != nil {
+	if err := in.Commit(tk, second); err != nil {
 		t.Fatalf("Commit second: %v", err)
 	}
 	if got := len(drainUpload(in)); got != 1 {
 		t.Fatalf("upload after degrade got %d, want 1 (paused batch must not be dropped)", got)
 	}
-	if got := waitStore(t, sink, 1); len(got) != 1 {
-		t.Fatalf("store got %d, want 1 (only the first record)", len(got))
-	}
-	if records, _ := b.Usage(); records != 2 {
-		t.Fatalf("budget usage = %d, want 2 (temporary overrun is allowed to avoid loss)", records)
-	}
-}
-
-func TestDegradedDoesNotMutateSkipStore(t *testing.T) {
-	sink := newStoreSink(4)
-	defer sink.stop()
-	b := budget.New(budget.Limits{})
-	var degraded atomic.Bool
-	in := newIntake(t, Options{Store: sink.ch, Budget: b, Degraded: &degraded, UploadQueue: 4})
-	if in.skipStore {
-		t.Fatal("skipStore = true before degrade, want false")
-	}
-
-	// 模拟磁盘写满：只有运行期 storeDegraded 置位，配置保持原样。
-	degraded.Store(true)
-	recs := []*recordv1.Record{scalarRecord(1)}
-	tk, err := in.Reserve(context.Background(), demandFor(recs))
-	if err != nil {
-		t.Fatalf("Reserve: %v", err)
-	}
-	if err = in.Commit(tk, recs); err != nil {
-		t.Fatalf("Commit: %v", err)
-	}
+	// 运行期降级只影响 local 判断，不得回写启动期配置。
 	if in.skipStore {
 		t.Fatal("storeDegraded must not rewrite the skip_store setting")
 	}
 	if in.storeOut == nil {
 		t.Fatal("store channel must stay configured after degrade")
 	}
-	if got := len(drainUpload(in)); got != 1 {
-		t.Fatalf("upload got %d, want 1", got)
+	if got := waitStore(t, sink, 1); len(got) != 1 {
+		t.Fatalf("store got %d, want 1 (only the first record)", len(got))
 	}
-	if got := len(sink.snapshot()); got != 0 {
-		t.Fatalf("store received %d records, want 0", got)
+	if records, _ := b.Usage(); records != 2 {
+		t.Fatalf("budget usage = %d, want 2 (temporary overrun is allowed to avoid loss)", records)
 	}
 }
 
@@ -743,16 +700,26 @@ func TestCommitUploadOnlyAfterClose(t *testing.T) {
 func TestCloseIsIdempotentAndRejectsCommits(t *testing.T) {
 	sink := newStoreSink(4)
 	defer sink.stop()
-	b := budget.New(budget.Limits{})
+	b := budget.New(budget.Limits{Records: 4})
 	in := newIntake(t, Options{Store: sink.ch, Budget: b, UploadQueue: 4})
 
-	if err := in.Close(context.Background()); err != nil {
+	tk, err := in.Reserve(context.Background(), Demand{Store: 1, Upload: 1, Bytes: 10})
+	if err != nil {
+		t.Fatalf("Reserve: %v", err)
+	}
+	if err = in.Close(context.Background()); err != nil {
 		t.Fatalf("Close: %v", err)
 	}
-	if err := in.Close(context.Background()); err != nil {
+	if err = in.Close(context.Background()); err != nil {
 		t.Fatalf("second Close: %v", err)
 	}
-	if _, err := in.Reserve(context.Background(), Demand{Store: 1, Upload: 1}); !errors.Is(err, ErrClosed) {
+	if err = in.Commit(tk, []*recordv1.Record{scalarRecord(1)}); !errors.Is(err, ErrClosed) {
+		t.Fatalf("Commit err = %v, want ErrClosed", err)
+	}
+	if records, bytes := b.Usage(); records != 0 || bytes != 0 {
+		t.Fatalf("budget usage = (%d, %d), want (0, 0)", records, bytes)
+	}
+	if _, err = in.Reserve(context.Background(), Demand{Store: 1, Upload: 1}); !errors.Is(err, ErrClosed) {
 		t.Fatalf("Reserve after close err = %v, want ErrClosed", err)
 	}
 }
@@ -855,4 +822,236 @@ func TestConcurrentCommits(t *testing.T) {
 	if got := len(drainUpload(in)); got != workers {
 		t.Fatalf("upload got %d, want %d", got, workers)
 	}
+}
+
+// TestPausedRecordsRecoverAfterStoreFailure 注入真实写盘失败：Commit 成功返回后
+// 关闭底层 Writer，AsyncWriter 写入/刷盘失败并置 storeDegraded；暂停期间未确认
+// 落盘的记录必须由 DrainRecovery 重新投入上传，不能丢。
+func TestPausedRecordsRecoverAfterStoreFailure(t *testing.T) {
+	w, err := store.Create(filepath.Join(t.TempDir(), "run-recover.swanlab"))
+	if err != nil {
+		t.Fatalf("store.Create: %v", err)
+	}
+	var degraded atomic.Bool
+	aw, err := store.NewAsyncWriter(w, store.AsyncOptions{
+		Queue:         8,
+		FlushInterval: time.Hour,
+		FlushBytes:    1 << 30,
+		OnError:       func(error) { degraded.Store(true) },
+	})
+	if err != nil {
+		t.Fatalf("NewAsyncWriter: %v", err)
+	}
+	defer func() { _ = aw.Close() }()
+
+	b := budget.New(budget.Limits{Records: 1})
+	in := newIntake(t, Options{
+		Store:       aw.In(),
+		Budget:      b,
+		Degraded:    &degraded,
+		UploadQueue: 8,
+		Flushed: func() uint64 {
+			seq, _ := aw.Flushed()
+			return seq
+		},
+	})
+
+	first := []*recordv1.Record{scalarRecord(1)}
+	tk, err := in.Reserve(context.Background(), demandFor(first))
+	if err != nil {
+		t.Fatalf("Reserve first: %v", err)
+	}
+	if err = in.Commit(tk, first); err != nil {
+		t.Fatalf("Commit first: %v", err)
+	}
+	if got := len(drainUpload(in)); got != 1 {
+		t.Fatalf("upload got %d, want 1", got)
+	}
+
+	// 预算耗尽 → 第二批只落本地并保留未确认引用。
+	second := []*recordv1.Record{scalarRecord(2)}
+	tk, err = in.Reserve(context.Background(), demandFor(second))
+	if err != nil {
+		t.Fatalf("Reserve second: %v", err)
+	}
+	if err = in.Commit(tk, second); err != nil {
+		t.Fatalf("Commit second: %v", err)
+	}
+	if paused, seq := in.PauseState(); !paused || seq != 2 {
+		t.Fatalf("PauseState = (%v, %d), want (true, 2)", paused, seq)
+	}
+
+	// 真实故障：关闭底层文件，强制 AsyncWriter 在后续写入/刷盘时报错。
+	if err = w.Close(); err != nil {
+		t.Fatalf("close writer: %v", err)
+	}
+	_ = aw.FlushForTest()
+	deadline := time.After(time.Second)
+	for !degraded.Load() {
+		select {
+		case <-deadline:
+			t.Fatal("storeDegraded was not set after write failure")
+		default:
+			time.Sleep(time.Millisecond)
+		}
+	}
+
+	remaining, err := in.DrainRecovery(context.Background())
+	if err != nil {
+		t.Fatalf("DrainRecovery: %v", err)
+	}
+	if remaining != 0 {
+		t.Fatalf("recovery remaining = %d, want 0", remaining)
+	}
+	got := drainUpload(in)
+	if len(got) != 1 || got[0].GetNum() != 2 {
+		t.Fatalf("recovered upload = %v, want record num 2", recordNums(got))
+	}
+}
+
+// TestPausedThenDegradedUsesBudgetBackpressure 覆盖“先暂停、后降级”：
+// 降级后不得再走 paused 快路径，必须回到有界预算反压。
+func TestPausedThenDegradedUsesBudgetBackpressure(t *testing.T) {
+	sink := newStoreSink(8)
+	defer sink.stop()
+	b := budget.New(budget.Limits{Records: 1})
+	if !b.TryAcquire(1, 0) {
+		t.Fatal("seed TryAcquire = false")
+	}
+	var degraded atomic.Bool
+	in := newIntake(t, Options{
+		Store:       sink.ch,
+		Budget:      b,
+		Degraded:    &degraded,
+		UploadQueue: 4,
+		QueueWait:   30 * time.Millisecond,
+	})
+
+	first := []*recordv1.Record{scalarRecord(1)}
+	mustCommit(t, in, first...)
+	if paused, seq := in.PauseState(); !paused || seq != 1 {
+		t.Fatalf("PauseState = (%v, %d), want (true, 1)", paused, seq)
+	}
+
+	degraded.Store(true)
+	start := time.Now()
+	_, err := in.Reserve(context.Background(), demandFor([]*recordv1.Record{scalarRecord(2)}))
+	elapsed := time.Since(start)
+	if !errors.Is(err, ErrOverloaded) {
+		t.Fatalf("Reserve err = %v, want ErrOverloaded", err)
+	}
+	if elapsed < 20*time.Millisecond {
+		t.Fatalf("Reserve returned in %v, want bounded wait", elapsed)
+	}
+	if got := len(sink.snapshot()); got != 1 {
+		t.Fatalf("store got %d, want 1 (rejected batch must not write)", got)
+	}
+	if records, _ := b.Usage(); records != 1 {
+		t.Fatalf("budget usage = %d, want 1 (failed reserve must not change state)", records)
+	}
+
+	// 释放预算后，降级路径应能正常占用配额并只走上传。
+	records, bytes := b.Usage()
+	b.Release(records, bytes)
+	mustCommit(t, in, scalarRecord(3))
+	if got := len(drainUpload(in)); got != 1 {
+		t.Fatalf("upload got %d, want 1", got)
+	}
+}
+
+// TestUploadQueueFullBackpressuresReserve 验证上传通道满时在 Reserve 阶段
+// 有界反压，而不是在 Commit 持锁无界阻塞。
+func TestUploadQueueFullBackpressuresReserve(t *testing.T) {
+	sink := newStoreSink(8)
+	defer sink.stop()
+	b := budget.New(budget.Limits{})
+	in := newIntake(t, Options{
+		Store:       sink.ch,
+		Budget:      b,
+		UploadQueue: 1,
+		QueueWait:   25 * time.Millisecond,
+	})
+
+	first := []*recordv1.Record{scalarRecord(1)}
+	tk, err := in.Reserve(context.Background(), demandFor(first))
+	if err != nil {
+		t.Fatalf("Reserve first: %v", err)
+	}
+	if err = in.Commit(tk, first); err != nil {
+		t.Fatalf("Commit first: %v", err)
+	}
+
+	start := time.Now()
+	_, err = in.Reserve(context.Background(), demandFor([]*recordv1.Record{scalarRecord(2)}))
+	elapsed := time.Since(start)
+	if !errors.Is(err, ErrOverloaded) {
+		t.Fatalf("Reserve err = %v, want ErrOverloaded", err)
+	}
+	if elapsed < 20*time.Millisecond || elapsed > time.Second {
+		t.Fatalf("Reserve blocked for %v, want bounded wait", elapsed)
+	}
+
+	done := make(chan error, 1)
+	go func() { done <- in.Close(context.Background()) }()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("Close: %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("Close blocked on upload queue")
+	}
+}
+
+// TestPausedBatchUsesRecoveryWhenUploadQueueFull 覆盖暂停票据在降级后
+// 上传通道也满的情况：不得持锁阻塞，记录暂存回收队列，等通道腾空后补传。
+func TestPausedBatchUsesRecoveryWhenUploadQueueFull(t *testing.T) {
+	sink := newStoreSink(8)
+	defer sink.stop()
+	b := budget.New(budget.Limits{Records: 1})
+	var degraded atomic.Bool
+	in := newIntake(t, Options{
+		Store:       sink.ch,
+		Budget:      b,
+		Degraded:    &degraded,
+		UploadQueue: 1,
+	})
+
+	first := []*recordv1.Record{scalarRecord(1)}
+	mustCommit(t, in, first...)
+
+	second := []*recordv1.Record{scalarRecord(2)}
+	tk := mustReserve(t, in, second...)
+	degraded.Store(true)
+	if err := in.Commit(tk, second); err != nil {
+		t.Fatalf("Commit second: %v", err)
+	}
+	if n, err := in.DrainRecovery(context.Background()); n != 1 || err != nil {
+		t.Fatalf("DrainRecovery = (%d, %v), want (1, nil) while channel is full", n, err)
+	}
+
+	if got := len(drainUpload(in)); got != 1 {
+		t.Fatalf("upload got %d, want 1 (only the first record)", got)
+	}
+	if n, err := in.DrainRecovery(context.Background()); n != 0 || err != nil {
+		t.Fatalf("DrainRecovery = (%d, %v), want (0, nil)", n, err)
+	}
+	got := drainUpload(in)
+	if len(got) != 1 || got[0].GetNum() != 2 {
+		t.Fatalf("recovered upload = %v, want record num 2", recordNums(got))
+	}
+	if records, _ := b.Usage(); records != 2 {
+		t.Fatalf("budget usage = %d, want 2", records)
+	}
+	if got := waitStore(t, sink, 1); len(got) != 1 {
+		t.Fatalf("store got %d, want 1 (only the first record)", len(got))
+	}
+}
+
+func recordNums(recs []*recordv1.Record) []int64 {
+	nums := make([]int64, len(recs))
+	for i, rec := range recs {
+		nums[i] = rec.GetNum()
+	}
+	return nums
 }
