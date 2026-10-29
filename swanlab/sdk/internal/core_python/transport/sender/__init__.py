@@ -246,51 +246,50 @@ class HttpRecordSender:
         )
 
     def upload_histogram(self, records: Sequence[Record]) -> UploadResult:
-        """上传直方图指标，data 携带每桶计数与桶边界两组数组。"""
-        metrics: UploadHistogramBatch = []
-        confirmed: List[Record] = []
+        """每批最多上传 512 条直方图指标，按批编码每桶计数与桶边界。"""
+        valid_records: List[Record] = []
         blocked: List[Record] = []
         for record in records:
             if not record.HasField("histogram") or not record.histogram.HasField("timestamp"):
                 blocked.append(record)
                 continue
-            histogram_record = record.histogram
-            metric: UploadHistogram = {
-                "key": histogram_record.key,
-                "index": histogram_record.step,
-                "data": {
-                    "_type": "histogram",
-                    "values": list(histogram_record.value.values),
-                    "bins": list(histogram_record.value.bins),
-                },
-                "create_time": histogram_record.timestamp.ToJsonString(),
-            }
-            metrics.append(metric)
-            confirmed.append(record)
-        console.debug(f"HTTP upload: upload_histogram with metrics count: {len(metrics)}")
-        if not metrics:
-            return UploadResult(
-                confirmed_records=list(records),
-                failures=[
-                    self._blocked_failure(blocked or list(records), "histogram record without value or timestamp")
-                ],
-            )
-        try:
-            upload_histogram(self._project_id, self._experiment_id, metrics=metrics)
-        except requests.RequestException as e:
-            failures = [transport_failure(confirmed, e)]
-            if blocked:
-                failures.append(self._blocked_failure(blocked, "histogram record without value or timestamp"))
-            retryable = is_retryable_error(e)
-            return UploadResult(
-                confirmed_records=blocked + ([] if retryable else confirmed),
-                remaining_records=confirmed if retryable else [],
-                failures=failures,
-            )
-        return UploadResult(
-            confirmed_records=confirmed + blocked,
-            failures=[self._blocked_failure(blocked, "histogram record without value or timestamp")] if blocked else [],
+            valid_records.append(record)
+
+        confirmed: List[Record] = list(blocked)
+        failures: List[UploadFailure] = (
+            [self._blocked_failure(blocked, "histogram record without value or timestamp")] if blocked else []
         )
+        batch_size = 512
+        for start in range(0, len(valid_records), batch_size):
+            # 按 512 条 histogram record 进行分片
+            batch = valid_records[start : start + batch_size]
+            metrics: UploadHistogramBatch = []
+            for record in batch:
+                histogram_record = record.histogram
+                metric: UploadHistogram = {
+                    "key": histogram_record.key,
+                    "index": histogram_record.step,
+                    "data": {
+                        "_type": "histogram",
+                        "values": list(histogram_record.value.values),
+                        "bins": list(histogram_record.value.bins),
+                    },
+                    "create_time": histogram_record.timestamp.ToJsonString(),
+                }
+                metrics.append(metric)
+            console.debug(f"HTTP upload: upload_histogram with metrics count: {len(metrics)}")
+            try:
+                upload_histogram(self._project_id, self._experiment_id, metrics=metrics)
+            except requests.RequestException as e:
+                failures.append(transport_failure(batch, e))
+                if is_retryable_error(e):
+                    return UploadResult(
+                        confirmed_records=confirmed,
+                        remaining_records=valid_records[start:],
+                        failures=failures,
+                    )
+            confirmed.extend(batch)
+        return UploadResult(confirmed_records=confirmed, failures=failures)
 
     def upload_media(self, records: Sequence[Record]) -> UploadResult:
         """收集媒体上传任务，上传至对象存储后提交媒体指标。"""

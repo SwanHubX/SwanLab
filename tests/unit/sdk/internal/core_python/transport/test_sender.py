@@ -1847,6 +1847,71 @@ def test_upload_histogram_without_timestamp_is_blocked(tmp_path: Path):
     assert "timestamp" in result.failures[0].message
 
 
+@pytest.mark.parametrize("count, batch_sizes", [(0, []), (512, [512]), (513, [512, 1]), (1025, [512, 512, 1])])
+def test_upload_histogram_splits_batches(tmp_path: Path, count, batch_sizes):
+    sender = _make_sender(tmp_path)
+    records = [_make_histogram_record(step=step) for step in range(count)]
+    with patch("swanlab.sdk.internal.core_python.transport.sender.upload_histogram") as upload:
+        result = sender.upload_histogram(records)
+
+    batches = [call.kwargs["metrics"] for call in upload.call_args_list]
+    assert [len(batch) for batch in batches] == batch_sizes
+    assert [metric["index"] for batch in batches for metric in batch] == list(range(count))
+    assert result.confirmed_records == records
+    assert result.remaining_records == []
+    assert result.failures == []
+
+
+@pytest.mark.parametrize("successful_batches", [0, 1])
+@pytest.mark.parametrize("status", [None, 503])
+def test_upload_histogram_retry_excludes_successful_batches(tmp_path: Path, successful_batches, status):
+    sender = _make_sender(tmp_path)
+    records = [_make_histogram_record(step=step) for step in range(1025)]
+    blocked = _make_histogram_record(key="missing-timestamp")
+    blocked.histogram.ClearField("timestamp")
+    error = requests.Timeout("histogram upload timed out") if status is None else _make_api_error(status)
+    offset = successful_batches * 512
+    with patch(
+        "swanlab.sdk.internal.core_python.transport.sender.upload_histogram",
+        side_effect=[None] * successful_batches + [error],
+    ) as upload:
+        result = sender.upload_histogram(records[:512] + [blocked] + records[512:])
+
+    assert upload.call_count == successful_batches + 1
+    assert result.confirmed_records == [blocked] + records[:offset]
+    assert result.remaining_records == records[offset:]
+    assert [failure.records for failure in result.failures] == [[blocked], records[offset : offset + 512]]
+    assert result.failures[1].exception is error
+
+    with patch("swanlab.sdk.internal.core_python.transport.sender.upload_histogram") as retry_upload:
+        retried = sender.upload_histogram(result.remaining_records)
+
+    assert [len(call.kwargs["metrics"]) for call in retry_upload.call_args_list] == [512] * (2 - successful_batches) + [
+        1
+    ]
+    assert retry_upload.call_args_list[0].kwargs["metrics"][0]["index"] == offset
+    assert retried.confirmed_records == records[offset:]
+    assert retried.remaining_records == []
+    assert retried.failures == []
+
+
+def test_upload_histogram_terminal_failure_continues_later_batches(tmp_path: Path):
+    sender = _make_sender(tmp_path)
+    records = [_make_histogram_record(step=step) for step in range(1025)]
+    error = _make_api_error(400)
+    with patch(
+        "swanlab.sdk.internal.core_python.transport.sender.upload_histogram", side_effect=[None, error, None]
+    ) as upload:
+        result = sender.upload_histogram(records)
+
+    assert upload.call_count == 3
+    assert result.confirmed_records == records
+    assert result.remaining_records == []
+    assert len(result.failures) == 1
+    assert result.failures[0].records == records[512:1024]
+    assert result.failures[0].status == 400
+
+
 def test_handler_registered_for_histogram(tmp_path: Path):
     """transport 分桶后的 record_type='histogram' 能找到对应 handler。"""
     sender = _make_sender(tmp_path)

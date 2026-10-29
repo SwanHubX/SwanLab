@@ -145,3 +145,20 @@ def test_upload_histogram_empty_batch_skips_http(placeholder_client, tmp_path: P
     sender = _make_sender(tmp_path)
     sender.upload("histogram", [])
     assert placeholder_client.metrics_requests == []
+
+
+def test_upload_histogram_splits_http_requests(placeholder_client, tmp_path: Path):
+    sender = _make_sender(tmp_path)
+    records = [_make_histogram_record(step=step) for step in range(513)]
+
+    result = sender.upload("histogram", records)
+
+    requests = placeholder_client.metrics_requests
+    assert [len(request["metrics"]) for request in requests] == [512, 1]
+    assert all(request["type"] == "histogram" for request in requests)
+    metrics = [metric for request in requests for metric in request["metrics"]]
+    assert [metric["index"] for metric in metrics] == list(range(513))
+    assert all("epoch" not in metric for metric in metrics)
+    assert result.confirmed_records == records
+    assert result.remaining_records == []
+    assert result.failures == []

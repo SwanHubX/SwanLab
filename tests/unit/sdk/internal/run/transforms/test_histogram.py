@@ -25,27 +25,34 @@ class TestSequenceInput:
         assert len(h.bins) == 65
         assert sum(h.values) == 128
 
-    def test_int_bins(self):
+    @pytest.mark.parametrize("bins", [4, np.int64(4), np.uint64(4)])
+    def test_int_bins(self, bins):
         """指定桶数"""
-        h = Histogram([1, 2, 3, 4, 5], bins=4)
+        h = Histogram([1, 2, 3, 4, 5], bins=bins)
         assert len(h.values) == 4
         assert len(h.bins) == 5
 
-    @pytest.mark.parametrize("bins", [[-1.5, 0.0, 0.75, 3.0], (-1.5, 0.0, 0.75, 3.0)])
+    @pytest.mark.parametrize("bins", [[-1.5, 0.0, 0.75, 3.0], (-1.5, 0.0, 0.75, 3.0), np.array([-1.5, 0.0, 0.75, 3.0])])
     def test_explicit_edges(self, bins):
         """显式边界序列，含小数"""
         h = Histogram([0.5, 1.5, 2.5], bins=bins)
         assert h.values == [0, 1, 2]
         assert h.bins == [-1.5, 0.0, 0.75, 3.0]
 
+    def test_range_edges(self):
+        h = Histogram([0.5, 1.5, 2.5], bins=range(4))
+        assert h.values == [1, 1, 1]
+        assert h.bins == [0.0, 1.0, 2.0, 3.0]
+
     def test_numpy_semantics_last_bin_closed(self):
         """除最后一桶外左闭右开，最后一桶包含右端点（numpy 语义）"""
         h = Histogram([0.0, 1.0, 2.0, 3.0], bins=[0, 1, 2, 3])
         assert h.values == [1, 1, 2]
 
-    def test_num_bins_compat(self):
+    @pytest.mark.parametrize("num_bins", [2, np.int64(2), np.uint64(2)])
+    def test_num_bins_compat(self, num_bins):
         """num_bins 向下兼容 wandb 的桶数参数"""
-        h = Histogram([1, 2, 3], num_bins=2)
+        h = Histogram([1, 2, 3], num_bins=num_bins)
         assert len(h.values) == 2
 
     def test_tensor_sequence(self):
@@ -64,6 +71,12 @@ class TestSequenceInput:
         with pytest.raises(ValueError, match="between 1 and 512"):
             Histogram([1, 2, 3], bins=0)
 
+    @pytest.mark.parametrize("count", [np.int64(0), np.int64(-1), np.uint64(513), np.uint64(2**64 - 1)])
+    @pytest.mark.parametrize("parameter", ["bins", "num_bins"])
+    def test_numpy_bucket_count_out_of_range(self, count, parameter):
+        with pytest.raises(ValueError, match="between 1 and 512"):
+            Histogram([1, 2, 3], **{parameter: count})
+
     def test_edges_bucket_count_out_of_range(self):
         edges = [float(i) for i in range(514)]
         with pytest.raises(ValueError, match="must not exceed 512"):
@@ -73,14 +86,19 @@ class TestSequenceInput:
         with pytest.raises(ValueError, match="At least 1 bucket"):
             Histogram([1, 2, 3], bins=[1.0])
 
-    @pytest.mark.parametrize("bins", ["64", True, np.array([0.0, 1.0, 2.0])])
+    @pytest.mark.parametrize("bins", ["64", True, [0, "1"], np.array([0 + 1j, 1 + 2j])])
     def test_bins_wrong_type(self, bins):
         with pytest.raises(TypeError):
             Histogram([1, 2, 3], bins=bins)
 
+    @pytest.mark.parametrize("bins", [np.array([[0, 1], [2, 3]]), np.array(2)])
+    def test_edges_wrong_dimension(self, bins):
+        with pytest.raises(ValueError, match="one-dimensional"):
+            Histogram([1, 2, 3], bins=bins)
+
     @pytest.mark.parametrize("num_bins", ["64", 2.0, True])
     def test_num_bins_wrong_type(self, num_bins):
-        with pytest.raises(TypeError, match="num_bins must be an int"):
+        with pytest.raises(TypeError, match="num_bins must be an integer bucket count"):
             Histogram([1, 2, 3], num_bins=num_bins)
 
     def test_sequence_missing(self):

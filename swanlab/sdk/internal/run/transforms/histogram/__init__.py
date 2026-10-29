@@ -6,21 +6,24 @@
 """
 
 import math
-from typing import List, Optional, Sequence, Tuple, Union
+from numbers import Integral
+from typing import List, Optional, Tuple
 
 from swanlab import vendor
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import HistogramValue
 from swanlab.sdk.internal.context import TransformHistogram
 from swanlab.sdk.internal.pkg import console
+from swanlab.sdk.typings.run.transforms.histogram import (
+    HistogramBinCount,
+    HistogramBins,
+    HistogramInput,
+    NumericSequence,
+)
 
 MAX_BUCKETS = 512
 MIN_BUCKETS = 1
 MAX_COUNT = (1 << 64) - 1
-
-Number = Union[int, float]
-NumericSequence = Union[Sequence[Number], "vendor.np.ndarray"]
-HistogramInput = Union[NumericSequence, "Histogram"]
 
 
 class Histogram(TransformHistogram):
@@ -29,9 +32,10 @@ class Histogram(TransformHistogram):
     两种输入方式互斥：原始序列 sequence 由 SDK 内部分桶，预分桶结果 np_histogram 直接采用，
     提供 np_histogram 时 sequence、bins、num_bins 均被忽略。
 
-    :param sequence: 原始样本序列，支持 list/tuple 与 numpy 数组
-    :param bins: 桶数（1..512 的整数，按序列最小/最大值等宽分桶）或桶边界序列（N+1 个
-        单调递增值），默认 64 个等宽桶
+    :param sequence: 原始样本序列，支持 list/tuple 与 numpy 数组。PyTorch Tensor 请先调用
+        tensor.detach().cpu().numpy() 转换；带梯度或位于 GPU 上的 Tensor 不能直接传入。
+    :param bins: 桶数（1..512 的 Python / NumPy 整数，按序列最小/最大值等宽分桶）
+        或桶边界序列（N+1 个单调递增值，支持 numpy 数组），默认 64 个等宽桶
     :param num_bins: 向下兼容 wandb 的桶数参数，语义与整数形式的 bins 相同，与 bins 同时
         显式给出视为矛盾输入
     :param np_histogram: 预分桶结果 (counts, bin_edges)，提供时优先于 sequence
@@ -40,9 +44,9 @@ class Histogram(TransformHistogram):
     def __init__(
         self,
         sequence: Optional[HistogramInput] = None,
-        bins: Optional[Union[int, Sequence[Number]]] = None,
+        bins: Optional[HistogramBins] = None,
         *,
-        num_bins: Optional[int] = None,
+        num_bins: Optional[HistogramBinCount] = None,
         np_histogram: Optional[Tuple[NumericSequence, NumericSequence]] = None,
     ):
         super().__init__()
@@ -63,8 +67,8 @@ class Histogram(TransformHistogram):
         if sequence is None:
             raise ValueError("Either sequence or np_histogram must be provided")
 
-        if num_bins is not None and (isinstance(num_bins, bool) or not isinstance(num_bins, int)):
-            raise TypeError(f"num_bins must be an int, got {type(num_bins).__name__}")
+        if num_bins is not None and (isinstance(num_bins, bool) or not isinstance(num_bins, Integral)):
+            raise TypeError(f"num_bins must be an integer bucket count, got {type(num_bins).__name__}")
         if bins is not None and num_bins is not None:
             raise ValueError("bins and num_bins are mutually exclusive, got both")
         effective_bins = bins if bins is not None else (num_bins if num_bins is not None else 64)
@@ -87,10 +91,11 @@ class Histogram(TransformHistogram):
 
     def _init_from_sequence(self, sequence, bins) -> None:
         """原始序列输入：过滤非有限值后调用 numpy 分桶。"""
-        if isinstance(bins, bool) or not isinstance(bins, (int, list, tuple)):
-            raise TypeError(f"bins must be an int or a sequence of floats, got {type(bins).__name__}")
+        if isinstance(bins, bool):
+            raise TypeError("bins must be an integer bucket count or a sequence of floats, got bool")
 
-        if isinstance(bins, int):
+        if isinstance(bins, Integral):
+            bins = int(bins)
             if not (MIN_BUCKETS <= bins <= MAX_BUCKETS):
                 raise ValueError(f"The number of buckets must be between {MIN_BUCKETS} and {MAX_BUCKETS}, got {bins}")
             finite = self._finite_values(sequence)
