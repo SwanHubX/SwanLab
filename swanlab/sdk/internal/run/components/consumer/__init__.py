@@ -12,7 +12,7 @@ from abc import ABC
 from typing import Any, Dict, List, Tuple, Union
 
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord
-from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord, ScalarRecord, ScalarValue
+from swanlab.proto.swanlab.metric.data.v1.data_pb2 import HistogramRecord, MediaRecord, ScalarRecord, ScalarValue
 from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord
 from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogRecord
 from swanlab.sdk.internal.bus.emitter import RunQueue
@@ -34,8 +34,9 @@ LogBatch = List[LogRecord]
 ColumnBatch = List[ColumnRecord]
 ScalarBatch = List[ScalarRecord]
 MediaBatch = List[MediaRecord]
+HistogramBatch = List[HistogramRecord]
 SaveBatch = List[SaveRecord]
-BatchTuple = Tuple[LogBatch, ColumnBatch, ScalarBatch, MediaBatch, SaveBatch]
+BatchTuple = Tuple[LogBatch, ColumnBatch, ScalarBatch, MediaBatch, HistogramBatch, SaveBatch]
 
 
 class ConsumerProtocol(ABC):
@@ -89,6 +90,7 @@ class BackgroundConsumer(ConsumerProtocol):
         self._column_batch: ColumnBatch = []
         self._media_batch: MediaBatch = []
         self._scalar_batch: ScalarBatch = []
+        self._histogram_batch: HistogramBatch = []
         self._save_batch: SaveBatch = []
 
     def start(self) -> None:
@@ -108,6 +110,7 @@ class BackgroundConsumer(ConsumerProtocol):
             + len(self._column_batch)
             + len(self._scalar_batch)
             + len(self._media_batch)
+            + len(self._histogram_batch)
             + len(self._save_batch)
         )
 
@@ -125,12 +128,14 @@ class BackgroundConsumer(ConsumerProtocol):
             self._column_batch,
             self._scalar_batch,
             self._media_batch,
+            self._histogram_batch,
             self._save_batch,
         )
         self._log_batch = []
         self._column_batch = []
         self._scalar_batch = []
         self._media_batch = []
+        self._histogram_batch = []
         self._save_batch = []
         return batches
 
@@ -140,6 +145,7 @@ class BackgroundConsumer(ConsumerProtocol):
         column_batch: ColumnBatch,
         scalar_batch: ScalarBatch,
         media_batch: MediaBatch,
+        histogram_batch: HistogramBatch,
         save_batch: SaveBatch,
     ) -> None:
         # 失败的旧数据插回队头，优先于 flush 期间新进来的数据重试
@@ -151,6 +157,8 @@ class BackgroundConsumer(ConsumerProtocol):
             self._scalar_batch[:0] = scalar_batch
         if media_batch:
             self._media_batch[:0] = media_batch
+        if histogram_batch:
+            self._histogram_batch[:0] = histogram_batch
         if save_batch:
             self._save_batch[:0] = save_batch
 
@@ -223,9 +231,17 @@ class BackgroundConsumer(ConsumerProtocol):
                 if data_record is None:
                     console.warning(f"Metric '{key}' at step {event.step} returned no data, skipped")
                     continue
-                metric_class = "SCALAR" if isinstance(data_record, ScalarRecord) else "MEDIA"
+                metric_class = self._metric_class_of(data_record)
                 self._resolver.resolve_concrete(key, metric_class)  # 仅登记钉住，不物化
                 self._append_data_record(data_record)
+
+    @staticmethod
+    def _metric_class_of(data_record: Union[ScalarRecord, MediaRecord, HistogramRecord]) -> str:
+        if isinstance(data_record, ScalarRecord):
+            return "SCALAR"
+        if isinstance(data_record, HistogramRecord):
+            return "HISTOGRAM"
+        return "MEDIA"
 
     def _log_define(self, event: MetricLogEvent, data: Dict[str, Any]) -> None:
         """有 define 路径：预扫描/候选注入（存在 custom X 规则时）→ 构建 + 物化 define
@@ -295,7 +311,7 @@ class BackgroundConsumer(ConsumerProtocol):
                 # 4.2 物化 ColumnRecord，resolver侧保证仅对define过的 key 物化一次，后续 log 不再重复发 ColumnRecord
                 # 对于未define的key，物化行为依旧交给core自动处理
                 is_scalar = isinstance(data_record, ScalarRecord)
-                metric_class = "SCALAR" if is_scalar else "MEDIA"
+                metric_class = self._metric_class_of(data_record)
                 concrete = self._resolver.resolve_concrete(key, metric_class)
                 col = self._resolver.materialize_column(key, metric_class, data_record.type)
                 if col is not None:
@@ -337,23 +353,27 @@ class BackgroundConsumer(ConsumerProtocol):
                 if isinstance(injected_record, ScalarRecord):
                     self._scalar_batch.append(injected_record)
 
-    def _append_data_record(self, data_record: Union[ScalarRecord, MediaRecord]) -> None:
+    def _append_data_record(self, data_record: Union[ScalarRecord, MediaRecord, HistogramRecord]) -> None:
         """按类型把 data record 追加到对应批次。"""
         if isinstance(data_record, ScalarRecord):
             self._scalar_batch.append(data_record)
+        elif isinstance(data_record, HistogramRecord):
+            self._histogram_batch.append(data_record)
         else:
             self._media_batch.append(data_record)
 
     def _flush(self) -> None:
         if self._batch_empty:
             return
-        log_batch, column_batch, scalar_batch, media_batch, save_batch = self._take_batches()
+        log_batch, column_batch, scalar_batch, media_batch, histogram_batch, save_batch = self._take_batches()
         # 某一步失败时，只回塞"当前未成功提交"的部分，避免重复写入
         # 提交失败时静默显示在 debug 日志中，不打印到控制台
         with safe.block(
             message="Error when flushing batch",
             write_to_tty=False,
-            on_error=lambda _: self._restore_batches(log_batch, column_batch, scalar_batch, media_batch, save_batch),
+            on_error=lambda _: self._restore_batches(
+                log_batch, column_batch, scalar_batch, media_batch, histogram_batch, save_batch
+            ),
         ):
             if log_batch:
                 console.debug(f"Flushing log records to core: count={len(log_batch)}", write_to_tty=False)
@@ -381,6 +401,11 @@ class BackgroundConsumer(ConsumerProtocol):
                 self._core.upsert_media(media_batch)
                 self._callbacker.on_media_flush(media_batch)
                 media_batch = []
+
+            if histogram_batch:
+                self._core.upsert_histograms(histogram_batch)
+                self._callbacker.on_histogram_flush(histogram_batch)
+                histogram_batch = []
 
             if save_batch:
                 self._core.upsert_saves(save_batch)

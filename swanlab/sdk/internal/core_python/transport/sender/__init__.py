@@ -22,6 +22,7 @@ from swanlab.sdk.internal.core_python.api.upload import (
     upload_columns,
     upload_conda,
     upload_config,
+    upload_histogram,
     upload_log,
     upload_media,
     upload_metadata,
@@ -32,6 +33,8 @@ from swanlab.sdk.internal.core_python.context import CoreContext
 from swanlab.sdk.internal.pkg import adapter, client, console
 from swanlab.sdk.typings.core_python.api.upload import (
     UploadColumn,
+    UploadHistogram,
+    UploadHistogramBatch,
     UploadLog,
     UploadLogBatch,
     UploadMediaBatch,
@@ -66,6 +69,7 @@ class HttpRecordSender:
             "column": self.upload_column,
             "scalar": self.upload_scalar,
             "media": self.upload_media,
+            "histogram": self.upload_histogram,
             "log": self.upload_log,
             "save": self.upload_save,
         }
@@ -239,6 +243,55 @@ class HttpRecordSender:
         return UploadResult(
             confirmed_records=confirmed + blocked,
             failures=[self._blocked_failure(blocked, "log record without line or timestamp")] if blocked else [],
+        )
+
+    def upload_histogram(self, records: Sequence[Record]) -> UploadResult:
+        """上传直方图指标，data 携带每桶计数与桶边界两组数组。"""
+        metrics: UploadHistogramBatch = []
+        confirmed: List[Record] = []
+        blocked: List[Record] = []
+        for record in records:
+            if not record.HasField("histogram") or not record.histogram.HasField("timestamp"):
+                blocked.append(record)
+                continue
+            histogram_record = record.histogram
+            metric: UploadHistogram = {
+                "key": histogram_record.key,
+                # Histogram 未记录训练轮次，显式使用 0，避免 House 转发 null。
+                "epoch": 0,
+                "index": histogram_record.step,
+                "data": {
+                    "_type": "histogram",
+                    "values": list(histogram_record.value.values),
+                    "bins": list(histogram_record.value.bins),
+                },
+                "create_time": histogram_record.timestamp.ToJsonString(),
+            }
+            metrics.append(metric)
+            confirmed.append(record)
+        console.debug(f"HTTP upload: upload_histogram with metrics count: {len(metrics)}")
+        if not metrics:
+            return UploadResult(
+                confirmed_records=list(records),
+                failures=[
+                    self._blocked_failure(blocked or list(records), "histogram record without value or timestamp")
+                ],
+            )
+        try:
+            upload_histogram(self._project_id, self._experiment_id, metrics=metrics)
+        except requests.RequestException as e:
+            failures = [transport_failure(confirmed, e)]
+            if blocked:
+                failures.append(self._blocked_failure(blocked, "histogram record without value or timestamp"))
+            retryable = is_retryable_error(e)
+            return UploadResult(
+                confirmed_records=blocked + ([] if retryable else confirmed),
+                remaining_records=confirmed if retryable else [],
+                failures=failures,
+            )
+        return UploadResult(
+            confirmed_records=confirmed + blocked,
+            failures=[self._blocked_failure(blocked, "histogram record without value or timestamp")] if blocked else [],
         )
 
     def upload_media(self, records: Sequence[Record]) -> UploadResult:

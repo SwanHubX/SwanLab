@@ -10,7 +10,14 @@ from requests.sessions import Session
 
 from swanlab.exceptions import ApiError
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnClass, ColumnRecord, ColumnType
-from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaItem, MediaRecord, MediaValue, ScalarRecord, ScalarValue
+from swanlab.proto.swanlab.metric.data.v1.data_pb2 import (
+    HistogramRecord,
+    MediaItem,
+    MediaRecord,
+    MediaValue,
+    ScalarRecord,
+    ScalarValue,
+)
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord, SaveType
 from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogLevel, LogRecord
@@ -154,6 +161,20 @@ def _make_log_record() -> Record:
 
 def _make_column_record() -> Record:
     return Record(column=ColumnRecord(column_key="metric-0", column_type=ColumnType.COLUMN_TYPE_SCALAR))
+
+
+def _make_histogram_record(key: str = "train/w", step: int = 3) -> Record:
+    ts = Timestamp()
+    ts.GetCurrentTime()
+    return Record(
+        histogram=HistogramRecord(
+            key=key,
+            step=step,
+            type=ColumnType.COLUMN_TYPE_HISTOGRAM,
+            timestamp=ts,
+            value={"values": [2, 5, 0], "bins": [-1.0, 0.0, 0.5, 2.0]},
+        )
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -1618,6 +1639,7 @@ _RETRY_CONTRACT_CASES = [
     pytest.param("scalar", "upload_scalar", _make_scalar_record, id="scalar"),
     pytest.param("log", "upload_log", _make_log_record, id="log"),
     pytest.param("column", "upload_columns", _make_column_record, id="column"),
+    pytest.param("histogram", "upload_histogram", _make_histogram_record, id="histogram"),
 ]
 
 _RETRIES_ZERO_CASES = [
@@ -1638,6 +1660,12 @@ _RETRIES_ZERO_CASES = [
         ("pid", "eid"),
         {"metrics": [{"key": "img", "index": 0, "data": [], "more": [], "create_time": "2024-01-01T00:00:00+08:00"}]},
         id="media",
+    ),
+    pytest.param(
+        upload_api.upload_histogram,
+        ("pid", "eid"),
+        {"metrics": [{"key": "w", "epoch": 0, "index": 0, "data": {"values": [1], "bins": [0.0, 1.0]}}]},
+        id="histogram",
     ),
     pytest.param(upload_api.upload_columns, ("user", "proj"), {"columns": {"series": [{"key": "loss"}]}}, id="column"),
     pytest.param(upload_api.upload_conda, ("user", "proj", "eid"), {"content": "conda-list"}, id="conda"),
@@ -1782,3 +1810,44 @@ def test_upload_resource_disables_adapter_retries():
         )
 
     assert mock_post.call_args.kwargs["retries"] == 0
+
+
+# ── 直方图上传 ──
+
+
+def test_upload_histogram_encodes_values_and_bins(tmp_path: Path):
+    """Record → UploadHistogram 编码：data 携带 _type 标记与 values、bins 两组数组。"""
+    sender = _make_sender(tmp_path)
+    with patch("swanlab.sdk.internal.core_python.transport.sender.upload_histogram") as mock_upload:
+        result = sender.upload_histogram([_make_histogram_record()])
+    metrics = mock_upload.call_args.kwargs["metrics"]
+    assert len(metrics) == 1
+    metric = metrics[0]
+    assert metric["key"] == "train/w"
+    assert metric["epoch"] == 0
+    assert metric["index"] == 3
+    assert metric["data"]["_type"] == "histogram"
+    assert metric["data"]["values"] == [2, 5, 0]
+    assert metric["data"]["bins"] == [-1.0, 0.0, 0.5, 2.0]
+    assert "create_time" in metric
+    assert result.failures == []
+
+
+def test_upload_histogram_without_timestamp_is_blocked(tmp_path: Path):
+    """缺少 timestamp 的 histogram record 不发出请求，作为 blocked 终结。"""
+    sender = _make_sender(tmp_path)
+    record = _make_histogram_record()
+    record.histogram.ClearField("timestamp")
+    with patch("swanlab.sdk.internal.core_python.transport.sender.upload_histogram") as mock_upload:
+        result = sender.upload_histogram([record])
+    mock_upload.assert_not_called()
+    assert result.confirmed_records == [record]
+    assert result.remaining_records == []
+    assert len(result.failures) == 1
+    assert "timestamp" in result.failures[0].message
+
+
+def test_handler_registered_for_histogram(tmp_path: Path):
+    """transport 分桶后的 record_type='histogram' 能找到对应 handler。"""
+    sender = _make_sender(tmp_path)
+    assert sender._upload_handlers["histogram"] == sender.upload_histogram

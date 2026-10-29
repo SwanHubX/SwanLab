@@ -19,6 +19,7 @@ from swanlab.sdk.internal.core_python.utils import ProgressFileWrapper, get_buff
 from swanlab.sdk.internal.pkg.executor import SafeThreadPoolExecutor
 from swanlab.sdk.typings.core_python.api.upload import (
     UploadColumns,
+    UploadHistogramBatch,
     UploadLogBatch,
     UploadMediaBatch,
     UploadMetricPayload,
@@ -142,6 +143,26 @@ def upload_media(project_id: str, experiment_id: str, *, metrics: UploadMediaBat
         return
     data: UploadMetricPayload = {
         "type": "media",
+        "projectId": project_id,
+        "experimentId": experiment_id,
+        "metrics": metrics,
+    }
+    # retries 设置为 0 表示不重试，重试机制交给 transport 层的退避调度
+    client.post("/house/metrics", data, retries=0)
+
+
+def upload_histogram(project_id: str, experiment_id: str, *, metrics: UploadHistogramBatch) -> None:
+    """
+    批量发送直方图信息到 /house/metrics。
+
+    :param project_id: 所属项目 ID
+    :param experiment_id: 实验唯一标识符
+    :param metrics: 直方图指标列表
+    """
+    if not metrics:
+        return
+    data: UploadMetricPayload = {
+        "type": "histogram",
         "projectId": project_id,
         "experimentId": experiment_id,
         "metrics": metrics,
