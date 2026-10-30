@@ -61,6 +61,11 @@ type Options struct {
 	ExperimentID string
 }
 
+// isRetryable 保留网络与上下文取消相关记录；父 ctx 取消时由 worker 停止调度。
+func isRetryable(err error) bool {
+	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || client.IsRetryable(err)
+}
+
 // ColumnSender 上报列定义：先全量编码，再按 3000 条切分提交。
 type ColumnSender struct{ opts Options }
 
@@ -95,7 +100,7 @@ func (s *ColumnSender) Upload(ctx context.Context, records []*recordv1.Record) u
 		batch := records[start:end]
 		if err := s.opts.API.UploadColumns(ctx, s.opts.Username, s.opts.Project, columns[start:end]); err != nil {
 			failures = append(failures, uploader.Failure{Message: err.Error(), Records: batch, Err: err})
-			if client.IsRetryable(err) {
+			if isRetryable(err) {
 				return uploader.Result{
 					Confirmed: confirmed,
 					Remaining: records[start:],
@@ -181,15 +186,15 @@ func (s *ScalarSender) Upload(ctx context.Context, records []*recordv1.Record) u
 	failures := make([]uploader.Failure, 0, 1+len(blocked))
 	failures = append(failures, uploader.Failure{Message: err.Error(), Records: encodable, Err: err})
 	failures = append(failures, blockedFailures(scalarBlockedMessage, blocked)...)
-	if client.IsRetryable(err) {
+	if isRetryable(err) {
 		return uploader.Result{Confirmed: blocked, Remaining: encodable, Failures: failures}
 	}
 	return uploader.Result{Confirmed: append(encodable, blocked...), Failures: failures}
 }
 
-// encodeScalar 编码单条标量；缺 value 或时间戳时返回 false。
+// encodeScalar 编码单条标量；缺 payload 或时间戳时返回 false，缺 Value 按 proto 默认值 0 处理。
 func encodeScalar(record *datav1.ScalarRecord) (map[string]any, bool) {
-	if record == nil || record.GetTimestamp() == nil || record.GetValue() == nil {
+	if record == nil || record.GetTimestamp() == nil {
 		return nil, false
 	}
 	createTime, ok := encodeTimestamp(record.GetTimestamp())
@@ -255,7 +260,7 @@ func (s *LogSender) Upload(ctx context.Context, records []*recordv1.Record) uplo
 	failures := make([]uploader.Failure, 0, 1+len(blockedOnly))
 	failures = append(failures, uploader.Failure{Message: err.Error(), Records: encodable, Err: err})
 	failures = append(failures, blockedOnly...)
-	if client.IsRetryable(err) {
+	if isRetryable(err) {
 		return uploader.Result{Confirmed: terminal, Remaining: encodable, Failures: failures}
 	}
 	return uploader.Result{Confirmed: append(encodable, terminal...), Failures: failures}

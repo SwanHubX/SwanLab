@@ -300,7 +300,7 @@ func TestScalarMissingTimestampBlocked(t *testing.T) {
 	}
 }
 
-func TestScalarAllBlockedSkipsHTTP(t *testing.T) {
+func TestScalarMissingValueDefaultsToZero(t *testing.T) {
 	cloud := clienttest.NewCloud(t)
 	cloud.ServeJSON(http.MethodPost, metricsPath, http.StatusOK, nil)
 	sender := NewScalar(newSenderOptions(t, cloud))
@@ -309,11 +309,16 @@ func TestScalarAllBlockedSkipsHTTP(t *testing.T) {
 	record.GetScalar().Value = nil
 
 	result := sender.Upload(context.Background(), []*recordv1.Record{record})
-	if len(result.Confirmed) != 1 || len(result.Failures) != 1 {
-		t.Fatalf("result = confirmed %d failures %d", len(result.Confirmed), len(result.Failures))
+	if len(result.Confirmed) != 1 || len(result.Remaining) != 0 || len(result.Failures) != 0 {
+		t.Fatalf("result = %+v, want one confirmed record without failures", result)
 	}
-	if got := cloud.CountFor(http.MethodPost, metricsPath); got != 0 {
-		t.Fatalf("metrics requests = %d, want 0", got)
+	requests := cloud.RequestsFor(http.MethodPost, metricsPath)
+	if len(requests) != 1 {
+		t.Fatalf("metrics requests = %d, want 1", len(requests))
+	}
+	metrics := decodeBody(t, requests[0].Body)["metrics"].([]any)
+	if got := metrics[0].(map[string]any)["data"]; got != float64(0) {
+		t.Fatalf("data = %v, want proto default 0", got)
 	}
 }
 
@@ -324,7 +329,7 @@ func TestScalarRetryableKeepsEncodable(t *testing.T) {
 
 	valid := scalarRecord(1, "loss", 1, 1)
 	invalid := scalarRecord(2, "loss", 2, 2)
-	invalid.GetScalar().Value = nil
+	invalid.GetScalar().Timestamp = nil
 
 	result := sender.Upload(context.Background(), []*recordv1.Record{valid, invalid})
 	if len(result.Confirmed) != 1 || result.Confirmed[0] != invalid {
@@ -359,6 +364,48 @@ func TestScalarDeterministicErrorsTerminate(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestContextCancellationKeepsRecords(t *testing.T) {
+	t.Run("column", func(t *testing.T) {
+		cloud := clienttest.NewCloud(t)
+		sender := NewColumn(newSenderOptions(t, cloud))
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		result := sender.Upload(ctx, []*recordv1.Record{columnRecord(1, "loss")})
+		if len(result.Remaining) != 1 || len(result.Confirmed) != 0 {
+			t.Fatalf("result = %+v, want record remaining", result)
+		}
+		if got := cloud.CountFor(http.MethodPost, seriesPath); got != 0 {
+			t.Fatalf("series requests = %d, want 0", got)
+		}
+	})
+	t.Run("scalar", func(t *testing.T) {
+		cloud := clienttest.NewCloud(t)
+		sender := NewScalar(newSenderOptions(t, cloud))
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		result := sender.Upload(ctx, []*recordv1.Record{scalarRecord(1, "loss", 1, 1)})
+		if len(result.Remaining) != 1 || len(result.Confirmed) != 0 {
+			t.Fatalf("result = %+v, want record remaining", result)
+		}
+		if got := cloud.CountFor(http.MethodPost, metricsPath); got != 0 {
+			t.Fatalf("metrics requests = %d, want 0", got)
+		}
+	})
+	t.Run("log", func(t *testing.T) {
+		cloud := clienttest.NewCloud(t)
+		sender := NewLog(newSenderOptions(t, cloud))
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		result := sender.Upload(ctx, []*recordv1.Record{logRecord(1, "line", terminalv1.LogLevel_LOG_LEVEL_INFO, 0)})
+		if len(result.Remaining) != 1 || len(result.Confirmed) != 0 {
+			t.Fatalf("result = %+v, want record remaining", result)
+		}
+		if got := cloud.CountFor(http.MethodPost, metricsPath); got != 0 {
+			t.Fatalf("metrics requests = %d, want 0", got)
+		}
+	})
 }
 
 func TestLogUploadEncodesMetrics(t *testing.T) {
