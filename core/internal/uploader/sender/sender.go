@@ -10,11 +10,8 @@ import (
 	"math"
 
 	"golang.org/x/sync/semaphore"
-	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/swanhubx/swanlab/core/internal/api"
-	"github.com/swanhubx/swanlab/core/internal/client"
 	"github.com/swanhubx/swanlab/core/internal/uploader"
 	columnv1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/column/v1"
 	datav1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/data/v1"
@@ -98,11 +95,6 @@ type Options struct {
 	ProjectID    string
 	ExperimentID string
 	Files        FileOptions
-}
-
-// isRetryable 判断错误是否归 Remaining；父 ctx 取消时由 worker 停止调度。
-func isRetryable(err error) bool {
-	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || client.IsRetryable(err)
 }
 
 // ColumnSender 上报列定义：先全量编码，再按 3000 条切分提交。
@@ -333,21 +325,4 @@ func encodeLog(record *terminalv1.LogRecord) (map[string]any, logEncodeStatus) {
 		"message":     record.GetLine(),
 		createTimeKey: createTime,
 	}, logOK
-}
-
-// encodeTimestamp 复用 protojson 的 0/3/6/9 位小数排版，去掉外层引号。
-func encodeTimestamp(ts *timestamppb.Timestamp) (string, bool) {
-	raw, err := protojson.Marshal(ts)
-	if err != nil || len(raw) < 2 || raw[0] != '"' {
-		return "", false
-	}
-	return string(raw[1 : len(raw)-1]), true
-}
-
-// blockedFailures 包装本地校验失败的记录；空集合返回 nil。
-func blockedFailures(message string, records []*recordv1.Record) []uploader.Failure {
-	if len(records) == 0 {
-		return nil
-	}
-	return []uploader.Failure{{Message: message, Records: records}}
 }

@@ -3,16 +3,12 @@ package sender
 import (
 	"bytes"
 	"context"
-	"errors"
 	"io"
 	"os"
 	"path/filepath"
 	"strconv"
 
-	"golang.org/x/sync/errgroup"
-
 	"github.com/swanhubx/swanlab/core/internal/api"
-	"github.com/swanhubx/swanlab/core/internal/client"
 	"github.com/swanhubx/swanlab/core/internal/pkg/mime"
 	"github.com/swanhubx/swanlab/core/internal/uploader"
 	columnv1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/column/v1"
@@ -134,7 +130,9 @@ func (s *MediaSender) Upload(ctx context.Context, records []*recordv1.Record) up
 		}
 		if terminal {
 			confirmed = append(confirmed, task.record)
-			s.failTaskFiles(task)
+			for _, payload := range task.payloads {
+				failFile(s.opts.Files.Tracker, payload.trackerKey)
+			}
 		} else {
 			remaining = append(remaining, task.record)
 		}
@@ -156,13 +154,17 @@ func (s *MediaSender) Upload(ctx context.Context, records []*recordv1.Record) up
 		} else {
 			confirmed = append(confirmed, readyRecords...)
 			for _, task := range ready {
-				s.failTaskFiles(task)
+				for _, payload := range task.payloads {
+					failFile(s.opts.Files.Tracker, payload.trackerKey)
+				}
 			}
 		}
 		return uploader.Result{Confirmed: confirmed, Remaining: remaining, Failures: failures}
 	}
 	for _, task := range ready {
-		s.finishTaskFiles(task)
+		for _, payload := range task.payloads {
+			finishFile(s.opts.Files.Tracker, payload.trackerKey)
+		}
 	}
 	return uploader.Result{Confirmed: append(confirmed, readyRecords...), Remaining: remaining, Failures: failures}
 }
@@ -282,32 +284,18 @@ func (s *MediaSender) putResources(ctx context.Context, payloads []*mediaPayload
 	for i, payload := range payloads {
 		paths[i] = payload.remotePath
 	}
-	s.trackFiles(payloads)
+	for _, payload := range payloads {
+		trackFile(s.opts.Files.Tracker, payload.trackerKey, payload.displayPath, payload.size)
+	}
 
 	urls, err := s.opts.API.RequestPresignedURLs(ctx, s.opts.ExperimentID, paths)
 	if err != nil {
 		return nil, err
 	}
-	return s.putAll(ctx, payloads, urls), nil
-}
-
-// putAll 并发直传所有 payload；错误按索引写独立槽位，不共享错误变量。
-func (s *MediaSender) putAll(ctx context.Context, payloads []*mediaPayload, urls []string) []error {
-	errs := make([]error, len(payloads))
-	var group errgroup.Group
-	for i := range payloads {
-		if err := mediaSlots.Acquire(ctx, 1); err != nil {
-			errs[i] = err
-			continue
-		}
-		group.Go(func() error {
-			defer mediaSlots.Release(1)
-			errs[i] = s.putPayload(ctx, payloads[i], urls[i])
-			return nil
-		})
-	}
-	_ = group.Wait()
-	return errs
+	errs := runConcurrently(ctx, mediaSlots, len(payloads), func(i int) error {
+		return s.putPayload(ctx, payloads[i], urls[i])
+	})
+	return errs, nil
 }
 
 // putPayload 上传单个媒体文件，并在读取过程中上报字节进度。
@@ -351,79 +339,8 @@ func (s *MediaSender) presignFailure(
 	if isRetryable(err) {
 		return uploader.Result{Confirmed: blocked, Remaining: uploadable, Failures: failures}
 	}
-	s.failPayloads(payloads)
+	for _, payload := range payloads {
+		failFile(s.opts.Files.Tracker, payload.trackerKey)
+	}
 	return uploader.Result{Confirmed: append(blocked, uploadable...), Failures: failures}
-}
-
-// trackFiles 在上传前注册进度行；size<=0 由 tracker 自行忽略。
-func (s *MediaSender) trackFiles(payloads []*mediaPayload) {
-	tracker := s.opts.Files.Tracker
-	if tracker == nil {
-		return
-	}
-	for _, payload := range payloads {
-		tracker.AddFile(payload.trackerKey, payload.displayPath, payload.size)
-	}
-}
-
-// finishTaskFiles 标记任务内所有文件已上传完成。
-func (s *MediaSender) finishTaskFiles(task *mediaTask) {
-	if s.opts.Files.Tracker == nil {
-		return
-	}
-	for _, payload := range task.payloads {
-		s.opts.Files.Tracker.FinishFile(payload.trackerKey)
-	}
-}
-
-// failTaskFiles 关闭任务内所有文件的进度行，不计入完成。
-func (s *MediaSender) failTaskFiles(task *mediaTask) {
-	if s.opts.Files.Tracker == nil {
-		return
-	}
-	for _, payload := range task.payloads {
-		s.opts.Files.Tracker.FailFile(payload.trackerKey)
-	}
-}
-
-// failPayloads 关闭一批文件的进度行。
-func (s *MediaSender) failPayloads(payloads []*mediaPayload) {
-	if s.opts.Files.Tracker == nil {
-		return
-	}
-	for _, payload := range payloads {
-		s.opts.Files.Tracker.FailFile(payload.trackerKey)
-	}
-}
-
-// putErrorRetryable 判断对象存储 PUT 失败是否保留重试。
-//
-// 拿到 HTTP 响应（含 4xx 过期链接）或网络错误时，下一轮 prepare 会换新链接；
-// 本地打开/读取失败与调用方取消之外的其他错误重试不会恢复。
-func putErrorRetryable(err error) bool {
-	var apiErr *client.APIError
-	if errors.As(err, &apiErr) {
-		return true
-	}
-	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
-}
-
-// progressReader 在每次读取后回调累计字节数。
-type progressReader struct {
-	reader io.Reader
-	onRead func(int64)
-}
-
-// Read 实现 io.Reader。
-func (r *progressReader) Read(p []byte) (int, error) {
-	n, err := r.reader.Read(p)
-	if n > 0 && r.onRead != nil {
-		r.onRead(int64(n))
-	}
-	return n, err
-}
-
-// blockedFailure 包装单条记录的确定性失败。
-func blockedFailure(message string, record *recordv1.Record) *uploader.Failure {
-	return &uploader.Failure{Message: message, Records: []*recordv1.Record{record}}
 }

@@ -399,33 +399,6 @@ func batchSizes(batches [][]map[string]any) []int {
 	return sizes
 }
 
-// TestFileMD5 覆盖已知向量与空文件。
-func TestFileMD5(t *testing.T) {
-	cases := []struct {
-		name    string
-		content []byte
-		want    string
-	}{
-		{"abc", []byte("abc"), "900150983cd24fb0d6963f7d28e17f72"},
-		{"empty", nil, "d41d8cd98f00b204e9800998ecf8427e"},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			path := writeSaveFile(t, t.TempDir(), "file.bin", tc.content)
-			got, err := fileMD5(path)
-			if err != nil {
-				t.Fatalf("fileMD5: %v", err)
-			}
-			if got != tc.want {
-				t.Fatalf("md5 = %q, want %q", got, tc.want)
-			}
-		})
-	}
-	if _, err := fileMD5(filepath.Join(t.TempDir(), "missing")); err == nil {
-		t.Fatal("fileMD5 on a missing file should fail")
-	}
-}
-
 // TestSavePrepareFailure 覆盖 prepare 失败：4xx 终结、5xx 保留重试。
 func TestSavePrepareFailure(t *testing.T) {
 	cases := []struct {

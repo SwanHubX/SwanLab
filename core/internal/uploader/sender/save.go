@@ -2,21 +2,18 @@ package sender
 
 import (
 	"context"
-	"crypto/md5"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 	"unicode/utf8"
 
-	"golang.org/x/sync/errgroup"
 	"gopkg.in/yaml.v3"
 
 	"github.com/swanhubx/swanlab/core/internal/api"
 	"github.com/swanhubx/swanlab/core/internal/pkg/console"
+	"github.com/swanhubx/swanlab/core/internal/pkg/fs"
 	"github.com/swanhubx/swanlab/core/internal/pkg/mime"
 	"github.com/swanhubx/swanlab/core/internal/uploader"
 	recordv1 "github.com/swanhubx/swanlab/core/proto/swanlab/record/v1"
@@ -53,8 +50,6 @@ const (
 	saveStateUploaded = "UPLOADED"
 	// saveStateFailed 是 complete 阶段上报的本地失败状态。
 	saveStateFailed = "FAILED"
-	// md5Chunk 是计算 MD5 时的分块大小。
-	md5Chunk = 8 << 20
 	// savePartContentType 是分片上传的内容类型。
 	savePartContentType = "application/octet-stream"
 )
@@ -285,7 +280,11 @@ func (s *SaveSender) uploadCustom(ctx context.Context, records []*recordv1.Recor
 
 // uploadBatch 计算 MD5 后上传一批 CUSTOM 文件。
 func (s *SaveSender) uploadBatch(ctx context.Context, pending []pendingSave) uploader.Result {
-	digests, errs := computeMD5s(ctx, pending)
+	paths := make([]string, len(pending))
+	for i, item := range pending {
+		paths[i] = item.sourcePath
+	}
+	digests, errs := computeMD5s(ctx, paths)
 	confirmed := make([]*recordv1.Record, 0, len(pending))
 	var remaining []*recordv1.Record
 	var failures []uploader.Failure
@@ -353,10 +352,12 @@ func (s *SaveSender) uploadSmall(ctx context.Context, tasks []*saveTask) uploade
 		return batchFailure(taskRecords(tasks), err)
 	}
 	for _, task := range tasks {
-		s.trackFile(task)
+		trackFile(s.opts.Files.Tracker, task.trackerKey, task.entry.sourcePath, task.entry.size)
 	}
 
-	putErrors := s.putSaves(ctx, tasks, urls)
+	putErrors := runConcurrently(ctx, saveSlots, len(tasks), func(i int) error {
+		return s.putSave(ctx, tasks[i], urls[i])
+	})
 	uploaded := make([]*saveTask, 0, len(tasks))
 	storageFailed := make([]*saveTask, 0)
 	localFailed := make([]*saveTask, 0)
@@ -391,10 +392,10 @@ func (s *SaveSender) uploadSmall(ctx context.Context, tasks []*saveTask) uploade
 		}
 	}
 	for _, task := range uploaded {
-		s.finishFile(task)
+		finishFile(s.opts.Files.Tracker, task.trackerKey)
 	}
 	for _, task := range localFailed {
-		s.failFile(task)
+		failFile(s.opts.Files.Tracker, task.trackerKey)
 	}
 	if len(uploaded) > 0 {
 		console.Infof("Synced %d save file(s)", len(uploaded))
@@ -415,7 +416,7 @@ func (s *SaveSender) completeFailure(
 	pendingRecords := taskRecords(pending)
 
 	for _, task := range localFailed {
-		s.failFile(task)
+		failFile(s.opts.Files.Tracker, task.trackerKey)
 	}
 	confirmed := taskRecords(localFailed)
 	var remaining []*recordv1.Record
@@ -423,7 +424,7 @@ func (s *SaveSender) completeFailure(
 		remaining = pendingRecords
 	} else {
 		for _, task := range pending {
-			s.failFile(task)
+			failFile(s.opts.Files.Tracker, task.trackerKey)
 		}
 		confirmed = append(confirmed, pendingRecords...)
 	}
@@ -457,7 +458,7 @@ func (s *SaveSender) uploadLarge(ctx context.Context, tasks []*saveTask) uploade
 	localFailed := make([]*saveTask, 0)
 	var failures []uploader.Failure
 	for i, task := range tasks {
-		s.trackFile(task)
+		trackFile(s.opts.Files.Tracker, task.trackerKey, task.entry.sourcePath, task.entry.size)
 		parts, partErr := s.putParts(ctx, task, files[i].Parts, partSize)
 		if partErr != nil {
 			failures = append(failures, uploader.Failure{
@@ -483,7 +484,7 @@ func (s *SaveSender) uploadLarge(ctx context.Context, tasks []*saveTask) uploade
 		// 本地失败的上报失败不影响结果分类：记录已经终结。
 		_ = s.opts.API.CompleteSaveFiles(ctx, s.opts.ExperimentID, failedItems)
 		for _, task := range localFailed {
-			s.failFile(task)
+			failFile(s.opts.Files.Tracker, task.trackerKey)
 		}
 	}
 	if len(ready) == 0 {
@@ -522,10 +523,10 @@ func (s *SaveSender) uploadLarge(ctx context.Context, tasks []*saveTask) uploade
 				Records: []*recordv1.Record{item.task.record},
 			})
 			confirmed = append(confirmed, item.task.record)
-			s.failFile(item.task)
+			failFile(s.opts.Files.Tracker, item.task.trackerKey)
 			continue
 		}
-		s.finishFile(item.task)
+		finishFile(s.opts.Files.Tracker, item.task.trackerKey)
 		confirmed = append(confirmed, item.task.record)
 		synced++
 	}
@@ -555,7 +556,7 @@ func (s *SaveSender) completeMultipartFailure(
 		remaining = pendingRecords
 	} else {
 		for _, task := range pending {
-			s.failFile(task)
+			failFile(s.opts.Files.Tracker, task.trackerKey)
 		}
 		confirmed = append(confirmed, pendingRecords...)
 	}
@@ -572,20 +573,11 @@ func (s *SaveSender) putParts(ctx context.Context, task *saveTask, parts []api.M
 	defer func() { _ = file.Close() }()
 
 	completed := make([]api.CompletedPart, len(parts))
-	errs := make([]error, len(parts))
-	var group errgroup.Group
-	for i := range parts {
-		if err := partSlots.Acquire(ctx, 1); err != nil {
-			errs[i] = err
-			continue
-		}
-		group.Go(func() error {
-			defer partSlots.Release(1)
-			completed[i], errs[i] = s.putPart(ctx, file, task, parts[i], partSize)
-			return nil
-		})
-	}
-	_ = group.Wait()
+	errs := runConcurrently(ctx, partSlots, len(parts), func(i int) error {
+		part, err := s.putPart(ctx, file, task, parts[i], partSize)
+		completed[i] = part
+		return err
+	})
 	for _, err := range errs {
 		if err != nil {
 			return nil, err
@@ -624,33 +616,6 @@ func (s *SaveSender) putPart(
 	return api.CompletedPart{PartNumber: part.PartNumber, ETag: etag}, nil
 }
 
-// mergeResult 把一次子上传的结果并入累计结果。
-func mergeResult(base, next uploader.Result) uploader.Result {
-	base.Confirmed = append(base.Confirmed, next.Confirmed...)
-	base.Remaining = append(base.Remaining, next.Remaining...)
-	base.Failures = append(base.Failures, next.Failures...)
-	return base
-}
-
-// putSaves 并发直传小文件，错误按索引写独立槽位。
-func (s *SaveSender) putSaves(ctx context.Context, tasks []*saveTask, urls []string) []error {
-	errs := make([]error, len(tasks))
-	var group errgroup.Group
-	for i := range tasks {
-		if err := saveSlots.Acquire(ctx, 1); err != nil {
-			errs[i] = err
-			continue
-		}
-		group.Go(func() error {
-			defer saveSlots.Release(1)
-			errs[i] = s.putSave(ctx, tasks[i], urls[i])
-			return nil
-		})
-	}
-	_ = group.Wait()
-	return errs
-}
-
 // putSave 上传单个文件，并在读取过程中上报字节进度。
 func (s *SaveSender) putSave(ctx context.Context, task *saveTask, url string) error {
 	file, err := os.Open(task.entry.sourcePath)
@@ -671,41 +636,6 @@ func (s *SaveSender) putSave(ctx context.Context, task *saveTask, url string) er
 	return err
 }
 
-// computeMD5s 并发计算 MD5，结果与错误按下标对齐。
-func computeMD5s(ctx context.Context, pending []pendingSave) ([]string, []error) {
-	digests := make([]string, len(pending))
-	errs := make([]error, len(pending))
-	var group errgroup.Group
-	for i := range pending {
-		if err := md5Slots.Acquire(ctx, 1); err != nil {
-			errs[i] = err
-			continue
-		}
-		group.Go(func() error {
-			defer md5Slots.Release(1)
-			digests[i], errs[i] = fileMD5(pending[i].sourcePath)
-			return nil
-		})
-	}
-	_ = group.Wait()
-	return digests, errs
-}
-
-// fileMD5 分块计算文件 MD5，避免大文件整块读入内存。
-func fileMD5(path string) (string, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return "", err
-	}
-	defer func() { _ = file.Close() }()
-
-	hash := md5.New()
-	if _, err := io.CopyBuffer(hash, file, make([]byte, md5Chunk)); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(hash.Sum(nil)), nil
-}
-
 // resolveSource 解析 save 的本地文件：源路径优先，其次 run 目录下的 files 镜像。
 func (s *SaveSender) resolveSource(save *savev1.SaveRecord) string {
 	primary := save.GetSourcePath()
@@ -717,10 +647,10 @@ func (s *SaveSender) resolveSource(save *savev1.SaveRecord) string {
 	}
 	var fallback string
 	if save.GetType() == savev1.SaveType_SAVE_TYPE_CUSTOM {
-		parts := windowsParts(save.GetName())
+		parts := fs.WindowsParts(save.GetName())
 		fallback = filepath.Join(append([]string{s.opts.Files.FilesDir}, parts...)...)
 	} else {
-		fallback = filepath.Join(s.opts.Files.FilesDir, windowsBase(save.GetSourcePath()))
+		fallback = filepath.Join(s.opts.Files.FilesDir, fs.WindowsBase(save.GetSourcePath()))
 	}
 	if isRegularFile(fallback) {
 		return fallback
@@ -728,61 +658,9 @@ func (s *SaveSender) resolveSource(save *savev1.SaveRecord) string {
 	return ""
 }
 
-// isRegularFile 判断路径是普通文件；不存在或不可访问时返回 false。
-func isRegularFile(path string) bool {
-	if path == "" {
-		return false
-	}
-	info, err := os.Stat(path)
-	return err == nil && !info.IsDir()
-}
-
-// windowsParts 按 Windows 语义拆分相对路径："/" 与 "\" 都是分隔符。
-func windowsParts(name string) []string {
-	parts := strings.FieldsFunc(name, func(r rune) bool { return r == '/' || r == '\\' })
-	kept := parts[:0]
-	for _, part := range parts {
-		if part == "." {
-			continue
-		}
-		kept = append(kept, part)
-	}
-	return kept
-}
-
-// windowsBase 返回 Windows 语义下的最后一段文件名。
-func windowsBase(path string) string {
-	if index := strings.LastIndexAny(path, `/\`); index >= 0 {
-		return path[index+1:]
-	}
-	return path
-}
-
 // saveTrackerKey 构造 save 文件在 tracker 中的注册 key。
 func saveTrackerKey(entry saveEntry) string {
 	return fmt.Sprintf("%s:%d:%s", entry.path, entry.size, entry.md5)
-}
-
-// trackFile 在上传前注册进度行；size<=0 由 tracker 自行忽略。
-func (s *SaveSender) trackFile(task *saveTask) {
-	if s.opts.Files.Tracker == nil {
-		return
-	}
-	s.opts.Files.Tracker.AddFile(task.trackerKey, task.entry.sourcePath, task.entry.size)
-}
-
-// finishFile 标记文件上传完成。
-func (s *SaveSender) finishFile(task *saveTask) {
-	if s.opts.Files.Tracker != nil {
-		s.opts.Files.Tracker.FinishFile(task.trackerKey)
-	}
-}
-
-// failFile 关闭未成功文件的进度行。
-func (s *SaveSender) failFile(task *saveTask) {
-	if s.opts.Files.Tracker != nil {
-		s.opts.Files.Tracker.FailFile(task.trackerKey)
-	}
 }
 
 // taskRecords 提取任务对应的记录。
@@ -804,19 +682,4 @@ func pendingRecords(pending []pendingSave) []*recordv1.Record {
 		records = append(records, item.record)
 	}
 	return records
-}
-
-// batchFailure 把整批请求失败按可重试语义分流。
-func batchFailure(records []*recordv1.Record, err error) uploader.Result {
-	failure := uploader.Failure{Message: err.Error(), Records: records, Err: err}
-	if isRetryable(err) {
-		return uploader.Result{Remaining: records, Failures: []uploader.Failure{failure}}
-	}
-	return uploader.Result{Confirmed: records, Failures: []uploader.Failure{failure}}
-}
-
-// confirmedFailure 构造「记录已终结但带失败诊断」的结果。
-func confirmedFailure(record *recordv1.Record, message string) uploader.Result {
-	records := []*recordv1.Record{record}
-	return uploader.Result{Confirmed: records, Failures: []uploader.Failure{{Message: message, Records: records}}}
 }
