@@ -17,4 +17,10 @@ message CoreSettings {
     int32 save_batch       = 9;
     // Skip the local Record store (run-*.swanlab). Only valid in online mode.
     bool skip_store        = 10;
+    // Sensitive credential used for cloud authentication. Never log this value.
+    string api_key  = 11;
+    // Cloud API endpoint, e.g. https://api.swanlab.cn. Core speaks REST with this host.
+    string api_host = 12;
+    // Cloud web endpoint, e.g. https://swanlab.cn. Only used to build user-facing experiment URLs.
+    string web_host = 13;
 }
