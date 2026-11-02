@@ -11,7 +11,6 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/swanhubx/swanlab/core/internal/client"
 	"github.com/swanhubx/swanlab/core/internal/clienttest"
@@ -61,6 +60,44 @@ func (f *fakePutter) snapshot() []objectPut {
 	return append([]objectPut(nil), f.puts...)
 }
 
+// partialFailPutter 首次 PUT 只读取 read 字节后返回错误，之后接收完整负载并成功。
+type partialFailPutter struct {
+	mu       sync.Mutex
+	attempts int
+	read     int
+	err      error
+	bodies   [][]byte
+}
+
+// PutObject 实现 ObjectPutter。
+func (p *partialFailPutter) PutObject(_ context.Context, _ string, body io.Reader, _ int64, _ string) (string, error) {
+	p.mu.Lock()
+	p.attempts++
+	attempt := p.attempts
+	p.mu.Unlock()
+	if attempt == 1 {
+		if _, err := io.ReadFull(body, make([]byte, p.read)); err != nil {
+			return "", err
+		}
+		return "", p.err
+	}
+	data, err := io.ReadAll(body)
+	if err != nil {
+		return "", err
+	}
+	p.mu.Lock()
+	p.bodies = append(p.bodies, data)
+	p.mu.Unlock()
+	return "etag", nil
+}
+
+// uploadedBodies 返回成功接收的完整负载。
+func (p *partialFailPutter) uploadedBodies() [][]byte {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return append([][]byte(nil), p.bodies...)
+}
+
 // withDefaults 填好 media sender 需要的目录与直传依赖。
 func newMediaOptions(t *testing.T, cloud *clienttest.Cloud, files FileOptions) Options {
 	t.Helper()
@@ -70,6 +107,16 @@ func newMediaOptions(t *testing.T, cloud *clienttest.Cloud, files FileOptions) O
 	}
 	opts.Files = files
 	return opts
+}
+
+// newMediaSender 构造 media sender。
+func newMediaSender(t *testing.T, opts Options) *MediaSender {
+	t.Helper()
+	sender, err := NewMedia(opts)
+	if err != nil {
+		t.Fatalf("new media sender: %v", err)
+	}
+	return sender
 }
 
 // servePresigned 让假后端按请求里的 paths 返回等长 URL。
@@ -125,7 +172,7 @@ func TestMediaUploadsPayloadAndFile(t *testing.T) {
 	writeMediaFile(t, mediaDir, "image", "local.png", "local-bytes")
 	putter := &fakePutter{}
 	tracker := uploader.NewTracker()
-	sender := NewMedia(newMediaOptions(t, cloud, FileOptions{
+	sender := newMediaSender(t, newMediaOptions(t, cloud, FileOptions{
 		MediaDir: mediaDir,
 		Putter:   putter,
 		Tracker:  tracker,
@@ -209,7 +256,7 @@ func TestMediaMissingLocalFile(t *testing.T) {
 	cloud := clienttest.NewCloud(t)
 	putter := &fakePutter{}
 	tracker := uploader.NewTracker()
-	sender := NewMedia(newMediaOptions(t, cloud, FileOptions{Putter: putter, Tracker: tracker}))
+	sender := newMediaSender(t, newMediaOptions(t, cloud, FileOptions{Putter: putter, Tracker: tracker}))
 
 	record := mediaRecord(1, "img", 1, columnv1.ColumnType_COLUMN_TYPE_IMAGE,
 		&datav1.MediaItem{Filename: "missing.png"},
@@ -237,7 +284,7 @@ func TestMediaSkipStoreSkipsLocalFile(t *testing.T) {
 	cloud := clienttest.NewCloud(t)
 	mediaDir := t.TempDir()
 	writeMediaFile(t, mediaDir, "image", "present.png", "bytes")
-	sender := NewMedia(newMediaOptions(t, cloud, FileOptions{
+	sender := newMediaSender(t, newMediaOptions(t, cloud, FileOptions{
 		MediaDir:  mediaDir,
 		SkipStore: true,
 		Putter:    &fakePutter{},
@@ -265,7 +312,7 @@ func TestMediaPartialItemsUploadOnlyAvailable(t *testing.T) {
 	servePresigned(cloud)
 	cloud.ServeJSON(http.MethodPost, metricsPath, http.StatusOK, nil)
 	putter := &fakePutter{}
-	sender := NewMedia(newMediaOptions(t, cloud, FileOptions{Putter: putter}))
+	sender := newMediaSender(t, newMediaOptions(t, cloud, FileOptions{Putter: putter}))
 
 	record := mediaRecord(1, "img", 2, columnv1.ColumnType_COLUMN_TYPE_IMAGE,
 		&datav1.MediaItem{Filename: "ok.png", Payload: []byte("ok")},
@@ -299,7 +346,7 @@ func TestMediaPutRetryableKeepsRecord(t *testing.T) {
 	putter := &fakePutter{failOn: func(string) error {
 		return &client.APIError{Method: http.MethodPut, StatusCode: http.StatusForbidden}
 	}}
-	sender := NewMedia(newMediaOptions(t, cloud, FileOptions{Putter: putter, Tracker: tracker}))
+	sender := newMediaSender(t, newMediaOptions(t, cloud, FileOptions{Putter: putter, Tracker: tracker}))
 
 	record := mediaRecord(1, "img", 1, columnv1.ColumnType_COLUMN_TYPE_IMAGE,
 		&datav1.MediaItem{Filename: "a.png", Payload: []byte("x")},
@@ -317,6 +364,52 @@ func TestMediaPutRetryableKeepsRecord(t *testing.T) {
 	}
 }
 
+// TestMediaPutRetryResetsProgress 覆盖完整重试：首次只读 6/10 字节后失败，
+// 进度回滚到 0；第二轮成功后总量恰好 10 字节，不重复计数。
+func TestMediaPutRetryResetsProgress(t *testing.T) {
+	cloud := clienttest.NewCloud(t)
+	servePresigned(cloud)
+	cloud.ServeJSON(http.MethodPost, metricsPath, http.StatusOK, nil)
+	putter := &partialFailPutter{
+		read: 6,
+		err:  &client.APIError{Method: http.MethodPut, StatusCode: http.StatusInternalServerError},
+	}
+	tracker := uploader.NewTracker()
+	sender := newMediaSender(t, newMediaOptions(t, cloud, FileOptions{Putter: putter, Tracker: tracker}))
+	record := mediaRecord(1, "img", 1, columnv1.ColumnType_COLUMN_TYPE_IMAGE,
+		&datav1.MediaItem{Filename: "a.png", Payload: []byte("0123456789")},
+	)
+
+	first := sender.Upload(context.Background(), []*recordv1.Record{record})
+	if len(first.Confirmed) != 0 || len(first.Remaining) != 1 || len(first.Failures) != 1 {
+		t.Fatalf("first = confirmed %d remaining %d failures %d",
+			len(first.Confirmed), len(first.Remaining), len(first.Failures))
+	}
+	stats := tracker.Snapshot()
+	if stats.TotalNumber != 1 || stats.UploadedNumber != 0 || stats.UploadedSize != 0 {
+		t.Fatalf("first tracker = total %d uploaded %d/%d",
+			stats.TotalNumber, stats.UploadedNumber, stats.UploadedSize)
+	}
+	if len(stats.Files) != 1 || stats.Files[0].Uploaded != 0 {
+		t.Fatalf("first files = %+v, want one file with zero progress", stats.Files)
+	}
+
+	second := sender.Upload(context.Background(), first.Remaining)
+	if len(second.Confirmed) != 1 || len(second.Remaining) != 0 || len(second.Failures) != 0 {
+		t.Fatalf("second = confirmed %d remaining %d failures %d",
+			len(second.Confirmed), len(second.Remaining), len(second.Failures))
+	}
+	stats = tracker.Snapshot()
+	if stats.UploadedNumber != 1 || stats.UploadedSize != 10 || len(stats.Files) != 0 {
+		t.Fatalf("second tracker = uploaded %d/%d files %d, want 1 file and 10 bytes",
+			stats.UploadedNumber, stats.UploadedSize, len(stats.Files))
+	}
+	bodies := putter.uploadedBodies()
+	if len(bodies) != 1 || string(bodies[0]) != "0123456789" {
+		t.Fatalf("bodies = %q, want one complete payload", bodies)
+	}
+}
+
 // TestMediaPutLocalErrorTerminates 覆盖本地读失败：重试不会恢复，终结该记录。
 func TestMediaPutLocalErrorTerminates(t *testing.T) {
 	cloud := clienttest.NewCloud(t)
@@ -325,7 +418,7 @@ func TestMediaPutLocalErrorTerminates(t *testing.T) {
 	putter := &fakePutter{failOn: func(string) error {
 		return &fs.PathError{Op: "open", Path: "a.png", Err: fs.ErrNotExist}
 	}}
-	sender := NewMedia(newMediaOptions(t, cloud, FileOptions{Putter: putter, Tracker: tracker}))
+	sender := newMediaSender(t, newMediaOptions(t, cloud, FileOptions{Putter: putter, Tracker: tracker}))
 
 	record := mediaRecord(1, "img", 1, columnv1.ColumnType_COLUMN_TYPE_IMAGE,
 		&datav1.MediaItem{Filename: "a.png", Payload: []byte("x")},
@@ -339,6 +432,32 @@ func TestMediaPutLocalErrorTerminates(t *testing.T) {
 	}
 	stats := tracker.Snapshot()
 	if stats.TotalNumber != 1 || stats.UploadedNumber != 0 || len(stats.Files) != 0 {
+		t.Fatalf("tracker = total %d uploaded %d files %d", stats.TotalNumber, stats.UploadedNumber, len(stats.Files))
+	}
+}
+
+// TestMediaPutProtocolErrorTerminates 覆盖对象存储响应不可解读：重试不会恢复，终结记录。
+func TestMediaPutProtocolErrorTerminates(t *testing.T) {
+	cloud := clienttest.NewCloud(t)
+	servePresigned(cloud)
+	tracker := uploader.NewTracker()
+	putter := &fakePutter{failOn: func(url string) error {
+		return client.NewProtocolError(http.MethodPut, url, "bad_response", "unexpected body", nil)
+	}}
+	sender := newMediaSender(t, newMediaOptions(t, cloud, FileOptions{Putter: putter, Tracker: tracker}))
+
+	record := mediaRecord(1, "img", 1, columnv1.ColumnType_COLUMN_TYPE_IMAGE,
+		&datav1.MediaItem{Filename: "a.png", Payload: []byte("x")},
+	)
+	result := sender.Upload(context.Background(), []*recordv1.Record{record})
+	if len(result.Confirmed) != 1 || len(result.Remaining) != 0 || len(result.Failures) != 1 {
+		t.Fatalf("result = confirmed %d remaining %d failures %d",
+			len(result.Confirmed), len(result.Remaining), len(result.Failures))
+	}
+	if got := cloud.CountFor(http.MethodPost, metricsPath); got != 0 {
+		t.Fatalf("metric requests = %d, want 0", got)
+	}
+	if stats := tracker.Snapshot(); stats.TotalNumber != 1 || stats.UploadedNumber != 0 || len(stats.Files) != 0 {
 		t.Fatalf("tracker = total %d uploaded %d files %d", stats.TotalNumber, stats.UploadedNumber, len(stats.Files))
 	}
 }
@@ -360,7 +479,7 @@ func TestMediaMetricsFailureClassified(t *testing.T) {
 			servePresigned(cloud)
 			cloud.ServeJSON(http.MethodPost, metricsPath, tc.status, nil)
 			tracker := uploader.NewTracker()
-			sender := NewMedia(newMediaOptions(t, cloud, FileOptions{Putter: &fakePutter{}, Tracker: tracker}))
+			sender := newMediaSender(t, newMediaOptions(t, cloud, FileOptions{Putter: &fakePutter{}, Tracker: tracker}))
 
 			record := mediaRecord(1, "img", 1, columnv1.ColumnType_COLUMN_TYPE_IMAGE,
 				&datav1.MediaItem{Filename: "a.png", Payload: []byte("x")},
@@ -394,7 +513,7 @@ func TestMediaPresignFailureClassified(t *testing.T) {
 			cloud := clienttest.NewCloud(t)
 			cloud.ServeJSON(http.MethodPost, presignedPath, tc.status, map[string]string{"code": "nope"})
 			tracker := uploader.NewTracker()
-			sender := NewMedia(newMediaOptions(t, cloud, FileOptions{Putter: &fakePutter{}, Tracker: tracker}))
+			sender := newMediaSender(t, newMediaOptions(t, cloud, FileOptions{Putter: &fakePutter{}, Tracker: tracker}))
 
 			record := mediaRecord(1, "img", 1, columnv1.ColumnType_COLUMN_TYPE_IMAGE,
 				&datav1.MediaItem{Filename: "a.png", Payload: []byte("x")},
@@ -419,7 +538,7 @@ func TestMediaPresignFailureClassified(t *testing.T) {
 // TestMediaBlockedRecords 覆盖缺少 media 载荷与时间戳的确定性失败。
 func TestMediaBlockedRecords(t *testing.T) {
 	cloud := clienttest.NewCloud(t)
-	sender := NewMedia(newMediaOptions(t, cloud, FileOptions{Putter: &fakePutter{}}))
+	sender := newMediaSender(t, newMediaOptions(t, cloud, FileOptions{Putter: &fakePutter{}}))
 
 	noPayload := &recordv1.Record{Num: 1}
 	noTimestamp := mediaRecord(2, "img", 1, columnv1.ColumnType_COLUMN_TYPE_IMAGE,
@@ -479,6 +598,27 @@ func (p *gatedPutter) maxActive() int {
 	return p.peak
 }
 
+// TestNewMediaValidatesOptions 覆盖构造期快速失败：依赖缺失。
+func TestNewMediaValidatesOptions(t *testing.T) {
+	valid := newMediaOptions(t, clienttest.NewCloud(t), FileOptions{Putter: &fakePutter{}})
+
+	missingAPI := valid
+	missingAPI.API = nil
+	if sender, err := NewMedia(missingAPI); err == nil || sender != nil {
+		t.Fatalf("NewMedia without api = %v, %v; want nil sender and an error", sender, err)
+	}
+
+	missingPutter := valid
+	missingPutter.Files.Putter = nil
+	if sender, err := NewMedia(missingPutter); err == nil || sender != nil {
+		t.Fatalf("NewMedia without putter = %v, %v; want nil sender and an error", sender, err)
+	}
+
+	if _, err := NewMedia(valid); err != nil {
+		t.Fatalf("NewMedia(valid) = %v", err)
+	}
+}
+
 // TestMediaConcurrencyCap 覆盖进程级并发上限：20 个文件同时提交时峰值恰好为 10。
 func TestMediaConcurrencyCap(t *testing.T) {
 	cloud := clienttest.NewCloud(t)
@@ -489,7 +629,7 @@ func TestMediaConcurrencyCap(t *testing.T) {
 		entered: make(chan struct{}, 20),
 		release: make(chan struct{}),
 	}
-	sender := NewMedia(newMediaOptions(t, cloud, FileOptions{Putter: putter}))
+	sender := newMediaSender(t, newMediaOptions(t, cloud, FileOptions{Putter: putter}))
 
 	items := make([]*datav1.MediaItem, 0, 20)
 	for i := 0; i < 20; i++ {
@@ -510,7 +650,7 @@ func TestMediaConcurrencyCap(t *testing.T) {
 	select {
 	case <-putter.entered:
 		t.Fatalf("more than %d PUTs entered concurrently", mediaConcurrency)
-	case <-time.After(200 * time.Millisecond):
+	default:
 	}
 
 	close(putter.release)

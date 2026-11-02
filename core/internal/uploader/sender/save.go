@@ -1,8 +1,10 @@
 package sender
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -35,8 +37,6 @@ const (
 	saveMD5FailedPrefix = "save file md5 computation failed: "
 	// saveUploadFailedPrefix 是单文件直传失败的诊断前缀。
 	saveUploadFailedPrefix = "save file upload failed: "
-	// saveInvalidBatchPrefix 是非法分批配置的终结原因前缀。
-	saveInvalidBatchPrefix = "invalid save batch size "
 	// saveMultipartFailedPrefix 是分片上传失败的诊断前缀。
 	saveMultipartFailedPrefix = "multipart upload failed: "
 	// saveMultipartStateFailedPrefix 是 complete-multipart 返回 FAILED 的诊断前缀。
@@ -57,8 +57,24 @@ const (
 // SaveSender 分发内部元文件与 CUSTOM 文件：前者进 Profile，后者直传对象存储。
 type SaveSender struct{ opts Options }
 
-// NewSave 构造 save sender。
-func NewSave(opts Options) *SaveSender { return &SaveSender{opts: opts} }
+// NewSave 构造 save sender；缺少 API/直传依赖或 Save 参数非正时返回错误。
+func NewSave(opts Options) (*SaveSender, error) {
+	if err := validateFileOptions(opts); err != nil {
+		return nil, err
+	}
+	files := opts.Files
+	switch {
+	case files.SaveSize <= 0:
+		return nil, fmt.Errorf("sender: save size must be positive, got %d", files.SaveSize)
+	case files.SaveSplit <= 0:
+		return nil, fmt.Errorf("sender: save split must be positive, got %d", files.SaveSplit)
+	case files.SavePart <= 0:
+		return nil, fmt.Errorf("sender: save part must be positive, got %d", files.SavePart)
+	case files.SaveBatch <= 0:
+		return nil, fmt.Errorf("sender: save batch must be positive, got %d", files.SaveBatch)
+	}
+	return &SaveSender{opts: opts}, nil
+}
 
 // pendingSave 是通过校验、等待上传的 CUSTOM 文件。
 type pendingSave struct {
@@ -188,8 +204,8 @@ func decodeInternal(saveType savev1.SaveType, data []byte) (api.ProfileKind, any
 	}
 	switch saveType {
 	case savev1.SaveType_SAVE_TYPE_METADATA:
-		var content map[string]any
-		if err := json.Unmarshal(data, &content); err != nil || content == nil {
+		content, ok := decodeMetadata(data)
+		if !ok {
 			return "", nil, false
 		}
 		return api.ProfileMetadata, content, true
@@ -211,6 +227,20 @@ func decodeInternal(saveType savev1.SaveType, data []byte) (api.ProfileKind, any
 		return api.ProfileConda, string(data), true
 	}
 	return "", nil, false
+}
+
+// decodeMetadata 解码 metadata JSON：保留整数精度，且只接受单个 JSON 值。
+func decodeMetadata(data []byte) (map[string]any, bool) {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.UseNumber()
+	var content map[string]any
+	if err := decoder.Decode(&content); err != nil || content == nil {
+		return nil, false
+	}
+	if _, err := decoder.Token(); !errors.Is(err, io.EOF) {
+		return nil, false
+	}
+	return content, true
 }
 
 // uploadCustom 解析、校验并分批上传 CUSTOM 文件。
@@ -258,15 +288,6 @@ func (s *SaveSender) uploadCustom(ctx context.Context, records []*recordv1.Recor
 		return uploader.Result{Confirmed: confirmed, Failures: failures}
 	}
 	batch := s.opts.Files.SaveBatch
-	if batch <= 0 {
-		batchRecords := pendingRecords(pending)
-		failures = append(failures, uploader.Failure{
-			Message: fmt.Sprintf("%s%d", saveInvalidBatchPrefix, batch),
-			Records: batchRecords,
-		})
-		return uploader.Result{Confirmed: append(confirmed, batchRecords...), Failures: failures}
-	}
-
 	var remaining []*recordv1.Record
 	for start := 0; start < len(pending); start += batch {
 		end := min(start+batch, len(pending))
@@ -435,9 +456,6 @@ func (s *SaveSender) completeFailure(
 // uploadLarge 走 prepare-multipart → 分片 PUT → complete-multipart 的大文件路径。
 func (s *SaveSender) uploadLarge(ctx context.Context, tasks []*saveTask) uploader.Result {
 	partSize := s.opts.Files.SavePart
-	if partSize <= 0 {
-		return batchFailure(taskRecords(tasks), fmt.Errorf("invalid save part size %d", partSize))
-	}
 	items := make([]api.PrepareMultipartSaveFile, len(tasks))
 	for i, task := range tasks {
 		items[i] = api.PrepareMultipartSaveFile{
@@ -508,6 +526,8 @@ func (s *SaveSender) uploadLarge(ctx context.Context, tasks []*saveTask) uploade
 		return s.completeMultipartFailure(err, ready, storageFailed, localFailed, failures)
 	}
 
+	// 非空响应已由 API 层校验与请求一一对应且状态只含 UPLOADED/FAILED；
+	// 空响应体沿用旧协议，视为全部成功。
 	failedStates := make(map[string]struct{}, len(states))
 	for _, state := range states {
 		if state.State == api.MultipartFailed {
@@ -608,15 +628,13 @@ func (s *SaveSender) putPart(
 	}
 	etag, err := s.opts.Files.Putter.PutObject(ctx, part.URL, reader, length, savePartContentType)
 	if err != nil {
-		if s.opts.Files.Tracker != nil {
-			s.opts.Files.Tracker.UpdateFileProgress(task.trackerKey, partKey, 0)
-		}
+		resetFileProgress(s.opts.Files.Tracker, task.trackerKey, partKey)
 		return api.CompletedPart{}, err
 	}
 	return api.CompletedPart{PartNumber: part.PartNumber, ETag: etag}, nil
 }
 
-// putSave 上传单个文件，并在读取过程中上报字节进度。
+// putSave 上传单个文件，并在读取过程中上报字节进度；失败时回滚进度。
 func (s *SaveSender) putSave(ctx context.Context, task *saveTask, url string) error {
 	file, err := os.Open(task.entry.sourcePath)
 	if err != nil {
@@ -632,8 +650,11 @@ func (s *SaveSender) putSave(ctx context.Context, task *saveTask, url string) er
 			tracker.UpdateFileProgress(task.trackerKey, task.trackerKey, current)
 		}}
 	}
-	_, err = s.opts.Files.Putter.PutObject(ctx, url, reader, task.entry.size, task.entry.mimeType)
-	return err
+	if _, err := s.opts.Files.Putter.PutObject(ctx, url, reader, task.entry.size, task.entry.mimeType); err != nil {
+		resetFileProgress(s.opts.Files.Tracker, task.trackerKey, task.trackerKey)
+		return err
+	}
+	return nil
 }
 
 // resolveSource 解析 save 的本地文件：源路径优先，其次 run 目录下的 files 镜像。
@@ -671,15 +692,6 @@ func taskRecords(tasks []*saveTask) []*recordv1.Record {
 	records := make([]*recordv1.Record, 0, len(tasks))
 	for _, task := range tasks {
 		records = append(records, task.record)
-	}
-	return records
-}
-
-// pendingRecords 提取待上传记录。
-func pendingRecords(pending []pendingSave) []*recordv1.Record {
-	records := make([]*recordv1.Record, 0, len(pending))
-	for _, item := range pending {
-		records = append(records, item.record)
 	}
 	return records
 }

@@ -577,6 +577,50 @@ func TestCompleteMultipartParsesFileStates(t *testing.T) {
 	})
 }
 
+// TestCompleteMultipartRejectsMalformedStates 覆盖非空响应必须与请求一一对应：
+// 缺项、重复、额外路径、空列表、未知状态与畸形结构都按协议错误终结。
+func TestCompleteMultipartRejectsMalformedStates(t *testing.T) {
+	path := "/api/experiment/exp-1/files/complete-multipart"
+	completed := []CompletedMultipartSaveFile{{Path: "files/a.bin"}, {Path: "files/b.bin"}}
+	cases := []struct {
+		name    string
+		payload any
+	}{
+		{"empty array", []map[string]string{}},
+		{"missing files field", map[string]any{}},
+		{"empty files", map[string]any{"files": []map[string]string{}}},
+		{"missing entry", map[string]any{"files": []map[string]string{
+			{"path": "files/a.bin", "state": MultipartUploaded},
+		}}},
+		{"extra path", map[string]any{"files": []map[string]string{
+			{"path": "files/a.bin", "state": MultipartUploaded},
+			{"path": "files/b.bin", "state": MultipartUploaded},
+			{"path": "files/c.bin", "state": MultipartUploaded},
+		}}},
+		{"duplicate path", map[string]any{"files": []map[string]string{
+			{"path": "files/a.bin", "state": MultipartUploaded},
+			{"path": "files/a.bin", "state": MultipartUploaded},
+		}}},
+		{"unknown state", map[string]any{"files": []map[string]string{
+			{"path": "files/a.bin", "state": "DONE"},
+			{"path": "files/b.bin", "state": MultipartUploaded},
+		}}},
+		{"malformed entry", map[string]any{"files": []any{1, 2}}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cloud := clienttest.NewCloud(t)
+			svc, _ := newTestClient(t, cloud, client.Options{})
+			cloud.ServeJSON(http.MethodPost, path, http.StatusCreated, tc.payload)
+
+			states, err := svc.CompleteMultipartSave(context.Background(), "exp-1", completed)
+			if len(states) != 0 || !client.IsInvalidResponse(err) || client.IsRetryable(err) {
+				t.Fatalf("states = %+v, error = %v; want non-retryable invalid response", states, err)
+			}
+		})
+	}
+}
+
 // TestUploadMetricsAcceptedIsFailure 覆盖「假成功拦截」：House 返回 202 表示未写库，
 // 必须判为不可重试失败。
 func TestUploadMetricsAcceptedIsFailure(t *testing.T) {

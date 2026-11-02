@@ -3,11 +3,14 @@ package sender
 import (
 	"context"
 	"errors"
+	"io/fs"
+	"net/http"
 	"path/filepath"
 	"testing"
 
 	"golang.org/x/sync/semaphore"
 
+	"github.com/swanhubx/swanlab/core/internal/client"
 	"github.com/swanhubx/swanlab/core/internal/uploader"
 	recordv1 "github.com/swanhubx/swanlab/core/proto/swanlab/record/v1"
 )
@@ -36,6 +39,30 @@ func TestFileMD5(t *testing.T) {
 	}
 	if _, err := fileMD5(filepath.Join(t.TempDir(), "missing")); err == nil {
 		t.Fatal("fileMD5 on a missing file should fail")
+	}
+}
+
+// TestPutErrorRetryable 覆盖对象存储 PUT 失败的分类。
+func TestPutErrorRetryable(t *testing.T) {
+	cases := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{"forbidden", &client.APIError{Method: http.MethodPut, StatusCode: http.StatusForbidden}, true},
+		{"server error", &client.APIError{Method: http.MethodPut, StatusCode: http.StatusInternalServerError}, true},
+		{"transport", &client.APIError{Method: http.MethodPut, Code: "network_error", Retryable: true}, true},
+		{"protocol", client.NewProtocolError(http.MethodPut, "https://s3", "bad_response", "bad", nil), false},
+		{"local", &fs.PathError{Op: "open", Path: "a.txt", Err: fs.ErrNotExist}, false},
+		{"canceled", context.Canceled, true},
+		{"deadline", context.DeadlineExceeded, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := putErrorRetryable(tc.err); got != tc.want {
+				t.Fatalf("putErrorRetryable(%v) = %v, want %v", tc.err, got, tc.want)
+			}
+		})
 	}
 }
 

@@ -47,8 +47,13 @@ var mediaMediums = map[columnv1.ColumnType]string{
 // MediaSender 先把媒体文件直传对象存储，再提交引用这些文件的媒体指标。
 type MediaSender struct{ opts Options }
 
-// NewMedia 构造媒体 sender。
-func NewMedia(opts Options) *MediaSender { return &MediaSender{opts: opts} }
+// NewMedia 构造媒体 sender；缺少 API 或对象存储直传依赖时返回错误。
+func NewMedia(opts Options) (*MediaSender, error) {
+	if err := validateFileOptions(opts); err != nil {
+		return nil, err
+	}
+	return &MediaSender{opts: opts}, nil
+}
 
 // mediaPayload 是单个媒体文件的上传载荷：内存字节或本地文件二选一。
 type mediaPayload struct {
@@ -298,7 +303,7 @@ func (s *MediaSender) putResources(ctx context.Context, payloads []*mediaPayload
 	return errs, nil
 }
 
-// putPayload 上传单个媒体文件，并在读取过程中上报字节进度。
+// putPayload 上传单个媒体文件，并在读取过程中上报字节进度；失败时回滚进度。
 func (s *MediaSender) putPayload(ctx context.Context, payload *mediaPayload, url string) error {
 	body, err := payload.open()
 	if err != nil {
@@ -314,8 +319,11 @@ func (s *MediaSender) putPayload(ctx context.Context, payload *mediaPayload, url
 			tracker.UpdateFileProgress(payload.trackerKey, payload.trackerKey, current)
 		}}
 	}
-	_, err = s.opts.Files.Putter.PutObject(ctx, url, reader, payload.size, payload.contentType)
-	return err
+	if _, err := s.opts.Files.Putter.PutObject(ctx, url, reader, payload.size, payload.contentType); err != nil {
+		resetFileProgress(s.opts.Files.Tracker, payload.trackerKey, payload.trackerKey)
+		return err
+	}
+	return nil
 }
 
 // open 返回载荷对应的读取器：内存字节或本地文件。

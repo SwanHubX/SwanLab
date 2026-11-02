@@ -445,7 +445,7 @@ func (c *Client) PrepareMultipartSave(
 // CompleteMultipartSave 上报分片合并结果，并解析响应中的逐文件状态。
 //
 // 后端在合并失败时仍可能返回 201：若响应体给出逐文件状态列表则严格按状态分流；
-// 响应体为空时返回 nil，由调用方按协议约定处理。
+// 响应体为空时返回 nil，由调用方按旧协议兼容行为处理。
 func (c *Client) CompleteMultipartSave(
 	ctx context.Context,
 	experimentID string,
@@ -460,27 +460,62 @@ func (c *Client) CompleteMultipartSave(
 	if err != nil {
 		return nil, err
 	}
-	return decodeMultipartStates(res)
+	return decodeMultipartStates(res, files)
 }
 
-// decodeMultipartStates 兼容两种响应体形态：顶层数组，或 {"files": [...]}。
-func decodeMultipartStates(res *client.Response) ([]MultipartState, error) {
+// decodeMultipartStates 兼容两种非空响应体形态：顶层数组，或 {"files": [...]}。
+// 非空响应必须与请求文件一一对应，空响应体返回 nil。
+func decodeMultipartStates(res *client.Response, files []CompletedMultipartSaveFile) ([]MultipartState, error) {
 	body := bytes.TrimSpace(res.Body)
 	if len(body) == 0 {
 		return nil, nil
 	}
+	var states []MultipartState
 	if body[0] == '[' {
-		var states []MultipartState
 		if err := json.Unmarshal(body, &states); err != nil {
 			return nil, client.NewProtocolError(res.Method, res.Endpoint, "invalid_complete_multipart_response", err.Error(), err)
 		}
-		return states, nil
+	} else {
+		var payload completedFilesResponse
+		if err := json.Unmarshal(body, &payload); err != nil {
+			return nil, client.NewProtocolError(res.Method, res.Endpoint, "invalid_complete_multipart_response", err.Error(), err)
+		}
+		states = payload.Files
 	}
-	var payload completedFilesResponse
-	if err := json.Unmarshal(body, &payload); err != nil {
-		return nil, client.NewProtocolError(res.Method, res.Endpoint, "invalid_complete_multipart_response", err.Error(), err)
+	if err := validateMultipartStates(res, states, files); err != nil {
+		return nil, err
 	}
-	return payload.Files, nil
+	return states, nil
+}
+
+// validateMultipartStates 校验逐文件状态：数量、路径与状态值都必须与请求严格对应。
+func validateMultipartStates(res *client.Response, states []MultipartState, files []CompletedMultipartSaveFile) error {
+	if len(states) != len(files) {
+		return client.NewProtocolError(res.Method, res.Endpoint, "invalid_complete_multipart_response",
+			fmt.Sprintf("complete-multipart response returned %d states, want %d", len(states), len(files)), nil)
+	}
+	expected := make(map[string]int, len(files))
+	for _, file := range files {
+		expected[file.Path]++
+	}
+	for i, state := range states {
+		if state.State != MultipartUploaded && state.State != MultipartFailed {
+			return client.NewProtocolError(res.Method, res.Endpoint, "invalid_complete_multipart_response",
+				fmt.Sprintf("complete-multipart response state[%d] is %q", i, state.State), nil)
+		}
+		if expected[state.Path] == 0 {
+			return client.NewProtocolError(res.Method, res.Endpoint, "invalid_complete_multipart_response",
+				fmt.Sprintf("complete-multipart response path[%d] is %q, want a requested file", i, state.Path), nil)
+		}
+		expected[state.Path]--
+	}
+	for path, count := range expected {
+		if count > 0 {
+			return client.NewProtocolError(res.Method, res.Endpoint, "invalid_complete_multipart_response",
+				fmt.Sprintf("complete-multipart response is missing %q", path), nil)
+		}
+	}
+	return nil
 }
 
 // ---------------------------------------------------------------------------

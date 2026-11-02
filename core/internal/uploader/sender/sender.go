@@ -97,6 +97,17 @@ type Options struct {
 	Files        FileOptions
 }
 
+// validateFileOptions 校验文件类 sender 的必需依赖，避免漏装配后运行期空指针或永久重试。
+func validateFileOptions(opts Options) error {
+	if opts.API == nil {
+		return errors.New("sender: api client is required")
+	}
+	if opts.Files.Putter == nil {
+		return errors.New("sender: object putter is required")
+	}
+	return nil
+}
+
 // ColumnSender 上报列定义：先全量编码，再按 3000 条切分提交。
 type ColumnSender struct{ opts Options }
 

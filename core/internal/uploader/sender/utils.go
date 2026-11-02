@@ -7,8 +7,8 @@ import (
 	"errors"
 	"io"
 	"os"
+	"sync"
 
-	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -33,11 +33,12 @@ func isRetryable(err error) bool {
 // putErrorRetryable 判断对象存储 PUT 失败是否保留重试。
 //
 // 拿到 HTTP 响应（含 4xx 过期链接）或网络错误时，下一轮 prepare 会换新链接；
-// 本地打开/读取失败与调用方取消之外的其他错误重试不会恢复。
+// 响应无法按协议解读时重试不会恢复，必须终结。本地打开/读取失败同样终结，
+// 调用方取消则保留给上层停止调度。
 func putErrorRetryable(err error) bool {
 	var apiErr *client.APIError
 	if errors.As(err, &apiErr) {
-		return true
+		return !client.IsInvalidResponse(err)
 	}
 	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
 }
@@ -50,19 +51,20 @@ func putErrorRetryable(err error) bool {
 // 信号量在调用方获取，goroutine 数不会超过配额。
 func runConcurrently(ctx context.Context, slots *semaphore.Weighted, count int, fn func(int) error) []error {
 	errs := make([]error, count)
-	var group errgroup.Group
+	var group sync.WaitGroup
 	for i := 0; i < count; i++ {
 		if err := slots.Acquire(ctx, 1); err != nil {
 			errs[i] = err
 			continue
 		}
-		group.Go(func() error {
+		group.Add(1)
+		go func() {
+			defer group.Done()
 			defer slots.Release(1)
 			errs[i] = fn(i)
-			return nil
-		})
+		}()
 	}
-	_ = group.Wait()
+	group.Wait()
 	return errs
 }
 
@@ -152,6 +154,13 @@ func finishFile(tracker *uploader.Tracker, key string) {
 func failFile(tracker *uploader.Tracker, key string) {
 	if tracker != nil {
 		tracker.FailFile(key)
+	}
+}
+
+// resetFileProgress 把文件或分片已上报的进度回滚到 0，失败重试时避免重复计字节。
+func resetFileProgress(tracker *uploader.Tracker, fileKey, uploadKey string) {
+	if tracker != nil {
+		tracker.UpdateFileProgress(fileKey, uploadKey, 0)
 	}
 }
 

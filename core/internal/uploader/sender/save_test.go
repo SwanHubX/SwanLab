@@ -45,7 +45,11 @@ func newSaveSender(t *testing.T, cloud *clienttest.Cloud, files FileOptions) *Sa
 	t.Helper()
 	opts := newSenderOptions(t, cloud)
 	opts.Files = files
-	return NewSave(opts)
+	sender, err := NewSave(opts)
+	if err != nil {
+		t.Fatalf("new save sender: %v", err)
+	}
+	return sender
 }
 
 // saveRecord 构造一条 save 记录；payload 为 nil 表示字段缺失。
@@ -199,6 +203,33 @@ func TestSaveInternalReadsFallbackSources(t *testing.T) {
 	}
 }
 
+// TestSaveInternalMetadataKeepsIntegerPrecision 覆盖嵌套大整数：
+// metadata 解码不得经过 float64，Profile 请求体保持原始数值。
+func TestSaveInternalMetadataKeepsIntegerPrecision(t *testing.T) {
+	cloud := clienttest.NewCloud(t)
+	cloud.ServeJSON(http.MethodPut, profilePath, http.StatusOK, nil)
+	sender := newSaveSender(t, cloud, defaultSaveFiles(t, &fakePutter{}))
+
+	record := saveRecord(1, savev1.SaveType_SAVE_TYPE_METADATA, "meta.json", "/missing/meta.json",
+		[]byte(`{"nested":{"id":9007199254740993}}`))
+	result := sender.Upload(context.Background(), []*recordv1.Record{record})
+	if len(result.Confirmed) != 1 || len(result.Failures) != 0 {
+		t.Fatalf("result = confirmed %d failures %d", len(result.Confirmed), len(result.Failures))
+	}
+
+	requests := cloud.RequestsFor(http.MethodPut, profilePath)
+	if len(requests) != 1 {
+		t.Fatalf("profile requests = %d, want 1", len(requests))
+	}
+	body := string(requests[0].Body)
+	if !strings.Contains(body, "9007199254740993") {
+		t.Fatalf("body = %s, want the exact 64-bit integer", body)
+	}
+	if strings.Contains(body, "9007199254740992") {
+		t.Fatalf("body = %s, integer was rounded through float64", body)
+	}
+}
+
 // TestSaveInternalSkipStoreDoesNotFallback 覆盖 skip_store：禁止回退到旧 run 的同名文件。
 func TestSaveInternalSkipStoreDoesNotFallback(t *testing.T) {
 	cloud := clienttest.NewCloud(t)
@@ -229,9 +260,10 @@ func TestSaveInternalUnparseableTerminates(t *testing.T) {
 		saveRecord(1, savev1.SaveType_SAVE_TYPE_METADATA, "meta.json", "/missing/meta.json", []byte("not-json")),
 		saveRecord(2, savev1.SaveType_SAVE_TYPE_CONFIG, "config.yaml", "/missing/config.yaml", []byte("- 1\n- 2\n")),
 		saveRecord(3, savev1.SaveType_SAVE_TYPE_REQUIREMENTS, "requirements.txt", "/missing/requirements.txt", []byte{}),
+		saveRecord(4, savev1.SaveType_SAVE_TYPE_METADATA, "meta.json", "/missing/meta.json", []byte(`{"a": 1}{"b": 2}`)),
 	}
 	result := sender.Upload(context.Background(), records)
-	if len(result.Confirmed) != 3 || len(result.Remaining) != 0 || len(result.Failures) != 3 {
+	if len(result.Confirmed) != 4 || len(result.Remaining) != 0 || len(result.Failures) != 4 {
 		t.Fatalf("result = confirmed %d remaining %d failures %d", len(result.Confirmed), len(result.Remaining), len(result.Failures))
 	}
 	for _, failure := range result.Failures {
@@ -437,77 +469,162 @@ func TestSavePrepareFailure(t *testing.T) {
 	}
 }
 
-// TestSavePutFailureClassification 覆盖单文件直传失败：对象存储错误保留重试，
-// 本地错误终结，两者都上报 complete。
-func TestSavePutFailureClassification(t *testing.T) {
-	t.Run("object storage", func(t *testing.T) {
-		cloud := clienttest.NewCloud(t)
-		serveSavePrepare(cloud)
-		serveSaveComplete(cloud)
-		putter := &fakePutter{failOn: func(url string) error {
-			if strings.HasSuffix(url, "/save/0") {
-				return &client.APIError{Method: http.MethodPut, StatusCode: http.StatusForbidden}
-			}
-			return nil
-		}}
-		sender := newSaveSender(t, cloud, defaultSaveFiles(t, putter))
+// twoSaveRecords 写两个小文件并返回 CUSTOM save 记录。
+func twoSaveRecords(t *testing.T) []*recordv1.Record {
+	t.Helper()
+	dir := t.TempDir()
+	return []*recordv1.Record{
+		saveRecord(1, savev1.SaveType_SAVE_TYPE_CUSTOM, "a.txt", writeSaveFile(t, dir, "a.txt", []byte("a")), nil),
+		saveRecord(2, savev1.SaveType_SAVE_TYPE_CUSTOM, "b.txt", writeSaveFile(t, dir, "b.txt", []byte("b")), nil),
+	}
+}
 
-		dir := t.TempDir()
-		records := []*recordv1.Record{
-			saveRecord(1, savev1.SaveType_SAVE_TYPE_CUSTOM, "a.txt", writeSaveFile(t, dir, "a.txt", []byte("a")), nil),
-			saveRecord(2, savev1.SaveType_SAVE_TYPE_CUSTOM, "b.txt", writeSaveFile(t, dir, "b.txt", []byte("b")), nil),
+// TestSavePutObjectStorageErrorKeepsRecord 覆盖对象存储失败：记录保留重试，
+// 同批成功文件照常 complete。
+func TestSavePutObjectStorageErrorKeepsRecord(t *testing.T) {
+	cloud := clienttest.NewCloud(t)
+	serveSavePrepare(cloud)
+	serveSaveComplete(cloud)
+	putter := &fakePutter{failOn: func(url string) error {
+		if strings.HasSuffix(url, "/save/0") {
+			return &client.APIError{Method: http.MethodPut, StatusCode: http.StatusForbidden}
 		}
-		result := sender.Upload(context.Background(), records)
-		if len(result.Confirmed) != 1 || len(result.Remaining) != 1 || len(result.Failures) != 1 {
-			t.Fatalf("result = confirmed %d remaining %d failures %d",
-				len(result.Confirmed), len(result.Remaining), len(result.Failures))
-		}
-		completed := completeBatches(t, cloud)
-		if len(completed) != 1 || len(completed[0]) != 1 || completed[0][0]["path"] != "b.txt" {
-			t.Fatalf("complete = %+v, want only the uploaded file", completed)
-		}
-	})
+		return nil
+	}}
+	sender := newSaveSender(t, cloud, defaultSaveFiles(t, putter))
 
-	t.Run("local read error", func(t *testing.T) {
-		cloud := clienttest.NewCloud(t)
-		serveSavePrepare(cloud)
-		serveSaveComplete(cloud)
-		putter := &fakePutter{failOn: func(url string) error {
-			if strings.HasSuffix(url, "/save/0") {
-				return &fs.PathError{Op: "open", Path: "a.txt", Err: fs.ErrNotExist}
-			}
-			return nil
-		}}
-		tracker := uploader.NewTracker()
-		files := defaultSaveFiles(t, putter)
-		files.Tracker = tracker
-		sender := newSaveSender(t, cloud, files)
+	result := sender.Upload(context.Background(), twoSaveRecords(t))
+	if len(result.Confirmed) != 1 || len(result.Remaining) != 1 || len(result.Failures) != 1 {
+		t.Fatalf("result = confirmed %d remaining %d failures %d",
+			len(result.Confirmed), len(result.Remaining), len(result.Failures))
+	}
+	completed := completeBatches(t, cloud)
+	if len(completed) != 1 || len(completed[0]) != 1 || completed[0][0]["path"] != "b.txt" {
+		t.Fatalf("complete = %+v, want only the uploaded file", completed)
+	}
+}
 
-		dir := t.TempDir()
-		records := []*recordv1.Record{
-			saveRecord(1, savev1.SaveType_SAVE_TYPE_CUSTOM, "a.txt", writeSaveFile(t, dir, "a.txt", []byte("a")), nil),
-			saveRecord(2, savev1.SaveType_SAVE_TYPE_CUSTOM, "b.txt", writeSaveFile(t, dir, "b.txt", []byte("b")), nil),
+// TestSavePutProtocolErrorTerminates 覆盖对象存储响应不可解读：不可重试，
+// 该文件终结并按 FAILED 上报，同批其他文件不受影响。
+func TestSavePutProtocolErrorTerminates(t *testing.T) {
+	cloud := clienttest.NewCloud(t)
+	serveSavePrepare(cloud)
+	serveSaveComplete(cloud)
+	putter := &fakePutter{failOn: func(url string) error {
+		if strings.HasSuffix(url, "/save/0") {
+			return client.NewProtocolError(http.MethodPut, url, "bad_response", "unexpected body", nil)
 		}
-		result := sender.Upload(context.Background(), records)
-		if len(result.Confirmed) != 2 || len(result.Remaining) != 0 || len(result.Failures) != 1 {
-			t.Fatalf("result = confirmed %d remaining %d failures %d",
-				len(result.Confirmed), len(result.Remaining), len(result.Failures))
+		return nil
+	}}
+	tracker := uploader.NewTracker()
+	files := defaultSaveFiles(t, putter)
+	files.Tracker = tracker
+	sender := newSaveSender(t, cloud, files)
+
+	result := sender.Upload(context.Background(), twoSaveRecords(t))
+	if len(result.Confirmed) != 2 || len(result.Remaining) != 0 || len(result.Failures) != 1 {
+		t.Fatalf("result = confirmed %d remaining %d failures %d",
+			len(result.Confirmed), len(result.Remaining), len(result.Failures))
+	}
+	completed := completeBatches(t, cloud)
+	if len(completed) != 1 || len(completed[0]) != 2 {
+		t.Fatalf("complete = %+v, want uploaded + failed", completed)
+	}
+	states := map[string]any{}
+	for _, item := range completed[0] {
+		states[item["path"].(string)] = item["state"]
+	}
+	if states["a.txt"] != saveStateFailed || states["b.txt"] != saveStateUploaded {
+		t.Fatalf("complete states = %+v", states)
+	}
+	if stats := tracker.Snapshot(); stats.TotalNumber != 2 || stats.UploadedNumber != 1 || len(stats.Files) != 0 {
+		t.Fatalf("tracker = total %d uploaded %d files %d", stats.TotalNumber, stats.UploadedNumber, len(stats.Files))
+	}
+}
+
+// TestSavePutLocalErrorTerminates 覆盖本地读错：终结该文件并按 FAILED 上报。
+func TestSavePutLocalErrorTerminates(t *testing.T) {
+	cloud := clienttest.NewCloud(t)
+	serveSavePrepare(cloud)
+	serveSaveComplete(cloud)
+	putter := &fakePutter{failOn: func(url string) error {
+		if strings.HasSuffix(url, "/save/0") {
+			return &fs.PathError{Op: "open", Path: "a.txt", Err: fs.ErrNotExist}
 		}
-		completed := completeBatches(t, cloud)
-		if len(completed) != 1 || len(completed[0]) != 2 {
-			t.Fatalf("complete = %+v, want uploaded + failed", completed)
-		}
-		states := map[string]any{}
-		for _, item := range completed[0] {
-			states[item["path"].(string)] = item["state"]
-		}
-		if states["a.txt"] != saveStateFailed || states["b.txt"] != saveStateUploaded {
-			t.Fatalf("complete states = %+v", states)
-		}
-		if stats := tracker.Snapshot(); stats.TotalNumber != 2 || stats.UploadedNumber != 1 || len(stats.Files) != 0 {
-			t.Fatalf("tracker = total %d uploaded %d files %d", stats.TotalNumber, stats.UploadedNumber, len(stats.Files))
-		}
-	})
+		return nil
+	}}
+	tracker := uploader.NewTracker()
+	files := defaultSaveFiles(t, putter)
+	files.Tracker = tracker
+	sender := newSaveSender(t, cloud, files)
+
+	result := sender.Upload(context.Background(), twoSaveRecords(t))
+	if len(result.Confirmed) != 2 || len(result.Remaining) != 0 || len(result.Failures) != 1 {
+		t.Fatalf("result = confirmed %d remaining %d failures %d",
+			len(result.Confirmed), len(result.Remaining), len(result.Failures))
+	}
+	completed := completeBatches(t, cloud)
+	if len(completed) != 1 || len(completed[0]) != 2 {
+		t.Fatalf("complete = %+v, want uploaded + failed", completed)
+	}
+	states := map[string]any{}
+	for _, item := range completed[0] {
+		states[item["path"].(string)] = item["state"]
+	}
+	if states["a.txt"] != saveStateFailed || states["b.txt"] != saveStateUploaded {
+		t.Fatalf("complete states = %+v", states)
+	}
+	if stats := tracker.Snapshot(); stats.TotalNumber != 2 || stats.UploadedNumber != 1 || len(stats.Files) != 0 {
+		t.Fatalf("tracker = total %d uploaded %d files %d", stats.TotalNumber, stats.UploadedNumber, len(stats.Files))
+	}
+}
+
+// TestSavePutRetryResetsProgress 覆盖完整重试：首次只读 6/10 字节后失败，
+// 进度回滚到 0；第二轮成功后总量恰好 10 字节，不重复计数。
+func TestSavePutRetryResetsProgress(t *testing.T) {
+	cloud := clienttest.NewCloud(t)
+	serveSavePrepare(cloud)
+	serveSaveComplete(cloud)
+	putter := &partialFailPutter{
+		read: 6,
+		err:  &client.APIError{Method: http.MethodPut, StatusCode: http.StatusInternalServerError},
+	}
+	tracker := uploader.NewTracker()
+	files := defaultSaveFiles(t, putter)
+	files.Tracker = tracker
+	sender := newSaveSender(t, cloud, files)
+
+	source := writeSaveFile(t, t.TempDir(), "a.txt", []byte("0123456789"))
+	record := saveRecord(1, savev1.SaveType_SAVE_TYPE_CUSTOM, "a.txt", source, nil)
+
+	first := sender.Upload(context.Background(), []*recordv1.Record{record})
+	if len(first.Confirmed) != 0 || len(first.Remaining) != 1 || len(first.Failures) != 1 {
+		t.Fatalf("first = confirmed %d remaining %d failures %d",
+			len(first.Confirmed), len(first.Remaining), len(first.Failures))
+	}
+	stats := tracker.Snapshot()
+	if stats.TotalNumber != 1 || stats.UploadedNumber != 0 || stats.UploadedSize != 0 {
+		t.Fatalf("first tracker = total %d uploaded %d/%d",
+			stats.TotalNumber, stats.UploadedNumber, stats.UploadedSize)
+	}
+	if len(stats.Files) != 1 || stats.Files[0].Uploaded != 0 {
+		t.Fatalf("first files = %+v, want one file with zero progress", stats.Files)
+	}
+
+	second := sender.Upload(context.Background(), first.Remaining)
+	if len(second.Confirmed) != 1 || len(second.Remaining) != 0 || len(second.Failures) != 0 {
+		t.Fatalf("second = confirmed %d remaining %d failures %d",
+			len(second.Confirmed), len(second.Remaining), len(second.Failures))
+	}
+	stats = tracker.Snapshot()
+	if stats.UploadedNumber != 1 || stats.UploadedSize != 10 || len(stats.Files) != 0 {
+		t.Fatalf("second tracker = uploaded %d/%d files %d, want 1 file and 10 bytes",
+			stats.UploadedNumber, stats.UploadedSize, len(stats.Files))
+	}
+	bodies := putter.uploadedBodies()
+	if len(bodies) != 1 || string(bodies[0]) != "0123456789" {
+		t.Fatalf("bodies = %q, want one complete payload", bodies)
+	}
 }
 
 // TestSaveCompleteFailureKeepsStorageFailures 覆盖 complete 可重试时，
@@ -565,24 +682,34 @@ func TestSaveCompleteFailure(t *testing.T) {
 	}
 }
 
-// TestSaveInvalidBatchTerminates 覆盖非法分批配置：整批终结且不 prepare。
-func TestSaveInvalidBatchTerminates(t *testing.T) {
-	cloud := clienttest.NewCloud(t)
-	files := defaultSaveFiles(t, &fakePutter{})
-	files.SaveBatch = 0
-	sender := newSaveSender(t, cloud, files)
+// TestNewSaveValidatesOptions 覆盖构造期快速失败：依赖缺失或 Save 参数非正。
+func TestNewSaveValidatesOptions(t *testing.T) {
+	valid := newSenderOptions(t, clienttest.NewCloud(t))
+	valid.Files = defaultSaveFiles(t, &fakePutter{})
 
-	source := writeSaveFile(t, t.TempDir(), "a.txt", []byte("x"))
-	record := saveRecord(1, savev1.SaveType_SAVE_TYPE_CUSTOM, "a.txt", source, nil)
-	result := sender.Upload(context.Background(), []*recordv1.Record{record})
-	if len(result.Confirmed) != 1 || len(result.Remaining) != 0 || len(result.Failures) != 1 {
-		t.Fatalf("result = confirmed %d remaining %d failures %d", len(result.Confirmed), len(result.Remaining), len(result.Failures))
+	cases := []struct {
+		name   string
+		mutate func(*Options)
+	}{
+		{"missing api", func(opts *Options) { opts.API = nil }},
+		{"missing putter", func(opts *Options) { opts.Files.Putter = nil }},
+		{"save size", func(opts *Options) { opts.Files.SaveSize = 0 }},
+		{"save split", func(opts *Options) { opts.Files.SaveSplit = 0 }},
+		{"save part", func(opts *Options) { opts.Files.SavePart = -1 }},
+		{"save batch", func(opts *Options) { opts.Files.SaveBatch = 0 }},
 	}
-	if result.Failures[0].Message != saveInvalidBatchPrefix+"0" {
-		t.Fatalf("failure = %q", result.Failures[0].Message)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			opts := valid
+			tc.mutate(&opts)
+			sender, err := NewSave(opts)
+			if err == nil || sender != nil {
+				t.Fatalf("NewSave = %v, %v; want nil sender and an error", sender, err)
+			}
+		})
 	}
-	if got := cloud.CountFor(http.MethodPost, preparePath); got != 0 {
-		t.Fatalf("prepare requests = %d, want 0", got)
+	if _, err := NewSave(valid); err != nil {
+		t.Fatalf("NewSave(valid) = %v", err)
 	}
 }
 
@@ -913,6 +1040,39 @@ func TestSaveMultipartCompleteStates(t *testing.T) {
 	}
 }
 
+// TestSaveMultipartPartialResponseTerminates 覆盖非空响应缺少文件：
+// 协议错误，整批终结，不得把缺项当成成功。
+func TestSaveMultipartPartialResponseTerminates(t *testing.T) {
+	cloud := clienttest.NewCloud(t)
+	serveMultipartPrepare(cloud)
+	cloud.ServeJSON(http.MethodPost, multipartCompletePath, http.StatusCreated, map[string]any{
+		"files": []any{map[string]any{"path": "a.bin", "state": api.MultipartUploaded}},
+	})
+	tracker := uploader.NewTracker()
+	files := defaultSaveFiles(t, &fakePutter{})
+	files.SaveSplit = 1
+	files.SavePart = 4
+	files.Tracker = tracker
+	sender := newSaveSender(t, cloud, files)
+
+	dir := t.TempDir()
+	records := []*recordv1.Record{
+		saveRecord(1, savev1.SaveType_SAVE_TYPE_CUSTOM, "a.bin", writeSaveFile(t, dir, "a.bin", []byte("12345")), nil),
+		saveRecord(2, savev1.SaveType_SAVE_TYPE_CUSTOM, "b.bin", writeSaveFile(t, dir, "b.bin", []byte("12345")), nil),
+	}
+	result := sender.Upload(context.Background(), records)
+	if len(result.Confirmed) != 2 || len(result.Remaining) != 0 || len(result.Failures) != 1 {
+		t.Fatalf("result = confirmed %d remaining %d failures %d",
+			len(result.Confirmed), len(result.Remaining), len(result.Failures))
+	}
+	if err := result.Failures[0].Err; !client.IsInvalidResponse(err) {
+		t.Fatalf("failure = %v, want invalid response", err)
+	}
+	if stats := tracker.Snapshot(); stats.TotalNumber != 2 || stats.UploadedNumber != 0 || len(stats.Files) != 0 {
+		t.Fatalf("tracker = total %d uploaded %d files %d", stats.TotalNumber, stats.UploadedNumber, len(stats.Files))
+	}
+}
+
 // TestSaveMultipartETagForwarded 覆盖分片 ETag 原样上报且直传不带鉴权头。
 func TestSaveMultipartETagForwarded(t *testing.T) {
 	cloud := clienttest.NewCloud(t)
@@ -933,7 +1093,7 @@ func TestSaveMultipartETagForwarded(t *testing.T) {
 	files := defaultSaveFiles(t, transport)
 	files.SaveSplit = 1
 	files.SavePart = 10
-	sender := NewSave(Options{
+	sender, err := NewSave(Options{
 		API:          api.New(transport),
 		Username:     "alice",
 		Project:      "demo",
@@ -941,6 +1101,9 @@ func TestSaveMultipartETagForwarded(t *testing.T) {
 		ExperimentID: "exp-1",
 		Files:        files,
 	})
+	if err != nil {
+		t.Fatalf("new save sender: %v", err)
+	}
 
 	dir := t.TempDir()
 	record := saveRecord(1, savev1.SaveType_SAVE_TYPE_CUSTOM, "big.bin", writeSaveFile(t, dir, "big.bin", []byte("12345")), nil)
