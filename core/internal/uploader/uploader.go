@@ -436,6 +436,9 @@ func (u *Uploader) dispatch(records []*recordv1.Record) ([]*recordv1.Record, boo
 			pending := remainingInBatchOrder(group.records, result.Remaining)
 			pending = append(pending, tail...)
 			u.pending.Store(int64(len(pending)))
+			// 随 Confirmed 终结的确定性失败不会再进入下一轮，必须在本轮立即告警；
+			// 否则重试成功后该失败会从 LastFailures 消失，用户只能看到通用重试提示。
+			u.warnTerminal(terminalFailures(result.Failures, result.Remaining))
 			u.setFailures(failures)
 			u.warn.Warn()
 			return pending, true

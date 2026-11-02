@@ -508,6 +508,52 @@ func TestTerminalFailureWarns(t *testing.T) {
 	waitDone(t, f.u)
 }
 
+func TestMixedFailureWarnsTerminalBeforeRetry(t *testing.T) {
+	const blockedMessage = "scalar record without value or timestamp"
+	attempt := 0
+	sender := senderFunc(func(_ context.Context, records []*recordv1.Record) Result {
+		attempt++
+		if attempt > 1 {
+			return Result{Confirmed: records}
+		}
+		// 模拟 503 混合结果：缺时间戳的记录被确定性终结，正常记录等待重试。
+		return Result{
+			Confirmed: records[:1],
+			Remaining: records[1:],
+			Failures: []Failure{
+				{Message: "503 service unavailable", Records: records[1:]},
+				{Message: blockedMessage, Records: records[:1]},
+			},
+		}
+	})
+	f := newUplFixture(t, map[record.Type]Sender{record.TypeScalar: sender}, 100, time.Hour)
+	var warnings []string
+	f.u.warnFailure = func(message string) { warnings = append(warnings, message) }
+	f.feed(t, newScalar(1, "blocked"), newScalar(2, "ok"))
+
+	if err := f.u.FlushSchedulingForTest(); err != nil {
+		t.Fatalf("flush: %v", err)
+	}
+	if len(warnings) != 1 || warnings[0] != blockedMessage {
+		t.Fatalf("warnings = %v, want terminal failure warning before retry", warnings)
+	}
+	if got := f.u.Stats().Pending; got != 1 {
+		t.Fatalf("pending = %d, want only the retryable record", got)
+	}
+
+	close(f.in)
+	waitDone(t, f.u)
+	if len(warnings) != 1 {
+		t.Fatalf("warnings = %v, want terminal failure warned exactly once", warnings)
+	}
+	if got := f.u.Stats().UploadedRecords; got != 2 {
+		t.Fatalf("uploaded records = %d, want terminal and retried records accounted", got)
+	}
+	if used, _ := f.ledger.Usage(); used != 0 {
+		t.Fatalf("budget usage = %d, want 0", used)
+	}
+}
+
 func TestUnregisteredTypeTerminates(t *testing.T) {
 	f := newUplFixture(t, map[record.Type]Sender{record.TypeScalar: senderFunc(successUpload)}, 100, time.Hour)
 	var mu sync.Mutex

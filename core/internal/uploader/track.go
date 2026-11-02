@@ -100,6 +100,32 @@ func conserved(batch []*recordv1.Record, result Result) bool {
 	return true
 }
 
+// terminalFailures 返回不会随本轮重试继续存在的失败：没有任何记录留在 Remaining 中。
+// Records 为空的失败无法归因，按可重试处理，避免每轮重复告警。
+func terminalFailures(failures []Failure, remaining []*recordv1.Record) []Failure {
+	if len(failures) == 0 {
+		return nil
+	}
+	retrying := make(map[*recordv1.Record]struct{}, len(remaining))
+	for _, rec := range remaining {
+		retrying[rec] = struct{}{}
+	}
+	var terminal []Failure
+	for _, failure := range failures {
+		willRetry := false
+		for _, rec := range failure.Records {
+			if _, ok := retrying[rec]; ok {
+				willRetry = true
+				break
+			}
+		}
+		if !willRetry && len(failure.Records) > 0 {
+			terminal = append(terminal, failure)
+		}
+	}
+	return terminal
+}
+
 // remainingInBatchOrder 按原批序过滤 remaining，避免打乱 FIFO。
 func remainingInBatchOrder(batch, remaining []*recordv1.Record) []*recordv1.Record {
 	if len(remaining) == 0 {
