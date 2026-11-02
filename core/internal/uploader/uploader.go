@@ -24,6 +24,8 @@ var ErrNotDrained = errors.New("uploader: closed before drained")
 var ErrClosed = errors.New("uploader: closed")
 
 // Options 是 Uploader 的构造参数；In、Budget、Senders 必填。
+// total_records 必须由上游在记录进入 In 之前完成接纳计数（intake 的 OnAdmit），
+// Uploader 只在同 num 覆盖时冲减；漏接会让进度总数一直为 0。
 type Options struct {
 	In        <-chan *recordv1.Record // 必填，通常为 buffer.Intake.UploadOut()
 	Budget    *budget.Budget          // 必填，记录入队时已由 intake 预留
@@ -31,7 +33,7 @@ type Options struct {
 	Batch     int                     // <=0 取 config.DefaultRecordBatch
 	Interval  time.Duration           // <=0 取 config.DefaultRecordInterval
 	Retry     RetryPolicy             // 零值取 DefaultRetryPolicy()
-	Tracker   *Tracker                // 可空，内部创建
+	Tracker   *Tracker                // 可空，内部创建；须与上游接纳计数共用同一实例
 	Warn      *WarningThrottle        // 可空，内部创建
 	Context   context.Context         // 可空，作为 sender 调用的父 ctx
 	Now       func() time.Time        // 可空，调度时钟，测试可注入
@@ -617,8 +619,19 @@ func (u *Uploader) FlushSchedulingForTest() error {
 	case <-ack:
 		return nil
 	case <-u.workerDone:
-		return ErrClosed
+		return flushOutcome(ack)
 	case <-u.stop:
+		return flushOutcome(ack)
+	}
+}
+
+// flushOutcome 在停止信号与 ack 同时就绪时优先返回已完成的 Flush；
+// worker 正常退出前，本轮 ack 若会关闭则一定已关闭。
+func flushOutcome(ack <-chan struct{}) error {
+	select {
+	case <-ack:
+		return nil
+	default:
 		return ErrClosed
 	}
 }

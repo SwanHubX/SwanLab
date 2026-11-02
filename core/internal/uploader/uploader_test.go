@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/swanhubx/swanlab/core/internal/budget"
+	"github.com/swanhubx/swanlab/core/internal/buffer"
 	"github.com/swanhubx/swanlab/core/internal/pkg/record"
 	operationv1 "github.com/swanhubx/swanlab/core/proto/swanlab/operation/v1"
 	recordv1 "github.com/swanhubx/swanlab/core/proto/swanlab/record/v1"
@@ -66,6 +67,8 @@ func newUplFixture(t *testing.T, senders map[record.Type]Sender, batch int, inte
 
 func (f *uplFixture) feed(t *testing.T, records ...*recordv1.Record) {
 	t.Helper()
+	// 模拟 intake：接纳即计入 total_records，worker 是否已消费不影响首帧。
+	f.tracker.AddTotalRecords(int64(len(records)))
 	for _, rec := range records {
 		if err := f.ledger.Acquire(context.Background(), 1, record.Size(rec)); err != nil {
 			t.Fatalf("acquire: %v", err)
@@ -373,6 +376,9 @@ func TestNoRecordsLostAcrossRetries(t *testing.T) {
 	if got := f.tracker.Snapshot().UploadedRecords; got != total {
 		t.Fatalf("uploaded records = %d, want %d", got, total)
 	}
+	if got := f.tracker.Snapshot().TotalRecords; got != total {
+		t.Fatalf("total records = %d, want %d (retries must not recount)", got, total)
+	}
 	if used, _ := f.ledger.Usage(); used != 0 {
 		t.Fatalf("budget usage = %d, want 0", used)
 	}
@@ -487,6 +493,93 @@ func TestStatsAndSnapshot(t *testing.T) {
 	}
 }
 
+func TestOverwriteKeepsDeduplicatedTotal(t *testing.T) {
+	calls, sender := recordingSender(1)
+	f := newUplFixture(t, map[record.Type]Sender{record.TypeScalar: sender}, 100, time.Hour)
+
+	f.feed(t, newScalar(1, "first"), newScalar(1, "second"))
+	if err := f.u.FlushSchedulingForTest(); err != nil {
+		t.Fatalf("flush: %v", err)
+	}
+	if batch := recvBatch(t, calls); len(batch) != 1 || batch[0].GetScalar().GetKey() != "second" {
+		t.Fatalf("batch = %v, want only the replacement record", batch)
+	}
+
+	close(f.in)
+	waitDone(t, f.u)
+
+	stats := f.u.Stats()
+	if stats.TotalRecords != 1 || stats.UploadedRecords != 1 {
+		t.Fatalf("stats = %+v, want overwrite counted once", stats)
+	}
+	if used, _ := f.ledger.Usage(); used != 0 {
+		t.Fatalf("budget usage = %d, want 0", used)
+	}
+}
+
+func TestTotalRecordsCountedOnIntakeAdmission(t *testing.T) {
+	tracker := NewTracker()
+	ledger := budget.New(budget.Limits{})
+	in, err := buffer.New(buffer.Options{
+		SkipStore:   true,
+		UploadQueue: 128,
+		Budget:      ledger,
+		OnAdmit:     tracker.AddTotalRecords,
+	})
+	if err != nil {
+		t.Fatalf("intake: %v", err)
+	}
+
+	records := make([]*recordv1.Record, 0, 100)
+	var size int64
+	for i := 0; i < 100; i++ {
+		rec := newScalar(int64(i+1), "loss")
+		records = append(records, rec)
+		size += record.Size(rec)
+	}
+	tk, err := in.Reserve(context.Background(), buffer.Demand{Upload: len(records), Bytes: size})
+	if err != nil {
+		t.Fatalf("reserve: %v", err)
+	}
+	if err = in.Commit(tk, records); err != nil {
+		t.Fatalf("commit: %v", err)
+	}
+
+	// worker 尚未创建，100 条仍排在 intake 通道里；首帧必须已能读到总数。
+	if got := tracker.Snapshot().TotalRecords; got != 100 {
+		t.Fatalf("total records before worker starts = %d, want 100", got)
+	}
+
+	u, err := New(Options{
+		In:       in.UploadOut(),
+		Budget:   ledger,
+		Senders:  map[record.Type]Sender{record.TypeScalar: senderFunc(successUpload)},
+		Batch:    1000,
+		Interval: time.Hour,
+		Tracker:  tracker,
+		Warn:     quietThrottle(),
+	})
+	if err != nil {
+		t.Fatalf("uploader: %v", err)
+	}
+	t.Cleanup(func() { _ = u.Close() })
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if err := in.Close(ctx); err != nil {
+		t.Fatalf("intake close: %v", err)
+	}
+	waitDone(t, u)
+
+	snapshot := u.Snapshot()
+	if snapshot.TotalRecords != 100 || snapshot.UploadedRecords != 100 {
+		t.Fatalf("records = %d/%d, want 100/100", snapshot.UploadedRecords, snapshot.TotalRecords)
+	}
+	if used, _ := ledger.Usage(); used != 0 {
+		t.Fatalf("budget usage = %d, want 0", used)
+	}
+}
+
 func TestTerminalFailureWarns(t *testing.T) {
 	sender := senderFunc(func(_ context.Context, records []*recordv1.Record) Result {
 		return Result{
@@ -548,6 +641,9 @@ func TestMixedFailureWarnsTerminalBeforeRetry(t *testing.T) {
 	}
 	if got := f.u.Stats().UploadedRecords; got != 2 {
 		t.Fatalf("uploaded records = %d, want terminal and retried records accounted", got)
+	}
+	if got := f.u.Stats().TotalRecords; got != 2 {
+		t.Fatalf("total records = %d, want 2 (terminal failure counted once)", got)
 	}
 	if used, _ := f.ledger.Usage(); used != 0 {
 		t.Fatalf("budget usage = %d, want 0", used)

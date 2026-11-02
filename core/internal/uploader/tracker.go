@@ -128,6 +128,16 @@ func (t *Tracker) AddTotalRecords(n int64) {
 	t.totalRecords += n
 }
 
+// AdjustTotalRecords 按增量调整已知总记录数（同 num 覆盖时冲减），结果不会低于 0。
+func (t *Tracker) AdjustTotalRecords(delta int64) {
+	if delta == 0 {
+		return
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.totalRecords = max(t.totalRecords+delta, 0)
+}
+
 // AdvanceRecords 累加已终结记录数；n<=0 忽略。
 func (t *Tracker) AdvanceRecords(n int64) {
 	if n <= 0 {

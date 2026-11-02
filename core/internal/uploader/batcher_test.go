@@ -63,7 +63,7 @@ func newFinish(num int64) *recordv1.Record {
 	}
 }
 
-// newTestBuffer 模拟 intake 已为每条记录预留配额，再构造缓冲区。
+// newTestBuffer 模拟 intake 已为每条记录预留配额并计入 total_records，再构造缓冲区。
 func newTestBuffer(t *testing.T, owned ...*recordv1.Record) (*recordBuffer, *budget.Budget, *Tracker) {
 	t.Helper()
 	ledger := budget.New(budget.Limits{})
@@ -73,6 +73,7 @@ func newTestBuffer(t *testing.T, owned ...*recordv1.Record) (*recordBuffer, *bud
 		}
 	}
 	tracker := NewTracker()
+	tracker.AddTotalRecords(int64(len(owned)))
 	return newRecordBuffer(ledger, tracker), ledger, tracker
 }
 

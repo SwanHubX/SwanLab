@@ -1319,6 +1319,58 @@ func TestPauseKeepsDeferredQuota(t *testing.T) {
 	}
 }
 
+// TestAdmitCountsOnlyOnFirstDelivery 覆盖 total_records 的接纳时机：
+// Start/Finish 不计数；END 保存、recovery 与 Close 补投只沿用首次计数。
+func TestAdmitCountsOnlyOnFirstDelivery(t *testing.T) {
+	sink := newStoreSink(8)
+	defer sink.stop()
+	var admitted atomic.Int64
+	var degraded atomic.Bool
+	in := newIntake(t, Options{
+		Store:       sink.ch,
+		Budget:      budget.New(budget.Limits{}),
+		Degraded:    &degraded,
+		UploadQueue: 8,
+		OnAdmit:     func(n int64) { admitted.Add(n) },
+	})
+
+	mustCommit(t, in, startRecord(), finishRecord())
+	if got := admitted.Load(); got != 0 {
+		t.Fatalf("admitted = %d, want 0 for store-only records", got)
+	}
+
+	// END 保存延迟到 Close 才投递，接纳时就要计入。
+	mustCommit(t, in, saveRecord(3, savev1.SavePolicy_SAVE_POLICY_END))
+	if got := admitted.Load(); got != 1 {
+		t.Fatalf("admitted = %d, want 1 for deferred save", got)
+	}
+
+	// 本地降级后记录进入 recovery，只计数一次。
+	degraded.Store(true)
+	mustCommit(t, in, scalarRecord(4))
+	if got := admitted.Load(); got != 2 {
+		t.Fatalf("admitted = %d, want 2 after recovery admission", got)
+	}
+	if _, err := in.DrainRecovery(context.Background()); err != nil {
+		t.Fatalf("DrainRecovery: %v", err)
+	}
+
+	if err := in.CommitUploadOnly(context.Background(), logRecord(5)); err != nil {
+		t.Fatalf("CommitUploadOnly: %v", err)
+	}
+	if got := admitted.Load(); got != 3 {
+		t.Fatalf("admitted = %d, want 3 after upload-only record", got)
+	}
+
+	if err := in.Close(context.Background()); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	drainUpload(in)
+	if got := admitted.Load(); got != 3 {
+		t.Fatalf("admitted = %d, want no recount on Close", got)
+	}
+}
+
 func recordNums(recs []*recordv1.Record) []int64 {
 	nums := make([]int64, len(recs))
 	for i, rec := range recs {

@@ -44,6 +44,19 @@ func TestTrackerRecords(t *testing.T) {
 	}
 }
 
+func TestTrackerAdjustTotalRecords(t *testing.T) {
+	tr := NewTracker()
+	tr.AddTotalRecords(2)
+	tr.AdjustTotalRecords(-1)
+	if got := tr.Snapshot().TotalRecords; got != 1 {
+		t.Fatalf("total after overwrite = %d, want 1", got)
+	}
+	tr.AdjustTotalRecords(-5)
+	if got := tr.Snapshot().TotalRecords; got != 0 {
+		t.Fatalf("total after clamp = %d, want 0", got)
+	}
+}
+
 func TestTrackerFileLifecycle(t *testing.T) {
 	clock := newFakeClock()
 	tr := NewTracker()

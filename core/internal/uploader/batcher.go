@@ -22,6 +22,7 @@ type recordGroup struct {
 }
 
 // recordBuffer 是 batcher 独占的缓冲区（不加锁），按 num 原地覆盖并归还旧记录配额。
+// total_records 由 intake 在接纳时累加，覆盖时在这里冲减。
 type recordBuffer struct {
 	budget  *budget.Budget
 	tracker *Tracker
@@ -39,17 +40,17 @@ func newRecordBuffer(b *budget.Budget, tracker *Tracker) *recordBuffer {
 	}
 }
 
-// add 写入一条记录；added 与 replaced 互斥，覆盖时归还旧记录配额。
+// add 写入一条记录；added 与 replaced 互斥，覆盖时归还旧记录配额并冲减总数。
 func (b *recordBuffer) add(rec *recordv1.Record) (added, replaced bool) {
 	num := rec.GetNum()
 	if old, ok := b.items[num]; ok {
 		b.items[num] = rec
 		b.budget.Release(1, record.Size(old))
+		b.tracker.AdjustTotalRecords(-1)
 		return false, true
 	}
 	b.items[num] = rec
 	b.order = append(b.order, num)
-	b.tracker.AddTotalRecords(1)
 	return true, false
 }
 
