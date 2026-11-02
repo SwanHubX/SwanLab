@@ -71,9 +71,18 @@ type fileEntry struct {
 	info       os.FileInfo // nil 表示注册时文件缺失
 }
 
-// statFile 返回文件的当前状态；文件缺失时 ok 为 false。
+// statFile 通过打开的文件句柄取状态；文件缺失时 ok 为 false。
+//
+// Windows 的 os.Stat 按路径延迟解析文件索引，同一路径原子替换后 os.SameFile
+// 仍可能判为同一文件；句柄状态在取出时就带上了文件索引。
 func statFile(path string) (os.FileInfo, bool) {
-	info, err := os.Stat(path)
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, false
+	}
+	defer func() { _ = file.Close() }()
+
+	info, err := file.Stat()
 	if err != nil {
 		return nil, false
 	}

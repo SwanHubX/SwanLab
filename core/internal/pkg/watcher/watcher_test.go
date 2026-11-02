@@ -198,7 +198,7 @@ func TestDebounceCoalescesChanges(t *testing.T) {
 		t.Fatal("second event must reset the pending timer")
 	}
 
-	if err := os.WriteFile(source, []byte("v2"), 0o644); err != nil {
+	if err := os.WriteFile(source, []byte("v2-longer"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	clock.fire(second)
@@ -224,7 +224,7 @@ func TestDebounceCoalescesChanges(t *testing.T) {
 	}
 	mu.Unlock()
 
-	if err := os.WriteFile(source, []byte("v2-longer"), 0o644); err != nil {
+	if err := os.WriteFile(source, []byte("v2-even-longer"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	w.notify(source)
@@ -261,7 +261,7 @@ func TestStaleTimerDoesNotClobberNewSchedule(t *testing.T) {
 	if calls != 0 {
 		t.Fatalf("stale timer triggered %d callbacks", calls)
 	}
-	if err := os.WriteFile(source, []byte("v2"), 0o644); err != nil {
+	if err := os.WriteFile(source, []byte("v2-longer"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	clock.fire(latest)
@@ -329,7 +329,7 @@ func TestStopFlushesPendingChanges(t *testing.T) {
 	addEntry(t, w, "model.pt", source, savev1.SavePolicy_SAVE_POLICY_LIVE)
 	w.notify(source)
 	pending := clock.latest()
-	if err := os.WriteFile(source, []byte("v2"), 0o644); err != nil {
+	if err := os.WriteFile(source, []byte("v2-longer"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -367,7 +367,7 @@ func TestStopChecksAllRegisteredFiles(t *testing.T) {
 	defer w.Stop()
 
 	addEntry(t, w, "model.pt", source, savev1.SavePolicy_SAVE_POLICY_LIVE)
-	if err := os.WriteFile(source, []byte("v2"), 0o644); err != nil {
+	if err := os.WriteFile(source, []byte("v2-longer"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 

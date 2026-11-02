@@ -111,7 +111,7 @@ func TestWatchFileWrite(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err = os.WriteFile(source, []byte("v2"), 0o644); err != nil {
+	if err = os.WriteFile(source, []byte("v2-longer"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	expectedSource, err := filepath.EvalSymlinks(source)
@@ -200,7 +200,7 @@ func TestStopFlushesRealEvent(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err = os.WriteFile(source, []byte("v2"), 0o644); err != nil {
+	if err = os.WriteFile(source, []byte("v2-longer"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
