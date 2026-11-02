@@ -21,7 +21,7 @@ type recordGroup struct {
 	records []*recordv1.Record
 }
 
-// recordBuffer 是 batcher 独占的缓冲区（不加锁），按 num 原地覆盖并归还旧记录配额。
+// recordBuffer 是分发侧独占的缓冲区（不加锁），按 num 原地覆盖并归还旧记录配额。
 // total_records 由 intake 在接纳时累加，覆盖时在这里冲减。
 type recordBuffer struct {
 	budget  *budget.Budget
@@ -112,4 +112,94 @@ func isDispatched(typ record.Type) bool {
 		}
 	}
 	return false
+}
+
+// dispatch 按固定类型顺序处理一批；失败时返回该组剩余及全部后续组。
+func (u *Uploader) dispatch(records []*recordv1.Record) ([]*recordv1.Record, bool) {
+	groups := groupRecords(records)
+	var failures []Failure
+	for i, group := range groups {
+		tail := flattenGroups(groups[i+1:])
+		u.pending.Store(int64(len(group.records) + len(tail)))
+		sender := u.registry.get(group.typ)
+		if sender == nil {
+			u.terminateUnsupported(group)
+			u.pending.Store(int64(len(tail)))
+			continue
+		}
+
+		result := safeUpload(u.ctx, sender, group.records)
+		if !conserved(group.records, result) {
+			result = Result{
+				Remaining: group.records,
+				Failures: []Failure{{
+					Message: "sender result does not account for every record",
+					Records: group.records,
+				}},
+			}
+		}
+		u.confirm(result.Confirmed)
+		failures = append(failures, result.Failures...)
+
+		if len(result.Remaining) > 0 {
+			pending := remainingInBatchOrder(group.records, result.Remaining)
+			pending = append(pending, tail...)
+			u.pending.Store(int64(len(pending)))
+			// 随 Confirmed 终结的确定性失败不会再进入下一轮，必须在本轮立即告警；
+			// 否则重试成功后该失败会从 LastFailures 消失，用户只能看到通用重试提示。
+			u.warnTerminal(terminalFailures(result.Failures, result.Remaining))
+			u.setFailures(failures)
+			u.warn.Warn()
+			return pending, true
+		}
+		if len(result.Failures) > 0 {
+			u.warnTerminal(result.Failures)
+		}
+		u.pending.Store(int64(len(tail)))
+	}
+	u.pending.Store(0)
+	u.setFailures(failures)
+	u.warn.Reset()
+	return nil, false
+}
+
+// flattenGroups 保持固定组序和组内记录顺序。
+func flattenGroups(groups []recordGroup) []*recordv1.Record {
+	var records []*recordv1.Record
+	for _, group := range groups {
+		records = append(records, group.records...)
+	}
+	return records
+}
+
+// confirm 终结记录：归还配额并计入上传进度。
+func (u *Uploader) confirm(records []*recordv1.Record) {
+	for _, rec := range records {
+		u.budget.Release(1, record.Size(rec))
+	}
+	u.tracker.AdvanceRecords(int64(len(records)))
+}
+
+// terminateUnsupported 终结未注册类型的记录：归还配额、计入上传进度并告警一次。
+func (u *Uploader) terminateUnsupported(group recordGroup) {
+	u.confirm(group.records)
+	if _, warned := u.warnedTypes[group.typ]; warned {
+		return
+	}
+	u.warnedTypes[group.typ] = struct{}{}
+	u.warnUnsupported(group.typ, len(group.records))
+}
+
+// warnTerminal 输出不会被重试的确定性失败，避免静默丢弃数据。
+func (u *Uploader) warnTerminal(failures []Failure) {
+	for _, failure := range failures {
+		u.warnFailure(failure.Message)
+	}
+}
+
+// setFailures 保存最近一次完整调度尝试的失败集合。
+func (u *Uploader) setFailures(failures []Failure) {
+	u.failuresMu.Lock()
+	u.failures = append(u.failures[:0], failures...)
+	u.failuresMu.Unlock()
 }
