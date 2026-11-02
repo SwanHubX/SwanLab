@@ -68,6 +68,9 @@ type Options struct {
 	// Flushed 返回已完整落盘的 storeSeq；!SkipStore 时必填。
 	// 用于确认暂停期间的记录已安全落盘，不得回调 Intake。
 	Flushed func() uint64
+	// OnAdmit 在记录首次进入上传管线时回调待上传条数（Start/Finish 不计）；
+	// Close 补投、recovery 与重试都不会再次回调。回调必须非阻塞。
+	OnAdmit func(n int64)
 	// QueueWait 是容量不足时的有界等待上限，<=0 取 DefaultQueueWait。
 	QueueWait time.Duration
 	// StorePollInterval 是本地通道等待的轮询间隔，<=0 取 10ms。
@@ -107,6 +110,7 @@ type Intake struct {
 	budget    *budget.Budget
 	degraded  *atomic.Bool
 	flushed   func() uint64
+	onAdmit   func(int64)
 	wait      time.Duration
 	poll      time.Duration
 	uploadCap int
@@ -157,6 +161,7 @@ func New(opts Options) (*Intake, error) {
 		budget:    opts.Budget,
 		degraded:  degraded,
 		flushed:   opts.Flushed,
+		onAdmit:   opts.OnAdmit,
 		wait:      opts.QueueWait,
 		poll:      opts.StorePollInterval,
 		uploadCap: cap(upload),
@@ -368,6 +373,7 @@ func (t *Intake) Commit(tk Ticket, records []*recordv1.Record) error {
 		t.collectUnconfirmedLocked()
 	}
 	pausedNow := false
+	t.admit(uploadable)
 	switch {
 	case paused && storeOK:
 		pausedNow = t.pauseLocked(records, immediate, deferred, tk, seqOf)
@@ -383,6 +389,14 @@ func (t *Intake) Commit(tk Ticket, records []*recordv1.Record) error {
 		console.Warning("upload budget is full, pausing upload delivery; records will stay in the local store")
 	}
 	return nil
+}
+
+// admit 把首次进入上传管线的条数上报给 total_records 记账方。
+// 暂停、recovery 与 Close 补投都沿用这次计数，不会重复回调。
+func (t *Intake) admit(n int) {
+	if n > 0 && t.onAdmit != nil {
+		t.onAdmit(int64(n))
+	}
 }
 
 // routeRecords 按记录类型拆出立即上传与延迟上传（SAVE_POLICY_END）的下标。
@@ -485,6 +499,7 @@ func (t *Intake) CommitUploadOnly(ctx context.Context, rec *recordv1.Record) err
 		t.releaseUploadLocked(1)
 		return ErrClosed
 	}
+	t.admit(1)
 	t.upload <- rec
 	t.releaseUploadLocked(1)
 	return nil

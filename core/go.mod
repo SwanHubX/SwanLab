@@ -5,6 +5,7 @@ go 1.26.5
 require (
 	github.com/RoaringBitmap/roaring/v2 v2.30.0
 	github.com/google/uuid v1.6.0
+	go.uber.org/goleak v1.3.0
 	golang.org/x/sys v0.47.0
 	google.golang.org/grpc v1.83.0
 	google.golang.org/protobuf v1.36.12

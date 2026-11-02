@@ -397,7 +397,7 @@ func identityKey(apiHost, apiKey string) string {
 }
 
 // cloneDefaultTransport 克隆默认连接池，避免影响其它使用 http.DefaultTransport 的代码。
-// 克隆后调高空闲连接上限，适配上传管线的并发轨道与文件上传。
+// 克隆后调高空闲连接上限，适配上传管线的批量请求与文件上传。
 func cloneDefaultTransport() *http.Transport {
 	transport := &http.Transport{}
 	if base, ok := http.DefaultTransport.(*http.Transport); ok {
