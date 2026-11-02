@@ -6,8 +6,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 
+	"golang.org/x/sync/semaphore"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -31,7 +33,14 @@ const (
 	logBlockedMessage = "log record without line or timestamp"
 	// logUnknownLevelMessage 是未知日志级别的确定性失败文案。
 	logUnknownLevelMessage = "log record with unknown level"
+	// createTimeKey 是指标共用的创建时间字段名。
+	createTimeKey = "create_time"
+	// mediaConcurrency 是媒体文件并发 PUT 的上限，进程级、跨会话共享。
+	mediaConcurrency = 10
 )
+
+// mediaSlots 是媒体文件的全局并发配额，避免多会话叠加放大连接数。
+var mediaSlots = semaphore.NewWeighted(mediaConcurrency)
 
 // columnTypeNames 是 ColumnType 到云端类型标签的映射。
 var columnTypeNames = map[columnv1.ColumnType]string{
@@ -52,6 +61,24 @@ var logLevelNames = map[terminalv1.LogLevel]string{
 	terminalv1.LogLevel_LOG_LEVEL_ERROR: "ERROR",
 }
 
+// ObjectPutter 是对象存储预签名直传原语，*client.Client 实现。
+type ObjectPutter interface {
+	PutObject(ctx context.Context, url string, body io.Reader, size int64, contentType string) (string, error)
+}
+
+// FileOptions 是文件类 sender 的运行期依赖；column/scalar/log 忽略该字段。
+type FileOptions struct {
+	MediaDir  string // run_dir/media
+	FilesDir  string // run_dir/files
+	SkipStore bool
+	SaveSize  int64
+	SaveSplit int64
+	SavePart  int64
+	SaveBatch int
+	Tracker   *uploader.Tracker // 可空
+	Putter    ObjectPutter      // media/save 必填
+}
+
 // Options 是三条 sender 共用的身份信息。
 type Options struct {
 	API          *api.Client // 必填
@@ -59,6 +86,7 @@ type Options struct {
 	Project      string
 	ProjectID    string
 	ExperimentID string
+	Files        FileOptions
 }
 
 // isRetryable 判断错误是否归 Remaining；父 ctx 取消时由 worker 停止调度。
@@ -210,7 +238,7 @@ func encodeScalar(record *datav1.ScalarRecord) (map[string]any, bool) {
 		"key":         record.GetKey(),
 		"index":       record.GetStep(),
 		"data":        data,
-		"create_time": createTime,
+		createTimeKey: createTime,
 	}, true
 }
 
@@ -292,7 +320,7 @@ func encodeLog(record *terminalv1.LogRecord) (map[string]any, logEncodeStatus) {
 		"level":       level,
 		"epoch":       record.GetEpoch(),
 		"message":     record.GetLine(),
-		"create_time": createTime,
+		createTimeKey: createTime,
 	}, logOK
 }
 
