@@ -10,6 +10,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -288,6 +289,69 @@ func (c *Client) send(ctx context.Context, method, endpoint string, payload []by
 		Header:   resp.Header,
 		Body:     raw,
 	}, nil
+}
+
+// PutObject 向预签名 URL 直传对象，成功时返回去掉引号的 ETag（可能为空）。
+//
+// 与 Do 的区别：目标地址由对象存储给出，不拼 api_host + /api 前缀，也不注入身份——
+// 预签名按请求头签名，多带 Authorization / Cookie 会让签名失效。size 用于显式声明
+// Content-Length，避免对象存储拒绝 chunked 请求。底层重试关闭：上传管线的退避会
+// 重新 prepare 换新链接，传输层再叠一层只会放大请求量。
+func (c *Client) PutObject(ctx context.Context, rawURL string, body io.Reader, size int64, contentType string) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
+	if err := validateObjectURL(rawURL); err != nil {
+		return "", err
+	}
+	req, err := http.NewRequestWithContext(WithRetries(ctx, 0), http.MethodPut, rawURL, body)
+	if err != nil {
+		return "", NewProtocolError(http.MethodPut, rawURL, "invalid_object_url", err.Error(), err)
+	}
+	req.ContentLength = size
+	req.Header.Set(sdkVersionHeader, c.version)
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+	}
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return "", ctxErr
+		}
+		return "", newTransportError(http.MethodPut, rawURL, err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	raw, readErr := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes+1))
+	if readErr != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return "", ctxErr
+		}
+		return "", newTransportError(http.MethodPut, rawURL, readErr)
+	}
+	if len(raw) > maxResponseBytes {
+		return "", NewProtocolError(http.MethodPut, rawURL, "response_too_large", "response body exceeds 8 MiB", nil)
+	}
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return "", newAPIError(http.MethodPut, rawURL, resp.StatusCode, resp.Header, raw)
+	}
+	return strings.Trim(resp.Header.Get("ETag"), `"`), nil
+}
+
+// validateObjectURL 校验预签名 URL：必须是带 host 的绝对 http/https 地址。
+//
+// 这类地址由后端签发，形态不合法说明协议被破坏，重试不会恢复，因此返回普通错误
+// 而不是 APIError（上层据类型判定「不可重试」）。
+func validateObjectURL(rawURL string) error {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return fmt.Errorf("client: invalid object url %q: %w", rawURL, err)
+	}
+	if (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
+		return fmt.Errorf("client: invalid object url %q: absolute http(s) url required", rawURL)
+	}
+	return nil
 }
 
 // encodeBody 把请求体编码为 JSON；nil 表示无请求体。

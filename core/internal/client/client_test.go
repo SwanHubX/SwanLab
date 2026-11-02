@@ -492,6 +492,150 @@ func TestNormalizeHost(t *testing.T) {
 	}
 }
 
+// TestPutObjectUploadsWithoutAuth 覆盖直传契约：绝对 URL 直连、不注入身份、
+// 显式 Content-Length、ETag 去引号，且底层不叠加重试。
+func TestPutObjectUploadsWithoutAuth(t *testing.T) {
+	cloud := clienttest.NewCloud(t)
+	const objectPath = "/sink/media/image/photo.png"
+	contentLength := make(chan int64, 1)
+	cloud.Handle(http.MethodPut, objectPath, func(w http.ResponseWriter, r *http.Request) {
+		contentLength <- r.ContentLength
+		w.Header().Set("ETag", `"abc123"`)
+		w.WriteHeader(http.StatusOK)
+	})
+
+	authed, clock := newAuthedClient(t, cloud, Options{})
+	// 用非 *bytes.Reader / *strings.Reader 的流：http.NewRequest 无法自行推断长度，
+	// Content-Length 只能来自 PutObject 的显式声明。
+	body := io.NopCloser(strings.NewReader("hello"))
+	etag, err := authed.PutObject(context.Background(), cloud.URL()+objectPath, body, 5, "image/png")
+	if err != nil {
+		t.Fatalf("put object: %v", err)
+	}
+	if etag != "abc123" {
+		t.Fatalf("etag = %q, want abc123 (quotes stripped)", etag)
+	}
+
+	reqs := cloud.RequestsFor(http.MethodPut, objectPath)
+	if len(reqs) != 1 {
+		t.Fatalf("put requests = %d, want 1", len(reqs))
+	}
+	req := reqs[0]
+	if got := req.Header.Get("Authorization"); got != "" {
+		t.Fatalf("Authorization = %q, want none (would break the presigned signature)", got)
+	}
+	if got := req.Header.Get("Cookie"); got != "" {
+		t.Fatalf("Cookie = %q, want none (would break the presigned signature)", got)
+	}
+	if got := req.Header.Get("Content-Type"); got != "image/png" {
+		t.Fatalf("Content-Type = %q, want image/png", got)
+	}
+	if got := req.Header.Get(sdkVersionHeader); got != DefaultSDKVersion {
+		t.Fatalf("%s = %q, want %q", sdkVersionHeader, got, DefaultSDKVersion)
+	}
+	if got := string(req.Body); got != "hello" {
+		t.Fatalf("body = %q, want hello", got)
+	}
+	if got := <-contentLength; got != 5 {
+		t.Fatalf("Content-Length = %d, want 5", got)
+	}
+	if got := clock.Sleeps(); len(got) != 0 {
+		t.Fatalf("unexpected retries: %v", got)
+	}
+}
+
+// TestPutObjectWithoutETag 覆盖未返回 ETag 的存储：空值不算错误。
+func TestPutObjectWithoutETag(t *testing.T) {
+	cloud := clienttest.NewCloud(t)
+	cloud.ServeJSON(http.MethodPut, "/sink/object", http.StatusOK, nil)
+
+	authed, _ := newAuthedClient(t, cloud, Options{})
+	etag, err := authed.PutObject(context.Background(), cloud.URL()+"/sink/object", strings.NewReader("x"), 1, "text/plain")
+	if err != nil {
+		t.Fatalf("put object: %v", err)
+	}
+	if etag != "" {
+		t.Fatalf("etag = %q, want empty", etag)
+	}
+}
+
+// TestPutObjectErrorClassification 覆盖状态码分类：4xx 确定性失败、5xx 保留重试，
+// 且都只发一次（重试由上传管线接管）。
+func TestPutObjectErrorClassification(t *testing.T) {
+	cases := []struct {
+		name      string
+		status    int
+		retryable bool
+	}{
+		{"forbidden", http.StatusForbidden, false},
+		{"server_error", http.StatusInternalServerError, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cloud := clienttest.NewCloud(t)
+			cloud.ServeJSON(http.MethodPut, "/sink/object", tc.status, map[string]string{
+				"code": "put_failed", "message": "object store rejected the upload",
+			})
+
+			authed, clock := newAuthedClient(t, cloud, Options{})
+			_, err := authed.PutObject(context.Background(), cloud.URL()+"/sink/object", strings.NewReader("x"), 1, "text/plain")
+			if err == nil {
+				t.Fatal("expected error")
+			}
+			if got := IsRetryable(err); got != tc.retryable {
+				t.Fatalf("IsRetryable = %v, want %v (err: %v)", got, tc.retryable, err)
+			}
+			if got := StatusCode(err); got != tc.status {
+				t.Fatalf("status = %d, want %d", got, tc.status)
+			}
+			if !strings.Contains(err.Error(), "object store rejected the upload") {
+				t.Fatalf("error = %v, want backend message preserved", err)
+			}
+			if got := cloud.CountFor(http.MethodPut, "/sink/object"); got != 1 {
+				t.Fatalf("attempts = %d, want 1 (no transport retry)", got)
+			}
+			if got := len(clock.Sleeps()); got != 0 {
+				t.Fatalf("sleeps = %v, want none", clock.Sleeps())
+			}
+		})
+	}
+}
+
+// TestPutObjectRejectsNonAbsoluteURL 覆盖地址校验：非绝对 http/https 地址直接失败，
+// 不产生任何对象存储请求。
+func TestPutObjectRejectsNonAbsoluteURL(t *testing.T) {
+	cloud := clienttest.NewCloud(t)
+	authed, _ := newAuthedClient(t, cloud, Options{})
+
+	for _, rawURL := range []string{"/sink/object", "ftp://127.0.0.1/sink/object", "http://"} {
+		if _, err := authed.PutObject(context.Background(), rawURL, strings.NewReader("x"), 1, "text/plain"); err == nil {
+			t.Fatalf("PutObject(%q) succeeded, want error", rawURL)
+		}
+	}
+	if got := len(cloud.Requests()); got != 1 {
+		t.Fatalf("requests = %d, want only the auth probe", got)
+	}
+}
+
+// TestPutObjectNetworkErrorIsRetryable 覆盖连接失败：保留重试语义，交给管线重新
+// prepare 换新链接。
+func TestPutObjectNetworkErrorIsRetryable(t *testing.T) {
+	cloud := clienttest.NewCloud(t)
+	authed, _ := newAuthedClient(t, cloud, Options{})
+	cloud.Close()
+
+	_, err := authed.PutObject(context.Background(), cloud.URL()+"/sink/object", strings.NewReader("x"), 1, "text/plain")
+	if err == nil {
+		t.Fatal("expected network error")
+	}
+	if StatusCode(err) != 0 {
+		t.Fatalf("status = %d, want 0 for transport error", StatusCode(err))
+	}
+	if !IsRetryable(err) {
+		t.Fatalf("error = %v, want retryable", err)
+	}
+}
+
 // TestIdentityKeyHidesSecret 覆盖身份键不含明文 api_key。
 func TestIdentityKeyHidesSecret(t *testing.T) {
 	key := identityKey("https://api.swanlab.cn", "super-secret-key")
