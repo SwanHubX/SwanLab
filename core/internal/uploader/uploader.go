@@ -37,7 +37,7 @@ type Options struct {
 	Warn      *WarningThrottle        // 可空，内部创建
 	Context   context.Context         // 可空，作为 sender 调用的父 ctx
 	Now       func() time.Time        // 可空，调度时钟，测试可注入
-	OnDrained func()                  // 可空；在 worker 中调用一次，禁止阻塞或再调用 Close
+	OnDrained func()                  // 可空；在 worker 中、Done 关闭前调用一次，禁止阻塞或再调用 Close
 }
 
 // Stats 是上传管线的诊断快照；Pending 包含排队与在途记录。
@@ -497,13 +497,14 @@ func (u *Uploader) setFailures(failures []Failure) {
 	u.failuresMu.Unlock()
 }
 
-// markDrained 只执行一次：关闭 Done 并回调 OnDrained。
+// markDrained 只执行一次：先回调 OnDrained，再关闭 Done。
+// 保证 Wait/Drained 返回时，订阅者（如 Session 终态推进）已完成。
 func (u *Uploader) markDrained() {
 	u.doneOnce.Do(func() {
-		close(u.done)
 		if u.onDrained != nil {
 			u.onDrained()
 		}
+		close(u.done)
 	})
 }
 
@@ -525,7 +526,7 @@ func (u *Uploader) Drained() bool {
 	}
 }
 
-// Done 在排空时关闭。
+// Done 在排空时关闭；关闭前 OnDrained 已执行完毕。
 func (u *Uploader) Done() <-chan struct{} { return u.done }
 
 // Wait 等待排空；超时返回 ctx.Err()，worker 未排空退出时返回 ErrNotDrained。

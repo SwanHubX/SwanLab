@@ -29,13 +29,12 @@ type Sender interface {
 	Upload(ctx context.Context, records []*recordv1.Record) Result
 }
 
-// Registry 按固定顺序保存 Sender 注册信息，不持有队列或上传协程。
+// Registry 保存 Sender 注册信息，不持有队列或上传协程。
 type Registry struct {
 	senders map[record.Type]Sender
-	order   []record.Type
 }
 
-// newRegistry 注册固定分发顺序内的 Sender；未提供或 nil 的类型跳过。
+// newRegistry 只注册固定分发顺序内的 Sender；未提供、nil 或顺序外的类型跳过。
 func newRegistry(senders map[record.Type]Sender) *Registry {
 	r := &Registry{senders: make(map[record.Type]Sender, len(senders))}
 	for _, typ := range dispatchOrder {
@@ -43,14 +42,10 @@ func newRegistry(senders map[record.Type]Sender) *Registry {
 		if !ok || sender == nil {
 			continue
 		}
-		r.order = append(r.order, typ)
 		r.senders[typ] = sender
 	}
 	return r
 }
-
-// has 报告某个类型是否注册了 Sender。
-func (r *Registry) has(typ record.Type) bool { return r.senders[typ] != nil }
 
 // get 返回类型对应的 Sender。
 func (r *Registry) get(typ record.Type) Sender { return r.senders[typ] }

@@ -64,7 +64,7 @@ func waitSignal(t *testing.T, ch <-chan struct{}, what string) {
 	}
 }
 
-func TestRegistryKeepsDispatchOrder(t *testing.T) {
+func TestRegistryRegistersOnlyDispatchedTypes(t *testing.T) {
 	senders := map[record.Type]Sender{}
 	for _, typ := range dispatchOrder {
 		senders[typ] = senderFunc(successUpload)
@@ -72,22 +72,22 @@ func TestRegistryKeepsDispatchOrder(t *testing.T) {
 	senders[record.TypeStart] = senderFunc(successUpload)
 	registry := newRegistry(senders)
 
-	if registry.len() != len(dispatchOrder) || len(registry.order) != len(dispatchOrder) {
-		t.Fatalf("registered = %d/%d, want %d", registry.len(), len(registry.order), len(dispatchOrder))
+	if registry.len() != len(dispatchOrder) {
+		t.Fatalf("registered = %d, want %d", registry.len(), len(dispatchOrder))
 	}
-	for i, typ := range dispatchOrder {
-		if registry.order[i] != typ || !registry.has(typ) || registry.get(typ) == nil {
-			t.Fatalf("registration[%d] = %v, want %s", i, registry.order[i], typ)
+	for _, typ := range dispatchOrder {
+		if registry.get(typ) == nil {
+			t.Fatalf("sender for %s not registered", typ)
 		}
 	}
-	if registry.has(record.TypeStart) || registry.get(record.TypeStart) != nil {
+	if registry.get(record.TypeStart) != nil {
 		t.Fatal("type outside dispatchOrder must not be registered")
 	}
 }
 
 func TestRegistrySkipsNilSender(t *testing.T) {
 	registry := newRegistry(map[record.Type]Sender{record.TypeScalar: nil})
-	if registry.len() != 0 || registry.has(record.TypeScalar) {
+	if registry.len() != 0 || registry.get(record.TypeScalar) != nil {
 		t.Fatal("nil sender must be skipped")
 	}
 }
