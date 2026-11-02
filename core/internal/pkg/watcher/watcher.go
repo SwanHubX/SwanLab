@@ -1,11 +1,9 @@
 // Package watcher 监听 LIVE 策略的保存文件，在文件稳定后通知调用方重新上传。
 //
-// 监听目标是软链接指向的真实源文件及其父目录，因此外部编辑与原子替换都能捕获。
-// 每个文件独立做尾部防抖，并用 mtime、size 与文件身份去重；Stop 会同步刷出
-// 尚在防抖窗口内的变更，确保收尾阶段不丢记录。
+// 监听软链接指向的真实源文件父目录，以捕获外部编辑与原子替换；按 mtime、
+// 大小与文件身份去重，每个文件独立防抖，Stop 会同步刷出待发变更。
 //
-// 本包只依赖标准库、fsnotify、保存记录 proto 与 internal/pkg/fs，不 import
-// runctx、uploader 等业务包。
+// 本包只依赖标准库、fsnotify、save proto 与 internal/pkg/fs，不依赖业务包。
 package watcher
 
 import (
@@ -40,10 +38,8 @@ type Watcher interface {
 	Stop()
 }
 
-// FileWatcher 是基于 fsnotify 的文件监听器。
-//
-// 监听父目录而非文件本身：文件被原子替换后 inode 会变化，直接监听文件会丢失
-// 后续事件；父目录上的 Create/Write/Chmod/Rename 都能落在注册路径上。
+// FileWatcher 基于 fsnotify 监听真实源文件所在目录。
+// 原子替换会更换 inode，直接监听文件会丢失后续事件。
 type FileWatcher struct {
 	filesDir  string
 	onChange  func(*savev1.SaveRecord)
@@ -71,10 +67,8 @@ type fileEntry struct {
 	info       os.FileInfo // nil 表示注册时文件缺失
 }
 
-// statFile 通过打开的文件句柄取状态；文件缺失时 ok 为 false。
-//
-// Windows 的 os.Stat 按路径延迟解析文件索引，同一路径原子替换后 os.SameFile
-// 仍可能判为同一文件；句柄状态在取出时就带上了文件索引。
+// statFile 通过文件句柄取状态；Windows 下文件索引在取状态时即固定。
+// 文件缺失时 ok 为 false。
 func statFile(path string) (os.FileInfo, bool) {
 	file, err := os.Open(path)
 	if err != nil {
@@ -89,8 +83,7 @@ func statFile(path string) (os.FileInfo, bool) {
 	return info, true
 }
 
-// sameFile 判断两个状态是否指向同一个版本：文件身份、大小与 mtime 都未变化。
-// os.SameFile 在 Unix 比较 dev/inode，在 Windows 比较卷与文件索引。
+// sameFile 判断文件身份、大小与 mtime 是否都未变化。
 func sameFile(previous, current os.FileInfo) bool {
 	return previous.Size() == current.Size() &&
 		previous.ModTime().Equal(current.ModTime()) &&
@@ -120,8 +113,7 @@ type timerFactory func(time.Duration, func()) debounceTimer
 func newTimer(d time.Duration, fn func()) debounceTimer { return time.AfterFunc(d, fn) }
 
 // New 创建文件监听器。filesDir 是 run 目录下的 files 镜像目录。
-//
-// 监听器是惰性的：只有在 RegisterLive 收到 LIVE 记录后才启动 fsnotify。
+// 监听器惰性启动：首次收到 LIVE 记录时才创建 fsnotify。
 func New(filesDir string, onChange func(*savev1.SaveRecord), opts ...Option) (*FileWatcher, error) {
 	if filesDir == "" {
 		return nil, errors.New("watcher: files dir is required")

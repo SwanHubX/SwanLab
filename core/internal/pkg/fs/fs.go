@@ -1,4 +1,4 @@
-// Package fs 提供文件名安全化与路径拆分工具。
+// Package fs 提供文件名安全化、路径拆分与镜像路径拼接工具。
 package fs
 
 import (
@@ -108,7 +108,7 @@ func WindowsBase(path string) string {
 	return path
 }
 
-// MirrorPath 按 SaveRecord.name 的 Windows 分隔符语义拼接本地镜像路径。
+// MirrorPath 按 SaveRecord.name 的 Windows 分隔符语义拼接镜像路径，供 watcher 与 sender 共用。
 func MirrorPath(base, name string) string {
 	return filepath.Join(append([]string{base}, WindowsParts(name)...)...)
 }

@@ -14,10 +14,8 @@ import (
 // dirPerm 是本地镜像目录的权限。
 const dirPerm = 0o755
 
-// CreateSaveLinks 在 filesDir 下为用户保存的文件建立本地镜像，并填充 TargetPath。
-//
-// 优先创建指向源文件的软链接；环境不支持时退化为复制。已存在的目标不会覆盖，
-// 返回值是本次新建的镜像数量。
+// CreateSaveLinks 在 filesDir 下建立本地镜像并填充 TargetPath。
+// 优先软链接，不支持时复制；已存在的目标不覆盖，返回新建数量。
 func CreateSaveLinks(saves []*savev1.SaveRecord, filesDir string) (int, error) {
 	if filesDir == "" {
 		return 0, errors.New("watcher: files dir is required")
