@@ -23,34 +23,24 @@ import (
 )
 
 const (
-	// saveNoPayloadMessage 是记录缺少 save 载荷的文案。
-	saveNoPayloadMessage = "record without save payload"
-	// saveCustomPayloadMessage 是 CUSTOM 记录携带 payload 的协议错误文案。
+	// 记录缺少 save 载荷或携带了协议不允许的字段。
+	saveNoPayloadMessage     = "record without save payload"
 	saveCustomPayloadMessage = "CUSTOM save must not carry payload"
-	// saveFileNotFoundPrefix 是 CUSTOM 源文件缺失的终结原因前缀。
-	saveFileNotFoundPrefix = "save file not found: "
-	// saveFileUnreadablePrefix 是源文件 stat 失败的终结原因前缀。
-	saveFileUnreadablePrefix = "save file unreadable: "
-	// saveFileTooLargePrefix 是超过单文件上限的终结原因前缀。
-	saveFileTooLargePrefix = "save file exceeds size limit: "
-	// saveMD5FailedPrefix 是 MD5 计算失败的终结原因前缀。
-	saveMD5FailedPrefix = "save file md5 computation failed: "
-	// saveUploadFailedPrefix 是单文件直传失败的诊断前缀。
-	saveUploadFailedPrefix = "save file upload failed: "
-	// saveMultipartFailedPrefix 是分片上传失败的诊断前缀。
-	saveMultipartFailedPrefix = "multipart upload failed: "
-	// saveMultipartStateFailedPrefix 是 complete-multipart 返回 FAILED 的诊断前缀。
-	saveMultipartStateFailedPrefix = "multipart save failed: "
-	// saveInternalUnavailablePrefix 是内部 save 内容不可用的终结原因前缀。
-	saveInternalUnavailablePrefix = "internal save content unavailable: "
-	// saveInternalUnparseablePrefix 是内部 save 解析失败的终结原因前缀。
-	saveInternalUnparseablePrefix = "internal save payload unparseable: "
 
-	// saveStateUploaded 是 complete 阶段上报的成功状态。
-	saveStateUploaded = "UPLOADED"
-	// saveStateFailed 是 complete 阶段上报的本地失败状态。
-	saveStateFailed = "FAILED"
-	// savePartContentType 是分片上传的内容类型。
+	// 失败诊断前缀，后面拼接源路径或 save 类型。
+	saveFileNotFoundPrefix         = "save file not found: "
+	saveFileUnreadablePrefix       = "save file unreadable: "
+	saveFileTooLargePrefix         = "save file exceeds size limit: "
+	saveMD5FailedPrefix            = "save file md5 computation failed: "
+	saveUploadFailedPrefix         = "save file upload failed: "
+	saveMultipartFailedPrefix      = "multipart upload failed: "
+	saveMultipartStateFailedPrefix = "multipart save failed: "
+	saveInternalUnavailablePrefix  = "internal save content unavailable: "
+	saveInternalUnparseablePrefix  = "internal save payload unparseable: "
+
+	// complete 协议状态与分片内容类型。
+	saveStateUploaded   = "UPLOADED"
+	saveStateFailed     = "FAILED"
 	savePartContentType = "application/octet-stream"
 )
 
@@ -112,44 +102,33 @@ func (s *SaveSender) Upload(ctx context.Context, records []*recordv1.Record) upl
 	if len(records) == 0 {
 		return uploader.Result{}
 	}
-	confirmed := make([]*recordv1.Record, 0, len(records))
-	var remaining []*recordv1.Record
-	var failures []uploader.Failure
+	result := uploader.Result{}
 	custom := make([]*recordv1.Record, 0, len(records))
 	for _, record := range records {
 		save := record.GetSave()
 		if save == nil {
-			failures = append(failures, uploader.Failure{Message: saveNoPayloadMessage, Records: []*recordv1.Record{record}})
-			confirmed = append(confirmed, record)
+			result.Confirmed = append(result.Confirmed, record)
+			result.Failures = append(result.Failures, uploader.Failure{Message: saveNoPayloadMessage, Records: []*recordv1.Record{record}})
 			continue
 		}
 		if save.GetType() == savev1.SaveType_SAVE_TYPE_CUSTOM {
 			if save.Payload != nil {
-				failures = append(failures, uploader.Failure{
-					Message: saveCustomPayloadMessage,
-					Records: []*recordv1.Record{record},
-				})
-				confirmed = append(confirmed, record)
+				result.Confirmed = append(result.Confirmed, record)
+				result.Failures = append(result.Failures, uploader.Failure{Message: saveCustomPayloadMessage, Records: []*recordv1.Record{record}})
 				continue
 			}
 			custom = append(custom, record)
 			continue
 		}
-		result := s.uploadInternal(ctx, record)
-		confirmed = append(confirmed, result.Confirmed...)
-		remaining = append(remaining, result.Remaining...)
-		failures = append(failures, result.Failures...)
+		result = mergeResult(result, s.uploadInternal(ctx, record))
 	}
 	if len(custom) > 0 {
-		result := s.uploadCustom(ctx, custom)
-		confirmed = append(confirmed, result.Confirmed...)
-		remaining = append(remaining, result.Remaining...)
-		failures = append(failures, result.Failures...)
+		result = mergeResult(result, s.uploadCustom(ctx, custom))
 	}
-	return uploader.Result{Confirmed: confirmed, Remaining: remaining, Failures: failures}
+	return result
 }
 
-// uploadInternal 读取并解码一条内部 save，合并到 Profile 上报。
+// uploadInternal 读取并解码一条内部 save，上报到 Profile。
 func (s *SaveSender) uploadInternal(ctx context.Context, record *recordv1.Record) uploader.Result {
 	save := record.GetSave()
 	data, ok := s.readInternal(save)
@@ -160,19 +139,14 @@ func (s *SaveSender) uploadInternal(ctx context.Context, record *recordv1.Record
 	if !ok {
 		return confirmedFailure(record, saveInternalUnparseablePrefix+save.GetType().String())
 	}
-	err := s.opts.API.UploadProfile(ctx, api.UploadProfileParams{
+	if err := s.opts.API.UploadProfile(ctx, api.UploadProfileParams{
 		Username:     s.opts.Username,
 		Project:      s.opts.Project,
 		ExperimentID: s.opts.ExperimentID,
 		Kind:         kind,
 		Content:      content,
-	})
-	if err != nil {
-		failure := uploader.Failure{Message: err.Error(), Records: []*recordv1.Record{record}, Err: err}
-		if isRetryable(err) {
-			return uploader.Result{Remaining: []*recordv1.Record{record}, Failures: []uploader.Failure{failure}}
-		}
-		return uploader.Result{Confirmed: []*recordv1.Record{record}, Failures: []uploader.Failure{failure}}
+	}); err != nil {
+		return batchFailure([]*recordv1.Record{record}, err)
 	}
 	return uploader.Result{Confirmed: []*recordv1.Record{record}}
 }
@@ -247,34 +221,26 @@ func decodeMetadata(data []byte) (map[string]any, bool) {
 func (s *SaveSender) uploadCustom(ctx context.Context, records []*recordv1.Record) uploader.Result {
 	confirmed := make([]*recordv1.Record, 0, len(records))
 	var failures []uploader.Failure
+	reject := func(record *recordv1.Record, message string, err error) {
+		failures = append(failures, uploader.Failure{Message: message, Records: []*recordv1.Record{record}, Err: err})
+		confirmed = append(confirmed, record)
+	}
+
 	pending := make([]pendingSave, 0, len(records))
 	for _, record := range records {
 		save := record.GetSave()
 		source := s.resolveSource(save)
 		if source == "" {
-			failures = append(failures, uploader.Failure{
-				Message: saveFileNotFoundPrefix + save.GetSourcePath(),
-				Records: []*recordv1.Record{record},
-			})
-			confirmed = append(confirmed, record)
+			reject(record, saveFileNotFoundPrefix+save.GetSourcePath(), nil)
 			continue
 		}
 		info, err := os.Stat(source)
 		if err != nil {
-			failures = append(failures, uploader.Failure{
-				Message: saveFileUnreadablePrefix + source,
-				Records: []*recordv1.Record{record},
-				Err:     err,
-			})
-			confirmed = append(confirmed, record)
+			reject(record, saveFileUnreadablePrefix+source, err)
 			continue
 		}
 		if info.Size() > s.opts.Files.SaveSize {
-			failures = append(failures, uploader.Failure{
-				Message: saveFileTooLargePrefix + source,
-				Records: []*recordv1.Record{record},
-			})
-			confirmed = append(confirmed, record)
+			reject(record, saveFileTooLargePrefix+source, nil)
 			continue
 		}
 		pending = append(pending, pendingSave{
@@ -381,7 +347,7 @@ func (s *SaveSender) uploadSmall(ctx context.Context, tasks []*saveTask) uploade
 	})
 	uploaded := make([]*saveTask, 0, len(tasks))
 	storageFailed := make([]*saveTask, 0)
-	localFailed := make([]*saveTask, 0)
+	terminalFailed := make([]*saveTask, 0)
 	var failures []uploader.Failure
 	for i, task := range tasks {
 		if putErrors[i] == nil {
@@ -396,50 +362,49 @@ func (s *SaveSender) uploadSmall(ctx context.Context, tasks []*saveTask) uploade
 		if putErrorRetryable(putErrors[i]) {
 			storageFailed = append(storageFailed, task)
 		} else {
-			localFailed = append(localFailed, task)
+			terminalFailed = append(terminalFailed, task)
 		}
 	}
 
-	completeItems := make([]api.CompleteSaveFile, 0, len(uploaded)+len(localFailed))
+	completeItems := make([]api.CompleteSaveFile, 0, len(uploaded)+len(terminalFailed))
 	for _, task := range uploaded {
 		completeItems = append(completeItems, api.CompleteSaveFile{Path: task.entry.path, State: saveStateUploaded})
 	}
-	for _, task := range localFailed {
+	for _, task := range terminalFailed {
 		completeItems = append(completeItems, api.CompleteSaveFile{Path: task.entry.path, State: saveStateFailed})
 	}
 	if len(completeItems) > 0 {
 		if err := s.opts.API.CompleteSaveFiles(ctx, s.opts.ExperimentID, completeItems); err != nil {
-			return s.completeFailure(err, uploaded, storageFailed, localFailed, failures)
+			pending := make([]*saveTask, 0, len(uploaded)+len(storageFailed))
+			pending = append(pending, uploaded...)
+			pending = append(pending, storageFailed...)
+			return s.settleCompleteFailure(err, pending, terminalFailed, failures)
 		}
 	}
 	for _, task := range uploaded {
 		finishFile(s.opts.Files.Tracker, task.trackerKey)
 	}
-	for _, task := range localFailed {
+	for _, task := range terminalFailed {
 		failFile(s.opts.Files.Tracker, task.trackerKey)
 	}
 	if len(uploaded) > 0 {
 		console.Infof("Synced %d save file(s)", len(uploaded))
 	}
-	confirmed := append(taskRecords(uploaded), taskRecords(localFailed)...)
+	confirmed := append(taskRecords(uploaded), taskRecords(terminalFailed)...)
 	return uploader.Result{Confirmed: confirmed, Remaining: taskRecords(storageFailed), Failures: failures}
 }
 
-// completeFailure 处理 complete 失败：可重试保留整批，否则终结并关闭进度行。
-func (s *SaveSender) completeFailure(
+// settleCompleteFailure 处理 complete 阶段的整批失败：可重试保留，否则终结并关闭进度行。
+func (s *SaveSender) settleCompleteFailure(
 	err error,
-	uploaded, storageFailed, localFailed []*saveTask,
+	pending, terminalFailed []*saveTask,
 	failures []uploader.Failure,
 ) uploader.Result {
-	pending := make([]*saveTask, 0, len(uploaded)+len(storageFailed))
-	pending = append(pending, uploaded...)
-	pending = append(pending, storageFailed...)
-	pendingRecords := taskRecords(pending)
-
-	for _, task := range localFailed {
+	for _, task := range terminalFailed {
 		failFile(s.opts.Files.Tracker, task.trackerKey)
 	}
-	confirmed := taskRecords(localFailed)
+	pendingRecords := taskRecords(pending)
+	confirmed := taskRecords(terminalFailed)
 	var remaining []*recordv1.Record
 	if isRetryable(err) {
 		remaining = pendingRecords
@@ -473,7 +438,7 @@ func (s *SaveSender) uploadLarge(ctx context.Context, tasks []*saveTask) uploade
 
 	ready := make([]multipartReady, 0, len(tasks))
 	storageFailed := make([]*saveTask, 0)
-	localFailed := make([]*saveTask, 0)
+	terminalFailed := make([]*saveTask, 0)
 	var failures []uploader.Failure
 	for i, task := range tasks {
 		trackFile(s.opts.Files.Tracker, task.trackerKey, task.entry.sourcePath, task.entry.size)
@@ -487,27 +452,27 @@ func (s *SaveSender) uploadLarge(ctx context.Context, tasks []*saveTask) uploade
 			if putErrorRetryable(partErr) {
 				storageFailed = append(storageFailed, task)
 			} else {
-				localFailed = append(localFailed, task)
+				terminalFailed = append(terminalFailed, task)
 			}
 			continue
 		}
 		ready = append(ready, multipartReady{task: task, uploadID: files[i].UploadID, parts: parts})
 	}
 
-	if len(localFailed) > 0 {
-		failedItems := make([]api.CompleteSaveFile, 0, len(localFailed))
-		for _, task := range localFailed {
+	if len(terminalFailed) > 0 {
+		failedItems := make([]api.CompleteSaveFile, 0, len(terminalFailed))
+		for _, task := range terminalFailed {
 			failedItems = append(failedItems, api.CompleteSaveFile{Path: task.entry.path, State: saveStateFailed})
 		}
-		// 本地失败的上报失败不影响结果分类：记录已经终结。
+		// 确定性失败的上报失败不影响结果分类：记录已经终结。
 		_ = s.opts.API.CompleteSaveFiles(ctx, s.opts.ExperimentID, failedItems)
-		for _, task := range localFailed {
+		for _, task := range terminalFailed {
 			failFile(s.opts.Files.Tracker, task.trackerKey)
 		}
 	}
 	if len(ready) == 0 {
 		return uploader.Result{
-			Confirmed: taskRecords(localFailed),
+			Confirmed: taskRecords(terminalFailed),
 			Remaining: taskRecords(storageFailed),
 			Failures:  failures,
 		}
@@ -523,11 +488,15 @@ func (s *SaveSender) uploadLarge(ctx context.Context, tasks []*saveTask) uploade
 	}
 	states, err := s.opts.API.CompleteMultipartSave(ctx, s.opts.ExperimentID, completed)
 	if err != nil {
-		return s.completeMultipartFailure(err, ready, storageFailed, localFailed, failures)
+		pending := make([]*saveTask, 0, len(ready)+len(storageFailed))
+		for _, item := range ready {
+			pending = append(pending, item.task)
+		}
+		pending = append(pending, storageFailed...)
+		return s.settleCompleteFailure(err, pending, terminalFailed, failures)
 	}
 
-	// 非空响应已由 API 层校验与请求一一对应且状态只含 UPLOADED/FAILED；
-	// 空响应体沿用旧协议，视为全部成功。
+	// 非空响应已由 API 层校验；空响应体视为全部成功。
 	failedStates := make(map[string]struct{}, len(states))
 	for _, state := range states {
 		if state.State == api.MultipartFailed {
@@ -535,7 +504,7 @@ func (s *SaveSender) uploadLarge(ctx context.Context, tasks []*saveTask) uploade
 		}
 	}
 	synced := 0
-	confirmed := taskRecords(localFailed)
+	confirmed := taskRecords(terminalFailed)
 	for _, item := range ready {
 		if _, failed := failedStates[item.task.entry.path]; failed {
 			failures = append(failures, uploader.Failure{
@@ -554,34 +523,6 @@ func (s *SaveSender) uploadLarge(ctx context.Context, tasks []*saveTask) uploade
 		console.Infof("Synced %d save file(s)", synced)
 	}
 	return uploader.Result{Confirmed: confirmed, Remaining: taskRecords(storageFailed), Failures: failures}
-}
-
-// completeMultipartFailure 处理 complete-multipart 失败：可重试保留整批，否则终结。
-func (s *SaveSender) completeMultipartFailure(
-	err error,
-	ready []multipartReady,
-	storageFailed, localFailed []*saveTask,
-	failures []uploader.Failure,
-) uploader.Result {
-	pending := make([]*saveTask, 0, len(ready)+len(storageFailed))
-	for _, item := range ready {
-		pending = append(pending, item.task)
-	}
-	pending = append(pending, storageFailed...)
-	pendingRecords := taskRecords(pending)
-
-	confirmed := taskRecords(localFailed)
-	var remaining []*recordv1.Record
-	if isRetryable(err) {
-		remaining = pendingRecords
-	} else {
-		for _, task := range pending {
-			failFile(s.opts.Files.Tracker, task.trackerKey)
-		}
-		confirmed = append(confirmed, pendingRecords...)
-	}
-	failures = append(failures, uploader.Failure{Message: err.Error(), Records: pendingRecords, Err: err})
-	return uploader.Result{Confirmed: confirmed, Remaining: remaining, Failures: failures}
 }
 
 // putParts 并发上传单个文件的分片，返回完成分片或首个错误。
@@ -618,14 +559,7 @@ func (s *SaveSender) putPart(
 	length := min(partSize, max(task.entry.size-offset, 0))
 	partKey := fmt.Sprintf("%s:part:%d", task.trackerKey, part.PartNumber)
 
-	reader := io.Reader(io.NewSectionReader(file, offset, length))
-	if tracker := s.opts.Files.Tracker; tracker != nil && length > 0 {
-		var current int64
-		reader = &progressReader{reader: reader, onRead: func(n int64) {
-			current += n
-			tracker.UpdateFileProgress(task.trackerKey, partKey, current)
-		}}
-	}
+	reader := withProgress(io.NewSectionReader(file, offset, length), s.opts.Files.Tracker, task.trackerKey, partKey, length)
 	etag, err := s.opts.Files.Putter.PutObject(ctx, part.URL, reader, length, savePartContentType)
 	if err != nil {
 		resetFileProgress(s.opts.Files.Tracker, task.trackerKey, partKey)
@@ -642,14 +576,7 @@ func (s *SaveSender) putSave(ctx context.Context, task *saveTask, url string) er
 	}
 	defer func() { _ = file.Close() }()
 
-	reader := io.Reader(file)
-	if tracker := s.opts.Files.Tracker; tracker != nil && task.entry.size > 0 {
-		var current int64
-		reader = &progressReader{reader: reader, onRead: func(n int64) {
-			current += n
-			tracker.UpdateFileProgress(task.trackerKey, task.trackerKey, current)
-		}}
-	}
+	reader := withProgress(file, s.opts.Files.Tracker, task.trackerKey, task.trackerKey, task.entry.size)
 	if _, err := s.opts.Files.Putter.PutObject(ctx, url, reader, task.entry.size, task.entry.mimeType); err != nil {
 		resetFileProgress(s.opts.Files.Tracker, task.trackerKey, task.trackerKey)
 		return err

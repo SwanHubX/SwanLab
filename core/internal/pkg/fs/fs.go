@@ -1,5 +1,4 @@
-// Package fs 提供文件名安全化与路径拆分工具，把任意名称映射为文件系统兼容的形式。
-// 行为与 Python SDK 的 fs.safe_fmt / fs.safe_truncate 保持一致。
+// Package fs 提供文件名安全化与路径拆分工具。
 package fs
 
 import (
@@ -87,8 +86,7 @@ func SafeTruncate(name string, maxLen int) (string, bool, error) {
 	return trunc, true, nil
 }
 
-// WindowsParts 按 Windows 语义拆分相对路径："/" 与 "\" 都视为分隔符，
-// 丢弃空段与 "."，保留 ".."。
+// WindowsParts 按 "/" 与 "\" 拆分相对路径，丢弃空段与 "."，保留 ".."。
 func WindowsParts(name string) []string {
 	parts := strings.FieldsFunc(name, func(r rune) bool { return r == '/' || r == '\\' })
 	kept := parts[:0]
@@ -101,7 +99,7 @@ func WindowsParts(name string) []string {
 	return kept
 }
 
-// WindowsBase 返回 Windows 语义下的最后一段文件名。
+// WindowsBase 返回按 "/" 与 "\" 分隔后的最后一段。
 func WindowsBase(path string) string {
 	if index := strings.LastIndexAny(path, `/\`); index >= 0 {
 		return path[index+1:]

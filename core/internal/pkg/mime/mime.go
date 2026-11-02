@@ -1,7 +1,7 @@
-// Package mime 按扩展名推断 MIME 类型，行为与 Python SDK 的 pkg.mime.guess_type 对齐。
+// Package mime 按扩展名推断 MIME 类型，结果与 Python SDK 保持一致。
 //
-// 自定义注册表覆盖 Python 显式 add_type 的扩展名，避免各平台 /etc/mime.types
-// 差异导致同一份文件在两套 SDK 上得到不同的 Content-Type；其余扩展名交给标准库。
+// 自定义表覆盖 Python 显式注册的扩展名，避免平台 mime.types 差异；
+// 其余扩展名交给标准库。
 package mime
 
 import (
@@ -13,7 +13,7 @@ import (
 // DefaultType 是无法识别扩展名时的回退类型。
 const DefaultType = "application/octet-stream"
 
-// custom 与 Python pkg/mime/__init__.py 的 add_type 列表逐项对应。
+// custom 覆盖 Python SDK 显式注册的扩展名。
 var custom = map[string]string{
 	".yaml":     "application/yaml",
 	".yml":      "application/yaml",

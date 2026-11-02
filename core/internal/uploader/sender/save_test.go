@@ -99,10 +99,10 @@ func serveSaveComplete(cloud *clienttest.Cloud) {
 	cloud.ServeJSON(http.MethodPost, completePath, http.StatusCreated, map[string]any{"ok": true})
 }
 
-// prepareBatches 返回每次 prepare 请求里的 files 列表。
-func prepareBatches(t *testing.T, cloud *clienttest.Cloud) [][]map[string]any {
+// requestBatches 返回每次请求里的 files 列表。
+func requestBatches(t *testing.T, cloud *clienttest.Cloud, path string) [][]map[string]any {
 	t.Helper()
-	requests := cloud.RequestsFor(http.MethodPost, preparePath)
+	requests := cloud.RequestsFor(http.MethodPost, path)
 	batches := make([][]map[string]any, 0, len(requests))
 	for _, request := range requests {
 		files, _ := decodeBody(t, request.Body)["files"].([]any)
@@ -115,20 +115,16 @@ func prepareBatches(t *testing.T, cloud *clienttest.Cloud) [][]map[string]any {
 	return batches
 }
 
+// prepareBatches 返回每次 prepare 请求里的 files 列表。
+func prepareBatches(t *testing.T, cloud *clienttest.Cloud) [][]map[string]any {
+	t.Helper()
+	return requestBatches(t, cloud, preparePath)
+}
+
 // completeBatches 返回每次 complete 请求里的 files 列表。
 func completeBatches(t *testing.T, cloud *clienttest.Cloud) [][]map[string]any {
 	t.Helper()
-	requests := cloud.RequestsFor(http.MethodPost, completePath)
-	batches := make([][]map[string]any, 0, len(requests))
-	for _, request := range requests {
-		files, _ := decodeBody(t, request.Body)["files"].([]any)
-		batch := make([]map[string]any, 0, len(files))
-		for _, item := range files {
-			batch = append(batch, item.(map[string]any))
-		}
-		batches = append(batches, batch)
-	}
-	return batches
+	return requestBatches(t, cloud, completePath)
 }
 
 // TestSaveInternalUploadsFourKinds 覆盖四类内部元文件解码与 Profile 上报。

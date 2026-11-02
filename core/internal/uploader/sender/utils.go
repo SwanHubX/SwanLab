@@ -21,10 +21,6 @@ import (
 // md5Chunk 是计算 MD5 时的分块大小。
 const md5Chunk = 8 << 20
 
-// ---------------------------------------------------------------------------
-// 错误分类
-// ---------------------------------------------------------------------------
-
 // isRetryable 判断错误是否归 Remaining；父 ctx 取消时由 worker 停止调度。
 func isRetryable(err error) bool {
 	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || client.IsRetryable(err)
@@ -32,9 +28,8 @@ func isRetryable(err error) bool {
 
 // putErrorRetryable 判断对象存储 PUT 失败是否保留重试。
 //
-// 拿到 HTTP 响应（含 4xx 过期链接）或网络错误时，下一轮 prepare 会换新链接；
-// 响应无法按协议解读时重试不会恢复，必须终结。本地打开/读取失败同样终结，
-// 调用方取消则保留给上层停止调度。
+// 有 HTTP 响应（含 4xx 过期链接）或传输错误时，下一轮 prepare 会换新链接；
+// 响应无法按协议解读或本地读写失败则终结；调用方取消保留给上层停止调度。
 func putErrorRetryable(err error) bool {
 	var apiErr *client.APIError
 	if errors.As(err, &apiErr) {
@@ -43,12 +38,7 @@ func putErrorRetryable(err error) bool {
 	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
 }
 
-// ---------------------------------------------------------------------------
-// 并发
-// ---------------------------------------------------------------------------
-
 // runConcurrently 在全局信号量下并发执行 fn，错误按索引写独立槽位。
-// 信号量在调用方获取，goroutine 数不会超过配额。
 func runConcurrently(ctx context.Context, slots *semaphore.Weighted, count int, fn func(int) error) []error {
 	errs := make([]error, count)
 	var group sync.WaitGroup
@@ -68,11 +58,7 @@ func runConcurrently(ctx context.Context, slots *semaphore.Weighted, count int, 
 	return errs
 }
 
-// ---------------------------------------------------------------------------
-// IO 与进度
-// ---------------------------------------------------------------------------
-
-// progressReader 在每次读取后回调累计字节数。
+// progressReader 在每次读取后回调本次读取的字节数。
 type progressReader struct {
 	reader io.Reader
 	onRead func(int64)
@@ -85,6 +71,18 @@ func (r *progressReader) Read(p []byte) (int, error) {
 		r.onRead(int64(n))
 	}
 	return n, err
+}
+
+// withProgress 在需要时包装读取器，按累计字节上报文件或分片进度。
+func withProgress(reader io.Reader, tracker *uploader.Tracker, fileKey, uploadKey string, size int64) io.Reader {
+	if tracker == nil || size <= 0 {
+		return reader
+	}
+	var current int64
+	return &progressReader{reader: reader, onRead: func(n int64) {
+		current += n
+		tracker.UpdateFileProgress(fileKey, uploadKey, current)
+	}}
 }
 
 // fileMD5 分块计算文件 MD5，避免大文件整块读入内存。
@@ -131,10 +129,6 @@ func encodeTimestamp(ts *timestamppb.Timestamp) (string, bool) {
 	return string(raw[1 : len(raw)-1]), true
 }
 
-// ---------------------------------------------------------------------------
-// tracker
-// ---------------------------------------------------------------------------
-
 // trackFile 注册文件进度行；nil tracker 与 size<=0 都忽略。
 func trackFile(tracker *uploader.Tracker, key, path string, size int64) {
 	if tracker == nil || size <= 0 {
@@ -163,10 +157,6 @@ func resetFileProgress(tracker *uploader.Tracker, fileKey, uploadKey string) {
 		tracker.UpdateFileProgress(fileKey, uploadKey, 0)
 	}
 }
-
-// ---------------------------------------------------------------------------
-// 结果构造
-// ---------------------------------------------------------------------------
 
 // blockedFailure 包装确定性失败的记录。
 func blockedFailure(message string, records ...*recordv1.Record) *uploader.Failure {

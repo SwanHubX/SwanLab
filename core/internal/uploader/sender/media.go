@@ -16,20 +16,16 @@ import (
 )
 
 const (
-	// mediaMissingPayloadMessage 是记录缺少 media 载荷的文案。
-	mediaMissingPayloadMessage = "media record without media payload"
-	// mediaMissingTimestampMessage 是记录缺少时间戳的文案。
+	// 记录缺少媒体载荷、时间戳或类型未知时的终结文案。
+	mediaMissingPayloadMessage   = "media record without media payload"
 	mediaMissingTimestampMessage = "media record without timestamp"
-	// mediaNoFilesMessage 是记录里没有任何可传文件的文案。
-	mediaNoFilesMessage = "media record without files"
-	// mediaNoPayloadMessage 是整批记录都没能收集到文件时的兜底文案。
-	mediaNoPayloadMessage = "no media payload collected"
-	// mediaSkipStoreReason 是 skip_store 下缺少 payload 的终结原因前缀。
-	mediaSkipStoreReason = "payload missing with skip_store enabled: "
-	// mediaFileNotFoundReason 是本地媒体文件不存在的终结原因前缀。
+	mediaNoFilesMessage          = "media record without files"
+	mediaNoPayloadMessage        = "no media payload collected"
+	mediaUnsupportedTypeMessage  = "unsupported media type: "
+
+	// 已有媒体项但本地副本不可用时的原因前缀。
+	mediaSkipStoreReason    = "payload missing with skip_store enabled: "
 	mediaFileNotFoundReason = "media file not found: "
-	// mediaUnsupportedTypeMessage 是未知媒体类型的终结文案前缀。
-	mediaUnsupportedTypeMessage = "unsupported media type: "
 )
 
 // mediaMediums 是 MediaRecord.Type 到存储目录名（第二段路径）的映射。
@@ -222,42 +218,29 @@ func (s *MediaSender) collectTask(task *mediaTask) {
 	reasons := make([]string, 0, len(items))
 	for _, item := range items {
 		remotePath := "media/" + medium + "/" + item.GetFilename()
-		if item.Payload != nil {
-			payload := &mediaPayload{
-				remotePath:  remotePath,
-				trackerKey:  remotePath + ":" + strconv.Itoa(len(item.Payload)),
-				displayPath: remotePath,
-				size:        int64(len(item.Payload)),
-				contentType: mime.Type(item.GetFilename()),
-				taskIndex:   task.index,
-				data:        item.Payload,
-			}
-			task.payloads = append(task.payloads, payload)
-			paths = append(paths, remotePath)
-			if item.GetCaption() != "" {
-				more = append(more, map[string]string{"caption": item.GetCaption()})
-			}
-			continue
-		}
-		if s.opts.Files.SkipStore {
+		payload := &mediaPayload{remotePath: remotePath, taskIndex: task.index}
+		switch {
+		case item.Payload != nil:
+			payload.size = int64(len(item.Payload))
+			payload.contentType = mime.Type(item.GetFilename())
+			payload.displayPath = remotePath
+			payload.data = item.Payload
+		case s.opts.Files.SkipStore:
 			reasons = append(reasons, mediaSkipStoreReason+remotePath)
 			continue
+		default:
+			localPath := filepath.Join(s.opts.Files.MediaDir, medium, item.GetFilename())
+			info, statErr := os.Stat(localPath)
+			if statErr != nil || info.IsDir() {
+				reasons = append(reasons, mediaFileNotFoundReason+localPath)
+				continue
+			}
+			payload.size = info.Size()
+			payload.contentType = mime.Type(localPath)
+			payload.displayPath = filepath.ToSlash(localPath)
+			payload.path = localPath
 		}
-		localPath := filepath.Join(s.opts.Files.MediaDir, medium, item.GetFilename())
-		info, statErr := os.Stat(localPath)
-		if statErr != nil || info.IsDir() {
-			reasons = append(reasons, mediaFileNotFoundReason+localPath)
-			continue
-		}
-		payload := &mediaPayload{
-			remotePath:  remotePath,
-			trackerKey:  remotePath + ":" + strconv.FormatInt(info.Size(), 10),
-			displayPath: filepath.ToSlash(localPath),
-			size:        info.Size(),
-			contentType: mime.Type(localPath),
-			taskIndex:   task.index,
-			path:        localPath,
-		}
+		payload.trackerKey = remotePath + ":" + strconv.FormatInt(payload.size, 10)
 		task.payloads = append(task.payloads, payload)
 		paths = append(paths, remotePath)
 		if item.GetCaption() != "" {
@@ -288,8 +271,6 @@ func (s *MediaSender) putResources(ctx context.Context, payloads []*mediaPayload
 	paths := make([]string, len(payloads))
 	for i, payload := range payloads {
 		paths[i] = payload.remotePath
-	}
-	for _, payload := range payloads {
 		trackFile(s.opts.Files.Tracker, payload.trackerKey, payload.displayPath, payload.size)
 	}
 
@@ -311,14 +292,7 @@ func (s *MediaSender) putPayload(ctx context.Context, payload *mediaPayload, url
 	}
 	defer func() { _ = body.Close() }()
 
-	reader := io.Reader(body)
-	if tracker := s.opts.Files.Tracker; tracker != nil && payload.size > 0 {
-		var current int64
-		reader = &progressReader{reader: reader, onRead: func(n int64) {
-			current += n
-			tracker.UpdateFileProgress(payload.trackerKey, payload.trackerKey, current)
-		}}
-	}
+	reader := withProgress(body, s.opts.Files.Tracker, payload.trackerKey, payload.trackerKey, payload.size)
 	if _, err := s.opts.Files.Putter.PutObject(ctx, url, reader, payload.size, payload.contentType); err != nil {
 		resetFileProgress(s.opts.Files.Tracker, payload.trackerKey, payload.trackerKey)
 		return err

@@ -444,8 +444,8 @@ func (c *Client) PrepareMultipartSave(
 
 // CompleteMultipartSave 上报分片合并结果，并解析响应中的逐文件状态。
 //
-// 后端在合并失败时仍可能返回 201：若响应体给出逐文件状态列表则严格按状态分流；
-// 响应体为空时返回 nil，由调用方按旧协议兼容行为处理。
+// 后端在合并失败时仍可能返回 201：非空响应必须与请求文件一一对应；
+// 空响应体返回 nil，视为全部成功。
 func (c *Client) CompleteMultipartSave(
 	ctx context.Context,
 	experimentID string,

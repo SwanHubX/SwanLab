@@ -271,13 +271,17 @@ func (c *Client) send(ctx context.Context, method, endpoint string, payload []by
 		return nil, newTransportError(method, endpoint, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
+	return readResponse(ctx, method, endpoint, resp)
+}
 
-	raw, readErr := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes+1))
-	if readErr != nil {
+// readResponse 读取响应快照；读失败按 ctx 取消或传输错误分类。
+func readResponse(ctx context.Context, method, endpoint string, resp *http.Response) (*Response, error) {
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes+1))
+	if err != nil {
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			return nil, ctxErr
 		}
-		return nil, newTransportError(method, endpoint, readErr)
+		return nil, newTransportError(method, endpoint, err)
 	}
 	if len(raw) > maxResponseBytes {
 		return nil, NewProtocolError(method, endpoint, "response_too_large", "response body exceeds 8 MiB", nil)
@@ -293,10 +297,8 @@ func (c *Client) send(ctx context.Context, method, endpoint string, payload []by
 
 // PutObject 向预签名 URL 直传对象，成功时返回去掉引号的 ETag（可能为空）。
 //
-// 与 Do 的区别：目标地址由对象存储给出，不拼 api_host + /api 前缀，也不注入身份——
-// 预签名按请求头签名，多带 Authorization / Cookie 会让签名失效。size 用于显式声明
-// Content-Length，避免对象存储拒绝 chunked 请求。底层重试关闭：上传管线的退避会
-// 重新 prepare 换新链接，传输层再叠一层只会放大请求量。
+// 预签名按请求头签名，因此不注入 Authorization/Cookie；size 显式声明 Content-Length，
+// 避免对象存储拒绝 chunked 请求。底层不重试：上传管线会重新 prepare 换新链接。
 func (c *Client) PutObject(ctx context.Context, rawURL string, body io.Reader, size int64, contentType string) (string, error) {
 	if err := ctx.Err(); err != nil {
 		return "", err
@@ -322,27 +324,17 @@ func (c *Client) PutObject(ctx context.Context, rawURL string, body io.Reader, s
 		return "", newTransportError(http.MethodPut, rawURL, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
-
-	raw, readErr := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes+1))
-	if readErr != nil {
-		if ctxErr := ctx.Err(); ctxErr != nil {
-			return "", ctxErr
-		}
-		return "", newTransportError(http.MethodPut, rawURL, readErr)
+	res, err := readResponse(ctx, http.MethodPut, rawURL, resp)
+	if err != nil {
+		return "", err
 	}
-	if len(raw) > maxResponseBytes {
-		return "", NewProtocolError(http.MethodPut, rawURL, "response_too_large", "response body exceeds 8 MiB", nil)
+	if res.Status < http.StatusOK || res.Status >= http.StatusMultipleChoices {
+		return "", newAPIError(res.Method, res.Endpoint, res.Status, res.Header, res.Body)
 	}
-	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		return "", newAPIError(http.MethodPut, rawURL, resp.StatusCode, resp.Header, raw)
-	}
-	return strings.Trim(resp.Header.Get("ETag"), `"`), nil
+	return strings.Trim(res.Header.Get("ETag"), `"`), nil
 }
 
-// validateObjectURL 校验预签名 URL：必须是带 host 的绝对 http/https 地址。
-//
-// 这类地址由后端签发，形态不合法说明协议被破坏，重试不会恢复，因此返回普通错误
-// 而不是 APIError（上层据类型判定「不可重试」）。
+// validateObjectURL 校验预签名 URL；非法形态说明协议被破坏，返回非 APIError 以便上层终结。
 func validateObjectURL(rawURL string) error {
 	parsed, err := url.Parse(rawURL)
 	if err != nil {

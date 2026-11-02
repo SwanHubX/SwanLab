@@ -24,25 +24,21 @@ const (
 	columnChunk = 3000
 	// columnTypeSystem 是系统列的云端类型标签，优先于真实类型。
 	columnTypeSystem = "SYSTEM"
-	// scalarBlockedMessage 是标量本地校验失败的文案。
-	scalarBlockedMessage = "scalar record without value or timestamp"
-	// logBlockedMessage 是日志本地校验失败的文案。
-	logBlockedMessage = "log record without line or timestamp"
-	// logUnknownLevelMessage 是未知日志级别的确定性失败文案。
+	// 本地校验失败时的确定性错误文案。
+	scalarBlockedMessage   = "scalar record without value or timestamp"
+	logBlockedMessage      = "log record without line or timestamp"
 	logUnknownLevelMessage = "log record with unknown level"
 	// createTimeKey 是指标共用的创建时间字段名。
 	createTimeKey = "create_time"
-	// mediaConcurrency 是媒体文件并发 PUT 的上限，进程级、跨会话共享。
+
+	// 文件类上传的并发上限；信号量是进程级的，避免多会话叠加放大连接数。
 	mediaConcurrency = 10
-	// saveConcurrency 是 CUSTOM save 小文件并发 PUT 的上限。
-	saveConcurrency = 8
-	// md5Concurrency 是文件 MD5 并发计算的上限。
-	md5Concurrency = 4
-	// partConcurrency 是单个大文件的分片并发上限。
-	partConcurrency = 3
+	saveConcurrency  = 8
+	md5Concurrency   = 4
+	partConcurrency  = 3
 )
 
-// 文件类上传的全局并发配额，避免多会话叠加放大连接数。
+// 文件类上传的全局信号量。
 var (
 	mediaSlots = semaphore.NewWeighted(mediaConcurrency)
 	saveSlots  = semaphore.NewWeighted(saveConcurrency)
