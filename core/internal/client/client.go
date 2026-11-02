@@ -10,6 +10,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -270,13 +271,17 @@ func (c *Client) send(ctx context.Context, method, endpoint string, payload []by
 		return nil, newTransportError(method, endpoint, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
+	return readResponse(ctx, method, endpoint, resp)
+}
 
-	raw, readErr := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes+1))
-	if readErr != nil {
+// readResponse 读取响应快照；读失败按 ctx 取消或传输错误分类。
+func readResponse(ctx context.Context, method, endpoint string, resp *http.Response) (*Response, error) {
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes+1))
+	if err != nil {
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			return nil, ctxErr
 		}
-		return nil, newTransportError(method, endpoint, readErr)
+		return nil, newTransportError(method, endpoint, err)
 	}
 	if len(raw) > maxResponseBytes {
 		return nil, NewProtocolError(method, endpoint, "response_too_large", "response body exceeds 8 MiB", nil)
@@ -288,6 +293,57 @@ func (c *Client) send(ctx context.Context, method, endpoint string, payload []by
 		Header:   resp.Header,
 		Body:     raw,
 	}, nil
+}
+
+// PutObject 向预签名 URL 直传对象，成功时返回去掉引号的 ETag（可能为空）。
+//
+// 预签名按请求头签名，因此不注入 Authorization/Cookie；size 显式声明 Content-Length，
+// 避免对象存储拒绝 chunked 请求。底层不重试：上传管线会重新 prepare 换新链接。
+func (c *Client) PutObject(ctx context.Context, rawURL string, body io.Reader, size int64, contentType string) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
+	if err := validateObjectURL(rawURL); err != nil {
+		return "", err
+	}
+	req, err := http.NewRequestWithContext(WithRetries(ctx, 0), http.MethodPut, rawURL, body)
+	if err != nil {
+		return "", NewProtocolError(http.MethodPut, rawURL, "invalid_object_url", err.Error(), err)
+	}
+	req.ContentLength = size
+	req.Header.Set(sdkVersionHeader, c.version)
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+	}
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return "", ctxErr
+		}
+		return "", newTransportError(http.MethodPut, rawURL, err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	res, err := readResponse(ctx, http.MethodPut, rawURL, resp)
+	if err != nil {
+		return "", err
+	}
+	if res.Status < http.StatusOK || res.Status >= http.StatusMultipleChoices {
+		return "", newAPIError(res.Method, res.Endpoint, res.Status, res.Header, res.Body)
+	}
+	return strings.Trim(res.Header.Get("ETag"), `"`), nil
+}
+
+// validateObjectURL 校验预签名 URL；非法形态说明协议被破坏，返回非 APIError 以便上层终结。
+func validateObjectURL(rawURL string) error {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return fmt.Errorf("client: invalid object url %q: %w", rawURL, err)
+	}
+	if (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
+		return fmt.Errorf("client: invalid object url %q: absolute http(s) url required", rawURL)
+	}
+	return nil
 }
 
 // encodeBody 把请求体编码为 JSON；nil 表示无请求体。

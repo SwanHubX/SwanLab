@@ -6,13 +6,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 
-	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/types/known/timestamppb"
+	"golang.org/x/sync/semaphore"
 
 	"github.com/swanhubx/swanlab/core/internal/api"
-	"github.com/swanhubx/swanlab/core/internal/client"
 	"github.com/swanhubx/swanlab/core/internal/uploader"
 	columnv1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/column/v1"
 	datav1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/data/v1"
@@ -25,12 +24,26 @@ const (
 	columnChunk = 3000
 	// columnTypeSystem 是系统列的云端类型标签，优先于真实类型。
 	columnTypeSystem = "SYSTEM"
-	// scalarBlockedMessage 是标量本地校验失败的文案。
-	scalarBlockedMessage = "scalar record without value or timestamp"
-	// logBlockedMessage 是日志本地校验失败的文案。
-	logBlockedMessage = "log record without line or timestamp"
-	// logUnknownLevelMessage 是未知日志级别的确定性失败文案。
+	// 本地校验失败时的确定性错误文案。
+	scalarBlockedMessage   = "scalar record without value or timestamp"
+	logBlockedMessage      = "log record without line or timestamp"
 	logUnknownLevelMessage = "log record with unknown level"
+	// createTimeKey 是指标共用的创建时间字段名。
+	createTimeKey = "create_time"
+
+	// 文件类上传的并发上限；信号量是进程级的，避免多会话叠加放大连接数。
+	mediaConcurrency = 10
+	saveConcurrency  = 8
+	md5Concurrency   = 4
+	partConcurrency  = 3
+)
+
+// 文件类上传的全局信号量。
+var (
+	mediaSlots = semaphore.NewWeighted(mediaConcurrency)
+	saveSlots  = semaphore.NewWeighted(saveConcurrency)
+	md5Slots   = semaphore.NewWeighted(md5Concurrency)
+	partSlots  = semaphore.NewWeighted(partConcurrency)
 )
 
 // columnTypeNames 是 ColumnType 到云端类型标签的映射。
@@ -52,6 +65,24 @@ var logLevelNames = map[terminalv1.LogLevel]string{
 	terminalv1.LogLevel_LOG_LEVEL_ERROR: "ERROR",
 }
 
+// ObjectPutter 是对象存储预签名直传原语，*client.Client 实现。
+type ObjectPutter interface {
+	PutObject(ctx context.Context, url string, body io.Reader, size int64, contentType string) (string, error)
+}
+
+// FileOptions 是文件类 sender 的运行期依赖；column/scalar/log 忽略该字段。
+type FileOptions struct {
+	MediaDir  string // run_dir/media
+	FilesDir  string // run_dir/files
+	SkipStore bool
+	SaveSize  int64
+	SaveSplit int64
+	SavePart  int64
+	SaveBatch int
+	Tracker   *uploader.Tracker // 可空
+	Putter    ObjectPutter      // media/save 必填
+}
+
 // Options 是三条 sender 共用的身份信息。
 type Options struct {
 	API          *api.Client // 必填
@@ -59,11 +90,18 @@ type Options struct {
 	Project      string
 	ProjectID    string
 	ExperimentID string
+	Files        FileOptions
 }
 
-// isRetryable 判断错误是否归 Remaining；父 ctx 取消时由 worker 停止调度。
-func isRetryable(err error) bool {
-	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || client.IsRetryable(err)
+// validateFileOptions 校验文件类 sender 的必需依赖，避免漏装配后运行期空指针或永久重试。
+func validateFileOptions(opts Options) error {
+	if opts.API == nil {
+		return errors.New("sender: api client is required")
+	}
+	if opts.Files.Putter == nil {
+		return errors.New("sender: object putter is required")
+	}
+	return nil
 }
 
 // ColumnSender 上报列定义：先全量编码，再按 3000 条切分提交。
@@ -210,7 +248,7 @@ func encodeScalar(record *datav1.ScalarRecord) (map[string]any, bool) {
 		"key":         record.GetKey(),
 		"index":       record.GetStep(),
 		"data":        data,
-		"create_time": createTime,
+		createTimeKey: createTime,
 	}, true
 }
 
@@ -292,23 +330,6 @@ func encodeLog(record *terminalv1.LogRecord) (map[string]any, logEncodeStatus) {
 		"level":       level,
 		"epoch":       record.GetEpoch(),
 		"message":     record.GetLine(),
-		"create_time": createTime,
+		createTimeKey: createTime,
 	}, logOK
-}
-
-// encodeTimestamp 复用 protojson 的 0/3/6/9 位小数排版，去掉外层引号。
-func encodeTimestamp(ts *timestamppb.Timestamp) (string, bool) {
-	raw, err := protojson.Marshal(ts)
-	if err != nil || len(raw) < 2 || raw[0] != '"' {
-		return "", false
-	}
-	return string(raw[1 : len(raw)-1]), true
-}
-
-// blockedFailures 包装本地校验失败的记录；空集合返回 nil。
-func blockedFailures(message string, records []*recordv1.Record) []uploader.Failure {
-	if len(records) == 0 {
-		return nil
-	}
-	return []uploader.Failure{{Message: message, Records: records}}
 }

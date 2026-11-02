@@ -82,3 +82,46 @@ func TestSafeTruncate(t *testing.T) {
 		t.Fatalf("多字节长名截断后 %d 字节超过上限", n)
 	}
 }
+
+// TestWindowsParts 覆盖 Windows 语义的路径拆分。
+func TestWindowsParts(t *testing.T) {
+	cases := []struct {
+		in   string
+		want []string
+	}{
+		{`sub\model.py`, []string{"sub", "model.py"}},
+		{`a/b\c`, []string{"a", "b", "c"}},
+		{`./a//b`, []string{"a", "b"}},
+		{`..\a`, []string{"..", "a"}},
+		{"", nil},
+	}
+	for _, tc := range cases {
+		got := WindowsParts(tc.in)
+		if len(got) != len(tc.want) {
+			t.Fatalf("WindowsParts(%q) = %v, want %v", tc.in, got, tc.want)
+		}
+		for i := range got {
+			if got[i] != tc.want[i] {
+				t.Fatalf("WindowsParts(%q) = %v, want %v", tc.in, got, tc.want)
+			}
+		}
+	}
+}
+
+// TestWindowsBase 覆盖 Windows 语义的文件名提取。
+func TestWindowsBase(t *testing.T) {
+	cases := []struct {
+		in   string
+		want string
+	}{
+		{`C:\runs\files\config.yaml`, "config.yaml"},
+		{"a/b", "b"},
+		{"plain", "plain"},
+		{"", ""},
+	}
+	for _, tc := range cases {
+		if got := WindowsBase(tc.in); got != tc.want {
+			t.Fatalf("WindowsBase(%q) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}
