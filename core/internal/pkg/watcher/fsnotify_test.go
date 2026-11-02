@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/swanhubx/swanlab/core/internal/pkg/fs"
 	savev1 "github.com/swanhubx/swanlab/core/proto/swanlab/save/v1"
 )
 
@@ -47,6 +48,40 @@ func TestRegisterLiveIsIdempotent(t *testing.T) {
 	}
 	if len(w.watchedDirs) != 1 {
 		t.Fatalf("watched dirs = %d, want 1", len(w.watchedDirs))
+	}
+}
+
+func TestRegisterLiveUsesMirrorPath(t *testing.T) {
+	root := t.TempDir()
+	sourceDir := filepath.Join(root, "src")
+	if err := os.MkdirAll(sourceDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	source := filepath.Join(sourceDir, "model.pt")
+	if err := os.WriteFile(source, []byte("v1"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	filesDir := filepath.Join(root, "run", "files")
+	save := newSave(`nested\model.pt`, source, "", savev1.SavePolicy_SAVE_POLICY_LIVE)
+
+	w, err := New(filesDir, func(*savev1.SaveRecord) {})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer w.Stop()
+	if err = w.RegisterLive([]*savev1.SaveRecord{save}); err != nil {
+		t.Fatal(err)
+	}
+
+	want := fs.MirrorPath(filesDir, save.GetName())
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	entry, ok := w.entries[want]
+	if !ok {
+		t.Fatalf("registration key = %v, want %q", w.entries, want)
+	}
+	if entry.targetPath != want {
+		t.Fatalf("target path = %q, want %q", entry.targetPath, want)
 	}
 }
 
@@ -161,19 +196,12 @@ func TestStopFlushesRealEvent(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer w.Stop()
-	scheduled := make(chan string, 4)
-	w.scheduled = scheduled
 	if err = w.RegisterLive([]*savev1.SaveRecord{save}); err != nil {
 		t.Fatal(err)
 	}
 
 	if err = os.WriteFile(source, []byte("v2"), 0o644); err != nil {
 		t.Fatal(err)
-	}
-	select {
-	case <-scheduled:
-	case <-time.After(5 * time.Second):
-		t.Fatal("timed out waiting for debounce scheduling")
 	}
 
 	w.Stop()

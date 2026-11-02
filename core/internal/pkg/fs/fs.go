@@ -3,6 +3,7 @@ package fs
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 )
 
@@ -105,4 +106,9 @@ func WindowsBase(path string) string {
 		return path[index+1:]
 	}
 	return path
+}
+
+// MirrorPath 按 SaveRecord.name 的 Windows 分隔符语义拼接本地镜像路径。
+func MirrorPath(base, name string) string {
+	return filepath.Join(append([]string{base}, WindowsParts(name)...)...)
 }

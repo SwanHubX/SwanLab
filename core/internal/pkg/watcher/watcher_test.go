@@ -351,6 +351,33 @@ func TestStopFlushesPendingChanges(t *testing.T) {
 	}
 }
 
+func TestStopChecksAllRegisteredFiles(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, "model.pt")
+	if err := os.WriteFile(source, []byte("v1"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	calls := 0
+	clock := &fakeClock{}
+	w, err := New(filepath.Join(root, "files"), func(*savev1.SaveRecord) { calls++ },
+		WithDebounce(time.Hour), withTimerFactory(clock.after))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer w.Stop()
+
+	addEntry(t, w, "model.pt", source, savev1.SavePolicy_SAVE_POLICY_LIVE)
+	if err := os.WriteFile(source, []byte("v2"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// 没有 notify/timer 也要在 Stop 时检查到最终状态。
+	w.Stop()
+	if calls != 1 {
+		t.Fatalf("stop callbacks = %d, want 1", calls)
+	}
+}
+
 func TestRegisterLiveSkipsOtherPolicies(t *testing.T) {
 	w, err := New(t.TempDir(), func(*savev1.SaveRecord) {})
 	if err != nil {

@@ -1,6 +1,7 @@
 package fs
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -104,6 +105,24 @@ func TestWindowsParts(t *testing.T) {
 			if got[i] != tc.want[i] {
 				t.Fatalf("WindowsParts(%q) = %v, want %v", tc.in, got, tc.want)
 			}
+		}
+	}
+}
+
+// TestMirrorPath 覆盖镜像路径与 Sender 回退路径共用的分隔符语义。
+func TestMirrorPath(t *testing.T) {
+	base := filepath.Join("run", "files")
+	cases := []struct {
+		name string
+		want string
+	}{
+		{`sub\model.py`, filepath.Join(base, "sub", "model.py")},
+		{`a/b\c`, filepath.Join(base, "a", "b", "c")},
+		{`./a//b`, filepath.Join(base, "a", "b")},
+	}
+	for _, tc := range cases {
+		if got := MirrorPath(base, tc.name); got != tc.want {
+			t.Fatalf("MirrorPath(%q) = %q, want %q", tc.name, got, tc.want)
 		}
 	}
 }

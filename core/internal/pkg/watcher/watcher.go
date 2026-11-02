@@ -3,6 +3,9 @@
 // 监听目标是软链接指向的真实源文件及其父目录，因此外部编辑与原子替换都能捕获。
 // 每个文件独立做尾部防抖，并用 mtime、size 与文件身份去重；Stop 会同步刷出
 // 尚在防抖窗口内的变更，确保收尾阶段不丢记录。
+//
+// 本包只依赖标准库、fsnotify、保存记录 proto 与 internal/pkg/fs，不 import
+// runctx、uploader 等业务包。
 package watcher
 
 import (
@@ -16,6 +19,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 
+	"github.com/swanhubx/swanlab/core/internal/pkg/fs"
 	savev1 "github.com/swanhubx/swanlab/core/proto/swanlab/save/v1"
 )
 
@@ -56,7 +60,6 @@ type FileWatcher struct {
 	active      int
 	fsWatcher   *fsnotify.Watcher
 	loopWG      sync.WaitGroup
-	scheduled   chan<- string // 测试钩子：防抖定时器建立后通知目标路径
 }
 
 // fileEntry 是单个 LIVE 文件的注册信息。
@@ -157,7 +160,7 @@ func (w *FileWatcher) RegisterLive(saves []*savev1.SaveRecord) error {
 func (w *FileWatcher) register(save *savev1.SaveRecord) error {
 	target := save.GetTargetPath()
 	if target == "" {
-		target = filepath.Join(w.filesDir, save.GetName())
+		target = fs.MirrorPath(w.filesDir, save.GetName())
 	}
 	target = filepath.Clean(target)
 	source := resolveSource(target, save.GetSourcePath())
@@ -245,22 +248,14 @@ func (w *FileWatcher) loop(fsWatcher *fsnotify.Watcher) {
 // notify 为源路径命中的文件重置防抖定时器。
 func (w *FileWatcher) notify(source string) {
 	w.mu.Lock()
+	defer w.mu.Unlock()
 	if w.stopped {
-		w.mu.Unlock()
 		return
 	}
-	var scheduled []string
 	for target, entry := range w.entries {
-		if entry.sourcePath != source {
-			continue
+		if entry.sourcePath == source {
+			w.scheduleLocked(target)
 		}
-		w.scheduleLocked(target)
-		scheduled = append(scheduled, target)
-	}
-	hook := w.scheduled
-	w.mu.Unlock()
-	for _, target := range scheduled {
-		sendHook(hook, target)
 	}
 }
 
@@ -324,7 +319,8 @@ func (w *FileWatcher) takeChangeLocked(target string) *savev1.SaveRecord {
 
 // Stop 停止监听，并在返回前同步刷出所有待发变更。
 //
-// 不要在 onChange 回调内调用 Stop：后者会等待回调完成，造成死锁。
+// 调用方不得持有 onChange 回调所需的锁：Stop 会等待在途回调，并同步执行收尾回调。
+// 同理，不要在 onChange 内调用 Stop。
 func (w *FileWatcher) Stop() {
 	w.mu.Lock()
 	if w.stopped {
@@ -332,12 +328,15 @@ func (w *FileWatcher) Stop() {
 		return
 	}
 	w.stopped = true
-	pending := make([]string, 0, len(w.timers))
-	for target, timer := range w.timers {
+	for _, timer := range w.timers {
 		timer.timer.Stop()
-		pending = append(pending, target)
 	}
 	clear(w.timers)
+	// 停止后对所有注册文件做一次状态检查，覆盖尚未进入 notify 的事件。
+	targets := make([]string, 0, len(w.entries))
+	for target := range w.entries {
+		targets = append(targets, target)
+	}
 	fsWatcher := w.fsWatcher
 	w.mu.Unlock()
 
@@ -353,8 +352,8 @@ func (w *FileWatcher) Stop() {
 	}
 	w.mu.Unlock()
 
-	sort.Strings(pending)
-	for _, target := range pending {
+	sort.Strings(targets)
+	for _, target := range targets {
 		w.flush(target)
 	}
 }
@@ -375,16 +374,6 @@ func (e *fileEntry) record() *savev1.SaveRecord {
 		SourcePath: e.sourcePath,
 		TargetPath: e.targetPath,
 		Policy:     e.policy,
-	}
-}
-
-func sendHook(hook chan<- string, target string) {
-	if hook == nil {
-		return
-	}
-	select {
-	case hook <- target:
-	default:
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/swanhubx/swanlab/core/internal/pkg/fs"
 	savev1 "github.com/swanhubx/swanlab/core/proto/swanlab/save/v1"
 )
 
@@ -50,6 +51,30 @@ func TestCreateSaveLinks(t *testing.T) {
 	}
 	if created != 0 {
 		t.Fatalf("second call created = %d, want 0", created)
+	}
+}
+
+func TestCreateSaveLinksUsesWindowsParts(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, "model.pt")
+	if err := os.WriteFile(source, []byte("weights"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	filesDir := filepath.Join(root, "run", "files")
+	save := newSave(`nested\model.pt`, source, "", savev1.SavePolicy_SAVE_POLICY_LIVE)
+
+	if _, err := CreateSaveLinks([]*savev1.SaveRecord{save}, filesDir); err != nil {
+		t.Fatal(err)
+	}
+	want := filepath.Join(filesDir, "nested", "model.pt")
+	if save.GetTargetPath() != want {
+		t.Fatalf("target path = %q, want %q", save.GetTargetPath(), want)
+	}
+	if got := fs.MirrorPath(filesDir, save.GetName()); got != want {
+		t.Fatalf("sender fallback path = %q, want %q", got, want)
+	}
+	if _, err := os.Stat(want); err != nil {
+		t.Fatalf("mirror missing: %v", err)
 	}
 }
 

@@ -595,8 +595,7 @@ func (s *SaveSender) resolveSource(save *savev1.SaveRecord) string {
 	}
 	var fallback string
 	if save.GetType() == savev1.SaveType_SAVE_TYPE_CUSTOM {
-		parts := fs.WindowsParts(save.GetName())
-		fallback = filepath.Join(append([]string{s.opts.Files.FilesDir}, parts...)...)
+		fallback = fs.MirrorPath(s.opts.Files.FilesDir, save.GetName())
 	} else {
 		fallback = filepath.Join(s.opts.Files.FilesDir, fs.WindowsBase(save.GetSourcePath()))
 	}

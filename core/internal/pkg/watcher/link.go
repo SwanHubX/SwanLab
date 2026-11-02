@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/swanhubx/swanlab/core/internal/pkg/fs"
 	savev1 "github.com/swanhubx/swanlab/core/proto/swanlab/save/v1"
 )
 
@@ -30,7 +31,7 @@ func CreateSaveLinks(saves []*savev1.SaveRecord, filesDir string) (int, error) {
 		if save == nil {
 			return created, errors.New("watcher: nil save record")
 		}
-		target := filepath.Join(abs, save.GetName())
+		target := fs.MirrorPath(abs, save.GetName())
 		save.TargetPath = target
 		if _, err = os.Lstat(target); err == nil {
 			continue
