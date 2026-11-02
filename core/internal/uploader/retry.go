@@ -20,7 +20,7 @@ const (
 	DefaultRetryJitterHigh = 1.2
 )
 
-// RetryPolicy 计算单轨连续失败后的等待时长（指数退避 + 抖动），可并发使用。
+// RetryPolicy 计算连续失败后的等待时长（指数退避 + 抖动），可并发使用。
 type RetryPolicy struct {
 	Base       time.Duration  // 首轮等待，<=0 取 DefaultRetryBase
 	Multiplier float64        // 每轮放大倍数，<=0 取 DefaultRetryMultiplier

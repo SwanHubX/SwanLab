@@ -6,7 +6,7 @@ import (
 	recordv1 "github.com/swanhubx/swanlab/core/proto/swanlab/record/v1"
 )
 
-// dispatchOrder 是出批分组的固定顺序；门控由轨道依赖表决定，与此无关。
+// dispatchOrder 是出批分组的固定顺序：column 必须先于依赖它的数据组送达。
 var dispatchOrder = []record.Type{
 	record.TypeColumn,
 	record.TypeScalar,

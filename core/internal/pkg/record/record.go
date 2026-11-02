@@ -4,7 +4,7 @@
 // 同一份消息既用于生成落盘字节，也用于编码上传请求，避免两套字段各自演化。
 //
 // 本包只固定所有下游必须一致的三件事：
-//   - Type：oneof record_type 的稳定标签，intake 分流与 uploader 分轨都用它；
+//   - Type：oneof record_type 的稳定标签，intake 分流与 uploader 分组都用它；
 //   - TypeOf：从消息推导标签，保证标签与 oneof 不会漂移；
 //   - Size：配额计量口径，intake 预留与 uploader 归还必须调用同一个函数。
 package record
