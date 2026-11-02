@@ -1,5 +1,5 @@
 // Package sender 把整批记录编码成云端请求并给出三态结果：
-// Confirmed 为终结（含确定性失败），Remaining 为可重试。
+// Confirmed 为终结（含确定性失败），Remaining 为可重试，Failures 为面向用户的失败明细。
 package sender
 
 import (
@@ -61,7 +61,7 @@ type Options struct {
 	ExperimentID string
 }
 
-// isRetryable 保留网络与上下文取消相关记录；父 ctx 取消时由 worker 停止调度。
+// isRetryable 判断错误是否归 Remaining；父 ctx 取消时由 worker 停止调度。
 func isRetryable(err error) bool {
 	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || client.IsRetryable(err)
 }

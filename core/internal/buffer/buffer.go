@@ -68,7 +68,7 @@ type Options struct {
 	// Flushed 返回已完整落盘的 storeSeq；!SkipStore 时必填。
 	// 用于确认暂停期间的记录已安全落盘，不得回调 Intake。
 	Flushed func() uint64
-	// OnAdmit 在记录首次进入上传管线时回调条数（Start/Finish 不计）；
+	// OnAdmit 在记录首次进入上传管线时回调待上传条数（Start/Finish 不计）；
 	// Close 补投、recovery 与重试都不会再次回调。回调必须非阻塞。
 	OnAdmit func(n int64)
 	// QueueWait 是容量不足时的有界等待上限，<=0 取 DefaultQueueWait。

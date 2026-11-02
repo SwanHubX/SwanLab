@@ -79,7 +79,7 @@ type trackedFile struct {
 	rate     rateTracker
 }
 
-// Tracker 是并发安全的上传进度账本，记录维度供上传管线记账，文件维度供媒体上传使用。
+// Tracker 是并发安全的上传进度账本：记录维度维护接纳/终结计数，文件维度供媒体上传使用。
 // Snapshot 产出 OperationStats；零值不可用，应由 NewTracker 构造。
 type Tracker struct {
 	mu sync.Mutex
@@ -118,7 +118,7 @@ func (t *Tracker) SetState(state operationv1.CoreState) {
 	t.state = state
 }
 
-// AddTotalRecords 累加已知总记录数；n<=0 忽略。
+// AddTotalRecords 累加已知总记录数（intake 首次接纳时调用）；n<=0 忽略。
 func (t *Tracker) AddTotalRecords(n int64) {
 	if n <= 0 {
 		return

@@ -176,7 +176,7 @@ func defaultUnsupportedWarning(typ record.Type, count int) {
 	console.Warningf("uploader: no sender registered for %q records, %d record(s) dropped", label, count)
 }
 
-// workerState 只由单个上传 goroutine 持有，统计快照通过 Uploader 的原子计数导出。
+// workerState 只由单个上传 goroutine 持有，统计快照通过 Uploader 的原子计数与 Tracker 导出。
 type workerState struct {
 	u            *Uploader
 	pending      []*recordv1.Record
@@ -465,7 +465,7 @@ func flattenGroups(groups []recordGroup) []*recordv1.Record {
 	return records
 }
 
-// confirm 终结记录并归还配额。
+// confirm 终结记录：归还配额并计入上传进度。
 func (u *Uploader) confirm(records []*recordv1.Record) {
 	for _, rec := range records {
 		u.budget.Release(1, record.Size(rec))
@@ -473,7 +473,7 @@ func (u *Uploader) confirm(records []*recordv1.Record) {
 	u.tracker.AdvanceRecords(int64(len(records)))
 }
 
-// terminateUnsupported 终结未注册类型的记录：归还配额、计数并告警一次。
+// terminateUnsupported 终结未注册类型的记录：归还配额、计入上传进度并告警一次。
 func (u *Uploader) terminateUnsupported(group recordGroup) {
 	u.confirm(group.records)
 	if _, warned := u.warnedTypes[group.typ]; warned {
@@ -626,7 +626,7 @@ func (u *Uploader) FlushSchedulingForTest() error {
 }
 
 // flushOutcome 在停止信号与 ack 同时就绪时优先返回已完成的 Flush；
-// worker 正常退出前，本轮 ack 若会关闭则一定已关闭。
+// worker 退出前，可关闭的 ack 一定已关闭。
 func flushOutcome(ack <-chan struct{}) error {
 	select {
 	case <-ack:
