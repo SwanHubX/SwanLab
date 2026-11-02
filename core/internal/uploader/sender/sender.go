@@ -37,10 +37,18 @@ const (
 	createTimeKey = "create_time"
 	// mediaConcurrency 是媒体文件并发 PUT 的上限，进程级、跨会话共享。
 	mediaConcurrency = 10
+	// saveConcurrency 是 CUSTOM save 小文件并发 PUT 的上限。
+	saveConcurrency = 8
+	// md5Concurrency 是文件 MD5 并发计算的上限。
+	md5Concurrency = 4
 )
 
-// mediaSlots 是媒体文件的全局并发配额，避免多会话叠加放大连接数。
-var mediaSlots = semaphore.NewWeighted(mediaConcurrency)
+// 文件类上传的全局并发配额，避免多会话叠加放大连接数。
+var (
+	mediaSlots = semaphore.NewWeighted(mediaConcurrency)
+	saveSlots  = semaphore.NewWeighted(saveConcurrency)
+	md5Slots   = semaphore.NewWeighted(md5Concurrency)
+)
 
 // columnTypeNames 是 ColumnType 到云端类型标签的映射。
 var columnTypeNames = map[columnv1.ColumnType]string{
