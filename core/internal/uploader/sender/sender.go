@@ -41,6 +41,8 @@ const (
 	saveConcurrency = 8
 	// md5Concurrency 是文件 MD5 并发计算的上限。
 	md5Concurrency = 4
+	// partConcurrency 是单个大文件的分片并发上限。
+	partConcurrency = 3
 )
 
 // 文件类上传的全局并发配额，避免多会话叠加放大连接数。
@@ -48,6 +50,7 @@ var (
 	mediaSlots = semaphore.NewWeighted(mediaConcurrency)
 	saveSlots  = semaphore.NewWeighted(saveConcurrency)
 	md5Slots   = semaphore.NewWeighted(md5Concurrency)
+	partSlots  = semaphore.NewWeighted(partConcurrency)
 )
 
 // columnTypeNames 是 ColumnType 到云端类型标签的映射。

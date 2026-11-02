@@ -4,13 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
+	"github.com/swanhubx/swanlab/core/internal/api"
 	"github.com/swanhubx/swanlab/core/internal/client"
 	"github.com/swanhubx/swanlab/core/internal/clienttest"
 	"github.com/swanhubx/swanlab/core/internal/uploader"
@@ -30,6 +33,8 @@ func defaultSaveFiles(t *testing.T, putter ObjectPutter) FileOptions {
 	return FileOptions{
 		FilesDir:  t.TempDir(),
 		SaveSize:  50 << 30,
+		SaveSplit: 100 << 20,
+		SavePart:  32 << 20,
 		SaveBatch: 100,
 		Putter:    putter,
 	}
@@ -646,5 +651,345 @@ func TestSaveCustomFallbackUsesWindowsParts(t *testing.T) {
 	batches := prepareBatches(t, cloud)
 	if len(batches) != 1 || batches[0][0]["path"] != `sub\model.py` {
 		t.Fatalf("prepare = %+v, want the original save name", batches)
+	}
+}
+
+const (
+	multipartPreparePath  = "/api/experiment/exp-1/files/prepare-multipart"
+	multipartCompletePath = "/api/experiment/exp-1/files/complete-multipart"
+)
+
+// serveMultipartPrepare 让假后端按请求里的 count 返回分片 URL。
+func serveMultipartPrepare(cloud *clienttest.Cloud) {
+	cloud.Handle(http.MethodPost, multipartPreparePath, func(w http.ResponseWriter, _ *http.Request) {
+		requests := cloud.Requests()
+		var body struct {
+			Files []map[string]any `json:"files"`
+		}
+		_ = json.Unmarshal(requests[len(requests)-1].Body, &body)
+		files := make([]map[string]any, 0, len(body.Files))
+		for i, item := range body.Files {
+			count, _ := item["count"].(float64)
+			parts := make([]map[string]any, 0, int(count))
+			for n := 1; n <= int(count); n++ {
+				parts = append(parts, map[string]any{
+					"partNumber": n,
+					"url":        fmt.Sprintf("%s/sink/multi/%d/part%d", cloud.URL(), i, n),
+				})
+			}
+			files = append(files, map[string]any{"uploadId": fmt.Sprintf("upload-%d", i), "parts": parts})
+		}
+		clienttest.WriteJSON(w, http.StatusOK, map[string]any{"files": files})
+	})
+}
+
+// serveMultipartComplete 让分片合并返回空体（视为全部成功）。
+func serveMultipartComplete(cloud *clienttest.Cloud) {
+	cloud.ServeJSON(http.MethodPost, multipartCompletePath, http.StatusCreated, nil)
+}
+
+// multipartCounts 返回 prepare-multipart 请求里每个文件的分片数。
+func multipartCounts(t *testing.T, cloud *clienttest.Cloud) []int {
+	t.Helper()
+	requests := cloud.RequestsFor(http.MethodPost, multipartPreparePath)
+	counts := make([]int, 0)
+	for _, request := range requests {
+		files, _ := decodeBody(t, request.Body)["files"].([]any)
+		for _, item := range files {
+			count, _ := item.(map[string]any)["count"].(float64)
+			counts = append(counts, int(count))
+		}
+	}
+	return counts
+}
+
+// TestSaveSplitRoutesFiles 覆盖 SaveSplit 分界：小于分界走直传，等于分界走分片。
+func TestSaveSplitRoutesFiles(t *testing.T) {
+	cloud := clienttest.NewCloud(t)
+	serveSavePrepare(cloud)
+	serveSaveComplete(cloud)
+	serveMultipartPrepare(cloud)
+	serveMultipartComplete(cloud)
+	putter := &fakePutter{}
+	files := defaultSaveFiles(t, putter)
+	files.SaveSplit = 10
+	files.SavePart = 4
+	sender := newSaveSender(t, cloud, files)
+
+	dir := t.TempDir()
+	records := []*recordv1.Record{
+		saveRecord(1, savev1.SaveType_SAVE_TYPE_CUSTOM, "small.txt", writeSaveFile(t, dir, "small.txt", []byte("123456789")), nil),
+		saveRecord(2, savev1.SaveType_SAVE_TYPE_CUSTOM, "big.bin", writeSaveFile(t, dir, "big.bin", []byte("0123456789")), nil),
+	}
+	result := sender.Upload(context.Background(), []*recordv1.Record{records[0], records[1]})
+	if len(result.Confirmed) != 2 || len(result.Remaining) != 0 || len(result.Failures) != 0 {
+		t.Fatalf("result = confirmed %d remaining %d failures %d", len(result.Confirmed), len(result.Remaining), len(result.Failures))
+	}
+
+	batches := prepareBatches(t, cloud)
+	if len(batches) != 1 || len(batches[0]) != 1 || batches[0][0]["path"] != "small.txt" {
+		t.Fatalf("small prepare = %+v, want only small.txt", batches)
+	}
+	if counts := multipartCounts(t, cloud); len(counts) != 1 || counts[0] != 3 {
+		t.Fatalf("multipart counts = %v, want [3]", counts)
+	}
+	puts := putter.snapshot()
+	if len(puts) != 1+3 {
+		t.Fatalf("puts = %d, want 1 small + 3 parts", len(puts))
+	}
+}
+
+// TestSaveMultipartPartBoundaries 覆盖分片数计算与分片内容拼接。
+func TestSaveMultipartPartBoundaries(t *testing.T) {
+	cloud := clienttest.NewCloud(t)
+	serveMultipartPrepare(cloud)
+	serveMultipartComplete(cloud)
+	putter := &fakePutter{}
+	files := defaultSaveFiles(t, putter)
+	files.SaveSplit = 1
+	files.SavePart = 4
+	sender := newSaveSender(t, cloud, files)
+
+	contents := [][]byte{[]byte("abcdefgh"), []byte("abcdefghi"), []byte("abc")}
+	dir := t.TempDir()
+	records := make([]*recordv1.Record, 0, len(contents))
+	for i, content := range contents {
+		name := fmt.Sprintf("f%d.bin", i)
+		records = append(records, saveRecord(int64(i+1), savev1.SaveType_SAVE_TYPE_CUSTOM, name, writeSaveFile(t, dir, name, content), nil))
+	}
+	result := sender.Upload(context.Background(), records)
+	if len(result.Confirmed) != 3 || len(result.Failures) != 0 {
+		t.Fatalf("result = confirmed %d failures %d", len(result.Confirmed), len(result.Failures))
+	}
+	if counts := multipartCounts(t, cloud); len(counts) != 3 || counts[0] != 2 || counts[1] != 3 || counts[2] != 1 {
+		t.Fatalf("multipart counts = %v, want [2 3 1]", counts)
+	}
+
+	byURL := make(map[string][]byte)
+	for _, put := range putter.snapshot() {
+		byURL[put.url] = put.body
+	}
+	for i, content := range contents {
+		var joined []byte
+		count := (len(content) + 3) / 4
+		for n := 1; n <= count; n++ {
+			url := fmt.Sprintf("%s/sink/multi/%d/part%d", cloud.URL(), i, n)
+			part, ok := byURL[url]
+			if !ok {
+				t.Fatalf("missing part %s", url)
+			}
+			joined = append(joined, part...)
+		}
+		if string(joined) != string(content) {
+			t.Fatalf("file %d reassembled = %q, want %q", i, joined, content)
+		}
+	}
+
+	completed := cloud.RequestsFor(http.MethodPost, multipartCompletePath)
+	if len(completed) != 1 {
+		t.Fatalf("complete-multipart requests = %d, want 1", len(completed))
+	}
+	filesBody, _ := decodeBody(t, completed[0].Body)["files"].([]any)
+	if len(filesBody) != 3 {
+		t.Fatalf("complete files = %d, want 3", len(filesBody))
+	}
+	parts, _ := filesBody[1].(map[string]any)["parts"].([]any)
+	if len(parts) != 3 {
+		t.Fatalf("second file parts = %d, want 3", len(parts))
+	}
+}
+
+// readThenFailPutter 读完整片后按 URL 返回失败，用于观测进度回滚。
+type readThenFailPutter struct {
+	mu      sync.Mutex
+	puts    []objectPut
+	failURL string
+	err     error
+}
+
+// PutObject 实现 ObjectPutter。
+func (p *readThenFailPutter) PutObject(_ context.Context, url string, body io.Reader, _ int64, contentType string) (string, error) {
+	data, err := io.ReadAll(body)
+	if err != nil {
+		return "", err
+	}
+	p.mu.Lock()
+	p.puts = append(p.puts, objectPut{url: url, contentType: contentType, body: data})
+	p.mu.Unlock()
+	if strings.HasSuffix(url, p.failURL) {
+		return "", p.err
+	}
+	return "etag", nil
+}
+
+// TestSaveMultipartPartRetryableRollsBackProgress 覆盖单片失败：记录保留重试，
+// 该分片已上报的进度回滚到 0。
+func TestSaveMultipartPartRetryableRollsBackProgress(t *testing.T) {
+	cloud := clienttest.NewCloud(t)
+	serveMultipartPrepare(cloud)
+	putter := &readThenFailPutter{
+		failURL: "/part2",
+		err:     &client.APIError{Method: http.MethodPut, StatusCode: http.StatusInternalServerError},
+	}
+	tracker := uploader.NewTracker()
+	files := defaultSaveFiles(t, putter)
+	files.SaveSplit = 1
+	files.SavePart = 4
+	files.Tracker = tracker
+	sender := newSaveSender(t, cloud, files)
+
+	dir := t.TempDir()
+	record := saveRecord(1, savev1.SaveType_SAVE_TYPE_CUSTOM, "big.bin", writeSaveFile(t, dir, "big.bin", []byte("0123456789")), nil)
+	result := sender.Upload(context.Background(), []*recordv1.Record{record})
+	if len(result.Confirmed) != 0 || len(result.Remaining) != 1 || len(result.Failures) != 1 {
+		t.Fatalf("result = confirmed %d remaining %d failures %d", len(result.Confirmed), len(result.Remaining), len(result.Failures))
+	}
+	if got := cloud.CountFor(http.MethodPost, multipartCompletePath); got != 0 {
+		t.Fatalf("complete-multipart requests = %d, want 0", got)
+	}
+	stats := tracker.Snapshot()
+	if stats.TotalNumber != 1 || stats.UploadedNumber != 0 || len(stats.Files) != 1 {
+		t.Fatalf("tracker = total %d uploaded %d files %d", stats.TotalNumber, stats.UploadedNumber, len(stats.Files))
+	}
+	// 分片 1、3 成功（4 + 2 字节），分片 2 读完 4 字节后失败并回滚，总进度应为 6。
+	if got := stats.Files[0].Uploaded; got != 6 {
+		t.Fatalf("uploaded = %d, want 6 after rolling back the failed part", got)
+	}
+}
+
+// TestSaveMultipartLocalErrorTerminates 覆盖分片阶段本地读错：终结并上报 FAILED。
+func TestSaveMultipartLocalErrorTerminates(t *testing.T) {
+	cloud := clienttest.NewCloud(t)
+	serveMultipartPrepare(cloud)
+	serveSaveComplete(cloud)
+	putter := &fakePutter{failOn: func(url string) error {
+		if strings.HasSuffix(url, "/part1") {
+			return &fs.PathError{Op: "open", Path: "big.bin", Err: fs.ErrNotExist}
+		}
+		return nil
+	}}
+	tracker := uploader.NewTracker()
+	files := defaultSaveFiles(t, putter)
+	files.SaveSplit = 1
+	files.SavePart = 4
+	files.Tracker = tracker
+	sender := newSaveSender(t, cloud, files)
+
+	dir := t.TempDir()
+	record := saveRecord(1, savev1.SaveType_SAVE_TYPE_CUSTOM, "big.bin", writeSaveFile(t, dir, "big.bin", []byte("0123456789")), nil)
+	result := sender.Upload(context.Background(), []*recordv1.Record{record})
+	if len(result.Confirmed) != 1 || len(result.Remaining) != 0 || len(result.Failures) != 1 {
+		t.Fatalf("result = confirmed %d remaining %d failures %d", len(result.Confirmed), len(result.Remaining), len(result.Failures))
+	}
+	completed := completeBatches(t, cloud)
+	if len(completed) != 1 || len(completed[0]) != 1 || completed[0][0]["state"] != saveStateFailed {
+		t.Fatalf("complete = %+v, want one FAILED entry", completed)
+	}
+	if got := cloud.CountFor(http.MethodPost, multipartCompletePath); got != 0 {
+		t.Fatalf("complete-multipart requests = %d, want 0", got)
+	}
+	if stats := tracker.Snapshot(); stats.TotalNumber != 1 || stats.UploadedNumber != 0 || len(stats.Files) != 0 {
+		t.Fatalf("tracker = total %d uploaded %d files %d", stats.TotalNumber, stats.UploadedNumber, len(stats.Files))
+	}
+}
+
+// TestSaveMultipartCompleteStates 覆盖 complete-multipart 的三种响应。
+func TestSaveMultipartCompleteStates(t *testing.T) {
+	cases := []struct {
+		name      string
+		status    int
+		payload   map[string]any
+		confirmed int
+		remaining int
+		failures  int
+	}{
+		{"uploaded", http.StatusCreated, nil, 1, 0, 0},
+		{"failed state", http.StatusCreated, map[string]any{
+			"files": []any{map[string]any{"path": "big.bin", "state": "FAILED"}},
+		}, 1, 0, 1},
+		{"unavailable", http.StatusServiceUnavailable, map[string]any{"code": "nope"}, 0, 1, 1},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cloud := clienttest.NewCloud(t)
+			serveMultipartPrepare(cloud)
+			if tc.status == http.StatusServiceUnavailable {
+				cloud.ServeJSON(http.MethodPost, multipartCompletePath, tc.status, tc.payload)
+			} else if tc.payload == nil {
+				serveMultipartComplete(cloud)
+			} else {
+				cloud.ServeJSON(http.MethodPost, multipartCompletePath, tc.status, tc.payload)
+			}
+			files := defaultSaveFiles(t, &fakePutter{})
+			files.SaveSplit = 1
+			files.SavePart = 4
+			sender := newSaveSender(t, cloud, files)
+
+			dir := t.TempDir()
+			record := saveRecord(1, savev1.SaveType_SAVE_TYPE_CUSTOM, "big.bin", writeSaveFile(t, dir, "big.bin", []byte("0123456789")), nil)
+			result := sender.Upload(context.Background(), []*recordv1.Record{record})
+			if len(result.Confirmed) != tc.confirmed || len(result.Remaining) != tc.remaining || len(result.Failures) != tc.failures {
+				t.Fatalf("result = confirmed %d remaining %d failures %d",
+					len(result.Confirmed), len(result.Remaining), len(result.Failures))
+			}
+			if tc.failures > 0 && !strings.HasPrefix(result.Failures[0].Message, saveMultipartStateFailedPrefix) &&
+				tc.status == http.StatusCreated {
+				t.Fatalf("failure = %q, want %q prefix", result.Failures[0].Message, saveMultipartStateFailedPrefix)
+			}
+		})
+	}
+}
+
+// TestSaveMultipartETagForwarded 覆盖分片 ETag 原样上报且直传不带鉴权头。
+func TestSaveMultipartETagForwarded(t *testing.T) {
+	cloud := clienttest.NewCloud(t)
+	cloud.ServeJSON(http.MethodGet, "/api/auth/verify", http.StatusOK, map[string]any{
+		"uid": 42, "username": "alice", "createdAt": "2026-01-01T00:00:00.000Z",
+	})
+	serveMultipartPrepare(cloud)
+	serveMultipartComplete(cloud)
+	cloud.Handle(http.MethodPut, "/sink/multi/0/part1", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("ETag", `"quoted-etag"`)
+		w.WriteHeader(http.StatusOK)
+	})
+
+	transport, err := client.New(context.Background(), cloud.URL(), "smoke-key", client.Options{})
+	if err != nil {
+		t.Fatalf("create client: %v", err)
+	}
+	files := defaultSaveFiles(t, transport)
+	files.SaveSplit = 1
+	files.SavePart = 10
+	sender := NewSave(Options{
+		API:          api.New(transport),
+		Username:     "alice",
+		Project:      "demo",
+		ProjectID:    "proj-1",
+		ExperimentID: "exp-1",
+		Files:        files,
+	})
+
+	dir := t.TempDir()
+	record := saveRecord(1, savev1.SaveType_SAVE_TYPE_CUSTOM, "big.bin", writeSaveFile(t, dir, "big.bin", []byte("12345")), nil)
+	result := sender.Upload(context.Background(), []*recordv1.Record{record})
+	if len(result.Confirmed) != 1 || len(result.Failures) != 0 {
+		t.Fatalf("result = confirmed %d failures %d", len(result.Confirmed), len(result.Failures))
+	}
+
+	puts := cloud.RequestsFor(http.MethodPut, "/sink/multi/0/part1")
+	if len(puts) != 1 {
+		t.Fatalf("part requests = %d, want 1", len(puts))
+	}
+	if got := puts[0].Header.Get("Authorization"); got != "" {
+		t.Fatalf("part Authorization = %q, want none", got)
+	}
+	completed := cloud.RequestsFor(http.MethodPost, multipartCompletePath)
+	if len(completed) != 1 {
+		t.Fatalf("complete-multipart requests = %d, want 1", len(completed))
+	}
+	filesBody, _ := decodeBody(t, completed[0].Body)["files"].([]any)
+	parts, _ := filesBody[0].(map[string]any)["parts"].([]any)
+	if len(parts) != 1 || parts[0].(map[string]any)["etag"] != "quoted-etag" {
+		t.Fatalf("parts = %+v, want the ETag without quotes", parts)
 	}
 }

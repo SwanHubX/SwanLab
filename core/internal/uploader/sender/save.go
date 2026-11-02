@@ -40,6 +40,10 @@ const (
 	saveUploadFailedPrefix = "save file upload failed: "
 	// saveInvalidBatchPrefix 是非法分批配置的终结原因前缀。
 	saveInvalidBatchPrefix = "invalid save batch size "
+	// saveMultipartFailedPrefix 是分片上传失败的诊断前缀。
+	saveMultipartFailedPrefix = "multipart upload failed: "
+	// saveMultipartStateFailedPrefix 是 complete-multipart 返回 FAILED 的诊断前缀。
+	saveMultipartStateFailedPrefix = "multipart save failed: "
 	// saveInternalUnavailablePrefix 是内部 save 内容不可用的终结原因前缀。
 	saveInternalUnavailablePrefix = "internal save content unavailable: "
 	// saveInternalUnparseablePrefix 是内部 save 解析失败的终结原因前缀。
@@ -51,6 +55,8 @@ const (
 	saveStateFailed = "FAILED"
 	// md5Chunk 是计算 MD5 时的分块大小。
 	md5Chunk = 8 << 20
+	// savePartContentType 是分片上传的内容类型。
+	savePartContentType = "application/octet-stream"
 )
 
 // SaveSender 分发内部元文件与 CUSTOM 文件：前者进 Profile，后者直传对象存储。
@@ -81,6 +87,13 @@ type saveTask struct {
 	record     *recordv1.Record
 	entry      saveEntry
 	trackerKey string
+}
+
+// multipartReady 是分片已全部上传、等待合并的文件。
+type multipartReady struct {
+	task     *saveTask
+	uploadID string
+	parts    []api.CompletedPart
 }
 
 // Upload 实现 uploader.Sender。
@@ -304,10 +317,23 @@ func (s *SaveSender) uploadBatch(ctx context.Context, pending []pendingSave) upl
 	if len(tasks) == 0 {
 		return uploader.Result{Confirmed: confirmed, Remaining: remaining, Failures: failures}
 	}
-	result := s.uploadSmall(ctx, tasks)
-	result.Confirmed = append(confirmed, result.Confirmed...)
-	result.Remaining = append(remaining, result.Remaining...)
-	result.Failures = append(failures, result.Failures...)
+	split := s.opts.Files.SaveSplit
+	small := make([]*saveTask, 0, len(tasks))
+	large := make([]*saveTask, 0)
+	for _, task := range tasks {
+		if task.entry.size < split {
+			small = append(small, task)
+		} else {
+			large = append(large, task)
+		}
+	}
+	result := uploader.Result{Confirmed: confirmed, Remaining: remaining, Failures: failures}
+	if len(small) > 0 {
+		result = mergeResult(result, s.uploadSmall(ctx, small))
+	}
+	if len(large) > 0 {
+		result = mergeResult(result, s.uploadLarge(ctx, large))
+	}
 	return result
 }
 
@@ -403,6 +429,207 @@ func (s *SaveSender) completeFailure(
 	}
 	failures = append(failures, uploader.Failure{Message: err.Error(), Records: pendingRecords, Err: err})
 	return uploader.Result{Confirmed: confirmed, Remaining: remaining, Failures: failures}
+}
+
+// uploadLarge 走 prepare-multipart → 分片 PUT → complete-multipart 的大文件路径。
+func (s *SaveSender) uploadLarge(ctx context.Context, tasks []*saveTask) uploader.Result {
+	partSize := s.opts.Files.SavePart
+	if partSize <= 0 {
+		return batchFailure(taskRecords(tasks), fmt.Errorf("invalid save part size %d", partSize))
+	}
+	items := make([]api.PrepareMultipartSaveFile, len(tasks))
+	for i, task := range tasks {
+		items[i] = api.PrepareMultipartSaveFile{
+			Path:     task.entry.path,
+			Size:     task.entry.size,
+			MD5:      task.entry.md5,
+			MIMEType: task.entry.mimeType,
+			Count:    int((task.entry.size + partSize - 1) / partSize),
+		}
+	}
+	files, err := s.opts.API.PrepareMultipartSave(ctx, s.opts.ExperimentID, items)
+	if err != nil {
+		return batchFailure(taskRecords(tasks), err)
+	}
+
+	ready := make([]multipartReady, 0, len(tasks))
+	storageFailed := make([]*saveTask, 0)
+	localFailed := make([]*saveTask, 0)
+	var failures []uploader.Failure
+	for i, task := range tasks {
+		s.trackFile(task)
+		parts, partErr := s.putParts(ctx, task, files[i].Parts, partSize)
+		if partErr != nil {
+			failures = append(failures, uploader.Failure{
+				Message: saveMultipartFailedPrefix + task.entry.path,
+				Records: []*recordv1.Record{task.record},
+				Err:     partErr,
+			})
+			if putErrorRetryable(partErr) {
+				storageFailed = append(storageFailed, task)
+			} else {
+				localFailed = append(localFailed, task)
+			}
+			continue
+		}
+		ready = append(ready, multipartReady{task: task, uploadID: files[i].UploadID, parts: parts})
+	}
+
+	if len(localFailed) > 0 {
+		failedItems := make([]api.CompleteSaveFile, 0, len(localFailed))
+		for _, task := range localFailed {
+			failedItems = append(failedItems, api.CompleteSaveFile{Path: task.entry.path, State: saveStateFailed})
+		}
+		// 本地失败的上报失败不影响结果分类：记录已经终结。
+		_ = s.opts.API.CompleteSaveFiles(ctx, s.opts.ExperimentID, failedItems)
+		for _, task := range localFailed {
+			s.failFile(task)
+		}
+	}
+	if len(ready) == 0 {
+		return uploader.Result{
+			Confirmed: taskRecords(localFailed),
+			Remaining: taskRecords(storageFailed),
+			Failures:  failures,
+		}
+	}
+
+	completed := make([]api.CompletedMultipartSaveFile, len(ready))
+	for i, item := range ready {
+		completed[i] = api.CompletedMultipartSaveFile{
+			Path:     item.task.entry.path,
+			Parts:    item.parts,
+			UploadID: item.uploadID,
+		}
+	}
+	states, err := s.opts.API.CompleteMultipartSave(ctx, s.opts.ExperimentID, completed)
+	if err != nil {
+		return s.completeMultipartFailure(err, ready, storageFailed, localFailed, failures)
+	}
+
+	failedStates := make(map[string]struct{}, len(states))
+	for _, state := range states {
+		if state.State == api.MultipartFailed {
+			failedStates[state.Path] = struct{}{}
+		}
+	}
+	synced := 0
+	confirmed := taskRecords(localFailed)
+	for _, item := range ready {
+		if _, failed := failedStates[item.task.entry.path]; failed {
+			failures = append(failures, uploader.Failure{
+				Message: saveMultipartStateFailedPrefix + item.task.entry.path,
+				Records: []*recordv1.Record{item.task.record},
+			})
+			confirmed = append(confirmed, item.task.record)
+			s.failFile(item.task)
+			continue
+		}
+		s.finishFile(item.task)
+		confirmed = append(confirmed, item.task.record)
+		synced++
+	}
+	if synced > 0 {
+		console.Infof("Synced %d save file(s)", synced)
+	}
+	return uploader.Result{Confirmed: confirmed, Remaining: taskRecords(storageFailed), Failures: failures}
+}
+
+// completeMultipartFailure 处理 complete-multipart 失败：可重试保留整批，否则终结。
+func (s *SaveSender) completeMultipartFailure(
+	err error,
+	ready []multipartReady,
+	storageFailed, localFailed []*saveTask,
+	failures []uploader.Failure,
+) uploader.Result {
+	pending := make([]*saveTask, 0, len(ready)+len(storageFailed))
+	for _, item := range ready {
+		pending = append(pending, item.task)
+	}
+	pending = append(pending, storageFailed...)
+	pendingRecords := taskRecords(pending)
+
+	confirmed := taskRecords(localFailed)
+	var remaining []*recordv1.Record
+	if isRetryable(err) {
+		remaining = pendingRecords
+	} else {
+		for _, task := range pending {
+			s.failFile(task)
+		}
+		confirmed = append(confirmed, pendingRecords...)
+	}
+	failures = append(failures, uploader.Failure{Message: err.Error(), Records: pendingRecords, Err: err})
+	return uploader.Result{Confirmed: confirmed, Remaining: remaining, Failures: failures}
+}
+
+// putParts 并发上传单个文件的分片，返回完成分片或首个错误。
+func (s *SaveSender) putParts(ctx context.Context, task *saveTask, parts []api.MultipartPart, partSize int64) ([]api.CompletedPart, error) {
+	file, err := os.Open(task.entry.sourcePath)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = file.Close() }()
+
+	completed := make([]api.CompletedPart, len(parts))
+	errs := make([]error, len(parts))
+	var group errgroup.Group
+	for i := range parts {
+		if err := partSlots.Acquire(ctx, 1); err != nil {
+			errs[i] = err
+			continue
+		}
+		group.Go(func() error {
+			defer partSlots.Release(1)
+			completed[i], errs[i] = s.putPart(ctx, file, task, parts[i], partSize)
+			return nil
+		})
+	}
+	_ = group.Wait()
+	for _, err := range errs {
+		if err != nil {
+			return nil, err
+		}
+	}
+	return completed, nil
+}
+
+// putPart 上传单个分片；失败时把该分片的进度回滚到 0。
+func (s *SaveSender) putPart(
+	ctx context.Context,
+	file *os.File,
+	task *saveTask,
+	part api.MultipartPart,
+	partSize int64,
+) (api.CompletedPart, error) {
+	offset := int64(part.PartNumber-1) * partSize
+	length := min(partSize, max(task.entry.size-offset, 0))
+	partKey := fmt.Sprintf("%s:part:%d", task.trackerKey, part.PartNumber)
+
+	reader := io.Reader(io.NewSectionReader(file, offset, length))
+	if tracker := s.opts.Files.Tracker; tracker != nil && length > 0 {
+		var current int64
+		reader = &progressReader{reader: reader, onRead: func(n int64) {
+			current += n
+			tracker.UpdateFileProgress(task.trackerKey, partKey, current)
+		}}
+	}
+	etag, err := s.opts.Files.Putter.PutObject(ctx, part.URL, reader, length, savePartContentType)
+	if err != nil {
+		if s.opts.Files.Tracker != nil {
+			s.opts.Files.Tracker.UpdateFileProgress(task.trackerKey, partKey, 0)
+		}
+		return api.CompletedPart{}, err
+	}
+	return api.CompletedPart{PartNumber: part.PartNumber, ETag: etag}, nil
+}
+
+// mergeResult 把一次子上传的结果并入累计结果。
+func mergeResult(base, next uploader.Result) uploader.Result {
+	base.Confirmed = append(base.Confirmed, next.Confirmed...)
+	base.Remaining = append(base.Remaining, next.Remaining...)
+	base.Failures = append(base.Failures, next.Failures...)
+	return base
 }
 
 // putSaves 并发直传小文件，错误按索引写独立槽位。
