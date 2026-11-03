@@ -46,6 +46,10 @@ const (
 	finishUnknownError = "run failed with unknown error while finish_record.error is not set"
 )
 
+// errFinishRecord 标记 FinishRecord 未写入本地副本：Confirm 必须重试提交，
+// 不能在缺少终态记录的情况下上报成功。
+var errFinishRecord = errors.New("finish record was not persisted")
+
 // RunState 表示单个实验会话的内部生命周期状态。
 type RunState int32
 
@@ -112,6 +116,14 @@ type Session struct {
 	mu sync.Mutex
 	// confirmMu 只串行化「释放」阶段，不覆盖排空等待。
 	confirmMu sync.Mutex
+	// finishMu 串行化收尾尾部：重复的 DeliverRunFinish、Confirm 续跑与进程
+	// 退出时的 shutdown 共用同一把锁，避免关闭本地通道与写入并发。
+	finishMu sync.Mutex
+	// finishCommitted 表示 FinishRecord 已被 intake 接收；失败时 Confirm 必须重试，
+	// 同时用于阻止重试写入第二条 -2 记录。
+	finishCommitted bool
+	// pendingLog 是崩溃 error_log：只上传不落盘，暂时入队失败时保留供重试。
+	pendingLog *recordv1.Record
 
 	state atomic.Int32
 
@@ -528,7 +540,12 @@ func (s *Session) rollback() {
 
 // shutdown 执行进程退出时的有界收尾：不写 FinishRecord，也不调用 stop_experiment。
 // 顺序与 DeliverRunFinish 对齐，但全部等待受 ctx 约束，供 Manager.Shutdown 汇总。
+// 持有 finishMu 与在途的 DeliverRunFinish/Confirm 互斥：退出钩子在 GracefulStop
+// 之前运行，否则可能一边关闭本地通道一边写入。
 func (s *Session) shutdown(ctx context.Context) {
+	s.finishMu.Lock()
+	defer s.finishMu.Unlock()
+
 	_ = s.beginDrain()
 	if s.heartbeat != nil {
 		s.heartbeat.stop()
@@ -541,6 +558,10 @@ func (s *Session) shutdown(ctx context.Context) {
 		if err := s.store.CloseContext(ctx); err != nil {
 			console.Warningf("shutdown: close local store: %v", err)
 		}
+	}
+	// 上次收尾中断遗留的崩溃 error_log 在封闭通道前补投，失败只能放弃。
+	if err := s.commitCrashLog(ctx); err != nil {
+		console.Warningf("shutdown: upload crash error log: %v", err)
 	}
 	closed := true
 	if s.intake != nil {
@@ -582,7 +603,7 @@ func (s *Session) beginDrain() error {
 }
 
 // beginDrainOwned 切换排空状态，并报告本次调用是否真正完成了 RUNNING → DRAINING。
-// 只有赢得切换的调用方才能执行收尾序列，重复的 DeliverRunFinish 直接按幂等成功返回。
+// 只有赢得切换的调用方才能执行首次收尾；FAILED 之后的续跑由 finish/resumeFinish 处理。
 func (s *Session) beginDrainOwned() (bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -599,34 +620,85 @@ func (s *Session) beginDrainOwned() (bool, error) {
 	}
 }
 
-// finish 执行 DeliverRunFinish 的收尾序列：
+// finish 执行或续跑 DeliverRunFinish 的收尾序列：
 //
-//	DRAINING → watcher.Stop → 落盘 FinishRecord → 阻塞刷盘 → 补传 error_log →
-//	Intake.Close（冲刷 END 暂存与 recovery）→ RequestFinish
+//	DRAINING → watcher.Stop → 保存终态并落盘 FinishRecord → 阻塞刷盘 →
+//	补传崩溃 error_log → Intake.Close（冲刷 END 暂存与 recovery）→ RequestFinish
 //
-// 本地刷盘不设超时，必须等 AsyncWriter 把已接收的记录全部写入磁盘；
-// 刷盘失败只置 storeDegraded，由 intake 在 Close 时把未确认记录转入上传，
-// 不让本地副本缺失阻断云端上传。FinishRecord 落盘或 Intake.Close 失败才置 FAILED。
+// 收尾序列失败后会话进入 FAILED，但本地 store 与 intake 保持可用：重复投递会
+// 从失败点续跑，Confirm 也会用新的 ctx 重试同样的步骤。FinishRecord 落盘与
+// error_log 入队是释放前必须完成的步骤，不能因为暂时性失败被跳过。
 func (s *Session) finish(ctx context.Context, rec *runv1.FinishRecord) error {
-	started, err := s.beginDrainOwned()
-	if err != nil {
-		return err
-	}
-	if !started {
+	s.finishMu.Lock()
+	defer s.finishMu.Unlock()
+
+	switch s.stateSnapshot() {
+	case RunStateRunning:
+		started, err := s.beginDrainOwned()
+		if err != nil {
+			return err
+		}
+		if !started {
+			return nil
+		}
+		// watcher.Stop 会等待在途回调并同步检查一次文件状态；此时状态已是 DRAINING，
+		// 防抖窗口内的残留回调会被状态门拒绝并丢弃，与 Python 的 _store_finish 一致。
+		if s.watcher != nil {
+			s.watcher.Stop()
+		}
+		// 终态必须在 Reserve 之前保存：落盘失败时 stop_experiment 仍按真实终态上报。
+		s.prepareFinish(rec)
+	case RunStateFailed:
+		// 上次收尾中断，续跑剩余步骤；终态记录已保存，忽略新的 FinishRecord。
+	default:
+		// DRAINING 只可能由 Shutdown 抢先切换；DRAINED 表示收尾已完成。
 		return nil
 	}
 
-	// watcher.Stop 会等待在途回调并同步检查一次文件状态；此时状态已是 DRAINING，
-	// 防抖窗口内的残留回调会被状态门拒绝并丢弃，与 Python 的 _store_finish 一致。
-	if s.watcher != nil {
-		s.watcher.Stop()
+	if err := s.completeFinish(ctx); err != nil {
+		s.fail(err)
+		return s.failure()
+	}
+	return nil
+}
+
+// prepareFinish 保存终态记录并构建崩溃 error_log。
+//
+// 崩溃 error_log 按 Python 的设计只上传不落盘；暂时入队失败时由 pendingLog
+// 保留，交给后续 DeliverRunFinish/Confirm 重试，不能静默丢弃。
+func (s *Session) prepareFinish(rec *runv1.FinishRecord) {
+	finish := proto.Clone(rec).(*runv1.FinishRecord)
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.finishRecord = finish
+	if finish.GetState() == runv1.RunState_RUN_STATE_FINISHED {
+		return
+	}
+	line := finish.GetError()
+	if line == "" {
+		line = finishUnknownError
+	}
+	s.pendingLog = builder.BuildLogRecord(s.counter, s.epoch, &terminalv1.LogRecord{
+		Line:      line,
+		Level:     terminalv1.LogLevel_LOG_LEVEL_ERROR,
+		Timestamp: finish.GetFinishedAt(),
+	})
+}
+
+// completeFinish 续跑收尾序列的剩余步骤，每一步都允许重复执行：
+// 成功返回时 FinishRecord 已落盘、崩溃 error_log 已进入上传通道、intake 已封闭。
+func (s *Session) completeFinish(ctx context.Context) error {
+	if !s.finishCommitted {
+		if err := s.commitFinish(ctx); err != nil {
+			return err
+		}
 	}
 
-	logRecord, commitErr := s.storeFinish(ctx, rec)
-	if commitErr != nil {
-		s.fail(commitErr)
-	}
-
+	// 本地刷盘不设超时，必须等 AsyncWriter 把已接收的记录全部写入磁盘；
+	// 刷盘失败只置 storeDegraded，由 intake 在 Close 时把未确认记录转入上传，
+	// 不让本地副本缺失阻断云端上传。关闭必须排在 FinishRecord 提交之后，
+	// 否则重试会向已关闭的本地通道发送。
 	if s.store != nil {
 		if err := s.store.Close(); err != nil {
 			s.storeDegraded.Store(true)
@@ -634,25 +706,68 @@ func (s *Session) finish(ctx context.Context, rec *runv1.FinishRecord) error {
 		}
 	}
 
-	// 回收队列中是更早的记录，error_log 不能插到它们前面。
-	if logRecord != nil {
-		if s.storeDegraded.Load() {
-			s.drainRecovery(ctx)
-		}
-		if err := s.intake.CommitUploadOnly(ctx, logRecord); err != nil {
-			console.Warningf("finish: upload error log: %v", err)
-		}
+	if err := s.commitCrashLog(ctx); err != nil {
+		return err
 	}
 
 	s.stopRecovery()
-	if err := s.closeIntake(ctx); err != nil {
-		s.fail(err)
-		return s.failure()
+	return s.closeIntake(ctx)
+}
+
+// commitFinish 把 FinishRecord 写入本地副本；失败时保留 finishCommitted=false，
+// 由重复的 DeliverRunFinish 或 Confirm 用新的 ctx 重试。
+func (s *Session) commitFinish(ctx context.Context) error {
+	s.mu.Lock()
+	finish := s.finishRecord
+	s.mu.Unlock()
+	if finish == nil {
+		return fmt.Errorf("%w: finish record is missing", errFinishRecord)
 	}
-	if commitErr != nil {
-		return s.failure()
+	if s.intake == nil {
+		return fmt.Errorf("%w: session has no intake", errFinishRecord)
 	}
+	if s.storeDegraded.Load() {
+		// 磁盘已不可用：FinishRecord 只落本地、不能改走上传，重试也不会成功。
+		console.Warning("finish: local store is degraded, finish record is not kept locally")
+		s.finishCommitted = true
+		return nil
+	}
+
+	ticket, err := s.intake.Reserve(ctx, buffer.Demand{Store: 1})
+	if err != nil {
+		return fmt.Errorf("%w: reserve: %w", errFinishRecord, err)
+	}
+	if err = s.intake.Commit(ticket, []*recordv1.Record{builder.BuildFinishRecord(finish)}); err != nil {
+		return fmt.Errorf("%w: commit: %w", errFinishRecord, err)
+	}
+	s.finishCommitted = true
 	return nil
+}
+
+// commitCrashLog 把崩溃 error_log 投入上传通道。暂时失败（通道满、ctx 到期）时
+// 保留记录供 Confirm 重试；只有确定性错误才告警丢弃，避免会话永远无法释放。
+func (s *Session) commitCrashLog(ctx context.Context) error {
+	if s.pendingLog == nil || s.intake == nil {
+		return nil
+	}
+	if s.storeDegraded.Load() {
+		// 回收队列中是更早的记录，error_log 不能插到它们前面。
+		s.drainRecovery(ctx)
+	}
+
+	err := s.intake.CommitUploadOnly(ctx, s.pendingLog)
+	switch {
+	case err == nil:
+		s.pendingLog = nil
+		return nil
+	case errors.Is(err, budget.ErrTooLarge), errors.Is(err, buffer.ErrClosed):
+		// 重试不会成功的确定性错误：告警后终结，不能让收尾永久卡住。
+		console.Warningf("finish: dropping crash error log: %v", err)
+		s.pendingLog = nil
+		return nil
+	default:
+		return fmt.Errorf("upload crash error log: %w", err)
+	}
 }
 
 // closeIntake 冲刷 END 暂存与 recovery、关闭上传通道，并通知 uploader 收尾；
@@ -668,41 +783,6 @@ func (s *Session) closeIntake(ctx context.Context) error {
 		s.uploader.RequestFinish()
 	}
 	return nil
-}
-
-// storeFinish 构建并提交 FinishRecord（仅本地）；非 FINISHED 状态额外产出一条
-// 崩溃 error_log，由调用方在刷盘完成后通过 CommitUploadOnly 补传。
-func (s *Session) storeFinish(ctx context.Context, rec *runv1.FinishRecord) (*recordv1.Record, error) {
-	finish := proto.Clone(rec).(*runv1.FinishRecord)
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if RunState(s.state.Load()) != RunStateDraining {
-		return nil, fmt.Errorf("%w: session left draining state", ErrNotRunning)
-	}
-	s.finishRecord = finish
-
-	var logRecord *recordv1.Record
-	if finish.GetState() != runv1.RunState_RUN_STATE_FINISHED {
-		line := finish.GetError()
-		if line == "" {
-			line = finishUnknownError
-		}
-		logRecord = builder.BuildLogRecord(s.counter, s.epoch, &terminalv1.LogRecord{
-			Line:      line,
-			Level:     terminalv1.LogLevel_LOG_LEVEL_ERROR,
-			Timestamp: finish.GetFinishedAt(),
-		})
-	}
-
-	ticket, err := s.intake.Reserve(ctx, buffer.Demand{Store: 1})
-	if err != nil {
-		return nil, fmt.Errorf("reserve finish record: %w", err)
-	}
-	if err = s.intake.Commit(ticket, []*recordv1.Record{builder.BuildFinishRecord(finish)}); err != nil {
-		return nil, fmt.Errorf("commit finish record: %w", err)
-	}
-	return logRecord, nil
 }
 
 // markDrained 由排空完成回调调用；只允许 DRAINING → DRAINED。
@@ -752,19 +832,21 @@ func (s *Session) fail(err error) {
 	}
 }
 
-// retryClose 在 Confirm 命中 FAILED 时重跑被中断的 Intake.Close，并等待 uploader
-// 真正排空；成功后才把状态恢复为 DRAINED。Close 仍失败时保留 FAILED 供下次重试。
-func (s *Session) retryClose(ctx context.Context) error {
-	s.mu.Lock()
-	failed := RunState(s.state.Load()) == RunStateFailed
-	s.mu.Unlock()
-	if !failed {
+// resumeFinish 在 Confirm 命中 FAILED 时续跑被中断的收尾序列：重试 FinishRecord
+// 落盘、崩溃 error_log 入队与 Intake.Close，并等待 uploader 真正排空。
+// 全部成功后才把状态恢复为 DRAINED；任一步仍失败时保留 FAILED 供下次重试，
+// 调用方不得在这种情况下上报实验终态。
+func (s *Session) resumeFinish(ctx context.Context) error {
+	s.finishMu.Lock()
+	defer s.finishMu.Unlock()
+
+	if s.stateSnapshot() != RunStateFailed {
 		return nil
 	}
 	if s.intake == nil {
 		return s.failure()
 	}
-	if err := s.closeIntake(ctx); err != nil {
+	if err := s.completeFinish(ctx); err != nil {
 		s.fail(err)
 		return s.failure()
 	}
@@ -773,7 +855,9 @@ func (s *Session) retryClose(ctx context.Context) error {
 			return fmt.Errorf("confirm: wait for drain: %w", err)
 		}
 	}
-	s.markRecovered()
+	if !s.markRecovered() {
+		return s.failure()
+	}
 	return nil
 }
 
@@ -781,14 +865,7 @@ func (s *Session) retryClose(ctx context.Context) error {
 func (s *Session) stopState() api.RunState {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	switch s.finishRecord.GetState() {
-	case runv1.RunState_RUN_STATE_CRASHED:
-		return api.RunStateCrashed
-	case runv1.RunState_RUN_STATE_ABORTED:
-		return api.RunStateAborted
-	default:
-		return api.RunStateFinished
-	}
+	return runStateFromProto(s.finishRecord.GetState())
 }
 
 // confirmMessage 是按本地副本完整性生成的 stop_experiment 失败文案。
