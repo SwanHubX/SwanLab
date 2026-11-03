@@ -40,10 +40,10 @@ type RunManager interface {
 	UpsertMedia(context.Context, string, []*datav1.MediaRecord) error
 	UpsertLogs(context.Context, string, []*terminalv1.LogRecord) error
 	UpsertSaves(context.Context, string, []*savev1.SaveRecord) error
-	Finish(string) error
+	DeliverRunFinish(context.Context, string, *runv1.FinishRecord) error
 	State(string) (manager.RunState, error)
 	Stats(string) (*operationv1.OperationStats, error)
-	Confirm(context.Context, string) error
+	Confirm(context.Context, string) (manager.ConfirmResult, error)
 }
 
 // CoreService 实现生成的 CoreServiceServer 契约，作为 gRPC 请求的接入网关。
@@ -242,15 +242,24 @@ func (s *CoreService) UpsertSaves(
 	return &emptypb.Empty{}, nil
 }
 
-// DeliverRunFinish 标记指定 session_id 的会话结束。
+// DeliverRunFinish 执行指定会话的收尾序列。
+// 收尾失败（Intake.Close 中断）不是 RPC 错误，而是 success=false + message，
+// 会话保留供 Confirm 重试；参数错误与状态错误仍走 gRPC 状态码。
 func (s *CoreService) DeliverRunFinish(
-	_ context.Context,
+	ctx context.Context,
 	req *corev1.DeliverRunFinishRequest,
 ) (*corev1.DeliverRunFinishResponse, error) {
 	if err := s.requireReady(); err != nil {
 		return nil, err
 	}
-	if err := s.runs.Finish(req.GetSessionId()); err != nil {
+	record := req.GetFinishRecord()
+	if record == nil {
+		return nil, status.Error(codes.InvalidArgument, "finish_record must not be nil")
+	}
+	if err := s.runs.DeliverRunFinish(ctx, req.GetSessionId(), record); err != nil {
+		if errors.Is(err, manager.ErrRunFailed) {
+			return &corev1.DeliverRunFinishResponse{Success: false, Message: err.Error()}, nil
+		}
 		return nil, managerStatus(err)
 	}
 	return &corev1.DeliverRunFinishResponse{Success: true}, nil
@@ -291,6 +300,7 @@ func coreState(state manager.RunState) operationv1.CoreState {
 }
 
 // ConfirmRunFinish 确认会话已完成并释放相关资源。
+// stop_experiment 失败通过 success=false + 本地副本提示返回，会话保留可重试。
 func (s *CoreService) ConfirmRunFinish(
 	ctx context.Context,
 	req *corev1.ConfirmRunFinishRequest,
@@ -298,10 +308,18 @@ func (s *CoreService) ConfirmRunFinish(
 	if err := s.requireReady(); err != nil {
 		return nil, err
 	}
-	if err := s.runs.Confirm(ctx, req.GetSessionId()); err != nil {
+	result, err := s.runs.Confirm(ctx, req.GetSessionId())
+	if err != nil {
 		return nil, managerStatus(err)
 	}
-	return &corev1.ConfirmRunFinishResponse{Success: true}, nil
+	message := result.Message
+	if message == "" {
+		message = "OK"
+	}
+	return &corev1.ConfirmRunFinishResponse{
+		Success: !result.ReleaseFailed,
+		Message: message,
+	}, nil
 }
 
 // managerStatus 将 manager 层的领域错误转换为对应的 gRPC 状态码。
@@ -320,7 +338,7 @@ func managerStatus(err error) error {
 	case errors.Is(err, manager.ErrOverloaded):
 		return status.Error(codes.ResourceExhausted, err.Error())
 	case errors.Is(err, manager.ErrInvalidSettings), errors.Is(err, manager.ErrInvalidStartRecord),
-		errors.Is(err, manager.ErrInvalidRecord):
+		errors.Is(err, manager.ErrInvalidFinishRecord), errors.Is(err, manager.ErrInvalidRecord):
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, client.ErrMissingAPIKey), errors.Is(err, client.ErrMissingAPIHost):
 		return status.Error(codes.InvalidArgument, err.Error())

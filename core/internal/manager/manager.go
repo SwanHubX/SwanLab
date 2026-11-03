@@ -9,7 +9,9 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/swanhubx/swanlab/core/internal/client"
+	"github.com/swanhubx/swanlab/core/internal/pkg/console"
 	operationv1 "github.com/swanhubx/swanlab/core/proto/swanlab/operation/v1"
+	runv1 "github.com/swanhubx/swanlab/core/proto/swanlab/run/v1"
 )
 
 var (
@@ -33,6 +35,8 @@ var (
 	ErrInvalidSettings = errors.New("invalid run settings")
 	// ErrInvalidStartRecord 表示启动记录或云端返回的实验元数据不完整。
 	ErrInvalidStartRecord = errors.New("invalid start record")
+	// ErrInvalidFinishRecord 表示未提供结束记录，属于调用方参数错误。
+	ErrInvalidFinishRecord = errors.New("finish record must not be nil")
 )
 
 const (
@@ -82,6 +86,15 @@ type Options struct {
 	HTTP client.Options
 }
 
+// ConfirmResult 是 Confirm 的业务响应：释放失败不是 RPC 错误，而是携带
+// 本地副本完整性提示的 success=false，会话保留供下一次重试。
+type ConfirmResult struct {
+	// Message 是返回给 Python 客户端的提示文案。
+	Message string
+	// ReleaseFailed 表示 stop_experiment 未成功，会话仍保留在注册表中。
+	ReleaseFailed bool
+}
+
 // Manager 维护 session_id 到会话的映射注册表，并统一编排 Run 级的生命周期。
 //
 // 注册表锁只用于定位、插入与移除会话；排空等待、stop_experiment 等可能阻塞的动作
@@ -127,20 +140,21 @@ func (m *Manager) hasCapacity() bool {
 	return len(m.sessions) < maxSessions
 }
 
-// Finish 幂等标记指定会话进入排空阶段（RUNNING → DRAINING）。
-// 已排空或已在排空时返回成功；收尾失败时返回原始失败信息。
-// 持注册表读锁执行切换，保证不会对已被并发 Confirm 释放的会话返回成功。
-func (m *Manager) Finish(sessionID string) error {
+// DeliverRunFinish 执行指定会话的收尾序列（RUNNING → DRAINING）。
+// 重复投递幂等返回；收尾失败时返回原始失败信息，会话保留供 Confirm 重试。
+// 注册表锁只用于定位会话，刷盘、停 watcher 与关闭通道都在锁外执行。
+func (m *Manager) DeliverRunFinish(ctx context.Context, sessionID string, rec *runv1.FinishRecord) error {
 	if sessionID == "" {
 		return ErrEmptySessionID
 	}
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	s, ok := m.sessions[sessionID]
-	if !ok {
-		return ErrSessionNotFound
+	if rec == nil {
+		return ErrInvalidFinishRecord
 	}
-	return s.beginDrain()
+	s, err := m.session(sessionID)
+	if err != nil {
+		return err
+	}
+	return s.finish(ctx, rec)
 }
 
 // State 获取指定会话的当前生命周期状态快照。
@@ -161,24 +175,30 @@ func (m *Manager) Stats(sessionID string) (*operationv1.OperationStats, error) {
 	return s.snapshot(), nil
 }
 
+// confirmOKMessage 是成功释放时返回给 Python 客户端的固定文案。
+const confirmOKMessage = "OK"
+
 // Confirm 等待会话排空后释放其资源。
 //
 // 注册表只在定位会话和最终移除时持锁；排空等待与释放钩子都在锁外执行，
 // 避免网络请求阻塞其它会话。并发 Confirm 由 per-session 的 confirmMu 串行化，
 // 只有第一个调用会执行释放钩子，其余调用命中 released 缓存直接成功。
-func (m *Manager) Confirm(ctx context.Context, sessionID string) error {
+//
+// stop_experiment 失败不返回 RPC 错误，而是返回 ReleaseFailed=true 与按本地
+// 副本完整性生成的提示文案，会话保留在注册表中供下一次 Confirm 重试。
+func (m *Manager) Confirm(ctx context.Context, sessionID string) (ConfirmResult, error) {
 	if sessionID == "" {
-		return ErrEmptySessionID
+		return ConfirmResult{}, ErrEmptySessionID
 	}
 	s, released, err := m.lookup(sessionID)
 	if err != nil {
-		return err
+		return ConfirmResult{}, err
 	}
 	if released {
-		return nil
+		return ConfirmResult{Message: confirmOKMessage}, nil
 	}
 	if err = s.waitDrained(ctx); err != nil {
-		return err
+		return ConfirmResult{}, err
 	}
 
 	s.confirmMu.Lock()
@@ -187,22 +207,26 @@ func (m *Manager) Confirm(ctx context.Context, sessionID string) error {
 	// 等排空期间其它 Confirm 可能已经完成释放。
 	s, released, err = m.lookup(sessionID)
 	if err != nil {
-		return err
+		return ConfirmResult{}, err
 	}
 	if released {
-		return nil
+		return ConfirmResult{Message: confirmOKMessage}, nil
 	}
 	switch s.stateSnapshot() {
 	case RunStateFailed:
-		return s.failure()
+		// 收尾序列在 Intake.Close 中断：重跑被中断的步骤，排空成功后再释放。
+		if err = s.retryClose(ctx); err != nil {
+			return ConfirmResult{}, err
+		}
 	case RunStateDrained:
 	default:
-		return ErrRunNotFinished
+		return ConfirmResult{}, ErrRunNotFinished
 	}
 
 	if s.releaseFn != nil {
-		if err := s.releaseFn(ctx); err != nil {
-			return err
+		if err = s.releaseFn(ctx); err != nil {
+			console.Warningf("confirm: stop experiment %q: %v", sessionID, err)
+			return ConfirmResult{Message: s.confirmMessage(), ReleaseFailed: true}, nil
 		}
 	}
 
@@ -210,7 +234,7 @@ func (m *Manager) Confirm(ctx context.Context, sessionID string) error {
 	delete(m.sessions, sessionID)
 	m.released.add(sessionID)
 	m.mu.Unlock()
-	return nil
+	return ConfirmResult{Message: confirmOKMessage}, nil
 }
 
 // lookup 在同一把读锁内区分「已释放」与「已注册」，避免两次读取之间被其它

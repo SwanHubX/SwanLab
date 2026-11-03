@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -234,6 +235,53 @@ func TestConfirmFailedSession(t *testing.T) {
 	}
 	// FAILED 保留在注册表中，等待后续重试收尾。
 	mustState(t, m, handle, RunStateFailed)
+}
+
+// stop_experiment 失败必须保留会话：第一次返回 release-failed 响应，
+// 第二次 Confirm 重试成功后才移除，且释放钩子恰好被调用两次。
+func TestConfirmReleaseFailureKeepsSessionForRetry(t *testing.T) {
+	m := newTestManager()
+	var attempts atomic.Int32
+	handle := installBare(t, m, sessionOptions{releaseFn: func(context.Context) error {
+		if attempts.Add(1) == 1 {
+			return errors.New("stop_experiment unavailable")
+		}
+		return nil
+	}})
+	s := m.sessions[handle]
+	s.drainFn = func(context.Context) error {
+		s.markDrained()
+		return nil
+	}
+	if err := drainBare(m, handle); err != nil {
+		t.Fatalf("Finish: %v", err)
+	}
+
+	result, err := m.Confirm(context.Background(), handle)
+	if err != nil {
+		t.Fatalf("first Confirm err=%v", err)
+	}
+	if !result.ReleaseFailed {
+		t.Fatalf("first Confirm result=%+v, want release failure", result)
+	}
+	if !strings.Contains(result.Message, "saved locally") {
+		t.Fatalf("first Confirm message=%q, want local-copy hint", result.Message)
+	}
+	mustState(t, m, handle, RunStateDrained)
+
+	result, err = m.Confirm(context.Background(), handle)
+	if err != nil {
+		t.Fatalf("retry Confirm err=%v", err)
+	}
+	if result.ReleaseFailed {
+		t.Fatalf("retry Confirm result=%+v, want success", result)
+	}
+	if got := attempts.Load(); got != 2 {
+		t.Fatalf("release hook called %d times, want 2", got)
+	}
+	if _, err = m.State(handle); !errors.Is(err, ErrSessionNotFound) {
+		t.Fatalf("State after retry err=%v, want ErrSessionNotFound", err)
+	}
 }
 
 func TestReleasedCacheEviction(t *testing.T) {

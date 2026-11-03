@@ -768,14 +768,13 @@ func (s *Session) confirmMessage() string {
 }
 
 // waitDrained 在锁外等待会话排空，返回 nil 表示可以进入释放阶段。
+// FAILED 也返回 nil：Confirm 会在 confirmMu 内重跑被中断的收尾步骤。
 func (s *Session) waitDrained(ctx context.Context) error {
 	switch RunState(s.state.Load()) {
 	case RunStateRunning:
 		return ErrRunNotFinished
-	case RunStateDrained:
+	case RunStateDrained, RunStateFailed:
 		return nil
-	case RunStateFailed:
-		return s.failure()
 	}
 
 	if s.drainFn == nil {
@@ -785,7 +784,10 @@ func (s *Session) waitDrained(ctx context.Context) error {
 	if err := s.drainFn(ctx); err != nil {
 		select {
 		case <-s.failed:
-			return s.failure()
+			// 收尾失败由 Confirm 在 confirmMu 内重试，不在这里提前返回错误。
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
 		default:
 			return err
 		}
@@ -794,7 +796,8 @@ func (s *Session) waitDrained(ctx context.Context) error {
 	case <-s.drained:
 		return nil
 	case <-s.failed:
-		return s.failure()
+		// 与上面一致：把重跑机会留给 Confirm。
+		return nil
 	case <-ctx.Done():
 		return ctx.Err()
 	}
