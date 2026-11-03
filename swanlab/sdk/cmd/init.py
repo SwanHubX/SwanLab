@@ -37,7 +37,7 @@ from swanlab.utils.experiment import generate_color, generate_id, generate_name
 
 from ..internal.run import Run, get_run, has_run
 from ..internal.settings import Settings, create_settings
-from ..typings.run import ModeType, ParallelType, ResumeType
+from ..typings.run import ModeType, OnlineErrorPolicy, ParallelType, ResumeType
 from . import utils
 from .login import login_cli, login_raw
 
@@ -91,6 +91,7 @@ def init(
     reinit: Optional[bool] = None,
     log_dir: Optional[str] = None,
     mode: Optional[ModeType] = None,
+    on_online_error: Optional[OnlineErrorPolicy] = None,
     workspace: Optional[str] = None,
     project: Optional[str] = None,
     public: Optional[bool] = None,
@@ -120,6 +121,8 @@ def init(
 
     :param mode: Run mode. Options: "online" (sync to cloud), "local" (local only),
         "offline" (save locally for later sync), "disabled" (no logging). Defaults to "online".
+
+    :param on_online_error: Behavior when SwanLab Cloud is unavailable in online mode. Defaults to "offline".
 
     :param workspace: Workspace or organization name. Defaults to current user.
 
@@ -207,6 +210,7 @@ def init(
     for key, value in {
         "log_dir": log_dir,
         "mode": mode,
+        "on_online_error": on_online_error,
         "project.name": project,
         "project.workspace": workspace,
         "project.public": public,

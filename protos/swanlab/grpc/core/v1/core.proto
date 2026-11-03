@@ -49,6 +49,15 @@ message DeliverRunStartRequest {
     swanlab.run.v1.StartRecord start_record             = 2; // Run 创建记录
 }
 
+// 启动失败的错误分类，供 SDK 决定是否降级
+enum CoreErrorKind {
+    CORE_ERROR_KIND_UNSPECIFIED = 0; // 未分类，按不可降级处理
+    CORE_ERROR_KIND_AUTH        = 1; // 认证或权限错误，不降级
+    CORE_ERROR_KIND_TRANSIENT   = 2; // 服务不可用，允许按策略降级
+    CORE_ERROR_KIND_CONFIG      = 3; // 参数或配置错误，不降级
+    CORE_ERROR_KIND_OTHER       = 4; // 业务、本地或未知错误，不降级
+}
+
 // DeliverRunStart 响应
 message DeliverRunStartResponse {
     bool success                   = 1; // 请求是否成功
@@ -59,6 +68,7 @@ message DeliverRunStartResponse {
     int64 global_step              = 6; // 起始全局步数
     int64 global_system_step       = 7; // 起始全局系统步数
     bool new_experiment            = 8; // 是否是新实验
+    CoreErrorKind error_kind       = 9; // 启动失败时的错误分类
 }
 
 // UpsertColumns 请求，异步插入一批列定义

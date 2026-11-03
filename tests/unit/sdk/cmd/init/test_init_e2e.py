@@ -289,6 +289,13 @@ class TestInitDisabledMode:
         assert isinstance(run, Run)
         assert has_run()
 
+    def test_init_on_online_error_is_merged_into_settings(self):
+        """init 参数应写入本次 run 的 settings，供后续降级策略使用"""
+        run = init(mode="disabled", on_online_error="raise")
+
+        assert run._ctx.config.settings.on_online_error == "raise"
+        run.finish()
+
     def test_init_does_not_create_log_dir(self):
         """disabled 模式不得创建日志目录"""
         run = init(mode="disabled")

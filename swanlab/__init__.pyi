@@ -31,7 +31,15 @@ from .sdk import (
 )
 from .sdk.typings.cmd import ConfigLike, LoginType
 from .sdk.typings.context import CallbacksType
-from .sdk.typings.run import AsyncLogType, FinishType, ModeType, ParallelType, ResumeType, SaveType
+from .sdk.typings.run import (
+    AsyncLogType,
+    FinishType,
+    ModeType,
+    OnlineErrorPolicy,
+    ParallelType,
+    ResumeType,
+    SaveType,
+)
 from .sdk.typings.run.transforms import CaptionsType
 from .sdk.typings.run.transforms.audio import AudioDatasType, AudioRatesType
 from .sdk.typings.run.transforms.echarts import EChartsDatasType
@@ -103,6 +111,7 @@ def init(
     reinit: Optional[bool] = None,
     log_dir: Optional[str] = None,
     mode: Optional[ModeType] = None,
+    on_online_error: Optional[OnlineErrorPolicy] = None,
     workspace: Optional[str] = None,
     project: Optional[str] = None,
     public: Optional[bool] = None,
@@ -130,6 +139,7 @@ def init(
     :param log_dir: Directory to store logs. Defaults to "./swanlog".
     :param mode: Run mode. Options: "online" (sync to cloud), "local" (local only),
         "offline" (save locally for later sync), "disabled" (no logging). Defaults to "online".
+    :param on_online_error: Behavior when SwanLab Cloud is unavailable in online mode. Defaults to "offline".
     :param workspace: Workspace or organization name. Defaults to current user.
     :param project: Project name. Defaults to current directory name.
     :param public: Make project publicly visible (online mode only). Defaults to False.
