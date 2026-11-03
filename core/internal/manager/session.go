@@ -48,7 +48,7 @@ const (
 	RunStateRunning RunState = iota
 	// RunStateDraining 会话已停止接受公共提交，正在等待上传与落盘排空。
 	RunStateDraining
-	// RunStateDrained 会话已排空，可以安全释放。
+	// RunStateDrained 上传已排空，确认终态记录已提交后即可释放。
 	RunStateDrained
 	// RunStateFailed 收尾序列失败，会话不能按成功路径释放。
 	RunStateFailed
@@ -109,8 +109,7 @@ type Session struct {
 	// finishMu 串行化收尾尾部：重复的 DeliverRunFinish、Confirm 续跑与进程
 	// 退出时的 shutdown 共用同一把锁，避免关闭本地通道与写入并发。
 	finishMu sync.Mutex
-	// finishCommitted 表示 FinishRecord 已被 intake 接收；失败时 Confirm 必须重试，
-	// 同时用于阻止重试写入第二条 -2 记录。
+	// finishCommitted 标记 FinishRecord 已完成提交（或因本地存储降级而跳过），避免重试时重复写入。
 	finishCommitted bool
 	// pendingLog 是崩溃 error_log：只上传不落盘，暂时入队失败时保留供重试。
 	pendingLog *recordv1.Record

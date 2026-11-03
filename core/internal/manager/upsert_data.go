@@ -17,16 +17,7 @@ import (
 )
 
 func (s *Session) upsertColumns(ctx context.Context, columns []*columnv1.ColumnRecord) error {
-	size := s.chunkSize()
-	for start := 0; start < len(columns); start += size {
-		chunk := columns[start:min(start+size, len(columns))]
-		if err := s.commitPrepared(ctx, func() (preparedBatch, error) {
-			return s.prepareColumns(chunk)
-		}); err != nil {
-			return err
-		}
-	}
-	return nil
+	return commitChunks(ctx, s, columns, s.prepareColumns)
 }
 
 func (s *Session) prepareColumns(columns []*columnv1.ColumnRecord) (preparedBatch, error) {
@@ -80,16 +71,7 @@ func isScalarColumn(column *columnv1.ColumnRecord) bool {
 }
 
 func (s *Session) upsertScalars(ctx context.Context, records []*datav1.ScalarRecord) error {
-	size := s.chunkSize()
-	for start := 0; start < len(records); start += size {
-		chunk := records[start:min(start+size, len(records))]
-		if err := s.commitPrepared(ctx, func() (preparedBatch, error) {
-			return s.prepareScalars(chunk)
-		}); err != nil {
-			return err
-		}
-	}
-	return nil
+	return commitChunks(ctx, s, records, s.prepareScalars)
 }
 
 func (s *Session) prepareScalars(records []*datav1.ScalarRecord) (preparedBatch, error) {
@@ -130,16 +112,7 @@ func (s *Session) prepareScalars(records []*datav1.ScalarRecord) (preparedBatch,
 }
 
 func (s *Session) upsertMedia(ctx context.Context, records []*datav1.MediaRecord) error {
-	size := s.chunkSize()
-	for start := 0; start < len(records); start += size {
-		chunk := records[start:min(start+size, len(records))]
-		if err := s.commitPrepared(ctx, func() (preparedBatch, error) {
-			return s.prepareMedia(chunk)
-		}); err != nil {
-			return err
-		}
-	}
-	return nil
+	return commitChunks(ctx, s, records, s.prepareMedia)
 }
 
 func (s *Session) prepareMedia(records []*datav1.MediaRecord) (preparedBatch, error) {
@@ -179,8 +152,7 @@ func (s *Session) prepareMedia(records []*datav1.MediaRecord) (preparedBatch, er
 	return preparedBatch{records: planned, apply: apply}, nil
 }
 
-// upsertLogs 在单批内提交日志。日志没有去重键，跨块部分提交后整批重试会产生
-// 重复行，因此要求一次 RPC 不超过 record_batch，超限直接拒绝。
+// upsertLogs 单批提交日志，超限时整批拒绝。
 func (s *Session) upsertLogs(ctx context.Context, records []*terminalv1.LogRecord) error {
 	if err := s.checkBatchLimit(len(records)); err != nil {
 		return err
@@ -201,8 +173,7 @@ func (s *Session) prepareLogs(records []*terminalv1.LogRecord) (preparedBatch, e
 	return preparedBatch{records: planned}, nil
 }
 
-// upsertSaves 在单批内提交保存记录。CUSTOM Save 与日志同理没有去重键，
-// 跨块部分提交后整批重试会重复上传，因此要求一次 RPC 不超过 record_batch。
+// upsertSaves 单批提交保存记录，超限时整批拒绝。
 func (s *Session) upsertSaves(ctx context.Context, records []*savev1.SaveRecord) error {
 	if err := s.checkBatchLimit(len(records)); err != nil {
 		return err
@@ -212,8 +183,7 @@ func (s *Session) upsertSaves(ctx context.Context, records []*savev1.SaveRecord)
 	})
 }
 
-// prepareSaves 构建内部类型与 CUSTOM 保存记录。CUSTOM save 与日志同理没有去重键，
-// 块间非原子，幂等性依赖客户端单批不超过 record_batch。
+// prepareSaves 构建保存记录：CUSTOM 类型先在本地建立文件链接，待容量预留成功后再注册 LIVE 监听。
 func (s *Session) prepareSaves(records []*savev1.SaveRecord) (preparedBatch, error) {
 	internal := make([]*savev1.SaveRecord, 0, len(records))
 	custom := make([]*savev1.SaveRecord, 0, len(records))

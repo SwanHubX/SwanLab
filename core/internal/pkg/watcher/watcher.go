@@ -153,7 +153,6 @@ func (w *FileWatcher) RegisterLive(saves []*savev1.SaveRecord) error {
 	var (
 		addedTargets []string
 		addedDirs    []string
-		errs         []error
 	)
 	for _, save := range saves {
 		if save.GetPolicy() != savev1.SavePolicy_SAVE_POLICY_LIVE {
@@ -167,13 +166,9 @@ func (w *FileWatcher) RegisterLive(saves []*savev1.SaveRecord) error {
 			addedDirs = append(addedDirs, dir)
 		}
 		if err != nil {
-			errs = append(errs, fmt.Errorf("watch %q: %w", save.GetName(), err))
-			break
+			w.rollbackLocked(addedTargets, addedDirs)
+			return fmt.Errorf("watch %q: %w", save.GetName(), err)
 		}
-	}
-	if len(errs) > 0 {
-		w.rollbackLocked(addedTargets, addedDirs)
-		return errors.Join(errs...)
 	}
 	return nil
 }

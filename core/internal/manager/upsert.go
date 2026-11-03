@@ -14,8 +14,7 @@ import (
 	terminalv1 "github.com/swanhubx/swanlab/core/proto/swanlab/terminal/v1"
 )
 
-// preparedBatch 是一次两阶段提交的产物：待写入的记录，以及必须在预留成功后
-// 才执行的会话状态变更（metrics 定义、LIVE 监听）。build 阶段只读。
+// preparedBatch 封装单批待入队的记录，以及通道预留成功后才执行的会话状态更新（如列定义、LIVE 监听注册）。
 type preparedBatch struct {
 	records []*recordv1.Record
 	apply   func() error
@@ -67,8 +66,8 @@ func (m *Manager) UpsertSaves(ctx context.Context, sessionID string, records []*
 	return s.upsertSaves(ctx, records)
 }
 
-// commitPrepared 在会话锁内完成「状态校验 → 构建 → 预留 → 提交会话状态 → 入队」。
-// build 只读，预留失败不会留下状态变更；但已分配的编号会被消耗（与 Python 丢批一致）。
+// commitPrepared 在会话锁内按「状态校验 → 构建记录 → 预留容量 → 更新会话状态 → 提交入队」的顺序提交；
+// 预留失败时不会执行 apply，避免污染指标定义或文件监听状态。
 func (s *Session) commitPrepared(ctx context.Context, build func() (preparedBatch, error)) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -111,6 +110,20 @@ func upsertError(err error) error {
 	}
 }
 
+// commitChunks 按单批上限切分请求并依次提交，适用于支持按 key/step 幂等去重的记录（column/scalar/media）。
+func commitChunks[T any](ctx context.Context, s *Session, items []T, prepare func([]T) (preparedBatch, error)) error {
+	size := s.chunkSize()
+	for start := 0; start < len(items); start += size {
+		chunk := items[start:min(start+size, len(items))]
+		if err := s.commitPrepared(ctx, func() (preparedBatch, error) {
+			return prepare(chunk)
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *Session) chunkSize() int {
 	if s.cfg.RecordBatch <= 0 {
 		return 1
@@ -118,8 +131,8 @@ func (s *Session) chunkSize() int {
 	return int(s.cfg.RecordBatch)
 }
 
-// checkBatchLimit 拒绝超过 record_batch 的请求。日志与 CUSTOM Save 没有跨块
-// 去重键，只接纳部分块会让整批重试产生重复，因此在构建前整体拒绝。
+// checkBatchLimit 校验单批记录数不超过上限。日志与保存记录缺乏去重键，
+// 若拆批后部分成功会导致重试时产生重复数据，因此超限时整批拒绝。
 func (s *Session) checkBatchLimit(n int) error {
 	limit := s.chunkSize()
 	if n > limit {

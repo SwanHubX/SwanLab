@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from typing import cast
 from unittest.mock import MagicMock
 
+from swanlab.sdk.internal.bus import EmitterProtocol
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.run.components import _factory_consumer
 from swanlab.sdk.internal.run.components.consumer import BackgroundConsumer
@@ -17,7 +18,7 @@ def _make_consumer(record_batch: int) -> BackgroundConsumer:
         config=SimpleNamespace(settings=SimpleNamespace(mode="local", core=SimpleNamespace(record_batch=record_batch))),
     )
     emitter = SimpleNamespace(queue=queue.Queue())
-    consumer = _factory_consumer(cast(RunContext, cast(object, ctx)), cast(object, emitter))  # type: ignore[arg-type]
+    consumer = _factory_consumer(cast(RunContext, ctx), cast(EmitterProtocol, emitter))
     assert isinstance(consumer, BackgroundConsumer)
     return consumer
 

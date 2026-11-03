@@ -1,6 +1,6 @@
 // 本文件承载 DeliverRunFinish 与进程退出的收尾序列。三条不变量：
 //   - FinishRecord 必须先提交到本地副本，之后才允许关闭 store；
-//   - finishCommitted 保证重试不会写入第二条 -2 记录；
+//   - finishCommitted 保证重试时不会重复写入 FinishRecord；
 //   - pendingLog 非空时不得关闭 intake，否则崩溃 error_log 无法补传。
 package manager
 
@@ -99,8 +99,8 @@ func (s *Session) prepareFinish(rec *runv1.FinishRecord) {
 	})
 }
 
-// completeFinish 续跑收尾序列的剩余步骤，每一步都允许重复执行：
-// 成功返回时 FinishRecord 已落盘、崩溃 error_log 已进入上传通道、intake 已封闭。
+// completeFinish 依次完成终态记录提交、本地刷盘、崩溃日志入队与通道关闭；
+// 各步骤均可重入，便于失败后重试。
 func (s *Session) completeFinish(ctx context.Context) error {
 	if !s.finishCommitted {
 		if err := s.commitFinish(ctx); err != nil {
