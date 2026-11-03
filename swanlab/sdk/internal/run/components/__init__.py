@@ -20,6 +20,7 @@ from swanlab.sdk.internal.run.components.config import (
 from swanlab.sdk.internal.run.components.consumer import BackgroundConsumer, ConsumerProtocol
 from swanlab.sdk.internal.run.components.null import NullConsumer, NullEmitter, NullTerminalProxy
 from swanlab.sdk.internal.run.components.terminal import TerminalProxy, TerminalProxyProtocol
+from swanlab.sdk.typings.run.consumer import DEFAULT_CONSUMER_RECORD_BATCH
 
 __all__ = [
     "Components",
@@ -127,18 +128,13 @@ def _factory_emitter(ctx: RunContext) -> EmitterProtocol:
     return RunEmitter()
 
 
-# 单次 RPC 的记录上限。core 按 record_batch 切块且不做跨块部分提交，
-# 日志与 CUSTOM Save 在部分成功后重试会产生重复，因此出批不能超过 record_batch。
-_DEFAULT_CONSUMER_BATCH = 100
-
-
 def _factory_consumer(
     ctx: RunContext,
     e: EmitterProtocol,
 ) -> ConsumerProtocol:
     if ctx.config.settings.mode == "disabled":
         return NullConsumer(ctx, e.queue)
-    batch_size = min(_DEFAULT_CONSUMER_BATCH, ctx.config.settings.core.record_batch)
+    batch_size = min(DEFAULT_CONSUMER_RECORD_BATCH, ctx.config.settings.core.record_batch)
     return BackgroundConsumer(ctx, e.queue, batch_size=batch_size)
 
 
