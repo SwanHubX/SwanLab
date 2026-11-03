@@ -20,8 +20,9 @@ from typing import Any, Dict, List, NoReturn, Optional, Tuple, Union
 import requests
 import yaml
 from google.protobuf.timestamp_pb2 import Timestamp
+from requests.exceptions import InvalidSchema, InvalidURL, MissingSchema
 
-from swanlab.exceptions import AuthenticationError
+from swanlab.exceptions import ApiError, AuthenticationError
 from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
     CORE_ERROR_KIND_AUTH,
     CORE_ERROR_KIND_TRANSIENT,
@@ -593,9 +594,12 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
     with use_context(RunContext(config=RunConfig(settings=run_settings, run_dir=run_dir), callbacks=callbacks)) as ctx:
         assert run_settings.project.name, "Project name is required."
         # 3.1. 前置操作
-        # online 模式前置：确保 client 已就绪
+        # online 模式前置：确保 client 已就绪，连接类失败时按策略降级
         if mode == "online":
-            _ensure_online_client(run_settings)
+            fallback_mode = _ensure_online_client_or_fallback(ctx, run_settings, run_id, run_dir)
+            if fallback_mode is not None:
+                mode = fallback_mode
+                should_mkdirs = mode == "offline"
         # local 模式前置：注入 LocalCallback 到 callbacks 中
         elif mode == "local":
             from swanlab.deprecated.local import LocalCallbacker
@@ -676,15 +680,15 @@ def _build_start_request(run_settings: Settings, run_id: str, run_dir: Path) -> 
     )
 
 
-def _restart_with_fallback(
+def _switch_run_to_fallback(
     ctx: RunContext,
     run_settings: Settings,
     run_id: str,
     run_dir: Path,
     target_mode: ModeType,
     reason: str,
-) -> DeliverRunStartResponse:
-    """在线启动失败后，按策略切换模式并在同一个 run_dir 上重新启动 Core。"""
+) -> None:
+    """切换降级模式并重建 Core/Probe，供登录降级与启动降级复用。"""
     _switch_run_mode(run_settings, target_mode, reason)
     _ensure_offline_identity(run_settings, run_id)
     # 已知副作用：online 启动前已经创建了 log_dir 和空的 run_dir。
@@ -696,6 +700,18 @@ def _restart_with_fallback(
         fs.safe_mkdir(run_dir)
     ctx.core = create_core(ctx)
     ctx.probe = create_probe(core=ctx.core, disabled=target_mode == "disabled")
+
+
+def _restart_with_fallback(
+    ctx: RunContext,
+    run_settings: Settings,
+    run_id: str,
+    run_dir: Path,
+    target_mode: ModeType,
+    reason: str,
+) -> DeliverRunStartResponse:
+    """在线启动失败后，按策略切换模式并在同一个 run_dir 上重新启动 Core。"""
+    _switch_run_to_fallback(ctx, run_settings, run_id, run_dir, target_mode, reason)
     resp = ctx.core.deliver_run_start(_build_start_request(run_settings, run_id, run_dir))
     if not resp.success:
         _raise_start_failure(resp)
@@ -774,15 +790,52 @@ def _raise_start_failure(resp: DeliverRunStartResponse) -> NoReturn:
     raise RuntimeError(message)
 
 
-def _ensure_online_client(run_settings: Settings):
+def _is_transient_login_error(exc: BaseException) -> bool:
+    """登录握手的可降级错误：仅服务不可用类错误。"""
+    if isinstance(exc, ApiError):
+        status = getattr(exc.response, "status_code", None)
+        return status is None or status in (408, 429) or status >= 500
+    # URL / 协议配置错误重试和降级都无法解决
+    if isinstance(exc, (InvalidURL, MissingSchema, InvalidSchema)):
+        return False
+    return isinstance(exc, requests.RequestException)
+
+
+def _ensure_online_client_or_fallback(
+    ctx: RunContext,
+    run_settings: Settings,
+    run_id: str,
+    run_dir: Path,
+) -> Optional[ModeType]:
     """
-    确保 online 模式下 client 已就绪，未登录时自动执行登录。
-    :param run_settings: 运行时配置
+    确保 online client 就绪；连接类失败时按 on_online_error 降级。
+    只服务于 init 内部登录，显式 swanlab.login() 不受影响。
+
+    :return: 降级后的模式；未降级时返回 None
     """
-    if not client.exists():
-        assert run_settings.api_key, "API key is required."
-        assert run_settings.api_host, "API host is required."
-        login_raw(
-            api_key=run_settings.api_key, host=run_settings.api_host, save=False, animation=False, print_welcome=False
+    try:
+        if not client.exists():
+            assert run_settings.api_key, "API key is required."
+            assert run_settings.api_host, "API host is required."
+            login_raw(
+                api_key=run_settings.api_key,
+                host=run_settings.api_host,
+                save=False,
+                animation=False,
+                print_welcome=False,
+            )
+        assert client.exists(), "No client found, please login first."
+    except Exception as e:
+        if not _is_transient_login_error(e) or run_settings.on_online_error == "raise":
+            raise
+        target_mode = run_settings.on_online_error
+        _switch_run_to_fallback(
+            ctx,
+            run_settings,
+            run_id,
+            run_dir,
+            target_mode,
+            f"Failed to login: {e}",
         )
-    assert client.exists(), "No client found, please login first."
+        return target_mode
+    return None

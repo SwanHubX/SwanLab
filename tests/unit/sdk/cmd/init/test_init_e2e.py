@@ -26,6 +26,7 @@ from typing import cast
 from unittest.mock import MagicMock
 
 import pytest
+import requests
 import responses as responses_lib
 import yaml
 
@@ -821,6 +822,88 @@ class TestInitOnlineStartFallback:
         self._assert_disabled_run(run, offline_warnings)
         assert any("continues without recording" in message for message in offline_warnings)
         run.finish()
+
+
+def test_login_error_classification_excludes_config_errors():
+    """URL / 协议配置错误不应被判定为可降级的连接错误。"""
+    from requests.exceptions import InvalidURL
+
+    from swanlab.sdk.cmd.init import _is_transient_login_error
+
+    assert _is_transient_login_error(requests.ConnectionError("boom"))
+    assert not _is_transient_login_error(InvalidURL("bad url"))
+    assert not _is_transient_login_error(AuthenticationError("bad key"))
+
+
+# ============================================================
+# TestInitOnlineLoginFallback
+# ============================================================
+
+
+class TestInitOnlineLoginFallback:
+    LOGIN_URL = f"{API_HOST}/api/login/api_key"
+
+    @pytest.fixture(autouse=True)
+    def _api_key(self):
+        merge_settings({"api_key": API_KEY})
+
+    @staticmethod
+    def _assert_offline_run(run: Run, warnings: list[str]) -> None:
+        assert run.mode == "offline"
+        assert run._ctx.config.settings.mode == "offline"
+        assert run.dir.exists()
+        assert len([m for m in warnings if "Continuing in offline mode" in m]) == 1
+        assert any("Failed to login" in message for message in warnings)
+
+    def test_login_connection_error_degrades_to_offline(self, rsps, mock_online_settings, offline_warnings):
+        rsps.add(responses_lib.POST, self.LOGIN_URL, body=requests.ConnectionError("boom"))
+
+        run = init(mode="online", project=PROJECT)
+
+        self._assert_offline_run(run, offline_warnings)
+        assert not client.exists()
+        run.log({"loss": 1.0})
+        run.finish()
+        assert (run.dir / f"run-{run.id}.swanlab").exists()
+
+    def test_login_connection_error_degrades_to_disabled(self, rsps, mock_online_settings, offline_warnings):
+        rsps.add(responses_lib.POST, self.LOGIN_URL, body=requests.ConnectionError("boom"))
+
+        run = init(mode="online", project=PROJECT, on_online_error="disabled")
+
+        assert run.mode == "disabled"
+        assert len([m for m in offline_warnings if "Continuing in disabled mode" in m]) == 1
+        assert not client.exists()
+        run.log({"loss": 1.0})
+        run.finish()
+
+    def test_login_503_degrades_to_offline(self, rsps, mock_online_settings, offline_warnings):
+        rsps.add(responses_lib.POST, self.LOGIN_URL, status=503)
+
+        run = init(mode="online", project=PROJECT)
+
+        self._assert_offline_run(run, offline_warnings)
+        run.finish()
+
+    def test_login_malformed_response_degrades_to_offline(self, rsps, mock_online_settings, offline_warnings):
+        rsps.add(responses_lib.POST, self.LOGIN_URL, json={}, status=200)
+
+        run = init(mode="online", project=PROJECT)
+
+        self._assert_offline_run(run, offline_warnings)
+        run.finish()
+
+    def test_login_connection_error_with_raise_policy(self, rsps, mock_online_settings):
+        rsps.add(responses_lib.POST, self.LOGIN_URL, body=requests.ConnectionError("boom"))
+
+        with pytest.raises(requests.ConnectionError):
+            init(mode="online", project=PROJECT, on_online_error="raise")
+
+    def test_login_unauthorized_raises_authentication_error(self, rsps, mock_online_settings):
+        rsps.add(responses_lib.POST, self.LOGIN_URL, json={"message": "unauthorized"}, status=401)
+
+        with pytest.raises(AuthenticationError):
+            init(mode="online", project=PROJECT)
 
 
 # ============================================================

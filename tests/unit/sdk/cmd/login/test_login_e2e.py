@@ -6,6 +6,7 @@
 """
 
 import pytest
+import requests
 import responses
 
 from swanlab.exceptions import AuthenticationError
@@ -199,6 +200,18 @@ class TestLoginE2E:
 
         with pytest.raises(AuthenticationError, match="Failed to initialize the SwanLab client"):
             login(api_key="wrong-key", relogin=True)
+
+    @responses.activate
+    def test_login_connection_error_raises(self):
+        """显式登录的网络错误应直接抛出，不走 init 的降级逻辑。"""
+        responses.add(
+            responses.POST,
+            "https://api.swanlab.cn/api/login/api_key",
+            body=requests.ConnectionError("boom"),
+        )
+
+        with pytest.raises(requests.ConnectionError):
+            login(api_key="some-key", relogin=True)
 
     @responses.activate
     def test_login_host_changed_raises_without_key(self):

@@ -9,9 +9,10 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
+import requests
 import responses
 
-from swanlab.exceptions import ApiError
+from swanlab.exceptions import ApiError, AuthenticationError
 from swanlab.sdk.internal.pkg.client import Client
 
 
@@ -73,6 +74,41 @@ def test_client_init_and_auth(mock_login, client, mock_base_url, mock_api_url):
     # 验证鉴权时使用的是拼接后的 URL
     mock_login.assert_called_once_with(mock_api_url, "test-key", timeout=10)
     assert client._session.cookies.get("sid") == "mock-token-123"
+
+
+def test_init_propagates_connection_error(mock_base_url):
+    """首次认证的网络错误应向上抛出，供 init 判断是否降级。"""
+    with patch(
+        "swanlab.sdk.internal.pkg.client.login_by_api_key",
+        side_effect=requests.ConnectionError("boom"),
+    ):
+        with pytest.raises(requests.ConnectionError):
+            Client(api_key="test-key", base_url=mock_base_url)
+
+
+def test_init_converts_unauthorized_to_authentication_error(mock_base_url):
+    """首次认证的 401 应转换为 AuthenticationError，不参与降级。"""
+    error = ApiError(MagicMock(status_code=401), method="POST", code=401, message="unauthorized")
+    with patch("swanlab.sdk.internal.pkg.client.login_by_api_key", side_effect=error):
+        with pytest.raises(AuthenticationError, match="Failed to initialize"):
+            Client(api_key="test-key", base_url=mock_base_url)
+
+
+def test_init_malformed_login_response_is_transient(mock_base_url):
+    """200 但响应体为空/缺字段属于服务端异常，不应误报为 API Key 错误。"""
+    with patch("swanlab.sdk.internal.pkg.client.login_by_api_key", return_value={}):
+        with pytest.raises(ApiError, match="Invalid login response"):
+            Client(api_key="test-key", base_url=mock_base_url)
+
+
+def test_runtime_refresh_tolerates_connection_error(client):
+    """运行中刷新鉴权失败时保持容错，不打断训练。"""
+    client._expired_at = datetime.now(timezone.utc)
+    with patch(
+        "swanlab.sdk.internal.pkg.client.login_by_api_key",
+        side_effect=requests.ConnectionError("boom"),
+    ):
+        assert client._refresh_auth() is None
 
 
 def test_client_http_methods_and_url_join(client, mock_api_url):
