@@ -22,17 +22,27 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/manager"
 	"github.com/swanhubx/swanlab/core/internal/server"
 	corev1 "github.com/swanhubx/swanlab/core/proto/swanlab/grpc/core/v1"
+	columnv1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/column/v1"
+	datav1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/data/v1"
 	operationv1 "github.com/swanhubx/swanlab/core/proto/swanlab/operation/v1"
 	runv1 "github.com/swanhubx/swanlab/core/proto/swanlab/run/v1"
+	savev1 "github.com/swanhubx/swanlab/core/proto/swanlab/save/v1"
 	settingsv1 "github.com/swanhubx/swanlab/core/proto/swanlab/settings/core/v1"
+	terminalv1 "github.com/swanhubx/swanlab/core/proto/swanlab/terminal/v1"
 )
 
 // RunManager 是 service 依赖的会话编排接口，由 manager.Manager 实现；
 // gRPC 单测可注入 Fake，避免每个 RPC 用例都依赖真实云端。
 type RunManager interface {
 	DeliverRunStart(context.Context, config.Settings, *runv1.StartRecord) (*manager.StartResult, error)
+	UpsertColumns(context.Context, string, []*columnv1.ColumnRecord) error
+	UpsertScalars(context.Context, string, []*datav1.ScalarRecord) error
+	UpsertMedia(context.Context, string, []*datav1.MediaRecord) error
+	UpsertLogs(context.Context, string, []*terminalv1.LogRecord) error
+	UpsertSaves(context.Context, string, []*savev1.SaveRecord) error
 	Finish(string) error
 	State(string) (manager.RunState, error)
+	Stats(string) (*operationv1.OperationStats, error)
 	Confirm(context.Context, string) error
 }
 
@@ -65,14 +75,6 @@ func (s *CoreService) requireReady() error {
 		return nil
 	}
 	return status.Error(codes.FailedPrecondition, "service is not ready; call SpinupService first")
-}
-
-// rejectUpsert 统一拦截数据上传 RPC，在底层存储与传输通道接入前明确返回 Unimplemented。
-func (s *CoreService) rejectUpsert() error {
-	if err := s.requireReady(); err != nil {
-		return err
-	}
-	return status.Error(codes.Unimplemented, "upsert data path is not implemented in this core build")
 }
 
 // SpinupService 执行服务启动握手，将服务状态置为就绪（Ready）。
@@ -170,24 +172,74 @@ func settingsFromProto(in *settingsv1.CoreSettings) (config.Settings, error) {
 	return settings, nil
 }
 
-func (s *CoreService) UpsertColumns(context.Context, *corev1.UpsertColumnsRequest) (*emptypb.Empty, error) {
-	return nil, s.rejectUpsert()
+// UpsertColumns 定义一批指标列；空列表是合法的 no-op。
+func (s *CoreService) UpsertColumns(
+	ctx context.Context,
+	req *corev1.UpsertColumnsRequest,
+) (*emptypb.Empty, error) {
+	if err := s.requireReady(); err != nil {
+		return nil, err
+	}
+	if err := s.runs.UpsertColumns(ctx, req.GetSessionId(), req.GetColumns()); err != nil {
+		return nil, managerStatus(err)
+	}
+	return &emptypb.Empty{}, nil
 }
 
-func (s *CoreService) UpsertScalars(context.Context, *corev1.UpsertScalarsRequest) (*emptypb.Empty, error) {
-	return nil, s.rejectUpsert()
+// UpsertScalars 提交一批标量记录；空列表是合法的 no-op。
+func (s *CoreService) UpsertScalars(
+	ctx context.Context,
+	req *corev1.UpsertScalarsRequest,
+) (*emptypb.Empty, error) {
+	if err := s.requireReady(); err != nil {
+		return nil, err
+	}
+	if err := s.runs.UpsertScalars(ctx, req.GetSessionId(), req.GetData()); err != nil {
+		return nil, managerStatus(err)
+	}
+	return &emptypb.Empty{}, nil
 }
 
-func (s *CoreService) UpsertMedia(context.Context, *corev1.UpsertMediaRequest) (*emptypb.Empty, error) {
-	return nil, s.rejectUpsert()
+// UpsertMedia 提交一批媒体指标；空列表是合法的 no-op。
+func (s *CoreService) UpsertMedia(
+	ctx context.Context,
+	req *corev1.UpsertMediaRequest,
+) (*emptypb.Empty, error) {
+	if err := s.requireReady(); err != nil {
+		return nil, err
+	}
+	if err := s.runs.UpsertMedia(ctx, req.GetSessionId(), req.GetData()); err != nil {
+		return nil, managerStatus(err)
+	}
+	return &emptypb.Empty{}, nil
 }
 
-func (s *CoreService) UpsertLogs(context.Context, *corev1.UpsertLogsRequest) (*emptypb.Empty, error) {
-	return nil, s.rejectUpsert()
+// UpsertLogs 提交一批终端日志；空列表是合法的 no-op。
+func (s *CoreService) UpsertLogs(
+	ctx context.Context,
+	req *corev1.UpsertLogsRequest,
+) (*emptypb.Empty, error) {
+	if err := s.requireReady(); err != nil {
+		return nil, err
+	}
+	if err := s.runs.UpsertLogs(ctx, req.GetSessionId(), req.GetLogs()); err != nil {
+		return nil, managerStatus(err)
+	}
+	return &emptypb.Empty{}, nil
 }
 
-func (s *CoreService) UpsertSaves(context.Context, *corev1.UpsertSavesRequest) (*emptypb.Empty, error) {
-	return nil, s.rejectUpsert()
+// UpsertSaves 提交一批保存记录；空列表是合法的 no-op。
+func (s *CoreService) UpsertSaves(
+	ctx context.Context,
+	req *corev1.UpsertSavesRequest,
+) (*emptypb.Empty, error) {
+	if err := s.requireReady(); err != nil {
+		return nil, err
+	}
+	if err := s.runs.UpsertSaves(ctx, req.GetSessionId(), req.GetSaves()); err != nil {
+		return nil, managerStatus(err)
+	}
+	return &emptypb.Empty{}, nil
 }
 
 // DeliverRunFinish 标记指定 session_id 的会话结束。
@@ -216,9 +268,14 @@ func (s *CoreService) GetOperationStats(
 	if err != nil {
 		return nil, managerStatus(err)
 	}
+	stats, err := s.runs.Stats(req.GetSessionId())
+	if err != nil {
+		return nil, managerStatus(err)
+	}
+	stats.State = coreState(runState)
 	return &corev1.GetOperationStatsResponse{
 		Success: true,
-		Stats:   &operationv1.OperationStats{State: coreState(runState)},
+		Stats:   stats,
 	}, nil
 }
 
@@ -258,7 +315,12 @@ func managerStatus(err error) error {
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, manager.ErrRunFailed):
 		return status.Error(codes.FailedPrecondition, err.Error())
-	case errors.Is(err, manager.ErrInvalidSettings), errors.Is(err, manager.ErrInvalidStartRecord):
+	case errors.Is(err, manager.ErrNotRunning):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, manager.ErrOverloaded):
+		return status.Error(codes.ResourceExhausted, err.Error())
+	case errors.Is(err, manager.ErrInvalidSettings), errors.Is(err, manager.ErrInvalidStartRecord),
+		errors.Is(err, manager.ErrInvalidRecord):
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, client.ErrMissingAPIKey), errors.Is(err, client.ErrMissingAPIHost):
 		return status.Error(codes.InvalidArgument, err.Error())

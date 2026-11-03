@@ -20,9 +20,13 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/manager"
 	"github.com/swanhubx/swanlab/core/internal/server"
 	corev1 "github.com/swanhubx/swanlab/core/proto/swanlab/grpc/core/v1"
+	columnv1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/column/v1"
+	datav1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/data/v1"
 	operationv1 "github.com/swanhubx/swanlab/core/proto/swanlab/operation/v1"
 	runv1 "github.com/swanhubx/swanlab/core/proto/swanlab/run/v1"
+	savev1 "github.com/swanhubx/swanlab/core/proto/swanlab/save/v1"
 	settingsv1 "github.com/swanhubx/swanlab/core/proto/swanlab/settings/core/v1"
+	terminalv1 "github.com/swanhubx/swanlab/core/proto/swanlab/terminal/v1"
 )
 
 const (
@@ -42,6 +46,15 @@ type fakeManager struct {
 	finishErr  error
 	stateErr   error
 	confirmErr error
+	upsertErr  error
+
+	upserts []fakeUpsert
+}
+
+type fakeUpsert struct {
+	kind      string
+	sessionID string
+	count     int
 }
 
 type fakeStart struct {
@@ -75,6 +88,42 @@ func (f *fakeManager) DeliverRunStart(
 		GlobalStep:    -1,
 		NewExperiment: true,
 	}, nil
+}
+
+func (f *fakeManager) recordUpsert(kind, sessionID string, count int) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.upserts = append(f.upserts, fakeUpsert{kind: kind, sessionID: sessionID, count: count})
+	if f.upsertErr != nil {
+		return f.upsertErr
+	}
+	if sessionID == "" {
+		return manager.ErrEmptySessionID
+	}
+	if _, ok := f.sessions[sessionID]; !ok {
+		return manager.ErrSessionNotFound
+	}
+	return nil
+}
+
+func (f *fakeManager) UpsertColumns(_ context.Context, sessionID string, records []*columnv1.ColumnRecord) error {
+	return f.recordUpsert("columns", sessionID, len(records))
+}
+
+func (f *fakeManager) UpsertScalars(_ context.Context, sessionID string, records []*datav1.ScalarRecord) error {
+	return f.recordUpsert("scalars", sessionID, len(records))
+}
+
+func (f *fakeManager) UpsertMedia(_ context.Context, sessionID string, records []*datav1.MediaRecord) error {
+	return f.recordUpsert("media", sessionID, len(records))
+}
+
+func (f *fakeManager) UpsertLogs(_ context.Context, sessionID string, records []*terminalv1.LogRecord) error {
+	return f.recordUpsert("logs", sessionID, len(records))
+}
+
+func (f *fakeManager) UpsertSaves(_ context.Context, sessionID string, records []*savev1.SaveRecord) error {
+	return f.recordUpsert("saves", sessionID, len(records))
 }
 
 func (f *fakeManager) Finish(sessionID string) error {
@@ -111,6 +160,21 @@ func (f *fakeManager) State(sessionID string) (manager.RunState, error) {
 		return 0, manager.ErrSessionNotFound
 	}
 	return state, nil
+}
+
+func (f *fakeManager) Stats(sessionID string) (*operationv1.OperationStats, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.stateErr != nil {
+		return nil, f.stateErr
+	}
+	if sessionID == "" {
+		return nil, manager.ErrEmptySessionID
+	}
+	if _, ok := f.sessions[sessionID]; !ok {
+		return nil, manager.ErrSessionNotFound
+	}
+	return &operationv1.OperationStats{TotalRecords: 7, Rate: 1.5}, nil
 }
 
 func (f *fakeManager) Confirm(_ context.Context, sessionID string) error {
@@ -395,37 +459,120 @@ func TestSettingsFromProto(t *testing.T) {
 	}
 }
 
-func TestUpsertsRemainUnimplemented(t *testing.T) {
+func TestUpsertRPCsForwardRecords(t *testing.T) {
 	env := newTestEnv(t)
 	spinup(t, env)
 	handle := startRun(t, env, &runv1.StartRecord{})
 	ctx := callCtx(t)
-	calls := []func() error{
-		func() error {
-			_, err := env.client.UpsertColumns(ctx, &corev1.UpsertColumnsRequest{SessionId: handle})
+
+	calls := []struct {
+		kind string
+		call func() error
+	}{
+		{"columns", func() error {
+			_, err := env.client.UpsertColumns(ctx, &corev1.UpsertColumnsRequest{
+				SessionId: handle,
+				Columns:   []*columnv1.ColumnRecord{{ColumnKey: "loss"}},
+			})
 			return err
-		},
-		func() error {
-			_, err := env.client.UpsertScalars(ctx, &corev1.UpsertScalarsRequest{SessionId: handle})
+		}},
+		{"scalars", func() error {
+			_, err := env.client.UpsertScalars(ctx, &corev1.UpsertScalarsRequest{
+				SessionId: handle,
+				Data:      []*datav1.ScalarRecord{{Key: "loss"}},
+			})
 			return err
-		},
-		func() error {
-			_, err := env.client.UpsertMedia(ctx, &corev1.UpsertMediaRequest{SessionId: handle})
+		}},
+		{"media", func() error {
+			_, err := env.client.UpsertMedia(ctx, &corev1.UpsertMediaRequest{
+				SessionId: handle,
+				Data:      []*datav1.MediaRecord{{Key: "image"}},
+			})
 			return err
-		},
-		func() error {
-			_, err := env.client.UpsertLogs(ctx, &corev1.UpsertLogsRequest{SessionId: handle})
+		}},
+		{"logs", func() error {
+			_, err := env.client.UpsertLogs(ctx, &corev1.UpsertLogsRequest{
+				SessionId: handle,
+				Logs:      []*terminalv1.LogRecord{{Line: "hello"}},
+			})
 			return err
-		},
-		func() error {
-			_, err := env.client.UpsertSaves(ctx, &corev1.UpsertSavesRequest{SessionId: handle})
+		}},
+		{"saves", func() error {
+			_, err := env.client.UpsertSaves(ctx, &corev1.UpsertSavesRequest{
+				SessionId: handle,
+				Saves:     []*savev1.SaveRecord{{Name: "model.pt"}},
+			})
 			return err
-		},
+		}},
 	}
-	for i, call := range calls {
-		if err := call(); status.Code(err) != codes.Unimplemented {
-			t.Fatalf("upsert %d err=%v, want Unimplemented", i, err)
+	for _, tc := range calls {
+		if err := tc.call(); err != nil {
+			t.Fatalf("%s: %v", tc.kind, err)
 		}
+	}
+	if len(env.runs.upserts) != len(calls) {
+		t.Fatalf("forwarded upserts = %d, want %d", len(env.runs.upserts), len(calls))
+	}
+	for i, tc := range calls {
+		got := env.runs.upserts[i]
+		if got.kind != tc.kind || got.sessionID != handle || got.count != 1 {
+			t.Fatalf("upsert %d = %+v, want kind=%s session=%s count=1", i, got, tc.kind, handle)
+		}
+	}
+}
+
+func TestUpsertEmptyListsAreNoops(t *testing.T) {
+	env := newTestEnv(t)
+	spinup(t, env)
+	handle := startRun(t, env, &runv1.StartRecord{})
+	ctx := callCtx(t)
+
+	// gRPC 不区分「缺省」与「空 repeated」，两者都应作为 no-op 成功。
+	if _, err := env.client.UpsertColumns(ctx, &corev1.UpsertColumnsRequest{SessionId: handle}); err != nil {
+		t.Fatalf("empty UpsertColumns: %v", err)
+	}
+	if _, err := env.client.UpsertScalars(ctx, &corev1.UpsertScalarsRequest{SessionId: handle}); err != nil {
+		t.Fatalf("empty UpsertScalars: %v", err)
+	}
+	if _, err := env.client.UpsertMedia(ctx, &corev1.UpsertMediaRequest{SessionId: handle}); err != nil {
+		t.Fatalf("empty UpsertMedia: %v", err)
+	}
+	if _, err := env.client.UpsertLogs(ctx, &corev1.UpsertLogsRequest{SessionId: handle}); err != nil {
+		t.Fatalf("empty UpsertLogs: %v", err)
+	}
+	if _, err := env.client.UpsertSaves(ctx, &corev1.UpsertSavesRequest{SessionId: handle}); err != nil {
+		t.Fatalf("empty UpsertSaves: %v", err)
+	}
+}
+
+func TestUpsertRPCsMapErrors(t *testing.T) {
+	env := newTestEnv(t)
+	spinup(t, env)
+	handle := startRun(t, env, &runv1.StartRecord{})
+	ctx := callCtx(t)
+
+	tests := []struct {
+		name string
+		err  error
+		want codes.Code
+	}{
+		{"not running", manager.ErrNotRunning, codes.FailedPrecondition},
+		{"overloaded", manager.ErrOverloaded, codes.ResourceExhausted},
+		{"invalid record", manager.ErrInvalidRecord, codes.InvalidArgument},
+		{"unknown session", manager.ErrSessionNotFound, codes.NotFound},
+		{"empty session", manager.ErrEmptySessionID, codes.InvalidArgument},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			env.runs.upsertErr = tc.err
+			_, err := env.client.UpsertScalars(ctx, &corev1.UpsertScalarsRequest{
+				SessionId: handle,
+				Data:      []*datav1.ScalarRecord{{Key: "loss"}},
+			})
+			if status.Code(err) != tc.want {
+				t.Fatalf("err=%v, want code %s", err, tc.want)
+			}
+		})
 	}
 }
 
@@ -499,6 +646,9 @@ func TestRunLifecycleAndErrorMapping(t *testing.T) {
 	resp, err = env.client.GetOperationStats(ctx, &corev1.GetOperationStatsRequest{SessionId: handle})
 	if err != nil || resp.GetStats().GetState() != operationv1.CoreState_CORE_STATE_RUNNING {
 		t.Fatalf("draining stats: resp=%v err=%v, want RUNNING", resp, err)
+	}
+	if got := resp.GetStats().GetTotalRecords(); got != 7 {
+		t.Fatalf("stats passthrough total_records = %d, want 7", got)
 	}
 	if _, err := env.client.ConfirmRunFinish(ctx, &corev1.ConfirmRunFinishRequest{SessionId: handle}); err != nil {
 		t.Fatalf("ConfirmRunFinish: %v", err)

@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/swanhubx/swanlab/core/internal/client"
+	operationv1 "github.com/swanhubx/swanlab/core/proto/swanlab/operation/v1"
 )
 
 var (
@@ -20,6 +21,12 @@ var (
 	ErrRunNotFinished = errors.New("run has not been drained for this handle")
 	// ErrRunFailed 表示会话的收尾序列失败，不能按成功路径释放。
 	ErrRunFailed = errors.New("run finish failed")
+	// ErrNotRunning 表示会话已停止接受公共提交（排空中、已排空或收尾失败）。
+	ErrNotRunning = errors.New("session is not accepting records")
+	// ErrOverloaded 表示入口通道或上传配额在等待上限内没有腾出空间，可重试。
+	ErrOverloaded = errors.New("session intake is overloaded")
+	// ErrInvalidRecord 表示记录结构不合法（nil、空 key、未知 save 类型等）。
+	ErrInvalidRecord = errors.New("invalid record")
 	// ErrTooManySessions 表示会话数已达上限，需要先释放已结束的会话。
 	ErrTooManySessions = errors.New("session registry is full")
 	// ErrInvalidSettings 表示启动配置不合法，属于调用方参数错误。
@@ -143,6 +150,15 @@ func (m *Manager) State(sessionID string) (RunState, error) {
 		return 0, err
 	}
 	return s.stateSnapshot(), nil
+}
+
+// Stats 返回指定会话的上传进度快照；计数由 tracker 维护，不持注册表锁。
+func (m *Manager) Stats(sessionID string) (*operationv1.OperationStats, error) {
+	s, err := m.session(sessionID)
+	if err != nil {
+		return nil, err
+	}
+	return s.snapshot(), nil
 }
 
 // Confirm 等待会话排空后释放其资源。

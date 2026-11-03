@@ -408,7 +408,9 @@ func routeRecords(records []*recordv1.Record) (immediate, deferred []int) {
 		case record.TypeStart, record.TypeFinish:
 			// 仅落本地。
 		case record.TypeSave:
-			if rec.GetSave().GetPolicy() == savev1.SavePolicy_SAVE_POLICY_END {
+			save := rec.GetSave()
+			if save.GetPolicy() == savev1.SavePolicy_SAVE_POLICY_END &&
+				save.GetType() == savev1.SaveType_SAVE_TYPE_CUSTOM {
 				deferred = append(deferred, i)
 				continue
 			}
@@ -479,7 +481,9 @@ func (t *Intake) CommitUploadOnly(ctx context.Context, rec *recordv1.Record) err
 	}
 	size := record.Size(rec)
 	if err := t.budget.Acquire(ctx, 1, size); err != nil {
-		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		// ErrTooLarge 是确定性错误：重试不会成功，必须原样透传。
+		if errors.Is(err, budget.ErrTooLarge) ||
+			errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 			return err
 		}
 		return overload(err)

@@ -6,6 +6,7 @@ package manager
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"sync"
@@ -22,6 +23,7 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/metrics"
 	"github.com/swanhubx/swanlab/core/internal/pkg/builder"
 	"github.com/swanhubx/swanlab/core/internal/pkg/console"
+	"github.com/swanhubx/swanlab/core/internal/pkg/counter"
 	"github.com/swanhubx/swanlab/core/internal/pkg/record"
 	"github.com/swanhubx/swanlab/core/internal/pkg/watcher"
 	"github.com/swanhubx/swanlab/core/internal/runctx"
@@ -122,12 +124,19 @@ type Session struct {
 	// 装配期依赖；Start 失败回滚后可能只完成部分初始化，使用前必须判空。
 	ctx       context.Context
 	cancel    context.CancelFunc
+	cfg       config.Settings
+	run       *runctx.RunContext
 	store     *store.AsyncWriter
 	intake    *buffer.Intake
 	uploader  *uploader.Uploader
 	tracker   *uploader.Tracker
 	watcher   watcher.Watcher
 	heartbeat *heartbeat
+
+	// 指标与编号状态由 Session.mu 保护；Resume 恢复的 epoch 作为日志起始行号。
+	metrics *metrics.RunMetrics
+	counter *counter.Counter
+	epoch   *counter.Counter
 
 	storeDegraded atomic.Bool
 
@@ -233,6 +242,11 @@ func (m *Manager) DeliverRunStart(
 
 	s := newSession(sessionOptions{})
 	s.ctx, s.cancel = context.WithCancel(context.Background())
+	s.cfg = cfg
+	s.run = run
+	s.metrics = resume.Metrics
+	s.counter = counter.New(0)
+	s.epoch = counter.New(resume.ConsoleEpoch)
 
 	if err = s.open(sessionInit{
 		cfg:          cfg,
@@ -435,9 +449,31 @@ func (s *Session) commitStart(ctx context.Context, rec *runv1.StartRecord) error
 	return nil
 }
 
-// onFileChanged 由 watcher 在 LIVE 文件稳定后调用；C4 负责重新入队。
+// onFileChanged 由 watcher 在 LIVE 文件稳定后调用，重新入队一条 save 记录。
+// 防抖窗口内的残留由 watcher.Stop 在收尾时丢弃（状态门返回 ErrNotRunning）。
 func (s *Session) onFileChanged(rec *savev1.SaveRecord) {
-	console.Debugf("watcher: live save %q changed before save pipeline is ready", rec.GetName())
+	if rec == nil {
+		return
+	}
+	ctx := s.ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	err := s.commitPrepared(ctx, func() (preparedBatch, error) {
+		built, buildErr := builder.BuildSaveRecord(s.counter, rec)
+		if buildErr != nil {
+			return preparedBatch{}, fmt.Errorf("%w: %v", ErrInvalidRecord, buildErr)
+		}
+		return preparedBatch{records: []*recordv1.Record{built}}, nil
+	})
+	if err == nil {
+		return
+	}
+	if errors.Is(err, ErrNotRunning) {
+		console.Debugf("finish: dropped pending file change for %q", rec.GetName())
+		return
+	}
+	console.Warningf("watcher: re-enqueue %q: %v", rec.GetName(), err)
 }
 
 // rollback 释放装配期已创建的资源；所有字段都允许为 nil。
@@ -557,6 +593,14 @@ func (s *Session) waitDrained(ctx context.Context) error {
 // stateSnapshot 返回当前会话状态的并发安全快照。
 func (s *Session) stateSnapshot() RunState {
 	return RunState(s.state.Load())
+}
+
+// snapshot 返回上传进度快照；装配完成前 tracker 为空，返回空统计。
+func (s *Session) snapshot() *operationv1.OperationStats {
+	if s.tracker == nil {
+		return &operationv1.OperationStats{}
+	}
+	return s.tracker.Snapshot()
 }
 
 // failure 返回收尾失败信息。

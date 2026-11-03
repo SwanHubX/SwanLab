@@ -224,6 +224,22 @@ func TestDeliverRunStartResume(t *testing.T) {
 	if cloud.CountFor(http.MethodGet, "/api/house/metrics/summaries/proj-1/exp-1") != 1 {
 		t.Fatal("resume must fetch the experiment summary once")
 	}
+	s, err := mgr.session(result.SessionID)
+	if err != nil {
+		t.Fatalf("session: %v", err)
+	}
+	if !s.metrics.Defined("loss") {
+		t.Fatal("resume metrics were not attached to the session")
+	}
+	if minStep, ok := s.metrics.MinStep("loss"); !ok || minStep != 12 {
+		t.Fatalf("loss min step = %d (defined=%v), want 12", minStep, ok)
+	}
+	if s.epoch == nil || s.epoch.Value() != 21 {
+		t.Fatalf("console epoch not restored: %+v", s.epoch)
+	}
+	if s.counter == nil || s.counter.Value() != 0 {
+		t.Fatalf("record counter must start at 0: %+v", s.counter)
+	}
 }
 
 func TestDeliverRunStartUsesGroupWorkspace(t *testing.T) {
