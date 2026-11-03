@@ -455,7 +455,7 @@ func TestUpsertSavesSkipStoreHasNoLinks(t *testing.T) {
 func TestUpsertRejectsWhenNotRunning(t *testing.T) {
 	h := newUpsertHarness(t, upsertOptions{})
 	ctx := context.Background()
-	if err := h.mgr.Finish(h.id); err != nil {
+	if err := drainBare(h.mgr, h.id); err != nil {
 		t.Fatalf("Finish: %v", err)
 	}
 	calls := []struct {

@@ -13,6 +13,21 @@ import (
 
 func newTestManager() *Manager { return New(Options{}) }
 
+// drainBare 直接驱动裸会话进入 DRAINING，用于不装配收尾资源的状态机测试。
+func drainBare(m *Manager, handle string) error {
+	s, err := m.session(handle)
+	if err != nil {
+		return err
+	}
+	return s.beginDrain()
+}
+
+// confirm 只关心 Confirm 的错误，供不校验响应文案的状态机测试使用。
+func confirm(ctx context.Context, m *Manager, handle string) error {
+	_, err := m.Confirm(ctx, handle)
+	return err
+}
+
 func installBare(t *testing.T, m *Manager, opts sessionOptions) string {
 	t.Helper()
 	handle, err := m.install(newSession(opts))
@@ -39,31 +54,31 @@ func TestManagerLifecycle(t *testing.T) {
 	handle := installBare(t, m, sessionOptions{})
 	mustState(t, m, handle, RunStateRunning)
 
-	if err := m.Confirm(ctx, handle); !errors.Is(err, ErrRunNotFinished) {
+	if err := confirm(ctx, m, handle); !errors.Is(err, ErrRunNotFinished) {
 		t.Fatalf("early Confirm err=%v, want ErrRunNotFinished", err)
 	}
-	if err := m.Finish(handle); err != nil {
+	if err := drainBare(m, handle); err != nil {
 		t.Fatalf("Finish: %v", err)
 	}
 	mustState(t, m, handle, RunStateDraining)
-	if err := m.Finish(handle); err != nil {
+	if err := drainBare(m, handle); err != nil {
 		t.Fatalf("Finish must be idempotent: %v", err)
 	}
 
-	if err := m.Confirm(ctx, handle); err != nil {
+	if err := confirm(ctx, m, handle); err != nil {
 		t.Fatalf("Confirm: %v", err)
 	}
 	if _, err := m.State(handle); !errors.Is(err, ErrSessionNotFound) {
 		t.Fatalf("State after confirm err=%v, want ErrSessionNotFound", err)
 	}
-	if err := m.Finish(handle); !errors.Is(err, ErrSessionNotFound) {
+	if err := drainBare(m, handle); !errors.Is(err, ErrSessionNotFound) {
 		t.Fatalf("Finish after release err=%v, want ErrSessionNotFound", err)
 	}
 	// released 缓存覆盖重复 Confirm，但 State/Finish 仍按不存在处理。
-	if err := m.Confirm(ctx, handle); err != nil {
+	if err := confirm(ctx, m, handle); err != nil {
 		t.Fatalf("repeated Confirm err=%v, want nil", err)
 	}
-	if err := m.Confirm(ctx, ""); !errors.Is(err, ErrEmptySessionID) {
+	if err := confirm(ctx, m, ""); !errors.Is(err, ErrEmptySessionID) {
 		t.Fatalf("empty Confirm err=%v, want ErrEmptySessionID", err)
 	}
 }
@@ -92,12 +107,12 @@ func TestConfirmWaitsForDrain(t *testing.T) {
 		s.markDrained()
 		return nil
 	}
-	if err := m.Finish(handle); err != nil {
+	if err := drainBare(m, handle); err != nil {
 		t.Fatalf("Finish: %v", err)
 	}
 
 	done := make(chan error, 1)
-	go func() { done <- m.Confirm(context.Background(), handle) }()
+	go func() { done <- confirm(context.Background(), m, handle) }()
 
 	<-entered
 	select {
@@ -127,7 +142,7 @@ func TestConcurrentConfirmReleasesOnce(t *testing.T) {
 		s.markDrained()
 		return nil
 	}
-	if err := m.Finish(handle); err != nil {
+	if err := drainBare(m, handle); err != nil {
 		t.Fatalf("Finish: %v", err)
 	}
 
@@ -140,7 +155,7 @@ func TestConcurrentConfirmReleasesOnce(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			<-start
-			errs <- m.Confirm(context.Background(), handle)
+			errs <- confirm(context.Background(), m, handle)
 		}()
 	}
 	close(start)
@@ -155,7 +170,7 @@ func TestConcurrentConfirmReleasesOnce(t *testing.T) {
 		t.Fatalf("release hook called %d times, want 1", got)
 	}
 	// 释放后的重发命中 released 缓存，不得再次执行释放钩子。
-	if err := m.Confirm(context.Background(), handle); err != nil {
+	if err := confirm(context.Background(), m, handle); err != nil {
 		t.Fatalf("repeated Confirm: %v", err)
 	}
 	if got := releases.Load(); got != 1 {
@@ -173,13 +188,13 @@ func TestConfirmTimeoutThenRetry(t *testing.T) {
 		<-ctx.Done()
 		return ctx.Err()
 	}
-	if err := m.Finish(handle); err != nil {
+	if err := drainBare(m, handle); err != nil {
 		t.Fatalf("Finish: %v", err)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
-	go func() { done <- m.Confirm(ctx, handle) }()
+	go func() { done <- confirm(ctx, m, handle) }()
 	<-entered
 	cancel()
 	if err := <-done; !errors.Is(err, context.Canceled) {
@@ -192,7 +207,7 @@ func TestConfirmTimeoutThenRetry(t *testing.T) {
 		s.markDrained()
 		return nil
 	}
-	if err := m.Confirm(context.Background(), handle); err != nil {
+	if err := confirm(context.Background(), m, handle); err != nil {
 		t.Fatalf("retry Confirm: %v", err)
 	}
 	if _, err := m.State(handle); !errors.Is(err, ErrSessionNotFound) {
@@ -204,17 +219,17 @@ func TestConfirmFailedSession(t *testing.T) {
 	m := newTestManager()
 	handle := installBare(t, m, sessionOptions{})
 	s := m.sessions[handle]
-	if err := m.Finish(handle); err != nil {
+	if err := drainBare(m, handle); err != nil {
 		t.Fatalf("Finish: %v", err)
 	}
 	sentinel := errors.New("intake close failed")
 	s.fail(sentinel)
 	mustState(t, m, handle, RunStateFailed)
 
-	if err := m.Confirm(context.Background(), handle); !errors.Is(err, sentinel) {
+	if err := confirm(context.Background(), m, handle); !errors.Is(err, sentinel) {
 		t.Fatalf("Confirm failed session err=%v, want sentinel", err)
 	}
-	if err := m.Finish(handle); !errors.Is(err, sentinel) {
+	if err := drainBare(m, handle); !errors.Is(err, sentinel) {
 		t.Fatalf("Finish failed session err=%v, want sentinel", err)
 	}
 	// FAILED 保留在注册表中，等待后续重试收尾。
@@ -251,12 +266,12 @@ func TestRunIsolation(t *testing.T) {
 	if handleA == handleB {
 		t.Fatal("two runs must receive distinct handles")
 	}
-	if err := m.Finish(handleA); err != nil {
+	if err := drainBare(m, handleA); err != nil {
 		t.Fatal(err)
 	}
 	mustState(t, m, handleA, RunStateDraining)
 	mustState(t, m, handleB, RunStateRunning)
-	if err := m.Confirm(context.Background(), handleA); err != nil {
+	if err := confirm(context.Background(), m, handleA); err != nil {
 		t.Fatalf("Confirm run A: %v", err)
 	}
 	mustState(t, m, handleB, RunStateRunning)
@@ -272,10 +287,10 @@ func TestStartRejectsWhenFull(t *testing.T) {
 		t.Fatalf("err = %v, want ErrTooManySessions", err)
 	}
 	// 释放一个会话后应重新可创建，且不影响其它会话
-	if err := m.Finish(handles[0]); err != nil {
+	if err := drainBare(m, handles[0]); err != nil {
 		t.Fatalf("Finish: %v", err)
 	}
-	if err := m.Confirm(context.Background(), handles[0]); err != nil {
+	if err := confirm(context.Background(), m, handles[0]); err != nil {
 		t.Fatalf("Confirm: %v", err)
 	}
 	if _, err := m.install(newSession(sessionOptions{})); err != nil {
@@ -304,11 +319,11 @@ func TestConcurrentRuns(t *testing.T) {
 					return
 				}
 			}
-			if err = m.Finish(handle); err != nil {
+			if err = drainBare(m, handle); err != nil {
 				errs <- fmt.Errorf("client %d finish: %w", id, err)
 				return
 			}
-			if err = m.Confirm(context.Background(), handle); err != nil {
+			if err = confirm(context.Background(), m, handle); err != nil {
 				errs <- fmt.Errorf("client %d confirm: %w", id, err)
 			}
 		}(i)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -48,7 +49,15 @@ type fakeManager struct {
 	confirmErr error
 	upsertErr  error
 
-	upserts []fakeUpsert
+	confirmResult manager.ConfirmResult
+
+	upserts  []fakeUpsert
+	finishes []fakeFinish
+}
+
+type fakeFinish struct {
+	sessionID string
+	record    *runv1.FinishRecord
 }
 
 type fakeUpsert struct {
@@ -63,7 +72,10 @@ type fakeStart struct {
 }
 
 func newFakeManager() *fakeManager {
-	return &fakeManager{sessions: make(map[string]manager.RunState)}
+	return &fakeManager{
+		sessions:      make(map[string]manager.RunState),
+		confirmResult: manager.ConfirmResult{Message: "OK"},
+	}
 }
 
 func (f *fakeManager) DeliverRunStart(
@@ -126,9 +138,13 @@ func (f *fakeManager) UpsertSaves(_ context.Context, sessionID string, records [
 	return f.recordUpsert("saves", sessionID, len(records))
 }
 
-func (f *fakeManager) Finish(sessionID string) error {
+func (f *fakeManager) DeliverRunFinish(_ context.Context, sessionID string, record *runv1.FinishRecord) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	f.finishes = append(f.finishes, fakeFinish{sessionID: sessionID, record: record})
+	if record == nil {
+		return manager.ErrInvalidFinishRecord
+	}
 	if f.finishErr != nil {
 		return f.finishErr
 	}
@@ -177,27 +193,30 @@ func (f *fakeManager) Stats(sessionID string) (*operationv1.OperationStats, erro
 	return &operationv1.OperationStats{TotalRecords: 7, Rate: 1.5}, nil
 }
 
-func (f *fakeManager) Confirm(_ context.Context, sessionID string) error {
+func (f *fakeManager) Confirm(_ context.Context, sessionID string) (manager.ConfirmResult, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.confirmErr != nil {
-		return f.confirmErr
+		return manager.ConfirmResult{}, f.confirmErr
 	}
 	if sessionID == "" {
-		return manager.ErrEmptySessionID
+		return manager.ConfirmResult{}, manager.ErrEmptySessionID
 	}
 	state, ok := f.sessions[sessionID]
 	if !ok {
-		return manager.ErrSessionNotFound
+		return manager.ConfirmResult{}, manager.ErrSessionNotFound
 	}
 	switch state {
 	case manager.RunStateRunning:
-		return manager.ErrRunNotFinished
+		return manager.ConfirmResult{}, manager.ErrRunNotFinished
 	case manager.RunStateFailed:
-		return manager.ErrRunFailed
+		return manager.ConfirmResult{}, manager.ErrRunFailed
+	}
+	if f.confirmResult.ReleaseFailed {
+		return f.confirmResult, nil
 	}
 	delete(f.sessions, sessionID)
-	return nil
+	return f.confirmResult, nil
 }
 
 type testEnv struct {
@@ -605,7 +624,10 @@ func TestSharedRunIDKeepsSessionsSeparate(t *testing.T) {
 	}
 
 	// 一个会话结束并释放，不影响另一个
-	if _, err = env.client.DeliverRunFinish(ctx, &corev1.DeliverRunFinishRequest{SessionId: rank0.GetSessionId()}); err != nil {
+	if _, err = env.client.DeliverRunFinish(ctx, &corev1.DeliverRunFinishRequest{
+		SessionId:    rank0.GetSessionId(),
+		FinishRecord: &runv1.FinishRecord{State: runv1.RunState_RUN_STATE_FINISHED},
+	}); err != nil {
 		t.Fatalf("finish rank0: %v", err)
 	}
 	if _, err = env.client.ConfirmRunFinish(ctx, &corev1.ConfirmRunFinishRequest{SessionId: rank0.GetSessionId()}); err != nil {
@@ -640,7 +662,10 @@ func TestRunLifecycleAndErrorMapping(t *testing.T) {
 	if _, err = env.client.ConfirmRunFinish(ctx, &corev1.ConfirmRunFinishRequest{SessionId: handle}); status.Code(err) != codes.FailedPrecondition {
 		t.Fatalf("early confirm err=%v, want FailedPrecondition", err)
 	}
-	if _, err = env.client.DeliverRunFinish(ctx, &corev1.DeliverRunFinishRequest{SessionId: handle}); err != nil {
+	if _, err = env.client.DeliverRunFinish(ctx, &corev1.DeliverRunFinishRequest{
+		SessionId:    handle,
+		FinishRecord: &runv1.FinishRecord{State: runv1.RunState_RUN_STATE_FINISHED},
+	}); err != nil {
 		t.Fatalf("DeliverRunFinish: %v", err)
 	}
 	resp, err = env.client.GetOperationStats(ctx, &corev1.GetOperationStatsRequest{SessionId: handle})
@@ -660,6 +685,79 @@ func TestRunLifecycleAndErrorMapping(t *testing.T) {
 	}
 	if _, err := env.client.GetOperationStats(ctx, &corev1.GetOperationStatsRequest{SessionId: handle}); status.Code(err) != codes.NotFound {
 		t.Fatalf("released handle err=%v, want NotFound", err)
+	}
+}
+
+func TestDeliverRunFinishValidationAndFailureResponse(t *testing.T) {
+	env := newTestEnv(t)
+	spinup(t, env)
+	ctx := callCtx(t)
+	handle := startRun(t, env, &runv1.StartRecord{})
+
+	if _, err := env.client.DeliverRunFinish(ctx, &corev1.DeliverRunFinishRequest{SessionId: handle}); status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("missing finish_record err=%v, want InvalidArgument", err)
+	}
+
+	record := &runv1.FinishRecord{State: runv1.RunState_RUN_STATE_FINISHED}
+	env.runs.mu.Lock()
+	env.runs.finishErr = fmt.Errorf("%w: close intake failed", manager.ErrRunFailed)
+	env.runs.mu.Unlock()
+
+	resp, err := env.client.DeliverRunFinish(ctx, &corev1.DeliverRunFinishRequest{
+		SessionId:    handle,
+		FinishRecord: record,
+	})
+	if err != nil {
+		t.Fatalf("finish failure must be carried in the response, got err=%v", err)
+	}
+	if resp.GetSuccess() || !strings.Contains(resp.GetMessage(), "close intake") {
+		t.Fatalf("finish failure response = %v, want success=false with message", resp)
+	}
+
+	env.runs.mu.Lock()
+	got := env.runs.finishes[len(env.runs.finishes)-1]
+	env.runs.mu.Unlock()
+	if got.sessionID != handle || !proto.Equal(got.record, record) {
+		t.Fatalf("finish record not forwarded: %+v", got)
+	}
+}
+
+func TestConfirmRunFinishCarriesReleaseFailure(t *testing.T) {
+	env := newTestEnv(t)
+	spinup(t, env)
+	ctx := callCtx(t)
+	handle := startRun(t, env, &runv1.StartRecord{})
+	if _, err := env.client.DeliverRunFinish(ctx, &corev1.DeliverRunFinishRequest{
+		SessionId:    handle,
+		FinishRecord: &runv1.FinishRecord{State: runv1.RunState_RUN_STATE_FINISHED},
+	}); err != nil {
+		t.Fatalf("DeliverRunFinish: %v", err)
+	}
+
+	env.runs.mu.Lock()
+	env.runs.confirmResult = manager.ConfirmResult{
+		Message:       "Failed to finish run, but it has been saved locally.",
+		ReleaseFailed: true,
+	}
+	env.runs.mu.Unlock()
+
+	resp, err := env.client.ConfirmRunFinish(ctx, &corev1.ConfirmRunFinishRequest{SessionId: handle})
+	if err != nil {
+		t.Fatalf("release failure must be carried in the response, got err=%v", err)
+	}
+	if resp.GetSuccess() || !strings.Contains(resp.GetMessage(), "saved locally") {
+		t.Fatalf("confirm response = %v, want success=false with local-copy message", resp)
+	}
+	if _, err = env.client.GetOperationStats(ctx, &corev1.GetOperationStatsRequest{SessionId: handle}); err != nil {
+		t.Fatalf("session must be retained for retry: %v", err)
+	}
+
+	env.runs.mu.Lock()
+	env.runs.confirmResult = manager.ConfirmResult{Message: "OK"}
+	env.runs.mu.Unlock()
+	resp, err = env.client.ConfirmRunFinish(ctx, &corev1.ConfirmRunFinishRequest{SessionId: handle})
+	if err != nil || !resp.GetSuccess() || resp.GetMessage() != "OK" {
+		t.Fatalf("retry confirm resp=%v err=%v, want success with OK", resp, err)
 	}
 }
 
@@ -697,6 +795,7 @@ func TestManagerStatusMapsClientErrors(t *testing.T) {
 	}{
 		{"invalid settings", manager.ErrInvalidSettings, codes.InvalidArgument},
 		{"invalid start", fmt.Errorf("start: %w", manager.ErrInvalidStartRecord), codes.InvalidArgument},
+		{"invalid finish", fmt.Errorf("finish: %w", manager.ErrInvalidFinishRecord), codes.InvalidArgument},
 		{"missing key", client.ErrMissingAPIKey, codes.InvalidArgument},
 		{"auth", fmt.Errorf("start: %w", client.ErrNotAuthenticated), codes.Unauthenticated},
 		{"not found", &client.APIError{StatusCode: 404}, codes.NotFound},
