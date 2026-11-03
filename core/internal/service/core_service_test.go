@@ -222,8 +222,8 @@ func TestRunLifecycleAndErrorMapping(t *testing.T) {
 		t.Fatalf("DeliverRunFinish: %v", err)
 	}
 	resp, err = env.client.GetOperationStats(ctx, &corev1.GetOperationStatsRequest{SessionId: handle})
-	if err != nil || resp.GetStats().GetState() != operationv1.CoreState_CORE_STATE_FINISHED {
-		t.Fatalf("finished stats: resp=%v err=%v", resp, err)
+	if err != nil || resp.GetStats().GetState() != operationv1.CoreState_CORE_STATE_RUNNING {
+		t.Fatalf("draining stats: resp=%v err=%v, want RUNNING", resp, err)
 	}
 	if _, err := env.client.ConfirmRunFinish(ctx, &corev1.ConfirmRunFinishRequest{SessionId: handle}); err != nil {
 		t.Fatalf("ConfirmRunFinish: %v", err)
@@ -242,5 +242,41 @@ func TestManagerStatusMapsSessionCapacity(t *testing.T) {
 	err := managerStatus(fmt.Errorf("start: %w", manager.ErrTooManySessions))
 	if code := status.Code(err); code != codes.ResourceExhausted {
 		t.Fatalf("code = %v, want ResourceExhausted", code)
+	}
+}
+
+func TestManagerStatusMapsRunFailureAndTimeout(t *testing.T) {
+	cases := []struct {
+		name string
+		err  error
+		want codes.Code
+	}{
+		{"failed", fmt.Errorf("confirm: %w", manager.ErrRunFailed), codes.FailedPrecondition},
+		{"deadline", fmt.Errorf("wait: %w", context.DeadlineExceeded), codes.DeadlineExceeded},
+		{"canceled", fmt.Errorf("wait: %w", context.Canceled), codes.Canceled},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if code := status.Code(managerStatus(tc.err)); code != tc.want {
+				t.Fatalf("code = %v, want %v", code, tc.want)
+			}
+		})
+	}
+}
+
+func TestCoreStateMapping(t *testing.T) {
+	cases := []struct {
+		state manager.RunState
+		want  operationv1.CoreState
+	}{
+		{manager.RunStateRunning, operationv1.CoreState_CORE_STATE_RUNNING},
+		{manager.RunStateDraining, operationv1.CoreState_CORE_STATE_RUNNING},
+		{manager.RunStateDrained, operationv1.CoreState_CORE_STATE_FINISHED},
+		{manager.RunStateFailed, operationv1.CoreState_CORE_STATE_FINISHED},
+	}
+	for _, tc := range cases {
+		if got := coreState(tc.state); got != tc.want {
+			t.Fatalf("coreState(%s) = %v, want %v", tc.state, got, tc.want)
+		}
 	}
 }

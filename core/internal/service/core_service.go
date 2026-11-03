@@ -155,25 +155,32 @@ func (s *CoreService) GetOperationStats(
 	if err != nil {
 		return nil, managerStatus(err)
 	}
-	state := operationv1.CoreState_CORE_STATE_RUNNING
-	if runState == manager.RunStateFinished {
-		state = operationv1.CoreState_CORE_STATE_FINISHED
-	}
 	return &corev1.GetOperationStatsResponse{
 		Success: true,
-		Stats:   &operationv1.OperationStats{State: state},
+		Stats:   &operationv1.OperationStats{State: coreState(runState)},
 	}, nil
+}
+
+// coreState 把内部生命周期状态映射为对外的 CoreState。
+// DRAINING 仍对外表现 RUNNING，直到 uploader 真正排空。
+func coreState(state manager.RunState) operationv1.CoreState {
+	switch state {
+	case manager.RunStateDrained, manager.RunStateFailed:
+		return operationv1.CoreState_CORE_STATE_FINISHED
+	default:
+		return operationv1.CoreState_CORE_STATE_RUNNING
+	}
 }
 
 // ConfirmRunFinish 确认会话已完成并释放相关资源。
 func (s *CoreService) ConfirmRunFinish(
-	_ context.Context,
+	ctx context.Context,
 	req *corev1.ConfirmRunFinishRequest,
 ) (*corev1.ConfirmRunFinishResponse, error) {
 	if err := s.requireReady(); err != nil {
 		return nil, err
 	}
-	if err := s.manager.Confirm(req.GetSessionId()); err != nil {
+	if err := s.manager.Confirm(ctx, req.GetSessionId()); err != nil {
 		return nil, managerStatus(err)
 	}
 	return &corev1.ConfirmRunFinishResponse{Success: true}, nil
@@ -188,8 +195,14 @@ func managerStatus(err error) error {
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, manager.ErrRunNotFinished):
 		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, manager.ErrRunFailed):
+		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, manager.ErrTooManySessions):
 		return status.Error(codes.ResourceExhausted, err.Error())
+	case errors.Is(err, context.DeadlineExceeded):
+		return status.Error(codes.DeadlineExceeded, err.Error())
+	case errors.Is(err, context.Canceled):
+		return status.Error(codes.Canceled, err.Error())
 	default:
 		return status.Error(codes.Internal, err.Error())
 	}
