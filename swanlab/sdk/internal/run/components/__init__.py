@@ -20,7 +20,6 @@ from swanlab.sdk.internal.run.components.config import (
 from swanlab.sdk.internal.run.components.consumer import BackgroundConsumer, ConsumerProtocol
 from swanlab.sdk.internal.run.components.null import NullConsumer, NullEmitter, NullTerminalProxy
 from swanlab.sdk.internal.run.components.terminal import TerminalProxy, TerminalProxyProtocol
-from swanlab.sdk.typings.run.consumer import DEFAULT_CONSUMER_RECORD_BATCH
 
 __all__ = [
     "Components",
@@ -122,6 +121,10 @@ class Components:
 # ==========================================
 
 
+# 单次 RPC 发送的 record 默认批次
+_DEFAULT_CONSUMER_RECORD_BATCH: int = 100
+
+
 def _factory_emitter(ctx: RunContext) -> EmitterProtocol:
     if ctx.config.settings.mode == "disabled":
         return NullEmitter()
@@ -134,7 +137,7 @@ def _factory_consumer(
 ) -> ConsumerProtocol:
     if ctx.config.settings.mode == "disabled":
         return NullConsumer(ctx, e.queue)
-    batch_size = min(DEFAULT_CONSUMER_RECORD_BATCH, ctx.config.settings.core.record_batch)
+    batch_size = min(_DEFAULT_CONSUMER_RECORD_BATCH, ctx.config.settings.core.record_batch)
     return BackgroundConsumer(ctx, e.queue, batch_size=batch_size)
 
 
