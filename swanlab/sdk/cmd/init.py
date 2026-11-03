@@ -636,12 +636,15 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
                 "Hardware information collection, monitor, and terminal proxy have been disabled in resume mode."
             )
         # 3.4. 从 core 响应同步配置（online 模式会覆盖为服务端分配的值）
+        # online 响应的 name 由服务端填写；offline / local / disabled 不填 name，
+        # 此时回退到启动记录里的名字，避免被 strip_empty_str 过滤掉。
+        experiment_name = resp.name or resp.run.name
         sync_args = {}
         merge_dict = helper.strip_none(
             {
                 "project.workspace": resp.run.workspace,
                 "project.name": resp.run.project,
-                "experiment.name": resp.name or resp.run.name,
+                "experiment.name": experiment_name,
                 "experiment.color": resp.run.color,
                 **resume_limit_kwargs,
             },
