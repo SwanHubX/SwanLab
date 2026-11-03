@@ -38,6 +38,7 @@ import (
 
 	"google.golang.org/grpc"
 
+	"github.com/swanhubx/swanlab/core/internal/client"
 	"github.com/swanhubx/swanlab/core/internal/manager"
 	"github.com/swanhubx/swanlab/core/internal/pkg/console"
 	"github.com/swanhubx/swanlab/core/internal/pkg/portinfo"
@@ -177,7 +178,11 @@ func run(args []string) int {
 	// - service.CoreService: 负责 gRPC 请求接入与协议映射。
 	grpcServer := grpc.NewServer(grpc.MaxRecvMsgSize(maxRecvMsgSize))
 	ctrl := server.NewController(grpcServer, shutdownGrace)
-	service.NewCoreService(ctrl, manager.New()).Register(grpcServer)
+	mgr := manager.New(manager.Options{HTTP: client.Options{Version: version}})
+	defer func() { _ = mgr.Close() }()
+	// 关闭顺序：先回收活跃会话（有界），再停止 gRPC；两者共享 shutdownGrace。
+	ctrl.SetOnShutdown(mgr.Shutdown)
+	service.NewCoreService(ctrl, mgr).Register(grpcServer)
 
 	// listen 与 server 初始化成功后写 port-file。
 	if *portFilename != "" {

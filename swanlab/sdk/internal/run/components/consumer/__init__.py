@@ -37,6 +37,9 @@ MediaBatch = List[MediaRecord]
 SaveBatch = List[SaveRecord]
 BatchTuple = Tuple[LogBatch, ColumnBatch, ScalarBatch, MediaBatch, SaveBatch]
 
+# 消费者单次提交的默认批次上限
+DEFAULT_RECORD_BATCH: int = 100
+
 
 class ConsumerProtocol(ABC):
     """消费者协议"""
@@ -46,7 +49,7 @@ class ConsumerProtocol(ABC):
         ctx: RunContext,
         event_queue: RunQueue,
         flush_timeout: float = 0.5,
-        batch_size: int = 100,
+        batch_size: int = DEFAULT_RECORD_BATCH,
     ):
         _ = (ctx, event_queue, flush_timeout, batch_size)
 
@@ -70,7 +73,7 @@ class BackgroundConsumer(ConsumerProtocol):
         ctx: RunContext,
         event_queue: RunQueue,
         flush_timeout: float = 0.5,
-        batch_size: int = 100,
+        batch_size: int = DEFAULT_RECORD_BATCH,
     ):
         super().__init__(ctx, event_queue, flush_timeout, batch_size)
         self._ctx = ctx

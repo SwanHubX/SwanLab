@@ -57,6 +57,17 @@ func saveRecord(num int64, policy savev1.SavePolicy) *recordv1.Record {
 	}
 }
 
+func internalSaveRecord(num int64, policy savev1.SavePolicy) *recordv1.Record {
+	return &recordv1.Record{
+		Num: num,
+		RecordType: &recordv1.Record_Save{Save: &savev1.SaveRecord{
+			Name:   fmt.Sprintf("internal-%d", num),
+			Policy: policy,
+			Type:   savev1.SaveType_SAVE_TYPE_CONFIG,
+		}},
+	}
+}
+
 func demandFor(recs []*recordv1.Record) Demand {
 	var d Demand
 	for _, rec := range recs {
@@ -65,7 +76,8 @@ func demandFor(recs []*recordv1.Record) Demand {
 		switch record.TypeOf(rec) {
 		case record.TypeStart, record.TypeFinish:
 		case record.TypeSave:
-			if rec.GetSave().GetPolicy() == savev1.SavePolicy_SAVE_POLICY_END {
+			if rec.GetSave().GetPolicy() == savev1.SavePolicy_SAVE_POLICY_END &&
+				rec.GetSave().GetType() == savev1.SaveType_SAVE_TYPE_CUSTOM {
 				d.Deferred++
 				d.DeferredBytes += size
 				continue
@@ -426,6 +438,12 @@ func TestCommitRoutes(t *testing.T) {
 			wantStore: 1,
 			flush:     true,
 			// 延迟上传仍占用上传预算，Close 后才进入通道。
+			wantUpload: 1,
+		},
+		{
+			name:       "internal save end uploads immediately",
+			records:    []*recordv1.Record{internalSaveRecord(8, savev1.SavePolicy_SAVE_POLICY_END)},
+			wantStore:  1,
 			wantUpload: 1,
 		},
 	}
@@ -827,6 +845,18 @@ func TestCommitUploadOnly(t *testing.T) {
 	}
 	if records, _ := b.Usage(); records != 1 {
 		t.Fatalf("budget usage = %d, want 1", records)
+	}
+}
+
+func TestCommitUploadOnlyPassesTooLarge(t *testing.T) {
+	b := budget.New(budget.Limits{Bytes: 1})
+	in := newIntake(t, Options{SkipStore: true, Budget: b, UploadQueue: 2})
+	err := in.CommitUploadOnly(context.Background(), logRecord(1))
+	if !errors.Is(err, budget.ErrTooLarge) {
+		t.Fatalf("CommitUploadOnly err = %v, want budget.ErrTooLarge", err)
+	}
+	if errors.Is(err, ErrOverloaded) {
+		t.Fatalf("ErrTooLarge must not be wrapped as ErrOverloaded: %v", err)
 	}
 }
 
