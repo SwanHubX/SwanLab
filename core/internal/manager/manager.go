@@ -146,7 +146,7 @@ func (m *Manager) Confirm(ctx context.Context, sessionID string) error {
 	if released {
 		return nil
 	}
-	if err := s.waitDrained(ctx); err != nil {
+	if err = s.waitDrained(ctx); err != nil {
 		return err
 	}
 

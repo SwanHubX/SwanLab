@@ -73,13 +73,25 @@ type Experiment struct {
 	CreatedAt string `json:"createdAt"`
 }
 
+// ProjectCount 是项目统计信息；默认实验名/颜色只消费历史实验数。
+type ProjectCount struct {
+	Experiments int `json:"experiments"`
+}
+
+// ProjectGroup 是项目所属组织信息；组织空间下用于推导实验 owner。
+type ProjectGroup struct {
+	Username string `json:"username"`
+}
+
 // Project 是项目信息。Version 为 1 表示旧版（无多视图）项目。
 type Project struct {
-	CUID       string `json:"cuid"`
-	Name       string `json:"name"`
-	Path       string `json:"path"`
-	Visibility string `json:"visibility"`
-	Version    int    `json:"version"`
+	CUID       string       `json:"cuid"`
+	Name       string       `json:"name"`
+	Path       string       `json:"path"`
+	Visibility string       `json:"visibility"`
+	Version    int          `json:"version"`
+	Count      ProjectCount `json:"_count"`
+	Group      ProjectGroup `json:"group"`
 }
 
 // ColumnStep 是 Resume 摘要中单列的步数水位。
