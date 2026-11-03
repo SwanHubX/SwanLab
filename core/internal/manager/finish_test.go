@@ -14,6 +14,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/swanhubx/swanlab/core/internal/api"
 	"github.com/swanhubx/swanlab/core/internal/budget"
 	"github.com/swanhubx/swanlab/core/internal/buffer"
 	"github.com/swanhubx/swanlab/core/internal/config"
@@ -794,5 +795,24 @@ func TestManagerShutdownDrainsActiveSessions(t *testing.T) {
 	}
 	if got := len(h.uploads.snapshot()); got == 0 {
 		t.Fatal("shutdown must drain accepted records through the uploader")
+	}
+}
+
+func TestRunStateFromProto(t *testing.T) {
+	cases := []struct {
+		in   runv1.RunState
+		want api.RunState
+	}{
+		// RUNNING 不是合法的收尾状态，Python 侧同样按正常结束上报。
+		{runv1.RunState_RUN_STATE_RUNNING, api.RunStateFinished},
+		{runv1.RunState_RUN_STATE_FINISHED, api.RunStateFinished},
+		{runv1.RunState_RUN_STATE_CRASHED, api.RunStateCrashed},
+		{runv1.RunState_RUN_STATE_ABORTED, api.RunStateAborted},
+		{runv1.RunState(99), api.RunStateFinished},
+	}
+	for _, tc := range cases {
+		if got := runStateFromProto(tc.in); got != tc.want {
+			t.Fatalf("runStateFromProto(%v) = %q, want %q", tc.in, got, tc.want)
+		}
 	}
 }
