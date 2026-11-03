@@ -10,7 +10,12 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"go.uber.org/goleak"
 )
+
+func TestMain(m *testing.M) {
+	goleak.VerifyTestMain(m)
+}
 
 func newTestManager() *Manager { return New(Options{}) }
 

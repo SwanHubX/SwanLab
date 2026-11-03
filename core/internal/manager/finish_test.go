@@ -451,3 +451,43 @@ func TestDeliverRunFinishSkipStore(t *testing.T) {
 		t.Fatalf("uploaded %d records, want only the config save", got)
 	}
 }
+
+// Shutdown 面向进程退出：排空会话、刷盘且不写 FinishRecord，也不上报实验终态。
+func TestManagerShutdownDrainsActiveSessions(t *testing.T) {
+	h := newFinishHarness(t, finishOptions{})
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := h.mgr.UpsertScalars(ctx, h.id, []*datav1.ScalarRecord{
+		scalarRecord("shutdown/loss", 0, columnv1.ColumnType_COLUMN_TYPE_SCALAR),
+	}); err != nil {
+		t.Fatalf("UpsertScalars: %v", err)
+	}
+	var stops int
+	h.session.releaseFn = func(context.Context) error {
+		stops++
+		return nil
+	}
+	if err := h.mgr.Shutdown(ctx); err != nil {
+		t.Fatalf("Shutdown: %v", err)
+	}
+	if stops != 0 {
+		t.Fatalf("Shutdown must not call stop_experiment, got %d call(s)", stops)
+	}
+	if state := h.session.stateSnapshot(); state != RunStateDrained {
+		t.Fatalf("state = %s, want drained", state)
+	}
+
+	records := readStore(t, h.runFile)
+	if len(records) == 0 {
+		t.Fatal("shutdown must flush accepted records to the local store")
+	}
+	for _, item := range records {
+		if item.GetNum() == record.NumFinish {
+			t.Fatal("shutdown must not synthesize a FinishRecord")
+		}
+	}
+	if got := len(h.uploads.snapshot()); got == 0 {
+		t.Fatal("shutdown must drain accepted records through the uploader")
+	}
+}

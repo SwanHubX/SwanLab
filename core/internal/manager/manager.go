@@ -223,11 +223,22 @@ func (m *Manager) Confirm(ctx context.Context, sessionID string) (ConfirmResult,
 		return ConfirmResult{}, ErrRunNotFinished
 	}
 
+	// 与 Python 对齐：排空成功后先停心跳，再上报实验终态；失败时心跳保持停止，
+	// 会话保留供重试，避免重试期间继续发送心跳。
+	if s.heartbeat != nil {
+		s.heartbeat.stop()
+	}
 	if s.releaseFn != nil {
 		if err = s.releaseFn(ctx); err != nil {
 			console.Warningf("confirm: stop experiment %q: %v", sessionID, err)
 			return ConfirmResult{Message: s.confirmMessage(), ReleaseFailed: true}, nil
 		}
+	}
+	if s.uploader != nil {
+		_ = s.uploader.Close()
+	}
+	if s.cancel != nil {
+		s.cancel()
 	}
 
 	m.mu.Lock()
@@ -235,6 +246,64 @@ func (m *Manager) Confirm(ctx context.Context, sessionID string) (ConfirmResult,
 	m.released.add(sessionID)
 	m.mu.Unlock()
 	return ConfirmResult{Message: confirmOKMessage}, nil
+}
+
+// Shutdown 有界回收全部活跃会话，供进程退出钩子调用。
+//
+// 每个会话并发执行「DRAINING → 停 watcher/heartbeat → 关本地 store →
+// Intake.Close → RequestFinish → 等待排空」，不调用 stop_experiment；
+// 总等待受 ctx 限制，超时后强制关闭所有 uploader 并告警。
+func (m *Manager) Shutdown(ctx context.Context) error {
+	m.mu.RLock()
+	sessions := make([]*Session, 0, len(m.sessions))
+	for _, s := range m.sessions {
+		sessions = append(sessions, s)
+	}
+	m.mu.RUnlock()
+	if len(sessions) == 0 {
+		return nil
+	}
+
+	var wg sync.WaitGroup
+	for _, s := range sessions {
+		wg.Add(1)
+		go func(s *Session) {
+			defer wg.Done()
+			s.shutdown(ctx)
+		}(s)
+	}
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-ctx.Done():
+		console.Warningf("shutdown: %d active session(s) still draining, forcing uploader close", len(sessions))
+	}
+
+	// 无论是否在预算内排空，都释放 uploader 的 worker 协程；已排空时 Close 为 no-op。
+	for _, s := range sessions {
+		if s.uploader != nil {
+			if err := s.uploader.Close(); err != nil {
+				console.Warningf("shutdown: close uploader: %v", err)
+			}
+		}
+	}
+
+	select {
+	case <-done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+// Close 释放 Manager 持有的进程级资源（HTTP 连接池），可重复调用。
+func (m *Manager) Close() error {
+	return m.factory.Close()
 }
 
 // lookup 在同一把读锁内区分「已释放」与「已注册」，避免两次读取之间被其它

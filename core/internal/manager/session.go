@@ -526,6 +526,42 @@ func (s *Session) rollback() {
 	}
 }
 
+// shutdown 执行进程退出时的有界收尾：不写 FinishRecord，也不调用 stop_experiment。
+// 顺序与 DeliverRunFinish 对齐，但全部等待受 ctx 约束，供 Manager.Shutdown 汇总。
+func (s *Session) shutdown(ctx context.Context) {
+	_ = s.beginDrain()
+	if s.heartbeat != nil {
+		s.heartbeat.stop()
+	}
+	if s.watcher != nil {
+		s.watcher.Stop()
+	}
+	s.stopRecovery()
+	if s.store != nil {
+		if err := s.store.CloseContext(ctx); err != nil {
+			console.Warningf("shutdown: close local store: %v", err)
+		}
+	}
+	closed := true
+	if s.intake != nil {
+		if err := s.intake.Close(ctx); err != nil {
+			console.Warningf("shutdown: close intake: %v", err)
+			closed = false
+		}
+	}
+	if closed && s.uploader != nil {
+		s.uploader.RequestFinish()
+	}
+	if s.uploader != nil {
+		if err := s.uploader.Wait(ctx); err != nil {
+			console.Warningf("shutdown: wait for drain: %v", err)
+		}
+	}
+	if s.cancel != nil {
+		s.cancel()
+	}
+}
+
 // queueSize 是上传通道与 store 通道容量：单批记录最多因自动列翻倍。
 func queueSize(batch int32) int { return queueFactor * int(batch) }
 
