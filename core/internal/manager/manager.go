@@ -7,6 +7,8 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
+
+	"github.com/swanhubx/swanlab/core/internal/client"
 )
 
 var (
@@ -20,6 +22,10 @@ var (
 	ErrRunFailed = errors.New("run finish failed")
 	// ErrTooManySessions 表示会话数已达上限，需要先释放已结束的会话。
 	ErrTooManySessions = errors.New("session registry is full")
+	// ErrInvalidSettings 表示启动配置不合法，属于调用方参数错误。
+	ErrInvalidSettings = errors.New("invalid run settings")
+	// ErrInvalidStartRecord 表示启动记录或云端返回的实验元数据不完整。
+	ErrInvalidStartRecord = errors.New("invalid start record")
 )
 
 const (
@@ -63,6 +69,12 @@ func (c *releasedCache) add(id string) {
 	c.next = (c.next + 1) % releasedCapacity
 }
 
+// Options 是 Manager 的构造参数。
+type Options struct {
+	// HTTP 配置共享连接池、重试与鉴权探活行为。
+	HTTP client.Options
+}
+
 // Manager 维护 session_id 到会话的映射注册表，并统一编排 Run 级的生命周期。
 //
 // 注册表锁只用于定位、插入与移除会话；排空等待、stop_experiment 等可能阻塞的动作
@@ -71,25 +83,21 @@ type Manager struct {
 	mu       sync.RWMutex
 	sessions map[string]*Session
 	released releasedCache
+	factory  *client.Factory
 }
 
 // New 创建并初始化会话管理器实例。
-func New() *Manager {
+func New(opts Options) *Manager {
 	return &Manager{
 		sessions: make(map[string]*Session),
 		released: newReleasedCache(),
+		factory:  client.NewFactory(opts.HTTP),
 	}
 }
 
-// Start 创建新的 Run 会话，并返回 UUIDv7 形式的会话标识（session_id）。
-// 每次调用都创建独立会话，不按实验身份去重：同一个 run_id 可能由多个进程上报
-// （多 rank、resume 复用实验），它们的缓冲与上传状态必须互不影响。
-func (m *Manager) Start() (string, error) {
-	return m.start(sessionOptions{})
-}
-
-// start 是 Start 的内部实现，允许测试注入排空与释放钩子。
-func (m *Manager) start(opts sessionOptions) (string, error) {
+// install 生成 session_id 并把已装配完成的会话插入注册表。
+// 插入前再次校验容量，避免装配期间其它会话占满槽位。
+func (m *Manager) install(s *Session) (string, error) {
 	id, err := uuid.NewV7()
 	if err != nil {
 		return "", fmt.Errorf("generate session id: %w", err)
@@ -101,8 +109,15 @@ func (m *Manager) start(opts sessionOptions) (string, error) {
 	if len(m.sessions) >= maxSessions {
 		return "", fmt.Errorf("%w: limit %d", ErrTooManySessions, maxSessions)
 	}
-	m.sessions[sessionID] = newSession(opts)
+	m.sessions[sessionID] = s
 	return sessionID, nil
+}
+
+// hasCapacity 在装配前做一次快速容量预检，避免为注定失败的会话申请外部资源。
+func (m *Manager) hasCapacity() bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return len(m.sessions) < maxSessions
 }
 
 // Finish 幂等标记指定会话进入排空阶段（RUNNING → DRAINING）。

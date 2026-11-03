@@ -177,7 +177,7 @@ func run(args []string) int {
 	// - service.CoreService: 负责 gRPC 请求接入与协议映射。
 	grpcServer := grpc.NewServer(grpc.MaxRecvMsgSize(maxRecvMsgSize))
 	ctrl := server.NewController(grpcServer, shutdownGrace)
-	service.NewCoreService(ctrl, manager.New()).Register(grpcServer)
+	service.NewCoreService(ctrl, manager.New(manager.Options{})).Register(grpcServer)
 
 	// listen 与 server 初始化成功后写 port-file。
 	if *portFilename != "" {

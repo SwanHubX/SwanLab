@@ -10,17 +10,31 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 
+	"github.com/swanhubx/swanlab/core/internal/client"
+	"github.com/swanhubx/swanlab/core/internal/config"
 	"github.com/swanhubx/swanlab/core/internal/manager"
 	"github.com/swanhubx/swanlab/core/internal/server"
 	corev1 "github.com/swanhubx/swanlab/core/proto/swanlab/grpc/core/v1"
 	operationv1 "github.com/swanhubx/swanlab/core/proto/swanlab/operation/v1"
+	runv1 "github.com/swanhubx/swanlab/core/proto/swanlab/run/v1"
+	settingsv1 "github.com/swanhubx/swanlab/core/proto/swanlab/settings/core/v1"
 )
+
+// RunManager 是 service 依赖的会话编排接口，由 manager.Manager 实现；
+// gRPC 单测可注入 Fake，避免每个 RPC 用例都依赖真实云端。
+type RunManager interface {
+	DeliverRunStart(context.Context, config.Settings, *runv1.StartRecord) (*manager.StartResult, error)
+	Finish(string) error
+	State(string) (manager.RunState, error)
+	Confirm(context.Context, string) error
+}
 
 // CoreService 实现生成的 CoreServiceServer 契约，作为 gRPC 请求的接入网关。
 type CoreService struct {
@@ -28,15 +42,15 @@ type CoreService struct {
 
 	controller *server.Controller
 	lifecycle  *server.Lifecycle
-	manager    *manager.Manager
+	runs       RunManager
 }
 
 // NewCoreService 创建 gRPC 接入服务实例，关联服务生命周期控制器与 Run 会话管理器。
-func NewCoreService(controller *server.Controller, runManager *manager.Manager) *CoreService {
+func NewCoreService(controller *server.Controller, runManager RunManager) *CoreService {
 	return &CoreService{
 		controller: controller,
 		lifecycle:  controller.Lifecycle(),
-		manager:    runManager,
+		runs:       runManager,
 	}
 }
 
@@ -86,7 +100,7 @@ func (s *CoreService) TeardownService(
 // 它们共享实验身份，但缓冲与上传状态必须各自独立。
 // run_id 由 SDK 生成后透传，core 不补写。
 func (s *CoreService) DeliverRunStart(
-	_ context.Context,
+	ctx context.Context,
 	req *corev1.DeliverRunStartRequest,
 ) (*corev1.DeliverRunStartResponse, error) {
 	if err := s.requireReady(); err != nil {
@@ -96,17 +110,64 @@ func (s *CoreService) DeliverRunStart(
 	if record == nil {
 		return nil, status.Error(codes.InvalidArgument, "start_record must not be nil")
 	}
-	sessionID, err := s.manager.Start()
+	settings, err := settingsFromProto(req.GetCoreSettings())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	result, err := s.runs.DeliverRunStart(ctx, settings, record)
 	if err != nil {
 		return nil, managerStatus(err)
 	}
-	// 骨架阶段没有云端，new_experiment 无法由 create-or-resume 判定，恒报 true。
+	if result.Path == "" {
+		return nil, status.Error(codes.InvalidArgument, "project path is empty; online mode requires a path")
+	}
 	return &corev1.DeliverRunStartResponse{
-		Success:       true,
-		Run:           record,
-		NewExperiment: true,
-		SessionId:     sessionID,
+		Success:          true,
+		Run:              result.Run,
+		Path:             result.Path,
+		Name:             result.Name,
+		GlobalStep:       result.GlobalStep,
+		GlobalSystemStep: result.GlobalSystemStep,
+		NewExperiment:    result.NewExperiment,
+		SessionId:        result.SessionID,
 	}, nil
+}
+
+// settingsFromProto 把 CoreSettings 一一映射为纯 Go 配置，并补齐 pydantic 未覆盖的下界。
+func settingsFromProto(in *settingsv1.CoreSettings) (config.Settings, error) {
+	if in == nil {
+		return config.Settings{}, errors.New("core_settings must not be nil")
+	}
+	settings := config.Settings{
+		RunID:          in.GetRunId(),
+		RunDir:         in.GetRunDir(),
+		SectionRule:    in.GetSectionRule(),
+		RecordBatch:    in.GetRecordBatch(),
+		RecordInterval: in.GetRecordInterval(),
+		SaveSize:       in.GetSaveSize(),
+		SaveSplit:      in.GetSaveSplit(),
+		SavePart:       in.GetSavePart(),
+		SaveBatch:      in.GetSaveBatch(),
+		SkipStore:      in.GetSkipStore(),
+		APIKey:         in.GetApiKey(),
+		APIHost:        in.GetApiHost(),
+		WebHost:        in.GetWebHost(),
+	}
+	if settings.APIHost == "" {
+		return config.Settings{}, errors.New("api_host must not be empty")
+	}
+	if settings.APIKey == "" {
+		return config.Settings{}, errors.New("api_key must not be empty")
+	}
+	if settings.SaveSize <= 0 || settings.SaveSplit <= 0 || settings.SaveBatch <= 0 {
+		return config.Settings{}, fmt.Errorf(
+			"save_size (%d), save_split (%d) and save_batch (%d) must be positive",
+			settings.SaveSize, settings.SaveSplit, settings.SaveBatch)
+	}
+	if err := settings.Validate(); err != nil {
+		return config.Settings{}, err
+	}
+	return settings, nil
 }
 
 func (s *CoreService) UpsertColumns(context.Context, *corev1.UpsertColumnsRequest) (*emptypb.Empty, error) {
@@ -137,7 +198,7 @@ func (s *CoreService) DeliverRunFinish(
 	if err := s.requireReady(); err != nil {
 		return nil, err
 	}
-	if err := s.manager.Finish(req.GetSessionId()); err != nil {
+	if err := s.runs.Finish(req.GetSessionId()); err != nil {
 		return nil, managerStatus(err)
 	}
 	return &corev1.DeliverRunFinishResponse{Success: true}, nil
@@ -151,7 +212,7 @@ func (s *CoreService) GetOperationStats(
 	if err := s.requireReady(); err != nil {
 		return nil, err
 	}
-	runState, err := s.manager.State(req.GetSessionId())
+	runState, err := s.runs.State(req.GetSessionId())
 	if err != nil {
 		return nil, managerStatus(err)
 	}
@@ -180,7 +241,7 @@ func (s *CoreService) ConfirmRunFinish(
 	if err := s.requireReady(); err != nil {
 		return nil, err
 	}
-	if err := s.manager.Confirm(ctx, req.GetSessionId()); err != nil {
+	if err := s.runs.Confirm(ctx, req.GetSessionId()); err != nil {
 		return nil, managerStatus(err)
 	}
 	return &corev1.ConfirmRunFinishResponse{Success: true}, nil
@@ -197,8 +258,18 @@ func managerStatus(err error) error {
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, manager.ErrRunFailed):
 		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, manager.ErrInvalidSettings), errors.Is(err, manager.ErrInvalidStartRecord):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, client.ErrMissingAPIKey), errors.Is(err, client.ErrMissingAPIHost):
+		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, manager.ErrTooManySessions):
 		return status.Error(codes.ResourceExhausted, err.Error())
+	case client.IsAuthenticationError(err):
+		return status.Error(codes.Unauthenticated, err.Error())
+	case client.IsNotFound(err):
+		return status.Error(codes.NotFound, err.Error())
+	case client.IsRetryable(err):
+		return status.Error(codes.Unavailable, err.Error())
 	case errors.Is(err, context.DeadlineExceeded):
 		return status.Error(codes.DeadlineExceeded, err.Error())
 	case errors.Is(err, context.Canceled):

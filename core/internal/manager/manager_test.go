@@ -11,6 +11,17 @@ import (
 	"github.com/google/uuid"
 )
 
+func newTestManager() *Manager { return New(Options{}) }
+
+func installBare(t *testing.T, m *Manager, opts sessionOptions) string {
+	t.Helper()
+	handle, err := m.install(newSession(opts))
+	if err != nil {
+		t.Fatalf("install session: %v", err)
+	}
+	return handle
+}
+
 func mustState(t *testing.T, m *Manager, handle string, want RunState) {
 	t.Helper()
 	got, err := m.State(handle)
@@ -23,12 +34,9 @@ func mustState(t *testing.T, m *Manager, handle string, want RunState) {
 }
 
 func TestManagerLifecycle(t *testing.T) {
-	m := New()
+	m := newTestManager()
 	ctx := context.Background()
-	handle, err := m.Start()
-	if err != nil || handle == "" {
-		t.Fatalf("Start: handle=%q err=%v", handle, err)
-	}
+	handle := installBare(t, m, sessionOptions{})
 	mustState(t, m, handle, RunStateRunning)
 
 	if err := m.Confirm(ctx, handle); !errors.Is(err, ErrRunNotFinished) {
@@ -60,15 +68,12 @@ func TestManagerLifecycle(t *testing.T) {
 	}
 }
 
-func TestStartGeneratesUUIDv7(t *testing.T) {
-	m := New()
-	id, err := m.Start()
+func TestInstallGeneratesUUIDv7(t *testing.T) {
+	m := newTestManager()
+	handle := installBare(t, m, sessionOptions{})
+	parsed, err := uuid.Parse(handle)
 	if err != nil {
-		t.Fatalf("Start: %v", err)
-	}
-	parsed, err := uuid.Parse(id)
-	if err != nil {
-		t.Fatalf("session id %q is not a uuid: %v", id, err)
+		t.Fatalf("session id %q is not a uuid: %v", handle, err)
 	}
 	if parsed.Version() != 7 {
 		t.Fatalf("session id version = %d, want 7", parsed.Version())
@@ -76,21 +81,17 @@ func TestStartGeneratesUUIDv7(t *testing.T) {
 }
 
 func TestConfirmWaitsForDrain(t *testing.T) {
-	m := New()
+	m := newTestManager()
 	entered := make(chan struct{})
 	release := make(chan struct{})
-
-	var s *Session
-	handle, err := m.start(sessionOptions{drainFn: func(context.Context) error {
+	handle := installBare(t, m, sessionOptions{})
+	s := m.sessions[handle]
+	s.drainFn = func(context.Context) error {
 		close(entered)
 		<-release
 		s.markDrained()
 		return nil
-	}})
-	if err != nil {
-		t.Fatalf("start: %v", err)
 	}
-	s = m.sessions[handle]
 	if err := m.Finish(handle); err != nil {
 		t.Fatalf("Finish: %v", err)
 	}
@@ -115,15 +116,12 @@ func TestConfirmWaitsForDrain(t *testing.T) {
 }
 
 func TestConcurrentConfirmReleasesOnce(t *testing.T) {
-	m := New()
+	m := newTestManager()
 	var releases atomic.Int32
-	handle, err := m.start(sessionOptions{releaseFn: func(context.Context) error {
+	handle := installBare(t, m, sessionOptions{releaseFn: func(context.Context) error {
 		releases.Add(1)
 		return nil
 	}})
-	if err != nil {
-		t.Fatalf("start: %v", err)
-	}
 	s := m.sessions[handle]
 	s.drainFn = func(context.Context) error {
 		s.markDrained()
@@ -166,17 +164,15 @@ func TestConcurrentConfirmReleasesOnce(t *testing.T) {
 }
 
 func TestConfirmTimeoutThenRetry(t *testing.T) {
-	m := New()
+	m := newTestManager()
 	entered := make(chan struct{})
-	handle, err := m.start(sessionOptions{drainFn: func(ctx context.Context) error {
+	handle := installBare(t, m, sessionOptions{})
+	s := m.sessions[handle]
+	s.drainFn = func(ctx context.Context) error {
 		close(entered)
 		<-ctx.Done()
 		return ctx.Err()
-	}})
-	if err != nil {
-		t.Fatalf("start: %v", err)
 	}
-	s := m.sessions[handle]
 	if err := m.Finish(handle); err != nil {
 		t.Fatalf("Finish: %v", err)
 	}
@@ -205,11 +201,8 @@ func TestConfirmTimeoutThenRetry(t *testing.T) {
 }
 
 func TestConfirmFailedSession(t *testing.T) {
-	m := New()
-	handle, err := m.start(sessionOptions{})
-	if err != nil {
-		t.Fatalf("start: %v", err)
-	}
+	m := newTestManager()
+	handle := installBare(t, m, sessionOptions{})
 	s := m.sessions[handle]
 	if err := m.Finish(handle); err != nil {
 		t.Fatalf("Finish: %v", err)
@@ -229,7 +222,7 @@ func TestConfirmFailedSession(t *testing.T) {
 }
 
 func TestReleasedCacheEviction(t *testing.T) {
-	m := New()
+	m := newTestManager()
 	for i := 0; i < releasedCapacity+4; i++ {
 		m.mu.Lock()
 		m.released.add(fmt.Sprintf("id-%d", i))
@@ -252,15 +245,9 @@ func TestReleasedCacheEviction(t *testing.T) {
 }
 
 func TestRunIsolation(t *testing.T) {
-	m := New()
-	handleA, err := m.Start()
-	if err != nil {
-		t.Fatal(err)
-	}
-	handleB, err := m.Start()
-	if err != nil {
-		t.Fatal(err)
-	}
+	m := newTestManager()
+	handleA := installBare(t, m, sessionOptions{})
+	handleB := installBare(t, m, sessionOptions{})
 	if handleA == handleB {
 		t.Fatal("two runs must receive distinct handles")
 	}
@@ -276,16 +263,12 @@ func TestRunIsolation(t *testing.T) {
 }
 
 func TestStartRejectsWhenFull(t *testing.T) {
-	m := New()
+	m := newTestManager()
 	handles := make([]string, 0, maxSessions)
 	for i := 0; i < maxSessions; i++ {
-		handle, err := m.Start()
-		if err != nil {
-			t.Fatalf("start %d: %v", i, err)
-		}
-		handles = append(handles, handle)
+		handles = append(handles, installBare(t, m, sessionOptions{}))
 	}
-	if _, err := m.Start(); !errors.Is(err, ErrTooManySessions) {
+	if _, err := m.install(newSession(sessionOptions{})); !errors.Is(err, ErrTooManySessions) {
 		t.Fatalf("err = %v, want ErrTooManySessions", err)
 	}
 	// 释放一个会话后应重新可创建，且不影响其它会话
@@ -295,14 +278,14 @@ func TestStartRejectsWhenFull(t *testing.T) {
 	if err := m.Confirm(context.Background(), handles[0]); err != nil {
 		t.Fatalf("Confirm: %v", err)
 	}
-	if _, err := m.Start(); err != nil {
-		t.Fatalf("Start after release: %v", err)
+	if _, err := m.install(newSession(sessionOptions{})); err != nil {
+		t.Fatalf("install after release: %v", err)
 	}
 	mustState(t, m, handles[1], RunStateRunning)
 }
 
 func TestConcurrentRuns(t *testing.T) {
-	m := New()
+	m := newTestManager()
 	const clients = 4
 	var wg sync.WaitGroup
 	errs := make(chan error, clients)
@@ -310,9 +293,9 @@ func TestConcurrentRuns(t *testing.T) {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
-			handle, err := m.Start()
+			handle, err := m.install(newSession(sessionOptions{}))
 			if err != nil {
-				errs <- fmt.Errorf("client %d start: %w", id, err)
+				errs <- fmt.Errorf("client %d install: %w", id, err)
 				return
 			}
 			for j := 0; j < 20; j++ {
