@@ -15,8 +15,13 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+import requests
 
+from swanlab.exceptions import ApiError, AuthenticationError
 from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
+    CORE_ERROR_KIND_AUTH,
+    CORE_ERROR_KIND_OTHER,
+    CORE_ERROR_KIND_TRANSIENT,
     ConfirmRunFinishResponse,
     DeliverRunFinishRequest,
     DeliverRunStartRequest,
@@ -141,6 +146,92 @@ class TestCorePythonStart:
         assert resp.success is False
         assert "Failed to start run" in resp.message
         assert error_message in resp.message
+        assert core._active is False
+
+
+# ============================================================
+# TestCorePythonOnlineStartFailure
+# ============================================================
+
+
+class TestCorePythonOnlineStartFailure:
+    def test_connection_error_returns_transient(self, tmp_path, monkeypatch):
+        core = CorePython("online")
+        monkeypatch.setattr(core, "_report_run_start", MagicMock(side_effect=requests.ConnectionError("boom")))
+
+        resp = core.deliver_run_start(make_start_request(tmp_path, make_start_record()))
+
+        assert resp.success is False
+        assert resp.error_kind == CORE_ERROR_KIND_TRANSIENT
+        assert "boom" in resp.message
+        assert core._active is False
+
+    def test_authentication_error_returns_auth(self, tmp_path, monkeypatch):
+        core = CorePython("online")
+        monkeypatch.setattr(
+            core,
+            "_report_run_start",
+            MagicMock(side_effect=AuthenticationError("invalid API key")),
+        )
+
+        resp = core.deliver_run_start(make_start_request(tmp_path, make_start_record()))
+
+        assert resp.success is False
+        assert resp.error_kind == CORE_ERROR_KIND_AUTH
+
+    def test_api_503_returns_transient(self, tmp_path, monkeypatch):
+        core = CorePython("online")
+        error = ApiError(
+            MagicMock(status_code=503, url="https://api.test/project"),
+            method="GET",
+            code=503,
+            message="unavailable",
+        )
+        monkeypatch.setattr(core, "_report_run_start", MagicMock(side_effect=error))
+
+        resp = core.deliver_run_start(make_start_request(tmp_path, make_start_record()))
+
+        assert resp.success is False
+        assert resp.error_kind == CORE_ERROR_KIND_TRANSIENT
+
+    def test_business_error_returns_other(self, tmp_path, monkeypatch):
+        core = CorePython("online")
+        monkeypatch.setattr(core, "_report_run_start", MagicMock(side_effect=RuntimeError("experiment not found")))
+
+        resp = core.deliver_run_start(make_start_request(tmp_path, make_start_record()))
+
+        assert resp.success is False
+        assert resp.error_kind == CORE_ERROR_KIND_OTHER
+
+    def test_malformed_response_returns_transient(self, tmp_path, monkeypatch):
+        core = CorePython("online")
+        monkeypatch.setattr(core, "_report_run_start", MagicMock(side_effect=ValueError("missing field")))
+
+        resp = core.deliver_run_start(make_start_request(tmp_path, make_start_record()))
+
+        assert resp.success is False
+        assert resp.error_kind == CORE_ERROR_KIND_TRANSIENT
+
+    def test_local_start_failure_is_other_and_cleans_resources(self, tmp_path, monkeypatch):
+        core = CorePython("online")
+
+        def _report_run_start_and_set_attrs(record):
+            set_online_params(core)
+            core._metrics = MagicMock()
+            return DeliverRunStartResponse(success=True, message="OK", run=make_start_record())
+
+        monkeypatch.setattr(core, "_report_run_start", _report_run_start_and_set_attrs)
+        monkeypatch.setattr(
+            "swanlab.sdk.internal.core_python.core.Transport",
+            MagicMock(side_effect=RuntimeError("local boom")),
+        )
+
+        resp = core.deliver_run_start(make_start_request(tmp_path, make_start_record()))
+
+        assert resp.success is False
+        assert resp.error_kind == CORE_ERROR_KIND_OTHER
+        assert core._store is None
+        assert core._transport is None
         assert core._active is False
 
 

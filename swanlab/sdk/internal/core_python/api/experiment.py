@@ -12,6 +12,7 @@ from google.protobuf.timestamp_pb2 import Timestamp
 from swanlab.exceptions import ApiError
 from swanlab.proto.swanlab.run.v1.run_pb2 import RUN_STATE_ABORTED, RUN_STATE_CRASHED, RunState
 from swanlab.sdk.internal.core_python import client
+from swanlab.sdk.internal.core_python.api import STARTUP_RETRIES
 from swanlab.sdk.internal.pkg import helper
 from swanlab.sdk.typings.core_python.api.experiment import (
     InitExperimentType,
@@ -54,7 +55,7 @@ def create_or_resume_experiment(
         if run_id is None:
             raise ValueError("run_id must be provided when resume is 'must'")
         try:
-            client.get(f"/project/{username}/{project}/runs/{run_id}")
+            client.get(f"/project/{username}/{project}/runs/{run_id}", retries=STARTUP_RETRIES)
         except ApiError as e:
             if e.response.status_code == 404 and e.response.reason == "Not Found":
                 raise RuntimeError(f"Experiment {run_id} does not exist in project {project}")
@@ -72,7 +73,11 @@ def create_or_resume_experiment(
         "cluster": group,
         "cuid": run_id,
     }
-    resp = client.post(f"/project/{username}/{project}/experiment", helper.strip_none(body, strip_empty_str=True))
+    resp = client.post(
+        f"/project/{username}/{project}/experiment",
+        helper.strip_none(body, strip_empty_str=True),
+        retries=STARTUP_RETRIES,
+    )
     # 200代表实验已存在，开启更新模式
     # 201代表实验不存在，新建实验
     # NOTE: 后端返回值没有携带createdAt字段，如果实验不存在则使用上报的 createdAt（当前时刻）作为实验创建时间，否则再请求一次获取实验创建时间
@@ -82,7 +87,7 @@ def create_or_resume_experiment(
         experiment["createdAt"] = reported_at
     elif not experiment.get("createdAt"):
         # 旧后端 POST 响应未携带 createdAt，回退到 GET 获取
-        exp_resp = client.get(f"/project/{username}/{project}/runs/{experiment['cuid']}")
+        exp_resp = client.get(f"/project/{username}/{project}/runs/{experiment['cuid']}", retries=STARTUP_RETRIES)
         created_at_for_response = exp_resp.data.get("createdAt", "")
         if not created_at_for_response:
             raise ValueError(
@@ -105,7 +110,11 @@ def get_experiment_summary(
     :raises ValueError: created_at 缺失或无法解析时抛出，避免回退到全历史扫描导致慢查询
     """
     ts = parse_resp_timestamp_s(created_at)
-    resp = client.get(f"/house/metrics/summaries/{project_id}/{experiment_id}", {"all": True, "createdAt": ts})
+    resp = client.get(
+        f"/house/metrics/summaries/{project_id}/{experiment_id}",
+        {"all": True, "createdAt": ts},
+        retries=STARTUP_RETRIES,
+    )
     return resp.data
 
 

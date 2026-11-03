@@ -86,7 +86,7 @@ def test_resume_falls_back_to_get_when_created_at_missing(monkeypatch):
 
     assert is_new is False
     assert experiment["createdAt"] == "2024-07-01T00:00:00Z"
-    get.assert_called_once_with("/project/alice/demo/runs/experiment-id")
+    get.assert_called_once_with("/project/alice/demo/runs/experiment-id", retries=1)
 
 
 def test_resume_raises_when_get_also_missing_created_at(monkeypatch):
@@ -98,7 +98,7 @@ def test_resume_raises_when_get_also_missing_created_at(monkeypatch):
     with pytest.raises(ValueError, match="upgrade swanlab-server"):
         _call_create_or_resume()
 
-    get.assert_called_once_with("/project/alice/demo/runs/experiment-id")
+    get.assert_called_once_with("/project/alice/demo/runs/experiment-id", retries=1)
 
 
 def _stale_timestamp() -> Timestamp:

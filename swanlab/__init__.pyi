@@ -139,7 +139,8 @@ def init(
     :param log_dir: Directory to store logs. Defaults to "./swanlog".
     :param mode: Run mode. Options: "online" (sync to cloud), "local" (local only),
         "offline" (save locally for later sync), "disabled" (no logging). Defaults to "online".
-    :param on_online_error: Behavior when SwanLab Cloud is unavailable in online mode. Defaults to "offline".
+    :param on_online_error: Behavior when SwanLab Cloud is unavailable in online mode. Options: "offline"
+        (save locally and sync later), "disabled" (no logging), "raise". Defaults to "offline".
     :param workspace: Workspace or organization name. Defaults to current user.
     :param project: Project name. Defaults to current directory name.
     :param public: Make project publicly visible (online mode only). Defaults to False.

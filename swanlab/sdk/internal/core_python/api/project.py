@@ -10,6 +10,7 @@ from typing import Optional
 from swanlab.deprecated.project import get_or_create_old_project
 from swanlab.exceptions import ApiError
 from swanlab.sdk.internal.core_python import client
+from swanlab.sdk.internal.core_python.api import STARTUP_RETRIES
 from swanlab.sdk.typings.core_python.api.project import ProjectType
 
 
@@ -35,14 +36,14 @@ def get_or_create_project(*, username: Optional[str], name: str, public: bool) -
     # 2. 先请求接口获取项目信息，如果404再尝试创建项目
     # 因为此时项目可能是已经存在的，但是当前用户只有写入权限，此时调用创建项目的接口返回403，属于非预期行为
     try:
-        return client.get(f"/project/{username}/{name}", log_error=False).data
+        return client.get(f"/project/{username}/{name}", retries=STARTUP_RETRIES, log_error=False).data
     except ApiError as e:
         if e.response.status_code != 404:
             raise e
     try:
         # 3. 尝试调用新接口创建项目
         # 已创建：200 ; 创建成功：201 ; 失败：4xx/5xx
-        client.post(f"/projects/{username}", data=data)
+        client.post(f"/projects/{username}", data=data, retries=STARTUP_RETRIES)
     except ApiError as e:
         # 4. 如果新接口不存在，则调用旧接口创建项目
         if e.response.status_code == 404:
@@ -51,4 +52,4 @@ def get_or_create_project(*, username: Optional[str], name: str, public: bool) -
             raise e
 
     # 5. 获取项目信息
-    return client.get(f"/project/{username}/{name}").data
+    return client.get(f"/project/{username}/{name}", retries=STARTUP_RETRIES).data

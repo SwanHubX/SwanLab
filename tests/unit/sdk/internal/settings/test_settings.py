@@ -992,6 +992,11 @@ def test_on_online_error_reads_env(monkeypatch):
     assert Settings().on_online_error == "raise"
 
 
+def test_on_online_error_accepts_disabled(monkeypatch):
+    monkeypatch.setenv("SWANLAB_ON_ONLINE_ERROR", "disabled")
+    assert Settings().on_online_error == "disabled"
+
+
 def test_on_online_error_rejects_invalid_value(monkeypatch):
     monkeypatch.setenv("SWANLAB_ON_ONLINE_ERROR", "invalid")
     with pytest.raises(ValidationError):

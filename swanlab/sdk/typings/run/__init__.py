@@ -22,10 +22,11 @@ ModeType = Literal["disabled", "online", "local", "offline"]
 Run 运行策略
 """
 
-OnlineErrorPolicy = Literal["offline", "raise"]
+OnlineErrorPolicy = Literal["disabled", "offline", "raise"]
 """
 在线模式连接失败策略
 
+* `disabled`: 服务不可用时降级为 disabled，训练继续但不记录数据。
 * `offline`: 服务不可用时降级为 offline，继续本地记录。
 * `raise`: 保持严格失败，连接异常时直接抛错。
 """

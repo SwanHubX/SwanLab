@@ -42,7 +42,7 @@ from swanlab.sdk.internal.core_python.api.experiment import (
 from swanlab.sdk.internal.core_python.context import CoreContext
 from swanlab.sdk.internal.core_python.heartbeat import Heartbeat
 from swanlab.sdk.internal.core_python.metrics import RunMetrics
-from swanlab.sdk.internal.core_python.pkg import builder, counter
+from swanlab.sdk.internal.core_python.pkg import builder, counter, errors
 from swanlab.sdk.internal.core_python.store import DataStoreWriter, DataStoreWriterProtocol, NullDataStoreWriter
 from swanlab.sdk.internal.core_python.transport import Transport
 from swanlab.sdk.internal.core_python.transport.tracker import UploadTracker
@@ -106,6 +106,9 @@ class CorePython(CoreProtocol):
         if self._active:
             return DeliverRunStartResponse(success=False, message="Run has already been active.")
         resp = super().deliver_run_start(start_request)
+        # 启动失败统一在这里清理，与具体的模式实现解耦
+        if not resp.success:
+            self._cleanup_failed_start()
         self._active = resp.success
         return resp
 
@@ -143,7 +146,13 @@ class CorePython(CoreProtocol):
 
     def _start_when_online(self, start_request: DeliverRunStartRequest) -> DeliverRunStartResponse:
         self._ctx = CoreContext.from_proto(start_request.core_settings)
-        resp = self._report_run_start(start_request.start_record)
+        # 模式降级，只有请求后端创建/恢复项目与实验的失败参与降级分类；
+        # 本地资源启动失败由协议层统一返回 OTHER，不参与降级。
+        try:
+            resp = self._report_run_start(start_request.start_record)
+        except Exception as e:
+            return self._start_failure(e, errors.classify_start_error(e))
+
         self._start_store(resp)
         self._tracker = UploadTracker()
         self._tracker.set_state(CoreState.CORE_STATE_RUNNING)
@@ -151,6 +160,23 @@ class CorePython(CoreProtocol):
         self._heartbeat = Heartbeat(self._ctx.experiment_id)
         self._heartbeat.start()
         return resp
+
+    def _cleanup_failed_start(self) -> None:
+        """启动失败后由 Core 自行释放已创建的资源，不删除 run file。"""
+        self._tracker = None
+        self._metrics = None
+        if self._heartbeat is not None:
+            with safe.block(message="Failed to stop heartbeat after start failure"):
+                self._heartbeat.stop()
+            self._heartbeat = None
+        if self._transport is not None:
+            with safe.block(message="Failed to stop transport after start failure"):
+                self._transport.request_finish()
+                self._transport.join(timeout=1.0)
+            self._transport = None
+        with safe.block(message="Failed to release local storage after start failure"):
+            self._release_local_storage()
+        self._run_ctx = None
 
     def _report_run_start(self, record: StartRecord) -> DeliverRunStartResponse:
         """
@@ -485,12 +511,17 @@ class CorePython(CoreProtocol):
             # 另一方面因为这个 record 也是为了适应后端“报错信息写在CH”的设计
         # 2. 关闭存储、文件监视器等本地资源，停止接受新的记录
         self._store_records([record])
-        self._store.close()
-        self._store = None
+        self._release_local_storage()
+        return log_record
+
+    def _release_local_storage(self) -> None:
+        """关闭本地存储与文件监听，异常交由调用方处理。"""
+        if self._store is not None:
+            self._store.close()
+            self._store = None
         if self._watcher is not None:
             self._watcher.stop()
             self._watcher = None
-        return log_record
 
     def _finish_when_local(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse:
         self._store_finish(finish_request.finish_record)
