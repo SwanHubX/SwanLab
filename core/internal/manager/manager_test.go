@@ -21,11 +21,13 @@ func TestMain(m *testing.M) {
 func newTestManager() *Manager { return New(Options{}) }
 
 // drainBare 直接驱动裸会话进入 DRAINING，用于不装配收尾资源的状态机测试。
+// finishCommitted 置位以模拟 FinishRecord 已提交，避免触发“Shutdown 仅排空”的保护。
 func drainBare(m *Manager, handle string) error {
 	s, err := m.session(handle)
 	if err != nil {
 		return err
 	}
+	s.finishCommitted = true
 	return s.beginDrain()
 }
 

@@ -380,6 +380,13 @@ func TestDeliverRunFinishStoreFailureDegradesOnly(t *testing.T) {
 	if state := h.session.stateSnapshot(); state != RunStateDrained {
 		t.Fatalf("state = %s, want drained", state)
 	}
+	// store 降级时 finishCommitted 同样置位，Confirm 仍可正常释放。
+	if _, err := h.mgr.Confirm(ctx, h.id); err != nil {
+		t.Fatalf("Confirm: %v", err)
+	}
+	if _, err := h.mgr.State(h.id); !errors.Is(err, ErrSessionNotFound) {
+		t.Fatalf("State after confirm err=%v, want ErrSessionNotFound", err)
+	}
 }
 
 func TestDeliverRunFinishIntakeCloseFailureMarksFailed(t *testing.T) {
@@ -756,6 +763,13 @@ func TestDeliverRunFinishSkipStore(t *testing.T) {
 	if got := len(h.uploads.snapshot()); got != 1 {
 		t.Fatalf("uploaded %d records, want only the config save", got)
 	}
+	// skip_store 下 finishCommitted 同样置位，Confirm 仍可正常释放。
+	if _, err := h.mgr.Confirm(ctx, h.id); err != nil {
+		t.Fatalf("Confirm: %v", err)
+	}
+	if _, err := h.mgr.State(h.id); !errors.Is(err, ErrSessionNotFound) {
+		t.Fatalf("State after confirm err=%v, want ErrSessionNotFound", err)
+	}
 }
 
 // Shutdown 面向进程退出：排空会话、刷盘且不写 FinishRecord，也不上报实验终态。
@@ -832,6 +846,44 @@ func TestDeliverRunFinishRepeatsAfterDrain(t *testing.T) {
 	waitDrained(t, h.session)
 	if err := h.mgr.DeliverRunFinish(ctx, h.id, finishRecord(runv1.RunState_RUN_STATE_FINISHED, "")); err != nil {
 		t.Fatalf("repeated DeliverRunFinish after drain: %v", err)
+	}
+}
+
+// Shutdown 只做上传排空、不写 FinishRecord：Confirm 不能把它当作正常结束释放。
+func TestConfirmRejectsSessionDrainedByShutdown(t *testing.T) {
+	h := newFinishHarness(t, finishOptions{})
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := h.mgr.UpsertScalars(ctx, h.id, []*datav1.ScalarRecord{
+		scalarRecord("shutdown/confirm", 0, columnv1.ColumnType_COLUMN_TYPE_SCALAR),
+	}); err != nil {
+		t.Fatalf("UpsertScalars: %v", err)
+	}
+	var stops int
+	h.session.releaseFn = func(context.Context) error {
+		stops++
+		return nil
+	}
+
+	if err := h.mgr.Shutdown(ctx); err != nil {
+		t.Fatalf("Shutdown: %v", err)
+	}
+	if state := h.session.stateSnapshot(); state != RunStateDrained {
+		t.Fatalf("state after shutdown = %s, want drained", state)
+	}
+
+	if _, err := h.mgr.Confirm(ctx, h.id); !errors.Is(err, ErrRunFailed) {
+		t.Fatalf("Confirm err=%v, want ErrRunFailed", err)
+	}
+	if stops != 0 {
+		t.Fatalf("stop_experiment called %d times, want 0", stops)
+	}
+	if _, err := h.mgr.State(h.id); err != nil {
+		t.Fatalf("session must stay registered after rejected Confirm: %v", err)
+	}
+	if h.mgr.isReleased(h.id) {
+		t.Fatal("rejected session must not enter the released cache")
 	}
 }
 

@@ -179,19 +179,15 @@ func (s *Session) prepareMedia(records []*datav1.MediaRecord) (preparedBatch, er
 	return preparedBatch{records: planned, apply: apply}, nil
 }
 
-// upsertLogs 按 record_batch 分块提交。日志没有去重键，块间也不原子：
-// 部分接纳后重试整批会产生重复行，幂等性依赖客户端单批不超过 record_batch。
+// upsertLogs 在单批内提交日志。日志没有去重键，跨块部分提交后整批重试会产生
+// 重复行，因此要求一次 RPC 不超过 record_batch，超限直接拒绝。
 func (s *Session) upsertLogs(ctx context.Context, records []*terminalv1.LogRecord) error {
-	size := s.chunkSize()
-	for start := 0; start < len(records); start += size {
-		chunk := records[start:min(start+size, len(records))]
-		if err := s.commitPrepared(ctx, func() (preparedBatch, error) {
-			return s.prepareLogs(chunk)
-		}); err != nil {
-			return err
-		}
+	if err := s.checkBatchLimit(len(records)); err != nil {
+		return err
 	}
-	return nil
+	return s.commitPrepared(ctx, func() (preparedBatch, error) {
+		return s.prepareLogs(records)
+	})
 }
 
 func (s *Session) prepareLogs(records []*terminalv1.LogRecord) (preparedBatch, error) {
@@ -205,17 +201,15 @@ func (s *Session) prepareLogs(records []*terminalv1.LogRecord) (preparedBatch, e
 	return preparedBatch{records: planned}, nil
 }
 
+// upsertSaves 在单批内提交保存记录。CUSTOM Save 与日志同理没有去重键，
+// 跨块部分提交后整批重试会重复上传，因此要求一次 RPC 不超过 record_batch。
 func (s *Session) upsertSaves(ctx context.Context, records []*savev1.SaveRecord) error {
-	size := s.chunkSize()
-	for start := 0; start < len(records); start += size {
-		chunk := records[start:min(start+size, len(records))]
-		if err := s.commitPrepared(ctx, func() (preparedBatch, error) {
-			return s.prepareSaves(chunk)
-		}); err != nil {
-			return err
-		}
+	if err := s.checkBatchLimit(len(records)); err != nil {
+		return err
 	}
-	return nil
+	return s.commitPrepared(ctx, func() (preparedBatch, error) {
+		return s.prepareSaves(records)
+	})
 }
 
 // prepareSaves 构建内部类型与 CUSTOM 保存记录。CUSTOM save 与日志同理没有去重键，

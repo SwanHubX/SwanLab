@@ -67,6 +67,14 @@ func (s *Session) finish(ctx context.Context, rec *runv1.FinishRecord) error {
 	return nil
 }
 
+// finishCommittedNow 在 finishMu 下读取终态提交标记，与 DeliverRunFinish 和
+// Shutdown 的收尾序列互斥，避免读到中间状态。
+func (s *Session) finishCommittedNow() bool {
+	s.finishMu.Lock()
+	defer s.finishMu.Unlock()
+	return s.finishCommitted
+}
+
 // prepareFinish 保存终态记录并构建崩溃 error_log。
 //
 // 崩溃 error_log 按 Python 的设计只上传不落盘；暂时入队失败时由 pendingLog

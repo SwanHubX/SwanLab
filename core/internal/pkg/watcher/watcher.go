@@ -145,44 +145,64 @@ func New(filesDir string, onChange func(*savev1.SaveRecord), opts ...Option) (*F
 }
 
 // RegisterLive 为 LIVE 记录注册监听。非 LIVE 记录会被忽略。
+// 批量注册按事务处理：任一条失败时撤销本批新增的条目与目录，既有监听保持不变。
 func (w *FileWatcher) RegisterLive(saves []*savev1.SaveRecord) error {
-	var errs []error
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	var (
+		addedTargets []string
+		addedDirs    []string
+		errs         []error
+	)
 	for _, save := range saves {
 		if save.GetPolicy() != savev1.SavePolicy_SAVE_POLICY_LIVE {
 			continue
 		}
-		if err := w.register(save); err != nil {
+		target, dir, added, err := w.registerLocked(save)
+		if added {
+			addedTargets = append(addedTargets, target)
+		}
+		if dir != "" {
+			addedDirs = append(addedDirs, dir)
+		}
+		if err != nil {
 			errs = append(errs, fmt.Errorf("watch %q: %w", save.GetName(), err))
+			break
 		}
 	}
-	return errors.Join(errs...)
+	if len(errs) > 0 {
+		w.rollbackLocked(addedTargets, addedDirs)
+		return errors.Join(errs...)
+	}
+	return nil
 }
 
-func (w *FileWatcher) register(save *savev1.SaveRecord) error {
-	target := save.GetTargetPath()
+// registerLocked 注册单个文件，返回新增的条目与目录供失败回滚；调用方需持有 mu。
+func (w *FileWatcher) registerLocked(save *savev1.SaveRecord) (target, newDir string, added bool, err error) {
+	target = save.GetTargetPath()
 	if target == "" {
 		target = fs.MirrorPath(w.filesDir, save.GetName())
 	}
 	target = filepath.Clean(target)
 	source := resolveSource(target, save.GetSourcePath())
 
-	w.mu.Lock()
-	defer w.mu.Unlock()
 	if w.stopped {
-		return errStopped
+		return target, "", false, errStopped
 	}
 	if _, ok := w.entries[target]; ok {
-		return nil
+		return target, "", false, nil
 	}
 	if err := w.startLocked(); err != nil {
-		return err
+		return target, "", false, err
 	}
 	dir := filepath.Dir(source)
 	if _, ok := w.watchedDirs[dir]; !ok {
 		if err := w.fsWatcher.Add(dir); err != nil {
-			return fmt.Errorf("watch dir %q: %w", dir, err)
+			return target, "", false, fmt.Errorf("watch dir %q: %w", dir, err)
 		}
 		w.watchedDirs[dir] = struct{}{}
+		newDir = dir
 	}
 	info, _ := statFile(source)
 	w.entries[target] = &fileEntry{
@@ -192,7 +212,24 @@ func (w *FileWatcher) register(save *savev1.SaveRecord) error {
 		policy:     save.GetPolicy(),
 		info:       info,
 	}
-	return nil
+	return target, newDir, true, nil
+}
+
+// rollbackLocked 撤销本批新增的监听，不影响此前已注册的文件；调用方需持有 mu。
+func (w *FileWatcher) rollbackLocked(targets, dirs []string) {
+	for _, target := range targets {
+		delete(w.entries, target)
+		if timer, ok := w.timers[target]; ok {
+			timer.timer.Stop()
+			delete(w.timers, target)
+		}
+	}
+	for _, dir := range dirs {
+		if w.fsWatcher != nil {
+			_ = w.fsWatcher.Remove(dir)
+		}
+		delete(w.watchedDirs, dir)
+	}
 }
 
 // resolveSource 解析软链接指向的真实文件；目标不是软链接时优先用源路径，

@@ -578,6 +578,7 @@ func TestUpsertRPCsMapErrors(t *testing.T) {
 		{"not running", manager.ErrNotRunning, codes.FailedPrecondition},
 		{"overloaded", manager.ErrOverloaded, codes.ResourceExhausted},
 		{"invalid record", manager.ErrInvalidRecord, codes.InvalidArgument},
+		{"request too large", manager.ErrRequestTooLarge, codes.InvalidArgument},
 		{"unknown session", manager.ErrSessionNotFound, codes.NotFound},
 		{"empty session", manager.ErrEmptySessionID, codes.InvalidArgument},
 	}

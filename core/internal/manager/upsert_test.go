@@ -538,6 +538,89 @@ func TestUpsertSavesRejectedBatchDoesNotWatch(t *testing.T) {
 	}
 }
 
+// 超限请求必须在构建前整体拒绝：不得消耗编号，也不得产生软链接、监听或入队。
+func TestUpsertRejectsOversizedBatches(t *testing.T) {
+	h := newUpsertHarness(t, upsertOptions{batch: 1, queue: 4})
+	ctx := context.Background()
+	fake := &countingWatcher{}
+	h.session.watcher = fake
+
+	logs := []*terminalv1.LogRecord{{Line: "first"}, {Line: "second"}}
+	if err := h.mgr.UpsertLogs(ctx, h.id, logs); !errors.Is(err, ErrRequestTooLarge) {
+		t.Fatalf("oversized logs err=%v, want ErrRequestTooLarge", err)
+	}
+
+	sourcePath := filepath.Join(t.TempDir(), "a.txt")
+	if err := os.WriteFile(sourcePath, []byte("data"), 0o644); err != nil {
+		t.Fatalf("write source: %v", err)
+	}
+	saves := []*savev1.SaveRecord{
+		{Name: "config.yaml", Policy: savev1.SavePolicy_SAVE_POLICY_NOW, Type: savev1.SaveType_SAVE_TYPE_CONFIG},
+		{Name: "a.txt", SourcePath: sourcePath, Policy: savev1.SavePolicy_SAVE_POLICY_NOW, Type: savev1.SaveType_SAVE_TYPE_CUSTOM},
+	}
+	if err := h.mgr.UpsertSaves(ctx, h.id, saves); !errors.Is(err, ErrRequestTooLarge) {
+		t.Fatalf("oversized saves err=%v, want ErrRequestTooLarge", err)
+	}
+
+	if got := drainRecords(h.upload); len(got) != 0 {
+		t.Fatalf("rejected batches uploaded %d records, want 0", len(got))
+	}
+	if got := len(drainStore(h.storeCh)); got != 0 {
+		t.Fatalf("rejected batches stored %d records, want 0", got)
+	}
+	if got := fake.registers.Load(); got != 0 {
+		t.Fatalf("rejected batches registered %d live watchers, want 0", got)
+	}
+	if _, err := os.Stat(filepath.Join(h.session.run.FilesDir(), "a.txt")); !os.IsNotExist(err) {
+		t.Fatalf("rejected batch created a save link, stat err=%v", err)
+	}
+	if stats, err := h.mgr.Stats(h.id); err != nil || stats.GetTotalRecords() != 0 {
+		t.Fatalf("stats after rejected batches = %v (err=%v), want 0 records", stats, err)
+	}
+
+	// 被拒请求不消耗编号：首条合法日志仍从 1 开始编号。
+	if err := h.mgr.UpsertLogs(ctx, h.id, logs[:1]); err != nil {
+		t.Fatalf("UpsertLogs after rejection: %v", err)
+	}
+	uploaded := drainRecords(h.upload)
+	if len(uploaded) != 1 || uploaded[0].GetLog().GetEpoch() != 1 {
+		t.Fatalf("first accepted log = %v, want epoch 1", uploaded)
+	}
+}
+
+// 单条 RPC 内不再有部分接纳：容量失败重试后日志不能重复，epoch 也不能重复。
+func TestUpsertLogsRetryAfterCapacityFailureDoesNotDuplicate(t *testing.T) {
+	h := newUpsertHarness(t, upsertOptions{batch: 1, queue: 2})
+	ctx := context.Background()
+
+	if err := h.mgr.UpsertLogs(ctx, h.id, []*terminalv1.LogRecord{{Line: "first"}}); err != nil {
+		t.Fatalf("first UpsertLogs: %v", err)
+	}
+	h.storeCh <- store.Request{} // 占满剩余容量
+	if err := h.mgr.UpsertLogs(ctx, h.id, []*terminalv1.LogRecord{{Line: "second"}}); !errors.Is(err, ErrOverloaded) {
+		t.Fatalf("second UpsertLogs err=%v, want ErrOverloaded", err)
+	}
+	<-h.storeCh
+	if err := h.mgr.UpsertLogs(ctx, h.id, []*terminalv1.LogRecord{{Line: "second"}}); err != nil {
+		t.Fatalf("retry UpsertLogs: %v", err)
+	}
+
+	uploaded := drainRecords(h.upload)
+	if len(uploaded) != 2 {
+		t.Fatalf("uploaded %d logs, want 2", len(uploaded))
+	}
+	seen := make(map[int64]struct{}, len(uploaded))
+	for _, rec := range uploaded {
+		if _, ok := seen[rec.GetLog().GetEpoch()]; ok {
+			t.Fatalf("duplicate log epoch %d", rec.GetLog().GetEpoch())
+		}
+		seen[rec.GetLog().GetEpoch()] = struct{}{}
+	}
+	if got := len(drainStore(h.storeCh)); got != 2 {
+		t.Fatalf("stored %d logs, want 2", got)
+	}
+}
+
 func TestUpsertReserveFailureLeavesMetricsUntouched(t *testing.T) {
 	h := newUpsertHarness(t, upsertOptions{batch: 1, queue: 2})
 	ctx := context.Background()

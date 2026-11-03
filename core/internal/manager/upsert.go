@@ -117,3 +117,13 @@ func (s *Session) chunkSize() int {
 	}
 	return int(s.cfg.RecordBatch)
 }
+
+// checkBatchLimit 拒绝超过 record_batch 的请求。日志与 CUSTOM Save 没有跨块
+// 去重键，只接纳部分块会让整批重试产生重复，因此在构建前整体拒绝。
+func (s *Session) checkBatchLimit(n int) error {
+	limit := s.chunkSize()
+	if n > limit {
+		return fmt.Errorf("%w: %d records exceed record_batch %d", ErrRequestTooLarge, n, limit)
+	}
+	return nil
+}

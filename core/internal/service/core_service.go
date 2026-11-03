@@ -338,7 +338,8 @@ func managerStatus(err error) error {
 	case errors.Is(err, manager.ErrOverloaded):
 		return status.Error(codes.ResourceExhausted, err.Error())
 	case errors.Is(err, manager.ErrInvalidSettings), errors.Is(err, manager.ErrInvalidStartRecord),
-		errors.Is(err, manager.ErrInvalidFinishRecord), errors.Is(err, manager.ErrInvalidRecord):
+		errors.Is(err, manager.ErrInvalidFinishRecord), errors.Is(err, manager.ErrInvalidRecord),
+		errors.Is(err, manager.ErrRequestTooLarge):
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, client.ErrMissingAPIKey), errors.Is(err, client.ErrMissingAPIHost):
 		return status.Error(codes.InvalidArgument, err.Error())
