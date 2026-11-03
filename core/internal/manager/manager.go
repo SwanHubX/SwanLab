@@ -33,7 +33,8 @@ var (
 	ErrTooManySessions = errors.New("session registry is full")
 	// ErrInvalidSettings 表示启动配置不合法，属于调用方参数错误。
 	ErrInvalidSettings = errors.New("invalid run settings")
-	// ErrInvalidStartRecord 表示启动记录或云端返回的实验元数据不完整。
+	// ErrInvalidStartRecord 表示启动记录本身不合法（nil 或未知 resume 模式）。
+	// 云端返回的元数据不完整属于协议错误，由 client.ErrInvalidResponse 表示。
 	ErrInvalidStartRecord = errors.New("invalid start record")
 	// ErrInvalidFinishRecord 表示未提供结束记录，属于调用方参数错误。
 	ErrInvalidFinishRecord = errors.New("finish record must not be nil")
@@ -234,7 +235,11 @@ func (m *Manager) Confirm(ctx context.Context, sessionID string) (ConfirmResult,
 	// 与 Python 对齐：排空成功后先停心跳，再上报实验终态；失败时心跳保持停止，
 	// 会话保留供重试，避免重试期间继续发送心跳。
 	if s.heartbeat != nil {
-		s.heartbeat.stop()
+		s.heartbeat.stop(ctx)
+		// 心跳等待可能耗尽 RPC 预算，ctx 已失效时不再发 stop_experiment。
+		if err = ctx.Err(); err != nil {
+			return ConfirmResult{}, err
+		}
 	}
 	if s.releaseFn != nil {
 		if err = s.releaseFn(ctx); err != nil {

@@ -8,6 +8,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"go.uber.org/goleak"
@@ -181,6 +182,40 @@ func TestConcurrentConfirmReleasesOnce(t *testing.T) {
 	}
 	if got := releases.Load(); got != 1 {
 		t.Fatalf("release hook called %d times after retry, want 1", got)
+	}
+}
+
+// 收尾失败必须能唤醒正在等排空的 Confirm：否则 drainFn 永不返回，
+// Confirm 只能等到自己的 deadline，把可重试的失败变成超时。
+func TestConfirmWakesOnFinishFailure(t *testing.T) {
+	m := newTestManager()
+	entered := make(chan struct{})
+	handle := installBare(t, m, sessionOptions{})
+	s := m.sessions[handle]
+	s.drainFn = func(ctx context.Context) error {
+		close(entered)
+		<-ctx.Done()
+		return ctx.Err()
+	}
+	if err := drainBare(m, handle); err != nil {
+		t.Fatalf("Finish: %v", err)
+	}
+
+	done := make(chan error, 1)
+	go func() { done <- confirm(context.Background(), m, handle) }()
+	<-entered
+	s.fail(errors.New("boom"))
+
+	select {
+	case err := <-done:
+		if !errors.Is(err, ErrRunFailed) {
+			t.Fatalf("Confirm err=%v, want ErrRunFailed", err)
+		}
+		if errors.Is(err, context.Canceled) {
+			t.Fatalf("Confirm err=%v, must not be reported as cancellation", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("Confirm did not wake after the finish failed")
 	}
 }
 

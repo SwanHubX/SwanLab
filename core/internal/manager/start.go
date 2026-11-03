@@ -10,6 +10,7 @@ import (
 
 	"github.com/swanhubx/swanlab/core/internal/api"
 	"github.com/swanhubx/swanlab/core/internal/buffer"
+	"github.com/swanhubx/swanlab/core/internal/client"
 	"github.com/swanhubx/swanlab/core/internal/config"
 	"github.com/swanhubx/swanlab/core/internal/metrics"
 	"github.com/swanhubx/swanlab/core/internal/pkg/builder"
@@ -61,7 +62,7 @@ func (m *Manager) DeliverRunStart(
 	if workspace == "" || projectName == "" || project.CUID == "" || project.Path == "" {
 		return nil, fmt.Errorf(
 			"%w: incomplete project metadata (workspace=%q project=%q cuid=%q path=%q)",
-			ErrInvalidStartRecord, workspace, projectName, project.CUID, project.Path)
+			client.ErrInvalidResponse, workspace, projectName, project.CUID, project.Path)
 	}
 
 	name := rec.GetName()
@@ -90,7 +91,7 @@ func (m *Manager) DeliverRunStart(
 	}
 	if experiment.CUID == "" || experiment.Name == "" {
 		return nil, fmt.Errorf("%w: incomplete experiment metadata (cuid=%q name=%q)",
-			ErrInvalidStartRecord, experiment.CUID, experiment.Name)
+			client.ErrInvalidResponse, experiment.CUID, experiment.Name)
 	}
 
 	run.SetOnlineParams(runctx.OnlineParams{

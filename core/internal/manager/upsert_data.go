@@ -179,6 +179,8 @@ func (s *Session) prepareMedia(records []*datav1.MediaRecord) (preparedBatch, er
 	return preparedBatch{records: planned, apply: apply}, nil
 }
 
+// upsertLogs 按 record_batch 分块提交。日志没有去重键，块间也不原子：
+// 部分接纳后重试整批会产生重复行，幂等性依赖客户端单批不超过 record_batch。
 func (s *Session) upsertLogs(ctx context.Context, records []*terminalv1.LogRecord) error {
 	size := s.chunkSize()
 	for start := 0; start < len(records); start += size {
@@ -216,6 +218,8 @@ func (s *Session) upsertSaves(ctx context.Context, records []*savev1.SaveRecord)
 	return nil
 }
 
+// prepareSaves 构建内部类型与 CUSTOM 保存记录。CUSTOM save 与日志同理没有去重键，
+// 块间非原子，幂等性依赖客户端单批不超过 record_batch。
 func (s *Session) prepareSaves(records []*savev1.SaveRecord) (preparedBatch, error) {
 	internal := make([]*savev1.SaveRecord, 0, len(records))
 	custom := make([]*savev1.SaveRecord, 0, len(records))
@@ -249,9 +253,6 @@ func (s *Session) prepareSaves(records []*savev1.SaveRecord) (preparedBatch, err
 				console.Infof("Symlinked %d files into the SwanLab run directory; "+
 					"call swanlab.save again to sync new files.", created)
 			}
-			if err = s.watcher.RegisterLive(custom); err != nil {
-				return preparedBatch{}, fmt.Errorf("upsert saves: watch live saves: %w", err)
-			}
 		}
 		for _, rec := range custom {
 			built, err := builder.BuildSaveRecord(s.counter, rec)
@@ -261,5 +262,12 @@ func (s *Session) prepareSaves(records []*savev1.SaveRecord) (preparedBatch, err
 			planned = append(planned, built)
 		}
 	}
-	return preparedBatch{records: planned}, nil
+	apply := func() error {
+		if s.cfg.SkipStore || len(custom) == 0 {
+			return nil
+		}
+		// 预留成功后才注册监听，避免被拒批次留下上传副作用。
+		return s.watcher.RegisterLive(custom)
+	}
+	return preparedBatch{records: planned, apply: apply}, nil
 }

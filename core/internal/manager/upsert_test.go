@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -482,6 +483,58 @@ func TestUpsertRejectsWhenNotRunning(t *testing.T) {
 		if err := tc.call(); !errors.Is(err, ErrNotRunning) {
 			t.Fatalf("%s after drain err=%v, want ErrNotRunning", tc.name, err)
 		}
+	}
+}
+
+// countingWatcher 记录 RegisterLive 的调用次数，用于验证被拒批次不产生监听副作用。
+type countingWatcher struct {
+	registers atomic.Int32
+}
+
+func (w *countingWatcher) RegisterLive([]*savev1.SaveRecord) error {
+	w.registers.Add(1)
+	return nil
+}
+
+func (w *countingWatcher) Stop() {}
+
+var _ watcher.Watcher = (*countingWatcher)(nil)
+
+// 被容量拒绝的批次不得注册 LIVE 监听：否则后续编辑会进入上传，
+// 产生没有 SaveRecord 的孤儿文件。
+func TestUpsertSavesRejectedBatchDoesNotWatch(t *testing.T) {
+	h := newUpsertHarness(t, upsertOptions{batch: 1, queue: 2})
+	ctx := context.Background()
+	fake := &countingWatcher{}
+	h.session.watcher = fake
+
+	sourcePath := filepath.Join(t.TempDir(), "live.txt")
+	if err := os.WriteFile(sourcePath, []byte("data"), 0o644); err != nil {
+		t.Fatalf("write source: %v", err)
+	}
+	save := &savev1.SaveRecord{
+		Name:       "live.txt",
+		SourcePath: sourcePath,
+		Policy:     savev1.SavePolicy_SAVE_POLICY_LIVE,
+		Type:       savev1.SaveType_SAVE_TYPE_CUSTOM,
+	}
+
+	// 占满本地通道，强制 Reserve 失败。
+	h.storeCh <- store.Request{}
+	h.storeCh <- store.Request{}
+	if err := h.mgr.UpsertSaves(ctx, h.id, []*savev1.SaveRecord{save}); !errors.Is(err, ErrOverloaded) {
+		t.Fatalf("UpsertSaves err=%v, want ErrOverloaded", err)
+	}
+	if got := fake.registers.Load(); got != 0 {
+		t.Fatalf("RegisterLive called %d times for a rejected batch, want 0", got)
+	}
+
+	<-h.storeCh // 腾出容量后重试必须注册监听
+	if err := h.mgr.UpsertSaves(ctx, h.id, []*savev1.SaveRecord{save}); err != nil {
+		t.Fatalf("retry UpsertSaves: %v", err)
+	}
+	if got := fake.registers.Load(); got != 1 {
+		t.Fatalf("RegisterLive called %d times after retry, want 1", got)
 	}
 }
 

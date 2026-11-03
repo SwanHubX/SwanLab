@@ -14,8 +14,8 @@ import (
 	terminalv1 "github.com/swanhubx/swanlab/core/proto/swanlab/terminal/v1"
 )
 
-// preparedBatch 是一次两阶段提交的产物：待写入的记录与需要在预留成功后
-// 才执行的指标状态变更。build 阶段只读，apply 阶段才修改 metrics。
+// preparedBatch 是一次两阶段提交的产物：待写入的记录，以及必须在预留成功后
+// 才执行的会话状态变更（metrics 定义、LIVE 监听）。build 阶段只读。
 type preparedBatch struct {
 	records []*recordv1.Record
 	apply   func() error
@@ -67,9 +67,8 @@ func (m *Manager) UpsertSaves(ctx context.Context, sessionID string, records []*
 	return s.upsertSaves(ctx, records)
 }
 
-// commitPrepared 在会话锁内完成「状态校验 → 构建 → 预留 → 指标提交 → 入队」。
-// build 只读，Reserve 失败时不会留下任何指标状态变更；但 build 已经分配的
-// counter 编号会被消耗，与 Python 异常丢批时的跳号行为一致。
+// commitPrepared 在会话锁内完成「状态校验 → 构建 → 预留 → 提交会话状态 → 入队」。
+// build 只读，预留失败不会留下状态变更；但已分配的编号会被消耗（与 Python 丢批一致）。
 func (s *Session) commitPrepared(ctx context.Context, build func() (preparedBatch, error)) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()

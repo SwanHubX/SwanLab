@@ -26,6 +26,10 @@ type heartbeat struct {
 	stopOnce  sync.Once
 	stopCh    chan struct{}
 	doneCh    chan struct{}
+
+	// mu 保护 cancel：stop 先取消在途请求，再等待协程退出。
+	mu     sync.Mutex
+	cancel context.CancelFunc
 }
 
 func newHeartbeat(experimentID string, send heartbeatSender) *heartbeat {
@@ -39,20 +43,34 @@ func newHeartbeat(experimentID string, send heartbeatSender) *heartbeat {
 }
 
 // start 启动心跳协程；重复调用无副作用。
-func (h *heartbeat) start(ctx context.Context) {
+func (h *heartbeat) start(parent context.Context) {
 	h.startOnce.Do(func() {
+		ctx, cancel := context.WithCancel(parent)
+		h.mu.Lock()
+		h.cancel = cancel
+		h.mu.Unlock()
 		h.started.Store(true)
 		go h.loop(ctx)
 	})
 }
 
-// stop 停止心跳并等待协程退出；可重复调用，未启动时不会阻塞。
-func (h *heartbeat) stop() {
+// stop 先取消在途请求，再等待协程退出；等待受 ctx 限制，可重复调用。
+func (h *heartbeat) stop(ctx context.Context) {
 	h.stopOnce.Do(func() {
 		close(h.stopCh)
+		h.mu.Lock()
+		cancel := h.cancel
+		h.mu.Unlock()
+		if cancel != nil {
+			cancel()
+		}
 	})
-	if h.started.Load() {
-		<-h.doneCh
+	if !h.started.Load() {
+		return
+	}
+	select {
+	case <-h.doneCh:
+	case <-ctx.Done():
 	}
 }
 
@@ -93,7 +111,8 @@ func (h *heartbeat) beat(ctx context.Context) {
 	if ctx.Err() != nil {
 		return
 	}
-	if err := h.send(ctx, h.experimentID); err != nil {
+	// 取消导致的失败不代表云端异常，不打印告警。
+	if err := h.send(ctx, h.experimentID); err != nil && ctx.Err() == nil {
 		console.Warningf("heartbeat failed: %v", err)
 	}
 }

@@ -52,7 +52,11 @@ func (s *Session) finish(ctx context.Context, rec *runv1.FinishRecord) error {
 	case RunStateFailed:
 		// 上次收尾中断，续跑剩余步骤；终态记录已保存，忽略新的 FinishRecord。
 	default:
-		// DRAINING 只可能由 Shutdown 抢先切换；DRAINED 表示收尾已完成。
+		// DRAINING/DRAINED 也可能由 Shutdown 切换而来，此时没有终态记录。
+		// 只有已提交过 FinishRecord，重复投递才按幂等成功返回。
+		if !s.finishCommitted {
+			return fmt.Errorf("%w: run is shutting down before finish was recorded", ErrRunFailed)
+		}
 		return nil
 	}
 
@@ -258,7 +262,7 @@ func (s *Session) shutdown(ctx context.Context) {
 
 	_ = s.beginDrain()
 	if s.heartbeat != nil {
-		s.heartbeat.stop()
+		s.heartbeat.stop(ctx)
 	}
 	if s.watcher != nil {
 		s.watcher.Stop()

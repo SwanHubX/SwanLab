@@ -798,6 +798,43 @@ func TestManagerShutdownDrainsActiveSessions(t *testing.T) {
 	}
 }
 
+// Shutdown 抢占收尾尾部时不写 FinishRecord：此时 DeliverRunFinish 不能假成功，
+// 否则会话会带着缺失的 -2 结束。
+func TestDeliverRunFinishAfterShutdownReturnsFailure(t *testing.T) {
+	h := newFinishHarness(t, finishOptions{})
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := h.session.beginDrain(); err != nil {
+		t.Fatalf("beginDrain: %v", err)
+	}
+	err := h.mgr.DeliverRunFinish(ctx, h.id, finishRecord(runv1.RunState_RUN_STATE_FINISHED, ""))
+	if !errors.Is(err, ErrRunFailed) {
+		t.Fatalf("DeliverRunFinish err=%v, want ErrRunFailed", err)
+	}
+	if h.session.finishCommitted {
+		t.Fatal("shutdown must not mark the finish record as committed")
+	}
+	if state := h.session.stateSnapshot(); state != RunStateDraining {
+		t.Fatalf("state = %s, want draining", state)
+	}
+}
+
+// 对照：正常收尾排空后重复投递仍按幂等成功返回。
+func TestDeliverRunFinishRepeatsAfterDrain(t *testing.T) {
+	h := newFinishHarness(t, finishOptions{})
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := h.mgr.DeliverRunFinish(ctx, h.id, finishRecord(runv1.RunState_RUN_STATE_FINISHED, "")); err != nil {
+		t.Fatalf("DeliverRunFinish: %v", err)
+	}
+	waitDrained(t, h.session)
+	if err := h.mgr.DeliverRunFinish(ctx, h.id, finishRecord(runv1.RunState_RUN_STATE_FINISHED, "")); err != nil {
+		t.Fatalf("repeated DeliverRunFinish after drain: %v", err)
+	}
+}
+
 func TestRunStateFromProto(t *testing.T) {
 	cases := []struct {
 		in   runv1.RunState

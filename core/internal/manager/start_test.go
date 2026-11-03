@@ -95,7 +95,7 @@ func closeStartedSession(t *testing.T, mgr *Manager, sessionID string) {
 		s.cancel()
 	}
 	if s.heartbeat != nil {
-		s.heartbeat.stop()
+		s.heartbeat.stop(context.Background())
 	}
 	if s.watcher != nil {
 		s.watcher.Stop()

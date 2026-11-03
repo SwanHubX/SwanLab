@@ -82,7 +82,7 @@ type StartResult struct {
 }
 
 // sessionOptions 注入会话的排空与释放钩子。
-// C6 会把 releaseFn 接到 stop_experiment；drainFn 由装配期接到 uploader.Wait。
+// releaseFn 由装配期接到 stop_experiment；drainFn 接到 uploader.Wait。
 type sessionOptions struct {
 	drainFn   func(context.Context) error
 	releaseFn func(context.Context) error
@@ -276,18 +276,28 @@ func (s *Session) waitDrained(ctx context.Context) error {
 		s.markDrained()
 		return nil
 	}
-	if err := s.drainFn(ctx); err != nil {
+
+	// drainFn 在收尾失败后不会返回（intake 未关，uploader 无法排空），
+	// 因此在独立协程中等待，让 FAILED 能提前唤醒调用方；提前返回时取消子 ctx。
+	waitCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	drained := make(chan error, 1)
+	go func() { drained <- s.drainFn(waitCtx) }()
+
+	select {
+	case err := <-drained:
+		// Wait 返回 nil 时 DRAINED 已置位：OnDrained 先于 Done 关闭执行。
+		if err == nil {
+			return nil
+		}
 		select {
 		case <-s.failed:
-			// 收尾失败由 Confirm 在 confirmMu 内重试，不在这里提前返回错误。
 			return nil
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
 			return err
 		}
-	}
-	select {
 	case <-s.drained:
 		return nil
 	case <-s.failed:

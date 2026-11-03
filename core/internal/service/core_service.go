@@ -348,6 +348,9 @@ func managerStatus(err error) error {
 		return status.Error(codes.Unauthenticated, err.Error())
 	case client.IsNotFound(err):
 		return status.Error(codes.NotFound, err.Error())
+	case client.IsInvalidResponse(err):
+		// 云端响应不符合协议是服务端问题，不归为调用方参数错误。
+		return status.Error(codes.Internal, err.Error())
 	case client.IsRetryable(err):
 		return status.Error(codes.Unavailable, err.Error())
 	case errors.Is(err, context.DeadlineExceeded):

@@ -163,7 +163,10 @@ func (s *Session) rollback() {
 		s.cancel()
 	}
 	if s.heartbeat != nil {
-		s.heartbeat.stop()
+		// s.cancel 已中断心跳的父 ctx；这里限制等待时间，避免慢心跳拖住回滚。
+		ctx, cancel := context.WithTimeout(context.Background(), rollbackTimeout)
+		s.heartbeat.stop(ctx)
+		cancel()
 	}
 	if s.watcher != nil {
 		s.watcher.Stop()
