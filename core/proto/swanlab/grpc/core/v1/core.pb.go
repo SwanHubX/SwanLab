@@ -29,15 +29,14 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// 启动失败的错误分类，供 SDK 决定是否降级
+// 启动失败的错误分类，供 SDK 判断当前状态
 type CoreErrorKind int32
 
 const (
-	CoreErrorKind_CORE_ERROR_KIND_UNSPECIFIED CoreErrorKind = 0 // 未分类，按不可降级处理
-	CoreErrorKind_CORE_ERROR_KIND_AUTH        CoreErrorKind = 1 // 认证或权限错误，不降级
-	CoreErrorKind_CORE_ERROR_KIND_TRANSIENT   CoreErrorKind = 2 // 服务不可用，允许按策略降级
-	CoreErrorKind_CORE_ERROR_KIND_CONFIG      CoreErrorKind = 3 // 参数或配置错误，不降级
-	CoreErrorKind_CORE_ERROR_KIND_OTHER       CoreErrorKind = 4 // 业务、本地或未知错误，不降级
+	CoreErrorKind_CORE_ERROR_KIND_UNSPECIFIED CoreErrorKind = 0 // 未分类，兼容未传递的情况
+	CoreErrorKind_CORE_ERROR_KIND_AUTH        CoreErrorKind = 1 // 认证或权限错误
+	CoreErrorKind_CORE_ERROR_KIND_TRANSIENT   CoreErrorKind = 2 // 服务不可用
+	CoreErrorKind_CORE_ERROR_KIND_OTHER       CoreErrorKind = 3 // 业务、本地或未知错误
 )
 
 // Enum value maps for CoreErrorKind.
@@ -46,15 +45,13 @@ var (
 		0: "CORE_ERROR_KIND_UNSPECIFIED",
 		1: "CORE_ERROR_KIND_AUTH",
 		2: "CORE_ERROR_KIND_TRANSIENT",
-		3: "CORE_ERROR_KIND_CONFIG",
-		4: "CORE_ERROR_KIND_OTHER",
+		3: "CORE_ERROR_KIND_OTHER",
 	}
 	CoreErrorKind_value = map[string]int32{
 		"CORE_ERROR_KIND_UNSPECIFIED": 0,
 		"CORE_ERROR_KIND_AUTH":        1,
 		"CORE_ERROR_KIND_TRANSIENT":   2,
-		"CORE_ERROR_KIND_CONFIG":      3,
-		"CORE_ERROR_KIND_OTHER":       4,
+		"CORE_ERROR_KIND_OTHER":       3,
 	}
 )
 
@@ -725,13 +722,12 @@ const file_swanlab_grpc_core_v1_core_proto_rawDesc = "" +
 	"\x05stats\x18\x03 \x01(\v2$.swanlab.operation.v1.OperationStatsR\x05stats\"N\n" +
 	"\x18ConfirmRunFinishResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage*\xa0\x01\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage*\x84\x01\n" +
 	"\rCoreErrorKind\x12\x1f\n" +
 	"\x1bCORE_ERROR_KIND_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14CORE_ERROR_KIND_AUTH\x10\x01\x12\x1d\n" +
-	"\x19CORE_ERROR_KIND_TRANSIENT\x10\x02\x12\x1a\n" +
-	"\x16CORE_ERROR_KIND_CONFIG\x10\x03\x12\x19\n" +
-	"\x15CORE_ERROR_KIND_OTHER\x10\x042\xc5\x06\n" +
+	"\x19CORE_ERROR_KIND_TRANSIENT\x10\x02\x12\x19\n" +
+	"\x15CORE_ERROR_KIND_OTHER\x10\x032\xc5\x06\n" +
 	"\vCoreService\x12n\n" +
 	"\x0fDeliverRunStart\x12,.swanlab.grpc.core.v1.DeliverRunStartRequest\x1a-.swanlab.grpc.core.v1.DeliverRunStartResponse\x12S\n" +
 	"\rUpsertColumns\x12*.swanlab.grpc.core.v1.UpsertColumnsRequest\x1a\x16.google.protobuf.Empty\x12S\n" +

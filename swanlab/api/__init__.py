@@ -67,16 +67,16 @@ class Api(BaseEntity):
         :param api_key: API key; if None, resolved per the order above
         :param host: API host address; if None, uses default configuration
         """
-        # 优先从 scope 获取已有登录态（如进程内已调用 swanlab.login），直接复用凭证
+        # 优先复用已有登录态（如进程内已调用 swanlab.login）
         login_resp = scope.get_context("login_resp")
         api_key, api_host, web_host = self._resolve_credentials(api_key, host)
-        _client = Client(api_key=str(api_key), base_url=api_host)
-
-        if login_resp is None:
-            from swanlab.sdk.internal.pkg.client.bootstrap import login_by_api_key
-
-            login_resp = login_by_api_key(base_url=api_host + "/api", api_key=api_key)
-        user_info = login_resp.get("userInfo", {}) if login_resp else {}
+        # Client 初始化时已完成严格鉴权，把登录响应收进本次 Scope，
+        # 避免再发一次登录请求（瞬时失败会直接打断 Api 初始化）
+        with scope.Scope() as s:
+            _client = Client(api_key=str(api_key), base_url=api_host)
+            if login_resp is None:
+                login_resp = s.get("login_resp")
+        user_info = (login_resp or {}).get("userInfo", {})
         username = user_info.get("username", "")
         name = user_info.get("name", "") or ""
         ctx = ApiClientContext(client=_client, web_host=web_host, api_host=api_host, username=username, name=name)

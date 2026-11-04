@@ -20,12 +20,10 @@ class CoreErrorKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     CORE_ERROR_KIND_UNSPECIFIED: _ClassVar[CoreErrorKind]
     CORE_ERROR_KIND_AUTH: _ClassVar[CoreErrorKind]
     CORE_ERROR_KIND_TRANSIENT: _ClassVar[CoreErrorKind]
-    CORE_ERROR_KIND_CONFIG: _ClassVar[CoreErrorKind]
     CORE_ERROR_KIND_OTHER: _ClassVar[CoreErrorKind]
 CORE_ERROR_KIND_UNSPECIFIED: CoreErrorKind
 CORE_ERROR_KIND_AUTH: CoreErrorKind
 CORE_ERROR_KIND_TRANSIENT: CoreErrorKind
-CORE_ERROR_KIND_CONFIG: CoreErrorKind
 CORE_ERROR_KIND_OTHER: CoreErrorKind
 
 class DeliverRunStartRequest(_message.Message):

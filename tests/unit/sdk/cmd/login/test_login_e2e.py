@@ -10,7 +10,7 @@ import requests
 import responses
 
 from swanlab.exceptions import AuthenticationError
-from swanlab.sdk.cmd.login import login
+from swanlab.sdk.cmd.login import login, login_cli
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.pkg import nrc
 from swanlab.sdk.internal.settings import Settings, create_settings, set_global_settings
@@ -449,3 +449,19 @@ class TestLoginE2E:
         # 再次登录不传 api_key，同 host 应复用 settings 中的 key
         login(relogin=True)
         assert create_settings().api_key == stored_key
+
+
+class TestLoginCliErrors:
+    @responses.activate
+    def test_network_error_exits_without_traceback(self):
+        """连接失败与 API Key 无关，应给出可读提示并以非 0 退出，而不是抛 traceback。"""
+        responses.add(
+            responses.POST,
+            "https://api.error.test/api/login/api_key",
+            body=requests.ConnectionError("boom"),
+        )
+
+        with pytest.raises(SystemExit) as exc:
+            login_cli(api_key="test-key", host="https://api.error.test")
+
+        assert exc.value.code == 1

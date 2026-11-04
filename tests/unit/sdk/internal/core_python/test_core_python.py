@@ -204,13 +204,33 @@ class TestCorePythonOnlineStartFailure:
         assert resp.error_kind == CORE_ERROR_KIND_OTHER
 
     def test_malformed_response_returns_transient(self, tmp_path, monkeypatch):
+        """200 响应体畸形（decode_response 退化为 text）表现为 TypeError，允许降级。"""
         core = CorePython("online")
-        monkeypatch.setattr(core, "_report_run_start", MagicMock(side_effect=ValueError("missing field")))
+        monkeypatch.setattr(
+            core, "_report_run_start", MagicMock(side_effect=TypeError("string indices must be integers"))
+        )
 
         resp = core.deliver_run_start(make_start_request(tmp_path, make_start_record()))
 
         assert resp.success is False
         assert resp.error_kind == CORE_ERROR_KIND_TRANSIENT
+
+    @pytest.mark.parametrize(
+        "error",
+        [
+            ValueError("Backend did not return createdAt; please upgrade swanlab-server"),
+            AssertionError("experiment without name"),
+        ],
+    )
+    def test_config_or_internal_error_returns_other(self, tmp_path, monkeypatch, error):
+        """配置 / 后端兼容性 / 内部断言等确定性错误不允许降级。"""
+        core = CorePython("online")
+        monkeypatch.setattr(core, "_report_run_start", MagicMock(side_effect=error))
+
+        resp = core.deliver_run_start(make_start_request(tmp_path, make_start_record()))
+
+        assert resp.success is False
+        assert resp.error_kind == CORE_ERROR_KIND_OTHER
 
     def test_local_start_failure_is_other_and_cleans_resources(self, tmp_path, monkeypatch):
         core = CorePython("online")

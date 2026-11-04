@@ -85,6 +85,33 @@ class TestApiEntryValidation:
         with pytest.raises(AuthenticationError, match="No API key"):
             Api._resolve_credentials(None, None)
 
+    def test_init_reuses_client_login_response(self, monkeypatch):
+        """Client 初始化已完成鉴权，Api 不应再发一次登录请求。"""
+        from swanlab.sdk.internal.pkg import scope as scope_mod
+
+        api_module = importlib.import_module("swanlab.api")
+
+        def fake_client(api_key, base_url):
+            scope_mod.set_context("login_resp", {"userInfo": {"username": "alice", "name": "Alice"}})
+            return MagicMock()
+
+        login_calls = []
+        monkeypatch.setattr(api_module, "Client", fake_client)
+        monkeypatch.setattr(
+            Api,
+            "_resolve_credentials",
+            staticmethod(lambda api_key, host: ("key", "https://api.test", "https://web.test")),
+        )
+        monkeypatch.setattr(
+            "swanlab.sdk.internal.pkg.client.bootstrap.login_by_api_key",
+            lambda **kwargs: login_calls.append(kwargs) or {},
+        )
+
+        instance = Api()
+
+        assert instance.username == "alice"
+        assert login_calls == []
+
     @pytest.mark.parametrize("api_key", ["", "   "])
     def test_blank_api_key_raises(self, api_key):
         with pytest.raises(AuthenticationError, match="No API key"):

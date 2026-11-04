@@ -14,6 +14,9 @@ from swanlab.sdk.typings.pkg.client.bootstrap import LoginResponse
 from . import session
 
 # 登录握手的重试次数。启动路径需要快速失败，避免长时间阻塞 init()。
+# 注意：Client._refresh_auth 走同一个 login_by_api_key，因此运行期 token 刷新
+# 也从 session 默认的 60s / 5 次收敛为 10s / 1 次。刷新有 7 天缓冲期且失败只告警，
+# 不中断训练；“启动快速失败、运行期容错”是有意区分，调整时需同时考虑两条路径。
 LOGIN_RETRIES = 1
 
 

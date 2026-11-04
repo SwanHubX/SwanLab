@@ -124,49 +124,38 @@ def init(
     close the run. SwanLab automatically finishes runs at program exit.
 
     :param reinit: If True, finish the current run before starting a new one. Defaults to False.
-
     :param log_dir: Directory to store logs. Defaults to "./swanlog".
-
     :param mode: Run mode. Options: "online" (sync to cloud), "local" (local only),
         "offline" (save locally for later sync), "disabled" (no logging). Defaults to "online".
-
-    :param on_online_error: Behavior when SwanLab Cloud is unavailable in online mode. Options: "offline"
-        (save locally and sync later), "disabled" (no logging), "raise". Defaults to "offline".
-
+    :param on_online_error: Behavior when SwanLab Cloud is temporarily unreachable in online
+        mode. Only transient connection/server failures are degraded; authentication and
+        configuration errors always raise. Options: "offline" (save locally and sync later),
+        "disabled" (no logging), "raise". Defaults to "offline".
     :param workspace: Workspace or organization name. Defaults to current user.
-
     :param project: Project name. Defaults to current directory name.
-
     :param public: Make project publicly visible (online mode only). Defaults to False.
-
     :param name: Experiment name. Auto-generated if not provided.
-
     :param color: Experiment color for visualization. Auto-generated if not provided.
-
     :param description: Experiment description.
-
     :param job_type: Job type label (e.g., "train", "eval").
-
     :param group: Group name for organizing related experiments.
-
     :param tags: List of tags for categorizing experiments.
-
     :param id: Run ID for resuming a previous run (online mode only).
-
     :param resume: Resume behavior. Options: "must" (must resume), "allow" (resume if exists),
         "never" (always create new). Defaults to "never".
-
     :param parallel: Parallel execution strategy. Options: "none" (default), "shared".
-
     :param config: Experiment configuration dict or path to config file (JSON/YAML).
-
     :param settings: Custom Settings object for advanced configuration.
-
     :param callbacks: List of callback functions triggered on run events.
 
     :return: The initialized Run object.
 
-    :raises RuntimeError: If a run is already active and reinit=False.
+    :raises RuntimeError: If a run is already active and reinit=False, or if an online
+        startup fails with a non-transient error.
+    :raises AuthenticationError: If SwanLab Cloud rejects the API key in online mode.
+        This is never degraded by ``on_online_error``.
+    :raises requests.RequestException: If ``on_online_error="raise"`` and the initial
+        login or startup fails with a connection error.
 
     Examples:
 
@@ -739,27 +728,26 @@ def _warn_fallback(
     resume_must: bool = False,
     skip_store_disabled: bool = False,
 ) -> None:
-    """连接失败降级时的统一告警，一次降级只调用一次。"""
-    detail = (reason or "").removeprefix("Failed to start run: ") or "online start failed"
-    parts = [f"Failed to connect to SwanLab Cloud: {detail}"]
+    """连接失败降级时：先原样打印上游错误，再说明降级后果。一次降级只调用一次。"""
+    if reason:
+        console.warning(reason)
     if resume_must:
         if target_mode == "offline":
-            parts.append(
+            console.warning(
                 'resume="must" could not be satisfied because SwanLab Cloud is unreachable; '
                 "the run continues locally from step 0 and syncing later may not align with the existing experiment."
             )
         else:
-            parts.append(
+            console.warning(
                 'resume="must" could not be satisfied because SwanLab Cloud is unreachable; '
                 "the run continues without recording."
             )
     if skip_store_disabled:
-        parts.append("core.skip_store is only supported in online mode; it has been disabled for this run.")
+        console.warning("core.skip_store is only supported in online mode; it has been disabled for this run.")
     if target_mode == "offline":
-        parts.append("Continuing in offline mode; data will be saved locally and can be synced later.")
+        console.warning("Continuing in offline mode; data will be saved locally and can be synced later.")
     else:
-        parts.append("Continuing in disabled mode; no data will be recorded.")
-    console.warning(" ".join(parts))
+        console.warning("Continuing in disabled mode; no data will be recorded.")
 
 
 def _reset_client_after_fallback() -> None:
@@ -793,7 +781,12 @@ def _raise_start_failure(resp: DeliverRunStartResponse) -> NoReturn:
 
 
 def _is_transient_login_error(exc: BaseException) -> bool:
-    """登录握手的可降级错误：仅服务不可用类错误。"""
+    """登录握手的可降级错误：仅服务不可用类错误。
+
+    这里有意不与 core_python.pkg.errors.classify_start_error 收敛：init 内部的登录握手是过渡路径，后续会随登录接口一起下线；
+    若把判定收敛到为 Core 启动服务的 errors 模块，删除登录路径时反而要在 Core 侧做无谓的回滚。两边口径（无响应 /408 / 429 / 5xx、URL 配置错误不降级）
+    目前一致，调整时需同步修改。
+    """
     if isinstance(exc, ApiError):
         status = getattr(exc.response, "status_code", None)
         return status is None or status in (408, 429) or status >= 500

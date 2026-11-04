@@ -13,6 +13,7 @@ import sys
 from pathlib import Path
 from typing import Optional, Tuple
 
+from requests.exceptions import RequestException
 from rich.text import Text
 
 from swanlab.exceptions import AuthenticationError
@@ -193,6 +194,11 @@ def login_cli(
                 raise e
             console.error(str(e))
             api_key = None
+        except RequestException as e:
+            # 连接失败、服务端 5xx 等与 API Key 无关，重新输入没有意义，直接退出
+            console.error(f"Failed to connect to {api_host}: {e}")
+            console.error("Please check your network connection and try again.")
+            sys.exit(1)
         except (KeyboardInterrupt, EOFError):
             console.info("\nLogin cancelled by user.")
             return False

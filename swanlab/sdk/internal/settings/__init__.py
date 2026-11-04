@@ -155,9 +155,12 @@ class Settings(BaseSettings):
     """
     Online connection failure policy.
 
-    * `disabled`: Degrade to disabled mode and stop recording when SwanLab Cloud is unavailable.
-    * `offline`: Degrade to offline mode and keep local recording when SwanLab Cloud is unavailable.
-    * `raise`: Fail initialization when SwanLab Cloud is unavailable.
+    Only transient connection/server failures are degraded; authentication and
+    configuration errors always fail.
+
+    * `disabled`: Degrade to disabled mode and stop recording when SwanLab Cloud is unreachable.
+    * `offline`: Degrade to offline mode and keep local recording when SwanLab Cloud is unreachable.
+    * `raise`: Fail initialization when SwanLab Cloud is unreachable.
     """
 
     log_dir: Path = Field(default_factory=log_dir_factory, validate_default=True)

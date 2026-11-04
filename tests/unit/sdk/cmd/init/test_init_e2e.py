@@ -792,11 +792,29 @@ class TestInitOnlineStartFallback:
         run.finish()
         assert (run.dir / f"run-{run.id}.swanlab").exists()
 
+    def test_fallback_start_failure_raises(self, logged_in_client, rsps, offline_warnings, monkeypatch):
+        """降级后的 Core 再次启动失败时，应把错误抛给调用方，而不是继续静默降级。"""
+        from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import DeliverRunStartResponse
+        from swanlab.sdk.cmd import init as init_module
+
+        rsps.add(responses_lib.GET, self.PROJECT_URL, status=503)
+        fallback_core = MagicMock()
+        fallback_core.deliver_run_start.return_value = DeliverRunStartResponse(
+            success=False, message="fallback start failed"
+        )
+        monkeypatch.setattr(init_module, "create_core", MagicMock(return_value=fallback_core))
+        monkeypatch.setattr(init_module, "create_probe", MagicMock(return_value=MagicMock()))
+
+        with pytest.raises(RuntimeError, match="fallback start failed"):
+            init(mode="online", project=PROJECT)
+
     @staticmethod
     def _assert_disabled_run(run: Run, warnings: list[str]) -> None:
         assert run.mode == "disabled"
         assert run._ctx.config.settings.mode == "disabled"
         assert run._ctx.config.settings.core.skip_store is False
+        # disabled 降级必须重建为不做任何上报的 probe，避免退化成 online probe
+        assert run._ctx.probe._disabled is True
         assert len([m for m in warnings if "Continuing in disabled mode" in m]) == 1
         with pytest.raises(ValueError):
             _ = run.url
@@ -853,6 +871,7 @@ class TestInitOnlineLoginFallback:
         assert run._ctx.config.settings.mode == "offline"
         assert run.dir.exists()
         assert len([m for m in warnings if "Continuing in offline mode" in m]) == 1
+        # 上游错误原样打印，便于用户定位
         assert any("Failed to login" in message for message in warnings)
 
     def test_login_connection_error_degrades_to_offline(self, rsps, mock_online_settings, offline_warnings):
