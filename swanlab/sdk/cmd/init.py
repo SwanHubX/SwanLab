@@ -598,7 +598,8 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
         if mode != "online":
             _ensure_offline_identity(run_settings, run_id)
         # 3.3. 统一调用 deliver_run_start（core 内部按 mode 分发：online 走网络，其余本地处理）
-        resp = ctx.core.deliver_run_start(_build_start_request(run_settings, run_id, run_dir))
+        resq = _build_start_request(run_settings, run_id, run_dir)
+        resp = ctx.core.deliver_run_start(resq)
         if not resp.success:
             if resp.error_kind != CORE_ERROR_KIND_TRANSIENT or run_settings.on_online_error == "raise":
                 _raise_start_failure(resp)
@@ -701,7 +702,8 @@ def _restart_with_fallback(
 ) -> DeliverRunStartResponse:
     """在线启动失败后，按策略切换模式并在同一个 run_dir 上重新启动 Core。"""
     _switch_run_to_fallback(ctx, run_settings, run_id, run_dir, target_mode)
-    resp = ctx.core.deliver_run_start(_build_start_request(run_settings, run_id, run_dir))
+    resq = _build_start_request(run_settings, run_id, run_dir)
+    resp = ctx.core.deliver_run_start(resq)
     if not resp.success:
         _raise_start_failure(resp)
     return resp
