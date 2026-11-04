@@ -203,15 +203,17 @@ class TestLoginE2E:
 
     @responses.activate
     def test_login_connection_error_raises(self):
-        """显式登录的网络错误应直接抛出，不走 init 的降级逻辑。"""
+        """显式登录的网络错误应直接抛出 AuthenticationError，不走 init 的降级逻辑。"""
         responses.add(
             responses.POST,
             "https://api.swanlab.cn/api/login/api_key",
             body=requests.ConnectionError("boom"),
         )
 
-        with pytest.raises(requests.ConnectionError):
+        with pytest.raises(AuthenticationError) as exc:
             login(api_key="some-key", relogin=True)
+
+        assert isinstance(exc.value.__cause__, requests.ConnectionError)
 
     @responses.activate
     def test_login_host_changed_raises_without_key(self):

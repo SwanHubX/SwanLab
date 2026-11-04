@@ -157,6 +157,7 @@ class CorePython(CoreProtocol):
             return self._start_failure(start_errors[0], errors.classify_start_error(start_errors[0]))
         assert resp is not None
 
+        # 启动阶段只写本地 start record；Transport 在握手成功后才创建，启动路径不得调用 _transport_put
         self._start_store(resp)
         self._tracker = UploadTracker()
         self._tracker.set_state(CoreState.CORE_STATE_RUNNING)
@@ -175,6 +176,9 @@ class CorePython(CoreProtocol):
             self._heartbeat = None
         if self._transport is not None:
             with safe.block(message="Failed to stop transport after start failure"):
+                # 启动阶段只允许写本地 start record；失败清理时 transport 缓冲必须为空，
+                # 若断言失败说明启动路径违反了“启动阶段不向 transport 写记录”的约束。
+                assert not self._transport.pending_records(), "transport received records before run start completed"
                 self._transport.request_finish()
                 self._transport.join(timeout=1.0)
             self._transport = None
@@ -238,7 +242,12 @@ class CorePython(CoreProtocol):
             self._store.write(record.SerializeToString())
 
     def _transport_put(self, records: List[Record]) -> None:
-        """将一组 Record 推送到上传队列"""
+        """
+        将一组 Record 推送到上传队列。
+
+        启动阶段只允许直接写本地 start record：Transport 要等 _report_run_start
+        成功后才创建，启动路径不得调用本方法。
+        """
         assert self._transport is not None, "transport must be initialized before upsert"
         self._transport.put(records)
 

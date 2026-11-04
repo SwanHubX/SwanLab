@@ -254,6 +254,33 @@ class TestCorePythonOnlineStartFailure:
         assert core._transport is None
         assert core._active is False
 
+    def test_start_failure_does_not_enqueue_transport_records(self, tmp_path, monkeypatch):
+        """启动阶段只允许写本地 start record；失败清理时 transport 不应收到任何记录。"""
+        core = CorePython("online")
+
+        def _report_run_start_and_set_attrs(record):
+            set_online_params(core)
+            core._metrics = MagicMock()
+            return DeliverRunStartResponse(success=True, message="OK", run=make_start_record())
+
+        transport = MagicMock()
+        transport.pending_records.return_value = []
+        monkeypatch.setattr(core, "_report_run_start", _report_run_start_and_set_attrs)
+        monkeypatch.setattr("swanlab.sdk.internal.core_python.core.Transport", MagicMock(return_value=transport))
+        monkeypatch.setattr(
+            "swanlab.sdk.internal.core_python.core.Heartbeat",
+            MagicMock(side_effect=RuntimeError("heartbeat boom")),
+        )
+
+        resp = core.deliver_run_start(make_start_request(tmp_path, make_start_record()))
+
+        assert resp.success is False
+        transport.put.assert_not_called()
+        transport.request_finish.assert_called_once()
+        transport.join.assert_called_once_with(timeout=1.0)
+        assert core._transport is None
+        assert core._active is False
+
 
 # ============================================================
 # TestCorePythonFinish

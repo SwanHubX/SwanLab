@@ -163,11 +163,12 @@ def init(
     :return: The initialized Run object.
 
     :raises RuntimeError: If a run is already active and reinit=False, or if an online
-        startup fails with a non-transient error.
-    :raises AuthenticationError: If SwanLab Cloud rejects the API key in online mode.
-        This is never degraded by ``on_online_error``.
-    :raises requests.RequestException: If ``on_online_error="raise"`` and the initial
-        login or startup fails with a connection error.
+        startup fails and is not degraded (a non-transient error, or a transient error
+        when ``on_online_error="raise"``).
+    :raises AuthenticationError: If SwanLab Cloud rejects the API key during login or
+        startup, or if the initial login fails with a non-transient error. With
+        ``on_online_error="raise"`` any login failure is wrapped as
+        ``AuthenticationError`` with the original exception in ``__cause__``.
 
     Examples:
 
@@ -251,7 +252,8 @@ def login(
     :param timeout: Network request timeout in seconds. Defaults to 10.
     :return: True if login was successful, False otherwise.
     :raises RuntimeError: If called while a run is active.
-    :raises AuthenticationError: If login fails due to invalid credentials or network issues.
+    :raises AuthenticationError: If login fails due to invalid credentials, network issues,
+        or server errors. The original exception is available via ``__cause__``.
 
     Examples:
 

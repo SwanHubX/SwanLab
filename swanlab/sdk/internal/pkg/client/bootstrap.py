@@ -24,7 +24,8 @@ def login_by_api_key(
 ) -> LoginResponse:
     """
     用户登录，请求后端接口完成验证。
-    网络错误、HTTP 错误和响应解析错误会向上抛出，由调用方区分认证失败与服务不可用。
+    网络错误、HTTP 错误和响应解析错误会向上抛出；Client 首次认证会统一包装为
+    AuthenticationError，并将原始异常保留在 __cause__ 中。
 
     :param retries: 覆盖会话默认重试次数。默认使用 STARTUP_RETRIES（启动期间快速失败），
         运行期刷新传 None 以使用会话默认重试。

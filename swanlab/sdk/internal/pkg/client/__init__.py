@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 
 import requests
+from requests.exceptions import InvalidSchema, InvalidURL, MissingSchema
 
 from swanlab.exceptions import ApiError, AuthenticationError
 from swanlab.sdk.typings.pkg.client import JSONBody, JSONDict
@@ -21,7 +22,44 @@ from .bootstrap import login_by_api_key, verify_api_key
 from .session import STARTUP_RETRIES
 from .utils import decode_response
 
-__all__ = ["Client", "session", "ApiResponse", "decode_response", "verify_api_key", "STARTUP_RETRIES"]
+__all__ = [
+    "Client",
+    "session",
+    "ApiResponse",
+    "decode_response",
+    "verify_api_key",
+    "is_transient_login_error",
+    "is_login_auth_error",
+    "STARTUP_RETRIES",
+]
+
+
+def is_transient_login_error(exc: BaseException) -> bool:
+    """
+    判断登录异常是否属于服务不可用类错误。
+
+    Client 首次认证会把底层异常统一包装为 ``AuthenticationError``，原始异常保留在 ``__cause__``；
+    """
+    # 这里只解包这一层，避免递归遍历异常链
+    if isinstance(exc, AuthenticationError) and exc.__cause__ is not None:
+        exc = exc.__cause__
+    if isinstance(exc, ApiError):
+        status = getattr(exc.response, "status_code", None)
+        return status is None or status in (408, 429) or status >= 500
+    # URL / 协议配置错误重试和降级都无法解决
+    if isinstance(exc, (InvalidURL, MissingSchema, InvalidSchema)):
+        return False
+    return isinstance(exc, requests.RequestException)
+
+
+def is_login_auth_error(exc: BaseException) -> bool:
+    """
+    判断异常是否由 API Key 认证失败（401/403）导致；这类错误可以重新输入 Key 解决。
+    与 ``is_transient_login_error`` 一样，只解包 Client 包装的一层 ``__cause__``。
+    """
+    if isinstance(exc, AuthenticationError) and exc.__cause__ is not None:
+        exc = exc.__cause__
+    return isinstance(exc, ApiError) and getattr(exc.response, "status_code", None) in (401, 403)
 
 
 @dataclass
@@ -49,7 +87,8 @@ class Client:
 
         # 初始化时仅创建一次会话，以复用底层 TCP 连接池
         self._session: session.SessionWithRetry = session.create()
-        # 立即进行首次鉴权并挂载凭证；首次认证失败由调用方区分是否为连接类错误
+        # 立即进行首次鉴权并挂载凭证；首次认证失败统一包装为 AuthenticationError，
+        # 原始异常保留在 __cause__，供 init 判断是否可降级
         login_resp = self._refresh_auth(timeout=timeout, warning=False, strict=True)
         # 写入登录响应到上下文，由调用者判断是否需要使用
         scope.set_context("login_resp", login_resp)
@@ -59,7 +98,7 @@ class Client:
         刷新鉴权信息。
         直接更新当前会话的 Cookie，保留底层连接池以提升性能。
 
-        :param strict: 首次认证时为 True，异常向上抛出且使用启动重试策略；
+        :param strict: 首次认证时为 True，异常统一包装为 AuthenticationError 并向上抛出；
             运行中刷新为 False，失败仅告警并保留会话默认重试。
         """
         console.debug("Refreshing authentication token...")
@@ -86,24 +125,28 @@ class Client:
             self._username = username
             return login_resp
         except ApiError as e:
-            status = getattr(e.response, "status_code", None)
             if strict:
-                # 错误在发生处打印调用链；是否降级由 init 根据错误类型决定
+                # 错误在发生处打印调用链；原始异常保留在 __cause__ 供 init 判断是否可降级
                 console.trace("Failed to login")
-            if status in (401, 403) and strict:
-                raise AuthenticationError(
-                    "Failed to initialize the SwanLab client. Please check if the provided API key is correct."
-                ) from e
-            if strict:
-                raise
+                raise self._wrap_auth_error(e) from e
             self._warn_refresh_failure(warning)
             return None
-        except Exception:
+        except Exception as e:
             if strict:
                 console.trace("Failed to login")
-                raise
+                raise self._wrap_auth_error(e) from e
             self._warn_refresh_failure(warning)
             return None
+
+    @staticmethod
+    def _wrap_auth_error(exc: BaseException) -> AuthenticationError:
+        """把首次认证的底层异常包装为公开的 AuthenticationError。"""
+        status = getattr(getattr(exc, "response", None), "status_code", None)
+        if status in (401, 403):
+            return AuthenticationError(
+                "Failed to initialize the SwanLab client. Please check if the provided API key is correct."
+            )
+        return AuthenticationError(f"Failed to initialize the SwanLab client: {exc}")
 
     @staticmethod
     def _warn_refresh_failure(warning: bool) -> None:

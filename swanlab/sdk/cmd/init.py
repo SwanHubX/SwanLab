@@ -20,9 +20,8 @@ from typing import Any, Dict, List, NoReturn, Optional, Tuple, Union
 import requests
 import yaml
 from google.protobuf.timestamp_pb2 import Timestamp
-from requests.exceptions import InvalidSchema, InvalidURL, MissingSchema
 
-from swanlab.exceptions import ApiError, AuthenticationError
+from swanlab.exceptions import AuthenticationError
 from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
     CORE_ERROR_KIND_AUTH,
     CORE_ERROR_KIND_TRANSIENT,
@@ -39,6 +38,7 @@ from swanlab.sdk.internal.context import (
 from swanlab.sdk.internal.context.components import create_core, create_probe
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.pkg import adapter, console, fork, fs, helper, safe
+from swanlab.sdk.internal.pkg.client import is_transient_login_error
 from swanlab.sdk.typings.cmd import ConfigLike
 from swanlab.sdk.typings.context import CallbacksType
 from swanlab.utils.experiment import generate_color, generate_id, generate_name
@@ -151,11 +151,12 @@ def init(
     :return: The initialized Run object.
 
     :raises RuntimeError: If a run is already active and reinit=False, or if an online
-        startup fails with a non-transient error.
-    :raises AuthenticationError: If SwanLab Cloud rejects the API key in online mode.
-        This is never degraded by ``on_online_error``.
-    :raises requests.RequestException: If ``on_online_error="raise"`` and the initial
-        login or startup fails with a connection error.
+        startup fails and is not degraded (a non-transient error, or a transient error
+        when ``on_online_error="raise"``).
+    :raises AuthenticationError: If SwanLab Cloud rejects the API key during login or
+        startup, or if the initial login fails with a non-transient error. With
+        ``on_online_error="raise"`` any login failure is wrapped as
+        ``AuthenticationError`` with the original exception in ``__cause__``.
 
     Examples:
 
@@ -598,8 +599,8 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
         if mode != "online":
             _ensure_offline_identity(run_settings, run_id)
         # 3.3. 统一调用 deliver_run_start（core 内部按 mode 分发：online 走网络，其余本地处理）
-        resq = _build_start_request(run_settings, run_id, run_dir)
-        resp = ctx.core.deliver_run_start(resq)
+        start_request = _build_start_request(run_settings, run_id, run_dir)
+        resp = ctx.core.deliver_run_start(start_request)
         if not resp.success:
             if resp.error_kind != CORE_ERROR_KIND_TRANSIENT or run_settings.on_online_error == "raise":
                 _raise_start_failure(resp)
@@ -702,8 +703,8 @@ def _restart_with_fallback(
 ) -> DeliverRunStartResponse:
     """在线启动失败后，按策略切换模式并在同一个 run_dir 上重新启动 Core。"""
     _switch_run_to_fallback(ctx, run_settings, run_id, run_dir, target_mode)
-    resq = _build_start_request(run_settings, run_id, run_dir)
-    resp = ctx.core.deliver_run_start(resq)
+    start_request = _build_start_request(run_settings, run_id, run_dir)
+    resp = ctx.core.deliver_run_start(start_request)
     if not resp.success:
         _raise_start_failure(resp)
     return resp
@@ -738,7 +739,7 @@ def _warn_fallback(
     if skip_store_disabled:
         details.append("core.skip_store has been disabled")
     suffix = f" ({'; '.join(details)})" if details else ""
-    console.warning(f"Experiment startup failed; falling back to {target_mode} mode: {consequence}{suffix}.")
+    console.warning(f"Online startup failed; attempting to fall back to {target_mode} mode: {consequence}{suffix}.")
 
 
 def _reset_client_after_fallback() -> None:
@@ -770,22 +771,6 @@ def _raise_start_failure(resp: DeliverRunStartResponse) -> NoReturn:
     raise RuntimeError(message)
 
 
-def _is_transient_login_error(exc: BaseException) -> bool:
-    """登录握手的可降级错误：仅服务不可用类错误。
-
-    这里有意不与 core_python.pkg.errors.classify_start_error 收敛：init 内部的登录握手是过渡路径，后续会随登录接口一起下线；
-    若把判定收敛到为 Core 启动服务的 errors 模块，删除登录路径时反而要在 Core 侧做无谓的回滚。两边口径（无响应 /408 / 429 / 5xx、URL 配置错误不降级）
-    目前一致，调整时需同步修改。
-    """
-    if isinstance(exc, ApiError):
-        status = getattr(exc.response, "status_code", None)
-        return status is None or status in (408, 429) or status >= 500
-    # URL / 协议配置错误重试和降级都无法解决
-    if isinstance(exc, (InvalidURL, MissingSchema, InvalidSchema)):
-        return False
-    return isinstance(exc, requests.RequestException)
-
-
 def _ensure_online_client_or_fallback(
     ctx: RunContext,
     run_settings: Settings,
@@ -811,7 +796,7 @@ def _ensure_online_client_or_fallback(
             )
         assert client.exists(), "No client found, please login first."
     except Exception as e:
-        if not _is_transient_login_error(e) or run_settings.on_online_error == "raise":
+        if not is_transient_login_error(e) or run_settings.on_online_error == "raise":
             raise
         target_mode = run_settings.on_online_error
         _switch_run_to_fallback(ctx, run_settings, run_id, run_dir, target_mode)

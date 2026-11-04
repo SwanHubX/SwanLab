@@ -752,7 +752,7 @@ class TestInitOnlineStartFallback:
         assert run.mode == "offline"
         assert run._ctx.config.settings.mode == "offline"
         assert run.dir.exists()
-        assert len([m for m in warnings if "falling back to offline mode" in m]) == 1
+        assert len([m for m in warnings if "fall back to offline mode" in m]) == 1
         with pytest.raises(ValueError):
             _ = run.url
         with pytest.raises(ValueError):
@@ -833,7 +833,7 @@ class TestInitOnlineStartFallback:
         assert run._ctx.config.settings.core.skip_store is False
         # disabled 降级必须重建为不做任何上报的 probe，避免退化成 online probe
         assert run._ctx.probe._disabled is True
-        assert len([m for m in warnings if "falling back to disabled mode" in m]) == 1
+        assert len([m for m in warnings if "fall back to disabled mode" in m]) == 1
         with pytest.raises(ValueError):
             _ = run.url
         with pytest.raises(ValueError):
@@ -864,11 +864,11 @@ def test_login_error_classification_excludes_config_errors():
     """URL / 协议配置错误不应被判定为可降级的连接错误。"""
     from requests.exceptions import InvalidURL
 
-    from swanlab.sdk.cmd.init import _is_transient_login_error
+    from swanlab.sdk.internal.pkg.client import is_transient_login_error
 
-    assert _is_transient_login_error(requests.ConnectionError("boom"))
-    assert not _is_transient_login_error(InvalidURL("bad url"))
-    assert not _is_transient_login_error(AuthenticationError("bad key"))
+    assert is_transient_login_error(requests.ConnectionError("boom"))
+    assert not is_transient_login_error(InvalidURL("bad url"))
+    assert not is_transient_login_error(AuthenticationError("bad key"))
 
 
 # ============================================================
@@ -888,7 +888,7 @@ class TestInitOnlineLoginFallback:
         assert run.mode == "offline"
         assert run._ctx.config.settings.mode == "offline"
         assert run.dir.exists()
-        assert len([m for m in warnings if "falling back to offline mode" in m]) == 1
+        assert len([m for m in warnings if "fall back to offline mode" in m]) == 1
 
     def test_login_connection_error_degrades_to_offline(
         self, rsps, mock_online_settings, offline_warnings, offline_errors
@@ -911,7 +911,7 @@ class TestInitOnlineLoginFallback:
         run = init(mode="online", project=PROJECT, on_online_error="disabled")
 
         assert run.mode == "disabled"
-        assert len([m for m in offline_warnings if "falling back to disabled mode" in m]) == 1
+        assert len([m for m in offline_warnings if "fall back to disabled mode" in m]) == 1
         assert not client.exists()
         run.log({"loss": 1.0})
         run.finish()
@@ -935,8 +935,10 @@ class TestInitOnlineLoginFallback:
     def test_login_connection_error_with_raise_policy(self, rsps, mock_online_settings):
         rsps.add(responses_lib.POST, self.LOGIN_URL, body=requests.ConnectionError("boom"))
 
-        with pytest.raises(requests.ConnectionError):
+        with pytest.raises(AuthenticationError) as exc:
             init(mode="online", project=PROJECT, on_online_error="raise")
+
+        assert isinstance(exc.value.__cause__, requests.ConnectionError)
 
     def test_login_unauthorized_raises_authentication_error(self, rsps, mock_online_settings):
         rsps.add(responses_lib.POST, self.LOGIN_URL, json={"message": "unauthorized"}, status=401)
