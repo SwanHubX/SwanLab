@@ -13,7 +13,9 @@ from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.typings.core_python.api.project import ProjectType
 
 
-def get_or_create_project(*, username: Optional[str], name: str, public: bool) -> ProjectType:
+def get_or_create_project(
+    *, username: Optional[str], name: str, public: bool, retries: Optional[int] = None
+) -> ProjectType:
     """
     创建、获取项目信息，本函数还有个目标是完成多视图更新前后的兼容，breaking change 主要是在创建项目的接口上
     多视图前后的创建项目接口发生变化，原本接口不再使用，这里的流程是：
@@ -25,6 +27,7 @@ def get_or_create_project(*, username: Optional[str], name: str, public: bool) -
     :param name: 项目名称
     :param username: 项目所属的用户名
     :param public: 项目是否公开
+    :param retries: 覆盖会话默认重试次数；None 使用会话默认值
     :return: 项目信息
     """
     # 1. 参数准备
@@ -35,14 +38,14 @@ def get_or_create_project(*, username: Optional[str], name: str, public: bool) -
     # 2. 先请求接口获取项目信息，如果404再尝试创建项目
     # 因为此时项目可能是已经存在的，但是当前用户只有写入权限，此时调用创建项目的接口返回403，属于非预期行为
     try:
-        return client.get(f"/project/{username}/{name}", log_error=False).data
+        return client.get(f"/project/{username}/{name}", retries=retries, log_error=False).data
     except ApiError as e:
         if e.response.status_code != 404:
             raise e
     try:
         # 3. 尝试调用新接口创建项目
         # 已创建：200 ; 创建成功：201 ; 失败：4xx/5xx
-        client.post(f"/projects/{username}", data=data)
+        client.post(f"/projects/{username}", data=data, retries=retries)
     except ApiError as e:
         # 4. 如果新接口不存在，则调用旧接口创建项目
         if e.response.status_code == 404:
@@ -51,4 +54,4 @@ def get_or_create_project(*, username: Optional[str], name: str, public: bool) -
             raise e
 
     # 5. 获取项目信息
-    return client.get(f"/project/{username}/{name}").data
+    return client.get(f"/project/{username}/{name}", retries=retries).data

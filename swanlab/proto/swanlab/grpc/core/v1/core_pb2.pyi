@@ -7,12 +7,24 @@ from swanlab.proto.swanlab.save.v1 import save_pb2 as _save_pb2
 from swanlab.proto.swanlab.operation.v1 import operation_pb2 as _operation_pb2
 from swanlab.proto.swanlab.settings.core.v1 import core_pb2 as _core_pb2
 from google.protobuf.internal import containers as _containers
+from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
 from collections.abc import Iterable as _Iterable, Mapping as _Mapping
 from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 
 DESCRIPTOR: _descriptor.FileDescriptor
+
+class CoreErrorKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    CORE_ERROR_KIND_UNSPECIFIED: _ClassVar[CoreErrorKind]
+    CORE_ERROR_KIND_AUTH: _ClassVar[CoreErrorKind]
+    CORE_ERROR_KIND_TRANSIENT: _ClassVar[CoreErrorKind]
+    CORE_ERROR_KIND_OTHER: _ClassVar[CoreErrorKind]
+CORE_ERROR_KIND_UNSPECIFIED: CoreErrorKind
+CORE_ERROR_KIND_AUTH: CoreErrorKind
+CORE_ERROR_KIND_TRANSIENT: CoreErrorKind
+CORE_ERROR_KIND_OTHER: CoreErrorKind
 
 class DeliverRunStartRequest(_message.Message):
     __slots__ = ("core_settings", "start_record")
@@ -23,7 +35,7 @@ class DeliverRunStartRequest(_message.Message):
     def __init__(self, core_settings: _Optional[_Union[_core_pb2.CoreSettings, _Mapping]] = ..., start_record: _Optional[_Union[_run_pb2.StartRecord, _Mapping]] = ...) -> None: ...
 
 class DeliverRunStartResponse(_message.Message):
-    __slots__ = ("success", "message", "run", "path", "name", "global_step", "global_system_step", "new_experiment")
+    __slots__ = ("success", "message", "run", "path", "name", "global_step", "global_system_step", "new_experiment", "error_kind")
     SUCCESS_FIELD_NUMBER: _ClassVar[int]
     MESSAGE_FIELD_NUMBER: _ClassVar[int]
     RUN_FIELD_NUMBER: _ClassVar[int]
@@ -32,6 +44,7 @@ class DeliverRunStartResponse(_message.Message):
     GLOBAL_STEP_FIELD_NUMBER: _ClassVar[int]
     GLOBAL_SYSTEM_STEP_FIELD_NUMBER: _ClassVar[int]
     NEW_EXPERIMENT_FIELD_NUMBER: _ClassVar[int]
+    ERROR_KIND_FIELD_NUMBER: _ClassVar[int]
     success: bool
     message: str
     run: _run_pb2.StartRecord
@@ -40,7 +53,8 @@ class DeliverRunStartResponse(_message.Message):
     global_step: int
     global_system_step: int
     new_experiment: bool
-    def __init__(self, success: bool = ..., message: _Optional[str] = ..., run: _Optional[_Union[_run_pb2.StartRecord, _Mapping]] = ..., path: _Optional[str] = ..., name: _Optional[str] = ..., global_step: _Optional[int] = ..., global_system_step: _Optional[int] = ..., new_experiment: bool = ...) -> None: ...
+    error_kind: CoreErrorKind
+    def __init__(self, success: bool = ..., message: _Optional[str] = ..., run: _Optional[_Union[_run_pb2.StartRecord, _Mapping]] = ..., path: _Optional[str] = ..., name: _Optional[str] = ..., global_step: _Optional[int] = ..., global_system_step: _Optional[int] = ..., new_experiment: bool = ..., error_kind: _Optional[_Union[CoreErrorKind, str]] = ...) -> None: ...
 
 class UpsertColumnsRequest(_message.Message):
     __slots__ = ("columns",)

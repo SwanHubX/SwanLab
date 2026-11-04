@@ -7,10 +7,12 @@
 
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import List
+from typing import List, Optional
 
 from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
+    CORE_ERROR_KIND_OTHER,
     ConfirmRunFinishResponse,
+    CoreErrorKind,
     DeliverRunFinishRequest,
     DeliverRunFinishResponse,
     DeliverRunStartRequest,
@@ -53,20 +55,32 @@ class CoreProtocol(ABC):
         """
         交付运行开始事件，同步事件，等待确认
         约定应该在此处完成Core相关组件的初始化，在这里完成不同模式的初始化函数分发
+
+        启动失败由 Core 实现自行清理已创建的资源，不向调用方暴露清理接口。
         """
         errors: list[BaseException] = []
+        resp: Optional[DeliverRunStartResponse] = None
         with safe.block(message="run start error", on_error=errors.append):
             if self._mode == "online":
-                return self._start_when_online(start_request)
+                resp = self._start_when_online(start_request)
             elif self._mode == "local":
-                return self._start_when_local(start_request)
+                resp = self._start_when_local(start_request)
             elif self._mode == "offline":
-                return self._start_when_offline(start_request)
-            return self._start_when_disabled(start_request)
-        message = "Failed to start run"
+                resp = self._start_when_offline(start_request)
+            else:
+                resp = self._start_when_disabled(start_request)
         if errors:
-            message = f"{message}: {errors[0]}"
-        return DeliverRunStartResponse(success=False, message=message)
+            return self._start_failure(errors[0])
+        assert resp is not None
+        return resp
+
+    @staticmethod
+    def _start_failure(exc: BaseException, kind: CoreErrorKind = CORE_ERROR_KIND_OTHER) -> DeliverRunStartResponse:
+        return DeliverRunStartResponse(
+            success=False,
+            message=f"Failed to start run: {exc}",
+            error_kind=kind,
+        )
 
     @staticmethod
     def _start_when_disabled(start_request: DeliverRunStartRequest) -> DeliverRunStartResponse:

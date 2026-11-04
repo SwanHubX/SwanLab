@@ -36,7 +36,7 @@ from pydantic_settings import (
 from swanlab.proto.swanlab.settings.core.v1.core_pb2 import CoreSettings as CoreSettingsPb
 from swanlab.proto.swanlab.settings.probe.v1.probe_pb2 import ProbeSettings as ProbeSettingsPb
 from swanlab.sdk.internal.pkg import console, helper, nrc, safe
-from swanlab.sdk.typings.run import ModeType
+from swanlab.sdk.typings.run import ModeType, OnlineErrorPolicy
 
 from .compat import getenv, log_dir_factory, strip_env_quotes
 from .core import CoreSettings
@@ -150,6 +150,18 @@ class Settings(BaseSettings):
         if v == "cloud":
             return "online"
         raise ValueError(f"Invalid mode: {v}, allowed values are {list(get_args(ModeType))}")
+
+    on_online_error: OnlineErrorPolicy = "offline"
+    """
+    Online connection failure policy.
+
+    Only transient connection/server failures are degraded; authentication and
+    configuration errors always fail.
+
+    * `disabled`: Degrade to disabled mode and stop recording when SwanLab Cloud is unreachable.
+    * `offline`: Degrade to offline mode and keep local recording when SwanLab Cloud is unreachable.
+    * `raise`: Fail initialization when SwanLab Cloud is unreachable.
+    """
 
     log_dir: Path = Field(default_factory=log_dir_factory, validate_default=True)
     """

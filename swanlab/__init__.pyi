@@ -31,7 +31,15 @@ from .sdk import (
 )
 from .sdk.typings.cmd import ConfigLike, LoginType
 from .sdk.typings.context import CallbacksType
-from .sdk.typings.run import AsyncLogType, FinishType, ModeType, ParallelType, ResumeType, SaveType
+from .sdk.typings.run import (
+    AsyncLogType,
+    FinishType,
+    ModeType,
+    OnlineErrorPolicy,
+    ParallelType,
+    ResumeType,
+    SaveType,
+)
 from .sdk.typings.run.transforms import CaptionsType
 from .sdk.typings.run.transforms.audio import AudioDatasType, AudioRatesType
 from .sdk.typings.run.transforms.echarts import EChartsDatasType
@@ -103,6 +111,7 @@ def init(
     reinit: Optional[bool] = None,
     log_dir: Optional[str] = None,
     mode: Optional[ModeType] = None,
+    on_online_error: Optional[OnlineErrorPolicy] = None,
     workspace: Optional[str] = None,
     project: Optional[str] = None,
     public: Optional[bool] = None,
@@ -130,6 +139,10 @@ def init(
     :param log_dir: Directory to store logs. Defaults to "./swanlog".
     :param mode: Run mode. Options: "online" (sync to cloud), "local" (local only),
         "offline" (save locally for later sync), "disabled" (no logging). Defaults to "online".
+    :param on_online_error: Behavior when SwanLab Cloud is temporarily unreachable in online
+        mode. Only transient connection/server failures are degraded; authentication and
+        configuration errors always raise. Options: "offline" (save locally and sync later),
+        "disabled" (no logging), "raise". Defaults to "offline".
     :param workspace: Workspace or organization name. Defaults to current user.
     :param project: Project name. Defaults to current directory name.
     :param public: Make project publicly visible (online mode only). Defaults to False.
@@ -146,8 +159,16 @@ def init(
     :param config: Experiment configuration dict or path to config file (JSON/YAML).
     :param settings: Custom Settings object for advanced configuration.
     :param callbacks: List of callback functions triggered on run events.
+
     :return: The initialized Run object.
-    :raises RuntimeError: If a run is already active and reinit=False.
+
+    :raises RuntimeError: If a run is already active and reinit=False, or if an online
+        startup fails and is not degraded (a non-transient error, or a transient error
+        when ``on_online_error="raise"``).
+    :raises AuthenticationError: If SwanLab Cloud rejects the API key during login or
+        startup, or if the initial login fails with a non-transient error. With
+        ``on_online_error="raise"`` any login failure is wrapped as
+        ``AuthenticationError`` with the original exception in ``__cause__``.
 
     Examples:
 
@@ -231,7 +252,8 @@ def login(
     :param timeout: Network request timeout in seconds. Defaults to 10.
     :return: True if login was successful, False otherwise.
     :raises RuntimeError: If called while a run is active.
-    :raises AuthenticationError: If login fails due to invalid credentials or network issues.
+    :raises AuthenticationError: If login fails due to invalid credentials, network issues,
+        or server errors. The original exception is available via ``__cause__``.
 
     Examples:
 

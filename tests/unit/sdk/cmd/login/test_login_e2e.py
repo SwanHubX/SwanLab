@@ -6,10 +6,11 @@
 """
 
 import pytest
+import requests
 import responses
 
 from swanlab.exceptions import AuthenticationError
-from swanlab.sdk.cmd.login import login
+from swanlab.sdk.cmd.login import login, login_cli
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.pkg import nrc
 from swanlab.sdk.internal.settings import Settings, create_settings, set_global_settings
@@ -199,6 +200,20 @@ class TestLoginE2E:
 
         with pytest.raises(AuthenticationError, match="Failed to initialize the SwanLab client"):
             login(api_key="wrong-key", relogin=True)
+
+    @responses.activate
+    def test_login_connection_error_raises(self):
+        """显式登录的网络错误应直接抛出 AuthenticationError，不走 init 的降级逻辑。"""
+        responses.add(
+            responses.POST,
+            "https://api.swanlab.cn/api/login/api_key",
+            body=requests.ConnectionError("boom"),
+        )
+
+        with pytest.raises(AuthenticationError) as exc:
+            login(api_key="some-key", relogin=True)
+
+        assert isinstance(exc.value.__cause__, requests.ConnectionError)
 
     @responses.activate
     def test_login_host_changed_raises_without_key(self):
@@ -436,3 +451,19 @@ class TestLoginE2E:
         # 再次登录不传 api_key，同 host 应复用 settings 中的 key
         login(relogin=True)
         assert create_settings().api_key == stored_key
+
+
+class TestLoginCliErrors:
+    @responses.activate
+    def test_network_error_raises_for_library_callers(self):
+        """库调用（login_cli）不应终止进程，而是抛 AuthenticationError 交给上层按策略降级。"""
+        responses.add(
+            responses.POST,
+            "https://api.error.test/api/login/api_key",
+            body=requests.ConnectionError("boom"),
+        )
+
+        with pytest.raises(AuthenticationError) as exc:
+            login_cli(api_key="test-key", host="https://api.error.test")
+
+        assert isinstance(exc.value.__cause__, requests.ConnectionError)

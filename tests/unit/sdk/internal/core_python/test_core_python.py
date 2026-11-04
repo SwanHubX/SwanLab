@@ -15,8 +15,13 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+import requests
 
+from swanlab.exceptions import ApiError, AuthenticationError
 from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
+    CORE_ERROR_KIND_AUTH,
+    CORE_ERROR_KIND_OTHER,
+    CORE_ERROR_KIND_TRANSIENT,
     ConfirmRunFinishResponse,
     DeliverRunFinishRequest,
     DeliverRunStartRequest,
@@ -127,6 +132,51 @@ class TestCorePythonStart:
         MockHeartbeat.assert_called_once_with("test-experiment-id")
         MockHeartbeat.return_value.start.assert_called_once()
 
+    @pytest.mark.parametrize("new_experiment", [True, False])
+    def test_report_run_start_uses_startup_retries(self, tmp_path, monkeypatch, new_experiment):
+        """online 启动握手应使用统一的 STARTUP_RETRIES。"""
+        from swanlab.sdk.internal.core_python import core as core_module
+        from swanlab.sdk.internal.core_python.client import STARTUP_RETRIES
+        from swanlab.sdk.internal.core_python.utils import PrepareExperimentStartResult
+
+        core = CorePython("online")
+        core._ctx = make_core_ctx(tmp_path)
+        request = make_start_request(tmp_path, make_start_record())
+        prepare = MagicMock(
+            return_value=PrepareExperimentStartResult(
+                username="test-user",
+                project="test-project",
+                project_data={
+                    "cuid": "test-project-id",
+                    "name": "test-project",
+                    "path": "/test-user/test-project",
+                    "visibility": "PRIVATE",
+                    "group": {"username": "test-user"},
+                    "_count": {"experiments": 0, "contributors": 0, "collaborators": 0, "clones": 0},
+                },
+                experiment={
+                    "cuid": "test-experiment-id",
+                    "slug": "test-run-id",
+                    "name": "test-run",
+                    "createdAt": "2024-07-01T00:00:00Z",
+                },
+                new_experiment=new_experiment,
+                name="test-run",
+                color="#000000",
+            )
+        )
+        summary = MagicMock(return_value=None)
+        monkeypatch.setattr(core_module, "prepare_experiment_start", prepare)
+        monkeypatch.setattr(core_module, "get_experiment_summary", summary)
+
+        core._report_run_start(request.start_record)
+
+        assert prepare.call_args.kwargs["retries"] == STARTUP_RETRIES
+        if new_experiment:
+            summary.assert_not_called()
+        else:
+            assert summary.call_args.kwargs["retries"] == STARTUP_RETRIES
+
     def test_start_failure_includes_original_error(self, tmp_path, monkeypatch):
         core = CorePython("local")
         error_message = "Cannot create SwanLab data store file /root/run.swanlab: permission denied."
@@ -141,6 +191,139 @@ class TestCorePythonStart:
         assert resp.success is False
         assert "Failed to start run" in resp.message
         assert error_message in resp.message
+        assert core._active is False
+
+
+# ============================================================
+# TestCorePythonOnlineStartFailure
+# ============================================================
+
+
+class TestCorePythonOnlineStartFailure:
+    def test_connection_error_returns_transient(self, tmp_path, monkeypatch):
+        core = CorePython("online")
+        monkeypatch.setattr(core, "_report_run_start", MagicMock(side_effect=requests.ConnectionError("boom")))
+
+        resp = core.deliver_run_start(make_start_request(tmp_path, make_start_record()))
+
+        assert resp.success is False
+        assert resp.error_kind == CORE_ERROR_KIND_TRANSIENT
+        assert "boom" in resp.message
+        assert core._active is False
+
+    def test_authentication_error_returns_auth(self, tmp_path, monkeypatch):
+        core = CorePython("online")
+        monkeypatch.setattr(
+            core,
+            "_report_run_start",
+            MagicMock(side_effect=AuthenticationError("invalid API key")),
+        )
+
+        resp = core.deliver_run_start(make_start_request(tmp_path, make_start_record()))
+
+        assert resp.success is False
+        assert resp.error_kind == CORE_ERROR_KIND_AUTH
+
+    def test_api_503_returns_transient(self, tmp_path, monkeypatch):
+        core = CorePython("online")
+        error = ApiError(
+            MagicMock(status_code=503, url="https://api.test/project"),
+            method="GET",
+            code=503,
+            message="unavailable",
+        )
+        monkeypatch.setattr(core, "_report_run_start", MagicMock(side_effect=error))
+
+        resp = core.deliver_run_start(make_start_request(tmp_path, make_start_record()))
+
+        assert resp.success is False
+        assert resp.error_kind == CORE_ERROR_KIND_TRANSIENT
+
+    def test_business_error_returns_other(self, tmp_path, monkeypatch):
+        core = CorePython("online")
+        monkeypatch.setattr(core, "_report_run_start", MagicMock(side_effect=RuntimeError("experiment not found")))
+
+        resp = core.deliver_run_start(make_start_request(tmp_path, make_start_record()))
+
+        assert resp.success is False
+        assert resp.error_kind == CORE_ERROR_KIND_OTHER
+
+    def test_malformed_response_returns_transient(self, tmp_path, monkeypatch):
+        """200 响应体畸形（decode_response 退化为 text）表现为 TypeError，允许降级。"""
+        core = CorePython("online")
+        monkeypatch.setattr(
+            core, "_report_run_start", MagicMock(side_effect=TypeError("string indices must be integers"))
+        )
+
+        resp = core.deliver_run_start(make_start_request(tmp_path, make_start_record()))
+
+        assert resp.success is False
+        assert resp.error_kind == CORE_ERROR_KIND_TRANSIENT
+
+    @pytest.mark.parametrize(
+        "error",
+        [
+            ValueError("Backend did not return createdAt; please upgrade swanlab-server"),
+            AssertionError("experiment without name"),
+        ],
+    )
+    def test_config_or_internal_error_returns_other(self, tmp_path, monkeypatch, error):
+        """配置 / 后端兼容性 / 内部断言等确定性错误不允许降级。"""
+        core = CorePython("online")
+        monkeypatch.setattr(core, "_report_run_start", MagicMock(side_effect=error))
+
+        resp = core.deliver_run_start(make_start_request(tmp_path, make_start_record()))
+
+        assert resp.success is False
+        assert resp.error_kind == CORE_ERROR_KIND_OTHER
+
+    def test_local_start_failure_is_other_and_cleans_resources(self, tmp_path, monkeypatch):
+        core = CorePython("online")
+
+        def _report_run_start_and_set_attrs(record):
+            set_online_params(core)
+            core._metrics = MagicMock()
+            return DeliverRunStartResponse(success=True, message="OK", run=make_start_record())
+
+        monkeypatch.setattr(core, "_report_run_start", _report_run_start_and_set_attrs)
+        monkeypatch.setattr(
+            "swanlab.sdk.internal.core_python.core.Transport",
+            MagicMock(side_effect=RuntimeError("local boom")),
+        )
+
+        resp = core.deliver_run_start(make_start_request(tmp_path, make_start_record()))
+
+        assert resp.success is False
+        assert resp.error_kind == CORE_ERROR_KIND_OTHER
+        assert core._store is None
+        assert core._transport is None
+        assert core._active is False
+
+    def test_start_failure_does_not_enqueue_transport_records(self, tmp_path, monkeypatch):
+        """启动阶段只允许写本地 start record；失败清理时 transport 不应收到任何记录。"""
+        core = CorePython("online")
+
+        def _report_run_start_and_set_attrs(record):
+            set_online_params(core)
+            core._metrics = MagicMock()
+            return DeliverRunStartResponse(success=True, message="OK", run=make_start_record())
+
+        transport = MagicMock()
+        transport.pending_records.return_value = []
+        monkeypatch.setattr(core, "_report_run_start", _report_run_start_and_set_attrs)
+        monkeypatch.setattr("swanlab.sdk.internal.core_python.core.Transport", MagicMock(return_value=transport))
+        monkeypatch.setattr(
+            "swanlab.sdk.internal.core_python.core.Heartbeat",
+            MagicMock(side_effect=RuntimeError("heartbeat boom")),
+        )
+
+        resp = core.deliver_run_start(make_start_request(tmp_path, make_start_record()))
+
+        assert resp.success is False
+        transport.put.assert_not_called()
+        transport.request_finish.assert_called_once()
+        transport.join.assert_called_once_with(timeout=1.0)
+        assert core._transport is None
         assert core._active is False
 
 
@@ -307,6 +490,43 @@ class TestCorePythonGuard:
 
         with pytest.raises(RuntimeError, match="should not be called"):
             core.fork()
+
+
+# ============================================================
+# TestCorePythonCleanup
+# ============================================================
+
+
+class TestCorePythonCleanup:
+    def test_transport_is_stopped_even_with_pending_records(self):
+        """启动失败清理时即使缓冲非空，也必须通知 transport 退出，避免线程泄漏。"""
+        core = CorePython("online")
+        transport = MagicMock()
+        transport.pending_records.return_value = [MagicMock()]
+        core._transport = transport
+
+        core._cleanup_failed_start()
+
+        transport.request_finish.assert_called_once()
+        transport.join.assert_called_once_with(timeout=1.0)
+        assert core._transport is None
+
+    def test_watcher_stops_when_store_close_fails(self):
+        """store 关闭失败不能阻止 watcher 停止，且首个异常仍向调用方抛出。"""
+        core = CorePython("offline")
+        store = MagicMock()
+        store.close.side_effect = OSError("disk error")
+        watcher = MagicMock()
+        core._store = store
+        core._watcher = watcher
+
+        with pytest.raises(OSError, match="disk error"):
+            core._release_local_storage()
+
+        store.close.assert_called_once()
+        watcher.stop.assert_called_once()
+        assert core._store is None
+        assert core._watcher is None
 
 
 # ============================================================

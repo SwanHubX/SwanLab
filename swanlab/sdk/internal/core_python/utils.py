@@ -32,14 +32,17 @@ class PrepareExperimentStartResult:
     color: str
 
 
-def prepare_experiment_start(record: StartRecord) -> PrepareExperimentStartResult:
+def prepare_experiment_start(record: StartRecord, *, retries: Optional[int] = None) -> PrepareExperimentStartResult:
     """
     创建或恢复运行对应的项目和实验
+
+    :param retries: 覆盖项目/实验请求的会话默认重试次数；None 使用会话默认值
     """
     project_data = get_or_create_project(
         username=record.workspace,
         name=record.project,
         public=record.public,
+        retries=retries,
     )
     username, project = project_data["group"]["username"], project_data["name"]
     history_experiment_count = project_data["_count"]["experiments"]
@@ -59,6 +62,7 @@ def prepare_experiment_start(record: StartRecord) -> PrepareExperimentStartResul
         group=record.group,
         tags=list(record.tags),
         created_at=record.started_at,
+        retries=retries,
     )
     assert experiment.get("name"), "create_or_resume_experiment() returned an experiment without a name."
 

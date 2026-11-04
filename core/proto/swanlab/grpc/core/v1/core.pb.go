@@ -29,6 +29,59 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// 启动失败的错误分类，供 SDK 判断当前状态
+type CoreErrorKind int32
+
+const (
+	CoreErrorKind_CORE_ERROR_KIND_UNSPECIFIED CoreErrorKind = 0 // 未分类，兼容未传递的情况
+	CoreErrorKind_CORE_ERROR_KIND_AUTH        CoreErrorKind = 1 // 认证或权限错误
+	CoreErrorKind_CORE_ERROR_KIND_TRANSIENT   CoreErrorKind = 2 // 服务不可用
+	CoreErrorKind_CORE_ERROR_KIND_OTHER       CoreErrorKind = 3 // 业务、本地或未知错误
+)
+
+// Enum value maps for CoreErrorKind.
+var (
+	CoreErrorKind_name = map[int32]string{
+		0: "CORE_ERROR_KIND_UNSPECIFIED",
+		1: "CORE_ERROR_KIND_AUTH",
+		2: "CORE_ERROR_KIND_TRANSIENT",
+		3: "CORE_ERROR_KIND_OTHER",
+	}
+	CoreErrorKind_value = map[string]int32{
+		"CORE_ERROR_KIND_UNSPECIFIED": 0,
+		"CORE_ERROR_KIND_AUTH":        1,
+		"CORE_ERROR_KIND_TRANSIENT":   2,
+		"CORE_ERROR_KIND_OTHER":       3,
+	}
+)
+
+func (x CoreErrorKind) Enum() *CoreErrorKind {
+	p := new(CoreErrorKind)
+	*p = x
+	return p
+}
+
+func (x CoreErrorKind) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (CoreErrorKind) Descriptor() protoreflect.EnumDescriptor {
+	return file_swanlab_grpc_core_v1_core_proto_enumTypes[0].Descriptor()
+}
+
+func (CoreErrorKind) Type() protoreflect.EnumType {
+	return &file_swanlab_grpc_core_v1_core_proto_enumTypes[0]
+}
+
+func (x CoreErrorKind) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use CoreErrorKind.Descriptor instead.
+func (CoreErrorKind) EnumDescriptor() ([]byte, []int) {
+	return file_swanlab_grpc_core_v1_core_proto_rawDescGZIP(), []int{0}
+}
+
 // DeliverRunStart 请求，生命周期函数，运行正式开始
 type DeliverRunStartRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -85,14 +138,15 @@ func (x *DeliverRunStartRequest) GetStartRecord() *v11.StartRecord {
 // DeliverRunStart 响应
 type DeliverRunStartResponse struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
-	Success          bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`                                             // 请求是否成功
-	Message          string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`                                              // 请求失败的响应
-	Run              *v11.StartRecord       `protobuf:"bytes,3,opt,name=run,proto3" json:"run,omitempty"`                                                      // 最终创建的 Run 记录
-	Path             string                 `protobuf:"bytes,4,opt,name=path,proto3" json:"path,omitempty"`                                                    // 对应的实验路径，格式为 /:username/:project_name/:slug(run_id)
-	Name             string                 `protobuf:"bytes,5,opt,name=name,proto3" json:"name,omitempty"`                                                    // 对应的实验名称
-	GlobalStep       int64                  `protobuf:"varint,6,opt,name=global_step,json=globalStep,proto3" json:"global_step,omitempty"`                     // 起始全局步数
-	GlobalSystemStep int64                  `protobuf:"varint,7,opt,name=global_system_step,json=globalSystemStep,proto3" json:"global_system_step,omitempty"` // 起始全局系统步数
-	NewExperiment    bool                   `protobuf:"varint,8,opt,name=new_experiment,json=newExperiment,proto3" json:"new_experiment,omitempty"`            // 是否是新实验
+	Success          bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`                                                              // 请求是否成功
+	Message          string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`                                                               // 请求失败的响应
+	Run              *v11.StartRecord       `protobuf:"bytes,3,opt,name=run,proto3" json:"run,omitempty"`                                                                       // 最终创建的 Run 记录
+	Path             string                 `protobuf:"bytes,4,opt,name=path,proto3" json:"path,omitempty"`                                                                     // 对应的实验路径，格式为 /:username/:project_name/:slug(run_id)
+	Name             string                 `protobuf:"bytes,5,opt,name=name,proto3" json:"name,omitempty"`                                                                     // 对应的实验名称
+	GlobalStep       int64                  `protobuf:"varint,6,opt,name=global_step,json=globalStep,proto3" json:"global_step,omitempty"`                                      // 起始全局步数
+	GlobalSystemStep int64                  `protobuf:"varint,7,opt,name=global_system_step,json=globalSystemStep,proto3" json:"global_system_step,omitempty"`                  // 起始全局系统步数
+	NewExperiment    bool                   `protobuf:"varint,8,opt,name=new_experiment,json=newExperiment,proto3" json:"new_experiment,omitempty"`                             // 是否是新实验
+	ErrorKind        CoreErrorKind          `protobuf:"varint,9,opt,name=error_kind,json=errorKind,proto3,enum=swanlab.grpc.core.v1.CoreErrorKind" json:"error_kind,omitempty"` // 启动失败时的错误分类
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
@@ -181,6 +235,13 @@ func (x *DeliverRunStartResponse) GetNewExperiment() bool {
 		return x.NewExperiment
 	}
 	return false
+}
+
+func (x *DeliverRunStartResponse) GetErrorKind() CoreErrorKind {
+	if x != nil {
+		return x.ErrorKind
+	}
+	return CoreErrorKind_CORE_ERROR_KIND_UNSPECIFIED
 }
 
 // UpsertColumns 请求，异步插入一批列定义
@@ -627,7 +688,7 @@ const file_swanlab_grpc_core_v1_core_proto_rawDesc = "" +
 	"\x1fswanlab/grpc/core/v1/core.proto\x12\x14swanlab.grpc.core.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x18swanlab/run/v1/run.proto\x1a!swanlab/metric/data/v1/data.proto\x1a%swanlab/metric/column/v1/column.proto\x1a\x1dswanlab/terminal/v1/log.proto\x1a\x1aswanlab/save/v1/save.proto\x1a$swanlab/operation/v1/operation.proto\x1a#swanlab/settings/core/v1/core.proto\"\xa5\x01\n" +
 	"\x16DeliverRunStartRequest\x12K\n" +
 	"\rcore_settings\x18\x01 \x01(\v2&.swanlab.settings.core.v1.CoreSettingsR\fcoreSettings\x12>\n" +
-	"\fstart_record\x18\x02 \x01(\v2\x1b.swanlab.run.v1.StartRecordR\vstartRecord\"\x9a\x02\n" +
+	"\fstart_record\x18\x02 \x01(\v2\x1b.swanlab.run.v1.StartRecordR\vstartRecord\"\xde\x02\n" +
 	"\x17DeliverRunStartResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x12-\n" +
@@ -637,7 +698,9 @@ const file_swanlab_grpc_core_v1_core_proto_rawDesc = "" +
 	"\vglobal_step\x18\x06 \x01(\x03R\n" +
 	"globalStep\x12,\n" +
 	"\x12global_system_step\x18\a \x01(\x03R\x10globalSystemStep\x12%\n" +
-	"\x0enew_experiment\x18\b \x01(\bR\rnewExperiment\"X\n" +
+	"\x0enew_experiment\x18\b \x01(\bR\rnewExperiment\x12B\n" +
+	"\n" +
+	"error_kind\x18\t \x01(\x0e2#.swanlab.grpc.core.v1.CoreErrorKindR\terrorKind\"X\n" +
 	"\x14UpsertColumnsRequest\x12@\n" +
 	"\acolumns\x18\x01 \x03(\v2&.swanlab.metric.column.v1.ColumnRecordR\acolumns\"P\n" +
 	"\x14UpsertScalarsRequest\x128\n" +
@@ -659,7 +722,12 @@ const file_swanlab_grpc_core_v1_core_proto_rawDesc = "" +
 	"\x05stats\x18\x03 \x01(\v2$.swanlab.operation.v1.OperationStatsR\x05stats\"N\n" +
 	"\x18ConfirmRunFinishResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage2\xc5\x06\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage*\x84\x01\n" +
+	"\rCoreErrorKind\x12\x1f\n" +
+	"\x1bCORE_ERROR_KIND_UNSPECIFIED\x10\x00\x12\x18\n" +
+	"\x14CORE_ERROR_KIND_AUTH\x10\x01\x12\x1d\n" +
+	"\x19CORE_ERROR_KIND_TRANSIENT\x10\x02\x12\x19\n" +
+	"\x15CORE_ERROR_KIND_OTHER\x10\x032\xc5\x06\n" +
 	"\vCoreService\x12n\n" +
 	"\x0fDeliverRunStart\x12,.swanlab.grpc.core.v1.DeliverRunStartRequest\x1a-.swanlab.grpc.core.v1.DeliverRunStartResponse\x12S\n" +
 	"\rUpsertColumns\x12*.swanlab.grpc.core.v1.UpsertColumnsRequest\x1a\x16.google.protobuf.Empty\x12S\n" +
@@ -684,64 +752,67 @@ func file_swanlab_grpc_core_v1_core_proto_rawDescGZIP() []byte {
 	return file_swanlab_grpc_core_v1_core_proto_rawDescData
 }
 
+var file_swanlab_grpc_core_v1_core_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_swanlab_grpc_core_v1_core_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_swanlab_grpc_core_v1_core_proto_goTypes = []any{
-	(*DeliverRunStartRequest)(nil),    // 0: swanlab.grpc.core.v1.DeliverRunStartRequest
-	(*DeliverRunStartResponse)(nil),   // 1: swanlab.grpc.core.v1.DeliverRunStartResponse
-	(*UpsertColumnsRequest)(nil),      // 2: swanlab.grpc.core.v1.UpsertColumnsRequest
-	(*UpsertScalarsRequest)(nil),      // 3: swanlab.grpc.core.v1.UpsertScalarsRequest
-	(*UpsertMediaRequest)(nil),        // 4: swanlab.grpc.core.v1.UpsertMediaRequest
-	(*UpsertLogsRequest)(nil),         // 5: swanlab.grpc.core.v1.UpsertLogsRequest
-	(*UpsertSavesRequest)(nil),        // 6: swanlab.grpc.core.v1.UpsertSavesRequest
-	(*DeliverRunFinishRequest)(nil),   // 7: swanlab.grpc.core.v1.DeliverRunFinishRequest
-	(*DeliverRunFinishResponse)(nil),  // 8: swanlab.grpc.core.v1.DeliverRunFinishResponse
-	(*GetOperationStatsResponse)(nil), // 9: swanlab.grpc.core.v1.GetOperationStatsResponse
-	(*ConfirmRunFinishResponse)(nil),  // 10: swanlab.grpc.core.v1.ConfirmRunFinishResponse
-	(*v1.CoreSettings)(nil),           // 11: swanlab.settings.core.v1.CoreSettings
-	(*v11.StartRecord)(nil),           // 12: swanlab.run.v1.StartRecord
-	(*v12.ColumnRecord)(nil),          // 13: swanlab.metric.column.v1.ColumnRecord
-	(*v13.ScalarRecord)(nil),          // 14: swanlab.metric.data.v1.ScalarRecord
-	(*v13.MediaRecord)(nil),           // 15: swanlab.metric.data.v1.MediaRecord
-	(*v14.LogRecord)(nil),             // 16: swanlab.terminal.v1.LogRecord
-	(*v15.SaveRecord)(nil),            // 17: swanlab.save.v1.SaveRecord
-	(*v11.FinishRecord)(nil),          // 18: swanlab.run.v1.FinishRecord
-	(*v16.OperationStats)(nil),        // 19: swanlab.operation.v1.OperationStats
-	(*emptypb.Empty)(nil),             // 20: google.protobuf.Empty
+	(CoreErrorKind)(0),                // 0: swanlab.grpc.core.v1.CoreErrorKind
+	(*DeliverRunStartRequest)(nil),    // 1: swanlab.grpc.core.v1.DeliverRunStartRequest
+	(*DeliverRunStartResponse)(nil),   // 2: swanlab.grpc.core.v1.DeliverRunStartResponse
+	(*UpsertColumnsRequest)(nil),      // 3: swanlab.grpc.core.v1.UpsertColumnsRequest
+	(*UpsertScalarsRequest)(nil),      // 4: swanlab.grpc.core.v1.UpsertScalarsRequest
+	(*UpsertMediaRequest)(nil),        // 5: swanlab.grpc.core.v1.UpsertMediaRequest
+	(*UpsertLogsRequest)(nil),         // 6: swanlab.grpc.core.v1.UpsertLogsRequest
+	(*UpsertSavesRequest)(nil),        // 7: swanlab.grpc.core.v1.UpsertSavesRequest
+	(*DeliverRunFinishRequest)(nil),   // 8: swanlab.grpc.core.v1.DeliverRunFinishRequest
+	(*DeliverRunFinishResponse)(nil),  // 9: swanlab.grpc.core.v1.DeliverRunFinishResponse
+	(*GetOperationStatsResponse)(nil), // 10: swanlab.grpc.core.v1.GetOperationStatsResponse
+	(*ConfirmRunFinishResponse)(nil),  // 11: swanlab.grpc.core.v1.ConfirmRunFinishResponse
+	(*v1.CoreSettings)(nil),           // 12: swanlab.settings.core.v1.CoreSettings
+	(*v11.StartRecord)(nil),           // 13: swanlab.run.v1.StartRecord
+	(*v12.ColumnRecord)(nil),          // 14: swanlab.metric.column.v1.ColumnRecord
+	(*v13.ScalarRecord)(nil),          // 15: swanlab.metric.data.v1.ScalarRecord
+	(*v13.MediaRecord)(nil),           // 16: swanlab.metric.data.v1.MediaRecord
+	(*v14.LogRecord)(nil),             // 17: swanlab.terminal.v1.LogRecord
+	(*v15.SaveRecord)(nil),            // 18: swanlab.save.v1.SaveRecord
+	(*v11.FinishRecord)(nil),          // 19: swanlab.run.v1.FinishRecord
+	(*v16.OperationStats)(nil),        // 20: swanlab.operation.v1.OperationStats
+	(*emptypb.Empty)(nil),             // 21: google.protobuf.Empty
 }
 var file_swanlab_grpc_core_v1_core_proto_depIdxs = []int32{
-	11, // 0: swanlab.grpc.core.v1.DeliverRunStartRequest.core_settings:type_name -> swanlab.settings.core.v1.CoreSettings
-	12, // 1: swanlab.grpc.core.v1.DeliverRunStartRequest.start_record:type_name -> swanlab.run.v1.StartRecord
-	12, // 2: swanlab.grpc.core.v1.DeliverRunStartResponse.run:type_name -> swanlab.run.v1.StartRecord
-	13, // 3: swanlab.grpc.core.v1.UpsertColumnsRequest.columns:type_name -> swanlab.metric.column.v1.ColumnRecord
-	14, // 4: swanlab.grpc.core.v1.UpsertScalarsRequest.data:type_name -> swanlab.metric.data.v1.ScalarRecord
-	15, // 5: swanlab.grpc.core.v1.UpsertMediaRequest.data:type_name -> swanlab.metric.data.v1.MediaRecord
-	16, // 6: swanlab.grpc.core.v1.UpsertLogsRequest.logs:type_name -> swanlab.terminal.v1.LogRecord
-	17, // 7: swanlab.grpc.core.v1.UpsertSavesRequest.saves:type_name -> swanlab.save.v1.SaveRecord
-	18, // 8: swanlab.grpc.core.v1.DeliverRunFinishRequest.finish_record:type_name -> swanlab.run.v1.FinishRecord
-	19, // 9: swanlab.grpc.core.v1.GetOperationStatsResponse.stats:type_name -> swanlab.operation.v1.OperationStats
-	0,  // 10: swanlab.grpc.core.v1.CoreService.DeliverRunStart:input_type -> swanlab.grpc.core.v1.DeliverRunStartRequest
-	2,  // 11: swanlab.grpc.core.v1.CoreService.UpsertColumns:input_type -> swanlab.grpc.core.v1.UpsertColumnsRequest
-	3,  // 12: swanlab.grpc.core.v1.CoreService.UpsertScalars:input_type -> swanlab.grpc.core.v1.UpsertScalarsRequest
-	4,  // 13: swanlab.grpc.core.v1.CoreService.UpsertMedia:input_type -> swanlab.grpc.core.v1.UpsertMediaRequest
-	5,  // 14: swanlab.grpc.core.v1.CoreService.UpsertLogs:input_type -> swanlab.grpc.core.v1.UpsertLogsRequest
-	6,  // 15: swanlab.grpc.core.v1.CoreService.UpsertSaves:input_type -> swanlab.grpc.core.v1.UpsertSavesRequest
-	7,  // 16: swanlab.grpc.core.v1.CoreService.DeliverRunFinish:input_type -> swanlab.grpc.core.v1.DeliverRunFinishRequest
-	20, // 17: swanlab.grpc.core.v1.CoreService.GetOperationStats:input_type -> google.protobuf.Empty
-	20, // 18: swanlab.grpc.core.v1.CoreService.ConfirmRunFinish:input_type -> google.protobuf.Empty
-	1,  // 19: swanlab.grpc.core.v1.CoreService.DeliverRunStart:output_type -> swanlab.grpc.core.v1.DeliverRunStartResponse
-	20, // 20: swanlab.grpc.core.v1.CoreService.UpsertColumns:output_type -> google.protobuf.Empty
-	20, // 21: swanlab.grpc.core.v1.CoreService.UpsertScalars:output_type -> google.protobuf.Empty
-	20, // 22: swanlab.grpc.core.v1.CoreService.UpsertMedia:output_type -> google.protobuf.Empty
-	20, // 23: swanlab.grpc.core.v1.CoreService.UpsertLogs:output_type -> google.protobuf.Empty
-	20, // 24: swanlab.grpc.core.v1.CoreService.UpsertSaves:output_type -> google.protobuf.Empty
-	8,  // 25: swanlab.grpc.core.v1.CoreService.DeliverRunFinish:output_type -> swanlab.grpc.core.v1.DeliverRunFinishResponse
-	9,  // 26: swanlab.grpc.core.v1.CoreService.GetOperationStats:output_type -> swanlab.grpc.core.v1.GetOperationStatsResponse
-	10, // 27: swanlab.grpc.core.v1.CoreService.ConfirmRunFinish:output_type -> swanlab.grpc.core.v1.ConfirmRunFinishResponse
-	19, // [19:28] is the sub-list for method output_type
-	10, // [10:19] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	12, // 0: swanlab.grpc.core.v1.DeliverRunStartRequest.core_settings:type_name -> swanlab.settings.core.v1.CoreSettings
+	13, // 1: swanlab.grpc.core.v1.DeliverRunStartRequest.start_record:type_name -> swanlab.run.v1.StartRecord
+	13, // 2: swanlab.grpc.core.v1.DeliverRunStartResponse.run:type_name -> swanlab.run.v1.StartRecord
+	0,  // 3: swanlab.grpc.core.v1.DeliverRunStartResponse.error_kind:type_name -> swanlab.grpc.core.v1.CoreErrorKind
+	14, // 4: swanlab.grpc.core.v1.UpsertColumnsRequest.columns:type_name -> swanlab.metric.column.v1.ColumnRecord
+	15, // 5: swanlab.grpc.core.v1.UpsertScalarsRequest.data:type_name -> swanlab.metric.data.v1.ScalarRecord
+	16, // 6: swanlab.grpc.core.v1.UpsertMediaRequest.data:type_name -> swanlab.metric.data.v1.MediaRecord
+	17, // 7: swanlab.grpc.core.v1.UpsertLogsRequest.logs:type_name -> swanlab.terminal.v1.LogRecord
+	18, // 8: swanlab.grpc.core.v1.UpsertSavesRequest.saves:type_name -> swanlab.save.v1.SaveRecord
+	19, // 9: swanlab.grpc.core.v1.DeliverRunFinishRequest.finish_record:type_name -> swanlab.run.v1.FinishRecord
+	20, // 10: swanlab.grpc.core.v1.GetOperationStatsResponse.stats:type_name -> swanlab.operation.v1.OperationStats
+	1,  // 11: swanlab.grpc.core.v1.CoreService.DeliverRunStart:input_type -> swanlab.grpc.core.v1.DeliverRunStartRequest
+	3,  // 12: swanlab.grpc.core.v1.CoreService.UpsertColumns:input_type -> swanlab.grpc.core.v1.UpsertColumnsRequest
+	4,  // 13: swanlab.grpc.core.v1.CoreService.UpsertScalars:input_type -> swanlab.grpc.core.v1.UpsertScalarsRequest
+	5,  // 14: swanlab.grpc.core.v1.CoreService.UpsertMedia:input_type -> swanlab.grpc.core.v1.UpsertMediaRequest
+	6,  // 15: swanlab.grpc.core.v1.CoreService.UpsertLogs:input_type -> swanlab.grpc.core.v1.UpsertLogsRequest
+	7,  // 16: swanlab.grpc.core.v1.CoreService.UpsertSaves:input_type -> swanlab.grpc.core.v1.UpsertSavesRequest
+	8,  // 17: swanlab.grpc.core.v1.CoreService.DeliverRunFinish:input_type -> swanlab.grpc.core.v1.DeliverRunFinishRequest
+	21, // 18: swanlab.grpc.core.v1.CoreService.GetOperationStats:input_type -> google.protobuf.Empty
+	21, // 19: swanlab.grpc.core.v1.CoreService.ConfirmRunFinish:input_type -> google.protobuf.Empty
+	2,  // 20: swanlab.grpc.core.v1.CoreService.DeliverRunStart:output_type -> swanlab.grpc.core.v1.DeliverRunStartResponse
+	21, // 21: swanlab.grpc.core.v1.CoreService.UpsertColumns:output_type -> google.protobuf.Empty
+	21, // 22: swanlab.grpc.core.v1.CoreService.UpsertScalars:output_type -> google.protobuf.Empty
+	21, // 23: swanlab.grpc.core.v1.CoreService.UpsertMedia:output_type -> google.protobuf.Empty
+	21, // 24: swanlab.grpc.core.v1.CoreService.UpsertLogs:output_type -> google.protobuf.Empty
+	21, // 25: swanlab.grpc.core.v1.CoreService.UpsertSaves:output_type -> google.protobuf.Empty
+	9,  // 26: swanlab.grpc.core.v1.CoreService.DeliverRunFinish:output_type -> swanlab.grpc.core.v1.DeliverRunFinishResponse
+	10, // 27: swanlab.grpc.core.v1.CoreService.GetOperationStats:output_type -> swanlab.grpc.core.v1.GetOperationStatsResponse
+	11, // 28: swanlab.grpc.core.v1.CoreService.ConfirmRunFinish:output_type -> swanlab.grpc.core.v1.ConfirmRunFinishResponse
+	20, // [20:29] is the sub-list for method output_type
+	11, // [11:20] is the sub-list for method input_type
+	11, // [11:11] is the sub-list for extension type_name
+	11, // [11:11] is the sub-list for extension extendee
+	0,  // [0:11] is the sub-list for field type_name
 }
 
 func init() { file_swanlab_grpc_core_v1_core_proto_init() }
@@ -754,13 +825,14 @@ func file_swanlab_grpc_core_v1_core_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_swanlab_grpc_core_v1_core_proto_rawDesc), len(file_swanlab_grpc_core_v1_core_proto_rawDesc)),
-			NumEnums:      0,
+			NumEnums:      1,
 			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_swanlab_grpc_core_v1_core_proto_goTypes,
 		DependencyIndexes: file_swanlab_grpc_core_v1_core_proto_depIdxs,
+		EnumInfos:         file_swanlab_grpc_core_v1_core_proto_enumTypes,
 		MessageInfos:      file_swanlab_grpc_core_v1_core_proto_msgTypes,
 	}.Build()
 	File_swanlab_grpc_core_v1_core_proto = out.File
