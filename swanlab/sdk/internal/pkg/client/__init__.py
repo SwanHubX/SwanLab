@@ -18,9 +18,10 @@ from swanlab.sdk.typings.pkg.client.bootstrap import LoginResponse
 from .. import console, helper, nrc, scope
 from . import session
 from .bootstrap import login_by_api_key, verify_api_key
+from .session import STARTUP_RETRIES
 from .utils import decode_response
 
-__all__ = ["Client", "session", "ApiResponse", "decode_response", "verify_api_key"]
+__all__ = ["Client", "session", "ApiResponse", "decode_response", "verify_api_key", "STARTUP_RETRIES"]
 
 
 @dataclass
@@ -58,11 +59,13 @@ class Client:
         刷新鉴权信息。
         直接更新当前会话的 Cookie，保留底层连接池以提升性能。
 
-        :param strict: 首次认证时为 True，异常向上抛出；运行中刷新为 False，失败仅告警。
+        :param strict: 首次认证时为 True，异常向上抛出且使用启动重试策略；
+            运行中刷新为 False，失败仅告警并保留会话默认重试。
         """
         console.debug("Refreshing authentication token...")
+        retries = STARTUP_RETRIES if strict else None
         try:
-            login_resp = login_by_api_key(self._base_url, self._api_key, timeout=timeout)
+            login_resp = login_by_api_key(self._base_url, self._api_key, timeout=timeout, retries=retries)
             try:
                 sid = login_resp["sid"]
                 expired_at = login_resp["expiredAt"]

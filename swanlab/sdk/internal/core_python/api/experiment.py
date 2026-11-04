@@ -12,8 +12,8 @@ from google.protobuf.timestamp_pb2 import Timestamp
 from swanlab.exceptions import ApiError
 from swanlab.proto.swanlab.run.v1.run_pb2 import RUN_STATE_ABORTED, RUN_STATE_CRASHED, RunState
 from swanlab.sdk.internal.core_python import client
-from swanlab.sdk.internal.core_python.api import STARTUP_RETRIES
 from swanlab.sdk.internal.pkg import helper
+from swanlab.sdk.internal.pkg.client import STARTUP_RETRIES
 from swanlab.sdk.typings.core_python.api.experiment import (
     InitExperimentType,
     ResumeExperimentSummaryType,

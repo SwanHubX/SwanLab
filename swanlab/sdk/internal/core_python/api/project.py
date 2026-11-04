@@ -10,7 +10,7 @@ from typing import Optional
 from swanlab.deprecated.project import get_or_create_old_project
 from swanlab.exceptions import ApiError
 from swanlab.sdk.internal.core_python import client
-from swanlab.sdk.internal.core_python.api import STARTUP_RETRIES
+from swanlab.sdk.internal.pkg.client import STARTUP_RETRIES
 from swanlab.sdk.typings.core_python.api.project import ProjectType
 
 

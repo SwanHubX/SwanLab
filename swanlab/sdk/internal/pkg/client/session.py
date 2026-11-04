@@ -20,9 +20,12 @@ from swanlab.sdk.internal.pkg import console, helper
 
 from .utils import decode_error_response
 
-__all__ = ["create", "TimeoutHTTPAdapter", "SessionWithRetry", "request_retries_ctx"]
+__all__ = ["create", "TimeoutHTTPAdapter", "SessionWithRetry", "request_retries_ctx", "STARTUP_RETRIES"]
 VERSION_HEADER = "X-SwanLab-SDK-Version"
 TRACE_ID = "swanlab.client"
+# 启动期间快速失败的重试次数：登录握手与项目/实验初始化共用。
+# 保留 1 次重试覆盖瞬时抖动，同时避免 Cloud 不可用时 init 长时间阻塞。
+STARTUP_RETRIES = 1
 # 用于存储当前请求的重试次数，避免在请求中传递 retries 参数
 request_retries_ctx: contextvars.ContextVar[Optional[int]] = contextvars.ContextVar("request_retries", default=None)
 request_log_error_ctx: contextvars.ContextVar[bool] = contextvars.ContextVar("request_log_error", default=True)
@@ -155,10 +158,11 @@ class SessionWithRetry(Session):
         return self.request("DELETE", url, retries=retries, **kwargs)
 
 
-def create(timeout: int = 60, default_retry: int = 5) -> SessionWithRetry:
+def create(timeout: int = 60, default_retry: Optional[int] = None) -> SessionWithRetry:
     """
     创建一个挂载了超时和重试机制的会话实例。
     """
+    default_retry = default_retry if default_retry is not None else 5
     session = SessionWithRetry()
 
     retry_strategy = WarningRetry(
