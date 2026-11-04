@@ -71,7 +71,7 @@ def test_client_init_and_auth(mock_login, client, mock_base_url, mock_api_url):
     # 验证强制 /api 后缀拼接
     assert client._base_url == mock_api_url
 
-    # 验证鉴权时使用的是拼接后的 URL，并使用启动快速失败重试策略
+    # 验证鉴权时使用的是拼接后的 URL，并使用启动重试策略
     mock_login.assert_called_once_with(mock_api_url, "test-key", timeout=10, retries=STARTUP_RETRIES)
     assert client._session.cookies.get("sid") == "mock-token-123"
 
@@ -118,7 +118,7 @@ def test_runtime_refresh_tolerates_connection_error(client):
 
 
 def test_runtime_refresh_keeps_session_default_retries(client):
-    """运行期刷新不沿用启动快速失败策略，应使用会话默认重试。"""
+    """运行期刷新不沿用启动重试策略，应使用会话默认重试。"""
     client._expired_at = datetime.now(timezone.utc)
     with patch(
         "swanlab.sdk.internal.pkg.client.login_by_api_key",

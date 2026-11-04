@@ -2,7 +2,7 @@
 @author: likang
 @file: test_client_bootstrap.py
 @time: 2026/11/3
-@description: 登录握手错误分类与快速失败
+@description: 登录握手错误分类与启动重试
 """
 
 from unittest.mock import MagicMock
@@ -34,8 +34,8 @@ def test_login_propagates_http_error():
     with pytest.raises(ApiError):
         login_by_api_key(BASE_URL, "test-key", timeout=1)
 
-    # total=1，即首次请求 + 1 次重试
-    assert len(responses.calls) == 2
+    # total=2，即首次请求 + 2 次重试
+    assert len(responses.calls) == 3
 
 
 @responses.activate
@@ -48,8 +48,8 @@ def test_login_propagates_network_error():
 
 
 @responses.activate
-def test_login_retries_once_then_succeeds():
-    """瞬时 5xx 允许重试一次。"""
+def test_login_retries_transient_5xx_then_succeeds():
+    """瞬时 5xx 允许重试后成功。"""
     responses.add(responses.POST, LOGIN_URL, status=500)
     responses.add(responses.POST, LOGIN_URL, json={"sid": "mock-sid"}, status=200)
 

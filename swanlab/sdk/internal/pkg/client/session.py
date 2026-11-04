@@ -23,9 +23,10 @@ from .utils import decode_error_response
 __all__ = ["create", "TimeoutHTTPAdapter", "SessionWithRetry", "request_retries_ctx", "STARTUP_RETRIES"]
 VERSION_HEADER = "X-SwanLab-SDK-Version"
 TRACE_ID = "swanlab.client"
-# 启动期间快速失败的重试次数：登录握手与项目/实验初始化共用。
-# 保留 1 次重试覆盖瞬时抖动，同时避免 Cloud 不可用时 init 长时间阻塞。
-STARTUP_RETRIES = 1
+# 启动期间的重试次数：登录握手与项目/实验初始化共用。
+# 保留 2 次重试（最多 3 次请求）覆盖瞬时抖动，仍低于会话默认的 5 次，避免 Cloud 不可用时 init 阻塞过久。
+# 注意：启动业务请求仍使用会话默认 timeout（见 #1795），连接黑洞时最坏耗时会随重试次数放大。
+STARTUP_RETRIES = 2
 # 用于存储当前请求的重试次数，避免在请求中传递 retries 参数
 request_retries_ctx: contextvars.ContextVar[Optional[int]] = contextvars.ContextVar("request_retries", default=None)
 request_log_error_ctx: contextvars.ContextVar[bool] = contextvars.ContextVar("request_log_error", default=True)

@@ -134,7 +134,7 @@ class TestCorePythonStart:
 
     @pytest.mark.parametrize("new_experiment", [True, False])
     def test_report_run_start_uses_startup_retries(self, tmp_path, monkeypatch, new_experiment):
-        """online 启动握手应使用 STARTUP_RETRIES，避免 Cloud 不可用时长时间阻塞。"""
+        """online 启动握手应使用统一的 STARTUP_RETRIES。"""
         from swanlab.sdk.internal.core_python import core as core_module
         from swanlab.sdk.internal.core_python.client import STARTUP_RETRIES
         from swanlab.sdk.internal.core_python.utils import PrepareExperimentStartResult

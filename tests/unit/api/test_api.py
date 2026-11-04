@@ -112,6 +112,29 @@ class TestApiEntryValidation:
         assert instance.username == "alice"
         assert login_calls == []
 
+    def test_init_prefers_current_client_login_response(self, monkeypatch):
+        """外层 Scope 的旧登录响应不应覆盖本次 Client 的登录结果。"""
+        from swanlab.sdk.internal.pkg import scope as scope_mod
+
+        api_module = importlib.import_module("swanlab.api")
+
+        def fake_client(api_key, base_url):
+            scope_mod.set_context("login_resp", {"userInfo": {"username": "alice", "name": "Alice"}})
+            return MagicMock()
+
+        monkeypatch.setattr(api_module, "Client", fake_client)
+        monkeypatch.setattr(
+            Api,
+            "_resolve_credentials",
+            staticmethod(lambda api_key, host: ("key", "https://api.test", "https://web.test")),
+        )
+
+        with scope_mod.Scope() as outer:
+            outer.set("login_resp", {"userInfo": {"username": "stale", "name": "Stale"}})
+            instance = Api()
+
+        assert instance.username == "alice"
+
     @pytest.mark.parametrize("api_key", ["", "   "])
     def test_blank_api_key_raises(self, api_key):
         with pytest.raises(AuthenticationError, match="No API key"):

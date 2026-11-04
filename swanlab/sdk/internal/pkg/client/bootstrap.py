@@ -27,7 +27,7 @@ def login_by_api_key(
     网络错误、HTTP 错误和响应解析错误会向上抛出；Client 首次认证会统一包装为
     AuthenticationError，并将原始异常保留在 __cause__ 中。
 
-    :param retries: 覆盖会话默认重试次数。默认使用 STARTUP_RETRIES（启动期间快速失败），
+    :param retries: 覆盖会话默认重试次数。默认使用 STARTUP_RETRIES（启动期间有限重试），
         运行期刷新传 None 以使用会话默认重试。
     """
     with session.create(timeout=timeout, default_retry=retries) as s:
