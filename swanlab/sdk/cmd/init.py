@@ -757,7 +757,7 @@ def _warn_fallback(
     if skip_store_disabled:
         details.append("core.skip_store has been disabled")
     suffix = f" ({'; '.join(details)})" if details else ""
-    console.warning(f"Online startup failed; attempting to fall back to {target_mode} mode: {consequence}{suffix}.")
+    console.warning(f"SwanLab Cloud is unavailable; falling back to {target_mode} mode: {consequence}{suffix}.")
 
 
 def _reset_client_after_fallback() -> None:

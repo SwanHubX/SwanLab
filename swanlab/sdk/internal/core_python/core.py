@@ -39,6 +39,7 @@ from swanlab.sdk.internal.core_python.api.experiment import (
     get_experiment_summary,
     stop_experiment,
 )
+from swanlab.sdk.internal.core_python.client import STARTUP_RETRIES
 from swanlab.sdk.internal.core_python.context import CoreContext
 from swanlab.sdk.internal.core_python.heartbeat import Heartbeat
 from swanlab.sdk.internal.core_python.metrics import RunMetrics
@@ -176,9 +177,10 @@ class CorePython(CoreProtocol):
             self._heartbeat = None
         if self._transport is not None:
             with safe.block(message="Failed to stop transport after start failure"):
-                # 启动阶段只允许写本地 start record；失败清理时 transport 缓冲必须为空，
-                # 若断言失败说明启动路径违反了“启动阶段不向 transport 写记录”的约束。
-                assert not self._transport.pending_records(), "transport received records before run start completed"
+                # 启动阶段只允许写本地 start record；若缓冲非空说明约束被破坏，
+                # 记录错误后仍然要保证线程退出。
+                if self._transport.pending_records():
+                    console.error("transport received records before run start completed")
                 self._transport.request_finish()
                 self._transport.join(timeout=1.0)
             self._transport = None
@@ -192,7 +194,7 @@ class CorePython(CoreProtocol):
         :param record: 运行开始记录
         :return: 运行开始响应
         """
-        run_info = prepare_experiment_start(record)
+        run_info = prepare_experiment_start(record, retries=STARTUP_RETRIES)
         # 3. 记录必要字段
         self._ctx.set_online_params(
             username=run_info.username,
@@ -208,6 +210,7 @@ class CorePython(CoreProtocol):
                 self._ctx.project_id,
                 self._ctx.experiment_id,
                 created_at=run_info.experiment["createdAt"],
+                retries=STARTUP_RETRIES,
             )
         self._metrics, console_epoch, global_step, global_system_step = RunMetrics.new(summary, ctx=self._ctx)
         self._epoch.reset(console_epoch)
@@ -528,13 +531,18 @@ class CorePython(CoreProtocol):
         return log_record
 
     def _release_local_storage(self) -> None:
-        """关闭本地存储与文件监听，异常交由调用方处理。"""
-        if self._store is not None:
-            self._store.close()
-            self._store = None
-        if self._watcher is not None:
-            self._watcher.stop()
-            self._watcher = None
+        """关闭本地存储与文件监听；两者独立释放，失败时抛出首个异常。"""
+        store, self._store = self._store, None
+        watcher, self._watcher = self._watcher, None
+        errors: List[BaseException] = []
+        if store is not None:
+            with safe.block(message="Failed to close local storage", on_error=errors.append):
+                store.close()
+        if watcher is not None:
+            with safe.block(message="Failed to stop file watcher", on_error=errors.append):
+                watcher.stop()
+        if errors:
+            raise errors[0]
 
     def _finish_when_local(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse:
         self._store_finish(finish_request.finish_record)

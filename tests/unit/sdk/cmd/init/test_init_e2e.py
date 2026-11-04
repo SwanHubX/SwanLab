@@ -752,7 +752,7 @@ class TestInitOnlineStartFallback:
         assert run.mode == "offline"
         assert run._ctx.config.settings.mode == "offline"
         assert run.dir.exists()
-        assert len([m for m in warnings if "fall back to offline mode" in m]) == 1
+        assert len([m for m in warnings if "falling back to offline mode" in m]) == 1
         with pytest.raises(ValueError):
             _ = run.url
         with pytest.raises(ValueError):
@@ -833,7 +833,7 @@ class TestInitOnlineStartFallback:
         assert run._ctx.config.settings.core.skip_store is False
         # disabled 降级必须重建为不做任何上报的 probe，避免退化成 online probe
         assert run._ctx.probe._disabled is True
-        assert len([m for m in warnings if "fall back to disabled mode" in m]) == 1
+        assert len([m for m in warnings if "falling back to disabled mode" in m]) == 1
         with pytest.raises(ValueError):
             _ = run.url
         with pytest.raises(ValueError):
@@ -888,7 +888,7 @@ class TestInitOnlineLoginFallback:
         assert run.mode == "offline"
         assert run._ctx.config.settings.mode == "offline"
         assert run.dir.exists()
-        assert len([m for m in warnings if "fall back to offline mode" in m]) == 1
+        assert len([m for m in warnings if "falling back to offline mode" in m]) == 1
 
     def test_login_connection_error_degrades_to_offline(
         self, rsps, mock_online_settings, offline_warnings, offline_errors
@@ -911,7 +911,7 @@ class TestInitOnlineLoginFallback:
         run = init(mode="online", project=PROJECT, on_online_error="disabled")
 
         assert run.mode == "disabled"
-        assert len([m for m in offline_warnings if "fall back to disabled mode" in m]) == 1
+        assert len([m for m in offline_warnings if "falling back to disabled mode" in m]) == 1
         assert not client.exists()
         run.log({"loss": 1.0})
         run.finish()
