@@ -9,6 +9,7 @@ from typing import Optional
 
 from requests.exceptions import RequestException
 
+from swanlab.sdk.internal.pkg import safe
 from swanlab.sdk.typings.pkg.client.bootstrap import LoginResponse
 
 from . import session
@@ -33,12 +34,10 @@ def login_by_api_key(
     return resp.json()
 
 
+@safe.decorator(RequestException, message=None)
 def verify_api_key(base_url: str, api_key: str, timeout: int = 20) -> Optional[LoginResponse]:
     """
     验证 API Key，失败时返回 None。
     仅用于 CLI 校验场景，不参与 init 登录降级。
     """
-    try:
-        return login_by_api_key(base_url, api_key, timeout=timeout)
-    except RequestException:
-        return None
+    return login_by_api_key(base_url, api_key, timeout=timeout)

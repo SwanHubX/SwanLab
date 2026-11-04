@@ -604,7 +604,7 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
                 _raise_start_failure(resp)
             # 可降级：按策略切换模式，复用 run_dir 后重新拉起 Core
             mode = run_settings.on_online_error
-            resp = _restart_with_fallback(ctx, run_settings, run_id, run_dir, mode, resp.message)
+            resp = _restart_with_fallback(ctx, run_settings, run_id, run_dir, mode)
             should_mkdirs = mode == "offline"
         path = resp.path or path
         if mode == "online":
@@ -677,10 +677,9 @@ def _switch_run_to_fallback(
     run_id: str,
     run_dir: Path,
     target_mode: ModeType,
-    reason: str,
 ) -> None:
     """切换降级模式并重建 Core/Probe，供登录降级与启动降级复用。"""
-    _switch_run_mode(run_settings, target_mode, reason)
+    _switch_run_mode(run_settings, target_mode)
     _ensure_offline_identity(run_settings, run_id)
     # 已知副作用：online 启动前已经创建了 log_dir 和空的 run_dir。
     # offline 降级会复用 run_dir；disabled 降级不会使用这两个目录，因此会遗留 log_dir（仅含 .gitignore）和空的 run_dir。
@@ -699,10 +698,9 @@ def _restart_with_fallback(
     run_id: str,
     run_dir: Path,
     target_mode: ModeType,
-    reason: str,
 ) -> DeliverRunStartResponse:
     """在线启动失败后，按策略切换模式并在同一个 run_dir 上重新启动 Core。"""
-    _switch_run_to_fallback(ctx, run_settings, run_id, run_dir, target_mode, reason)
+    _switch_run_to_fallback(ctx, run_settings, run_id, run_dir, target_mode)
     resp = ctx.core.deliver_run_start(_build_start_request(run_settings, run_id, run_dir))
     if not resp.success:
         _raise_start_failure(resp)
@@ -723,31 +721,22 @@ def _ensure_offline_identity(run_settings: Settings, run_id: str) -> None:
 
 def _warn_fallback(
     target_mode: ModeType,
-    reason: str,
     *,
     resume_must: bool = False,
     skip_store_disabled: bool = False,
 ) -> None:
-    """连接失败降级时：先原样打印上游错误，再说明降级后果。一次降级只调用一次。"""
-    if reason:
-        console.warning(reason)
-    if resume_must:
-        if target_mode == "offline":
-            console.warning(
-                'resume="must" could not be satisfied because SwanLab Cloud is unreachable; '
-                "the run continues locally from step 0 and syncing later may not align with the existing experiment."
-            )
-        else:
-            console.warning(
-                'resume="must" could not be satisfied because SwanLab Cloud is unreachable; '
-                "the run continues without recording."
-            )
-    if skip_store_disabled:
-        console.warning("core.skip_store is only supported in online mode; it has been disabled for this run.")
+    """确定降级策略后给出一次简短告警。上游错误已在其发生处打印。"""
     if target_mode == "offline":
-        console.warning("Continuing in offline mode; data will be saved locally and can be synced later.")
+        consequence = "data will be saved locally and can be synced later"
     else:
-        console.warning("Continuing in disabled mode; no data will be recorded.")
+        consequence = "no data will be recorded"
+    details = []
+    if resume_must:
+        details.append('resume="must" was not honored')
+    if skip_store_disabled:
+        details.append("core.skip_store has been disabled")
+    suffix = f" ({'; '.join(details)})" if details else ""
+    console.warning(f"Experiment startup failed; falling back to {target_mode} mode: {consequence}{suffix}.")
 
 
 def _reset_client_after_fallback() -> None:
@@ -758,7 +747,7 @@ def _reset_client_after_fallback() -> None:
             client.reset()
 
 
-def _switch_run_mode(run_settings: Settings, target_mode: ModeType, reason: str) -> None:
+def _switch_run_mode(run_settings: Settings, target_mode: ModeType) -> None:
     """把本次 run 切换到目标模式，并完成告警与 client 清理。"""
     skip_store_disabled = run_settings.core.skip_store
     resume_must = run_settings.run.resume == "must"
@@ -766,7 +755,6 @@ def _switch_run_mode(run_settings: Settings, target_mode: ModeType, reason: str)
     _reset_client_after_fallback()
     _warn_fallback(
         target_mode,
-        reason,
         resume_must=resume_must,
         skip_store_disabled=skip_store_disabled,
     )
@@ -824,13 +812,6 @@ def _ensure_online_client_or_fallback(
         if not _is_transient_login_error(e) or run_settings.on_online_error == "raise":
             raise
         target_mode = run_settings.on_online_error
-        _switch_run_to_fallback(
-            ctx,
-            run_settings,
-            run_id,
-            run_dir,
-            target_mode,
-            f"Failed to login: {e}",
-        )
+        _switch_run_to_fallback(ctx, run_settings, run_id, run_dir, target_mode)
         return target_mode
     return None

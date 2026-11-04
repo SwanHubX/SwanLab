@@ -87,6 +87,9 @@ class Client:
             return login_resp
         except ApiError as e:
             status = getattr(e.response, "status_code", None)
+            if strict:
+                # 错误在发生处打印调用链；是否降级由 init 根据错误类型决定
+                console.trace("Failed to login")
             if status in (401, 403) and strict:
                 raise AuthenticationError(
                     "Failed to initialize the SwanLab client. Please check if the provided API key is correct."
@@ -97,6 +100,7 @@ class Client:
             return None
         except Exception:
             if strict:
+                console.trace("Failed to login")
                 raise
             self._warn_refresh_failure(warning)
             return None

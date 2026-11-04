@@ -148,10 +148,14 @@ class CorePython(CoreProtocol):
         self._ctx = CoreContext.from_proto(start_request.core_settings)
         # 模式降级，只有请求后端创建/恢复项目与实验的失败参与降级分类；
         # 本地资源启动失败由协议层统一返回 OTHER，不参与降级。
-        try:
+        start_errors: list[BaseException] = []
+        resp: Optional[DeliverRunStartResponse] = None
+        # safe.block 负责打印错误调用链；是否降级由 SDK 根据 error_kind 决定
+        with safe.block(message="Failed to start run", on_error=start_errors.append):
             resp = self._report_run_start(start_request.start_record)
-        except Exception as e:
-            return self._start_failure(e, errors.classify_start_error(e))
+        if start_errors:
+            return self._start_failure(start_errors[0], errors.classify_start_error(start_errors[0]))
+        assert resp is not None
 
         self._start_store(resp)
         self._tracker = UploadTracker()

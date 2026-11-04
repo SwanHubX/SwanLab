@@ -292,6 +292,22 @@ def offline_warnings(monkeypatch):
     return messages
 
 
+@pytest.fixture
+def offline_errors(monkeypatch):
+    """捕获上游错误的打印，验证错误在发生处就已被记录。"""
+    messages = []
+    original = console.error
+
+    def _error(*args, **kwargs):
+        # console.trace 通过 console_args 传入终端文案
+        console_args = kwargs.get("console_args") or args
+        messages.append(" ".join(str(arg) for arg in console_args))
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr("swanlab.sdk.cmd.init.console.error", _error)
+    return messages
+
+
 # ============================================================
 # TestInitDisabledMode
 # ============================================================
@@ -736,18 +752,20 @@ class TestInitOnlineStartFallback:
         assert run.mode == "offline"
         assert run._ctx.config.settings.mode == "offline"
         assert run.dir.exists()
-        assert len([m for m in warnings if "Continuing in offline mode" in m]) == 1
+        assert len([m for m in warnings if "falling back to offline mode" in m]) == 1
         with pytest.raises(ValueError):
             _ = run.url
         with pytest.raises(ValueError):
             _ = run.path
 
-    def test_project_503_degrades_to_offline(self, logged_in_client, rsps, offline_warnings):
+    def test_project_503_degrades_to_offline(self, logged_in_client, rsps, offline_warnings, offline_errors):
         rsps.add(responses_lib.GET, self.PROJECT_URL, status=503)
 
         run = init(mode="online", project=PROJECT)
 
         self._assert_offline_run(run, offline_warnings)
+        # 上游错误在 Core 内打印，降级告警只负责通知策略
+        assert any("Failed to start run" in message for message in offline_errors)
         assert not client.exists()
         run.log({"loss": 1.0})
         run.finish()
@@ -815,7 +833,7 @@ class TestInitOnlineStartFallback:
         assert run._ctx.config.settings.core.skip_store is False
         # disabled 降级必须重建为不做任何上报的 probe，避免退化成 online probe
         assert run._ctx.probe._disabled is True
-        assert len([m for m in warnings if "Continuing in disabled mode" in m]) == 1
+        assert len([m for m in warnings if "falling back to disabled mode" in m]) == 1
         with pytest.raises(ValueError):
             _ = run.url
         with pytest.raises(ValueError):
@@ -838,7 +856,7 @@ class TestInitOnlineStartFallback:
         run = init(mode="online", project=PROJECT, id=RUN_ID, resume="must", on_online_error="disabled")
 
         self._assert_disabled_run(run, offline_warnings)
-        assert any("continues without recording" in message for message in offline_warnings)
+        assert any("no data will be recorded" in message for message in offline_warnings)
         run.finish()
 
 
@@ -870,16 +888,18 @@ class TestInitOnlineLoginFallback:
         assert run.mode == "offline"
         assert run._ctx.config.settings.mode == "offline"
         assert run.dir.exists()
-        assert len([m for m in warnings if "Continuing in offline mode" in m]) == 1
-        # 上游错误原样打印，便于用户定位
-        assert any("Failed to login" in message for message in warnings)
+        assert len([m for m in warnings if "falling back to offline mode" in m]) == 1
 
-    def test_login_connection_error_degrades_to_offline(self, rsps, mock_online_settings, offline_warnings):
+    def test_login_connection_error_degrades_to_offline(
+        self, rsps, mock_online_settings, offline_warnings, offline_errors
+    ):
         rsps.add(responses_lib.POST, self.LOGIN_URL, body=requests.ConnectionError("boom"))
 
         run = init(mode="online", project=PROJECT)
 
         self._assert_offline_run(run, offline_warnings)
+        # 上游错误在登录处打印，降级告警只负责通知策略
+        assert any("Failed to login" in message and "boom" in message for message in offline_errors)
         assert not client.exists()
         run.log({"loss": 1.0})
         run.finish()
@@ -891,7 +911,7 @@ class TestInitOnlineLoginFallback:
         run = init(mode="online", project=PROJECT, on_online_error="disabled")
 
         assert run.mode == "disabled"
-        assert len([m for m in offline_warnings if "Continuing in disabled mode" in m]) == 1
+        assert len([m for m in offline_warnings if "falling back to disabled mode" in m]) == 1
         assert not client.exists()
         run.log({"loss": 1.0})
         run.finish()
