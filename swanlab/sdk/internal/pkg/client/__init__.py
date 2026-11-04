@@ -38,7 +38,7 @@ def is_transient_login_error(exc: BaseException) -> bool:
     """
     判断登录异常是否属于服务不可用类错误。
 
-    Client 首次认证会把底层异常统一包装为 ``AuthenticationError``，原始异常保留在 ``__cause__``；
+    Client 首次认证会把底层异常统一包装为 ``AuthenticationError``，原始异常保留在 ``__cause__`` 中， 因此这里只解包一层即可判断真实原因。
     """
     # 这里只解包这一层，避免递归遍历异常链
     if isinstance(exc, AuthenticationError) and exc.__cause__ is not None:

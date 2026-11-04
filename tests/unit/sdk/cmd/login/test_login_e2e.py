@@ -455,15 +455,15 @@ class TestLoginE2E:
 
 class TestLoginCliErrors:
     @responses.activate
-    def test_network_error_exits_without_traceback(self):
-        """连接失败与 API Key 无关，应给出可读提示并以非 0 退出，而不是抛 traceback。"""
+    def test_network_error_raises_for_library_callers(self):
+        """库调用（login_cli）不应终止进程，而是抛 AuthenticationError 交给上层按策略降级。"""
         responses.add(
             responses.POST,
             "https://api.error.test/api/login/api_key",
             body=requests.ConnectionError("boom"),
         )
 
-        with pytest.raises(SystemExit) as exc:
+        with pytest.raises(AuthenticationError) as exc:
             login_cli(api_key="test-key", host="https://api.error.test")
 
-        assert exc.value.code == 1
+        assert isinstance(exc.value.__cause__, requests.ConnectionError)

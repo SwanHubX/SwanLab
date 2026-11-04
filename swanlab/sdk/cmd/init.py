@@ -15,7 +15,7 @@ import time
 from datetime import datetime
 from functools import partial
 from pathlib import Path
-from typing import Any, Dict, List, NoReturn, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, NoReturn, Optional, Tuple, Union
 
 import requests
 import yaml
@@ -355,13 +355,11 @@ def prompt_init_mode(settings: Settings) -> ModeType:
 
             if choice == "1":
                 console.info("Using an existing SwanLab API key.")
-                login_func()
-                return "online"
+                return _login_or_fallback(login_func, settings)
 
             if choice == "2":
                 console.info(f"Create a SwanLab account here: {settings.web_host}/login")
-                login_func()
-                return "online"
+                return _login_or_fallback(login_func, settings)
 
             if choice == "3":
                 console.info("Continuing in Offline mode. Results will be saved locally.")
@@ -370,6 +368,22 @@ def prompt_init_mode(settings: Settings) -> ModeType:
             console.warning("Invalid choice. Please enter 1, 2, or 3.")
     # 其他模式不登录
     return mode
+
+
+def _login_or_fallback(login_func: Callable[[], bool], settings: Settings) -> ModeType:
+    """
+    交互式引导中的登录：连接类失败时按 on_online_error 降级，而不是终止训练进程。
+    显式 401/403、配置错误与 on_online_error="raise" 仍然抛错。
+    """
+    try:
+        login_func()
+    except Exception as e:
+        if not is_transient_login_error(e) or settings.on_online_error == "raise":
+            raise
+        target_mode = settings.on_online_error
+        _warn_fallback(target_mode)
+        return target_mode
+    return "online"
 
 
 @safe.decorator(message="Failed to send webhook")
@@ -602,7 +616,11 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
         start_request = _build_start_request(run_settings, run_id, run_dir)
         resp = ctx.core.deliver_run_start(start_request)
         if not resp.success:
-            if resp.error_kind != CORE_ERROR_KIND_TRANSIENT or run_settings.on_online_error == "raise":
+            if (
+                mode != "online"
+                or resp.error_kind != CORE_ERROR_KIND_TRANSIENT
+                or run_settings.on_online_error == "raise"
+            ):
                 _raise_start_failure(resp)
             # 可降级：按策略切换模式，复用 run_dir 后重新拉起 Core
             mode = run_settings.on_online_error
