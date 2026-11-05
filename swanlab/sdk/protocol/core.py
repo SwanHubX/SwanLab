@@ -24,7 +24,7 @@ from swanlab.proto.swanlab.grpc.core.v1.sync_pb2 import (
     DeliverSyncStartResponse,
 )
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord
-from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord, ScalarRecord
+from swanlab.proto.swanlab.metric.data.v1.data_pb2 import HistogramRecord, MediaRecord, ScalarRecord
 from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord
 from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogRecord
 from swanlab.sdk.internal.pkg import safe
@@ -154,6 +154,30 @@ class CoreProtocol(ABC):
 
     @abstractmethod
     def _upsert_media_when_online(self, media: List[MediaRecord]) -> None: ...
+
+    # ---------------------------------- 直方图指标值 ----------------------------------
+
+    def upsert_histograms(self, histograms: List[HistogramRecord]) -> None:
+        """上报一组 HistogramRecord，记录直方图指标值"""
+        with safe.block(message="upsert histograms error"):
+            if self._mode == "online":
+                return self._upsert_histograms_when_online(histograms)
+            elif self._mode == "local":
+                return self._upsert_histograms_when_local(histograms)
+            elif self._mode == "offline":
+                return self._upsert_histograms_when_offline(histograms)
+            return self._upsert_histograms_when_disabled(histograms)
+
+    def _upsert_histograms_when_disabled(self, histograms: List[HistogramRecord]) -> None: ...
+
+    @abstractmethod
+    def _upsert_histograms_when_local(self, histograms: List[HistogramRecord]) -> None: ...
+
+    @abstractmethod
+    def _upsert_histograms_when_offline(self, histograms: List[HistogramRecord]) -> None: ...
+
+    @abstractmethod
+    def _upsert_histograms_when_online(self, histograms: List[HistogramRecord]) -> None: ...
 
     # ---------------------------------- 终端输出 ----------------------------------
 

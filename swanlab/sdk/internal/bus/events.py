@@ -11,7 +11,7 @@ from typing import Any, Dict, Optional, Tuple, Type, Union
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
-from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord, ScalarRecord
+from swanlab.proto.swanlab.metric.data.v1.data_pb2 import HistogramRecord, MediaRecord, ScalarRecord
 from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogLevel
 from swanlab.sdk.internal.context.transformer import TransformData
 
@@ -92,4 +92,4 @@ EventPayload = Union[
 ]
 
 # 数据解析返回类型
-ParseResult = Tuple[Optional[Union[MediaRecord, ScalarRecord]], Type[TransformData]]
+ParseResult = Tuple[Optional[Union[MediaRecord, ScalarRecord, HistogramRecord]], Type[TransformData]]

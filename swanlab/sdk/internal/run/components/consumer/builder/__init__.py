@@ -19,20 +19,21 @@ from swanlab.sdk.internal.bus.events import ConfigEvent, FileSaveEvent, LogEvent
 from swanlab.sdk.internal.context import RunContext, TransformMedia
 from swanlab.sdk.internal.pkg import adapter, console, fs
 from swanlab.sdk.internal.run.components.config.writer import dump_config
-from swanlab.sdk.internal.run.transforms import ECharts, Scalar, echarts
+from swanlab.sdk.internal.run.transforms import ECharts, Histogram, Scalar, echarts
 
 _EchartsType = (echarts.Base, echarts.Table)
 
 # 会被 build_scalar_or_media 处理为媒体（非标量）的类型
-_NON_SCALAR_TYPES = (list, TransformMedia, *_EchartsType)
+_NON_SCALAR_TYPES = (list, TransformMedia, Histogram, *_EchartsType)
 
 
 def is_scalar_value(value: object) -> bool:
     """判断是否会被 build_scalar_or_media 处理为标量
 
     在不触发 media transform 落盘的前提下决定是否预 transform。
-    判定必须与 build_scalar_or_media 的 dispatch 结果一致：显式注册类型走媒体
-    分支，默认分支中的 echarts 类型会被包装为 ECharts 媒体，其余按标量处理。
+    判定必须与 build_scalar_or_media 的 dispatch 结果一致：显式注册类型（TransformMedia
+    各媒体类与 Histogram 直方图）走非标量分支，默认分支中的 echarts 类型会被包装为
+    ECharts 媒体，其余按标量处理。
     """
     return not isinstance(value, _NON_SCALAR_TYPES)
 
@@ -140,6 +141,12 @@ class RecordBuilder:
             cls.build_data_record(key=key, step=step, timestamp=timestamp, data=values)
         )
         return media_record, cls
+
+    @build_scalar_or_media.register(Histogram)
+    def _(self, value: Histogram, key: str, timestamp: Timestamp, step: int) -> ParseResult:
+        """将 Histogram 对象转换为 HistogramRecord"""
+        data_record = Histogram.build_data_record(key=key, step=step, timestamp=timestamp, data=value.transform())
+        return data_record, Histogram
 
     # ── 系统元数据 ──
     def build_config(self, event: ConfigEvent) -> SaveRecord:

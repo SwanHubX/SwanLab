@@ -10,7 +10,7 @@ from requests import Response
 from swanlab.exceptions import ApiError
 from swanlab.proto.swanlab.grpc.core.v1.sync_pb2 import DeliverSyncStartRequest, SyncRange
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord, ColumnType
-from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord, ScalarRecord, ScalarValue
+from swanlab.proto.swanlab.metric.data.v1.data_pb2 import HistogramRecord, MediaRecord, ScalarRecord, ScalarValue
 from swanlab.proto.swanlab.operation.v1.operation_pb2 import CoreState
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord, ResumeMode, RunState, StartRecord
@@ -122,6 +122,7 @@ def record_kind(record: Record) -> str:
         "column",
         "scalar",
         "media",
+        "histogram",
         "log",
         "save",
     ]:
@@ -496,6 +497,41 @@ def test_read_auto_defines_media_column_when_metric_is_missing(tmp_path: Path):
     assert metrics.get("images/sample") is not None
 
 
+def test_read_auto_defines_histogram_column_and_skips_duplicate_steps(tmp_path: Path, monkeypatch):
+    core = CoreSyncPython()
+    core._ctx = CoreContext(config=make_core_config(tmp_path), mode="sync")
+    core._ctx.set_online_params("alice", "demo", "project-id", None, "experiment-id")
+    records = [
+        Record(
+            histogram=HistogramRecord(
+                key="weights",
+                step=step,
+                type=ColumnType.COLUMN_TYPE_HISTOGRAM,
+                value={"values": [2, 1], "bins": [0.0, 1.0, 2.0]},
+            )
+        )
+        for step in (1, 1, 2)
+    ]
+    monkeypatch.setattr(core, "_reader", FakeReader(records))
+    transport = FakeTransport(core._ctx)
+    monkeypatch.setattr(core, "_transport", transport)
+    core._metrics = RunMetrics()
+
+    asyncio.run(core.read())
+
+    assert [record_kind(record) for record in transport.records] == ["column", "histogram", "histogram"]
+    column = transport.records[0].column
+    assert column.column_key == "weights"
+    assert column.column_type == ColumnType.COLUMN_TYPE_HISTOGRAM
+    assert [record.histogram.step for record in transport.records[1:]] == [1, 2]
+    assert list(transport.records[1].histogram.value.values) == [2, 1]
+    assert list(transport.records[1].histogram.value.bins) == [0.0, 1.0, 2.0]
+    metric = core._metrics.get("weights")
+    assert metric is not None
+    assert metric.column_type == ColumnType.COLUMN_TYPE_HISTOGRAM
+    assert list(metric.steps) == [1, 2]
+
+
 def test_read_skips_invalid_protobuf_payload_and_continues(tmp_path: Path):
     core = CoreSyncPython()
     core._ctx = CoreContext(config=make_core_config(tmp_path), mode="sync")
@@ -710,6 +746,49 @@ def test_read_filters_scalars_by_step_range(tmp_path: Path):
     asyncio.run(core.read())
 
     assert [record.scalar.step for record in transport.records if record.HasField("scalar")] == [2]
+
+
+@pytest.mark.parametrize(
+    "sync_range, expected_steps",
+    [
+        (SyncRange(start_step=2, end_step=2), [2]),
+        (SyncRange(start_time=make_timestamp_at(200), end_time=make_timestamp_at(300)), [2, 3]),
+        (SyncRange(start_step=4), []),
+    ],
+)
+def test_read_filters_histograms_before_defining_column(tmp_path: Path, monkeypatch, sync_range, expected_steps):
+    core = make_range_core(tmp_path, sync_range)
+    records = [
+        Record(
+            histogram=HistogramRecord(
+                key="weights",
+                step=step,
+                type=ColumnType.COLUMN_TYPE_HISTOGRAM,
+                timestamp=make_timestamp_at(step * 100),
+                value={"values": [2, 1], "bins": [0.0, 1.0, 2.0]},
+            )
+        )
+        for step in (1, 2, 3)
+    ]
+    monkeypatch.setattr(core, "_reader", FakeReader(records))
+    transport = FakeTransport(core._ctx)
+    monkeypatch.setattr(core, "_transport", transport)
+    core._metrics = RunMetrics()
+
+    asyncio.run(core.read())
+
+    assert [record.histogram.step for record in transport.records if record.HasField("histogram")] == expected_steps
+    columns = [record.column for record in transport.records if record.HasField("column")]
+    if expected_steps:
+        assert len(columns) == 1
+        assert columns[0].column_key == "weights"
+        assert columns[0].column_type == ColumnType.COLUMN_TYPE_HISTOGRAM
+        metric = core._metrics.get("weights")
+        assert metric is not None
+        assert list(metric.steps) == expected_steps
+    else:
+        assert columns == []
+        assert core._metrics.get("weights") is None
 
 
 def test_read_filters_scalars_by_time_range(tmp_path: Path):

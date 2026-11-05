@@ -48,6 +48,7 @@ column = BiMap(
         "OBJECT3D": ColumnType.COLUMN_TYPE_OBJECT3D,
         "MOLECULE": ColumnType.COLUMN_TYPE_MOLECULE,
         "HTML": ColumnType.COLUMN_TYPE_HTML,
+        "HISTOGRAM": ColumnType.COLUMN_TYPE_HISTOGRAM,
     }
 )
 """ColumnType 枚举适配器，映射本地proto枚举与云端类型枚举"""

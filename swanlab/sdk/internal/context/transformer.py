@@ -13,7 +13,14 @@ from google.protobuf.message import Message
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
-from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaItem, MediaRecord, MediaValue, ScalarRecord
+from swanlab.proto.swanlab.metric.data.v1.data_pb2 import (
+    HistogramRecord,
+    HistogramValue,
+    MediaItem,
+    MediaRecord,
+    MediaValue,
+    ScalarRecord,
+)
 from swanlab.sdk.internal.pkg import fs
 
 
@@ -83,7 +90,7 @@ class TransformData(ABC):
         step: int,
         timestamp: Timestamp,
         data: Any,
-    ) -> Union[MediaRecord, ScalarRecord]:
+    ) -> Union[MediaRecord, ScalarRecord, HistogramRecord]:
         """构建 DataRecord envelope"""
         ...
 
@@ -129,3 +136,20 @@ class TransformMedia(TransformData, ABC):
         else:
             fs.safe_write(path / item.filename, content, mode="wb")
         return item
+
+
+class TransformHistogram(TransformData, ABC):
+    """直方图转换基类，data 为预分桶的计数与边界，写入独立的 histogram 表"""
+
+    @classmethod
+    def build_data_record(cls, *, key: str, step: int, timestamp: Timestamp, data: HistogramValue) -> HistogramRecord:
+        # 以防万一，强制类型检查
+        assert isinstance(data, HistogramValue)
+        return HistogramRecord(key=key, step=step, timestamp=timestamp, type=cls.column_type(), value=data)
+
+    @abstractmethod
+    def transform(self) -> HistogramValue:
+        """
+        将分桶结果转换为Protobuf格式
+        """
+        ...

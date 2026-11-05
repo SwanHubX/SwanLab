@@ -29,7 +29,7 @@ from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
     GetOperationStatsResponse,
 )
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnClass, ColumnRecord, ColumnType
-from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord, ScalarRecord
+from swanlab.proto.swanlab.metric.data.v1.data_pb2 import HistogramRecord, MediaRecord, ScalarRecord
 from swanlab.proto.swanlab.operation.v1.operation_pb2 import CoreState
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord, RunState, StartRecord
@@ -232,6 +232,8 @@ class CorePython(CoreProtocol):
             # 2. 否则定义指标，根据类型不同，定义不同的指标
             if column.column_type == ColumnType.COLUMN_TYPE_SCALAR:
                 self._metrics.define_scalar(key=column.column_key, column=column)
+            elif column.column_type == ColumnType.COLUMN_TYPE_HISTOGRAM:
+                self._metrics.define_histogram(key=column.column_key, column=column)
             else:
                 self._metrics.define_media(
                     key=column.column_key, column=column, path=adapter.medium[column.column_type]
@@ -337,6 +339,52 @@ class CorePython(CoreProtocol):
 
     def _upsert_media_when_online(self, media: List[MediaRecord]) -> None:
         records = self._upsert_media_to_metrics(media)
+        self._transport_put(records)
+
+    # ---- upsert_histograms ----
+
+    def upsert_histograms(self, histograms: List[HistogramRecord]) -> None:
+        if not self._active:
+            console.warning("Core is not active, refusing to upsert histograms")
+            return
+        return super().upsert_histograms(histograms)
+
+    def _upsert_histograms_to_metrics(self, histograms: List[HistogramRecord]) -> List[Record]:
+        """
+        将一组 HistogramRecord 转换为一组 Record，并更新指标上下文
+        """
+        assert self._metrics is not None, "metrics must be initialized before upsert histograms"
+        records: List[Record] = []
+        for histogram in histograms:
+            with safe.block(message="Failed to upsert histogram metric ctx"):
+                # 1. 如果指标未定义，则定义此指标
+                metric = self._metrics.get(histogram.key)
+                if not metric:
+                    column_record = builder.build_auto_column(self._ctx, histogram)
+                    metric = self._metrics.define_histogram(key=histogram.key, column=column_record)
+                    records.append(builder.build_column_record(self._counter, column_record))
+                # 2. 检查类型是否匹配，判断指定的step是否允许写入
+                metric.ensure_type_match(histogram.type)
+                if metric.try_accept_step(histogram.step):
+                    metric.update(histogram)
+                    records.append(builder.build_histogram_record(self._counter, histogram))
+                else:
+                    console.debug(
+                        f"Metric '{histogram.key}' at step {histogram.step} was skipped "
+                        "because it is duplicate or too old."
+                    )
+        # 持久化存储record
+        self._store_records(records)
+        return records
+
+    def _upsert_histograms_when_local(self, histograms: List[HistogramRecord]) -> None:
+        self._upsert_histograms_to_metrics(histograms)
+
+    def _upsert_histograms_when_offline(self, histograms: List[HistogramRecord]) -> None:
+        self._upsert_histograms_to_metrics(histograms)
+
+    def _upsert_histograms_when_online(self, histograms: List[HistogramRecord]) -> None:
+        records = self._upsert_histograms_to_metrics(histograms)
         self._transport_put(records)
 
     # ---- upsert_logs ----
