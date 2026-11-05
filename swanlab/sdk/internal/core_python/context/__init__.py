@@ -42,11 +42,6 @@ class CoreContext:
         self._project_version: Optional[Literal[1]] = None
         self._experiment_id: Optional[str] = None
 
-    @property
-    def is_sync(self) -> bool:
-        """当前上下文是否用于离线数据同步。"""
-        return self._mode == "sync"
-
     @classmethod
     def from_proto(cls, proto: CoreSettings, mode: Literal["core", "sync"] = "core") -> "CoreContext":
         config = CoreConfig(

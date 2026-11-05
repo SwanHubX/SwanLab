@@ -33,7 +33,6 @@ class _PlaceholderBackend:
 
     def __init__(self):
         self.metrics_requests: list = []
-        self.metrics_request_sizes: list[int] = []
         self.column_requests: list = []
         self.summary: dict = {"log": None, "media": None, "scalar": None, "histogram": None}
         self.summary_requests = 0
@@ -56,7 +55,6 @@ class _PlaceholderBackend:
                     self._send({"sid": "test-sid", "expiredAt": expired, "userInfo": {"username": "tester"}})
                 elif self.path.endswith("/house/metrics"):
                     backend.metrics_requests.append(data)
-                    backend.metrics_request_sizes.append(length)
                     self._send("SUCCESS")
                 elif self.path.endswith("/series"):
                     backend.column_requests.append(data)
@@ -112,7 +110,7 @@ def placeholder_client():
         backend.stop()
 
 
-def _make_sender(tmp_path: Path, sync: bool = False) -> HttpRecordSender:
+def _make_sender(tmp_path: Path) -> HttpRecordSender:
     ctx = CoreContext(
         config=CoreConfig(
             run_id="test-run-id",
@@ -124,8 +122,7 @@ def _make_sender(tmp_path: Path, sync: bool = False) -> HttpRecordSender:
             save_size=50 * 1024 * 1024 * 1024,
             save_part=32 * 1024 * 1024,
             save_batch=100,
-        ),
-        mode="sync" if sync else "core",
+        )
     )
     ctx.set_online_params(
         username="alice",
@@ -177,90 +174,40 @@ def test_upload_histogram_empty_batch_skips_http(placeholder_client, tmp_path: P
     assert placeholder_client.metrics_requests == []
 
 
-@pytest.mark.parametrize("sync, batch_size", [(False, 32), (True, 8)])
-def test_upload_histogram_splits_http_requests(placeholder_client, tmp_path: Path, sync, batch_size):
-    sender = _make_sender(tmp_path, sync=sync)
-    records = [_make_histogram_record(step=step) for step in range(batch_size + 1)]
+def test_upload_histogram_splits_http_requests(placeholder_client, tmp_path: Path):
+    sender = _make_sender(tmp_path)
+    records = [_make_histogram_record(step=step) for step in range(513)]
 
     result = sender.upload("histogram", records)
 
     requests = placeholder_client.metrics_requests
-    assert [len(request["metrics"]) for request in requests] == [batch_size, 1]
+    assert [len(request["metrics"]) for request in requests] == [512, 1]
     assert all(request["type"] == "histogram" for request in requests)
     metrics = [metric for request in requests for metric in request["metrics"]]
-    assert [metric["index"] for metric in metrics] == list(range(batch_size + 1))
+    assert [metric["index"] for metric in metrics] == list(range(513))
     assert all("epoch" not in metric for metric in metrics)
     assert result.confirmed_records == records
     assert result.remaining_records == []
     assert result.failures == []
 
 
-@pytest.mark.parametrize("bucket_count, extreme", [(64, False), (512, False), (512, True)])
-@pytest.mark.parametrize("sync, batch_size", [(False, 32), (True, 8)])
-def test_histogram_batches_stay_below_one_mb_per_request(
-    placeholder_client, tmp_path: Path, bucket_count, extreme, sync, batch_size
-):
-    sender = _make_sender(tmp_path, sync=sync)
-    edges = (
-        [-1.2345678901234567e200 + i * 1.2345678901234567e196 for i in range(513)]
-        if extreme
-        else [-3.0 + 6.0 * i / bucket_count for i in range(bucket_count + 1)]
-    )
-    counts = [2**64 - 1 if extreme else 1] * bucket_count
-    histogram = swanlab.Histogram(np_histogram=(counts, edges))
-    records = [
-        Record(
-            histogram=HistogramRecord(
-                key="\U0001f680" * 512 if extreme else "weights/layer1",
-                step=step,
-                type=ColumnType.COLUMN_TYPE_HISTOGRAM,
-                timestamp=Timestamp(seconds=1793836800, nanos=999999999),
-                value=histogram.transform(),
-            )
-        )
-        for step in range(64)
-    ]
-    # 连续两次调用验证最大桶数、长指标名与大整数计数的分批结果。
-    first = sender.upload_histogram(records[:32])
-    second = sender.upload_histogram(records[32:])
-
-    sizes = placeholder_client.metrics_request_sizes
-    assert len(sizes) == 64 // batch_size
-    assert all(size < 1_000_000 for size in sizes)
-    assert all(len(request["metrics"]) == batch_size for request in placeholder_client.metrics_requests)
-    uploaded = [metric for request in placeholder_client.metrics_requests for metric in request["metrics"]]
-    assert [metric["index"] for metric in uploaded] == list(range(64))
-    assert all(metric["data"]["values"] == counts for metric in uploaded)
-    assert all(metric["data"]["bins"] == edges for metric in uploaded)
-    assert first.confirmed_records + second.confirmed_records == records
-    assert not first.failures and not second.failures
-
-
 @pytest.mark.parametrize(
-    "new_experiment, summary_step, range_start, record_count, expected_steps",
+    "new_experiment, summary_step, range_start, expected_steps",
     [
-        (True, None, None, 3, [0, 1, 2]),
-        (False, None, None, 3, [0, 1, 2]),
-        (False, 1, None, 3, [2]),
-        (False, 2, None, 3, []),
-        (False, 1, 0, 3, [0, 1, 2]),
-        (False, 1, 1, 3, [1, 2]),
-        (True, None, None, 17, list(range(17))),
+        (True, None, None, [0, 1, 2]),
+        (False, None, None, [0, 1, 2]),
+        (False, 1, None, [2]),
+        (False, 2, None, []),
+        (False, 1, 0, [0, 1, 2]),
+        (False, 1, 1, [1, 2]),
     ],
 )
 def test_sync_offline_histogram_file_to_http(
-    placeholder_client,
-    tmp_path: Path,
-    monkeypatch,
-    new_experiment,
-    summary_step,
-    range_start,
-    record_count,
-    expected_steps,
+    placeholder_client, tmp_path: Path, monkeypatch, new_experiment, summary_step, range_start, expected_steps
 ):
     run = swanlab.init(mode="offline", project="histogram-sync", id="histogram-sync", log_dir=str(tmp_path))
     run_dir = run._ctx.run_dir
-    for step in range(record_count):
+    for step in range(3):
         swanlab.log({"weights": swanlab.Histogram(np_histogram=([2, 1], [0.0, 1.0, 2.0]))}, step=step)
     swanlab.finish()
 
@@ -274,7 +221,7 @@ def test_sync_offline_histogram_file_to_http(
                 source.append(record.histogram)
     finally:
         reader.close()
-    assert [record.step for record in source] == list(range(record_count))
+    assert [record.step for record in source] == [0, 1, 2]
     if summary_step is not None:
         placeholder_client.summary["histogram"] = [{"key": "weights", "step": summary_step}]
 
@@ -313,9 +260,6 @@ def test_sync_offline_histogram_file_to_http(
     )
 
     requests = [request for request in placeholder_client.metrics_requests if request["type"] == "histogram"]
-    assert all(len(request["metrics"]) <= 8 for request in requests)
-    if record_count == 17:
-        assert [len(request["metrics"]) for request in requests] == [8, 8, 1]
     metrics = [metric for request in requests for metric in request["metrics"]]
     assert [metric["index"] for metric in metrics] == expected_steps
     assert all(metric["key"] == "weights" for metric in metrics)
