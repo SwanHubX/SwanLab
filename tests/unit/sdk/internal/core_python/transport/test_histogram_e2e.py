@@ -10,7 +10,9 @@ import threading
 from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from typing import Literal
 
+import numpy as np
 import pytest
 from google.protobuf.timestamp_pb2 import Timestamp
 
@@ -27,6 +29,7 @@ class _PlaceholderBackend:
 
     def __init__(self):
         self.metrics_requests: list = []
+        self.metrics_request_sizes: list[int] = []
         backend = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -46,6 +49,7 @@ class _PlaceholderBackend:
                     self._send({"sid": "test-sid", "expiredAt": expired, "userInfo": {"username": "tester"}})
                 elif self.path.endswith("/house/metrics"):
                     backend.metrics_requests.append(data)
+                    backend.metrics_request_sizes.append(length)
                     self._send("SUCCESS")
                 else:
                     self._send({"code": 404, "message": "not found"}, status=404)
@@ -83,7 +87,7 @@ def placeholder_client():
         backend.stop()
 
 
-def _make_sender(tmp_path: Path) -> HttpRecordSender:
+def _make_sender(tmp_path: Path, mode: Literal["core", "sync"] = "core") -> HttpRecordSender:
     ctx = CoreContext(
         config=CoreConfig(
             run_id="test-run-id",
@@ -95,7 +99,8 @@ def _make_sender(tmp_path: Path) -> HttpRecordSender:
             save_size=50 * 1024 * 1024 * 1024,
             save_part=32 * 1024 * 1024,
             save_batch=100,
-        )
+        ),
+        mode=mode,
     )
     ctx.set_online_params(
         username="alice",
@@ -147,17 +152,25 @@ def test_upload_histogram_empty_batch_skips_http(placeholder_client, tmp_path: P
     assert placeholder_client.metrics_requests == []
 
 
-def test_upload_histogram_splits_http_requests(placeholder_client, tmp_path: Path):
-    sender = _make_sender(tmp_path)
-    records = [_make_histogram_record(step=step) for step in range(513)]
+@pytest.mark.parametrize("mode", ["core", "sync"])
+def test_upload_histogram_splits_http_requests(placeholder_client, tmp_path: Path, mode):
+    sender = _make_sender(tmp_path, mode=mode)
+    counts, edges = np.histogram(np.random.default_rng(42).normal(size=1_000_000), bins=512)
+    records = [_make_histogram_record(step=step) for step in range(129)]
+    for record in records:
+        record.histogram.value.values[:] = counts.tolist()
+        record.histogram.value.bins[:] = edges.tolist()
 
     result = sender.upload("histogram", records)
 
     requests = placeholder_client.metrics_requests
-    assert [len(request["metrics"]) for request in requests] == [512, 1]
+    assert [len(request["metrics"]) for request in requests] == [128, 1]
+    assert all(size < 2_000_000 for size in placeholder_client.metrics_request_sizes)
     assert all(request["type"] == "histogram" for request in requests)
     metrics = [metric for request in requests for metric in request["metrics"]]
-    assert [metric["index"] for metric in metrics] == list(range(513))
+    assert [metric["index"] for metric in metrics] == list(range(129))
+    assert all(metric["data"]["values"] == counts.tolist() for metric in metrics)
+    assert all(metric["data"]["bins"] == edges.tolist() for metric in metrics)
     assert all("epoch" not in metric for metric in metrics)
     assert result.confirmed_records == records
     assert result.remaining_records == []
