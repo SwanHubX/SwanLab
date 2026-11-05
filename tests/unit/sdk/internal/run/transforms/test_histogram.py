@@ -10,7 +10,7 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-from swanlab import Histogram
+from swanlab import Histogram, Text
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import HistogramRecord
 
@@ -277,6 +277,10 @@ class TestPriority:
         inner = Histogram([1, 2, 3], bins=2)
         with pytest.raises(ValueError, match="nesting"):
             Histogram(inner, bins=3)
+
+    def test_nesting_rejects_other_transform_data(self):
+        with pytest.raises(TypeError, match="sequence must be a numeric sequence or Histogram"):
+            Histogram(Text("hello"))  # type: ignore[arg-type]
 
 
 # ---------------------------------- Protobuf 转换 ----------------------------------

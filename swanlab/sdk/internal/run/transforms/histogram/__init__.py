@@ -12,7 +12,7 @@ from typing import List, Optional, Tuple
 from swanlab import vendor
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import HistogramValue
-from swanlab.sdk.internal.context import TransformHistogram
+from swanlab.sdk.internal.context import TransformData, TransformHistogram
 from swanlab.sdk.internal.pkg import console
 from swanlab.sdk.typings.run.transforms.histogram import (
     HistogramBinCount,
@@ -27,18 +27,33 @@ MAX_COUNT = (1 << 64) - 1
 
 
 class Histogram(TransformHistogram):
-    """直方图，对一批样本的分段计数摘要。
+    """Histogram of binned sample counts.
 
-    两种输入方式互斥：原始序列 sequence 由 SDK 内部分桶，预分桶结果 np_histogram 直接采用，
-    提供 np_histogram 时 sequence、bins、num_bins 均被忽略。
+    The two input modes are mutually exclusive: ``sequence`` is binned by the
+    SDK, while a precomputed ``np_histogram`` is used as-is. When
+    ``np_histogram`` is provided, ``sequence``, ``bins`` and ``num_bins`` are
+    ignored.
 
-    :param sequence: 原始样本序列，支持 list/tuple 与 numpy 数组。PyTorch Tensor 请先调用
-        tensor.detach().cpu().numpy() 转换；带梯度或位于 GPU 上的 Tensor 不能直接传入。
-    :param bins: 桶数（1..512 的 Python / NumPy 整数，按序列最小/最大值等宽分桶）
-        或桶边界序列（N+1 个单调递增值，支持 numpy 数组），默认 64 个等宽桶
-    :param num_bins: 向下兼容 wandb 的桶数参数，语义与整数形式的 bins 相同，与 bins 同时
-        显式给出视为矛盾输入
-    :param np_histogram: 预分桶结果 (counts, bin_edges)，提供时优先于 sequence
+    Parameters
+    ----------
+    sequence: Sequence[float], numpy.ndarray, or Histogram, optional
+        Raw samples to bin. PyTorch tensors must be converted with
+        ``tensor.detach().cpu().numpy()`` first; tensors on GPU or requiring
+        grad are not accepted directly.
+    bins: int or Sequence[float], optional
+        Number of buckets (1..512) for equal-width binning, or explicit bucket
+        edges (N+1 monotonically increasing values). Defaults to 64 buckets.
+    num_bins: int, optional
+        wandb-compatible bucket count; same as an integer ``bins``. Mutually
+        exclusive with ``bins``.
+    np_histogram: tuple[Sequence[int], Sequence[float]], optional
+        Precomputed ``(counts, bin_edges)``; takes precedence over ``sequence``.
+
+    Notes
+    -----
+    With explicit ``bins``, an empty sequence or a sequence containing only
+    non-finite values yields an all-zero histogram. Integer ``bins`` needs a
+    finite range, so it raises ``ValueError`` when no finite values remain.
     """
 
     def __init__(
@@ -52,13 +67,14 @@ class Histogram(TransformHistogram):
         super().__init__()
         # 套娃加载：内层 Histogram 实例提供已计算的结果；内层结果是最终形态，无法重新分桶，
         # 因此外层再给任何分桶参数都视为矛盾输入
-        inner = self._unwrap(sequence)
-        if inner:
+        if isinstance(sequence, Histogram):
             if np_histogram is not None or bins is not None or num_bins is not None:
                 raise ValueError("Cannot specify bins or np_histogram when nesting a Histogram instance")
-            self.values: List[int] = inner["values"]
-            self.bins: List[float] = inner["bins"]
+            self.values: List[int] = list(sequence.values)
+            self.bins: List[float] = list(sequence.bins)
             return
+        if isinstance(sequence, TransformData):
+            raise TypeError(f"sequence must be a numeric sequence or Histogram, got {type(sequence).__name__}")
 
         if np_histogram is not None:
             self._init_from_np_histogram(np_histogram)
@@ -90,7 +106,11 @@ class Histogram(TransformHistogram):
         self.bins = bins
 
     def _init_from_sequence(self, sequence, bins) -> None:
-        """原始序列输入：过滤非有限值后调用 numpy 分桶。"""
+        """原始序列输入：过滤非有限值后调用 numpy 分桶。
+
+        显式 bins 下，过滤后为空仍返回全零直方图；整数 bins 需要从数据推导范围，
+        因此无有限值时会报错。
+        """
         if isinstance(bins, bool):
             raise TypeError("bins must be an integer bucket count or a sequence of floats, got bool")
 

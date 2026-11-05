@@ -175,7 +175,7 @@ swanlab.finish()
 
 - **SaveRecord**: 由 `swanlab.save()` 与内部文件保存产生，包含 name、source_path、target_path
 - **SavePolicy**: `NOW`（立即上传）/ `END`（运行结束时上传）/ `LIVE`（持续监听文件变化）
-- **SaveType**: `CUSTOM` / `CONFIG` / `METADATA` / `REQUIREMENTS` / `CONDA` 四类内部文件，在 init 阶段各写入一条 SaveRecord
+- **SaveType**: `CUSTOM` / `CONFIG` / `METADATA` / `REQUIREMENTS` / `CONDA`。`CUSTOM` 用于 `swanlab.save()` 的用户文件；其余四类为内部文件，在 init 阶段各写入一条 SaveRecord
 
 ### settings — 服务配置
 

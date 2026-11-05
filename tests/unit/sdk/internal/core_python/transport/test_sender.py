@@ -68,6 +68,7 @@ def _make_sender(
     save_part: int = 32 * 1024 * 1024,
     save_size: int = 50 * 1024 * 1024 * 1024,
     skip_store: bool = False,
+    sync: bool = False,
 ) -> HttpRecordSender:
     ctx = CoreContext(
         config=CoreConfig(
@@ -81,7 +82,8 @@ def _make_sender(
             save_part=save_part,
             save_batch=save_batch,
             skip_store=skip_store,
-        )
+        ),
+        mode="sync" if sync else "core",
     )
     ctx.set_online_params(
         username="alice",
@@ -1846,9 +1848,49 @@ def test_upload_histogram_without_timestamp_is_blocked(tmp_path: Path):
     assert "timestamp" in result.failures[0].message
 
 
-@pytest.mark.parametrize("count, batch_sizes", [(0, []), (512, [512]), (513, [512, 1]), (1025, [512, 512, 1])])
-def test_upload_histogram_splits_batches(tmp_path: Path, count, batch_sizes):
+def test_upload_histogram_without_value_is_blocked(tmp_path: Path):
+    """缺少 value 的 histogram record 不发出请求，作为 blocked 终结。"""
     sender = _make_sender(tmp_path)
+    record = _make_histogram_record()
+    record.histogram.ClearField("value")
+    with patch("swanlab.sdk.internal.core_python.transport.sender.upload_histogram") as mock_upload:
+        result = sender.upload_histogram([record])
+    mock_upload.assert_not_called()
+    assert result.confirmed_records == [record]
+    assert result.remaining_records == []
+    assert len(result.failures) == 1
+    assert "value" in result.failures[0].message
+
+
+def test_upload_histogram_invalid_bucket_shape_is_blocked(tmp_path: Path):
+    """values / bins 长度不匹配的 histogram record 不发出请求。"""
+    sender = _make_sender(tmp_path)
+    record = _make_histogram_record()
+    del record.histogram.value.bins[:]
+    with patch("swanlab.sdk.internal.core_python.transport.sender.upload_histogram") as mock_upload:
+        result = sender.upload_histogram([record])
+    mock_upload.assert_not_called()
+    assert result.confirmed_records == [record]
+    assert result.remaining_records == []
+    assert len(result.failures) == 1
+    assert "bucket shape" in result.failures[0].message
+
+
+@pytest.mark.parametrize(
+    "sync, count, batch_sizes",
+    [
+        (False, 0, []),
+        (False, 32, [32]),
+        (False, 33, [32, 1]),
+        (False, 65, [32, 32, 1]),
+        (True, 0, []),
+        (True, 8, [8]),
+        (True, 9, [8, 1]),
+        (True, 17, [8, 8, 1]),
+    ],
+)
+def test_upload_histogram_splits_batches(tmp_path: Path, sync, count, batch_sizes):
+    sender = _make_sender(tmp_path, sync=sync)
     records = [_make_histogram_record(step=step) for step in range(count)]
     with patch("swanlab.sdk.internal.core_python.transport.sender.upload_histogram") as upload:
         result = sender.upload_histogram(records)
@@ -1863,40 +1905,44 @@ def test_upload_histogram_splits_batches(tmp_path: Path, count, batch_sizes):
 
 @pytest.mark.parametrize("successful_batches", [0, 1])
 @pytest.mark.parametrize("status", [None, 503])
-def test_upload_histogram_retry_excludes_successful_batches(tmp_path: Path, successful_batches, status):
-    sender = _make_sender(tmp_path)
-    records = [_make_histogram_record(step=step) for step in range(1025)]
+@pytest.mark.parametrize("sync, batch_size", [(False, 32), (True, 8)])
+def test_upload_histogram_retry_excludes_successful_batches(
+    tmp_path: Path, successful_batches, status, sync, batch_size
+):
+    sender = _make_sender(tmp_path, sync=sync)
+    records = [_make_histogram_record(step=step) for step in range(2 * batch_size + 1)]
     blocked = _make_histogram_record(key="missing-timestamp")
     blocked.histogram.ClearField("timestamp")
     error = requests.Timeout("histogram upload timed out") if status is None else _make_api_error(status)
-    offset = successful_batches * 512
+    offset = successful_batches * batch_size
     with patch(
         "swanlab.sdk.internal.core_python.transport.sender.upload_histogram",
         side_effect=[None] * successful_batches + [error],
     ) as upload:
-        result = sender.upload_histogram(records[:512] + [blocked] + records[512:])
+        result = sender.upload_histogram(records[:batch_size] + [blocked] + records[batch_size:])
 
     assert upload.call_count == successful_batches + 1
     assert result.confirmed_records == [blocked] + records[:offset]
     assert result.remaining_records == records[offset:]
-    assert [failure.records for failure in result.failures] == [[blocked], records[offset : offset + 512]]
+    assert [failure.records for failure in result.failures] == [[blocked], records[offset : offset + batch_size]]
     assert result.failures[1].exception is error
 
     with patch("swanlab.sdk.internal.core_python.transport.sender.upload_histogram") as retry_upload:
         retried = sender.upload_histogram(result.remaining_records)
 
-    assert [len(call.kwargs["metrics"]) for call in retry_upload.call_args_list] == [512] * (2 - successful_batches) + [
-        1
-    ]
+    assert [len(call.kwargs["metrics"]) for call in retry_upload.call_args_list] == [batch_size] * (
+        2 - successful_batches
+    ) + [1]
     assert retry_upload.call_args_list[0].kwargs["metrics"][0]["index"] == offset
     assert retried.confirmed_records == records[offset:]
     assert retried.remaining_records == []
     assert retried.failures == []
 
 
-def test_upload_histogram_terminal_failure_continues_later_batches(tmp_path: Path):
-    sender = _make_sender(tmp_path)
-    records = [_make_histogram_record(step=step) for step in range(1025)]
+@pytest.mark.parametrize("sync, batch_size", [(False, 32), (True, 8)])
+def test_upload_histogram_terminal_failure_continues_later_batches(tmp_path: Path, sync, batch_size):
+    sender = _make_sender(tmp_path, sync=sync)
+    records = [_make_histogram_record(step=step) for step in range(2 * batch_size + 1)]
     error = _make_api_error(400)
     with patch(
         "swanlab.sdk.internal.core_python.transport.sender.upload_histogram", side_effect=[None, error, None]
@@ -1907,7 +1953,7 @@ def test_upload_histogram_terminal_failure_continues_later_batches(tmp_path: Pat
     assert result.confirmed_records == records
     assert result.remaining_records == []
     assert len(result.failures) == 1
-    assert result.failures[0].records == records[512:1024]
+    assert result.failures[0].records == records[batch_size : 2 * batch_size]
     assert result.failures[0].status == 400
 
 

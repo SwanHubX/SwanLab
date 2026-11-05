@@ -246,22 +246,36 @@ class HttpRecordSender:
         )
 
     def upload_histogram(self, records: Sequence[Record]) -> UploadResult:
-        """每批最多上传 512 条直方图指标，按批编码每桶计数与桶边界。"""
+        """直方图在线上传每批最多 32 条，离线同步每批最多 8 条。"""
         valid_records: List[Record] = []
         blocked: List[Record] = []
+        invalid_shape: List[Record] = []
+        _MAX_HISTOGRAM_BATCH = 512
         for record in records:
-            if not record.HasField("histogram") or not record.histogram.HasField("timestamp"):
+            if (
+                not record.HasField("histogram")
+                or not record.histogram.HasField("timestamp")
+                or not record.histogram.HasField("value")
+            ):
                 blocked.append(record)
+                continue
+            histogram = record.histogram
+            values = histogram.value.values
+            bins = histogram.value.bins
+            # 限定
+            if not (1 <= len(values) <= _MAX_HISTOGRAM_BATCH) or len(bins) != len(values) + 1:
+                invalid_shape.append(record)
                 continue
             valid_records.append(record)
 
-        confirmed: List[Record] = list(blocked)
-        failures: List[UploadFailure] = (
-            [self._blocked_failure(blocked, "histogram record without value or timestamp")] if blocked else []
-        )
-        batch_size = 512
+        confirmed: List[Record] = list(blocked) + list(invalid_shape)
+        failures: List[UploadFailure] = []
+        if blocked:
+            failures.append(self._blocked_failure(blocked, "histogram record without value or timestamp"))
+        if invalid_shape:
+            failures.append(self._blocked_failure(invalid_shape, "histogram record has invalid bucket shape"))
+        batch_size = 8 if self._ctx.is_sync else 32
         for start in range(0, len(valid_records), batch_size):
-            # 按 512 条 histogram record 进行分片
             batch = valid_records[start : start + batch_size]
             metrics: UploadHistogramBatch = []
             for record in batch:
