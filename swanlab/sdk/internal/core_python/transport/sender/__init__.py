@@ -246,7 +246,7 @@ class HttpRecordSender:
         )
 
     def upload_histogram(self, records: Sequence[Record]) -> UploadResult:
-        """每批最多上传 512 条直方图指标，按批编码每桶计数与桶边界。"""
+        """每批最多上传 128 条直方图指标，按批编码每桶计数与桶边界。"""
         valid_records: List[Record] = []
         blocked: List[Record] = []
         invalid_shape: List[Record] = []
@@ -274,9 +274,8 @@ class HttpRecordSender:
             failures.append(self._blocked_failure(blocked, "histogram record without value or timestamp"))
         if invalid_shape:
             failures.append(self._blocked_failure(invalid_shape, "histogram record has invalid bucket shape"))
-        batch_size = 512
+        batch_size = 128
         for start in range(0, len(valid_records), batch_size):
-            # 按 512 条 histogram record 进行分片
             batch = valid_records[start : start + batch_size]
             metrics: UploadHistogramBatch = []
             for record in batch:
