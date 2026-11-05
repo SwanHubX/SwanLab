@@ -980,3 +980,24 @@ class TestDeferredSettingsLoading:
         assert result.returncode == 0, result.stdout + result.stderr
         assert "INIT_OK" in result.stdout
         assert "RAISED=" not in result.stdout
+
+
+def test_on_online_error_defaults_to_offline(monkeypatch):
+    monkeypatch.delenv("SWANLAB_ON_ONLINE_ERROR", raising=False)
+    assert Settings().on_online_error == "offline"
+
+
+def test_on_online_error_reads_env(monkeypatch):
+    monkeypatch.setenv("SWANLAB_ON_ONLINE_ERROR", "raise")
+    assert Settings().on_online_error == "raise"
+
+
+def test_on_online_error_accepts_disabled(monkeypatch):
+    monkeypatch.setenv("SWANLAB_ON_ONLINE_ERROR", "disabled")
+    assert Settings().on_online_error == "disabled"
+
+
+def test_on_online_error_rejects_invalid_value(monkeypatch):
+    monkeypatch.setenv("SWANLAB_ON_ONLINE_ERROR", "invalid")
+    with pytest.raises(ValidationError):
+        Settings()

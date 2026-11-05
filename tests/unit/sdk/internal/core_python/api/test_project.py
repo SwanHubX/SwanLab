@@ -56,8 +56,12 @@ def test_get_or_create_project_defaults_to_current_username(monkeypatch):
     post.assert_called_once_with(
         "/projects/alice",
         data={"name": "demo", "visibility": "PRIVATE"},
+        retries=None,
     )
-    assert get.call_args_list == [call("/project/alice/demo", log_error=False), call("/project/alice/demo")]
+    assert get.call_args_list == [
+        call("/project/alice/demo", retries=None, log_error=False),
+        call("/project/alice/demo", retries=None),
+    ]
 
 
 def test_get_or_create_project_uses_explicit_username_without_current_username(monkeypatch):
@@ -75,8 +79,12 @@ def test_get_or_create_project_uses_explicit_username_without_current_username(m
     post.assert_called_once_with(
         "/projects/team",
         data={"name": "demo", "visibility": "PUBLIC"},
+        retries=None,
     )
-    assert get.call_args_list == [call("/project/team/demo", log_error=False), call("/project/team/demo")]
+    assert get.call_args_list == [
+        call("/project/team/demo", retries=None, log_error=False),
+        call("/project/team/demo", retries=None),
+    ]
 
 
 def test_get_or_create_project_existing_project_skips_create(monkeypatch):
@@ -90,7 +98,7 @@ def test_get_or_create_project_existing_project_skips_create(monkeypatch):
 
     assert result == _project_data(username="team", name="demo")
     post.assert_not_called()
-    get.assert_called_once_with("/project/team/demo", log_error=False)
+    get.assert_called_once_with("/project/team/demo", retries=None, log_error=False)
 
 
 def test_get_or_create_project_falls_back_to_old_helper_when_new_endpoint_fails(monkeypatch):
@@ -107,11 +115,15 @@ def test_get_or_create_project_falls_back_to_old_helper_when_new_endpoint_fails(
     post.assert_called_once_with(
         "/projects/team",
         data={"name": "demo", "visibility": "PRIVATE"},
+        retries=None,
     )
     get_or_create_old_project.assert_called_once_with(
         data={"name": "demo", "visibility": "PRIVATE", "username": "team"}
     )
-    assert get.call_args_list == [call("/project/team/demo", log_error=False), call("/project/team/demo")]
+    assert get.call_args_list == [
+        call("/project/team/demo", retries=None, log_error=False),
+        call("/project/team/demo", retries=None),
+    ]
 
 
 def test_get_or_create_project_raises_non_not_found_new_endpoint_api_error(monkeypatch):
@@ -126,7 +138,27 @@ def test_get_or_create_project_raises_non_not_found_new_endpoint_api_error(monke
         project_api.get_or_create_project(username="team", name="demo", public=False)
 
     get_or_create_old_project.assert_not_called()
-    get.assert_called_once_with("/project/team/demo", log_error=False)
+    get.assert_called_once_with("/project/team/demo", retries=None, log_error=False)
+
+
+def test_get_or_create_project_forwards_retries(monkeypatch):
+    """启动路径显式传入的重试次数应透传到所有项目请求。"""
+    post = MagicMock()
+    get = _not_found_then_success(_project_data(username="team", name="demo"))
+    monkeypatch.setattr(project_api.client, "post", post)
+    monkeypatch.setattr(project_api.client, "get", get)
+
+    project_api.get_or_create_project(username="team", name="demo", public=False, retries=1)
+
+    post.assert_called_once_with(
+        "/projects/team",
+        data={"name": "demo", "visibility": "PRIVATE"},
+        retries=1,
+    )
+    assert get.call_args_list == [
+        call("/project/team/demo", retries=1, log_error=False),
+        call("/project/team/demo", retries=1),
+    ]
 
 
 def test_get_or_create_old_project_ignores_conflict(monkeypatch):
