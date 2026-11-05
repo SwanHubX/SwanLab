@@ -14,19 +14,28 @@ from pathlib import Path
 import pytest
 from google.protobuf.timestamp_pb2 import Timestamp
 
+import swanlab
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import HistogramRecord
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
+from swanlab.proto.swanlab.run.v1.run_pb2 import RunState
+from swanlab.sdk.cmd import sync as sync_cmd
 from swanlab.sdk.internal.core_python import client as core_client
 from swanlab.sdk.internal.core_python.context import CoreConfig, CoreContext
+from swanlab.sdk.internal.core_python.store import DataStoreReader
 from swanlab.sdk.internal.core_python.transport.sender import HttpRecordSender
+from swanlab.sdk.internal.core_python.utils import PrepareExperimentStartResult
+from swanlab.sdk.internal.settings import Settings
 
 
 class _PlaceholderBackend:
-    """占位后端：实现 login 与 /house/metrics 两个端点，记录收到的指标请求体"""
+    """本地 HTTP 测试后端，接收指标和列定义，并提供实验摘要。"""
 
     def __init__(self):
         self.metrics_requests: list = []
+        self.column_requests: list = []
+        self.summary: dict = {"log": None, "media": None, "scalar": None, "histogram": None}
+        self.summary_requests = 0
         backend = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -46,6 +55,24 @@ class _PlaceholderBackend:
                     self._send({"sid": "test-sid", "expiredAt": expired, "userInfo": {"username": "tester"}})
                 elif self.path.endswith("/house/metrics"):
                     backend.metrics_requests.append(data)
+                    self._send("SUCCESS")
+                elif self.path.endswith("/series"):
+                    backend.column_requests.append(data)
+                    self._send("SUCCESS")
+                else:
+                    self._send({"code": 404, "message": "not found"}, status=404)
+
+            def do_GET(self):
+                if "/house/metrics/summaries/" in self.path:
+                    backend.summary_requests += 1
+                    self._send(backend.summary)
+                else:
+                    self._send({"code": 404, "message": "not found"}, status=404)
+
+            def do_PUT(self):
+                length = int(self.headers.get("Content-Length", 0))
+                self.rfile.read(length)
+                if self.path.endswith("/profile"):
                     self._send("SUCCESS")
                 else:
                     self._send({"code": 404, "message": "not found"}, status=404)
@@ -162,3 +189,84 @@ def test_upload_histogram_splits_http_requests(placeholder_client, tmp_path: Pat
     assert result.confirmed_records == records
     assert result.remaining_records == []
     assert result.failures == []
+
+
+@pytest.mark.parametrize(
+    "new_experiment, summary_step, range_start, expected_steps",
+    [
+        (True, None, None, [0, 1, 2]),
+        (False, None, None, [0, 1, 2]),
+        (False, 1, None, [2]),
+        (False, 2, None, []),
+        (False, 1, 0, [0, 1, 2]),
+        (False, 1, 1, [1, 2]),
+    ],
+)
+def test_sync_offline_histogram_file_to_http(
+    placeholder_client, tmp_path: Path, monkeypatch, new_experiment, summary_step, range_start, expected_steps
+):
+    run = swanlab.init(mode="offline", project="histogram-sync", id="histogram-sync", log_dir=str(tmp_path))
+    run_dir = run._ctx.run_dir
+    for step in range(3):
+        swanlab.log({"weights": swanlab.Histogram(np_histogram=([2, 1], [0.0, 1.0, 2.0]))}, step=step)
+    swanlab.finish()
+
+    reader = DataStoreReader()
+    reader.open(next(run_dir.glob("run-*.swanlab")))
+    try:
+        source = []
+        for data in reader:
+            record = Record.FromString(data)
+            if record.HasField("histogram"):
+                source.append(record.histogram)
+    finally:
+        reader.close()
+    assert [record.step for record in source] == [0, 1, 2]
+    if summary_step is not None:
+        placeholder_client.summary["histogram"] = [{"key": "weights", "step": summary_step}]
+
+    prepared = PrepareExperimentStartResult(
+        username="alice",
+        project="demo",
+        name="histogram-sync",
+        color="#abcdef",
+        project_data={
+            "cuid": "project-id",
+            "name": "demo",
+            "version": 1,
+            "group": {"username": "alice"},
+            "path": "/alice/demo",
+            "visibility": "PRIVATE",
+            "_count": {"experiments": 0, "contributors": 0, "collaborators": 0, "clones": 0},
+        },
+        experiment={
+            "cuid": "experiment-id",
+            "slug": "histogram-sync",
+            "name": "histogram-sync",
+            "createdAt": "2024-08-01T00:00:00Z",
+        },
+        new_experiment=new_experiment,
+    )
+    monkeypatch.setattr("swanlab.sdk.internal.core_python.sync.prepare_experiment_start", lambda record: prepared)
+    stopped = []
+    monkeypatch.setattr(
+        "swanlab.sdk.internal.core_python.sync.stop_experiment", lambda *args, **kwargs: stopped.append(kwargs["state"])
+    )
+
+    sync_cmd.sync(
+        run_dir,
+        settings=Settings(run=Settings.Run(id="histogram-sync")),
+        start_step=range_start,
+    )
+
+    requests = [request for request in placeholder_client.metrics_requests if request["type"] == "histogram"]
+    metrics = [metric for request in requests for metric in request["metrics"]]
+    assert [metric["index"] for metric in metrics] == expected_steps
+    assert all(metric["key"] == "weights" for metric in metrics)
+    assert all(metric["data"] == {"values": [2, 1], "bins": [0.0, 1.0, 2.0]} for metric in metrics)
+    assert all("epoch" not in metric for metric in metrics)
+    assert placeholder_client.summary_requests == (0 if new_experiment else 1)
+    if summary_step is None:
+        columns = [column for request in placeholder_client.column_requests for column in request["series"]]
+        assert any(column["key"] == "weights" and column["type"] == "HISTOGRAM" for column in columns)
+    assert stopped == [RunState.RUN_STATE_FINISHED]

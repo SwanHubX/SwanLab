@@ -70,3 +70,18 @@ class TestBuildAutoColumn:
         column = builder.build_auto_column(ctx, record)
 
         assert column.section_name == ""
+
+
+@pytest.mark.parametrize("system", [False, True])
+def test_build_resume_histogram_column(system):
+    column = builder.build_resume_column("weights", system=system, column_type=ColumnType.COLUMN_TYPE_HISTOGRAM)
+
+    assert column.column_key == "weights"
+    assert column.column_type == ColumnType.COLUMN_TYPE_HISTOGRAM
+    expected_class = ColumnClass.COLUMN_CLASS_SYSTEM if system else ColumnClass.COLUMN_CLASS_CUSTOM
+    assert column.column_class == expected_class
+
+
+def test_build_resume_scalar_and_media_keep_existing_types():
+    assert builder.build_resume_column("loss").column_type == ColumnType.COLUMN_TYPE_SCALAR
+    assert builder.build_resume_column("image", media=True).column_type == ColumnType.COLUMN_TYPE_UNSPECIFIED

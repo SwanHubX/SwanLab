@@ -133,7 +133,13 @@ def build_finish_record(finish_record: FinishRecord):
     return Record(num=FINISH_RECORD_NUM, finish=finish_record, timestamp=_now())
 
 
-def build_resume_column(key: str, *, media: bool = False, system: bool = False) -> ColumnRecord:
+def build_resume_column(
+    key: str,
+    *,
+    media: bool = False,
+    system: bool = False,
+    column_type: ColumnType = ColumnType.COLUMN_TYPE_SCALAR,
+) -> ColumnRecord:
     """
     构建一个resume模式下从云端恢复的列记录
     此构建并不会恢复完整的列信息，一些不重要的，比如section name等，会被略过
@@ -141,6 +147,7 @@ def build_resume_column(key: str, *, media: bool = False, system: bool = False) 
     :param key: 列的key
     :param media: 是否是媒体列
     :param system: 是否是系统列
+    :param column_type: 已知的指标列类型；media 为 True 时仍使用未知媒体类型占位
     :return: ColumnRecord
     """
     if media:
@@ -148,9 +155,7 @@ def build_resume_column(key: str, *, media: bool = False, system: bool = False) 
         column_record = ColumnRecord(column_key=key, column_type=ColumnType.COLUMN_TYPE_UNSPECIFIED)
     else:
         column_class = ColumnClass.COLUMN_CLASS_SYSTEM if system else ColumnClass.COLUMN_CLASS_CUSTOM
-        column_record = ColumnRecord(
-            column_key=key, column_type=ColumnType.COLUMN_TYPE_SCALAR, column_class=column_class
-        )
+        column_record = ColumnRecord(column_key=key, column_type=column_type, column_class=column_class)
     return column_record
 
 

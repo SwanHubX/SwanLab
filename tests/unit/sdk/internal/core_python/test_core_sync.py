@@ -25,6 +25,7 @@ from swanlab.sdk.internal.core_python.sync import CoreSyncPython
 from swanlab.sdk.internal.core_python.transport import Transport
 from swanlab.sdk.internal.core_python.transport.sender import HttpRecordSender
 from swanlab.sdk.internal.core_python.utils import PrepareExperimentStartResult
+from swanlab.sdk.typings.core_python.api.experiment import ResumeExperimentSummaryType
 from swanlab.utils.time import parse_cli_timestamp_ns
 
 
@@ -954,7 +955,7 @@ def test_read_replays_steps_already_in_remote_summary(tmp_path: Path):
     """范围同步重置摘要中的 min_step，允许回放已存在的 step。"""
     core = make_range_core(tmp_path, SyncRange(start_step=1, end_step=3))
     metrics, _, _, _ = RunMetrics.new(
-        {"log": None, "media": None, "scalar": [{"key": "loss", "step": 5}]}, ctx=core._ctx
+        {"log": None, "media": None, "scalar": [{"key": "loss", "step": 5}], "histogram": None}, ctx=core._ctx
     )
     metrics.allow_replay()
     core._metrics = metrics
@@ -981,7 +982,7 @@ def test_read_skips_step_at_or_below_summary_min_step_without_replay(tmp_path: P
     core._ctx = CoreContext(config=make_core_config(tmp_path), mode="sync")
     core._ctx.set_online_params("alice", "demo", "project-id", None, "experiment-id")
     metrics, _, _, _ = RunMetrics.new(
-        {"log": None, "media": None, "scalar": [{"key": "loss", "step": 5}]}, ctx=core._ctx
+        {"log": None, "media": None, "scalar": [{"key": "loss", "step": 5}], "histogram": None}, ctx=core._ctx
     )
     core._metrics = metrics
     core._reader = FakeReader(  # type: ignore[assignment]
@@ -999,6 +1000,91 @@ def test_read_skips_step_at_or_below_summary_min_step_without_replay(tmp_path: P
     asyncio.run(core.read())
 
     assert [record for record in transport.records if record.HasField("scalar")] == []
+
+
+@pytest.mark.parametrize("histograms", [None, []])
+def test_run_metrics_new_accepts_empty_histogram_summary(tmp_path: Path, histograms):
+    ctx = CoreContext(config=make_core_config(tmp_path), mode="sync")
+    summary: ResumeExperimentSummaryType = {"log": None, "media": None, "scalar": None, "histogram": histograms}
+
+    metrics, epoch, step, system_step = RunMetrics.new(summary, ctx)
+
+    assert metrics.get("weights") is None
+    assert (epoch, step, system_step) == (0, -1, -1)
+
+
+@pytest.mark.parametrize("histogram_step, expected_step", [(0, 4), (12, 12)])
+def test_run_metrics_new_restores_histogram_and_mixed_steps(tmp_path: Path, histogram_step, expected_step):
+    ctx = CoreContext(config=make_core_config(tmp_path), mode="sync")
+    summary: ResumeExperimentSummaryType = {
+        "log": [{"key": "", "step": 5}],
+        "media": [{"key": "images", "step": 3}],
+        "scalar": [{"key": "loss", "step": 4}],
+        "histogram": [
+            {"key": "weights", "step": histogram_step},
+            {"key": "__swanlab__.weights", "step": 30},
+        ],
+    }
+
+    metrics, epoch, step, system_step = RunMetrics.new(summary, ctx)
+
+    histogram = metrics.get("weights")
+    assert histogram is not None
+    assert histogram.column_type == ColumnType.COLUMN_TYPE_HISTOGRAM
+    assert histogram.min_step == histogram_step
+    assert not histogram.try_accept_step(histogram_step)
+    assert histogram.try_accept_step(histogram_step + 1)
+    assert (epoch, step, system_step) == (5, expected_step, 30)
+    scalar = metrics.get("loss")
+    media = metrics.get("images")
+    assert scalar is not None and scalar.column_type == ColumnType.COLUMN_TYPE_SCALAR
+    assert media is not None and media.column_type == ColumnType.COLUMN_TYPE_UNSPECIFIED
+
+
+@pytest.mark.parametrize(
+    "sync_range, expected_steps",
+    [
+        (None, [3]),
+        (SyncRange(start_step=1, end_step=2), [1, 2]),
+        (SyncRange(start_time=make_timestamp_at(200), end_time=make_timestamp_at(300)), [2, 3]),
+    ],
+)
+def test_histogram_sync_resumes_summary_and_supports_range_replay(
+    tmp_path: Path, monkeypatch, sync_range, expected_steps
+):
+    core = CoreSyncPython()
+    core._ctx = CoreContext(config=make_core_config(tmp_path), mode="sync")
+    core._ctx.set_online_params("alice", "demo", "project-id", None, "experiment-id")
+    core._filter = SyncRangeFilter.from_proto(sync_range)
+    summary: ResumeExperimentSummaryType = {
+        "log": None,
+        "media": None,
+        "scalar": None,
+        "histogram": [{"key": "weights", "step": 2}],
+    }
+    core._metrics, _, _, _ = RunMetrics.new(summary, core._ctx)
+    if core._filter.enabled:
+        core._metrics.allow_replay()
+    records = [Record(column=ColumnRecord(column_key="weights", column_type=ColumnType.COLUMN_TYPE_HISTOGRAM))] + [
+        Record(
+            histogram=HistogramRecord(
+                key="weights",
+                step=step,
+                type=ColumnType.COLUMN_TYPE_HISTOGRAM,
+                timestamp=make_timestamp_at(step * 100),
+                value={"values": [2, 1], "bins": [0.0, 1.0, 2.0]},
+            )
+        )
+        for step in (1, 2, 2, 3)
+    ]
+    monkeypatch.setattr(core, "_reader", FakeReader(records))
+    transport = FakeTransport(core._ctx)
+    monkeypatch.setattr(core, "_transport", transport)
+
+    asyncio.run(core.read())
+
+    assert [record.histogram.step for record in transport.records] == expected_steps
+    assert all(record.HasField("histogram") for record in transport.records)
 
 
 def test_queue_finish_records_skipped_in_range_mode(tmp_path: Path):
