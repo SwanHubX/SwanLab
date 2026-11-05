@@ -7,7 +7,7 @@
 
 import math
 from numbers import Integral
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 from swanlab import vendor
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
@@ -26,6 +26,26 @@ MIN_BUCKETS = 1
 MAX_COUNT = (1 << 64) - 1
 
 
+def _is_torch_tensor(obj: Any) -> bool:
+    """通过类型名检测 PyTorch Tensor/Parameter，避免强制导入 torch。"""
+    typename = f"{obj.__class__.__module__}.{obj.__class__.__name__}"
+    return typename.startswith("torch.") and any(
+        name in typename for name in ("Tensor", "Variable", "Parameter")
+    )
+
+
+def _to_numpy(data: Any) -> Any:
+    """将 PyTorch Tensor 转为 numpy 数组，兼容 GPU、requires_grad 与 bfloat16。"""
+    if not _is_torch_tensor(data):
+        return data
+    tensor = data.detach().cpu()
+    dtype_name = str(getattr(tensor, "dtype", ""))
+    # numpy 不支持 bfloat16 / float8；直方图边界最终为 double，转 float32 不影响分桶语义
+    if "bfloat16" in dtype_name or "float8" in dtype_name:
+        tensor = tensor.float()
+    return tensor.numpy()
+
+
 class Histogram(TransformHistogram):
     """Histogram of binned sample counts.
 
@@ -37,9 +57,8 @@ class Histogram(TransformHistogram):
     Parameters
     ----------
     sequence: Sequence[float], numpy.ndarray, or Histogram, optional
-        Raw samples to bin. PyTorch tensors must be converted with
-        ``tensor.detach().cpu().numpy()`` first; tensors on GPU or requiring
-        grad are not accepted directly.
+        Raw samples to bin. PyTorch tensors are converted automatically with
+        ``detach().cpu()``, including GPU and requires_grad tensors.
     bins: int or Sequence[float], optional
         Number of buckets (1..512) for equal-width binning, or explicit bucket
         edges (N+1 monotonically increasing values). Defaults to 64 buckets.
@@ -143,7 +162,7 @@ class Histogram(TransformHistogram):
         """校验一维实数输入，保留原始数值类型。"""
         if isinstance(data, (str, bytes)):
             raise TypeError(f"{name} must contain numeric values")
-        arr = vendor.np.asarray(data)
+        arr = vendor.np.asarray(_to_numpy(data))
         if arr.ndim != 1:
             raise ValueError(f"{name} must be one-dimensional, got ndim={arr.ndim}")
         if arr.dtype.kind not in "biuf":
@@ -166,7 +185,7 @@ class Histogram(TransformHistogram):
         if isinstance(counts, (str, bytes)):
             raise TypeError("Bucket counts must be numeric")
         # object 数组避免 NumPy 将混合整数输入提升为 float64，保留 UInt64 精度。
-        arr = vendor.np.asarray(counts, dtype=object)
+        arr = vendor.np.asarray(_to_numpy(counts), dtype=object)
         if arr.ndim != 1:
             raise ValueError(f"Bucket counts must be one-dimensional, got ndim={arr.ndim}")
         values: List[int] = []

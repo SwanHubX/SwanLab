@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from swanlab.sdk.internal.run.transforms.histogram import Histogram
 
 Number = Union[int, float]
-NumericSequence = Union[Sequence[Number], "vendor.np.ndarray"]
+NumericSequence = Union[Sequence[Number], "vendor.np.ndarray", "vendor.torch.Tensor"]
 HistogramInput = Union[NumericSequence, "Histogram"]
 HistogramBinCount = Union[int, "vendor.np.integer"]
 HistogramBins = Union[HistogramBinCount, NumericSequence]

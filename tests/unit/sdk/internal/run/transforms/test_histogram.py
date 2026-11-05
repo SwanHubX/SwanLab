@@ -61,6 +61,18 @@ class TestSequenceInput:
         h = Histogram(torch.tensor([1.0, 2.0, 3.0]), bins=2)
         assert sum(h.values) == 3
 
+    def test_tensor_sequence_requires_grad(self):
+        """带梯度的 tensor 自动 detach"""
+        torch = pytest.importorskip("torch")
+        h = Histogram(torch.tensor([1.0, 2.0, 3.0], requires_grad=True), bins=2)
+        assert sum(h.values) == 3
+
+    def test_tensor_sequence_bfloat16(self):
+        """bfloat16 tensor 转为 float32 后分桶"""
+        torch = pytest.importorskip("torch")
+        h = Histogram(torch.tensor([1.0, 2.0, 3.0], dtype=torch.bfloat16, requires_grad=True), bins=2)
+        assert sum(h.values) == 3
+
     def test_bins_and_num_bins_conflict(self):
         with pytest.raises(ValueError, match="mutually exclusive"):
             Histogram([1, 2, 3], bins=4, num_bins=4)
@@ -167,6 +179,15 @@ class TestNpHistogramInput:
         h = Histogram(np_histogram=(counts, edges))
         assert h.values == counts.tolist()
         assert h.bins == edges.tolist()
+
+    def test_tensor_counts_and_edges(self):
+        """np_histogram 的 counts / edges 也支持 torch tensor"""
+        torch = pytest.importorskip("torch")
+        counts = torch.tensor([2.0, 1.0], requires_grad=True)
+        edges = torch.tensor([0.0, 1.0, 2.0])
+        h = Histogram(np_histogram=(counts, edges))
+        assert h.values == [2, 1]
+        assert h.bins == [0.0, 1.0, 2.0]
 
     @pytest.mark.parametrize("np_histogram", [([1, 2], [0, 1], [2, 3]), (), ([1],)])
     def test_not_a_pair(self, np_histogram):
