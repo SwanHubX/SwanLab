@@ -129,7 +129,6 @@ UploadMediaBatch = List[UploadMedia]
 class HistogramPayload(TypedDict):
     """直方图单条 metric 的 data 字段：每桶计数与桶边界"""
 
-    _type: NotRequired[Literal["histogram"]]  # House 侧可省略、不写进数据库的类型标记
     values: List[int]
     bins: List[float]
 

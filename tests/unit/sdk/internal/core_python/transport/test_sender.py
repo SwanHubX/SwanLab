@@ -1816,7 +1816,7 @@ def test_upload_resource_disables_adapter_retries():
 
 
 def test_upload_histogram_encodes_values_and_bins(tmp_path: Path):
-    """Record → UploadHistogram 编码：data 携带 _type 标记与 values、bins 两组数组。"""
+    """Record → UploadHistogram 编码：data 携带 values、bins 两组数组。"""
     sender = _make_sender(tmp_path)
     with patch("swanlab.sdk.internal.core_python.transport.sender.upload_histogram") as mock_upload:
         result = sender.upload_histogram([_make_histogram_record()])
@@ -1826,7 +1826,6 @@ def test_upload_histogram_encodes_values_and_bins(tmp_path: Path):
     assert metric["key"] == "train/w"
     assert "epoch" not in metric
     assert metric["index"] == 3
-    assert metric["data"]["_type"] == "histogram"
     assert metric["data"]["values"] == [2, 5, 0]
     assert metric["data"]["bins"] == [-1.0, 0.0, 0.5, 2.0]
     assert "create_time" in metric

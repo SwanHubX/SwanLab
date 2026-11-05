@@ -136,7 +136,7 @@ def test_upload_histogram_http_roundtrip(placeholder_client, tmp_path: Path):
     metric = payload["metrics"][0]
     assert metric["key"] == "train/w"
     assert metric["index"] == 3
-    assert metric["data"] == {"_type": "histogram", "values": [2, 5, 0], "bins": [-1.0, 0.0, 0.5, 2.0]}
+    assert metric["data"] == {"values": [2, 5, 0], "bins": [-1.0, 0.0, 0.5, 2.0]}
     assert "create_time" in metric
 
 

@@ -270,7 +270,6 @@ class HttpRecordSender:
                     "key": histogram_record.key,
                     "index": histogram_record.step,
                     "data": {
-                        "_type": "histogram",
                         "values": list(histogram_record.value.values),
                         "bins": list(histogram_record.value.bins),
                     },
