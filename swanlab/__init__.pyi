@@ -44,7 +44,7 @@ from .sdk.typings.run import (
 from .sdk.typings.run.transforms import CaptionsType
 from .sdk.typings.run.transforms.audio import AudioDatasType, AudioRatesType
 from .sdk.typings.run.transforms.echarts import EChartsDatasType
-from .sdk.typings.run.transforms.histogram import HistogramBinCount, HistogramBins, HistogramInput
+from .sdk.typings.run.transforms.histogram import HistogramBins, HistogramInput
 from .sdk.typings.run.transforms.html import HtmlDatasType
 from .sdk.typings.run.transforms.image import ImageDatasType, ImageFilesType, ImageModesType, ImageSizesType
 from .sdk.typings.run.transforms.molecule import MoleculeDatasType
@@ -649,15 +649,15 @@ def log_histogram(
     key: str,
     data: HistogramInput,
     bins: Optional[HistogramBins] = None,
-    num_bins: Optional[HistogramBinCount] = None,
     step: Optional[int] = None,
+    **kwargs: Any,
 ) -> None:
     """A syntactic sugar for logging histogram data.
 
     :param key: The key for the histogram data.
     :param data: The histogram data (sequence, numpy array, or Histogram object).
     :param bins: Number of buckets or explicit bucket edges.
-    :param num_bins: wandb-compatible bucket count, mutually exclusive with bins.
+    :param num_bins: wandb-compatible bucket count, accepted via ``**kwargs``; used when bins is None.
     :param step: Optional step number. If not provided, auto-increments.
     :raises RuntimeError: If called without an active run.
 

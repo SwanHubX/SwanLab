@@ -145,6 +145,9 @@ class RecordBuilder:
     @build_scalar_or_media.register(Histogram)
     def _(self, value: Histogram, key: str, timestamp: Timestamp, step: int) -> ParseResult:
         """将 Histogram 对象转换为 HistogramRecord"""
+        # 类型/形状校验失败已在构造时记录日志，这里直接跳过该 key
+        if not value.is_valid:
+            return None, Histogram
         data_record = Histogram.build_data_record(key=key, step=step, timestamp=timestamp, data=value.transform())
         return data_record, Histogram
 

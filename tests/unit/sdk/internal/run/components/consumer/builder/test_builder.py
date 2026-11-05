@@ -220,3 +220,16 @@ class TestBuildHistogram:
         assert record.type == ColumnType.COLUMN_TYPE_HISTOGRAM
         assert list(record.value.values) == h.values
         assert list(record.value.bins) == h.bins
+
+    def test_invalid_histogram_returns_none(self, builder):
+        """类型校验失败的 Histogram 在构建 record 时直接跳过"""
+        from unittest.mock import patch
+
+        from swanlab import Histogram
+
+        with patch("swanlab.sdk.internal.run.transforms.histogram.console.trace"):
+            h = Histogram(np_histogram=123)  # type: ignore[arg-type]
+        record, cls = builder.build_scalar_or_media(h, "train/w", Timestamp(), step=7)
+
+        assert record is None
+        assert cls is Histogram
