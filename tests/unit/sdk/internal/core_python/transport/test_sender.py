@@ -1846,6 +1846,34 @@ def test_upload_histogram_without_timestamp_is_blocked(tmp_path: Path):
     assert "timestamp" in result.failures[0].message
 
 
+def test_upload_histogram_without_value_is_blocked(tmp_path: Path):
+    """缺少 value 的 histogram record 不发出请求，作为 blocked 终结。"""
+    sender = _make_sender(tmp_path)
+    record = _make_histogram_record()
+    record.histogram.ClearField("value")
+    with patch("swanlab.sdk.internal.core_python.transport.sender.upload_histogram") as mock_upload:
+        result = sender.upload_histogram([record])
+    mock_upload.assert_not_called()
+    assert result.confirmed_records == [record]
+    assert result.remaining_records == []
+    assert len(result.failures) == 1
+    assert "value" in result.failures[0].message
+
+
+def test_upload_histogram_invalid_bucket_shape_is_blocked(tmp_path: Path):
+    """values / bins 长度不匹配的 histogram record 不发出请求。"""
+    sender = _make_sender(tmp_path)
+    record = _make_histogram_record()
+    del record.histogram.value.bins[:]
+    with patch("swanlab.sdk.internal.core_python.transport.sender.upload_histogram") as mock_upload:
+        result = sender.upload_histogram([record])
+    mock_upload.assert_not_called()
+    assert result.confirmed_records == [record]
+    assert result.remaining_records == []
+    assert len(result.failures) == 1
+    assert "bucket shape" in result.failures[0].message
+
+
 @pytest.mark.parametrize("count, batch_sizes", [(0, []), (512, [512]), (513, [512, 1]), (1025, [512, 512, 1])])
 def test_upload_histogram_splits_batches(tmp_path: Path, count, batch_sizes):
     sender = _make_sender(tmp_path)
