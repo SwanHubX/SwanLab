@@ -21,6 +21,7 @@ from swanlab.api.helper.extractor import (
 from swanlab.api.helper.request import (
     build_column_ref,
     build_export_payload,
+    build_histogram_payload,
     build_media_items,
     build_media_payload,
     build_scalar_payload,
@@ -64,6 +65,7 @@ __all__ = [
     # request —— House 请求体构建与预签名资源获取
     "build_column_ref",
     "build_export_payload",
+    "build_histogram_payload",
     "build_media_items",
     "build_media_payload",
     "build_scalar_payload",

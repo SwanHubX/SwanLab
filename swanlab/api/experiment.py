@@ -421,6 +421,41 @@ class Experiment(BaseEntity):
             created_at=self.created_at_ts,
         ).json()
 
+    def histograms(
+        self,
+        keys: List[str],
+        sample: int = 1500,
+        ignore_timestamp: bool = False,
+    ) -> Dict[str, Any]:
+        """
+        Fetch histogram metrics (parameter distribution snapshots over steps).
+
+        Each point is a snapshot ``{step, timestamp, values, bins}`` where ``values``
+        holds per-bin counts and ``bins`` the N+1 bin edges; the x axis is always
+        ``step``. Data is downsampled server-side (frame-picking), up to ``sample``
+        snapshots per key — no full-resolution mode and no aggregate statistics.
+
+        :param keys: Histogram metric keys to fetch
+        :param sample: Max snapshots per key (default 1500, max 1500)
+        :param ignore_timestamp: If True, omit timestamp fields from the response
+        """
+        run_id = self.run_id
+        project_id = self.project_id
+        from swanlab.api.metric import Metrics
+
+        return Metrics(
+            ctx=self._ctx,
+            project_id=project_id,
+            run_id=run_id,
+            keys=keys,
+            sample=sample,
+            metric_type="HISTOGRAM",
+            ignore_timestamp=ignore_timestamp,
+            root_pro_id=self.root_pro_id,
+            root_exp_id=self.root_exp_id,
+            created_at=self.created_at_ts,
+        ).json()
+
     def logs(
         self,
         offset: Optional[int] = 0,

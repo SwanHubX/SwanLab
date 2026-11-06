@@ -73,6 +73,23 @@ def build_media_payload(
     return payload
 
 
+def build_histogram_payload(
+    project_id: str,
+    run_id: str,
+    created_at: int,
+    keys: List[str],
+    sample: int = 1500,
+    root_pro_id: str = "",
+    root_exp_id: str = "",
+) -> Dict[str, Any]:
+    """直方图查询 payload：横轴恒为 step，``sample`` 映射为服务端抽帧上限 ``num``。"""
+    return {
+        "projectId": project_id,
+        "columns": [build_column_ref(run_id, created_at, key, root_pro_id, root_exp_id) for key in keys],
+        "num": sample if sample <= 1500 else 1500,
+    }
+
+
 def build_export_payload(
     project_id: str,
     run_id: str,
