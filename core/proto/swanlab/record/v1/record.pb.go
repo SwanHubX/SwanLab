@@ -216,7 +216,7 @@ type Record_Media struct {
 }
 
 type Record_Histogram struct {
-	Histogram *v12.HistogramRecord `protobuf:"bytes,15,opt,name=histogram,proto3,oneof"`
+	Histogram *v12.HistogramRecord `protobuf:"bytes,21,opt,name=histogram,proto3,oneof"`
 }
 
 type Record_Log struct {
@@ -259,7 +259,7 @@ const file_swanlab_record_v1_record_proto_rawDesc = "" +
 	"\x06column\x18\f \x01(\v2&.swanlab.metric.column.v1.ColumnRecordH\x00R\x06column\x12>\n" +
 	"\x06scalar\x18\r \x01(\v2$.swanlab.metric.data.v1.ScalarRecordH\x00R\x06scalar\x12;\n" +
 	"\x05media\x18\x0e \x01(\v2#.swanlab.metric.data.v1.MediaRecordH\x00R\x05media\x12G\n" +
-	"\thistogram\x18\x0f \x01(\v2'.swanlab.metric.data.v1.HistogramRecordH\x00R\thistogram\x122\n" +
+	"\thistogram\x18\x15 \x01(\v2'.swanlab.metric.data.v1.HistogramRecordH\x00R\thistogram\x122\n" +
 	"\x03log\x18\x10 \x01(\v2\x1e.swanlab.terminal.v1.LogRecordH\x00R\x03log\x121\n" +
 	"\x04save\x18\x14 \x01(\v2\x1b.swanlab.save.v1.SaveRecordH\x00R\x04saveB\r\n" +
 	"\vrecord_typeBCZAgithub.com/swanhubx/swanlab/core/proto/swanlab/record/v1;recordv1b\x06proto3"
