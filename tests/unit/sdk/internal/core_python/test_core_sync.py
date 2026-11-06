@@ -532,6 +532,89 @@ def test_read_auto_defines_histogram_column_and_skips_duplicate_steps(tmp_path: 
     assert list(metric.steps) == [1, 2]
 
 
+def test_run_metrics_new_restores_histogram_min_step_and_global_step(tmp_path: Path):
+    """摘要返回 histogram 段时，恢复该列的 min_step 并抬高全局 step。"""
+    ctx = CoreContext(config=make_core_config(tmp_path), mode="sync")
+    metrics, _, global_step, global_system_step = RunMetrics.new(
+        {
+            "log": None,
+            "media": None,
+            "scalar": [{"key": "loss", "step": 3}],
+            "histogram": [{"key": "weights", "step": 7}],
+        },
+        ctx=ctx,
+    )
+
+    metric = metrics.get("weights")
+    assert metric is not None
+    assert metric.column_type == ColumnType.COLUMN_TYPE_HISTOGRAM
+    assert metric.min_step == 7
+    # 直方图与标量共用用户侧起始 step，全局 step 取两者最大值
+    assert global_step == 7
+    assert global_system_step == -1
+
+
+def test_read_skips_histogram_step_at_or_below_summary_min_step_without_replay(tmp_path: Path, monkeypatch):
+    """未开启范围同步时，摘要中的 histogram min_step 拦截旧 step（append 语义）。"""
+    core = CoreSyncPython()
+    core._ctx = CoreContext(config=make_core_config(tmp_path), mode="sync")
+    core._ctx.set_online_params("alice", "demo", "project-id", None, "experiment-id")
+    core._metrics, _, _, _ = RunMetrics.new(
+        {"log": None, "media": None, "scalar": None, "histogram": [{"key": "weights", "step": 5}]},
+        ctx=core._ctx,
+    )
+    records = [
+        Record(
+            histogram=HistogramRecord(
+                key="weights",
+                step=step,
+                type=ColumnType.COLUMN_TYPE_HISTOGRAM,
+                value={"values": [2, 1], "bins": [0.0, 1.0, 2.0]},
+            )
+        )
+        for step in (3, 6)
+    ]
+    monkeypatch.setattr(core, "_reader", FakeReader(records))
+    transport = FakeTransport(core._ctx)
+    monkeypatch.setattr(core, "_transport", transport)
+
+    asyncio.run(core.read())
+
+    assert [record.histogram.step for record in transport.records] == [6]
+    # 摘要已恢复该列，回放不应重复补列
+    assert [record for record in transport.records if record.HasField("column")] == []
+
+
+def test_read_replays_histogram_steps_after_allow_replay(tmp_path: Path, monkeypatch):
+    """范围同步允许回放已存在的 step，用于补齐缺失点。"""
+    core = CoreSyncPython()
+    core._ctx = CoreContext(config=make_core_config(tmp_path), mode="sync")
+    core._ctx.set_online_params("alice", "demo", "project-id", None, "experiment-id")
+    core._metrics, _, _, _ = RunMetrics.new(
+        {"log": None, "media": None, "scalar": None, "histogram": [{"key": "weights", "step": 5}]},
+        ctx=core._ctx,
+    )
+    core._metrics.allow_replay()
+    records = [
+        Record(
+            histogram=HistogramRecord(
+                key="weights",
+                step=step,
+                type=ColumnType.COLUMN_TYPE_HISTOGRAM,
+                value={"values": [2, 1], "bins": [0.0, 1.0, 2.0]},
+            )
+        )
+        for step in (3, 6)
+    ]
+    monkeypatch.setattr(core, "_reader", FakeReader(records))
+    transport = FakeTransport(core._ctx)
+    monkeypatch.setattr(core, "_transport", transport)
+
+    asyncio.run(core.read())
+
+    assert [record.histogram.step for record in transport.records] == [3, 6]
+
+
 def test_read_skips_invalid_protobuf_payload_and_continues(tmp_path: Path):
     core = CoreSyncPython()
     core._ctx = CoreContext(config=make_core_config(tmp_path), mode="sync")
@@ -954,7 +1037,7 @@ def test_read_replays_steps_already_in_remote_summary(tmp_path: Path):
     """范围同步重置摘要中的 min_step，允许回放已存在的 step。"""
     core = make_range_core(tmp_path, SyncRange(start_step=1, end_step=3))
     metrics, _, _, _ = RunMetrics.new(
-        {"log": None, "media": None, "scalar": [{"key": "loss", "step": 5}]}, ctx=core._ctx
+        {"log": None, "media": None, "scalar": [{"key": "loss", "step": 5}], "histogram": None}, ctx=core._ctx
     )
     metrics.allow_replay()
     core._metrics = metrics
@@ -981,7 +1064,7 @@ def test_read_skips_step_at_or_below_summary_min_step_without_replay(tmp_path: P
     core._ctx = CoreContext(config=make_core_config(tmp_path), mode="sync")
     core._ctx.set_online_params("alice", "demo", "project-id", None, "experiment-id")
     metrics, _, _, _ = RunMetrics.new(
-        {"log": None, "media": None, "scalar": [{"key": "loss", "step": 5}]}, ctx=core._ctx
+        {"log": None, "media": None, "scalar": [{"key": "loss", "step": 5}], "histogram": None}, ctx=core._ctx
     )
     core._metrics = metrics
     core._reader = FakeReader(  # type: ignore[assignment]

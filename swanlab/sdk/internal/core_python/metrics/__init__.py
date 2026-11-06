@@ -189,6 +189,14 @@ class RunMetrics:
                     global_step = max(scalar_step, global_step)
                 column_record = builder.build_resume_column(scalar_key, system=is_system)
                 metrics.define_scalar(key=scalar_key, column=column_record, min_step=scalar_step)
+        # 4. 获取直方图指标记录
+        if "histogram" in data and data["histogram"] is not None:
+            for histogram in data["histogram"]:
+                histogram_key, histogram_step = histogram["key"], histogram["step"]
+                # 直方图恒为用户自定义列，与 scalar 共用用户侧起始步数
+                global_step = max(histogram_step, global_step)
+                column_record = builder.build_resume_column(histogram_key, histogram=True)
+                metrics.define_histogram(key=histogram_key, column=column_record, min_step=histogram_step)
         return metrics, console_epoch, global_step, global_system_step
 
     def allow_replay(self) -> None:
