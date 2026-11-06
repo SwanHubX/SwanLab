@@ -272,6 +272,14 @@ class TestRunLogHistogram:
         assert isinstance(log_data["weights"], Histogram)
         assert log_data["weights"].values == histogram.values
 
+    def test_num_bins_kwarg(self):
+        """num_bins 通过 kwargs 透传给 Histogram"""
+        mock_run = _MockRun()
+        Run.log_histogram(mock_run, key="weights", data=[1, 2, 3], num_bins=2)  # type: ignore[arg-type]
+        log_data = mock_run.log.call_args[0][0]
+        assert isinstance(log_data["weights"], Histogram)
+        assert len(log_data["weights"].values) == 2
+
     def test_requires_active_run(self):
         mock_run = _MockRun()
         mock_run.alive = False

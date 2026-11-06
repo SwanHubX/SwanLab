@@ -17,6 +17,16 @@ from swanlab.proto.swanlab.metric.data.v1.data_pb2 import HistogramRecord
 # ---------------------------------- 原始序列输入 ----------------------------------
 
 
+def _make_invalid(*args, **kwargs):
+    """构造一个类型/形状非法的 Histogram，并断言它被标记为无效"""
+    with patch("swanlab.sdk.internal.run.transforms.histogram.console.trace") as trace:
+        h = Histogram(*args, **kwargs)
+    assert not h.is_valid
+    assert h.values == [] and h.bins == []
+    trace.assert_called_once()
+    return h
+
+
 class TestSequenceInput:
     def test_default_bins(self):
         """默认 64 个等宽桶"""
@@ -61,9 +71,43 @@ class TestSequenceInput:
         h = Histogram(torch.tensor([1.0, 2.0, 3.0]), bins=2)
         assert sum(h.values) == 3
 
+    def test_tensor_sequence_requires_grad(self):
+        """带梯度的 tensor 自动 detach"""
+        torch = pytest.importorskip("torch")
+        h = Histogram(torch.tensor([1.0, 2.0, 3.0], requires_grad=True), bins=2)
+        assert sum(h.values) == 3
+
+    def test_tensor_sequence_bfloat16(self):
+        """bfloat16 tensor 转为 float32 后分桶"""
+        torch = pytest.importorskip("torch")
+        h = Histogram(torch.tensor([1.0, 2.0, 3.0], dtype=torch.bfloat16, requires_grad=True), bins=2)
+        assert sum(h.values) == 3
+
     def test_bins_and_num_bins_conflict(self):
-        with pytest.raises(ValueError, match="mutually exclusive"):
-            Histogram([1, 2, 3], bins=4, num_bins=4)
+        """同时传入时 bins 优先，不抛异常"""
+        with patch("swanlab.sdk.internal.run.transforms.histogram.console.warning") as warning:
+            h = Histogram([1, 2, 3], bins=2, num_bins=4)
+        assert len(h.values) == 2
+        warning.assert_called_once()
+        assert "using bins=2" in warning.call_args[0][0]
+
+    def test_num_bins_used_when_bins_not_set(self):
+        """bins 保持默认值时，num_bins 生效（wandb 兼容）"""
+        h = Histogram([1, 2, 3], num_bins=2)
+        assert len(h.values) == 2
+
+    def test_explicit_default_bins_still_wins(self):
+        """显式传 bins=64 时，bins 优先于 num_bins"""
+        with patch("swanlab.sdk.internal.run.transforms.histogram.console.warning") as warning:
+            h = Histogram([1, 2, 3], bins=64, num_bins=2)
+        assert len(h.values) == 64
+        warning.assert_called_once()
+        assert "using bins=64" in warning.call_args[0][0]
+
+    def test_unknown_kwargs_ignored(self):
+        """其余 wandb 参数静默忽略"""
+        h = Histogram([1, 2, 3], num_bins=2, foo="bar")
+        assert len(h.values) == 2
 
     def test_bucket_count_out_of_range(self):
         with pytest.raises(ValueError, match="between 1 and 512"):
@@ -88,18 +132,15 @@ class TestSequenceInput:
 
     @pytest.mark.parametrize("bins", ["64", True, [0, "1"], np.array([0 + 1j, 1 + 2j])])
     def test_bins_wrong_type(self, bins):
-        with pytest.raises(TypeError):
-            Histogram([1, 2, 3], bins=bins)
+        _make_invalid(sequence=[1, 2, 3], bins=bins)
 
     @pytest.mark.parametrize("bins", [np.array([[0, 1], [2, 3]]), np.array(2)])
     def test_edges_wrong_dimension(self, bins):
-        with pytest.raises(ValueError, match="one-dimensional"):
-            Histogram([1, 2, 3], bins=bins)
+        _make_invalid(sequence=[1, 2, 3], bins=bins)
 
     @pytest.mark.parametrize("num_bins", ["64", 2.0, True])
     def test_num_bins_wrong_type(self, num_bins):
-        with pytest.raises(TypeError, match="num_bins must be an integer bucket count"):
-            Histogram([1, 2, 3], num_bins=num_bins)
+        _make_invalid(sequence=[1, 2, 3], num_bins=num_bins)
 
     def test_sequence_missing(self):
         with pytest.raises(ValueError, match="Either sequence or np_histogram"):
@@ -110,13 +151,11 @@ class TestSequenceInput:
         ["abc", ["a", "b", "c"], ["1", "2"], [1, "2"], np.array([1 + 2j])],
     )
     def test_non_numeric_sequence(self, sequence):
-        with pytest.raises(TypeError):
-            Histogram(sequence)
+        _make_invalid(sequence)
 
     @pytest.mark.parametrize("sequence", [[[1, 2], [3, 4]]])
     def test_two_dimensional_sequence(self, sequence):
-        with pytest.raises(ValueError, match="one-dimensional"):
-            Histogram(sequence)
+        _make_invalid(sequence)
 
 
 class TestSequenceNonFinite:
@@ -158,6 +197,42 @@ class TestSequenceNonFinite:
         assert h.values == [0, 0]
 
 
+# ---------------------------------- 类型校验兜底 ----------------------------------
+
+
+class TestTypeValidationFailOpen:
+    """类型/形状错误只记录日志并标记无效，不抛给训练线程"""
+
+    @pytest.mark.parametrize(
+        "kwargs",
+        [
+            dict(sequence="abc"),
+            dict(sequence=["a", "b"]),
+            dict(sequence=[[1, 2], [3, 4]]),
+            dict(sequence=5),
+            dict(sequence=[1, 2], bins="64"),
+            dict(sequence=[1, 2], bins=True),
+            dict(sequence=[1, 2], num_bins=2.0),
+            dict(np_histogram=123),
+            dict(np_histogram=(["1"], [0.0, 1.0])),
+            dict(np_histogram=([1], ["0", "1"])),
+        ],
+    )
+    def test_invalid_type_marks_invalid(self, kwargs):
+        with patch("swanlab.sdk.internal.run.transforms.histogram.console.trace") as trace:
+            h = Histogram(**kwargs)
+        assert not h.is_valid
+        assert h.values == []
+        assert h.bins == []
+        trace.assert_called_once()
+
+    def test_semantic_errors_still_raise(self):
+        with pytest.raises(ValueError, match="between 1 and 512"):
+            Histogram([1, 2], bins=0)
+        with pytest.raises(ValueError, match="monotonically increasing"):
+            Histogram([1, 2], bins=[0.0, 2.0, 1.0])
+
+
 # ---------------------------------- 预分桶输入 ----------------------------------
 
 
@@ -168,10 +243,18 @@ class TestNpHistogramInput:
         assert h.values == counts.tolist()
         assert h.bins == edges.tolist()
 
+    def test_tensor_counts_and_edges(self):
+        """np_histogram 的 counts / edges 也支持 torch tensor"""
+        torch = pytest.importorskip("torch")
+        counts = torch.tensor([2.0, 1.0], requires_grad=True)
+        edges = torch.tensor([0.0, 1.0, 2.0])
+        h = Histogram(np_histogram=(counts, edges))
+        assert h.values == [2, 1]
+        assert h.bins == [0.0, 1.0, 2.0]
+
     @pytest.mark.parametrize("np_histogram", [([1, 2], [0, 1], [2, 3]), (), ([1],)])
     def test_not_a_pair(self, np_histogram):
-        with pytest.raises(ValueError, match="Expected np_histogram"):
-            Histogram(np_histogram=np_histogram)
+        _make_invalid(np_histogram=np_histogram)
 
     def test_length_mismatch(self):
         with pytest.raises(ValueError, match="len\\(bins\\) must be len\\(values\\) \\+ 1"):
@@ -204,18 +287,15 @@ class TestNpHistogramInput:
 
     @pytest.mark.parametrize("counts", [["a"], ["2"], [1, "2"], np.array([1 + 2j])])
     def test_non_numeric_counts(self, counts):
-        with pytest.raises(TypeError):
-            Histogram(np_histogram=(counts, [0.0, 1.0]))
+        _make_invalid(np_histogram=(counts, [0.0, 1.0]))
 
     @pytest.mark.parametrize("edges", [["0", "1"], [0, "1"], np.array([0 + 1j, 1 + 2j])])
     def test_non_numeric_edges(self, edges):
-        with pytest.raises(TypeError):
-            Histogram(np_histogram=([1], edges))
+        _make_invalid(np_histogram=([1], edges))
 
     @pytest.mark.parametrize("counts", [[[1, 2]]])
     def test_two_dimensional_counts(self, counts):
-        with pytest.raises(ValueError, match="one-dimensional"):
-            Histogram(np_histogram=(counts, [0.0, 1.0, 2.0]))
+        _make_invalid(np_histogram=(counts, [0.0, 1.0, 2.0]))
 
     @pytest.mark.parametrize(
         "counts",
@@ -278,9 +358,15 @@ class TestPriority:
         with pytest.raises(ValueError, match="nesting"):
             Histogram(inner, bins=3)
 
-    def test_nesting_rejects_other_transform_data(self):
-        with pytest.raises(TypeError, match="sequence must be a numeric sequence or Histogram"):
-            Histogram(Text("hello"))  # type: ignore[arg-type]
+    def test_nesting_with_num_bins_conflict(self):
+        inner = Histogram([1, 2, 3], bins=2)
+        with pytest.raises(ValueError, match="nesting"):
+            Histogram(inner, num_bins=3)
+
+    def test_nesting_other_transform_data_marks_invalid(self):
+        h = _make_invalid(Text("hello"))  # type: ignore[arg-type]
+        with pytest.raises(ValueError, match="Invalid histogram input"):
+            h.transform()
 
 
 # ---------------------------------- Protobuf 转换 ----------------------------------

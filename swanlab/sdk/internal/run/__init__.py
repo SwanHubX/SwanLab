@@ -52,7 +52,6 @@ from swanlab.sdk.typings.run.transforms import CaptionsType
 from swanlab.sdk.typings.run.transforms.audio import AudioDatasType, AudioRatesType
 from swanlab.sdk.typings.run.transforms.echarts import EChartsDatasType
 from swanlab.sdk.typings.run.transforms.histogram import (
-    HistogramBinCount,
     HistogramBins,
     HistogramInput,
 )
@@ -630,8 +629,8 @@ class Run:
         key: str,
         data: HistogramInput,
         bins: Optional[HistogramBins] = None,
-        num_bins: Optional[HistogramBinCount] = None,
         step: Optional[int] = None,
+        **kwargs,
     ):
         """
         A syntactic sugar for logging histogram data.
@@ -639,9 +638,10 @@ class Run:
         :param key: The key for the histogram data.
         :param data: The histogram data (sequence, numpy array, or Histogram object).
         :param bins: Number of buckets or explicit bucket edges.
-        :param num_bins: wandb-compatible bucket count, mutually exclusive with bins.
+        :param num_bins: wandb-compatible bucket count, accepted via ``**kwargs``; used when bins is None.
         :param step: Optional step for the histogram data.
         """
+        num_bins = kwargs.pop("num_bins", None)
         self.log({key: Histogram(data, bins=bins, num_bins=num_bins)}, step=step)
 
     @with_api("run.define_metric()")
