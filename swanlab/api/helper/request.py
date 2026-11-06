@@ -82,11 +82,11 @@ def build_histogram_payload(
     root_pro_id: str = "",
     root_exp_id: str = "",
 ) -> Dict[str, Any]:
-    """直方图查询 payload：横轴恒为 step，``sample`` 映射为服务端抽帧上限 ``num``。"""
+    """直方图查询 payload：横轴恒为 step，``sample`` 钳制到 [1, 1500] 后映射为 ``num``。"""
     return {
         "projectId": project_id,
         "columns": [build_column_ref(run_id, created_at, key, root_pro_id, root_exp_id) for key in keys],
-        "num": sample if sample <= 1500 else 1500,
+        "num": max(1, min(sample, 1500)),
     }
 
 

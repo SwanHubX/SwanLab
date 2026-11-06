@@ -555,7 +555,7 @@ class Experiment(BaseEntity):
         """
         List all metric keys for this experiment.
 
-        :param metric_type: ``"SCALAR"`` (default) or ``"MEDIA"``.
+        :param metric_type: ``"SCALAR"`` (default), ``"MEDIA"`` or ``"HISTOGRAM"``.
         :param metric_class: ``"CUSTOM"`` (default) or ``"SYSTEM"`` — filter keys by class.
         :param search: Fuzzy search filter — case-insensitive substring match on key names.
         :returns: :class:`Series`

@@ -935,3 +935,14 @@ class TestHistogramMetrics:
         list(metrics)
 
         assert ctx.client.post.call_args.kwargs["data"]["num"] == 1500
+
+    def test_histogram_sample_floor_at_one(self, ctx):
+        """sample<=0 会被 House 的 gte=1 拒绝，钳制为 1 避免请求失败后静默降级。"""
+        ctx.client.post.return_value = _api_response([self._hist_entry("grad")])
+        metrics = Metrics(
+            ctx, project_id="p-1", run_id="r-1", keys=["grad"], metric_type="HISTOGRAM", sample=0, created_at=1
+        )
+
+        list(metrics)
+
+        assert ctx.client.post.call_args.kwargs["data"]["num"] == 1

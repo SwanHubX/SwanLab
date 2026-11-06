@@ -264,7 +264,7 @@ def validate_x_axis(x_axis: str, *, metric_type: str = "SCALAR") -> str:
     """校验 x_axis 参数并原样返回。
 
     内置轴字面量（step/time/relative_time）按已知集合校验；其余非空字符串放行为自定义
-    x 列 key。非 SCALAR 查询（MEDIA/LOG）没有 x 轴概念，只允许 step，其余取值尽早报错。
+    x 列 key。非 SCALAR 查询（MEDIA/LOG/HISTOGRAM）没有 x 轴概念，只允许 step，其余取值尽早报错。
     """
     if not isinstance(x_axis, str) or not x_axis.strip():
         raise ValueError("x_axis must be a non-empty string")
