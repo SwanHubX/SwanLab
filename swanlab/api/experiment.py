@@ -425,6 +425,7 @@ class Experiment(BaseEntity):
         self,
         keys: List[str],
         sample: int = 1500,
+        step_range: Optional[Union[Dict[str, Any], RangeQuery]] = None,
         ignore_timestamp: bool = False,
     ) -> Dict[str, Any]:
         """
@@ -437,11 +438,17 @@ class Experiment(BaseEntity):
 
         :param keys: Histogram metric keys to fetch
         :param sample: Max snapshots per key (default 1500, max 1500)
+        :param step_range: Step window — a ``RangeQuery`` (or equivalent dict) with only
+            ``start`` / ``end`` used; ``None`` on either side means unbounded. ``type`` must
+            be ``"step"``; ``last`` / ``head`` / ``tail`` are not supported.
         :param ignore_timestamp: If True, omit timestamp fields from the response
         """
         run_id = self.run_id
         project_id = self.project_id
         from swanlab.api.metric import Metrics
+
+        if isinstance(step_range, dict):
+            step_range = RangeQuery(**step_range)
 
         return Metrics(
             ctx=self._ctx,
@@ -450,6 +457,7 @@ class Experiment(BaseEntity):
             keys=keys,
             sample=sample,
             metric_type="HISTOGRAM",
+            step_range=step_range,
             ignore_timestamp=ignore_timestamp,
             root_pro_id=self.root_pro_id,
             root_exp_id=self.root_exp_id,

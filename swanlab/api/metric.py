@@ -29,6 +29,7 @@ from swanlab.api.helper import (
     validate_metric_keys,
     validate_metric_log_level,
     validate_metric_type,
+    validate_step_range,
     validate_x_axis,
 )
 from swanlab.api.typings import ApiColumnCsvExportType, ApiResponseType
@@ -68,6 +69,7 @@ class Metric(BaseEntity):
         created_at: int,
         key: Optional[str] = "",
         sample: int = 1000,
+        step_range: Optional[RangeQuery] = None,
         log_offset: Optional[int] = 0,  # 标记第几个分片，仅对 Log metric_type 有效
         log_level: ApiMetricLogLevelLiteral = "INFO",
         metric_type: str = "SCALAR",
@@ -82,6 +84,10 @@ class Metric(BaseEntity):
     ) -> None:
         super().__init__(ctx)
         validate_metric_type(metric_type, key)
+        if step_range is not None:
+            if metric_type != "HISTOGRAM":
+                raise ValueError("step_range is only supported for HISTOGRAM metric_type")
+            validate_step_range(step_range)
         if metric_type == "LOG":
             validate_metric_log_level(log_level)
         validate_x_axis(x_axis, metric_type=metric_type)
@@ -107,6 +113,7 @@ class Metric(BaseEntity):
         self._created_at = created_at
         self._experiment_name = experiment_name
         self._x_axis = x_axis
+        self._step_range = step_range
 
     # 类型 → 加载方法 的分发表，新增类型只需在此注册
     _FETCH_DISPATCH = {
@@ -308,6 +315,7 @@ class Metric(BaseEntity):
             keys=[self.key],
             metric_type="HISTOGRAM",
             sample=self._sample,
+            step_range=self._step_range,
             ignore_timestamp=self._ignore_timestamp,
             root_pro_id=self._root_pro_id,
             root_exp_id=self._root_exp_id,
@@ -475,6 +483,7 @@ class Metrics(BaseEntity):
         keys: List[str],
         metric_type: ApiMetricKeyTypeLiteral,
         sample: int = 1500,
+        step_range: Optional[RangeQuery] = None,
         ignore_timestamp: bool = False,
         media_step: Optional[int] = None,
         all: bool = False,
@@ -492,6 +501,10 @@ class Metrics(BaseEntity):
             raise ValueError("Metrics does not support LOG metric_type, use Experiment.logs() instead")
         if range_query is not None and metric_type != "SCALAR":
             raise ValueError("range_query is only supported for SCALAR metric_type")
+        if step_range is not None:
+            if metric_type != "HISTOGRAM":
+                raise ValueError("step_range is only supported for HISTOGRAM metric_type")
+            validate_step_range(step_range)
         if all and metric_type == "HISTOGRAM":
             raise ValueError(
                 "all=True is not supported for HISTOGRAM metric_type; only server-side sampling is available"
@@ -531,6 +544,7 @@ class Metrics(BaseEntity):
             "list": [],
         }
         self._sample = sample
+        self._step_range = step_range
         if sample > 1500:
             console.warning(f"Get sample = [{sample}], expected <= 1500, will be constrainted automatically..")
             self._sample = 1500
@@ -641,7 +655,7 @@ class Metrics(BaseEntity):
             return self._fetch_histogram_batch(self._keys)
 
         chunks = [self._keys[i : i + batch_size] for i in range(0, len(self._keys), batch_size)]
-        with SafeThreadPoolExecutor(max_workers=min(len(chunks), MAX_CONCURRENT_COUNT)) as pool:
+        with SafeThreadPoolExecutor(max_workers=min(len(chunks), 2)) as pool:
             futures = [pool.submit(self._fetch_histogram_batch, chunk) for chunk in chunks]
             results: List[Dict[str, Any]] = []
             for f in futures:
@@ -660,6 +674,7 @@ class Metrics(BaseEntity):
             self._created_at,
             keys,
             sample=self._sample,
+            step_range=self._step_range,
             root_pro_id=self._root_pro_id,
             root_exp_id=self._root_exp_id,
         )

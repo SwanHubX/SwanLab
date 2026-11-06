@@ -838,7 +838,8 @@ class TestHistogramMetrics:
         ctx.client.post.return_value = _api_response([self._hist_entry("grad")])
         exp = Experiment(ctx, path="user/proj/run-slug")
 
-        exp.histograms(["grad"])
+        # dict 入参走 RangeQuery 校验后同样映射到 range
+        exp.histograms(["grad"], step_range={"start": 10, "end": 20})
 
         call = ctx.client.post.call_args_list[0]
         assert call.args[0] == "/house/metrics/histogram"
@@ -846,6 +847,7 @@ class TestHistogramMetrics:
         assert payload["projectId"] == "project-cuid"
         assert payload["columns"] == [{"experimentId": "run-cuid", "key": "grad", "createdAt": 1722470400}]
         assert payload["num"] == 1500  # sample 映射为服务端抽帧上限
+        assert payload["range"] == [10.0, 20.0]
 
     def test_histogram_batches_keys_in_fours(self, ctx):
         """超过 4 个 key 自动分批：5 keys → 2 次请求（4 + 1），单请求体积被钳制。"""
@@ -946,3 +948,113 @@ class TestHistogramMetrics:
         list(metrics)
 
         assert ctx.client.post.call_args.kwargs["data"]["num"] == 1
+
+    def test_histogram_step_range_in_payload(self, ctx):
+        """step_range 复用 RangeQuery，start/end 透传为 House 的 range=[min,max]。"""
+        ctx.client.post.return_value = _api_response([self._hist_entry("grad")])
+        metrics = Metrics(
+            ctx,
+            project_id="p-1",
+            run_id="r-1",
+            keys=["grad"],
+            metric_type="HISTOGRAM",
+            step_range=RangeQuery(start=100, end=200),
+            created_at=1,
+        )
+
+        list(metrics)
+
+        assert ctx.client.post.call_args.kwargs["data"]["range"] == [100.0, 200.0]
+
+    def test_histogram_step_range_one_sided(self, ctx):
+        """单侧缺省映射为 House 的 0（该侧不限制）。"""
+        ctx.client.post.return_value = _api_response([self._hist_entry("grad")])
+        metrics = Metrics(
+            ctx,
+            project_id="p-1",
+            run_id="r-1",
+            keys=["grad"],
+            metric_type="HISTOGRAM",
+            step_range=RangeQuery(end=200),
+            created_at=1,
+        )
+
+        list(metrics)
+
+        assert ctx.client.post.call_args.kwargs["data"]["range"] == [0.0, 200.0]
+
+    def test_histogram_step_range_validation(self, ctx):
+        """step_range 复用 RangeQuery 的数值校验，并拒绝直方图没有语义的字段。"""
+        with pytest.raises(ValueError, match="only supports type='step'"):
+            Metrics(
+                ctx,
+                project_id="p-1",
+                run_id="r-1",
+                keys=["grad"],
+                metric_type="HISTOGRAM",
+                step_range=RangeQuery(type="timestamp", start=1, end=2),
+                created_at=1,
+            )
+
+        with pytest.raises(ValueError, match="only supports start/end"):
+            Metrics(
+                ctx,
+                project_id="p-1",
+                run_id="r-1",
+                keys=["grad"],
+                metric_type="HISTOGRAM",
+                step_range=RangeQuery(start=1, end=2, head=10),
+                created_at=1,
+            )
+
+        with pytest.raises(ValueError, match="step_range is only supported for HISTOGRAM"):
+            Metrics(
+                ctx,
+                project_id="p-1",
+                run_id="r-1",
+                keys=["grad"],
+                metric_type="SCALAR",
+                step_range=RangeQuery(start=1, end=2),
+                created_at=1,
+            )
+
+        # 数值规则由 RangeQuery 统一负责：负数、小数、逆序都被拒绝
+        with pytest.raises(ValueError):
+            RangeQuery(start=-1)
+        with pytest.raises(ValueError):
+            RangeQuery(start=1.5)
+        with pytest.raises(ValueError):
+            RangeQuery(start=10, end=5)
+
+    def test_histogram_without_step_range_omits_range(self, ctx):
+        ctx.client.post.return_value = _api_response([self._hist_entry("grad")])
+        metrics = Metrics(ctx, project_id="p-1", run_id="r-1", keys=["grad"], metric_type="HISTOGRAM", created_at=1)
+
+        list(metrics)
+
+        assert "range" not in ctx.client.post.call_args.kwargs["data"]
+
+    def test_histogram_concurrency_capped_at_two(self, ctx, monkeypatch):
+        """9 个 key → 3 批，直方图并发单独钳制到 2（不跟随全局 MAX_CONCURRENT_COUNT）。"""
+        from swanlab.api.metric import SafeThreadPoolExecutor as real_executor
+
+        ctx.client.post.return_value = _api_response([])
+        seen: List[int] = []
+
+        def spy(*args, **kwargs):
+            seen.append(kwargs["max_workers"])
+            return real_executor(*args, **kwargs)
+
+        monkeypatch.setattr("swanlab.api.metric.SafeThreadPoolExecutor", spy)
+        metrics = Metrics(
+            ctx,
+            project_id="p-1",
+            run_id="r-1",
+            keys=[f"k{i}" for i in range(9)],
+            metric_type="HISTOGRAM",
+            created_at=1,
+        )
+
+        list(metrics)
+
+        assert seen == [2]
