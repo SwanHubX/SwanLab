@@ -152,7 +152,7 @@ def list_experiment_columns(
     "metric_type",
     default="SCALAR",
     type=METRIC_KEY_TYPE,
-    help="Metric type: SCALAR or MEDIA. Default SCALAR.",
+    help="Metric type: SCALAR, MEDIA or HISTOGRAM. Default SCALAR.",
 )
 @click.option(
     "--class",
@@ -420,6 +420,83 @@ def get_experiment_medias(
         metric_type="MEDIA",
         media_step=step,
         all=fetch_all,
+        root_pro_id=experiment.root_pro_id,
+        root_exp_id=experiment.root_exp_id,
+        created_at=experiment.created_at_ts,
+    ).wrapper()
+
+
+@run_cli.command("histograms")
+@click.argument("path", required=True)
+@click.option(
+    "--keys",
+    required=True,
+    type=str,
+    help="Comma-separated histogram keys, e.g. 'grad,weight'.",
+)
+@click.option(
+    "--sample",
+    "-s",
+    default=1500,
+    type=click.IntRange(min=1),
+    help="Max snapshots per key (server-side frame-picking over steps). Default 1500, max 1500.",
+)
+@click.option(
+    "--range-start",
+    "range_start",
+    default=None,
+    type=click.FLOAT,
+    help="Only include snapshots with step >= this value (non-negative integer; 0 / omitted = no lower bound).",
+)
+@click.option(
+    "--range-end",
+    "range_end",
+    default=None,
+    type=click.FLOAT,
+    help="Only include snapshots with step <= this value (non-negative integer; 0 / omitted = no upper bound).",
+)
+@click.option(
+    "--ignore-timestamp",
+    "ignore_timestamp",
+    is_flag=True,
+    default=False,
+    help="Remove timestamp from metric data.",
+)
+@api_command
+def get_experiment_histograms(
+    path: str,
+    keys: str,
+    sample: int,
+    range_start: Optional[float],
+    range_end: Optional[float],
+    ignore_timestamp: bool,
+    api: Api,
+) -> ApiResponseType:
+    """Get histogram metrics (parameter distribution snapshots) of an experiment.
+
+    Each point is a snapshot {step, timestamp, values, bins}; the x axis is
+    always step. No full-resolution mode (--all) and no aggregate statistics.
+
+    PATH format: username/project_name/run_id
+    """
+    if range_start is not None and range_end is not None and range_start > range_end:
+        raise click.BadParameter(f"--range-start must be <= --range-end, got ({range_start}, {range_end}).")
+
+    step_range = (
+        RangeQuery(start=range_start, end=range_end) if range_start is not None or range_end is not None else None
+    )
+
+    key_list = parse_keys(keys)
+    experiment = api.run(path)
+    return Metrics(
+        ctx=api._ctx,
+        project_id=experiment.project_id,
+        run_id=experiment.run_id,
+        keys=key_list,
+        sample=sample,
+        metric_type="HISTOGRAM",
+        step_range=step_range,
+        ignore_timestamp=ignore_timestamp,
         root_pro_id=experiment.root_pro_id,
         root_exp_id=experiment.root_exp_id,
         created_at=experiment.created_at_ts,

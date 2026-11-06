@@ -16,6 +16,7 @@ enum ColumnType {
     COLUMN_TYPE_OBJECT3D    = 7; // 3D 对象
     COLUMN_TYPE_MOLECULE    = 8; // 分子结构
     COLUMN_TYPE_HTML        = 9; // HTML 页面
+    COLUMN_TYPE_HISTOGRAM   = 10; // 直方图
 }
 
 // ColumnClass 列的来源类别
@@ -39,6 +40,7 @@ enum ChartType {
     CHART_TYPE_OBJECT3D    = 9;
     CHART_TYPE_MOLECULE    = 10;
     CHART_TYPE_HTML        = 11; // HTML 图表
+    CHART_TYPE_HISTOGRAM   = 12; // 直方图
 }
 
 // SectionType section 类型

@@ -196,9 +196,9 @@ class DefinitionResolver:
 
     @staticmethod
     def _adjust_for_class(effective: EffectiveDefinition, metric_class: str) -> EffectiveDefinition:
-        """根据 metric class 调整 effective definition。MEDIA 一律回退 _step；
+        """根据 metric class 调整 effective definition。MEDIA 与 HISTOGRAM 一律回退 _step；
         SCALAR 允许自引用（x_axis == key，图像为直线 y=x）。"""
-        if metric_class == "MEDIA":
+        if metric_class != "SCALAR":
             return make_effective("_step", effective.section_name, effective.hidden, effective.step_sync)
         return effective
 

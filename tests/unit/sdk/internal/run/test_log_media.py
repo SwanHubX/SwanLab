@@ -15,6 +15,7 @@ import pytest
 from swanlab.sdk.internal.pkg import fork
 from swanlab.sdk.internal.run import Run
 from swanlab.sdk.internal.run.transforms.audio import Audio
+from swanlab.sdk.internal.run.transforms.histogram import Histogram
 from swanlab.sdk.internal.run.transforms.image import Image
 from swanlab.sdk.internal.run.transforms.molecule import Molecule
 from swanlab.sdk.internal.run.transforms.object3d import Object3D
@@ -249,3 +250,38 @@ class TestRunLogVideoFormats:
         mock_run.log.assert_called_once()
         log_data = mock_run.log.call_args[0][0]
         assert isinstance(log_data["v"][0], Video)
+
+
+class TestRunLogHistogram:
+    """log_histogram 的公开入口契约"""
+
+    def test_sequence_forwarded(self):
+        mock_run = _MockRun()
+        Run.log_histogram(mock_run, key="weights", data=[1, 2, 3], bins=2, step=7)  # type: ignore[arg-type]
+        mock_run.log.assert_called_once()
+        log_data = mock_run.log.call_args[0][0]
+        assert isinstance(log_data["weights"], Histogram)
+        assert sum(log_data["weights"].values) == 3
+        assert mock_run.log.call_args.kwargs["step"] == 7
+
+    def test_histogram_instance_forwarded(self):
+        mock_run = _MockRun()
+        histogram = Histogram([1, 2, 3], bins=2)
+        Run.log_histogram(mock_run, key="weights", data=histogram)  # type: ignore[arg-type]
+        log_data = mock_run.log.call_args[0][0]
+        assert isinstance(log_data["weights"], Histogram)
+        assert log_data["weights"].values == histogram.values
+
+    def test_num_bins_kwarg(self):
+        """num_bins 通过 kwargs 透传给 Histogram"""
+        mock_run = _MockRun()
+        Run.log_histogram(mock_run, key="weights", data=[1, 2, 3], num_bins=2)  # type: ignore[arg-type]
+        log_data = mock_run.log.call_args[0][0]
+        assert isinstance(log_data["weights"], Histogram)
+        assert len(log_data["weights"].values) == 2
+
+    def test_requires_active_run(self):
+        mock_run = _MockRun()
+        mock_run.alive = False
+        with pytest.raises(RuntimeError, match="requires an active Run"):
+            Run.log_histogram(mock_run, key="weights", data=[1, 2, 3])  # type: ignore[arg-type]
