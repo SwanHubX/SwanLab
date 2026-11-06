@@ -250,7 +250,8 @@ class HttpRecordSender:
         valid_records: List[Record] = []
         blocked: List[Record] = []
         invalid_shape: List[Record] = []
-        _MAX_HISTOGRAM_BATCH = 512
+        # 单条 record 的桶数上限
+        _MAX_HISTOGRAM_BUCKETS = 512
         for record in records:
             if (
                 not record.HasField("histogram")
@@ -262,8 +263,8 @@ class HttpRecordSender:
             histogram = record.histogram
             values = histogram.value.values
             bins = histogram.value.bins
-            # 限定
-            if not (1 <= len(values) <= _MAX_HISTOGRAM_BATCH) or len(bins) != len(values) + 1:
+            # 桶数越界或 bins 长度与 values+1 不匹配的 record 直接跳过，不参与上传
+            if not (1 <= len(values) <= _MAX_HISTOGRAM_BUCKETS) or len(bins) != len(values) + 1:
                 invalid_shape.append(record)
                 continue
             valid_records.append(record)
