@@ -94,16 +94,16 @@ swanlab.finish()
 
 `Record` 是所有消息的顶层信封，通过 `oneof record_type` 互斥区分消息类型：
 
-| 字段号 | 字段名        | 消息类型        | 说明                                              |
-| ------ | ------------- | --------------- | ------------------------------------------------- |
-| 10     | `start`       | StartRecord     | Run 创建                                          |
-| 11     | `finish`      | FinishRecord    | Run 结束                                          |
-| 12     | `column`      | ColumnRecord    | 指标列定义                                        |
-| 13     | `scalar`      | ScalarRecord    | 标量数据                                          |
-| 14     | `media`       | MediaRecord     | 媒体数据                                          |
-| 15     | `histogram`   | HistogramRecord | 直方图数据                                        |
-| 16     | `log`         | LogRecord       | 终端输出                                          |
-| 20     | `save`        | SaveRecord      | 文件保存                                          |
+| 字段号 | 字段名      | 消息类型        | 说明       |
+| ------ | ----------- | --------------- | ---------- |
+| 10     | `start`     | StartRecord     | Run 创建   |
+| 11     | `finish`    | FinishRecord    | Run 结束   |
+| 12     | `column`    | ColumnRecord    | 指标列定义 |
+| 13     | `scalar`    | ScalarRecord    | 标量数据   |
+| 14     | `media`     | MediaRecord     | 媒体数据   |
+| 16     | `log`       | LogRecord       | 终端输出   |
+| 20     | `save`      | SaveRecord      | 文件保存   |
+| 21     | `histogram` | HistogramRecord | 直方图数据 |
 
 对于 SaveRecord，内部存在 SaveType 的二级分类，包含 config/metadata/requirements/conda
 
@@ -115,34 +115,39 @@ swanlab.finish()
 
 `grpc/core/v1/core.proto` 定义核心业务接口，用于同步/异步接收实验记录：
 
-| RPC 方法               | 请求类型                  | 响应类型                 | 说明           |
-| ---------------------- | ------------------------- | ------------------------ | -------------- |
-| `DeliverRunStart`    | DeliverRunStartRequest    | DeliverRunStartResponse  | 实验开始       |
-| `UpsertColumns`      | UpsertColumnsRequest      | Empty                    | 定义指标列     |
-| `UpsertScalars`      | UpsertScalarsRequest      | Empty                    | 记录标量值     |
-| `UpsertMedia`        | UpsertMediaRequest        | Empty                    | 记录媒体值     |
-| `UpsertHistograms`   | UpsertHistogramsRequest   | Empty                    | 记录直方图快照 |
-| `UpsertLogs`         | UpsertLogsRequest         | Empty                    | 终端输出       |
-| `UpsertSaves`        | UpsertSavesRequest        | Empty                    | 文件保存       |
-| `DeliverRunFinish`   | DeliverRunFinishRequest   | DeliverRunFinishResponse | 实验结束       |
+| RPC 方法            | 请求类型                | 响应类型                  | 说明               |
+| ------------------- | ----------------------- | ------------------------- | ------------------ |
+| `DeliverRunStart`   | DeliverRunStartRequest  | DeliverRunStartResponse   | 实验开始           |
+| `UpsertColumns`     | UpsertColumnsRequest    | Empty                     | 定义指标列         |
+| `UpsertScalars`     | UpsertScalarsRequest    | Empty                     | 记录标量值         |
+| `UpsertMedia`       | UpsertMediaRequest      | Empty                     | 记录媒体值         |
+| `UpsertHistograms`  | UpsertHistogramsRequest | Empty                     | 记录直方图快照     |
+| `UpsertLogs`        | UpsertLogsRequest       | Empty                     | 终端输出           |
+| `UpsertSaves`       | UpsertSavesRequest      | Empty                     | 文件保存           |
+| `DeliverRunFinish`  | DeliverRunFinishRequest | DeliverRunFinishResponse  | 实验结束           |
+| `GetOperationStats` | Empty                   | GetOperationStatsResponse | 运行状态与上传进度 |
+| `ConfirmRunFinish`  | Empty                   | ConfirmRunFinishResponse  | 确认结束，安全退出 |
 
 ### CoreSyncService
 
 `grpc/core/v1/sync.proto` 定义日志同步服务接口：
 
-| RPC 方法              | 请求类型                | 响应类型 | 说明                       |
-| --------------------- | ----------------------- | -------- | -------------------------- |
-| `DeliverSyncStart`  | DeliverSyncStartRequest | Empty    | 启动本地日志读取与云端同步 |
-| `DeliverSyncFinish` | Empty                   | Empty    | 结束日志同步               |
+| RPC 方法            | 请求类型                | 响应类型                  | 说明                       |
+| ------------------- | ----------------------- | ------------------------- | -------------------------- |
+| `DeliverSyncStart`  | DeliverSyncStartRequest | DeliverSyncStartResponse  | 启动本地日志读取与云端同步 |
+| `DeliverSyncFlush`  | Empty                   | DeliverSyncFlushResponse  | 结束本地日志读取，开启同步 |
+| `GetOperationStats` | Empty                   | GetOperationStatsResponse | 运行状态与上传进度         |
+| `ConfirmSyncFinish` | Empty                   | ConfirmSyncFinishResponse | 结束同步，清理副作用后退出 |
 
 ### ProbeService
 
 `grpc/probe/v1/probe.proto` 定义硬件采集服务接口：
 
-| RPC 方法               | 请求类型                 | 响应类型 | 说明             |
-| ---------------------- | ------------------------ | -------- | ---------------- |
-| `DeliverProbeStart`  | DeliverProbeStartRequest | Empty    | 启动硬件信息采集 |
-| `DeliverProbeFinish` | Empty                    | Empty    | 结束硬件信息采集 |
+| RPC 方法              | 请求类型                 | 响应类型                    | 说明             |
+| --------------------- | ------------------------ | --------------------------- | ---------------- |
+| `DeliverProbeStart`   | DeliverProbeStartRequest | Empty                       | 启动硬件信息采集 |
+| `GetMetadataSnapshot` | Empty                    | GetMetadataSnapshotResponse | 获取硬件信息快照 |
+| `DeliverProbeFinish`  | Empty                    | Empty                       | 结束硬件信息采集 |
 
 ## 各包详解
 
