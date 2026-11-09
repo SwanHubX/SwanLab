@@ -1,8 +1,9 @@
 package health
 
 import (
-	"context"
 	"sync"
+
+	"github.com/swanhubx/swanlab/core/internal/cron"
 )
 
 // Site 聚合一个站点的控制面与数据面：任一平面连续不可达达到阈值即降级。
@@ -22,12 +23,11 @@ type Site struct {
 	state        State
 	reason       Reason
 
-	wg       sync.WaitGroup
-	cancel   context.CancelFunc
-	stopOnce sync.Once
+	stopOnce  sync.Once
+	scheduler *cron.Scheduler
 }
 
-func newSite(opts SiteOptions, clock Clock) *Site {
+func newSite(opts SiteOptions, clock cron.Clock) *Site {
 	interval := opts.Interval
 	if interval <= 0 {
 		interval = DefaultInterval
@@ -47,7 +47,6 @@ func newSite(opts SiteOptions, clock Clock) *Site {
 
 	s := &Site{key: opts.Key, updates: make(chan struct{}, 1)}
 	probeOpts := proberOptions{
-		interval:     interval,
 		timeout:      timeout,
 		degradeAfter: degradeAfter,
 		recoverAfter: recoverAfter,
@@ -58,18 +57,20 @@ func newSite(opts SiteOptions, clock Clock) *Site {
 	s.data = newProber(opts.Data, probeOpts, func(degraded bool) {
 		s.setReason(ReasonProbeData, degraded)
 	})
+	// 启动预检在任务协程启动前写入初值，避免首个探测周期内的错误乐观状态。
+	if opts.InitialControlDegraded {
+		s.control.seedDegraded()
+		s.setReason(ReasonProbeControl, true)
+	}
+	if opts.InitialDataDegraded {
+		s.data.seedDegraded()
+		s.setReason(ReasonProbeData, true)
+	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	s.cancel = cancel
-	s.wg.Add(2)
-	go func() {
-		defer s.wg.Done()
-		s.control.run(ctx, clock)
-	}()
-	go func() {
-		defer s.wg.Done()
-		s.data.run(ctx, clock)
-	}()
+	s.scheduler = cron.New(clock)
+	s.scheduler.Add(cron.Job{Name: "control", Interval: interval, Run: s.control.tick})
+	s.scheduler.Add(cron.Job{Name: "data", Interval: interval, Run: s.data.tick})
+	s.scheduler.Start(nil)
 	return s
 }
 
@@ -144,11 +145,10 @@ func (s *Site) aggregateLocked() (State, Reason) {
 	}
 }
 
-// stop 停止探测协程并关闭通知通道；可重复调用。
+// stop 停止探测任务并关闭通知通道；可重复调用。
 func (s *Site) stop() {
 	s.stopOnce.Do(func() {
-		s.cancel()
-		s.wg.Wait()
+		s.scheduler.Stop()
 		s.mu.Lock()
 		s.closed = true
 		close(s.updates)

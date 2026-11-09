@@ -61,16 +61,3 @@ const (
 	DefaultDegradeThreshold = 3
 	DefaultRecoverThreshold = 2
 )
-
-// Clock 提供周期性探测节奏；NewRegistry 传入 nil 时使用真实定时器。
-// Ticker 返回的停止函数必须由调用方执行，测试可注入手动推进的假时钟。
-type Clock interface {
-	Ticker(d time.Duration) (<-chan time.Time, func())
-}
-
-type realClock struct{}
-
-func (realClock) Ticker(d time.Duration) (<-chan time.Time, func()) {
-	t := time.NewTicker(d)
-	return t.C, t.Stop
-}

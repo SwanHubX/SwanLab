@@ -14,7 +14,6 @@ type ProbeFunc func(ctx context.Context) bool
 // 计数器只在探测协程内读写；reachable / degraded 供 Snapshot 并发读取。
 type prober struct {
 	probe        ProbeFunc
-	interval     time.Duration
 	timeout      time.Duration
 	degradeAfter int
 	recoverAfter int
@@ -28,7 +27,6 @@ type prober struct {
 }
 
 type proberOptions struct {
-	interval     time.Duration
 	timeout      time.Duration
 	degradeAfter int
 	recoverAfter int
@@ -37,7 +35,6 @@ type proberOptions struct {
 func newProber(probe ProbeFunc, opts proberOptions, onFlip func(degraded bool)) *prober {
 	p := &prober{
 		probe:        probe,
-		interval:     opts.interval,
 		timeout:      opts.timeout,
 		degradeAfter: opts.degradeAfter,
 		recoverAfter: opts.recoverAfter,
@@ -48,20 +45,13 @@ func newProber(probe ProbeFunc, opts proberOptions, onFlip func(degraded bool)) 
 	return p
 }
 
-func (p *prober) run(ctx context.Context, clock Clock) {
-	ticks, stop := clock.Ticker(p.interval)
-	defer stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticks:
-			p.tick(ctx)
-		}
-	}
+// seedDegraded 写入启动预检结论；只允许在探测协程启动前调用。
+func (p *prober) seedDegraded() {
+	p.reachable.Store(false)
+	p.degraded.Store(true)
 }
 
-// tick 执行一次探测并按阈值更新稳定状态；只由探测协程调用。
+// tick 执行一次探测并按阈值更新稳定状态；由 cron 任务协程串行调用。
 func (p *prober) tick(parent context.Context) {
 	ctx, cancel := context.WithTimeout(parent, p.timeout)
 	ok := p.probe(ctx)

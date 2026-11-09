@@ -16,16 +16,33 @@ func TestMain(m *testing.M) {
 // fakeClock 让测试显式推进探测节奏，不用 sleep 制造窗口。
 type fakeClock struct {
 	created chan chan time.Time
+	periods chan time.Duration
 }
 
 func newFakeClock() *fakeClock {
-	return &fakeClock{created: make(chan chan time.Time, 8)}
+	return &fakeClock{
+		created: make(chan chan time.Time, 8),
+		periods: make(chan time.Duration, 8),
+	}
 }
 
-func (c *fakeClock) Ticker(time.Duration) (<-chan time.Time, func()) {
+func (c *fakeClock) Ticker(d time.Duration) (<-chan time.Time, func()) {
 	ch := make(chan time.Time, 8)
 	c.created <- ch
+	c.periods <- d
 	return ch, func() {}
+}
+
+// nextPeriod 返回下一个注册的探测周期。
+func (c *fakeClock) nextPeriod(t *testing.T) time.Duration {
+	t.Helper()
+	select {
+	case d := <-c.periods:
+		return d
+	case <-time.After(2 * time.Second):
+		t.Fatal("probe ticker was not created")
+		return 0
+	}
 }
 
 // ticks 等待 n 个 prober 注册各自的 ticker。
@@ -104,7 +121,6 @@ func TestProberThresholds(t *testing.T) {
 		}
 		return reachable.Load()
 	}, proberOptions{
-		interval:     time.Second,
 		timeout:      time.Second,
 		degradeAfter: 3,
 		recoverAfter: 2,
@@ -159,8 +175,13 @@ func TestSiteOptionDefaults(t *testing.T) {
 	s := newSite(SiteOptions{Key: "defaults", Control: alwaysReachable, Data: alwaysReachable}, clock)
 	defer s.stop()
 
-	if s.control.interval != DefaultInterval || s.control.timeout != DefaultTimeout {
-		t.Fatalf("interval/timeout = %v/%v", s.control.interval, s.control.timeout)
+	for range 2 {
+		if got := clock.nextPeriod(t); got != DefaultInterval {
+			t.Fatalf("default period = %v, want %v", got, DefaultInterval)
+		}
+	}
+	if s.control.timeout != DefaultTimeout {
+		t.Fatalf("timeout = %v, want %v", s.control.timeout, DefaultTimeout)
 	}
 	if s.control.degradeAfter != DefaultDegradeThreshold || s.control.recoverAfter != DefaultRecoverThreshold {
 		t.Fatalf("thresholds = %d/%d", s.control.degradeAfter, s.control.recoverAfter)
@@ -177,8 +198,13 @@ func TestSiteOptionDefaults(t *testing.T) {
 	}, clock)
 	defer s2.stop()
 
-	if s2.data.interval != time.Minute || s2.data.timeout != time.Second {
-		t.Fatalf("interval/timeout = %v/%v", s2.data.interval, s2.data.timeout)
+	for range 2 {
+		if got := clock.nextPeriod(t); got != time.Minute {
+			t.Fatalf("custom period = %v, want 1m", got)
+		}
+	}
+	if s2.data.timeout != time.Second {
+		t.Fatalf("timeout = %v, want 1s", s2.data.timeout)
 	}
 	if s2.data.degradeAfter != 7 || s2.data.recoverAfter != 4 {
 		t.Fatalf("thresholds = %d/%d", s2.data.degradeAfter, s2.data.recoverAfter)
@@ -284,15 +310,13 @@ func TestRegistrySharesSites(t *testing.T) {
 
 func TestRegistryProbeDrivesState(t *testing.T) {
 	clock := newFakeClock()
-	var dataOK atomic.Bool
-	controlFn := alwaysReachable
-	dataFn := func(context.Context) bool { return dataOK.Load() }
+	control, data := newProbe(true), newProbe(false)
 
 	reg := NewRegistry(clock)
 	site := reg.Acquire(SiteOptions{
 		Key:              "site",
-		Control:          controlFn,
-		Data:             dataFn,
+		Control:          control.fn,
+		Data:             data.fn,
 		DegradeThreshold: 3,
 		RecoverThreshold: 2,
 	})
@@ -300,9 +324,7 @@ func TestRegistryProbeDrivesState(t *testing.T) {
 	ticks := clock.ticks(t, 2)
 
 	for range 3 {
-		for _, ch := range ticks {
-			ch <- time.Time{}
-		}
+		tickBoth(t, ticks, control, data)
 	}
 	expectUpdate(t, site)
 	snap := site.Snapshot()
@@ -313,11 +335,9 @@ func TestRegistryProbeDrivesState(t *testing.T) {
 		t.Fatalf("reachable = control:%v data:%v", snap.ControlReachable, snap.DataReachable)
 	}
 
-	dataOK.Store(true)
+	data.set(true)
 	for range 2 {
-		for _, ch := range ticks {
-			ch <- time.Time{}
-		}
+		tickBoth(t, ticks, control, data)
 	}
 	expectUpdate(t, site)
 	snap = site.Snapshot()
@@ -361,4 +381,35 @@ func TestSiteReportAfterStop(t *testing.T) {
 		t.Fatalf("snapshot after stop = %+v", snap)
 	}
 	reg.Release(site)
+}
+
+func TestSiteInitialDegradedRecovers(t *testing.T) {
+	clock := newFakeClock()
+	control, data := newProbe(true), newProbe(true)
+	s := newSite(SiteOptions{
+		Key:                 "seed",
+		Control:             control.fn,
+		Data:                data.fn,
+		InitialDataDegraded: true,
+	}, clock)
+	defer s.stop()
+	ticks := clock.ticks(t, 2)
+
+	snap := s.Snapshot()
+	if snap.State != StateDegraded || snap.Reason != ReasonProbeData {
+		t.Fatalf("initial snapshot = %+v, want degraded by data", snap)
+	}
+	if snap.DataReachable {
+		t.Fatal("seeded plane should start unreachable")
+	}
+	// 消费构造期种下的通知，后面的断言只等待恢复事件。
+	expectUpdate(t, s)
+
+	for range 2 {
+		tickBoth(t, ticks, control, data)
+	}
+	expectUpdate(t, s)
+	if snap := s.Snapshot(); snap.State != StateNormal || snap.Reason != "" {
+		t.Fatalf("snapshot after recovery = %+v, want normal", snap)
+	}
 }

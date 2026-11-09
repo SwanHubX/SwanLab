@@ -16,6 +16,7 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/buffer"
 	"github.com/swanhubx/swanlab/core/internal/client"
 	"github.com/swanhubx/swanlab/core/internal/config"
+	"github.com/swanhubx/swanlab/core/internal/cron/health"
 	"github.com/swanhubx/swanlab/core/internal/metrics"
 	"github.com/swanhubx/swanlab/core/internal/pkg/counter"
 	"github.com/swanhubx/swanlab/core/internal/pkg/watcher"
@@ -98,6 +99,9 @@ type sessionInit struct {
 	project      string
 	projectID    string
 	experimentID string
+	// healthReg 是进程级探针注册表；healthOpts 描述本会话所属站点的探测配置。
+	healthReg  *health.Registry
+	healthOpts health.SiteOptions
 }
 
 // Session 保存单个 session_id 对应的会话状态与生命周期数据。
@@ -151,16 +155,25 @@ type Session struct {
 	recoveryDone chan struct{}
 	recoveryOnce sync.Once
 
+	// 站点健康：healthReg 持有共享引用，site 由 closeHealth 幂等释放。
+	healthReg  *health.Registry
+	site       *health.Site
+	healthStop context.CancelFunc
+	healthWG   sync.WaitGroup
+	healthOnce sync.Once
+	healthWake chan struct{}
+
 	runFile        string
 	runFileCreated bool
 }
 
 func newSession(opts sessionOptions) *Session {
 	s := &Session{
-		drained:   make(chan struct{}),
-		failed:    make(chan struct{}),
-		drainFn:   opts.drainFn,
-		releaseFn: opts.releaseFn,
+		drained:    make(chan struct{}),
+		failed:     make(chan struct{}),
+		drainFn:    opts.drainFn,
+		releaseFn:  opts.releaseFn,
+		healthWake: make(chan struct{}, 1),
 	}
 	s.state.Store(int32(RunStateRunning))
 	return s

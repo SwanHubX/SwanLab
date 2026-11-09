@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/swanhubx/swanlab/core/internal/client"
+	"github.com/swanhubx/swanlab/core/internal/cron/health"
 	"github.com/swanhubx/swanlab/core/internal/pkg/console"
 	operationv1 "github.com/swanhubx/swanlab/core/proto/swanlab/operation/v1"
 	runv1 "github.com/swanhubx/swanlab/core/proto/swanlab/run/v1"
@@ -41,6 +42,8 @@ var (
 	ErrInvalidStartRecord = errors.New("invalid start record")
 	// ErrInvalidFinishRecord 表示未提供结束记录，属于调用方参数错误。
 	ErrInvalidFinishRecord = errors.New("finish record must not be nil")
+	// ErrControlUnreachable 表示启动预检无法访问控制面，快速失败避免认证重试堆积。
+	ErrControlUnreachable = errors.New("control plane is unreachable")
 )
 
 const (
@@ -108,14 +111,17 @@ type Manager struct {
 	sessions map[string]*Session
 	released releasedCache
 	factory  *client.Factory
+	// healthReg 按站点共享探针，跨会话复用同一站点的健康状态。
+	healthReg *health.Registry
 }
 
 // New 创建并初始化会话管理器实例。
 func New(opts Options) *Manager {
 	return &Manager{
-		sessions: make(map[string]*Session),
-		released: newReleasedCache(),
-		factory:  client.NewFactory(opts.HTTP),
+		sessions:  make(map[string]*Session),
+		released:  newReleasedCache(),
+		factory:   client.NewFactory(opts.HTTP),
+		healthReg: health.NewRegistry(nil),
 	}
 }
 
@@ -260,6 +266,7 @@ func (m *Manager) Confirm(ctx context.Context, sessionID string) (ConfirmResult,
 	if s.cancel != nil {
 		s.cancel()
 	}
+	s.closeHealth()
 
 	m.mu.Lock()
 	delete(m.sessions, sessionID)

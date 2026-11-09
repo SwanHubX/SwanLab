@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"google.golang.org/protobuf/proto"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/buffer"
 	"github.com/swanhubx/swanlab/core/internal/client"
 	"github.com/swanhubx/swanlab/core/internal/config"
+	"github.com/swanhubx/swanlab/core/internal/cron/health"
 	"github.com/swanhubx/swanlab/core/internal/metrics"
 	"github.com/swanhubx/swanlab/core/internal/pkg/builder"
 	"github.com/swanhubx/swanlab/core/internal/pkg/console"
@@ -44,6 +46,24 @@ func (m *Manager) DeliverRunStart(
 	resumeMode, err := resumeModeFromProto(rec.GetResume())
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrInvalidStartRecord, err)
+	}
+
+	// 控制面预检（2s）先于认证重试：站点不可达时立即给出明确原因。
+	// APIHost 为空时跳过预检，仍由认证阶段返回 ErrMissingAPIHost（InvalidArgument）。
+	controlOK, dataOK := true, true
+	if cfg.APIHost != "" {
+		controlOK, dataOK = probeStartup(ctx, cfg.APIHost)
+	}
+	if !controlOK {
+		return nil, fmt.Errorf("%w: %s%s", ErrControlUnreachable,
+			strings.TrimRight(cfg.APIHost, "/"), controlProbePath)
+	}
+	// 探针节奏与阈值暂用 health 包默认值，C4 由 CoreSettings 下发。
+	healthOpts := health.SiteOptions{
+		Key:                 siteKey(cfg.APIHost, cfg.APIKey),
+		Control:             siteProbe(cfg.APIHost, controlProbePath),
+		Data:                siteProbe(cfg.APIHost, dataProbePath),
+		InitialDataDegraded: !dataOK,
 	}
 
 	httpClient, err := m.factory.Client(ctx, cfg.APIHost, cfg.APIKey)
@@ -124,6 +144,8 @@ func (m *Manager) DeliverRunStart(
 		project:      projectName,
 		projectID:    project.CUID,
 		experimentID: experiment.CUID,
+		healthReg:    m.healthReg,
+		healthOpts:   healthOpts,
 	}); err != nil {
 		s.rollback()
 		return nil, fmt.Errorf("start: assemble session: %w", err)

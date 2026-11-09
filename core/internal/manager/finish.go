@@ -303,4 +303,5 @@ func (s *Session) shutdown(ctx context.Context) {
 	if s.cancel != nil {
 		s.cancel()
 	}
+	s.closeHealth()
 }
