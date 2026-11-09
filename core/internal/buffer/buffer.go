@@ -48,6 +48,8 @@ var (
 	ErrBatchTooLarge = errors.New("buffer: batch exceeds queue capacity")
 	// ErrOverReserved 表示本次提交超出 Reserve 预留的配额，属于调用方错误。
 	ErrOverReserved = errors.New("buffer: commit exceeds reservation")
+	// ErrStoreDegraded 表示 StoreOnly 会话的本地存储已不可用，记录无处可写，重试不会成功。
+	ErrStoreDegraded = errors.New("buffer: local store is degraded")
 	// errQueueWait 标记本地通道等待超时；与调用方 ctx 取消区分开。
 	errQueueWait = errors.New("buffer: local queue wait exceeded")
 )
@@ -202,6 +204,10 @@ func (t *Intake) Reserve(ctx context.Context, d Demand) (Ticket, error) {
 		t.mu.Unlock()
 		return Ticket{}, ErrClosed
 	}
+	if t.storeOnly && t.degraded.Load() {
+		t.mu.Unlock()
+		return Ticket{}, fmt.Errorf("%w: no local copy in store-only mode", ErrStoreDegraded)
+	}
 	paused := t.pauseSeq != 0
 	if t.degraded.Load() {
 		t.collectUnconfirmedLocked()
@@ -330,6 +336,11 @@ func (t *Intake) Commit(tk Ticket, records []*recordv1.Record) error {
 			return errors.New("buffer: nil record")
 		}
 	}
+	// StoreOnly 没有上传兜底：本地已降级时直接失败，不能把记录转入回收队列后假装成功。
+	if t.storeOnly && t.degraded.Load() {
+		t.Release(tk)
+		return fmt.Errorf("%w: no local copy in store-only mode", ErrStoreDegraded)
+	}
 
 	immediate, deferred := routeRecords(records)
 	if t.storeOnly {
@@ -337,6 +348,11 @@ func (t *Intake) Commit(tk Ticket, records []*recordv1.Record) error {
 	}
 	uploadable := len(immediate) + len(deferred)
 	payloads, wantStore := t.encodeStore(records)
+	if t.storeOnly && (!wantStore || t.degraded.Load()) {
+		// 序列化失败同样会置降级；在发送到本地通道之前拦截。
+		t.Release(tk)
+		return fmt.Errorf("%w: local store became unavailable", ErrStoreDegraded)
+	}
 
 	t.mu.Lock()
 	if t.closed {
@@ -390,7 +406,7 @@ func (t *Intake) Commit(tk Ticket, records []*recordv1.Record) error {
 	switch {
 	case paused && storeOK:
 		pausedNow = t.pauseLocked(records, immediate, deferred, tk, seqOf)
-	case !storeOK && !t.skipStore:
+	case !storeOK && !t.skipStore && !t.storeOnly:
 		// 本批没有可靠本地副本：并入回收队列按序补传，不能越过更早的记录。
 		t.recoveryUploadLocked(records, immediate, deferred, tk)
 	default:

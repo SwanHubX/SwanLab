@@ -101,6 +101,8 @@ func (s *Session) commitPrepared(ctx context.Context, build func() (preparedBatc
 // upsertError 把 intake 的容量错误映射为 manager 的领域错误。
 func upsertError(err error) error {
 	switch {
+	case errors.Is(err, buffer.ErrStoreDegraded):
+		return fmt.Errorf("%w: %v", ErrStoreUnavailable, err)
 	case errors.Is(err, buffer.ErrOverloaded), errors.Is(err, buffer.ErrBatchTooLarge):
 		return fmt.Errorf("%w: %v", ErrOverloaded, err)
 	case errors.Is(err, buffer.ErrClosed):

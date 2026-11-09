@@ -507,6 +507,61 @@ func TestStoreOnlyRoutesDataToStoreOnly(t *testing.T) {
 	}
 }
 
+func TestStoreOnlyRejectsReserveWhenDegraded(t *testing.T) {
+	sink := newStoreSink(8)
+	defer sink.stop()
+	var degraded atomic.Bool
+	degraded.Store(true)
+	in := newIntake(t, Options{
+		Store: sink.ch, StoreOnly: true, Degraded: &degraded,
+		Budget: budget.New(budget.Limits{}), UploadQueue: 8,
+	})
+
+	_, err := in.Reserve(context.Background(), Demand{Store: 1})
+	if !errors.Is(err, ErrStoreDegraded) {
+		t.Fatalf("Reserve err=%v, want ErrStoreDegraded", err)
+	}
+	if got := sink.snapshot(); len(got) != 0 {
+		t.Fatalf("store got %d records, want 0", len(got))
+	}
+	if got := len(drainUpload(in)); got != 0 {
+		t.Fatalf("upload got %d records, want 0", got)
+	}
+}
+
+func TestStoreOnlyRejectsCommitWhenDegradedAfterReserve(t *testing.T) {
+	sink := newStoreSink(8)
+	defer sink.stop()
+	var degraded atomic.Bool
+	in := newIntake(t, Options{
+		Store: sink.ch, StoreOnly: true, Degraded: &degraded,
+		Budget: budget.New(budget.Limits{}), UploadQueue: 8,
+	})
+
+	tk, err := in.Reserve(context.Background(), Demand{Store: 1})
+	if err != nil {
+		t.Fatalf("Reserve: %v", err)
+	}
+	degraded.Store(true)
+
+	err = in.Commit(tk, []*recordv1.Record{scalarRecord(1)})
+	if !errors.Is(err, ErrStoreDegraded) {
+		t.Fatalf("Commit err=%v, want ErrStoreDegraded", err)
+	}
+	if got := sink.snapshot(); len(got) != 0 {
+		t.Fatalf("store got %d records, want 0", len(got))
+	}
+	if got := len(drainUpload(in)); got != 0 {
+		t.Fatalf("upload got %d records, want 0", got)
+	}
+	in.mu.Lock()
+	pendingStore, pendingUpload := in.pendingStore, in.pendingUpload
+	in.mu.Unlock()
+	if pendingStore != 0 || pendingUpload != 0 {
+		t.Fatalf("pending reservations = (%d, %d), want (0, 0)", pendingStore, pendingUpload)
+	}
+}
+
 func TestSkipStoreRoutesDataToUpload(t *testing.T) {
 	b := budget.New(budget.Limits{})
 	in := newIntake(t, Options{SkipStore: true, Budget: b, UploadQueue: 4})

@@ -352,6 +352,9 @@ func managerStatus(err error) error {
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, manager.ErrNotRunning):
 		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, manager.ErrStoreUnavailable):
+		// 本地存储已降级，记录无法落盘，按确定性失败处理，避免 Python 无限重试。
+		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, manager.ErrOverloaded):
 		return status.Error(codes.ResourceExhausted, err.Error())
 	case errors.Is(err, manager.ErrInvalidSettings), errors.Is(err, manager.ErrInvalidStartRecord),

@@ -587,6 +587,24 @@ func TestUpsertRPCsForwardRecords(t *testing.T) {
 	}
 }
 
+func TestUpsertStoreUnavailableMapsFailedPrecondition(t *testing.T) {
+	env := newTestEnv(t)
+	spinup(t, env)
+	handle := startRun(t, env, &runv1.StartRecord{})
+
+	env.runs.mu.Lock()
+	env.runs.upsertErr = manager.ErrStoreUnavailable
+	env.runs.mu.Unlock()
+
+	_, err := env.client.UpsertScalars(callCtx(t), &corev1.UpsertScalarsRequest{
+		SessionId: handle,
+		Data:      []*datav1.ScalarRecord{{Key: "loss"}},
+	})
+	if code := status.Code(err); code != codes.FailedPrecondition {
+		t.Fatalf("code = %v, want FailedPrecondition (err=%v)", code, err)
+	}
+}
+
 func TestUpsertEmptyListsAreNoops(t *testing.T) {
 	env := newTestEnv(t)
 	spinup(t, env)

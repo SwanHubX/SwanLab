@@ -25,6 +25,8 @@ var (
 	ErrRunFailed = errors.New("run finish failed")
 	// ErrNotRunning 表示会话已停止接受公共提交（排空中、已排空或收尾失败）。
 	ErrNotRunning = errors.New("session is not accepting records")
+	// ErrStoreUnavailable 表示本地存储已降级，StoreOnly 会话无法落盘，重试不会成功。
+	ErrStoreUnavailable = errors.New("local store is unavailable")
 	// ErrOverloaded 表示入口通道或上传配额在等待上限内没有腾出空间，可重试。
 	ErrOverloaded = errors.New("session intake is overloaded")
 	// ErrInvalidRecord 表示记录结构不合法（nil、空 key、未知 save 类型等）。
