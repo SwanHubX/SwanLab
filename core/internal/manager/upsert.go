@@ -82,7 +82,7 @@ func (s *Session) commitPrepared(ctx context.Context, build func() (preparedBatc
 	if len(batch.records) == 0 {
 		return nil
 	}
-	ticket, err := s.intake.Reserve(ctx, demandFor(batch.records, s.cfg.SkipStore))
+	ticket, err := s.intake.Reserve(ctx, demandFor(batch.records, s.cfg))
 	if err != nil {
 		return upsertError(err)
 	}

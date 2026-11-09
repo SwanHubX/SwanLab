@@ -14,6 +14,7 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/api"
 	"github.com/swanhubx/swanlab/core/internal/budget"
 	"github.com/swanhubx/swanlab/core/internal/buffer"
+	"github.com/swanhubx/swanlab/core/internal/config"
 	"github.com/swanhubx/swanlab/core/internal/pkg/builder"
 	"github.com/swanhubx/swanlab/core/internal/pkg/console"
 	recordv1 "github.com/swanhubx/swanlab/core/proto/swanlab/record/v1"
@@ -85,6 +86,10 @@ func (s *Session) prepareFinish(rec *runv1.FinishRecord) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.finishRecord = finish
+	// local/offline 不做上传，崩溃日志只保留在 FinishRecord.error 中。
+	if s.cfg.NormalizedMode() != config.ModeOnline {
+		return
+	}
 	if finish.GetState() == runv1.RunState_RUN_STATE_FINISHED {
 		return
 	}
@@ -124,7 +129,14 @@ func (s *Session) completeFinish(ctx context.Context) error {
 	}
 
 	s.stopRecovery()
-	return s.closeIntake(ctx)
+	if err := s.closeIntake(ctx); err != nil {
+		return err
+	}
+	if s.uploader == nil {
+		// local/offline 没有 uploader 的 OnDrained 回调，收尾完成后直接置位。
+		s.markDrained()
+	}
+	return nil
 }
 
 // commitFinish 把 FinishRecord 写入本地副本；失败时保留 finishCommitted=false，
@@ -160,6 +172,9 @@ func (s *Session) commitFinish(ctx context.Context) error {
 // commitCrashLog 把崩溃 error_log 投入上传通道。暂时失败（通道满、ctx 到期）时
 // 保留记录供 Confirm 重试；只有确定性错误才告警丢弃，避免会话永远无法释放。
 func (s *Session) commitCrashLog(ctx context.Context) error {
+	if s.cfg.NormalizedMode() != config.ModeOnline {
+		return nil
+	}
 	if s.pendingLog == nil || s.intake == nil {
 		return nil
 	}

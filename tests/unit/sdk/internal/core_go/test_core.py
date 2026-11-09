@@ -14,7 +14,13 @@ from typing import List, Optional, cast
 
 import pytest
 
-from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import GetOperationStatsResponse
+from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
+    DeliverRunFinishRequest,
+    DeliverRunFinishResponse,
+    DeliverRunStartRequest,
+    DeliverRunStartResponse,
+    GetOperationStatsResponse,
+)
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import ScalarRecord
 from swanlab.sdk.internal.core_go import core as core_module
 from swanlab.sdk.internal.core_go.core import CoreGo, _DetachedCoreGo
@@ -193,3 +199,38 @@ def test_fork_returns_detached_placeholder(tmp_path):
     assert detached.fork() is detached
     assert detached._binary == binary  # noqa: SLF001
     detached.close()
+
+
+def test_start_modes_share_enabled_path(monkeypatch):
+    sentinel = DeliverRunStartResponse(success=True, session_id="s")
+    calls = []
+    monkeypatch.setattr(CoreGo, "_start_enabled", lambda self, req: calls.append(self._mode) or sentinel)
+
+    for mode in ("online", "local", "offline"):
+        assert CoreGo(mode).deliver_run_start(DeliverRunStartRequest()) is sentinel
+    assert calls == ["online", "local", "offline"]
+
+
+def test_finish_modes_share_enabled_path(monkeypatch):
+    sentinel = DeliverRunFinishResponse(success=True)
+    monkeypatch.setattr(CoreGo, "_finish_enabled", lambda self, req: sentinel)
+
+    for mode in ("online", "local", "offline"):
+        assert CoreGo(mode).deliver_run_finish(DeliverRunFinishRequest()) is sentinel
+
+
+def test_start_without_binary_is_terminal():
+    core = CoreGo("local")
+
+    response = core.deliver_run_start(DeliverRunStartRequest())
+
+    assert response.success is False
+    assert "BINARY_NOT_FOUND" in response.message
+
+
+def test_disabled_start_is_noop_without_binary():
+    core = CoreGo("disabled")
+
+    response = core.deliver_run_start(DeliverRunStartRequest())
+
+    assert response.success is True

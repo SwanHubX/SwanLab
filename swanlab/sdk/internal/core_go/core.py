@@ -91,7 +91,16 @@ class CoreGo(CoreProtocol):
 
     # ---------------------------------- 实验开始 ----------------------------------
 
+    def _start_when_local(self, start_request: DeliverRunStartRequest) -> DeliverRunStartResponse:
+        return self._start_enabled(start_request)
+
+    def _start_when_offline(self, start_request: DeliverRunStartRequest) -> DeliverRunStartResponse:
+        return self._start_enabled(start_request)
+
     def _start_when_online(self, start_request: DeliverRunStartRequest) -> DeliverRunStartResponse:
+        return self._start_enabled(start_request)
+
+    def _start_enabled(self, start_request: DeliverRunStartRequest) -> DeliverRunStartResponse:
         with self._lock:
             if self._state == _CLOSED:
                 return self._fail_start(Stage.LIFECYCLE, ReasonCode.CLOSED, "core is closed")
@@ -150,23 +159,6 @@ class CoreGo(CoreProtocol):
                 raise
             return DeliverRunStartResponse(success=False, message=str(error))
 
-    def _start_when_local(self, start_request: DeliverRunStartRequest) -> DeliverRunStartResponse:
-        return self._reject_mode("local")
-
-    def _start_when_offline(self, start_request: DeliverRunStartRequest) -> DeliverRunStartResponse:
-        return self._reject_mode("offline")
-
-    def _reject_mode(self, mode: str) -> DeliverRunStartResponse:
-        # 模式本身有效，只是当前 Go build 不承载 local/offline。
-        error = CoreGoError(
-            Stage.LIFECYCLE,
-            ReasonCode.MODE_UNSUPPORTED,
-            f"core_go only implements online mode in this build; mode={mode!r} is not handled by the Go core",
-        )
-        with self._lock:
-            self._last_error = error
-        return DeliverRunStartResponse(success=False, message=str(error))
-
     def _fail_start(self, stage: Stage, reason: ReasonCode, message: str) -> DeliverRunStartResponse:
         """调用方必须持有 self._lock。"""
         error = CoreGoError(stage, reason, message)
@@ -176,46 +168,46 @@ class CoreGo(CoreProtocol):
     # ---------------------------------- 数据上报 ----------------------------------
 
     def _upsert_columns_when_local(self, columns: List[ColumnRecord]) -> None:
-        return None
+        self._forward_upsert("columns", lambda rpc, session_id: rpc.upsert_columns(columns, session_id))
 
     def _upsert_columns_when_offline(self, columns: List[ColumnRecord]) -> None:
-        return None
+        self._forward_upsert("columns", lambda rpc, session_id: rpc.upsert_columns(columns, session_id))
 
     def _upsert_columns_when_online(self, columns: List[ColumnRecord]) -> None:
         self._forward_upsert("columns", lambda rpc, session_id: rpc.upsert_columns(columns, session_id))
 
     def _upsert_scalars_when_local(self, scalars: List[ScalarRecord]) -> None:
-        return None
+        self._forward_upsert("scalars", lambda rpc, session_id: rpc.upsert_scalars(scalars, session_id))
 
     def _upsert_scalars_when_offline(self, scalars: List[ScalarRecord]) -> None:
-        return None
+        self._forward_upsert("scalars", lambda rpc, session_id: rpc.upsert_scalars(scalars, session_id))
 
     def _upsert_scalars_when_online(self, scalars: List[ScalarRecord]) -> None:
         self._forward_upsert("scalars", lambda rpc, session_id: rpc.upsert_scalars(scalars, session_id))
 
     def _upsert_media_when_local(self, media: List[MediaRecord]) -> None:
-        return None
+        self._forward_upsert("media", lambda rpc, session_id: rpc.upsert_media(media, session_id))
 
     def _upsert_media_when_offline(self, media: List[MediaRecord]) -> None:
-        return None
+        self._forward_upsert("media", lambda rpc, session_id: rpc.upsert_media(media, session_id))
 
     def _upsert_media_when_online(self, media: List[MediaRecord]) -> None:
         self._forward_upsert("media", lambda rpc, session_id: rpc.upsert_media(media, session_id))
 
     def _upsert_logs_when_local(self, logs: List[LogRecord]) -> None:
-        return None
+        self._forward_upsert("logs", lambda rpc, session_id: rpc.upsert_logs(logs, session_id))
 
     def _upsert_logs_when_offline(self, logs: List[LogRecord]) -> None:
-        return None
+        self._forward_upsert("logs", lambda rpc, session_id: rpc.upsert_logs(logs, session_id))
 
     def _upsert_logs_when_online(self, logs: List[LogRecord]) -> None:
         self._forward_upsert("logs", lambda rpc, session_id: rpc.upsert_logs(logs, session_id))
 
     def _upsert_saves_when_local(self, saves: List[SaveRecord]) -> None:
-        return None
+        self._forward_upsert("saves", lambda rpc, session_id: rpc.upsert_saves(saves, session_id))
 
     def _upsert_saves_when_offline(self, saves: List[SaveRecord]) -> None:
-        return None
+        self._forward_upsert("saves", lambda rpc, session_id: rpc.upsert_saves(saves, session_id))
 
     def _upsert_saves_when_online(self, saves: List[SaveRecord]) -> None:
         self._forward_upsert("saves", lambda rpc, session_id: rpc.upsert_saves(saves, session_id))
@@ -256,12 +248,15 @@ class CoreGo(CoreProtocol):
     # ---------------------------------- 通知运行结束 ----------------------------------
 
     def _finish_when_local(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse:
-        return self._reject_finish("local")
+        return self._finish_enabled(finish_request)
 
     def _finish_when_offline(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse:
-        return self._reject_finish("offline")
+        return self._finish_enabled(finish_request)
 
     def _finish_when_online(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse:
+        return self._finish_enabled(finish_request)
+
+    def _finish_enabled(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse:
         with self._lock:
             if self._state != _RUNNING or self._session_id is None:
                 error = CoreGoError(Stage.LIFECYCLE, ReasonCode.NOT_STARTED, "run is not running; refusing to finish")
@@ -283,16 +278,6 @@ class CoreGo(CoreProtocol):
             if self._state == _RUNNING and self._session_id == session_id:
                 self._state = _FINISHED
         return response
-
-    def _reject_finish(self, mode: str) -> DeliverRunFinishResponse:
-        error = CoreGoError(
-            Stage.LIFECYCLE,
-            ReasonCode.MODE_UNSUPPORTED,
-            f"core_go only implements online mode in this build; mode={mode!r} is not handled by the Go core",
-        )
-        with self._lock:
-            self._last_error = error
-        return DeliverRunFinishResponse(success=False, message=str(error))
 
     # ---------------------------------- 进度查询 ----------------------------------
 

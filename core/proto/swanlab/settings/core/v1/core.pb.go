@@ -21,6 +21,62 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// Run mode. UNSPECIFIED is treated as ONLINE for backward compatibility.
+type CoreMode int32
+
+const (
+	CoreMode_CORE_MODE_UNSPECIFIED CoreMode = 0
+	CoreMode_CORE_MODE_ONLINE      CoreMode = 1
+	CoreMode_CORE_MODE_LOCAL       CoreMode = 2
+	CoreMode_CORE_MODE_OFFLINE     CoreMode = 3
+	CoreMode_CORE_MODE_DISABLED    CoreMode = 4
+)
+
+// Enum value maps for CoreMode.
+var (
+	CoreMode_name = map[int32]string{
+		0: "CORE_MODE_UNSPECIFIED",
+		1: "CORE_MODE_ONLINE",
+		2: "CORE_MODE_LOCAL",
+		3: "CORE_MODE_OFFLINE",
+		4: "CORE_MODE_DISABLED",
+	}
+	CoreMode_value = map[string]int32{
+		"CORE_MODE_UNSPECIFIED": 0,
+		"CORE_MODE_ONLINE":      1,
+		"CORE_MODE_LOCAL":       2,
+		"CORE_MODE_OFFLINE":     3,
+		"CORE_MODE_DISABLED":    4,
+	}
+)
+
+func (x CoreMode) Enum() *CoreMode {
+	p := new(CoreMode)
+	*p = x
+	return p
+}
+
+func (x CoreMode) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (CoreMode) Descriptor() protoreflect.EnumDescriptor {
+	return file_swanlab_settings_core_v1_core_proto_enumTypes[0].Descriptor()
+}
+
+func (CoreMode) Type() protoreflect.EnumType {
+	return &file_swanlab_settings_core_v1_core_proto_enumTypes[0]
+}
+
+func (x CoreMode) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use CoreMode.Descriptor instead.
+func (CoreMode) EnumDescriptor() ([]byte, []int) {
+	return file_swanlab_settings_core_v1_core_proto_rawDescGZIP(), []int{0}
+}
+
 type CoreSettings struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	RunId string                 `protobuf:"bytes,1,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
@@ -40,7 +96,9 @@ type CoreSettings struct {
 	// Cloud API endpoint, e.g. https://api.swanlab.cn. Core speaks REST with this host.
 	ApiHost string `protobuf:"bytes,12,opt,name=api_host,json=apiHost,proto3" json:"api_host,omitempty"`
 	// Cloud web endpoint, e.g. https://swanlab.cn. Only used to build user-facing experiment URLs.
-	WebHost       string `protobuf:"bytes,13,opt,name=web_host,json=webHost,proto3" json:"web_host,omitempty"`
+	WebHost string `protobuf:"bytes,13,opt,name=web_host,json=webHost,proto3" json:"web_host,omitempty"`
+	// Run mode. Online requires api_key/api_host; local/offline only write the local store.
+	Mode          CoreMode `protobuf:"varint,14,opt,name=mode,proto3,enum=swanlab.settings.core.v1.CoreMode" json:"mode,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -166,11 +224,18 @@ func (x *CoreSettings) GetWebHost() string {
 	return ""
 }
 
+func (x *CoreSettings) GetMode() CoreMode {
+	if x != nil {
+		return x.Mode
+	}
+	return CoreMode_CORE_MODE_UNSPECIFIED
+}
+
 var File_swanlab_settings_core_v1_core_proto protoreflect.FileDescriptor
 
 const file_swanlab_settings_core_v1_core_proto_rawDesc = "" +
 	"\n" +
-	"#swanlab/settings/core/v1/core.proto\x12\x18swanlab.settings.core.v1\"\x93\x03\n" +
+	"#swanlab/settings/core/v1/core.proto\x12\x18swanlab.settings.core.v1\"\xcb\x03\n" +
 	"\fCoreSettings\x12\x15\n" +
 	"\x06run_id\x18\x01 \x01(\tR\x05runId\x12\x17\n" +
 	"\arun_dir\x18\x02 \x01(\tR\x06runDir\x12!\n" +
@@ -188,7 +253,14 @@ const file_swanlab_settings_core_v1_core_proto_rawDesc = "" +
 	" \x01(\bR\tskipStore\x12\x17\n" +
 	"\aapi_key\x18\v \x01(\tR\x06apiKey\x12\x19\n" +
 	"\bapi_host\x18\f \x01(\tR\aapiHost\x12\x19\n" +
-	"\bweb_host\x18\r \x01(\tR\awebHostBPZNgithub.com/swanhubx/swanlab/core/proto/swanlab/settings/core/v1;settingscorev1b\x06proto3"
+	"\bweb_host\x18\r \x01(\tR\awebHost\x126\n" +
+	"\x04mode\x18\x0e \x01(\x0e2\".swanlab.settings.core.v1.CoreModeR\x04mode*\x7f\n" +
+	"\bCoreMode\x12\x19\n" +
+	"\x15CORE_MODE_UNSPECIFIED\x10\x00\x12\x14\n" +
+	"\x10CORE_MODE_ONLINE\x10\x01\x12\x13\n" +
+	"\x0fCORE_MODE_LOCAL\x10\x02\x12\x15\n" +
+	"\x11CORE_MODE_OFFLINE\x10\x03\x12\x16\n" +
+	"\x12CORE_MODE_DISABLED\x10\x04BPZNgithub.com/swanhubx/swanlab/core/proto/swanlab/settings/core/v1;settingscorev1b\x06proto3"
 
 var (
 	file_swanlab_settings_core_v1_core_proto_rawDescOnce sync.Once
@@ -202,16 +274,19 @@ func file_swanlab_settings_core_v1_core_proto_rawDescGZIP() []byte {
 	return file_swanlab_settings_core_v1_core_proto_rawDescData
 }
 
+var file_swanlab_settings_core_v1_core_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_swanlab_settings_core_v1_core_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_swanlab_settings_core_v1_core_proto_goTypes = []any{
-	(*CoreSettings)(nil), // 0: swanlab.settings.core.v1.CoreSettings
+	(CoreMode)(0),        // 0: swanlab.settings.core.v1.CoreMode
+	(*CoreSettings)(nil), // 1: swanlab.settings.core.v1.CoreSettings
 }
 var file_swanlab_settings_core_v1_core_proto_depIdxs = []int32{
-	0, // [0:0] is the sub-list for method output_type
-	0, // [0:0] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	0, // 0: swanlab.settings.core.v1.CoreSettings.mode:type_name -> swanlab.settings.core.v1.CoreMode
+	1, // [1:1] is the sub-list for method output_type
+	1, // [1:1] is the sub-list for method input_type
+	1, // [1:1] is the sub-list for extension type_name
+	1, // [1:1] is the sub-list for extension extendee
+	0, // [0:1] is the sub-list for field type_name
 }
 
 func init() { file_swanlab_settings_core_v1_core_proto_init() }
@@ -224,13 +299,14 @@ func file_swanlab_settings_core_v1_core_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_swanlab_settings_core_v1_core_proto_rawDesc), len(file_swanlab_settings_core_v1_core_proto_rawDesc)),
-			NumEnums:      0,
+			NumEnums:      1,
 			NumMessages:   1,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_swanlab_settings_core_v1_core_proto_goTypes,
 		DependencyIndexes: file_swanlab_settings_core_v1_core_proto_depIdxs,
+		EnumInfos:         file_swanlab_settings_core_v1_core_proto_enumTypes,
 		MessageInfos:      file_swanlab_settings_core_v1_core_proto_msgTypes,
 	}.Build()
 	File_swanlab_settings_core_v1_core_proto = out.File

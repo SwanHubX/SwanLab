@@ -47,6 +47,20 @@ var (
 	ErrRunDirRequired = errors.New("run_dir is required")
 )
 
+// Mode 是单个 run 的运行模式。空值按 online 处理，兼容未下发 mode 的旧客户端。
+type Mode string
+
+const (
+	// ModeOnline 走云端编排与上传。
+	ModeOnline Mode = "online"
+	// ModeLocal 只写本地 store，不上传。
+	ModeLocal Mode = "local"
+	// ModeOffline 只写本地 store，供后续补传。
+	ModeOffline Mode = "offline"
+	// ModeDisabled 不落盘、不上传；Python 侧不会为此模式启动 core 进程。
+	ModeDisabled Mode = "disabled"
+)
+
 // Settings 是单个会话的运行配置。
 //
 // 字段在构造后视为只读；云端身份（username/project/experiment_id 等）属于
@@ -56,6 +70,8 @@ type Settings struct {
 	RunID string
 	// RunDir 本次运行的本地根目录（绝对路径，OS 相关格式）。
 	RunDir string
+	// Mode 运行模式；空值按 online 处理。
+	Mode Mode
 
 	// SectionRule 自动列的 section 切分规则（见 builder.BuildAutoColumn）。
 	SectionRule int32
@@ -86,8 +102,8 @@ type Settings struct {
 
 // Defaults 返回与 Python CoreSettings 一致的默认配置。
 //
-// 只填有非零默认值的字段：RunID / RunDir / SectionRule / SkipStore /
-// APIKey / APIHost / WebHost 保持零值（SectionRule 的默认值就是 0）。
+// 只填有非零默认值的字段：RunID / RunDir / Mode / SectionRule / SkipStore /
+// APIKey / APIHost / WebHost 保持零值（Mode 空值按 online 处理）。
 func Defaults() Settings {
 	return Settings{
 		RecordBatch:    DefaultRecordBatch,
@@ -97,6 +113,14 @@ func Defaults() Settings {
 		SavePart:       DefaultSavePart,
 		SaveBatch:      DefaultSaveBatch,
 	}
+}
+
+// NormalizedMode 返回最终运行模式；空值按 online 处理。
+func (s Settings) NormalizedMode() Mode {
+	if s.Mode == "" {
+		return ModeOnline
+	}
+	return s.Mode
 }
 
 // Validate 校验必填项与数值边界。
@@ -109,6 +133,14 @@ func (s Settings) Validate() error {
 	}
 	if s.RunDir == "" {
 		return fmt.Errorf("config: %w", ErrRunDirRequired)
+	}
+	switch s.NormalizedMode() {
+	case ModeOnline, ModeLocal, ModeOffline, ModeDisabled:
+	default:
+		return fmt.Errorf("config: unknown mode %q", s.Mode)
+	}
+	if s.NormalizedMode() != ModeOnline && s.SkipStore {
+		return fmt.Errorf("config: skip_store is only valid in online mode")
 	}
 	if s.RecordBatch <= 0 || int64(s.RecordBatch) >= recordBatchMax {
 		return fmt.Errorf("config: record_batch (%d) must be in (0, %d)", s.RecordBatch, recordBatchMax)
@@ -138,9 +170,9 @@ func MaskKey(key string) string {
 // API Key 一律脱敏，避免配置日志泄漏凭据。
 func (s Settings) String() string {
 	return fmt.Sprintf(
-		"run_id=%s run_dir=%s skip_store=%t section_rule=%d record_batch=%d record_interval=%.1f "+
+		"run_id=%s run_dir=%s mode=%s skip_store=%t section_rule=%d record_batch=%d record_interval=%.1f "+
 			"save_size=%d save_split=%d save_part=%d save_batch=%d api_host=%s web_host=%s api_key=%s",
-		s.RunID, s.RunDir, s.SkipStore, s.SectionRule, s.RecordBatch, s.RecordInterval,
+		s.RunID, s.RunDir, s.NormalizedMode(), s.SkipStore, s.SectionRule, s.RecordBatch, s.RecordInterval,
 		s.SaveSize, s.SaveSplit, s.SavePart, s.SaveBatch, s.APIHost, s.WebHost, MaskKey(s.APIKey),
 	)
 }

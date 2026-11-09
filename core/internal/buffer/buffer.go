@@ -56,6 +56,8 @@ var (
 type Options struct {
 	// SkipStore 是启动期配置，创建后只读；为 true 时不写本地，Store 必须为 nil。
 	SkipStore bool
+	// StoreOnly 为 true 时所有记录只写本地，不进入上传通道（local/offline）。
+	StoreOnly bool
 	// Store 是 AsyncWriter 的写入入口，容量应不小于单批最大记录数。
 	Store chan<- store.Request
 	// UploadQueue 是上传通道容量，应不小于单批最大记录数；<=0 取 DefaultUploadQueue。
@@ -105,6 +107,7 @@ type Ticket struct {
 // Intake 是单个会话的入口分发器，并发安全。
 type Intake struct {
 	skipStore bool
+	storeOnly bool
 	storeOut  chan<- store.Request
 	upload    chan *recordv1.Record
 	budget    *budget.Budget
@@ -136,6 +139,9 @@ func New(opts Options) (*Intake, error) {
 	if !opts.SkipStore && opts.Store == nil {
 		return nil, errors.New("buffer: nil store channel")
 	}
+	if opts.SkipStore && opts.StoreOnly {
+		return nil, errors.New("buffer: store_only requires the local store")
+	}
 	if !opts.SkipStore && opts.Flushed == nil {
 		return nil, errors.New("buffer: nil flushed callback")
 	}
@@ -156,6 +162,7 @@ func New(opts Options) (*Intake, error) {
 	upload := make(chan *recordv1.Record, queue)
 	t := &Intake{
 		skipStore: opts.SkipStore,
+		storeOnly: opts.StoreOnly,
 		storeOut:  opts.Store,
 		upload:    upload,
 		budget:    opts.Budget,
@@ -185,6 +192,9 @@ func (t *Intake) Reserve(ctx context.Context, d Demand) (Ticket, error) {
 	if d.Store < 0 || d.Upload < 0 || d.Deferred < 0 || d.Bytes < 0 || d.DeferredBytes < 0 {
 		return Ticket{}, fmt.Errorf("buffer: invalid demand store=%d upload=%d deferred=%d bytes=%d deferredBytes=%d",
 			d.Store, d.Upload, d.Deferred, d.Bytes, d.DeferredBytes)
+	}
+	if t.storeOnly {
+		d.Upload, d.Deferred, d.Bytes, d.DeferredBytes = 0, 0, 0, 0
 	}
 
 	t.mu.Lock()
@@ -322,6 +332,9 @@ func (t *Intake) Commit(tk Ticket, records []*recordv1.Record) error {
 	}
 
 	immediate, deferred := routeRecords(records)
+	if t.storeOnly {
+		immediate, deferred = nil, nil
+	}
 	uploadable := len(immediate) + len(deferred)
 	payloads, wantStore := t.encodeStore(records)
 
@@ -542,25 +555,27 @@ func (t *Intake) Close(ctx context.Context) error {
 	t.recovery = nil
 	t.mu.Unlock()
 
-	for i := range recovery {
-		size := record.Size(recovery[i])
-		t.budget.Adjust(1, size)
-		select {
-		case t.upload <- recovery[i]:
-		case <-ctx.Done():
-			t.budget.Adjust(-1, -size)
-			t.restoreRecovery(recovery[i:])
-			// 延迟记录尚未开始投递，必须随本次失败一起放回。
-			t.restorePending(pending)
-			return ctx.Err()
+	if !t.storeOnly {
+		for i := range recovery {
+			size := record.Size(recovery[i])
+			t.budget.Adjust(1, size)
+			select {
+			case t.upload <- recovery[i]:
+			case <-ctx.Done():
+				t.budget.Adjust(-1, -size)
+				t.restoreRecovery(recovery[i:])
+				// 延迟记录尚未开始投递，必须随本次失败一起放回。
+				t.restorePending(pending)
+				return ctx.Err()
+			}
 		}
-	}
-	for i := range pending {
-		select {
-		case t.upload <- pending[i]:
-		case <-ctx.Done():
-			t.restorePending(pending[i:])
-			return ctx.Err()
+		for i := range pending {
+			select {
+			case t.upload <- pending[i]:
+			case <-ctx.Done():
+				t.restorePending(pending[i:])
+				return ctx.Err()
+			}
 		}
 	}
 

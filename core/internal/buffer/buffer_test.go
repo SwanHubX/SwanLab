@@ -488,6 +488,25 @@ func TestCommitRoutes(t *testing.T) {
 	}
 }
 
+func TestStoreOnlyRoutesDataToStoreOnly(t *testing.T) {
+	sink := newStoreSink(8)
+	defer sink.stop()
+	in := newIntake(t, Options{Store: sink.ch, StoreOnly: true, Budget: budget.New(budget.Limits{}), UploadQueue: 8})
+
+	mustCommit(t, in, scalarRecord(1), saveRecord(2, savev1.SavePolicy_SAVE_POLICY_END))
+	if got := waitStore(t, sink, 2); len(got) != 2 {
+		t.Fatalf("store got %d records, want 2", len(got))
+	}
+	select {
+	case rec := <-in.UploadOut():
+		t.Fatalf("store-only intake uploaded %v", rec)
+	default:
+	}
+	if err := in.Close(context.Background()); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+}
+
 func TestSkipStoreRoutesDataToUpload(t *testing.T) {
 	b := budget.New(budget.Limits{})
 	in := newIntake(t, Options{SkipStore: true, Budget: b, UploadQueue: 4})

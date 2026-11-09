@@ -92,10 +92,14 @@ func (f *fakeManager) DeliverRunStart(
 	f.next++
 	sessionID := fmt.Sprintf("session-%d", f.next)
 	f.sessions[sessionID] = manager.RunStateRunning
+	path := "/alice/demo/run-1"
+	if settings.NormalizedMode() != config.ModeOnline {
+		path = ""
+	}
 	return &manager.StartResult{
 		SessionID:     sessionID,
 		Run:           record,
-		Path:          "/alice/demo/run-1",
+		Path:          path,
 		Name:          "demo",
 		GlobalStep:    -1,
 		NewExperiment: true,
@@ -344,6 +348,29 @@ func TestRunRPCsRejectedBeforeReady(t *testing.T) {
 	}
 }
 
+func TestDeliverRunStartLocalAllowsEmptyPath(t *testing.T) {
+	env := newTestEnv(t)
+	spinup(t, env)
+
+	settings := validSettings(t)
+	settings.Mode = settingsv1.CoreMode_CORE_MODE_LOCAL
+	settings.ApiKey = ""
+	settings.ApiHost = ""
+	resp, err := env.client.DeliverRunStart(callCtx(t), &corev1.DeliverRunStartRequest{
+		CoreSettings: settings,
+		StartRecord:  &runv1.StartRecord{Project: "demo", Id: "run-1"},
+	})
+	if err != nil {
+		t.Fatalf("DeliverRunStart: %v", err)
+	}
+	if !resp.GetSuccess() || resp.GetSessionId() == "" {
+		t.Fatalf("local start response = %v", resp)
+	}
+	if len(env.runs.starts) != 1 || env.runs.starts[0].settings.Mode != config.ModeLocal {
+		t.Fatalf("manager settings = %+v", env.runs.starts)
+	}
+}
+
 func TestDeliverRunStartValidatesRequest(t *testing.T) {
 	env := newTestEnv(t)
 	spinup(t, env)
@@ -436,6 +463,7 @@ func TestSettingsFromProto(t *testing.T) {
 	want := config.Settings{
 		RunID:          "run-1",
 		RunDir:         "/tmp/run",
+		Mode:           config.ModeOnline,
 		SectionRule:    2,
 		RecordBatch:    500,
 		RecordInterval: 0.5,
@@ -450,6 +478,25 @@ func TestSettingsFromProto(t *testing.T) {
 	}
 	if got != want {
 		t.Fatalf("settings = %+v, want %+v", got, want)
+	}
+
+	local := &settingsv1.CoreSettings{
+		RunId:          "run-1",
+		RunDir:         "/tmp/run",
+		Mode:           settingsv1.CoreMode_CORE_MODE_LOCAL,
+		RecordBatch:    500,
+		RecordInterval: 0.5,
+		SaveSize:       1,
+		SaveSplit:      2,
+		SavePart:       3,
+		SaveBatch:      4,
+	}
+	gotLocal, err := settingsFromProto(local)
+	if err != nil {
+		t.Fatalf("local settings must not require cloud credentials: %v", err)
+	}
+	if gotLocal.Mode != config.ModeLocal {
+		t.Fatalf("mode = %q, want %q", gotLocal.Mode, config.ModeLocal)
 	}
 
 	if _, err := settingsFromProto(nil); err == nil {
