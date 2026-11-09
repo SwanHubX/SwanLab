@@ -127,6 +127,7 @@ def test_close_cleans_channel_process_and_runtime_once(launcher_env):
     assert channel.closed == 1
     assert calls["reap"] == 1
     assert calls["cleanup"] == 1
+    assert launcher.exit_code == 0
 
 
 def test_abort_is_idempotent(launcher_env):

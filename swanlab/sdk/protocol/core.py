@@ -71,6 +71,11 @@ class CoreProtocol(ABC):
     def __init__(self, mode: ModeType):
         self._mode = mode
 
+    @property
+    def last_error(self) -> Optional[CoreProtocolError]:
+        """最近一次失败的分类错误；实现可按需覆盖，默认不提供结构化错误。"""
+        return None
+
     def _guard_upsert(self, message: str, call: Callable[[], None]) -> None:
         if self.raises_on_upsert_error:
             call()

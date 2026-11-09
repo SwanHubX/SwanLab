@@ -53,6 +53,7 @@ class CoreLauncher:
         self._proc: Optional[subprocess.Popen] = None
         self._channel: Optional[Channel] = None
         self._endpoint: Optional[Endpoint] = None
+        self._exit_code: Optional[int] = None
         self._lock = threading.Lock()
         self._state = _NEW
         self._owner_pid = fork.current_pid()
@@ -72,6 +73,11 @@ class CoreLauncher:
         if self._channel is None:
             raise CoreGoError(Stage.LIFECYCLE, ReasonCode.NOT_STARTED, "core launcher has not started")
         return self._channel
+
+    @property
+    def exit_code(self) -> Optional[int]:
+        """回收后的进程退出码；未启动或尚未回收时为 None。"""
+        return self._exit_code
 
     def start(self) -> Endpoint:
         """拉起 core 并等待 channel-ready。
@@ -141,7 +147,7 @@ class CoreLauncher:
         if channel is not None:
             channel.close()
         if proc is not None:
-            reap_process(proc)
+            self._exit_code = reap_process(proc)
         if lease is not None:
             cleanup_runtime(lease)
 

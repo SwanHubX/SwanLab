@@ -34,6 +34,7 @@ from swanlab.sdk.internal.pkg import adapter, console, fork, helper, safe
 from swanlab.sdk.internal.run import greeting
 from swanlab.sdk.internal.run.components import Components
 from swanlab.sdk.internal.run.components.config import Config
+from swanlab.sdk.internal.run.finish_retry import retry_finish_call
 from swanlab.sdk.internal.run.progress import run_with_progress
 from swanlab.sdk.internal.run.transforms import (
     Audio,
@@ -232,6 +233,18 @@ class Run:
                 full_error_msg = "".join(traceback.format_exception(tp, val, tb))
                 self.finish(state=state, error=full_error_msg)
         self._sys_origin_excepthook(tp, val, tb)
+
+    def _report_local_recovery(self, message: str) -> None:
+        """confirm 失败且本地副本完整时，提示从 run-*.swanlab 恢复。"""
+        if self.mode != "online" or self._ctx.config.settings.core.skip_store:
+            return
+        # Go / Python 实现只在本地副本完整时返回该文案；降级与 skip_store 使用其它提示。
+        if "saved locally" not in message:
+            return
+        console.warning(
+            f"Local copy is complete: {self._ctx.run_file}",
+            f"Restore it with `swanlab sync {self._ctx.run_dir}`.",
+        )
 
     # ----------------------------------
     # 公开辅助属性
@@ -872,25 +885,32 @@ class Run:
         greeting.goodbye(self._ctx, self)
         # 2. 运行结束，清理组件
         self._state = this_state
-        # 停止所有内部组件（async_log → terminal → config → consumer）
-        self._components.stop(async_log_timeout=async_log_timeout)
-        # 停止probe
-        self._probe.deliver_probe_finish()
-        ts = Timestamp()
-        ts.GetCurrentTime()
-        # 3. 停止Core
-        finish_request = DeliverRunFinishRequest(
-            finish_record=FinishRecord(state=adapter.state[this_state], error=error, finished_at=ts)
-        )
-        finish_resp = self._core.deliver_run_finish(finish_request)
-        if not finish_resp.success:
-            console.error(finish_resp.message)
-        confirm_resp = run_with_progress(
-            stats_fn=self._core.get_operation_stats,
-            blocking_fn=self._core.confirm_run_finish,
-        )
-        if not confirm_resp.success:
-            console.error(confirm_resp.message)
+        try:
+            # 停止所有内部组件（async_log → terminal → config → consumer）
+            self._components.stop(async_log_timeout=async_log_timeout)
+            # 停止probe
+            self._probe.deliver_probe_finish()
+            ts = Timestamp()
+            ts.GetCurrentTime()
+            # 3. 停止Core：deliver 只重试可重试错误，失败时不再 confirm
+            finish_request = DeliverRunFinishRequest(
+                finish_record=FinishRecord(state=adapter.state[this_state], error=error, finished_at=ts)
+            )
+            finish_resp = retry_finish_call(self._core, lambda: self._core.deliver_run_finish(finish_request))
+            if not finish_resp.success:
+                console.error(finish_resp.message)
+            else:
+                confirm_resp = run_with_progress(
+                    stats_fn=self._core.get_operation_stats,
+                    blocking_fn=lambda: retry_finish_call(self._core, self._core.confirm_run_finish),
+                )
+                if not confirm_resp.success:
+                    console.error(confirm_resp.message)
+                    self._report_local_recovery(confirm_resp.message)
+        finally:
+            # 无论 deliver/confirm 是否成功，都必须回收 Core 进程与 channel
+            with safe.block(message="core close failed during finish"):
+                self._core.close()
         # finish 回调
         self._callbacker.on_run_finished(this_state, error)
         console.debug(f"SwanLab Run has finished with state: {self._state}, cleanup...")

@@ -8,6 +8,7 @@
 import signal
 import sys
 import threading
+from typing import cast
 from unittest.mock import ANY, MagicMock, patch
 
 import pytest
@@ -99,10 +100,12 @@ class TestFinish:
             # confirm 失败（如存在未确认上传记录）时也照常清理全局实例，失败原因已在 finish 内报告
             assert run_module._current_run is None
 
-        mock_run_with_progress.assert_called_once_with(
-            stats_fn=run._core.get_operation_stats,
-            blocking_fn=run._core.confirm_run_finish,
-        )
+        kwargs = mock_run_with_progress.call_args.kwargs
+        assert kwargs["stats_fn"] == run._core.get_operation_stats
+        kwargs["blocking_fn"]()
+        core = cast(MagicMock, run._core)
+        core.confirm_run_finish.assert_called_once()
+        core.close.assert_called_once()
 
 
 class TestExcepthook:

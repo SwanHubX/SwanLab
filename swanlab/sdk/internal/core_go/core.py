@@ -84,10 +84,16 @@ class CoreGo(CoreProtocol):
         self._session_id: Optional[str] = None
         self._last_error: Optional[CoreGoError] = None
         self._abort_cause: Optional[BaseException] = None
+        self._exit_code: Optional[int] = None
 
     @property
     def last_error(self) -> Optional[CoreGoError]:
         return self._last_error
+
+    @property
+    def exit_code(self) -> Optional[int]:
+        """最近一次 close/abort 回收的 core 进程退出码。"""
+        return self._exit_code
 
     # ---------------------------------- 实验开始 ----------------------------------
 
@@ -277,6 +283,13 @@ class CoreGo(CoreProtocol):
         with self._lock:
             if self._state == _RUNNING and self._session_id == session_id:
                 self._state = _FINISHED
+            if not response.success:
+                # 终态提交失败（如本地 store 不可用）属于确定性拒绝，调用方不应重试。
+                self._last_error = CoreGoError(
+                    Stage.LIFECYCLE,
+                    ReasonCode.RUN_FINISH_REJECTED,
+                    response.message or "DeliverRunFinish rejected",
+                )
         return response
 
     # ---------------------------------- 进度查询 ----------------------------------
@@ -323,8 +336,17 @@ class CoreGo(CoreProtocol):
             return ConfirmRunFinishResponse(success=False, message=str(error))
 
         with self._lock:
-            if self._session_id == session_id:
-                self._session_id = None
+            if response.success:
+                if self._session_id == session_id:
+                    self._session_id = None
+            else:
+                # Core 保留会话等待下一次 Confirm 重试，这里不能清 session_id。
+                self._last_error = CoreGoError(
+                    Stage.LIFECYCLE,
+                    ReasonCode.RUN_FINISH_REJECTED,
+                    response.message or "ConfirmRunFinish rejected",
+                    retryable=True,
+                )
         return response
 
     # ---------------------------------- 生命周期回收 ----------------------------------
@@ -361,6 +383,7 @@ class CoreGo(CoreProtocol):
             if launcher is not None:
                 with safe.block(level="debug", message="core launcher close failed"):
                     launcher.close()
+                self._exit_code = launcher.exit_code
         finally:
             with self._lock:
                 self._rpc = None
@@ -389,6 +412,7 @@ class CoreGo(CoreProtocol):
             if launcher is not None:
                 with safe.block(level="debug", message="core launcher abort failed"):
                     launcher.abort()
+                self._exit_code = launcher.exit_code
         finally:
             with self._lock:
                 self._rpc = None
