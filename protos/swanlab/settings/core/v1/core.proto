@@ -24,17 +24,18 @@ message CoreSettings {
     // Cloud web endpoint, e.g. https://swanlab.cn. Only used to build user-facing experiment URLs.
     string web_host = 13;
 
+    // Field 14 is reserved for `mode` in the SDK lifecycle work; do not reuse it.
     // Upload pipeline budget in records / bytes; <=0 means the dimension is unlimited.
-    // Defaults stay unlimited until backfill (T4) is available.
-    int64 upload_budget_records = 14;
-    int64 upload_budget_bytes   = 15;
+    // Defaults stay unlimited until backfill is available.
+    int64 upload_budget_records = 15;
+    int64 upload_budget_bytes   = 16;
     // Site health probe cadence and per-probe timeout in seconds; 0 uses the core default.
-    double health_probe_interval = 16;
-    double health_probe_timeout  = 17;
+    double health_probe_interval = 17;
+    double health_probe_timeout  = 18;
     // Consecutive failures / successes required to flip the health state; 0 uses the core default.
-    int32 health_degrade_threshold = 18;
-    int32 health_recover_threshold = 19;
+    int32 health_degrade_threshold = 19;
+    int32 health_recover_threshold = 20;
     // Probe paths relative to api_host; empty uses the core default.
-    string health_probe_control_path = 20;
-    string health_probe_data_path    = 21;
+    string health_probe_control_path = 21;
+    string health_probe_data_path    = 22;
 }

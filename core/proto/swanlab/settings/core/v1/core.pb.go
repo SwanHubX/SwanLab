@@ -41,19 +41,20 @@ type CoreSettings struct {
 	ApiHost string `protobuf:"bytes,12,opt,name=api_host,json=apiHost,proto3" json:"api_host,omitempty"`
 	// Cloud web endpoint, e.g. https://swanlab.cn. Only used to build user-facing experiment URLs.
 	WebHost string `protobuf:"bytes,13,opt,name=web_host,json=webHost,proto3" json:"web_host,omitempty"`
+	// Field 14 is reserved for `mode` in the SDK lifecycle work; do not reuse it.
 	// Upload pipeline budget in records / bytes; <=0 means the dimension is unlimited.
-	// Defaults stay unlimited until backfill (T4) is available.
-	UploadBudgetRecords int64 `protobuf:"varint,14,opt,name=upload_budget_records,json=uploadBudgetRecords,proto3" json:"upload_budget_records,omitempty"`
-	UploadBudgetBytes   int64 `protobuf:"varint,15,opt,name=upload_budget_bytes,json=uploadBudgetBytes,proto3" json:"upload_budget_bytes,omitempty"`
+	// Defaults stay unlimited until backfill is available.
+	UploadBudgetRecords int64 `protobuf:"varint,15,opt,name=upload_budget_records,json=uploadBudgetRecords,proto3" json:"upload_budget_records,omitempty"`
+	UploadBudgetBytes   int64 `protobuf:"varint,16,opt,name=upload_budget_bytes,json=uploadBudgetBytes,proto3" json:"upload_budget_bytes,omitempty"`
 	// Site health probe cadence and per-probe timeout in seconds; 0 uses the core default.
-	HealthProbeInterval float64 `protobuf:"fixed64,16,opt,name=health_probe_interval,json=healthProbeInterval,proto3" json:"health_probe_interval,omitempty"`
-	HealthProbeTimeout  float64 `protobuf:"fixed64,17,opt,name=health_probe_timeout,json=healthProbeTimeout,proto3" json:"health_probe_timeout,omitempty"`
+	HealthProbeInterval float64 `protobuf:"fixed64,17,opt,name=health_probe_interval,json=healthProbeInterval,proto3" json:"health_probe_interval,omitempty"`
+	HealthProbeTimeout  float64 `protobuf:"fixed64,18,opt,name=health_probe_timeout,json=healthProbeTimeout,proto3" json:"health_probe_timeout,omitempty"`
 	// Consecutive failures / successes required to flip the health state; 0 uses the core default.
-	HealthDegradeThreshold int32 `protobuf:"varint,18,opt,name=health_degrade_threshold,json=healthDegradeThreshold,proto3" json:"health_degrade_threshold,omitempty"`
-	HealthRecoverThreshold int32 `protobuf:"varint,19,opt,name=health_recover_threshold,json=healthRecoverThreshold,proto3" json:"health_recover_threshold,omitempty"`
+	HealthDegradeThreshold int32 `protobuf:"varint,19,opt,name=health_degrade_threshold,json=healthDegradeThreshold,proto3" json:"health_degrade_threshold,omitempty"`
+	HealthRecoverThreshold int32 `protobuf:"varint,20,opt,name=health_recover_threshold,json=healthRecoverThreshold,proto3" json:"health_recover_threshold,omitempty"`
 	// Probe paths relative to api_host; empty uses the core default.
-	HealthProbeControlPath string `protobuf:"bytes,20,opt,name=health_probe_control_path,json=healthProbeControlPath,proto3" json:"health_probe_control_path,omitempty"`
-	HealthProbeDataPath    string `protobuf:"bytes,21,opt,name=health_probe_data_path,json=healthProbeDataPath,proto3" json:"health_probe_data_path,omitempty"`
+	HealthProbeControlPath string `protobuf:"bytes,21,opt,name=health_probe_control_path,json=healthProbeControlPath,proto3" json:"health_probe_control_path,omitempty"`
+	HealthProbeDataPath    string `protobuf:"bytes,22,opt,name=health_probe_data_path,json=healthProbeDataPath,proto3" json:"health_probe_data_path,omitempty"`
 	unknownFields          protoimpl.UnknownFields
 	sizeCache              protoimpl.SizeCache
 }
@@ -258,14 +259,14 @@ const file_swanlab_settings_core_v1_core_proto_rawDesc = "" +
 	"\aapi_key\x18\v \x01(\tR\x06apiKey\x12\x19\n" +
 	"\bapi_host\x18\f \x01(\tR\aapiHost\x12\x19\n" +
 	"\bweb_host\x18\r \x01(\tR\awebHost\x122\n" +
-	"\x15upload_budget_records\x18\x0e \x01(\x03R\x13uploadBudgetRecords\x12.\n" +
-	"\x13upload_budget_bytes\x18\x0f \x01(\x03R\x11uploadBudgetBytes\x122\n" +
-	"\x15health_probe_interval\x18\x10 \x01(\x01R\x13healthProbeInterval\x120\n" +
-	"\x14health_probe_timeout\x18\x11 \x01(\x01R\x12healthProbeTimeout\x128\n" +
-	"\x18health_degrade_threshold\x18\x12 \x01(\x05R\x16healthDegradeThreshold\x128\n" +
-	"\x18health_recover_threshold\x18\x13 \x01(\x05R\x16healthRecoverThreshold\x129\n" +
-	"\x19health_probe_control_path\x18\x14 \x01(\tR\x16healthProbeControlPath\x123\n" +
-	"\x16health_probe_data_path\x18\x15 \x01(\tR\x13healthProbeDataPathBPZNgithub.com/swanhubx/swanlab/core/proto/swanlab/settings/core/v1;settingscorev1b\x06proto3"
+	"\x15upload_budget_records\x18\x0f \x01(\x03R\x13uploadBudgetRecords\x12.\n" +
+	"\x13upload_budget_bytes\x18\x10 \x01(\x03R\x11uploadBudgetBytes\x122\n" +
+	"\x15health_probe_interval\x18\x11 \x01(\x01R\x13healthProbeInterval\x120\n" +
+	"\x14health_probe_timeout\x18\x12 \x01(\x01R\x12healthProbeTimeout\x128\n" +
+	"\x18health_degrade_threshold\x18\x13 \x01(\x05R\x16healthDegradeThreshold\x128\n" +
+	"\x18health_recover_threshold\x18\x14 \x01(\x05R\x16healthRecoverThreshold\x129\n" +
+	"\x19health_probe_control_path\x18\x15 \x01(\tR\x16healthProbeControlPath\x123\n" +
+	"\x16health_probe_data_path\x18\x16 \x01(\tR\x13healthProbeDataPathBPZNgithub.com/swanhubx/swanlab/core/proto/swanlab/settings/core/v1;settingscorev1b\x06proto3"
 
 var (
 	file_swanlab_settings_core_v1_core_proto_rawDescOnce sync.Once
