@@ -7,7 +7,7 @@
 
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import List, Optional
+from typing import Callable, List, Optional
 
 from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
     ConfirmRunFinishResponse,
@@ -30,7 +30,14 @@ from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogRecord
 from swanlab.sdk.internal.pkg import safe
 from swanlab.sdk.typings.run import ModeType
 
-__all__ = ["CoreEnum", "CoreProtocol", "CoreSyncProtocol", "NullCoreProtocol"]
+__all__ = [
+    "CoreEnum",
+    "CoreProtocol",
+    "CoreProtocolError",
+    "CoreSyncProtocol",
+    "NullCoreProtocol",
+    "is_terminal_stats_error",
+]
 
 
 class CoreEnum(str, Enum):
@@ -38,14 +45,38 @@ class CoreEnum(str, Enum):
     CORE = "Core"
 
 
+class CoreProtocolError(Exception):
+    """core 交互错误基类。
+
+    retryable 为 True 表示同一批数据可以重试（限流、网络不可用、超时）；
+    为 False 表示确定性拒绝，调用方必须终结该批，不能无限回塞。
+    """
+
+    def __init__(self, message: str = "", *, retryable: bool) -> None:
+        super().__init__(message)
+        self.retryable = retryable
+
+
 class CoreProtocol(ABC):
     """
     SwanLab Core 协议
     协议层作为一个"垫片"，抹平前端与后端实现的差异，我们对CoreProtocol的错误处理理念基本与go一致，不raise Error，仅返回处理结果，上层根据返回结果做相应处理
+
+    ``raises_on_upsert_error`` 是实现级开关：默认 False 保持"记录日志后吞掉"的历史语义；
+    置为 True 的实现把 upsert 异常交给调用方（consumer）分类重试或终结。
     """
+
+    raises_on_upsert_error: bool = False
 
     def __init__(self, mode: ModeType):
         self._mode = mode
+
+    def _guard_upsert(self, message: str, call: Callable[[], None]) -> None:
+        if self.raises_on_upsert_error:
+            call()
+            return
+        with safe.block(message=message):
+            call()
 
     # ---------------------------------- 实验开始 ----------------------------------
 
@@ -87,14 +118,16 @@ class CoreProtocol(ABC):
 
     def upsert_columns(self, columns: List[ColumnRecord]) -> None:
         """上报一组 ColumnRecord，定义指标列"""
-        with safe.block(message="upsert columns error"):
-            if self._mode == "online":
-                return self._upsert_columns_when_online(columns)
-            elif self._mode == "local":
-                return self._upsert_columns_when_local(columns)
-            elif self._mode == "offline":
-                return self._upsert_columns_when_offline(columns)
-            return self._upsert_columns_when_disabled(columns)
+        self._guard_upsert("upsert columns error", lambda: self._upsert_columns_dispatch(columns))
+
+    def _upsert_columns_dispatch(self, columns: List[ColumnRecord]) -> None:
+        if self._mode == "online":
+            return self._upsert_columns_when_online(columns)
+        elif self._mode == "local":
+            return self._upsert_columns_when_local(columns)
+        elif self._mode == "offline":
+            return self._upsert_columns_when_offline(columns)
+        return self._upsert_columns_when_disabled(columns)
 
     def _upsert_columns_when_disabled(self, columns: List[ColumnRecord]) -> None: ...
 
@@ -111,14 +144,16 @@ class CoreProtocol(ABC):
 
     def upsert_scalars(self, scalars: List[ScalarRecord]) -> None:
         """上报一组 ScalarRecord，记录标量指标值"""
-        with safe.block(message="upsert data error"):
-            if self._mode == "online":
-                return self._upsert_scalars_when_online(scalars)
-            elif self._mode == "local":
-                return self._upsert_scalars_when_local(scalars)
-            elif self._mode == "offline":
-                return self._upsert_scalars_when_offline(scalars)
-            return self._upsert_scalars_when_disabled(scalars)
+        self._guard_upsert("upsert data error", lambda: self._upsert_scalars_dispatch(scalars))
+
+    def _upsert_scalars_dispatch(self, scalars: List[ScalarRecord]) -> None:
+        if self._mode == "online":
+            return self._upsert_scalars_when_online(scalars)
+        elif self._mode == "local":
+            return self._upsert_scalars_when_local(scalars)
+        elif self._mode == "offline":
+            return self._upsert_scalars_when_offline(scalars)
+        return self._upsert_scalars_when_disabled(scalars)
 
     def _upsert_scalars_when_disabled(self, scalars: List[ScalarRecord]) -> None: ...
 
@@ -135,14 +170,16 @@ class CoreProtocol(ABC):
 
     def upsert_media(self, media: List[MediaRecord]) -> None:
         """上报一组 MediaRecord，记录媒体指标值"""
-        with safe.block(message="upsert data error"):
-            if self._mode == "online":
-                return self._upsert_media_when_online(media)
-            elif self._mode == "local":
-                return self._upsert_media_when_local(media)
-            elif self._mode == "offline":
-                return self._upsert_media_when_offline(media)
-            return self._upsert_media_when_disabled(media)
+        self._guard_upsert("upsert data error", lambda: self._upsert_media_dispatch(media))
+
+    def _upsert_media_dispatch(self, media: List[MediaRecord]) -> None:
+        if self._mode == "online":
+            return self._upsert_media_when_online(media)
+        elif self._mode == "local":
+            return self._upsert_media_when_local(media)
+        elif self._mode == "offline":
+            return self._upsert_media_when_offline(media)
+        return self._upsert_media_when_disabled(media)
 
     def _upsert_media_when_disabled(self, media: List[MediaRecord]) -> None: ...
 
@@ -159,14 +196,16 @@ class CoreProtocol(ABC):
 
     def upsert_logs(self, logs: List[LogRecord]) -> None:
         """上报一组 LogRecord，记录用户终端输出"""
-        with safe.block(message="upsert logs error"):
-            if self._mode == "online":
-                return self._upsert_logs_when_online(logs)
-            elif self._mode == "local":
-                return self._upsert_logs_when_local(logs)
-            elif self._mode == "offline":
-                return self._upsert_logs_when_offline(logs)
-            return self._upsert_logs_when_disabled(logs)
+        self._guard_upsert("upsert logs error", lambda: self._upsert_logs_dispatch(logs))
+
+    def _upsert_logs_dispatch(self, logs: List[LogRecord]) -> None:
+        if self._mode == "online":
+            return self._upsert_logs_when_online(logs)
+        elif self._mode == "local":
+            return self._upsert_logs_when_local(logs)
+        elif self._mode == "offline":
+            return self._upsert_logs_when_offline(logs)
+        return self._upsert_logs_when_disabled(logs)
 
     def _upsert_logs_when_disabled(self, logs: List[LogRecord]) -> None: ...
 
@@ -183,14 +222,16 @@ class CoreProtocol(ABC):
 
     def upsert_saves(self, saves: List[SaveRecord]) -> None:
         """上报一组 SaveRecord，记录用户通过 swanlab.save() 保存的文件"""
-        with safe.block(message="upsert saves error"):
-            if self._mode == "online":
-                return self._upsert_saves_when_online(saves)
-            elif self._mode == "local":
-                return self._upsert_saves_when_local(saves)
-            elif self._mode == "offline":
-                return self._upsert_saves_when_offline(saves)
-            return self._upsert_saves_when_disabled(saves)
+        self._guard_upsert("upsert saves error", lambda: self._upsert_saves_dispatch(saves))
+
+    def _upsert_saves_dispatch(self, saves: List[SaveRecord]) -> None:
+        if self._mode == "online":
+            return self._upsert_saves_when_online(saves)
+        elif self._mode == "local":
+            return self._upsert_saves_when_local(saves)
+        elif self._mode == "offline":
+            return self._upsert_saves_when_offline(saves)
+        return self._upsert_saves_when_disabled(saves)
 
     def _upsert_saves_when_disabled(self, saves: List[SaveRecord]) -> None: ...
 
@@ -374,6 +415,21 @@ class NullCoreProtocol(CoreProtocol):
 
     def abort(self, cause: Optional[BaseException] = None) -> None:
         """空操作。"""
+
+
+_TERMINAL_STATS_MARKERS = ("SESSION_NOT_FOUND", "NOT_STARTED", "CLOSED", "grpc=NOT_FOUND")
+
+
+def is_terminal_stats_error(response: GetOperationStatsResponse) -> bool:
+    """判断 stats 失败是否属于终态。
+
+    proto 还没有 reason 字段，CoreGo 会把 CoreGoError 的原因码写进 message；
+    命中这些 token 说明 session 已经结束，继续轮询只会刷告警。
+    """
+    if response.success:
+        return False
+    message = response.message or ""
+    return any(marker in message for marker in _TERMINAL_STATS_MARKERS)
 
 
 class CoreSyncProtocol(ABC):

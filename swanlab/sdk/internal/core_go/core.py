@@ -11,7 +11,7 @@ CoreEnum.CORE（"Core"）对应本模块，CoreEnum.CORE_PYTHON 对应 CorePytho
 
 import threading
 from pathlib import Path
-from typing import Callable, List, Optional, Set, cast
+from typing import Callable, List, Optional, cast
 
 from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
     ConfirmRunFinishResponse,
@@ -29,7 +29,7 @@ from swanlab.sdk.internal.core_go.config import TEARDOWN_TIMEOUT
 from swanlab.sdk.internal.core_go.errors import CoreGoError, ReasonCode, Stage
 from swanlab.sdk.internal.core_go.launcher import CoreLauncher
 from swanlab.sdk.internal.core_go.rpc.core_service import CoreServiceRpc
-from swanlab.sdk.internal.pkg import console, fork, safe
+from swanlab.sdk.internal.pkg import fork, safe
 from swanlab.sdk.protocol import CoreProtocol, NullCoreProtocol
 from swanlab.sdk.typings.run import ModeType
 
@@ -70,6 +70,9 @@ class CoreGo(CoreProtocol):
     阻塞的 spawn/RPC/reap 不持锁，close/abort 先切终态再清理。
     """
 
+    # upsert 失败交给 consumer 分类重试或终结，不在本层吞掉。
+    raises_on_upsert_error = True
+
     def __init__(self, mode: ModeType, *, binary: Optional[Path] = None) -> None:
         super().__init__(mode)
         self._binary = Path(binary) if binary is not None else None
@@ -81,7 +84,6 @@ class CoreGo(CoreProtocol):
         self._session_id: Optional[str] = None
         self._last_error: Optional[CoreGoError] = None
         self._abort_cause: Optional[BaseException] = None
-        self._warned: Set[str] = set()
 
     @property
     def last_error(self) -> Optional[CoreGoError]:
@@ -219,25 +221,27 @@ class CoreGo(CoreProtocol):
         self._forward_upsert("saves", lambda rpc, session_id: rpc.upsert_saves(saves, session_id))
 
     def _forward_upsert(self, name: str, call: Callable[[CoreServiceRpc, str], None]) -> None:
+        """转发一次 upsert；失败抛 CoreGoError，由 consumer 按 retryable 分类。"""
         rpc: Optional[CoreServiceRpc] = None
         session_id: Optional[str] = None
         with self._lock:
             if self._state == _CLOSED:
-                error = CoreGoError(Stage.LIFECYCLE, ReasonCode.CLOSED, "core is closed; refusing to upsert")
+                error: Optional[CoreGoError] = CoreGoError(
+                    Stage.LIFECYCLE, ReasonCode.CLOSED, f"core is closed; refusing to upsert {name}"
+                )
             elif self._state != _RUNNING or self._session_id is None:
-                error = CoreGoError(Stage.LIFECYCLE, ReasonCode.NOT_STARTED, "run is not running; refusing to upsert")
+                error = CoreGoError(
+                    Stage.LIFECYCLE, ReasonCode.NOT_STARTED, f"run is not running; refusing to upsert {name}"
+                )
             else:
                 error = None
                 rpc = self._rpc
                 session_id = self._session_id
-            warn = error is not None and self._warn_once(name)
             if error is not None:
                 self._last_error = error
 
         if error is not None:
-            if warn:
-                console.warning(f"Failed to upsert {name}: {error}")
-            return
+            raise error
 
         assert rpc is not None
         assert session_id is not None
@@ -247,16 +251,7 @@ class CoreGo(CoreProtocol):
             failure = self._as_core_error(exc, Stage.RPC)
             with self._lock:
                 self._last_error = failure
-                warn = self._warn_once(name)
-            if warn:
-                console.warning(f"Failed to upsert {name}: {failure}")
-
-    def _warn_once(self, name: str) -> bool:
-        """调用方需持锁；同一方法只 warning 一次。"""
-        if name in self._warned:
-            return False
-        self._warned.add(name)
-        return True
+            raise failure from exc
 
     # ---------------------------------- 通知运行结束 ----------------------------------
 

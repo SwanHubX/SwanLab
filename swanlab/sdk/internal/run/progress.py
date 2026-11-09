@@ -21,6 +21,7 @@ from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import GetOperationStatsRespons
 from swanlab.proto.swanlab.operation.v1.operation_pb2 import CoreState, OperationStats
 from swanlab.sdk.internal.pkg import console
 from swanlab.sdk.internal.run.fmt import fmt_bytes, fmt_items, fmt_rate
+from swanlab.sdk.protocol import is_terminal_stats_error
 
 _T = TypeVar("_T")
 
@@ -222,7 +223,11 @@ def run_with_progress(
     # 1. 进入时请求一次，如果发现stats不存在(这通常是非online模式)则直接返回，避免不必要的进度显示和等待
     resp = stats_fn()
     if not resp.success:
-        console.warning("Failed to get initial op stats:", resp.message)
+        if is_terminal_stats_error(resp):
+            # session 已结束，继续轮询只会刷告警；直接进入收尾
+            console.debug(f"Core session is already gone; skipping upload progress: {resp.message}", write_to_tty=False)
+        else:
+            console.warning("Failed to get initial op stats:", resp.message)
         return blocking_fn()
     elif not resp.HasField("stats"):
         return blocking_fn()
@@ -236,6 +241,7 @@ def run_with_progress(
     deadline = time.monotonic() + timeout if timeout is not None else None
     finished = False
     interrupted = False
+    terminal = False
 
     with progress_display() as display:
         try:
@@ -250,6 +256,10 @@ def run_with_progress(
                     if deadline is not None and time.monotonic() >= deadline:
                         break
                 else:
+                    if is_terminal_stats_error(resp):
+                        terminal = True
+                        console.debug(f"Core session ended during upload progress: {resp.message}", write_to_tty=False)
+                        break
                     console.warning("Failed to get op stats:", resp.message)
                 time.sleep(_POLL_INTERVAL)
         except KeyboardInterrupt:
@@ -260,6 +270,6 @@ def run_with_progress(
     resp = stats_fn()
     if resp.success and resp.HasField("stats"):
         display.print_summary(resp.stats, unit, finished, interrupted)
-    elif not resp.success:
+    elif not resp.success and not terminal and not is_terminal_stats_error(resp):
         console.warning("Failed to get final op stats:", resp.message)
     return blocking_fn()

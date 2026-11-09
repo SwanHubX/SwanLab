@@ -12,6 +12,8 @@ CoreGoError 携带阶段（stage）、原因码（reason）与可选的 gRPC 状
 from enum import Enum
 from typing import Any, Dict, Optional
 
+from swanlab.sdk.protocol import CoreProtocolError
+
 __all__ = ["CoreGoError", "ReasonCode", "Stage", "reason_for_grpc"]
 
 
@@ -89,7 +91,19 @@ def reason_for_grpc(name: str) -> ReasonCode:
     return _GRPC_REASON.get(str(name).strip().upper(), ReasonCode.GRPC_ERROR)
 
 
-class CoreGoError(Exception):
+# 只有这些原因允许调用方重试同一批数据；其余都是确定性拒绝。
+_RETRYABLE_REASONS = frozenset(
+    {
+        ReasonCode.RESOURCE_EXHAUSTED,
+        ReasonCode.GRPC_UNAVAILABLE,
+        ReasonCode.DEADLINE_EXCEEDED,
+        ReasonCode.CHANNEL_TIMEOUT,
+        ReasonCode.GRPC_ERROR,
+    }
+)
+
+
+class CoreGoError(CoreProtocolError):
     """CoreGo 握手链路的唯一异常类型。
 
     Attributes:
@@ -99,6 +113,7 @@ class CoreGoError(Exception):
         grpc_name: gRPC 状态名，例如 ``"UNIMPLEMENTED"``。
         grpc_code: gRPC 规范数字码，便于跨语言对照。
         detail: 有界诊断信息，例如 stderr 尾部。
+        retryable: 是否允许调用方重试同一批数据；默认按 reason 判定。
     """
 
     def __init__(
@@ -111,8 +126,9 @@ class CoreGoError(Exception):
         grpc_code: Optional[int] = None,
         detail: Optional[str] = None,
         cause: Optional[BaseException] = None,
+        retryable: Optional[bool] = None,
     ) -> None:
-        super().__init__(message)
+        super().__init__(message, retryable=reason in _RETRYABLE_REASONS if retryable is None else retryable)
         self.stage = stage
         self.reason = reason
         self.message = message
@@ -137,4 +153,5 @@ class CoreGoError(Exception):
             "grpc_name": self.grpc_name,
             "grpc_code": self.grpc_code,
             "detail": self.detail,
+            "retryable": self.retryable,
         }

@@ -8,8 +8,9 @@
 import math
 import queue
 import threading
+import time
 from abc import ABC
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord, ScalarRecord, ScalarValue
@@ -39,6 +40,17 @@ BatchTuple = Tuple[LogBatch, ColumnBatch, ScalarBatch, MediaBatch, SaveBatch]
 
 # 消费者单次提交的默认批次上限
 DEFAULT_RECORD_BATCH: int = 100
+# 可重试失败的退避：base 起翻倍，封顶 max；失败期间不阻塞事件循环。
+DEFAULT_RETRY_BASE_DELAY: float = 0.1
+DEFAULT_RETRY_MAX_DELAY: float = 2.0
+# 幂运算上限，避免连续失败时把指数算爆。
+_MAX_BACKOFF_EXPONENT: int = 16
+
+
+def _is_retryable(exc: BaseException) -> bool:
+    """未知异常按可重试处理：宁可积压，也不能静默丢记录。"""
+    retryable = getattr(exc, "retryable", None)
+    return True if retryable is None else bool(retryable)
 
 
 class ConsumerProtocol(ABC):
@@ -50,8 +62,11 @@ class ConsumerProtocol(ABC):
         event_queue: RunQueue,
         flush_timeout: float = 0.5,
         batch_size: int = DEFAULT_RECORD_BATCH,
+        retry_base_delay: float = DEFAULT_RETRY_BASE_DELAY,
+        retry_max_delay: float = DEFAULT_RETRY_MAX_DELAY,
+        clock: Callable[[], float] = time.monotonic,
     ):
-        _ = (ctx, event_queue, flush_timeout, batch_size)
+        _ = (ctx, event_queue, flush_timeout, batch_size, retry_base_delay, retry_max_delay, clock)
 
     def start(self) -> None: ...
 
@@ -74,8 +89,19 @@ class BackgroundConsumer(ConsumerProtocol):
         event_queue: RunQueue,
         flush_timeout: float = 0.5,
         batch_size: int = DEFAULT_RECORD_BATCH,
+        retry_base_delay: float = DEFAULT_RETRY_BASE_DELAY,
+        retry_max_delay: float = DEFAULT_RETRY_MAX_DELAY,
+        clock: Callable[[], float] = time.monotonic,
     ):
-        super().__init__(ctx, event_queue, flush_timeout, batch_size)
+        super().__init__(
+            ctx,
+            event_queue,
+            flush_timeout,
+            batch_size,
+            retry_base_delay,
+            retry_max_delay,
+            clock,
+        )
         self._ctx = ctx
         self._queue = event_queue
         # builder / resolver 均由 consumer 独占创建与维护，所有状态访问都发生在本线程内
@@ -84,6 +110,12 @@ class BackgroundConsumer(ConsumerProtocol):
         self._core = ctx.core
         self._flush_timeout = flush_timeout
         self._batch_size = batch_size
+        # 重试调度：_retry_at 为空表示可以立即 flush
+        self._retry_base_delay = retry_base_delay
+        self._retry_max_delay = retry_max_delay
+        self._clock = clock
+        self._retry_at: Optional[float] = None
+        self._retry_attempt = 0
         self._thread = threading.Thread(target=self._run, name="SwanLab·Specter", daemon=True)
         # 回调器，负责触发回调
         self._callbacker = self._ctx.callbacker
@@ -137,42 +169,56 @@ class BackgroundConsumer(ConsumerProtocol):
         self._save_batch = []
         return batches
 
-    def _restore_batches(
-        self,
-        log_batch: LogBatch,
-        column_batch: ColumnBatch,
-        scalar_batch: ScalarBatch,
-        media_batch: MediaBatch,
-        save_batch: SaveBatch,
-    ) -> None:
+    def _restore_group(self, name: str, records: list) -> None:
         # 失败的旧数据插回队头，优先于 flush 期间新进来的数据重试
-        if log_batch:
-            self._log_batch[:0] = log_batch
-        if column_batch:
-            self._column_batch[:0] = column_batch
-        if scalar_batch:
-            self._scalar_batch[:0] = scalar_batch
-        if media_batch:
-            self._media_batch[:0] = media_batch
-        if save_batch:
-            self._save_batch[:0] = save_batch
+        if name == "logs":
+            self._log_batch[:0] = records
+        elif name == "columns":
+            self._column_batch[:0] = records
+        elif name == "scalars":
+            self._scalar_batch[:0] = records
+        elif name == "media":
+            self._media_batch[:0] = records
+        else:
+            self._save_batch[:0] = records
+
+    def _queue_timeout(self) -> float:
+        """把下一次 flush 时间折算成 queue.get 的等待上限，避免 sleep 轮询。"""
+        if self._retry_at is None:
+            return self._flush_timeout
+        remaining = self._retry_at - self._clock()
+        return max(0.0, min(self._flush_timeout, remaining))
+
+    def _retry_due(self) -> bool:
+        return self._retry_at is None or self._clock() >= self._retry_at
+
+    def _schedule_retry(self, exc: Exception) -> None:
+        self._retry_attempt += 1
+        exponent = min(self._retry_attempt - 1, _MAX_BACKOFF_EXPONENT)
+        delay = min(self._retry_max_delay, self._retry_base_delay * (2**exponent))
+        self._retry_at = self._clock() + delay
+        console.debug(f"Core upsert failed; retrying in {delay:.2f}s: {exc}", write_to_tty=False)
 
     def _run(self) -> None:
         while True:
             with safe.block(message="SwanLab background logger thread error"):
                 try:
-                    event = self._queue.get(timeout=self._flush_timeout)
+                    event = self._queue.get(timeout=self._queue_timeout())
                 except queue.Empty:
-                    # 队列空闲一段时间后，若有积压数据则刷盘
-                    if not self._batch_empty:
+                    # 队列空闲：退避到期且仍有积压时刷盘
+                    if not self._batch_empty and self._retry_due():
                         self._flush()
                     continue
                 if event is _STOP:
+                    # 退出前忽略退避，再给 core 一次机会
+                    self._retry_at = None
                     self._flush()
                     break
                 self._handle_event(event)
-                if self._batch_full:
+                if self._batch_full and self._retry_due():
                     self._flush()
+        if not self._batch_empty:
+            console.warning(f"Core did not accept {self._batch_len} buffered record(s) before shutdown")
         # 线程退出时清理状态
         self._resolver.clear()
 
@@ -350,41 +396,73 @@ class BackgroundConsumer(ConsumerProtocol):
     def _flush(self) -> None:
         if self._batch_empty:
             return
+        self._retry_at = None
         log_batch, column_batch, scalar_batch, media_batch, save_batch = self._take_batches()
-        # 某一步失败时，只回塞"当前未成功提交"的部分，避免重复写入
-        # 提交失败时静默显示在 debug 日志中，不打印到控制台
-        with safe.block(
-            message="Error when flushing batch",
-            write_to_tty=False,
-            on_error=lambda _: self._restore_batches(log_batch, column_batch, scalar_batch, media_batch, save_batch),
-        ):
-            if log_batch:
-                console.debug(f"Flushing log records to core: count={len(log_batch)}", write_to_tty=False)
-                self._core.upsert_logs(log_batch)
-                console.debug(f"Core log call completed: count={len(log_batch)}", write_to_tty=False)
-                self._callbacker.on_log_flush(log_batch)
-                log_batch = []
 
-            if column_batch:
-                # 一次 flush 内按 (key, type) coalesce，保留最后一条
-                coalesced: dict[tuple[str, int], ColumnRecord] = {}
-                for col in column_batch:
-                    coalesced[(col.column_key, col.column_type)] = col
-                coalesced_list = list(coalesced.values())
-                console.debug(f"Flushing column records to core: count={len(coalesced_list)}", write_to_tty=False)
-                self._core.upsert_columns(coalesced_list)
-                column_batch = []
+        restored: List[Tuple[str, list]] = []
+        retryable_error: Optional[Exception] = None
+        chunk_size = max(1, self._batch_size)
 
-            if scalar_batch:
-                self._core.upsert_scalars(scalar_batch)
-                self._callbacker.on_scalar_flush(scalar_batch)
-                scalar_batch = []
+        def send(name: str, records: list, call: Callable[[list], None]) -> None:
+            """按 batch_size 分片提交，失败只回塞未成功的部分。"""
+            nonlocal retryable_error
+            start = 0
+            while start < len(records):
+                chunk = records[start : start + chunk_size]
+                try:
+                    call(chunk)
+                except Exception as exc:
+                    if _is_retryable(exc):
+                        restored.append((name, records[start:]))
+                        if retryable_error is None:
+                            retryable_error = exc
+                    else:
+                        # 确定性拒绝：只丢弃被拒绝的分片，剩余记录继续回塞
+                        console.warning(f"Dropping {name} records rejected by core: count={len(chunk)}: {exc}")
+                        if records[start + len(chunk) :]:
+                            restored.append((name, records[start + len(chunk) :]))
+                    return
+                start += len(chunk)
 
-            if media_batch:
-                self._core.upsert_media(media_batch)
-                self._callbacker.on_media_flush(media_batch)
-                media_batch = []
+        # 分片前先 coalesce，避免同一列跨片重复上报
+        coalesced_columns: dict[tuple[str, int], ColumnRecord] = {}
+        for col in column_batch:
+            coalesced_columns[(col.column_key, col.column_type)] = col
 
-            if save_batch:
-                self._core.upsert_saves(save_batch)
-                save_batch = []
+        send("logs", log_batch, self._send_logs)
+        send("columns", list(coalesced_columns.values()), self._send_columns)
+        send("scalars", scalar_batch, self._send_scalars)
+        send("media", media_batch, self._send_media)
+        send("saves", save_batch, self._send_saves)
+
+        for name, records in restored:
+            self._restore_group(name, records)
+
+        if retryable_error is not None:
+            self._schedule_retry(retryable_error)
+        else:
+            self._retry_attempt = 0
+
+    def _send_logs(self, log_batch: LogBatch) -> None:
+        console.debug(f"Flushing log records to core: count={len(log_batch)}", write_to_tty=False)
+        self._core.upsert_logs(log_batch)
+        console.debug(f"Core log call completed: count={len(log_batch)}", write_to_tty=False)
+        with safe.block(message="log flush callback error"):
+            self._callbacker.on_log_flush(log_batch)
+
+    def _send_columns(self, column_batch: ColumnBatch) -> None:
+        console.debug(f"Flushing column records to core: count={len(column_batch)}", write_to_tty=False)
+        self._core.upsert_columns(column_batch)
+
+    def _send_scalars(self, scalar_batch: ScalarBatch) -> None:
+        self._core.upsert_scalars(scalar_batch)
+        with safe.block(message="scalar flush callback error"):
+            self._callbacker.on_scalar_flush(scalar_batch)
+
+    def _send_media(self, media_batch: MediaBatch) -> None:
+        self._core.upsert_media(media_batch)
+        with safe.block(message="media flush callback error"):
+            self._callbacker.on_media_flush(media_batch)
+
+    def _send_saves(self, save_batch: SaveBatch) -> None:
+        self._core.upsert_saves(save_batch)
