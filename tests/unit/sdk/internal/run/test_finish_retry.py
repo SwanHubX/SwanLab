@@ -2,7 +2,7 @@
 
 覆盖两层：
 - ``retry_finish_call`` 只重试 Core 标注为 retryable 的失败；
-- ``Run.finish`` 按 deliver → confirm → close 编排，deliver 失败时跳过 confirm。
+- ``Run.finish`` 按 deliver → confirm → close 编排，是否在 deliver 失败后 confirm 由 Core 能力位决定。
 """
 
 import signal
@@ -45,6 +45,8 @@ class RetryCore:
 
 class ScriptedCore:
     """按脚本返回 deliver / confirm 响应，并记录 close 次数。"""
+
+    confirm_after_deliver_failure = True
 
     def __init__(self, deliver, confirm) -> None:
         self._deliver = list(deliver)
@@ -221,11 +223,12 @@ def test_finish_retries_deliver_and_confirm_then_closes():
     assert mock_sleep.call_count == 3
 
 
-def test_finish_skips_confirm_when_deliver_is_terminal():
+def test_finish_skips_confirm_for_core_go_when_deliver_is_terminal():
     core = ScriptedCore(
         deliver=[(False, "finish record commit failed", _terminal())],
         confirm=[(True, "OK", None)],
     )
+    core.confirm_after_deliver_failure = False
     run = _make_run(core)
     progress = MagicMock()
 
@@ -236,6 +239,24 @@ def test_finish_skips_confirm_when_deliver_is_terminal():
     progress.assert_not_called()
     assert core.deliver_calls == 1
     assert core.confirm_calls == 0
+    assert core.closed == 1
+
+
+def test_finish_confirms_for_core_python_when_deliver_fails():
+    core = ScriptedCore(
+        deliver=[(False, "finish record commit failed", _terminal())],
+        confirm=[(True, "OK", None)],
+    )
+    run = _make_run(core)
+    progress = MagicMock(side_effect=lambda stats_fn, blocking_fn: blocking_fn())
+
+    with _finish_env(run, progress, MagicMock()):
+        with patch("swanlab.sdk.internal.run.finish_retry.time.sleep"):
+            run.finish()
+
+    progress.assert_called_once()
+    assert core.deliver_calls == 1
+    assert core.confirm_calls == 1
     assert core.closed == 1
 
 

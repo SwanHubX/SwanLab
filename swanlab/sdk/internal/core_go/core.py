@@ -72,6 +72,8 @@ class CoreGo(CoreProtocol):
 
     # upsert 失败交给 consumer 分类重试或终结，不在本层吞掉。
     raises_on_upsert_error = True
+    # deliver 失败时会话保留在 core 内等待重投，跳过 confirm。
+    confirm_after_deliver_failure = False
 
     def __init__(self, mode: ModeType, *, binary: Optional[Path] = None) -> None:
         super().__init__(mode)

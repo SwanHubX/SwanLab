@@ -68,6 +68,10 @@ class CoreProtocol(ABC):
 
     raises_on_upsert_error: bool = False
 
+    # deliver 失败后是否仍执行 confirm。默认 True 保持 CorePython 的两阶段语义：
+    # confirm 负责排空 transport、停止 heartbeat 并上报终态；CoreGo 由 core 保留会话，跳过 confirm。
+    confirm_after_deliver_failure: bool = True
+
     def __init__(self, mode: ModeType):
         self._mode = mode
 

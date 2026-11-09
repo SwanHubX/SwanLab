@@ -954,14 +954,15 @@ class Run:
             self._probe.deliver_probe_finish()
             ts = Timestamp()
             ts.GetCurrentTime()
-            # 3. 停止Core：deliver 只重试可重试错误，失败时不再 confirm
+            # 3. 停止Core：deliver 只重试可重试错误；是否继续 confirm 由实现能力决定
             finish_request = DeliverRunFinishRequest(
                 finish_record=FinishRecord(state=adapter.state[this_state], error=error, finished_at=ts)
             )
             finish_resp = retry_finish_call(self._core, lambda: self._core.deliver_run_finish(finish_request))
             if not finish_resp.success:
                 console.error(finish_resp.message)
-            else:
+            # CorePython 的 confirm 负责资源回收，deliver 失败也必须执行；CoreGo 由 core 保留会话。
+            if finish_resp.success or self._core.confirm_after_deliver_failure:
                 confirm_resp = run_with_progress(
                     stats_fn=self._core.get_operation_stats,
                     blocking_fn=lambda: retry_finish_call(self._core, self._core.confirm_run_finish),
