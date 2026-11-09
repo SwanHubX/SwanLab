@@ -437,6 +437,87 @@ func TestRegisterLiveAfterStop(t *testing.T) {
 	}
 }
 
+// 批量注册失败必须整体回滚：本批新增的条目与目录全部撤销，既有监听不受影响。
+func TestRegisterLiveRollsBackFailedBatch(t *testing.T) {
+	root := t.TempDir()
+	existingDir := filepath.Join(root, "existing")
+	batchDir := filepath.Join(root, "batch")
+	for _, dir := range []string{existingDir, batchDir} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	existingSource := filepath.Join(existingDir, "existing.pt")
+	goodSource := filepath.Join(batchDir, "good.pt")
+	for _, path := range []string{existingSource, goodSource} {
+		if err := os.WriteFile(path, []byte("v1"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	missingSource := filepath.Join(root, "missing", "bad.pt")
+
+	w, err := New(filepath.Join(root, "files"), func(*savev1.SaveRecord) {})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer w.Stop()
+
+	existing := newSave("existing.pt", existingSource, "", savev1.SavePolicy_SAVE_POLICY_LIVE)
+	if err = w.RegisterLive([]*savev1.SaveRecord{existing}); err != nil {
+		t.Fatalf("register existing: %v", err)
+	}
+
+	batch := []*savev1.SaveRecord{
+		newSave("good.pt", goodSource, "", savev1.SavePolicy_SAVE_POLICY_LIVE),
+		newSave("bad.pt", missingSource, "", savev1.SavePolicy_SAVE_POLICY_LIVE),
+	}
+	if err = w.RegisterLive(batch); err == nil {
+		t.Fatal("batch with a missing source dir must fail")
+	}
+
+	w.mu.Lock()
+	if len(w.entries) != 1 {
+		w.mu.Unlock()
+		t.Fatalf("entries after rollback = %d, want only the existing one", len(w.entries))
+	}
+	for _, entry := range w.entries {
+		if entry.name != "existing.pt" {
+			w.mu.Unlock()
+			t.Fatalf("unexpected entry after rollback: %q", entry.name)
+		}
+	}
+	if len(w.watchedDirs) != 1 {
+		w.mu.Unlock()
+		t.Fatalf("watched dirs after rollback = %d, want only the existing one", len(w.watchedDirs))
+	}
+	w.mu.Unlock()
+
+	// 回滚后的文件不能再产生防抖回调。
+	w.notify(goodSource)
+	w.mu.Lock()
+	if len(w.timers) != 0 {
+		w.mu.Unlock()
+		t.Fatalf("rolled back file scheduled %d timer(s)", len(w.timers))
+	}
+	w.mu.Unlock()
+
+	// 修复第二个文件后重试，两个文件都应注册成功。
+	if err = os.MkdirAll(filepath.Dir(missingSource), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(missingSource, []byte("v1"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err = w.RegisterLive(batch); err != nil {
+		t.Fatalf("retry batch: %v", err)
+	}
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if len(w.entries) != 3 {
+		t.Fatalf("entries after retry = %d, want 3", len(w.entries))
+	}
+}
+
 func TestNullWatcherIsNoop(t *testing.T) {
 	w := NullWatcher{}
 	save := newSave("model.pt", "/tmp/model.pt", "", savev1.SavePolicy_SAVE_POLICY_LIVE)

@@ -3,6 +3,7 @@
 package clienttest
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
@@ -105,6 +106,8 @@ func (c *Cloud) serve(w http.ResponseWriter, r *http.Request) {
 	handler := c.routes[r.Method+" "+r.URL.Path]
 	c.mu.Unlock()
 
+	// 记录后把请求体重新挂回，处理函数仍可按需读取原始 body。
+	r.Body = io.NopCloser(bytes.NewReader(body))
 	if handler == nil {
 		WriteJSON(w, http.StatusNotFound, map[string]string{"code": "not_found", "message": "no route " + r.URL.Path})
 		return

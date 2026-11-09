@@ -179,7 +179,9 @@ func TestCreateExperimentResumeMustRequiresRunID(t *testing.T) {
 func TestGetOrCreateProjectExisting(t *testing.T) {
 	cloud := clienttest.NewCloud(t)
 	cloud.ServeJSON(http.MethodGet, "/api/project/alice/demo", http.StatusOK, map[string]any{
-		"cuid": "proj-1", "name": "demo", "visibility": "PRIVATE",
+		"cuid": "proj-1", "name": "demo", "visibility": "PRIVATE", "version": 2,
+		"_count": map[string]any{"experiments": 7, "contributors": 1},
+		"group":  map[string]any{"username": "alice-org"},
 	})
 
 	svc, _ := newTestClient(t, cloud, client.Options{})
@@ -189,6 +191,12 @@ func TestGetOrCreateProjectExisting(t *testing.T) {
 	}
 	if project.CUID != "proj-1" {
 		t.Fatalf("project cuid = %q, want proj-1", project.CUID)
+	}
+	if project.Count.Experiments != 7 {
+		t.Fatalf("project experiments = %d, want 7", project.Count.Experiments)
+	}
+	if project.Group.Username != "alice-org" {
+		t.Fatalf("project group username = %q, want alice-org", project.Group.Username)
 	}
 	if got := cloud.CountFor(http.MethodPost, "/api/projects/alice"); got != 0 {
 		t.Fatalf("create requests = %d, want 0", got)
