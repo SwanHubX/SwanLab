@@ -11,6 +11,8 @@ enum CoreState {
     CORE_STATE_FINISHED    = 2; // Core 已完成所有处理，可以安全退出
 }
 
+// 站点健康状态由 core 内部消费（暂停/恢复投递），不进入 OperationStats。
+
 // 当前/待上传文件进度显示快照。
 // 仅在当前处理的 records 触发文件上传时填充；普通 record 同步保持为空。
 message FileProgress {
@@ -18,6 +20,14 @@ message FileProgress {
     int64 total    = 2; // 当前文件总量（通常为字节数）
     int64 uploaded = 3; // 当前文件已完成量
     double rate    = 4; // 当前文件处理速率（单位/秒）
+}
+
+// 上传投递与积压状态；正常投递时为默认零值。
+message UploadStatus {
+    bool paused           = 1; // 当前是否暂停投递（站点降级或预算暂停）
+    uint64 pause_seq      = 2; // 首个未投递记录的 storeSeq；0 表示未暂停
+    int64 pending_records = 3; // 已出批未终结的记录数
+    int64 buffered_bytes  = 4; // 上传管线占用的预算字节
 }
 
 // Core 运行状态快照。
@@ -31,4 +41,6 @@ message OperationStats {
     int64 uploaded_size         = 7; // 已完成文件大小 (字节数)
     double rate                 = 8; // 速率 (字节数/秒)
     repeated FileProgress files = 9; // 当前/待上传文件显示快照
+
+    UploadStatus upload = 10; // 上传投递与积压
 }

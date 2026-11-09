@@ -322,10 +322,29 @@ func (s *Session) waitDrained(ctx context.Context) error {
 	}
 }
 
-// snapshot 返回上传进度快照；装配完成前 tracker 为空，返回空统计。
+// snapshot 返回上传进度与投递状态；装配完成前 tracker 为空，返回空统计。
 func (s *Session) snapshot() *operationv1.OperationStats {
-	if s.tracker == nil {
-		return &operationv1.OperationStats{}
+	stats := &operationv1.OperationStats{}
+	if s.tracker != nil {
+		stats = s.tracker.Snapshot()
 	}
-	return s.tracker.Snapshot()
+	if s.uploader != nil || s.intake != nil || s.budget != nil {
+		upload := &operationv1.UploadStatus{}
+		if s.uploader != nil {
+			upload.PendingRecords = int64(s.uploader.Stats().Pending)
+			upload.Paused = s.uploader.Suspended()
+		}
+		if s.intake != nil {
+			if paused, seq := s.intake.PauseState(); paused {
+				upload.Paused = true
+				upload.PauseSeq = seq
+			}
+		}
+		if s.budget != nil {
+			_, usedBytes := s.budget.Usage()
+			upload.BufferedBytes = usedBytes
+		}
+		stats.Upload = upload
+	}
+	return stats
 }
