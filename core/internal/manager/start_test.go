@@ -143,13 +143,13 @@ func TestDeliverRunStartLocalWritesStore(t *testing.T) {
 		Type:  columnv1.ColumnType_COLUMN_TYPE_SCALAR,
 		Value: &datav1.ScalarValue{Number: 0.5},
 	}
-	if err := mgr.UpsertScalars(context.Background(), result.SessionID, []*datav1.ScalarRecord{scalar}); err != nil {
-		t.Fatalf("UpsertScalars: %v", err)
+	if upsertErr := mgr.UpsertScalars(context.Background(), result.SessionID, []*datav1.ScalarRecord{scalar}); upsertErr != nil {
+		t.Fatalf("UpsertScalars: %v", upsertErr)
 	}
-	if err := mgr.DeliverRunFinish(context.Background(), result.SessionID, &runv1.FinishRecord{
+	if finishErr := mgr.DeliverRunFinish(context.Background(), result.SessionID, &runv1.FinishRecord{
 		State: runv1.RunState_RUN_STATE_FINISHED,
-	}); err != nil {
-		t.Fatalf("DeliverRunFinish: %v", err)
+	}); finishErr != nil {
+		t.Fatalf("DeliverRunFinish: %v", finishErr)
 	}
 	confirm, err := mgr.Confirm(context.Background(), result.SessionID)
 	if err != nil {
@@ -158,7 +158,7 @@ func TestDeliverRunStartLocalWritesStore(t *testing.T) {
 	if confirm.ReleaseFailed {
 		t.Fatalf("Confirm release failed: %s", confirm.Message)
 	}
-	if _, err := mgr.session(result.SessionID); err == nil {
+	if _, sessionErr := mgr.session(result.SessionID); sessionErr == nil {
 		t.Fatal("local session must be released after confirm")
 	}
 	info, err := os.Stat(runFilePath(t, settings))
