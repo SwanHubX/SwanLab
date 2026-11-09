@@ -494,7 +494,7 @@ func TestDeliverRunStartDegradedWhenDataPlaneDown(t *testing.T) {
 	}
 }
 
-func TestDeliverRunStartUsesConfiguredProbePathsAndBudget(t *testing.T) {
+func TestDeliverRunStartUsesConfiguredProbePaths(t *testing.T) {
 	cloud := clienttest.NewCloud(t)
 	serveAuth(cloud)
 	serveHeartbeat(cloud, "exp-1")
@@ -511,8 +511,6 @@ func TestDeliverRunStartUsesConfiguredProbePathsAndBudget(t *testing.T) {
 	settings.HealthProbeTimeout = 0.75
 	settings.HealthDegradeThreshold = 5
 	settings.HealthRecoverThreshold = 4
-	settings.UploadBudgetRecords = 50
-	settings.UploadBudgetBytes = 1024
 
 	result, err := mgr.DeliverRunStart(context.Background(), settings,
 		&runv1.StartRecord{Project: "demo", Workspace: "alice", Id: "run-1"})
@@ -527,9 +525,6 @@ func TestDeliverRunStartUsesConfiguredProbePathsAndBudget(t *testing.T) {
 	}
 	if snap := s.site.Snapshot(); snap.Reason != health.ReasonProbeData {
 		t.Fatalf("snapshot = %+v, want degraded by data", snap)
-	}
-	if got := s.budget.Limits(); got.Records != 50 || got.Bytes != 1024 {
-		t.Fatalf("budget limits = %+v, want 50 records / 1024 bytes", got)
 	}
 	if got := cloud.RequestsFor(http.MethodGet, "/custom/control"); len(got) == 0 {
 		t.Fatal("startup precheck did not use the configured control path")

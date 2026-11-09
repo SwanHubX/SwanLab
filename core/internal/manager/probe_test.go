@@ -2,6 +2,7 @@ package manager
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -46,6 +47,39 @@ func TestProbeReachableClassification(t *testing.T) {
 	closed.Close()
 	if probeReachable(context.Background(), url) {
 		t.Fatal("closed server must be unreachable")
+	}
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+func TestProbeReachableHonorsConfiguredTimeout(t *testing.T) {
+	old := probeClient.Transport
+	t.Cleanup(func() { probeClient.Transport = old })
+
+	var remaining time.Duration
+	probeClient.Transport = roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		deadline, ok := r.Context().Deadline()
+		if !ok {
+			t.Fatal("probe request has no context deadline")
+		}
+		remaining = time.Until(deadline)
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader("")),
+			Header:     make(http.Header),
+		}, nil
+	})
+
+	// 10s 预算必须原样传到请求；旧实现会被 Client.Timeout=2s 截断。
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if !probeReachable(ctx, "http://probe.invalid") {
+		t.Fatal("probe should be reachable")
+	}
+	if remaining < 5*time.Second {
+		t.Fatalf("request deadline %v, want > 5s", remaining)
 	}
 }
 

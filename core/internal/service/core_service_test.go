@@ -429,8 +429,8 @@ func TestSettingsFromProto(t *testing.T) {
 		ApiHost:        "http://127.0.0.1:1",
 		WebHost:        "http://127.0.0.1:2",
 
-		UploadBudgetRecords:    50,
-		UploadBudgetBytes:      1024,
+		UploadBudgetRecords:    0,
+		UploadBudgetBytes:      0,
 		HealthProbeInterval:    1.5,
 		HealthProbeTimeout:     0.75,
 		HealthDegradeThreshold: 5,
@@ -457,8 +457,8 @@ func TestSettingsFromProto(t *testing.T) {
 		APIHost:        "http://127.0.0.1:1",
 		WebHost:        "http://127.0.0.1:2",
 
-		UploadBudgetRecords:    50,
-		UploadBudgetBytes:      1024,
+		UploadBudgetRecords:    0,
+		UploadBudgetBytes:      0,
 		HealthProbeInterval:    1.5,
 		HealthProbeTimeout:     0.75,
 		HealthDegradeThreshold: 5,
@@ -484,6 +484,7 @@ func TestSettingsFromProto(t *testing.T) {
 		{"zero save batch", func(s *settingsv1.CoreSettings) { s.SaveBatch = 0 }},
 		{"zero record batch", func(s *settingsv1.CoreSettings) { s.RecordBatch = 0 }},
 		{"zero save part", func(s *settingsv1.CoreSettings) { s.SavePart = 0 }},
+		{"non-zero upload budget", func(s *settingsv1.CoreSettings) { s.UploadBudgetRecords = 50 }},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

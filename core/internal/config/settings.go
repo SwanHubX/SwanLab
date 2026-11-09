@@ -46,6 +46,8 @@ var (
 	ErrRunIDRequired = errors.New("run_id is required")
 	// ErrRunDirRequired 表示缺少 run_dir。
 	ErrRunDirRequired = errors.New("run_dir is required")
+	// ErrBudgetUnsupported 表示 T4 回填闭环完成前不允许启用非零上传预算。
+	ErrBudgetUnsupported = errors.New("upload budget requires backfill support")
 )
 
 // Settings 是单个会话的运行配置。
@@ -147,6 +149,11 @@ func (s Settings) Validate() error {
 	if s.HealthDegradeThreshold < 0 || s.HealthRecoverThreshold < 0 {
 		return fmt.Errorf("config: health thresholds (%d/%d) must not be negative",
 			s.HealthDegradeThreshold, s.HealthRecoverThreshold)
+	}
+	// 预算暂停只把记录留在本地，恢复与回填闭环属于 T4；闭环完成前不得开放。
+	if s.UploadBudgetRecords > 0 || s.UploadBudgetBytes > 0 {
+		return fmt.Errorf("config: %w (records=%d bytes=%d)",
+			ErrBudgetUnsupported, s.UploadBudgetRecords, s.UploadBudgetBytes)
 	}
 	if s.HealthProbeControlPath != "" && !strings.HasPrefix(s.HealthProbeControlPath, "/") {
 		return fmt.Errorf("config: health_probe_control_path (%q) must start with '/'", s.HealthProbeControlPath)

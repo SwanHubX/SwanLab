@@ -71,10 +71,11 @@ func (g *gatedSender) Upload(ctx context.Context, records []*recordv1.Record) up
 }
 
 type finishOptions struct {
-	skipStore   bool
-	uploadQueue int
-	queueWait   time.Duration
-	blockUpload bool
+	skipStore     bool
+	uploadQueue   int
+	queueWait     time.Duration
+	blockUpload   bool
+	budgetRecords int64
 }
 
 type finishHarness struct {
@@ -140,7 +141,7 @@ func newFinishHarness(t *testing.T, opts finishOptions) *finishHarness {
 	s.watcher = watcher.NullWatcher{}
 	s.tracker = uploader.NewTracker()
 
-	b := budget.New(budget.Limits{})
+	b := budget.New(budget.Limits{Records: opts.budgetRecords})
 	var storeIn chan<- store.Request
 	var flushed func() uint64
 	if async != nil {
@@ -261,6 +262,30 @@ func finishRecord(state runv1.RunState, message string) *runv1.FinishRecord {
 		State:      state,
 		Error:      message,
 		FinishedAt: timestamppb.New(time.Unix(1_700_000_000, 0)),
+	}
+}
+
+func TestConfirmRejectsPausedIntake(t *testing.T) {
+	h := newFinishHarness(t, finishOptions{budgetRecords: 1})
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// 单批两条记录超过预算，Intake 发布暂停且两条记录只落本地。
+	if err := h.mgr.UpsertScalars(ctx, h.id, []*datav1.ScalarRecord{
+		scalarRecord("finish/loss", 0, columnv1.ColumnType_COLUMN_TYPE_SCALAR),
+		scalarRecord("finish/loss", 1, columnv1.ColumnType_COLUMN_TYPE_SCALAR),
+	}); err != nil {
+		t.Fatalf("UpsertScalars: %v", err)
+	}
+	if paused, seq := h.session.intake.PauseState(); !paused || seq == 0 {
+		t.Fatalf("pause state = %v/%d, want paused with seq", paused, seq)
+	}
+
+	if err := h.mgr.DeliverRunFinish(ctx, h.id, finishRecord(runv1.RunState_RUN_STATE_FINISHED, "")); err != nil {
+		t.Fatalf("DeliverRunFinish: %v", err)
+	}
+	if _, err := h.mgr.Confirm(ctx, h.id); !errors.Is(err, ErrRunFailed) || !strings.Contains(err.Error(), "paused") {
+		t.Fatalf("Confirm err=%v, want ErrRunFailed about paused uploads", err)
 	}
 }
 

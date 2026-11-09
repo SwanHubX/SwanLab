@@ -51,6 +51,14 @@ func (p *prober) seedDegraded() {
 	p.degraded.Store(true)
 }
 
+// degradeNow 把平面标记为降级，供共享站点合并后续会话的启动预检结论。
+// 只写原子状态并触发回调；failures / successes 仍由探测协程独占，避免数据竞争。
+func (p *prober) degradeNow() {
+	p.reachable.Store(false)
+	p.degraded.Store(true)
+	p.onFlip(true)
+}
+
 // tick 执行一次探测并按阈值更新稳定状态；由 cron 任务协程串行调用。
 func (p *prober) tick(parent context.Context) {
 	ctx, cancel := context.WithTimeout(parent, p.timeout)

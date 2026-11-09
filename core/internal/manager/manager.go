@@ -245,6 +245,15 @@ func (m *Manager) Confirm(ctx context.Context, sessionID string) (ConfirmResult,
 		return ConfirmResult{}, ErrRunNotFinished
 	}
 
+	// 防御性检查：预算暂停会把记录留在本地而不进入上传管线。回填闭环（T4）
+	// 完成前，任何暂停逗留都应阻止上报成功终态。
+	if s.intake != nil {
+		if paused, seq := s.intake.PauseState(); paused {
+			return ConfirmResult{}, fmt.Errorf(
+				"%w: uploads paused at store seq %d; records were not delivered", ErrRunFailed, seq)
+		}
+	}
+
 	// 与 Python 对齐：排空成功后先停心跳，再上报实验终态；失败时心跳保持停止，
 	// 会话保留供重试，避免重试期间继续发送心跳。
 	if s.heartbeat != nil {

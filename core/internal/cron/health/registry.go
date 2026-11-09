@@ -7,7 +7,8 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/cron"
 )
 
-// SiteOptions 描述一个站点的探针配置；同一 Key 的后续 Acquire 复用首个实例。
+// SiteOptions 描述一个站点的探针配置；同一 Key 的后续 Acquire 复用首个实例，
+// 并把自身的启动预检降级结论合并进去（只降级，不升级）。
 type SiteOptions struct {
 	// Key 是站点标识，约定为 api_host + api_key 摘要。
 	Key string
@@ -54,6 +55,7 @@ func (r *Registry) Acquire(opts SiteOptions) *Site {
 	defer r.mu.Unlock()
 	if e, ok := r.sites[opts.Key]; ok {
 		e.refs++
+		e.site.MergeInitial(opts.InitialControlDegraded, opts.InitialDataDegraded)
 		return e.site
 	}
 	s := newSite(opts, r.clock)

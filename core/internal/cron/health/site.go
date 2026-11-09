@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/swanhubx/swanlab/core/internal/cron"
+	"github.com/swanhubx/swanlab/core/internal/pkg/console"
 )
 
 // Site 聚合一个站点的控制面与数据面：任一平面连续不可达达到阈值即降级。
@@ -82,6 +83,17 @@ func (s *Site) Key() string { return s.key }
 // 消费方应配合 Snapshot 读取详情；Site 释放后该通道关闭。
 func (s *Site) Updates() <-chan struct{} { return s.updates }
 
+// MergeInitial 把后续会话的启动预检结论并入共享站点；只降级、不升级。
+// 探针随后仍按连续成功阈值恢复该平面。
+func (s *Site) MergeInitial(controlDegraded, dataDegraded bool) {
+	if controlDegraded {
+		s.control.degradeNow()
+	}
+	if dataDegraded {
+		s.data.degradeNow()
+	}
+}
+
 // Report 注入或解除写入侧降级信号，是否解除由上层按“上传成功一次”判定。
 // 探针原因由 prober 自己维护；外部注入探针原因会与阈值状态脱节，因此直接 panic。
 func (s *Site) Report(reason Reason, active bool) {
@@ -106,8 +118,8 @@ func (s *Site) Snapshot() Snapshot {
 
 func (s *Site) setReason(reason Reason, active bool) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	if s.closed {
+		s.mu.Unlock()
 		return
 	}
 	switch reason {
@@ -118,16 +130,26 @@ func (s *Site) setReason(reason Reason, active bool) {
 	case ReasonWrite:
 		s.write = active
 	default:
+		s.mu.Unlock()
 		return
 	}
 	state, next := s.aggregateLocked()
 	if state == s.state && next == s.reason {
+		s.mu.Unlock()
 		return
 	}
 	s.state, s.reason = state, next
 	select {
 	case s.updates <- struct{}{}:
 	default:
+	}
+	s.mu.Unlock()
+
+	// 状态翻转只记录一次，周期性探测结果不刷屏。
+	if state == StateDegraded {
+		console.Warningf("site health degraded: reason=%s", next)
+	} else {
+		console.Infof("site health recovered: state=%s", state)
 	}
 }
 

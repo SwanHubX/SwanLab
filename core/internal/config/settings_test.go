@@ -73,8 +73,6 @@ func TestValidate(t *testing.T) {
 		{"control path 缺少斜杠", func(s *Settings) { s.HealthProbeControlPath = "api/health" }, nil, "health_probe_control_path"},
 		{"data path 缺少斜杠", func(s *Settings) { s.HealthProbeDataPath = "api/house/health" }, nil, "health_probe_data_path"},
 		{"health 参数合法", func(s *Settings) {
-			s.UploadBudgetRecords = 50
-			s.UploadBudgetBytes = 1024
 			s.HealthProbeInterval = 1.5
 			s.HealthProbeTimeout = 0.75
 			s.HealthDegradeThreshold = 5
@@ -86,6 +84,8 @@ func TestValidate(t *testing.T) {
 			s.UploadBudgetRecords = -1
 			s.UploadBudgetBytes = -1
 		}, nil, ""},
+		{"budget 记录数暂不支持", func(s *Settings) { s.UploadBudgetRecords = 1 }, ErrBudgetUnsupported, "upload budget"},
+		{"budget 字节数暂不支持", func(s *Settings) { s.UploadBudgetBytes = 1 }, ErrBudgetUnsupported, "upload budget"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

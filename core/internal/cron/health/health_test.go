@@ -308,6 +308,34 @@ func TestRegistrySharesSites(t *testing.T) {
 	reg.Release(nil)
 }
 
+func TestRegistryMergesLaterInitialDegraded(t *testing.T) {
+	clock := newFakeClock()
+	reg := NewRegistry(clock)
+	control, data := newProbe(true), newProbe(true)
+
+	a := reg.Acquire(SiteOptions{Key: "site", Control: control.fn, Data: data.fn})
+	clock.ticks(t, 2)
+	b := reg.Acquire(SiteOptions{
+		Key:                 "site",
+		Control:             alwaysReachable,
+		Data:                alwaysReachable,
+		InitialDataDegraded: true,
+	})
+	if a != b {
+		t.Fatal("same key should share one site")
+	}
+	expectUpdate(t, a)
+	snap := a.Snapshot()
+	if snap.State != StateDegraded || snap.Reason != ReasonProbeData {
+		t.Fatalf("snapshot = %+v, want degraded by later data precheck", snap)
+	}
+	if snap.DataReachable || !snap.ControlReachable {
+		t.Fatalf("reachable = control:%v data:%v", snap.ControlReachable, snap.DataReachable)
+	}
+	reg.Release(a)
+	reg.Release(b)
+}
+
 func TestRegistryProbeDrivesState(t *testing.T) {
 	clock := newFakeClock()
 	control, data := newProbe(true), newProbe(false)

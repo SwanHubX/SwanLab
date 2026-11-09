@@ -23,7 +23,9 @@ const (
 )
 
 // probeClient 与认证客户端隔离：不携带 API Key，也不参与认证重试。
-var probeClient = &http.Client{Timeout: probeTimeout}
+// 不设 Client.Timeout：周期探测与启动预检都通过请求 context 控制预算，
+// 否则配置的 health_probe_timeout 会被这里的固定值截断。
+var probeClient = &http.Client{}
 
 // siteProbe 把站点地址与路径包装成可注入的探针函数。
 func siteProbe(apiHost, path string) health.ProbeFunc {
