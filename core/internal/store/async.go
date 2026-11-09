@@ -29,6 +29,8 @@ type AsyncOptions struct {
 	FlushBytes int
 	// FlushInterval 是定时刷盘间隔，<=0 取 1s。
 	FlushInterval time.Duration
+	// IndexStride 是 storeSeq→offset 稀疏锚点间隔（条），<=0 取 DefaultIndexStride。
+	IndexStride int
 	// OnError 在首次写入或刷盘失败时回调一次，供上层置 storeDegraded；
 	// 之后丢弃写入但继续消费入口，避免阻断上传主链路。
 	OnError func(error)
@@ -53,6 +55,7 @@ type AsyncWriter struct {
 	flushBytes    int
 	flushInterval time.Duration
 	onError       func(error)
+	index         *OffsetIndex
 
 	mark      atomic.Pointer[flushMark]
 	closeOnce sync.Once
@@ -89,6 +92,7 @@ func NewAsyncWriter(w *Writer, opts AsyncOptions) (*AsyncWriter, error) {
 		flushBytes:    opts.FlushBytes,
 		flushInterval: opts.FlushInterval,
 		onError:       opts.OnError,
+		index:         NewOffsetIndex(opts.IndexStride),
 	}
 	a.mark.Store(&flushMark{Offset: w.Offset()})
 	go a.run()
@@ -103,6 +107,10 @@ func (a *AsyncWriter) Flushed() (uint64, int64) {
 	m := a.mark.Load()
 	return m.StoreSeq, m.Offset
 }
+
+// Index 返回 storeSeq→offset 稀疏索引；写入由写协程串行登记，调用方可并发读取。
+// 索引只在内存中，进程重启后为空。
+func (a *AsyncWriter) Index() *OffsetIndex { return a.index }
 
 // Err 返回首次写入或刷盘错误；无错误时为 nil。
 func (a *AsyncWriter) Err() error {
@@ -191,10 +199,12 @@ func (a *AsyncWriter) append(req Request, seq uint64) uint64 {
 	if a.Err() != nil {
 		return seq
 	}
-	if err := a.w.Write(req.Payload); err != nil {
+	start, err := a.w.WriteRecord(req.Payload)
+	if err != nil {
 		a.fail(err)
 		return seq
 	}
+	a.index.Add(req.StoreSeq, start)
 	return req.StoreSeq
 }
 

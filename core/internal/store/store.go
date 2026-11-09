@@ -111,41 +111,49 @@ func (w *Writer) Offset() int64 { return w.index.Load() }
 
 // Write 追加一条完整记录。
 func (w *Writer) Write(payload []byte) error {
+	_, err := w.WriteRecord(payload)
+	return err
+}
+
+// WriteRecord 追加一条完整记录并返回其起始偏移（跳过块尾填充后的记录头位置）。
+func (w *Writer) WriteRecord(payload []byte) (int64, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if w.closed {
-		return ErrClosed
+		return 0, ErrClosed
 	}
 	return w.write(payload)
 }
 
 // write 按 LevelDB log 规范切分记录；调用方需持有 mu。
-func (w *Writer) write(p []byte) error {
+// 返回记录头的起始偏移。
+func (w *Writer) write(p []byte) (int64, error) {
 	space := int(BlockLen - w.Offset()%BlockLen)
 	// 块尾放不下一个 chunk 头：补零对齐到下一块
 	if space < HeaderLen {
 		if err := w.writeZeros(space); err != nil {
-			return err
+			return 0, err
 		}
 		space = BlockLen
 	}
+	start := w.Offset()
 	if len(p)+HeaderLen <= space {
-		return w.writeChunk(p, chunkFull)
+		return start, w.writeChunk(p, chunkFull)
 	}
 	// 跨块：FIRST 填满当前块，MIDDLE 独占整块，末段为 LAST
 	room := space - HeaderLen
 	if err := w.writeChunk(p[:room], chunkFirst); err != nil {
-		return err
+		return 0, err
 	}
 	used, left := room, len(p)-room
 	for left > dataLen {
 		if err := w.writeChunk(p[used:used+dataLen], chunkMiddle); err != nil {
-			return err
+			return 0, err
 		}
 		used += dataLen
 		left -= dataLen
 	}
-	return w.writeChunk(p[used:], chunkLast)
+	return start, w.writeChunk(p[used:], chunkLast)
 }
 
 // writeChunk 写入 chunk 头与 payload，并推进 index。
