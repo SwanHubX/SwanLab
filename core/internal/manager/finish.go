@@ -114,14 +114,23 @@ func (s *Session) completeFinish(ctx context.Context) error {
 	}
 
 	// 本地刷盘不设超时，必须等 AsyncWriter 把已接收的记录全部写入磁盘；
-	// 刷盘失败只置 storeDegraded，由 intake 在 Close 时把未确认记录转入上传，
-	// 不让本地副本缺失阻断云端上传。关闭必须排在 FinishRecord 提交之后，
-	// 否则重试会向已关闭的本地通道发送。
+	// 刷盘失败只置 storeDegraded：online 由 intake 在 Close 时把未确认记录转入上传，
+	// local/offline 则返回失败，不能把不完整的本地副本报告为成功。关闭必须排在
+	// FinishRecord 提交之后，否则重试会向已关闭的本地通道发送。
 	if s.store != nil {
 		if err := s.store.Close(); err != nil {
 			s.storeDegraded.Store(true)
 			console.Warningf("finish: local store did not flush completely: %v", err)
 		}
+	}
+	if s.cfg.NormalizedMode() != config.ModeOnline && s.storeDegraded.Load() {
+		// local/offline 没有云端兜底：不 markDrained，也不允许 Confirm 按成功释放；
+		// 仍关闭 intake，保证资源有确定的清理路径。
+		s.stopRecovery()
+		if err := s.closeIntake(ctx); err != nil {
+			console.Warningf("finish: close intake after local store failure: %v", err)
+		}
+		return fmt.Errorf("%w: local copy is incomplete", ErrRunFailed)
 	}
 
 	if err := s.commitCrashLog(ctx); err != nil {
@@ -152,7 +161,10 @@ func (s *Session) commitFinish(ctx context.Context) error {
 		return fmt.Errorf("%w: session has no intake", errFinishRecord)
 	}
 	if s.storeDegraded.Load() {
-		// 磁盘已不可用：FinishRecord 只落本地、不能改走上传，重试也不会成功。
+		// online 仍可依赖上传兜底；local/offline 的本地副本是唯一事实源，不能假装成功。
+		if s.cfg.NormalizedMode() != config.ModeOnline {
+			return fmt.Errorf("%w: local store is degraded, finish record is not persisted", ErrRunFailed)
+		}
 		console.Warning("finish: local store is degraded, finish record is not kept locally")
 		s.finishCommitted = true
 		return nil
