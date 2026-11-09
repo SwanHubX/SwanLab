@@ -14,7 +14,7 @@ const (
 	StateNormal State = iota
 	// StateDegraded 表示至少一个平面连续不可达，或写入侧连续失败。
 	StateDegraded
-	// StateBackfill 预留给 T4 回填阶段，当前不会产生。
+	// StateBackfill 预留，当前不会产生。
 	StateBackfill
 )
 

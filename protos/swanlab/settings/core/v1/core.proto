@@ -24,9 +24,8 @@ message CoreSettings {
     // Cloud web endpoint, e.g. https://swanlab.cn. Only used to build user-facing experiment URLs.
     string web_host = 13;
 
-    // Field 14 is reserved for `mode` in the SDK lifecycle work; do not reuse it.
-    // Upload pipeline budget in records / bytes; <=0 means the dimension is unlimited.
-    // Defaults stay unlimited until backfill is available.
+    // Field 14 is reserved; do not reuse it.
+    // Upload pipeline budget in records / bytes; <=0 means unlimited, positive values are rejected.
     int64 upload_budget_records = 15;
     int64 upload_budget_bytes   = 16;
     // Site health probe cadence and per-probe timeout in seconds; 0 uses the core default.

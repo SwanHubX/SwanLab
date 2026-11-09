@@ -245,7 +245,7 @@ func (m *Manager) Confirm(ctx context.Context, sessionID string) (ConfirmResult,
 		return ConfirmResult{}, ErrRunNotFinished
 	}
 
-	// 预算暂停会把记录留在本地；回填闭环（T4）完成前不得上报成功终态。
+	// 预算暂停会把记录留在本地，此时不得上报成功终态。
 	if s.intake != nil {
 		if paused, seq := s.intake.PauseState(); paused {
 			return ConfirmResult{}, fmt.Errorf(

@@ -41,9 +41,8 @@ type CoreSettings struct {
 	ApiHost string `protobuf:"bytes,12,opt,name=api_host,json=apiHost,proto3" json:"api_host,omitempty"`
 	// Cloud web endpoint, e.g. https://swanlab.cn. Only used to build user-facing experiment URLs.
 	WebHost string `protobuf:"bytes,13,opt,name=web_host,json=webHost,proto3" json:"web_host,omitempty"`
-	// Field 14 is reserved for `mode` in the SDK lifecycle work; do not reuse it.
-	// Upload pipeline budget in records / bytes; <=0 means the dimension is unlimited.
-	// Defaults stay unlimited until backfill is available.
+	// Field 14 is reserved; do not reuse it.
+	// Upload pipeline budget in records / bytes; <=0 means unlimited, positive values are rejected.
 	UploadBudgetRecords int64 `protobuf:"varint,15,opt,name=upload_budget_records,json=uploadBudgetRecords,proto3" json:"upload_budget_records,omitempty"`
 	UploadBudgetBytes   int64 `protobuf:"varint,16,opt,name=upload_budget_bytes,json=uploadBudgetBytes,proto3" json:"upload_budget_bytes,omitempty"`
 	// Site health probe cadence and per-probe timeout in seconds; 0 uses the core default.

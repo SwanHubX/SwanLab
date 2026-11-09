@@ -53,11 +53,11 @@ class CoreSettings(BaseModel):
     """
     upload_budget_records: int = Field(default=0)
     """
-    Upload pipeline budget in records; ``<=0`` means unlimited until the core backfill path lands.
+    Upload pipeline budget in records; ``<=0`` means unlimited, positive values are rejected.
     """
     upload_budget_bytes: int = Field(default=0)
     """
-    Upload pipeline budget in bytes; ``<=0`` means unlimited.
+    Upload pipeline budget in bytes; ``<=0`` means unlimited, positive values are rejected.
     """
     health_probe_interval: float = Field(default=5.0, ge=0)
     """

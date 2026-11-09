@@ -14,7 +14,7 @@ type Anchor struct {
 	Offset   int64
 }
 
-// OffsetIndex 按固定间隔记录 (storeSeq, offset)，让回填从任意序号附近开始读取。
+// OffsetIndex 按固定间隔记录 (storeSeq, offset)，用于从任意序号附近开始读取。
 // 只存在于内存（重启后为空）；登记由 AsyncWriter 单协程串行完成，读取方可并发 Locate。
 type OffsetIndex struct {
 	stride  uint64
