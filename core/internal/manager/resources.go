@@ -55,7 +55,11 @@ func (s *Session) open(init sessionInit) error {
 	}
 
 	s.tracker = uploader.NewTracker()
-	b := budget.New(budget.Limits{})
+	b := budget.New(budget.Limits{
+		Records: init.cfg.UploadBudgetRecords,
+		Bytes:   init.cfg.UploadBudgetBytes,
+	})
+	s.budget = b
 
 	var storeIn chan<- store.Request
 	var flushed func() uint64

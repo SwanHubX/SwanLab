@@ -444,6 +444,41 @@ class TestSkipStore:
         proto = settings.to_core_proto(run_id="r1", run_dir=tmp_path)
         assert proto.skip_store is True
 
+    def test_to_core_proto_core_tuning(self, tmp_path):
+        settings = Settings(
+            mode="online",
+            core=Settings.Core(
+                upload_budget_records=50,
+                upload_budget_bytes=1024,
+                health_probe_interval=1.5,
+                health_probe_timeout=0.75,
+                health_degrade_threshold=5,
+                health_recover_threshold=4,
+                health_probe_control_path="/custom/control",
+                health_probe_data_path="/custom/data",
+            ),
+        )
+        proto = settings.to_core_proto(run_id="r1", run_dir=tmp_path)
+        assert proto.upload_budget_records == 50
+        assert proto.upload_budget_bytes == 1024
+        assert proto.health_probe_interval == 1.5
+        assert proto.health_probe_timeout == 0.75
+        assert proto.health_degrade_threshold == 5
+        assert proto.health_recover_threshold == 4
+        assert proto.health_probe_control_path == "/custom/control"
+        assert proto.health_probe_data_path == "/custom/data"
+
+    def test_to_core_proto_health_defaults(self, tmp_path):
+        proto = Settings(mode="online").to_core_proto(run_id="r1", run_dir=tmp_path)
+        assert proto.upload_budget_records == 0
+        assert proto.upload_budget_bytes == 0
+        assert proto.health_probe_interval == 5.0
+        assert proto.health_probe_timeout == 2.0
+        assert proto.health_degrade_threshold == 3
+        assert proto.health_recover_threshold == 2
+        assert proto.health_probe_control_path == "/api/"
+        assert proto.health_probe_data_path == "/api/house/health"
+
 
 @pytest.fixture
 def netrc_file(tmp_path, monkeypatch):

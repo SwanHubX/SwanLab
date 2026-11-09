@@ -339,6 +339,14 @@ class Settings(BaseSettings):
             save_part=self.core.save_part,
             save_batch=self.core.save_batch,
             skip_store=self.core.skip_store,
+            upload_budget_records=self.core.upload_budget_records,
+            upload_budget_bytes=self.core.upload_budget_bytes,
+            health_probe_interval=self.core.health_probe_interval,
+            health_probe_timeout=self.core.health_probe_timeout,
+            health_degrade_threshold=self.core.health_degrade_threshold,
+            health_recover_threshold=self.core.health_recover_threshold,
+            health_probe_control_path=self.core.health_probe_control_path,
+            health_probe_data_path=self.core.health_probe_data_path,
         )
 
     def to_probe_proto(

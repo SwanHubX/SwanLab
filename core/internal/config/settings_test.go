@@ -61,6 +61,31 @@ func TestValidate(t *testing.T) {
 		{"save_size 无 bounds", func(s *Settings) { s.SaveSize = -1 }, nil, ""},
 		{"save_split 无 bounds", func(s *Settings) { s.SaveSplit = -1 }, nil, ""},
 		{"section_rule 允许负值", func(s *Settings) { s.SectionRule = -3 }, nil, ""},
+		{"health_probe_interval 为 0", func(s *Settings) { s.HealthProbeInterval = 0 }, nil, ""},
+		{"health_probe_interval 为负", func(s *Settings) { s.HealthProbeInterval = -0.1 }, nil, "health_probe_interval"},
+		{"health_probe_interval 为 NaN", func(s *Settings) { s.HealthProbeInterval = math.NaN() }, nil, "health_probe_interval"},
+		{"health_probe_interval 为正无穷", func(s *Settings) { s.HealthProbeInterval = math.Inf(1) }, nil, "health_probe_interval"},
+		{"health_probe_timeout 为负", func(s *Settings) { s.HealthProbeTimeout = -1 }, nil, "health_probe_timeout"},
+		{"health_probe_timeout 为 NaN", func(s *Settings) { s.HealthProbeTimeout = math.NaN() }, nil, "health_probe_timeout"},
+		{"health_probe_timeout 为正无穷", func(s *Settings) { s.HealthProbeTimeout = math.Inf(1) }, nil, "health_probe_timeout"},
+		{"health_degrade_threshold 为负", func(s *Settings) { s.HealthDegradeThreshold = -1 }, nil, "health thresholds"},
+		{"health_recover_threshold 为负", func(s *Settings) { s.HealthRecoverThreshold = -1 }, nil, "health thresholds"},
+		{"control path 缺少斜杠", func(s *Settings) { s.HealthProbeControlPath = "api/health" }, nil, "health_probe_control_path"},
+		{"data path 缺少斜杠", func(s *Settings) { s.HealthProbeDataPath = "api/house/health" }, nil, "health_probe_data_path"},
+		{"health 参数合法", func(s *Settings) {
+			s.UploadBudgetRecords = 50
+			s.UploadBudgetBytes = 1024
+			s.HealthProbeInterval = 1.5
+			s.HealthProbeTimeout = 0.75
+			s.HealthDegradeThreshold = 5
+			s.HealthRecoverThreshold = 4
+			s.HealthProbeControlPath = "/api/health"
+			s.HealthProbeDataPath = "/api/house/health"
+		}, nil, ""},
+		{"budget 允许非正", func(s *Settings) {
+			s.UploadBudgetRecords = -1
+			s.UploadBudgetBytes = -1
+		}, nil, ""},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

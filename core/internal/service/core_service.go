@@ -154,6 +154,15 @@ func settingsFromProto(in *settingsv1.CoreSettings) (config.Settings, error) {
 		APIKey:         in.GetApiKey(),
 		APIHost:        in.GetApiHost(),
 		WebHost:        in.GetWebHost(),
+
+		UploadBudgetRecords:    in.GetUploadBudgetRecords(),
+		UploadBudgetBytes:      in.GetUploadBudgetBytes(),
+		HealthProbeInterval:    in.GetHealthProbeInterval(),
+		HealthProbeTimeout:     in.GetHealthProbeTimeout(),
+		HealthDegradeThreshold: in.GetHealthDegradeThreshold(),
+		HealthRecoverThreshold: in.GetHealthRecoverThreshold(),
+		HealthProbeControlPath: in.GetHealthProbeControlPath(),
+		HealthProbeDataPath:    in.GetHealthProbeDataPath(),
 	}
 	if settings.APIHost == "" {
 		return config.Settings{}, errors.New("api_host must not be empty")

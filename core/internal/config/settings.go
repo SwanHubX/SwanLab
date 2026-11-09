@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strings"
 )
 
 // 默认值与 Python 客户端一致，供测试、工具与冒烟驱动使用。
@@ -82,6 +83,24 @@ type Settings struct {
 	APIHost string
 	// WebHost 云端 Web 站点。
 	WebHost string
+
+	// UploadBudgetRecords / UploadBudgetBytes 是上传管线容量预算（条数 / 字节）。
+	// <=0 表示该维度不限制；默认 0，T4 回填闭环完成前不启用有限预算默认值。
+	UploadBudgetRecords int64
+	UploadBudgetBytes   int64
+
+	// HealthProbeInterval / HealthProbeTimeout 是站点探针的间隔与单次超时（秒）。
+	// 0 使用 core 默认值（5s / 2s）。
+	HealthProbeInterval float64
+	HealthProbeTimeout  float64
+	// HealthDegradeThreshold / HealthRecoverThreshold 是连续失败 / 成功阈值；
+	// 0 使用 core 默认值（3 / 2）。
+	HealthDegradeThreshold int32
+	HealthRecoverThreshold int32
+	// HealthProbeControlPath / HealthProbeDataPath 是 api_host 下的探针路径；
+	// 空串使用默认路径（/api/、/api/house/health）。
+	HealthProbeControlPath string
+	HealthProbeDataPath    string
 }
 
 // Defaults 返回与 Python CoreSettings 一致的默认配置。
@@ -119,6 +138,22 @@ func (s Settings) Validate() error {
 	if s.SavePart <= 0 {
 		return fmt.Errorf("config: save_part (%d) must be positive", s.SavePart)
 	}
+	if math.IsNaN(s.HealthProbeInterval) || math.IsInf(s.HealthProbeInterval, 0) || s.HealthProbeInterval < 0 {
+		return fmt.Errorf("config: health_probe_interval (%v) must be finite and not negative", s.HealthProbeInterval)
+	}
+	if math.IsNaN(s.HealthProbeTimeout) || math.IsInf(s.HealthProbeTimeout, 0) || s.HealthProbeTimeout < 0 {
+		return fmt.Errorf("config: health_probe_timeout (%v) must be finite and not negative", s.HealthProbeTimeout)
+	}
+	if s.HealthDegradeThreshold < 0 || s.HealthRecoverThreshold < 0 {
+		return fmt.Errorf("config: health thresholds (%d/%d) must not be negative",
+			s.HealthDegradeThreshold, s.HealthRecoverThreshold)
+	}
+	if s.HealthProbeControlPath != "" && !strings.HasPrefix(s.HealthProbeControlPath, "/") {
+		return fmt.Errorf("config: health_probe_control_path (%q) must start with '/'", s.HealthProbeControlPath)
+	}
+	if s.HealthProbeDataPath != "" && !strings.HasPrefix(s.HealthProbeDataPath, "/") {
+		return fmt.Errorf("config: health_probe_data_path (%q) must start with '/'", s.HealthProbeDataPath)
+	}
 	return nil
 }
 
@@ -139,8 +174,12 @@ func MaskKey(key string) string {
 func (s Settings) String() string {
 	return fmt.Sprintf(
 		"run_id=%s run_dir=%s skip_store=%t section_rule=%d record_batch=%d record_interval=%.1f "+
-			"save_size=%d save_split=%d save_part=%d save_batch=%d api_host=%s web_host=%s api_key=%s",
+			"save_size=%d save_split=%d save_part=%d save_batch=%d api_host=%s web_host=%s api_key=%s "+
+			"upload_budget=%d/%d health_probe=%.1f/%.1f degrade=%d recover=%d control_path=%s data_path=%s",
 		s.RunID, s.RunDir, s.SkipStore, s.SectionRule, s.RecordBatch, s.RecordInterval,
 		s.SaveSize, s.SaveSplit, s.SavePart, s.SaveBatch, s.APIHost, s.WebHost, MaskKey(s.APIKey),
+		s.UploadBudgetRecords, s.UploadBudgetBytes,
+		s.HealthProbeInterval, s.HealthProbeTimeout, s.HealthDegradeThreshold, s.HealthRecoverThreshold,
+		s.HealthProbeControlPath, s.HealthProbeDataPath,
 	)
 }

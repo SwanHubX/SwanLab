@@ -5,7 +5,7 @@ from typing import ClassVar as _ClassVar, Optional as _Optional
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class CoreSettings(_message.Message):
-    __slots__ = ("run_id", "run_dir", "section_rule", "record_batch", "record_interval", "save_size", "save_split", "save_part", "save_batch", "skip_store", "api_key", "api_host", "web_host")
+    __slots__ = ("run_id", "run_dir", "section_rule", "record_batch", "record_interval", "save_size", "save_split", "save_part", "save_batch", "skip_store", "api_key", "api_host", "web_host", "upload_budget_records", "upload_budget_bytes", "health_probe_interval", "health_probe_timeout", "health_degrade_threshold", "health_recover_threshold", "health_probe_control_path", "health_probe_data_path")
     RUN_ID_FIELD_NUMBER: _ClassVar[int]
     RUN_DIR_FIELD_NUMBER: _ClassVar[int]
     SECTION_RULE_FIELD_NUMBER: _ClassVar[int]
@@ -19,6 +19,14 @@ class CoreSettings(_message.Message):
     API_KEY_FIELD_NUMBER: _ClassVar[int]
     API_HOST_FIELD_NUMBER: _ClassVar[int]
     WEB_HOST_FIELD_NUMBER: _ClassVar[int]
+    UPLOAD_BUDGET_RECORDS_FIELD_NUMBER: _ClassVar[int]
+    UPLOAD_BUDGET_BYTES_FIELD_NUMBER: _ClassVar[int]
+    HEALTH_PROBE_INTERVAL_FIELD_NUMBER: _ClassVar[int]
+    HEALTH_PROBE_TIMEOUT_FIELD_NUMBER: _ClassVar[int]
+    HEALTH_DEGRADE_THRESHOLD_FIELD_NUMBER: _ClassVar[int]
+    HEALTH_RECOVER_THRESHOLD_FIELD_NUMBER: _ClassVar[int]
+    HEALTH_PROBE_CONTROL_PATH_FIELD_NUMBER: _ClassVar[int]
+    HEALTH_PROBE_DATA_PATH_FIELD_NUMBER: _ClassVar[int]
     run_id: str
     run_dir: str
     section_rule: int
@@ -32,4 +40,12 @@ class CoreSettings(_message.Message):
     api_key: str
     api_host: str
     web_host: str
-    def __init__(self, run_id: _Optional[str] = ..., run_dir: _Optional[str] = ..., section_rule: _Optional[int] = ..., record_batch: _Optional[int] = ..., record_interval: _Optional[float] = ..., save_size: _Optional[int] = ..., save_split: _Optional[int] = ..., save_part: _Optional[int] = ..., save_batch: _Optional[int] = ..., skip_store: bool = ..., api_key: _Optional[str] = ..., api_host: _Optional[str] = ..., web_host: _Optional[str] = ...) -> None: ...
+    upload_budget_records: int
+    upload_budget_bytes: int
+    health_probe_interval: float
+    health_probe_timeout: float
+    health_degrade_threshold: int
+    health_recover_threshold: int
+    health_probe_control_path: str
+    health_probe_data_path: str
+    def __init__(self, run_id: _Optional[str] = ..., run_dir: _Optional[str] = ..., section_rule: _Optional[int] = ..., record_batch: _Optional[int] = ..., record_interval: _Optional[float] = ..., save_size: _Optional[int] = ..., save_split: _Optional[int] = ..., save_part: _Optional[int] = ..., save_batch: _Optional[int] = ..., skip_store: bool = ..., api_key: _Optional[str] = ..., api_host: _Optional[str] = ..., web_host: _Optional[str] = ..., upload_budget_records: _Optional[int] = ..., upload_budget_bytes: _Optional[int] = ..., health_probe_interval: _Optional[float] = ..., health_probe_timeout: _Optional[float] = ..., health_degrade_threshold: _Optional[int] = ..., health_recover_threshold: _Optional[int] = ..., health_probe_control_path: _Optional[str] = ..., health_probe_data_path: _Optional[str] = ...) -> None: ...

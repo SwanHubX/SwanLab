@@ -50,19 +50,25 @@ func (m *Manager) DeliverRunStart(
 
 	// 控制面预检（2s）先于认证重试：站点不可达时立即给出明确原因。
 	// APIHost 为空时跳过预检，仍由认证阶段返回 ErrMissingAPIHost（InvalidArgument）。
+	controlPath := probePath(cfg.HealthProbeControlPath, controlProbePath)
+	dataPath := probePath(cfg.HealthProbeDataPath, dataProbePath)
 	controlOK, dataOK := true, true
 	if cfg.APIHost != "" {
-		controlOK, dataOK = probeStartup(ctx, cfg.APIHost)
+		controlOK, dataOK = probeStartup(ctx, cfg.APIHost, controlPath, dataPath)
 	}
 	if !controlOK {
 		return nil, fmt.Errorf("%w: %s%s", ErrControlUnreachable,
-			strings.TrimRight(cfg.APIHost, "/"), controlProbePath)
+			strings.TrimRight(cfg.APIHost, "/"), controlPath)
 	}
-	// 探针节奏与阈值暂用 health 包默认值，C4 由 CoreSettings 下发。
+	// 探针节奏与阈值 0 值由 health 包补默认。
 	healthOpts := health.SiteOptions{
 		Key:                 siteKey(cfg.APIHost, cfg.APIKey),
-		Control:             siteProbe(cfg.APIHost, controlProbePath),
-		Data:                siteProbe(cfg.APIHost, dataProbePath),
+		Interval:            secondsDuration(cfg.HealthProbeInterval),
+		Timeout:             secondsDuration(cfg.HealthProbeTimeout),
+		DegradeThreshold:    int(cfg.HealthDegradeThreshold),
+		RecoverThreshold:    int(cfg.HealthRecoverThreshold),
+		Control:             siteProbe(cfg.APIHost, controlPath),
+		Data:                siteProbe(cfg.APIHost, dataPath),
 		InitialDataDegraded: !dataOK,
 	}
 

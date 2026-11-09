@@ -493,3 +493,48 @@ func TestDeliverRunStartDegradedWhenDataPlaneDown(t *testing.T) {
 		t.Fatalf("sites = %d, want 1", got)
 	}
 }
+
+func TestDeliverRunStartUsesConfiguredProbePathsAndBudget(t *testing.T) {
+	cloud := clienttest.NewCloud(t)
+	serveAuth(cloud)
+	serveHeartbeat(cloud, "exp-1")
+	serveProject(cloud, "alice", "demo", 7)
+	serveNewExperiment(cloud, "alice", "demo", "exp-1", "run-slug")
+	cloud.ServeJSON(http.MethodGet, "/custom/control", http.StatusOK, nil)
+	cloud.ServeJSON(http.MethodGet, "/custom/data", http.StatusServiceUnavailable, nil)
+
+	mgr := newTestManager()
+	settings := startSettings(t, cloud)
+	settings.HealthProbeControlPath = "/custom/control"
+	settings.HealthProbeDataPath = "/custom/data"
+	settings.HealthProbeInterval = 1.5
+	settings.HealthProbeTimeout = 0.75
+	settings.HealthDegradeThreshold = 5
+	settings.HealthRecoverThreshold = 4
+	settings.UploadBudgetRecords = 50
+	settings.UploadBudgetBytes = 1024
+
+	result, err := mgr.DeliverRunStart(context.Background(), settings,
+		&runv1.StartRecord{Project: "demo", Workspace: "alice", Id: "run-1"})
+	if err != nil {
+		t.Fatalf("DeliverRunStart: %v", err)
+	}
+	t.Cleanup(func() { closeStartedSession(t, mgr, result.SessionID) })
+
+	s, err := mgr.session(result.SessionID)
+	if err != nil {
+		t.Fatalf("session: %v", err)
+	}
+	if snap := s.site.Snapshot(); snap.Reason != health.ReasonProbeData {
+		t.Fatalf("snapshot = %+v, want degraded by data", snap)
+	}
+	if got := s.budget.Limits(); got.Records != 50 || got.Bytes != 1024 {
+		t.Fatalf("budget limits = %+v, want 50 records / 1024 bytes", got)
+	}
+	if got := cloud.RequestsFor(http.MethodGet, "/custom/control"); len(got) == 0 {
+		t.Fatal("startup precheck did not use the configured control path")
+	}
+	if got := cloud.RequestsFor(http.MethodGet, "/custom/data"); len(got) == 0 {
+		t.Fatal("startup precheck did not use the configured data path")
+	}
+}

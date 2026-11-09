@@ -428,6 +428,15 @@ func TestSettingsFromProto(t *testing.T) {
 		ApiKey:         "key",
 		ApiHost:        "http://127.0.0.1:1",
 		WebHost:        "http://127.0.0.1:2",
+
+		UploadBudgetRecords:    50,
+		UploadBudgetBytes:      1024,
+		HealthProbeInterval:    1.5,
+		HealthProbeTimeout:     0.75,
+		HealthDegradeThreshold: 5,
+		HealthRecoverThreshold: 4,
+		HealthProbeControlPath: "/api/health",
+		HealthProbeDataPath:    "/api/house/health",
 	}
 	got, err := settingsFromProto(in)
 	if err != nil {
@@ -447,6 +456,15 @@ func TestSettingsFromProto(t *testing.T) {
 		APIKey:         "key",
 		APIHost:        "http://127.0.0.1:1",
 		WebHost:        "http://127.0.0.1:2",
+
+		UploadBudgetRecords:    50,
+		UploadBudgetBytes:      1024,
+		HealthProbeInterval:    1.5,
+		HealthProbeTimeout:     0.75,
+		HealthDegradeThreshold: 5,
+		HealthRecoverThreshold: 4,
+		HealthProbeControlPath: "/api/health",
+		HealthProbeDataPath:    "/api/house/health",
 	}
 	if got != want {
 		t.Fatalf("settings = %+v, want %+v", got, want)

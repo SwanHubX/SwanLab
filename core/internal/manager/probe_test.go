@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestProbeReachableClassification(t *testing.T) {
@@ -56,5 +57,22 @@ func TestSiteKeyHidesAPIKey(t *testing.T) {
 	}
 	if len(a) != 32 || strings.Contains(a, "secret-key") {
 		t.Fatalf("site key %q leaks the api key or has unexpected length", a)
+	}
+}
+
+func TestSecondsDuration(t *testing.T) {
+	cases := []struct {
+		in   float64
+		want time.Duration
+	}{
+		{0, 0},
+		{-1, 0},
+		{1.5, 1500 * time.Millisecond},
+		{0.75, 750 * time.Millisecond},
+	}
+	for _, c := range cases {
+		if got := secondsDuration(c.in); got != c.want {
+			t.Fatalf("secondsDuration(%v) = %v, want %v", c.in, got, c.want)
+		}
 	}
 }

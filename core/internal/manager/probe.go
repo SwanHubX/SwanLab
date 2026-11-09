@@ -55,12 +55,28 @@ func probeReachable(ctx context.Context, url string) bool {
 	return resp.StatusCode != http.StatusTooManyRequests && resp.StatusCode < 500
 }
 
+// probePath 返回配置的探针路径；空串使用默认路径。
+func probePath(configured, fallback string) string {
+	if configured == "" {
+		return fallback
+	}
+	return configured
+}
+
+// secondsDuration 把协议中的秒数转换为 Duration；<=0 保持 0，由 health 使用默认值。
+func secondsDuration(seconds float64) time.Duration {
+	if seconds <= 0 {
+		return 0
+	}
+	return time.Duration(seconds * float64(time.Second))
+}
+
 // probeStartup 依次探测控制面与数据面；控制面不可达时不再探测数据面。
-func probeStartup(ctx context.Context, apiHost string) (control, data bool) {
-	if !probeNow(ctx, apiHost, controlProbePath) {
+func probeStartup(ctx context.Context, apiHost, controlPath, dataPath string) (control, data bool) {
+	if !probeNow(ctx, apiHost, controlPath) {
 		return false, false
 	}
-	return true, probeNow(ctx, apiHost, dataProbePath)
+	return true, probeNow(ctx, apiHost, dataPath)
 }
 
 // siteKey 用于在健康注册表中按 api_host + api_key 摘要共享探针，

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/swanhubx/swanlab/core/internal/api"
+	"github.com/swanhubx/swanlab/core/internal/budget"
 	"github.com/swanhubx/swanlab/core/internal/buffer"
 	"github.com/swanhubx/swanlab/core/internal/client"
 	"github.com/swanhubx/swanlab/core/internal/config"
@@ -137,6 +138,7 @@ type Session struct {
 	store     *store.AsyncWriter
 	intake    *buffer.Intake
 	uploader  *uploader.Uploader
+	budget    *budget.Budget
 	tracker   *uploader.Tracker
 	watcher   watcher.Watcher
 	heartbeat *heartbeat

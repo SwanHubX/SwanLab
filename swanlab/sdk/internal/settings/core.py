@@ -51,4 +51,38 @@ class CoreSettings(BaseModel):
     path without local links.
     ``swanlab sync`` / ``swanlab watch`` do not apply; a crashed run cannot be recovered.
     """
+    upload_budget_records: int = Field(default=0)
+    """
+    Upload pipeline budget in records; ``<=0`` means unlimited.
+
+    Defaults to unlimited until the core backfill path is available.
+    """
+    upload_budget_bytes: int = Field(default=0)
+    """
+    Upload pipeline budget in bytes; ``<=0`` means unlimited.
+    """
+    health_probe_interval: float = Field(default=5.0, ge=0)
+    """
+    Site health probe interval in seconds. ``0`` lets core use its default (5s).
+    """
+    health_probe_timeout: float = Field(default=2.0, ge=0)
+    """
+    Per-probe timeout in seconds. ``0`` lets core use its default (2s).
+    """
+    health_degrade_threshold: int = Field(default=3, ge=0)
+    """
+    Consecutive probe failures required to degrade the site. ``0`` uses the core default (3).
+    """
+    health_recover_threshold: int = Field(default=2, ge=0)
+    """
+    Consecutive probe successes required to recover the site. ``0`` uses the core default (2).
+    """
+    health_probe_control_path: str = Field(default="/api/")
+    """
+    Control-plane probe path relative to ``api_host``; empty uses the core default.
+    """
+    health_probe_data_path: str = Field(default="/api/house/health")
+    """
+    Data-plane probe path relative to ``api_host``; empty uses the core default.
+    """
     model_config = ConfigDict(frozen=True)
