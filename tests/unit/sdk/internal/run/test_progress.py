@@ -363,6 +363,41 @@ class TestRunWithProgress:
         result = run_with_progress(provider.get_operation_stats, lambda: expected, timeout=5.0)
         assert result is expected
 
+    def test_terminal_stats_error_skips_polling_and_warnings(self, monkeypatch):
+        """session 已消失（NOT_FOUND）时直接收尾，不再刷告警。"""
+        warnings = []
+        stats_calls = []
+        monkeypatch.setattr(progress_module.console, "warning", lambda *args, **kwargs: warnings.append(args))
+
+        def stats_fn() -> GetOperationStatsResponse:
+            stats_calls.append(True)
+            assert len(stats_calls) <= 2, "terminal stats error must stop polling"
+            return GetOperationStatsResponse(
+                success=False,
+                message="[RPC/SESSION_NOT_FOUND] no such session (grpc=NOT_FOUND)",
+            )
+
+        called = []
+        run_with_progress(stats_fn, lambda: called.append(True))
+
+        assert called == [True]
+        assert len(stats_calls) == 1
+        assert warnings == []
+
+    def test_non_terminal_stats_error_still_warns_once(self, monkeypatch):
+        """非终态失败保持原有行为：告警一次后继续收尾。"""
+        warnings = []
+        monkeypatch.setattr(progress_module.console, "warning", lambda *args, **kwargs: warnings.append(args))
+
+        def stats_fn() -> GetOperationStatsResponse:
+            return GetOperationStatsResponse(success=False, message="[RPC/GRPC_UNAVAILABLE] connect failed")
+
+        called = []
+        run_with_progress(stats_fn, lambda: called.append(True))
+
+        assert called == [True]
+        assert len(warnings) == 1
+
     def test_live_updates_refresh_immediately(self, monkeypatch):
         class FakeLive:
             instances = []

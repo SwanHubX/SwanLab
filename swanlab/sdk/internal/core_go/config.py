@@ -26,6 +26,11 @@ __all__ = [
     "ENDPOINT_POLL_INTERVAL",
     "CHANNEL_READY_TIMEOUT",
     "RPC_TIMEOUT",
+    "RUN_START_TIMEOUT",
+    "UPSERT_TIMEOUT",
+    "RUN_FINISH_TIMEOUT",
+    "STATS_TIMEOUT",
+    "CONFIRM_TIMEOUT",
     "TEARDOWN_TIMEOUT",
     "WAIT_TIMEOUT",
     "TERMINATE_TIMEOUT",
@@ -60,8 +65,18 @@ PORT_FILE_TIMEOUT = 30.0
 ENDPOINT_POLL_INTERVAL = 0.05
 # gRPC channel 进入 READY 的预算。
 CHANNEL_READY_TIMEOUT = 10.0
-# 单次 gRPC 调用预算。
+# 通用单次 gRPC 调用预算，仅用于没有专属语义的超时。
 RPC_TIMEOUT = 10.0
+# DeliverRunStart：要等云端认证、项目与实验创建，预算放宽。
+RUN_START_TIMEOUT = 30.0
+# Upsert：数据面单批转发，失败交给 consumer 重试。
+UPSERT_TIMEOUT = 5.0
+# DeliverRunFinish：只提交终态，不等待上传排空。
+RUN_FINISH_TIMEOUT = 15.0
+# GetOperationStats：finish 阶段高频轮询，超时必须短。
+STATS_TIMEOUT = 2.0
+# ConfirmRunFinish：core 内部要排空上传队列，预算高于启动。
+CONFIRM_TIMEOUT = 45.0
 # TeardownService 的预算，只发请求不等进程退出。
 TEARDOWN_TIMEOUT = 5.0
 # 回收子进程：先等优雅退出。

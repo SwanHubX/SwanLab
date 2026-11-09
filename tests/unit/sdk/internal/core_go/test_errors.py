@@ -53,6 +53,7 @@ def test_error_to_dict_is_json_friendly():
         "grpc_name": None,
         "grpc_code": None,
         "detail": "stderr tail",
+        "retryable": False,
     }
 
 
@@ -83,6 +84,38 @@ def test_reason_for_grpc_mapping(grpc_name, expected):
 
 def test_reason_for_grpc_is_case_insensitive():
     assert reason_for_grpc(" unimplemented ") is ReasonCode.UNIMPLEMENTED
+
+
+@pytest.mark.parametrize(
+    "reason, expected",
+    [
+        (ReasonCode.RESOURCE_EXHAUSTED, True),
+        (ReasonCode.GRPC_UNAVAILABLE, True),
+        (ReasonCode.DEADLINE_EXCEEDED, True),
+        (ReasonCode.CHANNEL_TIMEOUT, True),
+        (ReasonCode.GRPC_ERROR, True),
+        (ReasonCode.INVALID_ARGUMENT, False),
+        (ReasonCode.FAILED_PRECONDITION, False),
+        (ReasonCode.UNIMPLEMENTED, False),
+        (ReasonCode.SESSION_NOT_FOUND, False),
+        (ReasonCode.NOT_STARTED, False),
+        (ReasonCode.CLOSED, False),
+    ],
+)
+def test_retryable_is_derived_from_reason(reason, expected):
+    assert CoreGoError(Stage.RPC, reason, "boom").retryable is expected
+
+
+def test_retryable_can_be_overridden():
+    error = CoreGoError(Stage.RPC, ReasonCode.RESOURCE_EXHAUSTED, "boom", retryable=False)
+
+    assert error.retryable is False
+
+
+def test_error_is_core_protocol_error():
+    from swanlab.sdk.protocol import CoreProtocolError
+
+    assert isinstance(CoreGoError(Stage.RPC, ReasonCode.GRPC_ERROR, "boom"), CoreProtocolError)
 
 
 def test_import_core_go_does_not_load_grpc():

@@ -27,7 +27,14 @@ from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
     UpsertSavesRequest,
     UpsertScalarsRequest,
 )
-from swanlab.sdk.internal.core_go.config import RPC_TIMEOUT
+from swanlab.sdk.internal.core_go.config import (
+    CONFIRM_TIMEOUT,
+    RPC_TIMEOUT,
+    RUN_FINISH_TIMEOUT,
+    RUN_START_TIMEOUT,
+    STATS_TIMEOUT,
+    UPSERT_TIMEOUT,
+)
 from swanlab.sdk.internal.core_go.errors import CoreGoError, ReasonCode, Stage
 from swanlab.sdk.internal.core_go.rpc.core_service import CoreServiceRpc
 
@@ -197,6 +204,29 @@ def test_confirm_run_finish_rejected(service):
         client.confirm_run_finish("s-1")
 
     assert caught.value.reason is ReasonCode.RUN_FINISH_REJECTED
+
+
+def test_method_timeouts_match_semantics(service):
+    """start / upsert / stats / finish / confirm 各自使用语义匹配且互不相同的超时。"""
+    client, stub = service
+    stub.responses["DeliverRunStart"] = DeliverRunStartResponse(success=True, session_id="s-1")
+    stub.responses["DeliverRunFinish"] = DeliverRunFinishResponse(success=True)
+    stub.responses["GetOperationStats"] = GetOperationStatsResponse(success=True)
+    stub.responses["ConfirmRunFinish"] = ConfirmRunFinishResponse(success=True)
+
+    client.deliver_run_start(DeliverRunStartRequest())
+    client.upsert_scalars([], "s-1")
+    client.deliver_run_finish(DeliverRunFinishRequest(), "s-1")
+    client.get_operation_stats("s-1")
+    client.confirm_run_finish("s-1")
+
+    timeouts = {name: timeout for name, _, timeout in stub.calls}
+    assert timeouts["DeliverRunStart"] == RUN_START_TIMEOUT
+    assert timeouts["UpsertScalars"] == UPSERT_TIMEOUT
+    assert timeouts["DeliverRunFinish"] == RUN_FINISH_TIMEOUT
+    assert timeouts["GetOperationStats"] == STATS_TIMEOUT
+    assert timeouts["ConfirmRunFinish"] == CONFIRM_TIMEOUT
+    assert len(set(timeouts.values())) == len(timeouts)
 
 
 def test_unimplemented_is_not_rewritten(monkeypatch):

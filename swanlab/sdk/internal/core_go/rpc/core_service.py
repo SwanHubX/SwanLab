@@ -32,7 +32,14 @@ from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord, ScalarRecord
 from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord
 from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogRecord
-from swanlab.sdk.internal.core_go.config import TEARDOWN_TIMEOUT
+from swanlab.sdk.internal.core_go.config import (
+    CONFIRM_TIMEOUT,
+    RUN_FINISH_TIMEOUT,
+    RUN_START_TIMEOUT,
+    STATS_TIMEOUT,
+    TEARDOWN_TIMEOUT,
+    UPSERT_TIMEOUT,
+)
 from swanlab.sdk.internal.core_go.errors import CoreGoError, ReasonCode, Stage
 from swanlab.sdk.typings.core_go import RpcChannelType
 
@@ -71,6 +78,7 @@ class CoreServiceRpc:
         response = self._channel.call(
             self._stub.DeliverRunStart,
             request,
+            timeout=RUN_START_TIMEOUT,
             stage=Stage.RUN_START,
         )
         if not response.success:
@@ -91,30 +99,35 @@ class CoreServiceRpc:
         self._channel.call(
             self._stub.UpsertColumns,
             UpsertColumnsRequest(columns=columns, session_id=session_id),
+            timeout=UPSERT_TIMEOUT,
         )
 
     def upsert_scalars(self, scalars: List[ScalarRecord], session_id: str) -> None:
         self._channel.call(
             self._stub.UpsertScalars,
             UpsertScalarsRequest(data=scalars, session_id=session_id),
+            timeout=UPSERT_TIMEOUT,
         )
 
     def upsert_media(self, media: List[MediaRecord], session_id: str) -> None:
         self._channel.call(
             self._stub.UpsertMedia,
             UpsertMediaRequest(data=media, session_id=session_id),
+            timeout=UPSERT_TIMEOUT,
         )
 
     def upsert_logs(self, logs: List[LogRecord], session_id: str) -> None:
         self._channel.call(
             self._stub.UpsertLogs,
             UpsertLogsRequest(logs=logs, session_id=session_id),
+            timeout=UPSERT_TIMEOUT,
         )
 
     def upsert_saves(self, saves: List[SaveRecord], session_id: str) -> None:
         self._channel.call(
             self._stub.UpsertSaves,
             UpsertSavesRequest(saves=saves, session_id=session_id),
+            timeout=UPSERT_TIMEOUT,
         )
 
     def deliver_run_finish(
@@ -127,6 +140,7 @@ class CoreServiceRpc:
         response = self._channel.call(
             self._stub.DeliverRunFinish,
             request,
+            timeout=RUN_FINISH_TIMEOUT,
             stage=Stage.RPC,
         )
         if not response.success:
@@ -141,6 +155,7 @@ class CoreServiceRpc:
         response = self._channel.call(
             self._stub.GetOperationStats,
             GetOperationStatsRequest(session_id=session_id),
+            timeout=STATS_TIMEOUT,
         )
         if not response.success:
             raise CoreGoError(
@@ -155,6 +170,7 @@ class CoreServiceRpc:
         response = self._channel.call(
             self._stub.ConfirmRunFinish,
             ConfirmRunFinishRequest(session_id=session_id),
+            timeout=CONFIRM_TIMEOUT,
         )
         if not response.success:
             raise CoreGoError(
