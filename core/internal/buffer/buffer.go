@@ -48,7 +48,7 @@ var (
 	ErrBatchTooLarge = errors.New("buffer: batch exceeds queue capacity")
 	// ErrOverReserved 表示本次提交超出 Reserve 预留的配额，属于调用方错误。
 	ErrOverReserved = errors.New("buffer: commit exceeds reservation")
-	// ErrStoreDegraded 表示 StoreOnly 会话的本地存储已不可用，记录无处可写，重试不会成功。
+	// ErrStoreDegraded 表示 StoreOnly 会话无法落盘，重试不会成功。
 	ErrStoreDegraded = errors.New("buffer: local store is degraded")
 	// errQueueWait 标记本地通道等待超时；与调用方 ctx 取消区分开。
 	errQueueWait = errors.New("buffer: local queue wait exceeded")
@@ -342,9 +342,9 @@ func (t *Intake) Commit(tk Ticket, records []*recordv1.Record) error {
 		return fmt.Errorf("%w: no local copy in store-only mode", ErrStoreDegraded)
 	}
 
-	immediate, deferred := routeRecords(records)
-	if t.storeOnly {
-		immediate, deferred = nil, nil
+	var immediate, deferred []int
+	if !t.storeOnly {
+		immediate, deferred = routeRecords(records)
 	}
 	uploadable := len(immediate) + len(deferred)
 	payloads, wantStore := t.encodeStore(records)

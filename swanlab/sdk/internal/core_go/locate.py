@@ -2,10 +2,7 @@
 @author: Nexisato
 @file: locate.py
 @time: 2026/11/9
-@description: 定位 swanlab-core 可执行文件。
-
-优先级：SWANLAB_CORE_BINARY 环境变量 → 包内 swanlab/bin/swanlab-core[.exe]。
-只负责定位与存在性检查，可执行权限由 CoreLauncher 在启动前校验。
+@description: 定位 swanlab-core：环境变量优先，其次包内 swanlab/bin。
 """
 
 import os

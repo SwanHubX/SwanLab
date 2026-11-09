@@ -334,8 +334,7 @@ func (s *CoreService) ConfirmRunFinish(
 		message = "OK"
 	}
 	if result.ReleaseFailed && result.Retryable {
-		// 网络/超时类释放失败：用 Unavailable 让 Python 走可重试分支；
-		// 确定性失败仍返回 success=false，避免 4xx 被重试。
+		// 可重试的释放失败返回 Unavailable；确定性失败仍返回 success=false。
 		return nil, status.Error(codes.Unavailable, message)
 	}
 	return &corev1.ConfirmRunFinishResponse{
@@ -358,7 +357,7 @@ func managerStatus(err error) error {
 	case errors.Is(err, manager.ErrNotRunning):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, manager.ErrStoreUnavailable):
-		// 本地存储已降级，记录无法落盘，按确定性失败处理，避免 Python 无限重试。
+		// 本地存储已降级，无法落盘，按确定性失败处理，避免客户端重试。
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, manager.ErrOverloaded):
 		return status.Error(codes.ResourceExhausted, err.Error())

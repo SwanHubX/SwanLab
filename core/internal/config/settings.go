@@ -57,7 +57,7 @@ const (
 	ModeLocal Mode = "local"
 	// ModeOffline 只写本地 store，供后续补传。
 	ModeOffline Mode = "offline"
-	// ModeDisabled 不落盘、不上传；Python 侧不会为此模式启动 core 进程。
+	// ModeDisabled 不落盘、不上传。
 	ModeDisabled Mode = "disabled"
 )
 

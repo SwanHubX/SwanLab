@@ -2,11 +2,7 @@
 @author: Nexisato
 @file: core.py
 @time: 2026/10/27 15:40
-@description: CoreGo：CoreProtocol 在 Go core 上的适配层。
-
-只做 run 级编排：spinup + DeliverRunStart 保存 session_id，Upsert 薄转发，
-finish/stats/confirm 一一映射；本地存储、批量与重试由 Go core 或上游负责。
-CoreEnum.CORE（"Core"）对应本模块，CoreEnum.CORE_PYTHON 对应 CorePython。
+@description: CoreProtocol 的 Go core 适配层，负责进程拉起、RPC 转发与生命周期回收。
 """
 
 import threading
@@ -67,7 +63,6 @@ class CoreGo(CoreProtocol):
     """CoreProtocol 的 Go core 实现，一次实例只绑定一个 run session。
 
     状态机：NEW → STARTING → RUNNING → FINISHED → CLOSED；失败走 ABORTING。
-    阻塞的 spawn/RPC/reap 不持锁，close/abort 先切终态再清理。
     """
 
     # upsert 失败交给 consumer 分类重试或终结，不在本层吞掉。
@@ -342,8 +337,7 @@ class CoreGo(CoreProtocol):
                 if self._session_id == session_id:
                     self._session_id = None
             else:
-                # Core 保留会话等待下一次 Confirm 重试，这里不能清 session_id；
-                # 是否可重试由 gRPC 状态码决定，success=false 视为确定性拒绝。
+                # success=false 是确定性拒绝；保留 session_id 供显式重试。
                 self._last_error = CoreGoError(
                     Stage.LIFECYCLE,
                     ReasonCode.RUN_FINISH_REJECTED,
