@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"google.golang.org/protobuf/proto"
 
@@ -48,8 +47,8 @@ func (m *Manager) DeliverRunStart(
 		return nil, fmt.Errorf("%w: %w", ErrInvalidStartRecord, err)
 	}
 
-	// 控制面预检（2s）先于认证重试：站点不可达时立即给出明确原因。
-	// APIHost 为空时跳过预检，仍由认证阶段返回 ErrMissingAPIHost（InvalidArgument）。
+	// 控制面预检（2s）先于认证重试：不可达时立即失败。APIHost 为空时跳过预检，
+	// 仍由认证阶段返回 ErrMissingAPIHost。
 	controlPath := probePath(cfg.HealthProbeControlPath, controlProbePath)
 	dataPath := probePath(cfg.HealthProbeDataPath, dataProbePath)
 	controlOK, dataOK := true, true
@@ -57,10 +56,9 @@ func (m *Manager) DeliverRunStart(
 		controlOK, dataOK = probeStartup(ctx, cfg.APIHost, controlPath, dataPath)
 	}
 	if !controlOK {
-		return nil, fmt.Errorf("%w: %s%s", ErrControlUnreachable,
-			strings.TrimRight(cfg.APIHost, "/"), controlPath)
+		return nil, fmt.Errorf("%w: %s", ErrControlUnreachable, probeURL(cfg.APIHost, controlPath))
 	}
-	// 探针节奏与阈值 0 值由 health 包补默认。
+	// 0 值节奏与阈值由 health 补默认。
 	healthOpts := health.SiteOptions{
 		Key:                 siteKey(cfg.APIHost, cfg.APIKey),
 		Interval:            secondsDuration(cfg.HealthProbeInterval),

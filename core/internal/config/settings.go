@@ -86,21 +86,19 @@ type Settings struct {
 	// WebHost 云端 Web 站点。
 	WebHost string
 
-	// UploadBudgetRecords / UploadBudgetBytes 是上传管线容量预算（条数 / 字节）。
-	// <=0 表示该维度不限制；默认 0，T4 回填闭环完成前不启用有限预算默认值。
+	// UploadBudgetRecords / UploadBudgetBytes 是上传管线容量预算（条数 / 字节）；
+	// <=0 表示该维度不限制，默认 0：T4 回填闭环完成前不启用有限预算。
 	UploadBudgetRecords int64
 	UploadBudgetBytes   int64
 
-	// HealthProbeInterval / HealthProbeTimeout 是站点探针的间隔与单次超时（秒）。
-	// 0 使用 core 默认值（5s / 2s）。
+	// HealthProbeInterval / HealthProbeTimeout 是探针间隔与单次超时（秒），0 取 core 默认（5s / 2s）。
 	HealthProbeInterval float64
 	HealthProbeTimeout  float64
-	// HealthDegradeThreshold / HealthRecoverThreshold 是连续失败 / 成功阈值；
-	// 0 使用 core 默认值（3 / 2）。
+	// HealthDegradeThreshold / HealthRecoverThreshold 是连续失败 / 成功阈值，0 取 core 默认（3 / 2）。
 	HealthDegradeThreshold int32
 	HealthRecoverThreshold int32
-	// HealthProbeControlPath / HealthProbeDataPath 是 api_host 下的探针路径；
-	// 空串使用默认路径（/api/、/api/house/health）。
+	// HealthProbeControlPath / HealthProbeDataPath 是 api_host 下的探针路径，
+	// 空串取默认（/api/、/api/house/health）。
 	HealthProbeControlPath string
 	HealthProbeDataPath    string
 }
@@ -124,6 +122,7 @@ func Defaults() Settings {
 //
 // record_batch 必须落在 (0, 100_000)；record_interval 与 save_part 必须为正，
 // record_interval 额外拒绝 NaN（+Inf 允许）；其余 save_* 不限制。
+// health_* 必须有限且非负，探针路径需以 "/" 开头；非零上传预算在 T4 前直接拒绝。
 func (s Settings) Validate() error {
 	if s.RunID == "" {
 		return fmt.Errorf("config: %w", ErrRunIDRequired)
@@ -140,10 +139,10 @@ func (s Settings) Validate() error {
 	if s.SavePart <= 0 {
 		return fmt.Errorf("config: save_part (%d) must be positive", s.SavePart)
 	}
-	if math.IsNaN(s.HealthProbeInterval) || math.IsInf(s.HealthProbeInterval, 0) || s.HealthProbeInterval < 0 {
+	if !validSeconds(s.HealthProbeInterval) {
 		return fmt.Errorf("config: health_probe_interval (%v) must be finite and not negative", s.HealthProbeInterval)
 	}
-	if math.IsNaN(s.HealthProbeTimeout) || math.IsInf(s.HealthProbeTimeout, 0) || s.HealthProbeTimeout < 0 {
+	if !validSeconds(s.HealthProbeTimeout) {
 		return fmt.Errorf("config: health_probe_timeout (%v) must be finite and not negative", s.HealthProbeTimeout)
 	}
 	if s.HealthDegradeThreshold < 0 || s.HealthRecoverThreshold < 0 {
@@ -162,6 +161,11 @@ func (s Settings) Validate() error {
 		return fmt.Errorf("config: health_probe_data_path (%q) must start with '/'", s.HealthProbeDataPath)
 	}
 	return nil
+}
+
+// validSeconds 判断以秒为单位的参数是否合法：有限且非负。
+func validSeconds(v float64) bool {
+	return !math.IsNaN(v) && !math.IsInf(v, 0) && v >= 0
 }
 
 // MaskKey 对 API Key 做日志脱敏：过短的 key 只显示 "****"，

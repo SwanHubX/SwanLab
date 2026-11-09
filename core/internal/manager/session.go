@@ -328,23 +328,24 @@ func (s *Session) snapshot() *operationv1.OperationStats {
 	if s.tracker != nil {
 		stats = s.tracker.Snapshot()
 	}
-	if s.uploader != nil || s.intake != nil || s.budget != nil {
-		upload := &operationv1.UploadStatus{}
-		if s.uploader != nil {
-			upload.PendingRecords = int64(s.uploader.Stats().Pending)
-			upload.Paused = s.uploader.Suspended()
-		}
-		if s.intake != nil {
-			if paused, seq := s.intake.PauseState(); paused {
-				upload.Paused = true
-				upload.PauseSeq = seq
-			}
-		}
-		if s.budget != nil {
-			_, usedBytes := s.budget.Usage()
-			upload.BufferedBytes = usedBytes
-		}
-		stats.Upload = upload
+	if s.uploader == nil && s.intake == nil && s.budget == nil {
+		return stats
 	}
+	upload := &operationv1.UploadStatus{}
+	if s.uploader != nil {
+		upload.PendingRecords = int64(s.uploader.Stats().Pending)
+		upload.Paused = s.uploader.Suspended()
+	}
+	if s.intake != nil {
+		if paused, seq := s.intake.PauseState(); paused {
+			upload.Paused = true
+			upload.PauseSeq = seq
+		}
+	}
+	if s.budget != nil {
+		_, usedBytes := s.budget.Usage()
+		upload.BufferedBytes = usedBytes
+	}
+	stats.Upload = upload
 	return stats
 }

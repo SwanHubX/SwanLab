@@ -109,7 +109,6 @@ func (a *AsyncWriter) Flushed() (uint64, int64) {
 }
 
 // Index 返回 storeSeq→offset 稀疏索引；写入由写协程串行登记，调用方可并发读取。
-// 索引只在内存中，进程重启后为空。
 func (a *AsyncWriter) Index() *OffsetIndex { return a.index }
 
 // Err 返回首次写入或刷盘错误；无错误时为 nil。

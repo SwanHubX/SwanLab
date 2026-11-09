@@ -15,9 +15,7 @@ type Anchor struct {
 }
 
 // OffsetIndex 按固定间隔记录 (storeSeq, offset)，让回填从任意序号附近开始读取。
-//
-// 只存在于内存，进程重启后需要重新扫描文件；登记由 AsyncWriter 单协程串行完成，
-// 读取方可并发 Locate。
+// 只存在于内存（重启后为空）；登记由 AsyncWriter 单协程串行完成，读取方可并发 Locate。
 type OffsetIndex struct {
 	stride  uint64
 	mu      sync.RWMutex
@@ -32,8 +30,7 @@ func NewOffsetIndex(stride int) *OffsetIndex {
 	return &OffsetIndex{stride: uint64(stride)}
 }
 
-// Add 在 seq 落在锚点间隔上时登记 (seq, offset)。
-// 非单调的 seq 会被忽略：AsyncWriter 保证序号递增。
+// Add 在 seq 命中锚点间隔时登记 (seq, offset)；非单调序号被忽略（AsyncWriter 保证递增）。
 func (x *OffsetIndex) Add(seq uint64, offset int64) {
 	if seq == 0 || seq%x.stride != 0 {
 		return
@@ -46,8 +43,7 @@ func (x *OffsetIndex) Add(seq uint64, offset int64) {
 	x.anchors = append(x.anchors, Anchor{StoreSeq: seq, Offset: offset})
 }
 
-// Locate 返回 StoreSeq <= seq 的最后一个锚点。
-// ok 为 false 表示 seq 之前没有锚点，调用方应从文件头开始读。
+// Locate 返回 StoreSeq <= seq 的最后一个锚点；ok 为 false 时应从文件头开始读。
 func (x *OffsetIndex) Locate(seq uint64) (Anchor, bool) {
 	x.mu.RLock()
 	defer x.mu.RUnlock()

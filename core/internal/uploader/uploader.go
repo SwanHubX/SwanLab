@@ -37,11 +37,12 @@ type Options struct {
 	Warn     *WarningThrottle        // 可空，内部创建
 	Context  context.Context         // 可空，作为 sender 调用的父 ctx
 	Now      func() time.Time        // 可空，调度时钟，测试可注入
-	// OnRetryableFailure 在每一轮可重试失败后回调，参数为自上次成功以来的连续失败轮数。
+	// OnRetryableFailure 在每轮可重试失败后回调，参数为自上次成功以来的连续失败轮数。
 	OnRetryableFailure func(rounds int)
-	// OnDispatchSuccess 在完整调度一轮成功后回调（确定性失败不计入）。
+	// OnDispatchSuccess 在完整调度一轮成功后回调；确定性失败不计入。
 	OnDispatchSuccess func()
-	OnDrained         func() // 可空；在 worker 中、Done 关闭前调用一次，禁止阻塞或再调用 Close
+	// OnDrained 在 worker 中、Done 关闭前调用一次；禁止阻塞或再次调用 Close。
+	OnDrained func()
 }
 
 // Stats 是上传管线的诊断快照；Pending 包含排队与在途记录。

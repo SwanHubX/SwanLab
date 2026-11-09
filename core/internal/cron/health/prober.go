@@ -10,7 +10,6 @@ import (
 type ProbeFunc func(ctx context.Context) bool
 
 // prober 按连续失败 / 成功阈值翻转一个平面的稳定状态。
-//
 // 计数器只在探测协程内读写；reachable / degraded 供 Snapshot 并发读取。
 type prober struct {
 	probe        ProbeFunc
@@ -45,13 +44,7 @@ func newProber(probe ProbeFunc, opts proberOptions, onFlip func(degraded bool)) 
 	return p
 }
 
-// seedDegraded 写入启动预检结论；只允许在探测协程启动前调用。
-func (p *prober) seedDegraded() {
-	p.reachable.Store(false)
-	p.degraded.Store(true)
-}
-
-// degradeNow 把平面标记为降级，供共享站点合并后续会话的启动预检结论。
+// degradeNow 立即把平面标记为降级，供启动预检与共享站点合并使用。
 // 只写原子状态并触发回调；failures / successes 仍由探测协程独占，避免数据竞争。
 func (p *prober) degradeNow() {
 	p.reachable.Store(false)
@@ -78,7 +71,7 @@ func (p *prober) tick(parent context.Context) {
 	case ok:
 		p.failures = 0
 	case p.degraded.Load():
-		// 降级期间继续探测，成功计数已在上面处理。
+		// 降级期间继续探测，等待恢复阈值。
 		p.successes = 0
 	default:
 		p.successes = 0

@@ -1,8 +1,7 @@
 // Package health 汇总站点控制面 / 数据面的探测结果并导出降级状态。
 //
-// 探针只判断服务进程是否可达，具体 HTTP 语义（2xx/3xx/4xx 视为可达，
-// transport error、5xx、429 视为不可达）由 ProbeFunc 实现。依赖级故障
-// （PG / Redis / Vector）不在探针范围内，由写入侧失败驱动降级兜底。
+// 探针只判断可达性，HTTP 语义由 ProbeFunc 决定；依赖级故障（PG / Redis / Vector）
+// 不在探针范围内，由写入侧失败驱动降级兜底。
 package health
 
 import "time"
@@ -15,7 +14,7 @@ const (
 	StateNormal State = iota
 	// StateDegraded 表示至少一个平面连续不可达，或写入侧连续失败。
 	StateDegraded
-	// StateBackfill 预留给 T4 回填阶段，T3 不产生该状态。
+	// StateBackfill 预留给 T4 回填阶段，当前不会产生。
 	StateBackfill
 )
 
@@ -48,8 +47,8 @@ const (
 type Snapshot struct {
 	State  State
 	Reason Reason
-	// ControlReachable / DataReachable 是各平面最近一次探测的结果，
-	// 与按阈值翻转的 State 不同：单次抖动会反映在这里，但不会立即降级。
+	// ControlReachable / DataReachable 是各平面最近一次探测结果：单次抖动会反映在这里，
+	// 但不会立即降级。
 	ControlReachable bool
 	DataReachable    bool
 }
@@ -61,3 +60,11 @@ const (
 	DefaultDegradeThreshold = 3
 	DefaultRecoverThreshold = 2
 )
+
+// positiveOrDefault 返回 v；v <= 0 时返回默认值。
+func positiveOrDefault[T ~int | ~int64](v, def T) T {
+	if v <= 0 {
+		return def
+	}
+	return v
+}

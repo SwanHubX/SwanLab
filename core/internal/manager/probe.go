@@ -18,26 +18,30 @@ const (
 	controlProbePath = "/api/"
 	// dataProbePath 是数据面存活端点，返回静态 200。
 	dataProbePath = "/api/house/health"
-	// probeTimeout 是单次探测预算；启动预检与周期探测共用。
+	// probeTimeout 是启动预检的单次探测预算；周期探测使用 health_probe_timeout。
 	probeTimeout = 2 * time.Second
 )
 
 // probeClient 与认证客户端隔离：不携带 API Key，也不参与认证重试。
-// 不设 Client.Timeout：周期探测与启动预检都通过请求 context 控制预算，
-// 否则配置的 health_probe_timeout 会被这里的固定值截断。
+// 不设 Client.Timeout：预算统一由请求 context 控制，避免截断 health_probe_timeout。
 var probeClient = &http.Client{}
+
+// probeURL 拼接 api_host 与探针路径。
+func probeURL(apiHost, path string) string {
+	return strings.TrimRight(apiHost, "/") + path
+}
 
 // siteProbe 把站点地址与路径包装成可注入的探针函数。
 func siteProbe(apiHost, path string) health.ProbeFunc {
-	url := strings.TrimRight(apiHost, "/") + path
+	url := probeURL(apiHost, path)
 	return func(ctx context.Context) bool { return probeReachable(ctx, url) }
 }
 
-// probeNow 用独立的 2s 预算执行一次探测，供启动预检使用。
+// probeNow 用独立预算执行一次探测，供启动预检使用。
 func probeNow(ctx context.Context, apiHost, path string) bool {
 	ctx, cancel := context.WithTimeout(ctx, probeTimeout)
 	defer cancel()
-	return siteProbe(apiHost, path)(ctx)
+	return probeReachable(ctx, probeURL(apiHost, path))
 }
 
 // probeReachable 只判断服务是否可达：2xx/3xx/4xx 视为可达（4xx 是确定性拒绝，
@@ -81,8 +85,7 @@ func probeStartup(ctx context.Context, apiHost, controlPath, dataPath string) (c
 	return true, probeNow(ctx, apiHost, dataPath)
 }
 
-// siteKey 用于在健康注册表中按 api_host + api_key 摘要共享探针，
-// 避免把密钥本身放进内存键或日志。
+// siteKey 按 api_host + api_key 摘要生成站点标识，密钥本身不进入内存键或日志。
 func siteKey(apiHost, apiKey string) string {
 	sum := sha256.Sum256([]byte(apiHost + "\x00" + apiKey))
 	return hex.EncodeToString(sum[:16])

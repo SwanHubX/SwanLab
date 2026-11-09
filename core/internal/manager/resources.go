@@ -43,7 +43,7 @@ func (s *Session) open(init sessionInit) error {
 			OnError: func(err error) {
 				s.storeDegraded.Store(true)
 				console.Warningf("store degraded, records will be uploaded without a local copy: %v", err)
-				// 失去本地副本后禁止暂停：若已暂停，监听协程会在此唤醒后恢复投递。
+				// 失去本地副本后不能再暂停，唤醒监听协程恢复投递。
 				s.wakeHealth()
 			},
 		})
@@ -121,14 +121,12 @@ func (s *Session) open(init sessionInit) error {
 			record.TypeMedia:  mediaSender,
 			record.TypeSave:   saveSender,
 		},
-		Batch:    int(init.cfg.RecordBatch),
-		Interval: time.Duration(init.cfg.RecordInterval * float64(time.Second)),
-		Tracker:  s.tracker,
-		Context:  s.ctx,
-		OnRetryableFailure: func(rounds int) {
-			s.onWriteFailure(rounds)
-		},
-		OnDispatchSuccess: s.onWriteSuccess,
+		Batch:              int(init.cfg.RecordBatch),
+		Interval:           time.Duration(init.cfg.RecordInterval * float64(time.Second)),
+		Tracker:            s.tracker,
+		Context:            s.ctx,
+		OnRetryableFailure: s.onWriteFailure,
+		OnDispatchSuccess:  s.onWriteSuccess,
 		OnDrained: func() {
 			s.markDrained()
 		},

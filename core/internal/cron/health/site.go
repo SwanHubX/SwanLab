@@ -30,22 +30,10 @@ type Site struct {
 }
 
 func newSite(opts SiteOptions, clock cron.Clock) *Site {
-	interval := opts.Interval
-	if interval <= 0 {
-		interval = DefaultInterval
-	}
-	timeout := opts.Timeout
-	if timeout <= 0 {
-		timeout = DefaultTimeout
-	}
-	degradeAfter := opts.DegradeThreshold
-	if degradeAfter <= 0 {
-		degradeAfter = DefaultDegradeThreshold
-	}
-	recoverAfter := opts.RecoverThreshold
-	if recoverAfter <= 0 {
-		recoverAfter = DefaultRecoverThreshold
-	}
+	interval := positiveOrDefault(opts.Interval, DefaultInterval)
+	timeout := positiveOrDefault(opts.Timeout, DefaultTimeout)
+	degradeAfter := positiveOrDefault(opts.DegradeThreshold, DefaultDegradeThreshold)
+	recoverAfter := positiveOrDefault(opts.RecoverThreshold, DefaultRecoverThreshold)
 
 	s := &Site{key: opts.Key, updates: make(chan struct{}, 1)}
 	probeOpts := proberOptions{
@@ -61,12 +49,10 @@ func newSite(opts SiteOptions, clock cron.Clock) *Site {
 	})
 	// 启动预检在任务协程启动前写入初值，避免首个探测周期内的错误乐观状态。
 	if opts.InitialControlDegraded {
-		s.control.seedDegraded()
-		s.setReason(ReasonProbeControl, true)
+		s.control.degradeNow()
 	}
 	if opts.InitialDataDegraded {
-		s.data.seedDegraded()
-		s.setReason(ReasonProbeData, true)
+		s.data.degradeNow()
 	}
 
 	s.scheduler = cron.New(clock)

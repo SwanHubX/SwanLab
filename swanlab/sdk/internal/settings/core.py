@@ -53,9 +53,7 @@ class CoreSettings(BaseModel):
     """
     upload_budget_records: int = Field(default=0)
     """
-    Upload pipeline budget in records; ``<=0`` means unlimited.
-
-    Defaults to unlimited until the core backfill path is available.
+    Upload pipeline budget in records; ``<=0`` means unlimited until the core backfill path lands.
     """
     upload_budget_bytes: int = Field(default=0)
     """

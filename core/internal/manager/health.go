@@ -37,21 +37,17 @@ func (s *Session) watchHealth(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-s.healthWake:
-			s.reconcileHealth()
 		case _, ok := <-s.site.Updates():
 			if !ok {
 				return
 			}
-			s.reconcileHealth()
 		}
+		s.reconcileHealth()
 	}
 }
 
-// reconcileHealth 把站点状态映射为上传暂停/恢复。
-// 只有持有本地副本（!skip_store && !storeDegraded）时才允许暂停；否则退回有界反压。
-//
-// 写入侧降级（reason=write）不能暂停：暂停后不再有调度，成功信号永远无法到达，
-// 状态会锁死。此时保持投递，由 uploader 的退避与失败驱动降级自行恢复。
+// reconcileHealth 把站点状态映射为上传暂停/恢复：仅持有本地副本时暂停；
+// 写入侧降级（reason=write）保持投递，否则暂停后永远等不到成功信号。
 func (s *Session) reconcileHealth() {
 	if s.site == nil || s.uploader == nil {
 		return

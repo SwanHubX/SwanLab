@@ -125,8 +125,7 @@ func (w *Writer) WriteRecord(payload []byte) (int64, error) {
 	return w.write(payload)
 }
 
-// write 按 LevelDB log 规范切分记录；调用方需持有 mu。
-// 返回记录头的起始偏移。
+// write 按 LevelDB log 规范切分记录并返回记录头起始偏移；调用方需持有 mu。
 func (w *Writer) write(p []byte) (int64, error) {
 	space := int(BlockLen - w.Offset()%BlockLen)
 	// 块尾放不下一个 chunk 头：补零对齐到下一块
