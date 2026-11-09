@@ -10,7 +10,7 @@
 - CorePython 通过基类走的路径不受影响。
 """
 
-from typing import List, Optional
+from typing import List, Optional, cast
 
 import pytest
 
@@ -19,6 +19,7 @@ from swanlab.proto.swanlab.metric.data.v1.data_pb2 import ScalarRecord
 from swanlab.sdk.internal.core_go import core as core_module
 from swanlab.sdk.internal.core_go.core import CoreGo
 from swanlab.sdk.internal.core_go.errors import CoreGoError, ReasonCode, Stage
+from swanlab.sdk.internal.core_go.rpc.core_service import CoreServiceRpc
 from swanlab.sdk.internal.pkg import console as pkg_console
 from swanlab.sdk.protocol import CoreProtocol, CoreProtocolError, NullCoreProtocol, is_terminal_stats_error
 
@@ -38,7 +39,7 @@ class FakeRpc:
 
 def _running_core(rpc: FakeRpc) -> CoreGo:
     core = CoreGo("online")
-    core._rpc = rpc  # noqa: SLF001 - 测试直接注入 fake RPC
+    core._rpc = cast(CoreServiceRpc, rpc)  # noqa: SLF001 - 测试直接注入 fake RPC
     core._session_id = "session-1"  # noqa: SLF001
     core._state = core_module._RUNNING  # noqa: SLF001
     return core
@@ -85,7 +86,7 @@ def test_unknown_exception_is_wrapped_as_retryable():
 def test_upsert_before_start_is_terminal_and_skips_rpc():
     rpc = FakeRpc()
     core = CoreGo("online")
-    core._rpc = rpc  # noqa: SLF001
+    core._rpc = cast(CoreServiceRpc, rpc)  # noqa: SLF001
 
     with pytest.raises(CoreGoError) as caught:
         core.upsert_scalars([ScalarRecord(key="loss", step=1)])

@@ -7,6 +7,7 @@
 """
 
 import queue
+import threading
 from pathlib import Path
 from types import SimpleNamespace
 from typing import cast
@@ -144,8 +145,10 @@ def test_backoff_is_bounded():
     delays = []
     for _ in range(6):
         consumer._flush()
-        delays.append(consumer._retry_at - clock.now)
-        clock.advance(consumer._retry_at - clock.now)
+        retry_at = consumer._retry_at
+        assert retry_at is not None
+        delays.append(retry_at - clock.now)
+        clock.advance(retry_at - clock.now)
 
     assert delays[:3] == [1.0, 2.0, 2.0]
     assert max(delays) <= 2.0
@@ -166,3 +169,61 @@ def test_queue_timeout_is_min_of_flush_timeout_and_remaining(retry_in, flush_tim
     consumer._retry_at = None if retry_in is None else clock.now + retry_in
 
     assert consumer._queue_timeout() == pytest.approx(expected)
+
+
+def test_background_loop_retries_after_backoff():
+    """真实线程路径：失败 → queue.get 等待 → 自动重试成功。"""
+    consumer, core, _ = _make_consumer(retry_base_delay=0.0, retry_max_delay=0.0, flush_timeout=0.05)
+    record = _scalar()
+    consumer._scalar_batch.append(record)
+    failed = threading.Event()
+    succeeded = threading.Event()
+
+    def upsert(batch):
+        if not failed.is_set():
+            failed.set()
+            raise CoreProtocolError("busy", retryable=True)
+        succeeded.set()
+
+    core.upsert_scalars.side_effect = upsert
+    consumer.start()
+    try:
+        assert failed.wait(timeout=2.0), "consumer did not attempt the first flush"
+        assert succeeded.wait(timeout=2.0), "consumer did not retry automatically"
+    finally:
+        consumer.stop()
+        consumer._thread.join(timeout=2.0)
+
+    assert not consumer._thread.is_alive()
+    assert consumer._scalar_batch == []
+    assert core.upsert_scalars.call_count == 2
+
+
+def test_stop_with_pending_retry_keeps_records_and_warns(monkeypatch):
+    """停止时若仍处于退避窗口，保留记录并明确告警，不静默丢弃。"""
+    warnings = []
+    monkeypatch.setattr(pkg_console, "warning", lambda *args, **kwargs: warnings.append(args))
+    consumer, core, _ = _make_consumer(retry_base_delay=5.0, flush_timeout=0.05)
+    record = _scalar()
+    consumer._scalar_batch.append(record)
+    failed = threading.Event()
+
+    def upsert(batch):
+        failed.set()
+        raise CoreProtocolError("busy", retryable=True)
+
+    core.upsert_scalars.side_effect = upsert
+    consumer.start()
+    try:
+        assert failed.wait(timeout=2.0), "consumer did not attempt the first flush"
+        consumer.stop()
+        consumer._thread.join(timeout=2.0)
+        assert not consumer._thread.is_alive()
+    finally:
+        if consumer._thread.is_alive():
+            consumer.stop()
+            consumer._thread.join(timeout=2.0)
+
+    assert consumer._scalar_batch == [record]
+    assert len(warnings) == 1
+    assert "did not accept 1 buffered record" in warnings[0][0]

@@ -398,6 +398,42 @@ class TestRunWithProgress:
         assert called == [True]
         assert len(warnings) == 1
 
+    def test_terminal_stats_error_during_polling_stops_loop(self, monkeypatch):
+        """轮询中途 session 消失：立即退出循环，完成最后一次查询后执行收尾。"""
+        warnings = []
+        monkeypatch.setattr(progress_module.console, "warning", lambda *args, **kwargs: warnings.append(args))
+        running = OperationStats(
+            state=CoreState.CORE_STATE_RUNNING,
+            total_number=1,
+            uploaded_number=0,
+            total_size=100,
+            uploaded_size=0,
+            rate=0,
+        )
+        terminal = GetOperationStatsResponse(
+            success=False,
+            message="[RPC/SESSION_NOT_FOUND] no such session (grpc=NOT_FOUND)",
+        )
+        responses = iter(
+            [
+                GetOperationStatsResponse(success=True, message="OK", stats=running),
+                terminal,
+                terminal,
+            ]
+        )
+        stats_calls = []
+
+        def stats_fn() -> GetOperationStatsResponse:
+            stats_calls.append(True)
+            return next(responses)
+
+        called = []
+        run_with_progress(stats_fn, lambda: called.append(True), unit="bytes")
+
+        assert called == [True]
+        assert len(stats_calls) == 3  # 初始 + 轮询中途 + 最终查询
+        assert warnings == []
+
     def test_live_updates_refresh_immediately(self, monkeypatch):
         class FakeLive:
             instances = []
