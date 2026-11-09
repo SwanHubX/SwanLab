@@ -300,6 +300,14 @@ class CoreProtocol(ABC):
     @abstractmethod
     def _confirm_finish_when_enabled(self) -> ConfirmRunFinishResponse: ...
 
+    # ---------------------------------- 生命周期回收 ----------------------------------
+
+    def close(self) -> None:
+        """正常关闭 Core 持有的资源；默认无操作，由实现覆盖。"""
+
+    def abort(self, cause: Optional[BaseException] = None) -> None:
+        """异常路径回收 Core 持有的资源；默认无操作，由实现覆盖。"""
+
     # ---------------------------------- 进程fork ----------------------------------
 
     @abstractmethod
