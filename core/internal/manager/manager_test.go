@@ -12,6 +12,8 @@ import (
 
 	"github.com/google/uuid"
 	"go.uber.org/goleak"
+
+	"github.com/swanhubx/swanlab/core/internal/client"
 )
 
 func TestMain(m *testing.M) {
@@ -323,6 +325,47 @@ func TestConfirmReleaseFailureKeepsSessionForRetry(t *testing.T) {
 	}
 	if _, err = m.State(handle); !errors.Is(err, ErrSessionNotFound) {
 		t.Fatalf("State after retry err=%v, want ErrSessionNotFound", err)
+	}
+}
+
+func TestConfirmReleaseFailureClassification(t *testing.T) {
+	cases := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{"network unavailable", &client.APIError{Retryable: true}, true},
+		{"deadline exceeded", context.DeadlineExceeded, true},
+		{"deterministic 4xx", &client.APIError{StatusCode: 400}, false},
+		{"plain error", errors.New("boom"), false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			m := newTestManager()
+			handle := installBare(t, m, sessionOptions{releaseFn: func(context.Context) error {
+				return tc.err
+			}})
+			s := m.sessions[handle]
+			s.drainFn = func(context.Context) error {
+				s.markDrained()
+				return nil
+			}
+			if err := drainBare(m, handle); err != nil {
+				t.Fatalf("Finish: %v", err)
+			}
+
+			result, err := m.Confirm(context.Background(), handle)
+			if err != nil {
+				t.Fatalf("Confirm err=%v", err)
+			}
+			if !result.ReleaseFailed {
+				t.Fatalf("result=%+v, want release failure", result)
+			}
+			if result.Retryable != tc.want {
+				t.Fatalf("Retryable=%v, want %v", result.Retryable, tc.want)
+			}
+			mustState(t, m, handle, RunStateDrained)
+		})
 	}
 }
 

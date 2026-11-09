@@ -342,12 +342,12 @@ class CoreGo(CoreProtocol):
                 if self._session_id == session_id:
                     self._session_id = None
             else:
-                # Core 保留会话等待下一次 Confirm 重试，这里不能清 session_id。
+                # Core 保留会话等待下一次 Confirm 重试，这里不能清 session_id；
+                # 是否可重试由 gRPC 状态码决定，success=false 视为确定性拒绝。
                 self._last_error = CoreGoError(
                     Stage.LIFECYCLE,
                     ReasonCode.RUN_FINISH_REJECTED,
                     response.message or "ConfirmRunFinish rejected",
-                    retryable=True,
                 )
         return response
 

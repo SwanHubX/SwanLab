@@ -173,11 +173,10 @@ class CoreServiceRpc:
             timeout=CONFIRM_TIMEOUT,
         )
         if not response.success:
-            # Core 会保留会话等待下一次 Confirm，释放失败（如 stop_experiment 网络错误）可重试。
+            # Core 会保留会话等待下一次 Confirm；是否可重试由 Core 的 gRPC 状态码决定。
             raise CoreGoError(
                 Stage.RPC,
                 ReasonCode.RUN_FINISH_REJECTED,
                 response.message or "ConfirmRunFinish rejected",
-                retryable=True,
             )
         return response

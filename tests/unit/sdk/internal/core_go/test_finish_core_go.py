@@ -117,7 +117,7 @@ def test_confirm_rpc_error_is_retryable_and_keeps_session():
     assert core._session_id == "session-1"  # noqa: SLF001
 
 
-def test_confirm_rejected_response_is_retryable_and_keeps_session():
+def test_confirm_rejected_response_is_terminal_and_keeps_session():
     rpc = FakeFinishRpc()
     rpc.confirm_response = ConfirmRunFinishResponse(success=False, message="saved locally")
     core = _finished_core(rpc)
@@ -127,7 +127,7 @@ def test_confirm_rejected_response_is_retryable_and_keeps_session():
     assert response.success is False
     assert core.last_error is not None
     assert core.last_error.reason is ReasonCode.RUN_FINISH_REJECTED
-    assert core.last_error.retryable is True
+    assert core.last_error.retryable is False
     assert core._session_id == "session-1"  # noqa: SLF001
 
 

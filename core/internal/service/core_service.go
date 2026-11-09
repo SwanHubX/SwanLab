@@ -333,6 +333,11 @@ func (s *CoreService) ConfirmRunFinish(
 	if message == "" {
 		message = "OK"
 	}
+	if result.ReleaseFailed && result.Retryable {
+		// 网络/超时类释放失败：用 Unavailable 让 Python 走可重试分支；
+		// 确定性失败仍返回 success=false，避免 4xx 被重试。
+		return nil, status.Error(codes.Unavailable, message)
+	}
 	return &corev1.ConfirmRunFinishResponse{
 		Success: !result.ReleaseFailed,
 		Message: message,

@@ -223,6 +223,41 @@ def test_finish_retries_deliver_and_confirm_then_closes():
     assert mock_sleep.call_count == 3
 
 
+def test_finish_does_not_retry_terminal_confirm():
+    core = ScriptedCore(
+        deliver=[(True, "OK", None)],
+        confirm=[(False, "saved locally", _terminal())],
+    )
+    run = _make_run(core)
+    progress = MagicMock(side_effect=lambda stats_fn, blocking_fn: blocking_fn())
+
+    with _finish_env(run, progress, MagicMock()):
+        with patch("swanlab.sdk.internal.run.finish_retry.time.sleep") as mock_sleep:
+            run.finish()
+
+    assert core.confirm_calls == 1
+    assert core.closed == 1
+    mock_sleep.assert_not_called()
+
+
+def test_finish_confirm_without_structured_error_is_not_retried():
+    """CorePython 不提供 last_error，confirm 失败保持原有的一次调用语义。"""
+    core = ScriptedCore(
+        deliver=[(True, "OK", None)],
+        confirm=[(False, "saved locally", None)],
+    )
+    run = _make_run(core)
+    progress = MagicMock(side_effect=lambda stats_fn, blocking_fn: blocking_fn())
+
+    with _finish_env(run, progress, MagicMock()):
+        with patch("swanlab.sdk.internal.run.finish_retry.time.sleep") as mock_sleep:
+            run.finish()
+
+    assert core.confirm_calls == 1
+    assert core.closed == 1
+    mock_sleep.assert_not_called()
+
+
 def test_finish_skips_confirm_for_core_go_when_deliver_is_terminal():
     core = ScriptedCore(
         deliver=[(False, "finish record commit failed", _terminal())],

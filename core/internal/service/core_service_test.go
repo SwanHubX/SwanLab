@@ -827,6 +827,35 @@ func TestConfirmRunFinishCarriesReleaseFailure(t *testing.T) {
 	}
 }
 
+func TestConfirmRunFinishRetryableReleaseReturnsUnavailable(t *testing.T) {
+	env := newTestEnv(t)
+	spinup(t, env)
+	ctx := callCtx(t)
+	handle := startRun(t, env, &runv1.StartRecord{})
+	if _, err := env.client.DeliverRunFinish(ctx, &corev1.DeliverRunFinishRequest{
+		SessionId:    handle,
+		FinishRecord: &runv1.FinishRecord{State: runv1.RunState_RUN_STATE_FINISHED},
+	}); err != nil {
+		t.Fatalf("DeliverRunFinish: %v", err)
+	}
+
+	env.runs.mu.Lock()
+	env.runs.confirmResult = manager.ConfirmResult{
+		Message:       "Failed to finish run, but it has been saved locally.",
+		ReleaseFailed: true,
+		Retryable:     true,
+	}
+	env.runs.mu.Unlock()
+
+	_, err := env.client.ConfirmRunFinish(ctx, &corev1.ConfirmRunFinishRequest{SessionId: handle})
+	if code := status.Code(err); code != codes.Unavailable {
+		t.Fatalf("code = %v, want Unavailable (err=%v)", code, err)
+	}
+	if _, err = env.client.GetOperationStats(ctx, &corev1.GetOperationStatsRequest{SessionId: handle}); err != nil {
+		t.Fatalf("session must be retained for retry: %v", err)
+	}
+}
+
 func TestManagerStatusMapsSessionCapacity(t *testing.T) {
 	err := managerStatus(fmt.Errorf("start: %w", manager.ErrTooManySessions))
 	if code := status.Code(err); code != codes.ResourceExhausted {
