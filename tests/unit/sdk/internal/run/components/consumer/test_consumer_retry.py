@@ -3,6 +3,7 @@
 关键契约：
 - 可重试错误必须回塞原批次，退避到期后重新提交，记录不丢；
 - 终态错误只告警一次并终结该批，不回塞；
+- 单次 flush 按 batch_size 分片提交，失败只回塞未成功的部分；
 - 退避通过 queue.get(timeout=...) 表达，不 sleep 轮询。
 """
 
@@ -15,6 +16,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord, ColumnType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import ScalarRecord
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.pkg import console as pkg_console
@@ -39,6 +41,7 @@ def _make_consumer(
     retry_base_delay: float = 0.5,
     retry_max_delay: float = 2.0,
     flush_timeout: float = 0.5,
+    batch_size: int = 100,
 ):
     core = MagicMock()
     ctx = SimpleNamespace(core=core, callbacker=MagicMock(), media_dir=tmp_path)
@@ -47,6 +50,7 @@ def _make_consumer(
         cast(RunContext, cast(object, ctx)),
         queue.Queue(),
         flush_timeout=flush_timeout,
+        batch_size=batch_size,
         retry_base_delay=retry_base_delay,
         retry_max_delay=retry_max_delay,
         clock=clock,
@@ -227,3 +231,76 @@ def test_stop_with_pending_retry_keeps_records_and_warns(monkeypatch):
     assert consumer._scalar_batch == [record]
     assert len(warnings) == 1
     assert "did not accept 1 buffered record" in warnings[0][0]
+
+
+def test_flush_chunks_batches_by_batch_size():
+    """单次 flush 按 batch_size 分片提交，避免积压后一次性发出超大请求。"""
+    consumer, core, _ = _make_consumer(batch_size=2)
+    records = [_scalar(key=f"loss/{i}") for i in range(5)]
+    consumer._scalar_batch.extend(records)
+
+    consumer._flush()
+
+    assert [len(call.args[0]) for call in core.upsert_scalars.call_args_list] == [2, 2, 1]
+    sent = [record for call in core.upsert_scalars.call_args_list for record in call.args[0]]
+    assert sent == records
+    assert consumer._scalar_batch == []
+
+
+def test_retryable_failure_keeps_record_order_across_chunks():
+    """成功分片不回塞，失败分片与未发送尾巴按原顺序重试。"""
+    consumer, core, clock = _make_consumer(batch_size=2)
+    records = [_scalar(key=f"loss/{i}") for i in range(5)]
+    consumer._scalar_batch.extend(records)
+    core.upsert_scalars.side_effect = [None, CoreProtocolError("busy", retryable=True)]
+
+    consumer._flush()
+
+    assert consumer._scalar_batch == records[2:]
+    assert [len(call.args[0]) for call in core.upsert_scalars.call_args_list] == [2, 2]
+
+    core.upsert_scalars.side_effect = None
+    core.upsert_scalars.reset_mock()
+    clock.advance(0.5)
+    consumer._flush()
+
+    sent = [record for call in core.upsert_scalars.call_args_list for record in call.args[0]]
+    assert sent == records[2:]
+    assert consumer._scalar_batch == []
+
+
+def test_terminal_failure_drops_only_rejected_chunk(monkeypatch):
+    """确定性拒绝只丢弃当前分片，剩余记录继续发送。"""
+    warnings = []
+    monkeypatch.setattr(pkg_console, "warning", lambda *args, **kwargs: warnings.append(args))
+    consumer, core, _ = _make_consumer(batch_size=2)
+    records = [_scalar(key=f"loss/{i}") for i in range(5)]
+    consumer._scalar_batch.extend(records)
+    core.upsert_scalars.side_effect = [None, CoreProtocolError("bad record", retryable=False), None]
+
+    consumer._flush()
+
+    assert consumer._scalar_batch == records[4:]
+    assert len(warnings) == 1
+    assert "count=2" in warnings[0][0]
+
+    consumer._flush()
+
+    sent = [record for call in core.upsert_scalars.call_args_list for record in call.args[0]]
+    assert sent == records
+    assert consumer._scalar_batch == []
+
+
+def test_columns_are_coalesced_before_chunking():
+    """列定义在分片前 coalesce，避免同一列跨分片重复上报。"""
+    consumer, core, _ = _make_consumer(batch_size=2)
+    first = ColumnRecord(column_key="a", column_type=ColumnType.COLUMN_TYPE_SCALAR, column_name="first")
+    last = ColumnRecord(column_key="a", column_type=ColumnType.COLUMN_TYPE_SCALAR, column_name="last")
+    other = ColumnRecord(column_key="b", column_type=ColumnType.COLUMN_TYPE_SCALAR, column_name="b")
+    consumer._column_batch.extend([first, last, other])
+
+    consumer._flush()
+
+    assert [len(call.args[0]) for call in core.upsert_columns.call_args_list] == [2]
+    sent = [record.column_name for call in core.upsert_columns.call_args_list for record in call.args[0]]
+    assert sent == ["last", "b"]

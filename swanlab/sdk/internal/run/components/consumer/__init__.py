@@ -401,24 +401,36 @@ class BackgroundConsumer(ConsumerProtocol):
 
         restored: List[Tuple[str, list]] = []
         retryable_error: Optional[Exception] = None
+        chunk_size = max(1, self._batch_size)
 
         def send(name: str, records: list, call: Callable[[list], None]) -> None:
+            """按 batch_size 分片提交，失败只回塞未成功的部分。"""
             nonlocal retryable_error
-            if not records:
-                return
-            try:
-                call(records)
-            except Exception as exc:
-                if _is_retryable(exc):
-                    restored.append((name, records))
-                    if retryable_error is None:
-                        retryable_error = exc
-                else:
-                    # 确定性拒绝：告警一次并终结该批，不回塞
-                    console.warning(f"Dropping {name} records rejected by core: {exc}")
+            start = 0
+            while start < len(records):
+                chunk = records[start : start + chunk_size]
+                try:
+                    call(chunk)
+                except Exception as exc:
+                    if _is_retryable(exc):
+                        restored.append((name, records[start:]))
+                        if retryable_error is None:
+                            retryable_error = exc
+                    else:
+                        # 确定性拒绝：只丢弃被拒绝的分片，剩余记录继续回塞
+                        console.warning(f"Dropping {name} records rejected by core: count={len(chunk)}: {exc}")
+                        if records[start + len(chunk) :]:
+                            restored.append((name, records[start + len(chunk) :]))
+                    return
+                start += len(chunk)
+
+        # 分片前先 coalesce，避免同一列跨片重复上报
+        coalesced_columns: dict[tuple[str, int], ColumnRecord] = {}
+        for col in column_batch:
+            coalesced_columns[(col.column_key, col.column_type)] = col
 
         send("logs", log_batch, self._send_logs)
-        send("columns", column_batch, self._send_columns)
+        send("columns", list(coalesced_columns.values()), self._send_columns)
         send("scalars", scalar_batch, self._send_scalars)
         send("media", media_batch, self._send_media)
         send("saves", save_batch, self._send_saves)
@@ -439,13 +451,8 @@ class BackgroundConsumer(ConsumerProtocol):
             self._callbacker.on_log_flush(log_batch)
 
     def _send_columns(self, column_batch: ColumnBatch) -> None:
-        # 一次 flush 内按 (key, type) coalesce，保留最后一条
-        coalesced: dict[tuple[str, int], ColumnRecord] = {}
-        for col in column_batch:
-            coalesced[(col.column_key, col.column_type)] = col
-        coalesced_list = list(coalesced.values())
-        console.debug(f"Flushing column records to core: count={len(coalesced_list)}", write_to_tty=False)
-        self._core.upsert_columns(coalesced_list)
+        console.debug(f"Flushing column records to core: count={len(column_batch)}", write_to_tty=False)
+        self._core.upsert_columns(column_batch)
 
     def _send_scalars(self, scalar_batch: ScalarBatch) -> None:
         self._core.upsert_scalars(scalar_batch)
