@@ -201,6 +201,22 @@ def test_fork_returns_detached_placeholder(tmp_path):
     detached.close()
 
 
+def test_detached_core_never_touches_parent_lifecycle():
+    detached = CoreGo("online").fork()
+
+    assert detached.deliver_run_start(DeliverRunStartRequest()).success is False
+    assert detached.deliver_run_finish(DeliverRunFinishRequest()).success is False
+    assert detached.confirm_run_finish().success is False
+    assert detached.get_operation_stats().success is False
+    detached.upsert_scalars([ScalarRecord(key="loss", step=1)])
+    detached.close()
+    detached.abort()
+
+    error = cast(CoreGoError, detached.last_error)
+    assert error.reason is ReasonCode.FORK_UNSUPPORTED
+    assert error.stage is Stage.FORK
+
+
 def test_start_modes_share_enabled_path(monkeypatch):
     sentinel = DeliverRunStartResponse(success=True, session_id="s")
     calls = []

@@ -60,6 +60,10 @@ def _make_real_finish_run() -> Run:
     run._sys_origin_excepthook = MagicMock()
     run._original_sigint_handler = signal.SIG_DFL
     run._is_main_thread = True
+    run._atexit_registered = True
+    run._excepthook_installed = True
+    run._sigint_installed = True
+    run._fork_registered = True
     return run
 
 
@@ -86,6 +90,7 @@ class TestFinish:
             patch("swanlab.sdk.internal.run.greeting.goodbye"),
             patch("swanlab.sdk.internal.run.run_with_progress") as mock_run_with_progress,
             patch("swanlab.sdk.internal.run.atexit.unregister"),
+            patch("swanlab.sdk.internal.run.fork.unregister") as mock_fork_unregister,
             patch("swanlab.sdk.internal.run.signal.signal"),
             patch("swanlab.sdk.internal.run.console.reset"),
             patch("swanlab.sdk.internal.run._current_run", run),
@@ -106,6 +111,7 @@ class TestFinish:
         core = cast(MagicMock, run._core)
         core.confirm_run_finish.assert_called_once()
         core.close.assert_called_once()
+        mock_fork_unregister.assert_called_once()
 
 
 class TestExcepthook:
@@ -278,6 +284,7 @@ class TestFinishSigintRestore:
         for is_main_thread, expected_calls in ((True, 1), (False, 0)):
             run = _make_real_finish_run()
             run._is_main_thread = is_main_thread
+            run._sigint_installed = is_main_thread
             with (
                 patch("swanlab.sdk.internal.run.greeting.goodbye"),
                 patch("swanlab.sdk.internal.run.run_with_progress") as mock_rwp,

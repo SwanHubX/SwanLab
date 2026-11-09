@@ -96,6 +96,10 @@ def _make_run(core) -> Run:
     run._sys_origin_excepthook = MagicMock()
     run._original_sigint_handler = signal.SIG_DFL
     run._is_main_thread = True
+    run._atexit_registered = True
+    run._excepthook_installed = True
+    run._sigint_installed = True
+    run._fork_registered = True
     return run
 
 
