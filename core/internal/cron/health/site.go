@@ -1,6 +1,7 @@
 package health
 
 import (
+	"context"
 	"sync"
 
 	"github.com/swanhubx/swanlab/core/internal/cron"
@@ -70,7 +71,7 @@ func newSite(opts SiteOptions, clock cron.Clock) *Site {
 	s.scheduler = cron.New(clock)
 	s.scheduler.Add(cron.Job{Name: "control", Interval: interval, Run: s.control.tick})
 	s.scheduler.Add(cron.Job{Name: "data", Interval: interval, Run: s.data.tick})
-	s.scheduler.Start(nil)
+	s.scheduler.Start(context.Background())
 	return s
 }
 
