@@ -192,6 +192,62 @@ func (x *MediaItem) GetPayload() []byte {
 	return nil
 }
 
+// 一份直方图数据，即某个 step 下 swanlab.Histogram() 得到的计算结果。
+// N 个桶约定 values 长度为 N，bins 长度为 N+1，桶数范围 1..512。
+type HistogramValue struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// 每桶计数，全部非负；第 i 桶统计落在 [bins[i], bins[i+1]) 的样本数
+	Values []uint64 `protobuf:"varint,1,rep,packed,name=values,proto3" json:"values,omitempty"`
+	// 桶边界，单调递增且无 NaN/Inf；最后一个桶为左闭右闭 [bins[N-1], bins[N]]，遵循 numpy 语义
+	Bins          []float64 `protobuf:"fixed64,2,rep,packed,name=bins,proto3" json:"bins,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *HistogramValue) Reset() {
+	*x = HistogramValue{}
+	mi := &file_swanlab_metric_data_v1_data_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HistogramValue) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HistogramValue) ProtoMessage() {}
+
+func (x *HistogramValue) ProtoReflect() protoreflect.Message {
+	mi := &file_swanlab_metric_data_v1_data_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HistogramValue.ProtoReflect.Descriptor instead.
+func (*HistogramValue) Descriptor() ([]byte, []int) {
+	return file_swanlab_metric_data_v1_data_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *HistogramValue) GetValues() []uint64 {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
+func (x *HistogramValue) GetBins() []float64 {
+	if x != nil {
+		return x.Bins
+	}
+	return nil
+}
+
 type ScalarRecord struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// 记录的 key，如 "train/loss"
@@ -210,7 +266,7 @@ type ScalarRecord struct {
 
 func (x *ScalarRecord) Reset() {
 	*x = ScalarRecord{}
-	mi := &file_swanlab_metric_data_v1_data_proto_msgTypes[3]
+	mi := &file_swanlab_metric_data_v1_data_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -222,7 +278,7 @@ func (x *ScalarRecord) String() string {
 func (*ScalarRecord) ProtoMessage() {}
 
 func (x *ScalarRecord) ProtoReflect() protoreflect.Message {
-	mi := &file_swanlab_metric_data_v1_data_proto_msgTypes[3]
+	mi := &file_swanlab_metric_data_v1_data_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -235,7 +291,7 @@ func (x *ScalarRecord) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ScalarRecord.ProtoReflect.Descriptor instead.
 func (*ScalarRecord) Descriptor() ([]byte, []int) {
-	return file_swanlab_metric_data_v1_data_proto_rawDescGZIP(), []int{3}
+	return file_swanlab_metric_data_v1_data_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *ScalarRecord) GetKey() string {
@@ -291,7 +347,7 @@ type MediaRecord struct {
 
 func (x *MediaRecord) Reset() {
 	*x = MediaRecord{}
-	mi := &file_swanlab_metric_data_v1_data_proto_msgTypes[4]
+	mi := &file_swanlab_metric_data_v1_data_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -303,7 +359,7 @@ func (x *MediaRecord) String() string {
 func (*MediaRecord) ProtoMessage() {}
 
 func (x *MediaRecord) ProtoReflect() protoreflect.Message {
-	mi := &file_swanlab_metric_data_v1_data_proto_msgTypes[4]
+	mi := &file_swanlab_metric_data_v1_data_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -316,7 +372,7 @@ func (x *MediaRecord) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MediaRecord.ProtoReflect.Descriptor instead.
 func (*MediaRecord) Descriptor() ([]byte, []int) {
-	return file_swanlab_metric_data_v1_data_proto_rawDescGZIP(), []int{4}
+	return file_swanlab_metric_data_v1_data_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *MediaRecord) GetKey() string {
@@ -354,6 +410,87 @@ func (x *MediaRecord) GetValue() *MediaValue {
 	return nil
 }
 
+type HistogramRecord struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// 记录的 key，如 "train/weights"
+	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	// 用户显式传入或由 SDK 自动递增的全局步数
+	Step int64 `protobuf:"varint,2,opt,name=step,proto3" json:"step,omitempty"`
+	// 数据类型
+	Type v1.ColumnType `protobuf:"varint,3,opt,name=type,proto3,enum=swanlab.metric.column.v1.ColumnType" json:"type,omitempty"`
+	// 记录的时间戳
+	Timestamp *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
+	// 数据值
+	Value         *HistogramValue `protobuf:"bytes,5,opt,name=value,proto3" json:"value,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *HistogramRecord) Reset() {
+	*x = HistogramRecord{}
+	mi := &file_swanlab_metric_data_v1_data_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HistogramRecord) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HistogramRecord) ProtoMessage() {}
+
+func (x *HistogramRecord) ProtoReflect() protoreflect.Message {
+	mi := &file_swanlab_metric_data_v1_data_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HistogramRecord.ProtoReflect.Descriptor instead.
+func (*HistogramRecord) Descriptor() ([]byte, []int) {
+	return file_swanlab_metric_data_v1_data_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *HistogramRecord) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *HistogramRecord) GetStep() int64 {
+	if x != nil {
+		return x.Step
+	}
+	return 0
+}
+
+func (x *HistogramRecord) GetType() v1.ColumnType {
+	if x != nil {
+		return x.Type
+	}
+	return v1.ColumnType(0)
+}
+
+func (x *HistogramRecord) GetTimestamp() *timestamppb.Timestamp {
+	if x != nil {
+		return x.Timestamp
+	}
+	return nil
+}
+
+func (x *HistogramRecord) GetValue() *HistogramValue {
+	if x != nil {
+		return x.Value
+	}
+	return nil
+}
+
 var File_swanlab_metric_data_v1_data_proto protoreflect.FileDescriptor
 
 const file_swanlab_metric_data_v1_data_proto_rawDesc = "" +
@@ -371,7 +508,10 @@ const file_swanlab_metric_data_v1_data_proto_rawDesc = "" +
 	"\acaption\x18\x04 \x01(\tR\acaption\x12\x1d\n" +
 	"\apayload\x18\x05 \x01(\fH\x00R\apayload\x88\x01\x01B\n" +
 	"\n" +
-	"\b_payload\"\xe3\x01\n" +
+	"\b_payload\"<\n" +
+	"\x0eHistogramValue\x12\x16\n" +
+	"\x06values\x18\x01 \x03(\x04R\x06values\x12\x12\n" +
+	"\x04bins\x18\x02 \x03(\x01R\x04bins\"\xe3\x01\n" +
 	"\fScalarRecord\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04step\x18\x02 \x01(\x03R\x04step\x128\n" +
@@ -383,7 +523,13 @@ const file_swanlab_metric_data_v1_data_proto_rawDesc = "" +
 	"\x04step\x18\x02 \x01(\x03R\x04step\x128\n" +
 	"\x04type\x18\x03 \x01(\x0e2$.swanlab.metric.column.v1.ColumnTypeR\x04type\x128\n" +
 	"\ttimestamp\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\x128\n" +
-	"\x05value\x18\x05 \x01(\v2\".swanlab.metric.data.v1.MediaValueR\x05valueBFZDgithub.com/swanhubx/swanlab/core/proto/swanlab/metric/data/v1;datav1b\x06proto3"
+	"\x05value\x18\x05 \x01(\v2\".swanlab.metric.data.v1.MediaValueR\x05value\"\xe9\x01\n" +
+	"\x0fHistogramRecord\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
+	"\x04step\x18\x02 \x01(\x03R\x04step\x128\n" +
+	"\x04type\x18\x03 \x01(\x0e2$.swanlab.metric.column.v1.ColumnTypeR\x04type\x128\n" +
+	"\ttimestamp\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\x12<\n" +
+	"\x05value\x18\x05 \x01(\v2&.swanlab.metric.data.v1.HistogramValueR\x05valueBFZDgithub.com/swanhubx/swanlab/core/proto/swanlab/metric/data/v1;datav1b\x06proto3"
 
 var (
 	file_swanlab_metric_data_v1_data_proto_rawDescOnce sync.Once
@@ -397,29 +543,34 @@ func file_swanlab_metric_data_v1_data_proto_rawDescGZIP() []byte {
 	return file_swanlab_metric_data_v1_data_proto_rawDescData
 }
 
-var file_swanlab_metric_data_v1_data_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_swanlab_metric_data_v1_data_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_swanlab_metric_data_v1_data_proto_goTypes = []any{
 	(*ScalarValue)(nil),           // 0: swanlab.metric.data.v1.ScalarValue
 	(*MediaValue)(nil),            // 1: swanlab.metric.data.v1.MediaValue
 	(*MediaItem)(nil),             // 2: swanlab.metric.data.v1.MediaItem
-	(*ScalarRecord)(nil),          // 3: swanlab.metric.data.v1.ScalarRecord
-	(*MediaRecord)(nil),           // 4: swanlab.metric.data.v1.MediaRecord
-	(v1.ColumnType)(0),            // 5: swanlab.metric.column.v1.ColumnType
-	(*timestamppb.Timestamp)(nil), // 6: google.protobuf.Timestamp
+	(*HistogramValue)(nil),        // 3: swanlab.metric.data.v1.HistogramValue
+	(*ScalarRecord)(nil),          // 4: swanlab.metric.data.v1.ScalarRecord
+	(*MediaRecord)(nil),           // 5: swanlab.metric.data.v1.MediaRecord
+	(*HistogramRecord)(nil),       // 6: swanlab.metric.data.v1.HistogramRecord
+	(v1.ColumnType)(0),            // 7: swanlab.metric.column.v1.ColumnType
+	(*timestamppb.Timestamp)(nil), // 8: google.protobuf.Timestamp
 }
 var file_swanlab_metric_data_v1_data_proto_depIdxs = []int32{
-	2, // 0: swanlab.metric.data.v1.MediaValue.items:type_name -> swanlab.metric.data.v1.MediaItem
-	5, // 1: swanlab.metric.data.v1.ScalarRecord.type:type_name -> swanlab.metric.column.v1.ColumnType
-	6, // 2: swanlab.metric.data.v1.ScalarRecord.timestamp:type_name -> google.protobuf.Timestamp
-	0, // 3: swanlab.metric.data.v1.ScalarRecord.value:type_name -> swanlab.metric.data.v1.ScalarValue
-	5, // 4: swanlab.metric.data.v1.MediaRecord.type:type_name -> swanlab.metric.column.v1.ColumnType
-	6, // 5: swanlab.metric.data.v1.MediaRecord.timestamp:type_name -> google.protobuf.Timestamp
-	1, // 6: swanlab.metric.data.v1.MediaRecord.value:type_name -> swanlab.metric.data.v1.MediaValue
-	7, // [7:7] is the sub-list for method output_type
-	7, // [7:7] is the sub-list for method input_type
-	7, // [7:7] is the sub-list for extension type_name
-	7, // [7:7] is the sub-list for extension extendee
-	0, // [0:7] is the sub-list for field type_name
+	2,  // 0: swanlab.metric.data.v1.MediaValue.items:type_name -> swanlab.metric.data.v1.MediaItem
+	7,  // 1: swanlab.metric.data.v1.ScalarRecord.type:type_name -> swanlab.metric.column.v1.ColumnType
+	8,  // 2: swanlab.metric.data.v1.ScalarRecord.timestamp:type_name -> google.protobuf.Timestamp
+	0,  // 3: swanlab.metric.data.v1.ScalarRecord.value:type_name -> swanlab.metric.data.v1.ScalarValue
+	7,  // 4: swanlab.metric.data.v1.MediaRecord.type:type_name -> swanlab.metric.column.v1.ColumnType
+	8,  // 5: swanlab.metric.data.v1.MediaRecord.timestamp:type_name -> google.protobuf.Timestamp
+	1,  // 6: swanlab.metric.data.v1.MediaRecord.value:type_name -> swanlab.metric.data.v1.MediaValue
+	7,  // 7: swanlab.metric.data.v1.HistogramRecord.type:type_name -> swanlab.metric.column.v1.ColumnType
+	8,  // 8: swanlab.metric.data.v1.HistogramRecord.timestamp:type_name -> google.protobuf.Timestamp
+	3,  // 9: swanlab.metric.data.v1.HistogramRecord.value:type_name -> swanlab.metric.data.v1.HistogramValue
+	10, // [10:10] is the sub-list for method output_type
+	10, // [10:10] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_swanlab_metric_data_v1_data_proto_init() }
@@ -434,7 +585,7 @@ func file_swanlab_metric_data_v1_data_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_swanlab_metric_data_v1_data_proto_rawDesc), len(file_swanlab_metric_data_v1_data_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   5,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

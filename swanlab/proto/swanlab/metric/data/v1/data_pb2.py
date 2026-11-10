@@ -26,7 +26,7 @@ from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__
 from swanlab.proto.swanlab.metric.column.v1 import column_pb2 as swanlab_dot_metric_dot_column_dot_v1_dot_column__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n!swanlab/metric/data/v1/data.proto\x12\x16swanlab.metric.data.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a%swanlab/metric/column/v1/column.proto\"\x1d\n\x0bScalarValue\x12\x0e\n\x06number\x18\x01 \x01(\x01\">\n\nMediaValue\x12\x30\n\x05items\x18\x01 \x03(\x0b\x32!.swanlab.metric.data.v1.MediaItem\"n\n\tMediaItem\x12\x10\n\x08\x66ilename\x18\x01 \x01(\t\x12\x0e\n\x06sha256\x18\x02 \x01(\t\x12\x0c\n\x04size\x18\x03 \x01(\x03\x12\x0f\n\x07\x63\x61ption\x18\x04 \x01(\t\x12\x14\n\x07payload\x18\x05 \x01(\x0cH\x00\x88\x01\x01\x42\n\n\x08_payload\"\xc0\x01\n\x0cScalarRecord\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\x0c\n\x04step\x18\x02 \x01(\x03\x12\x32\n\x04type\x18\x03 \x01(\x0e\x32$.swanlab.metric.column.v1.ColumnType\x12-\n\ttimestamp\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x32\n\x05value\x18\x05 \x01(\x0b\x32#.swanlab.metric.data.v1.ScalarValue\"\xbe\x01\n\x0bMediaRecord\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\x0c\n\x04step\x18\x02 \x01(\x03\x12\x32\n\x04type\x18\x03 \x01(\x0e\x32$.swanlab.metric.column.v1.ColumnType\x12-\n\ttimestamp\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x31\n\x05value\x18\x05 \x01(\x0b\x32\".swanlab.metric.data.v1.MediaValueBFZDgithub.com/swanhubx/swanlab/core/proto/swanlab/metric/data/v1;datav1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n!swanlab/metric/data/v1/data.proto\x12\x16swanlab.metric.data.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a%swanlab/metric/column/v1/column.proto\"\x1d\n\x0bScalarValue\x12\x0e\n\x06number\x18\x01 \x01(\x01\">\n\nMediaValue\x12\x30\n\x05items\x18\x01 \x03(\x0b\x32!.swanlab.metric.data.v1.MediaItem\"n\n\tMediaItem\x12\x10\n\x08\x66ilename\x18\x01 \x01(\t\x12\x0e\n\x06sha256\x18\x02 \x01(\t\x12\x0c\n\x04size\x18\x03 \x01(\x03\x12\x0f\n\x07\x63\x61ption\x18\x04 \x01(\t\x12\x14\n\x07payload\x18\x05 \x01(\x0cH\x00\x88\x01\x01\x42\n\n\x08_payload\".\n\x0eHistogramValue\x12\x0e\n\x06values\x18\x01 \x03(\x04\x12\x0c\n\x04\x62ins\x18\x02 \x03(\x01\"\xc0\x01\n\x0cScalarRecord\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\x0c\n\x04step\x18\x02 \x01(\x03\x12\x32\n\x04type\x18\x03 \x01(\x0e\x32$.swanlab.metric.column.v1.ColumnType\x12-\n\ttimestamp\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x32\n\x05value\x18\x05 \x01(\x0b\x32#.swanlab.metric.data.v1.ScalarValue\"\xbe\x01\n\x0bMediaRecord\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\x0c\n\x04step\x18\x02 \x01(\x03\x12\x32\n\x04type\x18\x03 \x01(\x0e\x32$.swanlab.metric.column.v1.ColumnType\x12-\n\ttimestamp\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x31\n\x05value\x18\x05 \x01(\x0b\x32\".swanlab.metric.data.v1.MediaValue\"\xc6\x01\n\x0fHistogramRecord\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\x0c\n\x04step\x18\x02 \x01(\x03\x12\x32\n\x04type\x18\x03 \x01(\x0e\x32$.swanlab.metric.column.v1.ColumnType\x12-\n\ttimestamp\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x35\n\x05value\x18\x05 \x01(\x0b\x32&.swanlab.metric.data.v1.HistogramValueBFZDgithub.com/swanhubx/swanlab/core/proto/swanlab/metric/data/v1;datav1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -40,8 +40,12 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_MEDIAVALUE']._serialized_end=226
   _globals['_MEDIAITEM']._serialized_start=228
   _globals['_MEDIAITEM']._serialized_end=338
-  _globals['_SCALARRECORD']._serialized_start=341
-  _globals['_SCALARRECORD']._serialized_end=533
-  _globals['_MEDIARECORD']._serialized_start=536
-  _globals['_MEDIARECORD']._serialized_end=726
+  _globals['_HISTOGRAMVALUE']._serialized_start=340
+  _globals['_HISTOGRAMVALUE']._serialized_end=386
+  _globals['_SCALARRECORD']._serialized_start=389
+  _globals['_SCALARRECORD']._serialized_end=581
+  _globals['_MEDIARECORD']._serialized_start=584
+  _globals['_MEDIARECORD']._serialized_end=774
+  _globals['_HISTOGRAMRECORD']._serialized_start=777
+  _globals['_HISTOGRAMRECORD']._serialized_end=975
 # @@protoc_insertion_point(module_scope)

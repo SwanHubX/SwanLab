@@ -16,6 +16,7 @@ from .sdk import (
     Audio,
     Callback,
     ECharts,
+    Histogram,
     Html,
     Image,
     Molecule,
@@ -43,6 +44,7 @@ from .sdk.typings.run import (
 from .sdk.typings.run.transforms import CaptionsType
 from .sdk.typings.run.transforms.audio import AudioDatasType, AudioRatesType
 from .sdk.typings.run.transforms.echarts import EChartsDatasType
+from .sdk.typings.run.transforms.histogram import HistogramBins, HistogramInput
 from .sdk.typings.run.transforms.html import HtmlDatasType
 from .sdk.typings.run.transforms.image import ImageDatasType, ImageFilesType, ImageModesType, ImageSizesType
 from .sdk.typings.run.transforms.molecule import MoleculeDatasType
@@ -67,6 +69,7 @@ __all__ = [
     "log_video",
     "log_echarts",
     "log_html",
+    "log_histogram",
     "log_object3d",
     "log_molecule",
     "define_metric",
@@ -84,6 +87,7 @@ __all__ = [
     "Text",
     "Audio",
     "ECharts",
+    "Histogram",
     "Html",
     "Image",
     "Video",
@@ -175,7 +179,7 @@ def init(
         Basic local run:
 
         >>> import swanlab
-        >>> swanlab.init(mode="local", project="my_project")
+        >>> swanlab.init(mode="offline", project="my_project")
         >>> swanlab.log({"loss": 0.5})
         >>> swanlab.finish()
 
@@ -215,14 +219,14 @@ def finish(
         Finish a successful run:
 
         >>> import swanlab
-        >>> swanlab.init(mode="local")
+        >>> swanlab.init(mode="offline")
         >>> swanlab.log({"loss": 0.5})
         >>> swanlab.finish()
 
         Mark run as crashed with error message:
 
         >>> import swanlab
-        >>> swanlab.init(mode="local")
+        >>> swanlab.init(mode="offline")
         >>> try:
         ...     raise ValueError("Training failed")
         ... except Exception as e:
@@ -373,7 +377,7 @@ def get_run() -> Run:
     Examples:
 
         >>> import swanlab
-        >>> swanlab.init(mode="local")
+        >>> swanlab.init(mode="offline")
         >>> run = swanlab.get_run()
         >>> print(run.id)
         >>> swanlab.finish()
@@ -394,14 +398,14 @@ def log(data: Mapping[str, Any], step: Optional[int] = None) -> None:
         Log multiple metrics:
 
         >>> import swanlab
-        >>> swanlab.init(mode="local")
+        >>> swanlab.init(mode="offline")
         >>> swanlab.log({"loss": 0.5, "accuracy": 0.95})
         >>> swanlab.finish()
 
         Log with explicit step:
 
         >>> import swanlab
-        >>> swanlab.init(mode="local")
+        >>> swanlab.init(mode="offline")
         >>> swanlab.log({"loss": 0.5}, step=10)
         >>> swanlab.finish()
     """
@@ -427,14 +431,14 @@ def log_text(
         Log simple text:
 
         >>> import swanlab
-        >>> swanlab.init(mode="local")
+        >>> swanlab.init(mode="offline")
         >>> swanlab.log_text(key="output", data="Training started")
         >>> swanlab.finish()
 
         Log text with caption:
 
         >>> import swanlab
-        >>> swanlab.init(mode="local")
+        >>> swanlab.init(mode="offline")
         >>> swanlab.log_text(key="prediction", data="cat", caption="Model output")
         >>> swanlab.finish()
     """
@@ -464,7 +468,7 @@ def log_image(
     Examples:
 
         >>> import swanlab, numpy as np
-        >>> swanlab.init(mode="local")
+        >>> swanlab.init(mode="offline")
         >>> img = np.zeros((64, 64, 3), dtype=np.uint8)
         >>> swanlab.log_image(key="sample", data=img, caption="blank image")
         >>> swanlab.finish()
@@ -491,7 +495,7 @@ def log_audio(
     Examples:
 
         >>> import swanlab, numpy as np
-        >>> swanlab.init(mode="local")
+        >>> swanlab.init(mode="offline")
         >>> audio = np.zeros((1, 44100), dtype=np.float32)
         >>> swanlab.log_audio(key="sound", data=audio, sample_rate=44100)
         >>> swanlab.finish()
@@ -518,7 +522,7 @@ def log_video(
     Examples:
 
         >>> import swanlab
-        >>> swanlab.init(mode="local")
+        >>> swanlab.init(mode="offline")
         >>> with open("animation.gif", "rb") as f:
         ...     swanlab.log_video(key="rollout", data=f.read())
         >>> swanlab.finish()
@@ -543,7 +547,7 @@ def log_echarts(
     Examples:
 
         >>> import swanlab
-        >>> swanlab.init(mode="local")
+        >>> swanlab.init(mode="offline")
         >>> chart = swanlab.echarts.Bar().add_xaxis(["a", "b"]).add_yaxis("series", [1, 2])
         >>> swanlab.log_echarts(key="chart", data=chart)
         >>> swanlab.finish()
@@ -570,21 +574,21 @@ def log_html(
         Log raw HTML string:
 
         >>> import swanlab
-        >>> swanlab.init(mode="local")
+        >>> swanlab.init(mode="offline")
         >>> swanlab.log_html(key="report", data="<h1>Hello World</h1>")
         >>> swanlab.finish()
 
         Log HTML from a file path:
 
         >>> import swanlab
-        >>> swanlab.init(mode="local")
+        >>> swanlab.init(mode="offline")
         >>> swanlab.log_html(key="page", data="./report.html", caption="My Report")
         >>> swanlab.finish()
 
         Log an Html object:
 
         >>> import swanlab
-        >>> swanlab.init(mode="local")
+        >>> swanlab.init(mode="offline")
         >>> html = swanlab.Html("<p>Styled content</p>", caption="styled")
         >>> swanlab.log_html(key="styled_page", data=html)
         >>> swanlab.finish()
@@ -609,7 +613,7 @@ def log_object3d(
     Examples:
 
         >>> import swanlab, numpy as np
-        >>> swanlab.init(mode="local")
+        >>> swanlab.init(mode="offline")
         >>> points = np.random.rand(100, 3)
         >>> swanlab.log_object3d(key="point_cloud", data=points, caption="random points")
         >>> swanlab.finish()
@@ -634,8 +638,34 @@ def log_molecule(
     Examples:
 
         >>> import swanlab
-        >>> swanlab.init(mode="local")
+        >>> swanlab.init(mode="offline")
         >>> swanlab.log_molecule(key="molecule", data="CCO", caption="Ethanol")
+        >>> swanlab.finish()
+    """
+    ...
+
+def log_histogram(
+    *,
+    key: str,
+    data: HistogramInput,
+    bins: Optional[HistogramBins] = None,
+    step: Optional[int] = None,
+    **kwargs: Any,
+) -> None:
+    """A syntactic sugar for logging histogram data.
+
+    :param key: The key for the histogram data.
+    :param data: The histogram data (sequence, numpy array, or Histogram object).
+    :param bins: Number of buckets or explicit bucket edges.
+    :param num_bins: wandb-compatible bucket count, accepted via ``**kwargs``; used when bins is None.
+    :param step: Optional step number. If not provided, auto-increments.
+    :raises RuntimeError: If called without an active run.
+
+    Examples:
+
+        >>> import swanlab
+        >>> swanlab.init(mode="offline")
+        >>> swanlab.log_histogram(key="weights", data=[0.1, 0.2, 0.3], bins=16)
         >>> swanlab.finish()
     """
     ...
@@ -751,7 +781,7 @@ def define_metric(
         Custom X-axis with separate logging:
 
         >>> import swanlab
-        >>> swanlab.init(mode="local")
+        >>> swanlab.init(mode="offline")
         >>> run = swanlab.get_run()
         >>> run.define_metric("train/loss", x_axis="train/epoch")
         >>> swanlab.log({"train/epoch": 1})    # step=1

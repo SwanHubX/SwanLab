@@ -24,6 +24,7 @@ from .common import (
 )
 from .experiment import ApiExperimentLabelType, ApiExperimentType
 from .metric import (
+    ApiHistogramSeriesType,
     ApiLogSeriesType,
     ApiMediaSeriesType,
     ApiMetricXAxisKindLiteral,
@@ -73,6 +74,7 @@ __all__ = [
     "ApiColumnCsvExportType",
     # Metric
     "ApiMetricKeyClassLiteral",
+    "ApiHistogramSeriesType",
     "ApiLogSeriesType",
     "ApiMediaSeriesType",
     "ApiScalarSeriesType",

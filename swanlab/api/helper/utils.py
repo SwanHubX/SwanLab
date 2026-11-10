@@ -20,6 +20,7 @@ from swanlab.api.typings.common import (
     ApiSidebarLiteral,
     ApiSortOrderLiteral,
     ApiVisibilityLiteral,
+    RangeQuery,
 )
 
 
@@ -139,6 +140,18 @@ def validate_metric_type(metric_type: str, key: Optional[str] = None) -> None:
         raise ValueError(f"Invalid metric_type: {metric_type!r}, expected one of {sorted(_VALID_METRIC_ALL_TYPES)}")
     if metric_type != "LOG" and (not isinstance(key, str) or not key.strip()):
         raise ValueError(f"key is required for metric_type {metric_type!r}, got key={key!r}")
+
+
+def validate_step_range(step_range: RangeQuery) -> None:
+    """校验直方图的 step 窗口参数。
+
+    ``RangeQuery`` 是通用的范围查询模型，直方图只用得到 step 域的 start/end：
+    ``type`` 必须为 ``step``，``last`` / ``head`` / ``tail`` 没有对应语义，直接报错而不是静默忽略。
+    """
+    if step_range.type != "step":
+        raise ValueError(f"step_range only supports type='step', got {step_range.type!r}")
+    if step_range.last is not None or step_range.head is not None or step_range.tail is not None:
+        raise ValueError("step_range only supports start/end bounds; last, head and tail are not supported")
 
 
 def validate_metric_log_level(level: str) -> None:
@@ -264,7 +277,7 @@ def validate_x_axis(x_axis: str, *, metric_type: str = "SCALAR") -> str:
     """校验 x_axis 参数并原样返回。
 
     内置轴字面量（step/time/relative_time）按已知集合校验；其余非空字符串放行为自定义
-    x 列 key。非 SCALAR 查询（MEDIA/LOG）没有 x 轴概念，只允许 step，其余取值尽早报错。
+    x 列 key。非 SCALAR 查询（MEDIA/LOG/HISTOGRAM）没有 x 轴概念，只允许 step，其余取值尽早报错。
     """
     if not isinstance(x_axis, str) or not x_axis.strip():
         raise ValueError("x_axis must be a non-empty string")

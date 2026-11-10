@@ -30,3 +30,4 @@ class ResumeExperimentSummaryType(TypedDict):
     log: Optional[List[_ColumnSummary]]
     media: Optional[List[_ColumnSummary]]
     scalar: Optional[List[_ColumnSummary]]
+    histogram: Optional[List[_ColumnSummary]]
