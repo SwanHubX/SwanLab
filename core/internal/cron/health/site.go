@@ -15,8 +15,6 @@ type Site struct {
 	server *prober
 	house  *prober
 
-	updates chan struct{}
-
 	mu             sync.Mutex
 	closed         bool
 	serverDegraded bool
@@ -24,6 +22,9 @@ type Site struct {
 	write          bool
 	state          State
 	reason         Reason
+
+	nextSubscription uint64
+	subscriptions    map[uint64]chan struct{}
 
 	stopOnce  sync.Once
 	scheduler *cron.Scheduler
@@ -35,7 +36,7 @@ func newSite(opts SiteOptions, clock cron.Clock) *Site {
 	degradeAfter := positiveOrDefault(opts.DegradeThreshold, DefaultDegradeThreshold)
 	recoverAfter := positiveOrDefault(opts.RecoverThreshold, DefaultRecoverThreshold)
 
-	s := &Site{key: opts.Key, updates: make(chan struct{}, 1)}
+	s := &Site{key: opts.Key, subscriptions: make(map[uint64]chan struct{})}
 	probeOpts := proberOptions{
 		timeout:      timeout,
 		degradeAfter: degradeAfter,
@@ -59,9 +60,29 @@ func newSite(opts SiteOptions, clock cron.Clock) *Site {
 	return s
 }
 
-// Updates 在聚合状态或降级原因变化时收到通知，容量 1，多次变化会合并。
-// 消费方应配合 Snapshot 读取详情；Site 释放后该通道关闭。
-func (s *Site) Updates() <-chan struct{} { return s.updates }
+// Subscribe 返回独立的状态通知 channel 与幂等注销函数。
+// 状态变化会非阻塞通知所有订阅者；消费方应配合 Snapshot 读取最新状态。
+func (s *Site) Subscribe() (<-chan struct{}, func()) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	updates := make(chan struct{}, 1)
+	if s.closed {
+		close(updates)
+		return updates, func() {}
+	}
+	id := s.nextSubscription
+	s.nextSubscription++
+	s.subscriptions[id] = updates
+	unsubscribe := func() {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		if current, ok := s.subscriptions[id]; ok {
+			delete(s.subscriptions, id)
+			close(current)
+		}
+	}
+	return updates, unsubscribe
+}
 
 // MergeInitial 把后续会话的启动预检结论并入共享站点；只降级、不升级。
 // 探针随后仍按连续成功阈值恢复该服务。
@@ -110,9 +131,11 @@ func (s *Site) setReason(reason Reason, active bool) {
 		return
 	}
 	s.state, s.reason = state, next
-	select {
-	case s.updates <- struct{}{}:
-	default:
+	for _, updates := range s.subscriptions {
+		select {
+		case updates <- struct{}{}:
+		default:
+		}
 	}
 	s.mu.Unlock()
 
@@ -139,13 +162,16 @@ func (s *Site) aggregateLocked() (State, Reason) {
 	}
 }
 
-// stop 停止探测任务并关闭通知通道；可重复调用。
+// stop 停止探测任务并关闭全部订阅；可重复调用。
 func (s *Site) stop() {
 	s.stopOnce.Do(func() {
 		s.scheduler.Stop()
 		s.mu.Lock()
 		s.closed = true
-		close(s.updates)
+		for id, updates := range s.subscriptions {
+			close(updates)
+			delete(s.subscriptions, id)
+		}
 		s.mu.Unlock()
 	})
 }

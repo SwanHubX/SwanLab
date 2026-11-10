@@ -62,22 +62,24 @@ func (r *Registry) Acquire(opts SiteOptions) *Site {
 	return s
 }
 
-// Release 减少引用计数；归零时停止探针并移除站点。nil 或重复归还可安全调用。
+// Release 减少引用计数；归零时移除站点并在锁外停止探针。nil 或重复归还可安全调用。
 func (r *Registry) Release(s *Site) {
 	if s == nil {
 		return
 	}
 	r.mu.Lock()
-	defer r.mu.Unlock()
 	e, ok := r.sites[s.key]
 	if !ok || e.site != s {
+		r.mu.Unlock()
 		return
 	}
 	e.refs--
 	if e.refs > 0 {
+		r.mu.Unlock()
 		return
 	}
 	delete(r.sites, s.key)
+	r.mu.Unlock()
 	e.site.stop()
 }
 

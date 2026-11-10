@@ -10,17 +10,18 @@ import (
 // writeDegradeRounds 是连续可重试失败达到降级所需的轮数。
 const writeDegradeRounds = 3
 
-// attachHealth 获取站点引用并启动健康监听；启动期预检已降级的站点在返回前完成暂停。
+// attachHealth 获取站点引用、独立订阅并启动健康监听；启动预检已降级的站点在返回前完成暂停。
 func (s *Session) attachHealth(reg *health.Registry, opts health.SiteOptions) {
 	if reg == nil {
 		return
 	}
 	s.healthReg = reg
 	s.site = reg.Acquire(opts)
+	s.healthUpdates, s.healthUnsubscribe = s.site.Subscribe()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	s.healthStop = cancel
-	// 此时监听协程尚未启动，单线程执行不会与 store 降级事件竞争。
+	// 订阅先于初始结算，启动监听前发生的变化也会保留在独立 channel 中。
 	s.reconcileHealth()
 
 	s.healthWG.Add(1)
@@ -37,7 +38,7 @@ func (s *Session) watchHealth(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-s.healthWake:
-		case _, ok := <-s.site.Updates():
+		case _, ok := <-s.healthUpdates:
 			if !ok {
 				return
 			}
@@ -83,13 +84,16 @@ func (s *Session) onWriteSuccess() {
 	}
 }
 
-// closeHealth 幂等停止监听并释放站点引用；必须在 uploader 关闭后调用。
+// closeHealth 幂等停止监听、注销并释放站点引用；必须在 uploader 关闭后调用。
 func (s *Session) closeHealth() {
 	s.healthOnce.Do(func() {
 		if s.healthStop != nil {
 			s.healthStop()
 		}
 		s.healthWG.Wait()
+		if s.healthUnsubscribe != nil {
+			s.healthUnsubscribe()
+		}
 		if s.healthReg != nil && s.site != nil {
 			s.healthReg.Release(s.site)
 		}

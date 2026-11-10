@@ -157,13 +157,15 @@ type Session struct {
 	recoveryDone chan struct{}
 	recoveryOnce sync.Once
 
-	// 站点健康：healthReg 持有共享引用，site 由 closeHealth 幂等释放。
-	healthReg  *health.Registry
-	site       *health.Site
-	healthStop context.CancelFunc
-	healthWG   sync.WaitGroup
-	healthOnce sync.Once
-	healthWake chan struct{}
+	// 站点健康：healthReg 持有共享引用，订阅与站点由 closeHealth 幂等释放。
+	healthReg         *health.Registry
+	site              *health.Site
+	healthUpdates     <-chan struct{}
+	healthUnsubscribe func()
+	healthStop        context.CancelFunc
+	healthWG          sync.WaitGroup
+	healthOnce        sync.Once
+	healthWake        chan struct{}
 
 	runFile        string
 	runFileCreated bool

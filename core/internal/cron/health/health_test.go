@@ -98,10 +98,17 @@ func tickBoth(t *testing.T, ticks []chan time.Time, server, house *probe) {
 	house.wait(t)
 }
 
-func expectUpdate(t *testing.T, s *Site) {
+func subscribe(t *testing.T, s *Site) <-chan struct{} {
+	t.Helper()
+	updates, unsubscribe := s.Subscribe()
+	t.Cleanup(unsubscribe)
+	return updates
+}
+
+func expectUpdate(t *testing.T, updates <-chan struct{}) {
 	t.Helper()
 	select {
-	case _, ok := <-s.Updates():
+	case _, ok := <-updates:
 		if !ok {
 			t.Fatal("updates channel closed")
 		}
@@ -268,6 +275,7 @@ func TestSiteOptionDefaults(t *testing.T) {
 func TestSiteAggregatesReasons(t *testing.T) {
 	s := newSite(SiteOptions{Key: "site", Server: alwaysReachable, House: alwaysReachable}, newFakeClock())
 	defer s.stop()
+	updates := subscribe(t, s)
 
 	snap := s.Snapshot()
 	if snap.State != StateNormal || snap.Reason != "" {
@@ -275,37 +283,37 @@ func TestSiteAggregatesReasons(t *testing.T) {
 	}
 
 	s.setReason(ReasonProbeHouse, true)
-	expectUpdate(t, s)
+	expectUpdate(t, updates)
 	if snap := s.Snapshot(); snap.State != StateDegraded || snap.Reason != ReasonProbeHouse {
 		t.Fatalf("house degraded snapshot = %+v", snap)
 	}
 
 	s.setReason(ReasonProbeServer, true)
-	expectUpdate(t, s)
+	expectUpdate(t, updates)
 	if snap := s.Snapshot(); snap.State != StateDegraded || snap.Reason != ReasonProbeServer {
 		t.Fatalf("server should take precedence, snapshot = %+v", snap)
 	}
 
 	s.setReason(ReasonProbeServer, false)
-	expectUpdate(t, s)
+	expectUpdate(t, updates)
 	if snap := s.Snapshot(); snap.Reason != ReasonProbeHouse {
 		t.Fatalf("snapshot = %+v, want house reason", snap)
 	}
 
 	s.setReason(ReasonProbeHouse, false)
-	expectUpdate(t, s)
+	expectUpdate(t, updates)
 	if snap := s.Snapshot(); snap.State != StateNormal || snap.Reason != "" {
 		t.Fatalf("recovered snapshot = %+v", snap)
 	}
 
 	s.Report(ReasonWrite, true)
-	expectUpdate(t, s)
+	expectUpdate(t, updates)
 	if snap := s.Snapshot(); snap.State != StateDegraded || snap.Reason != ReasonWrite {
 		t.Fatalf("write degraded snapshot = %+v", snap)
 	}
 
 	s.Report(ReasonWrite, false)
-	expectUpdate(t, s)
+	expectUpdate(t, updates)
 	if snap := s.Snapshot(); snap.State != StateNormal {
 		t.Fatalf("write recovered snapshot = %+v", snap)
 	}
@@ -321,6 +329,20 @@ func TestSiteAggregatesReasons(t *testing.T) {
 	}()
 }
 
+func TestSiteBroadcastsToMultipleSubscribers(t *testing.T) {
+	s := newSite(SiteOptions{Key: "site", Server: alwaysReachable, House: alwaysReachable}, newFakeClock())
+	defer s.stop()
+	first := subscribe(t, s)
+	second := subscribe(t, s)
+
+	s.setReason(ReasonProbeHouse, true)
+	expectUpdate(t, first)
+	expectUpdate(t, second)
+	s.setReason(ReasonProbeHouse, false)
+	expectUpdate(t, first)
+	expectUpdate(t, second)
+}
+
 func TestRegistrySharesSites(t *testing.T) {
 	clock := newFakeClock()
 	reg := NewRegistry(clock)
@@ -328,6 +350,7 @@ func TestRegistrySharesSites(t *testing.T) {
 
 	a := reg.Acquire(SiteOptions{Key: "site", Server: server.fn, House: house.fn})
 	ticks := clock.ticks(t, 2)
+	updates := subscribe(t, a)
 
 	b := reg.Acquire(SiteOptions{Key: "site", Server: alwaysReachable, House: alwaysReachable})
 	if a != b {
@@ -348,8 +371,8 @@ func TestRegistrySharesSites(t *testing.T) {
 	if got := reg.Len(); got != 0 {
 		t.Fatalf("sites = %d after all releases, want 0", got)
 	}
-	if _, ok := <-a.Updates(); ok {
-		t.Fatal("updates channel should be closed after release")
+	if _, ok := <-updates; ok {
+		t.Fatal("subscription should be closed after release")
 	}
 
 	// 释放在前一次的 ID 上重复调用不得影响新实例。
@@ -369,6 +392,7 @@ func TestRegistryMergesLaterInitialDegraded(t *testing.T) {
 
 	a := reg.Acquire(SiteOptions{Key: "site", Server: server.fn, House: house.fn})
 	clock.ticks(t, 2)
+	updates := subscribe(t, a)
 	b := reg.Acquire(SiteOptions{
 		Key:                  "site",
 		Server:               alwaysReachable,
@@ -378,7 +402,7 @@ func TestRegistryMergesLaterInitialDegraded(t *testing.T) {
 	if a != b {
 		t.Fatal("same key should share one site")
 	}
-	expectUpdate(t, a)
+	expectUpdate(t, updates)
 	snap := a.Snapshot()
 	if snap.State != StateDegraded || snap.Reason != ReasonProbeHouse {
 		t.Fatalf("snapshot = %+v, want degraded by later house precheck", snap)
@@ -400,12 +424,13 @@ func TestRegistryProbeDrivesState(t *testing.T) {
 		RecoverThreshold: 2,
 	})
 	defer reg.Release(site)
+	updates := subscribe(t, site)
 	ticks := clock.ticks(t, 2)
 
 	for range 3 {
 		tickBoth(t, ticks, server, house)
 	}
-	expectUpdate(t, site)
+	expectUpdate(t, updates)
 	snap := site.Snapshot()
 	if snap.State != StateDegraded || snap.Reason != ReasonProbeHouse {
 		t.Fatalf("snapshot = %+v, want degraded by house", snap)
@@ -415,7 +440,7 @@ func TestRegistryProbeDrivesState(t *testing.T) {
 	for range 2 {
 		tickBoth(t, ticks, server, house)
 	}
-	expectUpdate(t, site)
+	expectUpdate(t, updates)
 	snap = site.Snapshot()
 	if snap.State != StateNormal || snap.Reason != "" {
 		t.Fatalf("snapshot = %+v, want normal", snap)
@@ -453,6 +478,11 @@ func TestSiteReportAfterStop(t *testing.T) {
 	if snap := site.Snapshot(); snap.State != StateNormal {
 		t.Fatalf("snapshot after stop = %+v", snap)
 	}
+	updates, unsubscribe := site.Subscribe()
+	if _, ok := <-updates; ok {
+		t.Fatal("new subscription to a stopped site should be closed")
+	}
+	unsubscribe()
 	reg.Release(site)
 }
 
@@ -466,19 +496,18 @@ func TestSiteInitialDegradedRecovers(t *testing.T) {
 		InitialHouseDegraded: true,
 	}, clock)
 	defer s.stop()
+	updates := subscribe(t, s)
 	ticks := clock.ticks(t, 2)
 
 	snap := s.Snapshot()
 	if snap.State != StateDegraded || snap.Reason != ReasonProbeHouse {
 		t.Fatalf("initial snapshot = %+v, want degraded by house", snap)
 	}
-	// 消费构造期种下的通知，后面的断言只等待恢复事件。
-	expectUpdate(t, s)
 
 	for range 2 {
 		tickBoth(t, ticks, server, house)
 	}
-	expectUpdate(t, s)
+	expectUpdate(t, updates)
 	if snap := s.Snapshot(); snap.State != StateNormal || snap.Reason != "" {
 		t.Fatalf("snapshot after recovery = %+v, want normal", snap)
 	}
