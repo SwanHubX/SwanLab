@@ -66,6 +66,27 @@ func TestValidate(t *testing.T) {
 		{"local 禁止 skip_store", func(s *Settings) { s.Mode = ModeLocal; s.SkipStore = true }, nil, "skip_store"},
 		{"offline 禁止 skip_store", func(s *Settings) { s.Mode = ModeOffline; s.SkipStore = true }, nil, "skip_store"},
 		{"disabled 允许", func(s *Settings) { s.Mode = ModeDisabled }, nil, ""},
+		{"health_probe_interval 为 0", func(s *Settings) { s.HealthProbeInterval = 0 }, nil, ""},
+		{"health_probe_interval 为负", func(s *Settings) { s.HealthProbeInterval = -0.1 }, nil, "health_probe_interval"},
+		{"health_probe_interval 为 NaN", func(s *Settings) { s.HealthProbeInterval = math.NaN() }, nil, "health_probe_interval"},
+		{"health_probe_interval 为正无穷", func(s *Settings) { s.HealthProbeInterval = math.Inf(1) }, nil, "health_probe_interval"},
+		{"health_probe_timeout 为负", func(s *Settings) { s.HealthProbeTimeout = -1 }, nil, "health_probe_timeout"},
+		{"health_probe_timeout 为 NaN", func(s *Settings) { s.HealthProbeTimeout = math.NaN() }, nil, "health_probe_timeout"},
+		{"health_probe_timeout 为正无穷", func(s *Settings) { s.HealthProbeTimeout = math.Inf(1) }, nil, "health_probe_timeout"},
+		{"health_degrade_threshold 为负", func(s *Settings) { s.HealthDegradeThreshold = -1 }, nil, "health thresholds"},
+		{"health_recover_threshold 为负", func(s *Settings) { s.HealthRecoverThreshold = -1 }, nil, "health thresholds"},
+		{"health 参数合法", func(s *Settings) {
+			s.HealthProbeInterval = 1.5
+			s.HealthProbeTimeout = 0.75
+			s.HealthDegradeThreshold = 5
+			s.HealthRecoverThreshold = 4
+		}, nil, ""},
+		{"budget 允许非正", func(s *Settings) {
+			s.UploadBudgetRecords = -1
+			s.UploadBudgetBytes = -1
+		}, nil, ""},
+		{"budget 记录数为正被拒绝", func(s *Settings) { s.UploadBudgetRecords = 1 }, ErrBudgetUnsupported, "upload budget"},
+		{"budget 字节数为正被拒绝", func(s *Settings) { s.UploadBudgetBytes = 1 }, ErrBudgetUnsupported, "upload budget"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

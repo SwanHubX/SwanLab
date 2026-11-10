@@ -44,6 +44,8 @@ func (s *Session) open(init sessionInit) error {
 			OnError: func(err error) {
 				s.storeDegraded.Store(true)
 				console.Warningf("store degraded, records will be uploaded without a local copy: %v", err)
+				// 失去本地副本后不能再暂停，唤醒监听协程恢复投递。
+				s.wakeHealth()
 			},
 		})
 		if err != nil {
@@ -54,7 +56,11 @@ func (s *Session) open(init sessionInit) error {
 	}
 
 	s.tracker = uploader.NewTracker()
-	b := budget.New(budget.Limits{})
+	b := budget.New(budget.Limits{
+		Records: init.cfg.UploadBudgetRecords,
+		Bytes:   init.cfg.UploadBudgetBytes,
+	})
+	s.budget = b
 
 	var storeIn chan<- store.Request
 	var flushed func() uint64
@@ -118,10 +124,12 @@ func (s *Session) open(init sessionInit) error {
 				record.TypeMedia:  mediaSender,
 				record.TypeSave:   saveSender,
 			},
-			Batch:    int(init.cfg.RecordBatch),
-			Interval: time.Duration(init.cfg.RecordInterval * float64(time.Second)),
-			Tracker:  s.tracker,
-			Context:  s.ctx,
+			Batch:              int(init.cfg.RecordBatch),
+			Interval:           time.Duration(init.cfg.RecordInterval * float64(time.Second)),
+			Tracker:            s.tracker,
+			Context:            s.ctx,
+			OnRetryableFailure: s.onWriteFailure,
+			OnDispatchSuccess:  s.onWriteSuccess,
 			OnDrained: func() {
 				s.markDrained()
 			},
@@ -159,12 +167,14 @@ func (s *Session) open(init sessionInit) error {
 
 	s.tracker.SetState(operationv1.CoreState_CORE_STATE_RUNNING)
 	if init.cfg.NormalizedMode() == config.ModeOnline {
+		// 心跳与站点探针只对云端有意义；local/offline/disabled 没有 api 客户端。
 		s.heartbeat = newHeartbeat(init.experimentID, init.api.SendHeartbeat)
 		s.heartbeat.start(s.ctx)
-		if s.store != nil {
-			// skip_store 不会有本地写失败，无需补传协程。
-			s.startRecovery()
-		}
+		s.attachHealth(init.healthReg, init.healthOpts)
+	}
+	if s.store != nil {
+		// skip_store 不会有本地写失败，无需补传协程。
+		s.startRecovery()
 	}
 	return nil
 }
@@ -198,6 +208,7 @@ func (s *Session) rollback() {
 	if s.runFileCreated {
 		_ = os.Remove(s.runFile)
 	}
+	s.closeHealth()
 }
 
 // queueSize 是上传通道与 store 通道容量：单批记录最多因自动列翻倍。

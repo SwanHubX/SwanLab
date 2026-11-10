@@ -3,6 +3,7 @@ package manager
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -13,6 +14,7 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/api"
 	"github.com/swanhubx/swanlab/core/internal/clienttest"
 	"github.com/swanhubx/swanlab/core/internal/config"
+	"github.com/swanhubx/swanlab/core/internal/cron/health"
 	"github.com/swanhubx/swanlab/core/internal/metrics"
 	"github.com/swanhubx/swanlab/core/internal/pkg/builder"
 	"github.com/swanhubx/swanlab/core/internal/runctx"
@@ -113,6 +115,7 @@ func closeStartedSession(t *testing.T, mgr *Manager, sessionID string) {
 	if s.store != nil {
 		_ = s.store.Close()
 	}
+	s.closeHealth()
 }
 
 func TestDeliverRunStartLocalWritesStore(t *testing.T) {
@@ -489,5 +492,82 @@ func TestResumeModeFromProto(t *testing.T) {
 	}
 	if _, err := resumeModeFromProto(runv1.ResumeMode(99)); err == nil {
 		t.Fatal("unknown resume mode must return an error")
+	}
+}
+
+func TestDeliverRunStartFailsFastWhenControlUnreachable(t *testing.T) {
+	cloud := clienttest.NewCloud(t)
+	settings := startSettings(t, cloud)
+	cloud.Close()
+
+	mgr := newTestManager()
+	_, err := mgr.DeliverRunStart(context.Background(), settings,
+		&runv1.StartRecord{Project: "demo", Workspace: "alice", Id: "run-1"})
+	if !errors.Is(err, ErrServerUnreachable) {
+		t.Fatalf("err = %v, want ErrServerUnreachable", err)
+	}
+	mgr.mu.RLock()
+	sessions := len(mgr.sessions)
+	mgr.mu.RUnlock()
+	if sessions != 0 {
+		t.Fatalf("sessions = %d, want 0", sessions)
+	}
+	if got := mgr.healthReg.Len(); got != 0 {
+		t.Fatalf("sites = %d, want 0", got)
+	}
+}
+
+func TestDeliverRunStartNormalizesHostBeforeProbe(t *testing.T) {
+	cloud := clienttest.NewCloud(t)
+	serveAuth(cloud)
+	serveHeartbeat(cloud, "exp-1")
+	serveProject(cloud, "alice", "demo", 7)
+	serveNewExperiment(cloud, "alice", "demo", "exp-1", "run-slug")
+
+	mgr := newTestManager()
+	settings := startSettings(t, cloud)
+	settings.APIHost = cloud.URL() + "/ignored/path?ignored=true"
+	result, err := mgr.DeliverRunStart(context.Background(), settings,
+		&runv1.StartRecord{Project: "demo", Workspace: "alice", Id: "run-1"})
+	if err != nil {
+		t.Fatalf("DeliverRunStart with path and query: %v", err)
+	}
+	t.Cleanup(func() { closeStartedSession(t, mgr, result.SessionID) })
+	if got := mgr.healthReg.Len(); got != 1 {
+		t.Fatalf("sites = %d, want 1", got)
+	}
+}
+
+func TestDeliverRunStartDegradedWhenDataPlaneDown(t *testing.T) {
+	cloud := clienttest.NewCloud(t)
+	serveAuth(cloud)
+	serveHeartbeat(cloud, "exp-1")
+	serveProject(cloud, "alice", "demo", 7)
+	serveNewExperiment(cloud, "alice", "demo", "exp-1", "run-slug")
+	cloud.ServeJSON(http.MethodGet, houseProbePath, http.StatusServiceUnavailable, nil)
+
+	mgr := newTestManager()
+	settings := startSettings(t, cloud)
+	result, err := mgr.DeliverRunStart(context.Background(), settings,
+		&runv1.StartRecord{Project: "demo", Workspace: "alice", Id: "run-1"})
+	if err != nil {
+		t.Fatalf("DeliverRunStart: %v", err)
+	}
+	t.Cleanup(func() { closeStartedSession(t, mgr, result.SessionID) })
+
+	mustState(t, mgr, result.SessionID, RunStateRunning)
+	s, err := mgr.session(result.SessionID)
+	if err != nil {
+		t.Fatalf("session: %v", err)
+	}
+	snap := s.site.Snapshot()
+	if snap.State != health.StateDegraded || snap.Reason != health.ReasonProbeHouse {
+		t.Fatalf("snapshot = %+v, want degraded by swanlab-house", snap)
+	}
+	if !s.uploader.Suspended() {
+		t.Fatal("uploader should start suspended when swanlab-house is down")
+	}
+	if got := mgr.healthReg.Len(); got != 1 {
+		t.Fatalf("sites = %d, want 1", got)
 	}
 }

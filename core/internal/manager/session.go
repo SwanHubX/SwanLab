@@ -13,9 +13,11 @@ import (
 	"time"
 
 	"github.com/swanhubx/swanlab/core/internal/api"
+	"github.com/swanhubx/swanlab/core/internal/budget"
 	"github.com/swanhubx/swanlab/core/internal/buffer"
 	"github.com/swanhubx/swanlab/core/internal/client"
 	"github.com/swanhubx/swanlab/core/internal/config"
+	"github.com/swanhubx/swanlab/core/internal/cron/health"
 	"github.com/swanhubx/swanlab/core/internal/metrics"
 	"github.com/swanhubx/swanlab/core/internal/pkg/counter"
 	"github.com/swanhubx/swanlab/core/internal/pkg/watcher"
@@ -98,6 +100,9 @@ type sessionInit struct {
 	project      string
 	projectID    string
 	experimentID string
+	// healthReg 是进程级探针注册表；healthOpts 描述本会话所属站点的探测配置。
+	healthReg  *health.Registry
+	healthOpts health.SiteOptions
 }
 
 // Session 保存单个 session_id 对应的会话状态与生命周期数据。
@@ -133,6 +138,7 @@ type Session struct {
 	store     *store.AsyncWriter
 	intake    *buffer.Intake
 	uploader  *uploader.Uploader
+	budget    *budget.Budget
 	tracker   *uploader.Tracker
 	watcher   watcher.Watcher
 	heartbeat *heartbeat
@@ -151,16 +157,27 @@ type Session struct {
 	recoveryDone chan struct{}
 	recoveryOnce sync.Once
 
+	// 站点健康：healthReg 持有共享引用，订阅与站点由 closeHealth 幂等释放。
+	healthReg         *health.Registry
+	site              *health.Site
+	healthUpdates     <-chan struct{}
+	healthUnsubscribe func()
+	healthStop        context.CancelFunc
+	healthWG          sync.WaitGroup
+	healthOnce        sync.Once
+	healthWake        chan struct{}
+
 	runFile        string
 	runFileCreated bool
 }
 
 func newSession(opts sessionOptions) *Session {
 	s := &Session{
-		drained:   make(chan struct{}),
-		failed:    make(chan struct{}),
-		drainFn:   opts.drainFn,
-		releaseFn: opts.releaseFn,
+		drained:    make(chan struct{}),
+		failed:     make(chan struct{}),
+		drainFn:    opts.drainFn,
+		releaseFn:  opts.releaseFn,
+		healthWake: make(chan struct{}, 1),
 	}
 	s.state.Store(int32(RunStateRunning))
 	return s
@@ -307,10 +324,30 @@ func (s *Session) waitDrained(ctx context.Context) error {
 	}
 }
 
-// snapshot 返回上传进度快照；装配完成前 tracker 为空，返回空统计。
+// snapshot 返回上传进度与投递状态；装配完成前 tracker 为空，返回空统计。
 func (s *Session) snapshot() *operationv1.OperationStats {
-	if s.tracker == nil {
-		return &operationv1.OperationStats{}
+	stats := &operationv1.OperationStats{}
+	if s.tracker != nil {
+		stats = s.tracker.Snapshot()
 	}
-	return s.tracker.Snapshot()
+	if s.uploader == nil && s.intake == nil && s.budget == nil {
+		return stats
+	}
+	upload := &operationv1.UploadStatus{}
+	if s.uploader != nil {
+		upload.PendingRecords = int64(s.uploader.Stats().Pending)
+		upload.Paused = s.uploader.Suspended()
+	}
+	if s.intake != nil {
+		if paused, seq := s.intake.PauseState(); paused {
+			upload.Paused = true
+			upload.PauseSeq = seq
+		}
+	}
+	if s.budget != nil {
+		_, usedBytes := s.budget.Usage()
+		upload.BufferedBytes = usedBytes
+	}
+	stats.Upload = upload
+	return stats
 }

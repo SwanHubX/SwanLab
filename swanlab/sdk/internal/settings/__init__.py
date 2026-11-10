@@ -343,6 +343,12 @@ class Settings(BaseSettings):
             api_key=self.api_key or "",
             api_host=self.api_host,
             web_host=self.web_host,
+            upload_budget_records=self.core.upload_budget_records,
+            upload_budget_bytes=self.core.upload_budget_bytes,
+            health_probe_interval=self.core.health_probe_interval,
+            health_probe_timeout=self.core.health_probe_timeout,
+            health_degrade_threshold=self.core.health_degrade_threshold,
+            health_recover_threshold=self.core.health_recover_threshold,
         )
 
     def to_probe_proto(

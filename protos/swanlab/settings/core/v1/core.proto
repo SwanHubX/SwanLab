@@ -34,4 +34,14 @@ message CoreSettings {
     string web_host = 13;
     // Run mode. Online requires api_key/api_host; local/offline only write the local store.
     CoreMode mode = 14;
+
+    // Upload pipeline budget in records / bytes; <=0 means unlimited, positive values are rejected.
+    int64 upload_budget_records = 15;
+    int64 upload_budget_bytes   = 16;
+    // Site health probe cadence and per-probe timeout in seconds; 0 uses the core default.
+    double health_probe_interval = 17;
+    double health_probe_timeout  = 18;
+    // Consecutive failures / successes required to flip the health state; 0 uses the core default.
+    int32 health_degrade_threshold = 19;
+    int32 health_recover_threshold = 20;
 }

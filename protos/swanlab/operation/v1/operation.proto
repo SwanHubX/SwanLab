@@ -20,6 +20,15 @@ message FileProgress {
     double rate    = 4; // 当前文件处理速率（单位/秒）
 }
 
+// 上传投递与积压状态；正常投递时为默认零值。
+// 站点健康状态由 core 内部消费（暂停/恢复投递），不进入 OperationStats。
+message UploadStatus {
+    bool paused           = 1; // 当前是否暂停投递（站点降级或预算暂停）
+    uint64 pause_seq      = 2; // 预算暂停时首个未投递记录的 storeSeq；站点暂停或未暂停时为 0
+    int64 pending_records = 3; // 已出批未终结的记录数
+    int64 buffered_bytes  = 4; // 上传管线占用的预算字节
+}
+
 // Core 运行状态快照。
 message OperationStats {
     CoreState state             = 1; // Core 生命周期状态
@@ -31,4 +40,6 @@ message OperationStats {
     int64 uploaded_size         = 7; // 已完成文件大小 (字节数)
     double rate                 = 8; // 速率 (字节数/秒)
     repeated FileProgress files = 9; // 当前/待上传文件显示快照
+
+    UploadStatus upload = 10; // 上传投递与积压
 }

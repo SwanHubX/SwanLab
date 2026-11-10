@@ -12,6 +12,7 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/buffer"
 	"github.com/swanhubx/swanlab/core/internal/client"
 	"github.com/swanhubx/swanlab/core/internal/config"
+	"github.com/swanhubx/swanlab/core/internal/cron/health"
 	"github.com/swanhubx/swanlab/core/internal/metrics"
 	"github.com/swanhubx/swanlab/core/internal/pkg/builder"
 	"github.com/swanhubx/swanlab/core/internal/pkg/console"
@@ -47,6 +48,30 @@ func (m *Manager) DeliverRunStart(
 	resumeMode, err := resumeModeFromProto(rec.GetResume())
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrInvalidStartRecord, err)
+	}
+	normalizedHost, err := client.NormalizeHost(cfg.APIHost)
+	if err != nil {
+		return nil, fmt.Errorf("start: authenticate: %w", err)
+	}
+	cfg.APIHost = normalizedHost
+
+	// 预检与认证客户端使用相同的规范化 host；server 不可达时不再探测 house。
+	serverProbe := siteProbe(cfg.APIHost, serverProbePath)
+	houseProbe := siteProbe(cfg.APIHost, houseProbePath)
+	serverOK, houseOK := probeStartup(ctx, serverProbe, houseProbe)
+	if !serverOK {
+		return nil, fmt.Errorf("%w: %s", ErrServerUnreachable, probeURL(cfg.APIHost, serverProbePath))
+	}
+	// 0 值节奏与阈值由 health 补默认。
+	healthOpts := health.SiteOptions{
+		Key:                  siteKey(cfg.APIHost, cfg.APIKey),
+		Interval:             secondsDuration(cfg.HealthProbeInterval),
+		Timeout:              secondsDuration(cfg.HealthProbeTimeout),
+		DegradeThreshold:     int(cfg.HealthDegradeThreshold),
+		RecoverThreshold:     int(cfg.HealthRecoverThreshold),
+		Server:               serverProbe,
+		House:                houseProbe,
+		InitialHouseDegraded: !houseOK,
 	}
 
 	httpClient, err := m.factory.Client(ctx, cfg.APIHost, cfg.APIKey)
@@ -127,6 +152,8 @@ func (m *Manager) DeliverRunStart(
 		project:      projectName,
 		projectID:    project.CUID,
 		experimentID: experiment.CUID,
+		healthReg:    m.healthReg,
+		healthOpts:   healthOpts,
 	}); err != nil {
 		s.rollback()
 		return nil, fmt.Errorf("start: assemble session: %w", err)

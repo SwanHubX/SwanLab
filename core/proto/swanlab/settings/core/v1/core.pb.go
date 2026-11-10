@@ -98,9 +98,18 @@ type CoreSettings struct {
 	// Cloud web endpoint, e.g. https://swanlab.cn. Only used to build user-facing experiment URLs.
 	WebHost string `protobuf:"bytes,13,opt,name=web_host,json=webHost,proto3" json:"web_host,omitempty"`
 	// Run mode. Online requires api_key/api_host; local/offline only write the local store.
-	Mode          CoreMode `protobuf:"varint,14,opt,name=mode,proto3,enum=swanlab.settings.core.v1.CoreMode" json:"mode,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Mode CoreMode `protobuf:"varint,14,opt,name=mode,proto3,enum=swanlab.settings.core.v1.CoreMode" json:"mode,omitempty"`
+	// Upload pipeline budget in records / bytes; <=0 means unlimited, positive values are rejected.
+	UploadBudgetRecords int64 `protobuf:"varint,15,opt,name=upload_budget_records,json=uploadBudgetRecords,proto3" json:"upload_budget_records,omitempty"`
+	UploadBudgetBytes   int64 `protobuf:"varint,16,opt,name=upload_budget_bytes,json=uploadBudgetBytes,proto3" json:"upload_budget_bytes,omitempty"`
+	// Site health probe cadence and per-probe timeout in seconds; 0 uses the core default.
+	HealthProbeInterval float64 `protobuf:"fixed64,17,opt,name=health_probe_interval,json=healthProbeInterval,proto3" json:"health_probe_interval,omitempty"`
+	HealthProbeTimeout  float64 `protobuf:"fixed64,18,opt,name=health_probe_timeout,json=healthProbeTimeout,proto3" json:"health_probe_timeout,omitempty"`
+	// Consecutive failures / successes required to flip the health state; 0 uses the core default.
+	HealthDegradeThreshold int32 `protobuf:"varint,19,opt,name=health_degrade_threshold,json=healthDegradeThreshold,proto3" json:"health_degrade_threshold,omitempty"`
+	HealthRecoverThreshold int32 `protobuf:"varint,20,opt,name=health_recover_threshold,json=healthRecoverThreshold,proto3" json:"health_recover_threshold,omitempty"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *CoreSettings) Reset() {
@@ -231,11 +240,53 @@ func (x *CoreSettings) GetMode() CoreMode {
 	return CoreMode_CORE_MODE_UNSPECIFIED
 }
 
+func (x *CoreSettings) GetUploadBudgetRecords() int64 {
+	if x != nil {
+		return x.UploadBudgetRecords
+	}
+	return 0
+}
+
+func (x *CoreSettings) GetUploadBudgetBytes() int64 {
+	if x != nil {
+		return x.UploadBudgetBytes
+	}
+	return 0
+}
+
+func (x *CoreSettings) GetHealthProbeInterval() float64 {
+	if x != nil {
+		return x.HealthProbeInterval
+	}
+	return 0
+}
+
+func (x *CoreSettings) GetHealthProbeTimeout() float64 {
+	if x != nil {
+		return x.HealthProbeTimeout
+	}
+	return 0
+}
+
+func (x *CoreSettings) GetHealthDegradeThreshold() int32 {
+	if x != nil {
+		return x.HealthDegradeThreshold
+	}
+	return 0
+}
+
+func (x *CoreSettings) GetHealthRecoverThreshold() int32 {
+	if x != nil {
+		return x.HealthRecoverThreshold
+	}
+	return 0
+}
+
 var File_swanlab_settings_core_v1_core_proto protoreflect.FileDescriptor
 
 const file_swanlab_settings_core_v1_core_proto_rawDesc = "" +
 	"\n" +
-	"#swanlab/settings/core/v1/core.proto\x12\x18swanlab.settings.core.v1\"\xcb\x03\n" +
+	"#swanlab/settings/core/v1/core.proto\x12\x18swanlab.settings.core.v1\"\x89\x06\n" +
 	"\fCoreSettings\x12\x15\n" +
 	"\x06run_id\x18\x01 \x01(\tR\x05runId\x12\x17\n" +
 	"\arun_dir\x18\x02 \x01(\tR\x06runDir\x12!\n" +
@@ -254,7 +305,13 @@ const file_swanlab_settings_core_v1_core_proto_rawDesc = "" +
 	"\aapi_key\x18\v \x01(\tR\x06apiKey\x12\x19\n" +
 	"\bapi_host\x18\f \x01(\tR\aapiHost\x12\x19\n" +
 	"\bweb_host\x18\r \x01(\tR\awebHost\x126\n" +
-	"\x04mode\x18\x0e \x01(\x0e2\".swanlab.settings.core.v1.CoreModeR\x04mode*\x7f\n" +
+	"\x04mode\x18\x0e \x01(\x0e2\".swanlab.settings.core.v1.CoreModeR\x04mode\x122\n" +
+	"\x15upload_budget_records\x18\x0f \x01(\x03R\x13uploadBudgetRecords\x12.\n" +
+	"\x13upload_budget_bytes\x18\x10 \x01(\x03R\x11uploadBudgetBytes\x122\n" +
+	"\x15health_probe_interval\x18\x11 \x01(\x01R\x13healthProbeInterval\x120\n" +
+	"\x14health_probe_timeout\x18\x12 \x01(\x01R\x12healthProbeTimeout\x128\n" +
+	"\x18health_degrade_threshold\x18\x13 \x01(\x05R\x16healthDegradeThreshold\x128\n" +
+	"\x18health_recover_threshold\x18\x14 \x01(\x05R\x16healthRecoverThreshold*\x7f\n" +
 	"\bCoreMode\x12\x19\n" +
 	"\x15CORE_MODE_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10CORE_MODE_ONLINE\x10\x01\x12\x13\n" +

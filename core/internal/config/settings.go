@@ -45,6 +45,8 @@ var (
 	ErrRunIDRequired = errors.New("run_id is required")
 	// ErrRunDirRequired 表示缺少 run_dir。
 	ErrRunDirRequired = errors.New("run_dir is required")
+	// ErrBudgetUnsupported 表示当前不支持启用非零上传预算。
+	ErrBudgetUnsupported = errors.New("upload budget is not supported")
 )
 
 // Mode 是单个 run 的运行模式。空值按 online 处理，兼容未下发 mode 的旧客户端。
@@ -98,6 +100,18 @@ type Settings struct {
 	APIHost string
 	// WebHost 云端 Web 站点。
 	WebHost string
+
+	// UploadBudgetRecords / UploadBudgetBytes 是上传管线容量预算（条数 / 字节）；
+	// <=0 表示该维度不限制，默认 0，当前不支持有限预算。
+	UploadBudgetRecords int64
+	UploadBudgetBytes   int64
+
+	// HealthProbeInterval / HealthProbeTimeout 是探针间隔与单次超时（秒），0 取 core 默认（5s / 2s）。
+	HealthProbeInterval float64
+	HealthProbeTimeout  float64
+	// HealthDegradeThreshold / HealthRecoverThreshold 是连续失败 / 成功阈值，0 取 core 默认（3 / 2）。
+	HealthDegradeThreshold int32
+	HealthRecoverThreshold int32
 }
 
 // Defaults 返回与 Python CoreSettings 一致的默认配置。
@@ -127,6 +141,7 @@ func (s Settings) NormalizedMode() Mode {
 //
 // record_batch 必须落在 (0, 100_000)；record_interval 与 save_part 必须为正，
 // record_interval 额外拒绝 NaN（+Inf 允许）；其余 save_* 不限制。
+// health_* 必须有限且非负；非零上传预算直接拒绝。
 func (s Settings) Validate() error {
 	if s.RunID == "" {
 		return fmt.Errorf("config: %w", ErrRunIDRequired)
@@ -151,7 +166,27 @@ func (s Settings) Validate() error {
 	if s.SavePart <= 0 {
 		return fmt.Errorf("config: save_part (%d) must be positive", s.SavePart)
 	}
+	if !validSeconds(s.HealthProbeInterval) {
+		return fmt.Errorf("config: health_probe_interval (%v) must be finite and not negative", s.HealthProbeInterval)
+	}
+	if !validSeconds(s.HealthProbeTimeout) {
+		return fmt.Errorf("config: health_probe_timeout (%v) must be finite and not negative", s.HealthProbeTimeout)
+	}
+	if s.HealthDegradeThreshold < 0 || s.HealthRecoverThreshold < 0 {
+		return fmt.Errorf("config: health thresholds (%d/%d) must not be negative",
+			s.HealthDegradeThreshold, s.HealthRecoverThreshold)
+	}
+	// 预算暂停只把记录留在本地且没有恢复路径，因此不开放非零预算。
+	if s.UploadBudgetRecords > 0 || s.UploadBudgetBytes > 0 {
+		return fmt.Errorf("config: %w (records=%d bytes=%d)",
+			ErrBudgetUnsupported, s.UploadBudgetRecords, s.UploadBudgetBytes)
+	}
 	return nil
+}
+
+// validSeconds 判断以秒为单位的参数是否合法：有限且非负。
+func validSeconds(v float64) bool {
+	return !math.IsNaN(v) && !math.IsInf(v, 0) && v >= 0
 }
 
 // MaskKey 对 API Key 做日志脱敏：过短的 key 只显示 "****"，
@@ -171,8 +206,11 @@ func MaskKey(key string) string {
 func (s Settings) String() string {
 	return fmt.Sprintf(
 		"run_id=%s run_dir=%s mode=%s skip_store=%t section_rule=%d record_batch=%d record_interval=%.1f "+
-			"save_size=%d save_split=%d save_part=%d save_batch=%d api_host=%s web_host=%s api_key=%s",
+			"save_size=%d save_split=%d save_part=%d save_batch=%d api_host=%s web_host=%s api_key=%s "+
+			"upload_budget=%d/%d health_probe=%.1f/%.1f degrade=%d recover=%d",
 		s.RunID, s.RunDir, s.NormalizedMode(), s.SkipStore, s.SectionRule, s.RecordBatch, s.RecordInterval,
 		s.SaveSize, s.SaveSplit, s.SavePart, s.SaveBatch, s.APIHost, s.WebHost, MaskKey(s.APIKey),
+		s.UploadBudgetRecords, s.UploadBudgetBytes,
+		s.HealthProbeInterval, s.HealthProbeTimeout, s.HealthDegradeThreshold, s.HealthRecoverThreshold,
 	)
 }

@@ -27,17 +27,22 @@ var ErrClosed = errors.New("uploader: closed")
 // total_records 必须由上游在记录进入 In 之前完成接纳计数（intake 的 OnAdmit），
 // Uploader 只在同 num 覆盖时冲减；漏接会让进度总数一直为 0。
 type Options struct {
-	In        <-chan *recordv1.Record // 必填，通常为 buffer.Intake.UploadOut()
-	Budget    *budget.Budget          // 必填，记录入队时已由 intake 预留
-	Senders   map[record.Type]Sender  // 必填，至少一条；未注册类型按终结处理并告警
-	Batch     int                     // <=0 取 config.DefaultRecordBatch
-	Interval  time.Duration           // <=0 取 config.DefaultRecordInterval
-	Retry     RetryPolicy             // 零值取 DefaultRetryPolicy()
-	Tracker   *Tracker                // 可空，内部创建；须与上游接纳计数共用同一实例
-	Warn      *WarningThrottle        // 可空，内部创建
-	Context   context.Context         // 可空，作为 sender 调用的父 ctx
-	Now       func() time.Time        // 可空，调度时钟，测试可注入
-	OnDrained func()                  // 可空；在 worker 中、Done 关闭前调用一次，禁止阻塞或再调用 Close
+	In       <-chan *recordv1.Record // 必填，通常为 buffer.Intake.UploadOut()
+	Budget   *budget.Budget          // 必填，记录入队时已由 intake 预留
+	Senders  map[record.Type]Sender  // 必填，至少一条；未注册类型按终结处理并告警
+	Batch    int                     // <=0 取 config.DefaultRecordBatch
+	Interval time.Duration           // <=0 取 config.DefaultRecordInterval
+	Retry    RetryPolicy             // 零值取 DefaultRetryPolicy()
+	Tracker  *Tracker                // 可空，内部创建；须与上游接纳计数共用同一实例
+	Warn     *WarningThrottle        // 可空，内部创建
+	Context  context.Context         // 可空，作为 sender 调用的父 ctx
+	Now      func() time.Time        // 可空，调度时钟，测试可注入
+	// OnRetryableFailure 在每轮可重试失败后回调，参数为自上次成功以来的连续失败轮数。
+	OnRetryableFailure func(rounds int)
+	// OnDispatchSuccess 在完整调度一轮成功后回调；确定性失败不计入。
+	OnDispatchSuccess func()
+	// OnDrained 在 worker 中、Done 关闭前调用一次；禁止阻塞或再次调用 Close。
+	OnDrained func()
 }
 
 // Stats 是上传管线的诊断快照；Pending 包含排队与在途记录。
@@ -81,10 +86,13 @@ type Uploader struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	onDrained func()
+	onDrained          func()
+	onRetryableFailure func(rounds int)
+	onDispatchSuccess  func()
 
-	buffered atomic.Int64
-	pending  atomic.Int64
+	buffered  atomic.Int64
+	pending   atomic.Int64
+	suspended atomic.Bool
 
 	failuresMu sync.RWMutex
 	failures   []Failure
@@ -139,27 +147,29 @@ func New(opts Options) (*Uploader, error) {
 	ctx, cancel := context.WithCancel(parent)
 
 	u := &Uploader{
-		in:              opts.In,
-		batch:           batch,
-		interval:        interval,
-		retry:           retry,
-		now:             now,
-		budget:          opts.Budget,
-		tracker:         tracker,
-		registry:        registry,
-		warn:            warn,
-		stop:            make(chan struct{}),
-		finishCh:        make(chan struct{}, 1),
-		flushReq:        make(chan chan struct{}),
-		controlReq:      make(chan controlRequest),
-		done:            make(chan struct{}),
-		workerDone:      make(chan struct{}),
-		ctx:             ctx,
-		cancel:          cancel,
-		onDrained:       opts.OnDrained,
-		warnedTypes:     make(map[record.Type]struct{}),
-		warnUnsupported: defaultUnsupportedWarning,
-		warnFailure:     func(message string) { console.Warning(message) },
+		in:                 opts.In,
+		batch:              batch,
+		interval:           interval,
+		retry:              retry,
+		now:                now,
+		budget:             opts.Budget,
+		tracker:            tracker,
+		registry:           registry,
+		warn:               warn,
+		stop:               make(chan struct{}),
+		finishCh:           make(chan struct{}, 1),
+		flushReq:           make(chan chan struct{}),
+		controlReq:         make(chan controlRequest),
+		done:               make(chan struct{}),
+		workerDone:         make(chan struct{}),
+		ctx:                ctx,
+		cancel:             cancel,
+		onDrained:          opts.OnDrained,
+		onRetryableFailure: opts.OnRetryableFailure,
+		onDispatchSuccess:  opts.OnDispatchSuccess,
+		warnedTypes:        make(map[record.Type]struct{}),
+		warnUnsupported:    defaultUnsupportedWarning,
+		warnFailure:        func(message string) { console.Warning(message) },
 	}
 	u.buf = newRecordBuffer(opts.Budget, tracker)
 	u.wg.Add(1)
@@ -259,11 +269,17 @@ func (w *workerState) dispatchPending() {
 	}
 	if retry {
 		w.failed++
+		if w.u.onRetryableFailure != nil {
+			w.u.onRetryableFailure(w.failed)
+		}
 		w.retryAt = w.u.now().Add(w.u.retry.Delay(w.failed))
 		return
 	}
 	w.failed = 0
 	w.retryAt = time.Time{}
+	if w.u.onDispatchSuccess != nil {
+		w.u.onDispatchSuccess()
+	}
 }
 
 func (w *workerState) prepareBatch() bool {
@@ -376,6 +392,7 @@ func (w *workerState) handleControl(req controlRequest) {
 		}
 		w.suspended = false
 	}
+	w.u.suspended.Store(req.suspend)
 	close(req.ack)
 }
 
@@ -459,11 +476,14 @@ func (u *Uploader) Wait(ctx context.Context) error {
 	}
 }
 
-// Suspend 暂停出批与重试，在途调用完成后生效；仅测试使用。
+// Suspend 暂停出批与重试，在途调用完成后生效；站点降级时由 manager 调用。
 func (u *Uploader) Suspend() { u.control(true) }
 
 // Resume 恢复调度，并把暂停时长顺延到批量与退避截止时间。
 func (u *Uploader) Resume() { u.control(false) }
+
+// Suspended 报告当前是否处于暂停投递状态。
+func (u *Uploader) Suspended() bool { return u.suspended.Load() }
 
 // control 等待 worker 应用停复机状态，避免返回后再产生新上传。
 func (u *Uploader) control(suspend bool) {

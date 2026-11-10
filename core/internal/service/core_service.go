@@ -155,6 +155,13 @@ func settingsFromProto(in *settingsv1.CoreSettings) (config.Settings, error) {
 		APIKey:         in.GetApiKey(),
 		APIHost:        in.GetApiHost(),
 		WebHost:        in.GetWebHost(),
+
+		UploadBudgetRecords:    in.GetUploadBudgetRecords(),
+		UploadBudgetBytes:      in.GetUploadBudgetBytes(),
+		HealthProbeInterval:    in.GetHealthProbeInterval(),
+		HealthProbeTimeout:     in.GetHealthProbeTimeout(),
+		HealthDegradeThreshold: in.GetHealthDegradeThreshold(),
+		HealthRecoverThreshold: in.GetHealthRecoverThreshold(),
 	}
 	if settings.NormalizedMode() == config.ModeOnline {
 		if settings.APIHost == "" {
@@ -369,6 +376,8 @@ func managerStatus(err error) error {
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, manager.ErrTooManySessions):
 		return status.Error(codes.ResourceExhausted, err.Error())
+	case errors.Is(err, manager.ErrServerUnreachable):
+		return status.Error(codes.Unavailable, err.Error())
 	case client.IsAuthenticationError(err):
 		return status.Error(codes.Unauthenticated, err.Error())
 	case client.IsNotFound(err):
