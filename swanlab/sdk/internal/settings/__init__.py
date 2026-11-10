@@ -35,7 +35,7 @@ from pydantic_settings import (
 
 from swanlab.proto.swanlab.settings.core.v1.core_pb2 import CoreSettings as CoreSettingsPb
 from swanlab.proto.swanlab.settings.probe.v1.probe_pb2 import ProbeSettings as ProbeSettingsPb
-from swanlab.sdk.internal.pkg import console, helper, nrc, safe
+from swanlab.sdk.internal.pkg import adapter, console, helper, nrc, safe
 from swanlab.sdk.typings.run import ModeType
 
 from .compat import getenv, log_dir_factory, strip_env_quotes
@@ -331,6 +331,7 @@ class Settings(BaseSettings):
         return CoreSettingsPb(
             run_id=run_id,
             run_dir=str(run_dir.absolute()),
+            mode=adapter.core_mode[self.mode],
             section_rule=self.core.section_rule,
             record_batch=self.core.record_batch,
             record_interval=self.core.record_interval,
@@ -339,6 +340,9 @@ class Settings(BaseSettings):
             save_part=self.core.save_part,
             save_batch=self.core.save_batch,
             skip_store=self.core.skip_store,
+            api_key=self.api_key or "",
+            api_host=self.api_host,
+            web_host=self.web_host,
             upload_budget_records=self.core.upload_budget_records,
             upload_budget_bytes=self.core.upload_budget_bytes,
             health_probe_interval=self.core.health_probe_interval,

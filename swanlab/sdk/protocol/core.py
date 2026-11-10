@@ -68,8 +68,16 @@ class CoreProtocol(ABC):
 
     raises_on_upsert_error: bool = False
 
+    # deliver 失败后是否仍执行 confirm；confirm 负责资源回收的实现保持 True。
+    confirm_after_deliver_failure: bool = True
+
     def __init__(self, mode: ModeType):
         self._mode = mode
+
+    @property
+    def last_error(self) -> Optional[CoreProtocolError]:
+        """最近一次失败的分类错误；实现可按需覆盖，默认不提供结构化错误。"""
+        return None
 
     def _guard_upsert(self, message: str, call: Callable[[], None]) -> None:
         if self.raises_on_upsert_error:
@@ -299,6 +307,14 @@ class CoreProtocol(ABC):
 
     @abstractmethod
     def _confirm_finish_when_enabled(self) -> ConfirmRunFinishResponse: ...
+
+    # ---------------------------------- 生命周期回收 ----------------------------------
+
+    def close(self) -> None:
+        """正常关闭 Core 持有的资源；默认无操作，由实现覆盖。"""
+
+    def abort(self, cause: Optional[BaseException] = None) -> None:
+        """异常路径回收 Core 持有的资源；默认无操作，由实现覆盖。"""
 
     # ---------------------------------- 进程fork ----------------------------------
 

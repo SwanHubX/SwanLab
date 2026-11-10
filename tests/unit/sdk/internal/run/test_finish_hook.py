@@ -8,6 +8,7 @@
 import signal
 import sys
 import threading
+from typing import cast
 from unittest.mock import ANY, MagicMock, patch
 
 import pytest
@@ -59,6 +60,10 @@ def _make_real_finish_run() -> Run:
     run._sys_origin_excepthook = MagicMock()
     run._original_sigint_handler = signal.SIG_DFL
     run._is_main_thread = True
+    run._atexit_registered = True
+    run._excepthook_installed = True
+    run._sigint_installed = True
+    run._fork_registered = True
     return run
 
 
@@ -85,6 +90,7 @@ class TestFinish:
             patch("swanlab.sdk.internal.run.greeting.goodbye"),
             patch("swanlab.sdk.internal.run.run_with_progress") as mock_run_with_progress,
             patch("swanlab.sdk.internal.run.atexit.unregister"),
+            patch("swanlab.sdk.internal.run.fork.unregister") as mock_fork_unregister,
             patch("swanlab.sdk.internal.run.signal.signal"),
             patch("swanlab.sdk.internal.run.console.reset"),
             patch("swanlab.sdk.internal.run._current_run", run),
@@ -99,10 +105,13 @@ class TestFinish:
             # confirm 失败（如存在未确认上传记录）时也照常清理全局实例，失败原因已在 finish 内报告
             assert run_module._current_run is None
 
-        mock_run_with_progress.assert_called_once_with(
-            stats_fn=run._core.get_operation_stats,
-            blocking_fn=run._core.confirm_run_finish,
-        )
+        kwargs = mock_run_with_progress.call_args.kwargs
+        assert kwargs["stats_fn"] == run._core.get_operation_stats
+        kwargs["blocking_fn"]()
+        core = cast(MagicMock, run._core)
+        core.confirm_run_finish.assert_called_once()
+        core.close.assert_called_once()
+        mock_fork_unregister.assert_called_once()
 
 
 class TestExcepthook:
@@ -275,6 +284,7 @@ class TestFinishSigintRestore:
         for is_main_thread, expected_calls in ((True, 1), (False, 0)):
             run = _make_real_finish_run()
             run._is_main_thread = is_main_thread
+            run._sigint_installed = is_main_thread
             with (
                 patch("swanlab.sdk.internal.run.greeting.goodbye"),
                 patch("swanlab.sdk.internal.run.run_with_progress") as mock_rwp,

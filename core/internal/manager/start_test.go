@@ -19,6 +19,8 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/pkg/builder"
 	"github.com/swanhubx/swanlab/core/internal/runctx"
 	"github.com/swanhubx/swanlab/core/internal/store"
+	columnv1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/column/v1"
+	datav1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/data/v1"
 	runv1 "github.com/swanhubx/swanlab/core/proto/swanlab/run/v1"
 )
 
@@ -114,6 +116,61 @@ func closeStartedSession(t *testing.T, mgr *Manager, sessionID string) {
 		_ = s.store.Close()
 	}
 	s.closeHealth()
+}
+
+func TestDeliverRunStartLocalWritesStore(t *testing.T) {
+	settings := config.Defaults()
+	settings.Mode = config.ModeLocal
+	settings.RunID = "run-local"
+	settings.RunDir = filepath.Join(t.TempDir(), "run")
+	settings.RecordBatch = 16
+	settings.RecordInterval = 0.01
+
+	mgr := newTestManager()
+	record := &runv1.StartRecord{Project: "demo", Id: "run-local"}
+	result, err := mgr.DeliverRunStart(context.Background(), settings, record)
+	if err != nil {
+		t.Fatalf("DeliverRunStart: %v", err)
+	}
+	defer closeStartedSession(t, mgr, result.SessionID)
+	if result.SessionID == "" {
+		t.Fatal("local start must return a session id")
+	}
+	if result.Path != "" || result.GlobalStep != -1 || result.GlobalSystemStep != -1 {
+		t.Fatalf("local start result = %+v, want empty path and step -1", result)
+	}
+
+	scalar := &datav1.ScalarRecord{
+		Key:   "loss",
+		Step:  1,
+		Type:  columnv1.ColumnType_COLUMN_TYPE_SCALAR,
+		Value: &datav1.ScalarValue{Number: 0.5},
+	}
+	if upsertErr := mgr.UpsertScalars(context.Background(), result.SessionID, []*datav1.ScalarRecord{scalar}); upsertErr != nil {
+		t.Fatalf("UpsertScalars: %v", upsertErr)
+	}
+	if finishErr := mgr.DeliverRunFinish(context.Background(), result.SessionID, &runv1.FinishRecord{
+		State: runv1.RunState_RUN_STATE_FINISHED,
+	}); finishErr != nil {
+		t.Fatalf("DeliverRunFinish: %v", finishErr)
+	}
+	confirm, err := mgr.Confirm(context.Background(), result.SessionID)
+	if err != nil {
+		t.Fatalf("Confirm: %v", err)
+	}
+	if confirm.ReleaseFailed {
+		t.Fatalf("Confirm release failed: %s", confirm.Message)
+	}
+	if _, sessionErr := mgr.session(result.SessionID); sessionErr == nil {
+		t.Fatal("local session must be released after confirm")
+	}
+	info, err := os.Stat(runFilePath(t, settings))
+	if err != nil {
+		t.Fatalf("stat run file: %v", err)
+	}
+	if info.Size() < store.HeaderLen {
+		t.Fatalf("run file size = %d, want >= %d", info.Size(), store.HeaderLen)
+	}
 }
 
 func TestDeliverRunStartNewExperiment(t *testing.T) {

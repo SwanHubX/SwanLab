@@ -27,6 +27,8 @@ import (
 
 type upsertOptions struct {
 	skipStore bool
+	storeOnly bool
+	degraded  *atomic.Bool
 	batch     int32
 	queue     int
 	section   int32
@@ -76,6 +78,8 @@ func newUpsertHarness(t *testing.T, opts upsertOptions) *upsertHarness {
 	}
 	intake, err := buffer.New(buffer.Options{
 		SkipStore:   opts.skipStore,
+		StoreOnly:   opts.storeOnly,
+		Degraded:    opts.degraded,
 		Store:       storeCh,
 		UploadQueue: opts.queue,
 		Budget:      budget.New(budget.Limits{}),
@@ -133,6 +137,26 @@ func drainStore(ch chan store.Request) []store.Request {
 
 func scalarRecord(key string, step int64, typ columnv1.ColumnType) *datav1.ScalarRecord {
 	return &datav1.ScalarRecord{Key: key, Step: step, Type: typ}
+}
+
+// StoreOnly 会话本地降级后没有上传兜底，必须返回确定性错误而不是假装成功。
+func TestUpsertScalarsStoreOnlyDegradedFails(t *testing.T) {
+	var degraded atomic.Bool
+	degraded.Store(true)
+	h := newUpsertHarness(t, upsertOptions{storeOnly: true, degraded: &degraded})
+
+	err := h.mgr.UpsertScalars(context.Background(), h.id, []*datav1.ScalarRecord{
+		scalarRecord("loss", 1, columnv1.ColumnType_COLUMN_TYPE_SCALAR),
+	})
+	if !errors.Is(err, ErrStoreUnavailable) {
+		t.Fatalf("UpsertScalars err=%v, want ErrStoreUnavailable", err)
+	}
+	if got := len(drainStore(h.storeCh)); got != 0 {
+		t.Fatalf("store got %d records, want 0", got)
+	}
+	if got := len(drainRecords(h.upload)); got != 0 {
+		t.Fatalf("upload got %d records, want 0", got)
+	}
 }
 
 func TestUpsertColumnsSkipsDefinedAndDuplicates(t *testing.T) {

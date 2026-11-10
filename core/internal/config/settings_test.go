@@ -61,6 +61,11 @@ func TestValidate(t *testing.T) {
 		{"save_size 无 bounds", func(s *Settings) { s.SaveSize = -1 }, nil, ""},
 		{"save_split 无 bounds", func(s *Settings) { s.SaveSplit = -1 }, nil, ""},
 		{"section_rule 允许负值", func(s *Settings) { s.SectionRule = -3 }, nil, ""},
+		{"mode 未知", func(s *Settings) { s.Mode = "weird" }, nil, "mode"},
+		{"local 允许", func(s *Settings) { s.Mode = ModeLocal }, nil, ""},
+		{"local 禁止 skip_store", func(s *Settings) { s.Mode = ModeLocal; s.SkipStore = true }, nil, "skip_store"},
+		{"offline 禁止 skip_store", func(s *Settings) { s.Mode = ModeOffline; s.SkipStore = true }, nil, "skip_store"},
+		{"disabled 允许", func(s *Settings) { s.Mode = ModeDisabled }, nil, ""},
 		{"health_probe_interval 为 0", func(s *Settings) { s.HealthProbeInterval = 0 }, nil, ""},
 		{"health_probe_interval 为负", func(s *Settings) { s.HealthProbeInterval = -0.1 }, nil, "health_probe_interval"},
 		{"health_probe_interval 为 NaN", func(s *Settings) { s.HealthProbeInterval = math.NaN() }, nil, "health_probe_interval"},
@@ -108,6 +113,24 @@ func TestValidate(t *testing.T) {
 				t.Fatalf("Validate() = %v, want 包含 %q", err, tc.want)
 			}
 		})
+	}
+}
+
+func TestNormalizedMode(t *testing.T) {
+	tests := []struct {
+		mode Mode
+		want Mode
+	}{
+		{"", ModeOnline},
+		{ModeOnline, ModeOnline},
+		{ModeLocal, ModeLocal},
+		{ModeOffline, ModeOffline},
+		{ModeDisabled, ModeDisabled},
+	}
+	for _, tc := range tests {
+		if got := (Settings{Mode: tc.mode}).NormalizedMode(); got != tc.want {
+			t.Fatalf("NormalizedMode(%q) = %q, want %q", tc.mode, got, tc.want)
+		}
 	}
 }
 

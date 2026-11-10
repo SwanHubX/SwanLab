@@ -14,10 +14,16 @@ from typing import List, Optional, cast
 
 import pytest
 
-from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import GetOperationStatsResponse
+from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
+    DeliverRunFinishRequest,
+    DeliverRunFinishResponse,
+    DeliverRunStartRequest,
+    DeliverRunStartResponse,
+    GetOperationStatsResponse,
+)
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import ScalarRecord
 from swanlab.sdk.internal.core_go import core as core_module
-from swanlab.sdk.internal.core_go.core import CoreGo
+from swanlab.sdk.internal.core_go.core import CoreGo, _DetachedCoreGo
 from swanlab.sdk.internal.core_go.errors import CoreGoError, ReasonCode, Stage
 from swanlab.sdk.internal.core_go.rpc.core_service import CoreServiceRpc
 from swanlab.sdk.internal.pkg import console as pkg_console
@@ -30,11 +36,15 @@ class FakeRpc:
     def __init__(self, error: Optional[BaseException] = None) -> None:
         self.error = error
         self.calls: List[tuple] = []
+        self.teardown_calls: List[float] = []
 
     def upsert_scalars(self, scalars: List[ScalarRecord], session_id: str) -> None:
         self.calls.append((scalars, session_id))
         if self.error is not None:
             raise self.error
+
+    def teardown(self, timeout: float = 0) -> None:
+        self.teardown_calls.append(timeout)
 
 
 def _running_core(rpc: FakeRpc) -> CoreGo:
@@ -155,3 +165,88 @@ def test_is_terminal_stats_error(message, expected):
 
 def test_successful_stats_is_not_terminal():
     assert is_terminal_stats_error(GetOperationStatsResponse(success=True)) is False
+
+
+def test_close_before_start_is_idempotent():
+    core = CoreGo("online")
+
+    core.close()
+    core.close()
+
+    assert core._state == core_module._CLOSED  # noqa: SLF001
+
+
+def test_close_after_finish_tears_down_and_releases_rpc():
+    rpc = FakeRpc()
+    core = _running_core(rpc)
+    core._state = core_module._FINISHED  # noqa: SLF001
+
+    core.close()
+
+    assert core._state == core_module._CLOSED  # noqa: SLF001
+    assert core._rpc is None  # noqa: SLF001
+    assert rpc.teardown_calls == [core_module.TEARDOWN_TIMEOUT]
+
+
+def test_fork_returns_detached_placeholder(tmp_path):
+    binary = tmp_path / "swanlab-core"
+    core = CoreGo("online", binary=binary)
+
+    detached = core.fork()
+
+    assert isinstance(detached, _DetachedCoreGo)
+    assert detached is not core
+    assert detached.fork() is detached
+    assert detached._binary == binary  # noqa: SLF001
+    detached.close()
+
+
+def test_detached_core_never_touches_parent_lifecycle():
+    detached = CoreGo("online").fork()
+
+    assert detached.deliver_run_start(DeliverRunStartRequest()).success is False
+    assert detached.deliver_run_finish(DeliverRunFinishRequest()).success is False
+    assert detached.confirm_run_finish().success is False
+    assert detached.get_operation_stats().success is False
+    detached.upsert_scalars([ScalarRecord(key="loss", step=1)])
+    detached.close()
+    detached.abort()
+
+    error = cast(CoreGoError, detached.last_error)
+    assert error.reason is ReasonCode.FORK_UNSUPPORTED
+    assert error.stage is Stage.FORK
+
+
+def test_start_modes_share_enabled_path(monkeypatch):
+    sentinel = DeliverRunStartResponse(success=True, session_id="s")
+    calls = []
+    monkeypatch.setattr(CoreGo, "_start_enabled", lambda self, req: calls.append(self._mode) or sentinel)
+
+    for mode in ("online", "local", "offline"):
+        assert CoreGo(mode).deliver_run_start(DeliverRunStartRequest()) is sentinel
+    assert calls == ["online", "local", "offline"]
+
+
+def test_finish_modes_share_enabled_path(monkeypatch):
+    sentinel = DeliverRunFinishResponse(success=True)
+    monkeypatch.setattr(CoreGo, "_finish_enabled", lambda self, req: sentinel)
+
+    for mode in ("online", "local", "offline"):
+        assert CoreGo(mode).deliver_run_finish(DeliverRunFinishRequest()) is sentinel
+
+
+def test_start_without_binary_is_terminal():
+    core = CoreGo("local")
+
+    response = core.deliver_run_start(DeliverRunStartRequest())
+
+    assert response.success is False
+    assert "BINARY_NOT_FOUND" in response.message
+
+
+def test_disabled_start_is_noop_without_binary():
+    core = CoreGo("disabled")
+
+    response = core.deliver_run_start(DeliverRunStartRequest())
+
+    assert response.success is True

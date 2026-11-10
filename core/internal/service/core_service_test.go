@@ -92,10 +92,14 @@ func (f *fakeManager) DeliverRunStart(
 	f.next++
 	sessionID := fmt.Sprintf("session-%d", f.next)
 	f.sessions[sessionID] = manager.RunStateRunning
+	path := "/alice/demo/run-1"
+	if settings.NormalizedMode() != config.ModeOnline {
+		path = ""
+	}
 	return &manager.StartResult{
 		SessionID:     sessionID,
 		Run:           record,
-		Path:          "/alice/demo/run-1",
+		Path:          path,
 		Name:          "demo",
 		GlobalStep:    -1,
 		NewExperiment: true,
@@ -344,6 +348,29 @@ func TestRunRPCsRejectedBeforeReady(t *testing.T) {
 	}
 }
 
+func TestDeliverRunStartLocalAllowsEmptyPath(t *testing.T) {
+	env := newTestEnv(t)
+	spinup(t, env)
+
+	settings := validSettings(t)
+	settings.Mode = settingsv1.CoreMode_CORE_MODE_LOCAL
+	settings.ApiKey = ""
+	settings.ApiHost = ""
+	resp, err := env.client.DeliverRunStart(callCtx(t), &corev1.DeliverRunStartRequest{
+		CoreSettings: settings,
+		StartRecord:  &runv1.StartRecord{Project: "demo", Id: "run-1"},
+	})
+	if err != nil {
+		t.Fatalf("DeliverRunStart: %v", err)
+	}
+	if !resp.GetSuccess() || resp.GetSessionId() == "" {
+		t.Fatalf("local start response = %v", resp)
+	}
+	if len(env.runs.starts) != 1 || env.runs.starts[0].settings.Mode != config.ModeLocal {
+		t.Fatalf("manager settings = %+v", env.runs.starts)
+	}
+}
+
 func TestDeliverRunStartValidatesRequest(t *testing.T) {
 	env := newTestEnv(t)
 	spinup(t, env)
@@ -445,6 +472,7 @@ func TestSettingsFromProto(t *testing.T) {
 	want := config.Settings{
 		RunID:          "run-1",
 		RunDir:         "/tmp/run",
+		Mode:           config.ModeOnline,
 		SectionRule:    2,
 		RecordBatch:    500,
 		RecordInterval: 0.5,
@@ -468,6 +496,25 @@ func TestSettingsFromProto(t *testing.T) {
 	}
 	if got != want {
 		t.Fatalf("settings = %+v, want %+v", got, want)
+	}
+
+	local := &settingsv1.CoreSettings{
+		RunId:          "run-1",
+		RunDir:         "/tmp/run",
+		Mode:           settingsv1.CoreMode_CORE_MODE_LOCAL,
+		RecordBatch:    500,
+		RecordInterval: 0.5,
+		SaveSize:       1,
+		SaveSplit:      2,
+		SavePart:       3,
+		SaveBatch:      4,
+	}
+	gotLocal, err := settingsFromProto(local)
+	if err != nil {
+		t.Fatalf("local settings must not require cloud credentials: %v", err)
+	}
+	if gotLocal.Mode != config.ModeLocal {
+		t.Fatalf("mode = %q, want %q", gotLocal.Mode, config.ModeLocal)
 	}
 
 	if _, err := settingsFromProto(nil); err == nil {
@@ -556,6 +603,24 @@ func TestUpsertRPCsForwardRecords(t *testing.T) {
 		if got.kind != tc.kind || got.sessionID != handle || got.count != 1 {
 			t.Fatalf("upsert %d = %+v, want kind=%s session=%s count=1", i, got, tc.kind, handle)
 		}
+	}
+}
+
+func TestUpsertStoreUnavailableMapsFailedPrecondition(t *testing.T) {
+	env := newTestEnv(t)
+	spinup(t, env)
+	handle := startRun(t, env, &runv1.StartRecord{})
+
+	env.runs.mu.Lock()
+	env.runs.upsertErr = manager.ErrStoreUnavailable
+	env.runs.mu.Unlock()
+
+	_, err := env.client.UpsertScalars(callCtx(t), &corev1.UpsertScalarsRequest{
+		SessionId: handle,
+		Data:      []*datav1.ScalarRecord{{Key: "loss"}},
+	})
+	if code := status.Code(err); code != codes.FailedPrecondition {
+		t.Fatalf("code = %v, want FailedPrecondition (err=%v)", code, err)
 	}
 }
 
@@ -778,6 +843,35 @@ func TestConfirmRunFinishCarriesReleaseFailure(t *testing.T) {
 	resp, err = env.client.ConfirmRunFinish(ctx, &corev1.ConfirmRunFinishRequest{SessionId: handle})
 	if err != nil || !resp.GetSuccess() || resp.GetMessage() != "OK" {
 		t.Fatalf("retry confirm resp=%v err=%v, want success with OK", resp, err)
+	}
+}
+
+func TestConfirmRunFinishRetryableReleaseReturnsUnavailable(t *testing.T) {
+	env := newTestEnv(t)
+	spinup(t, env)
+	ctx := callCtx(t)
+	handle := startRun(t, env, &runv1.StartRecord{})
+	if _, err := env.client.DeliverRunFinish(ctx, &corev1.DeliverRunFinishRequest{
+		SessionId:    handle,
+		FinishRecord: &runv1.FinishRecord{State: runv1.RunState_RUN_STATE_FINISHED},
+	}); err != nil {
+		t.Fatalf("DeliverRunFinish: %v", err)
+	}
+
+	env.runs.mu.Lock()
+	env.runs.confirmResult = manager.ConfirmResult{
+		Message:       "Failed to finish run, but it has been saved locally.",
+		ReleaseFailed: true,
+		Retryable:     true,
+	}
+	env.runs.mu.Unlock()
+
+	_, err := env.client.ConfirmRunFinish(ctx, &corev1.ConfirmRunFinishRequest{SessionId: handle})
+	if code := status.Code(err); code != codes.Unavailable {
+		t.Fatalf("code = %v, want Unavailable (err=%v)", code, err)
+	}
+	if _, err = env.client.GetOperationStats(ctx, &corev1.GetOperationStatsRequest{SessionId: handle}); err != nil {
+		t.Fatalf("session must be retained for retry: %v", err)
 	}
 }
 

@@ -26,6 +26,8 @@ var (
 	ErrRunFailed = errors.New("run finish failed")
 	// ErrNotRunning 表示会话已停止接受公共提交（排空中、已排空或收尾失败）。
 	ErrNotRunning = errors.New("session is not accepting records")
+	// ErrStoreUnavailable 表示本地存储已降级，StoreOnly 会话无法落盘，重试不会成功。
+	ErrStoreUnavailable = errors.New("local store is unavailable")
 	// ErrOverloaded 表示入口通道或上传配额在等待上限内没有腾出空间，可重试。
 	ErrOverloaded = errors.New("session intake is overloaded")
 	// ErrInvalidRecord 表示记录结构不合法（nil、空 key、未知 save 类型等）。
@@ -100,6 +102,8 @@ type ConfirmResult struct {
 	Message string
 	// ReleaseFailed 表示 stop_experiment 未成功，会话仍保留在注册表中。
 	ReleaseFailed bool
+	// Retryable 表示释放失败属于网络/超时等可重试错误，调用方可安全重发 Confirm。
+	Retryable bool
 }
 
 // Manager 维护 session_id 到会话的映射注册表，并统一编排 Run 级的生命周期。
@@ -265,7 +269,9 @@ func (m *Manager) Confirm(ctx context.Context, sessionID string) (ConfirmResult,
 	if s.releaseFn != nil {
 		if err = s.releaseFn(ctx); err != nil {
 			console.Warningf("confirm: stop experiment %q: %v", sessionID, err)
-			return ConfirmResult{Message: s.confirmMessage(), ReleaseFailed: true}, nil
+			// 只把网络/超时类失败标记为可重试；4xx 等确定性失败重发也不会成功。
+			retryable := client.IsRetryable(err) || errors.Is(err, context.DeadlineExceeded)
+			return ConfirmResult{Message: s.confirmMessage(), ReleaseFailed: true, Retryable: retryable}, nil
 		}
 	}
 	if s.uploader != nil {

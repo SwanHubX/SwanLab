@@ -49,6 +49,7 @@ class Transport:
         self._pending: List[Record] = []
         self._last_failures: List[UploadFailure] = []
         self._finished = False
+        self._aborted = False
         self._started = False
         self._thread: Optional[threading.Thread] = None
         self._throttle = UploadWarningThrottle()
@@ -141,6 +142,16 @@ class Transport:
             return False
         return self._drained
 
+    def stop(self) -> None:
+        """中止线程：丢弃未确认缓冲，不再等待网络恢复。"""
+        with self._cond:
+            self._aborted = True
+            self._finished = True
+            self._buf = RecordBuffer()
+            self._pending = []
+            self._retry_at = None
+            self._cond.notify_all()
+
     def pending_records(self) -> List[Record]:
         """返回未确认记录与缓冲区记录快照。"""
         with self._cond:
@@ -167,6 +178,8 @@ class Transport:
     def _take_snapshot(self) -> Optional[List[Record]]:
         """获取下一批待上传记录，失败重试按截止时间等待。"""
         with self._cond:
+            if self._aborted:
+                return None
             if self._pending:
                 deadline = self._retry_at
                 if deadline is not None:

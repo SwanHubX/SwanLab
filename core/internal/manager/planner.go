@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/swanhubx/swanlab/core/internal/buffer"
+	"github.com/swanhubx/swanlab/core/internal/config"
 	"github.com/swanhubx/swanlab/core/internal/metrics"
 	"github.com/swanhubx/swanlab/core/internal/pkg/builder"
 	"github.com/swanhubx/swanlab/core/internal/pkg/record"
@@ -15,11 +16,15 @@ import (
 )
 
 // demandFor 计算一批记录对本地与上传两条通道的需求。
-// 只有 CUSTOM + SAVE_POLICY_END 会被延迟到 Close，与 buffer.routeRecords 同源。
-func demandFor(records []*recordv1.Record, skipStore bool) buffer.Demand {
+// local/offline 只写本地；online 中只有 CUSTOM + SAVE_POLICY_END 会延迟到 Close，
+// 与 buffer.routeRecords 同源。
+func demandFor(records []*recordv1.Record, cfg config.Settings) buffer.Demand {
 	var demand buffer.Demand
-	if !skipStore {
+	if !cfg.SkipStore {
 		demand.Store = len(records)
+	}
+	if cfg.NormalizedMode() != config.ModeOnline {
+		return demand
 	}
 	for _, rec := range records {
 		size := record.Size(rec)

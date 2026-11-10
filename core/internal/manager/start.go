@@ -42,6 +42,9 @@ func (m *Manager) DeliverRunStart(
 	if !m.hasCapacity() {
 		return nil, fmt.Errorf("%w: limit %d", ErrTooManySessions, maxSessions)
 	}
+	if cfg.NormalizedMode() != config.ModeOnline {
+		return m.deliverLocalStart(ctx, cfg, rec, run)
+	}
 	resumeMode, err := resumeModeFromProto(rec.GetResume())
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrInvalidStartRecord, err)
@@ -179,6 +182,46 @@ func (m *Manager) DeliverRunStart(
 		GlobalStep:       resume.GlobalStep,
 		GlobalSystemStep: resume.GlobalSystemStep,
 		NewExperiment:    isNew,
+	}, nil
+}
+
+// deliverLocalStart 为 local/offline 装配仅落盘的会话：不认证、不访问云端，
+// 不创建 uploader/heartbeat，所有记录只进入本地 store。
+func (m *Manager) deliverLocalStart(
+	ctx context.Context,
+	cfg config.Settings,
+	rec *runv1.StartRecord,
+	run *runctx.RunContext,
+) (*StartResult, error) {
+	s := newSession(sessionOptions{})
+	s.ctx, s.cancel = context.WithCancel(context.Background())
+	s.cfg = cfg
+	s.run = run
+	s.metrics = metrics.New()
+	s.counter = counter.New(0)
+	s.epoch = counter.New(0)
+
+	if err := s.open(sessionInit{cfg: cfg, run: run}); err != nil {
+		s.rollback()
+		return nil, fmt.Errorf("start: assemble local session: %w", err)
+	}
+
+	start := proto.Clone(rec).(*runv1.StartRecord)
+	if err := s.commitStart(ctx, start); err != nil {
+		s.rollback()
+		return nil, err
+	}
+	sessionID, err := m.install(s)
+	if err != nil {
+		s.rollback()
+		return nil, err
+	}
+	return &StartResult{
+		SessionID:        sessionID,
+		Run:              start,
+		GlobalStep:       -1,
+		GlobalSystemStep: -1,
+		NewExperiment:    true,
 	}, nil
 }
 
