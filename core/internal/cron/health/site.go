@@ -48,22 +48,16 @@ func newSite(opts SiteOptions, clock cron.Clock) *Site {
 		s.setReason(ReasonProbeData, degraded)
 	})
 	// 启动预检在任务协程启动前写入初值，避免首个探测周期内的错误乐观状态。
-	if opts.InitialControlDegraded {
-		s.control.degradeNow()
-	}
 	if opts.InitialDataDegraded {
 		s.data.degradeNow()
 	}
 
 	s.scheduler = cron.New(clock)
-	s.scheduler.Add(cron.Job{Name: "control", Interval: interval, Run: s.control.tick})
-	s.scheduler.Add(cron.Job{Name: "data", Interval: interval, Run: s.data.tick})
+	s.scheduler.Add(cron.Job{Interval: interval, Run: s.control.tick})
+	s.scheduler.Add(cron.Job{Interval: interval, Run: s.data.tick})
 	s.scheduler.Start(context.Background())
 	return s
 }
-
-// Key 返回站点标识（api_host + api_key 摘要），同一 Key 在 Registry 内共享实例。
-func (s *Site) Key() string { return s.key }
 
 // Updates 在聚合状态或降级原因变化时收到通知，容量 1，多次变化会合并。
 // 消费方应配合 Snapshot 读取详情；Site 释放后该通道关闭。
@@ -71,10 +65,7 @@ func (s *Site) Updates() <-chan struct{} { return s.updates }
 
 // MergeInitial 把后续会话的启动预检结论并入共享站点；只降级、不升级。
 // 探针随后仍按连续成功阈值恢复该平面。
-func (s *Site) MergeInitial(controlDegraded, dataDegraded bool) {
-	if controlDegraded {
-		s.control.degradeNow()
-	}
+func (s *Site) MergeInitial(dataDegraded bool) {
 	if dataDegraded {
 		s.data.degradeNow()
 	}
@@ -89,17 +80,11 @@ func (s *Site) Report(reason Reason, active bool) {
 	s.setReason(reason, active)
 }
 
-// Snapshot 返回当前聚合状态与两个平面的最近探测结果。
+// Snapshot 返回当前聚合状态与降级来源。
 func (s *Site) Snapshot() Snapshot {
 	s.mu.Lock()
-	state, reason := s.state, s.reason
-	s.mu.Unlock()
-	return Snapshot{
-		State:            state,
-		Reason:           reason,
-		ControlReachable: s.control.reachable.Load(),
-		DataReachable:    s.data.reachable.Load(),
-	}
+	defer s.mu.Unlock()
+	return Snapshot{State: s.state, Reason: s.reason}
 }
 
 func (s *Site) setReason(reason Reason, active bool) {

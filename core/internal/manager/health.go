@@ -53,16 +53,12 @@ func (s *Session) reconcileHealth() {
 		return
 	}
 	snap := s.site.Snapshot()
-	if snap.State == health.StateDegraded && snap.Reason != health.ReasonWrite && s.maySuspend() {
+	if snap.State == health.StateDegraded && snap.Reason != health.ReasonWrite &&
+		!s.cfg.SkipStore && !s.storeDegraded.Load() {
 		s.uploader.Suspend()
 		return
 	}
 	s.uploader.Resume()
-}
-
-// maySuspend 判断当前是否具备暂停投递的前提：记录必须能继续落到本地 store。
-func (s *Session) maySuspend() bool {
-	return !s.cfg.SkipStore && !s.storeDegraded.Load()
 }
 
 // wakeHealth 唤醒监听协程重新评估暂停状态；监听启动前的事件由初始 reconcile 覆盖。

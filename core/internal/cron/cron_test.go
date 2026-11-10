@@ -78,7 +78,7 @@ func TestSchedulerCoalescesBacklog(t *testing.T) {
 	var calls atomic.Int32
 
 	s := New(clock)
-	s.Add(Job{Name: "job", Interval: time.Second, Run: func(context.Context) {
+	s.Add(Job{Interval: time.Second, Run: func(context.Context) {
 		if calls.Add(1) == 1 {
 			close(started)
 			<-release
@@ -114,8 +114,8 @@ func TestSchedulerRunsJobsIndependently(t *testing.T) {
 	runs := make(chan string, 4)
 
 	s := New(clock)
-	s.Add(Job{Name: "first", Interval: time.Second, Run: func(context.Context) { runs <- "first" }})
-	s.Add(Job{Name: "second", Interval: time.Minute, Run: func(context.Context) { runs <- "second" }})
+	s.Add(Job{Interval: time.Second, Run: func(context.Context) { runs <- "first" }})
+	s.Add(Job{Interval: time.Minute, Run: func(context.Context) { runs <- "second" }})
 	s.Start(context.Background())
 	fast := clock.ticks(t, time.Second)
 	slow := clock.ticks(t, time.Minute)
@@ -140,9 +140,8 @@ func TestSchedulerRunsJobsIndependently(t *testing.T) {
 func TestSchedulerValidatesJobs(t *testing.T) {
 	s := New(newFakeClock())
 	for name, job := range map[string]Job{
-		"missing name":     {Interval: time.Second, Run: func(context.Context) {}},
-		"missing interval": {Name: "job", Run: func(context.Context) {}},
-		"missing run":      {Name: "job", Interval: time.Second},
+		"missing interval": {Run: func(context.Context) {}},
+		"missing run":      {Interval: time.Second},
 	} {
 		t.Run(name, func(t *testing.T) {
 			defer func() {
@@ -154,7 +153,7 @@ func TestSchedulerValidatesJobs(t *testing.T) {
 		})
 	}
 
-	s.Add(Job{Name: "job", Interval: time.Second, Run: func(context.Context) {}})
+	s.Add(Job{Interval: time.Second, Run: func(context.Context) {}})
 	s.Start(context.Background())
 	defer s.Stop()
 	defer func() {
@@ -162,5 +161,5 @@ func TestSchedulerValidatesJobs(t *testing.T) {
 			t.Fatal("Add after Start should panic")
 		}
 	}()
-	s.Add(Job{Name: "late", Interval: time.Second, Run: func(context.Context) {}})
+	s.Add(Job{Interval: time.Second, Run: func(context.Context) {}})
 }

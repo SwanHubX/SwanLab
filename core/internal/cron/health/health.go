@@ -47,10 +47,6 @@ const (
 type Snapshot struct {
 	State  State
 	Reason Reason
-	// ControlReachable / DataReachable 是各平面最近一次探测结果：单次抖动会反映在这里，
-	// 但不会立即降级。
-	ControlReachable bool
-	DataReachable    bool
 }
 
 // 默认探针节奏与阈值；SiteOptions 中的 0 值会被替换为这里的默认值。

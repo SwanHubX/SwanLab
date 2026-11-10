@@ -138,9 +138,6 @@ func TestProberThresholds(t *testing.T) {
 	if !p.degraded.Load() {
 		t.Fatal("not degraded at the failure threshold")
 	}
-	if p.reachable.Load() {
-		t.Fatal("last probe result should be unreachable")
-	}
 	if len(flips) != 1 || !flips[0] {
 		t.Fatalf("flips = %v, want [true]", flips)
 	}
@@ -329,9 +326,6 @@ func TestRegistryMergesLaterInitialDegraded(t *testing.T) {
 	if snap.State != StateDegraded || snap.Reason != ReasonProbeData {
 		t.Fatalf("snapshot = %+v, want degraded by later data precheck", snap)
 	}
-	if snap.DataReachable || !snap.ControlReachable {
-		t.Fatalf("reachable = control:%v data:%v", snap.ControlReachable, snap.DataReachable)
-	}
 	reg.Release(a)
 	reg.Release(b)
 }
@@ -359,9 +353,6 @@ func TestRegistryProbeDrivesState(t *testing.T) {
 	if snap.State != StateDegraded || snap.Reason != ReasonProbeData {
 		t.Fatalf("snapshot = %+v, want degraded by data", snap)
 	}
-	if snap.DataReachable || !snap.ControlReachable {
-		t.Fatalf("reachable = control:%v data:%v", snap.ControlReachable, snap.DataReachable)
-	}
 
 	data.set(true)
 	for range 2 {
@@ -371,9 +362,6 @@ func TestRegistryProbeDrivesState(t *testing.T) {
 	snap = site.Snapshot()
 	if snap.State != StateNormal || snap.Reason != "" {
 		t.Fatalf("snapshot = %+v, want normal", snap)
-	}
-	if !snap.ControlReachable || !snap.DataReachable {
-		t.Fatalf("reachable = control:%v data:%v", snap.ControlReachable, snap.DataReachable)
 	}
 }
 
@@ -426,9 +414,6 @@ func TestSiteInitialDegradedRecovers(t *testing.T) {
 	snap := s.Snapshot()
 	if snap.State != StateDegraded || snap.Reason != ReasonProbeData {
 		t.Fatalf("initial snapshot = %+v, want degraded by data", snap)
-	}
-	if snap.DataReachable {
-		t.Fatal("seeded plane should start unreachable")
 	}
 	// 消费构造期种下的通知，后面的断言只等待恢复事件。
 	expectUpdate(t, s)

@@ -23,8 +23,6 @@ func (realClock) Ticker(d time.Duration) (<-chan time.Time, func()) {
 
 // Job 是一类周期任务；同一任务的执行不会重叠。
 type Job struct {
-	// Name 用于诊断与测试定位。
-	Name string
 	// Interval 是触发间隔，必须为正。
 	Interval time.Duration
 	// Run 在任务协程中同步执行；ctx 在 Stop 时取消。
@@ -50,10 +48,10 @@ func New(clock Clock) *Scheduler {
 	return &Scheduler{clock: clock}
 }
 
-// Add 注册任务；Name 为空、Interval <= 0 或 Run 为 nil 属于调用方错误，直接 panic。
+// Add 注册任务；Interval <= 0 或 Run 为 nil 属于调用方错误，直接 panic。
 func (s *Scheduler) Add(job Job) {
-	if job.Name == "" || job.Interval <= 0 || job.Run == nil {
-		panic("cron: Add requires name, positive interval and Run")
+	if job.Interval <= 0 || job.Run == nil {
+		panic("cron: Add requires positive interval and Run")
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()

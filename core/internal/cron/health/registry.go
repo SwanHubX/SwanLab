@@ -21,10 +21,9 @@ type SiteOptions struct {
 	// Control / Data 分别是控制面与数据面的探测函数，必须非 nil。
 	Control ProbeFunc
 	Data    ProbeFunc
-	// InitialControlDegraded / InitialDataDegraded 让启动预检结论直接进入降级；
+	// InitialDataDegraded 让启动预检结论直接进入降级；
 	// 之后探针仍按连续成功阈值恢复。
-	InitialControlDegraded bool
-	InitialDataDegraded    bool
+	InitialDataDegraded bool
 }
 
 // Registry 按站点共享探针：引用计数归零时停止探测任务。
@@ -55,7 +54,7 @@ func (r *Registry) Acquire(opts SiteOptions) *Site {
 	defer r.mu.Unlock()
 	if e, ok := r.sites[opts.Key]; ok {
 		e.refs++
-		e.site.MergeInitial(opts.InitialControlDegraded, opts.InitialDataDegraded)
+		e.site.MergeInitial(opts.InitialDataDegraded)
 		return e.site
 	}
 	s := newSite(opts, r.clock)

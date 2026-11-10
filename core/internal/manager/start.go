@@ -54,9 +54,11 @@ func (m *Manager) DeliverRunStart(
 	// 仍由认证阶段返回 ErrMissingAPIHost。
 	controlPath := probePath(cfg.HealthProbeControlPath, controlProbePath)
 	dataPath := probePath(cfg.HealthProbeDataPath, dataProbePath)
+	controlProbe := siteProbe(cfg.APIHost, controlPath)
+	dataProbe := siteProbe(cfg.APIHost, dataPath)
 	controlOK, dataOK := true, true
 	if cfg.APIHost != "" {
-		controlOK, dataOK = probeStartup(ctx, cfg.APIHost, controlPath, dataPath)
+		controlOK, dataOK = probeStartup(ctx, controlProbe, dataProbe)
 	}
 	if !controlOK {
 		return nil, fmt.Errorf("%w: %s", ErrControlUnreachable, probeURL(cfg.APIHost, controlPath))
@@ -68,8 +70,8 @@ func (m *Manager) DeliverRunStart(
 		Timeout:             secondsDuration(cfg.HealthProbeTimeout),
 		DegradeThreshold:    int(cfg.HealthDegradeThreshold),
 		RecoverThreshold:    int(cfg.HealthRecoverThreshold),
-		Control:             siteProbe(cfg.APIHost, controlPath),
-		Data:                siteProbe(cfg.APIHost, dataPath),
+		Control:             controlProbe,
+		Data:                dataProbe,
 		InitialDataDegraded: !dataOK,
 	}
 

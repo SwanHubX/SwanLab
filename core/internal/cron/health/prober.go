@@ -10,7 +10,7 @@ import (
 type ProbeFunc func(ctx context.Context) bool
 
 // prober 按连续失败 / 成功阈值翻转一个平面的稳定状态。
-// 计数器只在探测协程内读写；reachable / degraded 供 Snapshot 并发读取。
+// 计数器只在探测协程内读写；degraded 供 Snapshot 并发读取。
 type prober struct {
 	probe        ProbeFunc
 	timeout      time.Duration
@@ -18,8 +18,7 @@ type prober struct {
 	recoverAfter int
 	onFlip       func(degraded bool)
 
-	reachable atomic.Bool
-	degraded  atomic.Bool
+	degraded atomic.Bool
 
 	failures  int
 	successes int
@@ -32,22 +31,18 @@ type proberOptions struct {
 }
 
 func newProber(probe ProbeFunc, opts proberOptions, onFlip func(degraded bool)) *prober {
-	p := &prober{
+	return &prober{
 		probe:        probe,
 		timeout:      opts.timeout,
 		degradeAfter: opts.degradeAfter,
 		recoverAfter: opts.recoverAfter,
 		onFlip:       onFlip,
 	}
-	// 首轮探测前保持乐观，避免新站点在第一个周期内被误判为降级。
-	p.reachable.Store(true)
-	return p
 }
 
 // degradeNow 立即把平面标记为降级，供启动预检与共享站点合并使用。
 // 只写原子状态并触发回调；failures / successes 仍由探测协程独占，避免数据竞争。
 func (p *prober) degradeNow() {
-	p.reachable.Store(false)
 	p.degraded.Store(true)
 	p.onFlip(true)
 }
@@ -58,7 +53,6 @@ func (p *prober) tick(parent context.Context) {
 	ok := p.probe(ctx)
 	cancel()
 
-	p.reachable.Store(ok)
 	switch {
 	case ok && p.degraded.Load():
 		p.failures = 0

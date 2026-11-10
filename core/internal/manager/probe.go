@@ -37,11 +37,17 @@ func siteProbe(apiHost, path string) health.ProbeFunc {
 	return func(ctx context.Context) bool { return probeReachable(ctx, url) }
 }
 
-// probeNow 用独立预算执行一次探测，供启动预检使用。
-func probeNow(ctx context.Context, apiHost, path string) bool {
-	ctx, cancel := context.WithTimeout(ctx, probeTimeout)
-	defer cancel()
-	return probeReachable(ctx, probeURL(apiHost, path))
+// probeStartup 用固定预算依次探测控制面与数据面；控制面不可达时不再探测数据面。
+func probeStartup(ctx context.Context, control, data health.ProbeFunc) (controlOK, dataOK bool) {
+	probe := func(fn health.ProbeFunc) bool {
+		pctx, cancel := context.WithTimeout(ctx, probeTimeout)
+		defer cancel()
+		return fn(pctx)
+	}
+	if !probe(control) {
+		return false, false
+	}
+	return true, probe(data)
 }
 
 // probeReachable 只判断服务是否可达：2xx/3xx/4xx 视为可达（4xx 是确定性拒绝，
@@ -55,8 +61,8 @@ func probeReachable(ctx context.Context, url string) bool {
 	if err != nil {
 		return false
 	}
-	// 消费 body 以便复用连接；探测响应很小，限量即可。
-	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4<<10))
+	// 读尽 body 以便复用连接；读取受请求 ctx 的预算约束。
+	_, _ = io.Copy(io.Discard, resp.Body)
 	_ = resp.Body.Close()
 	return resp.StatusCode != http.StatusTooManyRequests && resp.StatusCode < 500
 }
@@ -75,14 +81,6 @@ func secondsDuration(seconds float64) time.Duration {
 		return 0
 	}
 	return time.Duration(seconds * float64(time.Second))
-}
-
-// probeStartup 依次探测控制面与数据面；控制面不可达时不再探测数据面。
-func probeStartup(ctx context.Context, apiHost, controlPath, dataPath string) (control, data bool) {
-	if !probeNow(ctx, apiHost, controlPath) {
-		return false, false
-	}
-	return true, probeNow(ctx, apiHost, dataPath)
 }
 
 // siteKey 按 api_host + api_key 摘要生成站点标识，密钥本身不进入内存键或日志。
