@@ -61,8 +61,8 @@ func probeReachable(ctx context.Context, url string) bool {
 	if err != nil {
 		return false
 	}
-	// 读尽 body 以便复用连接；读取受请求 ctx 的预算约束。
-	_, _ = io.Copy(io.Discard, resp.Body)
+	// 最多读取 4 KiB 以复用健康响应连接；读取受请求 ctx 的预算约束。
+	_, _ = io.CopyN(io.Discard, resp.Body, 4<<10)
 	_ = resp.Body.Close()
 	return resp.StatusCode != http.StatusTooManyRequests && resp.StatusCode < 500
 }
