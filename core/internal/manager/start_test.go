@@ -503,8 +503,8 @@ func TestDeliverRunStartFailsFastWhenControlUnreachable(t *testing.T) {
 	mgr := newTestManager()
 	_, err := mgr.DeliverRunStart(context.Background(), settings,
 		&runv1.StartRecord{Project: "demo", Workspace: "alice", Id: "run-1"})
-	if !errors.Is(err, ErrControlUnreachable) {
-		t.Fatalf("err = %v, want ErrControlUnreachable", err)
+	if !errors.Is(err, ErrServerUnreachable) {
+		t.Fatalf("err = %v, want ErrServerUnreachable", err)
 	}
 	mgr.mu.RLock()
 	sessions := len(mgr.sessions)
@@ -523,7 +523,7 @@ func TestDeliverRunStartDegradedWhenDataPlaneDown(t *testing.T) {
 	serveHeartbeat(cloud, "exp-1")
 	serveProject(cloud, "alice", "demo", 7)
 	serveNewExperiment(cloud, "alice", "demo", "exp-1", "run-slug")
-	cloud.ServeJSON(http.MethodGet, dataProbePath, http.StatusServiceUnavailable, nil)
+	cloud.ServeJSON(http.MethodGet, houseProbePath, http.StatusServiceUnavailable, nil)
 
 	mgr := newTestManager()
 	settings := startSettings(t, cloud)
@@ -540,53 +540,13 @@ func TestDeliverRunStartDegradedWhenDataPlaneDown(t *testing.T) {
 		t.Fatalf("session: %v", err)
 	}
 	snap := s.site.Snapshot()
-	if snap.State != health.StateDegraded || snap.Reason != health.ReasonProbeData {
-		t.Fatalf("snapshot = %+v, want degraded by data plane", snap)
+	if snap.State != health.StateDegraded || snap.Reason != health.ReasonProbeHouse {
+		t.Fatalf("snapshot = %+v, want degraded by swanlab-house", snap)
 	}
 	if !s.uploader.Suspended() {
-		t.Fatal("uploader should start suspended when the data plane is down")
+		t.Fatal("uploader should start suspended when swanlab-house is down")
 	}
 	if got := mgr.healthReg.Len(); got != 1 {
 		t.Fatalf("sites = %d, want 1", got)
-	}
-}
-
-func TestDeliverRunStartUsesConfiguredProbePaths(t *testing.T) {
-	cloud := clienttest.NewCloud(t)
-	serveAuth(cloud)
-	serveHeartbeat(cloud, "exp-1")
-	serveProject(cloud, "alice", "demo", 7)
-	serveNewExperiment(cloud, "alice", "demo", "exp-1", "run-slug")
-	cloud.ServeJSON(http.MethodGet, "/custom/control", http.StatusOK, nil)
-	cloud.ServeJSON(http.MethodGet, "/custom/data", http.StatusServiceUnavailable, nil)
-
-	mgr := newTestManager()
-	settings := startSettings(t, cloud)
-	settings.HealthProbeControlPath = "/custom/control"
-	settings.HealthProbeDataPath = "/custom/data"
-	settings.HealthProbeInterval = 1.5
-	settings.HealthProbeTimeout = 0.75
-	settings.HealthDegradeThreshold = 5
-	settings.HealthRecoverThreshold = 4
-
-	result, err := mgr.DeliverRunStart(context.Background(), settings,
-		&runv1.StartRecord{Project: "demo", Workspace: "alice", Id: "run-1"})
-	if err != nil {
-		t.Fatalf("DeliverRunStart: %v", err)
-	}
-	t.Cleanup(func() { closeStartedSession(t, mgr, result.SessionID) })
-
-	s, err := mgr.session(result.SessionID)
-	if err != nil {
-		t.Fatalf("session: %v", err)
-	}
-	if snap := s.site.Snapshot(); snap.Reason != health.ReasonProbeData {
-		t.Fatalf("snapshot = %+v, want degraded by data", snap)
-	}
-	if got := cloud.RequestsFor(http.MethodGet, "/custom/control"); len(got) == 0 {
-		t.Fatal("startup precheck did not use the configured control path")
-	}
-	if got := cloud.RequestsFor(http.MethodGet, "/custom/data"); len(got) == 0 {
-		t.Fatal("startup precheck did not use the configured data path")
 	}
 }

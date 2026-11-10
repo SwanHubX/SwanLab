@@ -14,10 +14,10 @@ import (
 )
 
 const (
-	// controlProbePath 是控制面存活端点；Server#1168 上线后可切到 /api/health。
-	controlProbePath = "/api/"
-	// dataProbePath 是数据面存活端点，返回静态 200。
-	dataProbePath = "/api/house/health"
+	// serverProbePath 是 swanlab-server 存活端点，返回静态 200。
+	serverProbePath = "/api/health"
+	// houseProbePath 是 swanlab-house 存活端点，返回静态 200。
+	houseProbePath = "/api/house/health"
 	// probeTimeout 是启动预检的单次探测预算；周期探测使用 health_probe_timeout。
 	probeTimeout = 2 * time.Second
 )
@@ -37,17 +37,17 @@ func siteProbe(apiHost, path string) health.ProbeFunc {
 	return func(ctx context.Context) bool { return probeReachable(ctx, url) }
 }
 
-// probeStartup 用固定预算依次探测控制面与数据面；控制面不可达时不再探测数据面。
-func probeStartup(ctx context.Context, control, data health.ProbeFunc) (controlOK, dataOK bool) {
+// probeStartup 用固定预算依次探测 swanlab-server 与 swanlab-house；server 不可达时不再探测 house。
+func probeStartup(ctx context.Context, server, house health.ProbeFunc) (serverOK, houseOK bool) {
 	probe := func(fn health.ProbeFunc) bool {
 		pctx, cancel := context.WithTimeout(ctx, probeTimeout)
 		defer cancel()
 		return fn(pctx)
 	}
-	if !probe(control) {
+	if !probe(server) {
 		return false, false
 	}
-	return true, probe(data)
+	return true, probe(house)
 }
 
 // probeReachable 只判断服务是否可达：2xx/3xx/4xx 视为可达（4xx 是确定性拒绝，
@@ -65,14 +65,6 @@ func probeReachable(ctx context.Context, url string) bool {
 	_, _ = io.Copy(io.Discard, resp.Body)
 	_ = resp.Body.Close()
 	return resp.StatusCode != http.StatusTooManyRequests && resp.StatusCode < 500
-}
-
-// probePath 返回配置的探针路径；空串使用默认路径。
-func probePath(configured, fallback string) string {
-	if configured == "" {
-		return fallback
-	}
-	return configured
 }
 
 // secondsDuration 把协议中的秒数转换为 Duration；<=0 保持 0，由 health 使用默认值。

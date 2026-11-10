@@ -89,13 +89,13 @@ func (p *probe) wait(t *testing.T) {
 	}
 }
 
-func tickBoth(t *testing.T, ticks []chan time.Time, control, data *probe) {
+func tickBoth(t *testing.T, ticks []chan time.Time, server, house *probe) {
 	t.Helper()
 	for _, ch := range ticks {
 		ch <- time.Time{}
 	}
-	control.wait(t)
-	data.wait(t)
+	server.wait(t)
+	house.wait(t)
 }
 
 func expectUpdate(t *testing.T, s *Site) {
@@ -169,7 +169,7 @@ func TestProberThresholds(t *testing.T) {
 
 func TestSiteOptionDefaults(t *testing.T) {
 	clock := newFakeClock()
-	s := newSite(SiteOptions{Key: "defaults", Control: alwaysReachable, Data: alwaysReachable}, clock)
+	s := newSite(SiteOptions{Key: "defaults", Server: alwaysReachable, House: alwaysReachable}, clock)
 	defer s.stop()
 
 	for range 2 {
@@ -177,17 +177,17 @@ func TestSiteOptionDefaults(t *testing.T) {
 			t.Fatalf("default period = %v, want %v", got, DefaultInterval)
 		}
 	}
-	if s.control.timeout != DefaultTimeout {
-		t.Fatalf("timeout = %v, want %v", s.control.timeout, DefaultTimeout)
+	if s.server.timeout != DefaultTimeout {
+		t.Fatalf("timeout = %v, want %v", s.server.timeout, DefaultTimeout)
 	}
-	if s.control.degradeAfter != DefaultDegradeThreshold || s.control.recoverAfter != DefaultRecoverThreshold {
-		t.Fatalf("thresholds = %d/%d", s.control.degradeAfter, s.control.recoverAfter)
+	if s.server.degradeAfter != DefaultDegradeThreshold || s.server.recoverAfter != DefaultRecoverThreshold {
+		t.Fatalf("thresholds = %d/%d", s.server.degradeAfter, s.server.recoverAfter)
 	}
 
 	s2 := newSite(SiteOptions{
 		Key:              "custom",
-		Control:          alwaysReachable,
-		Data:             alwaysReachable,
+		Server:           alwaysReachable,
+		House:            alwaysReachable,
 		Interval:         time.Minute,
 		Timeout:          time.Second,
 		DegradeThreshold: 7,
@@ -200,16 +200,16 @@ func TestSiteOptionDefaults(t *testing.T) {
 			t.Fatalf("custom period = %v, want 1m", got)
 		}
 	}
-	if s2.data.timeout != time.Second {
-		t.Fatalf("timeout = %v, want 1s", s2.data.timeout)
+	if s2.house.timeout != time.Second {
+		t.Fatalf("timeout = %v, want 1s", s2.house.timeout)
 	}
-	if s2.data.degradeAfter != 7 || s2.data.recoverAfter != 4 {
-		t.Fatalf("thresholds = %d/%d", s2.data.degradeAfter, s2.data.recoverAfter)
+	if s2.house.degradeAfter != 7 || s2.house.recoverAfter != 4 {
+		t.Fatalf("thresholds = %d/%d", s2.house.degradeAfter, s2.house.recoverAfter)
 	}
 }
 
 func TestSiteAggregatesReasons(t *testing.T) {
-	s := newSite(SiteOptions{Key: "site", Control: alwaysReachable, Data: alwaysReachable}, newFakeClock())
+	s := newSite(SiteOptions{Key: "site", Server: alwaysReachable, House: alwaysReachable}, newFakeClock())
 	defer s.stop()
 
 	snap := s.Snapshot()
@@ -217,25 +217,25 @@ func TestSiteAggregatesReasons(t *testing.T) {
 		t.Fatalf("initial snapshot = %+v", snap)
 	}
 
-	s.setReason(ReasonProbeData, true)
+	s.setReason(ReasonProbeHouse, true)
 	expectUpdate(t, s)
-	if snap := s.Snapshot(); snap.State != StateDegraded || snap.Reason != ReasonProbeData {
-		t.Fatalf("data degraded snapshot = %+v", snap)
+	if snap := s.Snapshot(); snap.State != StateDegraded || snap.Reason != ReasonProbeHouse {
+		t.Fatalf("house degraded snapshot = %+v", snap)
 	}
 
-	s.setReason(ReasonProbeControl, true)
+	s.setReason(ReasonProbeServer, true)
 	expectUpdate(t, s)
-	if snap := s.Snapshot(); snap.State != StateDegraded || snap.Reason != ReasonProbeControl {
-		t.Fatalf("control should take precedence, snapshot = %+v", snap)
+	if snap := s.Snapshot(); snap.State != StateDegraded || snap.Reason != ReasonProbeServer {
+		t.Fatalf("server should take precedence, snapshot = %+v", snap)
 	}
 
-	s.setReason(ReasonProbeControl, false)
+	s.setReason(ReasonProbeServer, false)
 	expectUpdate(t, s)
-	if snap := s.Snapshot(); snap.Reason != ReasonProbeData {
-		t.Fatalf("snapshot = %+v, want data reason", snap)
+	if snap := s.Snapshot(); snap.Reason != ReasonProbeHouse {
+		t.Fatalf("snapshot = %+v, want house reason", snap)
 	}
 
-	s.setReason(ReasonProbeData, false)
+	s.setReason(ReasonProbeHouse, false)
 	expectUpdate(t, s)
 	if snap := s.Snapshot(); snap.State != StateNormal || snap.Reason != "" {
 		t.Fatalf("recovered snapshot = %+v", snap)
@@ -257,22 +257,22 @@ func TestSiteAggregatesReasons(t *testing.T) {
 	func() {
 		defer func() {
 			if recover() == nil {
-				t.Fatal("Report(ReasonProbeData) should panic")
+				t.Fatal("Report(ReasonProbeHouse) should panic")
 			}
 		}()
-		s.Report(ReasonProbeData, true)
+		s.Report(ReasonProbeHouse, true)
 	}()
 }
 
 func TestRegistrySharesSites(t *testing.T) {
 	clock := newFakeClock()
 	reg := NewRegistry(clock)
-	control, data := newProbe(true), newProbe(true)
+	server, house := newProbe(true), newProbe(true)
 
-	a := reg.Acquire(SiteOptions{Key: "site", Control: control.fn, Data: data.fn})
+	a := reg.Acquire(SiteOptions{Key: "site", Server: server.fn, House: house.fn})
 	ticks := clock.ticks(t, 2)
 
-	b := reg.Acquire(SiteOptions{Key: "site", Control: alwaysReachable, Data: alwaysReachable})
+	b := reg.Acquire(SiteOptions{Key: "site", Server: alwaysReachable, House: alwaysReachable})
 	if a != b {
 		t.Fatal("same key should share one site")
 	}
@@ -285,7 +285,7 @@ func TestRegistrySharesSites(t *testing.T) {
 		t.Fatalf("sites = %d after one release, want 1", got)
 	}
 	// 仍有引用的站点必须继续探测。
-	tickBoth(t, ticks, control, data)
+	tickBoth(t, ticks, server, house)
 
 	reg.Release(b)
 	if got := reg.Len(); got != 0 {
@@ -297,7 +297,7 @@ func TestRegistrySharesSites(t *testing.T) {
 
 	// 释放在前一次的 ID 上重复调用不得影响新实例。
 	reg.Release(a)
-	c := reg.Acquire(SiteOptions{Key: "site", Control: alwaysReachable, Data: alwaysReachable})
+	c := reg.Acquire(SiteOptions{Key: "site", Server: alwaysReachable, House: alwaysReachable})
 	if c == a {
 		t.Fatal("released site must not be reused")
 	}
@@ -308,23 +308,23 @@ func TestRegistrySharesSites(t *testing.T) {
 func TestRegistryMergesLaterInitialDegraded(t *testing.T) {
 	clock := newFakeClock()
 	reg := NewRegistry(clock)
-	control, data := newProbe(true), newProbe(true)
+	server, house := newProbe(true), newProbe(true)
 
-	a := reg.Acquire(SiteOptions{Key: "site", Control: control.fn, Data: data.fn})
+	a := reg.Acquire(SiteOptions{Key: "site", Server: server.fn, House: house.fn})
 	clock.ticks(t, 2)
 	b := reg.Acquire(SiteOptions{
-		Key:                 "site",
-		Control:             alwaysReachable,
-		Data:                alwaysReachable,
-		InitialDataDegraded: true,
+		Key:                  "site",
+		Server:               alwaysReachable,
+		House:                alwaysReachable,
+		InitialHouseDegraded: true,
 	})
 	if a != b {
 		t.Fatal("same key should share one site")
 	}
 	expectUpdate(t, a)
 	snap := a.Snapshot()
-	if snap.State != StateDegraded || snap.Reason != ReasonProbeData {
-		t.Fatalf("snapshot = %+v, want degraded by later data precheck", snap)
+	if snap.State != StateDegraded || snap.Reason != ReasonProbeHouse {
+		t.Fatalf("snapshot = %+v, want degraded by later house precheck", snap)
 	}
 	reg.Release(a)
 	reg.Release(b)
@@ -332,13 +332,13 @@ func TestRegistryMergesLaterInitialDegraded(t *testing.T) {
 
 func TestRegistryProbeDrivesState(t *testing.T) {
 	clock := newFakeClock()
-	control, data := newProbe(true), newProbe(false)
+	server, house := newProbe(true), newProbe(false)
 
 	reg := NewRegistry(clock)
 	site := reg.Acquire(SiteOptions{
 		Key:              "site",
-		Control:          control.fn,
-		Data:             data.fn,
+		Server:           server.fn,
+		House:            house.fn,
 		DegradeThreshold: 3,
 		RecoverThreshold: 2,
 	})
@@ -346,17 +346,17 @@ func TestRegistryProbeDrivesState(t *testing.T) {
 	ticks := clock.ticks(t, 2)
 
 	for range 3 {
-		tickBoth(t, ticks, control, data)
+		tickBoth(t, ticks, server, house)
 	}
 	expectUpdate(t, site)
 	snap := site.Snapshot()
-	if snap.State != StateDegraded || snap.Reason != ReasonProbeData {
-		t.Fatalf("snapshot = %+v, want degraded by data", snap)
+	if snap.State != StateDegraded || snap.Reason != ReasonProbeHouse {
+		t.Fatalf("snapshot = %+v, want degraded by house", snap)
 	}
 
-	data.set(true)
+	house.set(true)
 	for range 2 {
-		tickBoth(t, ticks, control, data)
+		tickBoth(t, ticks, server, house)
 	}
 	expectUpdate(t, site)
 	snap = site.Snapshot()
@@ -368,8 +368,8 @@ func TestRegistryProbeDrivesState(t *testing.T) {
 func TestAcquireRejectsInvalidOptions(t *testing.T) {
 	reg := NewRegistry(newFakeClock())
 	cases := map[string]SiteOptions{
-		"missing key":   {Control: alwaysReachable, Data: alwaysReachable},
-		"missing probe": {Key: "site", Data: alwaysReachable},
+		"missing key":   {Server: alwaysReachable, House: alwaysReachable},
+		"missing probe": {Key: "site", House: alwaysReachable},
 	}
 	for name, opts := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -388,7 +388,7 @@ func TestAcquireRejectsInvalidOptions(t *testing.T) {
 
 func TestSiteReportAfterStop(t *testing.T) {
 	reg := NewRegistry(newFakeClock())
-	site := reg.Acquire(SiteOptions{Key: "site", Control: alwaysReachable, Data: alwaysReachable})
+	site := reg.Acquire(SiteOptions{Key: "site", Server: alwaysReachable, House: alwaysReachable})
 	reg.Release(site)
 
 	site.Report(ReasonWrite, true)
@@ -401,25 +401,25 @@ func TestSiteReportAfterStop(t *testing.T) {
 
 func TestSiteInitialDegradedRecovers(t *testing.T) {
 	clock := newFakeClock()
-	control, data := newProbe(true), newProbe(true)
+	server, house := newProbe(true), newProbe(true)
 	s := newSite(SiteOptions{
-		Key:                 "seed",
-		Control:             control.fn,
-		Data:                data.fn,
-		InitialDataDegraded: true,
+		Key:                  "seed",
+		Server:               server.fn,
+		House:                house.fn,
+		InitialHouseDegraded: true,
 	}, clock)
 	defer s.stop()
 	ticks := clock.ticks(t, 2)
 
 	snap := s.Snapshot()
-	if snap.State != StateDegraded || snap.Reason != ReasonProbeData {
-		t.Fatalf("initial snapshot = %+v, want degraded by data", snap)
+	if snap.State != StateDegraded || snap.Reason != ReasonProbeHouse {
+		t.Fatalf("initial snapshot = %+v, want degraded by house", snap)
 	}
 	// 消费构造期种下的通知，后面的断言只等待恢复事件。
 	expectUpdate(t, s)
 
 	for range 2 {
-		tickBoth(t, ticks, control, data)
+		tickBoth(t, ticks, server, house)
 	}
 	expectUpdate(t, s)
 	if snap := s.Snapshot(); snap.State != StateNormal || snap.Reason != "" {

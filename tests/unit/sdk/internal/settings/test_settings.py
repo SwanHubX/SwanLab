@@ -477,8 +477,6 @@ class TestSkipStore:
                 health_probe_timeout=0.75,
                 health_degrade_threshold=5,
                 health_recover_threshold=4,
-                health_probe_control_path="/custom/control",
-                health_probe_data_path="/custom/data",
             ),
         )
         proto = settings.to_core_proto(run_id="r1", run_dir=tmp_path)
@@ -488,8 +486,6 @@ class TestSkipStore:
         assert proto.health_probe_timeout == 0.75
         assert proto.health_degrade_threshold == 5
         assert proto.health_recover_threshold == 4
-        assert proto.health_probe_control_path == "/custom/control"
-        assert proto.health_probe_data_path == "/custom/data"
 
     def test_to_core_proto_health_defaults(self, tmp_path):
         proto = Settings(mode="online").to_core_proto(run_id="r1", run_dir=tmp_path)
@@ -499,8 +495,6 @@ class TestSkipStore:
         assert proto.health_probe_timeout == 2.0
         assert proto.health_degrade_threshold == 3
         assert proto.health_recover_threshold == 2
-        assert proto.health_probe_control_path == "/api/"
-        assert proto.health_probe_data_path == "/api/house/health"
 
 
 @pytest.fixture

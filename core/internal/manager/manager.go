@@ -44,8 +44,8 @@ var (
 	ErrInvalidStartRecord = errors.New("invalid start record")
 	// ErrInvalidFinishRecord 表示未提供结束记录，属于调用方参数错误。
 	ErrInvalidFinishRecord = errors.New("finish record must not be nil")
-	// ErrControlUnreachable 表示启动预检无法访问控制面，快速失败避免认证重试堆积。
-	ErrControlUnreachable = errors.New("control plane is unreachable")
+	// ErrServerUnreachable 表示启动预检无法访问 swanlab-server，快速失败避免认证重试堆积。
+	ErrServerUnreachable = errors.New("swanlab-server is unreachable")
 )
 
 const (

@@ -50,29 +50,27 @@ func (m *Manager) DeliverRunStart(
 		return nil, fmt.Errorf("%w: %w", ErrInvalidStartRecord, err)
 	}
 
-	// 控制面预检（2s）先于认证重试：不可达时立即失败。APIHost 为空时跳过预检，
+	// swanlab-server 预检（2s）先于认证重试：不可达时立即失败。APIHost 为空时跳过预检，
 	// 仍由认证阶段返回 ErrMissingAPIHost。
-	controlPath := probePath(cfg.HealthProbeControlPath, controlProbePath)
-	dataPath := probePath(cfg.HealthProbeDataPath, dataProbePath)
-	controlProbe := siteProbe(cfg.APIHost, controlPath)
-	dataProbe := siteProbe(cfg.APIHost, dataPath)
-	controlOK, dataOK := true, true
+	serverProbe := siteProbe(cfg.APIHost, serverProbePath)
+	houseProbe := siteProbe(cfg.APIHost, houseProbePath)
+	serverOK, houseOK := true, true
 	if cfg.APIHost != "" {
-		controlOK, dataOK = probeStartup(ctx, controlProbe, dataProbe)
+		serverOK, houseOK = probeStartup(ctx, serverProbe, houseProbe)
 	}
-	if !controlOK {
-		return nil, fmt.Errorf("%w: %s", ErrControlUnreachable, probeURL(cfg.APIHost, controlPath))
+	if !serverOK {
+		return nil, fmt.Errorf("%w: %s", ErrServerUnreachable, probeURL(cfg.APIHost, serverProbePath))
 	}
 	// 0 值节奏与阈值由 health 补默认。
 	healthOpts := health.SiteOptions{
-		Key:                 siteKey(cfg.APIHost, cfg.APIKey),
-		Interval:            secondsDuration(cfg.HealthProbeInterval),
-		Timeout:             secondsDuration(cfg.HealthProbeTimeout),
-		DegradeThreshold:    int(cfg.HealthDegradeThreshold),
-		RecoverThreshold:    int(cfg.HealthRecoverThreshold),
-		Control:             controlProbe,
-		Data:                dataProbe,
-		InitialDataDegraded: !dataOK,
+		Key:                  siteKey(cfg.APIHost, cfg.APIKey),
+		Interval:             secondsDuration(cfg.HealthProbeInterval),
+		Timeout:              secondsDuration(cfg.HealthProbeTimeout),
+		DegradeThreshold:     int(cfg.HealthDegradeThreshold),
+		RecoverThreshold:     int(cfg.HealthRecoverThreshold),
+		Server:               serverProbe,
+		House:                houseProbe,
+		InitialHouseDegraded: !houseOK,
 	}
 
 	httpClient, err := m.factory.Client(ctx, cfg.APIHost, cfg.APIKey)

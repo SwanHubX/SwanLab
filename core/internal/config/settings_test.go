@@ -75,15 +75,11 @@ func TestValidate(t *testing.T) {
 		{"health_probe_timeout 为正无穷", func(s *Settings) { s.HealthProbeTimeout = math.Inf(1) }, nil, "health_probe_timeout"},
 		{"health_degrade_threshold 为负", func(s *Settings) { s.HealthDegradeThreshold = -1 }, nil, "health thresholds"},
 		{"health_recover_threshold 为负", func(s *Settings) { s.HealthRecoverThreshold = -1 }, nil, "health thresholds"},
-		{"control path 缺少斜杠", func(s *Settings) { s.HealthProbeControlPath = "api/health" }, nil, "health_probe_control_path"},
-		{"data path 缺少斜杠", func(s *Settings) { s.HealthProbeDataPath = "api/house/health" }, nil, "health_probe_data_path"},
 		{"health 参数合法", func(s *Settings) {
 			s.HealthProbeInterval = 1.5
 			s.HealthProbeTimeout = 0.75
 			s.HealthDegradeThreshold = 5
 			s.HealthRecoverThreshold = 4
-			s.HealthProbeControlPath = "/api/health"
-			s.HealthProbeDataPath = "/api/house/health"
 		}, nil, ""},
 		{"budget 允许非正", func(s *Settings) {
 			s.UploadBudgetRecords = -1

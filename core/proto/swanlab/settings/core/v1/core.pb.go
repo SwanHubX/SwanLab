@@ -108,9 +108,6 @@ type CoreSettings struct {
 	// Consecutive failures / successes required to flip the health state; 0 uses the core default.
 	HealthDegradeThreshold int32 `protobuf:"varint,19,opt,name=health_degrade_threshold,json=healthDegradeThreshold,proto3" json:"health_degrade_threshold,omitempty"`
 	HealthRecoverThreshold int32 `protobuf:"varint,20,opt,name=health_recover_threshold,json=healthRecoverThreshold,proto3" json:"health_recover_threshold,omitempty"`
-	// Probe paths relative to api_host; empty uses the core default.
-	HealthProbeControlPath string `protobuf:"bytes,21,opt,name=health_probe_control_path,json=healthProbeControlPath,proto3" json:"health_probe_control_path,omitempty"`
-	HealthProbeDataPath    string `protobuf:"bytes,22,opt,name=health_probe_data_path,json=healthProbeDataPath,proto3" json:"health_probe_data_path,omitempty"`
 	unknownFields          protoimpl.UnknownFields
 	sizeCache              protoimpl.SizeCache
 }
@@ -285,25 +282,11 @@ func (x *CoreSettings) GetHealthRecoverThreshold() int32 {
 	return 0
 }
 
-func (x *CoreSettings) GetHealthProbeControlPath() string {
-	if x != nil {
-		return x.HealthProbeControlPath
-	}
-	return ""
-}
-
-func (x *CoreSettings) GetHealthProbeDataPath() string {
-	if x != nil {
-		return x.HealthProbeDataPath
-	}
-	return ""
-}
-
 var File_swanlab_settings_core_v1_core_proto protoreflect.FileDescriptor
 
 const file_swanlab_settings_core_v1_core_proto_rawDesc = "" +
 	"\n" +
-	"#swanlab/settings/core/v1/core.proto\x12\x18swanlab.settings.core.v1\"\xf9\x06\n" +
+	"#swanlab/settings/core/v1/core.proto\x12\x18swanlab.settings.core.v1\"\x89\x06\n" +
 	"\fCoreSettings\x12\x15\n" +
 	"\x06run_id\x18\x01 \x01(\tR\x05runId\x12\x17\n" +
 	"\arun_dir\x18\x02 \x01(\tR\x06runDir\x12!\n" +
@@ -328,9 +311,7 @@ const file_swanlab_settings_core_v1_core_proto_rawDesc = "" +
 	"\x15health_probe_interval\x18\x11 \x01(\x01R\x13healthProbeInterval\x120\n" +
 	"\x14health_probe_timeout\x18\x12 \x01(\x01R\x12healthProbeTimeout\x128\n" +
 	"\x18health_degrade_threshold\x18\x13 \x01(\x05R\x16healthDegradeThreshold\x128\n" +
-	"\x18health_recover_threshold\x18\x14 \x01(\x05R\x16healthRecoverThreshold\x129\n" +
-	"\x19health_probe_control_path\x18\x15 \x01(\tR\x16healthProbeControlPath\x123\n" +
-	"\x16health_probe_data_path\x18\x16 \x01(\tR\x13healthProbeDataPath*\x7f\n" +
+	"\x18health_recover_threshold\x18\x14 \x01(\x05R\x16healthRecoverThreshold*\x7f\n" +
 	"\bCoreMode\x12\x19\n" +
 	"\x15CORE_MODE_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10CORE_MODE_ONLINE\x10\x01\x12\x13\n" +

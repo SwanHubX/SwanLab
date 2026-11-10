@@ -75,12 +75,4 @@ class CoreSettings(BaseModel):
     """
     Consecutive probe successes required to recover the site. ``0`` uses the core default (2).
     """
-    health_probe_control_path: str = Field(default="/api/")
-    """
-    Control-plane probe path relative to ``api_host``; empty uses the core default.
-    """
-    health_probe_data_path: str = Field(default="/api/house/health")
-    """
-    Data-plane probe path relative to ``api_host``; empty uses the core default.
-    """
     model_config = ConfigDict(frozen=True)

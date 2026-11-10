@@ -1,4 +1,4 @@
-// Package health 汇总站点控制面 / 数据面的探测结果并导出降级状态。
+// Package health 汇总 swanlab-server / swanlab-house 的探测结果并导出降级状态。
 //
 // 探针只判断可达性，HTTP 语义由 ProbeFunc 决定；依赖级故障（PG / Redis / Vector）
 // 不在探针范围内，由写入侧失败驱动降级兜底。
@@ -10,9 +10,9 @@ import "time"
 type State int32
 
 const (
-	// StateNormal 表示两个平面都未达到降级阈值，且写入侧没有未解除的降级信号。
+	// StateNormal 表示两个服务都未达到降级阈值，且写入侧没有未解除的降级信号。
 	StateNormal State = iota
-	// StateDegraded 表示至少一个平面连续不可达，或写入侧连续失败。
+	// StateDegraded 表示至少一个服务连续不可达，或写入侧连续失败。
 	StateDegraded
 	// StateBackfill 预留，当前不会产生。
 	StateBackfill
@@ -35,10 +35,10 @@ func (s State) String() string {
 type Reason string
 
 const (
-	// ReasonProbeControl 表示控制面（Server）连续不可达。
-	ReasonProbeControl Reason = "probe:control"
-	// ReasonProbeData 表示数据面（House）连续不可达。
-	ReasonProbeData Reason = "probe:data"
+	// ReasonProbeServer 表示 swanlab-server 连续不可达。
+	ReasonProbeServer Reason = "probe:server"
+	// ReasonProbeHouse 表示 swanlab-house 连续不可达。
+	ReasonProbeHouse Reason = "probe:house"
 	// ReasonWrite 表示写入侧连续可重试失败，由上层通过 Report 注入。
 	ReasonWrite Reason = "write"
 )

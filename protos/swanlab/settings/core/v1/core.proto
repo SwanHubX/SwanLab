@@ -44,7 +44,4 @@ message CoreSettings {
     // Consecutive failures / successes required to flip the health state; 0 uses the core default.
     int32 health_degrade_threshold = 19;
     int32 health_recover_threshold = 20;
-    // Probe paths relative to api_host; empty uses the core default.
-    string health_probe_control_path = 21;
-    string health_probe_data_path    = 22;
 }

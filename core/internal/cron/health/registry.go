@@ -18,12 +18,12 @@ type SiteOptions struct {
 	// DegradeThreshold / RecoverThreshold 是连续失败 / 成功阈值，<=0 取默认值。
 	DegradeThreshold int
 	RecoverThreshold int
-	// Control / Data 分别是控制面与数据面的探测函数，必须非 nil。
-	Control ProbeFunc
-	Data    ProbeFunc
-	// InitialDataDegraded 让启动预检结论直接进入降级；
+	// Server / House 分别是 swanlab-server 与 swanlab-house 的探测函数，必须非 nil。
+	Server ProbeFunc
+	House  ProbeFunc
+	// InitialHouseDegraded 让启动预检结论直接进入降级；
 	// 之后探针仍按连续成功阈值恢复。
-	InitialDataDegraded bool
+	InitialHouseDegraded bool
 }
 
 // Registry 按站点共享探针：引用计数归零时停止探测任务。
@@ -47,14 +47,14 @@ func NewRegistry(clock cron.Clock) *Registry {
 // Acquire 增加站点的引用计数并返回共享实例；首次获取时启动两个探测协程。
 // Key 为空或任一探针为 nil 属于调用方错误，直接 panic。
 func (r *Registry) Acquire(opts SiteOptions) *Site {
-	if opts.Key == "" || opts.Control == nil || opts.Data == nil {
+	if opts.Key == "" || opts.Server == nil || opts.House == nil {
 		panic("health: Acquire requires key and both probe functions")
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if e, ok := r.sites[opts.Key]; ok {
 		e.refs++
-		e.site.MergeInitial(opts.InitialDataDegraded)
+		e.site.MergeInitial(opts.InitialHouseDegraded)
 		return e.site
 	}
 	s := newSite(opts, r.clock)

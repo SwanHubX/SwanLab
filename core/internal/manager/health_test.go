@@ -19,7 +19,7 @@ func TestWriteFailureDegradesSite(t *testing.T) {
 	reg := health.NewRegistry(nil)
 	s := newSession(sessionOptions{})
 	s.healthReg = reg
-	s.site = reg.Acquire(health.SiteOptions{Key: "unit", Control: okProbe, Data: okProbe})
+	s.site = reg.Acquire(health.SiteOptions{Key: "unit", Server: okProbe, House: okProbe})
 	t.Cleanup(s.closeHealth)
 
 	s.onWriteFailure(2)
@@ -64,10 +64,10 @@ func newIdleUploader(t *testing.T) *uploader.Uploader {
 func TestReconcileHealthSuspendsOnlyWithLocalCopy(t *testing.T) {
 	reg := health.NewRegistry(nil)
 	site := reg.Acquire(health.SiteOptions{
-		Key:                 "unit",
-		Control:             okProbe,
-		Data:                okProbe,
-		InitialDataDegraded: true,
+		Key:                  "unit",
+		Server:               okProbe,
+		House:                okProbe,
+		InitialHouseDegraded: true,
 	})
 	t.Cleanup(func() { reg.Release(site) })
 
@@ -100,7 +100,7 @@ func TestReconcileHealthSuspendsOnlyWithLocalCopy(t *testing.T) {
 
 func TestWriteDegradeDoesNotSuspend(t *testing.T) {
 	reg := health.NewRegistry(nil)
-	site := reg.Acquire(health.SiteOptions{Key: "unit", Control: okProbe, Data: okProbe})
+	site := reg.Acquire(health.SiteOptions{Key: "unit", Server: okProbe, House: okProbe})
 	t.Cleanup(func() { reg.Release(site) })
 
 	up := newIdleUploader(t)

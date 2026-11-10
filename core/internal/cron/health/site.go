@@ -8,22 +8,22 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/pkg/console"
 )
 
-// Site 聚合一个站点的控制面与数据面：任一平面连续不可达达到阈值即降级。
+// Site 聚合一个站点的 swanlab-server 与 swanlab-house：任一服务连续不可达达到阈值即降级。
 // 写入侧降级通过 Report(ReasonWrite, ...) 注入，与探针状态取或。
 type Site struct {
-	key     string
-	control *prober
-	data    *prober
+	key    string
+	server *prober
+	house  *prober
 
 	updates chan struct{}
 
-	mu           sync.Mutex
-	closed       bool
-	probeControl bool
-	probeData    bool
-	write        bool
-	state        State
-	reason       Reason
+	mu             sync.Mutex
+	closed         bool
+	serverDegraded bool
+	houseDegraded  bool
+	write          bool
+	state          State
+	reason         Reason
 
 	stopOnce  sync.Once
 	scheduler *cron.Scheduler
@@ -41,20 +41,20 @@ func newSite(opts SiteOptions, clock cron.Clock) *Site {
 		degradeAfter: degradeAfter,
 		recoverAfter: recoverAfter,
 	}
-	s.control = newProber(opts.Control, probeOpts, func(degraded bool) {
-		s.setReason(ReasonProbeControl, degraded)
+	s.server = newProber(opts.Server, probeOpts, func(degraded bool) {
+		s.setReason(ReasonProbeServer, degraded)
 	})
-	s.data = newProber(opts.Data, probeOpts, func(degraded bool) {
-		s.setReason(ReasonProbeData, degraded)
+	s.house = newProber(opts.House, probeOpts, func(degraded bool) {
+		s.setReason(ReasonProbeHouse, degraded)
 	})
 	// 启动预检在任务协程启动前写入初值，避免首个探测周期内的错误乐观状态。
-	if opts.InitialDataDegraded {
-		s.data.degradeNow()
+	if opts.InitialHouseDegraded {
+		s.house.degradeNow()
 	}
 
 	s.scheduler = cron.New(clock)
-	s.scheduler.Add(cron.Job{Interval: interval, Run: s.control.tick})
-	s.scheduler.Add(cron.Job{Interval: interval, Run: s.data.tick})
+	s.scheduler.Add(cron.Job{Interval: interval, Run: s.server.tick})
+	s.scheduler.Add(cron.Job{Interval: interval, Run: s.house.tick})
 	s.scheduler.Start(context.Background())
 	return s
 }
@@ -64,10 +64,10 @@ func newSite(opts SiteOptions, clock cron.Clock) *Site {
 func (s *Site) Updates() <-chan struct{} { return s.updates }
 
 // MergeInitial 把后续会话的启动预检结论并入共享站点；只降级、不升级。
-// 探针随后仍按连续成功阈值恢复该平面。
-func (s *Site) MergeInitial(dataDegraded bool) {
-	if dataDegraded {
-		s.data.degradeNow()
+// 探针随后仍按连续成功阈值恢复该服务。
+func (s *Site) MergeInitial(houseDegraded bool) {
+	if houseDegraded {
+		s.house.degradeNow()
 	}
 }
 
@@ -94,10 +94,10 @@ func (s *Site) setReason(reason Reason, active bool) {
 		return
 	}
 	switch reason {
-	case ReasonProbeControl:
-		s.probeControl = active
-	case ReasonProbeData:
-		s.probeData = active
+	case ReasonProbeServer:
+		s.serverDegraded = active
+	case ReasonProbeHouse:
+		s.houseDegraded = active
 	case ReasonWrite:
 		s.write = active
 	default:
@@ -124,14 +124,14 @@ func (s *Site) setReason(reason Reason, active bool) {
 	}
 }
 
-// aggregateLocked 按控制面 → 数据面 → 写入的优先级给出唯一原因。
-// 控制面在数据面关键路径上（列定义先于标量 / 媒体），因此优先展示。
+// aggregateLocked 按 server → house → 写入的优先级给出唯一原因。
+// server 在 house 关键路径上（列定义先于标量 / 媒体），因此优先展示。
 func (s *Site) aggregateLocked() (State, Reason) {
 	switch {
-	case s.probeControl:
-		return StateDegraded, ReasonProbeControl
-	case s.probeData:
-		return StateDegraded, ReasonProbeData
+	case s.serverDegraded:
+		return StateDegraded, ReasonProbeServer
+	case s.houseDegraded:
+		return StateDegraded, ReasonProbeHouse
 	case s.write:
 		return StateDegraded, ReasonWrite
 	default:

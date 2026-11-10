@@ -11,7 +11,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"strings"
 )
 
 // 默认值与 Python 客户端一致，供测试、工具与冒烟驱动使用。
@@ -113,10 +112,6 @@ type Settings struct {
 	// HealthDegradeThreshold / HealthRecoverThreshold 是连续失败 / 成功阈值，0 取 core 默认（3 / 2）。
 	HealthDegradeThreshold int32
 	HealthRecoverThreshold int32
-	// HealthProbeControlPath / HealthProbeDataPath 是 api_host 下的探针路径，
-	// 空串取默认（/api/、/api/house/health）。
-	HealthProbeControlPath string
-	HealthProbeDataPath    string
 }
 
 // Defaults 返回与 Python CoreSettings 一致的默认配置。
@@ -186,12 +181,6 @@ func (s Settings) Validate() error {
 		return fmt.Errorf("config: %w (records=%d bytes=%d)",
 			ErrBudgetUnsupported, s.UploadBudgetRecords, s.UploadBudgetBytes)
 	}
-	if s.HealthProbeControlPath != "" && !strings.HasPrefix(s.HealthProbeControlPath, "/") {
-		return fmt.Errorf("config: health_probe_control_path (%q) must start with '/'", s.HealthProbeControlPath)
-	}
-	if s.HealthProbeDataPath != "" && !strings.HasPrefix(s.HealthProbeDataPath, "/") {
-		return fmt.Errorf("config: health_probe_data_path (%q) must start with '/'", s.HealthProbeDataPath)
-	}
 	return nil
 }
 
@@ -218,11 +207,10 @@ func (s Settings) String() string {
 	return fmt.Sprintf(
 		"run_id=%s run_dir=%s mode=%s skip_store=%t section_rule=%d record_batch=%d record_interval=%.1f "+
 			"save_size=%d save_split=%d save_part=%d save_batch=%d api_host=%s web_host=%s api_key=%s "+
-			"upload_budget=%d/%d health_probe=%.1f/%.1f degrade=%d recover=%d control_path=%s data_path=%s",
+			"upload_budget=%d/%d health_probe=%.1f/%.1f degrade=%d recover=%d",
 		s.RunID, s.RunDir, s.NormalizedMode(), s.SkipStore, s.SectionRule, s.RecordBatch, s.RecordInterval,
 		s.SaveSize, s.SaveSplit, s.SavePart, s.SaveBatch, s.APIHost, s.WebHost, MaskKey(s.APIKey),
 		s.UploadBudgetRecords, s.UploadBudgetBytes,
 		s.HealthProbeInterval, s.HealthProbeTimeout, s.HealthDegradeThreshold, s.HealthRecoverThreshold,
-		s.HealthProbeControlPath, s.HealthProbeDataPath,
 	)
 }

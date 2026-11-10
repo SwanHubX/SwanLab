@@ -462,8 +462,6 @@ func TestSettingsFromProto(t *testing.T) {
 		HealthProbeTimeout:     0.75,
 		HealthDegradeThreshold: 5,
 		HealthRecoverThreshold: 4,
-		HealthProbeControlPath: "/api/health",
-		HealthProbeDataPath:    "/api/house/health",
 	}
 	got, err := settingsFromProto(in)
 	if err != nil {
@@ -491,8 +489,6 @@ func TestSettingsFromProto(t *testing.T) {
 		HealthProbeTimeout:     0.75,
 		HealthDegradeThreshold: 5,
 		HealthRecoverThreshold: 4,
-		HealthProbeControlPath: "/api/health",
-		HealthProbeDataPath:    "/api/house/health",
 	}
 	if got != want {
 		t.Fatalf("settings = %+v, want %+v", got, want)

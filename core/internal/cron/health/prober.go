@@ -6,10 +6,10 @@ import (
 	"time"
 )
 
-// ProbeFunc 返回平面是否可达；ctx 携带单次探测超时，实现必须尊重取消。
+// ProbeFunc 返回服务是否可达；ctx 携带单次探测超时，实现必须尊重取消。
 type ProbeFunc func(ctx context.Context) bool
 
-// prober 按连续失败 / 成功阈值翻转一个平面的稳定状态。
+// prober 按连续失败 / 成功阈值翻转一个服务的稳定状态。
 // 计数器只在探测协程内读写；degraded 供 Snapshot 并发读取。
 type prober struct {
 	probe        ProbeFunc
@@ -40,7 +40,7 @@ func newProber(probe ProbeFunc, opts proberOptions, onFlip func(degraded bool)) 
 	}
 }
 
-// degradeNow 立即把平面标记为降级，供启动预检与共享站点合并使用。
+// degradeNow 立即把服务标记为降级，供启动预检与共享站点合并使用。
 // 只写原子状态并触发回调；failures / successes 仍由探测协程独占，避免数据竞争。
 func (p *prober) degradeNow() {
 	p.degraded.Store(true)
