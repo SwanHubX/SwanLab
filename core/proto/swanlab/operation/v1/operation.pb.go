@@ -142,10 +142,11 @@ func (x *FileProgress) GetRate() float64 {
 }
 
 // 上传投递与积压状态；正常投递时为默认零值。
+// 站点健康状态由 core 内部消费（暂停/恢复投递），不进入 OperationStats。
 type UploadStatus struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	Paused         bool                   `protobuf:"varint,1,opt,name=paused,proto3" json:"paused,omitempty"`                                       // 当前是否暂停投递（站点降级或预算暂停）
-	PauseSeq       uint64                 `protobuf:"varint,2,opt,name=pause_seq,json=pauseSeq,proto3" json:"pause_seq,omitempty"`                   // 首个未投递记录的 storeSeq；0 表示未暂停
+	PauseSeq       uint64                 `protobuf:"varint,2,opt,name=pause_seq,json=pauseSeq,proto3" json:"pause_seq,omitempty"`                   // 预算暂停时首个未投递记录的 storeSeq；站点暂停或未暂停时为 0
 	PendingRecords int64                  `protobuf:"varint,3,opt,name=pending_records,json=pendingRecords,proto3" json:"pending_records,omitempty"` // 已出批未终结的记录数
 	BufferedBytes  int64                  `protobuf:"varint,4,opt,name=buffered_bytes,json=bufferedBytes,proto3" json:"buffered_bytes,omitempty"`    // 上传管线占用的预算字节
 	unknownFields  protoimpl.UnknownFields
