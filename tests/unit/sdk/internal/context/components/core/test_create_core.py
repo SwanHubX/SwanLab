@@ -14,7 +14,7 @@ import pytest
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.context.components import core as core_factory
 from swanlab.sdk.internal.core_go import CoreGo, CoreGoError, ReasonCode, Stage
-from swanlab.sdk.internal.core_go import locate as locate_module
+from swanlab.sdk.internal.core_go import launcher as launcher_module
 from swanlab.sdk.internal.core_python import CorePython
 
 
@@ -39,7 +39,7 @@ def test_default_uses_core_python(monkeypatch):
     def fail() -> Path:
         raise AssertionError("default python path must not locate the core binary")
 
-    monkeypatch.setattr(locate_module, "locate_core_binary", fail)
+    monkeypatch.setattr(launcher_module, "locate_core_binary", fail)
 
     core = core_factory.create_core(_ctx("online"))
 
@@ -49,7 +49,7 @@ def test_default_uses_core_python(monkeypatch):
 def test_core_opt_in_returns_core_go(monkeypatch, tmp_path):
     binary = _write_binary(tmp_path / "swanlab-core")
     _use_impl(monkeypatch, "go")
-    monkeypatch.setattr(locate_module, "locate_core_binary", lambda: binary)
+    monkeypatch.setattr(launcher_module, "locate_core_binary", lambda: binary)
 
     core = core_factory.create_core(_ctx("online"))
 
@@ -61,7 +61,7 @@ def test_core_opt_in_returns_core_go(monkeypatch, tmp_path):
 def test_local_and_offline_use_go_core_with_binary(monkeypatch, tmp_path, mode):
     binary = _write_binary(tmp_path / "swanlab-core")
     _use_impl(monkeypatch, "go")
-    monkeypatch.setattr(locate_module, "locate_core_binary", lambda: binary)
+    monkeypatch.setattr(launcher_module, "locate_core_binary", lambda: binary)
 
     core = core_factory.create_core(_ctx(mode))
 
@@ -75,7 +75,7 @@ def test_disabled_mode_does_not_require_binary(monkeypatch):
     def fail() -> Path:
         raise AssertionError("disabled mode must not locate the core binary")
 
-    monkeypatch.setattr(locate_module, "locate_core_binary", fail)
+    monkeypatch.setattr(launcher_module, "locate_core_binary", fail)
 
     core = core_factory.create_core(_ctx("disabled"))
 
@@ -90,7 +90,7 @@ def test_locate_failure_propagates(monkeypatch):
     def fail() -> Path:
         raise error
 
-    monkeypatch.setattr(locate_module, "locate_core_binary", fail)
+    monkeypatch.setattr(launcher_module, "locate_core_binary", fail)
 
     with pytest.raises(CoreGoError) as caught:
         core_factory.create_core(_ctx("online"))

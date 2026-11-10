@@ -2,7 +2,7 @@
 @author: Nexisato
 @file: test_launcher.py
 @time: 2026/10/27
-@description: CoreLauncher 的启动编排、失败回收、幂等关闭与 fork guard。
+@description: CoreLauncher 的启动编排、失败回收、幂等关闭、二进制定位与 fork guard。
 """
 
 import os
@@ -14,7 +14,7 @@ import pytest
 from swanlab.sdk.internal.core_go import launcher as launcher_module
 from swanlab.sdk.internal.core_go.discovery import Endpoint
 from swanlab.sdk.internal.core_go.errors import CoreGoError, ReasonCode, Stage
-from swanlab.sdk.internal.core_go.launcher import CoreLauncher
+from swanlab.sdk.internal.core_go.launcher import CORE_BINARY_ENV, CoreLauncher, locate_core_binary
 from swanlab.sdk.internal.core_go.process import RuntimeLease
 
 
@@ -240,3 +240,57 @@ def test_properties_report_not_started_and_closed(launcher_env):
     with pytest.raises(CoreGoError) as closed:
         _ = launcher.channel
     assert closed.value.reason is ReasonCode.CLOSED
+
+
+# ---------------------------------- 二进制定位 ----------------------------------
+
+
+def _write_binary(path: Path) -> Path:
+    path.write_text("#!/bin/sh\n")
+    return path
+
+
+def test_locate_env_override_is_preferred(monkeypatch, tmp_path):
+    binary = _write_binary(tmp_path / "custom-core")
+    monkeypatch.setenv(CORE_BINARY_ENV, str(binary))
+
+    assert locate_core_binary() == binary.resolve()
+
+
+def test_locate_env_override_missing_raises(monkeypatch, tmp_path):
+    missing = tmp_path / "missing-core"
+    monkeypatch.setenv(CORE_BINARY_ENV, str(missing))
+
+    with pytest.raises(CoreGoError) as caught:
+        locate_core_binary()
+
+    assert caught.value.stage is Stage.SPAWN
+    assert caught.value.reason is ReasonCode.BINARY_NOT_FOUND
+    assert CORE_BINARY_ENV in caught.value.message
+
+
+def test_locate_blank_env_override_falls_back_to_packaged(monkeypatch, tmp_path):
+    packaged = _write_binary(tmp_path / "swanlab-core")
+    monkeypatch.setenv(CORE_BINARY_ENV, "   ")
+    monkeypatch.setattr(launcher_module, "_PACKAGED_BINARY", packaged)
+
+    assert locate_core_binary() == packaged.resolve()
+
+
+def test_locate_missing_packaged_binary_raises(monkeypatch, tmp_path):
+    monkeypatch.delenv(CORE_BINARY_ENV, raising=False)
+    monkeypatch.setattr(launcher_module, "_PACKAGED_BINARY", tmp_path / "swanlab-core")
+
+    with pytest.raises(CoreGoError) as caught:
+        locate_core_binary()
+
+    assert caught.value.reason is ReasonCode.BINARY_NOT_FOUND
+    assert "platform wheel" in caught.value.message
+
+
+def test_packaged_binary_points_into_swanlab_bin():
+    packaged = launcher_module._PACKAGED_BINARY
+
+    assert packaged.parent.name == "bin"
+    assert packaged.parent.parent.name == "swanlab"
+    assert packaged.name.startswith("swanlab-core")

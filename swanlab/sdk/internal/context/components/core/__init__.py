@@ -26,7 +26,7 @@ def create_core(ctx: "RunContext") -> CoreProtocol:
         return CorePython(mode=mode)
 
     from swanlab.sdk.internal.core_go import CoreGo
-    from swanlab.sdk.internal.core_go.locate import locate_core_binary
+    from swanlab.sdk.internal.core_go.launcher import locate_core_binary
 
     # Go core 是 CorePython 的全模式替代；disabled 不落盘也不起进程，无需二进制。
     binary = None if mode == "disabled" else locate_core_binary()
