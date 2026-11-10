@@ -2,6 +2,7 @@ package health
 
 import (
 	"context"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -10,7 +11,7 @@ import (
 type ProbeFunc func(ctx context.Context) bool
 
 // prober 按连续失败 / 成功阈值翻转一个服务的稳定状态。
-// 计数器只在探测协程内读写；degraded 供 Snapshot 并发读取。
+// mu 串行化外部降级与 tick 的计数、状态翻转及回调；degraded 供并发读取。
 type prober struct {
 	probe        ProbeFunc
 	timeout      time.Duration
@@ -18,6 +19,7 @@ type prober struct {
 	recoverAfter int
 	onFlip       func(degraded bool)
 
+	mu       sync.Mutex
 	degraded atomic.Bool
 
 	failures  int
@@ -41,8 +43,12 @@ func newProber(probe ProbeFunc, opts proberOptions, onFlip func(degraded bool)) 
 }
 
 // degradeNow 立即把服务标记为降级，供启动预检与共享站点合并使用。
-// 只写原子状态并触发回调；failures / successes 仍由探测协程独占，避免数据竞争。
+// 同时清空失败与恢复进度，并与 tick 的状态结算互斥。
 func (p *prober) degradeNow() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.failures = 0
+	p.successes = 0
 	p.degraded.Store(true)
 	p.onFlip(true)
 }
@@ -53,6 +59,8 @@ func (p *prober) tick(parent context.Context) {
 	ok := p.probe(ctx)
 	cancel()
 
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	switch {
 	case ok && p.degraded.Load():
 		p.failures = 0

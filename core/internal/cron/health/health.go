@@ -31,7 +31,7 @@ func (s State) String() string {
 	}
 }
 
-// Reason 是降级来源，取值与 stats 的 degraded_reason 一致。
+// Reason 是降级来源，供日志和上传暂停决策使用。
 type Reason string
 
 const (

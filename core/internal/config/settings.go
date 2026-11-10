@@ -141,7 +141,7 @@ func (s Settings) NormalizedMode() Mode {
 //
 // record_batch 必须落在 (0, 100_000)；record_interval 与 save_part 必须为正，
 // record_interval 额外拒绝 NaN（+Inf 允许）；其余 save_* 不限制。
-// health_* 必须有限且非负，探针路径需以 "/" 开头；非零上传预算直接拒绝。
+// health_* 必须有限且非负；非零上传预算直接拒绝。
 func (s Settings) Validate() error {
 	if s.RunID == "" {
 		return fmt.Errorf("config: %w", ErrRunIDRequired)

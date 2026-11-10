@@ -167,6 +167,63 @@ func TestProberThresholds(t *testing.T) {
 	}
 }
 
+// 外部降级信号必须作废此前的恢复进度，恢复阈值从下一次探测重新累计。
+func TestDegradeNowResetsRecoveryProgress(t *testing.T) {
+	var reachable atomic.Bool
+	p := newProber(func(context.Context) bool { return reachable.Load() }, proberOptions{
+		timeout:      time.Second,
+		degradeAfter: 3,
+		recoverAfter: 2,
+	}, func(bool) {})
+
+	p.degradeNow()
+	reachable.Store(true)
+	p.tick(context.Background())
+	// 新会话的启动预检再次失败，结论合并进共享站点。
+	p.degradeNow()
+	p.tick(context.Background())
+	if !p.degraded.Load() {
+		t.Fatal("recovered after one success since the latest degrade signal")
+	}
+	p.tick(context.Background())
+	if p.degraded.Load() {
+		t.Fatal("not recovered after two successes since the latest degrade signal")
+	}
+}
+
+func TestDegradeNowConcurrentWithTick(t *testing.T) {
+	for i := range 100 {
+		p := newProber(func(context.Context) bool { return true }, proberOptions{
+			timeout:      time.Second,
+			degradeAfter: 3,
+			recoverAfter: 2,
+		}, func(bool) {})
+		p.degradeNow()
+		p.tick(context.Background())
+
+		start := make(chan struct{})
+		tickDone := make(chan struct{})
+		degradeDone := make(chan struct{})
+		go func() {
+			<-start
+			p.tick(context.Background())
+			close(tickDone)
+		}()
+		go func() {
+			<-start
+			p.degradeNow()
+			close(degradeDone)
+		}()
+		close(start)
+		<-tickDone
+		<-degradeDone
+
+		if !p.degraded.Load() {
+			t.Fatalf("iteration %d: latest external degrade was overwritten by tick", i)
+		}
+	}
+}
+
 func TestSiteOptionDefaults(t *testing.T) {
 	clock := newFakeClock()
 	s := newSite(SiteOptions{Key: "defaults", Server: alwaysReachable, House: alwaysReachable}, clock)
