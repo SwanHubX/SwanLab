@@ -72,7 +72,9 @@ class Histogram(TransformHistogram):
     Type and shape errors (unsupported objects, non-numeric data, wrong
     dimensionality) are logged and mark the instance invalid instead of
     raising; logging an invalid histogram skips it. Value errors such as an
-    out-of-range bucket count or non-monotonic edges still raise.
+    out-of-range bucket count or non-monotonic edges still raise. Missing
+    optional dependencies (e.g. ``numpy``) raise ``ImportError`` with an
+    install hint instead of being treated as invalid input.
     """
 
     DEFAULT_BINS = 64
@@ -103,8 +105,11 @@ class Histogram(TransformHistogram):
         elif np_histogram is None and sequence is None:
             raise ValueError("Either sequence or np_histogram must be provided")
 
-        # 无效类型 log 时跳过
+        # 无效类型/形状 log 时跳过；只兜输入校验错误，
+        # 可选依赖缺失（如 numpy）必须上抛，否则安装提示会被当成无效输入吞掉
         with safe.block(
+            TypeError,
+            ValueError,
             message="Invalid histogram input, the metric will be ignored",
             on_error=self._capture_error,
             write_to_tty=False,

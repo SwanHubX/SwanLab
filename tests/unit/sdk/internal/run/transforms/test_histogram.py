@@ -5,6 +5,7 @@
 @description: 测试直方图转换模块 Histogram，覆盖需求文档边界情况表
 """
 
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import numpy as np
@@ -231,6 +232,22 @@ class TestTypeValidationFailOpen:
             Histogram([1, 2], bins=0)
         with pytest.raises(ValueError, match="monotonically increasing"):
             Histogram([1, 2], bins=[0.0, 2.0, 1.0])
+
+
+class TestOptionalDependencyMissing:
+    """可选依赖缺失不能被当作无效输入吞掉，安装提示必须抛给调用方"""
+
+    def test_missing_numpy_propagates(self, monkeypatch):
+        from swanlab.sdk.internal.run.transforms import histogram as histogram_module
+
+        class _MissingNumpy:
+            def __getattr__(self, name):
+                raise ImportError("The 'np' feature requires additional dependencies")
+
+        monkeypatch.setattr(histogram_module, "vendor", SimpleNamespace(np=_MissingNumpy()))
+
+        with pytest.raises(ImportError, match="requires additional dependencies"):
+            Histogram([1.0, 2.0])
 
 
 # ---------------------------------- 预分桶输入 ----------------------------------
