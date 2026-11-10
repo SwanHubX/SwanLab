@@ -271,9 +271,9 @@ func authenticate(
 	return &apiKeyAuth{key: apiKey, user: &profile}, nil
 }
 
-// normalizeHost 规范化 api_host：剥离路由与查询串，缺协议时补 https，去掉末尾斜杠。
+// NormalizeHost 规范化 api_host：剥离路由与查询串，缺协议时补 https，去掉末尾斜杠。
 // 与 Python nrc.fmt 保持一致，确保同一个站点不会因书写差异被当成两个身份。
-func normalizeHost(raw string) (string, error) {
+func NormalizeHost(raw string) (string, error) {
 	host := strings.TrimSpace(raw)
 	if host == "" {
 		return "", ErrMissingAPIHost

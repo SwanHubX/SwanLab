@@ -127,7 +127,7 @@ type Client struct {
 // 避免把「看起来能用」的实例交给会话层。
 func New(ctx context.Context, apiHost, apiKey string, opts Options) (*Client, error) {
 	opts = opts.withDefaults()
-	normalized, err := normalizeHost(apiHost)
+	normalized, err := NormalizeHost(apiHost)
 	if err != nil {
 		return nil, err
 	}
@@ -399,7 +399,7 @@ func NewFactory(opts Options) *Factory {
 // 鉴权探活在锁外完成，慢探活不会阻塞其它身份；同 key 并发可能重复探活，
 // 最终只保留首个写入缓存的实例（transport 共享，丢弃不额外占用连接池）。
 func (f *Factory) Client(ctx context.Context, apiHost, apiKey string) (*Client, error) {
-	normalized, err := normalizeHost(apiHost)
+	normalized, err := NormalizeHost(apiHost)
 	if err != nil {
 		return nil, err
 	}

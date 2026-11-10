@@ -482,12 +482,12 @@ func TestNormalizeHost(t *testing.T) {
 		{"  https://api.swanlab.cn  ", "https://api.swanlab.cn"},
 	}
 	for _, tc := range cases {
-		got, err := normalizeHost(tc.in)
+		got, err := NormalizeHost(tc.in)
 		if err != nil {
-			t.Fatalf("normalizeHost(%q): %v", tc.in, err)
+			t.Fatalf("NormalizeHost(%q): %v", tc.in, err)
 		}
 		if got != tc.want {
-			t.Fatalf("normalizeHost(%q) = %q, want %q", tc.in, got, tc.want)
+			t.Fatalf("NormalizeHost(%q) = %q, want %q", tc.in, got, tc.want)
 		}
 	}
 }

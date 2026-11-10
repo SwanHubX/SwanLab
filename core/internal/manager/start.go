@@ -49,15 +49,16 @@ func (m *Manager) DeliverRunStart(
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrInvalidStartRecord, err)
 	}
+	normalizedHost, err := client.NormalizeHost(cfg.APIHost)
+	if err != nil {
+		return nil, fmt.Errorf("start: authenticate: %w", err)
+	}
+	cfg.APIHost = normalizedHost
 
-	// swanlab-server 预检（2s）先于认证重试：不可达时立即失败。APIHost 为空时跳过预检，
-	// 仍由认证阶段返回 ErrMissingAPIHost。
+	// 预检与认证客户端使用相同的规范化 host；server 不可达时不再探测 house。
 	serverProbe := siteProbe(cfg.APIHost, serverProbePath)
 	houseProbe := siteProbe(cfg.APIHost, houseProbePath)
-	serverOK, houseOK := true, true
-	if cfg.APIHost != "" {
-		serverOK, houseOK = probeStartup(ctx, serverProbe, houseProbe)
-	}
+	serverOK, houseOK := probeStartup(ctx, serverProbe, houseProbe)
 	if !serverOK {
 		return nil, fmt.Errorf("%w: %s", ErrServerUnreachable, probeURL(cfg.APIHost, serverProbePath))
 	}

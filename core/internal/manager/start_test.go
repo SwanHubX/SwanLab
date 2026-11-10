@@ -517,6 +517,27 @@ func TestDeliverRunStartFailsFastWhenControlUnreachable(t *testing.T) {
 	}
 }
 
+func TestDeliverRunStartNormalizesHostBeforeProbe(t *testing.T) {
+	cloud := clienttest.NewCloud(t)
+	serveAuth(cloud)
+	serveHeartbeat(cloud, "exp-1")
+	serveProject(cloud, "alice", "demo", 7)
+	serveNewExperiment(cloud, "alice", "demo", "exp-1", "run-slug")
+
+	mgr := newTestManager()
+	settings := startSettings(t, cloud)
+	settings.APIHost = cloud.URL() + "/ignored/path?ignored=true"
+	result, err := mgr.DeliverRunStart(context.Background(), settings,
+		&runv1.StartRecord{Project: "demo", Workspace: "alice", Id: "run-1"})
+	if err != nil {
+		t.Fatalf("DeliverRunStart with path and query: %v", err)
+	}
+	t.Cleanup(func() { closeStartedSession(t, mgr, result.SessionID) })
+	if got := mgr.healthReg.Len(); got != 1 {
+		t.Fatalf("sites = %d, want 1", got)
+	}
+}
+
 func TestDeliverRunStartDegradedWhenDataPlaneDown(t *testing.T) {
 	cloud := clienttest.NewCloud(t)
 	serveAuth(cloud)
