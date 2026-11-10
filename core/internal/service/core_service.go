@@ -120,7 +120,7 @@ func (s *CoreService) DeliverRunStart(
 	if err != nil {
 		return nil, managerStatus(err)
 	}
-	if result.Path == "" {
+	if result.Path == "" && settings.NormalizedMode() == config.ModeOnline {
 		return nil, status.Error(codes.InvalidArgument, "project path is empty; online mode requires a path")
 	}
 	return &corev1.DeliverRunStartResponse{
@@ -143,6 +143,7 @@ func settingsFromProto(in *settingsv1.CoreSettings) (config.Settings, error) {
 	settings := config.Settings{
 		RunID:          in.GetRunId(),
 		RunDir:         in.GetRunDir(),
+		Mode:           modeFromProto(in.GetMode()),
 		SectionRule:    in.GetSectionRule(),
 		RecordBatch:    in.GetRecordBatch(),
 		RecordInterval: in.GetRecordInterval(),
@@ -155,11 +156,13 @@ func settingsFromProto(in *settingsv1.CoreSettings) (config.Settings, error) {
 		APIHost:        in.GetApiHost(),
 		WebHost:        in.GetWebHost(),
 	}
-	if settings.APIHost == "" {
-		return config.Settings{}, errors.New("api_host must not be empty")
-	}
-	if settings.APIKey == "" {
-		return config.Settings{}, errors.New("api_key must not be empty")
+	if settings.NormalizedMode() == config.ModeOnline {
+		if settings.APIHost == "" {
+			return config.Settings{}, errors.New("api_host must not be empty")
+		}
+		if settings.APIKey == "" {
+			return config.Settings{}, errors.New("api_key must not be empty")
+		}
 	}
 	if settings.SaveSize <= 0 || settings.SaveSplit <= 0 || settings.SaveBatch <= 0 {
 		return config.Settings{}, fmt.Errorf(
@@ -170,6 +173,20 @@ func settingsFromProto(in *settingsv1.CoreSettings) (config.Settings, error) {
 		return config.Settings{}, err
 	}
 	return settings, nil
+}
+
+// modeFromProto 把 proto 枚举转换为 config.Mode；UNSPECIFIED 按 online 处理。
+func modeFromProto(mode settingsv1.CoreMode) config.Mode {
+	switch mode {
+	case settingsv1.CoreMode_CORE_MODE_LOCAL:
+		return config.ModeLocal
+	case settingsv1.CoreMode_CORE_MODE_OFFLINE:
+		return config.ModeOffline
+	case settingsv1.CoreMode_CORE_MODE_DISABLED:
+		return config.ModeDisabled
+	default:
+		return config.ModeOnline
+	}
 }
 
 // UpsertColumns 定义一批指标列；空列表是合法的 no-op。
@@ -316,6 +333,10 @@ func (s *CoreService) ConfirmRunFinish(
 	if message == "" {
 		message = "OK"
 	}
+	if result.ReleaseFailed && result.Retryable {
+		// 可重试的释放失败返回 Unavailable；确定性失败仍返回 success=false。
+		return nil, status.Error(codes.Unavailable, message)
+	}
 	return &corev1.ConfirmRunFinishResponse{
 		Success: !result.ReleaseFailed,
 		Message: message,
@@ -334,6 +355,9 @@ func managerStatus(err error) error {
 	case errors.Is(err, manager.ErrRunFailed):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, manager.ErrNotRunning):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, manager.ErrStoreUnavailable):
+		// 本地存储已降级，无法落盘，按确定性失败处理，避免客户端重试。
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, manager.ErrOverloaded):
 		return status.Error(codes.ResourceExhausted, err.Error())

@@ -14,6 +14,7 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/api"
 	"github.com/swanhubx/swanlab/core/internal/budget"
 	"github.com/swanhubx/swanlab/core/internal/buffer"
+	"github.com/swanhubx/swanlab/core/internal/config"
 	"github.com/swanhubx/swanlab/core/internal/pkg/builder"
 	"github.com/swanhubx/swanlab/core/internal/pkg/console"
 	recordv1 "github.com/swanhubx/swanlab/core/proto/swanlab/record/v1"
@@ -85,6 +86,10 @@ func (s *Session) prepareFinish(rec *runv1.FinishRecord) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.finishRecord = finish
+	// local/offline 不做上传，崩溃日志只保留在 FinishRecord.error 中。
+	if s.cfg.NormalizedMode() != config.ModeOnline {
+		return
+	}
 	if finish.GetState() == runv1.RunState_RUN_STATE_FINISHED {
 		return
 	}
@@ -108,10 +113,8 @@ func (s *Session) completeFinish(ctx context.Context) error {
 		}
 	}
 
-	// 本地刷盘不设超时，必须等 AsyncWriter 把已接收的记录全部写入磁盘；
-	// 刷盘失败只置 storeDegraded，由 intake 在 Close 时把未确认记录转入上传，
-	// 不让本地副本缺失阻断云端上传。关闭必须排在 FinishRecord 提交之后，
-	// 否则重试会向已关闭的本地通道发送。
+	// 本地刷盘不设超时，必须等 AsyncWriter 全部写入，且关闭要排在 FinishRecord 提交之后。
+	// 刷盘失败时 online 由上传兜底，local/offline 返回失败。
 	if s.store != nil {
 		if err := s.store.Close(); err != nil {
 			s.storeDegraded.Store(true)
@@ -122,9 +125,22 @@ func (s *Session) completeFinish(ctx context.Context) error {
 	if err := s.commitCrashLog(ctx); err != nil {
 		return err
 	}
-
 	s.stopRecovery()
-	return s.closeIntake(ctx)
+	closeErr := s.closeIntake(ctx)
+	if s.cfg.NormalizedMode() != config.ModeOnline && s.storeDegraded.Load() {
+		// local/offline 无云端兜底：关闭 intake 后返回失败，不 markDrained。
+		if closeErr != nil {
+			console.Warningf("finish: close intake after local store failure: %v", closeErr)
+		}
+		return fmt.Errorf("%w: local copy is incomplete", ErrRunFailed)
+	}
+	if closeErr != nil {
+		return closeErr
+	}
+	if s.uploader == nil {
+		s.markDrained()
+	}
+	return nil
 }
 
 // commitFinish 把 FinishRecord 写入本地副本；失败时保留 finishCommitted=false，
@@ -140,7 +156,10 @@ func (s *Session) commitFinish(ctx context.Context) error {
 		return fmt.Errorf("%w: session has no intake", errFinishRecord)
 	}
 	if s.storeDegraded.Load() {
-		// 磁盘已不可用：FinishRecord 只落本地、不能改走上传，重试也不会成功。
+		// online 仍可依赖上传兜底；local/offline 的本地副本是唯一事实源，不能假装成功。
+		if s.cfg.NormalizedMode() != config.ModeOnline {
+			return fmt.Errorf("%w: local store is degraded, finish record is not persisted", ErrRunFailed)
+		}
 		console.Warning("finish: local store is degraded, finish record is not kept locally")
 		s.finishCommitted = true
 		return nil
@@ -160,6 +179,9 @@ func (s *Session) commitFinish(ctx context.Context) error {
 // commitCrashLog 把崩溃 error_log 投入上传通道。暂时失败（通道满、ctx 到期）时
 // 保留记录供 Confirm 重试；只有确定性错误才告警丢弃，避免会话永远无法释放。
 func (s *Session) commitCrashLog(ctx context.Context) error {
+	if s.cfg.NormalizedMode() != config.ModeOnline {
+		return nil
+	}
 	if s.pendingLog == nil || s.intake == nil {
 		return nil
 	}

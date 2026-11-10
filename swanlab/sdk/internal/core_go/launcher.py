@@ -9,14 +9,16 @@ start() 负责 runtime → spawn → 等待端点 → channel-ready；
 close() / abort() 负责分级回收并删除 runtime，Teardown 由 CoreGo 在调用前完成。
 不认识 CoreService，也不发送任何业务 RPC；进程机制本身在 process/ 下。
 超时与文件名取自 config.py，不在本模块散落硬编码值。
+二进制路径由 locate_core_binary() 解析：环境变量优先，其次包内 swanlab/bin。
 """
 
+import os
 import subprocess
 import threading
 from pathlib import Path
 from typing import Optional
 
-from swanlab.sdk.internal.core_go.config import CHANNEL_READY_TIMEOUT, PORT_FILE_TIMEOUT
+from swanlab.sdk.internal.core_go.config import BINARY_NAME, CHANNEL_READY_TIMEOUT, PORT_FILE_TIMEOUT
 from swanlab.sdk.internal.core_go.discovery import Endpoint
 from swanlab.sdk.internal.core_go.errors import CoreGoError, ReasonCode, Stage
 from swanlab.sdk.internal.core_go.process import (
@@ -31,12 +33,33 @@ from swanlab.sdk.internal.core_go.process import (
 from swanlab.sdk.internal.core_go.rpc import Channel
 from swanlab.sdk.internal.pkg import fork
 
-__all__ = ["CoreLauncher"]
+__all__ = ["CORE_BINARY_ENV", "CoreLauncher", "locate_core_binary"]
 
 _NEW = "new"
 _STARTING = "starting"
 _RUNNING = "running"
 _CLOSED = "closed"
+
+# 覆盖包内二进制的环境变量；空值视为未设置。
+CORE_BINARY_ENV = "SWANLAB_CORE_BINARY"
+# swanlab/sdk/internal/core_go/launcher.py -> swanlab/bin/
+_PACKAGED_BINARY = (
+    Path(__file__).resolve().parents[3] / "bin" / (f"{BINARY_NAME}.exe" if os.name == "nt" else BINARY_NAME)
+)
+
+
+def locate_core_binary() -> Path:
+    """定位 swanlab-core：SWANLAB_CORE_BINARY 优先，其次包内 swanlab/bin。"""
+    override = os.environ.get(CORE_BINARY_ENV, "").strip()
+    binary = Path(override).expanduser() if override else _PACKAGED_BINARY
+    if not binary.is_file():
+        raise CoreGoError(
+            Stage.SPAWN,
+            ReasonCode.BINARY_NOT_FOUND,
+            f"swanlab-core binary not found: {binary}; "
+            f"set {CORE_BINARY_ENV} or install a platform wheel that bundles swanlab-core",
+        )
+    return binary.resolve()
 
 
 class CoreLauncher:
@@ -53,6 +76,7 @@ class CoreLauncher:
         self._proc: Optional[subprocess.Popen] = None
         self._channel: Optional[Channel] = None
         self._endpoint: Optional[Endpoint] = None
+        self._exit_code: Optional[int] = None
         self._lock = threading.Lock()
         self._state = _NEW
         self._owner_pid = fork.current_pid()
@@ -72,6 +96,11 @@ class CoreLauncher:
         if self._channel is None:
             raise CoreGoError(Stage.LIFECYCLE, ReasonCode.NOT_STARTED, "core launcher has not started")
         return self._channel
+
+    @property
+    def exit_code(self) -> Optional[int]:
+        """回收后的进程退出码；未启动或尚未回收时为 None。"""
+        return self._exit_code
 
     def start(self) -> Endpoint:
         """拉起 core 并等待 channel-ready。
@@ -141,7 +170,7 @@ class CoreLauncher:
         if channel is not None:
             channel.close()
         if proc is not None:
-            reap_process(proc)
+            self._exit_code = reap_process(proc)
         if lease is not None:
             cleanup_runtime(lease)
 

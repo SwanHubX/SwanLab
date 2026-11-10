@@ -72,6 +72,7 @@ func (g *gatedSender) Upload(ctx context.Context, records []*recordv1.Record) up
 
 type finishOptions struct {
 	skipStore   bool
+	mode        config.Mode
 	uploadQueue int
 	queueWait   time.Duration
 	blockUpload bool
@@ -103,6 +104,8 @@ func newFinishHarness(t *testing.T, opts finishOptions) *finishHarness {
 	cfg.RecordBatch = 8
 	cfg.RecordInterval = 0.01
 	cfg.SkipStore = opts.skipStore
+	cfg.Mode = opts.mode
+	storeOnly := cfg.NormalizedMode() != config.ModeOnline
 
 	run, err := runctx.New(cfg)
 	if err != nil {
@@ -152,6 +155,7 @@ func newFinishHarness(t *testing.T, opts finishOptions) *finishHarness {
 	}
 	intake, err := buffer.New(buffer.Options{
 		SkipStore:   cfg.SkipStore,
+		StoreOnly:   storeOnly,
 		Store:       storeIn,
 		UploadQueue: opts.uploadQueue,
 		Budget:      b,
@@ -166,41 +170,52 @@ func newFinishHarness(t *testing.T, opts finishOptions) *finishHarness {
 	uploads := &collectingSender{}
 	var gate chan struct{}
 	var entered chan struct{}
-	var sender uploader.Sender = uploads
-	if opts.blockUpload {
-		gate = make(chan struct{})
-		entered = make(chan struct{})
-		sender = &gatedSender{inner: uploads, gate: gate, entered: entered}
-	}
-	senders := map[record.Type]uploader.Sender{
-		record.TypeColumn: sender,
-		record.TypeScalar: sender,
-		record.TypeLog:    sender,
-		record.TypeMedia:  sender,
-		record.TypeSave:   sender,
-	}
-	up, err := uploader.New(uploader.Options{
-		In:       intake.UploadOut(),
-		Budget:   b,
-		Senders:  senders,
-		Batch:    4,
-		Interval: 10 * time.Millisecond,
-		Tracker:  s.tracker,
-		Context:  s.ctx,
-		OnDrained: func() {
-			s.markDrained()
-		},
-	})
-	if err != nil {
-		t.Fatalf("uploader.New: %v", err)
+	var up *uploader.Uploader
+	if !storeOnly {
+		var sender uploader.Sender = uploads
+		if opts.blockUpload {
+			gate = make(chan struct{})
+			entered = make(chan struct{})
+			sender = &gatedSender{inner: uploads, gate: gate, entered: entered}
+		}
+		senders := map[record.Type]uploader.Sender{
+			record.TypeColumn: sender,
+			record.TypeScalar: sender,
+			record.TypeLog:    sender,
+			record.TypeMedia:  sender,
+			record.TypeSave:   sender,
+		}
+		up, err = uploader.New(uploader.Options{
+			In:       intake.UploadOut(),
+			Budget:   b,
+			Senders:  senders,
+			Batch:    4,
+			Interval: 10 * time.Millisecond,
+			Tracker:  s.tracker,
+			Context:  s.ctx,
+			OnDrained: func() {
+				s.markDrained()
+			},
+		})
+		if err != nil {
+			t.Fatalf("uploader.New: %v", err)
+		}
 	}
 
 	s.store = async
 	s.intake = intake
 	s.uploader = up
-	s.drainFn = up.Wait
+	if up != nil {
+		s.drainFn = up.Wait
+	} else {
+		// local/offline 没有 uploader，收尾完成即排空。
+		s.drainFn = func(context.Context) error {
+			s.markDrained()
+			return nil
+		}
+	}
 	s.runFile = runFile
-	if async != nil {
+	if async != nil && !storeOnly {
 		s.startRecovery()
 	}
 
@@ -212,7 +227,9 @@ func newFinishHarness(t *testing.T, opts finishOptions) *finishHarness {
 	t.Cleanup(func() {
 		s.stopRecovery()
 		s.cancel()
-		_ = up.Close()
+		if up != nil {
+			_ = up.Close()
+		}
 		if async != nil {
 			_ = async.Close()
 		}
@@ -386,6 +403,98 @@ func TestDeliverRunFinishStoreFailureDegradesOnly(t *testing.T) {
 	}
 	if _, err := h.mgr.State(h.id); !errors.Is(err, ErrSessionNotFound) {
 		t.Fatalf("State after confirm err=%v, want ErrSessionNotFound", err)
+	}
+}
+
+func TestDeliverRunFinishLocalStoreDegradedFails(t *testing.T) {
+	for _, mode := range []config.Mode{config.ModeLocal, config.ModeOffline} {
+		t.Run(string(mode), func(t *testing.T) {
+			h := newFinishHarness(t, finishOptions{mode: mode})
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+
+			h.session.storeDegraded.Store(true)
+			err := h.mgr.DeliverRunFinish(ctx, h.id, finishRecord(runv1.RunState_RUN_STATE_FINISHED, ""))
+			if !errors.Is(err, ErrRunFailed) {
+				t.Fatalf("DeliverRunFinish err=%v, want ErrRunFailed", err)
+			}
+			if state := h.session.stateSnapshot(); state != RunStateFailed {
+				t.Fatalf("state = %s, want failed", state)
+			}
+			if h.session.finishCommitted {
+				t.Fatal("degraded store must not mark the finish record committed")
+			}
+			if _, err = h.mgr.Confirm(ctx, h.id); !errors.Is(err, ErrRunFailed) {
+				t.Fatalf("Confirm err=%v, want ErrRunFailed", err)
+			}
+			if _, err = h.mgr.State(h.id); err != nil {
+				t.Fatalf("session must stay registered for cleanup/retry: %v", err)
+			}
+		})
+	}
+}
+
+func TestDeliverRunFinishLocalStoreCloseFailureFails(t *testing.T) {
+	for _, mode := range []config.Mode{config.ModeLocal, config.ModeOffline} {
+		t.Run(string(mode), func(t *testing.T) {
+			h := newFinishHarness(t, finishOptions{mode: mode})
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+
+			// 关闭底层文件，让 AsyncWriter 在 Close 刷盘时报错并置 storeDegraded。
+			if err := h.writer.Close(); err != nil {
+				t.Fatalf("close writer: %v", err)
+			}
+			err := h.mgr.DeliverRunFinish(ctx, h.id, finishRecord(runv1.RunState_RUN_STATE_FINISHED, ""))
+			if !errors.Is(err, ErrRunFailed) {
+				t.Fatalf("DeliverRunFinish err=%v, want ErrRunFailed", err)
+			}
+			if !h.session.storeDegraded.Load() {
+				t.Fatal("store close failure must set storeDegraded")
+			}
+			if state := h.session.stateSnapshot(); state != RunStateFailed {
+				t.Fatalf("state = %s, want failed", state)
+			}
+			if _, err = h.mgr.Confirm(ctx, h.id); !errors.Is(err, ErrRunFailed) {
+				t.Fatalf("Confirm err=%v, want ErrRunFailed", err)
+			}
+		})
+	}
+}
+
+func TestDeliverRunFinishLocalModesPersistAndConfirm(t *testing.T) {
+	for _, mode := range []config.Mode{config.ModeLocal, config.ModeOffline} {
+		t.Run(string(mode), func(t *testing.T) {
+			h := newFinishHarness(t, finishOptions{mode: mode})
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+
+			if err := h.mgr.UpsertScalars(ctx, h.id, []*datav1.ScalarRecord{
+				scalarRecord("finish/loss", 0, columnv1.ColumnType_COLUMN_TYPE_SCALAR),
+			}); err != nil {
+				t.Fatalf("UpsertScalars: %v", err)
+			}
+			if err := h.mgr.DeliverRunFinish(ctx, h.id, finishRecord(runv1.RunState_RUN_STATE_FINISHED, "")); err != nil {
+				t.Fatalf("DeliverRunFinish: %v", err)
+			}
+			waitDrained(t, h.session)
+
+			records := readStore(t, h.runFile)
+			if len(records) == 0 {
+				t.Fatal("run file is empty")
+			}
+			if last := records[len(records)-1]; last.GetNum() != record.NumFinish {
+				t.Fatalf("last record num = %d, want %d", last.GetNum(), record.NumFinish)
+			}
+
+			result, err := h.mgr.Confirm(ctx, h.id)
+			if err != nil || result.ReleaseFailed {
+				t.Fatalf("Confirm result=%+v err=%v, want success", result, err)
+			}
+			if _, err = h.mgr.State(h.id); !errors.Is(err, ErrSessionNotFound) {
+				t.Fatalf("State after confirm err=%v, want ErrSessionNotFound", err)
+			}
+		})
 	}
 }
 

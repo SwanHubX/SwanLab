@@ -109,7 +109,7 @@ type Session struct {
 	// finishMu 串行化收尾尾部：重复的 DeliverRunFinish、Confirm 续跑与进程
 	// 退出时的 shutdown 共用同一把锁，避免关闭本地通道与写入并发。
 	finishMu sync.Mutex
-	// finishCommitted 标记 FinishRecord 已完成提交（或因本地存储降级而跳过），避免重试时重复写入。
+	// finishCommitted 标记 FinishRecord 已完成提交（online 在本地存储降级时跳过），避免重试时重复写入。
 	finishCommitted bool
 	// pendingLog 是崩溃 error_log：只上传不落盘，暂时入队失败时保留供重试。
 	pendingLog *recordv1.Record

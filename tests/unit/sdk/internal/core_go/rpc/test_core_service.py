@@ -184,6 +184,7 @@ def test_deliver_run_finish_rejected(service):
         client.deliver_run_finish(DeliverRunFinishRequest(), "s-1")
 
     assert caught.value.reason is ReasonCode.RUN_FINISH_REJECTED
+    assert caught.value.retryable is False
 
 
 def test_get_operation_stats_rejected(service):
@@ -204,6 +205,8 @@ def test_confirm_run_finish_rejected(service):
         client.confirm_run_finish("s-1")
 
     assert caught.value.reason is ReasonCode.RUN_FINISH_REJECTED
+    # success=false 是确定性拒绝；可重试失败由 Core 返回 UNAVAILABLE。
+    assert caught.value.retryable is False
 
 
 def test_method_timeouts_match_semantics(service):

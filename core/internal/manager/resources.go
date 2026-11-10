@@ -12,6 +12,7 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/api"
 	"github.com/swanhubx/swanlab/core/internal/budget"
 	"github.com/swanhubx/swanlab/core/internal/buffer"
+	"github.com/swanhubx/swanlab/core/internal/config"
 	"github.com/swanhubx/swanlab/core/internal/pkg/console"
 	"github.com/swanhubx/swanlab/core/internal/pkg/record"
 	"github.com/swanhubx/swanlab/core/internal/pkg/watcher"
@@ -66,6 +67,7 @@ func (s *Session) open(init sessionInit) error {
 	}
 	intake, err := buffer.New(buffer.Options{
 		SkipStore:   init.cfg.SkipStore,
+		StoreOnly:   init.cfg.NormalizedMode() != config.ModeOnline,
 		Store:       storeIn,
 		UploadQueue: queueSize(init.cfg.RecordBatch),
 		Budget:      b,
@@ -78,63 +80,71 @@ func (s *Session) open(init sessionInit) error {
 	}
 	s.intake = intake
 
-	senderOpts := sender.Options{
-		API:          init.api,
-		Username:     init.workspace,
-		Project:      init.project,
-		ProjectID:    init.projectID,
-		ExperimentID: init.experimentID,
-		Files: sender.FileOptions{
-			MediaDir:  init.run.MediaDir(),
-			FilesDir:  init.run.FilesDir(),
-			SkipStore: init.cfg.SkipStore,
-			SaveSize:  init.cfg.SaveSize,
-			SaveSplit: init.cfg.SaveSplit,
-			SavePart:  init.cfg.SavePart,
-			SaveBatch: int(init.cfg.SaveBatch),
-			Tracker:   s.tracker,
-			Putter:    init.http,
-		},
-	}
-	mediaSender, err := sender.NewMedia(senderOpts)
-	if err != nil {
-		return fmt.Errorf("create media sender: %w", err)
-	}
-	saveSender, err := sender.NewSave(senderOpts)
-	if err != nil {
-		return fmt.Errorf("create save sender: %w", err)
-	}
-
-	up, err := uploader.New(uploader.Options{
-		In:     intake.UploadOut(),
-		Budget: b,
-		Senders: map[record.Type]uploader.Sender{
-			record.TypeColumn: sender.NewColumn(senderOpts),
-			record.TypeScalar: sender.NewScalar(senderOpts),
-			record.TypeLog:    sender.NewLog(senderOpts),
-			record.TypeMedia:  mediaSender,
-			record.TypeSave:   saveSender,
-		},
-		Batch:    int(init.cfg.RecordBatch),
-		Interval: time.Duration(init.cfg.RecordInterval * float64(time.Second)),
-		Tracker:  s.tracker,
-		Context:  s.ctx,
-		OnDrained: func() {
-			s.markDrained()
-		},
-	})
-	if err != nil {
-		return fmt.Errorf("create uploader: %w", err)
-	}
-	s.uploader = up
-	s.drainFn = up.Wait
-	s.releaseFn = func(ctx context.Context) error {
-		return init.api.StopExperiment(ctx, api.StopExperimentParams{
+	if init.cfg.NormalizedMode() == config.ModeOnline {
+		senderOpts := sender.Options{
+			API:          init.api,
 			Username:     init.workspace,
 			Project:      init.project,
+			ProjectID:    init.projectID,
 			ExperimentID: init.experimentID,
-			State:        s.stopState(),
+			Files: sender.FileOptions{
+				MediaDir:  init.run.MediaDir(),
+				FilesDir:  init.run.FilesDir(),
+				SkipStore: init.cfg.SkipStore,
+				SaveSize:  init.cfg.SaveSize,
+				SaveSplit: init.cfg.SaveSplit,
+				SavePart:  init.cfg.SavePart,
+				SaveBatch: int(init.cfg.SaveBatch),
+				Tracker:   s.tracker,
+				Putter:    init.http,
+			},
+		}
+		mediaSender, err := sender.NewMedia(senderOpts)
+		if err != nil {
+			return fmt.Errorf("create media sender: %w", err)
+		}
+		saveSender, err := sender.NewSave(senderOpts)
+		if err != nil {
+			return fmt.Errorf("create save sender: %w", err)
+		}
+
+		up, err := uploader.New(uploader.Options{
+			In:     intake.UploadOut(),
+			Budget: b,
+			Senders: map[record.Type]uploader.Sender{
+				record.TypeColumn: sender.NewColumn(senderOpts),
+				record.TypeScalar: sender.NewScalar(senderOpts),
+				record.TypeLog:    sender.NewLog(senderOpts),
+				record.TypeMedia:  mediaSender,
+				record.TypeSave:   saveSender,
+			},
+			Batch:    int(init.cfg.RecordBatch),
+			Interval: time.Duration(init.cfg.RecordInterval * float64(time.Second)),
+			Tracker:  s.tracker,
+			Context:  s.ctx,
+			OnDrained: func() {
+				s.markDrained()
+			},
 		})
+		if err != nil {
+			return fmt.Errorf("create uploader: %w", err)
+		}
+		s.uploader = up
+		s.drainFn = up.Wait
+		s.releaseFn = func(ctx context.Context) error {
+			return init.api.StopExperiment(ctx, api.StopExperimentParams{
+				Username:     init.workspace,
+				Project:      init.project,
+				ExperimentID: init.experimentID,
+				State:        s.stopState(),
+			})
+		}
+	} else {
+		// local/offline 没有上传阶段；收尾只需关闭本地 store 与 intake。
+		s.drainFn = func(context.Context) error {
+			s.markDrained()
+			return nil
+		}
 	}
 
 	if init.cfg.SkipStore {
@@ -148,11 +158,13 @@ func (s *Session) open(init sessionInit) error {
 	}
 
 	s.tracker.SetState(operationv1.CoreState_CORE_STATE_RUNNING)
-	s.heartbeat = newHeartbeat(init.experimentID, init.api.SendHeartbeat)
-	s.heartbeat.start(s.ctx)
-	if s.store != nil {
-		// skip_store 不会有本地写失败，无需补传协程。
-		s.startRecovery()
+	if init.cfg.NormalizedMode() == config.ModeOnline {
+		s.heartbeat = newHeartbeat(init.experimentID, init.api.SendHeartbeat)
+		s.heartbeat.start(s.ctx)
+		if s.store != nil {
+			// skip_store 不会有本地写失败，无需补传协程。
+			s.startRecovery()
+		}
 	}
 	return nil
 }

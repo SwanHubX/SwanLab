@@ -250,17 +250,30 @@ def init(
         generate_ctx = utils.with_loading_animation()(_init)
     ctx, path = generate_ctx(run_settings, callbacks)
     # 初始化run
-    run = Run(ctx, path)
-    # 发送webhook回调，在除了disabled模式外，都会触发
-    success = send_webhook(ctx)
-    if not success:
-        webhook_url = ctx.config.settings.integration.webhook.url
-        console.warning(f"Failed to send webhook, maybe due to network issues or invalid webhook URL: {webhook_url}.")
-    # 加载配置并合并到 run.config
-    config_data = load_config(run_settings, config)
-    if config_data:
-        run.config.update(config_data)
-    return run
+    try:
+        run = Run(ctx, path)
+    except BaseException as exc:
+        # Run.__init__ 内部已回滚自身副作用；这里兜底回收构造早期失败时已启动的 Core
+        with safe.block(message="core abort failed during init"):
+            ctx.core.abort(exc)
+        raise
+    try:
+        # 发送webhook回调，在除了disabled模式外，都会触发
+        success = send_webhook(ctx)
+        if not success:
+            webhook_url = ctx.config.settings.integration.webhook.url
+            console.warning(
+                f"Failed to send webhook, maybe due to network issues or invalid webhook URL: {webhook_url}."
+            )
+        # 加载配置并合并到 run.config
+        config_data = load_config(run_settings, config)
+        if config_data:
+            run.config.update(config_data)
+        return run
+    except BaseException as exc:
+        # Run 构造完成后的失败：回滚已启动的 Core、组件与全局 hook
+        run._abort_init(exc)
+        raise
 
 
 def load_config(run_settings: Settings, config: Optional[ConfigLike]) -> Dict[str, Any]:
@@ -616,51 +629,61 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
             resume=adapter.resume[run_settings.run.resume],
             started_at=ts,
         )
-        resp = ctx.core.deliver_run_start(
-            DeliverRunStartRequest(
-                start_record=start_record,
-                core_settings=ctx.config.settings.to_core_proto(run_id=run_id, run_dir=run_dir),
+        try:
+            resp = ctx.core.deliver_run_start(
+                DeliverRunStartRequest(
+                    start_record=start_record,
+                    core_settings=ctx.config.settings.to_core_proto(run_id=run_id, run_dir=run_dir),
+                )
             )
-        )
-        if not resp.success:
-            raise RuntimeError(resp.message)
-        path = resp.path or path
-        if mode == "online":
-            assert path, "Initialization path failed when mode=online"
-        ctx.next_step(user_step=resp.global_step)
-        ctx.global_system_step = resp.global_system_step
-        # 暂时不允许resume时、旧实验进行硬件信息采集、终端代理
-        resume_limit_kwargs = {}
-        if not resp.new_experiment:
-            resume_limit_kwargs["probe.hardware"] = False
-            resume_limit_kwargs["probe.requirements"] = False
-            resume_limit_kwargs["probe.conda"] = False
-            resume_limit_kwargs["probe.git"] = False
-            resume_limit_kwargs["probe.swanlab"] = False
-            resume_limit_kwargs["probe.monitor"] = False
-            resume_limit_kwargs["console.proxy_type"] = "none"
-            console.info(
-                "Hardware information collection, monitor, and terminal proxy have been disabled in resume mode."
+            if not resp.success:
+                raise RuntimeError(resp.message)
+            path = resp.path or path
+            if mode == "online":
+                assert path, "Initialization path failed when mode=online"
+            ctx.next_step(user_step=resp.global_step)
+            ctx.global_system_step = resp.global_system_step
+            # 暂时不允许resume时、旧实验进行硬件信息采集、终端代理
+            resume_limit_kwargs = {}
+            if not resp.new_experiment:
+                resume_limit_kwargs["probe.hardware"] = False
+                resume_limit_kwargs["probe.requirements"] = False
+                resume_limit_kwargs["probe.conda"] = False
+                resume_limit_kwargs["probe.git"] = False
+                resume_limit_kwargs["probe.swanlab"] = False
+                resume_limit_kwargs["probe.monitor"] = False
+                resume_limit_kwargs["console.proxy_type"] = "none"
+                console.info(
+                    "Hardware information collection, monitor, and terminal proxy have been disabled in resume mode."
+                )
+            # 3.4. 从 core 响应同步配置（online 模式会覆盖为服务端分配的值）
+            sync_args = {}
+            merge_dict = helper.strip_none(
+                {
+                    "project.workspace": resp.run.workspace,
+                    "project.name": resp.run.project,
+                    "experiment.name": resp.name,
+                    "experiment.color": resp.run.color,
+                    **resume_limit_kwargs,
+                },
+                strip_empty_str=True,
             )
-        # 3.4. 从 core 响应同步配置（online 模式会覆盖为服务端分配的值）
-        sync_args = {}
-        merge_dict = helper.strip_none(
-            {
-                "project.workspace": resp.run.workspace,
-                "project.name": resp.run.project,
-                "experiment.name": resp.name,
-                "experiment.color": resp.run.color,
-                **resume_limit_kwargs,
-            },
-            strip_empty_str=True,
-        )
-        for key, value in merge_dict.items():
-            set_nested_value(sync_args, key, value)
-        run_settings.merge_settings(sync_args)
+            for key, value in merge_dict.items():
+                set_nested_value(sync_args, key, value)
+            run_settings.merge_settings(sync_args)
+        except BaseException as exc:
+            with safe.block(message="core abort failed during init"):
+                ctx.core.abort(exc)
+            raise
     # 4. 创建数据目录
-    if should_mkdirs:
-        fs.safe_mkdirs(ctx.media_dir, ctx.files_dir, ctx.debug_dir)
-    return ctx, path
+    try:
+        if should_mkdirs:
+            fs.safe_mkdirs(ctx.media_dir, ctx.files_dir, ctx.debug_dir)
+        return ctx, path
+    except BaseException as exc:
+        with safe.block(message="core abort failed during init"):
+            ctx.core.abort(exc)
+        raise
 
 
 def _ensure_online_client(run_settings: Settings):

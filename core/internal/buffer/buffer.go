@@ -48,6 +48,8 @@ var (
 	ErrBatchTooLarge = errors.New("buffer: batch exceeds queue capacity")
 	// ErrOverReserved 表示本次提交超出 Reserve 预留的配额，属于调用方错误。
 	ErrOverReserved = errors.New("buffer: commit exceeds reservation")
+	// ErrStoreDegraded 表示 StoreOnly 会话无法落盘，重试不会成功。
+	ErrStoreDegraded = errors.New("buffer: local store is degraded")
 	// errQueueWait 标记本地通道等待超时；与调用方 ctx 取消区分开。
 	errQueueWait = errors.New("buffer: local queue wait exceeded")
 )
@@ -56,6 +58,8 @@ var (
 type Options struct {
 	// SkipStore 是启动期配置，创建后只读；为 true 时不写本地，Store 必须为 nil。
 	SkipStore bool
+	// StoreOnly 为 true 时所有记录只写本地，不进入上传通道（local/offline）。
+	StoreOnly bool
 	// Store 是 AsyncWriter 的写入入口，容量应不小于单批最大记录数。
 	Store chan<- store.Request
 	// UploadQueue 是上传通道容量，应不小于单批最大记录数；<=0 取 DefaultUploadQueue。
@@ -105,6 +109,7 @@ type Ticket struct {
 // Intake 是单个会话的入口分发器，并发安全。
 type Intake struct {
 	skipStore bool
+	storeOnly bool
 	storeOut  chan<- store.Request
 	upload    chan *recordv1.Record
 	budget    *budget.Budget
@@ -136,6 +141,9 @@ func New(opts Options) (*Intake, error) {
 	if !opts.SkipStore && opts.Store == nil {
 		return nil, errors.New("buffer: nil store channel")
 	}
+	if opts.SkipStore && opts.StoreOnly {
+		return nil, errors.New("buffer: store_only requires the local store")
+	}
 	if !opts.SkipStore && opts.Flushed == nil {
 		return nil, errors.New("buffer: nil flushed callback")
 	}
@@ -156,6 +164,7 @@ func New(opts Options) (*Intake, error) {
 	upload := make(chan *recordv1.Record, queue)
 	t := &Intake{
 		skipStore: opts.SkipStore,
+		storeOnly: opts.StoreOnly,
 		storeOut:  opts.Store,
 		upload:    upload,
 		budget:    opts.Budget,
@@ -186,11 +195,18 @@ func (t *Intake) Reserve(ctx context.Context, d Demand) (Ticket, error) {
 		return Ticket{}, fmt.Errorf("buffer: invalid demand store=%d upload=%d deferred=%d bytes=%d deferredBytes=%d",
 			d.Store, d.Upload, d.Deferred, d.Bytes, d.DeferredBytes)
 	}
+	if t.storeOnly {
+		d.Upload, d.Deferred, d.Bytes, d.DeferredBytes = 0, 0, 0, 0
+	}
 
 	t.mu.Lock()
 	if t.closed {
 		t.mu.Unlock()
 		return Ticket{}, ErrClosed
+	}
+	if t.storeOnly && t.degraded.Load() {
+		t.mu.Unlock()
+		return Ticket{}, fmt.Errorf("%w: no local copy in store-only mode", ErrStoreDegraded)
 	}
 	paused := t.pauseSeq != 0
 	if t.degraded.Load() {
@@ -320,10 +336,23 @@ func (t *Intake) Commit(tk Ticket, records []*recordv1.Record) error {
 			return errors.New("buffer: nil record")
 		}
 	}
+	// StoreOnly 没有上传兜底：本地已降级时直接失败，不能把记录转入回收队列后假装成功。
+	if t.storeOnly && t.degraded.Load() {
+		t.Release(tk)
+		return fmt.Errorf("%w: no local copy in store-only mode", ErrStoreDegraded)
+	}
 
-	immediate, deferred := routeRecords(records)
+	var immediate, deferred []int
+	if !t.storeOnly {
+		immediate, deferred = routeRecords(records)
+	}
 	uploadable := len(immediate) + len(deferred)
 	payloads, wantStore := t.encodeStore(records)
+	if t.storeOnly && (!wantStore || t.degraded.Load()) {
+		// 序列化失败同样会置降级；在发送到本地通道之前拦截。
+		t.Release(tk)
+		return fmt.Errorf("%w: local store became unavailable", ErrStoreDegraded)
+	}
 
 	t.mu.Lock()
 	if t.closed {
@@ -377,7 +406,7 @@ func (t *Intake) Commit(tk Ticket, records []*recordv1.Record) error {
 	switch {
 	case paused && storeOK:
 		pausedNow = t.pauseLocked(records, immediate, deferred, tk, seqOf)
-	case !storeOK && !t.skipStore:
+	case !storeOK && !t.skipStore && !t.storeOnly:
 		// 本批没有可靠本地副本：并入回收队列按序补传，不能越过更早的记录。
 		t.recoveryUploadLocked(records, immediate, deferred, tk)
 	default:
@@ -542,25 +571,27 @@ func (t *Intake) Close(ctx context.Context) error {
 	t.recovery = nil
 	t.mu.Unlock()
 
-	for i := range recovery {
-		size := record.Size(recovery[i])
-		t.budget.Adjust(1, size)
-		select {
-		case t.upload <- recovery[i]:
-		case <-ctx.Done():
-			t.budget.Adjust(-1, -size)
-			t.restoreRecovery(recovery[i:])
-			// 延迟记录尚未开始投递，必须随本次失败一起放回。
-			t.restorePending(pending)
-			return ctx.Err()
+	if !t.storeOnly {
+		for i := range recovery {
+			size := record.Size(recovery[i])
+			t.budget.Adjust(1, size)
+			select {
+			case t.upload <- recovery[i]:
+			case <-ctx.Done():
+				t.budget.Adjust(-1, -size)
+				t.restoreRecovery(recovery[i:])
+				// 延迟记录尚未开始投递，必须随本次失败一起放回。
+				t.restorePending(pending)
+				return ctx.Err()
+			}
 		}
-	}
-	for i := range pending {
-		select {
-		case t.upload <- pending[i]:
-		case <-ctx.Done():
-			t.restorePending(pending[i:])
-			return ctx.Err()
+		for i := range pending {
+			select {
+			case t.upload <- pending[i]:
+			case <-ctx.Done():
+				t.restorePending(pending[i:])
+				return ctx.Err()
+			}
 		}
 	}
 
