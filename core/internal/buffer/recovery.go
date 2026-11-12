@@ -66,8 +66,9 @@ func (t *Intake) drainRecoveryLocked() bool {
 }
 
 // pauseLocked 记录暂停起点、保留未确认记录、暂存 END 保存并归还本批上传槽位。
-// 延迟记录从 Reserve 起就占用配额，这里不释放；若 Resume 之后仍有旧票据提交，
-// 这里会开启新的回填区间。返回是否新发布了暂停状态。需持有 mu。
+// 本批没有记录进入上传通道，立即记录的配额全部归还；延迟记录不占预算。
+// 若 Resume 之后仍有旧票据提交，这里会开启新的回填区间。
+// 返回是否新发布了暂停状态。需持有 mu。
 func (t *Intake) pauseLocked(records []*recordv1.Record, immediate, deferred []int, tk Ticket, seqOf []uint64) bool {
 	published := false
 	if t.pauseSeq == 0 && len(immediate) > 0 {
@@ -82,8 +83,8 @@ func (t *Intake) pauseLocked(records []*recordv1.Record, immediate, deferred []i
 		t.pending = append(t.pending, records[i])
 	}
 	if tk.upload > 0 {
-		// 只归还立即记录的配额；延迟记录继续持有到 Close。
-		t.budget.Adjust(int64(len(deferred))-int64(tk.upload), deferredBytes(records, deferred)-tk.bytes)
+		// 本批没有记录进入上传通道，立即记录的配额全部归还。
+		t.budget.Adjust(-int64(tk.upload), -tk.bytes)
 	}
 	t.releaseUploadLocked(tk.slots)
 	return published
@@ -94,8 +95,8 @@ func (t *Intake) pauseLocked(records []*recordv1.Record, immediate, deferred []i
 // 由后续 DrainRecovery 或 Close 继续。需持有 mu。
 func (t *Intake) recoveryUploadLocked(records []*recordv1.Record, immediate, deferred []int, tk Ticket) {
 	if tk.upload > 0 {
-		// 延迟记录继续持有配额；立即记录随回收队列在发送时补扣。
-		t.budget.Adjust(int64(len(deferred))-int64(tk.upload), deferredBytes(records, deferred)-tk.bytes)
+		// 立即记录随回收队列在发送时补扣；延迟记录不占预算。
+		t.budget.Adjust(-int64(tk.upload), -tk.bytes)
 	}
 	for _, i := range immediate {
 		t.recovery = append(t.recovery, records[i])
@@ -105,15 +106,6 @@ func (t *Intake) recoveryUploadLocked(records []*recordv1.Record, immediate, def
 	}
 	t.releaseUploadLocked(tk.slots)
 	t.drainRecoveryLocked()
-}
-
-// deferredBytes 统计延迟记录的序列化字节数。
-func deferredBytes(records []*recordv1.Record, deferred []int) int64 {
-	var total int64
-	for _, i := range deferred {
-		total += record.Size(records[i])
-	}
-	return total
 }
 
 // sendRecoveryLocked 为一条回收记录占用槽位、补扣配额并投入上传；需持有 mu。

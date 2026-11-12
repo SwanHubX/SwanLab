@@ -111,6 +111,8 @@ func (s *Session) backfillLoop() {
 		case errors.Is(err, errBackfillPending):
 			retry = backfillPoll
 		case errors.Is(err, errBackfillCorrupt):
+			// 确定性失败：停止重试并告警，避免只表现为长期暂停。
+			console.Warningf("backfill: stopped after %v", err)
 			retry, fails = 0, 0
 		default:
 			fails++

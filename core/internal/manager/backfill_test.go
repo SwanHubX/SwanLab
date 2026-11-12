@@ -205,7 +205,8 @@ func TestBackfillUploadsPausedRangeInOrder(t *testing.T) {
 }
 
 func TestBackfillSkipsEndSaveUntilClose(t *testing.T) {
-	h := newFinishHarness(t, finishOptions{budgetRecords: 3, blockUpload: true})
+	// 预算 2 条：END 与触发暂停的标量同批提交，延迟记录停在暂停区间。
+	h := newFinishHarness(t, finishOptions{budgetRecords: 2, blockUpload: true})
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -286,6 +287,55 @@ func TestFinishCompletesPausedBackfill(t *testing.T) {
 	}
 }
 
+// TestFinishUploadsEndSaveAfterPausedBackfill 唯一记录预算被在途标量占满时，END 保存
+// 与暂停记录共存：finish 前不上传，finish 后恰好一次。
+func TestFinishUploadsEndSaveAfterPausedBackfill(t *testing.T) {
+	h := newFinishHarness(t, finishOptions{budgetRecords: 1, blockUpload: true})
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	commitBackfill(t, h.session, backfillScalar(1))  // 占满唯一记录预算
+	commitBackfill(t, h.session, backfillEndSave(2)) // 延迟到 Close
+	commitBackfill(t, h.session, backfillScalar(3))  // 预算已满 → 暂停
+	if paused, seq := h.session.intake.PauseState(); !paused || seq != 3 {
+		t.Fatalf("PauseState = (%v, %d), want (true, 3)", paused, seq)
+	}
+	for _, rec := range h.uploads.snapshot() {
+		if record.TypeOf(rec) == record.TypeSave {
+			t.Fatal("END save must not be uploaded before finish")
+		}
+	}
+
+	close(h.gate)
+	if err := h.session.finish(ctx, finishRecord(runv1.RunState_RUN_STATE_FINISHED, "")); err != nil {
+		t.Fatalf("finish: %v", err)
+	}
+	waitDrained(t, h.session)
+
+	uploads := h.uploads.snapshot()
+	var scalars, saves int
+	for _, rec := range uploads {
+		switch record.TypeOf(rec) {
+		case record.TypeScalar:
+			scalars++
+		case record.TypeSave:
+			saves++
+		}
+	}
+	if scalars != 2 || saves != 1 {
+		t.Fatalf("uploaded scalars=%d saves=%d, want 2/1", scalars, saves)
+	}
+	if record.TypeOf(uploads[len(uploads)-1]) != record.TypeSave {
+		t.Fatalf("upload order = %v, want the END save last", backfillNums(uploads))
+	}
+	if paused, seq := h.session.intake.PauseState(); paused || seq != 0 {
+		t.Fatalf("PauseState after finish = (%v, %d), want resumed", paused, seq)
+	}
+	if _, err := h.mgr.Confirm(ctx, h.id); err != nil {
+		t.Fatalf("Confirm after finish: %v", err)
+	}
+}
+
 func TestCompleteBackfillRejectsDegradedStore(t *testing.T) {
 	h := newFinishHarness(t, finishOptions{budgetRecords: 1})
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -323,6 +373,8 @@ func TestBackfillSupervisorResumesAfterPause(t *testing.T) {
 	commitBackfill(t, h.session, backfillScalar(2))
 	commitBackfill(t, h.session, backfillScalar(3))
 	commitBackfill(t, h.session, backfillScalar(4))
+	// 暂停期间的 END 保存不占预算，后台补投仍能推进。
+	commitBackfill(t, h.session, backfillEndSave(5))
 	close(h.gate)
 	h.session.wakeBackfill()
 
@@ -345,7 +397,7 @@ func TestBackfillSupervisorResumesAfterPause(t *testing.T) {
 	if err := h.session.uploader.Wait(ctx); err != nil {
 		t.Fatalf("uploader.Wait: %v", err)
 	}
-	if got := len(h.uploads.snapshot()); got != 4 {
-		t.Fatalf("uploaded %d records, want 4", got)
+	if got := len(h.uploads.snapshot()); got != 5 {
+		t.Fatalf("uploaded %d records, want 5 (4 scalars + END save)", got)
 	}
 }

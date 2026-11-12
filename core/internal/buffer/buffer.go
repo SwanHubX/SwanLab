@@ -35,6 +35,9 @@ const (
 	DefaultQueueWait = 2 * time.Second
 	// DefaultUploadQueue 是上传通道的默认容量，与单批上限对齐。
 	DefaultUploadQueue = 10_000
+	// DefaultPendingDeferred 是 Close 前暂存的 SAVE_POLICY_END 记录上限。
+	// 延迟记录不占上传预算，靠这个条数上限保持 pending 有界。
+	DefaultPendingDeferred = 1024
 	// defaultStorePollInterval 是等待本地或上传通道腾出空间时的轮询间隔。
 	defaultStorePollInterval = 10 * time.Millisecond
 )
@@ -70,6 +73,8 @@ type Options struct {
 	Store chan<- store.Request
 	// UploadQueue 是上传通道容量，应不小于单批最大记录数；<=0 取 DefaultUploadQueue。
 	UploadQueue int
+	// PendingDeferred 是 Close 前暂存的 SAVE_POLICY_END 记录上限；<=0 取 DefaultPendingDeferred。
+	PendingDeferred int
 	// Budget 是会话级上传预算。
 	Budget *budget.Budget
 	// Degraded 是运行期 storeDegraded 标志：写/Flush/序列化失败置位，
@@ -96,23 +101,22 @@ type Demand struct {
 	Store int
 	// Upload 是需要立即进入上传通道的记录数（不含 Deferred）。
 	Upload int
-	// Deferred 是 SAVE_POLICY_END 记录数：先落本地，Close 时上传；
-	// 其配额从 Reserve 起一直占用到上传终结。
+	// Deferred 是 SAVE_POLICY_END 记录数：先落本地，Close 时上传。
+	// 只占 pending 条数上限（Options.PendingDeferred），不占上传预算；
+	// Close 投递时才补扣，可能短暂超额。
 	Deferred int
 	// Bytes 是 Upload 记录的序列化字节数估算。
 	Bytes int64
-	// DeferredBytes 是 Deferred 记录的序列化字节数估算；暂停时只按它申请配额。
-	// Commit 会按实际大小修正补扣，可能短暂超出上限。
-	DeferredBytes int64
 }
 
 // Ticket 是 Reserve 返回的预留凭证，由 Commit 消费或 Release 归还。
 type Ticket struct {
-	store  int
-	upload int // 已占用的上传预算条数，含延迟记录
-	slots  int // 已预留的上传通道槽位，仅覆盖立即投递的记录
-	bytes  int64
-	paused bool
+	store   int
+	upload  int // 已占用的上传预算条数，仅覆盖立即投递的记录
+	slots   int // 已预留的上传通道槽位，仅覆盖立即投递的记录
+	pending int // 已占用的延迟记录暂存名额
+	bytes   int64
+	paused  bool
 }
 
 // Intake 是单个会话的入口分发器，并发安全。
@@ -130,17 +134,19 @@ type Intake struct {
 	poll      time.Duration
 	uploadCap int
 
-	mu            sync.Mutex
-	closeMu       sync.Mutex
-	closeOnce     sync.Once
-	nextSeq       uint64
-	pendingStore  int
-	pendingUpload int
-	pending       []*recordv1.Record
-	unconfirmed   []unconfirmedRec
-	recovery      []*recordv1.Record
-	pauseSeq      uint64 // 0 表示未暂停；非零为首个未投递记录的 storeSeq
-	closed        bool
+	mu              sync.Mutex
+	closeMu         sync.Mutex
+	closeOnce       sync.Once
+	nextSeq         uint64
+	pendingStore    int
+	pendingUpload   int
+	pendingDeferred int // 已预留、尚未落入 pending 的延迟记录条数
+	pendingCap      int
+	pending         []*recordv1.Record
+	unconfirmed     []unconfirmedRec
+	recovery        []*recordv1.Record
+	pauseSeq        uint64 // 0 表示未暂停；非零为首个未投递记录的 storeSeq
+	closed          bool
 }
 
 // New 校验参数并创建 intake。
@@ -172,19 +178,24 @@ func New(opts Options) (*Intake, error) {
 		queue = DefaultUploadQueue
 	}
 	upload := make(chan *recordv1.Record, queue)
+	pendingCap := opts.PendingDeferred
+	if pendingCap <= 0 {
+		pendingCap = DefaultPendingDeferred
+	}
 	t := &Intake{
-		skipStore: opts.SkipStore,
-		storeOnly: opts.StoreOnly,
-		storeOut:  opts.Store,
-		upload:    upload,
-		budget:    opts.Budget,
-		degraded:  degraded,
-		flushed:   opts.Flushed,
-		onAdmit:   opts.OnAdmit,
-		onPause:   opts.OnPause,
-		wait:      opts.QueueWait,
-		poll:      opts.StorePollInterval,
-		uploadCap: cap(upload),
+		skipStore:  opts.SkipStore,
+		storeOnly:  opts.StoreOnly,
+		storeOut:   opts.Store,
+		upload:     upload,
+		budget:     opts.Budget,
+		degraded:   degraded,
+		flushed:    opts.Flushed,
+		onAdmit:    opts.OnAdmit,
+		onPause:    opts.OnPause,
+		wait:       opts.QueueWait,
+		poll:       opts.StorePollInterval,
+		uploadCap:  cap(upload),
+		pendingCap: pendingCap,
 	}
 	return t, nil
 }
@@ -192,22 +203,22 @@ func New(opts Options) (*Intake, error) {
 // UploadOut 返回上传通道；intake 在 Close 时封闭它，消费方读尽缓冲区后退出。
 func (t *Intake) UploadOut() <-chan *recordv1.Record { return t.upload }
 
-// Reserve 预留本地通道、上传预算与上传槽位，不修改记录状态。
+// Reserve 预留本地通道、上传预算、上传槽位与延迟记录暂存名额，不修改记录状态。
 //
 // 预留失败不产生任何副作用。本地通道满时在 QueueWait 内有界等待，仍失败
 // 返回 ErrOverloaded，由调用方保留数据后重试。
 //
-// 本地副本完整但上传预算不足时，立即记录转为暂停投递、只落本地；延迟记录
-// 必须从接收到 Close 一直持有配额，占不到时立即返回 ErrOverloaded，避免
-// 暂停期间暂存无界增长。没有完整本地副本时禁止暂停投递，所有记录有界
-// 阻塞等待上传预算，失败返回 ErrOverloaded。
+// 本地副本完整但预算不足时，立即记录转为暂停投递、只落本地。延迟记录
+// （SAVE_POLICY_END）不占预算，只占 pending 条数名额，Close 投递时才补扣：
+// 否则积压的 END 会占死补投所需的配额。没有完整本地副本时禁止暂停投递，
+// 立即记录有界阻塞等待预算，失败返回 ErrOverloaded。
 func (t *Intake) Reserve(ctx context.Context, d Demand) (Ticket, error) {
-	if d.Store < 0 || d.Upload < 0 || d.Deferred < 0 || d.Bytes < 0 || d.DeferredBytes < 0 {
-		return Ticket{}, fmt.Errorf("buffer: invalid demand store=%d upload=%d deferred=%d bytes=%d deferredBytes=%d",
-			d.Store, d.Upload, d.Deferred, d.Bytes, d.DeferredBytes)
+	if d.Store < 0 || d.Upload < 0 || d.Deferred < 0 || d.Bytes < 0 {
+		return Ticket{}, fmt.Errorf("buffer: invalid demand store=%d upload=%d deferred=%d bytes=%d",
+			d.Store, d.Upload, d.Deferred, d.Bytes)
 	}
 	if t.storeOnly {
-		d.Upload, d.Deferred, d.Bytes, d.DeferredBytes = 0, 0, 0, 0
+		d.Upload, d.Deferred, d.Bytes = 0, 0, 0
 	}
 
 	t.mu.Lock()
@@ -234,7 +245,18 @@ func (t *Intake) Reserve(ctx context.Context, d Demand) (Ticket, error) {
 	if d.Upload == 0 && d.Deferred == 0 {
 		return tk, nil
 	}
-	return t.reserveUploadSide(ctx, d, local, paused, tk)
+	if !t.reserveDeferred(d.Deferred) {
+		// 暂存的 END 保存有条数上限：占满时反压调用方。
+		t.releaseStore(tk.store)
+		return Ticket{}, overload(nil)
+	}
+	tk.pending = d.Deferred
+	res, err := t.reserveUploadSide(ctx, d, local, paused, tk)
+	if err != nil {
+		t.releaseDeferred(tk.pending)
+		return Ticket{}, err
+	}
+	return res, nil
 }
 
 // reserveStoreSide 预留本地通道；降级或 skip_store 时归还本地预留。
@@ -263,15 +285,14 @@ func (t *Intake) reserveStoreSide(ctx context.Context, d Demand, local bool) (Ti
 	return tk, nil
 }
 
-// reserveUploadSide 预留上传预算与通道槽位；本地副本完整且预算满时转为暂停投递。
+// reserveUploadSide 预留立即记录的上传预算与通道槽位；预算满且本地副本完整时
+// 转为暂停投递。
 func (t *Intake) reserveUploadSide(ctx context.Context, d Demand, local, paused bool, tk Ticket) (Ticket, error) {
-	total := d.Upload + d.Deferred
-	totalBytes := d.Bytes + d.DeferredBytes
 	switch {
 	case !local:
-		// 无完整本地副本：立即与延迟记录都必须占用配额，禁止暂停投递。
+		// 无完整本地副本：立即记录必须占用配额，禁止暂停投递。
 		actx, cancel := context.WithTimeoutCause(ctx, t.wait, errQueueWait)
-		err := t.budget.Acquire(actx, int64(total), totalBytes)
+		err := t.budget.Acquire(actx, int64(d.Upload), d.Bytes)
 		cause := context.Cause(actx)
 		cancel()
 		if err != nil {
@@ -281,26 +302,18 @@ func (t *Intake) reserveUploadSide(ctx context.Context, d Demand, local, paused 
 			}
 			return Ticket{}, err
 		}
-		tk.upload, tk.bytes = total, totalBytes
+		tk.upload, tk.bytes = d.Upload, d.Bytes
 	case paused:
-		// 已在暂停：立即记录依赖本地副本，延迟记录必须全程持有配额。
-		if !t.holdDeferred(d, &tk) {
-			t.releaseStore(tk.store)
-			return Ticket{}, overload(nil)
-		}
+		// 已在暂停：立即记录只落本地。
 		tk.paused = true
 		return tk, nil
-	case !t.budget.TryAcquire(int64(total), totalBytes):
+	case !t.budget.TryAcquire(int64(d.Upload), d.Bytes):
 		// 预算已满：只标记票据暂停，由 Commit 在真正提交时发布全局暂停状态。
 		// 票据被放弃或提交失败时不能遗留暂停，否则后续批次会绕过预算获取。
-		if !t.holdDeferred(d, &tk) {
-			t.releaseStore(tk.store)
-			return Ticket{}, overload(nil)
-		}
 		tk.paused = true
 		return tk, nil
 	default:
-		tk.upload, tk.bytes = total, totalBytes
+		tk.upload, tk.bytes = d.Upload, d.Bytes
 	}
 
 	// 上传通道槽位只覆盖立即投递的记录，延迟记录在 Close 时才入队。
@@ -315,20 +328,6 @@ func (t *Intake) reserveUploadSide(ctx context.Context, d Demand, local, paused 
 	}
 	tk.slots = d.Upload
 	return tk, nil
-}
-
-// holdDeferred 为延迟记录占用上传配额。预算不足时由调用方反压，
-// 不能先暂存到 Close 再补扣，否则 pending 会脱离预算无界增长。
-func (t *Intake) holdDeferred(d Demand, tk *Ticket) bool {
-	if d.Deferred == 0 {
-		return true
-	}
-	// 只按延迟记录自身的字节申请，避免大立即记录拖累小 END 保存。
-	if !t.budget.TryAcquire(int64(d.Deferred), d.DeferredBytes) {
-		return false
-	}
-	tk.upload, tk.bytes = d.Deferred, d.DeferredBytes
-	return true
 }
 
 // Commit 分配 storeSeq、写本地并分流到上传。票据在返回后即被消费，
@@ -376,20 +375,22 @@ func (t *Intake) Commit(tk Ticket, records []*recordv1.Record) error {
 		t.Release(tk)
 		return fmt.Errorf("%w: store %d > reserved %d", ErrOverReserved, len(records), tk.store)
 	}
-	// 票据自身的暂停标记在 ResumeUpload 之后仍然生效。
-	paused := t.pauseSeq != 0 || tk.paused
-	if paused {
-		// 暂停批次只需为延迟记录持有配额，立即记录只落本地。
-		if len(deferred) > tk.upload {
-			t.mu.Unlock()
-			t.Release(tk)
-			return fmt.Errorf("%w: deferred %d > reserved %d", ErrOverReserved, len(deferred), tk.upload)
-		}
-	} else if uploadable > tk.upload {
+	// 延迟记录只占 pending 条数名额，且必须在 Reserve 预留。
+	if len(deferred) > tk.pending {
 		t.mu.Unlock()
 		t.Release(tk)
-		return fmt.Errorf("%w: upload %d > reserved %d", ErrOverReserved, uploadable, tk.upload)
-	} else if len(immediate) > tk.slots {
+		return fmt.Errorf("%w: deferred %d > reserved %d", ErrOverReserved, len(deferred), tk.pending)
+	}
+	// 票据自身的暂停标记在 ResumeUpload 之后仍然生效。
+	paused := t.pauseSeq != 0 || tk.paused
+	switch {
+	case paused:
+		// 暂停批次：立即记录只落本地，延迟记录照常暂存。
+	case len(immediate) > tk.upload:
+		t.mu.Unlock()
+		t.Release(tk)
+		return fmt.Errorf("%w: upload %d > reserved %d", ErrOverReserved, len(immediate), tk.upload)
+	case len(immediate) > tk.slots:
 		t.mu.Unlock()
 		t.Release(tk)
 		return fmt.Errorf("%w: immediate %d > slots %d", ErrOverReserved, len(immediate), tk.slots)
@@ -425,6 +426,8 @@ func (t *Intake) Commit(tk Ticket, records []*recordv1.Record) error {
 	default:
 		t.uploadLocked(records, immediate, deferred, tk)
 	}
+	// 预留的名额已转为 pending 长度，这里核销整张票据。
+	t.releaseDeferredLocked(tk.pending)
 	t.mu.Unlock()
 
 	t.notifyPause(pausedNow, pausedAt)
@@ -503,17 +506,14 @@ func (t *Intake) sendStoreLocked(records []*recordv1.Record, payloads [][]byte, 
 	}
 }
 
-// uploadLocked 按实际大小修正预算并投入上传通道；需持有 mu。
+// uploadLocked 修正立即记录的预算并投入上传通道，延迟记录暂存到 Close；需持有 mu。
 // 上传槽位已在 Reserve 预留，发送不会阻塞。
 func (t *Intake) uploadLocked(records []*recordv1.Record, immediate, deferred []int, tk Ticket) {
 	actual := int64(0)
 	for _, i := range immediate {
 		actual += record.Size(records[i])
 	}
-	for _, i := range deferred {
-		actual += record.Size(records[i])
-	}
-	t.budget.Adjust(int64(len(immediate)+len(deferred)-tk.upload), actual-tk.bytes)
+	t.budget.Adjust(int64(len(immediate)-tk.upload), actual-tk.bytes)
 	for _, i := range immediate {
 		t.upload <- records[i]
 	}
@@ -562,7 +562,7 @@ func (t *Intake) CommitUploadOnly(ctx context.Context, rec *recordv1.Record) err
 
 // Release 归还一张未被 Commit 消费的票据；可安全用于零值票据。
 func (t *Intake) Release(tk Ticket) {
-	if tk.store == 0 && tk.upload == 0 && tk.slots == 0 {
+	if tk.store == 0 && tk.upload == 0 && tk.slots == 0 && tk.pending == 0 {
 		return
 	}
 	t.mu.Lock()
@@ -572,6 +572,7 @@ func (t *Intake) Release(tk Ticket) {
 		t.budget.Release(int64(tk.upload), tk.bytes)
 	}
 	t.releaseUploadLocked(tk.slots)
+	t.releaseDeferredLocked(tk.pending)
 }
 
 // Close 先补投回收队列与暂存的 SAVE_POLICY_END 记录，再关闭上传通道；可重复调用。
@@ -608,9 +609,13 @@ func (t *Intake) Close(ctx context.Context) error {
 			}
 		}
 		for i := range pending {
+			// 延迟记录在 Reserve 时不占预算，投递前补扣（可短暂超额），由 uploader 归还。
+			size := record.Size(pending[i])
+			t.budget.Adjust(1, size)
 			select {
 			case t.upload <- pending[i]:
 			case <-ctx.Done():
+				t.budget.Adjust(-1, -size)
 				t.restorePending(pending[i:])
 				return ctx.Err()
 			}
@@ -692,6 +697,41 @@ func (t *Intake) releaseStoreLocked(n int) {
 		panic("buffer: released more local slots than reserved")
 	}
 	t.pendingStore -= n
+}
+
+// reserveDeferred 预留延迟记录暂存名额；条数上限保证 pending 有界，且不与补投争预算。
+func (t *Intake) reserveDeferred(n int) bool {
+	if n <= 0 {
+		return true
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if len(t.pending)+t.pendingDeferred+n > t.pendingCap {
+		return false
+	}
+	t.pendingDeferred += n
+	return true
+}
+
+// releaseDeferred 归还延迟记录暂存名额；调用方不得持有 mu。
+func (t *Intake) releaseDeferred(n int) {
+	if n <= 0 {
+		return
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.releaseDeferredLocked(n)
+}
+
+// releaseDeferredLocked 归还延迟记录暂存名额；调用方需持有 mu。
+func (t *Intake) releaseDeferredLocked(n int) {
+	if n <= 0 {
+		return
+	}
+	if n > t.pendingDeferred {
+		panic("buffer: released more pending slots than reserved")
+	}
+	t.pendingDeferred -= n
 }
 
 func (t *Intake) tryReserveUpload(n int) bool {
