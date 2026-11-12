@@ -48,6 +48,23 @@ def make_core_config(run_dir: Path, run_id: str = "sync-run-id") -> CoreConfig:
     )
 
 
+def test_video_continues_image_metric_without_rewriting_history(tmp_path: Path):
+    core = CoreSyncPython()
+    core._ctx = CoreContext(config=make_core_config(tmp_path), mode="sync")
+    core._metrics = RunMetrics()
+    original = ColumnRecord(column_key="clip", column_type=ColumnType.COLUMN_TYPE_IMAGE)
+    metric = core._metrics.define_media(key="clip", column=original, path=tmp_path / "media" / "image", min_step=4)
+    core._transport = MagicMock()
+    data = MediaRecord(key="clip", step=5, type=ColumnType.COLUMN_TYPE_VIDEO)
+    record = Record(num=7, media=data)
+    core._handle_metric(record, record.media, is_media=True)
+    core._transport.put.assert_called_once_with([record])
+    assert record.media.type == ColumnType.COLUMN_TYPE_VIDEO
+    assert original.column_type == ColumnType.COLUMN_TYPE_IMAGE
+    assert metric.min_step == 4
+    assert list(metric.steps) == [5]
+
+
 def make_core_settings(run_dir: Path, run_id: str = "sync-run-id") -> CoreSettings:
     config = make_core_config(run_dir, run_id)
     return CoreSettings(

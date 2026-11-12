@@ -60,7 +60,7 @@ from swanlab.sdk.typings.run.transforms.image import ImageDatasType, ImageFilesT
 from swanlab.sdk.typings.run.transforms.molecule import MoleculeDatasType
 from swanlab.sdk.typings.run.transforms.object3d import Object3DDatasType
 from swanlab.sdk.typings.run.transforms.text import TextDatasType
-from swanlab.sdk.typings.run.transforms.video import VideoDatasType
+from swanlab.sdk.typings.run.transforms.video import VideoDatasType, VideoFormat
 
 from . import fmt
 
@@ -552,6 +552,8 @@ class Run:
         data: VideoDatasType,
         caption: CaptionsType = None,
         step: Optional[int] = None,
+        fps: Optional[int] = None,
+        format: Optional[VideoFormat] = None,
     ):
         """
         A syntactic sugar for logging video data.
@@ -561,7 +563,13 @@ class Run:
         :param caption: Optional caption for the video data.
         :param step: Optional step for the video data.
         """
-        normalized_data = normalize_media_input(Video, data, caption=caption)
+        try:
+            normalized_data = normalize_media_input(Video, data, caption=caption, fps=fps, format=format)
+        except Exception as error:
+            console.warning(f"Video key '{key}' was skipped: {type(error).__name__}: {error}")
+            return
+        if not normalized_data:
+            return
         self.log({key: normalized_data}, step=step)
 
     @with_api("run.log_echarts()")

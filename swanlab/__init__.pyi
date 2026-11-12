@@ -50,7 +50,7 @@ from .sdk.typings.run.transforms.image import ImageDatasType, ImageFilesType, Im
 from .sdk.typings.run.transforms.molecule import MoleculeDatasType
 from .sdk.typings.run.transforms.object3d import Object3DDatasType
 from .sdk.typings.run.transforms.text import TextDatasType
-from .sdk.typings.run.transforms.video import VideoDatasType
+from .sdk.typings.run.transforms.video import VideoDatasType, VideoFormat
 
 __version__: str
 
@@ -508,15 +508,20 @@ def log_video(
     data: VideoDatasType,
     caption: CaptionsType = None,
     step: Optional[int] = None,
+    fps: Optional[int] = None,
+    format: Optional[VideoFormat] = None,
 ) -> None:
     """A syntactic sugar for logging video data.
 
-    Currently supported formats: GIF.
+    Supports GIF, MP4, WebM, and OGG files or encoded bytes, TCHW/BTCHW arrays,
+    and objects exposing numpy(). Arrays require format and default to 4 fps.
 
     :param key: The key for the video data.
     :param data: The video data itself or a Video object.
     :param caption: Optional caption for the video data.
     :param step: Optional step number. If not provided, auto-increments.
+    :param fps: Positive integer frame rate for arrays; ignored for existing videos.
+    :param format: Encoding format for arrays or container format for memory input.
     :raises RuntimeError: If called without an active run.
 
     Examples:

@@ -1,114 +1,210 @@
-"""
-@author: cunyue
-@file: __init__.py
-@time: 2026/3/15
-@description: 视频处理模块，暂时只支持 GIF
-"""
+"""视频输入、同步编码与媒体记录转换。"""
 
-import hashlib
+from __future__ import annotations
+
+import importlib.util
+import os
 from io import BytesIO
 from pathlib import Path
-from typing import Optional
+from typing import Optional, cast
 
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaItem
 from swanlab.sdk.internal.context import TransformMedia
+from swanlab.sdk.internal.pkg import console
 from swanlab.sdk.typings.run.transforms import CaptionType
-from swanlab.sdk.typings.run.transforms.video import VideoDataType
+from swanlab.sdk.typings.run.transforms.video import VideoErrorInfo, VideoFormat, VideoInput
 
-# 各格式的魔数校验表，新增格式时在此追加
-# format → (magic_bytes, ...)
-_FORMAT_MAGIC: dict[str, tuple[bytes, ...]] = {
-    "gif": (b"GIF87a", b"GIF89a"),
-}
-
-# 路径后缀 → 格式名
-_EXT_TO_FORMAT: dict[str, str] = {
-    ".gif": "gif",
-}
-
-
-def _detect_format_by_magic(data: bytes) -> Optional[str]:
-    """根据魔数推断格式，无法识别则返回 None"""
-    for fmt, magics in _FORMAT_MAGIC.items():
-        if any(data.startswith(m) for m in magics):
-            return fmt
-    return None
+from .encoding import encode, require_modules
+from .source import (
+    CHUNK_SIZE,
+    MAX_SIZE,
+    MIME_TYPES,
+    VideoProcessingError,
+    VideoSource,
+    check_size,
+    scratch_path,
+    snapshot,
+)
 
 
 class Video(TransformMedia):
-    def __init__(self, data_or_path: VideoDataType, caption: CaptionType = None):
-        """Video class constructor
+    """Log GIF/MP4/WebM/OGG files or encode TCHW/BTCHW arrays.
 
-        目前支持的格式：GIF。
+    ``caption`` remains the second positional argument. Arrays require an
+    explicit ``format`` and use 4 fps by default. File inputs keep their bytes
+    and audio unchanged. Processing errors warn and produce an invalid object;
+    logging skips that video while continuing with other metrics.
+    """
 
-        Parameters
-        ----------
-        data_or_path: str, bytes, BytesIO, or Video
-            Path to a supported video file, raw video bytes, a BytesIO containing
-            video data, or another Video instance (nesting).
-        caption: str, optional
-            Caption for the video.
-        """
+    def __init__(
+        self,
+        data_or_path: VideoInput,
+        caption: CaptionType = None,
+        fps: Optional[int] = None,
+        format: Optional[VideoFormat] = None,
+    ):
         super().__init__()
+        self._source: Optional[VideoSource] = None
+        self._error: Optional[VideoErrorInfo] = None
+        self.caption: Optional[str] = None
+        try:
+            if caption is not None and not isinstance(caption, str):
+                raise VideoProcessingError("argument", "Video caption must be a string or None")
+            self.caption = caption
+            self._prepare(data_or_path, fps, format)
+        except Exception as error:
+            self._invalidate(error)
 
-        # 套娃加载
-        attrs = self._unwrap(data_or_path)
-        if attrs:
-            self.buffer: BytesIO = attrs["buffer"]
-            self.format: str = attrs["format"]
-            self.caption: Optional[str] = caption if caption is not None else attrs.get("caption")
+    def _invalidate(self, error: Exception) -> None:
+        code = error.code if isinstance(error, VideoProcessingError) else "encoding"
+        if isinstance(error, OSError):
+            code = "file_read"
+        if isinstance(error, ImportError):
+            code = "dependency_missing"
+        self._error = VideoErrorInfo(code, str(error)[:1000])
+        console.warning(f"Invalid video ({code}): {self._error.message}")
+
+    def _prepare(self, data: object, fps: Optional[int], fmt: Optional[VideoFormat]) -> None:
+        if isinstance(data, Video):
+            self._source = data._source
+            self._error = data.error
+            if self.caption is None:
+                self.caption = data.caption
+            self._file_options(fps, fmt, data.format)
             return
-
-        # 1. 文件路径
-        if isinstance(data_or_path, str):
-            ext = Path(data_or_path).suffix.lower()
-            if ext not in _EXT_TO_FORMAT:
-                supported = ", ".join(_EXT_TO_FORMAT)
-                raise TypeError(f"Unsupported file extension '{ext}'. Supported: {supported}")
+        if isinstance(data, (str, os.PathLike)):
+            filename = os.fspath(data)
+            if not isinstance(filename, str):
+                raise VideoProcessingError("input_type", "Video paths must contain text")
+            path = Path(filename)
+            actual_format = path.suffix.lower().lstrip(".")
+            if actual_format not in MIME_TYPES:
+                raise VideoProcessingError("format_mismatch", "Video file extension must be gif, mp4, webm or ogg")
+            check_size(path.stat().st_size)
+            self._file_options(fps, fmt, actual_format)
+            with path.open("rb") as stream:
+                self._source = snapshot(stream, actual_format, scratch_path(actual_format))
+            return
+        if isinstance(data, (bytes, BytesIO)):
+            if isinstance(data, bytes):
+                check_size(len(data))
+            stream = BytesIO(data) if isinstance(data, bytes) else data
+            # 不移动调用方游标来探测头部；getbuffer 的切片不复制整个输入。
+            view = stream.getbuffer()
             try:
-                with open(data_or_path, "rb") as f:
-                    raw = f.read()
-            except OSError as e:
-                raise ValueError(f"Failed to open file: {data_or_path!r}") from e
-            fmt = _detect_format_by_magic(raw)
-            if fmt is None:
-                raise TypeError(f"File '{data_or_path}' does not match any known video format magic number.")
-            self.format = fmt
-
-        # 2. bytes 或 BytesIO
-        elif isinstance(data_or_path, (bytes, BytesIO)):
-            raw = data_or_path if isinstance(data_or_path, bytes) else data_or_path.read()
-            fmt = _detect_format_by_magic(raw)
-            if fmt is None:
-                supported = ", ".join(_FORMAT_MAGIC)
-                raise TypeError(f"Cannot detect video format from bytes. Supported formats: {supported}")
-            self.format = fmt
-
-        # 3. 其他类型
-        else:
-            supported = ", ".join(_EXT_TO_FORMAT)
-            raise TypeError(
-                f"Unsupported type: {type(data_or_path).__name__}. "
-                f"Please provide a file path ({supported}), bytes, or BytesIO."
+                is_gif = bytes(view[stream.tell() : stream.tell() + 6]) in (b"GIF87a", b"GIF89a")
+            finally:
+                view.release()
+            actual_format = fmt or ("gif" if is_gif else None)
+            if actual_format is None:
+                consumed = 0
+                while chunk := stream.read(min(CHUNK_SIZE, MAX_SIZE + 1 - consumed)):
+                    consumed += len(chunk)
+                    check_size(consumed)
+                raise VideoProcessingError("format_required", "Non-GIF video bytes require an explicit format")
+            if actual_format not in MIME_TYPES:
+                raise VideoProcessingError("argument", "Video format must be gif, mp4, webm or ogg")
+            self._file_options(fps, None, actual_format)
+            self._source = snapshot(stream, actual_format, scratch_path(actual_format))
+            return
+        if fmt not in MIME_TYPES:
+            raise VideoProcessingError(
+                "format_required", "Video arrays require an explicit gif, mp4, webm or ogg format"
             )
+        converter = getattr(data, "numpy", None)
+        if callable(converter):
+            try:
+                data = converter()
+            except Exception as error:
+                raise VideoProcessingError(
+                    "numpy_conversion", f"Video numpy() conversion failed: {type(error).__name__}"
+                ) from error
+        elif importlib.util.find_spec("numpy") is None:
+            raise VideoProcessingError("input_type", f"Unsupported video input: {type(data).__name__}")
+        require_modules("numpy")
+        import numpy as np
 
-        self.buffer = BytesIO(raw)
-        self.caption = caption
+        if not isinstance(data, np.ndarray):
+            raise VideoProcessingError("input_type", "Video requires a path, bytes, ndarray or numpy() object")
+        self._source = encode(data, fmt, fps, scratch_path(fmt))
+
+    @staticmethod
+    def _file_options(fps: Optional[int], fmt: Optional[str], actual: Optional[str]) -> None:
+        if fps is not None:
+            console.warning("Video fps is ignored for existing video content")
+        if fmt is not None and fmt != actual:
+            console.warning("Video format is determined by the existing file or nested video; format argument ignored")
+
+    @property
+    def is_valid(self) -> bool:
+        return self._source is not None and self._error is None
+
+    @property
+    def error(self) -> Optional[VideoErrorInfo]:
+        return self._error
+
+    @property
+    def format(self) -> Optional[VideoFormat]:
+        return cast(Optional[VideoFormat], self._source.format if self._source is not None else None)
+
+    @property
+    def buffer(self) -> BytesIO:
+        if not self.is_valid:
+            return BytesIO()
+        assert self._source is not None
+        try:
+            return self._source.buffer
+        except Exception as error:
+            self._invalidate(error)
+            return BytesIO()
+
+    @buffer.setter
+    def buffer(self, value: BytesIO) -> None:
+        try:
+            if not isinstance(value, BytesIO) or self._source is None:
+                raise VideoProcessingError("argument", "Video buffer must be a BytesIO for an existing video source")
+            source = VideoSource(self._source.format, buffer=value)
+            source.refresh()
+            # 整体替换仅作用于当前包装对象，已有包装对象继续持有原数据源。
+            self._source = source
+            self._error = None
+        except Exception as error:
+            self._invalidate(error)
+
+    @property
+    def size(self) -> Optional[int]:
+        return self._source.size if self.is_valid and self._source is not None else None
+
+    @property
+    def sha256(self) -> Optional[str]:
+        return self._source.sha256 if self.is_valid and self._source is not None else None
 
     @classmethod
     def column_type(cls) -> ColumnType:
-        # TODO: 服务端支持 VIDEO 列类型后，改回 ColumnType.COLUMN_TYPE_VIDEO
-        return ColumnType.COLUMN_TYPE_IMAGE
+        return ColumnType.COLUMN_TYPE_VIDEO
 
-    def transform(self, *, step: int, path: Optional[Path]) -> MediaItem:
-        content = self.buffer.getvalue()
-        sha256 = hashlib.sha256(content).hexdigest()
-        filename = f"{step:03d}-{sha256[:8]}.{self.format}"
-        item = MediaItem(
-            filename=filename,
-            sha256=sha256,
-            size=len(content),
-            caption=self.caption or "",
-        )
-        return self._attach_content(item, path, content)
+    def transform(self, *, step: int, path: Optional[Path]) -> Optional[MediaItem]:
+        if not self.is_valid:
+            return None
+        assert self._source is not None
+        try:
+            self._source.refresh()
+            item = MediaItem(
+                filename=f"{step:03d}-{self._source.sha256}.{self.format}",
+                sha256=self._source.sha256,
+                size=self._source.size,
+                caption=self.caption or "",
+            )
+            if path is None:
+                view = self._source.buffer.getbuffer()
+                try:
+                    item.payload = bytes(view)
+                finally:
+                    view.release()
+            else:
+                self._source.store(path / item.filename)
+            return item
+        except Exception as error:
+            self._invalidate(error)
+            return None

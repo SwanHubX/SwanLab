@@ -12,13 +12,15 @@ from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import IO, TYPE_CHECKING, Dict, Optional, Sequence, Union
 
+from requests import Session
+
+from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.core_python.api.upload import upload_resource
 from swanlab.sdk.internal.core_python.context import CoreContext
 from swanlab.sdk.internal.core_python.pkg.mime import guess_type
 from swanlab.sdk.internal.core_python.utils import get_buffer_size
 from swanlab.sdk.internal.pkg import adapter, console
-from swanlab.sdk.internal.pkg.client.session import SessionWithRetry
 from swanlab.sdk.typings.core_python.api.upload import UploadMedia
 from swanlab.sdk.typings.core_python.transport import UploadFailure
 
@@ -26,6 +28,10 @@ from .utils import track_file
 
 if TYPE_CHECKING:
     from swanlab.sdk.internal.core_python.transport.tracker import UploadTracker
+
+
+def is_video_media(record: Record) -> bool:
+    return record.HasField("media") and record.media.type == ColumnType.COLUMN_TYPE_VIDEO
 
 
 @dataclass
@@ -98,8 +104,8 @@ def collect_media_tasks(ctx: CoreContext, records: Sequence[Record]) -> list[Med
                 )
                 task.payloads.append(item_payload)
                 record_paths.append(remote_path)
-                if media.caption:
-                    metric["more"].append({"caption": media.caption})
+                if media.caption or is_video_media(record):
+                    metric["more"].append({"caption": media.caption} if media.caption else {})
                 continue
 
             if ctx.config.skip_store:
@@ -128,8 +134,8 @@ def collect_media_tasks(ctx: CoreContext, records: Sequence[Record]) -> list[Med
             )
             task.payloads.append(item_payload)
             record_paths.append(remote_path)
-            if media.caption:
-                metric["more"].append({"caption": media.caption})
+            if media.caption or is_video_media(record):
+                metric["more"].append({"caption": media.caption} if media.caption else {})
 
         if record_paths:
             metric["data"] = record_paths
@@ -141,7 +147,7 @@ def collect_media_tasks(ctx: CoreContext, records: Sequence[Record]) -> list[Med
 
 
 def put_media_resources(
-    session: SessionWithRetry,
+    session: Session,
     experiment_id: str,
     payloads: Sequence[MediaPayload],
     *,
