@@ -1,4 +1,4 @@
-// 本文件承载六路 Upsert 的公共入口、两阶段提交与错误映射。
+// 本文件承载各类 Upsert 的公共入口、两阶段提交与错误映射。
 package manager
 
 import (
@@ -121,7 +121,7 @@ func upsertError(err error) error {
 	}
 }
 
-// commitChunks 按单批上限切分请求并依次提交，适用于支持按 key/step 幂等去重的记录（column/scalar/media/histogram）。
+// commitChunks 按单批上限切分请求并依次提交，适用于支持按 key/step 幂等去重的记录。
 func commitChunks[T any](ctx context.Context, s *Session, items []T, prepare func([]T) (preparedBatch, error)) error {
 	size := s.chunkSize()
 	for start := 0; start < len(items); start += size {

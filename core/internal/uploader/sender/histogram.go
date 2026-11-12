@@ -50,7 +50,9 @@ func (s *HistogramSender) Upload(ctx context.Context, records []*recordv1.Record
 
 	failures := blockedFailures(histogramBlockedMessage, blocked)
 	failures = append(failures, blockedFailures(histogramInvalidShapeMessage, invalid)...)
-	terminal := append(append([]*recordv1.Record{}, blocked...), invalid...)
+	terminal := make([]*recordv1.Record, 0, len(blocked)+len(invalid))
+	terminal = append(terminal, blocked...)
+	terminal = append(terminal, invalid...)
 	if len(metrics) == 0 {
 		return uploader.Result{Confirmed: records, Failures: failures}
 	}

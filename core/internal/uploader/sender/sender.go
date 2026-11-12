@@ -75,7 +75,7 @@ type ObjectPutter interface {
 	PutObject(ctx context.Context, url string, body io.Reader, size int64, contentType string) (string, error)
 }
 
-// FileOptions 是文件类 sender 的运行期依赖；column/scalar/log 忽略该字段。
+// FileOptions 是文件类 sender（media/save）的运行期依赖；指标类 sender 忽略该字段。
 type FileOptions struct {
 	MediaDir  string // run_dir/media
 	FilesDir  string // run_dir/files
@@ -88,7 +88,7 @@ type FileOptions struct {
 	Putter    ObjectPutter      // media/save 必填
 }
 
-// Options 是三条 sender 共用的身份信息。
+// Options 是全部 sender 共用的身份信息。
 type Options struct {
 	API          *api.Client // 必填
 	Username     string
@@ -285,7 +285,9 @@ func (s *LogSender) Upload(ctx context.Context, records []*recordv1.Record) uplo
 		}
 	}
 
-	terminal := append(blocked, unknownLevel...)
+	terminal := make([]*recordv1.Record, 0, len(blocked)+len(unknownLevel))
+	terminal = append(terminal, blocked...)
+	terminal = append(terminal, unknownLevel...)
 	blockedOnly := blockedFailures(logBlockedMessage, blocked)
 	blockedOnly = append(blockedOnly, blockedFailures(logUnknownLevelMessage, unknownLevel)...)
 	if len(metrics) == 0 {

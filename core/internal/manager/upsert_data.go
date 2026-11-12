@@ -1,4 +1,4 @@
-// 本文件承载 column/scalar/media/histogram/log/save 记录的预检与构建。
+// 本文件承载各类数据记录的预检与构建。
 package manager
 
 import (
@@ -131,12 +131,12 @@ func (s *Session) prepareMedia(records []*datav1.MediaRecord) (preparedBatch, er
 		}
 		switch {
 		case verdict.Err != nil:
-			console.Warningf("media metric %q step %d skipped: %v", rec.GetKey(), rec.GetStep(), verdict.Err)
+			console.Warningf("metric %q step %d skipped: %v", rec.GetKey(), rec.GetStep(), verdict.Err)
 		case verdict.Decision == metrics.DecisionAccept:
 			planned = append(planned, builder.BuildMediaRecord(s.counter, rec))
 			accepted = append(accepted, rec)
 		default:
-			console.Debugf("Media metric '%s' at step %d was skipped because it is duplicate or too old.",
+			console.Debugf("Metric '%s' at step %d was skipped because it is duplicate or too old.",
 				rec.GetKey(), rec.GetStep())
 		}
 	}
@@ -172,12 +172,12 @@ func (s *Session) prepareHistograms(records []*datav1.HistogramRecord) (prepared
 		}
 		switch {
 		case verdict.Err != nil:
-			console.Warningf("histogram metric %q step %d skipped: %v", rec.GetKey(), rec.GetStep(), verdict.Err)
+			console.Warningf("metric %q step %d skipped: %v", rec.GetKey(), rec.GetStep(), verdict.Err)
 		case verdict.Decision == metrics.DecisionAccept:
 			planned = append(planned, builder.BuildHistogramRecord(s.counter, rec))
 			accepted = append(accepted, rec)
 		default:
-			console.Debugf("Histogram metric '%s' at step %d was skipped because it is duplicate or too old.",
+			console.Debugf("Metric '%s' at step %d was skipped because it is duplicate or too old.",
 				rec.GetKey(), rec.GetStep())
 		}
 	}

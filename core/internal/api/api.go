@@ -306,7 +306,7 @@ func (c *Client) UploadColumns(
 
 // UploadMetrics 把一批指标写入 House（POST /house/metrics）。
 //
-// metrics 由上层 sender 编码（标量/日志/媒体/直方图字段不同），本层只负责信封与结果判定：
+// metrics 由上层 sender 编码（各指标类型字段不同），本层只负责信封与结果判定：
 // 仅 200 视为成功。空批次由 sender 过滤——metrics 是 any，判空需要反射。
 func (c *Client) UploadMetrics(
 	ctx context.Context,

@@ -4,8 +4,8 @@
 // 状态机不加锁，由 Session 的写锁保护。接收分为两步，以配合上层的容量
 // 预留与背压：
 //
-//	PrecheckScalar / PrecheckMedia / PrecheckHistogram   只读预检，绝不修改状态；
-//	CommitScalar   / CommitMedia   / CommitHistogram      正式提交，定义新列、登记 step、更新极值。
+//	Precheck<Type>   只读预检，绝不修改状态；
+//	Commit<Type>     正式提交，定义新列、登记 step、更新极值。
 //
 // 位图仅驻留内存，不持久化。
 package metrics
@@ -135,24 +135,24 @@ func (m *RunMetrics) MinStep(key string) (int64, bool) {
 	return mt.minStep, true
 }
 
-// DefineScalar 定义一个标量指标。minStep 是 step 下界（含），
-// 普通定义为 -1（即允许 step ≥ 0），Resume 恢复时取云端已到达的 step。
+// DefineScalar 定义标量指标；minStep 语义见 Define。
 func (m *RunMetrics) DefineScalar(key string, col *columnv1.ColumnRecord, minStep int64) error {
 	return m.Define(key, col, minStep, KindScalar)
 }
 
-// DefineMedia 定义一个媒体指标。minStep 语义同 DefineScalar。
+// DefineMedia 定义媒体指标；minStep 语义见 Define。
 // 媒体指标不保存存储路径，发送时统一从 RunContext.MediaDir 取。
 func (m *RunMetrics) DefineMedia(key string, col *columnv1.ColumnRecord, minStep int64) error {
 	return m.Define(key, col, minStep, KindMedia)
 }
 
-// DefineHistogram 定义一个直方图指标。minStep 语义同 DefineScalar。
+// DefineHistogram 定义直方图指标；minStep 语义见 Define。
 func (m *RunMetrics) DefineHistogram(key string, col *columnv1.ColumnRecord, minStep int64) error {
 	return m.Define(key, col, minStep, KindHistogram)
 }
 
-// Define 按指标类型定义一个指标；已存在的 key 返回 ErrColumnExists。
+// Define 按指标类型定义一个指标。minStep 是 step 下界（含），普通定义为 -1
+// 即允许 step ≥ 0；Resume 恢复时取云端已到达的 step。已存在的 key 返回 ErrColumnExists。
 func (m *RunMetrics) Define(key string, col *columnv1.ColumnRecord, minStep int64, kind Kind) error {
 	if key == "" {
 		return ErrEmptyKey
