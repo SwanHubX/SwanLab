@@ -86,11 +86,11 @@ https://github.com/user-attachments/assets/7965fec4-c8b0-4956-803d-dbf177b44f54
 
 - **断点续训记录**：支持在训练完成/中断后，补充新的指标数据到同个实验中
 
-**2. ⚡️ 全面的框架集成**: PyTorch、🤗HuggingFace Transformers、PyTorch Lightning、🦙LLaMA Factory、MMDetection、Ultralytics、PaddleDetetion、LightGBM、XGBoost、Keras、Tensorboard、Weights&Biases、Swift、XTuner、Stable Baseline3、Hydra 在内的 **30+** 框架
+**2. ⚡️ 全面的框架集成**: PyTorch、🤗HuggingFace Transformers、PyTorch Lightning、🦙LLaMA Factory、MMDetection、Ultralytics、PaddleDetection、LightGBM、XGBoost、Keras、TensorBoard、Weights&Biases、Swift、XTuner、Stable-Baselines3、Hydra 在内的 **30+** 框架
 
 ![](readme_files/integrations.png)
 
-**3. 💻 硬件监控**: 支持实时记录与监控CPU、NPU（**昇腾Ascend**）、GPU（**英伟达Nvidia**）、AMD（**AMD ROCm**）、MLU（**寒武纪Cambricon**）、XLU（**昆仑芯Kunlunxin**）、DCU（**海光DCU**）、MetaX GPU（**沐曦XPU**）、Moore Threads GPU（**摩尔线程**）、Iluvatar GPU（**天数智芯**）、内存的系统级硬件指标
+**3. 💻 硬件监控**: 支持实时记录与监控CPU、NPU（**昇腾Ascend**）、GPU（**英伟达Nvidia**）、AMD（**AMD ROCm**）、MLU（**寒武纪Cambricon**）、XPU（**昆仑芯Kunlunxin**）、DCU（**海光DCU**）、MetaX GPU（**沐曦XPU**）、Moore Threads GPU（**摩尔线程**）、Iluvatar GPU（**天数智芯**）、内存的系统级硬件指标
 
 **4. 📦 实验管理**: 通过专为训练场景设计的集中式仪表板，通过整体视图速览全局，快速管理多个项目与实验
 
@@ -448,7 +448,7 @@ SwanLab会对AI训练过程中所使用的**硬件信息**和**资源使用情�
 ### 社区与支持
 
 - [GitHub Issues](https://github.com/SwanHubX/SwanLab/issues)：使用 SwanLab 时遇到的错误和问题
-- [电子邮件支持](zeyi.lin@swanhub.co)：反馈关于使用 SwanLab 的问题
+- [电子邮件支持](mailto:contact@swanlab.cn)：反馈关于使用 SwanLab 的问题
 - <a href="https://docs.swanlab.cn/guide_cloud/community/online-support.html">微信交流群</a>：交流使用 SwanLab 的问题、分享最新的 AI 技术
 
 ### SwanLab README 徽章
