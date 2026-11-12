@@ -9,7 +9,7 @@
 An Professional, Modern-Designed AI Training Analysis Platform  
 For Model Training Teams, Integrated with 50+ Leading AI Training Frameworks, Easily Combined with Your Experimental Code
 
-<a href="https://swanlab.cn">🔥SwanLab Online</a> · <a href="https://docs.swanlab.cn">📃 Documentation</a> · <a href="https://github.com/swanhubx/swanlab/issues">Report Issues</a> · <a href="https://rcnpx636fedp.feishu.cn/share/base/form/shrcnMFh9kkETFS6Hsc7fsBlKHc">Feedback</a> · <a href="https://docs.swanlab.cn/en/guide_cloud/general/changelog.html">Changelog</a> · <a href="https://github.com/SwanHubX/SwanLab-Skill">SKILL</a>
+<a href="https://swanlab.cn">🔥SwanLab Online</a> · <a href="https://docs.swanlab.cn">📃 Documentation</a> · <a href="https://github.com/swanhubx/swanlab/issues">Report Issues</a> · <a href="https://rcnpx636fedp.feishu.cn/share/base/form/shrcnwT9dTedqUchdpgzPzKvcmd">Feedback</a> · <a href="https://docs.swanlab.cn/en/guide_cloud/general/changelog.html">Changelog</a> · <a href="https://github.com/SwanHubX/SwanLab-Skill">SKILL</a>
 
 [![][release-shield]][release-link]
 [![][dockerhub-shield]][dockerhub-link]
@@ -34,7 +34,6 @@ For Model Training Teams, Integrated with 50+ Leading AI Training Frameworks, Ea
 
 ## Table of Contents
 
-- [🌟 Recent Updates](#-recent-updates)
 - [👋🏻 What is SwanLab](#-what-is-swanlab)
 - [📃 Online Demo](#-online-demo)
 - [🏁 Quick Start](#-quick-start)
@@ -48,128 +47,6 @@ For Model Training Teams, Integrated with 50+ Leading AI Training Frameworks, Ea
 - [📃 License](#-license)
 
 <br/>
-
-## 🌟 Recent Updates
-
-- 2026.06.16: 📊 Added **HTML** charts, supporting pages embedded after LLM Vibe Coding; the Kubernetes deployment [Prometheus log monitoring solution](https://docs.swanlab.cn/en/self_host/kubernetes/monitor-logging.html) is now available;
-
-- 2026.06.05: ⚡️ The **refactored SDK** (v0.8.0) is now available, significantly improving metric logging performance for large-scale training; SwanLab [CLI](https://docs.swanlab.cn/en/api/cli-swanlab-api.html) and [Skill](https://github.com/SwanHubX/SwanLab-Skill) are now available for the AutoResearch paradigm;
-
-- 2026.05.18: 📒 Logs now support **global filtering**, so you can quickly find the log snippets you need across the entire workspace; added **chart copy** feature; chart search now includes **search history**; chart details now show **relative time**;
-
-- 2026.04.28: 🪨 **Project Pinning** is now live — place the projects your team cares about most in the most prominent spot; improved the metric panel display when hovering over line charts;
-
-- 2026.03.25: 📊 **Experiment Pinning** is now live — pin your best experiments to the most accessible position with one click; **Baseline** comparison is now available, supporting comparison of experiments against a baseline with percentage difference display, accelerating the search for optimal parameters;
-
-https://github.com/user-attachments/assets/964380e0-feb2-480d-b1ca-eba1be239ebb
-
-- 2026.03.19: 📊 Added **experiment duplication** feature, supporting the creation of experiment copies to different projects and teams; **parallel** mode is now available, supporting multiple processes recording metrics to the same experiment at the same time; experiment ID can now be customized;
-
-- 2026.02.06: 🔥**swanlab.Api** is now available, providing a more powerful, object-oriented open API interface, [documentation](https://docs.swanlab.cn/en/api/py-api.html); ECharts.Table supports CSV download; now supports one-click placement of charts at the top of sections;
-
-<details><summary>Full Changelog</summary>
-
-- 2026.01.28: ⚡️ **LightningBoard V2** is now available, significantly improving dashboard performance;
-
-- 2026.01.16: ⚡️ **LightningBoard (Lightning Dashboard) V1** is now available, designed for extremely large chart number scenarios; added chart embedding link, now you can embed your charts into online documents (such as Notion, Lark, etc.);
-
-- 2026.01.02: 🥳 Added support for **AMD ROCm** and **Iluvatar GPU** hardware monitoring; SDK added heartbeat package feature, implementing more robust cloud/offline connection;
-
-- 2025.12.15: 🎉 **Kubernetes Version** of SwanLab is now available! [Deployment Documentation](https://docs.swanlab.cn/en/self_host/kubernetes/deploy.html); [NVIDIA NeMo RL](https://github.com/NVIDIA-NeMo/RL) framework is now integrated with SwanLab, [documentation](https://docs.swanlab.cn/en/guide_cloud/integration/integration-nvidia-nemo-rl.html);
-
-- 2025.12.01: 🕰 Added **detailed line chart information display**, when hovering over the line chart, clicking Shift will activate Detailed Mode, allowing the display of the log point time; 📊 Chart grouping supports **MIN/MAX area range display**;
-
-- 2025.11.17: 📊 Global chart configuration now supports **X-axis data source selection** and **hover mode** functionality, enhancing chart analysis experience; added `SWANLAB_WEBHOOK` functionality, [documentation](https://docs.swanlab.cn/en/guide_cloud/experiment_track/webhook-setup.html)
-
-- 2025.11.06: 🔪 **Experiment Grouping** is live — supports grouping management for large batches of experiments; Workspace page upgraded to allow quick switching between multiple organizations; significantly improved line-chart rendering performance; `swanlab.init` now supports `group` and `job_type` parameters;
-
-- 2025.10.15: 📊 Line chart configuration now supports **X-axis data source selection**; sidebar now supports displaying pinned columns in table view, enhancing experiment data alignment capabilities;
-
-- 2025.09.22: 📊 New UI launched; table view now supports global sorting and filtering; unified data level for table view and chart view.
-
-- 2025.09.12: 🔢 Added support for **scalar chart**, flexibly displaying the statistical values of experiment indicators; organization management page has been upgraded, providing more powerful permission control and project management capabilities;
-
-- 2025.08.19: 🤔 Optimized chart rendering performance, allowing researchers to focus more on experiment analysis; integrated excellent [MLX-LM](https://github.com/ml-explore/mlx-lm) and [SpecForge](https://github.com/sgl-project/SpecForge) frameworks, providing more training scenarios;
-
-- 2025.08.06: 👥 **Training Collaboration** is now available, supporting inviting project collaborators, sharing project links and QR codes; the workspace now supports list view, and project Tags are now displayed;
-
-- 2025.07.29: 🚀 Added support for experiment filtering and sorting in the sidebar; 📊 Added column control panel to the table view, allowing easy hiding and displaying of columns; 🔐 Added support for managing multiple API Keys, making your data more secure; swanlab sync now supports training crash log files; PR curve, ROC curve, confusion matrix are now available, [documentation](https://docs.swanlab.cn/en/api/py-pr_curve.html);
-
-- 2025.07.17: 📊 Added support for **line chart configuration**, supporting flexible configuration of line type, color, thickness, grid, legend position, etc.; 📹 Added support for **swanlab.Video** data type, supporting recording and visualizing GIF format files; Global chart dashboard now supports configuring Y-axis and maximum number of experiments displayed.
-
-- 2025.07.10: 📚 Added support for **text view**, supporting Markdown rendering and direction key switching, which can be created by `swanlab.echarts.table` and `swanlab.Text`, [Demo](https://swanlab.cn/@ZeyiLin/ms-swift-rlhf/runs/d661ty9mslogsgk41fp0p/chart)
-
-- 2025.07.06: 🚄 Added support for resume training; new plugin File Logger; integrated [ray](https://github.com/ray-project/ray) framework, [documentation](https://docs.swanlab.cn/en/guide_cloud/integration/integration-ray.html); integrated [ROLL](https://github.com/alibaba/ROLL) framework, thanks to [@PanAndy](https://github.com/PanAndy), [documentation](https://docs.swanlab.cn/en/guide_cloud/integration/integration-roll.html)
-
-- 2025.06.27: Added support for **small line chart zooming**; added support for configuring **single line chart smoothing**; significantly improved the interaction effect of image charts after zooming.
-
-- 2025.06.20: 🤗 Integrated the [accelerate](https://github.com/huggingface/accelerate) framework, [PR](https://github.com/huggingface/accelerate/pull/3605), [documentation](https://docs.swanlab.cn/en/guide_cloud/integration/integration-huggingface-accelerate.html), enhancing the experience of recording and analyzing experiments in distributed training.
-
-- 2025.06.18: 🐜 Integrated the [AREAL](https://github.com/areal-project/AReaL) framework, thanks to [@xichengpro](https://github.com/xichengpro), [PR](https://github.com/areal-project/AReaL/pull/98), [documentation](https://inclusionai.github.io/AReaL/tutorial/quickstart.html#monitoring-the-training-process); 🖱 Added support for highlighting corresponding curves when hovering the mouse over sidebar experiments; Added support for cross-group comparison line charts; Added support for setting experiment name trimming rules;
-
-- 2025.06.11: 📊 Added support for **swanlab.echarts.table** data type, supporting pure text chart display; added support for **stretch interaction** for groups, allowing more charts to be displayed at the same time; added **maximum/minimum value** options for table views;
-
-- 2025.06.08: ♻️ Added support for storing complete experiment log files locally and uploading them to the cloud/private deployment via **swanlab sync**; Hardware monitoring now supports **Hygon DCU**;
-
-- 2025.06.01: 🏸 Added support for **chart free dragging**; added support for **ECharts custom chart**; added support for **PaddleNLP** framework; hardware monitoring supports **MetaX GPU**;
-
-- 2025.05.25: Logging now supports capturing the **standard error stream**, allowing better recording of output from frameworks like PyTorch Lightning; hardware monitoring now includes support for **Moore Threads**; added a security feature for logging runtime commands, where API Keys will be automatically hidden.
-
-- 2025.05.14: Added support for **experiment tags**; added support for **Log Scale** for line charts; added support for **group dragging**; significantly optimized the experience of uploading a large number of metrics.
-
-- 2025.05.09: Added support for line chart creation; enhanced the chart configuration feature with data source selection, enabling a single chart to display different metrics; introduced the ability to generate GitHub badges for training projects.
-
-- 2025.04.23: Added support for editing line charts, allowing free configuration of X and Y axis data ranges and title styles; chart search now supports regular expressions; added hardware detection and monitoring for Kunlun Core XPU.
-
-- 2025.04.11: Added support for **local selection** for line charts; supports the step range of the current graph.
-
-- 2025.04.08: Added support for the **swanlab.Molecule** data type, enabling recording and visualization of biochemical molecular data; also supports saving the state of sorting, filtering, and column order changes in table views.
-
-- 2025.04.07: We completed joint integration with [EvalScope](https://github.com/ModelScope/EvalScope). Now you can use **SwanLab** in EvalScope to **evaluate LLM performance**.
-
-- 2025.03.30: Added support for the **swanlab.Settings** method, enabling more precise control over experiment behavior; added support for **Cambricon MLU** hardware monitoring; integrated [Slack notifications](https://docs.swanlab.cn/en/plugin/notification-slack.html) and [Discord notifications](https://docs.swanlab.cn/en/plugin/notification-discord.html).
-
-- 2025.03.21: 🎉🤗 HuggingFace Transformers has officially integrated SwanLab (version >=4.50.0), [#36433](https://github.com/huggingface/transformers/pull/36433); Added **Object3D chart** support, now you can track and visualize 3D point clouds, [docs](https://docs.swanlab.cn/en/api/py-object3d.html); Hardware monitoring supports the recording of GPU memory (MB), disk utilization, and network sent and received.
-
-- 2025.03.12: 🎉🎉 The **Privatized Deployment Edition** of SwanLab is now available!! [🔗 Deployment Documentation](https://docs.swanlab.cn/en/self_host/docker/deploy.html); SwanLab now supports plugin extensions, such as [Email Notification](https://docs.swanlab.cn/en/plugin/notification-email.html) and [Lark Notification](https://docs.swanlab.cn/en/plugin/notification-lark.html).
-
-- 2025.03.09: Added **experiment sidebar width** support; added **external Git code** button; added **sync_mlflow** feature, supporting synchronization with mlflow framework.
-
-- 2025.03.06: We completed integration with [DiffSynth Studio](https://github.com/modelscope/diffsynth-studio). Now you can use SwanLab in DiffSynth Studio to **track and visualize Diffusion model text-to-image/video experiments**. [Usage Guide](https://docs.swanlab.cn/en/guide_cloud/integration/integration-diffsynth-studio.html)
-
-- 2025.03.04: Added **MLFlow** feature, supporting conversion of MLFlow experiments to SwanLab experiments. [Usage Guide](https://docs.swanlab.cn/en/guide_cloud/integration/integration-mlflow.html)
-
-- 2025.03.01: Added **move experiment** feature, now you can move experiments to different projects in different organizations.
-
-- 2025.02.24: We completed integration with [EasyR1](https://github.com/hiyouga/EasyR1). Now you can use SwanLab in EasyR1 to **track and visualize large model fine-tuning experiments**. [Usage Guide](https://github.com/hiyouga/EasyR1?tab=readme-ov-file#merge-checkpoint-in-hugging-face-format).
-
-- 2025.02.18: We completed integration with [Swift](https://github.com/modelscope/ms-swift). Now you can use SwanLab in Swift's CLI/WebUI to **track and visualize large model fine-tuning experiments**. [Usage Guide](https://docs.swanlab.cn/en/guide_cloud/integration/integration-swift.html).
-
-- 2025.02.16: Added **chart moving group** and **create group** features.
-
-- 2025.02.09: We completed integration with [veRL](https://github.com/verl-project/verl). Now you can use SwanLab in veRL to **track and visualize large model reinforcement learning experiments**. [Usage Guide](https://docs.swanlab.cn/en/guide_cloud/integration/integration-verl.html).
-
-- 2025.02.05: `swanlab.log` supports nested dictionaries [#812](https://github.com/SwanHubX/SwanLab/pull/812), adapting Jax framework features; supports `name` and `notes` parameters.
-
-- 2025.01.22: Added `sync_tensorboardX` and `sync_tensorboard_torch` features, supporting synchronization of experiment tracking with these two TensorBoard frameworks.
-
-- 2025.01.17: Added `sync_wandb` feature, [docs](https://docs.swanlab.cn/en/guide_cloud/integration/integration-wandb.html), supporting synchronization with Weights & Biases experiment tracking; significantly improved log rendering performance.
-
-- 2025.01.11: The cloud version enhanced project table performance with drag-and-drop, sorting, and filtering support.
-
-- 2025.01.01: Added **persistent smoothing** for line charts and drag-to-resize functionality for line charts, improving chart browsing experience.
-
-- 2024.12.22: We completed integration with [LLaMA Factory](https://github.com/hiyouga/LlamaFactory). Now you can use SwanLab in LLaMA Factory to **track and visualize large model fine-tuning experiments**. [Usage Guide](https://github.com/hiyouga/LlamaFactory?tab=readme-ov-file#use-swanlab-logger).
-
-- 2024.12.15: **Hardware Monitoring (0.4.0)** is now available, supporting system-level information recording and monitoring for CPU, NPU (Ascend), and GPU (Nvidia).
-
-- 2024.12.06: Added integration with [LightGBM](https://docs.swanlab.cn/en/guide_cloud/integration/integration-lightgbm.html) and [XGBoost](https://docs.swanlab.cn/en/guide_cloud/integration/integration-xgboost.html); increased the limit for single-line log length.
-
-- 2024.11.26: Environment tab - Hardware section now supports identifying **Huawei Ascend NPU** and **Kunpeng CPU**; cloud provider section now supports identifying **QingCloud Jishi Computing**.
-
-</details>
-
-<br>
 
 ## 👋🏻 What is SwanLab
 
