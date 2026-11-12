@@ -2,6 +2,7 @@ package store
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"io"
 	"os"
@@ -26,6 +27,37 @@ func newTestAsync(t *testing.T, opts AsyncOptions) (*AsyncWriter, string) {
 func anyPayload(i int) []byte {
 	// 尺寸在 1..~300 字节之间变化，覆盖单块内的各种切分
 	return payloadN(1 + i*37%300)
+}
+
+func TestAsyncFlushCoversQueuedRequests(t *testing.T) {
+	// 放大刷盘阈值与间隔，确保进度只能由显式 Flush 发布。
+	a, path := newTestAsync(t, AsyncOptions{Queue: 8, FlushBytes: 1 << 20, FlushInterval: time.Hour})
+
+	const n = 3
+	for i := range n {
+		a.In() <- Request{StoreSeq: uint64(i + 1), Payload: anyPayload(i)}
+	}
+	if seq, off := a.Flushed(); seq != 0 || off != HeaderLen {
+		t.Fatalf("Flushed before Flush = (%d, %d), want (0, %d)", seq, off, HeaderLen)
+	}
+
+	if err := a.Flush(context.Background()); err != nil {
+		t.Fatalf("Flush: %v", err)
+	}
+	seq, off := a.Flushed()
+	if seq != n {
+		t.Fatalf("flushed seq = %d, want %d", seq, n)
+	}
+	if got := readLimit(t, path, HeaderLen, off); len(got) != n {
+		t.Fatalf("read %d records below flushed offset, want %d", len(got), n)
+	}
+
+	if err := a.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	if err := a.Flush(context.Background()); !errors.Is(err, ErrClosed) {
+		t.Fatalf("Flush after Close err = %v, want ErrClosed", err)
+	}
 }
 
 func TestNewAsyncWriterOptions(t *testing.T) {

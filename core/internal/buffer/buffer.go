@@ -52,6 +52,10 @@ var (
 	ErrStoreDegraded = errors.New("buffer: local store is degraded")
 	// ErrNotPaused 表示上传投递未暂停或已经恢复，无需补投。
 	ErrNotPaused = errors.New("buffer: uploads are not paused")
+	// ErrBackfillStale 表示补投尾部与最新提交不一致，需要重新读取后再交接。
+	ErrBackfillStale = errors.New("buffer: backfill tail is stale")
+	// ErrBackfillBlocked 表示上传通道暂时没有容纳尾部的槽位，可重试。
+	ErrBackfillBlocked = errors.New("buffer: backfill tail waits for upload capacity")
 	// errQueueWait 标记本地通道等待超时；与调用方 ctx 取消区分开。
 	errQueueWait = errors.New("buffer: local queue wait exceeded")
 )
