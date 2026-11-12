@@ -1,4 +1,4 @@
-// 本文件承载 column/scalar/media/log/save 记录的预检与构建。
+// 本文件承载 column/scalar/media/histogram/log/save 记录的预检与构建。
 package manager
 
 import (
@@ -38,18 +38,12 @@ func (s *Session) prepareColumns(columns []*columnv1.ColumnRecord) (preparedBatc
 			logDefinedColumn(column)
 			continue
 		}
-		defs = append(defs, columnPlan{key: key, column: column, scalar: isScalarColumn(column)})
+		defs = append(defs, columnPlan{key: key, column: column, kind: columnKind(column)})
 		records = append(records, builder.BuildColumnRecord(s.counter, column))
 	}
 	apply := func() error {
 		for _, def := range defs {
-			var err error
-			if def.scalar {
-				err = s.metrics.DefineScalar(def.key, def.column, -1)
-			} else {
-				err = s.metrics.DefineMedia(def.key, def.column, -1)
-			}
-			if err != nil {
+			if err := s.metrics.Define(def.key, def.column, -1, def.kind); err != nil {
 				return err
 			}
 		}
@@ -66,8 +60,16 @@ func logDefinedColumn(column *columnv1.ColumnRecord) {
 	console.Warningf("Column %s already has been defined, skipping", column.GetColumnKey())
 }
 
-func isScalarColumn(column *columnv1.ColumnRecord) bool {
-	return column.GetColumnType() == columnv1.ColumnType_COLUMN_TYPE_SCALAR
+// columnKind 把列类型映射为指标类型：标量与直方图独立定义，其余按媒体列处理。
+func columnKind(column *columnv1.ColumnRecord) metrics.Kind {
+	switch column.GetColumnType() {
+	case columnv1.ColumnType_COLUMN_TYPE_SCALAR:
+		return metrics.KindScalar
+	case columnv1.ColumnType_COLUMN_TYPE_HISTOGRAM:
+		return metrics.KindHistogram
+	default:
+		return metrics.KindMedia
+	}
 }
 
 func (s *Session) upsertScalars(ctx context.Context, records []*datav1.ScalarRecord) error {
@@ -144,6 +146,47 @@ func (s *Session) prepareMedia(records []*datav1.MediaRecord) (preparedBatch, er
 		}
 		for _, rec := range accepted {
 			if _, err := s.metrics.CommitMedia(rec, nil); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	return preparedBatch{records: planned, apply: apply}, nil
+}
+
+func (s *Session) upsertHistograms(ctx context.Context, records []*datav1.HistogramRecord) error {
+	return commitChunks(ctx, s, records, s.prepareHistograms)
+}
+
+func (s *Session) prepareHistograms(records []*datav1.HistogramRecord) (preparedBatch, error) {
+	planner := newMetricPlanner(s.metrics, s.cfg.SectionRule)
+	planned := make([]*recordv1.Record, 0, len(records))
+	accepted := make([]*datav1.HistogramRecord, 0, len(records))
+	for _, rec := range records {
+		if rec == nil || rec.GetKey() == "" {
+			return preparedBatch{}, fmt.Errorf("%w: histogram key is required", ErrInvalidRecord)
+		}
+		verdict := planner.precheckHistogram(rec)
+		if verdict.NeedsColumn {
+			planned = append(planned, builder.BuildColumnRecord(s.counter, planner.columns[rec.GetKey()]))
+		}
+		switch {
+		case verdict.Err != nil:
+			console.Warningf("histogram metric %q step %d skipped: %v", rec.GetKey(), rec.GetStep(), verdict.Err)
+		case verdict.Decision == metrics.DecisionAccept:
+			planned = append(planned, builder.BuildHistogramRecord(s.counter, rec))
+			accepted = append(accepted, rec)
+		default:
+			console.Debugf("Histogram metric '%s' at step %d was skipped because it is duplicate or too old.",
+				rec.GetKey(), rec.GetStep())
+		}
+	}
+	apply := func() error {
+		if err := planner.defineAll(); err != nil {
+			return err
+		}
+		for _, rec := range accepted {
+			if _, err := s.metrics.CommitHistogram(rec, nil); err != nil {
 				return err
 			}
 		}

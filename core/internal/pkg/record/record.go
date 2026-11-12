@@ -19,13 +19,14 @@ import (
 type Type string
 
 const (
-	TypeStart  Type = "start"
-	TypeFinish Type = "finish"
-	TypeColumn Type = "column"
-	TypeScalar Type = "scalar"
-	TypeMedia  Type = "media"
-	TypeLog    Type = "log"
-	TypeSave   Type = "save"
+	TypeStart     Type = "start"
+	TypeFinish    Type = "finish"
+	TypeColumn    Type = "column"
+	TypeScalar    Type = "scalar"
+	TypeMedia     Type = "media"
+	TypeHistogram Type = "histogram"
+	TypeLog       Type = "log"
+	TypeSave      Type = "save"
 )
 
 // 固定槽位号，见 record.proto 对 Record.num 的约定：
@@ -53,6 +54,8 @@ func TypeOf(r *recordv1.Record) Type {
 		return TypeScalar
 	case *recordv1.Record_Media:
 		return TypeMedia
+	case *recordv1.Record_Histogram:
+		return TypeHistogram
 	case *recordv1.Record_Log:
 		return TypeLog
 	case *recordv1.Record_Save:

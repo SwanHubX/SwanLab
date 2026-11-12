@@ -56,10 +56,10 @@ func deferredSave(rec *recordv1.Record) bool {
 type columnPlan struct {
 	key    string
 	column *columnv1.ColumnRecord
-	scalar bool
+	kind   metrics.Kind
 }
 
-// metricPlanner 在 Reserve 之前对一批标量/媒体做只读预检，并在本地模拟同批内
+// metricPlanner 在 Reserve 之前对一批标量/媒体/直方图做只读预检，并在本地模拟同批内
 // 已定义列与新 step，避免同一 key 的多条记录重复产出列或重复接收 step。
 type metricPlanner struct {
 	metrics     *metrics.RunMetrics
@@ -80,18 +80,27 @@ func newMetricPlanner(m *metrics.RunMetrics, sectionRule int32) *metricPlanner {
 
 func (p *metricPlanner) precheckScalar(rec *datav1.ScalarRecord) metrics.Precheck {
 	if column, ok := p.columns[rec.GetKey()]; ok {
-		return p.remember(rec.GetKey(), column.GetColumnType(), rec.GetStep(), true,
+		return p.remember(rec.GetKey(), column.GetColumnType(), rec.GetStep(), metrics.KindScalar,
 			pendingVerdict(rec.GetKey(), column.GetColumnType(), rec.GetType(), rec.GetStep()))
 	}
-	return p.remember(rec.GetKey(), rec.GetType(), rec.GetStep(), true, p.metrics.PrecheckScalar(rec))
+	return p.remember(rec.GetKey(), rec.GetType(), rec.GetStep(), metrics.KindScalar, p.metrics.PrecheckScalar(rec))
 }
 
 func (p *metricPlanner) precheckMedia(rec *datav1.MediaRecord) metrics.Precheck {
 	if column, ok := p.columns[rec.GetKey()]; ok {
-		return p.remember(rec.GetKey(), column.GetColumnType(), rec.GetStep(), false,
+		return p.remember(rec.GetKey(), column.GetColumnType(), rec.GetStep(), metrics.KindMedia,
 			pendingVerdict(rec.GetKey(), column.GetColumnType(), rec.GetType(), rec.GetStep()))
 	}
-	return p.remember(rec.GetKey(), rec.GetType(), rec.GetStep(), false, p.metrics.PrecheckMedia(rec))
+	return p.remember(rec.GetKey(), rec.GetType(), rec.GetStep(), metrics.KindMedia, p.metrics.PrecheckMedia(rec))
+}
+
+func (p *metricPlanner) precheckHistogram(rec *datav1.HistogramRecord) metrics.Precheck {
+	if column, ok := p.columns[rec.GetKey()]; ok {
+		return p.remember(rec.GetKey(), column.GetColumnType(), rec.GetStep(), metrics.KindHistogram,
+			pendingVerdict(rec.GetKey(), column.GetColumnType(), rec.GetType(), rec.GetStep()))
+	}
+	return p.remember(rec.GetKey(), rec.GetType(), rec.GetStep(), metrics.KindHistogram,
+		p.metrics.PrecheckHistogram(rec))
 }
 
 // remember 登记本批次内新建的列与已接纳的 step，并把同批重复 step 改判为跳过。
@@ -99,15 +108,15 @@ func (p *metricPlanner) remember(
 	key string,
 	typ columnv1.ColumnType,
 	step int64,
-	scalar bool,
+	kind metrics.Kind,
 	verdict metrics.Precheck,
 ) metrics.Precheck {
 	if verdict.NeedsColumn {
 		column := builder.BuildAutoColumn(p.sectionRule, key, typ)
 		p.columns[key] = column
-		// 定义路径由 Upsert RPC 决定，与 Python define_scalar/define_media 对齐；
+		// 定义路径由 Upsert RPC 决定，与 Python define_scalar/define_media/define_histogram 对齐；
 		// 不能从 column 类型反推（异常输入下二者可能不一致）。
-		p.plans = append(p.plans, columnPlan{key: key, column: column, scalar: scalar})
+		p.plans = append(p.plans, columnPlan{key: key, column: column, kind: kind})
 		p.steps[key] = make(map[int64]struct{})
 	}
 	if verdict.Err != nil || verdict.Decision != metrics.DecisionAccept {
@@ -136,13 +145,7 @@ func (p *metricPlanner) markStep(key string, step int64) {
 // defineAll 把本批次内自动定义的列写入 metrics；必须在 Reserve 成功之后调用。
 func (p *metricPlanner) defineAll() error {
 	for _, plan := range p.plans {
-		var err error
-		if plan.scalar {
-			err = p.metrics.DefineScalar(plan.key, plan.column, -1)
-		} else {
-			err = p.metrics.DefineMedia(plan.key, plan.column, -1)
-		}
-		if err != nil {
+		if err := p.metrics.Define(plan.key, plan.column, -1, plan.kind); err != nil {
 			return err
 		}
 	}

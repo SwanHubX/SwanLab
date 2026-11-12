@@ -16,6 +16,8 @@ type Summary struct {
 	Media []SummaryItem
 	// Scalar 标量列摘要；系统列（__swanlab__. 前缀）计入 global_system_step。
 	Scalar []SummaryItem
+	// Histogram 直方图列摘要；直方图恒为用户自定义列，计入 global_step。
+	Histogram []SummaryItem
 }
 
 // SummaryItem 是单列摘要：该列在云端已记录到的最大 step。
@@ -39,6 +41,7 @@ type ResumeResult struct {
 //
 //   - 媒体列构建 UNSPECIFIED 占位列，min_step 置为云端已到达的 step；
 //   - 标量列按系统/自定义分类构建降级列，分别推进两条 step 水位线；
+//   - 直方图列构建 HISTOGRAM 列，min_step 置为云端已到达的 step；
 //   - 各列位图从空开始，靠 min_step 水位线拦截历史 step。
 //
 // 摘要中出现重复 key 视为云端数据异常，返回错误。
@@ -76,6 +79,16 @@ func NewFromSummary(s *Summary) (*ResumeResult, error) {
 		col := builder.BuildResumeColumn(item.Key, false, system)
 		if err := res.Metrics.DefineScalar(item.Key, col, item.Step); err != nil {
 			return nil, fmt.Errorf("restore scalar metric %q: %w", item.Key, err)
+		}
+	}
+
+	for _, item := range s.Histogram {
+		if item.Step > res.GlobalStep {
+			res.GlobalStep = item.Step
+		}
+		col := builder.BuildHistogramResumeColumn(item.Key)
+		if err := res.Metrics.DefineHistogram(item.Key, col, item.Step); err != nil {
+			return nil, fmt.Errorf("restore histogram metric %q: %w", item.Key, err)
 		}
 	}
 

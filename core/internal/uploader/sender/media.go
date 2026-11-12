@@ -257,11 +257,11 @@ func (s *MediaSender) collectTask(task *mediaTask) {
 		return
 	}
 	task.metric = map[string]any{
-		"key":         media.GetKey(),
-		"index":       media.GetStep(),
-		"data":        paths,
-		"more":        more,
-		createTimeKey: createTime,
+		metricKeyField:   media.GetKey(),
+		metricIndexField: media.GetStep(),
+		metricDataField:  paths,
+		"more":           more,
+		createTimeKey:    createTime,
 	}
 }
 

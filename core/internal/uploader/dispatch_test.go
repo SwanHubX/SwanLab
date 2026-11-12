@@ -42,6 +42,13 @@ func newLog(num int64, line string) *recordv1.Record {
 	}
 }
 
+func newHistogram(num int64, key string) *recordv1.Record {
+	return &recordv1.Record{
+		Num:        num,
+		RecordType: &recordv1.Record_Histogram{Histogram: &datav1.HistogramRecord{Key: key}},
+	}
+}
+
 func newSave(num int64) *recordv1.Record {
 	return &recordv1.Record{
 		Num:        num,
@@ -193,6 +200,27 @@ func TestGroupRecordsOrder(t *testing.T) {
 	scalars := groups[1].records
 	if len(scalars) != 3 || scalars[0] != records[0] || scalars[1] != records[3] || scalars[2] != records[6] {
 		t.Fatalf("scalar group order = %v, want s1,s2,s3", scalars)
+	}
+}
+
+func TestGroupRecordsHistogram(t *testing.T) {
+	records := []*recordv1.Record{
+		newHistogram(1, "weights"),
+		newScalar(2, "loss"),
+		newHistogram(3, "steps"),
+	}
+	groups := groupRecords(records)
+	wantTypes := []record.Type{record.TypeScalar, record.TypeHistogram}
+	if len(groups) != len(wantTypes) {
+		t.Fatalf("groups = %d, want %d", len(groups), len(wantTypes))
+	}
+	for i, typ := range wantTypes {
+		if groups[i].typ != typ {
+			t.Fatalf("group[%d] = %s, want %s", i, groups[i].typ, typ)
+		}
+	}
+	if len(groups[1].records) != 2 || groups[1].records[0] != records[0] || groups[1].records[1] != records[2] {
+		t.Fatalf("histogram group = %v, want batch order", groups[1].records)
 	}
 }
 

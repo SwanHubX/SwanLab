@@ -1,4 +1,4 @@
-// 本文件承载五路 Upsert 的公共入口、两阶段提交与错误映射。
+// 本文件承载六路 Upsert 的公共入口、两阶段提交与错误映射。
 package manager
 
 import (
@@ -45,6 +45,15 @@ func (m *Manager) UpsertMedia(ctx context.Context, sessionID string, records []*
 		return err
 	}
 	return s.upsertMedia(ctx, records)
+}
+
+// UpsertHistograms 提交一批直方图指标；语义与 UpsertScalars 一致。
+func (m *Manager) UpsertHistograms(ctx context.Context, sessionID string, records []*datav1.HistogramRecord) error {
+	s, err := m.session(sessionID)
+	if err != nil {
+		return err
+	}
+	return s.upsertHistograms(ctx, records)
 }
 
 // UpsertLogs 提交一批终端日志，epoch 从 Resume 恢复的行号继续递增。
@@ -112,7 +121,7 @@ func upsertError(err error) error {
 	}
 }
 
-// commitChunks 按单批上限切分请求并依次提交，适用于支持按 key/step 幂等去重的记录（column/scalar/media）。
+// commitChunks 按单批上限切分请求并依次提交，适用于支持按 key/step 幂等去重的记录（column/scalar/media/histogram）。
 func commitChunks[T any](ctx context.Context, s *Session, items []T, prepare func([]T) (preparedBatch, error)) error {
 	size := s.chunkSize()
 	for start := 0; start < len(items); start += size {

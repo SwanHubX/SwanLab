@@ -22,6 +22,13 @@ func mediaRec(key string, step int64) *datav1.MediaRecord {
 	return &datav1.MediaRecord{Key: key, Step: step, Type: columnv1.ColumnType_COLUMN_TYPE_IMAGE}
 }
 
+func histogramRec(key string, step int64) *datav1.HistogramRecord {
+	return &datav1.HistogramRecord{
+		Key: key, Step: step, Type: columnv1.ColumnType_COLUMN_TYPE_HISTOGRAM,
+		Value: &datav1.HistogramValue{Values: []uint64{1, 2}, Bins: []float64{0, 1, 2}},
+	}
+}
+
 func autoCol(key string) *columnv1.ColumnRecord {
 	return &columnv1.ColumnRecord{
 		ColumnKey:  key,
@@ -358,6 +365,67 @@ func TestPrecheckMediaResumePlaceholder(t *testing.T) {
 		Key: "camera", Step: 10, Type: columnv1.ColumnType_COLUMN_TYPE_VIDEO,
 	}); p.NeedsColumn || p.Decision != DecisionAccept || p.Err != nil {
 		t.Fatalf("占位列预检 = %+v, want Accept", p)
+	}
+}
+
+func TestCommitHistogramLifecycle(t *testing.T) {
+	m := New()
+	col := &columnv1.ColumnRecord{ColumnKey: "weights", ColumnType: columnv1.ColumnType_COLUMN_TYPE_HISTOGRAM}
+	// 新 key 未携带列定义：流程错误，且不得定义列
+	if _, err := m.CommitHistogram(histogramRec("ghost", 0), nil); !errors.Is(err, ErrColumnMissing) {
+		t.Fatalf("新 key 缺列 = %v, want ErrColumnMissing", err)
+	}
+	if m.Defined("ghost") {
+		t.Fatal("ErrColumnMissing 不应定义新列")
+	}
+	// 首次提交定义列并接纳 step
+	if ok, err := m.CommitHistogram(histogramRec("weights", 0), col); !ok || err != nil {
+		t.Fatalf("首次直方图提交 = (%v, %v)", ok, err)
+	}
+	// 重复 step 跳过，新 step 接纳
+	if ok, err := m.CommitHistogram(histogramRec("weights", 0), nil); ok || err != nil {
+		t.Fatalf("重复 step = (%v, %v), want 跳过", ok, err)
+	}
+	if ok, err := m.CommitHistogram(histogramRec("weights", 1), nil); !ok || err != nil {
+		t.Fatalf("新 step = (%v, %v), want 接纳", ok, err)
+	}
+	// 标量落到直方图列：类型冲突
+	if _, err := m.CommitScalar(scalarRec("weights", 2, 1.0), nil); !errors.Is(err, ErrTypeMismatch) {
+		t.Fatalf("标量落直方图列 err = %v", err)
+	}
+	// 直方图指标不维护标量极值状态
+	if m.metrics["weights"].scalar != nil {
+		t.Fatal("直方图指标不应持有 scalarState")
+	}
+}
+
+func TestPrecheckHistogram(t *testing.T) {
+	m := New()
+	if p := m.PrecheckHistogram(histogramRec("weights", 0)); !p.NeedsColumn || p.Decision != DecisionAccept || p.Err != nil {
+		t.Fatalf("新 key 预检 = %+v, want NeedsColumn+Accept", p)
+	}
+	if p := m.PrecheckHistogram(histogramRec("weights", MaxStep+1)); !p.NeedsColumn ||
+		p.Decision != DecisionSkip || !errors.Is(p.Err, ErrStepLimit) {
+		t.Fatalf("新 key 超限预检 = %+v, want NeedsColumn+Skip+ErrStepLimit", p)
+	}
+	if m.Len() != 0 {
+		t.Fatal("预检不应定义列")
+	}
+
+	col := &columnv1.ColumnRecord{ColumnKey: "weights", ColumnType: columnv1.ColumnType_COLUMN_TYPE_HISTOGRAM}
+	if ok, err := m.CommitHistogram(histogramRec("weights", 0), col); !ok || err != nil {
+		t.Fatalf("提交 = (%v, %v)", ok, err)
+	}
+	if p := m.PrecheckHistogram(histogramRec("weights", 0)); p.NeedsColumn || p.Decision != DecisionSkip || p.Err != nil {
+		t.Fatalf("重复 step 预检 = %+v, want Skip", p)
+	}
+	if p := m.PrecheckHistogram(histogramRec("weights", 1)); p.NeedsColumn || p.Decision != DecisionAccept || p.Err != nil {
+		t.Fatalf("新 step 预检 = %+v, want Accept", p)
+	}
+	if p := m.PrecheckHistogram(&datav1.HistogramRecord{
+		Key: "weights", Step: 1, Type: columnv1.ColumnType_COLUMN_TYPE_SCALAR,
+	}); p.Decision != DecisionSkip || !errors.Is(p.Err, ErrTypeMismatch) {
+		t.Fatalf("类型冲突预检 = %+v, want Skip+ErrTypeMismatch", p)
 	}
 }
 

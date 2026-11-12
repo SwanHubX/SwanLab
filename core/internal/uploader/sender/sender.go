@@ -30,6 +30,10 @@ const (
 	logUnknownLevelMessage = "log record with unknown level"
 	// createTimeKey 是指标共用的创建时间字段名。
 	createTimeKey = "create_time"
+	// 标量、媒体与直方图指标共用的请求字段名。
+	metricKeyField   = "key"
+	metricIndexField = "index"
+	metricDataField  = "data"
 
 	// 文件类上传的并发上限；信号量是进程级的，避免多会话叠加放大连接数。
 	mediaConcurrency = 10
@@ -48,15 +52,16 @@ var (
 
 // columnTypeNames 是 ColumnType 到云端类型标签的映射。
 var columnTypeNames = map[columnv1.ColumnType]string{
-	columnv1.ColumnType_COLUMN_TYPE_SCALAR:   "FLOAT",
-	columnv1.ColumnType_COLUMN_TYPE_IMAGE:    "IMAGE",
-	columnv1.ColumnType_COLUMN_TYPE_AUDIO:    "AUDIO",
-	columnv1.ColumnType_COLUMN_TYPE_VIDEO:    "VIDEO",
-	columnv1.ColumnType_COLUMN_TYPE_TEXT:     "TEXT",
-	columnv1.ColumnType_COLUMN_TYPE_ECHARTS:  "ECHARTS",
-	columnv1.ColumnType_COLUMN_TYPE_OBJECT3D: "OBJECT3D",
-	columnv1.ColumnType_COLUMN_TYPE_MOLECULE: "MOLECULE",
-	columnv1.ColumnType_COLUMN_TYPE_HTML:     "HTML",
+	columnv1.ColumnType_COLUMN_TYPE_SCALAR:    "FLOAT",
+	columnv1.ColumnType_COLUMN_TYPE_IMAGE:     "IMAGE",
+	columnv1.ColumnType_COLUMN_TYPE_AUDIO:     "AUDIO",
+	columnv1.ColumnType_COLUMN_TYPE_VIDEO:     "VIDEO",
+	columnv1.ColumnType_COLUMN_TYPE_TEXT:      "TEXT",
+	columnv1.ColumnType_COLUMN_TYPE_ECHARTS:   "ECHARTS",
+	columnv1.ColumnType_COLUMN_TYPE_OBJECT3D:  "OBJECT3D",
+	columnv1.ColumnType_COLUMN_TYPE_MOLECULE:  "MOLECULE",
+	columnv1.ColumnType_COLUMN_TYPE_HTML:      "HTML",
+	columnv1.ColumnType_COLUMN_TYPE_HISTOGRAM: "HISTOGRAM",
 }
 
 // logLevelNames 是 LogLevel 到云端日志级别的映射。
@@ -245,10 +250,10 @@ func encodeScalar(record *datav1.ScalarRecord) (map[string]any, bool) {
 		data = "nan"
 	}
 	return map[string]any{
-		"key":         record.GetKey(),
-		"index":       record.GetStep(),
-		"data":        data,
-		createTimeKey: createTime,
+		metricKeyField:   record.GetKey(),
+		metricIndexField: record.GetStep(),
+		metricDataField:  data,
+		createTimeKey:    createTime,
 	}, true
 }
 

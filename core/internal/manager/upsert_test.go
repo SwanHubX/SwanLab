@@ -139,6 +139,13 @@ func scalarRecord(key string, step int64, typ columnv1.ColumnType) *datav1.Scala
 	return &datav1.ScalarRecord{Key: key, Step: step, Type: typ}
 }
 
+func histogramRecord(key string, step int64) *datav1.HistogramRecord {
+	return &datav1.HistogramRecord{
+		Key: key, Step: step, Type: columnv1.ColumnType_COLUMN_TYPE_HISTOGRAM,
+		Value: &datav1.HistogramValue{Values: []uint64{1, 2}, Bins: []float64{0, 1, 2}},
+	}
+}
+
 // StoreOnly 会话本地降级后没有上传兜底，必须返回确定性错误而不是假装成功。
 func TestUpsertScalarsStoreOnlyDegradedFails(t *testing.T) {
 	var degraded atomic.Bool
@@ -331,6 +338,70 @@ func TestUpsertMediaAutoColumnAndTypeMismatch(t *testing.T) {
 	}
 	if got := uploaded[1].GetMedia().GetStep(); got != 0 {
 		t.Fatalf("media step = %d, want 0", got)
+	}
+}
+
+func TestUpsertHistogramsAutoColumnAndStepDedup(t *testing.T) {
+	h := newUpsertHarness(t, upsertOptions{})
+	ctx := context.Background()
+	records := []*datav1.HistogramRecord{
+		histogramRecord("train/weights", 0),
+		histogramRecord("train/weights", 0),
+		histogramRecord("train/weights", 1),
+		histogramRecord("train/weights", -1),
+	}
+	if err := h.mgr.UpsertHistograms(ctx, h.id, records); err != nil {
+		t.Fatalf("UpsertHistograms: %v", err)
+	}
+	uploaded := drainRecords(h.upload)
+	if len(uploaded) != 3 {
+		t.Fatalf("uploaded %d records, want column + 2 histograms", len(uploaded))
+	}
+	column := uploaded[0].GetColumn()
+	if column.GetColumnKey() != "train/weights" || column.GetColumnType() != columnv1.ColumnType_COLUMN_TYPE_HISTOGRAM ||
+		column.GetSectionName() != "train" {
+		t.Fatalf("auto column = %+v, want HISTOGRAM key train/weights in section train", column)
+	}
+	if got := uploaded[1].GetHistogram().GetStep(); got != 0 {
+		t.Fatalf("first histogram step = %d, want 0", got)
+	}
+	if got := uploaded[2].GetHistogram().GetStep(); got != 1 {
+		t.Fatalf("second histogram step = %d, want 1", got)
+	}
+	stats, err := h.mgr.Stats(h.id)
+	if err != nil {
+		t.Fatalf("Stats: %v", err)
+	}
+	if stats.GetTotalRecords() != 3 {
+		t.Fatalf("total records = %d, want 3 (column + two histograms)", stats.GetTotalRecords())
+	}
+
+	if err := h.mgr.UpsertHistograms(ctx, h.id, records[:1]); err != nil {
+		t.Fatalf("duplicate UpsertHistograms: %v", err)
+	}
+	if got := drainRecords(h.upload); len(got) != 0 {
+		t.Fatalf("duplicate step uploaded %d records, want 0", len(got))
+	}
+}
+
+func TestUpsertColumnsDefinesHistogram(t *testing.T) {
+	h := newUpsertHarness(t, upsertOptions{})
+	ctx := context.Background()
+	columns := []*columnv1.ColumnRecord{{
+		ColumnKey: "weights", ColumnType: columnv1.ColumnType_COLUMN_TYPE_HISTOGRAM,
+	}}
+	if err := h.mgr.UpsertColumns(ctx, h.id, columns); err != nil {
+		t.Fatalf("UpsertColumns: %v", err)
+	}
+	if got := drainRecords(h.upload); len(got) != 1 {
+		t.Fatalf("column uploaded %d records, want 1", len(got))
+	}
+	if err := h.mgr.UpsertHistograms(ctx, h.id, []*datav1.HistogramRecord{histogramRecord("weights", 0)}); err != nil {
+		t.Fatalf("UpsertHistograms: %v", err)
+	}
+	uploaded := drainRecords(h.upload)
+	if len(uploaded) != 1 || uploaded[0].GetHistogram().GetKey() != "weights" {
+		t.Fatalf("uploaded = %v, want one histogram record", uploaded)
 	}
 }
 
@@ -710,6 +781,12 @@ func TestUpsertRejectsInvalidRecords(t *testing.T) {
 	}
 	if err := h.mgr.UpsertMedia(ctx, h.id, []*datav1.MediaRecord{{}}); !errors.Is(err, ErrInvalidRecord) {
 		t.Fatalf("empty media key err=%v, want ErrInvalidRecord", err)
+	}
+	if err := h.mgr.UpsertHistograms(ctx, h.id, []*datav1.HistogramRecord{nil}); !errors.Is(err, ErrInvalidRecord) {
+		t.Fatalf("nil histogram err=%v, want ErrInvalidRecord", err)
+	}
+	if err := h.mgr.UpsertHistograms(ctx, h.id, []*datav1.HistogramRecord{{}}); !errors.Is(err, ErrInvalidRecord) {
+		t.Fatalf("empty histogram key err=%v, want ErrInvalidRecord", err)
 	}
 	if err := h.mgr.UpsertLogs(ctx, h.id, []*terminalv1.LogRecord{nil}); !errors.Is(err, ErrInvalidRecord) {
 		t.Fatalf("nil log err=%v, want ErrInvalidRecord", err)
