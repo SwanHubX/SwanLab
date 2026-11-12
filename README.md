@@ -9,7 +9,7 @@
 一个专业、现代化设计的AI训练分析平台  
 面向模型训练团队，与50+主流框架集成，与你的实验代码轻松结合
 
-<a href="https://swanlab.cn">🔥SwanLab 在线版</a> · <a href="https://docs.swanlab.cn">📃 文档</a> · <a href="https://github.com/swanhubx/swanlab/issues">报告问题</a> · <a href="https://rcnpx636fedp.feishu.cn/share/base/form/shrcnMFh9kkETFS6Hsc7fsBlKHc">建议反馈</a> · <a href="https://docs.swanlab.cn/guide_cloud/general/changelog.html">更新日志</a> · <img height="16" width="16" src="https://raw.githubusercontent.com/SwanHubX/assets/main/community.svg" alt="swanlab community Logo" /> <a href="https://swanlab.cn/benchmarks">基线社区</a> · <a href="https://github.com/SwanHubX/SwanLab-Skill">SKILL</a>
+<a href="https://swanlab.cn">🔥SwanLab 在线版</a> · <a href="https://docs.swanlab.cn">📃 文档</a> · <a href="https://github.com/swanhubx/swanlab/issues">报告问题</a> · <a href="https://rcnpx636fedp.feishu.cn/share/base/form/shrcnwT9dTedqUchdpgzPzKvcmd">建议反馈</a> · <a href="https://docs.swanlab.cn/guide_cloud/general/changelog.html">更新日志</a> · <img height="16" width="16" src="https://raw.githubusercontent.com/SwanHubX/assets/main/community.svg" alt="swanlab community Logo" /> <a href="https://swanlab.cn/benchmarks">基线社区</a> · <a href="https://github.com/SwanHubX/SwanLab-Skill">SKILL</a>
 
 [![][release-shield]][release-link]
 [![][dockerhub-shield]][dockerhub-link]
@@ -38,7 +38,6 @@
 
 ## 目录
 
-- [🌟 最近更新](#-最近更新)
 - [👋🏻 什么是SwanLab](#-什么是swanlab)
 - [📃 在线演示](#-在线演示)
 - [🏁 快速开始](#-快速开始)
@@ -52,128 +51,6 @@
 - [📃 协议](#-协议)
 
 <br/>
-
-## 🌟 最近更新
-
-- 2026.06.16: 🔥 新增 **HTML** 图表，支持嵌入LLM Vibe Coding 生成页面；Kubenetes 部署 [Prometheus + Grafana 方案](https://docs.swanlab.cn/self_host/kubernetes/monitor-logging.html) 上线；
-
-- 2026.06.05: ⚡️ **重构版 SDK**（v0.8.0）上线，大幅提升了指标记录性能，配合大规模训练体验更佳； SwanLab [CLI](https://docs.swanlab.cn/api/cli-swanlab-api.html) 与 [Skill](https://github.com/SwanHubX/SwanLab-Skill) 上线，面向 AutoResearch范式；
-
-- 2026.05.18：📒 日志支持**全局筛选**，快速在全局找到你需要的日志片段；新增**图表复制**功能；图表搜索上线**历史记录**功能；图表详情新增**相对时间**显示；
-
-- 2026.04.28：🪨 **项目置顶**上线，将团队最关心的项目卡片放到最显眼的位置；优化了在Hover折线图时指标看板的显示效果；
-
-- 2026.03.25：📊 **实验置顶**上线，一键将最好的实验固定在到最好找的位置；**Baseline**对比功能上线，支持将实验们和baseline对比并显示差异百分比，加速找到最佳参数组合；
-
-https://github.com/user-attachments/assets/964380e0-feb2-480d-b1ca-eba1be239ebb
-
-- 2026.03.19：📊 新增**实验复制**功能，支持将创建实验副本到不同项目、团队下；**parallel**模式上线，支持在不同进程同时记录指标到同一实验下；实验ID现在可以自定义了；
-
-- 2026.02.06: 🔥 **swanlab.Api**已正式上线，提供更强大的、面向对象式的开放API接口，[文档](https://docs.swanlab.cn/api/py-api.html)；ECharts.Table支持CSV下载；现在支持将图表一键置于分组首位了；
-
-<details><summary>完整更新日志</summary>
-
-- 2026.01.28：⚡️ **LightningBoard V2**上线，进一步提升仪表盘性能；
-
-- 2026.01.16：⚡️ **LightningBoard（闪电看板）V1** 现已上线，专为超大图表数量级场景打造；新增**图表嵌入链接**，现在可以把你的图表嵌入到在线文档当中（如Notion、飞书云文档等）；
-
-- 2026.01.02：🥳 新增对**AMD ROCm**与**天数智芯Iluvatar GPU**的硬件监控支持；SDK增加心跳包特性，实现更稳健的端云连接；
-
-- 2025.12.15：🎉 SwanLab **Kubernetes版** 现已发布！[部署文档](https://docs.swanlab.cn/self_host/kubernetes/deploy.html)；[NVIDIA NeMo RL](https://github.com/NVIDIA-NeMo/RL) 框架已集成SwanLab，[文档](https://docs.swanlab.cn/guide_cloud/integration/integration-nvidia-nemo-rl.html)；
-
-- 2025.12.01：🕰 新增**折线图详细信息展示**，鼠标悬浮在折线图上时，单击Shift将开启详细模式，支持显示当前log点的时间；📊 图表分组支持**MIN/MAX区域范围显示**；
-
-- 2025.11.17：📊 全局图表配置增加**X轴数据源选择**、**悬停模式**功能，增加图表分析体验；增加`SWANLAB_WEBHOOK`功能；[文档](https://docs.swanlab.cn/guide_cloud/experiment_track/webhook-setup.html)
-
-- 2025.11.06：🔪 **实验分组**上线，支持对大批量实验进行分组管理；工作区页面升级，支持快捷在多个组织下切换；大幅优化了折线图的渲染性能；swanlab.init上线`group`与`job_type`参数；
-
-- 2025.10.15：📊折线图配置支持**X轴数据源选择**；侧边栏支持显示表格视图中Pin的列，增强实验数据对齐能力；
-
-- 2025.09.22：📊全新UI上线；表格视图支持全局排序和筛选；数据层面统一表格视图与图表视图；
-
-- 2025.09.12：🔢支持创建**标量图**，灵活显示实验指标的统计值；组织管理页面大升级，提供更强大的权限控制与项目管理能力；
-
-- 2025.08.19：🤔更强大的图表渲染性能与低侵入式加载动画，让研究者更聚焦于实验分析本身；集成优秀的[MLX-LM](https://github.com/ml-explore/mlx-lm)、[SpecForge](https://github.com/sgl-project/SpecForge)框架，提供更多场景的训练体验；
-
-- 2025.08.06：👥**训练轻协作**上线，支持邀请项目协作者，分享项目链接与二维码；工作区支持列表视图，支持显示项目Tags；
-
-- 2025.07.29：🚀侧边栏支持**实验筛选、排序**；📊表格视图上线**列控制面板**，能够方便地实现列的隐藏与显示；🔐**多API Key**管理上线，让你的数据更安全；swanlab sync提高了对日志文件完整性的兼容，适配训练崩溃等场景；新图表-PR曲线、ROC曲线、混淆矩阵上线，[文档](https://docs.swanlab.cn/api/py-pr_curve.html)；
-
-- 2025.07.17：📊更强大的**折线图配置**，支持灵活配置线型、颜色、粗细、网格、图例位置等；📹支持**swanlab.Video**数据类型，支持记录与可视化GIF格式文件；全局图表仪表盘支持配置Y轴与最大显示实验数；
-
-- 2025.07.10：📚更强大的**文本视图**，支持Markdown渲染与方向键切换，可由`swanlab.echarts.table`与`swanlab.Text`创建，[Demo](https://swanlab.cn/@ZeyiLin/ms-swift-rlhf/runs/d661ty9mslogsgk41fp0p/chart)
-
-- 2025.07.06：🚄支持**resume断点续训**；新插件**文件记录器**；集成[ray](https://github.com/ray-project/ray)框架，[文档](https://docs.swanlab.cn/guide_cloud/integration/integration-ray.html)；集成[ROLL](https://github.com/alibaba/ROLL)框架，感谢[@PanAndy](https://github.com/PanAndy)，[文档](https://docs.swanlab.cn/guide_cloud/integration/integration-roll.html)
-
-- 2025.06.27：📊支持**小折线图局部放大**；支持配置**单个折线图平滑**；大幅改进了图像图表放大后的交互效果；
-
-- 2025.06.20：🤗集成[accelerate](https://github.com/huggingface/accelerate)框架，[PR](https://github.com/huggingface/accelerate/pull/3605)，[文档](https://docs.swanlab.cn/guide_cloud/integration/integration-huggingface-accelerate.html)，增强分布式训练中的实验记录体验；
-
-- 2025.06.18：🐜集成[AREAL](https://github.com/areal-project/AReaL)框架，感谢[@xichengpro](https://github.com/xichengpro)，[PR](https://github.com/areal-project/AReaL/pull/98)，[文档](https://inclusionai.github.io/AReaL/tutorial/quickstart.html#monitoring-the-training-process)；🖱支持鼠标Hover到侧边栏实验时，高亮相应曲线；支持跨组对比折线图；支持设置实验名裁剪规则；
-
-- 2025.06.11：📊支持 **swanlab.echarts.table** 数据类型，支持纯文本图表展示；支持对分组进行**拉伸交互**，以增大同时显示的图表数量；表格视图增加 **指标最大/最小值** 选项；
-
-- 2025.06.08：♻️支持在本地存储完整的实验日志文件，通过 **swanlab sync** 上传本地日志文件到云端/私有化部署端；硬件监控支持**海光DCU**；
-
-- 2025.06.01：🏸支持**图表自由拖拽**；支持**ECharts自定义图表**，增加包括柱状图、饼状图、直方图在内的20+图表类型；硬件监控支持**沐曦GPU**；集成 **[PaddleNLP](https://github.com/PaddlePaddle/PaddleNLP)** 框架；
-
-- 2025.05.25：日志支持记录**标准错误流**，PyTorch Lightning等框架的打印信息可以被更好地记录；硬件监控支持**摩尔线程**；新增运行命令记录安全防护功能，API Key将被自动隐藏；
-
-- 2025.05.14：支持**实验Tag**；支持折线图**Log Scale**；支持**分组拖拽**；大幅度优化了大量指标上传的体验；增加`swanlab.OpenApi`开放接口；
-
-- 2025.05.09：支持**折线图创建**；配置图表功能增加**数据源选择**功能，支持单张图表显示不同的指标；支持生成**训练项目GitHub徽章**；
-
-- 2025.04.23：支持折线图**编辑**，支持自由配置图表的X、Y轴数据范围和标题样式；图表搜索支持**正则表达式**；支持**昆仑芯XPU**的硬件检测与监控；
-
-- 2025.04.11：支持折线图**局部区域选取**；支持全局选择仪表盘折线图的step范围；支持一键隐藏全部图表；
-
-- 2025.04.08：支持**swanlab.Molecule**数据类型，支持记录与可视化生物化学分子数据；支持保存表格视图中的排序、筛选、列顺序变化状态；
-
-- 2025.04.07：我们与 [EvalScope](https://github.com/ModelScope/EvalScope) 完成了联合集成，现在你可以在EvalScope中使用SwanLab来**评估大模型性能**；
-
-- 2025.03.30：支持**swanlab.Settings**方法，支持更精细化的实验行为控制；支持**寒武纪MLU**硬件监控；支持 [Slack通知](https://docs.swanlab.cn/plugin/notification-slack.html)、[Discord通知](https://docs.swanlab.cn/plugin/notification-discord.html)；
-
-- 2025.03.21：🎉🤗HuggingFace Transformers已正式集成SwanLab（>=4.50.0版本），[#36433](https://github.com/huggingface/transformers/pull/36433)；新增 **Object3D图表** ，支持记录与可视化三维点云，[文档](https://docs.swanlab.cn/api/py-object3d.html)；硬件监控支持了 GPU显存（MB）、磁盘利用率、网络上下行 的记录；
-
-- 2025.03.12：🎉🎉SwanLab**私有化部署版**现已发布！！[🔗部署文档](https://docs.swanlab.cn/guide_cloud/self_host/docker-deploy.html)；SwanLab 已支持插件扩展，如 [邮件通知](https://docs.swanlab.cn/plugin/notification-email.html)、[飞书通知](https://docs.swanlab.cn/plugin/notification-lark.html)
-
-- 2025.03.09：支持**实验侧边栏拉宽**；新增外显 Git代码 按钮；新增 **sync_mlflow** 功能，支持与mlflow框架同步实验跟踪；
-
-- 2025.03.06：我们与 [DiffSynth Studio](https://github.com/modelscope/diffsynth-studio) 完成了联合集成，现在你可以在DiffSynth Studio中使用SwanLab来**跟踪和可视化Diffusion模型文生图/视频实验**，[使用指引](https://docs.swanlab.cn/guide_cloud/integration/integration-diffsynth-studio.html)；
-
-- 2025.03.04：新增 **MLFlow转换** 功能，支持将MLFlow实验转换为SwanLab实验，[使用指引](https://docs.swanlab.cn/guide_cloud/integration/integration-mlflow.html)；
-
-- 2025.03.01：新增 **移动实验** 功能，现在可以将实验移动到不同组织的不同项目下了；
-
-- 2025.02.24：我们与 [EasyR1](https://github.com/hiyouga/EasyR1) 完成了联合集成，现在你可以在EasyR1中使用SwanLab来**跟踪和可视化多模态大模型强化学习实验**，[使用指引](https://docs.swanlab.cn/guide_cloud/integration/integration-easyr1.html)
-
-- 2025.02.18：我们与 [Swift](https://github.com/modelscope/ms-swift) 完成了联合集成，现在你可以在Swift的CLI/WebUI中使用SwanLab来**跟踪和可视化大模型微调实验**，[使用指引](https://docs.swanlab.cn/guide_cloud/integration/integration-swift.html)。
-
-- 2025.02.16：新增 **图表移动分组、创建分组** 功能。
-
-- 2025.02.09：我们与 [veRL](https://github.com/verl-project/verl) 完成了联合集成，现在你可以在veRL中使用SwanLab来**跟踪和可视化大模型强化学习实验**，[使用指引](https://docs.swanlab.cn/guide_cloud/integration/integration-verl.html)。
-
-- 2025.02.05：`swanlab.log`支持嵌套字典 [#812](https://github.com/SwanHubX/SwanLab/pull/812)，适配Jax框架特性；支持`name`与`notes`参数；
-
-- 2025.01.22：新增`sync_tensorboardX`与`sync_tensorboard_torch`功能，支持与此两种TensorBoard框架同步实验跟踪；
-
-- 2025.01.17：新增`sync_wandb`功能，[文档](https://docs.swanlab.cn/guide_cloud/integration/integration-wandb.html)，支持与Weights & Biases实验跟踪同步；大幅改进了日志渲染性能
-
-- 2025.01.11：云端版大幅优化了项目表格的性能，并支持拖拽、排序、筛选等交互
-
-- 2025.01.01：新增折线图**持久化平滑**、折线图拖拽式改变大小，优化图表浏览体验
-
-- 2024.12.22：我们与 [LLaMA Factory](https://github.com/hiyouga/LlamaFactory) 完成了联合集成，现在你可以在LLaMA Factory中使用SwanLab来**跟踪和可视化大模型微调实验**，[使用指引](https://github.com/hiyouga/LlamaFactory?tab=readme-ov-file#use-swanlab-logger)。
-
-- 2024.12.15：**硬件监控（0.4.0）** 功能上线，支持CPU、NPU（Ascend）、GPU（Nvidia）的系统级信息记录与监控。
-
-- 2024.12.06：新增对[LightGBM](https://docs.swanlab.cn/guide_cloud/integration/integration-lightgbm.html)、[XGBoost](https://docs.swanlab.cn/guide_cloud/integration/integration-xgboost.html)的集成；提高了对日志记录单行长度的限制。
-
-- 2024.11.26：环境选项卡-硬件部分支持识别**华为昇腾NPU**与**鲲鹏CPU**；云厂商部分支持识别青云**基石智算**。
-
-</details>
-
-<br>
 
 ## 👋🏻 什么是SwanLab
 
@@ -209,11 +86,11 @@ https://github.com/user-attachments/assets/7965fec4-c8b0-4956-803d-dbf177b44f54
 
 - **断点续训记录**：支持在训练完成/中断后，补充新的指标数据到同个实验中
 
-**2. ⚡️ 全面的框架集成**: PyTorch、🤗HuggingFace Transformers、PyTorch Lightning、🦙LLaMA Factory、MMDetection、Ultralytics、PaddleDetetion、LightGBM、XGBoost、Keras、Tensorboard、Weights&Biases、Swift、XTuner、Stable Baseline3、Hydra 在内的 **30+** 框架
+**2. ⚡️ 全面的框架集成**: PyTorch、🤗HuggingFace Transformers、PyTorch Lightning、🦙LLaMA Factory、MMDetection、Ultralytics、PaddleDetection、LightGBM、XGBoost、Keras、TensorBoard、Weights&Biases、Swift、XTuner、Stable-Baselines3、Hydra 在内的 **30+** 框架
 
 ![](readme_files/integrations.png)
 
-**3. 💻 硬件监控**: 支持实时记录与监控CPU、NPU（**昇腾Ascend**）、GPU（**英伟达Nvidia**）、AMD（**AMD ROCm**）、MLU（**寒武纪Cambricon**）、XLU（**昆仑芯Kunlunxin**）、DCU（**海光DCU**）、MetaX GPU（**沐曦XPU**）、Moore Threads GPU（**摩尔线程**）、Iluvatar GPU（**天数智芯**）、内存的系统级硬件指标
+**3. 💻 硬件监控**: 支持实时记录与监控CPU、NPU（**昇腾Ascend**）、GPU（**英伟达Nvidia**）、AMD（**AMD ROCm**）、MLU（**寒武纪Cambricon**）、XPU（**昆仑芯Kunlunxin**）、DCU（**海光DCU**）、MetaX GPU（**沐曦XPU**）、Moore Threads GPU（**摩尔线程**）、Iluvatar GPU（**天数智芯**）、内存的系统级硬件指标
 
 **4. 📦 实验管理**: 通过专为训练场景设计的集中式仪表板，通过整体视图速览全局，快速管理多个项目与实验
 
@@ -571,7 +448,7 @@ SwanLab会对AI训练过程中所使用的**硬件信息**和**资源使用情�
 ### 社区与支持
 
 - [GitHub Issues](https://github.com/SwanHubX/SwanLab/issues)：使用 SwanLab 时遇到的错误和问题
-- [电子邮件支持](zeyi.lin@swanhub.co)：反馈关于使用 SwanLab 的问题
+- [电子邮件支持](mailto:contact@swanlab.cn)：反馈关于使用 SwanLab 的问题
 - <a href="https://docs.swanlab.cn/guide_cloud/community/online-support.html">微信交流群</a>：交流使用 SwanLab 的问题、分享最新的 AI 技术
 
 ### SwanLab README 徽章
