@@ -17,8 +17,8 @@ __all__ = ["SyncRangeFilter"]
 class SyncRangeFilter:
     """按 step 范围与时间范围过滤回放记录，任一维度未设置表示该维度不限制。
 
-    step 范围仅对 scalar/media 记录生效，时间范围对 scalar/media/log 记录生效，
-    两个维度同时设置时取交集，上下界均为闭区间。
+    step 范围仅对 scalar/media/histogram 记录生效，时间范围对 scalar/media/histogram/log
+    记录生效，两个维度同时设置时取交集，上下界均为闭区间。
     """
 
     __slots__ = ("_start_step", "_end_step", "_start_ns", "_end_ns")

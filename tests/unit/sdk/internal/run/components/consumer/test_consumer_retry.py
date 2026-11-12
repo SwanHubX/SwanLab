@@ -4,6 +4,7 @@
 - 可重试错误必须回塞原批次，退避到期后重新提交，记录不丢；
 - 终态错误只告警一次并终结该批，不回塞；
 - 单次 flush 按 batch_size 分片提交，失败只回塞未成功的部分；
+- scalar / media / histogram 各自独立通道，任一通道失败只影响自己那批；
 - 退避通过 queue.get(timeout=...) 表达，不 sleep 轮询。
 """
 
@@ -17,7 +18,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord, ColumnType
-from swanlab.proto.swanlab.metric.data.v1.data_pb2 import ScalarRecord
+from swanlab.proto.swanlab.metric.data.v1.data_pb2 import HistogramRecord, ScalarRecord
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.pkg import console as pkg_console
 from swanlab.sdk.internal.run.components.consumer import BackgroundConsumer
@@ -60,6 +61,10 @@ def _make_consumer(
 
 def _scalar(key: str = "loss") -> ScalarRecord:
     return ScalarRecord(key=key, step=1)
+
+
+def _histogram(key: str = "weights") -> HistogramRecord:
+    return HistogramRecord(key=key, step=1)
 
 
 def test_retryable_error_restores_batch_and_schedules_backoff():
@@ -289,6 +294,56 @@ def test_terminal_failure_drops_only_rejected_chunk(monkeypatch):
     sent = [record for call in core.upsert_scalars.call_args_list for record in call.args[0]]
     assert sent == records
     assert consumer._scalar_batch == []
+
+
+def test_histogram_batch_is_restored_and_retried_on_retryable_failure():
+    """直方图走独立通道：可重试失败回塞 _histogram_batch，退避到期重提。"""
+    consumer, core, clock = _make_consumer()
+    record = _histogram()
+    consumer._histogram_batch.append(record)
+    core.upsert_histograms.side_effect = [CoreProtocolError("busy", retryable=True), None]
+
+    consumer._flush()
+
+    assert consumer._histogram_batch == [record]
+    assert consumer._retry_due() is False
+
+    clock.advance(0.5)
+    consumer._flush()
+
+    assert consumer._histogram_batch == []
+    assert core.upsert_histograms.call_count == 2
+    assert core.upsert_histograms.call_args_list[0].args[0] == [record]
+
+
+def test_histogram_flush_notifies_callbacker():
+    consumer, core, _ = _make_consumer()
+    callbacker = cast(MagicMock, consumer._callbacker)
+    record = _histogram()
+    consumer._histogram_batch.append(record)
+
+    consumer._flush()
+
+    core.upsert_histograms.assert_called_once_with([record])
+    callbacker.on_histogram_flush.assert_called_once_with([record])
+
+
+def test_terminal_histogram_error_drops_only_that_channel(monkeypatch):
+    """Go core 未实现 UpsertHistograms 时返回非可重试错误：只丢直方图，不影响其它通道。"""
+    warnings = []
+    monkeypatch.setattr(pkg_console, "warning", lambda *args, **kwargs: warnings.append(args))
+    consumer, core, _ = _make_consumer()
+    consumer._histogram_batch.append(_histogram())
+    consumer._scalar_batch.append(_scalar())
+    core.upsert_histograms.side_effect = CoreProtocolError("unimplemented", retryable=False)
+
+    consumer._flush()
+
+    assert consumer._histogram_batch == []
+    assert consumer._scalar_batch == []
+    core.upsert_scalars.assert_called_once()
+    assert len(warnings) == 1
+    assert "histograms" in warnings[0][0]
 
 
 def test_columns_are_coalesced_before_chunking():

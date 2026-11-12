@@ -20,6 +20,7 @@ from .cmd.run import (
     log,
     log_audio,
     log_echarts,
+    log_histogram,
     log_html,
     log_image,
     log_molecule,
@@ -31,7 +32,19 @@ from .cmd.run import (
 from .cmd.sync import build_sync_range, sync
 from .internal import impl, pkg
 from .internal.run import Run, clear_run, get_run, has_run, set_run
-from .internal.run.transforms import Audio, ECharts, Html, Image, Molecule, Object3D, Text, Video, echarts, plot
+from .internal.run.transforms import (
+    Audio,
+    ECharts,
+    Histogram,
+    Html,
+    Image,
+    Molecule,
+    Object3D,
+    Text,
+    Video,
+    echarts,
+    plot,
+)
 from .internal.settings import Settings
 from .protocol import Callback
 
@@ -48,6 +61,7 @@ __all__ = [
     "log_video",
     "log_echarts",
     "log_html",
+    "log_histogram",
     "log_object3d",
     "log_molecule",
     "async_log",
@@ -71,6 +85,7 @@ __all__ = [
     # data
     "Audio",
     "ECharts",
+    "Histogram",
     "Html",
     "Image",
     "Molecule",

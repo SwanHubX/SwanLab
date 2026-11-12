@@ -10,7 +10,9 @@ from enum import Enum
 from typing import Callable, List, Optional
 
 from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
+    CORE_ERROR_KIND_OTHER,
     ConfirmRunFinishResponse,
+    CoreErrorKind,
     DeliverRunFinishRequest,
     DeliverRunFinishResponse,
     DeliverRunStartRequest,
@@ -24,7 +26,7 @@ from swanlab.proto.swanlab.grpc.core.v1.sync_pb2 import (
     DeliverSyncStartResponse,
 )
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord
-from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord, ScalarRecord
+from swanlab.proto.swanlab.metric.data.v1.data_pb2 import HistogramRecord, MediaRecord, ScalarRecord
 from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord
 from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogRecord
 from swanlab.sdk.internal.pkg import safe
@@ -92,20 +94,32 @@ class CoreProtocol(ABC):
         """
         交付运行开始事件，同步事件，等待确认
         约定应该在此处完成Core相关组件的初始化，在这里完成不同模式的初始化函数分发
+
+        启动失败由 Core 实现自行清理已创建的资源，不向调用方暴露清理接口。
         """
         errors: list[BaseException] = []
+        resp: Optional[DeliverRunStartResponse] = None
         with safe.block(message="run start error", on_error=errors.append):
             if self._mode == "online":
-                return self._start_when_online(start_request)
+                resp = self._start_when_online(start_request)
             elif self._mode == "local":
-                return self._start_when_local(start_request)
+                resp = self._start_when_local(start_request)
             elif self._mode == "offline":
-                return self._start_when_offline(start_request)
-            return self._start_when_disabled(start_request)
-        message = "Failed to start run"
+                resp = self._start_when_offline(start_request)
+            else:
+                resp = self._start_when_disabled(start_request)
         if errors:
-            message = f"{message}: {errors[0]}"
-        return DeliverRunStartResponse(success=False, message=message)
+            return self._start_failure(errors[0])
+        assert resp is not None
+        return resp
+
+    @staticmethod
+    def _start_failure(exc: BaseException, kind: CoreErrorKind = CORE_ERROR_KIND_OTHER) -> DeliverRunStartResponse:
+        return DeliverRunStartResponse(
+            success=False,
+            message=f"Failed to start run: {exc}",
+            error_kind=kind,
+        )
 
     @staticmethod
     def _start_when_disabled(start_request: DeliverRunStartRequest) -> DeliverRunStartResponse:
@@ -199,6 +213,30 @@ class CoreProtocol(ABC):
 
     @abstractmethod
     def _upsert_media_when_online(self, media: List[MediaRecord]) -> None: ...
+
+    # ---------------------------------- 直方图指标值 ----------------------------------
+
+    def upsert_histograms(self, histograms: List[HistogramRecord]) -> None:
+        """上报一组 HistogramRecord，记录直方图指标值"""
+        with safe.block(message="upsert histograms error"):
+            if self._mode == "online":
+                return self._upsert_histograms_when_online(histograms)
+            elif self._mode == "local":
+                return self._upsert_histograms_when_local(histograms)
+            elif self._mode == "offline":
+                return self._upsert_histograms_when_offline(histograms)
+            return self._upsert_histograms_when_disabled(histograms)
+
+    def _upsert_histograms_when_disabled(self, histograms: List[HistogramRecord]) -> None: ...
+
+    @abstractmethod
+    def _upsert_histograms_when_local(self, histograms: List[HistogramRecord]) -> None: ...
+
+    @abstractmethod
+    def _upsert_histograms_when_offline(self, histograms: List[HistogramRecord]) -> None: ...
+
+    @abstractmethod
+    def _upsert_histograms_when_online(self, histograms: List[HistogramRecord]) -> None: ...
 
     # ---------------------------------- 终端输出 ----------------------------------
 
@@ -378,6 +416,15 @@ class NullCoreProtocol(CoreProtocol):
         return None
 
     def _upsert_media_when_online(self, media: List[MediaRecord]) -> None:
+        return None
+
+    def _upsert_histograms_when_local(self, histograms: List[HistogramRecord]) -> None:
+        return None
+
+    def _upsert_histograms_when_offline(self, histograms: List[HistogramRecord]) -> None:
+        return None
+
+    def _upsert_histograms_when_online(self, histograms: List[HistogramRecord]) -> None:
         return None
 
     def _upsert_logs_when_local(self, logs: List[LogRecord]) -> None:

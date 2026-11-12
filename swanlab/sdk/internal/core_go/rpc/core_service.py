@@ -23,13 +23,14 @@ from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
     SpinupServiceRequest,
     TeardownServiceRequest,
     UpsertColumnsRequest,
+    UpsertHistogramsRequest,
     UpsertLogsRequest,
     UpsertMediaRequest,
     UpsertSavesRequest,
     UpsertScalarsRequest,
 )
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord
-from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord, ScalarRecord
+from swanlab.proto.swanlab.metric.data.v1.data_pb2 import HistogramRecord, MediaRecord, ScalarRecord
 from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord
 from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogRecord
 from swanlab.sdk.internal.core_go.config import (
@@ -113,6 +114,13 @@ class CoreServiceRpc:
         self._channel.call(
             self._stub.UpsertMedia,
             UpsertMediaRequest(data=media, session_id=session_id),
+            timeout=UPSERT_TIMEOUT,
+        )
+
+    def upsert_histograms(self, histograms: List[HistogramRecord], session_id: str) -> None:
+        self._channel.call(
+            self._stub.UpsertHistograms,
+            UpsertHistogramsRequest(data=histograms, session_id=session_id),
             timeout=UPSERT_TIMEOUT,
         )
 

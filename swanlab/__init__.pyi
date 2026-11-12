@@ -16,6 +16,7 @@ from .sdk import (
     Audio,
     Callback,
     ECharts,
+    Histogram,
     Html,
     Image,
     Molecule,
@@ -31,10 +32,19 @@ from .sdk import (
 )
 from .sdk.typings.cmd import ConfigLike, LoginType
 from .sdk.typings.context import CallbacksType
-from .sdk.typings.run import AsyncLogType, FinishType, ModeType, ParallelType, ResumeType, SaveType
+from .sdk.typings.run import (
+    AsyncLogType,
+    FinishType,
+    ModeType,
+    OnlineErrorPolicy,
+    ParallelType,
+    ResumeType,
+    SaveType,
+)
 from .sdk.typings.run.transforms import CaptionsType
 from .sdk.typings.run.transforms.audio import AudioDatasType, AudioRatesType
 from .sdk.typings.run.transforms.echarts import EChartsDatasType
+from .sdk.typings.run.transforms.histogram import HistogramBins, HistogramInput
 from .sdk.typings.run.transforms.html import HtmlDatasType
 from .sdk.typings.run.transforms.image import ImageDatasType, ImageFilesType, ImageModesType, ImageSizesType
 from .sdk.typings.run.transforms.molecule import MoleculeDatasType
@@ -59,6 +69,7 @@ __all__ = [
     "log_video",
     "log_echarts",
     "log_html",
+    "log_histogram",
     "log_object3d",
     "log_molecule",
     "define_metric",
@@ -76,6 +87,7 @@ __all__ = [
     "Text",
     "Audio",
     "ECharts",
+    "Histogram",
     "Html",
     "Image",
     "Video",
@@ -103,6 +115,7 @@ def init(
     reinit: Optional[bool] = None,
     log_dir: Optional[str] = None,
     mode: Optional[ModeType] = None,
+    on_online_error: Optional[OnlineErrorPolicy] = None,
     workspace: Optional[str] = None,
     project: Optional[str] = None,
     public: Optional[bool] = None,
@@ -130,6 +143,10 @@ def init(
     :param log_dir: Directory to store logs. Defaults to "./swanlog".
     :param mode: Run mode. Options: "online" (sync to cloud), "local" (local only),
         "offline" (save locally for later sync), "disabled" (no logging). Defaults to "online".
+    :param on_online_error: Behavior when SwanLab Cloud is temporarily unreachable in online
+        mode. Only transient connection/server failures are degraded; authentication and
+        configuration errors always raise. Options: "offline" (save locally and sync later),
+        "disabled" (no logging), "raise". Defaults to "offline".
     :param workspace: Workspace or organization name. Defaults to current user.
     :param project: Project name. Defaults to current directory name.
     :param public: Make project publicly visible (online mode only). Defaults to False.
@@ -146,15 +163,23 @@ def init(
     :param config: Experiment configuration dict or path to config file (JSON/YAML).
     :param settings: Custom Settings object for advanced configuration.
     :param callbacks: List of callback functions triggered on run events.
+
     :return: The initialized Run object.
-    :raises RuntimeError: If a run is already active and reinit=False.
+
+    :raises RuntimeError: If a run is already active and reinit=False, or if an online
+        startup fails and is not degraded (a non-transient error, or a transient error
+        when ``on_online_error="raise"``).
+    :raises AuthenticationError: If SwanLab Cloud rejects the API key during login or
+        startup, or if the initial login fails with a non-transient error. With
+        ``on_online_error="raise"`` any login failure is wrapped as
+        ``AuthenticationError`` with the original exception in ``__cause__``.
 
     Examples:
 
         Basic local run:
 
         >>> import swanlab
-        >>> swanlab.init(mode="local", project="my_project")
+        >>> swanlab.init(mode="offline", project="my_project")
         >>> swanlab.log({"loss": 0.5})
         >>> swanlab.finish()
 
@@ -194,14 +219,14 @@ def finish(
         Finish a successful run:
 
         >>> import swanlab
-        >>> swanlab.init(mode="local")
+        >>> swanlab.init(mode="offline")
         >>> swanlab.log({"loss": 0.5})
         >>> swanlab.finish()
 
         Mark run as crashed with error message:
 
         >>> import swanlab
-        >>> swanlab.init(mode="local")
+        >>> swanlab.init(mode="offline")
         >>> try:
         ...     raise ValueError("Training failed")
         ... except Exception as e:
@@ -231,7 +256,8 @@ def login(
     :param timeout: Network request timeout in seconds. Defaults to 10.
     :return: True if login was successful, False otherwise.
     :raises RuntimeError: If called while a run is active.
-    :raises AuthenticationError: If login fails due to invalid credentials or network issues.
+    :raises AuthenticationError: If login fails due to invalid credentials, network issues,
+        or server errors. The original exception is available via ``__cause__``.
 
     Examples:
 
@@ -351,7 +377,7 @@ def get_run() -> Run:
     Examples:
 
         >>> import swanlab
-        >>> swanlab.init(mode="local")
+        >>> swanlab.init(mode="offline")
         >>> run = swanlab.get_run()
         >>> print(run.id)
         >>> swanlab.finish()
@@ -372,14 +398,14 @@ def log(data: Mapping[str, Any], step: Optional[int] = None) -> None:
         Log multiple metrics:
 
         >>> import swanlab
-        >>> swanlab.init(mode="local")
+        >>> swanlab.init(mode="offline")
         >>> swanlab.log({"loss": 0.5, "accuracy": 0.95})
         >>> swanlab.finish()
 
         Log with explicit step:
 
         >>> import swanlab
-        >>> swanlab.init(mode="local")
+        >>> swanlab.init(mode="offline")
         >>> swanlab.log({"loss": 0.5}, step=10)
         >>> swanlab.finish()
     """
@@ -405,14 +431,14 @@ def log_text(
         Log simple text:
 
         >>> import swanlab
-        >>> swanlab.init(mode="local")
+        >>> swanlab.init(mode="offline")
         >>> swanlab.log_text(key="output", data="Training started")
         >>> swanlab.finish()
 
         Log text with caption:
 
         >>> import swanlab
-        >>> swanlab.init(mode="local")
+        >>> swanlab.init(mode="offline")
         >>> swanlab.log_text(key="prediction", data="cat", caption="Model output")
         >>> swanlab.finish()
     """
@@ -442,7 +468,7 @@ def log_image(
     Examples:
 
         >>> import swanlab, numpy as np
-        >>> swanlab.init(mode="local")
+        >>> swanlab.init(mode="offline")
         >>> img = np.zeros((64, 64, 3), dtype=np.uint8)
         >>> swanlab.log_image(key="sample", data=img, caption="blank image")
         >>> swanlab.finish()
@@ -469,7 +495,7 @@ def log_audio(
     Examples:
 
         >>> import swanlab, numpy as np
-        >>> swanlab.init(mode="local")
+        >>> swanlab.init(mode="offline")
         >>> audio = np.zeros((1, 44100), dtype=np.float32)
         >>> swanlab.log_audio(key="sound", data=audio, sample_rate=44100)
         >>> swanlab.finish()
@@ -496,7 +522,7 @@ def log_video(
     Examples:
 
         >>> import swanlab
-        >>> swanlab.init(mode="local")
+        >>> swanlab.init(mode="offline")
         >>> with open("animation.gif", "rb") as f:
         ...     swanlab.log_video(key="rollout", data=f.read())
         >>> swanlab.finish()
@@ -521,7 +547,7 @@ def log_echarts(
     Examples:
 
         >>> import swanlab
-        >>> swanlab.init(mode="local")
+        >>> swanlab.init(mode="offline")
         >>> chart = swanlab.echarts.Bar().add_xaxis(["a", "b"]).add_yaxis("series", [1, 2])
         >>> swanlab.log_echarts(key="chart", data=chart)
         >>> swanlab.finish()
@@ -548,21 +574,21 @@ def log_html(
         Log raw HTML string:
 
         >>> import swanlab
-        >>> swanlab.init(mode="local")
+        >>> swanlab.init(mode="offline")
         >>> swanlab.log_html(key="report", data="<h1>Hello World</h1>")
         >>> swanlab.finish()
 
         Log HTML from a file path:
 
         >>> import swanlab
-        >>> swanlab.init(mode="local")
+        >>> swanlab.init(mode="offline")
         >>> swanlab.log_html(key="page", data="./report.html", caption="My Report")
         >>> swanlab.finish()
 
         Log an Html object:
 
         >>> import swanlab
-        >>> swanlab.init(mode="local")
+        >>> swanlab.init(mode="offline")
         >>> html = swanlab.Html("<p>Styled content</p>", caption="styled")
         >>> swanlab.log_html(key="styled_page", data=html)
         >>> swanlab.finish()
@@ -587,7 +613,7 @@ def log_object3d(
     Examples:
 
         >>> import swanlab, numpy as np
-        >>> swanlab.init(mode="local")
+        >>> swanlab.init(mode="offline")
         >>> points = np.random.rand(100, 3)
         >>> swanlab.log_object3d(key="point_cloud", data=points, caption="random points")
         >>> swanlab.finish()
@@ -612,8 +638,34 @@ def log_molecule(
     Examples:
 
         >>> import swanlab
-        >>> swanlab.init(mode="local")
+        >>> swanlab.init(mode="offline")
         >>> swanlab.log_molecule(key="molecule", data="CCO", caption="Ethanol")
+        >>> swanlab.finish()
+    """
+    ...
+
+def log_histogram(
+    *,
+    key: str,
+    data: HistogramInput,
+    bins: Optional[HistogramBins] = None,
+    step: Optional[int] = None,
+    **kwargs: Any,
+) -> None:
+    """A syntactic sugar for logging histogram data.
+
+    :param key: The key for the histogram data.
+    :param data: The histogram data (sequence, numpy array, or Histogram object).
+    :param bins: Number of buckets or explicit bucket edges.
+    :param num_bins: wandb-compatible bucket count, accepted via ``**kwargs``; used when bins is None.
+    :param step: Optional step number. If not provided, auto-increments.
+    :raises RuntimeError: If called without an active run.
+
+    Examples:
+
+        >>> import swanlab
+        >>> swanlab.init(mode="offline")
+        >>> swanlab.log_histogram(key="weights", data=[0.1, 0.2, 0.3], bins=16)
         >>> swanlab.finish()
     """
     ...
@@ -729,7 +781,7 @@ def define_metric(
         Custom X-axis with separate logging:
 
         >>> import swanlab
-        >>> swanlab.init(mode="local")
+        >>> swanlab.init(mode="offline")
         >>> run = swanlab.get_run()
         >>> run.define_metric("train/loss", x_axis="train/epoch")
         >>> swanlab.log({"train/epoch": 1})    # step=1

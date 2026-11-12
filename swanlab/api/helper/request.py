@@ -8,6 +8,7 @@
 from typing import Any, Dict, List, Optional
 
 from swanlab.api.base import BaseEntity
+from swanlab.api.typings.common import RangeQuery
 from swanlab.api.typings.metric import ApiMediaItemDataType
 
 # ---------------------------------------------------------------------------
@@ -70,6 +71,30 @@ def build_media_payload(
     }
     if step is not None:
         payload["step"] = step
+    return payload
+
+
+def build_histogram_payload(
+    project_id: str,
+    run_id: str,
+    created_at: int,
+    keys: List[str],
+    sample: int = 1500,
+    step_range: Optional[RangeQuery] = None,
+    root_pro_id: str = "",
+    root_exp_id: str = "",
+) -> Dict[str, Any]:
+    """直方图查询 payload：``sample`` 钳制到 [1, 1500]；``step_range`` 转为 House 的 ``range``。
+
+    House 以 ``range=[min, max]`` 表示 step 窗口，0 表示该侧不限制，因此 ``None`` 边界映射为 0。
+    """
+    payload: Dict[str, Any] = {
+        "projectId": project_id,
+        "columns": [build_column_ref(run_id, created_at, key, root_pro_id, root_exp_id) for key in keys],
+        "num": max(1, min(sample, 1500)),
+    }
+    if step_range is not None:
+        payload["range"] = [step_range.start or 0.0, step_range.end or 0.0]
     return payload
 
 

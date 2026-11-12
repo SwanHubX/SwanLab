@@ -25,7 +25,7 @@ def _experiment_data(**extra) -> dict:
     return data
 
 
-def _call_create_or_resume():
+def _call_create_or_resume(retries=None):
     return experiment_api.create_or_resume_experiment(
         "alice",
         "demo",
@@ -37,6 +37,7 @@ def _call_create_or_resume():
         group=None,
         tags=None,
         created_at=_created_at(),
+        retries=retries,
     )
 
 
@@ -86,7 +87,7 @@ def test_resume_falls_back_to_get_when_created_at_missing(monkeypatch):
 
     assert is_new is False
     assert experiment["createdAt"] == "2024-07-01T00:00:00Z"
-    get.assert_called_once_with("/project/alice/demo/runs/experiment-id")
+    get.assert_called_once_with("/project/alice/demo/runs/experiment-id", retries=None)
 
 
 def test_resume_raises_when_get_also_missing_created_at(monkeypatch):
@@ -98,7 +99,26 @@ def test_resume_raises_when_get_also_missing_created_at(monkeypatch):
     with pytest.raises(ValueError, match="upgrade swanlab-server"):
         _call_create_or_resume()
 
-    get.assert_called_once_with("/project/alice/demo/runs/experiment-id")
+    get.assert_called_once_with("/project/alice/demo/runs/experiment-id", retries=None)
+
+
+def test_create_or_resume_experiment_forwards_retries(monkeypatch):
+    """启动路径显式传入的重试次数应透传到实验请求。"""
+    post = MagicMock(return_value=_post_resp(_experiment_data(), 201))
+    monkeypatch.setattr(experiment_api.client, "post", post)
+
+    _call_create_or_resume(retries=1)
+
+    assert post.call_args.kwargs["retries"] == 1
+
+
+def test_get_experiment_summary_forwards_retries(monkeypatch):
+    get = MagicMock(return_value=SimpleNamespace(data={}))
+    monkeypatch.setattr(experiment_api.client, "get", get)
+
+    experiment_api.get_experiment_summary("project-id", "experiment-id", "2024-07-01T00:00:00Z", retries=1)
+
+    assert get.call_args.kwargs["retries"] == 1
 
 
 def _stale_timestamp() -> Timestamp:

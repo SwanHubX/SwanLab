@@ -8,9 +8,10 @@
 from typing import Optional
 
 from swanlab.sdk.internal.pkg import client, console
+from swanlab.sdk.internal.pkg.client import STARTUP_RETRIES
 from swanlab.sdk.typings.pkg.client import JSONBody, JSONDict
 
-__all__ = ["exists", "reset", "new", "get", "post", "put", "patch", "delete"]
+__all__ = ["exists", "reset", "new", "get", "post", "put", "patch", "delete", "STARTUP_RETRIES"]
 
 # ==============================================================================
 # 模块级全局状态与代理快捷函数

@@ -48,11 +48,18 @@ def sync(
     to SwanLab Cloud. Authentication must be available before syncing, either
     from existing credentials or from the API key configured in `settings`.
 
+    Without a range, sync appends to an existing experiment: the experiment
+    summary provides the latest step of every scalar/media/histogram key, and
+    records at or below that step are skipped. Only the steps added after the
+    last sync are uploaded, so repeating a plain sync does not duplicate rows.
+
     Passing any of ``start_step``/``end_step``/``start_time``/``end_time`` enables
-    range sync: only scalar/media records inside the step and time window, plus
-    terminal logs inside the time window, are replayed. Range sync bypasses the
-    duplicate-step guard, so it can backfill history into an existing experiment
-    by passing ``settings.run.id``.
+    range sync: only scalar/media/histogram records inside the step and time
+    window, plus terminal logs inside the time window, are replayed. Range sync
+    deliberately bypasses the duplicate-step guard so it can backfill missing
+    points into an existing experiment (usually by passing ``settings.run.id``);
+    replaying a range that already exists can therefore produce repeated points
+    at the same step, which is expected for gap-filling.
 
     Sync always creates or resumes the target experiment first. A finished target
     is resumed to RUNNING, so the replayed rows stay inside the server-side query
@@ -67,8 +74,8 @@ def sync(
 
     :param run_dir: Existing local SwanLab run directory to synchronize.
     :param settings: Optional sync configuration, including API key, host, workspace, project, and run options. Uses default Settings if not provided.
-    :param start_step: Only sync scalar/media records whose step is >= this value.
-    :param end_step: Only sync scalar/media records whose step is <= this value.
+    :param start_step: Only sync scalar/media/histogram records whose step is >= this value.
+    :param end_step: Only sync scalar/media/histogram records whose step is <= this value.
     :param start_time: Only sync records at or after this time. Times without an offset
         are interpreted in the system local timezone.
     :param end_time: Only sync records at or before this time. Same as ``start_time``.

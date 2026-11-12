@@ -15,6 +15,7 @@ from swanlab.api.helper import (
     align_entries_by_key,
     axis_request_params,
     build_export_payload,
+    build_histogram_payload,
     build_media_items,
     build_media_payload,
     build_scalar_payload,
@@ -28,6 +29,7 @@ from swanlab.api.helper import (
     validate_metric_keys,
     validate_metric_log_level,
     validate_metric_type,
+    validate_step_range,
     validate_x_axis,
 )
 from swanlab.api.typings import ApiColumnCsvExportType, ApiResponseType
@@ -39,6 +41,7 @@ from swanlab.api.typings.common import (
     RangeQuery,
 )
 from swanlab.api.typings.metric import (
+    ApiHistogramSeriesType,
     ApiLogSeriesType,
     ApiMediaSeriesType,
     ApiMetricXAxisType,
@@ -54,7 +57,7 @@ class Metric(BaseEntity):
     """
     表示一个 SwanLab 指标列（非单个数值，而是一组序列）。
 
-    支持 SCALAR / MEDIA / LOG 三种类型，按需 Lazy Loading。
+    支持 SCALAR / MEDIA / LOG / HISTOGRAM 四种类型，按需 Lazy Loading。
     """
 
     def __init__(
@@ -66,6 +69,7 @@ class Metric(BaseEntity):
         created_at: int,
         key: Optional[str] = "",
         sample: int = 1000,
+        step_range: Optional[RangeQuery] = None,
         log_offset: Optional[int] = 0,  # 标记第几个分片，仅对 Log metric_type 有效
         log_level: ApiMetricLogLevelLiteral = "INFO",
         metric_type: str = "SCALAR",
@@ -80,9 +84,17 @@ class Metric(BaseEntity):
     ) -> None:
         super().__init__(ctx)
         validate_metric_type(metric_type, key)
+        if step_range is not None:
+            if metric_type != "HISTOGRAM":
+                raise ValueError("step_range is only supported for HISTOGRAM metric_type")
+            validate_step_range(step_range)
         if metric_type == "LOG":
             validate_metric_log_level(log_level)
         validate_x_axis(x_axis, metric_type=metric_type)
+        if all and metric_type == "HISTOGRAM":
+            raise ValueError(
+                "all=True is not supported for HISTOGRAM metric_type; only server-side sampling is available"
+            )
         self._project_id = project_id
         self._run_id = run_id
         self._key = key
@@ -101,12 +113,14 @@ class Metric(BaseEntity):
         self._created_at = created_at
         self._experiment_name = experiment_name
         self._x_axis = x_axis
+        self._step_range = step_range
 
     # 类型 → 加载方法 的分发表，新增类型只需在此注册
     _FETCH_DISPATCH = {
         "SCALAR": "_fetch_scalar",
         "MEDIA": "_fetch_media",
         "LOG": "_fetch_logs",
+        "HISTOGRAM": "_fetch_histogram",
     }
 
     def _ensure_data(self) -> Dict[str, Any]:
@@ -138,7 +152,8 @@ class Metric(BaseEntity):
     @property
     def metrics(self) -> List[Any]:
         """指标数据列表。SCALAR 类型为采样后的折线点（含 index/data/timestamp），
-        MEDIA 类型为 ``[{index, items}]`` 结构。
+        MEDIA 类型为 ``[{index, items}]`` 结构，
+        HISTOGRAM 类型为 ``[{step, timestamp, values, bins}]`` 分布快照。
 
         .. note::
            当通过 ``Metrics`` 批量查询并使用 ``range_query`` 的 ``head`` / ``tail`` 时，
@@ -291,6 +306,32 @@ class Metric(BaseEntity):
         ]
         return res
 
+    def _fetch_histogram(self) -> ApiHistogramSeriesType:
+        """委托给单 key Metrics 获取直方图数据（服务端按 step 等分抽帧，无统计值语义）。"""
+        metrics_obj = Metrics(
+            self._ctx,
+            project_id=self._project_id,
+            run_id=self._run_id,
+            keys=[self.key],
+            metric_type="HISTOGRAM",
+            sample=self._sample,
+            step_range=self._step_range,
+            ignore_timestamp=self._ignore_timestamp,
+            root_pro_id=self._root_pro_id,
+            root_exp_id=self._root_exp_id,
+            created_at=self._created_at,
+            experiment_name=self._experiment_name,
+        )
+        batch = metrics_obj._ensure_batch()
+        if batch and batch[0]._data:
+            return cast(ApiHistogramSeriesType, batch[0]._data)
+        res = ApiHistogramSeriesType(projectId=self.project_id, experimentId=self.run_id, key=self.key, metrics=[])
+        if self._root_pro_id:
+            res["rootProId"] = self._root_pro_id
+        if self._root_exp_id:
+            res["rootExpId"] = self._root_exp_id
+        return res
+
     def _fetch_logs(self) -> ApiLogSeriesType:
         res = ApiLogSeriesType(projectId=self.project_id, experimentId=self.run_id, key="LOG")
         params = self._build_log_params()
@@ -408,7 +449,7 @@ class Metrics(BaseEntity):
     """
     批量指标数据的迭代器。
 
-    一次 metrics 查询只支持一种 metric_type（SCALAR 或 MEDIA），不支持 LOG。
+    一次 metrics 查询只支持一种 metric_type（SCALAR、MEDIA 或 HISTOGRAM），不支持 LOG。
     通过 payload 的 columns 数组一次性传递多个 key，减少网络请求。
 
     内部通过 ``_ensure_batch()`` 缓存结果，避免 ``__iter__`` 与 ``json()`` 重复请求。
@@ -429,6 +470,10 @@ class Metrics(BaseEntity):
     # 每批最大 key 数量，超出后自动拆分为多批并发
     _BATCH_SIZE = MAX_METRIC_KEY_BATCH_SIZE
 
+    # 直方图每批最大 key 数量：单点携带 values/bins 数组（最坏 512 桶约 12KB/点），
+    # 1500 点抽帧上限下单列响应可达 MB 级，用小批量钳制单请求体积
+    _HISTOGRAM_BATCH_SIZE = 4
+
     def __init__(
         self,
         ctx: ApiClientContext,
@@ -438,6 +483,7 @@ class Metrics(BaseEntity):
         keys: List[str],
         metric_type: ApiMetricKeyTypeLiteral,
         sample: int = 1500,
+        step_range: Optional[RangeQuery] = None,
         ignore_timestamp: bool = False,
         media_step: Optional[int] = None,
         all: bool = False,
@@ -455,6 +501,14 @@ class Metrics(BaseEntity):
             raise ValueError("Metrics does not support LOG metric_type, use Experiment.logs() instead")
         if range_query is not None and metric_type != "SCALAR":
             raise ValueError("range_query is only supported for SCALAR metric_type")
+        if step_range is not None:
+            if metric_type != "HISTOGRAM":
+                raise ValueError("step_range is only supported for HISTOGRAM metric_type")
+            validate_step_range(step_range)
+        if all and metric_type == "HISTOGRAM":
+            raise ValueError(
+                "all=True is not supported for HISTOGRAM metric_type; only server-side sampling is available"
+            )
         validate_x_axis(x_axis, metric_type=metric_type)
         if (range_query is not None or all) and x_axis in ("time", "relative_time"):
             raise ValueError(
@@ -490,6 +544,7 @@ class Metrics(BaseEntity):
             "list": [],
         }
         self._sample = sample
+        self._step_range = step_range
         if sample > 1500:
             console.warning(f"Get sample = [{sample}], expected <= 1500, will be constrainted automatically..")
             self._sample = 1500
@@ -530,6 +585,8 @@ class Metrics(BaseEntity):
                 data_list = self._fetch_scalar_csv_data()
             else:
                 data_list = self._fetch_scalar_sampled_data()
+        elif self._metric_type == "HISTOGRAM":
+            data_list = self._fetch_histogram_data()
         else:
             # media 后端已支持 columns 批量，无需分批
             if self._all:
@@ -586,6 +643,66 @@ class Metrics(BaseEntity):
             for f in futures:
                 results.extend(f.result())
             return results
+
+    # ------------------------------------------------------------------
+    # Histogram fetch
+    # ------------------------------------------------------------------
+
+    def _fetch_histogram_data(self) -> List[Dict[str, Any]]:
+        """获取直方图数据：按 ``_HISTOGRAM_BATCH_SIZE``分批并发，无需聚合统计值。"""
+        batch_size = self._HISTOGRAM_BATCH_SIZE
+        if len(self._keys) <= batch_size:
+            return self._fetch_histogram_batch(self._keys)
+
+        chunks = [self._keys[i : i + batch_size] for i in range(0, len(self._keys), batch_size)]
+        with SafeThreadPoolExecutor(max_workers=min(len(chunks), 2)) as pool:
+            futures = [pool.submit(self._fetch_histogram_batch, chunk) for chunk in chunks]
+            results: List[Dict[str, Any]] = []
+            for f in futures:
+                results.extend(f.result())
+            return results
+
+    def _fetch_histogram_batch(self, keys: List[str]) -> List[Dict[str, Any]]:
+        """单批直方图查询（≤4 keys）：单次 POST，按请求 keys 顺序对齐。
+
+        House 按 ``body.columns`` 顺序返回、无数据的列缺席（204 时为空），
+        因此用 key 索引对齐而不依赖后端返回顺序，与 scalar/media 的对齐策略一致。
+        """
+        payload = build_histogram_payload(
+            self._project_id,
+            self._run_id,
+            self._created_at,
+            keys,
+            sample=self._sample,
+            step_range=self._step_range,
+            root_pro_id=self._root_pro_id,
+            root_exp_id=self._root_exp_id,
+        )
+        raw_resp = self._post("/house/metrics/histogram", data=payload)
+        if not raw_resp.ok or not isinstance(raw_resp.data, list):
+            # 与 media 一致优雅降级
+            return self._empty_scalar_results(keys)
+
+        # 响应为裸数组，元素可能含 None 条目（脏数据），过滤后按 key 索引
+        entries = [e for e in raw_resp.data if isinstance(e, dict)]
+        entry_by_key: Dict[str, Dict[str, Any]] = {e.get("key", ""): e for e in entries}
+        results: List[Dict[str, Any]] = []
+        for key in keys:
+            data: Dict[str, Any] = {
+                "projectId": self._project_id,
+                "experimentId": self._run_id,
+                "key": key,
+                "metrics": [],
+            }
+            if self._root_pro_id:
+                data["rootProId"] = self._root_pro_id
+            if self._root_exp_id:
+                data["rootExpId"] = self._root_exp_id
+            entry = entry_by_key.get(key)
+            if entry:
+                data["metrics"] = entry.get("metrics") or []
+            results.append(data)
+        return results
 
     # ------------------------------------------------------------------
     # Metric 对象构建

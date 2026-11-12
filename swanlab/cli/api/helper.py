@@ -35,24 +35,28 @@ VISIBILITY_TYPE = click.Choice(list(get_args(ApiVisibilityLiteral)), case_sensit
 METRIC_LOG_LEVEL_TYPE = click.Choice(list(get_args(ApiMetricLogLevelLiteral)), case_sensitive=False)
 
 
-def format_output(resp: ApiResponseType) -> bytes:
+def format_output(resp: ApiResponseType, *, echo: bool = True) -> bytes:
+    """序列化响应为缩进 JSON 并回显；``echo=False`` 时仅序列化（``--save`` 模式下避免刷屏）。"""
     content = orjson.dumps(resp.json(), option=orjson.OPT_INDENT_2)
-    click.echo(content)
+    if echo:
+        click.echo(content)
     return content
 
 
-def save_output(content: bytes, name: Optional[str] = None, fmt: _SaveFormatEnum = _SaveFormatEnum.JSON) -> None:
+def save_output(content: bytes, name: Optional[str] = None, fmt: _SaveFormatEnum = _SaveFormatEnum.JSON) -> bool:
+    """保存 JSON 到文件，返回保存是否成功（扩展名不支持时跳过并返回 False）。"""
     if name and name != ".":
         ext = name.rsplit(".", 1)[-1].lower() if "." in name else None
         if ext and ext not in {f.value for f in _SaveFormatEnum}:
             click.echo(f"Warning: unsupported file extension .{ext}, skipped saving.")
-            return
+            return False
         filename = name
     else:
         filename = f"swanlab-{datetime.now().strftime('%Y%m%d_%H%M%S')}-{generate_id(length=4)}.{fmt.value}"
     with open(filename, "wb") as f:
         f.write(content)
     click.echo(f"Saved to {filename}")
+    return True
 
 
 def api_command(func: Callable) -> Callable:
@@ -63,7 +67,8 @@ def api_command(func: Callable) -> Callable:
 
     - 正常返回： ``{"ok": true, "errmsg": "", "data": ...}``
     - 命令体抛出 ``ValueError``（实体不存在、createdAt 缺失等）：降级为 ``ok=False`` 响应并注入 ``errmsg``
-    - 无论成功失败，``--save`` 均保存完整 JSON
+    - 无论成功失败，``--save`` 均保存完整 JSON；保存时不回显原始响应（可能非常长），
+      仅提示保存位置，失败时附一行错误摘要；保存失败（如扩展名不支持）时回退回显
     - Api 构造阶段（未登录 / 认证失败）不输出 JSON，通过单行 ClickException 提示认证失败
     """
 
@@ -105,9 +110,14 @@ def api_command(func: Callable) -> Callable:
             resp = func(*args, api=api, **kwargs)
         except ValueError as e:
             resp = ApiResponseType(ok=False, errmsg=str(e))
-        content = format_output(resp)
+        # --save 模式下不输出完整响应，仅保存 + 提示位置；失败时附一行错误摘要
+        content = format_output(resp, echo=save_name is None)
         if save_name is not None:
-            save_output(content, name=save_name)
+            if not resp.ok:
+                click.echo(f"Request failed: {resp.errmsg}")
+            if not save_output(content, name=save_name):
+                # 文件保存失败时保留终端打印
+                click.echo(content)
         return content
 
     return wrapper

@@ -18,7 +18,7 @@ from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
     GetOperationStatsResponse,
 )
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord
-from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord, ScalarRecord
+from swanlab.proto.swanlab.metric.data.v1.data_pb2 import HistogramRecord, MediaRecord, ScalarRecord
 from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord
 from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogRecord
 from swanlab.sdk.internal.core_go.config import TEARDOWN_TIMEOUT
@@ -196,6 +196,16 @@ class CoreGo(CoreProtocol):
 
     def _upsert_media_when_online(self, media: List[MediaRecord]) -> None:
         self._forward_upsert("media", lambda rpc, session_id: rpc.upsert_media(media, session_id))
+
+    # 直方图尚未在 Go core 侧实现，RPC 返回 UNIMPLEMENTED（非可重试），由 consumer 丢弃并告警。
+    def _upsert_histograms_when_local(self, histograms: List[HistogramRecord]) -> None:
+        self._forward_upsert("histograms", lambda rpc, session_id: rpc.upsert_histograms(histograms, session_id))
+
+    def _upsert_histograms_when_offline(self, histograms: List[HistogramRecord]) -> None:
+        self._forward_upsert("histograms", lambda rpc, session_id: rpc.upsert_histograms(histograms, session_id))
+
+    def _upsert_histograms_when_online(self, histograms: List[HistogramRecord]) -> None:
+        self._forward_upsert("histograms", lambda rpc, session_id: rpc.upsert_histograms(histograms, session_id))
 
     def _upsert_logs_when_local(self, logs: List[LogRecord]) -> None:
         self._forward_upsert("logs", lambda rpc, session_id: rpc.upsert_logs(logs, session_id))

@@ -70,11 +70,15 @@ def test_api_command_degrades_and_saves_on_error(monkeypatch, tmp_path):
 
     result = CliRunner().invoke(dummy, ["user/proj/run", "--save"])
     assert result.exit_code == 0  # 信封降级不算命令失败
-    assert '"ok": false' in result.output
+    assert "Request failed:" in result.output
     assert "404 Not Found" in result.output
+    assert "Saved to " in result.output
+    assert '"ok": false' not in result.output  # --save 下不回显完整响应
     saved = list(tmp_path.glob("swanlab-*.json"))
     assert len(saved) == 1
-    assert orjson.loads(saved[0].read_bytes())["errmsg"].startswith("Failed to load experiment")
+    payload = orjson.loads(saved[0].read_bytes())
+    assert payload["ok"] is False
+    assert payload["errmsg"].startswith("Failed to load experiment")
 
 
 def test_api_command_converts_auth_error_to_click_exception(monkeypatch):

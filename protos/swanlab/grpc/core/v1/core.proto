@@ -42,6 +42,9 @@ service CoreService {
     // UpsertMedia 接收一组 MediaRecord 并写入，每一条记录用于记录某一个指标的值
     rpc UpsertMedia(UpsertMediaRequest) returns (google.protobuf.Empty);
 
+    // UpsertHistograms 接收一组 HistogramRecord 并写入，每一条记录为某个指标在某个 step 的直方图数据
+    rpc UpsertHistograms(UpsertHistogramsRequest) returns (google.protobuf.Empty);
+
     // UpsertLogs 接收一组 LogRecord 并写入，每一条记录对应一行用户的终端输出
     rpc UpsertLogs(UpsertLogsRequest) returns (google.protobuf.Empty);
 
@@ -82,6 +85,14 @@ message DeliverRunStartRequest {
     swanlab.run.v1.StartRecord start_record             = 2; // Run 创建记录
 }
 
+// 启动失败的错误分类，供 SDK 判断当前状态
+enum CoreErrorKind {
+    CORE_ERROR_KIND_UNSPECIFIED = 0; // 未分类，兼容未传递的情况
+    CORE_ERROR_KIND_AUTH        = 1; // 认证或权限错误
+    CORE_ERROR_KIND_TRANSIENT   = 2; // 服务不可用
+    CORE_ERROR_KIND_OTHER       = 3; // 业务、本地或未知错误
+}
+
 // DeliverRunStart 响应
 message DeliverRunStartResponse {
     bool success                   = 1;  // 请求是否成功
@@ -93,6 +104,7 @@ message DeliverRunStartResponse {
     int64 global_system_step       = 7;  // 起始全局系统步数
     bool new_experiment            = 8;  // 是否是新实验
     string session_id              = 9;  // 服务端生成的 opaque 会话标识，后续所有 run 级 RPC 必须携带
+    CoreErrorKind error_kind       = 10; // 启动失败时的错误分类
 }
 
 // UpsertColumns 请求，异步插入一批列定义
@@ -110,6 +122,12 @@ message UpsertScalarsRequest {
 // UpsertMedia 请求，异步插入一批媒体数据
 message UpsertMediaRequest {
     repeated swanlab.metric.data.v1.MediaRecord data = 1; // 媒体记录列表
+    string session_id = 2; // 目标会话标识
+}
+
+// UpsertHistograms 请求，异步插入一批直方图数据
+message UpsertHistogramsRequest {
+    repeated swanlab.metric.data.v1.HistogramRecord data = 1; // 直方图记录列表
     string session_id = 2; // 目标会话标识
 }
 

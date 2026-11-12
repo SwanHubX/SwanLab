@@ -28,6 +28,15 @@ message MediaItem {
     optional bytes payload = 5;
 }
 
+// 一份直方图数据，即某个 step 下 swanlab.Histogram() 得到的计算结果。
+// N 个桶约定 values 长度为 N，bins 长度为 N+1，桶数范围 1..512。
+message HistogramValue {
+    // 每桶计数，全部非负；第 i 桶统计落在 [bins[i], bins[i+1]) 的样本数
+    repeated uint64 values = 1;
+    // 桶边界，单调递增且无 NaN/Inf；最后一个桶为左闭右闭 [bins[N-1], bins[N]]，遵循 numpy 语义
+    repeated double bins = 2;
+}
+
 message ScalarRecord {
     // 记录的 key，如 "train/loss"
     string key = 1;
@@ -52,4 +61,17 @@ message MediaRecord {
     google.protobuf.Timestamp timestamp = 4;
     // 数据值
     MediaValue value = 5;
+}
+
+message HistogramRecord {
+    // 记录的 key，如 "train/weights"
+    string key = 1;
+    // 用户显式传入或由 SDK 自动递增的全局步数
+    int64 step = 2;
+    // 数据类型
+    swanlab.metric.column.v1.ColumnType type = 3;
+    // 记录的时间戳
+    google.protobuf.Timestamp timestamp = 4;
+    // 数据值
+    HistogramValue value = 5;
 }
