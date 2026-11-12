@@ -45,8 +45,6 @@ var (
 	ErrRunIDRequired = errors.New("run_id is required")
 	// ErrRunDirRequired 表示缺少 run_dir。
 	ErrRunDirRequired = errors.New("run_dir is required")
-	// ErrBudgetUnsupported 表示当前不支持启用非零上传预算。
-	ErrBudgetUnsupported = errors.New("upload budget is not supported")
 )
 
 // Mode 是单个 run 的运行模式。空值按 online 处理，兼容未下发 mode 的旧客户端。
@@ -102,7 +100,7 @@ type Settings struct {
 	WebHost string
 
 	// UploadBudgetRecords / UploadBudgetBytes 是上传管线容量预算（条数 / 字节）；
-	// <=0 表示该维度不限制，默认 0，当前不支持有限预算。
+	// <=0 表示该维度不限制，默认 0。
 	UploadBudgetRecords int64
 	UploadBudgetBytes   int64
 
@@ -175,11 +173,6 @@ func (s Settings) Validate() error {
 	if s.HealthDegradeThreshold < 0 || s.HealthRecoverThreshold < 0 {
 		return fmt.Errorf("config: health thresholds (%d/%d) must not be negative",
 			s.HealthDegradeThreshold, s.HealthRecoverThreshold)
-	}
-	// 预算暂停只把记录留在本地且没有恢复路径，因此不开放非零预算。
-	if s.UploadBudgetRecords > 0 || s.UploadBudgetBytes > 0 {
-		return fmt.Errorf("config: %w (records=%d bytes=%d)",
-			ErrBudgetUnsupported, s.UploadBudgetRecords, s.UploadBudgetBytes)
 	}
 	return nil
 }

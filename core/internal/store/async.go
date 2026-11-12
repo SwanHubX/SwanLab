@@ -64,7 +64,7 @@ type AsyncWriter struct {
 	err error
 }
 
-// control 是测试用同步请求：flush=false 时只写完已入队记录、不刷盘。
+// control 是写协程的同步控制请求：flush=false 时只写完已入队记录、不刷盘。
 type control struct {
 	flush bool
 	reply chan error
@@ -134,6 +134,24 @@ func (a *AsyncWriter) CloseContext(ctx context.Context) error {
 
 // FlushForTest 写完已入队记录并立即刷盘，仅供测试。
 func (a *AsyncWriter) FlushForTest() error { return a.sync(true) }
+
+// Flush 写完已入队记录并刷盘；返回时 Flushed() 覆盖调用前提交的所有请求。
+func (a *AsyncWriter) Flush(ctx context.Context) error {
+	reply := make(chan error, 1)
+	select {
+	case a.ctl <- control{flush: true, reply: reply}:
+	case <-a.done:
+		return ErrClosed
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+	select {
+	case err := <-reply:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
 
 // sync 让写协程先排空入口，再按 flush 决定是否刷盘。
 func (a *AsyncWriter) sync(flush bool) error {

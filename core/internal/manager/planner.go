@@ -27,20 +27,18 @@ func demandFor(records []*recordv1.Record, cfg config.Settings) buffer.Demand {
 		return demand
 	}
 	for _, rec := range records {
-		size := record.Size(rec)
 		switch record.TypeOf(rec) {
 		case record.TypeStart, record.TypeFinish:
 		case record.TypeSave:
 			if deferredSave(rec) {
 				demand.Deferred++
-				demand.DeferredBytes += size
 				continue
 			}
 			demand.Upload++
-			demand.Bytes += size
+			demand.Bytes += record.Size(rec)
 		default:
 			demand.Upload++
-			demand.Bytes += size
+			demand.Bytes += record.Size(rec)
 		}
 	}
 	return demand

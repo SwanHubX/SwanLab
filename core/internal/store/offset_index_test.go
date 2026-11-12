@@ -36,6 +36,73 @@ func TestOffsetIndexLocate(t *testing.T) {
 	}
 }
 
+// LocateFlushed 只能返回已刷盘区域内的锚点：Offset 恰好等于上界的锚点、
+// 以及上界之前没有锚点时都必须退回文件头读取。
+func TestOffsetIndexLocateFlushed(t *testing.T) {
+	idx := NewOffsetIndex(2)
+	for seq := uint64(1); seq <= 8; seq++ {
+		idx.Add(seq, int64(seq)*100) // 锚点位于 2 / 4 / 6 / 8
+	}
+
+	cases := []struct {
+		seq   uint64
+		limit int64
+		want  Anchor
+		ok    bool
+	}{
+		{8, 801, Anchor{StoreSeq: 8, Offset: 800}, true},
+		{8, 800, Anchor{StoreSeq: 6, Offset: 600}, true},
+		{5, 700, Anchor{StoreSeq: 4, Offset: 400}, true},
+		{7, 700, Anchor{StoreSeq: 6, Offset: 600}, true},
+		{5, 300, Anchor{StoreSeq: 2, Offset: 200}, true},
+		{5, 200, Anchor{}, false},
+		{1, 900, Anchor{}, false},
+		{0, 900, Anchor{}, false},
+		{8, HeaderLen, Anchor{}, false},
+	}
+	for _, c := range cases {
+		got, ok := idx.LocateFlushed(c.seq, c.limit)
+		if ok != c.ok || got != c.want {
+			t.Fatalf("LocateFlushed(%d, %d) = (%+v, %v), want (%+v, %v)",
+				c.seq, c.limit, got, ok, c.want, c.ok)
+		}
+	}
+}
+
+// 未刷盘时不能从任何锚点开始读；Flush 之后锚点才进入可回填区间。
+func TestAsyncWriterLocateFlushed(t *testing.T) {
+	a, _ := newTestAsync(t, AsyncOptions{Queue: 32, IndexStride: 2})
+	for i := 1; i <= 6; i++ {
+		a.In() <- Request{StoreSeq: uint64(i), Payload: anyPayload(i)}
+	}
+
+	flushedSeq, flushedOffset := a.Flushed()
+	if flushedSeq != 0 || flushedOffset != HeaderLen {
+		t.Fatalf("Flushed before sync = (%d, %d), want (0, %d)", flushedSeq, flushedOffset, HeaderLen)
+	}
+	if _, ok := a.Index().LocateFlushed(6, flushedOffset); ok {
+		t.Fatal("LocateFlushed before flush should not expose an anchor")
+	}
+
+	if err := a.FlushForTest(); err != nil {
+		t.Fatalf("FlushForTest: %v", err)
+	}
+	flushedSeq, flushedOffset = a.Flushed()
+	if flushedSeq != 6 {
+		t.Fatalf("Flushed seq after sync = %d, want 6", flushedSeq)
+	}
+	anchor, ok := a.Index().LocateFlushed(flushedSeq, flushedOffset)
+	if !ok || anchor.StoreSeq != 6 {
+		t.Fatalf("LocateFlushed(%d, %d) = (%+v, %v), want anchor 6", flushedSeq, flushedOffset, anchor, ok)
+	}
+	if _, ok := a.Index().LocateFlushed(1, flushedOffset); ok {
+		t.Fatal("seq before the first anchor must fall back to the file header")
+	}
+	if err := a.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+}
+
 func TestOffsetIndexDefaultStride(t *testing.T) {
 	idx := NewOffsetIndex(0)
 	idx.Add(DefaultIndexStride-1, 1)

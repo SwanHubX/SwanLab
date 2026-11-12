@@ -80,6 +80,7 @@ func (s *Session) open(init sessionInit) error {
 		Degraded:    &s.storeDegraded,
 		Flushed:     flushed,
 		OnAdmit:     s.tracker.AddTotalRecords,
+		OnPause:     func(uint64) { s.wakeBackfill() },
 	})
 	if err != nil {
 		return fmt.Errorf("create intake: %w", err)
@@ -177,6 +178,9 @@ func (s *Session) open(init sessionInit) error {
 		// skip_store 不会有本地写失败，无需补传协程。
 		s.startRecovery()
 	}
+	if s.store != nil && s.uploader != nil {
+		s.startBackfill()
+	}
 	return nil
 }
 
@@ -195,6 +199,7 @@ func (s *Session) rollback() {
 		s.watcher.Stop()
 	}
 	s.stopRecovery()
+	s.stopBackfill()
 	if s.uploader != nil {
 		_ = s.uploader.Close()
 	}

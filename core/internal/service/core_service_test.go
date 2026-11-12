@@ -517,7 +517,7 @@ func TestSettingsFromProto(t *testing.T) {
 		t.Fatalf("mode = %q, want %q", gotLocal.Mode, config.ModeLocal)
 	}
 
-	if _, err := settingsFromProto(nil); err == nil {
+	if _, nilErr := settingsFromProto(nil); nilErr == nil {
 		t.Fatal("nil settings must be rejected")
 	}
 
@@ -531,16 +531,27 @@ func TestSettingsFromProto(t *testing.T) {
 		{"zero save batch", func(s *settingsv1.CoreSettings) { s.SaveBatch = 0 }},
 		{"zero record batch", func(s *settingsv1.CoreSettings) { s.RecordBatch = 0 }},
 		{"zero save part", func(s *settingsv1.CoreSettings) { s.SavePart = 0 }},
-		{"non-zero upload budget", func(s *settingsv1.CoreSettings) { s.UploadBudgetRecords = 50 }},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			clone := proto.Clone(in).(*settingsv1.CoreSettings)
 			tc.mutate(clone)
-			if _, err := settingsFromProto(clone); err == nil {
+			if _, caseErr := settingsFromProto(clone); caseErr == nil {
 				t.Fatal("expected an error")
 			}
 		})
+	}
+
+	budgeted := proto.Clone(in).(*settingsv1.CoreSettings)
+	budgeted.UploadBudgetRecords = 50
+	budgeted.UploadBudgetBytes = 1024
+	budgetSettings, err := settingsFromProto(budgeted)
+	if err != nil {
+		t.Fatalf("non-zero upload budget must be accepted: %v", err)
+	}
+	if budgetSettings.UploadBudgetRecords != 50 || budgetSettings.UploadBudgetBytes != 1024 {
+		t.Fatalf("budget = %d/%d, want 50/1024",
+			budgetSettings.UploadBudgetRecords, budgetSettings.UploadBudgetBytes)
 	}
 }
 

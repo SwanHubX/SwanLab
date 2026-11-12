@@ -37,13 +37,32 @@ import (
 type collectingSender struct {
 	mu      sync.Mutex
 	records []*recordv1.Record
+	notify  chan struct{}
 }
 
 func (c *collectingSender) Upload(_ context.Context, records []*recordv1.Record) uploader.Result {
 	c.mu.Lock()
-	defer c.mu.Unlock()
 	c.records = append(c.records, records...)
+	c.mu.Unlock()
+	select {
+	case c.notify <- struct{}{}:
+	default:
+	}
 	return uploader.Result{Confirmed: records}
+}
+
+// waitFor 等到至少 n 条记录送达；用发送信号同步，不做轮询。
+func (c *collectingSender) waitFor(t *testing.T, n int) {
+	t.Helper()
+	deadline := time.NewTimer(5 * time.Second)
+	defer deadline.Stop()
+	for len(c.snapshot()) < n {
+		select {
+		case <-c.notify:
+		case <-deadline.C:
+			t.Fatalf("uploader delivered %d records, want at least %d", len(c.snapshot()), n)
+		}
+	}
 }
 
 func (c *collectingSender) snapshot() []*recordv1.Record {
@@ -168,7 +187,7 @@ func newFinishHarness(t *testing.T, opts finishOptions) *finishHarness {
 		t.Fatalf("buffer.New: %v", err)
 	}
 
-	uploads := &collectingSender{}
+	uploads := &collectingSender{notify: make(chan struct{}, 1)}
 	var gate chan struct{}
 	var entered chan struct{}
 	var up *uploader.Uploader
@@ -282,7 +301,7 @@ func finishRecord(state runv1.RunState, message string) *runv1.FinishRecord {
 	}
 }
 
-func TestConfirmRejectsPausedIntake(t *testing.T) {
+func TestConfirmSucceedsAfterPausedBackfill(t *testing.T) {
 	h := newFinishHarness(t, finishOptions{budgetRecords: 1})
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -301,8 +320,11 @@ func TestConfirmRejectsPausedIntake(t *testing.T) {
 	if err := h.mgr.DeliverRunFinish(ctx, h.id, finishRecord(runv1.RunState_RUN_STATE_FINISHED, "")); err != nil {
 		t.Fatalf("DeliverRunFinish: %v", err)
 	}
-	if _, err := h.mgr.Confirm(ctx, h.id); !errors.Is(err, ErrRunFailed) || !strings.Contains(err.Error(), "paused") {
-		t.Fatalf("Confirm err=%v, want ErrRunFailed about paused uploads", err)
+	if _, err := h.mgr.Confirm(ctx, h.id); err != nil {
+		t.Fatalf("Confirm after backfill: %v", err)
+	}
+	if paused, seq := h.session.intake.PauseState(); paused || seq != 0 {
+		t.Fatalf("PauseState = (%v, %d), want resumed", paused, seq)
 	}
 }
 
