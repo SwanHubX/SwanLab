@@ -43,6 +43,29 @@ func (x *OffsetIndex) Add(seq uint64, offset int64) {
 	x.anchors = append(x.anchors, Anchor{StoreSeq: seq, Offset: offset})
 }
 
+// LocateFlushed 返回 StoreSeq <= seq 且 Offset < limit 的最后一个锚点，
+// 供回填只从已刷盘区域开始读；ok 为 false 时应从文件头开始读。
+//
+// 锚点由 AsyncWriter 按 (StoreSeq, Offset) 单调登记，因此先二分出落在
+// 刷盘上界内的前缀，再在 prefix 内找不晚于 seq 的最后一个锚点。
+func (x *OffsetIndex) LocateFlushed(seq uint64, limit int64) (Anchor, bool) {
+	x.mu.RLock()
+	defer x.mu.RUnlock()
+	n := sort.Search(len(x.anchors), func(i int) bool {
+		return x.anchors[i].Offset >= limit
+	})
+	if n == 0 {
+		return Anchor{}, false
+	}
+	i := sort.Search(n, func(i int) bool {
+		return x.anchors[i].StoreSeq > seq
+	})
+	if i == 0 {
+		return Anchor{}, false
+	}
+	return x.anchors[i-1], true
+}
+
 // Locate 返回 StoreSeq <= seq 的最后一个锚点；ok 为 false 时应从文件头开始读。
 func (x *OffsetIndex) Locate(seq uint64) (Anchor, bool) {
 	x.mu.RLock()
