@@ -378,18 +378,17 @@ func TestBackfillSupervisorResumesAfterPause(t *testing.T) {
 	close(h.gate)
 	h.session.wakeBackfill()
 
-	deadline := time.Now().Add(3 * time.Second)
-	for {
-		if paused, _ := h.session.intake.PauseState(); !paused {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("supervisor did not resume uploads")
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
-
+	// 4 条标量送达说明后台补投已在推进（前两条来自实时通道）。
+	h.uploads.waitFor(t, 4)
+	// 交接完成前取消可能停在补投之后，这里显式 join 并补完剩余一步。
 	h.session.stopBackfill()
+	if err := h.session.runBackfill(ctx); err != nil {
+		t.Fatalf("complete backfill: %v", err)
+	}
+	// 暂停已清除：新提交的标量直接进入上传通道。
+	commitBackfill(t, h.session, backfillScalar(6))
+	h.uploads.waitFor(t, 5)
+
 	if err := h.session.intake.Close(ctx); err != nil {
 		t.Fatalf("intake.Close: %v", err)
 	}
@@ -397,7 +396,14 @@ func TestBackfillSupervisorResumesAfterPause(t *testing.T) {
 	if err := h.session.uploader.Wait(ctx); err != nil {
 		t.Fatalf("uploader.Wait: %v", err)
 	}
-	if got := len(h.uploads.snapshot()); got != 5 {
-		t.Fatalf("uploaded %d records, want 5 (4 scalars + END save)", got)
+	uploads := h.uploads.snapshot()
+	if len(uploads) != 6 {
+		t.Fatalf("uploaded %d records, want 6 (5 scalars + END save)", len(uploads))
+	}
+	if last := uploads[len(uploads)-1]; record.TypeOf(last) != record.TypeSave {
+		t.Fatalf("last upload = %v, want the END save", record.TypeOf(last))
+	}
+	if paused, seq := h.session.intake.PauseState(); paused || seq != 0 {
+		t.Fatalf("PauseState = (%v, %d), want resumed", paused, seq)
 	}
 }
