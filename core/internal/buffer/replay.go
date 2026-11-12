@@ -10,63 +10,90 @@ import (
 	recordv1 "github.com/swanhubx/swanlab/core/proto/swanlab/record/v1"
 )
 
-// Replay 把补投记录按给定顺序投入上传通道，并按实际用量占用预算与槽位。
+// replayChunkMax 是单次批量投递的最大记录数，避免长时间持有 intake 锁。
+const replayChunkMax = 256
+
+// Replay 按顺序把补投记录投入上传通道，返回成功投递的条数。
 //
 // 仅在暂停投递期间可用（存在上传通道的会话）：记录排在实时记录之前，
 // 调用方负责按已刷盘边界读取、保证 seq 递增且不重复；本方法不参与接纳计数。
-// 预算不足时阻塞到配额释放或 ctx 结束；单条记录超过字节上限时超额占用，
-// 与回收补投一致，避免永久阻塞。单批超过上传通道容量返回 ErrBatchTooLarge。
-func (t *Intake) Replay(ctx context.Context, records []*recordv1.Record) error {
-	if len(records) == 0 {
-		return nil
-	}
+// 预算按当前可用容量批量占用，不足时等待到配额释放或 ctx 结束；ctx 结束或
+// 投递中断时返回已投递条数，调用方按返回值推进游标，未投递记录可安全重试。
+func (t *Intake) Replay(ctx context.Context, records []*recordv1.Record) (int, error) {
 	for _, rec := range records {
 		if rec == nil {
-			return errors.New("buffer: nil record")
+			return 0, errors.New("buffer: nil record")
 		}
 	}
 
-	acquired := 0
-	for _, rec := range records {
-		size := record.Size(rec)
-		err := t.budget.Acquire(ctx, 1, size)
-		if errors.Is(err, budget.ErrTooLarge) {
-			t.budget.Adjust(1, size)
-		} else if err != nil {
-			releaseReplayBudget(t.budget, records[:acquired])
-			return err
+	sent := 0
+	for sent < len(records) {
+		batch := records[sent:]
+		n := t.replayChunk(batch)
+		bytes := replayBytes(batch[:n])
+		for n > 1 && !t.budget.TryAcquire(int64(n), bytes) {
+			n /= 2
+			bytes = replayBytes(batch[:n])
 		}
-		acquired++
-	}
-
-	if err := t.reserveUpload(ctx, len(records)); err != nil {
-		releaseReplayBudget(t.budget, records)
-		if errors.Is(err, ErrBatchTooLarge) ||
-			errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-			return err
+		if n == 1 {
+			size := replayBytes(batch[:1])
+			err := t.budget.Acquire(ctx, 1, size)
+			if errors.Is(err, budget.ErrTooLarge) {
+				// 单条记录超过字节上限：与回收补投一致，超额占用避免永久阻塞。
+				t.budget.Adjust(1, size)
+			} else if err != nil {
+				return sent, err
+			}
+			bytes = size
 		}
-		return overload(err)
-	}
 
-	t.mu.Lock()
-	closed := t.closed
-	paused := t.pauseSeq != 0
-	if closed || !paused {
-		t.releaseUploadLocked(len(records))
+		if err := t.reserveUpload(ctx, n); err != nil {
+			t.budget.Release(int64(n), bytes)
+			if errors.Is(err, ErrBatchTooLarge) ||
+				errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				return sent, err
+			}
+			return sent, overload(err)
+		}
+
+		t.mu.Lock()
+		closed := t.closed
+		paused := t.pauseSeq != 0
+		if !closed && paused {
+			for _, rec := range batch[:n] {
+				t.upload <- rec
+			}
+			sent += n
+		}
+		t.releaseUploadLocked(n)
 		t.mu.Unlock()
-		releaseReplayBudget(t.budget, records)
-		if closed {
-			return ErrClosed
+		if closed || !paused {
+			t.budget.Release(int64(n), bytes)
+			if closed {
+				return sent, ErrClosed
+			}
+			return sent, ErrNotPaused
 		}
-		return ErrNotPaused
 	}
-	// 槽位已在锁外预留，发送不会阻塞。
+	return sent, nil
+}
+
+// replayChunk 返回单批可尝试占用的记录数，不超过预算条数上限。
+func (t *Intake) replayChunk(records []*recordv1.Record) int {
+	n := min(len(records), replayChunkMax)
+	if limit := t.budget.Limits().Records; limit > 0 && int64(n) > limit {
+		n = int(limit)
+	}
+	return n
+}
+
+// replayBytes 统计一批记录的序列化字节数。
+func replayBytes(records []*recordv1.Record) int64 {
+	var total int64
 	for _, rec := range records {
-		t.upload <- rec
+		total += record.Size(rec)
 	}
-	t.releaseUploadLocked(len(records))
-	t.mu.Unlock()
-	return nil
+	return total
 }
 
 // Handover 在锁内补齐补投尾部并原子恢复实时投递。
@@ -129,11 +156,4 @@ func (t *Intake) Handover(
 	t.releaseUploadLocked(len(records))
 	t.pauseSeq = 0
 	return nil
-}
-
-// releaseReplayBudget 归还 Replay 已占用的配额；调用方不得持有 intake 锁。
-func releaseReplayBudget(b *budget.Budget, records []*recordv1.Record) {
-	for _, rec := range records {
-		b.Release(1, record.Size(rec))
-	}
 }
