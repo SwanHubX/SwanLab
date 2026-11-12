@@ -55,6 +55,17 @@ func BuildMediaRecord(c *counter.Counter, rec *datav1.MediaRecord) *recordv1.Rec
 	}
 }
 
+// BuildHistogramRecord 构建直方图数据记录。
+func BuildHistogramRecord(c *counter.Counter, rec *datav1.HistogramRecord) *recordv1.Record {
+	return &recordv1.Record{
+		Num:       c.Inc(),
+		Timestamp: timestamppb.Now(),
+		RecordType: &recordv1.Record_Histogram{
+			Histogram: rec,
+		},
+	}
+}
+
 // BuildLogRecord 构建控制台日志记录：拷贝入参并分配递增的 epoch 行号，
 // num 由 counter 递增分配。入参本身不被修改。
 func BuildLogRecord(c *counter.Counter, epoch *counter.Counter, rec *terminalv1.LogRecord) *recordv1.Record {

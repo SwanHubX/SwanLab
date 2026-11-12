@@ -111,6 +111,35 @@ func TestResumeWatermarkRejectsHistory(t *testing.T) {
 	}
 }
 
+func TestNewFromSummaryHistogram(t *testing.T) {
+	res, err := NewFromSummary(&Summary{Histogram: []SummaryItem{{Key: "weights", Step: 30}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 直方图恒为用户自定义列，与标量共用 GlobalStep
+	if res.GlobalStep != 30 {
+		t.Fatalf("GlobalStep = %d, want 30", res.GlobalStep)
+	}
+	if res.Metrics.Len() != 1 {
+		t.Fatalf("恢复指标数 = %d, want 1", res.Metrics.Len())
+	}
+	if step, ok := res.Metrics.MinStep("weights"); !ok || step != 30 {
+		t.Fatalf("MinStep(weights) = (%d,%v), want (30,true)", step, ok)
+	}
+	col := res.Metrics.metrics["weights"].column
+	if col.ColumnType != columnv1.ColumnType_COLUMN_TYPE_HISTOGRAM ||
+		col.ColumnClass != columnv1.ColumnClass_COLUMN_CLASS_CUSTOM {
+		t.Fatalf("直方图恢复列 = %+v", col)
+	}
+	// 水位线之内的历史 step 拒绝，水位线 +1 起接纳
+	if ok, err := res.Metrics.CommitHistogram(histogramRec("weights", 30), nil); ok || err != nil {
+		t.Fatalf("恢复后 step 30 = (%v, %v), want 跳过", ok, err)
+	}
+	if ok, err := res.Metrics.CommitHistogram(histogramRec("weights", 31), nil); !ok || err != nil {
+		t.Fatalf("恢复后 step 31 = (%v, %v), want 接纳", ok, err)
+	}
+}
+
 func TestNewFromSummaryDuplicateKey(t *testing.T) {
 	s := &Summary{Scalar: []SummaryItem{{Key: "loss", Step: 1}, {Key: "loss", Step: 2}}}
 	if _, err := NewFromSummary(s); err == nil {

@@ -39,11 +39,13 @@ func TestBuildScalarAndMediaRecord(t *testing.T) {
 	c := counter.New(0)
 	sr := BuildScalarRecord(c, &datav1.ScalarRecord{Key: "loss", Step: 3})
 	mr := BuildMediaRecord(c, &datav1.MediaRecord{Key: "img", Step: 4})
-	if sr.Num != 1 || mr.Num != 2 {
-		t.Fatalf("nums = %d,%d want 1,2", sr.Num, mr.Num)
+	hr := BuildHistogramRecord(c, &datav1.HistogramRecord{Key: "weights", Step: 5})
+	if sr.Num != 1 || mr.Num != 2 || hr.Num != 3 {
+		t.Fatalf("nums = %d,%d,%d want 1,2,3", sr.Num, mr.Num, hr.Num)
 	}
-	if record.TypeOf(sr) != record.TypeScalar || record.TypeOf(mr) != record.TypeMedia {
-		t.Fatalf("类型标签错误: %q %q", record.TypeOf(sr), record.TypeOf(mr))
+	if record.TypeOf(sr) != record.TypeScalar || record.TypeOf(mr) != record.TypeMedia ||
+		record.TypeOf(hr) != record.TypeHistogram {
+		t.Fatalf("类型标签错误: %q %q %q", record.TypeOf(sr), record.TypeOf(mr), record.TypeOf(hr))
 	}
 }
 
@@ -204,6 +206,14 @@ func TestBuildResumeColumn(t *testing.T) {
 	}
 	if !IsSystemKey(sys.ColumnKey) {
 		t.Fatal("IsSystemKey 未识别系统前缀")
+	}
+
+	histogram := BuildHistogramResumeColumn("weights")
+	if histogram.ColumnType != columnv1.ColumnType_COLUMN_TYPE_HISTOGRAM {
+		t.Fatalf("histogram resume 列类型 = %v, want HISTOGRAM", histogram.ColumnType)
+	}
+	if histogram.ColumnClass != columnv1.ColumnClass_COLUMN_CLASS_CUSTOM {
+		t.Fatalf("histogram resume 列类别 = %v", histogram.ColumnClass)
 	}
 }
 

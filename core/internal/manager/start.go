@@ -257,9 +257,10 @@ func summaryFromAPI(s *api.Summary) *metrics.Summary {
 		return nil
 	}
 	return &metrics.Summary{
-		Log:    summaryItemsFromAPI(s.Log),
-		Media:  summaryItemsFromAPI(s.Media),
-		Scalar: summaryItemsFromAPI(s.Scalar),
+		Log:       summaryItemsFromAPI(s.Log),
+		Media:     summaryItemsFromAPI(s.Media),
+		Scalar:    summaryItemsFromAPI(s.Scalar),
+		Histogram: summaryItemsFromAPI(s.Histogram),
 	}
 }
 

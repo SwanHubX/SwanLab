@@ -275,9 +275,10 @@ func TestGetOrCreateProjectFallsBackToLegacy(t *testing.T) {
 func TestExperimentSummary(t *testing.T) {
 	cloud := clienttest.NewCloud(t)
 	cloud.ServeJSON(http.MethodGet, "/api/house/metrics/summaries/proj-1/exp-1", http.StatusOK, map[string]any{
-		"log":    []map[string]any{{"key": "console", "step": 7}},
-		"scalar": []map[string]any{{"key": "loss", "step": 12}},
-		"media":  nil,
+		"log":       []map[string]any{{"key": "console", "step": 7}},
+		"scalar":    []map[string]any{{"key": "loss", "step": 12}},
+		"histogram": []map[string]any{{"key": "weights", "step": 15}},
+		"media":     nil,
 	})
 
 	svc, _ := newTestClient(t, cloud, client.Options{})
@@ -290,6 +291,9 @@ func TestExperimentSummary(t *testing.T) {
 	}
 	if len(summary.Log) != 1 || summary.Log[0].Step != 7 {
 		t.Fatalf("log summary = %+v, want step 7", summary.Log)
+	}
+	if len(summary.Histogram) != 1 || summary.Histogram[0].Key != "weights" || summary.Histogram[0].Step != 15 {
+		t.Fatalf("histogram summary = %+v, want weights@15", summary.Histogram)
 	}
 
 	reqs := cloud.RequestsFor(http.MethodGet, "/api/house/metrics/summaries/proj-1/exp-1")

@@ -1,11 +1,11 @@
-// Package metrics 实现单个 run 的指标状态机：标量与媒体列定义、基于
+// Package metrics 实现单个 run 的指标状态机：标量、媒体与直方图列定义、基于
 // roaring64 的 step 去重、有限浮点极值追踪，以及从云端摘要恢复状态。
 //
 // 状态机不加锁，由 Session 的写锁保护。接收分为两步，以配合上层的容量
 // 预留与背压：
 //
-//	PrecheckScalar / PrecheckMedia  只读预检，绝不修改状态；
-//	CommitScalar  / CommitMedia     正式提交，定义新列、登记 step、更新极值。
+//	Precheck<Type>   只读预检，绝不修改状态；
+//	Commit<Type>     正式提交，定义新列、登记 step、更新极值。
 //
 // 位图仅驻留内存，不持久化。
 package metrics
@@ -77,16 +77,29 @@ type Precheck struct {
 	Err error
 }
 
+// Kind 是指标类型，决定提交时是否维护额外状态。
+type Kind int8
+
+const (
+	// KindScalar：标量指标，维护有限浮点极值。
+	KindScalar Kind = iota
+	// KindMedia：媒体指标，只做 step 去重。
+	KindMedia
+	// KindHistogram：直方图指标，只做 step 去重。
+	KindHistogram
+)
+
 // RunMetrics 管理一个会话内全部指标的状态。
 type RunMetrics struct {
 	metrics map[string]*metric
 }
 
-// metric 是单个指标 key 的状态。scalar 非空表示标量列，否则为媒体列。
+// metric 是单个指标 key 的状态；scalar 仅在 KindScalar 时非空。
 type metric struct {
 	column  *columnv1.ColumnRecord
 	minStep int64
 	steps   *roaring64.Bitmap
+	kind    Kind
 	scalar  *scalarState
 }
 
@@ -122,19 +135,25 @@ func (m *RunMetrics) MinStep(key string) (int64, bool) {
 	return mt.minStep, true
 }
 
-// DefineScalar 定义一个标量指标。minStep 是 step 下界（含），
-// 普通定义为 -1（即允许 step ≥ 0），Resume 恢复时取云端已到达的 step。
+// DefineScalar 定义标量指标；minStep 语义见 Define。
 func (m *RunMetrics) DefineScalar(key string, col *columnv1.ColumnRecord, minStep int64) error {
-	return m.define(key, col, minStep, true)
+	return m.Define(key, col, minStep, KindScalar)
 }
 
-// DefineMedia 定义一个媒体指标。minStep 语义同 DefineScalar。
+// DefineMedia 定义媒体指标；minStep 语义见 Define。
 // 媒体指标不保存存储路径，发送时统一从 RunContext.MediaDir 取。
 func (m *RunMetrics) DefineMedia(key string, col *columnv1.ColumnRecord, minStep int64) error {
-	return m.define(key, col, minStep, false)
+	return m.Define(key, col, minStep, KindMedia)
 }
 
-func (m *RunMetrics) define(key string, col *columnv1.ColumnRecord, minStep int64, scalar bool) error {
+// DefineHistogram 定义直方图指标；minStep 语义见 Define。
+func (m *RunMetrics) DefineHistogram(key string, col *columnv1.ColumnRecord, minStep int64) error {
+	return m.Define(key, col, minStep, KindHistogram)
+}
+
+// Define 按指标类型定义一个指标。minStep 是 step 下界（含），普通定义为 -1
+// 即允许 step ≥ 0；Resume 恢复时取云端已到达的 step。已存在的 key 返回 ErrColumnExists。
+func (m *RunMetrics) Define(key string, col *columnv1.ColumnRecord, minStep int64, kind Kind) error {
 	if key == "" {
 		return ErrEmptyKey
 	}
@@ -145,13 +164,14 @@ func (m *RunMetrics) define(key string, col *columnv1.ColumnRecord, minStep int6
 		return fmt.Errorf("%w: %q", ErrColumnExists, key)
 	}
 	var st *scalarState
-	if scalar {
+	if kind == KindScalar {
 		st = &scalarState{}
 	}
 	m.metrics[key] = &metric{
 		column:  col,
 		minStep: minStep,
 		steps:   roaring64.New(),
+		kind:    kind,
 		scalar:  st,
 	}
 	return nil
@@ -161,29 +181,29 @@ func (m *RunMetrics) define(key string, col *columnv1.ColumnRecord, minStep int6
 
 // PrecheckScalar 对一条标量记录做只读预检，不产生任何状态变更。
 func (m *RunMetrics) PrecheckScalar(rec *datav1.ScalarRecord) Precheck {
-	mt, ok := m.metrics[rec.Key]
-	if !ok {
-		d, err := freshVerdict(rec.Step)
-		return Precheck{NeedsColumn: true, Decision: d, Err: err}
-	}
-	if err := mt.ensureTypeMatch(rec.Type); err != nil {
-		return Precheck{Decision: DecisionSkip, Err: err}
-	}
-	d, err := mt.verdict(rec.Step)
-	return Precheck{Decision: d, Err: err}
+	return m.precheck(rec.GetKey(), rec.GetStep(), rec.GetType())
 }
 
 // PrecheckMedia 对一条媒体记录做只读预检，不产生任何状态变更。
 func (m *RunMetrics) PrecheckMedia(rec *datav1.MediaRecord) Precheck {
-	mt, ok := m.metrics[rec.Key]
+	return m.precheck(rec.GetKey(), rec.GetStep(), rec.GetType())
+}
+
+// PrecheckHistogram 对一条直方图记录做只读预检，不产生任何状态变更。
+func (m *RunMetrics) PrecheckHistogram(rec *datav1.HistogramRecord) Precheck {
+	return m.precheck(rec.GetKey(), rec.GetStep(), rec.GetType())
+}
+
+func (m *RunMetrics) precheck(key string, step int64, typ columnv1.ColumnType) Precheck {
+	mt, ok := m.metrics[key]
 	if !ok {
-		d, err := freshVerdict(rec.Step)
+		d, err := freshVerdict(step)
 		return Precheck{NeedsColumn: true, Decision: d, Err: err}
 	}
-	if err := mt.ensureTypeMatch(rec.Type); err != nil {
+	if err := mt.ensureTypeMatch(typ); err != nil {
 		return Precheck{Decision: DecisionSkip, Err: err}
 	}
-	d, err := mt.verdict(rec.Step)
+	d, err := mt.verdict(step)
 	return Precheck{Decision: d, Err: err}
 }
 
@@ -207,21 +227,21 @@ func freshVerdict(step int64) (Decision, error) {
 // 返回 (false, nil) 表示重复/过期 step 被静默跳过；
 // 返回 (false, err) 为确定性错误（类型冲突、step 超限、流程错误）。
 func (m *RunMetrics) CommitScalar(rec *datav1.ScalarRecord, col *columnv1.ColumnRecord) (bool, error) {
-	mt, err := m.ensureMetric(rec.Key, col, true)
+	mt, err := m.ensureMetric(rec.GetKey(), col, KindScalar)
 	if err != nil {
 		return false, err
 	}
-	if err = mt.ensureTypeMatch(rec.Type); err != nil {
+	if err = mt.ensureTypeMatch(rec.GetType()); err != nil {
 		return false, err
 	}
-	accepted, err := mt.accept(rec.Step)
+	accepted, err := mt.accept(rec.GetStep())
 	if err != nil || !accepted {
 		return false, err
 	}
 	// Resume 占位媒体列（UNSPECIFIED）收到标量记录时类型校验放行，
 	// 但占位列不更新极值。
 	if mt.scalar != nil {
-		mt.scalar.update(rec.Key, rec.Value.GetNumber())
+		mt.scalar.update(rec.GetKey(), rec.GetValue().GetNumber())
 	}
 	return true, nil
 }
@@ -229,18 +249,28 @@ func (m *RunMetrics) CommitScalar(rec *datav1.ScalarRecord, col *columnv1.Column
 // CommitMedia 提交一条媒体记录；col 语义同 CommitScalar。
 // 媒体指标没有可更新的状态。
 func (m *RunMetrics) CommitMedia(rec *datav1.MediaRecord, col *columnv1.ColumnRecord) (bool, error) {
-	mt, err := m.ensureMetric(rec.Key, col, false)
+	return m.commit(rec.GetKey(), rec.GetStep(), rec.GetType(), col, KindMedia)
+}
+
+// CommitHistogram 提交一条直方图记录；col 语义同 CommitScalar。
+// 直方图指标没有可更新的状态。
+func (m *RunMetrics) CommitHistogram(rec *datav1.HistogramRecord, col *columnv1.ColumnRecord) (bool, error) {
+	return m.commit(rec.GetKey(), rec.GetStep(), rec.GetType(), col, KindHistogram)
+}
+
+func (m *RunMetrics) commit(key string, step int64, typ columnv1.ColumnType, col *columnv1.ColumnRecord, kind Kind) (bool, error) {
+	mt, err := m.ensureMetric(key, col, kind)
 	if err != nil {
 		return false, err
 	}
-	if err = mt.ensureTypeMatch(rec.Type); err != nil {
+	if err = mt.ensureTypeMatch(typ); err != nil {
 		return false, err
 	}
-	return mt.accept(rec.Step)
+	return mt.accept(step)
 }
 
 // ensureMetric 取出或定义指标；col 非 nil 且 key 未定义时完成定义。
-func (m *RunMetrics) ensureMetric(key string, col *columnv1.ColumnRecord, scalar bool) (*metric, error) {
+func (m *RunMetrics) ensureMetric(key string, col *columnv1.ColumnRecord, kind Kind) (*metric, error) {
 	if mt, ok := m.metrics[key]; ok {
 		if col != nil {
 			return nil, fmt.Errorf("%w: %q", ErrColumnExists, key)
@@ -250,7 +280,7 @@ func (m *RunMetrics) ensureMetric(key string, col *columnv1.ColumnRecord, scalar
 	if col == nil {
 		return nil, fmt.Errorf("%w: %q", ErrColumnMissing, key)
 	}
-	if err := m.define(key, col, -1, scalar); err != nil {
+	if err := m.Define(key, col, -1, kind); err != nil {
 		return nil, err
 	}
 	return m.metrics[key], nil
@@ -263,7 +293,7 @@ func (m *RunMetrics) ensureMetric(key string, col *columnv1.ColumnRecord, scalar
 // 媒体列的例外：Resume 恢复的降级列类型为 UNSPECIFIED（无法得知具体类型），
 // 对任意媒体类型放行。
 func (mt *metric) ensureTypeMatch(t columnv1.ColumnType) error {
-	if mt.scalar == nil && mt.column.ColumnType == columnv1.ColumnType_COLUMN_TYPE_UNSPECIFIED {
+	if mt.kind == KindMedia && mt.column.ColumnType == columnv1.ColumnType_COLUMN_TYPE_UNSPECIFIED {
 		console.Debugf("Media metric '%s' has not been defined, maybe it's defined in resume", mt.column.ColumnKey)
 		return nil
 	}

@@ -134,6 +134,10 @@ func (f *fakeManager) UpsertMedia(_ context.Context, sessionID string, records [
 	return f.recordUpsert("media", sessionID, len(records))
 }
 
+func (f *fakeManager) UpsertHistograms(_ context.Context, sessionID string, records []*datav1.HistogramRecord) error {
+	return f.recordUpsert("histograms", sessionID, len(records))
+}
+
 func (f *fakeManager) UpsertLogs(_ context.Context, sessionID string, records []*terminalv1.LogRecord) error {
 	return f.recordUpsert("logs", sessionID, len(records))
 }
@@ -571,6 +575,13 @@ func TestUpsertRPCsForwardRecords(t *testing.T) {
 			})
 			return err
 		}},
+		{"histograms", func() error {
+			_, err := env.client.UpsertHistograms(ctx, &corev1.UpsertHistogramsRequest{
+				SessionId: handle,
+				Data:      []*datav1.HistogramRecord{{Key: "weights"}},
+			})
+			return err
+		}},
 		{"logs", func() error {
 			_, err := env.client.UpsertLogs(ctx, &corev1.UpsertLogsRequest{
 				SessionId: handle,
@@ -635,6 +646,9 @@ func TestUpsertEmptyListsAreNoops(t *testing.T) {
 	}
 	if _, err := env.client.UpsertMedia(ctx, &corev1.UpsertMediaRequest{SessionId: handle}); err != nil {
 		t.Fatalf("empty UpsertMedia: %v", err)
+	}
+	if _, err := env.client.UpsertHistograms(ctx, &corev1.UpsertHistogramsRequest{SessionId: handle}); err != nil {
+		t.Fatalf("empty UpsertHistograms: %v", err)
 	}
 	if _, err := env.client.UpsertLogs(ctx, &corev1.UpsertLogsRequest{SessionId: handle}); err != nil {
 		t.Fatalf("empty UpsertLogs: %v", err)

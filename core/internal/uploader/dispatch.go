@@ -11,6 +11,7 @@ var dispatchOrder = []record.Type{
 	record.TypeColumn,
 	record.TypeScalar,
 	record.TypeMedia,
+	record.TypeHistogram,
 	record.TypeLog,
 	record.TypeSave,
 }

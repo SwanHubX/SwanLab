@@ -38,6 +38,7 @@ type RunManager interface {
 	UpsertColumns(context.Context, string, []*columnv1.ColumnRecord) error
 	UpsertScalars(context.Context, string, []*datav1.ScalarRecord) error
 	UpsertMedia(context.Context, string, []*datav1.MediaRecord) error
+	UpsertHistograms(context.Context, string, []*datav1.HistogramRecord) error
 	UpsertLogs(context.Context, string, []*terminalv1.LogRecord) error
 	UpsertSaves(context.Context, string, []*savev1.SaveRecord) error
 	DeliverRunFinish(context.Context, string, *runv1.FinishRecord) error
@@ -233,6 +234,20 @@ func (s *CoreService) UpsertMedia(
 		return nil, err
 	}
 	if err := s.runs.UpsertMedia(ctx, req.GetSessionId(), req.GetData()); err != nil {
+		return nil, managerStatus(err)
+	}
+	return &emptypb.Empty{}, nil
+}
+
+// UpsertHistograms 提交一批直方图记录；空列表是合法的 no-op。
+func (s *CoreService) UpsertHistograms(
+	ctx context.Context,
+	req *corev1.UpsertHistogramsRequest,
+) (*emptypb.Empty, error) {
+	if err := s.requireReady(); err != nil {
+		return nil, err
+	}
+	if err := s.runs.UpsertHistograms(ctx, req.GetSessionId(), req.GetData()); err != nil {
 		return nil, managerStatus(err)
 	}
 	return &emptypb.Empty{}, nil

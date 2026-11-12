@@ -72,6 +72,16 @@ func BuildResumeColumn(key string, media bool, system bool) *columnv1.ColumnReco
 	}
 }
 
+// BuildHistogramResumeColumn 构建 Resume 恢复的直方图列。
+// 直方图必须携带 COLUMN_TYPE_HISTOGRAM：用 UNSPECIFIED 占位会让该列的首条数据被类型校验拒绝。
+func BuildHistogramResumeColumn(key string) *columnv1.ColumnRecord {
+	return &columnv1.ColumnRecord{
+		ColumnKey:   key,
+		ColumnType:  columnv1.ColumnType_COLUMN_TYPE_HISTOGRAM,
+		ColumnClass: columnv1.ColumnClass_COLUMN_CLASS_CUSTOM,
+	}
+}
+
 // MediumName 返回媒体类型对应的目录名，同时用作云端路径的 media/<medium>/
 // 段；未知类型（含 UNSPECIFIED）返回 "unknown"。
 func MediumName(typ columnv1.ColumnType) string {

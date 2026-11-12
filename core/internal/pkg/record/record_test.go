@@ -19,6 +19,7 @@ func TestTypeOf(t *testing.T) {
 		{"column", &recordv1.Record{RecordType: &recordv1.Record_Column{}}, TypeColumn},
 		{"scalar", &recordv1.Record{RecordType: &recordv1.Record_Scalar{}}, TypeScalar},
 		{"media", &recordv1.Record{RecordType: &recordv1.Record_Media{}}, TypeMedia},
+		{"histogram", &recordv1.Record{RecordType: &recordv1.Record_Histogram{}}, TypeHistogram},
 		{"log", &recordv1.Record{RecordType: &recordv1.Record_Log{}}, TypeLog},
 		{"save", &recordv1.Record{RecordType: &recordv1.Record_Save{}}, TypeSave},
 	}

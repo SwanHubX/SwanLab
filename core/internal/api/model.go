@@ -37,6 +37,8 @@ const (
 	MetricLog MetricKind = "log"
 	// MetricMedia 是媒体指标。
 	MetricMedia MetricKind = "media"
+	// MetricHistogram 是直方图指标。
+	MetricHistogram MetricKind = "histogram"
 )
 
 // ProfileKind 是实验 Profile 的四类元数据。
@@ -100,11 +102,12 @@ type ColumnStep struct {
 	Step int64  `json:"step"`
 }
 
-// Summary 是 Resume 时拉取的实验摘要；三组列表分别对应日志、媒体与标量列。
+// Summary 是 Resume 时拉取的实验摘要；四组列表分别对应日志、媒体、标量与直方图列。
 type Summary struct {
-	Log    []ColumnStep `json:"log"`
-	Media  []ColumnStep `json:"media"`
-	Scalar []ColumnStep `json:"scalar"`
+	Log       []ColumnStep `json:"log"`
+	Media     []ColumnStep `json:"media"`
+	Scalar    []ColumnStep `json:"scalar"`
+	Histogram []ColumnStep `json:"histogram"`
 }
 
 // MultipartPart 是分片上传的单个分片信息。
