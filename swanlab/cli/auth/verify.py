@@ -30,9 +30,9 @@ def verify(local: bool):
         sdk.pkg.console.error("You are not logged in. Use `swanlab login` to login.")
         sys.exit(1)
     api_key, api_host, web_host = netrc_result
-    login_resp = sdk.pkg.client.login_by_api_key(base_url=api_host + "/api", api_key=api_key)
+    login_resp = sdk.pkg.client.verify_api_key(base_url=api_host + "/api", api_key=api_key)
 
-    if login_resp is None:
+    if not isinstance(login_resp, dict):
         sdk.pkg.console.error(
             "Verification failed. Please check if your API key is correct and try again. Use `swanlab login` to login if you haven't done so.",
         )

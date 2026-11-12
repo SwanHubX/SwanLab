@@ -70,13 +70,13 @@ from swanlab.sdk.cmd.sync import build_sync_range
     "--start-step",
     default=None,
     type=click.IntRange(min=0),
-    help="Only sync scalar/media records whose step is greater than or equal to this value.",
+    help="Only sync scalar/media/histogram records whose step is greater than or equal to this value.",
 )
 @click.option(
     "--end-step",
     default=None,
     type=click.IntRange(min=0),
-    help="Only sync scalar/media records whose step is less than or equal to this value.",
+    help="Only sync scalar/media/histogram records whose step is less than or equal to this value.",
 )
 @click.option(
     "--start-time",

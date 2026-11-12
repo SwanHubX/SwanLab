@@ -24,6 +24,7 @@ const (
 	CoreService_UpsertColumns_FullMethodName     = "/swanlab.grpc.core.v1.CoreService/UpsertColumns"
 	CoreService_UpsertScalars_FullMethodName     = "/swanlab.grpc.core.v1.CoreService/UpsertScalars"
 	CoreService_UpsertMedia_FullMethodName       = "/swanlab.grpc.core.v1.CoreService/UpsertMedia"
+	CoreService_UpsertHistograms_FullMethodName  = "/swanlab.grpc.core.v1.CoreService/UpsertHistograms"
 	CoreService_UpsertLogs_FullMethodName        = "/swanlab.grpc.core.v1.CoreService/UpsertLogs"
 	CoreService_UpsertSaves_FullMethodName       = "/swanlab.grpc.core.v1.CoreService/UpsertSaves"
 	CoreService_DeliverRunFinish_FullMethodName  = "/swanlab.grpc.core.v1.CoreService/DeliverRunFinish"
@@ -45,6 +46,8 @@ type CoreServiceClient interface {
 	UpsertScalars(ctx context.Context, in *UpsertScalarsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// UpsertMedia 接收一组 MediaRecord 并写入，每一条记录用于记录某一个指标的值
 	UpsertMedia(ctx context.Context, in *UpsertMediaRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// UpsertHistograms 接收一组 HistogramRecord 并写入，每一条记录为某个指标在某个 step 的直方图数据
+	UpsertHistograms(ctx context.Context, in *UpsertHistogramsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// UpsertLogs 接收一组 LogRecord 并写入，每一条记录对应一行用户的终端输出
 	UpsertLogs(ctx context.Context, in *UpsertLogsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// UpsertSaves 接收一组 SaveRecord 并写入，每一条记录对应一次 swanlab.save() 的文件保存或者swanlab内部保存操作
@@ -99,6 +102,16 @@ func (c *coreServiceClient) UpsertMedia(ctx context.Context, in *UpsertMediaRequ
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, CoreService_UpsertMedia_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *coreServiceClient) UpsertHistograms(ctx context.Context, in *UpsertHistogramsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, CoreService_UpsertHistograms_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -169,6 +182,8 @@ type CoreServiceServer interface {
 	UpsertScalars(context.Context, *UpsertScalarsRequest) (*emptypb.Empty, error)
 	// UpsertMedia 接收一组 MediaRecord 并写入，每一条记录用于记录某一个指标的值
 	UpsertMedia(context.Context, *UpsertMediaRequest) (*emptypb.Empty, error)
+	// UpsertHistograms 接收一组 HistogramRecord 并写入，每一条记录为某个指标在某个 step 的直方图数据
+	UpsertHistograms(context.Context, *UpsertHistogramsRequest) (*emptypb.Empty, error)
 	// UpsertLogs 接收一组 LogRecord 并写入，每一条记录对应一行用户的终端输出
 	UpsertLogs(context.Context, *UpsertLogsRequest) (*emptypb.Empty, error)
 	// UpsertSaves 接收一组 SaveRecord 并写入，每一条记录对应一次 swanlab.save() 的文件保存或者swanlab内部保存操作
@@ -200,6 +215,9 @@ func (UnimplementedCoreServiceServer) UpsertScalars(context.Context, *UpsertScal
 }
 func (UnimplementedCoreServiceServer) UpsertMedia(context.Context, *UpsertMediaRequest) (*emptypb.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpsertMedia not implemented")
+}
+func (UnimplementedCoreServiceServer) UpsertHistograms(context.Context, *UpsertHistogramsRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpsertHistograms not implemented")
 }
 func (UnimplementedCoreServiceServer) UpsertLogs(context.Context, *UpsertLogsRequest) (*emptypb.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpsertLogs not implemented")
@@ -305,6 +323,24 @@ func _CoreService_UpsertMedia_Handler(srv interface{}, ctx context.Context, dec 
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(CoreServiceServer).UpsertMedia(ctx, req.(*UpsertMediaRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CoreService_UpsertHistograms_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpsertHistogramsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CoreServiceServer).UpsertHistograms(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CoreService_UpsertHistograms_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CoreServiceServer).UpsertHistograms(ctx, req.(*UpsertHistogramsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -421,6 +457,10 @@ var CoreService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UpsertMedia",
 			Handler:    _CoreService_UpsertMedia_Handler,
+		},
+		{
+			MethodName: "UpsertHistograms",
+			Handler:    _CoreService_UpsertHistograms_Handler,
 		},
 		{
 			MethodName: "UpsertLogs",

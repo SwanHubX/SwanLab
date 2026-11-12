@@ -9,7 +9,9 @@ import json
 from unittest.mock import MagicMock
 
 import pytest
+import requests
 
+from swanlab.exceptions import ApiError, AuthenticationError
 from swanlab.sdk.cmd.init import (
     compatible_kwargs,
     ensure_run_dir,
@@ -17,6 +19,13 @@ from swanlab.sdk.cmd.init import (
     prompt_init_mode,
     set_nested_value,
 )
+
+
+def _wrapped_auth_error(cause: BaseException) -> AuthenticationError:
+    try:
+        raise AuthenticationError("wrapped") from cause
+    except AuthenticationError as exc:
+        return exc
 
 
 # ==========================================
@@ -124,6 +133,51 @@ def test_prompt_interactive_choices(mock_settings, monkeypatch, inputs, mock_log
     monkeypatch.setattr("builtins.input", lambda prompt: next(input_iterator))
 
     assert prompt_init_mode(mock_settings) == expected_mode
+
+
+@pytest.mark.parametrize("policy", ["offline", "disabled"])
+def test_prompt_login_transient_error_degrades(mock_settings, monkeypatch, policy):
+    """交互式登录遇到连接类错误时，按 on_online_error 降级而不是终止进程。"""
+    monkeypatch.setattr("swanlab.sdk.cmd.init.client.exists", lambda: False)
+    mock_settings.api_key = None
+    mock_settings.on_online_error = policy
+    mock_login = MagicMock(side_effect=_wrapped_auth_error(requests.ConnectionError("boom")))
+    monkeypatch.setattr("swanlab.sdk.cmd.init.login_cli", mock_login)
+    monkeypatch.setattr("builtins.input", lambda prompt: "1")
+
+    assert prompt_init_mode(mock_settings) == policy
+    mock_login.assert_called_once()
+
+
+def test_prompt_login_unauthorized_still_raises(mock_settings, monkeypatch):
+    """401/403 属于 API Key 错误，不做降级。"""
+    monkeypatch.setattr("swanlab.sdk.cmd.init.client.exists", lambda: False)
+    mock_settings.api_key = None
+    mock_settings.on_online_error = "offline"
+    unauthorized = ApiError(MagicMock(status_code=401), method="POST", code=401, message="unauthorized")
+    monkeypatch.setattr(
+        "swanlab.sdk.cmd.init.login_cli",
+        MagicMock(side_effect=_wrapped_auth_error(unauthorized)),
+    )
+    monkeypatch.setattr("builtins.input", lambda prompt: "1")
+
+    with pytest.raises(AuthenticationError):
+        prompt_init_mode(mock_settings)
+
+
+def test_prompt_login_transient_error_with_raise_policy(mock_settings, monkeypatch):
+    """on_online_error="raise" 时保持严格失败。"""
+    monkeypatch.setattr("swanlab.sdk.cmd.init.client.exists", lambda: False)
+    mock_settings.api_key = None
+    mock_settings.on_online_error = "raise"
+    monkeypatch.setattr(
+        "swanlab.sdk.cmd.init.login_cli",
+        MagicMock(side_effect=_wrapped_auth_error(requests.ConnectionError("boom"))),
+    )
+    monkeypatch.setattr("builtins.input", lambda prompt: "1")
+
+    with pytest.raises(AuthenticationError):
+        prompt_init_mode(mock_settings)
 
 
 class TestSetNestedValue:

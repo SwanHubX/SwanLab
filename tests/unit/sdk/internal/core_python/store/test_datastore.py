@@ -240,6 +240,38 @@ class TestFileHandling:
         w = DataStoreWriter()
         with pytest.raises(FileExistsError):
             w.open(str(p))
+        assert w._fp is None
+
+    def test_header_write_failure_cleans_up(self, tmp_path: Path, monkeypatch):
+        """header 写入失败时应关闭句柄并删除未初始化完成的文件。"""
+        p = tmp_path / "test.swanlab"
+        real_open = open
+        closed = []
+
+        class BrokenFile:
+            def __init__(self, fp):
+                self._fp = fp
+
+            def write(self, data):
+                raise OSError("disk full")
+
+            def close(self):
+                closed.append(True)
+                self._fp.close()
+
+        def broken_open(filename, mode="r", *args, **kwargs):
+            return BrokenFile(real_open(filename, mode, *args, **kwargs))
+
+        monkeypatch.setattr("builtins.open", broken_open)
+
+        w = DataStoreWriter()
+        with pytest.raises(OSError, match="disk full"):
+            w.open(str(p))
+
+        assert w._fp is None
+        assert w._index == 0
+        assert closed == [True]
+        assert not p.exists()
 
     def test_data_readable_after_close(self, tmp_path: Path):
         """close() 后数据应已落盘，可被 reader 完整读取。"""
@@ -253,6 +285,12 @@ class TestFileHandling:
         w = DataStoreWriter()
         with pytest.raises(AssertionError):
             w.write(b"data")
+
+    def test_close_before_open_is_noop(self):
+        """未 open 直接 close 应为空操作，便于失败路径统一清理。"""
+        w = DataStoreWriter()
+        w.close()
+        assert w._fp is None
 
     def test_scan_before_open_raises(self):
         """未 open 直接 scan 应抛出 AssertionError。"""

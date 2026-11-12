@@ -17,7 +17,7 @@ from swanlab.sdk.internal.settings import Settings
 from swanlab.sdk.typings.context import CallbacksType
 
 from .components import CallbackManager, create_callback_manager, create_core
-from .transformer import TransformData, TransformMedia
+from .transformer import TransformData, TransformHistogram, TransformMedia
 
 __all__ = [
     # value
@@ -27,6 +27,7 @@ __all__ = [
     "RunConfig",
     "TransformData",
     "TransformMedia",
+    "TransformHistogram",
     "CallbackManager",
 ]
 

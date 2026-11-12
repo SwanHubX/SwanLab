@@ -55,6 +55,9 @@ class ApiError(HTTPError):
 class AuthenticationError(Exception):
     """
     SwanLab 认证失败异常。
+
+    Client 首次认证失败时会将底层网络、HTTP 或响应解析异常统一包装为本异常，
+    原始异常保留在 ``__cause__`` 中，供调用方判断是否属于可降级的瞬时错误。
     """
 
     pass

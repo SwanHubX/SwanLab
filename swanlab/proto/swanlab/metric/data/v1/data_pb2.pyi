@@ -36,6 +36,14 @@ class MediaItem(_message.Message):
     payload: bytes
     def __init__(self, filename: _Optional[str] = ..., sha256: _Optional[str] = ..., size: _Optional[int] = ..., caption: _Optional[str] = ..., payload: _Optional[bytes] = ...) -> None: ...
 
+class HistogramValue(_message.Message):
+    __slots__ = ("values", "bins")
+    VALUES_FIELD_NUMBER: _ClassVar[int]
+    BINS_FIELD_NUMBER: _ClassVar[int]
+    values: _containers.RepeatedScalarFieldContainer[int]
+    bins: _containers.RepeatedScalarFieldContainer[float]
+    def __init__(self, values: _Optional[_Iterable[int]] = ..., bins: _Optional[_Iterable[float]] = ...) -> None: ...
+
 class ScalarRecord(_message.Message):
     __slots__ = ("key", "step", "type", "timestamp", "value")
     KEY_FIELD_NUMBER: _ClassVar[int]
@@ -63,3 +71,17 @@ class MediaRecord(_message.Message):
     timestamp: _timestamp_pb2.Timestamp
     value: MediaValue
     def __init__(self, key: _Optional[str] = ..., step: _Optional[int] = ..., type: _Optional[_Union[_column_pb2.ColumnType, str]] = ..., timestamp: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., value: _Optional[_Union[MediaValue, _Mapping]] = ...) -> None: ...
+
+class HistogramRecord(_message.Message):
+    __slots__ = ("key", "step", "type", "timestamp", "value")
+    KEY_FIELD_NUMBER: _ClassVar[int]
+    STEP_FIELD_NUMBER: _ClassVar[int]
+    TYPE_FIELD_NUMBER: _ClassVar[int]
+    TIMESTAMP_FIELD_NUMBER: _ClassVar[int]
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    key: str
+    step: int
+    type: _column_pb2.ColumnType
+    timestamp: _timestamp_pb2.Timestamp
+    value: HistogramValue
+    def __init__(self, key: _Optional[str] = ..., step: _Optional[int] = ..., type: _Optional[_Union[_column_pb2.ColumnType, str]] = ..., timestamp: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., value: _Optional[_Union[HistogramValue, _Mapping]] = ...) -> None: ...

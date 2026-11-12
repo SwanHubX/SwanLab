@@ -196,8 +196,8 @@ class Series(BaseEntity):
         experiment_name_getter: Optional[Callable[[], str]] = None,
     ) -> None:
         super().__init__(ctx)
-        if metric_type not in ("SCALAR", "MEDIA"):
-            raise ValueError(f"Invalid metric_type: {metric_type!r}, expected 'SCALAR' or 'MEDIA'")
+        if metric_type not in ("SCALAR", "MEDIA", "HISTOGRAM"):
+            raise ValueError(f"Invalid metric_type: {metric_type!r}, expected 'SCALAR', 'MEDIA' or 'HISTOGRAM'")
         if metric_class not in ("CUSTOM", "SYSTEM"):
             raise ValueError(f"Invalid metric_class: {metric_class!r}, expected 'CUSTOM' or 'SYSTEM'")
         if not isinstance(experiments, list) or not experiments:
@@ -263,7 +263,7 @@ class Series(BaseEntity):
             else:
                 result = [k for k in keys if not k.startswith(_SYSTEM_KEY_PREFIX)]
         else:
-            # MEDIA: 全为 CUSTOM
+            # MEDIA / HISTOGRAM: 全为 CUSTOM
             result = [] if want_system else keys
         # 模糊搜索：大小写不敏感的子串匹配
         if self._search:
@@ -328,7 +328,7 @@ class Series(BaseEntity):
             ========== ============ ===========================================
             ``keys``    ``list[str]`` Filtered key names.
             ``metricClass`` ``str``   ``"CUSTOM"`` or ``"SYSTEM"``.
-            ``metricType`` ``str``    ``"SCALAR"`` or ``"MEDIA"``.
+            ``metricType`` ``str``    ``"SCALAR"``, ``"MEDIA"`` or ``"HISTOGRAM"``.
             ``projectId`` ``str``     Project ID.
             ``runId``   ``str``       Experiment (run) ID.
             ========== ============ ===========================================

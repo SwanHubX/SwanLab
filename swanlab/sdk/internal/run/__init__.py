@@ -38,6 +38,7 @@ from swanlab.sdk.internal.run.progress import run_with_progress
 from swanlab.sdk.internal.run.transforms import (
     Audio,
     ECharts,
+    Histogram,
     Html,
     Image,
     Molecule,
@@ -50,6 +51,10 @@ from swanlab.sdk.typings.run import AsyncLogType, FinishType, ModeType, SaveType
 from swanlab.sdk.typings.run.transforms import CaptionsType
 from swanlab.sdk.typings.run.transforms.audio import AudioDatasType, AudioRatesType
 from swanlab.sdk.typings.run.transforms.echarts import EChartsDatasType
+from swanlab.sdk.typings.run.transforms.histogram import (
+    HistogramBins,
+    HistogramInput,
+)
 from swanlab.sdk.typings.run.transforms.html import HtmlDatasType
 from swanlab.sdk.typings.run.transforms.image import ImageDatasType, ImageFilesType, ImageModesType, ImageSizesType
 from swanlab.sdk.typings.run.transforms.molecule import MoleculeDatasType
@@ -616,6 +621,28 @@ class Run:
         """
         normalized_data = normalize_media_input(Html, data, caption=caption)
         self.log({key: normalized_data}, step=step)
+
+    @with_api("run.log_histogram()")
+    def log_histogram(
+        self,
+        *,
+        key: str,
+        data: HistogramInput,
+        bins: Optional[HistogramBins] = None,
+        step: Optional[int] = None,
+        **kwargs,
+    ):
+        """
+        A syntactic sugar for logging histogram data.
+
+        :param key: The key for the histogram data.
+        :param data: The histogram data (sequence, numpy array, or Histogram object).
+        :param bins: Number of buckets or explicit bucket edges.
+        :param num_bins: wandb-compatible bucket count, accepted via ``**kwargs``; used when bins is None.
+        :param step: Optional step for the histogram data.
+        """
+        num_bins = kwargs.pop("num_bins", None)
+        self.log({key: Histogram(data, bins=bins, num_bins=num_bins)}, step=step)
 
     @with_api("run.define_metric()")
     def define_metric(

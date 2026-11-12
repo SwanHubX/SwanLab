@@ -22,6 +22,7 @@ from swanlab.sdk.internal.core_python.api.upload import (
     upload_columns,
     upload_conda,
     upload_config,
+    upload_histogram,
     upload_log,
     upload_media,
     upload_metadata,
@@ -32,6 +33,8 @@ from swanlab.sdk.internal.core_python.context import CoreContext
 from swanlab.sdk.internal.pkg import adapter, client, console
 from swanlab.sdk.typings.core_python.api.upload import (
     UploadColumn,
+    UploadHistogram,
+    UploadHistogramBatch,
     UploadLog,
     UploadLogBatch,
     UploadMediaBatch,
@@ -66,6 +69,7 @@ class HttpRecordSender:
             "column": self.upload_column,
             "scalar": self.upload_scalar,
             "media": self.upload_media,
+            "histogram": self.upload_histogram,
             "log": self.upload_log,
             "save": self.upload_save,
         }
@@ -240,6 +244,66 @@ class HttpRecordSender:
             confirmed_records=confirmed + blocked,
             failures=[self._blocked_failure(blocked, "log record without line or timestamp")] if blocked else [],
         )
+
+    def upload_histogram(self, records: Sequence[Record]) -> UploadResult:
+        """每批最多上传 128 条直方图指标，按批编码每桶计数与桶边界。"""
+        valid_records: List[Record] = []
+        blocked: List[Record] = []
+        invalid_shape: List[Record] = []
+        # 单条 record 的桶数上限
+        _MAX_HISTOGRAM_BUCKETS = 512
+        for record in records:
+            if (
+                not record.HasField("histogram")
+                or not record.histogram.HasField("timestamp")
+                or not record.histogram.HasField("value")
+            ):
+                blocked.append(record)
+                continue
+            histogram = record.histogram
+            values = histogram.value.values
+            bins = histogram.value.bins
+            # 桶数越界或 bins 长度与 values+1 不匹配的 record 直接跳过，不参与上传
+            if not (1 <= len(values) <= _MAX_HISTOGRAM_BUCKETS) or len(bins) != len(values) + 1:
+                invalid_shape.append(record)
+                continue
+            valid_records.append(record)
+
+        confirmed: List[Record] = list(blocked) + list(invalid_shape)
+        failures: List[UploadFailure] = []
+        if blocked:
+            failures.append(self._blocked_failure(blocked, "histogram record without value or timestamp"))
+        if invalid_shape:
+            failures.append(self._blocked_failure(invalid_shape, "histogram record has invalid bucket shape"))
+        batch_size = 128
+        for start in range(0, len(valid_records), batch_size):
+            batch = valid_records[start : start + batch_size]
+            metrics: UploadHistogramBatch = []
+            for record in batch:
+                histogram_record = record.histogram
+                metric: UploadHistogram = {
+                    "key": histogram_record.key,
+                    "index": histogram_record.step,
+                    "data": {
+                        "values": list(histogram_record.value.values),
+                        "bins": list(histogram_record.value.bins),
+                    },
+                    "create_time": histogram_record.timestamp.ToJsonString(),
+                }
+                metrics.append(metric)
+            console.debug(f"HTTP upload: upload_histogram with metrics count: {len(metrics)}")
+            try:
+                upload_histogram(self._project_id, self._experiment_id, metrics=metrics)
+            except requests.RequestException as e:
+                failures.append(transport_failure(batch, e))
+                if is_retryable_error(e):
+                    return UploadResult(
+                        confirmed_records=confirmed,
+                        remaining_records=valid_records[start:],
+                        failures=failures,
+                    )
+            confirmed.extend(batch)
+        return UploadResult(confirmed_records=confirmed, failures=failures)
 
     def upload_media(self, records: Sequence[Record]) -> UploadResult:
         """收集媒体上传任务，上传至对象存储后提交媒体指标。"""

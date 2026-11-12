@@ -45,7 +45,8 @@ def generate_python_protos(proto_dir: Path, output_dir: Path):
         f"--pyi_out={output_dir}",
     ]
 
-    command.extend([str(p.relative_to(proto_dir)) for p in proto_files])
+    # Windows 下 relative_to 返回反斜杠路径，protoc 只接受 posix 分隔符
+    command.extend([p.relative_to(proto_dir).as_posix() for p in proto_files])
 
     result = subprocess.run(command, capture_output=True, text=True)
     if result.returncode != 0:
@@ -102,7 +103,7 @@ def generate_go_protos(proto_dir: Path, output_dir: Path):
         "--go-grpc_opt=paths=source_relative",
     ]
 
-    proto_files = [str(p.relative_to(proto_dir)) for p in proto_dir.glob("**/*.proto")]
+    proto_files = [p.relative_to(proto_dir).as_posix() for p in proto_dir.glob("**/*.proto")]
     go_cmd.extend(proto_files)
 
     try:

@@ -26,9 +26,11 @@ from typing import cast
 from unittest.mock import MagicMock
 
 import pytest
+import requests
 import responses as responses_lib
 import yaml
 
+from swanlab.exceptions import AuthenticationError
 from swanlab.sdk.cmd.init import init
 from swanlab.sdk.cmd.login import login_cli
 from swanlab.sdk.cmd.merge_settings import merge_settings
@@ -276,6 +278,36 @@ def logged_in_client(mock_login_api, mock_online_settings):
     yield
 
 
+@pytest.fixture
+def offline_warnings(monkeypatch):
+    """捕获降级告警，便于断言只告警一次。"""
+    messages = []
+    original = console.warning
+
+    def _warning(*args, **kwargs):
+        messages.append(" ".join(str(arg) for arg in args))
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr("swanlab.sdk.cmd.init.console.warning", _warning)
+    return messages
+
+
+@pytest.fixture
+def offline_errors(monkeypatch):
+    """捕获上游错误的打印，验证错误在发生处就已被记录。"""
+    messages = []
+    original = console.error
+
+    def _error(*args, **kwargs):
+        # console.trace 通过 console_args 传入终端文案
+        console_args = kwargs.get("console_args") or args
+        messages.append(" ".join(str(arg) for arg in console_args))
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr("swanlab.sdk.cmd.init.console.error", _error)
+    return messages
+
+
 # ============================================================
 # TestInitDisabledMode
 # ============================================================
@@ -288,6 +320,13 @@ class TestInitDisabledMode:
 
         assert isinstance(run, Run)
         assert has_run()
+
+    def test_init_on_online_error_is_merged_into_settings(self):
+        """init 参数应写入本次 run 的 settings，供后续降级策略使用"""
+        run = init(mode="disabled", on_online_error="raise")
+
+        assert run._ctx.config.settings.on_online_error == "raise"
+        run.finish()
 
     def test_init_does_not_create_log_dir(self):
         """disabled 模式不得创建日志目录"""
@@ -698,6 +737,214 @@ class TestInitOnlineMode:
         payload = json.loads(cast(bytes, experiment_calls[0].request.body))
         assert payload["name"] == "test-save-exp"
         assert run._ctx.config.settings.experiment.name == "test-save-exp"
+
+
+# ============================================================
+# TestInitOnlineStartFallback
+# ============================================================
+
+
+class TestInitOnlineStartFallback:
+    PROJECT_URL = f"{API_HOST}/api/project/{USERNAME}/{PROJECT}"
+
+    @staticmethod
+    def _assert_offline_run(run: Run, warnings: list[str]) -> None:
+        assert run.mode == "offline"
+        assert run._ctx.config.settings.mode == "offline"
+        assert run.dir.exists()
+        assert len([m for m in warnings if "falling back to offline mode" in m]) == 1
+        with pytest.raises(ValueError):
+            _ = run.url
+        with pytest.raises(ValueError):
+            _ = run.path
+
+    def test_project_503_degrades_to_offline(self, logged_in_client, rsps, offline_warnings, offline_errors):
+        rsps.add(responses_lib.GET, self.PROJECT_URL, status=503)
+
+        run = init(mode="online", project=PROJECT)
+
+        self._assert_offline_run(run, offline_warnings)
+        # 上游错误在 Core 内打印，降级告警只负责通知策略
+        assert any("Failed to start run" in message for message in offline_errors)
+        assert not client.exists()
+        run.log({"loss": 1.0})
+        run.finish()
+        assert (run.dir / f"run-{run.id}.swanlab").exists()
+
+    def test_project_malformed_response_degrades_to_offline(self, logged_in_client, rsps, offline_warnings):
+        rsps.add(responses_lib.GET, self.PROJECT_URL, body="<html>bad gateway</html>", status=200)
+
+        run = init(mode="online", project=PROJECT)
+
+        self._assert_offline_run(run, offline_warnings)
+
+    def test_project_503_with_raise_policy(self, logged_in_client, rsps):
+        rsps.add(responses_lib.GET, self.PROJECT_URL, status=503)
+
+        with pytest.raises(RuntimeError):
+            init(mode="online", project=PROJECT, on_online_error="raise")
+
+    def test_project_forbidden_raises_authentication_error(self, logged_in_client, rsps):
+        rsps.add(responses_lib.GET, self.PROJECT_URL, json={"message": "forbidden"}, status=403)
+
+        with pytest.raises(AuthenticationError):
+            init(mode="online", project=PROJECT)
+
+    def test_resume_must_degrades_with_warning(self, logged_in_client, rsps, offline_warnings):
+        rsps.add(responses_lib.GET, self.PROJECT_URL, status=503)
+
+        run = init(mode="online", project=PROJECT, id=RUN_ID, resume="must")
+
+        self._assert_offline_run(run, offline_warnings)
+        assert any('resume="must"' in message for message in offline_warnings)
+
+    def test_project_503_with_skip_store_keeps_local_data(self, logged_in_client, rsps, offline_warnings):
+        merge_settings({"core": {"skip_store": True}})
+        rsps.add(responses_lib.GET, self.PROJECT_URL, status=503)
+
+        run = init(mode="online", project=PROJECT)
+
+        self._assert_offline_run(run, offline_warnings)
+        assert run._ctx.config.settings.core.skip_store is False
+        run.log({"loss": 2.0})
+        run.finish()
+        assert (run.dir / f"run-{run.id}.swanlab").exists()
+
+    def test_fallback_start_failure_raises(self, logged_in_client, rsps, offline_warnings, monkeypatch):
+        """降级后的 Core 再次启动失败时，应把错误抛给调用方，而不是继续静默降级。"""
+        from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import DeliverRunStartResponse
+        from swanlab.sdk.cmd import init as init_module
+
+        rsps.add(responses_lib.GET, self.PROJECT_URL, status=503)
+        fallback_core = MagicMock()
+        fallback_core.deliver_run_start.return_value = DeliverRunStartResponse(
+            success=False, message="fallback start failed"
+        )
+        monkeypatch.setattr(init_module, "create_core", MagicMock(return_value=fallback_core))
+        monkeypatch.setattr(init_module, "create_probe", MagicMock(return_value=MagicMock()))
+
+        with pytest.raises(RuntimeError, match="fallback start failed"):
+            init(mode="online", project=PROJECT)
+
+    @staticmethod
+    def _assert_disabled_run(run: Run, warnings: list[str]) -> None:
+        assert run.mode == "disabled"
+        assert run._ctx.config.settings.mode == "disabled"
+        assert run._ctx.config.settings.core.skip_store is False
+        # disabled 降级必须重建为不做任何上报的 probe，避免退化成 online probe
+        assert run._ctx.probe._disabled is True
+        assert len([m for m in warnings if "falling back to disabled mode" in m]) == 1
+        with pytest.raises(ValueError):
+            _ = run.url
+        with pytest.raises(ValueError):
+            _ = run.path
+
+    def test_project_503_degrades_to_disabled(self, logged_in_client, rsps, offline_warnings):
+        rsps.add(responses_lib.GET, self.PROJECT_URL, status=503)
+
+        run = init(mode="online", project=PROJECT, on_online_error="disabled")
+
+        self._assert_disabled_run(run, offline_warnings)
+        assert not client.exists()
+        run.log({"loss": 1.0})
+        run.finish()
+        assert not (run.dir / f"run-{run.id}.swanlab").exists()
+
+    def test_resume_must_degrades_to_disabled_with_warning(self, logged_in_client, rsps, offline_warnings):
+        rsps.add(responses_lib.GET, self.PROJECT_URL, status=503)
+
+        run = init(mode="online", project=PROJECT, id=RUN_ID, resume="must", on_online_error="disabled")
+
+        self._assert_disabled_run(run, offline_warnings)
+        assert any("no data will be recorded" in message for message in offline_warnings)
+        run.finish()
+
+
+def test_login_error_classification_excludes_config_errors():
+    """URL / 协议配置错误不应被判定为可降级的连接错误。"""
+    from requests.exceptions import InvalidURL
+
+    from swanlab.sdk.internal.pkg.client import is_transient_login_error
+
+    assert is_transient_login_error(requests.ConnectionError("boom"))
+    assert not is_transient_login_error(InvalidURL("bad url"))
+    assert not is_transient_login_error(AuthenticationError("bad key"))
+
+
+# ============================================================
+# TestInitOnlineLoginFallback
+# ============================================================
+
+
+class TestInitOnlineLoginFallback:
+    LOGIN_URL = f"{API_HOST}/api/login/api_key"
+
+    @pytest.fixture(autouse=True)
+    def _api_key(self):
+        merge_settings({"api_key": API_KEY})
+
+    @staticmethod
+    def _assert_offline_run(run: Run, warnings: list[str]) -> None:
+        assert run.mode == "offline"
+        assert run._ctx.config.settings.mode == "offline"
+        assert run.dir.exists()
+        assert len([m for m in warnings if "falling back to offline mode" in m]) == 1
+
+    def test_login_connection_error_degrades_to_offline(
+        self, rsps, mock_online_settings, offline_warnings, offline_errors
+    ):
+        rsps.add(responses_lib.POST, self.LOGIN_URL, body=requests.ConnectionError("boom"))
+
+        run = init(mode="online", project=PROJECT)
+
+        self._assert_offline_run(run, offline_warnings)
+        # 上游错误在登录处打印，降级告警只负责通知策略
+        assert any("Failed to login" in message and "boom" in message for message in offline_errors)
+        assert not client.exists()
+        run.log({"loss": 1.0})
+        run.finish()
+        assert (run.dir / f"run-{run.id}.swanlab").exists()
+
+    def test_login_connection_error_degrades_to_disabled(self, rsps, mock_online_settings, offline_warnings):
+        rsps.add(responses_lib.POST, self.LOGIN_URL, body=requests.ConnectionError("boom"))
+
+        run = init(mode="online", project=PROJECT, on_online_error="disabled")
+
+        assert run.mode == "disabled"
+        assert len([m for m in offline_warnings if "falling back to disabled mode" in m]) == 1
+        assert not client.exists()
+        run.log({"loss": 1.0})
+        run.finish()
+
+    def test_login_503_degrades_to_offline(self, rsps, mock_online_settings, offline_warnings):
+        rsps.add(responses_lib.POST, self.LOGIN_URL, status=503)
+
+        run = init(mode="online", project=PROJECT)
+
+        self._assert_offline_run(run, offline_warnings)
+        run.finish()
+
+    def test_login_malformed_response_degrades_to_offline(self, rsps, mock_online_settings, offline_warnings):
+        rsps.add(responses_lib.POST, self.LOGIN_URL, json={}, status=200)
+
+        run = init(mode="online", project=PROJECT)
+
+        self._assert_offline_run(run, offline_warnings)
+        run.finish()
+
+    def test_login_connection_error_with_raise_policy(self, rsps, mock_online_settings):
+        rsps.add(responses_lib.POST, self.LOGIN_URL, body=requests.ConnectionError("boom"))
+
+        with pytest.raises(AuthenticationError) as exc:
+            init(mode="online", project=PROJECT, on_online_error="raise")
+
+        assert isinstance(exc.value.__cause__, requests.ConnectionError)
+
+    def test_login_unauthorized_raises_authentication_error(self, rsps, mock_online_settings):
+        rsps.add(responses_lib.POST, self.LOGIN_URL, json={"message": "unauthorized"}, status=401)
+
+        with pytest.raises(AuthenticationError):
+            init(mode="online", project=PROJECT)
 
 
 # ============================================================
