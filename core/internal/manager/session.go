@@ -166,8 +166,6 @@ type Session struct {
 	backfillMu     sync.Mutex
 	backfillCancel context.CancelFunc
 	backfillState  backfillState
-	backfillSeq    atomic.Uint64
-	backfillActive atomic.Bool
 
 	// 站点健康：healthReg 持有共享引用，订阅与站点由 closeHealth 幂等释放。
 	healthReg         *health.Registry

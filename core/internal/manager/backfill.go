@@ -201,19 +201,16 @@ func (s *Session) runBackfill(ctx context.Context) error {
 			return err
 		}
 		if !s.backfillNeeded() {
-			s.backfillActive.Store(false)
 			return nil
 		}
 		paused, start := s.intake.PauseState()
 		if !paused {
-			s.backfillActive.Store(false)
 			return nil
 		}
 		state, err := s.backfillStateFor(start)
 		if err != nil {
 			return err
 		}
-		s.backfillActive.Store(true)
 
 		flushedSeq, flushedOff := s.store.Flushed()
 		if state.cursor.seq < flushedSeq {
@@ -225,7 +222,6 @@ func (s *Session) runBackfill(ctx context.Context) error {
 			}
 			if len(records) == 0 {
 				state.cursor = local
-				s.backfillSeq.Store(state.cursor.seq)
 				if state.cursor.seq == before {
 					return errBackfillPending
 				}
@@ -234,7 +230,6 @@ func (s *Session) runBackfill(ctx context.Context) error {
 			sent, replayErr := s.intake.Replay(ctx, records)
 			if sent > 0 {
 				state.cursor = after[sent-1]
-				s.backfillSeq.Store(state.cursor.seq)
 			}
 			if replayErr != nil {
 				if errors.Is(replayErr, buffer.ErrNotPaused) {
@@ -243,7 +238,6 @@ func (s *Session) runBackfill(ctx context.Context) error {
 				return replayErr
 			}
 			state.cursor = local
-			s.backfillSeq.Store(state.cursor.seq)
 			continue
 		}
 
@@ -263,12 +257,10 @@ func (s *Session) runBackfill(ctx context.Context) error {
 		switch {
 		case err == nil:
 			state.cursor = next
-			s.backfillSeq.Store(next.seq)
 			s.backfillState = backfillState{}
-			s.backfillActive.Store(false)
+			console.Debugf("backfill: resumed uploads after store seq %d", next.seq)
 			return nil
 		case errors.Is(err, buffer.ErrNotPaused):
-			s.backfillActive.Store(false)
 			return nil
 		case errors.Is(err, buffer.ErrBackfillStale):
 			// 交接窗口外仍有新提交，继续增量读取。
@@ -313,7 +305,6 @@ func (s *Session) completeBackfill(ctx context.Context) error {
 			}
 			if len(records) == 0 {
 				state.cursor = local
-				s.backfillSeq.Store(state.cursor.seq)
 				if state.cursor.seq == before {
 					return fmt.Errorf("%w: local store ended before storeSeq %d", ErrRunFailed, start)
 				}
@@ -322,7 +313,6 @@ func (s *Session) completeBackfill(ctx context.Context) error {
 			sent, replayErr := s.intake.Replay(ctx, records)
 			if sent > 0 {
 				state.cursor = after[sent-1]
-				s.backfillSeq.Store(state.cursor.seq)
 			}
 			if replayErr != nil {
 				if errors.Is(replayErr, buffer.ErrNotPaused) {
@@ -331,7 +321,6 @@ func (s *Session) completeBackfill(ctx context.Context) error {
 				return fmt.Errorf("%w: replay paused records: %v", ErrRunFailed, replayErr)
 			}
 			state.cursor = local
-			s.backfillSeq.Store(state.cursor.seq)
 			continue
 		}
 
@@ -350,8 +339,8 @@ func (s *Session) completeBackfill(ctx context.Context) error {
 		})
 		switch {
 		case err == nil:
-			s.backfillSeq.Store(next.seq)
 			s.backfillState = backfillState{}
+			console.Debugf("backfill: finished at store seq %d", next.seq)
 			return nil
 		case errors.Is(err, buffer.ErrNotPaused):
 			return nil
@@ -381,7 +370,7 @@ func (s *Session) backfillStateFor(pauseSeq uint64) (*backfillState, error) {
 		return nil, err
 	}
 	s.backfillState = backfillState{pauseSeq: pauseSeq, cursor: cursor}
-	s.backfillSeq.Store(cursor.seq)
+	console.Debugf("backfill: replaying from store seq %d", pauseSeq)
 	return &s.backfillState, nil
 }
 
