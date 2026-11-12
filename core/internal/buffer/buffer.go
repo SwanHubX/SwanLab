@@ -423,13 +423,19 @@ func (t *Intake) Commit(tk Ticket, records []*recordv1.Record) error {
 	}
 	t.mu.Unlock()
 
-	if pausedNow {
-		console.Warning("upload budget is full, pausing upload delivery; records will stay in the local store")
-		if t.onPause != nil {
-			t.onPause(pausedAt)
-		}
-	}
+	t.notifyPause(pausedNow, pausedAt)
 	return nil
+}
+
+// notifyPause 输出暂停提示并通知上层；必须在释放锁之后调用。
+func (t *Intake) notifyPause(published bool, storeSeq uint64) {
+	if !published {
+		return
+	}
+	console.Warning("upload budget is full, pausing upload delivery; records will stay in the local store")
+	if t.onPause != nil {
+		t.onPause(storeSeq)
+	}
 }
 
 // admit 把首次进入上传管线的条数上报给 total_records 记账方。

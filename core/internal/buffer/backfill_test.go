@@ -45,8 +45,8 @@ func TestReplaySendsPausedRecordsInOrder(t *testing.T) {
 	if got := admitted.Load(); got != admittedBefore {
 		t.Fatalf("admitted = %d, want %d: replay must not count records twice", got, admittedBefore)
 	}
-	if records, _ := b.Usage(); records != 2 {
-		t.Fatalf("budget usage = %d, want 2", records)
+	if used, _ := b.Usage(); used != 2 {
+		t.Fatalf("budget usage = %d, want 2", used)
 	}
 
 	// 补投记录先于恢复后的实时记录进入上传通道。
