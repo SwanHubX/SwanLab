@@ -50,6 +50,8 @@ var (
 	ErrOverReserved = errors.New("buffer: commit exceeds reservation")
 	// ErrStoreDegraded 表示 StoreOnly 会话无法落盘，重试不会成功。
 	ErrStoreDegraded = errors.New("buffer: local store is degraded")
+	// ErrNotPaused 表示上传投递未暂停或已经恢复，无需补投。
+	ErrNotPaused = errors.New("buffer: uploads are not paused")
 	// errQueueWait 标记本地通道等待超时；与调用方 ctx 取消区分开。
 	errQueueWait = errors.New("buffer: local queue wait exceeded")
 )
@@ -75,6 +77,9 @@ type Options struct {
 	// OnAdmit 在记录首次进入上传管线时回调待上传条数（Start/Finish 不计）；
 	// Close 补投、recovery 与重试都不会再次回调。回调必须非阻塞。
 	OnAdmit func(n int64)
+	// OnPause 在暂停状态发布后回调首个未投递记录的 storeSeq；已在暂停时不重复调用。
+	// 回调必须非阻塞。
+	OnPause func(storeSeq uint64)
 	// QueueWait 是容量不足时的有界等待上限，<=0 取 DefaultQueueWait。
 	QueueWait time.Duration
 	// StorePollInterval 是本地通道等待的轮询间隔，<=0 取 10ms。
@@ -116,6 +121,7 @@ type Intake struct {
 	degraded  *atomic.Bool
 	flushed   func() uint64
 	onAdmit   func(int64)
+	onPause   func(uint64)
 	wait      time.Duration
 	poll      time.Duration
 	uploadCap int
@@ -171,6 +177,7 @@ func New(opts Options) (*Intake, error) {
 		degraded:  degraded,
 		flushed:   opts.Flushed,
 		onAdmit:   opts.OnAdmit,
+		onPause:   opts.OnPause,
 		wait:      opts.QueueWait,
 		poll:      opts.StorePollInterval,
 		uploadCap: cap(upload),
@@ -402,10 +409,12 @@ func (t *Intake) Commit(tk Ticket, records []*recordv1.Record) error {
 		t.collectUnconfirmedLocked()
 	}
 	pausedNow := false
+	var pausedAt uint64
 	t.admit(uploadable)
 	switch {
 	case paused && storeOK:
 		pausedNow = t.pauseLocked(records, immediate, deferred, tk, seqOf)
+		pausedAt = t.pauseSeq
 	case !storeOK && !t.skipStore && !t.storeOnly:
 		// 本批没有可靠本地副本：并入回收队列按序补传，不能越过更早的记录。
 		t.recoveryUploadLocked(records, immediate, deferred, tk)
@@ -416,6 +425,9 @@ func (t *Intake) Commit(tk Ticket, records []*recordv1.Record) error {
 
 	if pausedNow {
 		console.Warning("upload budget is full, pausing upload delivery; records will stay in the local store")
+		if t.onPause != nil {
+			t.onPause(pausedAt)
+		}
 	}
 	return nil
 }
