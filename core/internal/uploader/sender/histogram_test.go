@@ -159,6 +159,41 @@ func TestHistogramRetryableKeepsFailedChunk(t *testing.T) {
 	}
 }
 
+func TestHistogramDeterministicErrorContinuesNextChunk(t *testing.T) {
+	cloud := clienttest.NewCloud(t)
+	var calls atomic.Int32
+	cloud.Handle(http.MethodPost, metricsPath, func(w http.ResponseWriter, _ *http.Request) {
+		if calls.Add(1) == 1 {
+			clienttest.WriteJSON(w, http.StatusUnauthorized, nil)
+			return
+		}
+		clienttest.WriteJSON(w, http.StatusOK, nil)
+	})
+	sender := NewHistogram(newSenderOptions(t, cloud))
+
+	records := make([]*recordv1.Record, 0, 129)
+	for i := 0; i < 129; i++ {
+		records = append(records, histogramRecord(int64(i+1), "weights", int64(i), []uint64{1}, []float64{0, 1}))
+	}
+	result := sender.Upload(context.Background(), records)
+
+	// 确定性错误只终结失败的那一片，第二片必须真的发出去。
+	requests := cloud.RequestsFor(http.MethodPost, metricsPath)
+	if len(requests) != 2 {
+		t.Fatalf("requests = %d, want 2: the second chunk must still be attempted", len(requests))
+	}
+	if len(decodeBody(t, requests[1].Body)["metrics"].([]any)) != 1 {
+		t.Fatalf("second chunk body does not carry the leftover record")
+	}
+	if len(result.Confirmed) != 129 || len(result.Remaining) != 0 {
+		t.Fatalf("result = confirmed %d remaining %d, want 129/0",
+			len(result.Confirmed), len(result.Remaining))
+	}
+	if len(result.Failures) != 1 || len(result.Failures[0].Records) != histogramChunk {
+		t.Fatalf("failures = %+v, want exactly the first %d records", result.Failures, histogramChunk)
+	}
+}
+
 func TestHistogramDeterministicErrorTerminates(t *testing.T) {
 	cloud := clienttest.NewCloud(t)
 	cloud.ServeJSON(http.MethodPost, metricsPath, http.StatusUnauthorized, nil)

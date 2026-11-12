@@ -73,11 +73,9 @@ func (s *HistogramSender) Upload(ctx context.Context, records []*recordv1.Record
 				Failures:  failures,
 			}
 		}
-		// 确定性错误：剩余分片同样会失败，一并终结不再重复提交。
-		return uploader.Result{
-			Confirmed: append(append(confirmed, encodable[start:]...), terminal...),
-			Failures:  failures,
-		}
+		// 确定性错误只终结当前分片：错误可能是记录级 400，后续分片仍须尝试，
+		// 不能假定它们同样失败而把未发送的分片一并推进上传进度。
+		confirmed = append(confirmed, batch...)
 	}
 	return uploader.Result{Confirmed: append(confirmed, terminal...), Failures: failures}
 }
