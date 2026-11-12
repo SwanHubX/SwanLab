@@ -282,7 +282,7 @@ func finishRecord(state runv1.RunState, message string) *runv1.FinishRecord {
 	}
 }
 
-func TestConfirmRejectsPausedIntake(t *testing.T) {
+func TestConfirmSucceedsAfterPausedBackfill(t *testing.T) {
 	h := newFinishHarness(t, finishOptions{budgetRecords: 1})
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -301,8 +301,11 @@ func TestConfirmRejectsPausedIntake(t *testing.T) {
 	if err := h.mgr.DeliverRunFinish(ctx, h.id, finishRecord(runv1.RunState_RUN_STATE_FINISHED, "")); err != nil {
 		t.Fatalf("DeliverRunFinish: %v", err)
 	}
-	if _, err := h.mgr.Confirm(ctx, h.id); !errors.Is(err, ErrRunFailed) || !strings.Contains(err.Error(), "paused") {
-		t.Fatalf("Confirm err=%v, want ErrRunFailed about paused uploads", err)
+	if _, err := h.mgr.Confirm(ctx, h.id); err != nil {
+		t.Fatalf("Confirm after backfill: %v", err)
+	}
+	if paused, seq := h.session.intake.PauseState(); paused || seq != 0 {
+		t.Fatalf("PauseState = (%v, %d), want resumed", paused, seq)
 	}
 }
 

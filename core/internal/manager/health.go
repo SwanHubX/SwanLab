@@ -47,19 +47,30 @@ func (s *Session) watchHealth(ctx context.Context) {
 	}
 }
 
-// reconcileHealth 把站点状态映射为上传暂停/恢复：仅持有本地副本时暂停；
+// reconcileHealth 把站点状态映射为上传暂停/恢复，并驱动补投启停。
 // 写入侧降级（reason=write）保持投递，否则暂停后永远等不到成功信号。
 func (s *Session) reconcileHealth() {
 	if s.site == nil || s.uploader == nil {
 		return
 	}
-	snap := s.site.Snapshot()
-	if snap.State == health.StateDegraded && snap.Reason != health.ReasonWrite &&
-		!s.cfg.SkipStore && !s.storeDegraded.Load() {
+	if s.shouldSuspendUploads() {
 		s.uploader.Suspend()
+		s.cancelBackfillAttempt()
 		return
 	}
 	s.uploader.Resume()
+	// 健康状态变化后让补投按最新状态重新开始。
+	s.cancelBackfillAttempt()
+	s.wakeBackfill()
+}
+
+// shouldSuspendUploads 判断当前是否必须暂停上传投递。
+func (s *Session) shouldSuspendUploads() bool {
+	if s.site == nil || s.cfg.SkipStore || s.storeDegraded.Load() {
+		return false
+	}
+	snap := s.site.Snapshot()
+	return snap.State == health.StateDegraded && snap.Reason != health.ReasonWrite
 }
 
 // wakeHealth 唤醒监听协程重新评估暂停状态；监听启动前的事件由初始 reconcile 覆盖。

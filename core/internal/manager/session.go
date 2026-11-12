@@ -157,6 +157,18 @@ type Session struct {
 	recoveryDone chan struct{}
 	recoveryOnce sync.Once
 
+	// 补投：backfillWake 唤醒后台协程，backfillCancel 取消当前尝试。
+	// backfillState 只在补投协程或停止补投后的收尾路径中访问。
+	backfillWake   chan struct{}
+	backfillStop   chan struct{}
+	backfillDone   chan struct{}
+	backfillOnce   sync.Once
+	backfillMu     sync.Mutex
+	backfillCancel context.CancelFunc
+	backfillState  backfillState
+	backfillSeq    atomic.Uint64
+	backfillActive atomic.Bool
+
 	// 站点健康：healthReg 持有共享引用，订阅与站点由 closeHealth 幂等释放。
 	healthReg         *health.Registry
 	site              *health.Site

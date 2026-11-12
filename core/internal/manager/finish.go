@@ -43,6 +43,7 @@ func (s *Session) finish(ctx context.Context, rec *runv1.FinishRecord) error {
 		if !started {
 			return nil
 		}
+		s.stopBackfill()
 		// watcher.Stop 会等待在途回调并同步检查一次文件状态；此时状态已是 DRAINING，
 		// 防抖窗口内的残留回调会被状态门拒绝并丢弃，与 Python 的 _store_finish 一致。
 		if s.watcher != nil {
@@ -120,6 +121,11 @@ func (s *Session) completeFinish(ctx context.Context) error {
 			s.storeDegraded.Store(true)
 			console.Warningf("finish: local store did not flush completely: %v", err)
 		}
+	}
+
+	// 本地记录已全部刷盘，补完暂停区间后才能关闭 intake。
+	if err := s.completeBackfill(ctx); err != nil {
+		return err
 	}
 
 	if err := s.commitCrashLog(ctx); err != nil {
@@ -291,6 +297,7 @@ func (s *Session) shutdown(ctx context.Context) {
 	defer s.finishMu.Unlock()
 
 	_ = s.beginDrain()
+	s.stopBackfill()
 	if s.heartbeat != nil {
 		s.heartbeat.stop(ctx)
 	}
