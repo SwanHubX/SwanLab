@@ -188,3 +188,48 @@ class TestIsScalarValue:
         from pyecharts.charts import Line
 
         assert is_scalar_value(Line()) is False
+
+    def test_histogram_returns_false(self):
+        from swanlab import Histogram
+
+        assert is_scalar_value(Histogram([1, 2, 3])) is False
+
+
+class TestBuildHistogram:
+    """build_scalar_or_media 对 Histogram 实例的分派测试"""
+
+    @pytest.fixture
+    def builder(self):
+        # Histogram 分派不触碰媒体目录与 run 上下文，裸实例即可
+        return object.__new__(RecordBuilder)
+
+    def test_histogram_dispatches_to_histogram_record(self, builder):
+        from swanlab import Histogram
+        from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
+        from swanlab.proto.swanlab.metric.data.v1.data_pb2 import HistogramRecord
+
+        ts = Timestamp()
+        ts.GetCurrentTime()
+        h = Histogram([1, 2, 3, 4], bins=2)
+        record, cls = builder.build_scalar_or_media(h, "train/w", ts, step=7)
+
+        assert isinstance(record, HistogramRecord)
+        assert cls is Histogram
+        assert record.key == "train/w"
+        assert record.step == 7
+        assert record.type == ColumnType.COLUMN_TYPE_HISTOGRAM
+        assert list(record.value.values) == h.values
+        assert list(record.value.bins) == h.bins
+
+    def test_invalid_histogram_returns_none(self, builder):
+        """类型校验失败的 Histogram 在构建 record 时直接跳过"""
+        from unittest.mock import patch
+
+        from swanlab import Histogram
+
+        with patch("swanlab.sdk.internal.run.transforms.histogram.console.trace"):
+            h = Histogram(np_histogram=123)  # type: ignore[arg-type]
+        record, cls = builder.build_scalar_or_media(h, "train/w", Timestamp(), step=7)
+
+        assert record is None
+        assert cls is Histogram

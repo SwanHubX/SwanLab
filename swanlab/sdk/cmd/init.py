@@ -15,13 +15,19 @@ import time
 from datetime import datetime
 from functools import partial
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, NoReturn, Optional, Tuple, Union
 
 import requests
 import yaml
 from google.protobuf.timestamp_pb2 import Timestamp
 
-from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import DeliverRunStartRequest
+from swanlab.exceptions import AuthenticationError
+from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
+    CORE_ERROR_KIND_AUTH,
+    CORE_ERROR_KIND_TRANSIENT,
+    DeliverRunStartRequest,
+    DeliverRunStartResponse,
+)
 from swanlab.proto.swanlab.run.v1.run_pb2 import StartRecord
 from swanlab.sdk.cmd.guard import with_cmd_lock
 from swanlab.sdk.internal.context import (
@@ -29,15 +35,17 @@ from swanlab.sdk.internal.context import (
     RunContext,
     use_context,
 )
+from swanlab.sdk.internal.context.components import create_core, create_probe
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.pkg import adapter, console, fork, fs, helper, safe
+from swanlab.sdk.internal.pkg.client import is_transient_login_error
 from swanlab.sdk.typings.cmd import ConfigLike
 from swanlab.sdk.typings.context import CallbacksType
 from swanlab.utils.experiment import generate_color, generate_id, generate_name
 
 from ..internal.run import Run, get_run, has_run
 from ..internal.settings import Settings, create_settings
-from ..typings.run import ModeType, ParallelType, ResumeType
+from ..typings.run import ModeType, OnlineErrorPolicy, ParallelType, ResumeType
 from . import utils
 from .login import login_cli, login_raw
 
@@ -91,6 +99,7 @@ def init(
     reinit: Optional[bool] = None,
     log_dir: Optional[str] = None,
     mode: Optional[ModeType] = None,
+    on_online_error: Optional[OnlineErrorPolicy] = None,
     workspace: Optional[str] = None,
     project: Optional[str] = None,
     public: Optional[bool] = None,
@@ -115,46 +124,39 @@ def init(
     close the run. SwanLab automatically finishes runs at program exit.
 
     :param reinit: If True, finish the current run before starting a new one. Defaults to False.
-
     :param log_dir: Directory to store logs. Defaults to "./swanlog".
-
     :param mode: Run mode. Options: "online" (sync to cloud), "local" (local only),
         "offline" (save locally for later sync), "disabled" (no logging). Defaults to "online".
-
+    :param on_online_error: Behavior when SwanLab Cloud is temporarily unreachable in online
+        mode. Only transient connection/server failures are degraded; authentication and
+        configuration errors always raise. Options: "offline" (save locally and sync later),
+        "disabled" (no logging), "raise". Defaults to "offline".
     :param workspace: Workspace or organization name. Defaults to current user.
-
     :param project: Project name. Defaults to current directory name.
-
     :param public: Make project publicly visible (online mode only). Defaults to False.
-
     :param name: Experiment name. Auto-generated if not provided.
-
     :param color: Experiment color for visualization. Auto-generated if not provided.
-
     :param description: Experiment description.
-
     :param job_type: Job type label (e.g., "train", "eval").
-
     :param group: Group name for organizing related experiments.
-
     :param tags: List of tags for categorizing experiments.
-
     :param id: Run ID for resuming a previous run (online mode only).
-
     :param resume: Resume behavior. Options: "must" (must resume), "allow" (resume if exists),
         "never" (always create new). Defaults to "never".
-
     :param parallel: Parallel execution strategy. Options: "none" (default), "shared".
-
     :param config: Experiment configuration dict or path to config file (JSON/YAML).
-
     :param settings: Custom Settings object for advanced configuration.
-
     :param callbacks: List of callback functions triggered on run events.
 
     :return: The initialized Run object.
 
-    :raises RuntimeError: If a run is already active and reinit=False.
+    :raises RuntimeError: If a run is already active and reinit=False, or if an online
+        startup fails and is not degraded (a non-transient error, or a transient error
+        when ``on_online_error="raise"``).
+    :raises AuthenticationError: If SwanLab Cloud rejects the API key during login or
+        startup, or if the initial login fails with a non-transient error. With
+        ``on_online_error="raise"`` any login failure is wrapped as
+        ``AuthenticationError`` with the original exception in ``__cause__``.
 
     Examples:
 
@@ -207,6 +209,7 @@ def init(
     for key, value in {
         "log_dir": log_dir,
         "mode": mode,
+        "on_online_error": on_online_error,
         "project.name": project,
         "project.workspace": workspace,
         "project.public": public,
@@ -352,13 +355,11 @@ def prompt_init_mode(settings: Settings) -> ModeType:
 
             if choice == "1":
                 console.info("Using an existing SwanLab API key.")
-                login_func()
-                return "online"
+                return _login_or_fallback(login_func, settings)
 
             if choice == "2":
                 console.info(f"Create a SwanLab account here: {settings.web_host}/login")
-                login_func()
-                return "online"
+                return _login_or_fallback(login_func, settings)
 
             if choice == "3":
                 console.info("Continuing in Offline mode. Results will be saved locally.")
@@ -367,6 +368,22 @@ def prompt_init_mode(settings: Settings) -> ModeType:
             console.warning("Invalid choice. Please enter 1, 2, or 3.")
     # 其他模式不登录
     return mode
+
+
+def _login_or_fallback(login_func: Callable[[], bool], settings: Settings) -> ModeType:
+    """
+    交互式引导中的登录：连接类失败时按 on_online_error 降级，而不是终止训练进程。
+    显式 401/403、配置错误与 on_online_error="raise" 仍然抛错。
+    """
+    try:
+        login_func()
+    except Exception as e:
+        if not is_transient_login_error(e) or settings.on_online_error == "raise":
+            raise
+        target_mode = settings.on_online_error
+        _warn_fallback(target_mode)
+        return target_mode
+    return "online"
 
 
 @safe.decorator(message="Failed to send webhook")
@@ -581,9 +598,12 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
     with use_context(RunContext(config=RunConfig(settings=run_settings, run_dir=run_dir), callbacks=callbacks)) as ctx:
         assert run_settings.project.name, "Project name is required."
         # 3.1. 前置操作
-        # online 模式前置：确保 client 已就绪
+        # online 模式前置：确保 client 已就绪，连接类失败时按策略降级
         if mode == "online":
-            _ensure_online_client(run_settings)
+            fallback_mode = _ensure_online_client_or_fallback(ctx, run_settings, run_id, run_dir)
+            if fallback_mode is not None:
+                mode = fallback_mode
+                should_mkdirs = mode == "offline"
         # local 模式前置：注入 LocalCallback 到 callbacks 中
         elif mode == "local":
             from swanlab.deprecated.local import LocalCallbacker
@@ -591,39 +611,21 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
             ctx.callbacker.merge_callbacks(LocalCallbacker())
         # 3.2. 非云端模式，确定 name/color，合并到 settings
         if mode != "online":
-            args_dict = {}
-            for key, value in {
-                "experiment.name": run_settings.experiment.name or generate_name("beauty"),
-                "experiment.color": run_settings.experiment.color or generate_color("beauty"),
-                "run.id": run_id,
-            }.items():
-                set_nested_value(args_dict, key, value)
-            run_settings.merge_settings(args_dict)
+            _ensure_offline_identity(run_settings, run_id)
         # 3.3. 统一调用 deliver_run_start（core 内部按 mode 分发：online 走网络，其余本地处理）
-        ts = Timestamp()
-        ts.GetCurrentTime()
-        start_record = StartRecord(
-            project=run_settings.project.name,
-            workspace=run_settings.project.workspace,
-            public=run_settings.project.public,
-            name=run_settings.experiment.name,
-            color=run_settings.experiment.color,
-            description=run_settings.experiment.description,
-            job_type=run_settings.experiment.job_type,
-            group=run_settings.experiment.group,
-            tags=run_settings.experiment.tags,
-            id=run_id,
-            resume=adapter.resume[run_settings.run.resume],
-            started_at=ts,
-        )
-        resp = ctx.core.deliver_run_start(
-            DeliverRunStartRequest(
-                start_record=start_record,
-                core_settings=ctx.config.settings.to_core_proto(run_id=run_id, run_dir=run_dir),
-            )
-        )
+        start_request = _build_start_request(run_settings, run_id, run_dir)
+        resp = ctx.core.deliver_run_start(start_request)
         if not resp.success:
-            raise RuntimeError(resp.message)
+            if (
+                mode != "online"
+                or resp.error_kind != CORE_ERROR_KIND_TRANSIENT
+                or run_settings.on_online_error == "raise"
+            ):
+                _raise_start_failure(resp)
+            # 可降级：按策略切换模式，复用 run_dir 后重新拉起 Core
+            mode = run_settings.on_online_error
+            resp = _restart_with_fallback(ctx, run_settings, run_id, run_dir, mode)
+            should_mkdirs = mode == "offline"
         path = resp.path or path
         if mode == "online":
             assert path, "Initialization path failed when mode=online"
@@ -643,12 +645,14 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
                 "Hardware information collection, monitor, and terminal proxy have been disabled in resume mode."
             )
         # 3.4. 从 core 响应同步配置（online 模式会覆盖为服务端分配的值）
+        # online 响应的 name 由服务端填写；offline / local / disabled 不填 name，此时回退到启动记录里的名字，避免被 strip_empty_str 过滤掉。
+        experiment_name = resp.name or resp.run.name
         sync_args = {}
         merge_dict = helper.strip_none(
             {
                 "project.workspace": resp.run.workspace,
                 "project.name": resp.run.project,
-                "experiment.name": resp.name,
+                "experiment.name": experiment_name,
                 "experiment.color": resp.run.color,
                 **resume_limit_kwargs,
             },
@@ -663,15 +667,156 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
     return ctx, path
 
 
-def _ensure_online_client(run_settings: Settings):
+def _build_start_request(run_settings: Settings, run_id: str, run_dir: Path) -> DeliverRunStartRequest:
+    """构建启动请求。降级重试时重新构建，确保使用最新的 settings。"""
+    ts = Timestamp()
+    ts.GetCurrentTime()
+    start_record = StartRecord(
+        project=run_settings.project.name,
+        workspace=run_settings.project.workspace,
+        public=run_settings.project.public,
+        name=run_settings.experiment.name,
+        color=run_settings.experiment.color,
+        description=run_settings.experiment.description,
+        job_type=run_settings.experiment.job_type,
+        group=run_settings.experiment.group,
+        tags=run_settings.experiment.tags,
+        id=run_id,
+        resume=adapter.resume[run_settings.run.resume],
+        started_at=ts,
+    )
+    return DeliverRunStartRequest(
+        start_record=start_record,
+        core_settings=run_settings.to_core_proto(run_id=run_id, run_dir=run_dir),
+    )
+
+
+def _switch_run_to_fallback(
+    ctx: RunContext,
+    run_settings: Settings,
+    run_id: str,
+    run_dir: Path,
+    target_mode: ModeType,
+) -> None:
+    """切换降级模式并重建 Core/Probe，供登录降级与启动降级复用。"""
+    _switch_run_mode(run_settings, target_mode)
+    _ensure_offline_identity(run_settings, run_id)
+    # 已知副作用：online 启动前已经创建了 log_dir 和空的 run_dir。
+    # offline 降级会复用 run_dir；disabled 降级不会使用这两个目录，因此会遗留 log_dir（仅含 .gitignore）和空的 run_dir。
+    # 清理需要判断 log_dir 是否由本次 init 创建，避免误删用户共享目录，收益不足以抵消复杂度，故接受该缺陷。
+    if target_mode == "offline":
+        # 原本 skip_store 时 run_dir 尚未创建，降级后必须补齐
+        helper.mkdir_and_append_gitignore(run_settings.log_dir)
+        fs.safe_mkdir(run_dir)
+    ctx.core = create_core(ctx)
+    ctx.probe = create_probe(core=ctx.core, disabled=target_mode == "disabled")
+
+
+def _restart_with_fallback(
+    ctx: RunContext,
+    run_settings: Settings,
+    run_id: str,
+    run_dir: Path,
+    target_mode: ModeType,
+) -> DeliverRunStartResponse:
+    """在线启动失败后，按策略切换模式并在同一个 run_dir 上重新启动 Core。"""
+    _switch_run_to_fallback(ctx, run_settings, run_id, run_dir, target_mode)
+    start_request = _build_start_request(run_settings, run_id, run_dir)
+    resp = ctx.core.deliver_run_start(start_request)
+    if not resp.success:
+        _raise_start_failure(resp)
+    return resp
+
+
+def _ensure_offline_identity(run_settings: Settings, run_id: str) -> None:
+    """非 online 模式补齐实验名称与颜色。"""
+    args_dict = {}
+    for key, value in {
+        "experiment.name": run_settings.experiment.name or generate_name("beauty"),
+        "experiment.color": run_settings.experiment.color or generate_color("beauty"),
+        "run.id": run_id,
+    }.items():
+        set_nested_value(args_dict, key, value)
+    run_settings.merge_settings(args_dict)
+
+
+def _warn_fallback(
+    target_mode: ModeType,
+    *,
+    resume_must: bool = False,
+    skip_store_disabled: bool = False,
+) -> None:
+    """确定降级策略后给出一次简短告警。上游错误已在其发生处打印。"""
+    if target_mode == "offline":
+        consequence = "data will be saved locally and can be synced later"
+    else:
+        consequence = "no data will be recorded"
+    details = []
+    if resume_must:
+        details.append('resume="must" was not honored')
+    if skip_store_disabled:
+        details.append("core.skip_store has been disabled")
+    suffix = f" ({'; '.join(details)})" if details else ""
+    console.warning(f"SwanLab Cloud is unavailable; falling back to {target_mode} mode: {consequence}{suffix}.")
+
+
+def _reset_client_after_fallback() -> None:
+    """降级后清理在线 client，避免下次 init 复用可能失效的 sid。"""
+    with safe.block(message="Failed to reset SwanLab client after fallback"):
+        if client.exists():
+            console.debug("Resetting SwanLab client after fallback...")
+            client.reset()
+
+
+def _switch_run_mode(run_settings: Settings, target_mode: ModeType) -> None:
+    """把本次 run 切换到目标模式，并完成告警与 client 清理。"""
+    skip_store_disabled = run_settings.core.skip_store
+    resume_must = run_settings.run.resume == "must"
+    run_settings.merge_settings({"mode": target_mode, "core": {"skip_store": False}})
+    _reset_client_after_fallback()
+    _warn_fallback(
+        target_mode,
+        resume_must=resume_must,
+        skip_store_disabled=skip_store_disabled,
+    )
+
+
+def _raise_start_failure(resp: DeliverRunStartResponse) -> NoReturn:
+    """把 Core 返回的错误分类还原为用户可见异常。"""
+    message = resp.message or "Failed to start run"
+    if resp.error_kind == CORE_ERROR_KIND_AUTH:
+        raise AuthenticationError(message)
+    raise RuntimeError(message)
+
+
+def _ensure_online_client_or_fallback(
+    ctx: RunContext,
+    run_settings: Settings,
+    run_id: str,
+    run_dir: Path,
+) -> Optional[ModeType]:
     """
-    确保 online 模式下 client 已就绪，未登录时自动执行登录。
-    :param run_settings: 运行时配置
+    确保 online client 就绪；连接类失败时按 on_online_error 降级。
+    只服务于 init 内部登录，显式 swanlab.login() 不受影响。
+
+    :return: 降级后的模式；未降级时返回 None
     """
-    if not client.exists():
-        assert run_settings.api_key, "API key is required."
-        assert run_settings.api_host, "API host is required."
-        login_raw(
-            api_key=run_settings.api_key, host=run_settings.api_host, save=False, animation=False, print_welcome=False
-        )
-    assert client.exists(), "No client found, please login first."
+    try:
+        if not client.exists():
+            assert run_settings.api_key, "API key is required."
+            assert run_settings.api_host, "API host is required."
+            login_raw(
+                api_key=run_settings.api_key,
+                host=run_settings.api_host,
+                save=False,
+                animation=False,
+                print_welcome=False,
+            )
+        assert client.exists(), "No client found, please login first."
+    except Exception as e:
+        if not is_transient_login_error(e) or run_settings.on_online_error == "raise":
+            raise
+        target_mode = run_settings.on_online_error
+        _switch_run_to_fallback(ctx, run_settings, run_id, run_dir, target_mode)
+        return target_mode
+    return None

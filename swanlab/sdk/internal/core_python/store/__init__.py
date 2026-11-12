@@ -66,12 +66,27 @@ class DataStoreWriter(DataStoreWriterProtocol):
         self._flush_offset: int = 0
 
     def open(self, filename: Union[Path, str]) -> None:
-        """创建并初始化文件，文件已存在时抛出 FileExistsError。"""
-        self._fp = open(filename, "xb")
-        header = struct.pack("<4sHB", LEVELDBLOG_HEADER_IDENT, LEVELDBLOG_HEADER_MAGIC, LEVELDBLOG_HEADER_VERSION)
-        assert len(header) == LEVELDBLOG_HEADER_LEN
-        self._fp.write(header)
-        self._index += len(header)
+        """创建并初始化文件，文件已存在时抛出 FileExistsError。
+        此方法异常安全，若 open 成功但 header 写入失败，会显式关闭句柄并删除未初始化完成的文件。
+        """
+        fp = open(filename, "xb")
+        try:
+            header = struct.pack("<4sHB", LEVELDBLOG_HEADER_IDENT, LEVELDBLOG_HEADER_MAGIC, LEVELDBLOG_HEADER_VERSION)
+            assert len(header) == LEVELDBLOG_HEADER_LEN
+            fp.write(header)
+        except BaseException:
+            # open 已成功，header 写入失败时显式关闭句柄并清理未初始化完成的文件
+            try:
+                fp.close()
+            except OSError:
+                pass
+            try:
+                Path(filename).unlink(missing_ok=True)
+            except OSError:
+                pass
+            raise
+        self._fp = fp
+        self._index = len(header)
 
     def write(self, data: bytes) -> None:
         """写入任意字节，遵循 LevelDB log 分块规范。"""
@@ -116,7 +131,8 @@ class DataStoreWriter(DataStoreWriterProtocol):
         self._fp.flush()
 
     def close(self) -> None:
-        assert self._fp is not None, "writer is not open"
+        if self._fp is None:
+            return
         self._fp.flush()
         self._fp.close()
         self._fp = None

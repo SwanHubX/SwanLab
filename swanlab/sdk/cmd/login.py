@@ -13,6 +13,7 @@ import sys
 from pathlib import Path
 from typing import Optional, Tuple
 
+from requests.exceptions import RequestException
 from rich.text import Text
 
 from swanlab.exceptions import AuthenticationError
@@ -20,6 +21,7 @@ from swanlab.sdk.cmd import utils
 from swanlab.sdk.cmd.guard import with_cmd_lock, without_run
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.pkg import console, helper, nrc, safe, scope
+from swanlab.sdk.internal.pkg.client import is_login_auth_error
 from swanlab.sdk.internal.settings import Settings, create_settings, resolve_hosts, set_global_settings
 from swanlab.sdk.typings.cmd import LoginType
 from swanlab.sdk.typings.pkg.client.bootstrap import LoginResponse
@@ -51,7 +53,8 @@ def login(
     :param timeout: Network request timeout in seconds. Defaults to 10.
     :return: True if login was successful, False otherwise.
     :raises RuntimeError: If called while a run is active.
-    :raises AuthenticationError: If login fails due to invalid credentials or network issues.
+    :raises AuthenticationError: If login fails due to invalid credentials, network issues,
+        or server errors. The original exception is available via ``__cause__``.
 
     Examples:
 
@@ -150,7 +153,9 @@ def login_cli(
     """
     带循环输入容错的交互式登录接口。
     主要为 CLI 环境或需要极高容错的终端调用设计。
-    当捕获到 AuthenticationError 时，如果环境允许交互，则会无限循环提示用户重新输入 API Key。
+    当捕获到 AuthenticationError 时，如果环境允许交互，则会无限循环提示用户重新输入 API Key；
+    无法通过重新输入 API Key 解决的错误（网络 / 配置 / 服务端 / 解析）会向上抛出，
+    由调用方决定是否终止进程（CLI 命令）或按 ``on_online_error`` 降级（``swanlab.init``）。
     """
     assert save is not False, "login_cli must save credentials locally to support CLI usage"
     # CLI 每次是新进程，需要检查本地凭证判断是否已登录
@@ -188,11 +193,21 @@ def login_cli(
             nrc.write(nrc_path, api_host=api_host, web_host=web_host, api_key=api_key)
             return True
         except AuthenticationError as e:
+            # 有底层 cause 且不是 401/403：网络、配置、服务端或解析错误，重新输入 API Key 没有意义
+            if e.__cause__ is not None and not is_login_auth_error(e):
+                console.error(f"Failed to login to {api_host}: {e}")
+                console.error("Please check the API host and your network connection, then try again.")
+                raise
+            console.error(str(e))
             # 如果全局配置禁用了交互模式，直接抛出异常
             if not interactive:
-                raise e
-            console.error(str(e))
+                raise
             api_key = None
+        except RequestException as e:
+            # 兜底：未经 Client 包装的底层请求异常统一为认证失败，由调用方决定终止进程或降级
+            console.error(f"Failed to connect to {api_host}: {e}")
+            console.error("Please check your network connection and try again.")
+            raise AuthenticationError(f"Failed to connect to {api_host}: {e}") from e
         except (KeyboardInterrupt, EOFError):
             console.info("\nLogin cancelled by user.")
             return False

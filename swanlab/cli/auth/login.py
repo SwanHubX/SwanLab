@@ -5,9 +5,12 @@
 @description: CLI 登录命令
 """
 
+import sys
+
 import click
 
 from swanlab import sdk
+from swanlab.exceptions import AuthenticationError
 
 
 @click.command()
@@ -36,4 +39,8 @@ from swanlab import sdk
 @click.option("--local", is_flag=True, help="Login to local (save .swanlab in current directory)")
 def login(api_key: str, relogin: bool, host: str, local: bool):
     """Login to the SwanLab cloud."""
-    sdk.login_cli(api_key=api_key, relogin=relogin, host=host, save="local" if local else "root")
+    try:
+        sdk.login_cli(api_key=api_key, relogin=relogin, host=host, save="local" if local else "root")
+    except AuthenticationError:
+        # 具体错误已由 login_cli 打印，CLI 只负责非 0 退出，避免抛出 traceback
+        sys.exit(1)

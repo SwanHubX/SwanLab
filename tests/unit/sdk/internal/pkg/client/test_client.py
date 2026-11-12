@@ -9,10 +9,11 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
+import requests
 import responses
 
-from swanlab.exceptions import ApiError
-from swanlab.sdk.internal.pkg.client import Client
+from swanlab.exceptions import ApiError, AuthenticationError
+from swanlab.sdk.internal.pkg.client import STARTUP_RETRIES, Client
 
 
 @pytest.fixture()
@@ -70,9 +71,62 @@ def test_client_init_and_auth(mock_login, client, mock_base_url, mock_api_url):
     # 验证强制 /api 后缀拼接
     assert client._base_url == mock_api_url
 
-    # 验证鉴权时使用的是拼接后的 URL
-    mock_login.assert_called_once_with(mock_api_url, "test-key", timeout=10)
+    # 验证鉴权时使用的是拼接后的 URL，并使用启动重试策略
+    mock_login.assert_called_once_with(mock_api_url, "test-key", timeout=10, retries=STARTUP_RETRIES)
     assert client._session.cookies.get("sid") == "mock-token-123"
+
+
+def test_init_wraps_connection_error(mock_base_url):
+    """首次认证的网络错误统一包装为 AuthenticationError，原始异常保留在 __cause__。"""
+    with patch(
+        "swanlab.sdk.internal.pkg.client.login_by_api_key",
+        side_effect=requests.ConnectionError("boom"),
+    ):
+        with pytest.raises(AuthenticationError, match="Failed to initialize") as exc:
+            Client(api_key="test-key", base_url=mock_base_url)
+
+    assert isinstance(exc.value.__cause__, requests.ConnectionError)
+
+
+def test_init_converts_unauthorized_to_authentication_error(mock_base_url):
+    """首次认证的 401 应转换为 AuthenticationError，不参与降级。"""
+    error = ApiError(MagicMock(status_code=401), method="POST", code=401, message="unauthorized")
+    with patch("swanlab.sdk.internal.pkg.client.login_by_api_key", side_effect=error):
+        with pytest.raises(AuthenticationError, match="Failed to initialize") as exc:
+            Client(api_key="test-key", base_url=mock_base_url)
+
+    assert exc.value.__cause__ is error
+
+
+def test_init_malformed_login_response_is_transient(mock_base_url):
+    """200 但响应体为空/缺字段属于服务端异常，包装为可降级的 AuthenticationError。"""
+    with patch("swanlab.sdk.internal.pkg.client.login_by_api_key", return_value={}):
+        with pytest.raises(AuthenticationError, match="Invalid login response") as exc:
+            Client(api_key="test-key", base_url=mock_base_url)
+
+    assert isinstance(exc.value.__cause__, ApiError)
+
+
+def test_runtime_refresh_tolerates_connection_error(client):
+    """运行中刷新鉴权失败时保持容错，不打断训练。"""
+    client._expired_at = datetime.now(timezone.utc)
+    with patch(
+        "swanlab.sdk.internal.pkg.client.login_by_api_key",
+        side_effect=requests.ConnectionError("boom"),
+    ):
+        assert client._refresh_auth() is None
+
+
+def test_runtime_refresh_keeps_session_default_retries(client):
+    """运行期刷新不沿用启动重试策略，应使用会话默认重试。"""
+    client._expired_at = datetime.now(timezone.utc)
+    with patch(
+        "swanlab.sdk.internal.pkg.client.login_by_api_key",
+        side_effect=requests.ConnectionError("boom"),
+    ) as mock_login:
+        assert client._refresh_auth() is None
+
+    assert mock_login.call_args.kwargs["retries"] is None
 
 
 def test_client_http_methods_and_url_join(client, mock_api_url):

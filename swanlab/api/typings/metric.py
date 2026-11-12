@@ -106,6 +106,21 @@ class ApiMediaSeriesType(ApiMetricColumnRefType, total=False):
 
 
 # ---------------------------------------------------------------------------
+# Histogram — 参数分布图（直方图）数据
+# ---------------------------------------------------------------------------
+# 横轴恒为 step：每个点是一次分布快照，values 为各 bin 计数，bins 为 N+1 个边界
+class ApiHistogramType(TypedDict, total=False):
+    step: int
+    timestamp: int
+    values: List[int]
+    bins: List[float]
+
+
+class ApiHistogramSeriesType(ApiMetricColumnRefType, total=False):
+    metrics: List[ApiHistogramType]
+
+
+# ---------------------------------------------------------------------------
 # Log — 日志数据
 # ---------------------------------------------------------------------------
 class ApiLogType(TypedDict, total=False):
@@ -122,4 +137,4 @@ class ApiLogSeriesType(ApiMetricColumnRefType, total=False):
 
 
 # 统一数据类型定义用于类型提示
-ApiMetricType = Union[ApiScalarType, ApiMediaType, ApiLogType]
+ApiMetricType = Union[ApiScalarType, ApiMediaType, ApiLogType, ApiHistogramType]

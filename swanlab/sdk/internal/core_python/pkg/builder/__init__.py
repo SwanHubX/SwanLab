@@ -11,7 +11,7 @@ from typing import Union
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnClass, ColumnRecord, ColumnType, SectionType
-from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord, ScalarRecord
+from swanlab.proto.swanlab.metric.data.v1.data_pb2 import HistogramRecord, MediaRecord, ScalarRecord
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord, StartRecord
 from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord, SaveType
@@ -24,6 +24,7 @@ __all__ = [
     "build_finish_record",
     "build_start_record",
     "build_media_record",
+    "build_histogram_record",
     "build_scalar_record",
     "build_log_record",
     "build_auto_column",
@@ -96,6 +97,13 @@ def build_media_record(counter: Counter, media_record: MediaRecord):
     return Record(num=counter.inc(), media=media_record, timestamp=_now())
 
 
+def build_histogram_record(counter: Counter, histogram_record: HistogramRecord):
+    """
+    构建数据记录
+    """
+    return Record(num=counter.inc(), histogram=histogram_record, timestamp=_now())
+
+
 def build_log_record(counter: Counter, epoch: Counter, log_record: LogRecord, positive: bool = True):
     """
     构建控制台记录
@@ -125,19 +133,27 @@ def build_finish_record(finish_record: FinishRecord):
     return Record(num=FINISH_RECORD_NUM, finish=finish_record, timestamp=_now())
 
 
-def build_resume_column(key: str, *, media: bool = False, system: bool = False) -> ColumnRecord:
+def build_resume_column(
+    key: str, *, media: bool = False, histogram: bool = False, system: bool = False
+) -> ColumnRecord:
     """
     构建一个resume模式下从云端恢复的列记录
     此构建并不会恢复完整的列信息，一些不重要的，比如section name等，会被略过
     仅会恢复列的key、type、class
     :param key: 列的key
     :param media: 是否是媒体列
+    :param histogram: 是否是直方图列
     :param system: 是否是系统列
     :return: ColumnRecord
     """
     if media:
         # FIXME: 暂时不知道媒体指标的类型，因此先用 COLUMN_TYPE_UNSPECIFIED 占位
         column_record = ColumnRecord(column_key=key, column_type=ColumnType.COLUMN_TYPE_UNSPECIFIED)
+    elif histogram:
+        # 直方图必须携带 COLUMN_TYPE_HISTOGRAM，用 UNSPECIFIED 占位会让该指标的首条数据被拒绝
+        column_record = ColumnRecord(
+            column_key=key, column_type=ColumnType.COLUMN_TYPE_HISTOGRAM, column_class=ColumnClass.COLUMN_CLASS_CUSTOM
+        )
     else:
         column_class = ColumnClass.COLUMN_CLASS_SYSTEM if system else ColumnClass.COLUMN_CLASS_CUSTOM
         column_record = ColumnRecord(
@@ -146,7 +162,7 @@ def build_resume_column(key: str, *, media: bool = False, system: bool = False) 
     return column_record
 
 
-def build_auto_column(ctx: CoreContext, data_record: Union[ScalarRecord, MediaRecord]) -> ColumnRecord:
+def build_auto_column(ctx: CoreContext, data_record: Union[ScalarRecord, MediaRecord, HistogramRecord]) -> ColumnRecord:
     """
     构建一个标量列记录，此函数一般用于自动构建用户已定义的指标
     """
