@@ -426,7 +426,7 @@ func (t *Intake) Commit(tk Ticket, records []*recordv1.Record) error {
 	default:
 		t.uploadLocked(records, immediate, deferred, tk)
 	}
-	// 预留的名额已转为 pending 长度，这里核销整张票据。
+	// 预留的名额已转为 pending 长度，这里核销票据中的延迟名额。
 	t.releaseDeferredLocked(tk.pending)
 	t.mu.Unlock()
 

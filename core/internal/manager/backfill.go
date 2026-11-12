@@ -16,7 +16,6 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/pkg/record"
 	"github.com/swanhubx/swanlab/core/internal/store"
 	recordv1 "github.com/swanhubx/swanlab/core/proto/swanlab/record/v1"
-	savev1 "github.com/swanhubx/swanlab/core/proto/swanlab/save/v1"
 )
 
 const (
@@ -104,7 +103,7 @@ func (s *Session) backfillLoop() {
 			continue
 		}
 		err := s.runBackfill(ctx)
-		s.endBackfillAttempt()
+		s.cancelBackfillAttempt()
 		switch {
 		case err == nil, errors.Is(err, context.Canceled), errors.Is(err, buffer.ErrNotPaused):
 			retry, fails = 0, 0
@@ -139,18 +138,7 @@ func (s *Session) beginBackfillAttempt() (context.Context, bool) {
 	return ctx, true
 }
 
-// endBackfillAttempt 释放当前尝试的取消函数。
-func (s *Session) endBackfillAttempt() {
-	s.backfillMu.Lock()
-	cancel := s.backfillCancel
-	s.backfillCancel = nil
-	s.backfillMu.Unlock()
-	if cancel != nil {
-		cancel()
-	}
-}
-
-// cancelBackfillAttempt 取消正在进行的尝试；健康状态变化时调用。
+// cancelBackfillAttempt 取消并清除当前尝试；补投结束与健康变化时调用。
 func (s *Session) cancelBackfillAttempt() {
 	s.backfillMu.Lock()
 	cancel := s.backfillCancel
@@ -450,10 +438,8 @@ func backfillUploadable(rec *recordv1.Record) bool {
 	case record.TypeStart, record.TypeFinish:
 		return false
 	case record.TypeSave:
-		save := rec.GetSave()
 		// END 保存在 Close 时由 intake 统一投递，补投跳过以免重复。
-		return save.GetPolicy() != savev1.SavePolicy_SAVE_POLICY_END ||
-			save.GetType() != savev1.SaveType_SAVE_TYPE_CUSTOM
+		return !deferredSave(rec)
 	default:
 		return true
 	}

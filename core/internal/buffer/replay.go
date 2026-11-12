@@ -36,15 +36,13 @@ func (t *Intake) Replay(ctx context.Context, records []*recordv1.Record) (int, e
 			bytes = replayBytes(batch[:n])
 		}
 		if n == 1 {
-			size := replayBytes(batch[:1])
-			err := t.budget.Acquire(ctx, 1, size)
+			// 单条记录超过字节上限：与回收补投一致，超额占用避免永久阻塞。
+			err := t.budget.Acquire(ctx, 1, bytes)
 			if errors.Is(err, budget.ErrTooLarge) {
-				// 单条记录超过字节上限：与回收补投一致，超额占用避免永久阻塞。
-				t.budget.Adjust(1, size)
+				t.budget.Adjust(1, bytes)
 			} else if err != nil {
 				return sent, err
 			}
-			bytes = size
 		}
 
 		if err := t.reserveUpload(ctx, n); err != nil {

@@ -64,7 +64,7 @@ type AsyncWriter struct {
 	err error
 }
 
-// control 是测试用同步请求：flush=false 时只写完已入队记录、不刷盘。
+// control 是写协程的同步控制请求：flush=false 时只写完已入队记录、不刷盘。
 type control struct {
 	flush bool
 	reply chan error

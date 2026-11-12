@@ -105,8 +105,8 @@ func (s *Session) prepareFinish(rec *runv1.FinishRecord) {
 	})
 }
 
-// completeFinish 依次完成终态记录提交、本地刷盘、崩溃日志入队与通道关闭；
-// 各步骤均可重入，便于失败后重试。
+// completeFinish 依次完成终态记录提交、本地刷盘、暂停区间补投、崩溃日志入队与
+// 通道关闭；各步骤均可重入，便于失败后重试。
 func (s *Session) completeFinish(ctx context.Context) error {
 	if !s.finishCommitted {
 		if err := s.commitFinish(ctx); err != nil {
