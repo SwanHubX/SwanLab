@@ -35,7 +35,7 @@ message CoreSettings {
     // Run mode. Online requires api_key/api_host; local/offline only write the local store.
     CoreMode mode = 14;
 
-    // Upload pipeline budget in records / bytes; <=0 means unlimited, positive values are rejected.
+    // Upload pipeline budget in records / bytes; <=0 means unlimited.
     int64 upload_budget_records = 15;
     int64 upload_budget_bytes   = 16;
     // Site health probe cadence and per-probe timeout in seconds; 0 uses the core default.

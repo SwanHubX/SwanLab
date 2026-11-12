@@ -85,8 +85,8 @@ func TestValidate(t *testing.T) {
 			s.UploadBudgetRecords = -1
 			s.UploadBudgetBytes = -1
 		}, nil, ""},
-		{"budget 记录数为正被拒绝", func(s *Settings) { s.UploadBudgetRecords = 1 }, ErrBudgetUnsupported, "upload budget"},
-		{"budget 字节数为正被拒绝", func(s *Settings) { s.UploadBudgetBytes = 1 }, ErrBudgetUnsupported, "upload budget"},
+		{"budget 允许正记录数", func(s *Settings) { s.UploadBudgetRecords = 1 }, nil, ""},
+		{"budget 允许正字节数", func(s *Settings) { s.UploadBudgetBytes = 1 }, nil, ""},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

@@ -99,7 +99,7 @@ type CoreSettings struct {
 	WebHost string `protobuf:"bytes,13,opt,name=web_host,json=webHost,proto3" json:"web_host,omitempty"`
 	// Run mode. Online requires api_key/api_host; local/offline only write the local store.
 	Mode CoreMode `protobuf:"varint,14,opt,name=mode,proto3,enum=swanlab.settings.core.v1.CoreMode" json:"mode,omitempty"`
-	// Upload pipeline budget in records / bytes; <=0 means unlimited, positive values are rejected.
+	// Upload pipeline budget in records / bytes; <=0 means unlimited.
 	UploadBudgetRecords int64 `protobuf:"varint,15,opt,name=upload_budget_records,json=uploadBudgetRecords,proto3" json:"upload_budget_records,omitempty"`
 	UploadBudgetBytes   int64 `protobuf:"varint,16,opt,name=upload_budget_bytes,json=uploadBudgetBytes,proto3" json:"upload_budget_bytes,omitempty"`
 	// Site health probe cadence and per-probe timeout in seconds; 0 uses the core default.
