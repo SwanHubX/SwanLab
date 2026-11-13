@@ -3,6 +3,7 @@ package manager
 import (
 	"sync"
 
+	"github.com/swanhubx/swanlab/core/internal/pkg/record"
 	recordv1 "github.com/swanhubx/swanlab/core/proto/swanlab/record/v1"
 )
 
@@ -42,7 +43,7 @@ func (p *progressTracker) onStored(rec *recordv1.Record, seq uint64) {
 	if seq < p.next {
 		return
 	}
-	if !backfillUploadable(rec) {
+	if !record.IsImmediateUploadable(rec) {
 		p.clearSeqPtrLocked(seq)
 		p.resolveSeqLocked(seq)
 		return

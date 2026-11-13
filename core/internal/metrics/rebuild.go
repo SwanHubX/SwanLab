@@ -13,7 +13,6 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/store"
 	columnv1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/column/v1"
 	recordv1 "github.com/swanhubx/swanlab/core/proto/swanlab/record/v1"
-	savev1 "github.com/swanhubx/swanlab/core/proto/swanlab/save/v1"
 )
 
 // RebuildResult 是从本地 run-*.swanlab 一次顺序扫描重建的会话状态。
@@ -101,9 +100,7 @@ func applyRebuiltRecord(res *RebuildResult, rec *recordv1.Record) {
 			res.Epoch = lg.GetEpoch()
 		}
 	case record.TypeSave:
-		if sv := rec.GetSave(); sv != nil &&
-			sv.GetPolicy() == savev1.SavePolicy_SAVE_POLICY_END &&
-			sv.GetType() == savev1.SaveType_SAVE_TYPE_CUSTOM {
+		if record.IsDeferredSave(rec) {
 			res.EndSaves = append(res.EndSaves, rec)
 		}
 	}

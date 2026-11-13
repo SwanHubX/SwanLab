@@ -13,6 +13,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	recordv1 "github.com/swanhubx/swanlab/core/proto/swanlab/record/v1"
+	savev1 "github.com/swanhubx/swanlab/core/proto/swanlab/save/v1"
 )
 
 // Type 是 Record 的 oneof 分支标签，取值与 proto 字段名一致。
@@ -72,4 +73,28 @@ func Size(r *recordv1.Record) int64 {
 		return 0
 	}
 	return int64(proto.Size(r))
+}
+
+// IsDeferredSave reports whether r is a custom file save with SAVE_POLICY_END
+// that stays local until Close instead of entering immediate upload.
+func IsDeferredSave(r *recordv1.Record) bool {
+	if TypeOf(r) != TypeSave {
+		return false
+	}
+	save := r.GetSave()
+	return save.GetPolicy() == savev1.SavePolicy_SAVE_POLICY_END &&
+		save.GetType() == savev1.SaveType_SAVE_TYPE_CUSTOM
+}
+
+// IsImmediateUploadable reports whether r enters the immediate upload pipeline.
+// Start/Finish stay local-only, and custom SAVE_POLICY_END saves are deferred to Close.
+func IsImmediateUploadable(r *recordv1.Record) bool {
+	switch TypeOf(r) {
+	case "", TypeStart, TypeFinish:
+		return false
+	case TypeSave:
+		return !IsDeferredSave(r)
+	default:
+		return true
+	}
 }

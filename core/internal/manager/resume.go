@@ -9,6 +9,7 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/config"
 	"github.com/swanhubx/swanlab/core/internal/metrics"
 	"github.com/swanhubx/swanlab/core/internal/pkg/console"
+	"github.com/swanhubx/swanlab/core/internal/pkg/record"
 	"github.com/swanhubx/swanlab/core/internal/runctx"
 	"github.com/swanhubx/swanlab/core/internal/store"
 	recordv1 "github.com/swanhubx/swanlab/core/proto/swanlab/record/v1"
@@ -126,7 +127,7 @@ func countUploadable(runFile string, startOffset, endOffset int64) int64 {
 			return n
 		}
 		rec.Reset()
-		if proto.Unmarshal(payload, rec) == nil && backfillUploadable(rec) {
+		if proto.Unmarshal(payload, rec) == nil && record.IsImmediateUploadable(rec) {
 			n++
 		}
 	}

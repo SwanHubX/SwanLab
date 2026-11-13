@@ -427,25 +427,12 @@ func (s *Session) scanBackfill(
 		if s.progress != nil {
 			s.progress.onStored(rec, cursor.seq)
 		}
-		if backfillUploadable(rec) {
+		if record.IsImmediateUploadable(rec) {
 			out = append(out, rec)
 			after = append(after, *cursor)
 		}
 	}
 	return out, after, nil
-}
-
-// backfillUploadable 过滤只落本地与延迟投递的记录。
-func backfillUploadable(rec *recordv1.Record) bool {
-	switch record.TypeOf(rec) {
-	case record.TypeStart, record.TypeFinish:
-		return false
-	case record.TypeSave:
-		// END 保存在 Close 时由 intake 统一投递，补投跳过以免重复。
-		return !deferredSave(rec)
-	default:
-		return true
-	}
 }
 
 // backfillBatchSize 返回单次补投的记录数。

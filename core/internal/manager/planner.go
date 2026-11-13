@@ -12,7 +12,6 @@ import (
 	columnv1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/column/v1"
 	datav1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/data/v1"
 	recordv1 "github.com/swanhubx/swanlab/core/proto/swanlab/record/v1"
-	savev1 "github.com/swanhubx/swanlab/core/proto/swanlab/save/v1"
 )
 
 // demandFor 计算一批记录对本地与上传两条通道的需求。
@@ -27,27 +26,15 @@ func demandFor(records []*recordv1.Record, cfg config.Settings) buffer.Demand {
 		return demand
 	}
 	for _, rec := range records {
-		switch record.TypeOf(rec) {
-		case record.TypeStart, record.TypeFinish:
-		case record.TypeSave:
-			if deferredSave(rec) {
-				demand.Deferred++
-				continue
-			}
-			demand.Upload++
-			demand.Bytes += record.Size(rec)
-		default:
+		switch {
+		case record.IsDeferredSave(rec):
+			demand.Deferred++
+		case record.IsImmediateUploadable(rec):
 			demand.Upload++
 			demand.Bytes += record.Size(rec)
 		}
 	}
 	return demand
-}
-
-func deferredSave(rec *recordv1.Record) bool {
-	save := rec.GetSave()
-	return save.GetPolicy() == savev1.SavePolicy_SAVE_POLICY_END &&
-		save.GetType() == savev1.SaveType_SAVE_TYPE_CUSTOM
 }
 
 // columnPlan 记录本批次内新定义的列；apply 阶段按该顺序落地，保证与记录顺序一致。

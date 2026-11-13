@@ -27,7 +27,6 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/pkg/record"
 	"github.com/swanhubx/swanlab/core/internal/store"
 	recordv1 "github.com/swanhubx/swanlab/core/proto/swanlab/record/v1"
-	savev1 "github.com/swanhubx/swanlab/core/proto/swanlab/save/v1"
 )
 
 const (
@@ -466,18 +465,10 @@ func routeRecords(records []*recordv1.Record) (immediate, deferred []int) {
 	immediate = make([]int, 0, len(records))
 	deferred = make([]int, 0, len(records))
 	for i, rec := range records {
-		switch record.TypeOf(rec) {
-		case record.TypeStart, record.TypeFinish:
-			// 仅落本地。
-		case record.TypeSave:
-			save := rec.GetSave()
-			if save.GetPolicy() == savev1.SavePolicy_SAVE_POLICY_END &&
-				save.GetType() == savev1.SaveType_SAVE_TYPE_CUSTOM {
-				deferred = append(deferred, i)
-				continue
-			}
-			immediate = append(immediate, i)
-		default:
+		switch {
+		case record.IsDeferredSave(rec):
+			deferred = append(deferred, i)
+		case record.IsImmediateUploadable(rec):
 			immediate = append(immediate, i)
 		}
 	}
