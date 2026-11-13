@@ -49,7 +49,43 @@ func LoadLocalRebuild(cfg config.Settings, run *runctx.RunContext) (*metrics.Reb
 	if res.Finished {
 		return nil, fmt.Errorf("%w: run %q is already finished, use `swanlab sync` instead", ErrInvalidRunFile, run.RunID)
 	}
+	if res.Records > 0 && !res.HasStart {
+		return nil, fmt.Errorf("%w: non-empty run file %q must start with a valid start record", ErrInvalidRunFile, runFile)
+	}
 	return res, nil
+}
+
+// StartIdentity 描述本次启动规范化后的 run 与项目身份，用于校验既有本地副本归属。
+type StartIdentity struct {
+	RunID               string
+	Workspace           string
+	Project             string
+	AllowEmptyWorkspace bool
+}
+
+// ValidateStart 校验非空本地副本的首条 StartRecord 是否与本次规范化身份一致。
+// local 为 nil 或为空文件（仅文件头）时直接放行。
+func ValidateStart(local *metrics.RebuildResult, target StartIdentity) error {
+	if local == nil || local.Records == 0 {
+		return nil
+	}
+	if !local.HasStart || local.Start == nil {
+		return fmt.Errorf("%w: local run store has no valid start record", ErrInvalidRunFile)
+	}
+	if local.Start.GetId() != target.RunID {
+		return fmt.Errorf("%w: existing run id %q does not match %q",
+			ErrInvalidRunFile, local.Start.GetId(), target.RunID)
+	}
+	if local.Start.GetProject() != target.Project {
+		return fmt.Errorf("%w: existing project %q does not match %q",
+			ErrInvalidRunFile, local.Start.GetProject(), target.Project)
+	}
+	existingSpace := local.Start.GetWorkspace()
+	if existingSpace != target.Workspace && (!target.AllowEmptyWorkspace || existingSpace != "") {
+		return fmt.Errorf("%w: existing workspace %q does not match %q",
+			ErrInvalidRunFile, existingSpace, target.Workspace)
+	}
+	return nil
 }
 
 // ResolveCheckpoint 读取并校验断点文件是否与当前可信本地副本范围一致；
@@ -93,27 +129,14 @@ func ResolveCheckpoint(
 				cp.Offset, local.EndOffset)
 			return fallback()
 		}
-		if err = probeRecordBoundary(runFile, cp.Offset, local.EndOffset); err != nil {
-			console.Debugf("resume: checkpoint offset %d is not a valid record boundary: %v", cp.Offset, err)
+		exactOff, endErr := store.EndOffset(runFile, nil, cp.StoreSeq, local.EndOffset)
+		if endErr != nil || cp.Offset != exactOff {
+			console.Debugf("resume: checkpoint seq %d offset %d != expected %d (err=%v), replaying from file head",
+				cp.StoreSeq, cp.Offset, exactOff, endErr)
 			return fallback()
 		}
 	}
 	return cp.StoreSeq, cp.Offset, true
-}
-
-func probeRecordBoundary(runFile string, offset, limit int64) error {
-	r, err := store.OpenOffset(runFile, offset, limit)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = r.Close() }()
-
-	payload, err := r.Scan()
-	if err != nil {
-		return err
-	}
-	rec := &recordv1.Record{}
-	return proto.Unmarshal(payload, rec)
 }
 
 // CountUploadable 统计 runFile 在 [startOffset, endOffset) 区间内需立即上传的记录条数。

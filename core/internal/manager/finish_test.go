@@ -810,15 +810,17 @@ func newCheckpointTestSession(
 	s.runFile = runFile
 	s.runFileCreated = true
 	s.progress = trackerProgress
-	s.checkpoint = checkpoint.New(checkpoint.Options{
-		File:      cpFile,
-		RunID:     run.RunID,
-		RunFile:   runFile,
-		Store:     async,
-		Watermark: watermark,
-		Interval:  cpInterval,
-		OnTick:    onTick,
-	})
+	if mode == config.ModeOnline && trackerProgress != nil {
+		s.checkpoint = checkpoint.New(checkpoint.Options{
+			File:      cpFile,
+			RunID:     run.RunID,
+			RunFile:   runFile,
+			Store:     async,
+			Watermark: watermark,
+			Interval:  cpInterval,
+			OnTick:    onTick,
+		})
+	}
 
 	if mode == config.ModeOnline {
 		up, err := uploader.New(uploader.Options{
@@ -955,28 +957,27 @@ func TestCheckpointBoundsAndFinalFlushOnline(t *testing.T) {
 	}
 }
 
-func TestCheckpointLocalModeFinalFlush(t *testing.T) {
-	s, _, cpFile := newCheckpointTestSession(t, config.ModeLocal, nil, 0, nil)
-	t.Cleanup(func() {
-		s.checkpoint.Stop()
-		if s.store != nil {
-			_ = s.store.Close()
-		}
-	})
-	s.checkpoint.Start()
+func TestCheckpointLocalAndOfflineWriteNoFile(t *testing.T) {
+	for _, mode := range []config.Mode{config.ModeLocal, config.ModeOffline} {
+		t.Run(string(mode), func(t *testing.T) {
+			s, _, cpFile := newCheckpointTestSession(t, mode, nil, 0, nil)
+			t.Cleanup(func() {
+				s.checkpoint.Stop()
+				if s.store != nil {
+					_ = s.store.Close()
+				}
+			})
+			s.checkpoint.Start()
 
-	commitToIntake(t, s.intake, s.cfg, backfillStart(), backfillScalar(1), backfillScalar(2))
-	if err := s.finish(context.Background(), &runv1.FinishRecord{State: runv1.RunState_RUN_STATE_FINISHED}); err != nil {
-		t.Fatalf("finish: %v", err)
-	}
+			commitToIntake(t, s.intake, s.cfg, backfillStart(), backfillScalar(1), backfillScalar(2))
+			if err := s.finish(context.Background(), &runv1.FinishRecord{State: runv1.RunState_RUN_STATE_FINISHED}); err != nil {
+				t.Fatalf("finish: %v", err)
+			}
 
-	cp, ok, err := store.LoadCheckpoint(cpFile, s.run.RunID)
-	if err != nil || !ok {
-		t.Fatalf("LoadCheckpoint = (%v, %v), want (nil, true)", err, ok)
-	}
-	finalSeq, finalOff := s.store.Flushed()
-	if finalSeq != 4 || cp.StoreSeq != 4 || cp.Offset != finalOff {
-		t.Fatalf("local final cp = %+v, want seq=4 off=%d (flushed=%d)", cp, finalOff, finalSeq)
+			if _, err := os.Stat(cpFile); !os.IsNotExist(err) {
+				t.Fatalf("%s mode must not write checkpoint file %s, got stat err=%v", mode, cpFile, err)
+			}
+		})
 	}
 }
 

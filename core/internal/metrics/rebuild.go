@@ -13,11 +13,13 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/store"
 	columnv1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/column/v1"
 	recordv1 "github.com/swanhubx/swanlab/core/proto/swanlab/record/v1"
+	runv1 "github.com/swanhubx/swanlab/core/proto/swanlab/run/v1"
 )
 
 // RebuildResult 是从本地 run-*.swanlab 一次顺序扫描重建的会话状态。
 type RebuildResult struct {
 	Metrics          *RunMetrics
+	Start            *runv1.StartRecord
 	Counter          int64
 	Epoch            int64
 	GlobalStep       int64
@@ -84,7 +86,10 @@ func applyRebuiltRecord(res *RebuildResult, rec *recordv1.Record) {
 
 	switch record.TypeOf(rec) {
 	case record.TypeStart:
-		res.HasStart = true
+		if res.Records == 1 && rec.GetNum() == record.NumStart && rec.GetStart() != nil {
+			res.HasStart = true
+			res.Start = rec.GetStart()
+		}
 	case record.TypeFinish:
 		res.Finished = true
 	case record.TypeColumn:

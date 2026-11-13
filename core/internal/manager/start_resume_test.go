@@ -181,6 +181,19 @@ func writeTestRecords(t *testing.T, path string, recs ...*recordv1.Record) int64
 	return endOff
 }
 
+func makeStartRecord(runID, workspace, project string) *recordv1.Record {
+	return &recordv1.Record{
+		Num: record.NumStart,
+		RecordType: &recordv1.Record_Start{
+			Start: &runv1.StartRecord{
+				Id:        runID,
+				Workspace: workspace,
+				Project:   project,
+			},
+		},
+	}
+}
+
 func makeColumnRecord(num int64, key string) *recordv1.Record {
 	return &recordv1.Record{
 		Num: num,
@@ -331,8 +344,20 @@ func TestResumeTruncatesCorruptTailAndPreservesExistingOnRollback(t *testing.T) 
 		t.Fatalf("first DeliverRunStart: %v", err)
 	}
 	if err = mgr1.UpsertScalars(ctx, res1.SessionID, []*datav1.ScalarRecord{
-		{Key: "loss", Step: 0, Value: &datav1.ScalarValue{Number: 1.0}},
-		{Key: "loss", Step: 1, Value: &datav1.ScalarValue{Number: 0.5}},
+		{
+			Key:       "loss",
+			Step:      0,
+			Type:      columnv1.ColumnType_COLUMN_TYPE_SCALAR,
+			Value:     &datav1.ScalarValue{Number: 1.0},
+			Timestamp: timestamppb.Now(),
+		},
+		{
+			Key:       "loss",
+			Step:      1,
+			Type:      columnv1.ColumnType_COLUMN_TYPE_SCALAR,
+			Value:     &datav1.ScalarValue{Number: 0.5},
+			Timestamp: timestamppb.Now(),
+		},
 	}); err != nil {
 		t.Fatalf("UpsertScalars: %v", err)
 	}
@@ -383,7 +408,13 @@ func TestResumeTruncatesCorruptTailAndPreservesExistingOnRollback(t *testing.T) 
 		t.Fatalf("GlobalStep = %d, want 1", res2.GlobalStep)
 	}
 	if err = mgr2.UpsertScalars(ctx, res2.SessionID, []*datav1.ScalarRecord{
-		{Key: "loss", Step: 2, Value: &datav1.ScalarValue{Number: 0.25}},
+		{
+			Key:       "loss",
+			Step:      2,
+			Type:      columnv1.ColumnType_COLUMN_TYPE_SCALAR,
+			Value:     &datav1.ScalarValue{Number: 0.25},
+			Timestamp: timestamppb.Now(),
+		},
 	}); err != nil {
 		t.Fatalf("second UpsertScalars: %v", err)
 	}
@@ -429,7 +460,7 @@ func TestResumeOnlineCheckpointBackfillAndNoDuplicateColumns(t *testing.T) {
 	// 构造本地 store：seq 1..4 (Start + Col(loss) + Scalar(0..1)) 已进入 checkpoint，
 	// seq 5..6 (Scalar(2..3)) 为崩溃前尚未确认的尾部记录。
 	records := []*recordv1.Record{
-		backfillStart(),
+		makeStartRecord(cfg.RunID, "alice", "demo"),
 		makeColumnRecord(1, "loss"),
 		makeScalarRecord(2, "loss", 0, 1.0),
 		makeScalarRecord(3, "loss", 1, 0.8),
@@ -568,6 +599,10 @@ func TestResumeMissingAndOutOfBoundsCheckpointFallback(t *testing.T) {
 				}
 			},
 		},
+		{
+			name:  "valid boundary belonging to another store seq",
+			write: func(_ *testing.T, _ string, _ string, _ int64) {},
+		},
 	}
 
 	for _, tc := range cases {
@@ -591,12 +626,27 @@ func TestResumeMissingAndOutOfBoundsCheckpointFallback(t *testing.T) {
 				t.Fatalf("CheckpointFile: %v", err)
 			}
 			endOff := writeTestRecords(t, runFile,
-				backfillStart(),
+				makeStartRecord(cfg.RunID, "alice", "demo"),
 				makeColumnRecord(1, "loss"),
 				makeScalarRecord(2, "loss", 0, 1.0),
 				makeScalarRecord(3, "loss", 1, 0.5),
 			)
-			tc.write(t, cpFile, cfg.RunID, endOff)
+			if tc.name == "valid boundary belonging to another store seq" {
+				wrongOff, endErr := store.EndOffset(runFile, nil, 3, -1)
+				if endErr != nil {
+					t.Fatalf("EndOffset: %v", endErr)
+				}
+				if wErr := store.WriteCheckpoint(cpFile, store.Checkpoint{
+					Version:  store.CheckpointVersion,
+					RunID:    cfg.RunID,
+					StoreSeq: 2,
+					Offset:   wrongOff,
+				}); wErr != nil {
+					t.Fatal(wErr)
+				}
+			} else {
+				tc.write(t, cpFile, cfg.RunID, endOff)
+			}
 
 			mgr := newTestManager()
 			res, err := mgr.DeliverRunStart(ctx, cfg, &runv1.StartRecord{
@@ -671,7 +721,7 @@ func TestResumeOnlineMergesCloudSummaryAndEndSaves(t *testing.T) {
 
 	// 本地只有 step=4 的 loss 与一条 END 保存记录，全部进入 checkpoint。
 	endOff := writeTestRecords(t, runFile,
-		backfillStart(),
+		makeStartRecord(cfg.RunID, "alice", "demo"),
 		makeColumnRecord(1, "loss"),
 		makeScalarRecord(2, "loss", 4, 0.9),
 		makeEndSaveRecord(3, "end.txt", endFile),
@@ -772,5 +822,189 @@ func TestResumeSkipStoreIgnoresExistingRunFile(t *testing.T) {
 	t.Cleanup(func() { closeStartedSession(t, mgr, res.SessionID) })
 	if res.GlobalStep != -1 {
 		t.Fatalf("skip_store GlobalStep = %d, want -1", res.GlobalStep)
+	}
+}
+
+func TestResumeOnlineUploadsAllHistoryAfterLocalCrash(t *testing.T) {
+	runDir := filepath.Join(t.TempDir(), "run")
+	localCfg := localSettings(t, runDir, "local-to-online")
+	ctx := context.Background()
+
+	// 1. local 模式写入历史记录后崩溃退出（不写 Finish），过程中不得产生 checkpoint.json。
+	mgr1 := newTestManager()
+	res1, err := mgr1.DeliverRunStart(ctx, localCfg, &runv1.StartRecord{
+		Project:   "demo",
+		Workspace: "alice",
+		Id:        localCfg.RunID,
+	})
+	if err != nil {
+		t.Fatalf("local DeliverRunStart: %v", err)
+	}
+	if err = mgr1.UpsertScalars(ctx, res1.SessionID, []*datav1.ScalarRecord{
+		{
+			Key:       "loss",
+			Step:      0,
+			Type:      columnv1.ColumnType_COLUMN_TYPE_SCALAR,
+			Value:     &datav1.ScalarValue{Number: 1.0},
+			Timestamp: timestamppb.Now(),
+		},
+		{
+			Key:       "loss",
+			Step:      1,
+			Type:      columnv1.ColumnType_COLUMN_TYPE_SCALAR,
+			Value:     &datav1.ScalarValue{Number: 0.5},
+			Timestamp: timestamppb.Now(),
+		},
+	}); err != nil {
+		t.Fatalf("local UpsertScalars: %v", err)
+	}
+	if err = mgr1.Shutdown(ctx); err != nil {
+		t.Fatalf("local Shutdown: %v", err)
+	}
+
+	run, err := runctx.New(localCfg)
+	if err != nil {
+		t.Fatalf("runctx.New: %v", err)
+	}
+	cpFile, err := run.CheckpointFile()
+	if err != nil {
+		t.Fatalf("CheckpointFile: %v", err)
+	}
+	if _, statErr := os.Stat(cpFile); !os.IsNotExist(statErr) {
+		t.Fatalf("local run must not create checkpoint file %s, got stat err=%v", cpFile, statErr)
+	}
+
+	// 2. 同目录切换 online 续传：必须从头回放并上传全部 local 历史记录，而非跳过。
+	cloud, st := setupResumeCloud(t)
+	onlineCfg := startSettings(t, cloud)
+	onlineCfg.RunID = localCfg.RunID
+	onlineCfg.RunDir = runDir
+
+	mgr2 := newTestManager()
+	res2, err := mgr2.DeliverRunStart(ctx, onlineCfg, &runv1.StartRecord{
+		Project:   "demo",
+		Workspace: "alice",
+		Id:        onlineCfg.RunID,
+	})
+	if err != nil {
+		t.Fatalf("online DeliverRunStart: %v", err)
+	}
+	if err = mgr2.UpsertScalars(ctx, res2.SessionID, []*datav1.ScalarRecord{
+		{
+			Key:       "loss",
+			Step:      2,
+			Type:      columnv1.ColumnType_COLUMN_TYPE_SCALAR,
+			Value:     &datav1.ScalarValue{Number: 0.25},
+			Timestamp: timestamppb.Now(),
+		},
+	}); err != nil {
+		t.Fatalf("online UpsertScalars: %v", err)
+	}
+	waitForScalarCount(t, st, 3)
+
+	if err = mgr2.DeliverRunFinish(ctx, res2.SessionID, &runv1.FinishRecord{State: runv1.RunState_RUN_STATE_FINISHED}); err != nil {
+		t.Fatalf("DeliverRunFinish: %v", err)
+	}
+	if _, err = mgr2.Confirm(ctx, res2.SessionID); err != nil {
+		t.Fatalf("Confirm: %v", err)
+	}
+
+	st.mu.Lock()
+	cols := append([]string(nil), st.columnKeys...)
+	steps := append([]int64(nil), st.scalarSteps...)
+	st.mu.Unlock()
+	if len(cols) != 1 || cols[0] != "loss" {
+		t.Fatalf("uploaded columns = %v, want [loss]", cols)
+	}
+	wantSteps := map[int64]bool{0: true, 1: true, 2: true}
+	if len(steps) != len(wantSteps) {
+		t.Fatalf("uploaded scalar steps = %v, want all local history + new [0 1 2]", steps)
+	}
+	for _, step := range steps {
+		if !wantSteps[step] {
+			t.Fatalf("unexpected uploaded step %d in %v", step, steps)
+		}
+	}
+}
+
+func TestResumeRejectsInvalidOrMismatchedStartRecord(t *testing.T) {
+	cases := []struct {
+		name string
+		recs []*recordv1.Record
+		req  *runv1.StartRecord
+	}{
+		{
+			name: "missing start record in non-empty store",
+			recs: []*recordv1.Record{makeColumnRecord(1, "loss"), makeScalarRecord(2, "loss", 0, 1.0)},
+			req:  &runv1.StartRecord{Project: "demo", Workspace: "alice", Id: "resume-check"},
+		},
+		{
+			name: "start record not at head",
+			recs: []*recordv1.Record{makeScalarRecord(1, "loss", 0, 1.0), makeStartRecord("resume-check", "alice", "demo")},
+			req:  &runv1.StartRecord{Project: "demo", Workspace: "alice", Id: "resume-check"},
+		},
+		{
+			name: "start record with wrong num",
+			recs: []*recordv1.Record{{
+				Num: 1,
+				RecordType: &recordv1.Record_Start{Start: &runv1.StartRecord{
+					Id: "resume-check", Workspace: "alice", Project: "demo",
+				}},
+			}},
+			req: &runv1.StartRecord{Project: "demo", Workspace: "alice", Id: "resume-check"},
+		},
+		{
+			name: "run id mismatch",
+			recs: []*recordv1.Record{makeStartRecord("other-run", "alice", "demo"), makeScalarRecord(1, "loss", 0, 1.0)},
+			req:  &runv1.StartRecord{Project: "demo", Workspace: "alice", Id: "resume-check"},
+		},
+		{
+			name: "project mismatch",
+			recs: []*recordv1.Record{makeStartRecord("resume-check", "alice", "other-proj"), makeScalarRecord(1, "loss", 0, 1.0)},
+			req:  &runv1.StartRecord{Project: "demo", Workspace: "alice", Id: "resume-check"},
+		},
+		{
+			name: "workspace mismatch after normalization",
+			recs: []*recordv1.Record{makeStartRecord("resume-check", "bob", "demo"), makeScalarRecord(1, "loss", 0, 1.0)},
+			req:  &runv1.StartRecord{Project: "demo", Workspace: "alice", Id: "resume-check"},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cloud, st := setupResumeCloud(t)
+			cfg := startSettings(t, cloud)
+			cfg.RunID = "resume-check"
+			cfg.RunDir = filepath.Join(t.TempDir(), "run")
+
+			run, err := runctx.New(cfg)
+			if err != nil {
+				t.Fatalf("runctx.New: %v", err)
+			}
+			runFile, err := run.RunFile()
+			if err != nil {
+				t.Fatalf("RunFile: %v", err)
+			}
+			endOff := writeTestRecords(t, runFile, tc.recs...)
+
+			mgr := newTestManager()
+			if _, startErr := mgr.DeliverRunStart(context.Background(), cfg, tc.req); !errors.Is(startErr, ErrInvalidStartRecord) {
+				t.Fatalf("DeliverRunStart err = %v, want ErrInvalidStartRecord", startErr)
+			}
+			// 校验失败时不得创建实验、修改本地文件或触发回放上传。
+			if createReqs := cloud.RequestsFor(http.MethodPost, "/api/project/alice/demo/experiment"); len(createReqs) != 0 {
+				t.Fatalf("CreateOrResumeExperiment requests = %d, want 0", len(createReqs))
+			}
+			info, statErr := os.Stat(runFile)
+			if statErr != nil || info.Size() != endOff {
+				t.Fatalf("runFile modified: statErr=%v size=%d want %d", statErr, info.Size(), endOff)
+			}
+			st.mu.Lock()
+			uploaded := len(st.scalarSteps)
+			st.mu.Unlock()
+			if uploaded != 0 {
+				t.Fatalf("uploaded scalars = %d, want 0", uploaded)
+			}
+		})
 	}
 }

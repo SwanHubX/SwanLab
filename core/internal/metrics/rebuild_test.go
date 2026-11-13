@@ -99,7 +99,9 @@ func TestRebuildFullState(t *testing.T) {
 	histCol := builder.BuildAutoColumn(-1, "weights", columnv1.ColumnType_COLUMN_TYPE_HISTOGRAM)
 
 	recs := []*recordv1.Record{
-		{Num: record.NumStart, RecordType: &recordv1.Record_Start{Start: &runv1.StartRecord{}}},
+		{Num: record.NumStart, RecordType: &recordv1.Record_Start{Start: &runv1.StartRecord{
+			Id: "run-1", Workspace: "alice", Project: "demo",
+		}}},
 		// 内部 config 保存使用负数槽位且即使配 END 也不应进 EndSaves。
 		saveDataRecord(record.NumConfigSave, "config.yaml", savev1.SaveType_SAVE_TYPE_CONFIG, savev1.SavePolicy_SAVE_POLICY_END),
 		colRecord(1, lossCol),
@@ -136,6 +138,9 @@ func TestRebuildFullState(t *testing.T) {
 	}
 	if !res.HasStart || !res.Finished {
 		t.Fatalf("HasStart=%v Finished=%v, want true/true", res.HasStart, res.Finished)
+	}
+	if res.Start == nil || res.Start.GetId() != "run-1" || res.Start.GetWorkspace() != "alice" || res.Start.GetProject() != "demo" {
+		t.Fatalf("Start = %+v, want id=run-1 workspace=alice project=demo", res.Start)
 	}
 	if res.Counter != 18 {
 		t.Fatalf("Counter = %d, want 18", res.Counter)
@@ -326,4 +331,47 @@ func TestRebuildOpenError(t *testing.T) {
 	if _, err := Rebuild(bad); !errors.Is(err, store.ErrBadHeader) {
 		t.Fatalf("bad header err = %v, want ErrBadHeader", err)
 	}
+}
+
+func TestRebuildStartRecordPositionAndNum(t *testing.T) {
+	t.Run("start not at head leaves HasStart false", func(t *testing.T) {
+		path, _ := writeStoreRecords(t,
+			scalarDataRecord(1, "loss", 0, 1.0),
+			&recordv1.Record{Num: record.NumStart, RecordType: &recordv1.Record_Start{Start: &runv1.StartRecord{Id: "late"}}},
+		)
+		res, err := Rebuild(path)
+		if err != nil {
+			t.Fatalf("Rebuild: %v", err)
+		}
+		if res.HasStart || res.Start != nil {
+			t.Fatalf("late start = (%v, %+v), want (false, nil)", res.HasStart, res.Start)
+		}
+	})
+
+	t.Run("start with wrong num leaves HasStart false", func(t *testing.T) {
+		path, _ := writeStoreRecords(t,
+			&recordv1.Record{Num: 1, RecordType: &recordv1.Record_Start{Start: &runv1.StartRecord{Id: "bad-num"}}},
+		)
+		res, err := Rebuild(path)
+		if err != nil {
+			t.Fatalf("Rebuild: %v", err)
+		}
+		if res.HasStart || res.Start != nil {
+			t.Fatalf("wrong-num start = (%v, %+v), want (false, nil)", res.HasStart, res.Start)
+		}
+	})
+
+	t.Run("keeps first start record when duplicated later", func(t *testing.T) {
+		path, _ := writeStoreRecords(t,
+			&recordv1.Record{Num: record.NumStart, RecordType: &recordv1.Record_Start{Start: &runv1.StartRecord{Id: "first"}}},
+			&recordv1.Record{Num: record.NumStart, RecordType: &recordv1.Record_Start{Start: &runv1.StartRecord{Id: "second"}}},
+		)
+		res, err := Rebuild(path)
+		if err != nil {
+			t.Fatalf("Rebuild: %v", err)
+		}
+		if !res.HasStart || res.Start == nil || res.Start.GetId() != "first" {
+			t.Fatalf("Start = (%v, %+v), want Id=first", res.HasStart, res.Start)
+		}
+	})
 }

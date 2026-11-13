@@ -121,10 +121,6 @@ func (s *Session) completeFinish(ctx context.Context) error {
 			s.storeDegraded.Store(true)
 			console.Warningf("finish: local store did not flush completely: %v", err)
 		}
-		if s.uploader == nil {
-			s.checkpoint.Stop()
-			s.checkpoint.Flush()
-		}
 	}
 
 	// 本地记录已全部刷盘，补完暂停区间后才能关闭 intake。

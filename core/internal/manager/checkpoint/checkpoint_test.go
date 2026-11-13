@@ -157,10 +157,11 @@ func TestWriterFailureWarnsAndRecovers(t *testing.T) {
 
 	appendStoreRecords(t, async, sampleStartRecord())
 	w := New(Options{
-		File:    cpFile,
-		RunID:   "run-1",
-		RunFile: filepath.Join(dir, "run.swanlab"),
-		Store:   async,
+		File:      cpFile,
+		RunID:     "run-1",
+		RunFile:   filepath.Join(dir, "run.swanlab"),
+		Store:     async,
+		Watermark: func() uint64 { return 1 },
 	})
 
 	w.Persist()
@@ -192,6 +193,7 @@ func TestWriterSkipsUnchangedInitialSeqAndNilSafe(t *testing.T) {
 		RunID:          "run-1",
 		RunFile:        filepath.Join(dir, "run.swanlab"),
 		Store:          async,
+		Watermark:      func() uint64 { return 1 },
 		InitialSeq:     1,
 		InitialWritten: true,
 		OnTick:         func() { ticks++ },
@@ -209,5 +211,25 @@ func TestWriterSkipsUnchangedInitialSeqAndNilSafe(t *testing.T) {
 	nilWriter.RemoveFile()
 	if nilWriter.File() != "" || nilWriter.HasWrite() || nilWriter.Warned() {
 		t.Fatal("nil Writer accessors returned non-zero")
+	}
+
+	// 缺少 Watermark（非 online 模式无上传水位）不得产生任何 checkpoint。
+	noWatermarkCP := filepath.Join(dir, "no-watermark.checkpoint.json")
+	disabled := New(Options{
+		File:     noWatermarkCP,
+		RunID:    "run-1",
+		RunFile:  filepath.Join(dir, "run.swanlab"),
+		Store:    async,
+		Interval: 5 * time.Millisecond,
+	})
+	disabled.Start()
+	disabled.Persist()
+	disabled.Flush()
+	disabled.Stop()
+	if disabled.HasWrite() {
+		t.Fatal("writer without watermark must not record checkpoint writes")
+	}
+	if _, err := os.Stat(noWatermarkCP); !os.IsNotExist(err) {
+		t.Fatalf("writer without watermark must not create checkpoint file, got stat err=%v", err)
 	}
 }

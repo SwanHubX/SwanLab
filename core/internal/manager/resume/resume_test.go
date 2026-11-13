@@ -113,6 +113,29 @@ func TestLoadLocalRebuildCases(t *testing.T) {
 		t.Fatalf("finished run err = %v, want ErrInvalidRunFile", err)
 	}
 
+	// 缺失 StartRecord、Start 不在首部、Start Num 非法均拒绝续传
+	for _, tc := range []struct {
+		name string
+		recs []*recordv1.Record
+	}{
+		{name: "missing start", recs: []*recordv1.Record{scalarRec(1, 0)}},
+		{name: "start not first", recs: []*recordv1.Record{scalarRec(1, 0), startRec()}},
+		{name: "wrong start num", recs: []*recordv1.Record{{Num: 1, RecordType: &recordv1.Record_Start{Start: &runv1.StartRecord{}}}}},
+	} {
+		_ = os.Remove(runFile)
+		writeRecords(t, runFile, tc.recs...)
+		if _, err = LoadLocalRebuild(cfg, run); !errors.Is(err, ErrInvalidRunFile) {
+			t.Fatalf("%s err = %v, want ErrInvalidRunFile", tc.name, err)
+		}
+	}
+
+	// 只有文件头的空文件允许继续（视作尚未写入 StartRecord）
+	_ = os.Remove(runFile)
+	writeRecords(t, runFile)
+	if res, err = LoadLocalRebuild(cfg, run); err != nil || res == nil || res.Records != 0 {
+		t.Fatalf("empty header-only file = (%+v, %v), want 0 records", res, err)
+	}
+
 	// SkipStore 忽略本地文件
 	skipCfg := cfg
 	skipCfg.SkipStore = true
@@ -126,6 +149,71 @@ func TestLoadLocalRebuildCases(t *testing.T) {
 	res, err = LoadLocalRebuild(cfg, run)
 	if err != nil || res == nil || res.Records != 2 {
 		t.Fatalf("valid rebuild = (%+v, %v), want 2 records", res, err)
+	}
+}
+
+func TestValidateStartIdentity(t *testing.T) {
+	base := &metrics.RebuildResult{
+		Records:  2,
+		HasStart: true,
+		Start:    &runv1.StartRecord{Id: "run-1", Workspace: "alice", Project: "demo"},
+	}
+
+	if err := ValidateStart(nil, StartIdentity{RunID: "run-1", Project: "demo"}); err != nil {
+		t.Fatalf("nil rebuild = %v, want nil", err)
+	}
+	if err := ValidateStart(&metrics.RebuildResult{Records: 0}, StartIdentity{RunID: "run-1", Project: "demo"}); err != nil {
+		t.Fatalf("empty rebuild = %v, want nil", err)
+	}
+	if err := ValidateStart(base, StartIdentity{RunID: "run-1", Workspace: "alice", Project: "demo"}); err != nil {
+		t.Fatalf("matching start = %v, want nil", err)
+	}
+
+	for _, tc := range []struct {
+		name   string
+		local  *metrics.RebuildResult
+		target StartIdentity
+	}{
+		{
+			name:   "run id mismatch",
+			local:  base,
+			target: StartIdentity{RunID: "run-2", Workspace: "alice", Project: "demo"},
+		},
+		{
+			name:   "project mismatch",
+			local:  base,
+			target: StartIdentity{RunID: "run-1", Workspace: "alice", Project: "other"},
+		},
+		{
+			name:   "workspace mismatch",
+			local:  base,
+			target: StartIdentity{RunID: "run-1", Workspace: "bob", Project: "demo"},
+		},
+		{
+			name: "local empty workspace mismatch when strict",
+			local: &metrics.RebuildResult{
+				Records:  2,
+				HasStart: true,
+				Start:    &runv1.StartRecord{Id: "run-1", Project: "demo"},
+			},
+			target: StartIdentity{RunID: "run-1", Workspace: "alice", Project: "demo"},
+		},
+	} {
+		if err := ValidateStart(tc.local, tc.target); !errors.Is(err, ErrInvalidRunFile) {
+			t.Fatalf("%s err = %v, want ErrInvalidRunFile", tc.name, err)
+		}
+	}
+
+	// AllowEmptyWorkspace 允许早期 local(workspace="") 在转在线时被规范化补齐。
+	localNoSpace := &metrics.RebuildResult{
+		Records:  2,
+		HasStart: true,
+		Start:    &runv1.StartRecord{Id: "run-1", Project: "demo"},
+	}
+	if err := ValidateStart(localNoSpace, StartIdentity{
+		RunID: "run-1", Workspace: "alice", Project: "demo", AllowEmptyWorkspace: true,
+	}); err != nil {
+		t.Fatalf("local empty workspace into online err = %v, want nil", err)
 	}
 }
 
@@ -186,6 +274,22 @@ func TestResolveCheckpointAndCountUploadable(t *testing.T) {
 	seq, off, valid = ResolveCheckpoint(cpFile, run.RunID, runFile, local)
 	if valid || seq != 0 || off != store.HeaderLen {
 		t.Fatalf("bad boundary cp = (%d, %d, %v), want fallback", seq, off, valid)
+	}
+
+	// 合法记录边界但属于其它 store_seq 应拒绝并回退
+	wrongSeqOff, err := store.EndOffset(runFile, nil, 3, -1)
+	if err != nil {
+		t.Fatalf("EndOffset(3): %v", err)
+	}
+	_ = store.WriteCheckpoint(cpFile, store.Checkpoint{
+		Version:  store.CheckpointVersion,
+		RunID:    run.RunID,
+		StoreSeq: 2,
+		Offset:   wrongSeqOff,
+	})
+	seq, off, valid = ResolveCheckpoint(cpFile, run.RunID, runFile, local)
+	if valid || seq != 0 || off != store.HeaderLen {
+		t.Fatalf("wrong-seq boundary cp = (%d, %d, %v), want fallback", seq, off, valid)
 	}
 
 	// InitOnlineProgress 根据有效 checkpoint 设定重放起点

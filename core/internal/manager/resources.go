@@ -80,24 +80,18 @@ func (s *Session) open(init sessionInit) error {
 		Resume:         init.resume,
 	})
 	s.progress = prog.Tracker
-	var cpStore checkpoint.Store
-	if s.store != nil {
-		cpStore = s.store
+	if init.cfg.NormalizedMode() == config.ModeOnline && s.progress != nil {
+		s.checkpoint = checkpoint.New(checkpoint.Options{
+			Ctx:            s.ctx,
+			File:           opened.CheckpointFile,
+			RunID:          init.run.RunID,
+			RunFile:        s.runFile,
+			Store:          s.store,
+			Watermark:      s.progress.Watermark,
+			InitialSeq:     prog.CheckpointSeq,
+			InitialWritten: prog.CheckpointValid && prog.CheckpointSeq > 0,
+		})
 	}
-	var watermark func() uint64
-	if s.progress != nil {
-		watermark = s.progress.Watermark
-	}
-	s.checkpoint = checkpoint.New(checkpoint.Options{
-		Ctx:            s.ctx,
-		File:           opened.CheckpointFile,
-		RunID:          init.run.RunID,
-		RunFile:        s.runFile,
-		Store:          cpStore,
-		Watermark:      watermark,
-		InitialSeq:     prog.CheckpointSeq,
-		InitialWritten: prog.CheckpointValid && prog.CheckpointSeq > 0,
-	})
 	var pendingDeferred int
 	if len(endSaves) > 0 {
 		pendingDeferred = buffer.DefaultPendingDeferred + len(endSaves)

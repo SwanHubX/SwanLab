@@ -55,7 +55,7 @@ type Writer struct {
 	hasWrite bool
 }
 
-// New 创建断点写入器；当 File 为空或 Store 为 nil 时，所有写入操作退化为空操作。
+// New 创建断点写入器；当路径、Store、RunID 或 Watermark 缺失时，所有写入操作退化为空操作。
 func New(opts Options) *Writer {
 	interval := opts.Interval
 	if interval <= 0 {
@@ -75,9 +75,13 @@ func New(opts Options) *Writer {
 	}
 }
 
-// Start 启动周期持久化上传断点的后台协程；未配置路径或 store 时安全跳过。
+func (w *Writer) enabled() bool {
+	return w != nil && w.file != "" && w.store != nil && w.runID != "" && w.watermark != nil
+}
+
+// Start 启动周期持久化上传断点的后台协程；未启用时安全跳过。
 func (w *Writer) Start() {
-	if w == nil || w.file == "" || w.store == nil || w.runID == "" {
+	if !w.enabled() {
 		return
 	}
 	w.startOnce.Do(func() {
@@ -121,22 +125,19 @@ func (w *Writer) Flush() {
 	w.Persist()
 }
 
-// Persist 把当前已连续确认且已落盘的进度写入 checkpoint.json。
-// 有 watermark 时取 min(watermark(), flushedSeq)；否则直接取 flushedSeq。
-// 写入失败仅告警一次并留待后续周期重试，不中断会话运行。
+// Persist 把当前已连续确认且已落盘的进度 min(Watermark(), flushedSeq) 写入 checkpoint.json。
+// 未配置 Watermark 时不会写入；写入失败仅告警一次并留待后续周期重试，不中断会话运行。
 func (w *Writer) Persist() {
-	if w == nil || w.file == "" || w.store == nil || w.runID == "" {
+	if !w.enabled() {
 		return
 	}
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
 	flushedSeq, flushedOff := w.store.Flushed()
-	targetSeq := flushedSeq
-	if w.watermark != nil {
-		if mark := w.watermark(); mark < targetSeq {
-			targetSeq = mark
-		}
+	targetSeq := w.watermark()
+	if flushedSeq < targetSeq {
+		targetSeq = flushedSeq
 	}
 	if targetSeq == 0 {
 		return

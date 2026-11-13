@@ -101,6 +101,14 @@ func (m *Manager) DeliverRunStart(
 			"%w: incomplete project metadata (workspace=%q project=%q cuid=%q path=%q)",
 			client.ErrInvalidResponse, workspace, projectName, project.CUID, project.Path)
 	}
+	if err = resume.ValidateStart(local, resume.StartIdentity{
+		RunID:               firstNonEmpty(rec.GetId(), cfg.RunID),
+		Workspace:           workspace,
+		Project:             projectName,
+		AllowEmptyWorkspace: true,
+	}); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrInvalidStartRecord, err)
+	}
 
 	name := rec.GetName()
 	if name == "" {
@@ -211,6 +219,13 @@ func (m *Manager) deliverLocalStart(
 	run *runctx.RunContext,
 	local *metrics.RebuildResult,
 ) (*StartResult, error) {
+	if err := resume.ValidateStart(local, resume.StartIdentity{
+		RunID:     firstNonEmpty(rec.GetId(), cfg.RunID),
+		Workspace: rec.GetWorkspace(),
+		Project:   rec.GetProject(),
+	}); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrInvalidStartRecord, err)
+	}
 	s := newSession(sessionOptions{})
 	s.ctx, s.cancel = context.WithCancel(context.Background())
 	s.cfg = cfg
