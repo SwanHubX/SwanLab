@@ -128,9 +128,6 @@ class MediaMetric(BaseMetric):
                 f"Media metric '{self._column.column_key}' has not been defined, maybe it's defined in resume"
             )
             return
-        # 新版 Video 使用 VIDEO，允许续写旧 IMAGE 指标，历史记录保持原样。
-        if self.column_type == ColumnType.COLUMN_TYPE_IMAGE and metric_type == ColumnType.COLUMN_TYPE_VIDEO:
-            return
         BaseMetric.ensure_type_match(self, metric_type)
 
     def update(self, data_record: Any):

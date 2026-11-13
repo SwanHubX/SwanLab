@@ -16,7 +16,7 @@ import swanlab
 import swanlab.sdk.internal.run.transforms.video as video_module
 from swanlab import Video
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
-from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaItem, MediaRecord, MediaValue
+from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaItem, MediaRecord, MediaValue, ScalarRecord
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.run import Run
 from swanlab.sdk.internal.run.components.consumer.builder import RecordBuilder
@@ -107,8 +107,35 @@ def test_buffer_growth_rechecked_before_logging(monkeypatch):
     video = Video(GIF)
     video.buffer.seek(0, 2)
     video.buffer.write(b"x" * 100)
-    assert video.transform(step=0, path=None) is None
+    with pytest.raises(source.VideoProcessingError, match="exceeds"):
+        video.transform(step=0, path=None)
     assert video.error is not None and video.error.code == "size_limit"
+
+
+@pytest.mark.parametrize("skip_store", [False, True])
+def test_video_record_builder_isolates_transform_failure(tmp_path, monkeypatch, skip_store):
+    ctx = SimpleNamespace(
+        media_dir=tmp_path,
+        config=SimpleNamespace(settings=SimpleNamespace(core=SimpleNamespace(skip_store=skip_store))),
+    )
+    builder = RecordBuilder(cast(RunContext, ctx))
+    bad = Video(GIF, "bad")
+    good = Video(GIF + b"good", "good")
+    bad_source = bad._source
+    refresh = source.VideoSource.refresh
+
+    def failed_refresh(video_source):
+        if video_source is bad_source:
+            raise OSError("Video source became unreadable")
+        return refresh(video_source)
+
+    monkeypatch.setattr(source.VideoSource, "refresh", failed_refresh)
+    record, _ = builder.build_scalar_or_media([bad, good], "clips", Timestamp(), 0)
+    assert isinstance(record, MediaRecord)
+    assert [item.caption for item in record.value.items] == ["good"]
+    assert not bad.is_valid and good.is_valid
+    scalar, _ = builder.build_scalar_or_media(0.5, "loss", Timestamp(), 0)
+    assert isinstance(scalar, ScalarRecord) and scalar.value.number == 0.5
 
 
 def test_media_limits_remain_separate(tmp_path):

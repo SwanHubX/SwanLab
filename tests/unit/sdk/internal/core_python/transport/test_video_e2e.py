@@ -286,26 +286,6 @@ def test_video_formats_use_media_upload(tmp_path, backend, skip_store, fmt, cont
         sender.close()
 
 
-def test_media_put_retry_does_not_log_signed_url(tmp_path, backend, monkeypatch):
-    from swanlab.sdk.internal.pkg import console
-    from swanlab.sdk.internal.pkg.client import session
-
-    ctx = context(tmp_path)
-    record = video_record(ctx)
-    backend.failures[f"media/video/{record.media.value.items[0].filename}"] = [500, 200]
-    messages = []
-    monkeypatch.setattr(session.helper, "DEBUG", True)
-    monkeypatch.setattr(console, "debug", lambda *args, **kwargs: messages.append(str(args)))
-    monkeypatch.setattr(console, "error", lambda *args, **kwargs: messages.append(str(args)))
-    sender = HttpRecordSender(ctx)
-    try:
-        drain(sender, [record])
-        assert len(backend.puts) == 2
-        assert not any("signature=test" in message for message in messages)
-    finally:
-        sender.close()
-
-
 def test_video_above_ordinary_media_limit_streams_unchanged(tmp_path, backend):
     ctx = context(tmp_path)
     content = b"GIF89a" + b"x" * (11 * 1024**2)

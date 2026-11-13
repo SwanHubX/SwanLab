@@ -189,9 +189,14 @@ class Video(TransformMedia):
     def column_type(cls) -> ColumnType:
         return ColumnType.COLUMN_TYPE_VIDEO
 
-    def transform(self, *, step: int, path: Optional[Path]) -> Optional[MediaItem]:
+    def transform(self, *, step: int, path: Optional[Path]) -> MediaItem:
+        """Build a media item; the video record builder isolates conversion failures."""
         if not self.is_valid:
-            return None
+            error = self._error
+            raise VideoProcessingError(
+                error.code if error is not None else "invalid_video",
+                error.message if error is not None else "Video has no valid source",
+            )
         assert self._source is not None
         try:
             self._source.refresh()
@@ -212,4 +217,4 @@ class Video(TransformMedia):
             return item
         except Exception as error:
             self._invalidate(error)
-            return None
+            raise

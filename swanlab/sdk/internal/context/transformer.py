@@ -74,7 +74,7 @@ class TransformData(ABC):
         return {}
 
     @abstractmethod
-    def transform(self, *args: Any, **kwargs: Any) -> Optional[Message]:
+    def transform(self, *args: Any, **kwargs: Any) -> Message:
         """
         将数据转换为 Protobuf 格式。
         """
@@ -120,7 +120,7 @@ class TransformMedia(TransformData, ABC):
         )
 
     @abstractmethod
-    def transform(self, *, step: int, path: Optional[Path]) -> Optional[MediaItem]:
+    def transform(self, *, step: int, path: Optional[Path]) -> MediaItem:
         """
         将媒体数据转换为Protobuf格式
         :param step: 步数

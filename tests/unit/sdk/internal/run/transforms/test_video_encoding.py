@@ -14,6 +14,7 @@ from PIL.GifImagePlugin import GifImageFile
 import swanlab.sdk.internal.run.transforms.video as video_module
 from swanlab import Video
 from swanlab.sdk.internal.run.transforms.video.encoding import MAX_DIMENSION, Frames
+from swanlab.sdk.internal.run.transforms.video.source import VideoProcessingError
 
 
 def decode(video: Video) -> bytes:
@@ -119,7 +120,8 @@ def test_float_pixels_are_rejected_before_encoding(protocol, monkeypatch):
     video = Video(data, format="gif")
     assert not video.is_valid and video.error is not None
     assert video.error.code == "dtype" and "uint8" in video.error.message
-    assert video.transform(step=0, path=None) is None
+    with pytest.raises(VideoProcessingError, match="uint8"):
+        video.transform(step=0, path=None)
 
 
 @pytest.mark.parametrize("fmt", ["gif", "mp4", "webm", "ogg"])
@@ -134,7 +136,8 @@ def test_oversized_canvas_is_rejected_before_encoding(fmt, shape, monkeypatch):
     assert not video.is_valid and video.error is not None
     assert video.error.code == "dimensions_limit"
     assert str(MAX_DIMENSION) in video.error.message
-    assert video.transform(step=0, path=None) is None
+    with pytest.raises(VideoProcessingError, match="4096"):
+        video.transform(step=0, path=None)
 
 
 @pytest.mark.parametrize("fmt", ["gif", "mp4", "webm", "ogg"])

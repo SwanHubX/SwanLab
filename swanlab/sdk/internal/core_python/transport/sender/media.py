@@ -12,8 +12,6 @@ from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import IO, TYPE_CHECKING, Dict, Optional, Sequence, Union
 
-from requests import Session
-
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.core_python.api.upload import upload_resource
@@ -21,6 +19,7 @@ from swanlab.sdk.internal.core_python.context import CoreContext
 from swanlab.sdk.internal.core_python.pkg.mime import guess_type
 from swanlab.sdk.internal.core_python.utils import get_buffer_size
 from swanlab.sdk.internal.pkg import adapter, console
+from swanlab.sdk.internal.pkg.client.session import SessionWithRetry
 from swanlab.sdk.typings.core_python.api.upload import UploadMedia
 from swanlab.sdk.typings.core_python.transport import UploadFailure
 
@@ -153,7 +152,7 @@ def collect_media_tasks(ctx: CoreContext, records: Sequence[Record]) -> list[Med
 
 
 def put_media_resources(
-    session: Session,
+    session: SessionWithRetry,
     experiment_id: str,
     payloads: Sequence[MediaPayload],
     *,

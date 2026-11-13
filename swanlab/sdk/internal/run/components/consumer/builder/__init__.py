@@ -129,7 +129,7 @@ class RecordBuilder:
             raise TypeError(f"All items in the list must be of the same type {cls.__name__}, got mixed types.")
         # 3. 构建媒体记录
         path = self._resolve_media_dir(cls.column_type())
-        items = [item for value_item in value if (item := value_item.transform(step=step, path=path)) is not None]
+        items = [item.transform(step=step, path=path) for item in value]
         media_record = self._ensure_media_size(
             cls.build_data_record(key=key, step=step, timestamp=timestamp, data=items)
         )
@@ -143,9 +143,8 @@ class RecordBuilder:
             return self._build_videos([value], key, timestamp, step)
         path = self._resolve_media_dir(cls.column_type())
         item = value.transform(step=step, path=path)
-        values = [item] if item is not None else []
         media_record = self._ensure_media_size(
-            cls.build_data_record(key=key, step=step, timestamp=timestamp, data=values)
+            cls.build_data_record(key=key, step=step, timestamp=timestamp, data=[item])
         )
         return media_record, cls
 
@@ -167,16 +166,19 @@ class RecordBuilder:
             if skip_store and payload_size + (video.size or 0) > VIDEO_MAX_SIZE:
                 budget_exceeded = True
                 break
-            item = video.transform(step=step, path=self._resolve_media_dir(Video.column_type()))
-            if item is not None:
-                # buffer 可在构造后被修改，按 transform 后的实际 payload 再核对总量。
-                if skip_store and payload_size + len(item.payload) > VIDEO_MAX_SIZE:
-                    budget_exceeded = True
-                    break
-                payload_size += len(item.payload)
-                items.append(item)
-            else:
+            try:
+                item = video.transform(step=step, path=self._resolve_media_dir(Video.column_type()))
+            except Exception as error:
+                if video.is_valid:
+                    console.warning(f"Video key '{key}' step {step}: {type(error).__name__}: {error}")
                 rejected += 1
+                continue
+            # buffer 可在构造后被修改，按 transform 后的实际 payload 再核对总量。
+            if skip_store and payload_size + len(item.payload) > VIDEO_MAX_SIZE:
+                budget_exceeded = True
+                break
+            payload_size += len(item.payload)
+            items.append(item)
         if budget_exceeded:
             console.warning(
                 f"Video key '{key}' step {step} exceeds the {VIDEO_MAX_SIZE}-byte total payload limit "
