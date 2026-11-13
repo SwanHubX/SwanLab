@@ -1073,18 +1073,20 @@ class TestInitOnlineSkipStore:
             "epochs": {"value": 5, "desc": "", "sort": 2},
         }
 
+    @pytest.mark.parametrize("record_batch", [1, 10000])
     def test_skip_store_uploads_full_run_to_cloud(
         self,
         logged_in_client,
         mock_online_skip_store_apis,
         tmp_path,
         rsps,
+        record_batch,
     ):
         """record 全部上云，本地零文件"""
         import numpy as np
 
         global_config["lr"] = 0.01
-        run = init(project=PROJECT, settings=Settings(core=Settings.Core(skip_store=True)))
+        run = init(project=PROJECT, settings=Settings(core=Settings.Core(skip_store=True, record_batch=record_batch)))
         checkpoint = tmp_path / "model.pt"
         checkpoint.write_text("weights", encoding="utf-8")
 
@@ -1675,11 +1677,20 @@ def mock_media_upload_api(rsps):
 @pytest.fixture
 def mock_save_prepare_multi_api(rsps):
     """注册 POST files/prepare 端点，返回与待上传文件数一致的预签名 URL"""
-    rsps.add(
+    next_index = 0
+
+    def prepare(request):
+        nonlocal next_index
+        files = json.loads(request.body)["files"]
+        urls = SKIP_STORE_SAVE_URLS[next_index : next_index + len(files)]
+        assert len(urls) == len(files)
+        next_index += len(files)
+        return 200, {"Content-Type": "application/json"}, json.dumps({"urls": urls})
+
+    rsps.add_callback(
         responses_lib.POST,
         f"{API_HOST}/api/experiment/{EXPERIMENT_CUID}/files/prepare",
-        json={"urls": list(SKIP_STORE_SAVE_URLS)},
-        status=200,
+        callback=prepare,
     )
     return rsps
 

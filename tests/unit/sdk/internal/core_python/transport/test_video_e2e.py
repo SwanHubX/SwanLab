@@ -1,4 +1,4 @@
-"""视频本地 HTTP 回归：流式 PUT、逐文件结果、JSON 重试和 Transport 隔离。"""
+"""视频本地 HTTP 回归：复用媒体上传、record 重试与后台线程清理。"""
 
 import hashlib
 import json
@@ -9,6 +9,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from io import BytesIO
 from typing import Literal
 from urllib.parse import urlsplit
+from uuid import uuid4
 
 import pytest
 import requests
@@ -26,8 +27,10 @@ from swanlab.proto.swanlab.metric.data.v1.data_pb2 import (
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.core_python.context import CoreConfig, CoreContext
+from swanlab.sdk.internal.core_python.transport import sender as sender_module
 from swanlab.sdk.internal.core_python.transport.dispatch import Dispatch
 from swanlab.sdk.internal.core_python.transport.sender import HttpRecordSender
+from swanlab.sdk.internal.core_python.transport.sender import media as sender_media
 from swanlab.sdk.internal.core_python.transport.sender.media import collect_media_tasks
 from swanlab.sdk.internal.core_python.transport.tracker import UploadTracker
 from swanlab.sdk.internal.core_python.transport.worker import Transport
@@ -49,6 +52,7 @@ class Backend:
         self.release.set()
         self.active = 0
         self.max_active = 0
+        self.lock = threading.Lock()
         backend = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -84,8 +88,9 @@ class Backend:
                 path = urlsplit(self.path).path.removeprefix("/objects/")
                 is_video = "/video/" in path
                 if is_video:
-                    backend.active += 1
-                    backend.max_active = max(backend.max_active, backend.active)
+                    with backend.lock:
+                        backend.active += 1
+                        backend.max_active = max(backend.max_active, backend.active)
                     backend.started.set()
                     backend.release.wait(timeout=5)
                 try:
@@ -104,7 +109,8 @@ class Backend:
                     self.reply({"code": "ExpiredToken"} if status == 401 else {}, status)
                 finally:
                     if is_video:
-                        backend.active -= 1
+                        with backend.lock:
+                            backend.active -= 1
 
             def do_GET(self):
                 backend.gets.append(self.path)
@@ -123,10 +129,27 @@ class Backend:
         self.server.shutdown()
         self.server.server_close()
         self.thread.join(timeout=5)
+        assert not self.thread.is_alive()
+
+    def metric_requests(self, ctx):
+        return [
+            request
+            for request in self.metrics
+            if request["projectId"] == ctx.project_id and request["experimentId"] == ctx.experiment_id
+        ]
+
+    def media_items(self, ctx, key):
+        return [
+            metric
+            for request in self.metric_requests(ctx)
+            if request["type"] == "media"
+            for metric in request["metrics"]
+            if metric["key"] == key
+        ]
 
 
 @pytest.fixture
-def backend(monkeypatch):
+def backend(monkeypatch, transport_cleanup):
     server = Backend()
     if client.exists():
         client.reset()
@@ -135,8 +158,12 @@ def backend(monkeypatch):
     try:
         yield server
     finally:
-        client.reset()
-        server.close()
+        server.release.set()
+        try:
+            transport_cleanup()
+        finally:
+            client.reset()
+            server.close()
 
 
 def context(path, mode: Literal["core", "sync"] = "core", *, record_batch=1000, skip_store=False):
@@ -155,7 +182,7 @@ def context(path, mode: Literal["core", "sync"] = "core", *, record_batch=1000, 
         ),
         mode=mode,
     )
-    ctx.set_online_params("alice", "project", "project-id", 1, "experiment-id")
+    ctx.set_online_params("alice", "project", "video-project", 1, uuid4().hex[:21])
     return ctx
 
 
@@ -188,7 +215,7 @@ def drain(sender, records):
     assert not pending
 
 
-def test_partial_put_failures_and_stable_json_retry(tmp_path, backend):
+def test_media_record_retry_reuploads_files_and_preserves_metadata(tmp_path, backend):
     ctx = context(tmp_path)
     record = video_record(ctx, count=3)
     paths = [f"media/video/{item.filename}" for item in record.media.value.items]
@@ -198,16 +225,15 @@ def test_partial_put_failures_and_stable_json_retry(tmp_path, backend):
     sender = HttpRecordSender(ctx)
     try:
         drain(sender, [record])
-        assert [put[0] for put in backend.puts].count(paths[0]) == 1
-        assert [put[0] for put in backend.puts].count(paths[1]) == 1
-        assert [put[0] for put in backend.puts].count(paths[2]) == 2
-        assert len(backend.metrics) == 2
-        assert backend.metrics[0] == backend.metrics[1]
-        metric = backend.metrics[0]["metrics"][0]
-        assert metric["data"] == [paths[0], paths[2]]
-        assert metric["more"] == [{}, {"caption": "2"}]
-        assert all(len(request["paths"]) == 1 for request in backend.signatures)
-        assert backend.max_active == 1 and not backend.gets
+        assert all([put[0] for put in backend.puts].count(path) == 3 for path in paths)
+        requests = backend.metric_requests(ctx)
+        assert len(requests) == 2
+        assert requests[0] == requests[1]
+        metric = backend.media_items(ctx, "clips")[0]
+        assert metric["data"] == paths
+        assert metric["more"] == [{}, {"caption": "1"}, {"caption": "2"}]
+        assert all(request["paths"] == paths for request in backend.signatures)
+        assert backend.max_active <= 3 and not backend.gets
         assert all(put[1] == "image/gif" for put in backend.puts)
     finally:
         sender.close()
@@ -222,7 +248,59 @@ def test_expired_signature_reacquired(tmp_path, backend):
     try:
         drain(sender, [record])
         assert len(backend.signatures) == len(backend.puts) == 2
-        assert len(backend.metrics) == 1
+        assert len(backend.metric_requests(ctx)) == 1
+    finally:
+        sender.close()
+
+
+@pytest.mark.parametrize("skip_store", [False, True])
+@pytest.mark.parametrize(
+    "fmt,content,mime",
+    [
+        ("gif", b"GIF89a-payload", "image/gif"),
+        ("mp4", b"\x00\x00\x00\x10ftypmp42\x00\x00\x00\x00", "video/mp4"),
+        ("webm", b"\x1a\x45\xdf\xa3\x87\x42\x82\x84webm", "video/webm"),
+        ("ogg", b"OggS-payload", "video/ogg"),
+    ],
+)
+def test_video_formats_use_media_upload(tmp_path, backend, skip_store, fmt, content, mime):
+    ctx = context(tmp_path, skip_store=skip_store)
+    item = Video(content, format=fmt).transform(step=0, path=None if skip_store else ctx.media_dir / "video")
+    assert item is not None
+    ts = Timestamp()
+    ts.GetCurrentTime()
+    record = Record(
+        media=MediaRecord(
+            key="formats", type=ColumnType.COLUMN_TYPE_VIDEO, timestamp=ts, value=MediaValue(items=[item])
+        )
+    )
+    sender = HttpRecordSender(ctx)
+    try:
+        drain(sender, [record])
+        assert backend.puts == [
+            (f"media/video/{item.filename}", mime, len(content), hashlib.sha256(content).hexdigest())
+        ]
+        assert backend.media_items(ctx, "formats")[0]["more"] == [{}]
+    finally:
+        sender.close()
+
+
+def test_media_put_retry_does_not_log_signed_url(tmp_path, backend, monkeypatch):
+    from swanlab.sdk.internal.pkg import console
+    from swanlab.sdk.internal.pkg.client import session
+
+    ctx = context(tmp_path)
+    record = video_record(ctx)
+    backend.failures[f"media/video/{record.media.value.items[0].filename}"] = [500, 200]
+    messages = []
+    monkeypatch.setattr(session.helper, "DEBUG", True)
+    monkeypatch.setattr(console, "debug", lambda *args, **kwargs: messages.append(str(args)))
+    monkeypatch.setattr(console, "error", lambda *args, **kwargs: messages.append(str(args)))
+    sender = HttpRecordSender(ctx)
+    try:
+        drain(sender, [record])
+        assert len(backend.puts) == 2
+        assert not any("signature=test" in message for message in messages)
     finally:
         sender.close()
 
@@ -242,13 +320,42 @@ def test_video_above_ordinary_media_limit_streams_unchanged(tmp_path, backend):
     try:
         drain(sender, [record])
         assert backend.puts[0][2:] == (len(content), hashlib.sha256(content).hexdigest())
-        assert backend.metrics[0]["metrics"][0]["more"] == [{}]
+        metrics = backend.media_items(ctx, "large")
+        assert len(metrics) == 1
+        assert metrics[0]["more"] == [{}]
+    finally:
+        sender.close()
+
+
+def test_video_metadata_is_selected_by_experiment_and_key(tmp_path, backend):
+    ctx = context(tmp_path)
+    for experiment, metric_type, key in [
+        ("other-experiment", "media", "clips"),
+        (ctx.experiment_id, "scalar", "clips"),
+        (ctx.experiment_id, "media", "other-key"),
+    ]:
+        client.post(
+            "/house/metrics",
+            {
+                "projectId": ctx.project_id,
+                "experimentId": experiment,
+                "type": metric_type,
+                "metrics": [{"key": key, "data": 1}],
+            },
+            retries=0,
+        )
+    sender = HttpRecordSender(ctx)
+    try:
+        drain(sender, [video_record(ctx)])
+        metrics = backend.media_items(ctx, "clips")
+        assert len(metrics) == 1
+        assert metrics[0]["more"] == [{}]
     finally:
         sender.close()
 
 
 @pytest.mark.parametrize("mode", ["core", "sync"])
-def test_blocked_video_put_does_not_block_other_metrics(tmp_path, backend, mode):
+def test_video_and_other_metrics_share_upload_thread(tmp_path, backend, mode):
     ctx = context(tmp_path, mode)
     backend.release.clear()
     tracker = UploadTracker()
@@ -263,6 +370,10 @@ def test_blocked_video_put_does_not_block_other_metrics(tmp_path, backend, mode)
             ]
         )
         assert backend.started.wait(timeout=3)
+        deadline = time.monotonic() + 3
+        while backend.active < 2 and time.monotonic() < deadline:
+            time.sleep(0.005)
+        assert backend.active == 2
         ts = Timestamp()
         ts.GetCurrentTime()
         transport.put(
@@ -285,14 +396,15 @@ def test_blocked_video_put_does_not_block_other_metrics(tmp_path, backend, mode)
                 ),
             ]
         )
-        deadline = time.monotonic() + 3
-        while time.monotonic() < deadline and len(backend.metrics) < 3:
-            time.sleep(0.01)
-        assert {metric["type"] for metric in backend.metrics} == {"scalar", "histogram", "media"}
-        assert transport.pending_records()
+        assert not backend.metric_requests(ctx)
+        assert transport._thread is not None and transport._thread.is_alive()
+        assert sum(thread.name == Transport.THREAD_NAME for thread in threading.enumerate()) == 1
+        assert {record.num for record in transport.pending_records()} >= {1, 3, 4, 5, 6}
+        assert not transport.finish(timeout=0.01)
         backend.release.set()
         assert transport.finish(timeout=5), transport.finish_summary()
-        assert backend.max_active == 1
+        assert {metric["type"] for metric in backend.metric_requests(ctx)} == {"scalar", "histogram", "media"}
+        assert backend.max_active == 2
         assert not transport.pending_records()
         stats = tracker.snapshot()
         assert stats.total_records == stats.uploaded_records == 6
@@ -321,34 +433,31 @@ def test_skip_store_http_retry_sends_identical_full_body(tmp_path, backend):
 
 
 def test_skip_store_partial_read_failure_rewinds_before_retry(tmp_path, monkeypatch):
-    from swanlab.sdk.internal.core_python.transport.sender import video as sender_video
-
     ctx = context(tmp_path, skip_store=True)
     record = video_record(ctx)
-    uploader = sender_video.VideoUploader(ctx, UploadTracker())
+    sender = HttpRecordSender(ctx)
     reads = []
 
-    def put(session, experiment, payloads, **kwargs):
-        payload = payloads[0]
-        assert isinstance(payload.buffer, BytesIO)
+    def put(session, experiment, *, buffers, **kwargs):
+        buffer = buffers[0]
+        assert isinstance(buffer, BytesIO)
         if not reads:
-            reads.append(payload.buffer.read(3))
+            reads.append(buffer.read(3))
             return {0: requests.ConnectionError("interrupted")}
-        reads.append(payload.buffer.read())
+        reads.append(buffer.read())
         return {}
 
-    monkeypatch.setattr(sender_video, "put_media_resources", put)
-    monkeypatch.setattr(sender_video, "upload_media", lambda *args, **kwargs: None)
-    uploader._retry.schedule = lambda failed_rounds: 0.0
+    monkeypatch.setattr(sender_media, "upload_resource", put)
+    monkeypatch.setattr(sender_module, "upload_media", lambda *args, **kwargs: None)
     try:
-        assert uploader.upload([record]).remaining_records
-        assert uploader.upload([record]).confirmed_records
+        assert sender.upload_media([record]).remaining_records
+        assert sender.upload_media([record]).confirmed_records
         assert reads == [record.media.value.items[0].payload[:3], record.media.value.items[0].payload]
     finally:
-        uploader.close()
+        sender.close()
 
 
-def test_backoff_in_first_record_does_not_block_later_dispatch_chunks(tmp_path, backend):
+def test_video_record_retry_respects_media_dispatch_batches(tmp_path, backend):
     ctx = context(tmp_path, record_batch=1)
     first = video_record(ctx, number=1)
     second = video_record(ctx, key="second", number=2, step=2)
@@ -360,19 +469,17 @@ def test_backoff_in_first_record_does_not_block_later_dispatch_chunks(tmp_path, 
     try:
         result = dispatch([first, second])
         assert len(backend.puts) == 1
-        assert sender._video_uploader is not None
-        state = sender._video_uploader._tasks[id(first)]
-        state.retry_at[0] = time.monotonic() + 30
+        assert result.remaining_records == [first, second]
         result = dispatch(result.remaining_records)
-        assert [put[0] for put in backend.puts] == [first_path, second_path]
-        assert result.remaining_records == [first]
-        assert result.confirmed_records == [second]
+        assert [put[0] for put in backend.puts] == [first_path, first_path, second_path]
+        assert not result.remaining_records
+        assert result.confirmed_records == [first, second]
     finally:
         sender.close()
 
 
-def test_new_video_record_runs_while_earlier_record_is_in_backoff(tmp_path, backend, monkeypatch):
-    monkeypatch.setattr(RetryPolicy, "schedule", lambda self, rounds: 5)
+def test_new_video_record_waits_for_pending_upload(tmp_path, backend, monkeypatch):
+    monkeypatch.setattr(RetryPolicy, "schedule", lambda self, rounds: 0.2)
     ctx = context(tmp_path, record_batch=1)
     first = video_record(ctx)
     backend.failures[f"media/video/{first.media.value.items[0].filename}"] = [500, 200]
@@ -384,27 +491,17 @@ def test_new_video_record_runs_while_earlier_record_is_in_backoff(tmp_path, back
         while not backend.puts and time.monotonic() < deadline:
             time.sleep(0.005)
         transport.put([video_record(ctx, key="second", step=2, number=2)])
-        deadline = time.monotonic() + 2
-        while len(backend.puts) < 2 and time.monotonic() < deadline:
-            time.sleep(0.005)
-        assert len(backend.puts) >= 2
-        assert backend.puts[1][0] != backend.puts[0][0]
-        assert transport._video is not None and transport._video._sender is not None
-        uploader = transport._video._sender._video_uploader
-        assert uploader is not None
-        uploader._tasks[id(first)].retry_at[0] = 0
         assert transport.finish(timeout=5)
+        assert len(backend.puts) == 3
+        assert backend.puts[0][0] == backend.puts[1][0]
+        assert backend.puts[2][0] != backend.puts[0][0]
     finally:
-        if transport._video is not None and transport._video._sender is not None:
-            uploader = transport._video._sender._video_uploader
-            if uploader is not None:
-                for task in uploader._tasks.values():
-                    task.retry_at.clear()
-        transport.finish(timeout=5)
+        assert transport.finish(timeout=5)
 
 
-def test_permanent_metric_rejection_closes_tracker_and_finishes(tmp_path, backend):
-    ctx = context(tmp_path)
+@pytest.mark.parametrize("skip_store", [False, True])
+def test_permanent_metric_rejection_closes_tracker_and_finishes(tmp_path, backend, skip_store):
+    ctx = context(tmp_path, skip_store=skip_store)
     backend.metric_status = 403
     tracker = UploadTracker()
     transport = Transport(ctx, tracker=tracker)
@@ -414,7 +511,10 @@ def test_permanent_metric_rejection_closes_tracker_and_finishes(tmp_path, backen
         assert transport.finish(timeout=5)
         assert not transport.pending_records()
         assert not tracker._files
-        assert (ctx.media_dir / "video" / record.media.value.items[0].filename).exists()
+        if skip_store:
+            assert not ctx.media_dir.exists()
+        else:
+            assert (ctx.media_dir / "video" / record.media.value.items[0].filename).exists()
     finally:
         transport.finish(timeout=5)
 

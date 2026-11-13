@@ -34,6 +34,14 @@ def is_video_media(record: Record) -> bool:
     return record.HasField("media") and record.media.type == ColumnType.COLUMN_TYPE_VIDEO
 
 
+def _content_type(record: Record, filename: Union[str, Path]) -> str:
+    if is_video_media(record):
+        from swanlab.sdk.internal.run.transforms.video.source import MIME_TYPES
+
+        return MIME_TYPES.get(Path(filename).suffix.lower().lstrip("."), guess_type(filename))
+    return guess_type(filename)
+
+
 @dataclass
 class MediaPayload:
     """单个媒体文件的上传载荷。"""
@@ -92,7 +100,7 @@ def collect_media_tasks(ctx: CoreContext, records: Sequence[Record]) -> list[Med
             if media.HasField("payload"):
                 payload = media.payload
                 size = len(payload)
-                mime_type = guess_type(media.filename)
+                mime_type = _content_type(record, media.filename)
                 item_payload = MediaPayload(
                     remote_path=remote_path,
                     tracker_key=f"{remote_path}:{size}",
@@ -119,7 +127,7 @@ def collect_media_tasks(ctx: CoreContext, records: Sequence[Record]) -> list[Med
                 continue
             try:
                 size = get_buffer_size(local_path)
-                mime_type = guess_type(local_path)
+                mime_type = _content_type(record, local_path)
             except OSError as e:
                 reasons.append(f"media file unreadable: {local_path}: {e}")
                 continue

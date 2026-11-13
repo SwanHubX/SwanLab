@@ -16,6 +16,7 @@ from requests.sessions import Session
 from swanlab.exceptions import ApiError
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.core_python.utils import ProgressFileWrapper, get_buffer_size
+from swanlab.sdk.internal.pkg.client.session import SessionWithRetry
 from swanlab.sdk.internal.pkg.executor import SafeThreadPoolExecutor
 from swanlab.sdk.typings.core_python.api.upload import (
     UploadColumns,
@@ -291,5 +292,8 @@ def _put_with_progress(
         )
     else:
         data = file_obj
-    resp = session.put(url, data=data, headers={"Content-Type": content_type})
+    if isinstance(session, SessionWithRetry):
+        resp = session.put(url, data=data, headers={"Content-Type": content_type}, log_error=False)
+    else:
+        resp = session.put(url, data=data, headers={"Content-Type": content_type})
     resp.raise_for_status()

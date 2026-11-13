@@ -11,7 +11,6 @@ from typing import TYPE_CHECKING, Dict, Iterator, List, Optional, Sequence, Tupl
 from swanlab.exceptions import ApiError
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.core_python.transport.sender import HttpRecordSender
-from swanlab.sdk.internal.core_python.transport.sender.media import is_video_media
 from swanlab.sdk.internal.pkg import console
 from swanlab.sdk.typings.core_python.transport import UploadFailure, UploadResult
 
@@ -102,11 +101,7 @@ class Dispatch:
         confirmed: List[Record] = []
         failures: List[UploadFailure] = []
         offset = 0
-        # 视频按实际文件预算调度完整就绪队列，退避项不能挡住后续 record。
-        batch_size = (
-            -1 if record_type == "media" and all(is_video_media(record) for record in records) else self._batch_size
-        )
-        for chunk, chunk_size in generate_chunks(records, batch_size):
+        for chunk, chunk_size in generate_chunks(records, self._batch_size):
             result = self._upload_chunk(record_type, chunk)
             if len(result.confirmed_records) + len(result.remaining_records) != chunk_size:
                 console.error(f"Upload result did not account for all {chunk_size} record(s) of {record_type!r}.")

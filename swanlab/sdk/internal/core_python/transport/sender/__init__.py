@@ -43,10 +43,9 @@ from swanlab.sdk.typings.core_python.api.upload import (
 )
 from swanlab.sdk.typings.core_python.transport import UploadFailure, UploadResult
 
-from .media import MediaPayload, MediaRecordTask, collect_media_tasks, is_video_media, put_media_resources
+from .media import MediaPayload, MediaRecordTask, collect_media_tasks, put_media_resources
 from .save import resolve_save_source, upload_save_files
 from .utils import encode_column, is_retryable_error, transport_failure
-from .video import VideoUploader
 
 if TYPE_CHECKING:
     from swanlab.sdk.internal.core_python.transport.tracker import UploadTracker
@@ -66,7 +65,6 @@ class HttpRecordSender:
         self._completed_upload_keys: set[str] = set()
         self._completed_upload_keys_lock = threading.Lock()
         self._buffer_session: Optional[SessionWithRetry] = None
-        self._video_uploader: Optional[VideoUploader] = None
         self._upload_handlers: dict[str, Callable[[Sequence[Record]], UploadResult]] = {
             "column": self.upload_column,
             "scalar": self.upload_scalar,
@@ -84,11 +82,6 @@ class HttpRecordSender:
         if self._buffer_session is not None:
             self._buffer_session.close()
             self._buffer_session = None
-        if self._video_uploader is not None:
-            self._video_uploader.close()
-
-    def video_delay(self) -> float:
-        return self._video_uploader.delay() if self._video_uploader is not None else 0.0
 
     def _ensure_session(self) -> SessionWithRetry:
         """获取对象存储上传 session（default_retry=0，由 transport 层控制重试）。"""
@@ -314,20 +307,6 @@ class HttpRecordSender:
 
     def upload_media(self, records: Sequence[Record]) -> UploadResult:
         """收集媒体上传任务，上传至对象存储后提交媒体指标。"""
-        videos = []
-        ordinary = []
-        for record in records:
-            (videos if is_video_media(record) else ordinary).append(record)
-        if videos:
-            if self._video_uploader is None:
-                self._video_uploader = VideoUploader(self._ctx, self._tracker)
-            result = self._video_uploader.upload(videos)
-            if ordinary:
-                other = self.upload_media(ordinary)
-                result.confirmed_records.extend(other.confirmed_records)
-                result.remaining_records.extend(other.remaining_records)
-                result.failures.extend(other.failures)
-            return result
         tasks = collect_media_tasks(self._ctx, records)
         payloads: List[MediaPayload] = []
         blocked_records: List[Record] = []

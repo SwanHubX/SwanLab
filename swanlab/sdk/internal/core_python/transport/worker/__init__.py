@@ -10,7 +10,6 @@ import time
 from typing import List, Optional
 
 from swanlab.deprecated.sender import DeprecatedHttpRecordSender
-from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
 from swanlab.proto.swanlab.operation.v1.operation_pb2 import CoreState
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.core_python.context import CoreContext
@@ -19,7 +18,6 @@ from swanlab.sdk.typings.core_python.transport import UploadFailure, UploadResul
 
 from ..dispatch import Dispatch
 from ..sender import HttpRecordSender
-from ..sender.media import is_video_media
 from ..tracker import UploadTracker
 from .buffer import RecordBuffer
 from .utils import RetryPolicy
@@ -38,15 +36,12 @@ class Transport:
         sender: Optional[HttpRecordSender] = None,
         auto_start: bool = True,
         retry: Optional[RetryPolicy] = None,
-        _video_only: bool = False,
     ):
         self._ctx = ctx
         self._batch = ctx.config.record_batch
         self._batch_interval = ctx.config.record_interval
         self._tracker = tracker
         self._sender = sender
-        self._video_only = _video_only
-        self._video: Optional[Transport] = None
 
         self._cond = threading.Condition()
         self._buf = RecordBuffer()
@@ -92,12 +87,9 @@ class Transport:
             sender=sender,
             tracker=self._tracker,
         )
-        name = f"{self.THREAD_NAME}·Video" if self._video_only else self.THREAD_NAME
-        self._thread = threading.Thread(target=self._loop, name=name, daemon=True)
+        self._thread = threading.Thread(target=self._loop, name=self.THREAD_NAME, daemon=True)
         self._thread.start()
         self._started = True
-        if self._video is not None:
-            self._video.start()
 
     def put(self, records: List[Record]) -> bool:
         """追加 records 到缓冲区，返回是否接受入队。"""
@@ -109,33 +101,13 @@ class Transport:
                 rejected = True
             else:
                 rejected = False
-                if self._video_only:
-                    accepted = self._buf.extend(records)
-                    self._cond.notify_all()
-                else:
-                    video_records = []
-                    ordinary = []
-                    for record in records:
-                        (video_records if self._is_video(record) else ordinary).append(record)
-                    accepted = self._buf.extend(ordinary)
-                    if video_records:
-                        if self._video is None:
-                            self._video = Transport(
-                                ctx=self._ctx, tracker=self._tracker, auto_start=self._started, _video_only=True
-                            )
-                        self._video.put(video_records)
+                accepted = self._buf.extend(records)
         if rejected:
             console.error("Transport has already been finished; records were rejected.")
             return False
         if self._tracker is not None:
             self._tracker.add_total_records(accepted)
         return True
-
-    @staticmethod
-    def _is_video(record: Record) -> bool:
-        return (is_video_media(record)) or (
-            record.HasField("column") and record.column.column_type == ColumnType.COLUMN_TYPE_VIDEO
-        )
 
     def request_finish(self) -> None:
         """通知线程停止并排空缓冲区。"""
@@ -146,8 +118,6 @@ class Transport:
             # 立即发起一轮排空，不再等剩余的退避窗口
             self._retry_at = None
             self._cond.notify_all()
-            if self._video is not None:
-                self._video.request_finish()
 
     def join(self, timeout: Optional[float] = FINISH_JOIN_TIMEOUT) -> bool:
         """等待线程退出，返回是否在 timeout 内退出。"""
@@ -166,7 +136,7 @@ class Transport:
         """通知线程停止并等待缓冲区与未确认记录排空。"""
         self.request_finish()
         if self._thread is None:
-            return not self._buf and not self._pending and (self._video is None or self._video.finish(timeout=timeout))
+            return not self._buf and not self._pending
         if not self.join(timeout=timeout):
             return False
         return self._drained
@@ -174,13 +144,12 @@ class Transport:
     def pending_records(self) -> List[Record]:
         """返回未确认记录与缓冲区记录快照。"""
         with self._cond:
-            records = list(self._pending) + self._buf.snapshot()
-            return records + (self._video.pending_records() if self._video is not None else [])
+            return list(self._pending) + self._buf.snapshot()
 
     def last_failures(self) -> List[UploadFailure]:
         """返回最近一轮上传失败列表快照。"""
         with self._cond:
-            return list(self._last_failures) + (self._video.last_failures() if self._video is not None else [])
+            return list(self._last_failures)
 
     def finish_summary(self) -> str:
         """生成排空失败的单行诊断摘要。"""
@@ -203,15 +172,11 @@ class Transport:
                 if deadline is not None:
                     remaining = deadline - self._retry.clock()
                     while remaining > 0:
-                        if self._video_only and self._buf:
-                            break
                         self._cond.wait(timeout=remaining)
                         deadline = self._retry_at
                         if deadline is None:
                             break
                         remaining = deadline - self._retry.clock()
-                if self._video_only and self._buf:
-                    self._pending.extend(self._buf.drain())
                 return self._pending
             while not self._buf and not self._finished:
                 self._cond.wait(timeout=self._batch_interval)
@@ -245,14 +210,10 @@ class Transport:
                         self._failed_rounds = 0
                         self._retry_at = None
                     else:
-                        if self._video_only and all(record.HasField("media") for record in remaining):
-                            assert self._sender is not None
-                            retry_delay = self._sender.video_delay()
-                        else:
-                            self._failed_rounds += 1
-                            retry_delay = self._retry.schedule(self._failed_rounds)
+                        self._failed_rounds += 1
+                        retry_delay = self._retry.schedule(self._failed_rounds)
                         self._retry_at = self._retry.clock() + retry_delay
-                if retry_delay is None or not failures:
+                if retry_delay is None:
                     self._throttle.reset()
                 else:
                     self._throttle.warn()
@@ -260,12 +221,10 @@ class Transport:
             self._worker_error = e
             console.error(f"Transport worker exited unexpectedly: {type(e).__name__}: {e}")
         finally:
-            if self._video is not None:
-                self._drained = self._video.finish(timeout=None) and self._drained
             if self._sender is not None:
                 with safe.block(message="Failed to close sender resources"):
                     self._sender.close()
-            if self._tracker is not None and not self._video_only:
+            if self._tracker is not None:
                 self._tracker.set_state(CoreState.CORE_STATE_FINISHED)
 
 
