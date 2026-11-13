@@ -537,3 +537,40 @@ func TestDeliverRunStartDegradedWhenDataPlaneDown(t *testing.T) {
 		t.Fatalf("sites = %d, want 1", got)
 	}
 }
+
+func TestCheckpointSkipStoreProducesNoFile(t *testing.T) {
+	cloud := clienttest.NewCloud(t)
+	serveAuth(cloud)
+	serveHeartbeat(cloud, "exp-1")
+	serveProject(cloud, "alice", "demo", 1)
+	serveNewExperiment(cloud, "alice", "demo", "exp-1", "run-1")
+
+	mgr := newTestManager()
+	cfg := startSettings(t, cloud)
+	cfg.SkipStore = true
+
+	result, err := mgr.DeliverRunStart(context.Background(), cfg, &runv1.StartRecord{
+		Project:   "demo",
+		Workspace: "alice",
+		Id:        "run-1",
+	})
+	if err != nil {
+		t.Fatalf("DeliverRunStart: %v", err)
+	}
+	t.Cleanup(func() { closeStartedSession(t, mgr, result.SessionID) })
+
+	s, err := mgr.session(result.SessionID)
+	if err != nil {
+		t.Fatalf("session: %v", err)
+	}
+	if s.checkpoint.File() != "" {
+		t.Fatalf("checkpoint.File() = %q, want empty under skip_store", s.checkpoint.File())
+	}
+	matches, err := filepath.Glob(filepath.Join(cfg.RunDir, "*.checkpoint.json"))
+	if err != nil {
+		t.Fatalf("Glob: %v", err)
+	}
+	if len(matches) != 0 {
+		t.Fatalf("unexpected checkpoint files under skip_store: %v", matches)
+	}
+}

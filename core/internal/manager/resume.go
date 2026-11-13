@@ -134,36 +134,35 @@ func countUploadable(runFile string, startOffset, endOffset int64) int64 {
 	}
 }
 
-func (s *Session) openStore(init sessionInit, resumeSeq uint64) error {
+func (s *Session) openStore(init sessionInit, resumeSeq uint64) (string, error) {
 	if init.cfg.SkipStore {
-		return nil
+		return "", nil
 	}
 	runFile, err := init.run.RunFile()
 	if err != nil {
-		return fmt.Errorf("derive run file: %w", err)
+		return "", fmt.Errorf("derive run file: %w", err)
 	}
 	checkpointFile, err := init.run.CheckpointFile()
 	if err != nil {
-		return fmt.Errorf("derive checkpoint file: %w", err)
+		return "", fmt.Errorf("derive checkpoint file: %w", err)
 	}
 	var writer *store.Writer
 	if init.resume != nil {
 		writer, err = store.OpenAppend(runFile, init.resume.EndOffset)
 		if err != nil {
-			return fmt.Errorf("open run file for append: %w", err)
+			return "", fmt.Errorf("open run file for append: %w", err)
 		}
 	} else {
 		if err = os.MkdirAll(init.run.RunDir, 0o755); err != nil {
-			return fmt.Errorf("create run dir: %w", err)
+			return "", fmt.Errorf("create run dir: %w", err)
 		}
 		writer, err = store.Create(runFile)
 		if err != nil {
-			return fmt.Errorf("create run file: %w", err)
+			return "", fmt.Errorf("create run file: %w", err)
 		}
 		s.runFileCreated = true
 	}
 	s.runFile = runFile
-	s.checkpointFile = checkpointFile
 
 	async, err := store.NewAsyncWriter(writer, store.AsyncOptions{
 		Queue:     queueSize(init.cfg.RecordBatch),
@@ -177,33 +176,29 @@ func (s *Session) openStore(init sessionInit, resumeSeq uint64) error {
 	})
 	if err != nil {
 		_ = writer.Close()
-		return fmt.Errorf("start store writer: %w", err)
+		return "", fmt.Errorf("start store writer: %w", err)
 	}
 	s.store = async
-	return nil
+	return checkpointFile, nil
 }
 
-func (s *Session) initOnlineProgress(init sessionInit) (
+func (s *Session) initOnlineProgress(init sessionInit, checkpointFile string) (
 	onStored func(*recordv1.Record, uint64),
 	replayFrom uint64,
 	replayStartOffset int64,
+	baseSeq uint64,
+	cpValid bool,
 ) {
 	replayStartOffset = store.HeaderLen
 	if s.store == nil || init.cfg.NormalizedMode() != config.ModeOnline {
-		return nil, 0, replayStartOffset
+		return nil, 0, replayStartOffset, 0, false
 	}
-	var baseSeq uint64
-	var cpValid bool
 	if init.resume != nil {
 		baseSeq, replayStartOffset, cpValid = resolveResumeCheckpoint(
-			s.checkpointFile, init.run.RunID, s.runFile, init.resume,
+			checkpointFile, init.run.RunID, s.runFile, init.resume,
 		)
 	}
 	s.progress = progress.NewTracker(baseSeq)
-	if cpValid && baseSeq > 0 {
-		s.checkpointLastSeq = baseSeq
-		s.checkpointHasWrite = true
-	}
 	if init.resume != nil && baseSeq < init.resume.Records {
 		replayFrom = baseSeq + 1
 		s.backfillState = backfillState{
@@ -211,5 +206,5 @@ func (s *Session) initOnlineProgress(init sessionInit) (
 			cursor:   backfillCursor{seq: baseSeq, offset: replayStartOffset},
 		}
 	}
-	return s.progress.OnStored, replayFrom, replayStartOffset
+	return s.progress.OnStored, replayFrom, replayStartOffset, baseSeq, cpValid
 }

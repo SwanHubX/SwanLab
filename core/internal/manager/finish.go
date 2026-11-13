@@ -122,8 +122,8 @@ func (s *Session) completeFinish(ctx context.Context) error {
 			console.Warningf("finish: local store did not flush completely: %v", err)
 		}
 		if s.uploader == nil {
-			s.stopCheckpoint()
-			s.flushCheckpoint()
+			s.checkpoint.Stop()
+			s.checkpoint.Flush()
 		}
 	}
 
@@ -333,8 +333,8 @@ func (s *Session) shutdown(ctx context.Context) {
 			console.Warningf("shutdown: wait for drain: %v", err)
 		}
 	}
-	s.stopCheckpoint()
-	s.flushCheckpoint()
+	s.checkpoint.Stop()
+	s.checkpoint.Flush()
 	if s.cancel != nil {
 		s.cancel()
 	}

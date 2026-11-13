@@ -12,6 +12,7 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/budget"
 	"github.com/swanhubx/swanlab/core/internal/buffer"
 	"github.com/swanhubx/swanlab/core/internal/config"
+	"github.com/swanhubx/swanlab/core/internal/manager/checkpoint"
 	"github.com/swanhubx/swanlab/core/internal/manager/heartbeat"
 	"github.com/swanhubx/swanlab/core/internal/manager/recovery"
 	"github.com/swanhubx/swanlab/core/internal/pkg/record"
@@ -32,7 +33,8 @@ func (s *Session) open(init sessionInit) error {
 		endSaves = init.resume.EndSaves
 	}
 
-	if err := s.openStore(init, resumeSeq); err != nil {
+	cpFile, err := s.openStore(init, resumeSeq)
+	if err != nil {
 		return err
 	}
 
@@ -52,7 +54,25 @@ func (s *Session) open(init sessionInit) error {
 			return seq
 		}
 	}
-	onStored, replayFrom, replayStartOffset := s.initOnlineProgress(init)
+	onStored, replayFrom, replayStartOffset, cpSeq, cpValid := s.initOnlineProgress(init, cpFile)
+	var cpStore checkpoint.Store
+	if s.store != nil {
+		cpStore = s.store
+	}
+	var watermark func() uint64
+	if s.progress != nil {
+		watermark = s.progress.Watermark
+	}
+	s.checkpoint = checkpoint.New(checkpoint.Options{
+		Ctx:            s.ctx,
+		File:           cpFile,
+		RunID:          init.run.RunID,
+		RunFile:        s.runFile,
+		Store:          cpStore,
+		Watermark:      watermark,
+		InitialSeq:     cpSeq,
+		InitialWritten: cpValid && cpSeq > 0,
+	})
 	var pendingDeferred int
 	if len(endSaves) > 0 {
 		pendingDeferred = buffer.DefaultPendingDeferred + len(endSaves)
@@ -128,8 +148,8 @@ func (s *Session) open(init sessionInit) error {
 			OnConfirm:          s.progress.Resolve,
 			OnDrop:             s.progress.ResolveOne,
 			OnDrained: func() {
-				s.stopCheckpoint()
-				s.flushCheckpoint()
+				s.checkpoint.Stop()
+				s.checkpoint.Flush()
 				s.markDrained()
 			},
 		})
@@ -191,7 +211,7 @@ func (s *Session) open(init sessionInit) error {
 			s.wakeBackfill()
 		}
 	}
-	s.startCheckpoint()
+	s.checkpoint.Start()
 	return nil
 }
 
@@ -211,7 +231,7 @@ func (s *Session) rollback() {
 	}
 	s.recovery.Stop()
 	s.stopBackfill()
-	s.stopCheckpoint()
+	s.checkpoint.Stop()
 	if s.uploader != nil {
 		_ = s.uploader.Close()
 	}
@@ -225,9 +245,7 @@ func (s *Session) rollback() {
 	}
 	if s.runFileCreated {
 		_ = os.Remove(s.runFile)
-		if s.checkpointFile != "" {
-			_ = os.Remove(s.checkpointFile)
-		}
+		s.checkpoint.RemoveFile()
 	}
 	s.closeHealth()
 }

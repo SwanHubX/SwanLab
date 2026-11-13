@@ -18,6 +18,7 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/client"
 	"github.com/swanhubx/swanlab/core/internal/config"
 	"github.com/swanhubx/swanlab/core/internal/cron/health"
+	"github.com/swanhubx/swanlab/core/internal/manager/checkpoint"
 	"github.com/swanhubx/swanlab/core/internal/manager/heartbeat"
 	"github.com/swanhubx/swanlab/core/internal/manager/progress"
 	"github.com/swanhubx/swanlab/core/internal/manager/recovery"
@@ -183,17 +184,8 @@ type Session struct {
 	runFile        string
 	runFileCreated bool
 
-	progress           *progress.Tracker
-	checkpointFile     string
-	checkpointInterval time.Duration
-	checkpointTicked   func()
-	checkpointStop     chan struct{}
-	checkpointDone     chan struct{}
-	checkpointOnce     sync.Once
-	checkpointMu       sync.Mutex
-	checkpointWarned   bool
-	checkpointLastSeq  uint64
-	checkpointHasWrite bool
+	progress   *progress.Tracker
+	checkpoint *checkpoint.Writer
 }
 
 func newSession(opts sessionOptions) *Session {
