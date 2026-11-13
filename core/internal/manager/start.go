@@ -14,6 +14,7 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/config"
 	"github.com/swanhubx/swanlab/core/internal/cron/health"
 	"github.com/swanhubx/swanlab/core/internal/manager/probe"
+	"github.com/swanhubx/swanlab/core/internal/manager/resume"
 	"github.com/swanhubx/swanlab/core/internal/metrics"
 	"github.com/swanhubx/swanlab/core/internal/pkg/builder"
 	"github.com/swanhubx/swanlab/core/internal/pkg/console"
@@ -43,8 +44,11 @@ func (m *Manager) DeliverRunStart(
 	if !m.hasCapacity() {
 		return nil, fmt.Errorf("%w: limit %d", ErrTooManySessions, maxSessions)
 	}
-	local, err := loadLocalRebuild(cfg, run)
+	local, err := resume.LoadLocalRebuild(cfg, run)
 	if err != nil {
+		if errors.Is(err, resume.ErrInvalidRunFile) {
+			return nil, fmt.Errorf("%w: %v", ErrInvalidStartRecord, err)
+		}
 		return nil, err
 	}
 	if cfg.NormalizedMode() != config.ModeOnline {

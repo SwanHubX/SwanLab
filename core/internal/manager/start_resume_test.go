@@ -17,6 +17,7 @@ import (
 
 	"github.com/swanhubx/swanlab/core/internal/clienttest"
 	"github.com/swanhubx/swanlab/core/internal/config"
+	"github.com/swanhubx/swanlab/core/internal/manager/resume"
 	"github.com/swanhubx/swanlab/core/internal/metrics"
 	"github.com/swanhubx/swanlab/core/internal/pkg/record"
 	"github.com/swanhubx/swanlab/core/internal/runctx"
@@ -356,7 +357,7 @@ func TestResumeTruncatesCorruptTailAndPreservesExistingOnRollback(t *testing.T) 
 	if err != nil {
 		t.Fatalf("runctx.New: %v", err)
 	}
-	rebuilt, err := loadLocalRebuild(cfg, rbRun)
+	rebuilt, err := resume.LoadLocalRebuild(cfg, rbRun)
 	if err != nil {
 		t.Fatalf("loadLocalRebuild: %v", err)
 	}

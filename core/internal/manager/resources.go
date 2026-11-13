@@ -16,6 +16,8 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/manager/checkpoint"
 	"github.com/swanhubx/swanlab/core/internal/manager/heartbeat"
 	"github.com/swanhubx/swanlab/core/internal/manager/recovery"
+	"github.com/swanhubx/swanlab/core/internal/manager/resume"
+	"github.com/swanhubx/swanlab/core/internal/pkg/console"
 	"github.com/swanhubx/swanlab/core/internal/pkg/record"
 	"github.com/swanhubx/swanlab/core/internal/pkg/watcher"
 	"github.com/swanhubx/swanlab/core/internal/store"
@@ -34,10 +36,24 @@ func (s *Session) open(init sessionInit) error {
 		endSaves = init.resume.EndSaves
 	}
 
-	cpFile, err := s.openStore(init, resumeSeq)
+	opened, err := resume.OpenStore(resume.StoreOptions{
+		SkipStore: init.cfg.SkipStore,
+		Run:       init.run,
+		Resume:    init.resume,
+		Queue:     queueSize(init.cfg.RecordBatch),
+		OnError: func(err error) {
+			s.storeDegraded.Store(true)
+			console.Warningf("store degraded, records will be uploaded without a local copy: %v", err)
+			// 失去本地副本后不能再暂停，唤醒监听协程恢复投递。
+			s.wakeHealth()
+		},
+	})
 	if err != nil {
 		return err
 	}
+	s.store = opened.Writer
+	s.runFile = opened.RunFile
+	s.runFileCreated = opened.Created
 
 	s.tracker = uploader.NewTracker()
 	b := budget.New(budget.Limits{
@@ -55,7 +71,15 @@ func (s *Session) open(init sessionInit) error {
 			return seq
 		}
 	}
-	onStored, replayFrom, replayStartOffset, cpSeq, cpValid := s.initOnlineProgress(init, cpFile)
+	prog := resume.InitOnlineProgress(resume.ProgressOptions{
+		Mode:           init.cfg.NormalizedMode(),
+		RunID:          init.run.RunID,
+		RunFile:        s.runFile,
+		CheckpointFile: opened.CheckpointFile,
+		HasStore:       s.store != nil,
+		Resume:         init.resume,
+	})
+	s.progress = prog.Tracker
 	var cpStore checkpoint.Store
 	if s.store != nil {
 		cpStore = s.store
@@ -66,13 +90,13 @@ func (s *Session) open(init sessionInit) error {
 	}
 	s.checkpoint = checkpoint.New(checkpoint.Options{
 		Ctx:            s.ctx,
-		File:           cpFile,
+		File:           opened.CheckpointFile,
 		RunID:          init.run.RunID,
 		RunFile:        s.runFile,
 		Store:          cpStore,
 		Watermark:      watermark,
-		InitialSeq:     cpSeq,
-		InitialWritten: cpValid && cpSeq > 0,
+		InitialSeq:     prog.CheckpointSeq,
+		InitialWritten: prog.CheckpointValid && prog.CheckpointSeq > 0,
 	})
 	var pendingDeferred int
 	if len(endSaves) > 0 {
@@ -90,15 +114,15 @@ func (s *Session) open(init sessionInit) error {
 		Flushed:         flushed,
 		OnAdmit:         s.tracker.AddTotalRecords,
 		OnPause:         func(uint64) { s.backfill.Wake() },
-		OnStored:        onStored,
+		OnStored:        prog.OnStored,
 	})
 	if err != nil {
 		return fmt.Errorf("create intake: %w", err)
 	}
 	s.intake = intake
 	s.intake.RestoreDeferred(endSaves)
-	if replayFrom > 0 {
-		s.intake.PauseAt(replayFrom)
+	if prog.ReplayFrom > 0 {
+		s.intake.PauseAt(prog.ReplayFrom)
 	}
 
 	if init.cfg.NormalizedMode() == config.ModeOnline {
@@ -203,13 +227,13 @@ func (s *Session) open(init sessionInit) error {
 	}
 	if s.store != nil && s.uploader != nil {
 		if init.resume != nil {
-			if totalReplay := countUploadable(s.runFile, replayStartOffset, init.resume.EndOffset) + int64(len(endSaves)); totalReplay > 0 {
+			if totalReplay := resume.CountUploadable(s.runFile, prog.ReplayStartOffset, init.resume.EndOffset) + int64(len(endSaves)); totalReplay > 0 {
 				s.tracker.AddTotalRecords(totalReplay)
 			}
 		}
 		var initCursor backfill.Cursor
-		if replayFrom > 0 {
-			initCursor = backfill.Cursor{Seq: replayFrom - 1, Offset: replayStartOffset}
+		if prog.ReplayFrom > 0 {
+			initCursor = backfill.Cursor{Seq: prog.ReplayFrom - 1, Offset: prog.ReplayStartOffset}
 		}
 		var onBackfillStored func(*recordv1.Record, uint64)
 		if s.progress != nil {
@@ -226,11 +250,11 @@ func (s *Session) open(init sessionInit) error {
 			IsRunning:     func() bool { return s.stateSnapshot() == RunStateRunning },
 			IsSuspended:   s.shouldSuspendUploads,
 			OnStored:      onBackfillStored,
-			InitialPause:  replayFrom,
+			InitialPause:  prog.ReplayFrom,
 			InitialCursor: initCursor,
 		})
 		s.backfill.Start()
-		if replayFrom > 0 {
+		if prog.ReplayFrom > 0 {
 			s.backfill.Wake()
 		}
 	}
