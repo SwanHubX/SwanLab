@@ -20,6 +20,7 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/cron/health"
 	"github.com/swanhubx/swanlab/core/internal/manager/heartbeat"
 	"github.com/swanhubx/swanlab/core/internal/manager/progress"
+	"github.com/swanhubx/swanlab/core/internal/manager/recovery"
 	"github.com/swanhubx/swanlab/core/internal/metrics"
 	"github.com/swanhubx/swanlab/core/internal/pkg/counter"
 	"github.com/swanhubx/swanlab/core/internal/pkg/watcher"
@@ -156,10 +157,8 @@ type Session struct {
 
 	storeDegraded atomic.Bool
 
-	// recoveryStop / recoveryDone 控制 per-session 的本地失效补传协程。
-	recoveryStop chan struct{}
-	recoveryDone chan struct{}
-	recoveryOnce sync.Once
+	// recovery 控制 per-session 的本地失效补传协程。
+	recovery *recovery.Pump
 
 	// 补投：backfillWake 唤醒后台协程，backfillCancel 取消当前尝试。
 	// backfillState 只在补投协程或停止补投后的收尾路径中访问。

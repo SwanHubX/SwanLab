@@ -135,7 +135,7 @@ func (s *Session) completeFinish(ctx context.Context) error {
 	if err := s.commitCrashLog(ctx); err != nil {
 		return err
 	}
-	s.stopRecovery()
+	s.recovery.Stop()
 	closeErr := s.closeIntake(ctx)
 	if s.cfg.NormalizedMode() != config.ModeOnline && s.storeDegraded.Load() {
 		// local/offline 无云端兜底：关闭 intake 后返回失败，不 markDrained。
@@ -197,7 +197,7 @@ func (s *Session) commitCrashLog(ctx context.Context) error {
 	}
 	if s.storeDegraded.Load() {
 		// 回收队列中是更早的记录，error_log 不能插到它们前面。
-		s.drainRecovery(ctx)
+		s.recovery.Drain(ctx)
 	}
 
 	err := s.intake.CommitUploadOnly(ctx, s.pendingLog)
@@ -308,7 +308,7 @@ func (s *Session) shutdown(ctx context.Context) {
 	if s.watcher != nil {
 		s.watcher.Stop()
 	}
-	s.stopRecovery()
+	s.recovery.Stop()
 	if s.store != nil {
 		if err := s.store.CloseContext(ctx); err != nil {
 			console.Warningf("shutdown: close local store: %v", err)

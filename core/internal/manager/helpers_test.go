@@ -19,6 +19,7 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/buffer"
 	"github.com/swanhubx/swanlab/core/internal/clienttest"
 	"github.com/swanhubx/swanlab/core/internal/config"
+	"github.com/swanhubx/swanlab/core/internal/manager/recovery"
 	"github.com/swanhubx/swanlab/core/internal/metrics"
 	"github.com/swanhubx/swanlab/core/internal/pkg/counter"
 	"github.com/swanhubx/swanlab/core/internal/pkg/record"
@@ -342,7 +343,12 @@ func newFinishHarness(t *testing.T, opts finishOptions) *finishHarness {
 	}
 	s.runFile = runFile
 	if async != nil && !storeOnly {
-		s.startRecovery()
+		s.recovery = recovery.New(recovery.Options{
+			Ctx:      s.ctx,
+			Source:   s.intake,
+			Degraded: &s.storeDegraded,
+		})
+		s.recovery.Start()
 	}
 
 	mgr := newTestManager()
@@ -351,7 +357,7 @@ func newFinishHarness(t *testing.T, opts finishOptions) *finishHarness {
 		t.Fatalf("install: %v", err)
 	}
 	t.Cleanup(func() {
-		s.stopRecovery()
+		s.recovery.Stop()
 		s.cancel()
 		if up != nil {
 			_ = up.Close()
