@@ -32,7 +32,7 @@ from swanlab.proto.swanlab.operation.v1 import operation_pb2 as swanlab_dot_oper
 from swanlab.proto.swanlab.settings.core.v1 import core_pb2 as swanlab_dot_settings_dot_core_dot_v1_dot_core__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1fswanlab/grpc/core/v1/core.proto\x12\x14swanlab.grpc.core.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x18swanlab/run/v1/run.proto\x1a!swanlab/metric/data/v1/data.proto\x1a%swanlab/metric/column/v1/column.proto\x1a\x1dswanlab/terminal/v1/log.proto\x1a\x1aswanlab/save/v1/save.proto\x1a$swanlab/operation/v1/operation.proto\x1a#swanlab/settings/core/v1/core.proto\"\x8a\x01\n\x16\x44\x65liverRunStartRequest\x12=\n\rcore_settings\x18\x01 \x01(\x0b\x32&.swanlab.settings.core.v1.CoreSettings\x12\x31\n\x0cstart_record\x18\x02 \x01(\x0b\x32\x1b.swanlab.run.v1.StartRecord\"\x83\x02\n\x17\x44\x65liverRunStartResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t\x12(\n\x03run\x18\x03 \x01(\x0b\x32\x1b.swanlab.run.v1.StartRecord\x12\x0c\n\x04path\x18\x04 \x01(\t\x12\x0c\n\x04name\x18\x05 \x01(\t\x12\x13\n\x0bglobal_step\x18\x06 \x01(\x03\x12\x1a\n\x12global_system_step\x18\x07 \x01(\x03\x12\x16\n\x0enew_experiment\x18\x08 \x01(\x08\x12\x37\n\nerror_kind\x18\t \x01(\x0e\x32#.swanlab.grpc.core.v1.CoreErrorKind\"O\n\x14UpsertColumnsRequest\x12\x37\n\x07\x63olumns\x18\x01 \x03(\x0b\x32&.swanlab.metric.column.v1.ColumnRecord\"J\n\x14UpsertScalarsRequest\x12\x32\n\x04\x64\x61ta\x18\x01 \x03(\x0b\x32$.swanlab.metric.data.v1.ScalarRecord\"G\n\x12UpsertMediaRequest\x12\x31\n\x04\x64\x61ta\x18\x01 \x03(\x0b\x32#.swanlab.metric.data.v1.MediaRecord\"P\n\x17UpsertHistogramsRequest\x12\x35\n\x04\x64\x61ta\x18\x01 \x03(\x0b\x32\'.swanlab.metric.data.v1.HistogramRecord\"A\n\x11UpsertLogsRequest\x12,\n\x04logs\x18\x01 \x03(\x0b\x32\x1e.swanlab.terminal.v1.LogRecord\"@\n\x12UpsertSavesRequest\x12*\n\x05saves\x18\x01 \x03(\x0b\x32\x1b.swanlab.save.v1.SaveRecord\"N\n\x17\x44\x65liverRunFinishRequest\x12\x33\n\rfinish_record\x18\x01 \x01(\x0b\x32\x1c.swanlab.run.v1.FinishRecord\"<\n\x18\x44\x65liverRunFinishResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t\"r\n\x19GetOperationStatsResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t\x12\x33\n\x05stats\x18\x03 \x01(\x0b\x32$.swanlab.operation.v1.OperationStats\"<\n\x18\x43onfirmRunFinishResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t*\x84\x01\n\rCoreErrorKind\x12\x1f\n\x1b\x43ORE_ERROR_KIND_UNSPECIFIED\x10\x00\x12\x18\n\x14\x43ORE_ERROR_KIND_AUTH\x10\x01\x12\x1d\n\x19\x43ORE_ERROR_KIND_TRANSIENT\x10\x02\x12\x19\n\x15\x43ORE_ERROR_KIND_OTHER\x10\x03\x32\xa0\x07\n\x0b\x43oreService\x12n\n\x0f\x44\x65liverRunStart\x12,.swanlab.grpc.core.v1.DeliverRunStartRequest\x1a-.swanlab.grpc.core.v1.DeliverRunStartResponse\x12S\n\rUpsertColumns\x12*.swanlab.grpc.core.v1.UpsertColumnsRequest\x1a\x16.google.protobuf.Empty\x12S\n\rUpsertScalars\x12*.swanlab.grpc.core.v1.UpsertScalarsRequest\x1a\x16.google.protobuf.Empty\x12O\n\x0bUpsertMedia\x12(.swanlab.grpc.core.v1.UpsertMediaRequest\x1a\x16.google.protobuf.Empty\x12Y\n\x10UpsertHistograms\x12-.swanlab.grpc.core.v1.UpsertHistogramsRequest\x1a\x16.google.protobuf.Empty\x12M\n\nUpsertLogs\x12\'.swanlab.grpc.core.v1.UpsertLogsRequest\x1a\x16.google.protobuf.Empty\x12O\n\x0bUpsertSaves\x12(.swanlab.grpc.core.v1.UpsertSavesRequest\x1a\x16.google.protobuf.Empty\x12q\n\x10\x44\x65liverRunFinish\x12-.swanlab.grpc.core.v1.DeliverRunFinishRequest\x1a..swanlab.grpc.core.v1.DeliverRunFinishResponse\x12\\\n\x11GetOperationStats\x12\x16.google.protobuf.Empty\x1a/.swanlab.grpc.core.v1.GetOperationStatsResponse\x12Z\n\x10\x43onfirmRunFinish\x12\x16.google.protobuf.Empty\x1a..swanlab.grpc.core.v1.ConfirmRunFinishResponseBDZBgithub.com/swanhubx/swanlab/core/proto/swanlab/grpc/core/v1;corev1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1fswanlab/grpc/core/v1/core.proto\x12\x14swanlab.grpc.core.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x18swanlab/run/v1/run.proto\x1a!swanlab/metric/data/v1/data.proto\x1a%swanlab/metric/column/v1/column.proto\x1a\x1dswanlab/terminal/v1/log.proto\x1a\x1aswanlab/save/v1/save.proto\x1a$swanlab/operation/v1/operation.proto\x1a#swanlab/settings/core/v1/core.proto\"\x16\n\x14SpinupServiceRequest\"\x17\n\x15SpinupServiceResponse\"\x18\n\x16TeardownServiceRequest\"\x19\n\x17TeardownServiceResponse\"\x8a\x01\n\x16\x44\x65liverRunStartRequest\x12=\n\rcore_settings\x18\x01 \x01(\x0b\x32&.swanlab.settings.core.v1.CoreSettings\x12\x31\n\x0cstart_record\x18\x02 \x01(\x0b\x32\x1b.swanlab.run.v1.StartRecord\"\x97\x02\n\x17\x44\x65liverRunStartResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t\x12(\n\x03run\x18\x03 \x01(\x0b\x32\x1b.swanlab.run.v1.StartRecord\x12\x0c\n\x04path\x18\x04 \x01(\t\x12\x0c\n\x04name\x18\x05 \x01(\t\x12\x13\n\x0bglobal_step\x18\x06 \x01(\x03\x12\x1a\n\x12global_system_step\x18\x07 \x01(\x03\x12\x16\n\x0enew_experiment\x18\x08 \x01(\x08\x12\x12\n\nsession_id\x18\t \x01(\t\x12\x37\n\nerror_kind\x18\n \x01(\x0e\x32#.swanlab.grpc.core.v1.CoreErrorKind\"c\n\x14UpsertColumnsRequest\x12\x37\n\x07\x63olumns\x18\x01 \x03(\x0b\x32&.swanlab.metric.column.v1.ColumnRecord\x12\x12\n\nsession_id\x18\x02 \x01(\t\"^\n\x14UpsertScalarsRequest\x12\x32\n\x04\x64\x61ta\x18\x01 \x03(\x0b\x32$.swanlab.metric.data.v1.ScalarRecord\x12\x12\n\nsession_id\x18\x02 \x01(\t\"[\n\x12UpsertMediaRequest\x12\x31\n\x04\x64\x61ta\x18\x01 \x03(\x0b\x32#.swanlab.metric.data.v1.MediaRecord\x12\x12\n\nsession_id\x18\x02 \x01(\t\"d\n\x17UpsertHistogramsRequest\x12\x35\n\x04\x64\x61ta\x18\x01 \x03(\x0b\x32\'.swanlab.metric.data.v1.HistogramRecord\x12\x12\n\nsession_id\x18\x02 \x01(\t\"U\n\x11UpsertLogsRequest\x12,\n\x04logs\x18\x01 \x03(\x0b\x32\x1e.swanlab.terminal.v1.LogRecord\x12\x12\n\nsession_id\x18\x02 \x01(\t\"T\n\x12UpsertSavesRequest\x12*\n\x05saves\x18\x01 \x03(\x0b\x32\x1b.swanlab.save.v1.SaveRecord\x12\x12\n\nsession_id\x18\x02 \x01(\t\"b\n\x17\x44\x65liverRunFinishRequest\x12\x33\n\rfinish_record\x18\x01 \x01(\x0b\x32\x1c.swanlab.run.v1.FinishRecord\x12\x12\n\nsession_id\x18\x02 \x01(\t\"<\n\x18\x44\x65liverRunFinishResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t\".\n\x18GetOperationStatsRequest\x12\x12\n\nsession_id\x18\x01 \x01(\t\"r\n\x19GetOperationStatsResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t\x12\x33\n\x05stats\x18\x03 \x01(\x0b\x32$.swanlab.operation.v1.OperationStats\"-\n\x17\x43onfirmRunFinishRequest\x12\x12\n\nsession_id\x18\x01 \x01(\t\"<\n\x18\x43onfirmRunFinishResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t*\x84\x01\n\rCoreErrorKind\x12\x1f\n\x1b\x43ORE_ERROR_KIND_UNSPECIFIED\x10\x00\x12\x18\n\x14\x43ORE_ERROR_KIND_AUTH\x10\x01\x12\x1d\n\x19\x43ORE_ERROR_KIND_TRANSIENT\x10\x02\x12\x19\n\x15\x43ORE_ERROR_KIND_OTHER\x10\x03\x32\xa9\t\n\x0b\x43oreService\x12h\n\rSpinupService\x12*.swanlab.grpc.core.v1.SpinupServiceRequest\x1a+.swanlab.grpc.core.v1.SpinupServiceResponse\x12n\n\x0fTeardownService\x12,.swanlab.grpc.core.v1.TeardownServiceRequest\x1a-.swanlab.grpc.core.v1.TeardownServiceResponse\x12n\n\x0f\x44\x65liverRunStart\x12,.swanlab.grpc.core.v1.DeliverRunStartRequest\x1a-.swanlab.grpc.core.v1.DeliverRunStartResponse\x12S\n\rUpsertColumns\x12*.swanlab.grpc.core.v1.UpsertColumnsRequest\x1a\x16.google.protobuf.Empty\x12S\n\rUpsertScalars\x12*.swanlab.grpc.core.v1.UpsertScalarsRequest\x1a\x16.google.protobuf.Empty\x12O\n\x0bUpsertMedia\x12(.swanlab.grpc.core.v1.UpsertMediaRequest\x1a\x16.google.protobuf.Empty\x12Y\n\x10UpsertHistograms\x12-.swanlab.grpc.core.v1.UpsertHistogramsRequest\x1a\x16.google.protobuf.Empty\x12M\n\nUpsertLogs\x12\'.swanlab.grpc.core.v1.UpsertLogsRequest\x1a\x16.google.protobuf.Empty\x12O\n\x0bUpsertSaves\x12(.swanlab.grpc.core.v1.UpsertSavesRequest\x1a\x16.google.protobuf.Empty\x12q\n\x10\x44\x65liverRunFinish\x12-.swanlab.grpc.core.v1.DeliverRunFinishRequest\x1a..swanlab.grpc.core.v1.DeliverRunFinishResponse\x12t\n\x11GetOperationStats\x12..swanlab.grpc.core.v1.GetOperationStatsRequest\x1a/.swanlab.grpc.core.v1.GetOperationStatsResponse\x12q\n\x10\x43onfirmRunFinish\x12-.swanlab.grpc.core.v1.ConfirmRunFinishRequest\x1a..swanlab.grpc.core.v1.ConfirmRunFinishResponseBDZBgithub.com/swanhubx/swanlab/core/proto/swanlab/grpc/core/v1;corev1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -40,32 +40,44 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'swanlab.grpc.core.v1.core_p
 if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'ZBgithub.com/swanhubx/swanlab/core/proto/swanlab/grpc/core/v1;corev1'
-  _globals['_COREERRORKIND']._serialized_start=1489
-  _globals['_COREERRORKIND']._serialized_end=1621
-  _globals['_DELIVERRUNSTARTREQUEST']._serialized_start=321
-  _globals['_DELIVERRUNSTARTREQUEST']._serialized_end=459
-  _globals['_DELIVERRUNSTARTRESPONSE']._serialized_start=462
-  _globals['_DELIVERRUNSTARTRESPONSE']._serialized_end=721
-  _globals['_UPSERTCOLUMNSREQUEST']._serialized_start=723
-  _globals['_UPSERTCOLUMNSREQUEST']._serialized_end=802
-  _globals['_UPSERTSCALARSREQUEST']._serialized_start=804
-  _globals['_UPSERTSCALARSREQUEST']._serialized_end=878
-  _globals['_UPSERTMEDIAREQUEST']._serialized_start=880
-  _globals['_UPSERTMEDIAREQUEST']._serialized_end=951
-  _globals['_UPSERTHISTOGRAMSREQUEST']._serialized_start=953
-  _globals['_UPSERTHISTOGRAMSREQUEST']._serialized_end=1033
-  _globals['_UPSERTLOGSREQUEST']._serialized_start=1035
-  _globals['_UPSERTLOGSREQUEST']._serialized_end=1100
-  _globals['_UPSERTSAVESREQUEST']._serialized_start=1102
-  _globals['_UPSERTSAVESREQUEST']._serialized_end=1166
-  _globals['_DELIVERRUNFINISHREQUEST']._serialized_start=1168
-  _globals['_DELIVERRUNFINISHREQUEST']._serialized_end=1246
-  _globals['_DELIVERRUNFINISHRESPONSE']._serialized_start=1248
-  _globals['_DELIVERRUNFINISHRESPONSE']._serialized_end=1308
-  _globals['_GETOPERATIONSTATSRESPONSE']._serialized_start=1310
-  _globals['_GETOPERATIONSTATSRESPONSE']._serialized_end=1424
-  _globals['_CONFIRMRUNFINISHRESPONSE']._serialized_start=1426
-  _globals['_CONFIRMRUNFINISHRESPONSE']._serialized_end=1486
-  _globals['_CORESERVICE']._serialized_start=1624
-  _globals['_CORESERVICE']._serialized_end=2552
+  _globals['_COREERRORKIND']._serialized_start=1846
+  _globals['_COREERRORKIND']._serialized_end=1978
+  _globals['_SPINUPSERVICEREQUEST']._serialized_start=320
+  _globals['_SPINUPSERVICEREQUEST']._serialized_end=342
+  _globals['_SPINUPSERVICERESPONSE']._serialized_start=344
+  _globals['_SPINUPSERVICERESPONSE']._serialized_end=367
+  _globals['_TEARDOWNSERVICEREQUEST']._serialized_start=369
+  _globals['_TEARDOWNSERVICEREQUEST']._serialized_end=393
+  _globals['_TEARDOWNSERVICERESPONSE']._serialized_start=395
+  _globals['_TEARDOWNSERVICERESPONSE']._serialized_end=420
+  _globals['_DELIVERRUNSTARTREQUEST']._serialized_start=423
+  _globals['_DELIVERRUNSTARTREQUEST']._serialized_end=561
+  _globals['_DELIVERRUNSTARTRESPONSE']._serialized_start=564
+  _globals['_DELIVERRUNSTARTRESPONSE']._serialized_end=843
+  _globals['_UPSERTCOLUMNSREQUEST']._serialized_start=845
+  _globals['_UPSERTCOLUMNSREQUEST']._serialized_end=944
+  _globals['_UPSERTSCALARSREQUEST']._serialized_start=946
+  _globals['_UPSERTSCALARSREQUEST']._serialized_end=1040
+  _globals['_UPSERTMEDIAREQUEST']._serialized_start=1042
+  _globals['_UPSERTMEDIAREQUEST']._serialized_end=1133
+  _globals['_UPSERTHISTOGRAMSREQUEST']._serialized_start=1135
+  _globals['_UPSERTHISTOGRAMSREQUEST']._serialized_end=1235
+  _globals['_UPSERTLOGSREQUEST']._serialized_start=1237
+  _globals['_UPSERTLOGSREQUEST']._serialized_end=1322
+  _globals['_UPSERTSAVESREQUEST']._serialized_start=1324
+  _globals['_UPSERTSAVESREQUEST']._serialized_end=1408
+  _globals['_DELIVERRUNFINISHREQUEST']._serialized_start=1410
+  _globals['_DELIVERRUNFINISHREQUEST']._serialized_end=1508
+  _globals['_DELIVERRUNFINISHRESPONSE']._serialized_start=1510
+  _globals['_DELIVERRUNFINISHRESPONSE']._serialized_end=1570
+  _globals['_GETOPERATIONSTATSREQUEST']._serialized_start=1572
+  _globals['_GETOPERATIONSTATSREQUEST']._serialized_end=1618
+  _globals['_GETOPERATIONSTATSRESPONSE']._serialized_start=1620
+  _globals['_GETOPERATIONSTATSRESPONSE']._serialized_end=1734
+  _globals['_CONFIRMRUNFINISHREQUEST']._serialized_start=1736
+  _globals['_CONFIRMRUNFINISHREQUEST']._serialized_end=1781
+  _globals['_CONFIRMRUNFINISHRESPONSE']._serialized_start=1783
+  _globals['_CONFIRMRUNFINISHRESPONSE']._serialized_end=1843
+  _globals['_CORESERVICE']._serialized_start=1981
+  _globals['_CORESERVICE']._serialized_end=3174
 # @@protoc_insertion_point(module_scope)

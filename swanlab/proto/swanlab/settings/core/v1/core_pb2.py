@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n#swanlab/settings/core/v1/core.proto\x12\x18swanlab.settings.core.v1\"\xd6\x01\n\x0c\x43oreSettings\x12\x0e\n\x06run_id\x18\x01 \x01(\t\x12\x0f\n\x07run_dir\x18\x02 \x01(\t\x12\x14\n\x0csection_rule\x18\x03 \x01(\x05\x12\x14\n\x0crecord_batch\x18\x04 \x01(\x05\x12\x17\n\x0frecord_interval\x18\x05 \x01(\x01\x12\x11\n\tsave_size\x18\x06 \x01(\x03\x12\x12\n\nsave_split\x18\x07 \x01(\x03\x12\x11\n\tsave_part\x18\x08 \x01(\x03\x12\x12\n\nsave_batch\x18\t \x01(\x05\x12\x12\n\nskip_store\x18\n \x01(\x08\x42PZNgithub.com/swanhubx/swanlab/core/proto/swanlab/settings/core/v1;settingscorev1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n#swanlab/settings/core/v1/core.proto\x12\x18swanlab.settings.core.v1\"\xfa\x03\n\x0c\x43oreSettings\x12\x0e\n\x06run_id\x18\x01 \x01(\t\x12\x0f\n\x07run_dir\x18\x02 \x01(\t\x12\x14\n\x0csection_rule\x18\x03 \x01(\x05\x12\x14\n\x0crecord_batch\x18\x04 \x01(\x05\x12\x17\n\x0frecord_interval\x18\x05 \x01(\x01\x12\x11\n\tsave_size\x18\x06 \x01(\x03\x12\x12\n\nsave_split\x18\x07 \x01(\x03\x12\x11\n\tsave_part\x18\x08 \x01(\x03\x12\x12\n\nsave_batch\x18\t \x01(\x05\x12\x12\n\nskip_store\x18\n \x01(\x08\x12\x0f\n\x07\x61pi_key\x18\x0b \x01(\t\x12\x10\n\x08\x61pi_host\x18\x0c \x01(\t\x12\x10\n\x08web_host\x18\r \x01(\t\x12\x30\n\x04mode\x18\x0e \x01(\x0e\x32\".swanlab.settings.core.v1.CoreMode\x12\x1d\n\x15upload_budget_records\x18\x0f \x01(\x03\x12\x1b\n\x13upload_budget_bytes\x18\x10 \x01(\x03\x12\x1d\n\x15health_probe_interval\x18\x11 \x01(\x01\x12\x1c\n\x14health_probe_timeout\x18\x12 \x01(\x01\x12 \n\x18health_degrade_threshold\x18\x13 \x01(\x05\x12 \n\x18health_recover_threshold\x18\x14 \x01(\x05*\x7f\n\x08\x43oreMode\x12\x19\n\x15\x43ORE_MODE_UNSPECIFIED\x10\x00\x12\x14\n\x10\x43ORE_MODE_ONLINE\x10\x01\x12\x13\n\x0f\x43ORE_MODE_LOCAL\x10\x02\x12\x15\n\x11\x43ORE_MODE_OFFLINE\x10\x03\x12\x16\n\x12\x43ORE_MODE_DISABLED\x10\x04\x42PZNgithub.com/swanhubx/swanlab/core/proto/swanlab/settings/core/v1;settingscorev1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -32,6 +32,8 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'swanlab.settings.core.v1.co
 if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'ZNgithub.com/swanhubx/swanlab/core/proto/swanlab/settings/core/v1;settingscorev1'
+  _globals['_COREMODE']._serialized_start=574
+  _globals['_COREMODE']._serialized_end=701
   _globals['_CORESETTINGS']._serialized_start=66
-  _globals['_CORESETTINGS']._serialized_end=280
+  _globals['_CORESETTINGS']._serialized_end=572
 # @@protoc_insertion_point(module_scope)

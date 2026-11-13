@@ -34,6 +34,7 @@ from swanlab.sdk.internal.pkg import adapter, console, fork, helper, safe
 from swanlab.sdk.internal.run import greeting
 from swanlab.sdk.internal.run.components import Components
 from swanlab.sdk.internal.run.components.config import Config
+from swanlab.sdk.internal.run.finish_retry import retry_finish_call
 from swanlab.sdk.internal.run.progress import run_with_progress
 from swanlab.sdk.internal.run.transforms import (
     Audio,
@@ -147,47 +148,64 @@ class Run:
         self._core = self._ctx.core
         self._probe = self._ctx.probe
         # 2. 注册副作用
-        # 设置全局运行实例
-        set_run(self)
-        # TODO: swanlab-core 上线后，此处注册 Run 级别的 fork 重连回调
-        # 注册退出钩子
-        self._sys_origin_excepthook = sys.excepthook
-        atexit.register(self._handle_atexit)
-        sys.excepthook = self._handle_except
-        # 注册 SIGINT handler，确保 Ctrl+C 能可靠地将实验标记为 aborted，sys.excepthook 在主线程阻塞于 C 扩展时可能无法触发
-        # signal() 仅允许在主线程调用；Ray actor 等非主线程环境下跳过注册，
-        # atexit / excepthook 钩子仍然生效
-        self._original_sigint_handler = signal.getsignal(signal.SIGINT)
-        if self._is_main_thread:
-            signal.signal(signal.SIGINT, self._handle_sigint)
+        self._atexit_registered = False
+        self._excepthook_installed = False
+        self._sigint_installed = False
+        self._fork_registered = False
+        self._components_started = False
+        self._probe_started = False
+        try:
+            # 设置全局运行实例
+            set_run(self)
+            # fork 子进程替换为不持有父进程资源的 Core 占位
+            fork.register(self._handle_fork)
+            self._fork_registered = True
+            # 注册退出钩子
+            self._sys_origin_excepthook = sys.excepthook
+            atexit.register(self._handle_atexit)
+            self._atexit_registered = True
+            sys.excepthook = self._handle_except
+            self._excepthook_installed = True
+            # 注册 SIGINT handler，确保 Ctrl+C 能可靠地将实验标记为 aborted，sys.excepthook 在主线程阻塞于 C 扩展时可能无法触发
+            # signal() 仅允许在主线程调用；Ray actor 等非主线程环境下跳过注册，
+            # atexit / excepthook 钩子仍然生效
+            self._original_sigint_handler = signal.getsignal(signal.SIGINT)
+            if self._is_main_thread:
+                signal.signal(signal.SIGINT, self._handle_sigint)
+                self._sigint_installed = True
 
-        # 3. 启动组件 + 初始化日志
-        # 回调的path在path为空的时候自动生成一个/:project_name/:run_id，否则使用path
-        run_settings = ctx.config.settings
-        assert run_settings.project.name, "project name is required when init run"
-        assert run_settings.run.id, "run id is required when init run"
-        run_path = path or f"/{run_settings.project.name}/{run_settings.run.id}"
-        callback_settings = run_settings.model_copy(deep=True)
-        self._callbacker.on_run_initialized(self._ctx.run_dir, run_path, settings=callback_settings)
-        # 启动组件
-        self._components.start()
-        # 启动硬件监控探针
-        # skip_store 下不传递 run_dir，probe 负责将 metadata 信息注入 SaveRecord.payload
-        probe_run_dir = None if run_settings.core.skip_store else self._ctx.run_dir
-        start_request = DeliverProbeStartRequest(
-            probe_settings=run_settings.to_probe_proto(
-                run_id=run_settings.run.id,
-                run_dir=probe_run_dir,
-                global_system_step=self._ctx.global_system_step,
+            # 3. 启动组件 + 初始化日志
+            # 回调的path在path为空的时候自动生成一个/:project_name/:run_id，否则使用path
+            run_settings = ctx.config.settings
+            assert run_settings.project.name, "project name is required when init run"
+            assert run_settings.run.id, "run id is required when init run"
+            run_path = path or f"/{run_settings.project.name}/{run_settings.run.id}"
+            callback_settings = run_settings.model_copy(deep=True)
+            self._callbacker.on_run_initialized(self._ctx.run_dir, run_path, settings=callback_settings)
+            # 启动组件（先置位，确保 start 中途失败也能回滚已创建的线程）
+            self._components_started = True
+            self._components.start()
+            # 启动硬件监控探针
+            # skip_store 下不传递 run_dir，probe 负责将 metadata 信息注入 SaveRecord.payload
+            probe_run_dir = None if run_settings.core.skip_store else self._ctx.run_dir
+            start_request = DeliverProbeStartRequest(
+                probe_settings=run_settings.to_probe_proto(
+                    run_id=run_settings.run.id,
+                    run_dir=probe_run_dir,
+                    global_system_step=self._ctx.global_system_step,
+                )
             )
-        )
-        self._probe.deliver_probe_start(start_request)
-        # skip_store 下没有 debug 目录，诊断日志只输出终端
-        if self.mode == "disabled" or run_settings.core.skip_store:
-            console.init(bind_to=None)
-        else:
-            console.init(bind_to=self._ctx.debug_dir)
-        greeting.welcome(self._ctx, self)
+            self._probe_started = True
+            self._probe.deliver_probe_start(start_request)
+            # skip_store 下没有 debug 目录，诊断日志只输出终端
+            if self.mode == "disabled" or run_settings.core.skip_store:
+                console.init(bind_to=None)
+            else:
+                console.init(bind_to=self._ctx.debug_dir)
+            greeting.welcome(self._ctx, self)
+        except BaseException as exc:
+            self._abort_init(exc)
+            raise
 
     # ----------------------------------
     # 私有钩子
@@ -237,6 +255,63 @@ class Run:
                 full_error_msg = "".join(traceback.format_exception(tp, val, tb))
                 self.finish(state=state, error=full_error_msg)
         self._sys_origin_excepthook(tp, val, tb)
+
+    def _handle_fork(self) -> None:
+        """fork 子进程：替换为不持有父进程资源的 Core 占位。
+
+        该回调运行在 fork 子进程，禁止获取可能被其它线程持有的锁或写日志。
+        CorePython 等不支持 detach 的实现保持原对象，API 层仍会以 fork 错误拦截。
+        """
+        try:
+            self._core = self._core.fork()
+        except Exception:
+            pass
+
+    def _abort_init(self, cause: Optional[BaseException] = None) -> None:
+        """init 失败回滚：停组件与 probe、回收 Core、撤销 hook 和全局实例。
+
+        可重复调用；回滚过程不覆盖原始 init 异常。
+        """
+        if self._state != "running":
+            return
+        self._state = "crashed"
+        if self._probe_started:
+            with safe.block(level="debug", message="probe finish failed during init abort"):
+                self._probe.deliver_probe_finish()
+        if self._components_started:
+            with safe.block(level="debug", message="components stop failed during init abort"):
+                self._components.stop()
+        with safe.block(level="debug", message="core abort failed during init"):
+            self._core.abort(cause)
+        if self._fork_registered:
+            with safe.block(level="debug", message="fork hook unregister failed during init abort"):
+                fork.unregister(self._handle_fork)
+            self._fork_registered = False
+        if self._atexit_registered:
+            atexit.unregister(self._handle_atexit)
+            self._atexit_registered = False
+        if self._excepthook_installed:
+            sys.excepthook = self._sys_origin_excepthook
+            self._excepthook_installed = False
+        if self._sigint_installed:
+            signal.signal(signal.SIGINT, self._original_sigint_handler)
+            self._sigint_installed = False
+        if _current_run is self:
+            clear_run()
+        with safe.block(level="debug", message="console reset failed during init abort"):
+            console.reset()
+
+    def _report_local_recovery(self, message: str) -> None:
+        """confirm 失败且本地副本完整时，提示从 run-*.swanlab 恢复。"""
+        if self.mode != "online" or self._ctx.config.settings.core.skip_store:
+            return
+        # 仅当本地副本完整时 Core 才返回该文案，避免降级/skip_store 误报。
+        if "saved locally" not in message:
+            return
+        console.warning(
+            f"Local copy is complete: {self._ctx.run_file}",
+            f"Restore it with `swanlab sync {self._ctx.run_dir}`.",
+        )
 
     # ----------------------------------
     # 公开辅助属性
@@ -899,34 +974,50 @@ class Run:
         greeting.goodbye(self._ctx, self)
         # 2. 运行结束，清理组件
         self._state = this_state
-        # 停止所有内部组件（async_log → terminal → config → consumer）
-        self._components.stop(async_log_timeout=async_log_timeout)
-        # 停止probe
-        self._probe.deliver_probe_finish()
-        ts = Timestamp()
-        ts.GetCurrentTime()
-        # 3. 停止Core
-        finish_request = DeliverRunFinishRequest(
-            finish_record=FinishRecord(state=adapter.state[this_state], error=error, finished_at=ts)
-        )
-        finish_resp = self._core.deliver_run_finish(finish_request)
-        if not finish_resp.success:
-            console.error(finish_resp.message)
-        confirm_resp = run_with_progress(
-            stats_fn=self._core.get_operation_stats,
-            blocking_fn=self._core.confirm_run_finish,
-        )
-        if not confirm_resp.success:
-            console.error(confirm_resp.message)
+        try:
+            # 停止所有内部组件（async_log → terminal → config → consumer）
+            self._components.stop(async_log_timeout=async_log_timeout)
+            # 停止probe
+            self._probe.deliver_probe_finish()
+            ts = Timestamp()
+            ts.GetCurrentTime()
+            # 3. 停止 Core
+            finish_request = DeliverRunFinishRequest(
+                finish_record=FinishRecord(state=adapter.state[this_state], error=error, finished_at=ts)
+            )
+            finish_resp = retry_finish_call(self._core, lambda: self._core.deliver_run_finish(finish_request))
+            if not finish_resp.success:
+                console.error(finish_resp.message)
+            # 需要 confirm 完成资源回收的实现，deliver 失败后仍继续。
+            if finish_resp.success or self._core.confirm_after_deliver_failure:
+                confirm_resp = run_with_progress(
+                    stats_fn=self._core.get_operation_stats,
+                    blocking_fn=lambda: retry_finish_call(self._core, self._core.confirm_run_finish),
+                )
+                if not confirm_resp.success:
+                    console.error(confirm_resp.message)
+                    self._report_local_recovery(confirm_resp.message)
+        finally:
+            # 无论 deliver/confirm 是否成功，都必须回收 Core 进程与 channel
+            with safe.block(message="core close failed during finish"):
+                self._core.close()
         # finish 回调
         self._callbacker.on_run_finished(this_state, error)
         console.debug(f"SwanLab Run has finished with state: {self._state}, cleanup...")
         # 4. 清理副作用
         console.debug("Cleanup system hook...")
-        atexit.unregister(self._handle_atexit)
-        sys.excepthook = self._sys_origin_excepthook
-        if self._is_main_thread:
+        if self._fork_registered:
+            fork.unregister(self._handle_fork)
+            self._fork_registered = False
+        if self._atexit_registered:
+            atexit.unregister(self._handle_atexit)
+            self._atexit_registered = False
+        if self._excepthook_installed:
+            sys.excepthook = self._sys_origin_excepthook
+            self._excepthook_installed = False
+        if self._sigint_installed:
             signal.signal(signal.SIGINT, self._original_sigint_handler)
+            self._sigint_installed = False
         # 清理全局运行实例
         console.debug("Cleanup global instance...")
         clear_run()

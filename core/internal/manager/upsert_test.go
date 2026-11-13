@@ -1,0 +1,831 @@
+package manager
+
+import (
+	"context"
+	"errors"
+	"os"
+	"path/filepath"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"github.com/swanhubx/swanlab/core/internal/budget"
+	"github.com/swanhubx/swanlab/core/internal/buffer"
+	"github.com/swanhubx/swanlab/core/internal/config"
+	"github.com/swanhubx/swanlab/core/internal/metrics"
+	"github.com/swanhubx/swanlab/core/internal/pkg/counter"
+	"github.com/swanhubx/swanlab/core/internal/pkg/watcher"
+	"github.com/swanhubx/swanlab/core/internal/runctx"
+	"github.com/swanhubx/swanlab/core/internal/store"
+	"github.com/swanhubx/swanlab/core/internal/uploader"
+	columnv1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/column/v1"
+	datav1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/data/v1"
+	recordv1 "github.com/swanhubx/swanlab/core/proto/swanlab/record/v1"
+	savev1 "github.com/swanhubx/swanlab/core/proto/swanlab/save/v1"
+	terminalv1 "github.com/swanhubx/swanlab/core/proto/swanlab/terminal/v1"
+)
+
+type upsertOptions struct {
+	skipStore bool
+	storeOnly bool
+	degraded  *atomic.Bool
+	batch     int32
+	queue     int
+	section   int32
+}
+
+type upsertHarness struct {
+	mgr     *Manager
+	id      string
+	session *Session
+	storeCh chan store.Request
+	upload  <-chan *recordv1.Record
+}
+
+func newUpsertHarness(t *testing.T, opts upsertOptions) *upsertHarness {
+	t.Helper()
+	if opts.batch <= 0 {
+		opts.batch = 16
+	}
+	if opts.queue <= 0 {
+		opts.queue = queueSize(opts.batch)
+	}
+	cfg := config.Defaults()
+	cfg.RunID = "upsert"
+	cfg.RunDir = t.TempDir()
+	cfg.RecordBatch = opts.batch
+	cfg.RecordInterval = 1
+	cfg.SectionRule = opts.section
+	cfg.SkipStore = opts.skipStore
+
+	run, err := runctx.New(cfg)
+	if err != nil {
+		t.Fatalf("runctx.New: %v", err)
+	}
+	s := newSession(sessionOptions{})
+	s.ctx, s.cancel = context.WithCancel(context.Background())
+	s.cfg = cfg
+	s.run = run
+	s.metrics = metrics.New()
+	s.counter = counter.New(0)
+	s.epoch = counter.New(0)
+	s.watcher = watcher.NullWatcher{}
+	s.tracker = uploader.NewTracker()
+
+	var storeCh chan store.Request
+	if !opts.skipStore {
+		storeCh = make(chan store.Request, opts.queue)
+	}
+	intake, err := buffer.New(buffer.Options{
+		SkipStore:   opts.skipStore,
+		StoreOnly:   opts.storeOnly,
+		Degraded:    opts.degraded,
+		Store:       storeCh,
+		UploadQueue: opts.queue,
+		Budget:      budget.New(budget.Limits{}),
+		QueueWait:   20 * time.Millisecond,
+		Flushed:     func() uint64 { return 0 },
+		OnAdmit:     s.tracker.AddTotalRecords,
+	})
+	if err != nil {
+		t.Fatalf("buffer.New: %v", err)
+	}
+	s.intake = intake
+
+	mgr := newTestManager()
+	id, err := mgr.install(s)
+	if err != nil {
+		t.Fatalf("install: %v", err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_ = intake.Close(ctx)
+		if s.cancel != nil {
+			s.cancel()
+		}
+	})
+	return &upsertHarness{mgr: mgr, id: id, session: s, storeCh: storeCh, upload: intake.UploadOut()}
+}
+
+func drainRecords(ch <-chan *recordv1.Record) []*recordv1.Record {
+	var out []*recordv1.Record
+	for {
+		select {
+		case rec, ok := <-ch:
+			if !ok {
+				return out
+			}
+			out = append(out, rec)
+		default:
+			return out
+		}
+	}
+}
+
+func drainStore(ch chan store.Request) []store.Request {
+	var out []store.Request
+	for {
+		select {
+		case req := <-ch:
+			out = append(out, req)
+		default:
+			return out
+		}
+	}
+}
+
+func histogramRecord(key string, step int64) *datav1.HistogramRecord {
+	return &datav1.HistogramRecord{
+		Key: key, Step: step, Type: columnv1.ColumnType_COLUMN_TYPE_HISTOGRAM,
+		Value: &datav1.HistogramValue{Values: []uint64{1, 2}, Bins: []float64{0, 1, 2}},
+	}
+}
+
+// StoreOnly 会话本地降级后没有上传兜底，必须返回确定性错误而不是假装成功。
+func TestUpsertScalarsStoreOnlyDegradedFails(t *testing.T) {
+	var degraded atomic.Bool
+	degraded.Store(true)
+	h := newUpsertHarness(t, upsertOptions{storeOnly: true, degraded: &degraded})
+
+	err := h.mgr.UpsertScalars(context.Background(), h.id, []*datav1.ScalarRecord{
+		scalarRecord("loss", 1, columnv1.ColumnType_COLUMN_TYPE_SCALAR),
+	})
+	if !errors.Is(err, ErrStoreUnavailable) {
+		t.Fatalf("UpsertScalars err=%v, want ErrStoreUnavailable", err)
+	}
+	if got := len(drainStore(h.storeCh)); got != 0 {
+		t.Fatalf("store got %d records, want 0", got)
+	}
+	if got := len(drainRecords(h.upload)); got != 0 {
+		t.Fatalf("upload got %d records, want 0", got)
+	}
+}
+
+func TestUpsertColumnsSkipsDefinedAndDuplicates(t *testing.T) {
+	h := newUpsertHarness(t, upsertOptions{})
+	ctx := context.Background()
+	columns := []*columnv1.ColumnRecord{
+		{ColumnKey: "train/loss", ColumnType: columnv1.ColumnType_COLUMN_TYPE_SCALAR},
+		{ColumnKey: "train/loss", ColumnType: columnv1.ColumnType_COLUMN_TYPE_SCALAR},
+		{ColumnKey: "train/image", ColumnType: columnv1.ColumnType_COLUMN_TYPE_IMAGE},
+	}
+	if err := h.mgr.UpsertColumns(ctx, h.id, columns); err != nil {
+		t.Fatalf("UpsertColumns: %v", err)
+	}
+	uploaded := drainRecords(h.upload)
+	if len(uploaded) != 2 {
+		t.Fatalf("uploaded %d column records, want 2", len(uploaded))
+	}
+	if got := uploaded[0].GetColumn().GetColumnKey(); got != "train/loss" {
+		t.Fatalf("first column = %q, want train/loss", got)
+	}
+	if got := uploaded[1].GetColumn().GetColumnKey(); got != "train/image" {
+		t.Fatalf("second column = %q, want train/image", got)
+	}
+	if !h.session.metrics.Defined("train/loss") || !h.session.metrics.Defined("train/image") {
+		t.Fatal("columns were not defined in metrics")
+	}
+	if minStep, ok := h.session.metrics.MinStep("train/loss"); !ok || minStep != -1 {
+		t.Fatalf("min step = %d (defined=%v), want -1", minStep, ok)
+	}
+
+	if err := h.mgr.UpsertColumns(ctx, h.id, columns); err != nil {
+		t.Fatalf("repeated UpsertColumns: %v", err)
+	}
+	if got := drainRecords(h.upload); len(got) != 0 {
+		t.Fatalf("repeated columns uploaded %d records, want 0", len(got))
+	}
+	if got := len(drainStore(h.storeCh)); got != 2 {
+		t.Fatalf("store received %d records, want 2", got)
+	}
+}
+
+func TestUpsertScalarsAutoColumnAndStepDedup(t *testing.T) {
+	h := newUpsertHarness(t, upsertOptions{})
+	ctx := context.Background()
+	records := []*datav1.ScalarRecord{
+		scalarRecord("train/loss", 0, columnv1.ColumnType_COLUMN_TYPE_SCALAR),
+		scalarRecord("train/loss", 0, columnv1.ColumnType_COLUMN_TYPE_SCALAR),
+		scalarRecord("train/loss", 1, columnv1.ColumnType_COLUMN_TYPE_SCALAR),
+		scalarRecord("train/loss", -1, columnv1.ColumnType_COLUMN_TYPE_SCALAR),
+	}
+	if err := h.mgr.UpsertScalars(ctx, h.id, records); err != nil {
+		t.Fatalf("UpsertScalars: %v", err)
+	}
+	uploaded := drainRecords(h.upload)
+	if len(uploaded) != 3 {
+		t.Fatalf("uploaded %d records, want column + 2 scalars", len(uploaded))
+	}
+	column := uploaded[0].GetColumn()
+	if column.GetColumnKey() != "train/loss" || column.GetSectionName() != "train" {
+		t.Fatalf("auto column = %+v, want key train/loss in section train", column)
+	}
+	if got := uploaded[1].GetScalar().GetStep(); got != 0 {
+		t.Fatalf("first scalar step = %d, want 0", got)
+	}
+	if got := uploaded[2].GetScalar().GetStep(); got != 1 {
+		t.Fatalf("second scalar step = %d, want 1", got)
+	}
+	stats, err := h.mgr.Stats(h.id)
+	if err != nil {
+		t.Fatalf("Stats: %v", err)
+	}
+	if stats.GetTotalRecords() != 3 {
+		t.Fatalf("total records = %d, want 3 (column + two scalars)", stats.GetTotalRecords())
+	}
+
+	if err := h.mgr.UpsertScalars(ctx, h.id, records[:1]); err != nil {
+		t.Fatalf("duplicate UpsertScalars: %v", err)
+	}
+	if got := drainRecords(h.upload); len(got) != 0 {
+		t.Fatalf("duplicate step uploaded %d records, want 0", len(got))
+	}
+	if err := h.mgr.UpsertScalars(ctx, h.id, []*datav1.ScalarRecord{
+		scalarRecord("train/loss", 2, columnv1.ColumnType_COLUMN_TYPE_SCALAR),
+	}); err != nil {
+		t.Fatalf("next step UpsertScalars: %v", err)
+	}
+	if got := drainRecords(h.upload); len(got) != 1 {
+		t.Fatalf("next step uploaded %d records, want 1", len(got))
+	}
+}
+
+func TestUpsertScalarsSkipsDeterministicErrors(t *testing.T) {
+	h := newUpsertHarness(t, upsertOptions{})
+	ctx := context.Background()
+	columns := []*columnv1.ColumnRecord{{ColumnKey: "loss", ColumnType: columnv1.ColumnType_COLUMN_TYPE_SCALAR}}
+	if err := h.mgr.UpsertColumns(ctx, h.id, columns); err != nil {
+		t.Fatalf("UpsertColumns: %v", err)
+	}
+	drainRecords(h.upload)
+
+	records := []*datav1.ScalarRecord{
+		scalarRecord("loss", metrics.MaxStep+1, columnv1.ColumnType_COLUMN_TYPE_SCALAR),
+		scalarRecord("loss", metrics.MaxStep, columnv1.ColumnType_COLUMN_TYPE_SCALAR),
+		scalarRecord("loss", 0, columnv1.ColumnType_COLUMN_TYPE_IMAGE),
+	}
+	if err := h.mgr.UpsertScalars(ctx, h.id, records); err != nil {
+		t.Fatalf("UpsertScalars: %v", err)
+	}
+	uploaded := drainRecords(h.upload)
+	if len(uploaded) != 1 {
+		t.Fatalf("uploaded %d records, want only the max-step record", len(uploaded))
+	}
+	if got := uploaded[0].GetScalar().GetStep(); got != metrics.MaxStep {
+		t.Fatalf("accepted step = %d, want %d", got, metrics.MaxStep)
+	}
+
+	// MaxStep 已被接纳：重复提交必须跳过；超限值再次提交也不能产出记录。
+	if err := h.mgr.UpsertScalars(ctx, h.id, []*datav1.ScalarRecord{
+		scalarRecord("loss", metrics.MaxStep, columnv1.ColumnType_COLUMN_TYPE_SCALAR),
+		scalarRecord("loss", metrics.MaxStep+1, columnv1.ColumnType_COLUMN_TYPE_SCALAR),
+	}); err != nil {
+		t.Fatalf("boundary UpsertScalars: %v", err)
+	}
+	if got := drainRecords(h.upload); len(got) != 0 {
+		t.Fatalf("boundary reprocess uploaded %d records, want 0", len(got))
+	}
+}
+
+func TestUpsertScalarsKeepsBatchAfterRejectedRecord(t *testing.T) {
+	h := newUpsertHarness(t, upsertOptions{})
+	ctx := context.Background()
+	records := []*datav1.ScalarRecord{
+		scalarRecord("broken", metrics.MaxStep+1, columnv1.ColumnType_COLUMN_TYPE_SCALAR),
+		scalarRecord("ok", 0, columnv1.ColumnType_COLUMN_TYPE_SCALAR),
+	}
+	if err := h.mgr.UpsertScalars(ctx, h.id, records); err != nil {
+		t.Fatalf("UpsertScalars: %v", err)
+	}
+	uploaded := drainRecords(h.upload)
+	if len(uploaded) != 3 {
+		t.Fatalf("uploaded %d records, want two columns + ok scalar", len(uploaded))
+	}
+	if !h.session.metrics.Defined("broken") {
+		t.Fatal("column should be defined before the step is rejected (Python parity)")
+	}
+	if !h.session.metrics.Defined("ok") {
+		t.Fatal("valid record in the same batch must still be accepted")
+	}
+}
+
+func TestUpsertMediaAutoColumnAndTypeMismatch(t *testing.T) {
+	h := newUpsertHarness(t, upsertOptions{})
+	ctx := context.Background()
+	records := []*datav1.MediaRecord{
+		{Key: "media/text", Step: 0, Type: columnv1.ColumnType_COLUMN_TYPE_TEXT},
+		{Key: "media/text", Step: 0, Type: columnv1.ColumnType_COLUMN_TYPE_TEXT},
+		{Key: "media/text", Step: 1, Type: columnv1.ColumnType_COLUMN_TYPE_IMAGE},
+	}
+	if err := h.mgr.UpsertMedia(ctx, h.id, records); err != nil {
+		t.Fatalf("UpsertMedia: %v", err)
+	}
+	uploaded := drainRecords(h.upload)
+	if len(uploaded) != 2 {
+		t.Fatalf("uploaded %d records, want column + one media record", len(uploaded))
+	}
+	column := uploaded[0].GetColumn()
+	if column.GetColumnType() != columnv1.ColumnType_COLUMN_TYPE_TEXT {
+		t.Fatalf("column type = %s, want TEXT", column.GetColumnType())
+	}
+	if len(column.GetColumnName()) != 0 {
+		t.Fatalf("auto column should not invent a display name: %q", column.GetColumnName())
+	}
+	if got := uploaded[1].GetMedia().GetStep(); got != 0 {
+		t.Fatalf("media step = %d, want 0", got)
+	}
+}
+
+func TestUpsertHistogramsAutoColumnAndStepDedup(t *testing.T) {
+	h := newUpsertHarness(t, upsertOptions{})
+	ctx := context.Background()
+	records := []*datav1.HistogramRecord{
+		histogramRecord("train/weights", 0),
+		histogramRecord("train/weights", 0),
+		histogramRecord("train/weights", 1),
+		histogramRecord("train/weights", -1),
+	}
+	if err := h.mgr.UpsertHistograms(ctx, h.id, records); err != nil {
+		t.Fatalf("UpsertHistograms: %v", err)
+	}
+	uploaded := drainRecords(h.upload)
+	if len(uploaded) != 3 {
+		t.Fatalf("uploaded %d records, want column + 2 histograms", len(uploaded))
+	}
+	column := uploaded[0].GetColumn()
+	if column.GetColumnKey() != "train/weights" || column.GetColumnType() != columnv1.ColumnType_COLUMN_TYPE_HISTOGRAM ||
+		column.GetSectionName() != "train" {
+		t.Fatalf("auto column = %+v, want HISTOGRAM key train/weights in section train", column)
+	}
+	if got := uploaded[1].GetHistogram().GetStep(); got != 0 {
+		t.Fatalf("first histogram step = %d, want 0", got)
+	}
+	if got := uploaded[2].GetHistogram().GetStep(); got != 1 {
+		t.Fatalf("second histogram step = %d, want 1", got)
+	}
+	stats, err := h.mgr.Stats(h.id)
+	if err != nil {
+		t.Fatalf("Stats: %v", err)
+	}
+	if stats.GetTotalRecords() != 3 {
+		t.Fatalf("total records = %d, want 3 (column + two histograms)", stats.GetTotalRecords())
+	}
+
+	if err := h.mgr.UpsertHistograms(ctx, h.id, records[:1]); err != nil {
+		t.Fatalf("duplicate UpsertHistograms: %v", err)
+	}
+	if got := drainRecords(h.upload); len(got) != 0 {
+		t.Fatalf("duplicate step uploaded %d records, want 0", len(got))
+	}
+}
+
+func TestUpsertColumnsDefinesHistogram(t *testing.T) {
+	h := newUpsertHarness(t, upsertOptions{})
+	ctx := context.Background()
+	columns := []*columnv1.ColumnRecord{{
+		ColumnKey: "weights", ColumnType: columnv1.ColumnType_COLUMN_TYPE_HISTOGRAM,
+	}}
+	if err := h.mgr.UpsertColumns(ctx, h.id, columns); err != nil {
+		t.Fatalf("UpsertColumns: %v", err)
+	}
+	if got := drainRecords(h.upload); len(got) != 1 {
+		t.Fatalf("column uploaded %d records, want 1", len(got))
+	}
+	if err := h.mgr.UpsertHistograms(ctx, h.id, []*datav1.HistogramRecord{histogramRecord("weights", 0)}); err != nil {
+		t.Fatalf("UpsertHistograms: %v", err)
+	}
+	uploaded := drainRecords(h.upload)
+	if len(uploaded) != 1 || uploaded[0].GetHistogram().GetKey() != "weights" {
+		t.Fatalf("uploaded = %v, want one histogram record", uploaded)
+	}
+}
+
+func TestUpsertLogsUsesResumeEpoch(t *testing.T) {
+	h := newUpsertHarness(t, upsertOptions{})
+	h.session.epoch = counter.New(41)
+	ctx := context.Background()
+	logs := []*terminalv1.LogRecord{{Line: "first"}, {Line: "second"}}
+	if err := h.mgr.UpsertLogs(ctx, h.id, logs); err != nil {
+		t.Fatalf("UpsertLogs: %v", err)
+	}
+	uploaded := drainRecords(h.upload)
+	if len(uploaded) != 2 {
+		t.Fatalf("uploaded %d logs, want 2", len(uploaded))
+	}
+	if uploaded[0].GetNum() != 1 || uploaded[1].GetNum() != 2 {
+		t.Fatalf("log nums = %d,%d, want 1,2", uploaded[0].GetNum(), uploaded[1].GetNum())
+	}
+	if got := uploaded[0].GetLog().GetEpoch(); got != 42 {
+		t.Fatalf("first epoch = %d, want 42", got)
+	}
+	if got := uploaded[1].GetLog().GetEpoch(); got != 43 {
+		t.Fatalf("second epoch = %d, want 43", got)
+	}
+}
+
+func TestUpsertSavesLinksAndDefersCustomEnd(t *testing.T) {
+	h := newUpsertHarness(t, upsertOptions{})
+	ctx := context.Background()
+	sourceDir := t.TempDir()
+	nowPath := filepath.Join(sourceDir, "now.txt")
+	endPath := filepath.Join(sourceDir, "end.txt")
+	for _, path := range []string{nowPath, endPath} {
+		if err := os.WriteFile(path, []byte("data"), 0o644); err != nil {
+			t.Fatalf("write %s: %v", path, err)
+		}
+	}
+	nowSave := &savev1.SaveRecord{
+		Name:       "now.txt",
+		SourcePath: nowPath,
+		Policy:     savev1.SavePolicy_SAVE_POLICY_NOW,
+		Type:       savev1.SaveType_SAVE_TYPE_CUSTOM,
+	}
+	endSave := &savev1.SaveRecord{
+		Name:       "end.txt",
+		SourcePath: endPath,
+		Policy:     savev1.SavePolicy_SAVE_POLICY_END,
+		Type:       savev1.SaveType_SAVE_TYPE_CUSTOM,
+	}
+	configSave := &savev1.SaveRecord{
+		Name:   "config.yaml",
+		Policy: savev1.SavePolicy_SAVE_POLICY_NOW,
+		Type:   savev1.SaveType_SAVE_TYPE_CONFIG,
+	}
+	saves := []*savev1.SaveRecord{nowSave, endSave, configSave}
+	if err := h.mgr.UpsertSaves(ctx, h.id, saves); err != nil {
+		t.Fatalf("UpsertSaves: %v", err)
+	}
+
+	filesDir := h.session.run.FilesDir()
+	for _, name := range []string{"now.txt", "end.txt"} {
+		if _, err := os.Stat(filepath.Join(filesDir, name)); err != nil {
+			t.Fatalf("missing mirror link for %s: %v", name, err)
+		}
+	}
+	if nowSave.GetTargetPath() == "" || endSave.GetTargetPath() == "" {
+		t.Fatalf("target paths not filled: now=%q end=%q", nowSave.GetTargetPath(), endSave.GetTargetPath())
+	}
+
+	uploaded := drainRecords(h.upload)
+	if len(uploaded) != 2 {
+		t.Fatalf("uploaded %d saves before close, want internal + NOW", len(uploaded))
+	}
+	if got := uploaded[0].GetSave().GetType(); got != savev1.SaveType_SAVE_TYPE_CONFIG {
+		t.Fatalf("first upload type = %s, want CONFIG", got)
+	}
+	if uploaded[0].GetNum() != -3 {
+		t.Fatalf("config num = %d, want -3", uploaded[0].GetNum())
+	}
+	if got := uploaded[1].GetSave().GetPolicy(); got != savev1.SavePolicy_SAVE_POLICY_NOW {
+		t.Fatalf("second upload policy = %s, want NOW", got)
+	}
+	if got := len(drainStore(h.storeCh)); got != 3 {
+		t.Fatalf("store received %d records, want 3", got)
+	}
+
+	closeCtx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := h.session.intake.Close(closeCtx); err != nil {
+		t.Fatalf("close intake: %v", err)
+	}
+	deferred := drainRecords(h.upload)
+	if len(deferred) != 1 {
+		t.Fatalf("deferred uploads = %d, want 1", len(deferred))
+	}
+	if got := deferred[0].GetSave().GetPolicy(); got != savev1.SavePolicy_SAVE_POLICY_END {
+		t.Fatalf("deferred policy = %s, want END", got)
+	}
+	if deferred[0].GetNum() != 2 {
+		t.Fatalf("deferred num = %d, want 2", deferred[0].GetNum())
+	}
+}
+
+func TestUpsertSavesSkipStoreHasNoLinks(t *testing.T) {
+	h := newUpsertHarness(t, upsertOptions{skipStore: true})
+	ctx := context.Background()
+	sourcePath := filepath.Join(t.TempDir(), "now.txt")
+	if err := os.WriteFile(sourcePath, []byte("data"), 0o644); err != nil {
+		t.Fatalf("write source: %v", err)
+	}
+	saves := []*savev1.SaveRecord{
+		{
+			Name:       "now.txt",
+			SourcePath: sourcePath,
+			Policy:     savev1.SavePolicy_SAVE_POLICY_NOW,
+			Type:       savev1.SaveType_SAVE_TYPE_CUSTOM,
+		},
+		{
+			Name:       "end.txt",
+			SourcePath: sourcePath,
+			Policy:     savev1.SavePolicy_SAVE_POLICY_END,
+			Type:       savev1.SaveType_SAVE_TYPE_CUSTOM,
+		},
+	}
+	if err := h.mgr.UpsertSaves(ctx, h.id, saves); err != nil {
+		t.Fatalf("UpsertSaves: %v", err)
+	}
+	if _, err := os.Stat(h.session.run.FilesDir()); !os.IsNotExist(err) {
+		t.Fatalf("skip_store must not create files dir, stat err=%v", err)
+	}
+	if saves[0].GetTargetPath() != "" || saves[1].GetTargetPath() != "" {
+		t.Fatalf("skip_store must not fill target paths: %q %q", saves[0].GetTargetPath(), saves[1].GetTargetPath())
+	}
+	if got := drainRecords(h.upload); len(got) != 1 {
+		t.Fatalf("uploaded %d saves before close, want only NOW", len(got))
+	}
+	closeCtx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := h.session.intake.Close(closeCtx); err != nil {
+		t.Fatalf("close intake: %v", err)
+	}
+	if got := drainRecords(h.upload); len(got) != 1 {
+		t.Fatalf("deferred uploads = %d, want 1", len(got))
+	}
+}
+
+func TestUpsertRejectsWhenNotRunning(t *testing.T) {
+	h := newUpsertHarness(t, upsertOptions{})
+	ctx := context.Background()
+	if err := drainBare(h.mgr, h.id); err != nil {
+		t.Fatalf("Finish: %v", err)
+	}
+	calls := []struct {
+		name string
+		call func() error
+	}{
+		{"columns", func() error {
+			return h.mgr.UpsertColumns(ctx, h.id, []*columnv1.ColumnRecord{{ColumnKey: "loss"}})
+		}},
+		{"scalars", func() error {
+			return h.mgr.UpsertScalars(ctx, h.id, []*datav1.ScalarRecord{scalarRecord("loss", 0, columnv1.ColumnType_COLUMN_TYPE_SCALAR)})
+		}},
+		{"media", func() error {
+			return h.mgr.UpsertMedia(ctx, h.id, []*datav1.MediaRecord{{Key: "image", Type: columnv1.ColumnType_COLUMN_TYPE_IMAGE}})
+		}},
+		{"logs", func() error {
+			return h.mgr.UpsertLogs(ctx, h.id, []*terminalv1.LogRecord{{Line: "line"}})
+		}},
+		{"saves", func() error {
+			return h.mgr.UpsertSaves(ctx, h.id, []*savev1.SaveRecord{{Name: "file", Type: savev1.SaveType_SAVE_TYPE_CUSTOM}})
+		}},
+	}
+	for _, tc := range calls {
+		if err := tc.call(); !errors.Is(err, ErrNotRunning) {
+			t.Fatalf("%s after drain err=%v, want ErrNotRunning", tc.name, err)
+		}
+	}
+}
+
+// countingWatcher 记录 RegisterLive 的调用次数，用于验证被拒批次不产生监听副作用。
+type countingWatcher struct {
+	registers atomic.Int32
+}
+
+func (w *countingWatcher) RegisterLive([]*savev1.SaveRecord) error {
+	w.registers.Add(1)
+	return nil
+}
+
+func (w *countingWatcher) Stop() {}
+
+var _ watcher.Watcher = (*countingWatcher)(nil)
+
+// 被容量拒绝的批次不得注册 LIVE 监听：否则后续编辑会进入上传，
+// 产生没有 SaveRecord 的孤儿文件。
+func TestUpsertSavesRejectedBatchDoesNotWatch(t *testing.T) {
+	h := newUpsertHarness(t, upsertOptions{batch: 1, queue: 2})
+	ctx := context.Background()
+	fake := &countingWatcher{}
+	h.session.watcher = fake
+
+	sourcePath := filepath.Join(t.TempDir(), "live.txt")
+	if err := os.WriteFile(sourcePath, []byte("data"), 0o644); err != nil {
+		t.Fatalf("write source: %v", err)
+	}
+	save := &savev1.SaveRecord{
+		Name:       "live.txt",
+		SourcePath: sourcePath,
+		Policy:     savev1.SavePolicy_SAVE_POLICY_LIVE,
+		Type:       savev1.SaveType_SAVE_TYPE_CUSTOM,
+	}
+
+	// 占满本地通道，强制 Reserve 失败。
+	h.storeCh <- store.Request{}
+	h.storeCh <- store.Request{}
+	if err := h.mgr.UpsertSaves(ctx, h.id, []*savev1.SaveRecord{save}); !errors.Is(err, ErrOverloaded) {
+		t.Fatalf("UpsertSaves err=%v, want ErrOverloaded", err)
+	}
+	if got := fake.registers.Load(); got != 0 {
+		t.Fatalf("RegisterLive called %d times for a rejected batch, want 0", got)
+	}
+
+	<-h.storeCh // 腾出容量后重试必须注册监听
+	if err := h.mgr.UpsertSaves(ctx, h.id, []*savev1.SaveRecord{save}); err != nil {
+		t.Fatalf("retry UpsertSaves: %v", err)
+	}
+	if got := fake.registers.Load(); got != 1 {
+		t.Fatalf("RegisterLive called %d times after retry, want 1", got)
+	}
+}
+
+// 超限请求必须在构建前整体拒绝：不得消耗编号，也不得产生软链接、监听或入队。
+func TestUpsertRejectsOversizedBatches(t *testing.T) {
+	h := newUpsertHarness(t, upsertOptions{batch: 1, queue: 4})
+	ctx := context.Background()
+	fake := &countingWatcher{}
+	h.session.watcher = fake
+
+	logs := []*terminalv1.LogRecord{{Line: "first"}, {Line: "second"}}
+	if err := h.mgr.UpsertLogs(ctx, h.id, logs); !errors.Is(err, ErrRequestTooLarge) {
+		t.Fatalf("oversized logs err=%v, want ErrRequestTooLarge", err)
+	}
+
+	sourcePath := filepath.Join(t.TempDir(), "a.txt")
+	if err := os.WriteFile(sourcePath, []byte("data"), 0o644); err != nil {
+		t.Fatalf("write source: %v", err)
+	}
+	saves := []*savev1.SaveRecord{
+		{Name: "config.yaml", Policy: savev1.SavePolicy_SAVE_POLICY_NOW, Type: savev1.SaveType_SAVE_TYPE_CONFIG},
+		{Name: "a.txt", SourcePath: sourcePath, Policy: savev1.SavePolicy_SAVE_POLICY_NOW, Type: savev1.SaveType_SAVE_TYPE_CUSTOM},
+	}
+	if err := h.mgr.UpsertSaves(ctx, h.id, saves); !errors.Is(err, ErrRequestTooLarge) {
+		t.Fatalf("oversized saves err=%v, want ErrRequestTooLarge", err)
+	}
+
+	if got := drainRecords(h.upload); len(got) != 0 {
+		t.Fatalf("rejected batches uploaded %d records, want 0", len(got))
+	}
+	if got := len(drainStore(h.storeCh)); got != 0 {
+		t.Fatalf("rejected batches stored %d records, want 0", got)
+	}
+	if got := fake.registers.Load(); got != 0 {
+		t.Fatalf("rejected batches registered %d live watchers, want 0", got)
+	}
+	if _, err := os.Stat(filepath.Join(h.session.run.FilesDir(), "a.txt")); !os.IsNotExist(err) {
+		t.Fatalf("rejected batch created a save link, stat err=%v", err)
+	}
+	if stats, err := h.mgr.Stats(h.id); err != nil || stats.GetTotalRecords() != 0 {
+		t.Fatalf("stats after rejected batches = %v (err=%v), want 0 records", stats, err)
+	}
+
+	// 被拒请求不消耗编号：首条合法日志仍从 1 开始编号。
+	if err := h.mgr.UpsertLogs(ctx, h.id, logs[:1]); err != nil {
+		t.Fatalf("UpsertLogs after rejection: %v", err)
+	}
+	uploaded := drainRecords(h.upload)
+	if len(uploaded) != 1 || uploaded[0].GetLog().GetEpoch() != 1 {
+		t.Fatalf("first accepted log = %v, want epoch 1", uploaded)
+	}
+}
+
+// 单条 RPC 内不再有部分接纳：容量失败重试后日志不能重复，epoch 也不能重复。
+func TestUpsertLogsRetryAfterCapacityFailureDoesNotDuplicate(t *testing.T) {
+	h := newUpsertHarness(t, upsertOptions{batch: 1, queue: 2})
+	ctx := context.Background()
+
+	if err := h.mgr.UpsertLogs(ctx, h.id, []*terminalv1.LogRecord{{Line: "first"}}); err != nil {
+		t.Fatalf("first UpsertLogs: %v", err)
+	}
+	h.storeCh <- store.Request{} // 占满剩余容量
+	if err := h.mgr.UpsertLogs(ctx, h.id, []*terminalv1.LogRecord{{Line: "second"}}); !errors.Is(err, ErrOverloaded) {
+		t.Fatalf("second UpsertLogs err=%v, want ErrOverloaded", err)
+	}
+	<-h.storeCh
+	if err := h.mgr.UpsertLogs(ctx, h.id, []*terminalv1.LogRecord{{Line: "second"}}); err != nil {
+		t.Fatalf("retry UpsertLogs: %v", err)
+	}
+
+	uploaded := drainRecords(h.upload)
+	if len(uploaded) != 2 {
+		t.Fatalf("uploaded %d logs, want 2", len(uploaded))
+	}
+	seen := make(map[int64]struct{}, len(uploaded))
+	for _, rec := range uploaded {
+		if _, ok := seen[rec.GetLog().GetEpoch()]; ok {
+			t.Fatalf("duplicate log epoch %d", rec.GetLog().GetEpoch())
+		}
+		seen[rec.GetLog().GetEpoch()] = struct{}{}
+	}
+	if got := len(drainStore(h.storeCh)); got != 2 {
+		t.Fatalf("stored %d logs, want 2", got)
+	}
+}
+
+func TestUpsertReserveFailureLeavesMetricsUntouched(t *testing.T) {
+	h := newUpsertHarness(t, upsertOptions{batch: 1, queue: 2})
+	ctx := context.Background()
+	col := &columnv1.ColumnRecord{ColumnKey: "loss", ColumnType: columnv1.ColumnType_COLUMN_TYPE_SCALAR}
+	if err := h.session.metrics.DefineScalar("loss", col, -1); err != nil {
+		t.Fatalf("DefineScalar: %v", err)
+	}
+	// 填满本地通道，强制 Reserve 在队列等待上限后失败。
+	h.storeCh <- store.Request{}
+	h.storeCh <- store.Request{}
+
+	rec := scalarRecord("loss", 0, columnv1.ColumnType_COLUMN_TYPE_SCALAR)
+	if err := h.mgr.UpsertScalars(ctx, h.id, []*datav1.ScalarRecord{rec}); !errors.Is(err, ErrOverloaded) {
+		t.Fatalf("UpsertScalars err=%v, want ErrOverloaded", err)
+	}
+	if got := drainRecords(h.upload); len(got) != 0 {
+		t.Fatalf("failed reserve uploaded %d records, want 0", len(got))
+	}
+
+	// 位图未被污染：释放一个槽位后同一条 step 必须被重新接纳。
+	<-h.storeCh
+	if err := h.mgr.UpsertScalars(ctx, h.id, []*datav1.ScalarRecord{rec}); err != nil {
+		t.Fatalf("retry UpsertScalars: %v", err)
+	}
+	if got := drainRecords(h.upload); len(got) != 1 {
+		t.Fatalf("retry uploaded %d records, want 1", len(got))
+	}
+}
+
+func TestUpsertChunksByRecordBatch(t *testing.T) {
+	h := newUpsertHarness(t, upsertOptions{batch: 2, queue: 32})
+	ctx := context.Background()
+	records := make([]*datav1.ScalarRecord, 0, 5)
+	for step := int64(0); step < 5; step++ {
+		records = append(records, scalarRecord("train/loss", step, columnv1.ColumnType_COLUMN_TYPE_SCALAR))
+	}
+	if err := h.mgr.UpsertScalars(ctx, h.id, records); err != nil {
+		t.Fatalf("UpsertScalars: %v", err)
+	}
+	uploaded := drainRecords(h.upload)
+	if len(uploaded) != 6 {
+		t.Fatalf("uploaded %d records, want column + 5 scalars", len(uploaded))
+	}
+	for i := 1; i < len(uploaded); i++ {
+		if got := uploaded[i].GetScalar().GetStep(); got != int64(i-1) {
+			t.Fatalf("record %d step = %d, want %d", i, got, i-1)
+		}
+	}
+}
+
+func TestUpsertRejectsInvalidRecords(t *testing.T) {
+	h := newUpsertHarness(t, upsertOptions{})
+	ctx := context.Background()
+
+	if err := h.mgr.UpsertColumns(ctx, h.id, []*columnv1.ColumnRecord{nil}); !errors.Is(err, ErrInvalidRecord) {
+		t.Fatalf("nil column err=%v, want ErrInvalidRecord", err)
+	}
+	if err := h.mgr.UpsertColumns(ctx, h.id, []*columnv1.ColumnRecord{{}}); !errors.Is(err, ErrInvalidRecord) {
+		t.Fatalf("empty column key err=%v, want ErrInvalidRecord", err)
+	}
+	if err := h.mgr.UpsertScalars(ctx, h.id, []*datav1.ScalarRecord{nil}); !errors.Is(err, ErrInvalidRecord) {
+		t.Fatalf("nil scalar err=%v, want ErrInvalidRecord", err)
+	}
+	if err := h.mgr.UpsertMedia(ctx, h.id, []*datav1.MediaRecord{{}}); !errors.Is(err, ErrInvalidRecord) {
+		t.Fatalf("empty media key err=%v, want ErrInvalidRecord", err)
+	}
+	if err := h.mgr.UpsertHistograms(ctx, h.id, []*datav1.HistogramRecord{nil}); !errors.Is(err, ErrInvalidRecord) {
+		t.Fatalf("nil histogram err=%v, want ErrInvalidRecord", err)
+	}
+	if err := h.mgr.UpsertHistograms(ctx, h.id, []*datav1.HistogramRecord{{}}); !errors.Is(err, ErrInvalidRecord) {
+		t.Fatalf("empty histogram key err=%v, want ErrInvalidRecord", err)
+	}
+	if err := h.mgr.UpsertLogs(ctx, h.id, []*terminalv1.LogRecord{nil}); !errors.Is(err, ErrInvalidRecord) {
+		t.Fatalf("nil log err=%v, want ErrInvalidRecord", err)
+	}
+	if err := h.mgr.UpsertSaves(ctx, h.id, []*savev1.SaveRecord{nil}); !errors.Is(err, ErrInvalidRecord) {
+		t.Fatalf("nil save err=%v, want ErrInvalidRecord", err)
+	}
+	if err := h.mgr.UpsertSaves(ctx, h.id, []*savev1.SaveRecord{{Type: savev1.SaveType(99)}}); !errors.Is(err, ErrInvalidRecord) {
+		t.Fatalf("unknown save type err=%v, want ErrInvalidRecord", err)
+	}
+	if err := h.mgr.UpsertScalars(ctx, "", nil); !errors.Is(err, ErrEmptySessionID) {
+		t.Fatalf("empty session err=%v, want ErrEmptySessionID", err)
+	}
+	if err := h.mgr.UpsertScalars(ctx, "missing", nil); !errors.Is(err, ErrSessionNotFound) {
+		t.Fatalf("unknown session err=%v, want ErrSessionNotFound", err)
+	}
+	// 空列表仍是 no-op。
+	if err := h.mgr.UpsertColumns(ctx, h.id, []*columnv1.ColumnRecord{}); err != nil {
+		t.Fatalf("empty columns: %v", err)
+	}
+}
+
+func TestOnFileChangedReenqueuesLiveSave(t *testing.T) {
+	h := newUpsertHarness(t, upsertOptions{})
+	rec := &savev1.SaveRecord{
+		Name:   "live.txt",
+		Policy: savev1.SavePolicy_SAVE_POLICY_LIVE,
+		Type:   savev1.SaveType_SAVE_TYPE_CUSTOM,
+	}
+	h.session.onFileChanged(rec)
+	uploaded := drainRecords(h.upload)
+	if len(uploaded) != 1 {
+		t.Fatalf("uploaded %d records, want 1", len(uploaded))
+	}
+	if got := uploaded[0].GetSave().GetPolicy(); got != savev1.SavePolicy_SAVE_POLICY_LIVE {
+		t.Fatalf("policy = %s, want LIVE", got)
+	}
+
+	if err := h.session.beginDrain(); err != nil {
+		t.Fatalf("beginDrain: %v", err)
+	}
+	h.session.onFileChanged(rec)
+	if got := drainRecords(h.upload); len(got) != 0 {
+		t.Fatalf("callback after drain uploaded %d records, want 0", len(got))
+	}
+}

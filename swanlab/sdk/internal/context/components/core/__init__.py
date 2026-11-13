@@ -19,10 +19,15 @@ def create_core(ctx: "RunContext") -> CoreProtocol:
 
     :param ctx: 运行上下文，包含配置信息和运行时状态
     """
+    mode = ctx.config.settings.mode
     if helper.get_core_impl() == "python":
         from swanlab.sdk.internal.core_python import CorePython
 
-        return CorePython(mode=ctx.config.settings.mode)
-    else:
-        # TODO: Core 微服务无感接入
-        raise NotImplementedError("The SwanLab Go core runtime is not available yet.")
+        return CorePython(mode=mode)
+
+    from swanlab.sdk.internal.core_go import CoreGo
+    from swanlab.sdk.internal.core_go.launcher import locate_core_binary
+
+    # Go core 是 CorePython 的全模式替代；disabled 不落盘也不起进程，无需二进制。
+    binary = None if mode == "disabled" else locate_core_binary()
+    return CoreGo(mode=mode, binary=binary)

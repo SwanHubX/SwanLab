@@ -17,7 +17,7 @@ from swanlab.sdk.internal.run.components.config import (
     create_unbound_run_config,
     deactivate_run_config,
 )
-from swanlab.sdk.internal.run.components.consumer import BackgroundConsumer, ConsumerProtocol
+from swanlab.sdk.internal.run.components.consumer import DEFAULT_RECORD_BATCH, BackgroundConsumer, ConsumerProtocol
 from swanlab.sdk.internal.run.components.null import NullConsumer, NullEmitter, NullTerminalProxy
 from swanlab.sdk.internal.run.components.terminal import TerminalProxy, TerminalProxyProtocol
 
@@ -133,7 +133,8 @@ def _factory_consumer(
 ) -> ConsumerProtocol:
     if ctx.config.settings.mode == "disabled":
         return NullConsumer(ctx, e.queue)
-    return BackgroundConsumer(ctx, e.queue)
+    batch_size = min(DEFAULT_RECORD_BATCH, ctx.config.settings.core.record_batch)
+    return BackgroundConsumer(ctx, e.queue, batch_size=batch_size)
 
 
 def _factory_config(ctx: RunContext, e: EmitterProtocol) -> Config:

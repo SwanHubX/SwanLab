@@ -94,7 +94,9 @@ class Monitor:
             assert self._executor is not None, "Monitor Executor is not initialized"
             assert len(column_records) > 0, "No column records to upsert"
             if first_execute:
-                self._core.upsert_columns(column_records)
+                # core 可能把 upsert 失败抛给调用方；监控数据是尽力而为，不能拖垮定时任务
+                with safe.block(message="Error when upserting monitor columns"):
+                    self._core.upsert_columns(column_records)
                 first_execute = False
             futures = [(n, self._executor.submit(fn)) for n, fn in all_handlers]
             results: List[CollectResult] = []
@@ -108,7 +110,8 @@ class Monitor:
             now_step += 1
             for k, v in results:
                 scalar_records.append(builder.build_probe_scalar(k, value=v, timestamp=ts, step=now_step))
-            self._core.upsert_scalars(scalar_records)
+            with safe.block(message="Error when upserting monitor scalars"):
+                self._core.upsert_scalars(scalar_records)
 
         # 不设置立即执行，以避免产生一些无用的数据
         self._timer = timer.Timer(

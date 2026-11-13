@@ -1,0 +1,342 @@
+// Package sender 把整批记录编码成云端请求并给出三态结果：
+// Confirmed 为终结（含确定性失败），Remaining 为可重试，Failures 为面向用户的失败明细。
+package sender
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"io"
+	"math"
+
+	"golang.org/x/sync/semaphore"
+
+	"github.com/swanhubx/swanlab/core/internal/api"
+	"github.com/swanhubx/swanlab/core/internal/uploader"
+	columnv1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/column/v1"
+	datav1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/data/v1"
+	recordv1 "github.com/swanhubx/swanlab/core/proto/swanlab/record/v1"
+	terminalv1 "github.com/swanhubx/swanlab/core/proto/swanlab/terminal/v1"
+)
+
+const (
+	// columnChunk 是 /series 单次请求的列数上限。
+	columnChunk = 3000
+	// columnTypeSystem 是系统列的云端类型标签，优先于真实类型。
+	columnTypeSystem = "SYSTEM"
+	// 本地校验失败时的确定性错误文案。
+	scalarBlockedMessage   = "scalar record without value or timestamp"
+	logBlockedMessage      = "log record without line or timestamp"
+	logUnknownLevelMessage = "log record with unknown level"
+	// createTimeKey 是指标共用的创建时间字段名。
+	createTimeKey = "create_time"
+	// 标量、媒体与直方图指标共用的请求字段名。
+	metricKeyField   = "key"
+	metricIndexField = "index"
+	metricDataField  = "data"
+
+	// 文件类上传的并发上限；信号量是进程级的，避免多会话叠加放大连接数。
+	mediaConcurrency = 10
+	saveConcurrency  = 8
+	md5Concurrency   = 4
+	partConcurrency  = 3
+)
+
+// 文件类上传的全局信号量。
+var (
+	mediaSlots = semaphore.NewWeighted(mediaConcurrency)
+	saveSlots  = semaphore.NewWeighted(saveConcurrency)
+	md5Slots   = semaphore.NewWeighted(md5Concurrency)
+	partSlots  = semaphore.NewWeighted(partConcurrency)
+)
+
+// columnTypeNames 是 ColumnType 到云端类型标签的映射。
+var columnTypeNames = map[columnv1.ColumnType]string{
+	columnv1.ColumnType_COLUMN_TYPE_SCALAR:    "FLOAT",
+	columnv1.ColumnType_COLUMN_TYPE_IMAGE:     "IMAGE",
+	columnv1.ColumnType_COLUMN_TYPE_AUDIO:     "AUDIO",
+	columnv1.ColumnType_COLUMN_TYPE_VIDEO:     "VIDEO",
+	columnv1.ColumnType_COLUMN_TYPE_TEXT:      "TEXT",
+	columnv1.ColumnType_COLUMN_TYPE_ECHARTS:   "ECHARTS",
+	columnv1.ColumnType_COLUMN_TYPE_OBJECT3D:  "OBJECT3D",
+	columnv1.ColumnType_COLUMN_TYPE_MOLECULE:  "MOLECULE",
+	columnv1.ColumnType_COLUMN_TYPE_HTML:      "HTML",
+	columnv1.ColumnType_COLUMN_TYPE_HISTOGRAM: "HISTOGRAM",
+}
+
+// logLevelNames 是 LogLevel 到云端日志级别的映射。
+var logLevelNames = map[terminalv1.LogLevel]string{
+	terminalv1.LogLevel_LOG_LEVEL_INFO:  "INFO",
+	terminalv1.LogLevel_LOG_LEVEL_ERROR: "ERROR",
+}
+
+// ObjectPutter 是对象存储预签名直传原语，*client.Client 实现。
+type ObjectPutter interface {
+	PutObject(ctx context.Context, url string, body io.Reader, size int64, contentType string) (string, error)
+}
+
+// FileOptions 是文件类 sender（media/save）的运行期依赖；指标类 sender 忽略该字段。
+type FileOptions struct {
+	MediaDir  string // run_dir/media
+	FilesDir  string // run_dir/files
+	SkipStore bool
+	SaveSize  int64
+	SaveSplit int64
+	SavePart  int64
+	SaveBatch int
+	Tracker   *uploader.Tracker // 可空
+	Putter    ObjectPutter      // media/save 必填
+}
+
+// Options 是全部 sender 共用的身份信息。
+type Options struct {
+	API          *api.Client // 必填
+	Username     string
+	Project      string
+	ProjectID    string
+	ExperimentID string
+	Files        FileOptions
+}
+
+// validateFileOptions 校验文件类 sender 的必需依赖，避免漏装配后运行期空指针或永久重试。
+func validateFileOptions(opts Options) error {
+	if opts.API == nil {
+		return errors.New("sender: api client is required")
+	}
+	if opts.Files.Putter == nil {
+		return errors.New("sender: object putter is required")
+	}
+	return nil
+}
+
+// ColumnSender 上报列定义：先全量编码，再按 3000 条切分提交。
+type ColumnSender struct{ opts Options }
+
+// NewColumn 构造列 sender。
+func NewColumn(opts Options) *ColumnSender { return &ColumnSender{opts: opts} }
+
+// Upload 实现 uploader.Sender。
+func (s *ColumnSender) Upload(ctx context.Context, records []*recordv1.Record) uploader.Result {
+	if len(records) == 0 {
+		return uploader.Result{}
+	}
+	columns := make([]api.ColumnUpload, 0, len(records))
+	for _, rec := range records {
+		column, err := encodeColumn(rec.GetColumn())
+		if err != nil {
+			return uploader.Result{
+				Confirmed: records,
+				Failures: []uploader.Failure{{
+					Message: "failed to encode column: " + err.Error(),
+					Records: records,
+					Err:     err,
+				}},
+			}
+		}
+		columns = append(columns, column)
+	}
+
+	var confirmed []*recordv1.Record
+	var failures []uploader.Failure
+	for start := 0; start < len(records); start += columnChunk {
+		end := min(start+columnChunk, len(records))
+		batch := records[start:end]
+		if err := s.opts.API.UploadColumns(ctx, s.opts.Username, s.opts.Project, columns[start:end]); err != nil {
+			failures = append(failures, uploader.Failure{Message: err.Error(), Records: batch, Err: err})
+			if isRetryable(err) {
+				return uploader.Result{
+					Confirmed: confirmed,
+					Remaining: records[start:],
+					Failures:  failures,
+				}
+			}
+			// 确定性错误：剩余分片同样会失败，一并终结不再重复提交。
+			return uploader.Result{
+				Confirmed: append(confirmed, records[start:]...),
+				Failures:  failures,
+			}
+		}
+		confirmed = append(confirmed, batch...)
+	}
+	return uploader.Result{Confirmed: confirmed, Failures: failures}
+}
+
+// encodeColumn 把列记录转成云端 DTO；未知类型返回错误。
+func encodeColumn(record *columnv1.ColumnRecord) (api.ColumnUpload, error) {
+	if record == nil {
+		return api.ColumnUpload{}, errors.New("missing column payload")
+	}
+	column := api.ColumnUpload{Key: record.GetColumnKey()}
+	if record.GetColumnClass() == columnv1.ColumnClass_COLUMN_CLASS_SYSTEM {
+		column.Type = columnTypeSystem
+	} else {
+		typ, ok := columnTypeNames[record.GetColumnType()]
+		if !ok {
+			return api.ColumnUpload{}, fmt.Errorf("unsupported column type %s", record.GetColumnType())
+		}
+		column.Type = typ
+	}
+	if xAxis := record.GetXAxis(); xAxis != "" {
+		column.XAxis = xAxis
+	}
+	if section := record.GetSectionName(); section != "" {
+		column.SectionName = section
+	}
+	if record.GetHidden() {
+		column.Hidden = true
+	}
+	return column, nil
+}
+
+// ScalarSender 上报标量指标，整批一次请求。
+type ScalarSender struct{ opts Options }
+
+// NewScalar 构造标量 sender。
+func NewScalar(opts Options) *ScalarSender { return &ScalarSender{opts: opts} }
+
+// Upload 实现 uploader.Sender。
+func (s *ScalarSender) Upload(ctx context.Context, records []*recordv1.Record) uploader.Result {
+	if len(records) == 0 {
+		return uploader.Result{}
+	}
+	metrics := make([]map[string]any, 0, len(records))
+	encodable := make([]*recordv1.Record, 0, len(records))
+	blocked := make([]*recordv1.Record, 0)
+	for _, rec := range records {
+		metric, ok := encodeScalar(rec.GetScalar())
+		if !ok {
+			blocked = append(blocked, rec)
+			continue
+		}
+		metrics = append(metrics, metric)
+		encodable = append(encodable, rec)
+	}
+	if len(metrics) == 0 {
+		return uploader.Result{
+			Confirmed: records,
+			Failures:  blockedFailures(scalarBlockedMessage, blocked),
+		}
+	}
+
+	err := s.opts.API.UploadMetrics(ctx, api.MetricScalar, s.opts.ProjectID, s.opts.ExperimentID, metrics)
+	if err == nil {
+		return uploader.Result{
+			Confirmed: append(encodable, blocked...),
+			Failures:  blockedFailures(scalarBlockedMessage, blocked),
+		}
+	}
+
+	failures := make([]uploader.Failure, 0, 1+len(blocked))
+	failures = append(failures, uploader.Failure{Message: err.Error(), Records: encodable, Err: err})
+	failures = append(failures, blockedFailures(scalarBlockedMessage, blocked)...)
+	if isRetryable(err) {
+		return uploader.Result{Confirmed: blocked, Remaining: encodable, Failures: failures}
+	}
+	return uploader.Result{Confirmed: append(encodable, blocked...), Failures: failures}
+}
+
+// encodeScalar 编码单条标量；缺 payload 或时间戳时返回 false，缺 Value 按 proto 默认值 0 处理。
+func encodeScalar(record *datav1.ScalarRecord) (map[string]any, bool) {
+	if record == nil || record.GetTimestamp() == nil {
+		return nil, false
+	}
+	createTime, ok := encodeTimestamp(record.GetTimestamp())
+	if !ok {
+		return nil, false
+	}
+	value := record.GetValue().GetNumber()
+	var data any = value
+	if math.IsNaN(value) || math.IsInf(value, 0) {
+		data = "nan"
+	}
+	return map[string]any{
+		metricKeyField:   record.GetKey(),
+		metricIndexField: record.GetStep(),
+		metricDataField:  data,
+		createTimeKey:    createTime,
+	}, true
+}
+
+// LogSender 上报控制台日志，整批一次请求。
+type LogSender struct{ opts Options }
+
+// NewLog 构造日志 sender。
+func NewLog(opts Options) *LogSender { return &LogSender{opts: opts} }
+
+// Upload 实现 uploader.Sender。
+func (s *LogSender) Upload(ctx context.Context, records []*recordv1.Record) uploader.Result {
+	if len(records) == 0 {
+		return uploader.Result{}
+	}
+	metrics := make([]map[string]any, 0, len(records))
+	encodable := make([]*recordv1.Record, 0, len(records))
+	blocked := make([]*recordv1.Record, 0)
+	unknownLevel := make([]*recordv1.Record, 0)
+	for _, rec := range records {
+		metric, status := encodeLog(rec.GetLog())
+		switch status {
+		case logOK:
+			metrics = append(metrics, metric)
+			encodable = append(encodable, rec)
+		case logBadLevel:
+			unknownLevel = append(unknownLevel, rec)
+		default:
+			blocked = append(blocked, rec)
+		}
+	}
+
+	terminal := make([]*recordv1.Record, 0, len(blocked)+len(unknownLevel))
+	terminal = append(terminal, blocked...)
+	terminal = append(terminal, unknownLevel...)
+	blockedOnly := blockedFailures(logBlockedMessage, blocked)
+	blockedOnly = append(blockedOnly, blockedFailures(logUnknownLevelMessage, unknownLevel)...)
+	if len(metrics) == 0 {
+		return uploader.Result{Confirmed: records, Failures: blockedOnly}
+	}
+
+	err := s.opts.API.UploadMetrics(ctx, api.MetricLog, s.opts.ProjectID, s.opts.ExperimentID, metrics)
+	if err == nil {
+		return uploader.Result{
+			Confirmed: append(encodable, terminal...),
+			Failures:  blockedOnly,
+		}
+	}
+
+	failures := make([]uploader.Failure, 0, 1+len(blockedOnly))
+	failures = append(failures, uploader.Failure{Message: err.Error(), Records: encodable, Err: err})
+	failures = append(failures, blockedOnly...)
+	if isRetryable(err) {
+		return uploader.Result{Confirmed: terminal, Remaining: encodable, Failures: failures}
+	}
+	return uploader.Result{Confirmed: append(encodable, terminal...), Failures: failures}
+}
+
+// logEncodeStatus 是日志编码结果。
+type logEncodeStatus int
+
+const (
+	logOK logEncodeStatus = iota
+	logBlocked
+	logBadLevel
+)
+
+// encodeLog 编码单条日志；缺 payload/时间戳或级别未知时返回对应状态。
+func encodeLog(record *terminalv1.LogRecord) (map[string]any, logEncodeStatus) {
+	if record == nil || record.GetTimestamp() == nil {
+		return nil, logBlocked
+	}
+	level, ok := logLevelNames[record.GetLevel()]
+	if !ok {
+		return nil, logBadLevel
+	}
+	createTime, ok := encodeTimestamp(record.GetTimestamp())
+	if !ok {
+		return nil, logBlocked
+	}
+	return map[string]any{
+		"level":       level,
+		"epoch":       record.GetEpoch(),
+		"message":     record.GetLine(),
+		createTimeKey: createTime,
+	}, logOK
+}

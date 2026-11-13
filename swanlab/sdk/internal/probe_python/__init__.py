@@ -11,7 +11,7 @@ from typing import List, Optional
 
 from swanlab.proto.swanlab.grpc.probe.v1.probe_pb2 import DeliverProbeStartRequest, GetMetadataSnapshotResponse
 from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord, SaveType
-from swanlab.sdk.internal.pkg import console
+from swanlab.sdk.internal.pkg import console, safe
 from swanlab.sdk.internal.probe_python.context import ProbeContext
 from swanlab.sdk.internal.probe_python.environment import conda, git, requirements, runtime, swanlab
 from swanlab.sdk.internal.probe_python.hardware_vendor import ACCELERATOR_REGISTRY, CPU, Apple, Memory
@@ -120,7 +120,9 @@ class ProbePython(ProbeProtocol):
                     )
                 )
             if payload:
-                self._core.upsert_saves(payload)
+                # core 可能把 upsert 失败抛给调用方；探针元数据是尽力而为
+                with safe.block(message="Error when upserting probe metadata"):
+                    self._core.upsert_saves(payload)
             else:
                 console.debug(
                     "ProbePython has no metadata to send; metadata will be collected for snapshots only and will not be sent."

@@ -7,7 +7,16 @@
 """
 
 from .callbacker import Callback
-from .core import CoreEnum, CoreProtocol
+from .core import CoreEnum, CoreProtocol, CoreProtocolError, NullCoreProtocol, is_terminal_stats_error
 from .probe import ProbeEnum, ProbeProtocol
 
-__all__ = ["Callback", "CoreProtocol", "CoreEnum", "ProbeProtocol", "ProbeEnum"]
+__all__ = [
+    "Callback",
+    "CoreProtocol",
+    "CoreProtocolError",
+    "CoreEnum",
+    "NullCoreProtocol",
+    "ProbeProtocol",
+    "ProbeEnum",
+    "is_terminal_stats_error",
+]

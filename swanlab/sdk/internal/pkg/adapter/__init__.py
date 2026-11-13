@@ -11,11 +11,22 @@ from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
 from swanlab.proto.swanlab.probe.v1.metadata_pb2 import AcceleratorVendor, MemoryUnit
 from swanlab.proto.swanlab.run.v1.run_pb2 import ResumeMode, RunState
 from swanlab.proto.swanlab.save.v1.save_pb2 import SavePolicy
+from swanlab.proto.swanlab.settings.core.v1.core_pb2 import CoreMode
 from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogLevel
 
 from .bimap import BiMap
 
-__all__ = ["resume", "medium", "column", "state", "level", "policy", "memory_unit", "accelerator_vendor"]
+__all__ = [
+    "resume",
+    "medium",
+    "column",
+    "state",
+    "level",
+    "policy",
+    "memory_unit",
+    "accelerator_vendor",
+    "core_mode",
+]
 
 
 resume = BiMap(
@@ -109,3 +120,13 @@ accelerator_vendor = BiMap(
     }
 )
 """AcceleratorVendor 枚举适配器"""
+
+core_mode = BiMap(
+    {
+        "online": CoreMode.CORE_MODE_ONLINE,
+        "local": CoreMode.CORE_MODE_LOCAL,
+        "offline": CoreMode.CORE_MODE_OFFLINE,
+        "disabled": CoreMode.CORE_MODE_DISABLED,
+    }
+)
+"""CoreMode 枚举适配器，映射 SDK 运行模式与 core 启动模式"""

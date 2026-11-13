@@ -39,6 +39,7 @@ from swanlab.sdk.internal.bus.events import MetricDefineEvent, MetricLogEvent
 from swanlab.sdk.internal.context import RunConfig, RunContext
 from swanlab.sdk.internal.core_python import CorePython
 from swanlab.sdk.internal.core_python.context import CoreConfig, CoreContext
+from swanlab.sdk.internal.core_python.core import _CLEANUP_JOIN_TIMEOUT
 from swanlab.sdk.internal.core_python.store import DataStoreReader, DataStoreWriter, NullDataStoreWriter
 from swanlab.sdk.internal.core_python.transport.tracker import UploadTracker
 from swanlab.sdk.internal.core_python.watcher import FileWatcher, NullFileWatcher
@@ -469,6 +470,93 @@ class TestCorePythonFinish:
         assert core._transport is None
         heartbeat.stop.assert_called_once()
         assert tracker.snapshot().state == CoreState.CORE_STATE_FINISHED
+
+
+# ============================================================
+# TestCorePythonReclaim
+# ============================================================
+
+
+class TestCorePythonReclaim:
+    def test_abort_closes_local_resources_and_is_idempotent(self, tmp_path):
+        core = CorePython("local")
+        core._ctx = make_core_ctx(tmp_path)
+        store = MagicMock()
+        watcher = MagicMock()
+        core._store = store
+        core._watcher = watcher
+
+        core.abort()
+        core.abort()
+
+        store.close.assert_called_once()
+        watcher.stop.assert_called_once()
+        assert core._store is None
+        assert core._watcher is None
+        assert core._active is False
+
+    def test_abort_stops_heartbeat_and_transport(self, tmp_path):
+        core = CorePython("online")
+        core._ctx = make_core_ctx(tmp_path)
+        heartbeat = MagicMock()
+        transport = MagicMock()
+        transport.finish.return_value = False
+        tracker = UploadTracker()
+        tracker.set_state(CoreState.CORE_STATE_RUNNING)
+        core._heartbeat = heartbeat
+        core._transport = transport
+        core._tracker = tracker
+        core._pending_online_finish_record = FinishRecord()
+
+        core.abort()
+
+        heartbeat.stop.assert_called_once()
+        transport.finish.assert_called_once_with(timeout=_CLEANUP_JOIN_TIMEOUT)
+        transport.stop.assert_called_once()
+        transport.join.assert_called_once_with(timeout=_CLEANUP_JOIN_TIMEOUT)
+        assert core._transport is None
+        assert core._pending_online_finish_record is None
+        assert tracker.snapshot().state == CoreState.CORE_STATE_FINISHED
+
+    def test_close_does_not_report_cloud_state(self, tmp_path, monkeypatch):
+        core = CorePython("online")
+        core._ctx = make_core_ctx(tmp_path)
+        set_online_params(core)
+        core._pending_online_finish_record = FinishRecord()
+        stop_experiment_mock = MagicMock()
+        monkeypatch.setattr("swanlab.sdk.internal.core_python.core.stop_experiment", stop_experiment_mock)
+
+        core.close()
+
+        stop_experiment_mock.assert_not_called()
+        assert core._pending_online_finish_record is None
+
+    def test_reclaim_isolates_cleanup_failures(self, tmp_path):
+        core = CorePython("local")
+        core._ctx = make_core_ctx(tmp_path)
+        store = MagicMock()
+        store.close.side_effect = RuntimeError("disk gone")
+        watcher = MagicMock()
+        heartbeat = MagicMock()
+        core._store = store
+        core._watcher = watcher
+        core._heartbeat = heartbeat
+
+        core.abort()
+
+        watcher.stop.assert_called_once()
+        heartbeat.stop.assert_called_once()
+        assert core._store is None
+
+    def test_disabled_mode_reclaim_is_noop(self):
+        core = CorePython("disabled")
+
+        core.close()
+        core.abort()
+
+        assert core._store is None
+        assert core._watcher is None
+        assert core._transport is None
 
 
 # ============================================================

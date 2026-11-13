@@ -4,6 +4,15 @@ package swanlab.settings.core.v1;
 
 option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/settings/core/v1;settingscorev1";
 
+// Run mode. UNSPECIFIED is treated as ONLINE for backward compatibility.
+enum CoreMode {
+    CORE_MODE_UNSPECIFIED = 0;
+    CORE_MODE_ONLINE      = 1;
+    CORE_MODE_LOCAL       = 2;
+    CORE_MODE_OFFLINE     = 3;
+    CORE_MODE_DISABLED    = 4;
+}
+
 message CoreSettings {
     string run_id = 1;
     // Absolute run directory path, formatted according to the current operating system.
@@ -17,4 +26,22 @@ message CoreSettings {
     int32 save_batch       = 9;
     // Skip the local Record store (run-*.swanlab). Only valid in online mode.
     bool skip_store        = 10;
+    // Sensitive credential used for cloud authentication. Never log this value.
+    string api_key  = 11;
+    // Cloud API endpoint, e.g. https://api.swanlab.cn. Core speaks REST with this host.
+    string api_host = 12;
+    // Cloud web endpoint, e.g. https://swanlab.cn. Only used to build user-facing experiment URLs.
+    string web_host = 13;
+    // Run mode. Online requires api_key/api_host; local/offline only write the local store.
+    CoreMode mode = 14;
+
+    // Upload pipeline budget in records / bytes; <=0 means unlimited.
+    int64 upload_budget_records = 15;
+    int64 upload_budget_bytes   = 16;
+    // Site health probe cadence and per-probe timeout in seconds; 0 uses the core default.
+    double health_probe_interval = 17;
+    double health_probe_timeout  = 18;
+    // Consecutive failures / successes required to flip the health state; 0 uses the core default.
+    int32 health_degrade_threshold = 19;
+    int32 health_recover_threshold = 20;
 }

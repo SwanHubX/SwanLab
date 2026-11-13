@@ -14,5 +14,7 @@ def test_core_error_kind_enum_and_field():
     resp = core_pb2.DeliverRunStartResponse(error_kind=kind)
 
     assert resp.error_kind == kind
-    assert core_pb2.DeliverRunStartResponse.ERROR_KIND_FIELD_NUMBER == 9
+    # 9 已被 session_id 占用（Go core 的 run 会话路由依赖），error_kind 顺延到 10
+    assert core_pb2.DeliverRunStartResponse.SESSION_ID_FIELD_NUMBER == 9
+    assert core_pb2.DeliverRunStartResponse.ERROR_KIND_FIELD_NUMBER == 10
     assert core_pb2.DeliverRunStartResponse(success=True).error_kind == core_pb2.CORE_ERROR_KIND_UNSPECIFIED
