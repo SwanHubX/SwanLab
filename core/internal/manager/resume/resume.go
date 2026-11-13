@@ -49,7 +49,7 @@ func LoadLocalRebuild(cfg config.Settings, run *runctx.RunContext) (*metrics.Reb
 	if res.Finished {
 		return nil, fmt.Errorf("%w: run %q is already finished, use `swanlab sync` instead", ErrInvalidRunFile, run.RunID)
 	}
-	if res.Records > 0 && !res.HasStart {
+	if res.Records > 0 && res.Start == nil {
 		return nil, fmt.Errorf("%w: non-empty run file %q must start with a valid start record", ErrInvalidRunFile, runFile)
 	}
 	return res, nil
@@ -69,7 +69,7 @@ func ValidateStart(local *metrics.RebuildResult, target StartIdentity) error {
 	if local == nil || local.Records == 0 {
 		return nil
 	}
-	if !local.HasStart || local.Start == nil {
+	if local.Start == nil {
 		return fmt.Errorf("%w: local run store has no valid start record", ErrInvalidRunFile)
 	}
 	if local.Start.GetId() != target.RunID {
@@ -88,14 +88,11 @@ func ValidateStart(local *metrics.RebuildResult, target StartIdentity) error {
 	return nil
 }
 
-// ResolveCheckpoint 读取并校验断点文件是否与当前可信本地副本范围一致；
-// 缺失、损坏或越界时回退到文件头 (0, HeaderLen, false)。
-func ResolveCheckpoint(
-	checkpointFile, runID, runFile string,
-	local *metrics.RebuildResult,
-) (seq uint64, offset int64, valid bool) {
-	fallback := func() (uint64, int64, bool) {
-		return 0, store.HeaderLen, false
+// ResolveCheckpoint 读取并校验断点文件是否与当前可信本地副本中对应的记录偏移一致；
+// 缺失、损坏或不匹配时回退到文件头 (0, HeaderLen)。
+func ResolveCheckpoint(checkpointFile, runID, runFile string, local *metrics.RebuildResult) (uint64, int64) {
+	fallback := func() (uint64, int64) {
+		return 0, store.HeaderLen
 	}
 	if local == nil || checkpointFile == "" {
 		return fallback()
@@ -109,34 +106,13 @@ func ResolveCheckpoint(
 		console.Debugf("resume: no matching checkpoint at %s, replaying from file head", checkpointFile)
 		return fallback()
 	}
-	if cp.StoreSeq > local.Records || cp.Offset < store.HeaderLen || cp.Offset > local.EndOffset {
-		console.Debugf("resume: checkpoint out of bounds (seq=%d/%d off=%d/%d), replaying from file head",
-			cp.StoreSeq, local.Records, cp.Offset, local.EndOffset)
+	exactOff, endErr := store.EndOffset(runFile, nil, cp.StoreSeq, local.EndOffset)
+	if endErr != nil || cp.Offset != exactOff {
+		console.Debugf("resume: invalid checkpoint (seq=%d off=%d expected=%d err=%v), replaying from file head",
+			cp.StoreSeq, cp.Offset, exactOff, endErr)
 		return fallback()
 	}
-	if cp.StoreSeq == 0 && cp.Offset != store.HeaderLen {
-		console.Debugf("resume: invalid zero-seq checkpoint offset %d, replaying from file head", cp.Offset)
-		return fallback()
-	}
-	if cp.StoreSeq == local.Records && cp.Offset != local.EndOffset {
-		console.Debugf("resume: checkpoint offset %d != end offset %d at seq %d, replaying from file head",
-			cp.Offset, local.EndOffset, cp.StoreSeq)
-		return fallback()
-	}
-	if cp.StoreSeq > 0 && cp.StoreSeq < local.Records {
-		if cp.Offset >= local.EndOffset {
-			console.Debugf("resume: checkpoint offset %d >= end offset %d with trailing records, replaying from file head",
-				cp.Offset, local.EndOffset)
-			return fallback()
-		}
-		exactOff, endErr := store.EndOffset(runFile, nil, cp.StoreSeq, local.EndOffset)
-		if endErr != nil || cp.Offset != exactOff {
-			console.Debugf("resume: checkpoint seq %d offset %d != expected %d (err=%v), replaying from file head",
-				cp.StoreSeq, cp.Offset, exactOff, endErr)
-			return fallback()
-		}
-	}
-	return cp.StoreSeq, cp.Offset, true
+	return cp.StoreSeq, cp.Offset
 }
 
 // CountUploadable 统计 runFile 在 [startOffset, endOffset) 区间内需立即上传的记录条数。
@@ -246,11 +222,9 @@ type ProgressOptions struct {
 // OnlineProgress 返回在线进度追踪器及续传重放区间起点；非在线或无本地 store 时返回零值结构。
 type OnlineProgress struct {
 	Tracker           *progress.Tracker
-	OnStored          func(*recordv1.Record, uint64)
 	ReplayFrom        uint64
 	ReplayStartOffset int64
 	CheckpointSeq     uint64
-	CheckpointValid   bool
 }
 
 // InitOnlineProgress 在在线且开启本地 store 时初始化断点水位与待重放范围。
@@ -261,12 +235,11 @@ func InitOnlineProgress(opts ProgressOptions) OnlineProgress {
 	}
 	var baseSeq uint64
 	if opts.Resume != nil {
-		baseSeq, out.ReplayStartOffset, out.CheckpointValid = ResolveCheckpoint(
+		baseSeq, out.ReplayStartOffset = ResolveCheckpoint(
 			opts.CheckpointFile, opts.RunID, opts.RunFile, opts.Resume,
 		)
 	}
 	out.Tracker = progress.NewTracker(baseSeq)
-	out.OnStored = out.Tracker.OnStored
 	out.CheckpointSeq = baseSeq
 	if opts.Resume != nil && baseSeq < opts.Resume.Records {
 		out.ReplayFrom = baseSeq + 1

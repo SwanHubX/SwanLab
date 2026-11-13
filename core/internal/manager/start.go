@@ -186,7 +186,7 @@ func (m *Manager) DeliverRunStart(
 	start.Color = color
 	start.Workspace = workspace
 	start.Project = projectName
-	if local == nil || !local.HasStart {
+	if local == nil || local.Start == nil {
 		if err = s.commitStart(ctx, start); err != nil {
 			s.rollback()
 			return nil, err
@@ -251,7 +251,7 @@ func (m *Manager) deliverLocalStart(
 	}
 
 	start := proto.Clone(rec).(*runv1.StartRecord)
-	if local == nil || !local.HasStart {
+	if local == nil || local.Start == nil {
 		if err := s.commitStart(ctx, start); err != nil {
 			s.rollback()
 			return nil, err

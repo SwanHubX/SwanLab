@@ -89,7 +89,7 @@ func (s *Session) open(init sessionInit) error {
 			Store:          s.store,
 			Watermark:      s.progress.Watermark,
 			InitialSeq:     prog.CheckpointSeq,
-			InitialWritten: prog.CheckpointValid && prog.CheckpointSeq > 0,
+			InitialWritten: prog.CheckpointSeq > 0,
 		})
 	}
 	var pendingDeferred int
@@ -108,7 +108,7 @@ func (s *Session) open(init sessionInit) error {
 		Flushed:         flushed,
 		OnAdmit:         s.tracker.AddTotalRecords,
 		OnPause:         func(uint64) { s.backfill.Wake() },
-		OnStored:        prog.OnStored,
+		OnStored:        s.progress.OnStored,
 	})
 	if err != nil {
 		return fmt.Errorf("create intake: %w", err)
@@ -229,21 +229,16 @@ func (s *Session) open(init sessionInit) error {
 		if prog.ReplayFrom > 0 {
 			initCursor = backfill.Cursor{Seq: prog.ReplayFrom - 1, Offset: prog.ReplayStartOffset}
 		}
-		var onBackfillStored func(*recordv1.Record, uint64)
-		if s.progress != nil {
-			onBackfillStored = s.progress.OnStored
-		}
 		s.backfill = backfill.New(backfill.Options{
 			Ctx:           s.ctx,
 			Intake:        s.intake,
 			Store:         s.store,
 			RunFile:       s.runFile,
 			BatchSize:     s.cfg.RecordBatch,
-			SkipStore:     s.cfg.SkipStore,
 			Degraded:      &s.storeDegraded,
 			IsRunning:     func() bool { return s.stateSnapshot() == RunStateRunning },
 			IsSuspended:   s.shouldSuspendUploads,
-			OnStored:      onBackfillStored,
+			OnStored:      s.progress.OnStored,
 			InitialPause:  prog.ReplayFrom,
 			InitialCursor: initCursor,
 		})

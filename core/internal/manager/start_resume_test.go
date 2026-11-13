@@ -181,6 +181,10 @@ func writeTestRecords(t *testing.T, path string, recs ...*recordv1.Record) int64
 	return endOff
 }
 
+func startReq(runID string) *runv1.StartRecord {
+	return &runv1.StartRecord{Project: "demo", Workspace: "alice", Id: runID}
+}
+
 func makeStartRecord(runID, workspace, project string) *recordv1.Record {
 	return &recordv1.Record{
 		Num: record.NumStart,
@@ -191,6 +195,23 @@ func makeStartRecord(runID, workspace, project string) *recordv1.Record {
 				Project:   project,
 			},
 		},
+	}
+}
+
+func scalarInput(step int64, val float64) *datav1.ScalarRecord {
+	return &datav1.ScalarRecord{
+		Key:       "loss",
+		Step:      step,
+		Type:      columnv1.ColumnType_COLUMN_TYPE_SCALAR,
+		Value:     &datav1.ScalarValue{Number: val},
+		Timestamp: timestamppb.Now(),
+	}
+}
+
+func upsertScalars(t *testing.T, mgr *Manager, sessionID string, recs ...*datav1.ScalarRecord) {
+	t.Helper()
+	if err := mgr.UpsertScalars(context.Background(), sessionID, recs); err != nil {
+		t.Fatalf("UpsertScalars: %v", err)
 	}
 }
 
@@ -207,17 +228,11 @@ func makeColumnRecord(num int64, key string) *recordv1.Record {
 }
 
 func makeScalarRecord(num int64, key string, step int64, val float64) *recordv1.Record {
+	sc := scalarInput(step, val)
+	sc.Key = key
 	return &recordv1.Record{
-		Num: num,
-		RecordType: &recordv1.Record_Scalar{
-			Scalar: &datav1.ScalarRecord{
-				Key:       key,
-				Step:      step,
-				Type:      columnv1.ColumnType_COLUMN_TYPE_SCALAR,
-				Value:     &datav1.ScalarValue{Number: val},
-				Timestamp: timestamppb.Now(),
-			},
-		},
+		Num:        num,
+		RecordType: &recordv1.Record_Scalar{Scalar: sc},
 	}
 }
 
@@ -242,20 +257,14 @@ func TestResumeLocalModeAppendAndFinishGuard(t *testing.T) {
 
 	// 第一次运行：写入 3 个 scalar (step 0..2) 与 1 条日志后“崩溃”退出（不写 Finish）。
 	mgr1 := newTestManager()
-	res1, err := mgr1.DeliverRunStart(ctx, cfg, &runv1.StartRecord{Project: "demo", Workspace: "alice", Id: cfg.RunID})
+	res1, err := mgr1.DeliverRunStart(ctx, cfg, startReq(cfg.RunID))
 	if err != nil {
 		t.Fatalf("first DeliverRunStart: %v", err)
 	}
 	if !res1.NewExperiment || res1.GlobalStep != -1 {
 		t.Fatalf("first StartResult = %+v, want NewExperiment=true GlobalStep=-1", res1)
 	}
-	if err = mgr1.UpsertScalars(ctx, res1.SessionID, []*datav1.ScalarRecord{
-		{Key: "loss", Step: 0, Value: &datav1.ScalarValue{Number: 1.0}},
-		{Key: "loss", Step: 1, Value: &datav1.ScalarValue{Number: 0.8}},
-		{Key: "loss", Step: 2, Value: &datav1.ScalarValue{Number: 0.6}},
-	}); err != nil {
-		t.Fatalf("first UpsertScalars: %v", err)
-	}
+	upsertScalars(t, mgr1, res1.SessionID, scalarInput(0, 1.0), scalarInput(1, 0.8), scalarInput(2, 0.6))
 	if err = mgr1.UpsertLogs(ctx, res1.SessionID, []*terminalv1.LogRecord{{Line: "hello"}}); err != nil {
 		t.Fatalf("first UpsertLogs: %v", err)
 	}
@@ -271,7 +280,7 @@ func TestResumeLocalModeAppendAndFinishGuard(t *testing.T) {
 
 	// 同目录重启：重建指标、计数器与 epoch，不重复写 Start。
 	mgr2 := newTestManager()
-	res2, err := mgr2.DeliverRunStart(ctx, cfg, &runv1.StartRecord{Project: "demo", Workspace: "alice", Id: cfg.RunID})
+	res2, err := mgr2.DeliverRunStart(ctx, cfg, startReq(cfg.RunID))
 	if err != nil {
 		t.Fatalf("second DeliverRunStart: %v", err)
 	}
@@ -293,12 +302,7 @@ func TestResumeLocalModeAppendAndFinishGuard(t *testing.T) {
 	}
 
 	// 重复 step=2 被跳过；step=3 正常写入且不再重建 loss 列。
-	if err = mgr2.UpsertScalars(ctx, res2.SessionID, []*datav1.ScalarRecord{
-		{Key: "loss", Step: 2, Value: &datav1.ScalarValue{Number: 9.9}},
-		{Key: "loss", Step: 3, Value: &datav1.ScalarValue{Number: 0.4}},
-	}); err != nil {
-		t.Fatalf("second UpsertScalars: %v", err)
-	}
+	upsertScalars(t, mgr2, res2.SessionID, scalarInput(2, 9.9), scalarInput(3, 0.4))
 	if err = mgr2.DeliverRunFinish(ctx, res2.SessionID, &runv1.FinishRecord{State: runv1.RunState_RUN_STATE_FINISHED}); err != nil {
 		t.Fatalf("DeliverRunFinish: %v", err)
 	}
@@ -327,7 +331,7 @@ func TestResumeLocalModeAppendAndFinishGuard(t *testing.T) {
 
 	// 已含 FinishRecord 的 run 文件拒绝再次续传。
 	mgr3 := newTestManager()
-	_, err = mgr3.DeliverRunStart(ctx, cfg, &runv1.StartRecord{Project: "demo", Workspace: "alice", Id: cfg.RunID})
+	_, err = mgr3.DeliverRunStart(ctx, cfg, startReq(cfg.RunID))
 	if !errors.Is(err, ErrInvalidStartRecord) {
 		t.Fatalf("third start after finish err = %v, want ErrInvalidStartRecord", err)
 	}
@@ -339,28 +343,11 @@ func TestResumeTruncatesCorruptTailAndPreservesExistingOnRollback(t *testing.T) 
 	ctx := context.Background()
 
 	mgr1 := newTestManager()
-	res1, err := mgr1.DeliverRunStart(ctx, cfg, &runv1.StartRecord{Project: "demo", Workspace: "alice", Id: cfg.RunID})
+	res1, err := mgr1.DeliverRunStart(ctx, cfg, startReq(cfg.RunID))
 	if err != nil {
 		t.Fatalf("first DeliverRunStart: %v", err)
 	}
-	if err = mgr1.UpsertScalars(ctx, res1.SessionID, []*datav1.ScalarRecord{
-		{
-			Key:       "loss",
-			Step:      0,
-			Type:      columnv1.ColumnType_COLUMN_TYPE_SCALAR,
-			Value:     &datav1.ScalarValue{Number: 1.0},
-			Timestamp: timestamppb.Now(),
-		},
-		{
-			Key:       "loss",
-			Step:      1,
-			Type:      columnv1.ColumnType_COLUMN_TYPE_SCALAR,
-			Value:     &datav1.ScalarValue{Number: 0.5},
-			Timestamp: timestamppb.Now(),
-		},
-	}); err != nil {
-		t.Fatalf("UpsertScalars: %v", err)
-	}
+	upsertScalars(t, mgr1, res1.SessionID, scalarInput(0, 1.0), scalarInput(1, 0.5))
 	if err = mgr1.Shutdown(ctx); err != nil {
 		t.Fatalf("mgr1.Shutdown: %v", err)
 	}
@@ -400,24 +387,14 @@ func TestResumeTruncatesCorruptTailAndPreservesExistingOnRollback(t *testing.T) 
 
 	// 正常重启应截断尾部并继续写入。
 	mgr2 := newTestManager()
-	res2, err := mgr2.DeliverRunStart(ctx, cfg, &runv1.StartRecord{Project: "demo", Workspace: "alice", Id: cfg.RunID})
+	res2, err := mgr2.DeliverRunStart(ctx, cfg, startReq(cfg.RunID))
 	if err != nil {
 		t.Fatalf("second DeliverRunStart: %v", err)
 	}
 	if res2.GlobalStep != 1 {
 		t.Fatalf("GlobalStep = %d, want 1", res2.GlobalStep)
 	}
-	if err = mgr2.UpsertScalars(ctx, res2.SessionID, []*datav1.ScalarRecord{
-		{
-			Key:       "loss",
-			Step:      2,
-			Type:      columnv1.ColumnType_COLUMN_TYPE_SCALAR,
-			Value:     &datav1.ScalarValue{Number: 0.25},
-			Timestamp: timestamppb.Now(),
-		},
-	}); err != nil {
-		t.Fatalf("second UpsertScalars: %v", err)
-	}
+	upsertScalars(t, mgr2, res2.SessionID, scalarInput(2, 0.25))
 	if err = mgr2.DeliverRunFinish(ctx, res2.SessionID, &runv1.FinishRecord{State: runv1.RunState_RUN_STATE_FINISHED}); err != nil {
 		t.Fatalf("DeliverRunFinish: %v", err)
 	}
@@ -483,11 +460,7 @@ func TestResumeOnlineCheckpointBackfillAndNoDuplicateColumns(t *testing.T) {
 	}
 
 	mgr := newTestManager()
-	res, err := mgr.DeliverRunStart(ctx, cfg, &runv1.StartRecord{
-		Project:   "demo",
-		Workspace: "alice",
-		Id:        cfg.RunID,
-	})
+	res, err := mgr.DeliverRunStart(ctx, cfg, startReq(cfg.RunID))
 	if err != nil {
 		t.Fatalf("DeliverRunStart: %v", err)
 	}
@@ -496,17 +469,7 @@ func TestResumeOnlineCheckpointBackfillAndNoDuplicateColumns(t *testing.T) {
 	}
 
 	// 续传新提交 step=4（不再重建 loss 列），并等待 seq 5..6 与新记录全部送达。
-	if err = mgr.UpsertScalars(ctx, res.SessionID, []*datav1.ScalarRecord{
-		{
-			Key:       "loss",
-			Step:      4,
-			Type:      columnv1.ColumnType_COLUMN_TYPE_SCALAR,
-			Value:     &datav1.ScalarValue{Number: 0.2},
-			Timestamp: timestamppb.Now(),
-		},
-	}); err != nil {
-		t.Fatalf("UpsertScalars: %v", err)
-	}
+	upsertScalars(t, mgr, res.SessionID, scalarInput(4, 0.2))
 	waitForScalarCount(t, st, 3) // step 2, 3 (从 checkpoint 补投) + step 4 (新提交)
 
 	if err = mgr.DeliverRunFinish(ctx, res.SessionID, &runv1.FinishRecord{State: runv1.RunState_RUN_STATE_FINISHED}); err != nil {
@@ -764,17 +727,7 @@ func TestResumeOnlineMergesCloudSummaryAndEndSaves(t *testing.T) {
 	}
 
 	// 新写 step=11 并结束：此前本地的 END 保存记录也必须在 Close 时上传。
-	if err = mgr.UpsertScalars(ctx, res.SessionID, []*datav1.ScalarRecord{
-		{
-			Key:       "loss",
-			Step:      11,
-			Type:      columnv1.ColumnType_COLUMN_TYPE_SCALAR,
-			Value:     &datav1.ScalarValue{Number: 0.1},
-			Timestamp: timestamppb.Now(),
-		},
-	}); err != nil {
-		t.Fatalf("UpsertScalars: %v", err)
-	}
+	upsertScalars(t, mgr, res.SessionID, scalarInput(11, 0.1))
 	waitForScalarCount(t, st, 1)
 
 	if err = mgr.DeliverRunFinish(ctx, res.SessionID, &runv1.FinishRecord{State: runv1.RunState_RUN_STATE_FINISHED}); err != nil {
@@ -832,32 +785,11 @@ func TestResumeOnlineUploadsAllHistoryAfterLocalCrash(t *testing.T) {
 
 	// 1. local 模式写入历史记录后崩溃退出（不写 Finish），过程中不得产生 checkpoint.json。
 	mgr1 := newTestManager()
-	res1, err := mgr1.DeliverRunStart(ctx, localCfg, &runv1.StartRecord{
-		Project:   "demo",
-		Workspace: "alice",
-		Id:        localCfg.RunID,
-	})
+	res1, err := mgr1.DeliverRunStart(ctx, localCfg, startReq(localCfg.RunID))
 	if err != nil {
 		t.Fatalf("local DeliverRunStart: %v", err)
 	}
-	if err = mgr1.UpsertScalars(ctx, res1.SessionID, []*datav1.ScalarRecord{
-		{
-			Key:       "loss",
-			Step:      0,
-			Type:      columnv1.ColumnType_COLUMN_TYPE_SCALAR,
-			Value:     &datav1.ScalarValue{Number: 1.0},
-			Timestamp: timestamppb.Now(),
-		},
-		{
-			Key:       "loss",
-			Step:      1,
-			Type:      columnv1.ColumnType_COLUMN_TYPE_SCALAR,
-			Value:     &datav1.ScalarValue{Number: 0.5},
-			Timestamp: timestamppb.Now(),
-		},
-	}); err != nil {
-		t.Fatalf("local UpsertScalars: %v", err)
-	}
+	upsertScalars(t, mgr1, res1.SessionID, scalarInput(0, 1.0), scalarInput(1, 0.5))
 	if err = mgr1.Shutdown(ctx); err != nil {
 		t.Fatalf("local Shutdown: %v", err)
 	}
@@ -881,25 +813,11 @@ func TestResumeOnlineUploadsAllHistoryAfterLocalCrash(t *testing.T) {
 	onlineCfg.RunDir = runDir
 
 	mgr2 := newTestManager()
-	res2, err := mgr2.DeliverRunStart(ctx, onlineCfg, &runv1.StartRecord{
-		Project:   "demo",
-		Workspace: "alice",
-		Id:        onlineCfg.RunID,
-	})
+	res2, err := mgr2.DeliverRunStart(ctx, onlineCfg, startReq(onlineCfg.RunID))
 	if err != nil {
 		t.Fatalf("online DeliverRunStart: %v", err)
 	}
-	if err = mgr2.UpsertScalars(ctx, res2.SessionID, []*datav1.ScalarRecord{
-		{
-			Key:       "loss",
-			Step:      2,
-			Type:      columnv1.ColumnType_COLUMN_TYPE_SCALAR,
-			Value:     &datav1.ScalarValue{Number: 0.25},
-			Timestamp: timestamppb.Now(),
-		},
-	}); err != nil {
-		t.Fatalf("online UpsertScalars: %v", err)
-	}
+	upsertScalars(t, mgr2, res2.SessionID, scalarInput(2, 0.25))
 	waitForScalarCount(t, st, 3)
 
 	if err = mgr2.DeliverRunFinish(ctx, res2.SessionID, &runv1.FinishRecord{State: runv1.RunState_RUN_STATE_FINISHED}); err != nil {
@@ -936,37 +854,35 @@ func TestResumeRejectsInvalidOrMismatchedStartRecord(t *testing.T) {
 		{
 			name: "missing start record in non-empty store",
 			recs: []*recordv1.Record{makeColumnRecord(1, "loss"), makeScalarRecord(2, "loss", 0, 1.0)},
-			req:  &runv1.StartRecord{Project: "demo", Workspace: "alice", Id: "resume-check"},
+			req:  startReq("resume-check"),
 		},
 		{
 			name: "start record not at head",
 			recs: []*recordv1.Record{makeScalarRecord(1, "loss", 0, 1.0), makeStartRecord("resume-check", "alice", "demo")},
-			req:  &runv1.StartRecord{Project: "demo", Workspace: "alice", Id: "resume-check"},
+			req:  startReq("resume-check"),
 		},
 		{
 			name: "start record with wrong num",
 			recs: []*recordv1.Record{{
-				Num: 1,
-				RecordType: &recordv1.Record_Start{Start: &runv1.StartRecord{
-					Id: "resume-check", Workspace: "alice", Project: "demo",
-				}},
+				Num:        1,
+				RecordType: &recordv1.Record_Start{Start: startReq("resume-check")},
 			}},
-			req: &runv1.StartRecord{Project: "demo", Workspace: "alice", Id: "resume-check"},
+			req: startReq("resume-check"),
 		},
 		{
 			name: "run id mismatch",
 			recs: []*recordv1.Record{makeStartRecord("other-run", "alice", "demo"), makeScalarRecord(1, "loss", 0, 1.0)},
-			req:  &runv1.StartRecord{Project: "demo", Workspace: "alice", Id: "resume-check"},
+			req:  startReq("resume-check"),
 		},
 		{
 			name: "project mismatch",
 			recs: []*recordv1.Record{makeStartRecord("resume-check", "alice", "other-proj"), makeScalarRecord(1, "loss", 0, 1.0)},
-			req:  &runv1.StartRecord{Project: "demo", Workspace: "alice", Id: "resume-check"},
+			req:  startReq("resume-check"),
 		},
 		{
 			name: "workspace mismatch after normalization",
 			recs: []*recordv1.Record{makeStartRecord("resume-check", "bob", "demo"), makeScalarRecord(1, "loss", 0, 1.0)},
-			req:  &runv1.StartRecord{Project: "demo", Workspace: "alice", Id: "resume-check"},
+			req:  startReq("resume-check"),
 		},
 	}
 

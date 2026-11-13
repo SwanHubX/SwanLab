@@ -154,9 +154,8 @@ func TestLoadLocalRebuildCases(t *testing.T) {
 
 func TestValidateStartIdentity(t *testing.T) {
 	base := &metrics.RebuildResult{
-		Records:  2,
-		HasStart: true,
-		Start:    &runv1.StartRecord{Id: "run-1", Workspace: "alice", Project: "demo"},
+		Records: 2,
+		Start:   &runv1.StartRecord{Id: "run-1", Workspace: "alice", Project: "demo"},
 	}
 
 	if err := ValidateStart(nil, StartIdentity{RunID: "run-1", Project: "demo"}); err != nil {
@@ -192,9 +191,8 @@ func TestValidateStartIdentity(t *testing.T) {
 		{
 			name: "local empty workspace mismatch when strict",
 			local: &metrics.RebuildResult{
-				Records:  2,
-				HasStart: true,
-				Start:    &runv1.StartRecord{Id: "run-1", Project: "demo"},
+				Records: 2,
+				Start:   &runv1.StartRecord{Id: "run-1", Project: "demo"},
 			},
 			target: StartIdentity{RunID: "run-1", Workspace: "alice", Project: "demo"},
 		},
@@ -206,9 +204,8 @@ func TestValidateStartIdentity(t *testing.T) {
 
 	// AllowEmptyWorkspace 允许早期 local(workspace="") 在转在线时被规范化补齐。
 	localNoSpace := &metrics.RebuildResult{
-		Records:  2,
-		HasStart: true,
-		Start:    &runv1.StartRecord{Id: "run-1", Project: "demo"},
+		Records: 2,
+		Start:   &runv1.StartRecord{Id: "run-1", Project: "demo"},
 	}
 	if err := ValidateStart(localNoSpace, StartIdentity{
 		RunID: "run-1", Workspace: "alice", Project: "demo", AllowEmptyWorkspace: true,
@@ -235,9 +232,9 @@ func TestResolveCheckpointAndCountUploadable(t *testing.T) {
 	}
 
 	// 缺失 checkpoint 回退文件头
-	seq, off, valid := ResolveCheckpoint(cpFile, run.RunID, runFile, local)
-	if valid || seq != 0 || off != store.HeaderLen {
-		t.Fatalf("missing cp = (%d, %d, %v), want (0, %d, false)", seq, off, valid, store.HeaderLen)
+	seq, off := ResolveCheckpoint(cpFile, run.RunID, runFile, local)
+	if seq != 0 || off != store.HeaderLen {
+		t.Fatalf("missing cp = (%d, %d), want (0, %d)", seq, off, store.HeaderLen)
 	}
 
 	// 统计整文件可立即上传记录数：Start/END_SAVE 跳过，2 条 scalar 计入
@@ -259,9 +256,9 @@ func TestResolveCheckpointAndCountUploadable(t *testing.T) {
 		t.Fatalf("WriteCheckpoint: %v", err)
 	}
 
-	seq, off, valid = ResolveCheckpoint(cpFile, run.RunID, runFile, local)
-	if !valid || seq != 2 || off != cpOff {
-		t.Fatalf("valid cp = (%d, %d, %v), want (2, %d, true)", seq, off, valid, cpOff)
+	seq, off = ResolveCheckpoint(cpFile, run.RunID, runFile, local)
+	if seq != 2 || off != cpOff {
+		t.Fatalf("valid cp = (%d, %d), want (2, %d)", seq, off, cpOff)
 	}
 
 	// 非记录边界 offset 应回退
@@ -271,9 +268,9 @@ func TestResolveCheckpointAndCountUploadable(t *testing.T) {
 		StoreSeq: 2,
 		Offset:   store.HeaderLen + 2,
 	})
-	seq, off, valid = ResolveCheckpoint(cpFile, run.RunID, runFile, local)
-	if valid || seq != 0 || off != store.HeaderLen {
-		t.Fatalf("bad boundary cp = (%d, %d, %v), want fallback", seq, off, valid)
+	seq, off = ResolveCheckpoint(cpFile, run.RunID, runFile, local)
+	if seq != 0 || off != store.HeaderLen {
+		t.Fatalf("bad boundary cp = (%d, %d), want fallback", seq, off)
 	}
 
 	// 合法记录边界但属于其它 store_seq 应拒绝并回退
@@ -287,9 +284,9 @@ func TestResolveCheckpointAndCountUploadable(t *testing.T) {
 		StoreSeq: 2,
 		Offset:   wrongSeqOff,
 	})
-	seq, off, valid = ResolveCheckpoint(cpFile, run.RunID, runFile, local)
-	if valid || seq != 0 || off != store.HeaderLen {
-		t.Fatalf("wrong-seq boundary cp = (%d, %d, %v), want fallback", seq, off, valid)
+	seq, off = ResolveCheckpoint(cpFile, run.RunID, runFile, local)
+	if seq != 0 || off != store.HeaderLen {
+		t.Fatalf("wrong-seq boundary cp = (%d, %d), want fallback", seq, off)
 	}
 
 	// InitOnlineProgress 根据有效 checkpoint 设定重放起点
@@ -307,7 +304,7 @@ func TestResolveCheckpointAndCountUploadable(t *testing.T) {
 		HasStore:       true,
 		Resume:         local,
 	})
-	if !prog.CheckpointValid || prog.CheckpointSeq != 2 || prog.ReplayFrom != 3 || prog.ReplayStartOffset != cpOff {
+	if prog.CheckpointSeq != 2 || prog.ReplayFrom != 3 || prog.ReplayStartOffset != cpOff {
 		t.Fatalf("InitOnlineProgress = %+v, want seq=2 replayFrom=3 off=%d", prog, cpOff)
 	}
 }

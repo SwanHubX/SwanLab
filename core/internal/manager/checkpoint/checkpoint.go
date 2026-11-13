@@ -179,40 +179,12 @@ func (w *Writer) Persist() {
 	}
 }
 
-// File 返回断点文件路径。
-func (w *Writer) File() string {
-	if w == nil {
-		return ""
-	}
-	return w.file
-}
-
 // RemoveFile 清理回滚期间产生的断点文件（忽略删除错误）。
 func (w *Writer) RemoveFile() {
 	if w == nil || w.file == "" {
 		return
 	}
 	_ = os.Remove(w.file)
-}
-
-// HasWrite 报告是否已至少成功落盘一次断点（含 Resume 继承的有效断点）。
-func (w *Writer) HasWrite() bool {
-	if w == nil {
-		return false
-	}
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	return w.hasWrite
-}
-
-// Warned 报告最近一次写入是否处于失败告警状态。
-func (w *Writer) Warned() bool {
-	if w == nil {
-		return false
-	}
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	return w.warned
 }
 
 func (w *Writer) warn(err error) {

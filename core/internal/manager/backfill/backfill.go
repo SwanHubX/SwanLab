@@ -57,7 +57,6 @@ type Options struct {
 	Store         *store.AsyncWriter
 	RunFile       string
 	BatchSize     int32
-	SkipStore     bool
 	Degraded      *atomic.Bool
 	IsRunning     func() bool
 	IsSuspended   func() bool
@@ -73,7 +72,6 @@ type Worker struct {
 	store       *store.AsyncWriter
 	runFile     string
 	batchSize   int
-	skipStore   bool
 	degraded    *atomic.Bool
 	isRunning   func() bool
 	isSuspended func() bool
@@ -107,7 +105,6 @@ func New(opts Options) *Worker {
 		store:       opts.Store,
 		runFile:     opts.RunFile,
 		batchSize:   batch,
-		skipStore:   opts.SkipStore,
 		degraded:    opts.Degraded,
 		isRunning:   opts.IsRunning,
 		isSuspended: opts.IsSuspended,
@@ -411,7 +408,7 @@ func (w *Worker) needed() bool {
 	if w.intake == nil || w.store == nil {
 		return false
 	}
-	if w.skipStore || (w.degraded != nil && w.degraded.Load()) {
+	if w.degraded != nil && w.degraded.Load() {
 		return false
 	}
 	if w.isRunning != nil && !w.isRunning() {

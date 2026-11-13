@@ -28,7 +28,6 @@ type RebuildResult struct {
 	Records          uint64
 	EndOffset        int64
 	Finished         bool
-	HasStart         bool
 }
 
 // Rebuild 从文件头顺序扫描本地 store 文件，一次构建 RunMetrics、Counter、
@@ -87,7 +86,6 @@ func applyRebuiltRecord(res *RebuildResult, rec *recordv1.Record) {
 	switch record.TypeOf(rec) {
 	case record.TypeStart:
 		if res.Records == 1 && rec.GetNum() == record.NumStart && rec.GetStart() != nil {
-			res.HasStart = true
 			res.Start = rec.GetStart()
 		}
 	case record.TypeFinish:

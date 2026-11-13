@@ -82,7 +82,7 @@ func TestRebuildEmptyHeaderOnly(t *testing.T) {
 	if res.Records != 0 || res.EndOffset != store.HeaderLen ||
 		res.Counter != 0 || res.Epoch != 0 ||
 		res.GlobalStep != -1 || res.GlobalSystemStep != -1 ||
-		res.Finished || res.HasStart || len(res.EndSaves) != 0 ||
+		res.Finished || res.Start != nil || len(res.EndSaves) != 0 ||
 		res.Metrics.Len() != 0 {
 		t.Fatalf("unexpected empty rebuild result: %+v", res)
 	}
@@ -136,10 +136,10 @@ func TestRebuildFullState(t *testing.T) {
 		t.Fatalf("records/offset = (%d, %d), want (%d, %d)",
 			res.Records, res.EndOffset, len(recs), ends[len(ends)-1])
 	}
-	if !res.HasStart || !res.Finished {
-		t.Fatalf("HasStart=%v Finished=%v, want true/true", res.HasStart, res.Finished)
+	if res.Start == nil || !res.Finished {
+		t.Fatalf("Start=%v Finished=%v, want non-nil/true", res.Start, res.Finished)
 	}
-	if res.Start == nil || res.Start.GetId() != "run-1" || res.Start.GetWorkspace() != "alice" || res.Start.GetProject() != "demo" {
+	if res.Start.GetId() != "run-1" || res.Start.GetWorkspace() != "alice" || res.Start.GetProject() != "demo" {
 		t.Fatalf("Start = %+v, want id=run-1 workspace=alice project=demo", res.Start)
 	}
 	if res.Counter != 18 {
@@ -334,7 +334,7 @@ func TestRebuildOpenError(t *testing.T) {
 }
 
 func TestRebuildStartRecordPositionAndNum(t *testing.T) {
-	t.Run("start not at head leaves HasStart false", func(t *testing.T) {
+	t.Run("start not at head leaves Start nil", func(t *testing.T) {
 		path, _ := writeStoreRecords(t,
 			scalarDataRecord(1, "loss", 0, 1.0),
 			&recordv1.Record{Num: record.NumStart, RecordType: &recordv1.Record_Start{Start: &runv1.StartRecord{Id: "late"}}},
@@ -343,12 +343,12 @@ func TestRebuildStartRecordPositionAndNum(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Rebuild: %v", err)
 		}
-		if res.HasStart || res.Start != nil {
-			t.Fatalf("late start = (%v, %+v), want (false, nil)", res.HasStart, res.Start)
+		if res.Start != nil {
+			t.Fatalf("late start = %+v, want nil", res.Start)
 		}
 	})
 
-	t.Run("start with wrong num leaves HasStart false", func(t *testing.T) {
+	t.Run("start with wrong num leaves Start nil", func(t *testing.T) {
 		path, _ := writeStoreRecords(t,
 			&recordv1.Record{Num: 1, RecordType: &recordv1.Record_Start{Start: &runv1.StartRecord{Id: "bad-num"}}},
 		)
@@ -356,8 +356,8 @@ func TestRebuildStartRecordPositionAndNum(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Rebuild: %v", err)
 		}
-		if res.HasStart || res.Start != nil {
-			t.Fatalf("wrong-num start = (%v, %+v), want (false, nil)", res.HasStart, res.Start)
+		if res.Start != nil {
+			t.Fatalf("wrong-num start = %+v, want nil", res.Start)
 		}
 	})
 
@@ -370,8 +370,8 @@ func TestRebuildStartRecordPositionAndNum(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Rebuild: %v", err)
 		}
-		if !res.HasStart || res.Start == nil || res.Start.GetId() != "first" {
-			t.Fatalf("Start = (%v, %+v), want Id=first", res.HasStart, res.Start)
+		if res.Start == nil || res.Start.GetId() != "first" {
+			t.Fatalf("Start = %+v, want Id=first", res.Start)
 		}
 	})
 }

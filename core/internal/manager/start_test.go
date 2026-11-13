@@ -563,8 +563,8 @@ func TestCheckpointSkipStoreProducesNoFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("session: %v", err)
 	}
-	if s.checkpoint.File() != "" {
-		t.Fatalf("checkpoint.File() = %q, want empty under skip_store", s.checkpoint.File())
+	if s.checkpoint != nil {
+		t.Fatalf("checkpoint = %+v, want nil under skip_store", s.checkpoint)
 	}
 	matches, err := filepath.Glob(filepath.Join(cfg.RunDir, "*.checkpoint.json"))
 	if err != nil {

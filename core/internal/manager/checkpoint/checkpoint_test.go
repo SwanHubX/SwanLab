@@ -165,16 +165,16 @@ func TestWriterFailureWarnsAndRecovers(t *testing.T) {
 	})
 
 	w.Persist()
-	if w.HasWrite() || !w.Warned() {
-		t.Fatalf("after failed write: hasWrite=%v warned=%v, want (false, true)", w.HasWrite(), w.Warned())
+	if w.hasWrite || !w.warned {
+		t.Fatalf("after failed write: hasWrite=%v warned=%v, want (false, true)", w.hasWrite, w.warned)
 	}
 
 	if err := os.RemoveAll(cpFile); err != nil {
 		t.Fatalf("RemoveAll: %v", err)
 	}
 	w.Persist()
-	if !w.HasWrite() || w.Warned() {
-		t.Fatalf("after recovery: hasWrite=%v warned=%v, want (true, false)", w.HasWrite(), w.Warned())
+	if !w.hasWrite || w.warned {
+		t.Fatalf("after recovery: hasWrite=%v warned=%v, want (true, false)", w.hasWrite, w.warned)
 	}
 	cp, ok, err := store.LoadCheckpoint(cpFile, "run-1")
 	if err != nil || !ok || cp.StoreSeq != 1 {
@@ -209,9 +209,6 @@ func TestWriterSkipsUnchangedInitialSeqAndNilSafe(t *testing.T) {
 	nilWriter.Flush()
 	nilWriter.Stop()
 	nilWriter.RemoveFile()
-	if nilWriter.File() != "" || nilWriter.HasWrite() || nilWriter.Warned() {
-		t.Fatal("nil Writer accessors returned non-zero")
-	}
 
 	// 缺少 Watermark（非 online 模式无上传水位）不得产生任何 checkpoint。
 	noWatermarkCP := filepath.Join(dir, "no-watermark.checkpoint.json")
@@ -226,7 +223,7 @@ func TestWriterSkipsUnchangedInitialSeqAndNilSafe(t *testing.T) {
 	disabled.Persist()
 	disabled.Flush()
 	disabled.Stop()
-	if disabled.HasWrite() {
+	if disabled.hasWrite {
 		t.Fatal("writer without watermark must not record checkpoint writes")
 	}
 	if _, err := os.Stat(noWatermarkCP); !os.IsNotExist(err) {

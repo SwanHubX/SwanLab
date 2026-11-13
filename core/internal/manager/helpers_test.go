@@ -395,7 +395,6 @@ func newFinishHarness(t *testing.T, opts finishOptions) *finishHarness {
 			Store:       async,
 			RunFile:     runFile,
 			BatchSize:   cfg.RecordBatch,
-			SkipStore:   cfg.SkipStore,
 			Degraded:    &s.storeDegraded,
 			IsRunning:   func() bool { return s.stateSnapshot() == RunStateRunning },
 			IsSuspended: s.shouldSuspendUploads,
