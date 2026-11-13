@@ -19,7 +19,7 @@ from swanlab.sdk.internal.bus.events import ConfigEvent, FileSaveEvent, LogEvent
 from swanlab.sdk.internal.context import RunContext, TransformMedia
 from swanlab.sdk.internal.pkg import adapter, console, fs
 from swanlab.sdk.internal.run.components.config.writer import dump_config
-from swanlab.sdk.internal.run.transforms import ECharts, Histogram, Scalar, Video, echarts
+from swanlab.sdk.internal.run.transforms import ECharts, Histogram, Scalar, echarts
 from swanlab.sdk.internal.run.transforms.video.source import MAX_SIZE as VIDEO_MAX_SIZE
 
 _EchartsType = (echarts.Base, echarts.Table)
@@ -67,8 +67,8 @@ class RecordBuilder:
         items = list(record.value.items)
         # 1. 过滤掉超过单条大小限制的项
         valid_items = []
+        limit = VIDEO_MAX_SIZE if record.type == ColumnType.COLUMN_TYPE_VIDEO else self._MEDIA_MAX_SIZE
         for item in items:
-            limit = VIDEO_MAX_SIZE if record.type == ColumnType.COLUMN_TYPE_VIDEO else self._MEDIA_MAX_SIZE
             if item.size > limit:
                 console.warning(
                     f"Media '{item.filename}' in key '{record.key}' step {record.step} "
@@ -115,8 +115,6 @@ class RecordBuilder:
         """
         if not value:
             raise TypeError("List must not be empty")
-        if any(isinstance(item, Video) for item in value):
-            return self._build_videos(value, key, timestamp, step)
         # 1. pyecharts 图表对象自动包装为 ECharts
         if not isinstance(value[0], TransformMedia):
             if isinstance(value[0], _EchartsType):
@@ -139,57 +137,12 @@ class RecordBuilder:
     def _(self, value: TransformMedia, key: str, timestamp: Timestamp, step: int) -> ParseResult:
         """将单个 TransformMediaType 转换为 MediaRecord"""
         cls = value.__class__
-        if isinstance(value, Video):
-            return self._build_videos([value], key, timestamp, step)
         path = self._resolve_media_dir(cls.column_type())
-        item = value.transform(step=step, path=path)
+        values = [value.transform(step=step, path=path)]
         media_record = self._ensure_media_size(
-            cls.build_data_record(key=key, step=step, timestamp=timestamp, data=[item])
+            cls.build_data_record(key=key, step=step, timestamp=timestamp, data=values)
         )
         return media_record, cls
-
-    def _build_videos(self, values: list, key: str, timestamp: Timestamp, step: int) -> ParseResult:
-        items = []
-        rejected = 0
-        skip_store = self._ctx.config.settings.core.skip_store
-        payload_size = 0
-        budget_exceeded = False
-        for video in values:
-            if not isinstance(video, Video) or not video.is_valid:
-                rejected += 1
-                continue
-            if len(items) >= self._MEDIA_MAX_LENGTH:
-                console.warning(
-                    f"Video key '{key}' step {step} exceeds {self._MEDIA_MAX_LENGTH} valid items; remaining items skipped"
-                )
-                break
-            if skip_store and payload_size + (video.size or 0) > VIDEO_MAX_SIZE:
-                budget_exceeded = True
-                break
-            try:
-                item = video.transform(step=step, path=self._resolve_media_dir(Video.column_type()))
-            except Exception as error:
-                if video.is_valid:
-                    console.warning(f"Video key '{key}' step {step}: {type(error).__name__}: {error}")
-                rejected += 1
-                continue
-            # buffer 可在构造后被修改，按 transform 后的实际 payload 再核对总量。
-            if skip_store and payload_size + len(item.payload) > VIDEO_MAX_SIZE:
-                budget_exceeded = True
-                break
-            payload_size += len(item.payload)
-            items.append(item)
-        if budget_exceeded:
-            console.warning(
-                f"Video key '{key}' step {step} exceeds the {VIDEO_MAX_SIZE}-byte total payload limit "
-                "with skip_store enabled; remaining items skipped"
-            )
-        if rejected:
-            console.warning(f"Video key '{key}' step {step}: skipped {rejected} invalid item(s)")
-        if not items:
-            return None, Video
-        record = Video.build_data_record(key=key, step=step, timestamp=timestamp, data=items)
-        return self._ensure_media_size(record), Video
 
     @build_scalar_or_media.register(Histogram)
     def _(self, value: Histogram, key: str, timestamp: Timestamp, step: int) -> ParseResult:

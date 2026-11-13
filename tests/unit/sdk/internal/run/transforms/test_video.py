@@ -63,25 +63,30 @@ class TestVideoInit:
 
 
 class TestVideoInitErrors:
-    def test_invalid_container_is_ignored(self, tmp_path):
+    def test_invalid_container_raises(self, tmp_path):
         p = tmp_path / "clip.mp4"
         p.write_bytes(b"\x00" * 16)
-        assert not Video(str(p)).is_valid
+        with pytest.raises(ValueError):
+            Video(str(p))
 
-    def test_nonexistent_path_is_ignored(self):
-        assert not Video("/nonexistent/path/clip.gif").is_valid
+    def test_nonexistent_path_raises(self):
+        with pytest.raises(FileNotFoundError):
+            Video("/nonexistent/path/clip.gif")
 
-    def test_bad_magic_in_file_is_ignored(self, tmp_path):
+    def test_bad_magic_in_file_raises(self, tmp_path):
         """文件扩展名合法但内容不是 GIF"""
         p = tmp_path / "fake.gif"
         p.write_bytes(b"\xff\xd8\xff\xe0" + b"\x00" * 16)  # JPEG 魔数
-        assert not Video(str(p)).is_valid
+        with pytest.raises(ValueError):
+            Video(str(p))
 
-    def test_bad_magic_in_bytes_is_ignored(self):
-        assert not Video(b"\x00\x01\x02\x03\x04\x05\x06\x07").is_valid
+    def test_bad_magic_in_bytes_raises(self):
+        with pytest.raises(ValueError):
+            Video(b"\x00\x01\x02\x03\x04\x05\x06\x07")
 
-    def test_unsupported_type_is_ignored(self):
-        assert not Video(12345).is_valid  # type: ignore
+    def test_unsupported_type_raises(self):
+        with pytest.raises(ValueError):
+            Video(12345)  # type: ignore
 
 
 # ---------------------------------- 套娃加载测试 ----------------------------------

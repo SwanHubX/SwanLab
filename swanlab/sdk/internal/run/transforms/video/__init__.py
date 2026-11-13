@@ -13,7 +13,7 @@ from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaItem
 from swanlab.sdk.internal.context import TransformMedia
 from swanlab.sdk.internal.pkg import console
 from swanlab.sdk.typings.run.transforms import CaptionType
-from swanlab.sdk.typings.run.transforms.video import VideoErrorInfo, VideoFormat, VideoInput
+from swanlab.sdk.typings.run.transforms.video import VideoFormat, VideoInput
 
 from .encoding import encode, require_modules
 from .source import (
@@ -35,9 +35,8 @@ class Video(TransformMedia):
     explicit ``format``, uint8 pixels, and use 4 fps by default. The encoded
     canvas, including batch tiling and padding, is limited to 4096 pixels per
     side. Tensor callers must detach and prepare CPU uint8 arrays themselves.
-    File inputs keep their bytes and audio unchanged. Processing errors warn
-    and produce an invalid object. Logging skips that video while continuing
-    with other metrics.
+    File inputs keep their bytes and audio unchanged. Input, encoding, and
+    storage failures raise exceptions, following the other media transforms.
     """
 
     def __init__(
@@ -48,34 +47,17 @@ class Video(TransformMedia):
         format: Optional[VideoFormat] = None,
     ):
         super().__init__()
-        self._source: Optional[VideoSource] = None
-        self._error: Optional[VideoErrorInfo] = None
-        self.caption: Optional[str] = None
-        try:
-            if caption is not None and not isinstance(caption, str):
-                raise VideoProcessingError("argument", "Video caption must be a string or None")
-            self.caption = caption
-            self._prepare(data_or_path, fps, format)
-        except Exception as error:
-            self._invalidate(error)
+        if caption is not None and not isinstance(caption, str):
+            raise VideoProcessingError("argument", "Video caption must be a string or None")
+        self.caption = caption
+        self._source = self._prepare(data_or_path, fps, format)
 
-    def _invalidate(self, error: Exception) -> None:
-        code = error.code if isinstance(error, VideoProcessingError) else "encoding"
-        if isinstance(error, OSError):
-            code = "file_read"
-        if isinstance(error, ImportError):
-            code = "dependency_missing"
-        self._error = VideoErrorInfo(code, str(error)[:1000])
-        console.warning(f"Invalid video ({code}): {self._error.message}")
-
-    def _prepare(self, data: object, fps: Optional[int], fmt: Optional[VideoFormat]) -> None:
+    def _prepare(self, data: object, fps: Optional[int], fmt: Optional[VideoFormat]) -> VideoSource:
         if isinstance(data, Video):
-            self._source = data._source
-            self._error = data.error
             if self.caption is None:
                 self.caption = data.caption
             self._file_options(fps, fmt, data.format)
-            return
+            return data._source
         if isinstance(data, (str, os.PathLike)):
             filename = os.fspath(data)
             if not isinstance(filename, str):
@@ -87,8 +69,7 @@ class Video(TransformMedia):
             check_size(path.stat().st_size)
             self._file_options(fps, fmt, actual_format)
             with path.open("rb") as stream:
-                self._source = snapshot(stream, actual_format, scratch_path(actual_format))
-            return
+                return snapshot(stream, actual_format, scratch_path(actual_format))
         if isinstance(data, (bytes, BytesIO)):
             if isinstance(data, bytes):
                 check_size(len(data))
@@ -109,8 +90,7 @@ class Video(TransformMedia):
             if actual_format not in SUPPORTED_FORMATS:
                 raise VideoProcessingError("argument", "Video format must be gif, mp4, webm or ogg")
             self._file_options(fps, None, actual_format)
-            self._source = snapshot(stream, actual_format, scratch_path(actual_format))
-            return
+            return snapshot(stream, actual_format, scratch_path(actual_format))
         if fmt not in SUPPORTED_FORMATS:
             raise VideoProcessingError(
                 "format_required", "Video arrays require an explicit gif, mp4, webm or ogg format"
@@ -132,7 +112,7 @@ class Video(TransformMedia):
 
         if not isinstance(data, np.ndarray):
             raise VideoProcessingError("input_type", "Video requires a path, bytes, ndarray or numpy() object")
-        self._source = encode(data, fmt, fps, scratch_path(fmt))
+        return encode(data, fmt, fps, scratch_path(fmt))
 
     @staticmethod
     def _file_options(fps: Optional[int], fmt: Optional[str], actual: Optional[str]) -> None:
@@ -142,79 +122,49 @@ class Video(TransformMedia):
             console.warning("Video format is determined by the existing file or nested video; format argument ignored")
 
     @property
-    def is_valid(self) -> bool:
-        return self._source is not None and self._error is None
-
-    @property
-    def error(self) -> Optional[VideoErrorInfo]:
-        return self._error
-
-    @property
-    def format(self) -> Optional[VideoFormat]:
-        return cast(Optional[VideoFormat], self._source.format if self._source is not None else None)
+    def format(self) -> VideoFormat:
+        return cast(VideoFormat, self._source.format)
 
     @property
     def buffer(self) -> BytesIO:
-        if not self.is_valid:
-            return BytesIO()
-        assert self._source is not None
-        try:
-            return self._source.buffer
-        except Exception as error:
-            self._invalidate(error)
-            return BytesIO()
+        return self._source.buffer
 
     @buffer.setter
     def buffer(self, value: BytesIO) -> None:
-        try:
-            if not isinstance(value, BytesIO) or self._source is None:
-                raise VideoProcessingError("argument", "Video buffer must be a BytesIO for an existing video source")
-            source = VideoSource(self._source.format, buffer=value)
-            source.refresh()
-            # 整体替换仅作用于当前包装对象，已有包装对象继续持有原数据源。
-            self._source = source
-            self._error = None
-        except Exception as error:
-            self._invalidate(error)
+        if not isinstance(value, BytesIO):
+            raise VideoProcessingError("argument", "Video buffer must be a BytesIO")
+        source = VideoSource(self._source.format, buffer=value)
+        source.refresh()
+        # 整体替换仅作用于当前包装对象，已有包装对象继续持有原数据源。
+        self._source = source
 
     @property
-    def size(self) -> Optional[int]:
-        return self._source.size if self.is_valid and self._source is not None else None
+    def size(self) -> int:
+        return self._source.size
 
     @property
-    def sha256(self) -> Optional[str]:
-        return self._source.sha256 if self.is_valid and self._source is not None else None
+    def sha256(self) -> str:
+        return self._source.sha256
 
     @classmethod
     def column_type(cls) -> ColumnType:
         return ColumnType.COLUMN_TYPE_VIDEO
 
     def transform(self, *, step: int, path: Optional[Path]) -> MediaItem:
-        """Build a media item; the video record builder isolates conversion failures."""
-        if not self.is_valid:
-            error = self._error
-            raise VideoProcessingError(
-                error.code if error is not None else "invalid_video",
-                error.message if error is not None else "Video has no valid source",
-            )
-        assert self._source is not None
-        try:
-            self._source.refresh()
-            item = MediaItem(
-                filename=f"{step:03d}-{self._source.sha256}.{self.format}",
-                sha256=self._source.sha256,
-                size=self._source.size,
-                caption=self.caption or "",
-            )
-            if path is None:
-                view = self._source.buffer.getbuffer()
-                try:
-                    item.payload = bytes(view)
-                finally:
-                    view.release()
-            else:
-                self._source.store(path / item.filename)
-            return item
-        except Exception as error:
-            self._invalidate(error)
-            raise
+        """Build a media item, propagating source and storage failures."""
+        self._source.refresh()
+        item = MediaItem(
+            filename=f"{step:03d}-{self._source.sha256}.{self.format}",
+            sha256=self._source.sha256,
+            size=self._source.size,
+            caption=self.caption or "",
+        )
+        if path is None:
+            view = self._source.buffer.getbuffer()
+            try:
+                item.payload = bytes(view)
+            finally:
+                view.release()
+        else:
+            self._source.store(path / item.filename)
+        return item

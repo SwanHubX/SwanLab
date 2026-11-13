@@ -16,8 +16,10 @@ import swanlab
 import swanlab.sdk.internal.run.transforms.video as video_module
 from swanlab import Video
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
-from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaItem, MediaRecord, MediaValue, ScalarRecord
+from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaItem, MediaRecord, MediaValue
+from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.context import RunContext
+from swanlab.sdk.internal.core_python.store import DataStoreReader
 from swanlab.sdk.internal.run import Run
 from swanlab.sdk.internal.run.components.consumer.builder import RecordBuilder
 from swanlab.sdk.internal.run.transforms.video import source
@@ -29,11 +31,12 @@ def test_bytesio_cursor_and_invalid_offset():
     stream = BytesIO(b"prefix" + GIF)
     stream.seek(6)
     video = Video(stream)
-    assert video.is_valid and stream.tell() == 6 + len(GIF)
+    assert stream.tell() == 6 + len(GIF)
     assert video.buffer.getvalue() == GIF
     invalid = BytesIO(GIF)
     invalid.seek(2)
-    assert not Video(invalid).is_valid
+    with pytest.raises(source.VideoProcessingError):
+        Video(invalid)
     assert invalid.tell() == len(GIF)
 
 
@@ -53,7 +56,6 @@ def test_snapshot_streaming_lazy_buffer_and_source_preserved(tmp_path, monkeypat
     scratch.touch()
     monkeypatch.setattr(video_module, "scratch_path", lambda _: scratch)
     video = Video(original)
-    assert video.is_valid and video._source is not None
     assert video._source.memory is None
     original.write_bytes(GIF + b"changed")
     monkeypatch.setattr(
@@ -98,8 +100,12 @@ def test_owned_scratch_released_with_last_nested_source(tmp_path, monkeypatch):
 def test_exact_size_limit(delta, valid, monkeypatch):
     monkeypatch.setattr(source, "MAX_SIZE", 100)
     content = GIF + b"x" * (100 + delta - len(GIF))
-    video = Video(content)
-    assert video.is_valid is valid
+    if valid:
+        assert Video(content).size == len(content)
+    else:
+        with pytest.raises(source.VideoProcessingError) as error:
+            Video(content)
+        assert error.value.code == "size_limit"
 
 
 def test_buffer_growth_rechecked_before_logging(monkeypatch):
@@ -109,11 +115,10 @@ def test_buffer_growth_rechecked_before_logging(monkeypatch):
     video.buffer.write(b"x" * 100)
     with pytest.raises(source.VideoProcessingError, match="exceeds"):
         video.transform(step=0, path=None)
-    assert video.error is not None and video.error.code == "size_limit"
 
 
 @pytest.mark.parametrize("skip_store", [False, True])
-def test_video_record_builder_isolates_transform_failure(tmp_path, monkeypatch, skip_store):
+def test_video_record_builder_propagates_transform_failure(tmp_path, monkeypatch, skip_store):
     ctx = SimpleNamespace(
         media_dir=tmp_path,
         config=SimpleNamespace(settings=SimpleNamespace(core=SimpleNamespace(skip_store=skip_store))),
@@ -130,113 +135,101 @@ def test_video_record_builder_isolates_transform_failure(tmp_path, monkeypatch, 
         return refresh(video_source)
 
     monkeypatch.setattr(source.VideoSource, "refresh", failed_refresh)
-    record, _ = builder.build_scalar_or_media([bad, good], "clips", Timestamp(), 0)
-    assert isinstance(record, MediaRecord)
-    assert [item.caption for item in record.value.items] == ["good"]
-    assert not bad.is_valid and good.is_valid
-    scalar, _ = builder.build_scalar_or_media(0.5, "loss", Timestamp(), 0)
-    assert isinstance(scalar, ScalarRecord) and scalar.value.number == 0.5
+    with pytest.raises(OSError, match="unreadable"):
+        builder.build_scalar_or_media([bad, good], "clips", Timestamp(), 0)
 
 
-def test_media_limits_remain_separate(tmp_path):
+@pytest.mark.parametrize(
+    "media_type,limit_mib",
+    [
+        (ColumnType.COLUMN_TYPE_VIDEO, 100),
+        (ColumnType.COLUMN_TYPE_IMAGE, 10),
+        (ColumnType.COLUMN_TYPE_AUDIO, 10),
+        (ColumnType.COLUMN_TYPE_TEXT, 10),
+        (ColumnType.COLUMN_TYPE_HTML, 10),
+        (ColumnType.COLUMN_TYPE_ECHARTS, 10),
+        (ColumnType.COLUMN_TYPE_OBJECT3D, 10),
+        (ColumnType.COLUMN_TYPE_MOLECULE, 10),
+    ],
+)
+@pytest.mark.parametrize("delta", [-1, 0, 1])
+def test_media_size_limit_by_type(tmp_path, media_type, limit_mib, delta):
     builder = RecordBuilder(cast(RunContext, SimpleNamespace(media_dir=tmp_path)))
-    video = MediaRecord(
-        key="video", type=ColumnType.COLUMN_TYPE_VIDEO, value=MediaValue(items=[MediaItem(size=11 * 1024**2)])
+    media = MediaRecord(
+        key="media", type=media_type, value=MediaValue(items=[MediaItem(size=limit_mib * 1024**2 + delta)])
     )
-    image = MediaRecord(key="image", type=ColumnType.COLUMN_TYPE_IMAGE, value=video.value)
+    assert (builder._ensure_media_size(media) is not None) is (delta <= 0)
+
+
+def test_video_size_limit_does_not_raise_image_limit(tmp_path):
+    builder = RecordBuilder(cast(RunContext, SimpleNamespace(media_dir=tmp_path)))
+    video = MediaRecord(type=ColumnType.COLUMN_TYPE_VIDEO, value=MediaValue(items=[MediaItem(size=11 * 1024**2)]))
+    image = MediaRecord(type=ColumnType.COLUMN_TYPE_IMAGE, value=video.value)
     assert builder._ensure_media_size(video) is not None
     assert builder._ensure_media_size(image) is None
-    video.value.items[0].size = source.MAX_SIZE
-    assert builder._ensure_media_size(video) is not None
-    video.value.items[0].size += 1
-    assert builder._ensure_media_size(video) is None
 
 
-def test_invalid_items_filtered_before_108_limit(tmp_path):
+def test_video_list_uses_existing_108_limit(tmp_path):
     ctx = SimpleNamespace(
         media_dir=tmp_path, config=SimpleNamespace(settings=SimpleNamespace(core=SimpleNamespace(skip_store=True)))
     )
     builder = RecordBuilder(cast(RunContext, ctx))
-    values = [Video(b"invalid")] + [Video(GIF, caption=str(i)) for i in range(109)]
+    values = [Video(GIF, caption=str(i)) for i in range(109)]
     record, _ = builder.build_scalar_or_media(values, "clips", Timestamp(), 0)
     assert isinstance(record, MediaRecord)
     assert len(record.value.items) == 108
     assert record.value.items[0].caption == "0"
     assert record.value.items[-1].caption == "107"
-    empty, _ = builder.build_scalar_or_media([Video(b"invalid")], "empty", Timestamp(), 0)
-    assert empty is None
 
 
-@pytest.mark.parametrize("limit,expected", [(25, ["first"]), (26, ["first", "second"]), (27, ["first", "second"])])
-def test_skip_store_payload_budget_stops_at_first_overflow(tmp_path, monkeypatch, limit, expected):
-    from swanlab.sdk.internal.pkg import console
-
-    ctx = SimpleNamespace(
-        media_dir=tmp_path / "media",
-        config=SimpleNamespace(settings=SimpleNamespace(core=SimpleNamespace(skip_store=True))),
-    )
-    monkeypatch.setattr("swanlab.sdk.internal.run.components.consumer.builder.VIDEO_MAX_SIZE", limit)
-    messages = []
-    monkeypatch.setattr(console, "warning", lambda message: messages.append(message))
-    builder = RecordBuilder(cast(RunContext, ctx))
-    values = [Video(GIF, "first"), Video(GIF, "second"), Video(b"GIF89a", "third")]
-    calls = []
-    transform = Video.transform
-
-    def tracked_transform(video, **kwargs):
-        calls.append(video.caption)
-        return transform(video, **kwargs)
-
-    monkeypatch.setattr(Video, "transform", tracked_transform)
-    record, _ = builder.build_scalar_or_media(values, "clips", Timestamp(), 3)
-    assert isinstance(record, MediaRecord)
-    assert [item.caption for item in record.value.items] == expected
-    assert sum(len(item.payload) for item in record.value.items) <= limit
-    assert calls == expected
-    assert len(messages) == 1 and "remaining items skipped" in messages[0]
-    assert "clips" in messages[0] and "step 3" in messages[0]
-    assert not ctx.media_dir.exists()
-
-
-def test_payload_budget_rechecks_mutated_buffer_and_skips_remaining(tmp_path, monkeypatch):
+@pytest.mark.parametrize("skip_store", [False, True])
+def test_media_record_has_no_total_payload_budget(tmp_path, monkeypatch, skip_store):
     ctx = SimpleNamespace(
         media_dir=tmp_path,
-        config=SimpleNamespace(settings=SimpleNamespace(core=SimpleNamespace(skip_store=True))),
-    )
-    monkeypatch.setattr("swanlab.sdk.internal.run.components.consumer.builder.VIDEO_MAX_SIZE", len(GIF) * 2)
-    first = Video(GIF, "first")
-    grown = Video(GIF, "grown")
-    grown.buffer.seek(0, 2)
-    grown.buffer.write(b"extra")
-    builder = RecordBuilder(cast(RunContext, ctx))
-    record, _ = builder.build_scalar_or_media([first, grown, Video(b"GIF89a", "third")], "clips", Timestamp(), 0)
-    assert isinstance(record, MediaRecord)
-    assert [item.caption for item in record.value.items] == ["first"]
-    assert grown.is_valid
-
-
-def test_default_store_has_no_total_payload_budget(tmp_path, monkeypatch):
-    ctx = SimpleNamespace(
-        media_dir=tmp_path,
-        config=SimpleNamespace(settings=SimpleNamespace(core=SimpleNamespace(skip_store=False))),
+        config=SimpleNamespace(settings=SimpleNamespace(core=SimpleNamespace(skip_store=skip_store))),
     )
     monkeypatch.setattr("swanlab.sdk.internal.run.components.consumer.builder.VIDEO_MAX_SIZE", len(GIF))
     builder = RecordBuilder(cast(RunContext, ctx))
     record, _ = builder.build_scalar_or_media([Video(GIF), Video(GIF)], "clips", Timestamp(), 0)
     assert isinstance(record, MediaRecord)
     assert len(record.value.items) == 2
-    assert all(not item.HasField("payload") for item in record.value.items)
+    if skip_store:
+        assert sum(len(item.payload) for item in record.value.items) > len(GIF)
+    else:
+        assert all(not item.HasField("payload") for item in record.value.items)
 
 
-def test_payload_budget_rejects_oversized_first_item_without_serializing(tmp_path, monkeypatch):
+def test_video_list_uses_existing_input_validation(tmp_path):
     ctx = SimpleNamespace(
         media_dir=tmp_path,
         config=SimpleNamespace(settings=SimpleNamespace(core=SimpleNamespace(skip_store=True))),
     )
-    monkeypatch.setattr("swanlab.sdk.internal.run.components.consumer.builder.VIDEO_MAX_SIZE", len(GIF) - 1)
-    monkeypatch.setattr(Video, "transform", lambda *args, **kwargs: pytest.fail("Over-budget video must not serialize"))
-    record, _ = RecordBuilder(cast(RunContext, ctx)).build_scalar_or_media([Video(GIF)], "clips", Timestamp(), 0)
-    assert record is None
+    builder = RecordBuilder(cast(RunContext, ctx))
+    with pytest.raises(TypeError, match="same type"):
+        builder.build_scalar_or_media([Video(GIF), 1], "clips", Timestamp(), 0)
+    with pytest.raises(TypeError, match="empty"):
+        builder.build_scalar_or_media([], "clips", Timestamp(), 0)
+
+
+def test_background_media_failure_uses_existing_key_isolation(tmp_path):
+    run = swanlab.init(mode="offline", logdir=str(tmp_path / "offline"))
+    bad = Video(GIF)
+    bad.buffer.close()
+    try:
+        run.log({"broken": [bad, Video(GIF + b"good")], "loss": 0.5})
+    finally:
+        run.finish()
+    reader = DataStoreReader()
+    reader.open(next(run.dir.glob("run-*.swanlab")))
+    try:
+        records = [Record.FromString(data) for data in reader]
+    finally:
+        reader.close()
+    assert not any(record.HasField("media") and record.media.key == "broken" for record in records)
+    assert any(
+        record.HasField("scalar") and record.scalar.key == "loss" and record.scalar.value.number == 0.5
+        for record in records
+    )
 
 
 def test_log_video_keeps_5d_array_as_one_video():
@@ -245,13 +238,14 @@ def test_log_video_keeps_5d_array_as_one_video():
     inspect.unwrap(Run.log_video)(run, key="batch", data=frames, fps=8, format="gif", step=7)
     payload = run.log.call_args.args[0]
     assert len(payload["batch"]) == 1
-    assert payload["batch"][0].is_valid
+    assert payload["batch"][0].format == "gif"
     assert run.log.call_args.kwargs["step"] == 7
 
 
-def test_log_video_caption_length_failure_is_local_to_call():
+def test_log_video_caption_length_failure_raises():
     run = SimpleNamespace(log=Mock())
-    inspect.unwrap(Run.log_video)(run, key="clips", data=[GIF], caption=["one", "two"])
+    with pytest.raises(ValueError, match="Length"):
+        inspect.unwrap(Run.log_video)(run, key="clips", data=[GIF], caption=["one", "two"])
     run.log.assert_not_called()
     inspect.unwrap(Run.log_video)(run, key="good", data=GIF)
     run.log.assert_called_once()
@@ -266,7 +260,6 @@ def test_disabled_video_has_no_sdk_file_side_effects(tmp_path, input_kind):
     try:
         assert not run.dir.exists()
         video = Video(data, format="gif")
-        assert video.is_valid and video._source is not None
         assert video._source.path is None
         swanlab.log_video(key="clip", data=data, fps=8, format="gif")
         assert not run.dir.exists()

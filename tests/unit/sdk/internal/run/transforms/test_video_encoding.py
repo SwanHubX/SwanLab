@@ -18,7 +18,6 @@ from swanlab.sdk.internal.run.transforms.video.source import VideoProcessingErro
 
 
 def decode(video: Video) -> bytes:
-    assert video.is_valid, video.error
     content = video.buffer.getvalue()
     if video.format == "gif":
         with Image.open(BytesIO(content)) as image:
@@ -85,24 +84,25 @@ def test_batch_layout_and_black_padding(batch, rows, cols, fmt):
 @pytest.mark.parametrize(
     "dtype", [bool, complex, object, str, np.int8, np.uint16, np.int32, np.float16, np.float32, np.float64]
 )
-def test_invalid_array_dtype_is_isolated(dtype):
-    video = Video(np.zeros((2, 3, 4, 4), dtype=dtype), format="gif")
-    assert not video.is_valid
-    assert video.error is not None and video.error.code == "dtype"
+def test_invalid_array_dtype_raises(dtype):
+    with pytest.raises(VideoProcessingError) as error:
+        Video(np.zeros((2, 3, 4, 4), dtype=dtype), format="gif")
+    assert error.value.code == "dtype"
 
 
 @pytest.mark.parametrize("value", [float("nan"), float("inf"), -float("inf")])
 def test_nonfinite_pixels_are_invalid(value):
     arrays = np.zeros((2, 3, 4, 4))
     arrays[0, 0, 0, 0] = value
-    video = Video(arrays, format="gif")
-    assert not video.is_valid
-    assert video.error is not None and video.error.code == "dtype"
+    with pytest.raises(VideoProcessingError) as error:
+        Video(arrays, format="gif")
+    assert error.value.code == "dtype"
 
 
 @pytest.mark.parametrize("fps", [0, -1, True, 1.5])
 def test_invalid_fps(fps):
-    assert not Video(np.zeros((2, 3, 4, 4), dtype=np.uint8), format="gif", fps=fps).is_valid
+    with pytest.raises(VideoProcessingError):
+        Video(np.zeros((2, 3, 4, 4), dtype=np.uint8), format="gif", fps=fps)
 
 
 @pytest.mark.parametrize("protocol", [False, True])
@@ -117,11 +117,9 @@ def test_float_pixels_are_rejected_before_encoding(protocol, monkeypatch):
 
     data = Convertible() if protocol else arrays
     monkeypatch.setattr(encoding, "_encode_gif", lambda *args: pytest.fail("Invalid pixels must not be encoded"))
-    video = Video(data, format="gif")
-    assert not video.is_valid and video.error is not None
-    assert video.error.code == "dtype" and "uint8" in video.error.message
-    with pytest.raises(VideoProcessingError, match="uint8"):
-        video.transform(step=0, path=None)
+    with pytest.raises(VideoProcessingError, match="uint8") as error:
+        Video(data, format="gif")
+    assert error.value.code == "dtype"
 
 
 @pytest.mark.parametrize("fmt", ["gif", "mp4", "webm", "ogg"])
@@ -132,12 +130,9 @@ def test_oversized_canvas_is_rejected_before_encoding(fmt, shape, monkeypatch):
     arrays = np.broadcast_to(np.zeros((1,) * len(shape), dtype=np.uint8), shape)
     for name in ("_encode_gif", "_encode_pipe", "_encode_file"):
         monkeypatch.setattr(encoding, name, lambda *args: pytest.fail("Oversized canvas must not be encoded"))
-    video = Video(arrays, format=fmt)
-    assert not video.is_valid and video.error is not None
-    assert video.error.code == "dimensions_limit"
-    assert str(MAX_DIMENSION) in video.error.message
-    with pytest.raises(VideoProcessingError, match="4096"):
-        video.transform(step=0, path=None)
+    with pytest.raises(VideoProcessingError, match="4096") as error:
+        Video(arrays, format=fmt)
+    assert error.value.code == "dimensions_limit"
 
 
 @pytest.mark.parametrize("fmt", ["gif", "mp4", "webm", "ogg"])
@@ -164,10 +159,10 @@ def test_numpy_protocol_and_conversion_failure():
         def numpy(self):
             raise RuntimeError("device unavailable")
 
-    assert Video(Convertible(), format="gif").is_valid
-    invalid = Video(Failing(), format="gif")
-    assert not invalid.is_valid
-    assert invalid.error is not None and invalid.error.code == "numpy_conversion"
+    assert Video(Convertible(), format="gif").format == "gif"
+    with pytest.raises(VideoProcessingError) as error:
+        Video(Failing(), format="gif")
+    assert error.value.code == "numpy_conversion"
 
 
 @pytest.mark.parametrize("fps", [4, 8])
@@ -176,7 +171,6 @@ def test_gif_animation_timing(fps):
     frames[1] = 100
     frames[2] = 200
     video = Video(frames, format="gif", fps=fps)
-    assert video.is_valid
     with Image.open(video.buffer) as image:
         assert isinstance(image, GifImageFile)
         assert image.n_frames == 3
@@ -199,9 +193,9 @@ def test_dependency_failure_and_interrupt_cleanup(tmp_path, monkeypatch):
         raise VideoProcessingError("dependency_missing", "imageio is missing")
 
     monkeypatch.setattr(encoding, "_encode_gif", missing)
-    invalid = Video(np.zeros((1, 3, 4, 4), dtype=np.uint8), format="gif")
-    assert not invalid.is_valid and invalid.error is not None
-    assert invalid.error.code == "dependency_missing"
+    with pytest.raises(VideoProcessingError) as error:
+        Video(np.zeros((1, 3, 4, 4), dtype=np.uint8), format="gif")
+    assert error.value.code == "dependency_missing"
     assert not path.exists()
 
     def interrupted(*args):
@@ -217,7 +211,6 @@ def test_dependency_failure_and_interrupt_cleanup(tmp_path, monkeypatch):
 @pytest.mark.parametrize("fmt", ["gif", "mp4", "webm", "ogg"])
 def test_existing_file_and_memory_need_no_encoder(fmt, tmp_path, monkeypatch):
     encoded = Video(np.zeros((2, 3, 8, 8), dtype=np.uint8), format=fmt)
-    assert encoded.is_valid
     content = encoded.buffer.getvalue()
     path = tmp_path / f"source.{fmt}"
     path.write_bytes(content)
@@ -228,16 +221,14 @@ def test_existing_file_and_memory_need_no_encoder(fmt, tmp_path, monkeypatch):
     monkeypatch.setattr(video_module, "require_modules", no_dependencies)
     file_video = Video(path, fps=0, format="gif")
     memory_video = Video(content, format=fmt)
-    assert file_video.is_valid and memory_video.is_valid
     assert file_video.buffer.getvalue() == memory_video.buffer.getvalue() == content
 
 
-def test_moviepy_error_is_invalid_even_with_decodable_partial_output(tmp_path, monkeypatch):
+def test_moviepy_error_raises_even_with_decodable_partial_output(tmp_path, monkeypatch):
     from moviepy.video.io import ffmpeg_writer
 
     arrays = np.zeros((2, 3, 8, 8), dtype=np.uint8)
     encoded = Video(arrays, format="mp4")
-    assert encoded.is_valid
     content = encoded.buffer.getvalue()
     path = tmp_path / "owned.mp4"
     path.touch()
@@ -255,9 +246,9 @@ def test_moviepy_error_is_invalid_even_with_decodable_partial_output(tmp_path, m
 
     monkeypatch.setattr(ffmpeg_writer, "FFMPEG_VideoWriter", FailedWriter)
     monkeypatch.setattr(video_module, "scratch_path", lambda _: path)
-    invalid = Video(arrays, format="mp4")
-    assert not invalid.is_valid and invalid.error is not None
-    assert invalid.error.code == "encoding"
+    with pytest.raises(VideoProcessingError) as error:
+        Video(arrays, format="mp4")
+    assert error.value.code == "encoding"
     assert not path.exists()
 
 
@@ -282,7 +273,6 @@ def test_gif_streaming_retains_at_most_two_rgb_frames(tmp_path, monkeypatch, fil
     for index in range(len(arrays)):
         arrays[index] = (index % 3) * 80
     video = Video(arrays, format="gif", fps=8)
-    assert video.is_valid, video.error
     assert len(references) == 128
     assert max(live_counts) <= 2
     assert len(decode(video)) == 128 * 32 * 32 * 3
@@ -326,10 +316,9 @@ def test_decoded_batch_preserves_positions_black_cells_and_time(
 )
 def test_memory_format_requires_consistent_explicit_container(source_format, declared, error_code):
     encoded = Video(np.zeros((1, 3, 8, 8), dtype=np.uint8), format=source_format)
-    assert encoded.is_valid
-    invalid = Video(encoded.buffer.getvalue(), format=declared)
-    assert not invalid.is_valid and invalid.error is not None
-    assert invalid.error.code == error_code
+    with pytest.raises(VideoProcessingError) as error:
+        Video(encoded.buffer.getvalue(), format=declared)
+    assert error.value.code == error_code
 
 
 def test_expected_video_warnings_are_emitted(tmp_path, monkeypatch):
@@ -339,9 +328,9 @@ def test_expected_video_warnings_are_emitted(tmp_path, monkeypatch):
     monkeypatch.setattr(console, "warning", lambda message: messages.append(message))
     path = tmp_path / "existing.gif"
     path.write_bytes(b"GIF89a-content")
-    assert Video(path, fps=8).is_valid
-    assert Video(np.zeros((1, 4, 8, 8), dtype=np.uint8), format="gif").is_valid
-    assert not Video(np.zeros((1, 3, 8, 8), dtype=np.float32), format="gif").is_valid
+    Video(path, fps=8)
+    Video(np.zeros((1, 4, 8, 8), dtype=np.uint8), format="gif")
+    with pytest.raises(VideoProcessingError, match="uint8"):
+        Video(np.zeros((1, 3, 8, 8), dtype=np.float32), format="gif")
     assert any("fps is ignored" in message for message in messages)
     assert any("alpha is not retained" in message for message in messages)
-    assert any("dtype uint8" in message for message in messages)

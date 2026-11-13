@@ -563,13 +563,7 @@ class Run:
         :param caption: Optional caption for the video data.
         :param step: Optional step for the video data.
         """
-        try:
-            normalized_data = normalize_media_input(Video, data, caption=caption, fps=fps, format=format)
-        except Exception as error:
-            console.warning(f"Video key '{key}' was skipped: {type(error).__name__}: {error}")
-            return
-        if not normalized_data:
-            return
+        normalized_data = normalize_media_input(Video, data, caption=caption, fps=fps, format=format)
         self.log({key: normalized_data}, step=step)
 
     @with_api("run.log_echarts()")

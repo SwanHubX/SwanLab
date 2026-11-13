@@ -5,7 +5,6 @@
 @description: 视频处理模块
 """
 
-from dataclasses import dataclass
 from io import BytesIO
 from os import PathLike
 from typing import TYPE_CHECKING, List, Literal, Protocol, Union
@@ -22,12 +21,6 @@ class NumpyConvertible(Protocol):
     """An object whose numpy() method returns uint8 TCHW or BTCHW frames."""
 
     def numpy(self) -> "np.ndarray": ...
-
-
-@dataclass(frozen=True)
-class VideoErrorInfo:
-    code: str
-    message: str
 
 
 VideoInput = Union["Video", str, PathLike[str], bytes, BytesIO, "np.ndarray", NumpyConvertible]
