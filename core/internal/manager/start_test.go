@@ -18,20 +18,11 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/manager/probe"
 	"github.com/swanhubx/swanlab/core/internal/metrics"
 	"github.com/swanhubx/swanlab/core/internal/pkg/builder"
-	"github.com/swanhubx/swanlab/core/internal/runctx"
 	"github.com/swanhubx/swanlab/core/internal/store"
 	columnv1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/column/v1"
 	datav1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/data/v1"
 	runv1 "github.com/swanhubx/swanlab/core/proto/swanlab/run/v1"
 )
-
-func serveAuth(cloud *clienttest.Cloud) {
-	cloud.ServeJSON(http.MethodGet, "/api/auth/verify", http.StatusOK, map[string]any{
-		"uid":       1,
-		"username":  "alice",
-		"createdAt": "2026-01-01T00:00:00Z",
-	})
-}
 
 func serveHeartbeat(cloud *clienttest.Cloud, experimentID string) {
 	cloud.ServeJSON(http.MethodPost, "/api/house/experiments/"+experimentID+"/heartbeat",
@@ -62,32 +53,6 @@ func serveNewExperiment(cloud *clienttest.Cloud, owner, project, cuid, slug stri
 			"name": body.Name,
 		})
 	})
-}
-
-func startSettings(t *testing.T, cloud *clienttest.Cloud) config.Settings {
-	t.Helper()
-	settings := config.Defaults()
-	settings.RunID = "run-1"
-	settings.RunDir = filepath.Join(t.TempDir(), "run")
-	settings.RecordBatch = 16
-	settings.RecordInterval = 0.01
-	settings.APIKey = "smoke-key"
-	settings.APIHost = cloud.URL()
-	settings.WebHost = cloud.URL()
-	return settings
-}
-
-func runFilePath(t *testing.T, settings config.Settings) string {
-	t.Helper()
-	run, err := runctx.New(settings)
-	if err != nil {
-		t.Fatalf("runctx.New: %v", err)
-	}
-	path, err := run.RunFile()
-	if err != nil {
-		t.Fatalf("RunFile: %v", err)
-	}
-	return path
 }
 
 func closeStartedSession(t *testing.T, mgr *Manager, sessionID string) {

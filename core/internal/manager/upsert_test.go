@@ -135,10 +135,6 @@ func drainStore(ch chan store.Request) []store.Request {
 	}
 }
 
-func scalarRecord(key string, step int64, typ columnv1.ColumnType) *datav1.ScalarRecord {
-	return &datav1.ScalarRecord{Key: key, Step: step, Type: typ}
-}
-
 func histogramRecord(key string, step int64) *datav1.HistogramRecord {
 	return &datav1.HistogramRecord{
 		Key: key, Step: step, Type: columnv1.ColumnType_COLUMN_TYPE_HISTOGRAM,

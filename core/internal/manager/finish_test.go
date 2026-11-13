@@ -3,7 +3,6 @@ package manager
 import (
 	"context"
 	"errors"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,17 +11,14 @@ import (
 	"time"
 
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/swanhubx/swanlab/core/internal/api"
 	"github.com/swanhubx/swanlab/core/internal/budget"
 	"github.com/swanhubx/swanlab/core/internal/buffer"
 	"github.com/swanhubx/swanlab/core/internal/config"
-	"github.com/swanhubx/swanlab/core/internal/metrics"
 	"github.com/swanhubx/swanlab/core/internal/pkg/counter"
 	"github.com/swanhubx/swanlab/core/internal/pkg/record"
 	"github.com/swanhubx/swanlab/core/internal/pkg/watcher"
-	"github.com/swanhubx/swanlab/core/internal/runctx"
 	"github.com/swanhubx/swanlab/core/internal/store"
 	"github.com/swanhubx/swanlab/core/internal/uploader"
 	columnv1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/column/v1"
@@ -33,271 +29,12 @@ import (
 	terminalv1 "github.com/swanhubx/swanlab/core/proto/swanlab/terminal/v1"
 )
 
-// collectingSender 记录所有上传批次，模拟一条永不失败的云端链路。
-type collectingSender struct {
-	mu      sync.Mutex
-	records []*recordv1.Record
-	notify  chan struct{}
-}
-
-func (c *collectingSender) Upload(_ context.Context, records []*recordv1.Record) uploader.Result {
-	c.mu.Lock()
-	c.records = append(c.records, records...)
-	c.mu.Unlock()
-	select {
-	case c.notify <- struct{}{}:
-	default:
-	}
-	return uploader.Result{Confirmed: records}
-}
-
-// waitFor 等到至少 n 条记录送达；用发送信号同步，不做轮询。
-func (c *collectingSender) waitFor(t *testing.T, n int) {
-	t.Helper()
-	deadline := time.NewTimer(5 * time.Second)
-	defer deadline.Stop()
-	for len(c.snapshot()) < n {
-		select {
-		case <-c.notify:
-		case <-deadline.C:
-			t.Fatalf("uploader delivered %d records, want at least %d", len(c.snapshot()), n)
-		}
-	}
-}
-
-func (c *collectingSender) snapshot() []*recordv1.Record {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return append([]*recordv1.Record(nil), c.records...)
-}
-
-// gatedSender 在首次上传时阻塞，用于制造"上传通道持续满"的瞬时故障。
-type gatedSender struct {
-	inner   uploader.Sender
-	gate    chan struct{}
-	entered chan struct{}
-	once    sync.Once
-}
-
-func (g *gatedSender) Upload(ctx context.Context, records []*recordv1.Record) uploader.Result {
-	g.once.Do(func() { close(g.entered) })
-	select {
-	case <-g.gate:
-	case <-ctx.Done():
-		return uploader.Result{}
-	}
-	return g.inner.Upload(ctx, records)
-}
-
-type finishOptions struct {
-	skipStore     bool
-	mode          config.Mode
-	uploadQueue   int
-	queueWait     time.Duration
-	blockUpload   bool
-	budgetRecords int64
-}
-
-type finishHarness struct {
-	mgr           *Manager
-	id            string
-	session       *Session
-	runFile       string
-	writer        *store.Writer
-	uploads       *collectingSender
-	gate          chan struct{}
-	uploadEntered chan struct{}
-}
-
-// newFinishHarness 装配真实 store/intake/uploader，用于验证收尾序列的顺序与刷盘语义。
-func newFinishHarness(t *testing.T, opts finishOptions) *finishHarness {
-	t.Helper()
-	if opts.uploadQueue <= 0 {
-		opts.uploadQueue = 16
-	}
-	if opts.queueWait <= 0 {
-		opts.queueWait = 20 * time.Millisecond
-	}
-	cfg := config.Defaults()
-	cfg.RunID = "finish"
-	cfg.RunDir = t.TempDir()
-	cfg.RecordBatch = 8
-	cfg.RecordInterval = 0.01
-	cfg.SkipStore = opts.skipStore
-	cfg.Mode = opts.mode
-	storeOnly := cfg.NormalizedMode() != config.ModeOnline
-
-	run, err := runctx.New(cfg)
-	if err != nil {
-		t.Fatalf("runctx.New: %v", err)
-	}
-	runFile := ""
-
-	var writer *store.Writer
-	var async *store.AsyncWriter
-	if !cfg.SkipStore {
-		runFile, err = run.RunFile()
-		if err != nil {
-			t.Fatalf("RunFile: %v", err)
-		}
-		if err = os.MkdirAll(run.RunDir, 0o755); err != nil {
-			t.Fatalf("MkdirAll: %v", err)
-		}
-		writer, err = store.Create(runFile)
-		if err != nil {
-			t.Fatalf("store.Create: %v", err)
-		}
-		async, err = store.NewAsyncWriter(writer, store.AsyncOptions{Queue: 16})
-		if err != nil {
-			t.Fatalf("store.NewAsyncWriter: %v", err)
-		}
-	}
-
-	s := newSession(sessionOptions{})
-	s.ctx, s.cancel = context.WithCancel(context.Background())
-	s.cfg = cfg
-	s.run = run
-	s.metrics = metrics.New()
-	s.counter = counter.New(0)
-	s.epoch = counter.New(0)
-	s.watcher = watcher.NullWatcher{}
-	s.tracker = uploader.NewTracker()
-
-	b := budget.New(budget.Limits{Records: opts.budgetRecords})
-	var storeIn chan<- store.Request
-	var flushed func() uint64
-	if async != nil {
-		storeIn = async.In()
-		flushed = func() uint64 {
-			seq, _ := async.Flushed()
-			return seq
-		}
-	}
-	intake, err := buffer.New(buffer.Options{
-		SkipStore:   cfg.SkipStore,
-		StoreOnly:   storeOnly,
-		Store:       storeIn,
-		UploadQueue: opts.uploadQueue,
-		Budget:      b,
-		Flushed:     flushed,
-		OnAdmit:     s.tracker.AddTotalRecords,
-		QueueWait:   opts.queueWait,
-	})
-	if err != nil {
-		t.Fatalf("buffer.New: %v", err)
-	}
-
-	uploads := &collectingSender{notify: make(chan struct{}, 1)}
-	var gate chan struct{}
-	var entered chan struct{}
-	var up *uploader.Uploader
-	if !storeOnly {
-		var sender uploader.Sender = uploads
-		if opts.blockUpload {
-			gate = make(chan struct{})
-			entered = make(chan struct{})
-			sender = &gatedSender{inner: uploads, gate: gate, entered: entered}
-		}
-		senders := map[record.Type]uploader.Sender{
-			record.TypeColumn: sender,
-			record.TypeScalar: sender,
-			record.TypeLog:    sender,
-			record.TypeMedia:  sender,
-			record.TypeSave:   sender,
-		}
-		up, err = uploader.New(uploader.Options{
-			In:       intake.UploadOut(),
-			Budget:   b,
-			Senders:  senders,
-			Batch:    4,
-			Interval: 10 * time.Millisecond,
-			Tracker:  s.tracker,
-			Context:  s.ctx,
-			OnDrained: func() {
-				s.markDrained()
-			},
-		})
-		if err != nil {
-			t.Fatalf("uploader.New: %v", err)
-		}
-	}
-
-	s.store = async
-	s.intake = intake
-	s.uploader = up
-	if up != nil {
-		s.drainFn = up.Wait
-	} else {
-		// local/offline 没有 uploader，收尾完成即排空。
-		s.drainFn = func(context.Context) error {
-			s.markDrained()
-			return nil
-		}
-	}
-	s.runFile = runFile
-	if async != nil && !storeOnly {
-		s.startRecovery()
-	}
-
-	mgr := newTestManager()
-	id, err := mgr.install(s)
-	if err != nil {
-		t.Fatalf("install: %v", err)
-	}
-	t.Cleanup(func() {
-		s.stopRecovery()
-		s.cancel()
-		if up != nil {
-			_ = up.Close()
-		}
-		if async != nil {
-			_ = async.Close()
-		}
-	})
-	return &finishHarness{
-		mgr: mgr, id: id, session: s, runFile: runFile, writer: writer,
-		uploads: uploads, gate: gate, uploadEntered: entered,
-	}
-}
-
 func waitDrained(t *testing.T, s *Session) {
 	t.Helper()
 	select {
 	case <-s.drained:
 	case <-time.After(3 * time.Second):
 		t.Fatal("session did not drain")
-	}
-}
-
-func readStore(t *testing.T, path string) []*recordv1.Record {
-	t.Helper()
-	reader, err := store.Open(path)
-	if err != nil {
-		t.Fatalf("store.Open: %v", err)
-	}
-	defer func() { _ = reader.Close() }()
-	var records []*recordv1.Record
-	for {
-		payload, err := reader.Scan()
-		if errors.Is(err, io.EOF) {
-			return records
-		}
-		if err != nil {
-			t.Fatalf("scan: %v", err)
-		}
-		rec := &recordv1.Record{}
-		if err := proto.Unmarshal(payload, rec); err != nil {
-			t.Fatalf("unmarshal record: %v", err)
-		}
-		records = append(records, rec)
-	}
-}
-
-func finishRecord(state runv1.RunState, message string) *runv1.FinishRecord {
-	return &runv1.FinishRecord{
-		State:      state,
-		Error:      message,
-		FinishedAt: timestamppb.New(time.Unix(1_700_000_000, 0)),
 	}
 }
 
@@ -928,46 +665,6 @@ func TestDeliverRunFinishSkipStore(t *testing.T) {
 	}
 }
 
-// Shutdown 面向进程退出：排空会话、刷盘且不写 FinishRecord，也不上报实验终态。
-func TestManagerShutdownDrainsActiveSessions(t *testing.T) {
-	h := newFinishHarness(t, finishOptions{})
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	if err := h.mgr.UpsertScalars(ctx, h.id, []*datav1.ScalarRecord{
-		scalarRecord("shutdown/loss", 0, columnv1.ColumnType_COLUMN_TYPE_SCALAR),
-	}); err != nil {
-		t.Fatalf("UpsertScalars: %v", err)
-	}
-	var stops int
-	h.session.releaseFn = func(context.Context) error {
-		stops++
-		return nil
-	}
-	if err := h.mgr.Shutdown(ctx); err != nil {
-		t.Fatalf("Shutdown: %v", err)
-	}
-	if stops != 0 {
-		t.Fatalf("Shutdown must not call stop_experiment, got %d call(s)", stops)
-	}
-	if state := h.session.stateSnapshot(); state != RunStateDrained {
-		t.Fatalf("state = %s, want drained", state)
-	}
-
-	records := readStore(t, h.runFile)
-	if len(records) == 0 {
-		t.Fatal("shutdown must flush accepted records to the local store")
-	}
-	for _, item := range records {
-		if item.GetNum() == record.NumFinish {
-			t.Fatal("shutdown must not synthesize a FinishRecord")
-		}
-	}
-	if got := len(h.uploads.snapshot()); got == 0 {
-		t.Fatal("shutdown must drain accepted records through the uploader")
-	}
-}
-
 // Shutdown 抢占收尾尾部时不写 FinishRecord：此时 DeliverRunFinish 不能假成功，
 // 否则会话会带着缺失的 -2 结束。
 func TestDeliverRunFinishAfterShutdownReturnsFailure(t *testing.T) {
@@ -1002,44 +699,6 @@ func TestDeliverRunFinishRepeatsAfterDrain(t *testing.T) {
 	waitDrained(t, h.session)
 	if err := h.mgr.DeliverRunFinish(ctx, h.id, finishRecord(runv1.RunState_RUN_STATE_FINISHED, "")); err != nil {
 		t.Fatalf("repeated DeliverRunFinish after drain: %v", err)
-	}
-}
-
-// Shutdown 只做上传排空、不写 FinishRecord：Confirm 不能把它当作正常结束释放。
-func TestConfirmRejectsSessionDrainedByShutdown(t *testing.T) {
-	h := newFinishHarness(t, finishOptions{})
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	if err := h.mgr.UpsertScalars(ctx, h.id, []*datav1.ScalarRecord{
-		scalarRecord("shutdown/confirm", 0, columnv1.ColumnType_COLUMN_TYPE_SCALAR),
-	}); err != nil {
-		t.Fatalf("UpsertScalars: %v", err)
-	}
-	var stops int
-	h.session.releaseFn = func(context.Context) error {
-		stops++
-		return nil
-	}
-
-	if err := h.mgr.Shutdown(ctx); err != nil {
-		t.Fatalf("Shutdown: %v", err)
-	}
-	if state := h.session.stateSnapshot(); state != RunStateDrained {
-		t.Fatalf("state after shutdown = %s, want drained", state)
-	}
-
-	if _, err := h.mgr.Confirm(ctx, h.id); !errors.Is(err, ErrRunFailed) {
-		t.Fatalf("Confirm err=%v, want ErrRunFailed", err)
-	}
-	if stops != 0 {
-		t.Fatalf("stop_experiment called %d times, want 0", stops)
-	}
-	if _, err := h.mgr.State(h.id); err != nil {
-		t.Fatalf("session must stay registered after rejected Confirm: %v", err)
-	}
-	if h.mgr.isReleased(h.id) {
-		t.Fatal("rejected session must not enter the released cache")
 	}
 }
 

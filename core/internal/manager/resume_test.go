@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -29,31 +28,6 @@ import (
 	savev1 "github.com/swanhubx/swanlab/core/proto/swanlab/save/v1"
 	terminalv1 "github.com/swanhubx/swanlab/core/proto/swanlab/terminal/v1"
 )
-
-func readAllStoreRecords(t *testing.T, path string) []*recordv1.Record {
-	t.Helper()
-	r, err := store.Open(path)
-	if err != nil {
-		t.Fatalf("store.Open(%q): %v", path, err)
-	}
-	defer func() { _ = r.Close() }()
-
-	var out []*recordv1.Record
-	for {
-		payload, err := r.Scan()
-		if errors.Is(err, io.EOF) {
-			return out
-		}
-		if err != nil {
-			t.Fatalf("Scan: %v", err)
-		}
-		rec := &recordv1.Record{}
-		if err := proto.Unmarshal(payload, rec); err != nil {
-			t.Fatalf("Unmarshal: %v", err)
-		}
-		out = append(out, rec)
-	}
-}
 
 func localSettings(t *testing.T, runDir, runID string) config.Settings {
 	t.Helper()
@@ -318,7 +292,7 @@ func TestResumeLocalModeAppendAndFinishGuard(t *testing.T) {
 		t.Fatalf("Confirm: %v", err)
 	}
 
-	recs := readAllStoreRecords(t, runFilePath(t, cfg))
+	recs := readStore(t, runFilePath(t, cfg))
 	var starts, finishes, cols, scalars int
 	for _, r := range recs {
 		switch record.TypeOf(r) {
@@ -419,7 +393,7 @@ func TestResumeTruncatesCorruptTailAndPreservesExistingOnRollback(t *testing.T) 
 		t.Fatalf("Confirm: %v", err)
 	}
 
-	recs := readAllStoreRecords(t, path)
+	recs := readStore(t, path)
 	var scalars int
 	for _, r := range recs {
 		if record.TypeOf(r) == record.TypeScalar {
@@ -528,7 +502,7 @@ func TestResumeOnlineCheckpointBackfillAndNoDuplicateColumns(t *testing.T) {
 	}
 
 	// 确认最终 store 中 start 仍只有 1 条、finish 1 条、scalar 共 5 条 (step 0..4)。
-	all := readAllStoreRecords(t, runFile)
+	all := readStore(t, runFile)
 	var starts, finishes, scalars int
 	for _, r := range all {
 		switch record.TypeOf(r) {
