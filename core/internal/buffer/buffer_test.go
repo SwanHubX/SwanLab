@@ -1542,3 +1542,37 @@ func recordNums(recs []*recordv1.Record) []int64 {
 	}
 	return nums
 }
+
+func TestIntakeStartSeq(t *testing.T) {
+	sink := newStoreSink(8)
+	const base uint64 = 10
+	in := newIntake(t, Options{
+		Store:       sink.ch,
+		StartSeq:    base,
+		Budget:      budget.New(budget.Limits{}),
+		UploadQueue: 8,
+	})
+
+	recs := []*recordv1.Record{
+		startRecord(),
+		scalarRecord(1),
+		saveRecord(2, savev1.SavePolicy_SAVE_POLICY_END),
+	}
+	mustCommit(t, in, recs...)
+	if err := in.Close(context.Background()); err != nil {
+		sink.stop()
+		t.Fatalf("Close: %v", err)
+	}
+	sink.stop()
+
+	got := sink.snapshot()
+	if len(got) != len(recs) {
+		t.Fatalf("store got %d requests, want %d", len(got), len(recs))
+	}
+	for i, req := range got {
+		want := base + uint64(i+1)
+		if req.StoreSeq != want {
+			t.Fatalf("req[%d].StoreSeq = %d, want %d", i, req.StoreSeq, want)
+		}
+	}
+}

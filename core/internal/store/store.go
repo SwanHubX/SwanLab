@@ -60,7 +60,7 @@ var crcSeed = func() (s [5]uint32) {
 	return s
 }()
 
-// Writer 以排他方式创建日志文件，按 LevelDB log 格式追加记录。
+// Writer 按 LevelDB log 格式写入或追加记录。
 //
 // 只负责落盘与偏移记账，不解释 payload；刷盘节奏由 AsyncWriter 控制。
 // Write 并发安全，但块内偏移只在单写者下有意义，应只由一个 goroutine 调用。
@@ -91,6 +91,45 @@ func Create(path string) (*Writer, error) {
 		fp.Close()
 		return nil, err
 	}
+	return w, nil
+}
+
+// OpenAppend 打开已有日志文件，校验文件头，截断 end 之后的半条记录并从 end 继续追加。
+// end 必须是最后一条完整记录的结束偏移（>= HeaderLen），不得超过当前文件长度。
+func OpenAppend(path string, end int64) (*Writer, error) {
+	if end < HeaderLen {
+		return nil, fmt.Errorf("store: append offset %d is before the first record (%d)", end, HeaderLen)
+	}
+	fp, err := os.OpenFile(path, os.O_RDWR, 0o644)
+	if err != nil {
+		return nil, err
+	}
+	if err = readHeader(fp); err != nil {
+		fp.Close()
+		return nil, fmt.Errorf("%s: %w", filepath.Base(path), err)
+	}
+	fi, err := fp.Stat()
+	if err != nil {
+		fp.Close()
+		return nil, err
+	}
+	if end > fi.Size() {
+		fp.Close()
+		return nil, fmt.Errorf("%s: %w: append offset %d exceeds file size %d",
+			filepath.Base(path), ErrTruncated, end, fi.Size())
+	}
+	if fi.Size() > end {
+		if err := fp.Truncate(end); err != nil {
+			fp.Close()
+			return nil, err
+		}
+	}
+	if _, err := fp.Seek(end, io.SeekStart); err != nil {
+		fp.Close()
+		return nil, err
+	}
+	w := &Writer{fp: fp, buf: bufio.NewWriterSize(fp, BlockLen)}
+	w.index.Store(end)
 	return w, nil
 }
 
@@ -235,7 +274,7 @@ func OpenOffset(path string, offset, limit int64) (*Reader, error) {
 		return nil, err
 	}
 	r := &Reader{fp: fp}
-	if err := r.readHeader(); err != nil {
+	if err = readHeader(fp); err != nil {
 		fp.Close()
 		return nil, fmt.Errorf("%s: %w", filepath.Base(path), err)
 	}
@@ -305,9 +344,9 @@ func (r *Reader) Scan() ([]byte, error) {
 	}
 }
 
-func (r *Reader) readHeader() error {
+func readHeader(r io.Reader) error {
 	var h [HeaderLen]byte
-	if _, err := io.ReadFull(r.fp, h[:]); err != nil {
+	if _, err := io.ReadFull(r, h[:]); err != nil {
 		return fmt.Errorf("%w: %v", ErrBadHeader, err)
 	}
 	if ident := string(h[0:4]); ident != headerIdent {

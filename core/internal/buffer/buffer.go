@@ -71,6 +71,8 @@ type Options struct {
 	StoreOnly bool
 	// Store 是 AsyncWriter 的写入入口，容量应不小于单批最大记录数。
 	Store chan<- store.Request
+	// StartSeq 是续传时已有本地记录条数；新记录的 storeSeq 从 StartSeq+1 开始。
+	StartSeq uint64
 	// UploadQueue 是上传通道容量，应不小于单批最大记录数；<=0 取 DefaultUploadQueue。
 	UploadQueue int
 	// PendingDeferred 是 Close 前暂存的 SAVE_POLICY_END 记录上限；<=0 取 DefaultPendingDeferred。
@@ -196,6 +198,7 @@ func New(opts Options) (*Intake, error) {
 		poll:       opts.StorePollInterval,
 		uploadCap:  cap(upload),
 		pendingCap: pendingCap,
+		nextSeq:    opts.StartSeq,
 	}
 	return t, nil
 }

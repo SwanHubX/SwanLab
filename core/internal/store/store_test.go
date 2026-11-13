@@ -453,3 +453,216 @@ func TestReaderPosition(t *testing.T) {
 		t.Fatalf("position after first = %d, want %d", got, off[1])
 	}
 }
+
+// ---------- OpenAppend ----------
+
+func TestOpenAppend(t *testing.T) {
+	t.Run("existing records and cross-block", func(t *testing.T) {
+		initial := [][]byte{
+			payloadN(17),
+			payloadN(BlockLen - HeaderLen*2 - 6), // 留 6 字节块尾，下次追加必须先补零
+		}
+		path := filepath.Join(t.TempDir(), "run.swanlab")
+		w := mustCreate(t, path)
+		for i, p := range initial {
+			if err := w.Write(p); err != nil {
+				t.Fatalf("Write initial[%d]: %v", i, err)
+			}
+		}
+		end := w.Offset()
+		if err := w.Close(); err != nil {
+			t.Fatalf("Close initial: %v", err)
+		}
+
+		appended := [][]byte{
+			payloadN(32),
+			payloadN(100_000), // 跨多块
+			payloadN(5),
+		}
+		aw, err := OpenAppend(path, end)
+		if err != nil {
+			t.Fatalf("OpenAppend: %v", err)
+		}
+		if got := aw.Offset(); got != end {
+			t.Fatalf("initial append Offset = %d, want %d", got, end)
+		}
+		for i, p := range appended {
+			if werr := aw.Write(p); werr != nil {
+				t.Fatalf("Write appended[%d]: %v", i, werr)
+			}
+		}
+		finalOff := aw.Offset()
+		if cerr := aw.Close(); cerr != nil {
+			t.Fatalf("Close append: %v", cerr)
+		}
+
+		fi, err := os.Stat(path)
+		if err != nil || fi.Size() != finalOff {
+			t.Fatalf("file size = %v, want %d (err=%v)", fi, finalOff, err)
+		}
+		want := make([][]byte, 0, len(initial)+len(appended))
+		want = append(want, initial...)
+		want = append(want, appended...)
+		got := readAll(t, path)
+		if len(got) != len(want) {
+			t.Fatalf("readAll got %d records, want %d", len(got), len(want))
+		}
+		for i := range want {
+			if !bytes.Equal(got[i], want[i]) {
+				t.Fatalf("record %d mismatch (len %d vs %d)", i, len(got[i]), len(want[i]))
+			}
+		}
+	})
+
+	t.Run("header only", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "run.swanlab")
+		w := mustCreate(t, path)
+		if err := w.Close(); err != nil {
+			t.Fatalf("Close: %v", err)
+		}
+		aw, err := OpenAppend(path, HeaderLen)
+		if err != nil {
+			t.Fatalf("OpenAppend(HeaderLen): %v", err)
+		}
+		p := []byte("first-after-append")
+		if err := aw.Write(p); err != nil {
+			t.Fatalf("Write: %v", err)
+		}
+		if err := aw.Close(); err != nil {
+			t.Fatalf("Close: %v", err)
+		}
+		got := readAll(t, path)
+		if len(got) != 1 || !bytes.Equal(got[0], p) {
+			t.Fatalf("got %q, want [%q]", got, p)
+		}
+	})
+}
+
+func TestOpenAppendTruncatesPartialTail(t *testing.T) {
+	t.Run("half record", func(t *testing.T) {
+		p0, p1, p2 := []byte("rec-0"), []byte("rec-1"), bytes.Repeat([]byte("x"), 80)
+		path, off := writeFile(t, p0, p1, p2)
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("ReadFile: %v", err)
+		}
+		// 在第 3 条记录中间截断，模拟崩溃留下半条记录。
+		if err = os.WriteFile(path, raw[:off[2]+HeaderLen+10], 0o644); err != nil {
+			t.Fatalf("WriteFile: %v", err)
+		}
+
+		aw, err := OpenAppend(path, off[2])
+		if err != nil {
+			t.Fatalf("OpenAppend: %v", err)
+		}
+		p2New := []byte("rec-2-new")
+		if err := aw.Write(p2New); err != nil {
+			t.Fatalf("Write: %v", err)
+		}
+		if err := aw.Close(); err != nil {
+			t.Fatalf("Close: %v", err)
+		}
+
+		got := readAll(t, path)
+		want := [][]byte{p0, p1, p2New}
+		if len(got) != len(want) {
+			t.Fatalf("got %d records, want %d", len(got), len(want))
+		}
+		for i := range want {
+			if !bytes.Equal(got[i], want[i]) {
+				t.Fatalf("record %d = %q, want %q", i, got[i], want[i])
+			}
+		}
+	})
+
+	t.Run("half cross-block record", func(t *testing.T) {
+		p0 := []byte("rec-0")
+		large := payloadN(BlockLen + 100)
+		path, off := writeFile(t, p0, large)
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("ReadFile: %v", err)
+		}
+		// 刚好留到第一块末尾（只有 FIRST，缺 LAST）。
+		if err = os.WriteFile(path, raw[:BlockLen], 0o644); err != nil {
+			t.Fatalf("WriteFile: %v", err)
+		}
+
+		aw, err := OpenAppend(path, off[1])
+		if err != nil {
+			t.Fatalf("OpenAppend: %v", err)
+		}
+		p1New := []byte("rec-1-new")
+		if err := aw.Write(p1New); err != nil {
+			t.Fatalf("Write: %v", err)
+		}
+		if err := aw.Close(); err != nil {
+			t.Fatalf("Close: %v", err)
+		}
+
+		got := readAll(t, path)
+		if len(got) != 2 || !bytes.Equal(got[0], p0) || !bytes.Equal(got[1], p1New) {
+			t.Fatalf("got %d records, want [p0, p1New]", len(got))
+		}
+	})
+
+	t.Run("half padding", func(t *testing.T) {
+		// 第一条记录写完后块尾只剩 6 字节（< HeaderLen）。
+		p0 := payloadN(BlockLen - HeaderLen*2 - 6)
+		path, _ := writeFile(t, p0)
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("ReadFile: %v", err)
+		}
+		end0 := int64(len(raw))
+		if BlockLen-end0 != 6 {
+			t.Fatalf("tail space = %d, want 6", BlockLen-end0)
+		}
+		// 在块尾附加 3 字节半截 padding（甚至含非零残余）。
+		if err = os.WriteFile(path, append(raw, 0x00, 0xAA, 0x00), 0o644); err != nil {
+			t.Fatalf("WriteFile: %v", err)
+		}
+
+		aw, err := OpenAppend(path, end0)
+		if err != nil {
+			t.Fatalf("OpenAppend: %v", err)
+		}
+		p1 := []byte("after-padding")
+		if err := aw.Write(p1); err != nil {
+			t.Fatalf("Write: %v", err)
+		}
+		if err := aw.Close(); err != nil {
+			t.Fatalf("Close: %v", err)
+		}
+
+		got := readAll(t, path)
+		if len(got) != 2 || !bytes.Equal(got[0], p0) || !bytes.Equal(got[1], p1) {
+			t.Fatalf("got %d records after truncating half padding", len(got))
+		}
+	})
+}
+
+func TestOpenAppendErrors(t *testing.T) {
+	if _, err := OpenAppend(filepath.Join(t.TempDir(), "missing.swanlab"), HeaderLen); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("missing file err = %v, want ErrNotExist", err)
+	}
+	path, _ := writeFile(t, []byte("abc"))
+	if _, err := OpenAppend(path, HeaderLen-1); err == nil {
+		t.Fatal("end < HeaderLen should fail")
+	}
+	fi, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("Stat: %v", err)
+	}
+	if _, err := OpenAppend(path, fi.Size()+1); !errors.Is(err, ErrTruncated) {
+		t.Fatalf("end > file size err = %v, want ErrTruncated", err)
+	}
+
+	bad := filepath.Join(t.TempDir(), "bad.swanlab")
+	if err := os.WriteFile(bad, []byte("not-swl"), 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	if _, err := OpenAppend(bad, HeaderLen); !errors.Is(err, ErrBadHeader) {
+		t.Fatalf("bad header err = %v, want ErrBadHeader", err)
+	}
+}

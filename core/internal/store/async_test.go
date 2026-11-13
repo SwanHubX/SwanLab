@@ -288,3 +288,94 @@ func TestAsyncConcurrentReaderBoundedByFlushed(t *testing.T) {
 		}
 	}
 }
+
+func TestAsyncResumeSeq(t *testing.T) {
+	const existing = 3
+	initial := [][]byte{anyPayload(0), anyPayload(1), anyPayload(2)}
+	path, _ := writeFile(t, initial...)
+	fi, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("Stat: %v", err)
+	}
+	end := fi.Size()
+
+	t.Run("preserves ResumeSeq on flush and close without new writes", func(t *testing.T) {
+		w, err := OpenAppend(path, end)
+		if err != nil {
+			t.Fatalf("OpenAppend: %v", err)
+		}
+		a, err := NewAsyncWriter(w, AsyncOptions{
+			Queue:         8,
+			ResumeSeq:     existing,
+			FlushInterval: time.Hour,
+		})
+		if err != nil {
+			w.Close()
+			t.Fatalf("NewAsyncWriter: %v", err)
+		}
+		if seq, off := a.Flushed(); seq != existing || off != end {
+			t.Fatalf("initial Flushed = (%d, %d), want (%d, %d)", seq, off, existing, end)
+		}
+		if err := a.Flush(context.Background()); err != nil {
+			t.Fatalf("Flush: %v", err)
+		}
+		if seq, off := a.Flushed(); seq != existing || off != end {
+			t.Fatalf("Flushed after empty Flush = (%d, %d), want (%d, %d)", seq, off, existing, end)
+		}
+		if err := a.Close(); err != nil {
+			t.Fatalf("Close: %v", err)
+		}
+		if seq, off := a.Flushed(); seq != existing || off != end {
+			t.Fatalf("Flushed after empty Close = (%d, %d), want (%d, %d)", seq, off, existing, end)
+		}
+	})
+
+	t.Run("appends from ResumeSeq+1 and updates Flushed and Index", func(t *testing.T) {
+		w, err := OpenAppend(path, end)
+		if err != nil {
+			t.Fatalf("OpenAppend: %v", err)
+		}
+		a, err := NewAsyncWriter(w, AsyncOptions{
+			Queue:         8,
+			IndexStride:   2,
+			ResumeSeq:     existing,
+			FlushBytes:    1 << 20,
+			FlushInterval: time.Hour,
+		})
+		if err != nil {
+			w.Close()
+			t.Fatalf("NewAsyncWriter: %v", err)
+		}
+
+		p4, p5 := anyPayload(3), anyPayload(4)
+		a.In() <- Request{StoreSeq: existing + 1, Payload: p4}
+		a.In() <- Request{StoreSeq: existing + 2, Payload: p5}
+		if err := a.Flush(context.Background()); err != nil {
+			t.Fatalf("Flush: %v", err)
+		}
+
+		seq, off := a.Flushed()
+		if seq != existing+2 || off <= end {
+			t.Fatalf("Flushed = (%d, %d), want (%d, >%d)", seq, off, existing+2, end)
+		}
+		anchor, ok := a.Index().Locate(existing + 1)
+		if !ok || anchor.StoreSeq != existing+1 || anchor.Offset != end {
+			t.Fatalf("Locate(%d) = (%+v, %v), want ({StoreSeq:%d Offset:%d}, true)",
+				existing+1, anchor, ok, existing+1, end)
+		}
+		if err := a.Close(); err != nil {
+			t.Fatalf("Close: %v", err)
+		}
+
+		got := readAll(t, path)
+		want := append(append([][]byte(nil), initial...), p4, p5)
+		if len(got) != len(want) {
+			t.Fatalf("readAll got %d records, want %d", len(got), len(want))
+		}
+		for i := range want {
+			if !bytes.Equal(got[i], want[i]) {
+				t.Fatalf("record %d mismatch", i)
+			}
+		}
+	})
+}
