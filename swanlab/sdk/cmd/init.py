@@ -19,15 +19,17 @@ from typing import Any, Callable, Dict, List, NoReturn, Optional, Tuple, Union
 
 import requests
 import yaml
+from google.protobuf.message import DecodeError
 from google.protobuf.timestamp_pb2 import Timestamp
 
-from swanlab.exceptions import AuthenticationError
+from swanlab.exceptions import AuthenticationError, DataStoreError
 from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
     CORE_ERROR_KIND_AUTH,
     CORE_ERROR_KIND_TRANSIENT,
     DeliverRunStartRequest,
     DeliverRunStartResponse,
 )
+from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.run.v1.run_pb2 import StartRecord
 from swanlab.sdk.cmd.guard import with_cmd_lock
 from swanlab.sdk.internal.context import (
@@ -37,6 +39,7 @@ from swanlab.sdk.internal.context import (
 )
 from swanlab.sdk.internal.context.components import create_core, create_probe
 from swanlab.sdk.internal.core_python import client
+from swanlab.sdk.internal.core_python.store import DataStoreReader
 from swanlab.sdk.internal.pkg import adapter, console, fork, fs, helper, safe
 from swanlab.sdk.internal.pkg.client import is_transient_login_error
 from swanlab.sdk.typings.cmd import ConfigLike
@@ -140,9 +143,11 @@ def init(
     :param job_type: Job type label (e.g., "train", "eval").
     :param group: Group name for organizing related experiments.
     :param tags: List of tags for categorizing experiments.
-    :param id: Run ID for resuming a previous run (online mode only).
-    :param resume: Resume behavior. Options: "must" (must resume), "allow" (resume if exists),
-        "never" (always create new). Defaults to "never".
+    :param id: Run ID for identifying this run (used for cloud resume in online mode and
+        local run identity verification when reusing ``run.dir``).
+    :param resume: Cloud resume behavior. Options: "must" (must resume), "allow" (resume if exists),
+        "never" (always create new). Defaults to "never". Only governs cloud experiment reuse;
+        to resume a local run directory after a crash, explicitly set ``run.dir`` or ``SWANLAB_RUN_DIR``.
     :param parallel: Parallel execution strategy. Options: "none" (default), "shared".
     :param config: Experiment configuration dict or path to config file (JSON/YAML).
     :param settings: Custom Settings object for advanced configuration.
@@ -459,14 +464,16 @@ def ensure_run_dir(
     dir_max_length: int = 255,
     dir_name: Optional[str] = None,
     parallel: ParallelType = "none",
+    reuse_existing: bool = False,
 ) -> Path:
     """
-    原子化地创建一个不与已有目录冲突的 run_dir。
+    原子化地创建一个不与已有目录冲突的 run_dir，或在显式允许时复用已有目录。
 
     通过 ``mkdir(exist_ok=False)`` 将"检查不存在 + 创建目录"合并为一个原子操作：
     创建成功即拥有该目录；若抛出 FileExistsError，则等待 retry_interval 秒后，用新时间戳重试，最多重试 max_retries 次。
 
-    当 ``dir_name`` 不为 None 时，直接使用指定目录名，仅创建一次，不重试，失败直接抛错。
+    当 ``dir_name`` 不为 None 时，直接使用指定目录名，不重试；默认仍要求目录不存在，
+    仅当 ``reuse_existing=True`` 时允许复用已有目录。
 
     :param log_dir: 日志根目录（必须已存在）
     :param run_id: 当前运行的唯一标识符
@@ -474,13 +481,15 @@ def ensure_run_dir(
     :param retry_interval: 目录冲突时等待的秒数
     :param dir_max_length: run_dir 目录名最大长度
     :param dir_name: 用户指定的 run_dir 目录名，指定后仅创建一次不重试
-    :return: 创建成功的 run_dir 路径
+    :param parallel: 并行策略
+    :param reuse_existing: 为 True 且指定 ``dir_name`` 时允许复用已存在目录
+    :return: 创建或复用的 run_dir 路径
     :raises RuntimeError: 超过最大重试次数仍无法创建唯一目录
-    :raises FileExistsError: 指定 dir_name 时目录已存在
+    :raises FileExistsError: 指定 ``dir_name`` 且 ``reuse_existing=False`` 时目录已存在，或目标路径为非目录文件
     """
     if dir_name is not None:
         run_dir = log_dir / dir_name
-        fs.safe_mkdir(run_dir, ensure_clean=True)
+        fs.safe_mkdir(run_dir, ensure_clean=not reuse_existing)
         return run_dir
     for i in range(max_retries):
         run_dir_name, truncated = _generate_run_dir_name(run_id, dir_max_length, parallel)
@@ -572,6 +581,43 @@ def _generate_run_dir_name(
     return dir_name, hostname_truncated or run_id_truncated
 
 
+def _validate_existing_run_dir(run_dir: Path, run_id: str) -> None:
+    """校验待复用的 run_dir 内既有 run-*.swanlab 的首条 StartRecord 是否与当前 run_id 一致。"""
+    run_files = sorted(run_dir.glob("run-*.swanlab"))
+    if not run_files:
+        return
+    if len(run_files) > 1:
+        raise RuntimeError(f"Multiple run-*.swanlab files found in '{run_dir}'; cannot determine which run to resume.")
+    run_file = run_files[0]
+    reader = DataStoreReader()
+    opened = False
+    try:
+        reader.open(run_file)
+        opened = True
+        payload = reader.scan()
+    except (AssertionError, DataStoreError, OSError) as exc:
+        raise RuntimeError(f"Failed to read existing run file '{run_file}': {exc}") from exc
+    finally:
+        if opened:
+            reader.close()
+
+    if payload is None:
+        return
+    record = Record()
+    try:
+        record.ParseFromString(payload)
+    except DecodeError as exc:
+        raise RuntimeError(f"Failed to parse start record from '{run_file}': {exc}") from exc
+    if not record.HasField("start"):
+        raise RuntimeError(f"Existing run file '{run_file}' is missing a valid StartRecord as its first record.")
+    existing_id = record.start.id
+    if existing_id != run_id:
+        raise RuntimeError(
+            f"Run directory '{run_dir}' already belongs to another run "
+            f"(existing id={existing_id!r}, current id={run_id!r})."
+        )
+
+
 def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[RunContext, Optional[str]]:
     """
     初始化运行时配置，在这之前，所有引导式交互都已经完成
@@ -587,19 +633,27 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
     run_id = run_settings.run.id
     assert run_id, "Run id is not provided."
     should_mkdirs = mode != "disabled" and not skip_store
-    # 2. 创建运行目录
+    # 2. 创建或复用运行目录
     if should_mkdirs:
+        explicit_dir = run_settings.run.dir
+        reusing_existing = explicit_dir is not None and (run_settings.log_dir / explicit_dir).is_dir()
+        if reusing_existing:
+            assert explicit_dir is not None
+            _validate_existing_run_dir(run_settings.log_dir / explicit_dir, run_id)
         # 安全创建目录，并写入 .gitignore（如果目录为空）
         helper.mkdir_and_append_gitignore(run_settings.log_dir)
-        # 创建运行子目录，run_dir 必须是新建的，防止误覆盖已有实验数据
+        # 未显式指定 run.dir 时仍要求新建；仅显式指定且已存在时复用（不清理已有文件）
         run_dir = ensure_run_dir(
             run_settings.log_dir,
             run_id,
             max_retries=run_settings.run.dir_create_retries,
             dir_max_length=run_settings.run.dir_max_length,
-            dir_name=run_settings.run.dir,
+            dir_name=explicit_dir,
             parallel=run_settings.run.parallel,
+            reuse_existing=explicit_dir is not None,
         )
+        if reusing_existing:
+            console.info(f"Reusing existing run directory '{run_dir}'; will continue the previous unfinished run.")
     else:
         # disabled / skip_store 下 run_dir 仅作逻辑路径，不创建目录
         if run_settings.run.dir:

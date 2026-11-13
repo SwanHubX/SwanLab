@@ -156,9 +156,11 @@ def init(
     :param job_type: Job type label (e.g., "train", "eval").
     :param group: Group name for organizing related experiments.
     :param tags: List of tags for categorizing experiments.
-    :param id: Run ID for resuming a previous run (online mode only).
-    :param resume: Resume behavior. Options: "must" (must resume), "allow" (resume if exists),
-        "never" (always create new). Defaults to "never".
+    :param id: Run ID for identifying this run (used for cloud resume in online mode and
+        local run identity verification when reusing ``run.dir``).
+    :param resume: Cloud resume behavior. Options: "must" (must resume), "allow" (resume if exists),
+        "never" (always create new). Defaults to "never". Only governs cloud experiment reuse;
+        to resume a local run directory after a crash, explicitly set ``run.dir`` or ``SWANLAB_RUN_DIR``.
     :param parallel: Parallel execution policy. Options: "none", "shared".
     :param config: Experiment configuration dict or path to config file (JSON/YAML).
     :param settings: Custom Settings object for advanced configuration.
