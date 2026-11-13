@@ -12,7 +12,6 @@ from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import IO, TYPE_CHECKING, Dict, Optional, Sequence, Union
 
-from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.sdk.internal.core_python.api.upload import upload_resource
 from swanlab.sdk.internal.core_python.context import CoreContext
@@ -27,18 +26,6 @@ from .utils import track_file
 
 if TYPE_CHECKING:
     from swanlab.sdk.internal.core_python.transport.tracker import UploadTracker
-
-
-def is_video_media(record: Record) -> bool:
-    return record.HasField("media") and record.media.type == ColumnType.COLUMN_TYPE_VIDEO
-
-
-def _content_type(record: Record, filename: Union[str, Path]) -> str:
-    if is_video_media(record):
-        from swanlab.sdk.internal.run.transforms.video.source import MIME_TYPES
-
-        return MIME_TYPES.get(Path(filename).suffix.lower().lstrip("."), guess_type(filename))
-    return guess_type(filename)
 
 
 @dataclass
@@ -99,7 +86,7 @@ def collect_media_tasks(ctx: CoreContext, records: Sequence[Record]) -> list[Med
             if media.HasField("payload"):
                 payload = media.payload
                 size = len(payload)
-                mime_type = _content_type(record, media.filename)
+                mime_type = guess_type(media.filename)
                 item_payload = MediaPayload(
                     remote_path=remote_path,
                     tracker_key=f"{remote_path}:{size}",
@@ -125,7 +112,7 @@ def collect_media_tasks(ctx: CoreContext, records: Sequence[Record]) -> list[Med
                 continue
             try:
                 size = get_buffer_size(local_path)
-                mime_type = _content_type(record, local_path)
+                mime_type = guess_type(local_path)
             except OSError as e:
                 reasons.append(f"media file unreadable: {local_path}: {e}")
                 continue

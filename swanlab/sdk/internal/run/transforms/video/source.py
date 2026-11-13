@@ -14,7 +14,7 @@ from swanlab.sdk.internal.pkg import console
 
 CHUNK_SIZE = 1024 * 1024
 MAX_SIZE = 100 * 1024 * 1024
-MIME_TYPES = {"gif": "image/gif", "mp4": "video/mp4", "webm": "video/webm", "ogg": "video/ogg"}
+SUPPORTED_FORMATS = ("gif", "mp4", "webm", "ogg")
 
 
 class VideoProcessingError(ValueError):

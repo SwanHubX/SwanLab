@@ -19,7 +19,7 @@ from .encoding import encode, require_modules
 from .source import (
     CHUNK_SIZE,
     MAX_SIZE,
-    MIME_TYPES,
+    SUPPORTED_FORMATS,
     VideoProcessingError,
     VideoSource,
     check_size,
@@ -82,7 +82,7 @@ class Video(TransformMedia):
                 raise VideoProcessingError("input_type", "Video paths must contain text")
             path = Path(filename)
             actual_format = path.suffix.lower().lstrip(".")
-            if actual_format not in MIME_TYPES:
+            if actual_format not in SUPPORTED_FORMATS:
                 raise VideoProcessingError("format_mismatch", "Video file extension must be gif, mp4, webm or ogg")
             check_size(path.stat().st_size)
             self._file_options(fps, fmt, actual_format)
@@ -106,12 +106,12 @@ class Video(TransformMedia):
                     consumed += len(chunk)
                     check_size(consumed)
                 raise VideoProcessingError("format_required", "Non-GIF video bytes require an explicit format")
-            if actual_format not in MIME_TYPES:
+            if actual_format not in SUPPORTED_FORMATS:
                 raise VideoProcessingError("argument", "Video format must be gif, mp4, webm or ogg")
             self._file_options(fps, None, actual_format)
             self._source = snapshot(stream, actual_format, scratch_path(actual_format))
             return
-        if fmt not in MIME_TYPES:
+        if fmt not in SUPPORTED_FORMATS:
             raise VideoProcessingError(
                 "format_required", "Video arrays require an explicit gif, mp4, webm or ogg format"
             )
