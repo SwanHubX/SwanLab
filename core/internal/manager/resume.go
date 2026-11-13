@@ -7,6 +7,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/swanhubx/swanlab/core/internal/config"
+	"github.com/swanhubx/swanlab/core/internal/manager/progress"
 	"github.com/swanhubx/swanlab/core/internal/metrics"
 	"github.com/swanhubx/swanlab/core/internal/pkg/console"
 	"github.com/swanhubx/swanlab/core/internal/pkg/record"
@@ -198,7 +199,7 @@ func (s *Session) initOnlineProgress(init sessionInit) (
 			s.checkpointFile, init.run.RunID, s.runFile, init.resume,
 		)
 	}
-	s.progress = newProgressTracker(baseSeq)
+	s.progress = progress.NewTracker(baseSeq)
 	if cpValid && baseSeq > 0 {
 		s.checkpointLastSeq = baseSeq
 		s.checkpointHasWrite = true
@@ -210,5 +211,5 @@ func (s *Session) initOnlineProgress(init sessionInit) (
 			cursor:   backfillCursor{seq: baseSeq, offset: replayStartOffset},
 		}
 	}
-	return s.progress.onStored, replayFrom, replayStartOffset
+	return s.progress.OnStored, replayFrom, replayStartOffset
 }

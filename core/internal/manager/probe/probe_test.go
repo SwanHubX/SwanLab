@@ -1,4 +1,4 @@
-package manager
+package probe
 
 import (
 	"context"
@@ -37,15 +37,15 @@ func TestProbeReachableClassification(t *testing.T) {
 		{"/rate-limited", false},
 	}
 	for _, c := range cases {
-		if got := probeReachable(context.Background(), srv.URL+c.path); got != c.want {
-			t.Fatalf("probeReachable(%s) = %v, want %v", c.path, got, c.want)
+		if got := Reachable(context.Background(), srv.URL+c.path); got != c.want {
+			t.Fatalf("Reachable(%s) = %v, want %v", c.path, got, c.want)
 		}
 	}
 
 	closed := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
-	url := closed.URL
+	targetURL := closed.URL
 	closed.Close()
-	if probeReachable(context.Background(), url) {
+	if Reachable(context.Background(), targetURL) {
 		t.Fatal("closed server must be unreachable")
 	}
 }
@@ -75,7 +75,7 @@ func TestProbeReachableHonorsConfiguredTimeout(t *testing.T) {
 	// 10s 预算必须原样传到请求；旧实现会被 Client.Timeout=2s 截断。
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if !probeReachable(ctx, "http://probe.invalid") {
+	if !Reachable(ctx, "http://probe.invalid") {
 		t.Fatal("probe should be reachable")
 	}
 	if remaining < 5*time.Second {
@@ -84,8 +84,8 @@ func TestProbeReachableHonorsConfiguredTimeout(t *testing.T) {
 }
 
 func TestSiteKeyHidesAPIKey(t *testing.T) {
-	a := siteKey("https://api.example.com", "secret-key")
-	b := siteKey("https://api.example.com", "other-key")
+	a := SiteKey("https://api.example.com", "secret-key")
+	b := SiteKey("https://api.example.com", "other-key")
 	if a == b {
 		t.Fatal("different api keys must not share a site")
 	}
@@ -105,8 +105,8 @@ func TestSecondsDuration(t *testing.T) {
 		{0.75, 750 * time.Millisecond},
 	}
 	for _, c := range cases {
-		if got := secondsDuration(c.in); got != c.want {
-			t.Fatalf("secondsDuration(%v) = %v, want %v", c.in, got, c.want)
+		if got := SecondsDuration(c.in); got != c.want {
+			t.Fatalf("SecondsDuration(%v) = %v, want %v", c.in, got, c.want)
 		}
 	}
 }

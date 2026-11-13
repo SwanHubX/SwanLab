@@ -15,6 +15,7 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/clienttest"
 	"github.com/swanhubx/swanlab/core/internal/config"
 	"github.com/swanhubx/swanlab/core/internal/cron/health"
+	"github.com/swanhubx/swanlab/core/internal/manager/probe"
 	"github.com/swanhubx/swanlab/core/internal/metrics"
 	"github.com/swanhubx/swanlab/core/internal/pkg/builder"
 	"github.com/swanhubx/swanlab/core/internal/runctx"
@@ -99,7 +100,7 @@ func closeStartedSession(t *testing.T, mgr *Manager, sessionID string) {
 		s.cancel()
 	}
 	if s.heartbeat != nil {
-		s.heartbeat.stop(context.Background())
+		s.heartbeat.Stop(context.Background())
 	}
 	if s.watcher != nil {
 		s.watcher.Stop()
@@ -544,7 +545,7 @@ func TestDeliverRunStartDegradedWhenDataPlaneDown(t *testing.T) {
 	serveHeartbeat(cloud, "exp-1")
 	serveProject(cloud, "alice", "demo", 7)
 	serveNewExperiment(cloud, "alice", "demo", "exp-1", "run-slug")
-	cloud.ServeJSON(http.MethodGet, houseProbePath, http.StatusServiceUnavailable, nil)
+	cloud.ServeJSON(http.MethodGet, probe.HousePath, http.StatusServiceUnavailable, nil)
 
 	mgr := newTestManager()
 	settings := startSettings(t, cloud)

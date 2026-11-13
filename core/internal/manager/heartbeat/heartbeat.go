@@ -1,4 +1,5 @@
-package manager
+// Package heartbeat 维持会话在线心跳，启动后立即上报并按固定周期续传。
+package heartbeat
 
 import (
 	"context"
@@ -9,16 +10,17 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/pkg/console"
 )
 
-// heartbeatInterval 是会话心跳周期，与 Python 侧保持一致。
-const heartbeatInterval = 10 * time.Minute
+// DefaultInterval 是会话心跳周期，与 Python 侧保持一致。
+const DefaultInterval = 10 * time.Minute
 
-type heartbeatSender func(context.Context, string) error
+// Sender 发送单次会话心跳。
+type Sender func(context.Context, string) error
 
-// heartbeat 维持会话活跃状态：启动时立即发送一次，之后按固定周期重发。
+// Heartbeat 维持会话活跃状态：启动时立即发送一次，之后按固定周期重发。
 // 发送失败只告警，不影响数据主链路。
-type heartbeat struct {
+type Heartbeat struct {
 	experimentID string
-	send         heartbeatSender
+	send         Sender
 	interval     time.Duration
 
 	started   atomic.Bool
@@ -27,23 +29,24 @@ type heartbeat struct {
 	stopCh    chan struct{}
 	doneCh    chan struct{}
 
-	// mu 保护 cancel：stop 先取消在途请求，再等待协程退出。
+	// mu 保护 cancel：Stop 先取消在途请求，再等待协程退出。
 	mu     sync.Mutex
 	cancel context.CancelFunc
 }
 
-func newHeartbeat(experimentID string, send heartbeatSender) *heartbeat {
-	return &heartbeat{
+// New 构造会话心跳管理器。
+func New(experimentID string, send Sender) *Heartbeat {
+	return &Heartbeat{
 		experimentID: experimentID,
 		send:         send,
-		interval:     heartbeatInterval,
+		interval:     DefaultInterval,
 		stopCh:       make(chan struct{}),
 		doneCh:       make(chan struct{}),
 	}
 }
 
-// start 启动心跳协程；重复调用无副作用。
-func (h *heartbeat) start(parent context.Context) {
+// Start 启动心跳协程；重复调用无副作用。
+func (h *Heartbeat) Start(parent context.Context) {
 	h.startOnce.Do(func() {
 		ctx, cancel := context.WithCancel(parent)
 		h.mu.Lock()
@@ -54,8 +57,8 @@ func (h *heartbeat) start(parent context.Context) {
 	})
 }
 
-// stop 先取消在途请求，再等待协程退出；等待受 ctx 限制，可重复调用。
-func (h *heartbeat) stop(ctx context.Context) {
+// Stop 先取消在途请求，再等待协程退出；等待受 ctx 限制，可重复调用。
+func (h *Heartbeat) Stop(ctx context.Context) {
 	h.stopOnce.Do(func() {
 		close(h.stopCh)
 		h.mu.Lock()
@@ -74,7 +77,7 @@ func (h *heartbeat) stop(ctx context.Context) {
 	}
 }
 
-func (h *heartbeat) loop(ctx context.Context) {
+func (h *Heartbeat) loop(ctx context.Context) {
 	defer close(h.doneCh)
 
 	ticker := time.NewTicker(h.interval)
@@ -96,7 +99,7 @@ func (h *heartbeat) loop(ctx context.Context) {
 	}
 }
 
-func (h *heartbeat) stopped(ctx context.Context) bool {
+func (h *Heartbeat) stopped(ctx context.Context) bool {
 	select {
 	case <-h.stopCh:
 		return true
@@ -107,11 +110,10 @@ func (h *heartbeat) stopped(ctx context.Context) bool {
 	}
 }
 
-func (h *heartbeat) beat(ctx context.Context) {
-	if ctx.Err() != nil {
+func (h *Heartbeat) beat(ctx context.Context) {
+	if h.send == nil {
 		return
 	}
-	// 取消导致的失败不代表云端异常，不打印告警。
 	if err := h.send(ctx, h.experimentID); err != nil && ctx.Err() == nil {
 		console.Warningf("heartbeat failed: %v", err)
 	}

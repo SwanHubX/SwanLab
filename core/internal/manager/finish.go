@@ -303,7 +303,7 @@ func (s *Session) shutdown(ctx context.Context) {
 	_ = s.beginDrain()
 	s.stopBackfill()
 	if s.heartbeat != nil {
-		s.heartbeat.stop(ctx)
+		s.heartbeat.Stop(ctx)
 	}
 	if s.watcher != nil {
 		s.watcher.Stop()

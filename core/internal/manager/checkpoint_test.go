@@ -11,6 +11,7 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/buffer"
 	"github.com/swanhubx/swanlab/core/internal/clienttest"
 	"github.com/swanhubx/swanlab/core/internal/config"
+	"github.com/swanhubx/swanlab/core/internal/manager/progress"
 	"github.com/swanhubx/swanlab/core/internal/metrics"
 	"github.com/swanhubx/swanlab/core/internal/pkg/counter"
 	"github.com/swanhubx/swanlab/core/internal/pkg/record"
@@ -64,11 +65,11 @@ func newCheckpointTestSession(
 
 	b := budget.New(budget.Limits{Records: 64, Bytes: 1 << 20})
 	tracker := uploader.NewTracker()
-	var progress *progressTracker
+	var trackerProgress *progress.Tracker
 	var onStored func(*recordv1.Record, uint64)
 	if mode == config.ModeOnline {
-		progress = newProgressTracker(0)
-		onStored = progress.onStored
+		trackerProgress = progress.NewTracker(0)
+		onStored = trackerProgress.OnStored
 	}
 
 	intake, err := buffer.New(buffer.Options{
@@ -102,7 +103,7 @@ func newCheckpointTestSession(
 	s.runFile = runFile
 	s.runFileCreated = true
 	s.checkpointFile = cpFile
-	s.progress = progress
+	s.progress = trackerProgress
 
 	if mode == config.ModeOnline {
 		up, err := uploader.New(uploader.Options{
@@ -114,8 +115,8 @@ func newCheckpointTestSession(
 			Batch:     16,
 			Interval:  5 * time.Millisecond,
 			Tracker:   tracker,
-			OnConfirm: progress.resolve,
-			OnDrop:    progress.resolveOne,
+			OnConfirm: trackerProgress.Resolve,
+			OnDrop:    trackerProgress.ResolveOne,
 			OnDrained: func() {
 				s.stopCheckpoint()
 				s.flushCheckpoint()

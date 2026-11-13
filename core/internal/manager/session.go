@@ -18,6 +18,8 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/client"
 	"github.com/swanhubx/swanlab/core/internal/config"
 	"github.com/swanhubx/swanlab/core/internal/cron/health"
+	"github.com/swanhubx/swanlab/core/internal/manager/heartbeat"
+	"github.com/swanhubx/swanlab/core/internal/manager/progress"
 	"github.com/swanhubx/swanlab/core/internal/metrics"
 	"github.com/swanhubx/swanlab/core/internal/pkg/counter"
 	"github.com/swanhubx/swanlab/core/internal/pkg/watcher"
@@ -143,7 +145,7 @@ type Session struct {
 	budget    *budget.Budget
 	tracker   *uploader.Tracker
 	watcher   watcher.Watcher
-	heartbeat *heartbeat
+	heartbeat *heartbeat.Heartbeat
 
 	// 指标与编号状态由 Session.mu 保护；Resume 恢复的 epoch 作为日志起始行号。
 	metrics *metrics.RunMetrics
@@ -182,7 +184,7 @@ type Session struct {
 	runFile        string
 	runFileCreated bool
 
-	progress           *progressTracker
+	progress           *progress.Tracker
 	checkpointFile     string
 	checkpointInterval time.Duration
 	checkpointTicked   func()

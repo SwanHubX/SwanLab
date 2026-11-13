@@ -13,6 +13,7 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/budget"
 	"github.com/swanhubx/swanlab/core/internal/buffer"
 	"github.com/swanhubx/swanlab/core/internal/config"
+	"github.com/swanhubx/swanlab/core/internal/manager/heartbeat"
 	"github.com/swanhubx/swanlab/core/internal/pkg/console"
 	"github.com/swanhubx/swanlab/core/internal/pkg/record"
 	"github.com/swanhubx/swanlab/core/internal/pkg/watcher"
@@ -125,8 +126,8 @@ func (s *Session) open(init sessionInit) error {
 			Context:            s.ctx,
 			OnRetryableFailure: s.onWriteFailure,
 			OnDispatchSuccess:  s.onWriteSuccess,
-			OnConfirm:          s.progress.resolve,
-			OnDrop:             s.progress.resolveOne,
+			OnConfirm:          s.progress.Resolve,
+			OnDrop:             s.progress.ResolveOne,
 			OnDrained: func() {
 				s.stopCheckpoint()
 				s.flushCheckpoint()
@@ -167,8 +168,8 @@ func (s *Session) open(init sessionInit) error {
 	s.tracker.SetState(operationv1.CoreState_CORE_STATE_RUNNING)
 	if init.cfg.NormalizedMode() == config.ModeOnline {
 		// 心跳与站点探针只对云端有意义；local/offline/disabled 没有 api 客户端。
-		s.heartbeat = newHeartbeat(init.experimentID, init.api.SendHeartbeat)
-		s.heartbeat.start(s.ctx)
+		s.heartbeat = heartbeat.New(init.experimentID, init.api.SendHeartbeat)
+		s.heartbeat.Start(s.ctx)
 		s.attachHealth(init.healthReg, init.healthOpts)
 	}
 	if s.store != nil {
@@ -198,7 +199,7 @@ func (s *Session) rollback() {
 	if s.heartbeat != nil {
 		// s.cancel 已中断心跳的父 ctx；这里限制等待时间，避免慢心跳拖住回滚。
 		ctx, cancel := context.WithTimeout(context.Background(), rollbackTimeout)
-		s.heartbeat.stop(ctx)
+		s.heartbeat.Stop(ctx)
 		cancel()
 	}
 	if s.watcher != nil {

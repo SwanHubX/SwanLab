@@ -70,7 +70,7 @@ func (s *Session) persistCheckpoint() {
 	flushedSeq, flushedOff := s.store.Flushed()
 	targetSeq := flushedSeq
 	if s.progress != nil {
-		if w := s.progress.watermark(); w < targetSeq {
+		if w := s.progress.Watermark(); w < targetSeq {
 			targetSeq = w
 		}
 	}

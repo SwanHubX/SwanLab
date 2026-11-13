@@ -260,7 +260,7 @@ func (m *Manager) Confirm(ctx context.Context, sessionID string) (ConfirmResult,
 	// 与 Python 对齐：排空成功后先停心跳，再上报实验终态；失败时心跳保持停止，
 	// 会话保留供重试，避免重试期间继续发送心跳。
 	if s.heartbeat != nil {
-		s.heartbeat.stop(ctx)
+		s.heartbeat.Stop(ctx)
 		// 心跳等待可能耗尽 RPC 预算，ctx 已失效时不再发 stop_experiment。
 		if err = ctx.Err(); err != nil {
 			return ConfirmResult{}, err
