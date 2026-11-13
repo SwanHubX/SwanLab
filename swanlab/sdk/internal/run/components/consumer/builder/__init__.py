@@ -152,6 +152,9 @@ class RecordBuilder:
     def _build_videos(self, values: list, key: str, timestamp: Timestamp, step: int) -> ParseResult:
         items = []
         rejected = 0
+        skip_store = self._ctx.config.settings.core.skip_store
+        payload_size = 0
+        budget_exceeded = False
         for video in values:
             if not isinstance(video, Video) or not video.is_valid:
                 rejected += 1
@@ -161,11 +164,24 @@ class RecordBuilder:
                     f"Video key '{key}' step {step} exceeds {self._MEDIA_MAX_LENGTH} valid items; remaining items skipped"
                 )
                 break
+            if skip_store and payload_size + (video.size or 0) > VIDEO_MAX_SIZE:
+                budget_exceeded = True
+                break
             item = video.transform(step=step, path=self._resolve_media_dir(Video.column_type()))
             if item is not None:
+                # buffer 可在构造后被修改，按 transform 后的实际 payload 再核对总量。
+                if skip_store and payload_size + len(item.payload) > VIDEO_MAX_SIZE:
+                    budget_exceeded = True
+                    break
+                payload_size += len(item.payload)
                 items.append(item)
             else:
                 rejected += 1
+        if budget_exceeded:
+            console.warning(
+                f"Video key '{key}' step {step} exceeds the {VIDEO_MAX_SIZE}-byte total payload limit "
+                "with skip_store enabled; remaining items skipped"
+            )
         if rejected:
             console.warning(f"Video key '{key}' step {step}: skipped {rejected} invalid item(s)")
         if not items:

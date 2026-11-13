@@ -32,9 +32,12 @@ class Video(TransformMedia):
     """Log GIF/MP4/WebM/OGG files or encode TCHW/BTCHW arrays.
 
     ``caption`` remains the second positional argument. Arrays require an
-    explicit ``format`` and use 4 fps by default. File inputs keep their bytes
-    and audio unchanged. Processing errors warn and produce an invalid object;
-    logging skips that video while continuing with other metrics.
+    explicit ``format``, uint8 pixels, and use 4 fps by default. The encoded
+    canvas, including batch tiling and padding, is limited to 4096 pixels per
+    side. Tensor callers must detach and prepare CPU uint8 arrays themselves.
+    File inputs keep their bytes and audio unchanged. Processing errors warn
+    and produce an invalid object. Logging skips that video while continuing
+    with other metrics.
     """
 
     def __init__(
@@ -118,7 +121,9 @@ class Video(TransformMedia):
                 data = converter()
             except Exception as error:
                 raise VideoProcessingError(
-                    "numpy_conversion", f"Video numpy() conversion failed: {type(error).__name__}"
+                    "numpy_conversion",
+                    f"Video numpy() conversion failed: {type(error).__name__}; "
+                    "provide a CPU uint8 NumPy array, detaching tensors first",
                 ) from error
         elif importlib.util.find_spec("numpy") is None:
             raise VideoProcessingError("input_type", f"Unsupported video input: {type(data).__name__}")

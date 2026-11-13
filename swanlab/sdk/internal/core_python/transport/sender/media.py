@@ -112,8 +112,7 @@ def collect_media_tasks(ctx: CoreContext, records: Sequence[Record]) -> list[Med
                 )
                 task.payloads.append(item_payload)
                 record_paths.append(remote_path)
-                if media.caption or is_video_media(record):
-                    metric["more"].append({"caption": media.caption} if media.caption else {})
+                metric["more"].append({"caption": media.caption} if media.caption else {})
                 continue
 
             if ctx.config.skip_store:
@@ -142,8 +141,7 @@ def collect_media_tasks(ctx: CoreContext, records: Sequence[Record]) -> list[Med
             )
             task.payloads.append(item_payload)
             record_paths.append(remote_path)
-            if media.caption or is_video_media(record):
-                metric["more"].append({"caption": media.caption} if media.caption else {})
+            metric["more"].append({"caption": media.caption} if media.caption else {})
 
         if record_paths:
             metric["data"] = record_paths

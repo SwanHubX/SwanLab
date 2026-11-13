@@ -140,6 +140,78 @@ def test_invalid_items_filtered_before_108_limit(tmp_path):
     assert empty is None
 
 
+@pytest.mark.parametrize("limit,expected", [(25, ["first"]), (26, ["first", "second"]), (27, ["first", "second"])])
+def test_skip_store_payload_budget_stops_at_first_overflow(tmp_path, monkeypatch, limit, expected):
+    from swanlab.sdk.internal.pkg import console
+
+    ctx = SimpleNamespace(
+        media_dir=tmp_path / "media",
+        config=SimpleNamespace(settings=SimpleNamespace(core=SimpleNamespace(skip_store=True))),
+    )
+    monkeypatch.setattr("swanlab.sdk.internal.run.components.consumer.builder.VIDEO_MAX_SIZE", limit)
+    messages = []
+    monkeypatch.setattr(console, "warning", lambda message: messages.append(message))
+    builder = RecordBuilder(cast(RunContext, ctx))
+    values = [Video(GIF, "first"), Video(GIF, "second"), Video(b"GIF89a", "third")]
+    calls = []
+    transform = Video.transform
+
+    def tracked_transform(video, **kwargs):
+        calls.append(video.caption)
+        return transform(video, **kwargs)
+
+    monkeypatch.setattr(Video, "transform", tracked_transform)
+    record, _ = builder.build_scalar_or_media(values, "clips", Timestamp(), 3)
+    assert isinstance(record, MediaRecord)
+    assert [item.caption for item in record.value.items] == expected
+    assert sum(len(item.payload) for item in record.value.items) <= limit
+    assert calls == expected
+    assert len(messages) == 1 and "remaining items skipped" in messages[0]
+    assert "clips" in messages[0] and "step 3" in messages[0]
+    assert not ctx.media_dir.exists()
+
+
+def test_payload_budget_rechecks_mutated_buffer_and_skips_remaining(tmp_path, monkeypatch):
+    ctx = SimpleNamespace(
+        media_dir=tmp_path,
+        config=SimpleNamespace(settings=SimpleNamespace(core=SimpleNamespace(skip_store=True))),
+    )
+    monkeypatch.setattr("swanlab.sdk.internal.run.components.consumer.builder.VIDEO_MAX_SIZE", len(GIF) * 2)
+    first = Video(GIF, "first")
+    grown = Video(GIF, "grown")
+    grown.buffer.seek(0, 2)
+    grown.buffer.write(b"extra")
+    builder = RecordBuilder(cast(RunContext, ctx))
+    record, _ = builder.build_scalar_or_media([first, grown, Video(b"GIF89a", "third")], "clips", Timestamp(), 0)
+    assert isinstance(record, MediaRecord)
+    assert [item.caption for item in record.value.items] == ["first"]
+    assert grown.is_valid
+
+
+def test_default_store_has_no_total_payload_budget(tmp_path, monkeypatch):
+    ctx = SimpleNamespace(
+        media_dir=tmp_path,
+        config=SimpleNamespace(settings=SimpleNamespace(core=SimpleNamespace(skip_store=False))),
+    )
+    monkeypatch.setattr("swanlab.sdk.internal.run.components.consumer.builder.VIDEO_MAX_SIZE", len(GIF))
+    builder = RecordBuilder(cast(RunContext, ctx))
+    record, _ = builder.build_scalar_or_media([Video(GIF), Video(GIF)], "clips", Timestamp(), 0)
+    assert isinstance(record, MediaRecord)
+    assert len(record.value.items) == 2
+    assert all(not item.HasField("payload") for item in record.value.items)
+
+
+def test_payload_budget_rejects_oversized_first_item_without_serializing(tmp_path, monkeypatch):
+    ctx = SimpleNamespace(
+        media_dir=tmp_path,
+        config=SimpleNamespace(settings=SimpleNamespace(core=SimpleNamespace(skip_store=True))),
+    )
+    monkeypatch.setattr("swanlab.sdk.internal.run.components.consumer.builder.VIDEO_MAX_SIZE", len(GIF) - 1)
+    monkeypatch.setattr(Video, "transform", lambda *args, **kwargs: pytest.fail("Over-budget video must not serialize"))
+    record, _ = RecordBuilder(cast(RunContext, ctx)).build_scalar_or_media([Video(GIF)], "clips", Timestamp(), 0)
+    assert record is None
+
+
 def test_log_video_keeps_5d_array_as_one_video():
     run = SimpleNamespace(log=Mock())
     frames = np.zeros((3, 2, 3, 4, 4), dtype=np.uint8)

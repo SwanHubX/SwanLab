@@ -35,6 +35,7 @@ from swanlab.sdk.internal.core_python.transport.sender.media import collect_medi
 from swanlab.sdk.internal.core_python.transport.tracker import UploadTracker
 from swanlab.sdk.internal.core_python.transport.worker import Transport
 from swanlab.sdk.internal.core_python.transport.worker.utils import RetryPolicy
+from swanlab.sdk.internal.pkg import adapter
 
 
 class Backend:
@@ -500,7 +501,11 @@ def test_new_video_record_waits_for_pending_upload(tmp_path, backend, monkeypatc
 
 
 @pytest.mark.parametrize("skip_store", [False, True])
-def test_permanent_metric_rejection_closes_tracker_and_finishes(tmp_path, backend, skip_store):
+def test_permanent_metric_rejection_closes_tracker_and_finishes(tmp_path, backend, skip_store, monkeypatch):
+    from swanlab.sdk.internal.pkg import console
+
+    warnings = []
+    monkeypatch.setattr(console, "warning", lambda message: warnings.append(message))
     ctx = context(tmp_path, skip_store=skip_store)
     backend.metric_status = 403
     tracker = UploadTracker()
@@ -513,6 +518,7 @@ def test_permanent_metric_rejection_closes_tracker_and_finishes(tmp_path, backen
         assert not tracker._files
         if skip_store:
             assert not ctx.media_dir.exists()
+            assert not any("local video files retained" in message for message in warnings)
         else:
             assert (ctx.media_dir / "video" / record.media.value.items[0].filename).exists()
     finally:
@@ -520,25 +526,95 @@ def test_permanent_metric_rejection_closes_tracker_and_finishes(tmp_path, backen
 
 
 @pytest.mark.parametrize(
-    "media_type", [ColumnType.COLUMN_TYPE_VIDEO, ColumnType.COLUMN_TYPE_IMAGE, ColumnType.COLUMN_TYPE_AUDIO]
+    "media_type",
+    [
+        ColumnType.COLUMN_TYPE_VIDEO,
+        ColumnType.COLUMN_TYPE_IMAGE,
+        ColumnType.COLUMN_TYPE_AUDIO,
+        ColumnType.COLUMN_TYPE_TEXT,
+        ColumnType.COLUMN_TYPE_HTML,
+        ColumnType.COLUMN_TYPE_ECHARTS,
+        ColumnType.COLUMN_TYPE_OBJECT3D,
+        ColumnType.COLUMN_TYPE_MOLECULE,
+    ],
 )
-def test_caption_alignment_is_limited_to_video(tmp_path, media_type):
+@pytest.mark.parametrize("skip_store", [False, True])
+def test_caption_alignment_for_all_media(tmp_path, media_type, skip_store):
+    ctx = context(tmp_path, skip_store=skip_store)
+    ts = Timestamp()
+    ts.GetCurrentTime()
+    items = [
+        MediaItem(filename="first.gif", size=6),
+        MediaItem(filename="missing.gif", size=6, caption="missing"),
+        MediaItem(filename="second.gif", size=6, caption="second"),
+    ]
+    if skip_store:
+        items[0].payload = items[2].payload = b"GIF89a"
+    record = Record(
+        media=MediaRecord(
+            type=media_type,
+            timestamp=ts,
+            value=MediaValue(items=items),
+        )
+    )
+    if not skip_store:
+        path = ctx.media_dir / adapter.medium[media_type]
+        path.mkdir(parents=True)
+        (path / "first.gif").write_bytes(b"GIF89a")
+        (path / "second.gif").write_bytes(b"GIF89a")
+    task = collect_media_tasks(ctx, [record])[0]
+    assert task.metric is not None
+    assert task.metric["more"] == [{}, {"caption": "second"}]
+    assert task.metric["data"] == [f"media/{adapter.medium[media_type]}/{name}.gif" for name in ("first", "second")]
+
+
+def test_image_caption_alignment_in_actual_http_request(tmp_path, backend):
     ctx = context(tmp_path, skip_store=True)
     ts = Timestamp()
     ts.GetCurrentTime()
     record = Record(
         media=MediaRecord(
-            type=media_type,
+            key="images",
+            type=ColumnType.COLUMN_TYPE_IMAGE,
             timestamp=ts,
             value=MediaValue(
                 items=[
-                    MediaItem(filename="first.gif", payload=b"GIF89a", size=6),
-                    MediaItem(filename="second.gif", payload=b"GIF89a", size=6, caption="second"),
+                    MediaItem(filename="first.png", payload=b"first", size=5),
+                    MediaItem(filename="second.png", payload=b"second", size=6, caption="b"),
                 ]
             ),
         )
     )
-    task = collect_media_tasks(ctx, [record])[0]
-    assert task.metric is not None
-    expected = [{}, {"caption": "second"}] if media_type == ColumnType.COLUMN_TYPE_VIDEO else [{"caption": "second"}]
-    assert task.metric["more"] == expected
+    sender = HttpRecordSender(ctx)
+    try:
+        drain(sender, [record])
+        metrics = backend.media_items(ctx, "images")
+        assert len(metrics) == 1
+        assert metrics[0]["data"] == ["media/image/first.png", "media/image/second.png"]
+        assert metrics[0]["more"] == [{}, {"caption": "b"}]
+    finally:
+        sender.close()
+
+
+def test_video_record_retries_do_not_rehash_in_sender(tmp_path, backend, monkeypatch):
+    ctx = context(tmp_path)
+    record = video_record(ctx)
+    backend.failures[f"media/video/{record.media.value.items[0].filename}"] = [500, 200]
+    backend.metric_failures = 1
+    original = hashlib.sha256
+    sender_hashes = []
+
+    def sha256(*args, **kwargs):
+        if threading.current_thread() is threading.main_thread():
+            sender_hashes.append(args)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(hashlib, "sha256", sha256)
+    sender = HttpRecordSender(ctx)
+    try:
+        drain(sender, [record])
+        assert len(backend.puts) == 3
+        assert len(backend.media_items(ctx, "clips")) == 2
+        assert not sender_hashes
+    finally:
+        sender.close()

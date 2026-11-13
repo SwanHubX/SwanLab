@@ -13,7 +13,7 @@ from PIL.GifImagePlugin import GifImageFile
 
 import swanlab.sdk.internal.run.transforms.video as video_module
 from swanlab import Video
-from swanlab.sdk.internal.run.transforms.video.encoding import Frames
+from swanlab.sdk.internal.run.transforms.video.encoding import MAX_DIMENSION, Frames
 
 
 def decode(video: Video) -> bytes:
@@ -81,7 +81,9 @@ def test_batch_layout_and_black_padding(batch, rows, cols, fmt):
     assert decode(Video(arrays, format=fmt))
 
 
-@pytest.mark.parametrize("dtype", [bool, complex, object, str])
+@pytest.mark.parametrize(
+    "dtype", [bool, complex, object, str, np.int8, np.uint16, np.int32, np.float16, np.float32, np.float64]
+)
 def test_invalid_array_dtype_is_isolated(dtype):
     video = Video(np.zeros((2, 3, 4, 4), dtype=dtype), format="gif")
     assert not video.is_valid
@@ -94,7 +96,7 @@ def test_nonfinite_pixels_are_invalid(value):
     arrays[0, 0, 0, 0] = value
     video = Video(arrays, format="gif")
     assert not video.is_valid
-    assert video.error is not None and video.error.code == "nonfinite_pixels"
+    assert video.error is not None and video.error.code == "dtype"
 
 
 @pytest.mark.parametrize("fps", [0, -1, True, 1.5])
@@ -102,11 +104,52 @@ def test_invalid_fps(fps):
     assert not Video(np.zeros((2, 3, 4, 4), dtype=np.uint8), format="gif", fps=fps).is_valid
 
 
-def test_uint8_conversion_does_not_scale_or_clip():
-    arrays = np.zeros((1, 3, 1, 6))
-    arrays[:] = [-1, 0.5, 1, 255, 256, 257]
-    frame = next(iter(Frames(arrays, "gif", None)))
-    assert frame[0, :, 0].tolist() == [255, 0, 1, 255, 0, 1]
+@pytest.mark.parametrize("protocol", [False, True])
+def test_float_pixels_are_rejected_before_encoding(protocol, monkeypatch):
+    from swanlab.sdk.internal.run.transforms.video import encoding
+
+    arrays = np.full((1, 3, 4, 4), 0.5, dtype=np.float32)
+
+    class Convertible:
+        def numpy(self):
+            return arrays
+
+    data = Convertible() if protocol else arrays
+    monkeypatch.setattr(encoding, "_encode_gif", lambda *args: pytest.fail("Invalid pixels must not be encoded"))
+    video = Video(data, format="gif")
+    assert not video.is_valid and video.error is not None
+    assert video.error.code == "dtype" and "uint8" in video.error.message
+    assert video.transform(step=0, path=None) is None
+
+
+@pytest.mark.parametrize("fmt", ["gif", "mp4", "webm", "ogg"])
+@pytest.mark.parametrize("shape", [(1, 3, 2, 4097), (1, 3, 4097, 2), (8, 1, 3, 1080, 1920), (8, 1, 3, 2050, 2)])
+def test_oversized_canvas_is_rejected_before_encoding(fmt, shape, monkeypatch):
+    from swanlab.sdk.internal.run.transforms.video import encoding
+
+    arrays = np.broadcast_to(np.zeros((1,) * len(shape), dtype=np.uint8), shape)
+    for name in ("_encode_gif", "_encode_pipe", "_encode_file"):
+        monkeypatch.setattr(encoding, name, lambda *args: pytest.fail("Oversized canvas must not be encoded"))
+    video = Video(arrays, format=fmt)
+    assert not video.is_valid and video.error is not None
+    assert video.error.code == "dimensions_limit"
+    assert str(MAX_DIMENSION) in video.error.message
+    assert video.transform(step=0, path=None) is None
+
+
+@pytest.mark.parametrize("fmt", ["gif", "mp4", "webm", "ogg"])
+def test_canvas_at_dimension_limit_encodes_without_resizing(fmt):
+    arrays = np.zeros((1, 3, 32, MAX_DIMENSION), dtype=np.uint8)
+    video = Video(arrays, format=fmt)
+    assert len(decode(video)) == 32 * MAX_DIMENSION * 3
+
+
+@pytest.mark.parametrize("fmt", ["mp4", "ogg"])
+def test_padding_and_tiling_respect_dimension_limit(fmt):
+    arrays = np.zeros((2, 1, 3, 3, 2047), dtype=np.uint8)
+    frames = Frames(arrays, fmt, None)
+    assert frames.width <= MAX_DIMENSION and frames.height <= MAX_DIMENSION
+    assert next(iter(frames)).shape == (frames.height, frames.width, 3)
 
 
 def test_numpy_protocol_and_conversion_failure():
@@ -295,7 +338,7 @@ def test_expected_video_warnings_are_emitted(tmp_path, monkeypatch):
     path.write_bytes(b"GIF89a-content")
     assert Video(path, fps=8).is_valid
     assert Video(np.zeros((1, 4, 8, 8), dtype=np.uint8), format="gif").is_valid
-    assert Video(np.zeros((1, 3, 8, 8), dtype=np.float32), format="gif").is_valid
+    assert not Video(np.zeros((1, 3, 8, 8), dtype=np.float32), format="gif").is_valid
     assert any("fps is ignored" in message for message in messages)
     assert any("alpha is not retained" in message for message in messages)
-    assert any("without scaling or clipping" in message for message in messages)
+    assert any("dtype uint8" in message for message in messages)

@@ -19,6 +19,8 @@ VideoFormat = Literal["gif", "mp4", "webm", "ogg"]
 
 
 class NumpyConvertible(Protocol):
+    """An object whose numpy() method returns uint8 TCHW or BTCHW frames."""
+
     def numpy(self) -> "np.ndarray": ...
 
 

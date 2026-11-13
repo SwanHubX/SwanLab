@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     import numpy as np
 
 CODECS = {"mp4": "libx264", "webm": "libvpx", "ogg": "libtheora"}
+MAX_DIMENSION = 4096
 
 
 def require_modules(*names: str) -> None:
@@ -35,8 +36,8 @@ class Frames:
             raise VideoProcessingError("numpy_conversion", "numpy() must return a NumPy ndarray")
         if data.ndim not in (4, 5) or any(n <= 0 for n in data.shape):
             raise VideoProcessingError("shape", "Video requires positive TCHW or BTCHW dimensions")
-        if data.dtype.kind not in "uif":
-            raise VideoProcessingError("dtype", "Video pixels must be real integer or floating point values")
+        if data.dtype != np.uint8:
+            raise VideoProcessingError("dtype", "Video pixels must have dtype uint8; convert the input explicitly")
         if fps is not None and (isinstance(fps, bool) or not isinstance(fps, Integral) or fps <= 0):
             raise VideoProcessingError("argument", "Video fps must be a positive non-boolean integer")
         self.fps = int(fps) if fps is not None else 4
@@ -46,16 +47,6 @@ class Frames:
             raise VideoProcessingError("shape", "Video channels must be 1, 3 or 4")
         if channels == 4:
             console.warning("Video RGBA frames are encoded as RGB; alpha is not retained")
-        if data.dtype != np.uint8:
-            console.warning("Video pixels are converted with astype(uint8), without scaling or clipping")
-        # 逐帧检查，避免为整个 batch 创建同等大小的布尔数组。
-        if data.dtype.kind == "f":
-            for video in self.data:
-                for frame in video:
-                    for channel in frame:
-                        for row in channel:
-                            if not np.isfinite(row).all():
-                                raise VideoProcessingError("nonfinite_pixels", "Video contains NaN or infinite pixels")
         self.rows = 2 ** ((self.batch.bit_length() - 1) // 2)
         padded_batch = 1 << (self.batch - 1).bit_length()
         self.cols = padded_batch // self.rows
@@ -67,6 +58,11 @@ class Frames:
         elif fmt == "ogg":
             self.width = max(32, (self.width + 15) // 16 * 16)
             self.height = max(32, (self.height + 15) // 16 * 16)
+        if self.width > MAX_DIMENSION or self.height > MAX_DIMENSION:
+            raise VideoProcessingError(
+                "dimensions_limit",
+                f"Video canvas {self.width}x{self.height} exceeds the {MAX_DIMENSION}-pixel limit per side",
+            )
 
     def __iter__(self) -> Iterator[np.ndarray]:
         import numpy as np
@@ -75,7 +71,7 @@ class Frames:
         for index in range(self.count):
             canvas = np.zeros((self.height, self.width, 3), dtype=np.uint8)
             for batch in range(self.batch):
-                frame = self.data[batch, index].astype(np.uint8, copy=False)
+                frame = self.data[batch, index]
                 rgb = np.transpose(frame, (1, 2, 0))
                 if channels == 1:
                     rgb = np.repeat(rgb, 3, axis=2)
