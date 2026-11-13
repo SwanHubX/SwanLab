@@ -78,6 +78,15 @@ func (c *RunContext) RunFile() (string, error) {
 	return filepath.Join(c.RunDir, "run-"+id+".swanlab"), nil
 }
 
+// CheckpointFile 返回上传断点文件路径：RunFile + ".checkpoint.json"。
+func (c *RunContext) CheckpointFile() (string, error) {
+	runFile, err := c.RunFile()
+	if err != nil {
+		return "", err
+	}
+	return runFile + ".checkpoint.json", nil
+}
+
 // SetOnlineParams 注入云端身份信息，重复调用以最后一次为准。
 func (c *RunContext) SetOnlineParams(p OnlineParams) {
 	c.online = p

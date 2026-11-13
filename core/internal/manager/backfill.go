@@ -424,6 +424,9 @@ func (s *Session) scanBackfill(
 		}
 		cursor.seq++
 		cursor.offset = reader.Position()
+		if s.progress != nil {
+			s.progress.onStored(rec, cursor.seq)
+		}
 		if backfillUploadable(rec) {
 			out = append(out, rec)
 			after = append(after, *cursor)

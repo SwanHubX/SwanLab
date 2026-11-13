@@ -20,6 +20,7 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/uploader"
 	"github.com/swanhubx/swanlab/core/internal/uploader/sender"
 	operationv1 "github.com/swanhubx/swanlab/core/proto/swanlab/operation/v1"
+	recordv1 "github.com/swanhubx/swanlab/core/proto/swanlab/record/v1"
 )
 
 // open 装配 store/intake/uploader/watcher/heartbeat；失败时由调用方执行 rollback。
@@ -28,6 +29,10 @@ func (s *Session) open(init sessionInit) error {
 		runFile, err := init.run.RunFile()
 		if err != nil {
 			return fmt.Errorf("derive run file: %w", err)
+		}
+		checkpointFile, err := init.run.CheckpointFile()
+		if err != nil {
+			return fmt.Errorf("derive checkpoint file: %w", err)
 		}
 		if err = os.MkdirAll(init.run.RunDir, 0o755); err != nil {
 			return fmt.Errorf("create run dir: %w", err)
@@ -38,6 +43,7 @@ func (s *Session) open(init sessionInit) error {
 		}
 		s.runFile = runFile
 		s.runFileCreated = true
+		s.checkpointFile = checkpointFile
 
 		async, err := store.NewAsyncWriter(writer, store.AsyncOptions{
 			Queue: queueSize(init.cfg.RecordBatch),
@@ -64,11 +70,16 @@ func (s *Session) open(init sessionInit) error {
 
 	var storeIn chan<- store.Request
 	var flushed func() uint64
+	var onStored func(*recordv1.Record, uint64)
 	if s.store != nil {
 		storeIn = s.store.In()
 		flushed = func() uint64 {
 			seq, _ := s.store.Flushed()
 			return seq
+		}
+		if init.cfg.NormalizedMode() == config.ModeOnline {
+			s.progress = newProgressTracker(0)
+			onStored = s.progress.onStored
 		}
 	}
 	intake, err := buffer.New(buffer.Options{
@@ -81,6 +92,7 @@ func (s *Session) open(init sessionInit) error {
 		Flushed:     flushed,
 		OnAdmit:     s.tracker.AddTotalRecords,
 		OnPause:     func(uint64) { s.wakeBackfill() },
+		OnStored:    onStored,
 	})
 	if err != nil {
 		return fmt.Errorf("create intake: %w", err)
@@ -132,7 +144,11 @@ func (s *Session) open(init sessionInit) error {
 			Context:            s.ctx,
 			OnRetryableFailure: s.onWriteFailure,
 			OnDispatchSuccess:  s.onWriteSuccess,
+			OnConfirm:          s.progress.resolve,
+			OnDrop:             s.progress.resolveOne,
 			OnDrained: func() {
+				s.stopCheckpoint()
+				s.flushCheckpoint()
 				s.markDrained()
 			},
 		})
@@ -181,6 +197,7 @@ func (s *Session) open(init sessionInit) error {
 	if s.store != nil && s.uploader != nil {
 		s.startBackfill()
 	}
+	s.startCheckpoint()
 	return nil
 }
 
@@ -200,6 +217,7 @@ func (s *Session) rollback() {
 	}
 	s.stopRecovery()
 	s.stopBackfill()
+	s.stopCheckpoint()
 	if s.uploader != nil {
 		_ = s.uploader.Close()
 	}
@@ -213,6 +231,9 @@ func (s *Session) rollback() {
 	}
 	if s.runFileCreated {
 		_ = os.Remove(s.runFile)
+		if s.checkpointFile != "" {
+			_ = os.Remove(s.checkpointFile)
+		}
 	}
 	s.closeHealth()
 }

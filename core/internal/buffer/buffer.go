@@ -91,6 +91,9 @@ type Options struct {
 	// OnPause 在暂停状态发布后回调首个未投递记录的 storeSeq；已在暂停时不重复调用。
 	// 回调必须非阻塞。
 	OnPause func(storeSeq uint64)
+	// OnStored 在记录写入本地通道并分配 storeSeq 后、投递上传前回调（仍在 Intake.mu 内）。
+	// 回调必须非阻塞，且不得反向调用 Intake。
+	OnStored func(rec *recordv1.Record, storeSeq uint64)
 	// QueueWait 是容量不足时的有界等待上限，<=0 取 DefaultQueueWait。
 	QueueWait time.Duration
 	// StorePollInterval 是本地通道等待的轮询间隔，<=0 取 10ms。
@@ -132,6 +135,7 @@ type Intake struct {
 	flushed   func() uint64
 	onAdmit   func(int64)
 	onPause   func(uint64)
+	onStored  func(*recordv1.Record, uint64)
 	wait      time.Duration
 	poll      time.Duration
 	uploadCap int
@@ -194,6 +198,7 @@ func New(opts Options) (*Intake, error) {
 		flushed:    opts.Flushed,
 		onAdmit:    opts.OnAdmit,
 		onPause:    opts.OnPause,
+		onStored:   opts.OnStored,
 		wait:       opts.QueueWait,
 		poll:       opts.StorePollInterval,
 		uploadCap:  cap(upload),
@@ -506,6 +511,9 @@ func (t *Intake) sendStoreLocked(records []*recordv1.Record, payloads [][]byte, 
 		seqOf[i] = t.nextSeq
 		t.storeOut <- store.Request{StoreSeq: t.nextSeq, Payload: payloads[i]}
 		t.pendingStore--
+		if t.onStored != nil {
+			t.onStored(records[i], t.nextSeq)
+		}
 	}
 }
 

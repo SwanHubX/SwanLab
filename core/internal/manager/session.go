@@ -179,6 +179,18 @@ type Session struct {
 
 	runFile        string
 	runFileCreated bool
+
+	progress           *progressTracker
+	checkpointFile     string
+	checkpointInterval time.Duration
+	checkpointTicked   func()
+	checkpointStop     chan struct{}
+	checkpointDone     chan struct{}
+	checkpointOnce     sync.Once
+	checkpointMu       sync.Mutex
+	checkpointWarned   bool
+	checkpointLastSeq  uint64
+	checkpointHasWrite bool
 }
 
 func newSession(opts sessionOptions) *Session {

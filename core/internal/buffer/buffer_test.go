@@ -1576,3 +1576,43 @@ func TestIntakeStartSeq(t *testing.T) {
 		}
 	}
 }
+
+func TestIntakeOnStoredOrder(t *testing.T) {
+	sink := newStoreSink(8)
+	type entry struct {
+		rec *recordv1.Record
+		seq uint64
+	}
+	var got []entry
+	in := newIntake(t, Options{
+		Store:       sink.ch,
+		StartSeq:    5,
+		Budget:      budget.New(budget.Limits{}),
+		UploadQueue: 8,
+		OnStored: func(rec *recordv1.Record, storeSeq uint64) {
+			got = append(got, entry{rec: rec, seq: storeSeq})
+		},
+	})
+
+	recs := []*recordv1.Record{
+		startRecord(),
+		scalarRecord(1),
+		saveRecord(2, savev1.SavePolicy_SAVE_POLICY_END),
+	}
+	mustCommit(t, in, recs...)
+	if err := in.Close(context.Background()); err != nil {
+		sink.stop()
+		t.Fatalf("Close: %v", err)
+	}
+	sink.stop()
+
+	if len(got) != len(recs) {
+		t.Fatalf("onStored len = %d, want %d", len(got), len(recs))
+	}
+	for i, rec := range recs {
+		wantSeq := uint64(6 + i)
+		if got[i].rec != rec || got[i].seq != wantSeq {
+			t.Fatalf("onStored[%d] = (%p, %d), want (%p, %d)", i, got[i].rec, got[i].seq, rec, wantSeq)
+		}
+	}
+}
