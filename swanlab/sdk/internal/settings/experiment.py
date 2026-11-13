@@ -136,7 +136,9 @@ class RunSettings(BaseModel):
 
     resume: ResumeType = Field(default_factory=run_resume_factory)
     """
-    Resume policy for this SwanLab run.
+    Cloud resume policy for this SwanLab run ("must", "allow", "never").
+    Only controls whether an existing cloud experiment with the same run.id is resumed;
+    local run directory reuse requires explicitly setting run.dir (or SWANLAB_RUN_DIR).
     """
 
     @field_validator("resume", mode="before")
@@ -160,8 +162,9 @@ class RunSettings(BaseModel):
 
     dir: Optional[const.RunDir] = Field(default=None)
     """
-    Custom run directory name. When specified, dir_create_retries is ignored
-    and the directory is created exactly once; creation failure raises an error.
+    Custom run directory name. When specified, dir_create_retries is ignored;
+    swanlab.init() reuses an existing directory (validating any existing StartRecord.id)
+    so interrupted runs can resume locally.
     """
 
     dir_max_length: int = Field(default=255, ge=50, le=255)
