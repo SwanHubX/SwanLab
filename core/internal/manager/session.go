@@ -18,6 +18,11 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/client"
 	"github.com/swanhubx/swanlab/core/internal/config"
 	"github.com/swanhubx/swanlab/core/internal/cron/health"
+	"github.com/swanhubx/swanlab/core/internal/manager/backfill"
+	"github.com/swanhubx/swanlab/core/internal/manager/checkpoint"
+	"github.com/swanhubx/swanlab/core/internal/manager/heartbeat"
+	"github.com/swanhubx/swanlab/core/internal/manager/progress"
+	"github.com/swanhubx/swanlab/core/internal/manager/recovery"
 	"github.com/swanhubx/swanlab/core/internal/metrics"
 	"github.com/swanhubx/swanlab/core/internal/pkg/counter"
 	"github.com/swanhubx/swanlab/core/internal/pkg/watcher"
@@ -103,6 +108,8 @@ type sessionInit struct {
 	// healthReg 是进程级探针注册表；healthOpts 描述本会话所属站点的探测配置。
 	healthReg  *health.Registry
 	healthOpts health.SiteOptions
+	// resume 非空表示基于已有 run-*.swanlab 的崩溃续传，open 以追加写和重放模式装配。
+	resume *metrics.RebuildResult
 }
 
 // Session 保存单个 session_id 对应的会话状态与生命周期数据。
@@ -141,7 +148,7 @@ type Session struct {
 	budget    *budget.Budget
 	tracker   *uploader.Tracker
 	watcher   watcher.Watcher
-	heartbeat *heartbeat
+	heartbeat *heartbeat.Heartbeat
 
 	// 指标与编号状态由 Session.mu 保护；Resume 恢复的 epoch 作为日志起始行号。
 	metrics *metrics.RunMetrics
@@ -152,20 +159,11 @@ type Session struct {
 
 	storeDegraded atomic.Bool
 
-	// recoveryStop / recoveryDone 控制 per-session 的本地失效补传协程。
-	recoveryStop chan struct{}
-	recoveryDone chan struct{}
-	recoveryOnce sync.Once
+	// recovery 控制 per-session 的本地失效补传协程。
+	recovery *recovery.Pump
 
-	// 补投：backfillWake 唤醒后台协程，backfillCancel 取消当前尝试。
-	// backfillState 只在补投协程或停止补投后的收尾路径中访问。
-	backfillWake   chan struct{}
-	backfillStop   chan struct{}
-	backfillDone   chan struct{}
-	backfillOnce   sync.Once
-	backfillMu     sync.Mutex
-	backfillCancel context.CancelFunc
-	backfillState  backfillState
+	// 补投：backfill 管理暂停区间的后台重放与停机补完。
+	backfill *backfill.Worker
 
 	// 站点健康：healthReg 持有共享引用，订阅与站点由 closeHealth 幂等释放。
 	healthReg         *health.Registry
@@ -179,6 +177,9 @@ type Session struct {
 
 	runFile        string
 	runFileCreated bool
+
+	progress   *progress.Tracker
+	checkpoint *checkpoint.Writer
 }
 
 func newSession(opts sessionOptions) *Session {

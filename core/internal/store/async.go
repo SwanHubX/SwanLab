@@ -31,6 +31,8 @@ type AsyncOptions struct {
 	FlushInterval time.Duration
 	// IndexStride 是 storeSeq→offset 稀疏锚点间隔（条），<=0 取 DefaultIndexStride。
 	IndexStride int
+	// ResumeSeq 是续传时已有记录条数，作为初始已刷盘序号；新建会话为 0。
+	ResumeSeq uint64
 	// OnError 在首次写入或刷盘失败时回调一次，供上层置 storeDegraded；
 	// 之后丢弃写入但继续消费入口，避免阻断上传主链路。
 	OnError func(error)
@@ -94,7 +96,7 @@ func NewAsyncWriter(w *Writer, opts AsyncOptions) (*AsyncWriter, error) {
 		onError:       opts.OnError,
 		index:         NewOffsetIndex(opts.IndexStride),
 	}
-	a.mark.Store(&flushMark{Offset: w.Offset()})
+	a.mark.Store(&flushMark{StoreSeq: opts.ResumeSeq, Offset: w.Offset()})
 	go a.run()
 	return a, nil
 }
@@ -102,7 +104,7 @@ func NewAsyncWriter(w *Writer, opts AsyncOptions) (*AsyncWriter, error) {
 // In 返回写入入口。调用方用 select 实现有界阻塞与 ctx 取消；Close 后不得再发送。
 func (a *AsyncWriter) In() chan<- Request { return a.ch }
 
-// Flushed 返回最近一次刷盘后的 (序号, 偏移)，两者始终一致；未刷盘时为 (0, HeaderLen)。
+// Flushed 返回最近一次刷盘后的 (序号, 偏移)，两者始终一致；新建未刷盘时为 (0, HeaderLen)，续传时为 (ResumeSeq, 初始偏移)。
 func (a *AsyncWriter) Flushed() (uint64, int64) {
 	m := a.mark.Load()
 	return m.StoreSeq, m.Offset
@@ -169,7 +171,7 @@ func (a *AsyncWriter) run() {
 	ticker := time.NewTicker(a.flushInterval)
 	defer ticker.Stop()
 
-	var seq uint64 // 已写入文件的最后一条记录序号
+	seq := a.mark.Load().StoreSeq // 已写入文件的最后一条记录序号
 	lastFlush := a.w.Offset()
 	for {
 		select {

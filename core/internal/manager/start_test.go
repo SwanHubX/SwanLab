@@ -15,22 +15,14 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/clienttest"
 	"github.com/swanhubx/swanlab/core/internal/config"
 	"github.com/swanhubx/swanlab/core/internal/cron/health"
+	"github.com/swanhubx/swanlab/core/internal/manager/probe"
 	"github.com/swanhubx/swanlab/core/internal/metrics"
 	"github.com/swanhubx/swanlab/core/internal/pkg/builder"
-	"github.com/swanhubx/swanlab/core/internal/runctx"
 	"github.com/swanhubx/swanlab/core/internal/store"
 	columnv1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/column/v1"
 	datav1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/data/v1"
 	runv1 "github.com/swanhubx/swanlab/core/proto/swanlab/run/v1"
 )
-
-func serveAuth(cloud *clienttest.Cloud) {
-	cloud.ServeJSON(http.MethodGet, "/api/auth/verify", http.StatusOK, map[string]any{
-		"uid":       1,
-		"username":  "alice",
-		"createdAt": "2026-01-01T00:00:00Z",
-	})
-}
 
 func serveHeartbeat(cloud *clienttest.Cloud, experimentID string) {
 	cloud.ServeJSON(http.MethodPost, "/api/house/experiments/"+experimentID+"/heartbeat",
@@ -63,32 +55,6 @@ func serveNewExperiment(cloud *clienttest.Cloud, owner, project, cuid, slug stri
 	})
 }
 
-func startSettings(t *testing.T, cloud *clienttest.Cloud) config.Settings {
-	t.Helper()
-	settings := config.Defaults()
-	settings.RunID = "run-1"
-	settings.RunDir = filepath.Join(t.TempDir(), "run")
-	settings.RecordBatch = 16
-	settings.RecordInterval = 0.01
-	settings.APIKey = "smoke-key"
-	settings.APIHost = cloud.URL()
-	settings.WebHost = cloud.URL()
-	return settings
-}
-
-func runFilePath(t *testing.T, settings config.Settings) string {
-	t.Helper()
-	run, err := runctx.New(settings)
-	if err != nil {
-		t.Fatalf("runctx.New: %v", err)
-	}
-	path, err := run.RunFile()
-	if err != nil {
-		t.Fatalf("RunFile: %v", err)
-	}
-	return path
-}
-
 func closeStartedSession(t *testing.T, mgr *Manager, sessionID string) {
 	t.Helper()
 	s, err := mgr.session(sessionID)
@@ -99,7 +65,7 @@ func closeStartedSession(t *testing.T, mgr *Manager, sessionID string) {
 		s.cancel()
 	}
 	if s.heartbeat != nil {
-		s.heartbeat.stop(context.Background())
+		s.heartbeat.Stop(context.Background())
 	}
 	if s.watcher != nil {
 		s.watcher.Stop()
@@ -544,7 +510,7 @@ func TestDeliverRunStartDegradedWhenDataPlaneDown(t *testing.T) {
 	serveHeartbeat(cloud, "exp-1")
 	serveProject(cloud, "alice", "demo", 7)
 	serveNewExperiment(cloud, "alice", "demo", "exp-1", "run-slug")
-	cloud.ServeJSON(http.MethodGet, houseProbePath, http.StatusServiceUnavailable, nil)
+	cloud.ServeJSON(http.MethodGet, probe.HousePath, http.StatusServiceUnavailable, nil)
 
 	mgr := newTestManager()
 	settings := startSettings(t, cloud)
@@ -569,5 +535,42 @@ func TestDeliverRunStartDegradedWhenDataPlaneDown(t *testing.T) {
 	}
 	if got := mgr.healthReg.Len(); got != 1 {
 		t.Fatalf("sites = %d, want 1", got)
+	}
+}
+
+func TestCheckpointSkipStoreProducesNoFile(t *testing.T) {
+	cloud := clienttest.NewCloud(t)
+	serveAuth(cloud)
+	serveHeartbeat(cloud, "exp-1")
+	serveProject(cloud, "alice", "demo", 1)
+	serveNewExperiment(cloud, "alice", "demo", "exp-1", "run-1")
+
+	mgr := newTestManager()
+	cfg := startSettings(t, cloud)
+	cfg.SkipStore = true
+
+	result, err := mgr.DeliverRunStart(context.Background(), cfg, &runv1.StartRecord{
+		Project:   "demo",
+		Workspace: "alice",
+		Id:        "run-1",
+	})
+	if err != nil {
+		t.Fatalf("DeliverRunStart: %v", err)
+	}
+	t.Cleanup(func() { closeStartedSession(t, mgr, result.SessionID) })
+
+	s, err := mgr.session(result.SessionID)
+	if err != nil {
+		t.Fatalf("session: %v", err)
+	}
+	if s.checkpoint != nil {
+		t.Fatalf("checkpoint = %+v, want nil under skip_store", s.checkpoint)
+	}
+	matches, err := filepath.Glob(filepath.Join(cfg.RunDir, "*.checkpoint.json"))
+	if err != nil {
+		t.Fatalf("Glob: %v", err)
+	}
+	if len(matches) != 0 {
+		t.Fatalf("unexpected checkpoint files under skip_store: %v", matches)
 	}
 }

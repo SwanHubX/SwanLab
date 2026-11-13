@@ -81,7 +81,7 @@ func newTestBuffer(t *testing.T, owned ...*recordv1.Record) (*recordBuffer, *bud
 	}
 	tracker := NewTracker()
 	tracker.AddTotalRecords(int64(len(owned)))
-	return newRecordBuffer(ledger, tracker), ledger, tracker
+	return newRecordBuffer(ledger, tracker, nil), ledger, tracker
 }
 
 func TestRecordBufferAddAndDrain(t *testing.T) {

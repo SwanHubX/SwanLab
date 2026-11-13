@@ -27,16 +27,18 @@ type recordGroup struct {
 type recordBuffer struct {
 	budget  *budget.Budget
 	tracker *Tracker
+	onDrop  func(*recordv1.Record)
 
 	order []int64
 	items map[int64]*recordv1.Record
 }
 
 // newRecordBuffer 构造空缓冲区。
-func newRecordBuffer(b *budget.Budget, tracker *Tracker) *recordBuffer {
+func newRecordBuffer(b *budget.Budget, tracker *Tracker, onDrop func(*recordv1.Record)) *recordBuffer {
 	return &recordBuffer{
 		budget:  b,
 		tracker: tracker,
+		onDrop:  onDrop,
 		items:   make(map[int64]*recordv1.Record),
 	}
 }
@@ -48,6 +50,9 @@ func (b *recordBuffer) add(rec *recordv1.Record) (added, replaced bool) {
 		b.items[num] = rec
 		b.budget.Release(1, record.Size(old))
 		b.tracker.AdjustTotalRecords(-1)
+		if b.onDrop != nil {
+			b.onDrop(old)
+		}
 		return false, true
 	}
 	b.items[num] = rec
@@ -173,12 +178,18 @@ func flattenGroups(groups []recordGroup) []*recordv1.Record {
 	return records
 }
 
-// confirm 终结记录：归还配额并计入上传进度。
+// confirm 终结记录：归还配额、计入上传进度并触发确认回调。
 func (u *Uploader) confirm(records []*recordv1.Record) {
+	if len(records) == 0 {
+		return
+	}
 	for _, rec := range records {
 		u.budget.Release(1, record.Size(rec))
 	}
 	u.tracker.AdvanceRecords(int64(len(records)))
+	if u.onConfirm != nil {
+		u.onConfirm(records)
+	}
 }
 
 // terminateUnsupported 终结未注册类型的记录：归还配额、计入上传进度并告警一次。

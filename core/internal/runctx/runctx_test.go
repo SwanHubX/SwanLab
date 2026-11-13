@@ -145,3 +145,23 @@ func TestOnlineParams(t *testing.T) {
 		t.Fatalf("Online = (%+v, %v)", got, ok)
 	}
 }
+
+func TestCheckpointFile(t *testing.T) {
+	c := newContext(t, "run-123", "/rd")
+	cp, err := c.CheckpointFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	runFile, err := c.RunFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cp != runFile+".checkpoint.json" {
+		t.Fatalf("CheckpointFile = %q, want %q", cp, runFile+".checkpoint.json")
+	}
+
+	c.RunID = ""
+	if _, err := c.CheckpointFile(); !errors.Is(err, config.ErrRunIDRequired) {
+		t.Fatalf("空 RunID 应返回 ErrRunIDRequired, got %v", err)
+	}
+}

@@ -717,3 +717,81 @@ func TestWaitHonorsContext(t *testing.T) {
 		t.Fatalf("wait = %v, want DeadlineExceeded", err)
 	}
 }
+
+func TestCallbacksOnConfirmAndOnDrop(t *testing.T) {
+	ledger := budget.New(budget.Limits{})
+	tracker := NewTracker()
+	in := make(chan *recordv1.Record, 16)
+
+	var (
+		mu        sync.Mutex
+		confirmed []*recordv1.Record
+		dropped   []*recordv1.Record
+	)
+	sender := senderFunc(func(_ context.Context, records []*recordv1.Record) Result {
+		// 第一条按确定性失败返回 Confirmed，其余正常 Confirmed。
+		return Result{
+			Confirmed: records,
+			Failures:  []Failure{{Message: "bad field", Records: records[:1]}},
+		}
+	})
+	u, err := New(Options{
+		In:       in,
+		Budget:   ledger,
+		Senders:  map[record.Type]Sender{record.TypeScalar: sender},
+		Batch:    10,
+		Interval: time.Hour,
+		Retry:    retryNoJitter(time.Millisecond),
+		Tracker:  tracker,
+		Warn:     quietThrottle(),
+		OnConfirm: func(records []*recordv1.Record) {
+			mu.Lock()
+			confirmed = append(confirmed, records...)
+			mu.Unlock()
+		},
+		OnDrop: func(rec *recordv1.Record) {
+			mu.Lock()
+			dropped = append(dropped, rec)
+			mu.Unlock()
+		},
+	})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	t.Cleanup(func() { _ = u.Close() })
+	u.warnFailure = func(string) {}
+	u.warnUnsupported = func(record.Type, int) {}
+
+	first := newScalar(1, "old")
+	replacement := newScalar(1, "new")
+	terminal := newScalar(2, "bad")
+	unsupported := newLog(3, "log")
+	for _, rec := range []*recordv1.Record{first, replacement, terminal, unsupported} {
+		if err := ledger.Acquire(context.Background(), 1, record.Size(rec)); err != nil {
+			t.Fatalf("acquire: %v", err)
+		}
+		tracker.AddTotalRecords(1)
+		in <- rec
+	}
+
+	close(in)
+	waitDone(t, u)
+
+	mu.Lock()
+	defer mu.Unlock()
+	if len(dropped) != 1 || dropped[0] != first {
+		t.Fatalf("dropped = %v, want [%p]", dropped, first)
+	}
+	if len(confirmed) != 3 {
+		t.Fatalf("confirmed len = %d, want 3", len(confirmed))
+	}
+	seen := map[*recordv1.Record]bool{}
+	for _, rec := range confirmed {
+		seen[rec] = true
+	}
+	for _, want := range []*recordv1.Record{replacement, terminal, unsupported} {
+		if !seen[want] {
+			t.Fatalf("confirmed missing record ptr %p", want)
+		}
+	}
+}

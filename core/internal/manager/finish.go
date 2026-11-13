@@ -43,7 +43,7 @@ func (s *Session) finish(ctx context.Context, rec *runv1.FinishRecord) error {
 		if !started {
 			return nil
 		}
-		s.stopBackfill()
+		s.backfill.Stop()
 		// watcher.Stop 会等待在途回调并同步检查一次文件状态；此时状态已是 DRAINING，
 		// 防抖窗口内的残留回调会被状态门拒绝并丢弃，与 Python 的 _store_finish 一致。
 		if s.watcher != nil {
@@ -124,14 +124,14 @@ func (s *Session) completeFinish(ctx context.Context) error {
 	}
 
 	// 本地记录已全部刷盘，补完暂停区间后才能关闭 intake。
-	if err := s.completeBackfill(ctx); err != nil {
-		return err
+	if err := s.backfill.Complete(ctx); err != nil {
+		return fmt.Errorf("%w: %w", ErrRunFailed, err)
 	}
 
 	if err := s.commitCrashLog(ctx); err != nil {
 		return err
 	}
-	s.stopRecovery()
+	s.recovery.Stop()
 	closeErr := s.closeIntake(ctx)
 	if s.cfg.NormalizedMode() != config.ModeOnline && s.storeDegraded.Load() {
 		// local/offline 无云端兜底：关闭 intake 后返回失败，不 markDrained。
@@ -193,7 +193,7 @@ func (s *Session) commitCrashLog(ctx context.Context) error {
 	}
 	if s.storeDegraded.Load() {
 		// 回收队列中是更早的记录，error_log 不能插到它们前面。
-		s.drainRecovery(ctx)
+		s.recovery.Drain(ctx)
 	}
 
 	err := s.intake.CommitUploadOnly(ctx, s.pendingLog)
@@ -297,14 +297,14 @@ func (s *Session) shutdown(ctx context.Context) {
 	defer s.finishMu.Unlock()
 
 	_ = s.beginDrain()
-	s.stopBackfill()
+	s.backfill.Stop()
 	if s.heartbeat != nil {
-		s.heartbeat.stop(ctx)
+		s.heartbeat.Stop(ctx)
 	}
 	if s.watcher != nil {
 		s.watcher.Stop()
 	}
-	s.stopRecovery()
+	s.recovery.Stop()
 	if s.store != nil {
 		if err := s.store.CloseContext(ctx); err != nil {
 			console.Warningf("shutdown: close local store: %v", err)
@@ -329,6 +329,8 @@ func (s *Session) shutdown(ctx context.Context) {
 			console.Warningf("shutdown: wait for drain: %v", err)
 		}
 	}
+	s.checkpoint.Stop()
+	s.checkpoint.Flush()
 	if s.cancel != nil {
 		s.cancel()
 	}

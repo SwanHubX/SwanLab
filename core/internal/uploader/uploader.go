@@ -43,6 +43,12 @@ type Options struct {
 	OnDispatchSuccess func()
 	// OnDrained 在 worker 中、Done 关闭前调用一次；禁止阻塞或再次调用 Close。
 	OnDrained func()
+	// OnConfirm 在一批记录完成确认（上传成功、确定性失败或不支持类型终结）后回调。
+	// 回调运行在 worker 协程，必须非阻塞。
+	OnConfirm func([]*recordv1.Record)
+	// OnDrop 在同 num 记录被新记录覆盖丢弃时回调被丢弃的旧记录。
+	// 回调运行在 worker 协程，必须非阻塞。
+	OnDrop func(*recordv1.Record)
 }
 
 // Stats 是上传管线的诊断快照；Pending 包含排队与在途记录。
@@ -89,6 +95,7 @@ type Uploader struct {
 	onDrained          func()
 	onRetryableFailure func(rounds int)
 	onDispatchSuccess  func()
+	onConfirm          func([]*recordv1.Record)
 
 	buffered  atomic.Int64
 	pending   atomic.Int64
@@ -167,11 +174,12 @@ func New(opts Options) (*Uploader, error) {
 		onDrained:          opts.OnDrained,
 		onRetryableFailure: opts.OnRetryableFailure,
 		onDispatchSuccess:  opts.OnDispatchSuccess,
+		onConfirm:          opts.OnConfirm,
 		warnedTypes:        make(map[record.Type]struct{}),
 		warnUnsupported:    defaultUnsupportedWarning,
 		warnFailure:        func(message string) { console.Warning(message) },
 	}
-	u.buf = newRecordBuffer(opts.Budget, tracker)
+	u.buf = newRecordBuffer(opts.Budget, tracker, opts.OnDrop)
 	u.wg.Add(1)
 	go u.run()
 	return u, nil

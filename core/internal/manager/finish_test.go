@@ -3,7 +3,6 @@ package manager
 import (
 	"context"
 	"errors"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,12 +11,14 @@ import (
 	"time"
 
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/swanhubx/swanlab/core/internal/api"
 	"github.com/swanhubx/swanlab/core/internal/budget"
 	"github.com/swanhubx/swanlab/core/internal/buffer"
 	"github.com/swanhubx/swanlab/core/internal/config"
+	"github.com/swanhubx/swanlab/core/internal/manager/checkpoint"
+	"github.com/swanhubx/swanlab/core/internal/manager/planner"
+	"github.com/swanhubx/swanlab/core/internal/manager/progress"
 	"github.com/swanhubx/swanlab/core/internal/metrics"
 	"github.com/swanhubx/swanlab/core/internal/pkg/counter"
 	"github.com/swanhubx/swanlab/core/internal/pkg/record"
@@ -33,271 +34,12 @@ import (
 	terminalv1 "github.com/swanhubx/swanlab/core/proto/swanlab/terminal/v1"
 )
 
-// collectingSender 记录所有上传批次，模拟一条永不失败的云端链路。
-type collectingSender struct {
-	mu      sync.Mutex
-	records []*recordv1.Record
-	notify  chan struct{}
-}
-
-func (c *collectingSender) Upload(_ context.Context, records []*recordv1.Record) uploader.Result {
-	c.mu.Lock()
-	c.records = append(c.records, records...)
-	c.mu.Unlock()
-	select {
-	case c.notify <- struct{}{}:
-	default:
-	}
-	return uploader.Result{Confirmed: records}
-}
-
-// waitFor 等到至少 n 条记录送达；用发送信号同步，不做轮询。
-func (c *collectingSender) waitFor(t *testing.T, n int) {
-	t.Helper()
-	deadline := time.NewTimer(5 * time.Second)
-	defer deadline.Stop()
-	for len(c.snapshot()) < n {
-		select {
-		case <-c.notify:
-		case <-deadline.C:
-			t.Fatalf("uploader delivered %d records, want at least %d", len(c.snapshot()), n)
-		}
-	}
-}
-
-func (c *collectingSender) snapshot() []*recordv1.Record {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return append([]*recordv1.Record(nil), c.records...)
-}
-
-// gatedSender 在首次上传时阻塞，用于制造"上传通道持续满"的瞬时故障。
-type gatedSender struct {
-	inner   uploader.Sender
-	gate    chan struct{}
-	entered chan struct{}
-	once    sync.Once
-}
-
-func (g *gatedSender) Upload(ctx context.Context, records []*recordv1.Record) uploader.Result {
-	g.once.Do(func() { close(g.entered) })
-	select {
-	case <-g.gate:
-	case <-ctx.Done():
-		return uploader.Result{}
-	}
-	return g.inner.Upload(ctx, records)
-}
-
-type finishOptions struct {
-	skipStore     bool
-	mode          config.Mode
-	uploadQueue   int
-	queueWait     time.Duration
-	blockUpload   bool
-	budgetRecords int64
-}
-
-type finishHarness struct {
-	mgr           *Manager
-	id            string
-	session       *Session
-	runFile       string
-	writer        *store.Writer
-	uploads       *collectingSender
-	gate          chan struct{}
-	uploadEntered chan struct{}
-}
-
-// newFinishHarness 装配真实 store/intake/uploader，用于验证收尾序列的顺序与刷盘语义。
-func newFinishHarness(t *testing.T, opts finishOptions) *finishHarness {
-	t.Helper()
-	if opts.uploadQueue <= 0 {
-		opts.uploadQueue = 16
-	}
-	if opts.queueWait <= 0 {
-		opts.queueWait = 20 * time.Millisecond
-	}
-	cfg := config.Defaults()
-	cfg.RunID = "finish"
-	cfg.RunDir = t.TempDir()
-	cfg.RecordBatch = 8
-	cfg.RecordInterval = 0.01
-	cfg.SkipStore = opts.skipStore
-	cfg.Mode = opts.mode
-	storeOnly := cfg.NormalizedMode() != config.ModeOnline
-
-	run, err := runctx.New(cfg)
-	if err != nil {
-		t.Fatalf("runctx.New: %v", err)
-	}
-	runFile := ""
-
-	var writer *store.Writer
-	var async *store.AsyncWriter
-	if !cfg.SkipStore {
-		runFile, err = run.RunFile()
-		if err != nil {
-			t.Fatalf("RunFile: %v", err)
-		}
-		if err = os.MkdirAll(run.RunDir, 0o755); err != nil {
-			t.Fatalf("MkdirAll: %v", err)
-		}
-		writer, err = store.Create(runFile)
-		if err != nil {
-			t.Fatalf("store.Create: %v", err)
-		}
-		async, err = store.NewAsyncWriter(writer, store.AsyncOptions{Queue: 16})
-		if err != nil {
-			t.Fatalf("store.NewAsyncWriter: %v", err)
-		}
-	}
-
-	s := newSession(sessionOptions{})
-	s.ctx, s.cancel = context.WithCancel(context.Background())
-	s.cfg = cfg
-	s.run = run
-	s.metrics = metrics.New()
-	s.counter = counter.New(0)
-	s.epoch = counter.New(0)
-	s.watcher = watcher.NullWatcher{}
-	s.tracker = uploader.NewTracker()
-
-	b := budget.New(budget.Limits{Records: opts.budgetRecords})
-	var storeIn chan<- store.Request
-	var flushed func() uint64
-	if async != nil {
-		storeIn = async.In()
-		flushed = func() uint64 {
-			seq, _ := async.Flushed()
-			return seq
-		}
-	}
-	intake, err := buffer.New(buffer.Options{
-		SkipStore:   cfg.SkipStore,
-		StoreOnly:   storeOnly,
-		Store:       storeIn,
-		UploadQueue: opts.uploadQueue,
-		Budget:      b,
-		Flushed:     flushed,
-		OnAdmit:     s.tracker.AddTotalRecords,
-		QueueWait:   opts.queueWait,
-	})
-	if err != nil {
-		t.Fatalf("buffer.New: %v", err)
-	}
-
-	uploads := &collectingSender{notify: make(chan struct{}, 1)}
-	var gate chan struct{}
-	var entered chan struct{}
-	var up *uploader.Uploader
-	if !storeOnly {
-		var sender uploader.Sender = uploads
-		if opts.blockUpload {
-			gate = make(chan struct{})
-			entered = make(chan struct{})
-			sender = &gatedSender{inner: uploads, gate: gate, entered: entered}
-		}
-		senders := map[record.Type]uploader.Sender{
-			record.TypeColumn: sender,
-			record.TypeScalar: sender,
-			record.TypeLog:    sender,
-			record.TypeMedia:  sender,
-			record.TypeSave:   sender,
-		}
-		up, err = uploader.New(uploader.Options{
-			In:       intake.UploadOut(),
-			Budget:   b,
-			Senders:  senders,
-			Batch:    4,
-			Interval: 10 * time.Millisecond,
-			Tracker:  s.tracker,
-			Context:  s.ctx,
-			OnDrained: func() {
-				s.markDrained()
-			},
-		})
-		if err != nil {
-			t.Fatalf("uploader.New: %v", err)
-		}
-	}
-
-	s.store = async
-	s.intake = intake
-	s.uploader = up
-	if up != nil {
-		s.drainFn = up.Wait
-	} else {
-		// local/offline 没有 uploader，收尾完成即排空。
-		s.drainFn = func(context.Context) error {
-			s.markDrained()
-			return nil
-		}
-	}
-	s.runFile = runFile
-	if async != nil && !storeOnly {
-		s.startRecovery()
-	}
-
-	mgr := newTestManager()
-	id, err := mgr.install(s)
-	if err != nil {
-		t.Fatalf("install: %v", err)
-	}
-	t.Cleanup(func() {
-		s.stopRecovery()
-		s.cancel()
-		if up != nil {
-			_ = up.Close()
-		}
-		if async != nil {
-			_ = async.Close()
-		}
-	})
-	return &finishHarness{
-		mgr: mgr, id: id, session: s, runFile: runFile, writer: writer,
-		uploads: uploads, gate: gate, uploadEntered: entered,
-	}
-}
-
 func waitDrained(t *testing.T, s *Session) {
 	t.Helper()
 	select {
 	case <-s.drained:
 	case <-time.After(3 * time.Second):
 		t.Fatal("session did not drain")
-	}
-}
-
-func readStore(t *testing.T, path string) []*recordv1.Record {
-	t.Helper()
-	reader, err := store.Open(path)
-	if err != nil {
-		t.Fatalf("store.Open: %v", err)
-	}
-	defer func() { _ = reader.Close() }()
-	var records []*recordv1.Record
-	for {
-		payload, err := reader.Scan()
-		if errors.Is(err, io.EOF) {
-			return records
-		}
-		if err != nil {
-			t.Fatalf("scan: %v", err)
-		}
-		rec := &recordv1.Record{}
-		if err := proto.Unmarshal(payload, rec); err != nil {
-			t.Fatalf("unmarshal record: %v", err)
-		}
-		records = append(records, rec)
-	}
-}
-
-func finishRecord(state runv1.RunState, message string) *runv1.FinishRecord {
-	return &runv1.FinishRecord{
-		State:      state,
-		Error:      message,
-		FinishedAt: timestamppb.New(time.Unix(1_700_000_000, 0)),
 	}
 }
 
@@ -928,46 +670,6 @@ func TestDeliverRunFinishSkipStore(t *testing.T) {
 	}
 }
 
-// Shutdown 面向进程退出：排空会话、刷盘且不写 FinishRecord，也不上报实验终态。
-func TestManagerShutdownDrainsActiveSessions(t *testing.T) {
-	h := newFinishHarness(t, finishOptions{})
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	if err := h.mgr.UpsertScalars(ctx, h.id, []*datav1.ScalarRecord{
-		scalarRecord("shutdown/loss", 0, columnv1.ColumnType_COLUMN_TYPE_SCALAR),
-	}); err != nil {
-		t.Fatalf("UpsertScalars: %v", err)
-	}
-	var stops int
-	h.session.releaseFn = func(context.Context) error {
-		stops++
-		return nil
-	}
-	if err := h.mgr.Shutdown(ctx); err != nil {
-		t.Fatalf("Shutdown: %v", err)
-	}
-	if stops != 0 {
-		t.Fatalf("Shutdown must not call stop_experiment, got %d call(s)", stops)
-	}
-	if state := h.session.stateSnapshot(); state != RunStateDrained {
-		t.Fatalf("state = %s, want drained", state)
-	}
-
-	records := readStore(t, h.runFile)
-	if len(records) == 0 {
-		t.Fatal("shutdown must flush accepted records to the local store")
-	}
-	for _, item := range records {
-		if item.GetNum() == record.NumFinish {
-			t.Fatal("shutdown must not synthesize a FinishRecord")
-		}
-	}
-	if got := len(h.uploads.snapshot()); got == 0 {
-		t.Fatal("shutdown must drain accepted records through the uploader")
-	}
-}
-
 // Shutdown 抢占收尾尾部时不写 FinishRecord：此时 DeliverRunFinish 不能假成功，
 // 否则会话会带着缺失的 -2 结束。
 func TestDeliverRunFinishAfterShutdownReturnsFailure(t *testing.T) {
@@ -1005,44 +707,6 @@ func TestDeliverRunFinishRepeatsAfterDrain(t *testing.T) {
 	}
 }
 
-// Shutdown 只做上传排空、不写 FinishRecord：Confirm 不能把它当作正常结束释放。
-func TestConfirmRejectsSessionDrainedByShutdown(t *testing.T) {
-	h := newFinishHarness(t, finishOptions{})
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	if err := h.mgr.UpsertScalars(ctx, h.id, []*datav1.ScalarRecord{
-		scalarRecord("shutdown/confirm", 0, columnv1.ColumnType_COLUMN_TYPE_SCALAR),
-	}); err != nil {
-		t.Fatalf("UpsertScalars: %v", err)
-	}
-	var stops int
-	h.session.releaseFn = func(context.Context) error {
-		stops++
-		return nil
-	}
-
-	if err := h.mgr.Shutdown(ctx); err != nil {
-		t.Fatalf("Shutdown: %v", err)
-	}
-	if state := h.session.stateSnapshot(); state != RunStateDrained {
-		t.Fatalf("state after shutdown = %s, want drained", state)
-	}
-
-	if _, err := h.mgr.Confirm(ctx, h.id); !errors.Is(err, ErrRunFailed) {
-		t.Fatalf("Confirm err=%v, want ErrRunFailed", err)
-	}
-	if stops != 0 {
-		t.Fatalf("stop_experiment called %d times, want 0", stops)
-	}
-	if _, err := h.mgr.State(h.id); err != nil {
-		t.Fatalf("session must stay registered after rejected Confirm: %v", err)
-	}
-	if h.mgr.isReleased(h.id) {
-		t.Fatal("rejected session must not enter the released cache")
-	}
-}
-
 func TestRunStateFromProto(t *testing.T) {
 	cases := []struct {
 		in   runv1.RunState
@@ -1059,5 +723,520 @@ func TestRunStateFromProto(t *testing.T) {
 		if got := runStateFromProto(tc.in); got != tc.want {
 			t.Fatalf("runStateFromProto(%v) = %q, want %q", tc.in, got, tc.want)
 		}
+	}
+}
+
+func newCheckpointTestSession(
+	t *testing.T,
+	mode config.Mode,
+	sender uploader.Sender,
+	cpInterval time.Duration,
+	onTick func(),
+) (*Session, string, string) {
+	t.Helper()
+	cfg := config.Defaults()
+	cfg.Mode = mode
+	cfg.RunID = "cp-run"
+	cfg.RunDir = t.TempDir()
+	cfg.RecordBatch = 16
+	cfg.RecordInterval = 0.005
+
+	run, err := runctx.New(cfg)
+	if err != nil {
+		t.Fatalf("runctx.New: %v", err)
+	}
+	runFile, err := run.RunFile()
+	if err != nil {
+		t.Fatalf("RunFile: %v", err)
+	}
+	cpFile, err := run.CheckpointFile()
+	if err != nil {
+		t.Fatalf("CheckpointFile: %v", err)
+	}
+	writer, err := store.Create(runFile)
+	if err != nil {
+		t.Fatalf("store.Create: %v", err)
+	}
+	async, err := store.NewAsyncWriter(writer, store.AsyncOptions{
+		Queue:         64,
+		FlushBytes:    1,
+		FlushInterval: 2 * time.Millisecond,
+		IndexStride:   1,
+	})
+	if err != nil {
+		_ = writer.Close()
+		t.Fatalf("NewAsyncWriter: %v", err)
+	}
+
+	b := budget.New(budget.Limits{Records: 64, Bytes: 1 << 20})
+	tracker := uploader.NewTracker()
+	var trackerProgress *progress.Tracker
+	var onStored func(*recordv1.Record, uint64)
+	var watermark func() uint64
+	if mode == config.ModeOnline {
+		trackerProgress = progress.NewTracker(0)
+		onStored = trackerProgress.OnStored
+		watermark = trackerProgress.Watermark
+	}
+
+	intake, err := buffer.New(buffer.Options{
+		StoreOnly:   mode != config.ModeOnline,
+		Store:       async.In(),
+		UploadQueue: 64,
+		Budget:      b,
+		Flushed: func() uint64 {
+			seq, _ := async.Flushed()
+			return seq
+		},
+		OnAdmit:  tracker.AddTotalRecords,
+		OnStored: onStored,
+	})
+	if err != nil {
+		_ = async.Close()
+		t.Fatalf("buffer.New: %v", err)
+	}
+
+	s := newSession(sessionOptions{})
+	s.cfg = cfg
+	s.run = run
+	s.store = async
+	s.intake = intake
+	s.budget = b
+	s.tracker = tracker
+	s.metrics = metrics.New()
+	s.counter = counter.New(0)
+	s.epoch = counter.New(0)
+	s.watcher = watcher.NullWatcher{}
+	s.runFile = runFile
+	s.runFileCreated = true
+	s.progress = trackerProgress
+	if mode == config.ModeOnline && trackerProgress != nil {
+		s.checkpoint = checkpoint.New(checkpoint.Options{
+			File:      cpFile,
+			RunID:     run.RunID,
+			RunFile:   runFile,
+			Store:     async,
+			Watermark: watermark,
+			Interval:  cpInterval,
+			OnTick:    onTick,
+		})
+	}
+
+	if mode == config.ModeOnline {
+		up, err := uploader.New(uploader.Options{
+			In:     intake.UploadOut(),
+			Budget: b,
+			Senders: map[record.Type]uploader.Sender{
+				record.TypeScalar: sender,
+			},
+			Batch:     16,
+			Interval:  5 * time.Millisecond,
+			Tracker:   tracker,
+			OnConfirm: trackerProgress.Resolve,
+			OnDrop:    trackerProgress.ResolveOne,
+			OnDrained: func() {
+				s.checkpoint.Stop()
+				s.checkpoint.Flush()
+				s.markDrained()
+			},
+		})
+		if err != nil {
+			_ = async.Close()
+			t.Fatalf("uploader.New: %v", err)
+		}
+		s.uploader = up
+		s.drainFn = up.Wait
+	}
+	return s, runFile, cpFile
+}
+
+func waitStoreFlushed(t *testing.T, s *store.AsyncWriter, want uint64) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		seq, _ := s.Flushed()
+		if seq >= want {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("flushed seq = %d, want >= %d", seq, want)
+		}
+		time.Sleep(time.Millisecond)
+	}
+}
+
+func commitToIntake(t *testing.T, in *buffer.Intake, cfg config.Settings, recs ...*recordv1.Record) {
+	t.Helper()
+	tk, err := in.Reserve(context.Background(), planner.DemandFor(recs, cfg))
+	if err != nil {
+		t.Fatalf("Reserve: %v", err)
+	}
+	if err := in.Commit(tk, recs); err != nil {
+		t.Fatalf("Commit: %v", err)
+	}
+}
+
+func TestCheckpointBoundsAndFinalFlushOnline(t *testing.T) {
+	gate := make(chan struct{})
+	entered := make(chan struct{})
+	collect := &collectingSender{notify: make(chan struct{}, 8)}
+	gated := &gatedSender{inner: collect, gate: gate, entered: entered}
+
+	ticked := make(chan struct{}, 16)
+	s, runFile, cpFile := newCheckpointTestSession(
+		t, config.ModeOnline, gated, 5*time.Millisecond,
+		func() {
+			select {
+			case ticked <- struct{}{}:
+			default:
+			}
+		},
+	)
+	t.Cleanup(func() {
+		s.checkpoint.Stop()
+		if s.uploader != nil {
+			_ = s.uploader.Close()
+		}
+		if s.store != nil {
+			_ = s.store.Close()
+		}
+	})
+	s.checkpoint.Start()
+
+	// seq=1: Start (立即完结); seq=2: Scalar (将被 gatedSender 阻塞上传)。
+	startRec := backfillStart()
+	scRec := backfillScalar(1)
+	commitToIntake(t, s.intake, s.cfg, startRec, scRec)
+
+	waitStoreFlushed(t, s.store, 2)
+	<-entered // uploader 已拿到 seq=2 并阻塞在 gate，此时 watermark=1 < flushedSeq=2。
+
+	select {
+	case <-ticked:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timeout waiting for initial checkpoint tick")
+	}
+
+	cp, ok, err := store.LoadCheckpoint(cpFile, s.run.RunID)
+	if err != nil || !ok {
+		t.Fatalf("LoadCheckpoint(blocked) = (%v, %v), want (nil, true)", err, ok)
+	}
+	if cp.StoreSeq != 1 {
+		t.Fatalf("StoreSeq while seq=2 unconfirmed = %d, want 1", cp.StoreSeq)
+	}
+	flushedSeq, flushedOff := s.store.Flushed()
+	if flushedSeq != 2 {
+		t.Fatalf("flushedSeq = %d, want 2", flushedSeq)
+	}
+	wantOff, err := store.EndOffset(runFile, s.store.Index(), 1, flushedOff)
+	if err != nil {
+		t.Fatalf("EndOffset: %v", err)
+	}
+	if cp.Offset != wantOff {
+		t.Fatalf("Offset = %d, want %d", cp.Offset, wantOff)
+	}
+
+	// 放行上传并触发收尾：OnDrained 应停止协程并落盘最终连续水位（含 seq=3 Finish）。
+	close(gate)
+	collect.waitFor(t, 1)
+
+	if err = s.finish(context.Background(), &runv1.FinishRecord{State: runv1.RunState_RUN_STATE_FINISHED}); err != nil {
+		t.Fatalf("finish: %v", err)
+	}
+	if err = s.waitDrained(context.Background()); err != nil {
+		t.Fatalf("waitDrained: %v", err)
+	}
+
+	cpFinal, ok, err := store.LoadCheckpoint(cpFile, s.run.RunID)
+	if err != nil || !ok {
+		t.Fatalf("LoadCheckpoint(final) = (%v, %v), want (nil, true)", err, ok)
+	}
+	finalSeq, finalOff := s.store.Flushed()
+	if finalSeq != 3 || cpFinal.StoreSeq != finalSeq || cpFinal.Offset != finalOff {
+		t.Fatalf("final cp = %+v, want seq=%d offset=%d", cpFinal, finalSeq, finalOff)
+	}
+}
+
+func TestCheckpointLocalAndOfflineWriteNoFile(t *testing.T) {
+	for _, mode := range []config.Mode{config.ModeLocal, config.ModeOffline} {
+		t.Run(string(mode), func(t *testing.T) {
+			s, _, cpFile := newCheckpointTestSession(t, mode, nil, 0, nil)
+			t.Cleanup(func() {
+				s.checkpoint.Stop()
+				if s.store != nil {
+					_ = s.store.Close()
+				}
+			})
+			s.checkpoint.Start()
+
+			commitToIntake(t, s.intake, s.cfg, backfillStart(), backfillScalar(1), backfillScalar(2))
+			if err := s.finish(context.Background(), &runv1.FinishRecord{State: runv1.RunState_RUN_STATE_FINISHED}); err != nil {
+				t.Fatalf("finish: %v", err)
+			}
+
+			if _, err := os.Stat(cpFile); !os.IsNotExist(err) {
+				t.Fatalf("%s mode must not write checkpoint file %s, got stat err=%v", mode, cpFile, err)
+			}
+		})
+	}
+}
+
+func commitBackfill(t *testing.T, s *Session, records ...*recordv1.Record) {
+	t.Helper()
+	tk, err := s.intake.Reserve(context.Background(), planner.DemandFor(records, s.cfg))
+	if err != nil {
+		t.Fatalf("Reserve: %v", err)
+	}
+	if err := s.intake.Commit(tk, records); err != nil {
+		t.Fatalf("Commit: %v", err)
+	}
+}
+
+func backfillNums(records []*recordv1.Record) []int64 {
+	nums := make([]int64, len(records))
+	for i, rec := range records {
+		nums[i] = rec.GetNum()
+	}
+	return nums
+}
+
+func TestBackfillUploadsPausedRangeInOrder(t *testing.T) {
+	h := newFinishHarness(t, finishOptions{budgetRecords: 2, blockUpload: true})
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	commitBackfill(t, h.session, backfillScalar(1))
+	commitBackfill(t, h.session, backfillScalar(2))
+	commitBackfill(t, h.session, backfillScalar(3))
+	commitBackfill(t, h.session, backfillScalar(4))
+	if paused, seq := h.session.intake.PauseState(); !paused || seq != 3 {
+		t.Fatalf("PauseState = (%v, %d), want (true, 3)", paused, seq)
+	}
+
+	close(h.gate)
+	if err := h.session.store.Flush(ctx); err != nil {
+		t.Fatalf("Flush: %v", err)
+	}
+	if err := h.session.backfill.RunOnce(ctx); err != nil {
+		t.Fatalf("RunOnce: %v", err)
+	}
+	if paused, seq := h.session.intake.PauseState(); paused || seq != 0 {
+		t.Fatalf("PauseState after backfill = (%v, %d), want resumed", paused, seq)
+	}
+
+	if err := h.session.intake.Close(ctx); err != nil {
+		t.Fatalf("intake.Close: %v", err)
+	}
+	h.session.uploader.RequestFinish()
+	if err := h.session.uploader.Wait(ctx); err != nil {
+		t.Fatalf("uploader.Wait: %v", err)
+	}
+	got := h.uploads.snapshot()
+	if len(got) != 4 {
+		t.Fatalf("uploaded %d records, want 4", len(got))
+	}
+	for i, rec := range got {
+		if rec.GetNum() != int64(i+1) {
+			t.Fatalf("upload order = %v, want 1..4", backfillNums(got))
+		}
+	}
+	if stored := readStore(t, h.runFile); len(stored) != 4 {
+		t.Fatalf("store has %d records, want 4", len(stored))
+	}
+}
+
+func TestBackfillSkipsEndSaveUntilClose(t *testing.T) {
+	// 预算 2 条：END 与触发暂停的标量同批提交，延迟记录停在暂停区间。
+	h := newFinishHarness(t, finishOptions{budgetRecords: 2, blockUpload: true})
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	commitBackfill(t, h.session, backfillScalar(1))
+	commitBackfill(t, h.session, backfillScalar(2))
+	// 同一批里标量触发暂停，END 保存由 intake 暂存到 Close。
+	commitBackfill(t, h.session, backfillScalar(3), backfillEndSave(4))
+	commitBackfill(t, h.session, backfillScalar(5))
+	if paused, seq := h.session.intake.PauseState(); !paused || seq != 3 {
+		t.Fatalf("PauseState = (%v, %d), want (true, 3)", paused, seq)
+	}
+
+	close(h.gate)
+	if err := h.session.store.Flush(ctx); err != nil {
+		t.Fatalf("Flush: %v", err)
+	}
+	if err := h.session.backfill.RunOnce(ctx); err != nil {
+		t.Fatalf("RunOnce: %v", err)
+	}
+	for _, rec := range h.uploads.snapshot() {
+		if record.TypeOf(rec) == record.TypeSave {
+			t.Fatal("END save must not be uploaded by backfill")
+		}
+	}
+
+	if err := h.session.intake.Close(ctx); err != nil {
+		t.Fatalf("intake.Close: %v", err)
+	}
+	h.session.uploader.RequestFinish()
+	if err := h.session.uploader.Wait(ctx); err != nil {
+		t.Fatalf("uploader.Wait: %v", err)
+	}
+
+	var scalars, saves int
+	for _, rec := range h.uploads.snapshot() {
+		switch record.TypeOf(rec) {
+		case record.TypeScalar:
+			scalars++
+		case record.TypeSave:
+			saves++
+		}
+	}
+	if scalars != 4 || saves != 1 {
+		t.Fatalf("uploaded scalars=%d saves=%d, want 4/1", scalars, saves)
+	}
+}
+
+func TestFinishCompletesPausedBackfill(t *testing.T) {
+	h := newFinishHarness(t, finishOptions{budgetRecords: 2, blockUpload: true})
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	commitBackfill(t, h.session, backfillScalar(1))
+	commitBackfill(t, h.session, backfillScalar(2))
+	commitBackfill(t, h.session, backfillScalar(3))
+	commitBackfill(t, h.session, backfillScalar(4))
+	close(h.gate)
+
+	if err := h.session.finish(ctx, finishRecord(runv1.RunState_RUN_STATE_FINISHED, "")); err != nil {
+		t.Fatalf("finish: %v", err)
+	}
+	waitDrained(t, h.session)
+
+	if paused, seq := h.session.intake.PauseState(); paused || seq != 0 {
+		t.Fatalf("PauseState after finish = (%v, %d), want resumed", paused, seq)
+	}
+	var scalars int
+	for _, rec := range h.uploads.snapshot() {
+		if record.TypeOf(rec) == record.TypeScalar {
+			scalars++
+		}
+	}
+	if scalars != 4 {
+		t.Fatalf("uploaded scalars = %d, want 4", scalars)
+	}
+	if stored := readStore(t, h.runFile); len(stored) != 5 {
+		t.Fatalf("store has %d records, want 4 scalars + finish", len(stored))
+	}
+}
+
+// TestFinishUploadsEndSaveAfterPausedBackfill 唯一记录预算被在途标量占满时，END 保存
+// 与暂停记录共存：finish 前不上传，finish 后恰好一次。
+func TestFinishUploadsEndSaveAfterPausedBackfill(t *testing.T) {
+	h := newFinishHarness(t, finishOptions{budgetRecords: 1, blockUpload: true})
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	commitBackfill(t, h.session, backfillScalar(1))  // 占满唯一记录预算
+	commitBackfill(t, h.session, backfillEndSave(2)) // 延迟到 Close
+	commitBackfill(t, h.session, backfillScalar(3))  // 预算已满 → 暂停
+	if paused, seq := h.session.intake.PauseState(); !paused || seq != 3 {
+		t.Fatalf("PauseState = (%v, %d), want (true, 3)", paused, seq)
+	}
+	for _, rec := range h.uploads.snapshot() {
+		if record.TypeOf(rec) == record.TypeSave {
+			t.Fatal("END save must not be uploaded before finish")
+		}
+	}
+
+	close(h.gate)
+	if err := h.session.finish(ctx, finishRecord(runv1.RunState_RUN_STATE_FINISHED, "")); err != nil {
+		t.Fatalf("finish: %v", err)
+	}
+	waitDrained(t, h.session)
+
+	uploads := h.uploads.snapshot()
+	var scalars, saves int
+	for _, rec := range uploads {
+		switch record.TypeOf(rec) {
+		case record.TypeScalar:
+			scalars++
+		case record.TypeSave:
+			saves++
+		}
+	}
+	if scalars != 2 || saves != 1 {
+		t.Fatalf("uploaded scalars=%d saves=%d, want 2/1", scalars, saves)
+	}
+	if record.TypeOf(uploads[len(uploads)-1]) != record.TypeSave {
+		t.Fatalf("upload order = %v, want the END save last", backfillNums(uploads))
+	}
+	if paused, seq := h.session.intake.PauseState(); paused || seq != 0 {
+		t.Fatalf("PauseState after finish = (%v, %d), want resumed", paused, seq)
+	}
+	if _, err := h.mgr.Confirm(ctx, h.id); err != nil {
+		t.Fatalf("Confirm after finish: %v", err)
+	}
+}
+
+func TestFinishRejectsDegradedStoreDuringPausedBackfill(t *testing.T) {
+	h := newFinishHarness(t, finishOptions{budgetRecords: 1})
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	// 单批两条记录超过预算，首次提交即发布暂停。
+	commitBackfill(t, h.session, backfillScalar(1), backfillScalar(2))
+	if paused, seq := h.session.intake.PauseState(); !paused || seq != 1 {
+		t.Fatalf("PauseState = (%v, %d), want (true, 1)", paused, seq)
+	}
+	h.session.storeDegraded.Store(true)
+
+	err := h.session.finish(ctx, finishRecord(runv1.RunState_RUN_STATE_FINISHED, ""))
+	if !errors.Is(err, ErrRunFailed) {
+		t.Fatalf("finish err = %v, want ErrRunFailed", err)
+	}
+}
+
+// 补投协程由暂停通知唤醒，恢复后自行停止。
+func TestBackfillSupervisorResumesAfterPause(t *testing.T) {
+	h := newFinishHarness(t, finishOptions{budgetRecords: 2, blockUpload: true})
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	h.session.backfill.Start()
+	commitBackfill(t, h.session, backfillScalar(1))
+	commitBackfill(t, h.session, backfillScalar(2))
+	commitBackfill(t, h.session, backfillScalar(3))
+	commitBackfill(t, h.session, backfillScalar(4))
+	// 暂停期间的 END 保存不占预算，后台补投仍能推进。
+	commitBackfill(t, h.session, backfillEndSave(5))
+	close(h.gate)
+	h.session.backfill.Wake()
+
+	// 4 条标量送达说明后台补投已在推进（前两条来自实时通道）。
+	h.uploads.waitFor(t, 4)
+	// 交接完成前取消可能停在补投之后，这里显式 join 并补完剩余一步。
+	h.session.backfill.Stop()
+	if err := h.session.backfill.RunOnce(ctx); err != nil {
+		t.Fatalf("complete backfill: %v", err)
+	}
+	// 暂停已清除：新提交的标量直接进入上传通道。
+	commitBackfill(t, h.session, backfillScalar(6))
+	h.uploads.waitFor(t, 5)
+
+	if err := h.session.intake.Close(ctx); err != nil {
+		t.Fatalf("intake.Close: %v", err)
+	}
+	h.session.uploader.RequestFinish()
+	if err := h.session.uploader.Wait(ctx); err != nil {
+		t.Fatalf("uploader.Wait: %v", err)
+	}
+	uploads := h.uploads.snapshot()
+	if len(uploads) != 6 {
+		t.Fatalf("uploaded %d records, want 6 (5 scalars + END save)", len(uploads))
+	}
+	if last := uploads[len(uploads)-1]; record.TypeOf(last) != record.TypeSave {
+		t.Fatalf("last upload = %v, want the END save", record.TypeOf(last))
+	}
+	if paused, seq := h.session.intake.PauseState(); paused || seq != 0 {
+		t.Fatalf("PauseState = (%v, %d), want resumed", paused, seq)
 	}
 }

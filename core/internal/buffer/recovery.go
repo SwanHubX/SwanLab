@@ -30,6 +30,34 @@ func (t *Intake) ResumeUpload() {
 	t.mu.Unlock()
 }
 
+// PauseAt 在续传启动期把暂停起点设为 seq；之后的新提交只落盘不实时上传，
+// 等 backfill 从 seq 起补投完未确认前缀后再原子交接。seq == 0 为空操作。
+func (t *Intake) PauseAt(seq uint64) {
+	if seq == 0 {
+		return
+	}
+	t.mu.Lock()
+	if t.pauseSeq == 0 || seq < t.pauseSeq {
+		t.pauseSeq = seq
+	}
+	t.mu.Unlock()
+}
+
+// RestoreDeferred 在续传启动期把已落盘的 SAVE_POLICY_END 记录放回延迟队列，
+// 供 Close 时补投；调用方应在 Intake.Options.PendingDeferred 中预留足够容量。
+func (t *Intake) RestoreDeferred(records []*recordv1.Record) {
+	if len(records) == 0 {
+		return
+	}
+	t.mu.Lock()
+	for _, rec := range records {
+		if rec != nil {
+			t.pending = append(t.pending, rec)
+		}
+	}
+	t.mu.Unlock()
+}
+
 // DrainRecovery 尝试把回收队列投入上传；返回仍未投递的记录数。
 // 本地已降级时会把未确认落盘的暂停记录一并转入回收队列，可重复调用。
 func (t *Intake) DrainRecovery(ctx context.Context) (int, error) {

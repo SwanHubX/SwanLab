@@ -1,5 +1,5 @@
-// 本文件承载批内指标规划与通道容量需求计算。
-package manager
+// Package planner 负责批内指标规划与通道容量需求计算。
+package planner
 
 import (
 	"fmt"
@@ -12,13 +12,12 @@ import (
 	columnv1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/column/v1"
 	datav1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/data/v1"
 	recordv1 "github.com/swanhubx/swanlab/core/proto/swanlab/record/v1"
-	savev1 "github.com/swanhubx/swanlab/core/proto/swanlab/save/v1"
 )
 
-// demandFor 计算一批记录对本地与上传两条通道的需求。
+// DemandFor 计算一批记录对本地与上传两条通道的需求。
 // local/offline 只写本地；online 中只有 CUSTOM + SAVE_POLICY_END 会延迟到 Close，
 // 与 buffer.routeRecords 同源。
-func demandFor(records []*recordv1.Record, cfg config.Settings) buffer.Demand {
+func DemandFor(records []*recordv1.Record, cfg config.Settings) buffer.Demand {
 	var demand buffer.Demand
 	if !cfg.SkipStore {
 		demand.Store = len(records)
@@ -27,27 +26,15 @@ func demandFor(records []*recordv1.Record, cfg config.Settings) buffer.Demand {
 		return demand
 	}
 	for _, rec := range records {
-		switch record.TypeOf(rec) {
-		case record.TypeStart, record.TypeFinish:
-		case record.TypeSave:
-			if deferredSave(rec) {
-				demand.Deferred++
-				continue
-			}
-			demand.Upload++
-			demand.Bytes += record.Size(rec)
-		default:
+		switch {
+		case record.IsDeferredSave(rec):
+			demand.Deferred++
+		case record.IsImmediateUploadable(rec):
 			demand.Upload++
 			demand.Bytes += record.Size(rec)
 		}
 	}
 	return demand
-}
-
-func deferredSave(rec *recordv1.Record) bool {
-	save := rec.GetSave()
-	return save.GetPolicy() == savev1.SavePolicy_SAVE_POLICY_END &&
-		save.GetType() == savev1.SaveType_SAVE_TYPE_CUSTOM
 }
 
 // columnPlan 记录本批次内新定义的列；apply 阶段按该顺序落地，保证与记录顺序一致。
@@ -57,9 +44,9 @@ type columnPlan struct {
 	kind   metrics.Kind
 }
 
-// metricPlanner 在 Reserve 之前对一批标量/媒体/直方图做只读预检，并在本地模拟同批内
+// MetricPlanner 在 Reserve 之前对一批标量/媒体/直方图做只读预检，并在本地模拟同批内
 // 已定义列与新 step，避免同一 key 的多条记录重复产出列或重复接收 step。
-type metricPlanner struct {
+type MetricPlanner struct {
 	metrics     *metrics.RunMetrics
 	sectionRule int32
 	columns     map[string]*columnv1.ColumnRecord
@@ -67,8 +54,9 @@ type metricPlanner struct {
 	steps       map[string]map[int64]struct{}
 }
 
-func newMetricPlanner(m *metrics.RunMetrics, sectionRule int32) *metricPlanner {
-	return &metricPlanner{
+// NewMetricPlanner 创建服务于单批写入的指标规划器。
+func NewMetricPlanner(m *metrics.RunMetrics, sectionRule int32) *MetricPlanner {
+	return &MetricPlanner{
 		metrics:     m,
 		sectionRule: sectionRule,
 		columns:     make(map[string]*columnv1.ColumnRecord),
@@ -76,33 +64,58 @@ func newMetricPlanner(m *metrics.RunMetrics, sectionRule int32) *metricPlanner {
 	}
 }
 
-func (p *metricPlanner) precheckScalar(rec *datav1.ScalarRecord) metrics.Precheck {
-	if column, ok := p.columns[rec.GetKey()]; ok {
-		return p.remember(rec.GetKey(), column.GetColumnType(), rec.GetStep(), metrics.KindScalar,
-			pendingVerdict(rec.GetKey(), column.GetColumnType(), rec.GetType(), rec.GetStep()))
-	}
-	return p.remember(rec.GetKey(), rec.GetType(), rec.GetStep(), metrics.KindScalar, p.metrics.PrecheckScalar(rec))
+// PrecheckScalar 预检单条标量记录是否需要自动建列或应被接受/跳过。
+func (p *MetricPlanner) PrecheckScalar(rec *datav1.ScalarRecord) metrics.Precheck {
+	return p.precheck(rec.GetKey(), rec.GetType(), rec.GetStep(), metrics.KindScalar, func() metrics.Precheck {
+		return p.metrics.PrecheckScalar(rec)
+	})
 }
 
-func (p *metricPlanner) precheckMedia(rec *datav1.MediaRecord) metrics.Precheck {
-	if column, ok := p.columns[rec.GetKey()]; ok {
-		return p.remember(rec.GetKey(), column.GetColumnType(), rec.GetStep(), metrics.KindMedia,
-			pendingVerdict(rec.GetKey(), column.GetColumnType(), rec.GetType(), rec.GetStep()))
-	}
-	return p.remember(rec.GetKey(), rec.GetType(), rec.GetStep(), metrics.KindMedia, p.metrics.PrecheckMedia(rec))
+// PrecheckMedia 预检单条媒体记录是否需要自动建列或应被接受/跳过。
+func (p *MetricPlanner) PrecheckMedia(rec *datav1.MediaRecord) metrics.Precheck {
+	return p.precheck(rec.GetKey(), rec.GetType(), rec.GetStep(), metrics.KindMedia, func() metrics.Precheck {
+		return p.metrics.PrecheckMedia(rec)
+	})
 }
 
-func (p *metricPlanner) precheckHistogram(rec *datav1.HistogramRecord) metrics.Precheck {
-	if column, ok := p.columns[rec.GetKey()]; ok {
-		return p.remember(rec.GetKey(), column.GetColumnType(), rec.GetStep(), metrics.KindHistogram,
-			pendingVerdict(rec.GetKey(), column.GetColumnType(), rec.GetType(), rec.GetStep()))
+// PrecheckHistogram 预检单条直方图记录是否需要自动建列或应被接受/跳过。
+func (p *MetricPlanner) PrecheckHistogram(rec *datav1.HistogramRecord) metrics.Precheck {
+	return p.precheck(rec.GetKey(), rec.GetType(), rec.GetStep(), metrics.KindHistogram, func() metrics.Precheck {
+		return p.metrics.PrecheckHistogram(rec)
+	})
+}
+
+// Column 返回本批次为 key 规划的新建列（若未在本批次自动建列则为 nil）。
+func (p *MetricPlanner) Column(key string) *columnv1.ColumnRecord {
+	return p.columns[key]
+}
+
+// DefineAll 把本批次内自动定义的列写入 metrics；必须在 Reserve 成功之后调用。
+func (p *MetricPlanner) DefineAll() error {
+	for _, plan := range p.plans {
+		if err := p.metrics.Define(plan.key, plan.column, -1, plan.kind); err != nil {
+			return err
+		}
 	}
-	return p.remember(rec.GetKey(), rec.GetType(), rec.GetStep(), metrics.KindHistogram,
-		p.metrics.PrecheckHistogram(rec))
+	return nil
+}
+
+func (p *MetricPlanner) precheck(
+	key string,
+	typ columnv1.ColumnType,
+	step int64,
+	kind metrics.Kind,
+	checkExisting func() metrics.Precheck,
+) metrics.Precheck {
+	if column, ok := p.columns[key]; ok {
+		return p.remember(key, column.GetColumnType(), step, kind,
+			pendingVerdict(key, column.GetColumnType(), typ, step))
+	}
+	return p.remember(key, typ, step, kind, checkExisting())
 }
 
 // remember 登记本批次内新建的列与已接纳的 step，并把同批重复 step 改判为跳过。
-func (p *metricPlanner) remember(
+func (p *MetricPlanner) remember(
 	key string,
 	typ columnv1.ColumnType,
 	step int64,
@@ -128,26 +141,16 @@ func (p *metricPlanner) remember(
 	return verdict
 }
 
-func (p *metricPlanner) seenStep(key string, step int64) bool {
+func (p *MetricPlanner) seenStep(key string, step int64) bool {
 	_, ok := p.steps[key][step]
 	return ok
 }
 
-func (p *metricPlanner) markStep(key string, step int64) {
+func (p *MetricPlanner) markStep(key string, step int64) {
 	if p.steps[key] == nil {
 		p.steps[key] = make(map[int64]struct{})
 	}
 	p.steps[key][step] = struct{}{}
-}
-
-// defineAll 把本批次内自动定义的列写入 metrics；必须在 Reserve 成功之后调用。
-func (p *metricPlanner) defineAll() error {
-	for _, plan := range p.plans {
-		if err := p.metrics.Define(plan.key, plan.column, -1, plan.kind); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // pendingVerdict 对「本批次内刚定义、尚未写入 metrics」的 key 复刻
@@ -172,11 +175,6 @@ func pendingVerdict(
 		return metrics.Precheck{
 			Decision: metrics.DecisionSkip,
 			Err:      fmt.Errorf("step %d: %w (max %d)", step, metrics.ErrStepLimit, metrics.MaxStep),
-		}
-	case step < 0:
-		return metrics.Precheck{
-			Decision: metrics.DecisionSkip,
-			Err:      fmt.Errorf("step %d: %w", step, metrics.ErrStepNegative),
 		}
 	}
 	return metrics.Precheck{Decision: metrics.DecisionAccept}

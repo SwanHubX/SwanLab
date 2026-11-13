@@ -5,12 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/swanhubx/swanlab/core/internal/budget"
 	"github.com/swanhubx/swanlab/core/internal/config"
 	"github.com/swanhubx/swanlab/core/internal/cron/health"
-	"github.com/swanhubx/swanlab/core/internal/pkg/record"
-	"github.com/swanhubx/swanlab/core/internal/uploader"
-	recordv1 "github.com/swanhubx/swanlab/core/proto/swanlab/record/v1"
 )
 
 func okProbe(context.Context) bool { return true }
@@ -37,28 +33,6 @@ func TestWriteFailureDegradesSite(t *testing.T) {
 	if snap := s.site.Snapshot(); snap.State != health.StateNormal {
 		t.Fatalf("snapshot = %+v, want normal after success", snap)
 	}
-}
-
-// confirmAll 立即确认整批记录，用于构造空闲 uploader。
-type confirmAll struct{}
-
-func (confirmAll) Upload(_ context.Context, records []*recordv1.Record) uploader.Result {
-	return uploader.Result{Confirmed: records}
-}
-
-func newIdleUploader(t *testing.T) *uploader.Uploader {
-	t.Helper()
-	up, err := uploader.New(uploader.Options{
-		In:       make(chan *recordv1.Record),
-		Budget:   budget.New(budget.Limits{}),
-		Senders:  map[record.Type]uploader.Sender{record.TypeScalar: confirmAll{}},
-		Interval: time.Hour,
-	})
-	if err != nil {
-		t.Fatalf("uploader.New: %v", err)
-	}
-	t.Cleanup(func() { _ = up.Close() })
-	return up
 }
 
 func TestReconcileHealthSuspendsOnlyWithLocalCopy(t *testing.T) {

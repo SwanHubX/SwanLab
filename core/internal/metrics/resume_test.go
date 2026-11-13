@@ -170,3 +170,69 @@ func TestNewFromSummaryNegativeSteps(t *testing.T) {
 		t.Fatalf("step 0 = (%v, %v), want 接纳", ok, err)
 	}
 }
+
+func TestMergeSummaryCombinesLocalAndCloud(t *testing.T) {
+	localMetrics := New()
+	lossCol := &columnv1.ColumnRecord{ColumnKey: "loss", ColumnType: columnv1.ColumnType_COLUMN_TYPE_SCALAR}
+	if _, err := localMetrics.CommitScalar(scalarRec("loss", 5, 0.5), lossCol); err != nil {
+		t.Fatal(err)
+	}
+	local := &RebuildResult{
+		Metrics:          localMetrics,
+		Epoch:            10,
+		GlobalStep:       5,
+		GlobalSystemStep: 2,
+	}
+
+	cloud := &Summary{
+		Log: []SummaryItem{{Key: "stdout", Step: 15}},
+		Scalar: []SummaryItem{
+			{Key: "loss", Step: 8},
+			{Key: "__swanlab__.cpu", Step: 4},
+		},
+		Histogram: []SummaryItem{{Key: "weights", Step: 6}},
+	}
+	res, err := MergeSummary(local, cloud)
+	if err != nil {
+		t.Fatalf("MergeSummary: %v", err)
+	}
+	if res.ConsoleEpoch != 15 || res.GlobalStep != 8 || res.GlobalSystemStep != 4 {
+		t.Fatalf("merged = (epoch=%d, step=%d, sys=%d), want (15, 8, 4)",
+			res.ConsoleEpoch, res.GlobalStep, res.GlobalSystemStep)
+	}
+	// loss 保留原定义且水位线被抬升到 8；step=8 跳过、step=9 放行。
+	if pre := res.Metrics.PrecheckScalar(scalarRec("loss", 8, 0.2)); pre.NeedsColumn || pre.Decision != DecisionSkip {
+		t.Fatalf("precheck step 8 = %+v, want NeedsColumn=false Skip", pre)
+	}
+	if pre := res.Metrics.PrecheckScalar(scalarRec("loss", 9, 0.1)); pre.NeedsColumn || pre.Decision != DecisionAccept {
+		t.Fatalf("precheck step 9 = %+v, want NeedsColumn=false Accept", pre)
+	}
+	// 仅云端存在的 histogram 列已补齐，且拦截 <=6。
+	if pre := res.Metrics.PrecheckHistogram(histogramRec("weights", 6)); pre.NeedsColumn || pre.Decision != DecisionSkip {
+		t.Fatalf("precheck weights step 6 = %+v, want Skip", pre)
+	}
+	if pre := res.Metrics.PrecheckHistogram(histogramRec("weights", 7)); pre.NeedsColumn || pre.Decision != DecisionAccept {
+		t.Fatalf("precheck weights step 7 = %+v, want Accept", pre)
+	}
+}
+
+func TestMergeSummaryNilCloudPreservesLocal(t *testing.T) {
+	localMetrics := New()
+	lossCol := &columnv1.ColumnRecord{ColumnKey: "loss", ColumnType: columnv1.ColumnType_COLUMN_TYPE_SCALAR}
+	if _, err := localMetrics.CommitScalar(scalarRec("loss", 3, 1.0), lossCol); err != nil {
+		t.Fatal(err)
+	}
+	local := &RebuildResult{
+		Metrics:          localMetrics,
+		Epoch:            7,
+		GlobalStep:       3,
+		GlobalSystemStep: -1,
+	}
+	res, err := MergeSummary(local, nil)
+	if err != nil {
+		t.Fatalf("MergeSummary(nil cloud): %v", err)
+	}
+	if res.Metrics != localMetrics || res.ConsoleEpoch != 7 || res.GlobalStep != 3 || res.GlobalSystemStep != -1 {
+		t.Fatalf("res = %+v, want preserved local", res)
+	}
+}

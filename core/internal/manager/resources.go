@@ -4,7 +4,6 @@ package manager
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -13,6 +12,11 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/budget"
 	"github.com/swanhubx/swanlab/core/internal/buffer"
 	"github.com/swanhubx/swanlab/core/internal/config"
+	"github.com/swanhubx/swanlab/core/internal/manager/backfill"
+	"github.com/swanhubx/swanlab/core/internal/manager/checkpoint"
+	"github.com/swanhubx/swanlab/core/internal/manager/heartbeat"
+	"github.com/swanhubx/swanlab/core/internal/manager/recovery"
+	"github.com/swanhubx/swanlab/core/internal/manager/resume"
 	"github.com/swanhubx/swanlab/core/internal/pkg/console"
 	"github.com/swanhubx/swanlab/core/internal/pkg/record"
 	"github.com/swanhubx/swanlab/core/internal/pkg/watcher"
@@ -20,40 +24,36 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/uploader"
 	"github.com/swanhubx/swanlab/core/internal/uploader/sender"
 	operationv1 "github.com/swanhubx/swanlab/core/proto/swanlab/operation/v1"
+	recordv1 "github.com/swanhubx/swanlab/core/proto/swanlab/record/v1"
 )
 
 // open 装配 store/intake/uploader/watcher/heartbeat；失败时由调用方执行 rollback。
 func (s *Session) open(init sessionInit) error {
-	if !init.cfg.SkipStore {
-		runFile, err := init.run.RunFile()
-		if err != nil {
-			return fmt.Errorf("derive run file: %w", err)
-		}
-		if err = os.MkdirAll(init.run.RunDir, 0o755); err != nil {
-			return fmt.Errorf("create run dir: %w", err)
-		}
-		writer, err := store.Create(runFile)
-		if err != nil {
-			return fmt.Errorf("create run file: %w", err)
-		}
-		s.runFile = runFile
-		s.runFileCreated = true
-
-		async, err := store.NewAsyncWriter(writer, store.AsyncOptions{
-			Queue: queueSize(init.cfg.RecordBatch),
-			OnError: func(err error) {
-				s.storeDegraded.Store(true)
-				console.Warningf("store degraded, records will be uploaded without a local copy: %v", err)
-				// 失去本地副本后不能再暂停，唤醒监听协程恢复投递。
-				s.wakeHealth()
-			},
-		})
-		if err != nil {
-			_ = writer.Close()
-			return fmt.Errorf("start store writer: %w", err)
-		}
-		s.store = async
+	var resumeSeq uint64
+	var endSaves []*recordv1.Record
+	if init.resume != nil {
+		resumeSeq = init.resume.Records
+		endSaves = init.resume.EndSaves
 	}
+
+	opened, err := resume.OpenStore(resume.StoreOptions{
+		SkipStore: init.cfg.SkipStore,
+		Run:       init.run,
+		Resume:    init.resume,
+		Queue:     queueSize(init.cfg.RecordBatch),
+		OnError: func(err error) {
+			s.storeDegraded.Store(true)
+			console.Warningf("store degraded, records will be uploaded without a local copy: %v", err)
+			// 失去本地副本后不能再暂停，唤醒监听协程恢复投递。
+			s.wakeHealth()
+		},
+	})
+	if err != nil {
+		return err
+	}
+	s.store = opened.Writer
+	s.runFile = opened.RunFile
+	s.runFileCreated = opened.Created
 
 	s.tracker = uploader.NewTracker()
 	b := budget.New(budget.Limits{
@@ -71,21 +71,53 @@ func (s *Session) open(init sessionInit) error {
 			return seq
 		}
 	}
+	prog := resume.InitOnlineProgress(resume.ProgressOptions{
+		Mode:           init.cfg.NormalizedMode(),
+		RunID:          init.run.RunID,
+		RunFile:        s.runFile,
+		CheckpointFile: opened.CheckpointFile,
+		HasStore:       s.store != nil,
+		Resume:         init.resume,
+	})
+	s.progress = prog.Tracker
+	if init.cfg.NormalizedMode() == config.ModeOnline && s.progress != nil {
+		s.checkpoint = checkpoint.New(checkpoint.Options{
+			Ctx:            s.ctx,
+			File:           opened.CheckpointFile,
+			RunID:          init.run.RunID,
+			RunFile:        s.runFile,
+			Store:          s.store,
+			Watermark:      s.progress.Watermark,
+			InitialSeq:     prog.CheckpointSeq,
+			InitialWritten: prog.CheckpointSeq > 0,
+		})
+	}
+	var pendingDeferred int
+	if len(endSaves) > 0 {
+		pendingDeferred = buffer.DefaultPendingDeferred + len(endSaves)
+	}
 	intake, err := buffer.New(buffer.Options{
-		SkipStore:   init.cfg.SkipStore,
-		StoreOnly:   init.cfg.NormalizedMode() != config.ModeOnline,
-		Store:       storeIn,
-		UploadQueue: queueSize(init.cfg.RecordBatch),
-		Budget:      b,
-		Degraded:    &s.storeDegraded,
-		Flushed:     flushed,
-		OnAdmit:     s.tracker.AddTotalRecords,
-		OnPause:     func(uint64) { s.wakeBackfill() },
+		SkipStore:       init.cfg.SkipStore,
+		StoreOnly:       init.cfg.NormalizedMode() != config.ModeOnline,
+		Store:           storeIn,
+		StartSeq:        resumeSeq,
+		PendingDeferred: pendingDeferred,
+		UploadQueue:     queueSize(init.cfg.RecordBatch),
+		Budget:          b,
+		Degraded:        &s.storeDegraded,
+		Flushed:         flushed,
+		OnAdmit:         s.tracker.AddTotalRecords,
+		OnPause:         func(uint64) { s.backfill.Wake() },
+		OnStored:        s.progress.OnStored,
 	})
 	if err != nil {
 		return fmt.Errorf("create intake: %w", err)
 	}
 	s.intake = intake
+	s.intake.RestoreDeferred(endSaves)
+	if prog.ReplayFrom > 0 {
+		s.intake.PauseAt(prog.ReplayFrom)
+	}
 
 	if init.cfg.NormalizedMode() == config.ModeOnline {
 		senderOpts := sender.Options{
@@ -132,7 +164,11 @@ func (s *Session) open(init sessionInit) error {
 			Context:            s.ctx,
 			OnRetryableFailure: s.onWriteFailure,
 			OnDispatchSuccess:  s.onWriteSuccess,
+			OnConfirm:          s.progress.Resolve,
+			OnDrop:             s.progress.ResolveOne,
 			OnDrained: func() {
+				s.checkpoint.Stop()
+				s.checkpoint.Flush()
 				s.markDrained()
 			},
 		})
@@ -170,17 +206,48 @@ func (s *Session) open(init sessionInit) error {
 	s.tracker.SetState(operationv1.CoreState_CORE_STATE_RUNNING)
 	if init.cfg.NormalizedMode() == config.ModeOnline {
 		// 心跳与站点探针只对云端有意义；local/offline/disabled 没有 api 客户端。
-		s.heartbeat = newHeartbeat(init.experimentID, init.api.SendHeartbeat)
-		s.heartbeat.start(s.ctx)
+		s.heartbeat = heartbeat.New(init.experimentID, init.api.SendHeartbeat)
+		s.heartbeat.Start(s.ctx)
 		s.attachHealth(init.healthReg, init.healthOpts)
 	}
 	if s.store != nil {
 		// skip_store 不会有本地写失败，无需补传协程。
-		s.startRecovery()
+		s.recovery = recovery.New(recovery.Options{
+			Ctx:      s.ctx,
+			Source:   s.intake,
+			Degraded: &s.storeDegraded,
+		})
+		s.recovery.Start()
 	}
 	if s.store != nil && s.uploader != nil {
-		s.startBackfill()
+		if init.resume != nil {
+			if totalReplay := resume.CountUploadable(s.runFile, prog.ReplayStartOffset, init.resume.EndOffset) + int64(len(endSaves)); totalReplay > 0 {
+				s.tracker.AddTotalRecords(totalReplay)
+			}
+		}
+		var initCursor backfill.Cursor
+		if prog.ReplayFrom > 0 {
+			initCursor = backfill.Cursor{Seq: prog.ReplayFrom - 1, Offset: prog.ReplayStartOffset}
+		}
+		s.backfill = backfill.New(backfill.Options{
+			Ctx:           s.ctx,
+			Intake:        s.intake,
+			Store:         s.store,
+			RunFile:       s.runFile,
+			BatchSize:     s.cfg.RecordBatch,
+			Degraded:      &s.storeDegraded,
+			IsRunning:     func() bool { return s.stateSnapshot() == RunStateRunning },
+			IsSuspended:   s.shouldSuspendUploads,
+			OnStored:      s.progress.OnStored,
+			InitialPause:  prog.ReplayFrom,
+			InitialCursor: initCursor,
+		})
+		s.backfill.Start()
+		if prog.ReplayFrom > 0 {
+			s.backfill.Wake()
+		}
 	}
+	s.checkpoint.Start()
 	return nil
 }
 
@@ -192,14 +259,15 @@ func (s *Session) rollback() {
 	if s.heartbeat != nil {
 		// s.cancel 已中断心跳的父 ctx；这里限制等待时间，避免慢心跳拖住回滚。
 		ctx, cancel := context.WithTimeout(context.Background(), rollbackTimeout)
-		s.heartbeat.stop(ctx)
+		s.heartbeat.Stop(ctx)
 		cancel()
 	}
 	if s.watcher != nil {
 		s.watcher.Stop()
 	}
-	s.stopRecovery()
-	s.stopBackfill()
+	s.recovery.Stop()
+	s.backfill.Stop()
+	s.checkpoint.Stop()
 	if s.uploader != nil {
 		_ = s.uploader.Close()
 	}
@@ -213,6 +281,7 @@ func (s *Session) rollback() {
 	}
 	if s.runFileCreated {
 		_ = os.Remove(s.runFile)
+		s.checkpoint.RemoveFile()
 	}
 	s.closeHealth()
 }
@@ -227,76 +296,4 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
-}
-
-const (
-	// recoveryInterval 是本地失效后重试补传的周期；降级未发生时只空转。
-	recoveryInterval = 500 * time.Millisecond
-	// recoveryPollInterval 是收尾阶段等待回收队列腾出上传槽位的轮询间隔。
-	recoveryPollInterval = 10 * time.Millisecond
-)
-
-// startRecovery 启动 per-session 的补传协程；只在 open 装配成功后调用一次。
-func (s *Session) startRecovery() {
-	s.recoveryStop = make(chan struct{})
-	s.recoveryDone = make(chan struct{})
-	go s.recoveryLoop()
-}
-
-// recoveryLoop 在 storeDegraded 为真时重试回收队列；Intake.Close 之前必须停止。
-func (s *Session) recoveryLoop() {
-	defer close(s.recoveryDone)
-	ticker := time.NewTicker(recoveryInterval)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-s.ctx.Done():
-			return
-		case <-s.recoveryStop:
-			return
-		case <-ticker.C:
-		}
-		if !s.storeDegraded.Load() {
-			continue
-		}
-		remaining, err := s.intake.DrainRecovery(s.ctx)
-		switch {
-		case errors.Is(err, buffer.ErrClosed), errors.Is(err, context.Canceled):
-			return
-		case err != nil:
-			console.Warningf("recovery: retry local store fallback: %v", err)
-		case remaining > 0:
-			console.Debugf("recovery: %d record(s) waiting for upload capacity", remaining)
-		}
-	}
-}
-
-// stopRecovery 停止并等待补传协程退出；可重复调用。
-func (s *Session) stopRecovery() {
-	s.recoveryOnce.Do(func() {
-		if s.recoveryStop != nil {
-			close(s.recoveryStop)
-		}
-	})
-	if s.recoveryDone != nil {
-		<-s.recoveryDone
-	}
-}
-
-// drainRecovery 在收尾阶段尽量排空回收队列；队列仍满时按 poll 间隔重试，
-// 直到队列为空或 ctx 到期（由调用方的 RPC deadline 兜底，避免永久阻塞）。
-func (s *Session) drainRecovery(ctx context.Context) {
-	for {
-		remaining, err := s.intake.DrainRecovery(ctx)
-		if remaining == 0 || err != nil {
-			return
-		}
-		timer := time.NewTimer(recoveryPollInterval)
-		select {
-		case <-ctx.Done():
-			timer.Stop()
-			return
-		case <-timer.C:
-		}
-	}
 }

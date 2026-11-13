@@ -11,16 +11,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"go.uber.org/goleak"
 
 	"github.com/swanhubx/swanlab/core/internal/client"
+	"github.com/swanhubx/swanlab/core/internal/pkg/record"
+	columnv1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/column/v1"
+	datav1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/data/v1"
 )
-
-func TestMain(m *testing.M) {
-	goleak.VerifyTestMain(m)
-}
-
-func newTestManager() *Manager { return New(Options{}) }
 
 // drainBare 直接驱动裸会话进入 DRAINING，用于不装配收尾资源的状态机测试。
 // finishCommitted 置位以模拟 FinishRecord 已提交，避免触发“Shutdown 仅排空”的保护。
@@ -37,15 +33,6 @@ func drainBare(m *Manager, handle string) error {
 func confirm(ctx context.Context, m *Manager, handle string) error {
 	_, err := m.Confirm(ctx, handle)
 	return err
-}
-
-func installBare(t *testing.T, m *Manager, opts sessionOptions) string {
-	t.Helper()
-	handle, err := m.install(newSession(opts))
-	if err != nil {
-		t.Fatalf("install session: %v", err)
-	}
-	return handle
 }
 
 func mustState(t *testing.T, m *Manager, handle string, want RunState) {
@@ -465,5 +452,83 @@ func TestConcurrentRuns(t *testing.T) {
 	close(errs)
 	for err := range errs {
 		t.Error(err)
+	}
+}
+
+// Shutdown 面向进程退出：排空会话、刷盘且不写 FinishRecord，也不上报实验终态。
+func TestManagerShutdownDrainsActiveSessions(t *testing.T) {
+	h := newFinishHarness(t, finishOptions{})
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := h.mgr.UpsertScalars(ctx, h.id, []*datav1.ScalarRecord{
+		scalarRecord("shutdown/loss", 0, columnv1.ColumnType_COLUMN_TYPE_SCALAR),
+	}); err != nil {
+		t.Fatalf("UpsertScalars: %v", err)
+	}
+	var stops int
+	h.session.releaseFn = func(context.Context) error {
+		stops++
+		return nil
+	}
+	if err := h.mgr.Shutdown(ctx); err != nil {
+		t.Fatalf("Shutdown: %v", err)
+	}
+	if stops != 0 {
+		t.Fatalf("Shutdown must not call stop_experiment, got %d call(s)", stops)
+	}
+	if state := h.session.stateSnapshot(); state != RunStateDrained {
+		t.Fatalf("state = %s, want drained", state)
+	}
+
+	records := readStore(t, h.runFile)
+	if len(records) == 0 {
+		t.Fatal("shutdown must flush accepted records to the local store")
+	}
+	for _, item := range records {
+		if item.GetNum() == record.NumFinish {
+			t.Fatal("shutdown must not synthesize a FinishRecord")
+		}
+	}
+	if got := len(h.uploads.snapshot()); got == 0 {
+		t.Fatal("shutdown must drain accepted records through the uploader")
+	}
+}
+
+// Shutdown 只做上传排空、不写 FinishRecord：Confirm 不能把它当作正常结束释放。
+func TestConfirmRejectsSessionDrainedByShutdown(t *testing.T) {
+	h := newFinishHarness(t, finishOptions{})
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := h.mgr.UpsertScalars(ctx, h.id, []*datav1.ScalarRecord{
+		scalarRecord("shutdown/confirm", 0, columnv1.ColumnType_COLUMN_TYPE_SCALAR),
+	}); err != nil {
+		t.Fatalf("UpsertScalars: %v", err)
+	}
+	var stops int
+	h.session.releaseFn = func(context.Context) error {
+		stops++
+		return nil
+	}
+
+	if err := h.mgr.Shutdown(ctx); err != nil {
+		t.Fatalf("Shutdown: %v", err)
+	}
+	if state := h.session.stateSnapshot(); state != RunStateDrained {
+		t.Fatalf("state after shutdown = %s, want drained", state)
+	}
+
+	if _, err := h.mgr.Confirm(ctx, h.id); !errors.Is(err, ErrRunFailed) {
+		t.Fatalf("Confirm err=%v, want ErrRunFailed", err)
+	}
+	if stops != 0 {
+		t.Fatalf("stop_experiment called %d times, want 0", stops)
+	}
+	if _, err := h.mgr.State(h.id); err != nil {
+		t.Fatalf("session must stay registered after rejected Confirm: %v", err)
+	}
+	if h.mgr.isReleased(h.id) {
+		t.Fatal("rejected session must not enter the released cache")
 	}
 }

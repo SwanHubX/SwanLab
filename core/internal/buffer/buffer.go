@@ -27,7 +27,6 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/pkg/record"
 	"github.com/swanhubx/swanlab/core/internal/store"
 	recordv1 "github.com/swanhubx/swanlab/core/proto/swanlab/record/v1"
-	savev1 "github.com/swanhubx/swanlab/core/proto/swanlab/save/v1"
 )
 
 const (
@@ -71,6 +70,8 @@ type Options struct {
 	StoreOnly bool
 	// Store 是 AsyncWriter 的写入入口，容量应不小于单批最大记录数。
 	Store chan<- store.Request
+	// StartSeq 是续传时已有本地记录条数；新记录的 storeSeq 从 StartSeq+1 开始。
+	StartSeq uint64
 	// UploadQueue 是上传通道容量，应不小于单批最大记录数；<=0 取 DefaultUploadQueue。
 	UploadQueue int
 	// PendingDeferred 是 Close 前暂存的 SAVE_POLICY_END 记录上限；<=0 取 DefaultPendingDeferred。
@@ -89,6 +90,9 @@ type Options struct {
 	// OnPause 在暂停状态发布后回调首个未投递记录的 storeSeq；已在暂停时不重复调用。
 	// 回调必须非阻塞。
 	OnPause func(storeSeq uint64)
+	// OnStored 在记录写入本地通道并分配 storeSeq 后、投递上传前回调（仍在 Intake.mu 内）。
+	// 回调必须非阻塞，且不得反向调用 Intake。
+	OnStored func(rec *recordv1.Record, storeSeq uint64)
 	// QueueWait 是容量不足时的有界等待上限，<=0 取 DefaultQueueWait。
 	QueueWait time.Duration
 	// StorePollInterval 是本地通道等待的轮询间隔，<=0 取 10ms。
@@ -130,6 +134,7 @@ type Intake struct {
 	flushed   func() uint64
 	onAdmit   func(int64)
 	onPause   func(uint64)
+	onStored  func(*recordv1.Record, uint64)
 	wait      time.Duration
 	poll      time.Duration
 	uploadCap int
@@ -192,10 +197,12 @@ func New(opts Options) (*Intake, error) {
 		flushed:    opts.Flushed,
 		onAdmit:    opts.OnAdmit,
 		onPause:    opts.OnPause,
+		onStored:   opts.OnStored,
 		wait:       opts.QueueWait,
 		poll:       opts.StorePollInterval,
 		uploadCap:  cap(upload),
 		pendingCap: pendingCap,
+		nextSeq:    opts.StartSeq,
 	}
 	return t, nil
 }
@@ -458,18 +465,10 @@ func routeRecords(records []*recordv1.Record) (immediate, deferred []int) {
 	immediate = make([]int, 0, len(records))
 	deferred = make([]int, 0, len(records))
 	for i, rec := range records {
-		switch record.TypeOf(rec) {
-		case record.TypeStart, record.TypeFinish:
-			// 仅落本地。
-		case record.TypeSave:
-			save := rec.GetSave()
-			if save.GetPolicy() == savev1.SavePolicy_SAVE_POLICY_END &&
-				save.GetType() == savev1.SaveType_SAVE_TYPE_CUSTOM {
-				deferred = append(deferred, i)
-				continue
-			}
-			immediate = append(immediate, i)
-		default:
+		switch {
+		case record.IsDeferredSave(rec):
+			deferred = append(deferred, i)
+		case record.IsImmediateUploadable(rec):
 			immediate = append(immediate, i)
 		}
 	}
@@ -503,6 +502,9 @@ func (t *Intake) sendStoreLocked(records []*recordv1.Record, payloads [][]byte, 
 		seqOf[i] = t.nextSeq
 		t.storeOut <- store.Request{StoreSeq: t.nextSeq, Payload: payloads[i]}
 		t.pendingStore--
+		if t.onStored != nil {
+			t.onStored(records[i], t.nextSeq)
+		}
 	}
 }
 

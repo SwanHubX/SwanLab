@@ -5,9 +5,11 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/swanhubx/swanlab/core/internal/manager/planner"
 	"github.com/swanhubx/swanlab/core/internal/metrics"
 	"github.com/swanhubx/swanlab/core/internal/pkg/builder"
 	"github.com/swanhubx/swanlab/core/internal/pkg/console"
+	"github.com/swanhubx/swanlab/core/internal/pkg/counter"
 	"github.com/swanhubx/swanlab/core/internal/pkg/watcher"
 	columnv1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/column/v1"
 	datav1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/data/v1"
@@ -20,9 +22,15 @@ func (s *Session) upsertColumns(ctx context.Context, columns []*columnv1.ColumnR
 	return commitChunks(ctx, s, columns, s.prepareColumns)
 }
 
+type columnDef struct {
+	key    string
+	column *columnv1.ColumnRecord
+	kind   metrics.Kind
+}
+
 func (s *Session) prepareColumns(columns []*columnv1.ColumnRecord) (preparedBatch, error) {
 	records := make([]*recordv1.Record, 0, len(columns))
-	defs := make([]columnPlan, 0, len(columns))
+	defs := make([]columnDef, 0, len(columns))
 	seen := make(map[string]struct{}, len(columns))
 	for _, column := range columns {
 		if column == nil || column.GetColumnKey() == "" {
@@ -38,7 +46,7 @@ func (s *Session) prepareColumns(columns []*columnv1.ColumnRecord) (preparedBatc
 			logDefinedColumn(column)
 			continue
 		}
-		defs = append(defs, columnPlan{key: key, column: column, kind: columnKind(column)})
+		defs = append(defs, columnDef{key: key, column: column, kind: columnKind(column)})
 		records = append(records, builder.BuildColumnRecord(s.counter, column))
 	}
 	apply := func() error {
@@ -72,45 +80,74 @@ func columnKind(column *columnv1.ColumnRecord) metrics.Kind {
 	}
 }
 
-func (s *Session) upsertScalars(ctx context.Context, records []*datav1.ScalarRecord) error {
-	return commitChunks(ctx, s, records, s.prepareScalars)
+type metricRecordOps[T any] struct {
+	kindLabel string
+	key       func(T) string
+	step      func(T) int64
+	precheck  func(*planner.MetricPlanner, T) metrics.Precheck
+	build     func(*counter.Counter, T) *recordv1.Record
+	commit    func(T) error
 }
 
-func (s *Session) prepareScalars(records []*datav1.ScalarRecord) (preparedBatch, error) {
-	planner := newMetricPlanner(s.metrics, s.cfg.SectionRule)
+func prepareMetricBatch[T any](s *Session, records []T, ops metricRecordOps[T]) (preparedBatch, error) {
+	p := planner.NewMetricPlanner(s.metrics, s.cfg.SectionRule)
 	planned := make([]*recordv1.Record, 0, len(records))
-	accepted := make([]*datav1.ScalarRecord, 0, len(records))
+	accepted := make([]T, 0, len(records))
 	for _, rec := range records {
-		if rec == nil || rec.GetKey() == "" {
-			return preparedBatch{}, fmt.Errorf("%w: scalar key is required", ErrInvalidRecord)
+		key := ops.key(rec)
+		if key == "" {
+			return preparedBatch{}, fmt.Errorf("%w: %s key is required", ErrInvalidRecord, ops.kindLabel)
 		}
-		verdict := planner.precheckScalar(rec)
+		verdict := ops.precheck(p, rec)
 		if verdict.NeedsColumn {
-			planned = append(planned, builder.BuildColumnRecord(s.counter, planner.columns[rec.GetKey()]))
+			planned = append(planned, builder.BuildColumnRecord(s.counter, p.Column(key)))
 		}
 		switch {
 		case verdict.Err != nil:
-			console.Warningf("metric %q step %d skipped: %v", rec.GetKey(), rec.GetStep(), verdict.Err)
+			console.Warningf("metric %q step %d skipped: %v", key, ops.step(rec), verdict.Err)
 		case verdict.Decision == metrics.DecisionAccept:
-			planned = append(planned, builder.BuildScalarRecord(s.counter, rec))
+			planned = append(planned, ops.build(s.counter, rec))
 			accepted = append(accepted, rec)
 		default:
 			console.Debugf("Metric '%s' at step %d was skipped because it is duplicate or too old.",
-				rec.GetKey(), rec.GetStep())
+				key, ops.step(rec))
 		}
 	}
 	apply := func() error {
-		if err := planner.defineAll(); err != nil {
+		if err := p.DefineAll(); err != nil {
 			return err
 		}
 		for _, rec := range accepted {
-			if _, err := s.metrics.CommitScalar(rec, nil); err != nil {
+			if err := ops.commit(rec); err != nil {
 				return err
 			}
 		}
 		return nil
 	}
 	return preparedBatch{records: planned, apply: apply}, nil
+}
+
+func (s *Session) upsertScalars(ctx context.Context, records []*datav1.ScalarRecord) error {
+	return commitChunks(ctx, s, records, s.prepareScalars)
+}
+
+func (s *Session) prepareScalars(records []*datav1.ScalarRecord) (preparedBatch, error) {
+	return prepareMetricBatch(s, records, metricRecordOps[*datav1.ScalarRecord]{
+		kindLabel: "scalar",
+		key: func(rec *datav1.ScalarRecord) string {
+			if rec == nil {
+				return ""
+			}
+			return rec.GetKey()
+		},
+		step:     func(rec *datav1.ScalarRecord) int64 { return rec.GetStep() },
+		precheck: (*planner.MetricPlanner).PrecheckScalar,
+		build:    builder.BuildScalarRecord,
+		commit: func(rec *datav1.ScalarRecord) error {
+			_, err := s.metrics.CommitScalar(rec, nil)
+			return err
+		},
+	})
 }
 
 func (s *Session) upsertMedia(ctx context.Context, records []*datav1.MediaRecord) error {
@@ -118,40 +155,22 @@ func (s *Session) upsertMedia(ctx context.Context, records []*datav1.MediaRecord
 }
 
 func (s *Session) prepareMedia(records []*datav1.MediaRecord) (preparedBatch, error) {
-	planner := newMetricPlanner(s.metrics, s.cfg.SectionRule)
-	planned := make([]*recordv1.Record, 0, len(records))
-	accepted := make([]*datav1.MediaRecord, 0, len(records))
-	for _, rec := range records {
-		if rec == nil || rec.GetKey() == "" {
-			return preparedBatch{}, fmt.Errorf("%w: media key is required", ErrInvalidRecord)
-		}
-		verdict := planner.precheckMedia(rec)
-		if verdict.NeedsColumn {
-			planned = append(planned, builder.BuildColumnRecord(s.counter, planner.columns[rec.GetKey()]))
-		}
-		switch {
-		case verdict.Err != nil:
-			console.Warningf("metric %q step %d skipped: %v", rec.GetKey(), rec.GetStep(), verdict.Err)
-		case verdict.Decision == metrics.DecisionAccept:
-			planned = append(planned, builder.BuildMediaRecord(s.counter, rec))
-			accepted = append(accepted, rec)
-		default:
-			console.Debugf("Metric '%s' at step %d was skipped because it is duplicate or too old.",
-				rec.GetKey(), rec.GetStep())
-		}
-	}
-	apply := func() error {
-		if err := planner.defineAll(); err != nil {
-			return err
-		}
-		for _, rec := range accepted {
-			if _, err := s.metrics.CommitMedia(rec, nil); err != nil {
-				return err
+	return prepareMetricBatch(s, records, metricRecordOps[*datav1.MediaRecord]{
+		kindLabel: "media",
+		key: func(rec *datav1.MediaRecord) string {
+			if rec == nil {
+				return ""
 			}
-		}
-		return nil
-	}
-	return preparedBatch{records: planned, apply: apply}, nil
+			return rec.GetKey()
+		},
+		step:     func(rec *datav1.MediaRecord) int64 { return rec.GetStep() },
+		precheck: (*planner.MetricPlanner).PrecheckMedia,
+		build:    builder.BuildMediaRecord,
+		commit: func(rec *datav1.MediaRecord) error {
+			_, err := s.metrics.CommitMedia(rec, nil)
+			return err
+		},
+	})
 }
 
 func (s *Session) upsertHistograms(ctx context.Context, records []*datav1.HistogramRecord) error {
@@ -159,40 +178,22 @@ func (s *Session) upsertHistograms(ctx context.Context, records []*datav1.Histog
 }
 
 func (s *Session) prepareHistograms(records []*datav1.HistogramRecord) (preparedBatch, error) {
-	planner := newMetricPlanner(s.metrics, s.cfg.SectionRule)
-	planned := make([]*recordv1.Record, 0, len(records))
-	accepted := make([]*datav1.HistogramRecord, 0, len(records))
-	for _, rec := range records {
-		if rec == nil || rec.GetKey() == "" {
-			return preparedBatch{}, fmt.Errorf("%w: histogram key is required", ErrInvalidRecord)
-		}
-		verdict := planner.precheckHistogram(rec)
-		if verdict.NeedsColumn {
-			planned = append(planned, builder.BuildColumnRecord(s.counter, planner.columns[rec.GetKey()]))
-		}
-		switch {
-		case verdict.Err != nil:
-			console.Warningf("metric %q step %d skipped: %v", rec.GetKey(), rec.GetStep(), verdict.Err)
-		case verdict.Decision == metrics.DecisionAccept:
-			planned = append(planned, builder.BuildHistogramRecord(s.counter, rec))
-			accepted = append(accepted, rec)
-		default:
-			console.Debugf("Metric '%s' at step %d was skipped because it is duplicate or too old.",
-				rec.GetKey(), rec.GetStep())
-		}
-	}
-	apply := func() error {
-		if err := planner.defineAll(); err != nil {
-			return err
-		}
-		for _, rec := range accepted {
-			if _, err := s.metrics.CommitHistogram(rec, nil); err != nil {
-				return err
+	return prepareMetricBatch(s, records, metricRecordOps[*datav1.HistogramRecord]{
+		kindLabel: "histogram",
+		key: func(rec *datav1.HistogramRecord) string {
+			if rec == nil {
+				return ""
 			}
-		}
-		return nil
-	}
-	return preparedBatch{records: planned, apply: apply}, nil
+			return rec.GetKey()
+		},
+		step:     func(rec *datav1.HistogramRecord) int64 { return rec.GetStep() },
+		precheck: (*planner.MetricPlanner).PrecheckHistogram,
+		build:    builder.BuildHistogramRecord,
+		commit: func(rec *datav1.HistogramRecord) error {
+			_, err := s.metrics.CommitHistogram(rec, nil)
+			return err
+		},
+	})
 }
 
 // upsertLogs 单批提交日志，超限时整批拒绝。
