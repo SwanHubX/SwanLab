@@ -20,6 +20,7 @@ from swanlab.sdk.internal.context import RunContext, TransformMedia
 from swanlab.sdk.internal.pkg import adapter, console, fs
 from swanlab.sdk.internal.run.components.config.writer import dump_config
 from swanlab.sdk.internal.run.transforms import ECharts, Histogram, Scalar, echarts
+from swanlab.sdk.internal.run.transforms.video.source import MAX_SIZE as VIDEO_MAX_SIZE
 
 _EchartsType = (echarts.Base, echarts.Table)
 
@@ -66,11 +67,12 @@ class RecordBuilder:
         items = list(record.value.items)
         # 1. 过滤掉超过单条大小限制的项
         valid_items = []
+        limit = VIDEO_MAX_SIZE if record.type == ColumnType.COLUMN_TYPE_VIDEO else self._MEDIA_MAX_SIZE
         for item in items:
-            if item.size > self._MEDIA_MAX_SIZE:
+            if item.size > limit:
                 console.warning(
                     f"Media '{item.filename}' in key '{record.key}' step {record.step} "
-                    f"exceeds size limit ({item.size} > {self._MEDIA_MAX_SIZE} bytes), dropped"
+                    f"exceeds size limit ({item.size} > {limit} bytes), dropped"
                 )
                 continue
             valid_items.append(item)

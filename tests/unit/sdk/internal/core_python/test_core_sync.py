@@ -48,6 +48,40 @@ def make_core_config(run_dir: Path, run_id: str = "sync-run-id") -> CoreConfig:
     )
 
 
+@pytest.mark.parametrize(
+    "media_type", [ColumnType.COLUMN_TYPE_IMAGE, ColumnType.COLUMN_TYPE_VIDEO, ColumnType.COLUMN_TYPE_AUDIO]
+)
+def test_resumed_media_accepts_types_without_rewriting_column(tmp_path: Path, media_type):
+    core = CoreSyncPython()
+    core._ctx = CoreContext(config=make_core_config(tmp_path), mode="sync")
+    core._metrics, _, _, _ = RunMetrics.new(
+        {"log": None, "media": [{"key": "clip", "step": 4}], "scalar": None, "histogram": None}, ctx=core._ctx
+    )
+    metric = core._metrics.get("clip")
+    assert metric is not None and metric.column_type == ColumnType.COLUMN_TYPE_UNSPECIFIED
+    core._transport = MagicMock()
+    data = MediaRecord(key="clip", step=5, type=media_type)
+    record = Record(num=7, media=data)
+    core._handle_metric(record, record.media, is_media=True)
+    core._transport.put.assert_called_once_with([record])
+    assert record.media.type == media_type
+    assert metric.column_type == ColumnType.COLUMN_TYPE_UNSPECIFIED
+    assert metric.min_step == 4
+    assert list(metric.steps) == [5]
+
+
+def test_known_media_type_rejects_mismatch(tmp_path: Path):
+    metrics = RunMetrics()
+    metric = metrics.define_media(
+        key="clip",
+        column=ColumnRecord(column_key="clip", column_type=ColumnType.COLUMN_TYPE_IMAGE),
+        path=tmp_path,
+    )
+    with pytest.raises(TypeError, match="already been defined"):
+        metric.ensure_type_match(ColumnType.COLUMN_TYPE_VIDEO)
+    metric.ensure_type_match(ColumnType.COLUMN_TYPE_IMAGE)
+
+
 def make_core_settings(run_dir: Path, run_id: str = "sync-run-id") -> CoreSettings:
     config = make_core_config(run_dir, run_id)
     return CoreSettings(
