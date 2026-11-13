@@ -12,6 +12,7 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/budget"
 	"github.com/swanhubx/swanlab/core/internal/buffer"
 	"github.com/swanhubx/swanlab/core/internal/config"
+	"github.com/swanhubx/swanlab/core/internal/manager/backfill"
 	"github.com/swanhubx/swanlab/core/internal/manager/checkpoint"
 	"github.com/swanhubx/swanlab/core/internal/manager/heartbeat"
 	"github.com/swanhubx/swanlab/core/internal/manager/recovery"
@@ -88,7 +89,7 @@ func (s *Session) open(init sessionInit) error {
 		Degraded:        &s.storeDegraded,
 		Flushed:         flushed,
 		OnAdmit:         s.tracker.AddTotalRecords,
-		OnPause:         func(uint64) { s.wakeBackfill() },
+		OnPause:         func(uint64) { s.backfill.Wake() },
 		OnStored:        onStored,
 	})
 	if err != nil {
@@ -206,9 +207,31 @@ func (s *Session) open(init sessionInit) error {
 				s.tracker.AddTotalRecords(totalReplay)
 			}
 		}
-		s.startBackfill()
+		var initCursor backfill.Cursor
 		if replayFrom > 0 {
-			s.wakeBackfill()
+			initCursor = backfill.Cursor{Seq: replayFrom - 1, Offset: replayStartOffset}
+		}
+		var onBackfillStored func(*recordv1.Record, uint64)
+		if s.progress != nil {
+			onBackfillStored = s.progress.OnStored
+		}
+		s.backfill = backfill.New(backfill.Options{
+			Ctx:           s.ctx,
+			Intake:        s.intake,
+			Store:         s.store,
+			RunFile:       s.runFile,
+			BatchSize:     s.cfg.RecordBatch,
+			SkipStore:     s.cfg.SkipStore,
+			Degraded:      &s.storeDegraded,
+			IsRunning:     func() bool { return s.stateSnapshot() == RunStateRunning },
+			IsSuspended:   s.shouldSuspendUploads,
+			OnStored:      onBackfillStored,
+			InitialPause:  replayFrom,
+			InitialCursor: initCursor,
+		})
+		s.backfill.Start()
+		if replayFrom > 0 {
+			s.backfill.Wake()
 		}
 	}
 	s.checkpoint.Start()
@@ -230,7 +253,7 @@ func (s *Session) rollback() {
 		s.watcher.Stop()
 	}
 	s.recovery.Stop()
-	s.stopBackfill()
+	s.backfill.Stop()
 	s.checkpoint.Stop()
 	if s.uploader != nil {
 		_ = s.uploader.Close()

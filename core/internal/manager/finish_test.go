@@ -979,3 +979,263 @@ func TestCheckpointLocalModeFinalFlush(t *testing.T) {
 		t.Fatalf("local final cp = %+v, want seq=4 off=%d (flushed=%d)", cp, finalOff, finalSeq)
 	}
 }
+
+func commitBackfill(t *testing.T, s *Session, records ...*recordv1.Record) {
+	t.Helper()
+	tk, err := s.intake.Reserve(context.Background(), planner.DemandFor(records, s.cfg))
+	if err != nil {
+		t.Fatalf("Reserve: %v", err)
+	}
+	if err := s.intake.Commit(tk, records); err != nil {
+		t.Fatalf("Commit: %v", err)
+	}
+}
+
+func backfillNums(records []*recordv1.Record) []int64 {
+	nums := make([]int64, len(records))
+	for i, rec := range records {
+		nums[i] = rec.GetNum()
+	}
+	return nums
+}
+
+func TestBackfillUploadsPausedRangeInOrder(t *testing.T) {
+	h := newFinishHarness(t, finishOptions{budgetRecords: 2, blockUpload: true})
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	commitBackfill(t, h.session, backfillScalar(1))
+	commitBackfill(t, h.session, backfillScalar(2))
+	commitBackfill(t, h.session, backfillScalar(3))
+	commitBackfill(t, h.session, backfillScalar(4))
+	if paused, seq := h.session.intake.PauseState(); !paused || seq != 3 {
+		t.Fatalf("PauseState = (%v, %d), want (true, 3)", paused, seq)
+	}
+
+	close(h.gate)
+	if err := h.session.store.Flush(ctx); err != nil {
+		t.Fatalf("Flush: %v", err)
+	}
+	if err := h.session.backfill.RunOnce(ctx); err != nil {
+		t.Fatalf("RunOnce: %v", err)
+	}
+	if paused, seq := h.session.intake.PauseState(); paused || seq != 0 {
+		t.Fatalf("PauseState after backfill = (%v, %d), want resumed", paused, seq)
+	}
+
+	if err := h.session.intake.Close(ctx); err != nil {
+		t.Fatalf("intake.Close: %v", err)
+	}
+	h.session.uploader.RequestFinish()
+	if err := h.session.uploader.Wait(ctx); err != nil {
+		t.Fatalf("uploader.Wait: %v", err)
+	}
+	got := h.uploads.snapshot()
+	if len(got) != 4 {
+		t.Fatalf("uploaded %d records, want 4", len(got))
+	}
+	for i, rec := range got {
+		if rec.GetNum() != int64(i+1) {
+			t.Fatalf("upload order = %v, want 1..4", backfillNums(got))
+		}
+	}
+	if stored := readStore(t, h.runFile); len(stored) != 4 {
+		t.Fatalf("store has %d records, want 4", len(stored))
+	}
+}
+
+func TestBackfillSkipsEndSaveUntilClose(t *testing.T) {
+	// 预算 2 条：END 与触发暂停的标量同批提交，延迟记录停在暂停区间。
+	h := newFinishHarness(t, finishOptions{budgetRecords: 2, blockUpload: true})
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	commitBackfill(t, h.session, backfillScalar(1))
+	commitBackfill(t, h.session, backfillScalar(2))
+	// 同一批里标量触发暂停，END 保存由 intake 暂存到 Close。
+	commitBackfill(t, h.session, backfillScalar(3), backfillEndSave(4))
+	commitBackfill(t, h.session, backfillScalar(5))
+	if paused, seq := h.session.intake.PauseState(); !paused || seq != 3 {
+		t.Fatalf("PauseState = (%v, %d), want (true, 3)", paused, seq)
+	}
+
+	close(h.gate)
+	if err := h.session.store.Flush(ctx); err != nil {
+		t.Fatalf("Flush: %v", err)
+	}
+	if err := h.session.backfill.RunOnce(ctx); err != nil {
+		t.Fatalf("RunOnce: %v", err)
+	}
+	for _, rec := range h.uploads.snapshot() {
+		if record.TypeOf(rec) == record.TypeSave {
+			t.Fatal("END save must not be uploaded by backfill")
+		}
+	}
+
+	if err := h.session.intake.Close(ctx); err != nil {
+		t.Fatalf("intake.Close: %v", err)
+	}
+	h.session.uploader.RequestFinish()
+	if err := h.session.uploader.Wait(ctx); err != nil {
+		t.Fatalf("uploader.Wait: %v", err)
+	}
+
+	var scalars, saves int
+	for _, rec := range h.uploads.snapshot() {
+		switch record.TypeOf(rec) {
+		case record.TypeScalar:
+			scalars++
+		case record.TypeSave:
+			saves++
+		}
+	}
+	if scalars != 4 || saves != 1 {
+		t.Fatalf("uploaded scalars=%d saves=%d, want 4/1", scalars, saves)
+	}
+}
+
+func TestFinishCompletesPausedBackfill(t *testing.T) {
+	h := newFinishHarness(t, finishOptions{budgetRecords: 2, blockUpload: true})
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	commitBackfill(t, h.session, backfillScalar(1))
+	commitBackfill(t, h.session, backfillScalar(2))
+	commitBackfill(t, h.session, backfillScalar(3))
+	commitBackfill(t, h.session, backfillScalar(4))
+	close(h.gate)
+
+	if err := h.session.finish(ctx, finishRecord(runv1.RunState_RUN_STATE_FINISHED, "")); err != nil {
+		t.Fatalf("finish: %v", err)
+	}
+	waitDrained(t, h.session)
+
+	if paused, seq := h.session.intake.PauseState(); paused || seq != 0 {
+		t.Fatalf("PauseState after finish = (%v, %d), want resumed", paused, seq)
+	}
+	var scalars int
+	for _, rec := range h.uploads.snapshot() {
+		if record.TypeOf(rec) == record.TypeScalar {
+			scalars++
+		}
+	}
+	if scalars != 4 {
+		t.Fatalf("uploaded scalars = %d, want 4", scalars)
+	}
+	if stored := readStore(t, h.runFile); len(stored) != 5 {
+		t.Fatalf("store has %d records, want 4 scalars + finish", len(stored))
+	}
+}
+
+// TestFinishUploadsEndSaveAfterPausedBackfill 唯一记录预算被在途标量占满时，END 保存
+// 与暂停记录共存：finish 前不上传，finish 后恰好一次。
+func TestFinishUploadsEndSaveAfterPausedBackfill(t *testing.T) {
+	h := newFinishHarness(t, finishOptions{budgetRecords: 1, blockUpload: true})
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	commitBackfill(t, h.session, backfillScalar(1))  // 占满唯一记录预算
+	commitBackfill(t, h.session, backfillEndSave(2)) // 延迟到 Close
+	commitBackfill(t, h.session, backfillScalar(3))  // 预算已满 → 暂停
+	if paused, seq := h.session.intake.PauseState(); !paused || seq != 3 {
+		t.Fatalf("PauseState = (%v, %d), want (true, 3)", paused, seq)
+	}
+	for _, rec := range h.uploads.snapshot() {
+		if record.TypeOf(rec) == record.TypeSave {
+			t.Fatal("END save must not be uploaded before finish")
+		}
+	}
+
+	close(h.gate)
+	if err := h.session.finish(ctx, finishRecord(runv1.RunState_RUN_STATE_FINISHED, "")); err != nil {
+		t.Fatalf("finish: %v", err)
+	}
+	waitDrained(t, h.session)
+
+	uploads := h.uploads.snapshot()
+	var scalars, saves int
+	for _, rec := range uploads {
+		switch record.TypeOf(rec) {
+		case record.TypeScalar:
+			scalars++
+		case record.TypeSave:
+			saves++
+		}
+	}
+	if scalars != 2 || saves != 1 {
+		t.Fatalf("uploaded scalars=%d saves=%d, want 2/1", scalars, saves)
+	}
+	if record.TypeOf(uploads[len(uploads)-1]) != record.TypeSave {
+		t.Fatalf("upload order = %v, want the END save last", backfillNums(uploads))
+	}
+	if paused, seq := h.session.intake.PauseState(); paused || seq != 0 {
+		t.Fatalf("PauseState after finish = (%v, %d), want resumed", paused, seq)
+	}
+	if _, err := h.mgr.Confirm(ctx, h.id); err != nil {
+		t.Fatalf("Confirm after finish: %v", err)
+	}
+}
+
+func TestFinishRejectsDegradedStoreDuringPausedBackfill(t *testing.T) {
+	h := newFinishHarness(t, finishOptions{budgetRecords: 1})
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	// 单批两条记录超过预算，首次提交即发布暂停。
+	commitBackfill(t, h.session, backfillScalar(1), backfillScalar(2))
+	if paused, seq := h.session.intake.PauseState(); !paused || seq != 1 {
+		t.Fatalf("PauseState = (%v, %d), want (true, 1)", paused, seq)
+	}
+	h.session.storeDegraded.Store(true)
+
+	err := h.session.finish(ctx, finishRecord(runv1.RunState_RUN_STATE_FINISHED, ""))
+	if !errors.Is(err, ErrRunFailed) {
+		t.Fatalf("finish err = %v, want ErrRunFailed", err)
+	}
+}
+
+// 补投协程由暂停通知唤醒，恢复后自行停止。
+func TestBackfillSupervisorResumesAfterPause(t *testing.T) {
+	h := newFinishHarness(t, finishOptions{budgetRecords: 2, blockUpload: true})
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	h.session.backfill.Start()
+	commitBackfill(t, h.session, backfillScalar(1))
+	commitBackfill(t, h.session, backfillScalar(2))
+	commitBackfill(t, h.session, backfillScalar(3))
+	commitBackfill(t, h.session, backfillScalar(4))
+	// 暂停期间的 END 保存不占预算，后台补投仍能推进。
+	commitBackfill(t, h.session, backfillEndSave(5))
+	close(h.gate)
+	h.session.backfill.Wake()
+
+	// 4 条标量送达说明后台补投已在推进（前两条来自实时通道）。
+	h.uploads.waitFor(t, 4)
+	// 交接完成前取消可能停在补投之后，这里显式 join 并补完剩余一步。
+	h.session.backfill.Stop()
+	if err := h.session.backfill.RunOnce(ctx); err != nil {
+		t.Fatalf("complete backfill: %v", err)
+	}
+	// 暂停已清除：新提交的标量直接进入上传通道。
+	commitBackfill(t, h.session, backfillScalar(6))
+	h.uploads.waitFor(t, 5)
+
+	if err := h.session.intake.Close(ctx); err != nil {
+		t.Fatalf("intake.Close: %v", err)
+	}
+	h.session.uploader.RequestFinish()
+	if err := h.session.uploader.Wait(ctx); err != nil {
+		t.Fatalf("uploader.Wait: %v", err)
+	}
+	uploads := h.uploads.snapshot()
+	if len(uploads) != 6 {
+		t.Fatalf("uploaded %d records, want 6 (5 scalars + END save)", len(uploads))
+	}
+	if last := uploads[len(uploads)-1]; record.TypeOf(last) != record.TypeSave {
+		t.Fatalf("last upload = %v, want the END save", record.TypeOf(last))
+	}
+	if paused, seq := h.session.intake.PauseState(); paused || seq != 0 {
+		t.Fatalf("PauseState = (%v, %d), want resumed", paused, seq)
+	}
+}

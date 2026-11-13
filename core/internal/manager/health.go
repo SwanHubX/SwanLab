@@ -55,13 +55,13 @@ func (s *Session) reconcileHealth() {
 	}
 	if s.shouldSuspendUploads() {
 		s.uploader.Suspend()
-		s.cancelBackfillAttempt()
+		s.backfill.CancelAttempt()
 		return
 	}
 	s.uploader.Resume()
 	// 健康状态变化后让补投按最新状态重新开始。
-	s.cancelBackfillAttempt()
-	s.wakeBackfill()
+	s.backfill.CancelAttempt()
+	s.backfill.Wake()
 }
 
 // shouldSuspendUploads 判断当前是否必须暂停上传投递。

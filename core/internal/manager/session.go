@@ -18,6 +18,7 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/client"
 	"github.com/swanhubx/swanlab/core/internal/config"
 	"github.com/swanhubx/swanlab/core/internal/cron/health"
+	"github.com/swanhubx/swanlab/core/internal/manager/backfill"
 	"github.com/swanhubx/swanlab/core/internal/manager/checkpoint"
 	"github.com/swanhubx/swanlab/core/internal/manager/heartbeat"
 	"github.com/swanhubx/swanlab/core/internal/manager/progress"
@@ -161,15 +162,8 @@ type Session struct {
 	// recovery 控制 per-session 的本地失效补传协程。
 	recovery *recovery.Pump
 
-	// 补投：backfillWake 唤醒后台协程，backfillCancel 取消当前尝试。
-	// backfillState 只在补投协程或停止补投后的收尾路径中访问。
-	backfillWake   chan struct{}
-	backfillStop   chan struct{}
-	backfillDone   chan struct{}
-	backfillOnce   sync.Once
-	backfillMu     sync.Mutex
-	backfillCancel context.CancelFunc
-	backfillState  backfillState
+	// 补投：backfill 管理暂停区间的后台重放与停机补完。
+	backfill *backfill.Worker
 
 	// 站点健康：healthReg 持有共享引用，订阅与站点由 closeHealth 幂等释放。
 	healthReg         *health.Registry

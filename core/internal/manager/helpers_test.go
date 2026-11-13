@@ -19,6 +19,7 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/buffer"
 	"github.com/swanhubx/swanlab/core/internal/clienttest"
 	"github.com/swanhubx/swanlab/core/internal/config"
+	"github.com/swanhubx/swanlab/core/internal/manager/backfill"
 	"github.com/swanhubx/swanlab/core/internal/manager/recovery"
 	"github.com/swanhubx/swanlab/core/internal/metrics"
 	"github.com/swanhubx/swanlab/core/internal/pkg/counter"
@@ -31,6 +32,7 @@ import (
 	datav1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/data/v1"
 	recordv1 "github.com/swanhubx/swanlab/core/proto/swanlab/record/v1"
 	runv1 "github.com/swanhubx/swanlab/core/proto/swanlab/run/v1"
+	savev1 "github.com/swanhubx/swanlab/core/proto/swanlab/save/v1"
 )
 
 func TestMain(m *testing.M) {
@@ -137,6 +139,43 @@ func finishRecord(state runv1.RunState, message string) *runv1.FinishRecord {
 		State:      state,
 		Error:      message,
 		FinishedAt: timestamppb.New(time.Unix(1_700_000_000, 0)),
+	}
+}
+
+func backfillScalar(num int64) *recordv1.Record {
+	return &recordv1.Record{
+		Num: num,
+		RecordType: &recordv1.Record_Scalar{Scalar: &datav1.ScalarRecord{
+			Key:   "loss",
+			Step:  num,
+			Type:  columnv1.ColumnType_COLUMN_TYPE_SCALAR,
+			Value: &datav1.ScalarValue{Number: float64(num)},
+		}},
+	}
+}
+
+func backfillStart() *recordv1.Record {
+	return &recordv1.Record{
+		Num:        record.NumStart,
+		RecordType: &recordv1.Record_Start{Start: &runv1.StartRecord{}},
+	}
+}
+
+func backfillFinish() *recordv1.Record {
+	return &recordv1.Record{
+		Num:        record.NumFinish,
+		RecordType: &recordv1.Record_Finish{Finish: &runv1.FinishRecord{}},
+	}
+}
+
+func backfillEndSave(num int64) *recordv1.Record {
+	return &recordv1.Record{
+		Num: num,
+		RecordType: &recordv1.Record_Save{Save: &savev1.SaveRecord{
+			Name:   "end.txt",
+			Policy: savev1.SavePolicy_SAVE_POLICY_END,
+			Type:   savev1.SaveType_SAVE_TYPE_CUSTOM,
+		}},
 	}
 }
 
@@ -288,6 +327,7 @@ func newFinishHarness(t *testing.T, opts finishOptions) *finishHarness {
 		Budget:      b,
 		Flushed:     flushed,
 		OnAdmit:     s.tracker.AddTotalRecords,
+		OnPause:     func(uint64) { s.backfill.Wake() },
 		QueueWait:   opts.queueWait,
 	})
 	if err != nil {
@@ -349,6 +389,17 @@ func newFinishHarness(t *testing.T, opts finishOptions) *finishHarness {
 			Degraded: &s.storeDegraded,
 		})
 		s.recovery.Start()
+		s.backfill = backfill.New(backfill.Options{
+			Ctx:         s.ctx,
+			Intake:      intake,
+			Store:       async,
+			RunFile:     runFile,
+			BatchSize:   cfg.RecordBatch,
+			SkipStore:   cfg.SkipStore,
+			Degraded:    &s.storeDegraded,
+			IsRunning:   func() bool { return s.stateSnapshot() == RunStateRunning },
+			IsSuspended: s.shouldSuspendUploads,
+		})
 	}
 
 	mgr := newTestManager()
@@ -358,6 +409,7 @@ func newFinishHarness(t *testing.T, opts finishOptions) *finishHarness {
 	}
 	t.Cleanup(func() {
 		s.recovery.Stop()
+		s.backfill.Stop()
 		s.cancel()
 		if up != nil {
 			_ = up.Close()

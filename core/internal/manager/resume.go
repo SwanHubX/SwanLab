@@ -201,10 +201,6 @@ func (s *Session) initOnlineProgress(init sessionInit, checkpointFile string) (
 	s.progress = progress.NewTracker(baseSeq)
 	if init.resume != nil && baseSeq < init.resume.Records {
 		replayFrom = baseSeq + 1
-		s.backfillState = backfillState{
-			pauseSeq: replayFrom,
-			cursor:   backfillCursor{seq: baseSeq, offset: replayStartOffset},
-		}
 	}
 	return s.progress.OnStored, replayFrom, replayStartOffset, baseSeq, cpValid
 }
