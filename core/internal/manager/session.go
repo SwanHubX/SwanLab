@@ -103,6 +103,8 @@ type sessionInit struct {
 	// healthReg 是进程级探针注册表；healthOpts 描述本会话所属站点的探测配置。
 	healthReg  *health.Registry
 	healthOpts health.SiteOptions
+	// resume 非空表示基于已有 run-*.swanlab 的崩溃续传，open 以追加写和重放模式装配。
+	resume *metrics.RebuildResult
 }
 
 // Session 保存单个 session_id 对应的会话状态与生命周期数据。

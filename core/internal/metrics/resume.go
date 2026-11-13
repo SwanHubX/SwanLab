@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/swanhubx/swanlab/core/internal/pkg/builder"
+	columnv1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/column/v1"
 )
 
 // Summary 是云端实验摘要中与指标恢复相关的部分。
@@ -46,22 +47,41 @@ type ResumeResult struct {
 //
 // 摘要中出现重复 key 视为云端数据异常，返回错误。
 func NewFromSummary(s *Summary) (*ResumeResult, error) {
+	return MergeSummary(nil, s)
+}
+
+// MergeSummary 把本地 Rebuild 结果与可选云端摘要合并：
+//
+//   - 本地已定义的列保留原列定义、位图与标量极值；若云端 minStep 更高，仅抬升其水位线；
+//   - 仅存在于云端的列补充占位定义并设置 minStep；
+//   - ConsoleEpoch、GlobalStep、GlobalSystemStep 取两侧最大值。
+func MergeSummary(local *RebuildResult, s *Summary) (*ResumeResult, error) {
 	res := &ResumeResult{Metrics: New(), GlobalStep: -1, GlobalSystemStep: -1}
+	if local != nil {
+		if local.Metrics != nil {
+			res.Metrics = local.Metrics
+		}
+		res.ConsoleEpoch = local.Epoch
+		res.GlobalStep = local.GlobalStep
+		res.GlobalSystemStep = local.GlobalSystemStep
+	}
 	if s == nil {
 		return res, nil
 	}
 
-	if len(s.Log) > 0 {
+	if len(s.Log) > 0 && s.Log[0].Step > res.ConsoleEpoch {
 		res.ConsoleEpoch = s.Log[0].Step
 	}
 
+	seen := make(map[string]struct{}, len(s.Media)+len(s.Scalar)+len(s.Histogram))
 	for _, item := range s.Media {
 		if item.Step > res.GlobalStep {
 			res.GlobalStep = item.Step
 		}
-		col := builder.BuildResumeColumn(item.Key, true, false)
-		if err := res.Metrics.DefineMedia(item.Key, col, item.Step); err != nil {
-			return nil, fmt.Errorf("restore media metric %q: %w", item.Key, err)
+		if err := mergeSummaryItem(res.Metrics, seen, item.Key, item.Step, KindMedia, "media", func() *columnv1.ColumnRecord {
+			return builder.BuildResumeColumn(item.Key, true, false)
+		}); err != nil {
+			return nil, err
 		}
 	}
 
@@ -71,14 +91,13 @@ func NewFromSummary(s *Summary) (*ResumeResult, error) {
 			if item.Step > res.GlobalSystemStep {
 				res.GlobalSystemStep = item.Step
 			}
-		} else {
-			if item.Step > res.GlobalStep {
-				res.GlobalStep = item.Step
-			}
+		} else if item.Step > res.GlobalStep {
+			res.GlobalStep = item.Step
 		}
-		col := builder.BuildResumeColumn(item.Key, false, system)
-		if err := res.Metrics.DefineScalar(item.Key, col, item.Step); err != nil {
-			return nil, fmt.Errorf("restore scalar metric %q: %w", item.Key, err)
+		if err := mergeSummaryItem(res.Metrics, seen, item.Key, item.Step, KindScalar, "scalar", func() *columnv1.ColumnRecord {
+			return builder.BuildResumeColumn(item.Key, false, system)
+		}); err != nil {
+			return nil, err
 		}
 	}
 
@@ -86,11 +105,37 @@ func NewFromSummary(s *Summary) (*ResumeResult, error) {
 		if item.Step > res.GlobalStep {
 			res.GlobalStep = item.Step
 		}
-		col := builder.BuildHistogramResumeColumn(item.Key)
-		if err := res.Metrics.DefineHistogram(item.Key, col, item.Step); err != nil {
-			return nil, fmt.Errorf("restore histogram metric %q: %w", item.Key, err)
+		if err := mergeSummaryItem(res.Metrics, seen, item.Key, item.Step, KindHistogram, "histogram", func() *columnv1.ColumnRecord {
+			return builder.BuildHistogramResumeColumn(item.Key)
+		}); err != nil {
+			return nil, err
 		}
 	}
 
 	return res, nil
+}
+
+func mergeSummaryItem(
+	m *RunMetrics,
+	seen map[string]struct{},
+	key string,
+	step int64,
+	kind Kind,
+	label string,
+	buildCol func() *columnv1.ColumnRecord,
+) error {
+	if _, dup := seen[key]; dup {
+		return fmt.Errorf("restore %s metric %q: %w", label, key, ErrColumnExists)
+	}
+	seen[key] = struct{}{}
+	if mt, exists := m.metrics[key]; exists {
+		if step > mt.minStep {
+			mt.minStep = step
+		}
+		return nil
+	}
+	if err := m.Define(key, buildCol(), step, kind); err != nil {
+		return fmt.Errorf("restore %s metric %q: %w", label, key, err)
+	}
+	return nil
 }

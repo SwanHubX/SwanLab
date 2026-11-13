@@ -42,8 +42,12 @@ func (m *Manager) DeliverRunStart(
 	if !m.hasCapacity() {
 		return nil, fmt.Errorf("%w: limit %d", ErrTooManySessions, maxSessions)
 	}
+	local, err := loadLocalRebuild(cfg, run)
+	if err != nil {
+		return nil, err
+	}
 	if cfg.NormalizedMode() != config.ModeOnline {
-		return m.deliverLocalStart(ctx, cfg, rec, run)
+		return m.deliverLocalStart(ctx, cfg, rec, run, local)
 	}
 	resumeMode, err := resumeModeFromProto(rec.GetResume())
 	if err != nil {
@@ -130,17 +134,21 @@ func (m *Manager) DeliverRunStart(
 		ExperimentID:   experiment.CUID,
 	})
 
-	resume, err := restoreMetrics(ctx, apiClient, project.CUID, experiment, resumeMode, isNew)
+	resume, err := restoreMetrics(ctx, apiClient, project.CUID, experiment, resumeMode, isNew, local)
 	if err != nil {
 		return nil, err
 	}
 
+	var startCounter int64
+	if local != nil {
+		startCounter = local.Counter
+	}
 	s := newSession(sessionOptions{})
 	s.ctx, s.cancel = context.WithCancel(context.Background())
 	s.cfg = cfg
 	s.run = run
 	s.metrics = resume.Metrics
-	s.counter = counter.New(0)
+	s.counter = counter.New(startCounter)
 	s.epoch = counter.New(resume.ConsoleEpoch)
 
 	if err = s.open(sessionInit{
@@ -154,6 +162,7 @@ func (m *Manager) DeliverRunStart(
 		experimentID: experiment.CUID,
 		healthReg:    m.healthReg,
 		healthOpts:   healthOpts,
+		resume:       local,
 	}); err != nil {
 		s.rollback()
 		return nil, fmt.Errorf("start: assemble session: %w", err)
@@ -164,9 +173,11 @@ func (m *Manager) DeliverRunStart(
 	start.Color = color
 	start.Workspace = workspace
 	start.Project = projectName
-	if err = s.commitStart(ctx, start); err != nil {
-		s.rollback()
-		return nil, err
+	if local == nil || !local.HasStart {
+		if err = s.commitStart(ctx, start); err != nil {
+			s.rollback()
+			return nil, err
+		}
 	}
 
 	sessionID, err := m.install(s)
@@ -193,24 +204,38 @@ func (m *Manager) deliverLocalStart(
 	cfg config.Settings,
 	rec *runv1.StartRecord,
 	run *runctx.RunContext,
+	local *metrics.RebuildResult,
 ) (*StartResult, error) {
 	s := newSession(sessionOptions{})
 	s.ctx, s.cancel = context.WithCancel(context.Background())
 	s.cfg = cfg
 	s.run = run
-	s.metrics = metrics.New()
-	s.counter = counter.New(0)
-	s.epoch = counter.New(0)
+	globalStep, globalSystemStep := int64(-1), int64(-1)
+	newExperiment := true
+	if local != nil {
+		s.metrics = local.Metrics
+		s.counter = counter.New(local.Counter)
+		s.epoch = counter.New(local.Epoch)
+		globalStep = local.GlobalStep
+		globalSystemStep = local.GlobalSystemStep
+		newExperiment = false
+	} else {
+		s.metrics = metrics.New()
+		s.counter = counter.New(0)
+		s.epoch = counter.New(0)
+	}
 
-	if err := s.open(sessionInit{cfg: cfg, run: run}); err != nil {
+	if err := s.open(sessionInit{cfg: cfg, run: run, resume: local}); err != nil {
 		s.rollback()
 		return nil, fmt.Errorf("start: assemble local session: %w", err)
 	}
 
 	start := proto.Clone(rec).(*runv1.StartRecord)
-	if err := s.commitStart(ctx, start); err != nil {
-		s.rollback()
-		return nil, err
+	if local == nil || !local.HasStart {
+		if err := s.commitStart(ctx, start); err != nil {
+			s.rollback()
+			return nil, err
+		}
 	}
 	sessionID, err := m.install(s)
 	if err != nil {
@@ -220,13 +245,13 @@ func (m *Manager) deliverLocalStart(
 	return &StartResult{
 		SessionID:        sessionID,
 		Run:              start,
-		GlobalStep:       -1,
-		GlobalSystemStep: -1,
-		NewExperiment:    true,
+		GlobalStep:       globalStep,
+		GlobalSystemStep: globalSystemStep,
+		NewExperiment:    newExperiment,
 	}, nil
 }
 
-// restoreMetrics 依据 resume 语义恢复指标状态；新实验或 never 模式返回空状态。
+// restoreMetrics 依据 resume 语义合并本地重建结果与云端摘要；两者均无时返回空状态。
 func restoreMetrics(
 	ctx context.Context,
 	client *api.Client,
@@ -234,20 +259,28 @@ func restoreMetrics(
 	experiment *api.Experiment,
 	mode api.ResumeMode,
 	isNew bool,
+	local *metrics.RebuildResult,
 ) (*metrics.ResumeResult, error) {
-	empty := &metrics.ResumeResult{Metrics: metrics.New(), GlobalStep: -1, GlobalSystemStep: -1}
-	if isNew || mode == api.ResumeNever {
-		return empty, nil
+	var cloud *metrics.Summary
+	if !isNew && mode != api.ResumeNever {
+		summary, err := client.ExperimentSummary(ctx, projectID, experiment.CUID, experiment.CreatedAt)
+		if err != nil {
+			return nil, fmt.Errorf("start: fetch experiment summary: %w", err)
+		}
+		cloud = summaryFromAPI(summary)
 	}
-	summary, err := client.ExperimentSummary(ctx, projectID, experiment.CUID, experiment.CreatedAt)
-	if err != nil {
-		return nil, fmt.Errorf("start: fetch experiment summary: %w", err)
+	if local != nil {
+		res, err := metrics.MergeSummary(local, cloud)
+		if err != nil {
+			return nil, fmt.Errorf("start: merge metrics: %w", err)
+		}
+		return res, nil
 	}
-	resume, err := metrics.NewFromSummary(summaryFromAPI(summary))
+	res, err := metrics.NewFromSummary(cloud)
 	if err != nil {
 		return nil, fmt.Errorf("start: restore metrics: %w", err)
 	}
-	return resume, nil
+	return res, nil
 }
 
 // summaryFromAPI 把云端摘要转换为指标恢复层使用的纯 Go 结构。

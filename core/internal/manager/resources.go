@@ -25,40 +25,15 @@ import (
 
 // open 装配 store/intake/uploader/watcher/heartbeat；失败时由调用方执行 rollback。
 func (s *Session) open(init sessionInit) error {
-	if !init.cfg.SkipStore {
-		runFile, err := init.run.RunFile()
-		if err != nil {
-			return fmt.Errorf("derive run file: %w", err)
-		}
-		checkpointFile, err := init.run.CheckpointFile()
-		if err != nil {
-			return fmt.Errorf("derive checkpoint file: %w", err)
-		}
-		if err = os.MkdirAll(init.run.RunDir, 0o755); err != nil {
-			return fmt.Errorf("create run dir: %w", err)
-		}
-		writer, err := store.Create(runFile)
-		if err != nil {
-			return fmt.Errorf("create run file: %w", err)
-		}
-		s.runFile = runFile
-		s.runFileCreated = true
-		s.checkpointFile = checkpointFile
+	var resumeSeq uint64
+	var endSaves []*recordv1.Record
+	if init.resume != nil {
+		resumeSeq = init.resume.Records
+		endSaves = init.resume.EndSaves
+	}
 
-		async, err := store.NewAsyncWriter(writer, store.AsyncOptions{
-			Queue: queueSize(init.cfg.RecordBatch),
-			OnError: func(err error) {
-				s.storeDegraded.Store(true)
-				console.Warningf("store degraded, records will be uploaded without a local copy: %v", err)
-				// 失去本地副本后不能再暂停，唤醒监听协程恢复投递。
-				s.wakeHealth()
-			},
-		})
-		if err != nil {
-			_ = writer.Close()
-			return fmt.Errorf("start store writer: %w", err)
-		}
-		s.store = async
+	if err := s.openStore(init, resumeSeq); err != nil {
+		return err
 	}
 
 	s.tracker = uploader.NewTracker()
@@ -70,34 +45,40 @@ func (s *Session) open(init sessionInit) error {
 
 	var storeIn chan<- store.Request
 	var flushed func() uint64
-	var onStored func(*recordv1.Record, uint64)
 	if s.store != nil {
 		storeIn = s.store.In()
 		flushed = func() uint64 {
 			seq, _ := s.store.Flushed()
 			return seq
 		}
-		if init.cfg.NormalizedMode() == config.ModeOnline {
-			s.progress = newProgressTracker(0)
-			onStored = s.progress.onStored
-		}
+	}
+	onStored, replayFrom, replayStartOffset := s.initOnlineProgress(init)
+	var pendingDeferred int
+	if len(endSaves) > 0 {
+		pendingDeferred = buffer.DefaultPendingDeferred + len(endSaves)
 	}
 	intake, err := buffer.New(buffer.Options{
-		SkipStore:   init.cfg.SkipStore,
-		StoreOnly:   init.cfg.NormalizedMode() != config.ModeOnline,
-		Store:       storeIn,
-		UploadQueue: queueSize(init.cfg.RecordBatch),
-		Budget:      b,
-		Degraded:    &s.storeDegraded,
-		Flushed:     flushed,
-		OnAdmit:     s.tracker.AddTotalRecords,
-		OnPause:     func(uint64) { s.wakeBackfill() },
-		OnStored:    onStored,
+		SkipStore:       init.cfg.SkipStore,
+		StoreOnly:       init.cfg.NormalizedMode() != config.ModeOnline,
+		Store:           storeIn,
+		StartSeq:        resumeSeq,
+		PendingDeferred: pendingDeferred,
+		UploadQueue:     queueSize(init.cfg.RecordBatch),
+		Budget:          b,
+		Degraded:        &s.storeDegraded,
+		Flushed:         flushed,
+		OnAdmit:         s.tracker.AddTotalRecords,
+		OnPause:         func(uint64) { s.wakeBackfill() },
+		OnStored:        onStored,
 	})
 	if err != nil {
 		return fmt.Errorf("create intake: %w", err)
 	}
 	s.intake = intake
+	s.intake.RestoreDeferred(endSaves)
+	if replayFrom > 0 {
+		s.intake.PauseAt(replayFrom)
+	}
 
 	if init.cfg.NormalizedMode() == config.ModeOnline {
 		senderOpts := sender.Options{
@@ -195,7 +176,15 @@ func (s *Session) open(init sessionInit) error {
 		s.startRecovery()
 	}
 	if s.store != nil && s.uploader != nil {
+		if init.resume != nil {
+			if totalReplay := countUploadable(s.runFile, replayStartOffset, init.resume.EndOffset) + int64(len(endSaves)); totalReplay > 0 {
+				s.tracker.AddTotalRecords(totalReplay)
+			}
+		}
 		s.startBackfill()
+		if replayFrom > 0 {
+			s.wakeBackfill()
+		}
 	}
 	s.startCheckpoint()
 	return nil

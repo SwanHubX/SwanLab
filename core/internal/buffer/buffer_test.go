@@ -1616,3 +1616,44 @@ func TestIntakeOnStoredOrder(t *testing.T) {
 		}
 	}
 }
+
+func TestIntakePauseAtAndRestoreDeferred(t *testing.T) {
+	sink := newStoreSink(8)
+	in := newIntake(t, Options{
+		Store:           sink.ch,
+		StartSeq:        4,
+		Budget:          budget.New(budget.Limits{}),
+		UploadQueue:     8,
+		PendingDeferred: DefaultPendingDeferred + 2,
+	})
+
+	end1 := saveRecord(10, savev1.SavePolicy_SAVE_POLICY_END)
+	end2 := saveRecord(11, savev1.SavePolicy_SAVE_POLICY_END)
+	in.RestoreDeferred([]*recordv1.Record{end1, end2})
+	in.PauseAt(2)
+	if paused, seq := in.PauseState(); !paused || seq != 2 {
+		t.Fatalf("PauseState = (%v, %d), want (true, 2)", paused, seq)
+	}
+
+	// 暂停期间的新提交仅入本地通道并分配 StartSeq 之后的新序号，不进上传通道。
+	live := scalarRecord(12)
+	mustCommit(t, in, live)
+	if got := len(in.UploadOut()); got != 0 {
+		t.Fatalf("upload len while PauseAt active = %d, want 0", got)
+	}
+
+	if err := in.Close(context.Background()); err != nil {
+		sink.stop()
+		t.Fatalf("Close: %v", err)
+	}
+	sink.stop()
+
+	stored := sink.snapshot()
+	if len(stored) != 1 || stored[0].StoreSeq != 5 {
+		t.Fatalf("stored = %+v, want single seq=5", stored)
+	}
+	uploaded := drainUpload(in)
+	if len(uploaded) != 2 || uploaded[0] != end1 || uploaded[1] != end2 {
+		t.Fatalf("uploaded = %v, want restored deferred [%p, %p]", uploaded, end1, end2)
+	}
+}
