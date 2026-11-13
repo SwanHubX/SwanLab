@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/swanhubx/swanlab/core/internal/buffer"
+	"github.com/swanhubx/swanlab/core/internal/manager/planner"
 	columnv1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/column/v1"
 	datav1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/data/v1"
 	recordv1 "github.com/swanhubx/swanlab/core/proto/swanlab/record/v1"
@@ -91,7 +92,7 @@ func (s *Session) commitPrepared(ctx context.Context, build func() (preparedBatc
 	if len(batch.records) == 0 {
 		return nil
 	}
-	ticket, err := s.intake.Reserve(ctx, demandFor(batch.records, s.cfg))
+	ticket, err := s.intake.Reserve(ctx, planner.DemandFor(batch.records, s.cfg))
 	if err != nil {
 		return upsertError(err)
 	}

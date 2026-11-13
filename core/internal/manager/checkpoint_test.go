@@ -11,6 +11,7 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/buffer"
 	"github.com/swanhubx/swanlab/core/internal/clienttest"
 	"github.com/swanhubx/swanlab/core/internal/config"
+	"github.com/swanhubx/swanlab/core/internal/manager/planner"
 	"github.com/swanhubx/swanlab/core/internal/manager/progress"
 	"github.com/swanhubx/swanlab/core/internal/metrics"
 	"github.com/swanhubx/swanlab/core/internal/pkg/counter"
@@ -337,7 +338,7 @@ func TestCheckpointSkipStoreProducesNoFile(t *testing.T) {
 
 func commitToIntake(t *testing.T, in *buffer.Intake, cfg config.Settings, recs ...*recordv1.Record) {
 	t.Helper()
-	tk, err := in.Reserve(context.Background(), demandFor(recs, cfg))
+	tk, err := in.Reserve(context.Background(), planner.DemandFor(recs, cfg))
 	if err != nil {
 		t.Fatalf("Reserve: %v", err)
 	}

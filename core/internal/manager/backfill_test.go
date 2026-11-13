@@ -10,6 +10,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/swanhubx/swanlab/core/internal/config"
+	"github.com/swanhubx/swanlab/core/internal/manager/planner"
 	"github.com/swanhubx/swanlab/core/internal/pkg/record"
 	"github.com/swanhubx/swanlab/core/internal/store"
 	columnv1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/column/v1"
@@ -150,7 +151,7 @@ func TestScanBackfillFiltersRecordsAndRespectsFlushedBound(t *testing.T) {
 
 func commitBackfill(t *testing.T, s *Session, records ...*recordv1.Record) {
 	t.Helper()
-	tk, err := s.intake.Reserve(context.Background(), demandFor(records, s.cfg))
+	tk, err := s.intake.Reserve(context.Background(), planner.DemandFor(records, s.cfg))
 	if err != nil {
 		t.Fatalf("Reserve: %v", err)
 	}
