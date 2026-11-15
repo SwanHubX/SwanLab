@@ -6,12 +6,23 @@
 """
 
 from io import BytesIO
-from typing import TYPE_CHECKING, List, Union
+from os import PathLike
+from typing import TYPE_CHECKING, List, Literal, Protocol, Union
 
 if TYPE_CHECKING:
+    import numpy as np
+
     from swanlab.sdk.internal.run.transforms.video import Video
 
-VideoDataType = Union["Video", str, bytes, BytesIO]
+VideoFormat = Literal["gif", "mp4", "webm", "ogg"]
 
 
-VideoDatasType = Union["Video", List["Video"], str, List[str], bytes, List[bytes], BytesIO, List[BytesIO]]
+class NumpyConvertible(Protocol):
+    """An object whose numpy() method returns uint8 TCHW or BTCHW frames."""
+
+    def numpy(self) -> "np.ndarray": ...
+
+
+VideoInput = Union["Video", str, PathLike[str], bytes, BytesIO, "np.ndarray", NumpyConvertible]
+VideoDataType = VideoInput
+VideoDatasType = Union[VideoInput, List[VideoInput]]
