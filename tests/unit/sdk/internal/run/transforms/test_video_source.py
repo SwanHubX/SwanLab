@@ -25,6 +25,17 @@ from swanlab.sdk.internal.run.components.consumer.builder import RecordBuilder
 from swanlab.sdk.internal.run.transforms.video import source
 
 GIF = b"GIF89a" + b"payload"
+DEFAULT_MAX_SIZE = 50 * 1024**2
+
+
+def _make_builder(tmp_path, *, media_max_size=DEFAULT_MAX_SIZE, skip_store=False):
+    ctx = SimpleNamespace(
+        media_dir=tmp_path,
+        config=SimpleNamespace(
+            settings=SimpleNamespace(core=SimpleNamespace(skip_store=skip_store, media_max_size=media_max_size))
+        ),
+    )
+    return RecordBuilder(cast(RunContext, ctx))
 
 
 def test_bytesio_cursor_and_invalid_offset():
@@ -37,7 +48,8 @@ def test_bytesio_cursor_and_invalid_offset():
     invalid.seek(2)
     with pytest.raises(source.VideoProcessingError):
         Video(invalid)
-    assert invalid.tell() == len(GIF)
+    # 格式探测失败不会消费调用方流
+    assert invalid.tell() == 2
 
 
 def test_binding_errors_remain_python_errors():
@@ -96,34 +108,9 @@ def test_owned_scratch_released_with_last_nested_source(tmp_path, monkeypatch):
     assert not scratch.exists()
 
 
-@pytest.mark.parametrize("delta,valid", [(-1, True), (0, True), (1, False)])
-def test_exact_size_limit(delta, valid, monkeypatch):
-    monkeypatch.setattr(source, "MAX_SIZE", 100)
-    content = GIF + b"x" * (100 + delta - len(GIF))
-    if valid:
-        assert Video(content).size == len(content)
-    else:
-        with pytest.raises(source.VideoProcessingError) as error:
-            Video(content)
-        assert error.value.code == "size_limit"
-
-
-def test_buffer_growth_rechecked_before_logging(monkeypatch):
-    monkeypatch.setattr(source, "MAX_SIZE", 100)
-    video = Video(GIF)
-    video.buffer.seek(0, 2)
-    video.buffer.write(b"x" * 100)
-    with pytest.raises(source.VideoProcessingError, match="exceeds"):
-        video.transform(step=0, path=None)
-
-
 @pytest.mark.parametrize("skip_store", [False, True])
 def test_video_record_builder_propagates_transform_failure(tmp_path, monkeypatch, skip_store):
-    ctx = SimpleNamespace(
-        media_dir=tmp_path,
-        config=SimpleNamespace(settings=SimpleNamespace(core=SimpleNamespace(skip_store=skip_store))),
-    )
-    builder = RecordBuilder(cast(RunContext, ctx))
+    builder = _make_builder(tmp_path, skip_store=skip_store)
     bad = Video(GIF, "bad")
     good = Video(GIF + b"good", "good")
     bad_source = bad._source
@@ -140,40 +127,39 @@ def test_video_record_builder_propagates_transform_failure(tmp_path, monkeypatch
 
 
 @pytest.mark.parametrize(
-    "media_type,limit_mib",
+    "media_type",
     [
-        (ColumnType.COLUMN_TYPE_VIDEO, 100),
-        (ColumnType.COLUMN_TYPE_IMAGE, 10),
-        (ColumnType.COLUMN_TYPE_AUDIO, 10),
-        (ColumnType.COLUMN_TYPE_TEXT, 10),
-        (ColumnType.COLUMN_TYPE_HTML, 10),
-        (ColumnType.COLUMN_TYPE_ECHARTS, 10),
-        (ColumnType.COLUMN_TYPE_OBJECT3D, 10),
-        (ColumnType.COLUMN_TYPE_MOLECULE, 10),
+        ColumnType.COLUMN_TYPE_VIDEO,
+        ColumnType.COLUMN_TYPE_IMAGE,
+        ColumnType.COLUMN_TYPE_AUDIO,
+        ColumnType.COLUMN_TYPE_TEXT,
+        ColumnType.COLUMN_TYPE_HTML,
+        ColumnType.COLUMN_TYPE_ECHARTS,
+        ColumnType.COLUMN_TYPE_OBJECT3D,
+        ColumnType.COLUMN_TYPE_MOLECULE,
     ],
 )
 @pytest.mark.parametrize("delta", [-1, 0, 1])
-def test_media_size_limit_by_type(tmp_path, media_type, limit_mib, delta):
-    builder = RecordBuilder(cast(RunContext, SimpleNamespace(media_dir=tmp_path)))
+def test_media_size_limit_is_uniform_across_types(tmp_path, media_type, delta):
+    builder = _make_builder(tmp_path)
     media = MediaRecord(
-        key="media", type=media_type, value=MediaValue(items=[MediaItem(size=limit_mib * 1024**2 + delta)])
+        key="media",
+        type=media_type,
+        value=MediaValue(items=[MediaItem(size=DEFAULT_MAX_SIZE + delta)]),
     )
     assert (builder._ensure_media_size(media) is not None) is (delta <= 0)
 
 
-def test_video_size_limit_does_not_raise_image_limit(tmp_path):
-    builder = RecordBuilder(cast(RunContext, SimpleNamespace(media_dir=tmp_path)))
+def test_media_size_limit_follows_settings(tmp_path):
+    builder = _make_builder(tmp_path, media_max_size=10 * 1024**2)
     video = MediaRecord(type=ColumnType.COLUMN_TYPE_VIDEO, value=MediaValue(items=[MediaItem(size=11 * 1024**2)]))
     image = MediaRecord(type=ColumnType.COLUMN_TYPE_IMAGE, value=video.value)
-    assert builder._ensure_media_size(video) is not None
+    assert builder._ensure_media_size(video) is None
     assert builder._ensure_media_size(image) is None
 
 
 def test_video_list_uses_existing_108_limit(tmp_path):
-    ctx = SimpleNamespace(
-        media_dir=tmp_path, config=SimpleNamespace(settings=SimpleNamespace(core=SimpleNamespace(skip_store=True)))
-    )
-    builder = RecordBuilder(cast(RunContext, ctx))
+    builder = _make_builder(tmp_path, skip_store=True)
     values = [Video(GIF, caption=str(i)) for i in range(109)]
     record, _ = builder.build_scalar_or_media(values, "clips", Timestamp(), 0)
     assert isinstance(record, MediaRecord)
@@ -183,13 +169,8 @@ def test_video_list_uses_existing_108_limit(tmp_path):
 
 
 @pytest.mark.parametrize("skip_store", [False, True])
-def test_media_record_has_no_total_payload_budget(tmp_path, monkeypatch, skip_store):
-    ctx = SimpleNamespace(
-        media_dir=tmp_path,
-        config=SimpleNamespace(settings=SimpleNamespace(core=SimpleNamespace(skip_store=skip_store))),
-    )
-    monkeypatch.setattr("swanlab.sdk.internal.run.components.consumer.builder.VIDEO_MAX_SIZE", len(GIF))
-    builder = RecordBuilder(cast(RunContext, ctx))
+def test_media_record_has_no_total_payload_budget(tmp_path, skip_store):
+    builder = _make_builder(tmp_path, media_max_size=len(GIF), skip_store=skip_store)
     record, _ = builder.build_scalar_or_media([Video(GIF), Video(GIF)], "clips", Timestamp(), 0)
     assert isinstance(record, MediaRecord)
     assert len(record.value.items) == 2
@@ -200,11 +181,7 @@ def test_media_record_has_no_total_payload_budget(tmp_path, monkeypatch, skip_st
 
 
 def test_video_list_uses_existing_input_validation(tmp_path):
-    ctx = SimpleNamespace(
-        media_dir=tmp_path,
-        config=SimpleNamespace(settings=SimpleNamespace(core=SimpleNamespace(skip_store=True))),
-    )
-    builder = RecordBuilder(cast(RunContext, ctx))
+    builder = _make_builder(tmp_path, skip_store=True)
     with pytest.raises(TypeError, match="same type"):
         builder.build_scalar_or_media([Video(GIF), 1], "clips", Timestamp(), 0)
     with pytest.raises(TypeError, match="empty"):

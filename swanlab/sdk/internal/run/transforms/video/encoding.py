@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Iterator, Optional, cast
 
 from swanlab.sdk.internal.pkg import console
 
-from .source import CHUNK_SIZE, MAX_SIZE, VideoProcessingError, VideoSource
+from .source import CHUNK_SIZE, VideoProcessingError, VideoSource
 
 if TYPE_CHECKING:
     import numpy as np
@@ -44,7 +44,17 @@ class Frames:
         self.data = data.reshape((1, *data.shape)) if data.ndim == 4 else data
         self.batch, self.count, channels, height, width = tuple(int(n) for n in self.data.shape)
         if channels not in (1, 3, 4):
-            raise VideoProcessingError("shape", "Video channels must be 1, 3 or 4")
+            hint = ""
+            if data.shape[-1] in (1, 3, 4):
+                hint = (
+                    "; input looks like THWC, transpose to TCHW first (array.transpose(0, 3, 1, 2))"
+                    if data.ndim == 4
+                    else "; input looks like BTHWC, transpose to BTCHW first (array.transpose(0, 1, 4, 2, 3))"
+                )
+            raise VideoProcessingError(
+                "shape",
+                f"Video channels must be 1, 3 or 4, got shape {tuple(int(n) for n in data.shape)}{hint}",
+            )
         if channels == 4:
             console.warning("Video RGBA frames are encoded as RGB; alpha is not retained")
         self.rows = 2 ** ((self.batch.bit_length() - 1) // 2)
@@ -118,7 +128,6 @@ def _encode_pipe(frames: Frames, fmt: str) -> BytesIO:
         command += ["-movflags", "frag_keyframe+empty_moov"]
     command += ["-f", {"mp4": "mp4", "webm": "webm", "ogg": "ogg"}[fmt], "pipe:1"]
     output, diagnostics = BytesIO(), bytearray()
-    exceeded = threading.Event()
     errors: list[Exception] = []
     process = cast(
         subprocess.Popen[bytes],
@@ -134,10 +143,6 @@ def _encode_pipe(frames: Frames, fmt: str) -> BytesIO:
             while True:
                 chunk = process.stdout.read(CHUNK_SIZE)
                 if not chunk:
-                    break
-                if output.tell() + len(chunk) > MAX_SIZE:
-                    exceeded.set()
-                    process.terminate()
                     break
                 output.write(chunk)
         except Exception as error:
@@ -182,8 +187,6 @@ def _encode_pipe(frames: Frames, fmt: str) -> BytesIO:
             thread.join()
         process.stdout.close()
         process.stderr.close()
-    if exceeded.is_set():
-        raise VideoProcessingError("size_limit", f"Encoded video exceeds {MAX_SIZE} bytes")
     if process.returncode or errors:
         reason = diagnostics.decode("utf-8", errors="replace").strip()[-1000:]
         raise VideoProcessingError("encoding", f"FFmpeg {fmt} encoder failed: {reason}")
@@ -210,8 +213,6 @@ def _encode_file(frames: Frames, fmt: str, path: Path) -> None:
     try:
         for frame in frames:
             writer.write_frame(frame)
-            if path.stat().st_size > MAX_SIZE:
-                raise VideoProcessingError("size_limit", f"Encoded video exceeds {MAX_SIZE} bytes")
     finally:
         writer.close()
     if process.returncode:
@@ -225,22 +226,13 @@ def _encode_gif(frames: Frames, path: Optional[Path]) -> Optional[BytesIO]:
     memory = BytesIO() if path is None else None
     with path.open("wb") if path is not None else nullcontext(memory) as output:
         assert output is not None
-        size = 0
-
-        def write(block: bytes) -> None:
-            nonlocal size
-            size += len(block)
-            if size > MAX_SIZE:
-                raise VideoProcessingError("size_limit", f"Encoded video exceeds {MAX_SIZE} bytes")
-            output.write(block)
-
         for index, frame in enumerate(frames):
             # 每帧单独量化并写入，及时关闭 PIL 图像；不保留整段未压缩帧。
             with Image.fromarray(frame) as rgb, rgb.quantize(colors=256, method=0) as image:
                 if index == 0:
                     header, _ = GifImagePlugin.getheader(image, info={"loop": 0, "optimize": False})
                     for block in header:
-                        write(block)
+                        output.write(block)
                 blocks = GifImagePlugin.getdata(
                     image,
                     duration=1000 / frames.fps,
@@ -248,8 +240,8 @@ def _encode_gif(frames: Frames, path: Optional[Path]) -> Optional[BytesIO]:
                     include_color_table=index > 0,
                 )
                 for block in blocks:
-                    write(block)
-        write(b";")
+                    output.write(block)
+        output.write(b";")
     if memory is not None:
         memory.seek(0)
     return memory

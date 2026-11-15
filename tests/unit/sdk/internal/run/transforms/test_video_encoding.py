@@ -99,6 +99,31 @@ def test_nonfinite_pixels_are_invalid(value):
     assert error.value.code == "dtype"
 
 
+def test_thwc_input_points_to_transpose():
+    """通道在最后一维时明确提示转置，而不是笼统报通道非法。"""
+    with pytest.raises(VideoProcessingError) as error:
+        Video(np.zeros((2, 32, 48, 3), dtype=np.uint8), format="gif")
+    assert error.value.code == "shape"
+    assert "THWC" in str(error.value)
+    assert "transpose(0, 3, 1, 2)" in str(error.value)
+
+
+def test_bthwc_input_points_to_transpose():
+    with pytest.raises(VideoProcessingError) as error:
+        Video(np.zeros((2, 3, 32, 48, 3), dtype=np.uint8), format="gif")
+    assert error.value.code == "shape"
+    assert "BTHWC" in str(error.value)
+    assert "transpose(0, 1, 4, 2, 3)" in str(error.value)
+
+
+def test_invalid_channels_without_layout_hint():
+    """HWC 之类的布局不冒充 THWC 提示。"""
+    with pytest.raises(VideoProcessingError) as error:
+        Video(np.zeros((2, 5, 32, 48), dtype=np.uint8), format="gif")
+    assert error.value.code == "shape"
+    assert "THWC" not in str(error.value)
+
+
 @pytest.mark.parametrize("fps", [0, -1, True, 1.5])
 def test_invalid_fps(fps):
     with pytest.raises(VideoProcessingError):

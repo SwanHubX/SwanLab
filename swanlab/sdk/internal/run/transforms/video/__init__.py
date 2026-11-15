@@ -17,12 +17,9 @@ from swanlab.sdk.typings.run.transforms.video import VideoFormat, VideoInput
 
 from .encoding import encode, require_modules
 from .source import (
-    CHUNK_SIZE,
-    MAX_SIZE,
     SUPPORTED_FORMATS,
     VideoProcessingError,
     VideoSource,
-    check_size,
     scratch_path,
     snapshot,
 )
@@ -66,13 +63,10 @@ class Video(TransformMedia):
             actual_format = path.suffix.lower().lstrip(".")
             if actual_format not in SUPPORTED_FORMATS:
                 raise VideoProcessingError("format_mismatch", "Video file extension must be gif, mp4, webm or ogg")
-            check_size(path.stat().st_size)
             self._file_options(fps, fmt, actual_format)
             with path.open("rb") as stream:
                 return snapshot(stream, actual_format, scratch_path(actual_format))
         if isinstance(data, (bytes, BytesIO)):
-            if isinstance(data, bytes):
-                check_size(len(data))
             stream = BytesIO(data) if isinstance(data, bytes) else data
             # 不移动调用方游标来探测头部；getbuffer 的切片不复制整个输入。
             view = stream.getbuffer()
@@ -82,10 +76,6 @@ class Video(TransformMedia):
                 view.release()
             actual_format = fmt or ("gif" if is_gif else None)
             if actual_format is None:
-                consumed = 0
-                while chunk := stream.read(min(CHUNK_SIZE, MAX_SIZE + 1 - consumed)):
-                    consumed += len(chunk)
-                    check_size(consumed)
                 raise VideoProcessingError("format_required", "Non-GIF video bytes require an explicit format")
             if actual_format not in SUPPORTED_FORMATS:
                 raise VideoProcessingError("argument", "Video format must be gif, mp4, webm or ogg")

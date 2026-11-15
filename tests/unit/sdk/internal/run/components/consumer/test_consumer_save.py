@@ -20,6 +20,7 @@ def _make_consumer(tmp_path: Path, batch_size: int = 100):
         run_dir=tmp_path,
         metrics=MagicMock(),
         callbacker=MagicMock(),
+        config=SimpleNamespace(settings=SimpleNamespace(core=SimpleNamespace(media_max_size=50 * 1024**2))),
     )
     builder = MagicMock()
     builder.build_save.return_value = SaveRecord(

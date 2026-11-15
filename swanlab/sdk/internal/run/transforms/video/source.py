@@ -13,7 +13,6 @@ from uuid import uuid4
 from swanlab.sdk.internal.pkg import console
 
 CHUNK_SIZE = 1024 * 1024
-MAX_SIZE = 100 * 1024 * 1024
 SUPPORTED_FORMATS = ("gif", "mp4", "webm", "ogg")
 
 
@@ -21,13 +20,6 @@ class VideoProcessingError(ValueError):
     def __init__(self, code: str, message: str):
         super().__init__(message)
         self.code = code
-
-
-def check_size(size: int) -> None:
-    if size > MAX_SIZE:
-        raise VideoProcessingError("size_limit", f"Video exceeds {MAX_SIZE} bytes")
-    if size <= 0:
-        raise VideoProcessingError("format_mismatch", "Video content is empty")
 
 
 def _vint(data: bytes, offset: int, *, identifier: bool = False) -> tuple[int, int]:
@@ -151,9 +143,7 @@ class VideoSource:
                 if not chunk:
                     break
                 size += len(chunk)
-                check_size(size)
                 digest.update(chunk)
-        check_size(size)
         sha256 = digest.hexdigest()
         if self.sha256 and sha256 != self.sha256:
             console.warning("Video content changed; its size and hash were refreshed")
@@ -164,13 +154,10 @@ class VideoSource:
         if self.memory is None:
             result = BytesIO()
             with self.reader() as stream:
-                total = 0
                 while True:
                     chunk = stream.read(CHUNK_SIZE)
                     if not chunk:
                         break
-                    total += len(chunk)
-                    check_size(total)
                     result.write(chunk)
             result.seek(0)
             self.memory = result
@@ -194,7 +181,6 @@ class VideoSource:
                 digest = hashlib.sha256()
                 for chunk in iter(lambda: source.read(CHUNK_SIZE), b""):
                     total += len(chunk)
-                    check_size(total)
                     digest.update(chunk)
                     output.write(chunk)
                 if total != self.size or digest.hexdigest() != self.sha256:
@@ -213,16 +199,14 @@ def snapshot(stream: BinaryIO, fmt: str, path: Optional[Path]) -> VideoSource:
             assert output is not None
             size = 0
             while True:
-                chunk = stream.read(min(CHUNK_SIZE, MAX_SIZE + 1 - size))
+                chunk = stream.read(CHUNK_SIZE)
                 if not chunk:
                     break
                 size += len(chunk)
-                check_size(size)
                 if len(header) < 65536:
                     header.extend(chunk[: 65536 - len(header)])
                 digest.update(chunk)
                 output.write(chunk)
-        check_size(size)
         validate_header(bytes(header), fmt)
         source.size = size
         source.sha256 = digest.hexdigest()
