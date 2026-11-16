@@ -53,7 +53,7 @@ from swanlab.sdk.internal.core_go.process.lock import (
 from swanlab.sdk.internal.core_go.process.lock import (
     try_acquire_start_lock as _try_acquire_start_lock,
 )
-from swanlab.sdk.internal.pkg import console, fork
+from swanlab.sdk.internal.pkg import console, fork, safe
 
 __all__ = [
     "RuntimeLease",
@@ -104,10 +104,9 @@ def _sanitize_user_segment(raw: str) -> str:
 def _user_segment() -> str:
     if os.name != "nt" and hasattr(os, "getuid"):
         return str(os.getuid())
-    try:
+    user = os.environ.get("USERNAME") or ""
+    with safe.block(message=None):
         user = getpass.getuser()
-    except Exception:
-        user = os.environ.get("USERNAME") or ""
     return _sanitize_user_segment(user)
 
 

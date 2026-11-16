@@ -201,3 +201,26 @@ def test_try_acquire_rejects_symlink_lock(tmp_path):
 def test_parse_lock_rejects_malformed(content):
     with pytest.raises(ValueError):
         _parse_lock(content.encode("utf-8"))
+
+
+def test_create_lock_file_uses_binary_flag_and_writes_lf(tmp_path, monkeypatch):
+    from swanlab.sdk.internal.core_go.process import lock as lock_module
+
+    runtime_dir = _make_runtime_dir(tmp_path)
+    lock_path = runtime_dir / LOCK_FILE_NAME
+    seen_flags = []
+    real_open = os.open
+
+    monkeypatch.setattr(lock_module.os, "O_BINARY", 0x8000, raising=False)
+
+    def spy_open(path, flags, mode=0o777):
+        seen_flags.append(flags)
+        return real_open(path, flags & ~0x8000, mode)
+
+    monkeypatch.setattr(lock_module.os, "open", spy_open)
+
+    assert _create_lock_file(lock_path, 123, 456)
+    assert seen_flags and all(flag & 0x8000 for flag in seen_flags)
+    raw = lock_path.read_bytes()
+    assert b"\r" not in raw
+    assert _parse_lock(raw) == (123, 456)

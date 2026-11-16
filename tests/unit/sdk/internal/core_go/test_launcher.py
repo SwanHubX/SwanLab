@@ -376,7 +376,7 @@ def test_concurrent_launchers_with_real_start_lock_spawn_once(launcher_env, monk
 
 def test_start_clears_stale_port_file_before_spawning(launcher_env, monkeypatch):
     binary, lease, endpoint, calls = launcher_env
-    lease.port_file.write_text("protocol=1\npid=99999\nunix=/tmp/old.sock\nEOF\n")
+    lease.port_file.write_bytes(b"protocol=1\npid=99999\nunix=/tmp/old.sock\nEOF\n")
     saw_port_file_at_spawn = {}
 
     def checking_spawn(binary_path: Path, runtime: RuntimeLease):

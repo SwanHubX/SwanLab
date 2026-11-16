@@ -49,7 +49,7 @@ def test_discover_endpoint_finds_live_tcp_and_ignores_stale_tcp(short_runtime_di
         listener.listen(1)
         port = listener.getsockname()[1]
 
-        port_file.write_text(f"protocol=1\npid=4321\nsock={port}\nEOF\n")
+        port_file.write_bytes(f"protocol=1\npid=4321\nsock={port}\nEOF\n".encode("utf-8"))
         found = discover_endpoint(port_file, short_runtime_dir)
         assert found == Endpoint(kind="tcp", pid=4321, tcp_port=port)
 
@@ -66,7 +66,7 @@ def test_discover_endpoint_finds_live_unix_and_rejects_outside_dir(short_runtime
         listener.bind(str(sock_path))
         listener.listen(1)
 
-        port_file.write_text(f"protocol=1\npid=8888\nunix={sock_path}\nEOF\n")
+        port_file.write_bytes(f"protocol=1\npid=8888\nunix={sock_path}\nEOF\n".encode("utf-8"))
         found = discover_endpoint(port_file, short_runtime_dir)
         assert found == Endpoint(kind="unix", pid=8888, unix_path=str(sock_path))
 
@@ -81,5 +81,5 @@ def test_discover_endpoint_finds_live_unix_and_rejects_outside_dir(short_runtime
     assert caught.value.stage is Stage.PORT_FILE
     assert caught.value.reason is ReasonCode.OWNERSHIP_MISMATCH
 
-    port_file.write_text(f"protocol=1\npid=8888\nunix={outside_sock}\nEOF\n")
+    port_file.write_bytes(f"protocol=1\npid=8888\nunix={outside_sock}\nEOF\n".encode("utf-8"))
     assert discover_endpoint(port_file, short_runtime_dir) is None

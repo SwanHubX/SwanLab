@@ -30,6 +30,7 @@ from swanlab.sdk.internal.core_go.config import (
     START_LOCK_TIMEOUT,
 )
 from swanlab.sdk.internal.core_go.errors import CoreGoError, ReasonCode, Stage
+from swanlab.sdk.internal.pkg import safe
 
 _LOCK_FILE_MODE = 0o600
 _NS_PER_SECOND = 1_000_000_000
@@ -128,9 +129,11 @@ def _read_lock_file(lock_path: Path) -> Tuple[int, int]:
 def _create_lock_file(lock_path: Path, pid: int, created_at: int) -> bool:
     """原子创建锁文件；成功返回 True，已被占用返回 False。"""
     payload = _marshal_lock(pid, created_at)
+    # Windows 下 os.open 默认文本模式会把 \n 转成 \r\n，必须显式附加 O_BINARY。
+    open_flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0)
     tmp_path = lock_path.parent / f".{LOCK_FILE_NAME}-{pid}-{secrets.token_hex(6)}"
     try:
-        fd = os.open(str(tmp_path), os.O_WRONLY | os.O_CREAT | os.O_EXCL, _LOCK_FILE_MODE)
+        fd = os.open(str(tmp_path), open_flags, _LOCK_FILE_MODE)
         try:
             view = memoryview(payload)
             written = 0
@@ -149,15 +152,11 @@ def _create_lock_file(lock_path: Path, pid: int, created_at: int) -> bool:
             # 少数不支持硬链接的文件系统回退到 O_CREAT|O_EXCL。
             pass
     finally:
-        try:
+        with safe.block(OSError, message=None):
             os.unlink(str(tmp_path))
-        except FileNotFoundError:
-            pass
-        except OSError:
-            pass
 
     try:
-        fd = os.open(str(lock_path), os.O_WRONLY | os.O_CREAT | os.O_EXCL, _LOCK_FILE_MODE)
+        fd = os.open(str(lock_path), open_flags, _LOCK_FILE_MODE)
     except FileExistsError:
         return False
 
@@ -168,10 +167,8 @@ def _create_lock_file(lock_path: Path, pid: int, created_at: int) -> bool:
             written += os.write(fd, view[written:])
     except BaseException:
         os.close(fd)
-        try:
+        with safe.block(OSError, message=None):
             os.unlink(str(lock_path))
-        except OSError:
-            pass
         raise
     os.close(fd)
     return True
@@ -255,10 +252,8 @@ class StartupLock:
         if current_pid != self.pid or current_created != self.created_at:
             return
 
-        try:
+        with safe.block(OSError, message=None):
             os.unlink(str(self.path))
-        except OSError:
-            pass
 
     def __enter__(self) -> "StartupLock":
         return self
