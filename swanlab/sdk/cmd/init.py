@@ -589,8 +589,7 @@ def _validate_existing_run_dir(run_dir: Path, run_id: str) -> None:
         return
     if len(run_files) > 1:
         raise RuntimeError(f"Multiple run-*.swanlab files found in '{run_dir}'; cannot determine which run to resume.")
-    # CorePython 的 DataStoreWriter 以 "xb" 独占创建文件，无法追加或接管既有 store。
-    # 只有 Go core 支持从已有 run 文件续传；否则这里直接失败，避免打印"继续上次运行"后才在启动 store 时报错。
+    #  仅 CoreGo 支持从已有 run 文件续传；否则直接失败
     if helper.get_core_impl() == "python":
         raise RuntimeError(
             f"Run directory '{run_dir}' already contains run file '{run_files[0].name}', "
