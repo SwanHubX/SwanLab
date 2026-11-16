@@ -6,8 +6,10 @@
 """
 
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -23,6 +25,22 @@ from swanlab.sdk.internal.core_go.process import (
     stderr_tail,
     wait_endpoint,
 )
+
+
+@pytest.fixture(autouse=True)
+def isolated_runtime_root(tmp_path, monkeypatch):
+    """隔离测试用 runtime 根目录，避免写入真实 per-user runtime 目录。"""
+    if sys.platform == "win32":
+        monkeypatch.setattr(process_module, "_runtime_root", lambda: tmp_path)
+        yield
+        return
+
+    root = Path(tempfile.mkdtemp(prefix="swl-t-", dir="/tmp"))
+    monkeypatch.setattr(process_module, "_runtime_root", lambda: root)
+    try:
+        yield
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
 
 
 @pytest.fixture(autouse=True)

@@ -16,14 +16,27 @@
 - 解析失败统一抛 CoreGoError(stage=PORT_FILE, reason=PORT_FILE_INVALID)。
 """
 
+import socket
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from swanlab.sdk.internal.core_go.config import MAX_UNIX_PATH_BYTES, PORT_FILE_MAX_BYTES
+from swanlab.sdk.internal.core_go.config import (
+    ENDPOINT_PROBE_TIMEOUT,
+    MAX_UNIX_PATH_BYTES,
+    PORT_FILE_MAX_BYTES,
+)
 from swanlab.sdk.internal.core_go.errors import CoreGoError, ReasonCode, Stage
 
-__all__ = ["Endpoint", "parse_port_file", "read_port_file", "validate_ownership"]
+__all__ = [
+    "Endpoint",
+    "discover_endpoint",
+    "parse_port_file",
+    "probe_endpoint",
+    "read_port_file",
+    "validate_discovered_endpoint",
+    "validate_ownership",
+]
 
 _EOF = b"EOF"
 _MAX_PID = 1 << 31 - 1
@@ -138,20 +151,8 @@ def read_port_file(path: Path) -> Endpoint:
     return parse_port_file(data)
 
 
-def validate_ownership(endpoint: Endpoint, process_pid: int, runtime_dir: Path) -> None:
-    """校验端点确实由本次 spawn 的进程创建。
-
-    - pid 必须等于 Popen 的 pid；
-    - UDS 必须落在本次 runtime 目录内，且 socket 本身不是符号链接；
-    - TCP 只允许 loopback，port-file 没有 host 字段，无需额外解析。
-    """
-    if endpoint.pid != process_pid:
-        raise CoreGoError(
-            Stage.PORT_FILE,
-            ReasonCode.OWNERSHIP_MISMATCH,
-            f"port-file pid {endpoint.pid} does not match spawned pid {process_pid}",
-        )
-
+def validate_discovered_endpoint(endpoint: Endpoint, runtime_dir: Path) -> None:
+    """校验待复用端点落在指定的 runtime 目录边界内（不绑定创建者 PID）。"""
     if endpoint.kind == "unix":
         socket_path = Path(endpoint.unix_path or "")
         if socket_path.parent != Path(runtime_dir):
@@ -179,3 +180,72 @@ def validate_ownership(endpoint: Endpoint, process_pid: int, runtime_dir: Path) 
             ReasonCode.OWNERSHIP_MISMATCH,
             f"unsupported endpoint kind {endpoint.kind!r}",
         )
+
+
+def validate_ownership(endpoint: Endpoint, process_pid: int, runtime_dir: Path) -> None:
+    """校验端点确实由本次 spawn 的进程创建。
+
+    - pid 必须等于 Popen 的 pid；
+    - UDS 必须落在本次 runtime 目录内，且 socket 本身不是符号链接；
+    - TCP 只允许 loopback，port-file 没有 host 字段，无需额外解析。
+    """
+    if endpoint.pid != process_pid:
+        raise CoreGoError(
+            Stage.PORT_FILE,
+            ReasonCode.OWNERSHIP_MISMATCH,
+            f"port-file pid {endpoint.pid} does not match spawned pid {process_pid}",
+        )
+    validate_discovered_endpoint(endpoint, runtime_dir)
+
+
+def probe_endpoint(endpoint: Endpoint, timeout: float = ENDPOINT_PROBE_TIMEOUT) -> bool:
+    """用短超时探测端点是否仍有 core 进程在监听。"""
+    if endpoint.kind == "unix":
+        if not endpoint.unix_path or not hasattr(socket, "AF_UNIX"):
+            return False
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        try:
+            sock.settimeout(timeout)
+            sock.connect(endpoint.unix_path)
+            return True
+        except OSError:
+            return False
+        finally:
+            sock.close()
+
+    if endpoint.kind == "tcp":
+        if endpoint.tcp_port is None or not 1 <= endpoint.tcp_port <= _MAX_PORT:
+            return False
+        try:
+            with socket.create_connection(("127.0.0.1", endpoint.tcp_port), timeout=timeout):
+                return True
+        except OSError:
+            return False
+
+    return False
+
+
+def discover_endpoint(
+    port_file: Path,
+    runtime_dir: Path,
+    *,
+    probe_timeout: float = ENDPOINT_PROBE_TIMEOUT,
+) -> Optional[Endpoint]:
+    """发现并探测已有可用端点；缺失、损坏、越界或不可达时返回 None。"""
+    try:
+        endpoint = read_port_file(port_file)
+    except (FileNotFoundError, OSError):
+        return None
+    except CoreGoError as exc:
+        if exc.reason is ReasonCode.PORT_FILE_INVALID:
+            return None
+        raise
+
+    try:
+        validate_discovered_endpoint(endpoint, runtime_dir)
+    except CoreGoError:
+        return None
+
+    if not probe_endpoint(endpoint, timeout=probe_timeout):
+        return None
+    return endpoint

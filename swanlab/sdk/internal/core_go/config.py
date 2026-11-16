@@ -17,6 +17,7 @@
 __all__ = [
     "BINARY_NAME",
     "PORT_FILE_NAME",
+    "LOCK_FILE_NAME",
     "RUNTIME_DIR_PREFIX",
     "STDERR_FILE_NAME",
     "PORT_FILE_MAX_BYTES",
@@ -24,6 +25,10 @@ __all__ = [
     "RUNTIME_DIR_MODE",
     "PORT_FILE_TIMEOUT",
     "ENDPOINT_POLL_INTERVAL",
+    "ENDPOINT_PROBE_TIMEOUT",
+    "START_LOCK_TIMEOUT",
+    "START_LOCK_STALE_SECONDS",
+    "START_LOCK_POLL_INTERVAL",
     "CHANNEL_READY_TIMEOUT",
     "RPC_TIMEOUT",
     "RUN_START_TIMEOUT",
@@ -45,6 +50,8 @@ __all__ = [
 BINARY_NAME = "swanlab-core"
 # port-file 文件名，与 Go 侧约定一致。
 PORT_FILE_NAME = "core.port"
+# 启动锁文件名，与 Go portinfo.LockFileName 一致。
+LOCK_FILE_NAME = "core.lock"
 # 私有 runtime 目录前缀，清理时据此判断归属。
 RUNTIME_DIR_PREFIX = "swanlab-core-"
 # 启动期临时 stderr 文件名，仅用于失败诊断。
@@ -63,6 +70,12 @@ RUNTIME_DIR_MODE = 0o700
 PORT_FILE_TIMEOUT = 30.0
 # 轮询 port-file 与子进程状态的间隔。
 ENDPOINT_POLL_INTERVAL = 0.05
+# 探测已有端点是否存活的短超时，对齐 Go endpointProbeTimeout。
+ENDPOINT_PROBE_TIMEOUT = 0.2
+# 等待启动锁的总预算、陈旧锁回收阈值与轮询间隔，对齐 Go portinfo 常量。
+START_LOCK_TIMEOUT = 35.0
+START_LOCK_STALE_SECONDS = 30.0
+START_LOCK_POLL_INTERVAL = 0.02
 # gRPC channel 进入 READY 的预算。
 CHANNEL_READY_TIMEOUT = 10.0
 # 通用单次 gRPC 调用预算，仅用于没有专属语义的超时。
