@@ -141,3 +141,18 @@ def test_acquire_runtime_rejects_oversized_socket_path(tmp_path, monkeypatch):
     assert caught.value.stage is Stage.RUNTIME
     assert caught.value.reason is ReasonCode.RUNTIME_UNAVAILABLE
     assert list(root.iterdir()) == []
+
+
+@pytest.mark.parametrize(
+    "env, expected",
+    [
+        ({"USERNAME": r"CORP\Alice.Smith"}, "CORP_Alice.Smith"),
+        ({"USERNAME": "张三"}, "default"),
+        ({"USERNAME": "alice_张三"}, "alice"),
+        ({"USERNAME": "...___"}, "default"),
+        ({"USERNAME": "  ", "USER": "bob", "LOGNAME": "carol"}, "bob"),
+        ({}, "default"),
+    ],
+)
+def test_windows_user_segment_matches_go_contract(env, expected):
+    assert process_module._windows_user_segment(env) == expected

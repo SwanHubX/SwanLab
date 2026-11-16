@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -175,5 +176,115 @@ func TestRunDetachedExitsBusyWhenPortFileServed(t *testing.T) {
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("first core did not exit after TeardownService")
+	}
+}
+
+func TestCleanupEndpointSkipsReplacedFiles(t *testing.T) {
+	dir := shortRuntimeDir(t)
+	if ensureErr := portinfo.EnsureRuntimeDir(dir); ensureErr != nil {
+		t.Fatalf("EnsureRuntimeDir: %v", ensureErr)
+	}
+	portFile := filepath.Join(dir, portinfo.CorePortFileName)
+
+	oldPort := portinfo.Info{Protocol: portinfo.ProtocolVersion, PID: 1001, SockPort: 12345}
+	var oldSockPath string
+	var oldSockInfo os.FileInfo
+	var newLn net.Listener
+
+	if runtime.GOOS != "windows" {
+		oldSockPath = filepath.Join(dir, coreSocketName)
+		oldLn, listenErr := net.Listen("unix", oldSockPath)
+		if listenErr != nil {
+			t.Fatalf("old unix listen: %v", listenErr)
+		}
+		oldLn.(*net.UnixListener).SetUnlinkOnClose(false)
+		var statErr error
+		oldSockInfo, statErr = os.Lstat(oldSockPath)
+		if statErr != nil {
+			t.Fatal(statErr)
+		}
+		_ = oldLn.Close()
+		// Close() 不得自动 unlink 残留 socket，由统一清理路径负责。
+		if _, afterCloseErr := os.Lstat(oldSockPath); afterCloseErr != nil {
+			t.Fatalf("SetUnlinkOnClose(false) still removed socket: %v", afterCloseErr)
+		}
+		oldPort = portinfo.Info{Protocol: portinfo.ProtocolVersion, PID: 1001, UnixPath: oldSockPath}
+	}
+
+	if writeErr := portinfo.WriteFile(portFile, &oldPort); writeErr != nil {
+		t.Fatal(writeErr)
+	}
+	oldPortInfo, statErr := os.Lstat(portFile)
+	if statErr != nil {
+		t.Fatal(statErr)
+	}
+
+	// 模拟新实例接管并重建 socket 与 port-file。
+	newPort := portinfo.Info{Protocol: portinfo.ProtocolVersion, PID: 2002, SockPort: 23456}
+	if runtime.GOOS != "windows" {
+		if rmErr := os.Remove(oldSockPath); rmErr != nil {
+			t.Fatal(rmErr)
+		}
+		var listenErr error
+		newLn, listenErr = net.Listen("unix", oldSockPath)
+		if listenErr != nil {
+			t.Fatalf("new unix listen: %v", listenErr)
+		}
+		defer func() { _ = newLn.Close() }()
+		newPort = portinfo.Info{Protocol: portinfo.ProtocolVersion, PID: 2002, UnixPath: oldSockPath}
+	}
+	if writeErr := portinfo.WriteFile(portFile, &newPort); writeErr != nil {
+		t.Fatal(writeErr)
+	}
+
+	cleanupEndpoint(&endpointOwnership{
+		pid:          1001,
+		portFile:     portFile,
+		portFileInfo: oldPortInfo,
+		socketPath:   oldSockPath,
+		socketInfo:   oldSockInfo,
+	}, time.Second)
+
+	got, parseErr := portinfo.ParseFile(portFile)
+	if parseErr != nil {
+		t.Fatalf("new port-file was removed or corrupted: %v", parseErr)
+	}
+	if got.PID != 2002 {
+		t.Fatalf("port-file PID = %d, want 2002", got.PID)
+	}
+	if runtime.GOOS != "windows" && !endpointAlive("unix", oldSockPath) {
+		t.Fatal("new unix socket was removed by old instance cleanup")
+	}
+}
+
+func TestCleanupEndpointSkipsWhenLockHeld(t *testing.T) {
+	dir := shortRuntimeDir(t)
+	if ensureErr := portinfo.EnsureRuntimeDir(dir); ensureErr != nil {
+		t.Fatalf("EnsureRuntimeDir: %v", ensureErr)
+	}
+	portFile := filepath.Join(dir, portinfo.CorePortFileName)
+	info := portinfo.Info{Protocol: portinfo.ProtocolVersion, PID: 1001, SockPort: 12345}
+	if writeErr := portinfo.WriteFile(portFile, &info); writeErr != nil {
+		t.Fatal(writeErr)
+	}
+	portInfo, statErr := os.Lstat(portFile)
+	if statErr != nil {
+		t.Fatal(statErr)
+	}
+
+	lock, acquired, lockErr := portinfo.TryAcquireLock(dir, portinfo.LockOptions{})
+	if lockErr != nil || !acquired {
+		t.Fatalf("TryAcquireLock: acquired=%v err=%v", acquired, lockErr)
+	}
+	defer func() { _ = lock.Release() }()
+
+	cleanupEndpoint(&endpointOwnership{
+		pid:          1001,
+		portFile:     portFile,
+		portFileInfo: portInfo,
+	}, 20*time.Millisecond)
+
+	if _, pfErr := os.Stat(portFile); pfErr != nil {
+		t.Fatalf("port-file must not be deleted while startup lock is held: %v", pfErr)
 	}
 }

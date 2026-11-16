@@ -70,11 +70,12 @@ const (
 	exitEndpointBusy = 3
 )
 
-// 自选端点与收尾参数。
+// 自建端点与收尾参数。
 const (
-	coreSocketName = portinfo.CoreSocketFileName
-	loopbackAddr   = "127.0.0.1:0"
-	shutdownGrace  = 10 * time.Second
+	coreSocketName     = portinfo.CoreSocketFileName
+	loopbackAddr       = "127.0.0.1:0"
+	shutdownGrace      = 10 * time.Second
+	cleanupLockTimeout = 2 * time.Second
 )
 
 // endpointProbeTimeout 是端点存活探测的超时上限。
@@ -158,15 +159,10 @@ func run(args []string) int {
 		}
 	}
 
-	// 自建资源记录，退出时清理自己创建的部分。
-	var socketPath string
-	selfPID := os.Getpid() // 退出时凭它确认 port-file 属本实例
-	wrotePortFile := false
+	// 自建资源记录，退出时持启动锁并核对文件身份后清理自己创建的部分。
+	owned := endpointOwnership{pid: os.Getpid()}
 	defer func() {
-		cleanupSocket(socketPath)
-		if wrotePortFile {
-			cleanupPortFile(*portFilename, selfPID)
-		}
+		cleanupEndpoint(&owned, cleanupLockTimeout)
 	}()
 
 	ln, err := openEndpoint(*listenAddr, *portFilename)
@@ -178,9 +174,7 @@ func run(args []string) int {
 		return exitRunError
 	}
 	defer func() { _ = ln.Close() }()
-	if addr, ok := ln.Addr().(*net.UnixAddr); ok && !strings.HasPrefix(addr.Name, "@") {
-		socketPath = addr.Name
-	}
+	trackListenerOwnership(ln, &owned)
 
 	parentExited, pid, watchErr := watchParentIfAttached(*detach, *parentPID)
 	if watchErr != nil {
@@ -197,11 +191,14 @@ func run(args []string) int {
 
 	// listen 与 server 初始化成功后写 port-file，并立即释放启动锁。
 	if *portFilename != "" {
-		if writeErr := writePortFile(*portFilename, selfPID, ln.Addr()); writeErr != nil {
+		if writeErr := writePortFile(*portFilename, owned.pid, ln.Addr()); writeErr != nil {
 			console.Error("failed to write port-file:", writeErr)
 			return exitRunError
 		}
-		wrotePortFile = true
+		owned.portFile = *portFilename
+		if pfInfo, statErr := os.Lstat(*portFilename); statErr == nil {
+			owned.portFileInfo = pfInfo
+		}
 	}
 	releaseStartupLock()
 
@@ -340,26 +337,71 @@ func portFileServed(path string) (int, bool) {
 	return info.PID, endpointAlive("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(info.SockPort)))
 }
 
-// cleanupSocket 删除自己创建的 UDS socket 文件；Linux 抽象 socket（@ 前缀）
-// 不占文件系统，无需清理。
-func cleanupSocket(path string) {
-	if path == "" || strings.HasPrefix(path, "@") {
+type endpointOwnership struct {
+	pid          int
+	portFile     string
+	portFileInfo os.FileInfo
+	socketPath   string
+	socketInfo   os.FileInfo
+}
+
+func trackListenerOwnership(ln net.Listener, owned *endpointOwnership) {
+	if unixLn, ok := ln.(*net.UnixListener); ok {
+		// 禁用 Close() 自动 unlink，避免旧实例退出时无锁删掉新实例刚重建的 socket。
+		unixLn.SetUnlinkOnClose(false)
+	}
+	if addr, ok := ln.Addr().(*net.UnixAddr); ok && !strings.HasPrefix(addr.Name, "@") {
+		owned.socketPath = addr.Name
+		if sockInfo, statErr := os.Lstat(addr.Name); statErr == nil {
+			owned.socketInfo = sockInfo
+		}
+	}
+}
+
+// cleanupEndpoint 串行化退出清理与新实例接管：优先在运行时目录持有 core.lock，
+// 再分别核对 port-file 与 UDS socket 的文件身份，确认未被新实例替换后才删除。
+func cleanupEndpoint(owned *endpointOwnership, lockTimeout time.Duration) {
+	if owned == nil || (owned.portFile == "" && owned.socketPath == "") {
+		return
+	}
+	if owned.portFile != "" {
+		lockDir := filepath.Dir(owned.portFile)
+		if portinfo.ValidateRuntimeDir(lockDir) == nil {
+			ctx, cancel := context.WithTimeout(context.Background(), lockTimeout)
+			defer cancel()
+			lock, err := portinfo.AcquireLock(ctx, lockDir, portinfo.LockOptions{Timeout: lockTimeout})
+			if err != nil {
+				// 有新实例正在竞争或持锁接管时宁可保留旧文件，交由后续启动流程清理。
+				return
+			}
+			defer func() { _ = lock.Release() }()
+		}
+	}
+	cleanupPortFileChecked(owned.portFile, owned.pid, owned.portFileInfo)
+	cleanupSocketChecked(owned.socketPath, owned.socketInfo)
+}
+
+func cleanupSocketChecked(path string, expected os.FileInfo) {
+	if path == "" || strings.HasPrefix(path, "@") || expected == nil {
+		return
+	}
+	latest, err := os.Lstat(path)
+	if err != nil || !os.SameFile(expected, latest) {
 		return
 	}
 	_ = os.Remove(path)
 }
 
-// cleanupPortFile 在 pid 匹配时删除 port-file。同一路径被后启动实例
-// 覆盖后，本实例退出不得误删他者文件；文件缺失、损坏或 pid 不匹配时不删。
-func cleanupPortFile(path string, pid int) {
-	if path == "" || pid <= 0 {
+func cleanupPortFileChecked(path string, pid int, expected os.FileInfo) {
+	if path == "" || pid <= 0 || expected == nil {
+		return
+	}
+	latest, err := os.Lstat(path)
+	if err != nil || !os.SameFile(expected, latest) {
 		return
 	}
 	info, err := portinfo.ParseFile(path)
-	if err != nil {
-		return
-	}
-	if info.PID != pid {
+	if err != nil || info.PID != pid {
 		return
 	}
 	_ = os.Remove(path)

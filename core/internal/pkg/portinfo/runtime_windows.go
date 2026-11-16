@@ -4,9 +4,10 @@ package portinfo
 
 import (
 	"os"
-	"os/user"
 	"strings"
 )
+
+var windowsUserEnvKeys = []string{"USERNAME", "USER", "LOGNAME", "LNAME"}
 
 func defaultRuntimeRoot() string {
 	for _, key := range []string{"TEMP", "TMP"} {
@@ -18,13 +19,16 @@ func defaultRuntimeRoot() string {
 }
 
 func currentUserSegment() (string, error) {
-	if current, err := user.Current(); err == nil && strings.TrimSpace(current.Username) != "" {
-		return sanitizeUserSegment(current.Username), nil
+	return windowsUserSegment(os.Getenv), nil
+}
+
+func windowsUserSegment(getenv func(string) string) string {
+	for _, key := range windowsUserEnvKeys {
+		if username := strings.TrimSpace(getenv(key)); username != "" {
+			return sanitizeUserSegment(username)
+		}
 	}
-	if username := strings.TrimSpace(os.Getenv("USERNAME")); username != "" {
-		return sanitizeUserSegment(username), nil
-	}
-	return "default", nil
+	return "default"
 }
 
 func sanitizeUserSegment(raw string) string {

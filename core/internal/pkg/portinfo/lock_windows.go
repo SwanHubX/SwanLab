@@ -4,25 +4,64 @@ package portinfo
 
 import (
 	"errors"
+	"fmt"
+	"os"
 
 	"golang.org/x/sys/windows"
 )
 
-const statusStillActive = 259
+const lockByteLength = 1
 
-func processAlive(pid int) bool {
-	if pid <= 0 {
-		return false
+func openLockFile(lockPath string) (*os.File, error) {
+	if linfo, err := os.Lstat(lockPath); err == nil {
+		if linfo.Mode()&os.ModeSymlink != 0 || !linfo.Mode().IsRegular() {
+			return nil, fmt.Errorf("lock path %s is not a regular file", lockPath)
+		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return nil, fmt.Errorf("lstat lock file %s: %w", lockPath, err)
 	}
-	h, err := windows.OpenProcess(windows.PROCESS_QUERY_LIMITED_INFORMATION, false, uint32(pid))
+
+	f, err := os.OpenFile(lockPath, os.O_RDWR|os.O_CREATE, filePerm)
 	if err != nil {
-		return errors.Is(err, windows.ERROR_ACCESS_DENIED)
+		return nil, fmt.Errorf("open lock file %s: %w", lockPath, err)
 	}
-	defer func() { _ = windows.CloseHandle(h) }()
+	info, statErr := f.Stat()
+	if statErr != nil {
+		_ = f.Close()
+		return nil, fmt.Errorf("stat lock file %s: %w", lockPath, statErr)
+	}
+	if !info.Mode().IsRegular() {
+		_ = f.Close()
+		return nil, fmt.Errorf("lock path %s is not a regular file", lockPath)
+	}
+	return f, nil
+}
 
-	var code uint32
-	if err := windows.GetExitCodeProcess(h, &code); err != nil {
-		return false
+func tryFlockExclusive(f *os.File) (bool, error) {
+	var ov windows.Overlapped
+	err := windows.LockFileEx(
+		windows.Handle(f.Fd()),
+		windows.LOCKFILE_EXCLUSIVE_LOCK|windows.LOCKFILE_FAIL_IMMEDIATELY,
+		0,
+		lockByteLength,
+		0,
+		&ov,
+	)
+	if err == nil {
+		return true, nil
 	}
-	return code == statusStillActive
+	if errors.Is(err, windows.ERROR_LOCK_VIOLATION) {
+		return false, nil
+	}
+	return false, err
+}
+
+func unlockFile(f *os.File) error {
+	var ov windows.Overlapped
+	unlockErr := windows.UnlockFileEx(windows.Handle(f.Fd()), 0, lockByteLength, 0, &ov)
+	closeErr := f.Close()
+	if unlockErr != nil {
+		return unlockErr
+	}
+	return closeErr
 }

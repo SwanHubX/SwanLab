@@ -23,7 +23,7 @@ func newTestRuntimeDir(t *testing.T) string {
 
 func TestTryAcquireAndReleaseLock(t *testing.T) {
 	dir := newTestRuntimeDir(t)
-	now := time.Date(2026, 11, 16, 14, 0, 0, 0, time.UTC)
+	now := time.Now()
 
 	lock, acquired, err := TryAcquireLock(dir, LockOptions{Now: func() time.Time { return now }})
 	if err != nil {
@@ -35,8 +35,11 @@ func TestTryAcquireAndReleaseLock(t *testing.T) {
 	if lock.PID() != os.Getpid() {
 		t.Fatalf("lock PID = %d, want %d", lock.PID(), os.Getpid())
 	}
-	if _, statErr := os.Stat(lock.Path()); statErr != nil {
-		t.Fatalf("lock file missing after acquire: %v", statErr)
+
+	// 持锁期间二次抢锁必须失败。
+	second, acquired2, err2 := TryAcquireLock(dir, LockOptions{})
+	if err2 != nil || acquired2 || second != nil {
+		t.Fatalf("expected busy lock while held, got lock=%v acquired=%v err=%v", second, acquired2, err2)
 	}
 
 	if relErr := lock.Release(); relErr != nil {
@@ -45,90 +48,31 @@ func TestTryAcquireAndReleaseLock(t *testing.T) {
 	if relErr := lock.Release(); relErr != nil {
 		t.Fatalf("second Release: %v", relErr)
 	}
-	if _, statErr := os.Stat(lock.Path()); !errors.Is(statErr, os.ErrNotExist) {
-		t.Fatalf("lock file still exists after release: %v", statErr)
+
+	// 释放后再次抢锁成功，且重复调用旧锁 Release 不破坏新锁持有。
+	next, acquired3, err3 := TryAcquireLock(dir, LockOptions{})
+	if err3 != nil || !acquired3 || next == nil {
+		t.Fatalf("re-acquire after release: lock=%v acquired=%v err=%v", next, acquired3, err3)
 	}
-}
-
-func TestReleaseDoesNotRemoveReplacedLock(t *testing.T) {
-	dir := newTestRuntimeDir(t)
-	base := time.Date(2026, 11, 16, 14, 0, 0, 0, time.UTC)
-
-	oldLock, acquired, err := TryAcquireLock(dir, LockOptions{Now: func() time.Time { return base }})
-	if err != nil || !acquired {
-		t.Fatalf("first TryAcquireLock: acquired=%v err=%v", acquired, err)
+	defer func() { _ = next.Release() }()
+	if relErr := lock.Release(); relErr != nil {
+		t.Fatalf("stale Release after takeover: %v", relErr)
 	}
 
-	// 模拟锁文件被新持有者接管覆盖。
-	if rmErr := os.Remove(oldLock.Path()); rmErr != nil {
-		t.Fatal(rmErr)
+	third, acquired4, err4 := TryAcquireLock(dir, LockOptions{})
+	if err4 != nil || acquired4 || third != nil {
+		t.Fatalf("new lock was broken by old Release, got lock=%v acquired=%v err=%v", third, acquired4, err4)
 	}
-	newTime := base.Add(time.Second)
-	if createErr := createLockFile(oldLock.Path(), os.Getpid()+1, newTime.UnixNano()); createErr != nil {
-		t.Fatal(createErr)
-	}
-
-	if relErr := oldLock.Release(); relErr != nil {
-		t.Fatalf("Release on replaced lock: %v", relErr)
-	}
-	if _, statErr := os.Stat(oldLock.Path()); statErr != nil {
-		t.Fatalf("new lock file was removed by old holder: %v", statErr)
-	}
-}
-
-func TestTryAcquireRespectsLiveHolderAndReclaimsStale(t *testing.T) {
-	dir := newTestRuntimeDir(t)
-	now := time.Date(2026, 11, 16, 14, 0, 0, 0, time.UTC)
-	clock := func() time.Time { return now }
-
-	if err := createLockFile(filepath.Join(dir, LockFileName), 424242, now.UnixNano()); err != nil {
-		t.Fatal(err)
-	}
-
-	// 持有者存活且未超时：不可抢占。
-	lock, acquired, err := TryAcquireLock(dir, LockOptions{
-		Now:            clock,
-		StaleTTL:       30 * time.Second,
-		IsProcessAlive: func(int) bool { return true },
-	})
-	if err != nil || acquired || lock != nil {
-		t.Fatalf("expected busy lock, got lock=%v acquired=%v err=%v", lock, acquired, err)
-	}
-
-	// 持有者已死：立即回收并抢锁成功。
-	lock, acquired, err = TryAcquireLock(dir, LockOptions{
-		Now:            clock,
-		StaleTTL:       30 * time.Second,
-		IsProcessAlive: func(int) bool { return false },
-	})
-	if err != nil || !acquired || lock == nil {
-		t.Fatalf("expected dead holder lock reclaim, got lock=%v acquired=%v err=%v", lock, acquired, err)
-	}
-	_ = lock.Release()
-
-	// 持有者报告存活但超过 StaleTTL：超时回收。
-	if createErr := createLockFile(filepath.Join(dir, LockFileName), 424242, now.UnixNano()); createErr != nil {
-		t.Fatal(createErr)
-	}
-	now = now.Add(31 * time.Second)
-	lock, acquired, err = TryAcquireLock(dir, LockOptions{
-		Now:            clock,
-		StaleTTL:       30 * time.Second,
-		IsProcessAlive: func(int) bool { return true },
-	})
-	if err != nil || !acquired || lock == nil {
-		t.Fatalf("expected expired lock reclaim, got lock=%v acquired=%v err=%v", lock, acquired, err)
-	}
-	_ = lock.Release()
 }
 
 func TestTryAcquireConcurrentSingleWinner(t *testing.T) {
 	dir := newTestRuntimeDir(t)
-	now := time.Now()
 
 	const workers = 16
 	start := make(chan struct{})
 	var winners atomic.Int32
+	var heldLock *FileLock
+	var mu sync.Mutex
 	var wg sync.WaitGroup
 	wg.Add(workers)
 
@@ -136,19 +80,16 @@ func TestTryAcquireConcurrentSingleWinner(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			<-start
-			lock, acquired, err := TryAcquireLock(dir, LockOptions{
-				Now:            func() time.Time { return now },
-				IsProcessAlive: func(int) bool { return true },
-			})
+			lock, acquired, err := TryAcquireLock(dir, LockOptions{})
 			if err != nil {
 				t.Errorf("TryAcquireLock error: %v", err)
 				return
 			}
 			if acquired {
 				winners.Add(1)
-				if lock == nil {
-					t.Error("acquired=true returned nil lock")
-				}
+				mu.Lock()
+				heldLock = lock
+				mu.Unlock()
 			}
 		}()
 	}
@@ -156,31 +97,64 @@ func TestTryAcquireConcurrentSingleWinner(t *testing.T) {
 	close(start)
 	wg.Wait()
 
+	if heldLock != nil {
+		defer func() { _ = heldLock.Release() }()
+	}
 	if got := winners.Load(); got != 1 {
 		t.Fatalf("concurrent winners = %d, want 1", got)
 	}
 }
 
-func TestAcquireLockWaitsAndSucceedsWhenReleased(t *testing.T) {
+func TestLockInterleavedNoDoubleAcquire(t *testing.T) {
 	dir := newTestRuntimeDir(t)
-	now := time.Date(2026, 11, 16, 14, 0, 0, 0, time.UTC)
-	lockPath := filepath.Join(dir, LockFileName)
-
-	if err := createLockFile(lockPath, 999999, now.UnixNano()); err != nil {
-		t.Fatal(err)
+	first, acquired1, err1 := TryAcquireLock(dir, LockOptions{})
+	if err1 != nil || !acquired1 {
+		t.Fatalf("first TryAcquireLock: acquired=%v err=%v", acquired1, err1)
 	}
 
+	// 交错场景：A 仍在持锁与准备释放之间时，B 多次尝试均不得拿到锁；仅 A 真正 Release 后 B 才成功。
+	bBlocked, bAcquired, bErr := TryAcquireLock(dir, LockOptions{})
+	if bErr != nil || bAcquired || bBlocked != nil {
+		t.Fatalf("interleaved B must fail while A holds lock, got acquired=%v err=%v", bAcquired, bErr)
+	}
+
+	if relErr := first.Release(); relErr != nil {
+		t.Fatalf("first Release: %v", relErr)
+	}
+
+	second, acquired2, err2 := TryAcquireLock(dir, LockOptions{})
+	if err2 != nil || !acquired2 || second == nil {
+		t.Fatalf("second TryAcquireLock after release: acquired=%v err=%v", acquired2, err2)
+	}
+	defer func() { _ = second.Release() }()
+
+	// A 再次幂等 Release 不影响 B 持锁。
+	if relErr := first.Release(); relErr != nil {
+		t.Fatalf("idempotent Release: %v", relErr)
+	}
+	cBlocked, cAcquired, cErr := TryAcquireLock(dir, LockOptions{})
+	if cErr != nil || cAcquired || cBlocked != nil {
+		t.Fatalf("third caller must not acquire while B holds lock, got acquired=%v err=%v", cAcquired, cErr)
+	}
+}
+
+func TestAcquireLockWaitsAndSucceedsWhenReleased(t *testing.T) {
+	dir := newTestRuntimeDir(t)
+	holder, acquired, err := TryAcquireLock(dir, LockOptions{})
+	if err != nil || !acquired {
+		t.Fatalf("holder TryAcquireLock: acquired=%v err=%v", acquired, err)
+	}
+
+	now := time.Now()
 	waits := 0
 	lock, err := AcquireLock(context.Background(), dir, LockOptions{
-		Timeout:        time.Second,
-		PollInterval:   10 * time.Millisecond,
-		Now:            func() time.Time { return now },
-		IsProcessAlive: func(int) bool { return true },
+		Timeout:      time.Second,
+		PollInterval: 10 * time.Millisecond,
+		Now:          func() time.Time { return now },
 		Wait: func(_ context.Context, d time.Duration) error {
 			waits++
 			now = now.Add(d)
-			// 第一次等待时模拟前一个持有者释放锁。
-			return os.Remove(lockPath)
+			return holder.Release()
 		},
 	})
 	if err != nil {
@@ -194,18 +168,17 @@ func TestAcquireLockWaitsAndSucceedsWhenReleased(t *testing.T) {
 
 func TestAcquireLockTimesOut(t *testing.T) {
 	dir := newTestRuntimeDir(t)
-	now := time.Date(2026, 11, 16, 14, 0, 0, 0, time.UTC)
-
-	if err := createLockFile(filepath.Join(dir, LockFileName), 999999, now.UnixNano()); err != nil {
-		t.Fatal(err)
+	holder, acquired, err := TryAcquireLock(dir, LockOptions{})
+	if err != nil || !acquired {
+		t.Fatalf("holder TryAcquireLock: acquired=%v err=%v", acquired, err)
 	}
+	defer func() { _ = holder.Release() }()
 
-	_, err := AcquireLock(context.Background(), dir, LockOptions{
-		Timeout:        50 * time.Millisecond,
-		StaleTTL:       time.Minute,
-		PollInterval:   20 * time.Millisecond,
-		Now:            func() time.Time { return now },
-		IsProcessAlive: func(int) bool { return true },
+	now := time.Now()
+	_, err = AcquireLock(context.Background(), dir, LockOptions{
+		Timeout:      50 * time.Millisecond,
+		PollInterval: 20 * time.Millisecond,
+		Now:          func() time.Time { return now },
 		Wait: func(_ context.Context, d time.Duration) error {
 			now = now.Add(d)
 			return nil
@@ -232,24 +205,5 @@ func TestTryAcquireRejectsSymlinkLock(t *testing.T) {
 	_, acquired, err := TryAcquireLock(dir, LockOptions{})
 	if err == nil || acquired {
 		t.Fatalf("expected symlink lock rejection, got acquired=%v err=%v", acquired, err)
-	}
-}
-
-func TestParseLockRejectsMalformed(t *testing.T) {
-	cases := map[string]string{
-		"missing EOF":     "pid=12\ncreated_at=100\n",
-		"missing pid":     "created_at=100\nEOF\n",
-		"missing created": "pid=12\nEOF\n",
-		"bad pid":         "pid=0\ncreated_at=100\nEOF\n",
-		"bad created_at":  "pid=12\ncreated_at=0\nEOF\n",
-		"duplicate key":   "pid=12\npid=12\ncreated_at=100\nEOF\n",
-		"unknown key":     "pid=12\ncreated_at=100\nextra=1\nEOF\n",
-		"empty line":      "pid=12\n\ncreated_at=100\nEOF\n",
-		"not key value":   "pid\ncreated_at=100\nEOF\n",
-	}
-	for name, content := range cases {
-		if _, err := parseLock([]byte(content)); err == nil {
-			t.Fatalf("%s: parseLock unexpectedly succeeded", name)
-		}
 	}
 }

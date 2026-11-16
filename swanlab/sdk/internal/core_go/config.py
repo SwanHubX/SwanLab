@@ -27,7 +27,6 @@ __all__ = [
     "ENDPOINT_POLL_INTERVAL",
     "ENDPOINT_PROBE_TIMEOUT",
     "START_LOCK_TIMEOUT",
-    "START_LOCK_STALE_SECONDS",
     "START_LOCK_POLL_INTERVAL",
     "CHANNEL_READY_TIMEOUT",
     "RPC_TIMEOUT",
@@ -72,9 +71,8 @@ PORT_FILE_TIMEOUT = 30.0
 ENDPOINT_POLL_INTERVAL = 0.05
 # 探测已有端点是否存活的短超时，对齐 Go endpointProbeTimeout。
 ENDPOINT_PROBE_TIMEOUT = 0.2
-# 等待启动锁的总预算、陈旧锁回收阈值与轮询间隔，对齐 Go portinfo 常量。
+# 等待启动锁的总预算与轮询间隔，对齐 Go portinfo 常量。
 START_LOCK_TIMEOUT = 35.0
-START_LOCK_STALE_SECONDS = 30.0
 START_LOCK_POLL_INTERVAL = 0.02
 # gRPC channel 进入 READY 的预算。
 CHANNEL_READY_TIMEOUT = 10.0

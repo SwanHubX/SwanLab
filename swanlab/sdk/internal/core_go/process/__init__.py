@@ -13,7 +13,6 @@ wait → terminate → kill 的分级回收。不构造 protobuf，不解释 ses
 - 回收与清理永不抛出，避免覆盖调用方的原始异常。
 """
 
-import getpass
 import os
 import shutil
 import stat
@@ -23,7 +22,7 @@ import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable, Mapping, Optional
 
 from swanlab.sdk.internal.core_go.config import (
     ENDPOINT_POLL_INTERVAL,
@@ -34,7 +33,6 @@ from swanlab.sdk.internal.core_go.config import (
     RUNTIME_DIR_MODE,
     RUNTIME_DIR_PREFIX,
     START_LOCK_POLL_INTERVAL,
-    START_LOCK_STALE_SECONDS,
     START_LOCK_TIMEOUT,
     STDERR_FILE_NAME,
     STDERR_TAIL_BYTES,
@@ -43,17 +41,14 @@ from swanlab.sdk.internal.core_go.config import (
 )
 from swanlab.sdk.internal.core_go.discovery import Endpoint, read_port_file, validate_ownership
 from swanlab.sdk.internal.core_go.errors import CoreGoError, ReasonCode, Stage
-from swanlab.sdk.internal.core_go.process.lock import (
-    StartupLock,
-    is_process_alive,
-)
+from swanlab.sdk.internal.core_go.process.lock import StartupLock
 from swanlab.sdk.internal.core_go.process.lock import (
     acquire_start_lock as _acquire_start_lock,
 )
 from swanlab.sdk.internal.core_go.process.lock import (
     try_acquire_start_lock as _try_acquire_start_lock,
 )
-from swanlab.sdk.internal.pkg import console, fork, safe
+from swanlab.sdk.internal.pkg import console, fork
 
 __all__ = [
     "RuntimeLease",
@@ -62,7 +57,6 @@ __all__ = [
     "acquire_start_lock",
     "cleanup_runtime",
     "default_runtime_dir",
-    "is_process_alive",
     "reap_process",
     "spawn_core",
     "stderr_tail",
@@ -74,6 +68,7 @@ __all__ = [
 _SOCKET_NAME = "core.sock"
 _EXIT_ENDPOINT_BUSY = 3
 _EXIT_USAGE_ERROR = 2
+_WINDOWS_USER_ENV_KEYS = ("USERNAME", "USER", "LOGNAME", "LNAME")
 
 
 @dataclass
@@ -92,22 +87,30 @@ class RuntimeLease:
 def _runtime_root() -> Path:
     """返回 runtime 根目录：POSIX 固定 /tmp，Windows 使用 %TEMP%。"""
     if os.name == "nt":
-        return Path(os.environ.get("TEMP") or os.environ.get("TMP") or tempfile.gettempdir())
+        return Path(os.environ.get("TEMP", "").strip() or os.environ.get("TMP", "").strip() or tempfile.gettempdir())
     return Path("/tmp")
 
 
 def _sanitize_user_segment(raw: str) -> str:
-    cleaned = "".join(ch if (ch.isalnum() or ch in "-_.") else "_" for ch in raw).strip("._")
+    cleaned = "".join(
+        ch if (("a" <= ch <= "z") or ("A" <= ch <= "Z") or ("0" <= ch <= "9") or ch in "-_.") else "_" for ch in raw
+    ).strip("._")
     return cleaned or "default"
+
+
+def _windows_user_segment(environ: Optional[Mapping[str, str]] = None) -> str:
+    env = os.environ if environ is None else environ
+    for key in _WINDOWS_USER_ENV_KEYS:
+        username = env.get(key, "").strip()
+        if username:
+            return _sanitize_user_segment(username)
+    return "default"
 
 
 def _user_segment() -> str:
     if os.name != "nt" and hasattr(os, "getuid"):
         return str(os.getuid())
-    user = os.environ.get("USERNAME") or ""
-    with safe.block(message=None):
-        user = getpass.getuser()
-    return _sanitize_user_segment(user)
+    return _windows_user_segment()
 
 
 def default_runtime_dir(root: Optional[Path] = None) -> Path:
@@ -199,17 +202,13 @@ def cleanup_runtime(lease: RuntimeLease) -> None:
 def try_acquire_start_lock(
     runtime_dir: Path,
     *,
-    stale_seconds: float = START_LOCK_STALE_SECONDS,
     now_ns_fn: Optional[Callable[[], int]] = None,
-    is_alive_fn: Optional[Callable[[int], bool]] = None,
 ) -> Optional[StartupLock]:
-    """在 runtime 目录内尝试非阻塞获取启动锁；已有存活持有者时返回 None。"""
+    """在 runtime 目录内尝试非阻塞获取启动锁；被占用时返回 None。"""
     return _try_acquire_start_lock(
         runtime_dir,
         validate_dir=_validate_runtime_dir,
-        stale_seconds=stale_seconds,
         now_ns_fn=now_ns_fn,
-        is_alive_fn=is_alive_fn,
     )
 
 
@@ -217,10 +216,8 @@ def acquire_start_lock(
     runtime_dir: Path,
     *,
     timeout: float = START_LOCK_TIMEOUT,
-    stale_seconds: float = START_LOCK_STALE_SECONDS,
     poll_interval: float = START_LOCK_POLL_INTERVAL,
     now_ns_fn: Optional[Callable[[], int]] = None,
-    is_alive_fn: Optional[Callable[[int], bool]] = None,
     sleep_fn: Optional[Callable[[float], None]] = None,
 ) -> StartupLock:
     """在 runtime 目录内竞争启动锁，直到成功或超时抛出 CoreGoError。"""
@@ -228,10 +225,8 @@ def acquire_start_lock(
         runtime_dir,
         validate_dir=_validate_runtime_dir,
         timeout=timeout,
-        stale_seconds=stale_seconds,
         poll_interval=poll_interval,
         now_ns_fn=now_ns_fn,
-        is_alive_fn=is_alive_fn,
         sleep_fn=sleep_fn,
     )
 
