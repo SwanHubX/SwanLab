@@ -19,11 +19,12 @@ from pathlib import Path
 from typing import Optional
 
 from swanlab.sdk.internal.core_go.config import BINARY_NAME, CHANNEL_READY_TIMEOUT, PORT_FILE_TIMEOUT
-from swanlab.sdk.internal.core_go.discovery import Endpoint
+from swanlab.sdk.internal.core_go.discovery import Endpoint, discover_endpoint
 from swanlab.sdk.internal.core_go.errors import CoreGoError, ReasonCode, Stage
 from swanlab.sdk.internal.core_go.process import (
     RuntimeLease,
     acquire_runtime,
+    acquire_start_lock,
     cleanup_runtime,
     reap_process,
     spawn_core,
@@ -77,6 +78,8 @@ class CoreLauncher:
         self._channel: Optional[Channel] = None
         self._endpoint: Optional[Endpoint] = None
         self._exit_code: Optional[int] = None
+        self._owns_process = False
+        self._should_cleanup_lease = False
         self._lock = threading.Lock()
         self._state = _NEW
         self._owner_pid = fork.current_pid()
@@ -128,15 +131,65 @@ class CoreLauncher:
                 lease = self._injected_lease if self._injected_lease is not None else acquire_runtime()
                 self._lease = lease
                 self._validate_lease(lease)
-                self._proc = spawn_core(self._binary, lease)
-                self._endpoint = wait_endpoint(self._proc, lease, timeout=PORT_FILE_TIMEOUT)
-                self._channel = Channel.open(self._endpoint, timeout=CHANNEL_READY_TIMEOUT)
+
+                if self._injected_lease is None:
+                    self._start_shared_locked(lease)
+                else:
+                    self._spawn_and_connect_locked(lease)
             except BaseException:
                 self._cleanup_locked()
                 raise
 
             self._state = _RUNNING
+            assert self._endpoint is not None
             return self._endpoint
+
+    def _start_shared_locked(self, lease: RuntimeLease) -> None:
+        """先探测并复用已有存活 Core；未命中时持启动锁二次检查再按需拉起。"""
+        existing = discover_endpoint(lease.port_file, lease.dir)
+        if existing is not None:
+            self._reuse_endpoint_locked(existing)
+            return
+
+        with acquire_start_lock(lease.dir):
+            existing = discover_endpoint(lease.port_file, lease.dir)
+            if existing is not None:
+                self._reuse_endpoint_locked(existing)
+                return
+            self._spawn_and_connect_locked(lease)
+
+    def _reuse_endpoint_locked(self, endpoint: Endpoint) -> None:
+        self._owns_process = False
+        self._should_cleanup_lease = False
+        self._endpoint = endpoint
+        self._channel = Channel.open(endpoint, timeout=CHANNEL_READY_TIMEOUT)
+
+    def _spawn_and_connect_locked(self, lease: RuntimeLease) -> None:
+        self._owns_process = True
+        self._should_cleanup_lease = True
+        if self._injected_lease is None:
+            # 持锁且确认旧端点已失效后清理残留 port-file，防止 wait_endpoint 误读旧 PID。
+            lease.port_file.unlink(missing_ok=True)
+        proc = spawn_core(self._binary, lease)
+        self._proc = proc
+        try:
+            endpoint = wait_endpoint(proc, lease, timeout=PORT_FILE_TIMEOUT)
+        except CoreGoError as exc:
+            if exc.reason is not ReasonCode.ENDPOINT_BUSY:
+                raise
+            # 极端并发下被外部启动的实例抢先占住端点，回收失败子进程并尝试复用赢家。
+            reap_process(proc)
+            self._proc = None
+            self._owns_process = False
+            self._should_cleanup_lease = False
+            existing = discover_endpoint(lease.port_file, lease.dir)
+            if existing is not None:
+                self._reuse_endpoint_locked(existing)
+                return
+            raise
+
+        self._endpoint = endpoint
+        self._channel = Channel.open(endpoint, timeout=CHANNEL_READY_TIMEOUT)
 
     def close(self) -> None:
         """正常关闭：channel → reap → runtime 清理；不发送任何业务 RPC。"""
@@ -160,18 +213,22 @@ class CoreLauncher:
         channel = self._channel
         proc = self._proc
         lease = self._lease
+        owns_process = self._owns_process
+        cleanup_lease = self._should_cleanup_lease
 
         self._channel = None
         self._proc = None
         self._lease = None
         self._endpoint = None
+        self._owns_process = False
+        self._should_cleanup_lease = False
         self._state = _CLOSED
 
         if channel is not None:
             channel.close()
-        if proc is not None:
+        if owns_process and proc is not None:
             self._exit_code = reap_process(proc)
-        if lease is not None:
+        if cleanup_lease and lease is not None:
             cleanup_runtime(lease)
 
     def _validate_lease(self, lease: RuntimeLease) -> None:

@@ -6,6 +6,9 @@
 """
 
 import os
+import sys
+import threading
+from contextlib import nullcontext
 from pathlib import Path
 from typing import Any, Optional, cast
 
@@ -15,7 +18,7 @@ from swanlab.sdk.internal.core_go import launcher as launcher_module
 from swanlab.sdk.internal.core_go.discovery import Endpoint
 from swanlab.sdk.internal.core_go.errors import CoreGoError, ReasonCode, Stage
 from swanlab.sdk.internal.core_go.launcher import CORE_BINARY_ENV, CoreLauncher, locate_core_binary
-from swanlab.sdk.internal.core_go.process import RuntimeLease
+from swanlab.sdk.internal.core_go.process import RuntimeLease, acquire_start_lock
 
 
 class FakeProcess:
@@ -50,13 +53,23 @@ def launcher_env(tmp_path, monkeypatch):
         stderr_file=tmp_path / "runtime" / "core.stderr.log",
         owner_pid=os.getpid(),
     )
-    lease.dir.mkdir()
+    lease.dir.mkdir(mode=0o700)
+    if sys.platform != "win32":
+        os.chmod(lease.dir, 0o700)
     endpoint = Endpoint(kind="unix", pid=FakeProcess.pid, unix_path=str(lease.dir / "core.sock"))
-    calls = {"acquire": 0, "spawn": 0, "wait": 0, "reap": 0, "cleanup": 0}
+    calls = {"acquire": 0, "lock": 0, "discover": 0, "spawn": 0, "wait": 0, "reap": 0, "cleanup": 0}
 
     def fake_acquire() -> RuntimeLease:
         calls["acquire"] += 1
         return lease
+
+    def fake_lock(runtime_dir: Path):
+        calls["lock"] += 1
+        return nullcontext()
+
+    def fake_discover(port_file: Path, runtime_dir: Path) -> Optional[Endpoint]:
+        calls["discover"] += 1
+        return None
 
     def fake_spawn(binary_path: Path, runtime: RuntimeLease) -> FakeProcess:
         calls["spawn"] += 1
@@ -74,6 +87,8 @@ def launcher_env(tmp_path, monkeypatch):
         calls["cleanup"] += 1
 
     monkeypatch.setattr(launcher_module, "acquire_runtime", fake_acquire)
+    monkeypatch.setattr(launcher_module, "acquire_start_lock", fake_lock)
+    monkeypatch.setattr(launcher_module, "discover_endpoint", fake_discover)
     monkeypatch.setattr(launcher_module, "spawn_core", fake_spawn)
     monkeypatch.setattr(launcher_module, "wait_endpoint", fake_wait)
     monkeypatch.setattr(launcher_module, "reap_process", fake_reap)
@@ -90,7 +105,7 @@ def test_start_acquires_runtime_and_opens_channel(launcher_env):
     launcher = CoreLauncher(binary)
 
     assert launcher.start() == endpoint
-    assert calls == {"acquire": 1, "spawn": 1, "wait": 1, "reap": 0, "cleanup": 0}
+    assert calls == {"acquire": 1, "lock": 1, "discover": 2, "spawn": 1, "wait": 1, "reap": 0, "cleanup": 0}
     assert launcher.endpoint == endpoint
     assert launcher.channel is FakeChannel.last
 
@@ -240,6 +255,141 @@ def test_properties_report_not_started_and_closed(launcher_env):
     with pytest.raises(CoreGoError) as closed:
         _ = launcher.channel
     assert closed.value.reason is ReasonCode.CLOSED
+
+
+def test_start_reuses_existing_endpoint_without_lock_or_spawn(launcher_env, monkeypatch):
+    binary, _, endpoint, calls = launcher_env
+    monkeypatch.setattr(launcher_module, "discover_endpoint", lambda *_: endpoint)
+
+    launcher = CoreLauncher(binary)
+    assert launcher.start() == endpoint
+    assert calls["lock"] == 0
+    assert calls["spawn"] == 0
+
+    channel = cast(Any, launcher.channel)
+    launcher.close()
+    assert channel.closed == 1
+    assert calls["reap"] == 0
+    assert calls["cleanup"] == 0
+    assert launcher.exit_code is None
+
+
+def test_start_double_check_under_lock_reuses_winner_endpoint(launcher_env, monkeypatch):
+    binary, _, endpoint, calls = launcher_env
+    answers = iter([None, endpoint])
+    monkeypatch.setattr(launcher_module, "discover_endpoint", lambda *_: next(answers))
+
+    launcher = CoreLauncher(binary)
+    assert launcher.start() == endpoint
+    assert calls["lock"] == 1
+    assert calls["spawn"] == 0
+
+    launcher.close()
+    assert calls["reap"] == 0
+    assert calls["cleanup"] == 0
+
+
+def test_start_converges_on_endpoint_busy(launcher_env, monkeypatch):
+    binary, _, endpoint, calls = launcher_env
+    answers = iter([None, None, endpoint])
+    monkeypatch.setattr(launcher_module, "discover_endpoint", lambda *_: next(answers))
+
+    def busy_wait(proc, runtime: RuntimeLease, timeout: float = 0.0):
+        raise CoreGoError(Stage.PORT_FILE, ReasonCode.ENDPOINT_BUSY, "busy")
+
+    monkeypatch.setattr(launcher_module, "wait_endpoint", busy_wait)
+
+    launcher = CoreLauncher(binary)
+    assert launcher.start() == endpoint
+    assert calls["spawn"] == 1
+    assert calls["reap"] == 1
+
+    launcher.close()
+    assert calls["reap"] == 1
+    assert calls["cleanup"] == 0
+
+
+def test_start_raises_endpoint_busy_when_fallback_discover_misses(launcher_env, monkeypatch):
+    binary, _, _, calls = launcher_env
+
+    def busy_wait(proc, runtime: RuntimeLease, timeout: float = 0.0):
+        raise CoreGoError(Stage.PORT_FILE, ReasonCode.ENDPOINT_BUSY, "busy")
+
+    monkeypatch.setattr(launcher_module, "wait_endpoint", busy_wait)
+
+    launcher = CoreLauncher(binary)
+    with pytest.raises(CoreGoError) as caught:
+        launcher.start()
+
+    assert caught.value.reason is ReasonCode.ENDPOINT_BUSY
+    assert calls["reap"] == 1
+    assert calls["cleanup"] == 0
+
+
+def test_concurrent_launchers_with_real_start_lock_spawn_once(launcher_env, monkeypatch):
+    binary, lease, endpoint, calls = launcher_env
+    published = {"endpoint": None}
+
+    def stateful_discover(port_file: Path, runtime_dir: Path) -> Optional[Endpoint]:
+        calls["discover"] += 1
+        return published["endpoint"]
+
+    def publish_wait(proc, runtime: RuntimeLease, timeout: float = 0.0) -> Endpoint:
+        calls["wait"] += 1
+        published["endpoint"] = endpoint
+        return endpoint
+
+    monkeypatch.setattr(launcher_module, "acquire_start_lock", acquire_start_lock)
+    monkeypatch.setattr(launcher_module, "discover_endpoint", stateful_discover)
+    monkeypatch.setattr(launcher_module, "wait_endpoint", publish_wait)
+
+    launchers = [CoreLauncher(binary) for _ in range(4)]
+    barrier = threading.Barrier(len(launchers))
+    results = []
+    errors = []
+    guard = threading.Lock()
+
+    def worker(item: CoreLauncher):
+        try:
+            barrier.wait()
+            ep = item.start()
+            with guard:
+                results.append(ep)
+        except BaseException as exc:  # pragma: no cover
+            with guard:
+                errors.append(exc)
+
+    threads = [threading.Thread(target=worker, args=(item,)) for item in launchers]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert errors == []
+    assert results == [endpoint] * 4
+    assert calls["spawn"] == 1
+
+    for item in launchers:
+        item.close()
+    assert calls["reap"] == 1
+
+
+def test_start_clears_stale_port_file_before_spawning(launcher_env, monkeypatch):
+    binary, lease, endpoint, calls = launcher_env
+    lease.port_file.write_text("protocol=1\npid=99999\nunix=/tmp/old.sock\nEOF\n")
+    saw_port_file_at_spawn = {}
+
+    def checking_spawn(binary_path: Path, runtime: RuntimeLease):
+        saw_port_file_at_spawn["exists"] = runtime.port_file.exists()
+        calls["spawn"] += 1
+        return FakeProcess()
+
+    monkeypatch.setattr(launcher_module, "spawn_core", checking_spawn)
+
+    launcher = CoreLauncher(binary)
+    assert launcher.start() == endpoint
+    assert saw_port_file_at_spawn == {"exists": False}
+    launcher.close()
 
 
 # ---------------------------------- 二进制定位 ----------------------------------
