@@ -22,7 +22,7 @@ import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Mapping, Optional
 
 from swanlab.sdk.internal.core_go.config import (
     ENDPOINT_POLL_INTERVAL,
@@ -32,6 +32,8 @@ from swanlab.sdk.internal.core_go.config import (
     PORT_FILE_TIMEOUT,
     RUNTIME_DIR_MODE,
     RUNTIME_DIR_PREFIX,
+    START_LOCK_POLL_INTERVAL,
+    START_LOCK_TIMEOUT,
     STDERR_FILE_NAME,
     STDERR_TAIL_BYTES,
     TERMINATE_TIMEOUT,
@@ -39,22 +41,34 @@ from swanlab.sdk.internal.core_go.config import (
 )
 from swanlab.sdk.internal.core_go.discovery import Endpoint, read_port_file, validate_ownership
 from swanlab.sdk.internal.core_go.errors import CoreGoError, ReasonCode, Stage
+from swanlab.sdk.internal.core_go.process.lock import StartupLock
+from swanlab.sdk.internal.core_go.process.lock import (
+    acquire_start_lock as _acquire_start_lock,
+)
+from swanlab.sdk.internal.core_go.process.lock import (
+    try_acquire_start_lock as _try_acquire_start_lock,
+)
 from swanlab.sdk.internal.pkg import console, fork
 
 __all__ = [
     "RuntimeLease",
+    "StartupLock",
     "acquire_runtime",
+    "acquire_start_lock",
     "cleanup_runtime",
-    "validate_core_binary",
-    "spawn_core",
-    "wait_endpoint",
+    "default_runtime_dir",
     "reap_process",
+    "spawn_core",
     "stderr_tail",
+    "try_acquire_start_lock",
+    "validate_core_binary",
+    "wait_endpoint",
 ]
 
 _SOCKET_NAME = "core.sock"
 _EXIT_ENDPOINT_BUSY = 3
 _EXIT_USAGE_ERROR = 2
+_WINDOWS_USER_ENV_KEYS = ("USERNAME", "USER", "LOGNAME", "LNAME")
 
 
 @dataclass
@@ -73,8 +87,36 @@ class RuntimeLease:
 def _runtime_root() -> Path:
     """返回 runtime 根目录：POSIX 固定 /tmp，Windows 使用 %TEMP%。"""
     if os.name == "nt":
-        return Path(os.environ.get("TEMP") or os.environ.get("TMP") or tempfile.gettempdir())
+        return Path(os.environ.get("TEMP", "").strip() or os.environ.get("TMP", "").strip() or tempfile.gettempdir())
     return Path("/tmp")
+
+
+def _sanitize_user_segment(raw: str) -> str:
+    cleaned = "".join(
+        ch if (("a" <= ch <= "z") or ("A" <= ch <= "Z") or ("0" <= ch <= "9") or ch in "-_.") else "_" for ch in raw
+    ).strip("._")
+    return cleaned or "default"
+
+
+def _windows_user_segment(environ: Optional[Mapping[str, str]] = None) -> str:
+    env = os.environ if environ is None else environ
+    for key in _WINDOWS_USER_ENV_KEYS:
+        username = env.get(key, "").strip()
+        if username:
+            return _sanitize_user_segment(username)
+    return "default"
+
+
+def _user_segment() -> str:
+    if os.name != "nt" and hasattr(os, "getuid"):
+        return str(os.getuid())
+    return _windows_user_segment()
+
+
+def default_runtime_dir(root: Optional[Path] = None) -> Path:
+    """返回当前用户的固定 runtime 目录路径（不自动创建）。"""
+    base = Path(root) if root is not None else _runtime_root()
+    return base / f"{RUNTIME_DIR_PREFIX}{_user_segment()}"
 
 
 def _runtime_error(message: str, *, detail: Optional[str] = None, cause: Optional[BaseException] = None):
@@ -100,26 +142,34 @@ def _validate_runtime_dir(path: Path) -> None:
             raise _runtime_error(f"runtime dir {path} is not owned by current user")
 
 
-def acquire_runtime() -> RuntimeLease:
-    """创建一次性的私有 runtime 目录。
+def acquire_runtime(root: Optional[Path] = None) -> RuntimeLease:
+    """获取当前用户的固定 runtime 目录并校验安全性。
 
-    目录名带固定前缀，权限 0700；UDS 路径超长时直接失败，不回退 cwd。
+    目录不存在时以 0700 权限创建，已存在时直接复用并校验属主/权限/非符号链接；
+    UDS 路径超长时直接失败，不回退 cwd。
     """
-    root = _runtime_root()
+    runtime_dir = default_runtime_dir(root)
+    created = False
     try:
-        runtime_dir = Path(tempfile.mkdtemp(prefix=RUNTIME_DIR_PREFIX, dir=str(root)))
+        os.mkdir(runtime_dir, RUNTIME_DIR_MODE)
+        created = True
+    except FileExistsError:
+        pass
     except OSError as exc:
-        raise _runtime_error(f"cannot create runtime dir under {root}: {exc}", cause=exc) from exc
+        raise _runtime_error(f"cannot create runtime dir {runtime_dir}: {exc}", cause=exc) from exc
 
     try:
-        os.chmod(runtime_dir, RUNTIME_DIR_MODE)
+        if created and os.name != "nt":
+            # 消除 umask 影响，仅在本次新建时修正权限；已存在目录直接交由校验拒绝。
+            os.chmod(runtime_dir, RUNTIME_DIR_MODE)
         _validate_runtime_dir(runtime_dir)
         if os.name != "nt":
             socket_path = runtime_dir / _SOCKET_NAME
             if len(os.fsencode(str(socket_path))) > MAX_UNIX_PATH_BYTES:
                 raise _runtime_error(f"unix socket path exceeds {MAX_UNIX_PATH_BYTES} bytes: {socket_path}")
     except BaseException:
-        shutil.rmtree(runtime_dir, ignore_errors=True)
+        if created:
+            shutil.rmtree(runtime_dir, ignore_errors=True)
         raise
 
     return RuntimeLease(
@@ -131,12 +181,14 @@ def acquire_runtime() -> RuntimeLease:
 
 
 def cleanup_runtime(lease: RuntimeLease) -> None:
-    """删除本进程创建的 runtime 目录；任何失败只记录，不抛出。"""
+    """清理一次性的旧式临时 runtime 目录；共享 per-user 目录保留不删。"""
     try:
         if fork.is_forked(lease.owner_pid):
             return
         runtime_dir = Path(lease.dir)
         if not runtime_dir.name.startswith(RUNTIME_DIR_PREFIX):
+            return
+        if runtime_dir.name == f"{RUNTIME_DIR_PREFIX}{_user_segment()}":
             return
         if runtime_dir.is_symlink() or not runtime_dir.is_dir():
             return
@@ -145,6 +197,38 @@ def cleanup_runtime(lease: RuntimeLease) -> None:
         shutil.rmtree(runtime_dir)
     except Exception as exc:  # noqa: BLE001 - 清理失败不能覆盖原始异常
         console.warning(f"failed to cleanup core runtime {lease.dir}: {exc}")
+
+
+def try_acquire_start_lock(
+    runtime_dir: Path,
+    *,
+    now_ns_fn: Optional[Callable[[], int]] = None,
+) -> Optional[StartupLock]:
+    """在 runtime 目录内尝试非阻塞获取启动锁；被占用时返回 None。"""
+    return _try_acquire_start_lock(
+        runtime_dir,
+        validate_dir=_validate_runtime_dir,
+        now_ns_fn=now_ns_fn,
+    )
+
+
+def acquire_start_lock(
+    runtime_dir: Path,
+    *,
+    timeout: float = START_LOCK_TIMEOUT,
+    poll_interval: float = START_LOCK_POLL_INTERVAL,
+    now_ns_fn: Optional[Callable[[], int]] = None,
+    sleep_fn: Optional[Callable[[float], None]] = None,
+) -> StartupLock:
+    """在 runtime 目录内竞争启动锁，直到成功或超时抛出 CoreGoError。"""
+    return _acquire_start_lock(
+        runtime_dir,
+        validate_dir=_validate_runtime_dir,
+        timeout=timeout,
+        poll_interval=poll_interval,
+        now_ns_fn=now_ns_fn,
+        sleep_fn=sleep_fn,
+    )
 
 
 def stderr_tail(lease: RuntimeLease) -> str:
@@ -232,7 +316,7 @@ def spawn_core(binary: Path, lease: RuntimeLease, parent_pid: Optional[int] = No
         ) from exc
 
 
-def _early_exit_error(proc: subprocess.Popen, lease: RuntimeLease, exit_code: Optional[int]) -> CoreGoError:
+def _early_exit_error(lease: RuntimeLease, exit_code: Optional[int]) -> CoreGoError:
     if exit_code == _EXIT_ENDPOINT_BUSY:
         reason = ReasonCode.ENDPOINT_BUSY
         message = "core exited because the endpoint is already in use"
@@ -255,7 +339,7 @@ def wait_endpoint(proc: subprocess.Popen, lease: RuntimeLease, timeout: float = 
     while True:
         exit_code = proc.poll()
         if exit_code is not None:
-            raise _early_exit_error(proc, lease, exit_code)
+            raise _early_exit_error(lease, exit_code)
 
         try:
             endpoint = read_port_file(lease.port_file)
@@ -273,7 +357,7 @@ def wait_endpoint(proc: subprocess.Popen, lease: RuntimeLease, timeout: float = 
         if time.monotonic() >= deadline:
             exit_code = proc.poll()
             if exit_code is not None:
-                raise _early_exit_error(proc, lease, exit_code)
+                raise _early_exit_error(lease, exit_code)
             raise CoreGoError(
                 Stage.PORT_FILE,
                 ReasonCode.PORT_FILE_TIMEOUT,

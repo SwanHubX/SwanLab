@@ -4,6 +4,8 @@
 //
 //	--port-filename <路径>         listen 成功后原子写入端点回报文件（SDK 发现端点依据）
 //	--parent-pid <pid>             监控指定的父进程 PID，父进程退出则 core 联动退出
+//	--detach                       脱离父进程运行，直到收到信号、Teardown 或空闲超时
+//	--idle-timeout <时长>          活跃连接归零后的空闲退出等待时间（0 表示不启用）
 //	--listen unix:///path/to/uds   Linux/macOS 本地通信（手动调试入口）
 //	--listen tcp://127.0.0.1:port  Windows 回环地址
 //	--log-dir <目录>               诊断日志目录（debug-core.log），为空时只写 stderr
@@ -68,11 +70,12 @@ const (
 	exitEndpointBusy = 3
 )
 
-// 自选端点与收尾参数。
+// 自建端点与收尾参数。
 const (
-	coreSocketName = "core.sock"
-	loopbackAddr   = "127.0.0.1:0"
-	shutdownGrace  = 10 * time.Second
+	coreSocketName     = portinfo.CoreSocketFileName
+	loopbackAddr       = "127.0.0.1:0"
+	shutdownGrace      = 10 * time.Second
+	cleanupLockTimeout = 2 * time.Second
 )
 
 // endpointProbeTimeout 是端点存活探测的超时上限。
@@ -100,9 +103,9 @@ func run(args []string) int {
 	logDir := fs.String("log-dir", "",
 		"diagnostic log directory; empty disables file logging")
 	detach := fs.Bool("detach", false,
-		"detach from parent process (reserved; accepted but ignored in this build)")
+		"detach from parent process; keep running until signal, teardown, or idle timeout")
 	idleTimeout := fs.Duration("idle-timeout", 0,
-		"detached idle timeout (reserved; accepted but ignored in this build)")
+		"idle shutdown timeout when active connections reach zero (e.g. 5m, 2s; 0 disables)")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
@@ -114,8 +117,9 @@ func run(args []string) int {
 		fmt.Printf("swanlab-core %s (commit %s)\n", version, commit)
 		return 0
 	}
-	if *detach || *idleTimeout != 0 {
-		console.Warning("--detach/--idle-timeout accepted but ignored: detached service is not implemented; core stays bound to the parent process")
+	if *idleTimeout < 0 {
+		console.Error("invalid --idle-timeout: must be non-negative")
+		return exitUsageError
 	}
 	if *logDir != "" {
 		if err := console.Init(*logDir); err != nil {
@@ -123,9 +127,28 @@ func run(args []string) int {
 			return exitRunError
 		}
 	}
+
+	var startupLock *portinfo.FileLock
+	releaseStartupLock := func() {
+		if startupLock != nil {
+			_ = startupLock.Release()
+			startupLock = nil
+		}
+	}
+	defer releaseStartupLock()
+
 	if *listenAddr == "" && *portFilename == "" {
-		console.Error("no listen endpoint: pass --listen (manual debug) or --port-filename (SDK startup convention)")
-		return exitUsageError
+		if !*detach {
+			console.Error("no listen endpoint: pass --listen (manual debug) or --port-filename (SDK startup convention)")
+			return exitUsageError
+		}
+		resolvedPortFile, lock, rtErr := preparePerUserPortFile(context.Background())
+		if rtErr != nil {
+			console.Error("failed to prepare per-user runtime:", rtErr)
+			return exitRunError
+		}
+		*portFilename = resolvedPortFile
+		startupLock = lock
 	}
 
 	// port-file 仍指向存活的 core 时不覆盖：覆盖会让原实例失去发现入口。
@@ -136,15 +159,10 @@ func run(args []string) int {
 		}
 	}
 
-	// 自建资源记录，退出时清理自己创建的部分。
-	var socketPath string
-	selfPID := os.Getpid() // 退出时凭它确认 port-file 属本实例
-	wrotePortFile := false
+	// 自建资源记录，退出时持启动锁并核对文件身份后清理自己创建的部分。
+	owned := endpointOwnership{pid: os.Getpid()}
 	defer func() {
-		cleanupSocket(socketPath)
-		if wrotePortFile {
-			cleanupPortFile(*portFilename, selfPID)
-		}
+		cleanupEndpoint(&owned, cleanupLockTimeout)
 	}()
 
 	ln, err := openEndpoint(*listenAddr, *portFilename)
@@ -156,19 +174,11 @@ func run(args []string) int {
 		return exitRunError
 	}
 	defer func() { _ = ln.Close() }()
-	if addr, ok := ln.Addr().(*net.UnixAddr); ok && !strings.HasPrefix(addr.Name, "@") {
-		socketPath = addr.Name
-	}
+	trackListenerOwnership(ln, &owned)
 
-	// 父进程监控：显式传入的 PID 生效（启动约定）；未传时监控启动瞬间的
-	// 实际父进程（本地终端运行场景）。监控建立失败终止启动。
-	pid := *parentPID
-	if pid <= 0 {
-		pid = os.Getppid()
-	}
-	parentExited, err := process.NotifyOnParentExit(pid)
-	if err != nil {
-		console.Error("failed to watch parent process, aborting startup:", err)
+	parentExited, pid, watchErr := watchParentIfAttached(*detach, *parentPID)
+	if watchErr != nil {
+		console.Error("failed to watch parent process, aborting startup:", watchErr)
 		return exitRunError
 	}
 
@@ -176,42 +186,38 @@ func run(args []string) int {
 	// - server.Controller: 负责 gRPC 进程宿主生命周期与优雅退出控制；
 	// - manager.Manager: 负责 Run 领域会话管理与路由注册；
 	// - service.CoreService: 负责 gRPC 请求接入与协议映射。
-	grpcServer := grpc.NewServer(grpc.MaxRecvMsgSize(maxRecvMsgSize))
-	ctrl := server.NewController(grpcServer, shutdownGrace)
-	mgr := manager.New(manager.Options{HTTP: client.Options{Version: version}})
+	grpcServer, ctrl, mgr, idleMonitor := assembleServer(*idleTimeout)
 	defer func() { _ = mgr.Close() }()
-	// 关闭顺序：先回收活跃会话（有界），再停止 gRPC；两者共享 shutdownGrace。
-	ctrl.SetOnShutdown(mgr.Shutdown)
-	service.NewCoreService(ctrl, mgr).Register(grpcServer)
 
-	// listen 与 server 初始化成功后写 port-file。
+	// listen 与 server 初始化成功后写 port-file，并立即释放启动锁。
 	if *portFilename != "" {
-		info := portinfo.Info{Protocol: portinfo.ProtocolVersion, PID: selfPID}
-		switch addr := ln.Addr().(type) {
-		case *net.UnixAddr:
-			info.UnixPath = addr.Name
-		case *net.TCPAddr:
-			info.SockPort = addr.Port
-		default:
-			console.Error("unrecognized listener address type:", ln.Addr())
+		if writeErr := writePortFile(*portFilename, owned.pid, ln.Addr()); writeErr != nil {
+			console.Error("failed to write port-file:", writeErr)
 			return exitRunError
 		}
-		if err2 := portinfo.WriteFile(*portFilename, &info); err2 != nil {
-			console.Error("failed to write port-file:", err2)
-			return exitRunError
+		owned.portFile = *portFilename
+		if pfInfo, statErr := os.Lstat(*portFilename); statErr == nil {
+			owned.portFileInfo = pfInfo
 		}
-		wrotePortFile = true
 	}
+	releaseStartupLock()
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	console.Infof("swanlab-core %s listening on %s (parent pid %d)", version, ln.Addr(), pid)
+	if *detach {
+		console.Infof("swanlab-core %s listening on %s (detached, idle timeout %s)", version, ln.Addr(), *idleTimeout)
+	} else {
+		console.Infof("swanlab-core %s listening on %s (parent pid %d)", version, ln.Addr(), pid)
+	}
 
 	serveErr := make(chan error, 1)
 	go func() {
 		serveErr <- grpcServer.Serve(ln)
 	}()
+	if idleMonitor != nil {
+		idleMonitor.Start()
+	}
 
 	exitCode := 0
 	var cause string
@@ -331,26 +337,91 @@ func portFileServed(path string) (int, bool) {
 	return info.PID, endpointAlive("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(info.SockPort)))
 }
 
-// cleanupSocket 删除自己创建的 UDS socket 文件；Linux 抽象 socket（@ 前缀）
-// 不占文件系统，无需清理。
-func cleanupSocket(path string) {
-	if path == "" || strings.HasPrefix(path, "@") {
+type endpointOwnership struct {
+	pid          int
+	portFile     string
+	portFileInfo os.FileInfo
+	socketPath   string
+	socketInfo   os.FileInfo
+}
+
+func trackListenerOwnership(ln net.Listener, owned *endpointOwnership) {
+	if unixLn, ok := ln.(*net.UnixListener); ok {
+		// 禁用 Close() 自动 unlink，避免旧实例退出时无锁删掉新实例刚重建的 socket。
+		unixLn.SetUnlinkOnClose(false)
+	}
+	if addr, ok := ln.Addr().(*net.UnixAddr); ok && !strings.HasPrefix(addr.Name, "@") {
+		owned.socketPath = addr.Name
+		if sockInfo, statErr := os.Lstat(addr.Name); statErr == nil {
+			owned.socketInfo = sockInfo
+		}
+	}
+}
+
+// cleanupEndpoint 串行化退出清理与新实例接管：优先在运行时目录持有 core.lock，
+// 再分别核对 port-file 与 UDS socket 的文件身份，确认未被新实例替换后才删除。
+func cleanupEndpoint(owned *endpointOwnership, lockTimeout time.Duration) {
+	if owned == nil || (owned.portFile == "" && owned.socketPath == "") {
+		return
+	}
+	if owned.portFile != "" {
+		lockDir := filepath.Dir(owned.portFile)
+		if portinfo.ValidateRuntimeDir(lockDir) == nil {
+			ctx, cancel := context.WithTimeout(context.Background(), lockTimeout)
+			defer cancel()
+			lock, err := portinfo.AcquireLock(ctx, lockDir, portinfo.LockOptions{Timeout: lockTimeout})
+			if err != nil {
+				// 有新实例正在竞争或持锁接管时宁可保留旧文件，交由后续启动流程清理。
+				return
+			}
+			defer func() { _ = lock.Release() }()
+		}
+		// Linux tmpfs/ext4 在 unlink+新建后可能立刻复用同一 inode；若 port-file 已被新 PID 接管，
+		// 必须连同 core.sock 一起保留，不能仅凭 inode 核对误删。
+		if runtimeOwnedByOther(owned.portFile, owned.pid) {
+			return
+		}
+	}
+	cleanupPortFileChecked(owned.portFile, owned.pid, owned.portFileInfo)
+	cleanupSocketChecked(owned.socketPath, owned.socketInfo)
+}
+
+func runtimeOwnedByOther(portFile string, selfPID int) bool {
+	if portFile == "" || selfPID <= 0 {
+		return false
+	}
+	info, err := portinfo.ParseFile(portFile)
+	if err != nil {
+		return false
+	}
+	return info.PID != selfPID
+}
+
+func sameFileAtPath(path string, expected os.FileInfo) bool {
+	if path == "" || expected == nil {
+		return false
+	}
+	latest, err := os.Lstat(path)
+	return err == nil && os.SameFile(expected, latest)
+}
+
+func cleanupSocketChecked(path string, expected os.FileInfo) {
+	if strings.HasPrefix(path, "@") || !sameFileAtPath(path, expected) {
+		return
+	}
+	// 即使未走 port-file 且 inode 恰好被复用，也不得删除仍有活进程监听的 socket。
+	if endpointAlive("unix", path) {
 		return
 	}
 	_ = os.Remove(path)
 }
 
-// cleanupPortFile 在 pid 匹配时删除 port-file。同一路径被后启动实例
-// 覆盖后，本实例退出不得误删他者文件；文件缺失、损坏或 pid 不匹配时不删。
-func cleanupPortFile(path string, pid int) {
-	if path == "" || pid <= 0 {
+func cleanupPortFileChecked(path string, pid int, expected os.FileInfo) {
+	if pid <= 0 || !sameFileAtPath(path, expected) {
 		return
 	}
 	info, err := portinfo.ParseFile(path)
-	if err != nil {
-		return
-	}
-	if info.PID != pid {
+	if err != nil || info.PID != pid {
 		return
 	}
 	_ = os.Remove(path)
@@ -370,6 +441,79 @@ func requireLoopbackHost(addr string) error {
 		return nil
 	}
 	return fmt.Errorf("tcp listen address %q is not loopback; use 127.0.0.1 or ::1", addr)
+}
+
+// preparePerUserPortFile 解析并初始化固定 per-user 运行时目录，抢占启动锁后返回 port-file 路径。
+func preparePerUserPortFile(ctx context.Context) (string, *portinfo.FileLock, error) {
+	runtimeDir, err := portinfo.DefaultRuntimeDir()
+	if err != nil {
+		return "", nil, err
+	}
+	return preparePortFileInDir(ctx, runtimeDir)
+}
+
+func preparePortFileInDir(ctx context.Context, runtimeDir string) (string, *portinfo.FileLock, error) {
+	if err := portinfo.EnsureRuntimeDir(runtimeDir); err != nil {
+		return "", nil, err
+	}
+	if err := portinfo.ValidateSocketPath(runtimeDir); err != nil {
+		return "", nil, err
+	}
+	lock, err := portinfo.AcquireLock(ctx, runtimeDir, portinfo.LockOptions{})
+	if err != nil {
+		return "", nil, err
+	}
+	return filepath.Join(runtimeDir, portinfo.CorePortFileName), lock, nil
+}
+
+func assembleServer(idleTimeout time.Duration) (*grpc.Server, *server.Controller, *manager.Manager, *server.IdleMonitor) {
+	tracker := server.NewConnTracker()
+	grpcServer := grpc.NewServer(
+		grpc.MaxRecvMsgSize(maxRecvMsgSize),
+		grpc.StatsHandler(tracker),
+	)
+	ctrl := server.NewController(grpcServer, shutdownGrace)
+	var idleMonitor *server.IdleMonitor
+	if idleTimeout > 0 {
+		idleMonitor = server.NewIdleMonitor(idleTimeout, func() {
+			ctrl.Shutdown("idle-timeout")
+		})
+		tracker.SetMonitor(idleMonitor)
+		ctrl.SetIdleMonitor(idleMonitor)
+	}
+	mgr := manager.New(manager.Options{HTTP: client.Options{Version: version}})
+	// 关闭顺序：先回收活跃会话（有界），再停止 gRPC；两者共享 shutdownGrace。
+	ctrl.SetOnShutdown(mgr.Shutdown)
+	service.NewCoreService(ctrl, mgr).Register(grpcServer)
+	return grpcServer, ctrl, mgr, idleMonitor
+}
+
+func watchParentIfAttached(detach bool, parentPID int) (<-chan struct{}, int, error) {
+	if detach {
+		return nil, 0, nil
+	}
+	pid := parentPID
+	if pid <= 0 {
+		pid = os.Getppid()
+	}
+	ch, err := process.NotifyOnParentExit(pid)
+	if err != nil {
+		return nil, 0, err
+	}
+	return ch, pid, nil
+}
+
+func writePortFile(path string, pid int, addr net.Addr) error {
+	info := portinfo.Info{Protocol: portinfo.ProtocolVersion, PID: pid}
+	switch typed := addr.(type) {
+	case *net.UnixAddr:
+		info.UnixPath = typed.Name
+	case *net.TCPAddr:
+		info.SockPort = typed.Port
+	default:
+		return fmt.Errorf("unrecognized listener address type: %v", addr)
+	}
+	return portinfo.WriteFile(path, &info)
 }
 
 // envInt 解析整型环境变量，缺失或非法时返回 0。
