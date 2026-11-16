@@ -114,12 +114,14 @@ class _FakeResumeCore(NullCoreProtocol):
 def _install_fake_core(
     monkeypatch,
     *,
+    core_impl: str = "python",
     start_error: Optional[str] = None,
     global_step: int = -1,
     global_system_step: int = -1,
     new_experiment: bool = True,
 ) -> List[DeliverRunStartRequest]:
     requests_seen: List[DeliverRunStartRequest] = []
+    monkeypatch.setattr(init_module.helper, "get_core_impl", lambda: core_impl)
 
     def fake_create_core(ctx) -> _FakeResumeCore:
         return _FakeResumeCore(
@@ -207,7 +209,9 @@ class TestExplicitRunDirReuse:
         keep_file.write_bytes(b"png")
         run_file = _write_run_file(existing, "exp-001", extra_records=2)
 
-        requests_seen = _install_fake_core(monkeypatch, global_step=99, global_system_step=12, new_experiment=False)
+        requests_seen = _install_fake_core(
+            monkeypatch, core_impl="go", global_step=99, global_system_step=12, new_experiment=False
+        )
 
         run = init(mode=mode, id="exp-001", settings=_settings_with_dir(log_dir, "resume-dir"))
         try:
@@ -227,7 +231,7 @@ class TestExplicitRunDirReuse:
         _write_run_file(existing, "exp-env")
 
         monkeypatch.setenv("SWANLAB_RUN_DIR", "env-dir")
-        requests_seen = _install_fake_core(monkeypatch, global_step=5, new_experiment=False)
+        requests_seen = _install_fake_core(monkeypatch, core_impl="go", global_step=5, new_experiment=False)
 
         run = init(
             mode="offline", id="exp-env", log_dir=str(log_dir), settings=Settings(probe=Settings.Probe(monitor=False))
@@ -245,7 +249,7 @@ class TestExplicitRunDirReuse:
         existing.mkdir(parents=True)
         _write_run_file(existing, "exp-old")
 
-        requests_seen = _install_fake_core(monkeypatch)
+        requests_seen = _install_fake_core(monkeypatch, core_impl="go")
 
         with pytest.raises(RuntimeError, match="belongs to another run"):
             init(mode="offline", id="exp-new", settings=_settings_with_dir(log_dir, "other-dir"))
@@ -260,6 +264,7 @@ class TestExplicitRunDirReuse:
 
         _install_fake_core(
             monkeypatch,
+            core_impl="go",
             start_error="invalid local run file: run 'exp-done' is already finished, use `swanlab sync` instead",
         )
 
@@ -273,7 +278,7 @@ class TestExplicitRunDirReuse:
         _write_run_file(existing, "exp-1", filename="run-a.swanlab")
         _write_run_file(existing, "exp-1", filename="run-b.swanlab")
 
-        requests_seen = _install_fake_core(monkeypatch)
+        requests_seen = _install_fake_core(monkeypatch, core_impl="go")
 
         with pytest.raises(RuntimeError, match="Multiple run-\\*\\.swanlab files"):
             init(mode="offline", id="exp-1", settings=_settings_with_dir(log_dir, "multi-dir"))
@@ -286,20 +291,20 @@ class TestExplicitRunDirReuse:
         existing.mkdir(parents=True)
         (existing / "run-exp-bad.swanlab").write_bytes(b"")
 
-        requests_seen = _install_fake_core(monkeypatch)
+        requests_seen = _install_fake_core(monkeypatch, core_impl="go")
 
         with pytest.raises(RuntimeError, match="Failed to read existing run file"):
             init(mode="offline", id="exp-bad", settings=_settings_with_dir(log_dir, "corrupt-dir"))
 
         assert requests_seen == []
 
-    def test_allows_header_only_run_file(self, tmp_path, monkeypatch):
+    def test_allows_header_only_run_file_with_go_core(self, tmp_path, monkeypatch):
         log_dir = tmp_path / "swanlog"
         existing = log_dir / "header-only-dir"
         existing.mkdir(parents=True)
         _write_run_file(existing, "exp-hdr", with_start=False)
 
-        requests_seen = _install_fake_core(monkeypatch)
+        requests_seen = _install_fake_core(monkeypatch, core_impl="go")
 
         run = init(mode="offline", id="exp-hdr", settings=_settings_with_dir(log_dir, "header-only-dir"))
         try:
@@ -307,6 +312,20 @@ class TestExplicitRunDirReuse:
             assert len(requests_seen) == 1
         finally:
             run.finish()
+
+    @pytest.mark.parametrize("with_start", [True, False])
+    def test_rejects_existing_run_file_with_python_core(self, tmp_path, monkeypatch, with_start):
+        log_dir = tmp_path / "swanlog"
+        existing = log_dir / "python-dir"
+        existing.mkdir(parents=True)
+        _write_run_file(existing, "exp-py", with_start=with_start)
+
+        requests_seen = _install_fake_core(monkeypatch)
+
+        with pytest.raises(RuntimeError, match="requires the Go core \\(SWANLAB_REQUIRE=core\\)"):
+            init(mode="offline", id="exp-py", settings=_settings_with_dir(log_dir, "python-dir"))
+
+        assert requests_seen == []
 
 
 def _mock_online_client(monkeypatch) -> None:
@@ -348,7 +367,7 @@ class TestResumeControlPlaneSeparation:
 
     def test_resume_true_with_custom_id_and_explicit_run_dir_reuses_dir(self, tmp_path, monkeypatch):
         log_dir = tmp_path / "swanlog"
-        _install_fake_core(monkeypatch)
+        _install_fake_core(monkeypatch, core_impl="go")
         _mock_online_client(monkeypatch)
 
         run1 = init(mode="online", id="exp-named", resume=True, settings=_settings_with_dir(log_dir, "shared-dir"))

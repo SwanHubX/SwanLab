@@ -160,7 +160,8 @@ def init(
         local run identity verification when reusing ``run.dir``).
     :param resume: Cloud resume behavior. Options: "must" (must resume), "allow" (resume if exists),
         "never" (always create new). Defaults to "never". Only governs cloud experiment reuse;
-        to resume a local run directory after a crash, explicitly set ``run.dir`` or ``SWANLAB_RUN_DIR``.
+        to resume a local run directory after a crash, explicitly set ``run.dir`` or ``SWANLAB_RUN_DIR``
+        (requires the Go core, e.g. ``SWANLAB_REQUIRE=core``).
     :param parallel: Parallel execution policy. Options: "none", "shared".
     :param config: Experiment configuration dict or path to config file (JSON/YAML).
     :param settings: Custom Settings object for advanced configuration.

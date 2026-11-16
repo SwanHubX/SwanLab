@@ -147,7 +147,8 @@ def init(
         local run identity verification when reusing ``run.dir``).
     :param resume: Cloud resume behavior. Options: "must" (must resume), "allow" (resume if exists),
         "never" (always create new). Defaults to "never". Only governs cloud experiment reuse;
-        to resume a local run directory after a crash, explicitly set ``run.dir`` or ``SWANLAB_RUN_DIR``.
+        to resume a local run directory after a crash, explicitly set ``run.dir`` or ``SWANLAB_RUN_DIR``
+        (requires the Go core, e.g. ``SWANLAB_REQUIRE=core``).
     :param parallel: Parallel execution strategy. Options: "none" (default), "shared".
     :param config: Experiment configuration dict or path to config file (JSON/YAML).
     :param settings: Custom Settings object for advanced configuration.
@@ -588,6 +589,14 @@ def _validate_existing_run_dir(run_dir: Path, run_id: str) -> None:
         return
     if len(run_files) > 1:
         raise RuntimeError(f"Multiple run-*.swanlab files found in '{run_dir}'; cannot determine which run to resume.")
+    # CorePython 的 DataStoreWriter 以 "xb" 独占创建文件，无法追加或接管既有 store。
+    # 只有 Go core 支持从已有 run 文件续传；否则这里直接失败，避免打印"继续上次运行"后才在启动 store 时报错。
+    if helper.get_core_impl() == "python":
+        raise RuntimeError(
+            f"Run directory '{run_dir}' already contains run file '{run_files[0].name}', "
+            "but local resume requires the Go core (SWANLAB_REQUIRE=core); "
+            "the Python core cannot append to an existing run file. Choose a new run directory."
+        )
     run_file = run_files[0]
     reader = DataStoreReader()
     opened = False
@@ -650,7 +659,7 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
             dir_max_length=run_settings.run.dir_max_length,
             dir_name=explicit_dir,
             parallel=run_settings.run.parallel,
-            reuse_existing=explicit_dir is not None,
+            reuse_existing=reusing_existing,
         )
         if reusing_existing:
             console.info(f"Reusing existing run directory '{run_dir}'; will continue the previous unfinished run.")
