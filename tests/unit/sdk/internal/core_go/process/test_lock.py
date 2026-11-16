@@ -211,16 +211,20 @@ def test_create_lock_file_uses_binary_flag_and_writes_lf(tmp_path, monkeypatch):
     seen_flags = []
     real_open = os.open
 
-    monkeypatch.setattr(lock_module.os, "O_BINARY", 0x8000, raising=False)
+    has_real_binary = hasattr(os, "O_BINARY")
+    binary_flag = getattr(os, "O_BINARY", 0x8000)
+    if not has_real_binary:
+        monkeypatch.setattr(lock_module.os, "O_BINARY", binary_flag, raising=False)
 
     def spy_open(path, flags, mode=0o777):
         seen_flags.append(flags)
-        return real_open(path, flags & ~0x8000, mode)
+        real_flags = flags if has_real_binary else (flags & ~binary_flag)
+        return real_open(path, real_flags, mode)
 
     monkeypatch.setattr(lock_module.os, "open", spy_open)
 
     assert _create_lock_file(lock_path, 123, 456)
-    assert seen_flags and all(flag & 0x8000 for flag in seen_flags)
+    assert seen_flags and all(flag & binary_flag for flag in seen_flags)
     raw = lock_path.read_bytes()
     assert b"\r" not in raw
     assert _parse_lock(raw) == (123, 456)
