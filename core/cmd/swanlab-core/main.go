@@ -376,9 +376,25 @@ func cleanupEndpoint(owned *endpointOwnership, lockTimeout time.Duration) {
 			}
 			defer func() { _ = lock.Release() }()
 		}
+		// Linux tmpfs/ext4 在 unlink+新建后可能立刻复用同一 inode；若 port-file 已被新 PID 接管，
+		// 必须连同 core.sock 一起保留，不能仅凭 inode 核对误删。
+		if runtimeOwnedByOther(owned.portFile, owned.pid) {
+			return
+		}
 	}
 	cleanupPortFileChecked(owned.portFile, owned.pid, owned.portFileInfo)
 	cleanupSocketChecked(owned.socketPath, owned.socketInfo)
+}
+
+func runtimeOwnedByOther(portFile string, selfPID int) bool {
+	if portFile == "" || selfPID <= 0 {
+		return false
+	}
+	info, err := portinfo.ParseFile(portFile)
+	if err != nil {
+		return false
+	}
+	return info.PID != selfPID
 }
 
 func cleanupSocketChecked(path string, expected os.FileInfo) {
@@ -387,6 +403,10 @@ func cleanupSocketChecked(path string, expected os.FileInfo) {
 	}
 	latest, err := os.Lstat(path)
 	if err != nil || !os.SameFile(expected, latest) {
+		return
+	}
+	// 即使未走 port-file 且 inode 恰好被复用，也不得删除仍有活进程监听的 socket。
+	if endpointAlive("unix", path) {
 		return
 	}
 	_ = os.Remove(path)

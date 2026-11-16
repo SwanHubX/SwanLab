@@ -255,6 +255,17 @@ func TestCleanupEndpointSkipsReplacedFiles(t *testing.T) {
 	if runtime.GOOS != "windows" && !endpointAlive("unix", oldSockPath) {
 		t.Fatal("new unix socket was removed by old instance cleanup")
 	}
+	// 即使无 port-file（如 --listen 调试场景）且系统复用了同一 inode，也不得删除活的监听 socket。
+	if runtime.GOOS != "windows" {
+		cleanupEndpoint(&endpointOwnership{
+			pid:        1001,
+			socketPath: oldSockPath,
+			socketInfo: oldSockInfo,
+		}, time.Second)
+		if !endpointAlive("unix", oldSockPath) {
+			t.Fatal("live unix socket was removed without port-file")
+		}
+	}
 }
 
 func TestCleanupEndpointSkipsWhenLockHeld(t *testing.T) {

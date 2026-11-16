@@ -163,10 +163,9 @@ def test_lock_metadata_written_as_lf(tmp_path):
     runtime_dir = _make_runtime_dir(tmp_path)
     lock = try_acquire_start_lock(runtime_dir)
     assert lock is not None
-    try:
-        raw = lock.path.read_bytes()
-        assert b"\r" not in raw
-        assert raw.endswith(b"\nEOF\n")
-        assert f"pid={os.getpid()}\n".encode("ascii") in raw
-    finally:
-        lock.release()
+    # Windows LockFileEx 是强制字节范围锁，需先释放句柄再由外部句柄读取校验元数据。
+    lock.release()
+    raw = lock.path.read_bytes()
+    assert b"\r" not in raw
+    assert raw.endswith(b"\nEOF\n")
+    assert f"pid={os.getpid()}\n".encode("ascii") in raw
