@@ -26,14 +26,12 @@ from .source import (
 
 
 class Video(TransformMedia):
-    """Log GIF/MP4/WebM/OGG files or encode TCHW/BTCHW arrays.
+    """Video data for ``swanlab.log`` / ``swanlab.log_video``.
 
-    ``caption`` remains the second positional argument. Arrays require an
-    explicit ``format``, uint8 pixels, and use 4 fps by default. The encoded
-    canvas, including batch tiling and padding, is limited to 4096 pixels per
-    side. Tensor callers must detach and prepare CPU uint8 arrays themselves.
-    File inputs keep their bytes and audio unchanged. Input, encoding, and
-    storage failures raise exceptions, following the other media transforms.
+    Accepts GIF, MP4, WebM and OGG files, raw bytes or ``BytesIO``, uint8
+    TCHW/BTCHW arrays (or objects exposing ``numpy()``), and nested ``Video``
+    objects. Files are stored byte for byte with their audio track intact;
+    arrays are encoded locally, using 4 fps by default.
     """
 
     def __init__(
@@ -43,6 +41,42 @@ class Video(TransformMedia):
         fps: Optional[int] = None,
         format: Optional[VideoFormat] = None,
     ):
+        """Video class constructor
+
+        Parameters
+        ----------
+        data_or_path: str, pathlib.Path, bytes, BytesIO, numpy.ndarray, or Video
+            - str / PathLike: path to a .gif, .mp4, .webm or .ogg file; the
+              extension selects the format.
+            - bytes / BytesIO: video content. GIF is detected from the header,
+              other formats require an explicit ``format``.
+            - numpy.ndarray: frames shaped (T, C, H, W) or (B, T, C, H, W), dtype
+              uint8, channels 1, 3 or 4. RGBA is encoded as RGB and batched
+              frames are tiled into a single canvas.
+            - object with numpy(): converted via ``numpy()`` first; PyTorch
+              tensors must be detached and on CPU.
+            - Video: nesting, reusing the inner video's content, format and caption.
+        caption: str, optional
+            Caption for the video. Falls back to the inner caption when nesting.
+        fps: int, optional
+            Frame rate used when encoding arrays. Defaults to 4, ignored for
+            existing video content.
+        format: str, optional
+            One of 'gif', 'mp4', 'webm', 'ogg'. Required when encoding arrays and
+            for non-GIF bytes; ignored for files and nested videos.
+
+        Raises
+        ------
+        ValueError
+            The input is unsupported, encoding produces an invalid file, or the
+            encoded content cannot be stored.
+
+        Notes
+        -----
+        The encoded canvas is padded to even dimensions for MP4 and to multiples
+        of 16 for OGG, and each side is capped at 4096 pixels. Videos larger than
+        ``core.media_max_size`` (50 MiB by default) are dropped with a warning.
+        """
         super().__init__()
         if caption is not None and not isinstance(caption, str):
             raise VideoProcessingError("argument", "Video caption must be a string or None")

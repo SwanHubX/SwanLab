@@ -558,10 +558,19 @@ class Run:
         """
         A syntactic sugar for logging video data.
 
+        Supports GIF, MP4, WebM and OGG files, bytes, TCHW/BTCHW arrays, objects
+        exposing ``numpy()``, and Video objects. Encoded arrays are tiled into a
+        canvas capped at 4096 pixels per side; videos larger than
+        ``core.media_max_size`` (50 MiB by default) are dropped with a warning.
+
         :param key: The key for the video data.
         :param data: The video data itself or a Video object.
         :param caption: Optional caption for the video data.
         :param step: Optional step for the video data.
+        :param fps: Frame rate used when encoding arrays. Defaults to 4, ignored
+            for existing video content.
+        :param format: One of 'gif', 'mp4', 'webm', 'ogg'. Required when encoding
+            arrays or logging non-GIF bytes; ignored for files.
         """
         normalized_data = normalize_media_input(Video, data, caption=caption, fps=fps, format=format)
         self.log({key: normalized_data}, step=step)

@@ -515,13 +515,18 @@ def log_video(
 
     Supports GIF, MP4, WebM, and OGG files or encoded bytes, TCHW/BTCHW arrays,
     and objects exposing numpy(). Arrays require format and default to 4 fps.
+    Encoded arrays are tiled into a canvas capped at 4096 pixels per side;
+    videos larger than ``core.media_max_size`` (50 MiB by default) are dropped
+    with a warning.
 
     :param key: The key for the video data.
     :param data: The video data itself or a Video object.
     :param caption: Optional caption for the video data.
     :param step: Optional step number. If not provided, auto-increments.
-    :param fps: Positive integer frame rate for arrays; ignored for existing videos.
-    :param format: Encoding format for arrays or container format for memory input.
+    :param fps: Positive integer frame rate used when encoding arrays; ignored for
+        existing videos.
+    :param format: One of 'gif', 'mp4', 'webm', 'ogg'. Required when encoding arrays
+        or logging non-GIF bytes; ignored for files.
     :raises RuntimeError: If called without an active run.
 
     Examples:
