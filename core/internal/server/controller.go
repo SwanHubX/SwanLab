@@ -30,6 +30,9 @@ type Controller struct {
 
 	hookMu     sync.RWMutex
 	onShutdown func(context.Context) error
+
+	idleMu sync.Mutex
+	idle   *IdleMonitor
 }
 
 // NewController 创建服务控制器，grace 为优雅退出的等待上限。
@@ -61,9 +64,26 @@ func (c *Controller) shutdownHook() func(context.Context) error {
 	return c.onShutdown
 }
 
+// SetIdleMonitor 注册空闲监控器；服务开始关闭时会自动停止该监控器。
+func (c *Controller) SetIdleMonitor(m *IdleMonitor) {
+	c.idleMu.Lock()
+	c.idle = m
+	c.idleMu.Unlock()
+}
+
+func (c *Controller) stopIdleMonitor() {
+	c.idleMu.Lock()
+	m := c.idle
+	c.idleMu.Unlock()
+	if m != nil {
+		m.Stop()
+	}
+}
+
 // Shutdown 触发服务关闭流程，操作具备幂等性；cause 仅用于日志标识退出来源。
 func (c *Controller) Shutdown(cause string) {
 	c.once.Do(func() {
+		c.stopIdleMonitor()
 		c.lc.BeginStopping()
 		console.Infof("core service shutting down (%s)", cause)
 		go func() {
