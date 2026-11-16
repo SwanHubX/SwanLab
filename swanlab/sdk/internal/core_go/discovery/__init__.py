@@ -234,7 +234,7 @@ def discover_endpoint(
     """发现并探测已有可用端点；缺失、损坏、越界或不可达时返回 None。"""
     try:
         endpoint = read_port_file(port_file)
-    except (FileNotFoundError, OSError):
+    except OSError:
         return None
     except CoreGoError as exc:
         if exc.reason is ReasonCode.PORT_FILE_INVALID:

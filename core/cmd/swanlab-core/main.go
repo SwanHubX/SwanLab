@@ -397,12 +397,16 @@ func runtimeOwnedByOther(portFile string, selfPID int) bool {
 	return info.PID != selfPID
 }
 
-func cleanupSocketChecked(path string, expected os.FileInfo) {
-	if path == "" || strings.HasPrefix(path, "@") || expected == nil {
-		return
+func sameFileAtPath(path string, expected os.FileInfo) bool {
+	if path == "" || expected == nil {
+		return false
 	}
 	latest, err := os.Lstat(path)
-	if err != nil || !os.SameFile(expected, latest) {
+	return err == nil && os.SameFile(expected, latest)
+}
+
+func cleanupSocketChecked(path string, expected os.FileInfo) {
+	if strings.HasPrefix(path, "@") || !sameFileAtPath(path, expected) {
 		return
 	}
 	// 即使未走 port-file 且 inode 恰好被复用，也不得删除仍有活进程监听的 socket。
@@ -413,11 +417,7 @@ func cleanupSocketChecked(path string, expected os.FileInfo) {
 }
 
 func cleanupPortFileChecked(path string, pid int, expected os.FileInfo) {
-	if path == "" || pid <= 0 || expected == nil {
-		return
-	}
-	latest, err := os.Lstat(path)
-	if err != nil || !os.SameFile(expected, latest) {
+	if pid <= 0 || !sameFileAtPath(path, expected) {
 		return
 	}
 	info, err := portinfo.ParseFile(path)

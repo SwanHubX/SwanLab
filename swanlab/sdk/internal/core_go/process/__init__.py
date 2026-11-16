@@ -316,7 +316,7 @@ def spawn_core(binary: Path, lease: RuntimeLease, parent_pid: Optional[int] = No
         ) from exc
 
 
-def _early_exit_error(proc: subprocess.Popen, lease: RuntimeLease, exit_code: Optional[int]) -> CoreGoError:
+def _early_exit_error(lease: RuntimeLease, exit_code: Optional[int]) -> CoreGoError:
     if exit_code == _EXIT_ENDPOINT_BUSY:
         reason = ReasonCode.ENDPOINT_BUSY
         message = "core exited because the endpoint is already in use"
@@ -339,7 +339,7 @@ def wait_endpoint(proc: subprocess.Popen, lease: RuntimeLease, timeout: float = 
     while True:
         exit_code = proc.poll()
         if exit_code is not None:
-            raise _early_exit_error(proc, lease, exit_code)
+            raise _early_exit_error(lease, exit_code)
 
         try:
             endpoint = read_port_file(lease.port_file)
@@ -357,7 +357,7 @@ def wait_endpoint(proc: subprocess.Popen, lease: RuntimeLease, timeout: float = 
         if time.monotonic() >= deadline:
             exit_code = proc.poll()
             if exit_code is not None:
-                raise _early_exit_error(proc, lease, exit_code)
+                raise _early_exit_error(lease, exit_code)
             raise CoreGoError(
                 Stage.PORT_FILE,
                 ReasonCode.PORT_FILE_TIMEOUT,

@@ -146,17 +146,20 @@ class CoreLauncher:
 
     def _start_shared_locked(self, lease: RuntimeLease) -> None:
         """先探测并复用已有存活 Core；未命中时持启动锁二次检查再按需拉起。"""
-        existing = discover_endpoint(lease.port_file, lease.dir)
-        if existing is not None:
-            self._reuse_endpoint_locked(existing)
+        if self._try_reuse_existing(lease):
             return
 
         with acquire_start_lock(lease.dir):
-            existing = discover_endpoint(lease.port_file, lease.dir)
-            if existing is not None:
-                self._reuse_endpoint_locked(existing)
+            if self._try_reuse_existing(lease):
                 return
             self._spawn_and_connect_locked(lease)
+
+    def _try_reuse_existing(self, lease: RuntimeLease) -> bool:
+        existing = discover_endpoint(lease.port_file, lease.dir)
+        if existing is None:
+            return False
+        self._reuse_endpoint_locked(existing)
+        return True
 
     def _reuse_endpoint_locked(self, endpoint: Endpoint) -> None:
         self._owns_process = False
@@ -182,9 +185,7 @@ class CoreLauncher:
             self._proc = None
             self._owns_process = False
             self._should_cleanup_lease = False
-            existing = discover_endpoint(lease.port_file, lease.dir)
-            if existing is not None:
-                self._reuse_endpoint_locked(existing)
+            if self._try_reuse_existing(lease):
                 return
             raise
 
