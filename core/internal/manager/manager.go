@@ -386,6 +386,7 @@ func (m *Manager) DisconnectSession(ctx context.Context, sessionID string) error
 		}
 	}
 
+	var diagnostic *DisconnectDiagnostic
 	if drainErr != nil {
 		s.fail(drainErr)
 		runID := s.cfg.RunID
@@ -393,26 +394,23 @@ func (m *Manager) DisconnectSession(ctx context.Context, sessionID string) error
 			runID = s.run.RunID
 		}
 		console.Warningf("disconnect cleanup: drain session %q (run %q) failed: %v", sessionID, runID, drainErr)
-		m.mu.Lock()
-		if m.sessions[sessionID] == s {
-			delete(m.sessions, sessionID)
-			m.diagnostics.add(DisconnectDiagnostic{
-				SessionID: sessionID,
-				RunID:     runID,
-				Err:       drainErr,
-				At:        time.Now(),
-			})
+		diagnostic = &DisconnectDiagnostic{
+			SessionID: sessionID,
+			RunID:     runID,
+			Err:       drainErr,
+			At:        time.Now(),
 		}
-		m.mu.Unlock()
-		return drainErr
 	}
 
 	m.mu.Lock()
 	if m.sessions[sessionID] == s {
 		delete(m.sessions, sessionID)
+		if diagnostic != nil {
+			m.diagnostics.add(*diagnostic)
+		}
 	}
 	m.mu.Unlock()
-	return nil
+	return drainErr
 }
 
 // SessionCount 返回当前仍在注册表中的活跃/未释放会话数。

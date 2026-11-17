@@ -138,11 +138,7 @@ class CoreGo(CoreProtocol):
             self._state = _CoreState.STARTING
 
         try:
-            launcher = (
-                CoreLauncher(binary, detach=True, idle_timeout=self._idle_timeout)
-                if self._attach
-                else CoreLauncher(binary)
-            )
+            launcher = CoreLauncher(binary, detach=self._attach, idle_timeout=self._idle_timeout)
             with self._lock:
                 if self._state is not _CoreState.STARTING:
                     raise CoreGoError(Stage.LIFECYCLE, ReasonCode.CLOSED, "core was closed during startup")

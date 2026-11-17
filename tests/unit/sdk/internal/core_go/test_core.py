@@ -301,50 +301,6 @@ def test_owner_mode_abort_sends_teardown():
     assert core._state is _CoreState.CLOSED  # noqa: SLF001
 
 
-def test_attach_mode_passes_detach_and_idle_timeout_to_launcher(monkeypatch, tmp_path):
-    binary = tmp_path / "swanlab-core"
-    captured = {}
-
-    class StubLauncher:
-        def __init__(self, bin_path, **kwargs) -> None:
-            captured["binary"] = bin_path
-            captured["kwargs"] = kwargs
-            self.channel = object()
-            self.exit_code = None
-
-        def start(self) -> None:
-            return None
-
-        def close(self) -> None:
-            return None
-
-        def abort(self) -> None:
-            return None
-
-    class StubRpc:
-        def __init__(self, _channel) -> None:
-            self.teardown_calls = 0
-
-        def spinup(self) -> None:
-            return None
-
-        def deliver_run_start(self, _req) -> DeliverRunStartResponse:
-            return DeliverRunStartResponse(success=True, session_id="s-attach")
-
-        def teardown(self, timeout: float = 0) -> None:
-            self.teardown_calls += 1
-
-    monkeypatch.setattr(core_module, "CoreLauncher", StubLauncher)
-    monkeypatch.setattr(core_module, "CoreServiceRpc", StubRpc)
-
-    core = CoreGo("online", binary=binary, attach=True, idle_timeout=2.5)
-    response = core.deliver_run_start(DeliverRunStartRequest())
-
-    assert response.success is True
-    assert captured == {"binary": binary, "kwargs": {"detach": True, "idle_timeout": 2.5}}
-    core.close()
-
-
 def test_unowned_launcher_skips_teardown_on_close_even_when_attach_false():
     rpc = FakeRpc()
     core = _running_core(rpc)
@@ -363,9 +319,11 @@ def test_unowned_launcher_skips_teardown_on_close_even_when_attach_false():
 def test_mixed_owner_and_attach_close_does_not_affect_peer(monkeypatch, tmp_path, first_mode):
     binary = tmp_path / "swanlab-core"
     rpcs = {}
+    launcher_kwargs = {}
 
     class StubLauncher:
         def __init__(self, bin_path, *, detach: bool = False, idle_timeout: float = 0.0) -> None:
+            launcher_kwargs[detach] = {"binary": bin_path, "idle_timeout": idle_timeout}
             self.detach = detach
             self.owns_process = True
             self.channel = "attach" if detach else "owner"
@@ -406,6 +364,11 @@ def test_mixed_owner_and_attach_close_does_not_affect_peer(monkeypatch, tmp_path
     else:
         assert owner_core.deliver_run_start(DeliverRunStartRequest()).success is True
         assert attach_core.deliver_run_start(DeliverRunStartRequest()).success is True
+
+    assert launcher_kwargs == {
+        True: {"binary": binary, "idle_timeout": 2.0},
+        False: {"binary": binary, "idle_timeout": core_module.DETACH_IDLE_TIMEOUT},
+    }
 
     # Owner 退出只 teardown 自己的 Core，不得影响 Attach 会话继续写入。
     owner_core.close()

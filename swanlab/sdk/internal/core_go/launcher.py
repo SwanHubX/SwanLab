@@ -73,7 +73,6 @@ class CoreLauncher:
         self._endpoint: Optional[Endpoint] = None
         self._exit_code: Optional[int] = None
         self._owns_process = False
-        self._should_cleanup_lease = False
         self._lock = threading.Lock()
         self._state = _LauncherState.NEW
         self._owner_pid = fork.current_pid()
@@ -166,20 +165,15 @@ class CoreLauncher:
 
     def _reuse_endpoint_locked(self, endpoint: Endpoint) -> None:
         self._owns_process = False
-        self._should_cleanup_lease = False
         self._endpoint = endpoint
         self._channel = Channel.open(endpoint, timeout=CHANNEL_READY_TIMEOUT)
 
     def _spawn_and_connect_locked(self, lease: RuntimeLease) -> None:
         self._owns_process = True
-        self._should_cleanup_lease = True
         if self._injected_lease is None:
             # 持锁且确认旧端点已失效后清理残留 port-file，防止 wait_endpoint 误读旧 PID。
             lease.port_file.unlink(missing_ok=True)
-        if self._detach:
-            proc = spawn_core(self._binary, lease, detach=True, idle_timeout=self._idle_timeout)
-        else:
-            proc = spawn_core(self._binary, lease)
+        proc = spawn_core(self._binary, lease, detach=self._detach, idle_timeout=self._idle_timeout)
         self._proc = proc
         try:
             endpoint = wait_endpoint(proc, lease, timeout=PORT_FILE_TIMEOUT)
@@ -190,7 +184,6 @@ class CoreLauncher:
             reap_process(proc)
             self._proc = None
             self._owns_process = False
-            self._should_cleanup_lease = False
             if self._try_reuse_existing(lease):
                 return
             raise
@@ -222,14 +215,12 @@ class CoreLauncher:
         proc = self._proc
         lease = self._lease
         owns_process = self._owns_process
-        cleanup_lease = self._should_cleanup_lease
 
         self._channel = None
         self._proc = None
         self._lease = None
         self._endpoint = None
         self._owns_process = False
-        self._should_cleanup_lease = False
         self._state = _LauncherState.CLOSED
 
         if channel is not None:
@@ -239,7 +230,7 @@ class CoreLauncher:
         reap_owned = owns_process and proc is not None and (not self._detach or startup_failed)
         if reap_owned:
             self._exit_code = reap_process(proc)
-        if cleanup_lease and lease is not None and (not self._detach or startup_failed):
+        if owns_process and lease is not None and (not self._detach or startup_failed):
             cleanup_runtime(lease)
 
     def _validate_lease(self, lease: RuntimeLease) -> None:

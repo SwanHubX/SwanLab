@@ -283,14 +283,8 @@ type testEnv struct {
 	runs   *fakeManager
 }
 
-func newTestEnv(t *testing.T) *testEnv {
+func dialBufconn(t *testing.T, lis *bufconn.Listener) (*grpc.ClientConn, corev1.CoreServiceClient) {
 	t.Helper()
-	g := grpc.NewServer()
-	ctrl := server.NewController(g, 2*time.Second)
-	runs := newFakeManager()
-	NewCoreService(ctrl, runs).Register(g)
-	lis := bufconn.Listen(bufconnSize)
-	go func() { _ = g.Serve(lis) }()
 	conn, err := grpc.NewClient(
 		"passthrough:///bufnet",
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
@@ -301,12 +295,24 @@ func newTestEnv(t *testing.T) *testEnv {
 	if err != nil {
 		t.Fatalf("grpc.NewClient: %v", err)
 	}
+	t.Cleanup(func() { _ = conn.Close() })
+	return conn, corev1.NewCoreServiceClient(conn)
+}
+
+func newTestEnv(t *testing.T) *testEnv {
+	t.Helper()
+	g := grpc.NewServer()
+	ctrl := server.NewController(g, 2*time.Second)
+	runs := newFakeManager()
+	NewCoreService(ctrl, runs).Register(g)
+	lis := bufconn.Listen(bufconnSize)
+	go func() { _ = g.Serve(lis) }()
 	t.Cleanup(func() {
-		_ = conn.Close()
 		ctrl.Shutdown("test-cleanup")
 		<-ctrl.Done()
 	})
-	return &testEnv{client: corev1.NewCoreServiceClient(conn), ctrl: ctrl, runs: runs}
+	_, client := dialBufconn(t, lis)
+	return &testEnv{client: client, ctrl: ctrl, runs: runs}
 }
 
 func callCtx(t *testing.T) context.Context {
@@ -1051,18 +1057,7 @@ func newTrackedTestEnv(t *testing.T, grace time.Duration) *trackedTestEnv {
 
 func (e *trackedTestEnv) dial(t *testing.T) (*grpc.ClientConn, corev1.CoreServiceClient) {
 	t.Helper()
-	conn, err := grpc.NewClient(
-		"passthrough:///bufnet",
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
-			return e.lis.DialContext(context.Background())
-		}),
-	)
-	if err != nil {
-		t.Fatalf("grpc.NewClient: %v", err)
-	}
-	t.Cleanup(func() { _ = conn.Close() })
-	return conn, corev1.NewCoreServiceClient(conn)
+	return dialBufconn(t, e.lis)
 }
 
 func TestConnDisconnectCleansOnlyDisconnectedClientSessions(t *testing.T) {
@@ -1326,23 +1321,8 @@ func TestGRPCConfirmAfterDisconnectReturnsNotFound(t *testing.T) {
 		<-serveDone
 	})
 
-	dial := func() (*grpc.ClientConn, corev1.CoreServiceClient) {
-		conn, err := grpc.NewClient(
-			"passthrough:///bufnet",
-			grpc.WithTransportCredentials(insecure.NewCredentials()),
-			grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
-				return lis.DialContext(context.Background())
-			}),
-		)
-		if err != nil {
-			t.Fatalf("grpc.NewClient: %v", err)
-		}
-		t.Cleanup(func() { _ = conn.Close() })
-		return conn, corev1.NewCoreServiceClient(conn)
-	}
-
-	connA, clientA := dial()
-	_, clientB := dial()
+	connA, clientA := dialBufconn(t, lis)
+	_, clientB := dialBufconn(t, lis)
 
 	if _, err := clientA.SpinupService(callCtx(t), &corev1.SpinupServiceRequest{}); err != nil {
 		t.Fatalf("SpinupService: %v", err)

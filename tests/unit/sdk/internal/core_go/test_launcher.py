@@ -149,33 +149,20 @@ def test_injected_lease_skips_acquire(launcher_env):
     assert calls["spawn"] == 1
 
 
-def test_close_cleans_channel_process_and_runtime_once(launcher_env):
+@pytest.mark.parametrize("action", ["close", "abort"])
+def test_close_and_abort_clean_channel_process_and_runtime_once(launcher_env, action):
     binary, _, _, calls = launcher_env
     launcher = CoreLauncher(binary)
     launcher.start()
     channel = cast(Any, launcher.channel)
 
-    launcher.close()
-    launcher.close()
+    getattr(launcher, action)()
+    getattr(launcher, action)()
 
     assert channel.closed == 1
     assert calls["reap"] == 1
     assert calls["cleanup"] == 1
     assert launcher.exit_code == 0
-
-
-def test_abort_is_idempotent(launcher_env):
-    binary, _, _, calls = launcher_env
-    launcher = CoreLauncher(binary)
-    launcher.start()
-    channel = cast(Any, launcher.channel)
-
-    launcher.abort()
-    launcher.abort()
-
-    assert channel.closed == 1
-    assert calls["reap"] == 1
-    assert calls["cleanup"] == 1
 
 
 def test_start_missing_binary_does_not_acquire_runtime(launcher_env, tmp_path):
@@ -194,7 +181,7 @@ def test_start_missing_binary_does_not_acquire_runtime(launcher_env, tmp_path):
 def test_start_failure_after_lease_cleans_up(launcher_env, monkeypatch):
     binary, _, _, calls = launcher_env
 
-    def fail_spawn(binary_path: Path, runtime: RuntimeLease):
+    def fail_spawn(binary_path: Path, runtime: RuntimeLease, **kwargs):
         raise CoreGoError(Stage.SPAWN, ReasonCode.SPAWN_FAILED, "spawn boom")
 
     monkeypatch.setattr(launcher_module, "spawn_core", fail_spawn)
@@ -417,13 +404,10 @@ def test_detach_clears_stale_port_file_before_spawning(launcher_env, monkeypatch
 
 
 @pytest.mark.parametrize("first_mode", ["attach", "owner"])
-def test_owner_runs_are_isolated_from_each_other_and_shared_attach(tmp_path, monkeypatch, first_mode):
-    import shutil
-    import tempfile
-
+def test_owner_runs_are_isolated_from_each_other_and_shared_attach(short_tmp_path, monkeypatch, first_mode):
     from swanlab.sdk.internal.core_go import runtime as runtime_module
 
-    root = tmp_path if sys.platform == "win32" else Path(tempfile.mkdtemp(prefix="swl-mix-", dir="/tmp"))
+    root = short_tmp_path
     try:
         binary = root / "swanlab-core"
         binary.write_text("#!/bin/sh\n")
@@ -516,8 +500,6 @@ def test_owner_runs_are_isolated_from_each_other_and_shared_attach(tmp_path, mon
         assert attach_dir.exists()
     finally:
         FakeChannel.last = None
-        if root != tmp_path:
-            shutil.rmtree(root, ignore_errors=True)
 
 
 @pytest.mark.parametrize("action", ["close", "abort"])

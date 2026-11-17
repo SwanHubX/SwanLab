@@ -100,53 +100,6 @@ func TestPreparePortFileInDirAcquiresAndReleasesLock(t *testing.T) {
 	}
 }
 
-func TestRunDetachedIdleTimeoutAfterClientDisconnect(t *testing.T) {
-	dir := shortRuntimeDir(t)
-	portFile := filepath.Join(dir, portinfo.CorePortFileName)
-
-	doneCh := make(chan int, 1)
-	go func() {
-		doneCh <- run([]string{"--port-filename", portFile, "--detach", "--idle-timeout", "100ms"})
-	}()
-
-	info := waitForPortInfo(t, portFile, doneCh)
-	conn, err := grpc.NewClient(grpcTarget(info), grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		t.Fatalf("grpc.NewClient: %v", err)
-	}
-
-	client := corev1.NewCoreServiceClient(conn)
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-	if _, spinErr := client.SpinupService(ctx, &corev1.SpinupServiceRequest{}); spinErr != nil {
-		_ = conn.Close()
-		t.Fatalf("SpinupService: %v", spinErr)
-	}
-
-	// 断开全部连接后，空闲计时器应在超时后触发优雅退出。
-	if closeErr := conn.Close(); closeErr != nil {
-		t.Fatalf("conn.Close: %v", closeErr)
-	}
-
-	select {
-	case code := <-doneCh:
-		if code != 0 {
-			t.Fatalf("core exit code = %d, want 0", code)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("detached core did not exit after idle timeout")
-	}
-
-	if _, statErr := os.Stat(portFile); !errors.Is(statErr, os.ErrNotExist) {
-		t.Fatalf("port-file still exists after idle exit: %v", statErr)
-	}
-	if info.UnixPath != "" {
-		if _, statErr := os.Stat(info.UnixPath); !errors.Is(statErr, os.ErrNotExist) {
-			t.Fatalf("socket file still exists after idle exit: %v", statErr)
-		}
-	}
-}
-
 func TestRunDetachedExitsBusyWhenPortFileServed(t *testing.T) {
 	dir := shortRuntimeDir(t)
 	portFile := filepath.Join(dir, portinfo.CorePortFileName)
@@ -412,5 +365,13 @@ func TestRunDetachedDisconnectCleansSessionAndExitsIdle(t *testing.T) {
 	}
 	if hasFinish {
 		t.Fatal("disconnect cleanup must not synthesize a FinishRecord")
+	}
+	if _, statErr := os.Stat(portFile); !errors.Is(statErr, os.ErrNotExist) {
+		t.Fatalf("port-file still exists after idle exit: %v", statErr)
+	}
+	if info.UnixPath != "" {
+		if _, statErr := os.Stat(info.UnixPath); !errors.Is(statErr, os.ErrNotExist) {
+			t.Fatalf("socket file still exists after idle exit: %v", statErr)
+		}
 	}
 }

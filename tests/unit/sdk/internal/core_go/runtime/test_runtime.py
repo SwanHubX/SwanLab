@@ -6,10 +6,8 @@
 """
 
 import os
-import shutil
 import stat
 import sys
-import tempfile
 from pathlib import Path
 
 import pytest
@@ -32,25 +30,13 @@ from swanlab.sdk.internal.core_go.runtime import (
 )
 
 
-@pytest.fixture
-def short_root(tmp_path):
-    if sys.platform == "win32":
-        yield tmp_path
-        return
-    root = Path(tempfile.mkdtemp(prefix="swl-rt-", dir="/tmp"))
-    try:
-        yield root
-    finally:
-        shutil.rmtree(root, ignore_errors=True)
-
-
-def test_acquire_runtime_creates_and_reuses_per_user_directory(short_root, monkeypatch):
-    monkeypatch.setattr(runtime_module, "_runtime_root", lambda: short_root)
+def test_acquire_runtime_creates_and_reuses_per_user_directory(short_tmp_path, monkeypatch):
+    monkeypatch.setattr(runtime_module, "_runtime_root", lambda: short_tmp_path)
 
     first = acquire_runtime()
     second = acquire_runtime()
     try:
-        assert first.dir == default_runtime_dir(short_root)
+        assert first.dir == default_runtime_dir(short_tmp_path)
         assert first.dir == second.dir
         assert first.dir.name.startswith(RUNTIME_DIR_PREFIX)
         assert first.dir.is_dir()
@@ -66,8 +52,8 @@ def test_acquire_runtime_creates_and_reuses_per_user_directory(short_root, monke
     assert first.dir.exists()
 
 
-def test_acquire_owner_runtime_isolates_directories_and_cleans_up(short_root, monkeypatch):
-    monkeypatch.setattr(runtime_module, "_runtime_root", lambda: short_root)
+def test_acquire_owner_runtime_isolates_directories_and_cleans_up(short_tmp_path, monkeypatch):
+    monkeypatch.setattr(runtime_module, "_runtime_root", lambda: short_tmp_path)
 
     shared = acquire_runtime(shared=True)
     owner_a = acquire_runtime(shared=False)
@@ -91,11 +77,11 @@ def test_acquire_owner_runtime_isolates_directories_and_cleans_up(short_root, mo
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="POSIX permissions and symlinks")
-def test_acquire_runtime_rejects_bad_perm_and_symlink(short_root, monkeypatch):
-    monkeypatch.setattr(runtime_module, "_runtime_root", lambda: short_root)
-    target = default_runtime_dir(short_root)
+def test_acquire_runtime_rejects_bad_perm_and_symlink(short_tmp_path, monkeypatch):
+    monkeypatch.setattr(runtime_module, "_runtime_root", lambda: short_tmp_path)
+    target = default_runtime_dir(short_tmp_path)
 
-    other = short_root / "other"
+    other = short_tmp_path / "other"
     other.mkdir()
     target.symlink_to(other)
     with pytest.raises(CoreGoError) as symlink_err:
