@@ -8,7 +8,7 @@
 真实 Channel 与测试替身都可以满足该协议。
 """
 
-from typing import Any, Callable, Protocol
+from typing import Any, Callable, Optional, Protocol
 
 __all__ = ["RpcChannelType"]
 
@@ -23,7 +23,7 @@ class RpcChannelType(Protocol):
         self,
         method: Callable[..., Any],
         request: Any,
-        timeout: float = ...,
+        timeout: Optional[float] = ...,
         *,
         # stage 是 core_go 内部的 Stage 枚举；typings 不反向依赖 internal，
         # 这里保留 Any，真实 Channel 会把它收窄为 Stage。

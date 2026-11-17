@@ -84,14 +84,14 @@ class CoreGo(CoreProtocol):
         mode: ModeType,
         *,
         binary: Optional[Path] = None,
-        attach: bool = False,
+        detach: bool = False,
         idle_timeout: float = DETACH_IDLE_TIMEOUT,
     ) -> None:
         super().__init__(mode)
         if idle_timeout < 0:
             raise ValueError("idle_timeout must be non-negative")
         self._binary = Path(binary) if binary is not None else None
-        self._attach = attach
+        self._detach = detach
         self._idle_timeout = idle_timeout
         self._lock = threading.RLock()
         self._owner_pid = fork.current_pid()
@@ -138,20 +138,7 @@ class CoreGo(CoreProtocol):
             self._state = _CoreState.STARTING
 
         try:
-            launcher = CoreLauncher(binary, detach=self._attach, idle_timeout=self._idle_timeout)
-            with self._lock:
-                if self._state is not _CoreState.STARTING:
-                    raise CoreGoError(Stage.LIFECYCLE, ReasonCode.CLOSED, "core was closed during startup")
-                self._launcher = launcher
-            launcher.start()
-
-            rpc = CoreServiceRpc(launcher.channel)
-            with self._lock:
-                if self._state is not _CoreState.STARTING:
-                    raise CoreGoError(Stage.LIFECYCLE, ReasonCode.CLOSED, "core was closed during startup")
-                self._rpc = rpc
-
-            rpc.spinup()
+            rpc = self._connect_and_spinup(binary)
             response = rpc.deliver_run_start(start_request)
             if not response.success:
                 raise CoreGoError(
@@ -181,6 +168,42 @@ class CoreGo(CoreProtocol):
             if not isinstance(exc, Exception):
                 raise
             return DeliverRunStartResponse(success=False, message=str(error))
+
+    def _connect_and_spinup(self, binary: Path) -> CoreServiceRpc:
+        """建立通道并完成 Spinup；复用即将空闲退出的 detached Core 时重试拉起。"""
+        max_attempts = 3 if self._detach else 1
+        for attempt in range(max_attempts):
+            launcher = CoreLauncher(binary, detach=self._detach, idle_timeout=self._idle_timeout)
+            with self._lock:
+                if self._state is not _CoreState.STARTING:
+                    raise CoreGoError(Stage.LIFECYCLE, ReasonCode.CLOSED, "core was closed during startup")
+                self._launcher = launcher
+            launcher.start()
+
+            rpc = CoreServiceRpc(launcher.channel)
+            with self._lock:
+                if self._state is not _CoreState.STARTING:
+                    raise CoreGoError(Stage.LIFECYCLE, ReasonCode.CLOSED, "core was closed during startup")
+                self._rpc = rpc
+
+            try:
+                rpc.spinup()
+                return rpc
+            except CoreGoError as exc:
+                retryable_shutdown = (
+                    self._detach
+                    and not launcher.owns_process
+                    and exc.stage is Stage.SPINUP
+                    and exc.reason in (ReasonCode.FAILED_PRECONDITION, ReasonCode.GRPC_UNAVAILABLE)
+                )
+                if not retryable_shutdown or attempt == max_attempts - 1:
+                    raise
+                with self._lock:
+                    if self._state is _CoreState.STARTING:
+                        self._rpc = None
+                        self._launcher = None
+                launcher.close()
+        raise AssertionError("unreachable")
 
     def _fail_start(self, stage: Stage, reason: ReasonCode, message: str) -> DeliverRunStartResponse:
         """调用方必须持有 self._lock。"""
@@ -217,7 +240,7 @@ class CoreGo(CoreProtocol):
     def _upsert_media_when_online(self, media: List[MediaRecord]) -> None:
         self._forward_upsert("media", lambda rpc, session_id: rpc.upsert_media(media, session_id))
 
-    # 直方图尚未在 Go core 侧实现，RPC 返回 UNIMPLEMENTED（非可重试），由 consumer 丢弃并告警。
+    # 直方图与标量走同一 upsert 路由，失败同样由 consumer 分类重试或终结。
     def _upsert_histograms_when_local(self, histograms: List[HistogramRecord]) -> None:
         self._forward_upsert("histograms", lambda rpc, session_id: rpc.upsert_histograms(histograms, session_id))
 
@@ -378,7 +401,7 @@ class CoreGo(CoreProtocol):
     # ---------------------------------- 生命周期回收 ----------------------------------
 
     def close(self) -> None:
-        """正常关闭：Owner Mode 下 teardown + 回收；Attach Mode 下仅关闭本地连接。"""
+        """正常关闭：Owner Mode 下 teardown + 回收；Detached Mode 下仅关闭本地连接。"""
         if not self._owned_by_current_process():
             return
 
@@ -405,7 +428,7 @@ class CoreGo(CoreProtocol):
         self._release_transport(rpc, launcher, abort_launcher=False)
 
     def abort(self, cause: Optional[BaseException] = None) -> None:
-        """失败路径回收：Owner Mode 下尽力 teardown + 有界回收；Attach Mode 仅断连。"""
+        """失败路径回收：Owner Mode 下尽力 teardown + 有界回收；Detached Mode 仅断连。"""
         if not self._owned_by_current_process():
             return
 
@@ -431,7 +454,7 @@ class CoreGo(CoreProtocol):
         action = "abort" if abort_launcher else "close"
         try:
             owns_process = getattr(launcher, "owns_process", True) if launcher is not None else True
-            if not self._attach and owns_process and rpc is not None:
+            if not self._detach and owns_process and rpc is not None:
                 with safe.block(level="debug", message=f"core teardown failed during {action}"):
                     rpc.teardown(timeout=TEARDOWN_TIMEOUT)
             if launcher is not None:

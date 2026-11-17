@@ -37,8 +37,8 @@ import (
 const (
 	// rollbackTimeout 限制启动失败回滚时等待 intake 排空的时间。
 	rollbackTimeout = time.Second
-	// queueFactor 是通道容量相对单批记录数的倍数：自动列最多让一批记录翻倍。
-	queueFactor = 2
+	// queueFactor 是通道容量相对单批记录数的倍数，提供更高的突发写入缓冲余量。
+	queueFactor = 8
 	// finishUnknownError 与 Python 对齐：FinishRecord 未带 error 时的默认错误文案。
 	finishUnknownError = "run failed with unknown error while finish_record.error is not set"
 )

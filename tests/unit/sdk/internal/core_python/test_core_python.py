@@ -12,6 +12,7 @@
   - TestCorePythonSkipStore: core.skip_store 主链路（无本地 datastore、Null watcher + live save 回归）
 """
 
+import threading
 from queue import Queue
 from unittest.mock import MagicMock, patch
 
@@ -43,8 +44,25 @@ from swanlab.sdk.internal.core_python.core import _CLEANUP_JOIN_TIMEOUT
 from swanlab.sdk.internal.core_python.store import DataStoreReader, DataStoreWriter, NullDataStoreWriter
 from swanlab.sdk.internal.core_python.transport.tracker import UploadTracker
 from swanlab.sdk.internal.core_python.watcher import FileWatcher, NullFileWatcher
+from swanlab.sdk.internal.pkg import helper
 from swanlab.sdk.internal.run.components.consumer import BackgroundConsumer
 from swanlab.sdk.internal.settings import Settings
+from swanlab.sdk.protocol import CoreEnum
+
+
+@pytest.fixture(autouse=True)
+def _assert_no_transport_thread_leak():
+    """每个用例结束后不得残留 Transport 线程，避免后台重试污染后续测试。"""
+
+    def _alive() -> set:
+        return {t.ident for t in threading.enumerate() if t.name == "SwanLab·Transport" and t.is_alive()}
+
+    before = _alive()
+    yield
+    leaked = [
+        t for t in threading.enumerate() if t.name == "SwanLab·Transport" and t.is_alive() and t.ident not in before
+    ]
+    assert leaked == [], f"leaked Transport threads: {[t.name for t in leaked]}"
 
 
 def make_core_ctx(tmp_path) -> CoreContext:
@@ -131,7 +149,10 @@ class TestCorePythonStart:
 
         monkeypatch.setattr(core, "_report_run_start", _report_run_start_and_set_attrs)
 
-        with patch("swanlab.sdk.internal.core_python.core.Heartbeat") as MockHeartbeat:
+        with (
+            patch("swanlab.sdk.internal.core_python.core.Heartbeat") as MockHeartbeat,
+            patch("swanlab.sdk.internal.core_python.core.Transport"),
+        ):
             resp = core.deliver_run_start(make_start_request(tmp_path, record))
 
         assert resp.success is True
@@ -591,6 +612,7 @@ class TestCorePythonGuard:
 class TestCorePythonHistogram:
     @pytest.mark.parametrize("mode", ["local", "offline"])
     def test_defined_histogram_preserves_mixed_columns_in_store(self, tmp_path, mode):
+        helper.set_core_impl(CoreEnum.CORE_PYTHON)
         ctx = RunContext(RunConfig(run_dir=tmp_path / "run", settings=Settings(mode=mode)))
         core = ctx.core
         request = make_start_request(tmp_path, make_start_record())
@@ -692,7 +714,11 @@ class TestCorePythonSkipStore:
         monkeypatch.setattr(core, "_report_run_start", _report_run_start_and_set_attrs)
         req = make_start_request(tmp_path, record)
         req.core_settings.skip_store = skip_store
-        with patch("swanlab.sdk.internal.core_python.core.Heartbeat"):
+        # 这些用例只验证 store / watcher 行为，Transport 用假对象避免遗留后台线程
+        with (
+            patch("swanlab.sdk.internal.core_python.core.Heartbeat"),
+            patch("swanlab.sdk.internal.core_python.core.Transport"),
+        ):
             resp = core.deliver_run_start(req)
         assert resp.success is True
         return core
@@ -730,8 +756,6 @@ class TestCorePythonSkipStore:
         """finish 将 store 置 None 后，watcher 回调应被早退条件拦住，不触发 assert。"""
         core = self._start_online_core(tmp_path, monkeypatch, skip_store=True)
         monkeypatch.setattr("swanlab.sdk.internal.core_python.core.stop_experiment", lambda *a, **kw: None)
-        # _store_finish 在非 FINISHED 状态会生成 error log record 进 transport，需让上传成功以便排空
-        monkeypatch.setattr("swanlab.sdk.internal.core_python.transport.sender.upload_log", lambda *a, **kw: None)
         core.deliver_run_finish(DeliverRunFinishRequest(finish_record=FinishRecord()))
         assert core._store is None
 

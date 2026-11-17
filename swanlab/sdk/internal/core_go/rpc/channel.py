@@ -10,8 +10,9 @@ Channel 是唯一 import grpc 的地方：延迟导入、channel-ready 等待、
 不持有 Popen，不做任何文件系统操作。
 """
 
+import os
 import threading
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 from swanlab.sdk.internal.core_go.config import (
     CHANNEL_READY_TIMEOUT,
@@ -26,6 +27,10 @@ from swanlab.sdk.internal.core_go.runtime import Endpoint
 from swanlab.sdk.internal.pkg import safe
 
 __all__ = ["Channel"]
+
+# grpc C-core 默认开启 fork 支持，fork 时可能向 stderr 输出 absl 日志；
+# SwanLab 的 fork 子进程禁止 Core RPC，这里在首次导入 grpc 前默认关闭，用户显式设置优先。
+os.environ.setdefault("GRPC_ENABLE_FORK_SUPPORT", "0")
 
 
 class Channel:
@@ -95,7 +100,7 @@ class Channel:
         self,
         method: Callable[..., Any],
         request: Any,
-        timeout: float = RPC_TIMEOUT,
+        timeout: Optional[float] = RPC_TIMEOUT,
         *,
         stage: Stage = Stage.RPC,
     ) -> Any:

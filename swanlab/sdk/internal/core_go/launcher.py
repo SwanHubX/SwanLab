@@ -132,7 +132,7 @@ class CoreLauncher:
                 self._lease = lease
                 self._validate_lease(lease)
 
-                # Attach 模式使用每节点每用户共享 runtime，支持多 Rank / 多 Run 复用单个 detached Core；
+                # Detached 模式使用每节点每用户共享 runtime，支持多 Rank / 多 Run 复用单个 detached Core；
                 # Owner 模式每 Run 独占隔离目录和私有子进程，随 Run teardown 并清理，互不干扰。
                 if self._injected_lease is None and self._detach:
                     self._start_shared_locked(lease)
@@ -160,7 +160,16 @@ class CoreLauncher:
         existing = discover_endpoint(lease.port_file, lease.dir)
         if existing is None:
             return False
-        self._reuse_endpoint_locked(existing)
+        try:
+            self._reuse_endpoint_locked(existing)
+        except CoreGoError as exc:
+            if exc.stage is not Stage.CHANNEL:
+                raise
+            # 复用可能恰好撞上旧 Core 空闲退出：清空半成品状态并交由后续流程按需重起。
+            self._owns_process = False
+            self._endpoint = None
+            self._channel = None
+            return False
         return True
 
     def _reuse_endpoint_locked(self, endpoint: Endpoint) -> None:

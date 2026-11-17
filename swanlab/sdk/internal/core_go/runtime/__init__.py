@@ -148,7 +148,7 @@ def _user_segment() -> str:
 
 
 def default_runtime_dir(root: Optional[Path] = None) -> Path:
-    """返回当前用户的共享 per-user runtime 目录路径（Attach Mode，不自动创建）。"""
+    """返回当前用户的共享 per-user runtime 目录路径（Detached Mode，不自动创建）。"""
     base = Path(root) if root is not None else _runtime_root()
     return base / f"{RUNTIME_DIR_PREFIX}{_user_segment()}"
 
@@ -179,7 +179,7 @@ def _validate_runtime_dir(path: Path) -> None:
 def acquire_runtime(root: Optional[Path] = None, *, shared: bool = True) -> RuntimeLease:
     """获取 runtime 目录并校验安全性。
 
-    - ``shared=True``（Attach Mode）：获取或创建共享 per-user 目录（``swanlab-core-<uid>``），
+    - ``shared=True``（Detached Mode）：获取或创建共享 per-user 目录（``swanlab-core-<uid>``），
       供同节点同用户的多 Rank / 多 Run 共享复用；
     - ``shared=False``（Owner Mode）：在 ``runtime_root`` 下创建每 Run 独占的 0700 临时目录，
       避免与共享 Core 或其他 Owner Run 冲突，退出时随 Run 清理。

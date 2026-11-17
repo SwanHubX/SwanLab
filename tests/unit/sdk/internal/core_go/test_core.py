@@ -267,10 +267,10 @@ class _SpyLauncher:
 
 
 @pytest.mark.parametrize("action, initial_state", [("close", _CoreState.FINISHED), ("abort", _CoreState.RUNNING)])
-def test_attach_mode_close_and_abort_skip_teardown_and_are_idempotent(action, initial_state):
+def test_detached_mode_close_and_abort_skip_teardown_and_are_idempotent(action, initial_state):
     rpc = FakeRpc()
     core = _running_core(rpc)
-    core._attach = True  # noqa: SLF001
+    core._detach = True  # noqa: SLF001
     launcher = _SpyLauncher()
     core._launcher = cast(core_module.CoreLauncher, launcher)  # noqa: SLF001
     core._state = initial_state  # noqa: SLF001
@@ -301,10 +301,10 @@ def test_owner_mode_abort_sends_teardown():
     assert core._state is _CoreState.CLOSED  # noqa: SLF001
 
 
-def test_unowned_launcher_skips_teardown_on_close_even_when_attach_false():
+def test_unowned_launcher_skips_teardown_on_close_even_when_detach_false():
     rpc = FakeRpc()
     core = _running_core(rpc)
-    core._attach = False  # noqa: SLF001
+    core._detach = False  # noqa: SLF001
     launcher = _SpyLauncher(owns_process=False)
     core._launcher = cast(core_module.CoreLauncher, launcher)  # noqa: SLF001
 
@@ -315,8 +315,8 @@ def test_unowned_launcher_skips_teardown_on_close_even_when_attach_false():
     assert core._state is _CoreState.CLOSED  # noqa: SLF001
 
 
-@pytest.mark.parametrize("first_mode", ["attach", "owner"])
-def test_mixed_owner_and_attach_close_does_not_affect_peer(monkeypatch, tmp_path, first_mode):
+@pytest.mark.parametrize("first_mode", ["detached", "owner"])
+def test_mixed_owner_and_detached_close_does_not_affect_peer(monkeypatch, tmp_path, first_mode):
     binary = tmp_path / "swanlab-core"
     rpcs = {}
     launcher_kwargs = {}
@@ -326,7 +326,7 @@ def test_mixed_owner_and_attach_close_does_not_affect_peer(monkeypatch, tmp_path
             launcher_kwargs[detach] = {"binary": bin_path, "idle_timeout": idle_timeout}
             self.detach = detach
             self.owns_process = True
-            self.channel = "attach" if detach else "owner"
+            self.channel = "detached" if detach else "owner"
             self.exit_code = None if detach else 0
             self.closed = 0
 
@@ -355,33 +355,136 @@ def test_mixed_owner_and_attach_close_does_not_affect_peer(monkeypatch, tmp_path
     monkeypatch.setattr(core_module, "CoreLauncher", StubLauncher)
     monkeypatch.setattr(core_module, "CoreServiceRpc", TaggedRpc)
 
-    attach_core = CoreGo("online", binary=binary, attach=True, idle_timeout=2.0)
-    owner_core = CoreGo("online", binary=binary, attach=False)
+    detached_core = CoreGo("online", binary=binary, detach=True, idle_timeout=2.0)
+    owner_core = CoreGo("online", binary=binary, detach=False)
 
-    if first_mode == "attach":
-        assert attach_core.deliver_run_start(DeliverRunStartRequest()).success is True
+    if first_mode == "detached":
+        assert detached_core.deliver_run_start(DeliverRunStartRequest()).success is True
         assert owner_core.deliver_run_start(DeliverRunStartRequest()).success is True
     else:
         assert owner_core.deliver_run_start(DeliverRunStartRequest()).success is True
-        assert attach_core.deliver_run_start(DeliverRunStartRequest()).success is True
+        assert detached_core.deliver_run_start(DeliverRunStartRequest()).success is True
 
     assert launcher_kwargs == {
         True: {"binary": binary, "idle_timeout": 2.0},
         False: {"binary": binary, "idle_timeout": core_module.DETACH_IDLE_TIMEOUT},
     }
 
-    # Owner 退出只 teardown 自己的 Core，不得影响 Attach 会话继续写入。
+    # Owner 退出只 teardown 自己的 Core，不得影响 Detached 会话继续写入。
     owner_core.close()
     assert rpcs["owner"].teardown_calls == [core_module.TEARDOWN_TIMEOUT]
-    assert rpcs["attach"].teardown_calls == []
+    assert rpcs["detached"].teardown_calls == []
 
-    attach_core.upsert_scalars([ScalarRecord(key="loss", step=1)])
-    assert len(rpcs["attach"].calls) == 1
+    detached_core.upsert_scalars([ScalarRecord(key="loss", step=1)])
+    assert len(rpcs["detached"].calls) == 1
 
-    attach_core.close()
-    assert rpcs["attach"].teardown_calls == []
+    detached_core.close()
+    assert rpcs["detached"].teardown_calls == []
 
 
 def test_core_go_rejects_negative_idle_timeout():
     with pytest.raises(ValueError):
-        CoreGo("online", attach=True, idle_timeout=-1.0)
+        CoreGo("online", detach=True, idle_timeout=-1.0)
+
+
+def _install_stub_launcher(monkeypatch, *, owns_process):
+    """安装共享的假 Launcher，返回 (attempts, starts)。
+
+    ``owns_process`` 可为布尔值或 ``index -> bool``，用于覆盖复用与自建进程两条路径。
+    """
+    attempts = []
+    starts = []
+
+    class StubLauncher:
+        def __init__(self, bin_path, *, detach: bool = False, idle_timeout: float = 0.0) -> None:
+            self.index = len(attempts)
+            self.owns_process = owns_process(self.index) if callable(owns_process) else owns_process
+            self.channel = f"ch-{self.index}"
+            self.exit_code = None
+            self.closed = 0
+            attempts.append(self)
+
+        def start(self) -> None:
+            starts.append(self.index)
+
+        def close(self) -> None:
+            self.closed += 1
+
+        def abort(self) -> None:
+            self.closed += 1
+
+    monkeypatch.setattr(core_module, "CoreLauncher", StubLauncher)
+    return attempts, starts
+
+
+@pytest.mark.parametrize("reason", [ReasonCode.FAILED_PRECONDITION, ReasonCode.GRPC_UNAVAILABLE])
+def test_detached_reuse_dying_core_spinup_retries_and_recovers(monkeypatch, tmp_path, reason):
+    """复用正在空闲退出的 Core 导致 spinup 失败时，应关闭旧通道并重试拉起。"""
+    binary = tmp_path / "swanlab-core"
+    attempts, _ = _install_stub_launcher(monkeypatch, owns_process=lambda index: index > 0)
+
+    class FlakySpinupRpc(FakeRpc):
+        def __init__(self, channel) -> None:
+            super().__init__()
+            self.channel = channel
+
+        def spinup(self) -> None:
+            if self.channel == "ch-0":
+                raise CoreGoError(Stage.SPINUP, reason, "service is stopping or closed")
+
+        def deliver_run_start(self, _req) -> DeliverRunStartResponse:
+            return DeliverRunStartResponse(success=True, session_id="sid-fresh")
+
+    monkeypatch.setattr(core_module, "CoreServiceRpc", FlakySpinupRpc)
+
+    core = CoreGo("online", binary=binary, detach=True, idle_timeout=2.0)
+    resp = core.deliver_run_start(DeliverRunStartRequest())
+
+    assert resp.success is True
+    assert len(attempts) == 2
+    assert attempts[0].closed == 1
+    core.close()
+
+
+def test_owned_core_spinup_failure_does_not_retry(monkeypatch, tmp_path):
+    """自建进程 spinup 失败不应静默重试多次拉起。"""
+    binary = tmp_path / "swanlab-core"
+    attempts, starts = _install_stub_launcher(monkeypatch, owns_process=True)
+
+    class FailingRpc(FakeRpc):
+        def __init__(self, _channel) -> None:
+            super().__init__()
+
+        def spinup(self) -> None:
+            raise CoreGoError(Stage.SPINUP, ReasonCode.FAILED_PRECONDITION, "service is stopping or closed")
+
+    monkeypatch.setattr(core_module, "CoreServiceRpc", FailingRpc)
+
+    core = CoreGo("online", binary=binary, detach=True)
+    resp = core.deliver_run_start(DeliverRunStartRequest())
+
+    assert resp.success is False
+    assert len(attempts) == 1
+    assert len(starts) == 1
+
+
+def test_detached_reuse_non_retryable_spinup_error_does_not_retry(monkeypatch, tmp_path):
+    """旧版本 Core 不支持 Spinup 时重试无意义，只报一次启动失败。"""
+    binary = tmp_path / "swanlab-core"
+    attempts, _ = _install_stub_launcher(monkeypatch, owns_process=False)
+
+    class UnimplementedSpinupRpc(FakeRpc):
+        def __init__(self, _channel) -> None:
+            super().__init__()
+
+        def spinup(self) -> None:
+            raise CoreGoError(Stage.SPINUP, ReasonCode.UNIMPLEMENTED, "spinup is not implemented")
+
+    monkeypatch.setattr(core_module, "CoreServiceRpc", UnimplementedSpinupRpc)
+
+    core = CoreGo("online", binary=binary, detach=True, idle_timeout=2.0)
+    resp = core.deliver_run_start(DeliverRunStartRequest())
+
+    assert resp.success is False
+    assert len(attempts) == 1
+    core.close()

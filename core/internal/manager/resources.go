@@ -286,7 +286,7 @@ func (s *Session) rollback() {
 	s.closeHealth()
 }
 
-// queueSize 是上传通道与 store 通道容量：单批记录最多因自动列翻倍。
+// queueSize 是上传通道与 store 通道容量：按单批记录数的倍数预留突发缓冲。
 func queueSize(batch int32) int { return queueFactor * int(batch) }
 
 func firstNonEmpty(values ...string) string {

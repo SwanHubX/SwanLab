@@ -12,13 +12,15 @@ import queue
 import threading
 from pathlib import Path
 from types import SimpleNamespace
-from typing import cast
+from typing import Optional, cast
 from unittest.mock import MagicMock
 
 import pytest
+from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord, ColumnType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import HistogramRecord, ScalarRecord
+from swanlab.sdk.internal.bus.events import MetricLogEvent
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.pkg import console as pkg_console
 from swanlab.sdk.internal.run.components.consumer import BackgroundConsumer
@@ -43,6 +45,7 @@ def _make_consumer(
     retry_max_delay: float = 2.0,
     flush_timeout: float = 0.5,
     batch_size: int = 100,
+    stop_timeout: Optional[float] = 0.0,
 ):
     core = MagicMock()
     ctx = SimpleNamespace(core=core, callbacker=MagicMock(), media_dir=tmp_path)
@@ -52,6 +55,7 @@ def _make_consumer(
         queue.Queue(),
         flush_timeout=flush_timeout,
         batch_size=batch_size,
+        stop_timeout=stop_timeout,
         retry_base_delay=retry_base_delay,
         retry_max_delay=retry_max_delay,
         clock=clock,
@@ -359,3 +363,152 @@ def test_columns_are_coalesced_before_chunking():
     assert [len(call.args[0]) for call in core.upsert_columns.call_args_list] == [2]
     sent = [record.column_name for call in core.upsert_columns.call_args_list for record in call.args[0]]
     assert sent == ["last", "b"]
+
+
+def test_rpc_batch_size_chunks_scalars_larger_than_flush_threshold():
+    """标量按 rpc_batch_size 切片提交，logs 仍受较小 batch_size 约束。"""
+    core = MagicMock()
+    ctx = SimpleNamespace(core=core, callbacker=MagicMock(), media_dir=Path("."))
+    consumer = BackgroundConsumer(
+        cast(RunContext, cast(object, ctx)),
+        queue.Queue(),
+        batch_size=2,
+        rpc_batch_size=5,
+    )
+    consumer._scalar_batch.extend([_scalar(key=f"s/{i}") for i in range(7)])
+    consumer._log_batch.extend([object(), object(), object()])  # type: ignore[list-item]
+
+    consumer._flush()
+
+    assert [len(call.args[0]) for call in core.upsert_scalars.call_args_list] == [5, 2]
+    assert [len(call.args[0]) for call in core.upsert_logs.call_args_list] == [2, 1]
+
+
+def test_stop_drain_retries_while_progress_is_made(monkeypatch):
+    """退出排空期间 Core 短暂过载时持续重试直到全部刷完，且每次推进都会刷新停滞窗口。"""
+    warnings = []
+    monkeypatch.setattr(pkg_console, "warning", lambda *args, **kwargs: warnings.append(args))
+    core = MagicMock()
+    ctx = SimpleNamespace(core=core, callbacker=MagicMock(), media_dir=Path("."))
+    clock = FakeClock()
+    consumer = BackgroundConsumer(
+        cast(RunContext, cast(object, ctx)),
+        queue.Queue(),
+        batch_size=2,
+        stop_timeout=5.0,
+        retry_base_delay=1.0,
+        retry_max_delay=2.0,
+        clock=clock,
+        sleep=clock.advance,
+    )
+    records = [_scalar(key=f"loss/{i}") for i in range(5)]
+    consumer._scalar_batch.extend(records)
+
+    # 第 1 轮推进 2 条后过载；第 2 轮完全过载；第 3 轮推进 2 条后过载；第 4 轮完成剩余 1 条
+    core.upsert_scalars.side_effect = [
+        None,
+        CoreProtocolError("busy", retryable=True),
+        CoreProtocolError("busy", retryable=True),
+        None,
+        CoreProtocolError("busy", retryable=True),
+        None,
+    ]
+
+    consumer._drain_before_stop()
+
+    assert consumer._scalar_batch == []
+    assert warnings == []
+    sent = [rec for call in core.upsert_scalars.call_args_list for rec in call.args[0]]
+    # 只统计成功接收的分片（索引 0, 3, 5）
+    accepted = [rec for i in (0, 3, 5) for rec in core.upsert_scalars.call_args_list[i].args[0]]
+    assert accepted == records
+    assert len(sent) > len(records)
+
+
+def test_stop_drain_gives_up_after_stall_timeout():
+    """退出排空期间 Core 持续零推进超过 stop_timeout 后停止重试并保留未接收记录。"""
+    core = MagicMock()
+    ctx = SimpleNamespace(core=core, callbacker=MagicMock(), media_dir=Path("."))
+    clock = FakeClock()
+    consumer = BackgroundConsumer(
+        cast(RunContext, cast(object, ctx)),
+        queue.Queue(),
+        batch_size=2,
+        stop_timeout=3.0,
+        retry_base_delay=1.0,
+        retry_max_delay=2.0,
+        clock=clock,
+        sleep=clock.advance,
+    )
+    record = _scalar()
+    consumer._scalar_batch.append(record)
+    core.upsert_scalars.side_effect = CoreProtocolError("busy", retryable=True)
+
+    consumer._drain_before_stop()
+
+    assert consumer._scalar_batch == [record]
+    assert clock.now == pytest.approx(103.0)
+    assert core.upsert_scalars.call_count == 3
+
+
+def test_stop_drain_waits_indefinitely_when_stop_timeout_is_none(monkeypatch):
+    """stop_timeout=None 时，只要 Core 返回可重试错误就持续阻塞重试，直到全部指标被接收。"""
+    warnings = []
+    monkeypatch.setattr(pkg_console, "warning", lambda *args, **kwargs: warnings.append(args))
+    core = MagicMock()
+    ctx = SimpleNamespace(core=core, callbacker=MagicMock(), media_dir=Path("."))
+    clock = FakeClock()
+    consumer = BackgroundConsumer(
+        cast(RunContext, cast(object, ctx)),
+        queue.Queue(),
+        batch_size=2,
+        stop_timeout=None,
+        retry_base_delay=1.0,
+        retry_max_delay=5.0,
+        clock=clock,
+        sleep=clock.advance,
+    )
+    record = _scalar()
+    consumer._scalar_batch.append(record)
+    # 连续失败 20 次（总等待时长远超 30s），第 21 次成功接收
+    core.upsert_scalars.side_effect = [CoreProtocolError("busy", retryable=True)] * 20 + [None]
+
+    consumer._drain_before_stop()
+
+    assert consumer._scalar_batch == []
+    assert warnings == []
+    assert core.upsert_scalars.call_count == 21
+    assert clock.now > 180.0
+
+
+def test_stop_in_gather_branch_drains_until_all_records_accepted():
+    """生产默认 stop_timeout=None：STOP 落在聚拢分支时，持续重试直到积压全部提交。"""
+    consumer, core, _ = _make_consumer(
+        retry_base_delay=0.0,
+        retry_max_delay=0.0,
+        flush_timeout=0.05,
+        stop_timeout=None,
+    )
+    for step in range(20):
+        consumer._queue.put(MetricLogEvent(data={"loss": float(step)}, step=step, timestamp=Timestamp(seconds=step)))
+    consumer.stop()
+    core.upsert_scalars.side_effect = [
+        CoreProtocolError("busy", retryable=True),
+        CoreProtocolError("busy", retryable=True),
+        None,
+    ]
+
+    consumer.start()
+    try:
+        consumer._thread.join(timeout=2.0)
+    finally:
+        if consumer._thread.is_alive():
+            consumer._thread.join(timeout=2.0)
+
+    assert not consumer._thread.is_alive()
+    assert consumer._scalar_batch == []
+    assert core.upsert_scalars.call_count == 3
+    assert len(core.upsert_scalars.call_args_list[-1].args[0]) == 20
+    callbacker = cast(MagicMock, consumer._callbacker)
+    callbacker.on_scalar_flush.assert_called_once()
+    assert len(callbacker.on_scalar_flush.call_args.args[0]) == 20

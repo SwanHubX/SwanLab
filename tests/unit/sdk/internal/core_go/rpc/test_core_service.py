@@ -9,6 +9,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from typing import Optional
 
 import pytest
 
@@ -65,7 +66,7 @@ class FakeChannel:
     def __init__(self):
         self.raw = object()
 
-    def call(self, method, request, timeout=RPC_TIMEOUT, *, stage=Stage.RPC):
+    def call(self, method, request, timeout: Optional[float] = RPC_TIMEOUT, *, stage=Stage.RPC):
         return method(request, timeout=timeout)
 
 
@@ -238,7 +239,7 @@ def test_unimplemented_is_not_rewritten(monkeypatch):
     class ErrorChannel:
         raw = object()
 
-        def call(self, method, request, timeout=RPC_TIMEOUT, *, stage=Stage.RPC):
+        def call(self, method, request, timeout: Optional[float] = RPC_TIMEOUT, *, stage=Stage.RPC):
             raise CoreGoError(
                 Stage.RPC,
                 ReasonCode.UNIMPLEMENTED,

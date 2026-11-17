@@ -139,3 +139,60 @@ def test_channel_close_is_idempotent_and_rejects_calls():
             channel.call(lambda request, timeout: None, b"", timeout=1.0)
 
     assert caught.value.reason is ReasonCode.CLOSED
+
+
+def _run_python(code: str, *, env_overrides: dict) -> subprocess.CompletedProcess:
+    env = {k: v for k, v in os.environ.items() if k != "GRPC_ENABLE_FORK_SUPPORT"}
+    env["PYTHONPATH"] = str(REPO_ROOT)
+    env.update(env_overrides)
+    return subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=str(REPO_ROOT),
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+
+
+@pytest.mark.parametrize(
+    ("overrides", "expected"),
+    [({}, "0"), ({"GRPC_ENABLE_FORK_SUPPORT": "1"}, "1")],
+    ids=["default", "explicit"],
+)
+def test_fork_support_default_and_explicit_value(overrides, expected):
+    """首次导入 rpc 包时设置默认值，且不覆盖用户显式配置。"""
+    code = "import os; import swanlab.sdk.internal.core_go.rpc; print(os.environ['GRPC_ENABLE_FORK_SUPPORT'])"
+
+    result = _run_python(code, env_overrides=overrides)
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == expected
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="fork is POSIX only")
+def test_fork_with_active_grpc_does_not_log_atfork_noise():
+    """打开 fork 支持时，fork 会向 stderr 打印 absl 日志；默认值必须避免该噪音。"""
+    code = "\n".join(
+        [
+            "import os, threading, time",
+            "import swanlab.sdk.internal.core_go.rpc",
+            "import grpc",
+            "channel = grpc.insecure_channel('10.255.255.1:1')",
+            "def probe():",
+            "    try:",
+            "        grpc.channel_ready_future(channel).result(timeout=3)",
+            "    except Exception:",
+            "        pass",
+            "threading.Thread(target=probe, daemon=True).start()",
+            "time.sleep(0.3)",
+            "pid = os.fork()",
+            "if pid == 0:",
+            "    os._exit(0)",
+            "os.waitpid(pid, 0)",
+        ]
+    )
+
+    result = _run_python(code, env_overrides={})
+
+    assert result.returncode == 0, result.stderr
+    assert "fork_posix.cc" not in result.stderr

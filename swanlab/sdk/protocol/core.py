@@ -353,14 +353,14 @@ class CoreProtocol(ABC):
 
         所有权语义由实现与连接模式决定：
         - Owner Mode（默认）：关闭关联的 Core 进程与本地传输通道；
-        - Attach Mode：仅释放本客户端的会话引用与本地连接，不关闭共享 Core 进程。
+        - Detached Mode：仅释放本客户端的会话引用与本地连接，不关闭共享 Core 进程。
         """
 
     def abort(self, cause: Optional[BaseException] = None) -> None:
         """异常路径回收当前客户端持有的 Core 资源；幂等且不抛出。
 
         - Owner Mode（默认）：尽力通知 Core 退出并有界回收子进程；
-        - Attach Mode：仅关闭本地连接（由服务端断连清理接管未释放会话），不影响共享 Core。
+        - Detached Mode：仅关闭本地连接（由服务端断连清理接管未释放会话），不影响共享 Core。
         """
 
     # ---------------------------------- 进程fork ----------------------------------
