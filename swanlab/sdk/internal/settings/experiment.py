@@ -165,7 +165,7 @@ class RunSettings(BaseModel):
     Custom run directory name. When specified, dir_create_retries is ignored;
     swanlab.init() reuses an existing directory (validating any existing StartRecord.id)
     so interrupted runs can resume locally. Resuming a directory that already contains
-    run data requires the Go core (SWANLAB_REQUIRE=core).
+    run data requires a working Go core.
     """
 
     dir_max_length: int = Field(default=255, ge=50, le=255)

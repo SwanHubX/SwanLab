@@ -22,7 +22,7 @@ from swanlab.sdk.internal.settings.core import CoreSettings
 from swanlab.sdk.protocol import CoreEnum
 
 
-def _ctx(mode: str = "online", *, detach: bool = True, idle_timeout: float = DETACH_IDLE_TIMEOUT) -> RunContext:
+def _ctx(mode: str = "online", *, detach: bool = False, idle_timeout: float = DETACH_IDLE_TIMEOUT) -> RunContext:
     ctx = MagicMock()
     ctx.config.settings.mode = mode
     ctx.config.settings.core = CoreSettings(detach=detach, idle_timeout=idle_timeout)
@@ -114,10 +114,22 @@ def test_create_core_passes_detach_and_idle_timeout_from_settings(monkeypatch, t
     monkeypatch.setattr(runtime_module, "locate_core_binary", lambda: binary)
 
     default_core = core_factory.create_core(_ctx("online"))
-    owner_core = core_factory.create_core(_ctx("online", detach=False, idle_timeout=12.5))
+    detached_core = core_factory.create_core(_ctx("online", detach=True, idle_timeout=12.5))
 
     assert isinstance(default_core, CoreGo)
-    assert default_core._detach is True  # noqa: SLF001
-    assert isinstance(owner_core, CoreGo)
-    assert owner_core._detach is False  # noqa: SLF001
-    assert owner_core._idle_timeout == 12.5  # noqa: SLF001
+    assert default_core._detach is False  # noqa: SLF001
+    assert isinstance(detached_core, CoreGo)
+    assert detached_core._detach is True  # noqa: SLF001
+    assert detached_core._idle_timeout == 12.5  # noqa: SLF001
+
+
+def test_create_core_uses_provided_backend(monkeypatch):
+    """init 前置校验解析出的后端直接驱动创建，避免二次解析结果不一致。"""
+    warnings = _capture_warnings(monkeypatch)
+    reason = CoreGoError(Stage.SPAWN, ReasonCode.BINARY_NOT_FOUND, "missing")
+    backend = core_factory.CoreBackend("python", fallback_reason=reason)
+
+    core = core_factory.create_core(_ctx("online"), backend=backend)
+
+    assert isinstance(core, CorePython)
+    assert len(warnings) == 1

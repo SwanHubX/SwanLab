@@ -21,6 +21,9 @@ from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.run.v1.run_pb2 import StartRecord
 from swanlab.sdk.cmd import init as init_module
 from swanlab.sdk.cmd.init import ensure_run_dir, init
+from swanlab.sdk.internal.context.components import CoreBackend
+from swanlab.sdk.internal.core_go import runtime as runtime_module
+from swanlab.sdk.internal.core_go.config import CoreGoError, ReasonCode, Stage
 from swanlab.sdk.internal.core_python.store import DataStoreWriter
 from swanlab.sdk.internal.pkg import console
 from swanlab.sdk.internal.settings import Settings
@@ -121,9 +124,13 @@ def _install_fake_core(
     new_experiment: bool = True,
 ) -> List[DeliverRunStartRequest]:
     requests_seen: List[DeliverRunStartRequest] = []
-    monkeypatch.setattr(init_module.helper, "get_core_impl", lambda: core_impl)
 
-    def fake_create_core(ctx) -> _FakeResumeCore:
+    def fake_resolve(mode: ModeType) -> CoreBackend:
+        if core_impl == "python":
+            return CoreBackend("python")
+        return CoreBackend("go", binary=Path("/fake/swanlab-core"))
+
+    def fake_create_core(ctx, backend: Optional[CoreBackend] = None) -> _FakeResumeCore:
         return _FakeResumeCore(
             ctx.config.settings.mode,
             start_error=start_error,
@@ -133,6 +140,7 @@ def _install_fake_core(
             started_requests=requests_seen,
         )
 
+    monkeypatch.setattr(init_module, "resolve_core_backend", fake_resolve)
     monkeypatch.setattr(init_module, "create_core", fake_create_core)
     monkeypatch.setattr("swanlab.sdk.internal.context.create_core", fake_create_core)
     return requests_seen
@@ -322,10 +330,29 @@ class TestExplicitRunDirReuse:
 
         requests_seen = _install_fake_core(monkeypatch)
 
-        with pytest.raises(RuntimeError, match="requires the Go core \\(SWANLAB_REQUIRE=core\\)"):
+        with pytest.raises(RuntimeError, match="local resume requires the Go core"):
             init(mode="offline", id="exp-py", settings=_settings_with_dir(log_dir, "python-dir"))
 
         assert requests_seen == []
+
+    def test_missing_binary_rejects_existing_run_file_with_clear_error(self, tmp_path, monkeypatch):
+        log_dir = tmp_path / "swanlog"
+        existing = log_dir / "missing-binary-dir"
+        existing.mkdir(parents=True)
+        _write_run_file(existing, "exp-missing")
+
+        def fail() -> Path:
+            raise CoreGoError(Stage.SPAWN, ReasonCode.BINARY_NOT_FOUND, "swanlab-core binary not found")
+
+        monkeypatch.setattr(runtime_module, "locate_core_binary", fail)
+
+        with pytest.raises(RuntimeError) as caught:
+            init(mode="offline", id="exp-missing", settings=_settings_with_dir(log_dir, "missing-binary-dir"))
+
+        message = str(caught.value)
+        assert "local resume requires the Go core" in message
+        assert "BINARY_NOT_FOUND" in message
+        assert "File exists" not in message
 
 
 def _mock_online_client(monkeypatch) -> None:

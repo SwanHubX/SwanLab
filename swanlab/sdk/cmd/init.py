@@ -37,7 +37,7 @@ from swanlab.sdk.internal.context import (
     RunContext,
     use_context,
 )
-from swanlab.sdk.internal.context.components import create_core, create_probe
+from swanlab.sdk.internal.context.components import CoreBackend, create_core, create_probe, resolve_core_backend
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.core_python.store import DataStoreReader
 from swanlab.sdk.internal.pkg import adapter, console, fork, fs, helper, safe
@@ -148,7 +148,7 @@ def init(
     :param resume: Cloud resume behavior. Options: "must" (must resume), "allow" (resume if exists),
         "never" (always create new). Defaults to "never". Only governs cloud experiment reuse;
         to resume a local run directory after a crash, explicitly set ``run.dir`` or ``SWANLAB_RUN_DIR``
-        (requires the Go core, e.g. ``SWANLAB_REQUIRE=core``).
+        (requires a working Go core).
     :param parallel: Parallel execution strategy. Options: "none" (default), "shared".
     :param config: Experiment configuration dict or path to config file (JSON/YAML).
     :param settings: Custom Settings object for advanced configuration.
@@ -582,19 +582,19 @@ def _generate_run_dir_name(
     return dir_name, hostname_truncated or run_id_truncated
 
 
-def _validate_existing_run_dir(run_dir: Path, run_id: str) -> None:
+def _validate_existing_run_dir(run_dir: Path, run_id: str, backend: CoreBackend) -> None:
     """校验待复用的 run_dir 内既有 run-*.swanlab 的首条 StartRecord 是否与当前 run_id 一致。"""
     run_files = sorted(run_dir.glob("run-*.swanlab"))
     if not run_files:
         return
     if len(run_files) > 1:
         raise RuntimeError(f"Multiple run-*.swanlab files found in '{run_dir}'; cannot determine which run to resume.")
-    #  仅 CoreGo 支持从已有 run 文件续传；否则直接失败
-    if helper.get_core_impl() == "python":
+    # 仅 Go core 支持从已有 run 文件续传；内置实现无法追加写入
+    if backend.impl == "python":
+        reason = f" ({backend.fallback_reason})" if backend.fallback_reason is not None else ""
         raise RuntimeError(
             f"Run directory '{run_dir}' already contains run file '{run_files[0].name}', "
-            "but local resume requires the Go core (SWANLAB_REQUIRE=core); "
-            "the Python core cannot append to an existing run file. Choose a new run directory."
+            f"but local resume requires the Go core{reason}; choose a new run directory."
         )
     run_file = run_files[0]
     reader = DataStoreReader()
@@ -641,13 +641,16 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
     run_id = run_settings.run.id
     assert run_id, "Run id is not provided."
     should_mkdirs = mode != "disabled" and not skip_store
+    backend: Optional[CoreBackend] = None
     # 2. 创建或复用运行目录
     if should_mkdirs:
         explicit_dir = run_settings.run.dir
         reusing_existing = explicit_dir is not None and (run_settings.log_dir / explicit_dir).is_dir()
         if reusing_existing:
             assert explicit_dir is not None
-            _validate_existing_run_dir(run_settings.log_dir / explicit_dir, run_id)
+            # 续传校验与实际创建 Core 共用同一解析结果，避免两者判断不一致
+            backend = resolve_core_backend(mode)
+            _validate_existing_run_dir(run_settings.log_dir / explicit_dir, run_id, backend)
         # 安全创建目录，并写入 .gitignore（如果目录为空）
         helper.mkdir_and_append_gitignore(run_settings.log_dir)
         # 未显式指定 run.dir 时仍要求新建；仅显式指定且已存在时复用（不清理已有文件）
@@ -670,7 +673,9 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
             run_dir_name, _ = _generate_run_dir_name(run_id, run_settings.run.dir_max_length, run_settings.run.parallel)
             run_dir = run_settings.log_dir / run_dir_name
     # 3. 创建一个临时的上下文，避免出现任何问题导致上下文残留
-    with use_context(RunContext(config=RunConfig(settings=run_settings, run_dir=run_dir), callbacks=callbacks)) as ctx:
+    with use_context(
+        RunContext(config=RunConfig(settings=run_settings, run_dir=run_dir), callbacks=callbacks, core_backend=backend)
+    ) as ctx:
         assert run_settings.project.name, "Project name is required."
         # 3.1. 前置操作
         # online 模式前置：确保 client 已就绪，连接类失败时按策略降级

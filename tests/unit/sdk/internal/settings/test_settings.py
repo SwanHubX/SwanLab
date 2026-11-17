@@ -498,13 +498,13 @@ class TestSkipStore:
 
     def test_core_detach_and_idle_timeout_defaults_and_env(self, monkeypatch):
         default_settings = Settings(mode="online")
-        assert default_settings.core.detach is True
+        assert default_settings.core.detach is False
         assert default_settings.core.idle_timeout == 300.0
 
-        monkeypatch.setenv("SWANLAB_CORE_DETACH", "false")
+        monkeypatch.setenv("SWANLAB_CORE_DETACH", "true")
         monkeypatch.setenv("SWANLAB_CORE_IDLE_TIMEOUT", "2.5")
         env_settings = Settings(mode="online")
-        assert env_settings.core.detach is False
+        assert env_settings.core.detach is True
         assert env_settings.core.idle_timeout == 2.5
 
         with pytest.raises(ValidationError):

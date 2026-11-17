@@ -132,7 +132,7 @@ class CoreLauncher:
                 self._lease = lease
                 self._validate_lease(lease)
 
-                # Attach 模式使用每节点每用户共享 runtime，支持多 Rank / 多 Run 复用单个 detached Core；
+                # Detached 模式使用每节点每用户共享 runtime，支持多 Rank / 多 Run 复用单个 detached Core；
                 # Owner 模式每 Run 独占隔离目录和私有子进程，随 Run teardown 并清理，互不干扰。
                 if self._injected_lease is None and self._detach:
                     self._start_shared_locked(lease)

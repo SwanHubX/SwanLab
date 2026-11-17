@@ -6,18 +6,47 @@
 """
 
 import threading
-from typing import TYPE_CHECKING
+from dataclasses import dataclass
+from pathlib import Path
+from typing import TYPE_CHECKING, Literal, Optional
 
 from swanlab.sdk.internal.pkg import console, helper
 from swanlab.sdk.protocol import CoreProtocol
+from swanlab.sdk.typings.run import ModeType
 
 if TYPE_CHECKING:
     from swanlab.sdk.internal.context import RunContext
 
-__all__ = ["create_core", "reset_fallback_warning"]
+__all__ = ["CoreBackend", "create_core", "resolve_core_backend"]
 
 _fallback_warn_lock = threading.Lock()
 _fallback_warned = False
+
+
+@dataclass(frozen=True)
+class CoreBackend:
+    """本次运行实际使用的 core 后端；``fallback_reason`` 非空表示 Go core 不可用后回退。"""
+
+    impl: Literal["python", "go"]
+    binary: Optional[Path] = None
+    fallback_reason: Optional[BaseException] = None
+
+
+def resolve_core_backend(mode: ModeType) -> CoreBackend:
+    """解析实际使用的 core 后端；Go core 不可用时回退内置实现。"""
+    if helper.get_core_impl() == "python":
+        return CoreBackend("python")
+    # disabled 不落盘也不起进程，无需定位二进制。
+    if mode == "disabled":
+        return CoreBackend("go")
+
+    from swanlab.sdk.internal.core_go.config import CoreGoError
+    from swanlab.sdk.internal.core_go.runtime import locate_core_binary
+
+    try:
+        return CoreBackend("go", locate_core_binary())
+    except CoreGoError as exc:
+        return CoreBackend("python", fallback_reason=exc)
 
 
 def reset_fallback_warning() -> None:
@@ -37,35 +66,26 @@ def _warn_fallback_once(reason: BaseException) -> None:
     console.warning(f"Go core is unavailable ({reason}); falling back to the built-in Python core.")
 
 
-def create_core(ctx: "RunContext") -> CoreProtocol:
-    """core 对象工厂；Go core 二进制不可用时回退内置 CorePython 并告警一次。
+def create_core(ctx: "RunContext", backend: Optional[CoreBackend] = None) -> CoreProtocol:
+    """core 对象工厂；Go core 不可用时回退内置 CorePython 并告警一次。
 
     :param ctx: 运行上下文，包含配置信息和运行时状态
+    :param backend: 已解析的后端；未提供时按当前配置重新解析
     """
     mode = ctx.config.settings.mode
-    if helper.get_core_impl() == "python":
+    resolved = backend if backend is not None else resolve_core_backend(mode)
+    if resolved.impl == "python":
         from swanlab.sdk.internal.core_python import CorePython
 
+        if resolved.fallback_reason is not None:
+            _warn_fallback_once(resolved.fallback_reason)
         return CorePython(mode=mode)
 
     from swanlab.sdk.internal.core_go import CoreGo
-    from swanlab.sdk.internal.core_go.config import DETACH_IDLE_TIMEOUT, CoreGoError
-    from swanlab.sdk.internal.core_go.runtime import locate_core_binary
+    from swanlab.sdk.internal.core_go.config import DETACH_IDLE_TIMEOUT
     from swanlab.sdk.internal.settings.core import CoreSettings
 
-    # Go core 是 CorePython 的全模式替代；disabled 不落盘也不起进程，无需二进制。
-    if mode == "disabled":
-        binary = None
-    else:
-        try:
-            binary = locate_core_binary()
-        except CoreGoError as exc:
-            from swanlab.sdk.internal.core_python import CorePython
-
-            _warn_fallback_once(exc)
-            return CorePython(mode=mode)
-
     core_settings = getattr(ctx.config.settings, "core", None)
-    detach = core_settings.detach if isinstance(core_settings, CoreSettings) else True
+    detach = core_settings.detach if isinstance(core_settings, CoreSettings) else False
     idle_timeout = core_settings.idle_timeout if isinstance(core_settings, CoreSettings) else DETACH_IDLE_TIMEOUT
-    return CoreGo(mode=mode, binary=binary, detach=detach, idle_timeout=idle_timeout)
+    return CoreGo(mode=mode, binary=resolved.binary, detach=detach, idle_timeout=idle_timeout)

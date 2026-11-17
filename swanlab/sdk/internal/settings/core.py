@@ -75,12 +75,12 @@ class CoreSettings(BaseModel):
     """
     Consecutive probe successes required to recover the site. ``0`` uses the core default (2).
     """
-    detach: bool = Field(default=True)
+    detach: bool = Field(default=False)
     """
     Run ``swanlab-core`` as a shared detached daemon instead of binding it to this run's process lifetime.
-    When ``True`` (Detached Mode), runs for the same user on the same host share one ``swanlab-core``
-    process, and ``close()`` / ``abort()`` only releases this client's session and channel; when ``False``
-    (Owner Mode), each run spawns an isolated ``swanlab-core`` and tears it down on close.
+    When ``False`` (Owner Mode, default), each run spawns an isolated ``swanlab-core`` and tears it down
+    on close; when ``True`` (Detached Mode), runs for the same user on the same host share one
+    ``swanlab-core`` process, and ``close()`` / ``abort()`` only release this client's session and channel.
     """
     idle_timeout: float = Field(default=300.0, ge=0)
     """

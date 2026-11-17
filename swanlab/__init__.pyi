@@ -330,7 +330,7 @@ def require(*requirements: str) -> List[str]:
     - ``"probe_python"``: explicitly use the built-in Python probe.
 
     Equivalent to setting the ``SWANLAB_REQUIRE`` environment variable (comma-separated).
-    Calling ``require("core")`` emits a warning as Go core is already the default.
+    Calling ``require("core")`` while Go core is already active emits a warning.
     This is a transitional API: once all new backends become stable defaults,
     it will degrade to a no-op or be deprecated.
 

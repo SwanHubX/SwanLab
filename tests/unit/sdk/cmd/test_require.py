@@ -59,12 +59,21 @@ def test_require_core_warns_noop_by_default(monkeypatch):
     assert "no-op" in warnings[0]
 
 
-def test_require_switches_to_core_python_and_back():
+def test_require_switches_to_core_python_and_back(monkeypatch):
+    warnings: List[str] = []
+    monkeypatch.setattr(
+        require_module.console,
+        "warning",
+        lambda *args, **kwargs: warnings.append(" ".join(str(a) for a in args)),
+    )
+
     assert swanlab.require("core_python") == ["core_python"]
     assert helper.get_core_impl() == "python"
 
     assert swanlab.require("CORE") == ["core"]
     assert helper.get_core_impl() == "go"
+    # 从 core_python 切回 Go 是真实切换，不应提示 no-op
+    assert warnings == []
 
 
 def test_require_unknown_token_raises():

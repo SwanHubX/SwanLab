@@ -16,7 +16,7 @@ from swanlab.sdk.internal.context.components.probe import create_probe
 from swanlab.sdk.internal.settings import Settings
 from swanlab.sdk.typings.context import CallbacksType
 
-from .components import CallbackManager, create_callback_manager, create_core
+from .components import CallbackManager, CoreBackend, create_callback_manager, create_core
 from .transformer import TransformData, TransformHistogram, TransformMedia
 
 __all__ = [
@@ -41,12 +41,17 @@ class RunConfig:
 
 # 上下文宿主
 class RunContext:
-    def __init__(self, config: RunConfig, callbacks: Optional[CallbacksType] = None):
+    def __init__(
+        self,
+        config: RunConfig,
+        callbacks: Optional[CallbacksType] = None,
+        core_backend: Optional[CoreBackend] = None,
+    ):
         self._global_step: int = -1
         self._global_system_step: Optional[int] = None
         self.config: RunConfig = config
         self.callbacker = create_callback_manager(callbacks=callbacks)
-        self.core = create_core(self)
+        self.core = create_core(self, backend=core_backend)
         self.probe = create_probe(core=self.core, disabled=self.config.settings.mode == "disabled")
 
     @property

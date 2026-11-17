@@ -35,7 +35,7 @@ def require(*requirements: str) -> List[str]:
     - ``"probe_python"``: explicitly use the built-in Python probe.
 
     Equivalent to setting the ``SWANLAB_REQUIRE`` environment variable (comma-separated).
-    Calling ``require("core")`` emits a warning as Go core is already the default.
+    Calling ``require("core")`` while Go core is already active emits a warning.
 
     :param requirements: One or more requirement tokens, e.g. ``"core_python"``, ``"core"``.
     :return: The list of activated requirement tokens.
@@ -51,8 +51,9 @@ def require(*requirements: str) -> List[str]:
     activated: List[str] = []
     for raw in requirements:
         token = raw.strip().lower()
+        was_go = helper.get_core_impl() == "go"
         label = helper.apply_requirement(token)
-        if token == "core" and helper.get_core_impl() == "go":
+        if token == "core" and was_go:
             console.warning("`swanlab.require('core')` is a no-op as Go core is now the default behavior.")
         console.debug(f"require('{token}') -> {label}")
         activated.append(token)

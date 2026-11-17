@@ -73,7 +73,7 @@ def spawn_core(
 ) -> subprocess.Popen:
     """拉起 swanlab-core，返回 Popen。
 
-    Owner Mode 下只传 --port-filename / --parent-pid；Attach Mode（detach=True）
+    Owner Mode 下只传 --port-filename / --parent-pid；Detached Mode（detach=True）
     传 --port-filename / --detach（及正数 --idle-timeout），不绑定父进程生命周期。
     子进程 cwd 是 runtime 目录，因此相对路径必须先按调用方 cwd 解析为绝对路径。
     """
