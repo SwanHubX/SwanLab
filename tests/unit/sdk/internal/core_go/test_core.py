@@ -387,7 +387,8 @@ def test_core_go_rejects_negative_idle_timeout():
         CoreGo("online", detach=True, idle_timeout=-1.0)
 
 
-def test_detached_reuse_dying_core_spinup_retries_and_recovers(monkeypatch, tmp_path):
+@pytest.mark.parametrize("reason", [ReasonCode.FAILED_PRECONDITION, ReasonCode.GRPC_UNAVAILABLE])
+def test_detached_reuse_dying_core_spinup_retries_and_recovers(monkeypatch, tmp_path, reason):
     """复用正在空闲退出的 Core 导致 spinup 失败时，应关闭旧通道并重试拉起。"""
     binary = tmp_path / "swanlab-core"
     attempts = []
@@ -417,7 +418,7 @@ def test_detached_reuse_dying_core_spinup_retries_and_recovers(monkeypatch, tmp_
 
         def spinup(self) -> None:
             if self.channel == "ch-0":
-                raise CoreGoError(Stage.RPC, ReasonCode.FAILED_PRECONDITION, "service is stopping or closed")
+                raise CoreGoError(Stage.SPINUP, reason, "service is stopping or closed")
 
         def deliver_run_start(self, _req) -> DeliverRunStartResponse:
             return DeliverRunStartResponse(success=True, session_id="sid-fresh")
@@ -460,7 +461,7 @@ def test_owned_core_spinup_failure_does_not_retry(monkeypatch, tmp_path):
             super().__init__()
 
         def spinup(self) -> None:
-            raise CoreGoError(Stage.RPC, ReasonCode.FAILED_PRECONDITION, "service is stopping or closed")
+            raise CoreGoError(Stage.SPINUP, ReasonCode.FAILED_PRECONDITION, "service is stopping or closed")
 
     monkeypatch.setattr(core_module, "CoreLauncher", StubLauncher)
     monkeypatch.setattr(core_module, "CoreServiceRpc", FailingRpc)
@@ -470,3 +471,42 @@ def test_owned_core_spinup_failure_does_not_retry(monkeypatch, tmp_path):
 
     assert resp.success is False
     assert starts == 1
+
+
+def test_detached_reuse_non_retryable_spinup_error_does_not_retry(monkeypatch, tmp_path):
+    """旧版本 Core 不支持 Spinup 时重试无意义，只报一次启动失败。"""
+    binary = tmp_path / "swanlab-core"
+    attempts = []
+
+    class StubLauncher:
+        def __init__(self, bin_path, *, detach: bool = False, idle_timeout: float = 0.0) -> None:
+            self.owns_process = False
+            self.channel = f"ch-{len(attempts)}"
+            self.exit_code = None
+            attempts.append(self)
+
+        def start(self) -> None:
+            return None
+
+        def close(self) -> None:
+            return None
+
+        def abort(self) -> None:
+            return None
+
+    class UnimplementedSpinupRpc(FakeRpc):
+        def __init__(self, _channel) -> None:
+            super().__init__()
+
+        def spinup(self) -> None:
+            raise CoreGoError(Stage.SPINUP, ReasonCode.UNIMPLEMENTED, "spinup is not implemented")
+
+    monkeypatch.setattr(core_module, "CoreLauncher", StubLauncher)
+    monkeypatch.setattr(core_module, "CoreServiceRpc", UnimplementedSpinupRpc)
+
+    core = CoreGo("online", binary=binary, detach=True, idle_timeout=2.0)
+    resp = core.deliver_run_start(DeliverRunStartRequest())
+
+    assert resp.success is False
+    assert len(attempts) == 1
+    core.close()

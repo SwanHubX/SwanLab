@@ -193,7 +193,7 @@ class CoreGo(CoreProtocol):
                 retryable_shutdown = (
                     self._detach
                     and not launcher.owns_process
-                    and exc.stage is Stage.RPC
+                    and exc.stage is Stage.SPINUP
                     and exc.reason in (ReasonCode.FAILED_PRECONDITION, ReasonCode.GRPC_UNAVAILABLE)
                 )
                 if not retryable_shutdown or attempt == max_attempts - 1:
@@ -240,7 +240,7 @@ class CoreGo(CoreProtocol):
     def _upsert_media_when_online(self, media: List[MediaRecord]) -> None:
         self._forward_upsert("media", lambda rpc, session_id: rpc.upsert_media(media, session_id))
 
-    # 直方图尚未在 Go core 侧实现，RPC 返回 UNIMPLEMENTED（非可重试），由 consumer 丢弃并告警。
+    # 直方图与标量走同一 upsert 路由，失败同样由 consumer 分类重试或终结。
     def _upsert_histograms_when_local(self, histograms: List[HistogramRecord]) -> None:
         self._forward_upsert("histograms", lambda rpc, session_id: rpc.upsert_histograms(histograms, session_id))
 
