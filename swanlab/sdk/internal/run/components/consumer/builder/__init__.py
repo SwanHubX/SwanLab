@@ -39,13 +39,14 @@ def is_scalar_value(value: object) -> bool:
 
 
 class RecordBuilder:
-    _MEDIA_MAX_SIZE = 10 * 1024**2  # 10 MB
     _MEDIA_MAX_LENGTH = 108
 
     def __init__(self, ctx: RunContext):
         self._ctx = ctx
         # 由 BackgroundConsumer 单线程调用，无需锁
         self._num: int = 0
+        # 所有媒体类型共用同一单文件上限，由 settings 统一配置
+        self._media_max_size: int = ctx.config.settings.core.media_max_size
 
     def _resolve_media_dir(self, column_type: ColumnType) -> Optional[Path]:
         """解析媒体存储目录。
@@ -66,11 +67,12 @@ class RecordBuilder:
         items = list(record.value.items)
         # 1. 过滤掉超过单条大小限制的项
         valid_items = []
+        limit = self._media_max_size
         for item in items:
-            if item.size > self._MEDIA_MAX_SIZE:
+            if item.size > limit:
                 console.warning(
                     f"Media '{item.filename}' in key '{record.key}' step {record.step} "
-                    f"exceeds size limit ({item.size} > {self._MEDIA_MAX_SIZE} bytes), dropped"
+                    f"exceeds size limit ({item.size} > {limit} bytes), dropped"
                 )
                 continue
             valid_items.append(item)
