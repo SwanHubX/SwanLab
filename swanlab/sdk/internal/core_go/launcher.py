@@ -160,7 +160,16 @@ class CoreLauncher:
         existing = discover_endpoint(lease.port_file, lease.dir)
         if existing is None:
             return False
-        self._reuse_endpoint_locked(existing)
+        try:
+            self._reuse_endpoint_locked(existing)
+        except CoreGoError as exc:
+            if exc.stage is not Stage.CHANNEL:
+                raise
+            # 复用可能恰好撞上旧 Core 空闲退出：清空半成品状态并交由后续流程按需重起。
+            self._owns_process = False
+            self._endpoint = None
+            self._channel = None
+            return False
         return True
 
     def _reuse_endpoint_locked(self, endpoint: Endpoint) -> None:

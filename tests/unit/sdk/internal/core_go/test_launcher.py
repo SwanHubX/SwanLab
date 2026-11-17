@@ -319,6 +319,33 @@ def test_detach_converges_on_endpoint_busy(launcher_env, monkeypatch):
     assert calls["cleanup"] == 0
 
 
+def test_detach_reuse_channel_failure_falls_back_to_spawn(launcher_env, monkeypatch):
+    """复用刚好撞上旧 Core 空闲关闭导致 Channel 失败时，应回退到持锁启动新实例。"""
+    binary, _, endpoint, calls = launcher_env
+    answers = iter([endpoint, None])
+    monkeypatch.setattr(launcher_module, "discover_endpoint", lambda *_: next(answers))
+
+    open_calls = 0
+
+    def flaky_open(ep: Endpoint, timeout: float = 0.0):
+        nonlocal open_calls
+        open_calls += 1
+        if open_calls == 1:
+            raise CoreGoError(Stage.CHANNEL, ReasonCode.GRPC_UNAVAILABLE, "dying core")
+        return FakeChannel(ep)
+
+    monkeypatch.setattr(launcher_module.Channel, "open", flaky_open)
+
+    launcher = CoreLauncher(binary, detach=True)
+    assert launcher.start() == endpoint
+    assert open_calls == 2
+    assert calls["lock"] == 1
+    assert calls["spawn"] == 1
+    assert launcher.owns_process is True
+
+    launcher.close()
+
+
 def test_detach_raises_endpoint_busy_when_fallback_discover_misses(launcher_env, monkeypatch):
     binary, _, _, calls = launcher_env
 

@@ -138,20 +138,7 @@ class CoreGo(CoreProtocol):
             self._state = _CoreState.STARTING
 
         try:
-            launcher = CoreLauncher(binary, detach=self._detach, idle_timeout=self._idle_timeout)
-            with self._lock:
-                if self._state is not _CoreState.STARTING:
-                    raise CoreGoError(Stage.LIFECYCLE, ReasonCode.CLOSED, "core was closed during startup")
-                self._launcher = launcher
-            launcher.start()
-
-            rpc = CoreServiceRpc(launcher.channel)
-            with self._lock:
-                if self._state is not _CoreState.STARTING:
-                    raise CoreGoError(Stage.LIFECYCLE, ReasonCode.CLOSED, "core was closed during startup")
-                self._rpc = rpc
-
-            rpc.spinup()
+            rpc = self._connect_and_spinup(binary)
             response = rpc.deliver_run_start(start_request)
             if not response.success:
                 raise CoreGoError(
@@ -181,6 +168,42 @@ class CoreGo(CoreProtocol):
             if not isinstance(exc, Exception):
                 raise
             return DeliverRunStartResponse(success=False, message=str(error))
+
+    def _connect_and_spinup(self, binary: Path) -> CoreServiceRpc:
+        """建立通道并完成 Spinup；复用即将空闲退出的 detached Core 时重试拉起。"""
+        max_attempts = 3 if self._detach else 1
+        for attempt in range(max_attempts):
+            launcher = CoreLauncher(binary, detach=self._detach, idle_timeout=self._idle_timeout)
+            with self._lock:
+                if self._state is not _CoreState.STARTING:
+                    raise CoreGoError(Stage.LIFECYCLE, ReasonCode.CLOSED, "core was closed during startup")
+                self._launcher = launcher
+            launcher.start()
+
+            rpc = CoreServiceRpc(launcher.channel)
+            with self._lock:
+                if self._state is not _CoreState.STARTING:
+                    raise CoreGoError(Stage.LIFECYCLE, ReasonCode.CLOSED, "core was closed during startup")
+                self._rpc = rpc
+
+            try:
+                rpc.spinup()
+                return rpc
+            except CoreGoError as exc:
+                retryable_shutdown = (
+                    self._detach
+                    and not launcher.owns_process
+                    and exc.stage is Stage.RPC
+                    and exc.reason in (ReasonCode.FAILED_PRECONDITION, ReasonCode.GRPC_UNAVAILABLE)
+                )
+                if not retryable_shutdown or attempt == max_attempts - 1:
+                    raise
+                with self._lock:
+                    if self._state is _CoreState.STARTING:
+                        self._rpc = None
+                        self._launcher = None
+                launcher.close()
+        raise AssertionError("unreachable")
 
     def _fail_start(self, stage: Stage, reason: ReasonCode, message: str) -> DeliverRunStartResponse:
         """调用方必须持有 self._lock。"""
