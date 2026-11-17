@@ -43,8 +43,10 @@ from swanlab.sdk.internal.core_python.core import _CLEANUP_JOIN_TIMEOUT
 from swanlab.sdk.internal.core_python.store import DataStoreReader, DataStoreWriter, NullDataStoreWriter
 from swanlab.sdk.internal.core_python.transport.tracker import UploadTracker
 from swanlab.sdk.internal.core_python.watcher import FileWatcher, NullFileWatcher
+from swanlab.sdk.internal.pkg import helper
 from swanlab.sdk.internal.run.components.consumer import BackgroundConsumer
 from swanlab.sdk.internal.settings import Settings
+from swanlab.sdk.protocol import CoreEnum
 
 
 def make_core_ctx(tmp_path) -> CoreContext:
@@ -591,6 +593,7 @@ class TestCorePythonGuard:
 class TestCorePythonHistogram:
     @pytest.mark.parametrize("mode", ["local", "offline"])
     def test_defined_histogram_preserves_mixed_columns_in_store(self, tmp_path, mode):
+        helper.set_core_impl(CoreEnum.CORE_PYTHON)
         ctx = RunContext(RunConfig(run_dir=tmp_path / "run", settings=Settings(mode=mode)))
         core = ctx.core
         request = make_start_request(tmp_path, make_start_record())

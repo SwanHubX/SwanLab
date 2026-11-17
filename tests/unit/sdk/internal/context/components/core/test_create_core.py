@@ -2,11 +2,11 @@
 @author: Nexisato
 @file: test_create_core.py
 @time: 2026/11/9
-@description: create_core 的显式 opt-in 路由与二进制定位测试。
+@description: create_core 的默认 Go 路由、core_python 切回与缺失回退测试。
 """
 
 from pathlib import Path
-from typing import cast
+from typing import List, cast
 from unittest.mock import MagicMock
 
 import pytest
@@ -17,7 +17,9 @@ from swanlab.sdk.internal.core_go import CoreGo, CoreGoError, ReasonCode, Stage
 from swanlab.sdk.internal.core_go import runtime as runtime_module
 from swanlab.sdk.internal.core_go.config import DETACH_IDLE_TIMEOUT
 from swanlab.sdk.internal.core_python import CorePython
+from swanlab.sdk.internal.pkg import helper
 from swanlab.sdk.internal.settings.core import CoreSettings
+from swanlab.sdk.protocol import CoreEnum
 
 
 def _ctx(mode: str = "online", *, attach: bool = False, idle_timeout: float = DETACH_IDLE_TIMEOUT) -> RunContext:
@@ -27,20 +29,37 @@ def _ctx(mode: str = "online", *, attach: bool = False, idle_timeout: float = DE
     return cast(RunContext, ctx)
 
 
-def _use_impl(monkeypatch, impl: str) -> None:
-    monkeypatch.setattr(core_factory.helper, "get_core_impl", lambda: impl)
-
-
 def _write_binary(path: Path) -> Path:
     path.write_text("#!/bin/sh\n")
     return path
 
 
-def test_default_uses_core_python(monkeypatch):
-    _use_impl(monkeypatch, "python")
+def _capture_warnings(monkeypatch) -> List[str]:
+    warnings: List[str] = []
+    monkeypatch.setattr(
+        core_factory.console,
+        "warning",
+        lambda *args, **kwargs: warnings.append(" ".join(str(a) for a in args)),
+    )
+    return warnings
+
+
+def test_default_uses_core_go_when_binary_available(monkeypatch, tmp_path):
+    binary = _write_binary(tmp_path / "swanlab-core")
+    monkeypatch.setattr(runtime_module, "locate_core_binary", lambda: binary)
+
+    core = core_factory.create_core(_ctx("online"))
+
+    assert helper.get_core_impl() == "go"
+    assert isinstance(core, CoreGo)
+    assert core._binary == binary  # noqa: SLF001 - 断言工厂传递的路径
+
+
+def test_core_python_uses_core_python_without_locating_binary(monkeypatch):
+    helper.set_core_impl(CoreEnum.CORE_PYTHON)
 
     def fail() -> Path:
-        raise AssertionError("default python path must not locate the core binary")
+        raise AssertionError("core_python path must not locate the core binary")
 
     monkeypatch.setattr(runtime_module, "locate_core_binary", fail)
 
@@ -49,21 +68,9 @@ def test_default_uses_core_python(monkeypatch):
     assert isinstance(core, CorePython)
 
 
-def test_core_opt_in_returns_core_go(monkeypatch, tmp_path):
-    binary = _write_binary(tmp_path / "swanlab-core")
-    _use_impl(monkeypatch, "go")
-    monkeypatch.setattr(runtime_module, "locate_core_binary", lambda: binary)
-
-    core = core_factory.create_core(_ctx("online"))
-
-    assert isinstance(core, CoreGo)
-    assert core._binary == binary  # noqa: SLF001 - 断言工厂传递的路径
-
-
 @pytest.mark.parametrize("mode", ["local", "offline"])
 def test_local_and_offline_use_go_core_with_binary(monkeypatch, tmp_path, mode):
     binary = _write_binary(tmp_path / "swanlab-core")
-    _use_impl(monkeypatch, "go")
     monkeypatch.setattr(runtime_module, "locate_core_binary", lambda: binary)
 
     core = core_factory.create_core(_ctx(mode))
@@ -73,8 +80,6 @@ def test_local_and_offline_use_go_core_with_binary(monkeypatch, tmp_path, mode):
 
 
 def test_disabled_mode_does_not_require_binary(monkeypatch):
-    _use_impl(monkeypatch, "go")
-
     def fail() -> Path:
         raise AssertionError("disabled mode must not locate the core binary")
 
@@ -86,24 +91,26 @@ def test_disabled_mode_does_not_require_binary(monkeypatch):
     assert core._binary is None  # noqa: SLF001
 
 
-def test_locate_failure_propagates(monkeypatch):
+def test_missing_binary_falls_back_to_core_python_and_warns_once(monkeypatch):
     error = CoreGoError(Stage.SPAWN, ReasonCode.BINARY_NOT_FOUND, "missing")
-    _use_impl(monkeypatch, "go")
+    warnings = _capture_warnings(monkeypatch)
 
     def fail() -> Path:
         raise error
 
     monkeypatch.setattr(runtime_module, "locate_core_binary", fail)
 
-    with pytest.raises(CoreGoError) as caught:
-        core_factory.create_core(_ctx("online"))
+    first = core_factory.create_core(_ctx("online"))
+    second = core_factory.create_core(_ctx("offline"))
 
-    assert caught.value is error
+    assert isinstance(first, CorePython)
+    assert isinstance(second, CorePython)
+    assert len(warnings) == 1
+    assert "missing" in warnings[0]
 
 
 def test_create_core_passes_attach_and_idle_timeout_from_settings(monkeypatch, tmp_path):
     binary = _write_binary(tmp_path / "swanlab-core")
-    _use_impl(monkeypatch, "go")
     monkeypatch.setattr(runtime_module, "locate_core_binary", lambda: binary)
 
     core = core_factory.create_core(_ctx("online", attach=True, idle_timeout=12.5))
