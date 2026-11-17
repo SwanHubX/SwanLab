@@ -346,8 +346,9 @@ func (m *Manager) Confirm(ctx context.Context, sessionID string) (ConfirmResult,
 
 // DisconnectSession 在客户端异常断连后先有界排空指定会话再释放注册表槽位。
 //
-// 不合成 FinishRecord，也不上报 stop_experiment；已释放或不存在的会话幂等返回 nil。
-// 若排空失败，仍强制关闭 uploader 避免协程泄漏，并保留 RunStateFailed 与可诊断记录。
+// 不合成 FinishRecord，也不上报 stop_experiment，且不写入 Confirm 专用的 released 缓存——
+// 避免断连清理后重试的 ConfirmRunFinish 误判为已成功释放；重复断连由 ErrSessionNotFound 兜底保持幂等。
+// 若排空失败，仍强制关闭 uploader 避免协程泄漏，并保留可诊断记录。
 func (m *Manager) DisconnectSession(ctx context.Context, sessionID string) error {
 	if sessionID == "" {
 		return ErrEmptySessionID
@@ -409,7 +410,6 @@ func (m *Manager) DisconnectSession(ctx context.Context, sessionID string) error
 	m.mu.Lock()
 	if m.sessions[sessionID] == s {
 		delete(m.sessions, sessionID)
-		m.released.add(sessionID)
 	}
 	m.mu.Unlock()
 	return nil

@@ -16,6 +16,7 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/pkg/record"
 	columnv1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/column/v1"
 	datav1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/data/v1"
+	runv1 "github.com/swanhubx/swanlab/core/proto/swanlab/run/v1"
 )
 
 // drainBare 直接驱动裸会话进入 DRAINING，用于不装配收尾资源的状态机测试。
@@ -564,8 +565,14 @@ func TestDisconnectSessionDrainsAndReleasesSlot(t *testing.T) {
 	if _, err := h.mgr.State(h.id); !errors.Is(err, ErrSessionNotFound) {
 		t.Fatalf("State after disconnect err=%v, want ErrSessionNotFound", err)
 	}
-	if !h.mgr.isReleased(h.id) {
-		t.Fatal("clean disconnect must record session in released cache")
+	if h.mgr.isReleased(h.id) {
+		t.Fatal("disconnect cleanup must not mark session in released cache")
+	}
+	if _, err := h.mgr.Confirm(ctx, h.id); !errors.Is(err, ErrSessionNotFound) {
+		t.Fatalf("Confirm after disconnect err=%v, want ErrSessionNotFound", err)
+	}
+	if stops != 0 {
+		t.Fatalf("Confirm after disconnect must not invoke releaseFn, got %d call(s)", stops)
 	}
 	if diags := h.mgr.DisconnectDiagnostics(); len(diags) != 0 {
 		t.Fatalf("unexpected disconnect diagnostics: %+v", diags)
@@ -593,6 +600,37 @@ func TestDisconnectSessionDrainsAndReleasesSlot(t *testing.T) {
 	}
 	if err := h.mgr.DisconnectSession(ctx, ""); !errors.Is(err, ErrEmptySessionID) {
 		t.Fatalf("empty DisconnectSession err=%v, want ErrEmptySessionID", err)
+	}
+}
+
+func TestDisconnectSessionAfterFinishDoesNotFakeConfirmSuccess(t *testing.T) {
+	h := newFinishHarness(t, finishOptions{})
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var stops int
+	h.session.releaseFn = func(context.Context) error {
+		stops++
+		return nil
+	}
+
+	if err := h.mgr.DeliverRunFinish(ctx, h.id, &runv1.FinishRecord{
+		State: runv1.RunState_RUN_STATE_FINISHED,
+	}); err != nil {
+		t.Fatalf("DeliverRunFinish: %v", err)
+	}
+	if err := h.mgr.DisconnectSession(ctx, h.id); err != nil {
+		t.Fatalf("DisconnectSession: %v", err)
+	}
+
+	if _, err := h.mgr.Confirm(ctx, h.id); !errors.Is(err, ErrSessionNotFound) {
+		t.Fatalf("Confirm after finish+disconnect err=%v, want ErrSessionNotFound", err)
+	}
+	if stops != 0 {
+		t.Fatalf("stop_experiment must not run after disconnect cleanup, got %d call(s)", stops)
+	}
+	if h.mgr.isReleased(h.id) {
+		t.Fatal("disconnect after finish must not mark session as Confirm-released")
 	}
 }
 

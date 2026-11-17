@@ -484,6 +484,7 @@ func (s *CoreService) unbindSession(sessionID string) {
 
 // HandleConnDisconnect 在传输连接断开后异步排空并释放该连接名下未关闭的会话。
 // 同一 connID 重复调用幂等；服务进入关闭收尾后只清理映射，由 Manager.Shutdown 统一回收。
+// 会话不支持跨连接重连迁移（无宽限期），在断连清理完成并移除会话后，用旧 session_id 重试 RPC 将明确返回 NotFound。
 func (s *CoreService) HandleConnDisconnect(connID uint64) {
 	if connID == 0 {
 		return

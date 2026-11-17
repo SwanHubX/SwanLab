@@ -234,6 +234,8 @@ func (t *ConnTracker) HandleConn(ctx context.Context, st stats.ConnStats) {
 			m.OnConnBegin()
 		}
 	case *stats.ConnEnd:
+		// 本地 UDS/回环连接断开后立即触发异步排空清理（不支持跨传输连接重连迁移）；
+		// 断连清理完成并移除会话后，客户端若用旧 session_id 重试 RPC 将明确返回 NotFound。
 		var connID uint64
 		if state, ok := ctx.Value(connCtxKey{}).(*connState); ok {
 			if !state.closed.CompareAndSwap(false, true) {
