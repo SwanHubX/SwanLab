@@ -24,6 +24,15 @@ def _make_consumer(record_batch: int) -> BackgroundConsumer:
 
 
 def test_batch_size_capped_by_record_batch():
-    assert _make_consumer(7)._batch_size == 7
-    assert _make_consumer(100)._batch_size == 100
-    assert _make_consumer(10_000)._batch_size == 100
+    c7 = _make_consumer(7)
+    assert c7._batch_size == 7
+    assert c7._rpc_batch_size == 7
+
+    c100 = _make_consumer(100)
+    assert c100._batch_size == 100
+    assert c100._rpc_batch_size == 100
+
+    c10k = _make_consumer(10_000)
+    assert c10k._batch_size == 100
+    assert c10k._rpc_batch_size == 2_000
+    assert c10k._stop_timeout is None

@@ -359,3 +359,119 @@ def test_columns_are_coalesced_before_chunking():
     assert [len(call.args[0]) for call in core.upsert_columns.call_args_list] == [2]
     sent = [record.column_name for call in core.upsert_columns.call_args_list for record in call.args[0]]
     assert sent == ["last", "b"]
+
+
+def test_rpc_batch_size_chunks_scalars_larger_than_flush_threshold():
+    """标量按 rpc_batch_size 切片提交，logs 仍受较小 batch_size 约束。"""
+    core = MagicMock()
+    ctx = SimpleNamespace(core=core, callbacker=MagicMock(), media_dir=Path("."))
+    consumer = BackgroundConsumer(
+        cast(RunContext, cast(object, ctx)),
+        queue.Queue(),
+        batch_size=2,
+        rpc_batch_size=5,
+    )
+    consumer._scalar_batch.extend([_scalar(key=f"s/{i}") for i in range(7)])
+    consumer._log_batch.extend([object(), object(), object()])  # type: ignore[list-item]
+
+    consumer._flush()
+
+    assert [len(call.args[0]) for call in core.upsert_scalars.call_args_list] == [5, 2]
+    assert [len(call.args[0]) for call in core.upsert_logs.call_args_list] == [2, 1]
+
+
+def test_stop_drain_retries_while_progress_is_made(monkeypatch):
+    """退出排空期间 Core 短暂过载时持续重试直到全部刷完，且每次推进都会刷新停滞窗口。"""
+    warnings = []
+    monkeypatch.setattr(pkg_console, "warning", lambda *args, **kwargs: warnings.append(args))
+    core = MagicMock()
+    ctx = SimpleNamespace(core=core, callbacker=MagicMock(), media_dir=Path("."))
+    clock = FakeClock()
+    consumer = BackgroundConsumer(
+        cast(RunContext, cast(object, ctx)),
+        queue.Queue(),
+        batch_size=2,
+        stop_timeout=5.0,
+        retry_base_delay=1.0,
+        retry_max_delay=2.0,
+        clock=clock,
+        sleep=clock.advance,
+    )
+    records = [_scalar(key=f"loss/{i}") for i in range(5)]
+    consumer._scalar_batch.extend(records)
+
+    # 第 1 轮推进 2 条后过载；第 2 轮完全过载；第 3 轮推进 2 条后过载；第 4 轮完成剩余 1 条
+    core.upsert_scalars.side_effect = [
+        None,
+        CoreProtocolError("busy", retryable=True),
+        CoreProtocolError("busy", retryable=True),
+        None,
+        CoreProtocolError("busy", retryable=True),
+        None,
+    ]
+
+    consumer._drain_before_stop()
+
+    assert consumer._scalar_batch == []
+    assert warnings == []
+    sent = [rec for call in core.upsert_scalars.call_args_list for rec in call.args[0]]
+    # 只统计成功接收的分片（索引 0, 3, 5）
+    accepted = [rec for i in (0, 3, 5) for rec in core.upsert_scalars.call_args_list[i].args[0]]
+    assert accepted == records
+    assert len(sent) > len(records)
+
+
+def test_stop_drain_gives_up_after_stall_timeout():
+    """退出排空期间 Core 持续零推进超过 stop_timeout 后停止重试并保留未接收记录。"""
+    core = MagicMock()
+    ctx = SimpleNamespace(core=core, callbacker=MagicMock(), media_dir=Path("."))
+    clock = FakeClock()
+    consumer = BackgroundConsumer(
+        cast(RunContext, cast(object, ctx)),
+        queue.Queue(),
+        batch_size=2,
+        stop_timeout=3.0,
+        retry_base_delay=1.0,
+        retry_max_delay=2.0,
+        clock=clock,
+        sleep=clock.advance,
+    )
+    record = _scalar()
+    consumer._scalar_batch.append(record)
+    core.upsert_scalars.side_effect = CoreProtocolError("busy", retryable=True)
+
+    consumer._drain_before_stop()
+
+    assert consumer._scalar_batch == [record]
+    assert clock.now == pytest.approx(103.0)
+    assert core.upsert_scalars.call_count == 3
+
+
+def test_stop_drain_waits_indefinitely_when_stop_timeout_is_none(monkeypatch):
+    """stop_timeout=None 时，只要 Core 返回可重试错误就持续阻塞重试，直到全部指标被接收。"""
+    warnings = []
+    monkeypatch.setattr(pkg_console, "warning", lambda *args, **kwargs: warnings.append(args))
+    core = MagicMock()
+    ctx = SimpleNamespace(core=core, callbacker=MagicMock(), media_dir=Path("."))
+    clock = FakeClock()
+    consumer = BackgroundConsumer(
+        cast(RunContext, cast(object, ctx)),
+        queue.Queue(),
+        batch_size=2,
+        stop_timeout=None,
+        retry_base_delay=1.0,
+        retry_max_delay=5.0,
+        clock=clock,
+        sleep=clock.advance,
+    )
+    record = _scalar()
+    consumer._scalar_batch.append(record)
+    # 连续失败 20 次（总等待时长远超 30s），第 21 次成功接收
+    core.upsert_scalars.side_effect = [CoreProtocolError("busy", retryable=True)] * 20 + [None]
+
+    consumer._drain_before_stop()
+
+    assert consumer._scalar_batch == []
+    assert warnings == []
+    assert core.upsert_scalars.call_count == 21
+    assert clock.now > 180.0

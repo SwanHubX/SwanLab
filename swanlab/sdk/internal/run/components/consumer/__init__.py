@@ -39,8 +39,12 @@ HistogramBatch = List[HistogramRecord]
 SaveBatch = List[SaveRecord]
 BatchTuple = Tuple[LogBatch, ColumnBatch, ScalarBatch, MediaBatch, HistogramBatch, SaveBatch]
 
-# 消费者单次提交的默认批次上限
+# 消费者触发刷盘的默认批次阈值
 DEFAULT_RECORD_BATCH: int = 100
+# 标量与列定义单次 gRPC 提交的最大切片数，在不触及 4 MiB 上限的前提下降低高频日志往返次数
+DEFAULT_RPC_BATCH: int = 2_000
+# 退出阶段默认阻塞等待直到积压记录全部被 Core 接收（None 表示不设上限，对齐 core_python finish(timeout=None)）
+DEFAULT_STOP_FLUSH_TIMEOUT: Optional[float] = None
 # 可重试失败的退避：base 起翻倍，封顶 max；失败期间不阻塞事件循环。
 DEFAULT_RETRY_BASE_DELAY: float = 0.1
 DEFAULT_RETRY_MAX_DELAY: float = 2.0
@@ -63,11 +67,25 @@ class ConsumerProtocol(ABC):
         event_queue: RunQueue,
         flush_timeout: float = 0.5,
         batch_size: int = DEFAULT_RECORD_BATCH,
+        rpc_batch_size: Optional[int] = None,
+        stop_timeout: Optional[float] = 0.0,
         retry_base_delay: float = DEFAULT_RETRY_BASE_DELAY,
         retry_max_delay: float = DEFAULT_RETRY_MAX_DELAY,
         clock: Callable[[], float] = time.monotonic,
+        sleep: Callable[[float], None] = time.sleep,
     ):
-        _ = (ctx, event_queue, flush_timeout, batch_size, retry_base_delay, retry_max_delay, clock)
+        _ = (
+            ctx,
+            event_queue,
+            flush_timeout,
+            batch_size,
+            rpc_batch_size,
+            stop_timeout,
+            retry_base_delay,
+            retry_max_delay,
+            clock,
+            sleep,
+        )
 
     def start(self) -> None: ...
 
@@ -90,18 +108,24 @@ class BackgroundConsumer(ConsumerProtocol):
         event_queue: RunQueue,
         flush_timeout: float = 0.5,
         batch_size: int = DEFAULT_RECORD_BATCH,
+        rpc_batch_size: Optional[int] = None,
+        stop_timeout: Optional[float] = 0.0,
         retry_base_delay: float = DEFAULT_RETRY_BASE_DELAY,
         retry_max_delay: float = DEFAULT_RETRY_MAX_DELAY,
         clock: Callable[[], float] = time.monotonic,
+        sleep: Callable[[float], None] = time.sleep,
     ):
         super().__init__(
             ctx,
             event_queue,
             flush_timeout,
             batch_size,
+            rpc_batch_size,
+            stop_timeout,
             retry_base_delay,
             retry_max_delay,
             clock,
+            sleep,
         )
         self._ctx = ctx
         self._queue = event_queue
@@ -111,10 +135,13 @@ class BackgroundConsumer(ConsumerProtocol):
         self._core = ctx.core
         self._flush_timeout = flush_timeout
         self._batch_size = batch_size
+        self._rpc_batch_size = max(batch_size, rpc_batch_size) if rpc_batch_size is not None else batch_size
+        self._stop_timeout: Optional[float] = None if stop_timeout is None else max(0.0, stop_timeout)
         # 重试调度：_retry_at 为空表示可以立即 flush
         self._retry_base_delay = retry_base_delay
         self._retry_max_delay = retry_max_delay
         self._clock = clock
+        self._sleep = sleep
         self._retry_at: Optional[float] = None
         self._retry_attempt = 0
         self._thread = threading.Thread(target=self._run, name="SwanLab·Specter", daemon=True)
@@ -206,7 +233,37 @@ class BackgroundConsumer(ConsumerProtocol):
         self._retry_at = self._clock() + delay
         console.debug(f"Core upsert failed; retrying in {delay:.2f}s: {exc}", write_to_tty=False)
 
+    def _drain_before_stop(self) -> None:
+        # 退出前忽略退避；stop_timeout=None 时持续阻塞重试直到排空或遇确定性拒绝
+        self._retry_at = None
+        self._retry_attempt = 0
+        stall_deadline = None if self._stop_timeout is None else self._clock() + self._stop_timeout
+        while not self._batch_empty:
+            before = self._batch_len
+            self._flush()
+            if self._batch_empty or self._retry_at is None:
+                break
+            if self._stop_timeout is not None and self._stop_timeout <= 0:
+                break
+            if self._batch_len < before:
+                if stall_deadline is not None and self._stop_timeout is not None:
+                    stall_deadline = self._clock() + self._stop_timeout
+                # Core 已恢复接收：下一轮从最小退避继续，避免单次大积压拖慢排空
+                self._retry_attempt = 0
+                self._retry_at = self._clock() + self._retry_base_delay
+            now = self._clock()
+            if stall_deadline is not None:
+                remaining = stall_deadline - now
+                if remaining <= 0:
+                    break
+                wait_for = min(max(0.0, self._retry_at - now), remaining)
+            else:
+                wait_for = max(0.0, self._retry_at - now)
+            if wait_for > 0:
+                self._sleep(wait_for)
+
     def _run(self) -> None:
+        stopping = False
         while True:
             with safe.block(message="SwanLab background logger thread error"):
                 try:
@@ -217,11 +274,22 @@ class BackgroundConsumer(ConsumerProtocol):
                         self._flush()
                     continue
                 if event is _STOP:
-                    # 退出前忽略退避，再给 core 一次机会
-                    self._retry_at = None
-                    self._flush()
+                    stopping = True
+                else:
+                    self._handle_event(event)
+                    # 突发写入时一次聚拢待消费事件，降低高频小包 RPC 往返
+                    while self._batch_len < self._rpc_batch_size:
+                        try:
+                            next_event = self._queue.get_nowait()
+                        except queue.Empty:
+                            break
+                        if next_event is _STOP:
+                            stopping = True
+                            break
+                        self._handle_event(next_event)
+                if stopping:
+                    self._drain_before_stop()
                     break
-                self._handle_event(event)
                 if self._batch_full and self._retry_due():
                     self._flush()
         if not self._batch_empty:
@@ -418,14 +486,16 @@ class BackgroundConsumer(ConsumerProtocol):
 
         restored: List[Tuple[str, list]] = []
         retryable_error: Optional[Exception] = None
-        chunk_size = max(1, self._batch_size)
+        sent_any = False
+        small_chunk_size = max(1, self._batch_size)
+        bulk_chunk_size = max(small_chunk_size, self._rpc_batch_size)
 
-        def send(name: str, records: list, call: Callable[[list], None]) -> None:
-            """按 batch_size 分片提交，失败只回塞未成功的部分。"""
-            nonlocal retryable_error
+        def send(name: str, records: list, call: Callable[[list], None], *, limit: int = small_chunk_size) -> None:
+            """按分片上限提交，失败只回塞未成功的部分。"""
+            nonlocal retryable_error, sent_any
             start = 0
             while start < len(records):
-                chunk = records[start : start + chunk_size]
+                chunk = records[start : start + limit]
                 try:
                     call(chunk)
                 except Exception as exc:
@@ -439,6 +509,7 @@ class BackgroundConsumer(ConsumerProtocol):
                         if records[start + len(chunk) :]:
                             restored.append((name, records[start + len(chunk) :]))
                     return
+                sent_any = True
                 start += len(chunk)
 
         # 分片前先 coalesce，避免同一列跨片重复上报
@@ -447,8 +518,8 @@ class BackgroundConsumer(ConsumerProtocol):
             coalesced_columns[(col.column_key, col.column_type)] = col
 
         send("logs", log_batch, self._send_logs)
-        send("columns", list(coalesced_columns.values()), self._send_columns)
-        send("scalars", scalar_batch, self._send_scalars)
+        send("columns", list(coalesced_columns.values()), self._send_columns, limit=bulk_chunk_size)
+        send("scalars", scalar_batch, self._send_scalars, limit=bulk_chunk_size)
         send("media", media_batch, self._send_media)
         send("histograms", histogram_batch, self._send_histograms)
         send("saves", save_batch, self._send_saves)
@@ -457,6 +528,9 @@ class BackgroundConsumer(ConsumerProtocol):
             self._restore_group(name, records)
 
         if retryable_error is not None:
+            if sent_any:
+                # 已有分片成功说明 Core 仍在吞吐，重置退避计数避免部分推进却退避拉满
+                self._retry_attempt = 0
             self._schedule_retry(retryable_error)
         else:
             self._retry_attempt = 0

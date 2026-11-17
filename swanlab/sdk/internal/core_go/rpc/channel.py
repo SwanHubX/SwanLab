@@ -11,7 +11,7 @@ Channel 是唯一 import grpc 的地方：延迟导入、channel-ready 等待、
 """
 
 import threading
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 from swanlab.sdk.internal.core_go.config import (
     CHANNEL_READY_TIMEOUT,
@@ -95,7 +95,7 @@ class Channel:
         self,
         method: Callable[..., Any],
         request: Any,
-        timeout: float = RPC_TIMEOUT,
+        timeout: Optional[float] = RPC_TIMEOUT,
         *,
         stage: Stage = Stage.RPC,
     ) -> Any:

@@ -344,6 +344,14 @@ func (w *workerState) handleInput(rec *recordv1.Record, ok bool) {
 	if w.batchAt.IsZero() {
 		w.batchAt = w.u.now().Add(w.u.interval)
 	}
+	if w.u.buf.len() < w.u.batch && w.u.pumpReady(&w.batchAt) {
+		w.ingestClosed = true
+		w.batchAt = time.Time{}
+		if w.u.buf.len() > 0 {
+			w.pending = w.u.drainBuffer()
+		}
+		return
+	}
 	if w.u.buf.len() >= w.u.batch {
 		w.pending = w.u.drainBuffer()
 		w.batchAt = time.Time{}

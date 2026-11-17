@@ -8,6 +8,8 @@
 单文件内部的私有实现常量（如 Win32 API 标志位）保留在对应模块内。
 """
 
+from typing import Optional
+
 __all__ = [
     "BINARY_NAME",
     "CORE_BINARY_ENV",
@@ -95,8 +97,8 @@ UPSERT_TIMEOUT = 5.0
 RUN_FINISH_TIMEOUT = 15.0
 # GetOperationStats：finish 阶段高频轮询，超时必须短。
 STATS_TIMEOUT = 2.0
-# ConfirmRunFinish：core 内部要排空上传队列，预算高于启动。
-CONFIRM_TIMEOUT = 45.0
+# ConfirmRunFinish：对齐 core_python 的 finish(timeout=None)，无限等待上传排空与终态上报。
+CONFIRM_TIMEOUT: Optional[float] = None
 # Attach Mode 拉起 detached core 的默认空闲回收超时（秒）。
 DETACH_IDLE_TIMEOUT = 300.0
 # TeardownService 的预算，只发请求不等进程退出。
