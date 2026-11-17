@@ -11,6 +11,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -20,6 +22,7 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/client"
 	"github.com/swanhubx/swanlab/core/internal/config"
 	"github.com/swanhubx/swanlab/core/internal/manager"
+	"github.com/swanhubx/swanlab/core/internal/pkg/console"
 	"github.com/swanhubx/swanlab/core/internal/server"
 	corev1 "github.com/swanhubx/swanlab/core/proto/swanlab/grpc/core/v1"
 	columnv1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/column/v1"
@@ -30,6 +33,8 @@ import (
 	settingsv1 "github.com/swanhubx/swanlab/core/proto/swanlab/settings/core/v1"
 	terminalv1 "github.com/swanhubx/swanlab/core/proto/swanlab/terminal/v1"
 )
+
+const defaultDisconnectGrace = 30 * time.Second
 
 // RunManager 是 service 依赖的会话编排接口，由 manager.Manager 实现；
 // gRPC 单测可注入 Fake，避免每个 RPC 用例都依赖真实云端。
@@ -45,6 +50,7 @@ type RunManager interface {
 	State(string) (manager.RunState, error)
 	Stats(string) (*operationv1.OperationStats, error)
 	Confirm(context.Context, string) (manager.ConfirmResult, error)
+	DisconnectSession(context.Context, string) error
 }
 
 // CoreService 实现生成的 CoreServiceServer 契约，作为 gRPC 请求的接入网关。
@@ -54,14 +60,29 @@ type CoreService struct {
 	controller *server.Controller
 	lifecycle  *server.Lifecycle
 	runs       RunManager
+
+	connMu         sync.Mutex
+	byConn         map[uint64]map[string]struct{}
+	bySession      map[string]uint64
+	cleanupsClosed bool
+	cleanupGrace   time.Duration
+	cleanupCtx     context.Context
+	cancelCleanups context.CancelFunc
+	cleanupWG      sync.WaitGroup
 }
 
 // NewCoreService 创建 gRPC 接入服务实例，关联服务生命周期控制器与 Run 会话管理器。
 func NewCoreService(controller *server.Controller, runManager RunManager) *CoreService {
+	cleanupCtx, cancelCleanups := context.WithCancel(context.Background())
 	return &CoreService{
-		controller: controller,
-		lifecycle:  controller.Lifecycle(),
-		runs:       runManager,
+		controller:     controller,
+		lifecycle:      controller.Lifecycle(),
+		runs:           runManager,
+		byConn:         make(map[uint64]map[string]struct{}),
+		bySession:      make(map[string]uint64),
+		cleanupGrace:   defaultDisconnectGrace,
+		cleanupCtx:     cleanupCtx,
+		cancelCleanups: cancelCleanups,
 	}
 }
 
@@ -122,7 +143,12 @@ func (s *CoreService) DeliverRunStart(
 		return nil, managerStatus(err)
 	}
 	if result.Path == "" && settings.NormalizedMode() == config.ModeOnline {
+		s.cleanupDisconnectedSessions([]string{result.SessionID})
 		return nil, status.Error(codes.InvalidArgument, "project path is empty; online mode requires a path")
+	}
+	if !s.bindSession(ctx, result.SessionID) {
+		s.cleanupDisconnectedSessions([]string{result.SessionID})
+		return nil, status.Error(codes.Canceled, "client connection closed during DeliverRunStart")
 	}
 	return &corev1.DeliverRunStartResponse{
 		Success:          true,
@@ -351,6 +377,9 @@ func (s *CoreService) ConfirmRunFinish(
 	if err != nil {
 		return nil, managerStatus(err)
 	}
+	if !result.ReleaseFailed {
+		s.unbindSession(req.GetSessionId())
+	}
 	message := result.Message
 	if message == "" {
 		message = "OK"
@@ -408,5 +437,131 @@ func managerStatus(err error) error {
 		return status.Error(codes.Canceled, err.Error())
 	default:
 		return status.Error(codes.Internal, err.Error())
+	}
+}
+
+func (s *CoreService) bindSession(ctx context.Context, sessionID string) bool {
+	if sessionID == "" {
+		return true
+	}
+	connID, ok := server.ConnIDFromContext(ctx)
+	if !ok {
+		return true
+	}
+	s.connMu.Lock()
+	defer s.connMu.Unlock()
+	if s.cleanupsClosed || server.IsConnClosed(ctx) {
+		return false
+	}
+	sessions := s.byConn[connID]
+	if sessions == nil {
+		sessions = make(map[string]struct{})
+		s.byConn[connID] = sessions
+	}
+	sessions[sessionID] = struct{}{}
+	s.bySession[sessionID] = connID
+	return true
+}
+
+func (s *CoreService) unbindSession(sessionID string) {
+	if sessionID == "" {
+		return
+	}
+	s.connMu.Lock()
+	defer s.connMu.Unlock()
+	connID, ok := s.bySession[sessionID]
+	if !ok {
+		return
+	}
+	delete(s.bySession, sessionID)
+	if sessions := s.byConn[connID]; sessions != nil {
+		delete(sessions, sessionID)
+		if len(sessions) == 0 {
+			delete(s.byConn, connID)
+		}
+	}
+}
+
+// HandleConnDisconnect 在传输连接断开后异步排空并释放该连接名下未关闭的会话。
+// 同一 connID 重复调用幂等；服务进入关闭收尾后只清理映射，由 Manager.Shutdown 统一回收。
+func (s *CoreService) HandleConnDisconnect(connID uint64) {
+	if connID == 0 {
+		return
+	}
+	s.connMu.Lock()
+	bound := s.byConn[connID]
+	if len(bound) == 0 {
+		delete(s.byConn, connID)
+		s.connMu.Unlock()
+		return
+	}
+	sessions := make([]string, 0, len(bound))
+	for sid := range bound {
+		sessions = append(sessions, sid)
+		delete(s.bySession, sid)
+	}
+	delete(s.byConn, connID)
+	if s.cleanupsClosed {
+		s.connMu.Unlock()
+		return
+	}
+	s.cleanupWG.Add(1)
+	s.connMu.Unlock()
+
+	s.spawnCleanup(sessions)
+}
+
+func (s *CoreService) cleanupDisconnectedSessions(sessions []string) {
+	if len(sessions) == 0 {
+		return
+	}
+	s.connMu.Lock()
+	if s.cleanupsClosed {
+		s.connMu.Unlock()
+		return
+	}
+	s.cleanupWG.Add(1)
+	s.connMu.Unlock()
+
+	s.spawnCleanup(sessions)
+}
+
+func (s *CoreService) spawnCleanup(sessions []string) {
+	grace := s.cleanupGrace
+	if grace <= 0 {
+		grace = defaultDisconnectGrace
+	}
+	go func() {
+		defer s.cleanupWG.Done()
+		ctx, cancel := context.WithTimeout(s.cleanupCtx, grace)
+		defer cancel()
+		for _, sid := range sessions {
+			if err := s.runs.DisconnectSession(ctx, sid); err != nil {
+				console.Warningf("disconnect cleanup for session %q failed: %v", sid, err)
+			}
+		}
+	}()
+}
+
+// WaitDisconnectCleanups 封闭新的断连清理派发并等待在途清理协程结束；超时后取消清理上下文。
+func (s *CoreService) WaitDisconnectCleanups(ctx context.Context) error {
+	s.connMu.Lock()
+	s.cleanupsClosed = true
+	s.connMu.Unlock()
+
+	done := make(chan struct{})
+	go func() {
+		s.cleanupWG.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		s.cancelCleanups()
+		return nil
+	case <-ctx.Done():
+		s.cancelCleanups()
+		<-done
+		return ctx.Err()
 	}
 }
