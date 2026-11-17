@@ -35,6 +35,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -482,9 +483,25 @@ func assembleServer(idleTimeout time.Duration) (*grpc.Server, *server.Controller
 		ctrl.SetIdleMonitor(idleMonitor)
 	}
 	mgr := manager.New(manager.Options{HTTP: client.Options{Version: version}})
-	// 关闭顺序：先回收活跃会话（有界），再停止 gRPC；两者共享 shutdownGrace。
-	ctrl.SetOnShutdown(mgr.Shutdown)
-	service.NewCoreService(ctrl, mgr).Register(grpcServer)
+	svc := service.NewCoreService(ctrl, mgr)
+	tracker.SetOnDisconnect(svc.HandleConnDisconnect)
+	// 关闭顺序：并发等待断连清理与活跃会话排空（共享 shutdownGrace），随后停止 gRPC。
+	ctrl.SetOnShutdown(func(ctx context.Context) error {
+		var (
+			waitErr     error
+			shutdownErr error
+			wg          sync.WaitGroup
+		)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			waitErr = svc.WaitDisconnectCleanups(ctx)
+		}()
+		shutdownErr = mgr.Shutdown(ctx)
+		wg.Wait()
+		return errors.Join(waitErr, shutdownErr)
+	})
+	svc.Register(grpcServer)
 	return grpcServer, ctrl, mgr, idleMonitor
 }
 

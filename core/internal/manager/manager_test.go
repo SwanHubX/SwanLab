@@ -16,6 +16,7 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/pkg/record"
 	columnv1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/column/v1"
 	datav1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/data/v1"
+	runv1 "github.com/swanhubx/swanlab/core/proto/swanlab/run/v1"
 )
 
 // drainBare 直接驱动裸会话进入 DRAINING，用于不装配收尾资源的状态机测试。
@@ -530,5 +531,216 @@ func TestConfirmRejectsSessionDrainedByShutdown(t *testing.T) {
 	}
 	if h.mgr.isReleased(h.id) {
 		t.Fatal("rejected session must not enter the released cache")
+	}
+}
+
+func TestDisconnectSessionDrainsAndReleasesSlot(t *testing.T) {
+	h := newFinishHarness(t, finishOptions{})
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := h.mgr.UpsertScalars(ctx, h.id, []*datav1.ScalarRecord{
+		scalarRecord("disconnect/loss", 0, columnv1.ColumnType_COLUMN_TYPE_SCALAR),
+	}); err != nil {
+		t.Fatalf("UpsertScalars: %v", err)
+	}
+	var stops int
+	h.session.releaseFn = func(context.Context) error {
+		stops++
+		return nil
+	}
+	if got := h.mgr.SessionCount(); got != 1 {
+		t.Fatalf("SessionCount = %d, want 1", got)
+	}
+
+	if err := h.mgr.DisconnectSession(ctx, h.id); err != nil {
+		t.Fatalf("DisconnectSession: %v", err)
+	}
+	if stops != 0 {
+		t.Fatalf("DisconnectSession must not call stop_experiment, got %d call(s)", stops)
+	}
+	if got := h.mgr.SessionCount(); got != 0 {
+		t.Fatalf("SessionCount after disconnect = %d, want 0", got)
+	}
+	if _, err := h.mgr.State(h.id); !errors.Is(err, ErrSessionNotFound) {
+		t.Fatalf("State after disconnect err=%v, want ErrSessionNotFound", err)
+	}
+	if h.mgr.isReleased(h.id) {
+		t.Fatal("disconnect cleanup must not mark session in released cache")
+	}
+	if _, err := h.mgr.Confirm(ctx, h.id); !errors.Is(err, ErrSessionNotFound) {
+		t.Fatalf("Confirm after disconnect err=%v, want ErrSessionNotFound", err)
+	}
+	if stops != 0 {
+		t.Fatalf("Confirm after disconnect must not invoke releaseFn, got %d call(s)", stops)
+	}
+	if diags := h.mgr.DisconnectDiagnostics(); len(diags) != 0 {
+		t.Fatalf("unexpected disconnect diagnostics: %+v", diags)
+	}
+
+	records := readStore(t, h.runFile)
+	if len(records) == 0 {
+		t.Fatal("disconnect cleanup must flush accepted records to the local store")
+	}
+	for _, item := range records {
+		if item.GetNum() == record.NumFinish {
+			t.Fatal("disconnect cleanup must not synthesize a FinishRecord")
+		}
+	}
+	if got := len(h.uploads.snapshot()); got == 0 {
+		t.Fatal("disconnect cleanup must drain accepted records through the uploader")
+	}
+
+	// 重复断连与未知会话均幂等；空 session_id 仍返回明确参数错误。
+	if err := h.mgr.DisconnectSession(ctx, h.id); err != nil {
+		t.Fatalf("repeated DisconnectSession: %v", err)
+	}
+	if err := h.mgr.DisconnectSession(ctx, "nonexistent"); err != nil {
+		t.Fatalf("unknown DisconnectSession: %v", err)
+	}
+	if err := h.mgr.DisconnectSession(ctx, ""); !errors.Is(err, ErrEmptySessionID) {
+		t.Fatalf("empty DisconnectSession err=%v, want ErrEmptySessionID", err)
+	}
+}
+
+func TestDisconnectSessionAfterFinishDoesNotFakeConfirmSuccess(t *testing.T) {
+	h := newFinishHarness(t, finishOptions{})
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var stops int
+	h.session.releaseFn = func(context.Context) error {
+		stops++
+		return nil
+	}
+
+	if err := h.mgr.DeliverRunFinish(ctx, h.id, &runv1.FinishRecord{
+		State: runv1.RunState_RUN_STATE_FINISHED,
+	}); err != nil {
+		t.Fatalf("DeliverRunFinish: %v", err)
+	}
+	if err := h.mgr.DisconnectSession(ctx, h.id); err != nil {
+		t.Fatalf("DisconnectSession: %v", err)
+	}
+
+	if _, err := h.mgr.Confirm(ctx, h.id); !errors.Is(err, ErrSessionNotFound) {
+		t.Fatalf("Confirm after finish+disconnect err=%v, want ErrSessionNotFound", err)
+	}
+	if stops != 0 {
+		t.Fatalf("stop_experiment must not run after disconnect cleanup, got %d call(s)", stops)
+	}
+	if h.mgr.isReleased(h.id) {
+		t.Fatal("disconnect after finish must not mark session as Confirm-released")
+	}
+}
+
+func TestDisconnectSessionDrainFailureKeepsDiagnosticStateAndFreesSlot(t *testing.T) {
+	h := newFinishHarness(t, finishOptions{blockUpload: true})
+	if err := h.mgr.UpsertScalars(context.Background(), h.id, []*datav1.ScalarRecord{
+		scalarRecord("disconnect/blocked", 0, columnv1.ColumnType_COLUMN_TYPE_SCALAR),
+	}); err != nil {
+		t.Fatalf("UpsertScalars: %v", err)
+	}
+	// 等待 gatedSender 实际进入阻塞上传，再使用已取消的 ctx 触发确定性排空超时/取消。
+	select {
+	case <-h.uploadEntered:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for uploader to enter blocked send")
+	}
+
+	canceledCtx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := h.mgr.DisconnectSession(canceledCtx, h.id)
+	if err == nil {
+		t.Fatal("DisconnectSession must return error when drain fails")
+	}
+	if got := h.mgr.SessionCount(); got != 0 {
+		t.Fatalf("SessionCount after failed disconnect = %d, want 0", got)
+	}
+	if state := h.session.stateSnapshot(); state != RunStateFailed {
+		t.Fatalf("session state = %s, want failed", state)
+	}
+	if h.mgr.isReleased(h.id) {
+		t.Fatal("failed disconnect must not mark session as cleanly released")
+	}
+
+	diag, ok := h.mgr.DisconnectDiagnostic(h.id)
+	if !ok {
+		t.Fatal("expected disconnect diagnostic entry to be recorded")
+	}
+	if diag.SessionID != h.id || diag.RunID != "finish" || diag.Err == nil || diag.At.IsZero() {
+		t.Fatalf("unexpected diagnostic entry: %+v", diag)
+	}
+	if diags := h.mgr.DisconnectDiagnostics(); len(diags) != 1 || diags[0].SessionID != h.id {
+		t.Fatalf("DisconnectDiagnostics = %+v, want [%s]", diags, h.id)
+	}
+
+	// 重复断连幂等返回 nil，且不清除既有的可诊断状态。
+	if repeatErr := h.mgr.DisconnectSession(context.Background(), h.id); repeatErr != nil {
+		t.Fatalf("repeated DisconnectSession after failure err=%v, want nil", repeatErr)
+	}
+	if _, stillPresent := h.mgr.DisconnectDiagnostic(h.id); !stillPresent {
+		t.Fatal("diagnostic entry must remain after idempotent repeat")
+	}
+}
+
+func TestDisconnectSessionReleasesCapacityWhenFull(t *testing.T) {
+	m := newTestManager()
+	handles := make([]string, 0, maxSessions)
+	for i := 0; i < maxSessions; i++ {
+		handles = append(handles, installBare(t, m, sessionOptions{}))
+	}
+	if got := m.SessionCount(); got != maxSessions {
+		t.Fatalf("SessionCount = %d, want %d", got, maxSessions)
+	}
+	if _, err := m.install(newSession(sessionOptions{})); !errors.Is(err, ErrTooManySessions) {
+		t.Fatalf("err = %v, want ErrTooManySessions", err)
+	}
+
+	if err := m.DisconnectSession(context.Background(), handles[0]); err != nil {
+		t.Fatalf("DisconnectSession: %v", err)
+	}
+	if got := m.SessionCount(); got != maxSessions-1 {
+		t.Fatalf("SessionCount = %d, want %d", got, maxSessions-1)
+	}
+	if _, err := m.install(newSession(sessionOptions{})); err != nil {
+		t.Fatalf("install after disconnect cleanup: %v", err)
+	}
+}
+
+func TestDiagnosticCacheEviction(t *testing.T) {
+	m := newTestManager()
+	sentinel := errors.New("drain timeout")
+	for i := 0; i < releasedCapacity+4; i++ {
+		m.mu.Lock()
+		m.diagnostics.add(DisconnectDiagnostic{
+			SessionID: fmt.Sprintf("sess-%d", i),
+			RunID:     "run",
+			Err:       sentinel,
+			At:        time.Unix(int64(i), 0),
+		})
+		m.mu.Unlock()
+	}
+
+	if _, ok := m.DisconnectDiagnostic("sess-0"); ok {
+		t.Fatal("oldest diagnostic entry must be evicted")
+	}
+	if _, ok := m.DisconnectDiagnostic("sess-3"); ok {
+		t.Fatal("fourth diagnostic entry must be evicted")
+	}
+	if _, ok := m.DisconnectDiagnostic("sess-4"); !ok {
+		t.Fatal("fifth diagnostic entry must remain cached")
+	}
+	lastID := fmt.Sprintf("sess-%d", releasedCapacity+3)
+	if _, ok := m.DisconnectDiagnostic(lastID); !ok {
+		t.Fatal("latest diagnostic entry must remain cached")
+	}
+	diags := m.DisconnectDiagnostics()
+	if len(diags) != releasedCapacity {
+		t.Fatalf("len(DisconnectDiagnostics) = %d, want %d", len(diags), releasedCapacity)
+	}
+	if diags[0].SessionID != "sess-4" || diags[len(diags)-1].SessionID != lastID {
+		t.Fatalf("snapshot order = [%s .. %s], want [sess-4 .. %s]", diags[0].SessionID, diags[len(diags)-1].SessionID, lastID)
 	}
 }

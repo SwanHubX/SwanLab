@@ -15,9 +15,9 @@ from pathlib import Path
 
 import pytest
 
-from swanlab.sdk.internal.core_go.discovery import Endpoint
-from swanlab.sdk.internal.core_go.errors import CoreGoError, ReasonCode, Stage
+from swanlab.sdk.internal.core_go.config import CoreGoError, ReasonCode, Stage
 from swanlab.sdk.internal.core_go.rpc import Channel
+from swanlab.sdk.internal.core_go.runtime import Endpoint
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
 

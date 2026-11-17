@@ -9,9 +9,11 @@ import (
 	"testing"
 	"time"
 
+	"go.uber.org/goleak"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/stats"
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
 	"google.golang.org/protobuf/proto"
@@ -36,6 +38,10 @@ const (
 	noShutdownWindow = 200 * time.Millisecond
 )
 
+func TestMain(m *testing.M) {
+	goleak.VerifyTestMain(m)
+}
+
 // fakeManager 只实现 service 用到的编排接口，用于验证 RPC 契约与错误映射。
 type fakeManager struct {
 	mu       sync.Mutex
@@ -43,16 +49,23 @@ type fakeManager struct {
 	sessions map[string]manager.RunState
 	starts   []fakeStart
 
-	startErr   error
-	finishErr  error
-	stateErr   error
-	confirmErr error
-	upsertErr  error
+	maxSessions   int
+	startErr      error
+	finishErr     error
+	stateErr      error
+	confirmErr    error
+	upsertErr     error
+	disconnectErr error
 
 	confirmResult manager.ConfirmResult
 
-	upserts  []fakeUpsert
-	finishes []fakeFinish
+	upserts      []fakeUpsert
+	finishes     []fakeFinish
+	disconnected []string
+
+	onStart          func()
+	onDisconnect     func(context.Context, string)
+	disconnectNotify chan string
 }
 
 type fakeFinish struct {
@@ -84,10 +97,20 @@ func (f *fakeManager) DeliverRunStart(
 	record *runv1.StartRecord,
 ) (*manager.StartResult, error) {
 	f.mu.Lock()
+	hook := f.onStart
+	f.mu.Unlock()
+	if hook != nil {
+		hook()
+	}
+
+	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.starts = append(f.starts, fakeStart{settings: settings, record: record})
 	if f.startErr != nil {
 		return nil, f.startErr
+	}
+	if f.maxSessions > 0 && len(f.sessions) >= f.maxSessions {
+		return nil, fmt.Errorf("%w: limit %d", manager.ErrTooManySessions, f.maxSessions)
 	}
 	f.next++
 	sessionID := fmt.Sprintf("session-%d", f.next)
@@ -227,20 +250,41 @@ func (f *fakeManager) Confirm(_ context.Context, sessionID string) (manager.Conf
 	return f.confirmResult, nil
 }
 
+func (f *fakeManager) DisconnectSession(ctx context.Context, sessionID string) error {
+	f.mu.Lock()
+	hook := f.onDisconnect
+	notify := f.disconnectNotify
+	f.mu.Unlock()
+	if hook != nil {
+		hook(ctx, sessionID)
+	}
+
+	f.mu.Lock()
+	f.disconnected = append(f.disconnected, sessionID)
+	delete(f.sessions, sessionID)
+	err := f.disconnectErr
+	f.mu.Unlock()
+
+	if notify != nil {
+		notify <- sessionID
+	}
+	return err
+}
+
+func (f *fakeManager) disconnectedSnapshot() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]string(nil), f.disconnected...)
+}
+
 type testEnv struct {
 	client corev1.CoreServiceClient
 	ctrl   *server.Controller
 	runs   *fakeManager
 }
 
-func newTestEnv(t *testing.T) *testEnv {
+func dialBufconn(t *testing.T, lis *bufconn.Listener) (*grpc.ClientConn, corev1.CoreServiceClient) {
 	t.Helper()
-	g := grpc.NewServer()
-	ctrl := server.NewController(g, 2*time.Second)
-	runs := newFakeManager()
-	NewCoreService(ctrl, runs).Register(g)
-	lis := bufconn.Listen(bufconnSize)
-	go func() { _ = g.Serve(lis) }()
 	conn, err := grpc.NewClient(
 		"passthrough:///bufnet",
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
@@ -251,12 +295,24 @@ func newTestEnv(t *testing.T) *testEnv {
 	if err != nil {
 		t.Fatalf("grpc.NewClient: %v", err)
 	}
+	t.Cleanup(func() { _ = conn.Close() })
+	return conn, corev1.NewCoreServiceClient(conn)
+}
+
+func newTestEnv(t *testing.T) *testEnv {
+	t.Helper()
+	g := grpc.NewServer()
+	ctrl := server.NewController(g, 2*time.Second)
+	runs := newFakeManager()
+	NewCoreService(ctrl, runs).Register(g)
+	lis := bufconn.Listen(bufconnSize)
+	go func() { _ = g.Serve(lis) }()
 	t.Cleanup(func() {
-		_ = conn.Close()
 		ctrl.Shutdown("test-cleanup")
 		<-ctrl.Done()
 	})
-	return &testEnv{client: corev1.NewCoreServiceClient(conn), ctrl: ctrl, runs: runs}
+	_, client := dialBufconn(t, lis)
+	return &testEnv{client: client, ctrl: ctrl, runs: runs}
 }
 
 func callCtx(t *testing.T) context.Context {
@@ -960,5 +1016,359 @@ func TestCoreStateMapping(t *testing.T) {
 		if got := coreState(tc.state); got != tc.want {
 			t.Fatalf("coreState(%s) = %v, want %v", tc.state, got, tc.want)
 		}
+	}
+}
+
+type trackedTestEnv struct {
+	ctrl    *server.Controller
+	svc     *CoreService
+	tracker *server.ConnTracker
+	runs    *fakeManager
+	lis     *bufconn.Listener
+}
+
+func newTrackedTestEnv(t *testing.T, grace time.Duration) *trackedTestEnv {
+	t.Helper()
+	tracker := server.NewConnTracker()
+	g := grpc.NewServer(grpc.StatsHandler(tracker))
+	ctrl := server.NewController(g, grace)
+	runs := newFakeManager()
+	runs.disconnectNotify = make(chan string, 16)
+	svc := NewCoreService(ctrl, runs)
+	tracker.SetOnDisconnect(svc.HandleConnDisconnect)
+	ctrl.SetOnShutdown(svc.WaitDisconnectCleanups)
+	svc.Register(g)
+
+	lis := bufconn.Listen(bufconnSize)
+	serveDone := make(chan struct{})
+	go func() {
+		defer close(serveDone)
+		_ = g.Serve(lis)
+	}()
+
+	t.Cleanup(func() {
+		ctrl.Shutdown("test-cleanup")
+		<-ctrl.Done()
+		_ = lis.Close()
+		<-serveDone
+	})
+	return &trackedTestEnv{ctrl: ctrl, svc: svc, tracker: tracker, runs: runs, lis: lis}
+}
+
+func (e *trackedTestEnv) dial(t *testing.T) (*grpc.ClientConn, corev1.CoreServiceClient) {
+	t.Helper()
+	return dialBufconn(t, e.lis)
+}
+
+func TestConnDisconnectCleansOnlyDisconnectedClientSessions(t *testing.T) {
+	env := newTrackedTestEnv(t, 2*time.Second)
+	connA, clientA := env.dial(t)
+	connB, clientB := env.dial(t)
+
+	ctx := callCtx(t)
+	if _, err := clientA.SpinupService(ctx, &corev1.SpinupServiceRequest{}); err != nil {
+		t.Fatalf("SpinupService A: %v", err)
+	}
+	startA, err := clientA.DeliverRunStart(ctx, &corev1.DeliverRunStartRequest{
+		CoreSettings: validSettings(t),
+		StartRecord:  &runv1.StartRecord{Project: "smoke"},
+	})
+	if err != nil {
+		t.Fatalf("DeliverRunStart A: %v", err)
+	}
+	startB, err := clientB.DeliverRunStart(ctx, &corev1.DeliverRunStartRequest{
+		CoreSettings: validSettings(t),
+		StartRecord:  &runv1.StartRecord{Project: "smoke"},
+	})
+	if err != nil {
+		t.Fatalf("DeliverRunStart B: %v", err)
+	}
+
+	// A 正常 finish + confirm 并断开连接：已释放会话不得再触发 DisconnectSession。
+	if _, finErr := clientA.DeliverRunFinish(ctx, &corev1.DeliverRunFinishRequest{
+		SessionId:    startA.GetSessionId(),
+		FinishRecord: &runv1.FinishRecord{State: runv1.RunState_RUN_STATE_FINISHED},
+	}); finErr != nil {
+		t.Fatalf("DeliverRunFinish A: %v", finErr)
+	}
+	if _, confErr := clientA.ConfirmRunFinish(ctx, &corev1.ConfirmRunFinishRequest{
+		SessionId: startA.GetSessionId(),
+	}); confErr != nil {
+		t.Fatalf("ConfirmRunFinish A: %v", confErr)
+	}
+	if closeErr := connA.Close(); closeErr != nil {
+		t.Fatalf("connA.Close: %v", closeErr)
+	}
+
+	// B 仍在运行，确认未被 A 的断连误伤。
+	statsB, statsErr := clientB.GetOperationStats(ctx, &corev1.GetOperationStatsRequest{
+		SessionId: startB.GetSessionId(),
+	})
+	if statsErr != nil || statsB.GetStats().GetState() != operationv1.CoreState_CORE_STATE_RUNNING {
+		t.Fatalf("session B must stay running after A closes: resp=%v err=%v", statsB, statsErr)
+	}
+	if got := env.runs.disconnectedSnapshot(); len(got) != 0 {
+		t.Fatalf("confirmed session A must not trigger disconnect cleanup, got %v", got)
+	}
+
+	// B 未经 finish 直接断开连接：服务端自动清理 B 的会话。
+	if closeErr := connB.Close(); closeErr != nil {
+		t.Fatalf("connB.Close: %v", closeErr)
+	}
+	select {
+	case sid := <-env.runs.disconnectNotify:
+		if sid != startB.GetSessionId() {
+			t.Fatalf("disconnected session = %q, want %q", sid, startB.GetSessionId())
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for disconnect cleanup of session B")
+	}
+}
+
+func TestDuplicateDisconnectIsIdempotent(t *testing.T) {
+	env := newTrackedTestEnv(t, 2*time.Second)
+	connCtx := env.tracker.TagConn(context.Background(), &stats.ConnTagInfo{})
+	env.tracker.HandleConn(connCtx, &stats.ConnBegin{})
+
+	ctx := callCtx(t)
+	if _, err := env.svc.SpinupService(ctx, &corev1.SpinupServiceRequest{}); err != nil {
+		t.Fatalf("SpinupService: %v", err)
+	}
+	if _, err := env.svc.DeliverRunStart(connCtx, &corev1.DeliverRunStartRequest{
+		CoreSettings: validSettings(t),
+		StartRecord:  &runv1.StartRecord{Project: "smoke"},
+	}); err != nil {
+		t.Fatalf("DeliverRunStart: %v", err)
+	}
+
+	connID, ok := server.ConnIDFromContext(connCtx)
+	if !ok {
+		t.Fatal("expected connID in tagged context")
+	}
+	env.tracker.HandleConn(connCtx, &stats.ConnEnd{})
+	env.tracker.HandleConn(connCtx, &stats.ConnEnd{})
+	env.svc.HandleConnDisconnect(connID)
+
+	select {
+	case <-env.runs.disconnectNotify:
+	case <-time.After(2 * time.Second):
+		t.Fatal("expected disconnect cleanup notification")
+	}
+	if err := env.svc.WaitDisconnectCleanups(ctx); err != nil {
+		t.Fatalf("WaitDisconnectCleanups: %v", err)
+	}
+	if got := env.runs.disconnectedSnapshot(); len(got) != 1 {
+		t.Fatalf("DisconnectSession called %d times, want 1", len(got))
+	}
+}
+
+func TestDisconnectDuringDeliverRunStartCleansOrphanSession(t *testing.T) {
+	env := newTrackedTestEnv(t, 2*time.Second)
+	connCtx := env.tracker.TagConn(context.Background(), &stats.ConnTagInfo{})
+	env.tracker.HandleConn(connCtx, &stats.ConnBegin{})
+
+	ctx := callCtx(t)
+	if _, err := env.svc.SpinupService(ctx, &corev1.SpinupServiceRequest{}); err != nil {
+		t.Fatalf("SpinupService: %v", err)
+	}
+	// 模拟 DeliverRunStart 执行期间底层连接突然断开的竞态。
+	env.runs.onStart = func() {
+		env.tracker.HandleConn(connCtx, &stats.ConnEnd{})
+	}
+
+	_, err := env.svc.DeliverRunStart(connCtx, &corev1.DeliverRunStartRequest{
+		CoreSettings: validSettings(t),
+		StartRecord:  &runv1.StartRecord{Project: "smoke"},
+	})
+	if status.Code(err) != codes.Canceled {
+		t.Fatalf("DeliverRunStart code = %v, want Canceled (err=%v)", status.Code(err), err)
+	}
+
+	select {
+	case sid := <-env.runs.disconnectNotify:
+		if sid == "" {
+			t.Fatal("expected non-empty orphan session id")
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for orphan session cleanup")
+	}
+}
+
+func TestConcurrentClientsSessionLimitAndRecovery(t *testing.T) {
+	env := newTrackedTestEnv(t, 2*time.Second)
+	env.runs.maxSessions = 2
+
+	conn1, client1 := env.dial(t)
+	_, client2 := env.dial(t)
+	_, client3 := env.dial(t)
+
+	ctx := callCtx(t)
+	if _, err := client1.SpinupService(ctx, &corev1.SpinupServiceRequest{}); err != nil {
+		t.Fatalf("SpinupService: %v", err)
+	}
+	req := func() *corev1.DeliverRunStartRequest {
+		return &corev1.DeliverRunStartRequest{
+			CoreSettings: validSettings(t),
+			StartRecord:  &runv1.StartRecord{Project: "smoke"},
+		}
+	}
+
+	if _, err := client1.DeliverRunStart(ctx, req()); err != nil {
+		t.Fatalf("client1 DeliverRunStart: %v", err)
+	}
+	if _, err := client2.DeliverRunStart(ctx, req()); err != nil {
+		t.Fatalf("client2 DeliverRunStart: %v", err)
+	}
+	if _, err := client3.DeliverRunStart(ctx, req()); status.Code(err) != codes.ResourceExhausted {
+		t.Fatalf("client3 over-limit code = %v, want ResourceExhausted", status.Code(err))
+	}
+
+	// 客户端 1 异常断开后，会话清理释放槽位，客户端 3 可以立刻重新启动。
+	if err := conn1.Close(); err != nil {
+		t.Fatalf("conn1.Close: %v", err)
+	}
+	select {
+	case <-env.runs.disconnectNotify:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for client1 cleanup")
+	}
+	if _, err := client3.DeliverRunStart(ctx, req()); err != nil {
+		t.Fatalf("client3 DeliverRunStart after disconnect cleanup: %v", err)
+	}
+}
+
+func TestWaitDisconnectCleanupsCancelsSlowDrainOnShutdown(t *testing.T) {
+	env := newTrackedTestEnv(t, 100*time.Millisecond)
+	entered := make(chan struct{})
+	canceled := make(chan struct{})
+	env.runs.onDisconnect = func(ctx context.Context, _ string) {
+		close(entered)
+		<-ctx.Done()
+		close(canceled)
+	}
+
+	conn, client := env.dial(t)
+	ctx := callCtx(t)
+	if _, err := client.SpinupService(ctx, &corev1.SpinupServiceRequest{}); err != nil {
+		t.Fatalf("SpinupService: %v", err)
+	}
+	if _, err := client.DeliverRunStart(ctx, &corev1.DeliverRunStartRequest{
+		CoreSettings: validSettings(t),
+		StartRecord:  &runv1.StartRecord{Project: "smoke"},
+	}); err != nil {
+		t.Fatalf("DeliverRunStart: %v", err)
+	}
+	if err := conn.Close(); err != nil {
+		t.Fatalf("conn.Close: %v", err)
+	}
+
+	select {
+	case <-entered:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for DisconnectSession to start")
+	}
+
+	env.ctrl.Shutdown("grace-timeout")
+	<-env.ctrl.Done()
+
+	select {
+	case <-canceled:
+	case <-time.After(2 * time.Second):
+		t.Fatal("WaitDisconnectCleanups must cancel in-flight drain ctx on shutdown grace expiry")
+	}
+}
+
+type notifyRunManager struct {
+	*manager.Manager
+	disconnected chan string
+}
+
+func (n *notifyRunManager) DisconnectSession(ctx context.Context, sessionID string) error {
+	err := n.Manager.DisconnectSession(ctx, sessionID)
+	n.disconnected <- sessionID
+	return err
+}
+
+func TestGRPCConfirmAfterDisconnectReturnsNotFound(t *testing.T) {
+	mgr := manager.New(manager.Options{})
+	t.Cleanup(func() { _ = mgr.Close() })
+	runs := &notifyRunManager{
+		Manager:      mgr,
+		disconnected: make(chan string, 4),
+	}
+
+	tracker := server.NewConnTracker()
+	g := grpc.NewServer(grpc.StatsHandler(tracker))
+	ctrl := server.NewController(g, 2*time.Second)
+	svc := NewCoreService(ctrl, runs)
+	tracker.SetOnDisconnect(svc.HandleConnDisconnect)
+	ctrl.SetOnShutdown(func(ctx context.Context) error {
+		_ = svc.WaitDisconnectCleanups(ctx)
+		return mgr.Shutdown(ctx)
+	})
+	svc.Register(g)
+
+	lis := bufconn.Listen(bufconnSize)
+	serveDone := make(chan struct{})
+	go func() {
+		defer close(serveDone)
+		_ = g.Serve(lis)
+	}()
+	t.Cleanup(func() {
+		ctrl.Shutdown("test-cleanup")
+		<-ctrl.Done()
+		_ = lis.Close()
+		<-serveDone
+	})
+
+	connA, clientA := dialBufconn(t, lis)
+	_, clientB := dialBufconn(t, lis)
+
+	if _, err := clientA.SpinupService(callCtx(t), &corev1.SpinupServiceRequest{}); err != nil {
+		t.Fatalf("SpinupService: %v", err)
+	}
+	settings := validSettings(t)
+	settings.Mode = settingsv1.CoreMode_CORE_MODE_LOCAL
+	startResp, err := clientA.DeliverRunStart(callCtx(t), &corev1.DeliverRunStartRequest{
+		CoreSettings: settings,
+		StartRecord:  &runv1.StartRecord{Project: "smoke"},
+	})
+	if err != nil {
+		t.Fatalf("DeliverRunStart: %v", err)
+	}
+	sessionID := startResp.GetSessionId()
+
+	// 先完成 DeliverRunFinish 但尚未 Confirm 时连接断开，触发断连排空清理。
+	if _, err = clientA.DeliverRunFinish(callCtx(t), &corev1.DeliverRunFinishRequest{
+		SessionId:    sessionID,
+		FinishRecord: &runv1.FinishRecord{State: runv1.RunState_RUN_STATE_FINISHED},
+	}); err != nil {
+		t.Fatalf("DeliverRunFinish: %v", err)
+	}
+	if err = connA.Close(); err != nil {
+		t.Fatalf("connA.Close: %v", err)
+	}
+
+	select {
+	case sid := <-runs.disconnected:
+		if sid != sessionID {
+			t.Fatalf("disconnected session = %q, want %q", sid, sessionID)
+		}
+	case <-time.After(callTimeout):
+		t.Fatal("timed out waiting for DisconnectSession after connA close")
+	}
+	if got := mgr.SessionCount(); got != 0 {
+		t.Fatalf("SessionCount after disconnect cleanup = %d, want 0", got)
+	}
+
+	// 重连后重发 ConfirmRunFinish 与 UpsertScalars 都必须明确失败（codes.NotFound），不得假成功。
+	if _, err = clientB.ConfirmRunFinish(callCtx(t), &corev1.ConfirmRunFinishRequest{SessionId: sessionID}); status.Code(err) != codes.NotFound {
+		t.Fatalf("ConfirmRunFinish after disconnect code = %v, want NotFound (err=%v)", status.Code(err), err)
+	}
+	if _, err = clientB.UpsertScalars(callCtx(t), &corev1.UpsertScalarsRequest{
+		SessionId: sessionID,
+		Data:      []*datav1.ScalarRecord{{Key: "loss"}},
+	}); status.Code(err) != codes.NotFound {
+		t.Fatalf("UpsertScalars after disconnect code = %v, want NotFound (err=%v)", status.Code(err), err)
 	}
 }

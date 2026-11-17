@@ -130,32 +130,6 @@ func TestIdleMonitorDisabledWhenZeroTimeout(t *testing.T) {
 	}
 }
 
-func TestConnTrackerDeduplicatesConnEnd(t *testing.T) {
-	harness := &fakeClockHarness{}
-	var fired atomic.Int32
-	m := NewIdleMonitor(time.Second, func() { fired.Add(1) }, WithAfterFunc(harness.after))
-	tracker := NewConnTracker()
-	tracker.SetMonitor(m)
-	m.Start()
-
-	connCtx := tracker.TagConn(context.Background(), &stats.ConnTagInfo{})
-	tracker.HandleConn(connCtx, &stats.ConnBegin{})
-	if tracker.Active() != 1 || m.Active() != 1 {
-		t.Fatalf("active tracker=%d monitor=%d, want 1", tracker.Active(), m.Active())
-	}
-
-	tracker.HandleConn(connCtx, &stats.ConnEnd{})
-	tracker.HandleConn(connCtx, &stats.ConnEnd{})
-	if tracker.Active() != 0 || m.Active() != 0 {
-		t.Fatalf("duplicate ConnEnd skewed active count: tracker=%d monitor=%d", tracker.Active(), m.Active())
-	}
-
-	harness.last().fire()
-	if fired.Load() != 1 {
-		t.Fatalf("onIdle calls = %d, want 1", fired.Load())
-	}
-}
-
 func TestControllerStopsIdleMonitorOnExternalShutdown(t *testing.T) {
 	harness := &fakeClockHarness{}
 	g := grpc.NewServer()
@@ -170,5 +144,81 @@ func TestControllerStopsIdleMonitorOnExternalShutdown(t *testing.T) {
 
 	if !timer.isStopped() {
 		t.Fatal("Controller.Shutdown must stop idle timer")
+	}
+}
+
+func TestConnTrackerAssignsUniqueIDAndTracksDisconnect(t *testing.T) {
+	if id, ok := ConnIDFromContext(context.Background()); ok || id != 0 {
+		t.Fatalf("background ctx = (%d, %v), want (0, false)", id, ok)
+	}
+	if IsConnClosed(context.Background()) {
+		t.Fatal("background ctx must not report closed")
+	}
+
+	harness := &fakeClockHarness{}
+	var fired atomic.Int32
+	m := NewIdleMonitor(time.Second, func() { fired.Add(1) }, WithAfterFunc(harness.after))
+	tracker := NewConnTracker()
+	tracker.SetMonitor(m)
+	m.Start()
+	var disconnected []uint64
+	tracker.SetOnDisconnect(func(id uint64) {
+		disconnected = append(disconnected, id)
+	})
+
+	ctx1 := tracker.TagConn(context.Background(), &stats.ConnTagInfo{})
+	ctx2 := tracker.TagConn(context.Background(), &stats.ConnTagInfo{})
+	id1, ok1 := ConnIDFromContext(ctx1)
+	id2, ok2 := ConnIDFromContext(ctx2)
+	if !ok1 || !ok2 || id1 == 0 || id2 == 0 || id1 == id2 {
+		t.Fatalf("conn ids = (%d,%v) and (%d,%v), want distinct non-zero", id1, ok1, id2, ok2)
+	}
+	if IsConnClosed(ctx1) || IsConnClosed(ctx2) {
+		t.Fatal("new connections must not be marked closed")
+	}
+
+	tracker.HandleConn(ctx1, &stats.ConnBegin{})
+	tracker.HandleConn(ctx2, &stats.ConnBegin{})
+	if tracker.Active() != 2 || m.Active() != 2 {
+		t.Fatalf("active tracker=%d monitor=%d, want 2", tracker.Active(), m.Active())
+	}
+	if harness.count() != 1 {
+		t.Fatalf("timers = %d, must not rearm while connections are active", harness.count())
+	}
+
+	// 重复 ConnEnd 只能触发一次 onDisconnect，也不能重复扣减活跃连接数。
+	tracker.HandleConn(ctx1, &stats.ConnEnd{})
+	tracker.HandleConn(ctx1, &stats.ConnEnd{})
+	if !IsConnClosed(ctx1) {
+		t.Fatal("ctx1 must be marked closed after ConnEnd")
+	}
+	if IsConnClosed(ctx2) {
+		t.Fatal("ctx2 must remain open when only ctx1 ended")
+	}
+	if tracker.Active() != 1 || m.Active() != 1 {
+		t.Fatalf("duplicate ConnEnd skewed active count: tracker=%d monitor=%d, want 1", tracker.Active(), m.Active())
+	}
+	if len(disconnected) != 1 || disconnected[0] != id1 {
+		t.Fatalf("disconnected = %v, want [%d]", disconnected, id1)
+	}
+	if harness.count() != 1 {
+		t.Fatalf("timers = %d, must not arm while active=1", harness.count())
+	}
+
+	tracker.HandleConn(ctx2, &stats.ConnEnd{})
+	if len(disconnected) != 2 || disconnected[1] != id2 {
+		t.Fatalf("disconnected = %v, want [%d, %d]", disconnected, id1, id2)
+	}
+	if tracker.Active() != 0 || m.Active() != 0 {
+		t.Fatalf("active tracker=%d monitor=%d, want 0", tracker.Active(), m.Active())
+	}
+	if harness.count() != 2 {
+		t.Fatalf("timers = %d, want 2 after last conn closes", harness.count())
+	}
+
+	harness.last().fire()
+	harness.last().fire()
+	if fired.Load() != 1 {
+		t.Fatalf("onIdle calls = %d, want 1", fired.Load())
 	}
 }

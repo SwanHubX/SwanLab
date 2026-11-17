@@ -40,8 +40,10 @@ from swanlab.sdk.internal.core_go.config import (
     STATS_TIMEOUT,
     TEARDOWN_TIMEOUT,
     UPSERT_TIMEOUT,
+    CoreGoError,
+    ReasonCode,
+    Stage,
 )
-from swanlab.sdk.internal.core_go.errors import CoreGoError, ReasonCode, Stage
 from swanlab.sdk.typings.core_go import RpcChannelType
 
 __all__ = ["CoreServiceRpc"]

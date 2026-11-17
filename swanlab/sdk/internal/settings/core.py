@@ -75,4 +75,15 @@ class CoreSettings(BaseModel):
     """
     Consecutive probe successes required to recover the site. ``0`` uses the core default (2).
     """
+    attach: bool = Field(default=False)
+    """
+    Attach to a shared detached ``swanlab-core`` daemon instead of owning its process lifetime.
+    When ``False`` (Owner Mode), closing the run tears down the core process; when ``True`` (Attach Mode),
+    ``close()`` / ``abort()`` only releases this client's session and channel.
+    """
+    idle_timeout: float = Field(default=300.0, ge=0)
+    """
+    Idle shutdown timeout (in seconds) passed when spawning a detached ``swanlab-core`` in attach mode.
+    ``0`` disables automatic idle shutdown.
+    """
     model_config = ConfigDict(frozen=True)

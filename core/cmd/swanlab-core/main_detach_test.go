@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -13,9 +14,17 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/swanhubx/swanlab/core/internal/pkg/portinfo"
+	"github.com/swanhubx/swanlab/core/internal/pkg/record"
+	"github.com/swanhubx/swanlab/core/internal/store"
 	corev1 "github.com/swanhubx/swanlab/core/proto/swanlab/grpc/core/v1"
+	columnv1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/column/v1"
+	datav1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/data/v1"
+	recordv1 "github.com/swanhubx/swanlab/core/proto/swanlab/record/v1"
+	runv1 "github.com/swanhubx/swanlab/core/proto/swanlab/run/v1"
+	settingsv1 "github.com/swanhubx/swanlab/core/proto/swanlab/settings/core/v1"
 )
 
 func shortRuntimeDir(t *testing.T) string {
@@ -88,53 +97,6 @@ func TestPreparePortFileInDirAcquiresAndReleasesLock(t *testing.T) {
 	}
 	if relErr := lock.Release(); relErr != nil {
 		t.Fatalf("Release: %v", relErr)
-	}
-}
-
-func TestRunDetachedIdleTimeoutAfterClientDisconnect(t *testing.T) {
-	dir := shortRuntimeDir(t)
-	portFile := filepath.Join(dir, portinfo.CorePortFileName)
-
-	doneCh := make(chan int, 1)
-	go func() {
-		doneCh <- run([]string{"--port-filename", portFile, "--detach", "--idle-timeout", "100ms"})
-	}()
-
-	info := waitForPortInfo(t, portFile, doneCh)
-	conn, err := grpc.NewClient(grpcTarget(info), grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		t.Fatalf("grpc.NewClient: %v", err)
-	}
-
-	client := corev1.NewCoreServiceClient(conn)
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-	if _, spinErr := client.SpinupService(ctx, &corev1.SpinupServiceRequest{}); spinErr != nil {
-		_ = conn.Close()
-		t.Fatalf("SpinupService: %v", spinErr)
-	}
-
-	// 断开全部连接后，空闲计时器应在超时后触发优雅退出。
-	if closeErr := conn.Close(); closeErr != nil {
-		t.Fatalf("conn.Close: %v", closeErr)
-	}
-
-	select {
-	case code := <-doneCh:
-		if code != 0 {
-			t.Fatalf("core exit code = %d, want 0", code)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("detached core did not exit after idle timeout")
-	}
-
-	if _, statErr := os.Stat(portFile); !errors.Is(statErr, os.ErrNotExist) {
-		t.Fatalf("port-file still exists after idle exit: %v", statErr)
-	}
-	if info.UnixPath != "" {
-		if _, statErr := os.Stat(info.UnixPath); !errors.Is(statErr, os.ErrNotExist) {
-			t.Fatalf("socket file still exists after idle exit: %v", statErr)
-		}
 	}
 }
 
@@ -297,5 +259,119 @@ func TestCleanupEndpointSkipsWhenLockHeld(t *testing.T) {
 
 	if _, pfErr := os.Stat(portFile); pfErr != nil {
 		t.Fatalf("port-file must not be deleted while startup lock is held: %v", pfErr)
+	}
+}
+
+func TestRunDetachedDisconnectCleansSessionAndExitsIdle(t *testing.T) {
+	dir := shortRuntimeDir(t)
+	portFile := filepath.Join(dir, portinfo.CorePortFileName)
+	runDir := t.TempDir()
+	const runID = "detach_disconnect_run"
+
+	doneCh := make(chan int, 1)
+	go func() {
+		doneCh <- run([]string{"--port-filename", portFile, "--detach", "--idle-timeout", "100ms"})
+	}()
+
+	info := waitForPortInfo(t, portFile, doneCh)
+	conn, err := grpc.NewClient(grpcTarget(info), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		t.Fatalf("grpc.NewClient: %v", err)
+	}
+
+	client := corev1.NewCoreServiceClient(conn)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	if _, spinErr := client.SpinupService(ctx, &corev1.SpinupServiceRequest{}); spinErr != nil {
+		_ = conn.Close()
+		t.Fatalf("SpinupService: %v", spinErr)
+	}
+
+	startResp, startErr := client.DeliverRunStart(ctx, &corev1.DeliverRunStartRequest{
+		CoreSettings: &settingsv1.CoreSettings{
+			RunId:          runID,
+			RunDir:         runDir,
+			Mode:           settingsv1.CoreMode_CORE_MODE_LOCAL,
+			RecordBatch:    16,
+			RecordInterval: 0.05,
+			SaveSize:       1024,
+			SaveSplit:      1024,
+			SavePart:       1024,
+			SaveBatch:      16,
+		},
+		StartRecord: &runv1.StartRecord{Id: runID, Project: "smoke"},
+	})
+	if startErr != nil || !startResp.GetSuccess() {
+		_ = conn.Close()
+		t.Fatalf("DeliverRunStart resp=%v err=%v", startResp, startErr)
+	}
+
+	if _, upErr := client.UpsertScalars(ctx, &corev1.UpsertScalarsRequest{
+		SessionId: startResp.GetSessionId(),
+		Data: []*datav1.ScalarRecord{{
+			Key:   "loss",
+			Step:  1,
+			Type:  columnv1.ColumnType_COLUMN_TYPE_SCALAR,
+			Value: &datav1.ScalarValue{Number: 0.25},
+		}},
+	}); upErr != nil {
+		_ = conn.Close()
+		t.Fatalf("UpsertScalars: %v", upErr)
+	}
+
+	// 不调 finish/confirm 直接断开连接：Core 须先排空落盘该会话，再在空闲到期后退出。
+	if closeErr := conn.Close(); closeErr != nil {
+		t.Fatalf("conn.Close: %v", closeErr)
+	}
+
+	select {
+	case code := <-doneCh:
+		if code != 0 {
+			t.Fatalf("core exit code = %d, want 0", code)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("detached core did not exit after disconnect and idle timeout")
+	}
+
+	runFile := filepath.Join(runDir, "run-"+runID+".swanlab")
+	reader, openErr := store.Open(runFile)
+	if openErr != nil {
+		t.Fatalf("store.Open(%q): %v", runFile, openErr)
+	}
+	defer func() { _ = reader.Close() }()
+
+	var hasScalar, hasFinish bool
+	for {
+		payload, scanErr := reader.Scan()
+		if errors.Is(scanErr, io.EOF) {
+			break
+		}
+		if scanErr != nil {
+			t.Fatalf("reader.Scan: %v", scanErr)
+		}
+		rec := &recordv1.Record{}
+		if unmarshalErr := proto.Unmarshal(payload, rec); unmarshalErr != nil {
+			t.Fatalf("proto.Unmarshal: %v", unmarshalErr)
+		}
+		if rec.GetScalar() != nil && rec.GetScalar().GetKey() == "loss" {
+			hasScalar = true
+		}
+		if rec.GetNum() == record.NumFinish {
+			hasFinish = true
+		}
+	}
+	if !hasScalar {
+		t.Fatal("disconnect cleanup must flush pending scalar record to local store")
+	}
+	if hasFinish {
+		t.Fatal("disconnect cleanup must not synthesize a FinishRecord")
+	}
+	if _, statErr := os.Stat(portFile); !errors.Is(statErr, os.ErrNotExist) {
+		t.Fatalf("port-file still exists after idle exit: %v", statErr)
+	}
+	if info.UnixPath != "" {
+		if _, statErr := os.Stat(info.UnixPath); !errors.Is(statErr, os.ErrNotExist) {
+			t.Fatalf("socket file still exists after idle exit: %v", statErr)
+		}
 	}
 }

@@ -22,21 +22,26 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 
 from swanlab.sdk.internal.core_go.config import (
+    LOCK_FILE_MODE,
     LOCK_FILE_NAME,
+    PORT_FILE_EOF,
     START_LOCK_POLL_INTERVAL,
     START_LOCK_TIMEOUT,
+    CoreGoError,
+    ReasonCode,
+    Stage,
 )
-from swanlab.sdk.internal.core_go.errors import CoreGoError, ReasonCode, Stage
 from swanlab.sdk.internal.pkg import safe
+
+__all__ = ["StartupLock", "acquire_start_lock", "try_acquire_start_lock"]
 
 if os.name != "nt":
     import fcntl as _fcntl
 else:  # pragma: no cover - Windows 分支走 LockFileEx
     _fcntl: Any = None
 
-_LOCK_FILE_MODE = 0o600
 _NS_PER_SECOND = 1_000_000_000
-_EOF = "EOF"
+_EOF_TEXT = PORT_FILE_EOF.decode("ascii")
 _LOCKFILE_FAIL_IMMEDIATELY = 0x00000001
 _LOCKFILE_EXCLUSIVE_LOCK = 0x00000002
 _ERROR_LOCK_VIOLATION = 33
@@ -48,7 +53,7 @@ def _lock_error(message: str, *, cause: Optional[BaseException] = None) -> CoreG
 
 
 def _marshal_lock(pid: int, created_at: int) -> bytes:
-    return f"pid={pid}\ncreated_at={created_at}\n{_EOF}\n".encode("ascii")
+    return f"pid={pid}\ncreated_at={created_at}\n{_EOF_TEXT}\n".encode("ascii")
 
 
 def _write_all(fd: int, data: bytes) -> None:
@@ -158,7 +163,7 @@ def _open_lock_fd(lock_path: Path) -> int:
 
     flags = os.O_RDWR | os.O_CREAT | getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0)
     try:
-        fd = os.open(str(lock_path), flags, _LOCK_FILE_MODE)
+        fd = os.open(str(lock_path), flags, LOCK_FILE_MODE)
     except OSError as exc:
         raise _lock_error(f"failed to open startup lock {lock_path}: {exc}", cause=exc) from exc
 

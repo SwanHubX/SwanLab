@@ -156,15 +156,36 @@ func (m *IdleMonitor) fire(myGen uint64) {
 type connCtxKey struct{}
 
 type connState struct {
+	id     uint64
 	closed atomic.Bool
+}
+
+// ConnIDFromContext 返回当前传输连接的唯一标识；未经过 ConnTracker 时返回 false。
+func ConnIDFromContext(ctx context.Context) (uint64, bool) {
+	state, ok := ctx.Value(connCtxKey{}).(*connState)
+	if !ok || state == nil || state.id == 0 {
+		return 0, false
+	}
+	return state.id, true
+}
+
+// IsConnClosed 报告与 ctx 关联的传输连接是否已触发关闭事件。
+func IsConnClosed(ctx context.Context) bool {
+	state, ok := ctx.Value(connCtxKey{}).(*connState)
+	if !ok || state == nil {
+		return false
+	}
+	return state.closed.Load()
 }
 
 // ConnTracker 实现 gRPC stats.Handler，用于统计传输层活跃连接并驱动 IdleMonitor。
 type ConnTracker struct {
 	active atomic.Int64
+	nextID atomic.Uint64
 
-	mu      sync.RWMutex
-	monitor *IdleMonitor
+	mu           sync.RWMutex
+	monitor      *IdleMonitor
+	onDisconnect func(uint64)
 }
 
 // NewConnTracker 创建连接追踪器。
@@ -176,6 +197,13 @@ func NewConnTracker() *ConnTracker {
 func (t *ConnTracker) SetMonitor(m *IdleMonitor) {
 	t.mu.Lock()
 	t.monitor = m
+	t.mu.Unlock()
+}
+
+// SetOnDisconnect 注册连接断开回调；每条连接的 ConnEnd 最多触发一次。
+func (t *ConnTracker) SetOnDisconnect(fn func(uint64)) {
+	t.mu.Lock()
+	t.onDisconnect = fn
 	t.mu.Unlock()
 }
 
@@ -192,12 +220,12 @@ func (t *ConnTracker) TagRPC(ctx context.Context, _ *stats.RPCTagInfo) context.C
 // HandleRPC 满足 stats.Handler 接口，连接追踪只关心连接生命周期事件。
 func (t *ConnTracker) HandleRPC(context.Context, stats.RPCStats) {}
 
-// TagConn 为每条传输连接绑定幂等关闭标记。
+// TagConn 为每条传输连接分配唯一 ID 并绑定幂等关闭标记。
 func (t *ConnTracker) TagConn(ctx context.Context, _ *stats.ConnTagInfo) context.Context {
-	return context.WithValue(ctx, connCtxKey{}, &connState{})
+	return context.WithValue(ctx, connCtxKey{}, &connState{id: t.nextID.Add(1)})
 }
 
-// HandleConn 统计连接建立与断开事件，并同步通知绑定的 IdleMonitor。
+// HandleConn 统计连接建立与断开事件，并同步触发断连回调与 IdleMonitor。
 func (t *ConnTracker) HandleConn(ctx context.Context, st stats.ConnStats) {
 	switch st.(type) {
 	case *stats.ConnBegin:
@@ -206,9 +234,18 @@ func (t *ConnTracker) HandleConn(ctx context.Context, st stats.ConnStats) {
 			m.OnConnBegin()
 		}
 	case *stats.ConnEnd:
+		// 本地 UDS/回环连接断开后立即触发异步排空清理（不支持跨传输连接重连迁移）；
+		// 断连清理完成并移除会话后，客户端若用旧 session_id 重试 RPC 将明确返回 NotFound。
+		var connID uint64
 		if state, ok := ctx.Value(connCtxKey{}).(*connState); ok {
 			if !state.closed.CompareAndSwap(false, true) {
 				return
+			}
+			connID = state.id
+		}
+		if connID != 0 {
+			if cb := t.getOnDisconnect(); cb != nil {
+				cb(connID)
 			}
 		}
 		t.active.Add(-1)
@@ -222,4 +259,10 @@ func (t *ConnTracker) getMonitor() *IdleMonitor {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
 	return t.monitor
+}
+
+func (t *ConnTracker) getOnDisconnect() func(uint64) {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	return t.onDisconnect
 }

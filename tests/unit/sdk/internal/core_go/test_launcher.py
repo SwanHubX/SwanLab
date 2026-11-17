@@ -15,10 +15,9 @@ from typing import Any, Optional, cast
 import pytest
 
 from swanlab.sdk.internal.core_go import launcher as launcher_module
-from swanlab.sdk.internal.core_go.discovery import Endpoint
-from swanlab.sdk.internal.core_go.errors import CoreGoError, ReasonCode, Stage
-from swanlab.sdk.internal.core_go.launcher import CORE_BINARY_ENV, CoreLauncher, locate_core_binary
-from swanlab.sdk.internal.core_go.process import RuntimeLease, acquire_start_lock
+from swanlab.sdk.internal.core_go.config import CoreGoError, ReasonCode, Stage
+from swanlab.sdk.internal.core_go.launcher import CoreLauncher
+from swanlab.sdk.internal.core_go.runtime import Endpoint, RuntimeLease, acquire_start_lock
 
 
 class FakeProcess:
@@ -57,10 +56,20 @@ def launcher_env(tmp_path, monkeypatch):
     if sys.platform != "win32":
         os.chmod(lease.dir, 0o700)
     endpoint = Endpoint(kind="unix", pid=FakeProcess.pid, unix_path=str(lease.dir / "core.sock"))
-    calls = {"acquire": 0, "lock": 0, "discover": 0, "spawn": 0, "wait": 0, "reap": 0, "cleanup": 0}
+    calls: dict[str, Any] = {
+        "acquire": 0,
+        "acquire_shared": [],
+        "lock": 0,
+        "discover": 0,
+        "spawn": 0,
+        "wait": 0,
+        "reap": 0,
+        "cleanup": 0,
+    }
 
-    def fake_acquire() -> RuntimeLease:
+    def fake_acquire(*, shared: bool = True) -> RuntimeLease:
         calls["acquire"] += 1
+        calls["acquire_shared"].append(shared)
         return lease
 
     def fake_lock(runtime_dir: Path):
@@ -71,7 +80,7 @@ def launcher_env(tmp_path, monkeypatch):
         calls["discover"] += 1
         return None
 
-    def fake_spawn(binary_path: Path, runtime: RuntimeLease) -> FakeProcess:
+    def fake_spawn(binary_path: Path, runtime: RuntimeLease, **kwargs) -> FakeProcess:
         calls["spawn"] += 1
         return FakeProcess()
 
@@ -105,7 +114,17 @@ def test_start_acquires_runtime_and_opens_channel(launcher_env):
     launcher = CoreLauncher(binary)
 
     assert launcher.start() == endpoint
-    assert calls == {"acquire": 1, "lock": 1, "discover": 2, "spawn": 1, "wait": 1, "reap": 0, "cleanup": 0}
+    assert calls == {
+        "acquire": 1,
+        "acquire_shared": [False],
+        "lock": 0,
+        "discover": 0,
+        "spawn": 1,
+        "wait": 1,
+        "reap": 0,
+        "cleanup": 0,
+    }
+    assert launcher.owns_process is True
     assert launcher.endpoint == endpoint
     assert launcher.channel is FakeChannel.last
 
@@ -130,33 +149,20 @@ def test_injected_lease_skips_acquire(launcher_env):
     assert calls["spawn"] == 1
 
 
-def test_close_cleans_channel_process_and_runtime_once(launcher_env):
+@pytest.mark.parametrize("action", ["close", "abort"])
+def test_close_and_abort_clean_channel_process_and_runtime_once(launcher_env, action):
     binary, _, _, calls = launcher_env
     launcher = CoreLauncher(binary)
     launcher.start()
     channel = cast(Any, launcher.channel)
 
-    launcher.close()
-    launcher.close()
+    getattr(launcher, action)()
+    getattr(launcher, action)()
 
     assert channel.closed == 1
     assert calls["reap"] == 1
     assert calls["cleanup"] == 1
     assert launcher.exit_code == 0
-
-
-def test_abort_is_idempotent(launcher_env):
-    binary, _, _, calls = launcher_env
-    launcher = CoreLauncher(binary)
-    launcher.start()
-    channel = cast(Any, launcher.channel)
-
-    launcher.abort()
-    launcher.abort()
-
-    assert channel.closed == 1
-    assert calls["reap"] == 1
-    assert calls["cleanup"] == 1
 
 
 def test_start_missing_binary_does_not_acquire_runtime(launcher_env, tmp_path):
@@ -175,7 +181,7 @@ def test_start_missing_binary_does_not_acquire_runtime(launcher_env, tmp_path):
 def test_start_failure_after_lease_cleans_up(launcher_env, monkeypatch):
     binary, _, _, calls = launcher_env
 
-    def fail_spawn(binary_path: Path, runtime: RuntimeLease):
+    def fail_spawn(binary_path: Path, runtime: RuntimeLease, **kwargs):
         raise CoreGoError(Stage.SPAWN, ReasonCode.SPAWN_FAILED, "spawn boom")
 
     monkeypatch.setattr(launcher_module, "spawn_core", fail_spawn)
@@ -257,14 +263,16 @@ def test_properties_report_not_started_and_closed(launcher_env):
     assert closed.value.reason is ReasonCode.CLOSED
 
 
-def test_start_reuses_existing_endpoint_without_lock_or_spawn(launcher_env, monkeypatch):
+def test_detach_reuses_existing_endpoint_without_lock_or_spawn(launcher_env, monkeypatch):
     binary, _, endpoint, calls = launcher_env
     monkeypatch.setattr(launcher_module, "discover_endpoint", lambda *_: endpoint)
 
-    launcher = CoreLauncher(binary)
+    launcher = CoreLauncher(binary, detach=True)
     assert launcher.start() == endpoint
+    assert calls["acquire_shared"] == [True]
     assert calls["lock"] == 0
     assert calls["spawn"] == 0
+    assert launcher.owns_process is False
 
     channel = cast(Any, launcher.channel)
     launcher.close()
@@ -274,22 +282,23 @@ def test_start_reuses_existing_endpoint_without_lock_or_spawn(launcher_env, monk
     assert launcher.exit_code is None
 
 
-def test_start_double_check_under_lock_reuses_winner_endpoint(launcher_env, monkeypatch):
+def test_detach_double_check_under_lock_reuses_winner_endpoint(launcher_env, monkeypatch):
     binary, _, endpoint, calls = launcher_env
     answers = iter([None, endpoint])
     monkeypatch.setattr(launcher_module, "discover_endpoint", lambda *_: next(answers))
 
-    launcher = CoreLauncher(binary)
+    launcher = CoreLauncher(binary, detach=True)
     assert launcher.start() == endpoint
     assert calls["lock"] == 1
     assert calls["spawn"] == 0
+    assert launcher.owns_process is False
 
     launcher.close()
     assert calls["reap"] == 0
     assert calls["cleanup"] == 0
 
 
-def test_start_converges_on_endpoint_busy(launcher_env, monkeypatch):
+def test_detach_converges_on_endpoint_busy(launcher_env, monkeypatch):
     binary, _, endpoint, calls = launcher_env
     answers = iter([None, None, endpoint])
     monkeypatch.setattr(launcher_module, "discover_endpoint", lambda *_: next(answers))
@@ -299,17 +308,18 @@ def test_start_converges_on_endpoint_busy(launcher_env, monkeypatch):
 
     monkeypatch.setattr(launcher_module, "wait_endpoint", busy_wait)
 
-    launcher = CoreLauncher(binary)
+    launcher = CoreLauncher(binary, detach=True)
     assert launcher.start() == endpoint
     assert calls["spawn"] == 1
     assert calls["reap"] == 1
+    assert launcher.owns_process is False
 
     launcher.close()
     assert calls["reap"] == 1
     assert calls["cleanup"] == 0
 
 
-def test_start_raises_endpoint_busy_when_fallback_discover_misses(launcher_env, monkeypatch):
+def test_detach_raises_endpoint_busy_when_fallback_discover_misses(launcher_env, monkeypatch):
     binary, _, _, calls = launcher_env
 
     def busy_wait(proc, runtime: RuntimeLease, timeout: float = 0.0):
@@ -317,7 +327,7 @@ def test_start_raises_endpoint_busy_when_fallback_discover_misses(launcher_env, 
 
     monkeypatch.setattr(launcher_module, "wait_endpoint", busy_wait)
 
-    launcher = CoreLauncher(binary)
+    launcher = CoreLauncher(binary, detach=True)
     with pytest.raises(CoreGoError) as caught:
         launcher.start()
 
@@ -326,9 +336,9 @@ def test_start_raises_endpoint_busy_when_fallback_discover_misses(launcher_env, 
     assert calls["cleanup"] == 0
 
 
-def test_concurrent_launchers_with_real_start_lock_spawn_once(launcher_env, monkeypatch):
+def test_concurrent_detach_launchers_with_real_start_lock_spawn_once(launcher_env, monkeypatch):
     binary, lease, endpoint, calls = launcher_env
-    published = {"endpoint": None}
+    published: dict[str, Optional[Endpoint]] = {"endpoint": None}
 
     def stateful_discover(port_file: Path, runtime_dir: Path) -> Optional[Endpoint]:
         calls["discover"] += 1
@@ -343,7 +353,7 @@ def test_concurrent_launchers_with_real_start_lock_spawn_once(launcher_env, monk
     monkeypatch.setattr(launcher_module, "discover_endpoint", stateful_discover)
     monkeypatch.setattr(launcher_module, "wait_endpoint", publish_wait)
 
-    launchers = [CoreLauncher(binary) for _ in range(4)]
+    launchers = [CoreLauncher(binary, detach=True) for _ in range(4)]
     barrier = threading.Barrier(len(launchers))
     results = []
     errors = []
@@ -368,79 +378,177 @@ def test_concurrent_launchers_with_real_start_lock_spawn_once(launcher_env, monk
     assert errors == []
     assert results == [endpoint] * 4
     assert calls["spawn"] == 1
+    assert sum(1 for item in launchers if item.owns_process) == 1
 
     for item in launchers:
         item.close()
-    assert calls["reap"] == 1
+    assert calls["reap"] == 0
 
 
-def test_start_clears_stale_port_file_before_spawning(launcher_env, monkeypatch):
+def test_detach_clears_stale_port_file_before_spawning(launcher_env, monkeypatch):
     binary, lease, endpoint, calls = launcher_env
     lease.port_file.write_bytes(b"protocol=1\npid=99999\nunix=/tmp/old.sock\nEOF\n")
     saw_port_file_at_spawn = {}
 
-    def checking_spawn(binary_path: Path, runtime: RuntimeLease):
+    def checking_spawn(binary_path: Path, runtime: RuntimeLease, **kwargs):
         saw_port_file_at_spawn["exists"] = runtime.port_file.exists()
         calls["spawn"] += 1
         return FakeProcess()
 
     monkeypatch.setattr(launcher_module, "spawn_core", checking_spawn)
 
-    launcher = CoreLauncher(binary)
+    launcher = CoreLauncher(binary, detach=True)
     assert launcher.start() == endpoint
     assert saw_port_file_at_spawn == {"exists": False}
     launcher.close()
 
 
-# ---------------------------------- 二进制定位 ----------------------------------
+@pytest.mark.parametrize("first_mode", ["attach", "owner"])
+def test_owner_runs_are_isolated_from_each_other_and_shared_attach(short_tmp_path, monkeypatch, first_mode):
+    from swanlab.sdk.internal.core_go import runtime as runtime_module
+
+    root = short_tmp_path
+    try:
+        binary = root / "swanlab-core"
+        binary.write_text("#!/bin/sh\n")
+        binary.chmod(0o755)
+        monkeypatch.setattr(runtime_module, "_runtime_root", lambda: root)
+        monkeypatch.setattr(launcher_module, "acquire_runtime", runtime_module.acquire_runtime)
+        monkeypatch.setattr(launcher_module, "acquire_start_lock", runtime_module.acquire_start_lock)
+        monkeypatch.setattr(launcher_module, "cleanup_runtime", runtime_module.cleanup_runtime)
+        monkeypatch.setattr(launcher_module, "Channel", FakeChannel)
+
+        spawned: list[tuple[Path, dict[str, Any]]] = []
+        reaped: list[int] = []
+        published: dict[Path, Endpoint] = {}
+
+        class TaggedProc:
+            def __init__(self, pid: int, runtime_dir: Path) -> None:
+                self.pid = pid
+                self.runtime_dir = runtime_dir
+
+        def fake_spawn(binary_path: Path, runtime: RuntimeLease, **kwargs) -> TaggedProc:
+            proc = TaggedProc(pid=5000 + len(spawned), runtime_dir=runtime.dir)
+            spawned.append((runtime.dir, kwargs))
+            return proc
+
+        def fake_wait(proc: TaggedProc, runtime: RuntimeLease, timeout: float = 0.0) -> Endpoint:
+            ep = Endpoint(kind="tcp", pid=proc.pid, tcp_port=30000 + proc.pid)
+            runtime.port_file.write_bytes(f"protocol=1\npid={proc.pid}\nsock={ep.tcp_port}\nEOF\n".encode("ascii"))
+            published[runtime.dir] = ep
+            return ep
+
+        def fake_discover(port_file: Path, runtime_dir: Path) -> Optional[Endpoint]:
+            return published.get(runtime_dir)
+
+        def fake_reap(proc: TaggedProc) -> int:
+            reaped.append(proc.pid)
+            return 0
+
+        monkeypatch.setattr(launcher_module, "spawn_core", fake_spawn)
+        monkeypatch.setattr(launcher_module, "wait_endpoint", fake_wait)
+        monkeypatch.setattr(launcher_module, "discover_endpoint", fake_discover)
+        monkeypatch.setattr(launcher_module, "reap_process", fake_reap)
+
+        attach = CoreLauncher(binary, detach=True, idle_timeout=2.0)
+        attach_peer = CoreLauncher(binary, detach=True, idle_timeout=2.0)
+        owner_a = CoreLauncher(binary, detach=False)
+        owner_b = CoreLauncher(binary, detach=False)
+
+        if first_mode == "attach":
+            attach_ep = attach.start()
+            attach_peer_ep = attach_peer.start()
+            owner_a_ep = owner_a.start()
+            owner_b_ep = owner_b.start()
+        else:
+            owner_a_ep = owner_a.start()
+            owner_b_ep = owner_b.start()
+            attach_ep = attach.start()
+            attach_peer_ep = attach_peer.start()
+
+        # Attach 客户端共享 1 个 Core；每个 Owner 客户端各自独占 1 个 Core 和隔离目录。
+        assert len(spawned) == 3
+        assert attach_peer_ep == attach_ep
+        assert owner_a_ep != owner_b_ep
+        assert owner_a_ep != attach_ep
+        assert owner_b_ep != attach_ep
+        assert owner_a._lease is not None and owner_b._lease is not None and attach._lease is not None  # noqa: SLF001
+        assert len({owner_a._lease.dir, owner_b._lease.dir, attach._lease.dir}) == 3  # noqa: SLF001
+
+        attach_dir = attach._lease.dir  # noqa: SLF001
+        owner_a_dir = owner_a._lease.dir  # noqa: SLF001
+        owner_b_dir = owner_b._lease.dir  # noqa: SLF001
+        attach_channel = cast(Any, attach.channel)
+
+        owner_a.close()
+        assert reaped == [owner_a_ep.pid]
+        assert not owner_a_dir.exists()
+        assert owner_b_dir.exists()
+        assert attach_dir.exists()
+        assert attach_channel.closed == 0
+
+        owner_b.close()
+        assert reaped == [owner_a_ep.pid, owner_b_ep.pid]
+        assert not owner_b_dir.exists()
+        assert attach_dir.exists()
+        assert attach_channel.closed == 0
+
+        attach.close()
+        attach_peer.close()
+        assert attach_channel.closed == 1
+        assert reaped == [owner_a_ep.pid, owner_b_ep.pid]
+        assert attach_dir.exists()
+    finally:
+        FakeChannel.last = None
 
 
-def _write_binary(path: Path) -> Path:
-    path.write_text("#!/bin/sh\n")
-    return path
+@pytest.mark.parametrize("action", ["close", "abort"])
+def test_detach_launcher_close_and_abort_skip_reap(launcher_env, monkeypatch, action):
+    binary, _, endpoint, calls = launcher_env
+    spawn_kwargs = {}
+
+    def fake_detach_spawn(binary_path: Path, runtime: RuntimeLease, **kwargs):
+        calls["spawn"] += 1
+        spawn_kwargs.update(kwargs)
+        return FakeProcess()
+
+    monkeypatch.setattr(launcher_module, "spawn_core", fake_detach_spawn)
+
+    launcher = CoreLauncher(binary, detach=True, idle_timeout=2.0)
+    assert launcher.start() == endpoint
+    assert spawn_kwargs == {"detach": True, "idle_timeout": 2.0}
+
+    channel = cast(Any, launcher.channel)
+    getattr(launcher, action)()
+
+    assert channel.closed == 1
+    assert calls["reap"] == 0
+    assert calls["cleanup"] == 0
+    assert launcher.exit_code is None
 
 
-def test_locate_env_override_is_preferred(monkeypatch, tmp_path):
-    binary = _write_binary(tmp_path / "custom-core")
-    monkeypatch.setenv(CORE_BINARY_ENV, str(binary))
+def test_detach_launcher_reaps_process_when_start_fails(launcher_env, monkeypatch):
+    binary, _, _, calls = launcher_env
 
-    assert locate_core_binary() == binary.resolve()
+    def fake_detach_spawn(binary_path: Path, runtime: RuntimeLease, **kwargs):
+        calls["spawn"] += 1
+        return FakeProcess()
 
+    def fail_open(endpoint: Endpoint, timeout: float = 0.0):
+        raise CoreGoError(Stage.CHANNEL, ReasonCode.CHANNEL_TIMEOUT, "channel boom")
 
-def test_locate_env_override_missing_raises(monkeypatch, tmp_path):
-    missing = tmp_path / "missing-core"
-    monkeypatch.setenv(CORE_BINARY_ENV, str(missing))
+    monkeypatch.setattr(launcher_module, "spawn_core", fake_detach_spawn)
+    monkeypatch.setattr(FakeChannel, "open", fail_open)
 
+    launcher = CoreLauncher(binary, detach=True, idle_timeout=2.0)
     with pytest.raises(CoreGoError) as caught:
-        locate_core_binary()
+        launcher.start()
 
-    assert caught.value.stage is Stage.SPAWN
-    assert caught.value.reason is ReasonCode.BINARY_NOT_FOUND
-    assert CORE_BINARY_ENV in caught.value.message
-
-
-def test_locate_blank_env_override_falls_back_to_packaged(monkeypatch, tmp_path):
-    packaged = _write_binary(tmp_path / "swanlab-core")
-    monkeypatch.setenv(CORE_BINARY_ENV, "   ")
-    monkeypatch.setattr(launcher_module, "_PACKAGED_BINARY", packaged)
-
-    assert locate_core_binary() == packaged.resolve()
+    assert caught.value.reason is ReasonCode.CHANNEL_TIMEOUT
+    assert calls["reap"] == 1
+    assert calls["cleanup"] == 1
 
 
-def test_locate_missing_packaged_binary_raises(monkeypatch, tmp_path):
-    monkeypatch.delenv(CORE_BINARY_ENV, raising=False)
-    monkeypatch.setattr(launcher_module, "_PACKAGED_BINARY", tmp_path / "swanlab-core")
-
-    with pytest.raises(CoreGoError) as caught:
-        locate_core_binary()
-
-    assert caught.value.reason is ReasonCode.BINARY_NOT_FOUND
-    assert "platform wheel" in caught.value.message
-
-
-def test_packaged_binary_points_into_swanlab_bin():
-    packaged = launcher_module._PACKAGED_BINARY
-
-    assert packaged.parent.name == "bin"
-    assert packaged.parent.parent.name == "swanlab"
-    assert packaged.name.startswith("swanlab-core")
+def test_detach_launcher_rejects_negative_idle_timeout(tmp_path):
+    with pytest.raises(ValueError):
+        CoreLauncher(tmp_path / "swanlab-core", detach=True, idle_timeout=-0.5)

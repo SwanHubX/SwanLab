@@ -1,8 +1,8 @@
 """
 @author: Nexisato
-@file: __init__.py
+@file: portfile.py
 @time: 2026/10/27 15:40
-@description: 端点发现。
+@description: port-file 解析、端点发现与归属校验。
 
 解析 port-file v1，产出 Endpoint（unix / tcp 二选一）并校验 pid 与目录归属。
 纯函数，不建立 channel，也不启动进程。
@@ -19,14 +19,17 @@
 import socket
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Dict, Optional
 
 from swanlab.sdk.internal.core_go.config import (
     ENDPOINT_PROBE_TIMEOUT,
     MAX_UNIX_PATH_BYTES,
+    PORT_FILE_EOF,
     PORT_FILE_MAX_BYTES,
+    CoreGoError,
+    ReasonCode,
+    Stage,
 )
-from swanlab.sdk.internal.core_go.errors import CoreGoError, ReasonCode, Stage
 
 __all__ = [
     "Endpoint",
@@ -38,7 +41,6 @@ __all__ = [
     "validate_ownership",
 ]
 
-_EOF = b"EOF"
 _MAX_PID = 1 << 31 - 1
 _MAX_PORT = 65535
 _LINE_ECHO_LIMIT = 120
@@ -94,15 +96,15 @@ def parse_port_file(data: bytes) -> Endpoint:
         raise _invalid(f"port-file exceeds {PORT_FILE_MAX_BYTES} bytes")
 
     content = data[:-1] if data.endswith(b"\n") else data
-    if content == _EOF:
+    if content == PORT_FILE_EOF:
         body = b""
-    elif content.endswith(b"\n" + _EOF):
-        body = content[: -(len(_EOF) + 1)]
+    elif content.endswith(b"\n" + PORT_FILE_EOF):
+        body = content[: -(len(PORT_FILE_EOF) + 1)]
     else:
         raise _invalid("port-file must end with an EOF line")
 
-    seen: dict[bytes, bool] = {}
-    values: dict[bytes, bytes] = {}
+    seen: Dict[bytes, bool] = {}
+    values: Dict[bytes, bytes] = {}
     for line in body.split(b"\n"):
         if not line:
             raise _invalid("port-file contains empty line")

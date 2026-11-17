@@ -23,9 +23,9 @@ from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
 )
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import ScalarRecord
 from swanlab.sdk.internal.core_go import core as core_module
-from swanlab.sdk.internal.core_go.core import CoreGo, _DetachedCoreGo
-from swanlab.sdk.internal.core_go.errors import CoreGoError, ReasonCode, Stage
-from swanlab.sdk.internal.core_go.rpc.core_service import CoreServiceRpc
+from swanlab.sdk.internal.core_go.config import CoreGoError, ReasonCode, Stage
+from swanlab.sdk.internal.core_go.core import CoreGo, _CoreState, _DetachedCoreGo
+from swanlab.sdk.internal.core_go.rpc import CoreServiceRpc
 from swanlab.sdk.internal.pkg import console as pkg_console
 from swanlab.sdk.protocol import CoreProtocol, CoreProtocolError, NullCoreProtocol, is_terminal_stats_error
 
@@ -51,7 +51,7 @@ def _running_core(rpc: FakeRpc) -> CoreGo:
     core = CoreGo("online")
     core._rpc = cast(CoreServiceRpc, rpc)  # noqa: SLF001 - 测试直接注入 fake RPC
     core._session_id = "session-1"  # noqa: SLF001
-    core._state = core_module._RUNNING  # noqa: SLF001
+    core._state = _CoreState.RUNNING  # noqa: SLF001
     return core
 
 
@@ -109,7 +109,7 @@ def test_upsert_before_start_is_terminal_and_skips_rpc():
 def test_upsert_after_close_is_terminal():
     rpc = FakeRpc()
     core = _running_core(rpc)
-    core._state = core_module._CLOSED  # noqa: SLF001
+    core._state = _CoreState.CLOSED  # noqa: SLF001
 
     with pytest.raises(CoreGoError) as caught:
         core.upsert_scalars([ScalarRecord(key="loss", step=1)])
@@ -173,17 +173,17 @@ def test_close_before_start_is_idempotent():
     core.close()
     core.close()
 
-    assert core._state == core_module._CLOSED  # noqa: SLF001
+    assert core._state is _CoreState.CLOSED  # noqa: SLF001
 
 
 def test_close_after_finish_tears_down_and_releases_rpc():
     rpc = FakeRpc()
     core = _running_core(rpc)
-    core._state = core_module._FINISHED  # noqa: SLF001
+    core._state = _CoreState.FINISHED  # noqa: SLF001
 
     core.close()
 
-    assert core._state == core_module._CLOSED  # noqa: SLF001
+    assert core._state is _CoreState.CLOSED  # noqa: SLF001
     assert core._rpc is None  # noqa: SLF001
     assert rpc.teardown_calls == [core_module.TEARDOWN_TIMEOUT]
 
@@ -250,3 +250,138 @@ def test_disabled_start_is_noop_without_binary():
     response = core.deliver_run_start(DeliverRunStartRequest())
 
     assert response.success is True
+
+
+class _SpyLauncher:
+    def __init__(self, *, owns_process: bool = True) -> None:
+        self.owns_process = owns_process
+        self.closed = 0
+        self.aborted = 0
+        self.exit_code = None
+
+    def close(self) -> None:
+        self.closed += 1
+
+    def abort(self) -> None:
+        self.aborted += 1
+
+
+@pytest.mark.parametrize("action, initial_state", [("close", _CoreState.FINISHED), ("abort", _CoreState.RUNNING)])
+def test_attach_mode_close_and_abort_skip_teardown_and_are_idempotent(action, initial_state):
+    rpc = FakeRpc()
+    core = _running_core(rpc)
+    core._attach = True  # noqa: SLF001
+    launcher = _SpyLauncher()
+    core._launcher = cast(core_module.CoreLauncher, launcher)  # noqa: SLF001
+    core._state = initial_state  # noqa: SLF001
+
+    if action == "close":
+        core.close()
+        core.close()
+        assert launcher.closed == 1
+        assert launcher.aborted == 0
+    else:
+        core.abort(RuntimeError("boom"))
+        core.abort()
+        assert launcher.aborted == 1
+        assert launcher.closed == 0
+
+    assert rpc.teardown_calls == []
+    assert core.exit_code is None
+    assert core._state is _CoreState.CLOSED  # noqa: SLF001
+
+
+def test_owner_mode_abort_sends_teardown():
+    rpc = FakeRpc()
+    core = _running_core(rpc)
+
+    core.abort(RuntimeError("boom"))
+
+    assert rpc.teardown_calls == [core_module.TEARDOWN_TIMEOUT]
+    assert core._state is _CoreState.CLOSED  # noqa: SLF001
+
+
+def test_unowned_launcher_skips_teardown_on_close_even_when_attach_false():
+    rpc = FakeRpc()
+    core = _running_core(rpc)
+    core._attach = False  # noqa: SLF001
+    launcher = _SpyLauncher(owns_process=False)
+    core._launcher = cast(core_module.CoreLauncher, launcher)  # noqa: SLF001
+
+    core.close()
+
+    assert rpc.teardown_calls == []
+    assert launcher.closed == 1
+    assert core._state is _CoreState.CLOSED  # noqa: SLF001
+
+
+@pytest.mark.parametrize("first_mode", ["attach", "owner"])
+def test_mixed_owner_and_attach_close_does_not_affect_peer(monkeypatch, tmp_path, first_mode):
+    binary = tmp_path / "swanlab-core"
+    rpcs = {}
+    launcher_kwargs = {}
+
+    class StubLauncher:
+        def __init__(self, bin_path, *, detach: bool = False, idle_timeout: float = 0.0) -> None:
+            launcher_kwargs[detach] = {"binary": bin_path, "idle_timeout": idle_timeout}
+            self.detach = detach
+            self.owns_process = True
+            self.channel = "attach" if detach else "owner"
+            self.exit_code = None if detach else 0
+            self.closed = 0
+
+        def start(self) -> None:
+            return None
+
+        def close(self) -> None:
+            self.closed += 1
+
+        def abort(self) -> None:
+            self.closed += 1
+
+    class TaggedRpc(FakeRpc):
+        def __init__(self, channel) -> None:
+            super().__init__()
+            self.channel = channel
+            self.session_id = f"sid-{channel}"
+            rpcs[channel] = self
+
+        def spinup(self) -> None:
+            return None
+
+        def deliver_run_start(self, _req) -> DeliverRunStartResponse:
+            return DeliverRunStartResponse(success=True, session_id=self.session_id)
+
+    monkeypatch.setattr(core_module, "CoreLauncher", StubLauncher)
+    monkeypatch.setattr(core_module, "CoreServiceRpc", TaggedRpc)
+
+    attach_core = CoreGo("online", binary=binary, attach=True, idle_timeout=2.0)
+    owner_core = CoreGo("online", binary=binary, attach=False)
+
+    if first_mode == "attach":
+        assert attach_core.deliver_run_start(DeliverRunStartRequest()).success is True
+        assert owner_core.deliver_run_start(DeliverRunStartRequest()).success is True
+    else:
+        assert owner_core.deliver_run_start(DeliverRunStartRequest()).success is True
+        assert attach_core.deliver_run_start(DeliverRunStartRequest()).success is True
+
+    assert launcher_kwargs == {
+        True: {"binary": binary, "idle_timeout": 2.0},
+        False: {"binary": binary, "idle_timeout": core_module.DETACH_IDLE_TIMEOUT},
+    }
+
+    # Owner 退出只 teardown 自己的 Core，不得影响 Attach 会话继续写入。
+    owner_core.close()
+    assert rpcs["owner"].teardown_calls == [core_module.TEARDOWN_TIMEOUT]
+    assert rpcs["attach"].teardown_calls == []
+
+    attach_core.upsert_scalars([ScalarRecord(key="loss", step=1)])
+    assert len(rpcs["attach"].calls) == 1
+
+    attach_core.close()
+    assert rpcs["attach"].teardown_calls == []
+
+
+def test_core_go_rejects_negative_idle_timeout():
+    with pytest.raises(ValueError):
+        CoreGo("online", attach=True, idle_timeout=-1.0)

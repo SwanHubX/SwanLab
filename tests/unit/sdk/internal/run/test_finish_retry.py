@@ -14,7 +14,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import ConfirmRunFinishResponse, DeliverRunFinishResponse
-from swanlab.sdk.internal.core_go.errors import CoreGoError, ReasonCode, Stage
+from swanlab.sdk.internal.core_go.config import CoreGoError, ReasonCode, Stage
 from swanlab.sdk.internal.pkg import fork
 from swanlab.sdk.internal.run import Run
 from swanlab.sdk.internal.run.finish_retry import (

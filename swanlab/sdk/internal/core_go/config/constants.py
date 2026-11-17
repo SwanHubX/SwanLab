@@ -1,28 +1,28 @@
 """
 @author: Nexisato
-@file: config.py
+@file: constants.py
 @time: 2026/10/27 15:40
-@description: core 客户端的协议级常量。
+@description: core_go 客户端与本地守护进程的跨模块协议常量及超时预算。
 
-只放跨模块、或定义本地协议契约的值：
-- 启动与发现：二进制名、runtime 目录前缀、port-file 名
-- 握手与清理：等端点、channel-ready、单次 RPC、teardown/wait/terminate/kill
-- gRPC：单条消息上限，必须与 Go 侧 maxRecvMsgSize 对齐
-- 诊断：临时 stderr 文件名与有界尾部长度
-
-阶段内部值（例如单次轮询间隔的微调）留在使用它的模块里，不在这里堆。
-超时是 P0 的固定预算，不读取环境变量或用户设置。
+只收敛跨模块或与 Go core（portinfo / swanlab-core CLI / gRPC）对齐的契约值；
+单文件内部的私有实现常量（如 Win32 API 标志位）保留在对应模块内。
 """
 
 __all__ = [
     "BINARY_NAME",
+    "CORE_BINARY_ENV",
+    "RUNTIME_DIR_PREFIX",
+    "RUNTIME_DIR_MODE",
     "PORT_FILE_NAME",
     "LOCK_FILE_NAME",
-    "RUNTIME_DIR_PREFIX",
+    "LOCK_FILE_MODE",
+    "SOCKET_NAME",
     "STDERR_FILE_NAME",
     "PORT_FILE_MAX_BYTES",
     "MAX_UNIX_PATH_BYTES",
-    "RUNTIME_DIR_MODE",
+    "PORT_FILE_EOF",
+    "EXIT_USAGE_ERROR",
+    "EXIT_ENDPOINT_BUSY",
     "PORT_FILE_TIMEOUT",
     "ENDPOINT_POLL_INTERVAL",
     "ENDPOINT_PROBE_TIMEOUT",
@@ -35,35 +35,44 @@ __all__ = [
     "RUN_FINISH_TIMEOUT",
     "STATS_TIMEOUT",
     "CONFIRM_TIMEOUT",
+    "DETACH_IDLE_TIMEOUT",
     "TEARDOWN_TIMEOUT",
     "WAIT_TIMEOUT",
     "TERMINATE_TIMEOUT",
     "KILL_TIMEOUT",
-    "STDERR_TAIL_BYTES",
     "GRPC_MAX_MESSAGE_BYTES",
+    "STDERR_TAIL_BYTES",
 ]
 
-# ---------------------------------- 启动与发现 ----------------------------------
+# ---------------------------------- 二进制与环境变量 ----------------------------------
 
-# 发布产物名，实际路径由调用方定位后传入。
+# 发布产物名，实际路径由 runtime.locate_core_binary 定位。
 BINARY_NAME = "swanlab-core"
-# port-file 文件名，与 Go 侧约定一致。
-PORT_FILE_NAME = "core.port"
-# 启动锁文件名，与 Go portinfo.LockFileName 一致。
-LOCK_FILE_NAME = "core.lock"
-# 私有 runtime 目录前缀，清理时据此判断归属。
+# 覆盖包内二进制的环境变量；空值视为未设置。
+CORE_BINARY_ENV = "SWANLAB_CORE_BINARY"
+
+# ---------------------------------- Go portinfo / CLI 契约 ----------------------------------
+
+# 私有 runtime 目录前缀与权限（0700）。
 RUNTIME_DIR_PREFIX = "swanlab-core-"
-# 启动期临时 stderr 文件名，仅用于失败诊断。
+RUNTIME_DIR_MODE = 0o700
+# port-file / 启动锁 / UDS / 启动期 stderr 文件名，与 Go portinfo 对齐。
+PORT_FILE_NAME = "core.port"
+LOCK_FILE_NAME = "core.lock"
+LOCK_FILE_MODE = 0o600
+SOCKET_NAME = "core.sock"
 STDERR_FILE_NAME = "core.stderr.log"
 
-# port-file 内容长度上限，对齐 Go portinfo.MaxFileSize。
+# port-file 文本协议边界与长度上限，对齐 Go portinfo。
 PORT_FILE_MAX_BYTES = 4096
-# unix socket 路径字节上限，对齐 Go portinfo.maxUnixPathLen。
 MAX_UNIX_PATH_BYTES = 103
-# 私有 runtime 目录权限。
-RUNTIME_DIR_MODE = 0o700
+PORT_FILE_EOF = b"EOF"
 
-# ---------------------------------- 握手与清理 ----------------------------------
+# swanlab-core CLI 退出码契约，对齐 core/cmd/swanlab-core/main.go。
+EXIT_USAGE_ERROR = 2
+EXIT_ENDPOINT_BUSY = 3
+
+# ---------------------------------- 握手、超时与回收预算 ----------------------------------
 
 # 等待 port-file 出现并解析成功的总预算。
 PORT_FILE_TIMEOUT = 30.0
@@ -88,21 +97,18 @@ RUN_FINISH_TIMEOUT = 15.0
 STATS_TIMEOUT = 2.0
 # ConfirmRunFinish：core 内部要排空上传队列，预算高于启动。
 CONFIRM_TIMEOUT = 45.0
+# Attach Mode 拉起 detached core 的默认空闲回收超时（秒）。
+DETACH_IDLE_TIMEOUT = 300.0
 # TeardownService 的预算，只发请求不等进程退出。
 TEARDOWN_TIMEOUT = 5.0
-# 回收子进程：先等优雅退出。
+# 回收子进程：先等优雅退出，超时依次升级为 terminate / kill。
 WAIT_TIMEOUT = 10.0
-# 回收子进程：超时后 terminate。
 TERMINATE_TIMEOUT = 3.0
-# 回收子进程：再超时后 kill。
 KILL_TIMEOUT = 2.0
 
-# ---------------------------------- gRPC ----------------------------------
+# ---------------------------------- gRPC 与诊断 ----------------------------------
 
 # 单条消息上限，必须与 Go 侧 maxRecvMsgSize 保持一致。
 GRPC_MAX_MESSAGE_BYTES = 4 << 20
-
-# ---------------------------------- 诊断 ----------------------------------
-
 # stderr 尾部最多读取的字节数。
 STDERR_TAIL_BYTES = 4096

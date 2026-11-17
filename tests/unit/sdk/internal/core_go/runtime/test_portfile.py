@@ -7,9 +7,14 @@
 
 import pytest
 
-from swanlab.sdk.internal.core_go.config import MAX_UNIX_PATH_BYTES, PORT_FILE_MAX_BYTES
-from swanlab.sdk.internal.core_go.discovery import Endpoint, parse_port_file, read_port_file
-from swanlab.sdk.internal.core_go.errors import CoreGoError, ReasonCode, Stage
+from swanlab.sdk.internal.core_go.config import (
+    MAX_UNIX_PATH_BYTES,
+    PORT_FILE_MAX_BYTES,
+    CoreGoError,
+    ReasonCode,
+    Stage,
+)
+from swanlab.sdk.internal.core_go.runtime import Endpoint, parse_port_file, read_port_file
 
 VALID_UNIX = "protocol=1\npid=4242\nunix=/tmp/swanlab/core.sock\nEOF\n"
 
