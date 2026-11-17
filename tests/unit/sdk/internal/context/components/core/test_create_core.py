@@ -22,10 +22,10 @@ from swanlab.sdk.internal.settings.core import CoreSettings
 from swanlab.sdk.protocol import CoreEnum
 
 
-def _ctx(mode: str = "online", *, attach: bool = False, idle_timeout: float = DETACH_IDLE_TIMEOUT) -> RunContext:
+def _ctx(mode: str = "online", *, detach: bool = True, idle_timeout: float = DETACH_IDLE_TIMEOUT) -> RunContext:
     ctx = MagicMock()
     ctx.config.settings.mode = mode
-    ctx.config.settings.core = CoreSettings(attach=attach, idle_timeout=idle_timeout)
+    ctx.config.settings.core = CoreSettings(detach=detach, idle_timeout=idle_timeout)
     return cast(RunContext, ctx)
 
 
@@ -109,12 +109,15 @@ def test_missing_binary_falls_back_to_core_python_and_warns_once(monkeypatch):
     assert "missing" in warnings[0]
 
 
-def test_create_core_passes_attach_and_idle_timeout_from_settings(monkeypatch, tmp_path):
+def test_create_core_passes_detach_and_idle_timeout_from_settings(monkeypatch, tmp_path):
     binary = _write_binary(tmp_path / "swanlab-core")
     monkeypatch.setattr(runtime_module, "locate_core_binary", lambda: binary)
 
-    core = core_factory.create_core(_ctx("online", attach=True, idle_timeout=12.5))
+    default_core = core_factory.create_core(_ctx("online"))
+    owner_core = core_factory.create_core(_ctx("online", detach=False, idle_timeout=12.5))
 
-    assert isinstance(core, CoreGo)
-    assert core._attach is True  # noqa: SLF001
-    assert core._idle_timeout == 12.5  # noqa: SLF001
+    assert isinstance(default_core, CoreGo)
+    assert default_core._detach is True  # noqa: SLF001
+    assert isinstance(owner_core, CoreGo)
+    assert owner_core._detach is False  # noqa: SLF001
+    assert owner_core._idle_timeout == 12.5  # noqa: SLF001

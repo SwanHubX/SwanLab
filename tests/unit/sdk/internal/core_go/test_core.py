@@ -267,10 +267,10 @@ class _SpyLauncher:
 
 
 @pytest.mark.parametrize("action, initial_state", [("close", _CoreState.FINISHED), ("abort", _CoreState.RUNNING)])
-def test_attach_mode_close_and_abort_skip_teardown_and_are_idempotent(action, initial_state):
+def test_detached_mode_close_and_abort_skip_teardown_and_are_idempotent(action, initial_state):
     rpc = FakeRpc()
     core = _running_core(rpc)
-    core._attach = True  # noqa: SLF001
+    core._detach = True  # noqa: SLF001
     launcher = _SpyLauncher()
     core._launcher = cast(core_module.CoreLauncher, launcher)  # noqa: SLF001
     core._state = initial_state  # noqa: SLF001
@@ -301,10 +301,10 @@ def test_owner_mode_abort_sends_teardown():
     assert core._state is _CoreState.CLOSED  # noqa: SLF001
 
 
-def test_unowned_launcher_skips_teardown_on_close_even_when_attach_false():
+def test_unowned_launcher_skips_teardown_on_close_even_when_detach_false():
     rpc = FakeRpc()
     core = _running_core(rpc)
-    core._attach = False  # noqa: SLF001
+    core._detach = False  # noqa: SLF001
     launcher = _SpyLauncher(owns_process=False)
     core._launcher = cast(core_module.CoreLauncher, launcher)  # noqa: SLF001
 
@@ -315,8 +315,8 @@ def test_unowned_launcher_skips_teardown_on_close_even_when_attach_false():
     assert core._state is _CoreState.CLOSED  # noqa: SLF001
 
 
-@pytest.mark.parametrize("first_mode", ["attach", "owner"])
-def test_mixed_owner_and_attach_close_does_not_affect_peer(monkeypatch, tmp_path, first_mode):
+@pytest.mark.parametrize("first_mode", ["detached", "owner"])
+def test_mixed_owner_and_detached_close_does_not_affect_peer(monkeypatch, tmp_path, first_mode):
     binary = tmp_path / "swanlab-core"
     rpcs = {}
     launcher_kwargs = {}
@@ -326,7 +326,7 @@ def test_mixed_owner_and_attach_close_does_not_affect_peer(monkeypatch, tmp_path
             launcher_kwargs[detach] = {"binary": bin_path, "idle_timeout": idle_timeout}
             self.detach = detach
             self.owns_process = True
-            self.channel = "attach" if detach else "owner"
+            self.channel = "detached" if detach else "owner"
             self.exit_code = None if detach else 0
             self.closed = 0
 
@@ -355,33 +355,33 @@ def test_mixed_owner_and_attach_close_does_not_affect_peer(monkeypatch, tmp_path
     monkeypatch.setattr(core_module, "CoreLauncher", StubLauncher)
     monkeypatch.setattr(core_module, "CoreServiceRpc", TaggedRpc)
 
-    attach_core = CoreGo("online", binary=binary, attach=True, idle_timeout=2.0)
-    owner_core = CoreGo("online", binary=binary, attach=False)
+    detached_core = CoreGo("online", binary=binary, detach=True, idle_timeout=2.0)
+    owner_core = CoreGo("online", binary=binary, detach=False)
 
-    if first_mode == "attach":
-        assert attach_core.deliver_run_start(DeliverRunStartRequest()).success is True
+    if first_mode == "detached":
+        assert detached_core.deliver_run_start(DeliverRunStartRequest()).success is True
         assert owner_core.deliver_run_start(DeliverRunStartRequest()).success is True
     else:
         assert owner_core.deliver_run_start(DeliverRunStartRequest()).success is True
-        assert attach_core.deliver_run_start(DeliverRunStartRequest()).success is True
+        assert detached_core.deliver_run_start(DeliverRunStartRequest()).success is True
 
     assert launcher_kwargs == {
         True: {"binary": binary, "idle_timeout": 2.0},
         False: {"binary": binary, "idle_timeout": core_module.DETACH_IDLE_TIMEOUT},
     }
 
-    # Owner 退出只 teardown 自己的 Core，不得影响 Attach 会话继续写入。
+    # Owner 退出只 teardown 自己的 Core，不得影响 Detached 会话继续写入。
     owner_core.close()
     assert rpcs["owner"].teardown_calls == [core_module.TEARDOWN_TIMEOUT]
-    assert rpcs["attach"].teardown_calls == []
+    assert rpcs["detached"].teardown_calls == []
 
-    attach_core.upsert_scalars([ScalarRecord(key="loss", step=1)])
-    assert len(rpcs["attach"].calls) == 1
+    detached_core.upsert_scalars([ScalarRecord(key="loss", step=1)])
+    assert len(rpcs["detached"].calls) == 1
 
-    attach_core.close()
-    assert rpcs["attach"].teardown_calls == []
+    detached_core.close()
+    assert rpcs["detached"].teardown_calls == []
 
 
 def test_core_go_rejects_negative_idle_timeout():
     with pytest.raises(ValueError):
-        CoreGo("online", attach=True, idle_timeout=-1.0)
+        CoreGo("online", detach=True, idle_timeout=-1.0)

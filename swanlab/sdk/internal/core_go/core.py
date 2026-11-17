@@ -84,14 +84,14 @@ class CoreGo(CoreProtocol):
         mode: ModeType,
         *,
         binary: Optional[Path] = None,
-        attach: bool = False,
+        detach: bool = False,
         idle_timeout: float = DETACH_IDLE_TIMEOUT,
     ) -> None:
         super().__init__(mode)
         if idle_timeout < 0:
             raise ValueError("idle_timeout must be non-negative")
         self._binary = Path(binary) if binary is not None else None
-        self._attach = attach
+        self._detach = detach
         self._idle_timeout = idle_timeout
         self._lock = threading.RLock()
         self._owner_pid = fork.current_pid()
@@ -138,7 +138,7 @@ class CoreGo(CoreProtocol):
             self._state = _CoreState.STARTING
 
         try:
-            launcher = CoreLauncher(binary, detach=self._attach, idle_timeout=self._idle_timeout)
+            launcher = CoreLauncher(binary, detach=self._detach, idle_timeout=self._idle_timeout)
             with self._lock:
                 if self._state is not _CoreState.STARTING:
                     raise CoreGoError(Stage.LIFECYCLE, ReasonCode.CLOSED, "core was closed during startup")
@@ -378,7 +378,7 @@ class CoreGo(CoreProtocol):
     # ---------------------------------- 生命周期回收 ----------------------------------
 
     def close(self) -> None:
-        """正常关闭：Owner Mode 下 teardown + 回收；Attach Mode 下仅关闭本地连接。"""
+        """正常关闭：Owner Mode 下 teardown + 回收；Detached Mode 下仅关闭本地连接。"""
         if not self._owned_by_current_process():
             return
 
@@ -405,7 +405,7 @@ class CoreGo(CoreProtocol):
         self._release_transport(rpc, launcher, abort_launcher=False)
 
     def abort(self, cause: Optional[BaseException] = None) -> None:
-        """失败路径回收：Owner Mode 下尽力 teardown + 有界回收；Attach Mode 仅断连。"""
+        """失败路径回收：Owner Mode 下尽力 teardown + 有界回收；Detached Mode 仅断连。"""
         if not self._owned_by_current_process():
             return
 
@@ -431,7 +431,7 @@ class CoreGo(CoreProtocol):
         action = "abort" if abort_launcher else "close"
         try:
             owns_process = getattr(launcher, "owns_process", True) if launcher is not None else True
-            if not self._attach and owns_process and rpc is not None:
+            if not self._detach and owns_process and rpc is not None:
                 with safe.block(level="debug", message=f"core teardown failed during {action}"):
                     rpc.teardown(timeout=TEARDOWN_TIMEOUT)
             if launcher is not None:

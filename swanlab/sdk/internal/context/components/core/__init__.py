@@ -66,6 +66,6 @@ def create_core(ctx: "RunContext") -> CoreProtocol:
             return CorePython(mode=mode)
 
     core_settings = getattr(ctx.config.settings, "core", None)
-    attach = core_settings.attach if isinstance(core_settings, CoreSettings) else False
+    detach = core_settings.detach if isinstance(core_settings, CoreSettings) else True
     idle_timeout = core_settings.idle_timeout if isinstance(core_settings, CoreSettings) else DETACH_IDLE_TIMEOUT
-    return CoreGo(mode=mode, binary=binary, attach=attach, idle_timeout=idle_timeout)
+    return CoreGo(mode=mode, binary=binary, detach=detach, idle_timeout=idle_timeout)
