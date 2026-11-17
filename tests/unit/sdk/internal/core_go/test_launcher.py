@@ -444,3 +444,75 @@ def test_packaged_binary_points_into_swanlab_bin():
     assert packaged.parent.name == "bin"
     assert packaged.parent.parent.name == "swanlab"
     assert packaged.name.startswith("swanlab-core")
+
+
+def test_detach_launcher_spawns_detached_and_close_skips_reap(launcher_env, monkeypatch):
+    binary, _, endpoint, calls = launcher_env
+    spawn_kwargs = {}
+
+    def fake_detach_spawn(binary_path: Path, runtime: RuntimeLease, **kwargs):
+        calls["spawn"] += 1
+        spawn_kwargs.update(kwargs)
+        return FakeProcess()
+
+    monkeypatch.setattr(launcher_module, "spawn_core", fake_detach_spawn)
+
+    launcher = CoreLauncher(binary, detach=True, idle_timeout=2.0)
+    assert launcher.start() == endpoint
+    assert spawn_kwargs == {"detach": True, "idle_timeout": 2.0}
+
+    channel = cast(Any, launcher.channel)
+    launcher.close()
+
+    assert channel.closed == 1
+    assert calls["reap"] == 0
+    assert calls["cleanup"] == 0
+    assert launcher.exit_code is None
+
+
+def test_detach_launcher_abort_after_start_skips_reap(launcher_env, monkeypatch):
+    binary, _, endpoint, calls = launcher_env
+
+    def fake_detach_spawn(binary_path: Path, runtime: RuntimeLease, **kwargs):
+        calls["spawn"] += 1
+        return FakeProcess()
+
+    monkeypatch.setattr(launcher_module, "spawn_core", fake_detach_spawn)
+
+    launcher = CoreLauncher(binary, detach=True, idle_timeout=5.0)
+    assert launcher.start() == endpoint
+    channel = cast(Any, launcher.channel)
+
+    launcher.abort()
+
+    assert channel.closed == 1
+    assert calls["reap"] == 0
+    assert calls["cleanup"] == 0
+    assert launcher.exit_code is None
+
+
+def test_detach_launcher_reaps_process_when_start_fails(launcher_env, monkeypatch):
+    binary, _, _, calls = launcher_env
+
+    def fake_detach_spawn(binary_path: Path, runtime: RuntimeLease, **kwargs):
+        calls["spawn"] += 1
+        return FakeProcess()
+
+    def fail_open(endpoint: Endpoint, timeout: float = 0.0):
+        raise CoreGoError(Stage.CHANNEL, ReasonCode.CHANNEL_TIMEOUT, "channel boom")
+
+    monkeypatch.setattr(launcher_module, "spawn_core", fake_detach_spawn)
+    monkeypatch.setattr(FakeChannel, "open", fail_open)
+
+    launcher = CoreLauncher(binary, detach=True, idle_timeout=2.0)
+    with pytest.raises(CoreGoError) as caught:
+        launcher.start()
+
+    assert caught.value.reason is ReasonCode.CHANNEL_TIMEOUT
+    assert calls["reap"] == 1
+    assert calls["cleanup"] == 1
+
+
+def test_detach_launcher_rejects_negative_idle_timeout(tmp_path):
+    with pytest.raises(ValueError):
+        CoreLauncher(tmp_path / "swanlab-core", detach=True, idle_timeout=-0.5)

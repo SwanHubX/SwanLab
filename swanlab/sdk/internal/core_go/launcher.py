@@ -18,7 +18,12 @@ import threading
 from pathlib import Path
 from typing import Optional
 
-from swanlab.sdk.internal.core_go.config import BINARY_NAME, CHANNEL_READY_TIMEOUT, PORT_FILE_TIMEOUT
+from swanlab.sdk.internal.core_go.config import (
+    BINARY_NAME,
+    CHANNEL_READY_TIMEOUT,
+    DETACH_IDLE_TIMEOUT,
+    PORT_FILE_TIMEOUT,
+)
 from swanlab.sdk.internal.core_go.discovery import Endpoint, discover_endpoint
 from swanlab.sdk.internal.core_go.errors import CoreGoError, ReasonCode, Stage
 from swanlab.sdk.internal.core_go.process import (
@@ -70,9 +75,20 @@ class CoreLauncher:
     生产调用不传，由 start() 自行 acquire_runtime()。
     """
 
-    def __init__(self, binary: Path, *, lease: Optional[RuntimeLease] = None) -> None:
+    def __init__(
+        self,
+        binary: Path,
+        *,
+        lease: Optional[RuntimeLease] = None,
+        detach: bool = False,
+        idle_timeout: float = DETACH_IDLE_TIMEOUT,
+    ) -> None:
+        if idle_timeout < 0:
+            raise ValueError("idle_timeout must be non-negative")
         self._binary = Path(binary)
         self._injected_lease = lease
+        self._detach = detach
+        self._idle_timeout = idle_timeout
         self._lease: Optional[RuntimeLease] = None
         self._proc: Optional[subprocess.Popen] = None
         self._channel: Optional[Channel] = None
@@ -173,7 +189,10 @@ class CoreLauncher:
         if self._injected_lease is None:
             # 持锁且确认旧端点已失效后清理残留 port-file，防止 wait_endpoint 误读旧 PID。
             lease.port_file.unlink(missing_ok=True)
-        proc = spawn_core(self._binary, lease)
+        if self._detach:
+            proc = spawn_core(self._binary, lease, detach=True, idle_timeout=self._idle_timeout)
+        else:
+            proc = spawn_core(self._binary, lease)
         self._proc = proc
         try:
             endpoint = wait_endpoint(proc, lease, timeout=PORT_FILE_TIMEOUT)
@@ -211,6 +230,7 @@ class CoreLauncher:
 
     def _cleanup_locked(self) -> None:
         """调用方必须持有 self._lock；所有回收动作都不允许覆盖原始异常。"""
+        startup_failed = self._state == _STARTING
         channel = self._channel
         proc = self._proc
         lease = self._lease
@@ -227,9 +247,12 @@ class CoreLauncher:
 
         if channel is not None:
             channel.close()
-        if owns_process and proc is not None:
+        # Attach/Detached 模式下，一旦 start() 成功，关闭客户端连接不得杀掉共享 Core；
+        # 仅在 start() 本身未就绪前失败时才回收刚拉起的异常子进程。
+        reap_owned = owns_process and proc is not None and (not self._detach or startup_failed)
+        if reap_owned:
             self._exit_code = reap_process(proc)
-        if cleanup_lease and lease is not None:
+        if cleanup_lease and lease is not None and (not self._detach or startup_failed):
             cleanup_runtime(lease)
 
     def _validate_lease(self, lease: RuntimeLease) -> None:

@@ -216,3 +216,48 @@ def test_wait_endpoint_ignores_partial_port_file():
     finally:
         reap_process(proc)
         cleanup_runtime(lease)
+
+
+@pytest.mark.parametrize(
+    "idle_timeout, expected_tail",
+    [
+        (2.0, ["--detach", "--idle-timeout", "2s"]),
+        (0.25, ["--detach", "--idle-timeout", "250ms"]),
+        (0.0, ["--detach"]),
+    ],
+)
+def test_spawn_core_detach_passes_flags_without_parent_pid(tmp_path, monkeypatch, idle_timeout, expected_tail):
+    binary = tmp_path / "fake-core"
+    binary.write_text("")
+    binary.chmod(0o755)
+
+    captured = {}
+
+    class FakePopen:
+        def __init__(self, *args, **kwargs):
+            captured.update(kwargs)
+
+    monkeypatch.setattr(process_module.subprocess, "Popen", FakePopen)
+
+    lease = acquire_runtime()
+    try:
+        spawn_core(binary, lease, detach=True, idle_timeout=idle_timeout)
+    finally:
+        cleanup_runtime(lease)
+
+    argv = captured["args"]
+    assert "--parent-pid" not in argv
+    assert argv[1:3] == ["--port-filename", str(lease.port_file)]
+    assert argv[3:] == expected_tail
+
+
+def test_spawn_core_rejects_negative_idle_timeout(tmp_path):
+    binary = tmp_path / "fake-core"
+    binary.write_text("")
+    binary.chmod(0o755)
+    lease = acquire_runtime()
+    try:
+        with pytest.raises(ValueError):
+            spawn_core(binary, lease, detach=True, idle_timeout=-1.0)
+    finally:
+        cleanup_runtime(lease)

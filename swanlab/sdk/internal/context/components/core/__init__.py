@@ -26,8 +26,13 @@ def create_core(ctx: "RunContext") -> CoreProtocol:
         return CorePython(mode=mode)
 
     from swanlab.sdk.internal.core_go import CoreGo
+    from swanlab.sdk.internal.core_go.config import DETACH_IDLE_TIMEOUT
     from swanlab.sdk.internal.core_go.launcher import locate_core_binary
+    from swanlab.sdk.internal.settings.core import CoreSettings
 
     # Go core 是 CorePython 的全模式替代；disabled 不落盘也不起进程，无需二进制。
     binary = None if mode == "disabled" else locate_core_binary()
-    return CoreGo(mode=mode, binary=binary)
+    core_settings = getattr(ctx.config.settings, "core", None)
+    attach = core_settings.attach if isinstance(core_settings, CoreSettings) else False
+    idle_timeout = core_settings.idle_timeout if isinstance(core_settings, CoreSettings) else DETACH_IDLE_TIMEOUT
+    return CoreGo(mode=mode, binary=binary, attach=attach, idle_timeout=idle_timeout)

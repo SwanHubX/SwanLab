@@ -250,3 +250,120 @@ def test_disabled_start_is_noop_without_binary():
     response = core.deliver_run_start(DeliverRunStartRequest())
 
     assert response.success is True
+
+
+def test_attach_mode_close_skips_teardown_and_is_idempotent():
+    class SpyLauncher:
+        def __init__(self) -> None:
+            self.closed = 0
+            self.aborted = 0
+            self.exit_code = None
+
+        def close(self) -> None:
+            self.closed += 1
+
+        def abort(self) -> None:
+            self.aborted += 1
+
+    rpc = FakeRpc()
+    core = _running_core(rpc)
+    core._attach = True  # noqa: SLF001
+    launcher = SpyLauncher()
+    core._launcher = cast(core_module.CoreLauncher, launcher)  # noqa: SLF001
+    core._state = core_module._FINISHED  # noqa: SLF001
+
+    core.close()
+    core.close()
+
+    assert rpc.teardown_calls == []
+    assert launcher.closed == 1
+    assert launcher.aborted == 0
+    assert core.exit_code is None
+    assert core._state == core_module._CLOSED  # noqa: SLF001
+
+
+def test_attach_mode_abort_skips_teardown_and_is_idempotent():
+    class SpyLauncher:
+        def __init__(self) -> None:
+            self.closed = 0
+            self.aborted = 0
+            self.exit_code = None
+
+        def close(self) -> None:
+            self.closed += 1
+
+        def abort(self) -> None:
+            self.aborted += 1
+
+    rpc = FakeRpc()
+    core = _running_core(rpc)
+    core._attach = True  # noqa: SLF001
+    launcher = SpyLauncher()
+    core._launcher = cast(core_module.CoreLauncher, launcher)  # noqa: SLF001
+
+    core.abort(RuntimeError("boom"))
+    core.abort()
+
+    assert rpc.teardown_calls == []
+    assert launcher.aborted == 1
+    assert launcher.closed == 0
+    assert core._state == core_module._CLOSED  # noqa: SLF001
+
+
+def test_owner_mode_abort_sends_teardown():
+    rpc = FakeRpc()
+    core = _running_core(rpc)
+
+    core.abort(RuntimeError("boom"))
+
+    assert rpc.teardown_calls == [core_module.TEARDOWN_TIMEOUT]
+    assert core._state == core_module._CLOSED  # noqa: SLF001
+
+
+def test_attach_mode_passes_detach_and_idle_timeout_to_launcher(monkeypatch, tmp_path):
+    binary = tmp_path / "swanlab-core"
+    captured = {}
+
+    class StubLauncher:
+        def __init__(self, bin_path, **kwargs) -> None:
+            captured["binary"] = bin_path
+            captured["kwargs"] = kwargs
+            self.channel = object()
+            self.exit_code = None
+
+        def start(self) -> None:
+            return None
+
+        def close(self) -> None:
+            return None
+
+        def abort(self) -> None:
+            return None
+
+    class StubRpc:
+        def __init__(self, _channel) -> None:
+            self.teardown_calls = 0
+
+        def spinup(self) -> None:
+            return None
+
+        def deliver_run_start(self, _req) -> DeliverRunStartResponse:
+            return DeliverRunStartResponse(success=True, session_id="s-attach")
+
+        def teardown(self, timeout: float = 0) -> None:
+            self.teardown_calls += 1
+
+    monkeypatch.setattr(core_module, "CoreLauncher", StubLauncher)
+    monkeypatch.setattr(core_module, "CoreServiceRpc", StubRpc)
+
+    core = CoreGo("online", binary=binary, attach=True, idle_timeout=2.5)
+    response = core.deliver_run_start(DeliverRunStartRequest())
+
+    assert response.success is True
+    assert captured == {"binary": binary, "kwargs": {"detach": True, "idle_timeout": 2.5}}
+    core.close()
+
+
+def test_core_go_rejects_negative_idle_timeout():
+    with pytest.raises(ValueError):
+        CoreGo("online", attach=True, idle_timeout=-1.0)

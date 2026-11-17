@@ -261,13 +261,32 @@ def validate_core_binary(binary: Path) -> None:
         )
 
 
-def spawn_core(binary: Path, lease: RuntimeLease, parent_pid: Optional[int] = None) -> subprocess.Popen:
+def _format_go_duration(seconds: float) -> str:
+    """将非负秒数格式化为 Go time.ParseDuration 可解析的固定小数/毫秒串，避免科学计数法。"""
+    if seconds <= 0:
+        return "0s"
+    millis = max(1, round(seconds * 1000))
+    if millis % 1000 == 0:
+        return f"{millis // 1000}s"
+    return f"{millis}ms"
+
+
+def spawn_core(
+    binary: Path,
+    lease: RuntimeLease,
+    parent_pid: Optional[int] = None,
+    *,
+    detach: bool = False,
+    idle_timeout: float = 0.0,
+) -> subprocess.Popen:
     """拉起 swanlab-core，返回 Popen。
 
-    只传 --port-filename / --parent-pid；不传 --listen / --detach，
-    避免外部环境变量改变本次启动行为。子进程 cwd 是 runtime 目录，
-    因此相对路径必须先按调用方 cwd 解析为绝对路径。
+    Owner Mode 下只传 --port-filename / --parent-pid；Attach Mode（detach=True）
+    传 --port-filename / --detach（及正数 --idle-timeout），不绑定父进程生命周期。
+    子进程 cwd 是 runtime 目录，因此相对路径必须先按调用方 cwd 解析为绝对路径。
     """
+    if idle_timeout < 0:
+        raise ValueError("idle_timeout must be non-negative")
     try:
         binary_path = Path(binary).resolve()
     except OSError as exc:
@@ -287,9 +306,13 @@ def spawn_core(binary: Path, lease: RuntimeLease, parent_pid: Optional[int] = No
         str(binary_path),
         "--port-filename",
         str(lease.port_file),
-        "--parent-pid",
-        str(parent_pid if parent_pid is not None else fork.current_pid()),
     ]
+    if detach:
+        argv.append("--detach")
+        if idle_timeout > 0:
+            argv.extend(["--idle-timeout", _format_go_duration(idle_timeout)])
+    else:
+        argv.extend(["--parent-pid", str(parent_pid if parent_pid is not None else fork.current_pid())])
 
     kwargs = {
         "args": argv,

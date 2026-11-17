@@ -21,7 +21,7 @@ from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import HistogramRecord, MediaRecord, ScalarRecord
 from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord
 from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogRecord
-from swanlab.sdk.internal.core_go.config import TEARDOWN_TIMEOUT
+from swanlab.sdk.internal.core_go.config import DETACH_IDLE_TIMEOUT, TEARDOWN_TIMEOUT
 from swanlab.sdk.internal.core_go.errors import CoreGoError, ReasonCode, Stage
 from swanlab.sdk.internal.core_go.launcher import CoreLauncher
 from swanlab.sdk.internal.core_go.rpc.core_service import CoreServiceRpc
@@ -70,9 +70,20 @@ class CoreGo(CoreProtocol):
     # deliver 失败时会话保留在 core 内等待重投，跳过 confirm。
     confirm_after_deliver_failure = False
 
-    def __init__(self, mode: ModeType, *, binary: Optional[Path] = None) -> None:
+    def __init__(
+        self,
+        mode: ModeType,
+        *,
+        binary: Optional[Path] = None,
+        attach: bool = False,
+        idle_timeout: float = DETACH_IDLE_TIMEOUT,
+    ) -> None:
         super().__init__(mode)
+        if idle_timeout < 0:
+            raise ValueError("idle_timeout must be non-negative")
         self._binary = Path(binary) if binary is not None else None
+        self._attach = attach
+        self._idle_timeout = idle_timeout
         self._lock = threading.RLock()
         self._owner_pid = fork.current_pid()
         self._state = _NEW
@@ -118,7 +129,11 @@ class CoreGo(CoreProtocol):
             self._state = _STARTING
 
         try:
-            launcher = CoreLauncher(binary)
+            launcher = (
+                CoreLauncher(binary, detach=True, idle_timeout=self._idle_timeout)
+                if self._attach
+                else CoreLauncher(binary)
+            )
             with self._lock:
                 if self._state != _STARTING:
                     raise CoreGoError(Stage.LIFECYCLE, ReasonCode.CLOSED, "core was closed during startup")
@@ -358,7 +373,7 @@ class CoreGo(CoreProtocol):
     # ---------------------------------- 生命周期回收 ----------------------------------
 
     def close(self) -> None:
-        """正常关闭：teardown → launcher 回收；不隐式 confirm，不抛出。"""
+        """正常关闭：Owner Mode 下 teardown + 回收；Attach Mode 下仅关闭本地连接。"""
         if not self._owned_by_current_process():
             return
 
@@ -382,23 +397,10 @@ class CoreGo(CoreProtocol):
             self.abort()
             return
 
-        try:
-            if rpc is not None:
-                with safe.block(level="debug", message="core teardown failed during close"):
-                    rpc.teardown(timeout=TEARDOWN_TIMEOUT)
-            if launcher is not None:
-                with safe.block(level="debug", message="core launcher close failed"):
-                    launcher.close()
-                self._exit_code = launcher.exit_code
-        finally:
-            with self._lock:
-                self._rpc = None
-                self._launcher = None
-                self._session_id = None
-                self._state = _CLOSED
+        self._release_transport(rpc, launcher, abort_launcher=False)
 
     def abort(self, cause: Optional[BaseException] = None) -> None:
-        """失败路径回收：短 deadline 尽力 teardown，再由 launcher 有界回收；不抛出。"""
+        """失败路径回收：Owner Mode 下尽力 teardown + 有界回收；Attach Mode 仅断连。"""
         if not self._owned_by_current_process():
             return
 
@@ -411,13 +413,27 @@ class CoreGo(CoreProtocol):
             rpc = self._rpc
             launcher = self._launcher
 
+        self._release_transport(rpc, launcher, abort_launcher=True)
+
+    def _release_transport(
+        self,
+        rpc: Optional[CoreServiceRpc],
+        launcher: Optional[CoreLauncher],
+        *,
+        abort_launcher: bool,
+    ) -> None:
+        """释放 RPC/Launcher 资源并统一收敛到本地 CLOSED；永不抛出。"""
+        action = "abort" if abort_launcher else "close"
         try:
-            if rpc is not None:
-                with safe.block(level="debug", message="core teardown failed during abort"):
+            if not self._attach and rpc is not None:
+                with safe.block(level="debug", message=f"core teardown failed during {action}"):
                     rpc.teardown(timeout=TEARDOWN_TIMEOUT)
             if launcher is not None:
-                with safe.block(level="debug", message="core launcher abort failed"):
-                    launcher.abort()
+                with safe.block(level="debug", message=f"core launcher {action} failed"):
+                    if abort_launcher:
+                        launcher.abort()
+                    else:
+                        launcher.close()
                 self._exit_code = launcher.exit_code
         finally:
             with self._lock:

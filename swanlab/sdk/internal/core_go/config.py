@@ -35,6 +35,7 @@ __all__ = [
     "RUN_FINISH_TIMEOUT",
     "STATS_TIMEOUT",
     "CONFIRM_TIMEOUT",
+    "DETACH_IDLE_TIMEOUT",
     "TEARDOWN_TIMEOUT",
     "WAIT_TIMEOUT",
     "TERMINATE_TIMEOUT",
@@ -88,6 +89,8 @@ RUN_FINISH_TIMEOUT = 15.0
 STATS_TIMEOUT = 2.0
 # ConfirmRunFinish：core 内部要排空上传队列，预算高于启动。
 CONFIRM_TIMEOUT = 45.0
+# Attach Mode 拉起 detached core 的默认空闲回收超时（秒）。
+DETACH_IDLE_TIMEOUT = 300.0
 # TeardownService 的预算，只发请求不等进程退出。
 TEARDOWN_TIMEOUT = 5.0
 # 回收子进程：先等优雅退出。
