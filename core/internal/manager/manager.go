@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -89,6 +90,58 @@ func (c *releasedCache) add(id string) {
 	c.next = (c.next + 1) % releasedCapacity
 }
 
+// DisconnectDiagnostic 记录断连会话排空失败时的可诊断状态，供观测与排障。
+type DisconnectDiagnostic struct {
+	SessionID string
+	RunID     string
+	Err       error
+	At        time.Time
+}
+
+type diagnosticCache struct {
+	entries map[string]DisconnectDiagnostic
+	order   []string
+	next    int
+}
+
+func newDiagnosticCache() diagnosticCache {
+	return diagnosticCache{entries: make(map[string]DisconnectDiagnostic, releasedCapacity)}
+}
+
+func (c *diagnosticCache) add(diag DisconnectDiagnostic) {
+	if _, exists := c.entries[diag.SessionID]; exists {
+		c.entries[diag.SessionID] = diag
+		return
+	}
+	if len(c.order) < releasedCapacity {
+		c.order = append(c.order, diag.SessionID)
+		c.entries[diag.SessionID] = diag
+		return
+	}
+	delete(c.entries, c.order[c.next])
+	c.order[c.next] = diag.SessionID
+	c.entries[diag.SessionID] = diag
+	c.next = (c.next + 1) % releasedCapacity
+}
+
+func (c *diagnosticCache) snapshot() []DisconnectDiagnostic {
+	if len(c.order) == 0 {
+		return nil
+	}
+	out := make([]DisconnectDiagnostic, 0, len(c.order))
+	start := c.next
+	if len(c.order) < releasedCapacity {
+		start = 0
+	}
+	for i := 0; i < len(c.order); i++ {
+		id := c.order[(start+i)%len(c.order)]
+		if diag, ok := c.entries[id]; ok {
+			out = append(out, diag)
+		}
+	}
+	return out
+}
+
 // Options 是 Manager 的构造参数。
 type Options struct {
 	// HTTP 配置共享连接池、重试与鉴权探活行为。
@@ -111,10 +164,11 @@ type ConfirmResult struct {
 // 注册表锁只用于定位、插入与移除会话；排空等待、stop_experiment 等可能阻塞的动作
 // 一律在锁外执行。
 type Manager struct {
-	mu       sync.RWMutex
-	sessions map[string]*Session
-	released releasedCache
-	factory  *client.Factory
+	mu          sync.RWMutex
+	sessions    map[string]*Session
+	released    releasedCache
+	diagnostics diagnosticCache
+	factory     *client.Factory
 	// healthReg 按站点共享探针，跨会话复用同一站点的健康状态。
 	healthReg *health.Registry
 }
@@ -122,10 +176,11 @@ type Manager struct {
 // New 创建并初始化会话管理器实例。
 func New(opts Options) *Manager {
 	return &Manager{
-		sessions:  make(map[string]*Session),
-		released:  newReleasedCache(),
-		factory:   client.NewFactory(opts.HTTP),
-		healthReg: health.NewRegistry(nil),
+		sessions:    make(map[string]*Session),
+		released:    newReleasedCache(),
+		diagnostics: newDiagnosticCache(),
+		factory:     client.NewFactory(opts.HTTP),
+		healthReg:   health.NewRegistry(nil),
 	}
 }
 
@@ -289,6 +344,99 @@ func (m *Manager) Confirm(ctx context.Context, sessionID string) (ConfirmResult,
 	return ConfirmResult{Message: confirmOKMessage}, nil
 }
 
+// DisconnectSession 在客户端异常断连后先有界排空指定会话再释放注册表槽位。
+//
+// 不合成 FinishRecord，也不上报 stop_experiment；已释放或不存在的会话幂等返回 nil。
+// 若排空失败，仍强制关闭 uploader 避免协程泄漏，并保留 RunStateFailed 与可诊断记录。
+func (m *Manager) DisconnectSession(ctx context.Context, sessionID string) error {
+	if sessionID == "" {
+		return ErrEmptySessionID
+	}
+	s, released, err := m.lookup(sessionID)
+	if err != nil {
+		if errors.Is(err, ErrSessionNotFound) {
+			return nil
+		}
+		return err
+	}
+	if released {
+		return nil
+	}
+
+	// 与 Confirm 串行化释放阶段，避免断连清理与 stop_experiment 并发执行。
+	s.confirmMu.Lock()
+	defer s.confirmMu.Unlock()
+
+	s, released, err = m.lookup(sessionID)
+	if err != nil {
+		if errors.Is(err, ErrSessionNotFound) {
+			return nil
+		}
+		return err
+	}
+	if released {
+		return nil
+	}
+
+	drainErr := s.shutdown(ctx)
+	if s.uploader != nil {
+		if closeErr := s.uploader.Close(); closeErr != nil {
+			drainErr = errors.Join(drainErr, closeErr)
+		}
+	}
+
+	if drainErr != nil {
+		s.fail(drainErr)
+		runID := s.cfg.RunID
+		if s.run != nil && s.run.RunID != "" {
+			runID = s.run.RunID
+		}
+		console.Warningf("disconnect cleanup: drain session %q (run %q) failed: %v", sessionID, runID, drainErr)
+		m.mu.Lock()
+		if m.sessions[sessionID] == s {
+			delete(m.sessions, sessionID)
+			m.diagnostics.add(DisconnectDiagnostic{
+				SessionID: sessionID,
+				RunID:     runID,
+				Err:       drainErr,
+				At:        time.Now(),
+			})
+		}
+		m.mu.Unlock()
+		return drainErr
+	}
+
+	m.mu.Lock()
+	if m.sessions[sessionID] == s {
+		delete(m.sessions, sessionID)
+		m.released.add(sessionID)
+	}
+	m.mu.Unlock()
+	return nil
+}
+
+// SessionCount 返回当前仍在注册表中的活跃/未释放会话数。
+func (m *Manager) SessionCount() int {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return len(m.sessions)
+}
+
+// DisconnectDiagnostic 查询指定会话最近一次断连排空失败的诊断记录。
+func (m *Manager) DisconnectDiagnostic(sessionID string) (DisconnectDiagnostic, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	diag, ok := m.diagnostics.entries[sessionID]
+	return diag, ok
+}
+
+// DisconnectDiagnostics 返回保留的断连排空失败诊断快照，按记录顺序排列。
+func (m *Manager) DisconnectDiagnostics() []DisconnectDiagnostic {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.diagnostics.snapshot()
+}
+
 // Shutdown 有界回收全部活跃会话，供进程退出钩子调用。
 //
 // 每个会话并发执行「DRAINING → 停 watcher/heartbeat → 关本地 store →
@@ -310,7 +458,7 @@ func (m *Manager) Shutdown(ctx context.Context) error {
 		wg.Add(1)
 		go func(s *Session) {
 			defer wg.Done()
-			s.shutdown(ctx)
+			_ = s.shutdown(ctx)
 		}(s)
 	}
 	done := make(chan struct{})

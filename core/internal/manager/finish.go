@@ -288,14 +288,15 @@ func runStateFromProto(state runv1.RunState) api.RunState {
 	}
 }
 
-// shutdown 执行进程退出时的有界收尾：不写 FinishRecord，也不调用 stop_experiment。
-// 顺序与 DeliverRunFinish 对齐，但全部等待受 ctx 约束，供 Manager.Shutdown 汇总。
+// shutdown 执行进程退出或连接断开时的有界收尾：不写 FinishRecord，也不调用 stop_experiment。
+// 顺序与 DeliverRunFinish 对齐，但全部等待受 ctx 约束，供 Manager.Shutdown 与断连清理汇总。
 // 持有 finishMu 与在途的 DeliverRunFinish/Confirm 互斥：退出钩子在 GracefulStop
 // 之前运行，否则可能一边关闭本地通道一边写入。
-func (s *Session) shutdown(ctx context.Context) {
+func (s *Session) shutdown(ctx context.Context) error {
 	s.finishMu.Lock()
 	defer s.finishMu.Unlock()
 
+	var errs []error
 	_ = s.beginDrain()
 	s.backfill.Stop()
 	if s.heartbeat != nil {
@@ -308,25 +309,27 @@ func (s *Session) shutdown(ctx context.Context) {
 	if s.store != nil {
 		if err := s.store.CloseContext(ctx); err != nil {
 			console.Warningf("shutdown: close local store: %v", err)
+			errs = append(errs, fmt.Errorf("close local store: %w", err))
 		}
 	}
 	// 上次收尾中断遗留的崩溃 error_log 在封闭通道前补投，失败只能放弃。
 	if err := s.commitCrashLog(ctx); err != nil {
 		console.Warningf("shutdown: upload crash error log: %v", err)
+		errs = append(errs, err)
 	}
 	closed := true
 	if s.intake != nil {
 		if err := s.intake.Close(ctx); err != nil {
 			console.Warningf("shutdown: close intake: %v", err)
+			errs = append(errs, fmt.Errorf("close intake: %w", err))
 			closed = false
 		}
 	}
 	if closed && s.uploader != nil {
 		s.uploader.RequestFinish()
-	}
-	if s.uploader != nil {
 		if err := s.uploader.Wait(ctx); err != nil {
 			console.Warningf("shutdown: wait for drain: %v", err)
+			errs = append(errs, fmt.Errorf("wait for drain: %w", err))
 		}
 	}
 	s.checkpoint.Stop()
@@ -335,4 +338,5 @@ func (s *Session) shutdown(ctx context.Context) {
 		s.cancel()
 	}
 	s.closeHealth()
+	return errors.Join(errs...)
 }
