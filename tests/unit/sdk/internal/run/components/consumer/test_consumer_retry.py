@@ -12,13 +12,15 @@ import queue
 import threading
 from pathlib import Path
 from types import SimpleNamespace
-from typing import cast
+from typing import Optional, cast
 from unittest.mock import MagicMock
 
 import pytest
+from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord, ColumnType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import HistogramRecord, ScalarRecord
+from swanlab.sdk.internal.bus.events import MetricLogEvent
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.pkg import console as pkg_console
 from swanlab.sdk.internal.run.components.consumer import BackgroundConsumer
@@ -43,6 +45,7 @@ def _make_consumer(
     retry_max_delay: float = 2.0,
     flush_timeout: float = 0.5,
     batch_size: int = 100,
+    stop_timeout: Optional[float] = 0.0,
 ):
     core = MagicMock()
     ctx = SimpleNamespace(core=core, callbacker=MagicMock(), media_dir=tmp_path)
@@ -52,6 +55,7 @@ def _make_consumer(
         queue.Queue(),
         flush_timeout=flush_timeout,
         batch_size=batch_size,
+        stop_timeout=stop_timeout,
         retry_base_delay=retry_base_delay,
         retry_max_delay=retry_max_delay,
         clock=clock,
@@ -475,3 +479,36 @@ def test_stop_drain_waits_indefinitely_when_stop_timeout_is_none(monkeypatch):
     assert warnings == []
     assert core.upsert_scalars.call_count == 21
     assert clock.now > 180.0
+
+
+def test_stop_in_gather_branch_drains_until_all_records_accepted():
+    """生产默认 stop_timeout=None：STOP 落在聚拢分支时，持续重试直到积压全部提交。"""
+    consumer, core, _ = _make_consumer(
+        retry_base_delay=0.0,
+        retry_max_delay=0.0,
+        flush_timeout=0.05,
+        stop_timeout=None,
+    )
+    for step in range(20):
+        consumer._queue.put(MetricLogEvent(data={"loss": float(step)}, step=step, timestamp=Timestamp(seconds=step)))
+    consumer.stop()
+    core.upsert_scalars.side_effect = [
+        CoreProtocolError("busy", retryable=True),
+        CoreProtocolError("busy", retryable=True),
+        None,
+    ]
+
+    consumer.start()
+    try:
+        consumer._thread.join(timeout=2.0)
+    finally:
+        if consumer._thread.is_alive():
+            consumer._thread.join(timeout=2.0)
+
+    assert not consumer._thread.is_alive()
+    assert consumer._scalar_batch == []
+    assert core.upsert_scalars.call_count == 3
+    assert len(core.upsert_scalars.call_args_list[-1].args[0]) == 20
+    callbacker = cast(MagicMock, consumer._callbacker)
+    callbacker.on_scalar_flush.assert_called_once()
+    assert len(callbacker.on_scalar_flush.call_args.args[0]) == 20
