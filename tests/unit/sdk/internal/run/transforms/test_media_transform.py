@@ -79,7 +79,7 @@ class TestMediaTransformContract:
     """
     transform 通用契约：
       1. 文件写入磁盘
-      2. 文件名格式为 {step:03d}-{8位小写十六进制}.{ext}
+      2. 文件名包含 step 和内容哈希；Video 使用完整 SHA-256，其他媒体保持原有 8 位格式
       3. step 不同 → 文件名不同，且前缀正确反映 step
       4. 相同内容 + 相同 step → 相同文件名（内容寻址）
     """
@@ -89,8 +89,10 @@ class TestMediaTransformContract:
         assert (tmp_path / item.filename).exists()
 
     def test_filename_format(self, factory, tmp_path: Path):
-        item = factory().transform(step=7, path=tmp_path)
-        assert re.match(r"^007-[0-9a-f]{8}\.", item.filename), f"Unexpected filename: {item.filename!r}"
+        media = factory()
+        item = media.transform(step=7, path=tmp_path)
+        length = 64 if isinstance(media, Video) else 8
+        assert re.match(rf"^007-[0-9a-f]{{{length}}}\.", item.filename), f"Unexpected filename: {item.filename!r}"
 
     def test_step_in_filename(self, factory, tmp_path: Path):
         m = factory()
