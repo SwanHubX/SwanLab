@@ -27,7 +27,7 @@ def create_core(ctx: "RunContext") -> CoreProtocol:
 
     from swanlab.sdk.internal.core_go import CoreGo
     from swanlab.sdk.internal.core_go.config import DETACH_IDLE_TIMEOUT
-    from swanlab.sdk.internal.core_go.launcher import locate_core_binary
+    from swanlab.sdk.internal.core_go.runtime import locate_core_binary
     from swanlab.sdk.internal.settings.core import CoreSettings
 
     # Go core 是 CorePython 的全模式替代；disabled 不落盘也不起进程，无需二进制。

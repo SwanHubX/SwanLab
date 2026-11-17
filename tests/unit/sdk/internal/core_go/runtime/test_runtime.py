@@ -14,14 +14,21 @@ from pathlib import Path
 
 import pytest
 
-from swanlab.sdk.internal.core_go import process as process_module
-from swanlab.sdk.internal.core_go.config import RUNTIME_DIR_MODE, RUNTIME_DIR_PREFIX
-from swanlab.sdk.internal.core_go.errors import CoreGoError, ReasonCode, Stage
-from swanlab.sdk.internal.core_go.process import (
+from swanlab.sdk.internal.core_go import runtime as runtime_module
+from swanlab.sdk.internal.core_go.config import (
+    CORE_BINARY_ENV,
+    RUNTIME_DIR_MODE,
+    RUNTIME_DIR_PREFIX,
+    CoreGoError,
+    ReasonCode,
+    Stage,
+)
+from swanlab.sdk.internal.core_go.runtime import (
     RuntimeLease,
     acquire_runtime,
     cleanup_runtime,
     default_runtime_dir,
+    locate_core_binary,
 )
 
 
@@ -38,7 +45,7 @@ def short_root(tmp_path):
 
 
 def test_acquire_runtime_creates_and_reuses_per_user_directory(short_root, monkeypatch):
-    monkeypatch.setattr(process_module, "_runtime_root", lambda: short_root)
+    monkeypatch.setattr(runtime_module, "_runtime_root", lambda: short_root)
 
     first = acquire_runtime()
     second = acquire_runtime()
@@ -61,7 +68,7 @@ def test_acquire_runtime_creates_and_reuses_per_user_directory(short_root, monke
 
 @pytest.mark.skipif(sys.platform == "win32", reason="POSIX permissions and symlinks")
 def test_acquire_runtime_rejects_bad_perm_and_symlink(short_root, monkeypatch):
-    monkeypatch.setattr(process_module, "_runtime_root", lambda: short_root)
+    monkeypatch.setattr(runtime_module, "_runtime_root", lambda: short_root)
     target = default_runtime_dir(short_root)
 
     other = short_root / "other"
@@ -132,8 +139,8 @@ def test_cleanup_runtime_skips_unprefixed_directory(tmp_path):
 def test_acquire_runtime_rejects_oversized_socket_path(tmp_path, monkeypatch):
     root = tmp_path / "runtime-root"
     root.mkdir()
-    monkeypatch.setattr(process_module, "_runtime_root", lambda: root)
-    monkeypatch.setattr(process_module, "MAX_UNIX_PATH_BYTES", 8)
+    monkeypatch.setattr(runtime_module, "_runtime_root", lambda: root)
+    monkeypatch.setattr(runtime_module, "MAX_UNIX_PATH_BYTES", 8)
 
     with pytest.raises(CoreGoError) as caught:
         acquire_runtime()
@@ -155,4 +162,55 @@ def test_acquire_runtime_rejects_oversized_socket_path(tmp_path, monkeypatch):
     ],
 )
 def test_windows_user_segment_matches_go_contract(env, expected):
-    assert process_module._windows_user_segment(env) == expected
+    assert runtime_module._windows_user_segment(env) == expected
+
+
+def _write_binary(path: Path) -> Path:
+    path.write_text("#!/bin/sh\n")
+    return path
+
+
+def test_locate_env_override_is_preferred(monkeypatch, tmp_path):
+    binary = _write_binary(tmp_path / "custom-core")
+    monkeypatch.setenv(CORE_BINARY_ENV, str(binary))
+
+    assert locate_core_binary() == binary.resolve()
+
+
+def test_locate_env_override_missing_raises(monkeypatch, tmp_path):
+    missing = tmp_path / "missing-core"
+    monkeypatch.setenv(CORE_BINARY_ENV, str(missing))
+
+    with pytest.raises(CoreGoError) as caught:
+        locate_core_binary()
+
+    assert caught.value.stage is Stage.SPAWN
+    assert caught.value.reason is ReasonCode.BINARY_NOT_FOUND
+    assert CORE_BINARY_ENV in caught.value.message
+
+
+def test_locate_blank_env_override_falls_back_to_packaged(monkeypatch, tmp_path):
+    packaged = _write_binary(tmp_path / "swanlab-core")
+    monkeypatch.setenv(CORE_BINARY_ENV, "   ")
+    monkeypatch.setattr(runtime_module, "_PACKAGED_BINARY", packaged)
+
+    assert locate_core_binary() == packaged.resolve()
+
+
+def test_locate_missing_packaged_binary_raises(monkeypatch, tmp_path):
+    monkeypatch.delenv(CORE_BINARY_ENV, raising=False)
+    monkeypatch.setattr(runtime_module, "_PACKAGED_BINARY", tmp_path / "swanlab-core")
+
+    with pytest.raises(CoreGoError) as caught:
+        locate_core_binary()
+
+    assert caught.value.reason is ReasonCode.BINARY_NOT_FOUND
+    assert "platform wheel" in caught.value.message
+
+
+def test_packaged_binary_points_into_swanlab_bin():
+    packaged = runtime_module._PACKAGED_BINARY
+
+    assert packaged.parent.name == "bin"
+    assert packaged.parent.parent.name == "swanlab"
+    assert packaged.name.startswith("swanlab-core")

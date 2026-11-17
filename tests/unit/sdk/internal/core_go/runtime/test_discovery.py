@@ -13,13 +13,13 @@ from pathlib import Path
 
 import pytest
 
-from swanlab.sdk.internal.core_go.discovery import (
+from swanlab.sdk.internal.core_go.config import CoreGoError, ReasonCode, Stage
+from swanlab.sdk.internal.core_go.runtime import (
     Endpoint,
     discover_endpoint,
     probe_endpoint,
     validate_discovered_endpoint,
 )
-from swanlab.sdk.internal.core_go.errors import CoreGoError, ReasonCode, Stage
 
 
 @pytest.fixture

@@ -4,72 +4,50 @@
 @time: 2026/10/27 15:40
 @description: CoreLauncher：core 服务进程的本地所有权。
 
-唯一同时持有 process、runtime 与 channel 的对象，协议无关：
-start() 负责 runtime → spawn → 等待端点 → channel-ready；
-close() / abort() 负责分级回收并删除 runtime，Teardown 由 CoreGo 在调用前完成。
-不认识 CoreService，也不发送任何业务 RPC；进程机制本身在 process/ 下。
-超时与文件名取自 config.py，不在本模块散落硬编码值。
-二进制路径由 locate_core_binary() 解析：环境变量优先，其次包内 swanlab/bin。
+负责编排 runtime →（复用存活实例或持锁按需拉起）→ 等 port-file →
+打开 gRPC channel → 幂等 close/abort 回收。
+只面向本地端点，不构造业务 RPC，不承担重试策略。
 """
 
-import os
 import subprocess
 import threading
+from enum import Enum
 from pathlib import Path
 from typing import Optional
 
 from swanlab.sdk.internal.core_go.config import (
-    BINARY_NAME,
     CHANNEL_READY_TIMEOUT,
     DETACH_IDLE_TIMEOUT,
     PORT_FILE_TIMEOUT,
+    CoreGoError,
+    ReasonCode,
+    Stage,
 )
-from swanlab.sdk.internal.core_go.discovery import Endpoint, discover_endpoint
-from swanlab.sdk.internal.core_go.errors import CoreGoError, ReasonCode, Stage
-from swanlab.sdk.internal.core_go.process import (
+from swanlab.sdk.internal.core_go.process import reap_process, spawn_core, wait_endpoint
+from swanlab.sdk.internal.core_go.rpc import Channel
+from swanlab.sdk.internal.core_go.runtime import (
+    Endpoint,
     RuntimeLease,
     acquire_runtime,
     acquire_start_lock,
     cleanup_runtime,
-    reap_process,
-    spawn_core,
+    discover_endpoint,
     validate_core_binary,
-    wait_endpoint,
 )
-from swanlab.sdk.internal.core_go.rpc import Channel
 from swanlab.sdk.internal.pkg import fork
 
-__all__ = ["CORE_BINARY_ENV", "CoreLauncher", "locate_core_binary"]
-
-_NEW = "new"
-_STARTING = "starting"
-_RUNNING = "running"
-_CLOSED = "closed"
-
-# 覆盖包内二进制的环境变量；空值视为未设置。
-CORE_BINARY_ENV = "SWANLAB_CORE_BINARY"
-# swanlab/sdk/internal/core_go/launcher.py -> swanlab/bin/
-_PACKAGED_BINARY = (
-    Path(__file__).resolve().parents[3] / "bin" / (f"{BINARY_NAME}.exe" if os.name == "nt" else BINARY_NAME)
-)
+__all__ = ["CoreLauncher"]
 
 
-def locate_core_binary() -> Path:
-    """定位 swanlab-core：SWANLAB_CORE_BINARY 优先，其次包内 swanlab/bin。"""
-    override = os.environ.get(CORE_BINARY_ENV, "").strip()
-    binary = Path(override).expanduser() if override else _PACKAGED_BINARY
-    if not binary.is_file():
-        raise CoreGoError(
-            Stage.SPAWN,
-            ReasonCode.BINARY_NOT_FOUND,
-            f"swanlab-core binary not found: {binary}; "
-            f"set {CORE_BINARY_ENV} or install a platform wheel that bundles swanlab-core",
-        )
-    return binary.resolve()
+class _LauncherState(str, Enum):
+    NEW = "new"
+    STARTING = "starting"
+    RUNNING = "running"
+    CLOSED = "closed"
 
 
 class CoreLauncher:
-    """一次 core 进程生命周期的唯一所有者。
+    """core 进程生命周期与本地传输通道的管理者。
 
     ``lease`` 仅用于测试注入（例如预置 core.sock 触发 TCP 回退），
     生产调用不传，由 start() 自行 acquire_runtime()。
@@ -97,12 +75,12 @@ class CoreLauncher:
         self._owns_process = False
         self._should_cleanup_lease = False
         self._lock = threading.Lock()
-        self._state = _NEW
+        self._state = _LauncherState.NEW
         self._owner_pid = fork.current_pid()
 
     @property
     def endpoint(self) -> Endpoint:
-        if self._state == _CLOSED:
+        if self._state is _LauncherState.CLOSED:
             raise CoreGoError(Stage.LIFECYCLE, ReasonCode.CLOSED, "core launcher is closed")
         if self._endpoint is None:
             raise CoreGoError(Stage.LIFECYCLE, ReasonCode.NOT_STARTED, "core launcher has not started")
@@ -110,7 +88,7 @@ class CoreLauncher:
 
     @property
     def channel(self) -> Channel:
-        if self._state == _CLOSED:
+        if self._state is _LauncherState.CLOSED:
             raise CoreGoError(Stage.LIFECYCLE, ReasonCode.CLOSED, "core launcher is closed")
         if self._channel is None:
             raise CoreGoError(Stage.LIFECYCLE, ReasonCode.NOT_STARTED, "core launcher has not started")
@@ -135,13 +113,13 @@ class CoreLauncher:
             )
 
         with self._lock:
-            if self._state == _RUNNING:
+            if self._state is _LauncherState.RUNNING:
                 assert self._endpoint is not None
                 return self._endpoint
-            if self._state == _CLOSED:
+            if self._state is _LauncherState.CLOSED:
                 raise CoreGoError(Stage.LIFECYCLE, ReasonCode.CLOSED, "core launcher is closed")
 
-            self._state = _STARTING
+            self._state = _LauncherState.STARTING
             try:
                 validate_core_binary(self._binary)
                 lease = self._injected_lease if self._injected_lease is not None else acquire_runtime()
@@ -156,7 +134,7 @@ class CoreLauncher:
                 self._cleanup_locked()
                 raise
 
-            self._state = _RUNNING
+            self._state = _LauncherState.RUNNING
             assert self._endpoint is not None
             return self._endpoint
 
@@ -224,13 +202,13 @@ class CoreLauncher:
         if not self._owned_by_current_process():
             return
         with self._lock:
-            if self._state == _CLOSED:
+            if self._state is _LauncherState.CLOSED:
                 return
             self._cleanup_locked()
 
     def _cleanup_locked(self) -> None:
         """调用方必须持有 self._lock；所有回收动作都不允许覆盖原始异常。"""
-        startup_failed = self._state == _STARTING
+        startup_failed = self._state is _LauncherState.STARTING
         channel = self._channel
         proc = self._proc
         lease = self._lease
@@ -243,7 +221,7 @@ class CoreLauncher:
         self._endpoint = None
         self._owns_process = False
         self._should_cleanup_lease = False
-        self._state = _CLOSED
+        self._state = _LauncherState.CLOSED
 
         if channel is not None:
             channel.close()

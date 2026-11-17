@@ -6,6 +6,7 @@
 """
 
 import threading
+from enum import Enum
 from pathlib import Path
 from typing import Callable, List, Optional, cast
 
@@ -21,23 +22,31 @@ from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import HistogramRecord, MediaRecord, ScalarRecord
 from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord
 from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogRecord
-from swanlab.sdk.internal.core_go.config import DETACH_IDLE_TIMEOUT, TEARDOWN_TIMEOUT
-from swanlab.sdk.internal.core_go.errors import CoreGoError, ReasonCode, Stage
+from swanlab.sdk.internal.core_go.config import (
+    DETACH_IDLE_TIMEOUT,
+    TEARDOWN_TIMEOUT,
+    CoreGoError,
+    ReasonCode,
+    Stage,
+)
 from swanlab.sdk.internal.core_go.launcher import CoreLauncher
-from swanlab.sdk.internal.core_go.rpc.core_service import CoreServiceRpc
+from swanlab.sdk.internal.core_go.rpc import CoreServiceRpc
 from swanlab.sdk.internal.pkg import fork, safe
 from swanlab.sdk.protocol import CoreProtocol, NullCoreProtocol
 from swanlab.sdk.typings.run import ModeType
 
 __all__ = ["CoreGo"]
 
-_NEW = "new"
-_STARTING = "starting"
-_RUNNING = "running"
-_FINISHED = "finished"
-_CLOSING = "closing"
-_ABORTING = "aborting"
-_CLOSED = "closed"
+
+class _CoreState(str, Enum):
+    NEW = "new"
+    STARTING = "starting"
+    RUNNING = "running"
+    FINISHED = "finished"
+    CLOSING = "closing"
+    ABORTING = "aborting"
+    CLOSED = "closed"
+
 
 _FORK_MESSAGE = "CoreGo is detached in a forked process; run RPCs are unsupported"
 
@@ -86,7 +95,7 @@ class CoreGo(CoreProtocol):
         self._idle_timeout = idle_timeout
         self._lock = threading.RLock()
         self._owner_pid = fork.current_pid()
-        self._state = _NEW
+        self._state = _CoreState.NEW
         self._launcher: Optional[CoreLauncher] = None
         self._rpc: Optional[CoreServiceRpc] = None
         self._session_id: Optional[str] = None
@@ -116,17 +125,17 @@ class CoreGo(CoreProtocol):
 
     def _start_enabled(self, start_request: DeliverRunStartRequest) -> DeliverRunStartResponse:
         with self._lock:
-            if self._state == _CLOSED:
+            if self._state is _CoreState.CLOSED:
                 return self._fail_start(Stage.LIFECYCLE, ReasonCode.CLOSED, "core is closed")
-            if self._state != _NEW:
+            if self._state is not _CoreState.NEW:
                 return self._fail_start(Stage.LIFECYCLE, ReasonCode.ALREADY_STARTED, "run has already been started")
             binary = self._binary
             if binary is None:
                 error = CoreGoError(Stage.SPAWN, ReasonCode.BINARY_NOT_FOUND, "core binary is not configured")
                 self._last_error = error
-                self._state = _CLOSED
+                self._state = _CoreState.CLOSED
                 return DeliverRunStartResponse(success=False, message=str(error))
-            self._state = _STARTING
+            self._state = _CoreState.STARTING
 
         try:
             launcher = (
@@ -135,14 +144,14 @@ class CoreGo(CoreProtocol):
                 else CoreLauncher(binary)
             )
             with self._lock:
-                if self._state != _STARTING:
+                if self._state is not _CoreState.STARTING:
                     raise CoreGoError(Stage.LIFECYCLE, ReasonCode.CLOSED, "core was closed during startup")
                 self._launcher = launcher
             launcher.start()
 
             rpc = CoreServiceRpc(launcher.channel)
             with self._lock:
-                if self._state != _STARTING:
+                if self._state is not _CoreState.STARTING:
                     raise CoreGoError(Stage.LIFECYCLE, ReasonCode.CLOSED, "core was closed during startup")
                 self._rpc = rpc
 
@@ -162,10 +171,10 @@ class CoreGo(CoreProtocol):
                 )
 
             with self._lock:
-                if self._state != _STARTING:
+                if self._state is not _CoreState.STARTING:
                     raise CoreGoError(Stage.LIFECYCLE, ReasonCode.CLOSED, "core was closed during startup")
                 self._session_id = response.session_id
-                self._state = _RUNNING
+                self._state = _CoreState.RUNNING
             return response
         except BaseException as exc:
             error = self._as_core_error(exc, Stage.LIFECYCLE)
@@ -245,11 +254,11 @@ class CoreGo(CoreProtocol):
         rpc: Optional[CoreServiceRpc] = None
         session_id: Optional[str] = None
         with self._lock:
-            if self._state == _CLOSED:
+            if self._state is _CoreState.CLOSED:
                 error: Optional[CoreGoError] = CoreGoError(
                     Stage.LIFECYCLE, ReasonCode.CLOSED, f"core is closed; refusing to upsert {name}"
                 )
-            elif self._state != _RUNNING or self._session_id is None:
+            elif self._state is not _CoreState.RUNNING or self._session_id is None:
                 error = CoreGoError(
                     Stage.LIFECYCLE, ReasonCode.NOT_STARTED, f"run is not running; refusing to upsert {name}"
                 )
@@ -286,7 +295,7 @@ class CoreGo(CoreProtocol):
 
     def _finish_enabled(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse:
         with self._lock:
-            if self._state != _RUNNING or self._session_id is None:
+            if self._state is not _CoreState.RUNNING or self._session_id is None:
                 error = CoreGoError(Stage.LIFECYCLE, ReasonCode.NOT_STARTED, "run is not running; refusing to finish")
                 self._last_error = error
                 return DeliverRunFinishResponse(success=False, message=str(error))
@@ -303,8 +312,8 @@ class CoreGo(CoreProtocol):
             return DeliverRunFinishResponse(success=False, message=str(error))
 
         with self._lock:
-            if self._state == _RUNNING and self._session_id == session_id:
-                self._state = _FINISHED
+            if self._state is _CoreState.RUNNING and self._session_id == session_id:
+                self._state = _CoreState.FINISHED
             if not response.success:
                 # 终态提交失败（如本地 store 不可用）属于确定性拒绝，调用方不应重试。
                 self._last_error = CoreGoError(
@@ -322,7 +331,7 @@ class CoreGo(CoreProtocol):
             rpc = self._rpc
             state = self._state
         if session_id is None or rpc is None:
-            reason = ReasonCode.CLOSED if state == _CLOSED else ReasonCode.NOT_STARTED
+            reason = ReasonCode.CLOSED if state is _CoreState.CLOSED else ReasonCode.NOT_STARTED
             error = CoreGoError(Stage.LIFECYCLE, reason, "run session is not bound")
             with self._lock:
                 self._last_error = error
@@ -340,8 +349,8 @@ class CoreGo(CoreProtocol):
 
     def _confirm_finish_when_enabled(self) -> ConfirmRunFinishResponse:
         with self._lock:
-            if self._state != _FINISHED or self._session_id is None:
-                reason = ReasonCode.CLOSED if self._state == _CLOSED else ReasonCode.NOT_STARTED
+            if self._state is not _CoreState.FINISHED or self._session_id is None:
+                reason = ReasonCode.CLOSED if self._state is _CoreState.CLOSED else ReasonCode.NOT_STARTED
                 error = CoreGoError(Stage.LIFECYCLE, reason, "run is not finished; refusing to confirm")
                 self._last_error = error
                 return ConfirmRunFinishResponse(success=False, message=str(error))
@@ -378,18 +387,18 @@ class CoreGo(CoreProtocol):
             return
 
         with self._lock:
-            if self._state in (_CLOSED, _CLOSING, _ABORTING):
+            if self._state in (_CoreState.CLOSED, _CoreState.CLOSING, _CoreState.ABORTING):
                 return
-            if self._state == _STARTING:
+            if self._state is _CoreState.STARTING:
                 abort_startup = True
                 rpc = None
                 launcher = None
-            elif self._state == _NEW:
-                self._state = _CLOSED
+            elif self._state is _CoreState.NEW:
+                self._state = _CoreState.CLOSED
                 return
             else:
                 abort_startup = False
-                self._state = _CLOSING
+                self._state = _CoreState.CLOSING
                 rpc = self._rpc
                 launcher = self._launcher
 
@@ -405,9 +414,9 @@ class CoreGo(CoreProtocol):
             return
 
         with self._lock:
-            if self._state in (_ABORTING, _CLOSING, _CLOSED):
+            if self._state in (_CoreState.ABORTING, _CoreState.CLOSING, _CoreState.CLOSED):
                 return
-            self._state = _ABORTING
+            self._state = _CoreState.ABORTING
             if cause is not None:
                 self._abort_cause = cause
             rpc = self._rpc
@@ -440,7 +449,7 @@ class CoreGo(CoreProtocol):
                 self._rpc = None
                 self._launcher = None
                 self._session_id = None
-                self._state = _CLOSED
+                self._state = _CoreState.CLOSED
 
     def _owned_by_current_process(self) -> bool:
         # 只拦真正的 os.fork()；macOS 默认 spawn，不会继承本对象。

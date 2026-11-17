@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from swanlab.sdk.internal.core_go.errors import CoreGoError, ReasonCode, Stage, reason_for_grpc
+from swanlab.sdk.internal.core_go.config import CoreGoError, ReasonCode, Stage, reason_for_grpc
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
 

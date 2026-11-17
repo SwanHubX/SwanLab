@@ -15,10 +15,9 @@ from typing import Any, Optional, cast
 import pytest
 
 from swanlab.sdk.internal.core_go import launcher as launcher_module
-from swanlab.sdk.internal.core_go.discovery import Endpoint
-from swanlab.sdk.internal.core_go.errors import CoreGoError, ReasonCode, Stage
-from swanlab.sdk.internal.core_go.launcher import CORE_BINARY_ENV, CoreLauncher, locate_core_binary
-from swanlab.sdk.internal.core_go.process import RuntimeLease, acquire_start_lock
+from swanlab.sdk.internal.core_go.config import CoreGoError, ReasonCode, Stage
+from swanlab.sdk.internal.core_go.launcher import CoreLauncher
+from swanlab.sdk.internal.core_go.runtime import Endpoint, RuntimeLease, acquire_start_lock
 
 
 class FakeProcess:
@@ -392,61 +391,8 @@ def test_start_clears_stale_port_file_before_spawning(launcher_env, monkeypatch)
     launcher.close()
 
 
-# ---------------------------------- 二进制定位 ----------------------------------
-
-
-def _write_binary(path: Path) -> Path:
-    path.write_text("#!/bin/sh\n")
-    return path
-
-
-def test_locate_env_override_is_preferred(monkeypatch, tmp_path):
-    binary = _write_binary(tmp_path / "custom-core")
-    monkeypatch.setenv(CORE_BINARY_ENV, str(binary))
-
-    assert locate_core_binary() == binary.resolve()
-
-
-def test_locate_env_override_missing_raises(monkeypatch, tmp_path):
-    missing = tmp_path / "missing-core"
-    monkeypatch.setenv(CORE_BINARY_ENV, str(missing))
-
-    with pytest.raises(CoreGoError) as caught:
-        locate_core_binary()
-
-    assert caught.value.stage is Stage.SPAWN
-    assert caught.value.reason is ReasonCode.BINARY_NOT_FOUND
-    assert CORE_BINARY_ENV in caught.value.message
-
-
-def test_locate_blank_env_override_falls_back_to_packaged(monkeypatch, tmp_path):
-    packaged = _write_binary(tmp_path / "swanlab-core")
-    monkeypatch.setenv(CORE_BINARY_ENV, "   ")
-    monkeypatch.setattr(launcher_module, "_PACKAGED_BINARY", packaged)
-
-    assert locate_core_binary() == packaged.resolve()
-
-
-def test_locate_missing_packaged_binary_raises(monkeypatch, tmp_path):
-    monkeypatch.delenv(CORE_BINARY_ENV, raising=False)
-    monkeypatch.setattr(launcher_module, "_PACKAGED_BINARY", tmp_path / "swanlab-core")
-
-    with pytest.raises(CoreGoError) as caught:
-        locate_core_binary()
-
-    assert caught.value.reason is ReasonCode.BINARY_NOT_FOUND
-    assert "platform wheel" in caught.value.message
-
-
-def test_packaged_binary_points_into_swanlab_bin():
-    packaged = launcher_module._PACKAGED_BINARY
-
-    assert packaged.parent.name == "bin"
-    assert packaged.parent.parent.name == "swanlab"
-    assert packaged.name.startswith("swanlab-core")
-
-
-def test_detach_launcher_spawns_detached_and_close_skips_reap(launcher_env, monkeypatch):
+@pytest.mark.parametrize("action", ["close", "abort"])
+def test_detach_launcher_close_and_abort_skip_reap(launcher_env, monkeypatch, action):
     binary, _, endpoint, calls = launcher_env
     spawn_kwargs = {}
 
@@ -462,28 +408,7 @@ def test_detach_launcher_spawns_detached_and_close_skips_reap(launcher_env, monk
     assert spawn_kwargs == {"detach": True, "idle_timeout": 2.0}
 
     channel = cast(Any, launcher.channel)
-    launcher.close()
-
-    assert channel.closed == 1
-    assert calls["reap"] == 0
-    assert calls["cleanup"] == 0
-    assert launcher.exit_code is None
-
-
-def test_detach_launcher_abort_after_start_skips_reap(launcher_env, monkeypatch):
-    binary, _, endpoint, calls = launcher_env
-
-    def fake_detach_spawn(binary_path: Path, runtime: RuntimeLease, **kwargs):
-        calls["spawn"] += 1
-        return FakeProcess()
-
-    monkeypatch.setattr(launcher_module, "spawn_core", fake_detach_spawn)
-
-    launcher = CoreLauncher(binary, detach=True, idle_timeout=5.0)
-    assert launcher.start() == endpoint
-    channel = cast(Any, launcher.channel)
-
-    launcher.abort()
+    getattr(launcher, action)()
 
     assert channel.closed == 1
     assert calls["reap"] == 0

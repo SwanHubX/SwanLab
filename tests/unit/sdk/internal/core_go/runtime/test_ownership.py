@@ -5,10 +5,12 @@
 @description: Endpoint 归属校验测试。
 """
 
+import sys
+
 import pytest
 
-from swanlab.sdk.internal.core_go.discovery import Endpoint, validate_ownership
-from swanlab.sdk.internal.core_go.errors import CoreGoError, ReasonCode, Stage
+from swanlab.sdk.internal.core_go.config import CoreGoError, ReasonCode, Stage
+from swanlab.sdk.internal.core_go.runtime import Endpoint, validate_ownership
 
 
 def test_accepts_matching_unix_endpoint(tmp_path):
@@ -45,6 +47,7 @@ def test_rejects_unix_socket_outside_runtime_dir(tmp_path):
     assert caught.value.reason is ReasonCode.OWNERSHIP_MISMATCH
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX symlink check")
 def test_rejects_unix_socket_symlink(tmp_path):
     runtime_dir = tmp_path / "runtime"
     runtime_dir.mkdir()

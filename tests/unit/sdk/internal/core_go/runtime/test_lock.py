@@ -13,9 +13,14 @@ from pathlib import Path
 
 import pytest
 
-from swanlab.sdk.internal.core_go.config import LOCK_FILE_NAME, RUNTIME_DIR_MODE
-from swanlab.sdk.internal.core_go.errors import CoreGoError, ReasonCode, Stage
-from swanlab.sdk.internal.core_go.process import acquire_start_lock, try_acquire_start_lock
+from swanlab.sdk.internal.core_go.config import (
+    LOCK_FILE_NAME,
+    RUNTIME_DIR_MODE,
+    CoreGoError,
+    ReasonCode,
+    Stage,
+)
+from swanlab.sdk.internal.core_go.runtime import acquire_start_lock, try_acquire_start_lock
 
 
 def _make_runtime_dir(tmp_path: Path) -> Path:
