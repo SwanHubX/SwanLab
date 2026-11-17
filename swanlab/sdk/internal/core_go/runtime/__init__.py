@@ -148,7 +148,7 @@ def _user_segment() -> str:
 
 
 def default_runtime_dir(root: Optional[Path] = None) -> Path:
-    """返回当前用户的固定 runtime 目录路径（不自动创建）。"""
+    """返回当前用户的共享 per-user runtime 目录路径（Attach Mode，不自动创建）。"""
     base = Path(root) if root is not None else _runtime_root()
     return base / f"{RUNTIME_DIR_PREFIX}{_user_segment()}"
 
@@ -176,21 +176,33 @@ def _validate_runtime_dir(path: Path) -> None:
             raise _runtime_error(f"runtime dir {path} is not owned by current user")
 
 
-def acquire_runtime(root: Optional[Path] = None) -> RuntimeLease:
-    """获取当前用户的固定 runtime 目录并校验安全性。
+def acquire_runtime(root: Optional[Path] = None, *, shared: bool = True) -> RuntimeLease:
+    """获取 runtime 目录并校验安全性。
 
-    目录不存在时以 0700 权限创建，已存在时直接复用并校验属主/权限/非符号链接；
+    - ``shared=True``（Attach Mode）：获取或创建共享 per-user 目录（``swanlab-core-<uid>``），
+      供同节点同用户的多 Rank / 多 Run 共享复用；
+    - ``shared=False``（Owner Mode）：在 ``runtime_root`` 下创建每 Run 独占的 0700 临时目录，
+      避免与共享 Core 或其他 Owner Run 冲突，退出时随 Run 清理。
+
     UDS 路径超长时直接失败，不回退 cwd。
     """
-    runtime_dir = default_runtime_dir(root)
+    base = Path(root) if root is not None else _runtime_root()
     created = False
-    try:
-        os.mkdir(runtime_dir, RUNTIME_DIR_MODE)
-        created = True
-    except FileExistsError:
-        pass
-    except OSError as exc:
-        raise _runtime_error(f"cannot create runtime dir {runtime_dir}: {exc}", cause=exc) from exc
+    if shared:
+        runtime_dir = default_runtime_dir(base)
+        try:
+            os.mkdir(runtime_dir, RUNTIME_DIR_MODE)
+            created = True
+        except FileExistsError:
+            pass
+        except OSError as exc:
+            raise _runtime_error(f"cannot create runtime dir {runtime_dir}: {exc}", cause=exc) from exc
+    else:
+        try:
+            runtime_dir = Path(tempfile.mkdtemp(prefix=f"{RUNTIME_DIR_PREFIX}own-", dir=str(base)))
+            created = True
+        except OSError as exc:
+            raise _runtime_error(f"cannot create owner runtime dir under {base}: {exc}", cause=exc) from exc
 
     try:
         if created and os.name != "nt":
@@ -215,7 +227,7 @@ def acquire_runtime(root: Optional[Path] = None) -> RuntimeLease:
 
 
 def cleanup_runtime(lease: RuntimeLease) -> None:
-    """清理一次性的旧式临时 runtime 目录；共享 per-user 目录保留不删。"""
+    """清理隔离的 Owner / 临时 runtime 目录；共享 per-user 目录保留不删。"""
     try:
         if fork.is_forked(lease.owner_pid):
             return

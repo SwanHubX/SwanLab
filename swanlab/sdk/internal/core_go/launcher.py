@@ -99,6 +99,11 @@ class CoreLauncher:
         """回收后的进程退出码；未启动或尚未回收时为 None。"""
         return self._exit_code
 
+    @property
+    def owns_process(self) -> bool:
+        """当前 launcher 是否拉起并拥有该 core 子进程；复用已有端点时为 False。"""
+        return self._owns_process
+
     def start(self) -> Endpoint:
         """拉起 core 并等待 channel-ready。
 
@@ -122,11 +127,15 @@ class CoreLauncher:
             self._state = _LauncherState.STARTING
             try:
                 validate_core_binary(self._binary)
-                lease = self._injected_lease if self._injected_lease is not None else acquire_runtime()
+                lease = (
+                    self._injected_lease if self._injected_lease is not None else acquire_runtime(shared=self._detach)
+                )
                 self._lease = lease
                 self._validate_lease(lease)
 
-                if self._injected_lease is None:
+                # Attach 模式使用每节点每用户共享 runtime，支持多 Rank / 多 Run 复用单个 detached Core；
+                # Owner 模式每 Run 独占隔离目录和私有子进程，随 Run teardown 并清理，互不干扰。
+                if self._injected_lease is None and self._detach:
                     self._start_shared_locked(lease)
                 else:
                     self._spawn_and_connect_locked(lease)

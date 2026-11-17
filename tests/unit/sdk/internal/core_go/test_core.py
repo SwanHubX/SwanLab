@@ -253,7 +253,8 @@ def test_disabled_start_is_noop_without_binary():
 
 
 class _SpyLauncher:
-    def __init__(self) -> None:
+    def __init__(self, *, owns_process: bool = True) -> None:
+        self.owns_process = owns_process
         self.closed = 0
         self.aborted = 0
         self.exit_code = None
@@ -342,6 +343,80 @@ def test_attach_mode_passes_detach_and_idle_timeout_to_launcher(monkeypatch, tmp
     assert response.success is True
     assert captured == {"binary": binary, "kwargs": {"detach": True, "idle_timeout": 2.5}}
     core.close()
+
+
+def test_unowned_launcher_skips_teardown_on_close_even_when_attach_false():
+    rpc = FakeRpc()
+    core = _running_core(rpc)
+    core._attach = False  # noqa: SLF001
+    launcher = _SpyLauncher(owns_process=False)
+    core._launcher = cast(core_module.CoreLauncher, launcher)  # noqa: SLF001
+
+    core.close()
+
+    assert rpc.teardown_calls == []
+    assert launcher.closed == 1
+    assert core._state is _CoreState.CLOSED  # noqa: SLF001
+
+
+@pytest.mark.parametrize("first_mode", ["attach", "owner"])
+def test_mixed_owner_and_attach_close_does_not_affect_peer(monkeypatch, tmp_path, first_mode):
+    binary = tmp_path / "swanlab-core"
+    rpcs = {}
+
+    class StubLauncher:
+        def __init__(self, bin_path, *, detach: bool = False, idle_timeout: float = 0.0) -> None:
+            self.detach = detach
+            self.owns_process = True
+            self.channel = "attach" if detach else "owner"
+            self.exit_code = None if detach else 0
+            self.closed = 0
+
+        def start(self) -> None:
+            return None
+
+        def close(self) -> None:
+            self.closed += 1
+
+        def abort(self) -> None:
+            self.closed += 1
+
+    class TaggedRpc(FakeRpc):
+        def __init__(self, channel) -> None:
+            super().__init__()
+            self.channel = channel
+            self.session_id = f"sid-{channel}"
+            rpcs[channel] = self
+
+        def spinup(self) -> None:
+            return None
+
+        def deliver_run_start(self, _req) -> DeliverRunStartResponse:
+            return DeliverRunStartResponse(success=True, session_id=self.session_id)
+
+    monkeypatch.setattr(core_module, "CoreLauncher", StubLauncher)
+    monkeypatch.setattr(core_module, "CoreServiceRpc", TaggedRpc)
+
+    attach_core = CoreGo("online", binary=binary, attach=True, idle_timeout=2.0)
+    owner_core = CoreGo("online", binary=binary, attach=False)
+
+    if first_mode == "attach":
+        assert attach_core.deliver_run_start(DeliverRunStartRequest()).success is True
+        assert owner_core.deliver_run_start(DeliverRunStartRequest()).success is True
+    else:
+        assert owner_core.deliver_run_start(DeliverRunStartRequest()).success is True
+        assert attach_core.deliver_run_start(DeliverRunStartRequest()).success is True
+
+    # Owner 退出只 teardown 自己的 Core，不得影响 Attach 会话继续写入。
+    owner_core.close()
+    assert rpcs["owner"].teardown_calls == [core_module.TEARDOWN_TIMEOUT]
+    assert rpcs["attach"].teardown_calls == []
+
+    attach_core.upsert_scalars([ScalarRecord(key="loss", step=1)])
+    assert len(rpcs["attach"].calls) == 1
+
+    attach_core.close()
+    assert rpcs["attach"].teardown_calls == []
 
 
 def test_core_go_rejects_negative_idle_timeout():

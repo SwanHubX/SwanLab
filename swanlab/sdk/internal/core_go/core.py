@@ -434,7 +434,8 @@ class CoreGo(CoreProtocol):
         """释放 RPC/Launcher 资源并统一收敛到本地 CLOSED；永不抛出。"""
         action = "abort" if abort_launcher else "close"
         try:
-            if not self._attach and rpc is not None:
+            owns_process = getattr(launcher, "owns_process", True) if launcher is not None else True
+            if not self._attach and owns_process and rpc is not None:
                 with safe.block(level="debug", message=f"core teardown failed during {action}"):
                     rpc.teardown(timeout=TEARDOWN_TIMEOUT)
             if launcher is not None:

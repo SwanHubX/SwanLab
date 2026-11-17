@@ -66,6 +66,30 @@ def test_acquire_runtime_creates_and_reuses_per_user_directory(short_root, monke
     assert first.dir.exists()
 
 
+def test_acquire_owner_runtime_isolates_directories_and_cleans_up(short_root, monkeypatch):
+    monkeypatch.setattr(runtime_module, "_runtime_root", lambda: short_root)
+
+    shared = acquire_runtime(shared=True)
+    owner_a = acquire_runtime(shared=False)
+    owner_b = acquire_runtime(shared=False)
+    try:
+        assert owner_a.dir != shared.dir
+        assert owner_b.dir != shared.dir
+        assert owner_a.dir != owner_b.dir
+        assert owner_a.dir.name.startswith(f"{RUNTIME_DIR_PREFIX}own-")
+        assert owner_a.dir.is_dir()
+        if sys.platform != "win32":
+            assert stat.S_IMODE(owner_a.dir.stat().st_mode) == RUNTIME_DIR_MODE
+    finally:
+        cleanup_runtime(owner_a)
+        cleanup_runtime(owner_b)
+        cleanup_runtime(shared)
+
+    assert not owner_a.dir.exists()
+    assert not owner_b.dir.exists()
+    assert shared.dir.exists()
+
+
 @pytest.mark.skipif(sys.platform == "win32", reason="POSIX permissions and symlinks")
 def test_acquire_runtime_rejects_bad_perm_and_symlink(short_root, monkeypatch):
     monkeypatch.setattr(runtime_module, "_runtime_root", lambda: short_root)
