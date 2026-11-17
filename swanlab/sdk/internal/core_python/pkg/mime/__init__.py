@@ -38,6 +38,11 @@ def _ensure_mimetypes():
     _std_mimetypes.add_type("image/tiff", ".tiff")
     _std_mimetypes.add_type("image/tiff", ".tif")
 
+    # 视频类型
+    _std_mimetypes.add_type("video/mp4", ".mp4")
+    _std_mimetypes.add_type("video/webm", ".webm")
+    _std_mimetypes.add_type("video/ogg", ".ogg")
+
     # 代码 / 文本类型：与前端 CodeRender / MarkdownRender 对齐
     _std_mimetypes.add_type("text/x-python", ".py")
     _std_mimetypes.add_type("text/plain", ".txt")

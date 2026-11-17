@@ -17,7 +17,12 @@ def _make_consumer(record_batch: int) -> BackgroundConsumer:
     ctx = SimpleNamespace(
         core=MagicMock(),
         callbacker=MagicMock(),
-        config=SimpleNamespace(settings=SimpleNamespace(mode="local", core=SimpleNamespace(record_batch=record_batch))),
+        config=SimpleNamespace(
+            settings=SimpleNamespace(
+                mode="local",
+                core=SimpleNamespace(record_batch=record_batch, skip_store=False, media_max_size=50 * 1024**2),
+            )
+        ),
     )
     emitter = SimpleNamespace(queue=queue.Queue())
     consumer = _factory_consumer(cast(RunContext, ctx), cast(EmitterProtocol, emitter))

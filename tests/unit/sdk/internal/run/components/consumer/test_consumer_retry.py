@@ -38,6 +38,10 @@ class FakeClock:
         self.now += seconds
 
 
+def _settings() -> SimpleNamespace:
+    return SimpleNamespace(core=SimpleNamespace(skip_store=False, media_max_size=50 * 1024**2))
+
+
 def _make_consumer(
     tmp_path: Path = Path("."),
     *,
@@ -48,7 +52,9 @@ def _make_consumer(
     stop_timeout: Optional[float] = 0.0,
 ):
     core = MagicMock()
-    ctx = SimpleNamespace(core=core, callbacker=MagicMock(), media_dir=tmp_path)
+    ctx = SimpleNamespace(
+        core=core, callbacker=MagicMock(), media_dir=tmp_path, config=SimpleNamespace(settings=_settings())
+    )
     clock = FakeClock()
     consumer = BackgroundConsumer(
         cast(RunContext, cast(object, ctx)),
@@ -368,7 +374,9 @@ def test_columns_are_coalesced_before_chunking():
 def test_rpc_batch_size_chunks_scalars_larger_than_flush_threshold():
     """标量按 rpc_batch_size 切片提交，logs 仍受较小 batch_size 约束。"""
     core = MagicMock()
-    ctx = SimpleNamespace(core=core, callbacker=MagicMock(), media_dir=Path("."))
+    ctx = SimpleNamespace(
+        core=core, callbacker=MagicMock(), media_dir=Path("."), config=SimpleNamespace(settings=_settings())
+    )
     consumer = BackgroundConsumer(
         cast(RunContext, cast(object, ctx)),
         queue.Queue(),
@@ -389,7 +397,9 @@ def test_stop_drain_retries_while_progress_is_made(monkeypatch):
     warnings = []
     monkeypatch.setattr(pkg_console, "warning", lambda *args, **kwargs: warnings.append(args))
     core = MagicMock()
-    ctx = SimpleNamespace(core=core, callbacker=MagicMock(), media_dir=Path("."))
+    ctx = SimpleNamespace(
+        core=core, callbacker=MagicMock(), media_dir=Path("."), config=SimpleNamespace(settings=_settings())
+    )
     clock = FakeClock()
     consumer = BackgroundConsumer(
         cast(RunContext, cast(object, ctx)),
@@ -428,7 +438,9 @@ def test_stop_drain_retries_while_progress_is_made(monkeypatch):
 def test_stop_drain_gives_up_after_stall_timeout():
     """退出排空期间 Core 持续零推进超过 stop_timeout 后停止重试并保留未接收记录。"""
     core = MagicMock()
-    ctx = SimpleNamespace(core=core, callbacker=MagicMock(), media_dir=Path("."))
+    ctx = SimpleNamespace(
+        core=core, callbacker=MagicMock(), media_dir=Path("."), config=SimpleNamespace(settings=_settings())
+    )
     clock = FakeClock()
     consumer = BackgroundConsumer(
         cast(RunContext, cast(object, ctx)),
@@ -456,7 +468,9 @@ def test_stop_drain_waits_indefinitely_when_stop_timeout_is_none(monkeypatch):
     warnings = []
     monkeypatch.setattr(pkg_console, "warning", lambda *args, **kwargs: warnings.append(args))
     core = MagicMock()
-    ctx = SimpleNamespace(core=core, callbacker=MagicMock(), media_dir=Path("."))
+    ctx = SimpleNamespace(
+        core=core, callbacker=MagicMock(), media_dir=Path("."), config=SimpleNamespace(settings=_settings())
+    )
     clock = FakeClock()
     consumer = BackgroundConsumer(
         cast(RunContext, cast(object, ctx)),

@@ -511,6 +511,28 @@ class TestSkipStore:
             Settings(mode="online", core=Settings.Core(idle_timeout=-1.0))
 
 
+class TestMediaMaxSize:
+    """core.media_max_size 默认 50 MiB，可配 10–500 MiB"""
+
+    MIB = 1024**2
+
+    def test_default(self):
+        assert Settings().core.media_max_size == 50 * self.MIB
+
+    @pytest.mark.parametrize("size", [10 * 1024**2, 500 * 1024**2])
+    def test_bounds_inclusive(self, size):
+        assert Settings(core=Settings.Core(media_max_size=size)).core.media_max_size == size
+
+    @pytest.mark.parametrize("size", [10 * 1024**2 - 1, 500 * 1024**2 + 1])
+    def test_out_of_range_raises(self, size):
+        with pytest.raises(ValidationError):
+            Settings(core=Settings.Core(media_max_size=size))
+
+    def test_env_var_override(self, monkeypatch):
+        monkeypatch.setenv("SWANLAB_CORE_MEDIA_MAX_SIZE", str(20 * 1024**2))
+        assert Settings().core.media_max_size == 20 * 1024**2
+
+
 @pytest.fixture
 def netrc_file(tmp_path, monkeypatch):
     """

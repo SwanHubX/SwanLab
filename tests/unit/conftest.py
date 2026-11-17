@@ -1,4 +1,5 @@
 import os
+import threading
 
 import pytest
 
@@ -8,6 +9,30 @@ import pytest
 for _key in list(os.environ):
     if _key.startswith("SWANLAB_"):
         del os.environ[_key]
+
+
+@pytest.fixture(autouse=True)
+def transport_cleanup(monkeypatch):
+    """在撤销测试替身前关闭本用例启动的真实上传线程。"""
+    from swanlab.sdk.internal.core_python.transport.worker import Transport
+
+    transports = []
+    start = Transport.start
+
+    def tracked_start(transport):
+        start(transport)
+        if isinstance(transport._thread, threading.Thread) and transport not in transports:
+            transports.append(transport)
+
+    def finish_transports():
+        for transport in transports:
+            transport.request_finish()
+        for transport in transports:
+            assert transport.join(timeout=5), "Test left an active upload thread"
+
+    monkeypatch.setattr(Transport, "start", tracked_start)
+    yield finish_transports
+    finish_transports()
 
 
 @pytest.fixture(autouse=True)

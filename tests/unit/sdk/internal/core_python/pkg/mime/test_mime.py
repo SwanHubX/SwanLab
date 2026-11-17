@@ -5,7 +5,7 @@
 @description: 测试 swanlab.sdk.internal.core_python.pkg.mime 模块
 
 测试分组：
-  - TestGuessTypeRegistered : 已注册扩展（.yaml/.yml）的类型推断
+  - TestGuessTypeRegistered : 已注册扩展的类型推断
   - TestGuessTypePassthrough : 标准扩展的透传
   - TestGuessTypeFallback    : 未知扩展/无扩展的兜底
   - TestGuessTypeInput       : str 与 PathLike 输入兼容
@@ -20,6 +20,18 @@ class TestGuessTypeRegistered:
     @pytest.mark.parametrize("name", ["config.yaml", "a/b/c.yml", "swanlab.yaml", "UPPER.YAML", "Mixed.YmL"])
     def test_yaml_extensions(self, name):
         assert guess_type(name) == "application/yaml"
+
+    @pytest.mark.parametrize(
+        "name,expected",
+        [
+            ("clip.mp4", "video/mp4"),
+            ("clip.webm", "video/webm"),
+            ("clip.ogg", "video/ogg"),
+            ("CLIP.OGG", "video/ogg"),
+        ],
+    )
+    def test_video_extensions(self, name, expected):
+        assert guess_type(name) == expected
 
 
 class TestGuessTypePassthrough:

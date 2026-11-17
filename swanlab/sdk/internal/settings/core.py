@@ -26,6 +26,14 @@ class CoreSettings(BaseModel):
     Batch interval (seconds) for the Transport upload thread.
     Default 1.5s. Use a smaller value (e.g. 0.5) in Converter scenarios for higher throughput.
     """
+    media_max_size: int = Field(default=50 * 1024**2, ge=10 * 1024**2, le=500 * 1024**2)
+    """
+    Maximum size in bytes of a single media file. Default 50 MiB, range 10 MiB to 500 MiB.
+
+    Applies uniformly to every media type (image, audio, video, ...); records whose items
+    exceed the limit are dropped with a warning. In ``skip_store`` mode the limit also caps
+    the inlined payload of a single media record item.
+    """
     save_split: int = Field(default=100 * 1024 * 1024)
     """
     File size threshold in bytes for multipart upload. Default 100 MiB.

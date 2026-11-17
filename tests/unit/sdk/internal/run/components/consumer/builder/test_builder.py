@@ -35,7 +35,7 @@ class TestEnsureMediaSize:
     @pytest.fixture
     def builder(self):
         b = object.__new__(RecordBuilder)
-        b._MEDIA_MAX_SIZE = 100  # 100 bytes  # type: ignore
+        b._media_max_size = 100  # 100 bytes  # type: ignore
         b._MEDIA_MAX_LENGTH = 3  # type: ignore
         return b
 
@@ -116,7 +116,7 @@ class TestResolveMediaDir:
     def test_skip_store_returns_none_and_never_mkdir(self, tmp_path):
         """skip_store 下返回 None 且不创建 media 目录"""
         media_dir = tmp_path / "media"
-        settings = SimpleNamespace(core=SimpleNamespace(skip_store=True))
+        settings = SimpleNamespace(core=SimpleNamespace(skip_store=True, media_max_size=50 * 1024**2))
         ctx = SimpleNamespace(config=SimpleNamespace(settings=settings), media_dir=media_dir)
         builder = RecordBuilder(ctx)  # type: ignore[arg-type]
         assert builder._resolve_media_dir(Text.column_type()) is None
@@ -130,7 +130,7 @@ class TestBuildConfig:
 
     @staticmethod
     def _builder(skip_store: bool) -> RecordBuilder:
-        settings = SimpleNamespace(core=SimpleNamespace(skip_store=skip_store))
+        settings = SimpleNamespace(core=SimpleNamespace(skip_store=skip_store, media_max_size=50 * 1024**2))
         ctx = SimpleNamespace(config=SimpleNamespace(settings=settings))
         return RecordBuilder(ctx)  # type: ignore[arg-type]
 
