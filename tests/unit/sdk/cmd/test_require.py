@@ -33,6 +33,17 @@ def _query_impl_in_subprocess(env_value: Optional[str] = None) -> str:
     return proc.stdout.strip()
 
 
+@pytest.fixture
+def captured_warnings(monkeypatch) -> List[str]:
+    captured: List[str] = []
+    monkeypatch.setattr(
+        require_module.console,
+        "warning",
+        lambda *args, **kwargs: captured.append(" ".join(str(a) for a in args)),
+    )
+    return captured
+
+
 def test_default_core_impl_is_go_and_probe_is_python():
     assert helper.get_core_impl() == "go"
     assert helper.get_probe_impl() == "python"
@@ -45,35 +56,21 @@ def test_env_core_python_switches_back_to_python():
     assert _query_impl_in_subprocess("core") == "go python"
 
 
-def test_require_core_warns_noop_by_default(monkeypatch):
-    warnings: List[str] = []
-    monkeypatch.setattr(
-        require_module.console,
-        "warning",
-        lambda *args, **kwargs: warnings.append(" ".join(str(a) for a in args)),
-    )
-
+def test_require_core_warns_noop_by_default(captured_warnings):
     assert swanlab.require("core") == ["core"]
     assert helper.get_core_impl() == "go"
-    assert len(warnings) == 1
-    assert "no-op" in warnings[0]
+    assert len(captured_warnings) == 1
+    assert "no-op" in captured_warnings[0]
 
 
-def test_require_switches_to_core_python_and_back(monkeypatch):
-    warnings: List[str] = []
-    monkeypatch.setattr(
-        require_module.console,
-        "warning",
-        lambda *args, **kwargs: warnings.append(" ".join(str(a) for a in args)),
-    )
-
+def test_require_switches_to_core_python_and_back(captured_warnings):
     assert swanlab.require("core_python") == ["core_python"]
     assert helper.get_core_impl() == "python"
 
     assert swanlab.require("CORE") == ["core"]
     assert helper.get_core_impl() == "go"
     # 从 core_python 切回 Go 是真实切换，不应提示 no-op
-    assert warnings == []
+    assert captured_warnings == []
 
 
 def test_require_unknown_token_raises():

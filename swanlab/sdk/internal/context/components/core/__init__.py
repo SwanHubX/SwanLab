@@ -82,10 +82,11 @@ def create_core(ctx: "RunContext", backend: Optional[CoreBackend] = None) -> Cor
         return CorePython(mode=mode)
 
     from swanlab.sdk.internal.core_go import CoreGo
-    from swanlab.sdk.internal.core_go.config import DETACH_IDLE_TIMEOUT
-    from swanlab.sdk.internal.settings.core import CoreSettings
 
-    core_settings = getattr(ctx.config.settings, "core", None)
-    detach = core_settings.detach if isinstance(core_settings, CoreSettings) else False
-    idle_timeout = core_settings.idle_timeout if isinstance(core_settings, CoreSettings) else DETACH_IDLE_TIMEOUT
-    return CoreGo(mode=mode, binary=resolved.binary, detach=detach, idle_timeout=idle_timeout)
+    core_settings = ctx.config.settings.core
+    return CoreGo(
+        mode=mode,
+        binary=resolved.binary,
+        detach=core_settings.detach,
+        idle_timeout=core_settings.idle_timeout,
+    )

@@ -154,23 +154,19 @@ def _run_python(code: str, *, env_overrides: dict) -> subprocess.CompletedProces
     )
 
 
-def test_fork_support_default_is_set_before_grpc_import():
-    """首次导入 rpc 包时关闭 grpc fork 支持，避免 fork 子进程 stderr 噪音。"""
+@pytest.mark.parametrize(
+    ("overrides", "expected"),
+    [({}, "0"), ({"GRPC_ENABLE_FORK_SUPPORT": "1"}, "1")],
+    ids=["default", "explicit"],
+)
+def test_fork_support_default_and_explicit_value(overrides, expected):
+    """首次导入 rpc 包时设置默认值，且不覆盖用户显式配置。"""
     code = "import os; import swanlab.sdk.internal.core_go.rpc; print(os.environ['GRPC_ENABLE_FORK_SUPPORT'])"
 
-    result = _run_python(code, env_overrides={})
+    result = _run_python(code, env_overrides=overrides)
 
     assert result.returncode == 0, result.stderr
-    assert result.stdout.strip() == "0"
-
-
-def test_fork_support_explicit_value_is_preserved():
-    code = "import os; import swanlab.sdk.internal.core_go.rpc; print(os.environ['GRPC_ENABLE_FORK_SUPPORT'])"
-
-    result = _run_python(code, env_overrides={"GRPC_ENABLE_FORK_SUPPORT": "1"})
-
-    assert result.returncode == 0, result.stderr
-    assert result.stdout.strip() == "1"
+    assert result.stdout.strip() == expected
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="fork is POSIX only")

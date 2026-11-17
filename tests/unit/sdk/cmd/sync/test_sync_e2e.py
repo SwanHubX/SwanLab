@@ -84,12 +84,7 @@ def make_prepare_result(new_experiment: bool = True) -> PrepareExperimentStartRe
 
 
 def create_offline_run() -> Path:
-    run = swanlab.init(
-        mode="offline",
-        project="sync-e2e",
-        id="sync-e2e-run",
-        settings=Settings(core=Settings.Core(detach=False)),
-    )
+    run = swanlab.init(mode="offline", project="sync-e2e", id="sync-e2e-run")
     run_dir = run._ctx.run_dir
     swanlab.log({"loss": 0.2, "acc": 0.8}, step=1)
     swanlab.log({"loss": 0.1, "acc": 0.9}, step=2)
