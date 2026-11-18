@@ -66,9 +66,6 @@ def warn_fallback_once(reason: BaseException) -> None:
     console.warning(f"Go core is unavailable ({reason}); falling back to the built-in Python core.")
 
 
-_warn_fallback_once = warn_fallback_once
-
-
 def create_core(ctx: "RunContext", backend: Optional[CoreBackend] = None) -> CoreProtocol:
     """core 对象工厂；Go core 不可用时回退内置 CorePython 并告警一次。
 
