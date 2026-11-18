@@ -17,7 +17,7 @@ from swanlab.sdk.typings.run import ModeType
 if TYPE_CHECKING:
     from swanlab.sdk.internal.context import RunContext
 
-__all__ = ["CoreBackend", "create_core", "resolve_core_backend"]
+__all__ = ["CoreBackend", "create_core", "resolve_core_backend", "warn_fallback_once"]
 
 _fallback_warn_lock = threading.Lock()
 _fallback_warned = False
@@ -56,14 +56,17 @@ def reset_fallback_warning() -> None:
         _fallback_warned = False
 
 
-def _warn_fallback_once(reason: BaseException) -> None:
-    """Go core 二进制缺失时仅告警一次，避免同进程多次 init 重复刷屏。"""
+def warn_fallback_once(reason: BaseException) -> None:
+    """Go core 二进制缺失时仅告警一次，避免同进程多次 init / sync 重复刷屏。"""
     global _fallback_warned
     with _fallback_warn_lock:
         if _fallback_warned:
             return
         _fallback_warned = True
     console.warning(f"Go core is unavailable ({reason}); falling back to the built-in Python core.")
+
+
+_warn_fallback_once = warn_fallback_once
 
 
 def create_core(ctx: "RunContext", backend: Optional[CoreBackend] = None) -> CoreProtocol:
@@ -78,7 +81,7 @@ def create_core(ctx: "RunContext", backend: Optional[CoreBackend] = None) -> Cor
         from swanlab.sdk.internal.core_python import CorePython
 
         if resolved.fallback_reason is not None:
-            _warn_fallback_once(resolved.fallback_reason)
+            warn_fallback_once(resolved.fallback_reason)
         return CorePython(mode=mode)
 
     from swanlab.sdk.internal.core_go import CoreGo

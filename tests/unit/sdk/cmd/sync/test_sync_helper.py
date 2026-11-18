@@ -231,3 +231,87 @@ def test_sync_raises_when_deliver_sync_flush_fails(tmp_path, monkeypatch):
         sync(tmp_path, settings=Settings())
 
     assert core.confirmed is False
+
+
+def test_sync_fills_api_key_from_active_client_and_closes(tmp_path, monkeypatch):
+    captured_settings = []
+
+    class RecordingCoreSync:
+        closed = False
+        aborted = False
+
+        def deliver_sync_start(self, request):
+            captured_settings.append(request.core_settings)
+            return DeliverSyncStartResponse(success=True, message="success")
+
+        def deliver_sync_flush(self):
+            return DeliverSyncFlushResponse(success=True, message="success", path="/@u/p/s")
+
+        def get_operation_stats(self):
+            return GetOperationStatsResponse(
+                success=True, message="OK", stats=OperationStats(state=CoreState.CORE_STATE_FINISHED)
+            )
+
+        def confirm_sync_finish(self):
+            return ConfirmSyncFinishResponse(success=True, message="OK")
+
+        def close(self):
+            self.closed = True
+
+        def abort(self, cause=None):
+            self.aborted = True
+
+    core = RecordingCoreSync()
+    monkeypatch.setattr("swanlab.sdk.cmd.sync.client.exists", lambda: True)
+    monkeypatch.setattr("swanlab.sdk.cmd.sync.client.current_api_key", lambda: "runtime-secret-key")
+    monkeypatch.setattr("swanlab.sdk.cmd.sync.impl.create_core_sync", lambda: core)
+    monkeypatch.setattr(
+        "swanlab.sdk.cmd.sync.run_with_progress",
+        lambda stats_fn, blocking_fn, **kwargs: blocking_fn(),
+    )
+
+    sync(tmp_path, settings=Settings())
+
+    assert len(captured_settings) == 1
+    assert captured_settings[0].api_key == "runtime-secret-key"
+    assert core.closed is True
+    assert core.aborted is False
+
+
+def test_sync_aborts_core_on_exception_and_keyboard_interrupt(tmp_path, monkeypatch):
+    for exc_to_raise in (RuntimeError("boom"), KeyboardInterrupt()):
+
+        class FailingCoreSync:
+            def __init__(self) -> None:
+                self.closed = False
+                self.aborted_causes = []
+
+            def deliver_sync_start(self, request):
+                raise exc_to_raise
+
+            def deliver_sync_flush(self):
+                return DeliverSyncFlushResponse(success=True, message="success")
+
+            def get_operation_stats(self):
+                return GetOperationStatsResponse(success=True)
+
+            def confirm_sync_finish(self):
+                return ConfirmSyncFinishResponse(success=True)
+
+            def close(self):
+                self.closed = True
+
+            def abort(self, cause=None):
+                self.aborted_causes.append(cause)
+
+        core = FailingCoreSync()
+        monkeypatch.setattr("swanlab.sdk.cmd.sync.client.exists", lambda: True)
+        monkeypatch.setattr("swanlab.sdk.cmd.sync.client.current_api_key", lambda: None)
+        monkeypatch.setattr("swanlab.sdk.cmd.sync.impl.create_core_sync", lambda: core)
+
+        with pytest.raises(type(exc_to_raise)):
+            sync(tmp_path, settings=Settings())
+
+        assert len(core.aborted_causes) == 1
+        assert core.aborted_causes[0] is exc_to_raise
+        assert core.closed is False

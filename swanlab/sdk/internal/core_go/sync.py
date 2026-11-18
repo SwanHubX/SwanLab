@@ -105,10 +105,7 @@ class CoreSyncGo(CoreSyncProtocol):
                 self._state = _SyncState.STARTED
             return response
         except BaseException as exc:
-            error = self._as_core_error(exc, Stage.LIFECYCLE)
-            with self._lock:
-                self._last_error = error
-            self.abort(error)
+            error = self._record_error(exc, Stage.LIFECYCLE, abort=True)
             if not isinstance(exc, Exception):
                 raise
             return DeliverSyncStartResponse(success=False, message=str(error))
@@ -172,10 +169,7 @@ class CoreSyncGo(CoreSyncProtocol):
                 self._state = _SyncState.RUNNING
             return response
         except BaseException as exc:
-            error = self._as_core_error(exc, Stage.RPC)
-            with self._lock:
-                self._last_error = error
-            self.abort(error)
+            error = self._record_error(exc, Stage.RPC, abort=True)
             if not isinstance(exc, Exception):
                 raise
             return DeliverSyncFlushResponse(success=False, message=str(error))
@@ -196,9 +190,7 @@ class CoreSyncGo(CoreSyncProtocol):
         try:
             return sync_rpc.get_operation_stats()
         except Exception as exc:
-            error = self._as_core_error(exc, Stage.RPC)
-            with self._lock:
-                self._last_error = error
+            error = self._record_error(exc, Stage.RPC)
             return GetOperationStatsResponse(success=False, message=str(error))
 
     def confirm_sync_finish(self) -> ConfirmSyncFinishResponse:
@@ -215,11 +207,10 @@ class CoreSyncGo(CoreSyncProtocol):
             response = sync_rpc.confirm_sync_finish()
         except BaseException as exc:
             if not isinstance(exc, Exception):
-                self.abort(exc)
+                self._record_error(exc, Stage.RPC, abort=True)
                 raise
-            error = self._as_core_error(exc, Stage.RPC)
+            error = self._record_error(exc, Stage.RPC)
             with self._lock:
-                self._last_error = error
                 if self._state is _SyncState.FINISHING:
                     self._state = _SyncState.FINISHED
             return ConfirmSyncFinishResponse(success=False, message=str(error))
@@ -310,6 +301,14 @@ class CoreSyncGo(CoreSyncProtocol):
 
     def _owned_by_current_process(self) -> bool:
         return not fork.is_forked(self._owner_pid)
+
+    def _record_error(self, exc: BaseException, stage: Stage, *, abort: bool = False) -> CoreGoError:
+        error = self._as_core_error(exc, stage)
+        with self._lock:
+            self._last_error = error
+        if abort:
+            self.abort(error)
+        return error
 
     @staticmethod
     def _as_core_error(exc: BaseException, stage: Stage) -> CoreGoError:

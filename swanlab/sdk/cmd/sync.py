@@ -6,8 +6,9 @@
 """
 
 import os
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Optional, Union
+from typing import Iterator, Optional, Union
 
 from pydantic import DirectoryPath, TypeAdapter
 from rich.text import Text
@@ -102,40 +103,61 @@ def sync(
     project = sync_settings.project.name
     run_dir = ensure_run_dir(run_dir)
     run_id = sync_settings.run.id or generate_id()
-    core_settings = sync_settings.to_core_proto(run_id, run_dir)
 
-    # 2. 校验 api key，启动client
+    # 2. 校验 api key，启动 client；已登录会话且 settings 未显式带 key 时从活跃 client 兜底提取
     if not client.exists():
         if sync_settings.api_key is None:
             raise AuthenticationError("Please login first, or use `swanlab.login()`")
         login_raw(sync_settings.api_key, host=sync_settings.api_host, print_welcome=False)
     assert client.exists()
+    if sync_settings.api_key is None:
+        active_key = client.current_api_key()
+        if active_key:
+            sync_settings = sync_settings.model_copy(update={"api_key": active_key})
+
+    core_settings = sync_settings.to_core_proto(run_id, run_dir)
 
     if sync_range is not None:
         console.info(f"Syncing records in {format_sync_range(sync_range)}")
 
-    # 3. 初始化core sync对象，并启动sync
-    core = impl.create_core_sync()
-    flush_resp = _deliver_sync_start(core, core_settings, workspace, project, run_id, sync_range)
+    # 3. 初始化 core sync 对象，并启动 sync（异常走 abort 回收，正常退出走 close）
+    with _core_sync_lifecycle(impl.create_core_sync()) as core:
+        flush_resp = _deliver_sync_start(core, core_settings, workspace, project, run_id, sync_range)
 
-    # 4. 打印创建的实验 URL
-    if flush_resp and flush_resp.path:
-        run_path = helper.fmt_run_path(flush_resp.path)
-        web_host = sync_settings.web_host
-        run_url = f"{web_host}{run_path}"
-        project_url = run_url.split("/runs/")[0]
-        console.info("📁 View project at", Text(project_url, style=f"link {project_url} blue underline"))
-        console.info("🚀 View synced run at", Text(run_url, style=f"link {run_url} blue underline"))
+        # 4. 打印创建的实验 URL
+        if flush_resp and flush_resp.path:
+            run_path = helper.fmt_run_path(flush_resp.path)
+            web_host = sync_settings.web_host
+            run_url = f"{web_host}{run_path}"
+            project_url = run_url.split("/runs/")[0]
+            console.info("📁 View project at", Text(project_url, style=f"link {project_url} blue underline"))
+            console.info("🚀 View synced run at", Text(run_url, style=f"link {run_url} blue underline"))
 
-    # 5. 等待core完成同步
-    confirm_resp = run_with_progress(
-        stats_fn=core.get_operation_stats,
-        blocking_fn=core.confirm_sync_finish,
-        unit="auto",
-    )
+        # 5. 等待 core 完成同步
+        confirm_resp = run_with_progress(
+            stats_fn=core.get_operation_stats,
+            blocking_fn=core.confirm_sync_finish,
+            unit="auto",
+        )
 
-    if not confirm_resp.success:
-        console.error(f"Confirm sync finish failed: {confirm_resp.message}")
+        if not confirm_resp.success:
+            console.error(f"Confirm sync finish failed: {confirm_resp.message}")
+
+
+@contextmanager
+def _core_sync_lifecycle(core: CoreSyncProtocol) -> Iterator[CoreSyncProtocol]:
+    """保证 sync 正常退出时 close()、异常/中断时先 abort(exc) 再原样抛出。"""
+    try:
+        yield core
+    except BaseException as exc:
+        abort_fn = getattr(core, "abort", None)
+        if callable(abort_fn):
+            abort_fn(exc)
+        raise
+    else:
+        close_fn = getattr(core, "close", None)
+        if callable(close_fn):
+            close_fn()
 
 
 def ensure_run_dir(run_dir: DirectoryPath) -> DirectoryPath:
