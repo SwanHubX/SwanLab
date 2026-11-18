@@ -221,8 +221,13 @@ func decodeMetadata(data []byte) (map[string]any, bool) {
 func (s *SaveSender) uploadCustom(ctx context.Context, records []*recordv1.Record) uploader.Result {
 	confirmed := make([]*recordv1.Record, 0, len(records))
 	var failures []uploader.Failure
-	reject := func(record *recordv1.Record, message string, err error) {
-		failures = append(failures, uploader.Failure{Message: message, Records: []*recordv1.Record{record}, Err: err})
+	reject := func(record *recordv1.Record, message string, err error, rejected bool) {
+		failures = append(failures, uploader.Failure{
+			Message:  message,
+			Records:  []*recordv1.Record{record},
+			Err:      err,
+			Rejected: rejected,
+		})
 		confirmed = append(confirmed, record)
 	}
 
@@ -231,16 +236,16 @@ func (s *SaveSender) uploadCustom(ctx context.Context, records []*recordv1.Recor
 		save := record.GetSave()
 		source := s.resolveSource(save)
 		if source == "" {
-			reject(record, saveFileNotFoundPrefix+save.GetSourcePath(), nil)
+			reject(record, saveFileNotFoundPrefix+save.GetSourcePath(), nil, false)
 			continue
 		}
 		info, err := os.Stat(source)
 		if err != nil {
-			reject(record, saveFileUnreadablePrefix+source, err)
+			reject(record, saveFileUnreadablePrefix+source, err, true)
 			continue
 		}
 		if info.Size() > s.opts.Files.SaveSize {
-			reject(record, saveFileTooLargePrefix+source, nil)
+			reject(record, saveFileTooLargePrefix+source, nil, false)
 			continue
 		}
 		pending = append(pending, pendingSave{
@@ -279,9 +284,10 @@ func (s *SaveSender) uploadBatch(ctx context.Context, pending []pendingSave) upl
 	for i, item := range pending {
 		if errs[i] != nil {
 			failure := uploader.Failure{
-				Message: saveMD5FailedPrefix + item.sourcePath,
-				Records: []*recordv1.Record{item.record},
-				Err:     errs[i],
+				Message:  saveMD5FailedPrefix + item.sourcePath,
+				Records:  []*recordv1.Record{item.record},
+				Err:      errs[i],
+				Rejected: !isRetryable(errs[i]),
 			}
 			failures = append(failures, failure)
 			if isRetryable(errs[i]) {
@@ -355,9 +361,10 @@ func (s *SaveSender) uploadSmall(ctx context.Context, tasks []*saveTask) uploade
 			continue
 		}
 		failures = append(failures, uploader.Failure{
-			Message: saveUploadFailedPrefix + task.entry.path,
-			Records: []*recordv1.Record{task.record},
-			Err:     putErrors[i],
+			Message:  saveUploadFailedPrefix + task.entry.path,
+			Records:  []*recordv1.Record{task.record},
+			Err:      putErrors[i],
+			Rejected: !putErrorRetryable(putErrors[i]),
 		})
 		if putErrorRetryable(putErrors[i]) {
 			storageFailed = append(storageFailed, task)
@@ -414,7 +421,12 @@ func (s *SaveSender) settleCompleteFailure(
 		}
 		confirmed = append(confirmed, pendingRecords...)
 	}
-	failures = append(failures, uploader.Failure{Message: err.Error(), Records: pendingRecords, Err: err})
+	failures = append(failures, uploader.Failure{
+		Message:  err.Error(),
+		Records:  pendingRecords,
+		Err:      err,
+		Rejected: !isRetryable(err),
+	})
 	return uploader.Result{Confirmed: confirmed, Remaining: remaining, Failures: failures}
 }
 
@@ -445,9 +457,10 @@ func (s *SaveSender) uploadLarge(ctx context.Context, tasks []*saveTask) uploade
 		parts, partErr := s.putParts(ctx, task, files[i].Parts, partSize)
 		if partErr != nil {
 			failures = append(failures, uploader.Failure{
-				Message: saveMultipartFailedPrefix + task.entry.path,
-				Records: []*recordv1.Record{task.record},
-				Err:     partErr,
+				Message:  saveMultipartFailedPrefix + task.entry.path,
+				Records:  []*recordv1.Record{task.record},
+				Err:      partErr,
+				Rejected: !putErrorRetryable(partErr),
 			})
 			if putErrorRetryable(partErr) {
 				storageFailed = append(storageFailed, task)
@@ -507,9 +520,12 @@ func (s *SaveSender) uploadLarge(ctx context.Context, tasks []*saveTask) uploade
 	confirmed := taskRecords(terminalFailed)
 	for _, item := range ready {
 		if _, failed := failedStates[item.task.entry.path]; failed {
+			// 服务端合并失败只返回 FAILED 状态，没有 Go error；必须显式标记为确定性拒绝，
+			// 否则 Confirm 会把这类云端失败当成成功并继续上报终态。
 			failures = append(failures, uploader.Failure{
-				Message: saveMultipartStateFailedPrefix + item.task.entry.path,
-				Records: []*recordv1.Record{item.task.record},
+				Message:  saveMultipartStateFailedPrefix + item.task.entry.path,
+				Records:  []*recordv1.Record{item.task.record},
+				Rejected: true,
 			})
 			confirmed = append(confirmed, item.task.record)
 			failFile(s.opts.Files.Tracker, item.task.trackerKey)

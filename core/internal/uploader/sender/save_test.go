@@ -1032,6 +1032,9 @@ func TestSaveMultipartCompleteStates(t *testing.T) {
 				tc.status == http.StatusCreated {
 				t.Fatalf("failure = %q, want %q prefix", result.Failures[0].Message, saveMultipartStateFailedPrefix)
 			}
+			if tc.name == "failed state" && !result.Failures[0].Rejected {
+				t.Fatal("multipart FAILED state must be marked as a deterministic rejection")
+			}
 		})
 	}
 }

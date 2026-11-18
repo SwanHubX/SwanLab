@@ -164,10 +164,34 @@ func (s *CoreService) DeliverRunStart(
 
 // settingsFromProto 把 CoreSettings 一一映射为纯 Go 配置，并补齐 pydantic 未覆盖的下界。
 func settingsFromProto(in *settingsv1.CoreSettings) (config.Settings, error) {
+	settings, err := protoToSettings(in)
+	if err != nil {
+		return config.Settings{}, err
+	}
+	if settings.NormalizedMode() == config.ModeOnline {
+		if settings.APIHost == "" {
+			return config.Settings{}, errors.New("api_host must not be empty")
+		}
+		if settings.APIKey == "" {
+			return config.Settings{}, errors.New("api_key must not be empty")
+		}
+	}
+	if settings.SaveSize <= 0 || settings.SaveSplit <= 0 || settings.SaveBatch <= 0 {
+		return config.Settings{}, fmt.Errorf(
+			"save_size (%d), save_split (%d) and save_batch (%d) must be positive",
+			settings.SaveSize, settings.SaveSplit, settings.SaveBatch)
+	}
+	if err := settings.Validate(); err != nil {
+		return config.Settings{}, err
+	}
+	return settings, nil
+}
+
+func protoToSettings(in *settingsv1.CoreSettings) (config.Settings, error) {
 	if in == nil {
 		return config.Settings{}, errors.New("core_settings must not be nil")
 	}
-	settings := config.Settings{
+	return config.Settings{
 		RunID:          in.GetRunId(),
 		RunDir:         in.GetRunDir(),
 		Mode:           modeFromProto(in.GetMode()),
@@ -189,24 +213,7 @@ func settingsFromProto(in *settingsv1.CoreSettings) (config.Settings, error) {
 		HealthProbeTimeout:     in.GetHealthProbeTimeout(),
 		HealthDegradeThreshold: in.GetHealthDegradeThreshold(),
 		HealthRecoverThreshold: in.GetHealthRecoverThreshold(),
-	}
-	if settings.NormalizedMode() == config.ModeOnline {
-		if settings.APIHost == "" {
-			return config.Settings{}, errors.New("api_host must not be empty")
-		}
-		if settings.APIKey == "" {
-			return config.Settings{}, errors.New("api_key must not be empty")
-		}
-	}
-	if settings.SaveSize <= 0 || settings.SaveSplit <= 0 || settings.SaveBatch <= 0 {
-		return config.Settings{}, fmt.Errorf(
-			"save_size (%d), save_split (%d) and save_batch (%d) must be positive",
-			settings.SaveSize, settings.SaveSplit, settings.SaveBatch)
-	}
-	if err := settings.Validate(); err != nil {
-		return config.Settings{}, err
-	}
-	return settings, nil
+	}, nil
 }
 
 // modeFromProto 把 proto 枚举转换为 config.Mode；UNSPECIFIED 按 online 处理。

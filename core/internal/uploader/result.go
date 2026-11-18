@@ -16,11 +16,14 @@ type Result struct {
 	Failures  []Failure
 }
 
-// Failure 描述一次失败：Message 面向用户，Records 是受影响的记录，Err 可为 nil。
+// Failure 描述一次失败：Message 面向用户，Records 是受影响的记录。
+// Err 保留底层错误用于诊断，可为 nil；Rejected 标记不应被忽略的确定性失败
+// （云端/编码拒绝、本地文件不可读等），本地规则预期跳过（缺 payload、超限文件等）为 false。
 type Failure struct {
-	Message string
-	Records []*recordv1.Record
-	Err     error
+	Message  string
+	Records  []*recordv1.Record
+	Err      error
+	Rejected bool
 }
 
 // Sender 处理某一类型的整批记录。同一 Uploader 串行调用 Sender。

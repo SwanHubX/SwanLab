@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/swanhubx/swanlab/core/internal/pkg/portinfo"
+	corev1 "github.com/swanhubx/swanlab/core/proto/swanlab/grpc/core/v1"
 )
 
 // staleSocket 留下一个「进程已退出、socket 文件仍在」的 UDS 残留。
@@ -149,5 +150,26 @@ func TestPortFileServed(t *testing.T) {
 	t.Cleanup(func() { _ = live.Close() })
 	if _, alive := portFileServed(path); !alive {
 		t.Fatal("live endpoint must be reported as served")
+	}
+}
+
+// TestAssembleServerRegistersRunAndSyncServices 守护宿主接线：Run 与 Sync 两个 gRPC service
+// 都必须在 assembleServer 里注册，删掉任意一行都会让 CLI 侧 RPC 直接 NOT_FOUND。
+func TestAssembleServerRegistersRunAndSyncServices(t *testing.T) {
+	grpcServer, _, mgr, syncMgr, _ := assembleServer(0)
+	t.Cleanup(func() {
+		grpcServer.Stop()
+		_ = mgr.Close()
+		_ = syncMgr.Close()
+	})
+
+	info := grpcServer.GetServiceInfo()
+	for _, name := range []string{
+		corev1.CoreService_ServiceDesc.ServiceName,
+		corev1.CoreSyncService_ServiceDesc.ServiceName,
+	} {
+		if _, ok := info[name]; !ok {
+			t.Fatalf("gRPC service %q is not registered; got %v", name, info)
+		}
 	}
 }

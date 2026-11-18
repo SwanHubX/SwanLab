@@ -29,6 +29,8 @@ _T = TypeVar("_T")
 _BAR_WIDTH = 24
 _MAX_FILES = 5
 _POLL_INTERVAL = 0.25
+# 连续 stats 失败上限：core 崩溃后 RPC 会一直失败，无上限的轮询会让 sync 永久挂住。
+_MAX_CONSECUTIVE_STATS_FAILURES = 10
 
 
 # ── Unit helpers ──────────────────────────────────────────────
@@ -242,25 +244,36 @@ def run_with_progress(
     finished = False
     interrupted = False
     terminal = False
+    failures = 0
 
     with progress_display() as display:
         try:
             while True:
+                # deadline 必须先于请求检查，否则 stats 持续失败时会跳过超时分支。
+                if deadline is not None and time.monotonic() >= deadline:
+                    break
                 resp = stats_fn()
                 if resp.success:
+                    failures = 0
                     stats = resp.stats
                     display.update(stats, unit)
                     if stats.state == CoreState.CORE_STATE_FINISHED:
                         finished = True
-                        break
-                    if deadline is not None and time.monotonic() >= deadline:
                         break
                 else:
                     if is_terminal_stats_error(resp):
                         terminal = True
                         console.debug(f"Core session ended during upload progress: {resp.message}", write_to_tty=False)
                         break
+                    failures += 1
                     console.warning("Failed to get op stats:", resp.message)
+                    if failures >= _MAX_CONSECUTIVE_STATS_FAILURES:
+                        terminal = True
+                        console.debug(
+                            f"Giving up upload progress after {failures} consecutive stats failures: {resp.message}",
+                            write_to_tty=False,
+                        )
+                        break
                 time.sleep(_POLL_INTERVAL)
         except KeyboardInterrupt:
             interrupted = True

@@ -236,3 +236,44 @@ func TestMergeSummaryNilCloudPreservesLocal(t *testing.T) {
 		t.Fatalf("res = %+v, want preserved local", res)
 	}
 }
+
+func TestAllowReplayResetsMinStepAndKeepsBitmap(t *testing.T) {
+	res, err := NewFromSummary(&Summary{
+		Scalar:    []SummaryItem{{Key: "loss", Step: 5}},
+		Media:     []SummaryItem{{Key: "img", Step: 4}},
+		Histogram: []SummaryItem{{Key: "weights", Step: 6}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pre := res.Metrics.PrecheckScalar(scalarRec("loss", 3, 0.5)); pre.Decision != DecisionSkip {
+		t.Fatalf("before AllowReplay step 3 = %+v, want Skip", pre)
+	}
+
+	res.Metrics.AllowReplay()
+
+	for _, key := range []string{"loss", "img", "weights"} {
+		if ms, ok := res.Metrics.MinStep(key); !ok || ms != -1 {
+			t.Fatalf("MinStep(%q) = (%d, %v), want (-1, true)", key, ms, ok)
+		}
+	}
+	if ok, err := res.Metrics.CommitScalar(scalarRec("loss", 3, 0.5), nil); !ok || err != nil {
+		t.Fatalf("after AllowReplay step 3 = (%v, %v), want accept", ok, err)
+	}
+	// 同一次回放内重复 step 仍由位图拦截。
+	if ok, err := res.Metrics.CommitScalar(scalarRec("loss", 3, 0.4), nil); ok || err != nil {
+		t.Fatalf("duplicate step 3 = (%v, %v), want skip", ok, err)
+	}
+	if ok, err := res.Metrics.CommitMedia(mediaRec("img", 2), nil); !ok || err != nil {
+		t.Fatalf("after AllowReplay media step 2 = (%v, %v), want accept", ok, err)
+	}
+	if ok, err := res.Metrics.CommitHistogram(histogramRec("weights", 1), nil); !ok || err != nil {
+		t.Fatalf("after AllowReplay histogram step 1 = (%v, %v), want accept", ok, err)
+	}
+	if ok, err := res.Metrics.CommitScalar(scalarRec("loss", -1, 0.1), nil); ok || err != nil {
+		t.Fatalf("step -1 after AllowReplay = (%v, %v), want skip (false, nil)", ok, err)
+	}
+
+	var nilMetrics *RunMetrics
+	nilMetrics.AllowReplay()
+}

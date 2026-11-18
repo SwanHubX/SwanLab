@@ -100,7 +100,6 @@ class CoreGo(CoreProtocol):
         self._rpc: Optional[CoreServiceRpc] = None
         self._session_id: Optional[str] = None
         self._last_error: Optional[CoreGoError] = None
-        self._abort_cause: Optional[BaseException] = None
         self._exit_code: Optional[int] = None
 
     @property
@@ -333,13 +332,6 @@ class CoreGo(CoreProtocol):
         with self._lock:
             if self._state is _CoreState.RUNNING and self._session_id == session_id:
                 self._state = _CoreState.FINISHED
-            if not response.success:
-                # 终态提交失败（如本地 store 不可用）属于确定性拒绝，调用方不应重试。
-                self._last_error = CoreGoError(
-                    Stage.LIFECYCLE,
-                    ReasonCode.RUN_FINISH_REJECTED,
-                    response.message or "DeliverRunFinish rejected",
-                )
         return response
 
     # ---------------------------------- 进度查询 ----------------------------------
@@ -386,16 +378,8 @@ class CoreGo(CoreProtocol):
             return ConfirmRunFinishResponse(success=False, message=str(error))
 
         with self._lock:
-            if response.success:
-                if self._session_id == session_id:
-                    self._session_id = None
-            else:
-                # success=false 是确定性拒绝；保留 session_id 供显式重试。
-                self._last_error = CoreGoError(
-                    Stage.LIFECYCLE,
-                    ReasonCode.RUN_FINISH_REJECTED,
-                    response.message or "ConfirmRunFinish rejected",
-                )
+            if self._session_id == session_id:
+                self._session_id = None
         return response
 
     # ---------------------------------- 生命周期回收 ----------------------------------
@@ -436,8 +420,6 @@ class CoreGo(CoreProtocol):
             if self._state in (_CoreState.ABORTING, _CoreState.CLOSING, _CoreState.CLOSED):
                 return
             self._state = _CoreState.ABORTING
-            if cause is not None:
-                self._abort_cause = cause
             rpc = self._rpc
             launcher = self._launcher
 

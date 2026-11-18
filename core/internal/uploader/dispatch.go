@@ -123,7 +123,6 @@ func isDispatched(typ record.Type) bool {
 // dispatch 按固定类型顺序处理一批；失败时返回该组剩余及全部后续组。
 func (u *Uploader) dispatch(records []*recordv1.Record) ([]*recordv1.Record, bool) {
 	groups := groupRecords(records)
-	var failures []Failure
 	for i, group := range groups {
 		tail := flattenGroups(groups[i+1:])
 		u.pending.Store(int64(len(group.records) + len(tail)))
@@ -145,16 +144,16 @@ func (u *Uploader) dispatch(records []*recordv1.Record) ([]*recordv1.Record, boo
 			}
 		}
 		u.confirm(result.Confirmed)
-		failures = append(failures, result.Failures...)
+		terminal := terminalFailures(result.Failures, result.Remaining)
+		u.recordHardFailures(terminal)
 
 		if len(result.Remaining) > 0 {
 			pending := remainingInBatchOrder(group.records, result.Remaining)
 			pending = append(pending, tail...)
 			u.pending.Store(int64(len(pending)))
-			// 随 Confirmed 终结的确定性失败不会再进入下一轮，必须在本轮立即告警；
-			// 否则重试成功后该失败会从 LastFailures 消失，用户只能看到通用重试提示。
-			u.warnTerminal(terminalFailures(result.Failures, result.Remaining))
-			u.setFailures(failures)
+			// 随 Confirmed 终结的确定性失败不会再进入下一轮，必须在本轮立即告警，
+			// 否则用户只能看到通用重试提示。
+			u.warnTerminal(terminal)
 			u.warn.Warn()
 			return pending, true
 		}
@@ -164,7 +163,6 @@ func (u *Uploader) dispatch(records []*recordv1.Record) ([]*recordv1.Record, boo
 		u.pending.Store(int64(len(tail)))
 	}
 	u.pending.Store(0)
-	u.setFailures(failures)
 	u.warn.Reset()
 	return nil, false
 }
@@ -207,11 +205,4 @@ func (u *Uploader) warnTerminal(failures []Failure) {
 	for _, failure := range failures {
 		u.warnFailure(failure.Message)
 	}
-}
-
-// setFailures 保存最近一次完整调度尝试的失败集合。
-func (u *Uploader) setFailures(failures []Failure) {
-	u.failuresMu.Lock()
-	u.failures = append(u.failures[:0], failures...)
-	u.failuresMu.Unlock()
 }

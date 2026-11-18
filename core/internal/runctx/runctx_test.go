@@ -2,6 +2,7 @@ package runctx
 
 import (
 	"errors"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -164,4 +165,69 @@ func TestCheckpointFile(t *testing.T) {
 	if _, err := c.CheckpointFile(); !errors.Is(err, config.ErrRunIDRequired) {
 		t.Fatalf("空 RunID 应返回 ErrRunIDRequired, got %v", err)
 	}
+}
+
+func TestFindSyncRunFile(t *testing.T) {
+	t.Run("single file", func(t *testing.T) {
+		dir := t.TempDir()
+		want := filepath.Join(dir, "run-abc.swanlab")
+		if err := os.WriteFile(want, nil, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "other.txt"), nil, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		got, err := FindSyncRunFile(dir)
+		if err != nil {
+			t.Fatalf("FindSyncRunFile: %v", err)
+		}
+		if got != want {
+			t.Fatalf("FindSyncRunFile = %q, want %q", got, want)
+		}
+	})
+
+	t.Run("missing file", func(t *testing.T) {
+		dir := t.TempDir()
+		if _, err := FindSyncRunFile(dir); !errors.Is(err, ErrNoSyncRunFile) {
+			t.Fatalf("got %v, want ErrNoSyncRunFile", err)
+		}
+	})
+
+	t.Run("multiple files", func(t *testing.T) {
+		dir := t.TempDir()
+		for _, name := range []string{"run-a.swanlab", "run-b.swanlab"} {
+			if err := os.WriteFile(filepath.Join(dir, name), nil, 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if _, err := FindSyncRunFile(dir); !errors.Is(err, ErrMultipleSyncRunFiles) {
+			t.Fatalf("got %v, want ErrMultipleSyncRunFiles", err)
+		}
+	})
+
+	t.Run("invalid run_dir", func(t *testing.T) {
+		if _, err := FindSyncRunFile(""); !errors.Is(err, config.ErrRunDirRequired) {
+			t.Fatalf("empty dir got %v, want ErrRunDirRequired", err)
+		}
+		file := filepath.Join(t.TempDir(), "not-a-dir")
+		if err := os.WriteFile(file, nil, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := FindSyncRunFile(file); err == nil {
+			t.Fatal("non-directory run_dir should fail")
+		}
+		if _, err := FindSyncRunFile(filepath.Join(t.TempDir(), "missing")); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("missing dir got %v, want ErrNotExist", err)
+		}
+	})
+
+	t.Run("directory named like run file", func(t *testing.T) {
+		dir := t.TempDir()
+		if err := os.Mkdir(filepath.Join(dir, "run-dir.swanlab"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := FindSyncRunFile(dir); err == nil {
+			t.Fatal("directory matching run-*.swanlab should fail")
+		}
+	})
 }

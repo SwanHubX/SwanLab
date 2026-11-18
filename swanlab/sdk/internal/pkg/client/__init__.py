@@ -168,6 +168,10 @@ class Client:
         return None
 
     @property
+    def api_key(self) -> str:
+        return self._api_key
+
+    @property
     def username(self) -> str:
         assert self._username is not None, "Username is not set. Ensure that the client is authenticated."
         return self._username

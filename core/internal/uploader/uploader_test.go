@@ -323,9 +323,6 @@ func TestInvalidResultRetriesWholeBatch(t *testing.T) {
 	if got := f.u.Stats().Pending; got != 3 {
 		t.Fatalf("pending = %d, want whole batch", got)
 	}
-	if failures := f.u.LastFailures(); len(failures) != 1 || failures[0].Message != "sender result does not account for every record" {
-		t.Fatalf("failures = %+v, want conservation failure", failures)
-	}
 
 	f.u.RequestFinish()
 	close(f.in)

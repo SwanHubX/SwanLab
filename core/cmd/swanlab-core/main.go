@@ -48,6 +48,7 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/pkg/process"
 	"github.com/swanhubx/swanlab/core/internal/server"
 	"github.com/swanhubx/swanlab/core/internal/service"
+	"github.com/swanhubx/swanlab/core/internal/syncer"
 )
 
 // version 与 commit 由构建管线通过 -ldflags -X 注入（见 core/hatch.py），
@@ -187,8 +188,11 @@ func run(args []string) int {
 	// - server.Controller: 负责 gRPC 进程宿主生命周期与优雅退出控制；
 	// - manager.Manager: 负责 Run 领域会话管理与路由注册；
 	// - service.CoreService: 负责 gRPC 请求接入与协议映射。
-	grpcServer, ctrl, mgr, idleMonitor := assembleServer(*idleTimeout)
-	defer func() { _ = mgr.Close() }()
+	grpcServer, ctrl, mgr, syncMgr, idleMonitor := assembleServer(*idleTimeout)
+	defer func() {
+		_ = mgr.Close()
+		_ = syncMgr.Close()
+	}()
 
 	// listen 与 server 初始化成功后写 port-file，并立即释放启动锁。
 	if *portFilename != "" {
@@ -467,7 +471,9 @@ func preparePortFileInDir(ctx context.Context, runtimeDir string) (string, *port
 	return filepath.Join(runtimeDir, portinfo.CorePortFileName), lock, nil
 }
 
-func assembleServer(idleTimeout time.Duration) (*grpc.Server, *server.Controller, *manager.Manager, *server.IdleMonitor) {
+func assembleServer(
+	idleTimeout time.Duration,
+) (*grpc.Server, *server.Controller, *manager.Manager, *syncer.Manager, *server.IdleMonitor) {
 	tracker := server.NewConnTracker()
 	grpcServer := grpc.NewServer(
 		grpc.MaxRecvMsgSize(maxRecvMsgSize),
@@ -482,27 +488,44 @@ func assembleServer(idleTimeout time.Duration) (*grpc.Server, *server.Controller
 		tracker.SetMonitor(idleMonitor)
 		ctrl.SetIdleMonitor(idleMonitor)
 	}
-	mgr := manager.New(manager.Options{HTTP: client.Options{Version: version}})
+	httpOpts := client.Options{Version: version}
+	mgr := manager.New(manager.Options{HTTP: httpOpts})
+	syncMgr := syncer.NewManager(syncer.Options{HTTP: httpOpts})
 	svc := service.NewCoreService(ctrl, mgr)
-	tracker.SetOnDisconnect(svc.HandleConnDisconnect)
+	syncSvc := service.NewSyncService(ctrl, syncMgr)
+	tracker.SetOnDisconnect(func(connID uint64) {
+		svc.HandleConnDisconnect(connID)
+		syncSvc.HandleConnDisconnect(connID)
+	})
 	// 关闭顺序：并发等待断连清理与活跃会话排空（共享 shutdownGrace），随后停止 gRPC。
 	ctrl.SetOnShutdown(func(ctx context.Context) error {
 		var (
-			waitErr     error
-			shutdownErr error
-			wg          sync.WaitGroup
+			waitRunErr      error
+			waitSyncErr     error
+			shutdownRunErr  error
+			shutdownSyncErr error
+			wg              sync.WaitGroup
 		)
-		wg.Add(1)
+		wg.Add(3)
 		go func() {
 			defer wg.Done()
-			waitErr = svc.WaitDisconnectCleanups(ctx)
+			waitRunErr = svc.WaitDisconnectCleanups(ctx)
 		}()
-		shutdownErr = mgr.Shutdown(ctx)
+		go func() {
+			defer wg.Done()
+			waitSyncErr = syncSvc.WaitDisconnectCleanups(ctx)
+		}()
+		go func() {
+			defer wg.Done()
+			shutdownSyncErr = syncMgr.Shutdown(ctx)
+		}()
+		shutdownRunErr = mgr.Shutdown(ctx)
 		wg.Wait()
-		return errors.Join(waitErr, shutdownErr)
+		return errors.Join(waitRunErr, waitSyncErr, shutdownRunErr, shutdownSyncErr)
 	})
 	svc.Register(grpcServer)
-	return grpcServer, ctrl, mgr, idleMonitor
+	syncSvc.Register(grpcServer)
+	return grpcServer, ctrl, mgr, syncMgr, idleMonitor
 }
 
 func watchParentIfAttached(detach bool, parentPID int) (<-chan struct{}, int, error) {
