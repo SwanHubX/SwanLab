@@ -5,8 +5,11 @@
 package runctx
 
 import (
+	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
+	"slices"
 
 	"github.com/swanhubx/swanlab/core/internal/config"
 	"github.com/swanhubx/swanlab/core/internal/pkg/fs"
@@ -14,6 +17,13 @@ import (
 
 // runIDMaxLen 是 run 文件名中 run_id 的最大字节长度。
 const runIDMaxLen = 100
+
+var (
+	// ErrNoSyncRunFile 表示 run_dir 中不存在 run-*.swanlab 文件。
+	ErrNoSyncRunFile = errors.New("no run-*.swanlab file found")
+	// ErrMultipleSyncRunFiles 表示 run_dir 中存在多个 run-*.swanlab 文件。
+	ErrMultipleSyncRunFiles = errors.New("multiple run-*.swanlab files found")
+)
 
 // RunContext 是单个 run 的运行上下文。
 type RunContext struct {
@@ -96,4 +106,39 @@ func (c *RunContext) SetOnlineParams(p OnlineParams) {
 // Online 返回已注入的云端身份信息；未注入时第二个返回值为 false。
 func (c *RunContext) Online() (OnlineParams, bool) {
 	return c.online, c.hasOnline
+}
+
+// FindSyncRunFile 在 runDir 下查找唯一的 run-*.swanlab 文件供 sync 读取。
+// sync 模式下目标 run_id 可能被覆盖或新生成，因此不能按 RunContext.RunID 拼接文件名。
+func FindSyncRunFile(runDir string) (string, error) {
+	if runDir == "" {
+		return "", fmt.Errorf("runctx: %w", config.ErrRunDirRequired)
+	}
+	info, err := os.Stat(runDir)
+	if err != nil {
+		return "", fmt.Errorf("runctx: stat run_dir %q: %w", runDir, err)
+	}
+	if !info.IsDir() {
+		return "", fmt.Errorf("runctx: run_dir %q is not a directory", runDir)
+	}
+	matches, err := filepath.Glob(filepath.Join(runDir, "run-*.swanlab"))
+	if err != nil {
+		return "", fmt.Errorf("runctx: scan run files in %q: %w", runDir, err)
+	}
+	slices.Sort(matches)
+	switch len(matches) {
+	case 0:
+		return "", fmt.Errorf("runctx: %w in %s", ErrNoSyncRunFile, runDir)
+	case 1:
+		fileInfo, err := os.Stat(matches[0])
+		if err != nil {
+			return "", fmt.Errorf("runctx: stat run file %q: %w", matches[0], err)
+		}
+		if fileInfo.IsDir() {
+			return "", fmt.Errorf("runctx: run file %q is a directory", matches[0])
+		}
+		return matches[0], nil
+	default:
+		return "", fmt.Errorf("runctx: %w in %s", ErrMultipleSyncRunFiles, runDir)
+	}
 }

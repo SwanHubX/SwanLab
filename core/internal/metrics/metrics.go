@@ -135,6 +135,17 @@ func (m *RunMetrics) MinStep(key string) (int64, bool) {
 	return mt.minStep, true
 }
 
+// AllowReplay 重置已定义列的 step 水位线，允许范围同步回放历史上报过的 step；
+// 本次同步期间新接纳的 step 仍由各列的位图去重。
+func (m *RunMetrics) AllowReplay() {
+	if m == nil {
+		return
+	}
+	for _, mt := range m.metrics {
+		mt.minStep = -1
+	}
+}
+
 // DefineScalar 定义标量指标；minStep 语义见 Define。
 func (m *RunMetrics) DefineScalar(key string, col *columnv1.ColumnRecord, minStep int64) error {
 	return m.Define(key, col, minStep, KindScalar)
