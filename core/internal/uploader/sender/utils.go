@@ -158,7 +158,7 @@ func resetFileProgress(tracker *uploader.Tracker, fileKey, uploadKey string) {
 	}
 }
 
-// blockedFailure 包装确定性失败的记录。
+// blockedFailure 包装本地规则预期跳过的记录，不计入 HardFailures。
 func blockedFailure(message string, records ...*recordv1.Record) *uploader.Failure {
 	return &uploader.Failure{Message: message, Records: records}
 }
@@ -179,8 +179,9 @@ func confirmedFailure(record *recordv1.Record, message string) uploader.Result {
 
 // batchFailure 把整批请求失败按可重试语义分流。
 func batchFailure(records []*recordv1.Record, err error) uploader.Result {
-	failure := uploader.Failure{Message: err.Error(), Records: records, Err: err}
-	if isRetryable(err) {
+	retryable := isRetryable(err)
+	failure := uploader.Failure{Message: err.Error(), Records: records, Err: err, Rejected: !retryable}
+	if retryable {
 		return uploader.Result{Remaining: records, Failures: []uploader.Failure{failure}}
 	}
 	return uploader.Result{Confirmed: records, Failures: []uploader.Failure{failure}}

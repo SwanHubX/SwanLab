@@ -72,7 +72,8 @@ func (s *syncSession) verifyStartRecord(reader *store.Reader) error {
 	payload, err := reader.Scan()
 	if err != nil {
 		if errors.Is(err, io.EOF) {
-			return fmt.Errorf(missingEmptyRunFileMsg, s.runFile)
+			// 这些常量会直接作为 Confirm 的业务消息返回给用户，故意保留首字母大写。
+			return fmt.Errorf(missingEmptyRunFileMsg, s.runFile) //nolint:staticcheck // ST1005
 		}
 		return fmt.Errorf("failed to read run file %s: %w", s.runFile, err)
 	}
@@ -82,7 +83,7 @@ func (s *syncSession) verifyStartRecord(reader *store.Reader) error {
 	}
 	start := rec.GetStart()
 	if start == nil {
-		return errors.New(missingStartRecordMsg)
+		return errors.New(missingStartRecordMsg) //nolint:staticcheck // ST1005
 	}
 	if want := s.startRecord.GetId(); want != "" && start.GetId() != want {
 		return fmt.Errorf("run file %s was replaced: start id %q does not match %q", s.runFile, start.GetId(), want)

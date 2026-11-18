@@ -541,15 +541,15 @@ func (u *Uploader) LastFailures() []Failure {
 	return append([]Failure(nil), u.failures...)
 }
 
-// HardFailures 返回累计被云端确定性拒绝（不可重试）的记录数。
-// 本地校验不通过而预期跳过的记录不计入；调用方据此判定本次 replay 是否成功。
+// HardFailures 返回累计确定性失败（不可重试）的记录数。
+// 本地规则预期跳过而忽略的记录不计入；调用方据此判定本次 replay 是否成功。
 func (u *Uploader) HardFailures() int64 { return u.hardFailures.Load() }
 
-// recordHardFailures 只统计带 Err 的终结失败（云端/编码拒绝），blocked 类本地跳过没有 Err。
+// recordHardFailures 只统计标记为确定性失败的终结项，本地规则预期跳过不计入。
 func (u *Uploader) recordHardFailures(failures []Failure) {
 	var rejected int64
 	for _, failure := range failures {
-		if failure.Err == nil {
+		if !failure.Rejected {
 			continue
 		}
 		rejected += int64(len(failure.Records))

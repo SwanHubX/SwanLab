@@ -61,7 +61,6 @@ class CoreSyncGo(CoreSyncProtocol):
         self._core_rpc: Optional[CoreServiceRpc] = None
         self._sync_rpc: Optional[CoreSyncRpc] = None
         self._last_error: Optional[CoreGoError] = None
-        self._abort_cause: Optional[BaseException] = None
         self._exit_code: Optional[int] = None
 
     @property
@@ -157,12 +156,6 @@ class CoreSyncGo(CoreSyncProtocol):
 
         try:
             response = sync_rpc.deliver_sync_flush()
-            if not response.success:
-                raise CoreGoError(
-                    Stage.RUN_START,
-                    ReasonCode.RUN_START_REJECTED,
-                    response.message or "DeliverSyncFlush rejected",
-                )
             with self._lock:
                 if self._state is not _SyncState.FLUSHING:
                     raise CoreGoError(Stage.LIFECYCLE, ReasonCode.CLOSED, "sync core was closed during flush")
@@ -218,12 +211,6 @@ class CoreSyncGo(CoreSyncProtocol):
         with self._lock:
             if self._state is _SyncState.FINISHING:
                 self._state = _SyncState.FINISHED
-            if not response.success:
-                self._last_error = CoreGoError(
-                    Stage.LIFECYCLE,
-                    ReasonCode.RUN_FINISH_REJECTED,
-                    response.message or "ConfirmSyncFinish rejected",
-                )
         return response
 
     # ---------------------------------- 生命周期回收 ----------------------------------
@@ -264,8 +251,6 @@ class CoreSyncGo(CoreSyncProtocol):
             if self._state in (_SyncState.ABORTING, _SyncState.CLOSING, _SyncState.CLOSED):
                 return
             self._state = _SyncState.ABORTING
-            if cause is not None:
-                self._abort_cause = cause
             core_rpc = self._core_rpc
             launcher = self._launcher
 

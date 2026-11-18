@@ -121,9 +121,10 @@ func (s *MediaSender) Upload(ctx context.Context, records []*recordv1.Record) up
 		terminal := false
 		for _, taskErr := range taskErrors {
 			failures = append(failures, uploader.Failure{
-				Message: taskErr.Error(),
-				Records: []*recordv1.Record{task.record},
-				Err:     taskErr,
+				Message:  taskErr.Error(),
+				Records:  []*recordv1.Record{task.record},
+				Err:      taskErr,
+				Rejected: !putErrorRetryable(taskErr),
 			})
 			if !putErrorRetryable(taskErr) {
 				terminal = true
@@ -149,7 +150,12 @@ func (s *MediaSender) Upload(ctx context.Context, records []*recordv1.Record) up
 		readyRecords = append(readyRecords, task.record)
 	}
 	if err := s.opts.API.UploadMetrics(ctx, api.MetricMedia, s.opts.ProjectID, s.opts.ExperimentID, metrics); err != nil {
-		failures = append(failures, uploader.Failure{Message: err.Error(), Records: readyRecords, Err: err})
+		failures = append(failures, uploader.Failure{
+			Message:  err.Error(),
+			Records:  readyRecords,
+			Err:      err,
+			Rejected: !isRetryable(err),
+		})
 		if isRetryable(err) {
 			remaining = append(remaining, readyRecords...)
 		} else {
@@ -317,7 +323,12 @@ func (s *MediaSender) presignFailure(
 	payloads []*mediaPayload,
 ) uploader.Result {
 	failures := append([]uploader.Failure{}, blockedFailures...)
-	failures = append(failures, uploader.Failure{Message: err.Error(), Records: uploadable, Err: err})
+	failures = append(failures, uploader.Failure{
+		Message:  err.Error(),
+		Records:  uploadable,
+		Err:      err,
+		Rejected: !isRetryable(err),
+	})
 	if isRetryable(err) {
 		return uploader.Result{Confirmed: blocked, Remaining: uploadable, Failures: failures}
 	}

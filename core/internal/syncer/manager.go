@@ -166,6 +166,9 @@ func (m *Manager) Close() error {
 	if err != nil {
 		console.Warningf("syncer shutdown: %v", err)
 	}
+	if closeErr := m.factory.Close(); closeErr != nil {
+		err = errors.Join(err, closeErr)
+	}
 	return err
 }
 

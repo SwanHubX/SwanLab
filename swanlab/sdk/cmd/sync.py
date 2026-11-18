@@ -150,14 +150,10 @@ def _core_sync_lifecycle(core: CoreSyncProtocol) -> Iterator[CoreSyncProtocol]:
     try:
         yield core
     except BaseException as exc:
-        abort_fn = getattr(core, "abort", None)
-        if callable(abort_fn):
-            abort_fn(exc)
+        core.abort(exc)
         raise
     else:
-        close_fn = getattr(core, "close", None)
-        if callable(close_fn):
-            close_fn()
+        core.close()
 
 
 def ensure_run_dir(run_dir: DirectoryPath) -> DirectoryPath:

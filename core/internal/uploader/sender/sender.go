@@ -127,9 +127,10 @@ func (s *ColumnSender) Upload(ctx context.Context, records []*recordv1.Record) u
 			return uploader.Result{
 				Confirmed: records,
 				Failures: []uploader.Failure{{
-					Message: "failed to encode column: " + err.Error(),
-					Records: records,
-					Err:     err,
+					Message:  "failed to encode column: " + err.Error(),
+					Records:  records,
+					Err:      err,
+					Rejected: true,
 				}},
 			}
 		}
@@ -142,7 +143,12 @@ func (s *ColumnSender) Upload(ctx context.Context, records []*recordv1.Record) u
 		end := min(start+columnChunk, len(records))
 		batch := records[start:end]
 		if err := s.opts.API.UploadColumns(ctx, s.opts.Username, s.opts.Project, columns[start:end]); err != nil {
-			failures = append(failures, uploader.Failure{Message: err.Error(), Records: batch, Err: err})
+			failures = append(failures, uploader.Failure{
+				Message:  err.Error(),
+				Records:  batch,
+				Err:      err,
+				Rejected: !isRetryable(err),
+			})
 			if isRetryable(err) {
 				return uploader.Result{
 					Confirmed: confirmed,
@@ -227,7 +233,12 @@ func (s *ScalarSender) Upload(ctx context.Context, records []*recordv1.Record) u
 	}
 
 	failures := make([]uploader.Failure, 0, 1+len(blocked))
-	failures = append(failures, uploader.Failure{Message: err.Error(), Records: encodable, Err: err})
+	failures = append(failures, uploader.Failure{
+		Message:  err.Error(),
+		Records:  encodable,
+		Err:      err,
+		Rejected: !isRetryable(err),
+	})
 	failures = append(failures, blockedFailures(scalarBlockedMessage, blocked)...)
 	if isRetryable(err) {
 		return uploader.Result{Confirmed: blocked, Remaining: encodable, Failures: failures}
@@ -303,7 +314,12 @@ func (s *LogSender) Upload(ctx context.Context, records []*recordv1.Record) uplo
 	}
 
 	failures := make([]uploader.Failure, 0, 1+len(blockedOnly))
-	failures = append(failures, uploader.Failure{Message: err.Error(), Records: encodable, Err: err})
+	failures = append(failures, uploader.Failure{
+		Message:  err.Error(),
+		Records:  encodable,
+		Err:      err,
+		Rejected: !isRetryable(err),
+	})
 	failures = append(failures, blockedOnly...)
 	if isRetryable(err) {
 		return uploader.Result{Confirmed: terminal, Remaining: encodable, Failures: failures}

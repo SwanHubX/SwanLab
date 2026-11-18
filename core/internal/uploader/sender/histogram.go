@@ -67,7 +67,12 @@ func (s *HistogramSender) Upload(ctx context.Context, records []*recordv1.Record
 			confirmed = append(confirmed, batch...)
 			continue
 		}
-		failures = append(failures, uploader.Failure{Message: err.Error(), Records: batch, Err: err})
+		failures = append(failures, uploader.Failure{
+			Message:  err.Error(),
+			Records:  batch,
+			Err:      err,
+			Rejected: !isRetryable(err),
+		})
 		if isRetryable(err) {
 			return uploader.Result{
 				Confirmed: append(confirmed, terminal...),

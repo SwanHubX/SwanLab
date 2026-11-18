@@ -25,9 +25,7 @@ class FakeFinishRpc:
 
     def __init__(self) -> None:
         self.deliver_error: Optional[BaseException] = None
-        self.deliver_response = DeliverRunFinishResponse(success=True)
         self.confirm_error: Optional[BaseException] = None
-        self.confirm_response = ConfirmRunFinishResponse(success=True)
         self.deliver_calls = 0
         self.confirm_calls = 0
         self.teardown_calls: List[float] = []
@@ -36,13 +34,13 @@ class FakeFinishRpc:
         self.deliver_calls += 1
         if self.deliver_error is not None:
             raise self.deliver_error
-        return self.deliver_response
+        return DeliverRunFinishResponse(success=True)
 
     def confirm_run_finish(self, _session_id: str) -> ConfirmRunFinishResponse:
         self.confirm_calls += 1
         if self.confirm_error is not None:
             raise self.confirm_error
-        return self.confirm_response
+        return ConfirmRunFinishResponse(success=True)
 
     def teardown(self, timeout: float = 0) -> None:
         self.teardown_calls.append(timeout)
@@ -89,20 +87,6 @@ def test_deliver_finish_rejection_is_terminal():
     assert error.retryable is False
 
 
-def test_deliver_finish_rejected_response_is_terminal():
-    """RPC 层不抛错时，CoreGo 仍需把语义拒绝标记为不可重试。"""
-    rpc = FakeFinishRpc()
-    rpc.deliver_response = DeliverRunFinishResponse(success=False, message="store failed")
-    core = _running_core(rpc)
-
-    response = core.deliver_run_finish(DeliverRunFinishRequest())
-
-    assert response.success is False
-    assert core.last_error is not None
-    assert core.last_error.reason is ReasonCode.RUN_FINISH_REJECTED
-    assert core.last_error.retryable is False
-
-
 def test_confirm_rpc_error_is_retryable_and_keeps_session():
     error = CoreGoError(Stage.RPC, ReasonCode.GRPC_UNAVAILABLE, "stop experiment failed")
     rpc = FakeFinishRpc()
@@ -114,20 +98,6 @@ def test_confirm_rpc_error_is_retryable_and_keeps_session():
     assert response.success is False
     assert core.last_error is error
     assert error.retryable is True
-    assert core._session_id == "session-1"  # noqa: SLF001
-
-
-def test_confirm_rejected_response_is_terminal_and_keeps_session():
-    rpc = FakeFinishRpc()
-    rpc.confirm_response = ConfirmRunFinishResponse(success=False, message="saved locally")
-    core = _finished_core(rpc)
-
-    response = core.confirm_run_finish()
-
-    assert response.success is False
-    assert core.last_error is not None
-    assert core.last_error.reason is ReasonCode.RUN_FINISH_REJECTED
-    assert core.last_error.retryable is False
     assert core._session_id == "session-1"  # noqa: SLF001
 
 

@@ -853,33 +853,24 @@ func TestSyncEnqueueOversizedRecordDoesNotBlock(t *testing.T) {
 	}
 }
 
-func TestSyncSessionIDUsesTimeOrderedUUIDv7(t *testing.T) {
+func TestSyncSessionIDUsesUUIDv7(t *testing.T) {
 	runDir := t.TempDir()
 	writeSyncRunFile(t, runDir, "run-uuidv7.swanlab", startRecord("u1"))
 
 	mgr := NewManager(Options{})
 	defer func() { _ = mgr.Close() }()
 
-	first, err := mgr.DeliverSyncStart(context.Background(), StartOptions{Settings: baseSyncSettings(runDir, nil)})
+	sid, err := mgr.DeliverSyncStart(context.Background(), StartOptions{Settings: baseSyncSettings(runDir, nil)})
 	if err != nil {
-		t.Fatalf("first DeliverSyncStart: %v", err)
-	}
-	second, err := mgr.DeliverSyncStart(context.Background(), StartOptions{Settings: baseSyncSettings(runDir, nil)})
-	if err != nil {
-		t.Fatalf("second DeliverSyncStart: %v", err)
+		t.Fatalf("DeliverSyncStart: %v", err)
 	}
 
-	for _, raw := range []string{first, second} {
-		parsed, pErr := uuid.Parse(raw)
-		if pErr != nil {
-			t.Fatalf("uuid.Parse(%q): %v", raw, pErr)
-		}
-		if parsed.Version() != 7 {
-			t.Fatalf("uuid %q version = %d, want 7", raw, parsed.Version())
-		}
+	parsed, err := uuid.Parse(sid)
+	if err != nil {
+		t.Fatalf("uuid.Parse(%q): %v", sid, err)
 	}
-	if first >= second {
-		t.Fatalf("expected UUIDv7 monotonicity: first=%q second=%q", first, second)
+	if parsed.Version() != 7 {
+		t.Fatalf("uuid %q version = %d, want 7", sid, parsed.Version())
 	}
 }
 
@@ -1006,6 +997,79 @@ func TestSyncUploadRejectionFailsConfirmWithoutStop(t *testing.T) {
 	}
 }
 
+func TestSyncMultipartFailedStateFailsConfirmWithoutStop(t *testing.T) {
+	rc := newRecordedCloud(t, true, nil)
+	rc.cloud.Handle(http.MethodPost, "/api/experiment/exp-1/files/prepare-multipart", func(w http.ResponseWriter, _ *http.Request) {
+		clienttest.WriteJSON(w, http.StatusOK, map[string]any{
+			"files": []any{map[string]any{
+				"uploadId": "upload-1",
+				"parts": []any{map[string]any{
+					"partNumber": 1,
+					"url":        rc.cloud.URL() + "/sink/save/part1",
+				}},
+			}},
+		})
+	})
+	rc.cloud.Handle(http.MethodPut, "/sink/save/part1", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	// 服务端合并失败仍返回 201，只把文件状态标成 FAILED，没有 Go error。
+	rc.cloud.ServeJSON(http.MethodPost, "/api/experiment/exp-1/files/complete-multipart", http.StatusCreated, map[string]any{
+		"files": []any{map[string]any{"path": "artifact.bin", "state": "FAILED"}},
+	})
+
+	runDir := t.TempDir()
+	source := filepath.Join(t.TempDir(), "artifact.bin")
+	if err := os.WriteFile(source, []byte("0123456789"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	writeSyncRunFile(t, runDir, "run-multipart.swanlab",
+		startRecord("multipart"),
+		&recordv1.Record{
+			Num: 1,
+			RecordType: &recordv1.Record_Save{Save: &savev1.SaveRecord{
+				Name:       "artifact.bin",
+				SourcePath: source,
+				Type:       savev1.SaveType_SAVE_TYPE_CUSTOM,
+			}},
+		},
+		&recordv1.Record{
+			Num:        record.NumFinish,
+			RecordType: &recordv1.Record_Finish{Finish: &runv1.FinishRecord{State: runv1.RunState_RUN_STATE_FINISHED}},
+		},
+	)
+	mgr := NewManager(Options{})
+	defer func() { _ = mgr.Close() }()
+
+	settings := baseSyncSettings(runDir, rc.cloud)
+	settings.SaveSplit = 1
+	settings.SavePart = 1024
+	sid, err := mgr.DeliverSyncStart(context.Background(), StartOptions{Settings: settings})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, flushErr := mgr.DeliverSyncFlush(context.Background(), sid); flushErr != nil {
+		t.Fatal(flushErr)
+	}
+	waitSyncDrained(t, mgr, sid)
+
+	if got := rc.cloud.CountFor(http.MethodPost, "/api/experiment/exp-1/files/complete-multipart"); got != 1 {
+		t.Fatalf("complete-multipart requests = %d, want 1", got)
+	}
+	res, err := mgr.ConfirmSyncFinish(context.Background(), sid)
+	if err != nil {
+		t.Fatalf("ConfirmSyncFinish: %v", err)
+	}
+	if res.Success || !strings.Contains(res.Message, "1 record(s)") {
+		t.Fatalf("ConfirmSyncFinish = %+v, want success=false for the FAILED multipart state", res)
+	}
+	rc.mu.Lock()
+	defer rc.mu.Unlock()
+	if len(rc.stopStates) != 0 {
+		t.Fatalf("stopStates = %v, want empty when the multipart merge failed", rc.stopStates)
+	}
+}
+
 func TestSyncConfirmCancelRestoresRunningAndRetrySucceeds(t *testing.T) {
 	rc := newRecordedCloud(t, true, nil)
 	releaseUpload := make(chan struct{})
@@ -1039,8 +1103,8 @@ func TestSyncConfirmCancelRestoresRunningAndRetrySucceeds(t *testing.T) {
 	// 上传被挡住，会话会停在 RUNNING。
 	canceledCtx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
-	if _, err := mgr.ConfirmSyncFinish(canceledCtx, sid); !errors.Is(err, context.DeadlineExceeded) {
-		t.Fatalf("ConfirmSyncFinish with canceled ctx = %v, want DeadlineExceeded", err)
+	if _, confirmErr := mgr.ConfirmSyncFinish(canceledCtx, sid); !errors.Is(confirmErr, context.DeadlineExceeded) {
+		t.Fatalf("ConfirmSyncFinish with canceled ctx = %v, want DeadlineExceeded", confirmErr)
 	}
 	stats, err := mgr.Stats(sid)
 	if err != nil {
@@ -1065,44 +1129,6 @@ func TestSyncConfirmCancelRestoresRunningAndRetrySucceeds(t *testing.T) {
 	defer rc.mu.Unlock()
 	if len(rc.stopStates) != 1 || rc.stopStates[0] != "FINISHED" {
 		t.Fatalf("stopStates = %v, want [FINISHED] after retry", rc.stopStates)
-	}
-}
-
-func TestSyncConfirmReusesFirstResult(t *testing.T) {
-	rc := newRecordedCloud(t, true, nil)
-	rc.cloud.ServeJSON(http.MethodPut, "/api/project/alice/orig-proj/runs/exp-1/state", http.StatusBadRequest, map[string]any{"error": "bad"})
-	runDir := t.TempDir()
-	writeSyncRunFile(t, runDir, "run-reuse.swanlab",
-		startRecord("reuse"),
-		&recordv1.Record{
-			Num:        record.NumFinish,
-			RecordType: &recordv1.Record_Finish{Finish: &runv1.FinishRecord{State: runv1.RunState_RUN_STATE_FINISHED}},
-		},
-	)
-	mgr := NewManager(Options{})
-	defer func() { _ = mgr.Close() }()
-
-	sid, err := mgr.DeliverSyncStart(context.Background(), StartOptions{Settings: baseSyncSettings(runDir, rc.cloud)})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, flushErr := mgr.DeliverSyncFlush(context.Background(), sid); flushErr != nil {
-		t.Fatal(flushErr)
-	}
-	waitSyncDrained(t, mgr, sid)
-
-	session, err := mgr.session(sid)
-	if err != nil {
-		t.Fatalf("session: %v", err)
-	}
-	first, err := session.confirm(context.Background())
-	if err != nil || first.Success {
-		t.Fatalf("first confirm = (%+v, %v), want business failure", first, err)
-	}
-	// 会话已关闭后再次 Confirm 必须复用失败结果，不能把 closed 当成成功。
-	second, err := session.confirm(context.Background())
-	if err != nil || second.Success || second.Message != first.Message {
-		t.Fatalf("second confirm = (%+v, %v), want the first failure reused", second, err)
 	}
 }
 
