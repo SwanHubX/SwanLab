@@ -20,6 +20,9 @@ func TestTypeMatchesPythonRegistry(t *testing.T) {
 		{"logo.svgz", "image/svg+xml"},
 		{"scan.tiff", "image/tiff"},
 		{"scan.tif", "image/tiff"},
+		{"clip.mp4", "video/mp4"},
+		{"clip.webm", "video/webm"},
+		{"clip.ogg", "video/ogg"},
 		{"train.py", "text/x-python"},
 		{"notes.txt", "text/plain"},
 		{"meta.json", "application/json"},
@@ -39,6 +42,7 @@ func TestTypeIgnoresCase(t *testing.T) {
 		"PHOTO.PNG":   "image/png",
 		"Config.YAML": "application/yaml",
 		"NOTES.TXT":   "text/plain",
+		"CLIP.OGG":    "video/ogg",
 	} {
 		if got := Type(path); got != want {
 			t.Errorf("Type(%q) = %q, want %q", path, got, want)
