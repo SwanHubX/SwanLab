@@ -7,5 +7,6 @@
 
 from .channel import Channel
 from .core_service import CoreServiceRpc
+from .sync_service import CoreSyncRpc
 
-__all__ = ["Channel", "CoreServiceRpc"]
+__all__ = ["Channel", "CoreServiceRpc", "CoreSyncRpc"]

@@ -11,5 +11,6 @@ CoreEnum.CORE（"Core"）对应本包 CoreGo；CoreEnum.CORE_PYTHON 对应 CoreP
 from swanlab.sdk.internal.core_go.config import CoreGoError, ReasonCode, Stage, reason_for_grpc
 from swanlab.sdk.internal.core_go.core import CoreGo
 from swanlab.sdk.internal.core_go.runtime import locate_core_binary
+from swanlab.sdk.internal.core_go.sync import CoreSyncGo
 
-__all__ = ["CoreGo", "CoreGoError", "ReasonCode", "Stage", "locate_core_binary", "reason_for_grpc"]
+__all__ = ["CoreGo", "CoreGoError", "CoreSyncGo", "ReasonCode", "Stage", "locate_core_binary", "reason_for_grpc"]

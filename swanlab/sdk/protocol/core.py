@@ -523,3 +523,9 @@ class CoreSyncProtocol(ABC):
 
     @abstractmethod
     def confirm_sync_finish(self) -> ConfirmSyncFinishResponse: ...
+
+    def close(self) -> None:
+        """正常关闭并释放底层同步资源；默认空实现以兼容纯 Python sync。"""
+
+    def abort(self, cause: Optional[BaseException] = None) -> None:
+        """失败或中断路径回收底层同步资源；默认空实现以兼容纯 Python sync。"""
