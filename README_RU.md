@@ -266,7 +266,7 @@ Self-hosted версия (Community Edition) позволяет разверну
 - [Сегментация медицинских изображений с помощью U-Net](https://docs.swanlab.cn/en/examples/unet-medical-segmentation.html)
 - [Классификация аудиосигналов](https://docs.swanlab.cn/en/examples/audio_classification.html)
 - [Обучение с подкреплением DQN — задача CartPole](https://docs.swanlab.cn/en/examples/dqn_cartpole.html)
-- [Прогнозирование цен акций Google с помощью LSTM](https://docs.swanlab.cn/en/examples/audio_classification.html)
+- [Прогнозирование цен акций Google с помощью LSTM](https://docs.swanlab.cn/en/examples/lstm_stock.html)
 - [Классификация текстов с помощью BERT](https://docs.swanlab.cn/en/examples/bert.html)
 - [Дообучение Stable Diffusion (Text-to-Image)](https://docs.swanlab.cn/en/examples/stable_diffusion.html)
 - [Предобучение (Pre-training) LLM с нуля](https://docs.swanlab.cn/en/examples/pretrain_llm.html)
@@ -393,7 +393,7 @@ SwanLab автоматически собирает **спецификации �
 
 ## 🔌 Плагины и API
 
-Расширяйте функциональность SwanLab и автоматизируйте рабочие процессы с помощью плагинов:
+Расширяйте функциональность SwanLab с помощью плагинов или используйте открытый API, чтобы встроить возможности управления командами и анализа экспериментов SwanLab в ваш проект — это сделает работу с экспериментами удобнее:
 
 - [Создание собственного плагина](https://docs.swanlab.cn/en/plugin/custom-plugin.html)
 - [Уведомления по Email](https://docs.swanlab.cn/en/plugin/notification-email.html)
@@ -407,7 +407,8 @@ SwanLab автоматически собирает **спецификации �
 
 Программный интерфейс (API):
 
-- [Документация OpenAPI](https://docs.swanlab.cn/en/api/py-openapi.html)
+- [OpenAPI](https://docs.swanlab.cn/en/api/py-api.html)
+- [RestAPI](https://docs.swanlab.cn/en/api/rest/)
 
 <br>
 

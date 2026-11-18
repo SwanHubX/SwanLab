@@ -266,7 +266,7 @@ for i in range(10):
 - [UNet医学影像分割](https://docs.swanlab.cn/examples/unet-medical-segmentation.html)
 - [音频分类](https://docs.swanlab.cn/examples/audio_classification.html)
 - [DQN强化学习-推车倒立摆](https://docs.swanlab.cn/examples/dqn_cartpole.html)
-- [LSTM Google股票预测](https://docs.swanlab.cn/examples/audio_classification.html)
+- [LSTM Google股票预测](https://docs.swanlab.cn/examples/lstm_stock.html)
 - [BERT文本分类](https://docs.swanlab.cn/examples/bert.html)
 - [Stable Diffusion文生图微调](https://docs.swanlab.cn/examples/stable_diffusion.html)
 - [LLM预训练](https://docs.swanlab.cn/examples/pretrain_llm.html)
@@ -393,7 +393,7 @@ SwanLab会对AI训练过程中所使用的**硬件信息**和**资源使用情�
 
 ## 🔌 插件与API
 
-欢迎通过插件来拓展SwanLab的功能，增强你的实验管理体验！
+欢迎通过插件来拓展SwanLab的功能，以及开放接口将 SwanLab 的团队管理与实验分析功能集成到你的项目，从而增强你的实验管理体验！
 
 - [自定义你的插件](https://docs.swanlab.cn/plugin/custom-plugin.html)
 - [邮件通知](https://docs.swanlab.cn/plugin/notification-email.html)
@@ -407,7 +407,8 @@ SwanLab会对AI训练过程中所使用的**硬件信息**和**资源使用情�
 
 开放接口：
 
-- [OpenAPI](https://docs.swanlab.cn/api/py-openapi.html)
+- [OpenAPI](https://docs.swanlab.cn/api/py-api.html)
+- [RestAPI](https://docs.swanlab.cn/api/rest/)
 
 <br>
 
