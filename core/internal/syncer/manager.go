@@ -176,7 +176,12 @@ func (m *Manager) hasCapacity() bool {
 }
 
 func (m *Manager) install(s *syncSession) (string, error) {
-	id := uuid.NewString()
+	rawID, err := uuid.NewV7()
+	if err != nil {
+		return "", fmt.Errorf("generate sync session id: %w", err)
+	}
+	id := rawID.String()
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if len(m.sessions) >= maxSyncSessions {

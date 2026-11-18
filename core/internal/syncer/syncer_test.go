@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"go.uber.org/goleak"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -848,5 +849,35 @@ func TestSyncEnqueueOversizedRecordDoesNotBlock(t *testing.T) {
 	}
 	if got := s.tracker.Snapshot().GetTotalRecords(); got != 1 {
 		t.Fatalf("total_records = %d, want 1", got)
+	}
+}
+
+func TestSyncSessionIDUsesTimeOrderedUUIDv7(t *testing.T) {
+	runDir := t.TempDir()
+	writeSyncRunFile(t, runDir, "run-uuidv7.swanlab", startRecord("u1"))
+
+	mgr := NewManager(Options{})
+	defer func() { _ = mgr.Close() }()
+
+	first, err := mgr.DeliverSyncStart(context.Background(), StartOptions{Settings: baseSyncSettings(runDir, nil)})
+	if err != nil {
+		t.Fatalf("first DeliverSyncStart: %v", err)
+	}
+	second, err := mgr.DeliverSyncStart(context.Background(), StartOptions{Settings: baseSyncSettings(runDir, nil)})
+	if err != nil {
+		t.Fatalf("second DeliverSyncStart: %v", err)
+	}
+
+	for _, raw := range []string{first, second} {
+		parsed, pErr := uuid.Parse(raw)
+		if pErr != nil {
+			t.Fatalf("uuid.Parse(%q): %v", raw, pErr)
+		}
+		if parsed.Version() != 7 {
+			t.Fatalf("uuid %q version = %d, want 7", raw, parsed.Version())
+		}
+	}
+	if first >= second {
+		t.Fatalf("expected UUIDv7 monotonicity: first=%q second=%q", first, second)
 	}
 }
