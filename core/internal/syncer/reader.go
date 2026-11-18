@@ -2,6 +2,7 @@ package syncer
 
 import (
 	"errors"
+	"fmt"
 	"io"
 
 	"google.golang.org/protobuf/proto"
@@ -24,11 +25,16 @@ func (s *syncSession) scanLoop() {
 
 	reader, err := store.Open(s.runFile)
 	if err != nil {
-		console.Warningf("sync: open run file %s failed: %v", s.runFile, err)
-		s.finishScan()
+		s.finishScan(fmt.Errorf("failed to open run file %s: %w", s.runFile, err))
 		return
 	}
 	defer func() { _ = reader.Close() }()
+
+	// 首条 StartRecord 已在 DeliverSyncStart 校验过；这里重验一次，避免源文件被同名替换后把新数据写进旧目标。
+	if verr := s.verifyStartRecord(reader); verr != nil {
+		s.finishScan(verr)
+		return
+	}
 
 	for {
 		if s.ctx.Err() != nil {
@@ -41,7 +47,9 @@ func (s *syncSession) scanLoop() {
 			case errors.Is(scanErr, store.ErrTruncated), errors.Is(scanErr, store.ErrCorrupt):
 				console.Warningf("sync: stopped scanning %s due to store corruption: %v", s.runFile, scanErr)
 			default:
-				console.Warningf("sync: scan %s failed: %v", s.runFile, scanErr)
+				// 真实 I/O 失败不能当成“正常扫描到尾”，必须传给 Confirm 拒绝成功。
+				s.finishScan(fmt.Errorf("failed to scan run file %s: %w", s.runFile, scanErr))
+				return
 			}
 			break
 		}
@@ -56,14 +64,42 @@ func (s *syncSession) scanLoop() {
 		}
 	}
 
-	s.finishScan()
+	s.finishScan(nil)
 }
 
-func (s *syncSession) finishScan() {
+// verifyStartRecord 消费首条 StartRecord，并校验它与 Start 阶段读到的 run id 一致。
+func (s *syncSession) verifyStartRecord(reader *store.Reader) error {
+	payload, err := reader.Scan()
+	if err != nil {
+		if errors.Is(err, io.EOF) {
+			return fmt.Errorf(missingEmptyRunFileMsg, s.runFile)
+		}
+		return fmt.Errorf("failed to read run file %s: %w", s.runFile, err)
+	}
+	rec := &recordv1.Record{}
+	if err := proto.Unmarshal(payload, rec); err != nil {
+		return fmt.Errorf("failed to parse run file %s: %w", s.runFile, err)
+	}
+	start := rec.GetStart()
+	if start == nil {
+		return errors.New(missingStartRecordMsg)
+	}
+	if want := s.startRecord.GetId(); want != "" && start.GetId() != want {
+		return fmt.Errorf("run file %s was replaced: start id %q does not match %q", s.runFile, start.GetId(), want)
+	}
+	return nil
+}
+
+func (s *syncSession) finishScan(scanErr error) {
 	if s.ctx.Err() != nil {
 		return
 	}
-	s.emitCrashLog()
+	s.mu.Lock()
+	s.scanErr = scanErr
+	s.mu.Unlock()
+	if scanErr == nil {
+		s.emitCrashLog()
+	}
 	close(s.inCh)
 	s.uploader.RequestFinish()
 }

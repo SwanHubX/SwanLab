@@ -488,3 +488,57 @@ class TestRunWithProgress:
 
         assert result == "ok"
         assert FakeLive.instances[0].updates == [True]
+
+    def test_deadline_applies_while_stats_fail(self, monkeypatch):
+        """core 挂掉后 stats 持续失败，deadline 仍必须生效，不能卡在失败分支。"""
+        monkeypatch.setattr(progress_module, "_POLL_INTERVAL", 0.01)
+        running = OperationStats(
+            state=CoreState.CORE_STATE_RUNNING,
+            total_number=1,
+            uploaded_number=0,
+            total_size=100,
+            uploaded_size=0,
+            rate=0,
+        )
+        failure = GetOperationStatsResponse(success=False, message="[RPC/GRPC_UNAVAILABLE] connect failed")
+        calls = []
+
+        def stats_fn() -> GetOperationStatsResponse:
+            calls.append(True)
+            if len(calls) == 1:
+                return GetOperationStatsResponse(success=True, message="OK", stats=running)
+            assert len(calls) < 50, "deadline must stop polling even when every stats call fails"
+            return failure
+
+        called = []
+        run_with_progress(stats_fn, lambda: called.append(True), timeout=0.05, unit="bytes")
+
+        assert called == [True]
+        assert len(calls) < 50
+
+    def test_consecutive_stats_failures_stop_polling(self, monkeypatch):
+        """无 timeout（如 swanlab.sync）时，连续传输失败也必须收敛，不能永久轮询。"""
+        monkeypatch.setattr(progress_module, "_POLL_INTERVAL", 0)
+        monkeypatch.setattr(progress_module, "_MAX_CONSECUTIVE_STATS_FAILURES", 3)
+        running = OperationStats(
+            state=CoreState.CORE_STATE_RUNNING,
+            total_number=1,
+            uploaded_number=0,
+            total_size=100,
+            uploaded_size=0,
+            rate=0,
+        )
+        calls = []
+
+        def stats_fn() -> GetOperationStatsResponse:
+            calls.append(True)
+            if len(calls) == 1:
+                return GetOperationStatsResponse(success=True, message="OK", stats=running)
+            return GetOperationStatsResponse(success=False, message="[RPC/GRPC_UNAVAILABLE] connect failed")
+
+        called = []
+        run_with_progress(stats_fn, lambda: called.append(True), unit="bytes")
+
+        assert called == [True]
+        # 初始检查 + 3 次连续失败 + 收尾前最后一次查询
+        assert len(calls) == 1 + 3 + 1

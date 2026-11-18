@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -879,5 +880,287 @@ func TestSyncSessionIDUsesTimeOrderedUUIDv7(t *testing.T) {
 	}
 	if first >= second {
 		t.Fatalf("expected UUIDv7 monotonicity: first=%q second=%q", first, second)
+	}
+}
+
+func TestSyncScanFailureFailsConfirmWithoutStop(t *testing.T) {
+	newSession := func(t *testing.T, rc *recordedCloud, name string, records ...*recordv1.Record) (*Manager, string, string) {
+		t.Helper()
+		runDir := t.TempDir()
+		path := writeSyncRunFile(t, runDir, name, records...)
+		mgr := NewManager(Options{})
+		t.Cleanup(func() { _ = mgr.Close() })
+		sid, err := mgr.DeliverSyncStart(context.Background(), StartOptions{Settings: baseSyncSettings(runDir, rc.cloud)})
+		if err != nil {
+			t.Fatalf("DeliverSyncStart: %v", err)
+		}
+		return mgr, sid, path
+	}
+	finishRecord := &recordv1.Record{
+		Num:        record.NumFinish,
+		RecordType: &recordv1.Record_Finish{Finish: &runv1.FinishRecord{State: runv1.RunState_RUN_STATE_FINISHED}},
+	}
+
+	t.Run("source file removed before scan", func(t *testing.T) {
+		rc := newRecordedCloud(t, true, nil)
+		mgr, sid, path := newSession(t, rc, "run-gone.swanlab",
+			startRecord("gone"),
+			scalarMetricRecord(1, "loss", 1, 0.5, ts(100, 0)),
+			finishRecord,
+		)
+		if err := os.Remove(path); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := mgr.DeliverSyncFlush(context.Background(), sid); err != nil {
+			t.Fatalf("DeliverSyncFlush: %v", err)
+		}
+		waitSyncDrained(t, mgr, sid)
+
+		res, err := mgr.ConfirmSyncFinish(context.Background(), sid)
+		if err != nil {
+			t.Fatalf("ConfirmSyncFinish: %v", err)
+		}
+		if res.Success || !strings.Contains(res.Message, "failed to open run file") {
+			t.Fatalf("ConfirmSyncFinish = %+v, want success=false with open error", res)
+		}
+		rc.mu.Lock()
+		defer rc.mu.Unlock()
+		if len(rc.stopStates) != 0 {
+			t.Fatalf("stopStates = %v, want empty when the source file cannot be read", rc.stopStates)
+		}
+		if len(rc.metrics) != 0 || len(rc.logs) != 0 {
+			t.Fatalf("uploaded metrics=%d logs=%d, want none", len(rc.metrics), len(rc.logs))
+		}
+	})
+
+	t.Run("source file replaced with another run", func(t *testing.T) {
+		rc := newRecordedCloud(t, true, nil)
+		mgr, sid, path := newSession(t, rc, "run-replaced.swanlab", startRecord("orig-run"))
+		if err := os.Remove(path); err != nil {
+			t.Fatal(err)
+		}
+		// 同名文件换成另一个 run，若不复验 start id 会把新数据写进旧实验。
+		writeSyncRunFile(t, filepath.Dir(path), filepath.Base(path),
+			startRecord("other-run"),
+			scalarMetricRecord(1, "loss", 1, 0.5, ts(100, 0)),
+			finishRecord,
+		)
+		if _, err := mgr.DeliverSyncFlush(context.Background(), sid); err != nil {
+			t.Fatalf("DeliverSyncFlush: %v", err)
+		}
+		waitSyncDrained(t, mgr, sid)
+
+		res, err := mgr.ConfirmSyncFinish(context.Background(), sid)
+		if err != nil {
+			t.Fatalf("ConfirmSyncFinish: %v", err)
+		}
+		if res.Success || !strings.Contains(res.Message, "was replaced") {
+			t.Fatalf("ConfirmSyncFinish = %+v, want success=false with replacement error", res)
+		}
+		rc.mu.Lock()
+		defer rc.mu.Unlock()
+		if len(rc.stopStates) != 0 {
+			t.Fatalf("stopStates = %v, want empty for a replaced run file", rc.stopStates)
+		}
+		if len(rc.metrics) != 0 {
+			t.Fatalf("uploaded metric batches = %d, want none from the replaced file", len(rc.metrics))
+		}
+	})
+}
+
+func TestSyncUploadRejectionFailsConfirmWithoutStop(t *testing.T) {
+	rc := newRecordedCloud(t, true, nil)
+	rc.cloud.ServeJSON(http.MethodPost, "/api/house/metrics", http.StatusBadRequest, map[string]any{"error": "bad"})
+	runDir := t.TempDir()
+	writeSyncRunFile(t, runDir, "run-rejected.swanlab",
+		startRecord("rejected"),
+		scalarMetricRecord(1, "loss", 1, 0.5, ts(100, 0)),
+		&recordv1.Record{
+			Num:        record.NumFinish,
+			RecordType: &recordv1.Record_Finish{Finish: &runv1.FinishRecord{State: runv1.RunState_RUN_STATE_FINISHED}},
+		},
+	)
+	mgr := NewManager(Options{})
+	defer func() { _ = mgr.Close() }()
+
+	sid, err := mgr.DeliverSyncStart(context.Background(), StartOptions{Settings: baseSyncSettings(runDir, rc.cloud)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, flushErr := mgr.DeliverSyncFlush(context.Background(), sid); flushErr != nil {
+		t.Fatal(flushErr)
+	}
+	waitSyncDrained(t, mgr, sid)
+
+	res, err := mgr.ConfirmSyncFinish(context.Background(), sid)
+	if err != nil {
+		t.Fatalf("ConfirmSyncFinish: %v", err)
+	}
+	if res.Success || !strings.Contains(res.Message, "1 record(s)") {
+		t.Fatalf("ConfirmSyncFinish = %+v, want success=false for the rejected scalar", res)
+	}
+	rc.mu.Lock()
+	defer rc.mu.Unlock()
+	if len(rc.stopStates) != 0 {
+		t.Fatalf("stopStates = %v, want empty when a valid record was rejected", rc.stopStates)
+	}
+}
+
+func TestSyncConfirmCancelRestoresRunningAndRetrySucceeds(t *testing.T) {
+	rc := newRecordedCloud(t, true, nil)
+	releaseUpload := make(chan struct{})
+	rc.cloud.Handle(http.MethodPost, "/api/house/metrics", func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case <-releaseUpload:
+		case <-r.Context().Done():
+			return
+		}
+		clienttest.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
+	})
+	runDir := t.TempDir()
+	writeSyncRunFile(t, runDir, "run-cancel.swanlab",
+		startRecord("cancel"),
+		scalarMetricRecord(1, "loss", 1, 0.5, ts(100, 0)),
+		&recordv1.Record{
+			Num:        record.NumFinish,
+			RecordType: &recordv1.Record_Finish{Finish: &runv1.FinishRecord{State: runv1.RunState_RUN_STATE_FINISHED}},
+		},
+	)
+	mgr := NewManager(Options{})
+	defer func() { _ = mgr.Close() }()
+
+	sid, err := mgr.DeliverSyncStart(context.Background(), StartOptions{Settings: baseSyncSettings(runDir, rc.cloud)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, flushErr := mgr.DeliverSyncFlush(context.Background(), sid); flushErr != nil {
+		t.Fatal(flushErr)
+	}
+	// 上传被挡住，会话会停在 RUNNING。
+	canceledCtx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	if _, err := mgr.ConfirmSyncFinish(canceledCtx, sid); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("ConfirmSyncFinish with canceled ctx = %v, want DeadlineExceeded", err)
+	}
+	stats, err := mgr.Stats(sid)
+	if err != nil {
+		t.Fatalf("Stats after canceled confirm: %v", err)
+	}
+	if stats.GetState() != operationv1.CoreState_CORE_STATE_RUNNING {
+		t.Fatalf("state after canceled confirm = %v, want RUNNING", stats.GetState())
+	}
+	rc.mu.Lock()
+	if len(rc.stopStates) != 0 {
+		rc.mu.Unlock()
+		t.Fatalf("stopStates = %v, want empty after canceled confirm", rc.stopStates)
+	}
+	rc.mu.Unlock()
+
+	close(releaseUpload)
+	res, err := mgr.ConfirmSyncFinish(context.Background(), sid)
+	if err != nil || !res.Success {
+		t.Fatalf("retry ConfirmSyncFinish = (%+v, %v), want success", res, err)
+	}
+	rc.mu.Lock()
+	defer rc.mu.Unlock()
+	if len(rc.stopStates) != 1 || rc.stopStates[0] != "FINISHED" {
+		t.Fatalf("stopStates = %v, want [FINISHED] after retry", rc.stopStates)
+	}
+}
+
+func TestSyncConfirmReusesFirstResult(t *testing.T) {
+	rc := newRecordedCloud(t, true, nil)
+	rc.cloud.ServeJSON(http.MethodPut, "/api/project/alice/orig-proj/runs/exp-1/state", http.StatusBadRequest, map[string]any{"error": "bad"})
+	runDir := t.TempDir()
+	writeSyncRunFile(t, runDir, "run-reuse.swanlab",
+		startRecord("reuse"),
+		&recordv1.Record{
+			Num:        record.NumFinish,
+			RecordType: &recordv1.Record_Finish{Finish: &runv1.FinishRecord{State: runv1.RunState_RUN_STATE_FINISHED}},
+		},
+	)
+	mgr := NewManager(Options{})
+	defer func() { _ = mgr.Close() }()
+
+	sid, err := mgr.DeliverSyncStart(context.Background(), StartOptions{Settings: baseSyncSettings(runDir, rc.cloud)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, flushErr := mgr.DeliverSyncFlush(context.Background(), sid); flushErr != nil {
+		t.Fatal(flushErr)
+	}
+	waitSyncDrained(t, mgr, sid)
+
+	session, err := mgr.session(sid)
+	if err != nil {
+		t.Fatalf("session: %v", err)
+	}
+	first, err := session.confirm(context.Background())
+	if err != nil || first.Success {
+		t.Fatalf("first confirm = (%+v, %v), want business failure", first, err)
+	}
+	// 会话已关闭后再次 Confirm 必须复用失败结果，不能把 closed 当成成功。
+	second, err := session.confirm(context.Background())
+	if err != nil || second.Success || second.Message != first.Message {
+		t.Fatalf("second confirm = (%+v, %v), want the first failure reused", second, err)
+	}
+}
+
+func TestSyncDisconnectCancelsInFlightStop(t *testing.T) {
+	rc := newRecordedCloud(t, true, nil)
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	var signalOnce sync.Once
+	rc.cloud.Handle(http.MethodPut, "/api/project/alice/orig-proj/runs/exp-1/state", func(w http.ResponseWriter, r *http.Request) {
+		signalOnce.Do(func() { close(entered) })
+		select {
+		case <-release:
+		case <-r.Context().Done():
+			return
+		}
+		clienttest.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
+	})
+	defer close(release)
+
+	runDir := t.TempDir()
+	writeSyncRunFile(t, runDir, "run-inflight.swanlab",
+		startRecord("inflight"),
+		&recordv1.Record{
+			Num:        record.NumFinish,
+			RecordType: &recordv1.Record_Finish{Finish: &runv1.FinishRecord{State: runv1.RunState_RUN_STATE_FINISHED}},
+		},
+	)
+	mgr := NewManager(Options{})
+	defer func() { _ = mgr.Close() }()
+
+	sid, err := mgr.DeliverSyncStart(context.Background(), StartOptions{Settings: baseSyncSettings(runDir, rc.cloud)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, flushErr := mgr.DeliverSyncFlush(context.Background(), sid); flushErr != nil {
+		t.Fatal(flushErr)
+	}
+	waitSyncDrained(t, mgr, sid)
+
+	confirmed := make(chan ConfirmResult, 1)
+	go func() {
+		res, confirmErr := mgr.ConfirmSyncFinish(context.Background(), sid)
+		if confirmErr != nil {
+			t.Errorf("ConfirmSyncFinish: %v", confirmErr)
+		}
+		confirmed <- res
+	}()
+	<-entered
+	if err := mgr.Disconnect(context.Background(), sid); err != nil {
+		t.Fatalf("Disconnect: %v", err)
+	}
+
+	select {
+	case res := <-confirmed:
+		if res.Success {
+			t.Fatalf("in-flight Stop canceled by disconnect must not report success: %+v", res)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("ConfirmSyncFinish did not return after disconnect canceled the in-flight Stop")
 	}
 }

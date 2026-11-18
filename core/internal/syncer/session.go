@@ -47,6 +47,10 @@ const (
 		"The file may be corrupted, incomplete, or not a valid SwanLab run file."
 	missingEmptyRunFileMsg = "Cannot scan records from %s"
 	maxIntervalDuration    = time.Hour
+	// confirmUploadRejectedMsg 表示部分有效记录被云端确定性拒绝，本次 replay 不算成功。
+	confirmUploadRejectedMsg = "Failed to upload %d record(s) to the server"
+	// confirmAbortedMsg 表示排空后会话已被断连/停机取消，不再提交终态。
+	confirmAbortedMsg = "Sync session was aborted before the run state was reported"
 )
 
 type syncState int32
@@ -86,6 +90,10 @@ type syncSession struct {
 	scanDone      chan struct{}
 	newExperiment bool
 	finishRecord  *runv1.FinishRecord
+	// scanErr 记录真实读盘失败（文件缺失/被替换/I/O 错误），由 Confirm 转成业务失败并禁止 Stop。
+	scanErr error
+	// confirmResult 缓存首次 Confirm 的裁决，重复调用复用同一结果，不再把已结束会话当成功。
+	confirmResult *ConfirmResult
 }
 
 func newSyncSession(opts StartOptions, filter RangeFilter) (*syncSession, error) {
@@ -399,8 +407,13 @@ func (s *syncSession) confirm(ctx context.Context) (ConfirmResult, error) {
 	case syncStateRunning:
 		s.state = syncStateConfirming
 	case syncStateClosed:
+		// 已结束的会话只复用首次裁决：成功仍是成功，失败/中止不能翻成成功。
+		res := s.confirmResult
 		s.mu.Unlock()
-		return ConfirmResult{Success: true, Message: confirmOKMessage}, nil
+		if res == nil {
+			return ConfirmResult{}, fmt.Errorf("%w: session was aborted before confirm", ErrInvalidState)
+		}
+		return *res, nil
 	default:
 		st := s.state
 		s.mu.Unlock()
@@ -408,7 +421,6 @@ func (s *syncSession) confirm(ctx context.Context) (ConfirmResult, error) {
 	}
 	scanDone := s.scanDone
 	up := s.uploader
-	tracker := s.tracker
 	s.mu.Unlock()
 
 	select {
@@ -424,28 +436,79 @@ func (s *syncSession) confirm(ctx context.Context) (ConfirmResult, error) {
 			return ConfirmResult{}, ctx.Err()
 		}
 		console.Warningf("sync confirm: uploader wait failed: %v", err)
-		s.cleanup()
-		if tracker != nil {
-			tracker.SetState(operationv1.CoreState_CORE_STATE_FINISHED)
-		}
-		return ConfirmResult{Success: false, Message: confirmDrainFailedMsg}, nil
+		return s.finalize(ConfirmResult{Success: false, Message: confirmDrainFailedMsg}), nil
+	}
+	// 排空后、裁决前再尊重一次 RPC 取消，保证超时/断开的 Confirm 可以安全重试。
+	if err := ctx.Err(); err != nil {
+		s.restoreRunningOnCancel()
+		return ConfirmResult{}, err
+	}
+
+	if err := s.scanFailure(); err != nil {
+		console.Warningf("sync confirm: %v", err)
+		return s.finalize(ConfirmResult{Success: false, Message: err.Error()}), nil
+	}
+	if rejected := up.HardFailures(); rejected > 0 {
+		console.Warningf("sync confirm: %d record(s) were rejected by the server", rejected)
+		return s.finalize(ConfirmResult{
+			Success: false,
+			Message: fmt.Sprintf(confirmUploadRejectedMsg, rejected),
+		}), nil
+	}
+
+	// 排空后在同一裁决点确认会话仍可提交终态；断连/停机取消后不再向云端写状态。
+	s.mu.Lock()
+	state := s.state
+	sessionCtx := s.ctx
+	s.mu.Unlock()
+	if state != syncStateConfirming || sessionCtx == nil || sessionCtx.Err() != nil {
+		return s.finalize(ConfirmResult{Success: false, Message: confirmAbortedMsg}), nil
 	}
 
 	var res ConfirmResult
-	if state, ok := s.resolveFinishState(); !ok {
+	if finishState, ok := s.resolveFinishState(); !ok {
 		res = ConfirmResult{Success: true, Message: confirmOKMessage}
-	} else if err := s.stopExperiment(ctx, state); err != nil {
+	} else if err := s.stopExperiment(s.stopContext(ctx), finishState); err != nil {
 		console.Warningf("sync confirm: stop experiment: %v", err)
 		res = ConfirmResult{Success: false, Message: confirmFinishFailedMsg}
 	} else {
 		res = ConfirmResult{Success: true, Message: confirmOKMessage}
 	}
+	return s.finalize(res), nil
+}
+
+// finalize 缓存裁决并关闭会话，保证重复 Confirm 复用的结果与首次一致。
+func (s *syncSession) finalize(res ConfirmResult) ConfirmResult {
+	s.mu.Lock()
+	s.confirmResult = &res
+	tracker := s.tracker
+	s.mu.Unlock()
 
 	s.cleanup()
 	if tracker != nil {
 		tracker.SetState(operationv1.CoreState_CORE_STATE_FINISHED)
 	}
-	return res, nil
+	return res
+}
+
+// scanFailure 返回扫描阶段记录的真实读盘失败；无失败时为 nil。
+func (s *syncSession) scanFailure() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.scanErr
+}
+
+// stopContext 让终态请求同时受 RPC ctx 与会话 ctx 控制，断连后不再等待已发出的请求。
+func (s *syncSession) stopContext(ctx context.Context) context.Context {
+	s.mu.Lock()
+	sessionCtx := s.ctx
+	s.mu.Unlock()
+	if sessionCtx == nil {
+		return ctx
+	}
+	stopCtx, cancel := context.WithCancel(ctx)
+	context.AfterFunc(sessionCtx, cancel)
+	return stopCtx
 }
 
 func (s *syncSession) restoreRunningOnCancel() {

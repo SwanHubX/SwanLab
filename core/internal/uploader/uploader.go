@@ -100,6 +100,8 @@ type Uploader struct {
 	buffered  atomic.Int64
 	pending   atomic.Int64
 	suspended atomic.Bool
+	// hardFailures 累计本次管线内被云端确定性拒绝的记录数；本地预期跳过不计入。
+	hardFailures atomic.Int64
 
 	failuresMu sync.RWMutex
 	failures   []Failure
@@ -537,6 +539,24 @@ func (u *Uploader) LastFailures() []Failure {
 	u.failuresMu.RLock()
 	defer u.failuresMu.RUnlock()
 	return append([]Failure(nil), u.failures...)
+}
+
+// HardFailures 返回累计被云端确定性拒绝（不可重试）的记录数。
+// 本地校验不通过而预期跳过的记录不计入；调用方据此判定本次 replay 是否成功。
+func (u *Uploader) HardFailures() int64 { return u.hardFailures.Load() }
+
+// recordHardFailures 只统计带 Err 的终结失败（云端/编码拒绝），blocked 类本地跳过没有 Err。
+func (u *Uploader) recordHardFailures(failures []Failure) {
+	var rejected int64
+	for _, failure := range failures {
+		if failure.Err == nil {
+			continue
+		}
+		rejected += int64(len(failure.Records))
+	}
+	if rejected > 0 {
+		u.hardFailures.Add(rejected)
+	}
 }
 
 // Close 强制停止 worker，不等待队列排空；未排空时返回 ErrNotDrained。

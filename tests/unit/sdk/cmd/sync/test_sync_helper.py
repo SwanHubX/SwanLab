@@ -315,3 +315,57 @@ def test_sync_aborts_core_on_exception_and_keyboard_interrupt(tmp_path, monkeypa
         assert len(core.aborted_causes) == 1
         assert core.aborted_causes[0] is exc_to_raise
         assert core.closed is False
+
+
+def test_sync_stops_polling_when_core_dies_mid_upload(tmp_path, monkeypatch):
+    """core 在上传中退出：连续 stats 失败必须收敛，最终把异常抛给调用方并 abort 回收。"""
+
+    class DyingCoreSync:
+        def __init__(self) -> None:
+            self.stats_calls = 0
+            self.aborted_causes = []
+            self.closed = False
+
+        def deliver_sync_start(self, request):
+            return DeliverSyncStartResponse(success=True, message="success")
+
+        def deliver_sync_flush(self):
+            return DeliverSyncFlushResponse(success=True, message="success")
+
+        def get_operation_stats(self):
+            self.stats_calls += 1
+            if self.stats_calls == 1:
+                return GetOperationStatsResponse(
+                    success=True,
+                    message="OK",
+                    stats=OperationStats(
+                        state=CoreState.CORE_STATE_RUNNING,
+                        total_records=10,
+                        uploaded_records=0,
+                    ),
+                )
+            return GetOperationStatsResponse(success=False, message="[RPC/GRPC_UNAVAILABLE] connect failed")
+
+        def confirm_sync_finish(self):
+            raise RuntimeError("core is gone")
+
+        def close(self):
+            self.closed = True
+
+        def abort(self, cause=None):
+            self.aborted_causes.append(cause)
+
+    core = DyingCoreSync()
+    monkeypatch.setattr("swanlab.sdk.cmd.sync.client.exists", lambda: True)
+    monkeypatch.setattr("swanlab.sdk.cmd.sync.client.current_api_key", lambda: None)
+    monkeypatch.setattr("swanlab.sdk.cmd.sync.impl.create_core_sync", lambda: core)
+    monkeypatch.setattr("swanlab.sdk.cmd.sync._deliver_sync_start", lambda *args, **kwargs: None)
+    monkeypatch.setattr("swanlab.sdk.internal.run.progress._POLL_INTERVAL", 0)
+    monkeypatch.setattr("swanlab.sdk.internal.run.progress._MAX_CONSECUTIVE_STATS_FAILURES", 2)
+
+    with pytest.raises(RuntimeError, match="core is gone"):
+        sync(tmp_path, settings=Settings())
+
+    assert core.stats_calls <= 5
+    assert len(core.aborted_causes) == 1
+    assert core.closed is False
