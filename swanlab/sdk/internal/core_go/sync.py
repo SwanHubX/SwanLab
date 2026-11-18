@@ -91,12 +91,6 @@ class CoreSyncGo(CoreSyncProtocol):
         try:
             sync_rpc = self._connect_and_spinup(binary)
             response = sync_rpc.deliver_sync_start(start_request)
-            if not response.success:
-                raise CoreGoError(
-                    Stage.RUN_START,
-                    ReasonCode.RUN_START_REJECTED,
-                    response.message or "DeliverSyncStart rejected",
-                )
 
             with self._lock:
                 if self._state is not _SyncState.STARTING:

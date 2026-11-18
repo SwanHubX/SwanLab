@@ -103,9 +103,6 @@ type Uploader struct {
 	// hardFailures 累计本次管线内被云端确定性拒绝的记录数；本地预期跳过不计入。
 	hardFailures atomic.Int64
 
-	failuresMu sync.RWMutex
-	failures   []Failure
-
 	warnedTypes map[record.Type]struct{}
 	// 测试可替换告警出口。
 	warnUnsupported func(typ record.Type, count int)
@@ -533,13 +530,6 @@ func (u *Uploader) Stats() Stats {
 
 // Snapshot 返回完整 OperationStats，供 manager 接入 GetOperationStats。
 func (u *Uploader) Snapshot() *operationv1.OperationStats { return u.tracker.Snapshot() }
-
-// LastFailures 返回最近一次完整调度尝试的失败集合。
-func (u *Uploader) LastFailures() []Failure {
-	u.failuresMu.RLock()
-	defer u.failuresMu.RUnlock()
-	return append([]Failure(nil), u.failures...)
-}
 
 // HardFailures 返回累计确定性失败（不可重试）的记录数。
 // 本地规则预期跳过而忽略的记录不计入；调用方据此判定本次 replay 是否成功。

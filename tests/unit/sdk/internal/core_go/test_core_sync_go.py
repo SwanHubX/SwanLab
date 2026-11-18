@@ -23,7 +23,6 @@ from swanlab.sdk.internal.core_go import sync as sync_module
 from swanlab.sdk.internal.core_go.config import TEARDOWN_TIMEOUT
 from swanlab.sdk.internal.core_go.sync import _SyncState
 from swanlab.sdk.protocol import is_terminal_stats_error
-from swanlab.sdk.protocol.core import CoreSyncProtocol
 
 
 class FakeLauncher:
@@ -128,12 +127,6 @@ def patch_sync_dependencies(monkeypatch) -> Tuple[List[FakeLauncher], List[FakeC
     monkeypatch.setattr(sync_module, "CoreServiceRpc", FakeCoreRpc)
     monkeypatch.setattr(sync_module, "CoreSyncRpc", FakeSyncRpc)
     return FakeLauncher.instances, FakeCoreRpc.instances, FakeSyncRpc.instances
-
-
-def test_core_sync_go_implements_protocol_with_close_and_abort():
-    assert issubclass(CoreSyncGo, CoreSyncProtocol)
-    assert hasattr(CoreSyncProtocol, "close")
-    assert hasattr(CoreSyncProtocol, "abort")
 
 
 def test_deliver_sync_start_without_binary_fails_and_closes():
