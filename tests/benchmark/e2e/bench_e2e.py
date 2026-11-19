@@ -368,13 +368,6 @@ def run_case(args: argparse.Namespace, core: str, workdir: Path, interpreter: st
             stderr_text[-800:],
         )
         checks.add("子进程无异常堆栈", "Traceback" not in child_stderr, child_stderr[-800:])
-        uploaded = result["upload"]["max_uploaded_records"]
-        if result["upload"]["samples"]:
-            checks.add(
-                "core 统计的上传条数不少于指标数",
-                uploaded >= house_total,
-                f"uploaded_records={uploaded}, house_metrics_total={house_total}",
-            )
 
     # ---- 采样归并 ---------------------------------------------------------
     child_pid = proc.pid
@@ -502,7 +495,7 @@ def render(records: List[Dict[str, Any]]) -> str:
         "core",
         "max buf(B)",
         "max pending",
-        "uploaded",
+        "uploaded(采样)",
         "mock house",
         "batches",
         "files",

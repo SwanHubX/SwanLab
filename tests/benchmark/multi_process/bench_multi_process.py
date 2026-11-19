@@ -403,6 +403,8 @@ def run_case(args: argparse.Namespace, topology: str, workdir: Path, interpreter
                 "p99_us": item["latency_us"]["p99"],
                 "scalar_local": item["local_records"].get("scalar", 0),
                 "uploaded_records": item["upload"]["max_uploaded_records"],
+                "max_buffered_bytes": item["upload"]["max_buffered_bytes"],
+                "max_pending_records": item["upload"]["max_pending_records"],
                 "paused": item["upload"]["paused_seen"],
             }
             for item in results
