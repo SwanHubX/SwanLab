@@ -7,6 +7,9 @@ package.mock.json
 # playground
 playground/
 
+# benchmark 产物（原始 JSON 与汇总表不入库）
+tests/benchmark/results/
+
 
 # IDEs & OS
 .zed/*

@@ -15,7 +15,7 @@
   5. 回读记录数（验证数据完整性）
 
 用法：
-  uv run pytest tests/benchmark/sdk/internal/core_python/store/bench_store_fsync.py -v -s
+  uv run pytest tests/benchmark/python_core/store/bench_store_fsync.py -v -s
 """
 
 import time
@@ -86,10 +86,15 @@ def test_bench_raw_store(tmp_path):
 
     file_size = store_path.stat().st_size
 
-    # 回读验证
+    # 回读验证（同时作为回读吞吐基准，与 Go 的 BenchmarkStoreRead 同口径）
     reader = DataStoreReader()
     reader.open(str(store_path))
-    read_count = sum(1 for _ in reader)
+    t_read_start = time.perf_counter()
+    read_count, read_bytes = 0, 0
+    for record in reader:
+        read_count += 1
+        read_bytes += len(record)
+    read_time = time.perf_counter() - t_read_start
     reader.close()
 
     result = {
@@ -104,6 +109,10 @@ def test_bench_raw_store(tmp_path):
         "write_max_us": round(latencies[-1] * 1e6, 2),
         "file_size_bytes": file_size,
         "reader_verify_count": read_count,
+        "read_time_sec": round(read_time, 4),
+        "read_throughput_rec_per_sec": round(read_count / read_time, 1) if read_time > 0 else 0.0,
+        "read_ns_per_rec": round(read_time / read_count * 1e9, 2) if read_count else 0.0,
+        "read_bytes_per_rec": round(read_bytes / read_count, 2) if read_count else 0.0,
     }
 
     print("\n" + "=" * 60)

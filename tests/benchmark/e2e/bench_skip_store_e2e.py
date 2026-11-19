@@ -33,10 +33,10 @@ BackgroundConsumer / Transport 的 GIL 竞争严重污染，无法反映用户�
 父进程取多次运行的最优值后汇总对比。
 
 用法：
-  uv run pytest tests/benchmark/sdk/cmd/bench_skip_store_e2e.py -v -s
+  uv run pytest tests/benchmark/e2e/bench_skip_store_e2e.py -v -s
 
   # 独立脚本（可调参数）
-  uv run python tests/benchmark/sdk/cmd/bench_skip_store_e2e.py --steps 500 --keys 20
+  uv run python tests/benchmark/e2e/bench_skip_store_e2e.py --steps 500 --keys 20
 """
 
 from __future__ import annotations

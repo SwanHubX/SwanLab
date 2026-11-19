@@ -18,11 +18,11 @@
 
 运行方式：
   # 1. 作为 pytest 基准测试运行：
-  uv run pytest tests/benchmark/sdk/cmd/bench_async_log.py -v -s
+  uv run pytest tests/benchmark/e2e/bench_async_log.py -v -s
 
   # 2. 作为独立脚本运行（支持完整 CLI 参数）：
-  uv run python tests/benchmark/sdk/cmd/bench_async_log.py
-  uv run python tests/benchmark/sdk/cmd/bench_async_log.py --steps 500 --workload-ms 10
+  uv run python tests/benchmark/e2e/bench_async_log.py
+  uv run python tests/benchmark/e2e/bench_async_log.py --steps 500 --workload-ms 10
 """
 
 from __future__ import annotations
