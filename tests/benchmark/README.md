@@ -79,12 +79,13 @@ uv run python tests/benchmark/multi_process/bench_multi_process.py --ranks 16 --
 
 | 档位 | batch | interval | 用途 |
 |---|---|---|---|
-| `default`（默认） | 10,000 | 1.5 | 接近真实使用，会上传中触发队列堆积 |
-| `isolated` | 10,000 | 3,600 | 只在 finish 时统一上传，便于切分生产/收尾两段耗时 |
+| `default`（默认） | 10,000 | 1.5 | 接近真实使用 |
+| `isolated` | 10,000 | 3,600 | 仅用于对照：Python 侧会攒到 finish 统一上传，而 Go 侧满 batch 仍立即发批；弱网反压请用 `--latency-ms` |
 
 `record_batch` 会影响多个环节：Python `BackgroundConsumer` 的小批固定是 `min(100, batch)`、
 gRPC 批是 `min(2000, batch)`，Go 侧队列容量是 `8 × batch`。两个 core 的发送时机也不一样
-（Python 缓冲非空就发，Go 要攒满 batch 或等满一个 interval）。
+（Python `Transport.put()` 不唤醒条件变量，靠定时或 finish 刷批；Go 攒满 `batch` 或等满
+`interval` 即发）。
 
 ## 校验项（任一不通过则本轮数据不可用）
 
@@ -100,14 +101,16 @@ gRPC 批是 `min(2000, batch)`，Go 侧队列容量是 `8 × batch`。两个 cor
 | 上传进度核对 | `uploaded_records` 不超过 `mock house 总数 + column + save`，详见下节；`--skip-store` 时跳过 |
 | 列定义覆盖 | `/series` 收到的 key 必须覆盖 `run.log` 用过的全部 key，缺失即失败，多出的 key 记入结果 |
 | 本地文件标量条数 | `DataStoreReader` 回读后应等于 `steps × keys`（`--skip-store` 时跳过） |
-| 上传全程未被暂停 | `upload.paused` 不能出现 true；出现通常说明 mock 的健康检查没做对 |
+| 上传全程未被暂停 | 仅 `--latency-ms 0` 时断言 `upload.paused` 不能出现 true；弱网档保留该字段作观测 |
 | core 日志无报错 / 子进程无异常堆栈 | 排除失败但被吞掉的场景 |
 
 多进程脚本额外检查「共享模式下只有 1 个 core 进程」「每个 rank 各启动 1 个」「各 rank 用的
-core 进程互不相同」，依据来自子进程自己上报的 pid（父进程轮询可能错过短命进程）。
+core 进程互不相同」，依据来自子进程自己上报的 pid（配合父进程全生命周期累积的 `core_ever_seen`）。
+各 rank 先按 `--stagger`（默认 `0.15s`）错峰完成 `init()`，经启动屏障同步放行后才开始计时与打点，
+以剥离启动错峰对稳态并发 `wall_s` 的稀释；本地文件回读统一在采样停止后由父进程离线完成。
 `--repeats N` 时按墙钟中位数选代表运行，并输出所有轮次与相对离散度（`(max-min)/中位数`）；
-控制台还会打印每个拓扑的逐 rank 队列峰值（`max_buffered_bytes` / `max_pending_records`），
-用来区分「队列打满」与「CPU/磁盘争用」。
+控制台还会打印每个拓扑的逐 rank 队列峰值（`max_buffered_bytes` / `max_pending_records`）以及 Mock Cloud CPU，
+用来区分「队列打满」、「CPU/磁盘争用」与「Mock 自身开销」。
 
 上传进度核对的上界来自两个 core 的实际分发路径（`core/internal/uploader/dispatch.go` 与
 `swanlab/sdk/internal/core_python/transport/dispatch/`）：`uploaded_records` 统计已处理完的
@@ -126,8 +129,11 @@ core 进程互不相同」，依据来自子进程自己上报的 pid（父进�
 
 - `run.log()` 延迟用 `perf_counter` 逐次采样，报 mean/P50/P95/P99（微秒）。它反映的是主线程
   是否被后台消费拖慢，而不是 core 的绝对吞吐。
-- 内存为 `ps -o rss=` 每 100ms 采样，Python 进程和 Go core 分别记录再相加；相加会把共享页
-  重复计算，只能当作上界。CPU 取 `ps -o time=` 的累计时间差，macOS 上精度是 1 秒。
+- macOS 上优先通过 `proc_pid_rusage`（50ms 间隔 + 阶段边界精确打点）同步采集各进程
+  `RSS`（`ri_resident_size`）、扣除跨进程共享只读页后的物理内存 `phys_footprint`（`ri_phys_footprint`）
+  以及经 `mach_timebase_info` 换算的纳秒级累计 CPU 时间；其余平台回退 `ps -o pid=,rss=,time=`。
+- 总内存报**同一采样时刻的并发总和峰值**（`peak_rss` / `peak_phys`），避免短命进程退出或
+  错峰导致的漏计；Mock Cloud 进程独立采样统计，不计入被测总值。
 - 结果写入 `results/*.json`，含 git sha、core 二进制 sha256、`GOGC` 和实际使用的参数。
 
 ## 注意事项

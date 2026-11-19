@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -87,7 +88,8 @@ def run_worker(args: argparse.Namespace) -> None:
         settings=settings,
     )
     init_ms = (time.perf_counter() - t_init_start) * 1000.0
-    _emit_phase("init_done", init_ms=round(init_ms, 2))
+    core_pids = H.core_pids(parent_pid=os.getpid())
+    _emit_phase("init_done", init_ms=round(init_ms, 2), core_pids=core_pids)
 
     probe = H.StatsProbe(run)
     probe.start()
@@ -110,6 +112,8 @@ def run_worker(args: argparse.Namespace) -> None:
 
         frame = np.zeros((16, 16, 3), dtype=np.uint8)
 
+    latency_head_us = round(latencies[0], 2) if latencies else 0.0
+    run_dir_str = ""
     try:
         # 混合档：先登记待上传文件，policy=end 表示到 finish 才上传
         for index in range(save_count):
@@ -144,10 +148,9 @@ def run_worker(args: argparse.Namespace) -> None:
 
         probe.stop()
         run_dir = Path(run._ctx.run_dir)
+        run_dir_str = str(run_dir)
         for path in run_dir.glob("run-*.swanlab"):
             run_file_bytes += path.stat().st_size
-        if not args.skip_store:
-            local_counts = H.scan_local_records(run_dir)
     except BaseException as exc:  # noqa: BLE001 - 任何异常都要带上下文回传给父进程
         error = f"{type(exc).__name__}: {exc}"
         raise
@@ -170,7 +173,8 @@ def run_worker(args: argparse.Namespace) -> None:
         "total_s": round(total_s, 4),
         "scalar_expected": int(args.steps) * int(args.keys),
         "latency_us": H.latency_stats(latencies),
-        "latency_head_us": round(latencies[0], 2) if latencies else 0.0,
+        "latency_head_us": round(latencies[0], 2) if latencies else latency_head_us,
+        "run_dir": run_dir_str,
         "local_records": local_counts,
         "run_file_bytes": run_file_bytes,
         "media_logged": media_logged,
@@ -189,7 +193,8 @@ def run_worker_none(args: argparse.Namespace) -> None:
     _emit_phase("ready", core_impl="none")
     t_init_start = time.perf_counter()
     init_ms = (time.perf_counter() - t_init_start) * 1000.0
-    _emit_phase("init_done", init_ms=round(init_ms, 2))
+    core_pids = H.core_pids(parent_pid=os.getpid())
+    _emit_phase("init_done", init_ms=round(init_ms, 2), core_pids=core_pids)
 
     keys = list(range(int(args.keys)))
     latencies: List[float] = []
@@ -245,25 +250,38 @@ def run_worker_none(args: argparse.Namespace) -> None:
 
 
 class CoreWatcher(threading.Thread):
-    """轮询发现本进程树下的 swanlab-core 子进程。"""
+    """轮询发现本进程树下的 swanlab-core 子进程（累积合并，不覆写）。"""
 
     def __init__(self, parent_pid: int, expected: int, timeout: float) -> None:
         super().__init__(daemon=True, name="bench-core-watch")
         self.parent_pid = parent_pid
         self.expected = expected
         self.deadline = time.monotonic() + timeout
-        self.pids: List[int] = []
+        self._lock = threading.Lock()
+        self._pids: set[int] = set()
         self._halt = threading.Event()
+
+    @property
+    def pids(self) -> List[int]:
+        with self._lock:
+            return sorted(self._pids)
+
+    def add(self, pids: List[int]) -> None:
+        if not pids:
+            return
+        with self._lock:
+            self._pids.update(int(p) for p in pids if p)
 
     def run(self) -> None:
         while not self._halt.is_set() and time.monotonic() < self.deadline:
-            if len(self.pids) < self.expected:
-                found = H.core_pids(parent_pid=self.parent_pid)
-                if found:
-                    self.pids = found
-            if len(self.pids) >= self.expected:
+            found = H.core_pids(parent_pid=self.parent_pid)
+            if found:
+                self.add(found)
+            with self._lock:
+                done = len(self._pids) >= self.expected
+            if done:
                 return
-            self._halt.wait(0.2)
+            self._halt.wait(0.05)
 
     def stop(self) -> None:
         self._halt.set()
@@ -312,6 +330,9 @@ def run_case(args: argparse.Namespace, core: str, workdir: Path, interpreter: st
     exit_at = 0.0
     sampler: Optional[H.Sampler] = None
     watcher: Optional[CoreWatcher] = None
+    discovered_core_pids: set[int] = set()
+    core_lock = threading.Lock()
+    proc_pid: Optional[int] = None
 
     with mock:
         env = H.build_child_env(
@@ -322,7 +343,19 @@ def run_case(args: argparse.Namespace, core: str, workdir: Path, interpreter: st
         )
         stderr_path = case_dir / "child.stderr.log"
         stdout_lines: List[str] = []
-        spawn_at = time.monotonic()
+
+        def pids_fn() -> List[int]:
+            with core_lock:
+                cores = set(discovered_core_pids)
+            if watcher is not None:
+                cores.update(watcher.pids)
+            pids = [p for p in (proc_pid, *sorted(cores), mock.pid) if p]
+            return pids
+
+        sampler = H.Sampler(pids_fn, interval=0.05)
+        sampler.start()
+        spawn_at = sampler.capture()
+
         with stderr_path.open("w", encoding="utf-8") as stderr_file:
             proc = subprocess.Popen(
                 _child_argv(script, args, interpreter, core),
@@ -333,33 +366,36 @@ def run_case(args: argparse.Namespace, core: str, workdir: Path, interpreter: st
                 text=True,
                 bufsize=1,
             )
+            proc_pid = proc.pid
             expected_cores = 0 if core != "go" else 1
             if expected_cores:
                 watcher = CoreWatcher(proc.pid, expected_cores, timeout=60.0)
                 watcher.start()
-
-            def pids_fn() -> List[int]:
-                found = list(watcher.pids) if watcher is not None else []
-                return [proc.pid, *found]
-
-            sampler = H.Sampler(pids_fn)
-            sampler.start()
 
             assert proc.stdout is not None
             for line in proc.stdout:
                 stdout_lines.append(line)
                 if line.startswith(H.PHASE_MARK):
                     payload = json.loads(line[len(H.PHASE_MARK) :])
-                    phases[str(payload.get("name"))] = time.monotonic()
+                    reported_cores = [int(p) for p in (payload.get("core_pids") or []) if p]
+                    if reported_cores:
+                        with core_lock:
+                            discovered_core_pids.update(reported_cores)
+                        if watcher is not None:
+                            watcher.add(reported_cores)
+                    phases[str(payload.get("name"))] = sampler.capture()
             proc.wait(timeout=args.timeout)
             exit_at = time.monotonic()
 
         if watcher is not None:
             watcher.stop()
+            with core_lock:
+                discovered_core_pids.update(watcher.pids)
         if sampler is not None:
             sampler.stop()
 
-        core_pids = list(watcher.pids) if watcher is not None else []
+        with core_lock:
+            core_pids = sorted(discovered_core_pids)
         stderr_text = "".join(H.stderr_for_pid(pid) for pid in core_pids)
         child_stderr = stderr_path.read_text(encoding="utf-8", errors="replace")
         mock_stats = mock.stats()
@@ -375,6 +411,10 @@ def run_case(args: argparse.Namespace, core: str, workdir: Path, interpreter: st
             f"--- stdout ---\n{''.join(stdout_lines[-40:])}\n--- child stderr ---\n{child_stderr[-4000:]}\n"
             f"--- core stderr ---\n{stderr_text[-4000:]}"
         )
+
+    # 在 sampler 停止之后由父进程离线扫描本地文件，避免回读操作污染被测进程 CPU/内存采样。
+    if core != "none" and not args.skip_store and result.get("run_dir"):
+        result["local_records"] = H.scan_local_records(Path(result["run_dir"]))
 
     # ---- 校验 -------------------------------------------------------------
     expect_impl = "none" if core == "none" else core
@@ -423,7 +463,8 @@ def run_case(args: argparse.Namespace, core: str, workdir: Path, interpreter: st
         missing_keys = sorted(expected_keys - series_keys)
         checks.add("series 覆盖全部 log key", not missing_keys, f"缺失 {missing_keys[:10]}")
         extra_keys = sorted(series_keys - expected_keys)
-        checks.add("上传全程未被暂停", not result["upload"]["paused_seen"], "出现过 upload.paused=true")
+        if args.latency_ms == 0:
+            checks.add("上传全程未被暂停", not result["upload"]["paused_seen"], "出现过 upload.paused=true")
         checks.add(
             "core 日志无报错",
             not any(token in stderr_text for token in ("panic", "store errored", "Error")),
@@ -434,10 +475,14 @@ def run_case(args: argparse.Namespace, core: str, workdir: Path, interpreter: st
     # ---- 采样归并 ---------------------------------------------------------
     child_pid = proc.pid
     all_pids = [child_pid, *core_pids]
+    mock_pids = [mock.pid] if mock.pid else []
     init_at = phases.get("init_done", spawn_at)
     finish_at = phases.get("finish_done", exit_at)
     wall_s = max(exit_at - spawn_at, 1e-9)
-    cpu_s = sampler.cpu_seconds(all_pids) if sampler is not None else 0.0
+    cpu_window_s = max(finish_at - spawn_at, 1e-9)
+    cpu_core_s = sampler.cpu_seconds(core_pids, spawn_at, finish_at) if sampler is not None else 0.0
+    cpu_s = sampler.cpu_seconds(all_pids, spawn_at, finish_at) if sampler is not None else 0.0
+    mock_cpu_s = sampler.cpu_seconds(mock_pids, spawn_at, finish_at) if sampler is not None else 0.0
 
     record = {
         "core": core,
@@ -460,12 +505,16 @@ def run_case(args: argparse.Namespace, core: str, workdir: Path, interpreter: st
         "e2e_rec_per_s": round(result["scalar_expected"] / max(result["total_s"], 1e-9), 1),
         "latency_us": result["latency_us"],
         "latency_head_us": result["latency_head_us"],
+        "has_phys_footprint": sampler.has_phys_footprint if sampler else False,
         "rss_child_peak": sampler.peak_rss([child_pid], init_at, finish_at) if sampler else 0,
         "rss_core_peak": sampler.peak_rss(core_pids, init_at, finish_at) if sampler else 0,
-        "rss_total_peak": sampler.peak_rss(all_pids, spawn_at, exit_at) if sampler else 0,
-        "cpu_core_s": round(sampler.cpu_seconds(core_pids), 2) if sampler else 0.0,
+        "rss_total_peak": sampler.peak_rss(all_pids, spawn_at, finish_at) if sampler else 0,
+        "phys_child_peak": sampler.peak_phys([child_pid], init_at, finish_at) if sampler else 0,
+        "phys_core_peak": sampler.peak_phys(core_pids, init_at, finish_at) if sampler else 0,
+        "phys_total_peak": sampler.peak_phys(all_pids, spawn_at, finish_at) if sampler else 0,
+        "cpu_core_s": round(cpu_core_s, 2),
         "cpu_total_s": round(cpu_s, 2),
-        "cpu_pct_total": round(100.0 * cpu_s / wall_s, 1),
+        "cpu_pct_total": round(100.0 * cpu_s / cpu_window_s, 1),
         "run_file_bytes": result["run_file_bytes"],
         "local_records": result["local_records"],
         "mock": {
@@ -480,6 +529,10 @@ def run_case(args: argparse.Namespace, core: str, workdir: Path, interpreter: st
             "experiments": len(mock_stats["experiments"]),
             "heartbeats": mock_stats["heartbeats"],
             "stop_experiments": mock_stats["stop_experiments"],
+            "cpu_s": round(mock_cpu_s, 2),
+            "cpu_pct": round(100.0 * mock_cpu_s / cpu_window_s, 1),
+            "rss_peak": sampler.peak_rss(mock_pids, spawn_at, finish_at) if sampler else 0,
+            "phys_peak": sampler.peak_phys(mock_pids, spawn_at, finish_at) if sampler else 0,
         },
         "upload": result["upload"],
         "checks": [{"name": c.name, "ok": c.ok, "detail": c.detail} for c in checks.items],
@@ -520,6 +573,7 @@ def render(records: List[Dict[str, Any]]) -> str:
                 rec["e2e_rec_per_s"],
                 rec["latency_us"]["p99"],
                 _fmt_bytes(rec["rss_total_peak"]),
+                _fmt_bytes(rec.get("phys_total_peak", 0)) if rec.get("has_phys_footprint") else "—",
                 _fmt_bytes(rec["run_file_bytes"]),
                 f"{sum(1 for c in rec['checks'] if c['ok'])}/{len(rec['checks'])}",
             ]
@@ -534,10 +588,11 @@ def render(records: List[Dict[str, Any]]) -> str:
         "e2e rec/s",
         "log p99(us)",
         "peak RSS",
+        "phys RSS",
         "runfile",
         "checks",
     ]
-    out = [H.render_table(headers, rows, widths=[16, 12, 12, 12, 11, 13, 13, 13, 12, 11, 9])]
+    out = [H.render_table(headers, rows, widths=[16, 12, 12, 12, 11, 13, 13, 13, 12, 12, 11, 9])]
     out.append("")
     out.append("  上传状态（0.2s 采样）与 mock 计数：")
     detail_rows = []

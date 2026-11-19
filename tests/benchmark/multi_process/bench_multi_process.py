@@ -64,10 +64,26 @@ def _cores_seen(detach: bool) -> List[int]:
     独占模式下 core 是子进程，按 ppid 反查。
     """
     if detach:
-        port = Path(f"/tmp/swanlab-core-{os.getuid()}") / "core.port"
+        getuid = getattr(os, "getuid", None)
+        uid = getuid() if getuid is not None else 0
+        port = Path(f"/tmp/swanlab-core-{uid}") / "core.port"
         pid = H.read_port_file_pid(port)
         return [pid] if pid else []
     return H.core_pids(parent_pid=os.getpid())
+
+
+def _wait_barrier(path: Path, timeout: float = 120.0) -> None:
+    """等待父进程释放启动屏障，确保所有 rank 在 init 完成后同时开始记录。"""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if path.exists():
+            content = path.read_text(encoding="utf-8", errors="replace").strip()
+            if content == "abort":
+                raise RuntimeError("barrier aborted")
+            if content == "go":
+                return
+        time.sleep(0.005)
+    raise TimeoutError(f"barrier timeout waiting for {path}")
 
 
 def run_worker(args: argparse.Namespace) -> None:
@@ -96,8 +112,11 @@ def run_worker(args: argparse.Namespace) -> None:
         settings=settings,
     )
     init_ms = (time.perf_counter() - t_init_start) * 1000.0
-    _emit_phase("init_done", rank=args.rank, init_ms=round(init_ms, 2))
     cores_seen = _cores_seen(bool(args.detach))
+    _emit_phase("init_done", rank=args.rank, init_ms=round(init_ms, 2), cores_seen=cores_seen)
+
+    if args.barrier_file:
+        _wait_barrier(Path(args.barrier_file), timeout=120.0)
 
     probe = H.StatsProbe(run)
     probe.start()
@@ -133,7 +152,6 @@ def run_worker(args: argparse.Namespace) -> None:
 
         probe.stop()
         run_dir = Path(run._ctx.run_dir)
-        local_counts = H.scan_local_records(run_dir)
         run_file_bytes = sum(path.stat().st_size for path in run_dir.glob("run-*.swanlab"))
         run_file = next(iter(sorted(run_dir.glob("run-*.swanlab")))).name if run_file_bytes else ""
     except BaseException as exc:  # noqa: BLE001 - 带上下文回传父进程
@@ -159,7 +177,8 @@ def run_worker(args: argparse.Namespace) -> None:
         "total_s": round(total_s, 4),
         "scalar_expected": int(args.steps) * int(args.keys) * 2,
         "latency_us": H.latency_stats(latencies),
-        "local_records": local_counts,
+        "run_dir": str(run_dir),
+        "local_records": {},
         "run_file": run_file,
         "run_file_bytes": run_file_bytes,
         "upload": probe.summary(),
@@ -174,7 +193,14 @@ def run_worker(args: argparse.Namespace) -> None:
 # ===========================================================================
 
 
-def _child_argv(script: Path, args: argparse.Namespace, rank: int, interpreter: str, detach: bool) -> List[str]:
+def _child_argv(
+    script: Path,
+    args: argparse.Namespace,
+    rank: int,
+    interpreter: str,
+    detach: bool,
+    barrier_file: Optional[Path] = None,
+) -> List[str]:
     return [
         interpreter,
         str(script),
@@ -200,30 +226,91 @@ def _child_argv(script: Path, args: argparse.Namespace, rank: int, interpreter: 
         "--record-interval",
         str(args.record_interval),
         *(["--detach"] if detach else []),
+        *(["--barrier-file", str(barrier_file)] if barrier_file else []),
     ]
 
 
 def run_case(args: argparse.Namespace, topology: str, workdir: Path, interpreter: str) -> Dict[str, Any]:
+    import threading
+
     spec = TOPOLOGIES[topology]
     H.cleanup_stale_cores()
 
     case_dir = workdir / f"{topology}-{int(time.time() * 1000) % 100000}"
     mock_dir = case_dir / "mock"
     mock_dir.mkdir(parents=True, exist_ok=True)
+    barrier_path = case_dir / "start.barrier"
     checks = H.Checks()
     script = Path(__file__).resolve()
     procs: List[subprocess.Popen] = []
+    child_pids: List[int] = []
     stderr_paths: List[Path] = []
     stdout_lines: List[str] = []
     phases: Dict[str, float] = {}
-    spawn_at = 0.0
-    exit_at = 0.0
-    core_pids: List[int] = []
-    core_ever_seen: set = set()
+    core_ever_seen: set[int] = set()
+    init_done_ranks: set[int] = set()
+    finish_done_ranks: set[int] = set()
+    state_lock = threading.Lock()
+    all_init_event = threading.Event()
+    all_finish_event = threading.Event()
+    poller_stop = threading.Event()
+
+    def _write_barrier(value: str) -> None:
+        tmp = barrier_path.with_suffix(".tmp")
+        tmp.write_text(value, encoding="utf-8")
+        os.replace(tmp, barrier_path)
+
+    def _drain(proc: subprocess.Popen) -> None:
+        assert proc.stdout is not None
+        for line in proc.stdout:
+            with state_lock:
+                stdout_lines.append(line)
+            if line.startswith(H.PHASE_MARK):
+                payload = json.loads(line[len(H.PHASE_MARK) :])
+                name = str(payload.get("name"))
+                rank = int(payload.get("rank", -1))
+                now = time.monotonic()
+                with state_lock:
+                    phases[f"{rank}:{name}"] = now
+                    if name == "init_done":
+                        for pid in payload.get("cores_seen") or []:
+                            if pid:
+                                core_ever_seen.add(int(pid))
+                        if rank >= 0:
+                            init_done_ranks.add(rank)
+                            if len(init_done_ranks) >= args.ranks:
+                                all_init_event.set()
+                    elif name == "finish_done":
+                        if rank >= 0:
+                            finish_done_ranks.add(rank)
+                            if len(finish_done_ranks) >= args.ranks:
+                                all_finish_event.set()
+
+    def _poll_cores() -> None:
+        while not poller_stop.is_set():
+            found = H.core_pids()
+            if found:
+                with state_lock:
+                    core_ever_seen.update(found)
+            poller_stop.wait(0.05)
 
     mock = H.MockCloud(mock_dir, latency_ms=args.latency_ms)
     with mock:
-        spawn_at = time.monotonic()
+
+        def pids_fn() -> List[int]:
+            with state_lock:
+                pids = list(child_pids) + sorted(core_ever_seen)
+            if mock.pid:
+                pids.append(mock.pid)
+            return pids
+
+        core_poller = threading.Thread(target=_poll_cores, daemon=True, name="bench-core-poller")
+        core_poller.start()
+        sampler = H.Sampler(pids_fn, interval=0.05)
+        sampler.start()
+        spawn_at = sampler.capture()
+
+        readers: List[threading.Thread] = []
         for rank in range(args.ranks):
             rank_dir = case_dir / f"rank{rank}"
             (rank_dir / "cwd").mkdir(parents=True, exist_ok=True)
@@ -237,58 +324,72 @@ def run_case(args: argparse.Namespace, topology: str, workdir: Path, interpreter
             stderr_path = rank_dir / "child.stderr.log"
             stderr_paths.append(stderr_path)
             handle = stderr_path.open("w", encoding="utf-8")
-            procs.append(
-                subprocess.Popen(
-                    _child_argv(script, args, rank, interpreter, bool(spec["detach"])),
-                    cwd=str(rank_dir / "cwd"),
-                    env=env,
-                    stdout=subprocess.PIPE,
-                    stderr=handle,
-                    text=True,
-                    bufsize=1,
-                )
+            proc = subprocess.Popen(
+                _child_argv(script, args, rank, interpreter, bool(spec["detach"]), barrier_file=barrier_path),
+                cwd=str(rank_dir / "cwd"),
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=handle,
+                text=True,
+                bufsize=1,
             )
-            # 让 rank 依次启动，避免同时抢启动锁（真实 DDP 也是逐个拉起）。
-            time.sleep(0.15)
-
-        sampler: Optional[H.Sampler] = H.Sampler(lambda: [p.pid for p in procs] + core_pids)
-        sampler.start()
-
-        # 汇总所有 rank 的 stdout（并发读取，避免管道互锁）
-        import threading
-
-        def _drain(proc: subprocess.Popen) -> None:
-            assert proc.stdout is not None
-            for line in proc.stdout:
-                stdout_lines.append(line)
-                if line.startswith(H.PHASE_MARK):
-                    payload = json.loads(line[len(H.PHASE_MARK) :])
-                    phases[f"{payload.get('rank')}:{payload.get('name')}"] = time.monotonic()
-
-        readers = [threading.Thread(target=_drain, args=(proc,), daemon=True) for proc in procs]
-        for reader in readers:
+            procs.append(proc)
+            with state_lock:
+                child_pids.append(proc.pid)
+            reader = threading.Thread(target=_drain, args=(proc,), daemon=True)
             reader.start()
+            readers.append(reader)
+            # 让 rank 依次启动，避免同时抢启动锁（真实 DDP 也是逐个拉起）。
+            if args.stagger > 0 and rank < args.ranks - 1:
+                time.sleep(args.stagger)
 
-        # 轮询发现 core 进程
-        deadline = time.monotonic() + 120.0
-        while time.monotonic() < deadline:
+        # 等待所有 rank init 完成；若有 rank 提前退出则立刻终止屏障避免死等。
+        init_deadline = time.monotonic() + 120.0
+        aborted = False
+        while not all_init_event.is_set():
+            if any(proc.poll() is not None for proc in procs):
+                _write_barrier("abort")
+                aborted = True
+                break
+            if time.monotonic() >= init_deadline:
+                _write_barrier("abort")
+                aborted = True
+                break
+            all_init_event.wait(0.05)
+
+        if not aborted:
             found = H.core_pids()
             if found:
-                core_pids = found
-                core_ever_seen.update(found)
-            if all(proc.poll() is not None for proc in procs):
-                break
-            time.sleep(0.1)
+                with state_lock:
+                    core_ever_seen.update(found)
+            barrier_at = sampler.capture()
+            _write_barrier("go")
+
+            finish_deadline = time.monotonic() + args.timeout
+            while not all_finish_event.is_set():
+                if all(proc.poll() is not None for proc in procs):
+                    break
+                if time.monotonic() >= finish_deadline:
+                    break
+                all_finish_event.wait(0.05)
+            all_finish_at = sampler.capture()
+        else:
+            barrier_at = spawn_at
+            all_finish_at = sampler.capture()
 
         for proc in procs:
             proc.wait(timeout=args.timeout)
         exit_at = time.monotonic()
         for reader in readers:
             reader.join(timeout=10)
-        sampler.stop()
+        poller_stop.set()
+        core_poller.join(timeout=5)
         final_core_pids = H.core_pids()
-        core_ever_seen.update(final_core_pids)
-        stderr_text = "".join(H.stderr_for_pid(pid) for pid in sorted(core_ever_seen))
+        with state_lock:
+            core_ever_seen.update(final_core_pids)
+            ever_seen_snapshot = set(core_ever_seen)
+        sampler.stop()
+        stderr_text = "".join(H.stderr_for_pid(pid) for pid in sorted(ever_seen_snapshot))
         mock_stats = mock.stats()
 
     for proc in procs:
@@ -307,6 +408,10 @@ def run_case(args: argparse.Namespace, topology: str, workdir: Path, interpreter
             f"仅 {len(results)}/{args.ranks} 个 rank 产出结果（topology={topology}）\n"
             f"--- child stderr ---\n{child_stderr}\n--- core stderr ---\n{stderr_text[-3000:]}"
         )
+
+    # 在全部 rank finish 之后由父进程离线扫描本地文件，避免先行结束的 rank 抢占磁盘和 CPU。
+    for item in results:
+        item["local_records"] = H.scan_local_records(Path(item["run_dir"]))
 
     # ---- 校验 -------------------------------------------------------------
     expected_scalars = args.ranks * args.steps * args.keys * 2
@@ -338,11 +443,12 @@ def run_case(args: argparse.Namespace, topology: str, workdir: Path, interpreter
         checks.equal("Python core 不应启动 core 进程", len(set(reported)), 0)
     checks.equal("mock 收到标量条数", mock_scalars, expected_scalars)
     checks.equal("本地落盘标量条数合计", local_scalars, expected_scalars)
-    checks.add(
-        "各 rank 均无上传暂停",
-        not any(item["upload"]["paused_seen"] for item in results),
-        "出现 upload.paused=true",
-    )
+    if args.latency_ms == 0:
+        checks.add(
+            "各 rank 均无上传暂停",
+            not any(item["upload"]["paused_seen"] for item in results),
+            "出现 upload.paused=true",
+        )
     checks.add(
         "core stderr 无错误",
         not any(token in stderr_text for token in ("panic", "store errored", "Error")),
@@ -354,10 +460,16 @@ def run_case(args: argparse.Namespace, topology: str, workdir: Path, interpreter
         f"每 rank 期望 {args.steps * args.keys * 2} 条标量",
     )
 
-    all_pids = [proc.pid for proc in procs] + core_pids
-    child_pids = [proc.pid for proc in procs]
-    wall_s = max(exit_at - spawn_at, 1e-9)
-    cpu_s = sampler.cpu_seconds(all_pids)
+    tracked_core_pids = sorted((ever_seen_snapshot | set(reported)) if spec["core"] == "go" else set())
+    child_pids_final = [proc.pid for proc in procs]
+    all_pids = child_pids_final + tracked_core_pids
+    mock_pids = [mock.pid] if mock.pid else []
+
+    wall_s = max(all_finish_at - barrier_at, 1e-9)
+    wall_total_s = max(exit_at - spawn_at, 1e-9)
+    cpu_core_s = sampler.cpu_seconds(tracked_core_pids, barrier_at, all_finish_at)
+    cpu_s = sampler.cpu_seconds(all_pids, barrier_at, all_finish_at)
+    mock_cpu_s = sampler.cpu_seconds(mock_pids, barrier_at, all_finish_at)
     p99 = max(item["latency_us"]["p99"] for item in results)
 
     record = {
@@ -371,16 +483,21 @@ def run_case(args: argparse.Namespace, topology: str, workdir: Path, interpreter
         "record_batch": int(args.record_batch),
         "record_interval": float(args.record_interval),
         "wall_s": round(wall_s, 4),
+        "wall_total_s": round(wall_total_s, 4),
         "scalar_expected": expected_scalars,
         "throughput_rec_per_s": round(expected_scalars / wall_s, 1),
         "init_ms_median": _median([item["init_ms"] for item in results]),
         "producer_s_max": max(item["producer_s"] for item in results),
         "finish_ms_max": max(item["finish_ms"] for item in results),
         "latency_p99_max_us": p99,
-        "rss_children_peak": sampler.peak_rss(child_pids),
-        "rss_core_peak": sampler.peak_rss(core_pids),
-        "rss_total_peak": sampler.peak_rss(all_pids),
-        "cpu_core_s": round(sampler.cpu_seconds(core_pids), 2),
+        "has_phys_footprint": sampler.has_phys_footprint,
+        "rss_children_peak": sampler.peak_rss(child_pids_final, spawn_at, all_finish_at),
+        "rss_core_peak": sampler.peak_rss(tracked_core_pids, spawn_at, all_finish_at),
+        "rss_total_peak": sampler.peak_rss(all_pids, spawn_at, all_finish_at),
+        "phys_children_peak": sampler.peak_phys(child_pids_final, spawn_at, all_finish_at),
+        "phys_core_peak": sampler.peak_phys(tracked_core_pids, spawn_at, all_finish_at),
+        "phys_total_peak": sampler.peak_phys(all_pids, spawn_at, all_finish_at),
+        "cpu_core_s": round(cpu_core_s, 2),
         "cpu_total_s": round(cpu_s, 2),
         "cpu_pct_total": round(100.0 * cpu_s / wall_s, 1),
         "core_count": len(set(reported)),
@@ -393,6 +510,10 @@ def run_case(args: argparse.Namespace, topology: str, workdir: Path, interpreter
             "experiments": len(mock_stats["experiments"]),
             "heartbeats": mock_stats["heartbeats"],
             "files_completed": mock_stats["files_completed"],
+            "cpu_s": round(mock_cpu_s, 2),
+            "cpu_pct": round(100.0 * mock_cpu_s / wall_s, 1),
+            "rss_peak": sampler.peak_rss(mock_pids, spawn_at, all_finish_at),
+            "phys_peak": sampler.peak_phys(mock_pids, spawn_at, all_finish_at),
         },
         "per_rank": [
             {
@@ -478,7 +599,9 @@ def render(records: List[Dict[str, Any]]) -> str:
                 _fmt_bytes(rec["rss_children_peak"]),
                 _fmt_bytes(rec["rss_core_peak"]),
                 _fmt_bytes(rec["rss_total_peak"]),
+                _fmt_bytes(rec.get("phys_total_peak", 0)) if rec.get("has_phys_footprint") else "—",
                 f"{rec['cpu_pct_total']}%",
+                f"{rec['mock'].get('cpu_pct', 0.0)}%",
                 f"{sum(1 for c in rec['checks'] if c['ok'])}/{len(rec['checks'])}",
             ]
         )
@@ -495,14 +618,16 @@ def render(records: List[Dict[str, Any]]) -> str:
         "rss py",
         "rss core",
         "rss total",
+        "phys tot",
         "cpu",
+        "mock cpu",
         "checks",
     ]
     out = [
         H.render_table(
             headers,
             rows,
-            widths=[14, 7, 7, 12, 8, 12, 10, 12, 11, 10, 10, 11, 8, 9],
+            widths=[14, 7, 7, 10, 8, 12, 10, 12, 11, 10, 10, 11, 11, 9, 10, 9],
         )
     ]
     out.append("")
@@ -561,10 +686,12 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser.add_argument("--worker", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--rank", type=int, default=0, help=argparse.SUPPRESS)
     parser.add_argument("--detach", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--barrier-file", default=None, help=argparse.SUPPRESS)
     parser.add_argument("--ranks", type=int, default=DEFAULT_RANKS)
     parser.add_argument("--steps", type=int, default=DEFAULT_STEPS)
     parser.add_argument("--keys", type=int, default=DEFAULT_KEYS, help="每步每类指标数（共享/独立各一份）")
     parser.add_argument("--sleep", type=float, default=0.0, help="每步 sleep 秒数；0.2 贴近真实训练")
+    parser.add_argument("--stagger", type=float, default=0.15, help="rank 拉起错峰间隔秒数（仅作用于 init 阶段）")
     parser.add_argument("--topology", choices=sorted(TOPOLOGIES) + ["all"], default="all")
     parser.add_argument("--record-batch", type=int, default=10_000, help=argparse.SUPPRESS)
     parser.add_argument("--record-interval", type=float, default=1.5, help=argparse.SUPPRESS)

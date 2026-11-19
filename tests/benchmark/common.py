@@ -12,6 +12,7 @@
 
 from __future__ import annotations
 
+import ctypes
 import json
 import os
 import re
@@ -290,7 +291,7 @@ def cleanup_stale_cores(timeout: float = 10.0) -> List[int]:
         time.sleep(0.1)
     for pid in core_pids():
         try:
-            os.kill(pid, signal.SIGKILL)
+            os.kill(pid, getattr(signal, "SIGKILL", signal.SIGTERM))
         except OSError:
             pass
     for directory in _runtime_dirs():
@@ -377,77 +378,211 @@ class MockCloud:
 
 Sample = Dict[str, Any]
 
+_RUSAGE_INFO_V4 = 4
+
+
+class _MachTimebaseInfo(ctypes.Structure):
+    _fields_ = [("numer", ctypes.c_uint32), ("denom", ctypes.c_uint32)]
+
+
+class _RUsageInfoV4(ctypes.Structure):
+    """对应 macOS <sys/resource.h> 中的 ``struct rusage_info_v4``（共 36 个字段）。"""
+
+    _fields_ = [
+        ("ri_uuid", ctypes.c_uint8 * 16),
+        ("ri_user_time", ctypes.c_uint64),
+        ("ri_system_time", ctypes.c_uint64),
+        ("ri_pkg_idle_wkups", ctypes.c_uint64),
+        ("ri_interrupt_wkups", ctypes.c_uint64),
+        ("ri_pageins", ctypes.c_uint64),
+        ("ri_wired_size", ctypes.c_uint64),
+        ("ri_resident_size", ctypes.c_uint64),
+        ("ri_phys_footprint", ctypes.c_uint64),
+        ("ri_proc_start_abstime", ctypes.c_uint64),
+        ("ri_proc_exit_abstime", ctypes.c_uint64),
+        ("ri_child_user_time", ctypes.c_uint64),
+        ("ri_child_system_time", ctypes.c_uint64),
+        ("ri_child_pkg_idle_wkups", ctypes.c_uint64),
+        ("ri_child_interrupt_wkups", ctypes.c_uint64),
+        ("ri_child_pageins", ctypes.c_uint64),
+        ("ri_child_elapsed_abstime", ctypes.c_uint64),
+        ("ri_diskio_bytesread", ctypes.c_uint64),
+        ("ri_diskio_byteswritten", ctypes.c_uint64),
+        ("ri_cpu_time_qos_default", ctypes.c_uint64),
+        ("ri_cpu_time_qos_maintenance", ctypes.c_uint64),
+        ("ri_cpu_time_qos_background", ctypes.c_uint64),
+        ("ri_cpu_time_qos_utility", ctypes.c_uint64),
+        ("ri_cpu_time_qos_legacy", ctypes.c_uint64),
+        ("ri_cpu_time_qos_user_initiated", ctypes.c_uint64),
+        ("ri_cpu_time_qos_user_interactive", ctypes.c_uint64),
+        ("ri_billed_system_time", ctypes.c_uint64),
+        ("ri_serviced_system_time", ctypes.c_uint64),
+        ("ri_logical_writes", ctypes.c_uint64),
+        ("ri_lifetime_max_phys_footprint", ctypes.c_uint64),
+        ("ri_instructions", ctypes.c_uint64),
+        ("ri_cycles", ctypes.c_uint64),
+        ("ri_billed_energy", ctypes.c_uint64),
+        ("ri_serviced_energy", ctypes.c_uint64),
+        ("ri_interval_max_phys_footprint", ctypes.c_uint64),
+        ("ri_runnable_time", ctypes.c_uint64),
+    ]
+
+
+def _init_darwin_sampler() -> Optional[Tuple[Any, int, int]]:
+    if sys.platform != "darwin":
+        return None
+    try:
+        lib = ctypes.CDLL("/usr/lib/libSystem.B.dylib")
+        proc_pid_rusage = lib.proc_pid_rusage
+        proc_pid_rusage.argtypes = [ctypes.c_int, ctypes.c_int, ctypes.POINTER(_RUsageInfoV4)]
+        proc_pid_rusage.restype = ctypes.c_int
+
+        mach_timebase_info = lib.mach_timebase_info
+        mach_timebase_info.argtypes = [ctypes.POINTER(_MachTimebaseInfo)]
+        mach_timebase_info.restype = ctypes.c_int
+
+        tb = _MachTimebaseInfo()
+        if mach_timebase_info(ctypes.byref(tb)) != 0 or tb.denom == 0:
+            return None
+        return proc_pid_rusage, int(tb.numer), int(tb.denom)
+    except (OSError, AttributeError):
+        return None
+
+
+_DARWIN_SAMPLER = _init_darwin_sampler()
+
+
+def _darwin_sample_pid(pid: int) -> Optional[Tuple[int, int, float]]:
+    """通过 macOS ``proc_pid_rusage`` 采样单进程；已退出时静默返回 None。"""
+    if _DARWIN_SAMPLER is None:
+        return None
+    proc_pid_rusage, numer, denom = _DARWIN_SAMPLER
+    info = _RUsageInfoV4()
+    if proc_pid_rusage(int(pid), _RUSAGE_INFO_V4, ctypes.byref(info)) != 0:
+        return None
+    # Apple Silicon 上 ri_user_time / ri_system_time 为 Mach ticks，需按 timebase 换算成秒。
+    cpu_ns = (int(info.ri_user_time) + int(info.ri_system_time)) * numer / denom
+    return int(info.ri_resident_size), int(info.ri_phys_footprint), cpu_ns / 1e9
+
 
 class Sampler(threading.Thread):
-    """按固定间隔采集一组 pid 的常驻内存与累计 CPU 时间。
+    """按固定间隔采集一组 pid 的常驻内存、物理占用与累计 CPU 时间。
 
-    CPU 取 ps -o time= 的累计秒数差，macOS 上分辨率是 1 秒；内存取 ps 的 RSS
-    （不含被换出或共享计费差异，仅用于横向对比）。
+    macOS 上优先调用 ``proc_pid_rusage`` 获取精确的 Mach timebase CPU 时间、
+    ``ri_resident_size`` 与不含共享代码页重复计费的 ``ri_phys_footprint``；
+    其余平台回退到 ``ps -o pid=,rss=,time=``。
     """
 
-    def __init__(self, pids_fn: Callable[[], Iterable[int]], interval: float = 0.1) -> None:
+    def __init__(self, pids_fn: Callable[[], Iterable[int]], interval: float = 0.05) -> None:
         super().__init__(daemon=True, name="bench-sampler")
         self._pids_fn = pids_fn
         self._interval = interval
         self._halt = threading.Event()
+        self._lock = threading.Lock()
+        self.has_phys_footprint = _DARWIN_SAMPLER is not None
         self.samples: List[Sample] = []
 
     def run(self) -> None:
         while not self._halt.is_set():
-            pids = sorted({int(p) for p in self._pids_fn() if p})
-            self.samples.append(self._sample(pids))
+            self.capture()
             self._halt.wait(self._interval)
 
     def stop(self) -> None:
         self._halt.set()
         self.join(timeout=5)
+        self.capture()
+
+    def capture(self) -> float:
+        """立即执行一次采样并追加到样本序列，返回本次采样时间戳。"""
+        pids = sorted({int(p) for p in self._pids_fn() if p})
+        sample = self._sample(pids)
+        with self._lock:
+            self.samples.append(sample)
+        return float(sample["t"])
 
     @staticmethod
     def _sample(pids: List[int]) -> Sample:
         started = time.monotonic()
         rss: Dict[int, int] = {}
+        phys: Dict[int, int] = {}
         cpu: Dict[int, float] = {}
         if pids:
-            try:
-                out = subprocess.run(
-                    ["ps", "-o", "pid=,rss=,time=", "-p", ",".join(str(p) for p in pids)],
-                    capture_output=True,
-                    text=True,
-                    timeout=10,
-                )
-                for line in out.stdout.splitlines():
-                    parts = line.split()
-                    if len(parts) < 3:
-                        continue
-                    try:
-                        pid = int(parts[0])
-                    except ValueError:
-                        continue
-                    rss[pid] = int(parts[1]) * 1024
-                    cpu[pid] = parse_ps_time(parts[2])
-            except (OSError, subprocess.SubprocessError):
-                pass
-        return {"t": started, "rss": rss, "cpu": cpu}
+            if _DARWIN_SAMPLER is not None:
+                for pid in pids:
+                    sampled = _darwin_sample_pid(pid)
+                    if sampled is not None:
+                        pid_rss, pid_phys, pid_cpu = sampled
+                        rss[pid] = pid_rss
+                        phys[pid] = pid_phys
+                        cpu[pid] = pid_cpu
+            else:
+                try:
+                    out = subprocess.run(
+                        ["ps", "-o", "pid=,rss=,time=", "-p", ",".join(str(p) for p in pids)],
+                        capture_output=True,
+                        text=True,
+                        timeout=10,
+                    )
+                    for line in out.stdout.splitlines():
+                        parts = line.split()
+                        if len(parts) < 3:
+                            continue
+                        try:
+                            pid = int(parts[0])
+                        except ValueError:
+                            continue
+                        rss[pid] = int(parts[1]) * 1024
+                        cpu[pid] = parse_ps_time(parts[2])
+                except (OSError, subprocess.SubprocessError):
+                    pass
+        return {"t": started, "rss": rss, "phys": phys, "cpu": cpu}
 
     # -- 查询辅助 --------------------------------------------------------------
 
-    def peak_rss(self, pids: Sequence[int], start: float = 0.0, end: float = 1e18) -> int:
+    def _peak_metric(self, metric: str, pids: Sequence[int], start: float = 0.0, end: float = 1e18) -> int:
+        with self._lock:
+            samples = list(self.samples)
         peak = 0
-        for sample in self.samples:
+        for sample in samples:
             if not (start <= sample["t"] <= end):
                 continue
-            peak = max(peak, sum(sample["rss"].get(pid, 0) for pid in pids))
+            bucket = sample.get(metric) or {}
+            peak = max(peak, sum(bucket.get(pid, 0) for pid in pids))
         return peak
 
-    def cpu_seconds(self, pids: Sequence[int]) -> float:
-        """各 pid 的累计 CPU 时间之和；进程退出后不再更新。"""
-        totals: Dict[int, float] = {}
-        for sample in self.samples:
+    def peak_rss(self, pids: Sequence[int], start: float = 0.0, end: float = 1e18) -> int:
+        return self._peak_metric("rss", pids, start=start, end=end)
+
+    def peak_phys(self, pids: Sequence[int], start: float = 0.0, end: float = 1e18) -> int:
+        return self._peak_metric("phys", pids, start=start, end=end)
+
+    def cpu_seconds(self, pids: Sequence[int], start: float = 0.0, end: float = 1e18) -> float:
+        """各 pid 在 ``[start, end]`` 窗口内的累计 CPU 时间之和；进程退出后保留末次最大值。"""
+        with self._lock:
+            samples = list(self.samples)
+        if start <= 0.0 and end >= 1e17:
+            totals: Dict[int, float] = {}
+            for sample in samples:
+                for pid in pids:
+                    value = sample["cpu"].get(pid)
+                    if value is not None:
+                        totals[pid] = max(totals.get(pid, 0.0), value)
+            return sum(totals.values())
+
+        bases: Dict[int, float] = {}
+        peaks: Dict[int, float] = {}
+        for sample in samples:
+            t = sample["t"]
+            if t > end:
+                continue
             for pid in pids:
                 value = sample["cpu"].get(pid)
-                if value is not None:
-                    totals[pid] = max(totals.get(pid, 0.0), value)
-        return sum(totals.values())
+                if value is None:
+                    continue
+                if t <= start:
+                    bases[pid] = max(bases.get(pid, 0.0), value)
+                peaks[pid] = max(peaks.get(pid, 0.0), value)
+        return sum(max(0.0, peaks.get(pid, 0.0) - bases.get(pid, 0.0)) for pid in pids)
 
 
 # --- 校验与报告 ---------------------------------------------------------------
