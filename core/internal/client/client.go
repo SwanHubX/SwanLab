@@ -379,12 +379,13 @@ type Factory struct {
 }
 
 // NewFactory 创建共享连接池的 Client 工厂。opts 中的 BaseTransport 决定底层
-// 连接池实现，未指定时克隆 http.DefaultTransport（避免污染全局默认值）。
+// 连接池实现；未指定时使用多分片 HTTP/2 连接池（空闲优先复用分片 0，高并发时
+// 自动展开至多条并行连接以解除 HTTP/2 单连接流控与拥塞瓶颈）。
 func NewFactory(opts Options) *Factory {
 	opts = opts.withDefaults()
 	base := opts.BaseTransport
 	if base == nil {
-		base = cloneDefaultTransport()
+		base = newDefaultTransportPool(defaultTransportShards)
 	}
 	// 重试挂在共享连接池之上：所有 Client 共享同一份重试策略与连接复用。
 	return &Factory{

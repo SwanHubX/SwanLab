@@ -1,8 +1,10 @@
 package sender
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"math"
 	"net/http"
 	"strings"
@@ -483,5 +485,111 @@ func TestLogRetryableKeepsEncodable(t *testing.T) {
 	result := sender.Upload(context.Background(), records)
 	if len(result.Confirmed) != 0 || len(result.Remaining) != 1 || len(result.Failures) != 1 {
 		t.Fatalf("result = confirmed %d remaining %d failures %d", len(result.Confirmed), len(result.Remaining), len(result.Failures))
+	}
+}
+
+func TestScalarBatchMarshalJSONMatchesStdlib(t *testing.T) {
+	emptyGot, err := json.Marshal(scalarBatch{})
+	if err != nil {
+		t.Fatalf("marshal empty scalarBatch: %v", err)
+	}
+	if string(emptyGot) != "[]" {
+		t.Fatalf("empty scalarBatch = %s, want []", emptyGot)
+	}
+
+	type refScalarMetric struct {
+		Key        string `json:"key"`
+		Index      int64  `json:"index"`
+		Data       any    `json:"data"`
+		CreateTime string `json:"create_time"`
+	}
+
+	samples := []struct {
+		key   string
+		step  int64
+		value float64
+		secs  int64
+		nanos int32
+	}{
+		{"loss", 0, 0, 1700000000, 0},
+		{"neg_zero", 1, math.Copysign(0, -1), 1700000000, 123_000_000},
+		{"combine/train_0", 2, 0.5, 1700000001, 123_400_000},
+		{"tiny_e5", 3, 1e-5, 1700000002, 123_456_789},
+		{"boundary_e6", 4, 1e-6, 1700000003, 5_000_000},
+		{"exp_e7", 5, 1e-7, 1700000004, 4_000},
+		{"exp_neg_e7", 6, -1e-7, 1700000005, 7},
+		{"exp_e10", 7, -1.23456789e-10, 1700000006, 0},
+		{"boundary_e20", 8, 1e20, 1700000007, 0},
+		{"boundary_e21", 9, 1e21, 1700000008, 0},
+		{"max_f64", 10, math.MaxFloat64, 1700000009, 0},
+		{"smallest_f64", 11, math.SmallestNonzeroFloat64, 1700000010, 0},
+		{`quote"slash\html<>&line` + "\n" + "sep\u2028中文", 12, 42.25, 1700000011, 500_000_000},
+		{"nan_val", 13, math.NaN(), 1700000012, 0},
+		{"pos_inf", 14, math.Inf(1), 1700000013, 0},
+		{"neg_inf", 15, math.Inf(-1), 1700000014, 0},
+	}
+
+	batch := make(scalarBatch, 0, len(samples))
+	wantList := make([]refScalarMetric, 0, len(samples))
+	for _, sample := range samples {
+		batch = append(batch, scalarMetric{
+			key:   sample.key,
+			step:  sample.step,
+			value: sample.value,
+			secs:  sample.secs,
+			nanos: sample.nanos,
+		})
+		tsStr, ok := encodeTimestamp(&timestamppb.Timestamp{Seconds: sample.secs, Nanos: sample.nanos})
+		if !ok {
+			t.Fatalf("encodeTimestamp failed for %+v", sample)
+		}
+		var data any = sample.value
+		if math.IsNaN(sample.value) || math.IsInf(sample.value, 0) {
+			data = "nan"
+		}
+		wantList = append(wantList, refScalarMetric{
+			Key:        sample.key,
+			Index:      sample.step,
+			Data:       data,
+			CreateTime: tsStr,
+		})
+	}
+
+	got, err := json.Marshal(batch)
+	if err != nil {
+		t.Fatalf("marshal scalarBatch: %v", err)
+	}
+	want, err := json.Marshal(wantList)
+	if err != nil {
+		t.Fatalf("marshal reference list: %v", err)
+	}
+	if !bytes.Equal(got, want) {
+		t.Fatalf("scalarBatch JSON mismatch:\ngot:  %s\nwant: %s", got, want)
+	}
+}
+
+func BenchmarkScalarBatchMarshalJSON(b *testing.B) {
+	const batchSize = 10_000
+	batch := make(scalarBatch, batchSize)
+	for i := range batch {
+		batch[i] = scalarMetric{
+			key:   fmt.Sprintf("combine/train_%d", i%1000),
+			step:  int64(i),
+			value: float64(i) * 0.123456789,
+			secs:  1700000000 + int64(i),
+			nanos: 123_456_000,
+		}
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		raw, err := json.Marshal(batch)
+		if err != nil {
+			b.Fatalf("marshal batch: %v", err)
+		}
+		if len(raw) == 0 {
+			b.Fatal("empty payload")
+		}
 	}
 }

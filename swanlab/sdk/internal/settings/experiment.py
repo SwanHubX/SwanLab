@@ -148,6 +148,10 @@ class RunSettings(BaseModel):
     parallel: ParallelType = Field(default="none")
     """
     Parallel execution policy for this SwanLab run.
+
+    ``"shared"`` lets several processes write one experiment: it forces ``resume="allow"``,
+    suffixes the run directory with hostname + pid, and (unless ``core.detach`` is set explicitly)
+    shares a single detached ``swanlab-core`` across ranks.
     """
 
     history: Optional[Path] = Field(default=None)

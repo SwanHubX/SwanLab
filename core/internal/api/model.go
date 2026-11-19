@@ -244,3 +244,11 @@ type experimentBody struct {
 type label struct {
 	Name string `json:"name"`
 }
+
+// metricUploadBody 是 POST /house/metrics 的强类型请求信封。
+type metricUploadBody struct {
+	Type         string `json:"type"`
+	ProjectID    string `json:"projectId"`
+	ExperimentID string `json:"experimentId"`
+	Metrics      any    `json:"metrics"`
+}

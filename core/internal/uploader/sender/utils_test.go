@@ -6,9 +6,13 @@ import (
 	"io/fs"
 	"net/http"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
 	"golang.org/x/sync/semaphore"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/swanhubx/swanlab/core/internal/client"
 	"github.com/swanhubx/swanlab/core/internal/uploader"
@@ -125,5 +129,49 @@ func TestRunConcurrently(t *testing.T) {
 		if !errors.Is(err, context.Canceled) {
 			t.Fatalf("errs[%d] = %v, want context.Canceled", i, err)
 		}
+	}
+}
+
+func TestEncodeTimestampMatchesProtojson(t *testing.T) {
+	const (
+		invalidNanosNegative = -1
+		invalidNanosOverflow = 1_000_000_000
+	)
+	cases := []struct {
+		name string
+		ts   *timestamppb.Timestamp
+	}{
+		{"nil", nil},
+		{"epoch", &timestamppb.Timestamp{Seconds: 0, Nanos: 0}},
+		{"millis_3digits", &timestamppb.Timestamp{Seconds: 1700000000, Nanos: 123_000_000}},
+		{"millis_padded", &timestamppb.Timestamp{Seconds: 1700000000, Nanos: 5_000_000}},
+		{"micros_6digits", &timestamppb.Timestamp{Seconds: 1700000000, Nanos: 123_400_000}},
+		{"micros_padded", &timestamppb.Timestamp{Seconds: 1700000000, Nanos: 4_000}},
+		{"nanos_9digits", &timestamppb.Timestamp{Seconds: 1700000000, Nanos: 123_456_789}},
+		{"nanos_padded", &timestamppb.Timestamp{Seconds: 1700000000, Nanos: 7}},
+		{"min_valid", &timestamppb.Timestamp{Seconds: minTimestampSeconds, Nanos: 0}},
+		{"max_valid", &timestamppb.Timestamp{Seconds: maxTimestampSeconds, Nanos: maxTimestampNanos}},
+		{"now_sample", timestamppb.New(time.Date(2026, 11, 19, 19, 25, 30, 654321000, time.UTC))},
+		{"below_min_seconds", &timestamppb.Timestamp{Seconds: minTimestampSeconds - 1, Nanos: 0}},
+		{"above_max_seconds", &timestamppb.Timestamp{Seconds: maxTimestampSeconds + 1, Nanos: 0}},
+		{"negative_nanos", &timestamppb.Timestamp{Seconds: 1700000000, Nanos: invalidNanosNegative}},
+		{"overflow_nanos", &timestamppb.Timestamp{Seconds: 1700000000, Nanos: invalidNanosOverflow}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, gotOK := encodeTimestamp(tc.ts)
+
+			raw, err := protojson.Marshal(tc.ts)
+			rawStr := string(raw)
+			wantOK := err == nil && tc.ts != nil && strings.HasPrefix(rawStr, `"`) && strings.HasSuffix(rawStr, `"`)
+			var want string
+			if wantOK {
+				want = rawStr[1 : len(rawStr)-1]
+			}
+			if gotOK != wantOK || got != want {
+				t.Fatalf("encodeTimestamp(%v) = (%q, %v), want (%q, %v)", tc.ts, got, gotOK, want, wantOK)
+			}
+		})
 	}
 }

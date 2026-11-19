@@ -20,6 +20,20 @@ const (
 	histogramInvalidShapeMessage = "histogram record has invalid bucket shape"
 )
 
+// histogramData 是直方图指标 data 字段的强类型 DTO。
+type histogramData struct {
+	Values []uint64  `json:"values"`
+	Bins   []float64 `json:"bins"`
+}
+
+// histogramMetric 是单条直方图指标的强类型上传 DTO。
+type histogramMetric struct {
+	Key        string        `json:"key"`
+	Index      int64         `json:"index"`
+	Data       histogramData `json:"data"`
+	CreateTime string        `json:"create_time"`
+}
+
 // HistogramSender 上报直方图指标：每批最多 128 条，data 只携带 values 与 bins。
 type HistogramSender struct{ opts Options }
 
@@ -31,7 +45,7 @@ func (s *HistogramSender) Upload(ctx context.Context, records []*recordv1.Record
 	if len(records) == 0 {
 		return uploader.Result{}
 	}
-	metrics := make([]map[string]any, 0, len(records))
+	metrics := make([]histogramMetric, 0, len(records))
 	encodable := make([]*recordv1.Record, 0, len(records))
 	blocked := make([]*recordv1.Record, 0)
 	invalid := make([]*recordv1.Record, 0)
@@ -97,26 +111,26 @@ const (
 )
 
 // encodeHistogram 编码单条直方图；缺 payload/时间戳与桶形状非法分别返回对应状态。
-func encodeHistogram(record *datav1.HistogramRecord) (map[string]any, histogramEncodeStatus) {
+func encodeHistogram(record *datav1.HistogramRecord) (histogramMetric, histogramEncodeStatus) {
 	if record == nil || record.GetTimestamp() == nil || record.GetValue() == nil {
-		return nil, histogramBlocked
+		return histogramMetric{}, histogramBlocked
 	}
 	createTime, ok := encodeTimestamp(record.GetTimestamp())
 	if !ok {
-		return nil, histogramBlocked
+		return histogramMetric{}, histogramBlocked
 	}
 	values := record.GetValue().GetValues()
 	bins := record.GetValue().GetBins()
 	if len(values) == 0 || len(values) > maxHistogramBuckets || len(bins) != len(values)+1 {
-		return nil, histogramBadShape
+		return histogramMetric{}, histogramBadShape
 	}
-	return map[string]any{
-		metricKeyField:   record.GetKey(),
-		metricIndexField: record.GetStep(),
-		metricDataField: map[string]any{
-			"values": values,
-			"bins":   bins,
+	return histogramMetric{
+		Key:   record.GetKey(),
+		Index: record.GetStep(),
+		Data: histogramData{
+			Values: values,
+			Bins:   bins,
 		},
-		createTimeKey: createTime,
+		CreateTime: createTime,
 	}, histogramOK
 }

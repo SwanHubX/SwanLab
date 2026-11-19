@@ -8,9 +8,9 @@ import (
 	"io"
 	"os"
 	"sync"
+	"time"
 
 	"golang.org/x/sync/semaphore"
-	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/swanhubx/swanlab/core/internal/client"
@@ -18,8 +18,22 @@ import (
 	recordv1 "github.com/swanhubx/swanlab/core/proto/swanlab/record/v1"
 )
 
-// md5Chunk 是计算 MD5 时的分块大小。
-const md5Chunk = 8 << 20
+const (
+	// md5Chunk 是计算 MD5 时的分块大小。
+	md5Chunk = 8 << 20
+
+	// RFC3339 时间戳零反射格式化边界与小数位宽常量（对齐 google/protobuf protojson）。
+	minTimestampSeconds  int64 = -62135596800
+	maxTimestampSeconds  int64 = 253402300799
+	maxTimestampNanos    int32 = 999_999_999
+	nanosPerMilli        int32 = 1_000_000
+	nanosPerMicro        int32 = 1_000
+	timestampDigitsMilli       = 3
+	timestampDigitsMicro       = 6
+	timestampDigitsNano        = 9
+	timestampBufSize           = 32
+	decimalBase                = 10
+)
 
 // isRetryable 判断错误是否归 Remaining；父 ctx 取消时由 worker 停止调度。
 func isRetryable(err error) bool {
@@ -120,13 +134,48 @@ func isRegularFile(path string) bool {
 	return err == nil && !info.IsDir()
 }
 
-// encodeTimestamp 复用 protojson 的 0/3/6/9 位小数排版，去掉外层引号。
+func isValidTimestamp(ts *timestamppb.Timestamp) bool {
+	if ts == nil {
+		return false
+	}
+	secs := ts.GetSeconds()
+	nanos := ts.GetNanos()
+	return secs >= minTimestampSeconds && secs <= maxTimestampSeconds && nanos >= 0 && nanos <= maxTimestampNanos
+}
+
+func appendZeroPadded(dst []byte, value, width int) []byte {
+	var buf [timestampDigitsNano]byte
+	for i := width - 1; i >= 0; i-- {
+		buf[i] = byte('0' + value%decimalBase)
+		value /= decimalBase
+	}
+	return append(dst, buf[:width]...)
+}
+
+// appendTimestampParts 按 UTC RFC3339 0/3/6/9 位小数格式把合法时间戳直接追加到 dst（零反射）。
+func appendTimestampParts(dst []byte, secs int64, nanos int32) []byte {
+	dst = time.Unix(secs, 0).UTC().AppendFormat(dst, "2006-01-02T15:04:05")
+	if nanos > 0 {
+		dst = append(dst, '.')
+		switch {
+		case nanos%nanosPerMilli == 0:
+			dst = appendZeroPadded(dst, int(nanos/nanosPerMilli), timestampDigitsMilli)
+		case nanos%nanosPerMicro == 0:
+			dst = appendZeroPadded(dst, int(nanos/nanosPerMicro), timestampDigitsMicro)
+		default:
+			dst = appendZeroPadded(dst, int(nanos), timestampDigitsNano)
+		}
+	}
+	return append(dst, 'Z')
+}
+
+// encodeTimestamp 零反射格式化 Timestamp（0/3/6/9 位小数），输出与 protojson.Marshal 一致。
 func encodeTimestamp(ts *timestamppb.Timestamp) (string, bool) {
-	raw, err := protojson.Marshal(ts)
-	if err != nil || len(raw) < 2 || raw[0] != '"' {
+	if !isValidTimestamp(ts) {
 		return "", false
 	}
-	return string(raw[1 : len(raw)-1]), true
+	var buf [timestampBufSize]byte
+	return string(appendTimestampParts(buf[:0], ts.GetSeconds(), ts.GetNanos())), true
 }
 
 // trackFile 注册文件进度行；nil tracker 与 size<=0 都忽略。
