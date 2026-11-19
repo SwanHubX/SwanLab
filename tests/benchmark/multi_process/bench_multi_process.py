@@ -438,6 +438,22 @@ def _median(values: List[float]) -> float:
     return ordered[len(ordered) // 2] if ordered else 0.0
 
 
+def _spread(values: List[float]) -> float:
+    """同一配置多次重复的相对离散度：(max-min)/中位数，百分比。"""
+    if len(values) < 2:
+        return 0.0
+    middle = _median(values)
+    return round((max(values) - min(values)) / middle * 100, 1) if middle else 0.0
+
+
+def pick_best(records: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """同一拓扑多次重复：取墙钟中位数那一次作为代表。"""
+    if len(records) == 1:
+        return records[0]
+    target = _median([rec["wall_s"] for rec in records])
+    return min(records, key=lambda rec: abs(rec["wall_s"] - target))
+
+
 def _fmt_bytes(value: int) -> str:
     for unit, scale in (("GB", 1 << 30), ("MB", 1 << 20), ("KB", 1 << 10)):
         if value >= scale:
@@ -454,6 +470,7 @@ def render(records: List[Dict[str, Any]]) -> str:
                 rec["ranks"],
                 rec["core_count"],
                 rec["wall_s"],
+                f"{rec['spread_pct']}%",
                 rec["throughput_rec_per_s"],
                 rec["init_ms_median"],
                 rec["finish_ms_max"],
@@ -470,6 +487,7 @@ def render(records: List[Dict[str, Any]]) -> str:
         "ranks",
         "cores",
         "wall(s)",
+        "spread",
         "rec/s",
         "init(ms)",
         "finish(ms)",
@@ -484,7 +502,7 @@ def render(records: List[Dict[str, Any]]) -> str:
         H.render_table(
             headers,
             rows,
-            widths=[14, 7, 7, 10, 12, 10, 12, 11, 10, 10, 11, 8, 9],
+            widths=[14, 7, 7, 12, 8, 12, 10, 12, 11, 10, 10, 11, 8, 9],
         )
     ]
     out.append("")
@@ -506,6 +524,28 @@ def render(records: List[Dict[str, Any]]) -> str:
             ["topology", "mock scalar", "mock total", "batches", "experiments", "heartbeats", "disk"],
             detail,
             widths=[14, 13, 12, 10, 13, 12, 11],
+        )
+    )
+    # per-rank 上传队列深度：max 为该拓扑各 rank 的峰值，用来判断 p99 抬升是否来自队列满。
+    queue_rows = []
+    for rec in records:
+        ranks = rec.get("per_rank") or []
+        queue_rows.append(
+            [
+                rec["topology"],
+                rec["ranks"],
+                max((item["max_buffered_bytes"] for item in ranks), default=0),
+                max((item["max_pending_records"] for item in ranks), default=0),
+                max((item["uploaded_records"] for item in ranks), default=0),
+                sum(1 for item in ranks if item["paused"]),
+            ]
+        )
+    out.append("")
+    out.append(
+        H.render_table(
+            ["topology", "ranks", "max buf(B)", "max pending", "uploaded max", "paused ranks"],
+            queue_rows,
+            widths=[14, 7, 13, 13, 14, 13],
         )
     )
     return "\n".join(out)
@@ -532,6 +572,7 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser.add_argument("--project", default="bench-project")
     parser.add_argument("--experiment", default="bench-mp")
     parser.add_argument("--latency-ms", type=int, default=0)
+    parser.add_argument("--repeats", type=int, default=1, help="每个拓扑重复次数，取墙钟中位数")
     parser.add_argument("--interpreter", default=None)
     parser.add_argument("--timeout", type=float, default=3600.0)
     parser.add_argument("--keep", action="store_true")
@@ -560,8 +601,14 @@ def main(argv: Optional[List[str]] = None) -> int:
     records: List[Dict[str, Any]] = []
     try:
         for topology in topologies:
-            print(f"  ... topology={topology}", flush=True)
-            records.append(run_case(args, topology, workdir, interpreter))
+            runs: List[Dict[str, Any]] = []
+            for index in range(max(1, args.repeats)):
+                print(f"  ... topology={topology} repeat={index + 1}/{args.repeats}", flush=True)
+                runs.append(run_case(args, topology, workdir, interpreter))
+            best = pick_best(runs)
+            best["all_wall_s"] = [rec["wall_s"] for rec in runs]
+            best["spread_pct"] = _spread([rec["wall_s"] for rec in runs])
+            records.append(best)
     finally:
         if not args.keep:
             shutil.rmtree(workdir, ignore_errors=True)

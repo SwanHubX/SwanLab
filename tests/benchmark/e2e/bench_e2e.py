@@ -100,14 +100,34 @@ def run_worker(args: argparse.Namespace) -> None:
     local_counts: Dict[str, int] = {}
     run_file_bytes = 0
     error: Optional[str] = None
+    media_logged = 0
+    save_files = 0
+    media_every = max(0, int(args.media_every))
+    save_count = max(0, int(args.save_count))
+    frame: Any = None
+    if media_every > 0:
+        import numpy as np
+
+        frame = np.zeros((16, 16, 3), dtype=np.uint8)
 
     try:
+        # 混合档：先登记待上传文件，policy=end 表示到 finish 才上传
+        for index in range(save_count):
+            ckpt = Path.cwd() / f"ckpt-{index}.bin"
+            ckpt.write_bytes(bytes([index % 256]) * 64 * 1024)
+            save_files += len(run.save(str(ckpt), policy="end"))
+
         t_total_start = time.perf_counter()
         for step in range(int(args.steps)):
             data = {f"metric_{index}": 0.5 + (step % 1000) * 1e-4 for index in keys}
             t0 = time.perf_counter()
             run.log(data, step=step)
             latencies.append((time.perf_counter() - t0) * 1e6)
+            if media_every > 0 and step % media_every == 0:
+                # 每张图内容不同，文件名含 step 与内容哈希，不会互相覆盖
+                frame.fill(step % 256)
+                run.log_image(key="image", data=frame, step=step)
+                media_logged += 1
             if step % 2000 == 0:
                 _emit_phase("progress", step=step)
 
@@ -153,6 +173,8 @@ def run_worker(args: argparse.Namespace) -> None:
         "latency_head_us": round(latencies[0], 2) if latencies else 0.0,
         "local_records": local_counts,
         "run_file_bytes": run_file_bytes,
+        "media_logged": media_logged,
+        "save_files": save_files,
         "upload": probe.summary(),
     }
     print(H.RESULT_MARK + json.dumps(result), flush=True)
@@ -203,6 +225,8 @@ def run_worker_none(args: argparse.Namespace) -> None:
         "latency_head_us": round(latencies[0], 2) if latencies else 0.0,
         "local_records": {},
         "run_file_bytes": 0,
+        "media_logged": 0,
+        "save_files": 0,
         "upload": {
             "paused_seen": False,
             "max_buffered_bytes": 0,
@@ -264,6 +288,10 @@ def _child_argv(script: Path, args: argparse.Namespace, interpreter: str, core: 
         "--experiment",
         args.experiment,
         *(["--skip-store"] if args.skip_store else []),
+        "--media-every",
+        str(args.media_every),
+        "--save-count",
+        str(args.save_count),
     ]
 
 
@@ -352,6 +380,7 @@ def run_case(args: argparse.Namespace, core: str, workdir: Path, interpreter: st
     expect_impl = "none" if core == "none" else core
     checks.add("子进程未连真实后端", not result["isolation_problems"], str(result["isolation_problems"]))
     house_total = mock_stats["house_metrics_total"]
+    extra_keys: List[str] = []
     if core == "go":
         checks.equal("Go core 进程数", len(core_pids), 1)
     elif core == "python":
@@ -359,8 +388,41 @@ def run_case(args: argparse.Namespace, core: str, workdir: Path, interpreter: st
     if core != "none":
         checks.equal("实际使用的 core 与预期一致", result["core_impl"], expect_impl)
         checks.equal("mock 收到标量条数", mock_stats["metrics_by_type"]["scalar"], result["scalar_expected"])
+        local = result["local_records"]
         if not args.skip_store:
-            checks.equal("本地文件标量条数", result["local_records"].get("scalar", 0), result["scalar_expected"])
+            checks.equal("本地文件标量条数", local.get("scalar", 0), result["scalar_expected"])
+            # 这四类记录在两个 core 里都是一条落盘对应一条请求，因此本地条数应等于 mock
+            # 收到的条数。column 走 /series、save 走文件或 profile，不在此列。
+            for kind in ("scalar", "log", "media", "histogram"):
+                checks.equal(
+                    f"mock {kind} 条数与本地落盘一致",
+                    mock_stats["metrics_by_type"].get(kind, 0),
+                    local.get(kind, 0),
+                )
+            # uploaded_records 统计已处理完的记录：上报的四类 + column + save。
+            # save 只要处理完就计数，和 mock 的 files_completed 不是一回事。
+            delivered = house_total + local.get("column", 0) + local.get("save", 0)
+            uploaded = result["upload"]["max_uploaded_records"]
+            # uploaded_records 是每 0.2s 采样一次的快照，收尾阶段最后一刷可能晚于末次采样，
+            # 因此只保证「不会超过实际交付的条数」；超出说明有记录处理完却没上传。
+            checks.add("上传进度未超过已交付条数", uploaded <= delivered, f"uploaded={uploaded} delivered={delivered}")
+            if args.media_every > 0:
+                expected_media = len(range(0, int(args.steps), int(args.media_every)))
+                checks.equal(
+                    "mock media 条数与预期一致",
+                    mock_stats["metrics_by_type"].get("media", 0),
+                    expected_media,
+                )
+            if args.save_count > 0:
+                # 用户 save 走 /files/prepare + /files/complete，每个文件一次 complete；
+                # 配置/requirements/metadata 这类走 profile 接口，不调用 complete。
+                checks.equal("用户 save 文件全部上传完成", mock_stats["files_completed"], int(args.save_count))
+        # 列定义校验：mock 在 /series 收到的 key 必须覆盖 run.log 用过的每一个 key。
+        expected_keys = {f"metric_{index}" for index in range(int(args.keys))}
+        series_keys = set(mock_stats["series_keys"])
+        missing_keys = sorted(expected_keys - series_keys)
+        checks.add("series 覆盖全部 log key", not missing_keys, f"缺失 {missing_keys[:10]}")
+        extra_keys = sorted(series_keys - expected_keys)
         checks.add("上传全程未被暂停", not result["upload"]["paused_seen"], "出现过 upload.paused=true")
         checks.add(
             "core 日志无报错",
@@ -387,6 +449,8 @@ def run_case(args: argparse.Namespace, core: str, workdir: Path, interpreter: st
         "record_batch": result["record_batch"],
         "record_interval": result["record_interval"],
         "scalar_expected": result["scalar_expected"],
+        "media_logged": result.get("media_logged", 0),
+        "save_files": result.get("save_files", 0),
         "init_ms": result["init_ms"],
         "producer_s": result["producer_s"],
         "finish_ms": result["finish_ms"],
@@ -412,6 +476,7 @@ def run_case(args: argparse.Namespace, core: str, workdir: Path, interpreter: st
             "files_completed": mock_stats["files_completed"],
             "series_keys": len(mock_stats["series_keys"]),
             "series_requests": mock_stats["series_requests"],
+            "series_extra_keys": extra_keys,
             "experiments": len(mock_stats["experiments"]),
             "heartbeats": mock_stats["heartbeats"],
             "stop_experiments": mock_stats["stop_experiments"],
@@ -485,8 +550,9 @@ def render(records: List[Dict[str, Any]]) -> str:
                 rec["upload"]["max_pending_records"],
                 rec["upload"]["max_uploaded_records"],
                 rec["mock"]["house_total"],
-                rec["mock"]["batches"],
+                rec["mock"]["by_type"].get("media", 0),
                 rec["mock"]["files_completed"],
+                rec["mock"]["batches"],
                 "YES" if rec["upload"]["paused_seen"] else "no",
                 rec["mock"]["series_requests"],
             ]
@@ -497,12 +563,13 @@ def render(records: List[Dict[str, Any]]) -> str:
         "max pending",
         "uploaded(采样)",
         "mock house",
-        "batches",
+        "media",
         "files",
+        "batches",
         "paused",
         "series",
     ]
-    out.append(H.render_table(headers2, detail_rows, widths=[16, 12, 13, 12, 12, 10, 9, 9, 8]))
+    out.append(H.render_table(headers2, detail_rows, widths=[16, 12, 13, 12, 12, 7, 7, 9, 9, 8]))
     return "\n".join(out)
 
 
@@ -523,6 +590,8 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser.add_argument("--core", choices=("none", "python", "go", "both"), default="both")
     parser.add_argument("--profile", choices=sorted(PROFILES), default="default")
     parser.add_argument("--skip-store", action="store_true", help="对比 core.skip_store=True")
+    parser.add_argument("--media-every", type=int, default=0, help="每 N 步记一张 16x16 图片（0=不开）")
+    parser.add_argument("--save-count", type=int, default=0, help="run.save 的文件数（policy=end，0=不开）")
     parser.add_argument("--repeats", type=int, default=1, help="每个 case 重复次数，取中位数")
     parser.add_argument("--latency-ms", type=int, default=0, help="mock 响应注入的固定延迟")
     parser.add_argument("--interpreter", default=None, help="被测子进程解释器（用于抽跑旧版本）")
