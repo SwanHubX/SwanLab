@@ -23,7 +23,7 @@
   4. accepted/rejected 计数与 set 基线差分一致（正确性）
 
 用法：
-  uv run pytest tests/benchmark/sdk/internal/core_python/metrics/bench_metrics_steps.py -v -s
+  uv run pytest tests/benchmark/python_core/metrics/bench_metrics_steps.py -v -s
 """
 
 import json

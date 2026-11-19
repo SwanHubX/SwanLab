@@ -15,7 +15,7 @@
   5. 回读记录数（验证数据完整性）
 
 用法：
-  uv run pytest tests/benchmark/sdk/internal/core_python/store/bench_store_fsync.py -v -s
+  uv run pytest tests/benchmark/python_core/store/bench_store_fsync.py -v -s
 """
 
 import time

@@ -30,7 +30,7 @@
   3. 数据完整性（persist 标量可完整回读、媒体文件数与 save 镜像数正确；skip 不落盘）
 
 用法：
-  uv run pytest tests/benchmark/sdk/internal/core_python/store/bench_store_skip.py -v -s
+  uv run pytest tests/benchmark/python_core/store/bench_store_skip.py -v -s
 """
 
 import hashlib
