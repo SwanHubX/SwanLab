@@ -28,6 +28,13 @@ jobs:
           python-version: "3.11"
           enable-cache: true
 
+      # 平台 wheel 内嵌 Go core，Go 版本会影响产物（如 macOS 最低版本），须与本地一致
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: core/.go-version
+          cache-dependency-path: core/go.sum
+
       - name: Build
         run: make build VERSION=${GITHUB_REF#refs/tags/v}
 
