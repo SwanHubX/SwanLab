@@ -11,7 +11,12 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/store"
 )
 
-const defaultInterval = time.Second
+// defaultInterval 是运行期断点写入间隔。每次写入都要 tmp.Sync + syncDir + 重命名，
+// 上传进度落后于本地写入时还要扫描本地日志（EndOffset），在网络存储上比日志本身的
+// 写入重得多。checkpoint.json 只是崩溃续传时跳过已上传部分的提速标记：间隔放宽后
+// 最多多重放一段本地日志，重放幂等，不丢数据；停机与排空完成时仍由 Flush 立即写入
+// 最终断点。
+const defaultInterval = 10 * time.Second
 
 // Store 抽象断点写入所需的本地落盘水位查询能力（生产环境由 *store.AsyncWriter 实现）。
 type Store interface {

@@ -230,3 +230,14 @@ func TestWriterSkipsUnchangedInitialSeqAndNilSafe(t *testing.T) {
 		t.Fatalf("writer without watermark must not create checkpoint file, got stat err=%v", err)
 	}
 }
+
+// TestNewDefaultsToTenSecondInterval 钉住运行期断点写入间隔，避免慢盘上重新回到
+// 每秒一次 tmp.Sync + syncDir + 重命名。
+func TestNewDefaultsToTenSecondInterval(t *testing.T) {
+	if got := New(Options{}).interval; got != 10*time.Second {
+		t.Fatalf("default interval = %s, want 10s", got)
+	}
+	if got := New(Options{Interval: time.Millisecond}).interval; got != time.Millisecond {
+		t.Fatalf("explicit interval = %s, want 1ms", got)
+	}
+}

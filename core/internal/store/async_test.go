@@ -170,13 +170,20 @@ func TestAsyncQuantitativeFlush(t *testing.T) {
 }
 
 func TestAsyncTimedFlush(t *testing.T) {
-	a, _ := newTestAsync(t, AsyncOptions{Queue: 8, FlushInterval: 10 * time.Millisecond})
+	a, path := newTestAsync(t, AsyncOptions{Queue: 8, FlushInterval: 10 * time.Millisecond})
 	defer a.Close()
 
 	a.In() <- Request{StoreSeq: 1, Payload: payloadN(20)}
 	deadline := time.Now().Add(2 * time.Second)
 	for {
-		if seq, _ := a.Flushed(); seq == 1 {
+		if seq, off := a.Flushed(); seq == 1 {
+			fi, err := os.Stat(path)
+			if err != nil {
+				t.Fatalf("Stat: %v", err)
+			}
+			if off != fi.Size() {
+				t.Fatalf("flushed offset = %d, file size = %d", off, fi.Size())
+			}
 			return
 		}
 		if time.Now().After(deadline) {
