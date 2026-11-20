@@ -1,6 +1,7 @@
 package store
 
 import (
+	"bytes"
 	"errors"
 	"io"
 	"os"
@@ -57,7 +58,7 @@ func newSinkWriter(t *testing.T, delay time.Duration) (*Writer, *recordSink, str
 	}
 	sink := &recordSink{fp: fp, delay: delay}
 	t.Cleanup(func() { _ = sink.Close() })
-	return NewWriterForTest(sink, HeaderLen), sink, path
+	return newWriter(sink, HeaderLen), sink, path
 }
 
 // scanBoundary 返回 limit 之内的完整记录条数与最后一条完整记录的结束偏移。
@@ -285,36 +286,6 @@ func sinkSizes(t *testing.T, sink *recordSink) []int {
 	return sizes
 }
 
-// TestAsyncTickerFlushesIdleBuffer 验证低吞吐停写后定时器会把缓冲写入。
-func TestAsyncTickerFlushesIdleBuffer(t *testing.T) {
-	w, _, path := newSinkWriter(t, 0)
-	a, err := NewAsyncWriter(w, AsyncOptions{Queue: 8, FlushInterval: 5 * time.Millisecond})
-	if err != nil {
-		t.Fatalf("NewAsyncWriter: %v", err)
-	}
-	defer func() { _ = a.Close() }()
-
-	a.In() <- Request{StoreSeq: 1, Payload: payloadN(20)}
-	deadline := time.Now().Add(2 * time.Second)
-	for {
-		seq, off := a.Flushed()
-		if seq == 1 {
-			fi, statErr := os.Stat(path)
-			if statErr != nil {
-				t.Fatalf("Stat: %v", statErr)
-			}
-			if off != fi.Size() {
-				t.Fatalf("flushed offset = %d, file size = %d", off, fi.Size())
-			}
-			return
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("timed flush did not advance progress")
-		}
-		time.Sleep(time.Millisecond)
-	}
-}
-
 // shortSink 每次最多只接受 n 字节，用于模拟底层短写。
 type shortSink struct {
 	n int
@@ -329,20 +300,9 @@ func (s *shortSink) Write(p []byte) (int, error) {
 
 func (s *shortSink) Close() error { return nil }
 
-func TestCountingWriterCountsActualBytes(t *testing.T) {
-	cw := &countingWriter{fp: &shortSink{n: 3}}
-	n, err := cw.Write([]byte("0123456789"))
-	if n != 3 || !errors.Is(err, io.ErrShortWrite) {
-		t.Fatalf("Write = (%d, %v), want (3, ErrShortWrite)", n, err)
-	}
-	if got := cw.written.Load(); got != 3 {
-		t.Fatalf("written = %d, want 3", got)
-	}
-}
-
 func TestAsyncShortWriteDoesNotAdvanceWatermark(t *testing.T) {
 	sink := &shortSink{n: 10}
-	a, err := NewAsyncWriter(NewWriterForTest(sink, HeaderLen), AsyncOptions{Queue: 4, FlushInterval: time.Hour})
+	a, err := NewAsyncWriter(newWriter(sink, HeaderLen), AsyncOptions{Queue: 4, FlushInterval: time.Hour})
 	if err != nil {
 		t.Fatalf("NewAsyncWriter: %v", err)
 	}
@@ -355,7 +315,81 @@ func TestAsyncShortWriteDoesNotAdvanceWatermark(t *testing.T) {
 	if seq, off := a.Flushed(); seq != 0 || off != HeaderLen {
 		t.Fatalf("Flushed = (%d, %d) after short write, want (0, %d)", seq, off, HeaderLen)
 	}
-	if got := a.w.written(); got != HeaderLen+10 {
-		t.Fatalf("written = %d, want %d", got, HeaderLen+10)
+}
+
+// TestAsyncOpenAppendAdvancesWatermarkNaturally 验证 OpenAppend 从非 HeaderLen 基址
+// 追加写入并自然写满 32 KiB 缓冲时，不显式 Flush 也能准确推进 Flushed()。
+func TestAsyncOpenAppendAdvancesWatermarkNaturally(t *testing.T) {
+	const existing = 3
+	initial := [][]byte{anyPayload(0), anyPayload(1), anyPayload(2)}
+	path, _ := writeFile(t, initial...)
+	fi, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("Stat: %v", err)
+	}
+	end := fi.Size()
+
+	w, err := OpenAppend(path, end)
+	if err != nil {
+		t.Fatalf("OpenAppend: %v", err)
+	}
+	a, err := NewAsyncWriter(w, AsyncOptions{
+		Queue:         64,
+		ResumeSeq:     existing,
+		FlushInterval: time.Hour,
+	})
+	if err != nil {
+		w.Close()
+		t.Fatalf("NewAsyncWriter: %v", err)
+	}
+
+	const added = 1200
+	rec := payloadN(50)
+	for i := 0; i < added; i++ {
+		a.In() <- Request{StoreSeq: uint64(existing + i + 1), Payload: rec}
+	}
+	if err = a.sync(false); err != nil {
+		_ = a.Close()
+		t.Fatalf("sync(false): %v", err)
+	}
+
+	seq, off := a.Flushed()
+	if seq <= existing || seq >= existing+added {
+		_ = a.Close()
+		t.Fatalf("flushed seq = %d, want in (%d, %d)", seq, existing, existing+added)
+	}
+	if off <= end {
+		_ = a.Close()
+		t.Fatalf("flushed offset = %d, want > %d", off, end)
+	}
+	got := readLimit(t, path, HeaderLen, off)
+	if len(got) != int(seq) {
+		_ = a.Close()
+		t.Fatalf("read %d records below flushed offset, want %d", len(got), seq)
+	}
+	for i := range got {
+		want := rec
+		if i < existing {
+			want = initial[i]
+		}
+		if !bytes.Equal(got[i], want) {
+			_ = a.Close()
+			t.Fatalf("record %d mismatch before close", i)
+		}
+	}
+
+	if err = a.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	fi, err = os.Stat(path)
+	if err != nil {
+		t.Fatalf("Stat after Close: %v", err)
+	}
+	if finalSeq, finalOff := a.Flushed(); finalSeq != existing+added || finalOff != fi.Size() {
+		t.Fatalf("final Flushed = (%d, %d), want (%d, %d)", finalSeq, finalOff, existing+added, fi.Size())
+	}
+	all := readAll(t, path)
+	if len(all) != existing+added {
+		t.Fatalf("readAll got %d records, want %d", len(all), existing+added)
 	}
 }

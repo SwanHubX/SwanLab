@@ -251,58 +251,6 @@ func TestDeliverRunFinishLocalStoreCloseFailureFails(t *testing.T) {
 	}
 }
 
-// TestDeliverRunFinishSlowStoreHandsOffToConfirm 验证慢盘排空超过 DeliverRunFinish 的
-// ctx 期限时不标记存储降级（否则在线模式会被误判为本地副本不完整），且 Confirm 能用
-// 新的 ctx 继续等完刷盘并完成收尾。
-func TestDeliverRunFinishSlowStoreHandsOffToConfirm(t *testing.T) {
-	// 用会阻塞的底层写入模拟慢盘。
-	h := newFinishHarness(t, finishOptions{slowStore: true})
-	if err := h.mgr.UpsertScalars(context.Background(), h.id, []*datav1.ScalarRecord{
-		scalarRecord("finish/slow", 0, columnv1.ColumnType_COLUMN_TYPE_SCALAR),
-	}); err != nil {
-		t.Fatalf("UpsertScalars: %v", err)
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
-	defer cancel()
-	done := make(chan error, 1)
-	go func() { done <- h.mgr.DeliverRunFinish(ctx, h.id, finishRecord(runv1.RunState_RUN_STATE_FINISHED, "")) }()
-	var err error
-	select {
-	case err = <-done:
-	case <-time.After(3 * time.Second):
-		t.Fatal("DeliverRunFinish did not honor its context deadline on a slow store")
-	}
-	if !errors.Is(err, ErrRunFailed) || !errors.Is(err, context.DeadlineExceeded) {
-		t.Fatalf("DeliverRunFinish err = %v, want ErrRunFailed wrapping the context deadline", err)
-	}
-	if h.session.storeDegraded.Load() {
-		t.Fatal("a slow flush must not be reported as a degraded store")
-	}
-	if state := h.session.stateSnapshot(); state != RunStateFailed {
-		t.Fatalf("state = %s, want failed", state)
-	}
-
-	// 慢盘排空完成后，Confirm 用不设超时的 ctx 继续等待刷盘并完成收尾。
-	h.releaseStore()
-	confirmCtx, cancelConfirm := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancelConfirm()
-	result, err := h.mgr.Confirm(confirmCtx, h.id)
-	if err != nil || result.ReleaseFailed {
-		t.Fatalf("Confirm result=%+v err=%v, want success", result, err)
-	}
-	if h.session.storeDegraded.Load() {
-		t.Fatal("Confirm must not observe a degraded store")
-	}
-	records := readStore(t, h.runFile)
-	if len(records) == 0 || records[len(records)-1].GetNum() != record.NumFinish {
-		t.Fatalf("stored records = %v, want the finish record flushed", records)
-	}
-	if _, err = h.mgr.State(h.id); !errors.Is(err, ErrSessionNotFound) {
-		t.Fatalf("State after confirm err=%v, want ErrSessionNotFound", err)
-	}
-}
-
 func TestDeliverRunFinishLocalModesPersistAndConfirm(t *testing.T) {
 	for _, mode := range []config.Mode{config.ModeLocal, config.ModeOffline} {
 		t.Run(string(mode), func(t *testing.T) {

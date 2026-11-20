@@ -175,8 +175,7 @@ func (a *AsyncWriter) run() {
 	// st 只在写协程内读写，不需要加锁。
 	st := writeState{
 		seq:         mark.StoreSeq,
-		prevSeq:     mark.StoreSeq,
-		prevEnd:     mark.Offset,
+		end:         mark.Offset,
 		lastFlush:   a.w.Offset(),
 		lastWritten: a.w.written(),
 	}
@@ -204,19 +203,17 @@ func (a *AsyncWriter) run() {
 			}
 			c.reply <- err
 		}
-		if a.flushBytes > 0 && a.w.Offset()-st.lastFlush >= int64(a.flushBytes) {
+		if !st.failed && a.flushBytes > 0 && a.w.Offset()-st.lastFlush >= int64(a.flushBytes) {
 			a.flush(&st)
 		}
 	}
 }
 
-// writeState 是写协程的私有状态：seq 是已写入的最后一条记录序号，prevSeq/prevEnd
-// 是上一条记录的结束边界，lastFlush 是字节阈值基线，lastWritten 是上次定时检查时
-// 已交给内核的字节数。
+// writeState 是写协程的私有状态：seq 与 end 是最后一条已写入记录的序号和结束偏移，
+// lastFlush 是字节阈值基线，lastWritten 是上次定时检查时已交给内核的字节数。
 type writeState struct {
 	seq         uint64
-	prevSeq     uint64
-	prevEnd     int64
+	end         int64
 	lastFlush   int64
 	lastWritten int64
 	failed      bool // 已降级：继续消费入口但丢弃写入，避免阻断上传主链路
@@ -227,25 +224,23 @@ func (a *AsyncWriter) append(req Request, st *writeState) {
 	if st.failed {
 		return
 	}
-	start, err := a.w.WriteRecord(req.Payload)
+	start, end, written, err := a.w.writeRecord(req.Payload)
 	if err != nil {
 		st.failed = true
 		a.fail(err)
 		return
 	}
 	a.index.Add(req.StoreSeq, start)
-	st.seq = req.StoreSeq
-	end := a.w.Offset()
+	prevSeq, prevEnd := st.seq, st.end
+	st.seq, st.end = req.StoreSeq, end
 	// bufio 空间不够时会先写出旧缓冲，所以刚写完的这条记录末尾可能还在缓冲里，
 	// 此时进度只能推进到上一条完整写出的记录。
-	written := a.w.written()
 	switch {
 	case end <= written:
 		a.publish(req.StoreSeq, end)
-	case st.prevSeq > 0 && st.prevEnd <= written:
-		a.publish(st.prevSeq, st.prevEnd)
+	case prevSeq > 0 && prevEnd <= written:
+		a.publish(prevSeq, prevEnd)
 	}
-	st.prevSeq, st.prevEnd = req.StoreSeq, end
 }
 
 // drainAll 非阻塞写完已入队记录；入口已关闭时返回 false。
@@ -266,6 +261,9 @@ func (a *AsyncWriter) drainAll(st *writeState) bool {
 // tick 是定时刷盘：本周期内 bufio 已自然写出过数据就跳过，避免打断 32 KiB 缓冲
 // 产生碎片写入；只有缓冲非空且本周期没有自然写出时才 Flush。
 func (a *AsyncWriter) tick(st *writeState) {
+	if st.failed {
+		return
+	}
 	written := a.w.written()
 	if written > st.lastWritten {
 		st.lastWritten = written
@@ -286,7 +284,7 @@ func (a *AsyncWriter) flush(st *writeState) bool {
 	off := a.w.Offset()
 	a.publish(st.seq, off)
 	st.lastFlush = off
-	st.lastWritten = a.w.written()
+	st.lastWritten = off
 	return true
 }
 
