@@ -73,6 +73,7 @@ CODEBUDDY.md
 .mcp.json
 .zcodeignore
 graphify-out/
+.alma-snapshots
 
 # go core binary
 swanlab/bin/
