@@ -114,10 +114,18 @@ func (s *Session) completeFinish(ctx context.Context) error {
 		}
 	}
 
-	// 本地刷盘不设超时，必须等 AsyncWriter 全部写入，且关闭要排在 FinishRecord 提交之后。
-	// 刷盘失败时 online 由上传兜底，local/offline 返回失败。
+	// 本地刷盘要等 AsyncWriter 全部写完，且关闭排在 FinishRecord 提交之后。等待受
+	// ctx 限制：超时只返回错误，后台写协程继续排空，不丢数据，由 Confirm 用新的 ctx
+	// 再等一次。只有真实 I/O 错误才置 storeDegraded：online 有上传兜底，local/offline
+	// 返回失败。
 	if s.store != nil {
-		if err := s.store.Close(); err != nil {
+		err := s.store.CloseContext(ctx)
+		switch {
+		case errors.Is(err, context.DeadlineExceeded), errors.Is(err, context.Canceled):
+			// 慢盘排空未完成，数据仍在写，不按存储降级处理。
+			console.Infof("finish: local store is still flushing: %v", err)
+			return err
+		case err != nil:
 			s.storeDegraded.Store(true)
 			console.Warningf("finish: local store did not flush completely: %v", err)
 		}

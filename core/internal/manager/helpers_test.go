@@ -237,6 +237,7 @@ func (g *gatedSender) Upload(ctx context.Context, records []*recordv1.Record) up
 
 type finishOptions struct {
 	skipStore     bool
+	slowStore     bool
 	mode          config.Mode
 	uploadQueue   int
 	queueWait     time.Duration
@@ -253,6 +254,36 @@ type finishHarness struct {
 	uploads       *collectingSender
 	gate          chan struct{}
 	uploadEntered chan struct{}
+	releaseStore  func()
+}
+
+// gatedWriteCloser 让底层写入阻塞，直到 gate 被关闭，用于模拟慢盘。
+type gatedWriteCloser struct {
+	inner io.WriteCloser
+	gate  <-chan struct{}
+}
+
+func (g *gatedWriteCloser) Write(p []byte) (int, error) {
+	<-g.gate
+	return g.inner.Write(p)
+}
+
+func (g *gatedWriteCloser) Close() error { return g.inner.Close() }
+
+// newGatedStoreWriter 构造底层写入会阻塞的 Writer（gate 关闭后恢复）。
+func newGatedStoreWriter(path string, gate <-chan struct{}) (*store.Writer, error) {
+	header, err := store.Create(path)
+	if err != nil {
+		return nil, err
+	}
+	if err = header.Close(); err != nil {
+		return nil, err
+	}
+	fp, err := os.OpenFile(path, os.O_WRONLY|os.O_APPEND, 0o644)
+	if err != nil {
+		return nil, err
+	}
+	return store.NewWriterForTest(&gatedWriteCloser{inner: fp, gate: gate}, store.HeaderLen), nil
 }
 
 // newFinishHarness 装配真实 store/intake/uploader，用于验证收尾序列的顺序与刷盘语义。
@@ -281,6 +312,7 @@ func newFinishHarness(t *testing.T, opts finishOptions) *finishHarness {
 
 	var writer *store.Writer
 	var async *store.AsyncWriter
+	releaseStore := func() {}
 	if !cfg.SkipStore {
 		runFile, err = run.RunFile()
 		if err != nil {
@@ -289,9 +321,16 @@ func newFinishHarness(t *testing.T, opts finishOptions) *finishHarness {
 		if err = os.MkdirAll(run.RunDir, 0o755); err != nil {
 			t.Fatalf("MkdirAll: %v", err)
 		}
-		writer, err = store.Create(runFile)
+		if opts.slowStore {
+			gate := make(chan struct{})
+			var once sync.Once
+			releaseStore = func() { once.Do(func() { close(gate) }) }
+			writer, err = newGatedStoreWriter(runFile, gate)
+		} else {
+			writer, err = store.Create(runFile)
+		}
 		if err != nil {
-			t.Fatalf("store.Create: %v", err)
+			t.Fatalf("open store: %v", err)
 		}
 		async, err = store.NewAsyncWriter(writer, store.AsyncOptions{Queue: 16})
 		if err != nil {
@@ -414,11 +453,13 @@ func newFinishHarness(t *testing.T, opts finishOptions) *finishHarness {
 			_ = up.Close()
 		}
 		if async != nil {
+			// 先放行慢盘，避免后台写协程卡在收尾刷盘上。
+			releaseStore()
 			_ = async.Close()
 		}
 	})
 	return &finishHarness{
 		mgr: mgr, id: id, session: s, runFile: runFile, writer: writer,
-		uploads: uploads, gate: gate, uploadEntered: entered,
+		uploads: uploads, gate: gate, uploadEntered: entered, releaseStore: releaseStore,
 	}
 }
