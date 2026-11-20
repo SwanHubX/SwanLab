@@ -61,6 +61,9 @@ from swanlab.sdk.typings.run import ModeType
 
 __all__ = ["CorePython"]
 
+# 清理路径等待 Transport 排空的上限；超时后中止后台线程。
+_CLEANUP_JOIN_TIMEOUT = 5.0
+
 
 class CorePython(CoreProtocol):
     """
@@ -677,3 +680,37 @@ class CorePython(CoreProtocol):
         else:
             message = "Failed to finish run, but it has been saved locally."
         return ConfirmRunFinishResponse(success=False, message=message)
+
+    # ---------------------------------- 生命周期回收 ----------------------------------
+
+    def _reclaim(self) -> None:
+        """停止后台组件并关闭本地资源；可重复调用，不抛出，不重复上报终态。"""
+        self._active = False
+        heartbeat, self._heartbeat = self._heartbeat, None
+        with safe.block(level="debug", message="heartbeat stop failed during core reclaim"):
+            if heartbeat is not None:
+                heartbeat.stop()
+        watcher, self._watcher = self._watcher, None
+        with safe.block(level="debug", message="watcher stop failed during core reclaim"):
+            if watcher is not None:
+                watcher.stop()
+        store, self._store = self._store, None
+        with safe.block(level="debug", message="store close failed during core reclaim"):
+            if store is not None:
+                store.close()
+        transport, self._transport = self._transport, None
+        with safe.block(level="debug", message="transport stop failed during core reclaim"):
+            if transport is not None:
+                if not transport.finish(timeout=_CLEANUP_JOIN_TIMEOUT):
+                    transport.stop()
+                    transport.join(timeout=_CLEANUP_JOIN_TIMEOUT)
+        if self._tracker is not None:
+            self._tracker.set_state(CoreState.CORE_STATE_FINISHED)
+        self._pending_online_finish_record = None
+        self._pending_end_saves.clear()
+
+    def close(self) -> None:
+        self._reclaim()
+
+    def abort(self, cause: Optional[BaseException] = None) -> None:
+        self._reclaim()

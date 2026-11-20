@@ -53,11 +53,13 @@ def isolate_sdk_environment(tmp_path, monkeypatch):
 
     import swanlab
     from swanlab.sdk.internal.context.components.callbacker import global_callbacker
+    from swanlab.sdk.internal.context.components.core import reset_fallback_warning
     from swanlab.sdk.internal.core_python import client
-    from swanlab.sdk.internal.pkg import console
+    from swanlab.sdk.internal.pkg import console, helper
     from swanlab.sdk.internal.run import clear_run
     from swanlab.sdk.internal.run.components.config import reset as reset_config
     from swanlab.sdk.internal.settings import Settings, set_global_settings
+    from swanlab.sdk.protocol import CoreEnum, ProbeEnum
 
     # 1. 路径与环境变量隔离
     # 清理可能干扰测试的常见环境变量
@@ -100,6 +102,11 @@ def isolate_sdk_environment(tmp_path, monkeypatch):
     # 7. 清理 callbacker
     for callback in global_callbacker.registered_callbacks:
         global_callbacker.remove_callback(callback.name)
+
+    # 8. 恢复默认后端实现并重置回退告警状态，避免 require() 调用跨测试污染
+    helper.set_core_impl(CoreEnum.CORE)
+    helper.set_probe_impl(ProbeEnum.PROBE_PYTHON)
+    reset_fallback_warning()
 
     yield
 

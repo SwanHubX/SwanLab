@@ -1,5 +1,7 @@
 """SwanLab Core settings."""
 
+from typing import Optional
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from .compat import section_rule_index_factory
@@ -58,5 +60,45 @@ class CoreSettings(BaseModel):
     into records and uploaded directly; ``run.save()`` files are read from their original
     path without local links.
     ``swanlab sync`` / ``swanlab watch`` do not apply; a crashed run cannot be recovered.
+    """
+    upload_budget_records: int = Field(default=0)
+    """
+    Upload pipeline budget in records; ``<=0`` means unlimited.
+    """
+    upload_budget_bytes: int = Field(default=0)
+    """
+    Upload pipeline budget in bytes; ``<=0`` means unlimited.
+    """
+    health_probe_interval: float = Field(default=5.0, ge=0)
+    """
+    Site health probe interval in seconds. ``0`` lets core use its default (5s).
+    """
+    health_probe_timeout: float = Field(default=2.0, ge=0)
+    """
+    Per-probe timeout in seconds. ``0`` lets core use its default (2s).
+    """
+    health_degrade_threshold: int = Field(default=3, ge=0)
+    """
+    Consecutive probe failures required to degrade the site. ``0`` uses the core default (3).
+    """
+    health_recover_threshold: int = Field(default=2, ge=0)
+    """
+    Consecutive probe successes required to recover the site. ``0`` uses the core default (2).
+    """
+    detach: Optional[bool] = Field(default=None)
+    """
+    Run ``swanlab-core`` as a shared detached daemon instead of binding it to this run's process lifetime.
+    ``True`` (Detached Mode): runs for the same user on the same host share one ``swanlab-core`` process,
+    and ``close()`` / ``abort()`` only release this client's session and channel; ``False`` (Owner Mode):
+    each run spawns an isolated ``swanlab-core`` and tears it down on close.
+
+    ``None`` (default) leaves the choice to ``run.parallel``: ``parallel="shared"`` shares one detached
+    core across ranks, any other value keeps one core per process. Set ``True`` / ``False`` to override.
+    """
+    idle_timeout: float = Field(default=30.0, ge=0)
+    """
+    Idle shutdown timeout (in seconds) passed when spawning a detached ``swanlab-core``
+    (applies to both explicit ``core.detach=True`` and implicit detachment via ``run.parallel="shared"``).
+    ``0`` disables automatic idle shutdown.
     """
     model_config = ConfigDict(frozen=True)

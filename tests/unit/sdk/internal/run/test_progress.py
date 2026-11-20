@@ -363,6 +363,77 @@ class TestRunWithProgress:
         result = run_with_progress(provider.get_operation_stats, lambda: expected, timeout=5.0)
         assert result is expected
 
+    def test_terminal_stats_error_skips_polling_and_warnings(self, monkeypatch):
+        """session 已消失（NOT_FOUND）时直接收尾，不再刷告警。"""
+        warnings = []
+        stats_calls = []
+        monkeypatch.setattr(progress_module.console, "warning", lambda *args, **kwargs: warnings.append(args))
+
+        def stats_fn() -> GetOperationStatsResponse:
+            stats_calls.append(True)
+            assert len(stats_calls) <= 2, "terminal stats error must stop polling"
+            return GetOperationStatsResponse(
+                success=False,
+                message="[RPC/SESSION_NOT_FOUND] no such session (grpc=NOT_FOUND)",
+            )
+
+        called = []
+        run_with_progress(stats_fn, lambda: called.append(True))
+
+        assert called == [True]
+        assert len(stats_calls) == 1
+        assert warnings == []
+
+    def test_non_terminal_stats_error_still_warns_once(self, monkeypatch):
+        """非终态失败保持原有行为：告警一次后继续收尾。"""
+        warnings = []
+        monkeypatch.setattr(progress_module.console, "warning", lambda *args, **kwargs: warnings.append(args))
+
+        def stats_fn() -> GetOperationStatsResponse:
+            return GetOperationStatsResponse(success=False, message="[RPC/GRPC_UNAVAILABLE] connect failed")
+
+        called = []
+        run_with_progress(stats_fn, lambda: called.append(True))
+
+        assert called == [True]
+        assert len(warnings) == 1
+
+    def test_terminal_stats_error_during_polling_stops_loop(self, monkeypatch):
+        """轮询中途 session 消失：立即退出循环，完成最后一次查询后执行收尾。"""
+        warnings = []
+        monkeypatch.setattr(progress_module.console, "warning", lambda *args, **kwargs: warnings.append(args))
+        running = OperationStats(
+            state=CoreState.CORE_STATE_RUNNING,
+            total_number=1,
+            uploaded_number=0,
+            total_size=100,
+            uploaded_size=0,
+            rate=0,
+        )
+        terminal = GetOperationStatsResponse(
+            success=False,
+            message="[RPC/SESSION_NOT_FOUND] no such session (grpc=NOT_FOUND)",
+        )
+        responses = iter(
+            [
+                GetOperationStatsResponse(success=True, message="OK", stats=running),
+                terminal,
+                terminal,
+            ]
+        )
+        stats_calls = []
+
+        def stats_fn() -> GetOperationStatsResponse:
+            stats_calls.append(True)
+            return next(responses)
+
+        called = []
+        run_with_progress(stats_fn, lambda: called.append(True), unit="bytes")
+
+        assert called == [True]
+        assert len(stats_calls) == 3  # 初始 + 轮询中途 + 最终查询
+        assert warnings == []
+
     def test_live_updates_refresh_immediately(self, monkeypatch):
         class FakeLive:
             instances = []
@@ -417,3 +488,57 @@ class TestRunWithProgress:
 
         assert result == "ok"
         assert FakeLive.instances[0].updates == [True]
+
+    def test_deadline_applies_while_stats_fail(self, monkeypatch):
+        """core 挂掉后 stats 持续失败，deadline 仍必须生效，不能卡在失败分支。"""
+        monkeypatch.setattr(progress_module, "_POLL_INTERVAL", 0.01)
+        running = OperationStats(
+            state=CoreState.CORE_STATE_RUNNING,
+            total_number=1,
+            uploaded_number=0,
+            total_size=100,
+            uploaded_size=0,
+            rate=0,
+        )
+        failure = GetOperationStatsResponse(success=False, message="[RPC/GRPC_UNAVAILABLE] connect failed")
+        calls = []
+
+        def stats_fn() -> GetOperationStatsResponse:
+            calls.append(True)
+            if len(calls) == 1:
+                return GetOperationStatsResponse(success=True, message="OK", stats=running)
+            assert len(calls) < 50, "deadline must stop polling even when every stats call fails"
+            return failure
+
+        called = []
+        run_with_progress(stats_fn, lambda: called.append(True), timeout=0.05, unit="bytes")
+
+        assert called == [True]
+        assert len(calls) < 50
+
+    def test_consecutive_stats_failures_stop_polling(self, monkeypatch):
+        """无 timeout（如 swanlab.sync）时，连续传输失败也必须收敛，不能永久轮询。"""
+        monkeypatch.setattr(progress_module, "_POLL_INTERVAL", 0)
+        monkeypatch.setattr(progress_module, "_MAX_CONSECUTIVE_STATS_FAILURES", 3)
+        running = OperationStats(
+            state=CoreState.CORE_STATE_RUNNING,
+            total_number=1,
+            uploaded_number=0,
+            total_size=100,
+            uploaded_size=0,
+            rate=0,
+        )
+        calls = []
+
+        def stats_fn() -> GetOperationStatsResponse:
+            calls.append(True)
+            if len(calls) == 1:
+                return GetOperationStatsResponse(success=True, message="OK", stats=running)
+            return GetOperationStatsResponse(success=False, message="[RPC/GRPC_UNAVAILABLE] connect failed")
+
+        called = []
+        run_with_progress(stats_fn, lambda: called.append(True), unit="bytes")
+
+        assert called == [True]
+        # 初始检查 + 3 次连续失败 + 收尾前最后一次查询
+        assert len(calls) == 1 + 3 + 1

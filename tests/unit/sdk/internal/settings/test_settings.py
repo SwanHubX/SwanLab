@@ -9,13 +9,14 @@ import os
 import subprocess
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Optional, cast
 
 import pytest
 from pydantic import ValidationError
 from pydantic_settings import SettingsConfigDict
 
 from swanlab.sdk.internal.settings import Settings, resolve_hosts
+from swanlab.sdk.typings.run import ModeType
 
 
 @pytest.fixture(autouse=True)
@@ -440,9 +441,88 @@ class TestSkipStore:
             settings.merge_settings({"mode": "offline"})
 
     def test_to_core_proto_passthrough(self, tmp_path):
-        settings = Settings(mode="online", core=Settings.Core(skip_store=True))
+        settings = Settings(
+            mode="online",
+            core=Settings.Core(skip_store=True),
+            api_key="secret",
+            api_host="https://api.example.com",
+            web_host="https://example.com",
+        )
         proto = settings.to_core_proto(run_id="r1", run_dir=tmp_path)
         assert proto.skip_store is True
+        assert proto.api_key == "secret"
+        assert proto.api_host == "https://api.example.com"
+        assert proto.web_host == "https://example.com"
+
+    def test_to_core_proto_maps_mode(self, tmp_path):
+        from swanlab.proto.swanlab.settings.core.v1.core_pb2 import CoreMode
+
+        cases = {
+            "online": CoreMode.CORE_MODE_ONLINE,
+            "local": CoreMode.CORE_MODE_LOCAL,
+            "offline": CoreMode.CORE_MODE_OFFLINE,
+            "disabled": CoreMode.CORE_MODE_DISABLED,
+        }
+        for mode, expected in cases.items():
+            proto = Settings(mode=cast(ModeType, mode)).to_core_proto(run_id="r1", run_dir=tmp_path)
+            assert proto.mode == expected
+
+    def test_to_core_proto_core_tuning(self, tmp_path):
+        settings = Settings(
+            mode="online",
+            core=Settings.Core(
+                upload_budget_records=50,
+                upload_budget_bytes=1024,
+                health_probe_interval=1.5,
+                health_probe_timeout=0.75,
+                health_degrade_threshold=5,
+                health_recover_threshold=4,
+            ),
+        )
+        proto = settings.to_core_proto(run_id="r1", run_dir=tmp_path)
+        assert proto.upload_budget_records == 50
+        assert proto.upload_budget_bytes == 1024
+        assert proto.health_probe_interval == 1.5
+        assert proto.health_probe_timeout == 0.75
+        assert proto.health_degrade_threshold == 5
+        assert proto.health_recover_threshold == 4
+
+    def test_to_core_proto_health_defaults(self, tmp_path):
+        proto = Settings(mode="online").to_core_proto(run_id="r1", run_dir=tmp_path)
+        assert proto.upload_budget_records == 0
+        assert proto.upload_budget_bytes == 0
+        assert proto.health_probe_interval == 5.0
+        assert proto.health_probe_timeout == 2.0
+        assert proto.health_degrade_threshold == 3
+        assert proto.health_recover_threshold == 2
+
+    def test_core_detach_and_idle_timeout_defaults_and_env(self, monkeypatch):
+        default_settings = Settings(mode="online")
+        # detach=None 表示未显式设置，交由 run.parallel 决定；idle_timeout 默认 30.0s
+        assert default_settings.core.detach is None
+        assert default_settings.core.idle_timeout == 30.0
+
+        monkeypatch.setenv("SWANLAB_CORE_DETACH", "true")
+        monkeypatch.setenv("SWANLAB_CORE_IDLE_TIMEOUT", "2.5")
+        env_settings = Settings(mode="online")
+        assert env_settings.core.detach is True
+        assert env_settings.core.idle_timeout == 2.5
+
+        monkeypatch.setenv("SWANLAB_CORE_IDLE_TIMEOUT", "0")
+        assert Settings(mode="online").core.idle_timeout == 0.0
+
+        monkeypatch.setenv("SWANLAB_CORE_DETACH", "false")
+        assert Settings(mode="online").core.detach is False
+
+        with pytest.raises(ValidationError):
+            Settings(mode="online", core=Settings.Core(idle_timeout=-1.0))
+
+    def test_parallel_shared_does_not_force_detach_setting(self):
+        """parallel 只提供 detach 的默认选择，不写回 settings，便于显式覆盖。"""
+        settings = Settings(mode="online")
+        settings.merge_settings({"run": {"parallel": "shared"}})
+        assert settings.core.detach is None
+        assert settings.core.idle_timeout == 30.0
 
 
 class TestMediaMaxSize:

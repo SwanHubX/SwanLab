@@ -11,7 +11,7 @@ from swanlab.sdk.internal.pkg import client, console
 from swanlab.sdk.internal.pkg.client import STARTUP_RETRIES
 from swanlab.sdk.typings.pkg.client import JSONBody, JSONDict
 
-__all__ = ["exists", "reset", "new", "get", "post", "put", "patch", "delete", "STARTUP_RETRIES"]
+__all__ = ["exists", "reset", "new", "current_api_key", "get", "post", "put", "patch", "delete", "STARTUP_RETRIES"]
 
 # ==============================================================================
 # 模块级全局状态与代理快捷函数
@@ -34,6 +34,14 @@ def exists() -> bool:
     """检查当前的 SwanLab 运行时客户端是否已存在。"""
     global _default_client
     return _default_client is not None
+
+
+def current_api_key() -> Optional[str]:
+    """安全读取当前存活客户端的 api_key；未初始化或仅 mocked exists 时返回 None。"""
+    if _default_client is None:
+        return None
+    key = getattr(_default_client, "api_key", None)
+    return key if isinstance(key, str) and key else None
 
 
 def reset():

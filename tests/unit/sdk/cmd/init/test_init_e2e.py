@@ -37,13 +37,21 @@ from swanlab.sdk.cmd.merge_settings import merge_settings
 from swanlab.sdk.internal.bus import FileSaveEvent, MetricLogEvent, RunEmitter
 from swanlab.sdk.internal.core_python import CorePython, client
 from swanlab.sdk.internal.core_python.watcher import NullFileWatcher
-from swanlab.sdk.internal.pkg import console, fork
+from swanlab.sdk.internal.pkg import console, fork, helper
 from swanlab.sdk.internal.probe_python import ProbePython
 from swanlab.sdk.internal.run import Run, get_run, has_run
 from swanlab.sdk.internal.run.components import BackgroundConsumer, NullConsumer, NullEmitter
 from swanlab.sdk.internal.run.components.config import config as global_config
 from swanlab.sdk.internal.settings import Settings, create_settings
+from swanlab.sdk.protocol import CoreEnum
 from swanlab.sdk.typings.run import ModeType
+
+
+@pytest.fixture(autouse=True)
+def _use_python_core():
+    """本文件基于 responses HTTP mock 验证内置 CorePython 链路。"""
+    helper.set_core_impl(CoreEnum.CORE_PYTHON)
+
 
 # ============================================================
 # Online 模式测试常量

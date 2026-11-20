@@ -82,6 +82,154 @@ func (CoreErrorKind) EnumDescriptor() ([]byte, []int) {
 	return file_swanlab_grpc_core_v1_core_proto_rawDescGZIP(), []int{0}
 }
 
+// SpinupService 请求。无身份字段：core 面向同一本地信任域，不做应用层鉴权。
+type SpinupServiceRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SpinupServiceRequest) Reset() {
+	*x = SpinupServiceRequest{}
+	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SpinupServiceRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SpinupServiceRequest) ProtoMessage() {}
+
+func (x *SpinupServiceRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SpinupServiceRequest.ProtoReflect.Descriptor instead.
+func (*SpinupServiceRequest) Descriptor() ([]byte, []int) {
+	return file_swanlab_grpc_core_v1_core_proto_rawDescGZIP(), []int{0}
+}
+
+// SpinupService 响应。无字段，返回即表示服务已 READY。
+type SpinupServiceResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SpinupServiceResponse) Reset() {
+	*x = SpinupServiceResponse{}
+	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SpinupServiceResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SpinupServiceResponse) ProtoMessage() {}
+
+func (x *SpinupServiceResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SpinupServiceResponse.ProtoReflect.Descriptor instead.
+func (*SpinupServiceResponse) Descriptor() ([]byte, []int) {
+	return file_swanlab_grpc_core_v1_core_proto_rawDescGZIP(), []int{1}
+}
+
+// TeardownService 请求。无身份字段，同 SpinupServiceRequest。
+type TeardownServiceRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TeardownServiceRequest) Reset() {
+	*x = TeardownServiceRequest{}
+	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TeardownServiceRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TeardownServiceRequest) ProtoMessage() {}
+
+func (x *TeardownServiceRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TeardownServiceRequest.ProtoReflect.Descriptor instead.
+func (*TeardownServiceRequest) Descriptor() ([]byte, []int) {
+	return file_swanlab_grpc_core_v1_core_proto_rawDescGZIP(), []int{2}
+}
+
+// TeardownService 响应。
+type TeardownServiceResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TeardownServiceResponse) Reset() {
+	*x = TeardownServiceResponse{}
+	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TeardownServiceResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TeardownServiceResponse) ProtoMessage() {}
+
+func (x *TeardownServiceResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TeardownServiceResponse.ProtoReflect.Descriptor instead.
+func (*TeardownServiceResponse) Descriptor() ([]byte, []int) {
+	return file_swanlab_grpc_core_v1_core_proto_rawDescGZIP(), []int{3}
+}
+
 // DeliverRunStart 请求，生命周期函数，运行正式开始
 type DeliverRunStartRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -93,7 +241,7 @@ type DeliverRunStartRequest struct {
 
 func (x *DeliverRunStartRequest) Reset() {
 	*x = DeliverRunStartRequest{}
-	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[0]
+	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -105,7 +253,7 @@ func (x *DeliverRunStartRequest) String() string {
 func (*DeliverRunStartRequest) ProtoMessage() {}
 
 func (x *DeliverRunStartRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[0]
+	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -118,7 +266,7 @@ func (x *DeliverRunStartRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeliverRunStartRequest.ProtoReflect.Descriptor instead.
 func (*DeliverRunStartRequest) Descriptor() ([]byte, []int) {
-	return file_swanlab_grpc_core_v1_core_proto_rawDescGZIP(), []int{0}
+	return file_swanlab_grpc_core_v1_core_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *DeliverRunStartRequest) GetCoreSettings() *v1.CoreSettings {
@@ -138,22 +286,23 @@ func (x *DeliverRunStartRequest) GetStartRecord() *v11.StartRecord {
 // DeliverRunStart 响应
 type DeliverRunStartResponse struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
-	Success          bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`                                                              // 请求是否成功
-	Message          string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`                                                               // 请求失败的响应
-	Run              *v11.StartRecord       `protobuf:"bytes,3,opt,name=run,proto3" json:"run,omitempty"`                                                                       // 最终创建的 Run 记录
-	Path             string                 `protobuf:"bytes,4,opt,name=path,proto3" json:"path,omitempty"`                                                                     // 对应的实验路径，格式为 /:username/:project_name/:slug(run_id)
-	Name             string                 `protobuf:"bytes,5,opt,name=name,proto3" json:"name,omitempty"`                                                                     // 对应的实验名称
-	GlobalStep       int64                  `protobuf:"varint,6,opt,name=global_step,json=globalStep,proto3" json:"global_step,omitempty"`                                      // 起始全局步数
-	GlobalSystemStep int64                  `protobuf:"varint,7,opt,name=global_system_step,json=globalSystemStep,proto3" json:"global_system_step,omitempty"`                  // 起始全局系统步数
-	NewExperiment    bool                   `protobuf:"varint,8,opt,name=new_experiment,json=newExperiment,proto3" json:"new_experiment,omitempty"`                             // 是否是新实验
-	ErrorKind        CoreErrorKind          `protobuf:"varint,9,opt,name=error_kind,json=errorKind,proto3,enum=swanlab.grpc.core.v1.CoreErrorKind" json:"error_kind,omitempty"` // 启动失败时的错误分类
+	Success          bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`                                                               // 请求是否成功
+	Message          string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`                                                                // 请求失败的响应
+	Run              *v11.StartRecord       `protobuf:"bytes,3,opt,name=run,proto3" json:"run,omitempty"`                                                                        // 最终创建的 Run 记录
+	Path             string                 `protobuf:"bytes,4,opt,name=path,proto3" json:"path,omitempty"`                                                                      // 对应的实验路径，格式为 /:username/:project_name/:slug(run_id)
+	Name             string                 `protobuf:"bytes,5,opt,name=name,proto3" json:"name,omitempty"`                                                                      // 对应的实验名称
+	GlobalStep       int64                  `protobuf:"varint,6,opt,name=global_step,json=globalStep,proto3" json:"global_step,omitempty"`                                       // 起始全局步数
+	GlobalSystemStep int64                  `protobuf:"varint,7,opt,name=global_system_step,json=globalSystemStep,proto3" json:"global_system_step,omitempty"`                   // 起始全局系统步数
+	NewExperiment    bool                   `protobuf:"varint,8,opt,name=new_experiment,json=newExperiment,proto3" json:"new_experiment,omitempty"`                              // 是否是新实验
+	SessionId        string                 `protobuf:"bytes,9,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`                                           // 服务端生成的 opaque 会话标识，后续所有 run 级 RPC 必须携带
+	ErrorKind        CoreErrorKind          `protobuf:"varint,10,opt,name=error_kind,json=errorKind,proto3,enum=swanlab.grpc.core.v1.CoreErrorKind" json:"error_kind,omitempty"` // 启动失败时的错误分类
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
 
 func (x *DeliverRunStartResponse) Reset() {
 	*x = DeliverRunStartResponse{}
-	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[1]
+	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -165,7 +314,7 @@ func (x *DeliverRunStartResponse) String() string {
 func (*DeliverRunStartResponse) ProtoMessage() {}
 
 func (x *DeliverRunStartResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[1]
+	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -178,7 +327,7 @@ func (x *DeliverRunStartResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeliverRunStartResponse.ProtoReflect.Descriptor instead.
 func (*DeliverRunStartResponse) Descriptor() ([]byte, []int) {
-	return file_swanlab_grpc_core_v1_core_proto_rawDescGZIP(), []int{1}
+	return file_swanlab_grpc_core_v1_core_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *DeliverRunStartResponse) GetSuccess() bool {
@@ -237,6 +386,13 @@ func (x *DeliverRunStartResponse) GetNewExperiment() bool {
 	return false
 }
 
+func (x *DeliverRunStartResponse) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
 func (x *DeliverRunStartResponse) GetErrorKind() CoreErrorKind {
 	if x != nil {
 		return x.ErrorKind
@@ -247,14 +403,15 @@ func (x *DeliverRunStartResponse) GetErrorKind() CoreErrorKind {
 // UpsertColumns 请求，异步插入一批列定义
 type UpsertColumnsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Columns       []*v12.ColumnRecord    `protobuf:"bytes,1,rep,name=columns,proto3" json:"columns,omitempty"` // 列定义列表
+	Columns       []*v12.ColumnRecord    `protobuf:"bytes,1,rep,name=columns,proto3" json:"columns,omitempty"`                      // 列定义列表
+	SessionId     string                 `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"` // 目标会话标识
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *UpsertColumnsRequest) Reset() {
 	*x = UpsertColumnsRequest{}
-	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[2]
+	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -266,7 +423,7 @@ func (x *UpsertColumnsRequest) String() string {
 func (*UpsertColumnsRequest) ProtoMessage() {}
 
 func (x *UpsertColumnsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[2]
+	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -279,7 +436,7 @@ func (x *UpsertColumnsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpsertColumnsRequest.ProtoReflect.Descriptor instead.
 func (*UpsertColumnsRequest) Descriptor() ([]byte, []int) {
-	return file_swanlab_grpc_core_v1_core_proto_rawDescGZIP(), []int{2}
+	return file_swanlab_grpc_core_v1_core_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *UpsertColumnsRequest) GetColumns() []*v12.ColumnRecord {
@@ -289,17 +446,25 @@ func (x *UpsertColumnsRequest) GetColumns() []*v12.ColumnRecord {
 	return nil
 }
 
+func (x *UpsertColumnsRequest) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
 // UpsertScalars 请求，异步插入一批标量数据
 type UpsertScalarsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Data          []*v13.ScalarRecord    `protobuf:"bytes,1,rep,name=data,proto3" json:"data,omitempty"` // 标量记录列表
+	Data          []*v13.ScalarRecord    `protobuf:"bytes,1,rep,name=data,proto3" json:"data,omitempty"`                            // 标量记录列表
+	SessionId     string                 `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"` // 目标会话标识
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *UpsertScalarsRequest) Reset() {
 	*x = UpsertScalarsRequest{}
-	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[3]
+	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -311,7 +476,7 @@ func (x *UpsertScalarsRequest) String() string {
 func (*UpsertScalarsRequest) ProtoMessage() {}
 
 func (x *UpsertScalarsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[3]
+	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -324,7 +489,7 @@ func (x *UpsertScalarsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpsertScalarsRequest.ProtoReflect.Descriptor instead.
 func (*UpsertScalarsRequest) Descriptor() ([]byte, []int) {
-	return file_swanlab_grpc_core_v1_core_proto_rawDescGZIP(), []int{3}
+	return file_swanlab_grpc_core_v1_core_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *UpsertScalarsRequest) GetData() []*v13.ScalarRecord {
@@ -334,17 +499,25 @@ func (x *UpsertScalarsRequest) GetData() []*v13.ScalarRecord {
 	return nil
 }
 
+func (x *UpsertScalarsRequest) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
 // UpsertMedia 请求，异步插入一批媒体数据
 type UpsertMediaRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Data          []*v13.MediaRecord     `protobuf:"bytes,1,rep,name=data,proto3" json:"data,omitempty"` // 媒体记录列表
+	Data          []*v13.MediaRecord     `protobuf:"bytes,1,rep,name=data,proto3" json:"data,omitempty"`                            // 媒体记录列表
+	SessionId     string                 `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"` // 目标会话标识
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *UpsertMediaRequest) Reset() {
 	*x = UpsertMediaRequest{}
-	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[4]
+	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -356,7 +529,7 @@ func (x *UpsertMediaRequest) String() string {
 func (*UpsertMediaRequest) ProtoMessage() {}
 
 func (x *UpsertMediaRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[4]
+	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -369,7 +542,7 @@ func (x *UpsertMediaRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpsertMediaRequest.ProtoReflect.Descriptor instead.
 func (*UpsertMediaRequest) Descriptor() ([]byte, []int) {
-	return file_swanlab_grpc_core_v1_core_proto_rawDescGZIP(), []int{4}
+	return file_swanlab_grpc_core_v1_core_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *UpsertMediaRequest) GetData() []*v13.MediaRecord {
@@ -379,17 +552,25 @@ func (x *UpsertMediaRequest) GetData() []*v13.MediaRecord {
 	return nil
 }
 
+func (x *UpsertMediaRequest) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
 // UpsertHistograms 请求，异步插入一批直方图数据
 type UpsertHistogramsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Data          []*v13.HistogramRecord `protobuf:"bytes,1,rep,name=data,proto3" json:"data,omitempty"` // 直方图记录列表
+	Data          []*v13.HistogramRecord `protobuf:"bytes,1,rep,name=data,proto3" json:"data,omitempty"`                            // 直方图记录列表
+	SessionId     string                 `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"` // 目标会话标识
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *UpsertHistogramsRequest) Reset() {
 	*x = UpsertHistogramsRequest{}
-	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[5]
+	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -401,7 +582,7 @@ func (x *UpsertHistogramsRequest) String() string {
 func (*UpsertHistogramsRequest) ProtoMessage() {}
 
 func (x *UpsertHistogramsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[5]
+	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -414,7 +595,7 @@ func (x *UpsertHistogramsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpsertHistogramsRequest.ProtoReflect.Descriptor instead.
 func (*UpsertHistogramsRequest) Descriptor() ([]byte, []int) {
-	return file_swanlab_grpc_core_v1_core_proto_rawDescGZIP(), []int{5}
+	return file_swanlab_grpc_core_v1_core_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *UpsertHistogramsRequest) GetData() []*v13.HistogramRecord {
@@ -424,17 +605,25 @@ func (x *UpsertHistogramsRequest) GetData() []*v13.HistogramRecord {
 	return nil
 }
 
+func (x *UpsertHistogramsRequest) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
 // UpsertLogs 请求，异步插入一批终端输出
 type UpsertLogsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Logs          []*v14.LogRecord       `protobuf:"bytes,1,rep,name=logs,proto3" json:"logs,omitempty"` // 终端日志记录列表
+	Logs          []*v14.LogRecord       `protobuf:"bytes,1,rep,name=logs,proto3" json:"logs,omitempty"`                            // 终端日志记录列表
+	SessionId     string                 `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"` // 目标会话标识
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *UpsertLogsRequest) Reset() {
 	*x = UpsertLogsRequest{}
-	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[6]
+	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -446,7 +635,7 @@ func (x *UpsertLogsRequest) String() string {
 func (*UpsertLogsRequest) ProtoMessage() {}
 
 func (x *UpsertLogsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[6]
+	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -459,7 +648,7 @@ func (x *UpsertLogsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpsertLogsRequest.ProtoReflect.Descriptor instead.
 func (*UpsertLogsRequest) Descriptor() ([]byte, []int) {
-	return file_swanlab_grpc_core_v1_core_proto_rawDescGZIP(), []int{6}
+	return file_swanlab_grpc_core_v1_core_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *UpsertLogsRequest) GetLogs() []*v14.LogRecord {
@@ -469,17 +658,25 @@ func (x *UpsertLogsRequest) GetLogs() []*v14.LogRecord {
 	return nil
 }
 
+func (x *UpsertLogsRequest) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
 // UpsertSaves 请求，异步插入一批文件保存记录
 type UpsertSavesRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Saves         []*v15.SaveRecord      `protobuf:"bytes,1,rep,name=saves,proto3" json:"saves,omitempty"` // 保存记录列表
+	Saves         []*v15.SaveRecord      `protobuf:"bytes,1,rep,name=saves,proto3" json:"saves,omitempty"`                          // 保存记录列表
+	SessionId     string                 `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"` // 目标会话标识
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *UpsertSavesRequest) Reset() {
 	*x = UpsertSavesRequest{}
-	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[7]
+	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -491,7 +688,7 @@ func (x *UpsertSavesRequest) String() string {
 func (*UpsertSavesRequest) ProtoMessage() {}
 
 func (x *UpsertSavesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[7]
+	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -504,7 +701,7 @@ func (x *UpsertSavesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpsertSavesRequest.ProtoReflect.Descriptor instead.
 func (*UpsertSavesRequest) Descriptor() ([]byte, []int) {
-	return file_swanlab_grpc_core_v1_core_proto_rawDescGZIP(), []int{7}
+	return file_swanlab_grpc_core_v1_core_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *UpsertSavesRequest) GetSaves() []*v15.SaveRecord {
@@ -514,17 +711,25 @@ func (x *UpsertSavesRequest) GetSaves() []*v15.SaveRecord {
 	return nil
 }
 
+func (x *UpsertSavesRequest) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
 // DeliverRunFinish 请求，生命周期函数，运行结束
 type DeliverRunFinishRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	FinishRecord  *v11.FinishRecord      `protobuf:"bytes,1,opt,name=finish_record,json=finishRecord,proto3" json:"finish_record,omitempty"` // Run 结束记录
+	SessionId     string                 `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`          // 目标会话标识
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *DeliverRunFinishRequest) Reset() {
 	*x = DeliverRunFinishRequest{}
-	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[8]
+	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -536,7 +741,7 @@ func (x *DeliverRunFinishRequest) String() string {
 func (*DeliverRunFinishRequest) ProtoMessage() {}
 
 func (x *DeliverRunFinishRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[8]
+	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -549,7 +754,7 @@ func (x *DeliverRunFinishRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeliverRunFinishRequest.ProtoReflect.Descriptor instead.
 func (*DeliverRunFinishRequest) Descriptor() ([]byte, []int) {
-	return file_swanlab_grpc_core_v1_core_proto_rawDescGZIP(), []int{8}
+	return file_swanlab_grpc_core_v1_core_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *DeliverRunFinishRequest) GetFinishRecord() *v11.FinishRecord {
@@ -557,6 +762,13 @@ func (x *DeliverRunFinishRequest) GetFinishRecord() *v11.FinishRecord {
 		return x.FinishRecord
 	}
 	return nil
+}
+
+func (x *DeliverRunFinishRequest) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
 }
 
 // DeliverRunFinish 响应
@@ -570,7 +782,7 @@ type DeliverRunFinishResponse struct {
 
 func (x *DeliverRunFinishResponse) Reset() {
 	*x = DeliverRunFinishResponse{}
-	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[9]
+	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -582,7 +794,7 @@ func (x *DeliverRunFinishResponse) String() string {
 func (*DeliverRunFinishResponse) ProtoMessage() {}
 
 func (x *DeliverRunFinishResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[9]
+	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -595,7 +807,7 @@ func (x *DeliverRunFinishResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeliverRunFinishResponse.ProtoReflect.Descriptor instead.
 func (*DeliverRunFinishResponse) Descriptor() ([]byte, []int) {
-	return file_swanlab_grpc_core_v1_core_proto_rawDescGZIP(), []int{9}
+	return file_swanlab_grpc_core_v1_core_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *DeliverRunFinishResponse) GetSuccess() bool {
@@ -612,6 +824,51 @@ func (x *DeliverRunFinishResponse) GetMessage() string {
 	return ""
 }
 
+// GetOperationStats 请求。
+type GetOperationStatsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SessionId     string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"` // 目标会话标识
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetOperationStatsRequest) Reset() {
+	*x = GetOperationStatsRequest{}
+	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetOperationStatsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetOperationStatsRequest) ProtoMessage() {}
+
+func (x *GetOperationStatsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetOperationStatsRequest.ProtoReflect.Descriptor instead.
+func (*GetOperationStatsRequest) Descriptor() ([]byte, []int) {
+	return file_swanlab_grpc_core_v1_core_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *GetOperationStatsRequest) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
 // GetOperationStats 相应
 type GetOperationStatsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -624,7 +881,7 @@ type GetOperationStatsResponse struct {
 
 func (x *GetOperationStatsResponse) Reset() {
 	*x = GetOperationStatsResponse{}
-	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[10]
+	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -636,7 +893,7 @@ func (x *GetOperationStatsResponse) String() string {
 func (*GetOperationStatsResponse) ProtoMessage() {}
 
 func (x *GetOperationStatsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[10]
+	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -649,7 +906,7 @@ func (x *GetOperationStatsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetOperationStatsResponse.ProtoReflect.Descriptor instead.
 func (*GetOperationStatsResponse) Descriptor() ([]byte, []int) {
-	return file_swanlab_grpc_core_v1_core_proto_rawDescGZIP(), []int{10}
+	return file_swanlab_grpc_core_v1_core_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *GetOperationStatsResponse) GetSuccess() bool {
@@ -673,6 +930,51 @@ func (x *GetOperationStatsResponse) GetStats() *v16.OperationStats {
 	return nil
 }
 
+// ConfirmRunFinish 请求。
+type ConfirmRunFinishRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SessionId     string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"` // 目标会话标识
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ConfirmRunFinishRequest) Reset() {
+	*x = ConfirmRunFinishRequest{}
+	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConfirmRunFinishRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConfirmRunFinishRequest) ProtoMessage() {}
+
+func (x *ConfirmRunFinishRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ConfirmRunFinishRequest.ProtoReflect.Descriptor instead.
+func (*ConfirmRunFinishRequest) Descriptor() ([]byte, []int) {
+	return file_swanlab_grpc_core_v1_core_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *ConfirmRunFinishRequest) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
 // ConfirmRunFinish 响应
 type ConfirmRunFinishResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -684,7 +986,7 @@ type ConfirmRunFinishResponse struct {
 
 func (x *ConfirmRunFinishResponse) Reset() {
 	*x = ConfirmRunFinishResponse{}
-	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[11]
+	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -696,7 +998,7 @@ func (x *ConfirmRunFinishResponse) String() string {
 func (*ConfirmRunFinishResponse) ProtoMessage() {}
 
 func (x *ConfirmRunFinishResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[11]
+	mi := &file_swanlab_grpc_core_v1_core_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -709,7 +1011,7 @@ func (x *ConfirmRunFinishResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConfirmRunFinishResponse.ProtoReflect.Descriptor instead.
 func (*ConfirmRunFinishResponse) Descriptor() ([]byte, []int) {
-	return file_swanlab_grpc_core_v1_core_proto_rawDescGZIP(), []int{11}
+	return file_swanlab_grpc_core_v1_core_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *ConfirmRunFinishResponse) GetSuccess() bool {
@@ -730,10 +1032,14 @@ var File_swanlab_grpc_core_v1_core_proto protoreflect.FileDescriptor
 
 const file_swanlab_grpc_core_v1_core_proto_rawDesc = "" +
 	"\n" +
-	"\x1fswanlab/grpc/core/v1/core.proto\x12\x14swanlab.grpc.core.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x18swanlab/run/v1/run.proto\x1a!swanlab/metric/data/v1/data.proto\x1a%swanlab/metric/column/v1/column.proto\x1a\x1dswanlab/terminal/v1/log.proto\x1a\x1aswanlab/save/v1/save.proto\x1a$swanlab/operation/v1/operation.proto\x1a#swanlab/settings/core/v1/core.proto\"\xa5\x01\n" +
+	"\x1fswanlab/grpc/core/v1/core.proto\x12\x14swanlab.grpc.core.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x18swanlab/run/v1/run.proto\x1a!swanlab/metric/data/v1/data.proto\x1a%swanlab/metric/column/v1/column.proto\x1a\x1dswanlab/terminal/v1/log.proto\x1a\x1aswanlab/save/v1/save.proto\x1a$swanlab/operation/v1/operation.proto\x1a#swanlab/settings/core/v1/core.proto\"\x16\n" +
+	"\x14SpinupServiceRequest\"\x17\n" +
+	"\x15SpinupServiceResponse\"\x18\n" +
+	"\x16TeardownServiceRequest\"\x19\n" +
+	"\x17TeardownServiceResponse\"\xa5\x01\n" +
 	"\x16DeliverRunStartRequest\x12K\n" +
 	"\rcore_settings\x18\x01 \x01(\v2&.swanlab.settings.core.v1.CoreSettingsR\fcoreSettings\x12>\n" +
-	"\fstart_record\x18\x02 \x01(\v2\x1b.swanlab.run.v1.StartRecordR\vstartRecord\"\xde\x02\n" +
+	"\fstart_record\x18\x02 \x01(\v2\x1b.swanlab.run.v1.StartRecordR\vstartRecord\"\xfd\x02\n" +
 	"\x17DeliverRunStartResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x12-\n" +
@@ -743,30 +1049,53 @@ const file_swanlab_grpc_core_v1_core_proto_rawDesc = "" +
 	"\vglobal_step\x18\x06 \x01(\x03R\n" +
 	"globalStep\x12,\n" +
 	"\x12global_system_step\x18\a \x01(\x03R\x10globalSystemStep\x12%\n" +
-	"\x0enew_experiment\x18\b \x01(\bR\rnewExperiment\x12B\n" +
+	"\x0enew_experiment\x18\b \x01(\bR\rnewExperiment\x12\x1d\n" +
 	"\n" +
-	"error_kind\x18\t \x01(\x0e2#.swanlab.grpc.core.v1.CoreErrorKindR\terrorKind\"X\n" +
+	"session_id\x18\t \x01(\tR\tsessionId\x12B\n" +
+	"\n" +
+	"error_kind\x18\n" +
+	" \x01(\x0e2#.swanlab.grpc.core.v1.CoreErrorKindR\terrorKind\"w\n" +
 	"\x14UpsertColumnsRequest\x12@\n" +
-	"\acolumns\x18\x01 \x03(\v2&.swanlab.metric.column.v1.ColumnRecordR\acolumns\"P\n" +
+	"\acolumns\x18\x01 \x03(\v2&.swanlab.metric.column.v1.ColumnRecordR\acolumns\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x02 \x01(\tR\tsessionId\"o\n" +
 	"\x14UpsertScalarsRequest\x128\n" +
-	"\x04data\x18\x01 \x03(\v2$.swanlab.metric.data.v1.ScalarRecordR\x04data\"M\n" +
+	"\x04data\x18\x01 \x03(\v2$.swanlab.metric.data.v1.ScalarRecordR\x04data\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x02 \x01(\tR\tsessionId\"l\n" +
 	"\x12UpsertMediaRequest\x127\n" +
-	"\x04data\x18\x01 \x03(\v2#.swanlab.metric.data.v1.MediaRecordR\x04data\"V\n" +
+	"\x04data\x18\x01 \x03(\v2#.swanlab.metric.data.v1.MediaRecordR\x04data\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x02 \x01(\tR\tsessionId\"u\n" +
 	"\x17UpsertHistogramsRequest\x12;\n" +
-	"\x04data\x18\x01 \x03(\v2'.swanlab.metric.data.v1.HistogramRecordR\x04data\"G\n" +
+	"\x04data\x18\x01 \x03(\v2'.swanlab.metric.data.v1.HistogramRecordR\x04data\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x02 \x01(\tR\tsessionId\"f\n" +
 	"\x11UpsertLogsRequest\x122\n" +
-	"\x04logs\x18\x01 \x03(\v2\x1e.swanlab.terminal.v1.LogRecordR\x04logs\"G\n" +
+	"\x04logs\x18\x01 \x03(\v2\x1e.swanlab.terminal.v1.LogRecordR\x04logs\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x02 \x01(\tR\tsessionId\"f\n" +
 	"\x12UpsertSavesRequest\x121\n" +
-	"\x05saves\x18\x01 \x03(\v2\x1b.swanlab.save.v1.SaveRecordR\x05saves\"\\\n" +
+	"\x05saves\x18\x01 \x03(\v2\x1b.swanlab.save.v1.SaveRecordR\x05saves\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x02 \x01(\tR\tsessionId\"{\n" +
 	"\x17DeliverRunFinishRequest\x12A\n" +
-	"\rfinish_record\x18\x01 \x01(\v2\x1c.swanlab.run.v1.FinishRecordR\ffinishRecord\"N\n" +
+	"\rfinish_record\x18\x01 \x01(\v2\x1c.swanlab.run.v1.FinishRecordR\ffinishRecord\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x02 \x01(\tR\tsessionId\"N\n" +
 	"\x18DeliverRunFinishResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\"\x8b\x01\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"9\n" +
+	"\x18GetOperationStatsRequest\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\"\x8b\x01\n" +
 	"\x19GetOperationStatsResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x12:\n" +
-	"\x05stats\x18\x03 \x01(\v2$.swanlab.operation.v1.OperationStatsR\x05stats\"N\n" +
+	"\x05stats\x18\x03 \x01(\v2$.swanlab.operation.v1.OperationStatsR\x05stats\"8\n" +
+	"\x17ConfirmRunFinishRequest\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\"N\n" +
 	"\x18ConfirmRunFinishResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage*\x84\x01\n" +
@@ -774,8 +1103,10 @@ const file_swanlab_grpc_core_v1_core_proto_rawDesc = "" +
 	"\x1bCORE_ERROR_KIND_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14CORE_ERROR_KIND_AUTH\x10\x01\x12\x1d\n" +
 	"\x19CORE_ERROR_KIND_TRANSIENT\x10\x02\x12\x19\n" +
-	"\x15CORE_ERROR_KIND_OTHER\x10\x032\xa0\a\n" +
-	"\vCoreService\x12n\n" +
+	"\x15CORE_ERROR_KIND_OTHER\x10\x032\xa9\t\n" +
+	"\vCoreService\x12h\n" +
+	"\rSpinupService\x12*.swanlab.grpc.core.v1.SpinupServiceRequest\x1a+.swanlab.grpc.core.v1.SpinupServiceResponse\x12n\n" +
+	"\x0fTeardownService\x12,.swanlab.grpc.core.v1.TeardownServiceRequest\x1a-.swanlab.grpc.core.v1.TeardownServiceResponse\x12n\n" +
 	"\x0fDeliverRunStart\x12,.swanlab.grpc.core.v1.DeliverRunStartRequest\x1a-.swanlab.grpc.core.v1.DeliverRunStartResponse\x12S\n" +
 	"\rUpsertColumns\x12*.swanlab.grpc.core.v1.UpsertColumnsRequest\x1a\x16.google.protobuf.Empty\x12S\n" +
 	"\rUpsertScalars\x12*.swanlab.grpc.core.v1.UpsertScalarsRequest\x1a\x16.google.protobuf.Empty\x12O\n" +
@@ -784,9 +1115,9 @@ const file_swanlab_grpc_core_v1_core_proto_rawDesc = "" +
 	"\n" +
 	"UpsertLogs\x12'.swanlab.grpc.core.v1.UpsertLogsRequest\x1a\x16.google.protobuf.Empty\x12O\n" +
 	"\vUpsertSaves\x12(.swanlab.grpc.core.v1.UpsertSavesRequest\x1a\x16.google.protobuf.Empty\x12q\n" +
-	"\x10DeliverRunFinish\x12-.swanlab.grpc.core.v1.DeliverRunFinishRequest\x1a..swanlab.grpc.core.v1.DeliverRunFinishResponse\x12\\\n" +
-	"\x11GetOperationStats\x12\x16.google.protobuf.Empty\x1a/.swanlab.grpc.core.v1.GetOperationStatsResponse\x12Z\n" +
-	"\x10ConfirmRunFinish\x12\x16.google.protobuf.Empty\x1a..swanlab.grpc.core.v1.ConfirmRunFinishResponseBDZBgithub.com/swanhubx/swanlab/core/proto/swanlab/grpc/core/v1;corev1b\x06proto3"
+	"\x10DeliverRunFinish\x12-.swanlab.grpc.core.v1.DeliverRunFinishRequest\x1a..swanlab.grpc.core.v1.DeliverRunFinishResponse\x12t\n" +
+	"\x11GetOperationStats\x12..swanlab.grpc.core.v1.GetOperationStatsRequest\x1a/.swanlab.grpc.core.v1.GetOperationStatsResponse\x12q\n" +
+	"\x10ConfirmRunFinish\x12-.swanlab.grpc.core.v1.ConfirmRunFinishRequest\x1a..swanlab.grpc.core.v1.ConfirmRunFinishResponseBDZBgithub.com/swanhubx/swanlab/core/proto/swanlab/grpc/core/v1;corev1b\x06proto3"
 
 var (
 	file_swanlab_grpc_core_v1_core_proto_rawDescOnce sync.Once
@@ -801,68 +1132,78 @@ func file_swanlab_grpc_core_v1_core_proto_rawDescGZIP() []byte {
 }
 
 var file_swanlab_grpc_core_v1_core_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_swanlab_grpc_core_v1_core_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
+var file_swanlab_grpc_core_v1_core_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
 var file_swanlab_grpc_core_v1_core_proto_goTypes = []any{
 	(CoreErrorKind)(0),                // 0: swanlab.grpc.core.v1.CoreErrorKind
-	(*DeliverRunStartRequest)(nil),    // 1: swanlab.grpc.core.v1.DeliverRunStartRequest
-	(*DeliverRunStartResponse)(nil),   // 2: swanlab.grpc.core.v1.DeliverRunStartResponse
-	(*UpsertColumnsRequest)(nil),      // 3: swanlab.grpc.core.v1.UpsertColumnsRequest
-	(*UpsertScalarsRequest)(nil),      // 4: swanlab.grpc.core.v1.UpsertScalarsRequest
-	(*UpsertMediaRequest)(nil),        // 5: swanlab.grpc.core.v1.UpsertMediaRequest
-	(*UpsertHistogramsRequest)(nil),   // 6: swanlab.grpc.core.v1.UpsertHistogramsRequest
-	(*UpsertLogsRequest)(nil),         // 7: swanlab.grpc.core.v1.UpsertLogsRequest
-	(*UpsertSavesRequest)(nil),        // 8: swanlab.grpc.core.v1.UpsertSavesRequest
-	(*DeliverRunFinishRequest)(nil),   // 9: swanlab.grpc.core.v1.DeliverRunFinishRequest
-	(*DeliverRunFinishResponse)(nil),  // 10: swanlab.grpc.core.v1.DeliverRunFinishResponse
-	(*GetOperationStatsResponse)(nil), // 11: swanlab.grpc.core.v1.GetOperationStatsResponse
-	(*ConfirmRunFinishResponse)(nil),  // 12: swanlab.grpc.core.v1.ConfirmRunFinishResponse
-	(*v1.CoreSettings)(nil),           // 13: swanlab.settings.core.v1.CoreSettings
-	(*v11.StartRecord)(nil),           // 14: swanlab.run.v1.StartRecord
-	(*v12.ColumnRecord)(nil),          // 15: swanlab.metric.column.v1.ColumnRecord
-	(*v13.ScalarRecord)(nil),          // 16: swanlab.metric.data.v1.ScalarRecord
-	(*v13.MediaRecord)(nil),           // 17: swanlab.metric.data.v1.MediaRecord
-	(*v13.HistogramRecord)(nil),       // 18: swanlab.metric.data.v1.HistogramRecord
-	(*v14.LogRecord)(nil),             // 19: swanlab.terminal.v1.LogRecord
-	(*v15.SaveRecord)(nil),            // 20: swanlab.save.v1.SaveRecord
-	(*v11.FinishRecord)(nil),          // 21: swanlab.run.v1.FinishRecord
-	(*v16.OperationStats)(nil),        // 22: swanlab.operation.v1.OperationStats
-	(*emptypb.Empty)(nil),             // 23: google.protobuf.Empty
+	(*SpinupServiceRequest)(nil),      // 1: swanlab.grpc.core.v1.SpinupServiceRequest
+	(*SpinupServiceResponse)(nil),     // 2: swanlab.grpc.core.v1.SpinupServiceResponse
+	(*TeardownServiceRequest)(nil),    // 3: swanlab.grpc.core.v1.TeardownServiceRequest
+	(*TeardownServiceResponse)(nil),   // 4: swanlab.grpc.core.v1.TeardownServiceResponse
+	(*DeliverRunStartRequest)(nil),    // 5: swanlab.grpc.core.v1.DeliverRunStartRequest
+	(*DeliverRunStartResponse)(nil),   // 6: swanlab.grpc.core.v1.DeliverRunStartResponse
+	(*UpsertColumnsRequest)(nil),      // 7: swanlab.grpc.core.v1.UpsertColumnsRequest
+	(*UpsertScalarsRequest)(nil),      // 8: swanlab.grpc.core.v1.UpsertScalarsRequest
+	(*UpsertMediaRequest)(nil),        // 9: swanlab.grpc.core.v1.UpsertMediaRequest
+	(*UpsertHistogramsRequest)(nil),   // 10: swanlab.grpc.core.v1.UpsertHistogramsRequest
+	(*UpsertLogsRequest)(nil),         // 11: swanlab.grpc.core.v1.UpsertLogsRequest
+	(*UpsertSavesRequest)(nil),        // 12: swanlab.grpc.core.v1.UpsertSavesRequest
+	(*DeliverRunFinishRequest)(nil),   // 13: swanlab.grpc.core.v1.DeliverRunFinishRequest
+	(*DeliverRunFinishResponse)(nil),  // 14: swanlab.grpc.core.v1.DeliverRunFinishResponse
+	(*GetOperationStatsRequest)(nil),  // 15: swanlab.grpc.core.v1.GetOperationStatsRequest
+	(*GetOperationStatsResponse)(nil), // 16: swanlab.grpc.core.v1.GetOperationStatsResponse
+	(*ConfirmRunFinishRequest)(nil),   // 17: swanlab.grpc.core.v1.ConfirmRunFinishRequest
+	(*ConfirmRunFinishResponse)(nil),  // 18: swanlab.grpc.core.v1.ConfirmRunFinishResponse
+	(*v1.CoreSettings)(nil),           // 19: swanlab.settings.core.v1.CoreSettings
+	(*v11.StartRecord)(nil),           // 20: swanlab.run.v1.StartRecord
+	(*v12.ColumnRecord)(nil),          // 21: swanlab.metric.column.v1.ColumnRecord
+	(*v13.ScalarRecord)(nil),          // 22: swanlab.metric.data.v1.ScalarRecord
+	(*v13.MediaRecord)(nil),           // 23: swanlab.metric.data.v1.MediaRecord
+	(*v13.HistogramRecord)(nil),       // 24: swanlab.metric.data.v1.HistogramRecord
+	(*v14.LogRecord)(nil),             // 25: swanlab.terminal.v1.LogRecord
+	(*v15.SaveRecord)(nil),            // 26: swanlab.save.v1.SaveRecord
+	(*v11.FinishRecord)(nil),          // 27: swanlab.run.v1.FinishRecord
+	(*v16.OperationStats)(nil),        // 28: swanlab.operation.v1.OperationStats
+	(*emptypb.Empty)(nil),             // 29: google.protobuf.Empty
 }
 var file_swanlab_grpc_core_v1_core_proto_depIdxs = []int32{
-	13, // 0: swanlab.grpc.core.v1.DeliverRunStartRequest.core_settings:type_name -> swanlab.settings.core.v1.CoreSettings
-	14, // 1: swanlab.grpc.core.v1.DeliverRunStartRequest.start_record:type_name -> swanlab.run.v1.StartRecord
-	14, // 2: swanlab.grpc.core.v1.DeliverRunStartResponse.run:type_name -> swanlab.run.v1.StartRecord
+	19, // 0: swanlab.grpc.core.v1.DeliverRunStartRequest.core_settings:type_name -> swanlab.settings.core.v1.CoreSettings
+	20, // 1: swanlab.grpc.core.v1.DeliverRunStartRequest.start_record:type_name -> swanlab.run.v1.StartRecord
+	20, // 2: swanlab.grpc.core.v1.DeliverRunStartResponse.run:type_name -> swanlab.run.v1.StartRecord
 	0,  // 3: swanlab.grpc.core.v1.DeliverRunStartResponse.error_kind:type_name -> swanlab.grpc.core.v1.CoreErrorKind
-	15, // 4: swanlab.grpc.core.v1.UpsertColumnsRequest.columns:type_name -> swanlab.metric.column.v1.ColumnRecord
-	16, // 5: swanlab.grpc.core.v1.UpsertScalarsRequest.data:type_name -> swanlab.metric.data.v1.ScalarRecord
-	17, // 6: swanlab.grpc.core.v1.UpsertMediaRequest.data:type_name -> swanlab.metric.data.v1.MediaRecord
-	18, // 7: swanlab.grpc.core.v1.UpsertHistogramsRequest.data:type_name -> swanlab.metric.data.v1.HistogramRecord
-	19, // 8: swanlab.grpc.core.v1.UpsertLogsRequest.logs:type_name -> swanlab.terminal.v1.LogRecord
-	20, // 9: swanlab.grpc.core.v1.UpsertSavesRequest.saves:type_name -> swanlab.save.v1.SaveRecord
-	21, // 10: swanlab.grpc.core.v1.DeliverRunFinishRequest.finish_record:type_name -> swanlab.run.v1.FinishRecord
-	22, // 11: swanlab.grpc.core.v1.GetOperationStatsResponse.stats:type_name -> swanlab.operation.v1.OperationStats
-	1,  // 12: swanlab.grpc.core.v1.CoreService.DeliverRunStart:input_type -> swanlab.grpc.core.v1.DeliverRunStartRequest
-	3,  // 13: swanlab.grpc.core.v1.CoreService.UpsertColumns:input_type -> swanlab.grpc.core.v1.UpsertColumnsRequest
-	4,  // 14: swanlab.grpc.core.v1.CoreService.UpsertScalars:input_type -> swanlab.grpc.core.v1.UpsertScalarsRequest
-	5,  // 15: swanlab.grpc.core.v1.CoreService.UpsertMedia:input_type -> swanlab.grpc.core.v1.UpsertMediaRequest
-	6,  // 16: swanlab.grpc.core.v1.CoreService.UpsertHistograms:input_type -> swanlab.grpc.core.v1.UpsertHistogramsRequest
-	7,  // 17: swanlab.grpc.core.v1.CoreService.UpsertLogs:input_type -> swanlab.grpc.core.v1.UpsertLogsRequest
-	8,  // 18: swanlab.grpc.core.v1.CoreService.UpsertSaves:input_type -> swanlab.grpc.core.v1.UpsertSavesRequest
-	9,  // 19: swanlab.grpc.core.v1.CoreService.DeliverRunFinish:input_type -> swanlab.grpc.core.v1.DeliverRunFinishRequest
-	23, // 20: swanlab.grpc.core.v1.CoreService.GetOperationStats:input_type -> google.protobuf.Empty
-	23, // 21: swanlab.grpc.core.v1.CoreService.ConfirmRunFinish:input_type -> google.protobuf.Empty
-	2,  // 22: swanlab.grpc.core.v1.CoreService.DeliverRunStart:output_type -> swanlab.grpc.core.v1.DeliverRunStartResponse
-	23, // 23: swanlab.grpc.core.v1.CoreService.UpsertColumns:output_type -> google.protobuf.Empty
-	23, // 24: swanlab.grpc.core.v1.CoreService.UpsertScalars:output_type -> google.protobuf.Empty
-	23, // 25: swanlab.grpc.core.v1.CoreService.UpsertMedia:output_type -> google.protobuf.Empty
-	23, // 26: swanlab.grpc.core.v1.CoreService.UpsertHistograms:output_type -> google.protobuf.Empty
-	23, // 27: swanlab.grpc.core.v1.CoreService.UpsertLogs:output_type -> google.protobuf.Empty
-	23, // 28: swanlab.grpc.core.v1.CoreService.UpsertSaves:output_type -> google.protobuf.Empty
-	10, // 29: swanlab.grpc.core.v1.CoreService.DeliverRunFinish:output_type -> swanlab.grpc.core.v1.DeliverRunFinishResponse
-	11, // 30: swanlab.grpc.core.v1.CoreService.GetOperationStats:output_type -> swanlab.grpc.core.v1.GetOperationStatsResponse
-	12, // 31: swanlab.grpc.core.v1.CoreService.ConfirmRunFinish:output_type -> swanlab.grpc.core.v1.ConfirmRunFinishResponse
-	22, // [22:32] is the sub-list for method output_type
-	12, // [12:22] is the sub-list for method input_type
+	21, // 4: swanlab.grpc.core.v1.UpsertColumnsRequest.columns:type_name -> swanlab.metric.column.v1.ColumnRecord
+	22, // 5: swanlab.grpc.core.v1.UpsertScalarsRequest.data:type_name -> swanlab.metric.data.v1.ScalarRecord
+	23, // 6: swanlab.grpc.core.v1.UpsertMediaRequest.data:type_name -> swanlab.metric.data.v1.MediaRecord
+	24, // 7: swanlab.grpc.core.v1.UpsertHistogramsRequest.data:type_name -> swanlab.metric.data.v1.HistogramRecord
+	25, // 8: swanlab.grpc.core.v1.UpsertLogsRequest.logs:type_name -> swanlab.terminal.v1.LogRecord
+	26, // 9: swanlab.grpc.core.v1.UpsertSavesRequest.saves:type_name -> swanlab.save.v1.SaveRecord
+	27, // 10: swanlab.grpc.core.v1.DeliverRunFinishRequest.finish_record:type_name -> swanlab.run.v1.FinishRecord
+	28, // 11: swanlab.grpc.core.v1.GetOperationStatsResponse.stats:type_name -> swanlab.operation.v1.OperationStats
+	1,  // 12: swanlab.grpc.core.v1.CoreService.SpinupService:input_type -> swanlab.grpc.core.v1.SpinupServiceRequest
+	3,  // 13: swanlab.grpc.core.v1.CoreService.TeardownService:input_type -> swanlab.grpc.core.v1.TeardownServiceRequest
+	5,  // 14: swanlab.grpc.core.v1.CoreService.DeliverRunStart:input_type -> swanlab.grpc.core.v1.DeliverRunStartRequest
+	7,  // 15: swanlab.grpc.core.v1.CoreService.UpsertColumns:input_type -> swanlab.grpc.core.v1.UpsertColumnsRequest
+	8,  // 16: swanlab.grpc.core.v1.CoreService.UpsertScalars:input_type -> swanlab.grpc.core.v1.UpsertScalarsRequest
+	9,  // 17: swanlab.grpc.core.v1.CoreService.UpsertMedia:input_type -> swanlab.grpc.core.v1.UpsertMediaRequest
+	10, // 18: swanlab.grpc.core.v1.CoreService.UpsertHistograms:input_type -> swanlab.grpc.core.v1.UpsertHistogramsRequest
+	11, // 19: swanlab.grpc.core.v1.CoreService.UpsertLogs:input_type -> swanlab.grpc.core.v1.UpsertLogsRequest
+	12, // 20: swanlab.grpc.core.v1.CoreService.UpsertSaves:input_type -> swanlab.grpc.core.v1.UpsertSavesRequest
+	13, // 21: swanlab.grpc.core.v1.CoreService.DeliverRunFinish:input_type -> swanlab.grpc.core.v1.DeliverRunFinishRequest
+	15, // 22: swanlab.grpc.core.v1.CoreService.GetOperationStats:input_type -> swanlab.grpc.core.v1.GetOperationStatsRequest
+	17, // 23: swanlab.grpc.core.v1.CoreService.ConfirmRunFinish:input_type -> swanlab.grpc.core.v1.ConfirmRunFinishRequest
+	2,  // 24: swanlab.grpc.core.v1.CoreService.SpinupService:output_type -> swanlab.grpc.core.v1.SpinupServiceResponse
+	4,  // 25: swanlab.grpc.core.v1.CoreService.TeardownService:output_type -> swanlab.grpc.core.v1.TeardownServiceResponse
+	6,  // 26: swanlab.grpc.core.v1.CoreService.DeliverRunStart:output_type -> swanlab.grpc.core.v1.DeliverRunStartResponse
+	29, // 27: swanlab.grpc.core.v1.CoreService.UpsertColumns:output_type -> google.protobuf.Empty
+	29, // 28: swanlab.grpc.core.v1.CoreService.UpsertScalars:output_type -> google.protobuf.Empty
+	29, // 29: swanlab.grpc.core.v1.CoreService.UpsertMedia:output_type -> google.protobuf.Empty
+	29, // 30: swanlab.grpc.core.v1.CoreService.UpsertHistograms:output_type -> google.protobuf.Empty
+	29, // 31: swanlab.grpc.core.v1.CoreService.UpsertLogs:output_type -> google.protobuf.Empty
+	29, // 32: swanlab.grpc.core.v1.CoreService.UpsertSaves:output_type -> google.protobuf.Empty
+	14, // 33: swanlab.grpc.core.v1.CoreService.DeliverRunFinish:output_type -> swanlab.grpc.core.v1.DeliverRunFinishResponse
+	16, // 34: swanlab.grpc.core.v1.CoreService.GetOperationStats:output_type -> swanlab.grpc.core.v1.GetOperationStatsResponse
+	18, // 35: swanlab.grpc.core.v1.CoreService.ConfirmRunFinish:output_type -> swanlab.grpc.core.v1.ConfirmRunFinishResponse
+	24, // [24:36] is the sub-list for method output_type
+	12, // [12:24] is the sub-list for method input_type
 	12, // [12:12] is the sub-list for extension type_name
 	12, // [12:12] is the sub-list for extension extendee
 	0,  // [0:12] is the sub-list for field type_name
@@ -879,7 +1220,7 @@ func file_swanlab_grpc_core_v1_core_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_swanlab_grpc_core_v1_core_proto_rawDesc), len(file_swanlab_grpc_core_v1_core_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   12,
+			NumMessages:   18,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

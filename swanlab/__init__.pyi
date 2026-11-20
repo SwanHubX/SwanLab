@@ -156,10 +156,16 @@ def init(
     :param job_type: Job type label (e.g., "train", "eval").
     :param group: Group name for organizing related experiments.
     :param tags: List of tags for categorizing experiments.
-    :param id: Run ID for resuming a previous run (online mode only).
-    :param resume: Resume behavior. Options: "must" (must resume), "allow" (resume if exists),
-        "never" (always create new). Defaults to "never".
+    :param id: Run ID for identifying this run (used for cloud resume in online mode and
+        local run identity verification when reusing ``run.dir``).
+    :param resume: Cloud resume behavior. Options: "must" (must resume), "allow" (resume if exists),
+        "never" (always create new). Defaults to "never". Only governs cloud experiment reuse;
+        to resume a local run directory after a crash, explicitly set ``run.dir`` or ``SWANLAB_RUN_DIR``
+        (requires the Go core, e.g. ``SWANLAB_REQUIRE=core``).
     :param parallel: Parallel execution policy. Options: "none", "shared".
+        ``"shared"`` lets several processes write one experiment: it forces ``resume="allow"``,
+        suffixes the run directory with hostname + pid, and (unless ``core.detach`` is set
+        explicitly) makes all ranks share one detached ``swanlab-core`` process.
     :param config: Experiment configuration dict or path to config file (JSON/YAML).
     :param settings: Custom Settings object for advanced configuration.
     :param callbacks: List of callback functions triggered on run events.
@@ -316,35 +322,37 @@ def merge_callbacks(callbacks: CallbacksType) -> None:
     ...
 
 def require(*requirements: str) -> List[str]:
-    """Enable a transitional SwanLab runtime backend (process-global).
+    """Select a SwanLab runtime backend (process-global).
 
-    Must be called before ``swanlab.init()``. Currently supported requirements:
+    Must be called before ``swanlab.init()``. By default, SwanLab uses the Go core
+    (falling back to the Python core if the binary is unavailable). Supported requirements:
 
-    - ``"core"``: switch to the SwanLab Go core runtime (swanlab-core).
+    - ``"core"``: use the SwanLab Go core runtime (default).
+    - ``"core_python"``: switch back to the built-in Python core.
     - ``"probe"``: switch to the SwanLab Rust probe runtime.
-    - ``"core_python"``: explicitly use the built-in Python core.
     - ``"probe_python"``: explicitly use the built-in Python probe.
 
     Equivalent to setting the ``SWANLAB_REQUIRE`` environment variable (comma-separated).
-    Idempotent; unknown tokens raise ``ValueError``. This is a transitional API:
-    once the new backends become the default, it will degrade to a no-op or be deprecated.
+    Calling ``require("core")`` while Go core is already active emits a warning.
+    This is a transitional API: once all new backends become stable defaults,
+    it will degrade to a no-op or be deprecated.
 
-    :param requirements: One or more requirement tokens, e.g. ``"core"``, ``"probe"``.
+    :param requirements: One or more requirement tokens, e.g. ``"core_python"``, ``"core"``.
     :return: The list of activated requirement tokens.
     :raises ValueError: If a requirement token is unknown.
     :raises RuntimeError: If called while a run is active.
 
     Examples:
 
-        Switch to the Go core for a single run:
+        Switch back to the built-in Python core:
 
         >>> import swanlab
-        >>> swanlab.require("core")
+        >>> swanlab.require("core_python")
         >>> swanlab.init()
 
-        Enable both core and probe via the environment variable instead:
+        Configure via environment variable instead:
 
-        >>> # SWANLAB_REQUIRE=core,probe python train.py
+        >>> # SWANLAB_REQUIRE=core_python python train.py
     """
     ...
 
