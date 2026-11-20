@@ -4,12 +4,10 @@ package sender
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"math"
-	"strconv"
 
 	"golang.org/x/sync/semaphore"
 
@@ -30,15 +28,6 @@ const (
 	scalarBlockedMessage   = "scalar record without value or timestamp"
 	logBlockedMessage      = "log record without line or timestamp"
 	logUnknownLevelMessage = "log record with unknown level"
-
-	// 标量批序列化与 JSON 编码常量（对齐 Go encoding/json 默认行为）。
-	estimatedScalarJSONBytes = 128
-	jsonASCIISafeMin         = 0x20
-	jsonASCIISafeMax         = 0x80
-	jsonFloatMinFixed        = 1e-6
-	jsonFloatMaxFixed        = 1e21
-	jsonExpTrimMinLen        = 4
-	floatBits64              = 64
 
 	// 文件类上传的并发上限；信号量是进程级的，避免多会话叠加放大连接数。
 	mediaConcurrency = 10
@@ -199,82 +188,12 @@ func encodeColumn(record *columnv1.ColumnRecord) (api.ColumnUpload, error) {
 	return column, nil
 }
 
-// scalarMetric 是单条标量指标的强类型值载体；配合 scalarBatch 直接流式序列化为 JSON，
-// 避免每条构造 map[string]any 与时间戳短字符串，降低高并发会话下的堆分配与 GC 压力。
+// scalarMetric 是单条标量指标的强类型上传 DTO；Data 为有限浮点或 "nan"。
 type scalarMetric struct {
-	key   string
-	step  int64
-	value float64
-	secs  int64
-	nanos int32
-}
-
-type scalarBatch []scalarMetric
-
-func (b scalarBatch) MarshalJSON() ([]byte, error) {
-	if len(b) == 0 {
-		return []byte("[]"), nil
-	}
-	buf := make([]byte, 0, len(b)*estimatedScalarJSONBytes)
-	buf = append(buf, '[')
-	for i := range b {
-		if i > 0 {
-			buf = append(buf, ',')
-		}
-		m := &b[i]
-		var err error
-		buf = append(buf, `{"key":`...)
-		buf, err = appendJSONString(buf, m.key)
-		if err != nil {
-			return nil, err
-		}
-		buf = append(buf, `,"index":`...)
-		buf = strconv.AppendInt(buf, m.step, decimalBase)
-		buf = append(buf, `,"data":`...)
-		buf = appendScalarValue(buf, m.value)
-		buf = append(buf, `,"create_time":"`...)
-		buf = appendTimestampParts(buf, m.secs, m.nanos)
-		buf = append(buf, `"}`...)
-	}
-	buf = append(buf, ']')
-	return buf, nil
-}
-
-func appendJSONString(dst []byte, s string) ([]byte, error) {
-	for i := 0; i < len(s); i++ {
-		c := s[i]
-		if c < jsonASCIISafeMin || c >= jsonASCIISafeMax || c == '"' || c == '\\' || c == '<' || c == '>' || c == '&' {
-			encoded, err := json.Marshal(s)
-			if err != nil {
-				return nil, err
-			}
-			return append(dst, encoded...), nil
-		}
-	}
-	dst = append(dst, '"')
-	dst = append(dst, s...)
-	return append(dst, '"'), nil
-}
-
-func appendScalarValue(dst []byte, value float64) []byte {
-	if math.IsNaN(value) || math.IsInf(value, 0) {
-		return append(dst, `"nan"`...)
-	}
-	abs := math.Abs(value)
-	fmtByte := byte('f')
-	if abs != 0 && (abs < jsonFloatMinFixed || abs >= jsonFloatMaxFixed) {
-		fmtByte = 'e'
-	}
-	dst = strconv.AppendFloat(dst, value, fmtByte, -1, floatBits64)
-	if fmtByte == 'e' {
-		// 对齐 Go encoding/json 的 floatEncoder：去掉负指数一位数前的十位零（如 e-07 → e-7）。
-		n := len(dst)
-		if n >= jsonExpTrimMinLen && dst[n-4] == 'e' && dst[n-3] == '-' && dst[n-2] == '0' {
-			dst[n-2] = dst[n-1]
-			dst = dst[:n-1]
-		}
-	}
-	return dst
+	Key        string `json:"key"`
+	Index      int64  `json:"index"`
+	Data       any    `json:"data"`
+	CreateTime string `json:"create_time"`
 }
 
 // ScalarSender 上报标量指标，整批一次请求。
@@ -288,7 +207,7 @@ func (s *ScalarSender) Upload(ctx context.Context, records []*recordv1.Record) u
 	if len(records) == 0 {
 		return uploader.Result{}
 	}
-	metrics := make(scalarBatch, 0, len(records))
+	metrics := make([]scalarMetric, 0, len(records))
 	var encodable []*recordv1.Record
 	blocked := make([]*recordv1.Record, 0)
 	for i, rec := range records {
@@ -340,19 +259,23 @@ func (s *ScalarSender) Upload(ctx context.Context, records []*recordv1.Record) u
 
 // encodeScalar 编码单条标量；缺 payload 或时间戳不合法时返回 false，缺 Value 按 proto 默认值 0 处理。
 func encodeScalar(record *datav1.ScalarRecord) (scalarMetric, bool) {
-	if record == nil {
+	if record == nil || record.GetTimestamp() == nil {
 		return scalarMetric{}, false
 	}
-	ts := record.GetTimestamp()
-	if !isValidTimestamp(ts) {
+	createTime, ok := encodeTimestamp(record.GetTimestamp())
+	if !ok {
 		return scalarMetric{}, false
+	}
+	value := record.GetValue().GetNumber()
+	var data any = value
+	if math.IsNaN(value) || math.IsInf(value, 0) {
+		data = "nan"
 	}
 	return scalarMetric{
-		key:   record.GetKey(),
-		step:  record.GetStep(),
-		value: record.GetValue().GetNumber(),
-		secs:  ts.GetSeconds(),
-		nanos: ts.GetNanos(),
+		Key:        record.GetKey(),
+		Index:      record.GetStep(),
+		Data:       data,
+		CreateTime: createTime,
 	}, true
 }
 

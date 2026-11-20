@@ -275,7 +275,7 @@ def core_pids(parent_pid: Optional[int] = None) -> List[int]:
 def cleanup_stale_cores(timeout: float = 10.0) -> List[int]:
     """结束残留的 core 进程并清理独占模式的临时目录。
 
-    detach=True 的 core 默认要空闲 300s 才退出，残留实例会带着上一轮的指标状态
+    detach=True 的 core 默认要空闲 30s 才退出，残留实例会带着上一轮的指标状态
     和内存继续服务，必须先清掉再开测。
     """
     pids = core_pids()

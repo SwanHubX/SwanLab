@@ -382,8 +382,14 @@ func TestTransportPoolCloseIdleConnections(t *testing.T) {
 	}
 }
 
-// TestCloneShardTransportBudgets 验证默认分片的连接池预算与 HTTP/2 保留状态。
+// TestCloneShardTransportBudgets 验证默认分片的连接池预算、不修改默认 Transport 与 HTTP/2 保留状态。
 func TestCloneShardTransportBudgets(t *testing.T) {
+	base, ok := http.DefaultTransport.(*http.Transport)
+	beforeIdle, beforePerHost := 0, 0
+	if ok {
+		beforeIdle, beforePerHost = base.MaxIdleConns, base.MaxIdleConnsPerHost
+	}
+
 	transport := cloneShardTransport(defaultTransportShards)
 	wantIdle := defaultMaxIdleConns / defaultTransportShards
 	wantPerHost := defaultMaxIdleConnsPerHost / defaultTransportShards
@@ -396,8 +402,60 @@ func TestCloneShardTransportBudgets(t *testing.T) {
 	if !transport.ForceAttemptHTTP2 {
 		t.Fatal("ForceAttemptHTTP2 = false, want true so shards negotiate HTTP/2")
 	}
-	base, ok := http.DefaultTransport.(*http.Transport)
-	if ok && base.MaxIdleConnsPerHost == wantPerHost {
+	if ok && (base.MaxIdleConns != beforeIdle || base.MaxIdleConnsPerHost != beforePerHost) {
 		t.Fatal("cloneShardTransport must not mutate http.DefaultTransport")
+	}
+}
+
+// TestCloneShardTransportKeepsGlobalIdleBudgetAt16Shards 验证 16 分片时全局空闲预算仍不超过默认值：
+// 每分片每主机至少保留一条空闲连接，避免分片拆细后出现 0 配额。
+func TestCloneShardTransportKeepsGlobalIdleBudgetAt16Shards(t *testing.T) {
+	const shards = 16
+	transport := cloneShardTransport(shards)
+	wantIdle := defaultMaxIdleConns / shards
+	wantPerHost := defaultMaxIdleConnsPerHost / shards
+	if wantPerHost < minShardIdleConnsPerHost {
+		wantPerHost = minShardIdleConnsPerHost
+	}
+	if got := transport.MaxIdleConns; got != wantIdle {
+		t.Fatalf("MaxIdleConns = %d, want %d", got, wantIdle)
+	}
+	if got := transport.MaxIdleConnsPerHost; got != wantPerHost {
+		t.Fatalf("MaxIdleConnsPerHost = %d, want %d", got, wantPerHost)
+	}
+	if got := transport.MaxIdleConns * shards; got > defaultMaxIdleConns {
+		t.Fatalf("global MaxIdleConns budget = %d, want <= %d", got, defaultMaxIdleConns)
+	}
+	if got := transport.MaxIdleConnsPerHost * shards; got > defaultMaxIdleConnsPerHost {
+		t.Fatalf("global MaxIdleConnsPerHost budget = %d, want <= %d", got, defaultMaxIdleConnsPerHost)
+	}
+}
+
+// TestNewFactoryUsesDefaultTransportPool 确认默认 Factory 经 retryTransport 接入 8 分片 transportPool，
+// 且显式传入 BaseTransport 时保持直接透传不额外套池。
+func TestNewFactoryUsesDefaultTransportPool(t *testing.T) {
+	factory := NewFactory(Options{})
+	t.Cleanup(func() { _ = factory.Close() })
+
+	retryRT, ok := factory.transport.(*retryTransport)
+	if !ok {
+		t.Fatalf("factory.transport = %T, want *retryTransport", factory.transport)
+	}
+	pool, isPool := retryRT.base.(*transportPool)
+	if !isPool {
+		t.Fatalf("retryTransport.base = %T, want *transportPool", retryRT.base)
+	}
+	if got := len(pool.shards); got != defaultTransportShards {
+		t.Fatalf("pool shards = %d, want %d", got, defaultTransportShards)
+	}
+
+	tracker := &closeTracker{}
+	customFactory := NewFactory(Options{BaseTransport: tracker})
+	customRetry, customOK := customFactory.transport.(*retryTransport)
+	if !customOK {
+		t.Fatalf("customFactory.transport = %T, want *retryTransport", customFactory.transport)
+	}
+	if customRetry.base != tracker {
+		t.Fatalf("custom base = %v, want injected BaseTransport", customRetry.base)
 	}
 }

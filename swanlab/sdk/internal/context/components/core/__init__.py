@@ -23,7 +23,6 @@ __all__ = [
     "create_core",
     "resolve_core_backend",
     "resolve_detach",
-    "resolve_idle_timeout",
     "warn_fallback_once",
 ]
 
@@ -77,23 +76,6 @@ def resolve_detach(settings: "Settings") -> bool:
     return settings.run.parallel == "shared"
 
 
-def resolve_idle_timeout(settings: "Settings") -> float:
-    """解析 detached ``swanlab-core`` 的空闲回收超时（秒）。
-
-    显式 ``core.idle_timeout`` 优先；未指定（``None``）时，仅当因
-    ``parallel="shared"`` 隐式触发 detach 时收短为 ``PARALLEL_DETACH_IDLE_TIMEOUT``，
-    其余（包含显式 ``core.detach=True``）维持 ``DETACH_IDLE_TIMEOUT``。
-    """
-    if settings.core.idle_timeout is not None:
-        return settings.core.idle_timeout
-
-    from swanlab.sdk.internal.core_go.config import DETACH_IDLE_TIMEOUT, PARALLEL_DETACH_IDLE_TIMEOUT
-
-    if settings.core.detach is None and settings.run.parallel == "shared":
-        return PARALLEL_DETACH_IDLE_TIMEOUT
-    return DETACH_IDLE_TIMEOUT
-
-
 def warn_fallback_once(reason: BaseException) -> None:
     """Go core 二进制缺失时仅告警一次，避免同进程多次 init / sync 重复刷屏。"""
     global _fallback_warned
@@ -127,5 +109,5 @@ def create_core(ctx: "RunContext", backend: Optional[CoreBackend] = None) -> Cor
         mode=mode,
         binary=resolved.binary,
         detach=resolve_detach(ctx.config.settings),
-        idle_timeout=resolve_idle_timeout(ctx.config.settings),
+        idle_timeout=ctx.config.settings.core.idle_timeout,
     )

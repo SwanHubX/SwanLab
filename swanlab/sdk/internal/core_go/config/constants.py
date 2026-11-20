@@ -38,7 +38,6 @@ __all__ = [
     "STATS_TIMEOUT",
     "CONFIRM_TIMEOUT",
     "DETACH_IDLE_TIMEOUT",
-    "PARALLEL_DETACH_IDLE_TIMEOUT",
     "TEARDOWN_TIMEOUT",
     "WAIT_TIMEOUT",
     "TERMINATE_TIMEOUT",
@@ -102,8 +101,6 @@ STATS_TIMEOUT = 2.0
 CONFIRM_TIMEOUT: Optional[float] = None
 # 拉起 detached core 的默认空闲回收超时（秒）。
 DETACH_IDLE_TIMEOUT = 30.0
-# 由 parallel="shared" 隐式启用 Detached Mode 时的默认空闲回收超时（秒），
-PARALLEL_DETACH_IDLE_TIMEOUT = 30.0
 # TeardownService 的预算，只发请求不等进程退出。
 TEARDOWN_TIMEOUT = 5.0
 # 回收子进程：先等优雅退出，超时依次升级为 terminate / kill。

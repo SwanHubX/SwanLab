@@ -13,10 +13,10 @@ const (
 	// 拆分为多个独立分片可在保留 HTTP/2 协议的前提下展开多条并行连接。
 	defaultTransportShards = 8
 
-	// 分片拆小时仍为每片保留最小空闲池额度，避免高频并发下频繁关闭重建连接。
-	defaultMinShardIdleConns        = 4
-	defaultMinShardIdleConnsPerHost = 2
-	minPoolShards                   = 1
+	// 每个分片至少保留一条空闲连接，避免分片数超过空闲预算时出现 0 配额。
+	minShardIdleConns        = 1
+	minShardIdleConnsPerHost = 1
+	minPoolShards            = 1
 )
 
 type transportShard struct {
@@ -50,14 +50,15 @@ func (b *releaseBody) Close() error {
 }
 
 // cloneShardTransport 构造单个分片的 HTTP Transport，保留 HTTP/2 协商能力，
-// 并按分片数均分空闲连接预算，使全局总配额仍维持在默认上限附近。
+// 并按分片数均分空闲连接预算：在分片数不超过默认每主机预算（16）时，全局总配额不超过默认值；
+// 超过后每片至少保留一条空闲连接，单主机总配额会随分片数增长（32 分片为 32 条）。
 func cloneShardTransport(shards int) *http.Transport {
 	transport := cloneDefaultTransport()
 	if shards <= minPoolShards {
 		return transport
 	}
-	transport.MaxIdleConns = max(defaultMinShardIdleConns, defaultMaxIdleConns/shards)
-	transport.MaxIdleConnsPerHost = max(defaultMinShardIdleConnsPerHost, defaultMaxIdleConnsPerHost/shards)
+	transport.MaxIdleConns = max(minShardIdleConns, defaultMaxIdleConns/shards)
+	transport.MaxIdleConnsPerHost = max(minShardIdleConnsPerHost, defaultMaxIdleConnsPerHost/shards)
 	return transport
 }
 

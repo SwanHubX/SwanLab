@@ -15,7 +15,7 @@ from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.context.components import core as core_factory
 from swanlab.sdk.internal.core_go import CoreGo, CoreGoError, ReasonCode, Stage
 from swanlab.sdk.internal.core_go import runtime as runtime_module
-from swanlab.sdk.internal.core_go.config import DETACH_IDLE_TIMEOUT, PARALLEL_DETACH_IDLE_TIMEOUT
+from swanlab.sdk.internal.core_go.config import DETACH_IDLE_TIMEOUT
 from swanlab.sdk.internal.core_python import CorePython
 from swanlab.sdk.internal.pkg import helper
 from swanlab.sdk.internal.settings import Settings
@@ -27,7 +27,7 @@ def _ctx(
     mode: str = "online",
     *,
     detach: Optional[bool] = None,
-    idle_timeout: Optional[float] = None,
+    idle_timeout: float = DETACH_IDLE_TIMEOUT,
     parallel: str = "none",
 ) -> RunContext:
     ctx = MagicMock()
@@ -174,43 +174,31 @@ class TestResolveDetach:
         assert core._detach is True  # noqa: SLF001 - 断言共享模式实际进入 Detached Mode
 
 
-class TestResolveIdleTimeout:
-    """隐式 parallel="shared" 默认收短为 10s；显式 detach=True 保留 300s；显式 idle_timeout 始终优先。"""
+class TestIdleTimeoutDefaults:
+    """DETACH_IDLE_TIMEOUT 与 CoreSettings 默认 30s 保持同步，并正确透传到 CoreGo。"""
 
-    @staticmethod
-    def _settings(
-        *,
-        detach: Optional[bool] = None,
-        idle_timeout: Optional[float] = None,
-        parallel: str = "none",
-    ) -> Settings:
-        settings = Settings(mode="online")
-        settings.merge_settings(
-            {"core": {"detach": detach, "idle_timeout": idle_timeout}, "run": {"parallel": parallel}}
-        )
-        return settings
+    def test_idle_timeout_constant_matches_settings_default(self):
+        assert DETACH_IDLE_TIMEOUT == 30.0
+        assert CoreSettings().idle_timeout == DETACH_IDLE_TIMEOUT
 
-    def test_parallel_shared_implicit_detach_uses_short_idle_timeout(self, monkeypatch, tmp_path):
-        settings = self._settings(parallel="shared")
-        assert core_factory.resolve_idle_timeout(settings) == PARALLEL_DETACH_IDLE_TIMEOUT
-
+    @pytest.mark.parametrize("idle_timeout", [0.0, 60.0])
+    def test_parallel_shared_passes_idle_timeout_to_core_go(self, monkeypatch, tmp_path, idle_timeout):
         binary = _write_binary(tmp_path / "swanlab-core")
         monkeypatch.setattr(runtime_module, "locate_core_binary", lambda: binary)
+
+        core = core_factory.create_core(_ctx("online", parallel="shared", idle_timeout=idle_timeout))
+        assert isinstance(core, CoreGo)
+        assert core._detach is True  # noqa: SLF001
+        assert core._idle_timeout == idle_timeout  # noqa: SLF001
+
+    def test_parallel_shared_uses_default_idle_timeout(self, monkeypatch, tmp_path):
+        binary = _write_binary(tmp_path / "swanlab-core")
+        monkeypatch.setattr(runtime_module, "locate_core_binary", lambda: binary)
+
         core = core_factory.create_core(_ctx("online", parallel="shared"))
         assert isinstance(core, CoreGo)
-        assert core._idle_timeout == PARALLEL_DETACH_IDLE_TIMEOUT  # noqa: SLF001
-
-    def test_explicit_detach_true_keeps_resident_idle_timeout(self):
-        assert core_factory.resolve_idle_timeout(self._settings(detach=True)) == DETACH_IDLE_TIMEOUT
-
-    def test_explicit_detach_true_with_parallel_shared_keeps_resident_idle_timeout(self):
-        assert core_factory.resolve_idle_timeout(self._settings(detach=True, parallel="shared")) == DETACH_IDLE_TIMEOUT
-
-    def test_explicit_zero_idle_timeout_overrides_parallel_shared(self):
-        assert core_factory.resolve_idle_timeout(self._settings(parallel="shared", idle_timeout=0.0)) == 0.0
-
-    def test_explicit_positive_idle_timeout_overrides_parallel_shared(self):
-        assert core_factory.resolve_idle_timeout(self._settings(parallel="shared", idle_timeout=60.0)) == 60.0
+        assert core._detach is True  # noqa: SLF001
+        assert core._idle_timeout == DETACH_IDLE_TIMEOUT  # noqa: SLF001
 
 
 class TestDetachIgnoredForCorePython:
@@ -218,14 +206,10 @@ class TestDetachIgnoredForCorePython:
 
     @staticmethod
     def _forbid_resolve(monkeypatch) -> None:
-        def fail_detach(settings):  # noqa: ARG004 - 只用于断言未被调用
+        def fail(settings):  # noqa: ARG004 - 只用于断言未被调用
             raise AssertionError("core_python must not resolve detach")
 
-        def fail_idle_timeout(settings):  # noqa: ARG004 - 只用于断言未被调用
-            raise AssertionError("core_python must not resolve idle_timeout")
-
-        monkeypatch.setattr(core_factory, "resolve_detach", fail_detach)
-        monkeypatch.setattr(core_factory, "resolve_idle_timeout", fail_idle_timeout)
+        monkeypatch.setattr(core_factory, "resolve_detach", fail)
 
     def test_parallel_shared_is_silently_ignored(self, monkeypatch):
         helper.set_core_impl(CoreEnum.CORE_PYTHON)

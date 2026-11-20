@@ -95,11 +95,10 @@ class CoreSettings(BaseModel):
     ``None`` (default) leaves the choice to ``run.parallel``: ``parallel="shared"`` shares one detached
     core across ranks, any other value keeps one core per process. Set ``True`` / ``False`` to override.
     """
-    idle_timeout: Optional[float] = Field(default=None, ge=0)
+    idle_timeout: float = Field(default=30.0, ge=0)
     """
-    Idle shutdown timeout (in seconds) passed when spawning a detached ``swanlab-core``.
-    ``None`` (default) uses ``300.0`` when ``core.detach=True`` is explicitly requested, or ``10.0``
-    when detached mode is implicitly enabled by ``run.parallel="shared"``.
-    ``0`` disables automatic idle shutdown; positive values override the timeout in seconds.
+    Idle shutdown timeout (in seconds) passed when spawning a detached ``swanlab-core``
+    (applies to both explicit ``core.detach=True`` and implicit detachment via ``run.parallel="shared"``).
+    ``0`` disables automatic idle shutdown.
     """
     model_config = ConfigDict(frozen=True)
