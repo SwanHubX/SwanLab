@@ -4,7 +4,7 @@
 
 - 未设置：不执行任何操作，产出纯 ``py3-none-any`` wheel。
 - 设置为平台 tag（如 ``manylinux_2_17_aarch64.manylinux2014_aarch64``、
-  ``win_arm64``、``macosx_12_0_arm64``）：交叉编译 Go core 内嵌进 wheel，
+  ``win_arm64``、``macosx_13_0_arm64``）：交叉编译 Go core 内嵌进 wheel，
   并将该平台 tag 写入 wheel 元数据。
 """
 
@@ -22,10 +22,12 @@ _BUILD_PLATFORM_ENV = "SWANLAB_BUILD_PLATFORM"
 _SUPPORTED_TAG_EXAMPLES = (
     "manylinux_2_17_x86_64.manylinux2014_x86_64",
     "manylinux_2_17_aarch64.manylinux2014_aarch64",
+    "musllinux_1_2_x86_64",
+    "musllinux_1_2_aarch64",
     "win_amd64",
     "win_arm64",
-    "macosx_12_0_x86_64",
-    "macosx_12_0_arm64",
+    "macosx_13_0_x86_64",
+    "macosx_13_0_arm64",
 )
 
 

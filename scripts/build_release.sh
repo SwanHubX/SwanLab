@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SwanLab 多平台 release 构建脚本。
 #
-# 产物：1 sdist + 1 any 兜底 wheel + 6 平台 wheel（内嵌交叉编译的 Go core）。
+# 产物：1 sdist + 1 any 兜底 wheel + 8 平台 wheel（内嵌交叉编译的 Go core）。
 # 交叉编译与平台 tag 写入由 hatch_build.py 构建钩子完成，
 # 本脚本负责切环境变量逐平台构建，以及产物完整性校验。
 #
@@ -13,12 +13,14 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 PLATFORMS=(
-  "manylinux_2_17_x86_64.manylinux2014_x86_64"   # linux/amd64
-  "manylinux_2_17_aarch64.manylinux2014_aarch64" # linux/arm64
+  "manylinux_2_17_x86_64.manylinux2014_x86_64"   # linux/amd64 (glibc)
+  "manylinux_2_17_aarch64.manylinux2014_aarch64" # linux/arm64 (glibc)
+  "musllinux_1_2_x86_64"                         # linux/amd64 (musl)
+  "musllinux_1_2_aarch64"                        # linux/arm64 (musl)
   "win_amd64"                                    # windows/amd64
   "win_arm64"                                    # windows/arm64
-  "macosx_12_0_x86_64"                           # darwin/amd64
-  "macosx_12_0_arm64"                            # darwin/arm64
+  "macosx_13_0_x86_64"                           # darwin/amd64
+  "macosx_13_0_arm64"                            # darwin/arm64
 )
 
 VERIFY_ONLY=false
@@ -32,7 +34,19 @@ for arg in "$@"; do
 done
 
 if [ "$VERIFY_ONLY" = false ]; then
-  # 0. 版本号（沿用 make build 的写回逻辑）
+  # 0a. 按 core/.go-version 固定 Go 版本。本机 Go 高于该版本时不会自动降级，
+  # 而 Go 版本会影响产物（如 macOS 最低版本），故此处显式指定。
+  GO_PINNED="$(tr -d ' \t\r\n' < core/.go-version)"
+  if [ -z "$GO_PINNED" ]; then
+    echo "core/.go-version is empty or missing" >&2
+    exit 1
+  fi
+  if [ "${GOTOOLCHAIN:-}" != "go$GO_PINNED" ]; then
+    export GOTOOLCHAIN="go$GO_PINNED"
+    echo "==> Pinned Go toolchain to $GO_PINNED"
+  fi
+
+  # 0b. 版本号（沿用 make build 的写回逻辑）
   if [ -n "$VERSION" ]; then
     python3 -c "import json; data=json.load(open('swanlab/package.json')); data['version']='$VERSION'; json.dump(data,open('swanlab/package.json','w'),indent=2)"
     echo "==> Updated swanlab/package.json version to $VERSION"
@@ -74,10 +88,12 @@ DIST = pathlib.Path("dist")
 PLATFORMS = {
     "manylinux_2_17_x86_64.manylinux2014_x86_64": ("swanlab-core", ["elf", "x86-64"]),
     "manylinux_2_17_aarch64.manylinux2014_aarch64": ("swanlab-core", ["elf", "aarch64"]),
+    "musllinux_1_2_x86_64": ("swanlab-core", ["elf", "x86-64"]),
+    "musllinux_1_2_aarch64": ("swanlab-core", ["elf", "aarch64"]),
     "win_amd64": ("swanlab-core.exe", ["pe32+", "x86-64", "x86_64"]),
     "win_arm64": ("swanlab-core.exe", ["pe32+", "aarch64", "arm64"]),
-    "macosx_12_0_x86_64": ("swanlab-core", ["mach-o", "x86_64"]),
-    "macosx_12_0_arm64": ("swanlab-core", ["mach-o", "arm64"]),
+    "macosx_13_0_x86_64": ("swanlab-core", ["mach-o", "x86_64"]),
+    "macosx_13_0_arm64": ("swanlab-core", ["mach-o", "arm64"]),
 }
 
 failures = []
@@ -132,13 +148,27 @@ for whl in wheels:
             desc = subprocess.run(["file", "-b", str(extracted)], capture_output=True, text=True).stdout.lower()
         check(any(k in desc for k in PLATFORMS[tag][1]), f"{tag}: file 架构匹配（{desc.strip()}）")
 
-        if tag.startswith("manylinux"):
-            # glibc tag 双写：WHEEL 元数据需逐条展开为多行 Tag:
+        # 含多个兼容 tag 时（如 manylinux 的双写形式），WHEEL 元数据需逐条列全
+        if "." in tag:
             meta_name = next(n for n in names if n.endswith(".dist-info/WHEEL"))
             meta = zf.read(meta_name).decode()
             lines = [ln.split(": ", 1)[1] for ln in meta.splitlines() if ln.startswith("Tag:")]
             expected = {f"py3-none-{t}" for t in tag.split(".")}
             check(expected <= set(lines), f"{tag}: WHEEL 元数据多行 Tag 展开（实际 {lines}）")
+
+        # macOS：二进制的 minos 不能高于 wheel tag，否则旧系统能装上却跑不起来。
+        # otool 仅 macOS 可用，故该检查只在本地生效。
+        if tag.startswith("macosx_") and sys.platform == "darwin":
+            want = tuple(int(x) for x in tag.split("_")[1:3])
+            with tempfile.TemporaryDirectory() as td:
+                extracted = zf.extract(entry, td)
+                otool = subprocess.run(["otool", "-l", str(extracted)], capture_output=True, text=True).stdout
+            found = re.search(r"minos (\d+)\.(\d+)", otool)
+            if not found:
+                check(False, f"{tag}: 未能读取 Mach-O minos")
+            else:
+                got = (int(found.group(1)), int(found.group(2)))
+                check(got <= want, f"{tag}: minos {got[0]}.{got[1]} <= tag {want[0]}.{want[1]}")
 
 # sdist：不含 core/ 源码与二进制，但必须携带构建钩子（保证从 sdist 重建 wheel 可行）
 with tarfile.open(sdists[0]) as tf:
