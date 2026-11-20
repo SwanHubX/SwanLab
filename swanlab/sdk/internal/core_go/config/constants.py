@@ -100,7 +100,7 @@ STATS_TIMEOUT = 2.0
 # ConfirmRunFinish：对齐 core_python 的 finish(timeout=None)，无限等待上传排空与终态上报。
 CONFIRM_TIMEOUT: Optional[float] = None
 # 拉起 detached core 的默认空闲回收超时（秒）。
-DETACH_IDLE_TIMEOUT = 300.0
+DETACH_IDLE_TIMEOUT = 30.0
 # TeardownService 的预算，只发请求不等进程退出。
 TEARDOWN_TIMEOUT = 5.0
 # 回收子进程：先等优雅退出，超时依次升级为 terminate / kill。

@@ -63,12 +63,26 @@ type mediaPayload struct {
 	path        string // data 为 nil 时从本地文件流式读取
 }
 
+// mediaCaption 是媒体项附加说明的强类型 DTO。
+type mediaCaption struct {
+	Caption string `json:"caption"`
+}
+
+// mediaMetric 是单条媒体指标的强类型上传 DTO。
+type mediaMetric struct {
+	Key        string         `json:"key"`
+	Index      int64          `json:"index"`
+	Data       []string       `json:"data"`
+	More       []mediaCaption `json:"more"`
+	CreateTime string         `json:"create_time"`
+}
+
 // mediaTask 是一条 media 记录的上传任务：metric 与 failure 互斥。
 type mediaTask struct {
 	index    int
 	record   *recordv1.Record
 	payloads []*mediaPayload
-	metric   map[string]any
+	metric   *mediaMetric
 	failure  *uploader.Failure
 }
 
@@ -143,10 +157,10 @@ func (s *MediaSender) Upload(ctx context.Context, records []*recordv1.Record) up
 		return uploader.Result{Confirmed: confirmed, Remaining: remaining, Failures: failures}
 	}
 
-	metrics := make([]map[string]any, 0, len(ready))
+	metrics := make([]mediaMetric, 0, len(ready))
 	readyRecords := make([]*recordv1.Record, 0, len(ready))
 	for _, task := range ready {
-		metrics = append(metrics, task.metric)
+		metrics = append(metrics, *task.metric)
 		readyRecords = append(readyRecords, task.record)
 	}
 	if err := s.opts.API.UploadMetrics(ctx, api.MetricMedia, s.opts.ProjectID, s.opts.ExperimentID, metrics); err != nil {
@@ -220,7 +234,7 @@ func (s *MediaSender) collectTask(task *mediaTask) {
 
 	items := media.GetValue().GetItems()
 	paths := make([]string, 0, len(items))
-	more := make([]map[string]string, 0, len(items))
+	more := make([]mediaCaption, 0, len(items))
 	reasons := make([]string, 0, len(items))
 	for _, item := range items {
 		remotePath := "media/" + medium + "/" + item.GetFilename()
@@ -250,7 +264,7 @@ func (s *MediaSender) collectTask(task *mediaTask) {
 		task.payloads = append(task.payloads, payload)
 		paths = append(paths, remotePath)
 		if item.GetCaption() != "" {
-			more = append(more, map[string]string{"caption": item.GetCaption()})
+			more = append(more, mediaCaption{Caption: item.GetCaption()})
 		}
 	}
 
@@ -262,12 +276,12 @@ func (s *MediaSender) collectTask(task *mediaTask) {
 		task.failure = blockedFailure(reason, task.record)
 		return
 	}
-	task.metric = map[string]any{
-		metricKeyField:   media.GetKey(),
-		metricIndexField: media.GetStep(),
-		metricDataField:  paths,
-		"more":           more,
-		createTimeKey:    createTime,
+	task.metric = &mediaMetric{
+		Key:        media.GetKey(),
+		Index:      media.GetStep(),
+		Data:       paths,
+		More:       more,
+		CreateTime: createTime,
 	}
 }
 

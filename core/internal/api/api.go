@@ -317,11 +317,11 @@ func (c *Client) UploadMetrics(
 	res, err := c.http.Do(ctx, client.Request{
 		Method: http.MethodPost,
 		Path:   "/house/metrics",
-		Body: map[string]any{
-			"type":         string(kind),
-			"projectId":    projectID,
-			"experimentId": experimentID,
-			"metrics":      metrics,
+		Body: metricUploadBody{
+			Type:         string(kind),
+			ProjectID:    projectID,
+			ExperimentID: experimentID,
+			Metrics:      metrics,
 		},
 		Retries: client.NoRetries(),
 	})

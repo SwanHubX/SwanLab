@@ -6,7 +6,7 @@
 """
 
 from pathlib import Path
-from typing import List, cast
+from typing import List, Optional, cast
 from unittest.mock import MagicMock
 
 import pytest
@@ -18,14 +18,22 @@ from swanlab.sdk.internal.core_go import runtime as runtime_module
 from swanlab.sdk.internal.core_go.config import DETACH_IDLE_TIMEOUT
 from swanlab.sdk.internal.core_python import CorePython
 from swanlab.sdk.internal.pkg import helper
+from swanlab.sdk.internal.settings import Settings
 from swanlab.sdk.internal.settings.core import CoreSettings
 from swanlab.sdk.protocol import CoreEnum
 
 
-def _ctx(mode: str = "online", *, detach: bool = False, idle_timeout: float = DETACH_IDLE_TIMEOUT) -> RunContext:
+def _ctx(
+    mode: str = "online",
+    *,
+    detach: Optional[bool] = None,
+    idle_timeout: float = DETACH_IDLE_TIMEOUT,
+    parallel: str = "none",
+) -> RunContext:
     ctx = MagicMock()
     ctx.config.settings.mode = mode
     ctx.config.settings.core = CoreSettings(detach=detach, idle_timeout=idle_timeout)
+    ctx.config.settings.run.parallel = parallel
     return cast(RunContext, ctx)
 
 
@@ -133,3 +141,108 @@ def test_create_core_uses_provided_backend(monkeypatch):
 
     assert isinstance(core, CorePython)
     assert len(warnings) == 1
+
+
+class TestResolveDetach:
+    """core.detach 未显式设置时跟随 run.parallel；显式设置优先。"""
+
+    @staticmethod
+    def _settings(detach: Optional[bool] = None, parallel: str = "none") -> Settings:
+        settings = Settings(mode="online")
+        settings.merge_settings({"core": {"detach": detach}, "run": {"parallel": parallel}})
+        return settings
+
+    def test_parallel_shared_shares_a_detached_core_by_default(self):
+        assert core_factory.resolve_detach(self._settings(parallel="shared")) is True
+
+    def test_parallel_none_keeps_owner_mode(self):
+        assert core_factory.resolve_detach(self._settings()) is False
+
+    def test_explicit_detach_false_overrides_parallel_shared(self):
+        assert core_factory.resolve_detach(self._settings(detach=False, parallel="shared")) is False
+
+    def test_explicit_detach_true_without_parallel(self):
+        assert core_factory.resolve_detach(self._settings(detach=True)) is True
+
+    def test_shared_parallel_reaches_core_go(self, monkeypatch, tmp_path):
+        binary = _write_binary(tmp_path / "swanlab-core")
+        monkeypatch.setattr(runtime_module, "locate_core_binary", lambda: binary)
+
+        core = core_factory.create_core(_ctx("online", parallel="shared"))
+
+        assert isinstance(core, CoreGo)
+        assert core._detach is True  # noqa: SLF001 - 断言共享模式实际进入 Detached Mode
+
+
+class TestIdleTimeoutDefaults:
+    """DETACH_IDLE_TIMEOUT 与 CoreSettings 默认 30s 保持同步，并正确透传到 CoreGo。"""
+
+    def test_idle_timeout_constant_matches_settings_default(self):
+        assert DETACH_IDLE_TIMEOUT == 30.0
+        assert CoreSettings().idle_timeout == DETACH_IDLE_TIMEOUT
+
+    @pytest.mark.parametrize("idle_timeout", [0.0, 60.0])
+    def test_parallel_shared_passes_idle_timeout_to_core_go(self, monkeypatch, tmp_path, idle_timeout):
+        binary = _write_binary(tmp_path / "swanlab-core")
+        monkeypatch.setattr(runtime_module, "locate_core_binary", lambda: binary)
+
+        core = core_factory.create_core(_ctx("online", parallel="shared", idle_timeout=idle_timeout))
+        assert isinstance(core, CoreGo)
+        assert core._detach is True  # noqa: SLF001
+        assert core._idle_timeout == idle_timeout  # noqa: SLF001
+
+    def test_parallel_shared_uses_default_idle_timeout(self, monkeypatch, tmp_path):
+        binary = _write_binary(tmp_path / "swanlab-core")
+        monkeypatch.setattr(runtime_module, "locate_core_binary", lambda: binary)
+
+        core = core_factory.create_core(_ctx("online", parallel="shared"))
+        assert isinstance(core, CoreGo)
+        assert core._detach is True  # noqa: SLF001
+        assert core._idle_timeout == DETACH_IDLE_TIMEOUT  # noqa: SLF001
+
+
+class TestDetachIgnoredForCorePython:
+    """CorePython 没有独立 core 进程，detach / parallel 的共享语义必须静默忽略。"""
+
+    @staticmethod
+    def _forbid_resolve(monkeypatch) -> None:
+        def fail(settings):  # noqa: ARG004 - 只用于断言未被调用
+            raise AssertionError("core_python must not resolve detach")
+
+        monkeypatch.setattr(core_factory, "resolve_detach", fail)
+
+    def test_parallel_shared_is_silently_ignored(self, monkeypatch):
+        helper.set_core_impl(CoreEnum.CORE_PYTHON)
+        self._forbid_resolve(monkeypatch)
+        warnings = _capture_warnings(monkeypatch)
+
+        core = core_factory.create_core(_ctx("online", parallel="shared"))
+
+        assert isinstance(core, CorePython)
+        assert warnings == []
+
+    def test_explicit_detach_is_silently_ignored(self, monkeypatch):
+        helper.set_core_impl(CoreEnum.CORE_PYTHON)
+        self._forbid_resolve(monkeypatch)
+        warnings = _capture_warnings(monkeypatch)
+
+        core = core_factory.create_core(_ctx("online", detach=True, parallel="shared"))
+
+        assert isinstance(core, CorePython)
+        assert warnings == []
+
+    def test_missing_binary_fallback_only_warns_about_binary(self, monkeypatch):
+        error = CoreGoError(Stage.SPAWN, ReasonCode.BINARY_NOT_FOUND, "missing")
+        warnings = _capture_warnings(monkeypatch)
+
+        def fail() -> Path:
+            raise error
+
+        monkeypatch.setattr(runtime_module, "locate_core_binary", fail)
+
+        core = core_factory.create_core(_ctx("online", parallel="shared"))
+
+        assert isinstance(core, CorePython)
+        assert len(warnings) == 1
+        assert "falling back" in warnings[0]
+        assert "detach" not in warnings[0]

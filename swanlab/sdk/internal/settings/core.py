@@ -1,5 +1,7 @@
 """SwanLab Core settings."""
 
+from typing import Optional
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from .compat import section_rule_index_factory
@@ -83,16 +85,20 @@ class CoreSettings(BaseModel):
     """
     Consecutive probe successes required to recover the site. ``0`` uses the core default (2).
     """
-    detach: bool = Field(default=False)
+    detach: Optional[bool] = Field(default=None)
     """
     Run ``swanlab-core`` as a shared detached daemon instead of binding it to this run's process lifetime.
-    When ``False`` (Owner Mode, default), each run spawns an isolated ``swanlab-core`` and tears it down
-    on close; when ``True`` (Detached Mode), runs for the same user on the same host share one
-    ``swanlab-core`` process, and ``close()`` / ``abort()`` only release this client's session and channel.
+    ``True`` (Detached Mode): runs for the same user on the same host share one ``swanlab-core`` process,
+    and ``close()`` / ``abort()`` only release this client's session and channel; ``False`` (Owner Mode):
+    each run spawns an isolated ``swanlab-core`` and tears it down on close.
+
+    ``None`` (default) leaves the choice to ``run.parallel``: ``parallel="shared"`` shares one detached
+    core across ranks, any other value keeps one core per process. Set ``True`` / ``False`` to override.
     """
-    idle_timeout: float = Field(default=300.0, ge=0)
+    idle_timeout: float = Field(default=30.0, ge=0)
     """
-    Idle shutdown timeout (in seconds) passed when spawning a detached ``swanlab-core``.
+    Idle shutdown timeout (in seconds) passed when spawning a detached ``swanlab-core``
+    (applies to both explicit ``core.detach=True`` and implicit detachment via ``run.parallel="shared"``).
     ``0`` disables automatic idle shutdown.
     """
     model_config = ConfigDict(frozen=True)

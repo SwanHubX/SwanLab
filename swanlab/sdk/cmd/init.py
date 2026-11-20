@@ -150,6 +150,8 @@ def init(
         to resume a local run directory after a crash, explicitly set ``run.dir`` or ``SWANLAB_RUN_DIR``
         (requires a working Go core).
     :param parallel: Parallel execution strategy. Options: "none" (default), "shared".
+        ``"shared"`` implies ``resume="allow"``, a hostname+pid suffixed run directory, and
+        (unless ``core.detach`` is set explicitly) one detached ``swanlab-core`` shared by all ranks.
     :param config: Experiment configuration dict or path to config file (JSON/YAML).
     :param settings: Custom Settings object for advanced configuration.
     :param callbacks: List of callback functions triggered on run events.

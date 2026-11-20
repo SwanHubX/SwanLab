@@ -498,8 +498,9 @@ class TestSkipStore:
 
     def test_core_detach_and_idle_timeout_defaults_and_env(self, monkeypatch):
         default_settings = Settings(mode="online")
-        assert default_settings.core.detach is False
-        assert default_settings.core.idle_timeout == 300.0
+        # detach=None 表示未显式设置，交由 run.parallel 决定；idle_timeout 默认 30.0s
+        assert default_settings.core.detach is None
+        assert default_settings.core.idle_timeout == 30.0
 
         monkeypatch.setenv("SWANLAB_CORE_DETACH", "true")
         monkeypatch.setenv("SWANLAB_CORE_IDLE_TIMEOUT", "2.5")
@@ -507,8 +508,21 @@ class TestSkipStore:
         assert env_settings.core.detach is True
         assert env_settings.core.idle_timeout == 2.5
 
+        monkeypatch.setenv("SWANLAB_CORE_IDLE_TIMEOUT", "0")
+        assert Settings(mode="online").core.idle_timeout == 0.0
+
+        monkeypatch.setenv("SWANLAB_CORE_DETACH", "false")
+        assert Settings(mode="online").core.detach is False
+
         with pytest.raises(ValidationError):
             Settings(mode="online", core=Settings.Core(idle_timeout=-1.0))
+
+    def test_parallel_shared_does_not_force_detach_setting(self):
+        """parallel 只提供 detach 的默认选择，不写回 settings，便于显式覆盖。"""
+        settings = Settings(mode="online")
+        settings.merge_settings({"run": {"parallel": "shared"}})
+        assert settings.core.detach is None
+        assert settings.core.idle_timeout == 30.0
 
 
 class TestMediaMaxSize:
