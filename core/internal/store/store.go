@@ -60,6 +60,22 @@ var crcSeed = func() (s [5]uint32) {
 	return s
 }()
 
+// countingWriter 位于 bufio.Writer 与文件之间，累计已通过 Write 交给内核的字节数。
+// bufio 缓冲写满时会自动写底层，此时数据已能被并发 Reader 读到，即使没有显式 Flush。
+type countingWriter struct {
+	fp      io.Writer
+	written atomic.Int64
+}
+
+func (c *countingWriter) Write(p []byte) (int, error) {
+	n, err := c.fp.Write(p)
+	// 短写只累加实际写入的字节数。
+	if n > 0 {
+		c.written.Add(int64(n))
+	}
+	return n, err
+}
+
 // Writer 按 LevelDB log 格式写入或追加记录。
 //
 // 只负责落盘与偏移记账，不解释 payload；刷盘节奏由 AsyncWriter 控制。
@@ -67,11 +83,25 @@ var crcSeed = func() (s [5]uint32) {
 // 写入或刷盘失败后 Writer 不可再用，应整体关闭。
 type Writer struct {
 	mu     sync.Mutex
-	fp     *os.File
+	fp     io.WriteCloser // 生产为 *os.File；测试可注入慢盘/短写实现
+	cw     *countingWriter
 	buf    *bufio.Writer
 	closed bool
 	index  atomic.Int64 // 当前文件末尾偏移，含文件头与块尾填充
 }
+
+// newWriter 用底层写入器构造 Writer；base 是文件当前末尾偏移，也是字节计数的起点。
+func newWriter(fp io.WriteCloser, base int64) *Writer {
+	cw := &countingWriter{fp: fp}
+	cw.written.Store(base)
+	w := &Writer{fp: fp, cw: cw, buf: bufio.NewWriterSize(cw, BlockLen)}
+	w.index.Store(base)
+	return w
+}
+
+// NewWriterForTest 用给定底层写入器构造 Writer，仅供测试模拟慢盘与短写；
+// 生产路径只用 Create 与 OpenAppend。
+func NewWriterForTest(fp io.WriteCloser, offset int64) *Writer { return newWriter(fp, offset) }
 
 // Create 排他创建日志文件并写入文件头。文件已存在时返回的错误满足
 // errors.Is(err, fs.ErrExist)，用于识别重复打开或 Resume 冲突。
@@ -80,7 +110,8 @@ func Create(path string) (*Writer, error) {
 	if err != nil {
 		return nil, err
 	}
-	w := &Writer{fp: fp, buf: bufio.NewWriterSize(fp, BlockLen)}
+	// 字节计数从 0 起算，文件头刷出后自然变为 HeaderLen。
+	w := newWriter(fp, 0)
 	w.index.Store(HeaderLen)
 	if err := w.writeHeader(); err != nil {
 		fp.Close()
@@ -128,9 +159,7 @@ func OpenAppend(path string, end int64) (*Writer, error) {
 		fp.Close()
 		return nil, err
 	}
-	w := &Writer{fp: fp, buf: bufio.NewWriterSize(fp, BlockLen)}
-	w.index.Store(end)
-	return w, nil
+	return newWriter(fp, end), nil
 }
 
 func (w *Writer) writeHeader() error {
@@ -147,6 +176,9 @@ func (w *Writer) writeHeader() error {
 // 经 AsyncWriter 异步写入时只反映已消费的部分，不能用于给刚入队的记录记账，
 // 应改用 AsyncWriter.Flushed 或事后扫描。
 func (w *Writer) Offset() int64 { return w.index.Load() }
+
+// written 返回已交给内核的字节数（含文件头与块尾填充），仍在 bufio 缓冲里的不计入。
+func (w *Writer) written() int64 { return w.cw.written.Load() }
 
 // Write 追加一条完整记录。
 func (w *Writer) Write(payload []byte) error {
