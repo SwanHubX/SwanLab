@@ -62,12 +62,7 @@ func cloneShardTransport(shards int) *http.Transport {
 	return transport
 }
 
-func newDefaultTransportPool(shards int) *transportPool {
-	return newTransportPool(shards, func() http.RoundTripper {
-		return cloneShardTransport(shards)
-	})
-}
-
+// newTransportPool 构造多分片连接池；makeShard 为 nil 时使用默认分片 Transport。
 func newTransportPool(shards int, makeShard func() http.RoundTripper) *transportPool {
 	if shards < minPoolShards {
 		shards = minPoolShards

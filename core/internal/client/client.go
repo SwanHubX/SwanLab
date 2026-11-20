@@ -385,7 +385,7 @@ func NewFactory(opts Options) *Factory {
 	opts = opts.withDefaults()
 	base := opts.BaseTransport
 	if base == nil {
-		base = newDefaultTransportPool(defaultTransportShards)
+		base = newTransportPool(defaultTransportShards, nil)
 	}
 	// 重试挂在共享连接池之上：所有 Client 共享同一份重试策略与连接复用。
 	return &Factory{

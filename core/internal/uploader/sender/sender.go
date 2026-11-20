@@ -208,25 +208,16 @@ func (s *ScalarSender) Upload(ctx context.Context, records []*recordv1.Record) u
 		return uploader.Result{}
 	}
 	metrics := make([]scalarMetric, 0, len(records))
-	var encodable []*recordv1.Record
+	encodable := make([]*recordv1.Record, 0, len(records))
 	blocked := make([]*recordv1.Record, 0)
-	for i, rec := range records {
+	for _, rec := range records {
 		metric, ok := encodeScalar(rec.GetScalar())
 		if !ok {
-			if len(blocked) == 0 {
-				encodable = make([]*recordv1.Record, i, len(records))
-				copy(encodable, records[:i])
-			}
 			blocked = append(blocked, rec)
 			continue
 		}
 		metrics = append(metrics, metric)
-		if len(blocked) > 0 {
-			encodable = append(encodable, rec)
-		}
-	}
-	if len(blocked) == 0 {
-		encodable = records
+		encodable = append(encodable, rec)
 	}
 	if len(metrics) == 0 {
 		return uploader.Result{
