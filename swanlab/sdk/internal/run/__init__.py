@@ -10,6 +10,7 @@
 
 import atexit
 import glob
+import os
 import signal
 import sys
 import threading
@@ -158,8 +159,13 @@ class Run:
         # signal() 仅允许在主线程调用；Ray actor 等非主线程环境下跳过注册，
         # atexit / excepthook 钩子仍然生效
         self._original_sigint_handler = signal.getsignal(signal.SIGINT)
+        # SIGTERM（kill、docker stop、Kubernetes、Slurm scancel 等的默认信号）默认直接终止进程，不触发 atexit，
+        # 同样需要注册 handler 将实验标记为 aborted
+        # getsignal() 对非 Python 安装的 handler 返回 None，此时按 SIG_DFL 处理
+        self._original_sigterm_handler = signal.getsignal(signal.SIGTERM) or signal.SIG_DFL
         if self._is_main_thread:
             signal.signal(signal.SIGINT, self._handle_sigint)
+            signal.signal(signal.SIGTERM, self._handle_sigterm)
 
         # 3. 启动组件 + 初始化日志
         # 回调的path在path为空的时候自动生成一个/:project_name/:run_id，否则使用path
@@ -216,6 +222,24 @@ class Run:
         else:
             # The default handler (SIG_DFL) raises KeyboardInterrupt.
             raise KeyboardInterrupt
+
+    def _handle_sigterm(self, signum: int, frame: Any) -> None:
+        """SIGTERM handler：在进程被终止前将实验标记为 aborted。
+
+        SIGTERM 的默认处理会直接终止进程，既不抛出异常也不执行 atexit。
+        结束实验后恢复原始 handler 并重新发送信号，进程仍以 SIGTERM 的退出码结束。
+        """
+        if self.alive:
+            console.info("Terminated by SIGTERM")
+            self.finish(state="aborted", error="Terminated by SIGTERM")
+        signal.signal(signal.SIGTERM, self._original_sigterm_handler)
+        if self._original_sigterm_handler is signal.SIG_IGN:
+            return
+        if callable(self._original_sigterm_handler):
+            self._original_sigterm_handler(signum, frame)
+        else:
+            # SIG_DFL：handler 已恢复为默认处理，重新发送信号让进程照常终止
+            os.kill(os.getpid(), signal.SIGTERM)
 
     def _handle_atexit(self) -> None:
         """程序正常退出时自动结束当前运行"""
@@ -938,6 +962,7 @@ class Run:
         sys.excepthook = self._sys_origin_excepthook
         if self._is_main_thread:
             signal.signal(signal.SIGINT, self._original_sigint_handler)
+            signal.signal(signal.SIGTERM, self._original_sigterm_handler)
         # 清理全局运行实例
         console.debug("Cleanup global instance...")
         clear_run()

@@ -58,6 +58,7 @@ def _make_real_finish_run() -> Run:
     run._handle_atexit = MagicMock()
     run._sys_origin_excepthook = MagicMock()
     run._original_sigint_handler = signal.SIG_DFL
+    run._original_sigterm_handler = signal.SIG_DFL
     run._is_main_thread = True
     return run
 
@@ -213,16 +214,65 @@ class TestSigintHandler:
         run.finish.assert_called_once_with(state="aborted", error="KeyboardInterrupt by user")
 
 
+class TestSigtermHandler:
+    def setup_method(self):
+        self._original_sigterm_handler = signal.getsignal(signal.SIGTERM)
+
+    def teardown_method(self):
+        signal.signal(signal.SIGTERM, self._original_sigterm_handler)
+
+    def test_finishes_aborted_then_resends_signal_with_default_handler(self):
+        """SIG_DFL：先 finish(state='aborted')，再恢复默认 handler 并重新发送 SIGTERM，进程以 SIGTERM 退出"""
+        run = _make_mock_run()
+        run._original_sigterm_handler = signal.SIG_DFL
+        with patch("swanlab.sdk.internal.run.os.kill") as mock_kill:
+            Run._handle_sigterm(run, signal.SIGTERM, None)
+        run.finish.assert_called_once_with(state="aborted", error="Terminated by SIGTERM")
+        assert signal.getsignal(signal.SIGTERM) == signal.SIG_DFL
+        mock_kill.assert_called_once_with(ANY, signal.SIGTERM)
+
+    def test_no_finish_when_not_running(self):
+        """实验已结束时不调用 finish，但仍重新发送信号"""
+        run = _make_mock_run(state="success")
+        run._original_sigterm_handler = signal.SIG_DFL
+        with patch("swanlab.sdk.internal.run.os.kill") as mock_kill:
+            Run._handle_sigterm(run, signal.SIGTERM, None)
+        run.finish.assert_not_called()
+        mock_kill.assert_called_once()
+
+    def test_calls_original_callable_handler(self):
+        """原始 handler 为 callable 时调用它，不重新发送信号"""
+        run = _make_mock_run()
+        original = MagicMock()
+        run._original_sigterm_handler = original
+        with patch("swanlab.sdk.internal.run.os.kill") as mock_kill:
+            Run._handle_sigterm(run, signal.SIGTERM, None)
+        run.finish.assert_called_once_with(state="aborted", error="Terminated by SIGTERM")
+        original.assert_called_once_with(signal.SIGTERM, None)
+        mock_kill.assert_not_called()
+
+    def test_sig_ign_does_nothing_more(self):
+        """原始 handler 为 SIG_IGN 时只结束实验，不重新发送信号"""
+        run = _make_mock_run()
+        run._original_sigterm_handler = signal.SIG_IGN
+        with patch("swanlab.sdk.internal.run.os.kill") as mock_kill:
+            Run._handle_sigterm(run, signal.SIGTERM, None)
+        run.finish.assert_called_once_with(state="aborted", error="Terminated by SIGTERM")
+        mock_kill.assert_not_called()
+
+
 class TestSigintRegistration:
     """Run.__init__ 的 SIGINT 注册应只在主线程进行（Ray actor 等非主线程环境不注册、不崩溃）"""
 
     def setup_method(self):
         self._saved_excepthook = sys.excepthook
         self._original_sigint_handler = signal.getsignal(signal.SIGINT)
+        self._original_sigterm_handler = signal.getsignal(signal.SIGTERM)
 
     def teardown_method(self):
         sys.excepthook = self._saved_excepthook
         signal.signal(signal.SIGINT, self._original_sigint_handler)
+        signal.signal(signal.SIGTERM, self._original_sigterm_handler)
         clear_run()
 
     def _init_run(self) -> Run:
@@ -242,6 +292,7 @@ class TestSigintRegistration:
         run = self._init_run()
         assert run._is_main_thread is True
         assert signal.getsignal(signal.SIGINT) == run._handle_sigint
+        assert signal.getsignal(signal.SIGTERM) == run._handle_sigterm
 
     def test_skip_in_non_main_thread(self):
         """非主线程 init（如 Ray actor）：跳过注册且不抛 ValueError"""
@@ -254,6 +305,7 @@ class TestSigintRegistration:
                 holder["error"] = e
 
         before = signal.getsignal(signal.SIGINT)
+        before_sigterm = signal.getsignal(signal.SIGTERM)
         t = threading.Thread(target=target)
         t.start()
         t.join()
@@ -261,6 +313,7 @@ class TestSigintRegistration:
         run = holder["run"]
         assert run._is_main_thread is False
         assert signal.getsignal(signal.SIGINT) == before
+        assert signal.getsignal(signal.SIGTERM) == before_sigterm
 
 
 class TestFinishSigintRestore:
@@ -272,7 +325,8 @@ class TestFinishSigintRestore:
 
     def test_restore_only_in_main_thread(self):
         """finish() 仅在主线程恢复原 handler（否则非主线程下会抛 ValueError）"""
-        for is_main_thread, expected_calls in ((True, 1), (False, 0)):
+        # 主线程恢复 SIGINT 与 SIGTERM 两个 handler
+        for is_main_thread, expected_calls in ((True, 2), (False, 0)):
             run = _make_real_finish_run()
             run._is_main_thread = is_main_thread
             with (
