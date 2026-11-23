@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"google.golang.org/protobuf/proto"
 
@@ -227,8 +228,13 @@ func (s *Session) commitFinish(ctx context.Context) error {
 	return nil
 }
 
-// commitCrashLog 把崩溃 error_log 投入上传通道。暂时失败（通道满、ctx 到期）时
-// 保留记录供 Confirm 重试；只有确定性错误才告警丢弃，避免会话永远无法释放。
+const (
+	crashLogRetryBase = 50 * time.Millisecond
+	crashLogRetryMax  = 2 * time.Second
+)
+
+// commitCrashLog 把崩溃 error_log 投入上传通道。容量暂时耗尽（ErrOverloaded）时按退避
+// 重试直到入队成功或外部 ctx 结束；只有确定性错误才告警丢弃，避免会话永远无法释放。
 func (s *Session) commitCrashLog(ctx context.Context) error {
 	if s.cfg.NormalizedMode() != config.ModeOnline {
 		return nil
@@ -241,18 +247,30 @@ func (s *Session) commitCrashLog(ctx context.Context) error {
 		s.recovery.Drain(ctx)
 	}
 
-	err := s.intake.CommitUploadOnly(ctx, s.pendingLog)
-	switch {
-	case err == nil:
-		s.pendingLog = nil
-		return nil
-	case errors.Is(err, budget.ErrTooLarge), errors.Is(err, buffer.ErrClosed):
-		// 重试不会成功的确定性错误：告警后终结，不能让收尾永久卡住。
-		console.Warningf("finish: dropping crash error log: %v", err)
-		s.pendingLog = nil
-		return nil
-	default:
-		return fmt.Errorf("upload crash error log: %w", err)
+	delay := crashLogRetryBase
+	for {
+		err := s.intake.CommitUploadOnly(ctx, s.pendingLog)
+		switch {
+		case err == nil:
+			s.pendingLog = nil
+			return nil
+		case errors.Is(err, budget.ErrTooLarge), errors.Is(err, buffer.ErrClosed):
+			// 重试不会成功的确定性错误：告警后终结，不能让收尾永久卡住。
+			console.Warningf("finish: dropping crash error log: %v", err)
+			s.pendingLog = nil
+			return nil
+		case errors.Is(err, buffer.ErrOverloaded):
+			timer := time.NewTimer(delay)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return fmt.Errorf("upload crash error log: %w", ctx.Err())
+			case <-timer.C:
+			}
+			delay = min(delay*2, crashLogRetryMax)
+		default:
+			return fmt.Errorf("upload crash error log: %w", err)
+		}
 	}
 }
 

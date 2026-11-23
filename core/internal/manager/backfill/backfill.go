@@ -286,7 +286,7 @@ func (w *Worker) Complete(ctx context.Context) error {
 			}
 			continue
 		}
-		done, nextErr := w.completeHandover(ctx, st, start, &fails)
+		done, nextErr := w.completeHandover(ctx, st, start)
 		if nextErr != nil {
 			return nextErr
 		}
@@ -357,7 +357,6 @@ func (w *Worker) completeHandover(
 	ctx context.Context,
 	st *state,
 	start uint64,
-	fails *int,
 ) (bool, error) {
 	var next Cursor
 	err := w.intake.Handover(ctx, nil, func() ([]*recordv1.Record, uint64, error) {
@@ -383,7 +382,6 @@ func (w *Worker) completeHandover(
 		return false, errors.New("records were committed after the local store closed")
 	case errors.Is(err, buffer.ErrBackfillBlocked):
 		if w.isSuspended != nil && w.isSuspended() {
-			*fails = 0
 			return false, w.waitSiteRecovered(ctx, start)
 		}
 		return false, waitBackoff(ctx, pollInterval)

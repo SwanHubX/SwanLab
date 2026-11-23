@@ -622,6 +622,99 @@ func TestDeliverRunFinishRetriesCrashLogAfterCapacityFrees(t *testing.T) {
 	}
 }
 
+// 上传通道持续满超过 QueueWait 时，单次 Confirm 不得因 ErrOverloaded 提前置 FAILED；
+// 容量恢复后 crash error_log 应成功入队并恰好上传一次。
+func TestConfirmWaitsForCrashLogBeyondQueueWait(t *testing.T) {
+	h := newFinishHarness(t, finishOptions{
+		skipStore:   true,
+		uploadQueue: 2,
+		queueWait:   20 * time.Millisecond,
+		blockUpload: true,
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := h.mgr.UpsertScalars(ctx, h.id, []*datav1.ScalarRecord{
+		scalarRecord("crash/loss", 0, columnv1.ColumnType_COLUMN_TYPE_SCALAR),
+	}); err != nil {
+		t.Fatalf("UpsertScalars: %v", err)
+	}
+	select {
+	case <-h.uploadEntered:
+	case <-time.After(3 * time.Second):
+		t.Fatal("uploader did not enter the sender")
+	}
+
+	saturated := false
+	for step := 1; step <= 16; step++ {
+		err := h.mgr.UpsertScalars(ctx, h.id, []*datav1.ScalarRecord{
+			scalarRecord("crash/loss", int64(step), columnv1.ColumnType_COLUMN_TYPE_SCALAR),
+		})
+		if err == nil {
+			continue
+		}
+		if !errors.Is(err, ErrOverloaded) {
+			t.Fatalf("fill upload queue: %v", err)
+		}
+		saturated = true
+		break
+	}
+	if !saturated {
+		t.Fatal("upload queue was never saturated")
+	}
+
+	if err := h.mgr.DeliverRunFinish(ctx, h.id, finishRecord(runv1.RunState_RUN_STATE_CRASHED, "boom")); err != nil {
+		t.Fatalf("DeliverRunFinish: %v", err)
+	}
+
+	type confirmOut struct {
+		res ConfirmResult
+		err error
+	}
+	done := make(chan confirmOut, 1)
+	go func() {
+		res, err := h.mgr.Confirm(ctx, h.id)
+		done <- confirmOut{res: res, err: err}
+	}()
+
+	// 阻塞 80ms（4 倍于 queueWait=20ms），Confirm 必须仍在等待而非因 ErrOverloaded 失败退出。
+	select {
+	case out := <-done:
+		t.Fatalf("Confirm returned prematurely while upload queue stayed full: %+v", out)
+	case <-time.After(80 * time.Millisecond):
+	}
+	if state := h.session.stateSnapshot(); state != RunStateDraining {
+		t.Fatalf("state while waiting = %s, want draining", state)
+	}
+
+	close(h.gate)
+
+	select {
+	case out := <-done:
+		if out.err != nil || out.res.ReleaseFailed {
+			t.Fatalf("Confirm = %+v, want success", out)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("Confirm did not complete after upload capacity freed")
+	}
+
+	if h.session.pendingLog != nil {
+		t.Fatal("crash error log must be cleared after upload")
+	}
+	var logs []*recordv1.Record
+	for _, rec := range h.uploads.snapshot() {
+		if rec.GetLog() != nil {
+			logs = append(logs, rec)
+		}
+	}
+	if len(logs) != 1 || logs[0].GetLog().GetLine() != "boom" {
+		t.Fatalf("uploaded logs = %v, want single 'boom' log", logs)
+	}
+	if _, err := h.mgr.State(h.id); !errors.Is(err, ErrSessionNotFound) {
+		t.Fatalf("State after confirm err=%v, want ErrSessionNotFound", err)
+	}
+}
+
 func TestDeliverRunFinishConcurrentCallsWriteOnce(t *testing.T) {
 	h := newFinishHarness(t, finishOptions{})
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
