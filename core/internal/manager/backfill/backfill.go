@@ -236,7 +236,7 @@ func (w *Worker) RunOnce(ctx context.Context) error {
 		case err == nil:
 			st.cursor = next
 			w.state = state{}
-			console.Debugf("backfill: resumed uploads after store seq %d", next.Seq)
+			console.Infof("backfill: resumed uploads after store seq %d", next.Seq)
 			return nil
 		case errors.Is(err, buffer.ErrNotPaused):
 			return nil
@@ -263,17 +263,18 @@ func (w *Worker) Complete(ctx context.Context) error {
 	if !paused {
 		return nil
 	}
-	if err := w.checkCompletePreconditions(ctx, start); err != nil {
-		return err
-	}
-	st, err := w.stateFor(start)
-	if err != nil {
-		return err
-	}
+	var st *state
 	var fails int
 	for {
-		if err = w.checkCompletePreconditions(ctx, start); err != nil {
+		if err := w.checkCompletePreconditions(ctx, start); err != nil {
 			return err
+		}
+		if st == nil {
+			loaded, stateErr := w.stateFor(start)
+			if stateErr != nil {
+				return stateErr
+			}
+			st = loaded
 		}
 		flushedSeq, flushedOff := w.store.Flushed()
 		if st.cursor.Seq < flushedSeq {
@@ -374,7 +375,7 @@ func (w *Worker) completeHandover(
 	switch {
 	case err == nil:
 		w.state = state{}
-		console.Debugf("backfill: finished at store seq %d", next.Seq)
+		console.Infof("backfill: finished at store seq %d", next.Seq)
 		return true, nil
 	case errors.Is(err, buffer.ErrNotPaused):
 		return true, nil

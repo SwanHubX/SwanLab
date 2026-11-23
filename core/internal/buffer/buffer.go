@@ -468,7 +468,12 @@ func (t *Intake) notifyPause(published bool, storeSeq uint64) {
 	if !published {
 		return
 	}
-	console.Warning("pausing upload delivery; records will stay in the local store")
+	// 站点降级已由探针打印 Warning，这里降为 Debug 避免重复刷屏；本地预算或队列满时保留 Warning。
+	if t.isSuspended != nil && t.isSuspended() {
+		console.Debug("pausing upload delivery while site health is degraded")
+	} else {
+		console.Warning("pausing upload delivery; records will stay in the local store")
+	}
 	if t.onPause != nil {
 		t.onPause(storeSeq)
 	}

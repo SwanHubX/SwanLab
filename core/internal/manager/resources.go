@@ -265,6 +265,7 @@ func (s *Session) open(init sessionInit) error {
 
 // rollback 释放装配期已创建的资源；所有字段都允许为 nil。
 func (s *Session) rollback() {
+	s.stopOnlineDrain()
 	if s.cancel != nil {
 		s.cancel()
 	}

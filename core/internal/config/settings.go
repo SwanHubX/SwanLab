@@ -28,9 +28,9 @@ const (
 	DefaultSavePart int64 = 32 << 20
 	// DefaultSaveBatch 是小文件上传的单批数量。
 	DefaultSaveBatch = 100
-	// DefaultUploadBudgetRecords 是上传管线默认记录条数预算。
+	// DefaultUploadBudgetRecords 是上传管线默认记录条数预算（仅 Defaults() 测试/工具使用，生产默认值由 Python core.py 下发）。
 	DefaultUploadBudgetRecords int64 = 50_000
-	// DefaultUploadBudgetBytes 是上传管线默认字节预算（128 MiB）。
+	// DefaultUploadBudgetBytes 是上传管线默认字节预算（128 MiB；仅 Defaults() 测试/工具使用，需与 Python core.py 对齐）。
 	DefaultUploadBudgetBytes int64 = 128 << 20
 )
 
@@ -116,8 +116,8 @@ type Settings struct {
 	HealthRecoverThreshold int32
 }
 
-// Defaults 返回与 Python CoreSettings 一致的默认配置。
-//
+// Defaults 返回与 Python CoreSettings 一致的默认配置，仅供测试与工具使用。
+// 生产路径由 Python 显式下发字段并经 protoToSettings 原样拷贝，修改默认值时需同步调整 swanlab/sdk/internal/settings/core.py。
 // 只填有非零默认值的字段：RunID / RunDir / Mode / SectionRule / SkipStore /
 // APIKey / APIHost / WebHost 保持零值（Mode 空值按 online 处理）。
 func Defaults() Settings {

@@ -210,7 +210,8 @@ func (m *Manager) hasCapacity() bool {
 }
 
 // DeliverRunFinish 执行指定会话的本地收尾（RUNNING → DRAINING）：
-// 停后台补投与文件监听、落盘 FinishRecord 并关闭刷盘本地 store；online 模式的上传排空留给 Confirm。
+// 停后台补投与文件监听、落盘 FinishRecord 并关闭刷盘本地 store；
+// online 模式随后启动后台协程继续补投并关闭上传通道，Confirm 等待其排空后释放会话。
 func (m *Manager) DeliverRunFinish(ctx context.Context, sessionID string, rec *runv1.FinishRecord) error {
 	if sessionID == "" {
 		return ErrEmptySessionID
@@ -246,14 +247,14 @@ func (m *Manager) Stats(sessionID string) (*operationv1.OperationStats, error) {
 // confirmOKMessage 是成功释放时返回给 Python 客户端的固定文案。
 const confirmOKMessage = "OK"
 
-// Confirm 完成云端补投与上传排空，并上报终态释放会话资源。
+// Confirm 等待会话排空并上报终态释放会话资源。
 //
-// 注册表只在定位会话和最终移除时持锁；补投、排空等待与释放钩子都在锁外执行，
+// 注册表只在定位会话和最终移除时持锁；排空等待与释放钩子都在锁外执行，
 // 避免网络请求阻塞其它会话。并发 Confirm 由 per-session 的 confirmMu 串行化，
 // 只有第一个调用会执行释放钩子，其余调用命中 released 缓存直接成功。
 //
-// 在等待上传排空前先完成本地积压补传、崩溃日志入队与关闭 intake，确保上传通道关闭后再等待
-// uploader 排空；会话处于 FAILED 时在 confirmMu 内续跑未完成的收尾步骤。
+// online 模式下的积压补传、崩溃日志入队与关闭 intake 由 DeliverRunFinish 后的后台协程推进；
+// 会话处于 FAILED 时在 confirmMu 内续跑未完成的收尾步骤。
 //
 // stop_experiment 失败不返回 RPC 错误，而是返回 ReleaseFailed=true 与按本地
 // 副本完整性生成的提示文案，会话保留在注册表中供下一次 Confirm 重试。
@@ -267,9 +268,6 @@ func (m *Manager) Confirm(ctx context.Context, sessionID string) (ConfirmResult,
 	}
 	if released {
 		return ConfirmResult{Message: confirmOKMessage}, nil
-	}
-	if err = s.prepareOnlineDrain(ctx); err != nil {
-		return ConfirmResult{}, err
 	}
 	if err = s.waitDrained(ctx); err != nil {
 		return ConfirmResult{}, err
@@ -330,6 +328,7 @@ func (m *Manager) Confirm(ctx context.Context, sessionID string) (ConfirmResult,
 	if s.uploader != nil {
 		_ = s.uploader.Close()
 	}
+	s.stopOnlineDrain()
 	if s.cancel != nil {
 		s.cancel()
 	}

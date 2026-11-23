@@ -420,6 +420,7 @@ func newFinishHarness(t *testing.T, opts finishOptions) *finishHarness {
 		t.Fatalf("install: %v", err)
 	}
 	t.Cleanup(func() {
+		s.stopOnlineDrain()
 		s.recovery.Stop()
 		s.backfill.Stop()
 		s.cancel()
