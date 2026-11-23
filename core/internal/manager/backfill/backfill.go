@@ -52,30 +52,32 @@ type state struct {
 
 // Options 配置本地补投工作器。
 type Options struct {
-	Ctx           context.Context
-	Intake        *buffer.Intake
-	Store         *store.AsyncWriter
-	RunFile       string
-	BatchSize     int32
-	Degraded      *atomic.Bool
-	IsRunning     func() bool
-	IsSuspended   func() bool
-	OnStored      func(rec *recordv1.Record, storeSeq uint64)
-	InitialPause  uint64
-	InitialCursor Cursor
+	Ctx             context.Context
+	Intake          *buffer.Intake
+	Store           *store.AsyncWriter
+	RunFile         string
+	BatchSize       int32
+	Degraded        *atomic.Bool
+	IsRunning       func() bool
+	IsSuspended     func() bool
+	SubscribeHealth func() (<-chan struct{}, func())
+	OnStored        func(rec *recordv1.Record, storeSeq uint64)
+	InitialPause    uint64
+	InitialCursor   Cursor
 }
 
 // Worker 管理暂停区间的后台补投协程与停机阶段同步补投；nil 接收者上的方法均为安全空操作。
 type Worker struct {
-	ctx         context.Context
-	intake      *buffer.Intake
-	store       *store.AsyncWriter
-	runFile     string
-	batchSize   int
-	degraded    *atomic.Bool
-	isRunning   func() bool
-	isSuspended func() bool
-	onStored    func(rec *recordv1.Record, storeSeq uint64)
+	ctx             context.Context
+	intake          *buffer.Intake
+	store           *store.AsyncWriter
+	runFile         string
+	batchSize       int
+	degraded        *atomic.Bool
+	isRunning       func() bool
+	isSuspended     func() bool
+	subscribeHealth func() (<-chan struct{}, func())
+	onStored        func(rec *recordv1.Record, storeSeq uint64)
 
 	wake      chan struct{}
 	stop      chan struct{}
@@ -100,16 +102,17 @@ func New(opts Options) *Worker {
 		batch = min(batch, batchMax)
 	}
 	return &Worker{
-		ctx:         ctx,
-		intake:      opts.Intake,
-		store:       opts.Store,
-		runFile:     opts.RunFile,
-		batchSize:   batch,
-		degraded:    opts.Degraded,
-		isRunning:   opts.IsRunning,
-		isSuspended: opts.IsSuspended,
-		onStored:    opts.OnStored,
-		wake:        make(chan struct{}, 1),
+		ctx:             ctx,
+		intake:          opts.Intake,
+		store:           opts.Store,
+		runFile:         opts.RunFile,
+		batchSize:       batch,
+		degraded:        opts.Degraded,
+		isRunning:       opts.IsRunning,
+		isSuspended:     opts.IsSuspended,
+		subscribeHealth: opts.SubscribeHealth,
+		onStored:        opts.OnStored,
+		wake:            make(chan struct{}, 1),
 		state: state{
 			pauseSeq: opts.InitialPause,
 			cursor:   opts.InitialCursor,
@@ -233,7 +236,7 @@ func (w *Worker) RunOnce(ctx context.Context) error {
 		case err == nil:
 			st.cursor = next
 			w.state = state{}
-			console.Debugf("backfill: resumed uploads after store seq %d", next.Seq)
+			console.Infof("backfill: resumed uploads after store seq %d", next.Seq)
 			return nil
 		case errors.Is(err, buffer.ErrNotPaused):
 			return nil
@@ -248,7 +251,8 @@ func (w *Worker) RunOnce(ctx context.Context) error {
 	}
 }
 
-// Complete 在收尾路径同步补完暂停区间；store 已关闭时不再刷盘。
+// Complete 在收尾阶段补传暂停期间的本地记录；store 已关闭时不再刷盘。
+// 站点异常或上传通道满时等待恢复并从当前位置重试，直到追平、本地损坏或 ctx 结束。
 func (w *Worker) Complete(ctx context.Context) error {
 	if w == nil || w.intake == nil || w.store == nil {
 		return nil
@@ -259,79 +263,177 @@ func (w *Worker) Complete(ctx context.Context) error {
 	if !paused {
 		return nil
 	}
+	var st *state
+	var fails int
+	for {
+		if err := w.checkCompletePreconditions(ctx, start); err != nil {
+			return err
+		}
+		if st == nil {
+			loaded, stateErr := w.stateFor(start)
+			if stateErr != nil {
+				return stateErr
+			}
+			st = loaded
+		}
+		flushedSeq, flushedOff := w.store.Flushed()
+		if st.cursor.Seq < flushedSeq {
+			done, nextErr := w.completeReplayBatch(ctx, st, start, flushedOff, &fails)
+			if nextErr != nil {
+				return nextErr
+			}
+			if done {
+				return nil
+			}
+			continue
+		}
+		done, nextErr := w.completeHandover(ctx, st, start)
+		if nextErr != nil {
+			return nextErr
+		}
+		if done {
+			return nil
+		}
+	}
+}
+
+func (w *Worker) checkCompletePreconditions(ctx context.Context, start uint64) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if w.degraded != nil && w.degraded.Load() {
 		return fmt.Errorf("local store is degraded, records from storeSeq %d are not delivered", start)
 	}
-	if w.isSuspended != nil && w.isSuspended() {
-		return fmt.Errorf("site is degraded, records from storeSeq %d are not delivered", start)
-	}
-	st, err := w.stateFor(start)
-	if err != nil {
-		return err
-	}
-	for {
-		flushedSeq, flushedOff := w.store.Flushed()
-		if st.cursor.Seq < flushedSeq {
-			before := st.cursor.Seq
-			local := st.cursor
-			records, after, scanErr := w.scan(&local, flushedOff, w.batchSize)
-			if scanErr != nil {
-				return scanErr
-			}
-			if len(records) == 0 {
-				st.cursor = local
-				if st.cursor.Seq == before {
-					return fmt.Errorf("local store ended before storeSeq %d", start)
-				}
-				continue
-			}
-			sent, replayErr := w.intake.Replay(ctx, records)
-			if sent > 0 {
-				st.cursor = after[sent-1]
-			}
-			if replayErr != nil {
-				if errors.Is(replayErr, buffer.ErrNotPaused) {
-					return nil
-				}
-				return fmt.Errorf("replay paused records: %w", replayErr)
-			}
-			st.cursor = local
-			continue
-		}
+	return w.waitSiteRecovered(ctx, start)
+}
 
-		var next Cursor
-		err = w.intake.Handover(ctx, nil, func() ([]*recordv1.Record, uint64, error) {
-			seq, off := w.store.Flushed()
-			next = st.cursor
-			records, _, scanErr := w.scan(&next, off, w.windowSize())
-			if scanErr != nil {
-				return nil, 0, scanErr
-			}
-			if next.Seq != seq {
-				return nil, next.Seq, nil
-			}
-			return records, next.Seq, nil
-		})
-		switch {
-		case err == nil:
-			w.state = state{}
-			console.Debugf("backfill: finished at store seq %d", next.Seq)
+func (w *Worker) completeReplayBatch(
+	ctx context.Context,
+	st *state,
+	start uint64,
+	flushedOff int64,
+	fails *int,
+) (bool, error) {
+	before := st.cursor.Seq
+	local := st.cursor
+	records, after, scanErr := w.scan(&local, flushedOff, w.batchSize)
+	if scanErr != nil {
+		return false, scanErr
+	}
+	if len(records) == 0 {
+		st.cursor = local
+		if st.cursor.Seq == before {
+			return false, fmt.Errorf("local store ended before storeSeq %d", start)
+		}
+		return false, nil
+	}
+	sent, replayErr := w.intake.Replay(ctx, records)
+	if sent > 0 {
+		st.cursor = after[sent-1]
+		*fails = 0
+	}
+	if replayErr == nil {
+		*fails = 0
+		st.cursor = local
+		return false, nil
+	}
+	switch {
+	case errors.Is(replayErr, buffer.ErrNotPaused):
+		return true, nil
+	case errors.Is(replayErr, buffer.ErrOverloaded):
+		if w.isSuspended != nil && w.isSuspended() {
+			*fails = 0
+			return false, w.waitSiteRecovered(ctx, start)
+		}
+		*fails++
+		return false, waitBackoff(ctx, backoff(*fails))
+	case errors.Is(replayErr, context.Canceled), errors.Is(replayErr, context.DeadlineExceeded):
+		return false, replayErr
+	default:
+		return false, fmt.Errorf("replay paused records: %w", replayErr)
+	}
+}
+
+func (w *Worker) completeHandover(
+	ctx context.Context,
+	st *state,
+	start uint64,
+) (bool, error) {
+	var next Cursor
+	err := w.intake.Handover(ctx, nil, func() ([]*recordv1.Record, uint64, error) {
+		seq, off := w.store.Flushed()
+		next = st.cursor
+		records, _, scanErr := w.scan(&next, off, w.windowSize())
+		if scanErr != nil {
+			return nil, 0, scanErr
+		}
+		if next.Seq != seq {
+			return nil, next.Seq, nil
+		}
+		return records, next.Seq, nil
+	})
+	switch {
+	case err == nil:
+		w.state = state{}
+		console.Infof("backfill: finished at store seq %d", next.Seq)
+		return true, nil
+	case errors.Is(err, buffer.ErrNotPaused):
+		return true, nil
+	case errors.Is(err, buffer.ErrBackfillStale):
+		return false, errors.New("records were committed after the local store closed")
+	case errors.Is(err, buffer.ErrBackfillBlocked):
+		if w.isSuspended != nil && w.isSuspended() {
+			return false, w.waitSiteRecovered(ctx, start)
+		}
+		return false, waitBackoff(ctx, pollInterval)
+	default:
+		return false, err
+	}
+}
+
+func (w *Worker) waitSiteRecovered(ctx context.Context, start uint64) error {
+	if w.isSuspended == nil || !w.isSuspended() {
+		return nil
+	}
+	var updates <-chan struct{}
+	if w.subscribeHealth != nil {
+		var unsub func()
+		updates, unsub = w.subscribeHealth()
+		defer unsub()
+		if !w.isSuspended() {
 			return nil
-		case errors.Is(err, buffer.ErrNotPaused):
-			return nil
-		case errors.Is(err, buffer.ErrBackfillStale):
-			return errors.New("records were committed after the local store closed")
-		case errors.Is(err, buffer.ErrBackfillBlocked):
-			timer := time.NewTimer(pollInterval)
+		}
+	}
+	for w.isSuspended() {
+		if w.degraded != nil && w.degraded.Load() {
+			return fmt.Errorf("local store is degraded, records from storeSeq %d are not delivered", start)
+		}
+		if updates != nil {
 			select {
 			case <-ctx.Done():
-				timer.Stop()
 				return ctx.Err()
-			case <-timer.C:
+			case _, ok := <-updates:
+				if !ok {
+					updates = nil
+				}
 			}
-		default:
+			continue
+		}
+		if err := waitBackoff(ctx, pollInterval); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func waitBackoff(ctx context.Context, d time.Duration) error {
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
 	}
 }
 

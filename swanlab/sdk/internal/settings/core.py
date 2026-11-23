@@ -61,13 +61,13 @@ class CoreSettings(BaseModel):
     path without local links.
     ``swanlab sync`` / ``swanlab watch`` do not apply; a crashed run cannot be recovered.
     """
-    upload_budget_records: int = Field(default=0)
+    upload_budget_records: int = Field(default=50_000)
     """
-    Upload pipeline budget in records; ``<=0`` means unlimited.
+    Upload pipeline budget in records. Default 50000; ``<=0`` means unlimited.
     """
-    upload_budget_bytes: int = Field(default=0)
+    upload_budget_bytes: int = Field(default=128 * 1024 * 1024)
     """
-    Upload pipeline budget in bytes; ``<=0`` means unlimited.
+    Upload pipeline budget in bytes. Default 128 MiB; ``<=0`` means unlimited.
     """
     health_probe_interval: float = Field(default=5.0, ge=0)
     """

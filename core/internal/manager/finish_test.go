@@ -5,8 +5,8 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -16,6 +16,7 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/budget"
 	"github.com/swanhubx/swanlab/core/internal/buffer"
 	"github.com/swanhubx/swanlab/core/internal/config"
+	"github.com/swanhubx/swanlab/core/internal/cron/health"
 	"github.com/swanhubx/swanlab/core/internal/manager/checkpoint"
 	"github.com/swanhubx/swanlab/core/internal/manager/planner"
 	"github.com/swanhubx/swanlab/core/internal/manager/progress"
@@ -28,6 +29,7 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/uploader"
 	columnv1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/column/v1"
 	datav1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/data/v1"
+	operationv1 "github.com/swanhubx/swanlab/core/proto/swanlab/operation/v1"
 	recordv1 "github.com/swanhubx/swanlab/core/proto/swanlab/record/v1"
 	runv1 "github.com/swanhubx/swanlab/core/proto/swanlab/run/v1"
 	savev1 "github.com/swanhubx/swanlab/core/proto/swanlab/save/v1"
@@ -89,6 +91,12 @@ func TestDeliverRunFinishFlushesAndIsIdempotent(t *testing.T) {
 	if err := h.mgr.DeliverRunFinish(ctx, h.id, rec); err != nil {
 		t.Fatalf("repeated DeliverRunFinish: %v", err)
 	}
+	if state := h.session.stateSnapshot(); state != RunStateDraining && state != RunStateDrained {
+		t.Fatalf("state after DeliverRunFinish = %s, want draining or drained", state)
+	}
+	if _, err := h.mgr.Confirm(ctx, h.id); err != nil {
+		t.Fatalf("Confirm: %v", err)
+	}
 	waitDrained(t, h.session)
 
 	records := readStore(t, h.runFile)
@@ -114,8 +122,8 @@ func TestDeliverRunFinishFlushesAndIsIdempotent(t *testing.T) {
 
 	if err := h.mgr.UpsertScalars(ctx, h.id, []*datav1.ScalarRecord{
 		scalarRecord("finish/loss", 1, columnv1.ColumnType_COLUMN_TYPE_SCALAR),
-	}); !errors.Is(err, ErrNotRunning) {
-		t.Fatalf("upsert after finish err=%v, want ErrNotRunning", err)
+	}); !errors.Is(err, ErrSessionNotFound) {
+		t.Fatalf("upsert after confirm err=%v, want ErrSessionNotFound", err)
 	}
 }
 
@@ -127,6 +135,9 @@ func TestDeliverRunFinishUploadsErrorLogBeforeDrain(t *testing.T) {
 	rec := finishRecord(runv1.RunState_RUN_STATE_CRASHED, "boom")
 	if err := h.mgr.DeliverRunFinish(ctx, h.id, rec); err != nil {
 		t.Fatalf("DeliverRunFinish: %v", err)
+	}
+	if _, err := h.mgr.Confirm(ctx, h.id); err != nil {
+		t.Fatalf("Confirm: %v", err)
 	}
 	waitDrained(t, h.session)
 
@@ -159,6 +170,9 @@ func TestDeliverRunFinishUsesDefaultErrorText(t *testing.T) {
 	if err := h.mgr.DeliverRunFinish(ctx, h.id, finishRecord(runv1.RunState_RUN_STATE_ABORTED, "")); err != nil {
 		t.Fatalf("DeliverRunFinish: %v", err)
 	}
+	if _, err := h.mgr.Confirm(ctx, h.id); err != nil {
+		t.Fatalf("Confirm: %v", err)
+	}
 	waitDrained(t, h.session)
 
 	uploads := h.uploads.snapshot()
@@ -172,23 +186,25 @@ func TestDeliverRunFinishStoreFailureDegradesOnly(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	// 模拟磁盘持续写入失败：AsyncWriter 只能降级，收尾仍须完成上传侧排空。
+	// 模拟磁盘持续写入失败：AsyncWriter 只能降级，收尾仍须在 Confirm 完成上传侧排空。
 	if err := h.writer.Close(); err != nil {
 		t.Fatalf("close writer: %v", err)
 	}
 	if err := h.mgr.DeliverRunFinish(ctx, h.id, finishRecord(runv1.RunState_RUN_STATE_FINISHED, "")); err != nil {
 		t.Fatalf("DeliverRunFinish with broken store: %v", err)
 	}
-	waitDrained(t, h.session)
 	if !h.session.storeDegraded.Load() {
 		t.Fatal("store failure must set storeDegraded")
 	}
-	if state := h.session.stateSnapshot(); state != RunStateDrained {
-		t.Fatalf("state = %s, want drained", state)
+	if state := h.session.stateSnapshot(); state != RunStateDraining && state != RunStateDrained {
+		t.Fatalf("state = %s, want draining or drained", state)
 	}
-	// store 降级时 finishCommitted 同样置位，Confirm 仍可正常释放。
+	// store 降级时 finishCommitted 同样置位，Confirm 仍可完成排空与释放。
 	if _, err := h.mgr.Confirm(ctx, h.id); err != nil {
 		t.Fatalf("Confirm: %v", err)
+	}
+	if state := h.session.stateSnapshot(); state != RunStateDrained {
+		t.Fatalf("state = %s, want drained", state)
 	}
 	if _, err := h.mgr.State(h.id); !errors.Is(err, ErrSessionNotFound) {
 		t.Fatalf("State after confirm err=%v, want ErrSessionNotFound", err)
@@ -288,16 +304,33 @@ func TestDeliverRunFinishLocalModesPersistAndConfirm(t *testing.T) {
 }
 
 func TestDeliverRunFinishIntakeCloseFailureMarksFailed(t *testing.T) {
-	h := newFinishHarness(t, finishOptions{uploadQueue: 2})
-	// 先停掉 uploader，让上传通道不再被消费；随后填满唯一槽位。
-	if err := h.session.uploader.Close(); err != nil && !errors.Is(err, uploader.ErrNotDrained) {
-		t.Fatalf("close uploader: %v", err)
-	}
+	h := newFinishHarness(t, finishOptions{
+		skipStore:   true,
+		uploadQueue: 2,
+		queueWait:   20 * time.Millisecond,
+		blockUpload: true,
+	})
 	setupCtx := context.Background()
 	if err := h.mgr.UpsertScalars(setupCtx, h.id, []*datav1.ScalarRecord{
 		scalarRecord("finish/loss", 0, columnv1.ColumnType_COLUMN_TYPE_SCALAR),
 	}); err != nil {
 		t.Fatalf("UpsertScalars: %v", err)
+	}
+	select {
+	case <-h.uploadEntered:
+	case <-time.After(3 * time.Second):
+		t.Fatal("uploader did not enter the sender")
+	}
+	for step := 1; step <= 16; step++ {
+		err := h.mgr.UpsertScalars(setupCtx, h.id, []*datav1.ScalarRecord{
+			scalarRecord("finish/loss", int64(step), columnv1.ColumnType_COLUMN_TYPE_SCALAR),
+		})
+		if errors.Is(err, ErrOverloaded) {
+			break
+		}
+		if err != nil {
+			t.Fatalf("fill upload queue: %v", err)
+		}
 	}
 	endPath := filepath.Join(t.TempDir(), "end.txt")
 	if err := os.WriteFile(endPath, []byte("end"), 0o644); err != nil {
@@ -312,14 +345,18 @@ func TestDeliverRunFinishIntakeCloseFailureMarksFailed(t *testing.T) {
 		t.Fatalf("UpsertSaves: %v", err)
 	}
 
+	if err := h.mgr.DeliverRunFinish(setupCtx, h.id, finishRecord(runv1.RunState_RUN_STATE_FINISHED, "")); err != nil {
+		t.Fatalf("DeliverRunFinish: %v", err)
+	}
+	// 上传通道持续满时 Confirm 短超时返回 DeadlineExceeded，且保留 DRAINING 状态供重试。
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
-	err := h.mgr.DeliverRunFinish(ctx, h.id, finishRecord(runv1.RunState_RUN_STATE_FINISHED, ""))
-	if err == nil || !errors.Is(err, ErrRunFailed) {
-		t.Fatalf("DeliverRunFinish err=%v, want ErrRunFailed", err)
+	_, err := h.mgr.Confirm(ctx, h.id)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("Confirm err=%v, want context.DeadlineExceeded", err)
 	}
-	if state := h.session.stateSnapshot(); state != RunStateFailed {
-		t.Fatalf("state = %s, want failed", state)
+	if state := h.session.stateSnapshot(); state != RunStateDraining {
+		t.Fatalf("state = %s, want draining", state)
 	}
 }
 
@@ -465,8 +502,8 @@ func TestDeliverRunFinishRetriesWithoutDuplicateRecord(t *testing.T) {
 	if !s.finishCommitted {
 		t.Fatal("retry must commit the finish record")
 	}
-	if s.pendingLog != nil {
-		t.Fatal("retry must queue the crash error log")
+	if !s.hasPendingLog() {
+		t.Fatal("crash error log must stay pending until Confirm")
 	}
 	if got := len(storeCh); got != 1 {
 		t.Fatalf("store queue length = %d, want 1", got)
@@ -497,14 +534,20 @@ func TestDeliverRunFinishRetriesWithoutDuplicateRecord(t *testing.T) {
 	if result.ReleaseFailed {
 		t.Fatalf("Confirm = %+v, want success", result)
 	}
+	if s.hasPendingLog() {
+		t.Fatal("Confirm must queue and clear the crash error log")
+	}
 	if _, err = mgr.State(id); !errors.Is(err, ErrSessionNotFound) {
 		t.Fatalf("State after confirm err=%v, want ErrSessionNotFound", err)
 	}
 }
 
-// 上传通道暂时满时崩溃 error_log 不能被丢弃：保留到 Confirm 用新的 ctx 补传。
+// 上传通道暂时满时崩溃 error_log 不能被丢弃：保留到 Confirm 恢复容量后补传。
 func TestDeliverRunFinishRetriesCrashLogAfterCapacityFrees(t *testing.T) {
 	h := newFinishHarness(t, finishOptions{
+		// 有本地副本时上传通道满会直接转暂停落盘，不会返回 ErrOverloaded；
+		// 这里用 skipStore 验证无本地副本时的容量阻塞与崩溃 error_log 重试。
+		skipStore:   true,
 		uploadQueue: 2,
 		queueWait:   200 * time.Millisecond,
 		blockUpload: true,
@@ -543,17 +586,22 @@ func TestDeliverRunFinishRetriesCrashLogAfterCapacityFrees(t *testing.T) {
 		t.Fatal("upload queue was never saturated")
 	}
 
-	err := h.mgr.DeliverRunFinish(ctx, h.id, finishRecord(runv1.RunState_RUN_STATE_CRASHED, "boom"))
-	if !errors.Is(err, ErrRunFailed) {
-		t.Fatalf("DeliverRunFinish err=%v, want ErrRunFailed", err)
+	// DeliverRunFinish 只做本地收尾，不受上传通道满影响，应立即成功。
+	if err := h.mgr.DeliverRunFinish(ctx, h.id, finishRecord(runv1.RunState_RUN_STATE_CRASHED, "boom")); err != nil {
+		t.Fatalf("DeliverRunFinish: %v", err)
 	}
-	if !strings.Contains(err.Error(), "crash error log") {
-		t.Fatalf("DeliverRunFinish err=%v, want crash-log failure", err)
+	if state := h.session.stateSnapshot(); state != RunStateDraining {
+		t.Fatalf("state = %s, want draining", state)
 	}
-	if state := h.session.stateSnapshot(); state != RunStateFailed {
-		t.Fatalf("state = %s, want failed", state)
+
+	// 上传通道仍满时 Confirm 短超时返回 DeadlineExceeded，但保留 pendingLog 供下次重试。
+	shortCtx, shortCancel := context.WithTimeout(ctx, 100*time.Millisecond)
+	_, err := h.mgr.Confirm(shortCtx, h.id)
+	shortCancel()
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("first Confirm err=%v, want context.DeadlineExceeded", err)
 	}
-	if h.session.pendingLog == nil {
+	if !h.session.hasPendingLog() {
 		t.Fatal("crash error log must be kept for retry")
 	}
 	for _, rec := range h.uploads.snapshot() {
@@ -571,7 +619,7 @@ func TestDeliverRunFinishRetriesCrashLogAfterCapacityFrees(t *testing.T) {
 	if result.ReleaseFailed {
 		t.Fatalf("Confirm = %+v, want success", result)
 	}
-	if h.session.pendingLog != nil {
+	if h.session.hasPendingLog() {
 		t.Fatal("crash error log must be cleared after a successful upload")
 	}
 	var logs []*recordv1.Record
@@ -587,6 +635,99 @@ func TestDeliverRunFinishRetriesCrashLogAfterCapacityFrees(t *testing.T) {
 		t.Fatalf("error log line = %q, want boom", got)
 	}
 	if _, err = h.mgr.State(h.id); !errors.Is(err, ErrSessionNotFound) {
+		t.Fatalf("State after confirm err=%v, want ErrSessionNotFound", err)
+	}
+}
+
+// 上传通道持续满超过 QueueWait 时，单次 Confirm 不得因 ErrOverloaded 提前置 FAILED；
+// 容量恢复后 crash error_log 应成功入队并恰好上传一次。
+func TestConfirmWaitsForCrashLogBeyondQueueWait(t *testing.T) {
+	h := newFinishHarness(t, finishOptions{
+		skipStore:   true,
+		uploadQueue: 2,
+		queueWait:   20 * time.Millisecond,
+		blockUpload: true,
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := h.mgr.UpsertScalars(ctx, h.id, []*datav1.ScalarRecord{
+		scalarRecord("crash/loss", 0, columnv1.ColumnType_COLUMN_TYPE_SCALAR),
+	}); err != nil {
+		t.Fatalf("UpsertScalars: %v", err)
+	}
+	select {
+	case <-h.uploadEntered:
+	case <-time.After(3 * time.Second):
+		t.Fatal("uploader did not enter the sender")
+	}
+
+	saturated := false
+	for step := 1; step <= 16; step++ {
+		err := h.mgr.UpsertScalars(ctx, h.id, []*datav1.ScalarRecord{
+			scalarRecord("crash/loss", int64(step), columnv1.ColumnType_COLUMN_TYPE_SCALAR),
+		})
+		if err == nil {
+			continue
+		}
+		if !errors.Is(err, ErrOverloaded) {
+			t.Fatalf("fill upload queue: %v", err)
+		}
+		saturated = true
+		break
+	}
+	if !saturated {
+		t.Fatal("upload queue was never saturated")
+	}
+
+	if err := h.mgr.DeliverRunFinish(ctx, h.id, finishRecord(runv1.RunState_RUN_STATE_CRASHED, "boom")); err != nil {
+		t.Fatalf("DeliverRunFinish: %v", err)
+	}
+
+	type confirmOut struct {
+		res ConfirmResult
+		err error
+	}
+	done := make(chan confirmOut, 1)
+	go func() {
+		res, err := h.mgr.Confirm(ctx, h.id)
+		done <- confirmOut{res: res, err: err}
+	}()
+
+	// 阻塞 80ms（4 倍于 queueWait=20ms），Confirm 必须仍在等待而非因 ErrOverloaded 失败退出。
+	select {
+	case out := <-done:
+		t.Fatalf("Confirm returned prematurely while upload queue stayed full: %+v", out)
+	case <-time.After(80 * time.Millisecond):
+	}
+	if state := h.session.stateSnapshot(); state != RunStateDraining {
+		t.Fatalf("state while waiting = %s, want draining", state)
+	}
+
+	close(h.gate)
+
+	select {
+	case out := <-done:
+		if out.err != nil || out.res.ReleaseFailed {
+			t.Fatalf("Confirm = %+v, want success", out)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("Confirm did not complete after upload capacity freed")
+	}
+
+	if h.session.hasPendingLog() {
+		t.Fatal("crash error log must be cleared after upload")
+	}
+	var logs []*recordv1.Record
+	for _, rec := range h.uploads.snapshot() {
+		if rec.GetLog() != nil {
+			logs = append(logs, rec)
+		}
+	}
+	if len(logs) != 1 || logs[0].GetLog().GetLine() != "boom" {
+		t.Fatalf("uploaded logs = %v, want single 'boom' log", logs)
+	}
+	if _, err := h.mgr.State(h.id); !errors.Is(err, ErrSessionNotFound) {
 		t.Fatalf("State after confirm err=%v, want ErrSessionNotFound", err)
 	}
 }
@@ -612,6 +753,9 @@ func TestDeliverRunFinishConcurrentCallsWriteOnce(t *testing.T) {
 		if err != nil {
 			t.Fatalf("concurrent DeliverRunFinish: %v", err)
 		}
+	}
+	if _, err := h.mgr.Confirm(ctx, h.id); err != nil {
+		t.Fatalf("Confirm: %v", err)
 	}
 	waitDrained(t, h.session)
 
@@ -654,16 +798,15 @@ func TestDeliverRunFinishSkipStore(t *testing.T) {
 	if err := h.mgr.DeliverRunFinish(ctx, h.id, finishRecord(runv1.RunState_RUN_STATE_FINISHED, "")); err != nil {
 		t.Fatalf("DeliverRunFinish: %v", err)
 	}
-	waitDrained(t, h.session)
-	if state := h.session.stateSnapshot(); state != RunStateDrained {
-		t.Fatalf("state = %s, want drained", state)
+	if state := h.session.stateSnapshot(); state != RunStateDraining && state != RunStateDrained {
+		t.Fatalf("state after DeliverRunFinish = %s, want draining or drained", state)
+	}
+	// skip_store 下 finishCommitted 同样置位，Confirm 完成通道关闭、排空与释放。
+	if _, err := h.mgr.Confirm(ctx, h.id); err != nil {
+		t.Fatalf("Confirm: %v", err)
 	}
 	if got := len(h.uploads.snapshot()); got != 1 {
 		t.Fatalf("uploaded %d records, want only the config save", got)
-	}
-	// skip_store 下 finishCommitted 同样置位，Confirm 仍可正常释放。
-	if _, err := h.mgr.Confirm(ctx, h.id); err != nil {
-		t.Fatalf("Confirm: %v", err)
 	}
 	if _, err := h.mgr.State(h.id); !errors.Is(err, ErrSessionNotFound) {
 		t.Fatalf("State after confirm err=%v, want ErrSessionNotFound", err)
@@ -893,6 +1036,7 @@ func TestCheckpointBoundsAndFinalFlushOnline(t *testing.T) {
 		},
 	)
 	t.Cleanup(func() {
+		s.stopOnlineDrain()
 		s.checkpoint.Stop()
 		if s.uploader != nil {
 			_ = s.uploader.Close()
@@ -1189,9 +1333,115 @@ func TestFinishRejectsDegradedStoreDuringPausedBackfill(t *testing.T) {
 	}
 	h.session.storeDegraded.Store(true)
 
-	err := h.session.finish(ctx, finishRecord(runv1.RunState_RUN_STATE_FINISHED, ""))
+	// DeliverRunFinish 只负责本地收尾；暂停区间补投在 Confirm 时发现本地已损坏并拒绝上报终态。
+	if err := h.mgr.DeliverRunFinish(ctx, h.id, finishRecord(runv1.RunState_RUN_STATE_FINISHED, "")); err != nil {
+		t.Fatalf("DeliverRunFinish: %v", err)
+	}
+	_, err := h.mgr.Confirm(ctx, h.id)
 	if !errors.Is(err, ErrRunFailed) {
-		t.Fatalf("finish err = %v, want ErrRunFailed", err)
+		t.Fatalf("Confirm err = %v, want ErrRunFailed", err)
+	}
+	if state := h.session.stateSnapshot(); state != RunStateFailed {
+		t.Fatalf("state = %s, want failed", state)
+	}
+}
+
+// 站点降级期间调用 DeliverRunFinish 必须快速完成本地收尾；Confirm 阻塞等待站点恢复，
+// 恢复后自动从 run-*.swanlab 补投并排空上传，再执行 releaseFn 释放会话。
+func TestDeliverRunFinishSucceedsWhileSiteSuspendedAndConfirmWaitsForRecovery(t *testing.T) {
+	var houseHealthy atomic.Bool
+	var released atomic.Bool
+	reg := health.NewRegistry(nil)
+	h := newFinishHarness(t, finishOptions{
+		budgetRecords: 10,
+		healthReg:     reg,
+		healthOpts: &health.SiteOptions{
+			Key:                  "outage-finish",
+			Interval:             10 * time.Millisecond,
+			Timeout:              50 * time.Millisecond,
+			DegradeThreshold:     1,
+			RecoverThreshold:     1,
+			InitialHouseDegraded: true,
+			Server:               func(context.Context) bool { return true },
+			House:                func(context.Context) bool { return houseHealthy.Load() },
+		},
+		releaseFn: func(context.Context) error {
+			released.Store(true)
+			return nil
+		},
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := h.mgr.UpsertScalars(ctx, h.id, []*datav1.ScalarRecord{
+		scalarRecord("outage/loss", 0, columnv1.ColumnType_COLUMN_TYPE_SCALAR),
+		scalarRecord("outage/loss", 1, columnv1.ColumnType_COLUMN_TYPE_SCALAR),
+		scalarRecord("outage/loss", 2, columnv1.ColumnType_COLUMN_TYPE_SCALAR),
+	}); err != nil {
+		t.Fatalf("UpsertScalars: %v", err)
+	}
+	if paused, seq := h.session.intake.PauseState(); !paused || seq != 1 {
+		t.Fatalf("PauseState = (%v, %d), want (true, 1)", paused, seq)
+	}
+	if got := len(h.uploads.snapshot()); got != 0 {
+		t.Fatalf("uploaded %d records while site suspended, want 0", got)
+	}
+
+	// 站点仍然降级，但 DeliverRunFinish 只做本地收尾，200ms 短超时内必须立即成功。
+	deliverCtx, deliverCancel := context.WithTimeout(ctx, 200*time.Millisecond)
+	defer deliverCancel()
+	if err := h.mgr.DeliverRunFinish(deliverCtx, h.id, finishRecord(runv1.RunState_RUN_STATE_FINISHED, "")); err != nil {
+		t.Fatalf("DeliverRunFinish while site suspended: %v", err)
+	}
+	if state := h.session.stateSnapshot(); state != RunStateDraining {
+		t.Fatalf("state after DeliverRunFinish = %s, want draining", state)
+	}
+
+	// Confirm 必须一直阻塞等待站点恢复，不能因站点降级提前失败退出。
+	confirmDone := make(chan error, 1)
+	go func() {
+		_, err := h.mgr.Confirm(ctx, h.id)
+		confirmDone <- err
+	}()
+
+	select {
+	case err := <-confirmDone:
+		t.Fatalf("Confirm returned prematurely while site still degraded: %v", err)
+	case <-time.After(60 * time.Millisecond):
+	}
+	if released.Load() {
+		t.Fatal("releaseFn must not run before backfill & drain complete")
+	}
+
+	// 恢复站点健康：backfill.Complete 唤醒补投、uploader 排空、stop_experiment 释放会话。
+	houseHealthy.Store(true)
+	select {
+	case err := <-confirmDone:
+		if err != nil {
+			t.Fatalf("Confirm after site recovery: %v", err)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("Confirm did not complete after site recovery")
+	}
+
+	if !released.Load() {
+		t.Fatal("releaseFn was not called")
+	}
+	if _, err := h.mgr.State(h.id); !errors.Is(err, ErrSessionNotFound) {
+		t.Fatalf("State after confirm err=%v, want ErrSessionNotFound", err)
+	}
+	var scalars int
+	for _, rec := range h.uploads.snapshot() {
+		if record.TypeOf(rec) == record.TypeScalar {
+			scalars++
+		}
+	}
+	if scalars != 3 {
+		t.Fatalf("uploaded scalars = %d, want 3", scalars)
+	}
+	if stored := readStore(t, h.runFile); len(stored) != 5 {
+		t.Fatalf("store has %d records, want 1 column + 3 scalars + 1 finish", len(stored))
 	}
 }
 
@@ -1238,5 +1488,211 @@ func TestBackfillSupervisorResumesAfterPause(t *testing.T) {
 	}
 	if paused, seq := h.session.intake.PauseState(); paused || seq != 0 {
 		t.Fatalf("PauseState = (%v, %d), want resumed", paused, seq)
+	}
+}
+
+// 仅调用 DeliverRunFinish、不提前调 Confirm 时，online 会话也必须自行推进到 DRAINED 与 CORE_STATE_FINISHED，
+// 否则 Python 进度轮询会一直等待 CORE_STATE_FINISHED 而双方互锁。
+func TestDeliverRunFinishDrainsOnlineWithoutConfirm(t *testing.T) {
+	t.Run("healthy", func(t *testing.T) {
+		h := newFinishHarness(t, finishOptions{})
+		h.session.tracker.SetState(operationv1.CoreState_CORE_STATE_RUNNING)
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		if err := h.mgr.UpsertScalars(ctx, h.id, []*datav1.ScalarRecord{
+			scalarRecord("drain/loss", 0, columnv1.ColumnType_COLUMN_TYPE_SCALAR),
+			scalarRecord("drain/loss", 1, columnv1.ColumnType_COLUMN_TYPE_SCALAR),
+		}); err != nil {
+			t.Fatalf("UpsertScalars: %v", err)
+		}
+		if err := h.mgr.DeliverRunFinish(ctx, h.id, finishRecord(runv1.RunState_RUN_STATE_FINISHED, "")); err != nil {
+			t.Fatalf("DeliverRunFinish: %v", err)
+		}
+		waitDrained(t, h.session)
+
+		if state := h.session.stateSnapshot(); state != RunStateDrained {
+			t.Fatalf("state = %s, want drained", state)
+		}
+		stats, err := h.mgr.Stats(h.id)
+		if err != nil {
+			t.Fatalf("Stats: %v", err)
+		}
+		if stats.GetState() != operationv1.CoreState_CORE_STATE_FINISHED {
+			t.Fatalf("stats state = %v, want CORE_STATE_FINISHED", stats.GetState())
+		}
+		var scalars int
+		for _, rec := range h.uploads.snapshot() {
+			if record.TypeOf(rec) == record.TypeScalar {
+				scalars++
+			}
+		}
+		if scalars != 2 {
+			t.Fatalf("uploaded scalars = %d, want 2", scalars)
+		}
+	})
+
+	t.Run("suspended_then_recovered", func(t *testing.T) {
+		var houseHealthy atomic.Bool
+		reg := health.NewRegistry(nil)
+		h := newFinishHarness(t, finishOptions{
+			budgetRecords: 10,
+			healthReg:     reg,
+			healthOpts: &health.SiteOptions{
+				Key:                  "no-confirm-outage",
+				Interval:             10 * time.Millisecond,
+				Timeout:              50 * time.Millisecond,
+				DegradeThreshold:     1,
+				RecoverThreshold:     1,
+				InitialHouseDegraded: true,
+				Server:               func(context.Context) bool { return true },
+				House:                func(context.Context) bool { return houseHealthy.Load() },
+			},
+		})
+		h.session.tracker.SetState(operationv1.CoreState_CORE_STATE_RUNNING)
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		if err := h.mgr.UpsertScalars(ctx, h.id, []*datav1.ScalarRecord{
+			scalarRecord("drain/loss", 0, columnv1.ColumnType_COLUMN_TYPE_SCALAR),
+			scalarRecord("drain/loss", 1, columnv1.ColumnType_COLUMN_TYPE_SCALAR),
+			scalarRecord("drain/loss", 2, columnv1.ColumnType_COLUMN_TYPE_SCALAR),
+		}); err != nil {
+			t.Fatalf("UpsertScalars: %v", err)
+		}
+		if err := h.mgr.DeliverRunFinish(ctx, h.id, finishRecord(runv1.RunState_RUN_STATE_FINISHED, "")); err != nil {
+			t.Fatalf("DeliverRunFinish: %v", err)
+		}
+
+		// 站点恢复前不得提前标为 FINISHED。
+		time.Sleep(40 * time.Millisecond)
+		stats, err := h.mgr.Stats(h.id)
+		if err != nil {
+			t.Fatalf("Stats: %v", err)
+		}
+		if stats.GetState() != operationv1.CoreState_CORE_STATE_RUNNING {
+			t.Fatalf("stats state while suspended = %v, want CORE_STATE_RUNNING", stats.GetState())
+		}
+
+		houseHealthy.Store(true)
+		waitDrained(t, h.session)
+
+		if state := h.session.stateSnapshot(); state != RunStateDrained {
+			t.Fatalf("state after recovery = %s, want drained", state)
+		}
+		stats, err = h.mgr.Stats(h.id)
+		if err != nil {
+			t.Fatalf("Stats after recovery: %v", err)
+		}
+		if stats.GetState() != operationv1.CoreState_CORE_STATE_FINISHED {
+			t.Fatalf("stats state after recovery = %v, want CORE_STATE_FINISHED", stats.GetState())
+		}
+		var scalars int
+		for _, rec := range h.uploads.snapshot() {
+			if record.TypeOf(rec) == record.TypeScalar {
+				scalars++
+			}
+		}
+		if scalars != 3 {
+			t.Fatalf("uploaded scalars = %d, want 3", scalars)
+		}
+	})
+}
+
+// 后台在线排空长期阻塞在 finishMu 时，Shutdown 必须能立即打断它而不是等满整段退避/退出窗口。
+func TestShutdownInterruptsBackgroundOnlineDrain(t *testing.T) {
+	reg := health.NewRegistry(nil)
+	h := newFinishHarness(t, finishOptions{
+		budgetRecords: 10,
+		healthReg:     reg,
+		healthOpts: &health.SiteOptions{
+			Key:                  "shutdown-interrupt",
+			Interval:             10 * time.Millisecond,
+			Timeout:              50 * time.Millisecond,
+			DegradeThreshold:     1,
+			RecoverThreshold:     1,
+			InitialHouseDegraded: true,
+			Server:               func(context.Context) bool { return true },
+			House:                func(context.Context) bool { return false },
+		},
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := h.mgr.UpsertScalars(ctx, h.id, []*datav1.ScalarRecord{
+		scalarRecord("shutdown/loss", 0, columnv1.ColumnType_COLUMN_TYPE_SCALAR),
+		scalarRecord("shutdown/loss", 1, columnv1.ColumnType_COLUMN_TYPE_SCALAR),
+	}); err != nil {
+		t.Fatalf("UpsertScalars: %v", err)
+	}
+	if err := h.mgr.DeliverRunFinish(ctx, h.id, finishRecord(runv1.RunState_RUN_STATE_FINISHED, "")); err != nil {
+		t.Fatalf("DeliverRunFinish: %v", err)
+	}
+	time.Sleep(30 * time.Millisecond)
+
+	start := time.Now()
+	shutdownCtx, shutdownCancel := context.WithTimeout(ctx, 2*time.Second)
+	defer shutdownCancel()
+	if err := h.mgr.Shutdown(shutdownCtx); err != nil {
+		t.Fatalf("Shutdown: %v", err)
+	}
+	if elapsed := time.Since(start); elapsed >= 500*time.Millisecond {
+		t.Fatalf("Shutdown took %v, expected immediate interruption of background drain", elapsed)
+	}
+}
+
+// 上传通道持续满时，shutdown 对崩溃 error_log 的补投必须受短预算限制，不能把整段 ctx 耗光后再去关闭通道。
+func TestShutdownBoundsCrashLogWait(t *testing.T) {
+	origBudget := shutdownCrashLogBudget
+	shutdownCrashLogBudget = 80 * time.Millisecond
+	t.Cleanup(func() { shutdownCrashLogBudget = origBudget })
+
+	cfg := config.Defaults()
+	cfg.Mode = config.ModeOnline
+	cfg.SkipStore = true
+	cfg.RunID = "shutdown-crash-log"
+
+	b := budget.New(budget.Limits{Records: 8, Bytes: 1 << 20})
+	intake, err := buffer.New(buffer.Options{
+		SkipStore:   true,
+		UploadQueue: 1,
+		Budget:      b,
+		QueueWait:   20 * time.Millisecond,
+	})
+	if err != nil {
+		t.Fatalf("buffer.New: %v", err)
+	}
+
+	s := newSession(sessionOptions{})
+	s.ctx, s.cancel = context.WithCancel(context.Background())
+	t.Cleanup(func() {
+		s.stopOnlineDrain()
+		s.cancel()
+	})
+	s.cfg = cfg
+	s.intake = intake
+	s.budget = b
+	s.counter = counter.New(0)
+	s.epoch = counter.New(0)
+	s.prepareFinish(finishRecord(runv1.RunState_RUN_STATE_CRASHED, "boom"))
+
+	// 占满唯一的上传通道槽位且不启动 uploader，确保 commitCrashLog 持续遇到 ErrOverloaded。
+	if err = intake.CommitUploadOnly(context.Background(), backfillScalar(1)); err != nil {
+		t.Fatalf("fill upload queue: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	start := time.Now()
+	err = s.shutdown(ctx)
+	elapsed := time.Since(start)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("shutdown err = %v, want DeadlineExceeded from bounded crash log budget", err)
+	}
+	if elapsed >= 500*time.Millisecond {
+		t.Fatalf("shutdown took %v, exceeded bounded crash log budget", elapsed)
+	}
+	if ctx.Err() != nil {
+		t.Fatalf("outer shutdown ctx expired prematurely: %v", ctx.Err())
 	}
 }

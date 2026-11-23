@@ -11,12 +11,14 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/store"
 )
 
-// defaultInterval 是运行期断点写入间隔。每次写入都要 tmp.Sync + syncDir + 重命名，
-// 上传进度落后于本地写入时还要扫描本地日志（EndOffset），在网络存储上比日志本身的
-// 写入重得多。checkpoint.json 只是崩溃续传时跳过已上传部分的提速标记：间隔放宽后
-// 最多多重放一段本地日志，重放幂等，不丢数据；停机与排空完成时仍由 Flush 立即写入
-// 最终断点。
-const defaultInterval = 10 * time.Second
+const (
+	// defaultInterval 是运行期定时检查间隔，也是慢盘退避上限。
+	defaultInterval = 10 * time.Second
+	// defaultMinInterval 是收到确认通知后写断点的最小间隔，避免高频写入频繁替换文件。
+	defaultMinInterval = 2 * time.Second
+	// nfsBackoffFactor 在单次写盘较慢时按耗时倍数拉长下次写入间隔，减轻 NFS 等慢盘负担。
+	nfsBackoffFactor = 4
+)
 
 // Store 抽象断点写入所需的本地落盘水位查询能力（生产环境由 *store.AsyncWriter 实现）。
 type Store interface {
@@ -33,31 +35,44 @@ type Options struct {
 	Store          Store
 	Watermark      func() uint64
 	Interval       time.Duration
+	MinInterval    time.Duration
 	InitialSeq     uint64
 	InitialWritten bool
 	OnTick         func()
+	writeFn        func(path string, cp store.Checkpoint, durable bool) error
 }
 
-// Writer 管理 checkpoint.json 的周期刷盘与终态持久化；nil 接收者上的方法均为安全空操作。
+// Writer 管理 checkpoint.json 的运行期节流写入与停机同步刷盘；nil 接收者上的方法均为空操作。
 type Writer struct {
-	ctx       context.Context
-	file      string
-	runID     string
-	runFile   string
-	store     Store
-	watermark func() uint64
-	interval  time.Duration
-	onTick    func()
+	ctx         context.Context
+	file        string
+	runID       string
+	runFile     string
+	store       Store
+	watermark   func() uint64
+	interval    time.Duration
+	minInterval time.Duration
+	onTick      func()
+	write       func(path string, cp store.Checkpoint, durable bool) error
 
+	notify    chan struct{}
 	startOnce sync.Once
 	stopOnce  sync.Once
 	stop      chan struct{}
 	done      chan struct{}
 
-	mu       sync.Mutex
-	warned   bool
-	lastSeq  uint64
-	hasWrite bool
+	mu         sync.Mutex
+	warned     bool
+	lastSeq    uint64
+	hasWrite   bool
+	lastSynced bool
+}
+
+func defaultWriteCheckpoint(path string, cp store.Checkpoint, durable bool) error {
+	if durable {
+		return store.WriteCheckpoint(path, cp)
+	}
+	return store.WriteCheckpointFast(path, cp)
 }
 
 // New 创建断点写入器；当路径、Store、RunID 或 Watermark 缺失时，所有写入操作退化为空操作。
@@ -66,17 +81,32 @@ func New(opts Options) *Writer {
 	if interval <= 0 {
 		interval = defaultInterval
 	}
+	minInterval := opts.MinInterval
+	if minInterval <= 0 {
+		minInterval = defaultMinInterval
+	}
+	if minInterval > interval {
+		minInterval = interval
+	}
+	write := opts.writeFn
+	if write == nil {
+		write = defaultWriteCheckpoint
+	}
 	return &Writer{
-		ctx:       opts.Ctx,
-		file:      opts.File,
-		runID:     opts.RunID,
-		runFile:   opts.RunFile,
-		store:     opts.Store,
-		watermark: opts.Watermark,
-		interval:  interval,
-		onTick:    opts.OnTick,
-		lastSeq:   opts.InitialSeq,
-		hasWrite:  opts.InitialWritten,
+		ctx:         opts.Ctx,
+		file:        opts.File,
+		runID:       opts.RunID,
+		runFile:     opts.RunFile,
+		store:       opts.Store,
+		watermark:   opts.Watermark,
+		interval:    interval,
+		minInterval: minInterval,
+		onTick:      opts.OnTick,
+		write:       write,
+		notify:      make(chan struct{}, 1),
+		lastSeq:     opts.InitialSeq,
+		hasWrite:    opts.InitialWritten,
+		lastSynced:  opts.InitialWritten,
 	}
 }
 
@@ -84,7 +114,18 @@ func (w *Writer) enabled() bool {
 	return w != nil && w.file != "" && w.store != nil && w.runID != "" && w.watermark != nil
 }
 
-// Start 启动周期持久化上传断点的后台协程；未启用时安全跳过。
+// Notify 通知后台协程尝试更新断点；非阻塞，短时间内的多次通知会合并处理。
+func (w *Writer) Notify() {
+	if !w.enabled() {
+		return
+	}
+	select {
+	case w.notify <- struct{}{}:
+	default:
+	}
+}
+
+// Start 启动运行期断点持久化后台协程；未启用时安全跳过。
 func (w *Writer) Start() {
 	if !w.enabled() {
 		return
@@ -96,22 +137,67 @@ func (w *Writer) Start() {
 		}
 		w.stop = make(chan struct{})
 		w.done = make(chan struct{})
-		go func() {
-			defer close(w.done)
-			ticker := time.NewTicker(w.interval)
-			defer ticker.Stop()
-			for {
-				select {
-				case <-ctxDone:
-					return
-				case <-w.stop:
-					return
-				case <-ticker.C:
-					w.Persist()
-				}
-			}
-		}()
+		go w.loop(ctxDone)
 	})
+}
+
+func (w *Writer) loop(ctxDone <-chan struct{}) {
+	var throttleTimer *time.Timer
+	var throttleC <-chan time.Time
+	var nextAllowed time.Time
+	defer func() {
+		if throttleTimer != nil {
+			throttleTimer.Stop()
+		}
+		close(w.done)
+	}()
+
+	ticker := time.NewTicker(w.interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctxDone:
+			return
+		case <-w.stop:
+			return
+		case <-w.notify:
+			now := time.Now()
+			if now.Before(nextAllowed) {
+				if throttleTimer == nil {
+					throttleTimer = time.NewTimer(nextAllowed.Sub(now))
+					throttleC = throttleTimer.C
+				}
+				continue
+			}
+			if throttleTimer != nil {
+				throttleTimer.Stop()
+				throttleTimer = nil
+				throttleC = nil
+			}
+			nextAllowed = w.runFast(nextAllowed)
+		case <-throttleC:
+			throttleTimer = nil
+			throttleC = nil
+			nextAllowed = w.runFast(nextAllowed)
+		case <-ticker.C:
+			if !time.Now().Before(nextAllowed) {
+				nextAllowed = w.runFast(nextAllowed)
+			}
+		}
+	}
+}
+
+func (w *Writer) runFast(prev time.Time) time.Time {
+	elapsed, attempted := w.persist(false)
+	if !attempted {
+		return prev
+	}
+	cooldown := max(w.minInterval, elapsed*nfsBackoffFactor)
+	if cooldown > w.interval {
+		cooldown = w.interval
+	}
+	return time.Now().Add(cooldown)
 }
 
 // Stop 停止断点协程并等待其退出；未启动或已停止时可重复安全调用。
@@ -125,16 +211,19 @@ func (w *Writer) Stop() {
 	<-w.done
 }
 
-// Flush 在停机或排空完成后刷写一次最终断点。
+// Flush 在停机或排空完成后执行带 fsync 的最终断点写入。
 func (w *Writer) Flush() {
-	w.Persist()
+	w.persist(true)
 }
 
-// Persist 把当前已连续确认且已落盘的进度 min(Watermark(), flushedSeq) 写入 checkpoint.json。
-// 未配置 Watermark 时不会写入；写入失败仅告警一次并留待后续周期重试，不中断会话运行。
+// Persist 同步写入当前已确认且已落盘的进度 min(Watermark(), flushedSeq)；写入失败仅告警一次并留待重试。
 func (w *Writer) Persist() {
+	w.persist(true)
+}
+
+func (w *Writer) persist(durable bool) (time.Duration, bool) {
 	if !w.enabled() {
-		return
+		return 0, false
 	}
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -145,10 +234,10 @@ func (w *Writer) Persist() {
 		targetSeq = flushedSeq
 	}
 	if targetSeq == 0 {
-		return
+		return 0, false
 	}
-	if w.hasWrite && targetSeq == w.lastSeq {
-		return
+	if w.hasWrite && targetSeq == w.lastSeq && (!durable || w.lastSynced) {
+		return 0, false
 	}
 
 	var (
@@ -161,7 +250,7 @@ func (w *Writer) Persist() {
 		offset, err = store.EndOffset(w.runFile, w.store.Index(), targetSeq, flushedOff)
 		if err != nil {
 			w.warn(err)
-			return
+			return 0, false
 		}
 	}
 
@@ -172,16 +261,21 @@ func (w *Writer) Persist() {
 		Offset:    offset,
 		UpdatedAt: time.Now(),
 	}
-	if err = store.WriteCheckpoint(w.file, cp); err != nil {
+	start := time.Now()
+	err = w.write(w.file, cp, durable)
+	elapsed := time.Since(start)
+	if err != nil {
 		w.warn(err)
-		return
+		return elapsed, true
 	}
 	w.warned = false
 	w.lastSeq = targetSeq
 	w.hasWrite = true
+	w.lastSynced = durable
 	if w.onTick != nil {
 		w.onTick()
 	}
+	return elapsed, true
 }
 
 // RemoveFile 清理回滚期间产生的断点文件（忽略删除错误）。

@@ -131,6 +131,38 @@ func TestOffsetIndexIgnoresNonMonotonic(t *testing.T) {
 	}
 }
 
+func TestOffsetIndexRecordAndLookupEnd(t *testing.T) {
+	idx := NewOffsetIndex(4)
+	idx.Record(0, 0, HeaderLen+10) // seq=0 忽略
+	if _, ok := idx.LookupEnd(0, -1); ok {
+		t.Fatal("seq=0 must not hit cache")
+	}
+
+	for seq := uint64(1); seq <= 8; seq++ {
+		idx.Record(seq, int64(seq)*100, int64(seq)*100+50)
+	}
+	if got := idx.Len(); got != 2 {
+		t.Fatalf("anchors = %d, want 2", got)
+	}
+	end, ok := idx.LookupEnd(5, -1)
+	if !ok || end != 550 {
+		t.Fatalf("LookupEnd(5, -1) = (%d, %v), want (550, true)", end, ok)
+	}
+	if _, ok := idx.LookupEnd(5, 549); ok {
+		t.Fatal("LookupEnd(5, 549) must miss when end > limit")
+	}
+
+	// 覆盖同槽位（seq + recentEndCap）后旧序号失效。
+	evictedBy := uint64(5 + recentEndCap)
+	idx.Record(evictedBy, 9000, 9050)
+	if _, ok := idx.LookupEnd(5, -1); ok {
+		t.Fatal("evicted seq 5 must miss cache")
+	}
+	if gotEnd, ok := idx.LookupEnd(evictedBy, -1); !ok || gotEnd != 9050 {
+		t.Fatalf("LookupEnd(%d) = (%d, %v), want (9050, true)", evictedBy, gotEnd, ok)
+	}
+}
+
 func TestOffsetIndexConcurrent(t *testing.T) {
 	idx := NewOffsetIndex(1)
 	const n = 2000

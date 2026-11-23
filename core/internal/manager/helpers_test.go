@@ -19,6 +19,7 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/buffer"
 	"github.com/swanhubx/swanlab/core/internal/clienttest"
 	"github.com/swanhubx/swanlab/core/internal/config"
+	"github.com/swanhubx/swanlab/core/internal/cron/health"
 	"github.com/swanhubx/swanlab/core/internal/manager/backfill"
 	"github.com/swanhubx/swanlab/core/internal/manager/recovery"
 	"github.com/swanhubx/swanlab/core/internal/metrics"
@@ -242,6 +243,9 @@ type finishOptions struct {
 	queueWait     time.Duration
 	blockUpload   bool
 	budgetRecords int64
+	healthReg     *health.Registry
+	healthOpts    *health.SiteOptions
+	releaseFn     func(context.Context) error
 }
 
 type finishHarness struct {
@@ -299,7 +303,7 @@ func newFinishHarness(t *testing.T, opts finishOptions) *finishHarness {
 		}
 	}
 
-	s := newSession(sessionOptions{})
+	s := newSession(sessionOptions{releaseFn: opts.releaseFn})
 	s.ctx, s.cancel = context.WithCancel(context.Background())
 	s.cfg = cfg
 	s.run = run
@@ -326,6 +330,7 @@ func newFinishHarness(t *testing.T, opts finishOptions) *finishHarness {
 		UploadQueue: opts.uploadQueue,
 		Budget:      b,
 		Flushed:     flushed,
+		IsSuspended: s.shouldSuspendUploads,
 		OnAdmit:     s.tracker.AddTotalRecords,
 		OnPause:     func(uint64) { s.backfill.Wake() },
 		QueueWait:   opts.queueWait,
@@ -382,6 +387,9 @@ func newFinishHarness(t *testing.T, opts finishOptions) *finishHarness {
 		}
 	}
 	s.runFile = runFile
+	if opts.healthReg != nil && opts.healthOpts != nil && !storeOnly {
+		s.attachHealth(opts.healthReg, *opts.healthOpts)
+	}
 	if async != nil && !storeOnly {
 		s.recovery = recovery.New(recovery.Options{
 			Ctx:      s.ctx,
@@ -389,15 +397,20 @@ func newFinishHarness(t *testing.T, opts finishOptions) *finishHarness {
 			Degraded: &s.storeDegraded,
 		})
 		s.recovery.Start()
+		var subscribeHealth func() (<-chan struct{}, func())
+		if s.site != nil {
+			subscribeHealth = s.site.Subscribe
+		}
 		s.backfill = backfill.New(backfill.Options{
-			Ctx:         s.ctx,
-			Intake:      intake,
-			Store:       async,
-			RunFile:     runFile,
-			BatchSize:   cfg.RecordBatch,
-			Degraded:    &s.storeDegraded,
-			IsRunning:   func() bool { return s.stateSnapshot() == RunStateRunning },
-			IsSuspended: s.shouldSuspendUploads,
+			Ctx:             s.ctx,
+			Intake:          intake,
+			Store:           async,
+			RunFile:         runFile,
+			BatchSize:       cfg.RecordBatch,
+			Degraded:        &s.storeDegraded,
+			IsRunning:       func() bool { return s.stateSnapshot() == RunStateRunning },
+			IsSuspended:     s.shouldSuspendUploads,
+			SubscribeHealth: subscribeHealth,
 		})
 	}
 
@@ -407,12 +420,14 @@ func newFinishHarness(t *testing.T, opts finishOptions) *finishHarness {
 		t.Fatalf("install: %v", err)
 	}
 	t.Cleanup(func() {
+		s.stopOnlineDrain()
 		s.recovery.Stop()
 		s.backfill.Stop()
 		s.cancel()
 		if up != nil {
 			_ = up.Close()
 		}
+		s.closeHealth()
 		if async != nil {
 			_ = async.Close()
 		}

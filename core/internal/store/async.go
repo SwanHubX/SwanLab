@@ -230,7 +230,7 @@ func (a *AsyncWriter) append(req Request, st *writeState) {
 		a.fail(err)
 		return
 	}
-	a.index.Add(req.StoreSeq, start)
+	a.index.Record(req.StoreSeq, start, end)
 	prevSeq, prevEnd := st.seq, st.end
 	st.seq, st.end = req.StoreSeq, end
 	// bufio 空间不够时会先写出旧缓冲，所以刚写完的这条记录末尾可能还在缓冲里，

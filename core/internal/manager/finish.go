@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"google.golang.org/protobuf/proto"
 
@@ -22,15 +23,17 @@ import (
 	terminalv1 "github.com/swanhubx/swanlab/core/proto/swanlab/terminal/v1"
 )
 
-// finish 执行或续跑 DeliverRunFinish 的收尾序列：
-//
-//	DRAINING → watcher.Stop → 保存终态并落盘 FinishRecord → 阻塞刷盘 →
-//	补传崩溃 error_log → Intake.Close（冲刷 END 暂存与 recovery）→ RequestFinish
-//
-// 收尾序列失败后会话进入 FAILED，但本地 store 与 intake 保持可用：重复投递会
-// 从失败点续跑，Confirm 也会用新的 ctx 重试同样的步骤。FinishRecord 落盘与
-// error_log 入队是释放前必须完成的步骤，不能因为暂时性失败被跳过。
+// finish 执行 DeliverRunFinish 的本地收尾：切到 DRAINING、停后台补投与文件监听、
+// 写 FinishRecord 并关闭刷盘本地 store。
+// online 模式的云端补传、崩溃日志与关上传通道在本地收尾后由后台协程继续推进，使外部进度轮询能看到 DRAINED；
+// 其余模式在此关闭 intake 并标记 DRAINED。失败后进入 FAILED，可重试或由 Confirm 续跑。
 func (s *Session) finish(ctx context.Context, rec *runv1.FinishRecord) error {
+	if s.localFinished.Load() {
+		if state := s.stateSnapshot(); state == RunStateDraining || state == RunStateDrained {
+			return nil
+		}
+	}
+
 	s.finishMu.Lock()
 	defer s.finishMu.Unlock()
 
@@ -62,9 +65,12 @@ func (s *Session) finish(ctx context.Context, rec *runv1.FinishRecord) error {
 		return nil
 	}
 
-	if err := s.completeFinish(ctx); err != nil {
+	if err := s.deliverLocalFinish(ctx); err != nil {
 		s.fail(err)
 		return s.failure()
+	}
+	if s.uploader != nil && s.stateSnapshot() == RunStateDraining {
+		s.startOnlineDrain()
 	}
 	return nil
 }
@@ -105,9 +111,8 @@ func (s *Session) prepareFinish(rec *runv1.FinishRecord) {
 	})
 }
 
-// completeFinish 依次完成终态记录提交、本地刷盘、暂停区间补投、崩溃日志入队与
-// 通道关闭；各步骤均可重入，便于失败后重试。
-func (s *Session) completeFinish(ctx context.Context) error {
+// deliverLocalFinish 提交 FinishRecord 并关闭刷盘本地 store；非 online 模式在此直接结束排空。
+func (s *Session) deliverLocalFinish(ctx context.Context) error {
 	if !s.finishCommitted {
 		if err := s.commitFinish(ctx); err != nil {
 			return err
@@ -123,30 +128,68 @@ func (s *Session) completeFinish(ctx context.Context) error {
 		}
 	}
 
-	// 本地记录已全部刷盘，补完暂停区间后才能关闭 intake。
-	if err := s.backfill.Complete(ctx); err != nil {
-		return fmt.Errorf("%w: %w", ErrRunFailed, err)
-	}
-
-	if err := s.commitCrashLog(ctx); err != nil {
-		return err
-	}
-	s.recovery.Stop()
-	closeErr := s.closeIntake(ctx)
 	if s.cfg.NormalizedMode() != config.ModeOnline && s.storeDegraded.Load() {
-		// local/offline 无云端兜底：关闭 intake 后返回失败，不 markDrained。
-		if closeErr != nil {
+		// local/offline 无云端兜底：停 recovery 并关闭 intake 后返回失败，不 markDrained。
+		s.recovery.Stop()
+		if closeErr := s.closeIntake(ctx); closeErr != nil {
 			console.Warningf("finish: close intake after local store failure: %v", closeErr)
 		}
 		return fmt.Errorf("%w: local copy is incomplete", ErrRunFailed)
 	}
-	if closeErr != nil {
-		return closeErr
-	}
+
 	if s.uploader == nil {
+		s.recovery.Stop()
+		if err := s.closeIntake(ctx); err != nil {
+			return err
+		}
+		s.uploadDrainPrepared = true
 		s.markDrained()
 	}
+	s.localFinished.Store(true)
 	return nil
+}
+
+func isContextErr(err error) bool {
+	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
+}
+
+// completeOnlineFinish 完成积压补传、崩溃日志入队与关闭 intake；需持有 finishMu。
+func (s *Session) completeOnlineFinish(ctx context.Context) error {
+	if s.uploader == nil || s.uploadDrainPrepared {
+		return nil
+	}
+	// 本地记录已在 DeliverRunFinish 全部刷盘，补完暂停区间后才能关闭 intake。
+	if err := s.backfill.Complete(ctx); err != nil {
+		if isContextErr(err) {
+			return err
+		}
+		return fmt.Errorf("%w: %w", ErrRunFailed, err)
+	}
+	if err := s.commitCrashLog(ctx); err != nil {
+		return err
+	}
+	s.recovery.Stop()
+	if err := s.closeIntake(ctx); err != nil {
+		return err
+	}
+	s.uploadDrainPrepared = true
+	return nil
+}
+
+// runOnlineDrain 在本地收尾完成后后台推进云端补投与关闭上传通道；非取消/超时失败时转入 FAILED。
+func (s *Session) runOnlineDrain(ctx context.Context) {
+	s.finishMu.Lock()
+	defer s.finishMu.Unlock()
+
+	if s.shutdownCtx != nil && s.shutdownCtx.Err() != nil {
+		return
+	}
+	if s.stateSnapshot() != RunStateDraining || !s.finishCommitted || s.uploader == nil || s.uploadDrainPrepared {
+		return
+	}
+	if err := s.completeOnlineFinish(ctx); err != nil && !isContextErr(err) {
+		s.fail(err)
+	}
 }
 
 // commitFinish 把 FinishRecord 写入本地副本；失败时保留 finishCommitted=false，
@@ -182,13 +225,21 @@ func (s *Session) commitFinish(ctx context.Context) error {
 	return nil
 }
 
-// commitCrashLog 把崩溃 error_log 投入上传通道。暂时失败（通道满、ctx 到期）时
-// 保留记录供 Confirm 重试；只有确定性错误才告警丢弃，避免会话永远无法释放。
+const (
+	crashLogRetryBase = 50 * time.Millisecond
+	crashLogRetryMax  = 2 * time.Second
+)
+
+// shutdownCrashLogBudget 限制退出/断连路径补投崩溃 error_log 的时间，避免耗尽整个 shutdown 预算。
+var shutdownCrashLogBudget = 2 * time.Second
+
+// commitCrashLog 将崩溃 error_log 投入上传通道；通道满时退避重试，直到入队成功、确定性失败丢弃或 ctx 结束。
 func (s *Session) commitCrashLog(ctx context.Context) error {
 	if s.cfg.NormalizedMode() != config.ModeOnline {
 		return nil
 	}
-	if s.pendingLog == nil || s.intake == nil {
+	pending := s.crashLog()
+	if pending == nil || s.intake == nil {
 		return nil
 	}
 	if s.storeDegraded.Load() {
@@ -196,18 +247,30 @@ func (s *Session) commitCrashLog(ctx context.Context) error {
 		s.recovery.Drain(ctx)
 	}
 
-	err := s.intake.CommitUploadOnly(ctx, s.pendingLog)
-	switch {
-	case err == nil:
-		s.pendingLog = nil
-		return nil
-	case errors.Is(err, budget.ErrTooLarge), errors.Is(err, buffer.ErrClosed):
-		// 重试不会成功的确定性错误：告警后终结，不能让收尾永久卡住。
-		console.Warningf("finish: dropping crash error log: %v", err)
-		s.pendingLog = nil
-		return nil
-	default:
-		return fmt.Errorf("upload crash error log: %w", err)
+	delay := crashLogRetryBase
+	for {
+		err := s.intake.CommitUploadOnly(ctx, pending)
+		switch {
+		case err == nil:
+			s.clearCrashLog()
+			return nil
+		case errors.Is(err, budget.ErrTooLarge), errors.Is(err, buffer.ErrClosed):
+			// 重试不会成功的确定性错误：告警后终结，不能让收尾永久卡住。
+			console.Warningf("finish: dropping crash error log: %v", err)
+			s.clearCrashLog()
+			return nil
+		case errors.Is(err, buffer.ErrOverloaded):
+			timer := time.NewTimer(delay)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return fmt.Errorf("upload crash error log: %w", ctx.Err())
+			case <-timer.C:
+			}
+			delay = min(delay*2, crashLogRetryMax)
+		default:
+			return fmt.Errorf("upload crash error log: %w", err)
+		}
 	}
 }
 
@@ -218,6 +281,9 @@ func (s *Session) closeIntake(ctx context.Context) error {
 		return nil
 	}
 	if err := s.intake.Close(ctx); err != nil {
+		if isContextErr(err) {
+			return err
+		}
 		return fmt.Errorf("%w: close intake: %w", ErrRunFailed, err)
 	}
 	if s.uploader != nil {
@@ -226,26 +292,42 @@ func (s *Session) closeIntake(ctx context.Context) error {
 	return nil
 }
 
-// resumeFinish 在 Confirm 命中 FAILED 时续跑被中断的收尾序列：重试 FinishRecord
-// 落盘、崩溃 error_log 入队与 Intake.Close，并等待 uploader 真正排空。
+// resumeFinish 在 Confirm 命中 FAILED 时续跑被中断的收尾序列：重试本地收尾、
+// 暂停区间补投、崩溃 error_log 入队与 Intake.Close，并等待 uploader 真正排空。
 // 全部成功后才把状态恢复为 DRAINED；任一步仍失败时保留 FAILED 供下次重试，
 // 调用方不得在这种情况下上报实验终态。
 func (s *Session) resumeFinish(ctx context.Context) error {
+	runCtx, cancel := s.withShutdownCancel(ctx)
+	defer cancel()
+
 	s.finishMu.Lock()
 	defer s.finishMu.Unlock()
 
+	if err := runCtx.Err(); err != nil {
+		return err
+	}
 	if s.stateSnapshot() != RunStateFailed {
 		return nil
 	}
 	if s.intake == nil {
 		return s.failure()
 	}
-	if err := s.completeFinish(ctx); err != nil {
+	if err := s.deliverLocalFinish(runCtx); err != nil {
+		if isContextErr(err) {
+			return err
+		}
+		s.fail(err)
+		return s.failure()
+	}
+	if err := s.completeOnlineFinish(runCtx); err != nil {
+		if isContextErr(err) {
+			return err
+		}
 		s.fail(err)
 		return s.failure()
 	}
 	if s.uploader != nil {
-		if err := s.uploader.Wait(ctx); err != nil {
+		if err := s.uploader.Wait(runCtx); err != nil {
 			return fmt.Errorf("confirm: wait for drain: %w", err)
 		}
 	}
@@ -293,6 +375,9 @@ func runStateFromProto(state runv1.RunState) api.RunState {
 // 持有 finishMu 与在途的 DeliverRunFinish/Confirm 互斥：退出钩子在 GracefulStop
 // 之前运行，否则可能一边关闭本地通道一边写入。
 func (s *Session) shutdown(ctx context.Context) error {
+	// 拿 finishMu 前先打断并等后台在线排空与 resumeFinish 退出，避免进程退出被补投阻塞。
+	s.stopOnlineDrain()
+
 	s.finishMu.Lock()
 	defer s.finishMu.Unlock()
 
@@ -312,11 +397,13 @@ func (s *Session) shutdown(ctx context.Context) error {
 			errs = append(errs, fmt.Errorf("close local store: %w", err))
 		}
 	}
-	// 上次收尾中断遗留的崩溃 error_log 在封闭通道前补投，失败只能放弃。
-	if err := s.commitCrashLog(ctx); err != nil {
+	// 上次收尾中断遗留的崩溃 error_log 在封闭通道前限定短超时补投，保留其余 grace 给排空。
+	crashCtx, crashCancel := context.WithTimeout(ctx, shutdownCrashLogBudget)
+	if err := s.commitCrashLog(crashCtx); err != nil {
 		console.Warningf("shutdown: upload crash error log: %v", err)
 		errs = append(errs, err)
 	}
+	crashCancel()
 	closed := true
 	if s.intake != nil {
 		if err := s.intake.Close(ctx); err != nil {

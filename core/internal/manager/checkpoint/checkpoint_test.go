@@ -3,6 +3,7 @@ package checkpoint
 import (
 	"os"
 	"path/filepath"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -231,13 +232,151 @@ func TestWriterSkipsUnchangedInitialSeqAndNilSafe(t *testing.T) {
 	}
 }
 
-// TestNewDefaultsToTenSecondInterval 钉住运行期断点写入间隔，避免慢盘上重新回到
-// 每秒一次 tmp.Sync + syncDir + 重命名。
+// TestNewDefaultsToTenSecondInterval 验证默认的定时检查间隔与最小通知间隔。
 func TestNewDefaultsToTenSecondInterval(t *testing.T) {
-	if got := New(Options{}).interval; got != 10*time.Second {
+	w := New(Options{})
+	if got := w.interval; got != 10*time.Second {
 		t.Fatalf("default interval = %s, want 10s", got)
+	}
+	if got := w.minInterval; got != 2*time.Second {
+		t.Fatalf("default minInterval = %s, want 2s", got)
 	}
 	if got := New(Options{Interval: time.Millisecond}).interval; got != time.Millisecond {
 		t.Fatalf("explicit interval = %s, want 1ms", got)
+	}
+	if got := New(Options{Interval: time.Millisecond}).minInterval; got != time.Millisecond {
+		t.Fatalf("clamped minInterval = %s, want 1ms", got)
+	}
+}
+
+func TestWriterNotifyThrottlesAndFlushSyncsFinal(t *testing.T) {
+	async, dir := writeTestStore(t)
+	runFile := filepath.Join(dir, "run.swanlab")
+	cpFile := filepath.Join(dir, "run.checkpoint.json")
+	appendStoreRecords(t, async, sampleStartRecord(), sampleScalarRecord(1), sampleScalarRecord(2), sampleScalarRecord(3))
+
+	var watermark atomic.Uint64
+	type writeCall struct {
+		seq     uint64
+		durable bool
+	}
+	var mu sync.Mutex
+	var calls []writeCall
+	wroteCh := make(chan writeCall, 16)
+
+	w := New(Options{
+		File:        cpFile,
+		RunID:       "run-1",
+		RunFile:     runFile,
+		Store:       async,
+		Interval:    time.Hour,
+		MinInterval: 30 * time.Millisecond,
+		Watermark:   watermark.Load,
+		writeFn: func(path string, cp store.Checkpoint, durable bool) error {
+			var err error
+			if durable {
+				err = store.WriteCheckpoint(path, cp)
+			} else {
+				err = store.WriteCheckpointFast(path, cp)
+			}
+			c := writeCall{seq: cp.StoreSeq, durable: durable}
+			mu.Lock()
+			calls = append(calls, c)
+			mu.Unlock()
+			select {
+			case wroteCh <- c:
+			default:
+			}
+			return err
+		},
+	})
+	w.Start()
+	defer w.Stop()
+
+	// 首次 Notify 立即触发一次运行期非同步写入（durable=false）。
+	watermark.Store(2)
+	w.Notify()
+	select {
+	case got := <-wroteCh:
+		if got.seq != 2 || got.durable {
+			t.Fatalf("first Notify write = %+v, want seq=2 durable=false", got)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timeout waiting for initial Notify checkpoint write")
+	}
+
+	// 窗口内突发多次 Notify 应被合并，并在冷却期结束后写出最新水位。
+	watermark.Store(3)
+	w.Notify()
+	watermark.Store(4)
+	w.Notify()
+	w.Notify()
+
+	select {
+	case got := <-wroteCh:
+		if got.seq != 4 || got.durable {
+			t.Fatalf("coalesced Notify write = %+v, want seq=4 durable=false", got)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timeout waiting for coalesced Notify checkpoint write")
+	}
+
+	// 停止协程后调用 Flush：即便水位仍是 4，因上次写入是非 fsync 的，Flush 必须补写一次 durable=true。
+	w.Stop()
+	w.Flush()
+	// 水位与持久状态未变时，二次 Flush 应为空操作。
+	w.Flush()
+
+	mu.Lock()
+	defer mu.Unlock()
+	if len(calls) != 3 {
+		t.Fatalf("total write calls = %d (%+v), want 3 (2 fast + 1 final sync)", len(calls), calls)
+	}
+	last := calls[len(calls)-1]
+	if last.seq != 4 || !last.durable {
+		t.Fatalf("final Flush write = %+v, want seq=4 durable=true", last)
+	}
+}
+
+func TestWriterAdaptiveBackoffOnSlowWrite(t *testing.T) {
+	async, dir := writeTestStore(t)
+	runFile := filepath.Join(dir, "run.swanlab")
+	cpFile := filepath.Join(dir, "run.checkpoint.json")
+	appendStoreRecords(t, async, sampleStartRecord(), sampleScalarRecord(1), sampleScalarRecord(2))
+
+	var watermark atomic.Uint64
+	var writes atomic.Int32
+	wroteAt := make(chan time.Time, 8)
+
+	w := New(Options{
+		File:        cpFile,
+		RunID:       "run-1",
+		RunFile:     runFile,
+		Store:       async,
+		Interval:    500 * time.Millisecond,
+		MinInterval: 10 * time.Millisecond,
+		Watermark:   watermark.Load,
+		writeFn: func(path string, cp store.Checkpoint, _ bool) error {
+			// 模拟慢盘/NFS 耗时 25ms -> 冷却期应自动放大至 >= 100ms (25ms * 4)。
+			time.Sleep(25 * time.Millisecond)
+			writes.Add(1)
+			wroteAt <- time.Now()
+			return store.WriteCheckpointFast(path, cp)
+		},
+	})
+	w.Start()
+	defer w.Stop()
+
+	watermark.Store(1)
+	w.Notify()
+	t1 := <-wroteAt
+
+	// 立即推进水位并通知：由于上次写盘耗时 25ms，第二次写盘必须等待 >= ~90ms（受 4x 退避约束）。
+	watermark.Store(2)
+	w.Notify()
+	t2 := <-wroteAt
+	gap := t2.Sub(t1)
+	if gap < 80*time.Millisecond {
+		t.Fatalf("adaptive backoff gap = %v, want >= 80ms after 25ms slow write", gap)
 	}
 }

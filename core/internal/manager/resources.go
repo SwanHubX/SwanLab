@@ -106,6 +106,7 @@ func (s *Session) open(init sessionInit) error {
 		Budget:          b,
 		Degraded:        &s.storeDegraded,
 		Flushed:         flushed,
+		IsSuspended:     s.shouldSuspendUploads,
 		OnAdmit:         s.tracker.AddTotalRecords,
 		OnPause:         func(uint64) { s.backfill.Wake() },
 		OnStored:        s.progress.OnStored,
@@ -164,8 +165,14 @@ func (s *Session) open(init sessionInit) error {
 			Context:            s.ctx,
 			OnRetryableFailure: s.onWriteFailure,
 			OnDispatchSuccess:  s.onWriteSuccess,
-			OnConfirm:          s.progress.Resolve,
-			OnDrop:             s.progress.ResolveOne,
+			OnConfirm: func(records []*recordv1.Record) {
+				s.progress.Resolve(records)
+				s.checkpoint.Notify()
+			},
+			OnDrop: func(rec *recordv1.Record) {
+				s.progress.ResolveOne(rec)
+				s.checkpoint.Notify()
+			},
 			OnDrained: func() {
 				s.checkpoint.Stop()
 				s.checkpoint.Flush()
@@ -229,18 +236,23 @@ func (s *Session) open(init sessionInit) error {
 		if prog.ReplayFrom > 0 {
 			initCursor = backfill.Cursor{Seq: prog.ReplayFrom - 1, Offset: prog.ReplayStartOffset}
 		}
+		var subscribeHealth func() (<-chan struct{}, func())
+		if s.site != nil {
+			subscribeHealth = s.site.Subscribe
+		}
 		s.backfill = backfill.New(backfill.Options{
-			Ctx:           s.ctx,
-			Intake:        s.intake,
-			Store:         s.store,
-			RunFile:       s.runFile,
-			BatchSize:     s.cfg.RecordBatch,
-			Degraded:      &s.storeDegraded,
-			IsRunning:     func() bool { return s.stateSnapshot() == RunStateRunning },
-			IsSuspended:   s.shouldSuspendUploads,
-			OnStored:      s.progress.OnStored,
-			InitialPause:  prog.ReplayFrom,
-			InitialCursor: initCursor,
+			Ctx:             s.ctx,
+			Intake:          s.intake,
+			Store:           s.store,
+			RunFile:         s.runFile,
+			BatchSize:       s.cfg.RecordBatch,
+			Degraded:        &s.storeDegraded,
+			IsRunning:       func() bool { return s.stateSnapshot() == RunStateRunning },
+			IsSuspended:     s.shouldSuspendUploads,
+			SubscribeHealth: subscribeHealth,
+			OnStored:        s.progress.OnStored,
+			InitialPause:    prog.ReplayFrom,
+			InitialCursor:   initCursor,
 		})
 		s.backfill.Start()
 		if prog.ReplayFrom > 0 {
@@ -253,6 +265,7 @@ func (s *Session) open(init sessionInit) error {
 
 // rollback 释放装配期已创建的资源；所有字段都允许为 nil。
 func (s *Session) rollback() {
+	s.stopOnlineDrain()
 	if s.cancel != nil {
 		s.cancel()
 	}

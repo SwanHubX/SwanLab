@@ -2,7 +2,9 @@ package backfill
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -12,6 +14,7 @@ import (
 
 	"github.com/swanhubx/swanlab/core/internal/budget"
 	"github.com/swanhubx/swanlab/core/internal/buffer"
+	"github.com/swanhubx/swanlab/core/internal/manager/progress"
 	"github.com/swanhubx/swanlab/core/internal/pkg/record"
 	"github.com/swanhubx/swanlab/core/internal/store"
 	columnv1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/column/v1"
@@ -158,7 +161,7 @@ func TestScanFiltersRecordsAndRespectsFlushedBound(t *testing.T) {
 	}
 }
 
-func TestCompleteRejectsDegradedOrSuspended(t *testing.T) {
+func TestCompleteRejectsDegradedStore(t *testing.T) {
 	async, path := newScanStore(t, nil)
 	b := budget.New(budget.Limits{Records: 1})
 	intake, err := buffer.New(buffer.Options{
@@ -200,16 +203,197 @@ func TestCompleteRejectsDegradedOrSuspended(t *testing.T) {
 	if err := w.Complete(ctx); err == nil {
 		t.Fatal("expected error when store is degraded")
 	}
+}
 
-	degraded.Store(false)
-	wSuspended := New(Options{
-		Intake:      intake,
-		Store:       async,
-		RunFile:     path,
-		IsSuspended: func() bool { return true },
+func TestCompleteWaitsForSiteRecovery(t *testing.T) {
+	t.Run("timeout_when_suspended", func(t *testing.T) {
+		async, path := newScanStore(t, []*recordv1.Record{testScalar(1), testScalar(2)})
+		b := budget.New(budget.Limits{Records: 10})
+		intake, err := buffer.New(buffer.Options{
+			Store:       async.In(),
+			UploadQueue: 16,
+			Budget:      b,
+			StartSeq:    2,
+			Flushed: func() uint64 {
+				seq, _ := async.Flushed()
+				return seq
+			},
+		})
+		if err != nil {
+			t.Fatalf("buffer.New: %v", err)
+		}
+		defer func() { _ = intake.Close(context.Background()) }()
+		intake.PauseAt(1)
+
+		w := New(Options{
+			Intake:      intake,
+			Store:       async,
+			RunFile:     path,
+			IsSuspended: func() bool { return true },
+		})
+		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+		defer cancel()
+		if err := w.Complete(ctx); !errors.Is(err, context.DeadlineExceeded) {
+			t.Fatalf("Complete err = %v, want context.DeadlineExceeded", err)
+		}
 	})
-	if err := wSuspended.Complete(ctx); err == nil {
-		t.Fatal("expected error when site is suspended")
+
+	t.Run("resumes_on_health_notification", func(t *testing.T) {
+		async, path := newScanStore(t, []*recordv1.Record{testScalar(1), testScalar(2), testScalar(3)})
+		b := budget.New(budget.Limits{Records: 10})
+		intake, err := buffer.New(buffer.Options{
+			Store:       async.In(),
+			UploadQueue: 16,
+			Budget:      b,
+			StartSeq:    3,
+			Flushed: func() uint64 {
+				seq, _ := async.Flushed()
+				return seq
+			},
+		})
+		if err != nil {
+			t.Fatalf("buffer.New: %v", err)
+		}
+		intake.PauseAt(1)
+		if err := async.Close(); err != nil {
+			t.Fatalf("async.Close: %v", err)
+		}
+
+		var suspended atomic.Bool
+		suspended.Store(true)
+		updates := make(chan struct{}, 1)
+		var unsubscribed atomic.Bool
+
+		w := New(Options{
+			Intake:      intake,
+			Store:       async,
+			RunFile:     path,
+			BatchSize:   16,
+			IsSuspended: suspended.Load,
+			SubscribeHealth: func() (<-chan struct{}, func()) {
+				return updates, func() { unsubscribed.Store(true) }
+			},
+		})
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		var uploaded []*recordv1.Record
+		var mu sync.Mutex
+		drainDone := make(chan struct{})
+		go func() {
+			defer close(drainDone)
+			for rec := range intake.UploadOut() {
+				mu.Lock()
+				uploaded = append(uploaded, rec)
+				mu.Unlock()
+				b.Release(1, record.Size(rec))
+			}
+		}()
+
+		done := make(chan error, 1)
+		go func() { done <- w.Complete(ctx) }()
+
+		select {
+		case err := <-done:
+			t.Fatalf("Complete returned early while site suspended: %v", err)
+		case <-time.After(30 * time.Millisecond):
+		}
+
+		suspended.Store(false)
+		updates <- struct{}{}
+
+		if err := <-done; err != nil {
+			t.Fatalf("Complete after site recovery: %v", err)
+		}
+		if err := intake.Close(ctx); err != nil {
+			t.Fatalf("intake.Close: %v", err)
+		}
+		<-drainDone
+
+		if !unsubscribed.Load() {
+			t.Fatal("SubscribeHealth unsubscribe was not called")
+		}
+		mu.Lock()
+		defer mu.Unlock()
+		if len(uploaded) != 3 {
+			t.Fatalf("uploaded %d records, want 3", len(uploaded))
+		}
+		for i, rec := range uploaded {
+			if rec.GetNum() != int64(i+1) {
+				t.Fatalf("uploaded[%d].Num = %d, want %d", i, rec.GetNum(), i+1)
+			}
+		}
+	})
+}
+
+func TestCompleteRetriesOnOverloadedMidBackfill(t *testing.T) {
+	const total = 8
+	recs := make([]*recordv1.Record, 0, total)
+	for i := 1; i <= total; i++ {
+		recs = append(recs, testScalar(int64(i)))
+	}
+	async, path := newScanStore(t, recs)
+	b := budget.New(budget.Limits{})
+	intake, err := buffer.New(buffer.Options{
+		Store:       async.In(),
+		UploadQueue: 2,
+		QueueWait:   10 * time.Millisecond,
+		Budget:      b,
+		StartSeq:    total,
+		Flushed: func() uint64 {
+			seq, _ := async.Flushed()
+			return seq
+		},
+	})
+	if err != nil {
+		t.Fatalf("buffer.New: %v", err)
+	}
+	intake.PauseAt(1)
+	if err := async.Close(); err != nil {
+		t.Fatalf("async.Close: %v", err)
+	}
+
+	w := New(Options{
+		Intake:    intake,
+		Store:     async,
+		RunFile:   path,
+		BatchSize: 2,
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var uploaded []*recordv1.Record
+	drainDone := make(chan struct{})
+	go func() {
+		defer close(drainDone)
+		first := true
+		for rec := range intake.UploadOut() {
+			uploaded = append(uploaded, rec)
+			if first {
+				first = false
+				// 暂停消费超过 QueueWait，使 Replay 触发 ErrOverloaded 并从当前游标重试。
+				time.Sleep(50 * time.Millisecond)
+			}
+		}
+	}()
+
+	if err := w.Complete(ctx); err != nil {
+		t.Fatalf("Complete with mid-backfill overload: %v", err)
+	}
+	if err := intake.Close(ctx); err != nil {
+		t.Fatalf("intake.Close: %v", err)
+	}
+	<-drainDone
+
+	if len(uploaded) != total {
+		t.Fatalf("uploaded %d records, want %d", len(uploaded), total)
+	}
+	for i, rec := range uploaded {
+		if rec.GetNum() != int64(i+1) {
+			t.Fatalf("uploaded[%d].Num = %d, want %d", i, rec.GetNum(), i+1)
+		}
 	}
 }
 
@@ -224,5 +408,130 @@ func TestNilWorkerIsSafe(t *testing.T) {
 	}
 	if err := w.Complete(context.Background()); err != nil {
 		t.Fatalf("Complete on nil worker = %v", err)
+	}
+}
+
+func TestPausedWritesKeepProgressTrackerBoundedAndResumeWatermark(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "run-paused-progress.swanlab")
+	writer, err := store.Create(path)
+	if err != nil {
+		t.Fatalf("store.Create: %v", err)
+	}
+	async, err := store.NewAsyncWriter(writer, store.AsyncOptions{Queue: 512, IndexStride: 256})
+	if err != nil {
+		t.Fatalf("store.NewAsyncWriter: %v", err)
+	}
+	defer func() { _ = async.Close() }()
+
+	tracker := progress.NewTracker(0)
+	b := budget.New(budget.Limits{Records: 2})
+	intake, err := buffer.New(buffer.Options{
+		Store:       async.In(),
+		UploadQueue: 64,
+		Budget:      b,
+		Flushed: func() uint64 {
+			seq, _ := async.Flushed()
+			return seq
+		},
+		OnStored: tracker.OnStored,
+	})
+	if err != nil {
+		t.Fatalf("buffer.New: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// 先写入并确认 2 条实时记录，保持其占用 2 条预算。
+	live := []*recordv1.Record{testScalar(1), testScalar(2)}
+	tk, err := intake.Reserve(ctx, buffer.Demand{
+		Store:  2,
+		Upload: 2,
+		Bytes:  record.Size(live[0]) + record.Size(live[1]),
+	})
+	if err != nil {
+		t.Fatalf("Reserve live: %v", err)
+	}
+	if err = intake.Commit(tk, live); err != nil {
+		t.Fatalf("Commit live: %v", err)
+	}
+
+	// 确认前 2 条记录上传完成（暂不释放预算，让后续记录触发暂停）。
+	for i := 0; i < 2; i++ {
+		rec := <-intake.UploadOut()
+		tracker.Resolve([]*recordv1.Record{rec})
+	}
+	if got := tracker.Watermark(); got != 2 {
+		t.Fatalf("live watermark = %d, want 2", got)
+	}
+
+	// 预算仍占满，写入 10_000 条暂停记录与 FinishRecord。
+	const pausedScalars = 10_000
+	for i := 0; i < pausedScalars; i += 200 {
+		batch := make([]*recordv1.Record, 0, 200)
+		var bytes int64
+		for j := 0; j < 200; j++ {
+			rec := testScalar(int64(3 + i + j))
+			batch = append(batch, rec)
+			bytes += record.Size(rec)
+		}
+		var ptk buffer.Ticket
+		ptk, err = intake.Reserve(ctx, buffer.Demand{Store: len(batch), Upload: len(batch), Bytes: bytes})
+		if err != nil {
+			t.Fatalf("Reserve paused batch: %v", err)
+		}
+		if err = intake.Commit(ptk, batch); err != nil {
+			t.Fatalf("Commit paused batch: %v", err)
+		}
+	}
+	ftk, err := intake.Reserve(ctx, buffer.Demand{Store: 1})
+	if err != nil {
+		t.Fatalf("Reserve finish: %v", err)
+	}
+	if err = intake.Commit(ftk, []*recordv1.Record{testFinish()}); err != nil {
+		t.Fatalf("Commit finish: %v", err)
+	}
+
+	if paused, seq := intake.PauseState(); !paused || seq != 3 {
+		t.Fatalf("PauseState = (%v, %d), want (true, 3)", paused, seq)
+	}
+	// FinishRecord 已写入，但在补投确认前水位必须停在 2。
+	if got := tracker.Watermark(); got != 2 {
+		t.Fatalf("watermark before backfill = %d, want 2", got)
+	}
+
+	// 释放前面 2 条记录占用的预算，模拟消费上传通道并执行补投。
+	b.Release(2, record.Size(live[0])+record.Size(live[1]))
+	if err := async.Close(); err != nil {
+		t.Fatalf("async.Close: %v", err)
+	}
+
+	drainDone := make(chan struct{})
+	go func() {
+		defer close(drainDone)
+		for rec := range intake.UploadOut() {
+			tracker.Resolve([]*recordv1.Record{rec})
+			b.Release(1, record.Size(rec))
+		}
+	}()
+
+	w := New(Options{
+		Intake:    intake,
+		Store:     async,
+		RunFile:   path,
+		BatchSize: 64,
+		OnStored:  tracker.OnStored,
+	})
+	if err := w.Complete(ctx); err != nil {
+		t.Fatalf("Complete: %v", err)
+	}
+	if err := intake.Close(ctx); err != nil {
+		t.Fatalf("intake.Close: %v", err)
+	}
+	<-drainDone
+
+	wantWatermark := uint64(2 + pausedScalars + 1)
+	if got := tracker.Watermark(); got != wantWatermark {
+		t.Fatalf("final watermark = %d, want %d", got, wantWatermark)
 	}
 }

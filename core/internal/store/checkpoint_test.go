@@ -95,7 +95,7 @@ func TestCheckpointAtomicReplacePreservesOldOnFailure(t *testing.T) {
 		_, _ = fp.Write(data[:len(data)/2])
 		return errors.New("injected disk full")
 	}
-	if werr := writeCheckpoint(path, newCP, failWrite); werr == nil {
+	if werr := writeCheckpoint(path, newCP, true, failWrite); werr == nil {
 		t.Fatal("writeCheckpoint with failing temp write should fail")
 	}
 
@@ -114,7 +114,19 @@ func TestCheckpointAtomicReplacePreservesOldOnFailure(t *testing.T) {
 		t.Fatalf("unexpected temp files left in %s: %v", dir, entries)
 	}
 
-	// 覆盖写入成功场景。
+	// 覆盖写入成功场景（含运行期 WriteCheckpointFast 与完整同步 WriteCheckpoint）。
+	fastCP := newCP
+	fastCP.StoreSeq = 15
+	fastCP.Offset = 768
+	if werr := WriteCheckpointFast(path, fastCP); werr != nil {
+		t.Fatalf("WriteCheckpointFast replace: %v", werr)
+	}
+	gotFast, ok, err := LoadCheckpoint(path, "run-1")
+	if err != nil || !ok || gotFast.StoreSeq != fastCP.StoreSeq || gotFast.Offset != fastCP.Offset {
+		t.Fatalf("fast checkpoint = (%+v, %v, %v), want seq=%d offset=%d",
+			gotFast, ok, err, fastCP.StoreSeq, fastCP.Offset)
+	}
+
 	if werr := WriteCheckpoint(path, newCP); werr != nil {
 		t.Fatalf("WriteCheckpoint replace: %v", werr)
 	}
@@ -207,4 +219,69 @@ func TestEndOffset(t *testing.T) {
 			t.Fatalf("EndOffset beyond EOF err = %v, want ErrTruncated", oerr)
 		}
 	})
+}
+
+func TestEndOffsetUsesRecentCacheAndFallsBackOnMiss(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "run.swanlab")
+	w := mustCreate(t, path)
+	a, err := NewAsyncWriter(w, AsyncOptions{
+		Queue:         128,
+		IndexStride:   16,
+		FlushBytes:    1 << 20,
+		FlushInterval: time.Hour,
+	})
+	if err != nil {
+		_ = w.Close()
+		t.Fatalf("NewAsyncWriter: %v", err)
+	}
+	defer func() { _ = a.Close() }()
+
+	// 写入 5 条记录并刷盘，验证缓存命中时不重开磁盘文件。
+	for i := 1; i <= 5; i++ {
+		a.In() <- Request{StoreSeq: uint64(i), Payload: payloadN(20 + i)}
+	}
+	if ferr := a.Flush(context.Background()); ferr != nil {
+		t.Fatalf("Flush: %v", ferr)
+	}
+	_, flushedOff := a.Flushed()
+	idx := a.Index()
+
+	cachedEnd, ok := idx.LookupEnd(3, flushedOff)
+	if !ok {
+		t.Fatal("expected LookupEnd(3) cache hit")
+	}
+	// 传不存在的路径验证 EndOffset 命中环形缓存时直接返回、不打开文件。
+	missingPath := filepath.Join(t.TempDir(), "does-not-exist.swanlab")
+	got, err := EndOffset(missingPath, idx, 3, flushedOff)
+	if err != nil {
+		t.Fatalf("EndOffset cache hit: %v", err)
+	}
+	if got != cachedEnd {
+		t.Fatalf("EndOffset cache hit = %d, want %d", got, cachedEnd)
+	}
+
+	// limit 低于缓存结束偏移时不得误命中，应回退扫盘并按 limit 截断报错。
+	if _, oerr := EndOffset(path, idx, 3, cachedEnd-1); !errors.Is(oerr, ErrTruncated) {
+		t.Fatalf("EndOffset with tighter limit err = %v, want ErrTruncated", oerr)
+	}
+
+	// 写入超过 recentEndCap 条记录，验证旧序号被环表淘汰后仍能回退扫盘准确定位。
+	const extra = recentEndCap + 8
+	for i := 6; i <= extra; i++ {
+		a.In() <- Request{StoreSeq: uint64(i), Payload: payloadN(16)}
+	}
+	if ferr := a.Flush(context.Background()); ferr != nil {
+		t.Fatalf("Flush extra: %v", ferr)
+	}
+	_, newFlushedOff := a.Flushed()
+	if _, stillHit := idx.LookupEnd(3, newFlushedOff); stillHit {
+		t.Fatal("expected seq 3 to be evicted from recent ring cache")
+	}
+	fallbackEnd, err := EndOffset(path, idx, 3, newFlushedOff)
+	if err != nil {
+		t.Fatalf("EndOffset fallback on cache miss: %v", err)
+	}
+	if fallbackEnd != cachedEnd {
+		t.Fatalf("EndOffset fallback = %d, want %d", fallbackEnd, cachedEnd)
+	}
 }

@@ -149,3 +149,52 @@ func TestProgressTrackerOutOfOrderLiveAndBackfill(t *testing.T) {
 		t.Fatalf("watermark = %d, want 102", got)
 	}
 }
+
+func TestProgressTrackerPausedMemoryBoundedAndWatermark(t *testing.T) {
+	p := NewTracker(0)
+	for seq := uint64(1); seq <= 3; seq++ {
+		rec := progressScalar(int64(seq))
+		p.OnStored(rec, seq)
+		p.Resolve([]*recordv1.Record{rec})
+	}
+	if got := p.Watermark(); got != 3 {
+		t.Fatalf("pre-pause watermark = %d, want 3", got)
+	}
+
+	// 模拟 pauseSeq = 4 期间仅落盘、不提前向 Tracker 登记暂停记录：
+	// 即使后续穿插大量非上传记录，在 seq 4 补投确认前水位必须稳稳停在 3，且 ptrs/seqPtr 保持为 0。
+	endSave := progressSave(50_000, savev1.SavePolicy_SAVE_POLICY_END, savev1.SaveType_SAVE_TYPE_CUSTOM)
+	finishRec := &recordv1.Record{Num: record.NumFinish, RecordType: &recordv1.Record_Finish{Finish: &runv1.FinishRecord{}}}
+	p.OnStored(endSave, 50_000)
+	p.OnStored(finishRec, 100_005)
+	if got := p.Watermark(); got != 3 {
+		t.Fatalf("watermark with gap at pauseSeq=4 = %d, want 3", got)
+	}
+	if len(p.ptrs) != 0 || len(p.seqPtr) != 0 {
+		t.Fatalf("active pointers while paused = (%d, %d), want (0, 0)", len(p.ptrs), len(p.seqPtr))
+	}
+
+	// 模拟 backfill 按批（每批 10 条）扫描 seq 4..100 并逐批上传确认，活跃指针数不得超过批窗口。
+	const totalEnd = 100
+	const batchSize = 10
+	for start := uint64(4); start <= totalEnd; start += batchSize {
+		end := min(start+batchSize-1, totalEnd)
+		batch := make([]*recordv1.Record, 0, end-start+1)
+		for seq := start; seq <= end; seq++ {
+			rec := progressScalar(int64(seq))
+			p.OnStored(rec, seq)
+			batch = append(batch, rec)
+		}
+		if len(p.ptrs) > batchSize || len(p.seqPtr) > batchSize {
+			t.Fatalf("active pointers exceeded batch window: (%d, %d) > %d",
+				len(p.ptrs), len(p.seqPtr), batchSize)
+		}
+		p.Resolve(batch)
+		if len(p.ptrs) != 0 || len(p.seqPtr) != 0 {
+			t.Fatalf("active pointers leaked after Resolve: (%d, %d)", len(p.ptrs), len(p.seqPtr))
+		}
+		if got := p.Watermark(); got != end {
+			t.Fatalf("watermark after batch [%d..%d] = %d, want %d", start, end, got, end)
+		}
+	}
+}

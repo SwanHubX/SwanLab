@@ -118,13 +118,23 @@ type Session struct {
 	mu sync.Mutex
 	// confirmMu 只串行化「释放」阶段，不覆盖排空等待。
 	confirmMu sync.Mutex
-	// finishMu 串行化收尾尾部：重复的 DeliverRunFinish、Confirm 续跑与进程
-	// 退出时的 shutdown 共用同一把锁，避免关闭本地通道与写入并发。
+	// finishMu 串行化收尾序列：DeliverRunFinish、后台在线排空、Confirm 续跑与 shutdown 共用。
 	finishMu sync.Mutex
 	// finishCommitted 标记 FinishRecord 已完成提交（online 在本地存储降级时跳过），避免重试时重复写入。
 	finishCommitted bool
-	// pendingLog 是崩溃 error_log：只上传不落盘，暂时入队失败时保留供重试。
+	// localFinished 标记本地收尾已完成，供重复 DeliverRunFinish 快速返回而不被后台补投阻塞。
+	localFinished atomic.Bool
+	// uploadDrainPrepared 标记在线补投、崩溃日志入队与 Intake.Close 已完成。
+	uploadDrainPrepared bool
+	// pendingLog 是崩溃 error_log：由 mu 保护，只上传不落盘，暂时入队失败时保留供重试。
 	pendingLog *recordv1.Record
+
+	// shutdownCtx 在会话退出或关闭时取消，用于立刻打断后台在线排空与 resumeFinish。
+	shutdownCtx    context.Context
+	shutdownCancel context.CancelFunc
+	drainMu        sync.Mutex
+	drainStarted   bool
+	drainDone      chan struct{}
 
 	state atomic.Int32
 
@@ -183,15 +193,83 @@ type Session struct {
 }
 
 func newSession(opts sessionOptions) *Session {
+	shutdownCtx, shutdownCancel := context.WithCancel(context.Background())
 	s := &Session{
-		drained:    make(chan struct{}),
-		failed:     make(chan struct{}),
-		drainFn:    opts.drainFn,
-		releaseFn:  opts.releaseFn,
-		healthWake: make(chan struct{}, 1),
+		drained:        make(chan struct{}),
+		failed:         make(chan struct{}),
+		drainFn:        opts.drainFn,
+		releaseFn:      opts.releaseFn,
+		healthWake:     make(chan struct{}, 1),
+		shutdownCtx:    shutdownCtx,
+		shutdownCancel: shutdownCancel,
 	}
 	s.state.Store(int32(RunStateRunning))
 	return s
+}
+
+// withShutdownCancel 派生受父 ctx 和会话关闭信号共同约束的子 ctx。
+func (s *Session) withShutdownCancel(parent context.Context) (context.Context, context.CancelFunc) {
+	if parent == nil {
+		parent = context.Background()
+	}
+	ctx, cancel := context.WithCancel(parent)
+	if s.shutdownCtx == nil {
+		return ctx, cancel
+	}
+	stop := context.AfterFunc(s.shutdownCtx, cancel)
+	return ctx, func() {
+		stop()
+		cancel()
+	}
+}
+
+// startOnlineDrain 在本地收尾完成后只启动一次后台在线排空协程。
+func (s *Session) startOnlineDrain() {
+	s.drainMu.Lock()
+	if s.drainStarted || (s.shutdownCtx != nil && s.shutdownCtx.Err() != nil) {
+		s.drainMu.Unlock()
+		return
+	}
+	s.drainStarted = true
+	done := make(chan struct{})
+	s.drainDone = done
+	s.drainMu.Unlock()
+
+	go func() {
+		defer close(done)
+		drainCtx, cancel := s.withShutdownCancel(s.ctx)
+		defer cancel()
+		s.runOnlineDrain(drainCtx)
+	}()
+}
+
+// stopOnlineDrain 发出会话关闭信号并等待已启动的后台在线排空协程退出；不得在持有 finishMu 时调用。
+func (s *Session) stopOnlineDrain() {
+	s.drainMu.Lock()
+	if s.shutdownCancel != nil {
+		s.shutdownCancel()
+	}
+	done := s.drainDone
+	s.drainMu.Unlock()
+	if done != nil {
+		<-done
+	}
+}
+
+func (s *Session) crashLog() *recordv1.Record {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.pendingLog
+}
+
+func (s *Session) clearCrashLog() {
+	s.mu.Lock()
+	s.pendingLog = nil
+	s.mu.Unlock()
+}
+
+func (s *Session) hasPendingLog() bool {
+	return s.crashLog() != nil
 }
 
 // beginDrain 把会话从 RUNNING 切到 DRAINING；重复调用幂等。
