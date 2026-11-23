@@ -58,10 +58,15 @@ func LoadCheckpoint(path, runID string) (Checkpoint, bool, error) {
 // WriteCheckpoint 将 checkpoint 原子写入 path：同目录临时文件 -> fsync -> rename -> fsync 目录。
 // 任一步失败均不会破坏已有目标文件，并清理临时文件。
 func WriteCheckpoint(path string, cp Checkpoint) error {
-	return writeCheckpoint(path, cp, writeTempFile)
+	return writeCheckpoint(path, cp, true, writeTempFile)
 }
 
-func writeCheckpoint(path string, cp Checkpoint, writeTemp func(*os.File, []byte) error) error {
+// WriteCheckpointFast 以同目录临时文件 + 原子重命名写入运行期断点，跳过 fsync 与目录同步以降低慢盘开销。
+func WriteCheckpointFast(path string, cp Checkpoint) error {
+	return writeCheckpoint(path, cp, false, writeTempFile)
+}
+
+func writeCheckpoint(path string, cp Checkpoint, durable bool, writeTemp func(*os.File, []byte) error) error {
 	if cp.Version == 0 {
 		cp.Version = CheckpointVersion
 	} else if cp.Version != CheckpointVersion {
@@ -101,9 +106,11 @@ func writeCheckpoint(path string, cp Checkpoint, writeTemp func(*os.File, []byte
 		_ = tmp.Close()
 		return err
 	}
-	if err = tmp.Sync(); err != nil {
-		_ = tmp.Close()
-		return fmt.Errorf("store: sync temp checkpoint: %w", err)
+	if durable {
+		if err = tmp.Sync(); err != nil {
+			_ = tmp.Close()
+			return fmt.Errorf("store: sync temp checkpoint: %w", err)
+		}
 	}
 	if err = tmp.Close(); err != nil {
 		return fmt.Errorf("store: close temp checkpoint: %w", err)
@@ -115,7 +122,9 @@ func writeCheckpoint(path string, cp Checkpoint, writeTemp func(*os.File, []byte
 		return fmt.Errorf("store: commit checkpoint: %w", err)
 	}
 	renamed = true
-	syncDir(dir)
+	if durable {
+		syncDir(dir)
+	}
 	return nil
 }
 
@@ -137,11 +146,16 @@ func syncDir(dir string) {
 }
 
 // EndOffset 定位第 seq 条记录之后的物理文件偏移（下一条记录的起点）。
-// 若 idx 非 nil，先查找不晚于 seq 的稀疏锚点（limit >= 0 时同时约束在 limit 之内），
-// 再从锚点起线性扫描至多 stride 条记录；无锚点时从文件头起扫。
+// 若 idx 非 nil，先尝试命中近期结束偏移缓存（免扫盘）；未命中时查找不晚于 seq 的
+// 稀疏锚点（limit >= 0 时同时约束在 limit 之内），再从锚点起线性扫描至多 stride 条记录。
 func EndOffset(path string, idx *OffsetIndex, seq uint64, limit int64) (int64, error) {
 	if seq == 0 {
 		return HeaderLen, nil
+	}
+	if idx != nil {
+		if end, ok := idx.LookupEnd(seq, limit); ok {
+			return end, nil
+		}
 	}
 	var cur uint64
 	start := int64(HeaderLen)

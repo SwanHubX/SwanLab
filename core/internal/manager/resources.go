@@ -165,8 +165,14 @@ func (s *Session) open(init sessionInit) error {
 			Context:            s.ctx,
 			OnRetryableFailure: s.onWriteFailure,
 			OnDispatchSuccess:  s.onWriteSuccess,
-			OnConfirm:          s.progress.Resolve,
-			OnDrop:             s.progress.ResolveOne,
+			OnConfirm: func(records []*recordv1.Record) {
+				s.progress.Resolve(records)
+				s.checkpoint.Notify()
+			},
+			OnDrop: func(rec *recordv1.Record) {
+				s.progress.ResolveOne(rec)
+				s.checkpoint.Notify()
+			},
 			OnDrained: func() {
 				s.checkpoint.Stop()
 				s.checkpoint.Flush()
