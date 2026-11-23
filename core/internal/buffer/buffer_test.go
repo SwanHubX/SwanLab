@@ -1827,3 +1827,85 @@ func TestIntakePauseAtAndRestoreDeferred(t *testing.T) {
 		t.Fatalf("uploaded = %v, want restored deferred [%p, %p]", uploaded, end1, end2)
 	}
 }
+
+// TestIntakePausedSkipsOnStored 验证进入暂停区间后，pauseSeq 及之后的记录在 Commit
+// 时跳过 OnStored，仅保留 pauseSeq 之前记录（含同批前置的非上传记录）的通知。
+func TestIntakePausedSkipsOnStored(t *testing.T) {
+	sink := newStoreSink(16)
+	type entry struct {
+		rec *recordv1.Record
+		seq uint64
+	}
+	var got []entry
+	in := newIntake(t, Options{
+		Store:       sink.ch,
+		Budget:      budget.New(budget.Limits{Records: 1}),
+		UploadQueue: 4,
+		OnStored: func(rec *recordv1.Record, storeSeq uint64) {
+			got = append(got, entry{rec: rec, seq: storeSeq})
+		},
+	})
+
+	// seq 1：正常进入上传通道，应触发 OnStored。
+	r1 := scalarRecord(1)
+	mustCommit(t, in, r1)
+
+	// seq 2（END 保存，不触发 pauseSeq）+ seq 3（立即记录，触发 pauseSeq=3）：
+	// 仅 seq 2 在暂停起点之前，应触发 OnStored；seq 3 起跳过。
+	r2 := saveRecord(2, savev1.SavePolicy_SAVE_POLICY_END)
+	r3 := scalarRecord(3)
+	mustCommit(t, in, r2, r3)
+
+	if paused, seq := in.PauseState(); !paused || seq != 3 {
+		t.Fatalf("PauseState = (%v, %d), want (true, 3)", paused, seq)
+	}
+
+	// seq 4, 5, 6：已在暂停期间写入，均不得触发 OnStored。
+	mustCommit(t, in, scalarRecord(4), scalarRecord(5), finishRecord())
+
+	if err := in.Close(context.Background()); err != nil {
+		sink.stop()
+		t.Fatalf("Close: %v", err)
+	}
+	sink.stop()
+
+	if stored := sink.snapshot(); len(stored) != 6 {
+		t.Fatalf("store len = %d, want 6", len(stored))
+	}
+	if len(got) != 2 {
+		t.Fatalf("onStored len = %d, want 2 (seqs 1 and 2 only): %+v", len(got), got)
+	}
+	if got[0].rec != r1 || got[0].seq != 1 || got[1].rec != r2 || got[1].seq != 2 {
+		t.Fatalf("onStored = %+v, want [(r1, 1), (r2, 2)]", got)
+	}
+}
+
+// TestIntakePausedNonUploadableOnlyStillNotifiesOnStored 验证未激活 pauseSeq 时，
+// 即使批次带暂停票据但只含非上传记录（pauseSeq 保持 0），仍会回调 OnStored 以防进度水位卡死。
+func TestIntakePausedNonUploadableOnlyStillNotifiesOnStored(t *testing.T) {
+	sink := newStoreSink(8)
+	var gotSeqs []uint64
+	in := newIntake(t, Options{
+		Store:       sink.ch,
+		Budget:      budget.New(budget.Limits{Records: 10}),
+		UploadQueue: 4,
+		IsSuspended: func() bool { return true },
+		OnStored: func(_ *recordv1.Record, storeSeq uint64) {
+			gotSeqs = append(gotSeqs, storeSeq)
+		},
+	})
+
+	mustCommit(t, in, saveRecord(1, savev1.SavePolicy_SAVE_POLICY_END), finishRecord())
+	if err := in.Close(context.Background()); err != nil {
+		sink.stop()
+		t.Fatalf("Close: %v", err)
+	}
+	sink.stop()
+
+	if paused, seq := in.PauseState(); paused || seq != 0 {
+		t.Fatalf("PauseState = (%v, %d), want (false, 0)", paused, seq)
+	}
+	if len(gotSeqs) != 2 || gotSeqs[0] != 1 || gotSeqs[1] != 2 {
+		t.Fatalf("onStored seqs = %v, want [1 2]", gotSeqs)
+	}
+}

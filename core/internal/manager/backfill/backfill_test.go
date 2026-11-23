@@ -12,6 +12,7 @@ import (
 
 	"github.com/swanhubx/swanlab/core/internal/budget"
 	"github.com/swanhubx/swanlab/core/internal/buffer"
+	"github.com/swanhubx/swanlab/core/internal/manager/progress"
 	"github.com/swanhubx/swanlab/core/internal/pkg/record"
 	"github.com/swanhubx/swanlab/core/internal/store"
 	columnv1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/column/v1"
@@ -224,5 +225,131 @@ func TestNilWorkerIsSafe(t *testing.T) {
 	}
 	if err := w.Complete(context.Background()); err != nil {
 		t.Fatalf("Complete on nil worker = %v", err)
+	}
+}
+
+func TestPausedWritesKeepProgressTrackerBoundedAndResumeWatermark(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "run-paused-progress.swanlab")
+	writer, err := store.Create(path)
+	if err != nil {
+		t.Fatalf("store.Create: %v", err)
+	}
+	async, err := store.NewAsyncWriter(writer, store.AsyncOptions{Queue: 512, IndexStride: 256})
+	if err != nil {
+		t.Fatalf("store.NewAsyncWriter: %v", err)
+	}
+	defer func() { _ = async.Close() }()
+
+	tracker := progress.NewTracker(0)
+	b := budget.New(budget.Limits{Records: 2})
+	intake, err := buffer.New(buffer.Options{
+		Store:       async.In(),
+		UploadQueue: 64,
+		Budget:      b,
+		Flushed: func() uint64 {
+			seq, _ := async.Flushed()
+			return seq
+		},
+		OnStored: tracker.OnStored,
+	})
+	if err != nil {
+		t.Fatalf("buffer.New: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// 先写入并确认 2 条实时记录，占满预算后再释放，接着触发暂停。
+	live := []*recordv1.Record{testScalar(1), testScalar(2)}
+	tk, err := intake.Reserve(ctx, buffer.Demand{
+		Store:  2,
+		Upload: 2,
+		Bytes:  record.Size(live[0]) + record.Size(live[1]),
+	})
+	if err != nil {
+		t.Fatalf("Reserve live: %v", err)
+	}
+	if err = intake.Commit(tk, live); err != nil {
+		t.Fatalf("Commit live: %v", err)
+	}
+
+	// 模拟上传完成：消费 2 条实时记录并释放预算（先不急着释放预算也可以触发暂停，
+	// 这里先消费并在确认后继续用第 3 条触发或直接保留占用到暂停后再消费）。
+	for i := 0; i < 2; i++ {
+		rec := <-intake.UploadOut()
+		tracker.Resolve([]*recordv1.Record{rec})
+	}
+	if got := tracker.Watermark(); got != 2 {
+		t.Fatalf("live watermark = %d, want 2", got)
+	}
+
+	// 预算仍被上面 2 条占着（未调 b.Release），此时写入 10_000 条暂停记录 + FinishRecord。
+	const pausedScalars = 10_000
+	for i := 0; i < pausedScalars; i += 200 {
+		batch := make([]*recordv1.Record, 0, 200)
+		var bytes int64
+		for j := 0; j < 200; j++ {
+			rec := testScalar(int64(3 + i + j))
+			batch = append(batch, rec)
+			bytes += record.Size(rec)
+		}
+		var ptk buffer.Ticket
+		ptk, err = intake.Reserve(ctx, buffer.Demand{Store: len(batch), Upload: len(batch), Bytes: bytes})
+		if err != nil {
+			t.Fatalf("Reserve paused batch: %v", err)
+		}
+		if err = intake.Commit(ptk, batch); err != nil {
+			t.Fatalf("Commit paused batch: %v", err)
+		}
+	}
+	ftk, err := intake.Reserve(ctx, buffer.Demand{Store: 1})
+	if err != nil {
+		t.Fatalf("Reserve finish: %v", err)
+	}
+	if err = intake.Commit(ftk, []*recordv1.Record{testFinish()}); err != nil {
+		t.Fatalf("Commit finish: %v", err)
+	}
+
+	if paused, seq := intake.PauseState(); !paused || seq != 3 {
+		t.Fatalf("PauseState = (%v, %d), want (true, 3)", paused, seq)
+	}
+	// 即使 FinishRecord 也写入了，在补投确认前水位必须稳稳停在 2。
+	if got := tracker.Watermark(); got != 2 {
+		t.Fatalf("watermark before backfill = %d, want 2", got)
+	}
+
+	// 释放前面 2 条实时记录占用的预算，然后启动模拟 uploader 消费并推进 backfill.Complete。
+	b.Release(2, record.Size(live[0])+record.Size(live[1]))
+	if err := async.Close(); err != nil {
+		t.Fatalf("async.Close: %v", err)
+	}
+
+	drainDone := make(chan struct{})
+	go func() {
+		defer close(drainDone)
+		for rec := range intake.UploadOut() {
+			tracker.Resolve([]*recordv1.Record{rec})
+			b.Release(1, record.Size(rec))
+		}
+	}()
+
+	w := New(Options{
+		Intake:    intake,
+		Store:     async,
+		RunFile:   path,
+		BatchSize: 64,
+		OnStored:  tracker.OnStored,
+	})
+	if err := w.Complete(ctx); err != nil {
+		t.Fatalf("Complete: %v", err)
+	}
+	if err := intake.Close(ctx); err != nil {
+		t.Fatalf("intake.Close: %v", err)
+	}
+	<-drainDone
+
+	wantWatermark := uint64(2 + pausedScalars + 1)
+	if got := tracker.Watermark(); got != wantWatermark {
+		t.Fatalf("final watermark = %d, want %d", got, wantWatermark)
 	}
 }
