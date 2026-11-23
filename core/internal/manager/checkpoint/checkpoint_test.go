@@ -232,7 +232,7 @@ func TestWriterSkipsUnchangedInitialSeqAndNilSafe(t *testing.T) {
 	}
 }
 
-// TestNewDefaultsToTenSecondInterval 钉住运行期断点兜底间隔与最小通知节流间隔。
+// TestNewDefaultsToTenSecondInterval 验证默认的定时检查间隔与最小通知间隔。
 func TestNewDefaultsToTenSecondInterval(t *testing.T) {
 	w := New(Options{})
 	if got := w.interval; got != 10*time.Second {

@@ -251,8 +251,8 @@ func (w *Worker) RunOnce(ctx context.Context) error {
 	}
 }
 
-// Complete 在收尾路径同步补完暂停区间；store 已关闭时不再刷盘。
-// 站点降级或上传通道满时会等待恢复并从当前游标重试，直到补投追平、本地损坏或 ctx 结束。
+// Complete 在收尾阶段补传暂停期间的本地记录；store 已关闭时不再刷盘。
+// 站点异常或上传通道满时等待恢复并从当前位置重试，直到追平、本地损坏或 ctx 结束。
 func (w *Worker) Complete(ctx context.Context) error {
 	if w == nil || w.intake == nil || w.store == nil {
 		return nil

@@ -61,7 +61,7 @@ func WriteCheckpoint(path string, cp Checkpoint) error {
 	return writeCheckpoint(path, cp, true, writeTempFile)
 }
 
-// WriteCheckpointFast 以同目录临时文件 + 原子重命名写入运行期断点，跳过 fsync 与目录同步以降低慢盘开销。
+// WriteCheckpointFast 用临时文件加原子重命名写入断点，跳过 fsync 与目录同步，用于运行期更新。
 func WriteCheckpointFast(path string, cp Checkpoint) error {
 	return writeCheckpoint(path, cp, false, writeTempFile)
 }
@@ -145,9 +145,8 @@ func syncDir(dir string) {
 	_ = d.Sync()
 }
 
-// EndOffset 定位第 seq 条记录之后的物理文件偏移（下一条记录的起点）。
-// 若 idx 非 nil，先尝试命中近期结束偏移缓存（免扫盘）；未命中时查找不晚于 seq 的
-// 稀疏锚点（limit >= 0 时同时约束在 limit 之内），再从锚点起线性扫描至多 stride 条记录。
+// EndOffset 返回第 seq 条记录结束后的文件偏移。优先查询内存中的近期偏移缓存，
+// 未命中时再从 idx 锚点（不超过 limit）或文件头顺序扫描。
 func EndOffset(path string, idx *OffsetIndex, seq uint64, limit int64) (int64, error) {
 	if seq == 0 {
 		return HeaderLen, nil

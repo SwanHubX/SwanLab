@@ -1385,7 +1385,7 @@ func TestUploadQueueFullBackpressuresReserve(t *testing.T) {
 }
 
 // TestUploadQueueFullPausesWithLocalStore 验证存在完整本地副本时，上传通道满会直接
-// 切换为暂停投递、只落本地而不反压上游，并归还刚刚预占的上传预算。
+// 切换为暂停投递、只落本地而不阻塞调用方，并归还刚刚预占的上传预算。
 func TestUploadQueueFullPausesWithLocalStore(t *testing.T) {
 	sink := newStoreSink(8)
 	defer sink.stop()

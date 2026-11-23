@@ -12,13 +12,11 @@ import (
 )
 
 const (
-	// defaultInterval 是运行期断点兜底写入间隔，也是慢盘自适应退避的上限。
+	// defaultInterval 是运行期定时检查间隔，也是慢盘退避上限。
 	defaultInterval = 10 * time.Second
-	// defaultMinInterval 是事件通知驱动写断点的最小节流间隔：
-	// 普通训练默认 1.5s 一批，2s 节流既能将强杀重复窗口压到 ~1 批，又能避免
-	// 高频小批写入时在 NFS 上频繁创建与重命名临时文件。
+	// defaultMinInterval 是收到确认通知后写断点的最小间隔，避免高频写入频繁替换文件。
 	defaultMinInterval = 2 * time.Second
-	// nfsBackoffFactor 在单次写盘较慢时放大下次允许写入的冷却期，防止压垮慢盘/NFS 元数据面。
+	// nfsBackoffFactor 在单次写盘较慢时按耗时倍数拉长下次写入间隔，减轻 NFS 等慢盘负担。
 	nfsBackoffFactor = 4
 )
 
@@ -44,7 +42,7 @@ type Options struct {
 	writeFn        func(path string, cp store.Checkpoint, durable bool) error
 }
 
-// Writer 管理 checkpoint.json 的运行期事件节流刷盘与终态同步持久化；nil 接收者上的方法均为安全空操作。
+// Writer 管理 checkpoint.json 的运行期节流写入与停机同步刷盘；nil 接收者上的方法均为空操作。
 type Writer struct {
 	ctx         context.Context
 	file        string
@@ -116,7 +114,7 @@ func (w *Writer) enabled() bool {
 	return w != nil && w.file != "" && w.store != nil && w.runID != "" && w.watermark != nil
 }
 
-// Notify 在上传确认推进水位后非阻塞唤醒断点写入协程；同一节流窗口内多次通知自动合并。
+// Notify 通知后台协程尝试更新断点；非阻塞，短时间内的多次通知会合并处理。
 func (w *Writer) Notify() {
 	if !w.enabled() {
 		return
@@ -213,13 +211,12 @@ func (w *Writer) Stop() {
 	<-w.done
 }
 
-// Flush 在停机或排空完成后执行完整 fsync 的最终断点持久化。
+// Flush 在停机或排空完成后执行带 fsync 的最终断点写入。
 func (w *Writer) Flush() {
 	w.persist(true)
 }
 
-// Persist 把当前已连续确认且已落盘的进度 min(Watermark(), flushedSeq) 同步持久化到 checkpoint.json。
-// 未配置 Watermark 时不会写入；写入失败仅告警一次并留待后续重试，不中断会话运行。
+// Persist 同步写入当前已确认且已落盘的进度 min(Watermark(), flushedSeq)；写入失败仅告警一次并留待重试。
 func (w *Writer) Persist() {
 	w.persist(true)
 }

@@ -529,7 +529,7 @@ func TestDeliverRunFinishRetriesWithoutDuplicateRecord(t *testing.T) {
 func TestDeliverRunFinishRetriesCrashLogAfterCapacityFrees(t *testing.T) {
 	h := newFinishHarness(t, finishOptions{
 		// 有本地副本时上传通道满会直接转暂停落盘，不会返回 ErrOverloaded；
-		// 这里用 skipStore 验证无本地兜底时的容量反压与崩溃 error_log 重试。
+		// 这里用 skipStore 验证无本地副本时的容量阻塞与崩溃 error_log 重试。
 		skipStore:   true,
 		uploadQueue: 2,
 		queueWait:   200 * time.Millisecond,

@@ -209,12 +209,8 @@ func (m *Manager) hasCapacity() bool {
 	return len(m.sessions) < maxSessions
 }
 
-// DeliverRunFinish 执行指定会话的本地收尾序列（RUNNING → DRAINING）：
-//
-// 停止后台补投与文件监听，保存终态记录并落盘 FinishRecord，关闭并刷盘本地 store；
-// online 模式的云端补投、崩溃日志与上传排空留待 Confirm 处理。
-// 失败时返回原始失败信息，会话保留供重试或 Confirm 续跑。
-// 注册表锁只用于定位会话，刷盘、停 watcher 等阻塞操作都在锁外执行。
+// DeliverRunFinish 执行指定会话的本地收尾（RUNNING → DRAINING）：
+// 停后台补投与文件监听、落盘 FinishRecord 并关闭刷盘本地 store；online 模式的上传排空留给 Confirm。
 func (m *Manager) DeliverRunFinish(ctx context.Context, sessionID string, rec *runv1.FinishRecord) error {
 	if sessionID == "" {
 		return ErrEmptySessionID
@@ -256,9 +252,8 @@ const confirmOKMessage = "OK"
 // 避免网络请求阻塞其它会话。并发 Confirm 由 per-session 的 confirmMu 串行化，
 // 只有第一个调用会执行释放钩子，其余调用命中 released 缓存直接成功。
 //
-// 在 waitDrained 之前先幂等完成在线补投（backfill.Complete）、崩溃 error_log 入队与
-// Intake.Close，保证上传通道封闭后才等待 uploader 排空；会话处于 FAILED 时则在
-// confirmMu 内用新的 ctx 续跑被中断的收尾序列，全部成功后才允许上报 stop_experiment。
+// 在等待上传排空前先完成本地积压补传、崩溃日志入队与关闭 intake，确保上传通道关闭后再等待
+// uploader 排空；会话处于 FAILED 时在 confirmMu 内续跑未完成的收尾步骤。
 //
 // stop_experiment 失败不返回 RPC 错误，而是返回 ReleaseFailed=true 与按本地
 // 副本完整性生成的提示文案，会话保留在注册表中供下一次 Confirm 重试。

@@ -94,7 +94,7 @@ type Options struct {
 	// 回调必须非阻塞。
 	OnPause func(storeSeq uint64)
 	// OnStored 在记录写入本地通道并分配 storeSeq 后、投递上传前回调（仍在 Intake.mu 内）。
-	// 落入活跃暂停区间（seq >= pauseSeq）的记录在 Commit 时跳过，待 backfill 扫盘补投时按批补登。
+	// 暂停期间（seq >= pauseSeq）的记录在 Commit 时跳过，恢复后由 backfill 读取本地文件时再通知。
 	// 回调必须非阻塞，且不得反向调用 Intake。
 	OnStored func(rec *recordv1.Record, storeSeq uint64)
 	// QueueWait 是容量不足时的有界等待上限，<=0 取 DefaultQueueWait。
@@ -221,11 +221,10 @@ func (t *Intake) UploadOut() <-chan *recordv1.Record { return t.upload }
 // 预留失败不产生任何副作用。本地通道满时在 QueueWait 内有界等待，仍失败
 // 返回 ErrOverloaded，由调用方保留数据后重试。
 //
-// 本地副本完整时，若已暂停、站点降级、上传预算不足或上传通道槽位不足，
-// 立即记录转为暂停投递、只落本地（不反压上游）。延迟记录（SAVE_POLICY_END）
-// 不占预算，只占 pending 条数名额，Close 投递时才补扣：
-// 否则积压的 END 会占死补投所需的配额。没有完整本地副本时禁止暂停投递，
-// 立即记录有界阻塞等待预算与槽位，失败返回 ErrOverloaded。
+// 本地副本完整时，若已暂停、站点异常、预算不足或上传通道满，
+// 立即记录直接只写本地，不阻塞调用方。延迟记录（SAVE_POLICY_END）
+// 不占预算，只占 pending 上限，Close 投递时再补扣。没有本地副本时禁止暂停，
+// 立即记录在 QueueWait 内等待预算与通道空间，超时返回 ErrOverloaded。
 func (t *Intake) Reserve(ctx context.Context, d Demand) (Ticket, error) {
 	if d.Store < 0 || d.Upload < 0 || d.Deferred < 0 || d.Bytes < 0 {
 		return Ticket{}, fmt.Errorf("buffer: invalid demand store=%d upload=%d deferred=%d bytes=%d",
@@ -299,8 +298,7 @@ func (t *Intake) reserveStoreSide(ctx context.Context, d Demand, local bool) (Ti
 	return tk, nil
 }
 
-// reserveUploadSide 预留立即记录的上传预算与通道槽位；本地副本完整时若已暂停、
-// 站点降级、预算不足或上传通道已满，转为暂停投递、只落本地。
+// reserveUploadSide 为立即上传记录预留预算与通道空间；有完整本地副本且无法立即投递时改为只写本地。
 func (t *Intake) reserveUploadSide(ctx context.Context, d Demand, local, paused bool, tk Ticket) (Ticket, error) {
 	if d.Upload == 0 {
 		return tk, nil
@@ -318,7 +316,7 @@ func (t *Intake) reserveUploadSide(ctx context.Context, d Demand, local, paused 
 			return tk, nil
 		}
 		if !t.tryReserveUpload(d.Upload) {
-			// 上传通道槽位不足：归还刚占用的预算并转暂停投递，绝不反压上游。
+			// 上传通道已满：归还刚占用的预算，改为只写本地。
 			t.budget.Release(int64(d.Upload), d.Bytes)
 			tk.paused = true
 			return tk, nil
@@ -446,8 +444,8 @@ func (t *Intake) Commit(tk Ticket, records []*recordv1.Record) error {
 	case paused && storeOK:
 		pausedNow = t.pauseLocked(records, immediate, deferred, tk, seqOf)
 		pausedAt = t.pauseSeq
-		// 暂停区间（seq >= pauseSeq）的记录在写盘后即释放，不提前登记到进度追踪器；
-		// 仅区间之前的记录（例如混合批次前置的非上传记录，或未开启 pauseSeq 的纯非上传批次）立即通知。
+		// seq >= pauseSeq 的记录等后续 backfill 扫描时再登记，避免进度追踪器长期持有指针；
+		// 之前的记录（或尚未设置 pauseSeq）仍立即通知，避免进度停滞。
 		t.notifyStoredLocked(records, seqOf, wantStore, t.pauseSeq)
 	case !storeOK && !t.skipStore && !t.storeOnly:
 		// 本批没有可靠本地副本：先通知再并入回收队列按序补传，不能越过更早的记录。
@@ -529,7 +527,7 @@ func (t *Intake) sendStoreLocked(records []*recordv1.Record, payloads [][]byte, 
 	}
 }
 
-// notifyStoredLocked 通知未落入活跃暂停区间的已落盘记录；调用方需持有 mu。
+// notifyStoredLocked 回调 OnStored，skipFrom > 0 时跳过 seq >= skipFrom 的记录；调用方需持有 mu。
 func (t *Intake) notifyStoredLocked(records []*recordv1.Record, seqOf []uint64, wantStore bool, skipFrom uint64) {
 	if !wantStore || t.onStored == nil {
 		return

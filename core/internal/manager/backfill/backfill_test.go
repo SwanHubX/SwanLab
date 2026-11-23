@@ -373,7 +373,7 @@ func TestCompleteRetriesOnOverloadedMidBackfill(t *testing.T) {
 			uploaded = append(uploaded, rec)
 			if first {
 				first = false
-				// 暂停消费超过 QueueWait，使 Replay 必现 ErrOverloaded 并从 st.cursor 重试。
+				// 暂停消费超过 QueueWait，使 Replay 触发 ErrOverloaded 并从当前游标重试。
 				time.Sleep(50 * time.Millisecond)
 			}
 		}
@@ -442,7 +442,7 @@ func TestPausedWritesKeepProgressTrackerBoundedAndResumeWatermark(t *testing.T) 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// 先写入并确认 2 条实时记录，占满预算后再释放，接着触发暂停。
+	// 先写入并确认 2 条实时记录，保持其占用 2 条预算。
 	live := []*recordv1.Record{testScalar(1), testScalar(2)}
 	tk, err := intake.Reserve(ctx, buffer.Demand{
 		Store:  2,
@@ -456,8 +456,7 @@ func TestPausedWritesKeepProgressTrackerBoundedAndResumeWatermark(t *testing.T) 
 		t.Fatalf("Commit live: %v", err)
 	}
 
-	// 模拟上传完成：消费 2 条实时记录并释放预算（先不急着释放预算也可以触发暂停，
-	// 这里先消费并在确认后继续用第 3 条触发或直接保留占用到暂停后再消费）。
+	// 确认前 2 条记录上传完成（暂不释放预算，让后续记录触发暂停）。
 	for i := 0; i < 2; i++ {
 		rec := <-intake.UploadOut()
 		tracker.Resolve([]*recordv1.Record{rec})
@@ -466,7 +465,7 @@ func TestPausedWritesKeepProgressTrackerBoundedAndResumeWatermark(t *testing.T) 
 		t.Fatalf("live watermark = %d, want 2", got)
 	}
 
-	// 预算仍被上面 2 条占着（未调 b.Release），此时写入 10_000 条暂停记录 + FinishRecord。
+	// 预算仍占满，写入 10_000 条暂停记录与 FinishRecord。
 	const pausedScalars = 10_000
 	for i := 0; i < pausedScalars; i += 200 {
 		batch := make([]*recordv1.Record, 0, 200)
@@ -496,12 +495,12 @@ func TestPausedWritesKeepProgressTrackerBoundedAndResumeWatermark(t *testing.T) 
 	if paused, seq := intake.PauseState(); !paused || seq != 3 {
 		t.Fatalf("PauseState = (%v, %d), want (true, 3)", paused, seq)
 	}
-	// 即使 FinishRecord 也写入了，在补投确认前水位必须稳稳停在 2。
+	// FinishRecord 已写入，但在补投确认前水位必须停在 2。
 	if got := tracker.Watermark(); got != 2 {
 		t.Fatalf("watermark before backfill = %d, want 2", got)
 	}
 
-	// 释放前面 2 条实时记录占用的预算，然后启动模拟 uploader 消费并推进 backfill.Complete。
+	// 释放前面 2 条记录占用的预算，模拟消费上传通道并执行补投。
 	b.Release(2, record.Size(live[0])+record.Size(live[1]))
 	if err := async.Close(); err != nil {
 		t.Fatalf("async.Close: %v", err)

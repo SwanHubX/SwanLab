@@ -23,15 +23,10 @@ import (
 	terminalv1 "github.com/swanhubx/swanlab/core/proto/swanlab/terminal/v1"
 )
 
-// finish 执行或续跑 DeliverRunFinish 的本地收尾序列：
-//
-//	DRAINING → backfill.Stop / watcher.Stop → 保存终态并落盘 FinishRecord → 阻塞刷盘本地 store
-//
-// online 模式下的暂停区间补投、崩溃 error_log 入队、Intake.Close 与上传排空统一交给
-// Confirm 阶段在无短超时约束下完成；local/offline/disabled 模式没有上传阶段，在此直接
-// 停 recovery、关 intake 并标记 DRAINED。
-// 收尾序列失败后会话进入 FAILED，但本地 store 与 intake 保持可用：重复投递或 Confirm
-// 会从失败点续跑。
+// finish 执行 DeliverRunFinish 的本地收尾：切到 DRAINING、停后台补投与文件监听、
+// 写 FinishRecord 并关闭刷盘本地 store。
+// online 模式的云端补传、崩溃日志与关上传通道留给 Confirm 完成；
+// 其余模式在此关闭 intake 并标记 DRAINED。失败后进入 FAILED，可重试或由 Confirm 续跑。
 func (s *Session) finish(ctx context.Context, rec *runv1.FinishRecord) error {
 	s.finishMu.Lock()
 	defer s.finishMu.Unlock()
@@ -107,9 +102,7 @@ func (s *Session) prepareFinish(rec *runv1.FinishRecord) {
 	})
 }
 
-// deliverLocalFinish 完成本地收尾（FinishRecord 提交与本地 store 刷盘关闭）；
-// 无上传阶段（local/offline/disabled）在此关闭 intake 并结束排空，online 模式的
-// 暂停区间补投、崩溃日志与关通道留待 Confirm 阶段完成。各步骤均幂等可重入。
+// deliverLocalFinish 提交 FinishRecord 并关闭刷盘本地 store；非 online 模式在此直接结束排空。
 func (s *Session) deliverLocalFinish(ctx context.Context) error {
 	if !s.finishCommitted {
 		if err := s.commitFinish(ctx); err != nil {
@@ -146,8 +139,7 @@ func (s *Session) deliverLocalFinish(ctx context.Context) error {
 	return nil
 }
 
-// completeOnlineFinish 在 Confirm 阶段执行依赖云端的补投、崩溃日志入队与通道关闭；
-// 调用方必须持有 finishMu。各步骤均幂等可重入。
+// completeOnlineFinish 在 Confirm 阶段完成积压补传、崩溃日志入队与关闭 intake；需持有 finishMu。
 func (s *Session) completeOnlineFinish(ctx context.Context) error {
 	if s.uploader == nil || s.uploadDrainPrepared {
 		return nil
@@ -170,8 +162,7 @@ func (s *Session) completeOnlineFinish(ctx context.Context) error {
 	return nil
 }
 
-// prepareOnlineDrain 在 waitDrained 之前幂等准备上传排空（补投、崩溃日志与关 intake）。
-// 若被外部 ctx 取消或超时则保留 DRAINING 状态供重试；确定性失败才标记 FAILED。
+// prepareOnlineDrain 在等待排空前准备上传通道关闭；ctx 取消或超时保持 DRAINING 供重试。
 func (s *Session) prepareOnlineDrain(ctx context.Context) error {
 	s.finishMu.Lock()
 	defer s.finishMu.Unlock()
@@ -233,8 +224,7 @@ const (
 	crashLogRetryMax  = 2 * time.Second
 )
 
-// commitCrashLog 把崩溃 error_log 投入上传通道。容量暂时耗尽（ErrOverloaded）时按退避
-// 重试直到入队成功或外部 ctx 结束；只有确定性错误才告警丢弃，避免会话永远无法释放。
+// commitCrashLog 将崩溃 error_log 投入上传通道；通道满时退避重试，直到入队成功、确定性失败丢弃或 ctx 结束。
 func (s *Session) commitCrashLog(ctx context.Context) error {
 	if s.cfg.NormalizedMode() != config.ModeOnline {
 		return nil

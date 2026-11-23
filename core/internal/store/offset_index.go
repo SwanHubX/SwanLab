@@ -8,7 +8,7 @@ import (
 // DefaultIndexStride 是 OffsetIndex 的默认锚点间隔（条）。
 const DefaultIndexStride = 256
 
-// recentEndCap 是近期记录结束偏移环形缓存的容量（必须为 2 的幂，16384 槽约 256 KiB）。
+// recentEndCap 是近期记录结束偏移缓存的槽位数（须为 2 的幂，16384 槽约 256 KiB）。
 const recentEndCap = 1 << 14
 
 // Anchor 是 storeSeq → 文件偏移的稀疏定位点；Offset 为该条记录头的位置。
