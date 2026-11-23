@@ -67,10 +67,17 @@ var crcSeed = func() (s [5]uint32) {
 // 写入或刷盘失败后 Writer 不可再用，应整体关闭。
 type Writer struct {
 	mu     sync.Mutex
-	fp     *os.File
+	fp     io.WriteCloser // 生产为 *os.File；测试可注入慢盘/短写实现
 	buf    *bufio.Writer
 	closed bool
 	index  atomic.Int64 // 当前文件末尾偏移，含文件头与块尾填充
+}
+
+// newWriter 用底层写入器构造 Writer；base 是文件当前末尾偏移。
+func newWriter(fp io.WriteCloser, base int64) *Writer {
+	w := &Writer{fp: fp, buf: bufio.NewWriterSize(fp, BlockLen)}
+	w.index.Store(base)
+	return w
 }
 
 // Create 排他创建日志文件并写入文件头。文件已存在时返回的错误满足
@@ -80,8 +87,7 @@ func Create(path string) (*Writer, error) {
 	if err != nil {
 		return nil, err
 	}
-	w := &Writer{fp: fp, buf: bufio.NewWriterSize(fp, BlockLen)}
-	w.index.Store(HeaderLen)
+	w := newWriter(fp, HeaderLen)
 	if err := w.writeHeader(); err != nil {
 		fp.Close()
 		return nil, err
@@ -128,9 +134,7 @@ func OpenAppend(path string, end int64) (*Writer, error) {
 		fp.Close()
 		return nil, err
 	}
-	w := &Writer{fp: fp, buf: bufio.NewWriterSize(fp, BlockLen)}
-	w.index.Store(end)
-	return w, nil
+	return newWriter(fp, end), nil
 }
 
 func (w *Writer) writeHeader() error {
@@ -148,6 +152,13 @@ func (w *Writer) writeHeader() error {
 // 应改用 AsyncWriter.Flushed 或事后扫描。
 func (w *Writer) Offset() int64 { return w.index.Load() }
 
+// written 返回已交给内核的字节数（含文件头与块尾填充），仍在 bufio 缓冲里的不计入。
+func (w *Writer) written() int64 {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.index.Load() - int64(w.buf.Buffered())
+}
+
 // Write 追加一条完整记录。
 func (w *Writer) Write(payload []byte) error {
 	_, err := w.WriteRecord(payload)
@@ -156,12 +167,23 @@ func (w *Writer) Write(payload []byte) error {
 
 // WriteRecord 追加一条完整记录并返回其起始偏移（跳过块尾填充后的记录头位置）。
 func (w *Writer) WriteRecord(payload []byte) (int64, error) {
+	start, _, _, err := w.writeRecord(payload)
+	return start, err
+}
+
+// writeRecord 追加一条完整记录，在同一把锁内返回记录起点、当前末尾与已交给内核的字节数。
+func (w *Writer) writeRecord(payload []byte) (start, end, written int64, err error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if w.closed {
-		return 0, ErrClosed
+		return 0, 0, 0, ErrClosed
 	}
-	return w.write(payload)
+	start, err = w.write(payload)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+	end = w.index.Load()
+	return start, end, end - int64(w.buf.Buffered()), nil
 }
 
 // write 按 LevelDB log 规范切分记录并返回记录头起始偏移；调用方需持有 mu。
