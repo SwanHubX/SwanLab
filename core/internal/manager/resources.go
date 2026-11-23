@@ -106,6 +106,7 @@ func (s *Session) open(init sessionInit) error {
 		Budget:          b,
 		Degraded:        &s.storeDegraded,
 		Flushed:         flushed,
+		IsSuspended:     s.shouldSuspendUploads,
 		OnAdmit:         s.tracker.AddTotalRecords,
 		OnPause:         func(uint64) { s.backfill.Wake() },
 		OnStored:        s.progress.OnStored,

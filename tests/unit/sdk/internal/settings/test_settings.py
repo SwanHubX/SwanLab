@@ -489,12 +489,19 @@ class TestSkipStore:
 
     def test_to_core_proto_health_defaults(self, tmp_path):
         proto = Settings(mode="online").to_core_proto(run_id="r1", run_dir=tmp_path)
-        assert proto.upload_budget_records == 0
-        assert proto.upload_budget_bytes == 0
+        assert proto.upload_budget_records == 50_000
+        assert proto.upload_budget_bytes == 128 * 1024 * 1024
         assert proto.health_probe_interval == 5.0
         assert proto.health_probe_timeout == 2.0
         assert proto.health_degrade_threshold == 3
         assert proto.health_recover_threshold == 2
+
+        unlimited = Settings(
+            mode="online",
+            core=Settings.Core(upload_budget_records=0, upload_budget_bytes=0),
+        ).to_core_proto(run_id="r1", run_dir=tmp_path)
+        assert unlimited.upload_budget_records == 0
+        assert unlimited.upload_budget_bytes == 0
 
     def test_core_detach_and_idle_timeout_defaults_and_env(self, monkeypatch):
         default_settings = Settings(mode="online")

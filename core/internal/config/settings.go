@@ -28,6 +28,10 @@ const (
 	DefaultSavePart int64 = 32 << 20
 	// DefaultSaveBatch 是小文件上传的单批数量。
 	DefaultSaveBatch = 100
+	// DefaultUploadBudgetRecords 是上传管线默认记录条数预算。
+	DefaultUploadBudgetRecords int64 = 50_000
+	// DefaultUploadBudgetBytes 是上传管线默认字节预算（128 MiB）。
+	DefaultUploadBudgetBytes int64 = 128 << 20
 )
 
 // recordBatchMax 是 record_batch 的上界（开区间）。
@@ -100,7 +104,7 @@ type Settings struct {
 	WebHost string
 
 	// UploadBudgetRecords / UploadBudgetBytes 是上传管线容量预算（条数 / 字节）；
-	// <=0 表示该维度不限制，默认 0。
+	// <=0 表示该维度不限制，Defaults() 默认为 DefaultUploadBudgetRecords / DefaultUploadBudgetBytes。
 	UploadBudgetRecords int64
 	UploadBudgetBytes   int64
 
@@ -118,12 +122,14 @@ type Settings struct {
 // APIKey / APIHost / WebHost 保持零值（Mode 空值按 online 处理）。
 func Defaults() Settings {
 	return Settings{
-		RecordBatch:    DefaultRecordBatch,
-		RecordInterval: DefaultRecordInterval,
-		SaveSize:       DefaultSaveSize,
-		SaveSplit:      DefaultSaveSplit,
-		SavePart:       DefaultSavePart,
-		SaveBatch:      DefaultSaveBatch,
+		RecordBatch:         DefaultRecordBatch,
+		RecordInterval:      DefaultRecordInterval,
+		SaveSize:            DefaultSaveSize,
+		SaveSplit:           DefaultSaveSplit,
+		SavePart:            DefaultSavePart,
+		SaveBatch:           DefaultSaveBatch,
+		UploadBudgetRecords: DefaultUploadBudgetRecords,
+		UploadBudgetBytes:   DefaultUploadBudgetBytes,
 	}
 }
 

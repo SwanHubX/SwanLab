@@ -19,6 +19,10 @@ func TestDefaults(t *testing.T) {
 		s.SavePart != DefaultSavePart || s.SaveBatch != DefaultSaveBatch {
 		t.Fatalf("save defaults mismatch: %+v", s)
 	}
+	if s.UploadBudgetRecords != DefaultUploadBudgetRecords || s.UploadBudgetBytes != DefaultUploadBudgetBytes {
+		t.Fatalf("upload budget defaults = (%d, %d), want (%d, %d)",
+			s.UploadBudgetRecords, s.UploadBudgetBytes, DefaultUploadBudgetRecords, DefaultUploadBudgetBytes)
+	}
 	// 这些字段默认为零值。
 	if s.RunID != "" || s.RunDir != "" || s.SectionRule != 0 || s.SkipStore || s.APIKey != "" {
 		t.Fatalf("unexpected non-zero defaults: %+v", s)
