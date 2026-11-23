@@ -123,6 +123,8 @@ type Session struct {
 	finishMu sync.Mutex
 	// finishCommitted 标记 FinishRecord 已完成提交（online 在本地存储降级时跳过），避免重试时重复写入。
 	finishCommitted bool
+	// uploadDrainPrepared 标记 Confirm 阶段已完成在线补投、崩溃日志入队与 Intake.Close。
+	uploadDrainPrepared bool
 	// pendingLog 是崩溃 error_log：只上传不落盘，暂时入队失败时保留供重试。
 	pendingLog *recordv1.Record
 

@@ -22,14 +22,15 @@ import (
 	terminalv1 "github.com/swanhubx/swanlab/core/proto/swanlab/terminal/v1"
 )
 
-// finish 执行或续跑 DeliverRunFinish 的收尾序列：
+// finish 执行或续跑 DeliverRunFinish 的本地收尾序列：
 //
-//	DRAINING → watcher.Stop → 保存终态并落盘 FinishRecord → 阻塞刷盘 →
-//	补传崩溃 error_log → Intake.Close（冲刷 END 暂存与 recovery）→ RequestFinish
+//	DRAINING → backfill.Stop / watcher.Stop → 保存终态并落盘 FinishRecord → 阻塞刷盘本地 store
 //
-// 收尾序列失败后会话进入 FAILED，但本地 store 与 intake 保持可用：重复投递会
-// 从失败点续跑，Confirm 也会用新的 ctx 重试同样的步骤。FinishRecord 落盘与
-// error_log 入队是释放前必须完成的步骤，不能因为暂时性失败被跳过。
+// online 模式下的暂停区间补投、崩溃 error_log 入队、Intake.Close 与上传排空统一交给
+// Confirm 阶段在无短超时约束下完成；local/offline/disabled 模式没有上传阶段，在此直接
+// 停 recovery、关 intake 并标记 DRAINED。
+// 收尾序列失败后会话进入 FAILED，但本地 store 与 intake 保持可用：重复投递或 Confirm
+// 会从失败点续跑。
 func (s *Session) finish(ctx context.Context, rec *runv1.FinishRecord) error {
 	s.finishMu.Lock()
 	defer s.finishMu.Unlock()
@@ -62,7 +63,7 @@ func (s *Session) finish(ctx context.Context, rec *runv1.FinishRecord) error {
 		return nil
 	}
 
-	if err := s.completeFinish(ctx); err != nil {
+	if err := s.deliverLocalFinish(ctx); err != nil {
 		s.fail(err)
 		return s.failure()
 	}
@@ -105,9 +106,10 @@ func (s *Session) prepareFinish(rec *runv1.FinishRecord) {
 	})
 }
 
-// completeFinish 依次完成终态记录提交、本地刷盘、暂停区间补投、崩溃日志入队与
-// 通道关闭；各步骤均可重入，便于失败后重试。
-func (s *Session) completeFinish(ctx context.Context) error {
+// deliverLocalFinish 完成本地收尾（FinishRecord 提交与本地 store 刷盘关闭）；
+// 无上传阶段（local/offline/disabled）在此关闭 intake 并结束排空，online 模式的
+// 暂停区间补投、崩溃日志与关通道留待 Confirm 阶段完成。各步骤均幂等可重入。
+func (s *Session) deliverLocalFinish(ctx context.Context) error {
 	if !s.finishCommitted {
 		if err := s.commitFinish(ctx); err != nil {
 			return err
@@ -123,28 +125,71 @@ func (s *Session) completeFinish(ctx context.Context) error {
 		}
 	}
 
-	// 本地记录已全部刷盘，补完暂停区间后才能关闭 intake。
-	if err := s.backfill.Complete(ctx); err != nil {
-		return fmt.Errorf("%w: %w", ErrRunFailed, err)
-	}
-
-	if err := s.commitCrashLog(ctx); err != nil {
-		return err
-	}
-	s.recovery.Stop()
-	closeErr := s.closeIntake(ctx)
 	if s.cfg.NormalizedMode() != config.ModeOnline && s.storeDegraded.Load() {
-		// local/offline 无云端兜底：关闭 intake 后返回失败，不 markDrained。
-		if closeErr != nil {
+		// local/offline 无云端兜底：停 recovery 并关闭 intake 后返回失败，不 markDrained。
+		s.recovery.Stop()
+		if closeErr := s.closeIntake(ctx); closeErr != nil {
 			console.Warningf("finish: close intake after local store failure: %v", closeErr)
 		}
 		return fmt.Errorf("%w: local copy is incomplete", ErrRunFailed)
 	}
-	if closeErr != nil {
-		return closeErr
-	}
+
 	if s.uploader == nil {
+		s.recovery.Stop()
+		if err := s.closeIntake(ctx); err != nil {
+			return err
+		}
+		s.uploadDrainPrepared = true
 		s.markDrained()
+	}
+	return nil
+}
+
+// completeOnlineFinish 在 Confirm 阶段执行依赖云端的补投、崩溃日志入队与通道关闭；
+// 调用方必须持有 finishMu。各步骤均幂等可重入。
+func (s *Session) completeOnlineFinish(ctx context.Context) error {
+	if s.uploader == nil || s.uploadDrainPrepared {
+		return nil
+	}
+	// 本地记录已在 DeliverRunFinish 全部刷盘，补完暂停区间后才能关闭 intake。
+	if err := s.backfill.Complete(ctx); err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return err
+		}
+		return fmt.Errorf("%w: %w", ErrRunFailed, err)
+	}
+	if err := s.commitCrashLog(ctx); err != nil {
+		return err
+	}
+	s.recovery.Stop()
+	if err := s.closeIntake(ctx); err != nil {
+		return err
+	}
+	s.uploadDrainPrepared = true
+	return nil
+}
+
+// prepareOnlineDrain 在 waitDrained 之前幂等准备上传排空（补投、崩溃日志与关 intake）。
+// 若被外部 ctx 取消或超时则保留 DRAINING 状态供重试；确定性失败才标记 FAILED。
+func (s *Session) prepareOnlineDrain(ctx context.Context) error {
+	s.finishMu.Lock()
+	defer s.finishMu.Unlock()
+
+	switch s.stateSnapshot() {
+	case RunStateRunning:
+		return ErrRunNotFinished
+	case RunStateDrained, RunStateFailed:
+		return nil
+	}
+	if !s.finishCommitted || s.uploader == nil || s.uploadDrainPrepared {
+		return nil
+	}
+	if err := s.completeOnlineFinish(ctx); err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return err
+		}
+		s.fail(err)
+		return s.failure()
 	}
 	return nil
 }
@@ -218,6 +263,9 @@ func (s *Session) closeIntake(ctx context.Context) error {
 		return nil
 	}
 	if err := s.intake.Close(ctx); err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return err
+		}
 		return fmt.Errorf("%w: close intake: %w", ErrRunFailed, err)
 	}
 	if s.uploader != nil {
@@ -226,8 +274,8 @@ func (s *Session) closeIntake(ctx context.Context) error {
 	return nil
 }
 
-// resumeFinish 在 Confirm 命中 FAILED 时续跑被中断的收尾序列：重试 FinishRecord
-// 落盘、崩溃 error_log 入队与 Intake.Close，并等待 uploader 真正排空。
+// resumeFinish 在 Confirm 命中 FAILED 时续跑被中断的收尾序列：重试本地收尾、
+// 暂停区间补投、崩溃 error_log 入队与 Intake.Close，并等待 uploader 真正排空。
 // 全部成功后才把状态恢复为 DRAINED；任一步仍失败时保留 FAILED 供下次重试，
 // 调用方不得在这种情况下上报实验终态。
 func (s *Session) resumeFinish(ctx context.Context) error {
@@ -240,7 +288,17 @@ func (s *Session) resumeFinish(ctx context.Context) error {
 	if s.intake == nil {
 		return s.failure()
 	}
-	if err := s.completeFinish(ctx); err != nil {
+	if err := s.deliverLocalFinish(ctx); err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return err
+		}
+		s.fail(err)
+		return s.failure()
+	}
+	if err := s.completeOnlineFinish(ctx); err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return err
+		}
 		s.fail(err)
 		return s.failure()
 	}

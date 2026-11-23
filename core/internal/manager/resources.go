@@ -230,18 +230,23 @@ func (s *Session) open(init sessionInit) error {
 		if prog.ReplayFrom > 0 {
 			initCursor = backfill.Cursor{Seq: prog.ReplayFrom - 1, Offset: prog.ReplayStartOffset}
 		}
+		var subscribeHealth func() (<-chan struct{}, func())
+		if s.site != nil {
+			subscribeHealth = s.site.Subscribe
+		}
 		s.backfill = backfill.New(backfill.Options{
-			Ctx:           s.ctx,
-			Intake:        s.intake,
-			Store:         s.store,
-			RunFile:       s.runFile,
-			BatchSize:     s.cfg.RecordBatch,
-			Degraded:      &s.storeDegraded,
-			IsRunning:     func() bool { return s.stateSnapshot() == RunStateRunning },
-			IsSuspended:   s.shouldSuspendUploads,
-			OnStored:      s.progress.OnStored,
-			InitialPause:  prog.ReplayFrom,
-			InitialCursor: initCursor,
+			Ctx:             s.ctx,
+			Intake:          s.intake,
+			Store:           s.store,
+			RunFile:         s.runFile,
+			BatchSize:       s.cfg.RecordBatch,
+			Degraded:        &s.storeDegraded,
+			IsRunning:       func() bool { return s.stateSnapshot() == RunStateRunning },
+			IsSuspended:     s.shouldSuspendUploads,
+			SubscribeHealth: subscribeHealth,
+			OnStored:        s.progress.OnStored,
+			InitialPause:    prog.ReplayFrom,
+			InitialCursor:   initCursor,
 		})
 		s.backfill.Start()
 		if prog.ReplayFrom > 0 {

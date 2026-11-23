@@ -2,7 +2,9 @@ package backfill
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -159,7 +161,7 @@ func TestScanFiltersRecordsAndRespectsFlushedBound(t *testing.T) {
 	}
 }
 
-func TestCompleteRejectsDegradedOrSuspended(t *testing.T) {
+func TestCompleteRejectsDegradedStore(t *testing.T) {
 	async, path := newScanStore(t, nil)
 	b := budget.New(budget.Limits{Records: 1})
 	intake, err := buffer.New(buffer.Options{
@@ -201,16 +203,197 @@ func TestCompleteRejectsDegradedOrSuspended(t *testing.T) {
 	if err := w.Complete(ctx); err == nil {
 		t.Fatal("expected error when store is degraded")
 	}
+}
 
-	degraded.Store(false)
-	wSuspended := New(Options{
-		Intake:      intake,
-		Store:       async,
-		RunFile:     path,
-		IsSuspended: func() bool { return true },
+func TestCompleteWaitsForSiteRecovery(t *testing.T) {
+	t.Run("timeout_when_suspended", func(t *testing.T) {
+		async, path := newScanStore(t, []*recordv1.Record{testScalar(1), testScalar(2)})
+		b := budget.New(budget.Limits{Records: 10})
+		intake, err := buffer.New(buffer.Options{
+			Store:       async.In(),
+			UploadQueue: 16,
+			Budget:      b,
+			StartSeq:    2,
+			Flushed: func() uint64 {
+				seq, _ := async.Flushed()
+				return seq
+			},
+		})
+		if err != nil {
+			t.Fatalf("buffer.New: %v", err)
+		}
+		defer func() { _ = intake.Close(context.Background()) }()
+		intake.PauseAt(1)
+
+		w := New(Options{
+			Intake:      intake,
+			Store:       async,
+			RunFile:     path,
+			IsSuspended: func() bool { return true },
+		})
+		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+		defer cancel()
+		if err := w.Complete(ctx); !errors.Is(err, context.DeadlineExceeded) {
+			t.Fatalf("Complete err = %v, want context.DeadlineExceeded", err)
+		}
 	})
-	if err := wSuspended.Complete(ctx); err == nil {
-		t.Fatal("expected error when site is suspended")
+
+	t.Run("resumes_on_health_notification", func(t *testing.T) {
+		async, path := newScanStore(t, []*recordv1.Record{testScalar(1), testScalar(2), testScalar(3)})
+		b := budget.New(budget.Limits{Records: 10})
+		intake, err := buffer.New(buffer.Options{
+			Store:       async.In(),
+			UploadQueue: 16,
+			Budget:      b,
+			StartSeq:    3,
+			Flushed: func() uint64 {
+				seq, _ := async.Flushed()
+				return seq
+			},
+		})
+		if err != nil {
+			t.Fatalf("buffer.New: %v", err)
+		}
+		intake.PauseAt(1)
+		if err := async.Close(); err != nil {
+			t.Fatalf("async.Close: %v", err)
+		}
+
+		var suspended atomic.Bool
+		suspended.Store(true)
+		updates := make(chan struct{}, 1)
+		var unsubscribed atomic.Bool
+
+		w := New(Options{
+			Intake:      intake,
+			Store:       async,
+			RunFile:     path,
+			BatchSize:   16,
+			IsSuspended: suspended.Load,
+			SubscribeHealth: func() (<-chan struct{}, func()) {
+				return updates, func() { unsubscribed.Store(true) }
+			},
+		})
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		var uploaded []*recordv1.Record
+		var mu sync.Mutex
+		drainDone := make(chan struct{})
+		go func() {
+			defer close(drainDone)
+			for rec := range intake.UploadOut() {
+				mu.Lock()
+				uploaded = append(uploaded, rec)
+				mu.Unlock()
+				b.Release(1, record.Size(rec))
+			}
+		}()
+
+		done := make(chan error, 1)
+		go func() { done <- w.Complete(ctx) }()
+
+		select {
+		case err := <-done:
+			t.Fatalf("Complete returned early while site suspended: %v", err)
+		case <-time.After(30 * time.Millisecond):
+		}
+
+		suspended.Store(false)
+		updates <- struct{}{}
+
+		if err := <-done; err != nil {
+			t.Fatalf("Complete after site recovery: %v", err)
+		}
+		if err := intake.Close(ctx); err != nil {
+			t.Fatalf("intake.Close: %v", err)
+		}
+		<-drainDone
+
+		if !unsubscribed.Load() {
+			t.Fatal("SubscribeHealth unsubscribe was not called")
+		}
+		mu.Lock()
+		defer mu.Unlock()
+		if len(uploaded) != 3 {
+			t.Fatalf("uploaded %d records, want 3", len(uploaded))
+		}
+		for i, rec := range uploaded {
+			if rec.GetNum() != int64(i+1) {
+				t.Fatalf("uploaded[%d].Num = %d, want %d", i, rec.GetNum(), i+1)
+			}
+		}
+	})
+}
+
+func TestCompleteRetriesOnOverloadedMidBackfill(t *testing.T) {
+	const total = 8
+	recs := make([]*recordv1.Record, 0, total)
+	for i := 1; i <= total; i++ {
+		recs = append(recs, testScalar(int64(i)))
+	}
+	async, path := newScanStore(t, recs)
+	b := budget.New(budget.Limits{})
+	intake, err := buffer.New(buffer.Options{
+		Store:       async.In(),
+		UploadQueue: 2,
+		QueueWait:   10 * time.Millisecond,
+		Budget:      b,
+		StartSeq:    total,
+		Flushed: func() uint64 {
+			seq, _ := async.Flushed()
+			return seq
+		},
+	})
+	if err != nil {
+		t.Fatalf("buffer.New: %v", err)
+	}
+	intake.PauseAt(1)
+	if err := async.Close(); err != nil {
+		t.Fatalf("async.Close: %v", err)
+	}
+
+	w := New(Options{
+		Intake:    intake,
+		Store:     async,
+		RunFile:   path,
+		BatchSize: 2,
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var uploaded []*recordv1.Record
+	drainDone := make(chan struct{})
+	go func() {
+		defer close(drainDone)
+		first := true
+		for rec := range intake.UploadOut() {
+			uploaded = append(uploaded, rec)
+			if first {
+				first = false
+				// 暂停消费超过 QueueWait，使 Replay 必现 ErrOverloaded 并从 st.cursor 重试。
+				time.Sleep(50 * time.Millisecond)
+			}
+		}
+	}()
+
+	if err := w.Complete(ctx); err != nil {
+		t.Fatalf("Complete with mid-backfill overload: %v", err)
+	}
+	if err := intake.Close(ctx); err != nil {
+		t.Fatalf("intake.Close: %v", err)
+	}
+	<-drainDone
+
+	if len(uploaded) != total {
+		t.Fatalf("uploaded %d records, want %d", len(uploaded), total)
+	}
+	for i, rec := range uploaded {
+		if rec.GetNum() != int64(i+1) {
+			t.Fatalf("uploaded[%d].Num = %d, want %d", i, rec.GetNum(), i+1)
+		}
 	}
 }
 
