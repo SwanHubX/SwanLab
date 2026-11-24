@@ -409,7 +409,7 @@ func newBlockedStoreHarness(t *testing.T) (*Manager, *Session, string, chan stor
 		t.Fatalf("uploader.New: %v", err)
 	}
 	s.intake = intake
-	s.uploader = up
+	setSessionUploader(s, up)
 	s.drainFn = up.Wait
 
 	mgr := newTestManager()
@@ -428,10 +428,10 @@ func newBlockedStoreHarness(t *testing.T) (*Manager, *Session, string, chan stor
 func TestConfirmRetriesFinishRecordCommit(t *testing.T) {
 	mgr, s, id, storeCh := newBlockedStoreHarness(t)
 	var releases int
-	s.releaseFn = func(context.Context) error {
+	setSessionReleaseFn(s, func(context.Context) error {
 		releases++
 		return nil
-	}
+	})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -987,7 +987,7 @@ func newCheckpointTestSession(
 			_ = async.Close()
 			t.Fatalf("uploader.New: %v", err)
 		}
-		s.uploader = up
+		setSessionUploader(s, up)
 		s.drainFn = up.Wait
 	}
 	return s, runFile, cpFile
@@ -1038,8 +1038,8 @@ func TestCheckpointBoundsAndFinalFlushOnline(t *testing.T) {
 	t.Cleanup(func() {
 		s.stopOnlineDrain()
 		s.checkpoint.Stop()
-		if s.uploader != nil {
-			_ = s.uploader.Close()
+		if up := s.uploader(); up != nil {
+			_ = up.Close()
 		}
 		if s.store != nil {
 			_ = s.store.Close()
@@ -1171,8 +1171,8 @@ func TestBackfillUploadsPausedRangeInOrder(t *testing.T) {
 	if err := h.session.intake.Close(ctx); err != nil {
 		t.Fatalf("intake.Close: %v", err)
 	}
-	h.session.uploader.RequestFinish()
-	if err := h.session.uploader.Wait(ctx); err != nil {
+	h.session.uploader().RequestFinish()
+	if err := h.session.uploader().Wait(ctx); err != nil {
 		t.Fatalf("uploader.Wait: %v", err)
 	}
 	got := h.uploads.snapshot()
@@ -1220,8 +1220,8 @@ func TestBackfillSkipsEndSaveUntilClose(t *testing.T) {
 	if err := h.session.intake.Close(ctx); err != nil {
 		t.Fatalf("intake.Close: %v", err)
 	}
-	h.session.uploader.RequestFinish()
-	if err := h.session.uploader.Wait(ctx); err != nil {
+	h.session.uploader().RequestFinish()
+	if err := h.session.uploader().Wait(ctx); err != nil {
 		t.Fatalf("uploader.Wait: %v", err)
 	}
 
@@ -1475,8 +1475,8 @@ func TestBackfillSupervisorResumesAfterPause(t *testing.T) {
 	if err := h.session.intake.Close(ctx); err != nil {
 		t.Fatalf("intake.Close: %v", err)
 	}
-	h.session.uploader.RequestFinish()
-	if err := h.session.uploader.Wait(ctx); err != nil {
+	h.session.uploader().RequestFinish()
+	if err := h.session.uploader().Wait(ctx); err != nil {
 		t.Fatalf("uploader.Wait: %v", err)
 	}
 	uploads := h.uploads.snapshot()

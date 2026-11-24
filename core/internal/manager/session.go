@@ -142,23 +142,21 @@ type Session struct {
 	drained chan struct{}
 	failed  chan struct{}
 
-	drainFn   func(context.Context) error
-	releaseFn func(context.Context) error
+	drainFn func(context.Context) error
+	cloud   atomic.Pointer[cloudResources]
 
 	finishErr error
 
 	// 装配期依赖；Start 失败回滚后可能只完成部分初始化，使用前必须判空。
-	ctx       context.Context
-	cancel    context.CancelFunc
-	cfg       config.Settings
-	run       *runctx.RunContext
-	store     *store.AsyncWriter
-	intake    *buffer.Intake
-	uploader  *uploader.Uploader
-	budget    *budget.Budget
-	tracker   *uploader.Tracker
-	watcher   watcher.Watcher
-	heartbeat *heartbeat.Heartbeat
+	ctx     context.Context
+	cancel  context.CancelFunc
+	cfg     config.Settings
+	run     *runctx.RunContext
+	store   *store.AsyncWriter
+	intake  *buffer.Intake
+	budget  *budget.Budget
+	tracker *uploader.Tracker
+	watcher watcher.Watcher
 
 	// 指标与编号状态由 Session.mu 保护；Resume 恢复的 epoch 作为日志起始行号。
 	metrics *metrics.RunMetrics
@@ -192,16 +190,50 @@ type Session struct {
 	checkpoint *checkpoint.Writer
 }
 
+// cloudResources 打包会话的云端交互资源，构造后视为只读并通过原子指针发布。
+type cloudResources struct {
+	uploader  *uploader.Uploader
+	heartbeat *heartbeat.Heartbeat
+	releaseFn func(context.Context) error
+}
+
+func (s *Session) setCloudResources(res *cloudResources) {
+	s.cloud.Store(res)
+}
+
+func (s *Session) uploader() *uploader.Uploader {
+	if res := s.cloud.Load(); res != nil {
+		return res.uploader
+	}
+	return nil
+}
+
+func (s *Session) heartbeat() *heartbeat.Heartbeat {
+	if res := s.cloud.Load(); res != nil {
+		return res.heartbeat
+	}
+	return nil
+}
+
+func (s *Session) releaseFn() func(context.Context) error {
+	if res := s.cloud.Load(); res != nil {
+		return res.releaseFn
+	}
+	return nil
+}
+
 func newSession(opts sessionOptions) *Session {
 	shutdownCtx, shutdownCancel := context.WithCancel(context.Background())
 	s := &Session{
 		drained:        make(chan struct{}),
 		failed:         make(chan struct{}),
 		drainFn:        opts.drainFn,
-		releaseFn:      opts.releaseFn,
 		healthWake:     make(chan struct{}, 1),
 		shutdownCtx:    shutdownCtx,
 		shutdownCancel: shutdownCancel,
+	}
+	if opts.releaseFn != nil {
+		s.setCloudResources(&cloudResources{releaseFn: opts.releaseFn})
 	}
 	s.state.Store(int32(RunStateRunning))
 	return s
@@ -419,13 +451,14 @@ func (s *Session) snapshot() *operationv1.OperationStats {
 	if s.tracker != nil {
 		stats = s.tracker.Snapshot()
 	}
-	if s.uploader == nil && s.intake == nil && s.budget == nil {
+	up := s.uploader()
+	if up == nil && s.intake == nil && s.budget == nil {
 		return stats
 	}
 	upload := &operationv1.UploadStatus{}
-	if s.uploader != nil {
-		upload.PendingRecords = int64(s.uploader.Stats().Pending)
-		upload.Paused = s.uploader.Suspended()
+	if up != nil {
+		upload.PendingRecords = int64(up.Stats().Pending)
+		upload.Paused = up.Suspended()
 	}
 	if s.intake != nil {
 		if paused, seq := s.intake.PauseState(); paused {

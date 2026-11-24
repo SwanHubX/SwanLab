@@ -51,6 +51,24 @@ func installBare(t *testing.T, m *Manager, opts sessionOptions) string {
 	return handle
 }
 
+func setSessionUploader(s *Session, up *uploader.Uploader) {
+	var next cloudResources
+	if cur := s.cloud.Load(); cur != nil {
+		next = *cur
+	}
+	next.uploader = up
+	s.setCloudResources(&next)
+}
+
+func setSessionReleaseFn(s *Session, fn func(context.Context) error) {
+	var next cloudResources
+	if cur := s.cloud.Load(); cur != nil {
+		next = *cur
+	}
+	next.releaseFn = fn
+	s.setCloudResources(&next)
+}
+
 func serveAuth(cloud *clienttest.Cloud) {
 	cloud.ServeJSON(http.MethodGet, "/api/auth/verify", http.StatusOK, map[string]any{
 		"uid":       1,
@@ -376,7 +394,7 @@ func newFinishHarness(t *testing.T, opts finishOptions) *finishHarness {
 
 	s.store = async
 	s.intake = intake
-	s.uploader = up
+	setSessionUploader(s, up)
 	if up != nil {
 		s.drainFn = up.Wait
 	} else {

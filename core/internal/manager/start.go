@@ -25,39 +25,49 @@ import (
 	savev1 "github.com/swanhubx/swanlab/core/proto/swanlab/save/v1"
 )
 
-// DeliverRunStart 完成云端项目/实验编排，装配会话资源并投递 StartRecord。
-//
-// 任一阶段失败都会回滚已创建的资源（包括本次排他创建的 run-*.swanlab），
-// 注册表只在装配全部成功后插入，因此失败不会留下不可用会话。
-func (m *Manager) DeliverRunStart(
+type cloudBootstrap struct {
+	apiHost    string
+	http       *client.Client
+	api        *api.Client
+	workspace  string
+	project    string
+	projectID  string
+	projectVer int32
+	experiment *api.Experiment
+	path       string
+	name       string
+	color      string
+	isNew      bool
+	healthOpts health.SiteOptions
+	resumeRes  *metrics.ResumeResult
+}
+
+func buildHealthOpts(
+	cfg config.Settings,
+	serverProbe, houseProbe health.ProbeFunc,
+	serverDegraded, houseDegraded bool,
+) health.SiteOptions {
+	// 0 值节奏与阈值由 health 补默认。
+	return health.SiteOptions{
+		Key:                   probe.SiteKey(cfg.APIHost, cfg.APIKey),
+		Interval:              probe.SecondsDuration(cfg.HealthProbeInterval),
+		Timeout:               probe.SecondsDuration(cfg.HealthProbeTimeout),
+		DegradeThreshold:      int(cfg.HealthDegradeThreshold),
+		RecoverThreshold:      int(cfg.HealthRecoverThreshold),
+		Server:                serverProbe,
+		House:                 houseProbe,
+		InitialServerDegraded: serverDegraded,
+		InitialHouseDegraded:  houseDegraded,
+	}
+}
+
+func (m *Manager) bootstrapCloud(
 	ctx context.Context,
 	cfg config.Settings,
 	rec *runv1.StartRecord,
-) (*StartResult, error) {
-	if rec == nil {
-		return nil, fmt.Errorf("%w: start record must not be nil", ErrInvalidStartRecord)
-	}
-	run, err := runctx.New(cfg)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrInvalidSettings, err)
-	}
-	if !m.hasCapacity() {
-		return nil, fmt.Errorf("%w: limit %d", ErrTooManySessions, maxSessions)
-	}
-	local, err := resume.LoadLocalRebuild(cfg, run)
-	if err != nil {
-		if errors.Is(err, resume.ErrInvalidRunFile) {
-			return nil, fmt.Errorf("%w: %v", ErrInvalidStartRecord, err)
-		}
-		return nil, err
-	}
-	if cfg.NormalizedMode() != config.ModeOnline {
-		return m.deliverLocalStart(ctx, cfg, rec, run, local)
-	}
-	resumeMode, err := resumeModeFromProto(rec.GetResume())
-	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrInvalidStartRecord, err)
-	}
+	resumeMode api.ResumeMode,
+	local *metrics.RebuildResult,
+) (*cloudBootstrap, error) {
 	normalizedHost, err := client.NormalizeHost(cfg.APIHost)
 	if err != nil {
 		return nil, fmt.Errorf("start: authenticate: %w", err)
@@ -71,17 +81,7 @@ func (m *Manager) DeliverRunStart(
 	if !serverOK {
 		return nil, fmt.Errorf("%w: %s", ErrServerUnreachable, probe.URL(cfg.APIHost, probe.ServerPath))
 	}
-	// 0 值节奏与阈值由 health 补默认。
-	healthOpts := health.SiteOptions{
-		Key:                  probe.SiteKey(cfg.APIHost, cfg.APIKey),
-		Interval:             probe.SecondsDuration(cfg.HealthProbeInterval),
-		Timeout:              probe.SecondsDuration(cfg.HealthProbeTimeout),
-		DegradeThreshold:     int(cfg.HealthDegradeThreshold),
-		RecoverThreshold:     int(cfg.HealthRecoverThreshold),
-		Server:               serverProbe,
-		House:                houseProbe,
-		InitialHouseDegraded: !houseOK,
-	}
+	healthOpts := buildHealthOpts(cfg, serverProbe, houseProbe, false, !houseOK)
 
 	httpClient, err := m.factory.Client(ctx, cfg.APIHost, cfg.APIKey)
 	if err != nil {
@@ -139,18 +139,75 @@ func (m *Manager) DeliverRunStart(
 			client.ErrInvalidResponse, experiment.CUID, experiment.Name)
 	}
 
-	run.SetOnlineParams(runctx.OnlineParams{
-		Username:       workspace,
-		Project:        projectName,
-		ProjectID:      project.CUID,
-		ProjectVersion: int32(project.Version),
-		ExperimentID:   experiment.CUID,
-	})
-
-	resume, err := restoreMetrics(ctx, apiClient, project.CUID, experiment, resumeMode, isNew, local)
+	resumeRes, err := restoreMetrics(ctx, apiClient, project.CUID, experiment, resumeMode, isNew, local)
 	if err != nil {
 		return nil, err
 	}
+
+	return &cloudBootstrap{
+		apiHost:    normalizedHost,
+		http:       httpClient,
+		api:        apiClient,
+		workspace:  workspace,
+		project:    projectName,
+		projectID:  project.CUID,
+		projectVer: int32(project.Version),
+		experiment: experiment,
+		path:       project.Path + "/" + firstNonEmpty(experiment.Slug, experiment.CUID),
+		name:       name,
+		color:      color,
+		isNew:      isNew,
+		healthOpts: healthOpts,
+		resumeRes:  resumeRes,
+	}, nil
+}
+
+// DeliverRunStart 完成云端项目/实验编排，装配会话资源并投递 StartRecord。
+//
+// 任一阶段失败都会回滚已创建的资源（包括本次排他创建的 run-*.swanlab），
+// 注册表只在装配全部成功后插入，因此失败不会留下不可用会话。
+func (m *Manager) DeliverRunStart(
+	ctx context.Context,
+	cfg config.Settings,
+	rec *runv1.StartRecord,
+) (*StartResult, error) {
+	if rec == nil {
+		return nil, fmt.Errorf("%w: start record must not be nil", ErrInvalidStartRecord)
+	}
+	run, err := runctx.New(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrInvalidSettings, err)
+	}
+	if !m.hasCapacity() {
+		return nil, fmt.Errorf("%w: limit %d", ErrTooManySessions, maxSessions)
+	}
+	local, err := resume.LoadLocalRebuild(cfg, run)
+	if err != nil {
+		if errors.Is(err, resume.ErrInvalidRunFile) {
+			return nil, fmt.Errorf("%w: %v", ErrInvalidStartRecord, err)
+		}
+		return nil, err
+	}
+	if cfg.NormalizedMode() != config.ModeOnline {
+		return m.deliverLocalStart(ctx, cfg, rec, run, local)
+	}
+	resumeMode, err := resumeModeFromProto(rec.GetResume())
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrInvalidStartRecord, err)
+	}
+	boot, err := m.bootstrapCloud(ctx, cfg, rec, resumeMode, local)
+	if err != nil {
+		return nil, err
+	}
+	cfg.APIHost = boot.apiHost
+
+	run.SetOnlineParams(runctx.OnlineParams{
+		Username:       boot.workspace,
+		Project:        boot.project,
+		ProjectID:      boot.projectID,
+		ProjectVersion: boot.projectVer,
+		ExperimentID:   boot.experiment.CUID,
+	})
 
 	var startCounter int64
 	if local != nil {
@@ -160,21 +217,21 @@ func (m *Manager) DeliverRunStart(
 	s.ctx, s.cancel = context.WithCancel(context.Background())
 	s.cfg = cfg
 	s.run = run
-	s.metrics = resume.Metrics
+	s.metrics = boot.resumeRes.Metrics
 	s.counter = counter.New(startCounter)
-	s.epoch = counter.New(resume.ConsoleEpoch)
+	s.epoch = counter.New(boot.resumeRes.ConsoleEpoch)
 
 	if err = s.open(sessionInit{
 		cfg:          cfg,
 		run:          run,
-		http:         httpClient,
-		api:          apiClient,
-		workspace:    workspace,
-		project:      projectName,
-		projectID:    project.CUID,
-		experimentID: experiment.CUID,
+		http:         boot.http,
+		api:          boot.api,
+		workspace:    boot.workspace,
+		project:      boot.project,
+		projectID:    boot.projectID,
+		experimentID: boot.experiment.CUID,
 		healthReg:    m.healthReg,
-		healthOpts:   healthOpts,
+		healthOpts:   boot.healthOpts,
 		resume:       local,
 	}); err != nil {
 		s.rollback()
@@ -182,10 +239,10 @@ func (m *Manager) DeliverRunStart(
 	}
 
 	start := proto.Clone(rec).(*runv1.StartRecord)
-	start.Name = name
-	start.Color = color
-	start.Workspace = workspace
-	start.Project = projectName
+	start.Name = boot.name
+	start.Color = boot.color
+	start.Workspace = boot.workspace
+	start.Project = boot.project
 	if local == nil || local.Start == nil {
 		if err = s.commitStart(ctx, start); err != nil {
 			s.rollback()
@@ -202,11 +259,11 @@ func (m *Manager) DeliverRunStart(
 	return &StartResult{
 		SessionID:        sessionID,
 		Run:              start,
-		Path:             project.Path + "/" + firstNonEmpty(experiment.Slug, experiment.CUID),
-		Name:             experiment.Name,
-		GlobalStep:       resume.GlobalStep,
-		GlobalSystemStep: resume.GlobalSystemStep,
-		NewExperiment:    isNew,
+		Path:             boot.path,
+		Name:             boot.experiment.Name,
+		GlobalStep:       boot.resumeRes.GlobalStep,
+		GlobalSystemStep: boot.resumeRes.GlobalSystemStep,
+		NewExperiment:    boot.isNew,
 	}, nil
 }
 

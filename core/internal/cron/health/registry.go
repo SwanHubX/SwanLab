@@ -21,9 +21,10 @@ type SiteOptions struct {
 	// Server / House 分别是 swanlab-server 与 swanlab-house 的探测函数，必须非 nil。
 	Server ProbeFunc
 	House  ProbeFunc
-	// InitialHouseDegraded 让启动预检结论直接进入降级；
+	// InitialServerDegraded / InitialHouseDegraded 让启动预检结论直接进入降级；
 	// 之后探针仍按连续成功阈值恢复。
-	InitialHouseDegraded bool
+	InitialServerDegraded bool
+	InitialHouseDegraded  bool
 }
 
 // Registry 按站点共享探针：引用计数归零时停止探测任务。
@@ -54,7 +55,7 @@ func (r *Registry) Acquire(opts SiteOptions) *Site {
 	defer r.mu.Unlock()
 	if e, ok := r.sites[opts.Key]; ok {
 		e.refs++
-		e.site.MergeInitial(opts.InitialHouseDegraded)
+		e.site.MergeInitial(opts.InitialServerDegraded, opts.InitialHouseDegraded)
 		return e.site
 	}
 	s := newSite(opts, r.clock)

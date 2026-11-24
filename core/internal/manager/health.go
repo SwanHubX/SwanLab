@@ -50,15 +50,16 @@ func (s *Session) watchHealth(ctx context.Context) {
 // reconcileHealth 把站点状态映射为上传暂停/恢复，并驱动补投启停。
 // 写入侧降级（reason=write）保持投递，否则暂停后永远等不到成功信号。
 func (s *Session) reconcileHealth() {
-	if s.site == nil || s.uploader == nil {
+	up := s.uploader()
+	if s.site == nil || up == nil {
 		return
 	}
 	if s.shouldSuspendUploads() {
-		s.uploader.Suspend()
+		up.Suspend()
 		s.backfill.CancelAttempt()
 		return
 	}
-	s.uploader.Resume()
+	up.Resume()
 	// 健康状态变化后让补投按最新状态重新开始。
 	s.backfill.CancelAttempt()
 	s.backfill.Wake()

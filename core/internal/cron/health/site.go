@@ -49,6 +49,9 @@ func newSite(opts SiteOptions, clock cron.Clock) *Site {
 		s.setReason(ReasonProbeHouse, degraded)
 	})
 	// 启动预检在任务协程启动前写入初值，避免首个探测周期内的错误乐观状态。
+	if opts.InitialServerDegraded {
+		s.server.degradeNow()
+	}
 	if opts.InitialHouseDegraded {
 		s.house.degradeNow()
 	}
@@ -85,8 +88,11 @@ func (s *Site) Subscribe() (<-chan struct{}, func()) {
 }
 
 // MergeInitial 把后续会话的启动预检结论并入共享站点；只降级、不升级。
-// 探针随后仍按连续成功阈值恢复该服务。
-func (s *Site) MergeInitial(houseDegraded bool) {
+// 探针随后仍按连续成功阈值恢复对应服务。
+func (s *Site) MergeInitial(serverDegraded, houseDegraded bool) {
+	if serverDegraded {
+		s.server.degradeNow()
+	}
 	if houseDegraded {
 		s.house.degradeNow()
 	}

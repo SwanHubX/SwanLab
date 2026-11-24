@@ -468,10 +468,10 @@ func TestManagerShutdownDrainsActiveSessions(t *testing.T) {
 		t.Fatalf("UpsertScalars: %v", err)
 	}
 	var stops int
-	h.session.releaseFn = func(context.Context) error {
+	setSessionReleaseFn(h.session, func(context.Context) error {
 		stops++
 		return nil
-	}
+	})
 	if err := h.mgr.Shutdown(ctx); err != nil {
 		t.Fatalf("Shutdown: %v", err)
 	}
@@ -508,10 +508,10 @@ func TestConfirmRejectsSessionDrainedByShutdown(t *testing.T) {
 		t.Fatalf("UpsertScalars: %v", err)
 	}
 	var stops int
-	h.session.releaseFn = func(context.Context) error {
+	setSessionReleaseFn(h.session, func(context.Context) error {
 		stops++
 		return nil
-	}
+	})
 
 	if err := h.mgr.Shutdown(ctx); err != nil {
 		t.Fatalf("Shutdown: %v", err)
@@ -545,10 +545,10 @@ func TestDisconnectSessionDrainsAndReleasesSlot(t *testing.T) {
 		t.Fatalf("UpsertScalars: %v", err)
 	}
 	var stops int
-	h.session.releaseFn = func(context.Context) error {
+	setSessionReleaseFn(h.session, func(context.Context) error {
 		stops++
 		return nil
-	}
+	})
 	if got := h.mgr.SessionCount(); got != 1 {
 		t.Fatalf("SessionCount = %d, want 1", got)
 	}
@@ -609,10 +609,10 @@ func TestDisconnectSessionAfterFinishDoesNotFakeConfirmSuccess(t *testing.T) {
 	defer cancel()
 
 	var stops int
-	h.session.releaseFn = func(context.Context) error {
+	setSessionReleaseFn(h.session, func(context.Context) error {
 		stops++
 		return nil
-	}
+	})
 
 	if err := h.mgr.DeliverRunFinish(ctx, h.id, &runv1.FinishRecord{
 		State: runv1.RunState_RUN_STATE_FINISHED,

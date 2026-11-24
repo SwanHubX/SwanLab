@@ -69,7 +69,7 @@ func (s *Session) finish(ctx context.Context, rec *runv1.FinishRecord) error {
 		s.fail(err)
 		return s.failure()
 	}
-	if s.uploader != nil && s.stateSnapshot() == RunStateDraining {
+	if s.uploader() != nil && s.stateSnapshot() == RunStateDraining {
 		s.startOnlineDrain()
 	}
 	return nil
@@ -137,7 +137,7 @@ func (s *Session) deliverLocalFinish(ctx context.Context) error {
 		return fmt.Errorf("%w: local copy is incomplete", ErrRunFailed)
 	}
 
-	if s.uploader == nil {
+	if s.uploader() == nil {
 		s.recovery.Stop()
 		if err := s.closeIntake(ctx); err != nil {
 			return err
@@ -155,7 +155,7 @@ func isContextErr(err error) bool {
 
 // completeOnlineFinish 完成积压补传、崩溃日志入队与关闭 intake；需持有 finishMu。
 func (s *Session) completeOnlineFinish(ctx context.Context) error {
-	if s.uploader == nil || s.uploadDrainPrepared {
+	if s.uploader() == nil || s.uploadDrainPrepared {
 		return nil
 	}
 	// 本地记录已在 DeliverRunFinish 全部刷盘，补完暂停区间后才能关闭 intake。
@@ -184,7 +184,7 @@ func (s *Session) runOnlineDrain(ctx context.Context) {
 	if s.shutdownCtx != nil && s.shutdownCtx.Err() != nil {
 		return
 	}
-	if s.stateSnapshot() != RunStateDraining || !s.finishCommitted || s.uploader == nil || s.uploadDrainPrepared {
+	if s.stateSnapshot() != RunStateDraining || !s.finishCommitted || s.uploader() == nil || s.uploadDrainPrepared {
 		return
 	}
 	if err := s.completeOnlineFinish(ctx); err != nil && !isContextErr(err) {
@@ -286,8 +286,8 @@ func (s *Session) closeIntake(ctx context.Context) error {
 		}
 		return fmt.Errorf("%w: close intake: %w", ErrRunFailed, err)
 	}
-	if s.uploader != nil {
-		s.uploader.RequestFinish()
+	if up := s.uploader(); up != nil {
+		up.RequestFinish()
 	}
 	return nil
 }
@@ -326,8 +326,8 @@ func (s *Session) resumeFinish(ctx context.Context) error {
 		s.fail(err)
 		return s.failure()
 	}
-	if s.uploader != nil {
-		if err := s.uploader.Wait(runCtx); err != nil {
+	if up := s.uploader(); up != nil {
+		if err := up.Wait(runCtx); err != nil {
 			return fmt.Errorf("confirm: wait for drain: %w", err)
 		}
 	}
@@ -384,8 +384,8 @@ func (s *Session) shutdown(ctx context.Context) error {
 	var errs []error
 	_ = s.beginDrain()
 	s.backfill.Stop()
-	if s.heartbeat != nil {
-		s.heartbeat.Stop(ctx)
+	if hb := s.heartbeat(); hb != nil {
+		hb.Stop(ctx)
 	}
 	if s.watcher != nil {
 		s.watcher.Stop()
@@ -412,9 +412,9 @@ func (s *Session) shutdown(ctx context.Context) error {
 			closed = false
 		}
 	}
-	if closed && s.uploader != nil {
-		s.uploader.RequestFinish()
-		if err := s.uploader.Wait(ctx); err != nil {
+	if up := s.uploader(); closed && up != nil {
+		up.RequestFinish()
+		if err := up.Wait(ctx); err != nil {
 			console.Warningf("shutdown: wait for drain: %v", err)
 			errs = append(errs, fmt.Errorf("wait for drain: %w", err))
 		}

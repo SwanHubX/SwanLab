@@ -21,7 +21,8 @@ func TestSessionSnapshotIncludesUploadStatus(t *testing.T) {
 		t.Fatalf("budget acquire: %v", err)
 	}
 
-	s := &Session{tracker: tracker, uploader: up, budget: ledger}
+	s := &Session{tracker: tracker, budget: ledger}
+	setSessionUploader(s, up)
 	stats := s.snapshot()
 
 	if stats.GetState() != operationv1.CoreState_CORE_STATE_RUNNING {
@@ -41,7 +42,8 @@ func TestSessionSnapshotIncludesUploadStatus(t *testing.T) {
 func TestSessionSnapshotIdleUploadStatus(t *testing.T) {
 	up := newIdleUploader(t)
 	tracker := uploader.NewTracker()
-	s := &Session{tracker: tracker, uploader: up}
+	s := &Session{tracker: tracker}
+	setSessionUploader(s, up)
 	stats := s.snapshot()
 
 	if stats.GetUpload() == nil {

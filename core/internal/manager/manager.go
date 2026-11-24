@@ -310,23 +310,23 @@ func (m *Manager) Confirm(ctx context.Context, sessionID string) (ConfirmResult,
 
 	// 与 Python 对齐：排空成功后先停心跳，再上报实验终态；失败时心跳保持停止，
 	// 会话保留供重试，避免重试期间继续发送心跳。
-	if s.heartbeat != nil {
-		s.heartbeat.Stop(ctx)
+	if hb := s.heartbeat(); hb != nil {
+		hb.Stop(ctx)
 		// 心跳等待可能耗尽 RPC 预算，ctx 已失效时不再发 stop_experiment。
 		if err = ctx.Err(); err != nil {
 			return ConfirmResult{}, err
 		}
 	}
-	if s.releaseFn != nil {
-		if err = s.releaseFn(ctx); err != nil {
+	if release := s.releaseFn(); release != nil {
+		if err = release(ctx); err != nil {
 			console.Warningf("confirm: stop experiment %q: %v", sessionID, err)
 			// 只把网络/超时类失败标记为可重试；4xx 等确定性失败重发也不会成功。
 			retryable := client.IsRetryable(err) || errors.Is(err, context.DeadlineExceeded)
 			return ConfirmResult{Message: s.confirmMessage(), ReleaseFailed: true, Retryable: retryable}, nil
 		}
 	}
-	if s.uploader != nil {
-		_ = s.uploader.Close()
+	if up := s.uploader(); up != nil {
+		_ = up.Close()
 	}
 	s.stopOnlineDrain()
 	if s.cancel != nil {
@@ -377,8 +377,8 @@ func (m *Manager) DisconnectSession(ctx context.Context, sessionID string) error
 	}
 
 	drainErr := s.shutdown(ctx)
-	if s.uploader != nil {
-		if closeErr := s.uploader.Close(); closeErr != nil {
+	if up := s.uploader(); up != nil {
+		if closeErr := up.Close(); closeErr != nil {
 			drainErr = errors.Join(drainErr, closeErr)
 		}
 	}
@@ -470,8 +470,8 @@ func (m *Manager) Shutdown(ctx context.Context) error {
 
 	// 无论是否在预算内排空，都释放 uploader 的 worker 协程；已排空时 Close 为 no-op。
 	for _, s := range sessions {
-		if s.uploader != nil {
-			if err := s.uploader.Close(); err != nil {
+		if up := s.uploader(); up != nil {
+			if err := up.Close(); err != nil {
 				console.Warningf("shutdown: close uploader: %v", err)
 			}
 		}

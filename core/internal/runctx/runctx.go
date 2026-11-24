@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"sync"
 
 	"github.com/swanhubx/swanlab/core/internal/config"
 	"github.com/swanhubx/swanlab/core/internal/pkg/fs"
@@ -29,6 +30,7 @@ var (
 type RunContext struct {
 	config.Settings
 
+	mu        sync.RWMutex
 	online    OnlineParams
 	hasOnline bool
 }
@@ -99,12 +101,16 @@ func (c *RunContext) CheckpointFile() (string, error) {
 
 // SetOnlineParams 注入云端身份信息，重复调用以最后一次为准。
 func (c *RunContext) SetOnlineParams(p OnlineParams) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.online = p
 	c.hasOnline = true
 }
 
 // Online 返回已注入的云端身份信息；未注入时第二个返回值为 false。
 func (c *RunContext) Online() (OnlineParams, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	return c.online, c.hasOnline
 }
 
