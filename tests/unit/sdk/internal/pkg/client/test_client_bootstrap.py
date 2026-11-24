@@ -93,7 +93,7 @@ def test_unauthorized_login_error_is_not_transient():
 
 @responses.activate
 def test_non_json_login_response_is_transient_but_not_recoverable():
-    """2xx 但不是 JSON（如强制门户）不能进入后台恢复流程。"""
+    """2xx 但不是 JSON（例如强制门户页面）时不能进入后台恢复。"""
     responses.add(
         responses.POST,
         LOGIN_URL,
@@ -111,7 +111,7 @@ def test_non_json_login_response_is_transient_but_not_recoverable():
 
 
 def test_invalid_login_payload_is_transient_but_not_recoverable():
-    """2xx 但缺少 sid/expiredAt/用户信息属于协议错误，不能进入后台恢复。"""
+    """2xx 但缺少 sid、expiredAt 或用户信息时，属于协议错误，不能进入后台恢复。"""
     cause = ApiError(None, method="POST", code="invalid_login_response", message="missing sid", retryable=True)
     exc = _wrap(cause)
 
@@ -120,7 +120,7 @@ def test_invalid_login_payload_is_transient_but_not_recoverable():
 
 
 def test_recoverable_login_error_keeps_network_and_5xx():
-    """网络错误、408/429/5xx 仍允许后台恢复；401/403 与配置错误不允许。"""
+    """网络错误和 408/429/5xx 允许后台恢复；401/403 与配置错误不允许。"""
     assert is_recoverable_login_error(_wrap(requests.ConnectionError("boom")))
     for status in (408, 429, 500, 503):
         assert is_recoverable_login_error(_wrap(ApiError(MagicMock(status_code=status), method="POST", code=status)))

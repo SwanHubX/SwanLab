@@ -605,7 +605,7 @@ class TestOnlineRecoveryEligibility:
         assert _can_recover_online(backend, settings, run_dir) is expected
 
     def test_malformed_login_response_does_not_enter_recovery(self, monkeypatch, tmp_path):
-        """2xx 但响应缺字段不能进入后台恢复；CorePython 的降级路径保持不变。"""
+        """2xx 响应缺少字段时不进入后台恢复；CorePython 仍按原逻辑降级。"""
         import swanlab.sdk.cmd.init as init_module
         from swanlab.sdk.internal.pkg.client import is_recoverable_login_error, is_transient_login_error
 
@@ -632,7 +632,7 @@ class TestOnlineRecoveryEligibility:
             _ensure_online_client_or_fallback(ctx, settings, "run-1", tmp_path, allow_recover_online=True)
         ctx.core.abort.assert_called_once_with(exc)
 
-        # 不具备恢复资格时仍按 #1816 走 offline 降级，不改变 CorePython 行为。
+        # 不具备恢复资格时仍按 #1816 降级为 offline，CorePython 行为不变。
         fallback = MagicMock()
         monkeypatch.setattr(init_module, "_switch_run_to_fallback", fallback)
         mode, recover = _ensure_online_client_or_fallback(ctx, settings, "run-1", tmp_path, allow_recover_online=False)

@@ -342,7 +342,7 @@ func (m *Manager) Confirm(ctx context.Context, sessionID string) (ConfirmResult,
 		_ = up.Close()
 	}
 	s.stopOnlineDrain()
-	// 接入协程必须在会话 context 取消前显式退出，避免它继续访问已释放的站点/存储资源。
+	// 先停止连接任务，再取消会话 context，避免它继续访问已经释放的站点和存储资源。
 	s.stopAttach()
 	if s.cancel != nil {
 		s.cancel()

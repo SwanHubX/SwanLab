@@ -1,4 +1,4 @@
-// 本文件实现初始化阶段后端不可达时的异步云端接入与历史补传启动逻辑。
+// 本文件负责在后端不可用时先记录到本地，并在后端恢复后创建云端实验、上传历史记录。
 package manager
 
 import (
@@ -19,23 +19,23 @@ import (
 )
 
 const (
-	// 连续认证失败次数上限，达到后认定凭据或权限失效，停止重试。
+	// 连续认证失败达到这个次数后，认为凭据或权限无效，停止重试。
 	attachAuthFailLimit = 3
 
-	// 接入退避与错峰抖动的默认时间参数。
+	// 连接重试的默认等待时间和单次请求超时。
 	attachInitialBackoff = 500 * time.Millisecond
 	attachMaxBackoff     = 30 * time.Second
 	attachJitterMax      = 500 * time.Millisecond
 	attachAttemptTimeout = 30 * time.Second
-	// 站点订阅通道意外关闭后，等待主服务恢复的轮询间隔。
+	// 站点状态通知意外关闭时，改为按这个间隔检查主服务是否恢复。
 	attachServerPoll = time.Second
 )
 
-// errAttachStopped 表示会话生命周期已不允许发布云端资源（例如已进入 DRAINED 或正在退出），
-// 属于正常停止而不是可上报的永久接入失败。
+// errAttachStopped 表示会话已经结束或正在退出，不能再保存云端资源。
+// 这是正常的停止条件，不应记录为云端连接永久失败。
 var errAttachStopped = errors.New("cloud attach stopped by session lifecycle")
 
-// attachTiming 控制接入重试的退避与超时参数；零值字段使用生产默认常量。
+// attachTiming 控制连接重试的等待时间和超时；零值字段使用默认值。
 type attachTiming struct {
 	initialBackoff time.Duration
 	maxBackoff     time.Duration
@@ -59,18 +59,18 @@ func (t attachTiming) withDefaults() attachTiming {
 	return t
 }
 
-// attachParams 保存后台创建云端实验并挂载上传资源所需的全部静态参数。
+// attachParams 保存后台创建云端实验和上传资源所需的参数。
 type attachParams struct {
 	factory    *client.Factory
 	start      *runv1.StartRecord
 	resumeMode api.ResumeMode
 	timing     attachTiming
-	// name/color 在首次成功读取项目统计后固定，重试时不再随项目实验数变化重新生成。
+	// 名称和颜色在第一次拿到项目信息后确定，后续重试复用，避免被重新生成。
 	name  string
 	color string
 }
 
-// startAttach 启动单个会话的后台接入协程；受会话生命周期与 stopAttach 控制。
+// startAttach 为会话启动后台任务，负责创建云端实验并保存上传资源。
 func (s *Session) startAttach(params attachParams) {
 	if params.name == "" {
 		params.name = params.start.GetName()
@@ -94,7 +94,7 @@ func (s *Session) startAttach(params attachParams) {
 	}()
 }
 
-// stopAttach 取消并等待后台接入协程退出；未启动或已停止时可重复调用。
+// stopAttach 取消并等待后台连接任务退出；未启动或已停止时可以重复调用。
 func (s *Session) stopAttach() {
 	s.cloudMu.Lock()
 	cancel := s.attachCancel
@@ -105,7 +105,7 @@ func (s *Session) stopAttach() {
 	s.attachWG.Wait()
 }
 
-// waitAttach 等待延迟接入完成或永久失败；未启用延迟接入或已接入时立即返回。
+// waitAttach 等待后台云端连接结束。没有启动连接或已经连接成功时立即返回。
 func (s *Session) waitAttach(ctx context.Context) error {
 	s.cloudMu.Lock()
 	done := s.attachDone
@@ -122,7 +122,7 @@ func (s *Session) waitAttach(ctx context.Context) error {
 		case operationv1.CloudState_CLOUD_STATE_ATTACHED:
 			return nil
 		default:
-			// 接入协程因退出/收尾取消而停止：这是上下文级中断，不是云端永久失败。
+			// 连接任务因会话结束被取消：这是主动停止，不是云端永久失败。
 			return fmt.Errorf("%w: cloud attach stopped before completion", context.Canceled)
 		}
 	case <-ctx.Done():
@@ -130,10 +130,10 @@ func (s *Session) waitAttach(ctx context.Context) error {
 	}
 }
 
-// runAttach 周期性尝试接入云端，直到成功、遇到不可恢复错误或会话取消。
-// 重试由自身退避驱动；站点健康探针恢复时仅作为立即唤醒信号，多会话恢复时加入随机抖动错峰。
+// runAttach 按退避重试创建云端实验，直到成功、遇到不可恢复错误或任务被取消。
+// 站点健康检查恢复只用于提前唤醒；多个会话同时恢复时随机错开请求。
 func (s *Session) runAttach(ctx context.Context, params attachParams) {
-	// 无论以何种方式退出，都要释放 waitAttach，避免收尾协程永久等待接入结果。
+	// 退出时关闭 attachDone，让等待连接结果的结束流程可以继续。
 	defer s.markAttachStopped()
 	timing := params.timing.withDefaults()
 	var siteUpdates <-chan struct{}
@@ -192,14 +192,15 @@ func (s *Session) runAttach(ctx context.Context, params attachParams) {
 			continue
 		}
 
-		// 非认证且不可重试的错误（如参数拒绝、resume=must 找不到实验、响应格式异常）不再重试。
+		// 非认证且不可重试的错误（如参数无效、resume=must 找不到实验、响应格式异常）不再重试。
 		console.Errorf("cloud attach failed permanently: %v", err)
 		s.markCloudFailed(err)
 		return
 	}
 }
 
-// tryAttach 执行一次有序接入：认证 -> 建项目/实验 -> 装配云端资源 -> 原子挂载 -> 条件启动补传。
+// tryAttach 执行一次完整连接：认证、获取或创建项目、创建实验、创建上传资源并保存到会话。
+// 只有会话仍在运行时才启动后台上传；DRAINING/FAILED 由结束流程统一处理积压记录。
 func (s *Session) tryAttach(ctx context.Context, params *attachParams, attemptTimeout time.Duration) error {
 	attemptCtx, cancel := context.WithTimeout(ctx, attemptTimeout)
 	defer cancel()
@@ -231,7 +232,7 @@ func (s *Session) tryAttach(ctx context.Context, params *attachParams, attemptTi
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
-	// 已 DRAINED 的会话不再创建实验，避免退出路径留下无人接管的云端身份。
+	// 会话已经完成结束时不再创建实验，避免留下没有会话管理的云端实验。
 	if s.stateSnapshot() == RunStateDrained {
 		return errAttachStopped
 	}
@@ -289,17 +290,17 @@ func (s *Session) tryAttach(ctx context.Context, params *attachParams, attemptTi
 		return fmt.Errorf("attach: build resources: %w", err)
 	}
 
-	// 站点非写入侧降级且本地存储可用时，挂载前保持暂停，避免向异常的存储服务发请求。
+	// 站点读取侧异常且本地存储可用时，先暂停上传，避免向异常的服务发请求。
 	if s.shouldSuspendAttachedUploader() {
 		res.uploader.Suspend()
 	}
 
-	// 状态检查、挂载云端资源与“仅在运行中启动补传”共用 Session.mu，避免与收尾停补传竞态；
-	// 接入协程绝不获取 finishMu，防止与等待接入的收尾协程死锁。
-	//
-	// FAILED 也允许挂载：DeliverRunFinish 可能在实验创建期间失败，此时 Confirm 会通过
-	// resumeFinish 统一补传和排空，不能让已创建的实验失去 releaseFn。只有退出路径
-	// （ctx 已取消或已进入 DRAINED）才放弃挂载，并返回可识别的停止错误。
+	// 在 Session.mu 内同时检查状态、保存云端资源并决定是否启动后台上传：
+	// - RUNNING：保存资源并启动后台上传；
+	// - DRAINING/FAILED：只保存资源，积压记录由结束流程统一上传；
+	// - 其他状态或 ctx 已取消：关闭刚创建的资源，返回 errAttachStopped。
+	// FAILED 也必须保存资源，否则已经创建的实验无法在 Confirm 中停止。
+	// 连接任务不获取 finishMu，避免和等待连接结果的结束流程互相等待。
 	var startedBackfill bool
 	stopped := false
 	s.mu.Lock()
@@ -362,7 +363,7 @@ func nextAttachDelay(err error, backoff, maxBackoff time.Duration) time.Duration
 	return delay
 }
 
-// waitForServerRecovery 等待站点主服务探针脱离降级，并在唤醒后加入随机抖动错峰。
+// waitForServerRecovery 等待主服务恢复。恢复后随机等待一小段时间，避免多个会话同时请求。
 func waitForServerRecovery(
 	ctx context.Context,
 	siteUpdates <-chan struct{},
@@ -370,7 +371,7 @@ func waitForServerRecovery(
 	jitterMax time.Duration,
 ) bool {
 	if siteUpdates == nil {
-		// 无订阅时退化为定时轮询，保证接入协程不会静默退出。
+		// 没有站点通知时按固定间隔检查，保证连接任务不会就此退出。
 		for serverDegraded() {
 			timer := time.NewTimer(attachServerPoll)
 			select {
@@ -388,7 +389,7 @@ func waitForServerRecovery(
 			return false
 		case _, ok := <-siteUpdates:
 			if !ok {
-				// 订阅通道意外关闭：退化为定时轮询，继续等待主服务恢复。
+				// 订阅意外关闭后改为定时检查，继续等待主服务恢复。
 				return waitForServerRecovery(ctx, nil, serverDegraded, jitterMax)
 			}
 		}
@@ -396,7 +397,7 @@ func waitForServerRecovery(
 	return waitJitter(ctx, jitterMax)
 }
 
-// waitAttachBackoff 按退避时长等待下一次重试；若期间收到服务端恢复通知则立即唤醒并错峰。
+// waitAttachBackoff 等待下一次重试；收到服务恢复通知时提前唤醒并随机错开。
 func waitAttachBackoff(
 	ctx context.Context,
 	delay time.Duration,
@@ -417,7 +418,7 @@ func waitAttachBackoff(
 			return true
 		case _, ok := <-siteUpdates:
 			if !ok {
-				// 订阅通道意外关闭时降级为纯定时器等待，避免忙轮询。
+				// 订阅通道关闭后只按定时器等待，避免空转。
 				siteUpdates = nil
 				continue
 			}

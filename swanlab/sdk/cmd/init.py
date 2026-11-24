@@ -1005,11 +1005,11 @@ def _ensure_online_client_or_fallback(
         if not is_transient_login_error(e) or run_settings.on_online_error == "raise":
             raise
         if allow_recover_online:
-            # 2xx 但响应不是有效 JSON/缺少字段属于协议错误，不是后端宕机；
-            # 进入后台恢复会无限等待一个不会自行恢复的状态，必须直接报错。
+            # 2xx 但响应无效属于服务端协议错误，不是后端宕机。
+            # 这类错误不会自行恢复，不能进入后台重试，应直接报错。
             if not is_recoverable_login_error(e):
-                # 此时 RunContext 已创建 Core；异常不会再进入 deliver 阶段的兜底
-                # abort，必须在这里回收，避免退出时遗留 Core 进程。
+                # 此时 Core 已经创建；异常不会再进入 deliver 阶段的统一 abort，
+                # 需要在这里结束 Core，避免退出后留下进程。
                 if ctx is not None:
                     with safe.block(message="core abort failed after invalid login response"):
                         ctx.core.abort(e)

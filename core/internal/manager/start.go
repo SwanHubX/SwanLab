@@ -113,7 +113,7 @@ func (m *Manager) bootstrapCloud(
 	name := rec.GetName()
 	color := rec.GetColor()
 	if local != nil && local.Start != nil {
-		// 续传时本地 StartRecord 是既有实验身份，优先于本次请求里的默认值。
+		// 恢复已有运行时，以本地 StartRecord 中的名称和颜色为准，避免名称或颜色变化。
 		if local.Start.GetName() != "" {
 			name = local.Start.GetName()
 		}
@@ -345,7 +345,7 @@ func (m *Manager) deliverRecoverStart(
 
 	start := proto.Clone(rec).(*runv1.StartRecord)
 	if local != nil && local.Start != nil {
-		// 本地已有未完成的 StartRecord 时以它为准，保证恢复前后实验身份稳定。
+		// 本地已有未完成的 StartRecord 时优先使用它的名称和颜色，保证恢复前后一致。
 		if local.Start.GetName() != "" {
 			start.Name = local.Start.GetName()
 		}
@@ -360,8 +360,8 @@ func (m *Manager) deliverRecoverStart(
 		}
 	}
 
-	// 注册表容量只能在 install 内最终确认；先启动接入会在安装失败时留下无人接管的
-	// 云端实验。install 成功后再启动后台接入，rollback 就不会再遇到已创建的云端身份。
+	// 会话是否注册成功只能在 install 中确认。如果先启动连接任务，install 失败后
+	// 后台可能已经创建了云端实验，而 rollback 无法结束它。因此 install 成功后再启动。
 	sessionID, err := m.install(s)
 	if err != nil {
 		s.rollback()

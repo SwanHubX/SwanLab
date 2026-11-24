@@ -2064,7 +2064,7 @@ class TestInitOnlineRecoveryWithGoCore:
         assert run.path == "/alice/proj/run-recovered"
 
     def test_invalid_login_response_does_not_start_recover_core(self, monkeypatch, tmp_path):
-        """2xx 但响应缺字段时直接报错，不能带 recover_online=True 启动 Core。"""
+        """2xx 响应缺少必需字段时应直接报错，不能带着 recover_online=True 启动 Core。"""
         from swanlab.exceptions import ApiError
         from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import DeliverRunStartResponse
 

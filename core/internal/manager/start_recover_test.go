@@ -159,7 +159,7 @@ func TestDeliverRunStartRecoverOnlineNewExperiment(t *testing.T) {
 		t.Fatalf("initial cloud state = %v, want PENDING", stats.GetCloud().GetState())
 	}
 
-	// 未接入期间连续写入两条标量，应只写本地而不发往云端。
+	// 云端实验创建前连续写入两条标量，应只写本地而不发往云端。
 	for step := int64(1); step <= 2; step++ {
 		if upsertErr := mgr.UpsertScalars(context.Background(), res.SessionID, []*datav1.ScalarRecord{
 			{
@@ -177,7 +177,7 @@ func TestDeliverRunStartRecoverOnlineNewExperiment(t *testing.T) {
 		t.Fatal("records must not be uploaded before cloud attach completes")
 	}
 
-	// 后端恢复后自动创建实验并补传全部历史记录。
+	// 后端恢复后自动创建实验并上传全部历史记录。
 	backendUp.Store(true)
 	s, err := mgr.session(res.SessionID)
 	if err != nil {
@@ -242,7 +242,7 @@ func TestDeliverRunStartRecoverOnlineWithExistingLocalRun(t *testing.T) {
 	cfg.HealthDegradeThreshold = 1
 	cfg.HealthRecoverThreshold = 1
 
-	// 本地已有 Start + 3 条标量，checkpoint 落在第 2 条记录（seq=2），还有 2 条待补传。
+	// 本地已有 Start + 3 条标量，checkpoint 落在第 2 条记录（seq=2），还有 2 条待上传。
 	seedLocalRunFile(t, cfg, "local-name", "#654321", 3, 2)
 
 	res, err := mgr.DeliverRunStart(context.Background(), cfg, &runv1.StartRecord{
@@ -284,11 +284,11 @@ func TestDeliverRunStartRecoverOnlineWithExistingLocalRun(t *testing.T) {
 		t.Fatal("timed out waiting for checkpointed replay after attach")
 	}
 
-	// 恢复模式接入不拉取云端摘要接口。
+	// 恢复模式下创建实验时不拉取云端摘要。
 	if summaryCalls := cloud.CountFor(http.MethodGet, "/api/house/metrics/summaries/proj-1/exp-existing"); summaryCalls != 0 {
 		t.Fatalf("ExperimentSummary called %d times, want 0", summaryCalls)
 	}
-	// 确认只补传 checkpoint 之后的记录（step 2 与 step 3，不重复传 step 1）。
+	// 确认只上传 checkpoint 之后的记录（step 2 与 step 3，不重复上传 step 1）。
 	waitManagerCond(t, "uploaded count reaches 2", func() bool {
 		return s.tracker.Snapshot().GetUploadedRecords() == 2
 	})
@@ -371,7 +371,7 @@ func TestDeliverRecoverStartInstallFailureDoesNotStartAttach(t *testing.T) {
 	if !errors.Is(err, ErrTooManySessions) {
 		t.Fatalf("deliverRecoverStart error = %v, want ErrTooManySessions", err)
 	}
-	// 给错误启动的接入协程留出请求窗口；修复后这些计数必须保持为 0。
+	// 给可能被错误启动的连接任务留出请求时间；正确实现下这些计数应保持为 0。
 	time.Sleep(50 * time.Millisecond)
 	if got := authCalls.Load(); got != 0 {
 		t.Fatalf("auth calls = %d, want 0", got)

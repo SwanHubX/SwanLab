@@ -1,5 +1,5 @@
-// 本文件用真实子进程强杀验证初始化恢复的崩溃语义：
-// 进程不会执行 Shutdown/刷盘/checkpoint flush，恢复只能依赖已落盘的 run 文件和 checkpoint。
+// 本文件用真实子进程验证进程被强制终止后的恢复：
+// 进程没有执行 Shutdown，也不会刷盘或写 checkpoint，恢复只能依赖已经保存的 run 文件和 checkpoint。
 package manager
 
 import (
@@ -36,7 +36,7 @@ const (
 	crashMidStage    = "mid_backfill_checkpoint"
 )
 
-// TestRecoverCrashHelperProcess 只在父测试拉起的子进程中执行；正常测试运行直接跳过。
+// TestRecoverCrashHelperProcess 只作为父测试的子进程运行；普通测试直接跳过。
 func TestRecoverCrashHelperProcess(t *testing.T) {
 	if os.Getenv(crashHelperEnv) != "1" {
 		t.Skip("subprocess crash helper")
@@ -82,7 +82,7 @@ func TestRecoverCrashHelperProcess(t *testing.T) {
 		}
 	}
 
-	// 父进程会在目标阶段 SIGKILL；这里保持存活，绝不能走正常 Shutdown。
+	// 父进程会在目标阶段强制结束本进程；这里保持运行，避免执行正常的 Shutdown。
 	select {}
 }
 
@@ -498,7 +498,8 @@ func TestRecoverOnlineProcessKillStages(t *testing.T) {
 		case <-time.After(15 * time.Second):
 			t.Fatalf("timed out waiting for blocked backfill upload\n%s", child.out.String())
 		}
-		// 等 step 4 的确认推进 checkpoint 到 seq 5，再强杀；恢复必须从有效 checkpoint 继续。
+		// 等待 step 4 上传成功并把 checkpoint 推进到 seq 5，然后强制结束进程；
+		// 重启后应从 checkpoint 之后继续，而不是从第一条记录重传。
 		waitCheckpointSeq(t, cfg, 5)
 		killCrashChild(t, child)
 		blockBackfill.Store(false)

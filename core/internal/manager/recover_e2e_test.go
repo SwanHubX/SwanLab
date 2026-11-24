@@ -166,7 +166,7 @@ func TestRecoverOnlineMidAttachOutageAndPostAttachOutage(t *testing.T) {
 		t.Fatalf("session: %v", err)
 	}
 
-	// 1. 接入前写入第 1 条指标，此时服务端不可用。
+	// 1. 云端实验创建前写入第 1 条指标，此时服务端不可用。
 	if upsertErr := mgr.UpsertScalars(context.Background(), res.SessionID, []*datav1.ScalarRecord{scalarAtStep("loss", 1, 1.0)}); upsertErr != nil {
 		t.Fatalf("UpsertScalars step 1: %v", upsertErr)
 	}
@@ -185,7 +185,7 @@ func TestRecoverOnlineMidAttachOutageAndPostAttachOutage(t *testing.T) {
 		t.Fatalf("uploadedSteps while house down = %d, want 0", preHouseRecoverCount)
 	}
 
-	// 3. 指标服务恢复后补传第 1 条，并验证接入后写入的第 2 条实时上传。
+	// 3. 指标服务恢复后上传第 1 条，并验证创建实验后写入的第 2 条实时上传。
 	houseUp.Store(true)
 	waitScalarSteps(t, &mu, &uploadedSteps, 1)
 	if upsertErr := mgr.UpsertScalars(context.Background(), res.SessionID, []*datav1.ScalarRecord{scalarAtStep("loss", 2, 0.5)}); upsertErr != nil {
@@ -193,7 +193,7 @@ func TestRecoverOnlineMidAttachOutageAndPostAttachOutage(t *testing.T) {
 	}
 	waitScalarSteps(t, &mu, &uploadedSteps, 2)
 
-	// 4. 接入后再次遭遇指标服务宕机并写入第 3、4 条，恢复后再收尾应全部补传完成且不重建实验。
+	// 4. 创建实验后再次遇到指标服务宕机，写入第 3、4 条；恢复后结束运行，应全部上传完成且不重建实验。
 	houseUp.Store(false)
 	waitManagerCond(t, "house probe degrades", func() bool {
 		return s.uploader() != nil
@@ -344,7 +344,7 @@ func TestRecoverOnlineZeroRecordFinishWaitsUntilAttach(t *testing.T) {
 		done <- nil
 	}()
 
-	// 零指标记录也不能因排空队列为空而提前放行 Confirm。
+	// 即使没有指标记录，也不能因为上传队列为空而提前放行 Confirm。
 	select {
 	case earlyErr := <-done:
 		t.Fatalf("Confirm returned before cloud attach: %v", earlyErr)
@@ -587,7 +587,7 @@ func runShutdownBeforeExperimentCreated(t *testing.T) {
 		t.Fatalf("mgr1 Shutdown: %v", shutErr)
 	}
 
-	// Shutdown 后重拉：允许续传并恢复网络，应当补传中断前的记录且只建 1 个实验。
+	// Shutdown 后重新启动：允许续传并恢复网络，应上传中断前的记录，并且只创建一个实验。
 	backendUp.Store(true)
 	mgr2 := newInstantTestManager()
 	cfg2 := fastRecoverSettings(t, cloud, "crash-pre", runDir)
@@ -701,7 +701,7 @@ func runShutdownMidBackfillCheckpoint(t *testing.T) {
 	if err != nil || conf.ReleaseFailed {
 		t.Fatalf("Confirm = (%+v, %v)", conf, err)
 	}
-	// checkpoint=4 覆盖 Start(1) 与 step 1..3(2..4)，恢复后应只补传 step 4..6。
+	// checkpoint=4 覆盖 Start(1) 与 step 1..3(2..4)，恢复后应只上传 step 4..6。
 	sort.Slice(*steps, func(i, j int) bool { return (*steps)[i] < (*steps)[j] })
 	if len(*steps) != 3 || (*steps)[0] != 4 || (*steps)[1] != 5 || (*steps)[2] != 6 {
 		t.Fatalf("uploaded steps = %v, want [4 5 6]", *steps)
@@ -714,9 +714,9 @@ func TestRecoverOnlineShutdownStagesNoDuplicateExperiment(t *testing.T) {
 	t.Run("shutdown_mid_backfill_resumes_from_checkpoint", runShutdownMidBackfillCheckpoint)
 }
 
-// TestRecoverOnlineFinishFailureDuringAttachKeepsCloudResources 覆盖本地收尾失败与
-// 云端实验创建并发的竞态：已完成创建实验的接入任务必须继续发布资源，供 Confirm
-// 续跑补传并上报终态，不能把本地收尾错误误报成云端永久失败。
+// TestRecoverOnlineFinishFailureDuringAttachKeepsCloudResources 覆盖“本地结束失败”
+// 和“云端实验正在创建”同时发生的场景：实验已经创建时，连接任务仍要保存云端资源；
+// Confirm 随后完成上传并上报终态，不能因为本地结束失败就误报云端永久失败。
 func TestRecoverOnlineFinishFailureDuringAttachKeepsCloudResources(t *testing.T) {
 	cloud := clienttest.NewCloud(t)
 	cloud.ServeJSON(http.MethodGet, probe.ServerPath, http.StatusOK, map[string]any{"ok": true})
@@ -773,7 +773,7 @@ func TestRecoverOnlineFinishFailureDuringAttachKeepsCloudResources(t *testing.T)
 		t.Fatalf("session: %v", err)
 	}
 
-	// 1. 卡住实验创建，让接入任务停在“已发出创建请求、尚未发布资源”的位置。
+	// 1. 阻塞实验创建请求，让连接任务停在“实验已请求、资源尚未保存”的位置。
 	select {
 	case <-experimentStarted:
 	case <-time.After(5 * time.Second):
@@ -785,9 +785,8 @@ func TestRecoverOnlineFinishFailureDuringAttachKeepsCloudResources(t *testing.T)
 		t.Fatalf("UpsertScalars: %v", upsertErr)
 	}
 
-	// 2. 模拟 DeliverRunFinish 在本地提交 FinishRecord 时失败：会话进入 FAILED，
-	//    FinishRecord 尚未提交，交由 Confirm 续跑。这里直接构造同一状态，
-	//    避免依赖 intake 队列是否恰好腾出空间来触发提交失败。
+	// 2. 模拟 DeliverRunFinish 写入 FinishRecord 失败：会话进入 FAILED，FinishRecord 尚未写入。
+	//    这里直接构造相同状态，避免依赖队列是否有空位来触发失败；Confirm 会继续完成后续步骤。
 	if started, drainErr := s.beginDrainOwned(); drainErr != nil || !started {
 		t.Fatalf("beginDrainOwned = (%v, %v), want (true, nil)", started, drainErr)
 	}
@@ -801,7 +800,7 @@ func TestRecoverOnlineFinishFailureDuringAttachKeepsCloudResources(t *testing.T)
 		t.Fatalf("finish failure = %v, want wrapped local commit failure", originalFailure)
 	}
 
-	// 3. 放行实验创建：FAILED 会话必须接收云端资源，而不是关闭上传器后误报永久失败。
+	// 3. 放开实验创建请求：FAILED 会话仍要保存云端资源，而不是关闭上传器并误报永久失败。
 	release()
 	waitAttachDone(t, s)
 	if state, path, attachErr := s.cloudStatus(); state != operationv1.CloudState_CLOUD_STATE_ATTACHED ||
@@ -812,7 +811,7 @@ func TestRecoverOnlineFinishFailureDuringAttachKeepsCloudResources(t *testing.T)
 		t.Fatalf("finish failure was overwritten: %v", failure)
 	}
 
-	// 4. 第二次 Confirm 续跑本地收尾、补传、排空并上报终态。
+	// 4. 第二次 Confirm 完成本地结束、上传积压记录、等待上传完成并上报终态。
 	conf, err := mgr.Confirm(context.Background(), res.SessionID)
 	if err != nil || conf.ReleaseFailed {
 		t.Fatalf("Confirm = (%+v, %v)", conf, err)

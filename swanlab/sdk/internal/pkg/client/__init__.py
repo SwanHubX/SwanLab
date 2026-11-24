@@ -55,17 +55,15 @@ def is_transient_login_error(exc: BaseException) -> bool:
 
 def is_recoverable_login_error(exc: BaseException) -> bool:
     """
-    判断登录失败是否适合进入 Core 的后台自动恢复流程。
+    判断登录失败是否允许交给 Core 在后台重试。
 
-    与 ``is_transient_login_error`` 的区别：2xx 但响应不是有效 JSON、或缺少
-    ``sid``/``expiredAt``/用户信息时，属于服务端协议异常而非后端不可用，
-    不能进入会无限等待的恢复流程。该谓词只用于恢复判定，不改变 CorePython/#1816
-    既有的降级行为。
+    网络错误和 408/429/5xx 可以重试；2xx 但响应不是有效 JSON，或缺少
+    ``sid``/``expiredAt``/用户信息，属于服务端协议错误，重试不会成功，应直接报错。
+    这个函数只影响是否进入后台恢复，不改变 CorePython/#1816 的离线降级行为。
     """
     if isinstance(exc, AuthenticationError) and exc.__cause__ is not None:
         exc = exc.__cause__
-    # requests 的 JSONDecodeError 同时继承 json.JSONDecodeError 与 RequestException，
-    # 必须在通用 RequestException 之前排除。
+    # requests.JSONDecodeError 同时也是 RequestException，需要先排除。
     if isinstance(exc, JSONDecodeError):
         return False
     if isinstance(exc, ApiError):

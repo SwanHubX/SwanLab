@@ -60,7 +60,7 @@ def _print_recover_online_tip(ctx: RunContext) -> None:
 
 
 def _print_attach_failed_tip(ctx: RunContext, run: "Run") -> None:
-    """云端接入永久失败后给出原因与本地恢复方式，不再误报“后台恢复中”。"""
+    """云端连接永久失败时，说明原因并提示如何上传本地记录。"""
     reason = getattr(run, "_cloud_error", None) or "cloud attach failed"
     console.warning("❌ SwanLab Cloud recovery failed:", Text(reason, "yellow"))
     if ctx.config.settings.core.skip_store:
