@@ -16,9 +16,11 @@ from swanlab.proto.swanlab.operation.v1.operation_pb2 import (
     CLOUD_STATE_ATTACHED,
     CLOUD_STATE_FAILED,
     CLOUD_STATE_PENDING,
+    CLOUD_STATE_UNSPECIFIED,
     CloudStatus,
     CoreState,
     OperationStats,
+    UploadStatus,
 )
 from swanlab.sdk.internal.pkg import fork
 from swanlab.sdk.internal.run import Run, greeting
@@ -224,3 +226,130 @@ class TestFinishCloudLinkSync:
         assert sum("swanlab sync" in message for message in warning_msgs) == 1
         with pytest.raises(ValueError, match="401 invalid token.*Data is saved at.*after resolving the issue"):
             _ = run.path
+
+
+class TestRuntimeStatusMonitor:
+    """运行期状态监听：延迟接入恢复/失败提示与运行期上传暂停/恢复提示。"""
+
+    def test_cloud_attach_recovery_prints_link_once(self, monkeypatch):
+        core = MagicMock()
+        run = _make_online_run(core, path=None)
+
+        infos: list[str] = []
+        links: list[Run] = []
+        monkeypatch.setattr(
+            "swanlab.sdk.internal.run.console.info", lambda *a, **kw: infos.append(" ".join(map(str, a)))
+        )
+        monkeypatch.setattr(greeting, "print_cloud_link", lambda r: links.append(r))
+
+        pending = GetOperationStatsResponse(
+            success=True,
+            stats=OperationStats(
+                state=CoreState.CORE_STATE_RUNNING,
+                cloud=CloudStatus(state=CLOUD_STATE_PENDING),
+                upload=UploadStatus(paused=True),
+            ),
+        )
+        attached = GetOperationStatsResponse(
+            success=True,
+            stats=OperationStats(
+                state=CoreState.CORE_STATE_RUNNING,
+                cloud=CloudStatus(state=CLOUD_STATE_ATTACHED, path="/alice/proj/run-rec"),
+                upload=UploadStatus(paused=False),
+            ),
+        )
+
+        run._handle_runtime_stats(pending)
+        assert links == []
+        assert infos == []
+
+        run._handle_runtime_stats(attached)
+        run._handle_runtime_stats(attached)
+        assert links == [run]
+        assert len([m for m in infos if "Connected to SwanLab online service" in m]) == 1
+
+    def test_cloud_attach_failed_prints_error_and_sync_once(self, monkeypatch):
+        core = MagicMock()
+        run = _make_online_run(core, path=None)
+
+        errors: list[str] = []
+        warnings: list[str] = []
+        monkeypatch.setattr(
+            "swanlab.sdk.internal.run.console.error", lambda *a, **kw: errors.append(" ".join(map(str, a)))
+        )
+        monkeypatch.setattr(
+            "swanlab.sdk.internal.run.console.warning", lambda *a, **kw: warnings.append(" ".join(map(str, a)))
+        )
+
+        failed = GetOperationStatsResponse(
+            success=True,
+            stats=OperationStats(
+                state=CoreState.CORE_STATE_RUNNING,
+                cloud=CloudStatus(state=CLOUD_STATE_FAILED, error="401 invalid token"),
+                upload=UploadStatus(paused=True),
+            ),
+        )
+        run._handle_runtime_stats(failed)
+        run._handle_runtime_stats(failed)
+
+        assert len([m for m in errors if "401 invalid token" in m]) == 1
+        assert len([m for m in warnings if "swanlab sync" in m]) == 1
+        assert not any("Upload paused" in m for m in warnings)
+
+    @pytest.mark.parametrize("cloud_state", [CLOUD_STATE_UNSPECIFIED, CLOUD_STATE_ATTACHED])
+    def test_runtime_upload_pause_and_resume_transitions(self, monkeypatch, cloud_state):
+        core = MagicMock()
+        run = _make_online_run(core, path="/alice/proj/run-1")
+
+        warnings: list[str] = []
+        infos: list[str] = []
+        monkeypatch.setattr(
+            "swanlab.sdk.internal.run.console.warning", lambda *a, **kw: warnings.append(" ".join(map(str, a)))
+        )
+        monkeypatch.setattr(
+            "swanlab.sdk.internal.run.console.info", lambda *a, **kw: infos.append(" ".join(map(str, a)))
+        )
+
+        cloud = CloudStatus(state=cloud_state, path="/alice/proj/run-1") if cloud_state else None
+        paused_resp = GetOperationStatsResponse(
+            success=True,
+            stats=OperationStats(state=CoreState.CORE_STATE_RUNNING, cloud=cloud, upload=UploadStatus(paused=True)),
+        )
+        resumed_resp = GetOperationStatsResponse(
+            success=True,
+            stats=OperationStats(state=CoreState.CORE_STATE_RUNNING, cloud=cloud, upload=UploadStatus(paused=False)),
+        )
+
+        run._handle_runtime_stats(paused_resp)
+        run._handle_runtime_stats(paused_resp)
+        assert len([m for m in warnings if "🚨 Upload paused" in m]) == 1
+
+        run._handle_runtime_stats(resumed_resp)
+        run._handle_runtime_stats(resumed_resp)
+        assert len([m for m in infos if "Upload recovered, resuming normally." in m]) == 1
+
+    def test_monitor_thread_starts_only_for_reporting_online_core(self, monkeypatch):
+        polled = threading.Event()
+        core = MagicMock()
+        core.reports_runtime_stats = True
+        core.get_operation_stats.side_effect = lambda: (
+            polled.set(),
+            GetOperationStatsResponse(success=True, stats=OperationStats(state=CoreState.CORE_STATE_RUNNING)),
+        )[1]
+
+        run = _make_online_run(core, path="/alice/proj/run-1")
+        monkeypatch.setattr(run, "_STATUS_POLL_INTERVAL", 0.02)
+        run._start_status_monitor()
+        try:
+            assert run._status_timer is not None
+            assert run._status_timer.is_running
+            assert polled.wait(timeout=1.0)
+        finally:
+            run._stop_status_monitor()
+        assert run._status_timer is None
+
+        # 未显式启用 reports_runtime_stats 的 mock/Python Core 不启动监听定时器
+        non_reporting_core = MagicMock()
+        run_no_report = _make_online_run(non_reporting_core, path="/alice/proj/run-1")
+        run_no_report._start_status_monitor()
+        assert run_no_report._status_timer is None

@@ -79,6 +79,7 @@ class CoreGo(CoreProtocol):
     raises_on_upsert_error = True
     # deliver 失败时会话保留在 core 内等待重投，跳过 confirm。
     confirm_after_deliver_failure = False
+    reports_runtime_stats = True
 
     def __init__(
         self,
