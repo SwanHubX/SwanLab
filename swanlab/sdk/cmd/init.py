@@ -41,7 +41,7 @@ from swanlab.sdk.internal.context.components import CoreBackend, create_core, cr
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.core_python.store import DataStoreReader
 from swanlab.sdk.internal.pkg import adapter, console, fork, fs, helper, safe
-from swanlab.sdk.internal.pkg.client import is_recoverable_login_error, is_transient_login_error
+from swanlab.sdk.internal.pkg.client import is_login_auth_error, is_recoverable_login_error, is_transient_login_error
 from swanlab.sdk.typings.cmd import ConfigLike
 from swanlab.sdk.typings.context import CallbacksType
 from swanlab.utils.experiment import generate_color, generate_id, generate_name
@@ -132,11 +132,12 @@ def init(
     :param log_dir: Directory to store logs. Defaults to "./swanlog".
     :param mode: Run mode. Options: "online" (sync to cloud), "local" (local only),
         "offline" (save locally for later sync), "disabled" (no logging). Defaults to "online".
-    :param on_online_error: Behavior when SwanLab online service is temporarily unreachable in
-        online mode. Only transient connection/server failures are handled; authentication and
-        configuration errors always raise. Options: "offline" (keep online mode and save locally
-        while retrying the connection when supported, or fall back to offline mode),
-        "disabled" (no logging), "raise". Defaults to "offline".
+    :param on_online_error: Behavior when SwanLab online service fails to connect or authenticate
+        in online mode. Transient connection/server failures and authentication errors (401/403)
+        are handled according to this policy; configuration errors still raise. Options: "offline"
+        (keep online mode and save locally while retrying the connection on transient outages, or
+        fall back to offline mode on auth/unrecoverable errors), "disabled" (no logging), "raise".
+        Defaults to "offline".
     :param workspace: Workspace or organization name. Defaults to current user.
     :param project: Project name. Defaults to current directory name.
     :param public: Make project publicly visible (online mode only). Defaults to False.
@@ -262,10 +263,10 @@ def init(
     generate_ctx = _init
     if run_settings.mode == "online":
         generate_ctx = utils.with_loading_animation()(_init)
-    ctx, path = generate_ctx(run_settings, callbacks)
+    ctx, path, fallback_error = generate_ctx(run_settings, callbacks)
     # 初始化run
     try:
-        run = Run(ctx, path)
+        run = Run(ctx, path, fallback_error=fallback_error)
     except BaseException as exc:
         # Run.__init__ 内部已回滚自身副作用；这里兜底回收构造早期失败时已启动的 Core
         with safe.block(message="core abort failed during init"):
@@ -396,16 +397,17 @@ def prompt_init_mode(settings: Settings) -> ModeType:
 
 def _login_or_fallback(login_func: Callable[[], bool], settings: Settings) -> ModeType:
     """
-    交互式引导中的登录：连接类失败时按 on_online_error 降级，而不是终止训练进程。
-    显式 401/403、配置错误与 on_online_error="raise" 仍然抛错。
+    交互式引导中的登录：连接失败或认证失败（401/403）时按 on_online_error 降级，而不是终止训练进程。
+    配置错误与 on_online_error="raise" 仍然抛错。
     """
     try:
         login_func()
     except Exception as e:
-        if not is_transient_login_error(e) or settings.on_online_error == "raise":
+        is_auth = is_login_auth_error(e)
+        if (not is_transient_login_error(e) and not is_auth) or settings.on_online_error == "raise":
             raise
         target_mode = settings.on_online_error
-        _warn_fallback(target_mode)
+        _warn_fallback(target_mode, auth_error=is_auth)
         return target_mode
     return "online"
 
@@ -639,7 +641,9 @@ def _validate_existing_run_dir(run_dir: Path, run_id: str, backend: CoreBackend)
         )
 
 
-def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[RunContext, Optional[str]]:
+def _init(
+    run_settings: Settings, callbacks: Optional[CallbacksType]
+) -> Tuple[RunContext, Optional[str], Optional[str]]:
     """
     初始化运行时配置，在这之前，所有引导式交互都已经完成
     上下文生命周期通过 `Run` 管理，而非全局 `ContextVar`
@@ -648,6 +652,7 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
     skip_store = run_settings.core.skip_store
     # 实验路径，/:username/:project_name/:slug(run_id)，与open api命名一致
     path = None
+    fallback_error: Optional[str] = None
     # 1. 生成run_id
     if not run_settings.run.id:
         run_settings.merge_settings({"run": {"id": generate_id()}})
@@ -692,9 +697,9 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
         allow_recover_online = _can_recover_online(backend, run_settings, run_dir)
         recover_online = False
         # 3.1. 前置操作
-        # online 模式前置：确保 client 已就绪，连接类失败时进入后台恢复或按策略降级
+        # online 模式前置：确保 client 已就绪，连接或认证失败时按策略恢复或降级
         if mode == "online":
-            fallback_mode, recover_online = _ensure_online_client_or_fallback(
+            fallback_mode, recover_online, fallback_error = _ensure_online_client_or_fallback(
                 ctx,
                 run_settings,
                 run_id,
@@ -720,21 +725,24 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
         try:
             resp = ctx.core.deliver_run_start(start_request)
             if not resp.success:
+                is_auth = resp.error_kind == CORE_ERROR_KIND_AUTH
                 if (
                     mode != "online"
-                    or resp.error_kind != CORE_ERROR_KIND_TRANSIENT
+                    or (resp.error_kind != CORE_ERROR_KIND_TRANSIENT and not is_auth)
                     or run_settings.on_online_error == "raise"
                 ):
                     _raise_start_failure(resp)
-                if not recover_online and allow_recover_online:
+                if not is_auth and not recover_online and allow_recover_online:
                     # 具备恢复条件时保持 online 模式，带着恢复标记重拉 Go Core
                     recover_online = True
                     resp = _restart_with_recover_online(ctx, run_settings, run_id, run_dir, backend)
                     should_mkdirs = True
                 else:
-                    # 不具备后台恢复条件时按策略切换到离线或禁用模式
+                    # 认证失败或无法后台恢复时，按策略切换到离线或禁用模式
                     mode = run_settings.on_online_error
-                    resp = _restart_with_fallback(ctx, run_settings, run_id, run_dir, mode)
+                    if is_auth:
+                        fallback_error = resp.message or "authentication failed"
+                    resp = _restart_with_fallback(ctx, run_settings, run_id, run_dir, mode, auth_error=is_auth)
                     should_mkdirs = mode == "offline"
             path = resp.path or path
             if mode == "online" and not recover_online:
@@ -779,7 +787,7 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
     try:
         if should_mkdirs:
             fs.safe_mkdirs(ctx.media_dir, ctx.files_dir, ctx.debug_dir)
-        return ctx, path
+        return ctx, path, fallback_error
     except BaseException as exc:
         with safe.block(message="core abort failed during init"):
             ctx.core.abort(exc)
@@ -838,7 +846,7 @@ def _warn_recover_online(*, skip_store_disabled: bool = False) -> None:
     """提示用户云端暂不可达，已切入本地兜底并等待后台恢复。"""
     suffix = " (core.skip_store has been disabled)" if skip_store_disabled else ""
     console.warning(
-        "SwanLab online service is temporarily unavailable; keeping online mode, saving data locally, "
+        "🚨 SwanLab online service is temporarily unavailable; keeping online mode, saving data locally, "
         f"and retrying the connection in background{suffix}."
     )
 
@@ -887,9 +895,11 @@ def _switch_run_to_fallback(
     run_id: str,
     run_dir: Path,
     target_mode: ModeType,
+    *,
+    auth_error: bool = False,
 ) -> None:
     """切换降级模式并重建 Core/Probe，供登录降级与启动降级复用。"""
-    _switch_run_mode(run_settings, target_mode)
+    _switch_run_mode(run_settings, target_mode, auth_error=auth_error)
     _ensure_offline_identity(run_settings, run_id)
     # 已知副作用：online 启动前已经创建了 log_dir 和空的 run_dir。
     # offline 降级会复用 run_dir；disabled 降级不会使用这两个目录，因此会遗留 log_dir（仅含 .gitignore）和空的 run_dir。
@@ -898,6 +908,9 @@ def _switch_run_to_fallback(
         # 原本 skip_store 时 run_dir 尚未创建，降级后必须补齐
         helper.mkdir_and_append_gitignore(run_settings.log_dir)
         fs.safe_mkdir(run_dir)
+    # 先中止已启动的在线 Core（例如 Go Core 子进程），避免切换为本地 Core 时遗留孤儿进程
+    with safe.block(level="debug", message="core abort failed before fallback switch"):
+        ctx.core.abort()
     ctx.core = create_core(ctx)
     ctx.probe = create_probe(core=ctx.core, disabled=target_mode == "disabled")
 
@@ -908,9 +921,11 @@ def _restart_with_fallback(
     run_id: str,
     run_dir: Path,
     target_mode: ModeType,
+    *,
+    auth_error: bool = False,
 ) -> DeliverRunStartResponse:
     """在线启动失败后，按策略切换模式并在同一个 run_dir 上重新启动 Core。"""
-    _switch_run_to_fallback(ctx, run_settings, run_id, run_dir, target_mode)
+    _switch_run_to_fallback(ctx, run_settings, run_id, run_dir, target_mode, auth_error=auth_error)
     return _deliver_start_or_raise(ctx, _build_start_request(run_settings, run_id, run_dir))
 
 
@@ -931,6 +946,7 @@ def _warn_fallback(
     *,
     resume_must: bool = False,
     skip_store_disabled: bool = False,
+    auth_error: bool = False,
 ) -> None:
     """确定降级策略后给出一次简短告警。上游错误已在其发生处打印。"""
     if target_mode == "offline":
@@ -943,9 +959,10 @@ def _warn_fallback(
     if skip_store_disabled:
         details.append("core.skip_store has been disabled")
     suffix = f" ({'; '.join(details)})" if details else ""
-    console.warning(
-        f"SwanLab online service is unavailable; falling back to {target_mode} mode: {consequence}{suffix}."
+    reason = (
+        "Authentication with SwanLab online service failed" if auth_error else "SwanLab online service is unavailable"
     )
+    console.warning(f"🚨 {reason}; falling back to {target_mode} mode: {consequence}{suffix}.")
 
 
 def _reset_client_after_fallback() -> None:
@@ -956,7 +973,7 @@ def _reset_client_after_fallback() -> None:
             client.reset()
 
 
-def _switch_run_mode(run_settings: Settings, target_mode: ModeType) -> None:
+def _switch_run_mode(run_settings: Settings, target_mode: ModeType, *, auth_error: bool = False) -> None:
     """把本次 run 切换到目标模式，并完成告警与 client 清理。"""
     skip_store_disabled = run_settings.core.skip_store
     resume_must = run_settings.run.resume == "must"
@@ -966,6 +983,7 @@ def _switch_run_mode(run_settings: Settings, target_mode: ModeType) -> None:
         target_mode,
         resume_must=resume_must,
         skip_store_disabled=skip_store_disabled,
+        auth_error=auth_error,
     )
 
 
@@ -984,12 +1002,12 @@ def _ensure_online_client_or_fallback(
     run_dir: Path,
     *,
     allow_recover_online: bool = False,
-) -> Tuple[Optional[ModeType], bool]:
+) -> Tuple[Optional[ModeType], bool, Optional[str]]:
     """
-    确保 online client 就绪；连接类失败时进入后台恢复或按 on_online_error 降级。
+    确保 online client 就绪；连接失败或认证失败（401/403）时进入后台恢复或按 on_online_error 降级。
     只服务于 init 内部登录，显式 swanlab.login() 不受影响。
 
-    :return: (降级后的模式, 是否进入后台恢复)
+    :return: (降级后的模式, 是否进入后台恢复, 认证降级错误信息)
     """
     try:
         if not client.exists():
@@ -1001,14 +1019,17 @@ def _ensure_online_client_or_fallback(
                 save=False,
                 animation=False,
                 print_welcome=False,
+                quiet_transient=run_settings.on_online_error != "raise",
             )
         assert client.exists(), "No client found, please login first."
     except Exception as e:
-        if not is_transient_login_error(e) or run_settings.on_online_error == "raise":
+        is_auth = is_login_auth_error(e)
+        if (not is_transient_login_error(e) and not is_auth) or run_settings.on_online_error == "raise":
             raise
-        if allow_recover_online and is_recoverable_login_error(e):
-            return None, True
+        if not is_auth and allow_recover_online and is_recoverable_login_error(e):
+            return None, True, None
         target_mode = run_settings.on_online_error
-        _switch_run_to_fallback(ctx, run_settings, run_id, run_dir, target_mode)
-        return target_mode, False
-    return None, False
+        _switch_run_to_fallback(ctx, run_settings, run_id, run_dir, target_mode, auth_error=is_auth)
+        fallback_msg = str(e.__cause__ or e) if is_auth else None
+        return target_mode, False, fallback_msg
+    return None, False, None

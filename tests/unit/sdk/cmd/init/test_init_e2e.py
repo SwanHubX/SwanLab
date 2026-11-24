@@ -792,11 +792,23 @@ class TestInitOnlineStartFallback:
         with pytest.raises(RuntimeError):
             init(mode="online", project=PROJECT, on_online_error="raise")
 
-    def test_project_forbidden_raises_authentication_error(self, logged_in_client, rsps):
+    def test_project_forbidden_degrades_to_offline(self, logged_in_client, rsps, offline_warnings, offline_errors):
+        rsps.add(responses_lib.GET, self.PROJECT_URL, json={"message": "forbidden"}, status=403)
+
+        run = init(mode="online", project=PROJECT)
+
+        self._assert_offline_run(run, offline_warnings)
+        assert any("Authentication with SwanLab online service failed" in message for message in offline_warnings)
+        run.log({"loss": 1.0})
+        run.finish()
+        assert any("Authentication with SwanLab online service failed" in message for message in offline_errors)
+        assert (run.dir / f"run-{run.id}.swanlab").exists()
+
+    def test_project_forbidden_with_raise_policy(self, logged_in_client, rsps):
         rsps.add(responses_lib.GET, self.PROJECT_URL, json={"message": "forbidden"}, status=403)
 
         with pytest.raises(AuthenticationError):
-            init(mode="online", project=PROJECT)
+            init(mode="online", project=PROJECT, on_online_error="raise")
 
     def test_resume_must_degrades_with_warning(self, logged_in_client, rsps, offline_warnings):
         rsps.add(responses_lib.GET, self.PROJECT_URL, status=503)
@@ -906,8 +918,9 @@ class TestInitOnlineLoginFallback:
         run = init(mode="online", project=PROJECT)
 
         self._assert_offline_run(run, offline_warnings)
-        # 上游错误在登录处打印，降级告警只负责通知策略
-        assert any("Failed to login" in message and "boom" in message for message in offline_errors)
+        # 连接不可达时不再刷 ERROR / retry，只保留带 🚨 的降级 warning
+        assert offline_errors == []
+        assert any("🚨" in message for message in offline_warnings)
         assert not client.exists()
         run.log({"loss": 1.0})
         run.finish()
@@ -948,11 +961,25 @@ class TestInitOnlineLoginFallback:
 
         assert isinstance(exc.value.__cause__, requests.ConnectionError)
 
-    def test_login_unauthorized_raises_authentication_error(self, rsps, mock_online_settings):
+    def test_login_unauthorized_degrades_to_offline(self, rsps, mock_online_settings, offline_warnings, offline_errors):
+        rsps.add(responses_lib.POST, self.LOGIN_URL, json={"message": "unauthorized"}, status=401)
+
+        run = init(mode="online", project=PROJECT)
+
+        self._assert_offline_run(run, offline_warnings)
+        assert any("🚨 Authentication with SwanLab online service failed" in message for message in offline_warnings)
+        assert any("[HTTP] POST" in message and "-> 401" in message for message in offline_errors)
+        assert not client.exists()
+        run.log({"loss": 1.0})
+        run.finish()
+        assert any("Authentication with SwanLab online service failed" in message for message in offline_errors)
+        assert (run.dir / f"run-{run.id}.swanlab").exists()
+
+    def test_login_unauthorized_with_raise_policy(self, rsps, mock_online_settings):
         rsps.add(responses_lib.POST, self.LOGIN_URL, json={"message": "unauthorized"}, status=401)
 
         with pytest.raises(AuthenticationError):
-            init(mode="online", project=PROJECT)
+            init(mode="online", project=PROJECT, on_online_error="raise")
 
 
 # ============================================================
@@ -2102,8 +2129,9 @@ class TestInitOnlineRecoveryWithGoCore:
         finally:
             run.finish()
 
-        assert created_cores
-        assert all(core.aborted == 0 for core in created_cores)
+        assert len(created_cores) == 2
+        assert created_cores[0].aborted == 1
+        assert created_cores[1].aborted == 0
 
     def test_transient_start_error_restarts_with_recover_online(self, monkeypatch, logged_in_client, tmp_path):
         """deliver_run_start 返回临时错误时先中止首次 Core，再携带 recover_online=True 重启。"""
@@ -2188,8 +2216,44 @@ class TestInitOnlineRecoveryWithGoCore:
         finally:
             run.finish()
 
-    def test_auth_start_error_does_not_recover(self, monkeypatch, logged_in_client, tmp_path):
-        """认证错误即使满足恢复条件也必须直接抛 AuthenticationError。"""
+    def test_auth_start_error_degrades_to_offline_without_recover(self, monkeypatch, logged_in_client, tmp_path):
+        """认证错误不进入后台恢复，直接按 on_online_error 降级到本地记录并保留错误摘要。"""
+        from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
+            CORE_ERROR_KIND_AUTH,
+            DeliverRunStartResponse,
+        )
+
+        started_requests, created_cores, _ = self._install_fake_go_core(
+            monkeypatch,
+            start_outcomes=[
+                DeliverRunStartResponse(
+                    success=False,
+                    error_kind=CORE_ERROR_KIND_AUTH,
+                    message="invalid api key",
+                ),
+                DeliverRunStartResponse(success=True, path="", new_experiment=False),
+            ],
+        )
+
+        run = init(
+            mode="online",
+            on_online_error="offline",
+            project="proj",
+            log_dir=str(tmp_path),
+            settings=Settings.model_validate({"api_key": "test-api-key", "probe": self._NO_PROBE}),
+        )
+        try:
+            assert run.mode == "offline"
+            assert len(created_cores) == 2
+            assert created_cores[0].aborted == 1
+            assert len(started_requests) == 2
+            assert started_requests[1].core_settings.recover_online is False
+            assert run._fallback_error == "invalid api key"
+        finally:
+            run.finish()
+
+    def test_auth_start_error_with_raise_policy(self, monkeypatch, logged_in_client, tmp_path):
+        """on_online_error="raise" 时，认证错误直接抛 AuthenticationError。"""
         from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
             CORE_ERROR_KIND_AUTH,
             DeliverRunStartResponse,
@@ -2209,7 +2273,7 @@ class TestInitOnlineRecoveryWithGoCore:
         with pytest.raises(AuthenticationError, match="invalid api key"):
             init(
                 mode="online",
-                on_online_error="offline",
+                on_online_error="raise",
                 project="proj",
                 log_dir=str(tmp_path),
                 settings=Settings.model_validate({"api_key": "test-api-key", "probe": self._NO_PROBE}),

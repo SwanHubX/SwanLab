@@ -130,4 +130,6 @@ def goodbye(ctx: RunContext, run: "Run"):
         _print_local_tip(ctx)
     # 3. Offline
     elif mode == "offline":
+        if run._fallback_error:
+            console.error(f"Authentication with SwanLab online service failed: {run._fallback_error}")
         _print_offline_tip(ctx)

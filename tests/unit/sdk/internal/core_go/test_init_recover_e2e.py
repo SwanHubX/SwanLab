@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import socket
 import subprocess
 import threading
 import time
@@ -20,7 +21,7 @@ from swanlab.sdk.internal.core_go.runtime import locate_core_binary
 from swanlab.sdk.internal.core_python import client as py_client
 from swanlab.sdk.internal.pkg import console
 from swanlab.sdk.internal.run import clear_run
-from swanlab.sdk.internal.settings import Settings
+from swanlab.sdk.internal.settings import Settings, set_global_settings
 
 
 class _FaultyCloudState:
@@ -46,6 +47,7 @@ def _start_faulty_cloud(
     server_status: int = 200,
     house_status: int = 200,
     login_status: Optional[int] = None,
+    port: int = 0,
 ) -> Tuple[ThreadingHTTPServer, _FaultyCloudState, str]:
     state = _FaultyCloudState()
     state.server_status = server_status
@@ -274,9 +276,12 @@ def _start_faulty_cloud(
             self._read_json()
             self._write_json(200, {"ok": True})
 
-    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-    host, port = server.server_address[:2]
-    url = f"http://{host!s}:{port}"
+    class _ReusableThreadingHTTPServer(ThreadingHTTPServer):
+        allow_reuse_address = True
+
+    server = _ReusableThreadingHTTPServer(("127.0.0.1", port), Handler)
+    host, bound_port = server.server_address[:2]
+    url = f"http://{host!s}:{bound_port}"
     server_ref["url"] = url
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -467,35 +472,60 @@ def test_explicit_offline_never_contacts_healthy_cloud(tmp_path: Path):
     assert state.exp_creates == 0
 
 
-def test_auth_401_fails_fast_and_attach_three_401_reports_sync(tmp_path: Path, monkeypatch):
-    """401 启动直接报错；先 502 后连续 3 次 401 时本地继续运行、finish 不阻塞并提示 swanlab sync。"""
+def test_auth_401_degrades_offline_and_attach_three_401_reports_sync(tmp_path: Path, monkeypatch):
+    """init 直遇 401 时按策略降级 offline（raise 时抛错）；先 502 后连续 3 次 401 时提示 swanlab sync。"""
     _require_core_binary()
     if py_client.exists():
         py_client.reset()
 
-    # 子场景 1：init 直接遇 401，立即抛 AuthenticationError。
+    warnings: List[str] = []
+    errors: List[str] = []
+    monkeypatch.setattr(console, "warning", lambda *args, **kwargs: warnings.append(" ".join(map(str, args))))
+    monkeypatch.setattr(console, "error", lambda *args, **kwargs: errors.append(" ".join(map(str, args))))
+
+    # 子场景 1a：init 直接遇 401，默认降级为 offline 继续记录并在 finish 打印原因与 sync 提示。
     server1, state1, url1 = _start_faulty_cloud(server_status=200, login_status=401)
     try:
-        with pytest.raises(AuthenticationError):
-            swanlab.init(
-                mode="online",
-                on_online_error="offline",
-                project="auth-fast-fail",
-                settings=_base_settings(url1, tmp_path / "logs1"),
-            )
+        run1 = swanlab.init(
+            mode="online",
+            on_online_error="offline",
+            project="auth-fallback",
+            settings=_base_settings(url1, tmp_path / "logs1"),
+        )
+        assert run1.mode == "offline"
+        run1.log({"loss": 0.4}, step=1)
+        run1.finish()
     finally:
         server1.shutdown()
         server1.server_close()
     assert state1.exp_creates == 0
+    assert any("Authentication with SwanLab online service failed" in msg for msg in warnings)
+    assert any("Authentication with SwanLab online service failed" in msg for msg in errors)
+    _assert_no_owned_core_process()
+
+    # 子场景 1b：显式配置 on_online_error="raise" 时，401 立即抛 AuthenticationError。
+    if py_client.exists():
+        py_client.reset()
+    server1b, state1b, url1b = _start_faulty_cloud(server_status=200, login_status=401)
+    try:
+        with pytest.raises(AuthenticationError):
+            swanlab.init(
+                mode="online",
+                on_online_error="raise",
+                project="auth-raise",
+                settings=_base_settings(url1b, tmp_path / "logs1b"),
+            )
+    finally:
+        server1b.shutdown()
+        server1b.server_close()
+    assert state1b.exp_creates == 0
     _assert_no_owned_core_process()
 
     # 子场景 2：init 时 502 进入恢复，随后健康探测 200 但认证持续 401 达 3 次，转为永久失败并提示 sync。
     if py_client.exists():
         py_client.reset()
-    warnings: List[str] = []
-    errors: List[str] = []
-    monkeypatch.setattr(console, "warning", lambda *args, **kwargs: warnings.append(" ".join(map(str, args))))
-    monkeypatch.setattr(console, "error", lambda *args, **kwargs: errors.append(" ".join(map(str, args))))
+    warnings.clear()
+    errors.clear()
 
     server2, state2, url2 = _start_faulty_cloud(server_status=502, house_status=502)
     try:
@@ -615,3 +645,70 @@ def test_resume_with_existing_local_run_recovers_online_and_disables_probes(tmp_
     assert state.exp_creates == 1
     assert sorted(state.scalar_steps) == [1, 2, 3, 4]
     assert state.stop_states == ["FINISHED"]
+
+
+def test_explicit_login_outage_then_init_recovers_online(tmp_path: Path):
+    """先调用 swanlab.login() 且端口拒绝连接，不阻塞脚本；随后 init 进入后台恢复并在后端上线后完成补传。"""
+    _require_core_binary()
+    if py_client.exists():
+        py_client.reset()
+
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe_sock:
+        probe_sock.bind(("127.0.0.1", 0))
+        free_port = int(probe_sock.getsockname()[1])
+    target_url = f"http://127.0.0.1:{free_port}"
+
+    server: Optional[ThreadingHTTPServer] = None
+    state: Optional[_FaultyCloudState] = None
+    try:
+        # 1. 目标服务未监听，显式 swanlab.login() 不抛错，返回 False 并保留目标凭证/地址
+        logged_in = swanlab.login(api_key="test-api-key", host=target_url, relogin=True, timeout=1)
+        assert logged_in is False
+
+        # 2. init 在未连接状态下启动 Go Core 并进入后台恢复（直接沿用 login 写入全局配置的凭证与 host）
+        run = swanlab.init(
+            mode="online",
+            on_online_error="offline",
+            project="booter-recover",
+            log_dir=str(tmp_path / "logs"),
+            settings=Settings.model_validate(
+                {
+                    "probe": {
+                        "hardware": False,
+                        "requirements": False,
+                        "conda": False,
+                        "git": False,
+                        "swanlab": False,
+                        "monitor": False,
+                    },
+                    "core": {
+                        "health_probe_interval": 0.2,
+                        "health_probe_timeout": 0.5,
+                        "health_degrade_threshold": 1,
+                        "health_recover_threshold": 1,
+                    },
+                }
+            ),
+        )
+        assert run.mode == "online"
+        run.log({"loss": 0.5}, step=1)
+
+        # 3. 后端恢复上线，等待 Go Core 完成附着与补传
+        server, state, _ = _start_faulty_cloud(server_status=200, house_status=200, port=free_port)
+        run.log({"loss": 0.2}, step=2)
+        run.finish()
+
+        assert state.exp_creates == 1
+        assert sorted(state.scalar_steps) == [1, 2]
+        assert state.stop_states == ["FINISHED"]
+        assert run.path == f"/@alice/booter-recover/{run.id}"
+        assert run.url == f"{target_url}/@alice/booter-recover/runs/{run.id}"
+    finally:
+        if server is not None:
+            server.shutdown()
+            server.server_close()
+        if py_client.exists():
+            py_client.reset()
+        set_global_settings(Settings())
+
+    _assert_no_owned_core_process()

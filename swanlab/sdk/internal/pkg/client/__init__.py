@@ -99,7 +99,7 @@ class Client:
     # 提前刷新的缓冲时间（7天）
     REFRESH_TIME = 60 * 60 * 24 * 7
 
-    def __init__(self, api_key: str, base_url: str, timeout: int = 10):
+    def __init__(self, api_key: str, base_url: str, timeout: int = 10, *, quiet_transient: bool = False):
         self._api_key = api_key
         self._version = helper.get_swanlab_version()
         # 移除末尾的斜杠，防止 URL 拼接时出现双斜杠
@@ -111,11 +111,23 @@ class Client:
         self._session: session.SessionWithRetry = session.create()
         # 立即进行首次鉴权并挂载凭证；首次认证失败统一包装为 AuthenticationError，
         # 原始异常保留在 __cause__，供 init 判断是否可降级
-        login_resp = self._refresh_auth(timeout=timeout, warning=False, strict=True)
+        login_resp = self._refresh_auth(
+            timeout=timeout,
+            warning=False,
+            strict=True,
+            quiet_transient=quiet_transient,
+        )
         # 写入登录响应到上下文，由调用者判断是否需要使用
         scope.set_context("login_resp", login_resp)
 
-    def _refresh_auth(self, timeout: int = 10, warning: bool = True, strict: bool = False) -> Optional[LoginResponse]:
+    def _refresh_auth(
+        self,
+        timeout: int = 10,
+        warning: bool = True,
+        strict: bool = False,
+        *,
+        quiet_transient: bool = False,
+    ) -> Optional[LoginResponse]:
         """
         刷新鉴权信息。
         直接更新当前会话的 Cookie，保留底层连接池以提升性能。
@@ -126,7 +138,13 @@ class Client:
         console.debug("Refreshing authentication token...")
         retries = STARTUP_RETRIES if strict else None
         try:
-            login_resp = login_by_api_key(self._base_url, self._api_key, timeout=timeout, retries=retries)
+            login_resp = login_by_api_key(
+                self._base_url,
+                self._api_key,
+                timeout=timeout,
+                retries=retries,
+                quiet_transient=quiet_transient,
+            )
             try:
                 sid = login_resp["sid"]
                 expired_at = login_resp["expiredAt"]
@@ -148,14 +166,20 @@ class Client:
             return login_resp
         except ApiError as e:
             if strict:
-                # 错误在发生处打印调用链；原始异常保留在 __cause__ 供 init 判断是否可降级
-                console.trace("Failed to login")
+                if quiet_transient and (is_transient_login_error(e) or is_login_auth_error(e)):
+                    console.debug(f"Failed to login: {e}")
+                else:
+                    # 错误在发生处打印调用链；原始异常保留在 __cause__ 供 init 判断是否可降级
+                    console.trace("Failed to login")
                 raise self._wrap_auth_error(e) from e
             self._warn_refresh_failure(warning)
             return None
         except Exception as e:
             if strict:
-                console.trace("Failed to login")
+                if quiet_transient and (is_transient_login_error(e) or is_login_auth_error(e)):
+                    console.debug(f"Failed to login: {e}")
+                else:
+                    console.trace("Failed to login")
                 raise self._wrap_auth_error(e) from e
             self._warn_refresh_failure(warning)
             return None

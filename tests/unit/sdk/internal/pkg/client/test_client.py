@@ -72,7 +72,13 @@ def test_client_init_and_auth(mock_login, client, mock_base_url, mock_api_url):
     assert client._base_url == mock_api_url
 
     # 验证鉴权时使用的是拼接后的 URL，并使用启动重试策略
-    mock_login.assert_called_once_with(mock_api_url, "test-key", timeout=10, retries=STARTUP_RETRIES)
+    mock_login.assert_called_once_with(
+        mock_api_url,
+        "test-key",
+        timeout=10,
+        retries=STARTUP_RETRIES,
+        quiet_transient=False,
+    )
     assert client._session.cookies.get("sid") == "mock-token-123"
 
 

@@ -154,8 +154,8 @@ def test_prompt_login_transient_error_degrades(mock_settings, monkeypatch, polic
     mock_login.assert_called_once()
 
 
-def test_prompt_login_unauthorized_still_raises(mock_settings, monkeypatch):
-    """401/403 属于 API Key 错误，不做降级。"""
+def test_prompt_login_unauthorized_degrades_under_offline_policy(mock_settings, monkeypatch):
+    """交互引导遇 401/403 时，默认按 on_online_error="offline" 降级；设为 raise 时抛错。"""
     monkeypatch.setattr("swanlab.sdk.cmd.init.client.exists", lambda: False)
     mock_settings.api_key = None
     mock_settings.on_online_error = "offline"
@@ -166,6 +166,9 @@ def test_prompt_login_unauthorized_still_raises(mock_settings, monkeypatch):
     )
     monkeypatch.setattr("builtins.input", lambda prompt: "1")
 
+    assert prompt_init_mode(mock_settings) == "offline"
+
+    mock_settings.on_online_error = "raise"
     with pytest.raises(AuthenticationError):
         prompt_init_mode(mock_settings)
 
@@ -631,9 +634,9 @@ class TestOnlineRecoveryEligibility:
         monkeypatch.setattr(init_module, "_switch_run_to_fallback", fallback)
         ctx = MagicMock()
         for allow_recover_online in (True, False):
-            mode, recover = _ensure_online_client_or_fallback(
+            mode, recover, fallback_error = _ensure_online_client_or_fallback(
                 ctx, settings, "run-1", tmp_path, allow_recover_online=allow_recover_online
             )
-            assert (mode, recover) == ("offline", False)
+            assert (mode, recover, fallback_error) == ("offline", False, None)
         assert fallback.call_count == 2
         ctx.core.abort.assert_not_called()

@@ -21,6 +21,8 @@ def login_by_api_key(
     api_key: str,
     timeout: int = 20,
     retries: Optional[int] = STARTUP_RETRIES,
+    *,
+    quiet_transient: bool = False,
 ) -> LoginResponse:
     """
     用户登录，请求后端接口完成验证。
@@ -29,9 +31,16 @@ def login_by_api_key(
 
     :param retries: 覆盖会话默认重试次数。默认使用 STARTUP_RETRIES（启动期间有限重试），
         运行期刷新传 None 以使用会话默认重试。
+    :param quiet_transient: 为 True 时将临时连接重试和 5xx 错误日志降级为 debug，避免静默恢复时刷屏。
     """
     with session.create(timeout=timeout, default_retry=retries) as s:
-        resp = s.post(url=f"{base_url}/login/api_key", headers={"authorization": api_key}, timeout=timeout)
+        resp = s.post(
+            url=f"{base_url}/login/api_key",
+            headers={"authorization": api_key},
+            timeout=timeout,
+            log_retry=not quiet_transient,
+            log_transient_error=not quiet_transient,
+        )
     return resp.json()
 
 

@@ -30,11 +30,15 @@ STARTUP_RETRIES = 2
 # 用于存储当前请求的重试次数，避免在请求中传递 retries 参数
 request_retries_ctx: contextvars.ContextVar[Optional[int]] = contextvars.ContextVar("request_retries", default=None)
 request_log_error_ctx: contextvars.ContextVar[bool] = contextvars.ContextVar("request_log_error", default=True)
+request_log_retry_ctx: contextvars.ContextVar[bool] = contextvars.ContextVar("request_log_retry", default=True)
+request_log_transient_error_ctx: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    "request_log_transient_error", default=True
+)
 
 
 class WarningRetry(Retry):
     """
-    在每次触发重试时打印 warning 日志。
+    在每次触发重试时打印 warning 日志；允许在可后台恢复的启动探测中降级为 debug。
     """
 
     def increment(self, method=None, url=None, response=None, error=None, _pool=None, _stacktrace=None):
@@ -44,8 +48,12 @@ class WarningRetry(Retry):
         status = getattr(response, "status", None) if response is not None else None
         reason = f"status={status}" if status is not None else f"error={error!r}"
         retry_count = len(new_retry.history)
+        msg = f"[HTTP] retry #{retry_count} {method or 'UNKNOWN'} {url or ''} because {reason}"
 
-        console.warning(f"[HTTP] retry #{retry_count} {method or 'UNKNOWN'} {url or ''} because {reason}")
+        if request_log_retry_ctx.get():
+            console.warning(msg)
+        else:
+            console.debug(msg)
 
         return new_retry
 
@@ -85,13 +93,19 @@ class SessionWithRetry(Session):
     def request(self, method, url, *args, **kwargs):
         retries = kwargs.pop("retries", None)
         log_error = kwargs.pop("log_error", True)
+        log_retry = kwargs.pop("log_retry", True)
+        log_transient_error = kwargs.pop("log_transient_error", True)
 
         retries_token = request_retries_ctx.set(retries) if retries is not None else None
         log_error_token = request_log_error_ctx.set(log_error)
+        log_retry_token = request_log_retry_ctx.set(log_retry)
+        log_transient_token = request_log_transient_error_ctx.set(log_transient_error)
         try:
             return super().request(method, url, *args, **kwargs)
         finally:
             # 请求结束后清理上下文，避免影响复用该线程的其他请求。
+            request_log_transient_error_ctx.reset(log_transient_token)
+            request_log_retry_ctx.reset(log_retry_token)
             request_log_error_ctx.reset(log_error_token)
             if retries_token is not None:
                 request_retries_ctx.reset(retries_token)
@@ -126,12 +140,17 @@ class SessionWithRetry(Session):
         if decoded is not None:
             error_code, error_message = decoded
 
-        # 4. 记录错误日志
+        # 4. 记录错误日志（可后台恢复的临时 HTTP 状态支持按调用方开关降级为 debug）
         if request_log_error_ctx.get():
-            console.error(
+            log_msg = (
                 f"[HTTP] {method} {request.url} -> {response.status_code} ({elapsed_ms:.0f}ms) trace:{trace_id}"
                 f" | [ERR] code={error_code} message={error_message}"
             )
+            is_transient_status = response.status_code in (408, 429) or response.status_code >= 500
+            if not is_transient_status or request_log_transient_error_ctx.get():
+                console.error(log_msg)
+            else:
+                console.debug(log_msg)
         # 5. 抛出友好的自定义 ApiError
         raise ApiError(response, method=method, trace_id=trace_id, code=error_code, message=error_message)
 

@@ -137,8 +137,9 @@ class Run:
     _path: Optional[str] = None
     _cloud_state: int = CLOUD_STATE_UNSPECIFIED
     _cloud_error: Optional[str] = None
+    _fallback_error: Optional[str] = None
 
-    def __init__(self, ctx: RunContext, path: Optional[str] = None):
+    def __init__(self, ctx: RunContext, path: Optional[str] = None, *, fallback_error: Optional[str] = None):
         # 1. 基础状态、组件准备
         self._ctx = ctx
         self._is_main_thread = threading.current_thread() is threading.main_thread()
@@ -146,6 +147,7 @@ class Run:
         self._path = path
         self._cloud_state = CLOUD_STATE_ATTACHED if path else CLOUD_STATE_UNSPECIFIED
         self._cloud_error = None
+        self._fallback_error = fallback_error
         self._state: Union[FinishType, Literal["running"]] = "running"
         self._init_pid = fork.current_pid()
         # 外部API锁，防止并发调用
