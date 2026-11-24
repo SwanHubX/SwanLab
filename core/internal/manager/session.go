@@ -145,6 +145,16 @@ type Session struct {
 	drainFn func(context.Context) error
 	cloud   atomic.Pointer[cloudResources]
 
+	// 延迟接入状态与后台任务生命周期，由 cloudMu 统一保护。
+	cloudMu      sync.Mutex
+	cloudState   operationv1.CloudState
+	cloudPath    string
+	cloudErr     error
+	attachDone   chan struct{}
+	attachOnce   sync.Once
+	attachCancel context.CancelFunc
+	attachWG     sync.WaitGroup
+
 	finishErr error
 
 	// 装配期依赖；Start 失败回滚后可能只完成部分初始化，使用前必须判空。
@@ -220,6 +230,48 @@ func (s *Session) releaseFn() func(context.Context) error {
 		return res.releaseFn
 	}
 	return nil
+}
+
+func (s *Session) isCloudAttached() bool {
+	return s.uploader() != nil
+}
+
+func (s *Session) initDeferredAttach() {
+	s.cloudMu.Lock()
+	defer s.cloudMu.Unlock()
+	s.cloudState = operationv1.CloudState_CLOUD_STATE_PENDING
+	s.cloudPath = ""
+	s.cloudErr = nil
+	s.attachDone = make(chan struct{})
+}
+
+func (s *Session) cloudStatus() (operationv1.CloudState, string, error) {
+	s.cloudMu.Lock()
+	defer s.cloudMu.Unlock()
+	return s.cloudState, s.cloudPath, s.cloudErr
+}
+
+func (s *Session) markCloudAttached(path string) {
+	s.cloudMu.Lock()
+	s.cloudState = operationv1.CloudState_CLOUD_STATE_ATTACHED
+	s.cloudPath = path
+	s.cloudErr = nil
+	done := s.attachDone
+	s.cloudMu.Unlock()
+	if done != nil {
+		s.attachOnce.Do(func() { close(done) })
+	}
+}
+
+func (s *Session) markCloudFailed(err error) {
+	s.cloudMu.Lock()
+	s.cloudState = operationv1.CloudState_CLOUD_STATE_FAILED
+	s.cloudErr = err
+	done := s.attachDone
+	s.cloudMu.Unlock()
+	if done != nil {
+		s.attachOnce.Do(func() { close(done) })
+	}
 }
 
 func newSession(opts sessionOptions) *Session {
@@ -450,6 +502,18 @@ func (s *Session) snapshot() *operationv1.OperationStats {
 	stats := &operationv1.OperationStats{}
 	if s.tracker != nil {
 		stats = s.tracker.Snapshot()
+	}
+	cloudState, cloudPath, cloudErr := s.cloudStatus()
+	if cloudState != operationv1.CloudState_CLOUD_STATE_UNSPECIFIED {
+		errText := ""
+		if cloudErr != nil {
+			errText = cloudErr.Error()
+		}
+		stats.Cloud = &operationv1.CloudStatus{
+			State: cloudState,
+			Path:  cloudPath,
+			Error: errText,
+		}
 	}
 	up := s.uploader()
 	if up == nil && s.intake == nil && s.budget == nil {

@@ -171,6 +171,8 @@ type Manager struct {
 	factory     *client.Factory
 	// healthReg 按站点共享探针，跨会话复用同一站点的健康状态。
 	healthReg *health.Registry
+	// attachTiming 允许单测缩短退避节奏，生产环境为零值（走默认常量）。
+	attachTiming attachTiming
 }
 
 // New 创建并初始化会话管理器实例。

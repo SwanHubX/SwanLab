@@ -64,6 +64,7 @@ func closeStartedSession(t *testing.T, mgr *Manager, sessionID string) {
 	if s.cancel != nil {
 		s.cancel()
 	}
+	s.stopAttach()
 	if hb := s.heartbeat(); hb != nil {
 		hb.Stop(context.Background())
 	}

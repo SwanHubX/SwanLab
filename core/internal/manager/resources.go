@@ -239,7 +239,7 @@ func (s *Session) open(init sessionInit) error {
 		s.intake.PauseAt(prog.ReplayFrom)
 	}
 
-	if init.cfg.NormalizedMode() == config.ModeOnline {
+	if init.cfg.NormalizedMode() == config.ModeOnline && !init.cfg.RecoverOnline {
 		res, err := s.buildCloudResources(cloudAttachParams{
 			http:         init.http,
 			api:          init.api,
@@ -253,7 +253,7 @@ func (s *Session) open(init sessionInit) error {
 		}
 		s.setCloudResources(res)
 		s.drainFn = res.uploader.Wait
-	} else {
+	} else if init.cfg.NormalizedMode() != config.ModeOnline {
 		// local/offline 没有上传阶段；收尾只需关闭本地 store 与 intake。
 		s.drainFn = func(context.Context) error {
 			s.markDrained()
@@ -288,11 +288,13 @@ func (s *Session) open(init sessionInit) error {
 		})
 		s.recovery.Start()
 	}
-	if s.store != nil && s.uploader() != nil {
+	if s.store != nil && init.cfg.NormalizedMode() == config.ModeOnline {
 		s.initBackfill(prog, init.resume, endSaves)
-		s.backfill.Start()
-		if prog.ReplayFrom > 0 {
-			s.backfill.Wake()
+		if !init.cfg.RecoverOnline {
+			s.backfill.Start()
+			if prog.ReplayFrom > 0 {
+				s.backfill.Wake()
+			}
 		}
 	}
 	s.checkpoint.Start()
@@ -305,6 +307,7 @@ func (s *Session) rollback() {
 	if s.cancel != nil {
 		s.cancel()
 	}
+	s.stopAttach()
 	if hb := s.heartbeat(); hb != nil {
 		// s.cancel 已中断心跳的父 ctx；这里限制等待时间，避免慢心跳拖住回滚。
 		ctx, cancel := context.WithTimeout(context.Background(), rollbackTimeout)

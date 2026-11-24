@@ -195,6 +195,9 @@ func (m *Manager) DeliverRunStart(
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrInvalidStartRecord, err)
 	}
+	if cfg.RecoverOnline {
+		return m.deliverRecoverStart(ctx, cfg, rec, run, resumeMode, local)
+	}
 	boot, err := m.bootstrapCloud(ctx, cfg, rec, resumeMode, local)
 	if err != nil {
 		return nil, err
@@ -264,6 +267,108 @@ func (m *Manager) DeliverRunStart(
 		GlobalStep:       boot.resumeRes.GlobalStep,
 		GlobalSystemStep: boot.resumeRes.GlobalSystemStep,
 		NewExperiment:    boot.isNew,
+	}, nil
+}
+
+// deliverRecoverStart 在云端暂不可用时先装配本地在线会话，并启动后台异步接入任务。
+func (m *Manager) deliverRecoverStart(
+	ctx context.Context,
+	cfg config.Settings,
+	rec *runv1.StartRecord,
+	run *runctx.RunContext,
+	resumeMode api.ResumeMode,
+	local *metrics.RebuildResult,
+) (*StartResult, error) {
+	if resumeMode != api.ResumeNever && (local == nil || local.Records == 0) {
+		return nil, fmt.Errorf("%w: recover_online with resume=%s requires an existing local run file",
+			ErrInvalidStartRecord, resumeMode)
+	}
+	if err := resume.ValidateStart(local, resume.StartIdentity{
+		RunID:               firstNonEmpty(rec.GetId(), cfg.RunID),
+		Workspace:           rec.GetWorkspace(),
+		Project:             rec.GetProject(),
+		AllowEmptyWorkspace: true,
+	}); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrInvalidStartRecord, err)
+	}
+	normalizedHost, err := client.NormalizeHost(cfg.APIHost)
+	if err != nil {
+		return nil, fmt.Errorf("start: authenticate: %w", err)
+	}
+	cfg.APIHost = normalizedHost
+
+	serverProbe := probe.Site(cfg.APIHost, probe.ServerPath)
+	houseProbe := probe.Site(cfg.APIHost, probe.HousePath)
+	serverOK, houseOK := probe.Startup(ctx, serverProbe, houseProbe)
+	healthOpts := buildHealthOpts(cfg, serverProbe, houseProbe, !serverOK, serverOK && !houseOK)
+
+	s := newSession(sessionOptions{})
+	s.ctx, s.cancel = context.WithCancel(context.Background())
+	s.cfg = cfg
+	s.run = run
+	s.initDeferredAttach()
+
+	globalStep, globalSystemStep := int64(-1), int64(-1)
+	newExperiment := true
+	if local != nil {
+		s.metrics = local.Metrics
+		s.counter = counter.New(local.Counter)
+		s.epoch = counter.New(local.Epoch)
+		globalStep = local.GlobalStep
+		globalSystemStep = local.GlobalSystemStep
+		newExperiment = false
+	} else {
+		s.metrics = metrics.New()
+		s.counter = counter.New(0)
+		s.epoch = counter.New(0)
+	}
+
+	if err = s.open(sessionInit{
+		cfg:        cfg,
+		run:        run,
+		healthReg:  m.healthReg,
+		healthOpts: healthOpts,
+		resume:     local,
+	}); err != nil {
+		s.rollback()
+		return nil, fmt.Errorf("start: assemble recover session: %w", err)
+	}
+
+	start := proto.Clone(rec).(*runv1.StartRecord)
+	if local != nil && local.Start != nil {
+		if start.GetName() == "" {
+			start.Name = local.Start.GetName()
+		}
+		if start.GetColor() == "" {
+			start.Color = local.Start.GetColor()
+		}
+	}
+	if local == nil || local.Start == nil {
+		if err = s.commitStart(ctx, start); err != nil {
+			s.rollback()
+			return nil, err
+		}
+	}
+
+	s.startAttach(attachParams{
+		factory:    m.factory,
+		start:      proto.Clone(start).(*runv1.StartRecord),
+		resumeMode: resumeMode,
+		timing:     m.attachTiming,
+	})
+	sessionID, err := m.install(s)
+	if err != nil {
+		s.rollback()
+		return nil, err
+	}
+
+	return &StartResult{
+		SessionID:        sessionID,
+		Run:              start,
+		Name:             start.GetName(),
+		GlobalStep:       globalStep,
+		GlobalSystemStep: globalSystemStep,
+		NewExperiment:    newExperiment,
 	}, nil
 }
 

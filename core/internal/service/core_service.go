@@ -142,7 +142,7 @@ func (s *CoreService) DeliverRunStart(
 	if err != nil {
 		return nil, managerStatus(err)
 	}
-	if result.Path == "" && settings.NormalizedMode() == config.ModeOnline {
+	if result.Path == "" && settings.NormalizedMode() == config.ModeOnline && !settings.RecoverOnline {
 		s.cleanupDisconnectedSessions([]string{result.SessionID})
 		return nil, status.Error(codes.InvalidArgument, "project path is empty; online mode requires a path")
 	}

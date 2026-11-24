@@ -4,6 +4,7 @@ package manager
 import (
 	"context"
 
+	"github.com/swanhubx/swanlab/core/internal/config"
 	"github.com/swanhubx/swanlab/core/internal/cron/health"
 )
 
@@ -67,7 +68,14 @@ func (s *Session) reconcileHealth() {
 
 // shouldSuspendUploads 判断当前是否必须暂停上传投递。
 func (s *Session) shouldSuspendUploads() bool {
-	if s.site == nil || s.cfg.SkipStore || s.storeDegraded.Load() {
+	if s.cfg.SkipStore || s.storeDegraded.Load() {
+		return false
+	}
+	// 在线会话在云端资源尚未挂载时只写本地，防止未建实验的记录进入上传通道。
+	if s.cfg.NormalizedMode() == config.ModeOnline && !s.isCloudAttached() {
+		return true
+	}
+	if s.site == nil {
 		return false
 	}
 	snap := s.site.Snapshot()

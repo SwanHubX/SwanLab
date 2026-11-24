@@ -375,8 +375,9 @@ func runStateFromProto(state runv1.RunState) api.RunState {
 // 持有 finishMu 与在途的 DeliverRunFinish/Confirm 互斥：退出钩子在 GracefulStop
 // 之前运行，否则可能一边关闭本地通道一边写入。
 func (s *Session) shutdown(ctx context.Context) error {
-	// 拿 finishMu 前先打断并等后台在线排空与 resumeFinish 退出，避免进程退出被补投阻塞。
+	// 拿 finishMu 前先打断并等待后台排空和异步接入退出，避免进程退出被阻塞。
 	s.stopOnlineDrain()
+	s.stopAttach()
 
 	s.finishMu.Lock()
 	defer s.finishMu.Unlock()

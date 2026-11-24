@@ -49,13 +49,14 @@ type fakeManager struct {
 	sessions map[string]manager.RunState
 	starts   []fakeStart
 
-	maxSessions   int
-	startErr      error
-	finishErr     error
-	stateErr      error
-	confirmErr    error
-	upsertErr     error
-	disconnectErr error
+	maxSessions    int
+	startErr       error
+	forceEmptyPath bool
+	finishErr      error
+	stateErr       error
+	confirmErr     error
+	upsertErr      error
+	disconnectErr  error
 
 	confirmResult manager.ConfirmResult
 
@@ -116,7 +117,7 @@ func (f *fakeManager) DeliverRunStart(
 	sessionID := fmt.Sprintf("session-%d", f.next)
 	f.sessions[sessionID] = manager.RunStateRunning
 	path := "/alice/demo/run-1"
-	if settings.NormalizedMode() != config.ModeOnline {
+	if settings.NormalizedMode() != config.ModeOnline || settings.RecoverOnline || f.forceEmptyPath {
 		path = ""
 	}
 	return &manager.StartResult{
@@ -428,6 +429,37 @@ func TestDeliverRunStartLocalAllowsEmptyPath(t *testing.T) {
 	}
 	if len(env.runs.starts) != 1 || env.runs.starts[0].settings.Mode != config.ModeLocal {
 		t.Fatalf("manager settings = %+v", env.runs.starts)
+	}
+}
+
+func TestDeliverRunStartRecoverOnlineAllowsEmptyPath(t *testing.T) {
+	env := newTestEnv(t)
+	spinup(t, env)
+
+	settings := validSettings(t)
+	settings.SkipStore = false
+	settings.RecoverOnline = true
+
+	resp, err := env.client.DeliverRunStart(callCtx(t), &corev1.DeliverRunStartRequest{
+		CoreSettings: settings,
+		StartRecord:  &runv1.StartRecord{Project: "demo", Id: "run-recover"},
+	})
+	if err != nil {
+		t.Fatalf("DeliverRunStart with RecoverOnline: %v", err)
+	}
+	if !resp.GetSuccess() || resp.GetSessionId() == "" || resp.GetPath() != "" {
+		t.Fatalf("recover start response = %v, want success with empty path", resp)
+	}
+
+	// 未开启 RecoverOnline 时，online 模式返回空 Path 仍应被拒绝。
+	env.runs.forceEmptyPath = true
+	noRecover := validSettings(t)
+	noRecover.SkipStore = false
+	if _, err = env.client.DeliverRunStart(callCtx(t), &corev1.DeliverRunStartRequest{
+		CoreSettings: noRecover,
+		StartRecord:  &runv1.StartRecord{Project: "demo", Id: "run-normal"},
+	}); status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("normal online empty path err=%v, want InvalidArgument", err)
 	}
 }
 
