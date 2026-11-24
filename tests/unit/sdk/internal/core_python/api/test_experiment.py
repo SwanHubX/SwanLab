@@ -96,7 +96,7 @@ def test_resume_raises_when_get_also_missing_created_at(monkeypatch):
     monkeypatch.setattr(experiment_api.client, "post", post)
     monkeypatch.setattr(experiment_api.client, "get", get)
 
-    with pytest.raises(ValueError, match="upgrade swanlab-server"):
+    with pytest.raises(ValueError, match="upgrade your SwanLab deployment"):
         _call_create_or_resume()
 
     get.assert_called_once_with("/project/alice/demo/runs/experiment-id", retries=None)
