@@ -263,6 +263,26 @@ func (s *Session) markCloudAttached(path string) {
 	}
 }
 
+func (s *Session) isPermanentAttachFailure() bool {
+	state, _, _ := s.cloudStatus()
+	return state == operationv1.CloudState_CLOUD_STATE_FAILED
+}
+
+func (s *Session) attachFailureConfirmMessage(attachErr error) string {
+	reason := "cloud attach failed"
+	if attachErr != nil {
+		reason = attachErr.Error()
+	}
+	switch {
+	case s.cfg.SkipStore:
+		return fmt.Sprintf("Failed to create cloud run (%s), and no local copy was kept (skip_store).", reason)
+	case s.storeDegraded.Load():
+		return fmt.Sprintf("Failed to create cloud run (%s), and the local copy is incomplete.", reason)
+	default:
+		return fmt.Sprintf("Failed to create cloud run (%s), but it has been saved locally.", reason)
+	}
+}
+
 func (s *Session) markCloudFailed(err error) {
 	s.cloudMu.Lock()
 	s.cloudState = operationv1.CloudState_CLOUD_STATE_FAILED

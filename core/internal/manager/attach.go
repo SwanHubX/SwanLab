@@ -14,6 +14,7 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/pkg/builder"
 	"github.com/swanhubx/swanlab/core/internal/pkg/console"
 	"github.com/swanhubx/swanlab/core/internal/runctx"
+	operationv1 "github.com/swanhubx/swanlab/core/proto/swanlab/operation/v1"
 	runv1 "github.com/swanhubx/swanlab/core/proto/swanlab/run/v1"
 )
 
@@ -87,6 +88,26 @@ func (s *Session) stopAttach() {
 		cancel()
 	}
 	s.attachWG.Wait()
+}
+
+// waitAttach 等待延迟接入完成或永久失败；未启用延迟接入或已接入时立即返回。
+func (s *Session) waitAttach(ctx context.Context) error {
+	s.cloudMu.Lock()
+	done := s.attachDone
+	s.cloudMu.Unlock()
+	if done == nil {
+		return nil
+	}
+	select {
+	case <-done:
+		state, _, err := s.cloudStatus()
+		if state == operationv1.CloudState_CLOUD_STATE_FAILED {
+			return err
+		}
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 // runAttach 周期性尝试接入云端，直到成功、遇到不可恢复错误或会话取消。

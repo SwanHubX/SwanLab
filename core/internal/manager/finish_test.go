@@ -2,23 +2,29 @@ package manager
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/swanhubx/swanlab/core/internal/api"
 	"github.com/swanhubx/swanlab/core/internal/budget"
 	"github.com/swanhubx/swanlab/core/internal/buffer"
+	"github.com/swanhubx/swanlab/core/internal/clienttest"
 	"github.com/swanhubx/swanlab/core/internal/config"
 	"github.com/swanhubx/swanlab/core/internal/cron/health"
 	"github.com/swanhubx/swanlab/core/internal/manager/checkpoint"
 	"github.com/swanhubx/swanlab/core/internal/manager/planner"
+	"github.com/swanhubx/swanlab/core/internal/manager/probe"
 	"github.com/swanhubx/swanlab/core/internal/manager/progress"
 	"github.com/swanhubx/swanlab/core/internal/metrics"
 	"github.com/swanhubx/swanlab/core/internal/pkg/counter"
@@ -1694,5 +1700,270 @@ func TestShutdownBoundsCrashLogWait(t *testing.T) {
 	}
 	if ctx.Err() != nil {
 		t.Fatalf("outer shutdown ctx expired prematurely: %v", ctx.Err())
+	}
+}
+
+func TestRecoverOnlineFinishWaitsForAttachAndBackfills(t *testing.T) {
+	cloud := clienttest.NewCloud(t)
+	var backendUp atomic.Bool
+	cloud.Handle(http.MethodGet, probe.ServerPath, func(w http.ResponseWriter, _ *http.Request) {
+		if !backendUp.Load() {
+			clienttest.WriteJSON(w, http.StatusServiceUnavailable, map[string]any{"ok": false})
+			return
+		}
+		clienttest.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
+	})
+	cloud.ServeJSON(http.MethodGet, probe.HousePath, http.StatusOK, map[string]any{"ok": true})
+	serveAuth(cloud)
+	serveProject(cloud, "alice", "demo", 1)
+	serveNewExperiment(cloud, "alice", "demo", "exp-wait", "slug-wait")
+	serveHeartbeat(cloud, "exp-wait")
+	uploaded := serveMetricsUploadOK(cloud)
+	cloud.ServeJSON(http.MethodPut, "/api/project/alice/demo/runs/exp-wait/state", http.StatusOK, map[string]any{"ok": true})
+
+	mgr := newInstantTestManager()
+	cfg := startSettings(t, cloud)
+	cfg.RecoverOnline = true
+	cfg.HealthProbeInterval = 0.005
+	cfg.HealthProbeTimeout = 0.2
+	cfg.HealthDegradeThreshold = 1
+	cfg.HealthRecoverThreshold = 1
+
+	startRes, err := mgr.DeliverRunStart(context.Background(), cfg, &runv1.StartRecord{
+		Id:      cfg.RunID,
+		Project: "demo",
+		Name:    "wait-attach",
+	})
+	if err != nil {
+		t.Fatalf("DeliverRunStart: %v", err)
+	}
+	t.Cleanup(func() { closeStartedSession(t, mgr, startRes.SessionID) })
+
+	if upsertErr := mgr.UpsertScalars(context.Background(), startRes.SessionID, []*datav1.ScalarRecord{
+		{
+			Key:       "loss",
+			Step:      1,
+			Type:      columnv1.ColumnType_COLUMN_TYPE_SCALAR,
+			Value:     &datav1.ScalarValue{Number: 0.42},
+			Timestamp: timestamppb.New(time.Unix(1_700_000_000, 0)),
+		},
+	}); upsertErr != nil {
+		t.Fatalf("UpsertScalars: %v", upsertErr)
+	}
+
+	// 后端仍不可达时调用 DeliverRunFinish：应完成本地收尾但不提前放行 Confirm。
+	if finErr := mgr.DeliverRunFinish(context.Background(), startRes.SessionID, finishRecord(runv1.RunState_RUN_STATE_CRASHED, "boom")); finErr != nil {
+		t.Fatalf("DeliverRunFinish: %v", finErr)
+	}
+
+	shortCtx, shortCancel := context.WithTimeout(context.Background(), 40*time.Millisecond)
+	defer shortCancel()
+	if _, confErr := mgr.Confirm(shortCtx, startRes.SessionID); !errors.Is(confErr, context.DeadlineExceeded) {
+		t.Fatalf("Confirm before attach err=%v, want context.DeadlineExceeded", confErr)
+	}
+	if got := mgr.SessionCount(); got != 1 {
+		t.Fatalf("SessionCount while waiting attach = %d, want 1", got)
+	}
+
+	// 后端恢复后接入完成，收尾流程继续补传历史记录与崩溃日志并上报终态。
+	backendUp.Store(true)
+	confirmRes, err := mgr.Confirm(context.Background(), startRes.SessionID)
+	if err != nil {
+		t.Fatalf("Confirm after recovery: %v", err)
+	}
+	if confirmRes.ReleaseFailed || !confirmRes.Released {
+		t.Fatalf("Confirm result = %+v, want Released=true and ReleaseFailed=false", confirmRes)
+	}
+	if got := cloud.CountFor(http.MethodPut, "/api/project/alice/demo/runs/exp-wait/state"); got != 1 {
+		t.Fatalf("stop_experiment calls = %d, want 1", got)
+	}
+	select {
+	case <-uploaded:
+	default:
+		t.Fatal("expected scalar/log metrics upload before Confirm completes")
+	}
+	if got := mgr.SessionCount(); got != 0 {
+		t.Fatalf("SessionCount after confirm = %d, want 0", got)
+	}
+	if got := mgr.healthReg.Len(); got != 0 {
+		t.Fatalf("health sites = %d, want 0", got)
+	}
+}
+
+func TestRecoverOnlineFinishAttachesConcurrentlyNoDeadlock(t *testing.T) {
+	cloud := clienttest.NewCloud(t)
+	cloud.ServeJSON(http.MethodGet, probe.ServerPath, http.StatusOK, map[string]any{"ok": true})
+	cloud.ServeJSON(http.MethodGet, probe.HousePath, http.StatusOK, map[string]any{"ok": true})
+	serveAuth(cloud)
+	serveProject(cloud, "alice", "demo", 1)
+	serveHeartbeat(cloud, "exp-conc")
+	_ = serveMetricsUploadOK(cloud)
+	cloud.ServeJSON(http.MethodPut, "/api/project/alice/demo/runs/exp-conc/state", http.StatusOK, map[string]any{"ok": true})
+
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	var once sync.Once
+	cloud.Handle(http.MethodPost, "/api/project/alice/demo/experiment", func(w http.ResponseWriter, r *http.Request) {
+		once.Do(func() { close(entered) })
+		<-release
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		clienttest.WriteJSON(w, http.StatusCreated, map[string]any{
+			"cuid": "exp-conc",
+			"slug": "slug-conc",
+			"name": body["name"],
+		})
+	})
+
+	mgr := newInstantTestManager()
+	cfg := startSettings(t, cloud)
+	cfg.RecoverOnline = true
+
+	startRes, err := mgr.DeliverRunStart(context.Background(), cfg, &runv1.StartRecord{
+		Id:      cfg.RunID,
+		Project: "demo",
+		Name:    "conc-attach",
+	})
+	if err != nil {
+		t.Fatalf("DeliverRunStart: %v", err)
+	}
+	t.Cleanup(func() { closeStartedSession(t, mgr, startRes.SessionID) })
+
+	<-entered
+	// 接入正在等待实验响应时并发触发 DeliverRunFinish 与 Confirm，随后放行实验响应。
+	if finErr := mgr.DeliverRunFinish(context.Background(), startRes.SessionID, finishRecord(runv1.RunState_RUN_STATE_FINISHED, "")); finErr != nil {
+		t.Fatalf("DeliverRunFinish: %v", finErr)
+	}
+	confirmDone := make(chan error, 1)
+	go func() {
+		_, confErr := mgr.Confirm(context.Background(), startRes.SessionID)
+		confirmDone <- confErr
+	}()
+
+	close(release)
+	timer := time.NewTimer(5 * time.Second)
+	defer timer.Stop()
+	select {
+	case confErr := <-confirmDone:
+		if confErr != nil {
+			t.Fatalf("Confirm: %v", confErr)
+		}
+	case <-timer.C:
+		t.Fatal("Confirm timed out waiting for concurrent attach")
+	}
+}
+
+func TestRecoverOnlineFinishPermanentAttachFailureClearsAndRepeats(t *testing.T) {
+	cloud := clienttest.NewCloud(t)
+	cloud.ServeJSON(http.MethodGet, probe.ServerPath, http.StatusOK, map[string]any{"ok": true})
+	cloud.ServeJSON(http.MethodGet, probe.HousePath, http.StatusOK, map[string]any{"ok": true})
+	cloud.ServeJSON(http.MethodGet, "/api/auth/verify", http.StatusUnauthorized, map[string]any{
+		"code":    "auth_error",
+		"message": "revoked api key",
+	})
+
+	mgr := newInstantTestManager()
+	cfg := startSettings(t, cloud)
+	cfg.RecoverOnline = true
+
+	startRes, err := mgr.DeliverRunStart(context.Background(), cfg, &runv1.StartRecord{
+		Id:      cfg.RunID,
+		Project: "demo",
+		Name:    "perm-fail",
+	})
+	if err != nil {
+		t.Fatalf("DeliverRunStart: %v", err)
+	}
+	t.Cleanup(func() { closeStartedSession(t, mgr, startRes.SessionID) })
+
+	s, err := mgr.session(startRes.SessionID)
+	if err != nil {
+		t.Fatalf("session: %v", err)
+	}
+	waitAttachDone(t, s)
+
+	// 永久失败后但尚未 finish 时调用 Confirm，仍应报 ErrRunNotFinished。
+	if _, earlyErr := mgr.Confirm(context.Background(), startRes.SessionID); !errors.Is(earlyErr, ErrRunNotFinished) {
+		t.Fatalf("early Confirm err=%v, want ErrRunNotFinished", earlyErr)
+	}
+
+	if finErr := mgr.DeliverRunFinish(context.Background(), startRes.SessionID, finishRecord(runv1.RunState_RUN_STATE_FINISHED, "")); finErr != nil {
+		t.Fatalf("DeliverRunFinish: %v", finErr)
+	}
+
+	// 收尾排空遇到永久接入失败后应进入 FINISHED（内部 RunStateFailed），不阻塞进度轮询。
+	waitManagerCond(t, "state becomes FAILED after DeliverRunFinish", func() bool {
+		st, stErr := mgr.State(startRes.SessionID)
+		return stErr == nil && st == RunStateFailed
+	})
+
+	first, err := mgr.Confirm(context.Background(), startRes.SessionID)
+	if err != nil {
+		t.Fatalf("first Confirm err=%v, want nil (failure carried in result)", err)
+	}
+	if !first.ReleaseFailed || first.Retryable || !first.Released {
+		t.Fatalf("first Confirm result = %+v, want ReleaseFailed=true Retryable=false Released=true", first)
+	}
+	if !strings.Contains(first.Message, "saved locally") || !strings.Contains(first.Message, "revoked api key") {
+		t.Fatalf("first Confirm message = %q, want saved locally + server reason", first.Message)
+	}
+	if got := mgr.SessionCount(); got != 0 {
+		t.Fatalf("SessionCount after cleanup = %d, want 0", got)
+	}
+	if got := mgr.healthReg.Len(); got != 0 {
+		t.Fatalf("health sites after cleanup = %d, want 0", got)
+	}
+
+	// 重复 Confirm 必须命中缓存并返回完全相同的失败结果，不能变成成功。
+	second, err := mgr.Confirm(context.Background(), startRes.SessionID)
+	if err != nil {
+		t.Fatalf("second Confirm err=%v, want nil", err)
+	}
+	if second != first {
+		t.Fatalf("second Confirm = %+v, want identical %+v", second, first)
+	}
+}
+
+func TestRecoverOnlinePermanentAttachFailureDegradedStoreMessage(t *testing.T) {
+	cloud := clienttest.NewCloud(t)
+	cloud.ServeJSON(http.MethodGet, probe.ServerPath, http.StatusOK, map[string]any{"ok": true})
+	cloud.ServeJSON(http.MethodGet, probe.HousePath, http.StatusOK, map[string]any{"ok": true})
+	cloud.ServeJSON(http.MethodGet, "/api/auth/verify", http.StatusUnauthorized, map[string]any{
+		"code":    "auth_error",
+		"message": "bad token",
+	})
+
+	mgr := newInstantTestManager()
+	cfg := startSettings(t, cloud)
+	cfg.RecoverOnline = true
+
+	startRes, err := mgr.DeliverRunStart(context.Background(), cfg, &runv1.StartRecord{
+		Id:      cfg.RunID,
+		Project: "demo",
+	})
+	if err != nil {
+		t.Fatalf("DeliverRunStart: %v", err)
+	}
+	t.Cleanup(func() { closeStartedSession(t, mgr, startRes.SessionID) })
+
+	s, err := mgr.session(startRes.SessionID)
+	if err != nil {
+		t.Fatalf("session: %v", err)
+	}
+	waitAttachDone(t, s)
+	s.storeDegraded.Store(true)
+
+	if finErr := mgr.DeliverRunFinish(context.Background(), startRes.SessionID, finishRecord(runv1.RunState_RUN_STATE_FINISHED, "")); finErr != nil {
+		t.Fatalf("DeliverRunFinish: %v", finErr)
+	}
+	res, err := mgr.Confirm(context.Background(), startRes.SessionID)
+	if err != nil {
+		t.Fatalf("Confirm: %v", err)
+	}
+	if !res.ReleaseFailed || !res.Released || res.Retryable {
+		t.Fatalf("Confirm result = %+v", res)
+	}
+	if strings.Contains(res.Message, "saved locally") || !strings.Contains(res.Message, "incomplete") {
+		t.Fatalf("Confirm message = %q, want incomplete without saved locally", res.Message)
 	}
 }

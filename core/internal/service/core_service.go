@@ -385,7 +385,7 @@ func (s *CoreService) ConfirmRunFinish(
 	if err != nil {
 		return nil, managerStatus(err)
 	}
-	if !result.ReleaseFailed {
+	if result.Released || !result.ReleaseFailed {
 		s.unbindSession(req.GetSessionId())
 	}
 	message := result.Message

@@ -998,6 +998,55 @@ func TestConfirmRunFinishCarriesReleaseFailure(t *testing.T) {
 	}
 }
 
+func TestConfirmRunFinishUnbindsSessionWhenReleasedWithFailure(t *testing.T) {
+	env := newTrackedTestEnv(t, 2*time.Second)
+	conn, client := env.dial(t)
+	ctx := callCtx(t)
+	if _, err := client.SpinupService(ctx, &corev1.SpinupServiceRequest{}); err != nil {
+		t.Fatalf("SpinupService: %v", err)
+	}
+	startResp, err := client.DeliverRunStart(ctx, &corev1.DeliverRunStartRequest{
+		CoreSettings: validSettings(t),
+		StartRecord:  &runv1.StartRecord{Project: "smoke"},
+	})
+	if err != nil {
+		t.Fatalf("DeliverRunStart: %v", err)
+	}
+	sid := startResp.GetSessionId()
+	if _, finErr := client.DeliverRunFinish(ctx, &corev1.DeliverRunFinishRequest{
+		SessionId:    sid,
+		FinishRecord: &runv1.FinishRecord{State: runv1.RunState_RUN_STATE_FINISHED},
+	}); finErr != nil {
+		t.Fatalf("DeliverRunFinish: %v", finErr)
+	}
+
+	env.runs.mu.Lock()
+	env.runs.confirmResult = manager.ConfirmResult{
+		Message:       "Failed to create cloud run (401), but it has been saved locally.",
+		ReleaseFailed: true,
+		Retryable:     false,
+		Released:      true,
+	}
+	env.runs.mu.Unlock()
+
+	resp, err := client.ConfirmRunFinish(ctx, &corev1.ConfirmRunFinishRequest{SessionId: sid})
+	if err != nil {
+		t.Fatalf("ConfirmRunFinish err=%v, want non-RPC response", err)
+	}
+	if resp.GetSuccess() || !strings.Contains(resp.GetMessage(), "saved locally") {
+		t.Fatalf("ConfirmRunFinish resp = %v, want success=false with saved locally", resp)
+	}
+
+	// 会话已随 failure 清理并解绑，连接断开不得触发 DisconnectSession。
+	if closeErr := conn.Close(); closeErr != nil {
+		t.Fatalf("conn.Close: %v", closeErr)
+	}
+	time.Sleep(30 * time.Millisecond)
+	if got := env.runs.disconnectedSnapshot(); len(got) != 0 {
+		t.Fatalf("released session must not trigger DisconnectSession, got %v", got)
+	}
+}
+
 func TestConfirmRunFinishRetryableReleaseReturnsUnavailable(t *testing.T) {
 	env := newTestEnv(t)
 	spinup(t, env)

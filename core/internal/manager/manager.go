@@ -59,15 +59,21 @@ const (
 	releasedCapacity = 128
 )
 
-// releasedCache 记录已成功释放的 session_id，按插入顺序淘汰最旧条目。
+// releasedCache 记录已释放 session_id 的最终 Confirm 结果，按插入顺序淘汰最旧条目。
+// 同时缓存成功与永久失败释放结果，保证重复 Confirm 返回一致响应。
 type releasedCache struct {
-	entries map[string]struct{}
+	entries map[string]ConfirmResult
 	order   []string
 	next    int
 }
 
 func newReleasedCache() releasedCache {
-	return releasedCache{entries: make(map[string]struct{}, releasedCapacity)}
+	return releasedCache{entries: make(map[string]ConfirmResult, releasedCapacity)}
+}
+
+func (c *releasedCache) get(id string) (ConfirmResult, bool) {
+	res, ok := c.entries[id]
+	return res, ok
 }
 
 func (c *releasedCache) has(id string) bool {
@@ -75,18 +81,18 @@ func (c *releasedCache) has(id string) bool {
 	return ok
 }
 
-func (c *releasedCache) add(id string) {
-	if c.has(id) {
+func (c *releasedCache) add(id string, res ConfirmResult) {
+	if _, ok := c.entries[id]; ok {
 		return
 	}
 	if len(c.order) < releasedCapacity {
 		c.order = append(c.order, id)
-		c.entries[id] = struct{}{}
+		c.entries[id] = res
 		return
 	}
 	delete(c.entries, c.order[c.next])
 	c.order[c.next] = id
-	c.entries[id] = struct{}{}
+	c.entries[id] = res
 	c.next = (c.next + 1) % releasedCapacity
 }
 
@@ -153,10 +159,12 @@ type Options struct {
 type ConfirmResult struct {
 	// Message 是返回给 Python 客户端的提示文案。
 	Message string
-	// ReleaseFailed 表示 stop_experiment 未成功，会话仍保留在注册表中。
+	// ReleaseFailed 表示云端实验释放未成功或接入永久失败。
 	ReleaseFailed bool
-	// Retryable 表示释放失败属于网络/超时等可重试错误，调用方可安全重发 Confirm。
+	// Retryable 表示失败属于网络/超时等可重试错误，调用方可安全重发 Confirm。
 	Retryable bool
+	// Released 表示会话已从注册表移除并清理资源；ReleaseFailed 与 Released 可同时为 true。
+	Released bool
 }
 
 // Manager 维护 session_id 到会话的映射注册表，并统一编排 Run 级的生命周期。
@@ -264,12 +272,12 @@ func (m *Manager) Confirm(ctx context.Context, sessionID string) (ConfirmResult,
 	if sessionID == "" {
 		return ConfirmResult{}, ErrEmptySessionID
 	}
-	s, released, err := m.lookup(sessionID)
+	s, cached, released, err := m.lookup(sessionID)
 	if err != nil {
 		return ConfirmResult{}, err
 	}
 	if released {
-		return ConfirmResult{Message: confirmOKMessage}, nil
+		return cached, nil
 	}
 	if err = s.waitDrained(ctx); err != nil {
 		return ConfirmResult{}, err
@@ -279,12 +287,15 @@ func (m *Manager) Confirm(ctx context.Context, sessionID string) (ConfirmResult,
 	defer s.confirmMu.Unlock()
 
 	// 等排空期间其它 Confirm 可能已经完成释放。
-	s, released, err = m.lookup(sessionID)
+	s, cached, released, err = m.lookup(sessionID)
 	if err != nil {
 		return ConfirmResult{}, err
 	}
 	if released {
-		return ConfirmResult{Message: confirmOKMessage}, nil
+		return cached, nil
+	}
+	if s.isPermanentAttachFailure() && !s.isCloudAttached() {
+		return m.confirmPermanentAttachFailure(ctx, sessionID, s)
 	}
 	switch s.stateSnapshot() {
 	case RunStateFailed:
@@ -336,11 +347,48 @@ func (m *Manager) Confirm(ctx context.Context, sessionID string) (ConfirmResult,
 	}
 	s.closeHealth()
 
+	result := ConfirmResult{Message: confirmOKMessage, Released: true}
 	m.mu.Lock()
 	delete(m.sessions, sessionID)
-	m.released.add(sessionID)
+	m.released.add(sessionID, result)
 	m.mu.Unlock()
-	return ConfirmResult{Message: confirmOKMessage}, nil
+	return result, nil
+}
+
+// confirmPermanentAttachFailure 在永久接入失败后完成本地清理并释放会话，同时返回确定性失败响应。
+func (m *Manager) confirmPermanentAttachFailure(ctx context.Context, sessionID string, s *Session) (ConfirmResult, error) {
+	switch s.stateSnapshot() {
+	case RunStateFailed:
+	case RunStateDraining, RunStateDrained:
+		if !s.finishCommittedNow() {
+			return ConfirmResult{}, fmt.Errorf("%w: run drained without a finish record", ErrRunFailed)
+		}
+	default:
+		return ConfirmResult{}, ErrRunNotFinished
+	}
+
+	s.stopOnlineDrain()
+	s.stopAttach()
+	if err := s.cleanupUnattached(ctx); err != nil {
+		return ConfirmResult{}, err
+	}
+	if s.cancel != nil {
+		s.cancel()
+	}
+	s.closeHealth()
+
+	_, _, attachErr := s.cloudStatus()
+	result := ConfirmResult{
+		Message:       s.attachFailureConfirmMessage(attachErr),
+		ReleaseFailed: true,
+		Retryable:     false,
+		Released:      true,
+	}
+	m.mu.Lock()
+	delete(m.sessions, sessionID)
+	m.released.add(sessionID, result)
+	m.mu.Unlock()
+	return result, nil
 }
 
 // DisconnectSession 在客户端异常断连后先有界排空指定会话再释放注册表槽位。
@@ -352,7 +400,7 @@ func (m *Manager) DisconnectSession(ctx context.Context, sessionID string) error
 	if sessionID == "" {
 		return ErrEmptySessionID
 	}
-	s, released, err := m.lookup(sessionID)
+	s, _, released, err := m.lookup(sessionID)
 	if err != nil {
 		if errors.Is(err, ErrSessionNotFound) {
 			return nil
@@ -367,7 +415,7 @@ func (m *Manager) DisconnectSession(ctx context.Context, sessionID string) error
 	s.confirmMu.Lock()
 	defer s.confirmMu.Unlock()
 
-	s, released, err = m.lookup(sessionID)
+	s, _, released, err = m.lookup(sessionID)
 	if err != nil {
 		if errors.Is(err, ErrSessionNotFound) {
 			return nil
@@ -494,17 +542,17 @@ func (m *Manager) Close() error {
 
 // lookup 在同一把读锁内区分「已释放」与「已注册」，避免两次读取之间被其它
 // Confirm 移除而产生误报的 ErrSessionNotFound。
-func (m *Manager) lookup(sessionID string) (*Session, bool, error) {
+func (m *Manager) lookup(sessionID string) (*Session, ConfirmResult, bool, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	if m.released.has(sessionID) {
-		return nil, true, nil
+	if cached, ok := m.released.get(sessionID); ok {
+		return nil, cached, true, nil
 	}
 	s, ok := m.sessions[sessionID]
 	if !ok {
-		return nil, false, ErrSessionNotFound
+		return nil, ConfirmResult{}, false, ErrSessionNotFound
 	}
-	return s, false, nil
+	return s, ConfirmResult{}, false, nil
 }
 
 func (m *Manager) session(sessionID string) (*Session, error) {
