@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"os"
+	"path/filepath"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -13,10 +14,12 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/swanhubx/swanlab/core/internal/api"
 	"github.com/swanhubx/swanlab/core/internal/clienttest"
 	"github.com/swanhubx/swanlab/core/internal/config"
 	"github.com/swanhubx/swanlab/core/internal/manager/probe"
 	"github.com/swanhubx/swanlab/core/internal/pkg/record"
+	"github.com/swanhubx/swanlab/core/internal/runctx"
 	"github.com/swanhubx/swanlab/core/internal/store"
 	columnv1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/column/v1"
 	datav1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/data/v1"
@@ -321,5 +324,136 @@ func TestDeliverRunStartRecoverOnlineStoreDegradedDisablesSuspension(t *testing.
 	s.storeDegraded.Store(true)
 	if s.shouldSuspendUploads() {
 		t.Fatal("store degraded must disable upload suspension even before cloud attach")
+	}
+}
+
+func TestDeliverRecoverStartInstallFailureDoesNotStartAttach(t *testing.T) {
+	cloud := clienttest.NewCloud(t)
+	cloud.ServeJSON(http.MethodGet, probe.ServerPath, http.StatusOK, map[string]any{"ok": true})
+	cloud.ServeJSON(http.MethodGet, probe.HousePath, http.StatusOK, map[string]any{"ok": true})
+
+	var authCalls, projectCalls, experimentCalls atomic.Int32
+	cloud.Handle(http.MethodGet, "/api/auth/verify", func(w http.ResponseWriter, _ *http.Request) {
+		authCalls.Add(1)
+		clienttest.WriteJSON(w, http.StatusOK, map[string]any{"uid": 1, "username": "alice"})
+	})
+	cloud.Handle(http.MethodGet, "/api/project/alice/demo", func(w http.ResponseWriter, _ *http.Request) {
+		projectCalls.Add(1)
+		clienttest.WriteJSON(w, http.StatusOK, map[string]any{
+			"cuid": "proj-1", "name": "demo", "path": "/@alice/demo", "version": 1,
+			"group": map[string]any{"username": "alice"},
+		})
+	})
+	cloud.Handle(http.MethodPost, "/api/project/alice/demo/experiment", func(w http.ResponseWriter, _ *http.Request) {
+		experimentCalls.Add(1)
+		clienttest.WriteJSON(w, http.StatusCreated, map[string]any{"cuid": "exp-1", "slug": "exp-1", "name": "exp"})
+	})
+
+	mgr := newInstantTestManager()
+	// 占满注册表，让 install 在装配完成后失败；此时 startAttach 不能已经发出云端请求。
+	for range maxSessions {
+		if _, err := mgr.install(newSession(sessionOptions{})); err != nil {
+			t.Fatalf("fill registry: %v", err)
+		}
+	}
+
+	cfg := fastRecoverSettings(t, cloud, "run-full", filepath.Join(t.TempDir(), "run"))
+	run, err := runctx.New(cfg)
+	if err != nil {
+		t.Fatalf("runctx.New: %v", err)
+	}
+	_, err = mgr.deliverRecoverStart(context.Background(), cfg, &runv1.StartRecord{
+		Id:      cfg.RunID,
+		Project: "demo",
+		Name:    "full",
+		Resume:  runv1.ResumeMode_RESUME_MODE_NEVER,
+	}, run, api.ResumeNever, nil)
+	if !errors.Is(err, ErrTooManySessions) {
+		t.Fatalf("deliverRecoverStart error = %v, want ErrTooManySessions", err)
+	}
+	// 给错误启动的接入协程留出请求窗口；修复后这些计数必须保持为 0。
+	time.Sleep(50 * time.Millisecond)
+	if got := authCalls.Load(); got != 0 {
+		t.Fatalf("auth calls = %d, want 0", got)
+	}
+	if got := projectCalls.Load(); got != 0 {
+		t.Fatalf("project calls = %d, want 0", got)
+	}
+	if got := experimentCalls.Load(); got != 0 {
+		t.Fatalf("experiment calls = %d, want 0", got)
+	}
+}
+
+func TestDeliverRunStartRecoverOnlinePrefersLocalIdentity(t *testing.T) {
+	cloud := clienttest.NewCloud(t)
+	cloud.ServeJSON(http.MethodGet, probe.ServerPath, http.StatusOK, map[string]any{"ok": true})
+	cloud.ServeJSON(http.MethodGet, probe.HousePath, http.StatusOK, map[string]any{"ok": true})
+	serveAuth(cloud)
+	serveProject(cloud, "alice", "demo", 1)
+	cloud.ServeJSON(http.MethodPost, "/api/project/alice/demo/experiment", http.StatusOK, map[string]any{
+		"cuid": "exp-local-id", "slug": "slug-local-id", "name": "local-name",
+		"createdAt": "2026-01-02T00:00:00.000Z",
+	})
+	serveHeartbeat(cloud, "exp-local-id")
+
+	mgr := newInstantTestManager()
+	cfg := fastRecoverSettings(t, cloud, "run-local-id", filepath.Join(t.TempDir(), "run"))
+	seedLocalRunFile(t, cfg, "local-name", "#654321", 1, 0)
+
+	res, err := mgr.DeliverRunStart(context.Background(), cfg, &runv1.StartRecord{
+		Id:      cfg.RunID,
+		Project: "demo",
+		Name:    "request-name",
+		Color:   "#000000",
+		Resume:  runv1.ResumeMode_RESUME_MODE_ALLOW,
+	})
+	if err != nil {
+		t.Fatalf("DeliverRunStart: %v", err)
+	}
+	t.Cleanup(func() { closeStartedSession(t, mgr, res.SessionID) })
+	if res.Run.GetName() != "local-name" || res.Run.GetColor() != "#654321" {
+		t.Fatalf("StartRecord identity = (%q, %q), want local values", res.Run.GetName(), res.Run.GetColor())
+	}
+}
+
+func TestDeliverRunStartResumePrefersLocalIdentity(t *testing.T) {
+	cloud := clienttest.NewCloud(t)
+	cloud.ServeJSON(http.MethodGet, probe.ServerPath, http.StatusOK, map[string]any{"ok": true})
+	cloud.ServeJSON(http.MethodGet, probe.HousePath, http.StatusOK, map[string]any{"ok": true})
+	serveAuth(cloud)
+	serveProject(cloud, "alice", "demo", 1)
+	cloud.ServeJSON(http.MethodGet, "/api/house/metrics/summaries/proj-1/exp-local", http.StatusOK, map[string]any{})
+	serveHeartbeat(cloud, "exp-local")
+
+	var createBody atomic.Value
+	cloud.Handle(http.MethodPost, "/api/project/alice/demo/experiment", func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		createBody.Store(body)
+		clienttest.WriteJSON(w, http.StatusOK, map[string]any{
+			"cuid": "exp-local", "slug": "slug-local", "name": "local-name",
+			"createdAt": "2026-01-02T00:00:00.000Z",
+		})
+	})
+
+	mgr := newInstantTestManager()
+	cfg := startSettings(t, cloud)
+	seedLocalRunFile(t, cfg, "local-name", "#654321", 1, 0)
+
+	res, err := mgr.DeliverRunStart(context.Background(), cfg, &runv1.StartRecord{
+		Id:      cfg.RunID,
+		Project: "demo",
+		Name:    "request-name",
+		Color:   "#000000",
+		Resume:  runv1.ResumeMode_RESUME_MODE_ALLOW,
+	})
+	if err != nil {
+		t.Fatalf("DeliverRunStart: %v", err)
+	}
+	t.Cleanup(func() { closeStartedSession(t, mgr, res.SessionID) })
+	body, _ := createBody.Load().(map[string]any)
+	colors, _ := body["colors"].([]any)
+	if body["name"] != "local-name" || len(colors) != 2 || colors[0] != "#654321" {
+		t.Fatalf("create payload = %#v, want local identity", body)
 	}
 }

@@ -27,7 +27,13 @@ const (
 	attachMaxBackoff     = 30 * time.Second
 	attachJitterMax      = 500 * time.Millisecond
 	attachAttemptTimeout = 30 * time.Second
+	// 站点订阅通道意外关闭后，等待主服务恢复的轮询间隔。
+	attachServerPoll = time.Second
 )
+
+// errAttachStopped 表示会话生命周期已不允许发布云端资源（例如已进入 DRAINED 或正在退出），
+// 属于正常停止而不是可上报的永久接入失败。
+var errAttachStopped = errors.New("cloud attach stopped by session lifecycle")
 
 // attachTiming 控制接入重试的退避与超时参数；零值字段使用生产默认常量。
 type attachTiming struct {
@@ -59,10 +65,19 @@ type attachParams struct {
 	start      *runv1.StartRecord
 	resumeMode api.ResumeMode
 	timing     attachTiming
+	// name/color 在首次成功读取项目统计后固定，重试时不再随项目实验数变化重新生成。
+	name  string
+	color string
 }
 
 // startAttach 启动单个会话的后台接入协程；受会话生命周期与 stopAttach 控制。
 func (s *Session) startAttach(params attachParams) {
+	if params.name == "" {
+		params.name = params.start.GetName()
+	}
+	if params.color == "" {
+		params.color = params.start.GetColor()
+	}
 	parent := s.ctx
 	if parent == nil {
 		parent = context.Background()
@@ -101,10 +116,15 @@ func (s *Session) waitAttach(ctx context.Context) error {
 	select {
 	case <-done:
 		state, _, err := s.cloudStatus()
-		if state == operationv1.CloudState_CLOUD_STATE_FAILED {
+		switch state {
+		case operationv1.CloudState_CLOUD_STATE_FAILED:
 			return err
+		case operationv1.CloudState_CLOUD_STATE_ATTACHED:
+			return nil
+		default:
+			// 接入协程因退出/收尾取消而停止：这是上下文级中断，不是云端永久失败。
+			return fmt.Errorf("%w: cloud attach stopped before completion", context.Canceled)
 		}
-		return nil
 	case <-ctx.Done():
 		return ctx.Err()
 	}
@@ -113,6 +133,8 @@ func (s *Session) waitAttach(ctx context.Context) error {
 // runAttach 周期性尝试接入云端，直到成功、遇到不可恢复错误或会话取消。
 // 重试由自身退避驱动；站点健康探针恢复时仅作为立即唤醒信号，多会话恢复时加入随机抖动错峰。
 func (s *Session) runAttach(ctx context.Context, params attachParams) {
+	// 无论以何种方式退出，都要释放 waitAttach，避免收尾协程永久等待接入结果。
+	defer s.markAttachStopped()
 	timing := params.timing.withDefaults()
 	var siteUpdates <-chan struct{}
 	if s.site != nil {
@@ -135,11 +157,11 @@ func (s *Session) runAttach(ctx context.Context, params attachParams) {
 			backoff = timing.initialBackoff
 		}
 
-		err := s.tryAttach(ctx, params, timing.attemptTimeout)
+		err := s.tryAttach(ctx, &params, timing.attemptTimeout)
 		if err == nil {
 			return
 		}
-		if ctx.Err() != nil {
+		if errors.Is(err, errAttachStopped) || ctx.Err() != nil {
 			return
 		}
 
@@ -150,6 +172,7 @@ func (s *Session) runAttach(ctx context.Context, params attachParams) {
 				s.markCloudFailed(err)
 				return
 			}
+			s.noteAttachError(err)
 			delay := nextAttachDelay(err, backoff, timing.maxBackoff)
 			if !waitAttachBackoff(ctx, delay, siteUpdates, s.isServerDegraded, timing.jitterMax) {
 				return
@@ -160,6 +183,7 @@ func (s *Session) runAttach(ctx context.Context, params attachParams) {
 
 		if isRetryableAttachError(err) {
 			authFailures = 0
+			s.noteAttachError(err)
 			delay := nextAttachDelay(err, backoff, timing.maxBackoff)
 			if !waitAttachBackoff(ctx, delay, siteUpdates, s.isServerDegraded, timing.jitterMax) {
 				return
@@ -176,7 +200,7 @@ func (s *Session) runAttach(ctx context.Context, params attachParams) {
 }
 
 // tryAttach 执行一次有序接入：认证 -> 建项目/实验 -> 装配云端资源 -> 原子挂载 -> 条件启动补传。
-func (s *Session) tryAttach(ctx context.Context, params attachParams, attemptTimeout time.Duration) error {
+func (s *Session) tryAttach(ctx context.Context, params *attachParams, attemptTimeout time.Duration) error {
 	attemptCtx, cancel := context.WithTimeout(ctx, attemptTimeout)
 	defer cancel()
 
@@ -204,22 +228,27 @@ func (s *Session) tryAttach(ctx context.Context, params attachParams, attemptTim
 		)
 	}
 
-	name := params.start.GetName()
-	if name == "" {
-		name = builder.GenerateName(project.Count.Experiments)
+	if ctx.Err() != nil {
+		return ctx.Err()
 	}
-	color := params.start.GetColor()
-	if color == "" {
-		color = builder.GenerateColor(project.Count.Experiments)
+	// 已 DRAINED 的会话不再创建实验，避免退出路径留下无人接管的云端身份。
+	if s.stateSnapshot() == RunStateDrained {
+		return errAttachStopped
+	}
+	if params.name == "" {
+		params.name = builder.GenerateName(project.Count.Experiments)
+	}
+	if params.color == "" {
+		params.color = builder.GenerateColor(project.Count.Experiments)
 	}
 	runID := firstNonEmpty(params.start.GetId(), s.cfg.RunID)
 
 	experiment, _, err := apiClient.CreateOrResumeExperiment(attemptCtx, api.CreateExperimentParams{
 		Username:    workspace,
 		Project:     projectName,
-		Name:        name,
+		Name:        params.name,
 		Description: params.start.GetDescription(),
-		Color:       color,
+		Color:       params.color,
 		JobType:     params.start.GetJobType(),
 		Group:       params.start.GetGroup(),
 		Tags:        params.start.GetTags(),
@@ -267,20 +296,31 @@ func (s *Session) tryAttach(ctx context.Context, params attachParams, attemptTim
 
 	// 状态检查、挂载云端资源与“仅在运行中启动补传”共用 Session.mu，避免与收尾停补传竞态；
 	// 接入协程绝不获取 finishMu，防止与等待接入的收尾协程死锁。
+	//
+	// FAILED 也允许挂载：DeliverRunFinish 可能在实验创建期间失败，此时 Confirm 会通过
+	// resumeFinish 统一补传和排空，不能让已创建的实验失去 releaseFn。只有退出路径
+	// （ctx 已取消或已进入 DRAINED）才放弃挂载，并返回可识别的停止错误。
 	var startedBackfill bool
+	stopped := false
 	s.mu.Lock()
 	state := RunState(s.state.Load())
-	if ctx.Err() != nil || (state != RunStateRunning && state != RunStateDraining) {
-		s.mu.Unlock()
-		_ = res.uploader.Close()
-		return context.Canceled
-	}
-	s.setCloudResources(res)
-	if state == RunStateRunning {
-		s.backfill.Start()
-		startedBackfill = true
+	switch {
+	case ctx.Err() != nil:
+		stopped = true
+	case state == RunStateRunning, state == RunStateDraining, state == RunStateFailed:
+		s.setCloudResources(res)
+		if state == RunStateRunning {
+			s.backfill.Start()
+			startedBackfill = true
+		}
+	default:
+		stopped = true
 	}
 	s.mu.Unlock()
+	if stopped {
+		_ = res.uploader.Close()
+		return errAttachStopped
+	}
 
 	cloudPath := project.Path + "/" + firstNonEmpty(experiment.Slug, experiment.CUID)
 	res.heartbeat.Start(s.ctx)
@@ -330,6 +370,16 @@ func waitForServerRecovery(
 	jitterMax time.Duration,
 ) bool {
 	if siteUpdates == nil {
+		// 无订阅时退化为定时轮询，保证接入协程不会静默退出。
+		for serverDegraded() {
+			timer := time.NewTimer(attachServerPoll)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return false
+			case <-timer.C:
+			}
+		}
 		return waitJitter(ctx, jitterMax)
 	}
 	for serverDegraded() {
@@ -338,7 +388,8 @@ func waitForServerRecovery(
 			return false
 		case _, ok := <-siteUpdates:
 			if !ok {
-				return false
+				// 订阅通道意外关闭：退化为定时轮询，继续等待主服务恢复。
+				return waitForServerRecovery(ctx, nil, serverDegraded, jitterMax)
 			}
 		}
 	}

@@ -200,9 +200,13 @@ class TestFinishCloudLinkSync:
         ctx.config.run_dir = tmp_path
 
         info_msgs = []
+        warning_msgs = []
         printed_links = []
         monkeypatch.setattr(
             greeting.console, "info", lambda *args, **kwargs: info_msgs.append(" ".join(map(str, args)))
+        )
+        monkeypatch.setattr(
+            greeting.console, "warning", lambda *args, **kwargs: warning_msgs.append(" ".join(map(str, args)))
         )
         monkeypatch.setattr(greeting, "print_cloud_link", lambda r: printed_links.append(r))
         monkeypatch.setattr("swanlab.sdk.internal.run.console.error", MagicMock())
@@ -211,5 +215,8 @@ class TestFinishCloudLinkSync:
         run.finish()
 
         assert printed_links == []
-        with pytest.raises(ValueError, match="401 invalid token"):
+        assert "recovering in background" not in "\n".join(info_msgs)
+        assert any("Cloud recovery failed" in message for message in warning_msgs)
+        assert any("swanlab sync" in message for message in info_msgs)
+        with pytest.raises(ValueError, match="401 invalid token.*swanlab sync"):
             _ = run.path

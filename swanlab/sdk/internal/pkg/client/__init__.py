@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 
 import requests
-from requests.exceptions import InvalidSchema, InvalidURL, MissingSchema
+from requests.exceptions import InvalidSchema, InvalidURL, JSONDecodeError, MissingSchema
 
 from swanlab.exceptions import ApiError, AuthenticationError
 from swanlab.sdk.typings.pkg.client import JSONBody, JSONDict
@@ -29,6 +29,7 @@ __all__ = [
     "decode_response",
     "verify_api_key",
     "is_transient_login_error",
+    "is_recoverable_login_error",
     "is_login_auth_error",
     "STARTUP_RETRIES",
 ]
@@ -47,6 +48,31 @@ def is_transient_login_error(exc: BaseException) -> bool:
         status = getattr(exc.response, "status_code", None)
         return status is None or status in (408, 429) or status >= 500
     # URL / 协议配置错误重试和降级都无法解决
+    if isinstance(exc, (InvalidURL, MissingSchema, InvalidSchema)):
+        return False
+    return isinstance(exc, requests.RequestException)
+
+
+def is_recoverable_login_error(exc: BaseException) -> bool:
+    """
+    判断登录失败是否适合进入 Core 的后台自动恢复流程。
+
+    与 ``is_transient_login_error`` 的区别：2xx 但响应不是有效 JSON、或缺少
+    ``sid``/``expiredAt``/用户信息时，属于服务端协议异常而非后端不可用，
+    不能进入会无限等待的恢复流程。该谓词只用于恢复判定，不改变 CorePython/#1816
+    既有的降级行为。
+    """
+    if isinstance(exc, AuthenticationError) and exc.__cause__ is not None:
+        exc = exc.__cause__
+    # requests 的 JSONDecodeError 同时继承 json.JSONDecodeError 与 RequestException，
+    # 必须在通用 RequestException 之前排除。
+    if isinstance(exc, JSONDecodeError):
+        return False
+    if isinstance(exc, ApiError):
+        if exc.code == "invalid_login_response":
+            return False
+        status = getattr(exc.response, "status_code", None)
+        return status is None or status in (408, 429) or status >= 500
     if isinstance(exc, (InvalidURL, MissingSchema, InvalidSchema)):
         return False
     return isinstance(exc, requests.RequestException)

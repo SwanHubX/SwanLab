@@ -401,7 +401,14 @@ class Run:
             return self._path
         if self._cloud_state == CLOUD_STATE_FAILED:
             reason = self._cloud_error or "cloud attach failed"
-            raise ValueError(f"Run {attr} is unavailable because SwanLab Cloud recovery failed: {reason}")
+            message = f"Run {attr} is unavailable because SwanLab Cloud recovery failed: {reason}."
+            core_settings = getattr(self._ctx.config.settings, "core", None)
+            if not getattr(core_settings, "skip_store", False):
+                message += (
+                    f" The local copy is complete; run `swanlab sync {self._ctx.config.run_dir}` "
+                    "after the backend recovers."
+                )
+            raise ValueError(message)
         raise ValueError(
             f"Run {attr} is unavailable because SwanLab Cloud has not attached yet (recovery is still in progress)."
         )

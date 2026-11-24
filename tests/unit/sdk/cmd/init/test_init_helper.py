@@ -15,6 +15,7 @@ import requests
 from swanlab.exceptions import ApiError, AuthenticationError
 from swanlab.sdk.cmd.init import (
     _can_recover_online,
+    _ensure_online_client_or_fallback,
     _has_local_run_file,
     compatible_kwargs,
     ensure_run_dir,
@@ -602,3 +603,38 @@ class TestOnlineRecoveryEligibility:
         settings.run.resume = resume
 
         assert _can_recover_online(backend, settings, run_dir) is expected
+
+    def test_malformed_login_response_does_not_enter_recovery(self, monkeypatch, tmp_path):
+        """2xx 但响应缺字段不能进入后台恢复；CorePython 的降级路径保持不变。"""
+        import swanlab.sdk.cmd.init as init_module
+        from swanlab.sdk.internal.pkg.client import is_recoverable_login_error, is_transient_login_error
+
+        cause = ApiError(
+            None,
+            method="POST",
+            code="invalid_login_response",
+            message="Invalid login response: 'sid'",
+            retryable=True,
+        )
+        exc = _wrapped_auth_error(cause)
+        assert is_transient_login_error(exc)
+        assert not is_recoverable_login_error(exc)
+
+        monkeypatch.setattr(init_module, "client", MagicMock(exists=MagicMock(return_value=False)))
+        monkeypatch.setattr(init_module, "login_raw", MagicMock(side_effect=exc))
+        settings = MagicMock()
+        settings.api_key = "test-key"
+        settings.api_host = "http://api.test"
+        settings.on_online_error = "offline"
+
+        ctx = MagicMock()
+        with pytest.raises(AuthenticationError):
+            _ensure_online_client_or_fallback(ctx, settings, "run-1", tmp_path, allow_recover_online=True)
+        ctx.core.abort.assert_called_once_with(exc)
+
+        # 不具备恢复资格时仍按 #1816 走 offline 降级，不改变 CorePython 行为。
+        fallback = MagicMock()
+        monkeypatch.setattr(init_module, "_switch_run_to_fallback", fallback)
+        mode, recover = _ensure_online_client_or_fallback(ctx, settings, "run-1", tmp_path, allow_recover_online=False)
+        assert (mode, recover) == ("offline", False)
+        fallback.assert_called_once()

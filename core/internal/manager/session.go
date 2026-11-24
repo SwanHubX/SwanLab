@@ -263,6 +263,17 @@ func (s *Session) markCloudAttached(path string) {
 	}
 }
 
+// markAttachStopped 在后台接入因会话生命周期结束而退出时释放 attachDone；
+// 不改变 cloudState：既不能伪造成功，也不能把正常停止误报成永久接入失败。
+func (s *Session) markAttachStopped() {
+	s.cloudMu.Lock()
+	done := s.attachDone
+	s.cloudMu.Unlock()
+	if done != nil {
+		s.attachOnce.Do(func() { close(done) })
+	}
+}
+
 func (s *Session) isPermanentAttachFailure() bool {
 	state, _, _ := s.cloudStatus()
 	return state == operationv1.CloudState_CLOUD_STATE_FAILED
@@ -281,6 +292,19 @@ func (s *Session) attachFailureConfirmMessage(attachErr error) string {
 	default:
 		return fmt.Sprintf("Failed to create cloud run (%s), but it has been saved locally.", reason)
 	}
+}
+
+// noteAttachError 保存最近一次可重试的接入错误，供进度界面展示等待原因；
+// 不改变接入状态，成功接入时由 markCloudAttached 清空。
+func (s *Session) noteAttachError(err error) {
+	if err == nil {
+		return
+	}
+	s.cloudMu.Lock()
+	if s.cloudState == operationv1.CloudState_CLOUD_STATE_PENDING {
+		s.cloudErr = err
+	}
+	s.cloudMu.Unlock()
 }
 
 func (s *Session) markCloudFailed(err error) {

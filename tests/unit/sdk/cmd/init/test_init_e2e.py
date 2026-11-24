@@ -2063,6 +2063,41 @@ class TestInitOnlineRecoveryWithGoCore:
         # finish 阶段从最终 stats 同步到真实云端路径
         assert run.path == "/alice/proj/run-recovered"
 
+    def test_invalid_login_response_does_not_start_recover_core(self, monkeypatch, tmp_path):
+        """2xx 但响应缺字段时直接报错，不能带 recover_online=True 启动 Core。"""
+        from swanlab.exceptions import ApiError
+        from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import DeliverRunStartResponse
+
+        if client.exists():
+            client.reset()
+        started_requests, created_cores, _ = self._install_fake_go_core(
+            monkeypatch,
+            start_outcomes=[DeliverRunStartResponse(success=True)],
+        )
+        cause = ApiError(
+            None,
+            method="POST",
+            code="invalid_login_response",
+            message="Invalid login response: 'sid'",
+            retryable=True,
+        )
+        wrapped = AuthenticationError("Failed to initialize the SwanLab client")
+        wrapped.__cause__ = cause
+        monkeypatch.setattr("swanlab.sdk.cmd.init.login_raw", MagicMock(side_effect=wrapped))
+
+        with pytest.raises(AuthenticationError):
+            init(
+                mode="online",
+                project="proj",
+                log_dir=str(tmp_path),
+                settings=Settings.model_validate({"api_key": "test-api-key", "probe": self._NO_PROBE}),
+            )
+
+        assert started_requests == []
+        assert created_cores
+        for core in created_cores:
+            assert core.aborted == 1
+
     def test_transient_start_error_restarts_with_recover_online(self, monkeypatch, logged_in_client, tmp_path):
         """deliver_run_start 返回临时错误时先中止首次 Core，再携带 recover_online=True 重启。"""
         from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (

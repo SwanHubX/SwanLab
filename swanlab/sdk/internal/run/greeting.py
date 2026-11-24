@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 
 from rich.text import Text
 
+from swanlab.proto.swanlab.operation.v1.operation_pb2 import CLOUD_STATE_FAILED
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.pkg import console, fs
 from swanlab.sdk.internal.pkg.helper.version import get_swanlab_version
@@ -58,6 +59,18 @@ def _print_recover_online_tip(ctx: RunContext) -> None:
     )
 
 
+def _print_attach_failed_tip(ctx: RunContext, run: "Run") -> None:
+    """云端接入永久失败后给出原因与本地恢复方式，不再误报“后台恢复中”。"""
+    reason = getattr(run, "_cloud_error", None) or "cloud attach failed"
+    console.warning("❌ SwanLab Cloud recovery failed:", Text(reason, "yellow"))
+    if ctx.config.settings.core.skip_store:
+        return
+    console.info(
+        "💾 Local copy is complete; upload it after the backend recovers with",
+        Text(f"`swanlab sync {ctx.config.run_dir}`", "bold"),
+    )
+
+
 def _print_local_tip(ctx: RunContext):
     console.info(
         "🌟 Run",
@@ -92,6 +105,8 @@ def welcome(ctx: RunContext, run: "Run"):
         _print_save_dir(ctx)
         if run._path:
             _print_online_tip(run)
+        elif run._cloud_state == CLOUD_STATE_FAILED:
+            _print_attach_failed_tip(ctx, run)
         else:
             _print_recover_online_tip(ctx)
     # 2. Local
@@ -115,6 +130,8 @@ def goodbye(ctx: RunContext, run: "Run"):
     elif mode == "online":
         if run._path:
             _print_online_tip(run)
+        elif run._cloud_state == CLOUD_STATE_FAILED:
+            _print_attach_failed_tip(ctx, run)
         else:
             _print_recover_online_tip(ctx)
     # 2. Local

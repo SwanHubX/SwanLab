@@ -556,7 +556,7 @@ func setupIdempotentRecoveryCloud(t *testing.T, backendUp *atomic.Bool) (*client
 	return cloud, &steps, &mu, createdByCuid
 }
 
-func runCrashBeforeExperimentCreated(t *testing.T) {
+func runShutdownBeforeExperimentCreated(t *testing.T) {
 	var backendUp atomic.Bool
 	cloud, steps, mu, createdByCuid := setupIdempotentRecoveryCloud(t, &backendUp)
 	runDir := filepath.Join(t.TempDir(), "crash-pre-dir")
@@ -587,7 +587,7 @@ func runCrashBeforeExperimentCreated(t *testing.T) {
 		t.Fatalf("mgr1 Shutdown: %v", shutErr)
 	}
 
-	// 强杀重拉：允许续传并恢复网络，应当补传中断前的记录且只建 1 个实验。
+	// Shutdown 后重拉：允许续传并恢复网络，应当补传中断前的记录且只建 1 个实验。
 	backendUp.Store(true)
 	mgr2 := newInstantTestManager()
 	cfg2 := fastRecoverSettings(t, cloud, "crash-pre", runDir)
@@ -621,7 +621,7 @@ func runCrashBeforeExperimentCreated(t *testing.T) {
 	}
 }
 
-func runCrashAfterExperimentCreated(t *testing.T) {
+func runShutdownAfterExperimentCreated(t *testing.T) {
 	var backendUp atomic.Bool
 	backendUp.Store(true)
 	cloud, _, mu, createdByCuid := setupIdempotentRecoveryCloud(t, &backendUp)
@@ -676,7 +676,7 @@ func runCrashAfterExperimentCreated(t *testing.T) {
 	}
 }
 
-func runCrashMidBackfillCheckpoint(t *testing.T) {
+func runShutdownMidBackfillCheckpoint(t *testing.T) {
 	var backendUp atomic.Bool
 	cloud, steps, _, _ := setupIdempotentRecoveryCloud(t, &backendUp)
 	cfg := fastRecoverSettings(t, cloud, "crash-cp", filepath.Join(t.TempDir(), "crash-cp-dir"))
@@ -708,10 +708,128 @@ func runCrashMidBackfillCheckpoint(t *testing.T) {
 	}
 }
 
-func TestRecoverOnlineProcessCrashStagesNoDuplicateExperiment(t *testing.T) {
-	t.Run("kill_before_experiment_created", runCrashBeforeExperimentCreated)
-	t.Run("kill_after_experiment_created", runCrashAfterExperimentCreated)
-	t.Run("kill_mid_backfill_resumes_from_checkpoint", runCrashMidBackfillCheckpoint)
+func TestRecoverOnlineShutdownStagesNoDuplicateExperiment(t *testing.T) {
+	t.Run("shutdown_before_experiment_created", runShutdownBeforeExperimentCreated)
+	t.Run("shutdown_after_experiment_created", runShutdownAfterExperimentCreated)
+	t.Run("shutdown_mid_backfill_resumes_from_checkpoint", runShutdownMidBackfillCheckpoint)
+}
+
+// TestRecoverOnlineFinishFailureDuringAttachKeepsCloudResources 覆盖本地收尾失败与
+// 云端实验创建并发的竞态：已完成创建实验的接入任务必须继续发布资源，供 Confirm
+// 续跑补传并上报终态，不能把本地收尾错误误报成云端永久失败。
+func TestRecoverOnlineFinishFailureDuringAttachKeepsCloudResources(t *testing.T) {
+	cloud := clienttest.NewCloud(t)
+	cloud.ServeJSON(http.MethodGet, probe.ServerPath, http.StatusOK, map[string]any{"ok": true})
+	cloud.ServeJSON(http.MethodGet, probe.HousePath, http.StatusOK, map[string]any{"ok": true})
+	serveAuth(cloud)
+	serveProject(cloud, "alice", "demo", 1)
+	serveHeartbeat(cloud, "exp-finish-race")
+	uploaded := serveMetricsUploadOK(cloud)
+
+	experimentStarted := make(chan struct{})
+	releaseExperiment := make(chan struct{})
+	var releaseOnce sync.Once
+	release := func() { releaseOnce.Do(func() { close(releaseExperiment) }) }
+	t.Cleanup(release)
+	var startedOnce sync.Once
+	var stopCalls atomic.Int32
+	var stopState atomic.Value
+	cloud.Handle(http.MethodPost, "/api/project/alice/demo/experiment", func(w http.ResponseWriter, r *http.Request) {
+		startedOnce.Do(func() { close(experimentStarted) })
+		<-releaseExperiment
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		clienttest.WriteJSON(w, http.StatusCreated, map[string]any{
+			"cuid": "exp-finish-race",
+			"slug": "slug-finish-race",
+			"name": body["name"],
+		})
+	})
+	cloud.Handle(http.MethodPut, "/api/project/alice/demo/runs/exp-finish-race/state", func(w http.ResponseWriter, r *http.Request) {
+		stopCalls.Add(1)
+		var body struct {
+			State string `json:"state"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		stopState.Store(body.State)
+		clienttest.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
+	})
+
+	mgr := newInstantTestManager()
+	cfg := fastRecoverSettings(t, cloud, "run-finish-race", filepath.Join(t.TempDir(), "run"))
+	res, err := mgr.DeliverRunStart(context.Background(), cfg, &runv1.StartRecord{
+		Id:      cfg.RunID,
+		Project: "demo",
+		Name:    "finish-race",
+		Resume:  runv1.ResumeMode_RESUME_MODE_NEVER,
+	})
+	if err != nil {
+		t.Fatalf("DeliverRunStart: %v", err)
+	}
+	t.Cleanup(func() { closeStartedSession(t, mgr, res.SessionID) })
+
+	s, err := mgr.session(res.SessionID)
+	if err != nil {
+		t.Fatalf("session: %v", err)
+	}
+
+	// 1. 卡住实验创建，让接入任务停在“已发出创建请求、尚未发布资源”的位置。
+	select {
+	case <-experimentStarted:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for experiment create request")
+	}
+	if upsertErr := mgr.UpsertScalars(context.Background(), res.SessionID, []*datav1.ScalarRecord{
+		scalarAtStep("loss", 1, 0.5),
+	}); upsertErr != nil {
+		t.Fatalf("UpsertScalars: %v", upsertErr)
+	}
+
+	// 2. 模拟 DeliverRunFinish 在本地提交 FinishRecord 时失败：会话进入 FAILED，
+	//    FinishRecord 尚未提交，交由 Confirm 续跑。这里直接构造同一状态，
+	//    避免依赖 intake 队列是否恰好腾出空间来触发提交失败。
+	if started, drainErr := s.beginDrainOwned(); drainErr != nil || !started {
+		t.Fatalf("beginDrainOwned = (%v, %v), want (true, nil)", started, drainErr)
+	}
+	s.backfill.Stop()
+	s.watcher.Stop()
+	s.prepareFinish(finishRecord(runv1.RunState_RUN_STATE_FINISHED, ""))
+	finishFailure := errors.New("simulated local finish commit failure")
+	s.fail(finishFailure)
+	originalFailure := s.failure()
+	if !errors.Is(originalFailure, finishFailure) {
+		t.Fatalf("finish failure = %v, want wrapped local commit failure", originalFailure)
+	}
+
+	// 3. 放行实验创建：FAILED 会话必须接收云端资源，而不是关闭上传器后误报永久失败。
+	release()
+	waitAttachDone(t, s)
+	if state, path, attachErr := s.cloudStatus(); state != operationv1.CloudState_CLOUD_STATE_ATTACHED ||
+		path != "/alice/demo/slug-finish-race" || attachErr != nil {
+		t.Fatalf("cloudStatus = (%v, %q, %v), want ATTACHED", state, path, attachErr)
+	}
+	if failure := s.failure(); !errors.Is(failure, finishFailure) || strings.Contains(failure.Error(), "cloud attach") {
+		t.Fatalf("finish failure was overwritten: %v", failure)
+	}
+
+	// 4. 第二次 Confirm 续跑本地收尾、补传、排空并上报终态。
+	conf, err := mgr.Confirm(context.Background(), res.SessionID)
+	if err != nil || conf.ReleaseFailed {
+		t.Fatalf("Confirm = (%+v, %v)", conf, err)
+	}
+	timer := time.NewTimer(5 * time.Second)
+	defer timer.Stop()
+	select {
+	case <-uploaded:
+	case <-timer.C:
+		t.Fatal("timed out waiting for backfill after resumed finish")
+	}
+	if got := stopCalls.Load(); got != 1 {
+		t.Fatalf("stop_experiment calls = %d, want 1", got)
+	}
+	if got, _ := stopState.Load().(string); got != "FINISHED" {
+		t.Fatalf("stop state = %q, want FINISHED", got)
+	}
 }
 
 func TestRecoverOnlineMultiSessionSharedSiteIsolation(t *testing.T) {

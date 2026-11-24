@@ -111,10 +111,19 @@ func (m *Manager) bootstrapCloud(
 	}
 
 	name := rec.GetName()
+	color := rec.GetColor()
+	if local != nil && local.Start != nil {
+		// 续传时本地 StartRecord 是既有实验身份，优先于本次请求里的默认值。
+		if local.Start.GetName() != "" {
+			name = local.Start.GetName()
+		}
+		if local.Start.GetColor() != "" {
+			color = local.Start.GetColor()
+		}
+	}
 	if name == "" {
 		name = builder.GenerateName(project.Count.Experiments)
 	}
-	color := rec.GetColor()
 	if color == "" {
 		color = builder.GenerateColor(project.Count.Experiments)
 	}
@@ -336,10 +345,11 @@ func (m *Manager) deliverRecoverStart(
 
 	start := proto.Clone(rec).(*runv1.StartRecord)
 	if local != nil && local.Start != nil {
-		if start.GetName() == "" {
+		// 本地已有未完成的 StartRecord 时以它为准，保证恢复前后实验身份稳定。
+		if local.Start.GetName() != "" {
 			start.Name = local.Start.GetName()
 		}
-		if start.GetColor() == "" {
+		if local.Start.GetColor() != "" {
 			start.Color = local.Start.GetColor()
 		}
 	}
@@ -350,17 +360,19 @@ func (m *Manager) deliverRecoverStart(
 		}
 	}
 
+	// 注册表容量只能在 install 内最终确认；先启动接入会在安装失败时留下无人接管的
+	// 云端实验。install 成功后再启动后台接入，rollback 就不会再遇到已创建的云端身份。
+	sessionID, err := m.install(s)
+	if err != nil {
+		s.rollback()
+		return nil, err
+	}
 	s.startAttach(attachParams{
 		factory:    m.factory,
 		start:      proto.Clone(start).(*runv1.StartRecord),
 		resumeMode: resumeMode,
 		timing:     m.attachTiming,
 	})
-	sessionID, err := m.install(s)
-	if err != nil {
-		s.rollback()
-		return nil, err
-	}
 
 	return &StartResult{
 		SessionID:        sessionID,
