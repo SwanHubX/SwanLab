@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -273,6 +274,8 @@ type finishHarness struct {
 	runFile       string
 	writer        *store.Writer
 	uploads       *collectingSender
+	confirmed     *atomic.Int64
+	confirmNotify chan struct{}
 	gate          chan struct{}
 	uploadEntered chan struct{}
 }
@@ -358,6 +361,8 @@ func newFinishHarness(t *testing.T, opts finishOptions) *finishHarness {
 	}
 
 	uploads := &collectingSender{notify: make(chan struct{}, 1)}
+	confirmed := &atomic.Int64{}
+	confirmNotify := make(chan struct{}, 1)
 	var gate chan struct{}
 	var entered chan struct{}
 	var up *uploader.Uploader
@@ -385,6 +390,13 @@ func newFinishHarness(t *testing.T, opts finishOptions) *finishHarness {
 			Context:  s.ctx,
 			OnDrained: func() {
 				s.markDrained()
+			},
+			OnConfirm: func(records []*recordv1.Record) {
+				confirmed.Add(int64(len(records)))
+				select {
+				case confirmNotify <- struct{}{}:
+				default:
+				}
 			},
 		})
 		if err != nil {
@@ -452,6 +464,6 @@ func newFinishHarness(t *testing.T, opts finishOptions) *finishHarness {
 	})
 	return &finishHarness{
 		mgr: mgr, id: id, session: s, runFile: runFile, writer: writer,
-		uploads: uploads, gate: gate, uploadEntered: entered,
+		uploads: uploads, confirmed: confirmed, confirmNotify: confirmNotify, gate: gate, uploadEntered: entered,
 	}
 }

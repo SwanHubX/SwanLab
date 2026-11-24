@@ -1451,6 +1451,20 @@ func TestDeliverRunFinishSucceedsWhileSiteSuspendedAndConfirmWaitsForRecovery(t 
 	}
 }
 
+// waitForConfirmed 等到上传器确认至少 n 条记录；确认发生在预算归还之后。
+func (h *finishHarness) waitForConfirmed(t *testing.T, n int) {
+	t.Helper()
+	deadline := time.NewTimer(5 * time.Second)
+	defer deadline.Stop()
+	for int(h.confirmed.Load()) < n {
+		select {
+		case <-h.confirmNotify:
+		case <-deadline.C:
+			t.Fatalf("uploader confirmed %d records, want at least %d", h.confirmed.Load(), n)
+		}
+	}
+}
+
 // 补投协程由暂停通知唤醒，恢复后自行停止。
 func TestBackfillSupervisorResumesAfterPause(t *testing.T) {
 	h := newFinishHarness(t, finishOptions{budgetRecords: 2, blockUpload: true})
@@ -1467,14 +1481,14 @@ func TestBackfillSupervisorResumesAfterPause(t *testing.T) {
 	close(h.gate)
 	h.session.backfill.Wake()
 
-	// 4 条标量送达说明后台补投已在推进（前两条来自实时通道）。
-	h.uploads.waitFor(t, 4)
+	// 4 条标量确认说明后台补投已推进且预算已归还（前两条来自实时通道）。
+	h.waitForConfirmed(t, 4)
 	// 交接完成前取消可能停在补投之后，这里显式 join 并补完剩余一步。
 	h.session.backfill.Stop()
 	if err := h.session.backfill.RunOnce(ctx); err != nil {
 		t.Fatalf("complete backfill: %v", err)
 	}
-	// 暂停已清除：新提交的标量直接进入上传通道。
+	// 暂停已清除且预算已归还：新提交的标量直接进入上传通道。
 	commitBackfill(t, h.session, backfillScalar(6))
 	h.uploads.waitFor(t, 5)
 
