@@ -222,5 +222,5 @@ class TestFinishCloudLinkSync:
         assert any("Cloud recovery failed" in message for message in warning_msgs)
         assert all("swanlab sync" not in message for message in info_msgs)
         assert sum("swanlab sync" in message for message in warning_msgs) == 1
-        with pytest.raises(ValueError, match="401 invalid token.*swanlab sync"):
+        with pytest.raises(ValueError, match="401 invalid token.*Data is saved at.*after resolving the issue"):
             _ = run.path
