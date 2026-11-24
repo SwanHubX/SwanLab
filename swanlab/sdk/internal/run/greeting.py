@@ -59,18 +59,9 @@ def _print_recover_online_tip(ctx: RunContext) -> None:
     )
 
 
-def _print_attach_failed_tip(ctx: RunContext, run: "Run", *, show_sync_hint: bool) -> None:
-    """云端连接永久失败时说明原因；必要时提示如何上传本地记录。"""
-    reason = getattr(run, "_cloud_error", None) or "unknown error"
-    console.warning("❌ Failed to connect to SwanLab online service:", Text(reason, "yellow"))
-    if not show_sync_hint:
-        return
-    console.info(
-        "💾 Data is saved at",
-        Text(str(ctx.config.run_dir), "magenta bold"),
-        "; after resolving the issue, upload it with",
-        Text(f"`swanlab sync {ctx.config.run_dir}`", "bold"),
-    )
+def _print_attach_failed_tip() -> None:
+    """云端连接永久失败时提示；具体原因由后续收尾错误补充。"""
+    console.warning("❌ Failed to connect to SwanLab online service.")
 
 
 def _print_local_tip(ctx: RunContext):
@@ -107,8 +98,6 @@ def welcome(ctx: RunContext, run: "Run"):
         _print_save_dir(ctx)
         if run._path:
             _print_online_tip(run)
-        elif run._cloud_state == CLOUD_STATE_FAILED:
-            _print_attach_failed_tip(ctx, run, show_sync_hint=True)
         else:
             _print_recover_online_tip(ctx)
     # 2. Local
@@ -133,7 +122,7 @@ def goodbye(ctx: RunContext, run: "Run"):
         if run._path:
             _print_online_tip(run)
         elif run._cloud_state == CLOUD_STATE_FAILED:
-            _print_attach_failed_tip(ctx, run, show_sync_hint=False)
+            _print_attach_failed_tip()
         else:
             _print_recover_online_tip(ctx)
     # 2. Local

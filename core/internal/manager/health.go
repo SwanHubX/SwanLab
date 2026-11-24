@@ -75,6 +75,11 @@ func (s *Session) shouldSuspendUploads() bool {
 	if s.cfg.NormalizedMode() == config.ModeOnline && !s.isCloudAttached() {
 		return true
 	}
+	return s.isSiteReadDegraded()
+}
+
+// isSiteReadDegraded 表示站点读取侧（非写入侧）降级。
+func (s *Session) isSiteReadDegraded() bool {
 	if s.site == nil {
 		return false
 	}

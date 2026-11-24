@@ -626,5 +626,18 @@ class TestCloudRecoveryProgress:
             state=CoreState.CORE_STATE_RUNNING,
             cloud=CloudStatus(state=CloudState.CLOUD_STATE_PENDING),
         )
-        _print_summary(stats, "auto", finished=False, interrupted=False)
+        _print_summary(stats, "auto", finished=False, interrupted=False, timed_out=True)
         assert any("SwanLab online service reconnection timed out." in m for m in messages)
+
+    def test_waiting_cloud_without_timeout_uses_neutral_summary(self, monkeypatch):
+        messages = []
+        monkeypatch.setattr(
+            progress_module.console, "info", lambda *args, **kwargs: messages.append(" ".join(map(str, args)))
+        )
+        stats = OperationStats(
+            state=CoreState.CORE_STATE_RUNNING,
+            cloud=CloudStatus(state=CloudState.CLOUD_STATE_PENDING),
+        )
+        _print_summary(stats, "auto", finished=False, interrupted=False)
+        assert any("SwanLab online service reconnection is still in progress." in m for m in messages)
+        assert all("timed out" not in m for m in messages)

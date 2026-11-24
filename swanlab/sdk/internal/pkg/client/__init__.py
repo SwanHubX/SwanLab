@@ -35,15 +35,20 @@ __all__ = [
 ]
 
 
+def _unwrap_auth_error(exc: BaseException) -> BaseException:
+    """解开 Client 包装的一层 ``AuthenticationError.__cause__``，不递归遍历异常链。"""
+    if isinstance(exc, AuthenticationError) and exc.__cause__ is not None:
+        return exc.__cause__
+    return exc
+
+
 def is_transient_login_error(exc: BaseException) -> bool:
     """
     判断登录异常是否属于服务不可用类错误。
 
     Client 首次认证会把底层异常统一包装为 ``AuthenticationError``，原始异常保留在 ``__cause__`` 中， 因此这里只解包一层即可判断真实原因。
     """
-    # 这里只解包这一层，避免递归遍历异常链
-    if isinstance(exc, AuthenticationError) and exc.__cause__ is not None:
-        exc = exc.__cause__
+    exc = _unwrap_auth_error(exc)
     if isinstance(exc, ApiError):
         status = getattr(exc.response, "status_code", None)
         return status is None or status in (408, 429) or status >= 500
@@ -61,8 +66,7 @@ def is_recoverable_login_error(exc: BaseException) -> bool:
     ``sid``/``expiredAt``/用户信息，属于服务端协议错误，重试不会成功。
     不满足恢复条件时按 ``on_online_error`` 降级，不改变 CorePython/#1816 的行为。
     """
-    if isinstance(exc, AuthenticationError) and exc.__cause__ is not None:
-        exc = exc.__cause__
+    exc = _unwrap_auth_error(exc)
     # requests.JSONDecodeError 同时也是 RequestException，需要先排除。
     if isinstance(exc, JSONDecodeError):
         return False
@@ -76,8 +80,7 @@ def is_login_auth_error(exc: BaseException) -> bool:
     判断异常是否由 API Key 认证失败（401/403）导致；这类错误可以重新输入 Key 解决。
     与 ``is_transient_login_error`` 一样，只解包 Client 包装的一层 ``__cause__``。
     """
-    if isinstance(exc, AuthenticationError) and exc.__cause__ is not None:
-        exc = exc.__cause__
+    exc = _unwrap_auth_error(exc)
     return isinstance(exc, ApiError) and getattr(exc.response, "status_code", None) in (401, 403)
 
 

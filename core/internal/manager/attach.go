@@ -266,14 +266,6 @@ func (s *Session) tryAttach(ctx context.Context, params *attachParams, attemptTi
 		return ctx.Err()
 	}
 
-	s.run.SetOnlineParams(runctx.OnlineParams{
-		Username:       workspace,
-		Project:        projectName,
-		ProjectID:      project.CUID,
-		ProjectVersion: int32(project.Version),
-		ExperimentID:   experiment.CUID,
-	})
-
 	res, err := s.buildCloudResources(cloudAttachParams{
 		http:         httpClient,
 		api:          apiClient,
@@ -305,6 +297,13 @@ func (s *Session) tryAttach(ctx context.Context, params *attachParams, attemptTi
 	case ctx.Err() != nil:
 		stopped = true
 	case state == RunStateRunning, state == RunStateDraining, state == RunStateFailed:
+		s.run.SetOnlineParams(runctx.OnlineParams{
+			Username:       workspace,
+			Project:        projectName,
+			ProjectID:      project.CUID,
+			ProjectVersion: int32(project.Version),
+			ExperimentID:   experiment.CUID,
+		})
 		s.setCloudResources(res)
 		if state == RunStateRunning {
 			s.backfill.Start()
@@ -339,11 +338,10 @@ func (s *Session) isServerDegraded() bool {
 }
 
 func (s *Session) shouldSuspendAttachedUploader() bool {
-	if s.site == nil || s.cfg.SkipStore || s.storeDegraded.Load() {
+	if s.cfg.SkipStore || s.storeDegraded.Load() {
 		return false
 	}
-	snap := s.site.Snapshot()
-	return snap.State == health.StateDegraded && snap.Reason != health.ReasonWrite
+	return s.isSiteReadDegraded()
 }
 
 func isRetryableAttachError(err error) bool {
@@ -366,9 +364,9 @@ func waitForServerRecovery(
 	serverDegraded func() bool,
 	jitterMax time.Duration,
 ) bool {
-	if siteUpdates == nil {
-		// 没有站点通知时按固定间隔检查，保证连接任务不会就此退出。
-		for serverDegraded() {
+	for serverDegraded() {
+		if siteUpdates == nil {
+			// 没有站点通知时按固定间隔检查，保证连接任务不会就此退出。
 			timer := time.NewTimer(attachServerPoll)
 			select {
 			case <-ctx.Done():
@@ -376,17 +374,15 @@ func waitForServerRecovery(
 				return false
 			case <-timer.C:
 			}
+			continue
 		}
-		return waitJitter(ctx, jitterMax)
-	}
-	for serverDegraded() {
 		select {
 		case <-ctx.Done():
 			return false
 		case _, ok := <-siteUpdates:
 			if !ok {
 				// 订阅意外关闭后改为定时检查，继续等待主服务恢复。
-				return waitForServerRecovery(ctx, nil, serverDegraded, jitterMax)
+				siteUpdates = nil
 			}
 		}
 	}

@@ -128,7 +128,7 @@ func (m *Manager) bootstrapCloud(
 		JobType:     rec.GetJobType(),
 		Group:       rec.GetGroup(),
 		Tags:        rec.GetTags(),
-		RunID:       rec.GetId(),
+		RunID:       firstNonEmpty(rec.GetId(), cfg.RunID),
 		Resume:      resumeMode,
 	})
 	if err != nil {
@@ -246,16 +246,8 @@ func (m *Manager) DeliverRunStart(
 	start.Color = boot.color
 	start.Workspace = boot.workspace
 	start.Project = boot.project
-	if local == nil || local.Start == nil {
-		if err = s.commitStart(ctx, start); err != nil {
-			s.rollback()
-			return nil, err
-		}
-	}
-
-	sessionID, err := m.install(s)
+	sessionID, err := m.commitStartAndInstall(ctx, s, start, local)
 	if err != nil {
-		s.rollback()
 		return nil, err
 	}
 
@@ -268,6 +260,27 @@ func (m *Manager) DeliverRunStart(
 		GlobalSystemStep: boot.resumeRes.GlobalSystemStep,
 		NewExperiment:    boot.isNew,
 	}, nil
+}
+
+// commitStartAndInstall 在需要时提交 StartRecord 并注册会话；任一步失败都回滚。
+func (m *Manager) commitStartAndInstall(
+	ctx context.Context,
+	s *Session,
+	start *runv1.StartRecord,
+	local *metrics.RebuildResult,
+) (string, error) {
+	if local == nil || local.Start == nil {
+		if err := s.commitStart(ctx, start); err != nil {
+			s.rollback()
+			return "", err
+		}
+	}
+	sessionID, err := m.install(s)
+	if err != nil {
+		s.rollback()
+		return "", err
+	}
+	return sessionID, nil
 }
 
 // newRunSession 装配在线会话共用的上下文、指标与编号状态。
@@ -349,18 +362,10 @@ func (m *Manager) deliverRecoverStart(
 			start.Color = local.Start.GetColor()
 		}
 	}
-	if local == nil || local.Start == nil {
-		if err = s.commitStart(ctx, start); err != nil {
-			s.rollback()
-			return nil, err
-		}
-	}
-
 	// 会话是否注册成功只能在 install 中确认。如果先启动连接任务，install 失败后
 	// 后台可能已经创建了云端实验，而 rollback 无法结束它。因此 install 成功后再启动。
-	sessionID, err := m.install(s)
+	sessionID, err := m.commitStartAndInstall(ctx, s, start, local)
 	if err != nil {
-		s.rollback()
 		return nil, err
 	}
 	s.startAttach(attachParams{
@@ -404,15 +409,8 @@ func (m *Manager) deliverLocalStart(
 	}
 
 	start := proto.Clone(rec).(*runv1.StartRecord)
-	if local == nil || local.Start == nil {
-		if err := s.commitStart(ctx, start); err != nil {
-			s.rollback()
-			return nil, err
-		}
-	}
-	sessionID, err := m.install(s)
+	sessionID, err := m.commitStartAndInstall(ctx, s, start, local)
 	if err != nil {
-		s.rollback()
 		return nil, err
 	}
 	return &StartResult{
