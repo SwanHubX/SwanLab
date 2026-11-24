@@ -12,9 +12,15 @@ CoreGoError 携带阶段（stage）、原因码（reason）与可选的 gRPC 状
 from enum import Enum
 from typing import Any, Dict, Optional
 
+from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
+    CORE_ERROR_KIND_AUTH,
+    CORE_ERROR_KIND_OTHER,
+    CORE_ERROR_KIND_TRANSIENT,
+    CoreErrorKind,
+)
 from swanlab.sdk.protocol import CoreProtocolError
 
-__all__ = ["CoreGoError", "ReasonCode", "Stage", "reason_for_grpc"]
+__all__ = ["CoreGoError", "ReasonCode", "Stage", "classify_start_error", "reason_for_grpc"]
 
 
 class Stage(str, Enum):
@@ -155,3 +161,19 @@ class CoreGoError(CoreProtocolError):
             "detail": self.detail,
             "retryable": self.retryable,
         }
+
+
+# 仅对 Stage.RUN_START 的 gRPC 状态码判为云端瞬态故障，避免本地阶段故障误降级。
+_TRANSIENT_START_GRPC = frozenset({"UNAVAILABLE", "DEADLINE_EXCEEDED"})
+
+
+def classify_start_error(error: CoreGoError) -> CoreErrorKind:
+    """将 CoreGoError 归类为 CoreErrorKind，仅 Stage.RUN_START 按 gRPC 状态码细分。"""
+    if error.stage is not Stage.RUN_START:
+        return CORE_ERROR_KIND_OTHER
+    name = (error.grpc_name or "").strip().upper()
+    if name in _TRANSIENT_START_GRPC:
+        return CORE_ERROR_KIND_TRANSIENT
+    if name == "UNAUTHENTICATED":
+        return CORE_ERROR_KIND_AUTH
+    return CORE_ERROR_KIND_OTHER

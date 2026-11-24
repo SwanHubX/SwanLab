@@ -28,6 +28,7 @@ from swanlab.sdk.internal.core_go.config import (
     CoreGoError,
     ReasonCode,
     Stage,
+    classify_start_error,
 )
 from swanlab.sdk.internal.core_go.launcher import CoreLauncher
 from swanlab.sdk.internal.core_go.rpc import CoreServiceRpc
@@ -133,7 +134,11 @@ class CoreGo(CoreProtocol):
                 error = CoreGoError(Stage.SPAWN, ReasonCode.BINARY_NOT_FOUND, "core binary is not configured")
                 self._last_error = error
                 self._state = _CoreState.CLOSED
-                return DeliverRunStartResponse(success=False, message=str(error))
+                return DeliverRunStartResponse(
+                    success=False,
+                    message=str(error),
+                    error_kind=classify_start_error(error),
+                )
             self._state = _CoreState.STARTING
 
         try:
@@ -166,7 +171,11 @@ class CoreGo(CoreProtocol):
             # 清理后原样抛出，避免协议层吞掉 KeyboardInterrupt/SystemExit。
             if not isinstance(exc, Exception):
                 raise
-            return DeliverRunStartResponse(success=False, message=str(error))
+            return DeliverRunStartResponse(
+                success=False,
+                message=str(error),
+                error_kind=classify_start_error(error),
+            )
 
     def _connect_and_spinup(self, binary: Path) -> CoreServiceRpc:
         """建立通道并完成 Spinup；复用即将空闲退出的 detached Core 时重试拉起。"""
@@ -208,7 +217,11 @@ class CoreGo(CoreProtocol):
         """调用方必须持有 self._lock。"""
         error = CoreGoError(stage, reason, message)
         self._last_error = error
-        return DeliverRunStartResponse(success=False, message=str(error))
+        return DeliverRunStartResponse(
+            success=False,
+            message=str(error),
+            error_kind=classify_start_error(error),
+        )
 
     # ---------------------------------- 数据上报 ----------------------------------
 
@@ -360,6 +373,7 @@ class CoreGo(CoreProtocol):
 
     def _confirm_finish_when_enabled(self) -> ConfirmRunFinishResponse:
         with self._lock:
+            self._last_error = None
             if self._state is not _CoreState.FINISHED or self._session_id is None:
                 reason = ReasonCode.CLOSED if self._state is _CoreState.CLOSED else ReasonCode.NOT_STARTED
                 error = CoreGoError(Stage.LIFECYCLE, reason, "run is not finished; refusing to confirm")

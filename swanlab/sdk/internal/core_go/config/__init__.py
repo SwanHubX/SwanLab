@@ -40,7 +40,7 @@ from .constants import (
     UPSERT_TIMEOUT,
     WAIT_TIMEOUT,
 )
-from .errors import CoreGoError, ReasonCode, Stage, reason_for_grpc
+from .errors import CoreGoError, ReasonCode, Stage, classify_start_error, reason_for_grpc
 
 __all__ = [
     "BINARY_NAME",
@@ -79,5 +79,6 @@ __all__ = [
     "CoreGoError",
     "ReasonCode",
     "Stage",
+    "classify_start_error",
     "reason_for_grpc",
 ]

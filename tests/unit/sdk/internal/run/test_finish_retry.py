@@ -195,6 +195,43 @@ def test_retry_rejects_invalid_attempts():
         retry_finish_call(cast(CoreProtocol, core), lambda: DeliverRunFinishResponse(success=True), attempts=0)
 
 
+def test_retry_does_not_reuse_stale_last_error():
+    core = RetryCore()
+    core.last_error = _retryable("stale stats timeout")
+    calls = []
+    sleeps: List[float] = []
+
+    def call():
+        calls.append(1)
+        return DeliverRunFinishResponse(success=False, message="rejected without updating last_error")
+
+    result = retry_finish_call(cast(CoreProtocol, core), call, sleep=sleeps.append)
+
+    assert result.success is False
+    assert result.message == "rejected without updating last_error"
+    assert len(calls) == 1
+    assert sleeps == []
+
+
+def test_retry_stops_when_subsequent_failure_leaves_last_error_unchanged():
+    core = RetryCore()
+    calls = []
+    sleeps: List[float] = []
+
+    def call():
+        calls.append(1)
+        if len(calls) == 1:
+            core.last_error = _retryable("first transient error")
+        return DeliverRunFinishResponse(success=False, message=f"fail-{len(calls)}")
+
+    result = retry_finish_call(cast(CoreProtocol, core), call, sleep=sleeps.append)
+
+    assert result.success is False
+    assert result.message == "fail-2"
+    assert len(calls) == 2
+    assert sleeps == [FINISH_RETRY_INTERVAL]
+
+
 # ── Run.finish 编排 ──────────────────────────────────────────
 
 

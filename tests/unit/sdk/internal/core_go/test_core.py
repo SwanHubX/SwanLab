@@ -15,6 +15,10 @@ from typing import List, Optional, cast
 import pytest
 
 from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
+    CORE_ERROR_KIND_AUTH,
+    CORE_ERROR_KIND_OTHER,
+    CORE_ERROR_KIND_TRANSIENT,
+    ConfirmRunFinishResponse,
     DeliverRunFinishRequest,
     DeliverRunFinishResponse,
     DeliverRunStartRequest,
@@ -242,6 +246,7 @@ def test_start_without_binary_is_terminal():
 
     assert response.success is False
     assert "BINARY_NOT_FOUND" in response.message
+    assert response.error_kind == CORE_ERROR_KIND_OTHER
 
 
 def test_disabled_start_is_noop_without_binary():
@@ -488,3 +493,105 @@ def test_detached_reuse_non_retryable_spinup_error_does_not_retry(monkeypatch, t
     assert resp.success is False
     assert len(attempts) == 1
     core.close()
+
+
+@pytest.mark.parametrize(
+    "stage, reason, grpc_name, expected_kind",
+    [
+        (Stage.RUN_START, ReasonCode.GRPC_UNAVAILABLE, "UNAVAILABLE", CORE_ERROR_KIND_TRANSIENT),
+        (Stage.RUN_START, ReasonCode.DEADLINE_EXCEEDED, "DEADLINE_EXCEEDED", CORE_ERROR_KIND_TRANSIENT),
+        (Stage.RUN_START, ReasonCode.GRPC_ERROR, "UNAUTHENTICATED", CORE_ERROR_KIND_AUTH),
+        (Stage.RUN_START, ReasonCode.INVALID_ARGUMENT, "INVALID_ARGUMENT", CORE_ERROR_KIND_OTHER),
+        (Stage.RUN_START, ReasonCode.GRPC_ERROR, "INTERNAL", CORE_ERROR_KIND_OTHER),
+        (Stage.RUN_START, ReasonCode.SESSION_NOT_FOUND, "NOT_FOUND", CORE_ERROR_KIND_OTHER),
+        (Stage.RUN_START, ReasonCode.RUN_START_REJECTED, None, CORE_ERROR_KIND_OTHER),
+        (Stage.SPINUP, ReasonCode.GRPC_UNAVAILABLE, "UNAVAILABLE", CORE_ERROR_KIND_OTHER),
+        (Stage.CHANNEL, ReasonCode.DEADLINE_EXCEEDED, "DEADLINE_EXCEEDED", CORE_ERROR_KIND_OTHER),
+    ],
+)
+def test_deliver_run_start_populates_error_kind(monkeypatch, tmp_path, stage, reason, grpc_name, expected_kind):
+    binary = tmp_path / "swanlab-core"
+    _install_stub_launcher(monkeypatch, owns_process=True)
+    raised = CoreGoError(stage, reason, "start failed", grpc_name=grpc_name)
+
+    class StartErrorRpc(FakeRpc):
+        def __init__(self, _channel) -> None:
+            super().__init__()
+
+        def spinup(self) -> None:
+            if stage is Stage.SPINUP:
+                raise raised
+
+        def deliver_run_start(self, _req) -> DeliverRunStartResponse:
+            raise raised
+
+    monkeypatch.setattr(core_module, "CoreServiceRpc", StartErrorRpc)
+
+    core = CoreGo("online", binary=binary)
+    resp = core.deliver_run_start(DeliverRunStartRequest())
+
+    assert resp.success is False
+    assert resp.error_kind == expected_kind
+    assert core.last_error is raised
+
+
+def test_deliver_run_start_lifecycle_failures_return_other_kind():
+    closed_core = CoreGo("online")
+    closed_core.close()
+    closed_resp = closed_core.deliver_run_start(DeliverRunStartRequest())
+    assert closed_resp.success is False
+    assert closed_resp.error_kind == CORE_ERROR_KIND_OTHER
+
+    running_core = _running_core(FakeRpc())
+    started_resp = running_core.deliver_run_start(DeliverRunStartRequest())
+    assert started_resp.success is False
+    assert started_resp.error_kind == CORE_ERROR_KIND_OTHER
+
+
+def test_confirm_run_finish_clears_stale_last_error():
+    from swanlab.sdk.internal.run.finish_retry import retry_finish_call
+
+    class ConfirmRpc(FakeRpc):
+        def __init__(self, result: ConfirmRunFinishResponse, err: Optional[CoreGoError] = None) -> None:
+            super().__init__(err)
+            self.result = result
+            self.confirm_calls = 0
+
+        def confirm_run_finish(self, _session_id: str) -> ConfirmRunFinishResponse:
+            self.confirm_calls += 1
+            if self.error is not None:
+                raise self.error
+            return self.result
+
+    # 1. 上一步遗留可重试错误，confirm 返回 success=False（未抛异常）时不应残留旧错误或触发重试
+    stale = CoreGoError(Stage.RPC, ReasonCode.DEADLINE_EXCEEDED, "stats timeout")
+    rpc_fail = ConfirmRpc(ConfirmRunFinishResponse(success=False, message="attach failed"))
+    core = _running_core(rpc_fail)
+    core._state = _CoreState.FINISHED  # noqa: SLF001
+    core._last_error = stale  # noqa: SLF001
+    sleeps: List[float] = []
+    resp = retry_finish_call(cast(CoreProtocol, core), core.confirm_run_finish, sleep=sleeps.append)
+    assert resp.success is False
+    assert resp.message == "attach failed"
+    assert core.last_error is None
+    assert rpc_fail.confirm_calls == 1
+    assert sleeps == []
+
+    # 2. confirm 成功也必须清零遗留错误
+    rpc_ok = ConfirmRpc(ConfirmRunFinishResponse(success=True, message="OK"))
+    core_ok = _running_core(rpc_ok)
+    core_ok._state = _CoreState.FINISHED  # noqa: SLF001
+    core_ok._last_error = stale  # noqa: SLF001
+    resp_ok = core_ok.confirm_run_finish()
+    assert resp_ok.success is True
+    assert core_ok.last_error is None
+
+    # 3. confirm 自身抛出新的可重试错误时记录新错误
+    fresh = CoreGoError(Stage.RPC, ReasonCode.GRPC_UNAVAILABLE, "transient confirm")
+    rpc_err = ConfirmRpc(ConfirmRunFinishResponse(success=True), err=fresh)
+    core_err = _running_core(rpc_err)
+    core_err._state = _CoreState.FINISHED  # noqa: SLF001
+    core_err._last_error = stale  # noqa: SLF001
+    resp_err = core_err.confirm_run_finish()
+    assert resp_err.success is False
+    assert core_err.last_error is fresh

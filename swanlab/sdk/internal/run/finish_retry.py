@@ -34,13 +34,15 @@ def retry_finish_call(
         raise ValueError("attempts must be >= 1")
     do_sleep = time.sleep if sleep is None else sleep
 
-    response = call()
-    for _ in range(1, attempts):
-        if response.success or not _is_retryable(core):
+    for attempt in range(attempts):
+        prev_error = core.last_error
+        response = call()
+        if response.success or attempt == attempts - 1:
+            return response
+        if core.last_error is prev_error or not _is_retryable(core):
             return response
         do_sleep(interval)
-        response = call()
-    return response
+    raise AssertionError("unreachable")
 
 
 def _is_retryable(core: CoreProtocol) -> bool:
