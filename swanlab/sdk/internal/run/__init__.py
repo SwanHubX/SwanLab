@@ -400,14 +400,15 @@ class Run:
         if self._path:
             return self._path
         if self._cloud_state == CLOUD_STATE_FAILED:
-            reason = self._cloud_error or "cloud attach failed"
+            detail = f": {self._cloud_error}" if self._cloud_error else ""
             raise ValueError(
-                f"Run {attr} is unavailable because SwanLab Cloud recovery failed: {reason}. "
+                f"Run {attr} is unavailable because the connection to SwanLab online service failed{detail}. "
                 f"Data is saved at {self._ctx.config.run_dir}; after resolving the issue, "
                 f"upload it with `swanlab sync {self._ctx.config.run_dir}`."
             )
         raise ValueError(
-            f"Run {attr} is unavailable because SwanLab Cloud has not attached yet (recovery is still in progress)."
+            f"Run {attr} is unavailable because the run has not connected to SwanLab online service yet "
+            "(reconnection is still in progress)."
         )
 
     @property

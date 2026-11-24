@@ -378,7 +378,7 @@ func (s *Session) stopState() api.RunState {
 
 // confirmMessage 是按本地副本完整性生成的 stop_experiment 失败文案。
 func (s *Session) confirmMessage() string {
-	return s.localCopyFailure("Failed to finish run", "; the run state on the cloud is unconfirmed")
+	return s.localCopyFailure("Failed to finish run", "; the run state on SwanLab online service is unconfirmed")
 }
 
 // runStateFromProto 把 proto 枚举转换为云端上报的终态。

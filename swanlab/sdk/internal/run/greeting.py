@@ -54,15 +54,15 @@ def print_cloud_link(run: "Run") -> None:
 def _print_recover_online_tip(ctx: RunContext) -> None:
     """在云端绑定尚未完成时提示后台恢复状态，避免输出未生效的链接。"""
     console.info(
-        "⏳ SwanLab Cloud has not attached yet; recovering in background and saving data locally at",
+        "⏳ Not connected to SwanLab online service yet; reconnecting in background and saving data locally at",
         Text(str(ctx.config.run_dir), "magenta bold"),
     )
 
 
 def _print_attach_failed_tip(ctx: RunContext, run: "Run", *, show_sync_hint: bool) -> None:
     """云端连接永久失败时说明原因；必要时提示如何上传本地记录。"""
-    reason = getattr(run, "_cloud_error", None) or "cloud attach failed"
-    console.warning("❌ SwanLab Cloud recovery failed:", Text(reason, "yellow"))
+    reason = getattr(run, "_cloud_error", None) or "unknown error"
+    console.warning("❌ Failed to connect to SwanLab online service:", Text(reason, "yellow"))
     if not show_sync_hint:
         return
     console.info(

@@ -74,7 +74,7 @@ def _should_show(stats: OperationStats, unit: str) -> bool:
 
 
 def _render_waiting_cloud(table: Table, stats: OperationStats) -> None:
-    left = Spinner("dots", Text("Waiting for SwanLab Cloud to recover...", "bold"))
+    left = Spinner("dots", Text("Reconnecting to SwanLab online service...", "bold"))
     right = Text(stats.cloud.error, style="dim") if stats.cloud.error else Text("")
     table.add_row(left, Text(""), right)
 
@@ -149,10 +149,10 @@ def _print_summary(stats: OperationStats, unit: str, finished: bool, interrupted
     if _is_cloud_failed(stats):
         return
     if interrupted and _is_waiting_cloud(stats):
-        console.info("Cloud recovery still in progress; continuing in background.")
+        console.info("SwanLab online service reconnection still in progress; continuing in background.")
         return
     if _is_waiting_cloud(stats):
-        console.info("Waiting for SwanLab Cloud recovery timed out.")
+        console.info("SwanLab online service reconnection timed out.")
         return
     unit = _resolve_unit(stats, unit)
     is_files = unit == "bytes" and (stats.total_number > 0 or stats.total_size > 0)
@@ -312,7 +312,9 @@ def run_with_progress(
             interrupted = True
             if last_stats is not None and _is_waiting_cloud(last_stats):
                 console.info(
-                    "Cloud recovery still in progress... Press", Text("Ctrl+C", "bold"), "again to force quit."
+                    "SwanLab online service reconnection still in progress... Press",
+                    Text("Ctrl+C", "bold"),
+                    "again to force quit.",
                 )
             else:
                 console.info("Upload still in progress... Press", Text("Ctrl+C", "bold"), "again to force quit.")

@@ -293,11 +293,11 @@ func (s *Session) localCopyFailure(prefix, suffix string) string {
 }
 
 func (s *Session) attachFailureConfirmMessage(attachErr error) string {
-	reason := "cloud attach failed"
+	reason := "connection failed"
 	if attachErr != nil {
 		reason = attachErr.Error()
 	}
-	return s.localCopyFailure(fmt.Sprintf("Failed to create cloud run (%s)", reason), "")
+	return s.localCopyFailure(fmt.Sprintf("Failed to create run on SwanLab online service (%s)", reason), "")
 }
 
 // noteAttachError 记录最近一次可重试的连接错误，供进度界面显示等待原因。

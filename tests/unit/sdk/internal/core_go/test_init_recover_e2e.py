@@ -352,7 +352,7 @@ def test_online_init_502_recovers_and_keeps_url_after_context_exit(tmp_path: Pat
             settings=_base_settings(url, tmp_path / "logs"),
         ) as run:
             assert run.mode == "online"
-            with pytest.raises(ValueError, match="has not attached yet"):
+            with pytest.raises(ValueError, match="has not connected to SwanLab online service yet"):
                 _ = run.path
             for step in range(1, 11):
                 run.log({"loss": round(1.0 / step, 4)}, step=step)

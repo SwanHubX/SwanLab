@@ -19,7 +19,7 @@ from swanlab.exceptions import AuthenticationError
     "-r",
     is_flag=True,
     default=False,
-    help="Relogin to the swanlab cloud, it will recover the token file.",
+    help="Relogin to the SwanLab online service, it will recover the token file.",
 )
 @click.option(
     "--api-key",
@@ -34,11 +34,11 @@ from swanlab.exceptions import AuthenticationError
     "-h",
     default=None,
     type=str,
-    help="The host of the swanlab server.",
+    help="The host of the SwanLab online service.",
 )
 @click.option("--local", is_flag=True, help="Login to local (save .swanlab in current directory)")
 def login(api_key: str, relogin: bool, host: str, local: bool):
-    """Login to the SwanLab cloud."""
+    """Login to the SwanLab online service."""
     try:
         sdk.login_cli(api_key=api_key, relogin=relogin, host=host, save="local" if local else "root")
     except AuthenticationError:

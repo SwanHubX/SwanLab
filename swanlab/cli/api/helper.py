@@ -77,7 +77,7 @@ def api_command(func: Callable) -> Callable:
         "-h",
         default=None,
         type=str,
-        help="The host of the SwanLab server.",
+        help="The host of the SwanLab online service.",
     )
     @click.option(
         "--api-key",

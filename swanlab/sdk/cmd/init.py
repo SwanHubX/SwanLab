@@ -132,10 +132,10 @@ def init(
     :param log_dir: Directory to store logs. Defaults to "./swanlog".
     :param mode: Run mode. Options: "online" (sync to cloud), "local" (local only),
         "offline" (save locally for later sync), "disabled" (no logging). Defaults to "online".
-    :param on_online_error: Behavior when SwanLab Cloud is temporarily unreachable in online
-        mode. Only transient connection/server failures are handled; authentication and
+    :param on_online_error: Behavior when SwanLab online service is temporarily unreachable in
+        online mode. Only transient connection/server failures are handled; authentication and
         configuration errors always raise. Options: "offline" (keep online mode and save locally
-        while retrying cloud recovery when supported, or fall back to offline mode),
+        while retrying the connection when supported, or fall back to offline mode),
         "disabled" (no logging), "raise". Defaults to "offline".
     :param workspace: Workspace or organization name. Defaults to current user.
     :param project: Project name. Defaults to current directory name.
@@ -164,7 +164,7 @@ def init(
     :raises RuntimeError: If a run is already active and reinit=False, or if an online
         startup fails and is not degraded (a non-transient error, or a transient error
         when ``on_online_error="raise"``).
-    :raises AuthenticationError: If SwanLab Cloud rejects the API key during login or
+    :raises AuthenticationError: If SwanLab online service rejects the API key during login or
         startup, or if the initial login fails with a non-transient error. With
         ``on_online_error="raise"`` any login failure is wrapped as
         ``AuthenticationError`` with the original exception in ``__cause__``.
@@ -838,8 +838,8 @@ def _warn_recover_online(*, skip_store_disabled: bool = False) -> None:
     """提示用户云端暂不可达，已切入本地兜底并等待后台恢复。"""
     suffix = " (core.skip_store has been disabled)" if skip_store_disabled else ""
     console.warning(
-        "SwanLab Cloud is temporarily unavailable; keeping online mode, saving data locally, "
-        f"and retrying cloud recovery in background{suffix}."
+        "SwanLab online service is temporarily unavailable; keeping online mode, saving data locally, "
+        f"and retrying the connection in background{suffix}."
     )
 
 
@@ -943,7 +943,9 @@ def _warn_fallback(
     if skip_store_disabled:
         details.append("core.skip_store has been disabled")
     suffix = f" ({'; '.join(details)})" if details else ""
-    console.warning(f"SwanLab Cloud is unavailable; falling back to {target_mode} mode: {consequence}{suffix}.")
+    console.warning(
+        f"SwanLab online service is unavailable; falling back to {target_mode} mode: {consequence}{suffix}."
+    )
 
 
 def _reset_client_after_fallback() -> None:

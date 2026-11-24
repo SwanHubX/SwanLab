@@ -46,7 +46,7 @@ var (
 	// ErrInvalidFinishRecord 表示未提供结束记录，属于调用方参数错误。
 	ErrInvalidFinishRecord = errors.New("finish record must not be nil")
 	// ErrServerUnreachable 表示启动预检无法访问 swanlab-server，快速失败避免认证重试堆积。
-	ErrServerUnreachable = errors.New("swanlab-server is unreachable")
+	ErrServerUnreachable = errors.New("SwanLab online service is unreachable")
 )
 
 const (

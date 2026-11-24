@@ -2056,7 +2056,7 @@ class TestInitOnlineRecoveryWithGoCore:
             assert req.start_record.name
             assert req.start_record.color
             # 第 1 次轮询仍为 pending 时读取 run.path 应明确报错
-            with pytest.raises(ValueError, match="has not attached yet"):
+            with pytest.raises(ValueError, match="has not connected to SwanLab online service yet"):
                 _ = run.path
         finally:
             run.finish()

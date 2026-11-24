@@ -46,7 +46,7 @@ def sync(
     """Synchronize local SwanLab run data to the cloud.
 
     Uploads a local SwanLab run directory, usually created in offline mode,
-    to SwanLab Cloud. Authentication must be available before syncing, either
+    to SwanLab online service. Authentication must be available before syncing, either
     from existing credentials or from the API key configured in `settings`.
 
     Without a range, sync appends to an existing experiment: the experiment

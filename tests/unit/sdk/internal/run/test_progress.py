@@ -559,7 +559,7 @@ class TestCloudRecoveryProgress:
         )
         assert _should_show(stats, "auto") is True
         text = _render_plain(stats, "auto")
-        assert "Waiting for SwanLab Cloud to recover..." in text
+        assert "Reconnecting to SwanLab online service..." in text
         assert "503 unavailable" in text
 
     def test_cloud_failed_skips_upload_complete_zero_records(self, monkeypatch):
@@ -614,8 +614,8 @@ class TestCloudRecoveryProgress:
         res = run_with_progress(stats_fn, lambda: "done", timeout=5.0)
         assert res == "done"
         joined = "\n".join(messages)
-        assert "Cloud recovery still in progress... Press" in joined
-        assert "Cloud recovery still in progress; continuing in background." in joined
+        assert "SwanLab online service reconnection still in progress... Press" in joined
+        assert "SwanLab online service reconnection still in progress; continuing in background." in joined
 
     def test_waiting_cloud_timeout_summary(self, monkeypatch):
         messages = []
@@ -627,4 +627,4 @@ class TestCloudRecoveryProgress:
             cloud=CloudStatus(state=CloudState.CLOUD_STATE_PENDING),
         )
         _print_summary(stats, "auto", finished=False, interrupted=False)
-        assert any("Waiting for SwanLab Cloud recovery timed out." in m for m in messages)
+        assert any("SwanLab online service reconnection timed out." in m for m in messages)

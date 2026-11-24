@@ -1022,7 +1022,7 @@ func TestConfirmRunFinishUnbindsSessionWhenReleasedWithFailure(t *testing.T) {
 
 	env.runs.mu.Lock()
 	env.runs.confirmResult = manager.ConfirmResult{
-		Message:       "Failed to create cloud run (401), but it has been saved locally.",
+		Message:       "Failed to create run on SwanLab online service (401), but it has been saved locally.",
 		ReleaseFailed: true,
 		Retryable:     false,
 		Released:      true,
