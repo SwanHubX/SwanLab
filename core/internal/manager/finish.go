@@ -378,14 +378,7 @@ func (s *Session) stopState() api.RunState {
 
 // confirmMessage 是按本地副本完整性生成的 stop_experiment 失败文案。
 func (s *Session) confirmMessage() string {
-	switch {
-	case s.cfg.SkipStore:
-		return "Failed to finish run, and no local copy was kept (skip_store); the run state on the cloud is unconfirmed."
-	case s.storeDegraded.Load():
-		return "Failed to finish run, and the local copy is incomplete; the run state on the cloud is unconfirmed."
-	default:
-		return "Failed to finish run, but it has been saved locally."
-	}
+	return s.localCopyFailure("Failed to finish run", "; the run state on the cloud is unconfirmed")
 }
 
 // runStateFromProto 把 proto 枚举转换为云端上报的终态。

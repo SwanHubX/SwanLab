@@ -857,6 +857,14 @@ def _prepare_recover_online(run_settings: Settings, run_id: str, run_dir: Path) 
     _warn_recover_online(skip_store_disabled=skip_store_disabled)
 
 
+def _deliver_start_or_raise(ctx: RunContext, request: DeliverRunStartRequest) -> DeliverRunStartResponse:
+    """投递启动请求；失败时转换为用户可见异常。"""
+    resp = ctx.core.deliver_run_start(request)
+    if not resp.success:
+        _raise_start_failure(resp)
+    return resp
+
+
 def _restart_with_recover_online(
     ctx: RunContext,
     run_settings: Settings,
@@ -870,11 +878,7 @@ def _restart_with_recover_online(
         ctx.core.abort()
     ctx.core = create_core(ctx, backend=backend)
     ctx.probe = create_probe(core=ctx.core, disabled=False)
-    start_request = _build_start_request(run_settings, run_id, run_dir, recover_online=True)
-    resp = ctx.core.deliver_run_start(start_request)
-    if not resp.success:
-        _raise_start_failure(resp)
-    return resp
+    return _deliver_start_or_raise(ctx, _build_start_request(run_settings, run_id, run_dir, recover_online=True))
 
 
 def _switch_run_to_fallback(
@@ -907,11 +911,7 @@ def _restart_with_fallback(
 ) -> DeliverRunStartResponse:
     """在线启动失败后，按策略切换模式并在同一个 run_dir 上重新启动 Core。"""
     _switch_run_to_fallback(ctx, run_settings, run_id, run_dir, target_mode)
-    start_request = _build_start_request(run_settings, run_id, run_dir)
-    resp = ctx.core.deliver_run_start(start_request)
-    if not resp.success:
-        _raise_start_failure(resp)
-    return resp
+    return _deliver_start_or_raise(ctx, _build_start_request(run_settings, run_id, run_dir))
 
 
 def _ensure_offline_identity(run_settings: Settings, run_id: str) -> None:

@@ -165,6 +165,7 @@ func (s *Session) runAttach(ctx context.Context, params attachParams) {
 			return
 		}
 
+		retryable := false
 		if client.IsAuthenticationError(err) {
 			authFailures++
 			if authFailures >= attachAuthFailLimit {
@@ -172,30 +173,25 @@ func (s *Session) runAttach(ctx context.Context, params attachParams) {
 				s.markCloudFailed(err)
 				return
 			}
-			s.noteAttachError(err)
-			delay := nextAttachDelay(err, backoff, timing.maxBackoff)
-			if !waitAttachBackoff(ctx, delay, siteUpdates, s.isServerDegraded, timing.jitterMax) {
-				return
-			}
-			backoff = min(backoff*2, timing.maxBackoff)
-			continue
-		}
-
-		if isRetryableAttachError(err) {
+			retryable = true
+		} else if isRetryableAttachError(err) {
 			authFailures = 0
-			s.noteAttachError(err)
-			delay := nextAttachDelay(err, backoff, timing.maxBackoff)
-			if !waitAttachBackoff(ctx, delay, siteUpdates, s.isServerDegraded, timing.jitterMax) {
-				return
-			}
-			backoff = min(backoff*2, timing.maxBackoff)
-			continue
+			retryable = true
 		}
 
-		// 非认证且不可重试的错误（如参数无效、resume=must 找不到实验、响应格式异常）不再重试。
-		console.Errorf("cloud attach failed permanently: %v", err)
-		s.markCloudFailed(err)
-		return
+		if !retryable {
+			// 非认证且不可重试的错误（如参数无效、resume=must 找不到实验、响应格式异常）不再重试。
+			console.Errorf("cloud attach failed permanently: %v", err)
+			s.markCloudFailed(err)
+			return
+		}
+
+		s.noteAttachError(err)
+		delay := nextAttachDelay(err, backoff, timing.maxBackoff)
+		if !waitAttachBackoff(ctx, delay, siteUpdates, s.isServerDegraded, timing.jitterMax) {
+			return
+		}
+		backoff = min(backoff*2, timing.maxBackoff)
 	}
 }
 

@@ -270,6 +270,29 @@ func (m *Manager) DeliverRunStart(
 	}, nil
 }
 
+// newRunSession 装配在线会话共用的上下文、指标与编号状态。
+func newRunSession(cfg config.Settings, run *runctx.RunContext, local *metrics.RebuildResult) (*Session, int64, int64, bool) {
+	s := newSession(sessionOptions{})
+	s.ctx, s.cancel = context.WithCancel(context.Background())
+	s.cfg = cfg
+	s.run = run
+	globalStep, globalSystemStep := int64(-1), int64(-1)
+	newExperiment := true
+	if local != nil {
+		s.metrics = local.Metrics
+		s.counter = counter.New(local.Counter)
+		s.epoch = counter.New(local.Epoch)
+		globalStep = local.GlobalStep
+		globalSystemStep = local.GlobalSystemStep
+		newExperiment = false
+	} else {
+		s.metrics = metrics.New()
+		s.counter = counter.New(0)
+		s.epoch = counter.New(0)
+	}
+	return s, globalStep, globalSystemStep, newExperiment
+}
+
 // deliverRecoverStart 在云端暂不可用时先装配本地在线会话，并启动后台异步接入任务。
 func (m *Manager) deliverRecoverStart(
 	ctx context.Context,
@@ -302,26 +325,8 @@ func (m *Manager) deliverRecoverStart(
 	serverOK, houseOK := probe.Startup(ctx, serverProbe, houseProbe)
 	healthOpts := buildHealthOpts(cfg, serverProbe, houseProbe, !serverOK, serverOK && !houseOK)
 
-	s := newSession(sessionOptions{})
-	s.ctx, s.cancel = context.WithCancel(context.Background())
-	s.cfg = cfg
-	s.run = run
+	s, globalStep, globalSystemStep, newExperiment := newRunSession(cfg, run, local)
 	s.initDeferredAttach()
-
-	globalStep, globalSystemStep := int64(-1), int64(-1)
-	newExperiment := true
-	if local != nil {
-		s.metrics = local.Metrics
-		s.counter = counter.New(local.Counter)
-		s.epoch = counter.New(local.Epoch)
-		globalStep = local.GlobalStep
-		globalSystemStep = local.GlobalSystemStep
-		newExperiment = false
-	} else {
-		s.metrics = metrics.New()
-		s.counter = counter.New(0)
-		s.epoch = counter.New(0)
-	}
 
 	if err = s.open(sessionInit{
 		cfg:        cfg,
@@ -391,24 +396,7 @@ func (m *Manager) deliverLocalStart(
 	}); err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrInvalidStartRecord, err)
 	}
-	s := newSession(sessionOptions{})
-	s.ctx, s.cancel = context.WithCancel(context.Background())
-	s.cfg = cfg
-	s.run = run
-	globalStep, globalSystemStep := int64(-1), int64(-1)
-	newExperiment := true
-	if local != nil {
-		s.metrics = local.Metrics
-		s.counter = counter.New(local.Counter)
-		s.epoch = counter.New(local.Epoch)
-		globalStep = local.GlobalStep
-		globalSystemStep = local.GlobalSystemStep
-		newExperiment = false
-	} else {
-		s.metrics = metrics.New()
-		s.counter = counter.New(0)
-		s.epoch = counter.New(0)
-	}
+	s, globalStep, globalSystemStep, newExperiment := newRunSession(cfg, run, local)
 
 	if err := s.open(sessionInit{cfg: cfg, run: run, resume: local}); err != nil {
 		s.rollback()

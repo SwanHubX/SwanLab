@@ -251,11 +251,8 @@ func (s *Session) cloudStatus() (operationv1.CloudState, string, error) {
 	return s.cloudState, s.cloudPath, s.cloudErr
 }
 
-func (s *Session) markCloudAttached(path string) {
+func (s *Session) closeAttachDone() {
 	s.cloudMu.Lock()
-	s.cloudState = operationv1.CloudState_CLOUD_STATE_ATTACHED
-	s.cloudPath = path
-	s.cloudErr = nil
 	done := s.attachDone
 	s.cloudMu.Unlock()
 	if done != nil {
@@ -263,15 +260,19 @@ func (s *Session) markCloudAttached(path string) {
 	}
 }
 
+func (s *Session) markCloudAttached(path string) {
+	s.cloudMu.Lock()
+	s.cloudState = operationv1.CloudState_CLOUD_STATE_ATTACHED
+	s.cloudPath = path
+	s.cloudErr = nil
+	s.cloudMu.Unlock()
+	s.closeAttachDone()
+}
+
 // markAttachStopped 在连接任务因会话结束退出时关闭 attachDone。
 // 不修改 cloudState：既不能标记为成功，也不能误报为永久失败。
 func (s *Session) markAttachStopped() {
-	s.cloudMu.Lock()
-	done := s.attachDone
-	s.cloudMu.Unlock()
-	if done != nil {
-		s.attachOnce.Do(func() { close(done) })
-	}
+	s.closeAttachDone()
 }
 
 func (s *Session) isPermanentAttachFailure() bool {
@@ -279,19 +280,24 @@ func (s *Session) isPermanentAttachFailure() bool {
 	return state == operationv1.CloudState_CLOUD_STATE_FAILED
 }
 
+// localCopyFailure 按照本地副本状态拼接失败文案；suffix 只用于本地副本不完整的两种情况。
+func (s *Session) localCopyFailure(prefix, suffix string) string {
+	switch {
+	case s.cfg.SkipStore:
+		return fmt.Sprintf("%s, and no local copy was kept (skip_store)%s.", prefix, suffix)
+	case s.storeDegraded.Load():
+		return fmt.Sprintf("%s, and the local copy is incomplete%s.", prefix, suffix)
+	default:
+		return fmt.Sprintf("%s, but it has been saved locally.", prefix)
+	}
+}
+
 func (s *Session) attachFailureConfirmMessage(attachErr error) string {
 	reason := "cloud attach failed"
 	if attachErr != nil {
 		reason = attachErr.Error()
 	}
-	switch {
-	case s.cfg.SkipStore:
-		return fmt.Sprintf("Failed to create cloud run (%s), and no local copy was kept (skip_store).", reason)
-	case s.storeDegraded.Load():
-		return fmt.Sprintf("Failed to create cloud run (%s), and the local copy is incomplete.", reason)
-	default:
-		return fmt.Sprintf("Failed to create cloud run (%s), but it has been saved locally.", reason)
-	}
+	return s.localCopyFailure(fmt.Sprintf("Failed to create cloud run (%s)", reason), "")
 }
 
 // noteAttachError 记录最近一次可重试的连接错误，供进度界面显示等待原因。
@@ -311,11 +317,8 @@ func (s *Session) markCloudFailed(err error) {
 	s.cloudMu.Lock()
 	s.cloudState = operationv1.CloudState_CLOUD_STATE_FAILED
 	s.cloudErr = err
-	done := s.attachDone
 	s.cloudMu.Unlock()
-	if done != nil {
-		s.attachOnce.Do(func() { close(done) })
-	}
+	s.closeAttachDone()
 }
 
 func newSession(opts sessionOptions) *Session {
