@@ -339,7 +339,7 @@ class Settings(BaseSettings):
         str_strip_whitespace=True,
     )
 
-    def to_core_proto(self, run_id: str, run_dir: Path) -> CoreSettingsPb:
+    def to_core_proto(self, run_id: str, run_dir: Path, *, recover_online: bool = False) -> CoreSettingsPb:
         return CoreSettingsPb(
             run_id=run_id,
             run_dir=str(run_dir.absolute()),
@@ -352,6 +352,7 @@ class Settings(BaseSettings):
             save_part=self.core.save_part,
             save_batch=self.core.save_batch,
             skip_store=self.core.skip_store,
+            recover_online=recover_online if self.mode == "online" else False,
             api_key=self.api_key or "",
             api_host=self.api_host,
             web_host=self.web_host,

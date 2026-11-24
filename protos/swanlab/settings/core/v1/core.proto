@@ -44,4 +44,8 @@ message CoreSettings {
     // Consecutive failures / successes required to flip the health state; 0 uses the core default.
     int32 health_degrade_threshold = 19;
     int32 health_recover_threshold = 20;
+
+    // Internal flag: defer cloud experiment creation and recover upload after transient init outage.
+    // Only valid when mode is ONLINE and skip_store is false.
+    bool recover_online = 21;
 }

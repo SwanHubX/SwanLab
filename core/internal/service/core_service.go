@@ -203,6 +203,7 @@ func protoToSettings(in *settingsv1.CoreSettings) (config.Settings, error) {
 		SavePart:       in.GetSavePart(),
 		SaveBatch:      in.GetSaveBatch(),
 		SkipStore:      in.GetSkipStore(),
+		RecoverOnline:  in.GetRecoverOnline(),
 		APIKey:         in.GetApiKey(),
 		APIHost:        in.GetApiHost(),
 		WebHost:        in.GetWebHost(),

@@ -609,6 +609,49 @@ func TestSettingsFromProto(t *testing.T) {
 		t.Fatalf("budget = %d/%d, want 50/1024",
 			budgetSettings.UploadBudgetRecords, budgetSettings.UploadBudgetBytes)
 	}
+
+	recoverOnline := proto.Clone(in).(*settingsv1.CoreSettings)
+	recoverOnline.SkipStore = false
+	recoverOnline.RecoverOnline = true
+	gotRecover, err := settingsFromProto(recoverOnline)
+	if err != nil {
+		t.Fatalf("recover_online in online mode without skip_store must be accepted: %v", err)
+	}
+	if !gotRecover.RecoverOnline {
+		t.Fatal("RecoverOnline = false, want true")
+	}
+
+	recoverRejectCases := []struct {
+		name   string
+		mutate func(*settingsv1.CoreSettings)
+	}{
+		{"recover_online with skip_store", func(s *settingsv1.CoreSettings) { s.SkipStore = true; s.RecoverOnline = true }},
+		{"recover_online with local", func(s *settingsv1.CoreSettings) {
+			s.Mode = settingsv1.CoreMode_CORE_MODE_LOCAL
+			s.SkipStore = false
+			s.RecoverOnline = true
+		}},
+		{"recover_online with offline", func(s *settingsv1.CoreSettings) {
+			s.Mode = settingsv1.CoreMode_CORE_MODE_OFFLINE
+			s.SkipStore = false
+			s.RecoverOnline = true
+		}},
+		{"recover_online with disabled", func(s *settingsv1.CoreSettings) {
+			s.Mode = settingsv1.CoreMode_CORE_MODE_DISABLED
+			s.SkipStore = false
+			s.RecoverOnline = true
+		}},
+	}
+	for _, tc := range recoverRejectCases {
+		t.Run(tc.name, func(t *testing.T) {
+			clone := proto.Clone(in).(*settingsv1.CoreSettings)
+			tc.mutate(clone)
+			_, caseErr := settingsFromProto(clone)
+			if caseErr == nil || !strings.Contains(caseErr.Error(), "recover_online") {
+				t.Fatalf("settingsFromProto() = %v, want error mentioning recover_online", caseErr)
+			}
+		})
+	}
 }
 
 func TestUpsertRPCsForwardRecords(t *testing.T) {

@@ -71,6 +71,59 @@ func (CoreState) EnumDescriptor() ([]byte, []int) {
 	return file_swanlab_operation_v1_operation_proto_rawDescGZIP(), []int{0}
 }
 
+// 云端接入状态（用于延迟接入/初始化恢复模式）。
+type CloudState int32
+
+const (
+	CloudState_CLOUD_STATE_UNSPECIFIED CloudState = 0 // 未设置 / 非恢复模式（含 offline / local / 常规 online）
+	CloudState_CLOUD_STATE_PENDING     CloudState = 1 // 等待后端恢复并创建云端实验
+	CloudState_CLOUD_STATE_ATTACHED    CloudState = 2 // 已成功接入云端并获得实验路径
+	CloudState_CLOUD_STATE_FAILED      CloudState = 3 // 接入永久失败（认证失效或不可重试业务错误）
+)
+
+// Enum value maps for CloudState.
+var (
+	CloudState_name = map[int32]string{
+		0: "CLOUD_STATE_UNSPECIFIED",
+		1: "CLOUD_STATE_PENDING",
+		2: "CLOUD_STATE_ATTACHED",
+		3: "CLOUD_STATE_FAILED",
+	}
+	CloudState_value = map[string]int32{
+		"CLOUD_STATE_UNSPECIFIED": 0,
+		"CLOUD_STATE_PENDING":     1,
+		"CLOUD_STATE_ATTACHED":    2,
+		"CLOUD_STATE_FAILED":      3,
+	}
+)
+
+func (x CloudState) Enum() *CloudState {
+	p := new(CloudState)
+	*p = x
+	return p
+}
+
+func (x CloudState) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (CloudState) Descriptor() protoreflect.EnumDescriptor {
+	return file_swanlab_operation_v1_operation_proto_enumTypes[1].Descriptor()
+}
+
+func (CloudState) Type() protoreflect.EnumType {
+	return &file_swanlab_operation_v1_operation_proto_enumTypes[1]
+}
+
+func (x CloudState) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use CloudState.Descriptor instead.
+func (CloudState) EnumDescriptor() ([]byte, []int) {
+	return file_swanlab_operation_v1_operation_proto_rawDescGZIP(), []int{1}
+}
+
 // 当前/待上传文件进度显示快照。
 // 仅在当前处理的 records 触发文件上传时填充；普通 record 同步保持为空。
 type FileProgress struct {
@@ -211,6 +264,67 @@ func (x *UploadStatus) GetBufferedBytes() int64 {
 	return 0
 }
 
+// 云端接入状态快照（用于延迟接入/初始化恢复模式）；非恢复模式时为默认零值。
+type CloudStatus struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	State         CloudState             `protobuf:"varint,1,opt,name=state,proto3,enum=swanlab.operation.v1.CloudState" json:"state,omitempty"` // 云端接入状态
+	Path          string                 `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`                                         // 接入成功后获得的云端实验路径
+	Error         string                 `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`                                       // 接入永久失败或最近一次接入错误摘要
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CloudStatus) Reset() {
+	*x = CloudStatus{}
+	mi := &file_swanlab_operation_v1_operation_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CloudStatus) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CloudStatus) ProtoMessage() {}
+
+func (x *CloudStatus) ProtoReflect() protoreflect.Message {
+	mi := &file_swanlab_operation_v1_operation_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CloudStatus.ProtoReflect.Descriptor instead.
+func (*CloudStatus) Descriptor() ([]byte, []int) {
+	return file_swanlab_operation_v1_operation_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *CloudStatus) GetState() CloudState {
+	if x != nil {
+		return x.State
+	}
+	return CloudState_CLOUD_STATE_UNSPECIFIED
+}
+
+func (x *CloudStatus) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *CloudStatus) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
 // Core 运行状态快照。
 type OperationStats struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
@@ -224,13 +338,14 @@ type OperationStats struct {
 	Rate            float64                `protobuf:"fixed64,8,opt,name=rate,proto3" json:"rate,omitempty"`                                             // 速率 (字节数/秒)
 	Files           []*FileProgress        `protobuf:"bytes,9,rep,name=files,proto3" json:"files,omitempty"`                                             // 当前/待上传文件显示快照
 	Upload          *UploadStatus          `protobuf:"bytes,10,opt,name=upload,proto3" json:"upload,omitempty"`                                          // 上传投递与积压
+	Cloud           *CloudStatus           `protobuf:"bytes,11,opt,name=cloud,proto3" json:"cloud,omitempty"`                                            // 云端接入状态
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
 
 func (x *OperationStats) Reset() {
 	*x = OperationStats{}
-	mi := &file_swanlab_operation_v1_operation_proto_msgTypes[2]
+	mi := &file_swanlab_operation_v1_operation_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -242,7 +357,7 @@ func (x *OperationStats) String() string {
 func (*OperationStats) ProtoMessage() {}
 
 func (x *OperationStats) ProtoReflect() protoreflect.Message {
-	mi := &file_swanlab_operation_v1_operation_proto_msgTypes[2]
+	mi := &file_swanlab_operation_v1_operation_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -255,7 +370,7 @@ func (x *OperationStats) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OperationStats.ProtoReflect.Descriptor instead.
 func (*OperationStats) Descriptor() ([]byte, []int) {
-	return file_swanlab_operation_v1_operation_proto_rawDescGZIP(), []int{2}
+	return file_swanlab_operation_v1_operation_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *OperationStats) GetState() CoreState {
@@ -328,6 +443,13 @@ func (x *OperationStats) GetUpload() *UploadStatus {
 	return nil
 }
 
+func (x *OperationStats) GetCloud() *CloudStatus {
+	if x != nil {
+		return x.Cloud
+	}
+	return nil
+}
+
 var File_swanlab_operation_v1_operation_proto protoreflect.FileDescriptor
 
 const file_swanlab_operation_v1_operation_proto_rawDesc = "" +
@@ -342,7 +464,11 @@ const file_swanlab_operation_v1_operation_proto_rawDesc = "" +
 	"\x06paused\x18\x01 \x01(\bR\x06paused\x12\x1b\n" +
 	"\tpause_seq\x18\x02 \x01(\x04R\bpauseSeq\x12'\n" +
 	"\x0fpending_records\x18\x03 \x01(\x03R\x0ependingRecords\x12%\n" +
-	"\x0ebuffered_bytes\x18\x04 \x01(\x03R\rbufferedBytes\"\xb1\x03\n" +
+	"\x0ebuffered_bytes\x18\x04 \x01(\x03R\rbufferedBytes\"o\n" +
+	"\vCloudStatus\x126\n" +
+	"\x05state\x18\x01 \x01(\x0e2 .swanlab.operation.v1.CloudStateR\x05state\x12\x12\n" +
+	"\x04path\x18\x02 \x01(\tR\x04path\x12\x14\n" +
+	"\x05error\x18\x03 \x01(\tR\x05error\"\xea\x03\n" +
 	"\x0eOperationStats\x125\n" +
 	"\x05state\x18\x01 \x01(\x0e2\x1f.swanlab.operation.v1.CoreStateR\x05state\x12!\n" +
 	"\ftotal_number\x18\x02 \x01(\x03R\vtotalNumber\x12'\n" +
@@ -355,11 +481,18 @@ const file_swanlab_operation_v1_operation_proto_rawDesc = "" +
 	"\x04rate\x18\b \x01(\x01R\x04rate\x128\n" +
 	"\x05files\x18\t \x03(\v2\".swanlab.operation.v1.FileProgressR\x05files\x12:\n" +
 	"\x06upload\x18\n" +
-	" \x01(\v2\".swanlab.operation.v1.UploadStatusR\x06upload*X\n" +
+	" \x01(\v2\".swanlab.operation.v1.UploadStatusR\x06upload\x127\n" +
+	"\x05cloud\x18\v \x01(\v2!.swanlab.operation.v1.CloudStatusR\x05cloud*X\n" +
 	"\tCoreState\x12\x1a\n" +
 	"\x16CORE_STATE_NOT_STARTED\x10\x00\x12\x16\n" +
 	"\x12CORE_STATE_RUNNING\x10\x01\x12\x17\n" +
-	"\x13CORE_STATE_FINISHED\x10\x02BIZGgithub.com/swanhubx/swanlab/core/proto/swanlab/operation/v1;operationv1b\x06proto3"
+	"\x13CORE_STATE_FINISHED\x10\x02*t\n" +
+	"\n" +
+	"CloudState\x12\x1b\n" +
+	"\x17CLOUD_STATE_UNSPECIFIED\x10\x00\x12\x17\n" +
+	"\x13CLOUD_STATE_PENDING\x10\x01\x12\x18\n" +
+	"\x14CLOUD_STATE_ATTACHED\x10\x02\x12\x16\n" +
+	"\x12CLOUD_STATE_FAILED\x10\x03BIZGgithub.com/swanhubx/swanlab/core/proto/swanlab/operation/v1;operationv1b\x06proto3"
 
 var (
 	file_swanlab_operation_v1_operation_proto_rawDescOnce sync.Once
@@ -373,23 +506,27 @@ func file_swanlab_operation_v1_operation_proto_rawDescGZIP() []byte {
 	return file_swanlab_operation_v1_operation_proto_rawDescData
 }
 
-var file_swanlab_operation_v1_operation_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_swanlab_operation_v1_operation_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_swanlab_operation_v1_operation_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_swanlab_operation_v1_operation_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_swanlab_operation_v1_operation_proto_goTypes = []any{
 	(CoreState)(0),         // 0: swanlab.operation.v1.CoreState
-	(*FileProgress)(nil),   // 1: swanlab.operation.v1.FileProgress
-	(*UploadStatus)(nil),   // 2: swanlab.operation.v1.UploadStatus
-	(*OperationStats)(nil), // 3: swanlab.operation.v1.OperationStats
+	(CloudState)(0),        // 1: swanlab.operation.v1.CloudState
+	(*FileProgress)(nil),   // 2: swanlab.operation.v1.FileProgress
+	(*UploadStatus)(nil),   // 3: swanlab.operation.v1.UploadStatus
+	(*CloudStatus)(nil),    // 4: swanlab.operation.v1.CloudStatus
+	(*OperationStats)(nil), // 5: swanlab.operation.v1.OperationStats
 }
 var file_swanlab_operation_v1_operation_proto_depIdxs = []int32{
-	0, // 0: swanlab.operation.v1.OperationStats.state:type_name -> swanlab.operation.v1.CoreState
-	1, // 1: swanlab.operation.v1.OperationStats.files:type_name -> swanlab.operation.v1.FileProgress
-	2, // 2: swanlab.operation.v1.OperationStats.upload:type_name -> swanlab.operation.v1.UploadStatus
-	3, // [3:3] is the sub-list for method output_type
-	3, // [3:3] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	1, // 0: swanlab.operation.v1.CloudStatus.state:type_name -> swanlab.operation.v1.CloudState
+	0, // 1: swanlab.operation.v1.OperationStats.state:type_name -> swanlab.operation.v1.CoreState
+	2, // 2: swanlab.operation.v1.OperationStats.files:type_name -> swanlab.operation.v1.FileProgress
+	3, // 3: swanlab.operation.v1.OperationStats.upload:type_name -> swanlab.operation.v1.UploadStatus
+	4, // 4: swanlab.operation.v1.OperationStats.cloud:type_name -> swanlab.operation.v1.CloudStatus
+	5, // [5:5] is the sub-list for method output_type
+	5, // [5:5] is the sub-list for method input_type
+	5, // [5:5] is the sub-list for extension type_name
+	5, // [5:5] is the sub-list for extension extendee
+	0, // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_swanlab_operation_v1_operation_proto_init() }
@@ -402,8 +539,8 @@ func file_swanlab_operation_v1_operation_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_swanlab_operation_v1_operation_proto_rawDesc), len(file_swanlab_operation_v1_operation_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   3,
+			NumEnums:      2,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
