@@ -200,13 +200,22 @@ func (a *AsyncWriter) run() {
 				if !a.flush(&st) {
 					err = a.Err()
 				}
+			} else {
+				// 同步屏障返回前应用字节阈值策略，避免调用方观察到尚未发生的自动刷盘。
+				a.autoFlush(&st)
 			}
 			c.reply <- err
 		}
-		if !st.failed && a.flushBytes > 0 && a.w.Offset()-st.lastFlush >= int64(a.flushBytes) {
-			a.flush(&st)
-		}
+		a.autoFlush(&st)
 	}
+}
+
+// autoFlush 在未刷盘字节达到阈值时刷盘；失败后进入降级状态。
+func (a *AsyncWriter) autoFlush(st *writeState) {
+	if st.failed || a.flushBytes <= 0 || a.w.Offset()-st.lastFlush < int64(a.flushBytes) {
+		return
+	}
+	a.flush(st)
 }
 
 // writeState 是写协程的私有状态：seq 与 end 是最后一条已写入记录的序号和结束偏移，
