@@ -6,6 +6,7 @@
 """
 
 import json
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
@@ -13,12 +14,15 @@ import requests
 
 from swanlab.exceptions import ApiError, AuthenticationError
 from swanlab.sdk.cmd.init import (
+    _can_recover_online,
+    _has_local_run_file,
     compatible_kwargs,
     ensure_run_dir,
     load_config,
     prompt_init_mode,
     set_nested_value,
 )
+from swanlab.sdk.internal.context.components import CoreBackend
 
 
 def _wrapped_auth_error(cause: BaseException) -> AuthenticationError:
@@ -539,3 +543,62 @@ class TestEnsureRunDirShared:
 
         assert "unknown_hostname" in run_dir.name
         warning.assert_called_once()
+
+
+class TestOnlineRecoveryEligibility:
+    """_has_local_run_file / _can_recover_online 判定条件"""
+
+    def test_has_local_run_file_requires_non_empty_file(self, tmp_path):
+        missing = tmp_path / "missing"
+        assert _has_local_run_file(missing) is False
+
+        empty_dir = tmp_path / "empty_dir"
+        empty_dir.mkdir()
+        assert _has_local_run_file(empty_dir) is False
+
+        zero_file = empty_dir / "run-1.swanlab"
+        zero_file.write_bytes(b"")
+        assert _has_local_run_file(empty_dir) is False
+
+        zero_file.write_bytes(b"hdr")
+        assert _has_local_run_file(empty_dir) is True
+
+    @pytest.mark.parametrize(
+        ("impl", "mode", "on_online_error", "api_key", "resume", "has_local", "expected"),
+        [
+            ("go", "online", "offline", "secret-key", "never", False, True),
+            ("go", "online", "offline", "secret-key", "allow", True, True),
+            ("go", "online", "offline", "secret-key", "must", True, True),
+            ("go", "online", "offline", "secret-key", "allow", False, False),
+            ("go", "online", "offline", "secret-key", "must", False, False),
+            ("python", "online", "offline", "secret-key", "never", False, False),
+            ("go", "offline", "offline", "secret-key", "never", False, False),
+            ("go", "online", "disabled", "secret-key", "never", False, False),
+            ("go", "online", "raise", "secret-key", "never", False, False),
+            ("go", "online", "offline", "", "never", False, False),
+        ],
+    )
+    def test_can_recover_online_matrix(
+        self,
+        tmp_path: Path,
+        impl: str,
+        mode: str,
+        on_online_error: str,
+        api_key: str,
+        resume: str,
+        has_local: bool,
+        expected: bool,
+    ):
+        run_dir = tmp_path / "run-dir"
+        run_dir.mkdir()
+        if has_local:
+            (run_dir / "run-abc.swanlab").write_bytes(b"record")
+
+        backend = CoreBackend("go", binary=Path("/fake/core")) if impl == "go" else CoreBackend("python")
+        settings = MagicMock()
+        settings.mode = mode
+        settings.on_online_error = on_online_error
+        settings.api_key = api_key
+        settings.run.resume = resume
+
+        assert _can_recover_online(backend, settings, run_dir) is expected

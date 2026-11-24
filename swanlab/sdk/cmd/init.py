@@ -61,6 +61,8 @@ __all__ = [
     "ensure_run_dir",
 ]
 
+_UNSET = object()
+
 
 def set_nested_value(d: dict, key: str, value: Any):
     """
@@ -131,8 +133,9 @@ def init(
     :param mode: Run mode. Options: "online" (sync to cloud), "local" (local only),
         "offline" (save locally for later sync), "disabled" (no logging). Defaults to "online".
     :param on_online_error: Behavior when SwanLab Cloud is temporarily unreachable in online
-        mode. Only transient connection/server failures are degraded; authentication and
-        configuration errors always raise. Options: "offline" (save locally and sync later),
+        mode. Only transient connection/server failures are handled; authentication and
+        configuration errors always raise. Options: "offline" (keep online mode and save locally
+        while retrying cloud recovery when supported, or fall back to offline mode),
         "disabled" (no logging), "raise". Defaults to "offline".
     :param workspace: Workspace or organization name. Defaults to current user.
     :param project: Project name. Defaults to current directory name.
@@ -269,8 +272,8 @@ def init(
             ctx.core.abort(exc)
         raise
     try:
-        # 发送webhook回调，在除了disabled模式外，都会触发
-        success = send_webhook(ctx)
+        # 发送webhook回调，在除了disabled模式外，都会触发；尚未绑定云端路径时不拼接假链接
+        success = send_webhook(ctx, path=path)
         if not success:
             webhook_url = ctx.config.settings.integration.webhook.url
             console.warning(
@@ -408,7 +411,7 @@ def _login_or_fallback(login_func: Callable[[], bool], settings: Settings) -> Mo
 
 
 @safe.decorator(message="Failed to send webhook")
-def send_webhook(ctx: RunContext) -> Tuple[bool, bool]:
+def send_webhook(ctx: RunContext, path: Any = _UNSET) -> Tuple[bool, bool]:
     """
     发送 webhook 回调，仅在非 disabled 模式下触发。
 
@@ -424,6 +427,7 @@ def send_webhook(ctx: RunContext) -> Tuple[bool, bool]:
     }
 
     :param ctx: 运行上下文
+    :param path: 已绑定的云端实验路径；未传入时按配置字段推导
     :return: (是否发送，是否成功)
     """
     if ctx.config.settings.mode == "disabled":
@@ -437,9 +441,16 @@ def send_webhook(ctx: RunContext) -> Tuple[bool, bool]:
         return False, False
     webhook_value = webhook.value
     webhook_timeout = webhook.timeout
-    # 获取实验url
-    if settings.mode == "online":
-        exp_url = f"{settings.web_host}/@{settings.project.workspace}/{settings.project.name}/runs/{settings.run.id}"
+    # 获取实验url：显式传入 path=None 时说明仍在等待后台恢复，不输出未生效的云端链接
+    if path is _UNSET:
+        if settings.mode == "online":
+            exp_url = (
+                f"{settings.web_host}/@{settings.project.workspace}/{settings.project.name}/runs/{settings.run.id}"
+            )
+        else:
+            exp_url = None
+    elif path:
+        exp_url = f"{settings.web_host}{helper.fmt_run_path(path)}"
     else:
         exp_url = None
     # 发送请求
@@ -643,15 +654,13 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
     run_id = run_settings.run.id
     assert run_id, "Run id is not provided."
     should_mkdirs = mode != "disabled" and not skip_store
-    backend: Optional[CoreBackend] = None
+    backend = resolve_core_backend(mode)
     # 2. 创建或复用运行目录
     if should_mkdirs:
         explicit_dir = run_settings.run.dir
         reusing_existing = explicit_dir is not None and (run_settings.log_dir / explicit_dir).is_dir()
         if reusing_existing:
             assert explicit_dir is not None
-            # 续传校验与实际创建 Core 共用同一解析结果，避免两者判断不一致
-            backend = resolve_core_backend(mode)
             _validate_existing_run_dir(run_settings.log_dir / explicit_dir, run_id, backend)
         # 安全创建目录，并写入 .gitignore（如果目录为空）
         helper.mkdir_and_append_gitignore(run_settings.log_dir)
@@ -679,13 +688,25 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
         RunContext(config=RunConfig(settings=run_settings, run_dir=run_dir), callbacks=callbacks, core_backend=backend)
     ) as ctx:
         assert run_settings.project.name, "Project name is required."
+        # 在启动任何一次 Core 前固定恢复资格，避免试错过程中产生的文件影响判断
+        allow_recover_online = _can_recover_online(backend, run_settings, run_dir)
+        recover_online = False
         # 3.1. 前置操作
-        # online 模式前置：确保 client 已就绪，连接类失败时按策略降级
+        # online 模式前置：确保 client 已就绪，连接类失败时进入后台恢复或按策略降级
         if mode == "online":
-            fallback_mode = _ensure_online_client_or_fallback(ctx, run_settings, run_id, run_dir)
+            fallback_mode, recover_online = _ensure_online_client_or_fallback(
+                ctx,
+                run_settings,
+                run_id,
+                run_dir,
+                allow_recover_online=allow_recover_online,
+            )
             if fallback_mode is not None:
                 mode = fallback_mode
                 should_mkdirs = mode == "offline"
+            elif recover_online:
+                _prepare_recover_online(run_settings, run_id, run_dir)
+                should_mkdirs = True
         # local 模式前置：注入 LocalCallback 到 callbacks 中
         elif mode == "local":
             from swanlab.deprecated.local import LocalCallbacker
@@ -695,8 +716,7 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
         if mode != "online":
             _ensure_offline_identity(run_settings, run_id)
         # 3.3. 统一调用 deliver_run_start（core 内部按 mode 分发：online 走网络，其余本地处理）
-        # 3.3. 统一调用 deliver_run_start（core 内部按 mode 分发：online 走网络，其余本地处理）
-        start_request = _build_start_request(run_settings, run_id, run_dir)
+        start_request = _build_start_request(run_settings, run_id, run_dir, recover_online=recover_online)
         try:
             resp = ctx.core.deliver_run_start(start_request)
             if not resp.success:
@@ -706,12 +726,18 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
                     or run_settings.on_online_error == "raise"
                 ):
                     _raise_start_failure(resp)
-                # 可降级：按策略切换模式，复用 run_dir 后重新拉起 Core
-                mode = run_settings.on_online_error
-                resp = _restart_with_fallback(ctx, run_settings, run_id, run_dir, mode)
-                should_mkdirs = mode == "offline"
+                if not recover_online and allow_recover_online:
+                    # 具备恢复条件时保持 online 模式，带着恢复标记重拉 Go Core
+                    recover_online = True
+                    resp = _restart_with_recover_online(ctx, run_settings, run_id, run_dir, backend)
+                    should_mkdirs = True
+                else:
+                    # 不具备后台恢复条件时按策略切换到离线或禁用模式
+                    mode = run_settings.on_online_error
+                    resp = _restart_with_fallback(ctx, run_settings, run_id, run_dir, mode)
+                    should_mkdirs = mode == "offline"
             path = resp.path or path
-            if mode == "online":
+            if mode == "online" and not recover_online:
                 assert path, "Initialization path failed when mode=online"
             ctx.next_step(user_step=resp.global_step)
             ctx.global_system_step = resp.global_system_step
@@ -760,8 +786,14 @@ def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[R
         raise
 
 
-def _build_start_request(run_settings: Settings, run_id: str, run_dir: Path) -> DeliverRunStartRequest:
-    """构建启动请求。降级重试时重新构建，确保使用最新的 settings。"""
+def _build_start_request(
+    run_settings: Settings,
+    run_id: str,
+    run_dir: Path,
+    *,
+    recover_online: bool = False,
+) -> DeliverRunStartRequest:
+    """构建启动请求。降级或恢复重试时重新构建，确保使用最新的 settings。"""
     ts = Timestamp()
     ts.GetCurrentTime()
     start_record = StartRecord(
@@ -780,8 +812,69 @@ def _build_start_request(run_settings: Settings, run_id: str, run_dir: Path) -> 
     )
     return DeliverRunStartRequest(
         start_record=start_record,
-        core_settings=run_settings.to_core_proto(run_id=run_id, run_dir=run_dir),
+        core_settings=run_settings.to_core_proto(run_id=run_id, run_dir=run_dir, recover_online=recover_online),
     )
+
+
+def _has_local_run_file(run_dir: Path) -> bool:
+    """判断运行目录下是否已存在非空的 run-*.swanlab 本地记录文件。"""
+    if not run_dir.is_dir():
+        return False
+    return any(p.is_file() and p.stat().st_size > 0 for p in run_dir.glob("run-*.swanlab"))
+
+
+def _can_recover_online(backend: CoreBackend, run_settings: Settings, run_dir: Path) -> bool:
+    """判断是否满足保持 online 模式并在后台持续恢复云端绑定的条件。"""
+    return (
+        backend.impl == "go"
+        and run_settings.mode == "online"
+        and run_settings.on_online_error == "offline"
+        and bool(run_settings.api_key)
+        and (run_settings.run.resume == "never" or _has_local_run_file(run_dir))
+    )
+
+
+def _warn_recover_online(*, skip_store_disabled: bool = False) -> None:
+    """提示用户云端暂不可达，已切入本地兜底并等待后台恢复。"""
+    suffix = " (core.skip_store has been disabled)" if skip_store_disabled else ""
+    console.warning(
+        "SwanLab Cloud is temporarily unavailable; keeping online mode, saving data locally, "
+        f"and retrying cloud recovery in background{suffix}."
+    )
+
+
+def _prepare_recover_online(run_settings: Settings, run_id: str, run_dir: Path) -> None:
+    """在后台恢复启动前关闭 skip_store、建好本地目录，并在全新运行时补齐名称与颜色。"""
+    skip_store_disabled = run_settings.core.skip_store
+    if skip_store_disabled:
+        run_settings.merge_settings({"core": {"skip_store": False}})
+    helper.mkdir_and_append_gitignore(run_settings.log_dir)
+    fs.safe_mkdir(run_dir)
+    # 复用已有本地文件时保留原有实验身份，只在新目录下生成默认名称和颜色
+    if not _has_local_run_file(run_dir):
+        _ensure_offline_identity(run_settings, run_id)
+    _reset_client_after_fallback()
+    _warn_recover_online(skip_store_disabled=skip_store_disabled)
+
+
+def _restart_with_recover_online(
+    ctx: RunContext,
+    run_settings: Settings,
+    run_id: str,
+    run_dir: Path,
+    backend: CoreBackend,
+) -> DeliverRunStartResponse:
+    """在线启动遇临时故障且可恢复时，携带恢复开关重启 Core。"""
+    _prepare_recover_online(run_settings, run_id, run_dir)
+    with safe.block(level="debug", message="core abort failed before recover restart"):
+        ctx.core.abort()
+    ctx.core = create_core(ctx, backend=backend)
+    ctx.probe = create_probe(core=ctx.core, disabled=False)
+    start_request = _build_start_request(run_settings, run_id, run_dir, recover_online=True)
+    resp = ctx.core.deliver_run_start(start_request)
+    if not resp.success:
+        _raise_start_failure(resp)
+    return resp
 
 
 def _switch_run_to_fallback(
@@ -887,12 +980,14 @@ def _ensure_online_client_or_fallback(
     run_settings: Settings,
     run_id: str,
     run_dir: Path,
-) -> Optional[ModeType]:
+    *,
+    allow_recover_online: bool = False,
+) -> Tuple[Optional[ModeType], bool]:
     """
-    确保 online client 就绪；连接类失败时按 on_online_error 降级。
+    确保 online client 就绪；连接类失败时进入后台恢复或按 on_online_error 降级。
     只服务于 init 内部登录，显式 swanlab.login() 不受影响。
 
-    :return: 降级后的模式；未降级时返回 None
+    :return: (降级后的模式, 是否进入后台恢复)
     """
     try:
         if not client.exists():
@@ -909,7 +1004,9 @@ def _ensure_online_client_or_fallback(
     except Exception as e:
         if not is_transient_login_error(e) or run_settings.on_online_error == "raise":
             raise
+        if allow_recover_online:
+            return None, True
         target_mode = run_settings.on_online_error
         _switch_run_to_fallback(ctx, run_settings, run_id, run_dir, target_mode)
-        return target_mode
-    return None
+        return target_mode, False
+    return None, False

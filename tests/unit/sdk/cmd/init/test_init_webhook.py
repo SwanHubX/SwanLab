@@ -137,3 +137,34 @@ def test_send_webhook_serializes_path_run_dir(mock_ctx, setup_mocks):
     request = responses.calls[0].request
     payload = json.loads(request.body)  # type: ignore
     assert payload["swanlab"]["run_dir"] == str(mock_ctx.run_dir)
+
+
+@responses.activate
+def test_send_webhook_explicit_none_path_omits_exp_url(mock_ctx, setup_mocks):
+    """在线恢复尚未绑定云端路径时传入 path=None，exp_url 应为 None。"""
+    settings = mock_ctx.config.settings
+    settings.mode = "online"
+    settings.web_host = "https://swanlab.cn"
+    webhook_url = settings.integration.webhook.url
+
+    responses.add(responses.POST, webhook_url, status=200)
+
+    assert send_webhook(mock_ctx, path=None) == (True, True)
+    payload = json.loads(responses.calls[0].request.body)  # type: ignore
+    assert payload["swanlab"]["mode"] == "online"
+    assert payload["swanlab"]["exp_url"] is None
+
+
+@responses.activate
+def test_send_webhook_explicit_bound_path_formats_exp_url(mock_ctx, setup_mocks):
+    """传入真实云端 path 时，exp_url 应按标准路径规则格式化。"""
+    settings = mock_ctx.config.settings
+    settings.mode = "online"
+    settings.web_host = "https://swanlab.cn"
+    webhook_url = settings.integration.webhook.url
+
+    responses.add(responses.POST, webhook_url, status=200)
+
+    assert send_webhook(mock_ctx, path="/alice/proj/run-xyz") == (True, True)
+    payload = json.loads(responses.calls[0].request.body)  # type: ignore
+    assert payload["swanlab"]["exp_url"] == "https://swanlab.cn/@alice/proj/runs/run-xyz"

@@ -26,6 +26,11 @@ from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
     DeliverRunFinishRequest,
 )
 from swanlab.proto.swanlab.grpc.probe.v1.probe_pb2 import DeliverProbeStartRequest
+from swanlab.proto.swanlab.operation.v1.operation_pb2 import (
+    CLOUD_STATE_ATTACHED,
+    CLOUD_STATE_FAILED,
+    CLOUD_STATE_UNSPECIFIED,
+)
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord
 from swanlab.sdk.internal.bus import FileSaveEvent, MetricDefineEvent, MetricLogEvent
 from swanlab.sdk.internal.context import RunContext
@@ -128,12 +133,19 @@ class Run:
         >>> swanlab.finish()
     """
 
+    # 类级默认值：保证仅通过 __new__ 构造的测试替身也能安全读取云端状态字段
+    _path: Optional[str] = None
+    _cloud_state: int = CLOUD_STATE_UNSPECIFIED
+    _cloud_error: Optional[str] = None
+
     def __init__(self, ctx: RunContext, path: Optional[str] = None):
         # 1. 基础状态、组件准备
         self._ctx = ctx
         self._is_main_thread = threading.current_thread() is threading.main_thread()
         # 运行实验路径，/:username/:project_name/:run_id
         self._path = path
+        self._cloud_state = CLOUD_STATE_ATTACHED if path else CLOUD_STATE_UNSPECIFIED
+        self._cloud_error = None
         self._state: Union[FinishType, Literal["running"]] = "running"
         self._init_pid = fork.current_pid()
         # 外部API锁，防止并发调用
@@ -355,33 +367,63 @@ class Run:
         assert self._ctx.run_dir is not None, "Run dir is not set."
         return self._ctx.run_dir
 
-    @cached_property
+    def _update_cloud_status_from_stats(self, resp: Any) -> None:
+        """从统计响应同步最新云端绑定状态、真实路径和失败原因。"""
+        if not getattr(resp, "success", False) or not hasattr(resp, "stats") or not resp.HasField("stats"):
+            return
+        stats = resp.stats
+        if not stats.HasField("cloud"):
+            return
+        cloud = stats.cloud
+        self._cloud_state = cloud.state
+        if cloud.path:
+            self._path = cloud.path
+        if cloud.error:
+            self._cloud_error = cloud.error
+
+    def _sync_cloud_status(self) -> None:
+        """当云端路径尚未确定且 Run 仍存活时，主动拉取一次最新云端状态。"""
+        if self._path or self.mode != "online" or not self.alive or not hasattr(self, "_core"):
+            return
+        with safe.block(level="debug", message="sync cloud status failed"):
+            self._update_cloud_status_from_stats(self._core.get_operation_stats())
+
+    def _require_cloud_path(self, attr: Literal["path", "url"]) -> str:
+        """读取已绑定的云端路径；未绑定时按在线等待或失败状态给出明确异常。"""
+        if self.mode != "online":
+            raise ValueError(
+                f"Run {attr} is unavailable because the current run is not using SwanLab online mode. "
+                "Please initialize SwanLab with online mode to access the run path."
+            )
+        if not self._path:
+            self._sync_cloud_status()
+        if self._path:
+            return self._path
+        if self._cloud_state == CLOUD_STATE_FAILED:
+            reason = self._cloud_error or "cloud attach failed"
+            raise ValueError(f"Run {attr} is unavailable because SwanLab Cloud recovery failed: {reason}")
+        raise ValueError(
+            f"Run {attr} is unavailable because SwanLab Cloud has not attached yet (recovery is still in progress)."
+        )
+
+    @property
     def path(self) -> str:
         """
         Current run path in the format of /:username/:project_name/:run_id.
 
         :return: Run path
         """
-        if not self._path:
-            raise ValueError(
-                "Run path is unavailable because the current run is not using SwanLab online mode. "
-                "Please initialize SwanLab with online mode to access the run path."
-            )
-        return self._path
+        return self._require_cloud_path("path")
 
-    @cached_property
+    @property
     def url(self) -> str:
         """
-        Current run URL if in online mode, otherwise None.
-        :return: Run URL or None
+        Current run URL if in online mode, otherwise raises ValueError.
+        :return: Run URL
         """
-        if not self._path:
-            raise ValueError(
-                "Run url is unavailable because the current run is not using SwanLab online mode. "
-                "Please initialize SwanLab with online mode to access the run path."
-            )
+        path = self._require_cloud_path("url")
         settings = self._ctx.config.settings
-        return f"{settings.web_host}{helper.fmt_run_path(self._path)}"
+        return f"{settings.web_host}{helper.fmt_run_path(path)}"
 
     @cached_property
     def config(self) -> Config:
@@ -982,6 +1024,9 @@ class Run:
         if state == "crashed" and error is None:
             console.warning("Crashed reason has been set to 'unknown' due to missing error message.")
             error = "unknown"
+        if self.mode == "online" and not self._path:
+            self._sync_cloud_status()
+        had_cloud_path = bool(self._path)
         greeting.goodbye(self._ctx, self)
         # 2. 运行结束，清理组件
         self._state = this_state
@@ -1004,7 +1049,10 @@ class Run:
                 confirm_resp = run_with_progress(
                     stats_fn=self._core.get_operation_stats,
                     blocking_fn=lambda: retry_finish_call(self._core, self._core.confirm_run_finish),
+                    on_stats=self._update_cloud_status_from_stats,
                 )
+                if not had_cloud_path and self._path and self.mode == "online":
+                    greeting.print_cloud_link(self)
                 if not confirm_resp.success:
                     console.error(confirm_resp.message)
                     self._report_local_recovery(confirm_resp.message)

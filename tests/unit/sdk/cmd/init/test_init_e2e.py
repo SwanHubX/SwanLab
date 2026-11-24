@@ -1884,3 +1884,293 @@ class TestRunSave:
             c.request.url for c in rsps.calls if "files/prepare" in c.request.url or "files/complete" in c.request.url
         ]
         assert len(save_calls) >= 2, f"Expected prepare + complete calls for live policy, got: {save_calls}"
+
+
+class TestInitOnlineRecoveryWithGoCore:
+    """Go Core 后端在 init 遇到临时连接/服务端故障时保持 online 并切入后台恢复。"""
+
+    _NO_PROBE = {
+        "hardware": False,
+        "requirements": False,
+        "conda": False,
+        "git": False,
+        "swanlab": False,
+        "monitor": False,
+    }
+
+    @staticmethod
+    def _install_fake_go_core(
+        monkeypatch,
+        *,
+        start_outcomes: list,
+        stats_fn=None,
+    ):
+        import swanlab.sdk.cmd.init as init_module
+        from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
+            ConfirmRunFinishResponse,
+            DeliverRunFinishResponse,
+            DeliverRunStartRequest,
+            DeliverRunStartResponse,
+            GetOperationStatsResponse,
+        )
+        from swanlab.proto.swanlab.operation.v1.operation_pb2 import CoreState, OperationStats
+        from swanlab.sdk.protocol.core import NullCoreProtocol
+
+        started_requests = []
+        created_cores = []
+
+        class _FakeGoCore(NullCoreProtocol):
+            confirm_after_deliver_failure = True
+
+            def __init__(self, mode, outcome):
+                super().__init__(mode)
+                self._outcome = outcome
+                self.aborted = 0
+                self.closed = 0
+
+            def _start_any(self, req: DeliverRunStartRequest) -> DeliverRunStartResponse:
+                started_requests.append(req)
+                res = self._outcome(req) if callable(self._outcome) else self._outcome
+                return cast(DeliverRunStartResponse, res)
+
+            def _start_when_online(self, start_request: DeliverRunStartRequest) -> DeliverRunStartResponse:
+                return self._start_any(start_request)
+
+            def _start_when_offline(self, start_request: DeliverRunStartRequest) -> DeliverRunStartResponse:
+                return self._start_any(start_request)
+
+            def _start_when_local(self, start_request: DeliverRunStartRequest) -> DeliverRunStartResponse:
+                return self._start_any(start_request)
+
+            def _finish_when_online(self, finish_request):
+                return DeliverRunFinishResponse(success=True, message="OK")
+
+            def _finish_when_offline(self, finish_request):
+                return DeliverRunFinishResponse(success=True, message="OK")
+
+            def _get_operation_when_online(self):
+                if stats_fn is not None:
+                    return stats_fn()
+                return GetOperationStatsResponse(
+                    success=True,
+                    stats=OperationStats(state=CoreState.CORE_STATE_FINISHED),
+                )
+
+            def _confirm_finish_when_enabled(self):
+                return ConfirmRunFinishResponse(success=True, message="OK")
+
+            def abort(self, cause=None):
+                self.aborted += 1
+
+            def close(self):
+                self.closed += 1
+
+            def fork(self):
+                return self
+
+        outcomes = list(start_outcomes)
+
+        def fake_resolve(_mode):
+            return init_module.CoreBackend("go", binary=init_module.Path("/fake/swanlab-core"))
+
+        def fake_create_core(ctx, backend=None):
+            assert backend is not None and backend.impl == "go"
+            outcome = outcomes.pop(0) if len(outcomes) > 1 else outcomes[0]
+            core = _FakeGoCore(ctx.config.settings.mode, outcome)
+            created_cores.append(core)
+            return core
+
+        monkeypatch.setattr(init_module, "resolve_core_backend", fake_resolve)
+        monkeypatch.setattr(init_module, "create_core", fake_create_core)
+        monkeypatch.setattr("swanlab.sdk.internal.context.create_core", fake_create_core)
+        return started_requests, created_cores, DeliverRunStartResponse
+
+    def test_transient_login_error_enters_recover_online_single_start(self, monkeypatch, tmp_path):
+        """登录遇临时网络故障时保持 online、关闭 skip_store，并只启动一次 Go Core。"""
+        from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
+            DeliverRunStartResponse,
+            GetOperationStatsResponse,
+        )
+        from swanlab.proto.swanlab.operation.v1.operation_pb2 import (
+            CLOUD_STATE_ATTACHED,
+            CLOUD_STATE_PENDING,
+            CloudStatus,
+            CoreState,
+            OperationStats,
+        )
+
+        if client.exists():
+            client.reset()
+        monkeypatch.setattr("swanlab.sdk.internal.run.progress._POLL_INTERVAL", 0)
+        stats_calls = 0
+
+        def fake_stats():
+            nonlocal stats_calls
+            stats_calls += 1
+            # 第 1 次：run.path 读取；第 2 次：goodbye 前同步；第 3 次：进度条初始检查（触发进入轮询）
+            if stats_calls <= 3:
+                return GetOperationStatsResponse(
+                    success=True,
+                    stats=OperationStats(
+                        state=CoreState.CORE_STATE_RUNNING,
+                        cloud=CloudStatus(state=CLOUD_STATE_PENDING, error="cloud down"),
+                    ),
+                )
+            return GetOperationStatsResponse(
+                success=True,
+                stats=OperationStats(
+                    state=CoreState.CORE_STATE_FINISHED,
+                    cloud=CloudStatus(state=CLOUD_STATE_ATTACHED, path="/alice/proj/run-recovered"),
+                ),
+            )
+
+        started_requests, created_cores, _ = self._install_fake_go_core(
+            monkeypatch,
+            start_outcomes=[DeliverRunStartResponse(success=True, path="", new_experiment=True)],
+            stats_fn=fake_stats,
+        )
+        monkeypatch.setattr(
+            "swanlab.sdk.cmd.init.login_raw",
+            MagicMock(side_effect=requests.exceptions.ConnectionError("dns failed")),
+        )
+
+        run = init(
+            mode="online",
+            on_online_error="offline",
+            project="proj",
+            log_dir=str(tmp_path),
+            settings=Settings.model_validate(
+                {"api_key": "test-api-key", "core": {"skip_store": True}, "probe": self._NO_PROBE}
+            ),
+        )
+        try:
+            assert len(created_cores) == 1
+            assert len(started_requests) == 1
+            req = started_requests[0]
+            assert req.core_settings.recover_online is True
+            assert req.core_settings.skip_store is False
+            assert run.mode == "online"
+            assert run.dir.is_dir()
+            # 新运行应在 StartRecord 补齐默认名称与颜色，便于后续挂载云端使用
+            assert req.start_record.name
+            assert req.start_record.color
+            # 第 1 次轮询仍为 pending 时读取 run.path 应明确报错
+            with pytest.raises(ValueError, match="has not attached yet"):
+                _ = run.path
+        finally:
+            run.finish()
+
+        # finish 阶段从最终 stats 同步到真实云端路径
+        assert run.path == "/alice/proj/run-recovered"
+
+    def test_transient_start_error_restarts_with_recover_online(self, monkeypatch, logged_in_client, tmp_path):
+        """deliver_run_start 返回临时错误时先中止首次 Core，再携带 recover_online=True 重启。"""
+        from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
+            CORE_ERROR_KIND_TRANSIENT,
+            DeliverRunStartResponse,
+        )
+
+        started_requests, created_cores, _ = self._install_fake_go_core(
+            monkeypatch,
+            start_outcomes=[
+                DeliverRunStartResponse(
+                    success=False,
+                    error_kind=CORE_ERROR_KIND_TRANSIENT,
+                    message="service unavailable",
+                ),
+                DeliverRunStartResponse(success=True, path="", new_experiment=True),
+            ],
+        )
+
+        run = init(
+            mode="online",
+            on_online_error="offline",
+            project="proj",
+            log_dir=str(tmp_path),
+            settings=Settings.model_validate({"api_key": "test-api-key", "probe": self._NO_PROBE}),
+        )
+        try:
+            assert len(created_cores) == 2
+            assert created_cores[0].aborted == 1
+            assert len(started_requests) == 2
+            assert started_requests[0].core_settings.recover_online is False
+            assert started_requests[1].core_settings.recover_online is True
+            assert run.mode == "online"
+        finally:
+            run.finish()
+
+    def test_transient_start_error_reuses_existing_local_identity_on_resume(
+        self, monkeypatch, logged_in_client, tmp_path
+    ):
+        """resume 目录下已有非空 run-*.swanlab 时应进入恢复，且不覆盖原有名称与颜色。"""
+        import swanlab.sdk.cmd.init as init_module
+        from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
+            CORE_ERROR_KIND_TRANSIENT,
+            DeliverRunStartResponse,
+        )
+
+        run_dir = tmp_path / "resume-run"
+        run_dir.mkdir(parents=True)
+        (run_dir / "run-resume123.swanlab").write_bytes(b"existing-local-run")
+        monkeypatch.setattr(init_module, "_validate_existing_run_dir", MagicMock())
+
+        started_requests, _, _ = self._install_fake_go_core(
+            monkeypatch,
+            start_outcomes=[
+                DeliverRunStartResponse(
+                    success=False,
+                    error_kind=CORE_ERROR_KIND_TRANSIENT,
+                    message="service unavailable",
+                ),
+                DeliverRunStartResponse(success=True, path=""),
+            ],
+        )
+
+        run = init(
+            mode="online",
+            on_online_error="offline",
+            resume="allow",
+            id="resume123",
+            project="proj",
+            log_dir=str(tmp_path),
+            settings=Settings.model_validate(
+                {"api_key": "test-api-key", "run": {"dir": "resume-run"}, "probe": self._NO_PROBE}
+            ),
+        )
+        try:
+            assert len(started_requests) == 2
+            assert started_requests[1].core_settings.recover_online is True
+            # 复用本地 run 文件时不主动伪造覆盖 name / color
+            assert started_requests[1].start_record.name == ""
+            assert started_requests[1].start_record.color == ""
+        finally:
+            run.finish()
+
+    def test_auth_start_error_does_not_recover(self, monkeypatch, logged_in_client, tmp_path):
+        """认证错误即使满足恢复条件也必须直接抛 AuthenticationError。"""
+        from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
+            CORE_ERROR_KIND_AUTH,
+            DeliverRunStartResponse,
+        )
+
+        started_requests, created_cores, _ = self._install_fake_go_core(
+            monkeypatch,
+            start_outcomes=[
+                DeliverRunStartResponse(
+                    success=False,
+                    error_kind=CORE_ERROR_KIND_AUTH,
+                    message="invalid api key",
+                ),
+            ],
+        )
+
+        with pytest.raises(AuthenticationError, match="invalid api key"):
+            init(
+                mode="online",
+                on_online_error="offline",
+                project="proj",
+                log_dir=str(tmp_path),
+                settings=Settings.model_validate({"api_key": "test-api-key", "probe": self._NO_PROBE}),
+            )
+        assert len(started_requests) == 1
+        assert created_cores[0].aborted >= 1

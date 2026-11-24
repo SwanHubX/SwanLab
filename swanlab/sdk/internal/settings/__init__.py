@@ -155,11 +155,11 @@ class Settings(BaseSettings):
     """
     Online connection failure policy.
 
-    Only transient connection/server failures are degraded; authentication and
+    Only transient connection/server failures are handled; authentication and
     configuration errors always fail.
 
     * `disabled`: Degrade to disabled mode and stop recording when SwanLab Cloud is unreachable.
-    * `offline`: Degrade to offline mode and keep local recording when SwanLab Cloud is unreachable.
+    * `offline`: Keep online mode and save locally while retrying cloud recovery when supported, or fall back to offline mode.
     * `raise`: Fail initialization when SwanLab Cloud is unreachable.
     """
 

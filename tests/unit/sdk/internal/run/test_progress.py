@@ -7,6 +7,8 @@ from rich.text import Text
 
 from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import GetOperationStatsResponse
 from swanlab.proto.swanlab.operation.v1.operation_pb2 import (
+    CloudState,
+    CloudStatus,
     CoreState,
     FileProgress,
     OperationStats,
@@ -23,6 +25,8 @@ from swanlab.sdk.internal.run.fmt import (
 )
 from swanlab.sdk.internal.run.progress import (
     _build_renderable,
+    _print_summary,
+    _should_show,
     progress_display,
     run_with_progress,
 )
@@ -542,3 +546,85 @@ class TestRunWithProgress:
         assert called == [True]
         # 初始检查 + 3 次连续失败 + 收尾前最后一次查询
         assert len(calls) == 1 + 3 + 1
+
+
+class TestCloudRecoveryProgress:
+    """云端恢复等待与失败状态下进度展示及收尾提示。"""
+
+    def test_should_show_and_render_waiting_when_total_records_zero(self):
+        stats = OperationStats(
+            state=CoreState.CORE_STATE_RUNNING,
+            total_records=0,
+            cloud=CloudStatus(state=CloudState.CLOUD_STATE_PENDING, error="503 unavailable"),
+        )
+        assert _should_show(stats, "auto") is True
+        text = _render_plain(stats, "auto")
+        assert "Waiting for SwanLab Cloud to recover..." in text
+        assert "503 unavailable" in text
+
+    def test_cloud_failed_skips_upload_complete_zero_records(self, monkeypatch):
+        messages = []
+        monkeypatch.setattr(progress_module.console, "info", lambda *args, **kwargs: messages.append(args))
+        stats = OperationStats(
+            state=CoreState.CORE_STATE_FINISHED,
+            total_records=0,
+            uploaded_records=0,
+            cloud=CloudStatus(state=CloudState.CLOUD_STATE_FAILED, error="401 invalid"),
+        )
+        _print_summary(stats, "auto", finished=True, interrupted=False)
+        assert messages == []
+
+    def test_waiting_cloud_keyboard_interrupt_prints_recovery_prompt_and_summary(self, monkeypatch):
+        class FakeLive:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def start(self):
+                pass
+
+            def update(self, *args, **kwargs):
+                pass
+
+            def stop(self):
+                pass
+
+        messages = []
+        monkeypatch.setattr(progress_module, "Live", FakeLive)
+        monkeypatch.setattr(progress_module.console, "c", SimpleNamespace(is_terminal=True))
+        monkeypatch.setattr(progress_module.os, "isatty", lambda _: True)
+        monkeypatch.setattr(
+            progress_module.console, "info", lambda *args, **kwargs: messages.append(" ".join(map(str, args)))
+        )
+        monkeypatch.setattr(progress_module, "_POLL_INTERVAL", 0.01)
+
+        pending = OperationStats(
+            state=CoreState.CORE_STATE_RUNNING,
+            cloud=CloudStatus(state=CloudState.CLOUD_STATE_PENDING),
+        )
+        calls = 0
+
+        def stats_fn() -> GetOperationStatsResponse:
+            nonlocal calls
+            calls += 1
+            # 第 1 次：初始检查；第 2 次：首轮刷新以标记 _has_shown=True；第 3 次：中断轮询
+            if calls == 3:
+                raise KeyboardInterrupt()
+            return GetOperationStatsResponse(success=True, stats=pending)
+
+        res = run_with_progress(stats_fn, lambda: "done", timeout=5.0)
+        assert res == "done"
+        joined = "\n".join(messages)
+        assert "Cloud recovery still in progress... Press" in joined
+        assert "Cloud recovery still in progress; continuing in background." in joined
+
+    def test_waiting_cloud_timeout_summary(self, monkeypatch):
+        messages = []
+        monkeypatch.setattr(
+            progress_module.console, "info", lambda *args, **kwargs: messages.append(" ".join(map(str, args)))
+        )
+        stats = OperationStats(
+            state=CoreState.CORE_STATE_RUNNING,
+            cloud=CloudStatus(state=CloudState.CLOUD_STATE_PENDING),
+        )
+        _print_summary(stats, "auto", finished=False, interrupted=False)
+        assert any("Waiting for SwanLab Cloud recovery timed out." in m for m in messages)

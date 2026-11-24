@@ -18,7 +18,7 @@ from rich.table import Table
 from rich.text import Text
 
 from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import GetOperationStatsResponse
-from swanlab.proto.swanlab.operation.v1.operation_pb2 import CoreState, OperationStats
+from swanlab.proto.swanlab.operation.v1.operation_pb2 import CloudState, CoreState, OperationStats
 from swanlab.sdk.internal.pkg import console
 from swanlab.sdk.internal.run.fmt import fmt_bytes, fmt_items, fmt_rate
 from swanlab.sdk.protocol import is_terminal_stats_error
@@ -54,7 +54,17 @@ def _resolve_progress(stats: OperationStats, unit: str) -> tuple[int, int]:
     return stats.total_records, stats.uploaded_records
 
 
+def _is_waiting_cloud(stats: OperationStats) -> bool:
+    return stats.HasField("cloud") and stats.cloud.state == CloudState.CLOUD_STATE_PENDING
+
+
+def _is_cloud_failed(stats: OperationStats) -> bool:
+    return stats.HasField("cloud") and stats.cloud.state == CloudState.CLOUD_STATE_FAILED
+
+
 def _should_show(stats: OperationStats, unit: str) -> bool:
+    if _is_waiting_cloud(stats):
+        return True
     unit = _resolve_unit(stats, unit)
     total, done = _resolve_progress(stats, unit)
     return total > 0 or done > 0
@@ -63,10 +73,18 @@ def _should_show(stats: OperationStats, unit: str) -> bool:
 # ── Rich renderable ──────────────────────────────────────────
 
 
+def _render_waiting_cloud(table: Table, stats: OperationStats) -> None:
+    left = Spinner("dots", Text("Waiting for SwanLab Cloud to recover...", "bold"))
+    right = Text(stats.cloud.error, style="dim") if stats.cloud.error else Text("")
+    table.add_row(left, Text(""), right)
+
+
 def _build_renderable(stats: OperationStats, unit: str) -> Table:
     unit = _resolve_unit(stats, unit)
     table = Table.grid(padding=(0, 2))
-    if unit == "bytes" and (stats.total_number > 0 or stats.total_size > 0):
+    if _is_waiting_cloud(stats):
+        _render_waiting_cloud(table, stats)
+    elif unit == "bytes" and (stats.total_number > 0 or stats.total_size > 0):
         _render_files(table, stats)
     else:
         _render_records(table, stats, unit)
@@ -128,6 +146,14 @@ def _append_rate(text: Text, rate: float) -> None:
 
 
 def _print_summary(stats: OperationStats, unit: str, finished: bool, interrupted: bool = False) -> None:
+    if _is_cloud_failed(stats):
+        return
+    if interrupted and _is_waiting_cloud(stats):
+        console.info("Cloud recovery still in progress; continuing in background.")
+        return
+    if _is_waiting_cloud(stats):
+        console.info("Waiting for SwanLab Cloud recovery timed out.")
+        return
     unit = _resolve_unit(stats, unit)
     is_files = unit == "bytes" and (stats.total_number > 0 or stats.total_size > 0)
 
@@ -217,6 +243,7 @@ def run_with_progress(
     blocking_fn: Callable[[], _T],
     timeout: Optional[float] = None,
     unit: str = "auto",
+    on_stats: Optional[Callable[[GetOperationStatsResponse], None]] = None,
 ) -> _T:
     """在上传完成期间轮询*stats_fn*，随后调用*blocking_fn*。显示一个Rich实时进度区域，该区域每次轮询间隔都会更新。
     当跟踪器报告``CORE_STATE_FINISHED``或*timeout*超时时，循环退出。
@@ -224,6 +251,8 @@ def run_with_progress(
     """
     # 1. 进入时请求一次，如果发现stats不存在(这通常是非online模式)则直接返回，避免不必要的进度显示和等待
     resp = stats_fn()
+    if on_stats is not None:
+        on_stats(resp)
     if not resp.success:
         if is_terminal_stats_error(resp):
             # session 已结束，继续轮询只会刷告警；直接进入收尾
@@ -245,6 +274,7 @@ def run_with_progress(
     interrupted = False
     terminal = False
     failures = 0
+    last_stats: Optional[OperationStats] = resp.stats
 
     with progress_display() as display:
         try:
@@ -253,9 +283,12 @@ def run_with_progress(
                 if deadline is not None and time.monotonic() >= deadline:
                     break
                 resp = stats_fn()
+                if on_stats is not None:
+                    on_stats(resp)
                 if resp.success:
                     failures = 0
                     stats = resp.stats
+                    last_stats = stats
                     display.update(stats, unit)
                     if stats.state == CoreState.CORE_STATE_FINISHED:
                         finished = True
@@ -277,10 +310,17 @@ def run_with_progress(
                 time.sleep(_POLL_INTERVAL)
         except KeyboardInterrupt:
             interrupted = True
-            console.info("Upload still in progress... Press", Text("Ctrl+C", "bold"), "again to force quit.")
+            if last_stats is not None and _is_waiting_cloud(last_stats):
+                console.info(
+                    "Cloud recovery still in progress... Press", Text("Ctrl+C", "bold"), "again to force quit."
+                )
+            else:
+                console.info("Upload still in progress... Press", Text("Ctrl+C", "bold"), "again to force quit.")
 
     # 3. 进度显示结束后再请求一次，获取最终状态并打印总结
     resp = stats_fn()
+    if on_stats is not None:
+        on_stats(resp)
     if resp.success and resp.HasField("stats"):
         display.print_summary(resp.stats, unit, finished, interrupted)
     elif not resp.success and not terminal and not is_terminal_stats_error(resp):

@@ -16,7 +16,7 @@ from swanlab.sdk.internal.pkg.helper.version import get_swanlab_version
 if TYPE_CHECKING:
     from swanlab.sdk.internal.run import Run
 
-__all__ = ["welcome", "goodbye"]
+__all__ = ["welcome", "goodbye", "print_cloud_link"]
 
 
 def _print_version():
@@ -33,14 +33,28 @@ def _print_save_dir(ctx: RunContext):
 
 
 def _print_online_tip(run: "Run"):
-    project_url = run.url.split("/runs/")[0]
+    url = run.url
+    project_url = url.split("/runs/")[0]
     console.info("📁 View project at", Text(project_url, style=f"link {project_url} blue underline"))
     # 截断 run.name，超过 name_truncate_len 时，前后保留 20 个字符，中间显示 ...
     console.info(
         "🚀 View run",
         Text(fs.safe_truncate(run.name, max_length=45)[0], "yellow"),
         "at",
-        Text(run.url, style=f"link {run.url} blue underline"),
+        Text(url, style=f"link {url} blue underline"),
+    )
+
+
+def print_cloud_link(run: "Run") -> None:
+    """在云端路径延迟绑定成功后输出项目与实验链接。"""
+    _print_online_tip(run)
+
+
+def _print_recover_online_tip(ctx: RunContext) -> None:
+    """在云端绑定尚未完成时提示后台恢复状态，避免输出未生效的链接。"""
+    console.info(
+        "⏳ SwanLab Cloud has not attached yet; recovering in background and saving data locally at",
+        Text(str(ctx.config.run_dir), "magenta bold"),
     )
 
 
@@ -76,7 +90,10 @@ def welcome(ctx: RunContext, run: "Run"):
     elif mode == "online":
         _print_version()
         _print_save_dir(ctx)
-        _print_online_tip(run)
+        if run._path:
+            _print_online_tip(run)
+        else:
+            _print_recover_online_tip(ctx)
     # 2. Local
     elif mode == "local":
         _print_version()
@@ -96,7 +113,10 @@ def goodbye(ctx: RunContext, run: "Run"):
         return
     # 1. Online
     elif mode == "online":
-        _print_online_tip(run)
+        if run._path:
+            _print_online_tip(run)
+        else:
+            _print_recover_online_tip(ctx)
     # 2. Local
     elif mode == "local":
         _print_local_tip(ctx)

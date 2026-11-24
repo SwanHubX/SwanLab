@@ -144,8 +144,9 @@ def init(
     :param mode: Run mode. Options: "online" (sync to cloud), "local" (local only),
         "offline" (save locally for later sync), "disabled" (no logging). Defaults to "online".
     :param on_online_error: Behavior when SwanLab Cloud is temporarily unreachable in online
-        mode. Only transient connection/server failures are degraded; authentication and
-        configuration errors always raise. Options: "offline" (save locally and sync later),
+        mode. Only transient connection/server failures are handled; authentication and
+        configuration errors always raise. Options: "offline" (keep online mode and save locally
+        while retrying cloud recovery when supported, or fall back to offline mode),
         "disabled" (no logging), "raise". Defaults to "offline".
     :param workspace: Workspace or organization name. Defaults to current user.
     :param project: Project name. Defaults to current directory name.

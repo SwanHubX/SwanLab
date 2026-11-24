@@ -248,7 +248,7 @@ def test_finish_retries_deliver_and_confirm_then_closes():
         ],
     )
     run = _make_run(core)
-    progress = MagicMock(side_effect=lambda stats_fn, blocking_fn: blocking_fn())
+    progress = MagicMock(side_effect=lambda stats_fn, blocking_fn, **_kwargs: blocking_fn())
 
     with _finish_env(run, progress, MagicMock()):
         with patch("swanlab.sdk.internal.run.finish_retry.time.sleep") as mock_sleep:
@@ -266,7 +266,7 @@ def test_finish_does_not_retry_terminal_confirm():
         confirm=[(False, "saved locally", _terminal())],
     )
     run = _make_run(core)
-    progress = MagicMock(side_effect=lambda stats_fn, blocking_fn: blocking_fn())
+    progress = MagicMock(side_effect=lambda stats_fn, blocking_fn, **_kwargs: blocking_fn())
 
     with _finish_env(run, progress, MagicMock()):
         with patch("swanlab.sdk.internal.run.finish_retry.time.sleep") as mock_sleep:
@@ -284,7 +284,7 @@ def test_finish_confirm_without_structured_error_is_not_retried():
         confirm=[(False, "saved locally", None)],
     )
     run = _make_run(core)
-    progress = MagicMock(side_effect=lambda stats_fn, blocking_fn: blocking_fn())
+    progress = MagicMock(side_effect=lambda stats_fn, blocking_fn, **_kwargs: blocking_fn())
 
     with _finish_env(run, progress, MagicMock()):
         with patch("swanlab.sdk.internal.run.finish_retry.time.sleep") as mock_sleep:
@@ -320,7 +320,7 @@ def test_finish_confirms_for_core_python_when_deliver_fails():
         confirm=[(True, "OK", None)],
     )
     run = _make_run(core)
-    progress = MagicMock(side_effect=lambda stats_fn, blocking_fn: blocking_fn())
+    progress = MagicMock(side_effect=lambda stats_fn, blocking_fn, **_kwargs: blocking_fn())
 
     with _finish_env(run, progress, MagicMock()):
         with patch("swanlab.sdk.internal.run.finish_retry.time.sleep"):
@@ -358,7 +358,7 @@ def test_finish_reports_local_recovery_hint():
     run = _make_run(core)
     console = MagicMock()
 
-    with _finish_env(run, MagicMock(side_effect=lambda stats_fn, blocking_fn: blocking_fn()), console):
+    with _finish_env(run, MagicMock(side_effect=lambda stats_fn, blocking_fn, **_kwargs: blocking_fn()), console):
         with patch("swanlab.sdk.internal.run.finish_retry.time.sleep"):
             run.finish()
 
@@ -377,7 +377,7 @@ def test_finish_no_recovery_hint_with_skip_store():
     run._ctx.config.settings.core.skip_store = True
     console = MagicMock()
 
-    with _finish_env(run, MagicMock(side_effect=lambda stats_fn, blocking_fn: blocking_fn()), console):
+    with _finish_env(run, MagicMock(side_effect=lambda stats_fn, blocking_fn, **_kwargs: blocking_fn()), console):
         with patch("swanlab.sdk.internal.run.finish_retry.time.sleep"):
             run.finish()
 
