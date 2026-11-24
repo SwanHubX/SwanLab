@@ -1974,7 +1974,8 @@ class TestInitOnlineRecoveryWithGoCore:
             return init_module.CoreBackend("go", binary=init_module.Path("/fake/swanlab-core"))
 
         def fake_create_core(ctx, backend=None):
-            assert backend is not None and backend.impl == "go"
+            if backend is not None:
+                assert backend.impl == "go"
             outcome = outcomes.pop(0) if len(outcomes) > 1 else outcomes[0]
             core = _FakeGoCore(ctx.config.settings.mode, outcome)
             created_cores.append(core)
@@ -2063,8 +2064,8 @@ class TestInitOnlineRecoveryWithGoCore:
         # finish 阶段从最终 stats 同步到真实云端路径
         assert run.path == "/alice/proj/run-recovered"
 
-    def test_invalid_login_response_does_not_start_recover_core(self, monkeypatch, tmp_path):
-        """2xx 响应缺少必需字段时应直接报错，不能带着 recover_online=True 启动 Core。"""
+    def test_invalid_login_response_falls_back_to_offline(self, monkeypatch, tmp_path):
+        """2xx 响应缺少必需字段时不进入后台恢复，按 on_online_error 降级为 offline。"""
         from swanlab.exceptions import ApiError
         from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import DeliverRunStartResponse
 
@@ -2085,18 +2086,24 @@ class TestInitOnlineRecoveryWithGoCore:
         wrapped.__cause__ = cause
         monkeypatch.setattr("swanlab.sdk.cmd.init.login_raw", MagicMock(side_effect=wrapped))
 
-        with pytest.raises(AuthenticationError):
-            init(
-                mode="online",
-                project="proj",
-                log_dir=str(tmp_path),
-                settings=Settings.model_validate({"api_key": "test-api-key", "probe": self._NO_PROBE}),
-            )
+        run = init(
+            mode="online",
+            on_online_error="offline",
+            project="proj",
+            log_dir=str(tmp_path),
+            settings=Settings.model_validate({"api_key": "test-api-key", "probe": self._NO_PROBE}),
+        )
+        try:
+            assert run.mode == "offline"
+            assert len(started_requests) == 1
+            req = started_requests[0]
+            assert req.core_settings.recover_online is False
+            assert req.core_settings.skip_store is False
+        finally:
+            run.finish()
 
-        assert started_requests == []
         assert created_cores
-        for core in created_cores:
-            assert core.aborted == 1
+        assert all(core.aborted == 0 for core in created_cores)
 
     def test_transient_start_error_restarts_with_recover_online(self, monkeypatch, logged_in_client, tmp_path):
         """deliver_run_start 返回临时错误时先中止首次 Core，再携带 recover_online=True 重启。"""

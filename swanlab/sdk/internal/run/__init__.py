@@ -315,14 +315,14 @@ class Run:
 
     def _report_local_recovery(self, message: str) -> None:
         """confirm 失败且本地副本完整时，提示从 run-*.swanlab 恢复。"""
-        if self.mode != "online" or self._ctx.config.settings.core.skip_store:
+        if self.mode != "online":
             return
-        # 仅当本地副本完整时 Core 才返回该文案，避免降级/skip_store 误报。
+        # 仅当 Core 明确告知已保存本地时提示，避免本地副本不完整时误报。
         if "saved locally" not in message:
             return
         console.warning(
-            f"Local copy is complete: {self._ctx.run_file}",
-            f"Restore it with `swanlab sync {self._ctx.run_dir}`.",
+            f"Data is saved at: {self._ctx.run_file}",
+            f"After resolving the issue, upload it with `swanlab sync {self._ctx.run_dir}`.",
         )
 
     # ----------------------------------

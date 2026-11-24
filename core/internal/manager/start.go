@@ -112,15 +112,6 @@ func (m *Manager) bootstrapCloud(
 
 	name := rec.GetName()
 	color := rec.GetColor()
-	if local != nil && local.Start != nil {
-		// 恢复已有运行时，以本地 StartRecord 中的名称和颜色为准，避免名称或颜色变化。
-		if local.Start.GetName() != "" {
-			name = local.Start.GetName()
-		}
-		if local.Start.GetColor() != "" {
-			color = local.Start.GetColor()
-		}
-	}
 	if name == "" {
 		name = builder.GenerateName(project.Count.Experiments)
 	}

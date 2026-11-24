@@ -416,7 +416,7 @@ func TestDeliverRunStartRecoverOnlinePrefersLocalIdentity(t *testing.T) {
 	}
 }
 
-func TestDeliverRunStartResumePrefersLocalIdentity(t *testing.T) {
+func TestDeliverRunStartResumeUsesRequestIdentity(t *testing.T) {
 	cloud := clienttest.NewCloud(t)
 	cloud.ServeJSON(http.MethodGet, probe.ServerPath, http.StatusOK, map[string]any{"ok": true})
 	cloud.ServeJSON(http.MethodGet, probe.HousePath, http.StatusOK, map[string]any{"ok": true})
@@ -453,7 +453,7 @@ func TestDeliverRunStartResumePrefersLocalIdentity(t *testing.T) {
 	t.Cleanup(func() { closeStartedSession(t, mgr, res.SessionID) })
 	body, _ := createBody.Load().(map[string]any)
 	colors, _ := body["colors"].([]any)
-	if body["name"] != "local-name" || len(colors) != 2 || colors[0] != "#654321" {
-		t.Fatalf("create payload = %#v, want local identity", body)
+	if body["name"] != "request-name" || len(colors) != 2 || colors[0] != "#000000" {
+		t.Fatalf("create payload = %#v, want request identity", body)
 	}
 }

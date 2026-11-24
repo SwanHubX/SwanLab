@@ -604,8 +604,8 @@ class TestOnlineRecoveryEligibility:
 
         assert _can_recover_online(backend, settings, run_dir) is expected
 
-    def test_malformed_login_response_does_not_enter_recovery(self, monkeypatch, tmp_path):
-        """2xx 响应缺少字段时不进入后台恢复；CorePython 仍按原逻辑降级。"""
+    def test_malformed_login_response_falls_back_without_recovery(self, monkeypatch, tmp_path):
+        """2xx 响应缺少字段时不进入后台恢复，按 on_online_error 降级。"""
         import swanlab.sdk.cmd.init as init_module
         from swanlab.sdk.internal.pkg.client import is_recoverable_login_error, is_transient_login_error
 
@@ -627,14 +627,13 @@ class TestOnlineRecoveryEligibility:
         settings.api_host = "http://api.test"
         settings.on_online_error = "offline"
 
-        ctx = MagicMock()
-        with pytest.raises(AuthenticationError):
-            _ensure_online_client_or_fallback(ctx, settings, "run-1", tmp_path, allow_recover_online=True)
-        ctx.core.abort.assert_called_once_with(exc)
-
-        # 不具备恢复资格时仍按 #1816 降级为 offline，CorePython 行为不变。
         fallback = MagicMock()
         monkeypatch.setattr(init_module, "_switch_run_to_fallback", fallback)
-        mode, recover = _ensure_online_client_or_fallback(ctx, settings, "run-1", tmp_path, allow_recover_online=False)
-        assert (mode, recover) == ("offline", False)
-        fallback.assert_called_once()
+        ctx = MagicMock()
+        for allow_recover_online in (True, False):
+            mode, recover = _ensure_online_client_or_fallback(
+                ctx, settings, "run-1", tmp_path, allow_recover_online=allow_recover_online
+            )
+            assert (mode, recover) == ("offline", False)
+        assert fallback.call_count == 2
+        ctx.core.abort.assert_not_called()

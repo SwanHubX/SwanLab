@@ -1004,16 +1004,7 @@ def _ensure_online_client_or_fallback(
     except Exception as e:
         if not is_transient_login_error(e) or run_settings.on_online_error == "raise":
             raise
-        if allow_recover_online:
-            # 2xx 但响应无效属于服务端协议错误，不是后端宕机。
-            # 这类错误不会自行恢复，不能进入后台重试，应直接报错。
-            if not is_recoverable_login_error(e):
-                # 此时 Core 已经创建；异常不会再进入 deliver 阶段的统一 abort，
-                # 需要在这里结束 Core，避免退出后留下进程。
-                if ctx is not None:
-                    with safe.block(message="core abort failed after invalid login response"):
-                        ctx.core.abort(e)
-                raise
+        if allow_recover_online and is_recoverable_login_error(e):
             return None, True
         target_mode = run_settings.on_online_error
         _switch_run_to_fallback(ctx, run_settings, run_id, run_dir, target_mode)

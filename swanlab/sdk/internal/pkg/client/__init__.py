@@ -58,22 +58,17 @@ def is_recoverable_login_error(exc: BaseException) -> bool:
     判断登录失败是否允许交给 Core 在后台重试。
 
     网络错误和 408/429/5xx 可以重试；2xx 但响应不是有效 JSON，或缺少
-    ``sid``/``expiredAt``/用户信息，属于服务端协议错误，重试不会成功，应直接报错。
-    这个函数只影响是否进入后台恢复，不改变 CorePython/#1816 的离线降级行为。
+    ``sid``/``expiredAt``/用户信息，属于服务端协议错误，重试不会成功。
+    不满足恢复条件时按 ``on_online_error`` 降级，不改变 CorePython/#1816 的行为。
     """
     if isinstance(exc, AuthenticationError) and exc.__cause__ is not None:
         exc = exc.__cause__
     # requests.JSONDecodeError 同时也是 RequestException，需要先排除。
     if isinstance(exc, JSONDecodeError):
         return False
-    if isinstance(exc, ApiError):
-        if exc.code == "invalid_login_response":
-            return False
-        status = getattr(exc.response, "status_code", None)
-        return status is None or status in (408, 429) or status >= 500
-    if isinstance(exc, (InvalidURL, MissingSchema, InvalidSchema)):
+    if isinstance(exc, ApiError) and exc.code == "invalid_login_response":
         return False
-    return isinstance(exc, requests.RequestException)
+    return is_transient_login_error(exc)
 
 
 def is_login_auth_error(exc: BaseException) -> bool:

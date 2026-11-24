@@ -34,6 +34,7 @@ def _make_online_run(core: MagicMock, *, path=None, mode: str = "online") -> Run
     ctx = SimpleNamespace(
         config=SimpleNamespace(settings=settings, run_dir="/tmp/swanlab-test-run"),
         run_dir="/tmp/swanlab-test-run",
+        run_file="/tmp/swanlab-test-run/run-test.swanlab",
     )
     run._ctx = cast(Any, ctx)
     run._core = core
@@ -178,7 +179,9 @@ class TestFinishCloudLinkSync:
         core.confirm_after_deliver_failure = True
         core.last_error = None
         core.deliver_run_finish.return_value = DeliverRunFinishResponse(success=True, message="OK")
-        core.confirm_run_finish.return_value = ConfirmRunFinishResponse(success=False, message="401 invalid token")
+        core.confirm_run_finish.return_value = ConfirmRunFinishResponse(
+            success=False, message="Failed to finish run, but it has been saved locally. 401 invalid token"
+        )
         core.get_operation_stats.return_value = GetOperationStatsResponse(
             success=True,
             stats=OperationStats(
@@ -217,6 +220,7 @@ class TestFinishCloudLinkSync:
         assert printed_links == []
         assert "recovering in background" not in "\n".join(info_msgs)
         assert any("Cloud recovery failed" in message for message in warning_msgs)
-        assert any("swanlab sync" in message for message in info_msgs)
+        assert all("swanlab sync" not in message for message in info_msgs)
+        assert sum("swanlab sync" in message for message in warning_msgs) == 1
         with pytest.raises(ValueError, match="401 invalid token.*swanlab sync"):
             _ = run.path

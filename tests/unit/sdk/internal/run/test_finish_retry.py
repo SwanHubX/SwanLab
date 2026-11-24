@@ -368,7 +368,7 @@ def test_finish_reports_local_recovery_hint():
 
 
 def test_finish_no_recovery_hint_with_skip_store():
-    message = "Failed to finish run, but it has been saved locally."
+    message = "Failed to finish run, and no local copy was kept (skip_store); the run state is unconfirmed."
     core = ScriptedCore(
         deliver=[(True, "OK", None)],
         confirm=[(False, message, _retryable())],
@@ -382,4 +382,6 @@ def test_finish_no_recovery_hint_with_skip_store():
             run.finish()
 
     for call in console.warning.call_args_list:
-        assert "Local copy is complete" not in " ".join(str(arg) for arg in call.args)
+        logged = " ".join(str(arg) for arg in call.args)
+        assert "Data is saved at" not in logged
+        assert "swanlab sync" not in logged
