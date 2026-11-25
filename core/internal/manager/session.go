@@ -563,8 +563,8 @@ func (s *Session) snapshot() *operationv1.OperationStats {
 	upload := &operationv1.UploadStatus{}
 	if up != nil {
 		upload.PendingRecords = int64(up.Stats().Pending)
-		upload.Paused = up.Suspended()
 		upload.Suspended = up.Suspended()
+		upload.Paused = upload.Suspended
 		upload.Retrying = up.InFailure()
 	}
 	if s.intake != nil {

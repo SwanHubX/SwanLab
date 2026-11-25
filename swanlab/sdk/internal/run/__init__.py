@@ -474,7 +474,7 @@ class Run:
             elif self._upload_degraded:
                 self._upload_degraded = False
                 self._last_upload_warn_at = -self._UPLOAD_WARN_INTERVAL
-                console.info("Upload recovered, resuming normally.")
+                console.info("✅ Upload recovered, resuming normally.")
 
     def _require_cloud_path(self, attr: Literal["path", "url"]) -> str:
         """读取已绑定的云端路径；未绑定时按在线等待或失败状态给出明确异常。"""
@@ -1150,7 +1150,7 @@ class Run:
                     greeting.print_cloud_link(self)
                 if confirm_resp.success and self._upload_degraded and self.mode == "online":
                     self._upload_degraded = False
-                    console.info("Upload recovered, resuming normally.")
+                    console.info("✅ Upload recovered, resuming normally.")
                 if not confirm_resp.success:
                     console.error(confirm_resp.message)
                     self._report_local_recovery(confirm_resp.message)
