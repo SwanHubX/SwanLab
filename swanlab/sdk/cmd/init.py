@@ -846,8 +846,8 @@ def _warn_recover_online(*, skip_store_disabled: bool = False) -> None:
     """提示用户云端暂不可达，已切入本地兜底并等待后台恢复。"""
     suffix = " (core.skip_store has been disabled)" if skip_store_disabled else ""
     console.warning(
-        "🚨 SwanLab online service is temporarily unavailable; keeping online mode, saving data locally, "
-        f"and retrying the connection in background{suffix}."
+        "🚨 SwanLab online service is currently unavailable; records will be saved locally,"
+        f" and connection will be retried in background{suffix}."
     )
 
 

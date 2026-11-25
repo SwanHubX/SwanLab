@@ -140,12 +140,12 @@ def login_raw(
             current_settings.merge_settings(login_settings)
             set_global_settings(current_settings)
             if is_login_auth_error(e):
-                console.warning(
-                    "🚨 Authentication with SwanLab online service failed during login; proceeding without blocking your script."
+                console.error(
+                    "🚨 Authentication failed with SwanLab online service during login, records will be saved locally."
                 )
             else:
                 console.warning(
-                    "🚨 SwanLab online service is unreachable during login; connection will be retried in `swanlab.init()`."
+                    "🚨 SwanLab online service is unreachable during login; connection will be retried in background."
                 )
             return False
         login_resp: Optional[LoginResponse] = s.get("login_resp", None)

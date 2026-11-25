@@ -190,7 +190,7 @@ class TestLoginE2E:
 
     @responses.activate
     def test_login_unauthorized_defers_without_blocking(self, monkeypatch):
-        """公开 swanlab.login() 遇 401 时不阻塞主线程：保留会话配置、不写入 .netrc，打印 HTTP 错误与 🚨 告警，并返回 False。"""
+        """公开 swanlab.login() 遇 401 时不阻塞主线程：保留会话配置、不写入 .netrc，打印 HTTP 错误与 🚨 ERROR 提示，并返回 False。"""
         warnings: list[str] = []
         errors: list[str] = []
         monkeypatch.setattr(console, "warning", lambda *args, **kwargs: warnings.append(" ".join(map(str, args))))
@@ -212,7 +212,9 @@ class TestLoginE2E:
         assert create_settings().api_host == custom_host
         assert not (Settings.get_user_config_dir() / ".netrc").exists()
         assert any("401" in msg for msg in errors)
-        assert any(msg.startswith("🚨") for msg in warnings)
+        # 401 属认证失败，🚨 提示以 ERROR 级别打印，不再占用 WARNING
+        assert any(msg.startswith("🚨") for msg in errors)
+        assert warnings == []
 
     @responses.activate
     def test_login_connection_error_defers_and_preserves_session_config(self, monkeypatch):

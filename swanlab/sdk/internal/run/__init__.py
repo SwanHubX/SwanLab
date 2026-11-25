@@ -442,18 +442,17 @@ class Run:
 
         if not self._cloud_link_printed and self._path:
             self._cloud_link_printed = True
-            console.info("Connected to SwanLab online service; uploading locally saved data in background.")
+            console.info("♻️ Connected to SwanLab online service; uploading local records.")
             greeting.print_cloud_link(self)
         elif not self._cloud_failure_reported and self._cloud_state == CLOUD_STATE_FAILED:
             self._cloud_failure_reported = True
             detail = f": {self._cloud_error}" if self._cloud_error else ""
-            console.error(f"Failed to connect to SwanLab online service{detail}.")
+            console.error(f"❌ Failed to connect to SwanLab online service{detail}.")
             console.warning(
-                f"Data is being saved locally at {self._ctx.run_dir}; after resolving the issue, "
-                f"upload it with `swanlab sync {self._ctx.run_dir}`."
+                f"⚠️ Records saved to {self._ctx.run_dir}; upload later with `swanlab sync {self._ctx.run_dir}`."
             )
 
-        # 未附着成功或已永久失败时不额外刷上传失败/暂停告警
+        # attach 失败不额外刷上传失败/暂停告警
         if stats.HasField("cloud") and stats.cloud.state in (CLOUD_STATE_PENDING, CLOUD_STATE_FAILED):
             return
         if stats.HasField("upload"):
@@ -1145,7 +1144,7 @@ class Run:
                     on_stats=self._update_cloud_status_from_stats,
                 )
                 if not had_cloud_path and self._path and self.mode == "online":
-                    console.info("Connected to SwanLab online service.")
+                    console.info("♻️ Connected to SwanLab online service.")
                     greeting.print_cloud_link(self)
                 if confirm_resp.success and self._upload_degraded and self.mode == "online":
                     self._upload_degraded = False
