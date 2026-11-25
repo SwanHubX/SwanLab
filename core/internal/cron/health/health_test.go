@@ -512,3 +512,69 @@ func TestSiteInitialDegradedRecovers(t *testing.T) {
 		t.Fatalf("snapshot after recovery = %+v, want normal", snap)
 	}
 }
+
+func TestSiteInitialServerDegradedRecovers(t *testing.T) {
+	clock := newFakeClock()
+	server, house := newProbe(true), newProbe(true)
+	s := newSite(SiteOptions{
+		Key:                   "seed-server",
+		Server:                server.fn,
+		House:                 house.fn,
+		InitialServerDegraded: true,
+	}, clock)
+	defer s.stop()
+	updates := subscribe(t, s)
+	ticks := clock.ticks(t, 2)
+
+	snap := s.Snapshot()
+	if snap.State != StateDegraded || snap.Reason != ReasonProbeServer {
+		t.Fatalf("initial snapshot = %+v, want degraded by server", snap)
+	}
+
+	for range 2 {
+		tickBoth(t, ticks, server, house)
+	}
+	expectUpdate(t, updates)
+	if snap = s.Snapshot(); snap.State != StateNormal || snap.Reason != "" {
+		t.Fatalf("snapshot after recovery = %+v, want normal", snap)
+	}
+}
+
+func TestRegistryMergesServerInitialDegradedAndNeverUpgrades(t *testing.T) {
+	clock := newFakeClock()
+	reg := NewRegistry(clock)
+	server, house := newProbe(true), newProbe(true)
+
+	a := reg.Acquire(SiteOptions{Key: "site", Server: server.fn, House: house.fn})
+	clock.ticks(t, 2)
+	updates := subscribe(t, a)
+	b := reg.Acquire(SiteOptions{
+		Key:                   "site",
+		Server:                alwaysReachable,
+		House:                 alwaysReachable,
+		InitialServerDegraded: true,
+	})
+	if a != b {
+		t.Fatal("same key should share one site")
+	}
+	expectUpdate(t, updates)
+	if snap := a.Snapshot(); snap.State != StateDegraded || snap.Reason != ReasonProbeServer {
+		t.Fatalf("snapshot = %+v, want degraded by server", snap)
+	}
+
+	// 后续健康会话复用不得升级已降级的站点。
+	c := reg.Acquire(SiteOptions{
+		Key:    "site",
+		Server: alwaysReachable,
+		House:  alwaysReachable,
+	})
+	if c != a {
+		t.Fatal("same key should share one site")
+	}
+	if snap := a.Snapshot(); snap.State != StateDegraded || snap.Reason != ReasonProbeServer {
+		t.Fatalf("snapshot after healthy acquire = %+v, want still degraded by server", snap)
+	}
+	reg.Release(a)
+	reg.Release(b)
+	reg.Release(c)
+}

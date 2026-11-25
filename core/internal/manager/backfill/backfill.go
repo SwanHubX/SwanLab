@@ -41,12 +41,12 @@ var (
 
 // Cursor 指向下一条待读记录：Seq 为已读取的最后一条 storeSeq。
 type Cursor struct {
-	Seq    uint64
+	Seq    int64
 	Offset int64
 }
 
 type state struct {
-	pauseSeq uint64
+	pauseSeq int64
 	cursor   Cursor
 }
 
@@ -61,8 +61,8 @@ type Options struct {
 	IsRunning       func() bool
 	IsSuspended     func() bool
 	SubscribeHealth func() (<-chan struct{}, func())
-	OnStored        func(rec *recordv1.Record, storeSeq uint64)
-	InitialPause    uint64
+	OnStored        func(rec *recordv1.Record, storeSeq int64)
+	InitialPause    int64
 	InitialCursor   Cursor
 }
 
@@ -77,7 +77,7 @@ type Worker struct {
 	isRunning       func() bool
 	isSuspended     func() bool
 	subscribeHealth func() (<-chan struct{}, func())
-	onStored        func(rec *recordv1.Record, storeSeq uint64)
+	onStored        func(rec *recordv1.Record, storeSeq int64)
 
 	wake      chan struct{}
 	stop      chan struct{}
@@ -220,7 +220,7 @@ func (w *Worker) RunOnce(ctx context.Context) error {
 		}
 
 		var next Cursor
-		err = w.intake.Handover(ctx, w.store.Flush, func() ([]*recordv1.Record, uint64, error) {
+		err = w.intake.Handover(ctx, w.store.Flush, func() ([]*recordv1.Record, int64, error) {
 			seq, off := w.store.Flushed()
 			next = st.cursor
 			records, _, scanErr := w.scan(&next, off, w.windowSize())
@@ -297,7 +297,7 @@ func (w *Worker) Complete(ctx context.Context) error {
 	}
 }
 
-func (w *Worker) checkCompletePreconditions(ctx context.Context, start uint64) error {
+func (w *Worker) checkCompletePreconditions(ctx context.Context, start int64) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -310,7 +310,7 @@ func (w *Worker) checkCompletePreconditions(ctx context.Context, start uint64) e
 func (w *Worker) completeReplayBatch(
 	ctx context.Context,
 	st *state,
-	start uint64,
+	start int64,
 	flushedOff int64,
 	fails *int,
 ) (bool, error) {
@@ -357,10 +357,10 @@ func (w *Worker) completeReplayBatch(
 func (w *Worker) completeHandover(
 	ctx context.Context,
 	st *state,
-	start uint64,
+	start int64,
 ) (bool, error) {
 	var next Cursor
-	err := w.intake.Handover(ctx, nil, func() ([]*recordv1.Record, uint64, error) {
+	err := w.intake.Handover(ctx, nil, func() ([]*recordv1.Record, int64, error) {
 		seq, off := w.store.Flushed()
 		next = st.cursor
 		records, _, scanErr := w.scan(&next, off, w.windowSize())
@@ -391,7 +391,7 @@ func (w *Worker) completeHandover(
 	}
 }
 
-func (w *Worker) waitSiteRecovered(ctx context.Context, start uint64) error {
+func (w *Worker) waitSiteRecovered(ctx context.Context, start int64) error {
 	if w.isSuspended == nil || !w.isSuspended() {
 		return nil
 	}
@@ -523,7 +523,7 @@ func (w *Worker) needed() bool {
 	return paused
 }
 
-func (w *Worker) stateFor(pauseSeq uint64) (*state, error) {
+func (w *Worker) stateFor(pauseSeq int64) (*state, error) {
 	if w.state.pauseSeq == pauseSeq {
 		return &w.state, nil
 	}
@@ -536,9 +536,9 @@ func (w *Worker) stateFor(pauseSeq uint64) (*state, error) {
 	return &w.state, nil
 }
 
-func (w *Worker) newCursor(target uint64) (Cursor, error) {
-	if target == 0 {
-		return Cursor{}, errors.New("backfill: storeSeq 0 is invalid")
+func (w *Worker) newCursor(target int64) (Cursor, error) {
+	if target <= 0 {
+		return Cursor{}, fmt.Errorf("backfill: storeSeq %d is invalid", target)
 	}
 	flushedSeq, flushedOff := w.store.Flushed()
 	if flushedSeq < target {
@@ -549,7 +549,7 @@ func (w *Worker) newCursor(target uint64) (Cursor, error) {
 		// 锚点指向该序号记录本身的起点，从它前一条开始读。
 		cursor = Cursor{Seq: anchor.StoreSeq - 1, Offset: anchor.Offset}
 	}
-	if skip := int64(target - 1 - cursor.Seq); skip > 0 {
+	if skip := target - 1 - cursor.Seq; skip > 0 {
 		if _, _, err := w.scan(&cursor, flushedOff, int(skip)); err != nil {
 			return Cursor{}, err
 		}

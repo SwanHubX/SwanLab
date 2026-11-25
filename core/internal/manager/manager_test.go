@@ -361,7 +361,7 @@ func TestReleasedCacheEviction(t *testing.T) {
 	m := newTestManager()
 	for i := 0; i < releasedCapacity+4; i++ {
 		m.mu.Lock()
-		m.released.add(fmt.Sprintf("id-%d", i))
+		m.released.add(fmt.Sprintf("id-%d", i), ConfirmResult{Message: confirmOKMessage, Released: true})
 		m.mu.Unlock()
 	}
 	if m.isReleased("id-0") || m.isReleased("id-3") {
@@ -373,7 +373,7 @@ func TestReleasedCacheEviction(t *testing.T) {
 	// 重复写入不得占用新的槽位。
 	last := fmt.Sprintf("id-%d", releasedCapacity+3)
 	m.mu.Lock()
-	m.released.add(last)
+	m.released.add(last, ConfirmResult{Message: confirmOKMessage, Released: true})
 	m.mu.Unlock()
 	if !m.isReleased("id-4") {
 		t.Fatal("duplicate add must not evict live entries")
@@ -468,10 +468,10 @@ func TestManagerShutdownDrainsActiveSessions(t *testing.T) {
 		t.Fatalf("UpsertScalars: %v", err)
 	}
 	var stops int
-	h.session.releaseFn = func(context.Context) error {
+	setSessionReleaseFn(h.session, func(context.Context) error {
 		stops++
 		return nil
-	}
+	})
 	if err := h.mgr.Shutdown(ctx); err != nil {
 		t.Fatalf("Shutdown: %v", err)
 	}
@@ -508,10 +508,10 @@ func TestConfirmRejectsSessionDrainedByShutdown(t *testing.T) {
 		t.Fatalf("UpsertScalars: %v", err)
 	}
 	var stops int
-	h.session.releaseFn = func(context.Context) error {
+	setSessionReleaseFn(h.session, func(context.Context) error {
 		stops++
 		return nil
-	}
+	})
 
 	if err := h.mgr.Shutdown(ctx); err != nil {
 		t.Fatalf("Shutdown: %v", err)
@@ -545,10 +545,10 @@ func TestDisconnectSessionDrainsAndReleasesSlot(t *testing.T) {
 		t.Fatalf("UpsertScalars: %v", err)
 	}
 	var stops int
-	h.session.releaseFn = func(context.Context) error {
+	setSessionReleaseFn(h.session, func(context.Context) error {
 		stops++
 		return nil
-	}
+	})
 	if got := h.mgr.SessionCount(); got != 1 {
 		t.Fatalf("SessionCount = %d, want 1", got)
 	}
@@ -609,10 +609,10 @@ func TestDisconnectSessionAfterFinishDoesNotFakeConfirmSuccess(t *testing.T) {
 	defer cancel()
 
 	var stops int
-	h.session.releaseFn = func(context.Context) error {
+	setSessionReleaseFn(h.session, func(context.Context) error {
 		stops++
 		return nil
-	}
+	})
 
 	if err := h.mgr.DeliverRunFinish(ctx, h.id, &runv1.FinishRecord{
 		State: runv1.RunState_RUN_STATE_FINISHED,
@@ -742,5 +742,31 @@ func TestDiagnosticCacheEviction(t *testing.T) {
 	}
 	if diags[0].SessionID != "sess-4" || diags[len(diags)-1].SessionID != lastID {
 		t.Fatalf("snapshot order = [%s .. %s], want [sess-4 .. %s]", diags[0].SessionID, diags[len(diags)-1].SessionID, lastID)
+	}
+}
+
+func TestReleasedCacheStoresConfirmResultsAndEvictsFIFO(t *testing.T) {
+	cache := newReleasedCache()
+	for i := 0; i < releasedCapacity+3; i++ {
+		cache.add(fmt.Sprintf("s-%d", i), ConfirmResult{
+			Message:       fmt.Sprintf("msg-%d", i),
+			ReleaseFailed: i%2 == 1,
+			Released:      true,
+		})
+	}
+	for i := 0; i < 3; i++ {
+		if cache.has(fmt.Sprintf("s-%d", i)) {
+			t.Fatalf("oldest entry s-%d should have been evicted", i)
+		}
+	}
+	// 已存在的条目不能被覆写。
+	cache.add("s-3", ConfirmResult{Message: "mutated", Released: true})
+	got, ok := cache.get("s-3")
+	if !ok || got.Message != "msg-3" || !got.ReleaseFailed || !got.Released {
+		t.Fatalf("cache.get(s-3) = (%+v, %v), want preserved failure result", got, ok)
+	}
+	lastID := fmt.Sprintf("s-%d", releasedCapacity+2)
+	if latest, latestOK := cache.get(lastID); !latestOK || latest.Message != fmt.Sprintf("msg-%d", releasedCapacity+2) {
+		t.Fatalf("cache.get(%s) = (%+v, %v)", lastID, latest, latestOK)
 	}
 }

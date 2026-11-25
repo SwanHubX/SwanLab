@@ -64,14 +64,15 @@ func closeStartedSession(t *testing.T, mgr *Manager, sessionID string) {
 	if s.cancel != nil {
 		s.cancel()
 	}
-	if s.heartbeat != nil {
-		s.heartbeat.Stop(context.Background())
+	s.stopAttach()
+	if hb := s.heartbeat(); hb != nil {
+		hb.Stop(context.Background())
 	}
 	if s.watcher != nil {
 		s.watcher.Stop()
 	}
-	if s.uploader != nil {
-		_ = s.uploader.Close()
+	if up := s.uploader(); up != nil {
+		_ = up.Close()
 	}
 	if s.intake != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -530,7 +531,7 @@ func TestDeliverRunStartDegradedWhenDataPlaneDown(t *testing.T) {
 	if snap.State != health.StateDegraded || snap.Reason != health.ReasonProbeHouse {
 		t.Fatalf("snapshot = %+v, want degraded by swanlab-house", snap)
 	}
-	if !s.uploader.Suspended() {
+	if !s.uploader().Suspended() {
 		t.Fatal("uploader should start suspended when swanlab-house is down")
 	}
 	if got := mgr.healthReg.Len(); got != 1 {

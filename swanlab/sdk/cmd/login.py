@@ -21,7 +21,7 @@ from swanlab.sdk.cmd import utils
 from swanlab.sdk.cmd.guard import with_cmd_lock, without_run
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.pkg import console, helper, nrc, safe, scope
-from swanlab.sdk.internal.pkg.client import is_login_auth_error
+from swanlab.sdk.internal.pkg.client import is_login_auth_error, is_transient_login_error
 from swanlab.sdk.internal.settings import Settings, create_settings, resolve_hosts, set_global_settings
 from swanlab.sdk.typings.cmd import LoginType
 from swanlab.sdk.typings.pkg.client.bootstrap import LoginResponse
@@ -38,7 +38,7 @@ def login(
     save: LoginType = False,
     timeout: int = 10,
 ) -> bool:
-    """Authenticate with SwanLab Cloud.
+    """Authenticate with SwanLab online service.
 
     This function authenticates your environment with SwanLab. If already logged in
     and `relogin` is False, this function does nothing. Call this before `swanlab.init()`
@@ -48,13 +48,14 @@ def login(
         environment or prompt for input.
     :param relogin: If True, forces re-authentication and overwrites existing credentials.
         Defaults to False.
-    :param host: Custom API host URL. If not provided, uses the default SwanLab cloud host.
+    :param host: Custom API host URL. If not provided, uses the default SwanLab online service host.
     :param save: Whether to save the API key locally for future sessions. Defaults to False.
     :param timeout: Network request timeout in seconds. Defaults to 10.
-    :return: True if login was successful, False otherwise.
+    :return: True if login succeeded, False if deferred because the SwanLab online service
+        failed to authenticate or is temporarily unreachable.
     :raises RuntimeError: If called while a run is active.
-    :raises AuthenticationError: If login fails due to invalid credentials, network issues,
-        or server errors. The original exception is available via ``__cause__``.
+    :raises AuthenticationError: If login fails due to local configuration errors (such as
+        missing credentials or mismatched host).
 
     Examples:
 
@@ -75,6 +76,8 @@ def login(
         host=host,
         save=save,
         timeout=timeout,
+        raise_on_failure=False,
+        quiet_transient=True,
     )
 
 
@@ -86,6 +89,8 @@ def login_raw(
     timeout: int = 10,
     animation: bool = True,
     print_welcome: bool = True,
+    raise_on_failure: bool = True,
+    quiet_transient: bool = False,
 ) -> bool:
     # 1. 判断是否允许重新登录
     # 如果已经登录且不需要重新登录，则直接返回
@@ -126,7 +131,23 @@ def login_raw(
     # 3. 进入登录流程
     with scope.Scope() as s:
         f = utils.with_loading_animation("Waiting for response...")(create_client) if animation else create_client
-        f(api_key=api_key, api_host=api_host, timeout=timeout)
+        try:
+            f(api_key=api_key, api_host=api_host, timeout=timeout, quiet_transient=quiet_transient)
+        except Exception as e:
+            if raise_on_failure or not (is_transient_login_error(e) or is_login_auth_error(e)):
+                raise
+            # 保留本次会话传入的凭证与 host 配置，避免后续 init 丢失目标环境；未验证成功前不写入 .netrc
+            current_settings.merge_settings(login_settings)
+            set_global_settings(current_settings)
+            if is_login_auth_error(e):
+                console.error(
+                    "🚨 Authentication failed with SwanLab online service during login, records will be saved locally."
+                )
+            else:
+                console.warning(
+                    "🚨 SwanLab online service is unreachable during login; connection will be retried in background."
+                )
+            return False
         login_resp: Optional[LoginResponse] = s.get("login_resp", None)
         if print_welcome:
             welcome(api_host, login_resp)
@@ -139,8 +160,8 @@ def login_raw(
         return True
 
 
-def create_client(api_key: str, api_host: str, timeout: int = 10):
-    return client.new(api_key, api_host, timeout=timeout)
+def create_client(api_key: str, api_host: str, timeout: int = 10, *, quiet_transient: bool = False):
+    return client.new(api_key, api_host, timeout=timeout, quiet_transient=quiet_transient)
 
 
 def login_cli(

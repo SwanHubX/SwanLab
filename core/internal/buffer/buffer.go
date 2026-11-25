@@ -71,7 +71,7 @@ type Options struct {
 	// Store 是 AsyncWriter 的写入入口，容量应不小于单批最大记录数。
 	Store chan<- store.Request
 	// StartSeq 是续传时已有本地记录条数；新记录的 storeSeq 从 StartSeq+1 开始。
-	StartSeq uint64
+	StartSeq int64
 	// UploadQueue 是上传通道容量，应不小于单批最大记录数；<=0 取 DefaultUploadQueue。
 	UploadQueue int
 	// PendingDeferred 是 Close 前暂存的 SAVE_POLICY_END 记录上限；<=0 取 DefaultPendingDeferred。
@@ -83,7 +83,7 @@ type Options struct {
 	Degraded *atomic.Bool
 	// Flushed 返回已完整落盘的 storeSeq；!SkipStore 时必填。
 	// 用于确认暂停期间的记录已安全落盘，不得回调 Intake。
-	Flushed func() uint64
+	Flushed func() int64
 	// IsSuspended 返回站点健康状态是否要求暂停上传投递；nil 表示未降级。
 	// 回调必须非阻塞，且不得反向调用 Intake。
 	IsSuspended func() bool
@@ -92,11 +92,11 @@ type Options struct {
 	OnAdmit func(n int64)
 	// OnPause 在暂停状态发布后回调首个未投递记录的 storeSeq；已在暂停时不重复调用。
 	// 回调必须非阻塞。
-	OnPause func(storeSeq uint64)
+	OnPause func(storeSeq int64)
 	// OnStored 在记录写入本地通道并分配 storeSeq 后、投递上传前回调（仍在 Intake.mu 内）。
 	// 暂停期间（seq >= pauseSeq）的记录在 Commit 时跳过，恢复后由 backfill 读取本地文件时再通知。
 	// 回调必须非阻塞，且不得反向调用 Intake。
-	OnStored func(rec *recordv1.Record, storeSeq uint64)
+	OnStored func(rec *recordv1.Record, storeSeq int64)
 	// QueueWait 是容量不足时的有界等待上限，<=0 取 DefaultQueueWait。
 	QueueWait time.Duration
 	// StorePollInterval 是本地通道等待的轮询间隔，<=0 取 10ms。
@@ -135,11 +135,11 @@ type Intake struct {
 	upload      chan *recordv1.Record
 	budget      *budget.Budget
 	degraded    *atomic.Bool
-	flushed     func() uint64
+	flushed     func() int64
 	isSuspended func() bool
 	onAdmit     func(int64)
-	onPause     func(uint64)
-	onStored    func(*recordv1.Record, uint64)
+	onPause     func(int64)
+	onStored    func(*recordv1.Record, int64)
 	wait        time.Duration
 	poll        time.Duration
 	uploadCap   int
@@ -147,7 +147,7 @@ type Intake struct {
 	mu              sync.Mutex
 	closeMu         sync.Mutex
 	closeOnce       sync.Once
-	nextSeq         uint64
+	nextSeq         int64
 	pendingStore    int
 	pendingUpload   int
 	pendingDeferred int // 已预留、尚未落入 pending 的延迟记录条数
@@ -155,7 +155,7 @@ type Intake struct {
 	pending         []*recordv1.Record
 	unconfirmed     []unconfirmedRec
 	recovery        []*recordv1.Record
-	pauseSeq        uint64 // 0 表示未暂停；非零为首个未投递记录的 storeSeq
+	pauseSeq        int64 // 0 表示未暂停；非零为首个未投递记录的 storeSeq
 	closed          bool
 }
 
@@ -426,7 +426,7 @@ func (t *Intake) Commit(tk Ticket, records []*recordv1.Record) error {
 	t.trimUnconfirmedLocked()
 
 	// 本地通道：预留空间在握，发送不会阻塞。
-	seqOf := make([]uint64, len(records))
+	seqOf := make([]int64, len(records))
 	t.sendStoreLocked(records, payloads, wantStore, seqOf)
 	if tk.store > len(records) {
 		t.releaseStoreLocked(tk.store - len(records))
@@ -438,7 +438,7 @@ func (t *Intake) Commit(tk Ticket, records []*recordv1.Record) error {
 		t.collectUnconfirmedLocked()
 	}
 	pausedNow := false
-	var pausedAt uint64
+	var pausedAt int64
 	t.admit(uploadable)
 	switch {
 	case paused && storeOK:
@@ -464,7 +464,7 @@ func (t *Intake) Commit(tk Ticket, records []*recordv1.Record) error {
 }
 
 // notifyPause 输出暂停提示并通知上层；必须在释放锁之后调用。
-func (t *Intake) notifyPause(published bool, storeSeq uint64) {
+func (t *Intake) notifyPause(published bool, storeSeq int64) {
 	if !published {
 		return
 	}
@@ -520,7 +520,7 @@ func (t *Intake) encodeStore(records []*recordv1.Record) ([][]byte, bool) {
 }
 
 // sendStoreLocked 把记录写入本地通道并分配 storeSeq；调用方需持有 mu。
-func (t *Intake) sendStoreLocked(records []*recordv1.Record, payloads [][]byte, wantStore bool, seqOf []uint64) {
+func (t *Intake) sendStoreLocked(records []*recordv1.Record, payloads [][]byte, wantStore bool, seqOf []int64) {
 	if !wantStore {
 		return
 	}
@@ -533,7 +533,7 @@ func (t *Intake) sendStoreLocked(records []*recordv1.Record, payloads [][]byte, 
 }
 
 // notifyStoredLocked 回调 OnStored，skipFrom > 0 时跳过 seq >= skipFrom 的记录；调用方需持有 mu。
-func (t *Intake) notifyStoredLocked(records []*recordv1.Record, seqOf []uint64, wantStore bool, skipFrom uint64) {
+func (t *Intake) notifyStoredLocked(records []*recordv1.Record, seqOf []int64, wantStore bool, skipFrom int64) {
 	if !wantStore || t.onStored == nil {
 		return
 	}

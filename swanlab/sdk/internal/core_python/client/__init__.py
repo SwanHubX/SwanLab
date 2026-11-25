@@ -20,13 +20,18 @@ __all__ = ["exists", "reset", "new", "current_api_key", "get", "post", "put", "p
 _default_client: Optional[client.Client] = None
 
 
-def new(api_key: str, base_url: str, timeout: int = 10) -> client.Client:
+def new(api_key: str, base_url: str, timeout: int = 10, *, quiet_transient: bool = False) -> client.Client:
     """创建一个新的 SwanLab 运行时客户端。"""
     global _default_client
     console.debug("Creating new SwanLab client.")
     if _default_client is not None:
         raise RuntimeError("SwanLab client already exists. Call `reset` first.")
-    _default_client = client.Client(api_key=api_key, base_url=base_url, timeout=timeout)
+    _default_client = client.Client(
+        api_key=api_key,
+        base_url=base_url,
+        timeout=timeout,
+        quiet_transient=quiet_transient,
+    )
     return _default_client
 
 

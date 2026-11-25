@@ -10,9 +10,9 @@ import requests
 import responses
 
 from swanlab.exceptions import AuthenticationError
-from swanlab.sdk.cmd.login import login, login_cli
+from swanlab.sdk.cmd.login import login, login_cli, login_raw
 from swanlab.sdk.internal.core_python import client
-from swanlab.sdk.internal.pkg import nrc
+from swanlab.sdk.internal.pkg import console, nrc
 from swanlab.sdk.internal.settings import Settings, create_settings, set_global_settings
 
 
@@ -189,21 +189,62 @@ class TestLoginE2E:
         assert create_settings().api_key == custom_key
 
     @responses.activate
-    def test_login_network_failure(self):
-        """测试：网络请求失败或者 API Key 错误时抛出 AuthenticationError"""
+    def test_login_unauthorized_defers_without_blocking(self, monkeypatch):
+        """公开 swanlab.login() 遇 401 时不阻塞主线程：保留会话配置、不写入 .netrc，打印 HTTP 错误与 🚨 ERROR 提示，并返回 False。"""
+        warnings: list[str] = []
+        errors: list[str] = []
+        monkeypatch.setattr(console, "warning", lambda *args, **kwargs: warnings.append(" ".join(map(str, args))))
+        monkeypatch.setattr(console, "error", lambda *args, **kwargs: errors.append(" ".join(map(str, args))))
+
+        custom_host = "https://private.swanlab.com"
         responses.add(
             responses.POST,
-            "https://api.swanlab.cn/api/login/api_key",
+            f"{custom_host}/api/login/api_key",
             json={"code": 401, "message": "Invalid API Key"},
             status=401,
         )
 
-        with pytest.raises(AuthenticationError, match="Failed to initialize the SwanLab client"):
-            login(api_key="wrong-key", relogin=True)
+        result = login(api_key="wrong-key", host=custom_host, relogin=True, save=True)
+
+        assert result is False
+        assert not client.exists()
+        assert create_settings().api_key == "wrong-key"
+        assert create_settings().api_host == custom_host
+        assert not (Settings.get_user_config_dir() / ".netrc").exists()
+        assert any("401" in msg for msg in errors)
+        # 401 属认证失败，🚨 提示以 ERROR 级别打印，不再占用 WARNING
+        assert any(msg.startswith("🚨") for msg in errors)
+        assert warnings == []
 
     @responses.activate
-    def test_login_connection_error_raises(self):
-        """显式登录的网络错误应直接抛出 AuthenticationError，不走 init 的降级逻辑。"""
+    def test_login_connection_error_defers_and_preserves_session_config(self, monkeypatch):
+        """公开 swanlab.login() 遇连接失败时不刷 ERROR/retry 日志，只发一条 🚨 告警并保留 key/host 返回 False。"""
+        warnings: list[str] = []
+        errors: list[str] = []
+        monkeypatch.setattr(console, "warning", lambda *args, **kwargs: warnings.append(" ".join(map(str, args))))
+        monkeypatch.setattr(console, "error", lambda *args, **kwargs: errors.append(" ".join(map(str, args))))
+
+        custom_host = "http://localhost:8081"
+        responses.add(
+            responses.POST,
+            f"{custom_host}/api/login/api_key",
+            body=requests.ConnectionError("boom"),
+        )
+
+        result = login(api_key="some-key", host=custom_host, relogin=True, save=True)
+
+        assert result is False
+        assert not client.exists()
+        assert create_settings().api_key == "some-key"
+        assert create_settings().api_host == custom_host
+        assert not (Settings.get_user_config_dir() / ".netrc").exists()
+        assert errors == []
+        assert not any("[HTTP] retry" in msg for msg in warnings)
+        assert len([msg for msg in warnings if msg.startswith("🚨")]) == 1
+
+    @responses.activate
+    def test_login_raw_strict_raises_on_failure(self):
+        """内部严格入口 login_raw(..., raise_on_failure=True) 在连接或认证失败时仍抛 AuthenticationError（供 sync 等使用）。"""
         responses.add(
             responses.POST,
             "https://api.swanlab.cn/api/login/api_key",
@@ -211,7 +252,7 @@ class TestLoginE2E:
         )
 
         with pytest.raises(AuthenticationError) as exc:
-            login(api_key="some-key", relogin=True)
+            login_raw(api_key="some-key", relogin=True, animation=False, print_welcome=False)
 
         assert isinstance(exc.value.__cause__, requests.ConnectionError)
 

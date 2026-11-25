@@ -11,12 +11,12 @@ import (
 // unconfirmedRec 是已进入本地写入队列、但尚未确认刷盘的暂停记录。
 // 本地写失败时依赖它把记录重新投入上传，避免既无本地副本又不在上传管线。
 type unconfirmedRec struct {
-	seq uint64
+	seq int64
 	rec *recordv1.Record
 }
 
 // PauseState 返回暂停状态与首个未投递记录的 storeSeq（0 表示未暂停）。
-func (t *Intake) PauseState() (paused bool, storeSeq uint64) {
+func (t *Intake) PauseState() (paused bool, storeSeq int64) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	return t.pauseSeq != 0, t.pauseSeq
@@ -31,9 +31,9 @@ func (t *Intake) ResumeUpload() {
 }
 
 // PauseAt 在续传启动期把暂停起点设为 seq；之后的新提交只落盘不实时上传，
-// 等 backfill 从 seq 起补投完未确认前缀后再原子交接。seq == 0 为空操作。
-func (t *Intake) PauseAt(seq uint64) {
-	if seq == 0 {
+// 等 backfill 从 seq 起补投完未确认前缀后再原子交接。seq <= 0 为空操作。
+func (t *Intake) PauseAt(seq int64) {
+	if seq <= 0 {
 		return
 	}
 	t.mu.Lock()
@@ -97,7 +97,7 @@ func (t *Intake) drainRecoveryLocked() bool {
 // 本批没有记录进入上传通道，立即记录的配额全部归还；延迟记录不占预算。
 // 若 Resume 之后仍有旧票据提交，这里会开启新的回填区间。
 // 返回是否新发布了暂停状态。需持有 mu。
-func (t *Intake) pauseLocked(records []*recordv1.Record, immediate, deferred []int, tk Ticket, seqOf []uint64) bool {
+func (t *Intake) pauseLocked(records []*recordv1.Record, immediate, deferred []int, tk Ticket, seqOf []int64) bool {
 	published := false
 	if t.pauseSeq == 0 && len(immediate) > 0 {
 		// 暂停状态只在暂停记录真正提交时发布，票据被放弃不会遗留暂停。
@@ -181,7 +181,7 @@ func (t *Intake) collectUnconfirmedLocked() {
 	t.unconfirmed = nil
 }
 
-func (t *Intake) flushedSeq() uint64 {
+func (t *Intake) flushedSeq() int64 {
 	if t.flushed == nil {
 		return 0
 	}

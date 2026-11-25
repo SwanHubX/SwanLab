@@ -503,6 +503,21 @@ class TestSkipStore:
         assert unlimited.upload_budget_records == 0
         assert unlimited.upload_budget_bytes == 0
 
+    def test_to_core_proto_recover_online(self, tmp_path):
+        assert "recover_online" not in Settings.Core.model_fields
+
+        default_proto = Settings(mode="online").to_core_proto(run_id="r1", run_dir=tmp_path)
+        assert default_proto.recover_online is False
+
+        online_recover = Settings(mode="online").to_core_proto(run_id="r1", run_dir=tmp_path, recover_online=True)
+        assert online_recover.recover_online is True
+
+        for non_online in ("offline", "local", "disabled"):
+            proto = Settings(mode=cast(ModeType, non_online)).to_core_proto(
+                run_id="r1", run_dir=tmp_path, recover_online=True
+            )
+            assert proto.recover_online is False
+
     def test_core_detach_and_idle_timeout_defaults_and_env(self, monkeypatch):
         default_settings = Settings(mode="online")
         # detach=None 表示未显式设置，交由 run.parallel 决定；idle_timeout 默认 30.0s

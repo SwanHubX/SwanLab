@@ -37,7 +37,7 @@ func TestHandoverSendsTailAndResumes(t *testing.T) {
 			synced = true
 			return nil
 		},
-		func() ([]*recordv1.Record, uint64, error) {
+		func() ([]*recordv1.Record, int64, error) {
 			if !synced {
 				t.Error("fill must run after sync")
 			}
@@ -67,7 +67,7 @@ func TestHandoverSendsTailAndResumes(t *testing.T) {
 func TestHandoverStaleTailKeepsPause(t *testing.T) {
 	in, _ := pausedIntake(t)
 
-	err := in.Handover(context.Background(), nil, func() ([]*recordv1.Record, uint64, error) {
+	err := in.Handover(context.Background(), nil, func() ([]*recordv1.Record, int64, error) {
 		return []*recordv1.Record{scalarRecord(3)}, 2, nil
 	})
 	if !errors.Is(err, ErrBackfillStale) {
@@ -89,7 +89,7 @@ func TestHandoverSyncFailureKeepsPause(t *testing.T) {
 	err := in.Handover(
 		context.Background(),
 		func(context.Context) error { return flushErr },
-		func() ([]*recordv1.Record, uint64, error) {
+		func() ([]*recordv1.Record, int64, error) {
 			filled = true
 			return nil, 3, nil
 		},
@@ -120,7 +120,7 @@ func TestHandoverBlockedWithoutUploadCapacity(t *testing.T) {
 	b.Release(records, bytes)
 
 	tail := []*recordv1.Record{scalarRecord(2), scalarRecord(3), scalarRecord(4)}
-	err := in.Handover(context.Background(), nil, func() ([]*recordv1.Record, uint64, error) {
+	err := in.Handover(context.Background(), nil, func() ([]*recordv1.Record, int64, error) {
 		return tail, 4, nil
 	})
 	if !errors.Is(err, ErrBackfillBlocked) {
@@ -142,7 +142,7 @@ func TestHandoverAfterClose(t *testing.T) {
 	if err := in.Close(context.Background()); err != nil {
 		t.Fatalf("Close: %v", err)
 	}
-	err := in.Handover(context.Background(), nil, func() ([]*recordv1.Record, uint64, error) {
+	err := in.Handover(context.Background(), nil, func() ([]*recordv1.Record, int64, error) {
 		return nil, 3, nil
 	})
 	if !errors.Is(err, ErrClosed) {
@@ -165,7 +165,7 @@ func TestHandoverSerializesConcurrentCommit(t *testing.T) {
 				<-release
 				return nil
 			},
-			func() ([]*recordv1.Record, uint64, error) {
+			func() ([]*recordv1.Record, int64, error) {
 				return []*recordv1.Record{scalarRecord(3)}, 3, nil
 			},
 		)

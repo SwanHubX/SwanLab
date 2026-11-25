@@ -12,7 +12,12 @@ from pathlib import Path
 
 import pytest
 
-from swanlab.sdk.internal.core_go.config import CoreGoError, ReasonCode, Stage, reason_for_grpc
+from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
+    CORE_ERROR_KIND_AUTH,
+    CORE_ERROR_KIND_OTHER,
+    CORE_ERROR_KIND_TRANSIENT,
+)
+from swanlab.sdk.internal.core_go.config import CoreGoError, ReasonCode, Stage, classify_start_error, reason_for_grpc
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
 
@@ -133,3 +138,37 @@ def test_import_core_go_does_not_load_grpc():
     )
 
     assert result.stdout.strip() == "False", result.stderr
+
+
+@pytest.mark.parametrize(
+    "stage, reason, grpc_name, expected",
+    [
+        (Stage.RUN_START, ReasonCode.GRPC_UNAVAILABLE, "UNAVAILABLE", CORE_ERROR_KIND_TRANSIENT),
+        (Stage.RUN_START, ReasonCode.DEADLINE_EXCEEDED, "DEADLINE_EXCEEDED", CORE_ERROR_KIND_TRANSIENT),
+        (Stage.RUN_START, ReasonCode.GRPC_UNAVAILABLE, " unavailable ", CORE_ERROR_KIND_TRANSIENT),
+        # reason_for_grpc("UNAUTHENTICATED") 会落到可重试的 GRPC_ERROR，分类必须只看 grpc_name
+        (Stage.RUN_START, ReasonCode.GRPC_ERROR, "UNAUTHENTICATED", CORE_ERROR_KIND_AUTH),
+        (Stage.RUN_START, ReasonCode.GRPC_ERROR, " unauthenticated ", CORE_ERROR_KIND_AUTH),
+        (Stage.RUN_START, ReasonCode.GRPC_ERROR, "INTERNAL", CORE_ERROR_KIND_OTHER),
+        (Stage.RUN_START, ReasonCode.INVALID_ARGUMENT, "INVALID_ARGUMENT", CORE_ERROR_KIND_OTHER),
+        (Stage.RUN_START, ReasonCode.SESSION_NOT_FOUND, "NOT_FOUND", CORE_ERROR_KIND_OTHER),
+        (Stage.RUN_START, ReasonCode.FAILED_PRECONDITION, "FAILED_PRECONDITION", CORE_ERROR_KIND_OTHER),
+        (Stage.RUN_START, ReasonCode.RESOURCE_EXHAUSTED, "RESOURCE_EXHAUSTED", CORE_ERROR_KIND_OTHER),
+        (Stage.RUN_START, ReasonCode.GRPC_ERROR, "CANCELED", CORE_ERROR_KIND_OTHER),
+        (Stage.RUN_START, ReasonCode.RUN_START_REJECTED, None, CORE_ERROR_KIND_OTHER),
+        (Stage.RUN_START, ReasonCode.RUN_START_REJECTED, "", CORE_ERROR_KIND_OTHER),
+        # 非 RUN_START 阶段即使带 UNAVAILABLE/DEADLINE_EXCEEDED/UNAUTHENTICATED 也必须归为 OTHER
+        (Stage.CHANNEL, ReasonCode.GRPC_UNAVAILABLE, "UNAVAILABLE", CORE_ERROR_KIND_OTHER),
+        (Stage.CHANNEL, ReasonCode.DEADLINE_EXCEEDED, "DEADLINE_EXCEEDED", CORE_ERROR_KIND_OTHER),
+        (Stage.SPINUP, ReasonCode.GRPC_UNAVAILABLE, "UNAVAILABLE", CORE_ERROR_KIND_OTHER),
+        (Stage.SPINUP, ReasonCode.GRPC_ERROR, "UNAUTHENTICATED", CORE_ERROR_KIND_OTHER),
+        (Stage.SPAWN, ReasonCode.BINARY_NOT_FOUND, None, CORE_ERROR_KIND_OTHER),
+        (Stage.PORT_FILE, ReasonCode.PORT_FILE_TIMEOUT, None, CORE_ERROR_KIND_OTHER),
+        (Stage.LIFECYCLE, ReasonCode.CLOSED, None, CORE_ERROR_KIND_OTHER),
+        (Stage.RPC, ReasonCode.GRPC_UNAVAILABLE, "UNAVAILABLE", CORE_ERROR_KIND_OTHER),
+        (Stage.RUNTIME, ReasonCode.RUNTIME_UNAVAILABLE, None, CORE_ERROR_KIND_OTHER),
+    ],
+)
+def test_classify_start_error(stage, reason, grpc_name, expected):
+    error = CoreGoError(stage, reason, "boom", grpc_name=grpc_name)
+    assert classify_start_error(error) == expected

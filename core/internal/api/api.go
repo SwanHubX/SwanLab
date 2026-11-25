@@ -194,7 +194,7 @@ func (c *Client) CreateOrResumeExperiment(
 	if experiment.CreatedAt == "" {
 		return nil, false, client.NewProtocolError(
 			http.MethodGet, res.Endpoint, "invalid_experiment",
-			"backend did not return createdAt for experiment; please upgrade swanlab-server", nil)
+			"SwanLab online service did not return createdAt for experiment; please upgrade your SwanLab deployment", nil)
 	}
 	return &experiment, false, nil
 }

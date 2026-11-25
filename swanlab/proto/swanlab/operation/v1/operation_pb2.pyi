@@ -12,9 +12,20 @@ class CoreState(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     CORE_STATE_NOT_STARTED: _ClassVar[CoreState]
     CORE_STATE_RUNNING: _ClassVar[CoreState]
     CORE_STATE_FINISHED: _ClassVar[CoreState]
+
+class CloudState(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    CLOUD_STATE_UNSPECIFIED: _ClassVar[CloudState]
+    CLOUD_STATE_PENDING: _ClassVar[CloudState]
+    CLOUD_STATE_ATTACHED: _ClassVar[CloudState]
+    CLOUD_STATE_FAILED: _ClassVar[CloudState]
 CORE_STATE_NOT_STARTED: CoreState
 CORE_STATE_RUNNING: CoreState
 CORE_STATE_FINISHED: CoreState
+CLOUD_STATE_UNSPECIFIED: CloudState
+CLOUD_STATE_PENDING: CloudState
+CLOUD_STATE_ATTACHED: CloudState
+CLOUD_STATE_FAILED: CloudState
 
 class FileProgress(_message.Message):
     __slots__ = ("path", "total", "uploaded", "rate")
@@ -29,19 +40,33 @@ class FileProgress(_message.Message):
     def __init__(self, path: _Optional[str] = ..., total: _Optional[int] = ..., uploaded: _Optional[int] = ..., rate: _Optional[float] = ...) -> None: ...
 
 class UploadStatus(_message.Message):
-    __slots__ = ("paused", "pause_seq", "pending_records", "buffered_bytes")
+    __slots__ = ("paused", "pause_seq", "pending_records", "buffered_bytes", "retrying", "suspended")
     PAUSED_FIELD_NUMBER: _ClassVar[int]
     PAUSE_SEQ_FIELD_NUMBER: _ClassVar[int]
     PENDING_RECORDS_FIELD_NUMBER: _ClassVar[int]
     BUFFERED_BYTES_FIELD_NUMBER: _ClassVar[int]
+    RETRYING_FIELD_NUMBER: _ClassVar[int]
+    SUSPENDED_FIELD_NUMBER: _ClassVar[int]
     paused: bool
     pause_seq: int
     pending_records: int
     buffered_bytes: int
-    def __init__(self, paused: bool = ..., pause_seq: _Optional[int] = ..., pending_records: _Optional[int] = ..., buffered_bytes: _Optional[int] = ...) -> None: ...
+    retrying: bool
+    suspended: bool
+    def __init__(self, paused: bool = ..., pause_seq: _Optional[int] = ..., pending_records: _Optional[int] = ..., buffered_bytes: _Optional[int] = ..., retrying: bool = ..., suspended: bool = ...) -> None: ...
+
+class CloudStatus(_message.Message):
+    __slots__ = ("state", "path", "error")
+    STATE_FIELD_NUMBER: _ClassVar[int]
+    PATH_FIELD_NUMBER: _ClassVar[int]
+    ERROR_FIELD_NUMBER: _ClassVar[int]
+    state: CloudState
+    path: str
+    error: str
+    def __init__(self, state: _Optional[_Union[CloudState, str]] = ..., path: _Optional[str] = ..., error: _Optional[str] = ...) -> None: ...
 
 class OperationStats(_message.Message):
-    __slots__ = ("state", "total_number", "uploaded_number", "total_records", "uploaded_records", "total_size", "uploaded_size", "rate", "files", "upload")
+    __slots__ = ("state", "total_number", "uploaded_number", "total_records", "uploaded_records", "total_size", "uploaded_size", "rate", "files", "upload", "cloud")
     STATE_FIELD_NUMBER: _ClassVar[int]
     TOTAL_NUMBER_FIELD_NUMBER: _ClassVar[int]
     UPLOADED_NUMBER_FIELD_NUMBER: _ClassVar[int]
@@ -52,6 +77,7 @@ class OperationStats(_message.Message):
     RATE_FIELD_NUMBER: _ClassVar[int]
     FILES_FIELD_NUMBER: _ClassVar[int]
     UPLOAD_FIELD_NUMBER: _ClassVar[int]
+    CLOUD_FIELD_NUMBER: _ClassVar[int]
     state: CoreState
     total_number: int
     uploaded_number: int
@@ -62,4 +88,5 @@ class OperationStats(_message.Message):
     rate: float
     files: _containers.RepeatedCompositeFieldContainer[FileProgress]
     upload: UploadStatus
-    def __init__(self, state: _Optional[_Union[CoreState, str]] = ..., total_number: _Optional[int] = ..., uploaded_number: _Optional[int] = ..., total_records: _Optional[int] = ..., uploaded_records: _Optional[int] = ..., total_size: _Optional[int] = ..., uploaded_size: _Optional[int] = ..., rate: _Optional[float] = ..., files: _Optional[_Iterable[_Union[FileProgress, _Mapping]]] = ..., upload: _Optional[_Union[UploadStatus, _Mapping]] = ...) -> None: ...
+    cloud: CloudStatus
+    def __init__(self, state: _Optional[_Union[CoreState, str]] = ..., total_number: _Optional[int] = ..., uploaded_number: _Optional[int] = ..., total_records: _Optional[int] = ..., uploaded_records: _Optional[int] = ..., total_size: _Optional[int] = ..., uploaded_size: _Optional[int] = ..., rate: _Optional[float] = ..., files: _Optional[_Iterable[_Union[FileProgress, _Mapping]]] = ..., upload: _Optional[_Union[UploadStatus, _Mapping]] = ..., cloud: _Optional[_Union[CloudStatus, _Mapping]] = ...) -> None: ...

@@ -143,10 +143,12 @@ def init(
     :param log_dir: Directory to store logs. Defaults to "./swanlog".
     :param mode: Run mode. Options: "online" (sync to cloud), "local" (local only),
         "offline" (save locally for later sync), "disabled" (no logging). Defaults to "online".
-    :param on_online_error: Behavior when SwanLab Cloud is temporarily unreachable in online
-        mode. Only transient connection/server failures are degraded; authentication and
-        configuration errors always raise. Options: "offline" (save locally and sync later),
-        "disabled" (no logging), "raise". Defaults to "offline".
+    :param on_online_error: Behavior when SwanLab online service fails to connect or authenticate
+        in online mode. Transient connection/server failures and authentication errors (401/403)
+        are handled according to this policy; configuration errors still raise. Options: "offline"
+        (keep online mode and save locally while retrying the connection on transient outages, or
+        fall back to offline mode on auth/unrecoverable errors), "disabled" (no logging), "raise".
+        Defaults to "offline".
     :param workspace: Workspace or organization name. Defaults to current user.
     :param project: Project name. Defaults to current directory name.
     :param public: Make project publicly visible (online mode only). Defaults to False.
@@ -175,10 +177,10 @@ def init(
     :raises RuntimeError: If a run is already active and reinit=False, or if an online
         startup fails and is not degraded (a non-transient error, or a transient error
         when ``on_online_error="raise"``).
-    :raises AuthenticationError: If SwanLab Cloud rejects the API key during login or
-        startup, or if the initial login fails with a non-transient error. With
-        ``on_online_error="raise"`` any login failure is wrapped as
-        ``AuthenticationError`` with the original exception in ``__cause__``.
+    :raises AuthenticationError: If ``on_online_error="raise"`` and SwanLab online service
+        rejects the API key or login fails (wrapping the original exception in ``__cause__``),
+        or if initial login fails with a non-recoverable non-auth error. Under the default
+        ``on_online_error`` policies, 401/403 authentication errors degrade instead of raising.
 
     Examples:
 
@@ -247,7 +249,7 @@ def login(
     save: LoginType = False,
     timeout: int = 10,
 ) -> bool:
-    """Authenticate with SwanLab Cloud.
+    """Authenticate with SwanLab online service.
 
     This function authenticates your environment with SwanLab. If already logged in
     and `relogin` is False, this function does nothing. Call this before `swanlab.init()`
@@ -257,13 +259,14 @@ def login(
         environment or prompt for input.
     :param relogin: If True, forces re-authentication and overwrites existing credentials.
         Defaults to False.
-    :param host: Custom API host URL. If not provided, uses the default SwanLab cloud host.
+    :param host: Custom API host URL. If not provided, uses the default SwanLab online service host.
     :param save: Whether to save the API key locally for future sessions. Defaults to False.
     :param timeout: Network request timeout in seconds. Defaults to 10.
-    :return: True if login was successful, False otherwise.
+    :return: True if login succeeded, False if deferred because the SwanLab online service
+        failed to authenticate or is temporarily unreachable.
     :raises RuntimeError: If called while a run is active.
-    :raises AuthenticationError: If login fails due to invalid credentials, network issues,
-        or server errors. The original exception is available via ``__cause__``.
+    :raises AuthenticationError: If login fails due to local configuration errors (such as
+        missing credentials or mismatched host).
 
     Examples:
 
@@ -856,7 +859,7 @@ def sync_wandb(
 
     Examples::
 
-        Mirror wandb logs to SwanLab Cloud:
+        Mirror wandb logs to SwanLab online service:
 
         >>> import swanlab
         >>> swanlab.sync_wandb()

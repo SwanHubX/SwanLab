@@ -142,7 +142,7 @@ func (s *CoreService) DeliverRunStart(
 	if err != nil {
 		return nil, managerStatus(err)
 	}
-	if result.Path == "" && settings.NormalizedMode() == config.ModeOnline {
+	if result.Path == "" && settings.NormalizedMode() == config.ModeOnline && !settings.RecoverOnline {
 		s.cleanupDisconnectedSessions([]string{result.SessionID})
 		return nil, status.Error(codes.InvalidArgument, "project path is empty; online mode requires a path")
 	}
@@ -203,6 +203,7 @@ func protoToSettings(in *settingsv1.CoreSettings) (config.Settings, error) {
 		SavePart:       in.GetSavePart(),
 		SaveBatch:      in.GetSaveBatch(),
 		SkipStore:      in.GetSkipStore(),
+		RecoverOnline:  in.GetRecoverOnline(),
 		APIKey:         in.GetApiKey(),
 		APIHost:        in.GetApiHost(),
 		WebHost:        in.GetWebHost(),
@@ -384,7 +385,7 @@ func (s *CoreService) ConfirmRunFinish(
 	if err != nil {
 		return nil, managerStatus(err)
 	}
-	if !result.ReleaseFailed {
+	if result.Released || !result.ReleaseFailed {
 		s.unbindSession(req.GetSessionId())
 	}
 	message := result.Message

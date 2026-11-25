@@ -62,7 +62,7 @@ func newSinkWriter(t *testing.T, delay time.Duration) (*Writer, *recordSink, str
 }
 
 // scanBoundary 返回 limit 之内的完整记录条数与最后一条完整记录的结束偏移。
-func scanBoundary(t *testing.T, path string, limit int64) (uint64, int64) {
+func scanBoundary(t *testing.T, path string, limit int64) (int64, int64) {
 	t.Helper()
 	r, err := OpenOffset(path, HeaderLen, limit)
 	if err != nil {
@@ -70,7 +70,7 @@ func scanBoundary(t *testing.T, path string, limit int64) (uint64, int64) {
 	}
 	defer func() { _ = r.Close() }()
 	var (
-		seq uint64
+		seq int64
 		end = int64(HeaderLen)
 	)
 	for {
@@ -97,7 +97,7 @@ func TestAsyncWatermarkStopsAtLastCompleteRecord(t *testing.T) {
 
 	const n = 1200
 	for i := 0; i < n; i++ {
-		a.In() <- Request{StoreSeq: uint64(i + 1), Payload: payloadN(50)}
+		a.In() <- Request{StoreSeq: int64(i + 1), Payload: payloadN(50)}
 	}
 	// 只写完、不刷盘：缓冲里仍有数据，进度只能停在上一条完整记录。
 	if err = a.sync(false); err != nil {
@@ -140,7 +140,7 @@ func TestAsyncWatermarkHidesPartialCrossBlockRecord(t *testing.T) {
 
 	// 先写满一个块，再追加一条跨块记录，使其末尾字节仍留在缓冲里。
 	for i := 0; i < 600; i++ {
-		a.In() <- Request{StoreSeq: uint64(i + 1), Payload: payloadN(50)}
+		a.In() <- Request{StoreSeq: int64(i + 1), Payload: payloadN(50)}
 	}
 	a.In() <- Request{StoreSeq: 601, Payload: payloadN(40 * 1024)}
 	if err = a.sync(false); err != nil {
@@ -173,13 +173,13 @@ func TestAsyncSlowDiskWatermarkStaysWithinWritten(t *testing.T) {
 	done := make(chan error, 1)
 	go func() {
 		for i := 0; i < n; i++ {
-			a.In() <- Request{StoreSeq: uint64(i + 1), Payload: payloadN(80)}
+			a.In() <- Request{StoreSeq: int64(i + 1), Payload: payloadN(80)}
 		}
 		done <- a.Close()
 	}()
 
 	var (
-		lastSeq uint64
+		lastSeq int64
 		lastOff = int64(HeaderLen)
 	)
 	for closed := false; !closed; {
@@ -229,7 +229,7 @@ func TestAsyncTickerSkipsCyclesWithNaturalWrites(t *testing.T) {
 
 	feed := func(from, to int) {
 		for i := from; i < to; i++ {
-			a.In() <- Request{StoreSeq: uint64(i + 1), Payload: payloadN(200)}
+			a.In() <- Request{StoreSeq: int64(i + 1), Payload: payloadN(200)}
 		}
 		if syncErr := a.sync(false); syncErr != nil {
 			t.Fatalf("sync(false): %v", syncErr)
@@ -346,7 +346,7 @@ func TestAsyncOpenAppendAdvancesWatermarkNaturally(t *testing.T) {
 	const added = 1200
 	rec := payloadN(50)
 	for i := 0; i < added; i++ {
-		a.In() <- Request{StoreSeq: uint64(existing + i + 1), Payload: rec}
+		a.In() <- Request{StoreSeq: int64(existing + i + 1), Payload: rec}
 	}
 	if err = a.sync(false); err != nil {
 		_ = a.Close()

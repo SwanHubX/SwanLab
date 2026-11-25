@@ -675,7 +675,7 @@ class CorePython(CoreProtocol):
         if self._ctx.config.skip_store:
             message = (
                 "Failed to finish run, and no local copy was kept (skip_store); "
-                "the run state on the cloud is unconfirmed."
+                "the run state on SwanLab online service is unconfirmed."
             )
         else:
             message = "Failed to finish run, but it has been saved locally."

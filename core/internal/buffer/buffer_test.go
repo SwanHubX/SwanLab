@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -131,7 +132,7 @@ func newIntake(t *testing.T, opts Options) *Intake {
 	t.Helper()
 	if !opts.SkipStore && opts.Flushed == nil {
 		// 默认视为全部已刷盘；需要验证未确认记录时由用例自行注入。
-		opts.Flushed = func() uint64 { return ^uint64(0) }
+		opts.Flushed = func() int64 { return math.MaxInt64 }
 	}
 	in, err := New(opts)
 	if err != nil {
@@ -860,7 +861,7 @@ func TestDegradedUsesBoundedBackpressure(t *testing.T) {
 func TestStoreQueueFullBackpressuresWithoutLoss(t *testing.T) {
 	storeCh := make(chan store.Request, 4)
 	for i := 0; i < cap(storeCh); i++ {
-		storeCh <- store.Request{StoreSeq: uint64(i + 1), Payload: []byte("x")}
+		storeCh <- store.Request{StoreSeq: int64(i + 1), Payload: []byte("x")}
 	}
 	var degraded atomic.Bool
 	b := budget.New(budget.Limits{})
@@ -1042,7 +1043,7 @@ func TestCloseRestoresPendingWhenRecoverySendingFails(t *testing.T) {
 		Budget:      b,
 		Degraded:    &degraded,
 		UploadQueue: 1,
-		Flushed:     func() uint64 { return 0 },
+		Flushed:     func() int64 { return 0 },
 	})
 
 	mustCommit(t, in, scalarRecord(1)) // 占满预算并填满上传通道
@@ -1162,7 +1163,7 @@ func TestConcurrentCommits(t *testing.T) {
 	if len(got) != workers {
 		t.Fatalf("store got %d, want %d", len(got), workers)
 	}
-	seen := make(map[uint64]bool, workers)
+	seen := make(map[int64]bool, workers)
 	for _, req := range got {
 		if req.StoreSeq == 0 || req.StoreSeq > workers {
 			t.Fatalf("StoreSeq = %d, want 1..%d", req.StoreSeq, workers)
@@ -1203,7 +1204,7 @@ func TestPausedRecordsRecoverAfterStoreFailure(t *testing.T) {
 		Budget:      b,
 		Degraded:    &degraded,
 		UploadQueue: 8,
-		Flushed: func() uint64 {
+		Flushed: func() int64 {
 			seq, _ := aw.Flushed()
 			return seq
 		},
@@ -1390,13 +1391,13 @@ func TestUploadQueueFullPausesWithLocalStore(t *testing.T) {
 	sink := newStoreSink(8)
 	defer sink.stop()
 	b := budget.New(budget.Limits{Records: 10, Bytes: 1 << 20})
-	var pausedAt atomic.Uint64
+	var pausedAt atomic.Int64
 	in := newIntake(t, Options{
 		Store:       sink.ch,
 		Budget:      b,
 		UploadQueue: 1,
 		QueueWait:   200 * time.Millisecond,
-		OnPause:     func(seq uint64) { pausedAt.Store(seq) },
+		OnPause:     func(seq int64) { pausedAt.Store(seq) },
 	})
 
 	first := scalarRecord(1)
@@ -1452,14 +1453,14 @@ func TestSuspendedSitePausesWithLocalStore(t *testing.T) {
 		defer sink.stop()
 		var suspended atomic.Bool
 		suspended.Store(true)
-		var pausedAt atomic.Uint64
+		var pausedAt atomic.Int64
 		b := budget.New(budget.Limits{Records: 100, Bytes: 1 << 20})
 		in := newIntake(t, Options{
 			Store:       sink.ch,
 			Budget:      b,
 			UploadQueue: 8,
 			IsSuspended: suspended.Load,
-			OnPause:     func(seq uint64) { pausedAt.Store(seq) },
+			OnPause:     func(seq int64) { pausedAt.Store(seq) },
 		})
 
 		mustCommit(t, in, scalarRecord(1))
@@ -1584,7 +1585,7 @@ func TestRecoveryKeepsUploadOrderAfterDegrade(t *testing.T) {
 		Degraded:    &degraded,
 		UploadQueue: 8,
 		// 暂停记录尚未确认落盘，降级后必须重新投入上传。
-		Flushed: func() uint64 { return 0 },
+		Flushed: func() int64 { return 0 },
 	})
 
 	mustCommit(t, in, scalarRecord(1), scalarRecord(2))
@@ -1715,7 +1716,7 @@ func recordNums(recs []*recordv1.Record) []int64 {
 
 func TestIntakeStartSeq(t *testing.T) {
 	sink := newStoreSink(8)
-	const base uint64 = 10
+	const base int64 = 10
 	in := newIntake(t, Options{
 		Store:       sink.ch,
 		StartSeq:    base,
@@ -1740,7 +1741,7 @@ func TestIntakeStartSeq(t *testing.T) {
 		t.Fatalf("store got %d requests, want %d", len(got), len(recs))
 	}
 	for i, req := range got {
-		want := base + uint64(i+1)
+		want := base + int64(i+1)
 		if req.StoreSeq != want {
 			t.Fatalf("req[%d].StoreSeq = %d, want %d", i, req.StoreSeq, want)
 		}
@@ -1751,7 +1752,7 @@ func TestIntakeOnStoredOrder(t *testing.T) {
 	sink := newStoreSink(8)
 	type entry struct {
 		rec *recordv1.Record
-		seq uint64
+		seq int64
 	}
 	var got []entry
 	in := newIntake(t, Options{
@@ -1759,7 +1760,7 @@ func TestIntakeOnStoredOrder(t *testing.T) {
 		StartSeq:    5,
 		Budget:      budget.New(budget.Limits{}),
 		UploadQueue: 8,
-		OnStored: func(rec *recordv1.Record, storeSeq uint64) {
+		OnStored: func(rec *recordv1.Record, storeSeq int64) {
 			got = append(got, entry{rec: rec, seq: storeSeq})
 		},
 	})
@@ -1780,7 +1781,7 @@ func TestIntakeOnStoredOrder(t *testing.T) {
 		t.Fatalf("onStored len = %d, want %d", len(got), len(recs))
 	}
 	for i, rec := range recs {
-		wantSeq := uint64(6 + i)
+		wantSeq := int64(6 + i)
 		if got[i].rec != rec || got[i].seq != wantSeq {
 			t.Fatalf("onStored[%d] = (%p, %d), want (%p, %d)", i, got[i].rec, got[i].seq, rec, wantSeq)
 		}
@@ -1834,14 +1835,14 @@ func TestIntakePausedSkipsOnStored(t *testing.T) {
 	sink := newStoreSink(16)
 	type entry struct {
 		rec *recordv1.Record
-		seq uint64
+		seq int64
 	}
 	var got []entry
 	in := newIntake(t, Options{
 		Store:       sink.ch,
 		Budget:      budget.New(budget.Limits{Records: 1}),
 		UploadQueue: 4,
-		OnStored: func(rec *recordv1.Record, storeSeq uint64) {
+		OnStored: func(rec *recordv1.Record, storeSeq int64) {
 			got = append(got, entry{rec: rec, seq: storeSeq})
 		},
 	})
@@ -1884,13 +1885,13 @@ func TestIntakePausedSkipsOnStored(t *testing.T) {
 // 即使批次带暂停票据但只含非上传记录（pauseSeq 保持 0），仍会回调 OnStored 以防进度水位卡死。
 func TestIntakePausedNonUploadableOnlyStillNotifiesOnStored(t *testing.T) {
 	sink := newStoreSink(8)
-	var gotSeqs []uint64
+	var gotSeqs []int64
 	in := newIntake(t, Options{
 		Store:       sink.ch,
 		Budget:      budget.New(budget.Limits{Records: 10}),
 		UploadQueue: 4,
 		IsSuspended: func() bool { return true },
-		OnStored: func(_ *recordv1.Record, storeSeq uint64) {
+		OnStored: func(_ *recordv1.Record, storeSeq int64) {
 			gotSeqs = append(gotSeqs, storeSeq)
 		},
 	})

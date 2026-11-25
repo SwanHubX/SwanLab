@@ -293,7 +293,7 @@ class TestCorePythonOnlineStartFailure:
     @pytest.mark.parametrize(
         "error",
         [
-            ValueError("Backend did not return createdAt; please upgrade swanlab-server"),
+            ValueError("SwanLab online service did not return createdAt; please upgrade your SwanLab deployment"),
             AssertionError("experiment without name"),
         ],
     )

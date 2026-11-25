@@ -24,7 +24,7 @@ func TestDefaults(t *testing.T) {
 			s.UploadBudgetRecords, s.UploadBudgetBytes, DefaultUploadBudgetRecords, DefaultUploadBudgetBytes)
 	}
 	// 这些字段默认为零值。
-	if s.RunID != "" || s.RunDir != "" || s.SectionRule != 0 || s.SkipStore || s.APIKey != "" {
+	if s.RunID != "" || s.RunDir != "" || s.SectionRule != 0 || s.SkipStore || s.RecoverOnline || s.APIKey != "" {
 		t.Fatalf("unexpected non-zero defaults: %+v", s)
 	}
 	// Defaults 必须能通过校验（run_id / run_dir 由调用方补齐）。
@@ -70,6 +70,12 @@ func TestValidate(t *testing.T) {
 		{"local 禁止 skip_store", func(s *Settings) { s.Mode = ModeLocal; s.SkipStore = true }, nil, "skip_store"},
 		{"offline 禁止 skip_store", func(s *Settings) { s.Mode = ModeOffline; s.SkipStore = true }, nil, "skip_store"},
 		{"disabled 允许", func(s *Settings) { s.Mode = ModeDisabled }, nil, ""},
+		{"online 允许 recover_online", func(s *Settings) { s.Mode = ModeOnline; s.RecoverOnline = true }, nil, ""},
+		{"空 mode 允许 recover_online", func(s *Settings) { s.Mode = ""; s.RecoverOnline = true }, nil, ""},
+		{"skip_store 禁止 recover_online", func(s *Settings) { s.Mode = ModeOnline; s.SkipStore = true; s.RecoverOnline = true }, nil, "recover_online"},
+		{"local 禁止 recover_online", func(s *Settings) { s.Mode = ModeLocal; s.RecoverOnline = true }, nil, "recover_online"},
+		{"offline 禁止 recover_online", func(s *Settings) { s.Mode = ModeOffline; s.RecoverOnline = true }, nil, "recover_online"},
+		{"disabled 禁止 recover_online", func(s *Settings) { s.Mode = ModeDisabled; s.RecoverOnline = true }, nil, "recover_online"},
 		{"health_probe_interval 为 0", func(s *Settings) { s.HealthProbeInterval = 0 }, nil, ""},
 		{"health_probe_interval 为负", func(s *Settings) { s.HealthProbeInterval = -0.1 }, nil, "health_probe_interval"},
 		{"health_probe_interval 为 NaN", func(s *Settings) { s.HealthProbeInterval = math.NaN() }, nil, "health_probe_interval"},
@@ -165,9 +171,13 @@ func TestStringRedactsAPIKey(t *testing.T) {
 	if !strings.Contains(out, MaskKey(s.APIKey)) {
 		t.Fatalf("String() 未包含脱敏 key: %s", out)
 	}
-	for _, want := range []string{s.RunID, s.APIHost, s.WebHost, "record_batch", "save_part"} {
+	for _, want := range []string{s.RunID, s.APIHost, s.WebHost, "record_batch", "save_part", "recover_online=false"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("String() 缺少字段 %q: %s", want, out)
 		}
+	}
+	s.RecoverOnline = true
+	if outRecover := s.String(); !strings.Contains(outRecover, "recover_online=true") {
+		t.Fatalf("String() 未包含 recover_online=true: %s", outRecover)
 	}
 }

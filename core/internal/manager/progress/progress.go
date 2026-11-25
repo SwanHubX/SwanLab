@@ -15,27 +15,27 @@ import (
 // 立即视作已完结，以免阻塞连续水位前进。
 type Tracker struct {
 	mu       sync.Mutex
-	next     uint64                      // 下一个等待完结的 storeSeq；连续确认水位为 next - 1
-	ptrs     map[*recordv1.Record]uint64 // 活跃记录指针 -> storeSeq
-	seqPtr   map[uint64]*recordv1.Record // storeSeq -> 活跃指针，便于 backfill 重放替换旧指针
-	resolved map[uint64]struct{}         // 已完结但前面仍有缺口的 storeSeq
+	next     int64                      // 下一个等待完结的 storeSeq；连续确认水位为 next - 1
+	ptrs     map[*recordv1.Record]int64 // 活跃记录指针 -> storeSeq
+	seqPtr   map[int64]*recordv1.Record // storeSeq -> 活跃指针，便于 backfill 重放替换旧指针
+	resolved map[int64]struct{}         // 已完结但前面仍有缺口的 storeSeq
 }
 
 // NewTracker 构造以 baseSeq 为初始连续水位的进度追踪器。
-func NewTracker(baseSeq uint64) *Tracker {
+func NewTracker(baseSeq int64) *Tracker {
 	return &Tracker{
 		next:     baseSeq + 1,
-		ptrs:     make(map[*recordv1.Record]uint64),
-		seqPtr:   make(map[uint64]*recordv1.Record),
-		resolved: make(map[uint64]struct{}),
+		ptrs:     make(map[*recordv1.Record]int64),
+		seqPtr:   make(map[int64]*recordv1.Record),
+		resolved: make(map[int64]struct{}),
 	}
 }
 
 // OnStored 注册一条已分配 storeSeq 的记录。
 // 对同一 seq 重复注册（例如 backfill 从本地文件重读并构造新指针）会替换旧指针。
 // 非实时上传类型会立即视作已完结。
-func (p *Tracker) OnStored(rec *recordv1.Record, seq uint64) {
-	if p == nil || rec == nil || seq == 0 {
+func (p *Tracker) OnStored(rec *recordv1.Record, seq int64) {
+	if p == nil || rec == nil || seq <= 0 {
 		return
 	}
 	p.mu.Lock()
@@ -86,7 +86,7 @@ func (p *Tracker) ResolveOne(rec *recordv1.Record) {
 }
 
 // Watermark 返回已连续完结的最大 storeSeq。
-func (p *Tracker) Watermark() uint64 {
+func (p *Tracker) Watermark() int64 {
 	if p == nil {
 		return 0
 	}
@@ -109,14 +109,14 @@ func (p *Tracker) resolvePtrLocked(rec *recordv1.Record) {
 	p.resolveSeqLocked(seq)
 }
 
-func (p *Tracker) clearSeqPtrLocked(seq uint64) {
+func (p *Tracker) clearSeqPtrLocked(seq int64) {
 	if old := p.seqPtr[seq]; old != nil {
 		delete(p.ptrs, old)
 		delete(p.seqPtr, seq)
 	}
 }
 
-func (p *Tracker) resolveSeqLocked(seq uint64) {
+func (p *Tracker) resolveSeqLocked(seq int64) {
 	if seq < p.next {
 		return
 	}

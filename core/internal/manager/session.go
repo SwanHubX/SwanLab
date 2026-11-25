@@ -129,7 +129,7 @@ type Session struct {
 	// pendingLog 是崩溃 error_log：由 mu 保护，只上传不落盘，暂时入队失败时保留供重试。
 	pendingLog *recordv1.Record
 
-	// shutdownCtx 在会话退出或关闭时取消，用于立刻打断后台在线排空与 resumeFinish。
+	// shutdownCtx 在会话退出或关闭时取消，用于立即打断后台上传和结束重试。
 	shutdownCtx    context.Context
 	shutdownCancel context.CancelFunc
 	drainMu        sync.Mutex
@@ -138,33 +138,41 @@ type Session struct {
 
 	state atomic.Int32
 
-	// drained 在 DRAINING → DRAINED 时关闭；failed 在进入 FAILED 时关闭。
+	// drained 在会话完成上传时关闭；failed 在结束流程失败时关闭。
 	drained chan struct{}
 	failed  chan struct{}
 
-	drainFn   func(context.Context) error
-	releaseFn func(context.Context) error
+	drainFn func(context.Context) error
+	cloud   atomic.Pointer[cloudResources]
+
+	// 云端连接状态和后台任务的生命周期，由 cloudMu 保护。
+	cloudMu      sync.Mutex
+	cloudState   operationv1.CloudState
+	cloudPath    string
+	cloudErr     error
+	attachDone   chan struct{}
+	attachOnce   sync.Once
+	attachCancel context.CancelFunc
+	attachWG     sync.WaitGroup
 
 	finishErr error
 
 	// 装配期依赖；Start 失败回滚后可能只完成部分初始化，使用前必须判空。
-	ctx       context.Context
-	cancel    context.CancelFunc
-	cfg       config.Settings
-	run       *runctx.RunContext
-	store     *store.AsyncWriter
-	intake    *buffer.Intake
-	uploader  *uploader.Uploader
-	budget    *budget.Budget
-	tracker   *uploader.Tracker
-	watcher   watcher.Watcher
-	heartbeat *heartbeat.Heartbeat
+	ctx     context.Context
+	cancel  context.CancelFunc
+	cfg     config.Settings
+	run     *runctx.RunContext
+	store   *store.AsyncWriter
+	intake  *buffer.Intake
+	budget  *budget.Budget
+	tracker *uploader.Tracker
+	watcher watcher.Watcher
 
 	// 指标与编号状态由 Session.mu 保护；Resume 恢复的 epoch 作为日志起始行号。
 	metrics *metrics.RunMetrics
 	counter *counter.Counter
 	epoch   *counter.Counter
-	// finishRecord 保存最近一次收尾记录，Confirm 上报 stop_experiment 时读取终态。
+	// finishRecord 保存最近的结束记录，Confirm 上报 stop_experiment 时读取终态。
 	finishRecord *runv1.FinishRecord
 
 	storeDegraded atomic.Bool
@@ -192,22 +200,139 @@ type Session struct {
 	checkpoint *checkpoint.Writer
 }
 
+// cloudResources 保存上传器、心跳和停止实验的函数；创建后只读，通过原子指针保存。
+type cloudResources struct {
+	uploader  *uploader.Uploader
+	heartbeat *heartbeat.Heartbeat
+	releaseFn func(context.Context) error
+}
+
+func (s *Session) setCloudResources(res *cloudResources) {
+	s.cloud.Store(res)
+}
+
+func (s *Session) uploader() *uploader.Uploader {
+	if res := s.cloud.Load(); res != nil {
+		return res.uploader
+	}
+	return nil
+}
+
+func (s *Session) heartbeat() *heartbeat.Heartbeat {
+	if res := s.cloud.Load(); res != nil {
+		return res.heartbeat
+	}
+	return nil
+}
+
+func (s *Session) releaseFn() func(context.Context) error {
+	if res := s.cloud.Load(); res != nil {
+		return res.releaseFn
+	}
+	return nil
+}
+
+func (s *Session) hasCloudResources() bool {
+	return s.uploader() != nil
+}
+
+func (s *Session) initDeferredAttach() {
+	s.cloudMu.Lock()
+	defer s.cloudMu.Unlock()
+	s.cloudState = operationv1.CloudState_CLOUD_STATE_PENDING
+	s.cloudPath = ""
+	s.cloudErr = nil
+	s.attachDone = make(chan struct{})
+}
+
+func (s *Session) cloudStatus() (operationv1.CloudState, string, error) {
+	s.cloudMu.Lock()
+	defer s.cloudMu.Unlock()
+	return s.cloudState, s.cloudPath, s.cloudErr
+}
+
+func (s *Session) closeAttachDone() {
+	s.cloudMu.Lock()
+	done := s.attachDone
+	s.cloudMu.Unlock()
+	if done != nil {
+		s.attachOnce.Do(func() { close(done) })
+	}
+}
+
+func (s *Session) markCloudAttached(path string) {
+	s.cloudMu.Lock()
+	s.cloudState = operationv1.CloudState_CLOUD_STATE_ATTACHED
+	s.cloudPath = path
+	s.cloudErr = nil
+	s.cloudMu.Unlock()
+	s.closeAttachDone()
+}
+
+func (s *Session) isPermanentAttachFailure() bool {
+	state, _, _ := s.cloudStatus()
+	return state == operationv1.CloudState_CLOUD_STATE_FAILED
+}
+
+// localCopyFailure 按照本地副本状态拼接失败文案；suffix 只用于本地副本不完整的两种情况。
+func (s *Session) localCopyFailure(prefix, suffix string) string {
+	switch {
+	case s.cfg.SkipStore:
+		return fmt.Sprintf("%s, and no local copy was kept (skip_store)%s.", prefix, suffix)
+	case s.storeDegraded.Load():
+		return fmt.Sprintf("%s, and the local copy is incomplete%s.", prefix, suffix)
+	default:
+		return fmt.Sprintf("%s, but it has been saved locally.", prefix)
+	}
+}
+
+func (s *Session) attachFailureConfirmMessage(attachErr error) string {
+	reason := "connection failed"
+	if attachErr != nil {
+		reason = attachErr.Error()
+	}
+	return s.localCopyFailure(fmt.Sprintf("Failed to create run on SwanLab online service (%s)", reason), "")
+}
+
+// noteAttachError 记录最近一次可重试的连接错误，供进度界面显示等待原因。
+// 状态保持 PENDING，连接成功后由 markCloudAttached 清空。
+func (s *Session) noteAttachError(err error) {
+	if err == nil {
+		return
+	}
+	s.cloudMu.Lock()
+	if s.cloudState == operationv1.CloudState_CLOUD_STATE_PENDING {
+		s.cloudErr = err
+	}
+	s.cloudMu.Unlock()
+}
+
+func (s *Session) markCloudFailed(err error) {
+	s.cloudMu.Lock()
+	s.cloudState = operationv1.CloudState_CLOUD_STATE_FAILED
+	s.cloudErr = err
+	s.cloudMu.Unlock()
+	s.closeAttachDone()
+}
+
 func newSession(opts sessionOptions) *Session {
 	shutdownCtx, shutdownCancel := context.WithCancel(context.Background())
 	s := &Session{
 		drained:        make(chan struct{}),
 		failed:         make(chan struct{}),
 		drainFn:        opts.drainFn,
-		releaseFn:      opts.releaseFn,
 		healthWake:     make(chan struct{}, 1),
 		shutdownCtx:    shutdownCtx,
 		shutdownCancel: shutdownCancel,
+	}
+	if opts.releaseFn != nil {
+		s.setCloudResources(&cloudResources{releaseFn: opts.releaseFn})
 	}
 	s.state.Store(int32(RunStateRunning))
 	return s
 }
 
-// withShutdownCancel 派生受父 ctx 和会话关闭信号共同约束的子 ctx。
+// withShutdownCancel 创建一个同时受父 ctx 和会话关闭信号控制的子 ctx。
 func (s *Session) withShutdownCancel(parent context.Context) (context.Context, context.CancelFunc) {
 	if parent == nil {
 		parent = context.Background()
@@ -223,7 +348,7 @@ func (s *Session) withShutdownCancel(parent context.Context) (context.Context, c
 	}
 }
 
-// startOnlineDrain 在本地收尾完成后只启动一次后台在线排空协程。
+// startOnlineDrain 在本地结束后只启动一次后台上传任务。
 func (s *Session) startOnlineDrain() {
 	s.drainMu.Lock()
 	if s.drainStarted || (s.shutdownCtx != nil && s.shutdownCtx.Err() != nil) {
@@ -243,7 +368,7 @@ func (s *Session) startOnlineDrain() {
 	}()
 }
 
-// stopOnlineDrain 发出会话关闭信号并等待已启动的后台在线排空协程退出；不得在持有 finishMu 时调用。
+// stopOnlineDrain 通知会话关闭并等待后台上传任务退出；调用时不能持有 finishMu。
 func (s *Session) stopOnlineDrain() {
 	s.drainMu.Lock()
 	if s.shutdownCancel != nil {
@@ -272,15 +397,15 @@ func (s *Session) hasPendingLog() bool {
 	return s.crashLog() != nil
 }
 
-// beginDrain 把会话从 RUNNING 切到 DRAINING；重复调用幂等。
-// 已 FAILED 时返回原始失败，调用方不得把它当作成功。
+// beginDrain 把会话从 RUNNING 切到 DRAINING；重复调用无副作用。
+// 已 FAILED 时返回原始失败，调用方不能当作成功。
 func (s *Session) beginDrain() error {
 	_, err := s.beginDrainOwned()
 	return err
 }
 
-// beginDrainOwned 切换排空状态，并报告本次调用是否真正完成了 RUNNING → DRAINING。
-// 只有赢得切换的调用方才能执行首次收尾；FAILED 之后的续跑由 finish/resumeFinish 处理。
+// beginDrainOwned 切换状态，并报告本次调用是否真正完成了 RUNNING → DRAINING。
+// 只有完成切换的调用方才能执行第一次结束流程；FAILED 的后续处理由 finish/resumeFinish 负责。
 func (s *Session) beginDrainOwned() (bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -297,7 +422,7 @@ func (s *Session) beginDrainOwned() (bool, error) {
 	}
 }
 
-// markDrained 由排空完成回调调用；只允许 DRAINING → DRAINED。
+// markDrained 由上传完成回调调用；只允许 DRAINING → DRAINED。
 func (s *Session) markDrained() bool {
 	if !s.state.CompareAndSwap(int32(RunStateDraining), int32(RunStateDrained)) {
 		return false
@@ -307,7 +432,7 @@ func (s *Session) markDrained() bool {
 	return true
 }
 
-// markRecovered 在 Confirm 重试收尾成功后把 FAILED 拉回 DRAINED。
+// markRecovered 在 Confirm 重试成功后把 FAILED 恢复为 DRAINED。
 func (s *Session) markRecovered() bool {
 	if !s.state.CompareAndSwap(int32(RunStateFailed), int32(RunStateDrained)) {
 		return false
@@ -317,15 +442,15 @@ func (s *Session) markRecovered() bool {
 	return true
 }
 
-// setTrackerFinished 让进度轮询在终态停止等待；FAILED 也要置位。
+// setTrackerFinished 让进度轮询在终态停止等待；FAILED 也要设置。
 func (s *Session) setTrackerFinished() {
 	if s.tracker != nil {
 		s.tracker.SetState(operationv1.CoreState_CORE_STATE_FINISHED)
 	}
 }
 
-// fail 记录收尾失败并把会话置为 FAILED；DRAINING 与 FAILED 都允许更新失败原因，
-// 便于 Confirm 重试再次失败时返回最新的错误文案。
+// fail 记录结束失败并把会话置为 FAILED；DRAINING 和 FAILED 都允许更新原因，
+// 便于 Confirm 再次失败时返回最新信息。
 func (s *Session) fail(err error) {
 	if err == nil {
 		err = ErrRunFailed
@@ -344,7 +469,7 @@ func (s *Session) fail(err error) {
 	}
 }
 
-// failure 返回收尾失败信息。
+// failure 返回结束失败信息。
 func (s *Session) failure() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -358,7 +483,7 @@ func (s *Session) failureLocked() error {
 	if errors.Is(s.finishErr, ErrRunFailed) {
 		return s.finishErr
 	}
-	// 保留原始原因，同时让调用方可以稳定地用 ErrRunFailed 判断“收尾失败”。
+	// 保留原始原因，同时让调用方可以用 ErrRunFailed 判断“结束失败”。
 	return fmt.Errorf("%w: %w", ErrRunFailed, s.finishErr)
 }
 
@@ -367,8 +492,8 @@ func (s *Session) stateSnapshot() RunState {
 	return RunState(s.state.Load())
 }
 
-// waitDrained 在锁外等待会话排空，返回 nil 表示可以进入释放阶段。
-// FAILED 也返回 nil：Confirm 会在 confirmMu 内重跑被中断的收尾步骤。
+// waitDrained 在锁外等待会话完成上传，返回 nil 表示可以进入释放阶段。
+// FAILED 也返回 nil：Confirm 会在 confirmMu 内重新执行被中断的结束步骤。
 func (s *Session) waitDrained(ctx context.Context) error {
 	switch RunState(s.state.Load()) {
 	case RunStateRunning:
@@ -382,7 +507,7 @@ func (s *Session) waitDrained(ctx context.Context) error {
 		return nil
 	}
 
-	// drainFn 在收尾失败后不会返回（intake 未关，uploader 无法排空），
+	// 结束失败后 drainFn 不会返回（intake 未关闭，上传器无法完成），
 	// 因此在独立协程中等待，让 FAILED 能提前唤醒调用方；提前返回时取消子 ctx。
 	waitCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -391,7 +516,7 @@ func (s *Session) waitDrained(ctx context.Context) error {
 
 	select {
 	case err := <-drained:
-		// Wait 返回 nil 时 DRAINED 已置位：OnDrained 先于 Done 关闭执行。
+		// Wait 返回 nil 时 DRAINED 已设置：OnDrained 先于 Done 关闭执行。
 		if err == nil {
 			return nil
 		}
@@ -406,7 +531,7 @@ func (s *Session) waitDrained(ctx context.Context) error {
 	case <-s.drained:
 		return nil
 	case <-s.failed:
-		// 与上面一致：把重跑机会留给 Confirm。
+		// 与上面一致：把重新执行的机会留给 Confirm。
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
@@ -419,13 +544,28 @@ func (s *Session) snapshot() *operationv1.OperationStats {
 	if s.tracker != nil {
 		stats = s.tracker.Snapshot()
 	}
-	if s.uploader == nil && s.intake == nil && s.budget == nil {
+	cloudState, cloudPath, cloudErr := s.cloudStatus()
+	if cloudState != operationv1.CloudState_CLOUD_STATE_UNSPECIFIED {
+		errText := ""
+		if cloudErr != nil {
+			errText = cloudErr.Error()
+		}
+		stats.Cloud = &operationv1.CloudStatus{
+			State: cloudState,
+			Path:  cloudPath,
+			Error: errText,
+		}
+	}
+	up := s.uploader()
+	if up == nil && s.intake == nil && s.budget == nil {
 		return stats
 	}
 	upload := &operationv1.UploadStatus{}
-	if s.uploader != nil {
-		upload.PendingRecords = int64(s.uploader.Stats().Pending)
-		upload.Paused = s.uploader.Suspended()
+	if up != nil {
+		upload.PendingRecords = int64(up.Stats().Pending)
+		upload.Suspended = up.Suspended()
+		upload.Paused = upload.Suspended
+		upload.Retrying = up.InFailure()
 	}
 	if s.intake != nil {
 		if paused, seq := s.intake.PauseState(); paused {

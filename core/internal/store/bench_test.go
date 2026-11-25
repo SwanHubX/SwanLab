@@ -193,7 +193,7 @@ func BenchmarkStoreAsync(b *testing.B) {
 				for n := 0; n < benchRecords; n++ {
 					payload := make([]byte, benchPayloadSize)
 					copy(payload, template)
-					req := Request{StoreSeq: uint64(n + 1), Payload: payload}
+					req := Request{StoreSeq: int64(n + 1), Payload: payload}
 					select {
 					case aw.In() <- req:
 					default:

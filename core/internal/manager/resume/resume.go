@@ -90,8 +90,8 @@ func ValidateStart(local *metrics.RebuildResult, target StartIdentity) error {
 
 // ResolveCheckpoint 读取并校验断点文件是否与当前可信本地副本中对应的记录偏移一致；
 // 缺失、损坏或不匹配时回退到文件头 (0, HeaderLen)。
-func ResolveCheckpoint(checkpointFile, runID, runFile string, local *metrics.RebuildResult) (uint64, int64) {
-	fallback := func() (uint64, int64) {
+func ResolveCheckpoint(checkpointFile, runID, runFile string, local *metrics.RebuildResult) (int64, int64) {
+	fallback := func() (int64, int64) {
 		return 0, store.HeaderLen
 	}
 	if local == nil || checkpointFile == "" {
@@ -173,7 +173,7 @@ func OpenStore(opts StoreOptions) (OpenedStore, error) {
 	var (
 		writer    *store.Writer
 		created   bool
-		resumeSeq uint64
+		resumeSeq int64
 	)
 	if opts.Resume != nil {
 		resumeSeq = opts.Resume.Records
@@ -222,9 +222,9 @@ type ProgressOptions struct {
 // OnlineProgress 返回在线进度追踪器及续传重放区间起点；非在线或无本地 store 时返回零值结构。
 type OnlineProgress struct {
 	Tracker           *progress.Tracker
-	ReplayFrom        uint64
+	ReplayFrom        int64
 	ReplayStartOffset int64
-	CheckpointSeq     uint64
+	CheckpointSeq     int64
 }
 
 // InitOnlineProgress 在在线且开启本地 store 时初始化断点水位与待重放范围。
@@ -233,7 +233,7 @@ func InitOnlineProgress(opts ProgressOptions) OnlineProgress {
 	if !opts.HasStore || opts.Mode != config.ModeOnline {
 		return out
 	}
-	var baseSeq uint64
+	var baseSeq int64
 	if opts.Resume != nil {
 		baseSeq, out.ReplayStartOffset = ResolveCheckpoint(
 			opts.CheckpointFile, opts.RunID, opts.RunFile, opts.Resume,

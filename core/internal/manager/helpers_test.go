@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -49,6 +50,24 @@ func installBare(t *testing.T, m *Manager, opts sessionOptions) string {
 		t.Fatalf("install session: %v", err)
 	}
 	return handle
+}
+
+func setSessionUploader(s *Session, up *uploader.Uploader) {
+	var next cloudResources
+	if cur := s.cloud.Load(); cur != nil {
+		next = *cur
+	}
+	next.uploader = up
+	s.setCloudResources(&next)
+}
+
+func setSessionReleaseFn(s *Session, fn func(context.Context) error) {
+	var next cloudResources
+	if cur := s.cloud.Load(); cur != nil {
+		next = *cur
+	}
+	next.releaseFn = fn
+	s.setCloudResources(&next)
 }
 
 func serveAuth(cloud *clienttest.Cloud) {
@@ -255,6 +274,8 @@ type finishHarness struct {
 	runFile       string
 	writer        *store.Writer
 	uploads       *collectingSender
+	confirmed     *atomic.Int64
+	confirmNotify chan struct{}
 	gate          chan struct{}
 	uploadEntered chan struct{}
 }
@@ -315,10 +336,10 @@ func newFinishHarness(t *testing.T, opts finishOptions) *finishHarness {
 
 	b := budget.New(budget.Limits{Records: opts.budgetRecords})
 	var storeIn chan<- store.Request
-	var flushed func() uint64
+	var flushed func() int64
 	if async != nil {
 		storeIn = async.In()
-		flushed = func() uint64 {
+		flushed = func() int64 {
 			seq, _ := async.Flushed()
 			return seq
 		}
@@ -332,7 +353,7 @@ func newFinishHarness(t *testing.T, opts finishOptions) *finishHarness {
 		Flushed:     flushed,
 		IsSuspended: s.shouldSuspendUploads,
 		OnAdmit:     s.tracker.AddTotalRecords,
-		OnPause:     func(uint64) { s.backfill.Wake() },
+		OnPause:     func(int64) { s.backfill.Wake() },
 		QueueWait:   opts.queueWait,
 	})
 	if err != nil {
@@ -340,6 +361,8 @@ func newFinishHarness(t *testing.T, opts finishOptions) *finishHarness {
 	}
 
 	uploads := &collectingSender{notify: make(chan struct{}, 1)}
+	confirmed := &atomic.Int64{}
+	confirmNotify := make(chan struct{}, 1)
 	var gate chan struct{}
 	var entered chan struct{}
 	var up *uploader.Uploader
@@ -368,6 +391,13 @@ func newFinishHarness(t *testing.T, opts finishOptions) *finishHarness {
 			OnDrained: func() {
 				s.markDrained()
 			},
+			OnConfirm: func(records []*recordv1.Record) {
+				confirmed.Add(int64(len(records)))
+				select {
+				case confirmNotify <- struct{}{}:
+				default:
+				}
+			},
 		})
 		if err != nil {
 			t.Fatalf("uploader.New: %v", err)
@@ -376,7 +406,7 @@ func newFinishHarness(t *testing.T, opts finishOptions) *finishHarness {
 
 	s.store = async
 	s.intake = intake
-	s.uploader = up
+	setSessionUploader(s, up)
 	if up != nil {
 		s.drainFn = up.Wait
 	} else {
@@ -434,6 +464,6 @@ func newFinishHarness(t *testing.T, opts finishOptions) *finishHarness {
 	})
 	return &finishHarness{
 		mgr: mgr, id: id, session: s, runFile: runFile, writer: writer,
-		uploads: uploads, gate: gate, uploadEntered: entered,
+		uploads: uploads, confirmed: confirmed, confirmNotify: confirmNotify, gate: gate, uploadEntered: entered,
 	}
 }

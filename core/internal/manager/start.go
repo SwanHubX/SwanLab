@@ -25,6 +25,151 @@ import (
 	savev1 "github.com/swanhubx/swanlab/core/proto/swanlab/save/v1"
 )
 
+type cloudBootstrap struct {
+	apiHost    string
+	http       *client.Client
+	api        *api.Client
+	workspace  string
+	project    string
+	projectID  string
+	projectVer int32
+	experiment *api.Experiment
+	path       string
+	name       string
+	color      string
+	isNew      bool
+	healthOpts health.SiteOptions
+	resumeRes  *metrics.ResumeResult
+}
+
+func buildHealthOpts(
+	cfg config.Settings,
+	serverProbe, houseProbe health.ProbeFunc,
+	serverDegraded, houseDegraded bool,
+) health.SiteOptions {
+	// 0 值节奏与阈值由 health 补默认。
+	return health.SiteOptions{
+		Key:                   probe.SiteKey(cfg.APIHost, cfg.APIKey),
+		Interval:              probe.SecondsDuration(cfg.HealthProbeInterval),
+		Timeout:               probe.SecondsDuration(cfg.HealthProbeTimeout),
+		DegradeThreshold:      int(cfg.HealthDegradeThreshold),
+		RecoverThreshold:      int(cfg.HealthRecoverThreshold),
+		Server:                serverProbe,
+		House:                 houseProbe,
+		InitialServerDegraded: serverDegraded,
+		InitialHouseDegraded:  houseDegraded,
+	}
+}
+
+// requireProjectMetadata 校验启动/接入阶段拿到的项目信息完整性；缺失时返回 ErrInvalidResponse。
+func requireProjectMetadata(workspace, project, cuid, path string) error {
+	if workspace != "" && project != "" && cuid != "" && path != "" {
+		return nil
+	}
+	return fmt.Errorf(
+		"%w: incomplete project metadata (workspace=%q project=%q cuid=%q path=%q)",
+		client.ErrInvalidResponse, workspace, project, cuid, path)
+}
+
+func (m *Manager) bootstrapCloud(
+	ctx context.Context,
+	cfg config.Settings,
+	rec *runv1.StartRecord,
+	resumeMode api.ResumeMode,
+	local *metrics.RebuildResult,
+) (*cloudBootstrap, error) {
+	normalizedHost, err := client.NormalizeHost(cfg.APIHost)
+	if err != nil {
+		return nil, fmt.Errorf("start: authenticate: %w", err)
+	}
+	cfg.APIHost = normalizedHost
+
+	// 预检与认证客户端使用相同的规范化 host；server 不可达时不再探测 house。
+	serverProbe := probe.Site(cfg.APIHost, probe.ServerPath)
+	houseProbe := probe.Site(cfg.APIHost, probe.HousePath)
+	serverOK, houseOK := probe.Startup(ctx, serverProbe, houseProbe)
+	if !serverOK {
+		return nil, fmt.Errorf("%w: %s", ErrServerUnreachable, probe.URL(cfg.APIHost, probe.ServerPath))
+	}
+	healthOpts := buildHealthOpts(cfg, serverProbe, houseProbe, false, !houseOK)
+
+	httpClient, err := m.factory.Client(ctx, cfg.APIHost, cfg.APIKey)
+	if err != nil {
+		return nil, fmt.Errorf("start: authenticate: %w", err)
+	}
+	apiClient := api.New(httpClient)
+
+	project, err := apiClient.GetOrCreateProject(ctx, rec.GetWorkspace(), rec.GetProject(), rec.GetPublic())
+	if err != nil {
+		return nil, fmt.Errorf("start: get project %q: %w", rec.GetProject(), err)
+	}
+	// 与 Python 一致：项目查询使用 record.workspace，后续实验 owner 以项目所属组为准。
+	workspace := firstNonEmpty(project.Group.Username, rec.GetWorkspace(), apiClient.Username())
+	projectName := firstNonEmpty(project.Name, rec.GetProject())
+	if err = requireProjectMetadata(workspace, projectName, project.CUID, project.Path); err != nil {
+		return nil, err
+	}
+	if err = resume.ValidateStart(local, resume.StartIdentity{
+		RunID:               firstNonEmpty(rec.GetId(), cfg.RunID),
+		Workspace:           workspace,
+		Project:             projectName,
+		AllowEmptyWorkspace: true,
+	}); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrInvalidStartRecord, err)
+	}
+
+	name := rec.GetName()
+	color := rec.GetColor()
+	if name == "" {
+		name = builder.GenerateName(project.Count.Experiments)
+	}
+	if color == "" {
+		color = builder.GenerateColor(project.Count.Experiments)
+	}
+
+	experiment, isNew, err := apiClient.CreateOrResumeExperiment(ctx, api.CreateExperimentParams{
+		Username:    workspace,
+		Project:     projectName,
+		Name:        name,
+		Description: rec.GetDescription(),
+		Color:       color,
+		JobType:     rec.GetJobType(),
+		Group:       rec.GetGroup(),
+		Tags:        rec.GetTags(),
+		RunID:       firstNonEmpty(rec.GetId(), cfg.RunID),
+		Resume:      resumeMode,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("start: create or resume experiment: %w", err)
+	}
+	if experiment.CUID == "" || experiment.Name == "" {
+		return nil, fmt.Errorf("%w: incomplete experiment metadata (cuid=%q name=%q)",
+			client.ErrInvalidResponse, experiment.CUID, experiment.Name)
+	}
+
+	resumeRes, err := restoreMetrics(ctx, apiClient, project.CUID, experiment, resumeMode, isNew, local)
+	if err != nil {
+		return nil, err
+	}
+
+	return &cloudBootstrap{
+		apiHost:    normalizedHost,
+		http:       httpClient,
+		api:        apiClient,
+		workspace:  workspace,
+		project:    projectName,
+		projectID:  project.CUID,
+		projectVer: int32(project.Version),
+		experiment: experiment,
+		path:       project.Path + "/" + firstNonEmpty(experiment.Slug, experiment.CUID),
+		name:       name,
+		color:      color,
+		isNew:      isNew,
+		healthOpts: healthOpts,
+		resumeRes:  resumeRes,
+	}, nil
+}
+
 // DeliverRunStart 完成云端项目/实验编排，装配会话资源并投递 StartRecord。
 //
 // 任一阶段失败都会回滚已创建的资源（包括本次排他创建的 run-*.swanlab），
@@ -58,99 +203,22 @@ func (m *Manager) DeliverRunStart(
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrInvalidStartRecord, err)
 	}
-	normalizedHost, err := client.NormalizeHost(cfg.APIHost)
-	if err != nil {
-		return nil, fmt.Errorf("start: authenticate: %w", err)
+	if cfg.RecoverOnline {
+		return m.deliverRecoverStart(ctx, cfg, rec, run, resumeMode, local)
 	}
-	cfg.APIHost = normalizedHost
-
-	// 预检与认证客户端使用相同的规范化 host；server 不可达时不再探测 house。
-	serverProbe := probe.Site(cfg.APIHost, probe.ServerPath)
-	houseProbe := probe.Site(cfg.APIHost, probe.HousePath)
-	serverOK, houseOK := probe.Startup(ctx, serverProbe, houseProbe)
-	if !serverOK {
-		return nil, fmt.Errorf("%w: %s", ErrServerUnreachable, probe.URL(cfg.APIHost, probe.ServerPath))
-	}
-	// 0 值节奏与阈值由 health 补默认。
-	healthOpts := health.SiteOptions{
-		Key:                  probe.SiteKey(cfg.APIHost, cfg.APIKey),
-		Interval:             probe.SecondsDuration(cfg.HealthProbeInterval),
-		Timeout:              probe.SecondsDuration(cfg.HealthProbeTimeout),
-		DegradeThreshold:     int(cfg.HealthDegradeThreshold),
-		RecoverThreshold:     int(cfg.HealthRecoverThreshold),
-		Server:               serverProbe,
-		House:                houseProbe,
-		InitialHouseDegraded: !houseOK,
-	}
-
-	httpClient, err := m.factory.Client(ctx, cfg.APIHost, cfg.APIKey)
-	if err != nil {
-		return nil, fmt.Errorf("start: authenticate: %w", err)
-	}
-	apiClient := api.New(httpClient)
-
-	project, err := apiClient.GetOrCreateProject(ctx, rec.GetWorkspace(), rec.GetProject(), rec.GetPublic())
-	if err != nil {
-		return nil, fmt.Errorf("start: get project %q: %w", rec.GetProject(), err)
-	}
-	// 与 Python 一致：项目查询使用 record.workspace，后续实验 owner 以项目所属组为准。
-	workspace := firstNonEmpty(project.Group.Username, rec.GetWorkspace(), apiClient.Username())
-	projectName := firstNonEmpty(project.Name, rec.GetProject())
-	if workspace == "" || projectName == "" || project.CUID == "" || project.Path == "" {
-		return nil, fmt.Errorf(
-			"%w: incomplete project metadata (workspace=%q project=%q cuid=%q path=%q)",
-			client.ErrInvalidResponse, workspace, projectName, project.CUID, project.Path)
-	}
-	if err = resume.ValidateStart(local, resume.StartIdentity{
-		RunID:               firstNonEmpty(rec.GetId(), cfg.RunID),
-		Workspace:           workspace,
-		Project:             projectName,
-		AllowEmptyWorkspace: true,
-	}); err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrInvalidStartRecord, err)
-	}
-
-	name := rec.GetName()
-	if name == "" {
-		name = builder.GenerateName(project.Count.Experiments)
-	}
-	color := rec.GetColor()
-	if color == "" {
-		color = builder.GenerateColor(project.Count.Experiments)
-	}
-
-	experiment, isNew, err := apiClient.CreateOrResumeExperiment(ctx, api.CreateExperimentParams{
-		Username:    workspace,
-		Project:     projectName,
-		Name:        name,
-		Description: rec.GetDescription(),
-		Color:       color,
-		JobType:     rec.GetJobType(),
-		Group:       rec.GetGroup(),
-		Tags:        rec.GetTags(),
-		RunID:       rec.GetId(),
-		Resume:      resumeMode,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("start: create or resume experiment: %w", err)
-	}
-	if experiment.CUID == "" || experiment.Name == "" {
-		return nil, fmt.Errorf("%w: incomplete experiment metadata (cuid=%q name=%q)",
-			client.ErrInvalidResponse, experiment.CUID, experiment.Name)
-	}
-
-	run.SetOnlineParams(runctx.OnlineParams{
-		Username:       workspace,
-		Project:        projectName,
-		ProjectID:      project.CUID,
-		ProjectVersion: int32(project.Version),
-		ExperimentID:   experiment.CUID,
-	})
-
-	resume, err := restoreMetrics(ctx, apiClient, project.CUID, experiment, resumeMode, isNew, local)
+	boot, err := m.bootstrapCloud(ctx, cfg, rec, resumeMode, local)
 	if err != nil {
 		return nil, err
 	}
+	cfg.APIHost = boot.apiHost
+
+	run.SetOnlineParams(runctx.OnlineParams{
+		Username:       boot.workspace,
+		Project:        boot.project,
+		ProjectID:      boot.projectID,
+		ProjectVersion: boot.projectVer,
+		ExperimentID:   boot.experiment.CUID,
+	})
 
 	var startCounter int64
 	if local != nil {
@@ -160,21 +228,21 @@ func (m *Manager) DeliverRunStart(
 	s.ctx, s.cancel = context.WithCancel(context.Background())
 	s.cfg = cfg
 	s.run = run
-	s.metrics = resume.Metrics
+	s.metrics = boot.resumeRes.Metrics
 	s.counter = counter.New(startCounter)
-	s.epoch = counter.New(resume.ConsoleEpoch)
+	s.epoch = counter.New(boot.resumeRes.ConsoleEpoch)
 
 	if err = s.open(sessionInit{
 		cfg:          cfg,
 		run:          run,
-		http:         httpClient,
-		api:          apiClient,
-		workspace:    workspace,
-		project:      projectName,
-		projectID:    project.CUID,
-		experimentID: experiment.CUID,
+		http:         boot.http,
+		api:          boot.api,
+		workspace:    boot.workspace,
+		project:      boot.project,
+		projectID:    boot.projectID,
+		experimentID: boot.experiment.CUID,
 		healthReg:    m.healthReg,
-		healthOpts:   healthOpts,
+		healthOpts:   boot.healthOpts,
 		resume:       local,
 	}); err != nil {
 		s.rollback()
@@ -182,31 +250,146 @@ func (m *Manager) DeliverRunStart(
 	}
 
 	start := proto.Clone(rec).(*runv1.StartRecord)
-	start.Name = name
-	start.Color = color
-	start.Workspace = workspace
-	start.Project = projectName
-	if local == nil || local.Start == nil {
-		if err = s.commitStart(ctx, start); err != nil {
-			s.rollback()
-			return nil, err
-		}
-	}
-
-	sessionID, err := m.install(s)
+	start.Name = boot.name
+	start.Color = boot.color
+	start.Workspace = boot.workspace
+	start.Project = boot.project
+	sessionID, err := m.commitStartAndInstall(ctx, s, start, local)
 	if err != nil {
-		s.rollback()
 		return nil, err
 	}
 
 	return &StartResult{
 		SessionID:        sessionID,
 		Run:              start,
-		Path:             project.Path + "/" + firstNonEmpty(experiment.Slug, experiment.CUID),
-		Name:             experiment.Name,
-		GlobalStep:       resume.GlobalStep,
-		GlobalSystemStep: resume.GlobalSystemStep,
-		NewExperiment:    isNew,
+		Path:             boot.path,
+		Name:             boot.experiment.Name,
+		GlobalStep:       boot.resumeRes.GlobalStep,
+		GlobalSystemStep: boot.resumeRes.GlobalSystemStep,
+		NewExperiment:    boot.isNew,
+	}, nil
+}
+
+// commitStartAndInstall 在需要时提交 StartRecord 并注册会话；任一步失败都回滚。
+func (m *Manager) commitStartAndInstall(
+	ctx context.Context,
+	s *Session,
+	start *runv1.StartRecord,
+	local *metrics.RebuildResult,
+) (string, error) {
+	if local == nil || local.Start == nil {
+		if err := s.commitStart(ctx, start); err != nil {
+			s.rollback()
+			return "", err
+		}
+	}
+	sessionID, err := m.install(s)
+	if err != nil {
+		s.rollback()
+		return "", err
+	}
+	return sessionID, nil
+}
+
+// newRunSession 装配在线会话共用的上下文、指标与编号状态。
+func newRunSession(cfg config.Settings, run *runctx.RunContext, local *metrics.RebuildResult) (*Session, int64, int64, bool) {
+	s := newSession(sessionOptions{})
+	s.ctx, s.cancel = context.WithCancel(context.Background())
+	s.cfg = cfg
+	s.run = run
+	globalStep, globalSystemStep := int64(-1), int64(-1)
+	newExperiment := true
+	if local != nil {
+		s.metrics = local.Metrics
+		s.counter = counter.New(local.Counter)
+		s.epoch = counter.New(local.Epoch)
+		globalStep = local.GlobalStep
+		globalSystemStep = local.GlobalSystemStep
+		newExperiment = false
+	} else {
+		s.metrics = metrics.New()
+		s.counter = counter.New(0)
+		s.epoch = counter.New(0)
+	}
+	return s, globalStep, globalSystemStep, newExperiment
+}
+
+// deliverRecoverStart 在云端暂不可用时先装配本地在线会话，并启动后台异步接入任务。
+func (m *Manager) deliverRecoverStart(
+	ctx context.Context,
+	cfg config.Settings,
+	rec *runv1.StartRecord,
+	run *runctx.RunContext,
+	resumeMode api.ResumeMode,
+	local *metrics.RebuildResult,
+) (*StartResult, error) {
+	if resumeMode != api.ResumeNever && (local == nil || local.Records == 0) {
+		return nil, fmt.Errorf("%w: recover_online with resume=%s requires an existing local run file",
+			ErrInvalidStartRecord, resumeMode)
+	}
+	if err := resume.ValidateStart(local, resume.StartIdentity{
+		RunID:               firstNonEmpty(rec.GetId(), cfg.RunID),
+		Workspace:           rec.GetWorkspace(),
+		Project:             rec.GetProject(),
+		AllowEmptyWorkspace: true,
+	}); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrInvalidStartRecord, err)
+	}
+	normalizedHost, err := client.NormalizeHost(cfg.APIHost)
+	if err != nil {
+		return nil, fmt.Errorf("start: authenticate: %w", err)
+	}
+	cfg.APIHost = normalizedHost
+
+	serverProbe := probe.Site(cfg.APIHost, probe.ServerPath)
+	houseProbe := probe.Site(cfg.APIHost, probe.HousePath)
+	serverOK, houseOK := probe.Startup(ctx, serverProbe, houseProbe)
+	healthOpts := buildHealthOpts(cfg, serverProbe, houseProbe, !serverOK, serverOK && !houseOK)
+
+	s, globalStep, globalSystemStep, newExperiment := newRunSession(cfg, run, local)
+	s.initDeferredAttach()
+
+	if err = s.open(sessionInit{
+		cfg:        cfg,
+		run:        run,
+		healthReg:  m.healthReg,
+		healthOpts: healthOpts,
+		resume:     local,
+	}); err != nil {
+		s.rollback()
+		return nil, fmt.Errorf("start: assemble recover session: %w", err)
+	}
+
+	start := proto.Clone(rec).(*runv1.StartRecord)
+	if local != nil && local.Start != nil {
+		// 本地已有未完成的 StartRecord 时优先使用它的名称和颜色，保证恢复前后一致。
+		if local.Start.GetName() != "" {
+			start.Name = local.Start.GetName()
+		}
+		if local.Start.GetColor() != "" {
+			start.Color = local.Start.GetColor()
+		}
+	}
+	// 会话是否注册成功只能在 install 中确认。如果先启动连接任务，install 失败后
+	// 后台可能已经创建了云端实验，而 rollback 无法结束它。因此 install 成功后再启动。
+	sessionID, err := m.commitStartAndInstall(ctx, s, start, local)
+	if err != nil {
+		return nil, err
+	}
+	s.startAttach(attachParams{
+		factory:    m.factory,
+		start:      proto.Clone(start).(*runv1.StartRecord),
+		resumeMode: resumeMode,
+		timing:     m.attachTiming,
+	})
+
+	return &StartResult{
+		SessionID:        sessionID,
+		Run:              start,
+		Name:             start.GetName(),
+		GlobalStep:       globalStep,
+		GlobalSystemStep: globalSystemStep,
+		NewExperiment:    newExperiment,
 	}, nil
 }
 
@@ -226,24 +409,7 @@ func (m *Manager) deliverLocalStart(
 	}); err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrInvalidStartRecord, err)
 	}
-	s := newSession(sessionOptions{})
-	s.ctx, s.cancel = context.WithCancel(context.Background())
-	s.cfg = cfg
-	s.run = run
-	globalStep, globalSystemStep := int64(-1), int64(-1)
-	newExperiment := true
-	if local != nil {
-		s.metrics = local.Metrics
-		s.counter = counter.New(local.Counter)
-		s.epoch = counter.New(local.Epoch)
-		globalStep = local.GlobalStep
-		globalSystemStep = local.GlobalSystemStep
-		newExperiment = false
-	} else {
-		s.metrics = metrics.New()
-		s.counter = counter.New(0)
-		s.epoch = counter.New(0)
-	}
+	s, globalStep, globalSystemStep, newExperiment := newRunSession(cfg, run, local)
 
 	if err := s.open(sessionInit{cfg: cfg, run: run, resume: local}); err != nil {
 		s.rollback()
@@ -251,15 +417,8 @@ func (m *Manager) deliverLocalStart(
 	}
 
 	start := proto.Clone(rec).(*runv1.StartRecord)
-	if local == nil || local.Start == nil {
-		if err := s.commitStart(ctx, start); err != nil {
-			s.rollback()
-			return nil, err
-		}
-	}
-	sessionID, err := m.install(s)
+	sessionID, err := m.commitStartAndInstall(ctx, s, start, local)
 	if err != nil {
-		s.rollback()
 		return nil, err
 	}
 	return &StartResult{

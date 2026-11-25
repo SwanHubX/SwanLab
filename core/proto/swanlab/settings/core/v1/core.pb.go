@@ -108,8 +108,11 @@ type CoreSettings struct {
 	// Consecutive failures / successes required to flip the health state; 0 uses the core default.
 	HealthDegradeThreshold int32 `protobuf:"varint,19,opt,name=health_degrade_threshold,json=healthDegradeThreshold,proto3" json:"health_degrade_threshold,omitempty"`
 	HealthRecoverThreshold int32 `protobuf:"varint,20,opt,name=health_recover_threshold,json=healthRecoverThreshold,proto3" json:"health_recover_threshold,omitempty"`
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
+	// Internal flag: defer cloud experiment creation and recover upload after transient init outage.
+	// Only valid when mode is ONLINE and skip_store is false.
+	RecoverOnline bool `protobuf:"varint,21,opt,name=recover_online,json=recoverOnline,proto3" json:"recover_online,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CoreSettings) Reset() {
@@ -282,11 +285,18 @@ func (x *CoreSettings) GetHealthRecoverThreshold() int32 {
 	return 0
 }
 
+func (x *CoreSettings) GetRecoverOnline() bool {
+	if x != nil {
+		return x.RecoverOnline
+	}
+	return false
+}
+
 var File_swanlab_settings_core_v1_core_proto protoreflect.FileDescriptor
 
 const file_swanlab_settings_core_v1_core_proto_rawDesc = "" +
 	"\n" +
-	"#swanlab/settings/core/v1/core.proto\x12\x18swanlab.settings.core.v1\"\x89\x06\n" +
+	"#swanlab/settings/core/v1/core.proto\x12\x18swanlab.settings.core.v1\"\xb0\x06\n" +
 	"\fCoreSettings\x12\x15\n" +
 	"\x06run_id\x18\x01 \x01(\tR\x05runId\x12\x17\n" +
 	"\arun_dir\x18\x02 \x01(\tR\x06runDir\x12!\n" +
@@ -311,7 +321,8 @@ const file_swanlab_settings_core_v1_core_proto_rawDesc = "" +
 	"\x15health_probe_interval\x18\x11 \x01(\x01R\x13healthProbeInterval\x120\n" +
 	"\x14health_probe_timeout\x18\x12 \x01(\x01R\x12healthProbeTimeout\x128\n" +
 	"\x18health_degrade_threshold\x18\x13 \x01(\x05R\x16healthDegradeThreshold\x128\n" +
-	"\x18health_recover_threshold\x18\x14 \x01(\x05R\x16healthRecoverThreshold*\x7f\n" +
+	"\x18health_recover_threshold\x18\x14 \x01(\x05R\x16healthRecoverThreshold\x12%\n" +
+	"\x0erecover_online\x18\x15 \x01(\bR\rrecoverOnline*\x7f\n" +
 	"\bCoreMode\x12\x19\n" +
 	"\x15CORE_MODE_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10CORE_MODE_ONLINE\x10\x01\x12\x13\n" +

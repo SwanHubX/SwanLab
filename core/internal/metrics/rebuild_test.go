@@ -132,7 +132,7 @@ func TestRebuildFullState(t *testing.T) {
 		t.Fatalf("Rebuild: %v", err)
 	}
 
-	if res.Records != uint64(len(recs)) || res.EndOffset != ends[len(ends)-1] {
+	if res.Records != int64(len(recs)) || res.EndOffset != ends[len(ends)-1] {
 		t.Fatalf("records/offset = (%d, %d), want (%d, %d)",
 			res.Records, res.EndOffset, len(recs), ends[len(ends)-1])
 	}

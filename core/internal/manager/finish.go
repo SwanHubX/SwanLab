@@ -69,7 +69,7 @@ func (s *Session) finish(ctx context.Context, rec *runv1.FinishRecord) error {
 		s.fail(err)
 		return s.failure()
 	}
-	if s.uploader != nil && s.stateSnapshot() == RunStateDraining {
+	if s.cfg.NormalizedMode() == config.ModeOnline && s.stateSnapshot() == RunStateDraining {
 		s.startOnlineDrain()
 	}
 	return nil
@@ -137,7 +137,7 @@ func (s *Session) deliverLocalFinish(ctx context.Context) error {
 		return fmt.Errorf("%w: local copy is incomplete", ErrRunFailed)
 	}
 
-	if s.uploader == nil {
+	if s.cfg.NormalizedMode() != config.ModeOnline {
 		s.recovery.Stop()
 		if err := s.closeIntake(ctx); err != nil {
 			return err
@@ -153,9 +153,19 @@ func isContextErr(err error) bool {
 	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
 }
 
-// completeOnlineFinish 完成积压补传、崩溃日志入队与关闭 intake；需持有 finishMu。
+// completeOnlineFinish 完成等待云端接入、积压补传、崩溃日志入队与关闭 intake；需持有 finishMu。
 func (s *Session) completeOnlineFinish(ctx context.Context) error {
-	if s.uploader == nil || s.uploadDrainPrepared {
+	if s.cfg.NormalizedMode() != config.ModeOnline || s.uploadDrainPrepared {
+		return nil
+	}
+	if err := s.waitAttach(ctx); err != nil {
+		if isContextErr(err) {
+			return err
+		}
+		s.recovery.Stop()
+		return fmt.Errorf("%w: %w", ErrRunFailed, err)
+	}
+	if s.uploader() == nil {
 		return nil
 	}
 	// 本地记录已在 DeliverRunFinish 全部刷盘，补完暂停区间后才能关闭 intake。
@@ -184,12 +194,34 @@ func (s *Session) runOnlineDrain(ctx context.Context) {
 	if s.shutdownCtx != nil && s.shutdownCtx.Err() != nil {
 		return
 	}
-	if s.stateSnapshot() != RunStateDraining || !s.finishCommitted || s.uploader == nil || s.uploadDrainPrepared {
+	if s.stateSnapshot() != RunStateDraining || !s.finishCommitted || s.cfg.NormalizedMode() != config.ModeOnline || s.uploadDrainPrepared {
 		return
 	}
 	if err := s.completeOnlineFinish(ctx); err != nil && !isContextErr(err) {
 		s.fail(err)
 	}
+}
+
+// cleanupUnattached 释放从未接入云端且永久失败的会话内部组件，确保无后台协程残留。
+func (s *Session) cleanupUnattached(ctx context.Context) error {
+	s.finishMu.Lock()
+	defer s.finishMu.Unlock()
+
+	if !s.finishCommitted {
+		if err := s.deliverLocalFinish(ctx); err != nil {
+			return err
+		}
+	}
+	s.recovery.Stop()
+	s.backfill.Stop()
+	s.checkpoint.Stop()
+	s.checkpoint.Flush()
+	if s.intake != nil {
+		closeCtx, cancel := context.WithTimeout(context.Background(), rollbackTimeout)
+		_ = s.closeIntake(closeCtx)
+		cancel()
+	}
+	return nil
 }
 
 // commitFinish 把 FinishRecord 写入本地副本；失败时保留 finishCommitted=false，
@@ -286,8 +318,8 @@ func (s *Session) closeIntake(ctx context.Context) error {
 		}
 		return fmt.Errorf("%w: close intake: %w", ErrRunFailed, err)
 	}
-	if s.uploader != nil {
-		s.uploader.RequestFinish()
+	if up := s.uploader(); up != nil {
+		up.RequestFinish()
 	}
 	return nil
 }
@@ -326,8 +358,8 @@ func (s *Session) resumeFinish(ctx context.Context) error {
 		s.fail(err)
 		return s.failure()
 	}
-	if s.uploader != nil {
-		if err := s.uploader.Wait(runCtx); err != nil {
+	if up := s.uploader(); up != nil {
+		if err := up.Wait(runCtx); err != nil {
 			return fmt.Errorf("confirm: wait for drain: %w", err)
 		}
 	}
@@ -346,14 +378,7 @@ func (s *Session) stopState() api.RunState {
 
 // confirmMessage 是按本地副本完整性生成的 stop_experiment 失败文案。
 func (s *Session) confirmMessage() string {
-	switch {
-	case s.cfg.SkipStore:
-		return "Failed to finish run, and no local copy was kept (skip_store); the run state on the cloud is unconfirmed."
-	case s.storeDegraded.Load():
-		return "Failed to finish run, and the local copy is incomplete; the run state on the cloud is unconfirmed."
-	default:
-		return "Failed to finish run, but it has been saved locally."
-	}
+	return s.localCopyFailure("Failed to finish run", "; the run state on SwanLab online service is unconfirmed")
 }
 
 // runStateFromProto 把 proto 枚举转换为云端上报的终态。
@@ -375,8 +400,9 @@ func runStateFromProto(state runv1.RunState) api.RunState {
 // 持有 finishMu 与在途的 DeliverRunFinish/Confirm 互斥：退出钩子在 GracefulStop
 // 之前运行，否则可能一边关闭本地通道一边写入。
 func (s *Session) shutdown(ctx context.Context) error {
-	// 拿 finishMu 前先打断并等后台在线排空与 resumeFinish 退出，避免进程退出被补投阻塞。
+	// 拿 finishMu 前先打断并等待后台排空和异步接入退出，避免进程退出被阻塞。
 	s.stopOnlineDrain()
+	s.stopAttach()
 
 	s.finishMu.Lock()
 	defer s.finishMu.Unlock()
@@ -384,8 +410,8 @@ func (s *Session) shutdown(ctx context.Context) error {
 	var errs []error
 	_ = s.beginDrain()
 	s.backfill.Stop()
-	if s.heartbeat != nil {
-		s.heartbeat.Stop(ctx)
+	if hb := s.heartbeat(); hb != nil {
+		hb.Stop(ctx)
 	}
 	if s.watcher != nil {
 		s.watcher.Stop()
@@ -412,9 +438,9 @@ func (s *Session) shutdown(ctx context.Context) error {
 			closed = false
 		}
 	}
-	if closed && s.uploader != nil {
-		s.uploader.RequestFinish()
-		if err := s.uploader.Wait(ctx); err != nil {
+	if up := s.uploader(); closed && up != nil {
+		up.RequestFinish()
+		if err := up.Wait(ctx); err != nil {
 			console.Warningf("shutdown: wait for drain: %v", err)
 			errs = append(errs, fmt.Errorf("wait for drain: %w", err))
 		}

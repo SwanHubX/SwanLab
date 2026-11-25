@@ -13,6 +13,7 @@ import glob
 import signal
 import sys
 import threading
+import time
 import traceback
 from concurrent.futures import Future
 from functools import cached_property, wraps
@@ -26,11 +27,18 @@ from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
     DeliverRunFinishRequest,
 )
 from swanlab.proto.swanlab.grpc.probe.v1.probe_pb2 import DeliverProbeStartRequest
+from swanlab.proto.swanlab.operation.v1.operation_pb2 import (
+    CLOUD_STATE_ATTACHED,
+    CLOUD_STATE_FAILED,
+    CLOUD_STATE_PENDING,
+    CLOUD_STATE_UNSPECIFIED,
+    OperationStats,
+)
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord
 from swanlab.sdk.internal.bus import FileSaveEvent, MetricDefineEvent, MetricLogEvent
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.core_python import client
-from swanlab.sdk.internal.pkg import adapter, console, fork, helper, safe
+from swanlab.sdk.internal.pkg import adapter, console, fork, helper, safe, timer
 from swanlab.sdk.internal.run import greeting
 from swanlab.sdk.internal.run.components import Components
 from swanlab.sdk.internal.run.components.config import Config
@@ -128,12 +136,33 @@ class Run:
         >>> swanlab.finish()
     """
 
-    def __init__(self, ctx: RunContext, path: Optional[str] = None):
+    # 类级默认值：保证仅通过 __new__ 构造的测试替身也能安全读取云端状态字段
+    _STATUS_POLL_INTERVAL: float = 2.0
+    _UPLOAD_WARN_INTERVAL: float = 30.0
+    _path: Optional[str] = None
+    _cloud_state: int = CLOUD_STATE_UNSPECIFIED
+    _cloud_error: Optional[str] = None
+    _fallback_error: Optional[str] = None
+    _cloud_link_printed: bool = False
+    _cloud_failure_reported: bool = False
+    _upload_degraded: bool = False
+    _last_upload_warn_at: float = -_UPLOAD_WARN_INTERVAL
+    _status_timer: Optional[timer.Timer] = None
+
+    def __init__(self, ctx: RunContext, path: Optional[str] = None, *, fallback_error: Optional[str] = None):
         # 1. 基础状态、组件准备
         self._ctx = ctx
         self._is_main_thread = threading.current_thread() is threading.main_thread()
         # 运行实验路径，/:username/:project_name/:run_id
         self._path = path
+        self._cloud_state = CLOUD_STATE_ATTACHED if path else CLOUD_STATE_UNSPECIFIED
+        self._cloud_error = None
+        self._fallback_error = fallback_error
+        self._cloud_link_printed = bool(path)
+        self._cloud_failure_reported = False
+        self._upload_degraded = False
+        self._last_upload_warn_at = -self._UPLOAD_WARN_INTERVAL
+        self._status_timer = None
         self._state: Union[FinishType, Literal["running"]] = "running"
         self._init_pid = fork.current_pid()
         # 外部API锁，防止并发调用
@@ -203,6 +232,7 @@ class Run:
             else:
                 console.init(bind_to=self._ctx.debug_dir)
             greeting.welcome(self._ctx, self)
+            self._start_status_monitor()
         except BaseException as exc:
             self._abort_init(exc)
             raise
@@ -262,6 +292,8 @@ class Run:
         该回调运行在 fork 子进程，禁止获取可能被其它线程持有的锁或写日志。
         CorePython 等不支持 detach 的实现保持原对象，API 层仍会以 fork 错误拦截。
         """
+        # 子进程不会继承父进程后台线程，直接清空句柄即可（fork 回调内不得加锁或写日志）
+        self._status_timer = None
         try:
             self._core = self._core.fork()
         except Exception:
@@ -275,6 +307,7 @@ class Run:
         if self._state != "running":
             return
         self._state = "crashed"
+        self._stop_status_monitor()
         if self._probe_started:
             with safe.block(level="debug", message="probe finish failed during init abort"):
                 self._probe.deliver_probe_finish()
@@ -303,14 +336,14 @@ class Run:
 
     def _report_local_recovery(self, message: str) -> None:
         """confirm 失败且本地副本完整时，提示从 run-*.swanlab 恢复。"""
-        if self.mode != "online" or self._ctx.config.settings.core.skip_store:
+        if self.mode != "online":
             return
-        # 仅当本地副本完整时 Core 才返回该文案，避免降级/skip_store 误报。
+        # 仅当 Core 明确告知已保存本地时提示，避免本地副本不完整时误报。
         if "saved locally" not in message:
             return
         console.warning(
-            f"Local copy is complete: {self._ctx.run_file}",
-            f"Restore it with `swanlab sync {self._ctx.run_dir}`.",
+            f"Data is saved at: {self._ctx.run_file}",
+            f"After resolving the issue, upload it with `swanlab sync {self._ctx.run_dir}`.",
         )
 
     # ----------------------------------
@@ -355,33 +388,135 @@ class Run:
         assert self._ctx.run_dir is not None, "Run dir is not set."
         return self._ctx.run_dir
 
-    @cached_property
+    def _update_cloud_status_from_stats(self, resp: Any) -> Optional[OperationStats]:
+        """从统计响应同步最新云端绑定状态、真实路径和失败原因，并返回解析后的统计对象。"""
+        if not getattr(resp, "success", False) or not hasattr(resp, "stats") or not resp.HasField("stats"):
+            return None
+        stats = resp.stats
+        if stats.HasField("cloud"):
+            cloud = stats.cloud
+            self._cloud_state = cloud.state
+            if cloud.path:
+                self._path = cloud.path
+            if cloud.error:
+                self._cloud_error = cloud.error
+        return stats
+
+    def _sync_cloud_status(self) -> None:
+        """当云端路径尚未确定且 Run 仍存活时，主动拉取一次最新云端状态。"""
+        if self._path or self.mode != "online" or not self.alive or not hasattr(self, "_core"):
+            return
+        with safe.block(level="debug", message="sync cloud status failed"):
+            self._update_cloud_status_from_stats(self._core.get_operation_stats())
+
+    def _start_status_monitor(self) -> None:
+        """在支持运行期状态上报的 online Run 上启动轻量定时器，及时向终端同步恢复或暂停提示。"""
+        if self.mode != "online" or getattr(self._core, "reports_runtime_stats", False) is not True:
+            return
+        self._status_timer = timer.Timer(
+            self._poll_runtime_stats,
+            interval=self._STATUS_POLL_INTERVAL,
+            name="SwanLab·StatusMonitor",
+        ).start()
+
+    def _stop_status_monitor(self) -> None:
+        """取消并等待运行期状态定时器退出，避免 finish/close 阶段竞态访问 Core。"""
+        status_timer = self._status_timer
+        self._status_timer = None
+        if status_timer is not None:
+            status_timer.cancel()
+            status_timer.join(timeout=1.0)
+
+    def _poll_runtime_stats(self) -> None:
+        """拉取一次 Core 状态快照并在状态跃迁时输出终端提示。"""
+        if not self.alive:
+            return
+        with safe.block(level="debug", message="runtime status poll failed"):
+            self._handle_runtime_stats(self._core.get_operation_stats())
+
+    def _handle_runtime_stats(self, resp: Any) -> None:
+        """根据 Core 上报的 cloud / upload 状态快照，在状态变化时向终端打印一次性提示。"""
+        if not self.alive:
+            return
+        stats = self._update_cloud_status_from_stats(resp)
+        if stats is None:
+            return
+
+        if not self._cloud_link_printed and self._path:
+            self._cloud_link_printed = True
+            console.info("♻️ Connected to SwanLab online service; uploading local records.")
+            greeting.print_cloud_link(self)
+        elif not self._cloud_failure_reported and self._cloud_state == CLOUD_STATE_FAILED:
+            self._cloud_failure_reported = True
+            detail = f": {self._cloud_error}" if self._cloud_error else ""
+            console.error(f"❌ Failed to connect to SwanLab online service{detail}.")
+            console.warning(
+                f"⚠️ Records saved to {self._ctx.run_dir}; upload later with `swanlab sync {self._ctx.run_dir}`."
+            )
+
+        # attach 失败不额外刷上传失败/暂停告警
+        if stats.HasField("cloud") and stats.cloud.state in (CLOUD_STATE_PENDING, CLOUD_STATE_FAILED):
+            return
+        if stats.HasField("upload"):
+            suspended = bool(stats.upload.suspended)
+            retrying = bool(stats.upload.retrying)
+            if suspended or retrying:
+                now = time.monotonic()
+                if not self._upload_degraded or now - self._last_upload_warn_at >= self._UPLOAD_WARN_INTERVAL:
+                    self._last_upload_warn_at = now
+                    if suspended:
+                        console.warning(
+                            "🚨 Upload paused due to network or server issues; data is saved locally and will resume automatically."
+                        )
+                    else:
+                        console.warning("🚨 Upload failed due to network or server issues, retrying automatically.")
+                self._upload_degraded = True
+            elif self._upload_degraded:
+                self._upload_degraded = False
+                self._last_upload_warn_at = -self._UPLOAD_WARN_INTERVAL
+                console.info("✅ Upload recovered, resuming normally.")
+
+    def _require_cloud_path(self, attr: Literal["path", "url"]) -> str:
+        """读取已绑定的云端路径；未绑定时按在线等待或失败状态给出明确异常。"""
+        if self.mode != "online":
+            raise ValueError(
+                f"Run {attr} is unavailable because the current run is not using SwanLab online mode. "
+                "Please initialize SwanLab with online mode to access the run path."
+            )
+        if not self._path:
+            self._sync_cloud_status()
+        if self._path:
+            return self._path
+        if self._cloud_state == CLOUD_STATE_FAILED:
+            detail = f": {self._cloud_error}" if self._cloud_error else ""
+            raise ValueError(
+                f"Run {attr} is unavailable because the connection to SwanLab online service failed{detail}. "
+                f"Data is saved at {self._ctx.config.run_dir}; after resolving the issue, "
+                f"upload it with `swanlab sync {self._ctx.config.run_dir}`."
+            )
+        raise ValueError(
+            f"Run {attr} is unavailable because the run has not connected to SwanLab online service yet "
+            "(reconnection is still in progress)."
+        )
+
+    @property
     def path(self) -> str:
         """
         Current run path in the format of /:username/:project_name/:run_id.
 
         :return: Run path
         """
-        if not self._path:
-            raise ValueError(
-                "Run path is unavailable because the current run is not using SwanLab online mode. "
-                "Please initialize SwanLab with online mode to access the run path."
-            )
-        return self._path
+        return self._require_cloud_path("path")
 
-    @cached_property
+    @property
     def url(self) -> str:
         """
-        Current run URL if in online mode, otherwise None.
-        :return: Run URL or None
+        Current run URL if in online mode, otherwise raises ValueError.
+        :return: Run URL
         """
-        if not self._path:
-            raise ValueError(
-                "Run url is unavailable because the current run is not using SwanLab online mode. "
-                "Please initialize SwanLab with online mode to access the run path."
-            )
+        path = self._require_cloud_path("url")
         settings = self._ctx.config.settings
-        return f"{settings.web_host}{helper.fmt_run_path(self._path)}"
+        return f"{settings.web_host}{helper.fmt_run_path(path)}"
 
     @cached_property
     def config(self) -> Config:
@@ -982,6 +1117,10 @@ class Run:
         if state == "crashed" and error is None:
             console.warning("Crashed reason has been set to 'unknown' due to missing error message.")
             error = "unknown"
+        self._stop_status_monitor()
+        if self.mode == "online" and not self._path:
+            self._sync_cloud_status()
+        had_cloud_path = bool(self._path)
         greeting.goodbye(self._ctx, self)
         # 2. 运行结束，清理组件
         self._state = this_state
@@ -1004,7 +1143,14 @@ class Run:
                 confirm_resp = run_with_progress(
                     stats_fn=self._core.get_operation_stats,
                     blocking_fn=lambda: retry_finish_call(self._core, self._core.confirm_run_finish),
+                    on_stats=self._update_cloud_status_from_stats,
                 )
+                if not had_cloud_path and self._path and self.mode == "online":
+                    console.info("♻️ Connected to SwanLab online service.")
+                    greeting.print_cloud_link(self)
+                if confirm_resp.success and self._upload_degraded and self.mode == "online":
+                    self._upload_degraded = False
+                    console.info("✅ Upload recovered, resuming normally.")
                 if not confirm_resp.success:
                     console.error(confirm_resp.message)
                     self._report_local_recovery(confirm_resp.message)

@@ -50,6 +50,7 @@ func TestCheckpointMissingAndInvalid(t *testing.T) {
 		{"missing run_id", `{"version":1,"run_id":"","store_seq":1,"offset":64}`},
 		{"wrong run_id", `{"version":1,"run_id":"other","store_seq":1,"offset":64}`},
 		{"offset before header", `{"version":1,"run_id":"run-1","store_seq":0,"offset":3}`},
+		{"negative store_seq", `{"version":1,"run_id":"run-1","store_seq":-1,"offset":64}`},
 		{"nonzero seq at header", `{"version":1,"run_id":"run-1","store_seq":1,"offset":7}`},
 	}
 	for _, c := range cases {
@@ -172,12 +173,12 @@ func TestEndOffset(t *testing.T) {
 			// 第 5 条记录特意把块尾撑到只剩 4 字节，第 6 条之前必须补零。
 			p = payloadN(BlockLen - int(w.Offset()%BlockLen) - HeaderLen - 4)
 		}
-		a.In() <- Request{StoreSeq: uint64(i), Payload: p}
+		a.In() <- Request{StoreSeq: int64(i), Payload: p}
 		if ferr := a.Flush(context.Background()); ferr != nil {
 			t.Fatalf("Flush(%d): %v", i, ferr)
 		}
 		seq, off := a.Flushed()
-		if seq != uint64(i) {
+		if seq != int64(i) {
 			t.Fatalf("Flushed seq = %d, want %d", seq, i)
 		}
 		wantEnd[i] = off
@@ -188,7 +189,7 @@ func TestEndOffset(t *testing.T) {
 	idx := a.Index()
 
 	t.Run("with index", func(t *testing.T) {
-		for seq := uint64(0); seq <= total; seq++ {
+		for seq := int64(0); seq <= total; seq++ {
 			got, oerr := EndOffset(path, idx, seq, flushedOff)
 			if oerr != nil {
 				t.Fatalf("EndOffset(seq=%d): %v", seq, oerr)
@@ -200,7 +201,7 @@ func TestEndOffset(t *testing.T) {
 	})
 
 	t.Run("without index scans from header", func(t *testing.T) {
-		for _, seq := range []uint64{0, 1, 5, 6, 8, total} {
+		for _, seq := range []int64{0, 1, 5, 6, 8, total} {
 			got, oerr := EndOffset(path, nil, seq, -1)
 			if oerr != nil {
 				t.Fatalf("EndOffset(nil, seq=%d): %v", seq, oerr)
@@ -238,7 +239,7 @@ func TestEndOffsetUsesRecentCacheAndFallsBackOnMiss(t *testing.T) {
 
 	// 写入 5 条记录并刷盘，验证缓存命中时不重开磁盘文件。
 	for i := 1; i <= 5; i++ {
-		a.In() <- Request{StoreSeq: uint64(i), Payload: payloadN(20 + i)}
+		a.In() <- Request{StoreSeq: int64(i), Payload: payloadN(20 + i)}
 	}
 	if ferr := a.Flush(context.Background()); ferr != nil {
 		t.Fatalf("Flush: %v", ferr)
@@ -268,7 +269,7 @@ func TestEndOffsetUsesRecentCacheAndFallsBackOnMiss(t *testing.T) {
 	// 写入超过 recentEndCap 条记录，验证旧序号被环表淘汰后仍能回退扫盘准确定位。
 	const extra = recentEndCap + 8
 	for i := 6; i <= extra; i++ {
-		a.In() <- Request{StoreSeq: uint64(i), Payload: payloadN(16)}
+		a.In() <- Request{StoreSeq: int64(i), Payload: payloadN(16)}
 	}
 	if ferr := a.Flush(context.Background()); ferr != nil {
 		t.Fatalf("Flush extra: %v", ferr)

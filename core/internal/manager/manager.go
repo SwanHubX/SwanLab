@@ -46,7 +46,7 @@ var (
 	// ErrInvalidFinishRecord 表示未提供结束记录，属于调用方参数错误。
 	ErrInvalidFinishRecord = errors.New("finish record must not be nil")
 	// ErrServerUnreachable 表示启动预检无法访问 swanlab-server，快速失败避免认证重试堆积。
-	ErrServerUnreachable = errors.New("swanlab-server is unreachable")
+	ErrServerUnreachable = errors.New("SwanLab online service is unreachable")
 )
 
 const (
@@ -59,15 +59,21 @@ const (
 	releasedCapacity = 128
 )
 
-// releasedCache 记录已成功释放的 session_id，按插入顺序淘汰最旧条目。
+// releasedCache 记录已释放 session_id 的最终 Confirm 结果，按插入顺序淘汰最旧条目。
+// 同时缓存成功与永久失败释放结果，保证重复 Confirm 返回一致响应。
 type releasedCache struct {
-	entries map[string]struct{}
+	entries map[string]ConfirmResult
 	order   []string
 	next    int
 }
 
 func newReleasedCache() releasedCache {
-	return releasedCache{entries: make(map[string]struct{}, releasedCapacity)}
+	return releasedCache{entries: make(map[string]ConfirmResult, releasedCapacity)}
+}
+
+func (c *releasedCache) get(id string) (ConfirmResult, bool) {
+	res, ok := c.entries[id]
+	return res, ok
 }
 
 func (c *releasedCache) has(id string) bool {
@@ -75,18 +81,18 @@ func (c *releasedCache) has(id string) bool {
 	return ok
 }
 
-func (c *releasedCache) add(id string) {
-	if c.has(id) {
+func (c *releasedCache) add(id string, res ConfirmResult) {
+	if _, ok := c.entries[id]; ok {
 		return
 	}
 	if len(c.order) < releasedCapacity {
 		c.order = append(c.order, id)
-		c.entries[id] = struct{}{}
+		c.entries[id] = res
 		return
 	}
 	delete(c.entries, c.order[c.next])
 	c.order[c.next] = id
-	c.entries[id] = struct{}{}
+	c.entries[id] = res
 	c.next = (c.next + 1) % releasedCapacity
 }
 
@@ -149,14 +155,16 @@ type Options struct {
 }
 
 // ConfirmResult 是 Confirm 的业务响应：释放失败不是 RPC 错误，而是携带
-// 本地副本完整性提示的 success=false，会话保留供下一次重试。
+// 本地副本完整性提示的 success=false（可重试失败保留会话供下一次重试，永久接入失败会释放并缓存失败结果）。
 type ConfirmResult struct {
 	// Message 是返回给 Python 客户端的提示文案。
 	Message string
-	// ReleaseFailed 表示 stop_experiment 未成功，会话仍保留在注册表中。
+	// ReleaseFailed 表示云端实验释放未成功或接入永久失败。
 	ReleaseFailed bool
-	// Retryable 表示释放失败属于网络/超时等可重试错误，调用方可安全重发 Confirm。
+	// Retryable 表示失败属于网络/超时等可重试错误，调用方可安全重发 Confirm。
 	Retryable bool
+	// Released 表示会话已从注册表移除并清理资源；ReleaseFailed 与 Released 可同时为 true。
+	Released bool
 }
 
 // Manager 维护 session_id 到会话的映射注册表，并统一编排 Run 级的生命周期。
@@ -171,6 +179,8 @@ type Manager struct {
 	factory     *client.Factory
 	// healthReg 按站点共享探针，跨会话复用同一站点的健康状态。
 	healthReg *health.Registry
+	// attachTiming 允许单测缩短退避节奏，生产环境为零值（走默认常量）。
+	attachTiming attachTiming
 }
 
 // New 创建并初始化会话管理器实例。
@@ -262,12 +272,12 @@ func (m *Manager) Confirm(ctx context.Context, sessionID string) (ConfirmResult,
 	if sessionID == "" {
 		return ConfirmResult{}, ErrEmptySessionID
 	}
-	s, released, err := m.lookup(sessionID)
+	s, cached, released, err := m.lookup(sessionID)
 	if err != nil {
 		return ConfirmResult{}, err
 	}
 	if released {
-		return ConfirmResult{Message: confirmOKMessage}, nil
+		return cached, nil
 	}
 	if err = s.waitDrained(ctx); err != nil {
 		return ConfirmResult{}, err
@@ -277,12 +287,15 @@ func (m *Manager) Confirm(ctx context.Context, sessionID string) (ConfirmResult,
 	defer s.confirmMu.Unlock()
 
 	// 等排空期间其它 Confirm 可能已经完成释放。
-	s, released, err = m.lookup(sessionID)
+	s, cached, released, err = m.lookup(sessionID)
 	if err != nil {
 		return ConfirmResult{}, err
 	}
 	if released {
-		return ConfirmResult{Message: confirmOKMessage}, nil
+		return cached, nil
+	}
+	if s.isPermanentAttachFailure() && !s.hasCloudResources() {
+		return m.confirmPermanentAttachFailure(ctx, sessionID, s)
 	}
 	switch s.stateSnapshot() {
 	case RunStateFailed:
@@ -310,35 +323,74 @@ func (m *Manager) Confirm(ctx context.Context, sessionID string) (ConfirmResult,
 
 	// 与 Python 对齐：排空成功后先停心跳，再上报实验终态；失败时心跳保持停止，
 	// 会话保留供重试，避免重试期间继续发送心跳。
-	if s.heartbeat != nil {
-		s.heartbeat.Stop(ctx)
+	if hb := s.heartbeat(); hb != nil {
+		hb.Stop(ctx)
 		// 心跳等待可能耗尽 RPC 预算，ctx 已失效时不再发 stop_experiment。
 		if err = ctx.Err(); err != nil {
 			return ConfirmResult{}, err
 		}
 	}
-	if s.releaseFn != nil {
-		if err = s.releaseFn(ctx); err != nil {
+	if release := s.releaseFn(); release != nil {
+		if err = release(ctx); err != nil {
 			console.Warningf("confirm: stop experiment %q: %v", sessionID, err)
 			// 只把网络/超时类失败标记为可重试；4xx 等确定性失败重发也不会成功。
 			retryable := client.IsRetryable(err) || errors.Is(err, context.DeadlineExceeded)
 			return ConfirmResult{Message: s.confirmMessage(), ReleaseFailed: true, Retryable: retryable}, nil
 		}
 	}
-	if s.uploader != nil {
-		_ = s.uploader.Close()
+	if up := s.uploader(); up != nil {
+		_ = up.Close()
 	}
 	s.stopOnlineDrain()
+	// 先停止连接任务，再取消会话 context，避免它继续访问已经释放的站点和存储资源。
+	s.stopAttach()
 	if s.cancel != nil {
 		s.cancel()
 	}
 	s.closeHealth()
 
+	result := ConfirmResult{Message: confirmOKMessage, Released: true}
 	m.mu.Lock()
 	delete(m.sessions, sessionID)
-	m.released.add(sessionID)
+	m.released.add(sessionID, result)
 	m.mu.Unlock()
-	return ConfirmResult{Message: confirmOKMessage}, nil
+	return result, nil
+}
+
+// confirmPermanentAttachFailure 在永久接入失败后完成本地清理并释放会话，同时返回确定性失败响应。
+func (m *Manager) confirmPermanentAttachFailure(ctx context.Context, sessionID string, s *Session) (ConfirmResult, error) {
+	switch s.stateSnapshot() {
+	case RunStateFailed:
+	case RunStateDraining, RunStateDrained:
+		if !s.finishCommittedNow() {
+			return ConfirmResult{}, fmt.Errorf("%w: run drained without a finish record", ErrRunFailed)
+		}
+	default:
+		return ConfirmResult{}, ErrRunNotFinished
+	}
+
+	s.stopOnlineDrain()
+	s.stopAttach()
+	if err := s.cleanupUnattached(ctx); err != nil {
+		return ConfirmResult{}, err
+	}
+	if s.cancel != nil {
+		s.cancel()
+	}
+	s.closeHealth()
+
+	_, _, attachErr := s.cloudStatus()
+	result := ConfirmResult{
+		Message:       s.attachFailureConfirmMessage(attachErr),
+		ReleaseFailed: true,
+		Retryable:     false,
+		Released:      true,
+	}
+	m.mu.Lock()
+	delete(m.sessions, sessionID)
+	m.released.add(sessionID, result)
+	m.mu.Unlock()
+	return result, nil
 }
 
 // DisconnectSession 在客户端异常断连后先有界排空指定会话再释放注册表槽位。
@@ -350,7 +402,7 @@ func (m *Manager) DisconnectSession(ctx context.Context, sessionID string) error
 	if sessionID == "" {
 		return ErrEmptySessionID
 	}
-	s, released, err := m.lookup(sessionID)
+	s, _, released, err := m.lookup(sessionID)
 	if err != nil {
 		if errors.Is(err, ErrSessionNotFound) {
 			return nil
@@ -365,7 +417,7 @@ func (m *Manager) DisconnectSession(ctx context.Context, sessionID string) error
 	s.confirmMu.Lock()
 	defer s.confirmMu.Unlock()
 
-	s, released, err = m.lookup(sessionID)
+	s, _, released, err = m.lookup(sessionID)
 	if err != nil {
 		if errors.Is(err, ErrSessionNotFound) {
 			return nil
@@ -377,8 +429,8 @@ func (m *Manager) DisconnectSession(ctx context.Context, sessionID string) error
 	}
 
 	drainErr := s.shutdown(ctx)
-	if s.uploader != nil {
-		if closeErr := s.uploader.Close(); closeErr != nil {
+	if up := s.uploader(); up != nil {
+		if closeErr := up.Close(); closeErr != nil {
 			drainErr = errors.Join(drainErr, closeErr)
 		}
 	}
@@ -470,8 +522,8 @@ func (m *Manager) Shutdown(ctx context.Context) error {
 
 	// 无论是否在预算内排空，都释放 uploader 的 worker 协程；已排空时 Close 为 no-op。
 	for _, s := range sessions {
-		if s.uploader != nil {
-			if err := s.uploader.Close(); err != nil {
+		if up := s.uploader(); up != nil {
+			if err := up.Close(); err != nil {
 				console.Warningf("shutdown: close uploader: %v", err)
 			}
 		}
@@ -492,17 +544,17 @@ func (m *Manager) Close() error {
 
 // lookup 在同一把读锁内区分「已释放」与「已注册」，避免两次读取之间被其它
 // Confirm 移除而产生误报的 ErrSessionNotFound。
-func (m *Manager) lookup(sessionID string) (*Session, bool, error) {
+func (m *Manager) lookup(sessionID string) (*Session, ConfirmResult, bool, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	if m.released.has(sessionID) {
-		return nil, true, nil
+	if cached, ok := m.released.get(sessionID); ok {
+		return nil, cached, true, nil
 	}
 	s, ok := m.sessions[sessionID]
 	if !ok {
-		return nil, false, ErrSessionNotFound
+		return nil, ConfirmResult{}, false, ErrSessionNotFound
 	}
-	return s, false, nil
+	return s, ConfirmResult{}, false, nil
 }
 
 func (m *Manager) session(sessionID string) (*Session, error) {

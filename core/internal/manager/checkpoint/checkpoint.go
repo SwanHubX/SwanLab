@@ -22,7 +22,7 @@ const (
 
 // Store 抽象断点写入所需的本地落盘水位查询能力（生产环境由 *store.AsyncWriter 实现）。
 type Store interface {
-	Flushed() (seq uint64, offset int64)
+	Flushed() (seq int64, offset int64)
 	Index() *store.OffsetIndex
 }
 
@@ -33,10 +33,10 @@ type Options struct {
 	RunID          string
 	RunFile        string
 	Store          Store
-	Watermark      func() uint64
+	Watermark      func() int64
 	Interval       time.Duration
 	MinInterval    time.Duration
-	InitialSeq     uint64
+	InitialSeq     int64
 	InitialWritten bool
 	OnTick         func()
 	writeFn        func(path string, cp store.Checkpoint, durable bool) error
@@ -49,7 +49,7 @@ type Writer struct {
 	runID       string
 	runFile     string
 	store       Store
-	watermark   func() uint64
+	watermark   func() int64
 	interval    time.Duration
 	minInterval time.Duration
 	onTick      func()
@@ -63,7 +63,7 @@ type Writer struct {
 
 	mu         sync.Mutex
 	warned     bool
-	lastSeq    uint64
+	lastSeq    int64
 	hasWrite   bool
 	lastSynced bool
 }

@@ -49,13 +49,14 @@ type fakeManager struct {
 	sessions map[string]manager.RunState
 	starts   []fakeStart
 
-	maxSessions   int
-	startErr      error
-	finishErr     error
-	stateErr      error
-	confirmErr    error
-	upsertErr     error
-	disconnectErr error
+	maxSessions    int
+	startErr       error
+	forceEmptyPath bool
+	finishErr      error
+	stateErr       error
+	confirmErr     error
+	upsertErr      error
+	disconnectErr  error
 
 	confirmResult manager.ConfirmResult
 
@@ -116,7 +117,7 @@ func (f *fakeManager) DeliverRunStart(
 	sessionID := fmt.Sprintf("session-%d", f.next)
 	f.sessions[sessionID] = manager.RunStateRunning
 	path := "/alice/demo/run-1"
-	if settings.NormalizedMode() != config.ModeOnline {
+	if settings.NormalizedMode() != config.ModeOnline || settings.RecoverOnline || f.forceEmptyPath {
 		path = ""
 	}
 	return &manager.StartResult{
@@ -431,6 +432,37 @@ func TestDeliverRunStartLocalAllowsEmptyPath(t *testing.T) {
 	}
 }
 
+func TestDeliverRunStartRecoverOnlineAllowsEmptyPath(t *testing.T) {
+	env := newTestEnv(t)
+	spinup(t, env)
+
+	settings := validSettings(t)
+	settings.SkipStore = false
+	settings.RecoverOnline = true
+
+	resp, err := env.client.DeliverRunStart(callCtx(t), &corev1.DeliverRunStartRequest{
+		CoreSettings: settings,
+		StartRecord:  &runv1.StartRecord{Project: "demo", Id: "run-recover"},
+	})
+	if err != nil {
+		t.Fatalf("DeliverRunStart with RecoverOnline: %v", err)
+	}
+	if !resp.GetSuccess() || resp.GetSessionId() == "" || resp.GetPath() != "" {
+		t.Fatalf("recover start response = %v, want success with empty path", resp)
+	}
+
+	// 未开启 RecoverOnline 时，online 模式返回空 Path 仍应被拒绝。
+	env.runs.forceEmptyPath = true
+	noRecover := validSettings(t)
+	noRecover.SkipStore = false
+	if _, err = env.client.DeliverRunStart(callCtx(t), &corev1.DeliverRunStartRequest{
+		CoreSettings: noRecover,
+		StartRecord:  &runv1.StartRecord{Project: "demo", Id: "run-normal"},
+	}); status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("normal online empty path err=%v, want InvalidArgument", err)
+	}
+}
+
 func TestDeliverRunStartValidatesRequest(t *testing.T) {
 	env := newTestEnv(t)
 	spinup(t, env)
@@ -608,6 +640,49 @@ func TestSettingsFromProto(t *testing.T) {
 	if budgetSettings.UploadBudgetRecords != 50 || budgetSettings.UploadBudgetBytes != 1024 {
 		t.Fatalf("budget = %d/%d, want 50/1024",
 			budgetSettings.UploadBudgetRecords, budgetSettings.UploadBudgetBytes)
+	}
+
+	recoverOnline := proto.Clone(in).(*settingsv1.CoreSettings)
+	recoverOnline.SkipStore = false
+	recoverOnline.RecoverOnline = true
+	gotRecover, err := settingsFromProto(recoverOnline)
+	if err != nil {
+		t.Fatalf("recover_online in online mode without skip_store must be accepted: %v", err)
+	}
+	if !gotRecover.RecoverOnline {
+		t.Fatal("RecoverOnline = false, want true")
+	}
+
+	recoverRejectCases := []struct {
+		name   string
+		mutate func(*settingsv1.CoreSettings)
+	}{
+		{"recover_online with skip_store", func(s *settingsv1.CoreSettings) { s.SkipStore = true; s.RecoverOnline = true }},
+		{"recover_online with local", func(s *settingsv1.CoreSettings) {
+			s.Mode = settingsv1.CoreMode_CORE_MODE_LOCAL
+			s.SkipStore = false
+			s.RecoverOnline = true
+		}},
+		{"recover_online with offline", func(s *settingsv1.CoreSettings) {
+			s.Mode = settingsv1.CoreMode_CORE_MODE_OFFLINE
+			s.SkipStore = false
+			s.RecoverOnline = true
+		}},
+		{"recover_online with disabled", func(s *settingsv1.CoreSettings) {
+			s.Mode = settingsv1.CoreMode_CORE_MODE_DISABLED
+			s.SkipStore = false
+			s.RecoverOnline = true
+		}},
+	}
+	for _, tc := range recoverRejectCases {
+		t.Run(tc.name, func(t *testing.T) {
+			clone := proto.Clone(in).(*settingsv1.CoreSettings)
+			tc.mutate(clone)
+			_, caseErr := settingsFromProto(clone)
+			if caseErr == nil || !strings.Contains(caseErr.Error(), "recover_online") {
+				t.Fatalf("settingsFromProto() = %v, want error mentioning recover_online", caseErr)
+			}
+		})
 	}
 }
 
@@ -920,6 +995,55 @@ func TestConfirmRunFinishCarriesReleaseFailure(t *testing.T) {
 	resp, err = env.client.ConfirmRunFinish(ctx, &corev1.ConfirmRunFinishRequest{SessionId: handle})
 	if err != nil || !resp.GetSuccess() || resp.GetMessage() != "OK" {
 		t.Fatalf("retry confirm resp=%v err=%v, want success with OK", resp, err)
+	}
+}
+
+func TestConfirmRunFinishUnbindsSessionWhenReleasedWithFailure(t *testing.T) {
+	env := newTrackedTestEnv(t, 2*time.Second)
+	conn, client := env.dial(t)
+	ctx := callCtx(t)
+	if _, err := client.SpinupService(ctx, &corev1.SpinupServiceRequest{}); err != nil {
+		t.Fatalf("SpinupService: %v", err)
+	}
+	startResp, err := client.DeliverRunStart(ctx, &corev1.DeliverRunStartRequest{
+		CoreSettings: validSettings(t),
+		StartRecord:  &runv1.StartRecord{Project: "smoke"},
+	})
+	if err != nil {
+		t.Fatalf("DeliverRunStart: %v", err)
+	}
+	sid := startResp.GetSessionId()
+	if _, finErr := client.DeliverRunFinish(ctx, &corev1.DeliverRunFinishRequest{
+		SessionId:    sid,
+		FinishRecord: &runv1.FinishRecord{State: runv1.RunState_RUN_STATE_FINISHED},
+	}); finErr != nil {
+		t.Fatalf("DeliverRunFinish: %v", finErr)
+	}
+
+	env.runs.mu.Lock()
+	env.runs.confirmResult = manager.ConfirmResult{
+		Message:       "Failed to create run on SwanLab online service (401), but it has been saved locally.",
+		ReleaseFailed: true,
+		Retryable:     false,
+		Released:      true,
+	}
+	env.runs.mu.Unlock()
+
+	resp, err := client.ConfirmRunFinish(ctx, &corev1.ConfirmRunFinishRequest{SessionId: sid})
+	if err != nil {
+		t.Fatalf("ConfirmRunFinish err=%v, want non-RPC response", err)
+	}
+	if resp.GetSuccess() || !strings.Contains(resp.GetMessage(), "saved locally") {
+		t.Fatalf("ConfirmRunFinish resp = %v, want success=false with saved locally", resp)
+	}
+
+	// 会话已随 failure 清理并解绑，连接断开不得触发 DisconnectSession。
+	if closeErr := conn.Close(); closeErr != nil {
+		t.Fatalf("conn.Close: %v", closeErr)
+	}
+	time.Sleep(30 * time.Millisecond)
+	if got := env.runs.disconnectedSnapshot(); len(got) != 0 {
+		t.Fatalf("released session must not trigger DisconnectSession, got %v", got)
 	}
 }
 

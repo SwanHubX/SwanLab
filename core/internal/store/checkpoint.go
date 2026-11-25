@@ -17,7 +17,7 @@ const CheckpointVersion = 1
 type Checkpoint struct {
 	Version   int       `json:"version"`
 	RunID     string    `json:"run_id"`
-	StoreSeq  uint64    `json:"store_seq"`
+	StoreSeq  int64     `json:"store_seq"`
 	Offset    int64     `json:"offset"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
@@ -48,6 +48,9 @@ func LoadCheckpoint(path, runID string) (Checkpoint, bool, error) {
 	}
 	if cp.Offset < HeaderLen {
 		return Checkpoint{}, false, fmt.Errorf("store: checkpoint offset %d < header %d", cp.Offset, HeaderLen)
+	}
+	if cp.StoreSeq < 0 {
+		return Checkpoint{}, false, fmt.Errorf("store: negative checkpoint seq %d", cp.StoreSeq)
 	}
 	if cp.StoreSeq > 0 && cp.Offset == HeaderLen {
 		return Checkpoint{}, false, fmt.Errorf("store: checkpoint seq %d has header-only offset %d", cp.StoreSeq, cp.Offset)
@@ -147,8 +150,8 @@ func syncDir(dir string) {
 
 // EndOffset 返回第 seq 条记录结束后的文件偏移。优先查询内存中的近期偏移缓存，
 // 未命中时再从 idx 锚点（不超过 limit）或文件头顺序扫描。
-func EndOffset(path string, idx *OffsetIndex, seq uint64, limit int64) (int64, error) {
-	if seq == 0 {
+func EndOffset(path string, idx *OffsetIndex, seq int64, limit int64) (int64, error) {
+	if seq <= 0 {
 		return HeaderLen, nil
 	}
 	if idx != nil {
@@ -156,7 +159,7 @@ func EndOffset(path string, idx *OffsetIndex, seq uint64, limit int64) (int64, e
 			return end, nil
 		}
 	}
-	var cur uint64
+	var cur int64
 	start := int64(HeaderLen)
 	if idx != nil {
 		var (

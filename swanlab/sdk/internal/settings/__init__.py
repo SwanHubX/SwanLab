@@ -153,14 +153,15 @@ class Settings(BaseSettings):
 
     on_online_error: OnlineErrorPolicy = "offline"
     """
-    Online connection failure policy.
+    Online connection and authentication failure policy.
 
-    Only transient connection/server failures are degraded; authentication and
-    configuration errors always fail.
+    Transient connection/server failures and authentication errors (401/403) are handled
+    according to this policy; configuration errors always fail.
 
-    * `disabled`: Degrade to disabled mode and stop recording when SwanLab Cloud is unreachable.
-    * `offline`: Degrade to offline mode and keep local recording when SwanLab Cloud is unreachable.
-    * `raise`: Fail initialization when SwanLab Cloud is unreachable.
+    * `disabled`: Degrade to disabled mode and stop recording when SwanLab online service is unreachable or authentication fails.
+    * `offline`: Keep online mode and save locally while retrying the connection on transient outages,
+      or fall back to offline mode on auth/unrecoverable errors.
+    * `raise`: Fail initialization when SwanLab online service is unreachable or authentication fails.
     """
 
     log_dir: Path = Field(default_factory=log_dir_factory, validate_default=True)
@@ -339,7 +340,7 @@ class Settings(BaseSettings):
         str_strip_whitespace=True,
     )
 
-    def to_core_proto(self, run_id: str, run_dir: Path) -> CoreSettingsPb:
+    def to_core_proto(self, run_id: str, run_dir: Path, *, recover_online: bool = False) -> CoreSettingsPb:
         return CoreSettingsPb(
             run_id=run_id,
             run_dir=str(run_dir.absolute()),
@@ -352,6 +353,7 @@ class Settings(BaseSettings):
             save_part=self.core.save_part,
             save_batch=self.core.save_batch,
             skip_store=self.core.skip_store,
+            recover_online=recover_online if self.mode == "online" else False,
             api_key=self.api_key or "",
             api_host=self.api_host,
             web_host=self.web_host,

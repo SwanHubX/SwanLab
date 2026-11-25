@@ -94,7 +94,7 @@ func newScanStore(t *testing.T, records []*recordv1.Record) (*store.AsyncWriter,
 		if err != nil {
 			t.Fatalf("marshal: %v", err)
 		}
-		async.In() <- store.Request{StoreSeq: uint64(i + 1), Payload: payload}
+		async.In() <- store.Request{StoreSeq: int64(i + 1), Payload: payload}
 	}
 	if err := async.FlushForTest(); err != nil {
 		t.Fatalf("FlushForTest: %v", err)
@@ -110,12 +110,12 @@ func TestScanFiltersRecordsAndRespectsFlushedBound(t *testing.T) {
 		testHistogram(3),
 		testFinish(),
 	})
-	var storedSeqs []uint64
+	var storedSeqs []int64
 	w := New(Options{
 		Store:     async,
 		RunFile:   path,
 		BatchSize: 16,
-		OnStored: func(_ *recordv1.Record, seq uint64) {
+		OnStored: func(_ *recordv1.Record, seq int64) {
 			storedSeqs = append(storedSeqs, seq)
 		},
 	})
@@ -168,7 +168,7 @@ func TestCompleteRejectsDegradedStore(t *testing.T) {
 		Store:       async.In(),
 		UploadQueue: 16,
 		Budget:      b,
-		Flushed: func() uint64 {
+		Flushed: func() int64 {
 			seq, _ := async.Flushed()
 			return seq
 		},
@@ -214,7 +214,7 @@ func TestCompleteWaitsForSiteRecovery(t *testing.T) {
 			UploadQueue: 16,
 			Budget:      b,
 			StartSeq:    2,
-			Flushed: func() uint64 {
+			Flushed: func() int64 {
 				seq, _ := async.Flushed()
 				return seq
 			},
@@ -246,7 +246,7 @@ func TestCompleteWaitsForSiteRecovery(t *testing.T) {
 			UploadQueue: 16,
 			Budget:      b,
 			StartSeq:    3,
-			Flushed: func() uint64 {
+			Flushed: func() int64 {
 				seq, _ := async.Flushed()
 				return seq
 			},
@@ -341,7 +341,7 @@ func TestCompleteRetriesOnOverloadedMidBackfill(t *testing.T) {
 		QueueWait:   10 * time.Millisecond,
 		Budget:      b,
 		StartSeq:    total,
-		Flushed: func() uint64 {
+		Flushed: func() int64 {
 			seq, _ := async.Flushed()
 			return seq
 		},
@@ -429,7 +429,7 @@ func TestPausedWritesKeepProgressTrackerBoundedAndResumeWatermark(t *testing.T) 
 		Store:       async.In(),
 		UploadQueue: 64,
 		Budget:      b,
-		Flushed: func() uint64 {
+		Flushed: func() int64 {
 			seq, _ := async.Flushed()
 			return seq
 		},
@@ -530,7 +530,7 @@ func TestPausedWritesKeepProgressTrackerBoundedAndResumeWatermark(t *testing.T) 
 	}
 	<-drainDone
 
-	wantWatermark := uint64(2 + pausedScalars + 1)
+	wantWatermark := int64(2 + pausedScalars + 1)
 	if got := tracker.Watermark(); got != wantWatermark {
 		t.Fatalf("final watermark = %d, want %d", got, wantWatermark)
 	}

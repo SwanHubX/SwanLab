@@ -136,7 +136,7 @@ func TestCreateExperimentFailsWithoutCreatedAt(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error when backend never returns createdAt")
 	}
-	if !strings.Contains(err.Error(), "upgrade swanlab-server") {
+	if !strings.Contains(err.Error(), "upgrade your SwanLab deployment") {
 		t.Fatalf("error = %v, want upgrade hint", err)
 	}
 }

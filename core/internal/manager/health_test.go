@@ -46,7 +46,8 @@ func TestReconcileHealthSuspendsOnlyWithLocalCopy(t *testing.T) {
 	t.Cleanup(func() { reg.Release(site) })
 
 	up := newIdleUploader(t)
-	s := &Session{cfg: config.Defaults(), uploader: up, site: site}
+	s := &Session{cfg: config.Defaults(), site: site}
+	setSessionUploader(s, up)
 
 	s.reconcileHealth()
 	if !up.Suspended() {
@@ -78,7 +79,8 @@ func TestWriteDegradeDoesNotSuspend(t *testing.T) {
 	t.Cleanup(func() { reg.Release(site) })
 
 	up := newIdleUploader(t)
-	s := &Session{cfg: config.Defaults(), uploader: up, site: site}
+	s := &Session{cfg: config.Defaults(), site: site}
+	setSessionUploader(s, up)
 
 	site.Report(health.ReasonWrite, true)
 	s.reconcileHealth()
@@ -108,13 +110,13 @@ func TestSharedSiteHealthReconcilesAllSessions(t *testing.T) {
 	}
 	a := newSession(sessionOptions{})
 	a.cfg = config.Defaults()
-	a.uploader = newIdleUploader(t)
+	setSessionUploader(a, newIdleUploader(t))
 	b := newSession(sessionOptions{})
 	b.cfg = config.Defaults()
-	b.uploader = newIdleUploader(t)
+	setSessionUploader(b, newIdleUploader(t))
 	t.Cleanup(func() {
-		_ = a.uploader.Close()
-		_ = b.uploader.Close()
+		_ = a.uploader().Close()
+		_ = b.uploader().Close()
 		a.closeHealth()
 		b.closeHealth()
 	})
@@ -128,14 +130,14 @@ func TestSharedSiteHealthReconcilesAllSessions(t *testing.T) {
 		timeout := time.NewTimer(2 * time.Second)
 		defer timeout.Stop()
 		for {
-			if a.uploader.Suspended() == want && b.uploader.Suspended() == want {
+			if a.uploader().Suspended() == want && b.uploader().Suspended() == want {
 				return
 			}
 			select {
 			case <-ticker.C:
 			case <-timeout.C:
 				t.Fatalf("upload suspended states = %t/%t, want %t",
-					a.uploader.Suspended(), b.uploader.Suspended(), want)
+					a.uploader().Suspended(), b.uploader().Suspended(), want)
 			}
 		}
 	}

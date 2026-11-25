@@ -73,6 +73,9 @@ class CoreProtocol(ABC):
     # deliver 失败后是否仍执行 confirm；confirm 负责资源回收的实现保持 True。
     confirm_after_deliver_failure: bool = True
 
+    # 通过 get_operation_stats() 实时上报云端接入与上传暂停状态的实现（如 Go Core）置为 True，供 Run 启动状态监听。
+    reports_runtime_stats: bool = False
+
     def __init__(self, mode: ModeType):
         self._mode = mode
 

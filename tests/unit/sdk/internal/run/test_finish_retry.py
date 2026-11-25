@@ -195,6 +195,43 @@ def test_retry_rejects_invalid_attempts():
         retry_finish_call(cast(CoreProtocol, core), lambda: DeliverRunFinishResponse(success=True), attempts=0)
 
 
+def test_retry_does_not_reuse_stale_last_error():
+    core = RetryCore()
+    core.last_error = _retryable("stale stats timeout")
+    calls = []
+    sleeps: List[float] = []
+
+    def call():
+        calls.append(1)
+        return DeliverRunFinishResponse(success=False, message="rejected without updating last_error")
+
+    result = retry_finish_call(cast(CoreProtocol, core), call, sleep=sleeps.append)
+
+    assert result.success is False
+    assert result.message == "rejected without updating last_error"
+    assert len(calls) == 1
+    assert sleeps == []
+
+
+def test_retry_stops_when_subsequent_failure_leaves_last_error_unchanged():
+    core = RetryCore()
+    calls = []
+    sleeps: List[float] = []
+
+    def call():
+        calls.append(1)
+        if len(calls) == 1:
+            core.last_error = _retryable("first transient error")
+        return DeliverRunFinishResponse(success=False, message=f"fail-{len(calls)}")
+
+    result = retry_finish_call(cast(CoreProtocol, core), call, sleep=sleeps.append)
+
+    assert result.success is False
+    assert result.message == "fail-2"
+    assert len(calls) == 2
+    assert sleeps == [FINISH_RETRY_INTERVAL]
+
+
 # ── Run.finish 编排 ──────────────────────────────────────────
 
 
@@ -211,7 +248,7 @@ def test_finish_retries_deliver_and_confirm_then_closes():
         ],
     )
     run = _make_run(core)
-    progress = MagicMock(side_effect=lambda stats_fn, blocking_fn: blocking_fn())
+    progress = MagicMock(side_effect=lambda stats_fn, blocking_fn, **_kwargs: blocking_fn())
 
     with _finish_env(run, progress, MagicMock()):
         with patch("swanlab.sdk.internal.run.finish_retry.time.sleep") as mock_sleep:
@@ -229,7 +266,7 @@ def test_finish_does_not_retry_terminal_confirm():
         confirm=[(False, "saved locally", _terminal())],
     )
     run = _make_run(core)
-    progress = MagicMock(side_effect=lambda stats_fn, blocking_fn: blocking_fn())
+    progress = MagicMock(side_effect=lambda stats_fn, blocking_fn, **_kwargs: blocking_fn())
 
     with _finish_env(run, progress, MagicMock()):
         with patch("swanlab.sdk.internal.run.finish_retry.time.sleep") as mock_sleep:
@@ -247,7 +284,7 @@ def test_finish_confirm_without_structured_error_is_not_retried():
         confirm=[(False, "saved locally", None)],
     )
     run = _make_run(core)
-    progress = MagicMock(side_effect=lambda stats_fn, blocking_fn: blocking_fn())
+    progress = MagicMock(side_effect=lambda stats_fn, blocking_fn, **_kwargs: blocking_fn())
 
     with _finish_env(run, progress, MagicMock()):
         with patch("swanlab.sdk.internal.run.finish_retry.time.sleep") as mock_sleep:
@@ -283,7 +320,7 @@ def test_finish_confirms_for_core_python_when_deliver_fails():
         confirm=[(True, "OK", None)],
     )
     run = _make_run(core)
-    progress = MagicMock(side_effect=lambda stats_fn, blocking_fn: blocking_fn())
+    progress = MagicMock(side_effect=lambda stats_fn, blocking_fn, **_kwargs: blocking_fn())
 
     with _finish_env(run, progress, MagicMock()):
         with patch("swanlab.sdk.internal.run.finish_retry.time.sleep"):
@@ -321,7 +358,7 @@ def test_finish_reports_local_recovery_hint():
     run = _make_run(core)
     console = MagicMock()
 
-    with _finish_env(run, MagicMock(side_effect=lambda stats_fn, blocking_fn: blocking_fn()), console):
+    with _finish_env(run, MagicMock(side_effect=lambda stats_fn, blocking_fn, **_kwargs: blocking_fn()), console):
         with patch("swanlab.sdk.internal.run.finish_retry.time.sleep"):
             run.finish()
 
@@ -331,7 +368,7 @@ def test_finish_reports_local_recovery_hint():
 
 
 def test_finish_no_recovery_hint_with_skip_store():
-    message = "Failed to finish run, but it has been saved locally."
+    message = "Failed to finish run, and no local copy was kept (skip_store); the run state is unconfirmed."
     core = ScriptedCore(
         deliver=[(True, "OK", None)],
         confirm=[(False, message, _retryable())],
@@ -340,9 +377,11 @@ def test_finish_no_recovery_hint_with_skip_store():
     run._ctx.config.settings.core.skip_store = True
     console = MagicMock()
 
-    with _finish_env(run, MagicMock(side_effect=lambda stats_fn, blocking_fn: blocking_fn()), console):
+    with _finish_env(run, MagicMock(side_effect=lambda stats_fn, blocking_fn, **_kwargs: blocking_fn()), console):
         with patch("swanlab.sdk.internal.run.finish_retry.time.sleep"):
             run.finish()
 
     for call in console.warning.call_args_list:
-        assert "Local copy is complete" not in " ".join(str(arg) for arg in call.args)
+        logged = " ".join(str(arg) for arg in call.args)
+        assert "Data is saved at" not in logged
+        assert "swanlab sync" not in logged

@@ -152,8 +152,8 @@ func TestProgressTrackerOutOfOrderLiveAndBackfill(t *testing.T) {
 
 func TestProgressTrackerPausedMemoryBoundedAndWatermark(t *testing.T) {
 	p := NewTracker(0)
-	for seq := uint64(1); seq <= 3; seq++ {
-		rec := progressScalar(int64(seq))
+	for seq := int64(1); seq <= 3; seq++ {
+		rec := progressScalar(seq)
 		p.OnStored(rec, seq)
 		p.Resolve([]*recordv1.Record{rec})
 	}
@@ -177,11 +177,11 @@ func TestProgressTrackerPausedMemoryBoundedAndWatermark(t *testing.T) {
 	// 模拟 backfill 按批（每批 10 条）扫描 seq 4..100 并逐批上传确认，活跃指针数不得超过批窗口。
 	const totalEnd = 100
 	const batchSize = 10
-	for start := uint64(4); start <= totalEnd; start += batchSize {
+	for start := int64(4); start <= totalEnd; start += batchSize {
 		end := min(start+batchSize-1, totalEnd)
 		batch := make([]*recordv1.Record, 0, end-start+1)
 		for seq := start; seq <= end; seq++ {
-			rec := progressScalar(int64(seq))
+			rec := progressScalar(seq)
 			p.OnStored(rec, seq)
 			batch = append(batch, rec)
 		}

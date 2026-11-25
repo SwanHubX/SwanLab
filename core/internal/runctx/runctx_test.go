@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/swanhubx/swanlab/core/internal/config"
@@ -144,6 +145,50 @@ func TestOnlineParams(t *testing.T) {
 	got, ok := c.Online()
 	if !ok || got != p {
 		t.Fatalf("Online = (%+v, %v)", got, ok)
+	}
+}
+
+func TestOnlineParamsConcurrent(t *testing.T) {
+	c := newContext(t, "r", "/rd")
+	const writers = 4
+	const readers = 8
+	const iters = 200
+
+	var wg sync.WaitGroup
+	for w := range writers {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			for i := range iters {
+				tag := string(rune('a' + (id+i)%26))
+				c.SetOnlineParams(OnlineParams{
+					Username:       "u-" + tag,
+					Project:        "p-" + tag,
+					ProjectID:      "pid-" + tag,
+					ProjectVersion: int32(id + 1),
+					ExperimentID:   "eid-" + tag,
+				})
+			}
+		}(w)
+	}
+	for range readers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for range iters {
+				got, ok := c.Online()
+				if ok && (got.Username == "" || got.ProjectID == "" || got.ExperimentID == "") {
+					t.Errorf("observed partial OnlineParams: %+v", got)
+					return
+				}
+			}
+		}()
+	}
+	wg.Wait()
+
+	got, ok := c.Online()
+	if !ok || got.Username == "" || got.ProjectID == "" || got.ExperimentID == "" {
+		t.Fatalf("final Online = (%+v, %v)", got, ok)
 	}
 }
 

@@ -95,6 +95,9 @@ type Settings struct {
 	// SkipStore 跳过本地 Record 落盘（仅 online 模式合法，由上游校验）。
 	// 启动期配置，运行期不得修改；磁盘写满等故障属于会话运行期状态。
 	SkipStore bool
+	// RecoverOnline 内部协议标志：在启动期后端不可用时延迟创建云端实验并在恢复后补传。
+	// 仅 online 模式且 SkipStore 为 false 时合法。
+	RecoverOnline bool
 
 	// APIKey 云端认证凭据；日志输出必须脱敏。
 	APIKey string
@@ -161,6 +164,14 @@ func (s Settings) Validate() error {
 	if s.NormalizedMode() != ModeOnline && s.SkipStore {
 		return fmt.Errorf("config: skip_store is only valid in online mode")
 	}
+	if s.RecoverOnline {
+		if s.NormalizedMode() != ModeOnline {
+			return fmt.Errorf("config: recover_online is only valid in online mode")
+		}
+		if s.SkipStore {
+			return fmt.Errorf("config: recover_online is incompatible with skip_store")
+		}
+	}
 	if s.RecordBatch <= 0 || int64(s.RecordBatch) >= recordBatchMax {
 		return fmt.Errorf("config: record_batch (%d) must be in (0, %d)", s.RecordBatch, recordBatchMax)
 	}
@@ -204,10 +215,10 @@ func MaskKey(key string) string {
 // API Key 一律脱敏，避免配置日志泄漏凭据。
 func (s Settings) String() string {
 	return fmt.Sprintf(
-		"run_id=%s run_dir=%s mode=%s skip_store=%t section_rule=%d record_batch=%d record_interval=%.1f "+
+		"run_id=%s run_dir=%s mode=%s skip_store=%t recover_online=%t section_rule=%d record_batch=%d record_interval=%.1f "+
 			"save_size=%d save_split=%d save_part=%d save_batch=%d api_host=%s web_host=%s api_key=%s "+
 			"upload_budget=%d/%d health_probe=%.1f/%.1f degrade=%d recover=%d",
-		s.RunID, s.RunDir, s.NormalizedMode(), s.SkipStore, s.SectionRule, s.RecordBatch, s.RecordInterval,
+		s.RunID, s.RunDir, s.NormalizedMode(), s.SkipStore, s.RecoverOnline, s.SectionRule, s.RecordBatch, s.RecordInterval,
 		s.SaveSize, s.SaveSplit, s.SavePart, s.SaveBatch, s.APIHost, s.WebHost, MaskKey(s.APIKey),
 		s.UploadBudgetRecords, s.UploadBudgetBytes,
 		s.HealthProbeInterval, s.HealthProbeTimeout, s.HealthDegradeThreshold, s.HealthRecoverThreshold,
