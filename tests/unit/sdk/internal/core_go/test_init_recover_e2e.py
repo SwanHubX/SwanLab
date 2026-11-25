@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import atexit
 import json
 import os
 import socket
@@ -609,6 +610,9 @@ def test_resume_with_existing_local_run_recovers_online_and_disables_probes(tmp_
     # 先停掉前端消费线程让离线标量真正落盘，再强行中止 Core 以模拟未 finish 的断电现场
     seed_run._components.stop()
     seed_core = seed_run._ctx.core
+    if seed_run._atexit_registered:
+        atexit.unregister(seed_run._handle_atexit)
+        seed_run._atexit_registered = False
     clear_run()
     seed_core.abort()
 

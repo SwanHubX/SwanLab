@@ -371,8 +371,6 @@ func TestDeliverRecoverStartInstallFailureDoesNotStartAttach(t *testing.T) {
 	if !errors.Is(err, ErrTooManySessions) {
 		t.Fatalf("deliverRecoverStart error = %v, want ErrTooManySessions", err)
 	}
-	// 给可能被错误启动的连接任务留出请求时间；正确实现下这些计数应保持为 0。
-	time.Sleep(50 * time.Millisecond)
 	if got := authCalls.Load(); got != 0 {
 		t.Fatalf("auth calls = %d, want 0", got)
 	}

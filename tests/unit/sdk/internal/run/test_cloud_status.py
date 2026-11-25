@@ -125,6 +125,7 @@ class TestFinishCloudLinkSync:
                 stats=OperationStats(
                     state=CoreState.CORE_STATE_RUNNING,
                     cloud=CloudStatus(state=CLOUD_STATE_PENDING),
+                    upload=UploadStatus(retrying=True),
                 ),
             ),
             GetOperationStatsResponse(
@@ -132,6 +133,7 @@ class TestFinishCloudLinkSync:
                 stats=OperationStats(
                     state=CoreState.CORE_STATE_RUNNING,
                     cloud=CloudStatus(state=CLOUD_STATE_PENDING),
+                    upload=UploadStatus(retrying=True),
                 ),
             ),
             GetOperationStatsResponse(
@@ -139,6 +141,7 @@ class TestFinishCloudLinkSync:
                 stats=OperationStats(
                     state=CoreState.CORE_STATE_FINISHED,
                     cloud=CloudStatus(state=CLOUD_STATE_ATTACHED, path="/alice/proj/run-9"),
+                    upload=UploadStatus(retrying=False),
                 ),
             ),
             GetOperationStatsResponse(
@@ -146,11 +149,13 @@ class TestFinishCloudLinkSync:
                 stats=OperationStats(
                     state=CoreState.CORE_STATE_FINISHED,
                     cloud=CloudStatus(state=CLOUD_STATE_ATTACHED, path="/alice/proj/run-9"),
+                    upload=UploadStatus(retrying=False),
                 ),
             ),
         ]
 
         run = _make_online_run(core, path=None)
+        run._upload_degraded = True
         ctx = cast(Any, run._ctx)
         ctx.run_dir = tmp_path
         ctx.config.settings = SimpleNamespace(
@@ -163,17 +168,27 @@ class TestFinishCloudLinkSync:
         ctx.config.run_dir = tmp_path
 
         info_msgs = []
+        links: list[Run] = []
         monkeypatch.setattr("swanlab.sdk.internal.run.progress._POLL_INTERVAL", 0)
+        monkeypatch.setattr(
+            "swanlab.sdk.internal.run.console.info", lambda *args, **kwargs: info_msgs.append(" ".join(map(str, args)))
+        )
         monkeypatch.setattr(
             greeting.console, "info", lambda *args, **kwargs: info_msgs.append(" ".join(map(str, args)))
         )
         monkeypatch.setattr("swanlab.sdk.internal.run.client.exists", lambda: False)
+        orig_print_link = greeting.print_cloud_link
+        monkeypatch.setattr(greeting, "print_cloud_link", lambda r: (links.append(r), orig_print_link(r)))
 
         run.finish()
 
         text = "\n".join(info_msgs)
         assert "Not connected to SwanLab online service yet" in text
+        assert "Connected to SwanLab online service." in text
+        assert "Upload recovered, resuming normally." in text
         assert "https://swanlab.cn/@alice/proj/runs/run-9" in text
+        assert links == [run]
+        assert run._upload_degraded is False
         assert run.path == "/alice/proj/run-9"
 
     def test_finish_does_not_print_link_on_permanent_attach_failure(self, monkeypatch, tmp_path):
@@ -300,6 +315,7 @@ class TestRuntimeStatusMonitor:
     def test_runtime_upload_pause_and_resume_transitions(self, monkeypatch, cloud_state):
         core = MagicMock()
         run = _make_online_run(core, path="/alice/proj/run-1")
+        run._cloud_link_printed = True
 
         warnings: list[str] = []
         infos: list[str] = []
@@ -313,11 +329,19 @@ class TestRuntimeStatusMonitor:
         cloud = CloudStatus(state=cloud_state, path="/alice/proj/run-1") if cloud_state else None
         paused_resp = GetOperationStatsResponse(
             success=True,
-            stats=OperationStats(state=CoreState.CORE_STATE_RUNNING, cloud=cloud, upload=UploadStatus(paused=True)),
+            stats=OperationStats(
+                state=CoreState.CORE_STATE_RUNNING,
+                cloud=cloud,
+                upload=UploadStatus(paused=True, suspended=True, pause_seq=211),
+            ),
         )
         resumed_resp = GetOperationStatsResponse(
             success=True,
-            stats=OperationStats(state=CoreState.CORE_STATE_RUNNING, cloud=cloud, upload=UploadStatus(paused=False)),
+            stats=OperationStats(
+                state=CoreState.CORE_STATE_RUNNING,
+                cloud=cloud,
+                upload=UploadStatus(paused=False, suspended=False),
+            ),
         )
 
         run._handle_runtime_stats(paused_resp)
@@ -328,10 +352,73 @@ class TestRuntimeStatusMonitor:
         run._handle_runtime_stats(resumed_resp)
         assert len([m for m in infos if "Upload recovered, resuming normally." in m]) == 1
 
+    def test_runtime_budget_pause_stays_silent(self, monkeypatch):
+        """本地预算/补传导致的 paused（suspended=False）不误报网络/服务异常。"""
+        core = MagicMock()
+        run = _make_online_run(core, path="/alice/proj/run-1")
+        run._cloud_link_printed = True
+
+        warnings: list[str] = []
+        infos: list[str] = []
+        monkeypatch.setattr(
+            "swanlab.sdk.internal.run.console.warning", lambda *a, **kw: warnings.append(" ".join(map(str, a)))
+        )
+        monkeypatch.setattr(
+            "swanlab.sdk.internal.run.console.info", lambda *a, **kw: infos.append(" ".join(map(str, a)))
+        )
+
+        budget_paused = GetOperationStatsResponse(
+            success=True,
+            stats=OperationStats(
+                state=CoreState.CORE_STATE_RUNNING,
+                upload=UploadStatus(paused=True, pause_seq=16784, suspended=False, retrying=False),
+            ),
+        )
+        run._handle_runtime_stats(budget_paused)
+        assert warnings == []
+        assert infos == []
+        assert run._upload_degraded is False
+
+    def test_runtime_stats_ignored_when_not_alive(self, monkeypatch):
+        """收尾阶段 alive=False 后迟到的轮询结果不再输出终端提示。"""
+        core = MagicMock()
+        run = _make_online_run(core, path="/alice/proj/run-1")
+        run._cloud_link_printed = True
+        run._state = "success"
+
+        warnings: list[str] = []
+        monkeypatch.setattr(
+            "swanlab.sdk.internal.run.console.warning", lambda *a, **kw: warnings.append(" ".join(map(str, a)))
+        )
+        run._handle_runtime_stats(
+            GetOperationStatsResponse(
+                success=True,
+                stats=OperationStats(
+                    state=CoreState.CORE_STATE_RUNNING,
+                    upload=UploadStatus(paused=True, suspended=True),
+                ),
+            )
+        )
+        assert warnings == []
+        assert run._upload_degraded is False
+
+    def test_goodbye_skips_duplicate_attach_failure_tip(self, monkeypatch):
+        """运行期已报告过云端永久失败时，goodbye 不重复打印连接失败提示。"""
+        core = MagicMock()
+        run = _make_online_run(core, path=None)
+        run._cloud_state = CLOUD_STATE_FAILED
+        run._cloud_failure_reported = True
+
+        warnings: list[str] = []
+        monkeypatch.setattr(greeting.console, "warning", lambda *a, **kw: warnings.append(" ".join(map(str, a))))
+        greeting.goodbye(run._ctx, run)
+        assert warnings == []
+
     def test_runtime_upload_retrying_throttle_and_recovery(self, monkeypatch):
         """上传重试期间按 30s 节流输出失败告警，恢复成功后输出 Upload recovered 提示。"""
         core = MagicMock()
         run = _make_online_run(core, path="/alice/proj/run-1")
+        run._cloud_link_printed = True
 
         warnings: list[str] = []
         infos: list[str] = []
@@ -368,78 +455,6 @@ class TestRuntimeStatusMonitor:
         run._handle_runtime_stats(recovered_resp)
         run._handle_runtime_stats(recovered_resp)
         assert len([m for m in infos if "Upload recovered, resuming normally." in m]) == 1
-
-    def test_finish_prints_recovery_notices_for_delayed_attach_and_degraded_upload(self, monkeypatch, tmp_path):
-        """finish 阶段才完成补传恢复或延迟附着时，也能正常打印恢复提示。"""
-        core = MagicMock()
-        core.confirm_after_deliver_failure = True
-        core.last_error = None
-        core.deliver_run_finish.return_value = DeliverRunFinishResponse(success=True, message="OK")
-        core.confirm_run_finish.return_value = ConfirmRunFinishResponse(success=True, message="OK")
-        core.get_operation_stats.side_effect = [
-            GetOperationStatsResponse(
-                success=True,
-                stats=OperationStats(
-                    state=CoreState.CORE_STATE_RUNNING,
-                    cloud=CloudStatus(state=CLOUD_STATE_PENDING),
-                    upload=UploadStatus(retrying=True),
-                ),
-            ),
-            GetOperationStatsResponse(
-                success=True,
-                stats=OperationStats(
-                    state=CoreState.CORE_STATE_RUNNING,
-                    cloud=CloudStatus(state=CLOUD_STATE_PENDING),
-                    upload=UploadStatus(retrying=True),
-                ),
-            ),
-            GetOperationStatsResponse(
-                success=True,
-                stats=OperationStats(
-                    state=CoreState.CORE_STATE_FINISHED,
-                    cloud=CloudStatus(state=CLOUD_STATE_ATTACHED, path="/alice/proj/run-fin"),
-                    upload=UploadStatus(retrying=False),
-                ),
-            ),
-            GetOperationStatsResponse(
-                success=True,
-                stats=OperationStats(
-                    state=CoreState.CORE_STATE_FINISHED,
-                    cloud=CloudStatus(state=CLOUD_STATE_ATTACHED, path="/alice/proj/run-fin"),
-                    upload=UploadStatus(retrying=False),
-                ),
-            ),
-        ]
-
-        run = _make_online_run(core, path=None)
-        run._upload_degraded = True
-        ctx = cast(Any, run._ctx)
-        ctx.run_dir = tmp_path
-        ctx.config.settings = SimpleNamespace(
-            mode="online",
-            web_host="https://swanlab.cn",
-            core=SimpleNamespace(skip_store=False),
-            run=SimpleNamespace(dir=tmp_path.name),
-            experiment=SimpleNamespace(name="test-exp"),
-        )
-        ctx.config.run_dir = tmp_path
-
-        info_msgs: list[str] = []
-        links: list[Run] = []
-        monkeypatch.setattr("swanlab.sdk.internal.run.progress._POLL_INTERVAL", 0)
-        monkeypatch.setattr(
-            "swanlab.sdk.internal.run.console.info", lambda *a, **kw: info_msgs.append(" ".join(map(str, a)))
-        )
-        monkeypatch.setattr(greeting.console, "info", lambda *a, **kw: info_msgs.append(" ".join(map(str, a))))
-        monkeypatch.setattr(greeting, "print_cloud_link", lambda r: links.append(r))
-        monkeypatch.setattr("swanlab.sdk.internal.run.client.exists", lambda: False)
-
-        run.finish()
-
-        assert links == [run]
-        assert any("Connected to SwanLab online service." in m for m in info_msgs)
-        assert any("Upload recovered, resuming normally." in m for m in info_msgs)
-        assert run._upload_degraded is False
 
     def test_monitor_thread_starts_only_for_reporting_online_core(self, monkeypatch):
         polled = threading.Event()

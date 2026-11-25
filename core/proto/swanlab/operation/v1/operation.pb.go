@@ -197,10 +197,11 @@ func (x *FileProgress) GetRate() float64 {
 type UploadStatus struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	Paused         bool                   `protobuf:"varint,1,opt,name=paused,proto3" json:"paused,omitempty"`                                       // 是否已暂停出批（站点不可达或积压超预算）
-	PauseSeq       int64                  `protobuf:"varint,2,opt,name=pause_seq,json=pauseSeq,proto3" json:"pause_seq,omitempty"`                   // 预算暂停时的起始本地序号；未暂停或站点暂停时为 0
+	PauseSeq       int64                  `protobuf:"varint,2,opt,name=pause_seq,json=pauseSeq,proto3" json:"pause_seq,omitempty"`                   // 本地入队暂停时的起始本地序号；未进入本地暂停时为 0
 	PendingRecords int64                  `protobuf:"varint,3,opt,name=pending_records,json=pendingRecords,proto3" json:"pending_records,omitempty"` // 待确认的记录数
 	BufferedBytes  int64                  `protobuf:"varint,4,opt,name=buffered_bytes,json=bufferedBytes,proto3" json:"buffered_bytes,omitempty"`    // 缓冲占用的字节数
 	Retrying       bool                   `protobuf:"varint,5,opt,name=retrying,proto3" json:"retrying,omitempty"`                                   // 是否处于上传失败后的重试周期
+	Suspended      bool                   `protobuf:"varint,6,opt,name=suspended,proto3" json:"suspended,omitempty"`                                 // 是否因站点降级暂停上传出批
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -266,6 +267,13 @@ func (x *UploadStatus) GetBufferedBytes() int64 {
 func (x *UploadStatus) GetRetrying() bool {
 	if x != nil {
 		return x.Retrying
+	}
+	return false
+}
+
+func (x *UploadStatus) GetSuspended() bool {
+	if x != nil {
+		return x.Suspended
 	}
 	return false
 }
@@ -465,13 +473,14 @@ const file_swanlab_operation_v1_operation_proto_rawDesc = "" +
 	"\x04path\x18\x01 \x01(\tR\x04path\x12\x14\n" +
 	"\x05total\x18\x02 \x01(\x03R\x05total\x12\x1a\n" +
 	"\buploaded\x18\x03 \x01(\x03R\buploaded\x12\x12\n" +
-	"\x04rate\x18\x04 \x01(\x01R\x04rate\"\xaf\x01\n" +
+	"\x04rate\x18\x04 \x01(\x01R\x04rate\"\xcd\x01\n" +
 	"\fUploadStatus\x12\x16\n" +
 	"\x06paused\x18\x01 \x01(\bR\x06paused\x12\x1b\n" +
 	"\tpause_seq\x18\x02 \x01(\x03R\bpauseSeq\x12'\n" +
 	"\x0fpending_records\x18\x03 \x01(\x03R\x0ependingRecords\x12%\n" +
 	"\x0ebuffered_bytes\x18\x04 \x01(\x03R\rbufferedBytes\x12\x1a\n" +
-	"\bretrying\x18\x05 \x01(\bR\bretrying\"o\n" +
+	"\bretrying\x18\x05 \x01(\bR\bretrying\x12\x1c\n" +
+	"\tsuspended\x18\x06 \x01(\bR\tsuspended\"o\n" +
 	"\vCloudStatus\x126\n" +
 	"\x05state\x18\x01 \x01(\x0e2 .swanlab.operation.v1.CloudStateR\x05state\x12\x12\n" +
 	"\x04path\x18\x02 \x01(\tR\x04path\x12\x14\n" +

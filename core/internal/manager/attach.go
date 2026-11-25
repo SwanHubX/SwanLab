@@ -133,8 +133,9 @@ func (s *Session) waitAttach(ctx context.Context) error {
 // runAttach 按退避重试创建云端实验，直到成功、遇到不可恢复错误或任务被取消。
 // 站点健康检查恢复只用于提前唤醒；多个会话同时恢复时随机错开请求。
 func (s *Session) runAttach(ctx context.Context, params attachParams) {
-	// 退出时关闭 attachDone，让等待连接结果的结束流程可以继续。
-	defer s.markAttachStopped()
+	// 退出时关闭 attachDone，让等待连接结果的结束流程可以继续；
+	// 不修改 cloudState：既不能标记为成功，也不能误报为永久失败。
+	defer s.closeAttachDone()
 	timing := params.timing.withDefaults()
 	var siteUpdates <-chan struct{}
 	if s.site != nil {

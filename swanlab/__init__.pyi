@@ -177,10 +177,10 @@ def init(
     :raises RuntimeError: If a run is already active and reinit=False, or if an online
         startup fails and is not degraded (a non-transient error, or a transient error
         when ``on_online_error="raise"``).
-    :raises AuthenticationError: If SwanLab online service rejects the API key during login or
-        startup, or if the initial login fails with a non-transient error. With
-        ``on_online_error="raise"`` any login failure is wrapped as
-        ``AuthenticationError`` with the original exception in ``__cause__``.
+    :raises AuthenticationError: If ``on_online_error="raise"`` and SwanLab online service
+        rejects the API key or login fails (wrapping the original exception in ``__cause__``),
+        or if initial login fails with a non-recoverable non-auth error. Under the default
+        ``on_online_error`` policies, 401/403 authentication errors degrade instead of raising.
 
     Examples:
 

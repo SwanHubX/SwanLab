@@ -33,7 +33,8 @@ def _print_save_dir(ctx: RunContext):
     console.info("💾 Run data saved at", Text(str(ctx.config.run_dir), "magenta bold"))
 
 
-def _print_online_tip(run: "Run"):
+def print_cloud_link(run: "Run") -> None:
+    """输出项目与实验的云端链接（含启动即时绑定与运行期延迟绑定）。"""
     url = run.url
     project_url = url.split("/runs/")[0]
     console.info("📁 View project at", Text(project_url, style=f"link {project_url} blue underline"))
@@ -44,11 +45,6 @@ def _print_online_tip(run: "Run"):
         "at",
         Text(url, style=f"link {url} blue underline"),
     )
-
-
-def print_cloud_link(run: "Run") -> None:
-    """在云端路径延迟绑定成功后输出项目与实验链接。"""
-    _print_online_tip(run)
 
 
 def _print_recover_online_tip(ctx: RunContext) -> None:
@@ -84,7 +80,7 @@ def welcome(ctx: RunContext, run: "Run"):
     """
     实验开始欢迎语，根据不同模式选择不同的欢迎语
     0. Disabled: 直接返回
-    1. Online: 打印版本号、运行日志存储位置、实验名称、项目、实验的URL，并单独开启线程检查新版本
+    1. Online: 打印版本号、运行日志存储位置；若已绑定云端则打印项目/实验链接，否则提示正在后台恢复连接
     2. Local: 打印版本号、运行日志存储位置、watch命令
     3. Offline: 答应版本号、运行日志存储位置、实验名称、sync命令
     """
@@ -97,7 +93,7 @@ def welcome(ctx: RunContext, run: "Run"):
         _print_version()
         _print_save_dir(ctx)
         if run._path:
-            _print_online_tip(run)
+            print_cloud_link(run)
         else:
             _print_recover_online_tip(ctx)
     # 2. Local
@@ -120,9 +116,10 @@ def goodbye(ctx: RunContext, run: "Run"):
     # 1. Online
     elif mode == "online":
         if run._path:
-            _print_online_tip(run)
+            print_cloud_link(run)
         elif run._cloud_state == CLOUD_STATE_FAILED:
-            _print_attach_failed_tip()
+            if not run._cloud_failure_reported:
+                _print_attach_failed_tip()
         else:
             _print_recover_online_tip(ctx)
     # 2. Local

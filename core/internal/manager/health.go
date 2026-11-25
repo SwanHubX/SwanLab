@@ -72,7 +72,7 @@ func (s *Session) shouldSuspendUploads() bool {
 		return false
 	}
 	// 在线会话在云端资源尚未挂载时只写本地，防止未建实验的记录进入上传通道。
-	if s.cfg.NormalizedMode() == config.ModeOnline && !s.isCloudAttached() {
+	if s.cfg.NormalizedMode() == config.ModeOnline && !s.hasCloudResources() {
 		return true
 	}
 	return s.isSiteReadDegraded()

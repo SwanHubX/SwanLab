@@ -232,7 +232,7 @@ func (s *Session) releaseFn() func(context.Context) error {
 	return nil
 }
 
-func (s *Session) isCloudAttached() bool {
+func (s *Session) hasCloudResources() bool {
 	return s.uploader() != nil
 }
 
@@ -266,12 +266,6 @@ func (s *Session) markCloudAttached(path string) {
 	s.cloudPath = path
 	s.cloudErr = nil
 	s.cloudMu.Unlock()
-	s.closeAttachDone()
-}
-
-// markAttachStopped 在连接任务因会话结束退出时关闭 attachDone。
-// 不修改 cloudState：既不能标记为成功，也不能误报为永久失败。
-func (s *Session) markAttachStopped() {
 	s.closeAttachDone()
 }
 
@@ -570,6 +564,7 @@ func (s *Session) snapshot() *operationv1.OperationStats {
 	if up != nil {
 		upload.PendingRecords = int64(up.Stats().Pending)
 		upload.Paused = up.Suspended()
+		upload.Suspended = up.Suspended()
 		upload.Retrying = up.InFailure()
 	}
 	if s.intake != nil {

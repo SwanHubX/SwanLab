@@ -155,7 +155,7 @@ type Options struct {
 }
 
 // ConfirmResult 是 Confirm 的业务响应：释放失败不是 RPC 错误，而是携带
-// 本地副本完整性提示的 success=false，会话保留供下一次重试。
+// 本地副本完整性提示的 success=false（可重试失败保留会话供下一次重试，永久接入失败会释放并缓存失败结果）。
 type ConfirmResult struct {
 	// Message 是返回给 Python 客户端的提示文案。
 	Message string
@@ -294,7 +294,7 @@ func (m *Manager) Confirm(ctx context.Context, sessionID string) (ConfirmResult,
 	if released {
 		return cached, nil
 	}
-	if s.isPermanentAttachFailure() && !s.isCloudAttached() {
+	if s.isPermanentAttachFailure() && !s.hasCloudResources() {
 		return m.confirmPermanentAttachFailure(ctx, sessionID, s)
 	}
 	switch s.stateSnapshot() {

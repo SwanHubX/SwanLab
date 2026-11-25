@@ -3,8 +3,8 @@
 @file: init.py
 @time: 2026/3/6 21:47
 @description: SwanLab SDK 初始化方法
-我们在设计上将init前后作为分界线，在init之前出现的错误（如登录失败）被视为critical错误，一旦报错直接退出（大多数情况下）
-在init之后的swanlab内部错误被视为non-critical错误，会尝试继续运行，但会记录错误日志
+我们在设计上将init前后作为分界线，在init之前出现的错误（如配置校验失败、或 `on_online_error="raise"` 下的登录失败）被视为critical错误，直接抛出异常；
+在online模式下默认会按 `on_online_error` 策略进行后台恢复或降级，在init之后的swanlab内部错误被视为non-critical错误，会尝试继续运行，但会记录错误日志
 init函数执行时被视为init之前
 """
 
@@ -165,10 +165,10 @@ def init(
     :raises RuntimeError: If a run is already active and reinit=False, or if an online
         startup fails and is not degraded (a non-transient error, or a transient error
         when ``on_online_error="raise"``).
-    :raises AuthenticationError: If SwanLab online service rejects the API key during login or
-        startup, or if the initial login fails with a non-transient error. With
-        ``on_online_error="raise"`` any login failure is wrapped as
-        ``AuthenticationError`` with the original exception in ``__cause__``.
+    :raises AuthenticationError: If ``on_online_error="raise"`` and SwanLab online service
+        rejects the API key or login fails (wrapping the original exception in ``__cause__``),
+        or if initial login fails with a non-recoverable non-auth error. Under the default
+        ``on_online_error`` policies, 401/403 authentication errors degrade instead of raising.
 
     Examples:
 
@@ -842,15 +842,6 @@ def _can_recover_online(backend: CoreBackend, run_settings: Settings, run_dir: P
     )
 
 
-def _warn_recover_online(*, skip_store_disabled: bool = False) -> None:
-    """提示用户云端暂不可达，已切入本地兜底并等待后台恢复。"""
-    suffix = " (core.skip_store has been disabled)" if skip_store_disabled else ""
-    console.warning(
-        "🚨 SwanLab online service is currently unavailable; records will be saved locally,"
-        f" and connection will be retried in background{suffix}."
-    )
-
-
 def _prepare_recover_online(run_settings: Settings, run_id: str, run_dir: Path) -> None:
     """在后台恢复启动前关闭 skip_store、建好本地目录，并在全新运行时补齐名称与颜色。"""
     skip_store_disabled = run_settings.core.skip_store
@@ -862,7 +853,11 @@ def _prepare_recover_online(run_settings: Settings, run_id: str, run_dir: Path) 
     if not _has_local_run_file(run_dir):
         _ensure_offline_identity(run_settings, run_id)
     _reset_client_after_fallback()
-    _warn_recover_online(skip_store_disabled=skip_store_disabled)
+    suffix = " (core.skip_store has been disabled)" if skip_store_disabled else ""
+    console.warning(
+        "🚨 SwanLab online service is currently unavailable; records will be saved locally,"
+        f" and connection will be retried in background{suffix}."
+    )
 
 
 def _deliver_start_or_raise(ctx: RunContext, request: DeliverRunStartRequest) -> DeliverRunStartResponse:

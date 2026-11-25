@@ -257,9 +257,10 @@ def run_with_progress(
     blocking_fn: Callable[[], _T],
     timeout: Optional[float] = None,
     unit: str = "auto",
-    on_stats: Optional[Callable[[GetOperationStatsResponse], None]] = None,
+    on_stats: Optional[Callable[[GetOperationStatsResponse], object]] = None,
 ) -> _T:
     """在上传完成期间轮询*stats_fn*，随后调用*blocking_fn*。显示一个Rich实时进度区域，该区域每次轮询间隔都会更新。
+    若提供了*on_stats*，每次收到*stats_fn*响应（包括初始检查、每次轮询及退出前最后一次拉取）都会将其传入回调。
     当跟踪器报告``CORE_STATE_FINISHED``或*timeout*超时时，循环退出。
     显示关闭后（例如加入传输并与后端确认），*blocking_fn*会被调用一次。
     """

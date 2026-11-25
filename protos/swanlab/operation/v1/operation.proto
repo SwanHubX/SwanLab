@@ -30,10 +30,11 @@ message FileProgress {
 // 上传通道投递状态；正常投递时各字段均为零值。
 message UploadStatus {
     bool paused           = 1; // 是否已暂停出批（站点不可达或积压超预算）
-    int64 pause_seq       = 2; // 预算暂停时的起始本地序号；未暂停或站点暂停时为 0
+    int64 pause_seq       = 2; // 本地入队暂停时的起始本地序号；未进入本地暂停时为 0
     int64 pending_records = 3; // 待确认的记录数
     int64 buffered_bytes  = 4; // 缓冲占用的字节数
     bool retrying         = 5; // 是否处于上传失败后的重试周期
+    bool suspended        = 6; // 是否因站点降级暂停上传出批
 }
 
 // 云端接入状态快照（仅延迟接入模式填充）。

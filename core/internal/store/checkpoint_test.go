@@ -50,6 +50,7 @@ func TestCheckpointMissingAndInvalid(t *testing.T) {
 		{"missing run_id", `{"version":1,"run_id":"","store_seq":1,"offset":64}`},
 		{"wrong run_id", `{"version":1,"run_id":"other","store_seq":1,"offset":64}`},
 		{"offset before header", `{"version":1,"run_id":"run-1","store_seq":0,"offset":3}`},
+		{"negative store_seq", `{"version":1,"run_id":"run-1","store_seq":-1,"offset":64}`},
 		{"nonzero seq at header", `{"version":1,"run_id":"run-1","store_seq":1,"offset":7}`},
 	}
 	for _, c := range cases {

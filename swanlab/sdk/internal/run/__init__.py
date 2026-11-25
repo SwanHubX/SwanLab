@@ -32,6 +32,7 @@ from swanlab.proto.swanlab.operation.v1.operation_pb2 import (
     CLOUD_STATE_FAILED,
     CLOUD_STATE_PENDING,
     CLOUD_STATE_UNSPECIFIED,
+    OperationStats,
 )
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord
 from swanlab.sdk.internal.bus import FileSaveEvent, MetricDefineEvent, MetricLogEvent
@@ -145,7 +146,7 @@ class Run:
     _cloud_link_printed: bool = False
     _cloud_failure_reported: bool = False
     _upload_degraded: bool = False
-    _last_upload_warn_at: float = -30.0
+    _last_upload_warn_at: float = -_UPLOAD_WARN_INTERVAL
     _status_timer: Optional[timer.Timer] = None
 
     def __init__(self, ctx: RunContext, path: Optional[str] = None, *, fallback_error: Optional[str] = None):
@@ -387,19 +388,19 @@ class Run:
         assert self._ctx.run_dir is not None, "Run dir is not set."
         return self._ctx.run_dir
 
-    def _update_cloud_status_from_stats(self, resp: Any) -> None:
-        """从统计响应同步最新云端绑定状态、真实路径和失败原因。"""
+    def _update_cloud_status_from_stats(self, resp: Any) -> Optional[OperationStats]:
+        """从统计响应同步最新云端绑定状态、真实路径和失败原因，并返回解析后的统计对象。"""
         if not getattr(resp, "success", False) or not hasattr(resp, "stats") or not resp.HasField("stats"):
-            return
+            return None
         stats = resp.stats
-        if not stats.HasField("cloud"):
-            return
-        cloud = stats.cloud
-        self._cloud_state = cloud.state
-        if cloud.path:
-            self._path = cloud.path
-        if cloud.error:
-            self._cloud_error = cloud.error
+        if stats.HasField("cloud"):
+            cloud = stats.cloud
+            self._cloud_state = cloud.state
+            if cloud.path:
+                self._path = cloud.path
+            if cloud.error:
+                self._cloud_error = cloud.error
+        return stats
 
     def _sync_cloud_status(self) -> None:
         """当云端路径尚未确定且 Run 仍存活时，主动拉取一次最新云端状态。"""
@@ -435,10 +436,11 @@ class Run:
 
     def _handle_runtime_stats(self, resp: Any) -> None:
         """根据 Core 上报的 cloud / upload 状态快照，在状态变化时向终端打印一次性提示。"""
-        self._update_cloud_status_from_stats(resp)
-        if not getattr(resp, "success", False) or not hasattr(resp, "stats") or not resp.HasField("stats"):
+        if not self.alive:
             return
-        stats = resp.stats
+        stats = self._update_cloud_status_from_stats(resp)
+        if stats is None:
+            return
 
         if not self._cloud_link_printed and self._path:
             self._cloud_link_printed = True
@@ -456,13 +458,13 @@ class Run:
         if stats.HasField("cloud") and stats.cloud.state in (CLOUD_STATE_PENDING, CLOUD_STATE_FAILED):
             return
         if stats.HasField("upload"):
-            paused = bool(stats.upload.paused)
+            suspended = bool(stats.upload.suspended)
             retrying = bool(stats.upload.retrying)
-            if paused or retrying:
+            if suspended or retrying:
                 now = time.monotonic()
                 if not self._upload_degraded or now - self._last_upload_warn_at >= self._UPLOAD_WARN_INTERVAL:
                     self._last_upload_warn_at = now
-                    if paused:
+                    if suspended:
                         console.warning(
                             "🚨 Upload paused due to network or server issues; data is saved locally and will resume automatically."
                         )

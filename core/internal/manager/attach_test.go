@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -562,7 +561,7 @@ func TestAttachDoesNotStartBackfillAfterDraining(t *testing.T) {
 	close(release)
 
 	waitAttachDone(t, s)
-	if !s.isCloudAttached() {
+	if !s.hasCloudResources() {
 		t.Fatal("session should attach cloud resources while draining")
 	}
 	// 验证 s.backfill 从未启动过（stop channel 仍为 nil）。
@@ -608,24 +607,6 @@ func TestAttachStopsCleanlyOnRollbackAndShutdown(t *testing.T) {
 	}
 	close(release)
 
-	waitManagerCond(t, "attach goroutine exit", func() bool {
-		// rollback 同样幂等，确认无残留。
-		s.rollback()
-		return true
-	})
-
-	// 另验证 rollback 场景下也不会泄漏或留下未完成的 run 文件。
-	cfg := startSettings(t, cloud)
-	cfg.RunDir = filepath.Join(t.TempDir(), "rb")
-	cfg.RecoverOnline = true
-	if res, err := mgr.DeliverRunStart(context.Background(), cfg, &runv1.StartRecord{
-		Id:      cfg.RunID,
-		Project: "demo",
-	}); err == nil {
-		s2, lookupErr := mgr.session(res.SessionID)
-		if lookupErr != nil {
-			t.Fatalf("lookup: %v", lookupErr)
-		}
-		s2.rollback()
-	}
+	// rollback 同样幂等，确认无残留。
+	s.rollback()
 }

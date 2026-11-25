@@ -40,18 +40,20 @@ class FileProgress(_message.Message):
     def __init__(self, path: _Optional[str] = ..., total: _Optional[int] = ..., uploaded: _Optional[int] = ..., rate: _Optional[float] = ...) -> None: ...
 
 class UploadStatus(_message.Message):
-    __slots__ = ("paused", "pause_seq", "pending_records", "buffered_bytes", "retrying")
+    __slots__ = ("paused", "pause_seq", "pending_records", "buffered_bytes", "retrying", "suspended")
     PAUSED_FIELD_NUMBER: _ClassVar[int]
     PAUSE_SEQ_FIELD_NUMBER: _ClassVar[int]
     PENDING_RECORDS_FIELD_NUMBER: _ClassVar[int]
     BUFFERED_BYTES_FIELD_NUMBER: _ClassVar[int]
     RETRYING_FIELD_NUMBER: _ClassVar[int]
+    SUSPENDED_FIELD_NUMBER: _ClassVar[int]
     paused: bool
     pause_seq: int
     pending_records: int
     buffered_bytes: int
     retrying: bool
-    def __init__(self, paused: bool = ..., pause_seq: _Optional[int] = ..., pending_records: _Optional[int] = ..., buffered_bytes: _Optional[int] = ..., retrying: bool = ...) -> None: ...
+    suspended: bool
+    def __init__(self, paused: bool = ..., pause_seq: _Optional[int] = ..., pending_records: _Optional[int] = ..., buffered_bytes: _Optional[int] = ..., retrying: bool = ..., suspended: bool = ...) -> None: ...
 
 class CloudStatus(_message.Message):
     __slots__ = ("state", "path", "error")

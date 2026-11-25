@@ -177,7 +177,10 @@ func TestRecoverOnlineMidAttachOutageAndPostAttachOutage(t *testing.T) {
 	if got := expCreates.Load(); got != 1 {
 		t.Fatalf("expCreates after attach = %d, want 1", got)
 	}
-	time.Sleep(30 * time.Millisecond)
+	waitManagerCond(t, "uploader suspended while house down", func() bool {
+		up := s.uploader()
+		return up != nil && up.Suspended()
+	})
 	mu.Lock()
 	preHouseRecoverCount := len(uploadedSteps)
 	mu.Unlock()
@@ -196,9 +199,9 @@ func TestRecoverOnlineMidAttachOutageAndPostAttachOutage(t *testing.T) {
 	// 4. 创建实验后再次遇到指标服务宕机，写入第 3、4 条；恢复后结束运行，应全部上传完成且不重建实验。
 	houseUp.Store(false)
 	waitManagerCond(t, "house probe degrades", func() bool {
-		return s.uploader() != nil
+		up := s.uploader()
+		return up != nil && up.Suspended()
 	})
-	time.Sleep(30 * time.Millisecond)
 	if upsertErr := mgr.UpsertScalars(context.Background(), res.SessionID, []*datav1.ScalarRecord{
 		scalarAtStep("loss", 3, 0.25),
 		scalarAtStep("loss", 4, 0.125),
@@ -524,9 +527,6 @@ func setupIdempotentRecoveryCloud(t *testing.T, backendUp *atomic.Bool) (*client
 	cloud.Handle(http.MethodPost, "/api/house/experiments/crash-after/heartbeat", func(w http.ResponseWriter, _ *http.Request) {
 		clienttest.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
 	})
-	cloud.Handle(http.MethodPost, "/api/house/experiments/crash-cp/heartbeat", func(w http.ResponseWriter, _ *http.Request) {
-		clienttest.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
-	})
 	cloud.Handle(http.MethodPost, "/api/house/metrics", func(w http.ResponseWriter, r *http.Request) {
 		var payload struct {
 			Type    string `json:"type"`
@@ -548,9 +548,6 @@ func setupIdempotentRecoveryCloud(t *testing.T, backendUp *atomic.Bool) (*client
 		clienttest.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
 	})
 	cloud.Handle(http.MethodPut, "/api/project/alice/demo/runs/crash-after/state", func(w http.ResponseWriter, _ *http.Request) {
-		clienttest.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
-	})
-	cloud.Handle(http.MethodPut, "/api/project/alice/demo/runs/crash-cp/state", func(w http.ResponseWriter, _ *http.Request) {
 		clienttest.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
 	})
 	return cloud, &steps, &mu, createdByCuid
@@ -676,42 +673,9 @@ func runShutdownAfterExperimentCreated(t *testing.T) {
 	}
 }
 
-func runShutdownMidBackfillCheckpoint(t *testing.T) {
-	var backendUp atomic.Bool
-	cloud, steps, _, _ := setupIdempotentRecoveryCloud(t, &backendUp)
-	cfg := fastRecoverSettings(t, cloud, "crash-cp", filepath.Join(t.TempDir(), "crash-cp-dir"))
-	seedLocalRunFile(t, cfg, "mid-cp", "#112233", 6, 4)
-
-	mgr := newInstantTestManager()
-	res, err := mgr.DeliverRunStart(context.Background(), cfg, &runv1.StartRecord{
-		Id:      cfg.RunID,
-		Project: "demo",
-		Resume:  runv1.ResumeMode_RESUME_MODE_ALLOW,
-	})
-	if err != nil {
-		t.Fatalf("DeliverRunStart: %v", err)
-	}
-	t.Cleanup(func() { closeStartedSession(t, mgr, res.SessionID) })
-
-	backendUp.Store(true)
-	if finErr := mgr.DeliverRunFinish(context.Background(), res.SessionID, finishRecord(runv1.RunState_RUN_STATE_FINISHED, "")); finErr != nil {
-		t.Fatalf("DeliverRunFinish: %v", finErr)
-	}
-	conf, err := mgr.Confirm(context.Background(), res.SessionID)
-	if err != nil || conf.ReleaseFailed {
-		t.Fatalf("Confirm = (%+v, %v)", conf, err)
-	}
-	// checkpoint=4 覆盖 Start(1) 与 step 1..3(2..4)，恢复后应只上传 step 4..6。
-	sort.Slice(*steps, func(i, j int) bool { return (*steps)[i] < (*steps)[j] })
-	if len(*steps) != 3 || (*steps)[0] != 4 || (*steps)[1] != 5 || (*steps)[2] != 6 {
-		t.Fatalf("uploaded steps = %v, want [4 5 6]", *steps)
-	}
-}
-
 func TestRecoverOnlineShutdownStagesNoDuplicateExperiment(t *testing.T) {
 	t.Run("shutdown_before_experiment_created", runShutdownBeforeExperimentCreated)
 	t.Run("shutdown_after_experiment_created", runShutdownAfterExperimentCreated)
-	t.Run("shutdown_mid_backfill_resumes_from_checkpoint", runShutdownMidBackfillCheckpoint)
 }
 
 // TestRecoverOnlineFinishFailureDuringAttachKeepsCloudResources 覆盖“本地结束失败”

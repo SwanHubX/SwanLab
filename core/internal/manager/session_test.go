@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/swanhubx/swanlab/core/internal/budget"
+	"github.com/swanhubx/swanlab/core/internal/buffer"
 	"github.com/swanhubx/swanlab/core/internal/pkg/record"
 	"github.com/swanhubx/swanlab/core/internal/uploader"
 	operationv1 "github.com/swanhubx/swanlab/core/proto/swanlab/operation/v1"
@@ -34,11 +35,42 @@ func TestSessionSnapshotIncludesUploadStatus(t *testing.T) {
 	if !stats.GetUpload().GetPaused() {
 		t.Fatal("upload.paused = false, want true")
 	}
+	if !stats.GetUpload().GetSuspended() {
+		t.Fatal("upload.suspended = false, want true")
+	}
 	if got := stats.GetUpload().GetBufferedBytes(); got != 512 {
 		t.Fatalf("upload.buffered_bytes = %d, want 512", got)
 	}
 	if got := stats.GetUpload().GetPendingRecords(); got != 0 {
 		t.Fatalf("upload.pending_records = %d, want 0", got)
+	}
+}
+
+func TestSessionSnapshotBudgetPauseDoesNotSetSuspended(t *testing.T) {
+	up := newIdleUploader(t)
+	intake, err := buffer.New(buffer.Options{
+		SkipStore: true,
+		Budget:    budget.New(budget.Limits{}),
+	})
+	if err != nil {
+		t.Fatalf("buffer.New: %v", err)
+	}
+	intake.PauseAt(123)
+
+	s := &Session{
+		tracker: uploader.NewTracker(),
+		intake:  intake,
+	}
+	setSessionUploader(s, up)
+	upload := s.snapshot().GetUpload()
+	if !upload.GetPaused() {
+		t.Fatal("upload.paused = false, want true on intake pause")
+	}
+	if upload.GetSuspended() {
+		t.Fatal("upload.suspended = true, want false on budget/intake pause")
+	}
+	if got := upload.GetPauseSeq(); got != 123 {
+		t.Fatalf("upload.pause_seq = %d, want 123", got)
 	}
 }
 
@@ -55,13 +87,19 @@ func TestSessionSnapshotIdleUploadStatus(t *testing.T) {
 	if stats.GetUpload().GetPaused() {
 		t.Fatal("upload.paused = true without suspension")
 	}
+	if stats.GetUpload().GetSuspended() {
+		t.Fatal("upload.suspended = true without suspension")
+	}
 	if stats.GetUpload().GetRetrying() {
 		t.Fatal("upload.retrying = true without failure")
 	}
 	if got := stats.GetUpload().GetBufferedBytes(); got != 0 {
 		t.Fatalf("upload.buffered_bytes = %d, want 0", got)
 	}
+}
 
+func TestSessionSnapshotRetryingStatus(t *testing.T) {
+	s := &Session{tracker: uploader.NewTracker()}
 	warn := uploader.NewWarningThrottle()
 	warnedUp, err := uploader.New(uploader.Options{
 		In:       make(chan *recordv1.Record),
