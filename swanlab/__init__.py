@@ -15,6 +15,7 @@ from swanlab.sdk import (
     Text,
     Video,
     async_log,
+    checkpoint,
     config,
     define_metric,
     echarts,
@@ -71,6 +72,7 @@ __all__ = [
     "save",
     "async_log",
     "sync",
+    "checkpoint",
     # run
     "run",  # type: ignore [no-redef]
     "Run",
