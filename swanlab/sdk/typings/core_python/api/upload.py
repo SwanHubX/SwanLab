@@ -149,6 +149,26 @@ UploadHistogramBatch = List[UploadHistogram]
 
 
 # ============================================================
+# Score 评测分数 DTO
+# ============================================================
+
+
+class UploadScore(TypedDict):
+    """评测分数 DTO，对应 POST /house/metrics type="score" 的单条 metric"""
+
+    key: str
+    data: Union[float, Literal["nan"]]  # 字符串类型用于处理 nan 值
+    create_time: str
+    dataset: NotRequired[str]  # 评测项名称，空串表示整体分数
+
+
+UploadScoreBatch = List[UploadScore]
+"""
+评测分数
+"""
+
+
+# ============================================================
 # Object storage resource upload
 # ============================================================
 
@@ -175,3 +195,12 @@ class UploadMetricPayload(TypedDict):
     experimentId: str
     type: str
     metrics: Union[UploadScalarBatch, UploadMediaBatch, UploadLogBatch, UploadHistogramBatch]
+
+
+class UploadScorePayload(TypedDict):
+    """POST /house/metrics 评测分数请求体"""
+
+    projectId: str
+    evalId: str
+    type: str
+    metrics: UploadScoreBatch

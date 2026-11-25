@@ -18,6 +18,7 @@ import yaml
 
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord, SaveType
+from swanlab.sdk.internal.core_python.api.eval import upsert_eval
 from swanlab.sdk.internal.core_python.api.upload import (
     upload_columns,
     upload_conda,
@@ -28,6 +29,7 @@ from swanlab.sdk.internal.core_python.api.upload import (
     upload_metadata,
     upload_requirements,
     upload_scalar,
+    upload_score,
 )
 from swanlab.sdk.internal.core_python.context import CoreContext
 from swanlab.sdk.internal.pkg import adapter, client, console
@@ -40,6 +42,8 @@ from swanlab.sdk.typings.core_python.api.upload import (
     UploadMediaBatch,
     UploadScalar,
     UploadScalarBatch,
+    UploadScore,
+    UploadScoreBatch,
 )
 from swanlab.sdk.typings.core_python.transport import UploadFailure, UploadResult
 
@@ -60,7 +64,15 @@ class HttpRecordSender:
         self._username = ctx.username
         self._project = ctx.project
         self._project_id = ctx.project_id
-        self._experiment_id = ctx.experiment_id
+        # 按生命周期只读取对应身份：训练 run 使用 experiment_id，评估使用 eval_id 与 eval_name
+        self._experiment_id: str
+        self._eval_id: str
+        self._eval_name: str
+        if ctx.is_eval:
+            self._eval_id = ctx.eval_id
+            self._eval_name = ctx.eval_name
+        else:
+            self._experiment_id = ctx.experiment_id
         self._tracker: Optional[UploadTracker] = None
         self._completed_upload_keys: set[str] = set()
         self._completed_upload_keys_lock = threading.Lock()
@@ -71,6 +83,7 @@ class HttpRecordSender:
             "media": self.upload_media,
             "histogram": self.upload_histogram,
             "log": self.upload_log,
+            "score": self.upload_score,
             "save": self.upload_save,
         }
 
@@ -200,6 +213,49 @@ class HttpRecordSender:
         return UploadResult(
             confirmed_records=confirmed + blocked,
             failures=[self._blocked_failure(blocked, "scalar record without value or timestamp")] if blocked else [],
+        )
+
+    def upload_score(self, records: Sequence[Record]) -> UploadResult:
+        """上传评测分数，按 (evalId, dataset, key) 折叠。"""
+        metrics: UploadScoreBatch = []
+        confirmed: List[Record] = []
+        blocked: List[Record] = []
+        for record in records:
+            if not record.HasField("score") or not record.score.HasField("timestamp"):
+                blocked.append(record)
+                continue
+            score_record = record.score
+            data = score_record.value if math.isfinite(score_record.value) else "nan"
+            metric: UploadScore = {
+                "key": score_record.key,
+                "data": cast(Union[float, Literal["nan"]], data),
+                "create_time": score_record.timestamp.ToJsonString(),
+            }
+            if score_record.dataset:
+                metric["dataset"] = score_record.dataset
+            metrics.append(metric)
+            confirmed.append(record)
+        console.debug(f"HTTP upload: upload_score with metrics count: {len(metrics)}")
+        if not metrics:
+            return UploadResult(
+                confirmed_records=list(records),
+                failures=[self._blocked_failure(blocked or list(records), "score record without value or timestamp")],
+            )
+        try:
+            upload_score(self._project_id, self._eval_id, metrics=metrics)
+        except requests.RequestException as e:
+            failures = [transport_failure(confirmed, e)]
+            if blocked:
+                failures.append(self._blocked_failure(blocked, "score record without value or timestamp"))
+            retryable = is_retryable_error(e)
+            return UploadResult(
+                confirmed_records=blocked + ([] if retryable else confirmed),
+                remaining_records=confirmed if retryable else [],
+                failures=failures,
+            )
+        return UploadResult(
+            confirmed_records=confirmed + blocked,
+            failures=[self._blocked_failure(blocked, "score record without value or timestamp")] if blocked else [],
         )
 
     def upload_log(self, records: Sequence[Record]) -> UploadResult:
@@ -469,7 +525,19 @@ class HttpRecordSender:
             elif save.type == SaveType.SAVE_TYPE_CONDA:
                 upload_conda(self._username, self._project, self._experiment_id, content=content)
             elif save.type == SaveType.SAVE_TYPE_CONFIG:
-                upload_config(self._username, self._project, self._experiment_id, content=content)
+                if self._ctx.is_eval:
+                    # （？）目前实现有问题 等待后续接口完善
+                    # 评估配置没有独立的 profile 端点，经 upsert 整体替换 config
+                    upsert_eval(
+                        self._username,
+                        self._project,
+                        cuid=self._eval_id,
+                        name=self._eval_name,
+                        config=content,
+                        retries=0,
+                    )
+                else:
+                    upload_config(self._username, self._project, self._experiment_id, content=content)
         except requests.RequestException as e:
             retryable = is_retryable_error(e)
             return UploadResult(

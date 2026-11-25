@@ -10,12 +10,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Optional
 
+from swanlab.proto.swanlab.eval.v1.eval_pb2 import EvalStartRecord
 from swanlab.proto.swanlab.run.v1.run_pb2 import StartRecord
+from swanlab.sdk.internal.core_python.api.eval import upsert_eval
 from swanlab.sdk.internal.core_python.api.experiment import (
     create_or_resume_experiment as api_create_or_resume_experiment,
 )
 from swanlab.sdk.internal.core_python.api.project import get_or_create_project
 from swanlab.sdk.internal.pkg import adapter
+from swanlab.sdk.typings.core_python.api.eval import InitEvalType
 from swanlab.sdk.typings.core_python.api.experiment import InitExperimentType
 from swanlab.sdk.typings.core_python.api.project import ProjectType
 from swanlab.utils.experiment import generate_color, generate_name
@@ -30,6 +33,14 @@ class PrepareExperimentStartResult:
     new_experiment: bool
     name: str
     color: str
+
+
+@dataclass(frozen=True)
+class PrepareEvalStartResult:
+    username: str
+    project: str
+    project_data: ProjectType
+    eval: InitEvalType
 
 
 def prepare_experiment_start(record: StartRecord, *, retries: Optional[int] = None) -> PrepareExperimentStartResult:
@@ -83,6 +94,41 @@ def generate_run_online_path(result: PrepareExperimentStartResult):
     # /:username/:project_name
     project_path = result.project_data["path"]
     return f"{project_path}/{run_id}"
+
+
+def prepare_eval_start(record: EvalStartRecord, *, retries: Optional[int] = None) -> PrepareEvalStartResult:
+    """
+    创建或更新评估对应的项目与评估实体。
+
+    :param retries: 覆盖项目与评估请求的会话默认重试次数；None 使用会话默认值
+    """
+    project_data = get_or_create_project(
+        username=record.workspace,
+        name=record.project,
+        # Eval 实体没有 public 字段；项目已存在时该参数不参与请求，不存在时按私有项目创建
+        public=False,
+        retries=retries,
+    )
+    username, project = project_data["group"]["username"], project_data["name"]
+    eval_data = upsert_eval(
+        username,
+        project,
+        cuid=record.cuid,
+        name=record.name,
+        tags=list(record.tags),
+        link=record.link or None,
+        experiment_cuid=record.experiment_cuid or None,
+        step=record.step if record.HasField("step") else None,
+        retries=retries,
+    )
+    assert eval_data.get("cuid") == record.cuid, "upsert_eval() returned an unexpected cuid."
+
+    return PrepareEvalStartResult(
+        username=username,
+        project=project,
+        project_data=project_data,
+        eval=eval_data,
+    )
 
 
 def get_buffer_size(buffer: Any) -> int:

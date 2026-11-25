@@ -25,6 +25,8 @@ from swanlab.sdk.typings.core_python.api.upload import (
     UploadMetricPayload,
     UploadResource,
     UploadScalarBatch,
+    UploadScoreBatch,
+    UploadScorePayload,
 )
 
 if TYPE_CHECKING:
@@ -165,6 +167,26 @@ def upload_histogram(project_id: str, experiment_id: str, *, metrics: UploadHist
         "type": "histogram",
         "projectId": project_id,
         "experimentId": experiment_id,
+        "metrics": metrics,
+    }
+    # retries 设置为 0 表示不重试，重试机制交给 transport 层的退避调度
+    client.post("/house/metrics", data, retries=0)
+
+
+def upload_score(project_id: str, eval_id: str, *, metrics: UploadScoreBatch) -> None:
+    """
+    批量发送评测分数到 /house/metrics。
+
+    :param project_id: 所属项目 ID
+    :param eval_id: 评估唯一标识符
+    :param metrics: 评测分数字段列表
+    """
+    if not metrics:
+        return
+    data: UploadScorePayload = {
+        "type": "score",
+        "projectId": project_id,
+        "evalId": eval_id,
         "metrics": metrics,
     }
     # retries 设置为 0 表示不重试，重试机制交给 transport 层的退避调度
