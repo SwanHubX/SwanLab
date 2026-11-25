@@ -210,7 +210,7 @@ def mock_online_checkpoint_apis(mock_online_init_apis, mock_checkpoint_api):
 def mock_online_checkpoint_apis_with_log(
     mock_online_init_apis, mock_columns_api, mock_checkpoint_api
 ):
-    """run.log() を含むテスト用：series エンドポイントも登録する"""
+    """含 run.log() 的测试用：同时注册 series 端点"""
     pass
 
 
@@ -332,12 +332,12 @@ class TestCheckpointStepResolution:
         checkpoint(uri=URI, step=500)
         assert self._get_checkpoint_body(rsps)["step"] == 500
 
-    def test_explicit_none_step_sends_null(self, mock_online_checkpoint_apis_with_log, rsps):
-        """step=None 时 body 中为 null"""
+    def test_explicit_none_step_not_in_body(self, mock_online_checkpoint_apis_with_log, rsps):
+        """step=None → strip_none 移除该字段，服务端等价于 null"""
         run = init(mode="online", project=PROJECT)
         run.log({"loss": 0.5})
         checkpoint(uri=URI, step=None)
-        assert self._get_checkpoint_body(rsps).get("step") is None
+        assert "step" not in self._get_checkpoint_body(rsps)
 
     def test_no_log_step_is_none(self, mock_online_checkpoint_apis, rsps):
         """run 从未 log（global_step=-1）时 step 为 null"""

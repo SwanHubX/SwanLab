@@ -46,6 +46,7 @@ def register_checkpoint(
         }
     )
     try:
+        # retries 设置为 0 表示不重试，重试机制交给 transport 层的退避调度
         resp = client.post("/checkpoint", body, retries=0)
         return resp.data["cuid"]
     except ApiError as e:
