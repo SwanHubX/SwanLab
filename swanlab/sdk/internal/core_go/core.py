@@ -310,7 +310,7 @@ class CoreGo(CoreProtocol):
             call(rpc, session_id)
         except Exception as exc:
             failure = self._as_core_error(exc, Stage.RPC)
-            if failure.reason is ReasonCode.GRPC_UNAVAILABLE and self._owner_process_exited():
+            if failure.retryable and self._owner_process_exited():
                 failure = CoreGoError(
                     failure.stage,
                     failure.reason,

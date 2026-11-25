@@ -221,14 +221,16 @@ class CoreProtocol(ABC):
 
     def upsert_histograms(self, histograms: List[HistogramRecord]) -> None:
         """上报一组 HistogramRecord，记录直方图指标值"""
-        with safe.block(message="upsert histograms error"):
-            if self._mode == "online":
-                return self._upsert_histograms_when_online(histograms)
-            elif self._mode == "local":
-                return self._upsert_histograms_when_local(histograms)
-            elif self._mode == "offline":
-                return self._upsert_histograms_when_offline(histograms)
-            return self._upsert_histograms_when_disabled(histograms)
+        self._guard_upsert("upsert histograms error", lambda: self._upsert_histograms_dispatch(histograms))
+
+    def _upsert_histograms_dispatch(self, histograms: List[HistogramRecord]) -> None:
+        if self._mode == "online":
+            return self._upsert_histograms_when_online(histograms)
+        elif self._mode == "local":
+            return self._upsert_histograms_when_local(histograms)
+        elif self._mode == "offline":
+            return self._upsert_histograms_when_offline(histograms)
+        return self._upsert_histograms_when_disabled(histograms)
 
     def _upsert_histograms_when_disabled(self, histograms: List[HistogramRecord]) -> None: ...
 
