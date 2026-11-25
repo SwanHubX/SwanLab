@@ -24,7 +24,7 @@ class FakeProcess:
     pid = 4242
 
     def __init__(self) -> None:
-        self.returncode = None
+        self.returncode: Optional[int] = None
 
     def poll(self) -> Optional[int]:
         return self.returncode
