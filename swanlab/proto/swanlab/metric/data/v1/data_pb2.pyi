@@ -85,3 +85,15 @@ class HistogramRecord(_message.Message):
     timestamp: _timestamp_pb2.Timestamp
     value: HistogramValue
     def __init__(self, key: _Optional[str] = ..., step: _Optional[int] = ..., type: _Optional[_Union[_column_pb2.ColumnType, str]] = ..., timestamp: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., value: _Optional[_Union[HistogramValue, _Mapping]] = ...) -> None: ...
+
+class ScoreRecord(_message.Message):
+    __slots__ = ("dataset", "key", "value", "timestamp")
+    DATASET_FIELD_NUMBER: _ClassVar[int]
+    KEY_FIELD_NUMBER: _ClassVar[int]
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    TIMESTAMP_FIELD_NUMBER: _ClassVar[int]
+    dataset: str
+    key: str
+    value: float
+    timestamp: _timestamp_pb2.Timestamp
+    def __init__(self, dataset: _Optional[str] = ..., key: _Optional[str] = ..., value: _Optional[float] = ..., timestamp: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...

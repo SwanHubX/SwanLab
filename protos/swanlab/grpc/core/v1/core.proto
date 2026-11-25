@@ -4,6 +4,7 @@ package swanlab.grpc.core.v1;
 
 import "google/protobuf/empty.proto";
 import "swanlab/run/v1/run.proto";
+import "swanlab/eval/v1/eval.proto";
 import "swanlab/metric/data/v1/data.proto";
 import "swanlab/metric/column/v1/column.proto";
 import "swanlab/terminal/v1/log.proto";
@@ -39,11 +40,23 @@ service CoreService {
     // DeliverRunFinish 接收单条 FinishRecord，用于实验结束。
     rpc DeliverRunFinish(DeliverRunFinishRequest) returns (DeliverRunFinishResponse);
 
+    // DeliverEvalStart 接收单条 EvalStartRecord，用于评估开始，并返回必要的信息。
+    rpc DeliverEvalStart(DeliverEvalStartRequest) returns (DeliverEvalStartResponse);
+
+    // UpsertScores 接收一组 ScoreRecord 并写入，每一条记录对应一个评测项下的单个指标
+    rpc UpsertScores(UpsertScoresRequest) returns (google.protobuf.Empty);
+
+    // DeliverEvalFinish 接收评估结束事件，用于结束评估。评估没有状态字段，请求体不携带结束状态。
+    rpc DeliverEvalFinish(DeliverEvalFinishRequest) returns (DeliverEvalFinishResponse);
+
     // GetOperationStats 返回 Core 当前运行状态和上传进度快照。
     rpc GetOperationStats(google.protobuf.Empty) returns (GetOperationStatsResponse);
 
     // ConfirmRunFinish 确认 Core 运行结束，可以安全退出
     rpc ConfirmRunFinish(google.protobuf.Empty) returns (ConfirmRunFinishResponse);
+
+    // ConfirmEvalFinish 确认评估结束，等待上传排空并释放本地资源
+    rpc ConfirmEvalFinish(google.protobuf.Empty) returns (ConfirmEvalFinishResponse);
 }
 
 // DeliverRunStart 请求，生命周期函数，运行正式开始
@@ -103,6 +116,11 @@ message UpsertSavesRequest {
     repeated swanlab.save.v1.SaveRecord saves = 1; // 保存记录列表
 }
 
+// UpsertScores 请求，异步插入一批评测分数
+message UpsertScoresRequest {
+    repeated swanlab.metric.data.v1.ScoreRecord data = 1; // 评测分数记录列表
+}
+
 // DeliverRunFinish 请求，生命周期函数，运行结束
 message DeliverRunFinishRequest {
     swanlab.run.v1.FinishRecord finish_record = 1; // Run 结束记录
@@ -110,6 +128,36 @@ message DeliverRunFinishRequest {
 
 // DeliverRunFinish 响应
 message DeliverRunFinishResponse {
+    bool success   = 1; // 请求是否成功
+    string message = 2; // 请求失败的响应
+}
+
+// DeliverEvalStart 请求，生命周期函数，评估正式开始
+message DeliverEvalStartRequest {
+    swanlab.settings.core.v1.CoreSettings core_settings        = 1; // Eval 服务配置
+    swanlab.eval.v1.EvalStartRecord eval_start_record          = 2; // Eval 创建记录
+}
+
+// DeliverEvalStart 响应
+message DeliverEvalStartResponse {
+    bool success                     = 1; // 请求是否成功
+    string message                   = 2; // 请求失败的响应
+    swanlab.eval.v1.EvalStartRecord eval = 3; // 最终创建的 Eval 记录
+    string name                      = 4; // Eval 名称
+    CoreErrorKind error_kind         = 5; // 启动失败时的错误分类
+}
+
+// DeliverEvalFinish 请求，生命周期函数，评估结束。评估没有状态字段，请求体不携带结束状态与结束记录。
+message DeliverEvalFinishRequest {}
+
+// DeliverEvalFinish 响应
+message DeliverEvalFinishResponse {
+    bool success   = 1; // 请求是否成功
+    string message = 2; // 请求失败的响应
+}
+
+// ConfirmEvalFinish 响应
+message ConfirmEvalFinishResponse {
     bool success   = 1; // 请求是否成功
     string message = 2; // 请求失败的响应
 }

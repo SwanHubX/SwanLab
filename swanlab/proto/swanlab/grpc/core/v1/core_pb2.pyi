@@ -1,5 +1,6 @@
 from google.protobuf import empty_pb2 as _empty_pb2
 from swanlab.proto.swanlab.run.v1 import run_pb2 as _run_pb2
+from swanlab.proto.swanlab.eval.v1 import eval_pb2 as _eval_pb2
 from swanlab.proto.swanlab.metric.data.v1 import data_pb2 as _data_pb2
 from swanlab.proto.swanlab.metric.column.v1 import column_pb2 as _column_pb2
 from swanlab.proto.swanlab.terminal.v1 import log_pb2 as _log_pb2
@@ -92,6 +93,12 @@ class UpsertSavesRequest(_message.Message):
     saves: _containers.RepeatedCompositeFieldContainer[_save_pb2.SaveRecord]
     def __init__(self, saves: _Optional[_Iterable[_Union[_save_pb2.SaveRecord, _Mapping]]] = ...) -> None: ...
 
+class UpsertScoresRequest(_message.Message):
+    __slots__ = ("data",)
+    DATA_FIELD_NUMBER: _ClassVar[int]
+    data: _containers.RepeatedCompositeFieldContainer[_data_pb2.ScoreRecord]
+    def __init__(self, data: _Optional[_Iterable[_Union[_data_pb2.ScoreRecord, _Mapping]]] = ...) -> None: ...
+
 class DeliverRunFinishRequest(_message.Message):
     __slots__ = ("finish_record",)
     FINISH_RECORD_FIELD_NUMBER: _ClassVar[int]
@@ -99,6 +106,48 @@ class DeliverRunFinishRequest(_message.Message):
     def __init__(self, finish_record: _Optional[_Union[_run_pb2.FinishRecord, _Mapping]] = ...) -> None: ...
 
 class DeliverRunFinishResponse(_message.Message):
+    __slots__ = ("success", "message")
+    SUCCESS_FIELD_NUMBER: _ClassVar[int]
+    MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    success: bool
+    message: str
+    def __init__(self, success: bool = ..., message: _Optional[str] = ...) -> None: ...
+
+class DeliverEvalStartRequest(_message.Message):
+    __slots__ = ("core_settings", "eval_start_record")
+    CORE_SETTINGS_FIELD_NUMBER: _ClassVar[int]
+    EVAL_START_RECORD_FIELD_NUMBER: _ClassVar[int]
+    core_settings: _core_pb2.CoreSettings
+    eval_start_record: _eval_pb2.EvalStartRecord
+    def __init__(self, core_settings: _Optional[_Union[_core_pb2.CoreSettings, _Mapping]] = ..., eval_start_record: _Optional[_Union[_eval_pb2.EvalStartRecord, _Mapping]] = ...) -> None: ...
+
+class DeliverEvalStartResponse(_message.Message):
+    __slots__ = ("success", "message", "eval", "name", "error_kind")
+    SUCCESS_FIELD_NUMBER: _ClassVar[int]
+    MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    EVAL_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    ERROR_KIND_FIELD_NUMBER: _ClassVar[int]
+    success: bool
+    message: str
+    eval: _eval_pb2.EvalStartRecord
+    name: str
+    error_kind: CoreErrorKind
+    def __init__(self, success: bool = ..., message: _Optional[str] = ..., eval: _Optional[_Union[_eval_pb2.EvalStartRecord, _Mapping]] = ..., name: _Optional[str] = ..., error_kind: _Optional[_Union[CoreErrorKind, str]] = ...) -> None: ...
+
+class DeliverEvalFinishRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class DeliverEvalFinishResponse(_message.Message):
+    __slots__ = ("success", "message")
+    SUCCESS_FIELD_NUMBER: _ClassVar[int]
+    MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    success: bool
+    message: str
+    def __init__(self, success: bool = ..., message: _Optional[str] = ...) -> None: ...
+
+class ConfirmEvalFinishResponse(_message.Message):
     __slots__ = ("success", "message")
     SUCCESS_FIELD_NUMBER: _ClassVar[int]
     MESSAGE_FIELD_NUMBER: _ClassVar[int]

@@ -2,6 +2,7 @@ import datetime
 
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from swanlab.proto.swanlab.run.v1 import run_pb2 as _run_pb2
+from swanlab.proto.swanlab.eval.v1 import eval_pb2 as _eval_pb2
 from swanlab.proto.swanlab.metric.data.v1 import data_pb2 as _data_pb2
 from swanlab.proto.swanlab.metric.column.v1 import column_pb2 as _column_pb2
 from swanlab.proto.swanlab.terminal.v1 import log_pb2 as _log_pb2
@@ -14,25 +15,29 @@ from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class Record(_message.Message):
-    __slots__ = ("num", "timestamp", "start", "finish", "column", "scalar", "media", "histogram", "log", "save")
+    __slots__ = ("num", "timestamp", "start", "finish", "eval_start", "column", "scalar", "media", "histogram", "score", "log", "save")
     NUM_FIELD_NUMBER: _ClassVar[int]
     TIMESTAMP_FIELD_NUMBER: _ClassVar[int]
     START_FIELD_NUMBER: _ClassVar[int]
     FINISH_FIELD_NUMBER: _ClassVar[int]
+    EVAL_START_FIELD_NUMBER: _ClassVar[int]
     COLUMN_FIELD_NUMBER: _ClassVar[int]
     SCALAR_FIELD_NUMBER: _ClassVar[int]
     MEDIA_FIELD_NUMBER: _ClassVar[int]
     HISTOGRAM_FIELD_NUMBER: _ClassVar[int]
+    SCORE_FIELD_NUMBER: _ClassVar[int]
     LOG_FIELD_NUMBER: _ClassVar[int]
     SAVE_FIELD_NUMBER: _ClassVar[int]
     num: int
     timestamp: _timestamp_pb2.Timestamp
     start: _run_pb2.StartRecord
     finish: _run_pb2.FinishRecord
+    eval_start: _eval_pb2.EvalStartRecord
     column: _column_pb2.ColumnRecord
     scalar: _data_pb2.ScalarRecord
     media: _data_pb2.MediaRecord
     histogram: _data_pb2.HistogramRecord
+    score: _data_pb2.ScoreRecord
     log: _log_pb2.LogRecord
     save: _save_pb2.SaveRecord
-    def __init__(self, num: _Optional[int] = ..., timestamp: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., start: _Optional[_Union[_run_pb2.StartRecord, _Mapping]] = ..., finish: _Optional[_Union[_run_pb2.FinishRecord, _Mapping]] = ..., column: _Optional[_Union[_column_pb2.ColumnRecord, _Mapping]] = ..., scalar: _Optional[_Union[_data_pb2.ScalarRecord, _Mapping]] = ..., media: _Optional[_Union[_data_pb2.MediaRecord, _Mapping]] = ..., histogram: _Optional[_Union[_data_pb2.HistogramRecord, _Mapping]] = ..., log: _Optional[_Union[_log_pb2.LogRecord, _Mapping]] = ..., save: _Optional[_Union[_save_pb2.SaveRecord, _Mapping]] = ...) -> None: ...
+    def __init__(self, num: _Optional[int] = ..., timestamp: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., start: _Optional[_Union[_run_pb2.StartRecord, _Mapping]] = ..., finish: _Optional[_Union[_run_pb2.FinishRecord, _Mapping]] = ..., eval_start: _Optional[_Union[_eval_pb2.EvalStartRecord, _Mapping]] = ..., column: _Optional[_Union[_column_pb2.ColumnRecord, _Mapping]] = ..., scalar: _Optional[_Union[_data_pb2.ScalarRecord, _Mapping]] = ..., media: _Optional[_Union[_data_pb2.MediaRecord, _Mapping]] = ..., histogram: _Optional[_Union[_data_pb2.HistogramRecord, _Mapping]] = ..., score: _Optional[_Union[_data_pb2.ScoreRecord, _Mapping]] = ..., log: _Optional[_Union[_log_pb2.LogRecord, _Mapping]] = ..., save: _Optional[_Union[_save_pb2.SaveRecord, _Mapping]] = ...) -> None: ...

@@ -75,3 +75,15 @@ message HistogramRecord {
     // 数据值
     HistogramValue value = 5;
 }
+
+// 评测分数记录，对应 benchmark.log({...}) 中的单个指标。
+message ScoreRecord {
+    // 评测项名称，空串表示整体分数
+    string dataset = 1;
+    // 指标名
+    string key = 2;
+    // 分数值，非有限值在 HTTP 层编码为 "nan"
+    double value = 3;
+    // 记录的时间戳，重试时原样重发
+    google.protobuf.Timestamp timestamp = 4;
+}
