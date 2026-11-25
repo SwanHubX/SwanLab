@@ -164,21 +164,12 @@ class Client:
             self._expired_at = parsed_expired_at
             self._username = username
             return login_resp
-        except ApiError as e:
-            if strict:
-                if quiet_transient and (is_transient_login_error(e) or is_login_auth_error(e)):
-                    console.debug(f"Failed to login: {e}")
-                else:
-                    # 错误在发生处打印调用链；原始异常保留在 __cause__ 供 init 判断是否可降级
-                    console.trace("Failed to login")
-                raise self._wrap_auth_error(e) from e
-            self._warn_refresh_failure(warning)
-            return None
         except Exception as e:
             if strict:
                 if quiet_transient and (is_transient_login_error(e) or is_login_auth_error(e)):
                     console.debug(f"Failed to login: {e}")
                 else:
+                    # 错误在发生处打印调用链；原始异常保留在 __cause__ 供 init 判断是否可降级
                     console.trace("Failed to login")
                 raise self._wrap_auth_error(e) from e
             self._warn_refresh_failure(warning)

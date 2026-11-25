@@ -61,8 +61,6 @@ __all__ = [
     "ensure_run_dir",
 ]
 
-_UNSET = object()
-
 
 def set_nested_value(d: dict, key: str, value: Any):
     """
@@ -413,7 +411,7 @@ def _login_or_fallback(login_func: Callable[[], bool], settings: Settings) -> Mo
 
 
 @safe.decorator(message="Failed to send webhook")
-def send_webhook(ctx: RunContext, path: Any = _UNSET) -> Tuple[bool, bool]:
+def send_webhook(ctx: RunContext, path: Optional[str]) -> Tuple[bool, bool]:
     """
     发送 webhook 回调，仅在非 disabled 模式下触发。
 
@@ -429,7 +427,7 @@ def send_webhook(ctx: RunContext, path: Any = _UNSET) -> Tuple[bool, bool]:
     }
 
     :param ctx: 运行上下文
-    :param path: 已绑定的云端实验路径；未传入时按配置字段推导
+    :param path: 已绑定的云端实验路径；为空表示尚未接入，不输出未生效的云端链接
     :return: (是否发送，是否成功)
     """
     if ctx.config.settings.mode == "disabled":
@@ -443,18 +441,8 @@ def send_webhook(ctx: RunContext, path: Any = _UNSET) -> Tuple[bool, bool]:
         return False, False
     webhook_value = webhook.value
     webhook_timeout = webhook.timeout
-    # 获取实验url：显式传入 path=None 时说明仍在等待后台恢复，不输出未生效的云端链接
-    if path is _UNSET:
-        if settings.mode == "online":
-            exp_url = (
-                f"{settings.web_host}/@{settings.project.workspace}/{settings.project.name}/runs/{settings.run.id}"
-            )
-        else:
-            exp_url = None
-    elif path:
-        exp_url = f"{settings.web_host}{helper.fmt_run_path(path)}"
-    else:
-        exp_url = None
+    # path 为空说明仍在等待后台恢复，不输出未生效的云端链接
+    exp_url = f"{settings.web_host}{helper.fmt_run_path(path)}" if path else None
     # 发送请求
     requests.post(
         webhook_url,

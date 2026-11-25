@@ -66,9 +66,14 @@ func (s *Session) reconcileHealth() {
 	s.backfill.Wake()
 }
 
+// canSuspendUploads 表示当前会话具备“暂停上传、仅写本地”的前提：本地存储可用，否则只能继续消费内存队列，不能丢弃上传路径。
+func (s *Session) canSuspendUploads() bool {
+	return !s.cfg.SkipStore && !s.storeDegraded.Load()
+}
+
 // shouldSuspendUploads 判断当前是否必须暂停上传投递。
 func (s *Session) shouldSuspendUploads() bool {
-	if s.cfg.SkipStore || s.storeDegraded.Load() {
+	if !s.canSuspendUploads() {
 		return false
 	}
 	// 在线会话在云端资源尚未挂载时只写本地，防止未建实验的记录进入上传通道。

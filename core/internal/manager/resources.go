@@ -239,7 +239,8 @@ func (s *Session) open(init sessionInit) error {
 		s.intake.PauseAt(prog.ReplayFrom)
 	}
 
-	if init.cfg.NormalizedMode() == config.ModeOnline && !init.cfg.RecoverOnline {
+	switch {
+	case init.cfg.NormalizedMode() == config.ModeOnline && !init.cfg.RecoverOnline:
 		res, err := s.buildCloudResources(cloudAttachParams{
 			http:         init.http,
 			api:          init.api,
@@ -253,7 +254,7 @@ func (s *Session) open(init sessionInit) error {
 		}
 		s.setCloudResources(res)
 		s.drainFn = res.uploader.Wait
-	} else if init.cfg.NormalizedMode() == config.ModeOnline && init.cfg.RecoverOnline {
+	case init.cfg.NormalizedMode() == config.ModeOnline:
 		// 可恢复会话创建时即挂载排空等待：先等待异步接入完成，再排空已挂载的上传器；
 		// 接入永久失败时不阻塞收尾，交由 Confirm 返回失败并释放资源。
 		s.drainFn = func(ctx context.Context) error {
@@ -268,7 +269,7 @@ func (s *Session) open(init sessionInit) error {
 			}
 			return nil
 		}
-	} else if init.cfg.NormalizedMode() != config.ModeOnline {
+	default:
 		// local/offline 没有上传阶段；收尾只需关闭本地 store 与 intake。
 		s.drainFn = func(context.Context) error {
 			s.markDrained()

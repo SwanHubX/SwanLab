@@ -219,11 +219,8 @@ func (s *Session) tryAttach(ctx context.Context, params *attachParams, attemptTi
 	}
 	workspace := firstNonEmpty(project.Group.Username, params.start.GetWorkspace(), apiClient.Username())
 	projectName := firstNonEmpty(project.Name, params.start.GetProject())
-	if workspace == "" || projectName == "" || project.CUID == "" || project.Path == "" {
-		return fmt.Errorf(
-			"%w: incomplete project metadata (workspace=%q project=%q cuid=%q path=%q)",
-			client.ErrInvalidResponse, workspace, projectName, project.CUID, project.Path,
-		)
+	if err = requireProjectMetadata(workspace, projectName, project.CUID, project.Path); err != nil {
+		return err
 	}
 
 	if ctx.Err() != nil {
@@ -339,10 +336,7 @@ func (s *Session) isServerDegraded() bool {
 }
 
 func (s *Session) shouldSuspendAttachedUploader() bool {
-	if s.cfg.SkipStore || s.storeDegraded.Load() {
-		return false
-	}
-	return s.isSiteReadDegraded()
+	return s.canSuspendUploads() && s.isSiteReadDegraded()
 }
 
 func isRetryableAttachError(err error) bool {

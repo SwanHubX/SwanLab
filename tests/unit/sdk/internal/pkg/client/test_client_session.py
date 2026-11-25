@@ -231,7 +231,7 @@ def test_warning_retry_increment_retry_count_increments(mocker):
 
 @responses.activate
 def test_quiet_transient_logging_suppresses_retry_and_503_but_keeps_401(mocker):
-    """log_retry=False / log_transient_error=False 时抑制 retry 和 5xx 日志，但保留 401 错误日志。"""
+    """quiet_transient=True 时抑制 retry 和 5xx 日志，但保留 401 错误日志。"""
     sess = create(timeout=10, default_retry=1)
     mock_warning = mocker.patch("swanlab.sdk.internal.pkg.client.session.console.warning")
     mock_error = mocker.patch("swanlab.sdk.internal.pkg.client.session.console.error")
@@ -239,7 +239,7 @@ def test_quiet_transient_logging_suppresses_retry_and_503_but_keeps_401(mocker):
 
     responses.add(responses.POST, "http://api.test/transient", json={"message": "busy"}, status=503)
     with pytest.raises(ApiError):
-        sess.post("http://api.test/transient", log_retry=False, log_transient_error=False)
+        sess.post("http://api.test/transient", quiet_transient=True)
 
     mock_warning.assert_not_called()
     mock_error.assert_not_called()
@@ -247,7 +247,7 @@ def test_quiet_transient_logging_suppresses_retry_and_503_but_keeps_401(mocker):
 
     responses.add(responses.POST, "http://api.test/auth", json={"message": "bad key"}, status=401)
     with pytest.raises(ApiError):
-        sess.post("http://api.test/auth", log_retry=False, log_transient_error=False)
+        sess.post("http://api.test/auth", quiet_transient=True)
 
     mock_error.assert_called_once()
     assert "-> 401" in str(mock_error.call_args[0][0])

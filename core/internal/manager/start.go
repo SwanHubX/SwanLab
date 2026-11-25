@@ -61,6 +61,16 @@ func buildHealthOpts(
 	}
 }
 
+// requireProjectMetadata 校验启动/接入阶段拿到的项目信息完整性；缺失时返回 ErrInvalidResponse。
+func requireProjectMetadata(workspace, project, cuid, path string) error {
+	if workspace != "" && project != "" && cuid != "" && path != "" {
+		return nil
+	}
+	return fmt.Errorf(
+		"%w: incomplete project metadata (workspace=%q project=%q cuid=%q path=%q)",
+		client.ErrInvalidResponse, workspace, project, cuid, path)
+}
+
 func (m *Manager) bootstrapCloud(
 	ctx context.Context,
 	cfg config.Settings,
@@ -96,10 +106,8 @@ func (m *Manager) bootstrapCloud(
 	// 与 Python 一致：项目查询使用 record.workspace，后续实验 owner 以项目所属组为准。
 	workspace := firstNonEmpty(project.Group.Username, rec.GetWorkspace(), apiClient.Username())
 	projectName := firstNonEmpty(project.Name, rec.GetProject())
-	if workspace == "" || projectName == "" || project.CUID == "" || project.Path == "" {
-		return nil, fmt.Errorf(
-			"%w: incomplete project metadata (workspace=%q project=%q cuid=%q path=%q)",
-			client.ErrInvalidResponse, workspace, projectName, project.CUID, project.Path)
+	if err = requireProjectMetadata(workspace, projectName, project.CUID, project.Path); err != nil {
+		return nil, err
 	}
 	if err = resume.ValidateStart(local, resume.StartIdentity{
 		RunID:               firstNonEmpty(rec.GetId(), cfg.RunID),

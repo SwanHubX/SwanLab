@@ -37,12 +37,10 @@ def retry_finish_call(
     for attempt in range(attempts):
         prev_error = core.last_error
         response = call()
-        if response.success or attempt == attempts - 1:
-            return response
-        if core.last_error is prev_error or not _is_retryable(core):
+        if response.success or attempt == attempts - 1 or core.last_error is prev_error or not _is_retryable(core):
             return response
         do_sleep(interval)
-    raise AssertionError("unreachable")
+    raise AssertionError("attempts >= 1 时循环内必然返回")
 
 
 def _is_retryable(core: CoreProtocol) -> bool:

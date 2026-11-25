@@ -38,8 +38,7 @@ def login_by_api_key(
             url=f"{base_url}/login/api_key",
             headers={"authorization": api_key},
             timeout=timeout,
-            log_retry=not quiet_transient,
-            log_transient_error=not quiet_transient,
+            quiet_transient=quiet_transient,
         )
     return resp.json()
 
