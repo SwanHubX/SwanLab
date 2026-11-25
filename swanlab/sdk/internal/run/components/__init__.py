@@ -142,13 +142,16 @@ def _factory_consumer(
     record_batch = ctx.config.settings.core.record_batch
     batch_size = min(DEFAULT_RECORD_BATCH, record_batch)
     rpc_batch_size = min(DEFAULT_RPC_BATCH, record_batch)
-    return BackgroundConsumer(
+    consumer = BackgroundConsumer(
         ctx,
         e.queue,
         batch_size=batch_size,
         rpc_batch_size=rpc_batch_size,
         stop_timeout=DEFAULT_STOP_FLUSH_TIMEOUT,
     )
+    if isinstance(e, RunEmitter):
+        e.set_consumer_guard(lambda: consumer.accepting_events)
+    return consumer
 
 
 def _factory_config(ctx: RunContext, e: EmitterProtocol) -> Config:

@@ -113,7 +113,9 @@ func upsertError(err error) error {
 	switch {
 	case errors.Is(err, buffer.ErrStoreDegraded):
 		return fmt.Errorf("%w: %v", ErrStoreUnavailable, err)
-	case errors.Is(err, buffer.ErrOverloaded), errors.Is(err, buffer.ErrBatchTooLarge):
+	case errors.Is(err, buffer.ErrBatchTooLarge):
+		return fmt.Errorf("%w: %v", ErrRequestTooLarge, err)
+	case errors.Is(err, buffer.ErrOverloaded):
 		return fmt.Errorf("%w: %v", ErrOverloaded, err)
 	case errors.Is(err, buffer.ErrClosed):
 		return fmt.Errorf("%w: %w", ErrNotRunning, err)

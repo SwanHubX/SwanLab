@@ -310,9 +310,25 @@ class CoreGo(CoreProtocol):
             call(rpc, session_id)
         except Exception as exc:
             failure = self._as_core_error(exc, Stage.RPC)
+            if failure.retryable and self._owner_process_exited():
+                failure = CoreGoError(
+                    failure.stage,
+                    failure.reason,
+                    f"{failure.message}; owned core process exited",
+                    grpc_name=failure.grpc_name,
+                    grpc_code=failure.grpc_code,
+                    detail=failure.detail,
+                    cause=failure,
+                    retryable=False,
+                )
             with self._lock:
                 self._last_error = failure
             raise failure from exc
+
+    def _owner_process_exited(self) -> bool:
+        with self._lock:
+            launcher = self._launcher
+        return launcher is not None and launcher.process_exited
 
     # ---------------------------------- 通知运行结束 ----------------------------------
 

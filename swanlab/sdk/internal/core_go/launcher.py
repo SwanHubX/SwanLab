@@ -103,6 +103,15 @@ class CoreLauncher:
         """当前 launcher 是否拉起并拥有该 core 子进程；复用已有端点时为 False。"""
         return self._owns_process
 
+    @property
+    def process_exited(self) -> bool:
+        """仅 Owner Mode：自建 core 子进程是否已退出。"""
+        with self._lock:
+            proc = self._proc
+            owns_process = self._owns_process
+            detach = self._detach
+        return not detach and owns_process and proc is not None and proc.poll() is not None
+
     def start(self) -> Endpoint:
         """拉起 core 并等待 channel-ready。
 

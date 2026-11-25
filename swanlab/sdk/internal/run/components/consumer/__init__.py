@@ -45,17 +45,23 @@ DEFAULT_RECORD_BATCH: int = 100
 DEFAULT_RPC_BATCH: int = 2_000
 # 退出阶段默认阻塞等待直到积压记录全部被 Core 接收（None 表示不设上限，对齐 core_python finish(timeout=None)）
 DEFAULT_STOP_FLUSH_TIMEOUT: Optional[float] = None
+# 重试期间允许在内存中滞留的最大记录数与 protobuf 字节数
+DEFAULT_MAX_BUFFERED_RECORDS: int = 50_000
+DEFAULT_MAX_BUFFERED_BYTES: int = 128 << 20
 # 可重试失败的退避：base 起翻倍，封顶 max；失败期间不阻塞事件循环。
 DEFAULT_RETRY_BASE_DELAY: float = 0.1
 DEFAULT_RETRY_MAX_DELAY: float = 2.0
+# 同类告警的最小间隔（秒）
+_DROP_WARNING_INTERVAL: float = 10.0
+# stop() 投递停止哨兵时的短轮询间隔，避免消费线程退出且队列满时卡死 finish()
+_STOP_PUT_POLL_INTERVAL: float = 0.5
 # 幂运算上限，避免连续失败时把指数算爆。
 _MAX_BACKOFF_EXPONENT: int = 16
 
 
 def _is_retryable(exc: BaseException) -> bool:
-    """未知异常按可重试处理：宁可积压，也不能静默丢记录。"""
-    retryable = getattr(exc, "retryable", None)
-    return True if retryable is None else bool(retryable)
+    """只有实现显式标记 retryable=True 的异常才重试；未知异常按确定性失败丢弃。"""
+    return getattr(exc, "retryable", False) is True
 
 
 class ConsumerProtocol(ABC):
@@ -73,6 +79,8 @@ class ConsumerProtocol(ABC):
         retry_max_delay: float = DEFAULT_RETRY_MAX_DELAY,
         clock: Callable[[], float] = time.monotonic,
         sleep: Callable[[float], None] = time.sleep,
+        max_buffered_records: int = DEFAULT_MAX_BUFFERED_RECORDS,
+        max_buffered_bytes: int = DEFAULT_MAX_BUFFERED_BYTES,
     ):
         _ = (
             ctx,
@@ -85,6 +93,8 @@ class ConsumerProtocol(ABC):
             retry_max_delay,
             clock,
             sleep,
+            max_buffered_records,
+            max_buffered_bytes,
         )
 
     def start(self) -> None: ...
@@ -114,6 +124,8 @@ class BackgroundConsumer(ConsumerProtocol):
         retry_max_delay: float = DEFAULT_RETRY_MAX_DELAY,
         clock: Callable[[], float] = time.monotonic,
         sleep: Callable[[float], None] = time.sleep,
+        max_buffered_records: int = DEFAULT_MAX_BUFFERED_RECORDS,
+        max_buffered_bytes: int = DEFAULT_MAX_BUFFERED_BYTES,
     ):
         super().__init__(
             ctx,
@@ -126,6 +138,8 @@ class BackgroundConsumer(ConsumerProtocol):
             retry_max_delay,
             clock,
             sleep,
+            max_buffered_records,
+            max_buffered_bytes,
         )
         self._ctx = ctx
         self._queue = event_queue
@@ -145,8 +159,14 @@ class BackgroundConsumer(ConsumerProtocol):
         self._retry_at: Optional[float] = None
         self._retry_attempt = 0
         self._thread = threading.Thread(target=self._run, name="SwanLab·Specter", daemon=True)
+        self._started = False
         # 回调器，负责触发回调
         self._callbacker = self._ctx.callbacker
+        self._max_buffered_records = max_buffered_records
+        self._max_buffered_bytes = max_buffered_bytes
+        self._buffered_bytes = 0
+        self._dropped_records = 0
+        self._drop_warn_at: Optional[float] = None
 
         self._log_batch: LogBatch = []
         self._column_batch: ColumnBatch = []
@@ -157,13 +177,25 @@ class BackgroundConsumer(ConsumerProtocol):
 
     def start(self) -> None:
         self._thread.start()
+        # 必须在 start() 返回（子线程已进入 alive 状态）后再置位，避免并发 emit 误判为已退出。
+        self._started = True
 
     def join(self) -> None:
         if self._thread.is_alive():
             self._thread.join()
 
     def stop(self) -> None:
-        self._queue.put(_STOP)  # type: ignore[arg-type]
+        while self.accepting_events:
+            try:
+                self._queue.put(_STOP, timeout=_STOP_PUT_POLL_INTERVAL)  # type: ignore[arg-type]
+                return
+            except queue.Full:
+                continue
+
+    @property
+    def accepting_events(self) -> bool:
+        """启动前和运行中返回 True；线程退出后 emitter 快速丢弃新事件。"""
+        return not self._started or self._thread.is_alive()
 
     @property
     def _batch_len(self) -> int:
@@ -199,6 +231,7 @@ class BackgroundConsumer(ConsumerProtocol):
         self._media_batch = []
         self._histogram_batch = []
         self._save_batch = []
+        self._buffered_bytes = 0
         return batches
 
     def _restore_group(self, name: str, records: list) -> None:
@@ -215,6 +248,25 @@ class BackgroundConsumer(ConsumerProtocol):
             self._histogram_batch[:0] = records
         else:
             self._save_batch[:0] = records
+        self._buffered_bytes += sum(record.ByteSize() for record in records)
+
+    def _append(self, batch: list, record: Any) -> None:
+        """统一维护缓冲上限；超限时丢弃新记录，避免训练线程被 RPC 故障阻塞。"""
+        size = record.ByteSize()
+        if self._batch_len + 1 > self._max_buffered_records or self._buffered_bytes + size > self._max_buffered_bytes:
+            self._dropped_records += 1
+            now = self._clock()
+            if self._drop_warn_at is None or now - self._drop_warn_at >= _DROP_WARNING_INTERVAL:
+                console.warning(
+                    f"Dropping {self._dropped_records} buffered record(s): "
+                    f"consumer backlog exceeds {self._max_buffered_records} records "
+                    f"or {self._max_buffered_bytes} bytes"
+                )
+                self._dropped_records = 0
+                self._drop_warn_at = now
+            return
+        batch.append(record)
+        self._buffered_bytes += size
 
     def _queue_timeout(self) -> float:
         """把下一次 flush 时间折算成 queue.get 的等待上限，避免 sleep 轮询。"""
@@ -241,7 +293,12 @@ class BackgroundConsumer(ConsumerProtocol):
         while not self._batch_empty:
             before = self._batch_len
             self._flush()
-            if self._batch_empty or self._retry_at is None:
+            if self._batch_empty:
+                break
+            if self._retry_at is None:
+                # 确定性失败丢弃了部分分片但同组仍有剩余片未发：继续推进直到排空或零进展
+                if self._batch_len < before:
+                    continue
                 break
             if self._stop_timeout is not None and self._stop_timeout <= 0:
                 break
@@ -303,12 +360,12 @@ class BackgroundConsumer(ConsumerProtocol):
         elif isinstance(event, MetricDefineEvent):
             self._resolver.handle_define(event)
         elif isinstance(event, ConfigEvent):
-            self._save_batch.append(self._builder.build_config(event))
+            self._append(self._save_batch, self._builder.build_config(event))
         elif isinstance(event, LogEvent):
-            self._log_batch.append(self._builder.build_log(event))
+            self._append(self._log_batch, self._builder.build_log(event))
             console.debug(f"Buffered terminal log record: pending={len(self._log_batch)}", write_to_tty=False)
         elif isinstance(event, FileSaveEvent):
-            self._save_batch.append(self._builder.build_save(event))
+            self._append(self._save_batch, self._builder.build_save(event))
 
     def _handle_metric_log(self, event: MetricLogEvent) -> None:
         """处理指标日志事件：构建 scalar/media 记录；调用过 define_metric 时额外物化列定义，
@@ -431,7 +488,7 @@ class BackgroundConsumer(ConsumerProtocol):
                 concrete = self._resolver.resolve_concrete(key, metric_class)
                 col = self._resolver.materialize_column(key, metric_class, data_record.type)
                 if col is not None:
-                    self._column_batch.append(col)
+                    self._append(self._column_batch, col)
 
                 # 4.3 custom X 轴 first-writer-wins：同一 X 值上首次 Y 值为准
                 x_axis = concrete.effective.x_axis
@@ -467,16 +524,16 @@ class BackgroundConsumer(ConsumerProtocol):
                 )
                 # 注入值恒为标量（来自 cache 的 float）；isinstance 同时收窄 pyright 类型
                 if isinstance(injected_record, ScalarRecord):
-                    self._scalar_batch.append(injected_record)
+                    self._append(self._scalar_batch, injected_record)
 
     def _append_data_record(self, data_record: Union[ScalarRecord, MediaRecord, HistogramRecord]) -> None:
         """按类型把 data record 追加到对应批次。"""
         if isinstance(data_record, ScalarRecord):
-            self._scalar_batch.append(data_record)
+            self._append(self._scalar_batch, data_record)
         elif isinstance(data_record, HistogramRecord):
-            self._histogram_batch.append(data_record)
+            self._append(self._histogram_batch, data_record)
         else:
-            self._media_batch.append(data_record)
+            self._append(self._media_batch, data_record)
 
     def _flush(self) -> None:
         if self._batch_empty:
@@ -505,7 +562,7 @@ class BackgroundConsumer(ConsumerProtocol):
                             retryable_error = exc
                     else:
                         # 确定性拒绝：只丢弃被拒绝的分片，剩余记录继续回塞
-                        console.warning(f"Dropping {name} records rejected by core: count={len(chunk)}: {exc}")
+                        console.warning(f"Dropping {name} records after terminal failure: count={len(chunk)}: {exc}")
                         if records[start + len(chunk) :]:
                             restored.append((name, records[start + len(chunk) :]))
                     return

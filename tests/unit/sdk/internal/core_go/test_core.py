@@ -25,7 +25,7 @@ from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
     DeliverRunStartResponse,
     GetOperationStatsResponse,
 )
-from swanlab.proto.swanlab.metric.data.v1.data_pb2 import ScalarRecord
+from swanlab.proto.swanlab.metric.data.v1.data_pb2 import HistogramRecord, ScalarRecord
 from swanlab.sdk.internal.core_go import core as core_module
 from swanlab.sdk.internal.core_go.config import CoreGoError, ReasonCode, Stage
 from swanlab.sdk.internal.core_go.core import CoreGo, _CoreState, _DetachedCoreGo
@@ -35,15 +35,21 @@ from swanlab.sdk.protocol import CoreProtocol, CoreProtocolError, NullCoreProtoc
 
 
 class FakeRpc:
-    """只实现 upsert_scalars，按需抛出预置异常。"""
+    """只实现 upsert_scalars / upsert_histograms，按需抛出预置异常。"""
 
     def __init__(self, error: Optional[BaseException] = None) -> None:
         self.error = error
         self.calls: List[tuple] = []
+        self.histogram_calls: List[tuple] = []
         self.teardown_calls: List[float] = []
 
     def upsert_scalars(self, scalars: List[ScalarRecord], session_id: str) -> None:
         self.calls.append((scalars, session_id))
+        if self.error is not None:
+            raise self.error
+
+    def upsert_histograms(self, histograms: List[HistogramRecord], session_id: str) -> None:
+        self.histogram_calls.append((histograms, session_id))
         if self.error is not None:
             raise self.error
 
@@ -86,14 +92,30 @@ def test_terminal_error_propagates():
     assert caught.value.retryable is False
 
 
-def test_unknown_exception_is_wrapped_as_retryable():
+def test_histogram_upsert_failure_propagates_like_other_channels():
+    """直方图与其余五类一致：失败必须抛给 consumer，而不是被协议层吞掉。"""
+    error = CoreGoError(Stage.RPC, ReasonCode.RESOURCE_EXHAUSTED, "batch too large")
+    rpc = FakeRpc(error)
+    core = _running_core(rpc)
+    record = HistogramRecord(key="weights", step=1)
+
+    with pytest.raises(CoreGoError) as caught:
+        core.upsert_histograms([record])
+
+    assert caught.value is error
+    assert caught.value.retryable is True
+    assert rpc.histogram_calls == [([record], "session-1")]
+    assert core.last_error is error
+
+
+def test_unknown_exception_is_wrapped_as_terminal():
     core = _running_core(FakeRpc(RuntimeError("socket closed")))
 
     with pytest.raises(CoreGoError) as caught:
         core.upsert_scalars([ScalarRecord(key="loss", step=1)])
 
     assert caught.value.reason is ReasonCode.GRPC_ERROR
-    assert caught.value.retryable is True
+    assert caught.value.retryable is False
     assert isinstance(caught.value.__cause__, RuntimeError)
 
 
@@ -144,6 +166,17 @@ def test_default_protocol_swallows_upsert_error(monkeypatch):
             raise RuntimeError("boom")
 
     BoomCore("online").upsert_scalars([ScalarRecord(key="loss", step=1)])
+
+
+def test_default_protocol_swallows_histogram_error(monkeypatch):
+    """默认实现（CorePython 路径）对直方图同样吞异常。"""
+    monkeypatch.setattr(pkg_console, "trace", lambda *args, **kwargs: None)
+
+    class BoomCore(NullCoreProtocol):
+        def _upsert_histograms_when_online(self, histograms: List[HistogramRecord]) -> None:
+            raise RuntimeError("boom")
+
+    BoomCore("online").upsert_histograms([HistogramRecord(key="weights", step=1)])
 
 
 def test_core_protocol_error_carries_retryable():
@@ -260,6 +293,7 @@ def test_disabled_start_is_noop_without_binary():
 class _SpyLauncher:
     def __init__(self, *, owns_process: bool = True) -> None:
         self.owns_process = owns_process
+        self.process_exited = False
         self.closed = 0
         self.aborted = 0
         self.exit_code = None
@@ -269,6 +303,41 @@ class _SpyLauncher:
 
     def abort(self) -> None:
         self.aborted += 1
+
+
+@pytest.mark.parametrize(
+    "reason",
+    [ReasonCode.GRPC_UNAVAILABLE, ReasonCode.DEADLINE_EXCEEDED, ReasonCode.CHANNEL_TIMEOUT],
+)
+def test_owned_core_process_exit_makes_any_retryable_error_terminal(reason):
+    """独占进程已退出时，所有可重试错误都止损，不必只看 UNAVAILABLE。"""
+    core = _running_core(FakeRpc(CoreGoError(Stage.RPC, reason, "rpc failed")))
+    launcher = _SpyLauncher(owns_process=True)
+    launcher.process_exited = True
+    core._launcher = cast(core_module.CoreLauncher, launcher)  # noqa: SLF001
+
+    with pytest.raises(CoreGoError) as caught:
+        core.upsert_scalars([ScalarRecord(key="loss", step=1)])
+
+    assert caught.value.reason is reason
+    assert caught.value.retryable is False
+    assert "process exited" in caught.value.message
+
+
+def test_owned_core_process_exit_keeps_terminal_error_semantics():
+    """进程退出只收窄可重试错误，非重试错误保持原始语义。"""
+    error = CoreGoError(Stage.RPC, ReasonCode.INVALID_ARGUMENT, "bad record")
+    core = _running_core(FakeRpc(error))
+    launcher = _SpyLauncher(owns_process=True)
+    launcher.process_exited = True
+    core._launcher = cast(core_module.CoreLauncher, launcher)  # noqa: SLF001
+
+    with pytest.raises(CoreGoError) as caught:
+        core.upsert_scalars([ScalarRecord(key="loss", step=1)])
+
+    assert caught.value is error
+    assert caught.value.retryable is False
+    assert "process exited" not in caught.value.message
 
 
 @pytest.mark.parametrize("action, initial_state", [("close", _CoreState.FINISHED), ("abort", _CoreState.RUNNING)])

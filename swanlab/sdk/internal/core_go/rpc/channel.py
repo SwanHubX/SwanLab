@@ -32,6 +32,9 @@ __all__ = ["Channel"]
 # SwanLab 的 fork 子进程禁止 Core RPC，这里在首次导入 grpc 前默认关闭，用户显式设置优先。
 os.environ.setdefault("GRPC_ENABLE_FORK_SUPPORT", "0")
 
+# gRPC 默认在空闲 30 分钟后断开连接；用 int32 上限显式关闭。
+_IDLE_TIMEOUT_DISABLED_MS = 2**31 - 1
+
 
 class Channel:
     """对 grpc.Channel 的薄封装：延迟导入、ready 等待、单次调用与错误映射。"""
@@ -60,6 +63,7 @@ class Channel:
         options = [
             ("grpc.max_receive_message_length", GRPC_MAX_MESSAGE_BYTES),
             ("grpc.max_send_message_length", GRPC_MAX_MESSAGE_BYTES),
+            ("grpc.client_idle_timeout_ms", _IDLE_TIMEOUT_DISABLED_MS),
         ]
         try:
             raw = grpc.insecure_channel(target, options=options)
@@ -108,10 +112,26 @@ class Channel:
         if self._closed:
             raise CoreGoError(stage, ReasonCode.CLOSED, f"grpc channel is closed: {self._target}")
 
+        self._check_request_size(request, stage)
         try:
             return method(request, timeout=timeout)
         except self._grpc.RpcError as exc:
             raise self._map_rpc_error(exc, stage) from exc
+
+    @staticmethod
+    def _check_request_size(request: Any, stage: Stage) -> None:
+        """发送前拦截超过 gRPC 上限的请求，避免进入重试队列。"""
+        byte_size = getattr(request, "ByteSize", None)
+        if byte_size is None:
+            return
+        size = byte_size()
+        if size > GRPC_MAX_MESSAGE_BYTES:
+            raise CoreGoError(
+                stage,
+                ReasonCode.INVALID_ARGUMENT,
+                f"request size {size} exceeds gRPC limit {GRPC_MAX_MESSAGE_BYTES}",
+                retryable=False,
+            )
 
     def _map_rpc_error(self, exc: Any, stage: Stage) -> CoreGoError:
         code = exc.code()
@@ -119,12 +139,18 @@ class Channel:
         value = getattr(code, "value", None)
         grpc_code = value[0] if isinstance(value, tuple) and value else None
         details = exc.details() if hasattr(exc, "details") else None
+        reason = reason_for_grpc(name)
+        # 客户端消息超限也报 RESOURCE_EXHAUSTED，但重试不会成功。
+        retryable = None
+        if reason is ReasonCode.RESOURCE_EXHAUSTED and "larger than max" in (details or "").lower():
+            retryable = False
         return CoreGoError(
             stage,
-            reason_for_grpc(name),
+            reason,
             details or f"gRPC call failed with {name}",
             grpc_name=name,
             grpc_code=grpc_code,
+            retryable=retryable,
         )
 
     def close(self) -> None:

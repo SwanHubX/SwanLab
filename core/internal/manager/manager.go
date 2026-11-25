@@ -33,7 +33,7 @@ var (
 	ErrOverloaded = errors.New("session intake is overloaded")
 	// ErrInvalidRecord 表示记录结构不合法（nil、空 key、未知 save 类型等）。
 	ErrInvalidRecord = errors.New("invalid record")
-	// ErrRequestTooLarge 表示单次 RPC 的记录数超过 record_batch。
+	// ErrRequestTooLarge 表示单次 RPC 超过 record_batch 或 intake 通道单批容量。
 	// 日志与 CUSTOM Save 无法跨块去重，必须在接纳前整体拒绝，重试不会成功。
 	ErrRequestTooLarge = errors.New("request exceeds record_batch limit")
 	// ErrTooManySessions 表示会话数已达上限，需要先释放已结束的会话。
