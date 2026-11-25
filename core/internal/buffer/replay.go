@@ -104,7 +104,7 @@ func replayBytes(records []*recordv1.Record) int64 {
 func (t *Intake) Handover(
 	ctx context.Context,
 	sync func(context.Context) error,
-	fill func() ([]*recordv1.Record, uint64, error),
+	fill func() ([]*recordv1.Record, int64, error),
 ) error {
 	if fill == nil {
 		return errors.New("buffer: nil backfill filler")

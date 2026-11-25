@@ -51,14 +51,14 @@ func appendStoreRecords(t *testing.T, async *store.AsyncWriter, recs ...*recordv
 			t.Fatalf("Marshal: %v", err)
 		}
 		async.In() <- store.Request{
-			StoreSeq: uint64(i + 1),
+			StoreSeq: int64(i + 1),
 			Payload:  payload,
 		}
 	}
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
 		seq, _ := async.Flushed()
-		if seq >= uint64(len(recs)) {
+		if seq >= int64(len(recs)) {
 			return
 		}
 		time.Sleep(time.Millisecond)
@@ -89,7 +89,7 @@ func TestWriterBoundsByWatermarkAndFlushesFinal(t *testing.T) {
 
 	appendStoreRecords(t, async, sampleStartRecord(), sampleScalarRecord(1), sampleScalarRecord(2))
 
-	var watermark atomic.Uint64
+	var watermark atomic.Int64
 	watermark.Store(1)
 	ticked := make(chan struct{}, 8)
 
@@ -99,7 +99,7 @@ func TestWriterBoundsByWatermarkAndFlushesFinal(t *testing.T) {
 		RunFile:  runFile,
 		Store:    async,
 		Interval: 5 * time.Millisecond,
-		Watermark: func() uint64 {
+		Watermark: func() int64 {
 			return watermark.Load()
 		},
 		OnTick: func() {
@@ -162,7 +162,7 @@ func TestWriterFailureWarnsAndRecovers(t *testing.T) {
 		RunID:     "run-1",
 		RunFile:   filepath.Join(dir, "run.swanlab"),
 		Store:     async,
-		Watermark: func() uint64 { return 1 },
+		Watermark: func() int64 { return 1 },
 	})
 
 	w.Persist()
@@ -194,7 +194,7 @@ func TestWriterSkipsUnchangedInitialSeqAndNilSafe(t *testing.T) {
 		RunID:          "run-1",
 		RunFile:        filepath.Join(dir, "run.swanlab"),
 		Store:          async,
-		Watermark:      func() uint64 { return 1 },
+		Watermark:      func() int64 { return 1 },
 		InitialSeq:     1,
 		InitialWritten: true,
 		OnTick:         func() { ticks++ },
@@ -255,9 +255,9 @@ func TestWriterNotifyThrottlesAndFlushSyncsFinal(t *testing.T) {
 	cpFile := filepath.Join(dir, "run.checkpoint.json")
 	appendStoreRecords(t, async, sampleStartRecord(), sampleScalarRecord(1), sampleScalarRecord(2), sampleScalarRecord(3))
 
-	var watermark atomic.Uint64
+	var watermark atomic.Int64
 	type writeCall struct {
-		seq     uint64
+		seq     int64
 		durable bool
 	}
 	var mu sync.Mutex
@@ -344,7 +344,7 @@ func TestWriterAdaptiveBackoffOnSlowWrite(t *testing.T) {
 	cpFile := filepath.Join(dir, "run.checkpoint.json")
 	appendStoreRecords(t, async, sampleStartRecord(), sampleScalarRecord(1), sampleScalarRecord(2))
 
-	var watermark atomic.Uint64
+	var watermark atomic.Int64
 	var writes atomic.Int32
 	wroteAt := make(chan time.Time, 8)
 

@@ -8,15 +8,15 @@ import (
 
 func TestOffsetIndexLocate(t *testing.T) {
 	idx := NewOffsetIndex(3)
-	for seq := uint64(1); seq <= 9; seq++ {
-		idx.Add(seq, int64(seq)*100)
+	for seq := int64(1); seq <= 9; seq++ {
+		idx.Add(seq, seq*100)
 	}
 	if got := idx.Len(); got != 3 {
 		t.Fatalf("anchors = %d, want 3", got)
 	}
 
 	cases := []struct {
-		seq  uint64
+		seq  int64
 		want Anchor
 		ok   bool
 	}{
@@ -40,12 +40,12 @@ func TestOffsetIndexLocate(t *testing.T) {
 // 以及上界之前没有锚点时都必须退回文件头读取。
 func TestOffsetIndexLocateFlushed(t *testing.T) {
 	idx := NewOffsetIndex(2)
-	for seq := uint64(1); seq <= 8; seq++ {
-		idx.Add(seq, int64(seq)*100) // 锚点位于 2 / 4 / 6 / 8
+	for seq := int64(1); seq <= 8; seq++ {
+		idx.Add(seq, seq*100) // 锚点位于 2 / 4 / 6 / 8
 	}
 
 	cases := []struct {
-		seq   uint64
+		seq   int64
 		limit int64
 		want  Anchor
 		ok    bool
@@ -73,7 +73,7 @@ func TestOffsetIndexLocateFlushed(t *testing.T) {
 func TestAsyncWriterLocateFlushed(t *testing.T) {
 	a, _ := newTestAsync(t, AsyncOptions{Queue: 32, IndexStride: 2})
 	for i := 1; i <= 6; i++ {
-		a.In() <- Request{StoreSeq: uint64(i), Payload: anyPayload(i)}
+		a.In() <- Request{StoreSeq: int64(i), Payload: anyPayload(i)}
 	}
 
 	flushedSeq, flushedOffset := a.Flushed()
@@ -138,8 +138,8 @@ func TestOffsetIndexRecordAndLookupEnd(t *testing.T) {
 		t.Fatal("seq=0 must not hit cache")
 	}
 
-	for seq := uint64(1); seq <= 8; seq++ {
-		idx.Record(seq, int64(seq)*100, int64(seq)*100+50)
+	for seq := int64(1); seq <= 8; seq++ {
+		idx.Record(seq, seq*100, seq*100+50)
 	}
 	if got := idx.Len(); got != 2 {
 		t.Fatalf("anchors = %d, want 2", got)
@@ -153,7 +153,7 @@ func TestOffsetIndexRecordAndLookupEnd(t *testing.T) {
 	}
 
 	// 覆盖同槽位（seq + recentEndCap）后旧序号失效。
-	evictedBy := uint64(5 + recentEndCap)
+	evictedBy := int64(5 + recentEndCap)
 	idx.Record(evictedBy, 9000, 9050)
 	if _, ok := idx.LookupEnd(5, -1); ok {
 		t.Fatal("evicted seq 5 must miss cache")
@@ -171,8 +171,8 @@ func TestOffsetIndexConcurrent(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		for seq := uint64(1); seq <= n; seq++ {
-			idx.Add(seq, int64(seq))
+		for seq := int64(1); seq <= n; seq++ {
+			idx.Add(seq, seq)
 		}
 	}()
 	for r := range 4 {
@@ -180,7 +180,7 @@ func TestOffsetIndexConcurrent(t *testing.T) {
 		go func(r int) {
 			defer wg.Done()
 			for i := range n {
-				seq := uint64((i*7 + r) % n)
+				seq := int64((i*7 + r) % n)
 				if got, ok := idx.Locate(seq); ok && got.StoreSeq > seq {
 					t.Errorf("Locate(%d) = %d, ahead of requested seq", seq, got.StoreSeq)
 					return
@@ -205,7 +205,7 @@ func TestAsyncWriterIndexAnchors(t *testing.T) {
 
 	const n = 10
 	for i := range n {
-		a.In() <- Request{StoreSeq: uint64(i + 1), Payload: anyPayload(i)}
+		a.In() <- Request{StoreSeq: int64(i + 1), Payload: anyPayload(i)}
 	}
 	if err := a.Close(); err != nil {
 		t.Fatalf("Close: %v", err)
@@ -218,7 +218,7 @@ func TestAsyncWriterIndexAnchors(t *testing.T) {
 	if _, ok := idx.Locate(2); ok {
 		t.Fatal("Locate(2) should fall before the first anchor")
 	}
-	for _, seq := range []uint64{3, 6, 9} {
+	for _, seq := range []int64{3, 6, 9} {
 		anchor, ok := idx.Locate(seq)
 		if !ok || anchor.StoreSeq != seq {
 			t.Fatalf("Locate(%d) = (%+v, %v)", seq, anchor, ok)

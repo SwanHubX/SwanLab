@@ -25,7 +25,7 @@ type RebuildResult struct {
 	GlobalStep       int64
 	GlobalSystemStep int64
 	EndSaves         []*recordv1.Record
-	Records          uint64
+	Records          int64
 	EndOffset        int64
 	Finished         bool
 }

@@ -188,7 +188,7 @@ func waitRunFileFlushed(t *testing.T, cfg config.Settings) {
 	})
 }
 
-func waitCheckpointSeq(t *testing.T, cfg config.Settings, want uint64) {
+func waitCheckpointSeq(t *testing.T, cfg config.Settings, want int64) {
 	t.Helper()
 	path := runFilePath(t, cfg) + ".checkpoint.json"
 	deadline := time.Now().Add(15 * time.Second)

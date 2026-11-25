@@ -71,14 +71,14 @@ func (CoreState) EnumDescriptor() ([]byte, []int) {
 	return file_swanlab_operation_v1_operation_proto_rawDescGZIP(), []int{0}
 }
 
-// 云端接入状态（用于延迟接入/初始化恢复模式）。
+// 云端接入状态（用于延迟创建云端实验）。
 type CloudState int32
 
 const (
-	CloudState_CLOUD_STATE_UNSPECIFIED CloudState = 0 // 未设置 / 非恢复模式（含 offline / local / 常规 online）
+	CloudState_CLOUD_STATE_UNSPECIFIED CloudState = 0 // 未启用延迟接入
 	CloudState_CLOUD_STATE_PENDING     CloudState = 1 // 等待后端恢复并创建云端实验
-	CloudState_CLOUD_STATE_ATTACHED    CloudState = 2 // 已成功接入云端并获得实验路径
-	CloudState_CLOUD_STATE_FAILED      CloudState = 3 // 接入永久失败（认证失效或不可重试业务错误）
+	CloudState_CLOUD_STATE_ATTACHED    CloudState = 2 // 已连接云端并取得实验路径
+	CloudState_CLOUD_STATE_FAILED      CloudState = 3 // 连接永久失败（认证失效或不可恢复错误）
 )
 
 // Enum value maps for CloudState.
@@ -124,14 +124,13 @@ func (CloudState) EnumDescriptor() ([]byte, []int) {
 	return file_swanlab_operation_v1_operation_proto_rawDescGZIP(), []int{1}
 }
 
-// 当前/待上传文件进度显示快照。
-// 仅在当前处理的 records 触发文件上传时填充；普通 record 同步保持为空。
+// 当前/待上传文件进度快照；仅存在文件上传时填充。
 type FileProgress struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Path          string                 `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`          // 当前或待上传文件路径
-	Total         int64                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`       // 当前文件总量（通常为字节数）
-	Uploaded      int64                  `protobuf:"varint,3,opt,name=uploaded,proto3" json:"uploaded,omitempty"` // 当前文件已完成量
-	Rate          float64                `protobuf:"fixed64,4,opt,name=rate,proto3" json:"rate,omitempty"`        // 当前文件处理速率（单位/秒）
+	Path          string                 `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`          // 文件路径
+	Total         int64                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`       // 总字节数
+	Uploaded      int64                  `protobuf:"varint,3,opt,name=uploaded,proto3" json:"uploaded,omitempty"` // 已上传字节数
+	Rate          float64                `protobuf:"fixed64,4,opt,name=rate,proto3" json:"rate,omitempty"`        // 上传速率（字节/秒）
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -194,15 +193,14 @@ func (x *FileProgress) GetRate() float64 {
 	return 0
 }
 
-// 上传投递与积压状态；正常投递时为默认零值。
-// 站点健康状态由 core 内部消费（暂停/恢复投递），不进入 OperationStats。
+// 上传通道投递状态；正常投递时各字段均为零值。
 type UploadStatus struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
-	Paused         bool                   `protobuf:"varint,1,opt,name=paused,proto3" json:"paused,omitempty"`                                       // 当前是否暂停投递（站点降级或预算暂停）
-	PauseSeq       uint64                 `protobuf:"varint,2,opt,name=pause_seq,json=pauseSeq,proto3" json:"pause_seq,omitempty"`                   // 预算暂停时首个未投递记录的 storeSeq；站点暂停或未暂停时为 0
-	PendingRecords int64                  `protobuf:"varint,3,opt,name=pending_records,json=pendingRecords,proto3" json:"pending_records,omitempty"` // 已出批未终结的记录数
-	BufferedBytes  int64                  `protobuf:"varint,4,opt,name=buffered_bytes,json=bufferedBytes,proto3" json:"buffered_bytes,omitempty"`    // 上传管线占用的预算字节
-	Retrying       bool                   `protobuf:"varint,5,opt,name=retrying,proto3" json:"retrying,omitempty"`                                   // 上传管线是否处于可重试失败中（尚未恢复成功）
+	Paused         bool                   `protobuf:"varint,1,opt,name=paused,proto3" json:"paused,omitempty"`                                       // 是否已暂停出批（站点不可达或积压超预算）
+	PauseSeq       int64                  `protobuf:"varint,2,opt,name=pause_seq,json=pauseSeq,proto3" json:"pause_seq,omitempty"`                   // 预算暂停时的起始本地序号；未暂停或站点暂停时为 0
+	PendingRecords int64                  `protobuf:"varint,3,opt,name=pending_records,json=pendingRecords,proto3" json:"pending_records,omitempty"` // 待确认的记录数
+	BufferedBytes  int64                  `protobuf:"varint,4,opt,name=buffered_bytes,json=bufferedBytes,proto3" json:"buffered_bytes,omitempty"`    // 缓冲占用的字节数
+	Retrying       bool                   `protobuf:"varint,5,opt,name=retrying,proto3" json:"retrying,omitempty"`                                   // 是否处于上传失败后的重试周期
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -244,7 +242,7 @@ func (x *UploadStatus) GetPaused() bool {
 	return false
 }
 
-func (x *UploadStatus) GetPauseSeq() uint64 {
+func (x *UploadStatus) GetPauseSeq() int64 {
 	if x != nil {
 		return x.PauseSeq
 	}
@@ -272,12 +270,12 @@ func (x *UploadStatus) GetRetrying() bool {
 	return false
 }
 
-// 云端接入状态快照（用于延迟接入/初始化恢复模式）；非恢复模式时为默认零值。
+// 云端接入状态快照（仅延迟接入模式填充）。
 type CloudStatus struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	State         CloudState             `protobuf:"varint,1,opt,name=state,proto3,enum=swanlab.operation.v1.CloudState" json:"state,omitempty"` // 云端接入状态
-	Path          string                 `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`                                         // 接入成功后获得的云端实验路径
-	Error         string                 `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`                                       // 接入永久失败或最近一次接入错误摘要
+	Path          string                 `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`                                         // 云端实验路径
+	Error         string                 `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`                                       // 失败或最近一次重试错误摘要
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -470,7 +468,7 @@ const file_swanlab_operation_v1_operation_proto_rawDesc = "" +
 	"\x04rate\x18\x04 \x01(\x01R\x04rate\"\xaf\x01\n" +
 	"\fUploadStatus\x12\x16\n" +
 	"\x06paused\x18\x01 \x01(\bR\x06paused\x12\x1b\n" +
-	"\tpause_seq\x18\x02 \x01(\x04R\bpauseSeq\x12'\n" +
+	"\tpause_seq\x18\x02 \x01(\x03R\bpauseSeq\x12'\n" +
 	"\x0fpending_records\x18\x03 \x01(\x03R\x0ependingRecords\x12%\n" +
 	"\x0ebuffered_bytes\x18\x04 \x01(\x03R\rbufferedBytes\x12\x1a\n" +
 	"\bretrying\x18\x05 \x01(\bR\bretrying\"o\n" +

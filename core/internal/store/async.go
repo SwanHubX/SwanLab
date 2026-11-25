@@ -15,7 +15,7 @@ const defaultFlushInterval = time.Second
 // 与 Record.num 无关（num 可重复、可覆盖，不能作为进度游标）。
 // Payload 的所有权随发送转移给 AsyncWriter，调用方不得复用。
 type Request struct {
-	StoreSeq uint64
+	StoreSeq int64
 	Payload  []byte
 }
 
@@ -31,7 +31,7 @@ type AsyncOptions struct {
 	// IndexStride 是 storeSeq→offset 稀疏锚点间隔（条），<=0 取 DefaultIndexStride。
 	IndexStride int
 	// ResumeSeq 是续传时已有记录条数，作为初始已刷盘序号；新建会话为 0。
-	ResumeSeq uint64
+	ResumeSeq int64
 	// OnError 在首次写入或刷盘失败时回调一次，供上层置 storeDegraded；
 	// 之后丢弃写入但继续消费入口，避免阻断上传主链路。
 	OnError func(error)
@@ -39,7 +39,7 @@ type AsyncOptions struct {
 
 // flushMark 是已交给内核的进度快照：StoreSeq 及之前的记录已完整写出，Offset 为其结束偏移。
 type flushMark struct {
-	StoreSeq uint64
+	StoreSeq int64
 	Offset   int64
 }
 
@@ -105,7 +105,7 @@ func (a *AsyncWriter) In() chan<- Request { return a.ch }
 // Flushed 返回已完整交给内核的 (序号, 偏移)，两者严格一致。除显式刷盘外，bufio
 // 写满缓冲时的自然写出也会推进进度。新建未写入时为 (0, HeaderLen)，续传时为
 // (ResumeSeq, 初始偏移)。
-func (a *AsyncWriter) Flushed() (uint64, int64) {
+func (a *AsyncWriter) Flushed() (int64, int64) {
 	m := a.mark.Load()
 	return m.StoreSeq, m.Offset
 }
@@ -221,7 +221,7 @@ func (a *AsyncWriter) autoFlush(st *writeState) {
 // writeState 是写协程的私有状态：seq 与 end 是最后一条已写入记录的序号和结束偏移，
 // lastFlush 是字节阈值基线，lastWritten 是上次定时检查时已交给内核的字节数。
 type writeState struct {
-	seq         uint64
+	seq         int64
 	end         int64
 	lastFlush   int64
 	lastWritten int64
@@ -298,7 +298,7 @@ func (a *AsyncWriter) flush(st *writeState) bool {
 }
 
 // publish 推进进度；只在序号或偏移前进时更新，保证 Flushed() 不回退。
-func (a *AsyncWriter) publish(seq uint64, off int64) {
+func (a *AsyncWriter) publish(seq int64, off int64) {
 	old := a.mark.Load()
 	if seq < old.StoreSeq || (seq == old.StoreSeq && off <= old.Offset) {
 		return

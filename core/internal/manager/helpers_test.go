@@ -336,10 +336,10 @@ func newFinishHarness(t *testing.T, opts finishOptions) *finishHarness {
 
 	b := budget.New(budget.Limits{Records: opts.budgetRecords})
 	var storeIn chan<- store.Request
-	var flushed func() uint64
+	var flushed func() int64
 	if async != nil {
 		storeIn = async.In()
-		flushed = func() uint64 {
+		flushed = func() int64 {
 			seq, _ := async.Flushed()
 			return seq
 		}
@@ -353,7 +353,7 @@ func newFinishHarness(t *testing.T, opts finishOptions) *finishHarness {
 		Flushed:     flushed,
 		IsSuspended: s.shouldSuspendUploads,
 		OnAdmit:     s.tracker.AddTotalRecords,
-		OnPause:     func(uint64) { s.backfill.Wake() },
+		OnPause:     func(int64) { s.backfill.Wake() },
 		QueueWait:   opts.queueWait,
 	})
 	if err != nil {

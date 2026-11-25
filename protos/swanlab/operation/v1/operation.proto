@@ -11,38 +11,36 @@ enum CoreState {
     CORE_STATE_FINISHED    = 2; // Core 已完成所有处理，可以安全退出
 }
 
-// 云端接入状态（用于延迟接入/初始化恢复模式）。
+// 云端接入状态（用于延迟创建云端实验）。
 enum CloudState {
-    CLOUD_STATE_UNSPECIFIED = 0; // 未设置 / 非恢复模式（含 offline / local / 常规 online）
+    CLOUD_STATE_UNSPECIFIED = 0; // 未启用延迟接入
     CLOUD_STATE_PENDING     = 1; // 等待后端恢复并创建云端实验
-    CLOUD_STATE_ATTACHED    = 2; // 已成功接入云端并获得实验路径
-    CLOUD_STATE_FAILED      = 3; // 接入永久失败（认证失效或不可重试业务错误）
+    CLOUD_STATE_ATTACHED    = 2; // 已连接云端并取得实验路径
+    CLOUD_STATE_FAILED      = 3; // 连接永久失败（认证失效或不可恢复错误）
 }
 
-// 当前/待上传文件进度显示快照。
-// 仅在当前处理的 records 触发文件上传时填充；普通 record 同步保持为空。
+// 当前/待上传文件进度快照；仅存在文件上传时填充。
 message FileProgress {
-    string path    = 1; // 当前或待上传文件路径
-    int64 total    = 2; // 当前文件总量（通常为字节数）
-    int64 uploaded = 3; // 当前文件已完成量
-    double rate    = 4; // 当前文件处理速率（单位/秒）
+    string path    = 1; // 文件路径
+    int64 total    = 2; // 总字节数
+    int64 uploaded = 3; // 已上传字节数
+    double rate    = 4; // 上传速率（字节/秒）
 }
 
-// 上传投递与积压状态；正常投递时为默认零值。
-// 站点健康状态由 core 内部消费（暂停/恢复投递），不进入 OperationStats。
+// 上传通道投递状态；正常投递时各字段均为零值。
 message UploadStatus {
-    bool paused           = 1; // 当前是否暂停投递（站点降级或预算暂停）
-    uint64 pause_seq      = 2; // 预算暂停时首个未投递记录的 storeSeq；站点暂停或未暂停时为 0
-    int64 pending_records = 3; // 已出批未终结的记录数
-    int64 buffered_bytes  = 4; // 上传管线占用的预算字节
-    bool retrying         = 5; // 上传管线是否处于可重试失败中（尚未恢复成功）
+    bool paused           = 1; // 是否已暂停出批（站点不可达或积压超预算）
+    int64 pause_seq       = 2; // 预算暂停时的起始本地序号；未暂停或站点暂停时为 0
+    int64 pending_records = 3; // 待确认的记录数
+    int64 buffered_bytes  = 4; // 缓冲占用的字节数
+    bool retrying         = 5; // 是否处于上传失败后的重试周期
 }
 
-// 云端接入状态快照（用于延迟接入/初始化恢复模式）；非恢复模式时为默认零值。
+// 云端接入状态快照（仅延迟接入模式填充）。
 message CloudStatus {
     CloudState state = 1; // 云端接入状态
-    string path      = 2; // 接入成功后获得的云端实验路径
-    string error     = 3; // 接入永久失败或最近一次接入错误摘要
+    string path      = 2; // 云端实验路径
+    string error     = 3; // 失败或最近一次重试错误摘要
 }
 
 // Core 运行状态快照。

@@ -148,7 +148,7 @@ func (s *Session) initBackfill(prog resume.OnlineProgress, local *metrics.Rebuil
 
 // open 装配 store/intake/uploader/watcher/heartbeat；失败时由调用方执行 rollback。
 func (s *Session) open(init sessionInit) error {
-	var resumeSeq uint64
+	var resumeSeq int64
 	var endSaves []*recordv1.Record
 	if init.resume != nil {
 		resumeSeq = init.resume.Records
@@ -182,10 +182,10 @@ func (s *Session) open(init sessionInit) error {
 	s.budget = b
 
 	var storeIn chan<- store.Request
-	var flushed func() uint64
+	var flushed func() int64
 	if s.store != nil {
 		storeIn = s.store.In()
-		flushed = func() uint64 {
+		flushed = func() int64 {
 			seq, _ := s.store.Flushed()
 			return seq
 		}
@@ -227,7 +227,7 @@ func (s *Session) open(init sessionInit) error {
 		Flushed:         flushed,
 		IsSuspended:     s.shouldSuspendUploads,
 		OnAdmit:         s.tracker.AddTotalRecords,
-		OnPause:         func(uint64) { s.backfill.Wake() },
+		OnPause:         func(int64) { s.backfill.Wake() },
 		OnStored:        s.progress.OnStored,
 	})
 	if err != nil {

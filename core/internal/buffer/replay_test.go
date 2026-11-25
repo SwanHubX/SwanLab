@@ -157,12 +157,12 @@ func TestOnPauseNotifiesEachInterval(t *testing.T) {
 	sink := newStoreSink(16)
 	defer sink.stop()
 	b := budget.New(budget.Limits{Records: 1})
-	pauses := make(chan uint64, 4)
+	pauses := make(chan int64, 4)
 	in := newIntake(t, Options{
 		Store:       sink.ch,
 		Budget:      b,
 		UploadQueue: 8,
-		OnPause:     func(seq uint64) { pauses <- seq },
+		OnPause:     func(seq int64) { pauses <- seq },
 	})
 
 	mustCommit(t, in, scalarRecord(1)) // 上传

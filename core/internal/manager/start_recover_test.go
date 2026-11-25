@@ -28,7 +28,7 @@ import (
 	runv1 "github.com/swanhubx/swanlab/core/proto/swanlab/run/v1"
 )
 
-func seedLocalRunFile(t *testing.T, cfg config.Settings, name, color string, scalars int, checkpointSeq uint64) {
+func seedLocalRunFile(t *testing.T, cfg config.Settings, name, color string, scalars int, checkpointSeq int64) {
 	t.Helper()
 	if err := os.MkdirAll(cfg.RunDir, 0o755); err != nil {
 		t.Fatalf("mkdir run_dir: %v", err)
@@ -57,7 +57,7 @@ func seedLocalRunFile(t *testing.T, cfg config.Settings, name, color string, sca
 			Color:   color,
 		}},
 	}
-	var seq uint64 = 1
+	var seq int64 = 1
 	off := writeRec(startRec)
 	var cpOff int64
 	if checkpointSeq == seq {

@@ -35,7 +35,7 @@ func TestAsyncFlushCoversQueuedRequests(t *testing.T) {
 
 	const n = 3
 	for i := range n {
-		a.In() <- Request{StoreSeq: uint64(i + 1), Payload: anyPayload(i)}
+		a.In() <- Request{StoreSeq: int64(i + 1), Payload: anyPayload(i)}
 	}
 	if seq, off := a.Flushed(); seq != 0 || off != HeaderLen {
 		t.Fatalf("Flushed before Flush = (%d, %d), want (0, %d)", seq, off, HeaderLen)
@@ -76,7 +76,7 @@ func TestAsyncWriteAndClose(t *testing.T) {
 
 	const n = 200
 	for i := 0; i < n; i++ {
-		a.In() <- Request{StoreSeq: uint64(i + 1), Payload: anyPayload(i)}
+		a.In() <- Request{StoreSeq: int64(i + 1), Payload: anyPayload(i)}
 	}
 	if err := a.Close(); err != nil {
 		t.Fatalf("Close: %v", err)
@@ -122,7 +122,7 @@ func TestAsyncPublishesOnlyAfterFlush(t *testing.T) {
 	}
 
 	for i := 0; i < 3; i++ {
-		a.In() <- Request{StoreSeq: uint64(i + 1), Payload: anyPayload(i)}
+		a.In() <- Request{StoreSeq: int64(i + 1), Payload: anyPayload(i)}
 	}
 	// 只写完、不刷盘：记录还在用户态缓冲里，进度不得前移
 	if err := a.sync(false); err != nil {
@@ -239,7 +239,7 @@ func TestAsyncConcurrentReaderBoundedByFlushed(t *testing.T) {
 	writerDone := make(chan error, 1)
 	go func() {
 		for i := 0; i < n; i++ {
-			a.In() <- Request{StoreSeq: uint64(i + 1), Payload: anyPayload(i)}
+			a.In() <- Request{StoreSeq: int64(i + 1), Payload: anyPayload(i)}
 		}
 		writerDone <- a.Close()
 	}()
@@ -251,7 +251,7 @@ func TestAsyncConcurrentReaderBoundedByFlushed(t *testing.T) {
 			if err != nil {
 				t.Fatalf("OpenOffset: %v", err)
 			}
-			var count uint64
+			var count int64
 			for {
 				p, err := r.Scan()
 				if errors.Is(err, io.EOF) {

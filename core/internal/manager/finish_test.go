@@ -392,7 +392,7 @@ func newBlockedStoreHarness(t *testing.T) (*Manager, *Session, string, chan stor
 		Store:       storeCh,
 		UploadQueue: 8,
 		Budget:      b,
-		Flushed:     func() uint64 { return 0 },
+		Flushed:     func() int64 { return 0 },
 		OnAdmit:     s.tracker.AddTotalRecords,
 		QueueWait:   20 * time.Millisecond,
 	})
@@ -920,8 +920,8 @@ func newCheckpointTestSession(
 	b := budget.New(budget.Limits{Records: 64, Bytes: 1 << 20})
 	tracker := uploader.NewTracker()
 	var trackerProgress *progress.Tracker
-	var onStored func(*recordv1.Record, uint64)
-	var watermark func() uint64
+	var onStored func(*recordv1.Record, int64)
+	var watermark func() int64
 	if mode == config.ModeOnline {
 		trackerProgress = progress.NewTracker(0)
 		onStored = trackerProgress.OnStored
@@ -933,7 +933,7 @@ func newCheckpointTestSession(
 		Store:       async.In(),
 		UploadQueue: 64,
 		Budget:      b,
-		Flushed: func() uint64 {
+		Flushed: func() int64 {
 			seq, _ := async.Flushed()
 			return seq
 		},
@@ -999,7 +999,7 @@ func newCheckpointTestSession(
 	return s, runFile, cpFile
 }
 
-func waitStoreFlushed(t *testing.T, s *store.AsyncWriter, want uint64) {
+func waitStoreFlushed(t *testing.T, s *store.AsyncWriter, want int64) {
 	t.Helper()
 	deadline := time.Now().Add(2 * time.Second)
 	for {

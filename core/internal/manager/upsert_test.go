@@ -84,7 +84,7 @@ func newUpsertHarness(t *testing.T, opts upsertOptions) *upsertHarness {
 		UploadQueue: opts.queue,
 		Budget:      budget.New(budget.Limits{}),
 		QueueWait:   20 * time.Millisecond,
-		Flushed:     func() uint64 { return 0 },
+		Flushed:     func() int64 { return 0 },
 		OnAdmit:     s.tracker.AddTotalRecords,
 	})
 	if err != nil {
