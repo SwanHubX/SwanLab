@@ -500,6 +500,9 @@ func (u *Uploader) Resume() { u.control(false) }
 // Suspended 报告当前是否处于暂停投递状态。
 func (u *Uploader) Suspended() bool { return u.suspended.Load() }
 
+// InFailure 报告当前上传器是否处于可重试失败周期内。
+func (u *Uploader) InFailure() bool { return u.warn.InFailure() }
+
 // control 等待 worker 应用停复机状态，避免返回后再产生新上传。
 func (u *Uploader) control(suspend bool) {
 	req := controlRequest{suspend: suspend, ack: make(chan struct{})}

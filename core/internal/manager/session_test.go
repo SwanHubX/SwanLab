@@ -3,10 +3,13 @@ package manager
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/swanhubx/swanlab/core/internal/budget"
+	"github.com/swanhubx/swanlab/core/internal/pkg/record"
 	"github.com/swanhubx/swanlab/core/internal/uploader"
 	operationv1 "github.com/swanhubx/swanlab/core/proto/swanlab/operation/v1"
+	recordv1 "github.com/swanhubx/swanlab/core/proto/swanlab/record/v1"
 )
 
 func TestSessionSnapshotIncludesUploadStatus(t *testing.T) {
@@ -52,7 +55,33 @@ func TestSessionSnapshotIdleUploadStatus(t *testing.T) {
 	if stats.GetUpload().GetPaused() {
 		t.Fatal("upload.paused = true without suspension")
 	}
+	if stats.GetUpload().GetRetrying() {
+		t.Fatal("upload.retrying = true without failure")
+	}
 	if got := stats.GetUpload().GetBufferedBytes(); got != 0 {
 		t.Fatalf("upload.buffered_bytes = %d, want 0", got)
+	}
+
+	warn := uploader.NewWarningThrottle()
+	warnedUp, err := uploader.New(uploader.Options{
+		In:       make(chan *recordv1.Record),
+		Budget:   budget.New(budget.Limits{}),
+		Senders:  map[record.Type]uploader.Sender{record.TypeScalar: confirmAll{}},
+		Interval: time.Hour,
+		Warn:     warn,
+	})
+	if err != nil {
+		t.Fatalf("uploader.New: %v", err)
+	}
+	t.Cleanup(func() { _ = warnedUp.Close() })
+	setSessionUploader(s, warnedUp)
+
+	warn.Warn()
+	if !s.snapshot().GetUpload().GetRetrying() {
+		t.Fatal("upload.retrying = false during uploader failure")
+	}
+	warn.Reset()
+	if s.snapshot().GetUpload().GetRetrying() {
+		t.Fatal("upload.retrying = true after uploader recovery")
 	}
 }

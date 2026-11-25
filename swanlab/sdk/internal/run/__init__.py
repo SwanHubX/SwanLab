@@ -13,6 +13,7 @@ import glob
 import signal
 import sys
 import threading
+import time
 import traceback
 from concurrent.futures import Future
 from functools import cached_property, wraps
@@ -136,13 +137,15 @@ class Run:
 
     # 类级默认值：保证仅通过 __new__ 构造的测试替身也能安全读取云端状态字段
     _STATUS_POLL_INTERVAL: float = 2.0
+    _UPLOAD_WARN_INTERVAL: float = 30.0
     _path: Optional[str] = None
     _cloud_state: int = CLOUD_STATE_UNSPECIFIED
     _cloud_error: Optional[str] = None
     _fallback_error: Optional[str] = None
     _cloud_link_printed: bool = False
     _cloud_failure_reported: bool = False
-    _upload_paused: bool = False
+    _upload_degraded: bool = False
+    _last_upload_warn_at: float = -30.0
     _status_timer: Optional[timer.Timer] = None
 
     def __init__(self, ctx: RunContext, path: Optional[str] = None, *, fallback_error: Optional[str] = None):
@@ -156,7 +159,8 @@ class Run:
         self._fallback_error = fallback_error
         self._cloud_link_printed = bool(path)
         self._cloud_failure_reported = False
-        self._upload_paused = False
+        self._upload_degraded = False
+        self._last_upload_warn_at = -self._UPLOAD_WARN_INTERVAL
         self._status_timer = None
         self._state: Union[FinishType, Literal["running"]] = "running"
         self._init_pid = fork.current_pid()
@@ -449,18 +453,26 @@ class Run:
                 f"upload it with `swanlab sync {self._ctx.run_dir}`."
             )
 
-        # 未附着成功或已永久失败时不额外刷上传暂停告警
+        # 未附着成功或已永久失败时不额外刷上传失败/暂停告警
         if stats.HasField("cloud") and stats.cloud.state in (CLOUD_STATE_PENDING, CLOUD_STATE_FAILED):
             return
         if stats.HasField("upload"):
             paused = bool(stats.upload.paused)
-            if paused and not self._upload_paused:
-                self._upload_paused = True
-                console.warning(
-                    "🚨 Upload paused due to network or server issues; data is saved locally and will resume automatically."
-                )
-            elif not paused and self._upload_paused:
-                self._upload_paused = False
+            retrying = bool(stats.upload.retrying)
+            if paused or retrying:
+                now = time.monotonic()
+                if not self._upload_degraded or now - self._last_upload_warn_at >= self._UPLOAD_WARN_INTERVAL:
+                    self._last_upload_warn_at = now
+                    if paused:
+                        console.warning(
+                            "🚨 Upload paused due to network or server issues; data is saved locally and will resume automatically."
+                        )
+                    else:
+                        console.warning("🚨 Upload failed due to network or server issues, retrying automatically.")
+                self._upload_degraded = True
+            elif self._upload_degraded:
+                self._upload_degraded = False
+                self._last_upload_warn_at = -self._UPLOAD_WARN_INTERVAL
                 console.info("Upload recovered, resuming normally.")
 
     def _require_cloud_path(self, attr: Literal["path", "url"]) -> str:
@@ -1133,7 +1145,11 @@ class Run:
                     on_stats=self._update_cloud_status_from_stats,
                 )
                 if not had_cloud_path and self._path and self.mode == "online":
+                    console.info("Connected to SwanLab online service.")
                     greeting.print_cloud_link(self)
+                if confirm_resp.success and self._upload_degraded and self.mode == "online":
+                    self._upload_degraded = False
+                    console.info("Upload recovered, resuming normally.")
                 if not confirm_resp.success:
                     console.error(confirm_resp.message)
                     self._report_local_recovery(confirm_resp.message)

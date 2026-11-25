@@ -72,3 +72,10 @@ func (t *WarningThrottle) Reset() {
 		t.infof(uploadRecoveredNotice)
 	}
 }
+
+// InFailure 报告当前是否仍处于失败重试周期（尚未恢复成功）。
+func (t *WarningThrottle) InFailure() bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.inFailure
+}

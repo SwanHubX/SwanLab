@@ -71,10 +71,19 @@ func TestWarningThrottleReset(t *testing.T) {
 		t.Fatalf("reset without failure should stay silent: %v", infos)
 	}
 
+	if throttle.InFailure() {
+		t.Fatal("new throttle should not be in failure")
+	}
 	throttle.Warn()
+	if !throttle.InFailure() {
+		t.Fatal("throttle should be in failure after Warn")
+	}
 	clock.advance(time.Second) // 处于故障期，但未到下次告警
 
 	throttle.Reset()
+	if throttle.InFailure() {
+		t.Fatal("throttle should clear failure after Reset")
+	}
 	_, infos := recorder.snapshot()
 	if len(infos) != 1 || infos[0] != uploadRecoveredNotice {
 		t.Fatalf("infos = %v, want one recovery notice", infos)

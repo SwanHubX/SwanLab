@@ -202,6 +202,7 @@ type UploadStatus struct {
 	PauseSeq       uint64                 `protobuf:"varint,2,opt,name=pause_seq,json=pauseSeq,proto3" json:"pause_seq,omitempty"`                   // 预算暂停时首个未投递记录的 storeSeq；站点暂停或未暂停时为 0
 	PendingRecords int64                  `protobuf:"varint,3,opt,name=pending_records,json=pendingRecords,proto3" json:"pending_records,omitempty"` // 已出批未终结的记录数
 	BufferedBytes  int64                  `protobuf:"varint,4,opt,name=buffered_bytes,json=bufferedBytes,proto3" json:"buffered_bytes,omitempty"`    // 上传管线占用的预算字节
+	Retrying       bool                   `protobuf:"varint,5,opt,name=retrying,proto3" json:"retrying,omitempty"`                                   // 上传管线是否处于可重试失败中（尚未恢复成功）
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -262,6 +263,13 @@ func (x *UploadStatus) GetBufferedBytes() int64 {
 		return x.BufferedBytes
 	}
 	return 0
+}
+
+func (x *UploadStatus) GetRetrying() bool {
+	if x != nil {
+		return x.Retrying
+	}
+	return false
 }
 
 // 云端接入状态快照（用于延迟接入/初始化恢复模式）；非恢复模式时为默认零值。
@@ -459,12 +467,13 @@ const file_swanlab_operation_v1_operation_proto_rawDesc = "" +
 	"\x04path\x18\x01 \x01(\tR\x04path\x12\x14\n" +
 	"\x05total\x18\x02 \x01(\x03R\x05total\x12\x1a\n" +
 	"\buploaded\x18\x03 \x01(\x03R\buploaded\x12\x12\n" +
-	"\x04rate\x18\x04 \x01(\x01R\x04rate\"\x93\x01\n" +
+	"\x04rate\x18\x04 \x01(\x01R\x04rate\"\xaf\x01\n" +
 	"\fUploadStatus\x12\x16\n" +
 	"\x06paused\x18\x01 \x01(\bR\x06paused\x12\x1b\n" +
 	"\tpause_seq\x18\x02 \x01(\x04R\bpauseSeq\x12'\n" +
 	"\x0fpending_records\x18\x03 \x01(\x03R\x0ependingRecords\x12%\n" +
-	"\x0ebuffered_bytes\x18\x04 \x01(\x03R\rbufferedBytes\"o\n" +
+	"\x0ebuffered_bytes\x18\x04 \x01(\x03R\rbufferedBytes\x12\x1a\n" +
+	"\bretrying\x18\x05 \x01(\bR\bretrying\"o\n" +
 	"\vCloudStatus\x126\n" +
 	"\x05state\x18\x01 \x01(\x0e2 .swanlab.operation.v1.CloudStateR\x05state\x12\x12\n" +
 	"\x04path\x18\x02 \x01(\tR\x04path\x12\x14\n" +

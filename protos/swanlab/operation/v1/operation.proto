@@ -35,6 +35,7 @@ message UploadStatus {
     uint64 pause_seq      = 2; // 预算暂停时首个未投递记录的 storeSeq；站点暂停或未暂停时为 0
     int64 pending_records = 3; // 已出批未终结的记录数
     int64 buffered_bytes  = 4; // 上传管线占用的预算字节
+    bool retrying         = 5; // 上传管线是否处于可重试失败中（尚未恢复成功）
 }
 
 // 云端接入状态快照（用于延迟接入/初始化恢复模式）；非恢复模式时为默认零值。
