@@ -86,14 +86,14 @@ def test_terminal_error_propagates():
     assert caught.value.retryable is False
 
 
-def test_unknown_exception_is_wrapped_as_retryable():
+def test_unknown_exception_is_wrapped_as_terminal():
     core = _running_core(FakeRpc(RuntimeError("socket closed")))
 
     with pytest.raises(CoreGoError) as caught:
         core.upsert_scalars([ScalarRecord(key="loss", step=1)])
 
     assert caught.value.reason is ReasonCode.GRPC_ERROR
-    assert caught.value.retryable is True
+    assert caught.value.retryable is False
     assert isinstance(caught.value.__cause__, RuntimeError)
 
 
@@ -260,6 +260,7 @@ def test_disabled_start_is_noop_without_binary():
 class _SpyLauncher:
     def __init__(self, *, owns_process: bool = True) -> None:
         self.owns_process = owns_process
+        self.process_exited = False
         self.closed = 0
         self.aborted = 0
         self.exit_code = None
@@ -269,6 +270,21 @@ class _SpyLauncher:
 
     def abort(self) -> None:
         self.aborted += 1
+
+
+def test_owned_core_process_exit_is_terminal():
+    error = CoreGoError(Stage.RPC, ReasonCode.GRPC_UNAVAILABLE, "connect failed")
+    core = _running_core(FakeRpc(error))
+    launcher = _SpyLauncher(owns_process=True)
+    launcher.process_exited = True
+    core._launcher = cast(core_module.CoreLauncher, launcher)  # noqa: SLF001
+
+    with pytest.raises(CoreGoError) as caught:
+        core.upsert_scalars([ScalarRecord(key="loss", step=1)])
+
+    assert caught.value.reason is ReasonCode.GRPC_UNAVAILABLE
+    assert caught.value.retryable is False
+    assert "process exited" in caught.value.message
 
 
 @pytest.mark.parametrize("action, initial_state", [("close", _CoreState.FINISHED), ("abort", _CoreState.RUNNING)])

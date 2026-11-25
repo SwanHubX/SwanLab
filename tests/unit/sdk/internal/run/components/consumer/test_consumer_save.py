@@ -11,6 +11,7 @@ from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogLevel
 from swanlab.sdk.internal.bus.events import FileSaveEvent, LogEvent
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.run.components.consumer import BackgroundConsumer
+from swanlab.sdk.protocol import CoreProtocolError
 
 
 def _make_consumer(tmp_path: Path, batch_size: int = 100):
@@ -157,7 +158,7 @@ def test_save_batch_auto_flushes_when_full(tmp_path: Path):
 def test_failed_upsert_saves_restores_batch(tmp_path: Path):
     consumer, core, builder = _make_consumer(tmp_path)
     consumer._save_batch.append(builder.build_save.return_value)
-    core.upsert_saves.side_effect = RuntimeError("save failed")
+    core.upsert_saves.side_effect = CoreProtocolError("save failed", retryable=True)
 
     consumer._flush()
 
@@ -171,7 +172,7 @@ def test_failed_upsert_saves_does_not_double_restore_successful_batches(tmp_path
     consumer._log_batch.append(
         builder.build_log(LogEvent(line="hello", level=LogLevel.LOG_LEVEL_INFO, timestamp=Timestamp()))
     )
-    core.upsert_saves.side_effect = RuntimeError("save failed")
+    core.upsert_saves.side_effect = CoreProtocolError("save failed", retryable=True)
 
     consumer._flush()
 

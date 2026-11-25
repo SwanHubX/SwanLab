@@ -50,6 +50,8 @@ def _make_consumer(
     flush_timeout: float = 0.5,
     batch_size: int = 100,
     stop_timeout: Optional[float] = 0.0,
+    max_buffered_records: int = 50_000,
+    max_buffered_bytes: int = 128 << 20,
 ):
     core = MagicMock()
     ctx = SimpleNamespace(
@@ -65,6 +67,8 @@ def _make_consumer(
         retry_base_delay=retry_base_delay,
         retry_max_delay=retry_max_delay,
         clock=clock,
+        max_buffered_records=max_buffered_records,
+        max_buffered_bytes=max_buffered_bytes,
     )
     return consumer, core, clock
 
@@ -130,7 +134,9 @@ def test_terminal_error_drops_batch_with_one_warning(monkeypatch, tmp_path: Path
     assert len(warnings) == 1
 
 
-def test_unknown_exception_is_retried():
+def test_unknown_exception_is_terminal_and_dropped(monkeypatch):
+    warnings = []
+    monkeypatch.setattr(pkg_console, "warning", lambda *args, **kwargs: warnings.append(args))
     consumer, core, _ = _make_consumer()
     record = _scalar()
     consumer._scalar_batch.append(record)
@@ -138,8 +144,52 @@ def test_unknown_exception_is_retried():
 
     consumer._flush()
 
-    assert consumer._scalar_batch == [record]
-    assert consumer._retry_at is not None
+    assert consumer._scalar_batch == []
+    assert consumer._retry_at is None
+    assert len(warnings) == 1
+
+
+def test_buffer_cap_drops_new_records_and_rate_limits_warning(monkeypatch):
+    warnings = []
+    monkeypatch.setattr(pkg_console, "warning", lambda *args, **kwargs: warnings.append(args))
+    consumer, _, clock = _make_consumer(max_buffered_records=2)
+
+    for index in range(5):
+        consumer._append_data_record(_scalar(key=f"loss/{index}"))
+
+    assert [record.key for record in consumer._scalar_batch] == ["loss/0", "loss/1"]
+    assert len(warnings) == 1
+    assert "Dropping 1 buffered record(s)" in warnings[0][0]
+
+    clock.advance(10.0)
+    consumer._append_data_record(_scalar(key="loss/overflow"))
+    assert len(warnings) == 2
+
+
+def test_buffer_byte_cap_rejects_single_oversized_record(monkeypatch):
+    warnings = []
+    monkeypatch.setattr(pkg_console, "warning", lambda *args, **kwargs: warnings.append(args))
+    consumer, _, _ = _make_consumer(max_buffered_bytes=1)
+
+    consumer._append_data_record(_scalar())
+
+    assert consumer._scalar_batch == []
+    assert consumer._buffered_bytes == 0
+    assert len(warnings) == 1
+
+
+def test_buffer_cap_resets_after_flush():
+    consumer, core, _ = _make_consumer(max_buffered_records=2)
+    for index in range(3):
+        consumer._append_data_record(_scalar(key=f"loss/{index}"))
+    assert len(consumer._scalar_batch) == 2
+
+    consumer._flush()
+    assert core.upsert_scalars.call_count == 1
+    assert consumer._buffered_bytes == 0
+
+    consumer._append_data_record(_scalar(key="loss/after"))
+    assert [record.key for record in consumer._scalar_batch] == ["loss/after"]
 
 
 def test_terminal_group_does_not_block_other_groups(monkeypatch):
@@ -526,3 +576,37 @@ def test_stop_in_gather_branch_drains_until_all_records_accepted():
     callbacker = cast(MagicMock, consumer._callbacker)
     callbacker.on_scalar_flush.assert_called_once()
     assert len(callbacker.on_scalar_flush.call_args.args[0]) == 20
+
+
+def test_stop_does_not_block_when_queue_full_and_consumer_exited():
+    core = MagicMock()
+    ctx = SimpleNamespace(
+        core=core, callbacker=MagicMock(), media_dir=Path("."), config=SimpleNamespace(settings=_settings())
+    )
+    full_queue: queue.Queue = queue.Queue(maxsize=1)
+    full_queue.put(MetricLogEvent(data={"loss": 1.0}, step=1, timestamp=Timestamp()))
+    consumer = BackgroundConsumer(cast(RunContext, cast(object, ctx)), full_queue, stop_timeout=None)
+    consumer._started = True  # noqa: SLF001
+
+    consumer.stop()
+
+    assert full_queue.qsize() == 1
+
+
+def test_drain_before_stop_flushes_remaining_chunks_after_terminal_chunk(monkeypatch):
+    warnings = []
+    monkeypatch.setattr(pkg_console, "warning", lambda *args, **kwargs: warnings.append(args))
+    consumer, core, _ = _make_consumer(batch_size=2, stop_timeout=None)
+    r1, r2, r3 = _scalar("loss/1"), _scalar("loss/2"), _scalar("loss/3")
+    consumer._append_data_record(r1)
+    consumer._append_data_record(r2)
+    consumer._append_data_record(r3)
+    core.upsert_scalars.side_effect = [CoreProtocolError("too large", retryable=False), None]
+
+    consumer._drain_before_stop()
+
+    assert consumer._batch_empty
+    assert core.upsert_scalars.call_count == 2
+    assert core.upsert_scalars.call_args_list[0].args[0] == [r1, r2]
+    assert core.upsert_scalars.call_args_list[1].args[0] == [r3]
+    assert len(warnings) == 1

@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from swanlab.sdk.internal.core_go.config import CoreGoError, ReasonCode, Stage
+from swanlab.sdk.internal.core_go.config import GRPC_MAX_MESSAGE_BYTES, CoreGoError, ReasonCode, Stage
 from swanlab.sdk.internal.core_go.rpc import Channel
 from swanlab.sdk.internal.core_go.runtime import Endpoint
 
@@ -61,13 +61,13 @@ def _free_port() -> int:
 
 
 @contextlib.contextmanager
-def _abort_server(code):
+def _abort_server(code, details="boom"):
     grpc = pytest.importorskip("grpc")
 
     class Handler(grpc.GenericRpcHandler):
         def service(self, handler_call_details):
             def abort(request, context):
-                context.abort(code, "boom")
+                context.abort(code, details)
 
             return grpc.unary_unary_rpc_method_handler(abort)
 
@@ -90,6 +90,49 @@ def test_channel_ready_timeout():
 
     assert caught.value.stage is Stage.CHANNEL
     assert caught.value.reason is ReasonCode.CHANNEL_TIMEOUT
+
+
+def test_channel_open_disables_grpc_idle_timeout(monkeypatch):
+    grpc = pytest.importorskip("grpc")
+    captured = {}
+
+    class Raw:
+        def close(self):
+            pass
+
+    class Ready:
+        def result(self, timeout=None):
+            return None
+
+    def fake_insecure_channel(target, options):
+        captured["options"] = options
+        return Raw()
+
+    monkeypatch.setattr(grpc, "insecure_channel", fake_insecure_channel)
+    monkeypatch.setattr(grpc, "channel_ready_future", lambda raw: Ready())
+    endpoint = Endpoint(kind="tcp", pid=os.getpid(), tcp_port=1)
+
+    channel = Channel.open(endpoint, timeout=0.1)
+    channel.close()
+
+    assert ("grpc.client_idle_timeout_ms", 2**31 - 1) in captured["options"]
+
+
+def test_channel_rejects_oversized_request_before_send():
+    grpc = pytest.importorskip("grpc")
+    channel = Channel(object(), grpc, "test")
+    called = []
+
+    class Oversized:
+        def ByteSize(self):
+            return GRPC_MAX_MESSAGE_BYTES + 1
+
+    with pytest.raises(CoreGoError) as caught:
+        channel.call(lambda request, timeout: called.append(request), Oversized(), timeout=0.1)
+
+    assert called == []
+    assert caught.value.reason is ReasonCode.INVALID_ARGUMENT
+    assert caught.value.retryable is False
 
 
 @pytest.mark.parametrize(
@@ -124,6 +167,34 @@ def test_channel_maps_grpc_status(grpc_name, expected_reason, expected_code):
     assert error.grpc_name == grpc_name
     assert error.grpc_code == expected_code
     assert error.__cause__ is not None
+
+
+@pytest.mark.parametrize(
+    ("details", "expected_retryable"),
+    [
+        ("Sent message larger than max (4194305 vs. 4194304)", False),
+        ("server is busy", True),
+    ],
+)
+def test_resource_exhausted_message_too_large_is_terminal(details, expected_retryable):
+    grpc = pytest.importorskip("grpc")
+
+    with _abort_server(grpc.StatusCode.RESOURCE_EXHAUSTED, details) as port:
+        endpoint = Endpoint(kind="tcp", pid=os.getpid(), tcp_port=port)
+        channel = Channel.open(endpoint, timeout=2.0)
+        method = channel.raw.unary_unary(
+            "/smoke/abort",
+            request_serializer=lambda value: value,
+            response_deserializer=lambda value: value,
+        )
+        try:
+            with pytest.raises(CoreGoError) as caught:
+                channel.call(method, b"", timeout=1.0)
+        finally:
+            channel.close()
+
+    assert caught.value.reason is ReasonCode.RESOURCE_EXHAUSTED
+    assert caught.value.retryable is expected_retryable
 
 
 def test_channel_close_is_idempotent_and_rejects_calls():

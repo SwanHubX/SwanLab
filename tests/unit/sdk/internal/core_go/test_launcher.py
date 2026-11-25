@@ -23,6 +23,12 @@ from swanlab.sdk.internal.core_go.runtime import Endpoint, RuntimeLease, acquire
 class FakeProcess:
     pid = 4242
 
+    def __init__(self) -> None:
+        self.returncode = None
+
+    def poll(self) -> Optional[int]:
+        return self.returncode
+
 
 class FakeChannel:
     last: Optional["FakeChannel"] = None
@@ -127,6 +133,18 @@ def test_start_acquires_runtime_and_opens_channel(launcher_env):
     assert launcher.owns_process is True
     assert launcher.endpoint == endpoint
     assert launcher.channel is FakeChannel.last
+
+
+def test_process_exited_reports_owned_child_exit(launcher_env):
+    binary, _, _, _ = launcher_env
+    launcher = CoreLauncher(binary)
+
+    assert launcher.process_exited is False
+    launcher.start()
+    assert launcher.process_exited is False
+
+    cast(FakeProcess, launcher._proc).returncode = 1  # noqa: SLF001
+    assert launcher.process_exited is True
 
 
 def test_start_is_idempotent(launcher_env):
@@ -552,6 +570,18 @@ def test_detach_launcher_close_and_abort_skip_reap(launcher_env, monkeypatch, ac
     assert calls["reap"] == 0
     assert calls["cleanup"] == 0
     assert launcher.exit_code is None
+
+
+def test_process_exited_is_false_in_detached_mode(launcher_env, monkeypatch):
+    binary, _, _, _ = launcher_env
+    proc = FakeProcess()
+    monkeypatch.setattr(launcher_module, "spawn_core", lambda *args, **kwargs: proc)
+
+    launcher = CoreLauncher(binary, detach=True, idle_timeout=2.0)
+    launcher.start()
+    proc.returncode = 1
+
+    assert launcher.process_exited is False
 
 
 def test_detach_launcher_reaps_process_when_start_fails(launcher_env, monkeypatch):

@@ -104,7 +104,6 @@ _RETRYABLE_REASONS = frozenset(
         ReasonCode.GRPC_UNAVAILABLE,
         ReasonCode.DEADLINE_EXCEEDED,
         ReasonCode.CHANNEL_TIMEOUT,
-        ReasonCode.GRPC_ERROR,
     }
 )
 

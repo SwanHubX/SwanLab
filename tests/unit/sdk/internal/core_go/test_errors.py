@@ -98,7 +98,7 @@ def test_reason_for_grpc_is_case_insensitive():
         (ReasonCode.GRPC_UNAVAILABLE, True),
         (ReasonCode.DEADLINE_EXCEEDED, True),
         (ReasonCode.CHANNEL_TIMEOUT, True),
-        (ReasonCode.GRPC_ERROR, True),
+        (ReasonCode.GRPC_ERROR, False),
         (ReasonCode.INVALID_ARGUMENT, False),
         (ReasonCode.FAILED_PRECONDITION, False),
         (ReasonCode.UNIMPLEMENTED, False),
@@ -146,7 +146,7 @@ def test_import_core_go_does_not_load_grpc():
         (Stage.RUN_START, ReasonCode.GRPC_UNAVAILABLE, "UNAVAILABLE", CORE_ERROR_KIND_TRANSIENT),
         (Stage.RUN_START, ReasonCode.DEADLINE_EXCEEDED, "DEADLINE_EXCEEDED", CORE_ERROR_KIND_TRANSIENT),
         (Stage.RUN_START, ReasonCode.GRPC_UNAVAILABLE, " unavailable ", CORE_ERROR_KIND_TRANSIENT),
-        # reason_for_grpc("UNAUTHENTICATED") 会落到可重试的 GRPC_ERROR，分类必须只看 grpc_name
+        # reason_for_grpc("UNAUTHENTICATED") 会落到 GRPC_ERROR，分类必须只看 grpc_name
         (Stage.RUN_START, ReasonCode.GRPC_ERROR, "UNAUTHENTICATED", CORE_ERROR_KIND_AUTH),
         (Stage.RUN_START, ReasonCode.GRPC_ERROR, " unauthenticated ", CORE_ERROR_KIND_AUTH),
         (Stage.RUN_START, ReasonCode.GRPC_ERROR, "INTERNAL", CORE_ERROR_KIND_OTHER),

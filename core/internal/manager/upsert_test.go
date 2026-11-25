@@ -3,6 +3,7 @@ package manager
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sync/atomic"
@@ -676,6 +677,17 @@ func TestUpsertRejectsOversizedBatches(t *testing.T) {
 	uploaded := drainRecords(h.upload)
 	if len(uploaded) != 1 || uploaded[0].GetLog().GetEpoch() != 1 {
 		t.Fatalf("first accepted log = %v, want epoch 1", uploaded)
+	}
+}
+
+func TestUpsertErrorMapsBatchTooLargeToRequestTooLarge(t *testing.T) {
+	err := upsertError(fmt.Errorf("reserve: %w", buffer.ErrBatchTooLarge))
+
+	if !errors.Is(err, ErrRequestTooLarge) {
+		t.Fatalf("upsertError err=%v, want ErrRequestTooLarge", err)
+	}
+	if errors.Is(err, ErrOverloaded) {
+		t.Fatalf("ErrBatchTooLarge must not be retryable: %v", err)
 	}
 }
 

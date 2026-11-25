@@ -33,6 +33,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -40,6 +41,8 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/swanhubx/swanlab/core/internal/client"
 	"github.com/swanhubx/swanlab/core/internal/manager"
@@ -478,6 +481,7 @@ func assembleServer(
 	grpcServer := grpc.NewServer(
 		grpc.MaxRecvMsgSize(maxRecvMsgSize),
 		grpc.StatsHandler(tracker),
+		grpc.UnaryInterceptor(recoverUnaryPanic),
 	)
 	ctrl := server.NewController(grpcServer, shutdownGrace)
 	var idleMonitor *server.IdleMonitor
@@ -526,6 +530,18 @@ func assembleServer(
 	svc.Register(grpcServer)
 	syncSvc.Register(grpcServer)
 	return grpcServer, ctrl, mgr, syncMgr, idleMonitor
+}
+
+// recoverUnaryPanic 防止单个 RPC handler 的 panic 终止整个 core 进程。
+func recoverUnaryPanic(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			console.Errorf("panic in gRPC %s: %v\n%s", info.FullMethod, recovered, debug.Stack())
+			resp = nil
+			err = status.Errorf(codes.Internal, "internal panic: %v", recovered)
+		}
+	}()
+	return handler(ctx, req)
 }
 
 func watchParentIfAttached(detach bool, parentPID int) (<-chan struct{}, int, error) {
