@@ -7,6 +7,7 @@
 
 from typing import Dict, List, Optional, cast
 
+from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.core_python.api.checkpoint import register_checkpoint
 from swanlab.sdk.internal.core_python.core import CorePython
 from swanlab.sdk.internal.pkg import console
@@ -74,6 +75,22 @@ def checkpoint(
     """
     active_run = get_run() if has_run() else None
 
+    # ── 非 online 模式：无法登记（在访问 core._ctx 之前检查）──────────────────
+    if active_run is not None and active_run.mode != "online":
+        console.warning(
+            f"swanlab.checkpoint() is only available in online mode (current mode: {active_run.mode}). "
+            "This checkpoint will not be registered."
+        )
+        return ""
+
+    # ── 无活跃 run 且无 client（无法发请求）────────────────────────────────────
+    if active_run is None and not client.exists():
+        console.warning(
+            "swanlab.checkpoint() requires an active online run or an initialized client. "
+            "This checkpoint will not be registered."
+        )
+        return ""
+
     # ── 解析 experiment_id ────────────────────────────────────────────────────
     if run_id is not None:
         experiment_id = run_id
@@ -85,14 +102,6 @@ def checkpoint(
         console.warning(
             "swanlab.checkpoint() requires a run_id. "
             "Either call swanlab.init() first or pass run_id= explicitly. "
-            "This checkpoint will not be registered."
-        )
-        return ""
-
-    # ── 非 online 模式：无法登记 ──────────────────────────────────────────────
-    if active_run is not None and active_run.mode != "online":
-        console.warning(
-            f"swanlab.checkpoint() is only available in online mode (current mode: {active_run.mode}). "
             "This checkpoint will not be registered."
         )
         return ""

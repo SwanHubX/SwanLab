@@ -7,8 +7,9 @@
 
 from typing import List, Optional
 
+from swanlab.exceptions import ApiError
 from swanlab.sdk.internal.core_python import client
-from swanlab.sdk.internal.pkg import helper
+from swanlab.sdk.internal.pkg import console, helper
 
 
 def register_checkpoint(
@@ -44,6 +45,9 @@ def register_checkpoint(
             "labels": labels_body,
         }
     )
-    # retries=0：重试机制交给 transport 层的退避调度，与 save.py 保持一致
-    resp = client.post("/checkpoint", body, retries=0)
-    return resp.data["cuid"]
+    try:
+        resp = client.post("/checkpoint", body, retries=0)
+        return resp.data["cuid"]
+    except ApiError as e:
+        console.warning(f"swanlab.checkpoint() failed to register checkpoint: {e}")
+        return ""
