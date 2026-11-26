@@ -116,10 +116,11 @@ func applyRebuiltColumn(m *RunMetrics, col *columnv1.ColumnRecord) {
 	if col == nil || col.GetColumnKey() == "" || m.Defined(col.GetColumnKey()) {
 		return
 	}
-	_ = m.Define(col.GetColumnKey(), col, -1, rebuildColumnKind(col.GetColumnType()))
+	_ = m.Define(col.GetColumnKey(), col, -1, KindOf(col.GetColumnType()))
 }
 
-func rebuildColumnKind(t columnv1.ColumnType) Kind {
+// KindOf 将协议列类型映射为指标类别；标量与直方图独立定义，其余均按媒体列处理。
+func KindOf(t columnv1.ColumnType) Kind {
 	switch t {
 	case columnv1.ColumnType_COLUMN_TYPE_SCALAR:
 		return KindScalar

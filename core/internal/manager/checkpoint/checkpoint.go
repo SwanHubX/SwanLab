@@ -5,6 +5,7 @@ import (
 	"context"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/swanhubx/swanlab/core/internal/pkg/console"
@@ -56,6 +57,7 @@ type Writer struct {
 	write       func(path string, cp store.Checkpoint, durable bool) error
 
 	notify    chan struct{}
+	started   atomic.Bool
 	startOnce sync.Once
 	stopOnce  sync.Once
 	stop      chan struct{}
@@ -104,6 +106,8 @@ func New(opts Options) *Writer {
 		onTick:      opts.OnTick,
 		write:       write,
 		notify:      make(chan struct{}, 1),
+		stop:        make(chan struct{}),
+		done:        make(chan struct{}),
 		lastSeq:     opts.InitialSeq,
 		hasWrite:    opts.InitialWritten,
 		lastSynced:  opts.InitialWritten,
@@ -135,8 +139,7 @@ func (w *Writer) Start() {
 		if w.ctx != nil {
 			ctxDone = w.ctx.Done()
 		}
-		w.stop = make(chan struct{})
-		w.done = make(chan struct{})
+		w.started.Store(true)
 		go w.loop(ctxDone)
 	})
 }
@@ -202,12 +205,15 @@ func (w *Writer) runFast(prev time.Time) time.Time {
 
 // Stop 停止断点协程并等待其退出；未启动或已停止时可重复安全调用。
 func (w *Writer) Stop() {
-	if w == nil || w.stop == nil {
+	if w == nil {
 		return
 	}
 	w.stopOnce.Do(func() {
 		close(w.stop)
 	})
+	if !w.started.Load() {
+		return
+	}
 	<-w.done
 }
 

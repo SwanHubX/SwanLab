@@ -3,6 +3,7 @@ package fs
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -111,4 +112,73 @@ func WindowsBase(path string) string {
 // MirrorPath 按 SaveRecord.name 的 Windows 分隔符语义拼接镜像路径，供 watcher 与 sender 共用。
 func MirrorPath(base, name string) string {
 	return filepath.Join(append([]string{base}, WindowsParts(name)...)...)
+}
+
+// WriteAtomic 将 data 原子写入 path：创建同目录临时文件 → 写入 → 可选 fsync → chmod → rename → 可选 syncDir。
+// 任一步失败均不会破坏已有目标文件，且会清理临时文件。
+func WriteAtomic(path string, data []byte, perm os.FileMode, durable bool) error {
+	return writeAtomic(path, data, perm, durable, writeFileData)
+}
+
+func writeAtomic(
+	path string,
+	data []byte,
+	perm os.FileMode,
+	durable bool,
+	writeFn func(*os.File, []byte) error,
+) error {
+	dir := filepath.Dir(path)
+	tmp, err := os.CreateTemp(dir, "."+filepath.Base(path)+".tmp.*")
+	if err != nil {
+		return fmt.Errorf("create temp file in %s: %w", dir, err)
+	}
+	tmpName := tmp.Name()
+	renamed := false
+	defer func() {
+		if !renamed {
+			_ = os.Remove(tmpName)
+		}
+	}()
+
+	if err = writeFn(tmp, data); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if durable {
+		if err = tmp.Sync(); err != nil {
+			_ = tmp.Close()
+			return fmt.Errorf("sync temp file: %w", err)
+		}
+	}
+	if err = tmp.Close(); err != nil {
+		return fmt.Errorf("close temp file: %w", err)
+	}
+	if err = os.Chmod(tmpName, perm); err != nil {
+		return fmt.Errorf("chmod temp file: %w", err)
+	}
+	if err = os.Rename(tmpName, path); err != nil {
+		return fmt.Errorf("commit atomic file: %w", err)
+	}
+	renamed = true
+	if durable {
+		syncDir(dir)
+	}
+	return nil
+}
+
+func writeFileData(fp *os.File, data []byte) error {
+	if _, err := fp.Write(data); err != nil {
+		return fmt.Errorf("write temp file: %w", err)
+	}
+	return nil
+}
+
+// syncDir 持久化目录项，使 rename 结果落盘；失败不影响写入结果。
+func syncDir(dir string) {
+	d, err := os.Open(dir)
+	if err != nil {
+		return
+	}
+	defer func() { _ = d.Close() }()
+	_ = d.Sync()
 }

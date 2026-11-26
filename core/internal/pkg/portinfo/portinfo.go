@@ -20,9 +20,10 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/swanhubx/swanlab/core/internal/pkg/fs"
 )
 
 // 协议与格式约束。
@@ -82,34 +83,9 @@ func WriteFile(path string, info *Info) error {
 	if err != nil {
 		return err
 	}
-	dir := filepath.Dir(path)
-	tmp, err := os.CreateTemp(dir, ".portinfo-*")
-	if err != nil {
-		return fmt.Errorf("create temp port-file in %s: %w", dir, err)
+	if err := fs.WriteAtomic(path, data, filePerm, true); err != nil {
+		return fmt.Errorf("write port-file: %w", err)
 	}
-	tmpName := tmp.Name()
-	renamed := false
-	defer func() {
-		if !renamed {
-			_ = os.Remove(tmpName)
-		}
-	}()
-	if _, err := tmp.Write(data); err != nil {
-		_ = tmp.Close()
-		return fmt.Errorf("write temp port-file: %w", err)
-	}
-	_ = tmp.Sync()
-	if err := tmp.Close(); err != nil {
-		return fmt.Errorf("close temp port-file: %w", err)
-	}
-	if err := os.Chmod(tmpName, filePerm); err != nil {
-		return fmt.Errorf("chmod temp port-file: %w", err)
-	}
-	if err := os.Rename(tmpName, path); err != nil {
-		return fmt.Errorf("commit port-file: %w", err)
-	}
-	renamed = true
-	syncDir(dir)
 	return nil
 }
 
@@ -250,14 +226,4 @@ func isDigits(s string) bool {
 		}
 	}
 	return true
-}
-
-// syncDir 持久化目录项，使 rename 结果落盘；失败不影响写入结果。
-func syncDir(dir string) {
-	d, err := os.Open(dir)
-	if err != nil {
-		return
-	}
-	defer func() { _ = d.Close() }()
-	_ = d.Sync()
 }

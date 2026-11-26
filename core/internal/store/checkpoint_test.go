@@ -84,7 +84,7 @@ func TestCheckpointAtomicReplacePreservesOldOnFailure(t *testing.T) {
 		t.Fatalf("ReadFile initial: %v", err)
 	}
 
-	// 模拟写入临时文件失败：旧文件必须保持原样且不残留临时文件。
+	// 模拟写入失败：旧文件必须保持原样且不残留临时文件。
 	newCP := Checkpoint{
 		Version:   CheckpointVersion,
 		RunID:     "run-1",
@@ -92,12 +92,14 @@ func TestCheckpointAtomicReplacePreservesOldOnFailure(t *testing.T) {
 		Offset:    1024,
 		UpdatedAt: time.Unix(1700000100, 0).UTC(),
 	}
-	failWrite := func(fp *os.File, data []byte) error {
-		_, _ = fp.Write(data[:len(data)/2])
+	origAtomic := writeCheckpointAtomic
+	writeCheckpointAtomic = func(string, []byte, os.FileMode, bool) error {
 		return errors.New("injected disk full")
 	}
-	if werr := writeCheckpoint(path, newCP, true, failWrite); werr == nil {
-		t.Fatal("writeCheckpoint with failing temp write should fail")
+	werr := writeCheckpoint(path, newCP, true)
+	writeCheckpointAtomic = origAtomic
+	if werr == nil {
+		t.Fatal("writeCheckpoint with failing atomic write should fail")
 	}
 
 	afterRaw, err := os.ReadFile(path)

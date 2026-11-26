@@ -44,6 +44,7 @@ type Pump struct {
 
 	stop      chan struct{}
 	done      chan struct{}
+	started   atomic.Bool
 	startOnce sync.Once
 	stopOnce  sync.Once
 }
@@ -68,6 +69,8 @@ func New(opts Options) *Pump {
 		degraded:     opts.Degraded,
 		interval:     interval,
 		pollInterval: pollInterval,
+		stop:         make(chan struct{}),
+		done:         make(chan struct{}),
 	}
 }
 
@@ -77,8 +80,7 @@ func (p *Pump) Start() {
 		return
 	}
 	p.startOnce.Do(func() {
-		p.stop = make(chan struct{})
-		p.done = make(chan struct{})
+		p.started.Store(true)
 		go p.loop()
 	})
 }
@@ -89,13 +91,12 @@ func (p *Pump) Stop() {
 		return
 	}
 	p.stopOnce.Do(func() {
-		if p.stop != nil {
-			close(p.stop)
-		}
+		close(p.stop)
 	})
-	if p.done != nil {
-		<-p.done
+	if !p.started.Load() {
+		return
 	}
+	<-p.done
 }
 
 // Drain 在收尾阶段尽量排空回收队列；队列仍满时按 poll 间隔重试，

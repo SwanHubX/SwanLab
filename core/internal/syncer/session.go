@@ -17,7 +17,6 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/pkg/builder"
 	"github.com/swanhubx/swanlab/core/internal/pkg/console"
 	"github.com/swanhubx/swanlab/core/internal/pkg/counter"
-	"github.com/swanhubx/swanlab/core/internal/pkg/record"
 	"github.com/swanhubx/swanlab/core/internal/runctx"
 	"github.com/swanhubx/swanlab/core/internal/store"
 	"github.com/swanhubx/swanlab/core/internal/uploader"
@@ -125,12 +124,6 @@ func normalizeSyncSettings(cfg config.Settings, runIDOverride, fallbackRunID str
 	cfg.Mode = config.ModeOnline
 	cfg.SkipStore = false
 	cfg.RunID = firstNonEmpty(cfg.RunID, runIDOverride, fallbackRunID, "sync")
-	if cfg.SaveSize <= 0 || cfg.SaveSplit <= 0 || cfg.SaveBatch <= 0 {
-		return config.Settings{}, fmt.Errorf(
-			"%w: save_size (%d), save_split (%d) and save_batch (%d) must be positive",
-			ErrInvalidSettings, cfg.SaveSize, cfg.SaveSplit, cfg.SaveBatch,
-		)
-	}
 	if err := cfg.Validate(); err != nil {
 		return config.Settings{}, fmt.Errorf("%w: %w", ErrInvalidSettings, err)
 	}
@@ -314,32 +307,19 @@ func (s *syncSession) flush(ctx context.Context, factory *client.Factory) (Flush
 			Putter:    httpClient,
 		},
 	}
-	mediaSender, err := sender.NewMedia(senderOpts)
+	senders, err := sender.NewAll(senderOpts)
 	if err != nil {
 		cancel()
 		rollbackToStarted()
-		return FlushResult{}, fmt.Errorf("sync flush: create media sender: %w", err)
-	}
-	saveSender, err := sender.NewSave(senderOpts)
-	if err != nil {
-		cancel()
-		rollbackToStarted()
-		return FlushResult{}, fmt.Errorf("sync flush: create save sender: %w", err)
+		return FlushResult{}, fmt.Errorf("sync flush: %w", err)
 	}
 
 	b := budget.New(budget.Limits{Bytes: defaultSyncBudgetBytes})
 	inCh := make(chan *recordv1.Record, syncQueueSize(cfg.RecordBatch))
 	up, err := uploader.New(uploader.Options{
-		In:     inCh,
-		Budget: b,
-		Senders: map[record.Type]uploader.Sender{
-			record.TypeColumn:    sender.NewColumn(senderOpts),
-			record.TypeScalar:    sender.NewScalar(senderOpts),
-			record.TypeLog:       sender.NewLog(senderOpts),
-			record.TypeMedia:     mediaSender,
-			record.TypeHistogram: sender.NewHistogram(senderOpts),
-			record.TypeSave:      saveSender,
-		},
+		In:       inCh,
+		Budget:   b,
+		Senders:  senders,
 		Batch:    int(cfg.RecordBatch),
 		Interval: cfg.RecordIntervalDuration(),
 		Tracker:  tracker,

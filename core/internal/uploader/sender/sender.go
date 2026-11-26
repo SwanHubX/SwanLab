@@ -12,6 +12,7 @@ import (
 	"golang.org/x/sync/semaphore"
 
 	"github.com/swanhubx/swanlab/core/internal/api"
+	"github.com/swanhubx/swanlab/core/internal/pkg/record"
 	"github.com/swanhubx/swanlab/core/internal/uploader"
 	columnv1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/column/v1"
 	datav1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/data/v1"
@@ -101,6 +102,26 @@ func validateFileOptions(opts Options) error {
 		return errors.New("sender: object putter is required")
 	}
 	return nil
+}
+
+// NewAll 统一装配全部 6 类 record.Type 的上传器，供 manager 与 syncer 共用。
+func NewAll(opts Options) (map[record.Type]uploader.Sender, error) {
+	mediaSender, err := NewMedia(opts)
+	if err != nil {
+		return nil, fmt.Errorf("create media sender: %w", err)
+	}
+	saveSender, err := NewSave(opts)
+	if err != nil {
+		return nil, fmt.Errorf("create save sender: %w", err)
+	}
+	return map[record.Type]uploader.Sender{
+		record.TypeColumn:    NewColumn(opts),
+		record.TypeScalar:    NewScalar(opts),
+		record.TypeLog:       NewLog(opts),
+		record.TypeMedia:     mediaSender,
+		record.TypeHistogram: NewHistogram(opts),
+		record.TypeSave:      saveSender,
+	}, nil
 }
 
 // ColumnSender 上报列定义：先全量编码，再按 3000 条切分提交。

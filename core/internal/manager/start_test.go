@@ -345,12 +345,14 @@ func TestDeliverRunStartRollbackRemovesRunFile(t *testing.T) {
 	serveNewExperiment(cloud, "alice", "demo", "exp-1", "run-1")
 
 	mgr := newTestManager()
+	for i := 0; i < maxSessions; i++ {
+		installBare(t, mgr, sessionOptions{})
+	}
 	settings := startSettings(t, cloud)
-	settings.SaveSize = 0 // runctx 不校验，NewSave 在 store 创建后失败
 	record := &runv1.StartRecord{Project: "demo", Workspace: "alice", Id: "run-1"}
 
-	if _, err := mgr.DeliverRunStart(context.Background(), settings, record); err == nil {
-		t.Fatal("DeliverRunStart must fail when save limits are invalid")
+	if _, err := mgr.DeliverRunStart(context.Background(), settings, record); !errors.Is(err, ErrTooManySessions) {
+		t.Fatalf("DeliverRunStart err = %v, want ErrTooManySessions", err)
 	}
 	if _, err := os.Stat(runFilePath(t, settings)); !os.IsNotExist(err) {
 		t.Fatalf("rollback must remove the run file: err=%v", err)
@@ -358,8 +360,8 @@ func TestDeliverRunStartRollbackRemovesRunFile(t *testing.T) {
 	mgr.mu.RLock()
 	count := len(mgr.sessions)
 	mgr.mu.RUnlock()
-	if count != 0 {
-		t.Fatalf("sessions = %d, want 0", count)
+	if count != maxSessions {
+		t.Fatalf("sessions = %d, want %d", count, maxSessions)
 	}
 }
 

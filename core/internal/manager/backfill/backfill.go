@@ -82,6 +82,7 @@ type Worker struct {
 	wake      chan struct{}
 	stop      chan struct{}
 	done      chan struct{}
+	started   atomic.Bool
 	startOnce sync.Once
 	stopOnce  sync.Once
 	mu        sync.Mutex
@@ -113,6 +114,8 @@ func New(opts Options) *Worker {
 		subscribeHealth: opts.SubscribeHealth,
 		onStored:        opts.OnStored,
 		wake:            make(chan struct{}, 1),
+		stop:            make(chan struct{}),
+		done:            make(chan struct{}),
 		state: state{
 			pauseSeq: opts.InitialPause,
 			cursor:   opts.InitialCursor,
@@ -126,21 +129,23 @@ func (w *Worker) Start() {
 		return
 	}
 	w.startOnce.Do(func() {
-		w.stop = make(chan struct{})
-		w.done = make(chan struct{})
+		w.started.Store(true)
 		go w.loop()
 	})
 }
 
 // Stop 取消当前补投尝试并等待协程退出；未启动或已停止时可重复安全调用。
 func (w *Worker) Stop() {
-	if w == nil || w.stop == nil {
+	if w == nil {
 		return
 	}
 	w.stopOnce.Do(func() {
 		close(w.stop)
 	})
 	w.CancelAttempt()
+	if !w.started.Load() {
+		return
+	}
 	<-w.done
 }
 

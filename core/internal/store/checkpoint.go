@@ -6,8 +6,9 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"time"
+
+	"github.com/swanhubx/swanlab/core/internal/pkg/fs"
 )
 
 // CheckpointVersion 是 checkpoint 文件格式版本号。
@@ -58,18 +59,20 @@ func LoadCheckpoint(path, runID string) (Checkpoint, bool, error) {
 	return cp, true, nil
 }
 
+var writeCheckpointAtomic = fs.WriteAtomic
+
 // WriteCheckpoint 将 checkpoint 原子写入 path：同目录临时文件 -> fsync -> rename -> fsync 目录。
 // 任一步失败均不会破坏已有目标文件，并清理临时文件。
 func WriteCheckpoint(path string, cp Checkpoint) error {
-	return writeCheckpoint(path, cp, true, writeTempFile)
+	return writeCheckpoint(path, cp, true)
 }
 
 // WriteCheckpointFast 用临时文件加原子重命名写入断点，跳过 fsync 与目录同步，用于运行期更新。
 func WriteCheckpointFast(path string, cp Checkpoint) error {
-	return writeCheckpoint(path, cp, false, writeTempFile)
+	return writeCheckpoint(path, cp, false)
 }
 
-func writeCheckpoint(path string, cp Checkpoint, durable bool, writeTemp func(*os.File, []byte) error) error {
+func writeCheckpoint(path string, cp Checkpoint, durable bool) error {
 	if cp.Version == 0 {
 		cp.Version = CheckpointVersion
 	} else if cp.Version != CheckpointVersion {
@@ -92,60 +95,10 @@ func writeCheckpoint(path string, cp Checkpoint, durable bool, writeTemp func(*o
 		return fmt.Errorf("store: marshal checkpoint: %w", err)
 	}
 
-	dir := filepath.Dir(path)
-	tmp, err := os.CreateTemp(dir, "."+filepath.Base(path)+".tmp.*")
-	if err != nil {
-		return fmt.Errorf("store: create temp checkpoint in %s: %w", dir, err)
-	}
-	tmpName := tmp.Name()
-	renamed := false
-	defer func() {
-		if !renamed {
-			_ = os.Remove(tmpName)
-		}
-	}()
-
-	if err = writeTemp(tmp, data); err != nil {
-		_ = tmp.Close()
-		return err
-	}
-	if durable {
-		if err = tmp.Sync(); err != nil {
-			_ = tmp.Close()
-			return fmt.Errorf("store: sync temp checkpoint: %w", err)
-		}
-	}
-	if err = tmp.Close(); err != nil {
-		return fmt.Errorf("store: close temp checkpoint: %w", err)
-	}
-	if err = os.Chmod(tmpName, 0o644); err != nil {
-		return fmt.Errorf("store: chmod temp checkpoint: %w", err)
-	}
-	if err = os.Rename(tmpName, path); err != nil {
-		return fmt.Errorf("store: commit checkpoint: %w", err)
-	}
-	renamed = true
-	if durable {
-		syncDir(dir)
+	if err = writeCheckpointAtomic(path, data, 0o644, durable); err != nil {
+		return fmt.Errorf("store: write checkpoint: %w", err)
 	}
 	return nil
-}
-
-func writeTempFile(fp *os.File, data []byte) error {
-	if _, err := fp.Write(data); err != nil {
-		return fmt.Errorf("store: write temp checkpoint: %w", err)
-	}
-	return nil
-}
-
-// syncDir 持久化目录项，使 rename 结果落盘；失败不影响写入结果。
-func syncDir(dir string) {
-	d, err := os.Open(dir)
-	if err != nil {
-		return
-	}
-	defer func() { _ = d.Close() }()
-	_ = d.Sync()
 }
 
 // EndOffset 返回第 seq 条记录结束后的文件偏移。优先查询内存中的近期偏移缓存，

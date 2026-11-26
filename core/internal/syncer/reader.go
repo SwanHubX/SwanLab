@@ -198,7 +198,7 @@ func (s *syncSession) handleColumn(rec *recordv1.Record) bool {
 		console.Debugf("Column '%s' was skipped syncing because it already exists.", key)
 		return true
 	}
-	if err := s.metrics.Define(key, col, -1, columnKind(col.GetColumnType())); err != nil {
+	if err := s.metrics.Define(key, col, -1, metrics.KindOf(col.GetColumnType())); err != nil {
 		console.Warningf("sync: define column %q failed: %v", key, err)
 		return true
 	}
@@ -315,16 +315,5 @@ func (s *syncSession) enqueue(rec *recordv1.Record) bool {
 		s.tracker.AdjustTotalRecords(-1)
 		s.budget.Release(1, size)
 		return false
-	}
-}
-
-func columnKind(typ columnv1.ColumnType) metrics.Kind {
-	switch typ {
-	case columnv1.ColumnType_COLUMN_TYPE_SCALAR:
-		return metrics.KindScalar
-	case columnv1.ColumnType_COLUMN_TYPE_HISTOGRAM:
-		return metrics.KindHistogram
-	default:
-		return metrics.KindMedia
 	}
 }
