@@ -140,9 +140,6 @@ func (a *AsyncWriter) CloseContext(ctx context.Context) error {
 	}
 }
 
-// FlushForTest 写完已入队记录并立即刷盘，仅供测试。
-func (a *AsyncWriter) FlushForTest() error { return a.sync(true) }
-
 // Flush 写完已入队记录并刷盘；返回时 Flushed() 覆盖调用前提交的所有请求。
 func (a *AsyncWriter) Flush(ctx context.Context) error {
 	reply := make(chan error, 1)
@@ -159,17 +156,6 @@ func (a *AsyncWriter) Flush(ctx context.Context) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	}
-}
-
-// sync 让写协程先排空入口，再按 flush 决定是否刷盘。
-func (a *AsyncWriter) sync(flush bool) error {
-	reply := make(chan error, 1)
-	select {
-	case a.ctl <- control{flush: flush, reply: reply}:
-	case <-a.done:
-		return ErrClosed
-	}
-	return <-reply
 }
 
 func (a *AsyncWriter) run() {

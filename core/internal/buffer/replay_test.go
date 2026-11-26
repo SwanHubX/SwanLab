@@ -57,7 +57,7 @@ func TestReplaySendsPausedRecordsInOrder(t *testing.T) {
 	// 补投记录先于恢复后的实时记录进入上传通道。
 	records, bytes = b.Usage()
 	b.Release(records, bytes)
-	in.ResumeUpload()
+	resumeUploadForTest(in)
 	mustCommit(t, in, scalarRecord(5))
 
 	got := drainUpload(in)
@@ -172,7 +172,7 @@ func TestOnPauseNotifiesEachInterval(t *testing.T) {
 
 	records, bytes := b.Usage()
 	b.Release(records, bytes)
-	in.ResumeUpload()
+	resumeUploadForTest(in)
 	mustCommit(t, in, scalarRecord(4)) // 上传
 	mustCommit(t, in, scalarRecord(5)) // 新暂停区间，seq 5
 	drainUpload(in)

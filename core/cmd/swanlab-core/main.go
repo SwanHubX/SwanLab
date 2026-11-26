@@ -131,6 +131,7 @@ func run(args []string) int {
 			console.Error("failed to open diagnostic log:", err)
 			return exitRunError
 		}
+		defer console.Reset()
 	}
 
 	var startupLock *portinfo.FileLock

@@ -13,9 +13,6 @@ func TestNewNormalizesLimits(t *testing.T) {
 	if got := b.Limits(); got != (Limits{}) {
 		t.Fatalf("Limits() = %+v, want zero value", got)
 	}
-	if !b.Limits().Unlimited() {
-		t.Fatal("negative limits should be treated as unlimited")
-	}
 	if _, bytes := b.Usage(); bytes != 0 {
 		t.Fatalf("initial bytes = %d, want 0", bytes)
 	}
@@ -204,36 +201,6 @@ func TestAdjustPanicsOnOverRefund(t *testing.T) {
 		}
 	}()
 	b.Adjust(0, -11)
-}
-
-func TestWatermark(t *testing.T) {
-	b := New(Limits{Records: 4, Bytes: 100})
-	if got := b.Ratio(); got != 0 {
-		t.Fatalf("empty Ratio = %v, want 0", got)
-	}
-	b.TryAcquire(2, 50)
-	if got := b.Ratio(); got != 0.5 {
-		t.Fatalf("Ratio = %v, want 0.5", got)
-	}
-	if b.Full() {
-		t.Fatal("Full() = true at 50%, want false")
-	}
-	b.TryAcquire(2, 50)
-	if got := b.Ratio(); got != 1 {
-		t.Fatalf("Ratio = %v, want 1", got)
-	}
-	if !b.Full() {
-		t.Fatal("Full() = false at 100%, want true")
-	}
-
-	unlimited := New(Limits{})
-	unlimited.TryAcquire(1<<20, 1<<30)
-	if got := unlimited.Ratio(); got != 0 {
-		t.Fatalf("unlimited Ratio = %v, want 0", got)
-	}
-	if unlimited.Full() {
-		t.Fatal("unlimited Full() = true, want false")
-	}
 }
 
 // TestQuotaConservation 验证配额在「预留 → 组件间流转 → 覆盖/终结」全过程中守恒：

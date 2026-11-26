@@ -108,8 +108,8 @@ func TestAsyncWriteAndClose(t *testing.T) {
 	if err := a.Close(); err != nil {
 		t.Fatalf("second Close: %v", err)
 	}
-	if err := a.FlushForTest(); err == nil {
-		t.Fatal("FlushForTest after Close should fail")
+	if err := a.Flush(context.Background()); err == nil {
+		t.Fatal("Flush after Close should fail")
 	}
 }
 
@@ -135,8 +135,8 @@ func TestAsyncPublishesOnlyAfterFlush(t *testing.T) {
 		t.Fatalf("file size before flush = %v, want %d (err %v)", fi.Size(), HeaderLen, err)
 	}
 
-	if err := a.FlushForTest(); err != nil {
-		t.Fatalf("FlushForTest: %v", err)
+	if err := a.Flush(context.Background()); err != nil {
+		t.Fatalf("Flush: %v", err)
 	}
 	fi, err := os.Stat(path)
 	if err != nil {
@@ -202,8 +202,8 @@ func TestAsyncErrorCallback(t *testing.T) {
 		t.Fatalf("close underlying writer: %v", err)
 	}
 	a.In() <- Request{StoreSeq: 1, Payload: payloadN(10)}
-	if err := a.FlushForTest(); err == nil {
-		t.Fatal("FlushForTest after write failure should report error")
+	if err := a.Flush(context.Background()); err == nil {
+		t.Fatal("Flush after write failure should report error")
 	}
 	first := a.Err()
 	if first == nil {
@@ -385,4 +385,15 @@ func TestAsyncResumeSeq(t *testing.T) {
 			}
 		}
 	})
+}
+
+// sync 让写协程先排空入口，再按 flush 决定是否刷盘，供同包测试观测未刷盘状态。
+func (a *AsyncWriter) sync(flush bool) error {
+	reply := make(chan error, 1)
+	select {
+	case a.ctl <- control{flush: flush, reply: reply}:
+	case <-a.done:
+		return ErrClosed
+	}
+	return <-reply
 }

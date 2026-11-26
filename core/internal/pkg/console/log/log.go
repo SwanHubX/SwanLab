@@ -118,13 +118,12 @@ func (l *Logger) Reset() {
 	l.bound = false
 }
 
-// Debug/Info/Warning/Error/Critical 均原样写入 msg（级别名义化，
+// Debug/Info/Warning/Error 均原样写入 msg（级别名义化，
 // 对应 Python 仅输出消息的 formatter）；保留不同方法名以与 Python log 模块 API 对齐。
-func (l *Logger) Debug(msg string)    { l.logLine(msg) }
-func (l *Logger) Info(msg string)     { l.logLine(msg) }
-func (l *Logger) Warning(msg string)  { l.logLine(msg) }
-func (l *Logger) Error(msg string)    { l.logLine(msg) }
-func (l *Logger) Critical(msg string) { l.logLine(msg) }
+func (l *Logger) Debug(msg string)   { l.logLine(msg) }
+func (l *Logger) Info(msg string)    { l.logLine(msg) }
+func (l *Logger) Warning(msg string) { l.logLine(msg) }
+func (l *Logger) Error(msg string)   { l.logLine(msg) }
 
 func (l *Logger) logLine(msg string) {
 	l.mu.Lock()
@@ -207,6 +206,3 @@ func Warning(msg string) { std.Warning(msg) }
 
 // Error 在默认实例上调用 Error。详见 (*Logger).Error。
 func Error(msg string) { std.Error(msg) }
-
-// Critical 在默认实例上调用 Critical。详见 (*Logger).Critical。
-func Critical(msg string) { std.Critical(msg) }

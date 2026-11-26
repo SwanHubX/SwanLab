@@ -22,14 +22,6 @@ func (t *Intake) PauseState() (paused bool, storeSeq int64) {
 	return t.pauseSeq != 0, t.pauseSeq
 }
 
-// ResumeUpload 恢复上传投递。调用方必须先补传 pauseSeq 之后的本地记录；
-// 恢复后仍可能因旧票据或预算再次进入暂停，须重新观察 PauseState。
-func (t *Intake) ResumeUpload() {
-	t.mu.Lock()
-	t.pauseSeq = 0
-	t.mu.Unlock()
-}
-
 // PauseAt 在续传启动期把暂停起点设为 seq；之后的新提交只落盘不实时上传，
 // 等 backfill 从 seq 起补投完未确认前缀后再原子交接。seq <= 0 为空操作。
 func (t *Intake) PauseAt(seq int64) {

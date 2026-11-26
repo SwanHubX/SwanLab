@@ -222,11 +222,6 @@ func (w *Writer) Flush() {
 	w.persist(true)
 }
 
-// Persist 同步写入当前已确认且已落盘的进度 min(Watermark(), flushedSeq)；写入失败仅告警一次并留待重试。
-func (w *Writer) Persist() {
-	w.persist(true)
-}
-
 func (w *Writer) persist(durable bool) (time.Duration, bool) {
 	if !w.enabled() {
 		return 0, false

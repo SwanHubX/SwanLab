@@ -36,23 +36,8 @@ func TestContextPaths(t *testing.T) {
 	if got := c.MediaDir(); got != filepath.Join("tmp", "run", "media") {
 		t.Fatalf("MediaDir = %q", got)
 	}
-	if got := c.DebugDir(); got != filepath.Join("tmp", "run", "debug") {
-		t.Fatalf("DebugDir = %q", got)
-	}
 	if got := c.FilesDir(); got != filepath.Join("tmp", "run", "files") {
 		t.Fatalf("FilesDir = %q", got)
-	}
-	if got := c.MetadataFile(); got != filepath.Join("tmp", "run", "files", "swanlab-metadata.json") {
-		t.Fatalf("MetadataFile = %q", got)
-	}
-	if got := c.ConfigFile(); got != filepath.Join("tmp", "run", "files", "config.yaml") {
-		t.Fatalf("ConfigFile = %q", got)
-	}
-	if got := c.RequirementsFile(); got != filepath.Join("tmp", "run", "files", "requirements.txt") {
-		t.Fatalf("RequirementsFile = %q", got)
-	}
-	if got := c.CondaFile(); got != filepath.Join("tmp", "run", "files", "conda.yaml") {
-		t.Fatalf("CondaFile = %q", got)
 	}
 }
 

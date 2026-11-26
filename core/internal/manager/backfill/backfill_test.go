@@ -101,8 +101,8 @@ func newScanStore(t *testing.T, records []*recordv1.Record) (*store.AsyncWriter,
 		}
 		async.In() <- store.Request{StoreSeq: int64(i + 1), Payload: payload}
 	}
-	if err := async.FlushForTest(); err != nil {
-		t.Fatalf("FlushForTest: %v", err)
+	if err := async.Flush(context.Background()); err != nil {
+		t.Fatalf("Flush: %v", err)
 	}
 	return async, path
 }
@@ -673,8 +673,8 @@ func TestResume100kRecordsPauseNewCursorDecodesZero(t *testing.T) {
 
 	// 续传后立即写入第 100,001 条记录并触发暂停，此时 flushedSeq 推进至 100,001。
 	opened.Writer.In() <- store.Request{StoreSeq: total + 1, Payload: scalarPayload}
-	if err = opened.Writer.FlushForTest(); err != nil {
-		t.Fatalf("FlushForTest: %v", err)
+	if err = opened.Writer.Flush(context.Background()); err != nil {
+		t.Fatalf("Flush: %v", err)
 	}
 
 	var decodedCalls int
@@ -719,8 +719,8 @@ func TestNewCursorDetectsCorruptPayload(t *testing.T) {
 		}
 		async.In() <- store.Request{StoreSeq: int64(i + 1), Payload: payload}
 	}
-	if ferr := async.FlushForTest(); ferr != nil {
-		t.Fatalf("FlushForTest: %v", ferr)
+	if ferr := async.Flush(context.Background()); ferr != nil {
+		t.Fatalf("Flush: %v", ferr)
 	}
 
 	// 找到第 3 条记录起点并原地翻转其 payload 首字节。

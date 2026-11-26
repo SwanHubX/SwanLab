@@ -2,6 +2,7 @@ package store
 
 import (
 	"bytes"
+	"context"
 	"sync"
 	"testing"
 )
@@ -84,8 +85,8 @@ func TestAsyncWriterLocateFlushed(t *testing.T) {
 		t.Fatal("LocateFlushed before flush should not expose an anchor")
 	}
 
-	if err := a.FlushForTest(); err != nil {
-		t.Fatalf("FlushForTest: %v", err)
+	if err := a.Flush(context.Background()); err != nil {
+		t.Fatalf("Flush: %v", err)
 	}
 	flushedSeq, flushedOffset = a.Flushed()
 	if flushedSeq != 6 {
@@ -239,8 +240,8 @@ func TestAsyncWriterIndexAnchorAfterPadding(t *testing.T) {
 
 	a.In() <- Request{StoreSeq: 1, Payload: payloadN(BlockLen - 2*HeaderLen - 3)}
 	a.In() <- Request{StoreSeq: 2, Payload: payloadN(16)}
-	if err := a.FlushForTest(); err != nil {
-		t.Fatalf("FlushForTest: %v", err)
+	if err := a.Flush(context.Background()); err != nil {
+		t.Fatalf("Flush: %v", err)
 	}
 
 	anchor, ok := a.Index().Locate(2)

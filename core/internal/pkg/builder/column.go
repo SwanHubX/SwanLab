@@ -81,28 +81,3 @@ func BuildHistogramResumeColumn(key string) *columnv1.ColumnRecord {
 		ColumnClass: columnv1.ColumnClass_COLUMN_CLASS_CUSTOM,
 	}
 }
-
-// MediumName 返回媒体类型对应的目录名，同时用作云端路径的 media/<medium>/
-// 段；未知类型（含 UNSPECIFIED）返回 "unknown"。
-func MediumName(typ columnv1.ColumnType) string {
-	switch typ {
-	case columnv1.ColumnType_COLUMN_TYPE_TEXT:
-		return "text"
-	case columnv1.ColumnType_COLUMN_TYPE_IMAGE:
-		return "image"
-	case columnv1.ColumnType_COLUMN_TYPE_AUDIO:
-		return "audio"
-	case columnv1.ColumnType_COLUMN_TYPE_VIDEO:
-		return "video"
-	case columnv1.ColumnType_COLUMN_TYPE_ECHARTS:
-		return "echarts"
-	case columnv1.ColumnType_COLUMN_TYPE_OBJECT3D:
-		return "object3d"
-	case columnv1.ColumnType_COLUMN_TYPE_MOLECULE:
-		return "molecule"
-	case columnv1.ColumnType_COLUMN_TYPE_HTML:
-		return "html"
-	default:
-		return "unknown"
-	}
-}

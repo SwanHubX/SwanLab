@@ -393,10 +393,6 @@ func (s *Session) clearCrashLog() {
 	s.mu.Unlock()
 }
 
-func (s *Session) hasPendingLog() bool {
-	return s.crashLog() != nil
-}
-
 // beginDrain 把会话从 RUNNING 切到 DRAINING；重复调用无副作用。
 // 已 FAILED 时返回原始失败，调用方不能当作成功。
 func (s *Session) beginDrain() error {

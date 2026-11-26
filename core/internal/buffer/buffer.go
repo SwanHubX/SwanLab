@@ -419,7 +419,7 @@ func (t *Intake) commitLocked(
 	if len(deferred) > tk.pending {
 		return false, 0, fmt.Errorf("%w: deferred %d > reserved %d", ErrOverReserved, len(deferred), tk.pending)
 	}
-	// 票据自身的暂停标记在 ResumeUpload 之后仍然生效。
+	// 票据自身的暂停标记在 Handover 之后仍然生效。
 	paused := t.pauseSeq != 0 || tk.paused
 	switch {
 	case paused:

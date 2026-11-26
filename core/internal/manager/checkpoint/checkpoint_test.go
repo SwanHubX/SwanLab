@@ -165,7 +165,7 @@ func TestWriterFailureWarnsAndRecovers(t *testing.T) {
 		Watermark: func() int64 { return 1 },
 	})
 
-	w.Persist()
+	w.Flush()
 	if w.hasWrite || !w.warned {
 		t.Fatalf("after failed write: hasWrite=%v warned=%v, want (false, true)", w.hasWrite, w.warned)
 	}
@@ -173,7 +173,7 @@ func TestWriterFailureWarnsAndRecovers(t *testing.T) {
 	if err := os.RemoveAll(cpFile); err != nil {
 		t.Fatalf("RemoveAll: %v", err)
 	}
-	w.Persist()
+	w.Flush()
 	if !w.hasWrite || w.warned {
 		t.Fatalf("after recovery: hasWrite=%v warned=%v, want (true, false)", w.hasWrite, w.warned)
 	}
@@ -199,7 +199,7 @@ func TestWriterSkipsUnchangedInitialSeqAndNilSafe(t *testing.T) {
 		InitialWritten: true,
 		OnTick:         func() { ticks++ },
 	})
-	w.Persist()
+	w.Flush()
 	if ticks != 0 {
 		t.Fatalf("ticks = %d, want 0 when seq matches InitialSeq", ticks)
 	}
@@ -221,7 +221,6 @@ func TestWriterSkipsUnchangedInitialSeqAndNilSafe(t *testing.T) {
 		Interval: 5 * time.Millisecond,
 	})
 	disabled.Start()
-	disabled.Persist()
 	disabled.Flush()
 	disabled.Stop()
 	if disabled.hasWrite {

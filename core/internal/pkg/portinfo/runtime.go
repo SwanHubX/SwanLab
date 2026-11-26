@@ -13,7 +13,6 @@ const (
 	RuntimeDirPrefix   = "swanlab-core-"
 	CorePortFileName   = "core.port"
 	CoreSocketFileName = "core.sock"
-	CoreStderrFileName = "core.stderr.log"
 
 	// RuntimeDirPerm 限定运行时目录仅当前用户可读写进入。
 	RuntimeDirPerm os.FileMode = 0o700
