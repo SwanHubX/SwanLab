@@ -17,7 +17,6 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/api"
 	"github.com/swanhubx/swanlab/core/internal/clienttest"
 	"github.com/swanhubx/swanlab/core/internal/config"
-	"github.com/swanhubx/swanlab/core/internal/manager/probe"
 	"github.com/swanhubx/swanlab/core/internal/pkg/record"
 	"github.com/swanhubx/swanlab/core/internal/runctx"
 	"github.com/swanhubx/swanlab/core/internal/store"
@@ -102,17 +101,11 @@ func seedLocalRunFile(t *testing.T, cfg config.Settings, name, color string, sca
 func TestDeliverRunStartRecoverOnlineNewExperiment(t *testing.T) {
 	cloud := clienttest.NewCloud(t)
 	var backendUp atomic.Bool
-	cloud.Handle(http.MethodGet, probe.ServerPath, func(w http.ResponseWriter, _ *http.Request) {
-		if !backendUp.Load() {
-			clienttest.WriteJSON(w, http.StatusServiceUnavailable, map[string]any{"ok": false})
-			return
-		}
-		clienttest.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
+	cloud.ServeRun(clienttest.RunSpec{
+		ExpID:    "exp-recover",
+		Slug:     "run-recover-slug",
+		ServerUp: &backendUp,
 	})
-	cloud.ServeJSON(http.MethodGet, probe.HousePath, http.StatusOK, map[string]any{"ok": true})
-	serveAuth(cloud)
-	serveProject(cloud, "alice", "demo", 1)
-	serveHeartbeat(cloud, "exp-recover")
 	uploaded := serveMetricsUploadOK(cloud)
 
 	var createBody atomic.Value
@@ -215,22 +208,12 @@ func TestDeliverRunStartRecoverOnlineNewExperiment(t *testing.T) {
 func TestDeliverRunStartRecoverOnlineWithExistingLocalRun(t *testing.T) {
 	cloud := clienttest.NewCloud(t)
 	var backendUp atomic.Bool
-	cloud.Handle(http.MethodGet, probe.ServerPath, func(w http.ResponseWriter, _ *http.Request) {
-		if !backendUp.Load() {
-			clienttest.WriteJSON(w, http.StatusServiceUnavailable, map[string]any{"ok": false})
-			return
-		}
-		clienttest.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
-	})
-	cloud.ServeJSON(http.MethodGet, probe.HousePath, http.StatusOK, map[string]any{"ok": true})
-	serveAuth(cloud)
-	serveProject(cloud, "alice", "demo", 1)
-	serveHeartbeat(cloud, "exp-existing")
-	cloud.ServeJSON(http.MethodPost, "/api/project/alice/demo/experiment", http.StatusOK, map[string]any{
-		"cuid":      "exp-existing",
-		"slug":      "slug-existing",
-		"name":      "local-name",
-		"createdAt": "2026-01-02T00:00:00.000Z",
+	cloud.ServeRun(clienttest.RunSpec{
+		ExpID:     "exp-existing",
+		Slug:      "slug-existing",
+		ExpStatus: http.StatusOK,
+		CreatedAt: "2026-01-02T00:00:00.000Z",
+		ServerUp:  &backendUp,
 	})
 	uploaded := serveMetricsUploadOK(cloud)
 
@@ -329,8 +312,7 @@ func TestDeliverRunStartRecoverOnlineStoreDegradedDisablesSuspension(t *testing.
 
 func TestDeliverRecoverStartInstallFailureDoesNotStartAttach(t *testing.T) {
 	cloud := clienttest.NewCloud(t)
-	cloud.ServeJSON(http.MethodGet, probe.ServerPath, http.StatusOK, map[string]any{"ok": true})
-	cloud.ServeJSON(http.MethodGet, probe.HousePath, http.StatusOK, map[string]any{"ok": true})
+	cloud.ServeHealth(nil, nil, 0)
 
 	var authCalls, projectCalls, experimentCalls atomic.Int32
 	cloud.Handle(http.MethodGet, "/api/auth/verify", func(w http.ResponseWriter, _ *http.Request) {
@@ -384,15 +366,12 @@ func TestDeliverRecoverStartInstallFailureDoesNotStartAttach(t *testing.T) {
 
 func TestDeliverRunStartRecoverOnlinePrefersLocalIdentity(t *testing.T) {
 	cloud := clienttest.NewCloud(t)
-	cloud.ServeJSON(http.MethodGet, probe.ServerPath, http.StatusOK, map[string]any{"ok": true})
-	cloud.ServeJSON(http.MethodGet, probe.HousePath, http.StatusOK, map[string]any{"ok": true})
-	serveAuth(cloud)
-	serveProject(cloud, "alice", "demo", 1)
-	cloud.ServeJSON(http.MethodPost, "/api/project/alice/demo/experiment", http.StatusOK, map[string]any{
-		"cuid": "exp-local-id", "slug": "slug-local-id", "name": "local-name",
-		"createdAt": "2026-01-02T00:00:00.000Z",
+	cloud.ServeRun(clienttest.RunSpec{
+		ExpID:     "exp-local-id",
+		Slug:      "slug-local-id",
+		ExpStatus: http.StatusOK,
+		CreatedAt: "2026-01-02T00:00:00.000Z",
 	})
-	serveHeartbeat(cloud, "exp-local-id")
 
 	mgr := newInstantTestManager()
 	cfg := fastRecoverSettings(t, cloud, "run-local-id", filepath.Join(t.TempDir(), "run"))
@@ -416,12 +395,8 @@ func TestDeliverRunStartRecoverOnlinePrefersLocalIdentity(t *testing.T) {
 
 func TestDeliverRunStartResumeUsesRequestIdentity(t *testing.T) {
 	cloud := clienttest.NewCloud(t)
-	cloud.ServeJSON(http.MethodGet, probe.ServerPath, http.StatusOK, map[string]any{"ok": true})
-	cloud.ServeJSON(http.MethodGet, probe.HousePath, http.StatusOK, map[string]any{"ok": true})
-	serveAuth(cloud)
-	serveProject(cloud, "alice", "demo", 1)
-	cloud.ServeJSON(http.MethodGet, "/api/house/metrics/summaries/proj-1/exp-local", http.StatusOK, map[string]any{})
-	serveHeartbeat(cloud, "exp-local")
+	cloud.ServeRun(clienttest.RunSpec{ExpID: "exp-local"})
+	cloud.ServeSummary("proj-1", "exp-local", map[string]any{})
 
 	var createBody atomic.Value
 	cloud.Handle(http.MethodPost, "/api/project/alice/demo/experiment", func(w http.ResponseWriter, r *http.Request) {

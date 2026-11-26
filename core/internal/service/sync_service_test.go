@@ -493,27 +493,16 @@ func TestSyncServiceEndToEndWithRealSyncer(t *testing.T) {
 		metricReqs int
 		stopState  string
 	)
-	cloud.ServeJSON(http.MethodGet, "/api/auth/verify", http.StatusOK, map[string]any{
-		"uid":       1,
-		"username":  "alice",
-		"createdAt": "2026-01-01T00:00:00Z",
+	cloud.ServeRun(clienttest.RunSpec{
+		Owner:       "ws1",
+		Project:     "proj-sync",
+		GroupOwner:  "alice",
+		ProjectPath: "/@alice/proj-sync",
+		Version:     1,
+		ExpID:       "exp-1",
+		Slug:        "exp-slug",
+		CreatedAt:   "2026-01-01T00:00:00Z",
 	})
-	cloud.ServeJSON(http.MethodGet, "/api/project/ws1/proj-sync", http.StatusOK, map[string]any{
-		"cuid":       "proj-1",
-		"name":       "proj-sync",
-		"path":       "/@alice/proj-sync",
-		"visibility": "PRIVATE",
-		"version":    1,
-		"_count":     map[string]any{"experiments": 1},
-		"group":      map[string]any{"username": "alice"},
-	})
-	cloud.ServeJSON(http.MethodPost, "/api/project/alice/proj-sync/experiment", http.StatusCreated, map[string]any{
-		"cuid":      "exp-1",
-		"slug":      "exp-slug",
-		"name":      "exp1",
-		"createdAt": "2026-01-01T00:00:00Z",
-	})
-	cloud.ServeJSON(http.MethodPost, "/api/projects/alice/proj-sync/series", http.StatusOK, map[string]any{"ok": true})
 	cloud.Handle(http.MethodPut, "/api/project/alice/proj-sync/runs/exp-1/state", func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]any
 		if err := json.NewDecoder(r.Body).Decode(&body); err == nil {

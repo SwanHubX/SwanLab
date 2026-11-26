@@ -160,11 +160,7 @@ func newDirectAttachSession(
 
 func TestAttachRetriesOn5xxAndAttachesOnce(t *testing.T) {
 	cloud := clienttest.NewCloud(t)
-	cloud.ServeJSON(http.MethodGet, probe.ServerPath, http.StatusOK, map[string]any{"ok": true})
-	cloud.ServeJSON(http.MethodGet, probe.HousePath, http.StatusOK, map[string]any{"ok": true})
-	serveAuth(cloud)
-	serveProject(cloud, "alice", "demo", 1)
-	serveHeartbeat(cloud, "exp-1")
+	cloud.ServeRun(clienttest.RunSpec{ExpID: "exp-1", Slug: "slug-1"})
 	uploaded := serveMetricsUploadOK(cloud)
 
 	var expCalls atomic.Int32
@@ -242,18 +238,7 @@ func TestAttachRetriesOn5xxAndAttachesOnce(t *testing.T) {
 func TestAttachWakesOnServerRecovery(t *testing.T) {
 	cloud := clienttest.NewCloud(t)
 	var serverUp atomic.Bool
-	cloud.Handle(http.MethodGet, probe.ServerPath, func(w http.ResponseWriter, _ *http.Request) {
-		if !serverUp.Load() {
-			clienttest.WriteJSON(w, http.StatusServiceUnavailable, map[string]any{"ok": false})
-			return
-		}
-		clienttest.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
-	})
-	cloud.ServeJSON(http.MethodGet, probe.HousePath, http.StatusOK, map[string]any{"ok": true})
-	serveAuth(cloud)
-	serveProject(cloud, "alice", "demo", 1)
-	serveNewExperiment(cloud, "alice", "demo", "exp-1", "slug-wake")
-	serveHeartbeat(cloud, "exp-1")
+	cloud.ServeRun(clienttest.RunSpec{ExpID: "exp-1", Slug: "slug-wake", ServerUp: &serverUp})
 	uploaded := serveMetricsUploadOK(cloud)
 
 	mgr := newInstantTestManager()
@@ -314,12 +299,8 @@ func TestAttachWakesOnServerRecovery(t *testing.T) {
 
 func TestAttachWhileHouseStillDegradedKeepsUploaderSuspended(t *testing.T) {
 	cloud := clienttest.NewCloud(t)
-	cloud.ServeJSON(http.MethodGet, probe.ServerPath, http.StatusOK, map[string]any{"ok": true})
-	cloud.ServeJSON(http.MethodGet, probe.HousePath, http.StatusServiceUnavailable, map[string]any{"ok": false})
-	serveAuth(cloud)
-	serveProject(cloud, "alice", "demo", 1)
-	serveNewExperiment(cloud, "alice", "demo", "exp-1", "slug-house-down")
-	serveHeartbeat(cloud, "exp-1")
+	var houseUp atomic.Bool
+	cloud.ServeRun(clienttest.RunSpec{ExpID: "exp-1", Slug: "slug-house-down", HouseUp: &houseUp})
 
 	mgr := newInstantTestManager()
 	s, start, cleanup := newDirectAttachSession(t, mgr, cloud, false, true)
@@ -345,9 +326,7 @@ func TestAttachWhileHouseStillDegradedKeepsUploaderSuspended(t *testing.T) {
 func TestAttachAuthFailurePermanentAfterThreeConsecutive(t *testing.T) {
 	t.Run("non-consecutive 401 resets counter and attaches", func(t *testing.T) {
 		cloud := clienttest.NewCloud(t)
-		cloud.ServeJSON(http.MethodGet, probe.ServerPath, http.StatusOK, map[string]any{"ok": true})
-		cloud.ServeJSON(http.MethodGet, probe.HousePath, http.StatusOK, map[string]any{"ok": true})
-		serveHeartbeat(cloud, "exp-1")
+		cloud.ServeRun(clienttest.RunSpec{ExpID: "exp-1", Slug: "slug-reset"})
 
 		var verifyCalls atomic.Int32
 		cloud.Handle(http.MethodGet, "/api/auth/verify", func(w http.ResponseWriter, _ *http.Request) {
@@ -362,8 +341,6 @@ func TestAttachAuthFailurePermanentAfterThreeConsecutive(t *testing.T) {
 				clienttest.WriteJSON(w, http.StatusOK, map[string]any{"uid": 1, "username": "alice", "createdAt": "2026-01-01T00:00:00Z"})
 			}
 		})
-		serveProject(cloud, "alice", "demo", 1)
-		serveNewExperiment(cloud, "alice", "demo", "exp-1", "slug-reset")
 
 		mgr := newInstantTestManager()
 		s, start, cleanup := newDirectAttachSession(t, mgr, cloud, false, false)
@@ -386,8 +363,7 @@ func TestAttachAuthFailurePermanentAfterThreeConsecutive(t *testing.T) {
 	for _, statusCode := range []int{http.StatusUnauthorized, http.StatusForbidden} {
 		t.Run(http.StatusText(statusCode), func(t *testing.T) {
 			cloud := clienttest.NewCloud(t)
-			cloud.ServeJSON(http.MethodGet, probe.ServerPath, http.StatusOK, map[string]any{"ok": true})
-			cloud.ServeJSON(http.MethodGet, probe.HousePath, http.StatusOK, map[string]any{"ok": true})
+			cloud.ServeHealth(nil, nil, 0)
 			cloud.ServeJSON(http.MethodGet, "/api/auth/verify", statusCode, map[string]any{
 				"code":    "auth_error",
 				"message": "invalid api key detail",
@@ -435,8 +411,8 @@ func TestAttachImmediatePermanentFailure(t *testing.T) {
 			name:   "bad request on create experiment",
 			resume: api.ResumeNever,
 			setupAPI: func(c *clienttest.Cloud) {
-				serveAuth(c)
-				serveProject(c, "alice", "demo", 1)
+				c.ServeAuth("")
+				c.ServeProject(clienttest.ProjectSpec{})
 				c.ServeJSON(http.MethodPost, "/api/project/alice/demo/experiment", http.StatusBadRequest, map[string]any{
 					"code":    "bad_request",
 					"message": "experiment name invalid",
@@ -448,8 +424,8 @@ func TestAttachImmediatePermanentFailure(t *testing.T) {
 			name:   "resume must missing cloud experiment",
 			resume: api.ResumeMust,
 			setupAPI: func(c *clienttest.Cloud) {
-				serveAuth(c)
-				serveProject(c, "alice", "demo", 1)
+				c.ServeAuth("")
+				c.ServeProject(clienttest.ProjectSpec{})
 				c.ServeJSON(http.MethodGet, "/api/project/alice/demo/runs/run-1", http.StatusNotFound, map[string]any{
 					"code":    "not_found",
 					"message": "experiment does not exist",
@@ -467,7 +443,7 @@ func TestAttachImmediatePermanentFailure(t *testing.T) {
 			name:   "invalid response incomplete project metadata",
 			resume: api.ResumeNever,
 			setupAPI: func(c *clienttest.Cloud) {
-				serveAuth(c)
+				c.ServeAuth("")
 				c.ServeJSON(http.MethodGet, "/api/project/alice/demo", http.StatusOK, map[string]any{
 					"name": "demo",
 				})
@@ -486,8 +462,7 @@ func TestAttachImmediatePermanentFailure(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			cloud := clienttest.NewCloud(t)
-			cloud.ServeJSON(http.MethodGet, probe.ServerPath, http.StatusOK, map[string]any{"ok": true})
-			cloud.ServeJSON(http.MethodGet, probe.HousePath, http.StatusOK, map[string]any{"ok": true})
+			cloud.ServeHealth(nil, nil, 0)
 			tc.setupAPI(cloud)
 
 			mgr := newInstantTestManager()
@@ -521,11 +496,7 @@ func TestAttachImmediatePermanentFailure(t *testing.T) {
 
 func TestAttachDoesNotStartBackfillAfterDraining(t *testing.T) {
 	cloud := clienttest.NewCloud(t)
-	cloud.ServeJSON(http.MethodGet, probe.ServerPath, http.StatusOK, map[string]any{"ok": true})
-	cloud.ServeJSON(http.MethodGet, probe.HousePath, http.StatusOK, map[string]any{"ok": true})
-	serveAuth(cloud)
-	serveProject(cloud, "alice", "demo", 1)
-	serveHeartbeat(cloud, "exp-1")
+	cloud.ServeRun(clienttest.RunSpec{ExpID: "exp-1", Slug: "slug-drain"})
 
 	entered := make(chan struct{})
 	release := make(chan struct{})
@@ -575,8 +546,7 @@ func TestAttachDoesNotStartBackfillAfterDraining(t *testing.T) {
 
 func TestAttachStopsCleanlyOnRollbackAndShutdown(t *testing.T) {
 	cloud := clienttest.NewCloud(t)
-	cloud.ServeJSON(http.MethodGet, probe.ServerPath, http.StatusOK, map[string]any{"ok": true})
-	cloud.ServeJSON(http.MethodGet, probe.HousePath, http.StatusOK, map[string]any{"ok": true})
+	cloud.ServeHealth(nil, nil, 0)
 
 	entered := make(chan struct{})
 	release := make(chan struct{})

@@ -24,7 +24,6 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/cron/health"
 	"github.com/swanhubx/swanlab/core/internal/manager/checkpoint"
 	"github.com/swanhubx/swanlab/core/internal/manager/planner"
-	"github.com/swanhubx/swanlab/core/internal/manager/probe"
 	"github.com/swanhubx/swanlab/core/internal/manager/progress"
 	"github.com/swanhubx/swanlab/core/internal/metrics"
 	"github.com/swanhubx/swanlab/core/internal/pkg/counter"
@@ -1720,20 +1719,8 @@ func TestShutdownBoundsCrashLogWait(t *testing.T) {
 func TestRecoverOnlineFinishWaitsForAttachAndBackfills(t *testing.T) {
 	cloud := clienttest.NewCloud(t)
 	var backendUp atomic.Bool
-	cloud.Handle(http.MethodGet, probe.ServerPath, func(w http.ResponseWriter, _ *http.Request) {
-		if !backendUp.Load() {
-			clienttest.WriteJSON(w, http.StatusServiceUnavailable, map[string]any{"ok": false})
-			return
-		}
-		clienttest.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
-	})
-	cloud.ServeJSON(http.MethodGet, probe.HousePath, http.StatusOK, map[string]any{"ok": true})
-	serveAuth(cloud)
-	serveProject(cloud, "alice", "demo", 1)
-	serveNewExperiment(cloud, "alice", "demo", "exp-wait", "slug-wait")
-	serveHeartbeat(cloud, "exp-wait")
+	cloud.ServeRun(clienttest.RunSpec{ExpID: "exp-wait", Slug: "slug-wait", ServerUp: &backendUp})
 	uploaded := serveMetricsUploadOK(cloud)
-	cloud.ServeJSON(http.MethodPut, "/api/project/alice/demo/runs/exp-wait/state", http.StatusOK, map[string]any{"ok": true})
 
 	mgr := newInstantTestManager()
 	cfg := startSettings(t, cloud)
@@ -1806,13 +1793,8 @@ func TestRecoverOnlineFinishWaitsForAttachAndBackfills(t *testing.T) {
 
 func TestRecoverOnlineFinishAttachesConcurrentlyNoDeadlock(t *testing.T) {
 	cloud := clienttest.NewCloud(t)
-	cloud.ServeJSON(http.MethodGet, probe.ServerPath, http.StatusOK, map[string]any{"ok": true})
-	cloud.ServeJSON(http.MethodGet, probe.HousePath, http.StatusOK, map[string]any{"ok": true})
-	serveAuth(cloud)
-	serveProject(cloud, "alice", "demo", 1)
-	serveHeartbeat(cloud, "exp-conc")
+	cloud.ServeRun(clienttest.RunSpec{ExpID: "exp-conc", Slug: "slug-conc"})
 	_ = serveMetricsUploadOK(cloud)
-	cloud.ServeJSON(http.MethodPut, "/api/project/alice/demo/runs/exp-conc/state", http.StatusOK, map[string]any{"ok": true})
 
 	entered := make(chan struct{})
 	release := make(chan struct{})
@@ -1869,8 +1851,7 @@ func TestRecoverOnlineFinishAttachesConcurrentlyNoDeadlock(t *testing.T) {
 
 func TestRecoverOnlineFinishPermanentAttachFailureClearsAndRepeats(t *testing.T) {
 	cloud := clienttest.NewCloud(t)
-	cloud.ServeJSON(http.MethodGet, probe.ServerPath, http.StatusOK, map[string]any{"ok": true})
-	cloud.ServeJSON(http.MethodGet, probe.HousePath, http.StatusOK, map[string]any{"ok": true})
+	cloud.ServeHealth(nil, nil, 0)
 	cloud.ServeJSON(http.MethodGet, "/api/auth/verify", http.StatusUnauthorized, map[string]any{
 		"code":    "auth_error",
 		"message": "revoked api key",
@@ -1940,8 +1921,7 @@ func TestRecoverOnlineFinishPermanentAttachFailureClearsAndRepeats(t *testing.T)
 
 func TestRecoverOnlinePermanentAttachFailureDegradedStoreMessage(t *testing.T) {
 	cloud := clienttest.NewCloud(t)
-	cloud.ServeJSON(http.MethodGet, probe.ServerPath, http.StatusOK, map[string]any{"ok": true})
-	cloud.ServeJSON(http.MethodGet, probe.HousePath, http.StatusOK, map[string]any{"ok": true})
+	cloud.ServeHealth(nil, nil, 0)
 	cloud.ServeJSON(http.MethodGet, "/api/auth/verify", http.StatusUnauthorized, map[string]any{
 		"code":    "auth_error",
 		"message": "bad token",

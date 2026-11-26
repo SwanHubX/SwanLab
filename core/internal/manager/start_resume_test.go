@@ -55,10 +55,7 @@ func setupResumeCloud(t *testing.T) (*clienttest.Cloud, *mockCloudState) {
 	cloud := clienttest.NewCloud(t)
 	st := &mockCloudState{scalarCh: make(chan int64, 64)}
 
-	serveAuth(cloud)
-	serveHeartbeat(cloud, "exp-1")
-	serveProject(cloud, "alice", "demo", 1)
-	cloud.ServeJSON(http.MethodGet, "/api/health", http.StatusOK, map[string]any{"ok": true})
+	cloud.ServeRun(clienttest.RunSpec{})
 	cloud.Handle(http.MethodGet, "/api/house/health", func(w http.ResponseWriter, _ *http.Request) {
 		if st.houseDown.Load() {
 			clienttest.WriteJSON(w, http.StatusServiceUnavailable, map[string]any{"ok": false})
@@ -66,8 +63,6 @@ func setupResumeCloud(t *testing.T) (*clienttest.Cloud, *mockCloudState) {
 		}
 		clienttest.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
 	})
-	serveNewExperiment(cloud, "alice", "demo", "exp-1", "run-1")
-	cloud.ServeJSON(http.MethodPut, "/api/project/alice/demo/runs/exp-1/state", http.StatusOK, map[string]any{"ok": true})
 
 	cloud.Handle(http.MethodPost, "/api/projects/alice/demo/series", func(w http.ResponseWriter, r *http.Request) {
 		var body struct {

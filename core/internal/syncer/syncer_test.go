@@ -56,62 +56,40 @@ func newRecordedCloud(t *testing.T, newExperiment bool, summary map[string]any) 
 	cloud := clienttest.NewCloud(t)
 	rc := &recordedCloud{cloud: cloud}
 
-	cloud.ServeJSON(http.MethodGet, "/api/auth/verify", http.StatusOK, map[string]any{
-		"uid":       1,
-		"username":  "alice",
-		"createdAt": "2026-01-01T00:00:00Z",
-	})
+	cloud.ServeAuth("alice")
 	for _, proj := range []struct{ owner, name string }{
 		{"alice", "demo"},
 		{"orig-ws", "orig-proj"},
 	} {
-		owner, name := proj.owner, proj.name
-		cloud.ServeJSON(http.MethodGet, "/api/project/"+owner+"/"+name, http.StatusOK, map[string]any{
-			"cuid":       "proj-1",
-			"name":       name,
-			"path":       "/@alice/" + name,
-			"visibility": "PRIVATE",
-			"version":    1,
-			"_count":     map[string]any{"experiments": 3},
-			"group":      map[string]any{"username": "alice"},
+		cloud.ServeProject(clienttest.ProjectSpec{
+			Owner:       proj.owner,
+			Name:        proj.name,
+			Path:        "/@alice/" + proj.name,
+			GroupOwner:  "alice",
+			Version:     1,
+			Experiments: 3,
 		})
 	}
-	cloud.Handle(http.MethodPost, "/api/project/alice/demo/experiment", func(w http.ResponseWriter, r *http.Request) {
-		var body map[string]any
-		_ = json.NewDecoder(r.Body).Decode(&body)
-		rc.mu.Lock()
-		rc.expReqs = append(rc.expReqs, body)
-		rc.mu.Unlock()
+	for _, proj := range []string{"demo", "orig-proj"} {
+		cloud.Handle(http.MethodPost, "/api/project/alice/"+proj+"/experiment", func(w http.ResponseWriter, r *http.Request) {
+			var body map[string]any
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			rc.mu.Lock()
+			rc.expReqs = append(rc.expReqs, body)
+			rc.mu.Unlock()
 
-		status := http.StatusOK
-		if newExperiment {
-			status = http.StatusCreated
-		}
-		clienttest.WriteJSON(w, status, map[string]any{
-			"cuid":      "exp-1",
-			"slug":      "exp-slug",
-			"name":      body["name"],
-			"createdAt": "2026-01-01T00:00:00Z",
+			status := http.StatusOK
+			if newExperiment {
+				status = http.StatusCreated
+			}
+			clienttest.WriteJSON(w, status, map[string]any{
+				"cuid":      "exp-1",
+				"slug":      "exp-slug",
+				"name":      body["name"],
+				"createdAt": "2026-01-01T00:00:00Z",
+			})
 		})
-	})
-	cloud.Handle(http.MethodPost, "/api/project/alice/orig-proj/experiment", func(w http.ResponseWriter, r *http.Request) {
-		var body map[string]any
-		_ = json.NewDecoder(r.Body).Decode(&body)
-		rc.mu.Lock()
-		rc.expReqs = append(rc.expReqs, body)
-		rc.mu.Unlock()
-
-		status := http.StatusOK
-		if newExperiment {
-			status = http.StatusCreated
-		}
-		clienttest.WriteJSON(w, status, map[string]any{
-			"cuid":      "exp-1",
-			"slug":      "exp-slug",
-			"name":      body["name"],
-			"createdAt": "2026-01-01T00:00:00Z",
-		})
-	})
+	}
 	for _, proj := range []string{"demo", "orig-proj"} {
 		cloud.Handle(http.MethodPut, "/api/project/alice/"+proj+"/runs/exp-1/state", func(w http.ResponseWriter, r *http.Request) {
 			var body map[string]any

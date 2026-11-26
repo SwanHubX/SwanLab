@@ -25,37 +25,6 @@ import (
 	runv1 "github.com/swanhubx/swanlab/core/proto/swanlab/run/v1"
 )
 
-func serveHeartbeat(cloud *clienttest.Cloud, experimentID string) {
-	cloud.ServeJSON(http.MethodPost, "/api/house/experiments/"+experimentID+"/heartbeat",
-		http.StatusOK, map[string]any{"ok": true})
-}
-
-func serveProject(cloud *clienttest.Cloud, owner, name string, experiments int) {
-	cloud.ServeJSON(http.MethodGet, "/api/project/"+owner+"/"+name, http.StatusOK, map[string]any{
-		"cuid":       "proj-1",
-		"name":       name,
-		"path":       "/" + owner + "/" + name,
-		"visibility": "PRIVATE",
-		"version":    2,
-		"_count":     map[string]any{"experiments": experiments},
-		"group":      map[string]any{"username": owner},
-	})
-}
-
-func serveNewExperiment(cloud *clienttest.Cloud, owner, project, cuid, slug string) {
-	cloud.Handle(http.MethodPost, "/api/project/"+owner+"/"+project+"/experiment", func(w http.ResponseWriter, r *http.Request) {
-		var body struct {
-			Name string `json:"name"`
-		}
-		_ = json.NewDecoder(r.Body).Decode(&body)
-		clienttest.WriteJSON(w, http.StatusCreated, map[string]any{
-			"cuid": cuid,
-			"slug": slug,
-			"name": body.Name,
-		})
-	})
-}
-
 func closeStartedSession(t *testing.T, mgr *Manager, sessionID string) {
 	t.Helper()
 	s, err := mgr.session(sessionID)
@@ -147,10 +116,7 @@ func TestDeliverRunStartLocalWritesStore(t *testing.T) {
 
 func TestDeliverRunStartNewExperiment(t *testing.T) {
 	cloud := clienttest.NewCloud(t)
-	serveAuth(cloud)
-	serveHeartbeat(cloud, "exp-1")
-	serveProject(cloud, "alice", "demo", 7)
-	serveNewExperiment(cloud, "alice", "demo", "exp-1", "run-slug")
+	cloud.ServeRun(clienttest.RunSpec{Experiments: 7, Slug: "run-slug"})
 
 	mgr := newTestManager()
 	settings := startSettings(t, cloud)
@@ -209,16 +175,12 @@ func TestDeliverRunStartNewExperiment(t *testing.T) {
 
 func TestDeliverRunStartResume(t *testing.T) {
 	cloud := clienttest.NewCloud(t)
-	serveAuth(cloud)
-	serveHeartbeat(cloud, "exp-1")
-	serveProject(cloud, "alice", "demo", 3)
-	cloud.ServeJSON(http.MethodPost, "/api/project/alice/demo/experiment", http.StatusOK, map[string]any{
-		"cuid":      "exp-1",
-		"slug":      "run-1",
-		"name":      "resume",
-		"createdAt": "2026-01-02T00:00:00.000Z",
+	cloud.ServeRun(clienttest.RunSpec{
+		Experiments: 3,
+		ExpStatus:   http.StatusOK,
+		CreatedAt:   "2026-01-02T00:00:00.000Z",
 	})
-	cloud.ServeJSON(http.MethodGet, "/api/house/metrics/summaries/proj-1/exp-1", http.StatusOK, map[string]any{
+	cloud.ServeSummary("proj-1", "exp-1", map[string]any{
 		"scalar": []map[string]any{{"key": "loss", "step": 12}},
 		"media":  []map[string]any{{"key": "image", "step": 3}},
 		"log":    []map[string]any{{"key": "console", "step": 21}},
@@ -279,17 +241,11 @@ func TestDeliverRunStartResume(t *testing.T) {
 
 func TestDeliverRunStartUsesGroupWorkspace(t *testing.T) {
 	cloud := clienttest.NewCloud(t)
-	serveAuth(cloud)
-	serveHeartbeat(cloud, "exp-1")
-	cloud.ServeJSON(http.MethodGet, "/api/project/alice/demo", http.StatusOK, map[string]any{
-		"cuid":    "proj-1",
-		"name":    "demo",
-		"path":    "/org/demo",
-		"version": 1,
-		"_count":  map[string]any{"experiments": 1},
-		"group":   map[string]any{"username": "org"},
+	cloud.ServeRun(clienttest.RunSpec{
+		GroupOwner:  "org",
+		ProjectPath: "/org/demo",
+		Version:     1,
 	})
-	serveNewExperiment(cloud, "org", "demo", "exp-1", "run-1")
 
 	mgr := newTestManager()
 	settings := startSettings(t, cloud)
@@ -314,10 +270,7 @@ func TestDeliverRunStartUsesGroupWorkspace(t *testing.T) {
 
 func TestDeliverRunStartSkipStore(t *testing.T) {
 	cloud := clienttest.NewCloud(t)
-	serveAuth(cloud)
-	serveHeartbeat(cloud, "exp-1")
-	serveProject(cloud, "alice", "demo", 1)
-	serveNewExperiment(cloud, "alice", "demo", "exp-1", "run-1")
+	cloud.ServeRun(clienttest.RunSpec{})
 
 	mgr := newTestManager()
 	settings := startSettings(t, cloud)
@@ -344,9 +297,7 @@ func TestDeliverRunStartSkipStore(t *testing.T) {
 
 func TestDeliverRunStartRollbackRemovesRunFile(t *testing.T) {
 	cloud := clienttest.NewCloud(t)
-	serveAuth(cloud)
-	serveHeartbeat(cloud, "exp-1")
-	serveProject(cloud, "alice", "demo", 1)
+	cloud.ServeRun(clienttest.RunSpec{})
 
 	mgr := newTestManager()
 	cloud.Handle(http.MethodPost, "/api/project/alice/demo/experiment", func(w http.ResponseWriter, r *http.Request) {
@@ -382,7 +333,7 @@ func TestDeliverRunStartRollbackRemovesRunFile(t *testing.T) {
 
 func TestSessionOpenFailureRollbackRemovesRunFile(t *testing.T) {
 	cloud := clienttest.NewCloud(t)
-	serveAuth(cloud)
+	cloud.ServeAuth("")
 
 	mgr := newTestManager()
 	defer func() { _ = mgr.Close() }()
@@ -428,10 +379,7 @@ func TestSessionOpenFailureRollbackRemovesRunFile(t *testing.T) {
 
 func TestDeliverRunStartKeepsExistingRunFile(t *testing.T) {
 	cloud := clienttest.NewCloud(t)
-	serveAuth(cloud)
-	serveHeartbeat(cloud, "exp-1")
-	serveProject(cloud, "alice", "demo", 1)
-	serveNewExperiment(cloud, "alice", "demo", "exp-1", "run-1")
+	cloud.ServeRun(clienttest.RunSpec{})
 
 	mgr := newTestManager()
 	settings := startSettings(t, cloud)
@@ -549,10 +497,7 @@ func TestDeliverRunStartFailsFastWhenControlUnreachable(t *testing.T) {
 
 func TestDeliverRunStartNormalizesHostBeforeProbe(t *testing.T) {
 	cloud := clienttest.NewCloud(t)
-	serveAuth(cloud)
-	serveHeartbeat(cloud, "exp-1")
-	serveProject(cloud, "alice", "demo", 7)
-	serveNewExperiment(cloud, "alice", "demo", "exp-1", "run-slug")
+	cloud.ServeRun(clienttest.RunSpec{Experiments: 7, Slug: "run-slug"})
 
 	mgr := newTestManager()
 	settings := startSettings(t, cloud)
@@ -570,10 +515,7 @@ func TestDeliverRunStartNormalizesHostBeforeProbe(t *testing.T) {
 
 func TestDeliverRunStartDegradedWhenDataPlaneDown(t *testing.T) {
 	cloud := clienttest.NewCloud(t)
-	serveAuth(cloud)
-	serveHeartbeat(cloud, "exp-1")
-	serveProject(cloud, "alice", "demo", 7)
-	serveNewExperiment(cloud, "alice", "demo", "exp-1", "run-slug")
+	cloud.ServeRun(clienttest.RunSpec{Experiments: 7, Slug: "run-slug"})
 	cloud.ServeJSON(http.MethodGet, probe.HousePath, http.StatusServiceUnavailable, nil)
 
 	mgr := newTestManager()
@@ -604,10 +546,7 @@ func TestDeliverRunStartDegradedWhenDataPlaneDown(t *testing.T) {
 
 func TestCheckpointSkipStoreProducesNoFile(t *testing.T) {
 	cloud := clienttest.NewCloud(t)
-	serveAuth(cloud)
-	serveHeartbeat(cloud, "exp-1")
-	serveProject(cloud, "alice", "demo", 1)
-	serveNewExperiment(cloud, "alice", "demo", "exp-1", "run-1")
+	cloud.ServeRun(clienttest.RunSpec{})
 
 	mgr := newTestManager()
 	cfg := startSettings(t, cloud)
