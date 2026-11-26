@@ -19,3 +19,18 @@ message EvalStartRecord {
     optional int64 step                  = 8; // 被评 checkpoint 的训练步号，未设置与 0 区分
     google.protobuf.Timestamp started_at = 9; // 开始时间
 }
+
+// 评估结束状态
+enum EvalRunState {
+    EVAL_RUN_STATE_RUNNING  = 0; // 运行中
+    EVAL_RUN_STATE_FINISHED = 1; // 正常结束
+    EVAL_RUN_STATE_CRASHED  = 2; // 异常退出
+    EVAL_RUN_STATE_ABORTED  = 3; // 用户主动中断
+}
+
+// 评估结束记录，对应 swanlab.finish() 或进程退出
+message EvalFinishRecord {
+    EvalRunState state                    = 1; // 结束状态
+    string error                          = 2; // 异常信息，state=CRASHED 时填充
+    google.protobuf.Timestamp finished_at = 3; // 结束时间
+}

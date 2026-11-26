@@ -46,7 +46,7 @@ service CoreService {
     // UpsertScores 接收一组 ScoreRecord 并写入，每一条记录对应一个评测项下的单个指标
     rpc UpsertScores(UpsertScoresRequest) returns (google.protobuf.Empty);
 
-    // DeliverEvalFinish 接收评估结束事件，用于结束评估。评估没有状态字段，请求体不携带结束状态。
+    // DeliverEvalFinish 接收评估结束事件，用于结束评估。
     rpc DeliverEvalFinish(DeliverEvalFinishRequest) returns (DeliverEvalFinishResponse);
 
     // GetOperationStats 返回 Core 当前运行状态和上传进度快照。
@@ -147,8 +147,10 @@ message DeliverEvalStartResponse {
     CoreErrorKind error_kind         = 5; // 启动失败时的错误分类
 }
 
-// DeliverEvalFinish 请求，生命周期函数，评估结束。评估没有状态字段，请求体不携带结束状态与结束记录。
-message DeliverEvalFinishRequest {}
+// DeliverEvalFinish 请求，生命周期函数，评估结束
+message DeliverEvalFinishRequest {
+    swanlab.eval.v1.EvalFinishRecord finish_record = 1; // Eval 结束记录
+}
 
 // DeliverEvalFinish 响应
 message DeliverEvalFinishResponse {

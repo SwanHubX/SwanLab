@@ -49,6 +49,7 @@ type Record struct {
 	// 5. requirements save 的 num 为-5
 	// 6. conda save 的 num 为-6
 	// 7. EvalStartRecord 的 num 为-7
+	// 8. EvalFinishRecord 的 num 为-8
 	// 上述记录为全局唯一、去重Record，其余Record 的 num 为 1 开始的递增序号，小于-100的负数范围被用于特殊场景，例如sync时自动构建column record
 	Num int64 `protobuf:"varint,1,opt,name=num,proto3" json:"num,omitempty"`
 	// Record 生成时间，仅作参考
@@ -58,6 +59,7 @@ type Record struct {
 	//	*Record_Start
 	//	*Record_Finish
 	//	*Record_EvalStart
+	//	*Record_EvalFinish
 	//	*Record_Column
 	//	*Record_Scalar
 	//	*Record_Media
@@ -148,6 +150,15 @@ func (x *Record) GetEvalStart() *v11.EvalStartRecord {
 	return nil
 }
 
+func (x *Record) GetEvalFinish() *v11.EvalFinishRecord {
+	if x != nil {
+		if x, ok := x.RecordType.(*Record_EvalFinish); ok {
+			return x.EvalFinish
+		}
+	}
+	return nil
+}
+
 func (x *Record) GetColumn() *v12.ColumnRecord {
 	if x != nil {
 		if x, ok := x.RecordType.(*Record_Column); ok {
@@ -229,6 +240,10 @@ type Record_EvalStart struct {
 	EvalStart *v11.EvalStartRecord `protobuf:"bytes,22,opt,name=eval_start,json=evalStart,proto3,oneof"`
 }
 
+type Record_EvalFinish struct {
+	EvalFinish *v11.EvalFinishRecord `protobuf:"bytes,24,opt,name=eval_finish,json=evalFinish,proto3,oneof"`
+}
+
 type Record_Column struct {
 	// ── 用户数据 ──
 	Column *v12.ColumnRecord `protobuf:"bytes,12,opt,name=column,proto3,oneof"`
@@ -266,6 +281,8 @@ func (*Record_Finish) isRecord_RecordType() {}
 
 func (*Record_EvalStart) isRecord_RecordType() {}
 
+func (*Record_EvalFinish) isRecord_RecordType() {}
+
 func (*Record_Column) isRecord_RecordType() {}
 
 func (*Record_Scalar) isRecord_RecordType() {}
@@ -284,7 +301,7 @@ var File_swanlab_record_v1_record_proto protoreflect.FileDescriptor
 
 const file_swanlab_record_v1_record_proto_rawDesc = "" +
 	"\n" +
-	"\x1eswanlab/record/v1/record.proto\x12\x11swanlab.record.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x18swanlab/run/v1/run.proto\x1a\x1aswanlab/eval/v1/eval.proto\x1a!swanlab/metric/data/v1/data.proto\x1a%swanlab/metric/column/v1/column.proto\x1a\x1dswanlab/terminal/v1/log.proto\x1a\x1aswanlab/save/v1/save.proto\"\xbf\x05\n" +
+	"\x1eswanlab/record/v1/record.proto\x12\x11swanlab.record.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x18swanlab/run/v1/run.proto\x1a\x1aswanlab/eval/v1/eval.proto\x1a!swanlab/metric/data/v1/data.proto\x1a%swanlab/metric/column/v1/column.proto\x1a\x1dswanlab/terminal/v1/log.proto\x1a\x1aswanlab/save/v1/save.proto\"\x85\x06\n" +
 	"\x06Record\x12\x10\n" +
 	"\x03num\x18\x01 \x01(\x03R\x03num\x128\n" +
 	"\ttimestamp\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\x123\n" +
@@ -292,7 +309,9 @@ const file_swanlab_record_v1_record_proto_rawDesc = "" +
 	" \x01(\v2\x1b.swanlab.run.v1.StartRecordH\x00R\x05start\x126\n" +
 	"\x06finish\x18\v \x01(\v2\x1c.swanlab.run.v1.FinishRecordH\x00R\x06finish\x12A\n" +
 	"\n" +
-	"eval_start\x18\x16 \x01(\v2 .swanlab.eval.v1.EvalStartRecordH\x00R\tevalStart\x12@\n" +
+	"eval_start\x18\x16 \x01(\v2 .swanlab.eval.v1.EvalStartRecordH\x00R\tevalStart\x12D\n" +
+	"\veval_finish\x18\x18 \x01(\v2!.swanlab.eval.v1.EvalFinishRecordH\x00R\n" +
+	"evalFinish\x12@\n" +
 	"\x06column\x18\f \x01(\v2&.swanlab.metric.column.v1.ColumnRecordH\x00R\x06column\x12>\n" +
 	"\x06scalar\x18\r \x01(\v2$.swanlab.metric.data.v1.ScalarRecordH\x00R\x06scalar\x12;\n" +
 	"\x05media\x18\x0e \x01(\v2#.swanlab.metric.data.v1.MediaRecordH\x00R\x05media\x12G\n" +
@@ -321,31 +340,33 @@ var file_swanlab_record_v1_record_proto_goTypes = []any{
 	(*v1.StartRecord)(nil),        // 2: swanlab.run.v1.StartRecord
 	(*v1.FinishRecord)(nil),       // 3: swanlab.run.v1.FinishRecord
 	(*v11.EvalStartRecord)(nil),   // 4: swanlab.eval.v1.EvalStartRecord
-	(*v12.ColumnRecord)(nil),      // 5: swanlab.metric.column.v1.ColumnRecord
-	(*v13.ScalarRecord)(nil),      // 6: swanlab.metric.data.v1.ScalarRecord
-	(*v13.MediaRecord)(nil),       // 7: swanlab.metric.data.v1.MediaRecord
-	(*v13.HistogramRecord)(nil),   // 8: swanlab.metric.data.v1.HistogramRecord
-	(*v13.ScoreRecord)(nil),       // 9: swanlab.metric.data.v1.ScoreRecord
-	(*v14.LogRecord)(nil),         // 10: swanlab.terminal.v1.LogRecord
-	(*v15.SaveRecord)(nil),        // 11: swanlab.save.v1.SaveRecord
+	(*v11.EvalFinishRecord)(nil),  // 5: swanlab.eval.v1.EvalFinishRecord
+	(*v12.ColumnRecord)(nil),      // 6: swanlab.metric.column.v1.ColumnRecord
+	(*v13.ScalarRecord)(nil),      // 7: swanlab.metric.data.v1.ScalarRecord
+	(*v13.MediaRecord)(nil),       // 8: swanlab.metric.data.v1.MediaRecord
+	(*v13.HistogramRecord)(nil),   // 9: swanlab.metric.data.v1.HistogramRecord
+	(*v13.ScoreRecord)(nil),       // 10: swanlab.metric.data.v1.ScoreRecord
+	(*v14.LogRecord)(nil),         // 11: swanlab.terminal.v1.LogRecord
+	(*v15.SaveRecord)(nil),        // 12: swanlab.save.v1.SaveRecord
 }
 var file_swanlab_record_v1_record_proto_depIdxs = []int32{
 	1,  // 0: swanlab.record.v1.Record.timestamp:type_name -> google.protobuf.Timestamp
 	2,  // 1: swanlab.record.v1.Record.start:type_name -> swanlab.run.v1.StartRecord
 	3,  // 2: swanlab.record.v1.Record.finish:type_name -> swanlab.run.v1.FinishRecord
 	4,  // 3: swanlab.record.v1.Record.eval_start:type_name -> swanlab.eval.v1.EvalStartRecord
-	5,  // 4: swanlab.record.v1.Record.column:type_name -> swanlab.metric.column.v1.ColumnRecord
-	6,  // 5: swanlab.record.v1.Record.scalar:type_name -> swanlab.metric.data.v1.ScalarRecord
-	7,  // 6: swanlab.record.v1.Record.media:type_name -> swanlab.metric.data.v1.MediaRecord
-	8,  // 7: swanlab.record.v1.Record.histogram:type_name -> swanlab.metric.data.v1.HistogramRecord
-	9,  // 8: swanlab.record.v1.Record.score:type_name -> swanlab.metric.data.v1.ScoreRecord
-	10, // 9: swanlab.record.v1.Record.log:type_name -> swanlab.terminal.v1.LogRecord
-	11, // 10: swanlab.record.v1.Record.save:type_name -> swanlab.save.v1.SaveRecord
-	11, // [11:11] is the sub-list for method output_type
-	11, // [11:11] is the sub-list for method input_type
-	11, // [11:11] is the sub-list for extension type_name
-	11, // [11:11] is the sub-list for extension extendee
-	0,  // [0:11] is the sub-list for field type_name
+	5,  // 4: swanlab.record.v1.Record.eval_finish:type_name -> swanlab.eval.v1.EvalFinishRecord
+	6,  // 5: swanlab.record.v1.Record.column:type_name -> swanlab.metric.column.v1.ColumnRecord
+	7,  // 6: swanlab.record.v1.Record.scalar:type_name -> swanlab.metric.data.v1.ScalarRecord
+	8,  // 7: swanlab.record.v1.Record.media:type_name -> swanlab.metric.data.v1.MediaRecord
+	9,  // 8: swanlab.record.v1.Record.histogram:type_name -> swanlab.metric.data.v1.HistogramRecord
+	10, // 9: swanlab.record.v1.Record.score:type_name -> swanlab.metric.data.v1.ScoreRecord
+	11, // 10: swanlab.record.v1.Record.log:type_name -> swanlab.terminal.v1.LogRecord
+	12, // 11: swanlab.record.v1.Record.save:type_name -> swanlab.save.v1.SaveRecord
+	12, // [12:12] is the sub-list for method output_type
+	12, // [12:12] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_swanlab_record_v1_record_proto_init() }
@@ -357,6 +378,7 @@ func file_swanlab_record_v1_record_proto_init() {
 		(*Record_Start)(nil),
 		(*Record_Finish)(nil),
 		(*Record_EvalStart)(nil),
+		(*Record_EvalFinish)(nil),
 		(*Record_Column)(nil),
 		(*Record_Scalar)(nil),
 		(*Record_Media)(nil),

@@ -22,6 +22,59 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// 评估结束状态
+type EvalRunState int32
+
+const (
+	EvalRunState_EVAL_RUN_STATE_RUNNING  EvalRunState = 0 // 运行中
+	EvalRunState_EVAL_RUN_STATE_FINISHED EvalRunState = 1 // 正常结束
+	EvalRunState_EVAL_RUN_STATE_CRASHED  EvalRunState = 2 // 异常退出
+	EvalRunState_EVAL_RUN_STATE_ABORTED  EvalRunState = 3 // 用户主动中断
+)
+
+// Enum value maps for EvalRunState.
+var (
+	EvalRunState_name = map[int32]string{
+		0: "EVAL_RUN_STATE_RUNNING",
+		1: "EVAL_RUN_STATE_FINISHED",
+		2: "EVAL_RUN_STATE_CRASHED",
+		3: "EVAL_RUN_STATE_ABORTED",
+	}
+	EvalRunState_value = map[string]int32{
+		"EVAL_RUN_STATE_RUNNING":  0,
+		"EVAL_RUN_STATE_FINISHED": 1,
+		"EVAL_RUN_STATE_CRASHED":  2,
+		"EVAL_RUN_STATE_ABORTED":  3,
+	}
+)
+
+func (x EvalRunState) Enum() *EvalRunState {
+	p := new(EvalRunState)
+	*p = x
+	return p
+}
+
+func (x EvalRunState) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (EvalRunState) Descriptor() protoreflect.EnumDescriptor {
+	return file_swanlab_eval_v1_eval_proto_enumTypes[0].Descriptor()
+}
+
+func (EvalRunState) Type() protoreflect.EnumType {
+	return &file_swanlab_eval_v1_eval_proto_enumTypes[0]
+}
+
+func (x EvalRunState) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use EvalRunState.Descriptor instead.
+func (EvalRunState) EnumDescriptor() ([]byte, []int) {
+	return file_swanlab_eval_v1_eval_proto_rawDescGZIP(), []int{0}
+}
+
 // Eval 创建记录，对应 swanlab.eval(...) 调用，由 sdk 前端生成并同步交给后端。
 // 配置不进开始记录，随 SAVE_TYPE_CONFIG 的 SaveRecord 写入运行文件并重放。
 type EvalStartRecord struct {
@@ -132,6 +185,67 @@ func (x *EvalStartRecord) GetStartedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+// 评估结束记录，对应 swanlab.finish() 或进程退出
+type EvalFinishRecord struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	State         EvalRunState           `protobuf:"varint,1,opt,name=state,proto3,enum=swanlab.eval.v1.EvalRunState" json:"state,omitempty"` // 结束状态
+	Error         string                 `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`                                    // 异常信息，state=CRASHED 时填充
+	FinishedAt    *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=finished_at,json=finishedAt,proto3" json:"finished_at,omitempty"`        // 结束时间
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EvalFinishRecord) Reset() {
+	*x = EvalFinishRecord{}
+	mi := &file_swanlab_eval_v1_eval_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EvalFinishRecord) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EvalFinishRecord) ProtoMessage() {}
+
+func (x *EvalFinishRecord) ProtoReflect() protoreflect.Message {
+	mi := &file_swanlab_eval_v1_eval_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EvalFinishRecord.ProtoReflect.Descriptor instead.
+func (*EvalFinishRecord) Descriptor() ([]byte, []int) {
+	return file_swanlab_eval_v1_eval_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *EvalFinishRecord) GetState() EvalRunState {
+	if x != nil {
+		return x.State
+	}
+	return EvalRunState_EVAL_RUN_STATE_RUNNING
+}
+
+func (x *EvalFinishRecord) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+func (x *EvalFinishRecord) GetFinishedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.FinishedAt
+	}
+	return nil
+}
+
 var File_swanlab_eval_v1_eval_proto protoreflect.FileDescriptor
 
 const file_swanlab_eval_v1_eval_proto_rawDesc = "" +
@@ -148,7 +262,17 @@ const file_swanlab_eval_v1_eval_proto_rawDesc = "" +
 	"\x04step\x18\b \x01(\x03H\x00R\x04step\x88\x01\x01\x129\n" +
 	"\n" +
 	"started_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tstartedAtB\a\n" +
-	"\x05_stepB?Z=github.com/swanhubx/swanlab/core/proto/swanlab/eval/v1;evalv1b\x06proto3"
+	"\x05_step\"\x9a\x01\n" +
+	"\x10EvalFinishRecord\x123\n" +
+	"\x05state\x18\x01 \x01(\x0e2\x1d.swanlab.eval.v1.EvalRunStateR\x05state\x12\x14\n" +
+	"\x05error\x18\x02 \x01(\tR\x05error\x12;\n" +
+	"\vfinished_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"finishedAt*\x7f\n" +
+	"\fEvalRunState\x12\x1a\n" +
+	"\x16EVAL_RUN_STATE_RUNNING\x10\x00\x12\x1b\n" +
+	"\x17EVAL_RUN_STATE_FINISHED\x10\x01\x12\x1a\n" +
+	"\x16EVAL_RUN_STATE_CRASHED\x10\x02\x12\x1a\n" +
+	"\x16EVAL_RUN_STATE_ABORTED\x10\x03B?Z=github.com/swanhubx/swanlab/core/proto/swanlab/eval/v1;evalv1b\x06proto3"
 
 var (
 	file_swanlab_eval_v1_eval_proto_rawDescOnce sync.Once
@@ -162,18 +286,23 @@ func file_swanlab_eval_v1_eval_proto_rawDescGZIP() []byte {
 	return file_swanlab_eval_v1_eval_proto_rawDescData
 }
 
-var file_swanlab_eval_v1_eval_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_swanlab_eval_v1_eval_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_swanlab_eval_v1_eval_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_swanlab_eval_v1_eval_proto_goTypes = []any{
-	(*EvalStartRecord)(nil),       // 0: swanlab.eval.v1.EvalStartRecord
-	(*timestamppb.Timestamp)(nil), // 1: google.protobuf.Timestamp
+	(EvalRunState)(0),             // 0: swanlab.eval.v1.EvalRunState
+	(*EvalStartRecord)(nil),       // 1: swanlab.eval.v1.EvalStartRecord
+	(*EvalFinishRecord)(nil),      // 2: swanlab.eval.v1.EvalFinishRecord
+	(*timestamppb.Timestamp)(nil), // 3: google.protobuf.Timestamp
 }
 var file_swanlab_eval_v1_eval_proto_depIdxs = []int32{
-	1, // 0: swanlab.eval.v1.EvalStartRecord.started_at:type_name -> google.protobuf.Timestamp
-	1, // [1:1] is the sub-list for method output_type
-	1, // [1:1] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	3, // 0: swanlab.eval.v1.EvalStartRecord.started_at:type_name -> google.protobuf.Timestamp
+	0, // 1: swanlab.eval.v1.EvalFinishRecord.state:type_name -> swanlab.eval.v1.EvalRunState
+	3, // 2: swanlab.eval.v1.EvalFinishRecord.finished_at:type_name -> google.protobuf.Timestamp
+	3, // [3:3] is the sub-list for method output_type
+	3, // [3:3] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_swanlab_eval_v1_eval_proto_init() }
@@ -187,13 +316,14 @@ func file_swanlab_eval_v1_eval_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_swanlab_eval_v1_eval_proto_rawDesc), len(file_swanlab_eval_v1_eval_proto_rawDesc)),
-			NumEnums:      0,
-			NumMessages:   1,
+			NumEnums:      1,
+			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_swanlab_eval_v1_eval_proto_goTypes,
 		DependencyIndexes: file_swanlab_eval_v1_eval_proto_depIdxs,
+		EnumInfos:         file_swanlab_eval_v1_eval_proto_enumTypes,
 		MessageInfos:      file_swanlab_eval_v1_eval_proto_msgTypes,
 	}.Build()
 	File_swanlab_eval_v1_eval_proto = out.File

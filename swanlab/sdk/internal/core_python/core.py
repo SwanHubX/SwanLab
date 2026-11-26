@@ -20,7 +20,7 @@ Core 同时需要根据不同模式处理不同的业务，这是设计模式决
 
 from typing import List, Optional
 
-from swanlab.proto.swanlab.eval.v1.eval_pb2 import EvalStartRecord
+from swanlab.proto.swanlab.eval.v1.eval_pb2 import EvalFinishRecord, EvalStartRecord
 from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
     ConfirmEvalFinishResponse,
     ConfirmRunFinishResponse,
@@ -757,19 +757,26 @@ class CorePython(CoreProtocol):
         self._active = False
         return resp
 
-    def _finish_eval_without_online(self) -> DeliverEvalFinishResponse:
+    def _store_eval_finish(self, finish_record: EvalFinishRecord) -> None:
+        if self._store is None:
+            return
+        self._store_records([builder.build_eval_finish_record(finish_record)])
+
+    def _finish_eval_without_online(self, finish_request: DeliverEvalFinishRequest) -> DeliverEvalFinishResponse:
+        self._store_eval_finish(finish_request.finish_record)
         self._release_local_storage()
         return DeliverEvalFinishResponse(success=True, message="OK")
 
     def _finish_eval_when_local(self, finish_request: DeliverEvalFinishRequest) -> DeliverEvalFinishResponse:
-        return self._finish_eval_without_online()
+        return self._finish_eval_without_online(finish_request)
 
     def _finish_eval_when_offline(self, finish_request: DeliverEvalFinishRequest) -> DeliverEvalFinishResponse:
-        return self._finish_eval_without_online()
+        return self._finish_eval_without_online(finish_request)
 
     def _finish_eval_when_online(self, finish_request: DeliverEvalFinishRequest) -> DeliverEvalFinishResponse:
-        """评估没有状态与结束记录，只需释放本地存储并通知 Transport 排空。"""
+        """结束记录写入本地，释放本地存储并通知 Transport 排空。"""
         assert self._transport is not None, "transport must be initialized before finishing"
+        self._store_eval_finish(finish_request.finish_record)
         self._release_local_storage()
         self._transport.request_finish()
         return DeliverEvalFinishResponse(success=True, message="OK")

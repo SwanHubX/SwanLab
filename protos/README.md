@@ -104,7 +104,8 @@ swanlab.eval(...)
 # benchmark.log({"accuracy": 0.72})，评测项名称承载在 dataset 维度
   → Record { score: ScoreRecord { dataset="MMLU", key="accuracy", ... } }
 
-# 评估没有状态字段，结束时不写 FinishRecord
+swanlab.finish()
+  → Record { eval_finish: EvalFinishRecord { state=FINISHED } }
 ```
 
 ## Record 信封
@@ -123,10 +124,11 @@ swanlab.eval(...)
 | 21     | `histogram`  | HistogramRecord | 直方图数据     |
 | 22     | `eval_start` | EvalStartRecord | Eval 创建      |
 | 23     | `score`      | ScoreRecord     | 评测项分数数据 |
+| 24     | `eval_finish` | EvalFinishRecord | Eval 结束     |
 
 对于 SaveRecord，内部存在 SaveType 的二级分类，包含 config/metadata/requirements/conda
 
-`num` 字段保证全局单调递增，用于去重和断点续传。特殊值：Start=-1, Finish=-2, Config=-3, Metadata=-4, Requirements=-5, Conda=-6, EvalStart=-7。
+`num` 字段保证全局单调递增，用于去重和断点续传。特殊值：Start=-1, Finish=-2, Config=-3, Metadata=-4, Requirements=-5, Conda=-6, EvalStart=-7, EvalFinish=-8。
 
 ## gRPC 服务
 

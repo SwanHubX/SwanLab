@@ -136,8 +136,10 @@ class DeliverEvalStartResponse(_message.Message):
     def __init__(self, success: bool = ..., message: _Optional[str] = ..., eval: _Optional[_Union[_eval_pb2.EvalStartRecord, _Mapping]] = ..., name: _Optional[str] = ..., error_kind: _Optional[_Union[CoreErrorKind, str]] = ...) -> None: ...
 
 class DeliverEvalFinishRequest(_message.Message):
-    __slots__ = ()
-    def __init__(self) -> None: ...
+    __slots__ = ("finish_record",)
+    FINISH_RECORD_FIELD_NUMBER: _ClassVar[int]
+    finish_record: _eval_pb2.EvalFinishRecord
+    def __init__(self, finish_record: _Optional[_Union[_eval_pb2.EvalFinishRecord, _Mapping]] = ...) -> None: ...
 
 class DeliverEvalFinishResponse(_message.Message):
     __slots__ = ("success", "message")

@@ -183,7 +183,7 @@ class CoreServiceServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def DeliverEvalFinish(self, request, context):
-        """DeliverEvalFinish 接收评估结束事件，用于结束评估。评估没有状态字段，请求体不携带结束状态。
+        """DeliverEvalFinish 接收评估结束事件，用于结束评估。
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')

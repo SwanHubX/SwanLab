@@ -62,7 +62,7 @@ type CoreServiceClient interface {
 	DeliverEvalStart(ctx context.Context, in *DeliverEvalStartRequest, opts ...grpc.CallOption) (*DeliverEvalStartResponse, error)
 	// UpsertScores 接收一组 ScoreRecord 并写入，每一条记录对应一个评测项下的单个指标
 	UpsertScores(ctx context.Context, in *UpsertScoresRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	// DeliverEvalFinish 接收评估结束事件，用于结束评估。评估没有状态字段，请求体不携带结束状态。
+	// DeliverEvalFinish 接收评估结束事件，用于结束评估。
 	DeliverEvalFinish(ctx context.Context, in *DeliverEvalFinishRequest, opts ...grpc.CallOption) (*DeliverEvalFinishResponse, error)
 	// GetOperationStats 返回 Core 当前运行状态和上传进度快照。
 	GetOperationStats(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetOperationStatsResponse, error)
@@ -246,7 +246,7 @@ type CoreServiceServer interface {
 	DeliverEvalStart(context.Context, *DeliverEvalStartRequest) (*DeliverEvalStartResponse, error)
 	// UpsertScores 接收一组 ScoreRecord 并写入，每一条记录对应一个评测项下的单个指标
 	UpsertScores(context.Context, *UpsertScoresRequest) (*emptypb.Empty, error)
-	// DeliverEvalFinish 接收评估结束事件，用于结束评估。评估没有状态字段，请求体不携带结束状态。
+	// DeliverEvalFinish 接收评估结束事件，用于结束评估。
 	DeliverEvalFinish(context.Context, *DeliverEvalFinishRequest) (*DeliverEvalFinishResponse, error)
 	// GetOperationStats 返回 Core 当前运行状态和上传进度快照。
 	GetOperationStats(context.Context, *emptypb.Empty) (*GetOperationStatsResponse, error)

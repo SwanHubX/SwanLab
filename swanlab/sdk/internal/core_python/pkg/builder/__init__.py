@@ -10,7 +10,7 @@ from typing import Union
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
-from swanlab.proto.swanlab.eval.v1.eval_pb2 import EvalStartRecord
+from swanlab.proto.swanlab.eval.v1.eval_pb2 import EvalFinishRecord, EvalStartRecord
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnClass, ColumnRecord, ColumnType, SectionType
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import HistogramRecord, MediaRecord, ScalarRecord, ScoreRecord
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
@@ -25,6 +25,7 @@ __all__ = [
     "build_finish_record",
     "build_start_record",
     "build_eval_start_record",
+    "build_eval_finish_record",
     "build_score_record",
     "build_media_record",
     "build_histogram_record",
@@ -64,6 +65,10 @@ CONDA_RECORD_NUM = -6
 EVAL_START_RECORD_NUM = -7
 """
 约定评估启动记录的num为-7
+"""
+EVAL_FINISH_RECORD_NUM = -8
+"""
+约定评估结束记录的num为-8
 """
 
 DEC_NUM = -100
@@ -145,6 +150,13 @@ def build_eval_start_record(eval_start_record: EvalStartRecord):
     构建评估启动记录
     """
     return Record(num=EVAL_START_RECORD_NUM, eval_start=eval_start_record, timestamp=_now())
+
+
+def build_eval_finish_record(eval_finish_record: EvalFinishRecord):
+    """
+    构建评估结束记录
+    """
+    return Record(num=EVAL_FINISH_RECORD_NUM, eval_finish=eval_finish_record, timestamp=_now())
 
 
 def build_score_record(counter: Counter, score_record: ScoreRecord):
