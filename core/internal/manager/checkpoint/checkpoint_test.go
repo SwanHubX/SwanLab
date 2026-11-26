@@ -401,9 +401,11 @@ func TestWriterStopBeforeStartAndConcurrentLifecycle(t *testing.T) {
 		w.Stop()
 		w.Start()
 		w.Notify()
-		time.Sleep(10 * time.Millisecond)
 		w.Stop()
 		w.Stop()
+		if got := w.lifecycle.Load(); got != lifecycleStopped {
+			t.Fatalf("lifecycle = %d after Stop -> Start, want lifecycleStopped (%d)", got, lifecycleStopped)
+		}
 		if got := writes.Load(); got != 0 {
 			t.Fatalf("checkpoint writes = %d after Stop -> Start, want 0", got)
 		}

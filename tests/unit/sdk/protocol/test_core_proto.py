@@ -5,6 +5,8 @@
 @description: Core proto 启动错误分类契约
 """
 
+import pytest
+
 from swanlab.proto.swanlab.grpc.core.v1 import core_pb2
 from swanlab.proto.swanlab.operation.v1 import operation_pb2
 from swanlab.proto.swanlab.settings.core.v1 import core_pb2 as settings_core_pb2
@@ -145,9 +147,6 @@ def _make_minimal_enabled_protocol(mode):
             return self
 
     return _MinimalEnabledCore(mode), calls
-
-
-import pytest  # noqa: E402
 
 
 @pytest.mark.parametrize("mode", ["local", "offline", "online"])

@@ -117,9 +117,11 @@ func TestPumpStopBeforeStartAndConcurrentLifecycle(t *testing.T) {
 		})
 		p.Stop()
 		p.Start()
-		time.Sleep(10 * time.Millisecond)
 		p.Stop()
 		p.Stop()
+		if got := p.lifecycle.Load(); got != lifecycleStopped {
+			t.Fatalf("lifecycle = %d after Stop -> Start, want lifecycleStopped (%d)", got, lifecycleStopped)
+		}
 		if got := src.calls.Load(); got != 0 {
 			t.Fatalf("DrainRecovery calls = %d after Stop -> Start, want 0", got)
 		}

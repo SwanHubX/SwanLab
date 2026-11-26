@@ -137,7 +137,7 @@ func (w *Worker) Start() {
 	go w.loop()
 }
 
-// Started 报告后台补投协程是否已启动。
+// Started 报告后台补投协程是否曾成功启动（Stop 后仍返回 true，不可作为存活探针）。
 func (w *Worker) Started() bool {
 	return w != nil && w.lifecycle.Load() == lifecycleStarted
 }

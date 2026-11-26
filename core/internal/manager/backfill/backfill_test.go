@@ -792,6 +792,9 @@ func TestWorkerStopBeforeStartAndConcurrentLifecycle(t *testing.T) {
 		if w.Started() {
 			t.Fatal("worker must not report Started after Stop -> Start")
 		}
+		if got := w.lifecycle.Load(); got != lifecycleStopped {
+			t.Fatalf("lifecycle = %d after Stop -> Start, want lifecycleStopped (%d)", got, lifecycleStopped)
+		}
 		if storedCalls.Load() != 0 {
 			t.Fatalf("storedCalls = %d, want 0 after Stop -> Start", storedCalls.Load())
 		}
