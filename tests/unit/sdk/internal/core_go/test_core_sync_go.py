@@ -25,34 +25,6 @@ from swanlab.sdk.internal.core_go.sync import SyncState
 from swanlab.sdk.protocol import is_terminal_stats_error
 
 
-class FakeLauncher:
-    instances: List["FakeLauncher"] = []
-
-    def __init__(self, binary: Path, *, detach: bool = False, idle_timeout: float = 0.0) -> None:
-        self.binary = binary
-        self.detach = detach
-        self.idle_timeout = idle_timeout
-        self.channel = object()
-        self.owns_process = True
-        self.started = False
-        self.closed = 0
-        self.aborted = 0
-        self.exit_code: Optional[int] = 0
-        self.start_error: Optional[BaseException] = None
-        FakeLauncher.instances.append(self)
-
-    def start(self) -> None:
-        self.started = True
-        if self.start_error is not None:
-            raise self.start_error
-
-    def close(self) -> None:
-        self.closed += 1
-
-    def abort(self) -> None:
-        self.aborted += 1
-
-
 class FakeCoreRpc:
     instances: List["FakeCoreRpc"] = []
 
@@ -119,14 +91,15 @@ class FakeSyncRpc:
 
 
 @pytest.fixture
-def patch_sync_dependencies(monkeypatch) -> Tuple[List[FakeLauncher], List[FakeCoreRpc], List[FakeSyncRpc]]:
-    FakeLauncher.instances.clear()
+def patch_sync_dependencies(
+    install_fake_launcher, monkeypatch
+) -> Tuple[List[object], List[FakeCoreRpc], List[FakeSyncRpc]]:
     FakeCoreRpc.instances.clear()
     FakeSyncRpc.instances.clear()
-    monkeypatch.setattr(sync_module, "CoreLauncher", FakeLauncher)
+    launchers, _ = install_fake_launcher(sync_module, exit_code=0)
     monkeypatch.setattr(sync_module, "CoreServiceRpc", FakeCoreRpc)
     monkeypatch.setattr(sync_module, "CoreSyncRpc", FakeSyncRpc)
-    return FakeLauncher.instances, FakeCoreRpc.instances, FakeSyncRpc.instances
+    return launchers, FakeCoreRpc.instances, FakeSyncRpc.instances
 
 
 def test_deliver_sync_start_without_binary_fails_and_closes():

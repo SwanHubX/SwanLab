@@ -5,10 +5,6 @@
 @description: CoreSyncRpc 的请求构造、超时语义与协议错误映射测试。
 """
 
-import os
-import subprocess
-import sys
-from pathlib import Path
 from typing import Optional
 
 import pytest
@@ -33,59 +29,19 @@ from swanlab.sdk.internal.core_go.config import (
 )
 from swanlab.sdk.internal.core_go.rpc import CoreSyncRpc
 
-REPO_ROOT = Path(__file__).resolve().parents[5]
-
-
-class FakeSyncStub:
-    """按方法名记录调用并按需返回预置响应。"""
-
-    def __init__(self):
-        self.calls = []
-        self.responses = {}
-
-    def __getattr__(self, name):
-        if name.startswith("_"):
-            raise AttributeError(name)
-
-        def method(request, timeout=None):
-            self.calls.append((name, request, timeout))
-            return self.responses.get(name)
-
-        return method
-
-
-class FakeSyncChannel:
-    def __init__(self):
-        self.raw = object()
-        self.stages = []
-
-    def call(self, method, request, timeout: Optional[float] = RPC_TIMEOUT, *, stage=Stage.RPC):
-        self.stages.append(stage)
-        return method(request, timeout=timeout)
-
 
 @pytest.fixture
-def sync_service(monkeypatch):
-    stub = FakeSyncStub()
-    channel = FakeSyncChannel()
-    monkeypatch.setattr(sync_pb2_grpc, "CoreSyncServiceStub", lambda raw: stub)
-    return CoreSyncRpc(channel), stub, channel
+def sync_service(monkeypatch, fake_rpc_stub, fake_rpc_channel):
+    monkeypatch.setattr(sync_pb2_grpc, "CoreSyncServiceStub", lambda raw: fake_rpc_stub)
+    return CoreSyncRpc(fake_rpc_channel), fake_rpc_stub, fake_rpc_channel
 
 
-def test_sync_service_module_does_not_load_grpc():
+def test_sync_service_module_does_not_load_grpc(run_python_isolated):
     code = (
         "import sys; import swanlab.sdk.internal.core_go.rpc.sync_service; "
         "print('grpc' in sys.modules, 'sync_pb2_grpc' in ' '.join(sys.modules))"
     )
-    env = dict(os.environ, PYTHONPATH=str(REPO_ROOT))
-    result = subprocess.run(
-        [sys.executable, "-c", code],
-        cwd=str(REPO_ROOT),
-        env=env,
-        capture_output=True,
-        text=True,
-        check=True,
-    )
+    result = run_python_isolated(code)
 
     assert result.stdout.strip() == "False False", result.stderr
 
@@ -184,7 +140,7 @@ def test_sync_rpc_timeouts_match_semantics(sync_service):
     assert timeouts["ConfirmSyncFinish"] is CONFIRM_TIMEOUT is None
 
 
-def test_unimplemented_is_not_rewritten(monkeypatch):
+def test_unimplemented_is_not_rewritten(monkeypatch, fake_rpc_stub):
     class ErrorChannel:
         raw = object()
 
@@ -197,7 +153,7 @@ def test_unimplemented_is_not_rewritten(monkeypatch):
                 grpc_code=12,
             )
 
-    monkeypatch.setattr(sync_pb2_grpc, "CoreSyncServiceStub", lambda raw: FakeSyncStub())
+    monkeypatch.setattr(sync_pb2_grpc, "CoreSyncServiceStub", lambda raw: fake_rpc_stub)
     client = CoreSyncRpc(ErrorChannel())
 
     with pytest.raises(CoreGoError) as caught:

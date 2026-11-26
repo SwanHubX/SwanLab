@@ -5,10 +5,6 @@
 @description: CoreServiceRpc 的请求构造、session_id 与协议错误测试。
 """
 
-import os
-import subprocess
-import sys
-from pathlib import Path
 from typing import Optional
 
 import pytest
@@ -41,56 +37,19 @@ from swanlab.sdk.internal.core_go.config import (
 )
 from swanlab.sdk.internal.core_go.rpc import CoreServiceRpc
 
-REPO_ROOT = Path(__file__).resolve().parents[5]
-
-
-class FakeStub:
-    """按方法名记录调用并按需返回预置响应。"""
-
-    def __init__(self):
-        self.calls = []
-        self.responses = {}
-
-    def __getattr__(self, name):
-        if name.startswith("_"):
-            raise AttributeError(name)
-
-        def method(request, timeout=None):
-            self.calls.append((name, request, timeout))
-            return self.responses.get(name)
-
-        return method
-
-
-class FakeChannel:
-    def __init__(self):
-        self.raw = object()
-
-    def call(self, method, request, timeout: Optional[float] = RPC_TIMEOUT, *, stage=Stage.RPC):
-        return method(request, timeout=timeout)
-
 
 @pytest.fixture
-def service(monkeypatch):
-    stub = FakeStub()
-    monkeypatch.setattr(core_pb2_grpc, "CoreServiceStub", lambda raw: stub)
-    return CoreServiceRpc(FakeChannel()), stub
+def service(monkeypatch, fake_rpc_stub, fake_rpc_channel):
+    monkeypatch.setattr(core_pb2_grpc, "CoreServiceStub", lambda raw: fake_rpc_stub)
+    return CoreServiceRpc(fake_rpc_channel), fake_rpc_stub
 
 
-def test_core_service_module_does_not_load_grpc():
+def test_core_service_module_does_not_load_grpc(run_python_isolated):
     code = (
         "import sys; import swanlab.sdk.internal.core_go.rpc.core_service; "
         "print('grpc' in sys.modules, 'core_pb2_grpc' in ' '.join(sys.modules))"
     )
-    env = dict(os.environ, PYTHONPATH=str(REPO_ROOT))
-    result = subprocess.run(
-        [sys.executable, "-c", code],
-        cwd=str(REPO_ROOT),
-        env=env,
-        capture_output=True,
-        text=True,
-        check=True,
-    )
+    result = run_python_isolated(code)
 
     assert result.stdout.strip() == "False False", result.stderr
 
@@ -235,7 +194,7 @@ def test_method_timeouts_match_semantics(service):
     assert len(set(timeouts.values())) == len(timeouts)
 
 
-def test_unimplemented_is_not_rewritten(monkeypatch):
+def test_unimplemented_is_not_rewritten(monkeypatch, fake_rpc_stub):
     class ErrorChannel:
         raw = object()
 
@@ -248,7 +207,7 @@ def test_unimplemented_is_not_rewritten(monkeypatch):
                 grpc_code=12,
             )
 
-    monkeypatch.setattr(core_pb2_grpc, "CoreServiceStub", lambda raw: FakeStub())
+    monkeypatch.setattr(core_pb2_grpc, "CoreServiceStub", lambda raw: fake_rpc_stub)
     client = CoreServiceRpc(ErrorChannel())
 
     with pytest.raises(CoreGoError) as caught:

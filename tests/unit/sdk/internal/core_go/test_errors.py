@@ -5,11 +5,6 @@
 @description: CoreGoError / ReasonCode / reason_for_grpc 的单元测试。
 """
 
-import os
-import subprocess
-import sys
-from pathlib import Path
-
 import pytest
 
 from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
@@ -18,8 +13,6 @@ from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
     CORE_ERROR_KIND_TRANSIENT,
 )
 from swanlab.sdk.internal.core_go.config import CoreGoError, ReasonCode, Stage, classify_start_error, reason_for_grpc
-
-REPO_ROOT = Path(__file__).resolve().parents[5]
 
 
 def test_error_str_includes_stage_reason_and_grpc_name():
@@ -124,19 +117,11 @@ def test_error_is_core_protocol_error():
     assert isinstance(CoreGoError(Stage.RPC, ReasonCode.GRPC_ERROR, "boom"), CoreProtocolError)
 
 
-def test_import_core_go_does_not_load_grpc():
+def test_import_core_go_does_not_load_grpc(run_python_isolated):
     """core_go 顶层导入不触发 grpc；用子进程避免测试自身提前加载。"""
     code = "import sys; import swanlab.sdk.internal.core_go; print('grpc' in sys.modules)"
-    env = dict(os.environ, PYTHONPATH=str(REPO_ROOT))
 
-    result = subprocess.run(
-        [sys.executable, "-c", code],
-        cwd=str(REPO_ROOT),
-        env=env,
-        capture_output=True,
-        text=True,
-        check=True,
-    )
+    result = run_python_isolated(code)
 
     assert result.stdout.strip() == "False", result.stderr
 

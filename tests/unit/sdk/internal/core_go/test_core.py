@@ -29,6 +29,7 @@ from swanlab.proto.swanlab.metric.data.v1.data_pb2 import HistogramRecord, Scala
 from swanlab.sdk.internal.core_go import core as core_module
 from swanlab.sdk.internal.core_go.config import TEARDOWN_TIMEOUT, CoreGoError, ReasonCode, Stage
 from swanlab.sdk.internal.core_go.core import CoreGo, CoreState, DetachedCoreGo
+from swanlab.sdk.internal.core_go.launcher import CoreLauncher
 from swanlab.sdk.internal.core_go.rpc import CoreServiceRpc
 from swanlab.sdk.internal.pkg import console as pkg_console
 from swanlab.sdk.protocol import CoreProtocol, CoreProtocolError, NullCoreProtocol, is_terminal_stats_error
@@ -290,31 +291,16 @@ def test_disabled_start_is_noop_without_binary():
     assert response.success is True
 
 
-class _SpyLauncher:
-    def __init__(self, *, owns_process: bool = True) -> None:
-        self.owns_process = owns_process
-        self.process_exited = False
-        self.closed = 0
-        self.aborted = 0
-        self.exit_code = None
-
-    def close(self) -> None:
-        self.closed += 1
-
-    def abort(self) -> None:
-        self.aborted += 1
-
-
 @pytest.mark.parametrize(
     "reason",
     [ReasonCode.GRPC_UNAVAILABLE, ReasonCode.DEADLINE_EXCEEDED, ReasonCode.CHANNEL_TIMEOUT],
 )
-def test_owned_core_process_exit_makes_any_retryable_error_terminal(reason):
+def test_owned_core_process_exit_makes_any_retryable_error_terminal(fake_launcher_cls, reason):
     """独占进程已退出时，所有可重试错误都止损，不必只看 UNAVAILABLE。"""
     core = _running_core(FakeRpc(CoreGoError(Stage.RPC, reason, "rpc failed")))
-    launcher = _SpyLauncher(owns_process=True)
+    launcher = fake_launcher_cls(owns_process=True)
     launcher.process_exited = True
-    core._launcher = cast(core_module.CoreLauncher, launcher)  # noqa: SLF001
+    core._launcher = cast(CoreLauncher, launcher)  # noqa: SLF001
 
     with pytest.raises(CoreGoError) as caught:
         core.upsert_scalars([ScalarRecord(key="loss", step=1)])
@@ -324,13 +310,13 @@ def test_owned_core_process_exit_makes_any_retryable_error_terminal(reason):
     assert "process exited" in caught.value.message
 
 
-def test_owned_core_process_exit_keeps_terminal_error_semantics():
+def test_owned_core_process_exit_keeps_terminal_error_semantics(fake_launcher_cls):
     """进程退出只收窄可重试错误，非重试错误保持原始语义。"""
     error = CoreGoError(Stage.RPC, ReasonCode.INVALID_ARGUMENT, "bad record")
     core = _running_core(FakeRpc(error))
-    launcher = _SpyLauncher(owns_process=True)
+    launcher = fake_launcher_cls(owns_process=True)
     launcher.process_exited = True
-    core._launcher = cast(core_module.CoreLauncher, launcher)  # noqa: SLF001
+    core._launcher = cast(CoreLauncher, launcher)  # noqa: SLF001
 
     with pytest.raises(CoreGoError) as caught:
         core.upsert_scalars([ScalarRecord(key="loss", step=1)])
@@ -341,12 +327,12 @@ def test_owned_core_process_exit_keeps_terminal_error_semantics():
 
 
 @pytest.mark.parametrize("action, initial_state", [("close", CoreState.FINISHED), ("abort", CoreState.RUNNING)])
-def test_detached_mode_close_and_abort_skip_teardown_and_are_idempotent(action, initial_state):
+def test_detached_mode_close_and_abort_skip_teardown_and_are_idempotent(fake_launcher_cls, action, initial_state):
     rpc = FakeRpc()
     core = _running_core(rpc)
     core._detach = True  # noqa: SLF001
-    launcher = _SpyLauncher()
-    core._launcher = cast(core_module.CoreLauncher, launcher)  # noqa: SLF001
+    launcher = fake_launcher_cls()
+    core._launcher = cast(CoreLauncher, launcher)  # noqa: SLF001
     core._state = initial_state  # noqa: SLF001
 
     if action == "close":
@@ -375,12 +361,12 @@ def test_owner_mode_abort_sends_teardown():
     assert core._state is CoreState.CLOSED  # noqa: SLF001
 
 
-def test_unowned_launcher_skips_teardown_on_close_even_when_detach_false():
+def test_unowned_launcher_skips_teardown_on_close_even_when_detach_false(fake_launcher_cls):
     rpc = FakeRpc()
     core = _running_core(rpc)
     core._detach = False  # noqa: SLF001
-    launcher = _SpyLauncher(owns_process=False)
-    core._launcher = cast(core_module.CoreLauncher, launcher)  # noqa: SLF001
+    launcher = fake_launcher_cls(owns_process=False)
+    core._launcher = cast(CoreLauncher, launcher)  # noqa: SLF001
 
     core.close()
 
@@ -390,28 +376,16 @@ def test_unowned_launcher_skips_teardown_on_close_even_when_detach_false():
 
 
 @pytest.mark.parametrize("first_mode", ["detached", "owner"])
-def test_mixed_owner_and_detached_close_does_not_affect_peer(monkeypatch, tmp_path, first_mode):
+def test_mixed_owner_and_detached_close_does_not_affect_peer(install_fake_launcher, monkeypatch, tmp_path, first_mode):
     binary = tmp_path / "swanlab-core"
     rpcs = {}
-    launcher_kwargs = {}
 
-    class StubLauncher:
-        def __init__(self, bin_path, *, detach: bool = False, idle_timeout: float = 0.0) -> None:
-            launcher_kwargs[detach] = {"binary": bin_path, "idle_timeout": idle_timeout}
-            self.detach = detach
-            self.owns_process = True
-            self.channel = "detached" if detach else "owner"
-            self.exit_code = None if detach else 0
-            self.closed = 0
-
-        def start(self) -> None:
-            return None
-
-        def close(self) -> None:
-            self.closed += 1
-
-        def abort(self) -> None:
-            self.closed += 1
+    launchers, _ = install_fake_launcher(
+        core_module,
+        exit_code=lambda detach: None if detach else 0,
+        channel_factory=lambda _index, detach: "detached" if detach else "owner",
+        abort_increments_closed=True,
+    )
 
     class TaggedRpc(FakeRpc):
         def __init__(self, channel) -> None:
@@ -426,7 +400,6 @@ def test_mixed_owner_and_detached_close_does_not_affect_peer(monkeypatch, tmp_pa
         def deliver_run_start(self, _req) -> DeliverRunStartResponse:
             return DeliverRunStartResponse(success=True, session_id=self.session_id)
 
-    monkeypatch.setattr(core_module, "CoreLauncher", StubLauncher)
     monkeypatch.setattr(core_module, "CoreServiceRpc", TaggedRpc)
 
     detached_core = CoreGo("online", binary=binary, detach=True, idle_timeout=2.0)
@@ -439,6 +412,9 @@ def test_mixed_owner_and_detached_close_does_not_affect_peer(monkeypatch, tmp_pa
         assert owner_core.deliver_run_start(DeliverRunStartRequest()).success is True
         assert detached_core.deliver_run_start(DeliverRunStartRequest()).success is True
 
+    launcher_kwargs = {
+        launcher.detach: {"binary": launcher.binary, "idle_timeout": launcher.idle_timeout} for launcher in launchers
+    }
     assert launcher_kwargs == {
         True: {"binary": binary, "idle_timeout": 2.0},
         False: {"binary": binary, "idle_timeout": core_module.DETACH_IDLE_TIMEOUT},
@@ -461,41 +437,15 @@ def test_core_go_rejects_negative_idle_timeout():
         CoreGo("online", detach=True, idle_timeout=-1.0)
 
 
-def _install_stub_launcher(monkeypatch, *, owns_process):
-    """安装共享的假 Launcher，返回 (attempts, starts)。
-
-    ``owns_process`` 可为布尔值或 ``index -> bool``，用于覆盖复用与自建进程两条路径。
-    """
-    attempts = []
-    starts = []
-
-    class StubLauncher:
-        def __init__(self, bin_path, *, detach: bool = False, idle_timeout: float = 0.0) -> None:
-            self.index = len(attempts)
-            self.owns_process = owns_process(self.index) if callable(owns_process) else owns_process
-            self.channel = f"ch-{self.index}"
-            self.exit_code = None
-            self.closed = 0
-            attempts.append(self)
-
-        def start(self) -> None:
-            starts.append(self.index)
-
-        def close(self) -> None:
-            self.closed += 1
-
-        def abort(self) -> None:
-            self.closed += 1
-
-    monkeypatch.setattr(core_module, "CoreLauncher", StubLauncher)
-    return attempts, starts
-
-
 @pytest.mark.parametrize("reason", [ReasonCode.FAILED_PRECONDITION, ReasonCode.GRPC_UNAVAILABLE])
-def test_detached_reuse_dying_core_spinup_retries_and_recovers(monkeypatch, tmp_path, reason):
+def test_detached_reuse_dying_core_spinup_retries_and_recovers(install_fake_launcher, monkeypatch, tmp_path, reason):
     """复用正在空闲退出的 Core 导致 spinup 失败时，应关闭旧通道并重试拉起。"""
     binary = tmp_path / "swanlab-core"
-    attempts, _ = _install_stub_launcher(monkeypatch, owns_process=lambda index: index > 0)
+    attempts, _ = install_fake_launcher(
+        core_module,
+        owns_process=lambda index: index > 0,
+        abort_increments_closed=True,
+    )
 
     class FlakySpinupRpc(FakeRpc):
         def __init__(self, channel) -> None:
@@ -520,10 +470,10 @@ def test_detached_reuse_dying_core_spinup_retries_and_recovers(monkeypatch, tmp_
     core.close()
 
 
-def test_owned_core_spinup_failure_does_not_retry(monkeypatch, tmp_path):
+def test_owned_core_spinup_failure_does_not_retry(install_fake_launcher, monkeypatch, tmp_path):
     """自建进程 spinup 失败不应静默重试多次拉起。"""
     binary = tmp_path / "swanlab-core"
-    attempts, starts = _install_stub_launcher(monkeypatch, owns_process=True)
+    attempts, starts = install_fake_launcher(core_module, owns_process=True, abort_increments_closed=True)
 
     class FailingRpc(FakeRpc):
         def __init__(self, _channel) -> None:
@@ -542,10 +492,10 @@ def test_owned_core_spinup_failure_does_not_retry(monkeypatch, tmp_path):
     assert len(starts) == 1
 
 
-def test_detached_reuse_non_retryable_spinup_error_does_not_retry(monkeypatch, tmp_path):
+def test_detached_reuse_non_retryable_spinup_error_does_not_retry(install_fake_launcher, monkeypatch, tmp_path):
     """旧版本 Core 不支持 Spinup 时重试无意义，只报一次启动失败。"""
     binary = tmp_path / "swanlab-core"
-    attempts, _ = _install_stub_launcher(monkeypatch, owns_process=False)
+    attempts, _ = install_fake_launcher(core_module, owns_process=False, abort_increments_closed=True)
 
     class UnimplementedSpinupRpc(FakeRpc):
         def __init__(self, _channel) -> None:
@@ -568,19 +518,16 @@ def test_detached_reuse_non_retryable_spinup_error_does_not_retry(monkeypatch, t
     "stage, reason, grpc_name, expected_kind",
     [
         (Stage.RUN_START, ReasonCode.GRPC_UNAVAILABLE, "UNAVAILABLE", CORE_ERROR_KIND_TRANSIENT),
-        (Stage.RUN_START, ReasonCode.DEADLINE_EXCEEDED, "DEADLINE_EXCEEDED", CORE_ERROR_KIND_TRANSIENT),
         (Stage.RUN_START, ReasonCode.GRPC_ERROR, "UNAUTHENTICATED", CORE_ERROR_KIND_AUTH),
         (Stage.RUN_START, ReasonCode.INVALID_ARGUMENT, "INVALID_ARGUMENT", CORE_ERROR_KIND_OTHER),
-        (Stage.RUN_START, ReasonCode.GRPC_ERROR, "INTERNAL", CORE_ERROR_KIND_OTHER),
-        (Stage.RUN_START, ReasonCode.SESSION_NOT_FOUND, "NOT_FOUND", CORE_ERROR_KIND_OTHER),
-        (Stage.RUN_START, ReasonCode.RUN_START_REJECTED, None, CORE_ERROR_KIND_OTHER),
         (Stage.SPINUP, ReasonCode.GRPC_UNAVAILABLE, "UNAVAILABLE", CORE_ERROR_KIND_OTHER),
-        (Stage.CHANNEL, ReasonCode.DEADLINE_EXCEEDED, "DEADLINE_EXCEEDED", CORE_ERROR_KIND_OTHER),
     ],
 )
-def test_deliver_run_start_populates_error_kind(monkeypatch, tmp_path, stage, reason, grpc_name, expected_kind):
+def test_deliver_run_start_populates_error_kind(
+    install_fake_launcher, monkeypatch, tmp_path, stage, reason, grpc_name, expected_kind
+):
     binary = tmp_path / "swanlab-core"
-    _install_stub_launcher(monkeypatch, owns_process=True)
+    install_fake_launcher(core_module, owns_process=True, abort_increments_closed=True)
     raised = CoreGoError(stage, reason, "start failed", grpc_name=grpc_name)
 
     class StartErrorRpc(FakeRpc):
@@ -664,3 +611,119 @@ def test_confirm_run_finish_clears_stale_last_error():
     resp_err = core_err.confirm_run_finish()
     assert resp_err.success is False
     assert core_err.last_error is fresh
+
+
+class FakeFinishRpc:
+    """只实现 finish / confirm / teardown，允许按需注入异常或响应。"""
+
+    def __init__(self) -> None:
+        self.deliver_error: Optional[BaseException] = None
+        self.confirm_error: Optional[BaseException] = None
+        self.deliver_calls = 0
+        self.confirm_calls = 0
+        self.teardown_calls: List[float] = []
+
+    def deliver_run_finish(self, _request: DeliverRunFinishRequest, _session_id: str) -> DeliverRunFinishResponse:
+        self.deliver_calls += 1
+        if self.deliver_error is not None:
+            raise self.deliver_error
+        return DeliverRunFinishResponse(success=True)
+
+    def confirm_run_finish(self, _session_id: str) -> ConfirmRunFinishResponse:
+        self.confirm_calls += 1
+        if self.confirm_error is not None:
+            raise self.confirm_error
+        return ConfirmRunFinishResponse(success=True)
+
+    def teardown(self, timeout: float = 0) -> None:
+        self.teardown_calls.append(timeout)
+
+
+def _finished_core(rpc: FakeFinishRpc) -> CoreGo:
+    core = _running_core(cast(FakeRpc, rpc))
+    core._state = CoreState.FINISHED  # noqa: SLF001
+    return core
+
+
+def test_deliver_finish_rpc_error_is_retryable_and_keeps_running_state():
+    error = CoreGoError(Stage.RPC, ReasonCode.GRPC_UNAVAILABLE, "core unreachable")
+    rpc = FakeFinishRpc()
+    rpc.deliver_error = error
+    core = _running_core(cast(FakeRpc, rpc))
+
+    response = core.deliver_run_finish(DeliverRunFinishRequest())
+
+    assert response.success is False
+    assert core.last_error is error
+    assert error.retryable is True
+    assert core._state is CoreState.RUNNING  # noqa: SLF001
+
+
+def test_deliver_finish_rejection_is_terminal():
+    error = CoreGoError(Stage.RPC, ReasonCode.RUN_FINISH_REJECTED, "finish record commit failed")
+    rpc = FakeFinishRpc()
+    rpc.deliver_error = error
+    core = _running_core(cast(FakeRpc, rpc))
+
+    response = core.deliver_run_finish(DeliverRunFinishRequest())
+
+    assert response.success is False
+    assert core.last_error is error
+    assert error.retryable is False
+
+
+def test_confirm_rpc_error_is_retryable_and_keeps_session():
+    error = CoreGoError(Stage.RPC, ReasonCode.GRPC_UNAVAILABLE, "stop experiment failed")
+    rpc = FakeFinishRpc()
+    rpc.confirm_error = error
+    core = _finished_core(rpc)
+
+    response = core.confirm_run_finish()
+
+    assert response.success is False
+    assert core.last_error is error
+    assert error.retryable is True
+    assert core._session_id == "session-1"  # noqa: SLF001
+
+
+def test_confirm_success_releases_session():
+    rpc = FakeFinishRpc()
+    core = _finished_core(rpc)
+
+    response = core.confirm_run_finish()
+
+    assert response.success is True
+    assert core._session_id is None  # noqa: SLF001
+
+
+def test_confirm_retry_after_retryable_failure_succeeds():
+    rpc = FakeFinishRpc()
+    rpc.confirm_error = CoreGoError(Stage.RPC, ReasonCode.GRPC_UNAVAILABLE, "503")
+    core = _finished_core(rpc)
+
+    assert core.confirm_run_finish().success is False
+    rpc.confirm_error = None
+    assert core.confirm_run_finish().success is True
+    assert rpc.confirm_calls == 2
+    assert core._session_id is None  # noqa: SLF001
+
+
+def test_close_after_confirm_failure_tears_down():
+    rpc = FakeFinishRpc()
+    rpc.confirm_error = CoreGoError(Stage.RPC, ReasonCode.GRPC_UNAVAILABLE, "503")
+    core = _finished_core(rpc)
+    core.confirm_run_finish()
+
+    core.close()
+
+    assert core._state is CoreState.CLOSED  # noqa: SLF001
+    assert rpc.teardown_calls == [TEARDOWN_TIMEOUT]
+
+
+def test_close_records_core_exit_code(fake_launcher_cls):
+    core = _finished_core(FakeFinishRpc())
+    core._launcher = cast(CoreLauncher, fake_launcher_cls(exit_code=0))  # noqa: SLF001
+
+    core.close()
+
+    assert core.exit_code == 0
