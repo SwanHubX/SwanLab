@@ -63,8 +63,20 @@ from swanlab.sdk.typings.run.transforms.text import TextDatasType
 from swanlab.sdk.typings.run.transforms.video import VideoDatasType, VideoFormat
 
 from . import fmt
+from .eval import EvalRun, clear_eval_run, get_eval_run, has_eval_run, set_eval_run
 
-__all__ = ["Run", "has_run", "get_run", "set_run", "clear_run"]
+__all__ = [
+    "Run",
+    "has_run",
+    "get_run",
+    "set_run",
+    "clear_run",
+    "EvalRun",
+    "has_eval_run",
+    "get_eval_run",
+    "set_eval_run",
+    "clear_eval_run",
+]
 
 
 def with_api(cmd: str, must_alive: bool = True):

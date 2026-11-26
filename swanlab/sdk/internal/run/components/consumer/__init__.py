@@ -11,8 +11,16 @@ import threading
 from abc import ABC
 from typing import Any, Dict, List, Tuple, Union
 
+from google.protobuf.timestamp_pb2 import Timestamp
+
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord
-from swanlab.proto.swanlab.metric.data.v1.data_pb2 import HistogramRecord, MediaRecord, ScalarRecord, ScalarValue
+from swanlab.proto.swanlab.metric.data.v1.data_pb2 import (
+    HistogramRecord,
+    MediaRecord,
+    ScalarRecord,
+    ScalarValue,
+    ScoreRecord,
+)
 from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord
 from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogRecord
 from swanlab.sdk.internal.bus.emitter import RunQueue
@@ -22,6 +30,7 @@ from swanlab.sdk.internal.bus.events import (
     LogEvent,
     MetricDefineEvent,
     MetricLogEvent,
+    ScoreLogEvent,
 )
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.pkg import console, helper, safe
@@ -36,7 +45,11 @@ ScalarBatch = List[ScalarRecord]
 MediaBatch = List[MediaRecord]
 HistogramBatch = List[HistogramRecord]
 SaveBatch = List[SaveRecord]
-BatchTuple = Tuple[LogBatch, ColumnBatch, ScalarBatch, MediaBatch, HistogramBatch, SaveBatch]
+ScoreBatch = List[ScoreRecord]
+BatchTuple = Tuple[LogBatch, ColumnBatch, ScalarBatch, MediaBatch, HistogramBatch, SaveBatch, ScoreBatch]
+
+# 评测指标名的长度上限，与后端字段约束一致
+_MAX_SCORE_KEY_LENGTH = 512
 
 
 class ConsumerProtocol(ABC):
@@ -92,6 +105,9 @@ class BackgroundConsumer(ConsumerProtocol):
         self._scalar_batch: ScalarBatch = []
         self._histogram_batch: HistogramBatch = []
         self._save_batch: SaveBatch = []
+        self._score_batch: ScoreBatch = []
+        # 分数时间戳记忆表，按 (dataset, key) 记录上次使用的毫秒
+        self._score_timestamps: Dict[Tuple[str, str], int] = {}
 
     def start(self) -> None:
         self._thread.start()
@@ -112,6 +128,7 @@ class BackgroundConsumer(ConsumerProtocol):
             + len(self._media_batch)
             + len(self._histogram_batch)
             + len(self._save_batch)
+            + len(self._score_batch)
         )
 
     @property
@@ -130,6 +147,7 @@ class BackgroundConsumer(ConsumerProtocol):
             self._media_batch,
             self._histogram_batch,
             self._save_batch,
+            self._score_batch,
         )
         self._log_batch = []
         self._column_batch = []
@@ -137,6 +155,7 @@ class BackgroundConsumer(ConsumerProtocol):
         self._media_batch = []
         self._histogram_batch = []
         self._save_batch = []
+        self._score_batch = []
         return batches
 
     def _restore_batches(
@@ -147,6 +166,7 @@ class BackgroundConsumer(ConsumerProtocol):
         media_batch: MediaBatch,
         histogram_batch: HistogramBatch,
         save_batch: SaveBatch,
+        score_batch: ScoreBatch,
     ) -> None:
         # 失败的旧数据插回队头，优先于 flush 期间新进来的数据重试
         if log_batch:
@@ -161,6 +181,8 @@ class BackgroundConsumer(ConsumerProtocol):
             self._histogram_batch[:0] = histogram_batch
         if save_batch:
             self._save_batch[:0] = save_batch
+        if score_batch:
+            self._score_batch[:0] = score_batch
 
     def _run(self) -> None:
         while True:
@@ -193,6 +215,40 @@ class BackgroundConsumer(ConsumerProtocol):
             console.debug(f"Buffered terminal log record: pending={len(self._log_batch)}", write_to_tty=False)
         elif isinstance(event, FileSaveEvent):
             self._save_batch.append(self._builder.build_save(event))
+        elif isinstance(event, ScoreLogEvent):
+            self._build_score_records(event)
+
+    def _build_score_records(self, event: ScoreLogEvent) -> None:
+        """构建评测分数记录，按 (dataset, key) 保证时间戳单调递增。"""
+        base_ms = event.timestamp.ToMilliseconds()
+        for key, value in event.data.items():
+            if not isinstance(key, str) or not key:
+                console.error(f"Score key must be a non-empty string, but got {key!r}. Ignored.")
+                continue
+            if len(key) > _MAX_SCORE_KEY_LENGTH:
+                console.error(
+                    f"Score key '{key[:32]}...' exceeds the maximum length of "
+                    f"{_MAX_SCORE_KEY_LENGTH} characters. Ignored."
+                )
+                continue
+            try:
+                number = helper.to_score_value(value)
+            except (TypeError, ValueError, RuntimeError) as e:
+                console.error(f"Score '{key}' in benchmark '{event.dataset}' is not a number, ignored: {e}")
+                continue
+            # 同一 (dataset, key) 的两次上报落在同一毫秒时递增一毫秒，
+            # 避免产生同 timestamp 不同 value 的行，后写覆盖的语义仍然成立
+            identity = (event.dataset, key)
+            score_ms = base_ms
+            last_ms = self._score_timestamps.get(identity)
+            if last_ms is not None and score_ms <= last_ms:
+                score_ms = last_ms + 1
+            self._score_timestamps[identity] = score_ms
+            score_timestamp = Timestamp()
+            score_timestamp.FromMilliseconds(score_ms)
+            self._score_batch.append(
+                ScoreRecord(dataset=event.dataset, key=key, value=number, timestamp=score_timestamp)
+            )
 
     def _handle_metric_log(self, event: MetricLogEvent) -> None:
         """处理指标日志事件：构建 scalar/media 记录；调用过 define_metric 时额外物化列定义，
@@ -365,14 +421,16 @@ class BackgroundConsumer(ConsumerProtocol):
     def _flush(self) -> None:
         if self._batch_empty:
             return
-        log_batch, column_batch, scalar_batch, media_batch, histogram_batch, save_batch = self._take_batches()
+        log_batch, column_batch, scalar_batch, media_batch, histogram_batch, save_batch, score_batch = (
+            self._take_batches()
+        )
         # 某一步失败时，只回塞"当前未成功提交"的部分，避免重复写入
         # 提交失败时静默显示在 debug 日志中，不打印到控制台
         with safe.block(
             message="Error when flushing batch",
             write_to_tty=False,
             on_error=lambda _: self._restore_batches(
-                log_batch, column_batch, scalar_batch, media_batch, histogram_batch, save_batch
+                log_batch, column_batch, scalar_batch, media_batch, histogram_batch, save_batch, score_batch
             ),
         ):
             if log_batch:
@@ -410,3 +468,7 @@ class BackgroundConsumer(ConsumerProtocol):
             if save_batch:
                 self._core.upsert_saves(save_batch)
                 save_batch = []
+
+            if score_batch:
+                self._core.upsert_scores(score_batch)
+                score_batch = []
