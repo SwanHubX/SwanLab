@@ -1,6 +1,6 @@
 """
 @author: Nexisato
-@file: _common.py
+@file: common.py
 @time: 2026/11/26
 @description: core_go RPC 服务封装共用的带状态校验调用辅助。
 """

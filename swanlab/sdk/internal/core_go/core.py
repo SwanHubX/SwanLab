@@ -21,7 +21,7 @@ from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import HistogramRecord, MediaRecord, ScalarRecord
 from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord
 from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogRecord
-from swanlab.sdk.internal.core_go._base import _CoreGoBase
+from swanlab.sdk.internal.core_go.base import _CoreGoBase
 from swanlab.sdk.internal.core_go.config import (
     DETACH_IDLE_TIMEOUT,
     CoreGoError,

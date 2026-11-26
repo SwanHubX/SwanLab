@@ -16,7 +16,7 @@ from swanlab.proto.swanlab.grpc.core.v1.sync_pb2 import (
     DeliverSyncStartRequest,
     DeliverSyncStartResponse,
 )
-from swanlab.sdk.internal.core_go._base import _CoreGoBase
+from swanlab.sdk.internal.core_go.base import _CoreGoBase
 from swanlab.sdk.internal.core_go.config import (
     CoreGoError,
     ReasonCode,

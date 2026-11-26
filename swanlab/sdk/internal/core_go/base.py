@@ -1,6 +1,6 @@
 """
 @author: Nexisato
-@file: _base.py
+@file: base.py
 @time: 2026/11/26
 @description: CoreGo 与 CoreSyncGo 共享的进程生命周期、状态锁与错误记录基类。
 """

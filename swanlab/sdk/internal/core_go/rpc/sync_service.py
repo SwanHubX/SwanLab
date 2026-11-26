@@ -25,7 +25,7 @@ from swanlab.sdk.internal.core_go.config import (
     ReasonCode,
     Stage,
 )
-from swanlab.sdk.internal.core_go.rpc._common import call_checked
+from swanlab.sdk.internal.core_go.rpc.common import call_checked
 from swanlab.sdk.typings.core_go import RpcChannelType
 
 __all__ = ["CoreSyncRpc"]
