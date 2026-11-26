@@ -1,4 +1,4 @@
-"""core_go RPC 单元测试共享 Stub / Channel 夹具。"""
+"""core_go RPC 单元测试共享 Stub / Channel fixture。"""
 
 from typing import Optional
 

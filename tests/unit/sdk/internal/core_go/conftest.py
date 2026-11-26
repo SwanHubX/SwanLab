@@ -1,4 +1,4 @@
-"""core_go 测试共享夹具与 Fake 定义。"""
+"""core_go 测试共享 fixture 与 Fake 定义。"""
 
 import os
 import shutil
@@ -79,7 +79,7 @@ def fake_launcher_cls():
 
 @pytest.fixture
 def install_fake_launcher(monkeypatch):
-    """在目标模块安装并记录 FakeLauncher 实例与启动序号的夹具工厂。"""
+    """在目标模块安装并记录 FakeLauncher 实例与启动序号的工厂函数。"""
 
     def _install(
         target_module: Any,

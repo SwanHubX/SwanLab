@@ -1,4 +1,4 @@
-"""BackgroundConsumer 测试共享夹具与 FakeClock。"""
+"""BackgroundConsumer 测试共享 fixture 与 FakeClock。"""
 
 import queue
 from pathlib import Path
@@ -44,7 +44,7 @@ def _build_consumer_context(work_dir: Path, core: MagicMock) -> RunContext:
 
 @pytest.fixture
 def make_consumer(tmp_path: Path):
-    """创建基础 BackgroundConsumer 实例的工厂夹具。"""
+    """创建基础 BackgroundConsumer 实例的工厂 fixture。"""
 
     def _create(work_dir: Optional[Path] = None) -> BackgroundConsumer:
         return BackgroundConsumer(_build_consumer_context(work_dir or tmp_path, MagicMock()), queue.Queue())
@@ -54,7 +54,7 @@ def make_consumer(tmp_path: Path):
 
 @pytest.fixture
 def make_retry_consumer(tmp_path: Path):
-    """创建带 FakeClock 的 BackgroundConsumer 及其 mock core 的工厂夹具。"""
+    """创建带 FakeClock 的 BackgroundConsumer 及其 mock core 的工厂 fixture。"""
 
     def _create(
         work_dir: Optional[Path] = None,
@@ -98,7 +98,7 @@ def make_retry_consumer(tmp_path: Path):
 
 @pytest.fixture
 def make_save_consumer(tmp_path: Path):
-    """创建带 mock builder 的 BackgroundConsumer 工厂夹具（用于 save 批次测试）。"""
+    """创建带 mock builder 的 BackgroundConsumer 工厂 fixture（用于 save 批次测试）。"""
 
     def _create(batch_size: int = 100) -> Tuple[BackgroundConsumer, MagicMock, MagicMock]:
         core = MagicMock()
