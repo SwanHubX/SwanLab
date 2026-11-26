@@ -259,6 +259,10 @@ class HttpRecordSender:
         )
 
     def upload_log(self, records: Sequence[Record]) -> UploadResult:
+        if self._ctx.is_eval:
+            # 评估的终端日志只写本地记录文件，后端没有对应的上传接口
+            console.debug("Eval log records are stored locally and not uploaded.", write_to_tty=False)
+            return UploadResult(confirmed_records=list(records))
         console.debug(f"Preparing log HTTP request: records={len(records)}", write_to_tty=False)
         metrics: UploadLogBatch = []
         confirmed: List[Record] = []

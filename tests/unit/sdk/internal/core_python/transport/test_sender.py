@@ -68,6 +68,7 @@ def _make_sender(
     save_part: int = 32 * 1024 * 1024,
     save_size: int = 50 * 1024 * 1024 * 1024,
     skip_store: bool = False,
+    eval_mode: bool = False,
 ) -> HttpRecordSender:
     ctx = CoreContext(
         config=CoreConfig(
@@ -83,13 +84,23 @@ def _make_sender(
             skip_store=skip_store,
         )
     )
-    ctx.set_online_params(
-        username="alice",
-        project="demo",
-        project_id="project-id",
-        project_version=1,
-        experiment_id="experiment-id",
-    )
+    if eval_mode:
+        ctx.set_online_params(
+            username="alice",
+            project="demo",
+            project_id="project-id",
+            project_version=1,
+            eval_id="eval-id",
+            eval_name="eval-name",
+        )
+    else:
+        ctx.set_online_params(
+            username="alice",
+            project="demo",
+            project_id="project-id",
+            project_version=1,
+            experiment_id="experiment-id",
+        )
     return HttpRecordSender(ctx=ctx)
 
 
@@ -666,6 +677,22 @@ def test_upload_unknown_record_type_settles(tmp_path: Path):
     assert result.confirmed_records == [record]
     assert result.remaining_records == []
     assert "no upload handler" in result.failures[0].message
+
+
+def test_upload_log_skips_http_for_eval(tmp_path: Path):
+    """评估的终端日志只写本地记录文件，发送器直接确认且不发出请求。"""
+    sender = _make_sender(tmp_path, eval_mode=True)
+    timestamp = Timestamp()
+    timestamp.GetCurrentTime()
+    record = Record(log=LogRecord(line="hello", timestamp=timestamp))
+
+    with patch("swanlab.sdk.internal.core_python.transport.sender.upload_log") as mock_upload_log:
+        result = sender.upload_log([record])
+
+    mock_upload_log.assert_not_called()
+    assert result.confirmed_records == [record]
+    assert result.remaining_records == []
+    assert result.failures == []
 
 
 def test_sender_resource_session_is_single_shot(tmp_path: Path):
