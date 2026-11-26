@@ -110,7 +110,7 @@ def _make_minimal_enabled_protocol(mode):
 
     calls = []
 
-    class _MinimalEnabledCore(CoreProtocol):
+    class MinimalEnabledCore(CoreProtocol):
         def _start_when_enabled(self, start_request: DeliverRunStartRequest) -> DeliverRunStartResponse:
             calls.append(("start", start_request))
             return DeliverRunStartResponse(success=True)
@@ -146,7 +146,7 @@ def _make_minimal_enabled_protocol(mode):
         def fork(self):
             return self
 
-    return _MinimalEnabledCore(mode), calls
+    return MinimalEnabledCore(mode), calls
 
 
 @pytest.mark.parametrize("mode", ["local", "offline", "online"])

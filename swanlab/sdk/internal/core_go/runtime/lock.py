@@ -72,7 +72,7 @@ def _write_lock_metadata(fd: int, pid: int, created_at: int) -> None:
 if os.name == "nt":  # pragma: no cover - Windows 内核文件锁
     import msvcrt
 
-    class _OVERLAPPED(ctypes.Structure):
+    class Overlapped(ctypes.Structure):
         _fields_ = [
             ("Internal", ctypes.c_void_p),
             ("InternalHigh", ctypes.c_void_p),
@@ -88,7 +88,7 @@ if os.name == "nt":  # pragma: no cover - Windows 内核文件锁
         ctypes.c_uint32,
         ctypes.c_uint32,
         ctypes.c_uint32,
-        ctypes.POINTER(_OVERLAPPED),
+        ctypes.POINTER(Overlapped),
     ]
     _kernel32.LockFileEx.restype = ctypes.c_int
     _kernel32.UnlockFileEx.argtypes = [
@@ -96,13 +96,13 @@ if os.name == "nt":  # pragma: no cover - Windows 内核文件锁
         ctypes.c_uint32,
         ctypes.c_uint32,
         ctypes.c_uint32,
-        ctypes.POINTER(_OVERLAPPED),
+        ctypes.POINTER(Overlapped),
     ]
     _kernel32.UnlockFileEx.restype = ctypes.c_int
 
     def _try_flock_exclusive(fd: int) -> bool:
         handle = msvcrt.get_osfhandle(fd)
-        ov = _OVERLAPPED()
+        ov = Overlapped()
         ok = _kernel32.LockFileEx(
             handle,
             _LOCKFILE_EXCLUSIVE_LOCK | _LOCKFILE_FAIL_IMMEDIATELY,
@@ -121,7 +121,7 @@ if os.name == "nt":  # pragma: no cover - Windows 内核文件锁
     def _unlock_fd(fd: int) -> None:
         try:
             handle = msvcrt.get_osfhandle(fd)
-            ov = _OVERLAPPED()
+            ov = Overlapped()
             _kernel32.UnlockFileEx(handle, 0, _LOCK_RANGE_BYTES, 0, ctypes.byref(ov))
         except OSError:
             pass

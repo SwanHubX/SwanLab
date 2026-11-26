@@ -11,7 +11,7 @@ from swanlab.sdk.internal.core_go.config import CoreGoError, ReasonCode, Stage
 from swanlab.sdk.typings.core_go import RpcChannelType
 
 
-class _StatusResponse(Protocol):
+class StatusResponse(Protocol):
     @property
     def success(self) -> bool: ...
 
@@ -19,7 +19,7 @@ class _StatusResponse(Protocol):
     def message(self) -> str: ...
 
 
-_RespT = TypeVar("_RespT", bound=_StatusResponse)
+_RespT = TypeVar("_RespT", bound=StatusResponse)
 
 
 def call_checked(

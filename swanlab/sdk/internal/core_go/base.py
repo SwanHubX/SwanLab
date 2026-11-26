@@ -18,7 +18,7 @@ from swanlab.sdk.internal.pkg import fork, safe
 _StateT = TypeVar("_StateT", bound=Enum)
 
 
-class _CoreGoBase(Generic[_StateT]):
+class CoreGoBase(Generic[_StateT]):
     """封装 CoreGo / CoreSyncGo 共用的进程所有权、状态锁、错误归类与传输回收逻辑。"""
 
     _state_new: ClassVar[Any]

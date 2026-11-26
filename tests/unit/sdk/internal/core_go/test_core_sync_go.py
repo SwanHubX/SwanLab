@@ -21,7 +21,7 @@ from swanlab.proto.swanlab.operation.v1.operation_pb2 import OperationStats
 from swanlab.sdk.internal.core_go import CoreGoError, CoreSyncGo, ReasonCode, Stage
 from swanlab.sdk.internal.core_go import sync as sync_module
 from swanlab.sdk.internal.core_go.config import TEARDOWN_TIMEOUT
-from swanlab.sdk.internal.core_go.sync import _SyncState
+from swanlab.sdk.internal.core_go.sync import SyncState
 from swanlab.sdk.protocol import is_terminal_stats_error
 
 
@@ -137,7 +137,7 @@ def test_deliver_sync_start_without_binary_fails_and_closes():
     assert resp.success is False
     assert core.last_error is not None
     assert core.last_error.reason is ReasonCode.BINARY_NOT_FOUND
-    assert core._state is _SyncState.CLOSED  # noqa: SLF001
+    assert core._state is SyncState.CLOSED  # noqa: SLF001
 
 
 def test_full_owner_lifecycle_and_idempotent_close(patch_sync_dependencies, tmp_path: Path):
@@ -149,12 +149,12 @@ def test_full_owner_lifecycle_and_idempotent_close(patch_sync_dependencies, tmp_
     assert launchers[0].detach is False
     assert launchers[0].started is True
     assert core_rpcs[0].spinups == 1
-    assert core._state is _SyncState.STARTED  # noqa: SLF001
+    assert core._state is SyncState.STARTED  # noqa: SLF001
 
     flush_resp = core.deliver_sync_flush()
     assert flush_resp.success is True
     assert flush_resp.path == "/@u/p/s"
-    assert core._state is _SyncState.RUNNING  # noqa: SLF001
+    assert core._state is SyncState.RUNNING  # noqa: SLF001
 
     stats_resp = core.get_operation_stats()
     assert stats_resp.success is True
@@ -162,7 +162,7 @@ def test_full_owner_lifecycle_and_idempotent_close(patch_sync_dependencies, tmp_
 
     confirm_resp = core.confirm_sync_finish()
     assert confirm_resp.success is True
-    assert core._state is _SyncState.FINISHED  # noqa: SLF001
+    assert core._state is SyncState.FINISHED  # noqa: SLF001
 
     core.close()
     core.close()
@@ -172,7 +172,7 @@ def test_full_owner_lifecycle_and_idempotent_close(patch_sync_dependencies, tmp_
     assert launchers[0].closed == 1
     assert launchers[0].aborted == 0
     assert core.exit_code == 0
-    assert core._state is _SyncState.CLOSED  # noqa: SLF001
+    assert core._state is SyncState.CLOSED  # noqa: SLF001
     assert sync_rpcs[0].confirm_calls == 1
 
 
@@ -196,7 +196,7 @@ def test_deliver_sync_start_rejection_aborts_owner_process(patch_sync_dependenci
     assert core.last_error.reason is ReasonCode.RUN_START_REJECTED
     assert core_rpcs[0].teardowns == [TEARDOWN_TIMEOUT]
     assert launchers[0].aborted == 1
-    assert core._state is _SyncState.CLOSED  # noqa: SLF001
+    assert core._state is SyncState.CLOSED  # noqa: SLF001
 
 
 def test_deliver_sync_flush_failure_aborts_and_returns_failed_response(patch_sync_dependencies, tmp_path: Path):
@@ -218,7 +218,7 @@ def test_deliver_sync_flush_failure_aborts_and_returns_failed_response(patch_syn
     assert "401 unauthorized" in flush_resp.message
     assert core_rpcs[0].teardowns == [TEARDOWN_TIMEOUT]
     assert launchers[0].aborted == 1
-    assert core._state is _SyncState.CLOSED  # noqa: SLF001
+    assert core._state is SyncState.CLOSED  # noqa: SLF001
 
 
 def test_keyboard_interrupt_aborts_and_reraises(patch_sync_dependencies, tmp_path: Path):
@@ -234,7 +234,7 @@ def test_keyboard_interrupt_aborts_and_reraises(patch_sync_dependencies, tmp_pat
 
     assert core_rpcs[0].teardowns == [TEARDOWN_TIMEOUT]
     assert launchers[0].aborted == 1
-    assert core._state is _SyncState.CLOSED  # noqa: SLF001
+    assert core._state is SyncState.CLOSED  # noqa: SLF001
 
 
 def test_get_operation_stats_handles_prestart_and_transient_errors(patch_sync_dependencies, tmp_path: Path):
@@ -253,10 +253,10 @@ def test_get_operation_stats_handles_prestart_and_transient_errors(patch_sync_de
     assert err_stats.success is False
     assert "temporary blip" in err_stats.message
     # 进度查询失败不应中止 RUNNING 会话
-    assert core._state is _SyncState.RUNNING  # noqa: SLF001
+    assert core._state is SyncState.RUNNING  # noqa: SLF001
 
     # Confirm 过程中并发 stats 依然允许查询
-    core._state = _SyncState.FINISHING  # noqa: SLF001
+    core._state = SyncState.FINISHING  # noqa: SLF001
     sync_rpcs[0].stats_error = None
     assert core.get_operation_stats().success is True
 
@@ -273,7 +273,7 @@ def test_confirm_sync_finish_rpc_error_returns_failed_response(patch_sync_depend
 
     assert resp.success is False
     assert "Failed to finish run" in resp.message
-    assert core._state is _SyncState.FINISHED  # noqa: SLF001
+    assert core._state is SyncState.FINISHED  # noqa: SLF001
     core.close()
     assert core_rpcs[0].teardowns == [TEARDOWN_TIMEOUT]
     assert launchers[0].closed == 1

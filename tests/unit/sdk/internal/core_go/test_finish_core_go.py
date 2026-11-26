@@ -14,7 +14,7 @@ from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
     DeliverRunFinishResponse,
 )
 from swanlab.sdk.internal.core_go.config import TEARDOWN_TIMEOUT, CoreGoError, ReasonCode, Stage
-from swanlab.sdk.internal.core_go.core import CoreGo, _CoreState
+from swanlab.sdk.internal.core_go.core import CoreGo, CoreState
 from swanlab.sdk.internal.core_go.launcher import CoreLauncher
 from swanlab.sdk.internal.core_go.rpc import CoreServiceRpc
 
@@ -49,13 +49,13 @@ def _running_core(rpc: FakeFinishRpc) -> CoreGo:
     core = CoreGo("online")
     core._rpc = cast(CoreServiceRpc, rpc)  # noqa: SLF001 - 测试直接注入 fake RPC
     core._session_id = "session-1"  # noqa: SLF001
-    core._state = _CoreState.RUNNING  # noqa: SLF001
+    core._state = CoreState.RUNNING  # noqa: SLF001
     return core
 
 
 def _finished_core(rpc: FakeFinishRpc) -> CoreGo:
     core = _running_core(rpc)
-    core._state = _CoreState.FINISHED  # noqa: SLF001
+    core._state = CoreState.FINISHED  # noqa: SLF001
     return core
 
 
@@ -70,7 +70,7 @@ def test_deliver_finish_rpc_error_is_retryable_and_keeps_running_state():
     assert response.success is False
     assert core.last_error is error
     assert error.retryable is True
-    assert core._state is _CoreState.RUNNING  # noqa: SLF001
+    assert core._state is CoreState.RUNNING  # noqa: SLF001
 
 
 def test_deliver_finish_rejection_is_terminal():
@@ -130,7 +130,7 @@ def test_close_after_confirm_failure_tears_down():
 
     core.close()
 
-    assert core._state is _CoreState.CLOSED  # noqa: SLF001
+    assert core._state is CoreState.CLOSED  # noqa: SLF001
     assert rpc.teardown_calls == [TEARDOWN_TIMEOUT]
 
 

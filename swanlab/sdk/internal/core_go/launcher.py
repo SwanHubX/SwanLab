@@ -39,7 +39,7 @@ from swanlab.sdk.internal.pkg import fork
 __all__ = ["CoreLauncher"]
 
 
-class _LauncherState(str, Enum):
+class LauncherState(str, Enum):
     NEW = "new"
     STARTING = "starting"
     RUNNING = "running"
@@ -79,12 +79,12 @@ class CoreLauncher:
         self._exit_code: Optional[int] = None
         self._owns_process = False
         self._lock = threading.Lock()
-        self._state = _LauncherState.NEW
+        self._state = LauncherState.NEW
         self._owner_pid = fork.current_pid()
 
     @property
     def endpoint(self) -> Endpoint:
-        if self._state is _LauncherState.CLOSED:
+        if self._state is LauncherState.CLOSED:
             raise CoreGoError(Stage.LIFECYCLE, ReasonCode.CLOSED, "core launcher is closed")
         if self._endpoint is None:
             raise CoreGoError(Stage.LIFECYCLE, ReasonCode.NOT_STARTED, "core launcher has not started")
@@ -92,7 +92,7 @@ class CoreLauncher:
 
     @property
     def channel(self) -> Channel:
-        if self._state is _LauncherState.CLOSED:
+        if self._state is LauncherState.CLOSED:
             raise CoreGoError(Stage.LIFECYCLE, ReasonCode.CLOSED, "core launcher is closed")
         if self._channel is None:
             raise CoreGoError(Stage.LIFECYCLE, ReasonCode.NOT_STARTED, "core launcher has not started")
@@ -131,13 +131,13 @@ class CoreLauncher:
             )
 
         with self._lock:
-            if self._state is _LauncherState.RUNNING:
+            if self._state is LauncherState.RUNNING:
                 assert self._endpoint is not None
                 return self._endpoint
-            if self._state is _LauncherState.CLOSED:
+            if self._state is LauncherState.CLOSED:
                 raise CoreGoError(Stage.LIFECYCLE, ReasonCode.CLOSED, "core launcher is closed")
 
-            self._state = _LauncherState.STARTING
+            self._state = LauncherState.STARTING
             try:
                 validate_core_binary(self._binary)
                 lease = (
@@ -156,7 +156,7 @@ class CoreLauncher:
                 self._cleanup_locked()
                 raise
 
-            self._state = _LauncherState.RUNNING
+            self._state = LauncherState.RUNNING
             assert self._endpoint is not None
             return self._endpoint
 
@@ -233,13 +233,13 @@ class CoreLauncher:
         if not self._owned_by_current_process():
             return
         with self._lock:
-            if self._state is _LauncherState.CLOSED:
+            if self._state is LauncherState.CLOSED:
                 return
             self._cleanup_locked()
 
     def _cleanup_locked(self) -> None:
         """调用方必须持有 self._lock；所有回收动作都不允许覆盖原始异常。"""
-        startup_failed = self._state is _LauncherState.STARTING
+        startup_failed = self._state is LauncherState.STARTING
         channel = self._channel
         proc = self._proc
         lease = self._lease
@@ -250,7 +250,7 @@ class CoreLauncher:
         self._lease = None
         self._endpoint = None
         self._owns_process = False
-        self._state = _LauncherState.CLOSED
+        self._state = LauncherState.CLOSED
 
         if channel is not None:
             channel.close()

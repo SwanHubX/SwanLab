@@ -28,7 +28,7 @@ from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import HistogramRecord, ScalarRecord
 from swanlab.sdk.internal.core_go import core as core_module
 from swanlab.sdk.internal.core_go.config import TEARDOWN_TIMEOUT, CoreGoError, ReasonCode, Stage
-from swanlab.sdk.internal.core_go.core import CoreGo, _CoreState, _DetachedCoreGo
+from swanlab.sdk.internal.core_go.core import CoreGo, CoreState, DetachedCoreGo
 from swanlab.sdk.internal.core_go.rpc import CoreServiceRpc
 from swanlab.sdk.internal.pkg import console as pkg_console
 from swanlab.sdk.protocol import CoreProtocol, CoreProtocolError, NullCoreProtocol, is_terminal_stats_error
@@ -61,7 +61,7 @@ def _running_core(rpc: FakeRpc) -> CoreGo:
     core = CoreGo("online")
     core._rpc = cast(CoreServiceRpc, rpc)  # noqa: SLF001 - 测试直接注入 fake RPC
     core._session_id = "session-1"  # noqa: SLF001
-    core._state = _CoreState.RUNNING  # noqa: SLF001
+    core._state = CoreState.RUNNING  # noqa: SLF001
     return core
 
 
@@ -135,7 +135,7 @@ def test_upsert_before_start_is_terminal_and_skips_rpc():
 def test_upsert_after_close_is_terminal():
     rpc = FakeRpc()
     core = _running_core(rpc)
-    core._state = _CoreState.CLOSED  # noqa: SLF001
+    core._state = CoreState.CLOSED  # noqa: SLF001
 
     with pytest.raises(CoreGoError) as caught:
         core.upsert_scalars([ScalarRecord(key="loss", step=1)])
@@ -210,17 +210,17 @@ def test_close_before_start_is_idempotent():
     core.close()
     core.close()
 
-    assert core._state is _CoreState.CLOSED  # noqa: SLF001
+    assert core._state is CoreState.CLOSED  # noqa: SLF001
 
 
 def test_close_after_finish_tears_down_and_releases_rpc():
     rpc = FakeRpc()
     core = _running_core(rpc)
-    core._state = _CoreState.FINISHED  # noqa: SLF001
+    core._state = CoreState.FINISHED  # noqa: SLF001
 
     core.close()
 
-    assert core._state is _CoreState.CLOSED  # noqa: SLF001
+    assert core._state is CoreState.CLOSED  # noqa: SLF001
     assert core._rpc is None  # noqa: SLF001
     assert rpc.teardown_calls == [TEARDOWN_TIMEOUT]
 
@@ -231,7 +231,7 @@ def test_fork_returns_detached_placeholder(tmp_path):
 
     detached = core.fork()
 
-    assert isinstance(detached, _DetachedCoreGo)
+    assert isinstance(detached, DetachedCoreGo)
     assert detached is not core
     assert detached.fork() is detached
     assert detached._binary == binary  # noqa: SLF001
@@ -340,7 +340,7 @@ def test_owned_core_process_exit_keeps_terminal_error_semantics():
     assert "process exited" not in caught.value.message
 
 
-@pytest.mark.parametrize("action, initial_state", [("close", _CoreState.FINISHED), ("abort", _CoreState.RUNNING)])
+@pytest.mark.parametrize("action, initial_state", [("close", CoreState.FINISHED), ("abort", CoreState.RUNNING)])
 def test_detached_mode_close_and_abort_skip_teardown_and_are_idempotent(action, initial_state):
     rpc = FakeRpc()
     core = _running_core(rpc)
@@ -362,7 +362,7 @@ def test_detached_mode_close_and_abort_skip_teardown_and_are_idempotent(action, 
 
     assert rpc.teardown_calls == []
     assert core.exit_code is None
-    assert core._state is _CoreState.CLOSED  # noqa: SLF001
+    assert core._state is CoreState.CLOSED  # noqa: SLF001
 
 
 def test_owner_mode_abort_sends_teardown():
@@ -372,7 +372,7 @@ def test_owner_mode_abort_sends_teardown():
     core.abort(RuntimeError("boom"))
 
     assert rpc.teardown_calls == [TEARDOWN_TIMEOUT]
-    assert core._state is _CoreState.CLOSED  # noqa: SLF001
+    assert core._state is CoreState.CLOSED  # noqa: SLF001
 
 
 def test_unowned_launcher_skips_teardown_on_close_even_when_detach_false():
@@ -386,7 +386,7 @@ def test_unowned_launcher_skips_teardown_on_close_even_when_detach_false():
 
     assert rpc.teardown_calls == []
     assert launcher.closed == 1
-    assert core._state is _CoreState.CLOSED  # noqa: SLF001
+    assert core._state is CoreState.CLOSED  # noqa: SLF001
 
 
 @pytest.mark.parametrize("first_mode", ["detached", "owner"])
@@ -636,7 +636,7 @@ def test_confirm_run_finish_clears_stale_last_error():
     stale = CoreGoError(Stage.RPC, ReasonCode.DEADLINE_EXCEEDED, "stats timeout")
     rpc_fail = ConfirmRpc(ConfirmRunFinishResponse(success=False, message="attach failed"))
     core = _running_core(rpc_fail)
-    core._state = _CoreState.FINISHED  # noqa: SLF001
+    core._state = CoreState.FINISHED  # noqa: SLF001
     core._last_error = stale  # noqa: SLF001
     sleeps: List[float] = []
     resp = retry_finish_call(cast(CoreProtocol, core), core.confirm_run_finish, sleep=sleeps.append)
@@ -649,7 +649,7 @@ def test_confirm_run_finish_clears_stale_last_error():
     # 2. confirm 成功也必须清零遗留错误
     rpc_ok = ConfirmRpc(ConfirmRunFinishResponse(success=True, message="OK"))
     core_ok = _running_core(rpc_ok)
-    core_ok._state = _CoreState.FINISHED  # noqa: SLF001
+    core_ok._state = CoreState.FINISHED  # noqa: SLF001
     core_ok._last_error = stale  # noqa: SLF001
     resp_ok = core_ok.confirm_run_finish()
     assert resp_ok.success is True
@@ -659,7 +659,7 @@ def test_confirm_run_finish_clears_stale_last_error():
     fresh = CoreGoError(Stage.RPC, ReasonCode.GRPC_UNAVAILABLE, "transient confirm")
     rpc_err = ConfirmRpc(ConfirmRunFinishResponse(success=True), err=fresh)
     core_err = _running_core(rpc_err)
-    core_err._state = _CoreState.FINISHED  # noqa: SLF001
+    core_err._state = CoreState.FINISHED  # noqa: SLF001
     core_err._last_error = stale  # noqa: SLF001
     resp_err = core_err.confirm_run_finish()
     assert resp_err.success is False
