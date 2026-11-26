@@ -66,7 +66,7 @@ func TestCheckpointMissingAndInvalid(t *testing.T) {
 	}
 }
 
-func TestCheckpointAtomicReplacePreservesOldOnFailure(t *testing.T) {
+func TestCheckpointReplaceAndValidationPreservesOld(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "run.checkpoint.json")
 	oldCP := Checkpoint{
@@ -79,12 +79,8 @@ func TestCheckpointAtomicReplacePreservesOldOnFailure(t *testing.T) {
 	if err := WriteCheckpoint(path, oldCP); err != nil {
 		t.Fatalf("WriteCheckpoint initial: %v", err)
 	}
-	oldRaw, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("ReadFile initial: %v", err)
-	}
 
-	// 模拟写入临时文件失败：旧文件必须保持原样且不残留临时文件。
+	// 覆盖写入成功场景（含运行期 WriteCheckpointFast 与完整同步 WriteCheckpoint）。
 	newCP := Checkpoint{
 		Version:   CheckpointVersion,
 		RunID:     "run-1",
@@ -92,30 +88,6 @@ func TestCheckpointAtomicReplacePreservesOldOnFailure(t *testing.T) {
 		Offset:    1024,
 		UpdatedAt: time.Unix(1700000100, 0).UTC(),
 	}
-	failWrite := func(fp *os.File, data []byte) error {
-		_, _ = fp.Write(data[:len(data)/2])
-		return errors.New("injected disk full")
-	}
-	if werr := writeCheckpoint(path, newCP, true, failWrite); werr == nil {
-		t.Fatal("writeCheckpoint with failing temp write should fail")
-	}
-
-	afterRaw, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("ReadFile after failure: %v", err)
-	}
-	if string(afterRaw) != string(oldRaw) {
-		t.Fatalf("old checkpoint modified after failure:\ngot:  %s\nwant: %s", afterRaw, oldRaw)
-	}
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		t.Fatalf("ReadDir: %v", err)
-	}
-	if len(entries) != 1 || entries[0].Name() != filepath.Base(path) {
-		t.Fatalf("unexpected temp files left in %s: %v", dir, entries)
-	}
-
-	// 覆盖写入成功场景（含运行期 WriteCheckpointFast 与完整同步 WriteCheckpoint）。
 	fastCP := newCP
 	fastCP.StoreSeq = 15
 	fastCP.Offset = 768

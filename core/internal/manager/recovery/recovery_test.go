@@ -2,6 +2,7 @@ package recovery
 
 import (
 	"context"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -101,4 +102,61 @@ func TestPumpDrainPollsUntilEmptyOrTimeout(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
 	defer cancel()
 	New(Options{Source: stuck, PollInterval: 5 * time.Millisecond}).Drain(ctx)
+}
+
+func TestPumpStopBeforeStartAndConcurrentLifecycle(t *testing.T) {
+	// Stop -> Start -> Stop：先 Stop 后，再 Start 不得执行 DrainRecovery。
+	for range 16 {
+		src := &fakeSource{}
+		var degraded atomic.Bool
+		degraded.Store(true)
+		p := New(Options{
+			Source:   src,
+			Degraded: &degraded,
+			Interval: 2 * time.Millisecond,
+		})
+		p.Stop()
+		p.Start()
+		p.Stop()
+		p.Stop()
+		if got := p.lifecycle.Load(); got != lifecycleStopped {
+			t.Fatalf("lifecycle = %d after Stop -> Start, want lifecycleStopped (%d)", got, lifecycleStopped)
+		}
+		if got := src.calls.Load(); got != 0 {
+			t.Fatalf("DrainRecovery calls = %d after Stop -> Start, want 0", got)
+		}
+	}
+
+	// 并发 Start / Stop 在超时预算内稳定退出，且未启用 Pump 安全空调用。
+	for range 24 {
+		src := &fakeSource{}
+		var degraded atomic.Bool
+		p := New(Options{
+			Source:   src,
+			Degraded: &degraded,
+			Interval: 2 * time.Millisecond,
+		})
+		var wg sync.WaitGroup
+		wg.Add(4)
+		go func() { defer wg.Done(); p.Start() }()
+		go func() { defer wg.Done(); p.Start() }()
+		go func() { defer wg.Done(); p.Stop() }()
+		go func() { defer wg.Done(); p.Stop() }()
+
+		done := make(chan struct{})
+		go func() {
+			wg.Wait()
+			close(done)
+		}()
+		select {
+		case <-done:
+		case <-time.After(2 * time.Second):
+			t.Fatal("concurrent Pump Start/Stop timed out")
+		}
+		p.Stop()
+	}
+
+	disabled := New(Options{})
+	disabled.Start()
+	disabled.Stop()
 }

@@ -1981,3 +1981,7 @@ func TestRecoverOnlinePermanentAttachFailureDegradedStoreMessage(t *testing.T) {
 		t.Fatalf("Confirm message = %q, want incomplete without saved locally", res.Message)
 	}
 }
+
+func (s *Session) hasPendingLog() bool {
+	return s.crashLog() != nil
+}

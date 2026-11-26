@@ -19,7 +19,6 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/manager/resume"
 	"github.com/swanhubx/swanlab/core/internal/metrics"
 	"github.com/swanhubx/swanlab/core/internal/pkg/console"
-	"github.com/swanhubx/swanlab/core/internal/pkg/record"
 	"github.com/swanhubx/swanlab/core/internal/pkg/watcher"
 	"github.com/swanhubx/swanlab/core/internal/store"
 	"github.com/swanhubx/swanlab/core/internal/uploader"
@@ -57,26 +56,15 @@ func (s *Session) buildCloudResources(params cloudAttachParams) (*cloudResources
 			Putter:    params.http,
 		},
 	}
-	mediaSender, err := sender.NewMedia(senderOpts)
+	senders, err := sender.NewAll(senderOpts)
 	if err != nil {
-		return nil, fmt.Errorf("create media sender: %w", err)
-	}
-	saveSender, err := sender.NewSave(senderOpts)
-	if err != nil {
-		return nil, fmt.Errorf("create save sender: %w", err)
+		return nil, err
 	}
 
 	up, err := uploader.New(uploader.Options{
-		In:     s.intake.UploadOut(),
-		Budget: s.budget,
-		Senders: map[record.Type]uploader.Sender{
-			record.TypeColumn:    sender.NewColumn(senderOpts),
-			record.TypeScalar:    sender.NewScalar(senderOpts),
-			record.TypeLog:       sender.NewLog(senderOpts),
-			record.TypeMedia:     mediaSender,
-			record.TypeHistogram: sender.NewHistogram(senderOpts),
-			record.TypeSave:      saveSender,
-		},
+		In:                 s.intake.UploadOut(),
+		Budget:             s.budget,
+		Senders:            senders,
 		Batch:              int(s.cfg.RecordBatch),
 		Interval:           s.cfg.RecordIntervalDuration(),
 		Tracker:            s.tracker,

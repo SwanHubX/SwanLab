@@ -564,9 +564,12 @@ func TestAttachDoesNotStartBackfillAfterDraining(t *testing.T) {
 	if !s.hasCloudResources() {
 		t.Fatal("session should attach cloud resources while draining")
 	}
-	// 验证 s.backfill 从未启动过（stop channel 仍为 nil）。
+	// 验证 s.backfill 已装配但从未启动过后台协程。
 	if s.backfill == nil {
 		t.Fatal("backfill worker should have been created")
+	}
+	if s.backfill.Started() {
+		t.Fatal("backfill worker must not have started while draining")
 	}
 }
 

@@ -14,6 +14,7 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/api"
 	"github.com/swanhubx/swanlab/core/internal/client"
 	"github.com/swanhubx/swanlab/core/internal/clienttest"
+	"github.com/swanhubx/swanlab/core/internal/pkg/record"
 	columnv1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/column/v1"
 	datav1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/data/v1"
 	recordv1 "github.com/swanhubx/swanlab/core/proto/swanlab/record/v1"
@@ -483,5 +484,66 @@ func TestLogRetryableKeepsEncodable(t *testing.T) {
 	result := sender.Upload(context.Background(), records)
 	if len(result.Confirmed) != 0 || len(result.Remaining) != 1 || len(result.Failures) != 1 {
 		t.Fatalf("result = confirmed %d remaining %d failures %d", len(result.Confirmed), len(result.Remaining), len(result.Failures))
+	}
+}
+
+func TestNewAll(t *testing.T) {
+	cloud := clienttest.NewCloud(t)
+	cloud.ServeJSON(http.MethodGet, verifyPath, http.StatusOK, map[string]any{
+		"uid":       42,
+		"username":  "alice",
+		"createdAt": "2026-01-01T00:00:00.000Z",
+	})
+	transport, err := client.New(context.Background(), cloud.URL(), "smoke-key", client.Options{})
+	if err != nil {
+		t.Fatalf("create client: %v", err)
+	}
+	opts := Options{
+		API:          api.New(transport),
+		Username:     "alice",
+		Project:      "demo",
+		ProjectID:    "proj-1",
+		ExperimentID: "exp-1",
+		Files: FileOptions{
+			MediaDir:  t.TempDir(),
+			FilesDir:  t.TempDir(),
+			SaveSize:  1024,
+			SaveSplit: 512,
+			SavePart:  256,
+			SaveBatch: 4,
+			Putter:    transport,
+		},
+	}
+
+	senders, err := NewAll(opts)
+	if err != nil {
+		t.Fatalf("NewAll: %v", err)
+	}
+	wantTypes := []record.Type{
+		record.TypeColumn,
+		record.TypeScalar,
+		record.TypeLog,
+		record.TypeMedia,
+		record.TypeHistogram,
+		record.TypeSave,
+	}
+	if len(senders) != len(wantTypes) {
+		t.Fatalf("len(senders) = %d, want %d", len(senders), len(wantTypes))
+	}
+	for _, typ := range wantTypes {
+		if _, ok := senders[typ]; !ok || senders[typ] == nil {
+			t.Fatalf("missing sender for %v", typ)
+		}
+	}
+
+	missingPutter := opts
+	missingPutter.Files.Putter = nil
+	if _, err := NewAll(missingPutter); err == nil {
+		t.Fatal("NewAll must fail when Files.Putter is nil")
+	}
+	missingAPI := opts
+	missingAPI.API = nil
+	if _, err := NewAll(missingAPI); err == nil {
+		t.Fatal("NewAll must fail when API is nil")
 	}
 }

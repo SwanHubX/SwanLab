@@ -681,7 +681,7 @@ func TestPauseAndResume(t *testing.T) {
 	// 模拟上传确认后归还配额，再恢复投递。
 	records, bytes := b.Usage()
 	b.Release(records, bytes)
-	in.ResumeUpload()
+	resumeUploadForTest(in)
 	if paused, seq := in.PauseState(); paused || seq != 0 {
 		t.Fatalf("PauseState after resume = (%v, %d), want (false, 0)", paused, seq)
 	}
@@ -718,7 +718,7 @@ func TestPausedTicketAfterResumeStartsNewInterval(t *testing.T) {
 	tk := mustReserve(t, in, second...)
 	// 回填完成并恢复投递，旧票据随后才提交：必须开启新的回填区间，
 	// 不能既不投递又不记录 pauseSeq。
-	in.ResumeUpload()
+	resumeUploadForTest(in)
 	if err := in.Commit(tk, second); err != nil {
 		t.Fatalf("Commit after resume: %v", err)
 	}
@@ -735,7 +735,7 @@ func TestPausedTicketAfterResumeStartsNewInterval(t *testing.T) {
 	// 模拟第二次回填完成后恢复，新记录应正常上传。
 	records, bytes := b.Usage()
 	b.Release(records, bytes)
-	in.ResumeUpload()
+	resumeUploadForTest(in)
 	third := []*recordv1.Record{scalarRecord(3)}
 	mustCommit(t, in, third...)
 	if got := len(drainUpload(in)); got != 1 {
@@ -1239,7 +1239,7 @@ func TestPausedRecordsRecoverAfterStoreFailure(t *testing.T) {
 	if err = w.Close(); err != nil {
 		t.Fatalf("close writer: %v", err)
 	}
-	_ = aw.FlushForTest()
+	_ = aw.Flush(context.Background())
 	deadline := time.After(time.Second)
 	for !degraded.Load() {
 		select {
@@ -1953,4 +1953,10 @@ func TestCommitReleasesLockOnCallbackPanic(t *testing.T) {
 		t.Fatalf("Close: %v", err)
 	}
 	sink.stop()
+}
+
+func resumeUploadForTest(in *Intake) {
+	in.mu.Lock()
+	in.pauseSeq = 0
+	in.mu.Unlock()
 }

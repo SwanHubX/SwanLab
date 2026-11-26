@@ -16,24 +16,12 @@ func TestCounterBasics(t *testing.T) {
 	if got := c.Inc(); got != 2 {
 		t.Fatalf("Inc() = %d, want 2", got)
 	}
-	if got := c.IncBy(10); got != 12 {
-		t.Fatalf("IncBy(10) = %d, want 12", got)
-	}
-	if got := c.Dec(); got != 11 {
-		t.Fatalf("Dec() = %d, want 11", got)
-	}
-	if got := c.DecBy(5); got != 6 {
-		t.Fatalf("DecBy(5) = %d, want 6", got)
+	if got := c.Dec(); got != 1 {
+		t.Fatalf("Dec() = %d, want 1", got)
 	}
 	c.Reset(100)
 	if got := c.Value(); got != 100 {
 		t.Fatalf("after Reset(100), Value() = %d, want 100", got)
-	}
-	if got := c.GetAndReset(-1); got != 100 {
-		t.Fatalf("GetAndReset() = %d, want 100", got)
-	}
-	if got := c.Value(); got != -1 {
-		t.Fatalf("after GetAndReset(-1), Value() = %d, want -1", got)
 	}
 }
 

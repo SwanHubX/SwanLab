@@ -5,6 +5,7 @@ import (
 	"context"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/swanhubx/swanlab/core/internal/pkg/console"
@@ -18,6 +19,10 @@ const (
 	defaultMinInterval = 2 * time.Second
 	// nfsBackoffFactor 在单次写盘较慢时按耗时倍数拉长下次写入间隔，减轻 NFS 等慢盘负担。
 	nfsBackoffFactor = 4
+
+	lifecycleIdle    int32 = 0
+	lifecycleStarted int32 = 1
+	lifecycleStopped int32 = 2
 )
 
 // Store 抽象断点写入所需的本地落盘水位查询能力（生产环境由 *store.AsyncWriter 实现）。
@@ -56,7 +61,7 @@ type Writer struct {
 	write       func(path string, cp store.Checkpoint, durable bool) error
 
 	notify    chan struct{}
-	startOnce sync.Once
+	lifecycle atomic.Int32
 	stopOnce  sync.Once
 	stop      chan struct{}
 	done      chan struct{}
@@ -104,6 +109,8 @@ func New(opts Options) *Writer {
 		onTick:      opts.OnTick,
 		write:       write,
 		notify:      make(chan struct{}, 1),
+		stop:        make(chan struct{}),
+		done:        make(chan struct{}),
 		lastSeq:     opts.InitialSeq,
 		hasWrite:    opts.InitialWritten,
 		lastSynced:  opts.InitialWritten,
@@ -125,20 +132,19 @@ func (w *Writer) Notify() {
 	}
 }
 
-// Start 启动运行期断点持久化后台协程；未启用时安全跳过。
+// Start 启动运行期断点持久化后台协程；未启用或已停止时安全跳过。
 func (w *Writer) Start() {
 	if !w.enabled() {
 		return
 	}
-	w.startOnce.Do(func() {
-		var ctxDone <-chan struct{}
-		if w.ctx != nil {
-			ctxDone = w.ctx.Done()
-		}
-		w.stop = make(chan struct{})
-		w.done = make(chan struct{})
-		go w.loop(ctxDone)
-	})
+	if !w.lifecycle.CompareAndSwap(lifecycleIdle, lifecycleStarted) {
+		return
+	}
+	var ctxDone <-chan struct{}
+	if w.ctx != nil {
+		ctxDone = w.ctx.Done()
+	}
+	go w.loop(ctxDone)
 }
 
 func (w *Writer) loop(ctxDone <-chan struct{}) {
@@ -202,22 +208,21 @@ func (w *Writer) runFast(prev time.Time) time.Time {
 
 // Stop 停止断点协程并等待其退出；未启动或已停止时可重复安全调用。
 func (w *Writer) Stop() {
-	if w == nil || w.stop == nil {
+	if w == nil {
 		return
 	}
+	stoppedBeforeStart := w.lifecycle.CompareAndSwap(lifecycleIdle, lifecycleStopped)
 	w.stopOnce.Do(func() {
 		close(w.stop)
 	})
+	if stoppedBeforeStart || w.lifecycle.Load() != lifecycleStarted {
+		return
+	}
 	<-w.done
 }
 
 // Flush 在停机或排空完成后执行带 fsync 的最终断点写入。
 func (w *Writer) Flush() {
-	w.persist(true)
-}
-
-// Persist 同步写入当前已确认且已落盘的进度 min(Watermark(), flushedSeq)；写入失败仅告警一次并留待重试。
-func (w *Writer) Persist() {
 	w.persist(true)
 }
 

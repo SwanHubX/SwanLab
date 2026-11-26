@@ -1,6 +1,8 @@
 package fs
 
 import (
+	"errors"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -142,5 +144,45 @@ func TestWindowsBase(t *testing.T) {
 		if got := WindowsBase(tc.in); got != tc.want {
 			t.Fatalf("WindowsBase(%q) = %q, want %q", tc.in, got, tc.want)
 		}
+	}
+}
+
+func TestWriteAtomic(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "state.json")
+
+	if err := WriteAtomic(path, []byte("v1"), 0o600, false); err != nil {
+		t.Fatalf("WriteAtomic v1: %v", err)
+	}
+	got, err := os.ReadFile(path)
+	if err != nil || string(got) != "v1" {
+		t.Fatalf("ReadFile v1 = (%q, %v), want v1", got, err)
+	}
+
+	if err = WriteAtomic(path, []byte("v2"), 0o644, true); err != nil {
+		t.Fatalf("WriteAtomic v2: %v", err)
+	}
+	got, err = os.ReadFile(path)
+	if err != nil || string(got) != "v2" {
+		t.Fatalf("ReadFile v2 = (%q, %v), want v2", got, err)
+	}
+
+	failWrite := func(fp *os.File, data []byte) error {
+		_, _ = fp.Write(data[:len(data)/2])
+		return errors.New("injected write failure")
+	}
+	if err = writeAtomic(path, []byte("v3-partial"), 0o644, true, failWrite); err == nil {
+		t.Fatal("writeAtomic with failing writer must return error")
+	}
+	after, err := os.ReadFile(path)
+	if err != nil || string(after) != "v2" {
+		t.Fatalf("existing file altered after failure: (%q, %v), want v2", after, err)
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("ReadDir: %v", err)
+	}
+	if len(entries) != 1 || entries[0].Name() != "state.json" {
+		t.Fatalf("unexpected temp files left in %s: %v", dir, entries)
 	}
 }

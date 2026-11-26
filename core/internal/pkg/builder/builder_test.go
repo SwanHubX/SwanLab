@@ -224,29 +224,6 @@ func TestIsSystemKey(t *testing.T) {
 	}
 }
 
-func TestMediumName(t *testing.T) {
-	tests := []struct {
-		typ  columnv1.ColumnType
-		want string
-	}{
-		{columnv1.ColumnType_COLUMN_TYPE_TEXT, "text"},
-		{columnv1.ColumnType_COLUMN_TYPE_IMAGE, "image"},
-		{columnv1.ColumnType_COLUMN_TYPE_AUDIO, "audio"},
-		{columnv1.ColumnType_COLUMN_TYPE_VIDEO, "video"},
-		{columnv1.ColumnType_COLUMN_TYPE_ECHARTS, "echarts"},
-		{columnv1.ColumnType_COLUMN_TYPE_OBJECT3D, "object3d"},
-		{columnv1.ColumnType_COLUMN_TYPE_MOLECULE, "molecule"},
-		{columnv1.ColumnType_COLUMN_TYPE_HTML, "html"},
-		{columnv1.ColumnType_COLUMN_TYPE_UNSPECIFIED, "unknown"},
-		{columnv1.ColumnType_COLUMN_TYPE_SCALAR, "unknown"},
-	}
-	for _, tc := range tests {
-		if got := MediumName(tc.typ); got != tc.want {
-			t.Fatalf("MediumName(%v) = %q, want %q", tc.typ, got, tc.want)
-		}
-	}
-}
-
 func TestGenerateNameAndColor(t *testing.T) {
 	names := map[int]string{
 		0:   "quick-swan-0",

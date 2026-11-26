@@ -8,7 +8,6 @@ package budget
 import (
 	"context"
 	"errors"
-	"math"
 	"sync"
 )
 
@@ -20,9 +19,6 @@ type Limits struct {
 	Records int64
 	Bytes   int64
 }
-
-// Unlimited 报告两个维度是否都不限制。
-func (l Limits) Unlimited() bool { return l.Records <= 0 && l.Bytes <= 0 }
 
 // Budget 是并发安全的容量账本。零值不可用，应由 New 构造。
 type Budget struct {
@@ -124,29 +120,6 @@ func (b *Budget) Adjust(records, bytes int64) {
 	if records < 0 || bytes < 0 {
 		b.wakeLocked()
 	}
-}
-
-// Full 报告任一有限维度是否已经用满。
-func (b *Budget) Full() bool {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	return b.limits.Records > 0 && b.usedRecords >= b.limits.Records ||
-		b.limits.Bytes > 0 && b.usedBytes >= b.limits.Bytes
-}
-
-// Ratio 返回占用率：条数与字节取较大值，无限维度不参与计算。
-// 两个维度都不限制时返回 0；经 Adjust 后可能短暂大于 1。
-func (b *Budget) Ratio() float64 {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	var ratio float64
-	if b.limits.Records > 0 {
-		ratio = math.Max(ratio, float64(b.usedRecords)/float64(b.limits.Records))
-	}
-	if b.limits.Bytes > 0 {
-		ratio = math.Max(ratio, float64(b.usedBytes)/float64(b.limits.Bytes))
-	}
-	return ratio
 }
 
 // wakeLocked 唤醒所有等待者；调用方需持有 mu。

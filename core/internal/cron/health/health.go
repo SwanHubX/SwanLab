@@ -14,8 +14,6 @@ const (
 	StateNormal State = iota
 	// StateDegraded 表示至少一个服务连续不可达，或写入侧连续失败。
 	StateDegraded
-	// StateBackfill 预留，当前不会产生。
-	StateBackfill
 )
 
 func (s State) String() string {
@@ -24,8 +22,6 @@ func (s State) String() string {
 		return "NORMAL"
 	case StateDegraded:
 		return "DEGRADED"
-	case StateBackfill:
-		return "BACKFILL"
 	default:
 		return "UNKNOWN"
 	}

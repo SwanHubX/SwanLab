@@ -28,7 +28,7 @@ class ProbePython(ProbeProtocol):
         self._core: Optional[CoreProtocol] = core
         # self._monitor is not None 作为硬件监控是否开启的标记
         self._monitor: Optional[Monitor] = None
-        self._metadta_snapshot: Optional[MetadataSnapshot] = None
+        self._metadata_snapshot: Optional[MetadataSnapshot] = None
 
     def _start_when_enabled(self, start_request: DeliverProbeStartRequest):
         """
@@ -75,7 +75,7 @@ class ProbePython(ProbeProtocol):
             runtime=runtime_snapshot,
             swanlab=swanlab_snapshot,
         )
-        self._metadta_snapshot = metadata
+        self._metadata_snapshot = metadata
         system_shim = SystemShim.from_snapshot(metadata, platform=sys.platform)
         # 如果硬采集被设置为False，删除硬件信息
         if not ctx.config.hardware:
@@ -139,9 +139,9 @@ class ProbePython(ProbeProtocol):
             )
 
     def _get_metadata_snapshot_when_enabled(self) -> GetMetadataSnapshotResponse:
-        if self._metadta_snapshot is None:
+        if self._metadata_snapshot is None:
             return GetMetadataSnapshotResponse(success=False, message="Metadata snapshot is not available.")
-        return GetMetadataSnapshotResponse(success=True, metadata=self._metadta_snapshot.to_proto())
+        return GetMetadataSnapshotResponse(success=True, metadata=self._metadata_snapshot.to_proto())
 
     def _finish_when_enabled(self):
         if self._monitor is not None:

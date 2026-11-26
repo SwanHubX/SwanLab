@@ -10,9 +10,7 @@ package service
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
-	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -33,8 +31,6 @@ import (
 	settingsv1 "github.com/swanhubx/swanlab/core/proto/swanlab/settings/core/v1"
 	terminalv1 "github.com/swanhubx/swanlab/core/proto/swanlab/terminal/v1"
 )
-
-const defaultDisconnectGrace = 30 * time.Second
 
 // RunManager 是 service 依赖的会话编排接口，由 manager.Manager 实现；
 // gRPC 单测可注入 Fake，避免每个 RPC 用例都依赖真实云端。
@@ -61,28 +57,21 @@ type CoreService struct {
 	lifecycle  *server.Lifecycle
 	runs       RunManager
 
-	connMu         sync.Mutex
-	byConn         map[uint64]map[string]struct{}
-	bySession      map[string]uint64
-	cleanupsClosed bool
-	cleanupGrace   time.Duration
-	cleanupCtx     context.Context
-	cancelCleanups context.CancelFunc
-	cleanupWG      sync.WaitGroup
+	connMu    sync.Mutex
+	byConn    map[uint64]map[string]struct{}
+	bySession map[string]uint64
+	cleanups  *disconnectPool
 }
 
 // NewCoreService 创建 gRPC 接入服务实例，关联服务生命周期控制器与 Run 会话管理器。
 func NewCoreService(controller *server.Controller, runManager RunManager) *CoreService {
-	cleanupCtx, cancelCleanups := context.WithCancel(context.Background())
 	return &CoreService{
-		controller:     controller,
-		lifecycle:      controller.Lifecycle(),
-		runs:           runManager,
-		byConn:         make(map[uint64]map[string]struct{}),
-		bySession:      make(map[string]uint64),
-		cleanupGrace:   defaultDisconnectGrace,
-		cleanupCtx:     cleanupCtx,
-		cancelCleanups: cancelCleanups,
+		controller: controller,
+		lifecycle:  controller.Lifecycle(),
+		runs:       runManager,
+		byConn:     make(map[uint64]map[string]struct{}),
+		bySession:  make(map[string]uint64),
+		cleanups:   newDisconnectPool(defaultDisconnectGrace),
 	}
 }
 
@@ -175,11 +164,6 @@ func settingsFromProto(in *settingsv1.CoreSettings) (config.Settings, error) {
 		if settings.APIKey == "" {
 			return config.Settings{}, errors.New("api_key must not be empty")
 		}
-	}
-	if settings.SaveSize <= 0 || settings.SaveSplit <= 0 || settings.SaveBatch <= 0 {
-		return config.Settings{}, fmt.Errorf(
-			"save_size (%d), save_split (%d) and save_batch (%d) must be positive",
-			settings.SaveSize, settings.SaveSplit, settings.SaveBatch)
 	}
 	if err := settings.Validate(); err != nil {
 		return config.Settings{}, err
@@ -458,7 +442,7 @@ func (s *CoreService) bindSession(ctx context.Context, sessionID string) bool {
 	}
 	s.connMu.Lock()
 	defer s.connMu.Unlock()
-	if s.cleanupsClosed || server.IsConnClosed(ctx) {
+	if s.cleanups.isClosed() || server.IsConnClosed(ctx) {
 		return false
 	}
 	sessions := s.byConn[connID]
@@ -510,67 +494,25 @@ func (s *CoreService) HandleConnDisconnect(connID uint64) {
 		delete(s.bySession, sid)
 	}
 	delete(s.byConn, connID)
-	if s.cleanupsClosed {
-		s.connMu.Unlock()
-		return
-	}
-	s.cleanupWG.Add(1)
 	s.connMu.Unlock()
 
-	s.spawnCleanup(sessions)
+	s.cleanupDisconnectedSessions(sessions)
 }
 
 func (s *CoreService) cleanupDisconnectedSessions(sessions []string) {
 	if len(sessions) == 0 {
 		return
 	}
-	s.connMu.Lock()
-	if s.cleanupsClosed {
-		s.connMu.Unlock()
-		return
-	}
-	s.cleanupWG.Add(1)
-	s.connMu.Unlock()
-
-	s.spawnCleanup(sessions)
-}
-
-func (s *CoreService) spawnCleanup(sessions []string) {
-	grace := s.cleanupGrace
-	if grace <= 0 {
-		grace = defaultDisconnectGrace
-	}
-	go func() {
-		defer s.cleanupWG.Done()
-		ctx, cancel := context.WithTimeout(s.cleanupCtx, grace)
-		defer cancel()
+	s.cleanups.goRun(func(ctx context.Context) {
 		for _, sid := range sessions {
 			if err := s.runs.DisconnectSession(ctx, sid); err != nil {
 				console.Warningf("disconnect cleanup for session %q failed: %v", sid, err)
 			}
 		}
-	}()
+	})
 }
 
 // WaitDisconnectCleanups 封闭新的断连清理派发并等待在途清理协程结束；超时后取消清理上下文。
 func (s *CoreService) WaitDisconnectCleanups(ctx context.Context) error {
-	s.connMu.Lock()
-	s.cleanupsClosed = true
-	s.connMu.Unlock()
-
-	done := make(chan struct{})
-	go func() {
-		s.cleanupWG.Wait()
-		close(done)
-	}()
-
-	select {
-	case <-done:
-		s.cancelCleanups()
-		return nil
-	case <-ctx.Done():
-		s.cancelCleanups()
-		<-done
-		return ctx.Err()
-	}
+	return s.cleanups.wait(ctx)
 }

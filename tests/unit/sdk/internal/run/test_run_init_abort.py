@@ -3,7 +3,7 @@
 关键契约：
 - init 任一步失败都必须停组件/probe、abort Core、撤销 hook 与全局 Run；
 - 失败不得留下运行中的 Run，也不得覆盖原始异常；
-- fork 子进程只拿到 _DetachedCoreGo，不操作父 Core。
+- fork 子进程只拿到 DetachedCoreGo，不操作父 Core。
 """
 
 import signal
@@ -13,7 +13,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from swanlab.sdk.internal.core_go.core import CoreGo, _DetachedCoreGo
+from swanlab.sdk.internal.core_go.core import CoreGo, DetachedCoreGo
 from swanlab.sdk.internal.core_python import CorePython
 from swanlab.sdk.internal.run import Run, has_run
 from swanlab.sdk.protocol import CoreProtocol
@@ -161,7 +161,7 @@ def test_handle_fork_replaces_core_go_with_detached():
 
     Run._handle_fork(run)
 
-    assert isinstance(run._core, _DetachedCoreGo)
+    assert isinstance(run._core, DetachedCoreGo)
     assert run._core is not parent
     assert parent.last_error is None
 

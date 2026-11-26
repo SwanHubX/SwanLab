@@ -46,7 +46,7 @@ func (s *Session) prepareColumns(columns []*columnv1.ColumnRecord) (preparedBatc
 			logDefinedColumn(column)
 			continue
 		}
-		defs = append(defs, columnDef{key: key, column: column, kind: columnKind(column)})
+		defs = append(defs, columnDef{key: key, column: column, kind: metrics.KindOf(column.GetColumnType())})
 		records = append(records, builder.BuildColumnRecord(s.counter, column))
 	}
 	apply := func() error {
@@ -66,18 +66,6 @@ func logDefinedColumn(column *columnv1.ColumnRecord) {
 		return
 	}
 	console.Warningf("Column %s already has been defined, skipping", column.GetColumnKey())
-}
-
-// columnKind 把列类型映射为指标类型：标量与直方图独立定义，其余按媒体列处理。
-func columnKind(column *columnv1.ColumnRecord) metrics.Kind {
-	switch column.GetColumnType() {
-	case columnv1.ColumnType_COLUMN_TYPE_SCALAR:
-		return metrics.KindScalar
-	case columnv1.ColumnType_COLUMN_TYPE_HISTOGRAM:
-		return metrics.KindHistogram
-	default:
-		return metrics.KindMedia
-	}
 }
 
 type metricRecordOps[T any] struct {

@@ -44,6 +44,7 @@ from swanlab.sdk.internal.core_go.config import (
     ReasonCode,
     Stage,
 )
+from swanlab.sdk.internal.core_go.rpc.common import call_checked
 from swanlab.sdk.typings.core_go import RpcChannelType
 
 __all__ = ["CoreServiceRpc"]
@@ -78,18 +79,15 @@ class CoreServiceRpc:
 
     def deliver_run_start(self, request: DeliverRunStartRequest) -> DeliverRunStartResponse:
         """创建 run session，返回包含非空 session_id 的响应。"""
-        response = self._channel.call(
+        response = call_checked(
+            self._channel,
             self._stub.DeliverRunStart,
             request,
             timeout=RUN_START_TIMEOUT,
             stage=Stage.RUN_START,
+            reject_reason=ReasonCode.RUN_START_REJECTED,
+            default_message="DeliverRunStart rejected",
         )
-        if not response.success:
-            raise CoreGoError(
-                Stage.RUN_START,
-                ReasonCode.RUN_START_REJECTED,
-                response.message or "DeliverRunStart rejected",
-            )
         if not response.session_id:
             raise CoreGoError(
                 Stage.RUN_START,
@@ -147,45 +145,33 @@ class CoreServiceRpc:
     ) -> DeliverRunFinishResponse:
         """交付 run 结束事件；调用方随后用 stats 轮询到 FINISHED。"""
         request.session_id = session_id
-        response = self._channel.call(
+        return call_checked(
+            self._channel,
             self._stub.DeliverRunFinish,
             request,
             timeout=RUN_FINISH_TIMEOUT,
             stage=Stage.RPC,
+            reject_reason=ReasonCode.RUN_FINISH_REJECTED,
+            default_message="DeliverRunFinish rejected",
         )
-        if not response.success:
-            raise CoreGoError(
-                Stage.RPC,
-                ReasonCode.RUN_FINISH_REJECTED,
-                response.message or "DeliverRunFinish rejected",
-            )
-        return response
 
     def get_operation_stats(self, session_id: str) -> GetOperationStatsResponse:
-        response = self._channel.call(
+        return call_checked(
+            self._channel,
             self._stub.GetOperationStats,
             GetOperationStatsRequest(session_id=session_id),
             timeout=STATS_TIMEOUT,
+            reject_reason=ReasonCode.PROTOCOL_VIOLATION,
+            default_message="GetOperationStats rejected",
         )
-        if not response.success:
-            raise CoreGoError(
-                Stage.RPC,
-                ReasonCode.PROTOCOL_VIOLATION,
-                response.message or "GetOperationStats rejected",
-            )
-        return response
 
     def confirm_run_finish(self, session_id: str) -> ConfirmRunFinishResponse:
         """释放 run session；不关闭 gRPC server。"""
-        response = self._channel.call(
+        return call_checked(
+            self._channel,
             self._stub.ConfirmRunFinish,
             ConfirmRunFinishRequest(session_id=session_id),
             timeout=CONFIRM_TIMEOUT,
+            reject_reason=ReasonCode.RUN_FINISH_REJECTED,
+            default_message="ConfirmRunFinish rejected",
         )
-        if not response.success:
-            raise CoreGoError(
-                Stage.RPC,
-                ReasonCode.RUN_FINISH_REJECTED,
-                response.message or "ConfirmRunFinish rejected",
-            )
-        return response

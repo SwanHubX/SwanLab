@@ -6,11 +6,9 @@
 """
 
 import queue
-import threading
-import time
 from typing import Callable, Optional, Protocol
 
-from swanlab.sdk.internal.pkg import console
+from swanlab.sdk.internal.pkg import console, throttle
 
 from .events import EventPayload
 
@@ -42,9 +40,7 @@ class RunEmitter(EmitterProtocol):
     def __init__(self, maxsize: int = 100_000):
         self._queue: RunQueue = RunQueue(maxsize=maxsize)
         self._consumer_guard: Optional[Callable[[], bool]] = None
-        self._warn_lock = threading.Lock()
-        self._dropped = 0
-        self._drop_warn_at: Optional[float] = None
+        self._drop_throttle = throttle.WarningThrottle(_DROP_WARNING_INTERVAL)
 
     @property
     def queue(self) -> RunQueue:
@@ -72,14 +68,7 @@ class RunEmitter(EmitterProtocol):
                 continue
 
     def _warn_dropped(self) -> None:
-        count = 0
-        now = time.monotonic()
-        with self._warn_lock:
-            self._dropped += 1
-            if self._drop_warn_at is None or now - self._drop_warn_at >= _DROP_WARNING_INTERVAL:
-                count = self._dropped
-                self._dropped = 0
-                self._drop_warn_at = now
+        count = self._drop_throttle.record()
         if count > 0:
             with console.skip_capture():
                 console.warning(f"Dropped {count} event(s): background consumer is not running")

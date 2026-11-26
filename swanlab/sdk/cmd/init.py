@@ -693,6 +693,7 @@ def _init(
                 run_id,
                 run_dir,
                 allow_recover_online=allow_recover_online,
+                backend=backend,
             )
             if fallback_mode is not None:
                 mode = fallback_mode
@@ -730,7 +731,9 @@ def _init(
                     mode = run_settings.on_online_error
                     if is_auth:
                         fallback_error = resp.message or "authentication failed"
-                    resp = _restart_with_fallback(ctx, run_settings, run_id, run_dir, mode, auth_error=is_auth)
+                    resp = _restart_with_fallback(
+                        ctx, run_settings, run_id, run_dir, mode, auth_error=is_auth, backend=backend
+                    )
                     should_mkdirs = mode == "offline"
             path = resp.path or path
             if mode == "online" and not recover_online:
@@ -880,6 +883,7 @@ def _switch_run_to_fallback(
     target_mode: ModeType,
     *,
     auth_error: bool = False,
+    backend: Optional[CoreBackend] = None,
 ) -> None:
     """切换降级模式并重建 Core/Probe，供登录降级与启动降级复用。"""
     _switch_run_mode(run_settings, target_mode, auth_error=auth_error)
@@ -894,7 +898,7 @@ def _switch_run_to_fallback(
     # 先中止已启动的在线 Core（例如 Go Core 子进程），避免切换为本地 Core 时遗留孤儿进程
     with safe.block(level="debug", message="core abort failed before fallback switch"):
         ctx.core.abort()
-    ctx.core = create_core(ctx)
+    ctx.core = create_core(ctx, backend=backend)
     ctx.probe = create_probe(core=ctx.core, disabled=target_mode == "disabled")
 
 
@@ -906,9 +910,10 @@ def _restart_with_fallback(
     target_mode: ModeType,
     *,
     auth_error: bool = False,
+    backend: Optional[CoreBackend] = None,
 ) -> DeliverRunStartResponse:
     """在线启动失败后，按策略切换模式并在同一个 run_dir 上重新启动 Core。"""
-    _switch_run_to_fallback(ctx, run_settings, run_id, run_dir, target_mode, auth_error=auth_error)
+    _switch_run_to_fallback(ctx, run_settings, run_id, run_dir, target_mode, auth_error=auth_error, backend=backend)
     return _deliver_start_or_raise(ctx, _build_start_request(run_settings, run_id, run_dir))
 
 
@@ -985,6 +990,7 @@ def _ensure_online_client_or_fallback(
     run_dir: Path,
     *,
     allow_recover_online: bool = False,
+    backend: Optional[CoreBackend] = None,
 ) -> Tuple[Optional[ModeType], bool, Optional[str]]:
     """
     确保 online client 就绪；连接失败或认证失败（401/403）时进入后台恢复或按 on_online_error 降级。
@@ -1012,7 +1018,7 @@ def _ensure_online_client_or_fallback(
         if not is_auth and allow_recover_online and is_recoverable_login_error(e):
             return None, True, None
         target_mode = run_settings.on_online_error
-        _switch_run_to_fallback(ctx, run_settings, run_id, run_dir, target_mode, auth_error=is_auth)
+        _switch_run_to_fallback(ctx, run_settings, run_id, run_dir, target_mode, auth_error=is_auth, backend=backend)
         fallback_msg = str(e.__cause__ or e) if is_auth else None
         return target_mode, False, fallback_msg
     return None, False, None

@@ -29,7 +29,7 @@ func TestHouseRejectedError(t *testing.T) {
 	if err.StatusCode != http.StatusAccepted || err.Code != "session_rejected" {
 		t.Fatalf("error = %+v, want 202 session_rejected", err)
 	}
-	if err.Retryable || !IsHouseRejected(err) {
+	if err.Retryable || !errors.Is(err, ErrHouseRejected) {
 		t.Fatalf("error = %+v, want non-retryable house rejection", err)
 	}
 	if err.TraceID != "trace-9" || err.Message != "session is invalid" {

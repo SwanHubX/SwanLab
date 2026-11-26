@@ -101,8 +101,8 @@ func newScanStore(t *testing.T, records []*recordv1.Record) (*store.AsyncWriter,
 		}
 		async.In() <- store.Request{StoreSeq: int64(i + 1), Payload: payload}
 	}
-	if err := async.FlushForTest(); err != nil {
-		t.Fatalf("FlushForTest: %v", err)
+	if err := async.Flush(context.Background()); err != nil {
+		t.Fatalf("Flush: %v", err)
 	}
 	return async, path
 }
@@ -673,8 +673,8 @@ func TestResume100kRecordsPauseNewCursorDecodesZero(t *testing.T) {
 
 	// 续传后立即写入第 100,001 条记录并触发暂停，此时 flushedSeq 推进至 100,001。
 	opened.Writer.In() <- store.Request{StoreSeq: total + 1, Payload: scalarPayload}
-	if err = opened.Writer.FlushForTest(); err != nil {
-		t.Fatalf("FlushForTest: %v", err)
+	if err = opened.Writer.Flush(context.Background()); err != nil {
+		t.Fatalf("Flush: %v", err)
 	}
 
 	var decodedCalls int
@@ -719,8 +719,8 @@ func TestNewCursorDetectsCorruptPayload(t *testing.T) {
 		}
 		async.In() <- store.Request{StoreSeq: int64(i + 1), Payload: payload}
 	}
-	if ferr := async.FlushForTest(); ferr != nil {
-		t.Fatalf("FlushForTest: %v", ferr)
+	if ferr := async.Flush(context.Background()); ferr != nil {
+		t.Fatalf("Flush: %v", ferr)
 	}
 
 	// 找到第 3 条记录起点并原地翻转其 payload 首字节。
@@ -758,4 +758,94 @@ func TestNewCursorDetectsCorruptPayload(t *testing.T) {
 	if !errors.Is(cursorErr, errCorrupt) || !errors.Is(cursorErr, store.ErrCorrupt) {
 		t.Fatalf("newCursor err = %v, want errCorrupt wrapping store.ErrCorrupt", cursorErr)
 	}
+}
+
+func TestWorkerStopBeforeStartAndConcurrentLifecycle(t *testing.T) {
+	// Stop -> Start -> Stop：先 Stop 后，再 Start 不得启动后台协程或触发 onStored。
+	for range 16 {
+		async, path := newScanStore(t, []*recordv1.Record{testStart(), testScalar(1)})
+		b := budget.New(budget.Limits{Records: 16})
+		in, err := buffer.New(buffer.Options{
+			Store:       async.In(),
+			UploadQueue: 8,
+			Budget:      b,
+			Flushed: func() int64 {
+				seq, _ := async.Flushed()
+				return seq
+			},
+		})
+		if err != nil {
+			t.Fatalf("buffer.New: %v", err)
+		}
+		var storedCalls atomic.Int32
+		w := New(Options{
+			Intake:   in,
+			Store:    async,
+			RunFile:  path,
+			OnStored: func(*recordv1.Record, int64) { storedCalls.Add(1) },
+		})
+
+		w.Stop()
+		w.Start()
+		w.Stop()
+		w.Stop()
+		if w.Started() {
+			t.Fatal("worker must not report Started after Stop -> Start")
+		}
+		if got := w.lifecycle.Load(); got != lifecycleStopped {
+			t.Fatalf("lifecycle = %d after Stop -> Start, want lifecycleStopped (%d)", got, lifecycleStopped)
+		}
+		if storedCalls.Load() != 0 {
+			t.Fatalf("storedCalls = %d, want 0 after Stop -> Start", storedCalls.Load())
+		}
+		_ = in.Close(context.Background())
+		_ = async.Close()
+	}
+
+	// 并发 Start / Stop 在超时预算内稳定退出，且可重复 Stop、nil/未启用安全调用。
+	for range 24 {
+		async, path := newScanStore(t, []*recordv1.Record{testStart(), testScalar(1)})
+		in, err := buffer.New(buffer.Options{
+			Store:       async.In(),
+			UploadQueue: 8,
+			Budget:      budget.New(budget.Limits{Records: 16}),
+			Flushed: func() int64 {
+				seq, _ := async.Flushed()
+				return seq
+			},
+		})
+		if err != nil {
+			t.Fatalf("buffer.New: %v", err)
+		}
+		w := New(Options{Intake: in, Store: async, RunFile: path})
+
+		var wg sync.WaitGroup
+		wg.Add(4)
+		go func() { defer wg.Done(); w.Start() }()
+		go func() { defer wg.Done(); w.Start() }()
+		go func() { defer wg.Done(); w.Stop() }()
+		go func() { defer wg.Done(); w.Stop() }()
+
+		done := make(chan struct{})
+		go func() {
+			wg.Wait()
+			close(done)
+		}()
+		select {
+		case <-done:
+		case <-time.After(2 * time.Second):
+			t.Fatal("concurrent Worker Start/Stop timed out")
+		}
+		w.Stop()
+		_ = in.Close(context.Background())
+		_ = async.Close()
+	}
+
+	// nil 与未启用 Worker 安全空调用。
+	var nilWorker *Worker
+	nilWorker.Start()
+	nilWorker.Stop()
+	disabled := New(Options{})
+	disabled.Start()
+	disabled.Stop()
 }

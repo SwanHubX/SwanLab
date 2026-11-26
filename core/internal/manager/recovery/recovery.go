@@ -18,6 +18,10 @@ const (
 	defaultInterval = 500 * time.Millisecond
 	// defaultPollInterval 是收尾阶段等待回收队列腾出上传槽位的轮询间隔。
 	defaultPollInterval = 10 * time.Millisecond
+
+	lifecycleIdle    int32 = 0
+	lifecycleStarted int32 = 1
+	lifecycleStopped int32 = 2
 )
 
 // Source 抽象回收队列的排空能力（生产环境由 *buffer.Intake 实现）。
@@ -44,7 +48,7 @@ type Pump struct {
 
 	stop      chan struct{}
 	done      chan struct{}
-	startOnce sync.Once
+	lifecycle atomic.Int32
 	stopOnce  sync.Once
 }
 
@@ -68,19 +72,20 @@ func New(opts Options) *Pump {
 		degraded:     opts.Degraded,
 		interval:     interval,
 		pollInterval: pollInterval,
+		stop:         make(chan struct{}),
+		done:         make(chan struct{}),
 	}
 }
 
-// Start 启动后台补传协程；只能启动一次，且在 Intake.Close 之前必须调用 Stop。
+// Start 启动后台补传协程；只能启动一次，若已停止则无操作，且在 Intake.Close 之前必须调用 Stop。
 func (p *Pump) Start() {
 	if p == nil || p.source == nil {
 		return
 	}
-	p.startOnce.Do(func() {
-		p.stop = make(chan struct{})
-		p.done = make(chan struct{})
-		go p.loop()
-	})
+	if !p.lifecycle.CompareAndSwap(lifecycleIdle, lifecycleStarted) {
+		return
+	}
+	go p.loop()
 }
 
 // Stop 停止并等待补传协程退出；未启动或已停止时可重复安全调用。
@@ -88,14 +93,14 @@ func (p *Pump) Stop() {
 	if p == nil {
 		return
 	}
+	stoppedBeforeStart := p.lifecycle.CompareAndSwap(lifecycleIdle, lifecycleStopped)
 	p.stopOnce.Do(func() {
-		if p.stop != nil {
-			close(p.stop)
-		}
+		close(p.stop)
 	})
-	if p.done != nil {
-		<-p.done
+	if stoppedBeforeStart || p.lifecycle.Load() != lifecycleStarted {
+		return
 	}
+	<-p.done
 }
 
 // Drain 在收尾阶段尽量排空回收队列；队列仍满时按 poll 间隔重试，

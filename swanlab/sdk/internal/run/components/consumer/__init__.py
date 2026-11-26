@@ -26,7 +26,7 @@ from swanlab.sdk.internal.bus.events import (
     MetricLogEvent,
 )
 from swanlab.sdk.internal.context import RunContext
-from swanlab.sdk.internal.pkg import console, helper, safe
+from swanlab.sdk.internal.pkg import console, helper, safe, throttle
 from swanlab.sdk.internal.run.transforms import Scalar
 
 from .builder import RecordBuilder, is_scalar_value
@@ -181,8 +181,7 @@ class BackgroundConsumer(ConsumerProtocol):
         self._max_buffered_records = max_buffered_records
         self._max_buffered_bytes = max_buffered_bytes
         self._buffered_bytes = 0
-        self._dropped_records = 0
-        self._drop_warn_at: Optional[float] = None
+        self._drop_throttle = throttle.WarningThrottle(_DROP_WARNING_INTERVAL, clock=self._clock)
 
         self._log_batch: LogBatch = []
         self._column_batch: ColumnBatch = []
@@ -270,17 +269,14 @@ class BackgroundConsumer(ConsumerProtocol):
         """统一维护缓冲上限；超限时丢弃新记录，避免训练线程被 RPC 故障阻塞。"""
         size = record.ByteSize()
         if self._batch_len + 1 > self._max_buffered_records or self._buffered_bytes + size > self._max_buffered_bytes:
-            self._dropped_records += 1
-            now = self._clock()
-            if self._drop_warn_at is None or now - self._drop_warn_at >= _DROP_WARNING_INTERVAL:
+            dropped = self._drop_throttle.record()
+            if dropped > 0:
                 with console.skip_capture():
                     console.warning(
-                        f"Dropping {self._dropped_records} buffered record(s): "
+                        f"Dropping {dropped} buffered record(s): "
                         f"consumer backlog exceeds {self._max_buffered_records} records "
                         f"or {self._max_buffered_bytes} bytes"
                     )
-                self._dropped_records = 0
-                self._drop_warn_at = now
             return
         batch.append(record)
         self._buffered_bytes += size

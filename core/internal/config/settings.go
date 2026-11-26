@@ -167,9 +167,9 @@ func (s Settings) RecordIntervalDuration() time.Duration {
 
 // Validate 校验必填项与数值边界。
 //
-// record_batch 必须落在 (0, 100_000)；record_interval 与 save_part 必须为正，
-// record_interval 额外拒绝 NaN（+Inf 允许）；其余 save_* 不限制。
-// health_* 必须有限且非负；非零上传预算直接拒绝。
+// record_batch 必须落在 (0, 100_000)；record_interval 与 save_size/save_split/save_part/save_batch 必须为正，
+// record_interval 额外拒绝 NaN（+Inf 允许）。
+// health_* 必须有限且非负；upload_budget_* 小于等于 0 表示不限制。
 func (s Settings) Validate() error {
 	if s.RunID == "" {
 		return fmt.Errorf("config: %w", ErrRunIDRequired)
@@ -198,6 +198,12 @@ func (s Settings) Validate() error {
 	}
 	if math.IsNaN(s.RecordInterval) || s.RecordInterval <= 0 {
 		return fmt.Errorf("config: record_interval (%v) must be positive", s.RecordInterval)
+	}
+	if s.SaveSize <= 0 || s.SaveSplit <= 0 || s.SaveBatch <= 0 {
+		return fmt.Errorf(
+			"config: save_size (%d), save_split (%d) and save_batch (%d) must be positive",
+			s.SaveSize, s.SaveSplit, s.SaveBatch,
+		)
 	}
 	if s.SavePart <= 0 {
 		return fmt.Errorf("config: save_part (%d) must be positive", s.SavePart)

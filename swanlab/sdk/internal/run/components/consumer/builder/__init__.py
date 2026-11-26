@@ -44,8 +44,6 @@ class RecordBuilder:
 
     def __init__(self, ctx: RunContext):
         self._ctx = ctx
-        # 由 BackgroundConsumer 单线程调用，无需锁
-        self._num: int = 0
         # 所有媒体类型共用同一单文件上限，由 settings 统一配置
         self._media_max_size: int = ctx.config.settings.core.media_max_size
         # skip_store 下媒体字节内联在消息里，还要额外受传输上限约束

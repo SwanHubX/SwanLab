@@ -95,10 +95,6 @@ func IsAuthenticationError(err error) bool {
 // IsInvalidResponse 判断错误是否属于响应不符合协议。
 func IsInvalidResponse(err error) bool { return errors.Is(err, ErrInvalidResponse) }
 
-// IsHouseRejected 判断错误是否属于「House 未以 200 确认写入」。
-// 这是会话级失败，上层应显式告警并终结该批记录，而不是继续退避重试。
-func IsHouseRejected(err error) bool { return errors.Is(err, ErrHouseRejected) }
-
 // IsNotFound 判断错误是否为 404。
 func IsNotFound(err error) bool { return StatusCode(err) == http.StatusNotFound }
 

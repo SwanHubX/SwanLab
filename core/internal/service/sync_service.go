@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"sync"
-	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -39,14 +38,10 @@ type SyncService struct {
 	lifecycle *server.Lifecycle
 	syncs     SyncManager
 
-	connMu         sync.Mutex
-	pendingConn    map[uint64]struct{}
-	byConn         map[uint64]string
-	cleanupsClosed bool
-	cleanupGrace   time.Duration
-	cleanupCtx     context.Context
-	cancelCleanups context.CancelFunc
-	cleanupWG      sync.WaitGroup
+	connMu      sync.Mutex
+	pendingConn map[uint64]struct{}
+	byConn      map[uint64]string
+	cleanups    *disconnectPool
 }
 
 // NewSyncService 创建 CoreSyncService gRPC 接入实例，关联服务生命周期与 syncer 管理器。
@@ -55,15 +50,12 @@ func NewSyncService(controller *server.Controller, syncManager SyncManager) *Syn
 	if controller != nil {
 		lifecycle = controller.Lifecycle()
 	}
-	cleanupCtx, cancelCleanups := context.WithCancel(context.Background())
 	return &SyncService{
-		lifecycle:      lifecycle,
-		syncs:          syncManager,
-		pendingConn:    make(map[uint64]struct{}),
-		byConn:         make(map[uint64]string),
-		cleanupGrace:   defaultDisconnectGrace,
-		cleanupCtx:     cleanupCtx,
-		cancelCleanups: cancelCleanups,
+		lifecycle:   lifecycle,
+		syncs:       syncManager,
+		pendingConn: make(map[uint64]struct{}),
+		byConn:      make(map[uint64]string),
+		cleanups:    newDisconnectPool(defaultDisconnectGrace),
 	}
 }
 
@@ -232,37 +224,16 @@ func (s *SyncService) HandleConnDisconnect(connID uint64) {
 	if ok {
 		delete(s.byConn, connID)
 	}
-	if !ok || sid == "" || s.cleanupsClosed {
-		s.connMu.Unlock()
+	s.connMu.Unlock()
+	if !ok {
 		return
 	}
-	s.cleanupWG.Add(1)
-	s.connMu.Unlock()
-
-	s.spawnCleanup(sid)
+	s.cleanupDisconnected(sid)
 }
 
 // WaitDisconnectCleanups 封闭新的断连清理派发并等待在途清理协程结束；超时后取消清理上下文。
 func (s *SyncService) WaitDisconnectCleanups(ctx context.Context) error {
-	s.connMu.Lock()
-	s.cleanupsClosed = true
-	s.connMu.Unlock()
-
-	done := make(chan struct{})
-	go func() {
-		s.cleanupWG.Wait()
-		close(done)
-	}()
-
-	select {
-	case <-done:
-		s.cancelCleanups()
-		return nil
-	case <-ctx.Done():
-		s.cancelCleanups()
-		<-done
-		return ctx.Err()
-	}
+	return s.cleanups.wait(ctx)
 }
 
 func syncConnID(ctx context.Context) uint64 {
@@ -276,7 +247,7 @@ func syncConnID(ctx context.Context) uint64 {
 func (s *SyncService) reserveConn(ctx context.Context, connID uint64) error {
 	s.connMu.Lock()
 	defer s.connMu.Unlock()
-	if s.cleanupsClosed || server.IsConnClosed(ctx) {
+	if s.cleanups.isClosed() || server.IsConnClosed(ctx) {
 		return status.Error(codes.Canceled, "client connection closed")
 	}
 	if _, exists := s.byConn[connID]; exists {
@@ -303,7 +274,7 @@ func (s *SyncService) commitConnSession(ctx context.Context, connID uint64, sess
 	defer s.connMu.Unlock()
 	_, stillPending := s.pendingConn[connID]
 	delete(s.pendingConn, connID)
-	if !stillPending || s.cleanupsClosed || server.IsConnClosed(ctx) {
+	if !stillPending || s.cleanups.isClosed() || server.IsConnClosed(ctx) {
 		return false
 	}
 	s.byConn[connID] = sessionID
@@ -329,30 +300,11 @@ func (s *SyncService) cleanupDisconnected(sessionID string) {
 	if sessionID == "" {
 		return
 	}
-	s.connMu.Lock()
-	if s.cleanupsClosed {
-		s.connMu.Unlock()
-		return
-	}
-	s.cleanupWG.Add(1)
-	s.connMu.Unlock()
-
-	s.spawnCleanup(sessionID)
-}
-
-func (s *SyncService) spawnCleanup(sessionID string) {
-	grace := s.cleanupGrace
-	if grace <= 0 {
-		grace = defaultDisconnectGrace
-	}
-	go func() {
-		defer s.cleanupWG.Done()
-		ctx, cancel := context.WithTimeout(s.cleanupCtx, grace)
-		defer cancel()
+	s.cleanups.goRun(func(ctx context.Context) {
 		if err := s.syncs.Disconnect(ctx, sessionID); err != nil {
 			console.Warningf("sync disconnect cleanup for session %q failed: %v", sessionID, err)
 		}
-	}()
+	})
 }
 
 func isSyncStartRejection(err error) bool {

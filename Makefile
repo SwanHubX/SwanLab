@@ -58,7 +58,6 @@ clean:
 # ----------------------------------
 # Python package (swanlab/)
 # ----------------------------------
-.PHONY:  init sync format proto unit bench clean build publish link-skills unlink-skills relink-skills
 
 init:
 	uv sync --all-extras
@@ -79,7 +78,7 @@ bench:
 
 build:
 	@if [ -n "$(VERSION)" ]; then \
-		python -c "import json; data=json.load(open('swanlab/package.json')); data['version']='$(VERSION)'; json.dump(data,open('swanlab/package.json','w'),indent=2)" && \
+		python3 -c "import json; data=json.load(open('swanlab/package.json')); data['version']='$(VERSION)'; json.dump(data,open('swanlab/package.json','w'),indent=2)" && \
 		echo "Updated swanlab/package.json version to $(VERSION)"; \
 	else \
 		echo "VERSION not set, using default version in swanlab/package.json"; \
@@ -104,7 +103,7 @@ core-fmt:
 	cd core && golangci-lint fmt
 
 core-test:
-	cd core && go test $$(go list ./... | grep -v /proto/)
+	cd core && go test -race $$(go list ./... | grep -v /proto/)
 
 core-build:
 	cd core && go build ./...

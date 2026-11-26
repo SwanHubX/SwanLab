@@ -574,9 +574,6 @@ func TestDisconnectSessionDrainsAndReleasesSlot(t *testing.T) {
 	if stops != 0 {
 		t.Fatalf("Confirm after disconnect must not invoke releaseFn, got %d call(s)", stops)
 	}
-	if diags := h.mgr.DisconnectDiagnostics(); len(diags) != 0 {
-		t.Fatalf("unexpected disconnect diagnostics: %+v", diags)
-	}
 
 	records := readStore(t, h.runFile)
 	if len(records) == 0 {
@@ -634,7 +631,7 @@ func TestDisconnectSessionAfterFinishDoesNotFakeConfirmSuccess(t *testing.T) {
 	}
 }
 
-func TestDisconnectSessionDrainFailureKeepsDiagnosticStateAndFreesSlot(t *testing.T) {
+func TestDisconnectSessionDrainFailureMarksFailedAndFreesSlot(t *testing.T) {
 	h := newFinishHarness(t, finishOptions{blockUpload: true})
 	if err := h.mgr.UpsertScalars(context.Background(), h.id, []*datav1.ScalarRecord{
 		scalarRecord("disconnect/blocked", 0, columnv1.ColumnType_COLUMN_TYPE_SCALAR),
@@ -665,23 +662,9 @@ func TestDisconnectSessionDrainFailureKeepsDiagnosticStateAndFreesSlot(t *testin
 		t.Fatal("failed disconnect must not mark session as cleanly released")
 	}
 
-	diag, ok := h.mgr.DisconnectDiagnostic(h.id)
-	if !ok {
-		t.Fatal("expected disconnect diagnostic entry to be recorded")
-	}
-	if diag.SessionID != h.id || diag.RunID != "finish" || diag.Err == nil || diag.At.IsZero() {
-		t.Fatalf("unexpected diagnostic entry: %+v", diag)
-	}
-	if diags := h.mgr.DisconnectDiagnostics(); len(diags) != 1 || diags[0].SessionID != h.id {
-		t.Fatalf("DisconnectDiagnostics = %+v, want [%s]", diags, h.id)
-	}
-
-	// 重复断连幂等返回 nil，且不清除既有的可诊断状态。
+	// 重复断连幂等返回 nil。
 	if repeatErr := h.mgr.DisconnectSession(context.Background(), h.id); repeatErr != nil {
 		t.Fatalf("repeated DisconnectSession after failure err=%v, want nil", repeatErr)
-	}
-	if _, stillPresent := h.mgr.DisconnectDiagnostic(h.id); !stillPresent {
-		t.Fatal("diagnostic entry must remain after idempotent repeat")
 	}
 }
 
@@ -706,42 +689,6 @@ func TestDisconnectSessionReleasesCapacityWhenFull(t *testing.T) {
 	}
 	if _, err := m.install(newSession(sessionOptions{})); err != nil {
 		t.Fatalf("install after disconnect cleanup: %v", err)
-	}
-}
-
-func TestDiagnosticCacheEviction(t *testing.T) {
-	m := newTestManager()
-	sentinel := errors.New("drain timeout")
-	for i := 0; i < releasedCapacity+4; i++ {
-		m.mu.Lock()
-		m.diagnostics.add(DisconnectDiagnostic{
-			SessionID: fmt.Sprintf("sess-%d", i),
-			RunID:     "run",
-			Err:       sentinel,
-			At:        time.Unix(int64(i), 0),
-		})
-		m.mu.Unlock()
-	}
-
-	if _, ok := m.DisconnectDiagnostic("sess-0"); ok {
-		t.Fatal("oldest diagnostic entry must be evicted")
-	}
-	if _, ok := m.DisconnectDiagnostic("sess-3"); ok {
-		t.Fatal("fourth diagnostic entry must be evicted")
-	}
-	if _, ok := m.DisconnectDiagnostic("sess-4"); !ok {
-		t.Fatal("fifth diagnostic entry must remain cached")
-	}
-	lastID := fmt.Sprintf("sess-%d", releasedCapacity+3)
-	if _, ok := m.DisconnectDiagnostic(lastID); !ok {
-		t.Fatal("latest diagnostic entry must remain cached")
-	}
-	diags := m.DisconnectDiagnostics()
-	if len(diags) != releasedCapacity {
-		t.Fatalf("len(DisconnectDiagnostics) = %d, want %d", len(diags), releasedCapacity)
-	}
-	if diags[0].SessionID != "sess-4" || diags[len(diags)-1].SessionID != lastID {
-		t.Fatalf("snapshot order = [%s .. %s], want [sess-4 .. %s]", diags[0].SessionID, diags[len(diags)-1].SessionID, lastID)
 	}
 }
 
@@ -811,4 +758,10 @@ func TestInvalidateRemovesSessionImmediatelyAndCleansUpAsync(t *testing.T) {
 	if records := readStore(t, h.runFile); len(records) == 0 {
 		t.Fatal("async Invalidate cleanup must flush accepted records to the local store")
 	}
+}
+
+func (m *Manager) isReleased(sessionID string) bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.released.has(sessionID)
 }

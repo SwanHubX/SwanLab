@@ -2,6 +2,7 @@ package store
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"io"
 	"os"
@@ -309,8 +310,8 @@ func TestAsyncShortWriteDoesNotAdvanceWatermark(t *testing.T) {
 	defer func() { _ = a.Close() }()
 
 	a.In() <- Request{StoreSeq: 1, Payload: payloadN(2000)}
-	if err = a.FlushForTest(); !errors.Is(err, io.ErrShortWrite) {
-		t.Fatalf("FlushForTest err = %v, want ErrShortWrite", err)
+	if err = a.Flush(context.Background()); !errors.Is(err, io.ErrShortWrite) {
+		t.Fatalf("Flush err = %v, want ErrShortWrite", err)
 	}
 	if seq, off := a.Flushed(); seq != 0 || off != HeaderLen {
 		t.Fatalf("Flushed = (%d, %d) after short write, want (0, %d)", seq, off, HeaderLen)

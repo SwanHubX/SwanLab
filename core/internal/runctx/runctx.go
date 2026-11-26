@@ -55,27 +55,8 @@ func New(s config.Settings) (*RunContext, error) {
 // MediaDir 返回媒体文件目录：run_dir/media。
 func (c *RunContext) MediaDir() string { return filepath.Join(c.RunDir, "media") }
 
-// DebugDir 返回诊断日志目录：run_dir/debug。
-func (c *RunContext) DebugDir() string { return filepath.Join(c.RunDir, "debug") }
-
 // FilesDir 返回保存文件目录：run_dir/files。
 func (c *RunContext) FilesDir() string { return filepath.Join(c.RunDir, "files") }
-
-// MetadataFile 返回内部元数据文件路径：files/swanlab-metadata.json。
-func (c *RunContext) MetadataFile() string {
-	return filepath.Join(c.FilesDir(), "swanlab-metadata.json")
-}
-
-// ConfigFile 返回用户配置文件路径：files/config.yaml。
-func (c *RunContext) ConfigFile() string { return filepath.Join(c.FilesDir(), "config.yaml") }
-
-// RequirementsFile 返回依赖文件路径：files/requirements.txt。
-func (c *RunContext) RequirementsFile() string {
-	return filepath.Join(c.FilesDir(), "requirements.txt")
-}
-
-// CondaFile 返回 conda 环境文件路径：files/conda.yaml。
-func (c *RunContext) CondaFile() string { return filepath.Join(c.FilesDir(), "conda.yaml") }
 
 // RunFile 返回本地日志文件路径：run_dir/run-{run_id≤100}.swanlab。
 // run_id 先经 fs.SafeFmt 清洗，再截断到 100 字节。

@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strings"
 	"testing"
@@ -647,7 +648,7 @@ func TestUploadMetricsAcceptedIsFailure(t *testing.T) {
 	if err == nil {
 		t.Fatal("202 must not be treated as success")
 	}
-	if !client.IsHouseRejected(err) {
+	if !errors.Is(err, client.ErrHouseRejected) {
 		t.Fatalf("error = %v, want house rejection", err)
 	}
 	if client.IsRetryable(err) {
@@ -671,7 +672,7 @@ func TestHeartbeatAcceptedIsFailure(t *testing.T) {
 
 	svc, _ := newTestClient(t, cloud, client.Options{})
 	err := svc.SendHeartbeat(context.Background(), "exp-1")
-	if !client.IsHouseRejected(err) || client.IsRetryable(err) {
+	if !errors.Is(err, client.ErrHouseRejected) || client.IsRetryable(err) {
 		t.Fatalf("error = %v, want non-retryable house rejection", err)
 	}
 	if !strings.Contains(err.Error(), "FlagId is invalid") {

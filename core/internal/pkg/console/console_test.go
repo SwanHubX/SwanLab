@@ -10,7 +10,7 @@ import (
 )
 
 func TestEmitPlainFormat(t *testing.T) {
-	plain := emit("debug", ansiGrey, "hello world", "hello world", false)
+	plain := emit("debug", ansiGrey, "hello world", false)
 	// 2026-03-14 10:23:45.124 | DEBUG    | console.TestEmitPlainFormat:line - hello world
 	re := regexp.MustCompile(`^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3} \| DEBUG    \| .* - hello world$`)
 	if !re.MatchString(plain) {
@@ -24,7 +24,7 @@ func TestEmitLevelPadding(t *testing.T) {
 		{"warning", "WARNING "},
 		{"error", "ERROR   "},
 	} {
-		plain := emit(lvl.name, "", "x", "x", false)
+		plain := emit(lvl.name, "", "x", false)
 		if !strings.Contains(plain, "| "+lvl.padded+" |") {
 			t.Fatalf("level %q not padded to %q in %q", lvl.name, lvl.padded, plain)
 		}
@@ -68,38 +68,6 @@ func TestInfoPrintsSwanlabPrefix(t *testing.T) {
 	}
 }
 
-func TestTraceNilIsNoOp(t *testing.T) {
-	Reset()
-	defer Reset()
-	dir := t.TempDir()
-	if err := Init(dir); err != nil {
-		t.Fatalf("Init: %v", err)
-	}
-	Trace(nil, "prefix")
-	data, _ := os.ReadFile(filepath.Join(dir, "debug-core.log"))
-	if strings.Contains(string(data), "prefix") {
-		t.Fatalf("Trace(nil) wrote unexpectedly: %q", data)
-	}
-}
-
-func TestTraceWritesErrorAndStack(t *testing.T) {
-	Reset()
-	defer Reset()
-	dir := t.TempDir()
-	if err := Init(dir); err != nil {
-		t.Fatalf("Init: %v", err)
-	}
-	Trace(&testErr{"boom"}, "ctx")
-	data, _ := os.ReadFile(filepath.Join(dir, "debug-core.log"))
-	body := string(data)
-	if !strings.Contains(body, "ctx: boom") {
-		t.Fatalf("missing 'ctx: boom' in file: %q", body)
-	}
-	if !strings.Contains(body, "goroutine") {
-		t.Fatalf("missing stack trace in file: %q", body)
-	}
-}
-
 func TestTruthy(t *testing.T) {
 	for _, v := range []string{"true", "TRUE", "1", "yes", "on", " On "} {
 		if !truthy(v) {
@@ -112,10 +80,6 @@ func TestTruthy(t *testing.T) {
 		}
 	}
 }
-
-type testErr struct{ msg string }
-
-func (e *testErr) Error() string { return e.msg }
 
 // captureStderr 在 f 执行期间将 os.Stderr 重定向到管道以捕获输出。
 func captureStderr(f func()) string {
