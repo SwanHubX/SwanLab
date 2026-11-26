@@ -64,7 +64,7 @@ if [ "$VERIFY_ONLY" = false ]; then
   for TAG in "${PLATFORMS[@]}"; do
     echo "==> Building platform wheel: $TAG"
     SWANLAB_BUILD_PLATFORM="$TAG" uv build --wheel
-    rm -rf swanlab/bin # 清理，避免污染下一平台
+    rm -rf swanlab/bin # 兜底清理，正常情况下打包脚本自己已经删掉了
   done
 fi
 
