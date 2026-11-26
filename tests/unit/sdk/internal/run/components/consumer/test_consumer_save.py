@@ -1,42 +1,10 @@
-import queue
 from pathlib import Path
-from types import SimpleNamespace
-from typing import cast
-from unittest.mock import MagicMock
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
-from swanlab.proto.swanlab.save.v1.save_pb2 import SavePolicy, SaveRecord
 from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogLevel
 from swanlab.sdk.internal.bus.events import FileSaveEvent, LogEvent
-from swanlab.sdk.internal.context import RunContext
-from swanlab.sdk.internal.run.components.consumer import BackgroundConsumer
 from swanlab.sdk.protocol import CoreProtocolError
-
-
-def _make_consumer(tmp_path: Path, batch_size: int = 100):
-    core = MagicMock()
-    ctx = SimpleNamespace(
-        core=core,
-        run_dir=tmp_path,
-        metrics=MagicMock(),
-        callbacker=MagicMock(),
-        config=SimpleNamespace(settings=SimpleNamespace(core=SimpleNamespace(media_max_size=50 * 1024**2))),
-    )
-    builder = MagicMock()
-    builder.build_save.return_value = SaveRecord(
-        name="model.pt",
-        source_path=str(tmp_path / "model.pt"),
-        policy=SavePolicy.SAVE_POLICY_NOW,
-    )
-    consumer = BackgroundConsumer(cast(RunContext, cast(object, ctx)), queue.Queue(), batch_size=batch_size)
-    # builder 由 consumer 内部创建，测试以 mock 替换以拦截 build_save 结果
-    consumer._builder = builder
-    return (
-        consumer,
-        core,
-        builder,
-    )
 
 
 def _make_save_event(name: str, tmp_path: Path, policy: str) -> FileSaveEvent:
@@ -50,8 +18,8 @@ def _make_save_event(name: str, tmp_path: Path, policy: str) -> FileSaveEvent:
 # ── live ──
 
 
-def test_live_save_appends_to_batch(tmp_path: Path):
-    consumer, _, builder = _make_consumer(tmp_path)
+def test_live_save_appends_to_batch(tmp_path: Path, make_save_consumer):
+    consumer, _, builder = make_save_consumer()
     event = _make_save_event("model.pt", tmp_path, "live")
 
     consumer._handle_event(event)
@@ -63,8 +31,8 @@ def test_live_save_appends_to_batch(tmp_path: Path):
 # ── now ──
 
 
-def test_now_save_appends_to_batch(tmp_path: Path):
-    consumer, _, builder = _make_consumer(tmp_path)
+def test_now_save_appends_to_batch(tmp_path: Path, make_save_consumer):
+    consumer, _, builder = make_save_consumer()
     event = _make_save_event("model.pt", tmp_path, "now")
 
     consumer._handle_event(event)
@@ -76,8 +44,8 @@ def test_now_save_appends_to_batch(tmp_path: Path):
 # ── end ──
 
 
-def test_end_save_appends_to_batch(tmp_path: Path):
-    consumer, _, builder = _make_consumer(tmp_path)
+def test_end_save_appends_to_batch(tmp_path: Path, make_save_consumer):
+    consumer, _, builder = make_save_consumer()
     event = _make_save_event("model.pt", tmp_path, "end")
 
     consumer._handle_event(event)
@@ -89,8 +57,8 @@ def test_end_save_appends_to_batch(tmp_path: Path):
 # ── multiple events ──
 
 
-def test_mixed_policies_batch_together(tmp_path: Path):
-    consumer, _, builder = _make_consumer(tmp_path)
+def test_mixed_policies_batch_together(tmp_path: Path, make_save_consumer):
+    consumer, _, builder = make_save_consumer()
     events = [
         _make_save_event("a.pt", tmp_path, "now"),
         _make_save_event("b.pt", tmp_path, "live"),
@@ -106,8 +74,8 @@ def test_mixed_policies_batch_together(tmp_path: Path):
 # ── flush ──
 
 
-def test_flush_pushes_save_batch_to_core(tmp_path: Path):
-    consumer, core, builder = _make_consumer(tmp_path)
+def test_flush_pushes_save_batch_to_core(make_save_consumer):
+    consumer, core, builder = make_save_consumer()
     record = builder.build_save.return_value
     consumer._save_batch.append(record)
 
@@ -117,16 +85,16 @@ def test_flush_pushes_save_batch_to_core(tmp_path: Path):
     assert consumer._save_batch == []
 
 
-def test_flush_does_not_call_upsert_saves_when_save_batch_empty(tmp_path: Path):
-    consumer, core, _ = _make_consumer(tmp_path)
+def test_flush_does_not_call_upsert_saves_when_save_batch_empty(make_save_consumer):
+    consumer, core, _ = make_save_consumer()
 
     consumer._flush()
 
     core.upsert_saves.assert_not_called()
 
 
-def test_save_batch_flushes_alongside_other_batch_types(tmp_path: Path):
-    consumer, core, builder = _make_consumer(tmp_path)
+def test_save_batch_flushes_alongside_other_batch_types(make_save_consumer):
+    consumer, core, builder = make_save_consumer()
     save_record = builder.build_save.return_value
     consumer._save_batch.append(save_record)
     consumer._log_batch.append(
@@ -141,8 +109,8 @@ def test_save_batch_flushes_alongside_other_batch_types(tmp_path: Path):
     assert consumer._log_batch == []
 
 
-def test_save_batch_auto_flushes_when_full(tmp_path: Path):
-    consumer, core, _ = _make_consumer(tmp_path, batch_size=3)
+def test_save_batch_auto_flushes_when_full(tmp_path: Path, make_save_consumer):
+    consumer, core, _ = make_save_consumer(batch_size=3)
     for name in ("a.pt", "b.pt", "c.pt"):
         consumer._handle_event(_make_save_event(name, tmp_path, "now"))
 
@@ -155,8 +123,8 @@ def test_save_batch_auto_flushes_when_full(tmp_path: Path):
 # ── flush failure recovery ──
 
 
-def test_failed_upsert_saves_restores_batch(tmp_path: Path):
-    consumer, core, builder = _make_consumer(tmp_path)
+def test_failed_upsert_saves_restores_batch(make_save_consumer):
+    consumer, core, builder = make_save_consumer()
     consumer._save_batch.append(builder.build_save.return_value)
     core.upsert_saves.side_effect = CoreProtocolError("save failed", retryable=True)
 
@@ -165,9 +133,9 @@ def test_failed_upsert_saves_restores_batch(tmp_path: Path):
     assert len(consumer._save_batch) == 1
 
 
-def test_failed_upsert_saves_does_not_double_restore_successful_batches(tmp_path: Path):
+def test_failed_upsert_saves_does_not_double_restore_successful_batches(make_save_consumer):
     """upsert_saves 失败时，已成功的 log 批次不会被恢复。"""
-    consumer, core, builder = _make_consumer(tmp_path)
+    consumer, core, builder = make_save_consumer()
     consumer._save_batch.append(builder.build_save.return_value)
     consumer._log_batch.append(
         builder.build_log(LogEvent(line="hello", level=LogLevel.LOG_LEVEL_INFO, timestamp=Timestamp()))

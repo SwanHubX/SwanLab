@@ -18,7 +18,6 @@ import (
 
 	"github.com/swanhubx/swanlab/core/internal/clienttest"
 	"github.com/swanhubx/swanlab/core/internal/config"
-	"github.com/swanhubx/swanlab/core/internal/manager/probe"
 	"github.com/swanhubx/swanlab/core/internal/store"
 	datav1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/data/v1"
 	runv1 "github.com/swanhubx/swanlab/core/proto/swanlab/run/v1"
@@ -236,14 +235,7 @@ func newCrashCloud(t *testing.T, runID string, block func(runID string, steps []
 	}
 	t.Cleanup(func() { close(cc.release) })
 
-	cc.cloud.Handle(http.MethodGet, probe.ServerPath, func(w http.ResponseWriter, _ *http.Request) {
-		if !cc.backendUp.Load() {
-			clienttest.WriteJSON(w, http.StatusBadGateway, map[string]any{"ok": false})
-			return
-		}
-		clienttest.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
-	})
-	cc.cloud.ServeJSON(http.MethodGet, probe.HousePath, http.StatusOK, map[string]any{"ok": true})
+	cc.cloud.ServeHealth(&cc.backendUp, nil, http.StatusBadGateway)
 	cc.cloud.Handle(http.MethodGet, "/api/auth/verify", func(w http.ResponseWriter, _ *http.Request) {
 		if !cc.backendUp.Load() {
 			clienttest.WriteJSON(w, http.StatusBadGateway, map[string]any{"message": "backend down"})
@@ -288,12 +280,8 @@ func newCrashCloud(t *testing.T, runID string, block func(runID string, steps []
 			"cuid": cuid, "slug": cuid, "name": body.Name, "createdAt": "2026-01-02T00:00:00.000Z",
 		})
 	})
-	cc.cloud.Handle(http.MethodGet, "/api/house/metrics/summaries/proj-1/"+runID, func(w http.ResponseWriter, _ *http.Request) {
-		clienttest.WriteJSON(w, http.StatusOK, map[string]any{"scalar": []any{}})
-	})
-	cc.cloud.Handle(http.MethodPost, "/api/house/experiments/"+runID+"/heartbeat", func(w http.ResponseWriter, _ *http.Request) {
-		clienttest.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
-	})
+	cc.cloud.ServeSummary("", runID, nil)
+	cc.cloud.ServeHeartbeat(runID)
 	cc.cloud.Handle(http.MethodPost, "/api/house/metrics", func(w http.ResponseWriter, r *http.Request) {
 		var payload struct {
 			ExperimentID string `json:"experimentId"`
@@ -338,7 +326,7 @@ func newCrashCloud(t *testing.T, runID string, block func(runID string, steps []
 		cc.mu.Unlock()
 		clienttest.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
 	})
-	cc.cloud.ServeJSON(http.MethodPost, "/api/projects/alice/demo/series", http.StatusOK, map[string]any{"ok": true})
+	cc.cloud.ServeSeries("alice", "demo")
 	return cc
 }
 

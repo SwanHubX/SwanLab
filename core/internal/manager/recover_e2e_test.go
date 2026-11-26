@@ -22,7 +22,6 @@ import (
 
 	"github.com/swanhubx/swanlab/core/internal/clienttest"
 	"github.com/swanhubx/swanlab/core/internal/config"
-	"github.com/swanhubx/swanlab/core/internal/manager/probe"
 	"github.com/swanhubx/swanlab/core/internal/store"
 	columnv1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/column/v1"
 	datav1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/data/v1"
@@ -72,19 +71,12 @@ func TestRecoverOnlineMidAttachOutageAndPostAttachOutage(t *testing.T) {
 	cloud := clienttest.NewCloud(t)
 	var serverUp, houseUp atomic.Bool
 
-	cloud.Handle(http.MethodGet, probe.ServerPath, func(w http.ResponseWriter, _ *http.Request) {
-		if !serverUp.Load() {
-			clienttest.WriteJSON(w, http.StatusBadGateway, map[string]any{"message": "bad gateway"})
-			return
-		}
-		clienttest.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
-	})
-	cloud.Handle(http.MethodGet, probe.HousePath, func(w http.ResponseWriter, _ *http.Request) {
-		if !houseUp.Load() {
-			clienttest.WriteJSON(w, http.StatusBadGateway, map[string]any{"message": "house down"})
-			return
-		}
-		clienttest.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
+	cloud.ServeRun(clienttest.RunSpec{
+		ExpID:      "exp-outage",
+		Slug:       "slug-outage",
+		ServerUp:   &serverUp,
+		HouseUp:    &houseUp,
+		DownStatus: http.StatusBadGateway,
 	})
 	cloud.Handle(http.MethodGet, "/api/auth/verify", func(w http.ResponseWriter, _ *http.Request) {
 		if !serverUp.Load() {
@@ -93,7 +85,6 @@ func TestRecoverOnlineMidAttachOutageAndPostAttachOutage(t *testing.T) {
 		}
 		clienttest.WriteJSON(w, http.StatusOK, map[string]any{"uid": 1, "username": "alice", "createdAt": "2026-01-01T00:00:00Z"})
 	})
-	serveProject(cloud, "alice", "demo", 1)
 
 	var expCreates atomic.Int32
 	cloud.Handle(http.MethodPost, "/api/project/alice/demo/experiment", func(w http.ResponseWriter, r *http.Request) {
@@ -110,8 +101,6 @@ func TestRecoverOnlineMidAttachOutageAndPostAttachOutage(t *testing.T) {
 			"name": body["name"],
 		})
 	})
-	cloud.ServeJSON(http.MethodPost, "/api/projects/alice/demo/series", http.StatusOK, map[string]any{"ok": true})
-	serveHeartbeat(cloud, "exp-outage")
 
 	var mu sync.Mutex
 	var uploadedSteps []int64
@@ -239,20 +228,13 @@ func TestRecoverOnlineMidAttachOutageAndPostAttachOutage(t *testing.T) {
 func TestRecoverOnlineConfirmCanceledThenRetried(t *testing.T) {
 	cloud := clienttest.NewCloud(t)
 	var backendUp atomic.Bool
-	cloud.Handle(http.MethodGet, probe.ServerPath, func(w http.ResponseWriter, _ *http.Request) {
-		if !backendUp.Load() {
-			clienttest.WriteJSON(w, http.StatusBadGateway, map[string]any{"ok": false})
-			return
-		}
-		clienttest.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
+	cloud.ServeRun(clienttest.RunSpec{
+		ExpID:      "exp-cancel",
+		Slug:       "slug-cancel",
+		ServerUp:   &backendUp,
+		DownStatus: http.StatusBadGateway,
 	})
-	cloud.ServeJSON(http.MethodGet, probe.HousePath, http.StatusOK, map[string]any{"ok": true})
-	serveAuth(cloud)
-	serveProject(cloud, "alice", "demo", 1)
-	serveNewExperiment(cloud, "alice", "demo", "exp-cancel", "slug-cancel")
-	serveHeartbeat(cloud, "exp-cancel")
 	uploaded := serveMetricsUploadOK(cloud)
-	cloud.ServeJSON(http.MethodPut, "/api/project/alice/demo/runs/exp-cancel/state", http.StatusOK, map[string]any{"ok": true})
 
 	mgr := newInstantTestManager()
 	cfg := fastRecoverSettings(t, cloud, "run-cancel", filepath.Join(t.TempDir(), "run"))
@@ -302,19 +284,12 @@ func TestRecoverOnlineConfirmCanceledThenRetried(t *testing.T) {
 func TestRecoverOnlineZeroRecordFinishWaitsUntilAttach(t *testing.T) {
 	cloud := clienttest.NewCloud(t)
 	var backendUp atomic.Bool
-	cloud.Handle(http.MethodGet, probe.ServerPath, func(w http.ResponseWriter, _ *http.Request) {
-		if !backendUp.Load() {
-			clienttest.WriteJSON(w, http.StatusBadGateway, map[string]any{"ok": false})
-			return
-		}
-		clienttest.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
+	cloud.ServeRun(clienttest.RunSpec{
+		ExpID:      "exp-zero",
+		Slug:       "slug-zero",
+		ServerUp:   &backendUp,
+		DownStatus: http.StatusBadGateway,
 	})
-	cloud.ServeJSON(http.MethodGet, probe.HousePath, http.StatusOK, map[string]any{"ok": true})
-	serveAuth(cloud)
-	serveProject(cloud, "alice", "demo", 1)
-	serveNewExperiment(cloud, "alice", "demo", "exp-zero", "slug-zero")
-	serveHeartbeat(cloud, "exp-zero")
-	cloud.ServeJSON(http.MethodPut, "/api/project/alice/demo/runs/exp-zero/state", http.StatusOK, map[string]any{"ok": true})
 
 	mgr := newInstantTestManager()
 	cfg := fastRecoverSettings(t, cloud, "run-zero", filepath.Join(t.TempDir(), "run"))
@@ -370,8 +345,8 @@ func TestRecoverOnlineZeroRecordFinishWaitsUntilAttach(t *testing.T) {
 
 func TestRecoverOnlineHighVolumeBacklogMemoryAndIntegrity(t *testing.T) {
 	cloud := clienttest.NewCloud(t)
-	cloud.ServeJSON(http.MethodGet, probe.ServerPath, http.StatusBadGateway, map[string]any{"ok": false})
-	cloud.ServeJSON(http.MethodGet, probe.HousePath, http.StatusBadGateway, map[string]any{"ok": false})
+	var down atomic.Bool
+	cloud.ServeHealth(&down, &down, http.StatusBadGateway)
 
 	mgr := newInstantTestManager()
 	cfg := fastRecoverSettings(t, cloud, "run-stress", filepath.Join(t.TempDir(), "run"))
@@ -469,17 +444,10 @@ func TestRecoverOnlineHighVolumeBacklogMemoryAndIntegrity(t *testing.T) {
 func setupIdempotentRecoveryCloud(t *testing.T, backendUp *atomic.Bool) (*clienttest.Cloud, *[]int64, *sync.Mutex, map[string]int) {
 	t.Helper()
 	cloud := clienttest.NewCloud(t)
-	cloud.Handle(http.MethodGet, probe.ServerPath, func(w http.ResponseWriter, _ *http.Request) {
-		if !backendUp.Load() {
-			clienttest.WriteJSON(w, http.StatusBadGateway, map[string]any{"ok": false})
-			return
-		}
-		clienttest.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
-	})
-	cloud.ServeJSON(http.MethodGet, probe.HousePath, http.StatusOK, map[string]any{"ok": true})
-	serveAuth(cloud)
-	serveProject(cloud, "alice", "demo", 1)
-	cloud.ServeJSON(http.MethodPost, "/api/projects/alice/demo/series", http.StatusOK, map[string]any{"ok": true})
+	cloud.ServeHealth(backendUp, nil, http.StatusBadGateway)
+	cloud.ServeAuth("")
+	cloud.ServeProject(clienttest.ProjectSpec{})
+	cloud.ServeSeries("alice", "demo")
 
 	var mu sync.Mutex
 	var steps []int64
@@ -518,15 +486,9 @@ func setupIdempotentRecoveryCloud(t *testing.T, backendUp *atomic.Bool) (*client
 			"createdAt": "2026-01-02T00:00:00.000Z",
 		})
 	})
-	cloud.Handle(http.MethodGet, "/api/house/metrics/summaries/crash-after", func(w http.ResponseWriter, _ *http.Request) {
-		clienttest.WriteJSON(w, http.StatusOK, map[string]any{"scalar": []any{}})
-	})
-	cloud.Handle(http.MethodPost, "/api/house/experiments/crash-pre/heartbeat", func(w http.ResponseWriter, _ *http.Request) {
-		clienttest.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
-	})
-	cloud.Handle(http.MethodPost, "/api/house/experiments/crash-after/heartbeat", func(w http.ResponseWriter, _ *http.Request) {
-		clienttest.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
-	})
+	cloud.ServeSummary("", "crash-after", nil)
+	cloud.ServeHeartbeat("crash-pre")
+	cloud.ServeHeartbeat("crash-after")
 	cloud.Handle(http.MethodPost, "/api/house/metrics", func(w http.ResponseWriter, r *http.Request) {
 		var payload struct {
 			Type    string `json:"type"`
@@ -544,12 +506,8 @@ func setupIdempotentRecoveryCloud(t *testing.T, backendUp *atomic.Bool) (*client
 		}
 		clienttest.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
 	})
-	cloud.Handle(http.MethodPut, "/api/project/alice/demo/runs/crash-pre/state", func(w http.ResponseWriter, _ *http.Request) {
-		clienttest.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
-	})
-	cloud.Handle(http.MethodPut, "/api/project/alice/demo/runs/crash-after/state", func(w http.ResponseWriter, _ *http.Request) {
-		clienttest.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
-	})
+	cloud.ServeRunState("alice", "demo", "crash-pre")
+	cloud.ServeRunState("alice", "demo", "crash-after")
 	return cloud, &steps, &mu, createdByCuid
 }
 
@@ -683,11 +641,7 @@ func TestRecoverOnlineShutdownStagesNoDuplicateExperiment(t *testing.T) {
 // Confirm 随后完成上传并上报终态，不能因为本地结束失败就误报云端永久失败。
 func TestRecoverOnlineFinishFailureDuringAttachKeepsCloudResources(t *testing.T) {
 	cloud := clienttest.NewCloud(t)
-	cloud.ServeJSON(http.MethodGet, probe.ServerPath, http.StatusOK, map[string]any{"ok": true})
-	cloud.ServeJSON(http.MethodGet, probe.HousePath, http.StatusOK, map[string]any{"ok": true})
-	serveAuth(cloud)
-	serveProject(cloud, "alice", "demo", 1)
-	serveHeartbeat(cloud, "exp-finish-race")
+	cloud.ServeRun(clienttest.RunSpec{ExpID: "exp-finish-race", Slug: "slug-finish-race"})
 	uploaded := serveMetricsUploadOK(cloud)
 
 	experimentStarted := make(chan struct{})
@@ -798,14 +752,7 @@ func TestRecoverOnlineFinishFailureDuringAttachKeepsCloudResources(t *testing.T)
 func TestRecoverOnlineMultiSessionSharedSiteIsolation(t *testing.T) {
 	cloud := clienttest.NewCloud(t)
 	var backendUp atomic.Bool
-	cloud.Handle(http.MethodGet, probe.ServerPath, func(w http.ResponseWriter, _ *http.Request) {
-		if !backendUp.Load() {
-			clienttest.WriteJSON(w, http.StatusBadGateway, map[string]any{"ok": false})
-			return
-		}
-		clienttest.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
-	})
-	cloud.ServeJSON(http.MethodGet, probe.HousePath, http.StatusOK, map[string]any{"ok": true})
+	cloud.ServeHealth(&backendUp, nil, http.StatusBadGateway)
 	cloud.Handle(http.MethodGet, "/api/auth/verify", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Header.Get("Authorization") {
 		case "ApiKey key-alice":
@@ -816,16 +763,18 @@ func TestRecoverOnlineMultiSessionSharedSiteIsolation(t *testing.T) {
 			clienttest.WriteJSON(w, http.StatusUnauthorized, map[string]any{"message": "unknown key"})
 		}
 	})
-	serveProject(cloud, "alice", "proj-a", 1)
-	serveProject(cloud, "bob", "proj-b", 1)
-	serveNewExperiment(cloud, "alice", "proj-a", "exp-alice", "slug-alice")
-	serveNewExperiment(cloud, "bob", "proj-b", "exp-bob", "slug-bob")
-	serveHeartbeat(cloud, "exp-alice")
-	serveHeartbeat(cloud, "exp-bob")
-	cloud.ServeJSON(http.MethodPost, "/api/projects/alice/proj-a/series", http.StatusOK, map[string]any{"ok": true})
-	cloud.ServeJSON(http.MethodPost, "/api/projects/bob/proj-b/series", http.StatusOK, map[string]any{"ok": true})
-	cloud.ServeJSON(http.MethodPut, "/api/project/alice/proj-a/runs/exp-alice/state", http.StatusOK, map[string]any{"ok": true})
-	cloud.ServeJSON(http.MethodPut, "/api/project/bob/proj-b/runs/exp-bob/state", http.StatusOK, map[string]any{"ok": true})
+	for _, spec := range []struct {
+		owner, proj, expID, slug string
+	}{
+		{"alice", "proj-a", "exp-alice", "slug-alice"},
+		{"bob", "proj-b", "exp-bob", "slug-bob"},
+	} {
+		cloud.ServeProject(clienttest.ProjectSpec{Owner: spec.owner, Name: spec.proj})
+		cloud.ServeExperiment(clienttest.ExperimentSpec{Owner: spec.owner, Project: spec.proj, Cuid: spec.expID, Slug: spec.slug})
+		cloud.ServeHeartbeat(spec.expID)
+		cloud.ServeSeries(spec.owner, spec.proj)
+		cloud.ServeRunState(spec.owner, spec.proj, spec.expID)
+	}
 
 	var mu sync.Mutex
 	expSteps := map[string][]int64{}
@@ -903,8 +852,7 @@ func TestRecoverOnlineMultiSessionSharedSiteIsolation(t *testing.T) {
 
 func TestRecoverOnlinePermanentAuthFailureCleansProbeAndSession(t *testing.T) {
 	cloud := clienttest.NewCloud(t)
-	cloud.ServeJSON(http.MethodGet, probe.ServerPath, http.StatusOK, map[string]any{"ok": true})
-	cloud.ServeJSON(http.MethodGet, probe.HousePath, http.StatusOK, map[string]any{"ok": true})
+	cloud.ServeHealth(nil, nil, 0)
 	var authCalls atomic.Int32
 	cloud.Handle(http.MethodGet, "/api/auth/verify", func(w http.ResponseWriter, _ *http.Request) {
 		if authCalls.Add(1) == 1 {

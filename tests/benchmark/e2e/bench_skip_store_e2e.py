@@ -236,6 +236,8 @@ def run_worker(skip_store: bool, steps: int, keys: int, save_count: int) -> None
     try:
         with responses_lib.RequestsMock(assert_all_requests_are_fired=False) as rsps:
             _install_http_mocks(rsps)
+            # responses 只拦截进程内 Python HTTP 请求，显式固定 CorePython 避免走外部 Go Core 请求虚构域名
+            swanlab.require("core_python")
             merge_settings({"api_host": API_HOST, "web_host": WEB_HOST, "probe": {"monitor": False}})
             login_raw(api_key=API_KEY, host=API_HOST, save=False, print_welcome=False)
 

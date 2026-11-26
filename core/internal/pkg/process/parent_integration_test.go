@@ -155,7 +155,7 @@ func TestNotifyOnParentExitSurvivesSpawnThreadExit(t *testing.T) {
 	}
 
 	// 1. child 就绪且 spawn 线程已退出后，child 不得因 PDEATHSIG 伪通知提前退出。
-	if err := waitForMarker(filepath.Join(helperDir, "thread-dead"), 5*time.Second); err != nil {
+	if err := waitForMarkerFile(filepath.Join(helperDir, "thread-dead"), 5*time.Second); err != nil {
 		killHelperProcess(t, filepath.Join(helperDir, "child.pid"))
 		t.Fatalf("wait for spawn thread exit: %v", err)
 	}
@@ -271,10 +271,6 @@ func processAlive(pid int) bool {
 		return false
 	}
 	return proc.Signal(syscall.Signal(0)) == nil
-}
-
-func waitForMarker(path string, timeout time.Duration) error {
-	return waitForMarkerFile(path, timeout)
 }
 
 func waitForMarkerFile(path string, timeout time.Duration) error {

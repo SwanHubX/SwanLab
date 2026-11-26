@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"io"
-	"net/http"
 	"os"
 	"path/filepath"
 	"sync"
@@ -68,14 +67,6 @@ func setSessionReleaseFn(s *Session, fn func(context.Context) error) {
 	}
 	next.releaseFn = fn
 	s.setCloudResources(&next)
-}
-
-func serveAuth(cloud *clienttest.Cloud) {
-	cloud.ServeJSON(http.MethodGet, "/api/auth/verify", http.StatusOK, map[string]any{
-		"uid":       1,
-		"username":  "alice",
-		"createdAt": "2026-01-01T00:00:00Z",
-	})
 }
 
 func startSettings(t *testing.T, cloud *clienttest.Cloud) config.Settings {

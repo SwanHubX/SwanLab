@@ -8,10 +8,8 @@
 import contextlib
 import os
 import socket
-import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
-from pathlib import Path
 
 import pytest
 
@@ -19,24 +17,14 @@ from swanlab.sdk.internal.core_go.config import GRPC_MAX_MESSAGE_BYTES, CoreGoEr
 from swanlab.sdk.internal.core_go.rpc import Channel
 from swanlab.sdk.internal.core_go.runtime import Endpoint
 
-REPO_ROOT = Path(__file__).resolve().parents[5]
 
-
-def test_rpc_package_does_not_load_grpc():
+def test_rpc_package_does_not_load_grpc(run_python_isolated):
     """rpc 包顶层只加载 protobuf 消息，不加载 grpcio。"""
     code = (
         "import sys; import swanlab.sdk.internal.core_go.rpc; "
         "print('grpc' in sys.modules, 'core_pb2_grpc' in ' '.join(sys.modules))"
     )
-    env = dict(os.environ, PYTHONPATH=str(REPO_ROOT))
-    result = subprocess.run(
-        [sys.executable, "-c", code],
-        cwd=str(REPO_ROOT),
-        env=env,
-        capture_output=True,
-        text=True,
-        check=True,
-    )
+    result = run_python_isolated(code)
 
     assert result.stdout.strip() == "False False", result.stderr
 
@@ -216,36 +204,28 @@ def test_channel_close_is_idempotent_and_rejects_calls():
     assert caught.value.reason is ReasonCode.CLOSED
 
 
-def _run_python(code: str, *, env_overrides: dict) -> subprocess.CompletedProcess:
-    env = {k: v for k, v in os.environ.items() if k != "GRPC_ENABLE_FORK_SUPPORT"}
-    env["PYTHONPATH"] = str(REPO_ROOT)
-    env.update(env_overrides)
-    return subprocess.run(
-        [sys.executable, "-c", code],
-        cwd=str(REPO_ROOT),
-        env=env,
-        capture_output=True,
-        text=True,
-    )
-
-
 @pytest.mark.parametrize(
     ("overrides", "expected"),
     [({}, "0"), ({"GRPC_ENABLE_FORK_SUPPORT": "1"}, "1")],
     ids=["default", "explicit"],
 )
-def test_fork_support_default_and_explicit_value(overrides, expected):
+def test_fork_support_default_and_explicit_value(run_python_isolated, overrides, expected):
     """首次导入 rpc 包时设置默认值，且不覆盖用户显式配置。"""
     code = "import os; import swanlab.sdk.internal.core_go.rpc; print(os.environ['GRPC_ENABLE_FORK_SUPPORT'])"
 
-    result = _run_python(code, env_overrides=overrides)
+    result = run_python_isolated(
+        code,
+        env_overrides=overrides,
+        drop_env=("GRPC_ENABLE_FORK_SUPPORT",),
+        check=False,
+    )
 
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == expected
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="fork is POSIX only")
-def test_fork_with_active_grpc_does_not_log_atfork_noise():
+def test_fork_with_active_grpc_does_not_log_atfork_noise(run_python_isolated):
     """打开 fork 支持时，fork 会向 stderr 打印 absl 日志；默认值必须避免该噪音。"""
     code = "\n".join(
         [
@@ -267,7 +247,7 @@ def test_fork_with_active_grpc_does_not_log_atfork_noise():
         ]
     )
 
-    result = _run_python(code, env_overrides={})
+    result = run_python_isolated(code, drop_env=("GRPC_ENABLE_FORK_SUPPORT",), check=False)
 
     assert result.returncode == 0, result.stderr
     assert "fork_posix.cc" not in result.stderr
