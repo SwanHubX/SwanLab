@@ -26,6 +26,11 @@ from swanlab.utils.experiment import generate_id
 
 __all__ = ["Monitor"]
 
+# 单轮采集结果与停机等待的上限（秒）：外部命令或驱动调用可能长期不返回，
+# 监控数据是尽力而为，不能因此拖住 finish()。
+COLLECT_TIMEOUT = 30.0
+STOP_TIMEOUT = 5.0
+
 
 class Monitor:
     """
@@ -102,7 +107,7 @@ class Monitor:
             results: List[CollectResult] = []
             for n, f in futures:
                 with safe.block(message=f"Error collecting metric via {n}"):
-                    result = f.result()
+                    result = f.result(timeout=COLLECT_TIMEOUT)
                     results.extend(result)
             ts = Timestamp()
             ts.GetCurrentTime()
@@ -126,7 +131,9 @@ class Monitor:
     def stop(self) -> None:
         assert self._timer is not None, "HardwareMonitor is not running"
         self._timer.cancel()
-        self._timer.join()
+        # 采样线程可能卡在外部命令上：等待有上限，超时后放弃剩余采集
+        self._timer.join(timeout=STOP_TIMEOUT)
         if self._executor is not None:
-            self._executor.shutdown(wait=True)
+            # 取消尚未开始的任务后立即返回；已在执行的任务由外部命令自身的超时兜底
+            self._executor.shutdown(wait=False, cancel_futures=True)
             self._executor = None

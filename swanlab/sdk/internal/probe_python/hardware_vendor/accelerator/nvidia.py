@@ -19,6 +19,7 @@ from typing import Optional, Tuple
 
 import swanlab.vendor
 from swanlab.sdk.internal.pkg import console, safe
+from swanlab.sdk.internal.probe_python.hardware_vendor.utils import DEFAULT_TIMEOUT
 from swanlab.sdk.internal.probe_python.protocol import AcceleratorProtocol
 from swanlab.sdk.internal.probe_python.typings import (
     AcceleratorSnapshot,
@@ -205,7 +206,7 @@ class NvidiaGPU(AcceleratorProtocol):
     @staticmethod
     @safe.decorator(level="debug", message="Failed to get CUDA version via nvcc")
     def _get_cuda_version_from_nvcc() -> Optional[str]:
-        output = subprocess.check_output(["nvcc", "--version"]).decode("utf-8")
+        output = subprocess.check_output(["nvcc", "--version"], timeout=DEFAULT_TIMEOUT).decode("utf-8")
         for line in output.split("\n"):
             if "release" in line:
                 return line.split("release")[-1].strip().split(" ")[0][:-1]
@@ -214,7 +215,7 @@ class NvidiaGPU(AcceleratorProtocol):
     @staticmethod
     @safe.decorator(level="debug", message="Failed to get CUDA version via nvidia-smi")
     def _get_cuda_version_from_smi() -> Optional[str]:
-        output = subprocess.check_output(["nvidia-smi"]).decode("utf-8")
+        output = subprocess.check_output(["nvidia-smi"], timeout=DEFAULT_TIMEOUT).decode("utf-8")
         marker = "CUDA Version:"
         for line in output.split("\n"):
             if marker in line:

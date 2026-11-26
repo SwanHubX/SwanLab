@@ -129,8 +129,10 @@ class ProbePython(ProbeProtocol):
                 )
             # 5. 设置硬件监控
             if ctx.config.monitor:
-                if (hm := Monitor(system_shim, self._core).start(ctx)) is not None:
-                    self._monitor = hm
+                # 采集器初始化会调用外部命令（带超时），失败或超时只影响监控，不影响 probe 整体
+                with safe.block(message="Error starting hardware monitor"):
+                    if (hm := Monitor(system_shim, self._core).start(ctx)) is not None:
+                        self._monitor = hm
         else:
             console.debug(
                 "ProbePython has no core attached; metadata will be collected for snapshots only and will not be sent."

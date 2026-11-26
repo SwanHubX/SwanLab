@@ -76,6 +76,11 @@ from . import fmt
 __all__ = ["Run", "has_run", "get_run", "set_run", "clear_run"]
 
 
+def _in_main_thread() -> bool:
+    """当前线程是否为主线程。signal.signal() 只允许在主线程调用。"""
+    return threading.current_thread() is threading.main_thread()
+
+
 def with_api(cmd: str, must_alive: bool = True):
     """Run API 装饰器，统一处理：fork 检测、存活校验、线程安全
 
@@ -316,8 +321,21 @@ class Run:
                 self._components.stop()
         with safe.block(level="debug", message="core abort failed during init"):
             self._core.abort(cause)
+        self._cleanup_hooks()
+        if _current_run is self:
+            clear_run()
+        with safe.block(level="debug", message="console reset failed during init abort"):
+            console.reset()
+
+    def _cleanup_hooks(self) -> None:
+        """撤销 init 期注册的全局钩子；可重复调用。
+
+        init() 在主线程、finish() 在子线程时，signal.signal() 会抛 ValueError，
+        因此 SIGINT 只在当前确为主线程时才恢复；否则保留 _sigint_installed 标记，
+        交给 _handle_sigint 在真正的 Ctrl+C 路径上在主线程收尾。
+        """
         if self._fork_registered:
-            with safe.block(level="debug", message="fork hook unregister failed during init abort"):
+            with safe.block(level="debug", message="fork hook unregister failed"):
                 fork.unregister(self._handle_fork)
             self._fork_registered = False
         if self._atexit_registered:
@@ -326,13 +344,9 @@ class Run:
         if self._excepthook_installed:
             sys.excepthook = self._sys_origin_excepthook
             self._excepthook_installed = False
-        if self._sigint_installed:
-            signal.signal(signal.SIGINT, self._original_sigint_handler)
+        if self._sigint_installed and _in_main_thread():
             self._sigint_installed = False
-        if _current_run is self:
-            clear_run()
-        with safe.block(level="debug", message="console reset failed during init abort"):
-            console.reset()
+            signal.signal(signal.SIGINT, self._original_sigint_handler)
 
     def _report_local_recovery(self, message: str) -> None:
         """confirm 失败且本地副本完整时，提示从 run-*.swanlab 恢复。"""
@@ -1163,18 +1177,7 @@ class Run:
         console.debug(f"SwanLab Run has finished with state: {self._state}, cleanup...")
         # 4. 清理副作用
         console.debug("Cleanup system hook...")
-        if self._fork_registered:
-            fork.unregister(self._handle_fork)
-            self._fork_registered = False
-        if self._atexit_registered:
-            atexit.unregister(self._handle_atexit)
-            self._atexit_registered = False
-        if self._excepthook_installed:
-            sys.excepthook = self._sys_origin_excepthook
-            self._excepthook_installed = False
-        if self._sigint_installed:
-            signal.signal(signal.SIGINT, self._original_sigint_handler)
-            self._sigint_installed = False
+        self._cleanup_hooks()
         # 清理全局运行实例
         console.debug("Cleanup global instance...")
         clear_run()
