@@ -129,9 +129,8 @@ class Channel:
         if size > GRPC_MAX_MESSAGE_BYTES:
             raise CoreGoError(
                 stage,
-                ReasonCode.INVALID_ARGUMENT,
+                ReasonCode.REQUEST_TOO_LARGE,
                 f"request size {size} exceeds gRPC limit {GRPC_MAX_MESSAGE_BYTES}",
-                retryable=False,
             )
 
     def _map_rpc_error(self, exc: Any, stage: Stage) -> CoreGoError:
@@ -141,17 +140,15 @@ class Channel:
         grpc_code = value[0] if isinstance(value, tuple) and value else None
         details = exc.details() if hasattr(exc, "details") else None
         reason = reason_for_grpc(name)
-        # 客户端消息超限也报 RESOURCE_EXHAUSTED，但重试不会成功。
-        retryable = None
+        # 客户端消息超限也报 RESOURCE_EXHAUSTED，单独归为超限：上层可以拆片重发
         if reason is ReasonCode.RESOURCE_EXHAUSTED and "larger than max" in (details or "").lower():
-            retryable = False
+            reason = ReasonCode.REQUEST_TOO_LARGE
         return CoreGoError(
             stage,
             reason,
             details or f"gRPC call failed with {name}",
             grpc_name=name,
             grpc_code=grpc_code,
-            retryable=retryable,
         )
 
     def close(self) -> None:

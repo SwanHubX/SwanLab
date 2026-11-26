@@ -37,9 +37,14 @@ __all__ = [
     "CoreProtocol",
     "CoreProtocolError",
     "CoreSyncProtocol",
+    "MAX_MESSAGE_BYTES",
     "NullCoreProtocol",
     "is_terminal_stats_error",
 ]
+
+# 单条消息的传输上限（4 MiB），必须与 Go 侧 maxRecvMsgSize 保持一致。
+# skip_store 模式下媒体字节直接内联在消息里，单条超过它永远发不出去。
+MAX_MESSAGE_BYTES = 4 << 20
 
 
 class CoreEnum(str, Enum):
@@ -52,11 +57,13 @@ class CoreProtocolError(Exception):
 
     retryable 为 True 表示同一批数据可以重试（限流、网络不可用、超时）；
     为 False 表示确定性拒绝，调用方必须终结该批，不能无限回塞。
+    too_large 为 True 表示单次请求超过传输上限：只能拆小或丢弃，重试没有意义。
     """
 
-    def __init__(self, message: str = "", *, retryable: bool) -> None:
+    def __init__(self, message: str = "", *, retryable: bool, too_large: bool = False) -> None:
         super().__init__(message)
         self.retryable = retryable
+        self.too_large = too_large
 
 
 class CoreProtocol(ABC):

@@ -10,6 +10,8 @@
 
 from typing import Optional
 
+from swanlab.sdk.protocol.core import MAX_MESSAGE_BYTES
+
 __all__ = [
     "BINARY_NAME",
     "CORE_BINARY_ENV",
@@ -110,7 +112,7 @@ KILL_TIMEOUT = 2.0
 
 # ---------------------------------- gRPC 与诊断 ----------------------------------
 
-# 单条消息上限，必须与 Go 侧 maxRecvMsgSize 保持一致。
-GRPC_MAX_MESSAGE_BYTES = 4 << 20
+# 单条消息上限，与 Go 侧 maxRecvMsgSize 共用协议层的同一个值。
+GRPC_MAX_MESSAGE_BYTES = MAX_MESSAGE_BYTES
 # stderr 尾部最多读取的字节数。
 STDERR_TAIL_BYTES = 4096

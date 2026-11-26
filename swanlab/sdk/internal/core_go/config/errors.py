@@ -65,6 +65,7 @@ class ReasonCode(str, Enum):
     SESSION_NOT_FOUND = "SESSION_NOT_FOUND"
     RESOURCE_EXHAUSTED = "RESOURCE_EXHAUSTED"
     INVALID_ARGUMENT = "INVALID_ARGUMENT"
+    REQUEST_TOO_LARGE = "REQUEST_TOO_LARGE"
     GRPC_ERROR = "GRPC_ERROR"
     # 语义
     PROTOCOL_VIOLATION = "PROTOCOL_VIOLATION"
@@ -134,7 +135,11 @@ class CoreGoError(CoreProtocolError):
         cause: Optional[BaseException] = None,
         retryable: Optional[bool] = None,
     ) -> None:
-        super().__init__(message, retryable=reason in _RETRYABLE_REASONS if retryable is None else retryable)
+        super().__init__(
+            message,
+            retryable=reason in _RETRYABLE_REASONS if retryable is None else retryable,
+            too_large=reason is ReasonCode.REQUEST_TOO_LARGE,
+        )
         self.stage = stage
         self.reason = reason
         self.message = message
@@ -160,6 +165,7 @@ class CoreGoError(CoreProtocolError):
             "grpc_code": self.grpc_code,
             "detail": self.detail,
             "retryable": self.retryable,
+            "too_large": self.too_large,
         }
 
 

@@ -22,11 +22,12 @@ import pytest
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord, ColumnType
-from swanlab.proto.swanlab.metric.data.v1.data_pb2 import HistogramRecord, ScalarRecord
+from swanlab.proto.swanlab.metric.data.v1.data_pb2 import HistogramRecord, MediaRecord, ScalarRecord
 from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogLevel
 from swanlab.sdk.internal.bus import RunEmitter
 from swanlab.sdk.internal.bus.events import LogEvent, MetricLogEvent
 from swanlab.sdk.internal.context import RunContext
+from swanlab.sdk.internal.core_go.config import CoreGoError, ReasonCode, Stage
 from swanlab.sdk.internal.pkg import console as pkg_console
 from swanlab.sdk.internal.run.components.consumer import BackgroundConsumer
 from swanlab.sdk.internal.run.components.terminal.capture import StreamCapture
@@ -677,3 +678,62 @@ def test_terminal_capture_log_rejection_does_not_self_loop(monkeypatch, tmp_path
     assert emitter.queue.empty()
     assert core.upsert_logs.call_count == 1
     assert screen.count("Dropping logs records after terminal failure") == 1
+
+
+def _too_large_error() -> CoreGoError:
+    return CoreGoError(Stage.RPC, ReasonCode.REQUEST_TOO_LARGE, "request size 5242880 exceeds gRPC limit 4194304")
+
+
+def test_oversized_chunk_is_split_until_only_the_offending_record_is_dropped(monkeypatch):
+    """单片超限按对半拆开重发：一条超限记录只丢自己，同片其它记录照常送达。"""
+    consumer, core, _ = _make_consumer(batch_size=4)
+    warnings = []
+    monkeypatch.setattr(pkg_console, "warning", lambda *args, **kwargs: warnings.append(args[0]))
+    sent = []
+
+    def upsert_media(chunk):
+        if any(record.key == "bad" for record in chunk):
+            raise _too_large_error()
+        sent.append([record.key for record in chunk])
+
+    core.upsert_media.side_effect = upsert_media
+    for key in ["a", "b", "bad", "c", "d", "e", "f", "g"]:
+        consumer._media_batch.append(MediaRecord(key=key, step=1))
+
+    consumer._flush()
+
+    assert [key for chunk in sent for key in chunk] == ["a", "b", "c", "d", "e", "f", "g"]
+    assert consumer._media_batch == []
+    # 超限是确定性失败，不该触发退避重试
+    assert consumer._retry_at is None
+    assert len(warnings) == 1
+    assert "'bad'" in warnings[0]
+
+
+def test_single_oversized_record_is_dropped_with_its_key(monkeypatch):
+    """分片大小为 1 时无处可拆：只丢弃该条，并带指标 key 提示用户。"""
+    consumer, core, _ = _make_consumer()
+    warnings = []
+    monkeypatch.setattr(
+        pkg_console, "warning", lambda *args, **kwargs: warnings.append((args[0], pkg_console.capture_skipped()))
+    )
+    core.upsert_media.side_effect = _too_large_error()
+    consumer._media_batch.append(MediaRecord(key="huge-image", step=3))
+
+    consumer._flush()
+
+    assert consumer._media_batch == []
+    text, skipped = warnings[0]
+    assert "huge-image" in text
+    assert skipped is True
+
+
+def test_normal_chunk_is_not_split():
+    """正常分片不触发二分：9 条记录按 batch_size=4 仍是 3 次 RPC。"""
+    consumer, core, _ = _make_consumer(batch_size=4)
+    for index in range(9):
+        consumer._media_batch.append(MediaRecord(key=f"k{index}", step=1))
+
+    consumer._flush()
+
+    assert core.upsert_media.call_count == 3
