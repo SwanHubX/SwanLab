@@ -388,22 +388,36 @@ func (t *Intake) Commit(tk Ticket, records []*recordv1.Record) error {
 		return fmt.Errorf("%w: local store became unavailable", ErrStoreDegraded)
 	}
 
-	t.mu.Lock()
-	if t.closed {
-		t.mu.Unlock()
+	pausedNow, pausedAt, err := t.commitLocked(tk, records, immediate, deferred, uploadable, payloads, wantStore)
+	if err != nil {
 		t.Release(tk)
-		return ErrClosed
+		return err
+	}
+
+	t.notifyPause(pausedNow, pausedAt)
+	return nil
+}
+
+func (t *Intake) commitLocked(
+	tk Ticket,
+	records []*recordv1.Record,
+	immediate, deferred []int,
+	uploadable int,
+	payloads [][]byte,
+	wantStore bool,
+) (pausedNow bool, pausedAt int64, err error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	if t.closed {
+		return false, 0, ErrClosed
 	}
 	if wantStore && len(records) > tk.store {
-		t.mu.Unlock()
-		t.Release(tk)
-		return fmt.Errorf("%w: store %d > reserved %d", ErrOverReserved, len(records), tk.store)
+		return false, 0, fmt.Errorf("%w: store %d > reserved %d", ErrOverReserved, len(records), tk.store)
 	}
 	// 延迟记录只占 pending 条数名额，且必须在 Reserve 预留。
 	if len(deferred) > tk.pending {
-		t.mu.Unlock()
-		t.Release(tk)
-		return fmt.Errorf("%w: deferred %d > reserved %d", ErrOverReserved, len(deferred), tk.pending)
+		return false, 0, fmt.Errorf("%w: deferred %d > reserved %d", ErrOverReserved, len(deferred), tk.pending)
 	}
 	// 票据自身的暂停标记在 ResumeUpload 之后仍然生效。
 	paused := t.pauseSeq != 0 || tk.paused
@@ -411,13 +425,9 @@ func (t *Intake) Commit(tk Ticket, records []*recordv1.Record) error {
 	case paused:
 		// 暂停批次：立即记录只落本地，延迟记录照常暂存。
 	case len(immediate) > tk.upload:
-		t.mu.Unlock()
-		t.Release(tk)
-		return fmt.Errorf("%w: upload %d > reserved %d", ErrOverReserved, len(immediate), tk.upload)
+		return false, 0, fmt.Errorf("%w: upload %d > reserved %d", ErrOverReserved, len(immediate), tk.upload)
 	case len(immediate) > tk.slots:
-		t.mu.Unlock()
-		t.Release(tk)
-		return fmt.Errorf("%w: immediate %d > slots %d", ErrOverReserved, len(immediate), tk.slots)
+		return false, 0, fmt.Errorf("%w: immediate %d > slots %d", ErrOverReserved, len(immediate), tk.slots)
 	}
 	if !wantStore && tk.store > 0 {
 		t.releaseStoreLocked(tk.store)
@@ -437,8 +447,6 @@ func (t *Intake) Commit(tk Ticket, records []*recordv1.Record) error {
 		// 本地已不可用：把此前暂停、尚未确认落盘的记录转入回收队列。
 		t.collectUnconfirmedLocked()
 	}
-	pausedNow := false
-	var pausedAt int64
 	t.admit(uploadable)
 	switch {
 	case paused && storeOK:
@@ -457,10 +465,7 @@ func (t *Intake) Commit(tk Ticket, records []*recordv1.Record) error {
 	}
 	// 预留的名额已转为 pending 长度，这里核销票据中的延迟名额。
 	t.releaseDeferredLocked(tk.pending)
-	t.mu.Unlock()
-
-	t.notifyPause(pausedNow, pausedAt)
-	return nil
+	return pausedNow, pausedAt, nil
 }
 
 // notifyPause 输出暂停提示并通知上层；必须在释放锁之后调用。

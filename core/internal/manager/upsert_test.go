@@ -922,3 +922,51 @@ func TestUpsertSavesLinksOutsideSessionLock(t *testing.T) {
 		t.Fatalf("missing mirror link: %v", err)
 	}
 }
+
+// TestCommitPreparedReleasesTicketOnApplyPanic 验证 apply() 发生 panic 时已预留的预算与槽位被归还，不泄漏。
+func TestCommitPreparedReleasesTicketOnApplyPanic(t *testing.T) {
+	h := newUpsertHarness(t, upsertOptions{queue: 2})
+	storeCh := make(chan store.Request, 2)
+	tightIntake, err := buffer.New(buffer.Options{
+		Store:       storeCh,
+		UploadQueue: 2,
+		Budget:      budget.New(budget.Limits{Records: 2}),
+		QueueWait:   20 * time.Millisecond,
+		Flushed:     func() int64 { return 0 },
+		OnAdmit:     h.session.tracker.AddTotalRecords,
+	})
+	if err != nil {
+		t.Fatalf("buffer.New: %v", err)
+	}
+	h.session.intake = tightIntake
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_ = tightIntake.Close(ctx)
+	})
+
+	var recovered any
+	func() {
+		defer func() { recovered = recover() }()
+		_ = h.session.commitPrepared(context.Background(), func() (preparedBatch, error) {
+			return preparedBatch{
+				records: []*recordv1.Record{
+					{Num: 1, RecordType: &recordv1.Record_Scalar{Scalar: scalarRecord("loss", 0, columnv1.ColumnType_COLUMN_TYPE_SCALAR)}},
+					{Num: 2, RecordType: &recordv1.Record_Scalar{Scalar: scalarRecord("loss", 1, columnv1.ColumnType_COLUMN_TYPE_SCALAR)}},
+				},
+				apply: func() error { panic("apply boom") },
+			}, nil
+		})
+	}()
+	if recovered == nil {
+		t.Fatal("expected commitPrepared to panic inside apply()")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+	if err := h.mgr.UpsertScalars(ctx, h.id, []*datav1.ScalarRecord{
+		scalarRecord("loss", 1, columnv1.ColumnType_COLUMN_TYPE_SCALAR),
+	}); err != nil {
+		t.Fatalf("UpsertScalars after apply panic failed (ticket leaked?): %v", err)
+	}
+}

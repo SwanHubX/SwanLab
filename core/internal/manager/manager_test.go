@@ -770,3 +770,45 @@ func TestReleasedCacheStoresConfirmResultsAndEvictsFIFO(t *testing.T) {
 		t.Fatalf("cache.get(%s) = (%+v, %v)", lastID, latest, latestOK)
 	}
 }
+
+func TestInvalidateRemovesSessionImmediatelyAndCleansUpAsync(t *testing.T) {
+	h := newFinishHarness(t, finishOptions{})
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := h.mgr.UpsertScalars(ctx, h.id, []*datav1.ScalarRecord{
+		scalarRecord("invalidate/loss", 0, columnv1.ColumnType_COLUMN_TYPE_SCALAR),
+	}); err != nil {
+		t.Fatalf("UpsertScalars: %v", err)
+	}
+
+	h.mgr.Invalidate(h.id)
+
+	if got := h.mgr.SessionCount(); got != 0 {
+		t.Fatalf("SessionCount after Invalidate = %d, want 0", got)
+	}
+	if _, err := h.mgr.State(h.id); !errors.Is(err, ErrSessionNotFound) {
+		t.Fatalf("State after Invalidate err=%v, want ErrSessionNotFound", err)
+	}
+	if _, err := h.mgr.Confirm(ctx, h.id); !errors.Is(err, ErrSessionNotFound) {
+		t.Fatalf("Confirm after Invalidate err=%v, want ErrSessionNotFound", err)
+	}
+	if h.mgr.isReleased(h.id) {
+		t.Fatal("Invalidate must not mark session in released cache")
+	}
+
+	// 空 ID、未知 ID 与重复 Invalidate 均为安全空操作。
+	h.mgr.Invalidate("")
+	h.mgr.Invalidate("nonexistent")
+	h.mgr.Invalidate(h.id)
+
+	if err := h.mgr.Shutdown(ctx); err != nil {
+		t.Fatalf("Shutdown: %v", err)
+	}
+	if err := h.mgr.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	if records := readStore(t, h.runFile); len(records) == 0 {
+		t.Fatal("async Invalidate cleanup must flush accepted records to the local store")
+	}
+}

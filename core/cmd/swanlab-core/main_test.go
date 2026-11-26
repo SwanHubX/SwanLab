@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"go.uber.org/goleak"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
@@ -19,8 +20,11 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
+	"github.com/swanhubx/swanlab/core/internal/pkg/console"
 	"github.com/swanhubx/swanlab/core/internal/pkg/portinfo"
 	corev1 "github.com/swanhubx/swanlab/core/proto/swanlab/grpc/core/v1"
+	runv1 "github.com/swanhubx/swanlab/core/proto/swanlab/run/v1"
+	settingsv1 "github.com/swanhubx/swanlab/core/proto/swanlab/settings/core/v1"
 )
 
 // staleSocket 留下一个「进程已退出、socket 文件仍在」的 UDS 残留。
@@ -256,5 +260,151 @@ func TestAssembleServerRecoversHandlerPanic(t *testing.T) {
 	err = conn.Invoke(ctx, "/test.PanicService/Call", wrapperspb.String("ok"), out)
 	if err != nil || out.GetValue() != "ok" {
 		t.Fatalf("normal call resp=%v err=%v, want ok/nil", out, err)
+	}
+}
+
+type sessionPanicTestService interface {
+	Call(context.Context, *corev1.GetOperationStatsRequest) (*wrapperspb.StringValue, error)
+}
+
+type sessionPanicTestHandler struct{}
+
+func (sessionPanicTestHandler) Call(context.Context, *corev1.GetOperationStatsRequest) (*wrapperspb.StringValue, error) {
+	panic("session boom")
+}
+
+var sessionPanicTestServiceDesc = grpc.ServiceDesc{
+	ServiceName: "test.SessionPanicService",
+	HandlerType: (*sessionPanicTestService)(nil),
+	Methods: []grpc.MethodDesc{{
+		MethodName: "Call",
+		Handler: func(srv any, ctx context.Context, dec func(any) error, interceptor grpc.UnaryServerInterceptor) (any, error) {
+			in := new(corev1.GetOperationStatsRequest)
+			if err := dec(in); err != nil {
+				return nil, err
+			}
+			if interceptor == nil {
+				return srv.(sessionPanicTestService).Call(ctx, in)
+			}
+			info := &grpc.UnaryServerInfo{Server: srv, FullMethod: "/test.SessionPanicService/Call"}
+			return interceptor(ctx, in, info, func(ctx context.Context, req any) (any, error) {
+				return srv.(sessionPanicTestService).Call(ctx, req.(*corev1.GetOperationStatsRequest))
+			})
+		},
+	}},
+}
+
+func TestAssembleServerPanicInvalidatesActiveSession(t *testing.T) {
+	baseline := goleak.IgnoreCurrent()
+	grpcServer, ctrl, mgr, syncMgr, _ := assembleServer(0)
+	grpcServer.RegisterService(&sessionPanicTestServiceDesc, sessionPanicTestHandler{})
+	lis := bufconn.Listen(1 << 20)
+	serveDone := make(chan struct{})
+	go func() {
+		defer close(serveDone)
+		_ = grpcServer.Serve(lis)
+	}()
+
+	conn, err := grpc.NewClient(
+		"passthrough:///bufnet",
+		grpc.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) {
+			return lis.DialContext(ctx)
+		}),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	coreClient := corev1.NewCoreServiceClient(conn)
+	if _, err = coreClient.SpinupService(ctx, &corev1.SpinupServiceRequest{}); err != nil {
+		t.Fatalf("SpinupService: %v", err)
+	}
+	startResp, err := coreClient.DeliverRunStart(ctx, &corev1.DeliverRunStartRequest{
+		CoreSettings: &settingsv1.CoreSettings{
+			RunId:          "panic-run",
+			RunDir:         t.TempDir(),
+			Mode:           settingsv1.CoreMode_CORE_MODE_LOCAL,
+			RecordBatch:    100,
+			RecordInterval: 1.5,
+			SaveSize:       50 << 30,
+			SaveSplit:      100 << 20,
+			SavePart:       32 << 20,
+			SaveBatch:      100,
+		},
+		StartRecord: &runv1.StartRecord{Project: "demo", Id: "panic-run"},
+	})
+	if err != nil || !startResp.GetSuccess() || startResp.GetSessionId() == "" {
+		t.Fatalf("DeliverRunStart resp=%v err=%v", startResp, err)
+	}
+	sessionID := startResp.GetSessionId()
+
+	out := new(wrapperspb.StringValue)
+	err = conn.Invoke(ctx, "/test.SessionPanicService/Call", &corev1.GetOperationStatsRequest{SessionId: sessionID}, out)
+	if status.Code(err) != codes.Internal {
+		t.Fatalf("panic err=%v, want codes.Internal", err)
+	}
+
+	if _, err = coreClient.GetOperationStats(ctx, &corev1.GetOperationStatsRequest{SessionId: sessionID}); status.Code(err) != codes.NotFound {
+		t.Fatalf("GetOperationStats after panic err=%v, want codes.NotFound", err)
+	}
+
+	_ = conn.Close()
+	ctrl.Shutdown("test")
+	<-ctrl.Done()
+	<-serveDone
+	_ = lis.Close()
+	_ = mgr.Close()
+	_ = syncMgr.Close()
+	goleak.VerifyNone(t, baseline)
+}
+
+func TestPanicRecoveryInterceptorDeduplicatesStackByMethod(t *testing.T) {
+	logDir := t.TempDir()
+	console.Reset()
+	if err := console.Init(logDir); err != nil {
+		t.Fatalf("console.Init: %v", err)
+	}
+	t.Cleanup(console.Reset)
+
+	var invalidated []string
+	interceptor := newPanicRecoveryInterceptor(func(id string) {
+		invalidated = append(invalidated, id)
+	})
+
+	call := func(method string, req any) error {
+		_, err := interceptor(context.Background(), req, &grpc.UnaryServerInfo{FullMethod: method}, func(context.Context, any) (any, error) {
+			panic("boom")
+		})
+		return err
+	}
+
+	req := &corev1.GetOperationStatsRequest{SessionId: "sess-1"}
+	if err := call("/svc/MethodA", req); status.Code(err) != codes.Internal {
+		t.Fatalf("MethodA #1 err=%v, want Internal", err)
+	}
+	if err := call("/svc/MethodA", req); status.Code(err) != codes.Internal {
+		t.Fatalf("MethodA #2 err=%v, want Internal", err)
+	}
+	if err := call("/svc/MethodB", wrapperspb.String("no-session")); status.Code(err) != codes.Internal {
+		t.Fatalf("MethodB #1 err=%v, want Internal", err)
+	}
+
+	if len(invalidated) != 2 || invalidated[0] != "sess-1" || invalidated[1] != "sess-1" {
+		t.Fatalf("invalidated = %v, want [sess-1 sess-1]", invalidated)
+	}
+
+	data, err := os.ReadFile(filepath.Join(logDir, "debug-core.log"))
+	if err != nil {
+		t.Fatalf("read debug-core.log: %v", err)
+	}
+	text := string(data)
+	if got := strings.Count(text, "stack suppressed"); got != 1 {
+		t.Fatalf("stack suppressed count = %d, want 1\nlog:\n%s", got, text)
+	}
+	if got := strings.Count(text, "runtime/debug.Stack()"); got != 2 {
+		t.Fatalf("full stack trace count = %d, want 2 (once per method)\nlog:\n%s", got, text)
 	}
 }

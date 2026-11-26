@@ -477,11 +477,15 @@ func preparePortFileInDir(ctx context.Context, runtimeDir string) (string, *port
 func assembleServer(
 	idleTimeout time.Duration,
 ) (*grpc.Server, *server.Controller, *manager.Manager, *syncer.Manager, *server.IdleMonitor) {
+	httpOpts := client.Options{Version: version}
+	mgr := manager.New(manager.Options{HTTP: httpOpts})
+	syncMgr := syncer.NewManager(syncer.Options{HTTP: httpOpts})
+
 	tracker := server.NewConnTracker()
 	grpcServer := grpc.NewServer(
 		grpc.MaxRecvMsgSize(maxRecvMsgSize),
 		grpc.StatsHandler(tracker),
-		grpc.UnaryInterceptor(recoverUnaryPanic),
+		grpc.UnaryInterceptor(newPanicRecoveryInterceptor(mgr.Invalidate)),
 	)
 	ctrl := server.NewController(grpcServer, shutdownGrace)
 	var idleMonitor *server.IdleMonitor
@@ -492,9 +496,6 @@ func assembleServer(
 		tracker.SetMonitor(idleMonitor)
 		ctrl.SetIdleMonitor(idleMonitor)
 	}
-	httpOpts := client.Options{Version: version}
-	mgr := manager.New(manager.Options{HTTP: httpOpts})
-	syncMgr := syncer.NewManager(syncer.Options{HTTP: httpOpts})
 	svc := service.NewCoreService(ctrl, mgr)
 	syncSvc := service.NewSyncService(ctrl, syncMgr)
 	tracker.SetOnDisconnect(func(connID uint64) {
@@ -532,16 +533,39 @@ func assembleServer(
 	return grpcServer, ctrl, mgr, syncMgr, idleMonitor
 }
 
-// recoverUnaryPanic 防止单个 RPC handler 的 panic 终止整个 core 进程。
-func recoverUnaryPanic(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
-	defer func() {
-		if recovered := recover(); recovered != nil {
-			console.Errorf("panic in gRPC %s: %v\n%s", info.FullMethod, recovered, debug.Stack())
-			resp = nil
-			err = status.Errorf(codes.Internal, "internal panic: %v", recovered)
-		}
-	}()
-	return handler(ctx, req)
+type sessionRequest interface {
+	GetSessionId() string
+}
+
+// newPanicRecoveryInterceptor 防止单个 RPC handler 的 panic 终止整个 core 进程，
+// 在恢复后立即使异常会话失效，并按方法名对完整调用栈输出做去重节流。
+func newPanicRecoveryInterceptor(invalidate func(string)) grpc.UnaryServerInterceptor {
+	var loggedStack sync.Map
+	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
+		defer func() {
+			if recovered := recover(); recovered != nil {
+				method := "<unknown>"
+				if info != nil && info.FullMethod != "" {
+					method = info.FullMethod
+				}
+				if _, seen := loggedStack.LoadOrStore(method, struct{}{}); !seen {
+					console.Errorf("panic in gRPC %s: %v\n%s", method, recovered, debug.Stack())
+				} else {
+					console.Errorf("panic in gRPC %s: %v (stack suppressed)", method, recovered)
+				}
+				if invalidate != nil {
+					if sr, ok := req.(sessionRequest); ok {
+						if sid := sr.GetSessionId(); sid != "" {
+							invalidate(sid)
+						}
+					}
+				}
+				resp = nil
+				err = status.Errorf(codes.Internal, "internal panic: %v", recovered)
+			}
+		}()
+		return handler(ctx, req)
+	}
 }
 
 func watchParentIfAttached(detach bool, parentPID int) (<-chan struct{}, int, error) {
