@@ -696,3 +696,66 @@ func TestResume100kRecordsPauseNewCursorDecodesZero(t *testing.T) {
 		t.Fatalf("newCursor decoded/onStored calls = %d, want 0", decodedCalls)
 	}
 }
+
+func TestNewCursorDetectsCorruptPayload(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "run-corrupt.swanlab")
+	writer, err := store.Create(path)
+	if err != nil {
+		t.Fatalf("store.Create: %v", err)
+	}
+	// IndexStride 设为 3，保证定位第 5 条时命中第 3 条锚点并经 skipRecords 校验损坏的第 3 条。
+	async, err := store.NewAsyncWriter(writer, store.AsyncOptions{Queue: 32, IndexStride: 3})
+	if err != nil {
+		_ = writer.Close()
+		t.Fatalf("store.NewAsyncWriter: %v", err)
+	}
+	defer func() { _ = async.Close() }()
+
+	recs := []*recordv1.Record{testStart(), testScalar(1), testScalar(2), testScalar(3), testScalar(4)}
+	for i, rec := range recs {
+		payload, merr := proto.Marshal(rec)
+		if merr != nil {
+			t.Fatalf("marshal: %v", merr)
+		}
+		async.In() <- store.Request{StoreSeq: int64(i + 1), Payload: payload}
+	}
+	if ferr := async.FlushForTest(); ferr != nil {
+		t.Fatalf("FlushForTest: %v", ferr)
+	}
+
+	// 找到第 3 条记录起点并原地翻转其 payload 首字节。
+	reader, err := store.Open(path)
+	if err != nil {
+		t.Fatalf("store.Open: %v", err)
+	}
+	for range 2 {
+		if serr := reader.Skip(); serr != nil {
+			_ = reader.Close()
+			t.Fatalf("Skip prefix: %v", serr)
+		}
+	}
+	rec3PayloadOff := reader.Position() + store.HeaderLen
+	_ = reader.Close()
+
+	fp, err := os.OpenFile(path, os.O_RDWR, 0)
+	if err != nil {
+		t.Fatalf("OpenFile: %v", err)
+	}
+	var b [1]byte
+	if _, rerr := fp.ReadAt(b[:], rec3PayloadOff); rerr != nil {
+		_ = fp.Close()
+		t.Fatalf("ReadAt: %v", rerr)
+	}
+	b[0] ^= 0xFF
+	if _, werr := fp.WriteAt(b[:], rec3PayloadOff); werr != nil {
+		_ = fp.Close()
+		t.Fatalf("WriteAt: %v", werr)
+	}
+	_ = fp.Close()
+
+	w := New(Options{Store: async, RunFile: path, BatchSize: 16})
+	_, cursorErr := w.newCursor(context.Background(), 5)
+	if !errors.Is(cursorErr, errCorrupt) || !errors.Is(cursorErr, store.ErrCorrupt) {
+		t.Fatalf("newCursor err = %v, want errCorrupt wrapping store.ErrCorrupt", cursorErr)
+	}
+}

@@ -136,9 +136,9 @@ class TestEnsureMediaSize:
         assert "big.png" in warnings[0] and "train/img" in warnings[0] and "transport limit" in warnings[0]
 
     def test_skip_store_keeps_item_within_transport_limit(self):
-        """skip_store 下未超过传输上限的项照常保留"""
+        """skip_store 下远小于单条裸大小上限的项在构建期保留（整包含信封上限由发送期兜底）"""
         builder = _make_builder(skip_store=True)
-        record = _make_media_record(items=[("ok.png", MAX_MESSAGE_BYTES)])
+        record = _make_media_record(items=[("ok.png", MAX_MESSAGE_BYTES - 1024)])
 
         assert builder._ensure_media_size(record) is record
 

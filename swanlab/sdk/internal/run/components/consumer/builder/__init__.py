@@ -78,7 +78,8 @@ class RecordBuilder:
                     f"exceeds size limit ({item.size} > {limit} bytes), dropped"
                 )
                 continue
-            # skip_store 下这一项会被内联进请求，超过传输上限时永远发不出去，构建期直接拦下
+            # skip_store 下这一项会被内联进请求；此处仅按 payload 裸大小做快速初筛，
+            # 含 protobuf 信封后的整包大小由发送期校验与二分兜底最终保证。
             if self._skip_store and item.size > MAX_MESSAGE_BYTES:
                 console.warning(
                     f"Media '{item.filename}' in key '{record.key}' step {record.step} is {item.size} bytes, "

@@ -581,7 +581,7 @@ func (w *Worker) skipRecords(ctx context.Context, cursor *Cursor, limit int64, c
 		case errors.Is(skipErr, io.EOF), errors.Is(skipErr, store.ErrTruncated):
 			return nil
 		case errors.Is(skipErr, store.ErrCorrupt):
-			return fmt.Errorf("%w: %v", errCorrupt, skipErr)
+			return fmt.Errorf("%w: %w", errCorrupt, skipErr)
 		case skipErr != nil:
 			return skipErr
 		}
@@ -620,7 +620,7 @@ func (w *Worker) scan(
 		case errors.Is(err, io.EOF), errors.Is(err, store.ErrTruncated):
 			return out, after, nil
 		case errors.Is(err, store.ErrCorrupt):
-			return out, after, fmt.Errorf("%w: %v", errCorrupt, err)
+			return out, after, fmt.Errorf("%w: %w", errCorrupt, err)
 		case err != nil:
 			return out, after, err
 		}

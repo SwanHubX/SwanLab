@@ -120,7 +120,7 @@ check(len(sdists) == 1, f"恰好 1 个 sdist（实际 {len(sdists)}）")
 versions = {p[0] for p in parsed if p} | {re.fullmatch(r"swanlab-(.+)\.tar\.gz", s.name).group(1) for s in sdists}
 check(len(versions) == 1, f"全部产物版本一致（实际 {versions}）")
 
-# 产物齐全：any 兜底 + 6 平台 wheel，无多余文件
+# 产物齐全：any 兜底 + 8 平台 wheel，无多余文件
 tags = {p[1] for p in parsed if p}
 check(tags == set(PLATFORMS) | {"any"}, f"wheel tag 齐全（多出: {sorted(tags - set(PLATFORMS) - {'any'})}, 缺少: {sorted(set(PLATFORMS) - tags)}）")
 

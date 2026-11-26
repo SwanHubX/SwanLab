@@ -371,7 +371,8 @@ func (r *Reader) Scan() ([]byte, error) {
 	}
 }
 
-// Skip 跳过下一条完整记录的帧结构并推进 Position，不分配 payload 缓冲也不解码 protobuf。
+// Skip 跳过下一条完整记录的帧结构并推进 Position，不分配完整 payload 缓冲也不解码 protobuf，
+// 同时流式校验每个 chunk 的 CRC。
 func (r *Reader) Skip() error {
 	if err := r.skipPadding(); err != nil {
 		return err
@@ -407,32 +408,30 @@ func (r *Reader) Skip() error {
 	}
 }
 
-// skipChunk 读取一个 chunk 头并丢弃其 payload，用于仅推进偏移的定位扫描。
+// skipChunk 读取一个 chunk 并通过固定小缓冲流式校验 CRC，不分配完整 payload。
 func (r *Reader) skipChunk() (byte, error) {
-	var h [HeaderLen]byte
-	n, err := io.ReadFull(r.br, h[:])
+	typ, checksum, length, start, err := r.readChunkHeader()
 	if err != nil {
-		if n == 0 {
-			return 0, io.EOF
-		}
-		return 0, fmt.Errorf("%w: chunk header at offset %d: %v", ErrTruncated, r.index, err)
+		return 0, err
 	}
-	start := r.index
-	length := int(binary.LittleEndian.Uint16(h[4:6]))
-	typ := h[6]
-	if typ < chunkFull || typ > chunkLast {
-		return 0, fmt.Errorf("%w: invalid chunk type %d at offset %d", ErrCorrupt, typ, start)
-	}
+	crc := crcSeed[typ]
 	if length > 0 {
-		discarded, derr := r.br.Discard(length)
-		if derr != nil {
-			return 0, fmt.Errorf("%w: chunk payload at offset %d: %v", ErrTruncated, start, derr)
-		}
-		if discarded != length {
-			return 0, fmt.Errorf("%w: chunk payload at offset %d: %v", ErrTruncated, start, io.ErrUnexpectedEOF)
+		var buf [4096]byte
+		remaining := length
+		for remaining > 0 {
+			chunk := min(remaining, len(buf))
+			if _, err := io.ReadFull(r.br, buf[:chunk]); err != nil {
+				return 0, fmt.Errorf("%w: chunk payload at offset %d: %v", ErrTruncated, start, err)
+			}
+			crc = crc32.Update(crc, crc32.IEEETable, buf[:chunk])
+			remaining -= chunk
 		}
 	}
 	r.index += int64(HeaderLen + length)
+	if crc != checksum {
+		return 0, fmt.Errorf("%w: crc mismatch at offset %d (got 0x%08X, want 0x%08X)",
+			ErrCorrupt, start, crc, checksum)
+	}
 	return typ, nil
 }
 
@@ -480,22 +479,31 @@ func (r *Reader) skipPadding() error {
 	return nil
 }
 
-// readChunk 读取一个 chunk 并校验 CRC；只有零字节可读时返回 io.EOF。
-func (r *Reader) readChunk() (byte, []byte, error) {
+// readChunkHeader 读取并校验 chunk 头；只有零字节可读时返回 io.EOF。
+func (r *Reader) readChunkHeader() (typ byte, checksum uint32, length int, start int64, err error) {
 	var h [HeaderLen]byte
 	n, err := io.ReadFull(r.br, h[:])
 	if err != nil {
 		if n == 0 {
-			return 0, nil, io.EOF
+			return 0, 0, 0, 0, io.EOF
 		}
-		return 0, nil, fmt.Errorf("%w: chunk header at offset %d: %v", ErrTruncated, r.index, err)
+		return 0, 0, 0, 0, fmt.Errorf("%w: chunk header at offset %d: %v", ErrTruncated, r.index, err)
 	}
-	start := r.index
-	checksum := binary.LittleEndian.Uint32(h[0:4])
-	length := int(binary.LittleEndian.Uint16(h[4:6]))
-	typ := h[6]
+	start = r.index
+	checksum = binary.LittleEndian.Uint32(h[0:4])
+	length = int(binary.LittleEndian.Uint16(h[4:6]))
+	typ = h[6]
 	if typ < chunkFull || typ > chunkLast {
-		return 0, nil, fmt.Errorf("%w: invalid chunk type %d at offset %d", ErrCorrupt, typ, start)
+		return 0, 0, 0, 0, fmt.Errorf("%w: invalid chunk type %d at offset %d", ErrCorrupt, typ, start)
+	}
+	return typ, checksum, length, start, nil
+}
+
+// readChunk 读取一个 chunk 并校验 CRC；只有零字节可读时返回 io.EOF。
+func (r *Reader) readChunk() (byte, []byte, error) {
+	typ, checksum, length, start, err := r.readChunkHeader()
+	if err != nil {
+		return 0, nil, err
 	}
 	payload := make([]byte, length)
 	if length > 0 {

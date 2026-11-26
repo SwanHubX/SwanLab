@@ -705,3 +705,61 @@ func TestReaderSkipMatchesScanPositions(t *testing.T) {
 		t.Fatalf("Skip at EOF err=%v, want io.EOF", err)
 	}
 }
+
+func TestReaderSkipDetectsCorruptPayload(t *testing.T) {
+	items := [][]byte{
+		payloadN(24),
+		payloadN(90_000), // 跨块 FIRST/MIDDLE/LAST，验证中后段 chunk 也会校验 CRC
+	}
+	path, off := writeFile(t, items...)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+
+	cases := []struct {
+		name   string
+		skipN  int
+		mutate func([]byte)
+	}{
+		{
+			name:  "single chunk payload flip",
+			skipN: 0,
+			mutate: func(b []byte) {
+				b[off[0]+HeaderLen+5] ^= 0xFF
+			},
+		},
+		{
+			name:  "multi chunk payload flip",
+			skipN: 1,
+			mutate: func(b []byte) {
+				// 破坏第 2 条记录后半段（跨越 4 KiB 流式缓冲与块边界之后）
+				b[off[1]+HeaderLen+45_000] ^= 0xFF
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			b := append([]byte(nil), data...)
+			tc.mutate(b)
+			p := filepath.Join(t.TempDir(), "corrupt-skip.swanlab")
+			if werr := os.WriteFile(p, b, 0o644); werr != nil {
+				t.Fatalf("WriteFile: %v", werr)
+			}
+			r, oerr := Open(p)
+			if oerr != nil {
+				t.Fatalf("Open: %v", oerr)
+			}
+			defer func() { _ = r.Close() }()
+			for range tc.skipN {
+				if serr := r.Skip(); serr != nil {
+					t.Fatalf("Skip prefix: %v", serr)
+				}
+			}
+			if serr := r.Skip(); !errors.Is(serr, ErrCorrupt) {
+				t.Fatalf("Skip on corrupt payload err = %v, want ErrCorrupt", serr)
+			}
+		})
+	}
+}

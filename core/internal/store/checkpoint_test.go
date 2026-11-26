@@ -286,3 +286,39 @@ func TestEndOffsetUsesRecentCacheAndFallsBackOnMiss(t *testing.T) {
 		t.Fatalf("EndOffset fallback = %d, want %d", fallbackEnd, cachedEnd)
 	}
 }
+
+func TestEndOffsetDetectsCorruptPayload(t *testing.T) {
+	items := [][]byte{
+		payloadN(20),
+		payloadN(24),
+		payloadN(28),
+		payloadN(32),
+		payloadN(36),
+	}
+	path, off := writeFile(t, items...)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+
+	// 翻转第 4 条记录（索引 3）的 payload 字节，确保仅推进偏移也会触发 CRC 校验失败。
+	data[off[3]+HeaderLen+4] ^= 0xFF
+	corruptPath := filepath.Join(t.TempDir(), "corrupt.swanlab")
+	if werr := os.WriteFile(corruptPath, data, 0o644); werr != nil {
+		t.Fatalf("WriteFile: %v", werr)
+	}
+
+	t.Run("without index", func(t *testing.T) {
+		if _, oerr := EndOffset(corruptPath, nil, 4, -1); !errors.Is(oerr, ErrCorrupt) {
+			t.Fatalf("EndOffset(nil, seq=4) err = %v, want ErrCorrupt", oerr)
+		}
+	})
+
+	t.Run("from anchor before corrupt record", func(t *testing.T) {
+		idx := NewOffsetIndex(2)
+		idx.Record(3, off[2], off[3]) // seq=3 的锚点位于损坏记录 seq=4 之前
+		if _, oerr := EndOffset(corruptPath, idx, 5, -1); !errors.Is(oerr, ErrCorrupt) {
+			t.Fatalf("EndOffset(idx, seq=5) err = %v, want ErrCorrupt", oerr)
+		}
+	})
+}
