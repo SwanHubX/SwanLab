@@ -5,9 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math"
 	"sync"
-	"time"
 
 	"google.golang.org/protobuf/proto"
 
@@ -46,7 +44,6 @@ const (
 	missingStartRecordMsg  = "Failed to sync this run because its log file is missing the required start record. " +
 		"The file may be corrupted, incomplete, or not a valid SwanLab run file."
 	missingEmptyRunFileMsg = "Cannot scan records from %s"
-	maxIntervalDuration    = time.Hour
 	// confirmUploadRejectedMsg 表示部分有效记录被云端确定性拒绝，本次 replay 不算成功。
 	confirmUploadRejectedMsg = "Failed to upload %d record(s) to the server"
 	// confirmAbortedMsg 表示排空后会话已被断连/停机取消，不再提交终态。
@@ -344,7 +341,7 @@ func (s *syncSession) flush(ctx context.Context, factory *client.Factory) (Flush
 			record.TypeSave:      saveSender,
 		},
 		Batch:    int(cfg.RecordBatch),
-		Interval: syncInterval(cfg.RecordInterval),
+		Interval: cfg.RecordIntervalDuration(),
 		Tracker:  tracker,
 		Context:  sessionCtx,
 		OnDrained: func() {
@@ -615,17 +612,6 @@ func syncQueueSize(recordBatch int32) int {
 	size := max(int(recordBatch), maxBatchFloor) * queueFactor
 	size = max(size, minQueueSize)
 	return min(size, maxQueueSize)
-}
-
-func syncInterval(seconds float64) time.Duration {
-	if math.IsInf(seconds, 0) || seconds <= 0 {
-		return maxIntervalDuration
-	}
-	ns := seconds * float64(time.Second)
-	if ns > float64(maxIntervalDuration) {
-		return maxIntervalDuration
-	}
-	return max(time.Duration(ns), time.Millisecond)
 }
 
 func firstNonEmpty(values ...string) string {

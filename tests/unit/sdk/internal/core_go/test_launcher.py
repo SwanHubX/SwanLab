@@ -364,6 +364,27 @@ def test_detach_reuse_channel_failure_falls_back_to_spawn(launcher_env, monkeypa
     launcher.close()
 
 
+def test_detach_reuse_missing_grpcio_fails_without_spawn(launcher_env, monkeypatch):
+    """缺少 grpcio 属于本机环境问题：不删 port-file、不拉新进程，直接抛出。"""
+    binary, lease, endpoint, calls = launcher_env
+    lease.port_file.write_text("4242 unix:/tmp/core.sock\n")
+    monkeypatch.setattr(launcher_module, "discover_endpoint", lambda *_: endpoint)
+
+    def missing_grpc(ep: Endpoint, timeout: float = 0.0):
+        raise CoreGoError(Stage.CHANNEL, ReasonCode.GRPC_LOCAL_ERROR, "grpcio is required")
+
+    monkeypatch.setattr(launcher_module.Channel, "open", missing_grpc)
+
+    launcher = CoreLauncher(binary, detach=True)
+    with pytest.raises(CoreGoError) as caught:
+        launcher.start()
+
+    assert caught.value.reason is ReasonCode.GRPC_LOCAL_ERROR
+    assert calls["lock"] == 0
+    assert calls["spawn"] == 0
+    assert lease.port_file.exists()
+
+
 def test_detach_raises_endpoint_busy_when_fallback_discover_misses(launcher_env, monkeypatch):
     binary, _, _, calls = launcher_env
 

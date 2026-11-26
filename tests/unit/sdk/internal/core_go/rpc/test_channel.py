@@ -41,7 +41,7 @@ def test_rpc_package_does_not_load_grpc():
     assert result.stdout.strip() == "False False", result.stderr
 
 
-def test_channel_missing_grpcio_is_reported_as_unavailable(monkeypatch):
+def test_channel_missing_grpcio_is_reported_as_local_error(monkeypatch):
     """grpcio 不在环境里时给出明确错误，而不是 ImportError 冒到上层。"""
     monkeypatch.setitem(sys.modules, "grpc", None)
     endpoint = Endpoint(kind="tcp", pid=os.getpid(), tcp_port=1)
@@ -50,7 +50,9 @@ def test_channel_missing_grpcio_is_reported_as_unavailable(monkeypatch):
         Channel.open(endpoint, timeout=0.1)
 
     assert caught.value.stage is Stage.CHANNEL
-    assert caught.value.reason is ReasonCode.GRPC_UNAVAILABLE
+    # 本机缺少依赖重试无用，因此不能归到可重试的 GRPC_UNAVAILABLE
+    assert caught.value.reason is ReasonCode.GRPC_LOCAL_ERROR
+    assert caught.value.retryable is False
     assert "grpcio is required" in caught.value.message
 
 

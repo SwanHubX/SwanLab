@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/swanhubx/swanlab/core/internal/api"
 	"github.com/swanhubx/swanlab/core/internal/budget"
@@ -79,7 +78,7 @@ func (s *Session) buildCloudResources(params cloudAttachParams) (*cloudResources
 			record.TypeSave:      saveSender,
 		},
 		Batch:              int(s.cfg.RecordBatch),
-		Interval:           time.Duration(s.cfg.RecordInterval * float64(time.Second)),
+		Interval:           s.cfg.RecordIntervalDuration(),
 		Tracker:            s.tracker,
 		Context:            s.ctx,
 		OnRetryableFailure: s.onWriteFailure,

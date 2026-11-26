@@ -54,7 +54,7 @@ class Channel:
         except ImportError as exc:
             raise CoreGoError(
                 Stage.CHANNEL,
-                ReasonCode.GRPC_UNAVAILABLE,
+                ReasonCode.GRPC_LOCAL_ERROR,
                 "grpcio is required for CoreGo online mode",
                 cause=exc,
             ) from exc
@@ -68,9 +68,10 @@ class Channel:
         try:
             raw = grpc.insecure_channel(target, options=options)
         except Exception as exc:  # noqa: BLE001 - 统一转成结构化错误
+            # 建不出 channel 属于本机环境/参数问题，重试与换进程都无意义
             raise CoreGoError(
                 Stage.CHANNEL,
-                ReasonCode.GRPC_UNAVAILABLE,
+                ReasonCode.GRPC_LOCAL_ERROR,
                 f"failed to create grpc channel for {target}: {exc}",
                 cause=exc,
             ) from exc

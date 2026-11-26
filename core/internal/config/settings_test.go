@@ -5,6 +5,7 @@ import (
 	"math"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestDefaults(t *testing.T) {
@@ -137,6 +138,35 @@ func TestNormalizedMode(t *testing.T) {
 		if got := (Settings{Mode: tc.mode}).NormalizedMode(); got != tc.want {
 			t.Fatalf("NormalizedMode(%q) = %q, want %q", tc.mode, got, tc.want)
 		}
+	}
+}
+
+func TestRecordIntervalDuration(t *testing.T) {
+	tests := []struct {
+		name     string
+		interval float64
+		want     time.Duration
+	}{
+		{"默认间隔", DefaultRecordInterval, 1500 * time.Millisecond},
+		{"亚毫秒抬到 1ms", 0.0001, time.Millisecond},
+		{"普通值", 0.25, 250 * time.Millisecond},
+		// +Inf 与超大值不能溢出成负数（否则 uploader 会当成未设置而静默回退 1.5s）。
+		{"正无穷截断到上限", math.Inf(1), maxRecordInterval},
+		{"超大值截断到上限", 1e18, maxRecordInterval},
+		{"恰好上限", maxRecordInterval.Seconds(), maxRecordInterval},
+		{"零值取默认", 0, 1500 * time.Millisecond},
+		{"负值取默认", -1, 1500 * time.Millisecond},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := (Settings{RecordInterval: tc.interval}).RecordIntervalDuration()
+			if got != tc.want {
+				t.Fatalf("RecordIntervalDuration(%v) = %v, want %v", tc.interval, got, tc.want)
+			}
+			if got <= 0 {
+				t.Fatalf("RecordIntervalDuration(%v) = %v, 不应当为负数", tc.interval, got)
+			}
+		})
 	}
 }
 
