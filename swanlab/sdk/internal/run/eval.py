@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import atexit
+import copy
 import signal
 import sys
 import threading
@@ -22,20 +23,23 @@ from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.proto.swanlab.eval.v1.eval_pb2 import EvalFinishRecord
 from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import DeliverEvalFinishRequest
+from swanlab.sdk.internal.bus.events import ScoreLogEvent
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.pkg import adapter, console, fork, safe
 from swanlab.sdk.typings.run import FinishType, ModeType
 
-from .benchmark import MAX_BENCHMARK_NAME_LENGTH, Benchmark
 from .components import Components
 from .components.config import Config, parse
 from .progress import run_with_progress
 
-__all__ = ["EvalRun", "has_eval_run", "get_eval_run", "set_eval_run", "clear_eval_run"]
+__all__ = ["EvalRun", "Benchmark", "has_eval_run", "get_eval_run", "set_eval_run", "clear_eval_run"]
 
 # 合法的结束状态，与 FinishType 保持一致
 _FINISH_STATES = set(get_args(FinishType))
+
+# 评测项名称的长度上限，与后端字段约束一致
+MAX_BENCHMARK_NAME_LENGTH = 512
 
 
 class EvalRun:
@@ -303,6 +307,52 @@ class EvalRun:
                 client.reset()
             console.debug("SwanLab Eval has finished.")
             console.reset()
+
+
+class Benchmark:
+    """一个评测项，承载该评测项的局部配置与分数上报。
+
+    由 ``EvalRun.benchmark()`` 创建，评测项名称作为分数记录的 dataset 维度。
+    """
+
+    def __init__(self, run: EvalRun, name: str, config: Dict[str, Any]):
+        self._run = run
+        self._name = name
+        self._config = config
+
+    @property
+    def name(self) -> str:
+        """评测项名称。"""
+        return self._name
+
+    @property
+    def config(self) -> Dict[str, Any]:
+        """评测项的局部配置。"""
+        return copy.deepcopy(self._config)
+
+    def log(self, metric: Mapping[str, Any]) -> None:
+        """上报该评测项的一组指标。
+
+        :param metric: 指标名到数值的映射，每个键值对展开为一条分数记录。
+        """
+        if fork.is_forked(self._run._init_pid):
+            raise RuntimeError(
+                "SwanLab Eval does not support fork yet. Use `multiprocessing.set_start_method('spawn')` "
+                "or call `swanlab.eval()` in the child process."
+            )
+        if not isinstance(metric, Mapping) or not metric:
+            console.error(
+                f"Score data must be a non-empty dict, but got {type(metric).__name__}. SwanLab will ignore this log."
+            )
+            return
+        timestamp = Timestamp()
+        timestamp.GetCurrentTime()
+        with self._run._api_lock:
+            if not self._run.alive:
+                raise RuntimeError("`benchmark.log()` requires an active Eval, call `swanlab.eval()` first.")
+            self._run._components.emitter.emit(
+                ScoreLogEvent(dataset=self._name, data=dict(metric), timestamp=timestamp)
+            )
 
 
 _current_eval_run: Optional[EvalRun] = None
