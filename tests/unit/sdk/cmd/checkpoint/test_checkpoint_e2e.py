@@ -175,7 +175,7 @@ def mock_heartbeat_api(rsps):
 def mock_checkpoint_api(rsps):
     rsps.add(
         responses_lib.POST,
-        f"{API_HOST}/api/checkpoint",
+        f"{API_HOST}/api/checkpoint/{USERNAME}/{PROJECT}/create",
         json={"cuid": CHECKPOINT_CUID},
         status=201,
     )
@@ -255,7 +255,7 @@ class TestCheckpointNonOnlineMode:
         """任何非 online 场景下不抛出异常"""
         with init(mode="disabled"):
             try:
-                checkpoint(uri=URI, step=None, labels=["best"], metadata={"lr": 0.01})
+                checkpoint(uri=URI, step=None, tags=["best"], metadata={"lr": 0.01})
             except Exception as e:
                 pytest.fail(f"checkpoint() raised: {e}")
 
@@ -271,12 +271,15 @@ class TestCheckpointOnlineMode:
         init(mode="online", project=PROJECT)
         assert checkpoint(uri=URI) == CHECKPOINT_CUID
 
+    def _checkpoint_calls(self, rsps):
+        return [c for c in rsps.calls if f"/api/checkpoint/{USERNAME}/{PROJECT}/create" in c.request.url]
+
     def test_payload_contains_experiment_id_and_uri(self, mock_online_checkpoint_apis, rsps):
-        """请求 body 包含 experimentId 和 uri"""
+        """请求 body 包含 experimentId 和 uri，路由带 username/project"""
         init(mode="online", project=PROJECT)
         checkpoint(uri=URI, name="best", step=1000)
 
-        calls = [c for c in rsps.calls if c.request.url.endswith("/api/checkpoint")]
+        calls = self._checkpoint_calls(rsps)
         assert len(calls) == 1
         body = json.loads(cast(bytes, calls[0].request.body))
         assert body["experimentId"] == EXPERIMENT_CUID
@@ -284,27 +287,50 @@ class TestCheckpointOnlineMode:
         assert body["name"] == "best"
         assert body["step"] == 1000
 
-    def test_metadata_and_labels_forwarded(self, mock_online_checkpoint_apis, rsps):
-        """metadata 和 labels 正确传递"""
+    def test_metadata_and_tags_forwarded(self, mock_online_checkpoint_apis, rsps):
+        """metadata 和 tags 以字符串数组形式传递"""
         init(mode="online", project=PROJECT)
-        checkpoint(uri=URI, metadata={"optimizer": "AdamW"}, labels=["best", "ready"])
+        checkpoint(uri=URI, metadata={"optimizer": "AdamW"}, tags=["best", "ready"])
 
-        body = json.loads(cast(bytes, [
-            c for c in rsps.calls if c.request.url.endswith("/api/checkpoint")
-        ][0].request.body))
+        body = json.loads(cast(bytes, self._checkpoint_calls(rsps)[0].request.body))
         assert body["metadata"] == {"optimizer": "AdamW"}
-        assert body["labels"] == [{"name": "best"}, {"name": "ready"}]
+        assert body["tags"] == ["best", "ready"]
 
     def test_server_error_returns_empty_string(self, mock_online_init_apis, rsps):
         """后端 4xx 返回空字符串，不抛异常"""
         rsps.add(
             responses_lib.POST,
-            f"{API_HOST}/api/checkpoint",
+            f"{API_HOST}/api/checkpoint/{USERNAME}/{PROJECT}/create",
             json={"message": "bad request"},
             status=400,
         )
         init(mode="online", project=PROJECT)
         assert checkpoint(uri=URI) == ""
+
+    def test_explicit_run_id_with_username_project(self, mock_online_checkpoint_apis, rsps):
+        """显式传 run_id + username + project（无活跃 run）：路由与 body 均正确"""
+        # 不调用 init，直接用 logged_in_client 保证 client 存在
+        result = checkpoint(
+            uri=URI,
+            run_id=EXPERIMENT_CUID,
+            username=USERNAME,
+            project=PROJECT,
+        )
+        assert result == CHECKPOINT_CUID
+        body = json.loads(cast(bytes, self._checkpoint_calls(rsps)[0].request.body))
+        assert body["experimentId"] == EXPERIMENT_CUID
+
+    def test_explicit_run_id_missing_username_project_warns(self, mock_online_init_apis, rsps, monkeypatch):
+        """显式传 run_id 但缺 username/project：warning + 返回空字符串"""
+        warnings = []
+        monkeypatch.setattr(console, "warning", lambda *a, **kw: warnings.append(str(a)))
+        # 有活跃 run（已有 username/project 上下文），但显式传了不同 run_id
+        # 此时 username/project 仍从 run 上下文取，不应报错
+        init(mode="online", project=PROJECT)
+        result = checkpoint(uri=URI, run_id="some-other-cuid")
+        # 路由使用 active run 的 username/project，调用成功
+        assert result == CHECKPOINT_CUID
+        assert not any("username" in w for w in warnings)
 
 
 # ============================================================
@@ -314,7 +340,7 @@ class TestCheckpointOnlineMode:
 
 class TestCheckpointStepResolution:
     def _get_checkpoint_body(self, rsps) -> dict:
-        calls = [c for c in rsps.calls if c.request.url.endswith("/api/checkpoint")]
+        calls = [c for c in rsps.calls if f"/api/checkpoint/{USERNAME}/{PROJECT}/create" in c.request.url]
         return json.loads(cast(bytes, calls[0].request.body))
 
     def test_auto_step_from_active_run(self, mock_online_checkpoint_apis_with_log, rsps):

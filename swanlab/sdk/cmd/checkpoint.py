@@ -27,7 +27,9 @@ def checkpoint(
     name: Optional[str] = None,
     description: Optional[str] = None,
     metadata: Optional[Dict] = None,
-    labels: Optional[List[str]] = None,
+    tags: Optional[List[str]] = None,
+    username: Optional[str] = None,
+    project: Optional[str] = None,
 ) -> str:
     """Register a checkpoint with the SwanLab platform.
 
@@ -47,13 +49,17 @@ def checkpoint(
     :param description: Optional free-text note.
     :param metadata: Optional dict of arbitrary key/value pairs (e.g. optimizer
         settings, learning rate) stored alongside the checkpoint record.
-    :param labels: Optional list of label names, e.g. ``["best", "ready-for-eval"]``.
+    :param tags: Optional list of tag names, e.g. ``["best", "ready-for-eval"]``.
+    :param username: Username of the project owner. Auto-resolved from the active
+        run when one exists. Required if no run is active.
+    :param project: Project name. Auto-resolved from the active run when one exists.
+        Required if no run is active.
     :return: The platform-assigned checkpoint ``cuid``, or an empty string when
         registration is skipped (e.g. in non-online mode without an active run).
 
     Examples:
 
-        Register inside a training loop (step and run_id resolved automatically):
+        Register inside a training loop (step, username, and project resolved automatically):
 
         >>> import swanlab
         >>> run = swanlab.init(project="my_project")
@@ -68,9 +74,11 @@ def checkpoint(
         >>> cuid = swanlab.checkpoint(
         ...     uri="s3://my-bucket/run-a/checkpoint-500",
         ...     run_id="clxi2v9abc0001...",
+        ...     username="my-org",
+        ...     project="my-project",
         ...     step=500,
         ...     name="val-best",
-        ...     labels=["best"],
+        ...     tags=["best"],
         ... )
     """
     active_run = get_run() if has_run() else None
@@ -91,17 +99,33 @@ def checkpoint(
         )
         return ""
 
+    # ── 解析 core context（online 且有活跃 run 时）────────────────────────────
+    core_ctx = None
+    if active_run is not None:
+        core = active_run._ctx.core
+        assert isinstance(core, CorePython), "checkpoint() requires an online CorePython instance"
+        core_ctx = core._ctx
+
     # ── 解析 experiment_id ────────────────────────────────────────────────────
     if run_id is not None:
         experiment_id = run_id
-    elif active_run is not None:
-        core = active_run._ctx.core
-        assert isinstance(core, CorePython), "checkpoint() requires an online CorePython instance"
-        experiment_id = core._ctx.experiment_id
+    elif core_ctx is not None:
+        experiment_id = core_ctx.experiment_id
     else:
         console.warning(
             "swanlab.checkpoint() requires a run_id. "
             "Either call swanlab.init() first or pass run_id= explicitly. "
+            "This checkpoint will not be registered."
+        )
+        return ""
+
+    # ── 解析 username / project ───────────────────────────────────────────────
+    resolved_username = username or (core_ctx.username if core_ctx is not None else None)
+    resolved_project = project or (core_ctx.project if core_ctx is not None else None)
+    if not resolved_username or not resolved_project:
+        console.warning(
+            "swanlab.checkpoint() requires username and project. "
+            "Either call swanlab.init() first or pass username= and project= explicitly. "
             "This checkpoint will not be registered."
         )
         return ""
@@ -114,11 +138,13 @@ def checkpoint(
         resolved_step = cast(Optional[int], step)
 
     return register_checkpoint(
+        username=resolved_username,
+        project=resolved_project,
         experiment_id=experiment_id,
         uri=uri,
         step=resolved_step,
         name=name,
         description=description,
         metadata=metadata,
-        labels=labels,
+        tags=tags,
     )

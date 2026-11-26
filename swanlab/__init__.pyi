@@ -832,7 +832,9 @@ def checkpoint(
     name: Optional[str] = None,
     description: Optional[str] = None,
     metadata: Optional[dict] = None,
-    labels: Optional[List[str]] = None,
+    tags: Optional[List[str]] = None,
+    username: Optional[str] = None,
+    project: Optional[str] = None,
 ) -> str:
     """Register a checkpoint with the SwanLab platform.
 
@@ -852,7 +854,11 @@ def checkpoint(
     :param description: Optional free-text note.
     :param metadata: Optional dict of arbitrary key/value pairs (e.g. optimizer
         settings, learning rate) stored alongside the checkpoint record.
-    :param labels: Optional list of label names, e.g. ``["best", "ready-for-eval"]``.
+    :param tags: Optional list of tag names, e.g. ``["best", "ready-for-eval"]``.
+    :param username: Username of the project owner. Auto-resolved from the active
+        run when one exists. Required if no run is active.
+    :param project: Project name. Auto-resolved from the active run when one exists.
+        Required if no run is active.
     :return: The platform-assigned checkpoint ``cuid``, or an empty string when
         registration is skipped (e.g. in non-online mode without an active run).
     """
