@@ -5,9 +5,12 @@
 @description: SwanLab SDK 辅助函数
 """
 
+import math
+
+import numpy as np
 import pytest
 
-from swanlab.sdk.internal.pkg.helper import fmt_run_path, strip_none
+from swanlab.sdk.internal.pkg.helper import fmt_run_path, strip_none, to_score_value
 
 
 class TestStripNone:
@@ -83,3 +86,41 @@ class TestFmtRunPath:
     def test_invalid_path_raises(self, path):
         with pytest.raises(ValueError, match="Invalid run path"):
             fmt_run_path(path)
+
+
+class TestToScoreValue:
+    """测试 to_score_value 函数"""
+
+    def test_int_and_float(self):
+        assert to_score_value(1) == 1.0
+        assert to_score_value(0.72) == 0.72
+
+    def test_bool(self):
+        assert to_score_value(True) == 1.0
+        assert to_score_value(False) == 0.0
+
+    def test_numpy_scalar(self):
+        assert to_score_value(np.float32(0.5)) == pytest.approx(0.5)
+
+    def test_zero_dim_array(self):
+        assert to_score_value(np.array(0.25)) == pytest.approx(0.25)
+
+    def test_string_number(self):
+        assert to_score_value("0.5") == 0.5
+        assert math.isnan(to_score_value("nan"))
+
+    @pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+    def test_non_finite_becomes_nan(self, value):
+        assert math.isnan(to_score_value(value))
+
+    def test_unsupported_string_raises(self):
+        with pytest.raises(TypeError, match="Unsupported score string value"):
+            to_score_value("accuracy")
+
+    def test_unsupported_type_raises(self):
+        with pytest.raises(TypeError, match="Unsupported score type"):
+            to_score_value(object())
+
+    def test_multi_element_array_raises(self):
+        with pytest.raises(ValueError):
+            to_score_value(np.array([0.1, 0.2]))
