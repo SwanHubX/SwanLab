@@ -32,7 +32,7 @@ __all__ = ["Channel"]
 # SwanLab 的 fork 子进程禁止 Core RPC，这里在首次导入 grpc 前默认关闭，用户显式设置优先。
 os.environ.setdefault("GRPC_ENABLE_FORK_SUPPORT", "0")
 
-# gRPC 默认在空闲 30 分钟后断开连接；用 int32 上限显式关闭。
+# gRPC 默认在空闲 30 分钟后断开连接；设置为 int32 上限（约 24.9 天）以覆盖长时训练空闲窗口。
 _IDLE_TIMEOUT_DISABLED_MS = 2**31 - 1
 
 
@@ -55,7 +55,7 @@ class Channel:
             raise CoreGoError(
                 Stage.CHANNEL,
                 ReasonCode.GRPC_LOCAL_ERROR,
-                "grpcio is required for CoreGo online mode",
+                "grpcio is required for CoreGo",
                 cause=exc,
             ) from exc
 

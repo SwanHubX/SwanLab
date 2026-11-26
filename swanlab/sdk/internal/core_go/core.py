@@ -5,7 +5,6 @@
 @description: CoreProtocol 的 Go core 适配层，负责进程拉起、RPC 转发与生命周期回收。
 """
 
-import threading
 from enum import Enum
 from pathlib import Path
 from typing import Callable, List, Optional, cast
@@ -22,9 +21,9 @@ from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import HistogramRecord, MediaRecord, ScalarRecord
 from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord
 from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogRecord
+from swanlab.sdk.internal.core_go._base import _CoreGoBase
 from swanlab.sdk.internal.core_go.config import (
     DETACH_IDLE_TIMEOUT,
-    TEARDOWN_TIMEOUT,
     CoreGoError,
     ReasonCode,
     Stage,
@@ -32,7 +31,6 @@ from swanlab.sdk.internal.core_go.config import (
 )
 from swanlab.sdk.internal.core_go.launcher import CoreLauncher
 from swanlab.sdk.internal.core_go.rpc import CoreServiceRpc
-from swanlab.sdk.internal.pkg import fork, safe
 from swanlab.sdk.protocol import CoreProtocol, NullCoreProtocol
 from swanlab.sdk.typings.run import ModeType
 
@@ -69,11 +67,18 @@ class _DetachedCoreGo(NullCoreProtocol):
         return DeliverRunStartResponse(success=False, message=_FORK_MESSAGE)
 
 
-class CoreGo(CoreProtocol):
+class CoreGo(_CoreGoBase[_CoreState], CoreProtocol):
     """CoreProtocol 的 Go core 实现，一次实例只绑定一个 run session。
 
     状态机：NEW → STARTING → RUNNING → FINISHED → CLOSED；失败走 ABORTING。
     """
+
+    _state_new = _CoreState.NEW
+    _state_closed = _CoreState.CLOSED
+    _state_closing = _CoreState.CLOSING
+    _state_aborting = _CoreState.ABORTING
+    _close_abort_states = (_CoreState.STARTING,)
+    _teardown_log_prefix = "core"
 
     # upsert 失败交给 consumer 分类重试或终结，不在本层吞掉。
     raises_on_upsert_error = True
@@ -89,42 +94,24 @@ class CoreGo(CoreProtocol):
         detach: bool = False,
         idle_timeout: float = DETACH_IDLE_TIMEOUT,
     ) -> None:
-        super().__init__(mode)
+        CoreProtocol.__init__(self, mode)
         if idle_timeout < 0:
             raise ValueError("idle_timeout must be non-negative")
-        self._binary = Path(binary) if binary is not None else None
-        self._detach = detach
+        self._init_lifecycle(binary=binary, detach=detach, initial_state=_CoreState.NEW)
         self._idle_timeout = idle_timeout
-        self._lock = threading.RLock()
-        self._owner_pid = fork.current_pid()
-        self._state = _CoreState.NEW
-        self._launcher: Optional[CoreLauncher] = None
         self._rpc: Optional[CoreServiceRpc] = None
         self._session_id: Optional[str] = None
-        self._last_error: Optional[CoreGoError] = None
-        self._exit_code: Optional[int] = None
 
-    @property
-    def last_error(self) -> Optional[CoreGoError]:
-        return self._last_error
+    def _teardown_rpc_locked(self) -> Optional[CoreServiceRpc]:
+        return self._rpc
 
-    @property
-    def exit_code(self) -> Optional[int]:
-        """最近一次 close/abort 回收的 core 进程退出码。"""
-        return self._exit_code
+    def _clear_transport_locked(self) -> None:
+        self._rpc = None
+        self._session_id = None
 
     # ---------------------------------- 实验开始 ----------------------------------
 
-    def _start_when_local(self, start_request: DeliverRunStartRequest) -> DeliverRunStartResponse:
-        return self._start_enabled(start_request)
-
-    def _start_when_offline(self, start_request: DeliverRunStartRequest) -> DeliverRunStartResponse:
-        return self._start_enabled(start_request)
-
-    def _start_when_online(self, start_request: DeliverRunStartRequest) -> DeliverRunStartResponse:
-        return self._start_enabled(start_request)
-
-    def _start_enabled(self, start_request: DeliverRunStartRequest) -> DeliverRunStartResponse:
+    def _start_when_enabled(self, start_request: DeliverRunStartRequest) -> DeliverRunStartResponse:
         with self._lock:
             if self._state is _CoreState.CLOSED:
                 return self._fail_start(Stage.LIFECYCLE, ReasonCode.CLOSED, "core is closed")
@@ -132,31 +119,14 @@ class CoreGo(CoreProtocol):
                 return self._fail_start(Stage.LIFECYCLE, ReasonCode.ALREADY_STARTED, "run has already been started")
             binary = self._binary
             if binary is None:
-                error = CoreGoError(Stage.SPAWN, ReasonCode.BINARY_NOT_FOUND, "core binary is not configured")
-                self._last_error = error
+                resp = self._fail_start(Stage.SPAWN, ReasonCode.BINARY_NOT_FOUND, "core binary is not configured")
                 self._state = _CoreState.CLOSED
-                return DeliverRunStartResponse(
-                    success=False,
-                    message=str(error),
-                    error_kind=classify_start_error(error),
-                )
+                return resp
             self._state = _CoreState.STARTING
 
         try:
             rpc = self._connect_and_spinup(binary)
             response = rpc.deliver_run_start(start_request)
-            if not response.success:
-                raise CoreGoError(
-                    Stage.RUN_START,
-                    ReasonCode.RUN_START_REJECTED,
-                    response.message or "DeliverRunStart rejected",
-                )
-            if not response.session_id:
-                raise CoreGoError(
-                    Stage.RUN_START,
-                    ReasonCode.PROTOCOL_VIOLATION,
-                    "DeliverRunStart returned an empty session_id",
-                )
 
             with self._lock:
                 if self._state is not _CoreState.STARTING:
@@ -165,10 +135,7 @@ class CoreGo(CoreProtocol):
                 self._state = _CoreState.RUNNING
             return response
         except BaseException as exc:
-            error = self._as_core_error(exc, Stage.LIFECYCLE)
-            with self._lock:
-                self._last_error = error
-            self.abort(error)
+            error = self._record_error(exc, Stage.LIFECYCLE, abort=True)
             # 清理后原样抛出，避免协议层吞掉 KeyboardInterrupt/SystemExit。
             if not isinstance(exc, Exception):
                 raise
@@ -216,8 +183,7 @@ class CoreGo(CoreProtocol):
 
     def _fail_start(self, stage: Stage, reason: ReasonCode, message: str) -> DeliverRunStartResponse:
         """调用方必须持有 self._lock。"""
-        error = CoreGoError(stage, reason, message)
-        self._last_error = error
+        error = self._record_start_error(stage, reason, message)
         return DeliverRunStartResponse(
             success=False,
             message=str(error),
@@ -226,59 +192,23 @@ class CoreGo(CoreProtocol):
 
     # ---------------------------------- 数据上报 ----------------------------------
 
-    def _upsert_columns_when_local(self, columns: List[ColumnRecord]) -> None:
+    def _upsert_columns_when_enabled(self, columns: List[ColumnRecord]) -> None:
         self._forward_upsert("columns", lambda rpc, session_id: rpc.upsert_columns(columns, session_id))
 
-    def _upsert_columns_when_offline(self, columns: List[ColumnRecord]) -> None:
-        self._forward_upsert("columns", lambda rpc, session_id: rpc.upsert_columns(columns, session_id))
-
-    def _upsert_columns_when_online(self, columns: List[ColumnRecord]) -> None:
-        self._forward_upsert("columns", lambda rpc, session_id: rpc.upsert_columns(columns, session_id))
-
-    def _upsert_scalars_when_local(self, scalars: List[ScalarRecord]) -> None:
+    def _upsert_scalars_when_enabled(self, scalars: List[ScalarRecord]) -> None:
         self._forward_upsert("scalars", lambda rpc, session_id: rpc.upsert_scalars(scalars, session_id))
 
-    def _upsert_scalars_when_offline(self, scalars: List[ScalarRecord]) -> None:
-        self._forward_upsert("scalars", lambda rpc, session_id: rpc.upsert_scalars(scalars, session_id))
-
-    def _upsert_scalars_when_online(self, scalars: List[ScalarRecord]) -> None:
-        self._forward_upsert("scalars", lambda rpc, session_id: rpc.upsert_scalars(scalars, session_id))
-
-    def _upsert_media_when_local(self, media: List[MediaRecord]) -> None:
-        self._forward_upsert("media", lambda rpc, session_id: rpc.upsert_media(media, session_id))
-
-    def _upsert_media_when_offline(self, media: List[MediaRecord]) -> None:
-        self._forward_upsert("media", lambda rpc, session_id: rpc.upsert_media(media, session_id))
-
-    def _upsert_media_when_online(self, media: List[MediaRecord]) -> None:
+    def _upsert_media_when_enabled(self, media: List[MediaRecord]) -> None:
         self._forward_upsert("media", lambda rpc, session_id: rpc.upsert_media(media, session_id))
 
     # 直方图与标量走同一 upsert 路由，失败同样由 consumer 分类重试或终结。
-    def _upsert_histograms_when_local(self, histograms: List[HistogramRecord]) -> None:
+    def _upsert_histograms_when_enabled(self, histograms: List[HistogramRecord]) -> None:
         self._forward_upsert("histograms", lambda rpc, session_id: rpc.upsert_histograms(histograms, session_id))
 
-    def _upsert_histograms_when_offline(self, histograms: List[HistogramRecord]) -> None:
-        self._forward_upsert("histograms", lambda rpc, session_id: rpc.upsert_histograms(histograms, session_id))
-
-    def _upsert_histograms_when_online(self, histograms: List[HistogramRecord]) -> None:
-        self._forward_upsert("histograms", lambda rpc, session_id: rpc.upsert_histograms(histograms, session_id))
-
-    def _upsert_logs_when_local(self, logs: List[LogRecord]) -> None:
+    def _upsert_logs_when_enabled(self, logs: List[LogRecord]) -> None:
         self._forward_upsert("logs", lambda rpc, session_id: rpc.upsert_logs(logs, session_id))
 
-    def _upsert_logs_when_offline(self, logs: List[LogRecord]) -> None:
-        self._forward_upsert("logs", lambda rpc, session_id: rpc.upsert_logs(logs, session_id))
-
-    def _upsert_logs_when_online(self, logs: List[LogRecord]) -> None:
-        self._forward_upsert("logs", lambda rpc, session_id: rpc.upsert_logs(logs, session_id))
-
-    def _upsert_saves_when_local(self, saves: List[SaveRecord]) -> None:
-        self._forward_upsert("saves", lambda rpc, session_id: rpc.upsert_saves(saves, session_id))
-
-    def _upsert_saves_when_offline(self, saves: List[SaveRecord]) -> None:
-        self._forward_upsert("saves", lambda rpc, session_id: rpc.upsert_saves(saves, session_id))
-
-    def _upsert_saves_when_online(self, saves: List[SaveRecord]) -> None:
+    def _upsert_saves_when_enabled(self, saves: List[SaveRecord]) -> None:
         self._forward_upsert("saves", lambda rpc, session_id: rpc.upsert_saves(saves, session_id))
 
     def _forward_upsert(self, name: str, call: Callable[[CoreServiceRpc, str], None]) -> None:
@@ -332,16 +262,7 @@ class CoreGo(CoreProtocol):
 
     # ---------------------------------- 通知运行结束 ----------------------------------
 
-    def _finish_when_local(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse:
-        return self._finish_enabled(finish_request)
-
-    def _finish_when_offline(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse:
-        return self._finish_enabled(finish_request)
-
-    def _finish_when_online(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse:
-        return self._finish_enabled(finish_request)
-
-    def _finish_enabled(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse:
+    def _finish_when_enabled(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse:
         with self._lock:
             if self._state is not _CoreState.RUNNING or self._session_id is None:
                 error = CoreGoError(Stage.LIFECYCLE, ReasonCode.NOT_STARTED, "run is not running; refusing to finish")
@@ -413,89 +334,8 @@ class CoreGo(CoreProtocol):
                 self._session_id = None
         return response
 
-    # ---------------------------------- 生命周期回收 ----------------------------------
-
-    def close(self) -> None:
-        """正常关闭：Owner Mode 下 teardown + 回收；Detached Mode 下仅关闭本地连接。"""
-        if not self._owned_by_current_process():
-            return
-
-        with self._lock:
-            if self._state in (_CoreState.CLOSED, _CoreState.CLOSING, _CoreState.ABORTING):
-                return
-            if self._state is _CoreState.STARTING:
-                abort_startup = True
-                rpc = None
-                launcher = None
-            elif self._state is _CoreState.NEW:
-                self._state = _CoreState.CLOSED
-                return
-            else:
-                abort_startup = False
-                self._state = _CoreState.CLOSING
-                rpc = self._rpc
-                launcher = self._launcher
-
-        if abort_startup:
-            self.abort()
-            return
-
-        self._release_transport(rpc, launcher, abort_launcher=False)
-
-    def abort(self, cause: Optional[BaseException] = None) -> None:
-        """失败路径回收：Owner Mode 下尽力 teardown + 有界回收；Detached Mode 仅断连。"""
-        if not self._owned_by_current_process():
-            return
-
-        with self._lock:
-            if self._state in (_CoreState.ABORTING, _CoreState.CLOSING, _CoreState.CLOSED):
-                return
-            self._state = _CoreState.ABORTING
-            rpc = self._rpc
-            launcher = self._launcher
-
-        self._release_transport(rpc, launcher, abort_launcher=True)
-
-    def _release_transport(
-        self,
-        rpc: Optional[CoreServiceRpc],
-        launcher: Optional[CoreLauncher],
-        *,
-        abort_launcher: bool,
-    ) -> None:
-        """释放 RPC/Launcher 资源并统一收敛到本地 CLOSED；永不抛出。"""
-        action = "abort" if abort_launcher else "close"
-        try:
-            owns_process = getattr(launcher, "owns_process", True) if launcher is not None else True
-            if not self._detach and owns_process and rpc is not None:
-                with safe.block(level="debug", message=f"core teardown failed during {action}"):
-                    rpc.teardown(timeout=TEARDOWN_TIMEOUT)
-            if launcher is not None:
-                with safe.block(level="debug", message=f"core launcher {action} failed"):
-                    if abort_launcher:
-                        launcher.abort()
-                    else:
-                        launcher.close()
-                self._exit_code = launcher.exit_code
-        finally:
-            with self._lock:
-                self._rpc = None
-                self._launcher = None
-                self._session_id = None
-                self._state = _CoreState.CLOSED
-
-    def _owned_by_current_process(self) -> bool:
-        # 只拦真正的 os.fork()；macOS 默认 spawn，不会继承本对象。
-        return not fork.is_forked(self._owner_pid)
-
     # ---------------------------------- 进程 fork ----------------------------------
 
     def fork(self) -> "CoreProtocol":
         # 不取锁：fork 时锁可能由子进程不存在的线程持有。
         return _DetachedCoreGo(cast(ModeType, self._mode), self._binary)
-
-    @staticmethod
-    def _as_core_error(exc: BaseException, stage: Stage) -> CoreGoError:
-        if isinstance(exc, CoreGoError):
-            return exc
-        return CoreGoError(stage, ReasonCode.GRPC_ERROR, str(exc), cause=exc)

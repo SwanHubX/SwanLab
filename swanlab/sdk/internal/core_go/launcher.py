@@ -196,7 +196,13 @@ class CoreLauncher:
         if self._injected_lease is None:
             # 持锁且确认旧端点已失效后清理残留 port-file，防止 wait_endpoint 误读旧 PID。
             lease.port_file.unlink(missing_ok=True)
-        proc = spawn_core(self._binary, lease, detach=self._detach, idle_timeout=self._idle_timeout)
+        proc = spawn_core(
+            self._binary,
+            lease,
+            detach=self._detach,
+            idle_timeout=self._idle_timeout,
+            validated=True,
+        )
         self._proc = proc
         try:
             endpoint = wait_endpoint(proc, lease, timeout=PORT_FILE_TIMEOUT)

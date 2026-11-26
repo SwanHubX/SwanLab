@@ -22,10 +22,10 @@ from swanlab.sdk.internal.core_go.config import (
     CONFIRM_TIMEOUT,
     RUN_START_TIMEOUT,
     STATS_TIMEOUT,
-    CoreGoError,
     ReasonCode,
     Stage,
 )
+from swanlab.sdk.internal.core_go.rpc._common import call_checked
 from swanlab.sdk.typings.core_go import RpcChannelType
 
 __all__ = ["CoreSyncRpc"]
@@ -43,62 +43,46 @@ class CoreSyncRpc:
 
     def deliver_sync_start(self, request: DeliverSyncStartRequest) -> DeliverSyncStartResponse:
         """校验本地配置与 run-*.swanlab 文件头并创建连接绑定的 sync 会话。"""
-        response = self._channel.call(
+        return call_checked(
+            self._channel,
             self._stub.DeliverSyncStart,
             request,
             timeout=RUN_START_TIMEOUT,
             stage=Stage.RUN_START,
+            reject_reason=ReasonCode.RUN_START_REJECTED,
+            default_message="DeliverSyncStart rejected",
         )
-        if not response.success:
-            raise CoreGoError(
-                Stage.RUN_START,
-                ReasonCode.RUN_START_REJECTED,
-                response.message or "DeliverSyncStart rejected",
-            )
-        return response
 
     def deliver_sync_flush(self) -> DeliverSyncFlushResponse:
         """完成云端实验创建/恢复与摘要水位初始化，并启动后台扫描上传。"""
-        response = self._channel.call(
+        return call_checked(
+            self._channel,
             self._stub.DeliverSyncFlush,
             Empty(),
             timeout=RUN_START_TIMEOUT,
             stage=Stage.RUN_START,
+            reject_reason=ReasonCode.RUN_START_REJECTED,
+            default_message="DeliverSyncFlush rejected",
         )
-        if not response.success:
-            raise CoreGoError(
-                Stage.RUN_START,
-                ReasonCode.RUN_START_REJECTED,
-                response.message or "DeliverSyncFlush rejected",
-            )
-        return response
 
     def get_operation_stats(self) -> GetOperationStatsResponse:
         """查询当前连接绑定 sync 会话的上传进度与运行状态快照。"""
-        response = self._channel.call(
+        return call_checked(
+            self._channel,
             self._stub.GetOperationStats,
             Empty(),
             timeout=STATS_TIMEOUT,
+            reject_reason=ReasonCode.PROTOCOL_VIOLATION,
+            default_message="GetOperationStats rejected",
         )
-        if not response.success:
-            raise CoreGoError(
-                Stage.RPC,
-                ReasonCode.PROTOCOL_VIOLATION,
-                response.message or "GetOperationStats rejected",
-            )
-        return response
 
     def confirm_sync_finish(self) -> ConfirmSyncFinishResponse:
         """等待扫描与上传全部排空并上报终态（遵循 CONFIRM_TIMEOUT=None 无限等待语义）。"""
-        response = self._channel.call(
+        return call_checked(
+            self._channel,
             self._stub.ConfirmSyncFinish,
             Empty(),
             timeout=CONFIRM_TIMEOUT,
+            reject_reason=ReasonCode.RUN_FINISH_REJECTED,
+            default_message="ConfirmSyncFinish rejected",
         )
-        if not response.success:
-            raise CoreGoError(
-                Stage.RPC,
-                ReasonCode.RUN_FINISH_REJECTED,
-                response.message or "ConfirmSyncFinish rejected",
-            )
-        return response

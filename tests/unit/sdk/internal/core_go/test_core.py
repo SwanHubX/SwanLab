@@ -27,7 +27,7 @@ from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
 )
 from swanlab.proto.swanlab.metric.data.v1.data_pb2 import HistogramRecord, ScalarRecord
 from swanlab.sdk.internal.core_go import core as core_module
-from swanlab.sdk.internal.core_go.config import CoreGoError, ReasonCode, Stage
+from swanlab.sdk.internal.core_go.config import TEARDOWN_TIMEOUT, CoreGoError, ReasonCode, Stage
 from swanlab.sdk.internal.core_go.core import CoreGo, _CoreState, _DetachedCoreGo
 from swanlab.sdk.internal.core_go.rpc import CoreServiceRpc
 from swanlab.sdk.internal.pkg import console as pkg_console
@@ -222,7 +222,7 @@ def test_close_after_finish_tears_down_and_releases_rpc():
 
     assert core._state is _CoreState.CLOSED  # noqa: SLF001
     assert core._rpc is None  # noqa: SLF001
-    assert rpc.teardown_calls == [core_module.TEARDOWN_TIMEOUT]
+    assert rpc.teardown_calls == [TEARDOWN_TIMEOUT]
 
 
 def test_fork_returns_detached_placeholder(tmp_path):
@@ -257,7 +257,7 @@ def test_detached_core_never_touches_parent_lifecycle():
 def test_start_modes_share_enabled_path(monkeypatch):
     sentinel = DeliverRunStartResponse(success=True, session_id="s")
     calls = []
-    monkeypatch.setattr(CoreGo, "_start_enabled", lambda self, req: calls.append(self._mode) or sentinel)
+    monkeypatch.setattr(CoreGo, "_start_when_enabled", lambda self, req: calls.append(self._mode) or sentinel)
 
     for mode in ("online", "local", "offline"):
         assert CoreGo(mode).deliver_run_start(DeliverRunStartRequest()) is sentinel
@@ -266,7 +266,7 @@ def test_start_modes_share_enabled_path(monkeypatch):
 
 def test_finish_modes_share_enabled_path(monkeypatch):
     sentinel = DeliverRunFinishResponse(success=True)
-    monkeypatch.setattr(CoreGo, "_finish_enabled", lambda self, req: sentinel)
+    monkeypatch.setattr(CoreGo, "_finish_when_enabled", lambda self, req: sentinel)
 
     for mode in ("online", "local", "offline"):
         assert CoreGo(mode).deliver_run_finish(DeliverRunFinishRequest()) is sentinel
@@ -371,7 +371,7 @@ def test_owner_mode_abort_sends_teardown():
 
     core.abort(RuntimeError("boom"))
 
-    assert rpc.teardown_calls == [core_module.TEARDOWN_TIMEOUT]
+    assert rpc.teardown_calls == [TEARDOWN_TIMEOUT]
     assert core._state is _CoreState.CLOSED  # noqa: SLF001
 
 
@@ -446,7 +446,7 @@ def test_mixed_owner_and_detached_close_does_not_affect_peer(monkeypatch, tmp_pa
 
     # Owner 退出只 teardown 自己的 Core，不得影响 Detached 会话继续写入。
     owner_core.close()
-    assert rpcs["owner"].teardown_calls == [core_module.TEARDOWN_TIMEOUT]
+    assert rpcs["owner"].teardown_calls == [TEARDOWN_TIMEOUT]
     assert rpcs["detached"].teardown_calls == []
 
     detached_core.upsert_scalars([ScalarRecord(key="loss", step=1)])

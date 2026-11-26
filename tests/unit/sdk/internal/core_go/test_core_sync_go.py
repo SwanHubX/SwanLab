@@ -284,7 +284,9 @@ def test_fork_child_does_not_teardown_parent_core(patch_sync_dependencies, monke
     core = CoreSyncGo(binary=tmp_path / "swanlab-core")
     assert core.deliver_sync_start(DeliverSyncStartRequest()).success is True
 
-    monkeypatch.setattr(sync_module.fork, "is_forked", lambda _owner_pid: True)
+    from swanlab.sdk.internal.pkg import fork as pkg_fork
+
+    monkeypatch.setattr(pkg_fork, "is_forked", lambda _owner_pid: True)
     core.close()
     core.abort()
 

@@ -582,7 +582,7 @@ def test_detach_launcher_close_and_abort_skip_reap(launcher_env, monkeypatch, ac
 
     launcher = CoreLauncher(binary, detach=True, idle_timeout=2.0)
     assert launcher.start() == endpoint
-    assert spawn_kwargs == {"detach": True, "idle_timeout": 2.0}
+    assert spawn_kwargs == {"detach": True, "idle_timeout": 2.0, "validated": True}
 
     channel = cast(Any, launcher.channel)
     getattr(launcher, action)()

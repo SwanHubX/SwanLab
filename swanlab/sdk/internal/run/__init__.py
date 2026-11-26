@@ -38,7 +38,7 @@ from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord
 from swanlab.sdk.internal.bus import FileSaveEvent, MetricDefineEvent, MetricLogEvent
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.core_python import client
-from swanlab.sdk.internal.pkg import adapter, console, fork, helper, safe, timer
+from swanlab.sdk.internal.pkg import adapter, console, fork, helper, safe, throttle, timer
 from swanlab.sdk.internal.run import greeting
 from swanlab.sdk.internal.run.components import Components
 from swanlab.sdk.internal.run.components.config import Config
@@ -151,7 +151,7 @@ class Run:
     _cloud_link_printed: bool = False
     _cloud_failure_reported: bool = False
     _upload_degraded: bool = False
-    _last_upload_warn_at: float = -_UPLOAD_WARN_INTERVAL
+    _upload_warn_throttle: Optional[throttle.WarningThrottle] = None
     _status_timer: Optional[timer.Timer] = None
 
     def __init__(self, ctx: RunContext, path: Optional[str] = None, *, fallback_error: Optional[str] = None):
@@ -166,7 +166,9 @@ class Run:
         self._cloud_link_printed = bool(path)
         self._cloud_failure_reported = False
         self._upload_degraded = False
-        self._last_upload_warn_at = -self._UPLOAD_WARN_INTERVAL
+        self._upload_warn_throttle = throttle.WarningThrottle(
+            self._UPLOAD_WARN_INTERVAL, clock=lambda: time.monotonic()
+        )
         self._status_timer = None
         self._state: Union[FinishType, Literal["running"]] = "running"
         self._init_pid = fork.current_pid()
@@ -473,12 +475,16 @@ class Run:
         if stats.HasField("cloud") and stats.cloud.state in (CLOUD_STATE_PENDING, CLOUD_STATE_FAILED):
             return
         if stats.HasField("upload"):
+            if self._upload_warn_throttle is None:
+                self._upload_warn_throttle = throttle.WarningThrottle(
+                    self._UPLOAD_WARN_INTERVAL, clock=lambda: time.monotonic()
+                )
             suspended = bool(stats.upload.suspended)
             retrying = bool(stats.upload.retrying)
             if suspended or retrying:
-                now = time.monotonic()
-                if not self._upload_degraded or now - self._last_upload_warn_at >= self._UPLOAD_WARN_INTERVAL:
-                    self._last_upload_warn_at = now
+                if not self._upload_degraded:
+                    self._upload_warn_throttle.reset()
+                if self._upload_warn_throttle.should_emit():
                     with console.skip_capture():
                         if suspended:
                             console.warning(
@@ -490,7 +496,7 @@ class Run:
                 self._upload_degraded = True
             elif self._upload_degraded:
                 self._upload_degraded = False
-                self._last_upload_warn_at = -self._UPLOAD_WARN_INTERVAL
+                self._upload_warn_throttle.reset()
                 console.info("✅ Upload recovered, resuming normally.")
 
     def _require_cloud_path(self, attr: Literal["path", "url"]) -> str:

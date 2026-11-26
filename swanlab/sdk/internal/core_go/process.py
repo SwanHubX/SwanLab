@@ -70,6 +70,7 @@ def spawn_core(
     *,
     detach: bool = False,
     idle_timeout: float = 0.0,
+    validated: bool = False,
 ) -> subprocess.Popen:
     """拉起 swanlab-core，返回 Popen。
 
@@ -88,7 +89,8 @@ def spawn_core(
             f"failed to resolve core binary {binary}: {exc}",
             cause=exc,
         ) from exc
-    validate_core_binary(binary_path)
+    if not validated:
+        validate_core_binary(binary_path)
 
     env = dict(os.environ)
     env.pop("SWANLAB_CORE_LISTEN", None)

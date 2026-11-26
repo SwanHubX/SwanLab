@@ -13,8 +13,7 @@ from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
     DeliverRunFinishRequest,
     DeliverRunFinishResponse,
 )
-from swanlab.sdk.internal.core_go import core as core_module
-from swanlab.sdk.internal.core_go.config import CoreGoError, ReasonCode, Stage
+from swanlab.sdk.internal.core_go.config import TEARDOWN_TIMEOUT, CoreGoError, ReasonCode, Stage
 from swanlab.sdk.internal.core_go.core import CoreGo, _CoreState
 from swanlab.sdk.internal.core_go.launcher import CoreLauncher
 from swanlab.sdk.internal.core_go.rpc import CoreServiceRpc
@@ -132,7 +131,7 @@ def test_close_after_confirm_failure_tears_down():
     core.close()
 
     assert core._state is _CoreState.CLOSED  # noqa: SLF001
-    assert rpc.teardown_calls == [core_module.TEARDOWN_TIMEOUT]
+    assert rpc.teardown_calls == [TEARDOWN_TIMEOUT]
 
 
 def test_close_records_core_exit_code():

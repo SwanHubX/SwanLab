@@ -137,14 +137,17 @@ class CoreProtocol(ABC):
             success=True, message="I'm a teapot.", run=start_request.start_record, new_experiment=True
         )
 
-    @abstractmethod
-    def _start_when_local(self, start_request: DeliverRunStartRequest) -> DeliverRunStartResponse: ...
+    def _start_when_enabled(self, start_request: DeliverRunStartRequest) -> DeliverRunStartResponse:
+        raise NotImplementedError
 
-    @abstractmethod
-    def _start_when_offline(self, start_request: DeliverRunStartRequest) -> DeliverRunStartResponse: ...
+    def _start_when_local(self, start_request: DeliverRunStartRequest) -> DeliverRunStartResponse:
+        return self._start_when_enabled(start_request)
 
-    @abstractmethod
-    def _start_when_online(self, start_request: DeliverRunStartRequest) -> DeliverRunStartResponse: ...
+    def _start_when_offline(self, start_request: DeliverRunStartRequest) -> DeliverRunStartResponse:
+        return self._start_when_enabled(start_request)
+
+    def _start_when_online(self, start_request: DeliverRunStartRequest) -> DeliverRunStartResponse:
+        return self._start_when_enabled(start_request)
 
     # ---------------------------------- 指标定义 ----------------------------------
 
@@ -163,14 +166,17 @@ class CoreProtocol(ABC):
 
     def _upsert_columns_when_disabled(self, columns: List[ColumnRecord]) -> None: ...
 
-    @abstractmethod
-    def _upsert_columns_when_local(self, columns: List[ColumnRecord]) -> None: ...
+    def _upsert_columns_when_enabled(self, columns: List[ColumnRecord]) -> None:
+        raise NotImplementedError
 
-    @abstractmethod
-    def _upsert_columns_when_offline(self, columns: List[ColumnRecord]) -> None: ...
+    def _upsert_columns_when_local(self, columns: List[ColumnRecord]) -> None:
+        return self._upsert_columns_when_enabled(columns)
 
-    @abstractmethod
-    def _upsert_columns_when_online(self, columns: List[ColumnRecord]) -> None: ...
+    def _upsert_columns_when_offline(self, columns: List[ColumnRecord]) -> None:
+        return self._upsert_columns_when_enabled(columns)
+
+    def _upsert_columns_when_online(self, columns: List[ColumnRecord]) -> None:
+        return self._upsert_columns_when_enabled(columns)
 
     # ---------------------------------- 标量指标值 ----------------------------------
 
@@ -189,14 +195,17 @@ class CoreProtocol(ABC):
 
     def _upsert_scalars_when_disabled(self, scalars: List[ScalarRecord]) -> None: ...
 
-    @abstractmethod
-    def _upsert_scalars_when_local(self, scalars: List[ScalarRecord]) -> None: ...
+    def _upsert_scalars_when_enabled(self, scalars: List[ScalarRecord]) -> None:
+        raise NotImplementedError
 
-    @abstractmethod
-    def _upsert_scalars_when_offline(self, scalars: List[ScalarRecord]) -> None: ...
+    def _upsert_scalars_when_local(self, scalars: List[ScalarRecord]) -> None:
+        return self._upsert_scalars_when_enabled(scalars)
 
-    @abstractmethod
-    def _upsert_scalars_when_online(self, scalars: List[ScalarRecord]) -> None: ...
+    def _upsert_scalars_when_offline(self, scalars: List[ScalarRecord]) -> None:
+        return self._upsert_scalars_when_enabled(scalars)
+
+    def _upsert_scalars_when_online(self, scalars: List[ScalarRecord]) -> None:
+        return self._upsert_scalars_when_enabled(scalars)
 
     # ---------------------------------- 媒体指标值 ----------------------------------
 
@@ -215,14 +224,17 @@ class CoreProtocol(ABC):
 
     def _upsert_media_when_disabled(self, media: List[MediaRecord]) -> None: ...
 
-    @abstractmethod
-    def _upsert_media_when_local(self, media: List[MediaRecord]) -> None: ...
+    def _upsert_media_when_enabled(self, media: List[MediaRecord]) -> None:
+        raise NotImplementedError
 
-    @abstractmethod
-    def _upsert_media_when_offline(self, media: List[MediaRecord]) -> None: ...
+    def _upsert_media_when_local(self, media: List[MediaRecord]) -> None:
+        return self._upsert_media_when_enabled(media)
 
-    @abstractmethod
-    def _upsert_media_when_online(self, media: List[MediaRecord]) -> None: ...
+    def _upsert_media_when_offline(self, media: List[MediaRecord]) -> None:
+        return self._upsert_media_when_enabled(media)
+
+    def _upsert_media_when_online(self, media: List[MediaRecord]) -> None:
+        return self._upsert_media_when_enabled(media)
 
     # ---------------------------------- 直方图指标值 ----------------------------------
 
@@ -241,14 +253,17 @@ class CoreProtocol(ABC):
 
     def _upsert_histograms_when_disabled(self, histograms: List[HistogramRecord]) -> None: ...
 
-    @abstractmethod
-    def _upsert_histograms_when_local(self, histograms: List[HistogramRecord]) -> None: ...
+    def _upsert_histograms_when_enabled(self, histograms: List[HistogramRecord]) -> None:
+        raise NotImplementedError
 
-    @abstractmethod
-    def _upsert_histograms_when_offline(self, histograms: List[HistogramRecord]) -> None: ...
+    def _upsert_histograms_when_local(self, histograms: List[HistogramRecord]) -> None:
+        return self._upsert_histograms_when_enabled(histograms)
 
-    @abstractmethod
-    def _upsert_histograms_when_online(self, histograms: List[HistogramRecord]) -> None: ...
+    def _upsert_histograms_when_offline(self, histograms: List[HistogramRecord]) -> None:
+        return self._upsert_histograms_when_enabled(histograms)
+
+    def _upsert_histograms_when_online(self, histograms: List[HistogramRecord]) -> None:
+        return self._upsert_histograms_when_enabled(histograms)
 
     # ---------------------------------- 终端输出 ----------------------------------
 
@@ -267,14 +282,17 @@ class CoreProtocol(ABC):
 
     def _upsert_logs_when_disabled(self, logs: List[LogRecord]) -> None: ...
 
-    @abstractmethod
-    def _upsert_logs_when_local(self, logs: List[LogRecord]) -> None: ...
+    def _upsert_logs_when_enabled(self, logs: List[LogRecord]) -> None:
+        raise NotImplementedError
 
-    @abstractmethod
-    def _upsert_logs_when_offline(self, logs: List[LogRecord]) -> None: ...
+    def _upsert_logs_when_local(self, logs: List[LogRecord]) -> None:
+        return self._upsert_logs_when_enabled(logs)
 
-    @abstractmethod
-    def _upsert_logs_when_online(self, logs: List[LogRecord]) -> None: ...
+    def _upsert_logs_when_offline(self, logs: List[LogRecord]) -> None:
+        return self._upsert_logs_when_enabled(logs)
+
+    def _upsert_logs_when_online(self, logs: List[LogRecord]) -> None:
+        return self._upsert_logs_when_enabled(logs)
 
     # ---------------------------------- 文件保存 ----------------------------------
 
@@ -293,14 +311,17 @@ class CoreProtocol(ABC):
 
     def _upsert_saves_when_disabled(self, saves: List[SaveRecord]) -> None: ...
 
-    @abstractmethod
-    def _upsert_saves_when_local(self, saves: List[SaveRecord]) -> None: ...
+    def _upsert_saves_when_enabled(self, saves: List[SaveRecord]) -> None:
+        raise NotImplementedError
 
-    @abstractmethod
-    def _upsert_saves_when_offline(self, saves: List[SaveRecord]) -> None: ...
+    def _upsert_saves_when_local(self, saves: List[SaveRecord]) -> None:
+        return self._upsert_saves_when_enabled(saves)
 
-    @abstractmethod
-    def _upsert_saves_when_online(self, saves: List[SaveRecord]) -> None: ...
+    def _upsert_saves_when_offline(self, saves: List[SaveRecord]) -> None:
+        return self._upsert_saves_when_enabled(saves)
+
+    def _upsert_saves_when_online(self, saves: List[SaveRecord]) -> None:
+        return self._upsert_saves_when_enabled(saves)
 
     # ---------------------------------- 通知运行结束 ----------------------------------
 
@@ -323,14 +344,17 @@ class CoreProtocol(ABC):
     def _finish_when_disabled() -> DeliverRunFinishResponse:
         return DeliverRunFinishResponse(success=True, message="I'm a teapot.")
 
-    @abstractmethod
-    def _finish_when_local(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse: ...
+    def _finish_when_enabled(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse:
+        raise NotImplementedError
 
-    @abstractmethod
-    def _finish_when_offline(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse: ...
+    def _finish_when_local(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse:
+        return self._finish_when_enabled(finish_request)
 
-    @abstractmethod
-    def _finish_when_online(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse: ...
+    def _finish_when_offline(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse:
+        return self._finish_when_enabled(finish_request)
+
+    def _finish_when_online(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse:
+        return self._finish_when_enabled(finish_request)
 
     # ---------------------------------- 进度查询 ----------------------------------
 
@@ -398,86 +422,32 @@ class NullCoreProtocol(CoreProtocol):
 
     # ---------------------------------- 实验开始 ----------------------------------
 
-    def _start_when_local(self, start_request: DeliverRunStartRequest) -> DeliverRunStartResponse:
-        return self._reject_start()
-
-    def _start_when_offline(self, start_request: DeliverRunStartRequest) -> DeliverRunStartResponse:
-        return self._reject_start()
-
-    def _start_when_online(self, start_request: DeliverRunStartRequest) -> DeliverRunStartResponse:
-        return self._reject_start()
-
-    def _reject_start(self) -> DeliverRunStartResponse:
+    def _start_when_enabled(self, start_request: DeliverRunStartRequest) -> DeliverRunStartResponse:
         return DeliverRunStartResponse(success=False, message=self._message)
 
     # ---------------------------------- 数据上报：全部空操作 ----------------------------------
 
-    def _upsert_columns_when_local(self, columns: List[ColumnRecord]) -> None:
+    def _upsert_columns_when_enabled(self, columns: List[ColumnRecord]) -> None:
         return None
 
-    def _upsert_columns_when_offline(self, columns: List[ColumnRecord]) -> None:
+    def _upsert_scalars_when_enabled(self, scalars: List[ScalarRecord]) -> None:
         return None
 
-    def _upsert_columns_when_online(self, columns: List[ColumnRecord]) -> None:
+    def _upsert_media_when_enabled(self, media: List[MediaRecord]) -> None:
         return None
 
-    def _upsert_scalars_when_local(self, scalars: List[ScalarRecord]) -> None:
+    def _upsert_histograms_when_enabled(self, histograms: List[HistogramRecord]) -> None:
         return None
 
-    def _upsert_scalars_when_offline(self, scalars: List[ScalarRecord]) -> None:
+    def _upsert_logs_when_enabled(self, logs: List[LogRecord]) -> None:
         return None
 
-    def _upsert_scalars_when_online(self, scalars: List[ScalarRecord]) -> None:
-        return None
-
-    def _upsert_media_when_local(self, media: List[MediaRecord]) -> None:
-        return None
-
-    def _upsert_media_when_offline(self, media: List[MediaRecord]) -> None:
-        return None
-
-    def _upsert_media_when_online(self, media: List[MediaRecord]) -> None:
-        return None
-
-    def _upsert_histograms_when_local(self, histograms: List[HistogramRecord]) -> None:
-        return None
-
-    def _upsert_histograms_when_offline(self, histograms: List[HistogramRecord]) -> None:
-        return None
-
-    def _upsert_histograms_when_online(self, histograms: List[HistogramRecord]) -> None:
-        return None
-
-    def _upsert_logs_when_local(self, logs: List[LogRecord]) -> None:
-        return None
-
-    def _upsert_logs_when_offline(self, logs: List[LogRecord]) -> None:
-        return None
-
-    def _upsert_logs_when_online(self, logs: List[LogRecord]) -> None:
-        return None
-
-    def _upsert_saves_when_local(self, saves: List[SaveRecord]) -> None:
-        return None
-
-    def _upsert_saves_when_offline(self, saves: List[SaveRecord]) -> None:
-        return None
-
-    def _upsert_saves_when_online(self, saves: List[SaveRecord]) -> None:
+    def _upsert_saves_when_enabled(self, saves: List[SaveRecord]) -> None:
         return None
 
     # ---------------------------------- 通知运行结束 ----------------------------------
 
-    def _finish_when_local(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse:
-        return self._reject_finish()
-
-    def _finish_when_offline(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse:
-        return self._reject_finish()
-
-    def _finish_when_online(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse:
-        return self._reject_finish()
-
-    def _reject_finish(self) -> DeliverRunFinishResponse:
+    def _finish_when_enabled(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse:
         return DeliverRunFinishResponse(success=False, message=self._message)
 
     # ---------------------------------- 进度查询与确认 ----------------------------------
