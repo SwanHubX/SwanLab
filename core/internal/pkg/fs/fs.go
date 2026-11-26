@@ -1,4 +1,4 @@
-// Package fs 提供文件名安全化、路径拆分与镜像路径拼接工具。
+// Package fs 提供文件名安全化、路径拆分、镜像路径拼接与原子写文件工具。
 package fs
 
 import (

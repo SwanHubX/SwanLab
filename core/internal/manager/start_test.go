@@ -18,6 +18,7 @@ import (
 	"github.com/swanhubx/swanlab/core/internal/manager/probe"
 	"github.com/swanhubx/swanlab/core/internal/metrics"
 	"github.com/swanhubx/swanlab/core/internal/pkg/builder"
+	"github.com/swanhubx/swanlab/core/internal/runctx"
 	"github.com/swanhubx/swanlab/core/internal/store"
 	columnv1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/column/v1"
 	datav1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/data/v1"
@@ -342,12 +343,25 @@ func TestDeliverRunStartRollbackRemovesRunFile(t *testing.T) {
 	serveAuth(cloud)
 	serveHeartbeat(cloud, "exp-1")
 	serveProject(cloud, "alice", "demo", 1)
-	serveNewExperiment(cloud, "alice", "demo", "exp-1", "run-1")
 
 	mgr := newTestManager()
-	for i := 0; i < maxSessions; i++ {
-		installBare(t, mgr, sessionOptions{})
-	}
+	cloud.Handle(http.MethodPost, "/api/project/alice/demo/experiment", func(w http.ResponseWriter, r *http.Request) {
+		// 在通过容量预检后、进入 s.open() 创建 run 文件前填满注册表，
+		// 迫使 s.open() 与 commitStart() 实际创建文件并写入记录后，在 install() 失败并由 s.rollback() 删文件。
+		for mgr.SessionCount() < maxSessions {
+			_, _ = mgr.install(newSession(sessionOptions{}))
+		}
+		var body struct {
+			Name string `json:"name"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		clienttest.WriteJSON(w, http.StatusCreated, map[string]any{
+			"cuid": "exp-1",
+			"slug": "run-1",
+			"name": body.Name,
+		})
+	})
+
 	settings := startSettings(t, cloud)
 	record := &runv1.StartRecord{Project: "demo", Workspace: "alice", Id: "run-1"}
 
@@ -357,11 +371,54 @@ func TestDeliverRunStartRollbackRemovesRunFile(t *testing.T) {
 	if _, err := os.Stat(runFilePath(t, settings)); !os.IsNotExist(err) {
 		t.Fatalf("rollback must remove the run file: err=%v", err)
 	}
-	mgr.mu.RLock()
-	count := len(mgr.sessions)
-	mgr.mu.RUnlock()
-	if count != maxSessions {
+	if count := mgr.SessionCount(); count != maxSessions {
 		t.Fatalf("sessions = %d, want %d", count, maxSessions)
+	}
+}
+
+func TestSessionOpenFailureRollbackRemovesRunFile(t *testing.T) {
+	cloud := clienttest.NewCloud(t)
+	serveAuth(cloud)
+
+	mgr := newTestManager()
+	defer func() { _ = mgr.Close() }()
+	settings := startSettings(t, cloud)
+	httpClient, err := mgr.factory.Client(context.Background(), settings.APIHost, settings.APIKey)
+	if err != nil {
+		t.Fatalf("factory.Client: %v", err)
+	}
+	run, err := runctx.New(settings)
+	if err != nil {
+		t.Fatalf("runctx.New: %v", err)
+	}
+	s := newSession(sessionOptions{})
+	s.ctx, s.cancel = context.WithCancel(context.Background())
+	s.cfg = settings
+	s.run = run
+	s.metrics = metrics.New()
+
+	// api=nil 会在 OpenStore 创建 run 文件之后触发 sender.NewAll 失败，从而验证 s.open 中途失败的回滚清理。
+	err = s.open(sessionInit{
+		cfg:          settings,
+		run:          run,
+		api:          nil,
+		http:         httpClient,
+		workspace:    "alice",
+		project:      "demo",
+		projectID:    "proj-1",
+		experimentID: "exp-1",
+	})
+	if err == nil {
+		s.rollback()
+		t.Fatal("s.open must fail when api client is nil")
+	}
+	runFile := runFilePath(t, settings)
+	if _, statErr := os.Stat(runFile); statErr != nil {
+		t.Fatalf("run file should exist before rollback: %v", statErr)
+	}
+	s.rollback()
+	if _, statErr := os.Stat(runFile); !os.IsNotExist(statErr) {
+		t.Fatalf("rollback must remove newly created run file: err=%v", statErr)
 	}
 }
 

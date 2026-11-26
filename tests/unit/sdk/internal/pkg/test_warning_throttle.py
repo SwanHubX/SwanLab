@@ -1,5 +1,5 @@
 """
-@file: test_throttle.py
+@file: test_warning_throttle.py
 @description: WarningThrottle 单调时钟节流器的单测。
 """
 

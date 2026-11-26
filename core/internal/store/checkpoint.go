@@ -59,8 +59,6 @@ func LoadCheckpoint(path, runID string) (Checkpoint, bool, error) {
 	return cp, true, nil
 }
 
-var writeCheckpointAtomic = fs.WriteAtomic
-
 // WriteCheckpoint 将 checkpoint 原子写入 path：同目录临时文件 -> fsync -> rename -> fsync 目录。
 // 任一步失败均不会破坏已有目标文件，并清理临时文件。
 func WriteCheckpoint(path string, cp Checkpoint) error {
@@ -95,7 +93,7 @@ func writeCheckpoint(path string, cp Checkpoint, durable bool) error {
 		return fmt.Errorf("store: marshal checkpoint: %w", err)
 	}
 
-	if err = writeCheckpointAtomic(path, data, 0o644, durable); err != nil {
+	if err = fs.WriteAtomic(path, data, 0o644, durable); err != nil {
 		return fmt.Errorf("store: write checkpoint: %w", err)
 	}
 	return nil

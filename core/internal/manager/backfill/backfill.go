@@ -30,6 +30,10 @@ const (
 	// retryBase / retryMax 是失败重试的初始与最大退避。
 	retryBase = 200 * time.Millisecond
 	retryMax  = 2 * time.Second
+
+	lifecycleIdle    int32 = 0
+	lifecycleStarted int32 = 1
+	lifecycleStopped int32 = 2
 )
 
 var (
@@ -82,8 +86,7 @@ type Worker struct {
 	wake      chan struct{}
 	stop      chan struct{}
 	done      chan struct{}
-	started   atomic.Bool
-	startOnce sync.Once
+	lifecycle atomic.Int32
 	stopOnce  sync.Once
 	mu        sync.Mutex
 	cancel    context.CancelFunc
@@ -123,15 +126,20 @@ func New(opts Options) *Worker {
 	}
 }
 
-// Start 启动后台补投协程；可重复安全调用，但仅首次生效。
+// Start 启动后台补投协程；可重复安全调用，若已启动或已停止则无操作。
 func (w *Worker) Start() {
 	if w == nil || w.intake == nil || w.store == nil {
 		return
 	}
-	w.startOnce.Do(func() {
-		w.started.Store(true)
-		go w.loop()
-	})
+	if !w.lifecycle.CompareAndSwap(lifecycleIdle, lifecycleStarted) {
+		return
+	}
+	go w.loop()
+}
+
+// Started 报告后台补投协程是否已启动。
+func (w *Worker) Started() bool {
+	return w != nil && w.lifecycle.Load() == lifecycleStarted
 }
 
 // Stop 取消当前补投尝试并等待协程退出；未启动或已停止时可重复安全调用。
@@ -139,11 +147,12 @@ func (w *Worker) Stop() {
 	if w == nil {
 		return
 	}
+	stoppedBeforeStart := w.lifecycle.CompareAndSwap(lifecycleIdle, lifecycleStopped)
 	w.stopOnce.Do(func() {
 		close(w.stop)
 	})
 	w.CancelAttempt()
-	if !w.started.Load() {
+	if stoppedBeforeStart || w.lifecycle.Load() != lifecycleStarted {
 		return
 	}
 	<-w.done

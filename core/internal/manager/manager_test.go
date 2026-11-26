@@ -631,7 +631,7 @@ func TestDisconnectSessionAfterFinishDoesNotFakeConfirmSuccess(t *testing.T) {
 	}
 }
 
-func TestDisconnectSessionDrainFailureKeepsDiagnosticStateAndFreesSlot(t *testing.T) {
+func TestDisconnectSessionDrainFailureMarksFailedAndFreesSlot(t *testing.T) {
 	h := newFinishHarness(t, finishOptions{blockUpload: true})
 	if err := h.mgr.UpsertScalars(context.Background(), h.id, []*datav1.ScalarRecord{
 		scalarRecord("disconnect/blocked", 0, columnv1.ColumnType_COLUMN_TYPE_SCALAR),

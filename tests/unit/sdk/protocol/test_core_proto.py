@@ -93,3 +93,108 @@ def test_operation_stats_cloud_status_fields():
     assert legacy_decoded.cloud.state == operation_pb2.CLOUD_STATE_UNSPECIFIED
     assert legacy_decoded.cloud.path == ""
     assert legacy_decoded.cloud.error == ""
+
+
+def _make_minimal_enabled_protocol(mode):
+    from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
+        ConfirmRunFinishResponse,
+        DeliverRunFinishRequest,
+        DeliverRunFinishResponse,
+        DeliverRunStartRequest,
+        DeliverRunStartResponse,
+        GetOperationStatsResponse,
+    )
+    from swanlab.sdk.protocol.core import CoreProtocol
+
+    calls = []
+
+    class _MinimalEnabledCore(CoreProtocol):
+        def _start_when_enabled(self, start_request: DeliverRunStartRequest) -> DeliverRunStartResponse:
+            calls.append(("start", start_request))
+            return DeliverRunStartResponse(success=True)
+
+        def _upsert_columns_when_enabled(self, columns) -> None:
+            calls.append(("columns", columns))
+
+        def _upsert_scalars_when_enabled(self, scalars) -> None:
+            calls.append(("scalars", scalars))
+
+        def _upsert_media_when_enabled(self, media) -> None:
+            calls.append(("media", media))
+
+        def _upsert_histograms_when_enabled(self, histograms) -> None:
+            calls.append(("histograms", histograms))
+
+        def _upsert_logs_when_enabled(self, logs) -> None:
+            calls.append(("logs", logs))
+
+        def _upsert_saves_when_enabled(self, saves) -> None:
+            calls.append(("saves", saves))
+
+        def _finish_when_enabled(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse:
+            calls.append(("finish", finish_request))
+            return DeliverRunFinishResponse(success=True)
+
+        def _get_operation_when_online(self) -> GetOperationStatsResponse:
+            return GetOperationStatsResponse(success=True)
+
+        def _confirm_finish_when_enabled(self) -> ConfirmRunFinishResponse:
+            return ConfirmRunFinishResponse(success=True)
+
+        def fork(self):
+            return self
+
+    return _MinimalEnabledCore(mode), calls
+
+
+import pytest  # noqa: E402
+
+
+@pytest.mark.parametrize("mode", ["local", "offline", "online"])
+@pytest.mark.parametrize(
+    "method_name, expected_tag",
+    [
+        ("upsert_columns", "columns"),
+        ("upsert_scalars", "scalars"),
+        ("upsert_media", "media"),
+        ("upsert_histograms", "histograms"),
+        ("upsert_logs", "logs"),
+        ("upsert_saves", "saves"),
+    ],
+)
+def test_core_protocol_default_upsert_delegates_to_when_enabled(mode, method_name, expected_tag):
+    core, calls = _make_minimal_enabled_protocol(mode)
+    payload = [object()]
+
+    getattr(core, method_name)(payload)
+
+    assert calls == [(expected_tag, payload)]
+
+
+def test_core_protocol_disabled_mode_skips_when_enabled_hooks():
+    from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import DeliverRunFinishRequest, DeliverRunStartRequest
+
+    core, calls = _make_minimal_enabled_protocol("disabled")
+
+    assert core.deliver_run_start(DeliverRunStartRequest()).success is True
+    core.upsert_columns([])
+    core.upsert_scalars([])
+    core.upsert_media([])
+    core.upsert_histograms([])
+    core.upsert_logs([])
+    core.upsert_saves([])
+    assert core.deliver_run_finish(DeliverRunFinishRequest()).success is True
+    assert calls == []
+
+
+@pytest.mark.parametrize("mode", ["local", "offline", "online"])
+def test_core_protocol_default_lifecycle_delegates_to_when_enabled(mode):
+    from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import DeliverRunFinishRequest, DeliverRunStartRequest
+
+    core, calls = _make_minimal_enabled_protocol(mode)
+    start_req = DeliverRunStartRequest()
+    finish_req = DeliverRunFinishRequest()
+
+    assert core.deliver_run_start(start_req).success is True
+    assert core.deliver_run_finish(finish_req).success is True
+    assert calls == [("start", start_req), ("finish", finish_req)]

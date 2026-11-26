@@ -759,3 +759,90 @@ func TestNewCursorDetectsCorruptPayload(t *testing.T) {
 		t.Fatalf("newCursor err = %v, want errCorrupt wrapping store.ErrCorrupt", cursorErr)
 	}
 }
+
+func TestWorkerStopBeforeStartAndConcurrentLifecycle(t *testing.T) {
+	// Stop -> Start -> Stop：先 Stop 后，再 Start 不得启动后台协程或触发 onStored。
+	for range 16 {
+		async, path := newScanStore(t, []*recordv1.Record{testStart(), testScalar(1)})
+		b := budget.New(budget.Limits{Records: 16})
+		in, err := buffer.New(buffer.Options{
+			Store:       async.In(),
+			UploadQueue: 8,
+			Budget:      b,
+			Flushed: func() int64 {
+				seq, _ := async.Flushed()
+				return seq
+			},
+		})
+		if err != nil {
+			t.Fatalf("buffer.New: %v", err)
+		}
+		var storedCalls atomic.Int32
+		w := New(Options{
+			Intake:   in,
+			Store:    async,
+			RunFile:  path,
+			OnStored: func(*recordv1.Record, int64) { storedCalls.Add(1) },
+		})
+
+		w.Stop()
+		w.Start()
+		w.Stop()
+		w.Stop()
+		if w.Started() {
+			t.Fatal("worker must not report Started after Stop -> Start")
+		}
+		if storedCalls.Load() != 0 {
+			t.Fatalf("storedCalls = %d, want 0 after Stop -> Start", storedCalls.Load())
+		}
+		_ = in.Close(context.Background())
+		_ = async.Close()
+	}
+
+	// 并发 Start / Stop 在超时预算内稳定退出，且可重复 Stop、nil/未启用安全调用。
+	for range 24 {
+		async, path := newScanStore(t, []*recordv1.Record{testStart(), testScalar(1)})
+		in, err := buffer.New(buffer.Options{
+			Store:       async.In(),
+			UploadQueue: 8,
+			Budget:      budget.New(budget.Limits{Records: 16}),
+			Flushed: func() int64 {
+				seq, _ := async.Flushed()
+				return seq
+			},
+		})
+		if err != nil {
+			t.Fatalf("buffer.New: %v", err)
+		}
+		w := New(Options{Intake: in, Store: async, RunFile: path})
+
+		var wg sync.WaitGroup
+		wg.Add(4)
+		go func() { defer wg.Done(); w.Start() }()
+		go func() { defer wg.Done(); w.Start() }()
+		go func() { defer wg.Done(); w.Stop() }()
+		go func() { defer wg.Done(); w.Stop() }()
+
+		done := make(chan struct{})
+		go func() {
+			wg.Wait()
+			close(done)
+		}()
+		select {
+		case <-done:
+		case <-time.After(2 * time.Second):
+			t.Fatal("concurrent Worker Start/Stop timed out")
+		}
+		w.Stop()
+		_ = in.Close(context.Background())
+		_ = async.Close()
+	}
+
+	// nil 与未启用 Worker 安全空调用。
+	var nilWorker *Worker
+	nilWorker.Start()
+	nilWorker.Stop()
+	disabled := New(Options{})
+	disabled.Start()
+	disabled.Stop()
+}

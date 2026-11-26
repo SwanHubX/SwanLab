@@ -379,3 +379,67 @@ func TestWriterAdaptiveBackoffOnSlowWrite(t *testing.T) {
 		t.Fatalf("adaptive backoff gap = %v, want >= 80ms after 25ms slow write", gap)
 	}
 }
+
+func TestWriterStopBeforeStartAndConcurrentLifecycle(t *testing.T) {
+	// Stop -> Start -> Stop：先 Stop 后再 Start 与 Notify，不得写盘且不卡住。
+	for range 16 {
+		async, dir := writeTestStore(t)
+		appendStoreRecords(t, async, sampleStartRecord())
+		var writes atomic.Int32
+		w := New(Options{
+			File:      filepath.Join(dir, "run.checkpoint.json"),
+			RunID:     "run-1",
+			RunFile:   filepath.Join(dir, "run.swanlab"),
+			Store:     async,
+			Interval:  5 * time.Millisecond,
+			Watermark: func() int64 { return 1 },
+			writeFn: func(string, store.Checkpoint, bool) error {
+				writes.Add(1)
+				return nil
+			},
+		})
+		w.Stop()
+		w.Start()
+		w.Notify()
+		time.Sleep(10 * time.Millisecond)
+		w.Stop()
+		w.Stop()
+		if got := writes.Load(); got != 0 {
+			t.Fatalf("checkpoint writes = %d after Stop -> Start, want 0", got)
+		}
+	}
+
+	// 并发 Start / Stop 在超时预算内退出。
+	for range 24 {
+		async, dir := writeTestStore(t)
+		appendStoreRecords(t, async, sampleStartRecord())
+		w := New(Options{
+			File:      filepath.Join(dir, "run.checkpoint.json"),
+			RunID:     "run-1",
+			RunFile:   filepath.Join(dir, "run.swanlab"),
+			Store:     async,
+			Interval:  5 * time.Millisecond,
+			Watermark: func() int64 { return 1 },
+			writeFn:   func(string, store.Checkpoint, bool) error { return nil },
+		})
+
+		var wg sync.WaitGroup
+		wg.Add(4)
+		go func() { defer wg.Done(); w.Start() }()
+		go func() { defer wg.Done(); w.Start() }()
+		go func() { defer wg.Done(); w.Stop() }()
+		go func() { defer wg.Done(); w.Stop() }()
+
+		done := make(chan struct{})
+		go func() {
+			wg.Wait()
+			close(done)
+		}()
+		select {
+		case <-done:
+		case <-time.After(2 * time.Second):
+			t.Fatal("concurrent Writer Start/Stop timed out")
+		}
+		w.Stop()
+	}
+}
