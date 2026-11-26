@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -839,5 +840,133 @@ func TestOnFileChangedReenqueuesLiveSave(t *testing.T) {
 	h.session.onFileChanged(rec)
 	if got := drainRecords(h.upload); len(got) != 0 {
 		t.Fatalf("callback after drain uploaded %d records, want 0", len(got))
+	}
+}
+
+// 建链失败（源文件缺失、超过保存上限等）是记录本身不可处理，
+// 必须按 InvalidRecord -> InvalidArgument 快速失败，不能退化成 Internal 让客户端反复重试。
+func TestUpsertSavesLinkErrorMapsToInvalidArgument(t *testing.T) {
+	h := newUpsertHarness(t, upsertOptions{})
+	original := createSaveLinks
+	createSaveLinks = func(context.Context, []*savev1.SaveRecord, string, int64) (int, error) {
+		return 0, errors.New("source file is missing")
+	}
+	t.Cleanup(func() { createSaveLinks = original })
+
+	save := &savev1.SaveRecord{
+		Name:       "gone.txt",
+		SourcePath: filepath.Join(t.TempDir(), "gone.txt"),
+		Policy:     savev1.SavePolicy_SAVE_POLICY_NOW,
+		Type:       savev1.SaveType_SAVE_TYPE_CUSTOM,
+	}
+	if err := h.mgr.UpsertSaves(context.Background(), h.id, []*savev1.SaveRecord{save}); !errors.Is(
+		err, ErrInvalidRecord,
+	) {
+		t.Fatalf("UpsertSaves err = %v, want ErrInvalidRecord", err)
+	}
+	if got := len(drainRecords(h.upload)); got != 0 {
+		t.Fatalf("failed link uploaded %d records, want 0", got)
+	}
+}
+
+// 建链/拷贝必须在会话锁外：大文件回退拷贝卡住时，同会话的标量上报不能被阻塞。
+func TestUpsertSavesLinksOutsideSessionLock(t *testing.T) {
+	h := newUpsertHarness(t, upsertOptions{})
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	var releaseOnce sync.Once
+	unblock := func() { releaseOnce.Do(func() { close(release) }) }
+	defer unblock()
+
+	original := createSaveLinks
+	createSaveLinks = func(ctx context.Context, saves []*savev1.SaveRecord, filesDir string, maxSize int64) (int, error) {
+		close(entered)
+		<-release
+		return original(ctx, saves, filesDir, maxSize)
+	}
+	t.Cleanup(func() { createSaveLinks = original })
+
+	sourcePath := filepath.Join(t.TempDir(), "slow.txt")
+	if err := os.WriteFile(sourcePath, []byte("data"), 0o644); err != nil {
+		t.Fatalf("write source: %v", err)
+	}
+	save := &savev1.SaveRecord{
+		Name:       "slow.txt",
+		SourcePath: sourcePath,
+		Policy:     savev1.SavePolicy_SAVE_POLICY_NOW,
+		Type:       savev1.SaveType_SAVE_TYPE_CUSTOM,
+	}
+
+	savesDone := make(chan error, 1)
+	go func() { savesDone <- h.mgr.UpsertSaves(context.Background(), h.id, []*savev1.SaveRecord{save}) }()
+	<-entered
+
+	scalarsDone := make(chan error, 1)
+	go func() {
+		scalarsDone <- h.mgr.UpsertScalars(context.Background(), h.id, []*datav1.ScalarRecord{scalarRecord("loss", 1, columnv1.ColumnType_COLUMN_TYPE_SCALAR)})
+	}()
+	select {
+	case err := <-scalarsDone:
+		if err != nil {
+			t.Fatalf("UpsertScalars while linking: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("UpsertScalars blocked by save linking")
+	}
+
+	unblock()
+	if err := <-savesDone; err != nil {
+		t.Fatalf("UpsertSaves: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(h.session.run.FilesDir(), "slow.txt")); err != nil {
+		t.Fatalf("missing mirror link: %v", err)
+	}
+}
+
+// TestCommitPreparedReleasesTicketOnApplyPanic 验证 apply() 发生 panic 时已预留的预算与槽位被归还，不泄漏。
+func TestCommitPreparedReleasesTicketOnApplyPanic(t *testing.T) {
+	h := newUpsertHarness(t, upsertOptions{queue: 2})
+	storeCh := make(chan store.Request, 2)
+	tightIntake, err := buffer.New(buffer.Options{
+		Store:       storeCh,
+		UploadQueue: 2,
+		Budget:      budget.New(budget.Limits{Records: 2}),
+		QueueWait:   20 * time.Millisecond,
+		Flushed:     func() int64 { return 0 },
+		OnAdmit:     h.session.tracker.AddTotalRecords,
+	})
+	if err != nil {
+		t.Fatalf("buffer.New: %v", err)
+	}
+	h.session.intake = tightIntake
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_ = tightIntake.Close(ctx)
+	})
+
+	var recovered any
+	func() {
+		defer func() { recovered = recover() }()
+		_ = h.session.commitPrepared(context.Background(), func() (preparedBatch, error) {
+			return preparedBatch{
+				records: []*recordv1.Record{
+					{Num: 1, RecordType: &recordv1.Record_Scalar{Scalar: scalarRecord("loss", 0, columnv1.ColumnType_COLUMN_TYPE_SCALAR)}},
+					{Num: 2, RecordType: &recordv1.Record_Scalar{Scalar: scalarRecord("loss", 1, columnv1.ColumnType_COLUMN_TYPE_SCALAR)}},
+				},
+				apply: func() error { panic("apply boom") },
+			}, nil
+		})
+	}()
+	if recovered == nil {
+		t.Fatal("expected commitPrepared to panic inside apply()")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+	if err := h.mgr.UpsertScalars(ctx, h.id, []*datav1.ScalarRecord{
+		scalarRecord("loss", 1, columnv1.ColumnType_COLUMN_TYPE_SCALAR),
+	}); err != nil {
+		t.Fatalf("UpsertScalars after apply panic failed (ticket leaked?): %v", err)
 	}
 }

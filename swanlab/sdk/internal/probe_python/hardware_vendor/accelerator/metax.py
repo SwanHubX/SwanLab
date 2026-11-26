@@ -21,6 +21,7 @@ import subprocess
 from typing import Dict, List, Optional, Tuple
 
 from swanlab.sdk.internal.pkg import console, safe
+from swanlab.sdk.internal.probe_python.hardware_vendor.utils import DEFAULT_TIMEOUT
 from swanlab.sdk.internal.probe_python.protocol import AcceleratorProtocol, CollectResult
 from swanlab.sdk.internal.probe_python.typings import (
     AcceleratorSnapshot,
@@ -126,7 +127,9 @@ class MetaXGPU(AcceleratorProtocol):
         for idx in self._indices:
             results.append((f"gpu.{idx}.pct", math.nan))
         with safe.block(message="Failed to collect MetaX GPU utilization data", level="debug"):
-            output = subprocess.run(["mx-smi", "--show-usage"], capture_output=True, check=True, text=True).stdout
+            output = subprocess.run(
+                ["mx-smi", "--show-usage"], capture_output=True, check=True, text=True, timeout=DEFAULT_TIMEOUT
+            ).stdout
             index = 0
             for line in output.split("\n"):
                 if "GPU" in line and "%" in line:
@@ -143,7 +146,9 @@ class MetaXGPU(AcceleratorProtocol):
             results.append((f"gpu.{idx}.mem.pct", math.nan))
             results.append((f"gpu.{idx}.mem.value", math.nan))
         with safe.block(message="Failed to collect MetaX GPU memory data", level="debug"):
-            output = subprocess.run(["mx-smi", "--show-memory"], capture_output=True, text=True).stdout
+            output = subprocess.run(
+                ["mx-smi", "--show-memory"], capture_output=True, text=True, timeout=DEFAULT_TIMEOUT
+            ).stdout
             gpu_mem_total = None
             index = 0
             for line in output.split("\n"):
@@ -166,7 +171,9 @@ class MetaXGPU(AcceleratorProtocol):
         for idx in self._indices:
             results.append((f"gpu.{idx}.temp", math.nan))
         with safe.block(message="Failed to collect MetaX GPU temperature data", level="debug"):
-            output = subprocess.run(["mx-smi", "--show-temperature"], capture_output=True, check=True, text=True).stdout
+            output = subprocess.run(
+                ["mx-smi", "--show-temperature"], capture_output=True, check=True, text=True, timeout=DEFAULT_TIMEOUT
+            ).stdout
             index = 0
             for line in output.split("\n"):
                 if "hotspot" in line:
@@ -182,7 +189,9 @@ class MetaXGPU(AcceleratorProtocol):
         for idx in self._indices:
             results.append((f"gpu.{idx}.power", math.nan))
         with safe.block(message="Failed to collect MetaX GPU power data", level="debug"):
-            output = subprocess.run(["mx-smi", "--show-board-power"], capture_output=True, check=True, text=True).stdout
+            output = subprocess.run(
+                ["mx-smi", "--show-board-power"], capture_output=True, check=True, text=True, timeout=DEFAULT_TIMEOUT
+            ).stdout
             index = 0
             for line in output.split("\n"):
                 if "Total" in line and "W" in line:
@@ -229,7 +238,9 @@ class MetaXGPU(AcceleratorProtocol):
 
     @staticmethod
     def _map_metax_gpu() -> Tuple[Optional[str], Optional[str], Dict[int, dict]]:
-        output_str = subprocess.run(["mx-smi"], capture_output=True, check=True, text=True).stdout
+        output_str = subprocess.run(
+            ["mx-smi"], capture_output=True, check=True, text=True, timeout=DEFAULT_TIMEOUT
+        ).stdout
 
         driver = None
         maca_version = None

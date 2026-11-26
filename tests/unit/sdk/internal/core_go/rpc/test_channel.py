@@ -41,7 +41,7 @@ def test_rpc_package_does_not_load_grpc():
     assert result.stdout.strip() == "False False", result.stderr
 
 
-def test_channel_missing_grpcio_is_reported_as_unavailable(monkeypatch):
+def test_channel_missing_grpcio_is_reported_as_local_error(monkeypatch):
     """grpcio 不在环境里时给出明确错误，而不是 ImportError 冒到上层。"""
     monkeypatch.setitem(sys.modules, "grpc", None)
     endpoint = Endpoint(kind="tcp", pid=os.getpid(), tcp_port=1)
@@ -50,7 +50,9 @@ def test_channel_missing_grpcio_is_reported_as_unavailable(monkeypatch):
         Channel.open(endpoint, timeout=0.1)
 
     assert caught.value.stage is Stage.CHANNEL
-    assert caught.value.reason is ReasonCode.GRPC_UNAVAILABLE
+    # 本机缺少依赖重试无用，因此不能归到可重试的 GRPC_UNAVAILABLE
+    assert caught.value.reason is ReasonCode.GRPC_LOCAL_ERROR
+    assert caught.value.retryable is False
     assert "grpcio is required" in caught.value.message
 
 
@@ -131,8 +133,9 @@ def test_channel_rejects_oversized_request_before_send():
         channel.call(lambda request, timeout: called.append(request), Oversized(), timeout=0.1)
 
     assert called == []
-    assert caught.value.reason is ReasonCode.INVALID_ARGUMENT
+    assert caught.value.reason is ReasonCode.REQUEST_TOO_LARGE
     assert caught.value.retryable is False
+    assert caught.value.too_large is True
 
 
 @pytest.mark.parametrize(
@@ -170,13 +173,13 @@ def test_channel_maps_grpc_status(grpc_name, expected_reason, expected_code):
 
 
 @pytest.mark.parametrize(
-    ("details", "expected_retryable"),
+    ("details", "expected_reason", "expected_retryable"),
     [
-        ("Sent message larger than max (4194305 vs. 4194304)", False),
-        ("server is busy", True),
+        ("Sent message larger than max (4194305 vs. 4194304)", ReasonCode.REQUEST_TOO_LARGE, False),
+        ("server is busy", ReasonCode.RESOURCE_EXHAUSTED, True),
     ],
 )
-def test_resource_exhausted_message_too_large_is_terminal(details, expected_retryable):
+def test_resource_exhausted_message_too_large_is_terminal(details, expected_reason, expected_retryable):
     grpc = pytest.importorskip("grpc")
 
     with _abort_server(grpc.StatusCode.RESOURCE_EXHAUSTED, details) as port:
@@ -193,8 +196,9 @@ def test_resource_exhausted_message_too_large_is_terminal(details, expected_retr
         finally:
             channel.close()
 
-    assert caught.value.reason is ReasonCode.RESOURCE_EXHAUSTED
+    assert caught.value.reason is expected_reason
     assert caught.value.retryable is expected_retryable
+    assert caught.value.too_large is (expected_reason is ReasonCode.REQUEST_TOO_LARGE)
 
 
 def test_channel_close_is_idempotent_and_rejects_calls():

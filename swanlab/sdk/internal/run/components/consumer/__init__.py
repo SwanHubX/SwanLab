@@ -10,6 +10,7 @@ import queue
 import threading
 import time
 from abc import ABC
+from collections import deque
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord
@@ -62,6 +63,21 @@ _MAX_BACKOFF_EXPONENT: int = 16
 def _is_retryable(exc: BaseException) -> bool:
     """只有实现显式标记 retryable=True 的异常才重试；未知异常按确定性失败丢弃。"""
     return getattr(exc, "retryable", False) is True
+
+
+def _is_too_large(exc: BaseException) -> bool:
+    """单次请求超过传输上限：拆小或丢弃，重试无意义。"""
+    return getattr(exc, "too_large", False) is True
+
+
+def _record_label(record: Any) -> str:
+    """取记录里能定位问题的标识：指标 key、列 key、文件名或日志行首。"""
+    for attr in ("key", "column_key", "name"):
+        value = getattr(record, attr, "")
+        if value:
+            return str(value)
+    line = str(getattr(record, "line", "") or "")
+    return line[:40] if line else "?"
 
 
 class ConsumerProtocol(ABC):
@@ -257,11 +273,12 @@ class BackgroundConsumer(ConsumerProtocol):
             self._dropped_records += 1
             now = self._clock()
             if self._drop_warn_at is None or now - self._drop_warn_at >= _DROP_WARNING_INTERVAL:
-                console.warning(
-                    f"Dropping {self._dropped_records} buffered record(s): "
-                    f"consumer backlog exceeds {self._max_buffered_records} records "
-                    f"or {self._max_buffered_bytes} bytes"
-                )
+                with console.skip_capture():
+                    console.warning(
+                        f"Dropping {self._dropped_records} buffered record(s): "
+                        f"consumer backlog exceeds {self._max_buffered_records} records "
+                        f"or {self._max_buffered_bytes} bytes"
+                    )
                 self._dropped_records = 0
                 self._drop_warn_at = now
             return
@@ -350,7 +367,8 @@ class BackgroundConsumer(ConsumerProtocol):
                 if self._batch_full and self._retry_due():
                     self._flush()
         if not self._batch_empty:
-            console.warning(f"Core did not accept {self._batch_len} buffered record(s) before shutdown")
+            with console.skip_capture():
+                console.warning(f"Core did not accept {self._batch_len} buffered record(s) before shutdown")
         # 线程退出时清理状态
         self._resolver.clear()
 
@@ -548,26 +566,42 @@ class BackgroundConsumer(ConsumerProtocol):
         bulk_chunk_size = max(small_chunk_size, self._rpc_batch_size)
 
         def send(name: str, records: list, call: Callable[[list], None], *, limit: int = small_chunk_size) -> None:
-            """按分片上限提交，失败只回塞未成功的部分。"""
+            """按分片上限提交，失败只回塞未成功的部分；超限分片对半拆开重发。"""
             nonlocal retryable_error, sent_any
-            start = 0
-            while start < len(records):
-                chunk = records[start : start + limit]
+            pending = deque(records[start : start + limit] for start in range(0, len(records), limit))
+            while pending:
+                chunk = pending.popleft()
                 try:
                     call(chunk)
                 except Exception as exc:
+                    if _is_too_large(exc):
+                        if len(chunk) > 1:
+                            # 单次请求超过传输上限：对半拆开重发，别让一条超限记录带走同片其它记录
+                            half = len(chunk) // 2
+                            pending.appendleft(chunk[half:])
+                            pending.appendleft(chunk[:half])
+                        else:
+                            with console.skip_capture():
+                                console.warning(
+                                    f"Dropping {name} record '{_record_label(chunk[0])}': "
+                                    f"single record exceeds the transport limit: {exc}"
+                                )
+                        continue
+                    remaining = [record for group in pending for record in group]
                     if _is_retryable(exc):
-                        restored.append((name, records[start:]))
                         if retryable_error is None:
                             retryable_error = exc
+                        restored.append((name, chunk + remaining))
                     else:
                         # 确定性拒绝：只丢弃被拒绝的分片，剩余记录继续回塞
-                        console.warning(f"Dropping {name} records after terminal failure: count={len(chunk)}: {exc}")
-                        if records[start + len(chunk) :]:
-                            restored.append((name, records[start + len(chunk) :]))
+                        with console.skip_capture():
+                            console.warning(
+                                f"Dropping {name} records after terminal failure: count={len(chunk)}: {exc}"
+                            )
+                        if remaining:
+                            restored.append((name, remaining))
                     return
                 sent_any = True
-                start += len(chunk)
 
         # 分片前先 coalesce，避免同一列跨片重复上报
         coalesced_columns: dict[tuple[str, int], ColumnRecord] = {}

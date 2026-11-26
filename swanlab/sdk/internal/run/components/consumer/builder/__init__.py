@@ -20,6 +20,7 @@ from swanlab.sdk.internal.context import RunContext, TransformMedia
 from swanlab.sdk.internal.pkg import adapter, console, fs
 from swanlab.sdk.internal.run.components.config.writer import dump_config
 from swanlab.sdk.internal.run.transforms import ECharts, Histogram, Scalar, echarts
+from swanlab.sdk.protocol.core import MAX_MESSAGE_BYTES
 
 _EchartsType = (echarts.Base, echarts.Table)
 
@@ -47,13 +48,15 @@ class RecordBuilder:
         self._num: int = 0
         # 所有媒体类型共用同一单文件上限，由 settings 统一配置
         self._media_max_size: int = ctx.config.settings.core.media_max_size
+        # skip_store 下媒体字节内联在消息里，还要额外受传输上限约束
+        self._skip_store: bool = bool(getattr(ctx.config.settings.core, "skip_store", False))
 
     def _resolve_media_dir(self, column_type: ColumnType) -> Optional[Path]:
         """解析媒体存储目录。
 
         skip_store 下返回 None：不创建 media 目录，由 transform 将内容写入 MediaItem.payload。
         """
-        if self._ctx.config.settings.core.skip_store:
+        if self._skip_store:
             return None
         path = self._ctx.media_dir / adapter.medium[column_type]
         fs.safe_mkdir(path)
@@ -73,6 +76,14 @@ class RecordBuilder:
                 console.warning(
                     f"Media '{item.filename}' in key '{record.key}' step {record.step} "
                     f"exceeds size limit ({item.size} > {limit} bytes), dropped"
+                )
+                continue
+            # skip_store 下这一项会被内联进请求；此处仅按 payload 裸大小做快速初筛，
+            # 含 protobuf 信封后的整包大小由发送期校验与二分兜底最终保证。
+            if self._skip_store and item.size > MAX_MESSAGE_BYTES:
+                console.warning(
+                    f"Media '{item.filename}' in key '{record.key}' step {record.step} is {item.size} bytes, "
+                    f"exceeding the {MAX_MESSAGE_BYTES}-byte transport limit under skip_store, dropped"
                 )
                 continue
             valid_items.append(item)
@@ -160,7 +171,7 @@ class RecordBuilder:
         skip_store 下 config 不落盘，内容按落盘同款 YAML 编码填入 payload；
         未启用时 payload 为 None，Core 按 source_path 读取 config.yaml。
         """
-        if self._ctx.config.settings.core.skip_store:
+        if self._skip_store:
             return SaveRecord(
                 name="config",
                 type=SaveType.SAVE_TYPE_CONFIG,

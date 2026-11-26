@@ -20,6 +20,7 @@ import subprocess
 from typing import Dict, List, Optional, Tuple
 
 from swanlab.sdk.internal.pkg import console, safe
+from swanlab.sdk.internal.probe_python.hardware_vendor.utils import DEFAULT_TIMEOUT
 from swanlab.sdk.internal.probe_python.protocol import AcceleratorProtocol, CollectResult
 from swanlab.sdk.internal.probe_python.typings import (
     AcceleratorSnapshot,
@@ -96,7 +97,7 @@ class KunlunxinXPU(AcceleratorProtocol):
     def collect(self) -> List[CollectResult]:
         with safe.block(message="Failed to collect Kunlunxin XPU metrics", level="debug"):
             metrics_by_id: Dict[int, Dict[str, float]] = {idx: {} for idx in self._indices}
-            output = subprocess.run(["xpu-smi", "-m"], capture_output=True, text=True).stdout
+            output = subprocess.run(["xpu-smi", "-m"], capture_output=True, text=True, timeout=DEFAULT_TIMEOUT).stdout
             for line in output.split("\n"):
                 parts = line.split()
                 if len(parts) < 23:
@@ -176,7 +177,9 @@ class KunlunxinXPU(AcceleratorProtocol):
 
     @staticmethod
     def _map_xpu() -> Tuple[Optional[str], dict]:
-        output = subprocess.run(["xpu-smi", "-m"], capture_output=True, check=True, text=True).stdout
+        output = subprocess.run(
+            ["xpu-smi", "-m"], capture_output=True, check=True, text=True, timeout=DEFAULT_TIMEOUT
+        ).stdout
 
         driver = KunlunxinXPU._get_xpu_driver()
         xpu_map: Dict[str, dict] = {}
@@ -195,7 +198,9 @@ class KunlunxinXPU(AcceleratorProtocol):
     @staticmethod
     @safe.decorator(level="debug", message="Failed to get Kunlunxin XPU driver version")
     def _get_xpu_driver() -> Optional[str]:
-        output = subprocess.run(["xpu-smi", "-q"], capture_output=True, check=True, text=True).stdout
+        output = subprocess.run(
+            ["xpu-smi", "-q"], capture_output=True, check=True, text=True, timeout=DEFAULT_TIMEOUT
+        ).stdout
         for line in output.split("\n"):
             if "Driver Version" in line:
                 return line.split(":")[-1].strip()

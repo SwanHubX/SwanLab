@@ -19,6 +19,7 @@ import (
 // RebuildResult 是从本地 run-*.swanlab 一次顺序扫描重建的会话状态。
 type RebuildResult struct {
 	Metrics          *RunMetrics
+	Index            *store.OffsetIndex
 	Start            *runv1.StartRecord
 	Counter          int64
 	Epoch            int64
@@ -44,6 +45,7 @@ func Rebuild(path string) (*RebuildResult, error) {
 
 	res := &RebuildResult{
 		Metrics:          New(),
+		Index:            store.NewOffsetIndex(0),
 		GlobalStep:       -1,
 		GlobalSystemStep: -1,
 		EndOffset:        store.HeaderLen,
@@ -74,6 +76,7 @@ func Rebuild(path string) (*RebuildResult, error) {
 
 		res.Records++
 		res.EndOffset = r.Position()
+		res.Index.Record(res.Records, r.RecordStart(), res.EndOffset)
 		applyRebuiltRecord(res, rec)
 	}
 }

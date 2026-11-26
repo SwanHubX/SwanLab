@@ -59,6 +59,7 @@ def test_error_to_dict_is_json_friendly():
         "grpc_code": None,
         "detail": "stderr tail",
         "retryable": False,
+        "too_large": False,
     }
 
 

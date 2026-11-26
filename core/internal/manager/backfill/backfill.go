@@ -185,7 +185,7 @@ func (w *Worker) RunOnce(ctx context.Context) error {
 		if !paused {
 			return nil
 		}
-		st, err := w.stateFor(start)
+		st, err := w.stateFor(ctx, start)
 		if err != nil {
 			return err
 		}
@@ -194,7 +194,7 @@ func (w *Worker) RunOnce(ctx context.Context) error {
 		if st.cursor.Seq < flushedSeq {
 			before := st.cursor.Seq
 			local := st.cursor
-			records, after, scanErr := w.scan(&local, flushedOff, w.batchSize)
+			records, after, scanErr := w.scan(ctx, &local, flushedOff, w.batchSize)
 			if scanErr != nil {
 				return scanErr
 			}
@@ -223,7 +223,7 @@ func (w *Worker) RunOnce(ctx context.Context) error {
 		err = w.intake.Handover(ctx, w.store.Flush, func() ([]*recordv1.Record, int64, error) {
 			seq, off := w.store.Flushed()
 			next = st.cursor
-			records, _, scanErr := w.scan(&next, off, w.windowSize())
+			records, _, scanErr := w.scan(ctx, &next, off, w.windowSize())
 			if scanErr != nil {
 				return nil, 0, scanErr
 			}
@@ -270,7 +270,7 @@ func (w *Worker) Complete(ctx context.Context) error {
 			return err
 		}
 		if st == nil {
-			loaded, stateErr := w.stateFor(start)
+			loaded, stateErr := w.stateFor(ctx, start)
 			if stateErr != nil {
 				return stateErr
 			}
@@ -316,7 +316,7 @@ func (w *Worker) completeReplayBatch(
 ) (bool, error) {
 	before := st.cursor.Seq
 	local := st.cursor
-	records, after, scanErr := w.scan(&local, flushedOff, w.batchSize)
+	records, after, scanErr := w.scan(ctx, &local, flushedOff, w.batchSize)
 	if scanErr != nil {
 		return false, scanErr
 	}
@@ -363,7 +363,7 @@ func (w *Worker) completeHandover(
 	err := w.intake.Handover(ctx, nil, func() ([]*recordv1.Record, int64, error) {
 		seq, off := w.store.Flushed()
 		next = st.cursor
-		records, _, scanErr := w.scan(&next, off, w.windowSize())
+		records, _, scanErr := w.scan(ctx, &next, off, w.windowSize())
 		if scanErr != nil {
 			return nil, 0, scanErr
 		}
@@ -523,11 +523,11 @@ func (w *Worker) needed() bool {
 	return paused
 }
 
-func (w *Worker) stateFor(pauseSeq int64) (*state, error) {
+func (w *Worker) stateFor(ctx context.Context, pauseSeq int64) (*state, error) {
 	if w.state.pauseSeq == pauseSeq {
 		return &w.state, nil
 	}
-	cursor, err := w.newCursor(pauseSeq)
+	cursor, err := w.newCursor(ctx, pauseSeq)
 	if err != nil {
 		return nil, err
 	}
@@ -536,7 +536,7 @@ func (w *Worker) stateFor(pauseSeq int64) (*state, error) {
 	return &w.state, nil
 }
 
-func (w *Worker) newCursor(target int64) (Cursor, error) {
+func (w *Worker) newCursor(ctx context.Context, target int64) (Cursor, error) {
 	if target <= 0 {
 		return Cursor{}, fmt.Errorf("backfill: storeSeq %d is invalid", target)
 	}
@@ -546,11 +546,11 @@ func (w *Worker) newCursor(target int64) (Cursor, error) {
 	}
 	cursor := Cursor{Offset: store.HeaderLen}
 	if anchor, ok := w.store.Index().LocateFlushed(target-1, flushedOff); ok {
-		// 锚点指向该序号记录本身的起点，从它前一条开始读。
+		// 锚点指向该序号记录本身的起点，从它前一条开始推进。
 		cursor = Cursor{Seq: anchor.StoreSeq - 1, Offset: anchor.Offset}
 	}
 	if skip := target - 1 - cursor.Seq; skip > 0 {
-		if _, _, err := w.scan(&cursor, flushedOff, int(skip)); err != nil {
+		if err := w.skipRecords(ctx, &cursor, flushedOff, skip); err != nil {
 			return Cursor{}, err
 		}
 		if cursor.Seq != target-1 {
@@ -560,10 +560,42 @@ func (w *Worker) newCursor(target int64) (Cursor, error) {
 	return cursor, nil
 }
 
+// skipRecords 仅做帧偏移推进到目标序号前一条，不反序列化记录体也不触发 onStored，
+// 避免覆盖上传管线中尚未确认的原始记录指针。
+func (w *Worker) skipRecords(ctx context.Context, cursor *Cursor, limit int64, count int64) error {
+	if count <= 0 || cursor.Offset >= limit {
+		return nil
+	}
+	reader, err := store.OpenOffset(w.runFile, cursor.Offset, limit)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = reader.Close() }()
+
+	for range count {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		skipErr := reader.Skip()
+		switch {
+		case errors.Is(skipErr, io.EOF), errors.Is(skipErr, store.ErrTruncated):
+			return nil
+		case errors.Is(skipErr, store.ErrCorrupt):
+			return fmt.Errorf("%w: %w", errCorrupt, skipErr)
+		case skipErr != nil:
+			return skipErr
+		}
+		cursor.Seq++
+		cursor.Offset = reader.Position()
+	}
+	return nil
+}
+
 // scan 从 cursor 顺序读取至多 want 条记录，跳过不可投递类型。
 // after[i] 是产出第 i 条可投递记录后的游标，供部分投递后精确续读。
 // 不会越过 limit 读取未刷盘的半条记录；cursor 只在前一条完整记录之后推进。
 func (w *Worker) scan(
+	ctx context.Context,
 	cursor *Cursor,
 	limit int64,
 	want int,
@@ -580,12 +612,15 @@ func (w *Worker) scan(
 	var out []*recordv1.Record
 	var after []Cursor
 	for range want {
+		if err := ctx.Err(); err != nil {
+			return out, after, err
+		}
 		payload, err := reader.Scan()
 		switch {
 		case errors.Is(err, io.EOF), errors.Is(err, store.ErrTruncated):
 			return out, after, nil
 		case errors.Is(err, store.ErrCorrupt):
-			return out, after, fmt.Errorf("%w: %v", errCorrupt, err)
+			return out, after, fmt.Errorf("%w: %w", errCorrupt, err)
 		case err != nil:
 			return out, after, err
 		}

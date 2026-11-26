@@ -20,6 +20,7 @@ import subprocess
 from typing import Dict, List, Optional, Tuple
 
 from swanlab.sdk.internal.pkg import console, safe
+from swanlab.sdk.internal.probe_python.hardware_vendor.utils import DEFAULT_TIMEOUT
 from swanlab.sdk.internal.probe_python.protocol import AcceleratorProtocol, CollectResult
 from swanlab.sdk.internal.probe_python.typings import (
     AcceleratorSnapshot,
@@ -125,7 +126,9 @@ class CambriconMLU(AcceleratorProtocol):
         for mid in mlu_ids:
             results.append((f"mlu.{mid}.pct", math.nan))
         with safe.block(message="Failed to collect MLU utilization", level="debug"):
-            output = subprocess.run(["cnmon", "info", "-u"], capture_output=True, text=True).stdout
+            output = subprocess.run(
+                ["cnmon", "info", "-u"], capture_output=True, text=True, timeout=DEFAULT_TIMEOUT
+            ).stdout
             index = 0
             for line in output.split("\n"):
                 if "mlu average" in line.lower() and index < len(mlu_ids):
@@ -143,7 +146,9 @@ class CambriconMLU(AcceleratorProtocol):
             results.append((f"mlu.{mid}.mem.pct", math.nan))
             results.append((f"mlu.{mid}.mem.value", math.nan))
         with safe.block(message="Failed to collect MLU memory", level="debug"):
-            output = subprocess.run(["cnmon", "info", "-m"], capture_output=True, text=True).stdout
+            output = subprocess.run(
+                ["cnmon", "info", "-m"], capture_output=True, text=True, timeout=DEFAULT_TIMEOUT
+            ).stdout
             lines = output.split("\n")
             index = 0
             for line_idx, line in enumerate(lines):
@@ -170,7 +175,9 @@ class CambriconMLU(AcceleratorProtocol):
         for mid in mlu_ids:
             results.append((f"mlu.{mid}.temp", math.nan))
         with safe.block(message="Failed to collect MLU temperature", level="debug"):
-            output = subprocess.run(["cnmon", "info", "-e"], capture_output=True, text=True).stdout
+            output = subprocess.run(
+                ["cnmon", "info", "-e"], capture_output=True, text=True, timeout=DEFAULT_TIMEOUT
+            ).stdout
             lines = output.split("\n")
             index = 0
             for line_idx, line in enumerate(lines):
@@ -190,7 +197,9 @@ class CambriconMLU(AcceleratorProtocol):
         for mid in mlu_ids:
             results.append((f"mlu.{mid}.power", math.nan))
         with safe.block(message="Failed to collect MLU power", level="debug"):
-            output = subprocess.run(["cnmon", "info", "-p"], capture_output=True, text=True).stdout
+            output = subprocess.run(
+                ["cnmon", "info", "-p"], capture_output=True, text=True, timeout=DEFAULT_TIMEOUT
+            ).stdout
             lines = output.split("\n")
             index = 0
             for line_idx, line in enumerate(lines):
@@ -243,7 +252,9 @@ class CambriconMLU(AcceleratorProtocol):
     def _map_mlu_raw() -> Tuple[Optional[str], dict]:
         output = ""
         with safe.block(message="Failed to run cnmon info for MLU mapping", level="debug"):
-            output = subprocess.run(["cnmon", "info", "-m"], capture_output=True, check=True, text=True).stdout
+            output = subprocess.run(
+                ["cnmon", "info", "-m"], capture_output=True, check=True, text=True, timeout=DEFAULT_TIMEOUT
+            ).stdout
         mlu_map: Dict[str, dict] = {}
         driver = None
         lines = output.split("\n")[1:]

@@ -5,6 +5,8 @@
 @description: SwanLab 硬件监控对象
 """
 
+import threading
+import time
 from typing import Dict, List, Optional
 
 from google.protobuf.timestamp_pb2 import Timestamp
@@ -26,6 +28,11 @@ from swanlab.utils.experiment import generate_id
 
 __all__ = ["Monitor"]
 
+# 单轮采集结果与停机等待的上限（秒）：外部命令或驱动调用可能长期不返回，
+# 监控数据是尽力而为，不能因此拖住 finish()。
+COLLECT_TIMEOUT = 30.0
+STOP_TIMEOUT = 5.0
+
 
 class Monitor:
     """
@@ -37,6 +44,7 @@ class Monitor:
         self._shim = shim
         self._timer: Optional[timer.Timer] = None
         self._executor: Optional[SafeThreadPoolExecutor] = None
+        self._stop_event: threading.Event = threading.Event()
 
     def start(self, ctx: ProbeContext) -> Optional["Monitor"]:
         now_step = ctx.config.global_system_step
@@ -87,29 +95,56 @@ class Monitor:
         # 使用线程池执行任务
         # 监控任务的执行效率不要求特别高，线程池的方式可以兼容大部分采集器的实现方式，同时也避免了某些采集器在执行过程中可能出现的阻塞问题
         first_execute = True
-        self._executor = SafeThreadPoolExecutor(max_workers=2)
+        stop_event = threading.Event()
+        self._stop_event = stop_event
+        executor = SafeThreadPoolExecutor(max_workers=2)
+        self._executor = executor
 
         def task():
             nonlocal now_step, column_records, first_execute
-            assert self._executor is not None, "Monitor Executor is not initialized"
+            if stop_event.is_set():
+                return
             assert len(column_records) > 0, "No column records to upsert"
             if first_execute:
                 # core 可能把 upsert 失败抛给调用方；监控数据是尽力而为，不能拖垮定时任务
                 with safe.block(message="Error when upserting monitor columns"):
                     self._core.upsert_columns(column_records)
                 first_execute = False
-            futures = [(n, self._executor.submit(fn)) for n, fn in all_handlers]
+                if stop_event.is_set():
+                    return
+            futures = []
+            for n, fn in all_handlers:
+                if stop_event.is_set():
+                    return
+                try:
+                    futures.append((n, executor.submit(fn)))
+                except RuntimeError:
+                    # stop() 已关闭 executor，停止本轮后续调度与上报
+                    return
             results: List[CollectResult] = []
+            deadline = time.monotonic() + COLLECT_TIMEOUT
             for n, f in futures:
-                with safe.block(message=f"Error collecting metric via {n}"):
-                    result = f.result()
+                if stop_event.is_set():
+                    return
+                remaining = max(0.0, deadline - time.monotonic())
+                try:
+                    result = f.result(timeout=remaining)
+                except Exception:
+                    if stop_event.is_set():
+                        return
+                    console.trace(f"Error collecting metric via {n}")
+                else:
                     results.extend(result)
+            if stop_event.is_set():
+                return
             ts = Timestamp()
             ts.GetCurrentTime()
             scalar_records: List[ScalarRecord] = []
             now_step += 1
             for k, v in results:
                 scalar_records.append(builder.build_probe_scalar(k, value=v, timestamp=ts, step=now_step))
+            if stop_event.is_set():
+                return
             with safe.block(message="Error when upserting monitor scalars"):
                 self._core.upsert_scalars(scalar_records)
 
@@ -125,8 +160,11 @@ class Monitor:
 
     def stop(self) -> None:
         assert self._timer is not None, "HardwareMonitor is not running"
+        self._stop_event.set()
         self._timer.cancel()
-        self._timer.join()
+        # 采样线程可能卡在外部命令上：等待有上限，超时后放弃剩余采集
+        self._timer.join(timeout=STOP_TIMEOUT)
         if self._executor is not None:
-            self._executor.shutdown(wait=True)
+            # 取消尚未开始的任务后立即返回；已在执行的任务由外部命令自身的超时兜底
+            self._executor.shutdown(wait=False, cancel_futures=True)
             self._executor = None

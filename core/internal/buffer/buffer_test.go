@@ -1910,3 +1910,47 @@ func TestIntakePausedNonUploadableOnlyStillNotifiesOnStored(t *testing.T) {
 		t.Fatalf("onStored seqs = %v, want [1 2]", gotSeqs)
 	}
 }
+
+// TestCommitReleasesLockOnCallbackPanic 验证 Commit 临界区内发生 panic 时互斥锁会被释放，后续 Reserve 不阻塞。
+func TestCommitReleasesLockOnCallbackPanic(t *testing.T) {
+	sink := newStoreSink(8)
+	var panics atomic.Int32
+	in := newIntake(t, Options{
+		Store:       sink.ch,
+		Budget:      budget.New(budget.Limits{Records: 4}),
+		UploadQueue: 4,
+		OnStored: func(*recordv1.Record, int64) {
+			if panics.Add(1) == 1 {
+				panic("onStored boom")
+			}
+		},
+	})
+
+	tk, err := in.Reserve(context.Background(), Demand{Store: 1, Upload: 1, Bytes: 1})
+	if err != nil {
+		t.Fatalf("Reserve 1: %v", err)
+	}
+	var recovered any
+	func() {
+		defer func() { recovered = recover() }()
+		_ = in.Commit(tk, []*recordv1.Record{scalarRecord(1)})
+	}()
+	if recovered == nil {
+		t.Fatal("expected Commit to panic on first OnStored callback")
+	}
+
+	rCtx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+	tk2, err := in.Reserve(rCtx, Demand{Store: 1, Upload: 1, Bytes: 1})
+	if err != nil {
+		t.Fatalf("Reserve after Commit panic failed (lock leaked?): %v", err)
+	}
+	if err := in.Commit(tk2, []*recordv1.Record{scalarRecord(2)}); err != nil {
+		t.Fatalf("Commit 2: %v", err)
+	}
+	if err := in.Close(context.Background()); err != nil {
+		sink.stop()
+		t.Fatalf("Close: %v", err)
+	}
+	sink.stop()
+}

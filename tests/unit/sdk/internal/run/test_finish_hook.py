@@ -280,18 +280,43 @@ class TestFinishSigintRestore:
         sys.excepthook = self._saved_excepthook
 
     def test_restore_only_in_main_thread(self):
-        """finish() 仅在主线程恢复原 handler（否则非主线程下会抛 ValueError）"""
-        for is_main_thread, expected_calls in ((True, 1), (False, 0)):
+        """清理钩子时仅当前为主线程才恢复 handler（子线程调用 signal.signal 会抛 ValueError）"""
+        for in_main_thread, expected_calls in ((True, 1), (False, 0)):
             run = _make_real_finish_run()
-            run._is_main_thread = is_main_thread
-            run._sigint_installed = is_main_thread
+            run._sigint_installed = True
             with (
                 patch("swanlab.sdk.internal.run.greeting.goodbye"),
                 patch("swanlab.sdk.internal.run.run_with_progress") as mock_rwp,
                 patch("swanlab.sdk.internal.run.atexit.unregister"),
                 patch("swanlab.sdk.internal.run.signal.signal") as mock_signal,
+                patch("swanlab.sdk.internal.run._in_main_thread", return_value=in_main_thread),
                 patch("swanlab.sdk.internal.run.console.reset"),
             ):
                 mock_rwp.return_value = ConfirmRunFinishResponse(success=True, message="OK")
                 run.finish()
             assert mock_signal.call_count == expected_calls
+
+    def test_finish_in_worker_thread_keeps_sigint_hook(self):
+        """主线程 init()、子线程 finish()：不抛 ValueError，SIGINT 标记留给主线程收尾"""
+        run = _make_real_finish_run()
+        errors: list[BaseException] = []
+
+        def target():
+            try:
+                run.finish()
+            except BaseException as exc:  # noqa: BLE001
+                errors.append(exc)
+
+        with (
+            patch("swanlab.sdk.internal.run.greeting.goodbye"),
+            patch("swanlab.sdk.internal.run.run_with_progress") as mock_rwp,
+            patch("swanlab.sdk.internal.run.console.reset"),
+        ):
+            mock_rwp.return_value = ConfirmRunFinishResponse(success=True, message="OK")
+            worker = threading.Thread(target=target)
+            worker.start()
+            worker.join(timeout=10)
+
+        assert not errors, f"子线程 finish() 抛出异常: {errors}"
+        assert run.alive is False
+        assert run._sigint_installed is True

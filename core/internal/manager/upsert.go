@@ -96,12 +96,18 @@ func (s *Session) commitPrepared(ctx context.Context, build func() (preparedBatc
 	if err != nil {
 		return upsertError(err)
 	}
+	committed := false
+	defer func() {
+		if !committed {
+			s.intake.Release(ticket)
+		}
+	}()
 	if batch.apply != nil {
 		if err = batch.apply(); err != nil {
-			s.intake.Release(ticket)
 			return fmt.Errorf("%w: %v", ErrInvalidRecord, err)
 		}
 	}
+	committed = true
 	if err = s.intake.Commit(ticket, batch.records); err != nil {
 		return upsertError(err)
 	}

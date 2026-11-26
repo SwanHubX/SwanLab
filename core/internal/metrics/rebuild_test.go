@@ -375,3 +375,33 @@ func TestRebuildStartRecordPositionAndNum(t *testing.T) {
 		}
 	})
 }
+
+func TestRebuildPopulatesOffsetIndex(t *testing.T) {
+	const total = store.DefaultIndexStride*2 + 17
+	recs := make([]*recordv1.Record, 0, total)
+	for i := 1; i <= total; i++ {
+		recs = append(recs, scalarDataRecord(int64(i), "loss", int64(i), float64(i)))
+	}
+	path, ends := writeStoreRecords(t, recs...)
+
+	res, err := Rebuild(path)
+	if err != nil {
+		t.Fatalf("Rebuild: %v", err)
+	}
+	if res.Index == nil || res.Index.Len() != 2 {
+		t.Fatalf("Index.Len() = %v, want 2 anchors", res.Index)
+	}
+	anchor, ok := res.Index.LocateFlushed(total, res.EndOffset)
+	if !ok || anchor.StoreSeq != store.DefaultIndexStride*2 {
+		t.Fatalf("LocateFlushed(%d) = (%+v, %v), want StoreSeq=%d", total, anchor, ok, store.DefaultIndexStride*2)
+	}
+	for _, seq := range []int64{1, store.DefaultIndexStride, store.DefaultIndexStride + 5, total} {
+		got, oerr := store.EndOffset(path, res.Index, seq, res.EndOffset)
+		if oerr != nil {
+			t.Fatalf("EndOffset(%d): %v", seq, oerr)
+		}
+		if got != ends[seq-1] {
+			t.Fatalf("EndOffset(%d) = %d, want %d", seq, got, ends[seq-1])
+		}
+	}
+}

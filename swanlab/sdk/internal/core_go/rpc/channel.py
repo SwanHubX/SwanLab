@@ -54,7 +54,7 @@ class Channel:
         except ImportError as exc:
             raise CoreGoError(
                 Stage.CHANNEL,
-                ReasonCode.GRPC_UNAVAILABLE,
+                ReasonCode.GRPC_LOCAL_ERROR,
                 "grpcio is required for CoreGo online mode",
                 cause=exc,
             ) from exc
@@ -68,9 +68,10 @@ class Channel:
         try:
             raw = grpc.insecure_channel(target, options=options)
         except Exception as exc:  # noqa: BLE001 - 统一转成结构化错误
+            # 建不出 channel 属于本机环境/参数问题，重试与换进程都无意义
             raise CoreGoError(
                 Stage.CHANNEL,
-                ReasonCode.GRPC_UNAVAILABLE,
+                ReasonCode.GRPC_LOCAL_ERROR,
                 f"failed to create grpc channel for {target}: {exc}",
                 cause=exc,
             ) from exc
@@ -128,9 +129,8 @@ class Channel:
         if size > GRPC_MAX_MESSAGE_BYTES:
             raise CoreGoError(
                 stage,
-                ReasonCode.INVALID_ARGUMENT,
+                ReasonCode.REQUEST_TOO_LARGE,
                 f"request size {size} exceeds gRPC limit {GRPC_MAX_MESSAGE_BYTES}",
-                retryable=False,
             )
 
     def _map_rpc_error(self, exc: Any, stage: Stage) -> CoreGoError:
@@ -140,17 +140,15 @@ class Channel:
         grpc_code = value[0] if isinstance(value, tuple) and value else None
         details = exc.details() if hasattr(exc, "details") else None
         reason = reason_for_grpc(name)
-        # 客户端消息超限也报 RESOURCE_EXHAUSTED，但重试不会成功。
-        retryable = None
+        # 客户端消息超限也报 RESOURCE_EXHAUSTED，单独归为超限：上层可以拆片重发
         if reason is ReasonCode.RESOURCE_EXHAUSTED and "larger than max" in (details or "").lower():
-            retryable = False
+            reason = ReasonCode.REQUEST_TOO_LARGE
         return CoreGoError(
             stage,
             reason,
             details or f"gRPC call failed with {name}",
             grpc_name=name,
             grpc_code=grpc_code,
-            retryable=retryable,
         )
 
     def close(self) -> None:

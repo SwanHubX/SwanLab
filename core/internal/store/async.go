@@ -30,6 +30,8 @@ type AsyncOptions struct {
 	FlushInterval time.Duration
 	// IndexStride 是 storeSeq→offset 稀疏锚点间隔（条），<=0 取 DefaultIndexStride。
 	IndexStride int
+	// Index 允许续传时复用 Rebuild 预填充的历史锚点索引；为 nil 时按 IndexStride 新建。
+	Index *OffsetIndex
 	// ResumeSeq 是续传时已有记录条数，作为初始已刷盘序号；新建会话为 0。
 	ResumeSeq int64
 	// OnError 在首次写入或刷盘失败时回调一次，供上层置 storeDegraded；
@@ -84,6 +86,10 @@ func NewAsyncWriter(w *Writer, opts AsyncOptions) (*AsyncWriter, error) {
 	if opts.FlushInterval <= 0 {
 		opts.FlushInterval = defaultFlushInterval
 	}
+	idx := opts.Index
+	if idx == nil {
+		idx = NewOffsetIndex(opts.IndexStride)
+	}
 	a := &AsyncWriter{
 		w:             w,
 		ch:            make(chan Request, opts.Queue),
@@ -92,7 +98,7 @@ func NewAsyncWriter(w *Writer, opts AsyncOptions) (*AsyncWriter, error) {
 		flushBytes:    opts.FlushBytes,
 		flushInterval: opts.FlushInterval,
 		onError:       opts.OnError,
-		index:         NewOffsetIndex(opts.IndexStride),
+		index:         idx,
 	}
 	a.mark.Store(&flushMark{StoreSeq: opts.ResumeSeq, Offset: w.Offset()})
 	go a.run()

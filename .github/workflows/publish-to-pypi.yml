@@ -36,14 +36,15 @@ jobs:
           cache-dependency-path: core/go.sum
 
       - name: Build
-        run: make build VERSION=${GITHUB_REF#refs/tags/v}
+        # 用 release-build 才能编出带 core 二进制的平台 wheel；make build 只出纯 Python 的包
+        run: make release-build VERSION=${GITHUB_REF#refs/tags/v}
 
       - name: Publish
         env:
           PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
         run: make publish
 
-      - run: cp dist/*.whl .
+      - run: cp dist/*.whl dist/*.tar.gz .
 
       - name: Release
         uses: softprops/action-gh-release@v3
@@ -51,6 +52,7 @@ jobs:
         with:
           files: |
             *.whl
+            *.tar.gz
 
       - name: Notify Feishu on New Release
         if: success() && startsWith(github.ref, 'refs/tags/')

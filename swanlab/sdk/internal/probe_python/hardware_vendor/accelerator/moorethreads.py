@@ -21,6 +21,7 @@ import subprocess
 from typing import Dict, List, Optional, Tuple
 
 from swanlab.sdk.internal.pkg import console, safe
+from swanlab.sdk.internal.probe_python.hardware_vendor.utils import DEFAULT_TIMEOUT
 from swanlab.sdk.internal.probe_python.protocol import AcceleratorProtocol, CollectResult
 from swanlab.sdk.internal.probe_python.typings import (
     AcceleratorSnapshot,
@@ -128,6 +129,7 @@ class MooreThreadsGPU(AcceleratorProtocol):
                 ["mthreads-gmi", "-q", "-d", "UTILIZATION", "--json"],
                 capture_output=True,
                 text=True,
+                timeout=DEFAULT_TIMEOUT,
             ).stdout
             data = json.loads(output)
             for gpu_info in data.get("GPU", []):
@@ -150,6 +152,7 @@ class MooreThreadsGPU(AcceleratorProtocol):
                 ["mthreads-gmi", "-q", "-d", "MEMORY", "--json"],
                 capture_output=True,
                 text=True,
+                timeout=DEFAULT_TIMEOUT,
             ).stdout
             data = json.loads(output)
             for gpu_info in data.get("GPU", []):
@@ -173,6 +176,7 @@ class MooreThreadsGPU(AcceleratorProtocol):
                 ["mthreads-gmi", "-q", "-d", "TEMPERATURE", "--json"],
                 capture_output=True,
                 text=True,
+                timeout=DEFAULT_TIMEOUT,
             ).stdout
             data = json.loads(output)
             for gpu_info in data.get("GPU", []):
@@ -192,6 +196,7 @@ class MooreThreadsGPU(AcceleratorProtocol):
                 ["mthreads-gmi", "-q", "-d", "POWER", "--json"],
                 capture_output=True,
                 text=True,
+                timeout=DEFAULT_TIMEOUT,
             ).stdout
             data = json.loads(output)
             for gpu_info in data.get("GPU", []):
@@ -238,7 +243,9 @@ class MooreThreadsGPU(AcceleratorProtocol):
 
     @staticmethod
     def _map_mt_gpu() -> Tuple[Optional[str], dict]:
-        output_str = subprocess.run(["mthreads-gmi", "-q", "--json"], capture_output=True, check=True, text=True).stdout
+        output_str = subprocess.run(
+            ["mthreads-gmi", "-q", "--json"], capture_output=True, check=True, text=True, timeout=DEFAULT_TIMEOUT
+        ).stdout
         output_json = json.loads(output_str)
         driver = output_json.get("Driver Version")
         gpu_map: Dict[str, dict] = {}

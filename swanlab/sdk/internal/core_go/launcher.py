@@ -46,6 +46,11 @@ class _LauncherState(str, Enum):
     CLOSED = "closed"
 
 
+# 复用已有 Core 时，只有这些原因才可能是旧实例已经退出，需要重起一个新进程。
+# 缺少 grpcio、channel 等本机环境问题必须直接抛出。
+_STALE_ENDPOINT_REASONS = frozenset({ReasonCode.CHANNEL_TIMEOUT, ReasonCode.GRPC_UNAVAILABLE, ReasonCode.GRPC_ERROR})
+
+
 class CoreLauncher:
     """core 进程生命周期与本地传输通道的管理者。
 
@@ -172,7 +177,7 @@ class CoreLauncher:
         try:
             self._reuse_endpoint_locked(existing)
         except CoreGoError as exc:
-            if exc.stage is not Stage.CHANNEL:
+            if exc.stage is not Stage.CHANNEL or exc.reason not in _STALE_ENDPOINT_REASONS:
                 raise
             # 复用可能恰好撞上旧 Core 空闲退出：清空半成品状态并交由后续流程按需重起。
             self._owns_process = False

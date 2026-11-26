@@ -57,6 +57,9 @@ const (
 
 	// releasedCapacity 是已释放 session_id 的 FIFO 缓存上限，用于幂等 Confirm 重发。
 	releasedCapacity = 128
+
+	// invalidateCleanupTimeout 是 handler panic 触发会话失效后异步排空与清理的超时预算。
+	invalidateCleanupTimeout = 10 * time.Second
 )
 
 // releasedCache 记录已释放 session_id 的最终 Confirm 结果，按插入顺序淘汰最旧条目。
@@ -172,11 +175,15 @@ type ConfirmResult struct {
 // 注册表锁只用于定位、插入与移除会话；排空等待、stop_experiment 等可能阻塞的动作
 // 一律在锁外执行。
 type Manager struct {
-	mu          sync.RWMutex
-	sessions    map[string]*Session
-	released    releasedCache
-	diagnostics diagnosticCache
-	factory     *client.Factory
+	mu                  sync.RWMutex
+	sessions            map[string]*Session
+	released            releasedCache
+	diagnostics         diagnosticCache
+	factory             *client.Factory
+	invalidateCtx       context.Context
+	invalidateCancel    context.CancelFunc
+	invalidateWg        sync.WaitGroup
+	invalidationsClosed bool
 	// healthReg 按站点共享探针，跨会话复用同一站点的健康状态。
 	healthReg *health.Registry
 	// attachTiming 允许单测缩短退避节奏，生产环境为零值（走默认常量）。
@@ -185,12 +192,15 @@ type Manager struct {
 
 // New 创建并初始化会话管理器实例。
 func New(opts Options) *Manager {
+	invalidateCtx, invalidateCancel := context.WithCancel(context.Background())
 	return &Manager{
-		sessions:    make(map[string]*Session),
-		released:    newReleasedCache(),
-		diagnostics: newDiagnosticCache(),
-		factory:     client.NewFactory(opts.HTTP),
-		healthReg:   health.NewRegistry(nil),
+		sessions:         make(map[string]*Session),
+		released:         newReleasedCache(),
+		diagnostics:      newDiagnosticCache(),
+		factory:          client.NewFactory(opts.HTTP),
+		invalidateCtx:    invalidateCtx,
+		invalidateCancel: invalidateCancel,
+		healthReg:        health.NewRegistry(nil),
 	}
 }
 
@@ -428,28 +438,7 @@ func (m *Manager) DisconnectSession(ctx context.Context, sessionID string) error
 		return nil
 	}
 
-	drainErr := s.shutdown(ctx)
-	if up := s.uploader(); up != nil {
-		if closeErr := up.Close(); closeErr != nil {
-			drainErr = errors.Join(drainErr, closeErr)
-		}
-	}
-
-	var diagnostic *DisconnectDiagnostic
-	if drainErr != nil {
-		s.fail(drainErr)
-		runID := s.cfg.RunID
-		if s.run != nil && s.run.RunID != "" {
-			runID = s.run.RunID
-		}
-		console.Warningf("disconnect cleanup: drain session %q (run %q) failed: %v", sessionID, runID, drainErr)
-		diagnostic = &DisconnectDiagnostic{
-			SessionID: sessionID,
-			RunID:     runID,
-			Err:       drainErr,
-			At:        time.Now(),
-		}
-	}
+	diagnostic, drainErr := drainSession(ctx, sessionID, s, "disconnect cleanup")
 
 	m.mu.Lock()
 	if m.sessions[sessionID] == s {
@@ -460,6 +449,61 @@ func (m *Manager) DisconnectSession(ctx context.Context, sessionID string) error
 	}
 	m.mu.Unlock()
 	return drainErr
+}
+
+// Invalidate 在 handler panic 等异常路径下立即将指定会话从注册表中摘除（使后续 RPC 快速返回 NotFound），
+// 并在带超时的后台协程中异步排空和释放会话资源。
+func (m *Manager) Invalidate(sessionID string) {
+	if sessionID == "" {
+		return
+	}
+	m.mu.Lock()
+	s, ok := m.sessions[sessionID]
+	if !ok {
+		m.mu.Unlock()
+		return
+	}
+	delete(m.sessions, sessionID)
+	if m.invalidationsClosed {
+		m.mu.Unlock()
+		return
+	}
+	m.invalidateWg.Add(1)
+	m.mu.Unlock()
+
+	go func() {
+		defer m.invalidateWg.Done()
+		ctx, cancel := context.WithTimeout(m.invalidateCtx, invalidateCleanupTimeout)
+		defer cancel()
+		s.confirmMu.Lock()
+		defer s.confirmMu.Unlock()
+		_, _ = drainSession(ctx, sessionID, s, "invalidate cleanup")
+	}()
+}
+
+// drainSession 排空会话并关闭 uploader；排空失败时标记会话失败并输出告警。
+func drainSession(ctx context.Context, sessionID string, s *Session, scope string) (*DisconnectDiagnostic, error) {
+	drainErr := s.shutdown(ctx)
+	if up := s.uploader(); up != nil {
+		if closeErr := up.Close(); closeErr != nil {
+			drainErr = errors.Join(drainErr, closeErr)
+		}
+	}
+	if drainErr == nil {
+		return nil, nil
+	}
+	s.fail(drainErr)
+	runID := s.cfg.RunID
+	if s.run != nil && s.run.RunID != "" {
+		runID = s.run.RunID
+	}
+	console.Warningf("%s: drain session %q (run %q) failed: %v", scope, sessionID, runID, drainErr)
+	return &DisconnectDiagnostic{
+		SessionID: sessionID,
+		RunID:     runID,
+		Err:       drainErr,
+		At:        time.Now(),
+	}, drainErr
 }
 
 // SessionCount 返回当前仍在注册表中的活跃/未释放会话数。
@@ -490,15 +534,13 @@ func (m *Manager) DisconnectDiagnostics() []DisconnectDiagnostic {
 // Intake.Close → RequestFinish → 等待排空」，不调用 stop_experiment；
 // 总等待受 ctx 限制，超时后强制关闭所有 uploader 并告警。
 func (m *Manager) Shutdown(ctx context.Context) error {
-	m.mu.RLock()
+	m.mu.Lock()
+	m.invalidationsClosed = true
 	sessions := make([]*Session, 0, len(m.sessions))
 	for _, s := range m.sessions {
 		sessions = append(sessions, s)
 	}
-	m.mu.RUnlock()
-	if len(sessions) == 0 {
-		return nil
-	}
+	m.mu.Unlock()
 
 	var wg sync.WaitGroup
 	for _, s := range sessions {
@@ -511,13 +553,17 @@ func (m *Manager) Shutdown(ctx context.Context) error {
 	done := make(chan struct{})
 	go func() {
 		wg.Wait()
+		m.invalidateWg.Wait()
 		close(done)
 	}()
 
 	select {
 	case <-done:
 	case <-ctx.Done():
-		console.Warningf("shutdown: %d active session(s) still draining, forcing uploader close", len(sessions))
+		m.invalidateCancel()
+		if len(sessions) > 0 {
+			console.Warningf("shutdown: %d active session(s) still draining, forcing uploader close", len(sessions))
+		}
 	}
 
 	// 无论是否在预算内排空，都释放 uploader 的 worker 协程；已排空时 Close 为 no-op。
@@ -537,8 +583,13 @@ func (m *Manager) Shutdown(ctx context.Context) error {
 	}
 }
 
-// Close 释放 Manager 持有的进程级资源（HTTP 连接池），可重复调用。
+// Close 释放 Manager 持有的进程级资源（HTTP 连接池）并收尾异步失效清理协程，可重复调用。
 func (m *Manager) Close() error {
+	m.mu.Lock()
+	m.invalidationsClosed = true
+	m.mu.Unlock()
+	m.invalidateCancel()
+	m.invalidateWg.Wait()
 	return m.factory.Close()
 }
 

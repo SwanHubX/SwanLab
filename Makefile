@@ -120,7 +120,7 @@ core-tidy:
 core-bin:
 	python3 core/hatch.py
 
-# 完整发布构建：sdist + any 兜底 wheel + 6 平台 wheel + 校验，全部进 dist/
+# 完整发布构建：sdist + any 兜底 wheel + 8 平台 wheel + 校验，全部进 dist/
 release-build:
 	bash scripts/build_release.sh $(VERSION)
 

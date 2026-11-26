@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"time"
 )
 
 // 默认值与 Python 客户端一致，供测试、工具与冒烟驱动使用。
@@ -36,6 +37,9 @@ const (
 
 // recordBatchMax 是 record_batch 的上界（开区间）。
 const recordBatchMax = 100_000
+
+// maxRecordInterval 是攒批间隔的上限（1 小时）。
+const maxRecordInterval = time.Hour
 
 // maskEdge 是脱敏时保留的首尾字节数；maskMinLen 是启用首尾保留的最短长度。
 const (
@@ -142,6 +146,23 @@ func (s Settings) NormalizedMode() Mode {
 		return ModeOnline
 	}
 	return s.Mode
+}
+
+// RecordIntervalDuration 把 RecordInterval（秒）换算成攒批间隔。
+//
+// RecordInterval 允许 +Inf，直接用秒数乘 float64(time.Second) 会溢出成负数，
+// 下游按“未设置”处理而静默回退默认值，因此换算必须统一在本方法里做截断：
+// +Inf 与超过上限的值取 maxRecordInterval，零/负值（未经 Validate）取默认间隔。
+func (s Settings) RecordIntervalDuration() time.Duration {
+	ns := s.RecordInterval * float64(time.Second)
+	if math.IsNaN(ns) || ns <= 0 {
+		return time.Duration(DefaultRecordInterval * float64(time.Second))
+	}
+	if ns >= float64(maxRecordInterval) {
+		return maxRecordInterval
+	}
+	// 亚毫秒间隔只会让批处理空转，统一抬到 1ms
+	return max(time.Duration(ns), time.Millisecond)
 }
 
 // Validate 校验必填项与数值边界。

@@ -113,18 +113,30 @@ func TestProgressTrackerReplayedPointerReplacement(t *testing.T) {
 	replayed := progressScalar(1)
 
 	p.OnStored(orig, 1)
-	// backfill 从本地文件重新反序列化出新指针替换旧指针。
+	// 同一序号重复注册不同指针时保留旧指针，任一指针确认都应推进水位并清理所有指针。
 	p.OnStored(replayed, 1)
 
-	// 旧指针即使被传入也已失效；只有重放后的新指针确认才能推进水位。
 	p.Resolve([]*recordv1.Record{orig})
-	if got := p.Watermark(); got != 0 {
-		t.Fatalf("watermark after stale pointer = %d, want 0", got)
+	if got := p.Watermark(); got != 1 {
+		t.Fatalf("watermark after original pointer = %d, want 1", got)
+	}
+	if len(p.ptrs) != 0 || len(p.seqPtrs) != 0 || len(p.resolved) != 0 {
+		t.Fatalf("stale tracker state after Resolve(orig): ptrs=%d seqPtrs=%d resolved=%d",
+			len(p.ptrs), len(p.seqPtrs), len(p.resolved))
 	}
 
-	p.Resolve([]*recordv1.Record{replayed})
-	if got := p.Watermark(); got != 1 {
-		t.Fatalf("watermark after replayed pointer = %d, want 1", got)
+	// 另一条记录验证重放指针也可正常确认并清理旧指针。
+	orig2 := progressScalar(2)
+	replayed2 := progressScalar(2)
+	p.OnStored(orig2, 2)
+	p.OnStored(replayed2, 2)
+	p.Resolve([]*recordv1.Record{replayed2})
+	if got := p.Watermark(); got != 2 {
+		t.Fatalf("watermark after replayed pointer = %d, want 2", got)
+	}
+	if len(p.ptrs) != 0 || len(p.seqPtrs) != 0 || len(p.resolved) != 0 {
+		t.Fatalf("stale tracker state after Resolve(replayed): ptrs=%d seqPtrs=%d resolved=%d",
+			len(p.ptrs), len(p.seqPtrs), len(p.resolved))
 	}
 }
 
@@ -170,8 +182,8 @@ func TestProgressTrackerPausedMemoryBoundedAndWatermark(t *testing.T) {
 	if got := p.Watermark(); got != 3 {
 		t.Fatalf("watermark with gap at pauseSeq=4 = %d, want 3", got)
 	}
-	if len(p.ptrs) != 0 || len(p.seqPtr) != 0 {
-		t.Fatalf("active pointers while paused = (%d, %d), want (0, 0)", len(p.ptrs), len(p.seqPtr))
+	if len(p.ptrs) != 0 || len(p.seqPtrs) != 0 {
+		t.Fatalf("active pointers while paused = (%d, %d), want (0, 0)", len(p.ptrs), len(p.seqPtrs))
 	}
 
 	// 模拟 backfill 按批（每批 10 条）扫描 seq 4..100 并逐批上传确认，活跃指针数不得超过批窗口。
@@ -185,13 +197,13 @@ func TestProgressTrackerPausedMemoryBoundedAndWatermark(t *testing.T) {
 			p.OnStored(rec, seq)
 			batch = append(batch, rec)
 		}
-		if len(p.ptrs) > batchSize || len(p.seqPtr) > batchSize {
+		if len(p.ptrs) > batchSize || len(p.seqPtrs) > batchSize {
 			t.Fatalf("active pointers exceeded batch window: (%d, %d) > %d",
-				len(p.ptrs), len(p.seqPtr), batchSize)
+				len(p.ptrs), len(p.seqPtrs), batchSize)
 		}
 		p.Resolve(batch)
-		if len(p.ptrs) != 0 || len(p.seqPtr) != 0 {
-			t.Fatalf("active pointers leaked after Resolve: (%d, %d)", len(p.ptrs), len(p.seqPtr))
+		if len(p.ptrs) != 0 || len(p.seqPtrs) != 0 {
+			t.Fatalf("active pointers leaked after Resolve: (%d, %d)", len(p.ptrs), len(p.seqPtrs))
 		}
 		if got := p.Watermark(); got != end {
 			t.Fatalf("watermark after batch [%d..%d] = %d, want %d", start, end, got, end)
