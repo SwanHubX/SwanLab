@@ -65,6 +65,20 @@ class ConfigEvent:
 
 
 @dataclass
+class ScoreLogEvent:
+    """评测分数记录事件
+
+    事件只承载"写了什么"，事件时间由消费侧在创建 record 时按槽位分配
+    （见 core_python/metrics/score.py），因此重放时读到的仍是同一条 record。
+    """
+
+    eval_id: str
+    dataset: str
+    # 已在 API 层校验并归一化为 float（有限数或 NaN），消费侧不再二次转换
+    scores: Dict[str, float]
+
+
+@dataclass
 class LogEvent:
     """控制台输出事件"""
 
@@ -85,6 +99,7 @@ class FileSaveEvent:
 # 事件载体类型
 EventPayload = Union[
     MetricLogEvent,
+    ScoreLogEvent,
     MetricDefineEvent,
     ConfigEvent,
     LogEvent,

@@ -25,6 +25,8 @@ from swanlab.sdk.typings.core_python.api.upload import (
     UploadMetricPayload,
     UploadResource,
     UploadScalarBatch,
+    UploadScoreBatch,
+    UploadScorePayload,
 )
 
 if TYPE_CHECKING:
@@ -128,6 +130,30 @@ def upload_scalar(project_id: str, experiment_id: str, *, metrics: UploadScalarB
         "metrics": metrics,
     }
     # retries 设置为 0 表示不重试，重试机制交给 transport 层的退避调度
+    client.post("/house/metrics", data, retries=0)
+
+
+def upload_score(project_id: str, eval_id: str, *, metrics: UploadScoreBatch) -> None:
+    """
+    批量发送评测分数到 /house/metrics。
+
+    与 scalar/media 不同，分数以 evals 为维度：信封携带唯一的 evalId，每条 metric
+    携带 dataset/key/data/create_time。create_time 必须显式且合法，House 对
+    score 类型缺失或非法的时间返回 400（不会回填当前时间）。
+
+    :param project_id: 所属项目 ID
+    :param eval_id: 评测 CUID（21 位）
+    :param metrics: 评测分数列表
+    """
+    if not metrics:
+        return
+    data: UploadScorePayload = {
+        "type": "score",
+        "projectId": project_id,
+        "evalId": eval_id,
+        "metrics": metrics,
+    }
+    # retries 设置为 0 表示不重试，重试机制交给sender外层实现
     client.post("/house/metrics", data, retries=0)
 
 

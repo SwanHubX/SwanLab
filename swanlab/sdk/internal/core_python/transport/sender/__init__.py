@@ -28,6 +28,7 @@ from swanlab.sdk.internal.core_python.api.upload import (
     upload_metadata,
     upload_requirements,
     upload_scalar,
+    upload_score,
 )
 from swanlab.sdk.internal.core_python.context import CoreContext
 from swanlab.sdk.internal.pkg import adapter, client, console
@@ -40,6 +41,8 @@ from swanlab.sdk.typings.core_python.api.upload import (
     UploadMediaBatch,
     UploadScalar,
     UploadScalarBatch,
+    UploadScore,
+    UploadScoreBatch,
 )
 from swanlab.sdk.typings.core_python.transport import UploadFailure, UploadResult
 
@@ -70,6 +73,7 @@ class HttpRecordSender:
             "scalar": self.upload_scalar,
             "media": self.upload_media,
             "histogram": self.upload_histogram,
+            "score": self.upload_score,
             "log": self.upload_log,
             "save": self.upload_save,
         }
@@ -303,6 +307,61 @@ class HttpRecordSender:
                         failures=failures,
                     )
             confirmed.extend(batch)
+        return UploadResult(confirmed_records=confirmed, failures=failures)
+
+    def upload_score(self, records: Sequence[Record]) -> UploadResult:
+        """上传评测分数。
+
+        分数按评估分组：House 的 /house/metrics 信封只接受一个 evalId，因此每个
+        eval_id 单独发送一批。契约要点：
+
+        - ``create_time`` 逐字透传。重放必须保持同一时间戳才能幂等；缺时间戳的记录
+          直接终止上报（不重试），而不是让服务端补 now——那会以最大时间戳覆盖合法旧版本。
+        - ``dataset`` 原样透传，空串是"整体分数"这一独立槽位，不能被改写成 "default"。
+        - 每组独立结算：某一组被后端永久拒绝（4xx）只终止该组，后续组继续发送；
+          只有可重试失败（网络/5xx）才把尚未发送的组一并留在 remaining 里。
+        """
+        blocked: List[Record] = []
+        by_eval: Dict[str, List[Record]] = {}
+        for record in records:
+            if not record.HasField("score") or not record.score.eval_id or not record.score.HasField("timestamp"):
+                blocked.append(record)
+                continue
+            by_eval.setdefault(record.score.eval_id, []).append(record)
+
+        confirmed: List[Record] = list(blocked)
+        failures: List[UploadFailure] = []
+        if blocked:
+            failures.append(self._blocked_failure(blocked, "score record without eval id or event time"))
+
+        groups = list(by_eval.items())
+        for index, (eval_id, group) in enumerate(groups):
+            metrics: UploadScoreBatch = []
+            for record in group:
+                score_record = record.score
+                data = score_record.value.number if math.isfinite(score_record.value.number) else "nan"
+                metric: UploadScore = {
+                    "dataset": score_record.dataset,
+                    "key": score_record.key,
+                    "data": cast(Union[float, Literal["nan"]], data),
+                    "create_time": score_record.timestamp.ToJsonString(),
+                }
+                metrics.append(metric)
+            console.debug(f"HTTP upload: upload_score with metrics count: {len(metrics)}")
+            try:
+                upload_score(self._project_id, eval_id, metrics=metrics)
+            except requests.RequestException as e:
+                # 永久拒绝（4xx）：该组终止，但不能连带丢掉后面尚未发送的组
+                if not is_retryable_error(e):
+                    console.warning(f"Score upload for eval {eval_id} was rejected and will not be retried: {e}")
+                    confirmed.extend(group)
+                    failures.append(transport_failure(group, e))
+                    continue
+                # 可重试失败：本组与后续所有组一起留在 remaining
+                failures.append(transport_failure(group, e))
+                remaining = [record for _, later_group in groups[index:] for record in later_group]
+                return UploadResult(confirmed_records=confirmed, remaining_records=remaining, failures=failures)
+            confirmed.extend(group)
         return UploadResult(confirmed_records=confirmed, failures=failures)
 
     def upload_media(self, records: Sequence[Record]) -> UploadResult:

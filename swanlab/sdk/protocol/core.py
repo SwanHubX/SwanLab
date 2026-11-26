@@ -26,7 +26,12 @@ from swanlab.proto.swanlab.grpc.core.v1.sync_pb2 import (
     DeliverSyncStartResponse,
 )
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord
-from swanlab.proto.swanlab.metric.data.v1.data_pb2 import HistogramRecord, MediaRecord, ScalarRecord
+from swanlab.proto.swanlab.metric.data.v1.data_pb2 import (
+    HistogramRecord,
+    MediaRecord,
+    ScalarRecord,
+    ScoreRecord,
+)
 from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord
 from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogRecord
 from swanlab.sdk.internal.pkg import safe
@@ -192,6 +197,34 @@ class CoreProtocol(ABC):
 
     @abstractmethod
     def _upsert_histograms_when_online(self, histograms: List[HistogramRecord]) -> None: ...
+
+    # ---------------------------------- 评测分数 ----------------------------------
+
+    def upsert_scores(self, scores: List[ScoreRecord]) -> None:
+        """上报一组 ScoreRecord，记录评测分数值
+
+        与 scalar/media 不同，分数没有 step 与列定义：每个 (evalId, dataset, key)
+        是一个槽位，版本由记录自带的毫秒事件时间决定，SDK 不在此处做任何去重或排序。
+        """
+        with safe.block(message="upsert score error"):
+            if self._mode == "online":
+                return self._upsert_scores_when_online(scores)
+            elif self._mode == "local":
+                return self._upsert_scores_when_local(scores)
+            elif self._mode == "offline":
+                return self._upsert_scores_when_offline(scores)
+            return self._upsert_scores_when_disabled(scores)
+
+    def _upsert_scores_when_disabled(self, scores: List[ScoreRecord]) -> None: ...
+
+    @abstractmethod
+    def _upsert_scores_when_local(self, scores: List[ScoreRecord]) -> None: ...
+
+    @abstractmethod
+    def _upsert_scores_when_offline(self, scores: List[ScoreRecord]) -> None: ...
+
+    @abstractmethod
+    def _upsert_scores_when_online(self, scores: List[ScoreRecord]) -> None: ...
 
     # ---------------------------------- 终端输出 ----------------------------------
 

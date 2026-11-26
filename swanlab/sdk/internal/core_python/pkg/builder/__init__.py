@@ -11,7 +11,12 @@ from typing import Union
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnClass, ColumnRecord, ColumnType, SectionType
-from swanlab.proto.swanlab.metric.data.v1.data_pb2 import HistogramRecord, MediaRecord, ScalarRecord
+from swanlab.proto.swanlab.metric.data.v1.data_pb2 import (
+    HistogramRecord,
+    MediaRecord,
+    ScalarRecord,
+    ScoreRecord,
+)
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord, StartRecord
 from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord, SaveType
@@ -26,6 +31,7 @@ __all__ = [
     "build_media_record",
     "build_histogram_record",
     "build_scalar_record",
+    "build_score_record",
     "build_log_record",
     "build_auto_column",
     "build_resume_column",
@@ -88,6 +94,16 @@ def build_scalar_record(counter: Counter, scalar_record: ScalarRecord):
     构建数据记录
     """
     return Record(num=counter.inc(), scalar=scalar_record, timestamp=_now())
+
+
+def build_score_record(counter: Counter, score_record: ScoreRecord):
+    """
+    构建评测分数记录
+
+    score_record 的 timestamp 由调用侧（ScoreClock）分配，这里不再覆盖，
+    保证重放时时间戳与记录一同保持不变。
+    """
+    return Record(num=counter.inc(), score=score_record, timestamp=_now())
 
 
 def build_media_record(counter: Counter, media_record: MediaRecord):

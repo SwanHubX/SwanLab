@@ -10,6 +10,7 @@
 
 import atexit
 import glob
+import math
 import signal
 import sys
 import threading
@@ -27,7 +28,7 @@ from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
 )
 from swanlab.proto.swanlab.grpc.probe.v1.probe_pb2 import DeliverProbeStartRequest
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord
-from swanlab.sdk.internal.bus import FileSaveEvent, MetricDefineEvent, MetricLogEvent
+from swanlab.sdk.internal.bus import FileSaveEvent, MetricDefineEvent, MetricLogEvent, ScoreLogEvent
 from swanlab.sdk.internal.context import RunContext
 from swanlab.sdk.internal.core_python import client
 from swanlab.sdk.internal.pkg import adapter, console, fork, helper, safe
@@ -43,6 +44,7 @@ from swanlab.sdk.internal.run.transforms import (
     Image,
     Molecule,
     Object3D,
+    Scalar,
     Text,
     Video,
     normalize_media_input,
@@ -380,6 +382,75 @@ class Run:
         # 展平字典并在内部进行合规性验证和截断
         flatten_data = fmt.flatten_dict(this_data)
         self._components.emitter.emit(MetricLogEvent(data=flatten_data, step=next_step, timestamp=ts))
+
+    @with_api("run.log_score()")
+    def log_score(self, scores: Mapping[str, Any], *, eval_id: str, dataset: str = "default"):
+        """Log evaluation scores for one evaluation.
+
+        A score is identified by ``(eval_id, dataset, key)``. Each write gets an
+        explicit millisecond event time, so the backend keeps the newest version
+        per key: resubmitting the same record is idempotent, and a newer write
+        always wins.
+
+        :param scores: A mapping of score keys to numbers, e.g. ``{"accuracy": 0.9}``.
+        :param eval_id: The evaluation CUID (21 characters) the scores belong to.
+        :param dataset: Dataset name for these scores. Defaults to ``"default"``; an
+            explicit empty string is a distinct, meaningful value (the evaluation's
+            overall score), not an alias for the default dataset.
+        """
+        self._log_score_impl(scores, eval_id=eval_id, dataset=dataset)
+
+    @safe.decorator(message="SwanLab failed to log scores due to unexpected error")
+    def _log_score_impl(self, scores: Mapping[str, Any], *, eval_id: str, dataset: str):
+        if not isinstance(eval_id, str) or len(eval_id) != 21:
+            console.error(
+                f"eval_id must be a 21-character evaluation CUID, but got {eval_id!r}. "
+                "SwanLab will ignore this log_score call."
+            )
+            return
+        if not isinstance(dataset, str):
+            console.error(f"dataset must be a string, but got {type(dataset).__name__}. SwanLab will ignore this call.")
+            return
+        # 空串是"整体分数"这一独立槽位，不能被当作"未填"改写成 default，但长度仍受 House 限制
+        if len(dataset) > 512:
+            console.error(
+                f"dataset must be at most 512 characters, but got {len(dataset)}. SwanLab will ignore this call."
+            )
+            return
+        if not isinstance(scores, Mapping) or not scores:
+            console.error(
+                f"Scores must be a non-empty dict, but got {type(scores).__name__}. SwanLab will ignore this call."
+            )
+            return
+        accepted: dict[str, float] = {}
+        for key, value in scores.items():
+            # House 的写入契约：key 非空且不超过 512 个 Unicode 字符
+            if not isinstance(key, str) or not key:
+                console.error(f"Score key must be a non-empty string, but got {key!r}; skipped.")
+                continue
+            if len(key) > 512:
+                console.error(f"Score key must be at most 512 characters, but got {len(key)}; skipped.")
+                continue
+            # 在归一化之前校验类型：Scalar.transform 会把字符串 "inf" 静默变成 NaN，
+            # 那会让用户以为记下了无穷大。分数只接受真正的数值。
+            if isinstance(value, str):
+                console.error(f"Score '{key}' must be a number, but got the string {value!r}; skipped.")
+                continue
+            try:
+                number = Scalar.transform(value).number
+            except TypeError as e:
+                console.error(f"Score '{key}' rejected: {e}")
+                continue
+            # 写入编码只有有限数字与 NaN；±Inf 无编码，拒绝而不是降级为 NaN
+            if math.isinf(number):
+                console.error(
+                    f"Score '{key}' is infinite; the backend has no write encoding for ±Inf, so it was skipped."
+                )
+                continue
+            accepted[key] = number
+        if not accepted:
+            return
+        self._components.emitter.emit(ScoreLogEvent(eval_id=eval_id, dataset=dataset, scores=accepted))
 
     @with_api("run.async_log()")
     def async_log(

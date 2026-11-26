@@ -12,11 +12,14 @@ from typing import Optional
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
-from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord
+from swanlab.proto.swanlab.metric.data.v1.data_pb2 import MediaRecord, ScalarValue, ScoreRecord
+from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord, SaveType
 from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogRecord
-from swanlab.sdk.internal.bus.events import ConfigEvent, FileSaveEvent, LogEvent, ParseResult
+from swanlab.sdk.internal.bus.events import ConfigEvent, FileSaveEvent, LogEvent, ParseResult, ScoreLogEvent
 from swanlab.sdk.internal.context import RunContext, TransformMedia
+from swanlab.sdk.internal.core_python.metrics.score import ScoreClock
+from swanlab.sdk.internal.core_python.store import LEVELDBLOG_HEADER_LEN, DataStoreError, DataStoreReader
 from swanlab.sdk.internal.pkg import adapter, console, fs
 from swanlab.sdk.internal.run.components.config.writer import dump_config
 from swanlab.sdk.internal.run.transforms import ECharts, Histogram, Scalar, echarts
@@ -41,8 +44,13 @@ def is_scalar_value(value: object) -> bool:
 class RecordBuilder:
     _MEDIA_MAX_LENGTH = 108
 
+    _SCORE_CLOCK_STATE = "score_clock.json"
+
     def __init__(self, ctx: RunContext):
         self._ctx = ctx
+        # 分数事件时间分配器：按 (evalId, dataset, key) 槽位严格递增，水位落盘以覆盖重启。
+        # 懒创建：从不写分数的 run 不会产生多余状态文件。
+        self._score_clock_instance: Optional[ScoreClock] = None
         # 由 BackgroundConsumer 单线程调用，无需锁
         self._num: int = 0
         # 所有媒体类型共用同一单文件上限，由 settings 统一配置
@@ -58,6 +66,45 @@ class RecordBuilder:
         path = self._ctx.media_dir / adapter.medium[column_type]
         fs.safe_mkdir(path)
         return path
+
+    @property
+    def _score_clock(self) -> ScoreClock:
+        if self._score_clock_instance is None:
+            run_dir = getattr(self._ctx, "run_dir", None)
+            state_path = Path(run_dir) / self._SCORE_CLOCK_STATE if run_dir is not None else None
+            self._score_clock_instance = ScoreClock(state_path, recover=self._recover_score_records)
+        return self._score_clock_instance
+
+    def _recover_score_records(self) -> list[ScoreRecord]:
+        """从本地数据存储读出已写入的分数记录，用于重建版本水位。
+
+        记录先于上传落盘（core 侧先写 store 再 transport），所以它是进程崩溃或账本
+        丢失后唯一可信的事实来源。
+        """
+        run_file = getattr(self._ctx, "run_file", None)
+        if run_file is None or not Path(run_file).exists():
+            return []
+        size = Path(run_file).stat().st_size
+        reader = DataStoreReader()
+        try:
+            reader.open(str(run_file))
+        except (DataStoreError, AssertionError):
+            # 文件里连头部都还没落盘：本进程刚创建它，没有任何历史记录。文件不是空的
+            # 却读不出头部，才是真的损坏，交给调用侧按"不安全"处理。
+            if size < LEVELDBLOG_HEADER_LEN:
+                return []
+            raise
+        records: list[ScoreRecord] = []
+        try:
+            for payload in reader:
+                record = Record()
+                record.ParseFromString(payload)
+                if record.HasField("score"):
+                    records.append(record.score)
+        except (DataStoreError, AssertionError):
+            # 尾部可能是本进程正在写的记录：已读到的部分仍然可信，内存水位也覆盖了它
+            pass
+        return records
 
     def _ensure_media_size(self, record: MediaRecord) -> Optional[MediaRecord]:
         """
@@ -154,6 +201,25 @@ class RecordBuilder:
         return data_record, Histogram
 
     # ── 系统元数据 ──
+    def build_score(self, event: ScoreLogEvent) -> list[ScoreRecord]:
+        """把一次 log_score 调用展开为若干条 ScoreRecord。
+
+        值域已在 API 层校验（有限浮点数或 NaN），这里不再做归一化，避免二次转换把
+        同一个输入解释成另一个值。时间戳按槽位分配一次（ScoreClock），此后随 record
+        持久化，重放不再改动。
+        """
+        records: list[ScoreRecord] = []
+        for key, number in event.scores.items():
+            record = ScoreRecord(
+                eval_id=event.eval_id,
+                dataset=event.dataset,
+                key=key,
+                value=ScalarValue(number=number),
+            )
+            record.timestamp.CopyFrom(self._score_clock.next_timestamp((event.eval_id, event.dataset, key)))
+            records.append(record)
+        return records
+
     def build_config(self, event: ConfigEvent) -> SaveRecord:
         """构建 Config Save envelope。
 

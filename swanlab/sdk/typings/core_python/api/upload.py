@@ -149,6 +149,30 @@ UploadHistogramBatch = List[UploadHistogram]
 
 
 # ============================================================
+# Score 评测分数 DTO
+# ============================================================
+
+
+class UploadScore(TypedDict):
+    """评测分数 DTO，对应 POST /house/metrics type="score" 的单条 metric
+
+    House 只读取 dataset/key/data/create_time。dataset 为空串表示"整体分数"，
+    与缺省的 default 数据集是两个不同槽位，不能互相改写。
+    """
+
+    dataset: str
+    key: str
+    data: Union[float, Literal["nan"]]  # 有限数字或小写 "nan"
+    create_time: str  # RFC3339，毫秒精度，UTC（Z）
+
+
+UploadScoreBatch = List[UploadScore]
+"""
+评测分数
+"""
+
+
+# ============================================================
 # Object storage resource upload
 # ============================================================
 
@@ -175,3 +199,15 @@ class UploadMetricPayload(TypedDict):
     experimentId: str
     type: str
     metrics: Union[UploadScalarBatch, UploadMediaBatch, UploadLogBatch, UploadHistogramBatch]
+
+
+class UploadScorePayload(TypedDict):
+    """POST /house/metrics 请求体（评测维度：type="score"）
+
+    House 只认信封层这一个 evalId（21 位），逐条 metric 里不带 eval_id。
+    """
+
+    projectId: str
+    evalId: str
+    type: str
+    metrics: UploadScoreBatch

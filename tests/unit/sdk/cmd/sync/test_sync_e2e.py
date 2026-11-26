@@ -17,6 +17,8 @@ from swanlab.sdk.internal.core_python.sync import CoreSyncPython
 from swanlab.sdk.internal.core_python.utils import PrepareExperimentStartResult
 from swanlab.sdk.internal.settings import Settings
 
+EVAL_ID = "eval0000000000000000a"
+
 
 def read_records(run_dir: Path) -> list[Record]:
     files = sorted(run_dir.glob("run-*.swanlab"))
@@ -576,3 +578,54 @@ def test_e2e_sync_full_sync_still_reports_experiment_state(monkeypatch):
     )
 
     assert stopped
+
+
+def test_e2e_sync_replays_score_records_verbatim(monkeypatch):
+    """离线 run 的分数必须原样重放：同 evalId / dataset / key / 时间戳 / 值。
+
+    分数没有 step，任意一次重放都不允许重新生成事件时间——House 按毫秒时间取最新
+    版本，换了时间就等于用旧值覆盖新值。
+    """
+    run = swanlab.init(mode="offline", project="sync-e2e-score", id="sync-score-run")
+    run_dir = run._ctx.run_dir
+    run.log_score({"accuracy": 0.25}, eval_id=EVAL_ID, dataset="validation")
+    run.log_score({"accuracy": 0.75}, eval_id=EVAL_ID, dataset="validation")
+    swanlab.finish()
+
+    source_scores = [record.score for record in read_records(run_dir) if record.HasField("score")]
+    assert len(source_scores) == 2
+
+    transports: list[FakeTransport] = []
+    core = CoreSyncPython()
+    core._read_executor = ImmediateExecutor()  # type: ignore[assignment]
+
+    def make_transport(ctx, tracker=None) -> FakeTransport:
+        transport = FakeTransport(ctx, tracker=tracker)
+        transports.append(transport)
+        return transport
+
+    monkeypatch.setattr("swanlab.sdk.cmd.sync.client.exists", lambda: True)
+    monkeypatch.setattr("swanlab.sdk.cmd.sync.impl.create_core_sync", lambda: core)
+    monkeypatch.setattr(
+        "swanlab.sdk.internal.core_python.sync.prepare_experiment_start", lambda record: make_prepare_result()
+    )
+    monkeypatch.setattr("swanlab.sdk.internal.core_python.sync.Transport", make_transport)
+    monkeypatch.setattr(
+        "swanlab.sdk.internal.core_python.sync.stop_experiment",
+        lambda *args, **kwargs: None,
+    )
+
+    sync_cmd.sync(
+        run_dir,
+        settings=Settings(
+            api_key="test-api-key",
+            project=Settings.Project(workspace="alice", name="demo"),
+            run=Settings.Run(id="sync-score-run"),
+        ),
+    )
+
+    replayed = [record.score for record in transports[0].records if record.HasField("score")]
+    assert [(s.eval_id, s.dataset, s.key, s.timestamp.ToNanoseconds(), s.value.number) for s in replayed] == [
+        (s.eval_id, s.dataset, s.key, s.timestamp.ToNanoseconds(), s.value.number) for s in source_scores
+    ]
+    assert replayed[0].timestamp.ToNanoseconds() < replayed[1].timestamp.ToNanoseconds()
