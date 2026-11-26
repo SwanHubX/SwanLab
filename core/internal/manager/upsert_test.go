@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -839,5 +840,85 @@ func TestOnFileChangedReenqueuesLiveSave(t *testing.T) {
 	h.session.onFileChanged(rec)
 	if got := drainRecords(h.upload); len(got) != 0 {
 		t.Fatalf("callback after drain uploaded %d records, want 0", len(got))
+	}
+}
+
+// 建链失败（源文件缺失、超过保存上限等）是记录本身不可处理，
+// 必须按 InvalidRecord -> InvalidArgument 快速失败，不能退化成 Internal 让客户端反复重试。
+func TestUpsertSavesLinkErrorMapsToInvalidArgument(t *testing.T) {
+	h := newUpsertHarness(t, upsertOptions{})
+	original := createSaveLinks
+	createSaveLinks = func(context.Context, []*savev1.SaveRecord, string, int64) (int, error) {
+		return 0, errors.New("source file is missing")
+	}
+	t.Cleanup(func() { createSaveLinks = original })
+
+	save := &savev1.SaveRecord{
+		Name:       "gone.txt",
+		SourcePath: filepath.Join(t.TempDir(), "gone.txt"),
+		Policy:     savev1.SavePolicy_SAVE_POLICY_NOW,
+		Type:       savev1.SaveType_SAVE_TYPE_CUSTOM,
+	}
+	if err := h.mgr.UpsertSaves(context.Background(), h.id, []*savev1.SaveRecord{save}); !errors.Is(
+		err, ErrInvalidRecord,
+	) {
+		t.Fatalf("UpsertSaves err = %v, want ErrInvalidRecord", err)
+	}
+	if got := len(drainRecords(h.upload)); got != 0 {
+		t.Fatalf("failed link uploaded %d records, want 0", got)
+	}
+}
+
+// 建链/拷贝必须在会话锁外：大文件回退拷贝卡住时，同会话的标量上报不能被阻塞。
+func TestUpsertSavesLinksOutsideSessionLock(t *testing.T) {
+	h := newUpsertHarness(t, upsertOptions{})
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	var releaseOnce sync.Once
+	unblock := func() { releaseOnce.Do(func() { close(release) }) }
+	defer unblock()
+
+	original := createSaveLinks
+	createSaveLinks = func(ctx context.Context, saves []*savev1.SaveRecord, filesDir string, maxSize int64) (int, error) {
+		close(entered)
+		<-release
+		return original(ctx, saves, filesDir, maxSize)
+	}
+	t.Cleanup(func() { createSaveLinks = original })
+
+	sourcePath := filepath.Join(t.TempDir(), "slow.txt")
+	if err := os.WriteFile(sourcePath, []byte("data"), 0o644); err != nil {
+		t.Fatalf("write source: %v", err)
+	}
+	save := &savev1.SaveRecord{
+		Name:       "slow.txt",
+		SourcePath: sourcePath,
+		Policy:     savev1.SavePolicy_SAVE_POLICY_NOW,
+		Type:       savev1.SaveType_SAVE_TYPE_CUSTOM,
+	}
+
+	savesDone := make(chan error, 1)
+	go func() { savesDone <- h.mgr.UpsertSaves(context.Background(), h.id, []*savev1.SaveRecord{save}) }()
+	<-entered
+
+	scalarsDone := make(chan error, 1)
+	go func() {
+		scalarsDone <- h.mgr.UpsertScalars(context.Background(), h.id, []*datav1.ScalarRecord{scalarRecord("loss", 1, columnv1.ColumnType_COLUMN_TYPE_SCALAR)})
+	}()
+	select {
+	case err := <-scalarsDone:
+		if err != nil {
+			t.Fatalf("UpsertScalars while linking: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("UpsertScalars blocked by save linking")
+	}
+
+	unblock()
+	if err := <-savesDone; err != nil {
+		t.Fatalf("UpsertSaves: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(h.session.run.FilesDir(), "slow.txt")); err != nil {
+		t.Fatalf("missing mirror link: %v", err)
 	}
 }

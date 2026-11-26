@@ -222,12 +222,56 @@ func (s *Session) upsertSaves(ctx context.Context, records []*savev1.SaveRecord)
 	if err := s.checkBatchLimit(len(records)); err != nil {
 		return err
 	}
+	// 已停机的会话不建链：建链依赖文件系统，不能给不会入队的批次留副作用
+	if RunState(s.state.Load()) != RunStateRunning {
+		return ErrNotRunning
+	}
+	if err := s.prepareSaveLinks(ctx, records); err != nil {
+		return err
+	}
 	return s.commitPrepared(ctx, func() (preparedBatch, error) {
 		return s.prepareSaves(records)
 	})
 }
 
-// prepareSaves 构建保存记录：CUSTOM 类型先在本地建立文件链接，待容量预留成功后再注册 LIVE 监听。
+// createSaveLinks 单独提出来便于测试替换：验证建链发生在会话锁外。
+var createSaveLinks = watcher.CreateSaveLinks
+
+// prepareSaveLinks 在会话锁外为 CUSTOM 记录建立本地镜像（软链接，失败时整文件拷贝）。
+// 建链只依赖记录路径、可重复执行，挪出锁外后拷贝大文件不会阻塞同会话的其它上报。
+func (s *Session) prepareSaveLinks(ctx context.Context, records []*savev1.SaveRecord) error {
+	if s.cfg.SkipStore {
+		return nil
+	}
+	custom := make([]*savev1.SaveRecord, 0, len(records))
+	for _, rec := range records {
+		if rec == nil {
+			return fmt.Errorf("%w: save record must not be nil", ErrInvalidRecord)
+		}
+		if rec.GetType() == savev1.SaveType_SAVE_TYPE_CUSTOM {
+			custom = append(custom, rec)
+		}
+	}
+	if len(custom) == 0 {
+		return nil
+	}
+	created, err := createSaveLinks(ctx, custom, s.run.FilesDir(), s.cfg.SaveSize)
+	if err != nil {
+		// 取消/超时不是记录本身的问题，原样上抛
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return ctxErr
+		}
+		// 源文件缺失、超过保存上限、建链失败都算记录不可处理，让客户端快速失败而不是重试
+		return fmt.Errorf("%w: create save links: %v", ErrInvalidRecord, err)
+	}
+	if created > 0 {
+		console.Infof("Symlinked %d files into the SwanLab run directory; "+
+			"call swanlab.save again to sync new files.", created)
+	}
+	return nil
+}
+
+// prepareSaves 构建保存记录；建链已在锁外完成，这里只组装批次并准备 LIVE 监听注册。
 func (s *Session) prepareSaves(records []*savev1.SaveRecord) (preparedBatch, error) {
 	internal := make([]*savev1.SaveRecord, 0, len(records))
 	custom := make([]*savev1.SaveRecord, 0, len(records))
@@ -242,6 +286,7 @@ func (s *Session) prepareSaves(records []*savev1.SaveRecord) (preparedBatch, err
 		internal = append(internal, rec)
 	}
 
+	// 保持「内部元文件在前」的编号顺序
 	planned := make([]*recordv1.Record, 0, len(records))
 	for _, rec := range internal {
 		built, err := builder.BuildSaveRecord(s.counter, rec)
@@ -250,26 +295,14 @@ func (s *Session) prepareSaves(records []*savev1.SaveRecord) (preparedBatch, err
 		}
 		planned = append(planned, built)
 	}
-
-	if len(custom) > 0 {
-		if !s.cfg.SkipStore {
-			created, err := watcher.CreateSaveLinks(custom, s.run.FilesDir())
-			if err != nil {
-				return preparedBatch{}, fmt.Errorf("upsert saves: create save links: %w", err)
-			}
-			if created > 0 {
-				console.Infof("Symlinked %d files into the SwanLab run directory; "+
-					"call swanlab.save again to sync new files.", created)
-			}
+	for _, rec := range custom {
+		built, err := builder.BuildSaveRecord(s.counter, rec)
+		if err != nil {
+			return preparedBatch{}, fmt.Errorf("%w: %v", ErrInvalidRecord, err)
 		}
-		for _, rec := range custom {
-			built, err := builder.BuildSaveRecord(s.counter, rec)
-			if err != nil {
-				return preparedBatch{}, fmt.Errorf("%w: %v", ErrInvalidRecord, err)
-			}
-			planned = append(planned, built)
-		}
+		planned = append(planned, built)
 	}
+
 	apply := func() error {
 		if s.cfg.SkipStore || len(custom) == 0 {
 			return nil

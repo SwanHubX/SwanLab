@@ -1,6 +1,7 @@
 package watcher
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -25,7 +26,7 @@ func TestRegisterLiveIsIdempotent(t *testing.T) {
 		}
 		saves = append(saves, newSave(name, source, "", savev1.SavePolicy_SAVE_POLICY_LIVE))
 	}
-	if _, err := CreateSaveLinks(saves, filesDir); err != nil {
+	if _, err := CreateSaveLinks(context.Background(), saves, filesDir, 0); err != nil {
 		t.Fatal(err)
 	}
 
@@ -97,7 +98,7 @@ func TestWatchFileWrite(t *testing.T) {
 	}
 	filesDir := filepath.Join(root, "run", "files")
 	save := newSave("model.pt", source, "", savev1.SavePolicy_SAVE_POLICY_LIVE)
-	if _, err := CreateSaveLinks([]*savev1.SaveRecord{save}, filesDir); err != nil {
+	if _, err := CreateSaveLinks(context.Background(), []*savev1.SaveRecord{save}, filesDir, 0); err != nil {
 		t.Fatal(err)
 	}
 
@@ -143,7 +144,7 @@ func TestWatchAtomicReplace(t *testing.T) {
 	}
 	filesDir := filepath.Join(root, "run", "files")
 	save := newSave("model.pt", source, "", savev1.SavePolicy_SAVE_POLICY_LIVE)
-	if _, err := CreateSaveLinks([]*savev1.SaveRecord{save}, filesDir); err != nil {
+	if _, err := CreateSaveLinks(context.Background(), []*savev1.SaveRecord{save}, filesDir, 0); err != nil {
 		t.Fatal(err)
 	}
 
@@ -186,7 +187,7 @@ func TestStopFlushesRealEvent(t *testing.T) {
 	}
 	filesDir := filepath.Join(root, "run", "files")
 	save := newSave("model.pt", source, "", savev1.SavePolicy_SAVE_POLICY_LIVE)
-	if _, err := CreateSaveLinks([]*savev1.SaveRecord{save}, filesDir); err != nil {
+	if _, err := CreateSaveLinks(context.Background(), []*savev1.SaveRecord{save}, filesDir, 0); err != nil {
 		t.Fatal(err)
 	}
 
