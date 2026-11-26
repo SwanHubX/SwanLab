@@ -36,6 +36,7 @@ def _make_run_cmd(method_name: str) -> Callable:
 
 # ── 每新增一个公开方法，在此追加一行 ──────────────────────────────────────────
 log = _make_run_cmd("log")
+log_score = _make_run_cmd("log_score")
 log_text = _make_run_cmd("log_text")
 log_image = _make_run_cmd("log_image")
 log_audio = _make_run_cmd("log_audio")

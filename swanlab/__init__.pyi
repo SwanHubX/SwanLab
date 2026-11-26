@@ -71,6 +71,7 @@ __all__ = [
     "log_html",
     "log_histogram",
     "log_object3d",
+    "log_score",
     "log_molecule",
     "define_metric",
     "async_log",
@@ -601,6 +602,27 @@ def log_html(
         >>> swanlab.init(mode="offline")
         >>> html = swanlab.Html("<p>Styled content</p>", caption="styled")
         >>> swanlab.log_html(key="styled_page", data=html)
+        >>> swanlab.finish()
+    """
+    ...
+
+def log_score(scores: Mapping[str, Any], *, eval_id: str, dataset: str = "default") -> None:
+    """Log evaluation scores for one evaluation.
+
+    A score is identified by ``(eval_id, dataset, key)``. Each write carries an
+    explicit millisecond event time, so the newest write wins per key and
+    resubmitting the same record is idempotent.
+
+    :param scores: Mapping of score keys to numbers, e.g. ``{"accuracy": 0.9}``.
+    :param eval_id: Evaluation CUID (21 characters) the scores belong to.
+    :param dataset: Dataset name, defaults to ``"default"``.
+    :raises RuntimeError: If called without an active run.
+
+    Examples:
+
+        >>> import swanlab
+        >>> swanlab.init(project="eval-demo")
+        >>> swanlab.log_score({"accuracy": 0.91}, eval_id="ckl3f9x0b0000abcd1234efgh", dataset="validation")
         >>> swanlab.finish()
     """
     ...

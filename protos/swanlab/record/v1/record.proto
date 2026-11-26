@@ -44,6 +44,7 @@ message Record {
         swanlab.metric.data.v1.ScalarRecord scalar   = 13;
         swanlab.metric.data.v1.MediaRecord media     = 14;
         swanlab.metric.data.v1.HistogramRecord histogram = 21;
+        swanlab.metric.data.v1.ScoreRecord score         = 22;
 
         // ── 终端输出 ──
         swanlab.terminal.v1.LogRecord log = 16;

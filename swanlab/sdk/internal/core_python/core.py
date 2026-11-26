@@ -29,7 +29,12 @@ from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
     GetOperationStatsResponse,
 )
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnClass, ColumnRecord, ColumnType
-from swanlab.proto.swanlab.metric.data.v1.data_pb2 import HistogramRecord, MediaRecord, ScalarRecord
+from swanlab.proto.swanlab.metric.data.v1.data_pb2 import (
+    HistogramRecord,
+    MediaRecord,
+    ScalarRecord,
+    ScoreRecord,
+)
 from swanlab.proto.swanlab.operation.v1.operation_pb2 import CoreState
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord, RunState, StartRecord
@@ -337,6 +342,38 @@ class CorePython(CoreProtocol):
 
     def _upsert_scalars_when_online(self, scalars: List[ScalarRecord]) -> None:
         records = self._upsert_scalars_to_metrics(scalars)
+        self._transport_put(records)
+
+    # ---- upsert_scores ----
+
+    def upsert_scores(self, scores: List[ScoreRecord]) -> None:
+        if not self._active:
+            console.warning("Core is not active, refusing to upsert scores")
+            return
+        return super().upsert_scores(scores)
+
+    def _upsert_scores_to_records(self, scores: List[ScoreRecord]) -> List[Record]:
+        """
+        将一组 ScoreRecord 转换为一组 Record。
+
+        分数不参与 RunMetrics 的 step 去重，也不产生 ColumnRecord：版本语义完全由
+        记录自带的毫秒事件时间承载，SDK 只负责持久化并投递，重放时原样重发。
+        """
+        records: List[Record] = []
+        for score in scores:
+            with safe.block(message="Failed to upsert score metric"):
+                records.append(builder.build_score_record(self._counter, score))
+        self._store_records(records)
+        return records
+
+    def _upsert_scores_when_local(self, scores: List[ScoreRecord]) -> None:
+        self._upsert_scores_to_records(scores)
+
+    def _upsert_scores_when_offline(self, scores: List[ScoreRecord]) -> None:
+        self._upsert_scores_to_records(scores)
+
+    def _upsert_scores_when_online(self, scores: List[ScoreRecord]) -> None:
+        records = self._upsert_scores_to_records(scores)
         self._transport_put(records)
 
     # ---- upsert_media -----

@@ -75,3 +75,19 @@ message HistogramRecord {
     // 数据值
     HistogramValue value = 5;
 }
+
+// 一条评测分数记录，对应 swanlab.log_score()。
+// 分数以 (eval_id, dataset, key) 为一个逻辑槽位，按显式的毫秒事件时间排序版本，
+// 读回时取该槽位时间最大的那条。
+message ScoreRecord {
+    // 评测 CUID，创建评测时固定，重放时不得改变
+    string eval_id = 1;
+    // 数据集名称，缺省为 "default"
+    string dataset = 2;
+    // 分数键，例如 "accuracy"
+    string key = 3;
+    // 显式的毫秒精度事件时间，由 SDK 在记录创建时分配，重放必须保持不变
+    google.protobuf.Timestamp timestamp = 4;
+    // 分值
+    ScalarValue value = 5;
+}

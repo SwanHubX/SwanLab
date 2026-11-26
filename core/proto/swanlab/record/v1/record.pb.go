@@ -59,6 +59,7 @@ type Record struct {
 	//	*Record_Scalar
 	//	*Record_Media
 	//	*Record_Histogram
+	//	*Record_Score
 	//	*Record_Log
 	//	*Record_Save
 	RecordType    isRecord_RecordType `protobuf_oneof:"record_type"`
@@ -171,6 +172,15 @@ func (x *Record) GetHistogram() *v12.HistogramRecord {
 	return nil
 }
 
+func (x *Record) GetScore() *v12.ScoreRecord {
+	if x != nil {
+		if x, ok := x.RecordType.(*Record_Score); ok {
+			return x.Score
+		}
+	}
+	return nil
+}
+
 func (x *Record) GetLog() *v13.LogRecord {
 	if x != nil {
 		if x, ok := x.RecordType.(*Record_Log); ok {
@@ -219,6 +229,10 @@ type Record_Histogram struct {
 	Histogram *v12.HistogramRecord `protobuf:"bytes,21,opt,name=histogram,proto3,oneof"`
 }
 
+type Record_Score struct {
+	Score *v12.ScoreRecord `protobuf:"bytes,22,opt,name=score,proto3,oneof"`
+}
+
 type Record_Log struct {
 	// ── 终端输出 ──
 	Log *v13.LogRecord `protobuf:"bytes,16,opt,name=log,proto3,oneof"`
@@ -241,6 +255,8 @@ func (*Record_Media) isRecord_RecordType() {}
 
 func (*Record_Histogram) isRecord_RecordType() {}
 
+func (*Record_Score) isRecord_RecordType() {}
+
 func (*Record_Log) isRecord_RecordType() {}
 
 func (*Record_Save) isRecord_RecordType() {}
@@ -249,7 +265,7 @@ var File_swanlab_record_v1_record_proto protoreflect.FileDescriptor
 
 const file_swanlab_record_v1_record_proto_rawDesc = "" +
 	"\n" +
-	"\x1eswanlab/record/v1/record.proto\x12\x11swanlab.record.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x18swanlab/run/v1/run.proto\x1a!swanlab/metric/data/v1/data.proto\x1a%swanlab/metric/column/v1/column.proto\x1a\x1dswanlab/terminal/v1/log.proto\x1a\x1aswanlab/save/v1/save.proto\"\xbf\x04\n" +
+	"\x1eswanlab/record/v1/record.proto\x12\x11swanlab.record.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x18swanlab/run/v1/run.proto\x1a!swanlab/metric/data/v1/data.proto\x1a%swanlab/metric/column/v1/column.proto\x1a\x1dswanlab/terminal/v1/log.proto\x1a\x1aswanlab/save/v1/save.proto\"\xfc\x04\n" +
 	"\x06Record\x12\x10\n" +
 	"\x03num\x18\x01 \x01(\x03R\x03num\x128\n" +
 	"\ttimestamp\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\x123\n" +
@@ -259,7 +275,8 @@ const file_swanlab_record_v1_record_proto_rawDesc = "" +
 	"\x06column\x18\f \x01(\v2&.swanlab.metric.column.v1.ColumnRecordH\x00R\x06column\x12>\n" +
 	"\x06scalar\x18\r \x01(\v2$.swanlab.metric.data.v1.ScalarRecordH\x00R\x06scalar\x12;\n" +
 	"\x05media\x18\x0e \x01(\v2#.swanlab.metric.data.v1.MediaRecordH\x00R\x05media\x12G\n" +
-	"\thistogram\x18\x15 \x01(\v2'.swanlab.metric.data.v1.HistogramRecordH\x00R\thistogram\x122\n" +
+	"\thistogram\x18\x15 \x01(\v2'.swanlab.metric.data.v1.HistogramRecordH\x00R\thistogram\x12;\n" +
+	"\x05score\x18\x16 \x01(\v2#.swanlab.metric.data.v1.ScoreRecordH\x00R\x05score\x122\n" +
 	"\x03log\x18\x10 \x01(\v2\x1e.swanlab.terminal.v1.LogRecordH\x00R\x03log\x121\n" +
 	"\x04save\x18\x14 \x01(\v2\x1b.swanlab.save.v1.SaveRecordH\x00R\x04saveB\r\n" +
 	"\vrecord_typeBCZAgithub.com/swanhubx/swanlab/core/proto/swanlab/record/v1;recordv1b\x06proto3"
@@ -286,24 +303,26 @@ var file_swanlab_record_v1_record_proto_goTypes = []any{
 	(*v12.ScalarRecord)(nil),      // 5: swanlab.metric.data.v1.ScalarRecord
 	(*v12.MediaRecord)(nil),       // 6: swanlab.metric.data.v1.MediaRecord
 	(*v12.HistogramRecord)(nil),   // 7: swanlab.metric.data.v1.HistogramRecord
-	(*v13.LogRecord)(nil),         // 8: swanlab.terminal.v1.LogRecord
-	(*v14.SaveRecord)(nil),        // 9: swanlab.save.v1.SaveRecord
+	(*v12.ScoreRecord)(nil),       // 8: swanlab.metric.data.v1.ScoreRecord
+	(*v13.LogRecord)(nil),         // 9: swanlab.terminal.v1.LogRecord
+	(*v14.SaveRecord)(nil),        // 10: swanlab.save.v1.SaveRecord
 }
 var file_swanlab_record_v1_record_proto_depIdxs = []int32{
-	1, // 0: swanlab.record.v1.Record.timestamp:type_name -> google.protobuf.Timestamp
-	2, // 1: swanlab.record.v1.Record.start:type_name -> swanlab.run.v1.StartRecord
-	3, // 2: swanlab.record.v1.Record.finish:type_name -> swanlab.run.v1.FinishRecord
-	4, // 3: swanlab.record.v1.Record.column:type_name -> swanlab.metric.column.v1.ColumnRecord
-	5, // 4: swanlab.record.v1.Record.scalar:type_name -> swanlab.metric.data.v1.ScalarRecord
-	6, // 5: swanlab.record.v1.Record.media:type_name -> swanlab.metric.data.v1.MediaRecord
-	7, // 6: swanlab.record.v1.Record.histogram:type_name -> swanlab.metric.data.v1.HistogramRecord
-	8, // 7: swanlab.record.v1.Record.log:type_name -> swanlab.terminal.v1.LogRecord
-	9, // 8: swanlab.record.v1.Record.save:type_name -> swanlab.save.v1.SaveRecord
-	9, // [9:9] is the sub-list for method output_type
-	9, // [9:9] is the sub-list for method input_type
-	9, // [9:9] is the sub-list for extension type_name
-	9, // [9:9] is the sub-list for extension extendee
-	0, // [0:9] is the sub-list for field type_name
+	1,  // 0: swanlab.record.v1.Record.timestamp:type_name -> google.protobuf.Timestamp
+	2,  // 1: swanlab.record.v1.Record.start:type_name -> swanlab.run.v1.StartRecord
+	3,  // 2: swanlab.record.v1.Record.finish:type_name -> swanlab.run.v1.FinishRecord
+	4,  // 3: swanlab.record.v1.Record.column:type_name -> swanlab.metric.column.v1.ColumnRecord
+	5,  // 4: swanlab.record.v1.Record.scalar:type_name -> swanlab.metric.data.v1.ScalarRecord
+	6,  // 5: swanlab.record.v1.Record.media:type_name -> swanlab.metric.data.v1.MediaRecord
+	7,  // 6: swanlab.record.v1.Record.histogram:type_name -> swanlab.metric.data.v1.HistogramRecord
+	8,  // 7: swanlab.record.v1.Record.score:type_name -> swanlab.metric.data.v1.ScoreRecord
+	9,  // 8: swanlab.record.v1.Record.log:type_name -> swanlab.terminal.v1.LogRecord
+	10, // 9: swanlab.record.v1.Record.save:type_name -> swanlab.save.v1.SaveRecord
+	10, // [10:10] is the sub-list for method output_type
+	10, // [10:10] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_swanlab_record_v1_record_proto_init() }
@@ -318,6 +337,7 @@ func file_swanlab_record_v1_record_proto_init() {
 		(*Record_Scalar)(nil),
 		(*Record_Media)(nil),
 		(*Record_Histogram)(nil),
+		(*Record_Score)(nil),
 		(*Record_Log)(nil),
 		(*Record_Save)(nil),
 	}
