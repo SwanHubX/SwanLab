@@ -81,4 +81,5 @@ class RunEmitter(EmitterProtocol):
                 self._dropped = 0
                 self._drop_warn_at = now
         if count > 0:
-            console.warning(f"Dropped {count} event(s): background consumer is not running")
+            with console.skip_capture():
+                console.warning(f"Dropped {count} event(s): background consumer is not running")

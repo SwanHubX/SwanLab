@@ -257,11 +257,12 @@ class BackgroundConsumer(ConsumerProtocol):
             self._dropped_records += 1
             now = self._clock()
             if self._drop_warn_at is None or now - self._drop_warn_at >= _DROP_WARNING_INTERVAL:
-                console.warning(
-                    f"Dropping {self._dropped_records} buffered record(s): "
-                    f"consumer backlog exceeds {self._max_buffered_records} records "
-                    f"or {self._max_buffered_bytes} bytes"
-                )
+                with console.skip_capture():
+                    console.warning(
+                        f"Dropping {self._dropped_records} buffered record(s): "
+                        f"consumer backlog exceeds {self._max_buffered_records} records "
+                        f"or {self._max_buffered_bytes} bytes"
+                    )
                 self._dropped_records = 0
                 self._drop_warn_at = now
             return
@@ -350,7 +351,8 @@ class BackgroundConsumer(ConsumerProtocol):
                 if self._batch_full and self._retry_due():
                     self._flush()
         if not self._batch_empty:
-            console.warning(f"Core did not accept {self._batch_len} buffered record(s) before shutdown")
+            with console.skip_capture():
+                console.warning(f"Core did not accept {self._batch_len} buffered record(s) before shutdown")
         # 线程退出时清理状态
         self._resolver.clear()
 
@@ -562,7 +564,10 @@ class BackgroundConsumer(ConsumerProtocol):
                             retryable_error = exc
                     else:
                         # 确定性拒绝：只丢弃被拒绝的分片，剩余记录继续回塞
-                        console.warning(f"Dropping {name} records after terminal failure: count={len(chunk)}: {exc}")
+                        with console.skip_capture():
+                            console.warning(
+                                f"Dropping {name} records after terminal failure: count={len(chunk)}: {exc}"
+                            )
                         if records[start + len(chunk) :]:
                             restored.append((name, records[start + len(chunk) :]))
                     return

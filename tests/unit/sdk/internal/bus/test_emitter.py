@@ -91,3 +91,16 @@ def test_emit_unblocks_and_drops_if_consumer_exits_while_queue_full(monkeypatch)
         assert "consumer is not running" in warnings[0][0]
     finally:
         thread.join(timeout=1.0)
+
+
+def test_drop_warning_is_not_captured_as_user_log(monkeypatch):
+    """丢弃告警不能被终端代理采集成日志，否则会形成告警自循环。"""
+    seen = []
+    monkeypatch.setattr(pkg_console, "warning", lambda *args, **kwargs: seen.append(pkg_console.capture_skipped()))
+    emitter = RunEmitter()
+    emitter.set_consumer_guard(lambda: False)
+
+    emitter.emit(_event("event"))
+
+    assert seen == [True]
+    assert pkg_console.capture_skipped() is False

@@ -463,10 +463,11 @@ class Run:
         elif not self._cloud_failure_reported and self._cloud_state == CLOUD_STATE_FAILED:
             self._cloud_failure_reported = True
             detail = f": {self._cloud_error}" if self._cloud_error else ""
-            console.error(f"❌ Failed to connect to SwanLab online service{detail}.")
-            console.warning(
-                f"⚠️ Records saved to {self._ctx.run_dir}; upload later with `swanlab sync {self._ctx.run_dir}`."
-            )
+            with console.skip_capture():
+                console.error(f"❌ Failed to connect to SwanLab online service{detail}.")
+                console.warning(
+                    f"⚠️ Records saved to {self._ctx.run_dir}; upload later with `swanlab sync {self._ctx.run_dir}`."
+                )
 
         # attach 失败不额外刷上传失败/暂停告警
         if stats.HasField("cloud") and stats.cloud.state in (CLOUD_STATE_PENDING, CLOUD_STATE_FAILED):
@@ -478,12 +479,14 @@ class Run:
                 now = time.monotonic()
                 if not self._upload_degraded or now - self._last_upload_warn_at >= self._UPLOAD_WARN_INTERVAL:
                     self._last_upload_warn_at = now
-                    if suspended:
-                        console.warning(
-                            "🚨 Upload paused due to network or server issues; data is saved locally and will resume automatically."
-                        )
-                    else:
-                        console.warning("🚨 Upload failed due to network or server issues, retrying automatically.")
+                    with console.skip_capture():
+                        if suspended:
+                            console.warning(
+                                "🚨 Upload paused due to network or server issues; "
+                                "data is saved locally and will resume automatically."
+                            )
+                        else:
+                            console.warning("🚨 Upload failed due to network or server issues, retrying automatically.")
                 self._upload_degraded = True
             elif self._upload_degraded:
                 self._upload_degraded = False
