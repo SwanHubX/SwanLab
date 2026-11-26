@@ -184,11 +184,11 @@ func EndOffset(path string, idx *OffsetIndex, seq int64, limit int64) (int64, er
 	defer func() { _ = r.Close() }()
 
 	for cur < seq {
-		if _, scanErr := r.Scan(); scanErr != nil {
-			if errors.Is(scanErr, io.EOF) {
+		if skipErr := r.Skip(); skipErr != nil {
+			if errors.Is(skipErr, io.EOF) {
 				return 0, fmt.Errorf("store: %w: reached EOF at seq %d before %d", ErrTruncated, cur, seq)
 			}
-			return 0, scanErr
+			return 0, skipErr
 		}
 		cur++
 	}

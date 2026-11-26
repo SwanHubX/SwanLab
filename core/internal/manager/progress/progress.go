@@ -15,10 +15,10 @@ import (
 // 立即视作已完结，以免阻塞连续水位前进。
 type Tracker struct {
 	mu       sync.Mutex
-	next     int64                      // 下一个等待完结的 storeSeq；连续确认水位为 next - 1
-	ptrs     map[*recordv1.Record]int64 // 活跃记录指针 -> storeSeq
-	seqPtr   map[int64]*recordv1.Record // storeSeq -> 活跃指针，便于 backfill 重放替换旧指针
-	resolved map[int64]struct{}         // 已完结但前面仍有缺口的 storeSeq
+	next     int64                        // 下一个等待完结的 storeSeq；连续确认水位为 next - 1
+	ptrs     map[*recordv1.Record]int64   // 活跃记录指针 -> storeSeq
+	seqPtrs  map[int64][]*recordv1.Record // storeSeq -> 活跃指针列表，保留同序号多指针直到任一确认
+	resolved map[int64]struct{}           // 已完结但前面仍有缺口的 storeSeq
 }
 
 // NewTracker 构造以 baseSeq 为初始连续水位的进度追踪器。
@@ -26,13 +26,13 @@ func NewTracker(baseSeq int64) *Tracker {
 	return &Tracker{
 		next:     baseSeq + 1,
 		ptrs:     make(map[*recordv1.Record]int64),
-		seqPtr:   make(map[int64]*recordv1.Record),
+		seqPtrs:  make(map[int64][]*recordv1.Record),
 		resolved: make(map[int64]struct{}),
 	}
 }
 
 // OnStored 注册一条已分配 storeSeq 的记录。
-// 对同一 seq 重复注册（例如 backfill 从本地文件重读并构造新指针）会替换旧指针。
+// 同一序号重复注册不同指针时保留旧指针映射，任一指针确认即清理同一序号关联的所有指针。
 // 非实时上传类型会立即视作已完结。
 func (p *Tracker) OnStored(rec *recordv1.Record, seq int64) {
 	if p == nil || rec == nil || seq <= 0 {
@@ -45,21 +45,18 @@ func (p *Tracker) OnStored(rec *recordv1.Record, seq int64) {
 		return
 	}
 	if !record.IsImmediateUploadable(rec) {
-		p.clearSeqPtrLocked(seq)
+		p.clearSeqPtrsLocked(seq)
 		p.resolveSeqLocked(seq)
 		return
 	}
 	if _, done := p.resolved[seq]; done {
 		return
 	}
-	if old := p.seqPtr[seq]; old != nil {
-		if old == rec {
-			return
-		}
-		delete(p.ptrs, old)
+	if existing, ok := p.ptrs[rec]; ok && existing == seq {
+		return
 	}
 	p.ptrs[rec] = seq
-	p.seqPtr[seq] = rec
+	p.seqPtrs[seq] = append(p.seqPtrs[seq], rec)
 }
 
 // Resolve 标记一批记录已完成上传确认或确定性终结。
@@ -104,16 +101,15 @@ func (p *Tracker) resolvePtrLocked(rec *recordv1.Record) {
 	if !ok {
 		return
 	}
-	delete(p.ptrs, rec)
-	delete(p.seqPtr, seq)
+	p.clearSeqPtrsLocked(seq)
 	p.resolveSeqLocked(seq)
 }
 
-func (p *Tracker) clearSeqPtrLocked(seq int64) {
-	if old := p.seqPtr[seq]; old != nil {
-		delete(p.ptrs, old)
-		delete(p.seqPtr, seq)
+func (p *Tracker) clearSeqPtrsLocked(seq int64) {
+	for _, ptr := range p.seqPtrs[seq] {
+		delete(p.ptrs, ptr)
 	}
+	delete(p.seqPtrs, seq)
 }
 
 func (p *Tracker) resolveSeqLocked(seq int64) {

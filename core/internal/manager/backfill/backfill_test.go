@@ -3,6 +3,7 @@ package backfill
 import (
 	"context"
 	"errors"
+	"os"
 	"path/filepath"
 	"sync"
 	"sync/atomic"
@@ -14,8 +15,12 @@ import (
 
 	"github.com/swanhubx/swanlab/core/internal/budget"
 	"github.com/swanhubx/swanlab/core/internal/buffer"
+	"github.com/swanhubx/swanlab/core/internal/config"
 	"github.com/swanhubx/swanlab/core/internal/manager/progress"
+	"github.com/swanhubx/swanlab/core/internal/manager/resume"
+	"github.com/swanhubx/swanlab/core/internal/metrics"
 	"github.com/swanhubx/swanlab/core/internal/pkg/record"
+	"github.com/swanhubx/swanlab/core/internal/runctx"
 	"github.com/swanhubx/swanlab/core/internal/store"
 	columnv1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/column/v1"
 	datav1 "github.com/swanhubx/swanlab/core/proto/swanlab/metric/data/v1"
@@ -121,14 +126,15 @@ func TestScanFiltersRecordsAndRespectsFlushedBound(t *testing.T) {
 	})
 	_, flushedOff := async.Flushed()
 
-	cursor, err := w.newCursor(2)
+	ctx := context.Background()
+	cursor, err := w.newCursor(ctx, 2)
 	if err != nil {
 		t.Fatalf("newCursor: %v", err)
 	}
 	if cursor.Seq != 1 {
 		t.Fatalf("cursor seq = %d, want 1", cursor.Seq)
 	}
-	records, _, err := w.scan(&cursor, flushedOff, 16)
+	records, _, err := w.scan(ctx, &cursor, flushedOff, 16)
 	if err != nil {
 		t.Fatalf("scan: %v", err)
 	}
@@ -138,21 +144,21 @@ func TestScanFiltersRecordsAndRespectsFlushedBound(t *testing.T) {
 	if cursor.Seq != 5 {
 		t.Fatalf("cursor seq = %d, want 5 after full scan", cursor.Seq)
 	}
-	// newCursor(2) 先扫描了 seq 1，scan 再扫描 seq 2..5。
-	if len(storedSeqs) != 5 {
-		t.Fatalf("onStored calls = %d, want 5 (seqs 1..5)", len(storedSeqs))
+	// newCursor(2) 仅推进帧偏移、不触发 onStored；scan 扫描 seq 2..5。
+	if len(storedSeqs) != 4 || storedSeqs[0] != 2 || storedSeqs[3] != 5 {
+		t.Fatalf("onStored seqs = %v, want [2 3 4 5]", storedSeqs)
 	}
 
 	// 上界落在最后一条记录中间：不能消费该记录，也不能越过上界。
 	partial := Cursor{Offset: store.HeaderLen}
-	records, _, err = w.scan(&partial, flushedOff-1, 16)
+	records, _, err = w.scan(ctx, &partial, flushedOff-1, 16)
 	if err != nil {
 		t.Fatalf("partial scan: %v", err)
 	}
 	if partial.Seq != 4 || len(records) != 2 {
 		t.Fatalf("partial = (seq=%d, len=%d), want (4, 2)", partial.Seq, len(records))
 	}
-	records, _, err = w.scan(&partial, flushedOff, 16)
+	records, _, err = w.scan(ctx, &partial, flushedOff, 16)
 	if err != nil {
 		t.Fatalf("resume scan: %v", err)
 	}
@@ -533,5 +539,160 @@ func TestPausedWritesKeepProgressTrackerBoundedAndResumeWatermark(t *testing.T) 
 	wantWatermark := int64(2 + pausedScalars + 1)
 	if got := tracker.Watermark(); got != wantWatermark {
 		t.Fatalf("final watermark = %d, want %d", got, wantWatermark)
+	}
+}
+
+func TestNewCursorPreservesPrePauseProgressAndAdvancesCheckpoint(t *testing.T) {
+	pre1, pre2 := testScalar(1), testScalar(2)
+	post3, post4 := testScalar(3), testScalar(4)
+	async, path := newScanStore(t, []*recordv1.Record{pre1, pre2, post3, post4})
+	_, flushedOff := async.Flushed()
+
+	tracker := progress.NewTracker(0)
+	// 暂停前记录仍停留在上传管线中，尚未确认。
+	tracker.OnStored(pre1, 1)
+	tracker.OnStored(pre2, 2)
+
+	w := New(Options{
+		Store:     async,
+		RunFile:   path,
+		BatchSize: 16,
+		OnStored:  tracker.OnStored,
+	})
+	ctx := context.Background()
+	cursor, err := w.newCursor(ctx, 3)
+	if err != nil {
+		t.Fatalf("newCursor: %v", err)
+	}
+	replayed, _, err := w.scan(ctx, &cursor, flushedOff, 16)
+	if err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+	if len(replayed) != 2 {
+		t.Fatalf("replayed len = %d, want 2", len(replayed))
+	}
+
+	// 先确认暂停后的补投记录，再确认暂停前的原始指针：水位必须追平到 4。
+	tracker.Resolve(replayed)
+	if got := tracker.Watermark(); got != 0 {
+		t.Fatalf("watermark before pre-pause confirm = %d, want 0", got)
+	}
+	tracker.Resolve([]*recordv1.Record{pre1, pre2})
+	if got := tracker.Watermark(); got != 4 {
+		t.Fatalf("final watermark = %d, want 4", got)
+	}
+
+	cpOff, err := store.EndOffset(path, async.Index(), tracker.Watermark(), flushedOff)
+	if err != nil {
+		t.Fatalf("EndOffset: %v", err)
+	}
+	cpFile := filepath.Join(filepath.Dir(path), "checkpoint.json")
+	if err = store.WriteCheckpointFast(cpFile, store.Checkpoint{
+		RunID:    "run-cp",
+		StoreSeq: tracker.Watermark(),
+		Offset:   cpOff,
+	}); err != nil {
+		t.Fatalf("WriteCheckpointFast: %v", err)
+	}
+	cp, ok, err := store.LoadCheckpoint(cpFile, "run-cp")
+	if err != nil || !ok || cp.StoreSeq != 4 || cp.Offset != flushedOff {
+		t.Fatalf("checkpoint = (%+v, %v, %v), want StoreSeq=4 Offset=%d", cp, ok, err, flushedOff)
+	}
+}
+
+func TestScanAndSkipRespectContextCancellation(t *testing.T) {
+	async, path := newScanStore(t, []*recordv1.Record{testStart(), testScalar(1), testScalar(2), testScalar(3)})
+	_, flushedOff := async.Flushed()
+	w := New(Options{Store: async, RunFile: path, BatchSize: 16})
+
+	canceled, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	if _, err := w.newCursor(canceled, 4); !errors.Is(err, context.Canceled) {
+		t.Fatalf("newCursor canceled err = %v, want context.Canceled", err)
+	}
+	c := Cursor{Offset: store.HeaderLen}
+	if _, _, err := w.scan(canceled, &c, flushedOff, 16); !errors.Is(err, context.Canceled) {
+		t.Fatalf("scan canceled err = %v, want context.Canceled", err)
+	}
+}
+
+func TestResume100kRecordsPauseNewCursorDecodesZero(t *testing.T) {
+	const total = 100_000
+	cfg := config.Defaults()
+	cfg.RunID = "run-100k"
+	cfg.RunDir = filepath.Join(t.TempDir(), "run")
+	run, err := runctx.New(cfg)
+	if err != nil {
+		t.Fatalf("runctx.New: %v", err)
+	}
+	runFile, err := run.RunFile()
+	if err != nil {
+		t.Fatalf("RunFile: %v", err)
+	}
+	if err = os.MkdirAll(filepath.Dir(runFile), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	writer, err := store.Create(runFile)
+	if err != nil {
+		t.Fatalf("store.Create: %v", err)
+	}
+	startPayload, err := proto.Marshal(testStart())
+	if err != nil {
+		_ = writer.Close()
+		t.Fatalf("marshal start: %v", err)
+	}
+	if err = writer.Write(startPayload); err != nil {
+		_ = writer.Close()
+		t.Fatalf("write start: %v", err)
+	}
+	scalarPayload, err := proto.Marshal(testScalar(1))
+	if err != nil {
+		_ = writer.Close()
+		t.Fatalf("marshal scalar: %v", err)
+	}
+	for i := 2; i <= total; i++ {
+		if err = writer.Write(scalarPayload); err != nil {
+			_ = writer.Close()
+			t.Fatalf("write[%d]: %v", i, err)
+		}
+	}
+	if err = writer.Close(); err != nil {
+		t.Fatalf("writer.Close: %v", err)
+	}
+
+	local, err := metrics.Rebuild(runFile)
+	if err != nil {
+		t.Fatalf("Rebuild: %v", err)
+	}
+	opened, err := resume.OpenStore(resume.StoreOptions{Run: run, Resume: local, Queue: 16})
+	if err != nil {
+		t.Fatalf("OpenStore: %v", err)
+	}
+	defer func() { _ = opened.Writer.Close() }()
+
+	// 续传后立即写入第 100,001 条记录并触发暂停，此时 flushedSeq 推进至 100,001。
+	opened.Writer.In() <- store.Request{StoreSeq: total + 1, Payload: scalarPayload}
+	if err = opened.Writer.FlushForTest(); err != nil {
+		t.Fatalf("FlushForTest: %v", err)
+	}
+
+	var decodedCalls int
+	w := New(Options{
+		Store:   opened.Writer,
+		RunFile: runFile,
+		OnStored: func(*recordv1.Record, int64) {
+			decodedCalls++
+		},
+	})
+	cursor, err := w.newCursor(context.Background(), total+1)
+	if err != nil {
+		t.Fatalf("newCursor: %v", err)
+	}
+	if cursor.Seq != total || cursor.Offset != local.EndOffset {
+		t.Fatalf("cursor = %+v, want Seq=%d Offset=%d", cursor, total, local.EndOffset)
+	}
+	if decodedCalls != 0 {
+		t.Fatalf("newCursor decoded/onStored calls = %d, want 0", decodedCalls)
 	}
 }

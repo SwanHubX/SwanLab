@@ -340,6 +340,9 @@ func TestOpenStoreCreateAndAppend(t *testing.T) {
 	if appended.Created {
 		t.Fatal("append OpenedStore.Created = true, want false")
 	}
+	if appended.Writer.Index() != local.Index {
+		t.Fatal("OpenStore(append) must preserve Rebuild OffsetIndex on AsyncWriter")
+	}
 	_ = appended.Writer.Close()
 
 	skipped, err := OpenStore(StoreOptions{SkipStore: true, Run: run, Queue: 16})

@@ -106,7 +106,7 @@ func ResolveCheckpoint(checkpointFile, runID, runFile string, local *metrics.Reb
 		console.Debugf("resume: no matching checkpoint at %s, replaying from file head", checkpointFile)
 		return fallback()
 	}
-	exactOff, endErr := store.EndOffset(runFile, nil, cp.StoreSeq, local.EndOffset)
+	exactOff, endErr := store.EndOffset(runFile, local.Index, cp.StoreSeq, local.EndOffset)
 	if endErr != nil || cp.Offset != exactOff {
 		console.Debugf("resume: invalid checkpoint (seq=%d off=%d expected=%d err=%v), replaying from file head",
 			cp.StoreSeq, cp.Offset, exactOff, endErr)
@@ -174,9 +174,11 @@ func OpenStore(opts StoreOptions) (OpenedStore, error) {
 		writer    *store.Writer
 		created   bool
 		resumeSeq int64
+		index     *store.OffsetIndex
 	)
 	if opts.Resume != nil {
 		resumeSeq = opts.Resume.Records
+		index = opts.Resume.Index
 		writer, err = store.OpenAppend(runFile, opts.Resume.EndOffset)
 		if err != nil {
 			return OpenedStore{}, fmt.Errorf("open run file for append: %w", err)
@@ -195,6 +197,7 @@ func OpenStore(opts StoreOptions) (OpenedStore, error) {
 	async, err := store.NewAsyncWriter(writer, store.AsyncOptions{
 		Queue:     opts.Queue,
 		ResumeSeq: resumeSeq,
+		Index:     index,
 		OnError:   opts.OnError,
 	})
 	if err != nil {

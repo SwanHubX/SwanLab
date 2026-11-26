@@ -276,9 +276,10 @@ func (w *Writer) Close() error {
 //   - ErrTruncated：记录中间结束，此前记录有效；
 //   - ErrCorrupt：帧结构非法或 CRC 不符，其后数据不可信。
 type Reader struct {
-	fp    *os.File
-	br    *bufio.Reader
-	index int64
+	fp        *os.File
+	br        *bufio.Reader
+	index     int64
+	lastStart int64
 }
 
 // Open 打开日志文件并从第一条记录开始读取，不设上界。
@@ -319,6 +320,9 @@ func OpenOffset(path string, offset, limit int64) (*Reader, error) {
 // Position 返回下一条记录的起始偏移。
 func (r *Reader) Position() int64 { return r.index }
 
+// RecordStart 返回最近一次 Scan 或 Skip 读取的记录起始偏移（跳过块尾填充后）。
+func (r *Reader) RecordStart() int64 { return r.lastStart }
+
 // Close 关闭底层文件。可重复调用。
 func (r *Reader) Close() error {
 	if r.fp == nil {
@@ -335,6 +339,7 @@ func (r *Reader) Scan() ([]byte, error) {
 		return nil, err
 	}
 	start := r.index
+	r.lastStart = start
 	typ, payload, err := r.readChunk()
 	if err != nil {
 		return nil, err
@@ -364,6 +369,71 @@ func (r *Reader) Scan() ([]byte, error) {
 			return nil, fmt.Errorf("%w: expected MIDDLE or LAST chunk, got type %d at offset %d", ErrCorrupt, typ, r.index)
 		}
 	}
+}
+
+// Skip 跳过下一条完整记录的帧结构并推进 Position，不分配 payload 缓冲也不解码 protobuf。
+func (r *Reader) Skip() error {
+	if err := r.skipPadding(); err != nil {
+		return err
+	}
+	start := r.index
+	r.lastStart = start
+	typ, err := r.skipChunk()
+	if err != nil {
+		return err
+	}
+	switch typ {
+	case chunkFull:
+		return nil
+	case chunkFirst:
+	default:
+		return fmt.Errorf("%w: expected FULL or FIRST chunk, got type %d at offset %d", ErrCorrupt, typ, start)
+	}
+	for {
+		typ, err = r.skipChunk()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return fmt.Errorf("%w: FIRST chunk without LAST at offset %d", ErrTruncated, start)
+			}
+			return err
+		}
+		switch typ {
+		case chunkLast:
+			return nil
+		case chunkMiddle:
+		default:
+			return fmt.Errorf("%w: expected MIDDLE or LAST chunk, got type %d at offset %d", ErrCorrupt, typ, r.index)
+		}
+	}
+}
+
+// skipChunk 读取一个 chunk 头并丢弃其 payload，用于仅推进偏移的定位扫描。
+func (r *Reader) skipChunk() (byte, error) {
+	var h [HeaderLen]byte
+	n, err := io.ReadFull(r.br, h[:])
+	if err != nil {
+		if n == 0 {
+			return 0, io.EOF
+		}
+		return 0, fmt.Errorf("%w: chunk header at offset %d: %v", ErrTruncated, r.index, err)
+	}
+	start := r.index
+	length := int(binary.LittleEndian.Uint16(h[4:6]))
+	typ := h[6]
+	if typ < chunkFull || typ > chunkLast {
+		return 0, fmt.Errorf("%w: invalid chunk type %d at offset %d", ErrCorrupt, typ, start)
+	}
+	if length > 0 {
+		discarded, derr := r.br.Discard(length)
+		if derr != nil {
+			return 0, fmt.Errorf("%w: chunk payload at offset %d: %v", ErrTruncated, start, derr)
+		}
+		if discarded != length {
+			return 0, fmt.Errorf("%w: chunk payload at offset %d: %v", ErrTruncated, start, io.ErrUnexpectedEOF)
+		}
+	}
+	r.index += int64(HeaderLen + length)
+	return typ, nil
 }
 
 func readHeader(r io.Reader) error {

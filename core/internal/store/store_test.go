@@ -666,3 +666,42 @@ func TestOpenAppendErrors(t *testing.T) {
 		t.Fatalf("bad header err = %v, want ErrBadHeader", err)
 	}
 }
+
+func TestReaderSkipMatchesScanPositions(t *testing.T) {
+	items := [][]byte{
+		payloadN(24),
+		payloadN(90_000), // 跨块 FIRST/MIDDLE/LAST
+		payloadN(17),
+		payloadN(BlockLen - HeaderLen - 3), // 触发下一条前置补零
+		payloadN(40),
+	}
+	path, _ := writeFile(t, items...)
+
+	scanReader, err := Open(path)
+	if err != nil {
+		t.Fatalf("Open scan: %v", err)
+	}
+	defer func() { _ = scanReader.Close() }()
+
+	skipReader, err := Open(path)
+	if err != nil {
+		t.Fatalf("Open skip: %v", err)
+	}
+	defer func() { _ = skipReader.Close() }()
+
+	for i := range items {
+		if _, serr := scanReader.Scan(); serr != nil {
+			t.Fatalf("Scan[%d]: %v", i, serr)
+		}
+		if kerr := skipReader.Skip(); kerr != nil {
+			t.Fatalf("Skip[%d]: %v", i, kerr)
+		}
+		if skipReader.RecordStart() != scanReader.RecordStart() || skipReader.Position() != scanReader.Position() {
+			t.Fatalf("record %d offset mismatch: skip=(%d,%d) scan=(%d,%d)",
+				i, skipReader.RecordStart(), skipReader.Position(), scanReader.RecordStart(), scanReader.Position())
+		}
+	}
+	if err := skipReader.Skip(); !errors.Is(err, io.EOF) {
+		t.Fatalf("Skip at EOF err=%v, want io.EOF", err)
+	}
+}
