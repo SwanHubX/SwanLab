@@ -15,6 +15,7 @@ from .events import (
     MetricDefineEvent,
     MetricLogEvent,
     ParseResult,
+    ScoreLogEvent,
 )
 
 __all__ = [
@@ -24,6 +25,7 @@ __all__ = [
     "MetricLogEvent",
     "MetricDefineEvent",
     "ConfigEvent",
+    "ScoreLogEvent",
     "LogEvent",
     "FileSaveEvent",
     "EventPayload",

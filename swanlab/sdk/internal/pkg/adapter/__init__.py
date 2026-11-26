@@ -7,6 +7,7 @@
 两者需要适配和转换
 """
 
+from swanlab.proto.swanlab.eval.v1.eval_pb2 import EvalRunState
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnType
 from swanlab.proto.swanlab.probe.v1.metadata_pb2 import AcceleratorVendor, MemoryUnit
 from swanlab.proto.swanlab.run.v1.run_pb2 import ResumeMode, RunState
@@ -15,7 +16,17 @@ from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogLevel
 
 from .bimap import BiMap
 
-__all__ = ["resume", "medium", "column", "state", "level", "policy", "memory_unit", "accelerator_vendor"]
+__all__ = [
+    "resume",
+    "medium",
+    "column",
+    "state",
+    "eval_state",
+    "level",
+    "policy",
+    "memory_unit",
+    "accelerator_vendor",
+]
 
 
 resume = BiMap(
@@ -35,6 +46,15 @@ state = BiMap(
     }
 )
 """RunState 枚举适配器"""
+
+eval_state = BiMap(
+    {
+        "success": EvalRunState.EVAL_RUN_STATE_FINISHED,
+        "crashed": EvalRunState.EVAL_RUN_STATE_CRASHED,
+        "aborted": EvalRunState.EVAL_RUN_STATE_ABORTED,
+    }
+)
+"""EvalRunState 枚举适配器"""
 
 
 column = BiMap(

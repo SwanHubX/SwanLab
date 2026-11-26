@@ -5,7 +5,9 @@
 @description: SwanLab SDK 辅助函数
 """
 
+import math
 from pathlib import Path, PurePosixPath
+from typing import Any
 
 from .env import DEBUG, is_interactive, is_jupyter
 from .impl import apply_requirement, get_core_impl, get_probe_impl, set_core_impl, set_probe_impl
@@ -21,6 +23,7 @@ __all__ = [
     "strip_none",
     "fmt_run_path",
     "fmt_system_key",
+    "to_score_value",
     "get_swanlab_version",
     "get_swanlab_latest_version",
     "get_probe_impl",
@@ -91,3 +94,26 @@ def mkdir_and_append_gitignore(path: Path):
         # 忽略目录下所有文件
         ignore_content = "*"
         safe_write(gitignore_path, ignore_content)
+
+
+def to_score_value(value: Any) -> float:
+    """
+    把单个评测指标值转换为有限浮点数。
+
+    布尔值转为 1.0 与 0.0，Tensor 与 ndarray 经由 .item() 取值，字符串尝试转为数字。
+    NaN 与 ±Inf 一律归一为 NaN，后端只接受有限数值或字符串 "nan"。
+    """
+    if hasattr(value, "item") and callable(value.item):
+        value = value.item()
+    if isinstance(value, bool):
+        number = float(value)
+    elif isinstance(value, (int, float)):
+        number = float(value)
+    elif isinstance(value, str):
+        try:
+            number = float(value)
+        except ValueError:
+            raise TypeError(f"Unsupported score string value: '{value}'.")
+    else:
+        raise TypeError(f"Unsupported score type: {type(value).__name__}.")
+    return math.nan if not math.isfinite(number) else number

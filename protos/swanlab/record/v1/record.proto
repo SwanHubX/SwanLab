@@ -4,6 +4,7 @@ package swanlab.record.v1;
 
 import "google/protobuf/timestamp.proto";
 import "swanlab/run/v1/run.proto";
+import "swanlab/eval/v1/eval.proto";
 import "swanlab/metric/data/v1/data.proto";
 import "swanlab/metric/column/v1/column.proto";
 import "swanlab/terminal/v1/log.proto";
@@ -29,6 +30,8 @@ message Record {
     // 4. metadata save 的 num 为-4
     // 5. requirements save 的 num 为-5
     // 6. conda save 的 num 为-6
+    // 7. EvalStartRecord 的 num 为-7
+    // 8. EvalFinishRecord 的 num 为-8
     // 上述记录为全局唯一、去重Record，其余Record 的 num 为 1 开始的递增序号，小于-100的负数范围被用于特殊场景，例如sync时自动构建column record
     int64 num = 1;
     // Record 生成时间，仅作参考
@@ -39,11 +42,16 @@ message Record {
         swanlab.run.v1.StartRecord start   = 10;
         swanlab.run.v1.FinishRecord finish = 11;
 
+        // ── Eval 生命周期 ──
+        swanlab.eval.v1.EvalStartRecord eval_start   = 22;
+        swanlab.eval.v1.EvalFinishRecord eval_finish = 24;
+
         // ── 用户数据 ──
         swanlab.metric.column.v1.ColumnRecord column = 12;
         swanlab.metric.data.v1.ScalarRecord scalar   = 13;
         swanlab.metric.data.v1.MediaRecord media     = 14;
         swanlab.metric.data.v1.HistogramRecord histogram = 21;
+        swanlab.metric.data.v1.ScoreRecord score     = 23;
 
         // ── 终端输出 ──
         swanlab.terminal.v1.LogRecord log = 16;

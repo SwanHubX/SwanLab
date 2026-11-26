@@ -20,8 +20,14 @@ Core 同时需要根据不同模式处理不同的业务，这是设计模式决
 
 from typing import List, Optional
 
+from swanlab.proto.swanlab.eval.v1.eval_pb2 import EvalFinishRecord, EvalStartRecord
 from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
+    ConfirmEvalFinishResponse,
     ConfirmRunFinishResponse,
+    DeliverEvalFinishRequest,
+    DeliverEvalFinishResponse,
+    DeliverEvalStartRequest,
+    DeliverEvalStartResponse,
     DeliverRunFinishRequest,
     DeliverRunFinishResponse,
     DeliverRunStartRequest,
@@ -29,7 +35,12 @@ from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
     GetOperationStatsResponse,
 )
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnClass, ColumnRecord, ColumnType
-from swanlab.proto.swanlab.metric.data.v1.data_pb2 import HistogramRecord, MediaRecord, ScalarRecord
+from swanlab.proto.swanlab.metric.data.v1.data_pb2 import (
+    HistogramRecord,
+    MediaRecord,
+    ScalarRecord,
+    ScoreRecord,
+)
 from swanlab.proto.swanlab.operation.v1.operation_pb2 import CoreState
 from swanlab.proto.swanlab.record.v1.record_pb2 import Record
 from swanlab.proto.swanlab.run.v1.run_pb2 import FinishRecord, RunState, StartRecord
@@ -47,7 +58,11 @@ from swanlab.sdk.internal.core_python.pkg import builder, counter, errors
 from swanlab.sdk.internal.core_python.store import DataStoreWriter, DataStoreWriterProtocol, NullDataStoreWriter
 from swanlab.sdk.internal.core_python.transport import Transport
 from swanlab.sdk.internal.core_python.transport.tracker import UploadTracker
-from swanlab.sdk.internal.core_python.utils import generate_run_online_path, prepare_experiment_start
+from swanlab.sdk.internal.core_python.utils import (
+    generate_run_online_path,
+    prepare_eval_start,
+    prepare_experiment_start,
+)
 from swanlab.sdk.internal.core_python.watcher import (
     FileWatcher,
     FileWatcherProtocol,
@@ -231,6 +246,95 @@ class CorePython(CoreProtocol):
             global_step=global_step,
             global_system_step=global_system_step,
             new_experiment=run_info.new_experiment,
+        )
+
+    # ---------------------------------- 评估开始 ----------------------------------
+
+    def deliver_eval_start(self, start_request: DeliverEvalStartRequest) -> DeliverEvalStartResponse:
+        if self._active:
+            return DeliverEvalStartResponse(success=False, message="Eval has already been active.")
+        resp = super().deliver_eval_start(start_request)
+        # 启动失败统一在这里清理，与具体的模式实现解耦
+        if not resp.success:
+            self._cleanup_failed_start()
+        self._active = resp.success
+        return resp
+
+    def _start_eval_store(self, eval_start_record: EvalStartRecord):
+        # 评估本地保留记录文件与 config.yaml，后者由配置组件写入
+        if self._ctx.config.skip_store:
+            self._store = NullDataStoreWriter()
+        else:
+            self._store = DataStoreWriter()
+        self._store.open(str(self._ctx.run_file))
+        self._store_records([builder.build_eval_start_record(eval_start_record)])
+
+    def _start_eval_without_online(
+        self, start_request: DeliverEvalStartRequest, message: str
+    ) -> DeliverEvalStartResponse:
+        self._ctx = CoreContext.from_proto(start_request.core_settings)
+        resp = DeliverEvalStartResponse(
+            success=True,
+            message=message,
+            eval=start_request.eval_start_record,
+            name=start_request.eval_start_record.name,
+        )
+        self._start_eval_store(resp.eval)
+        return resp
+
+    def _start_eval_when_local(self, start_request: DeliverEvalStartRequest) -> DeliverEvalStartResponse:
+        return self._start_eval_without_online(start_request, "OK, but use local")
+
+    def _start_eval_when_offline(self, start_request: DeliverEvalStartRequest) -> DeliverEvalStartResponse:
+        return self._start_eval_without_online(start_request, "OK, but use offline")
+
+    def _start_eval_when_online(self, start_request: DeliverEvalStartRequest) -> DeliverEvalStartResponse:
+        self._ctx = CoreContext.from_proto(start_request.core_settings)
+        start_errors: list[BaseException] = []
+        resp: Optional[DeliverEvalStartResponse] = None
+        with safe.block(message="Failed to start eval", on_error=start_errors.append):
+            resp = self._report_eval_start(start_request.eval_start_record)
+        if start_errors:
+            return self._start_eval_failure(start_errors[0], errors.classify_start_error(start_errors[0]))
+        assert resp is not None
+
+        # 启动阶段只写本地 eval start record；Transport 在握手成功后才创建
+        self._start_eval_store(resp.eval)
+        self._tracker = UploadTracker()
+        self._tracker.set_state(CoreState.CORE_STATE_RUNNING)
+        self._transport = Transport(ctx=self._ctx, tracker=self._tracker)
+        return resp
+
+    def _report_eval_start(self, record: EvalStartRecord) -> DeliverEvalStartResponse:
+        """
+        评估开始：解析项目并 upsert Eval。
+        :param record: 运行开始记录
+        :return: 运行开始响应
+        """
+        eval_info = prepare_eval_start(record, retries=STARTUP_RETRIES)
+        # 记录必要字段
+        self._ctx.set_online_params(
+            username=eval_info.username,
+            project=eval_info.project,
+            project_id=eval_info.project_data["cuid"],
+            # 评估只使用新版上传通道，项目历史版本缺失时按 1 处理，避免退回 DeprecatedHttpRecordSender
+            project_version=eval_info.project_data.get("version", None) or 1,
+            eval_id=eval_info.eval["cuid"],
+            eval_name=eval_info.eval.get("name") or record.name,
+        )
+
+        # 构建记录
+        eval_record = EvalStartRecord()
+        eval_record.CopyFrom(record)
+        eval_record.project = eval_info.project
+        eval_record.workspace = eval_info.username
+        eval_record.cuid = eval_info.eval["cuid"]
+        eval_record.name = eval_info.eval.get("name") or record.name
+        return DeliverEvalStartResponse(
+            success=True,
+            message="OK",
+            eval=eval_record,
+            name=eval_record.name,
         )
 
     # ---------------------------------- 数据上报 ----------------------------------
@@ -536,6 +640,30 @@ class CorePython(CoreProtocol):
         if self._mode == "online" and self._transport is not None:
             self._transport_put(records)
 
+    # ---- upsert_scores ----
+
+    def upsert_scores(self, scores: List[ScoreRecord]) -> None:
+        if not self._active:
+            console.warning("Core is not active, refusing to upsert scores")
+            return
+        return super().upsert_scores(scores)
+
+    def _upsert_scores_to_records(self, scores_list: List[ScoreRecord]) -> List[Record]:
+        """将一组 ScoreRecord 转换为一组 Record。分数不参与列定义与步号推算。"""
+        records = [builder.build_score_record(self._counter, score) for score in scores_list]
+        self._store_records(records)
+        return records
+
+    def _upsert_scores_when_local(self, scores: List[ScoreRecord]) -> None:
+        self._upsert_scores_to_records(scores)
+
+    def _upsert_scores_when_offline(self, scores: List[ScoreRecord]) -> None:
+        self._upsert_scores_to_records(scores)
+
+    def _upsert_scores_when_online(self, scores: List[ScoreRecord]) -> None:
+        records = self._upsert_scores_to_records(scores)
+        self._transport_put(records)
+
     # ---------------------------------- fork 方法 ----------------------------------
 
     def fork(self) -> "CorePython":
@@ -619,6 +747,53 @@ class CorePython(CoreProtocol):
         # 4. 通知 Transport 开始排空（非阻塞）
         self._transport.request_finish()
         return DeliverRunFinishResponse(success=True, message="OK")
+
+    # ---------------------------------- 评估结束 ----------------------------------
+
+    def deliver_eval_finish(self, finish_request: DeliverEvalFinishRequest) -> DeliverEvalFinishResponse:
+        if not self._active:
+            return DeliverEvalFinishResponse(success=False, message="Eval is not active, refusing to finish.")
+        resp = super().deliver_eval_finish(finish_request)
+        self._active = False
+        return resp
+
+    def _store_eval_finish(self, finish_record: EvalFinishRecord) -> None:
+        if self._store is None:
+            return
+        self._store_records([builder.build_eval_finish_record(finish_record)])
+
+    def _finish_eval_without_online(self, finish_request: DeliverEvalFinishRequest) -> DeliverEvalFinishResponse:
+        self._store_eval_finish(finish_request.finish_record)
+        self._release_local_storage()
+        return DeliverEvalFinishResponse(success=True, message="OK")
+
+    def _finish_eval_when_local(self, finish_request: DeliverEvalFinishRequest) -> DeliverEvalFinishResponse:
+        return self._finish_eval_without_online(finish_request)
+
+    def _finish_eval_when_offline(self, finish_request: DeliverEvalFinishRequest) -> DeliverEvalFinishResponse:
+        return self._finish_eval_without_online(finish_request)
+
+    def _finish_eval_when_online(self, finish_request: DeliverEvalFinishRequest) -> DeliverEvalFinishResponse:
+        """结束记录写入本地，释放本地存储并通知 Transport 排空。"""
+        assert self._transport is not None, "transport must be initialized before finishing"
+        self._store_eval_finish(finish_request.finish_record)
+        self._release_local_storage()
+        self._transport.request_finish()
+        return DeliverEvalFinishResponse(success=True, message="OK")
+
+    def _confirm_eval_finish_when_enabled(self) -> ConfirmEvalFinishResponse:
+        if self._active:
+            return ConfirmEvalFinishResponse(success=False, message="Eval is still active, cannot confirm finish.")
+
+        # 1. 等待 transport 排空
+        if self._transport is not None and self._transport.finish(timeout=None):
+            self._transport = None
+        # 2. 停止上传跟踪器
+        if self._tracker is not None:
+            self._tracker.set_state(CoreState.CORE_STATE_FINISHED)
+        if self._transport is not None:
+            return ConfirmEvalFinishResponse(success=False, message=self._transport.finish_summary())
+        return ConfirmEvalFinishResponse(success=True, message="OK")
 
     # ---------------------------------- 进度查询 ----------------------------------
 

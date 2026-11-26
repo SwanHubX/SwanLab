@@ -23,13 +23,17 @@ protos/
     │   └── v1/
     │       └── run.proto               # Run 生命周期（StartRecord、FinishRecord、RunState、ResumeMode）
     │
+    ├── eval/
+    │   └── v1/
+    │       └── eval.proto              # Eval 生命周期（EvalStartRecord）
+    │
     ├── metric/
     │   ├── column/
     │   │   └── v1/
     │   │       └── column.proto        # 列定义（ColumnRecord），描述 metric 的展示与归类配置
     │   └── data/
     │       └── v1/
-    │           └── data.proto          # 指标数据（ScalarRecord、MediaRecord、HistogramRecord）
+    │           └── data.proto          # 指标数据（ScalarRecord、MediaRecord、HistogramRecord、ScoreRecord）
     │
     ├── terminal/
     │   └── v1/
@@ -90,24 +94,41 @@ swanlab.finish()
   → Record { finish: FinishRecord { state=FINISHED } }
 ```
 
+评估运行的消息流：
+
+```
+swanlab.eval(...)
+  → Record { eval_start: EvalStartRecord }            # Eval 基本信息，写入一次
+  → Record { save: SaveRecord { type=CONFIG } }       # 评估 config 与评测项配置
+
+# benchmark.log({"accuracy": 0.72})，评测项名称承载在 dataset 维度
+  → Record { score: ScoreRecord { dataset="MMLU", key="accuracy", ... } }
+
+swanlab.finish()
+  → Record { eval_finish: EvalFinishRecord { state=FINISHED } }
+```
+
 ## Record 信封
 
 `Record` 是所有消息的顶层信封，通过 `oneof record_type` 互斥区分消息类型：
 
-| 字段号 | 字段名      | 消息类型        | 说明       |
-| ------ | ----------- | --------------- | ---------- |
-| 10     | `start`     | StartRecord     | Run 创建   |
-| 11     | `finish`    | FinishRecord    | Run 结束   |
-| 12     | `column`    | ColumnRecord    | 指标列定义 |
-| 13     | `scalar`    | ScalarRecord    | 标量数据   |
-| 14     | `media`     | MediaRecord     | 媒体数据   |
-| 16     | `log`       | LogRecord       | 终端输出   |
-| 20     | `save`      | SaveRecord      | 文件保存   |
-| 21     | `histogram` | HistogramRecord | 直方图数据 |
+| 字段号 | 字段名       | 消息类型        | 说明           |
+| ------ | ------------ | --------------- | -------------- |
+| 10     | `start`      | StartRecord     | Run 创建       |
+| 11     | `finish`     | FinishRecord    | Run 结束       |
+| 12     | `column`     | ColumnRecord    | 指标列定义     |
+| 13     | `scalar`     | ScalarRecord    | 标量数据       |
+| 14     | `media`      | MediaRecord     | 媒体数据       |
+| 16     | `log`        | LogRecord       | 终端输出       |
+| 20     | `save`       | SaveRecord      | 文件保存       |
+| 21     | `histogram`  | HistogramRecord | 直方图数据     |
+| 22     | `eval_start` | EvalStartRecord | Eval 创建      |
+| 23     | `score`      | ScoreRecord     | 评测项分数数据 |
+| 24     | `eval_finish` | EvalFinishRecord | Eval 结束     |
 
 对于 SaveRecord，内部存在 SaveType 的二级分类，包含 config/metadata/requirements/conda
 
-`num` 字段保证全局单调递增，用于去重和断点续传。特殊值：Start=-1, Finish=-2, Config=-3, Metadata=-4, Requirements=-5, Conda=-6。
+`num` 字段保证全局单调递增，用于去重和断点续传。特殊值：Start=-1, Finish=-2, Config=-3, Metadata=-4, Requirements=-5, Conda=-6, EvalStart=-7, EvalFinish=-8。
 
 ## gRPC 服务
 
@@ -125,8 +146,12 @@ swanlab.finish()
 | `UpsertLogs`        | UpsertLogsRequest       | Empty                     | 终端输出           |
 | `UpsertSaves`       | UpsertSavesRequest      | Empty                     | 文件保存           |
 | `DeliverRunFinish`  | DeliverRunFinishRequest | DeliverRunFinishResponse  | 实验结束           |
+| `DeliverEvalStart`  | DeliverEvalStartRequest | DeliverEvalStartResponse  | 评估开始           |
+| `UpsertScores`      | UpsertScoresRequest     | Empty                     | 评测项分数         |
+| `DeliverEvalFinish` | DeliverEvalFinishRequest | DeliverEvalFinishResponse | 评估结束           |
 | `GetOperationStats` | Empty                   | GetOperationStatsResponse | 运行状态与上传进度 |
 | `ConfirmRunFinish`  | Empty                   | ConfirmRunFinishResponse  | 确认结束，安全退出 |
+| `ConfirmEvalFinish` | Empty                   | ConfirmEvalFinishResponse | 确认评估结束       |
 
 ### CoreSyncService
 

@@ -11,8 +11,13 @@ from typing import List, Optional
 
 from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import (
     CORE_ERROR_KIND_OTHER,
+    ConfirmEvalFinishResponse,
     ConfirmRunFinishResponse,
     CoreErrorKind,
+    DeliverEvalFinishRequest,
+    DeliverEvalFinishResponse,
+    DeliverEvalStartRequest,
+    DeliverEvalStartResponse,
     DeliverRunFinishRequest,
     DeliverRunFinishResponse,
     DeliverRunStartRequest,
@@ -26,7 +31,7 @@ from swanlab.proto.swanlab.grpc.core.v1.sync_pb2 import (
     DeliverSyncStartResponse,
 )
 from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord
-from swanlab.proto.swanlab.metric.data.v1.data_pb2 import HistogramRecord, MediaRecord, ScalarRecord
+from swanlab.proto.swanlab.metric.data.v1.data_pb2 import HistogramRecord, MediaRecord, ScalarRecord, ScoreRecord
 from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord
 from swanlab.proto.swanlab.terminal.v1.log_pb2 import LogRecord
 from swanlab.sdk.internal.pkg import safe
@@ -96,6 +101,56 @@ class CoreProtocol(ABC):
 
     @abstractmethod
     def _start_when_online(self, start_request: DeliverRunStartRequest) -> DeliverRunStartResponse: ...
+
+    # ---------------------------------- 评估开始 ----------------------------------
+
+    def deliver_eval_start(self, start_request: DeliverEvalStartRequest) -> DeliverEvalStartResponse:
+        """
+        交付评估开始事件，同步事件，等待确认
+        约定应该在此处完成评估生命周期的初始化，在这里完成不同模式的初始化函数分发
+        """
+        errors: list[BaseException] = []
+        resp: Optional[DeliverEvalStartResponse] = None
+        with safe.block(message="eval start error", on_error=errors.append):
+            if self._mode == "online":
+                resp = self._start_eval_when_online(start_request)
+            elif self._mode == "local":
+                resp = self._start_eval_when_local(start_request)
+            elif self._mode == "offline":
+                resp = self._start_eval_when_offline(start_request)
+            else:
+                resp = self._start_eval_when_disabled(start_request)
+        if errors:
+            return self._start_eval_failure(errors[0])
+        assert resp is not None
+        return resp
+
+    @staticmethod
+    def _start_eval_failure(
+        exc: BaseException, kind: CoreErrorKind = CORE_ERROR_KIND_OTHER
+    ) -> DeliverEvalStartResponse:
+        return DeliverEvalStartResponse(
+            success=False,
+            message=f"Failed to start eval: {exc}",
+            error_kind=kind,
+        )
+
+    @staticmethod
+    def _start_eval_when_disabled(start_request: DeliverEvalStartRequest) -> DeliverEvalStartResponse:
+        return DeliverEvalStartResponse(
+            success=True,
+            message="I'm a teapot.",
+            eval=start_request.eval_start_record,
+        )
+
+    @abstractmethod
+    def _start_eval_when_local(self, start_request: DeliverEvalStartRequest) -> DeliverEvalStartResponse: ...
+
+    @abstractmethod
+    def _start_eval_when_offline(self, start_request: DeliverEvalStartRequest) -> DeliverEvalStartResponse: ...
+
+    @abstractmethod
+    def _start_eval_when_online(self, start_request: DeliverEvalStartRequest) -> DeliverEvalStartResponse: ...
 
     # ---------------------------------- 指标定义 ----------------------------------
 
@@ -241,6 +296,30 @@ class CoreProtocol(ABC):
     @abstractmethod
     def _upsert_saves_when_online(self, saves: List[SaveRecord]) -> None: ...
 
+    # ---------------------------------- 评测分数 ----------------------------------
+
+    def upsert_scores(self, scores: List[ScoreRecord]) -> None:
+        """上报一组 ScoreRecord，记录评测项分数"""
+        with safe.block(message="upsert scores error"):
+            if self._mode == "online":
+                return self._upsert_scores_when_online(scores)
+            elif self._mode == "local":
+                return self._upsert_scores_when_local(scores)
+            elif self._mode == "offline":
+                return self._upsert_scores_when_offline(scores)
+            return self._upsert_scores_when_disabled(scores)
+
+    def _upsert_scores_when_disabled(self, scores: List[ScoreRecord]) -> None: ...
+
+    @abstractmethod
+    def _upsert_scores_when_local(self, scores: List[ScoreRecord]) -> None: ...
+
+    @abstractmethod
+    def _upsert_scores_when_offline(self, scores: List[ScoreRecord]) -> None: ...
+
+    @abstractmethod
+    def _upsert_scores_when_online(self, scores: List[ScoreRecord]) -> None: ...
+
     # ---------------------------------- 通知运行结束 ----------------------------------
 
     def deliver_run_finish(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse:
@@ -270,6 +349,47 @@ class CoreProtocol(ABC):
 
     @abstractmethod
     def _finish_when_online(self, finish_request: DeliverRunFinishRequest) -> DeliverRunFinishResponse: ...
+
+    # ---------------------------------- 通知评估结束 ----------------------------------
+
+    def deliver_eval_finish(self, finish_request: DeliverEvalFinishRequest) -> DeliverEvalFinishResponse:
+        """
+        交付评估结束事件，同步事件，等待确认
+        评估没有状态字段，不产生结束记录，结束事件只用于停止接收分数并通知上传线程排空
+        """
+        with safe.block(message="eval finish error"):
+            if self._mode == "online":
+                return self._finish_eval_when_online(finish_request)
+            elif self._mode == "local":
+                return self._finish_eval_when_local(finish_request)
+            elif self._mode == "offline":
+                return self._finish_eval_when_offline(finish_request)
+            return self._finish_eval_when_disabled()
+        return DeliverEvalFinishResponse(success=False, message="Failed to finish eval")
+
+    @staticmethod
+    def _finish_eval_when_disabled() -> DeliverEvalFinishResponse:
+        return DeliverEvalFinishResponse(success=True, message="I'm a teapot.")
+
+    @abstractmethod
+    def _finish_eval_when_local(self, finish_request: DeliverEvalFinishRequest) -> DeliverEvalFinishResponse: ...
+
+    @abstractmethod
+    def _finish_eval_when_offline(self, finish_request: DeliverEvalFinishRequest) -> DeliverEvalFinishResponse: ...
+
+    @abstractmethod
+    def _finish_eval_when_online(self, finish_request: DeliverEvalFinishRequest) -> DeliverEvalFinishResponse: ...
+
+    def confirm_eval_finish(self) -> ConfirmEvalFinishResponse:
+        """确认评估结束：等待上传排空并释放本地资源。"""
+        if self._mode == "disabled":
+            return ConfirmEvalFinishResponse(success=True, message="I'm a teapot.")
+        with safe.block(message="confirm eval finish error"):
+            return self._confirm_eval_finish_when_enabled()
+        return ConfirmEvalFinishResponse(success=False, message="Failed to confirm eval finish with unknown error")
+
+    @abstractmethod
+    def _confirm_eval_finish_when_enabled(self) -> ConfirmEvalFinishResponse: ...
 
     # ---------------------------------- 进度查询 ----------------------------------
 

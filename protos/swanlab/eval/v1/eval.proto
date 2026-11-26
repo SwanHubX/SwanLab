@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package swanlab.eval.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/swanhubx/swanlab/core/proto/swanlab/eval/v1;evalv1";
+
+// Eval 创建记录，对应 swanlab.eval(...) 调用，由 sdk 前端生成并同步交给后端。
+// 配置不进开始记录，随 SAVE_TYPE_CONFIG 的 SaveRecord 写入运行文件并重放。
+message EvalStartRecord {
+    string project                       = 1; // 项目名
+    string workspace                     = 2; // 组织或用户名
+    string cuid                          = 3; // 客户端生成的 21 位标识
+    string name                          = 4; // Eval 名称
+    repeated string tags                 = 5; // 标签
+    string link                          = 6; // 外部链接
+    string experiment_cuid               = 7; // 关联实验的 cuid 或 slug，由服务端解析
+    optional int64 step                  = 8; // 被评 checkpoint 的训练步号，未设置与 0 区分
+    google.protobuf.Timestamp started_at = 9; // 开始时间
+}
+
+// 评估结束状态
+enum EvalRunState {
+    EVAL_RUN_STATE_RUNNING  = 0; // 运行中
+    EVAL_RUN_STATE_FINISHED = 1; // 正常结束
+    EVAL_RUN_STATE_CRASHED  = 2; // 异常退出
+    EVAL_RUN_STATE_ABORTED  = 3; // 用户主动中断
+}
+
+// 评估结束记录，对应 swanlab.finish() 或进程退出
+message EvalFinishRecord {
+    EvalRunState state                    = 1; // 结束状态
+    string error                          = 2; // 异常信息，state=CRASHED 时填充
+    google.protobuf.Timestamp finished_at = 3; // 结束时间
+}

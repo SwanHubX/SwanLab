@@ -28,8 +28,12 @@ const (
 	CoreService_UpsertLogs_FullMethodName        = "/swanlab.grpc.core.v1.CoreService/UpsertLogs"
 	CoreService_UpsertSaves_FullMethodName       = "/swanlab.grpc.core.v1.CoreService/UpsertSaves"
 	CoreService_DeliverRunFinish_FullMethodName  = "/swanlab.grpc.core.v1.CoreService/DeliverRunFinish"
+	CoreService_DeliverEvalStart_FullMethodName  = "/swanlab.grpc.core.v1.CoreService/DeliverEvalStart"
+	CoreService_UpsertScores_FullMethodName      = "/swanlab.grpc.core.v1.CoreService/UpsertScores"
+	CoreService_DeliverEvalFinish_FullMethodName = "/swanlab.grpc.core.v1.CoreService/DeliverEvalFinish"
 	CoreService_GetOperationStats_FullMethodName = "/swanlab.grpc.core.v1.CoreService/GetOperationStats"
 	CoreService_ConfirmRunFinish_FullMethodName  = "/swanlab.grpc.core.v1.CoreService/ConfirmRunFinish"
+	CoreService_ConfirmEvalFinish_FullMethodName = "/swanlab.grpc.core.v1.CoreService/ConfirmEvalFinish"
 )
 
 // CoreServiceClient is the client API for CoreService service.
@@ -54,10 +58,18 @@ type CoreServiceClient interface {
 	UpsertSaves(ctx context.Context, in *UpsertSavesRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// DeliverRunFinish 接收单条 FinishRecord，用于实验结束。
 	DeliverRunFinish(ctx context.Context, in *DeliverRunFinishRequest, opts ...grpc.CallOption) (*DeliverRunFinishResponse, error)
+	// DeliverEvalStart 接收单条 EvalStartRecord，用于评估开始，并返回必要的信息。
+	DeliverEvalStart(ctx context.Context, in *DeliverEvalStartRequest, opts ...grpc.CallOption) (*DeliverEvalStartResponse, error)
+	// UpsertScores 接收一组 ScoreRecord 并写入，每一条记录对应一个评测项下的单个指标
+	UpsertScores(ctx context.Context, in *UpsertScoresRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// DeliverEvalFinish 接收评估结束事件，用于结束评估。
+	DeliverEvalFinish(ctx context.Context, in *DeliverEvalFinishRequest, opts ...grpc.CallOption) (*DeliverEvalFinishResponse, error)
 	// GetOperationStats 返回 Core 当前运行状态和上传进度快照。
 	GetOperationStats(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetOperationStatsResponse, error)
 	// ConfirmRunFinish 确认 Core 运行结束，可以安全退出
 	ConfirmRunFinish(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ConfirmRunFinishResponse, error)
+	// ConfirmEvalFinish 确认评估结束，等待上传排空并释放本地资源
+	ConfirmEvalFinish(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ConfirmEvalFinishResponse, error)
 }
 
 type coreServiceClient struct {
@@ -148,6 +160,36 @@ func (c *coreServiceClient) DeliverRunFinish(ctx context.Context, in *DeliverRun
 	return out, nil
 }
 
+func (c *coreServiceClient) DeliverEvalStart(ctx context.Context, in *DeliverEvalStartRequest, opts ...grpc.CallOption) (*DeliverEvalStartResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeliverEvalStartResponse)
+	err := c.cc.Invoke(ctx, CoreService_DeliverEvalStart_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *coreServiceClient) UpsertScores(ctx context.Context, in *UpsertScoresRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, CoreService_UpsertScores_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *coreServiceClient) DeliverEvalFinish(ctx context.Context, in *DeliverEvalFinishRequest, opts ...grpc.CallOption) (*DeliverEvalFinishResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeliverEvalFinishResponse)
+	err := c.cc.Invoke(ctx, CoreService_DeliverEvalFinish_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *coreServiceClient) GetOperationStats(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetOperationStatsResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetOperationStatsResponse)
@@ -162,6 +204,16 @@ func (c *coreServiceClient) ConfirmRunFinish(ctx context.Context, in *emptypb.Em
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ConfirmRunFinishResponse)
 	err := c.cc.Invoke(ctx, CoreService_ConfirmRunFinish_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *coreServiceClient) ConfirmEvalFinish(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ConfirmEvalFinishResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ConfirmEvalFinishResponse)
+	err := c.cc.Invoke(ctx, CoreService_ConfirmEvalFinish_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -190,10 +242,18 @@ type CoreServiceServer interface {
 	UpsertSaves(context.Context, *UpsertSavesRequest) (*emptypb.Empty, error)
 	// DeliverRunFinish 接收单条 FinishRecord，用于实验结束。
 	DeliverRunFinish(context.Context, *DeliverRunFinishRequest) (*DeliverRunFinishResponse, error)
+	// DeliverEvalStart 接收单条 EvalStartRecord，用于评估开始，并返回必要的信息。
+	DeliverEvalStart(context.Context, *DeliverEvalStartRequest) (*DeliverEvalStartResponse, error)
+	// UpsertScores 接收一组 ScoreRecord 并写入，每一条记录对应一个评测项下的单个指标
+	UpsertScores(context.Context, *UpsertScoresRequest) (*emptypb.Empty, error)
+	// DeliverEvalFinish 接收评估结束事件，用于结束评估。
+	DeliverEvalFinish(context.Context, *DeliverEvalFinishRequest) (*DeliverEvalFinishResponse, error)
 	// GetOperationStats 返回 Core 当前运行状态和上传进度快照。
 	GetOperationStats(context.Context, *emptypb.Empty) (*GetOperationStatsResponse, error)
 	// ConfirmRunFinish 确认 Core 运行结束，可以安全退出
 	ConfirmRunFinish(context.Context, *emptypb.Empty) (*ConfirmRunFinishResponse, error)
+	// ConfirmEvalFinish 确认评估结束，等待上传排空并释放本地资源
+	ConfirmEvalFinish(context.Context, *emptypb.Empty) (*ConfirmEvalFinishResponse, error)
 	mustEmbedUnimplementedCoreServiceServer()
 }
 
@@ -228,11 +288,23 @@ func (UnimplementedCoreServiceServer) UpsertSaves(context.Context, *UpsertSavesR
 func (UnimplementedCoreServiceServer) DeliverRunFinish(context.Context, *DeliverRunFinishRequest) (*DeliverRunFinishResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeliverRunFinish not implemented")
 }
+func (UnimplementedCoreServiceServer) DeliverEvalStart(context.Context, *DeliverEvalStartRequest) (*DeliverEvalStartResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeliverEvalStart not implemented")
+}
+func (UnimplementedCoreServiceServer) UpsertScores(context.Context, *UpsertScoresRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpsertScores not implemented")
+}
+func (UnimplementedCoreServiceServer) DeliverEvalFinish(context.Context, *DeliverEvalFinishRequest) (*DeliverEvalFinishResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeliverEvalFinish not implemented")
+}
 func (UnimplementedCoreServiceServer) GetOperationStats(context.Context, *emptypb.Empty) (*GetOperationStatsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetOperationStats not implemented")
 }
 func (UnimplementedCoreServiceServer) ConfirmRunFinish(context.Context, *emptypb.Empty) (*ConfirmRunFinishResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ConfirmRunFinish not implemented")
+}
+func (UnimplementedCoreServiceServer) ConfirmEvalFinish(context.Context, *emptypb.Empty) (*ConfirmEvalFinishResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ConfirmEvalFinish not implemented")
 }
 func (UnimplementedCoreServiceServer) mustEmbedUnimplementedCoreServiceServer() {}
 func (UnimplementedCoreServiceServer) testEmbeddedByValue()                     {}
@@ -399,6 +471,60 @@ func _CoreService_DeliverRunFinish_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _CoreService_DeliverEvalStart_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeliverEvalStartRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CoreServiceServer).DeliverEvalStart(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CoreService_DeliverEvalStart_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CoreServiceServer).DeliverEvalStart(ctx, req.(*DeliverEvalStartRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CoreService_UpsertScores_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpsertScoresRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CoreServiceServer).UpsertScores(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CoreService_UpsertScores_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CoreServiceServer).UpsertScores(ctx, req.(*UpsertScoresRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CoreService_DeliverEvalFinish_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeliverEvalFinishRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CoreServiceServer).DeliverEvalFinish(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CoreService_DeliverEvalFinish_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CoreServiceServer).DeliverEvalFinish(ctx, req.(*DeliverEvalFinishRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _CoreService_GetOperationStats_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
@@ -431,6 +557,24 @@ func _CoreService_ConfirmRunFinish_Handler(srv interface{}, ctx context.Context,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(CoreServiceServer).ConfirmRunFinish(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CoreService_ConfirmEvalFinish_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CoreServiceServer).ConfirmEvalFinish(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CoreService_ConfirmEvalFinish_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CoreServiceServer).ConfirmEvalFinish(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -475,12 +619,28 @@ var CoreService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _CoreService_DeliverRunFinish_Handler,
 		},
 		{
+			MethodName: "DeliverEvalStart",
+			Handler:    _CoreService_DeliverEvalStart_Handler,
+		},
+		{
+			MethodName: "UpsertScores",
+			Handler:    _CoreService_UpsertScores_Handler,
+		},
+		{
+			MethodName: "DeliverEvalFinish",
+			Handler:    _CoreService_DeliverEvalFinish_Handler,
+		},
+		{
 			MethodName: "GetOperationStats",
 			Handler:    _CoreService_GetOperationStats_Handler,
 		},
 		{
 			MethodName: "ConfirmRunFinish",
 			Handler:    _CoreService_ConfirmRunFinish_Handler,
+		},
+		{
+			MethodName: "ConfirmEvalFinish",
+			Handler:    _CoreService_ConfirmEvalFinish_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

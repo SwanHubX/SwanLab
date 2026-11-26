@@ -65,6 +65,15 @@ class ConfigEvent:
 
 
 @dataclass
+class ScoreLogEvent:
+    """评测分数事件"""
+
+    dataset: str
+    data: Dict[str, Any]
+    timestamp: Timestamp
+
+
+@dataclass
 class LogEvent:
     """控制台输出事件"""
 
@@ -87,6 +96,7 @@ EventPayload = Union[
     MetricLogEvent,
     MetricDefineEvent,
     ConfigEvent,
+    ScoreLogEvent,
     LogEvent,
     FileSaveEvent,
 ]

@@ -41,6 +41,8 @@ class CoreContext:
         self._project_id: Optional[str] = None
         self._project_version: Optional[Literal[1]] = None
         self._experiment_id: Optional[str] = None
+        self._eval_id: Optional[str] = None
+        self._eval_name: Optional[str] = None
 
     @classmethod
     def from_proto(cls, proto: CoreSettings, mode: Literal["core", "sync"] = "core") -> "CoreContext":
@@ -64,20 +66,27 @@ class CoreContext:
         project: str,
         project_id: str,
         project_version: Optional[Literal[1]],
-        experiment_id: str,
+        experiment_id: Optional[str] = None,
+        *,
+        eval_id: Optional[str] = None,
+        eval_name: Optional[str] = None,
     ):
         """
         设置云端信息
         :param username: 用户名
         :param project: 项目名
         :param project_id: 项目id
-        :param experiment_id: 实验id
+        :param experiment_id: 实验id，eval 生命周期不设置
+        :param eval_id: 评估id，仅 eval 生命周期设置
+        :param eval_name: 评估名称，配置上传时随 upsert 请求体发送
         """
         self._username = username
         self._project = project
         self._project_id = project_id
         self._project_version = project_version
         self._experiment_id = experiment_id
+        self._eval_id = eval_id
+        self._eval_name = eval_name
 
     @cached_property
     def username(self) -> str:
@@ -114,6 +123,30 @@ class CoreContext:
             "or an internal initialization bug occurred."
         )
         return self._experiment_id
+
+    # 是 run -> 实验 profile OR 是 eval -> eval upsert
+    @property
+    def is_eval(self) -> bool:
+        """当前上下文是否属于评估生命周期。"""
+        return self._eval_id is not None
+
+    @cached_property
+    def eval_id(self) -> str:
+        assert self._eval_id is not None, (
+            "ctx.eval_id is not initialized. "
+            "This usually means the current eval is not in online mode, "
+            "or an internal initialization bug occurred."
+        )
+        return self._eval_id
+
+    @cached_property
+    def eval_name(self) -> str:
+        assert self._eval_name is not None, (
+            "ctx.eval_name is not initialized. "
+            "This usually means the current eval is not in online mode, "
+            "or an internal initialization bug occurred."
+        )
+        return self._eval_name
 
     @cached_property
     def media_dir(self) -> Path:
