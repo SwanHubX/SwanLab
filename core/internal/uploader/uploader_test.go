@@ -8,12 +8,18 @@ import (
 	"testing"
 	"time"
 
+	"go.uber.org/goleak"
+
 	"github.com/swanhubx/swanlab/core/internal/budget"
 	"github.com/swanhubx/swanlab/core/internal/buffer"
 	"github.com/swanhubx/swanlab/core/internal/pkg/record"
 	operationv1 "github.com/swanhubx/swanlab/core/proto/swanlab/operation/v1"
 	recordv1 "github.com/swanhubx/swanlab/core/proto/swanlab/record/v1"
 )
+
+func TestMain(m *testing.M) {
+	goleak.VerifyTestMain(m)
+}
 
 // recordingSender 返回一个把每次调用批次写入通道的 sender。
 func recordingSender(size int) (chan []*recordv1.Record, Sender) {

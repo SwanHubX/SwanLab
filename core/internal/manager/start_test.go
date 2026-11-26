@@ -62,6 +62,7 @@ func closeStartedSession(t *testing.T, mgr *Manager, sessionID string) {
 	if err != nil {
 		return
 	}
+	s.stopOnlineDrain()
 	if s.cancel != nil {
 		s.cancel()
 	}
@@ -72,6 +73,9 @@ func closeStartedSession(t *testing.T, mgr *Manager, sessionID string) {
 	if s.watcher != nil {
 		s.watcher.Stop()
 	}
+	s.recovery.Stop()
+	s.backfill.Stop()
+	s.checkpoint.Stop()
 	if up := s.uploader(); up != nil {
 		_ = up.Close()
 	}
